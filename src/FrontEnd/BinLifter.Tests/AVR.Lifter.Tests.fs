@@ -39,9 +39,10 @@ let inline ( !. ) (ctxt: TranslationContext) name =
   Register.toRegID name |> ctxt.GetRegVar
 
 let private test bytes len (actStmts : Stmt [])  =
-  let reader = BinReader.Init (bytes, Endian.Little)
-  let ins = Parser.parse reader 0UL 0
-  let expStmts = Lifter.translate ins.Info len ctxt
+  let reader = BinReader.binReaderLE
+  let span = System.ReadOnlySpan bytes
+  let ins = Parser.parse span reader 0UL
+  let expStmts = (Lifter.translate ins.Info len ctxt).ToStmts ()
   Assert.AreEqual (Array.toList expStmts, Array.toList actStmts)
 
 [<TestClass>]

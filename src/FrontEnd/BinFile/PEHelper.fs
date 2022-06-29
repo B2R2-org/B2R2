@@ -39,10 +39,16 @@ let getFileType pe =
   else FileType.ObjFile
 
 let getWordSize pe =
-  match pe.PEHeaders.PEHeader.Magic with
-  | PEMagic.PE32 -> WordSize.Bit32
-  | PEMagic.PE32Plus -> WordSize.Bit64
-  | _ -> raise InvalidWordSizeException
+  if isNull pe.PEHeaders.PEHeader then
+    match pe.PEHeaders.CoffHeader.Machine with
+    | Machine.I386 | Machine.Arm -> WordSize.Bit32
+    | Machine.Amd64 | Machine.IA64 | Machine.Arm64 -> WordSize.Bit64
+    | _ -> raise InvalidWordSizeException
+  else
+    match pe.PEHeaders.PEHeader.Magic with
+    | PEMagic.PE32 -> WordSize.Bit32
+    | PEMagic.PE32Plus -> WordSize.Bit64
+    | _ -> raise InvalidWordSizeException
 
 let isNXEnabled pe =
   let hdrs = pe.PEHeaders
@@ -75,7 +81,7 @@ let secFlagToSectionKind (flags: SectionCharacteristics) =
 /// Some PE files have a section header indicating that the corresponding
 /// section's size is zero even if it contains actual data, i.e.,
 /// sHdr.VirtualSize = 0, but sHdr.SizeOfRawData <> 0. Thus, we should use this
-/// function to get the size of sections (segments).
+/// function to get the size of sections.
 let getVirtualSectionSize (sec: SectionHeader) =
   let virtualSize = sec.VirtualSize
   if virtualSize = 0 then sec.SizeOfRawData else virtualSize
@@ -84,7 +90,7 @@ let secHdrToSection pe (sec: SectionHeader) =
   { Address = addrFromRVA pe.BaseAddr sec.VirtualAddress
     FileOffset = uint64 sec.PointerToRawData
     Kind = secFlagToSectionKind sec.SectionCharacteristics
-    Size = getVirtualSectionSize sec |> uint64
+    Size = uint64 sec.SizeOfRawData
     Name = sec.Name }
 
 let getSectionsByName pe name =
@@ -102,12 +108,12 @@ let inline translateAddr pe addr =
   match pe.FindSectionIdxFromRVA rva with
   | -1 -> raise InvalidAddrReadException
   | idx ->
-    let sHdr = pe.SectionHeaders.[idx]
+    let sHdr = pe.SectionHeaders[idx]
     rva + sHdr.PointerToRawData - sHdr.VirtualAddress
 
 let pdbTypeToSymbKind = function
-  | SymFlags.Function -> SymbolKind.FunctionType
-  | _ -> SymbolKind.NoType
+  | SymFlags.Function -> SymFunctionType
+  | _ -> NoType
 
 let pdbSymbolToSymbol (sym: PESymbol) =
   { Address = sym.Address
@@ -123,9 +129,9 @@ let inline getStaticSymbols pe =
   |> Array.toSeq
 
 let getSymbolKindBySectionIndex pe idx =
-  let ch = pe.SectionHeaders.[idx].SectionCharacteristics
-  if ch.HasFlag SectionCharacteristics.MemExecute then SymbolKind.FunctionType
-  else SymbolKind.ObjectType
+  let ch = pe.SectionHeaders[idx].SectionCharacteristics
+  if ch.HasFlag SectionCharacteristics.MemExecute then SymFunctionType
+  else SymObjectType
 
 let getImportSymbols pe =
   let conv acc rva imp =
@@ -133,14 +139,14 @@ let getImportSymbols pe =
     | ImportByOrdinal (ord, dllname) ->
       { Address = addrFromRVA pe.BaseAddr rva
         Name = "#" + ord.ToString()
-        Kind = SymbolKind.ExternFunctionType
+        Kind = SymExternFunctionType
         Target = TargetKind.DynamicSymbol
         LibraryName = dllname
         ArchOperationMode = ArchOperationMode.NoMode } :: acc
     | ImportByName (_, funname, dllname) ->
       { Address = addrFromRVA pe.BaseAddr rva
         Name = funname
-        Kind = SymbolKind.ExternFunctionType
+        Kind = SymExternFunctionType
         Target = TargetKind.DynamicSymbol
         LibraryName = dllname
         ArchOperationMode = ArchOperationMode.NoMode } :: acc
@@ -159,7 +165,7 @@ let getExportSymbols pe =
   let makeForwardedExportSymbol name (fwdBin, fwdFunc) =
     { Address = 0UL
       Name = name
-      Kind = SymbolKind.ForwardType (fwdBin, fwdFunc)
+      Kind = SymForwardType (fwdBin, fwdFunc)
       Target = TargetKind.DynamicSymbol
       LibraryName = ""
       ArchOperationMode = ArchOperationMode.NoMode }
@@ -213,7 +219,7 @@ let getSectionsByAddr pe addr =
   match pe.FindSectionIdxFromRVA rva with
   | -1 -> Seq.empty
   | idx ->
-    pe.SectionHeaders.[idx] |> secHdrToSection pe |> Seq.singleton
+    pe.SectionHeaders[idx] |> secHdrToSection pe |> Seq.singleton
 
 let getTextSections pe =
   getSectionsByName pe secText
@@ -248,7 +254,9 @@ let getSecPermission (chr: SectionCharacteristics) =
 let getSegments pe =
   let secToSegment (sec: SectionHeader) =
     { Address = uint64 sec.VirtualAddress + pe.BaseAddr
+      Offset = uint64 sec.PointerToRawData
       Size = getVirtualSectionSize sec |> uint64
+      SizeInFile = uint64 sec.SizeOfRawData
       Permission = getSecPermission sec.SectionCharacteristics }
   pe.SectionHeaders
   |> Seq.map secToSegment

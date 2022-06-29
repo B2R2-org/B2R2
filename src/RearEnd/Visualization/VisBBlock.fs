@@ -36,9 +36,9 @@ type VisBBlock (blk: BasicBlock, isDummy) =
 
   let pos = { X = 0.0; Y = 0.0 }
 
-  let [<Literal>] tSpanOffset = 4.0
+  let [<Literal>] TSpanOffset = 4.0
 
-  let [<Literal>] padding = 4.0
+  let [<Literal>] Padding = 4.0
 
   let visBlock =
     let block = blk.ToVisualBlock ()
@@ -52,14 +52,14 @@ type VisBBlock (blk: BasicBlock, isDummy) =
   /// reasons, we cannot precisely determine the width of each text even though
   /// we are using a fixed-width font. *)
   let mutable width =
-    if isDummy then 0.0 else maxLineWidth * 7.5 + padding * 2.0
+    if isDummy then 0.0 else maxLineWidth * 7.5 + Padding * 2.0
 
   let numLines = visBlock |> Array.length
 
   /// This number (14), as in the width case, is empirically obtained with the
   /// current font.
   let height =
-    if isDummy then 0.0 else float numLines * 14.0 + tSpanOffset + padding * 2.0
+    if isDummy then 0.0 else float numLines * 14.0 + TSpanOffset + Padding * 2.0
 
   override __.Range with get () = blk.Range
 

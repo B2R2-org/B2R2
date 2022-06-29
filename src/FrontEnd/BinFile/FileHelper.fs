@@ -24,47 +24,41 @@
 
 module internal B2R2.FrontEnd.BinFile.FileHelper
 
+open System
 open B2R2
 
-let peekUIntOfType (reader: BinReader) bitType o =
-  if bitType = WordSize.Bit32 then reader.PeekUInt32 (o) |> uint64
-  else reader.PeekUInt64 (o)
+let peekUIntOfType (span: ByteSpan) (reader: IBinReader) bitType o =
+  if bitType = WordSize.Bit32 then reader.ReadUInt32 (span, o) |> uint64
+  else reader.ReadUInt64 (span, o)
 
-let readUIntOfType reader bitType o =
+let readUIntOfType span reader bitType o =
   let inline sizeByCls bitType = if bitType = WordSize.Bit32 then 4 else 8
-  struct (peekUIntOfType reader bitType o, o + sizeByCls bitType)
+  struct (peekUIntOfType span reader bitType o, o + sizeByCls bitType)
 
-let peekHeaderB (reader: BinReader) cls offset d32 d64 =
-  offset + (if cls = WordSize.Bit32 then d32 else d64)
-  |> reader.PeekByte
+let peekHeaderB (span: ByteSpan) (reader: IBinReader) cls offset d32 d64 =
+  reader.ReadByte (span, offset + (if cls = WordSize.Bit32 then d32 else d64))
 
-let peekHeaderU16 (reader: BinReader) cls offset d32 d64 =
-  offset + (if cls = WordSize.Bit32 then d32 else d64)
-  |> reader.PeekUInt16
+let peekHeaderU16 (span: ByteSpan) (reader: IBinReader) cls offset d32 d64 =
+  reader.ReadUInt16 (span, offset + (if cls = WordSize.Bit32 then d32 else d64))
 
-let peekHeaderI32 (reader: BinReader) cls offset d32 d64 =
-  offset + (if cls = WordSize.Bit32 then d32 else d64)
-  |> reader.PeekInt32
+let peekHeaderI32 (span: ByteSpan) (reader: IBinReader) cls offset d32 d64 =
+  reader.ReadInt32 (span, offset + (if cls = WordSize.Bit32 then d32 else d64))
 
-let peekHeaderU32 (reader: BinReader) cls offset d32 d64 =
-  offset + (if cls = WordSize.Bit32 then d32 else d64)
-  |> reader.PeekUInt32
+let peekHeaderU32 (span: ByteSpan) (reader: IBinReader) cls offset d32 d64 =
+  reader.ReadUInt32 (span, offset + (if cls = WordSize.Bit32 then d32 else d64))
 
-let peekHeaderNative reader cls offset d32 d64 =
-  offset + (if cls = WordSize.Bit32 then d32 else d64)
-  |> peekUIntOfType reader cls
+let peekHeaderNative span reader cls offset d32 d64 =
+  let offset = offset + (if cls = WordSize.Bit32 then d32 else d64)
+  peekUIntOfType span reader cls offset
 
-let peekCString (reader: BinReader) offset =
-  let rec loop acc pos =
-    let byte = reader.PeekByte pos
-    if byte = 0uy then List.rev (0uy :: acc) |> List.toArray
-    else loop (byte :: acc) (pos + 1)
-  let bs = loop [] offset
+let rec private cstrLoop (span: ByteSpan) acc pos =
+  let byte = span[pos]
+  if byte = 0uy then List.rev (0uy :: acc) |> List.toArray
+  else cstrLoop span (byte :: acc) (pos + 1)
+
+let peekCString (span: ByteSpan) offset =
+  let bs = cstrLoop span [] offset
   ByteArray.extractCString bs 0
-
-let peekCStringOfSize (reader: BinReader) offset (size: int) =
-  let span = reader.PeekSpan (size, offset)
-  ByteArray.extractCStringFromSpan span 0
 
 let addInvRange set saddr eaddr =
   if saddr = eaddr then set

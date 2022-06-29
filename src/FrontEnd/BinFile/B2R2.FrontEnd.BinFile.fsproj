@@ -1,6 +1,5 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>net5.0</TargetFramework>
     <PackageLicenseFile>LICENSE.md</PackageLicenseFile>
     <PackageIcon>b2r2-240x240.png</PackageIcon>
     <PackageReadmeFile>README.md</PackageReadmeFile>
@@ -22,14 +21,14 @@
     <Compile Include="Wasm.fs" />
     <Compile Include="ELFDwarfTypes.fs" />
     <Compile Include="ELFTypes.fs" />
-    <Compile Include="ELFExceptionFrames.fs" />
-    <Compile Include="ELFGccExceptTable.fs" />
     <Compile Include="ELFHeader.fs" />
     <Compile Include="ELFSection.fs" />
     <Compile Include="ELFProgHeader.fs" />
     <Compile Include="ELFSymbol.fs" />
     <Compile Include="ELFRelocs.fs" />
     <Compile Include="ELFPLT.fs" />
+    <Compile Include="ELFExceptionFrames.fs" />
+    <Compile Include="ELFGccExceptTable.fs" />
     <Compile Include="ELFHelper.fs" />
     <Compile Include="ELFParser.fs" />
     <Compile Include="ELF.fs" />
@@ -51,7 +50,8 @@
     <Compile Include="PEParser.fs" />
     <Compile Include="PE.fs" />
     <Compile Include="FormatDetector.fs" />
-    <None Include="..\..\..\LICENSE.md" Pack="true" PackagePath=""/>
+    <Compile Include="FileLoader.fs" />
+    <None Include="..\..\..\LICENSE.md" Pack="true" PackagePath="" />
     <None Include="..\..\..\assets\b2r2-240x240.png" Pack="true" PackagePath="" />
     <None Include="README.md" Pack="true" PackagePath="" />
   </ItemGroup>
@@ -66,6 +66,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="System.Reflection.Metadata" Version="5.0.0" />
+    <PackageReference Include="System.Reflection.Metadata" Version="6.0.0" />
   </ItemGroup>
 </Project>

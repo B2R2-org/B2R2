@@ -59,12 +59,12 @@ let machTypeToSymbKind sym secText =
     || (sym.SymType.HasFlag SymbolType.NSect
       && sym.SecNum = (secText + 1)
       && sym.SymDesc = 0s) then
-    SymbolKind.FunctionType
+    SymFunctionType
   elif sym.SymType = SymbolType.NSO
     || sym.SymType = SymbolType.NOSO then
-    SymbolKind.FileType
+    SymFileType
   else
-    SymbolKind.NoType
+    NoType
 
 let machSymbolToSymbol secText target sym =
   { Address = sym.SymAddr
@@ -81,7 +81,7 @@ let getStaticSymbols mach =
 
 let isStripped mach =
   getStaticSymbols mach
-  |> Array.exists (fun s -> s.Kind = FunctionType)
+  |> Array.exists (fun s -> s.Kind = SymFunctionType)
   |> not
 
 let isNXEnabled mach =
@@ -143,7 +143,7 @@ let getSectionsByName mach name =
   | None -> Seq.empty
 
 let getTextSections mach =
-  mach.Sections.SecByNum.[mach.SecText]
+  mach.Sections.SecByNum[mach.SecText]
   |> machSectionToSection mach.SegmentMap
   |> Seq.singleton
 

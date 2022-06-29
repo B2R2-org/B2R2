@@ -46,7 +46,7 @@ module VisGraph =
       | false, _ ->
         let blk = VisBBlock (oldV.VData :> BasicBlock, false)
         let v, _ = newGraph.AddVertex blk
-        visited.[oldV.GetID ()] <- v
+        visited[oldV.GetID ()] <- v
         v
       | true, v -> v
     (* In case there is no edge in the graph. *)

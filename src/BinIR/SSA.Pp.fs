@@ -109,6 +109,15 @@ let private labelToString (addr: Addr, symb) (sb: StringBuilder) =
   sb.Append (" @ ") |> ignore
   sb.Append (String.u64ToHexNoPrefix addr) |> ignore
 
+let private variablesToString (kind: string) vars (sb: StringBuilder) =
+  sb.Append (" ") |> ignore
+  sb.Append (kind) |> ignore
+  sb.Append ("(") |> ignore
+  vars |> List.iter (fun v ->
+    sb.Append (Variable.toString v) |> ignore
+    sb.Append (";") |> ignore)
+  sb.Append (")") |> ignore
+
 let private stmtToStringAux stmt (sb: StringBuilder) =
   match stmt with
   | LMark lbl ->
@@ -146,8 +155,10 @@ let private stmtToStringAux stmt (sb: StringBuilder) =
       sb.Append (i.ToString ()) |> ignore
       sb.Append (";") |> ignore)
     sb.Append (")") |> ignore
-  | SideEffect eff ->
-    sb.Append ("SideEffect " + SideEffect.toString eff) |> ignore
+  | SideEffect (eff, inVars, outVars) ->
+    sb.Append ("SideEffect " + eff.ToString ()) |> ignore
+    variablesToString "OutVars" outVars sb
+    variablesToString "InVars" inVars sb
 
 let expToString expr =
   let sb = new StringBuilder ()

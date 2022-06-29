@@ -238,10 +238,17 @@ type Elem = {
 
 type ElementSection = Section<Vector<Elem>>
 
+type LocalDecl = {
+  LocalDeclCount: uint32
+  LocalDeclType: byte
+  LocalDeclLen: int
+}
+
 type Code = {
   Offset: int
   LenFieldSize: int
   CodeSize: uint32
+  Locals: LocalDecl list
 }
 
 type CodeSection = Section<Vector<Code>>
@@ -275,6 +282,4 @@ type WasmModule = {
   SectionsInfo: SectionsInfo
   /// An element location translation map (Index to/from Offset).
   IndexMap: IndexInfo []
-  /// Binary Reader
-  BinReader: BinReader
 }

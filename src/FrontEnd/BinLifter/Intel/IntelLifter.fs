@@ -24,15 +24,13 @@
 
 module internal B2R2.FrontEnd.BinLifter.Intel.Lifter
 
-open System.Collections.Concurrent
 open B2R2
 open B2R2.BinIR
-open B2R2.FrontEnd.BinLifter
 
 type OP = Opcode (* Just to make it concise. *)
 
 /// Translate IR.
-let inline translate (ins: IntelInternalInstruction) insLen ctxt =
+let translate (ins: IntelInternalInstruction) insLen ctxt =
   match ins.Opcode with
   | OP.AAA -> GeneralLifter.aaa insLen ctxt
   | OP.AAD -> GeneralLifter.aad ins insLen ctxt
@@ -510,34 +508,11 @@ let inline translate (ins: IntelInternalInstruction) insLen ctxt =
   | OP.VPXOR -> AVXLifter.vpxor ins insLen ctxt
   | OP.VPXORD -> AVXLifter.vpxord ins insLen ctxt
   | OP.VZEROUPPER -> AVXLifter.vzeroupper ins insLen ctxt
-  | OP.VINSERTI64X4
-  | OP.VPMOVWB | OP.VMOVDQU32 | OP.VPMOVZXWD
-  | OP.VPSRLW | OP.VFMADD213SS ->
-    GeneralLifter.nop insLen (* FIXME: #196 *)
+  | OP.VEXTRACTI32X8 -> AVXLifter.vextracti32x8 ins insLen ctxt
   | OP.VERW -> LiftingUtils.sideEffects insLen UnsupportedPrivInstr
   | OP.VFMADD132SD -> AVXLifter.vfmadd132sd ins insLen ctxt
   | OP.VFMADD213SD -> AVXLifter.vfmadd213sd ins insLen ctxt
   | OP.VFMADD231SD -> AVXLifter.vfmadd231sd ins insLen ctxt
-  | OP.VBROADCASTSD | OP.VCVTDQ2PD | OP.VCVTPD2PS
-  | OP.VCVTPS2PD | OP.VEXTRACTF64X2 | OP.VEXTRACTF64X4
-  | OP.VFMADD132PD | OP.VFMADD213PS | OP.VFMADD231PD
-  | OP.VFMSUB132SS | OP.VFMSUB231SD | OP.VFNMADD132PD
-  | OP.VFNMADD231PD | OP.VFNMADD132SD | OP.VFNMADD213SD
-  | OP.VFNMADD231SD | OP.VINSERTF128 | OP.VINSERTF64X4
-  | OP.VMAXPS | OP.VMAXSD | OP.VMAXSS | OP.VMINSS
-  | OP.VPERMI2D | OP.VPERMI2PD | OP.VPERMI2W | OP.VPMOVWB
-  | OP.VPTERNLOGD | OP.VCMPPD | OP.VCMPPS | OP.VGATHERDPS
-  | OP.VPGATHERDD | OP.VMOVDQU8 ->
-    GeneralLifter.nop insLen (* FIXME: #196 !211 *)
-  | OP.VRSQRTSS | OP.VFMSUB213SD | OP.VRSQRT28SD | OP.VRCP28SD | OP.VPEXTRD
-  | OP.VFMADD213PD | OP.VPBROADCASTQ | OP.VPSUBW | OP.VFMSUB213PD | OP.VPSUBD
-  | OP.VRCPSS | OP.VGETMANTSD | OP.VGETEXPSD | OP.VRCP14SD | OP.VRNDSCALESD
-  | OP.VEXTRACTF128 -> GeneralLifter.nop insLen (* FIXME: #277 *)
-  | OP.VPCMPGTD | OP.MULX | OP.VREDUCESD | OP.VROUNDPD | OP.VMINPD | OP.VRSQRTPS
-  | OP.VBLENDVPD | OP.VFNMADD213PD | OP.VFMSUB231PD | OP.BLENDVPD | OP.ROUNDPD
-  | OP.VRCPPS | OP.VGATHERQPD | OP.VPSRAD | OP.VCVTDQ2PS | OP.VCVTTPD2DQ
-  | OP.VPMULLD | OP.PMULLD | OP.VROUNDPS | OP.ROUNDPS ->
-    GeneralLifter.nop insLen (* FIXME: #279 *)
   | OP.FLD -> X87Lifter.fld ins insLen ctxt
   | OP.FST -> X87Lifter.ffst ins insLen ctxt false
   | OP.FSTP -> X87Lifter.ffst ins insLen ctxt true
@@ -620,11 +595,10 @@ let inline translate (ins: IntelInternalInstruction) insLen ctxt =
   | OP.FSTCW -> X87Lifter.fstcw ins insLen ctxt
   | OP.FNSTCW -> X87Lifter.fnstcw ins insLen ctxt
   | OP.FLDCW -> X87Lifter.fldcw ins insLen ctxt
-  | OP.FSTENV -> X87Lifter.fstenv ins insLen ctxt
+  | OP.FNSTENV -> X87Lifter.fnstenv ins insLen ctxt
   | OP.FLDENV -> X87Lifter.fldenv ins insLen ctxt
-  | OP.FSAVE -> X87Lifter.fsave ins insLen ctxt
+  | OP.FNSAVE -> X87Lifter.fnsave ins insLen ctxt
   | OP.FRSTOR -> X87Lifter.frstor ins insLen ctxt
-  | OP.FSTSW -> X87Lifter.fstsw ins insLen ctxt
   | OP.FNSTSW -> X87Lifter.fnstsw ins insLen ctxt
   | OP.WAIT -> X87Lifter.wait ins insLen ctxt
   | OP.FNOP -> X87Lifter.fnop ins insLen ctxt
@@ -635,6 +609,7 @@ let inline translate (ins: IntelInternalInstruction) insLen ctxt =
          eprintfn "%A" o
          eprintfn "%A" ins
 #endif
-         raise <| NotImplementedIRException (Disasm.opCodeToString o)
+         LiftingUtils.sideEffects insLen UnsupportedExtension
+         // raise <| NotImplementedIRException (Disasm.opCodeToString o)
 
 // vim: set tw=80 sts=2 sw=2:

@@ -112,4 +112,4 @@ let handleCommands (cmd: string) (rest: string []) =
 [<EntryPoint>]
 let main argv =
   if argv.Length = 0 then showUsage (); 1
-  else handleCommands argv.[0] argv.[1..]
+  else handleCommands argv[0] argv[1..]

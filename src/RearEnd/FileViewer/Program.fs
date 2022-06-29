@@ -137,7 +137,7 @@ let dumpArchiveHeader (opts: FileViewerOpts) (fi: FileInfo) =
   dumpSpecific opts fi "Archive Header Information"
     ELFViewer.badAccess PEViewer.badAccess MachViewer.dumpArchiveHeader
 
-let dumpUniversalHeader (opts: FileViewerOpts) (fi: FileInfo) =
+let dumpUnivHeader (opts: FileViewerOpts) (fi: FileInfo) =
   dumpSpecific opts fi "Universal Header Information"
     ELFViewer.badAccess PEViewer.badAccess MachViewer.dumpUniversalHeader
 
@@ -201,7 +201,7 @@ let printSelectively hdl opts fi = function
   | DisplayPESpecific PEDisplayCLRHeader -> dumpCLRHeader opts fi
   | DisplayPESpecific PEDisplayDependencies -> dumpDependencies opts fi
   | DisplayMachSpecific MachDisplayArchiveHeader -> dumpArchiveHeader opts fi
-  | DisplayMachSpecific MachDisplayUniversalHeader -> dumpUniversalHeader opts fi
+  | DisplayMachSpecific MachDisplayUniversalHeader -> dumpUnivHeader opts fi
   | DisplayMachSpecific MachDisplayLoadCommands -> dumpLoadCommands opts fi
   | DisplayMachSpecific MachDisplaySharedLibs -> dumpSharedLibs opts fi
 
@@ -213,20 +213,27 @@ let dumpFile (opts: FileViewerOpts) (filepath: string) =
   elif opts.DisplayItems.Contains DisplayAll then printAll opts hdl fi
   else opts.DisplayItems |> Seq.iter (printSelectively hdl opts fi)
 
-let [<Literal>] private toolName = "fileview"
-let [<Literal>] private usageTail = "<binary file(s)>"
+let [<Literal>] private ToolName = "fileview"
+let [<Literal>] private UsageTail = "<binary file(s)>"
 
 let dump files opts =
   CmdOpts.SanitizeRestArgs files
   match files with
   | [] ->
     Printer.printErrorToConsole "File(s) must be given."
-    CmdOpts.PrintUsage toolName usageTail Cmd.spec
+    CmdOpts.PrintUsage ToolName UsageTail Cmd.spec
   | files ->
+#if DEBUG
+    let sw = System.Diagnostics.Stopwatch.StartNew ()
+#endif
     try files |> List.iter (dumpFile opts)
     finally out.Flush ()
+#if DEBUG
+    sw.Stop ()
+    eprintfn "Total time: %f sec." sw.Elapsed.TotalSeconds
+#endif
 
 [<EntryPoint>]
 let main args =
   let opts = FileViewerOpts ()
-  CmdOpts.ParseAndRun dump toolName usageTail Cmd.spec opts args
+  CmdOpts.ParseAndRun dump ToolName UsageTail Cmd.spec opts args

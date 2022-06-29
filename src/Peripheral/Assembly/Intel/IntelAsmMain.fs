@@ -123,6 +123,8 @@ let encodeInstruction (ins: AsmInsInfo) ctxt =
   | Opcode.IDIV -> idiv ctxt ins
   | Opcode.IMUL -> imul ctxt ins
   | Opcode.INC -> inc ctxt ins
+  | Opcode.INT -> interrupt ins
+  | Opcode.INT3 -> interrupt3 ()
   | Opcode.JA -> ja ctxt ins
   | Opcode.JB -> jb ctxt ins
   | Opcode.JBE -> jbe ctxt ins
@@ -216,6 +218,7 @@ let encodeInstruction (ins: AsmInsInfo) ctxt =
   | Opcode.XCHG -> xchg ctxt ins
   | Opcode.XOR -> xor ctxt ins
   | Opcode.XORPS -> xorps ctxt ins
+  | Opcode.SYSCALL -> syscall ()
   | op -> printfn "%A" op; Utils.futureFeature ()
 
 let computeIncompMaxLen = function
@@ -232,7 +235,7 @@ let getImm imm = if Option.isSome imm then Option.get imm else [||]
 let computeMaxLen (components: AsmComponent [] list) =
   components
   |> List.map (fun comp ->
-       match comp.[0] with
+       match comp[0] with
        | Normal _ -> Array.length comp
        | CompOp (_, _, bytes, imm) ->
          Array.length bytes + 4 + Array.length (getImm imm)
@@ -281,7 +284,7 @@ let computeAddr idx realLenArr =
   | arr -> Array.reduce (+) arr |> int64
 
 let decideOp parserState maxLenArr myIdx (comp: _ []) =
-  match comp.[0] with
+  match comp[0] with
   | Normal _ | CompOp _ -> comp
   | IncompleteOp (op, (OneOperand (Label (lbl, _)) as oprs)) ->
     let labelIdx = Map.find lbl parserState.LabelMap
@@ -294,9 +297,9 @@ let decideOp parserState maxLenArr myIdx (comp: _ []) =
 let computeRealLen components =
   components
   |> List.map (fun (comp: AsmComponent []) ->
-    match comp.[0] with
+    match comp[0] with
     | CompOp (_, _, bytes, imm) ->
-      match comp.[1] with
+      match comp[1] with
       | IncompLabel sz ->
         Array.length bytes + RegType.toByteWidth sz + Array.length (getImm imm)
       | _ -> Utils.impossible ()

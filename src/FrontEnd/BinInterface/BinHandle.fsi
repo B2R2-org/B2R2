@@ -40,6 +40,7 @@ type BinHandle = {
   TranslationContext: TranslationContext
   Parser: Parser
   RegisterBay: RegisterBay
+  BinReader: IBinReader
   OS: OS
 }
 with
@@ -140,7 +141,7 @@ with
   ///   specific file format).
   /// </summary>
   /// <param name="isa">ISA.</param>
-  /// <param name="archMode">ArchOperatinoMode.</param>
+  /// <param name="archMode">ArchOperationMode.</param>
   /// <param name="autoDetect">Perform auto format detection or not.</param>
   /// <param name="baseAddr">Base address for calculating instruction
   /// addresses.</param>
@@ -264,8 +265,9 @@ with
     hdl: BinHandle -> addr: Addr -> bs: byte [] -> BinHandle
 
   /// <summary>
-  ///   Update BinHandle to patch the code at the address (addr). BinHandle
-  ///   is *immutable*.
+  ///   Update BinHandle by patching the code at the address (addr). Note that
+  ///   BinHandle itself is *immutable*, and thus, this function returns a new
+  ///   BinHandle.
   /// </summary>
   /// <param name="hdl">The BinHandle to update.</param>
   /// <param name="addr">The new address to use.</param>

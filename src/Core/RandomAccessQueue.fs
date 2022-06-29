@@ -57,9 +57,6 @@ module RandomAccessQueue =
     let l, r = Op.Split (fun (elt: Size) -> i < elt.Value) q
     RandomAccessQueue l, RandomAccessQueue r
 
-  let private cons v q =
-    Op.Cons (RandomAccessQueueElem v) q
-
   let private snoc q v =
     Op.Snoc q (RandomAccessQueueElem v)
 

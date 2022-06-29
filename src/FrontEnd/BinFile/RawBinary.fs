@@ -24,8 +24,9 @@
 
 namespace B2R2.FrontEnd.BinFile
 
-open B2R2
+open System
 open System.Collections.Generic
+open B2R2
 
 /// <summary>
 ///   This class represents a raw binary file (containing only binary code and
@@ -36,11 +37,10 @@ type RawFileInfo (bytes: byte [], path, isa, baseAddr) =
   let baseAddr = defaultArg baseAddr 0UL
   let size = bytes.Length
   let usize = uint64 size
-  let reader = BinReader.Init (bytes, isa.Endian)
 
   let symbolMap = Dictionary<Addr, Symbol> ()
 
-  override __.BinReader = reader
+  override __.Span = ReadOnlySpan bytes
 
   override __.FileFormat = FileFormat.RawBinary
 
@@ -67,7 +67,7 @@ type RawFileInfo (bytes: byte [], path, isa, baseAddr) =
   override __.TranslateAddress addr = System.Convert.ToInt32 (addr - baseAddr)
 
   override __.AddSymbol addr symbol =
-    symbolMap.[addr] <- symbol
+    symbolMap[addr] <- symbol
 
   override __.GetSymbols () =
     Seq.map (fun (KeyValue(k, v)) -> v) symbolMap
@@ -97,7 +97,9 @@ type RawFileInfo (bytes: byte [], path, isa, baseAddr) =
 
   override __.GetSegments (_isLoadable) =
     Seq.singleton { Address = baseAddr
+                    Offset = 0UL
                     Size = usize
+                    SizeInFile = usize
                     Permission = Permission.Readable ||| Permission.Executable }
 
   override __.GetLinkageTableEntries () = Seq.empty
@@ -105,7 +107,7 @@ type RawFileInfo (bytes: byte [], path, isa, baseAddr) =
   override __.IsLinkageTable _ = false
 
   override __.TryFindFunctionSymbolName (_addr) =
-    if symbolMap.ContainsKey(_addr) then Ok symbolMap.[_addr].Name
+    if symbolMap.ContainsKey(_addr) then Ok symbolMap[_addr].Name
     else Error ErrorCase.SymbolNotFound
 
   override __.ExceptionTable = ARMap.empty

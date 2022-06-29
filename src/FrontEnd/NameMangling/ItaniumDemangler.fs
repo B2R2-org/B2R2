@@ -55,17 +55,17 @@ type ItaniumDemangler () =
     .>>. getUserState
     |>> (fun (x, us) ->
           if x + 2 <= us.Namelist.Length then
-            let a2 = (List.rev us.Namelist).[x + 1]
+            let a2 = (List.rev us.Namelist)[x + 1]
             match a2 with
             | NestedName (a, b) -> NestedName (a, List.rev b)
             | PointerArg (a, b, Specific idx) ->
-              let value = us.TemplateArgList.[idx + 1]
+              let value = us.TemplateArgList[idx + 1]
               PointerArg (a, b, value)
             | RefArg (a, Specific idx) ->
-              let value = us.TemplateArgList.[idx + 1]
+              let value = us.TemplateArgList[idx + 1]
               RefArg (a, value)
             | Specific idx ->
-              let value = us.TemplateArgList.[idx + 1]
+              let value = us.TemplateArgList[idx + 1]
               value
             | _ -> a2
           else
@@ -77,7 +77,7 @@ type ItaniumDemangler () =
     .>>. getUserState
     |>> (fun (x, us) ->
           if x + 2 <= us.TemplateArgList.Length then
-            let a2 = (us.TemplateArgList).[x + 1]
+            let a2 = (us.TemplateArgList)[x + 1]
             (a2, x)
           else
             (Dummy "", x)) |>> TemplateSub
@@ -560,7 +560,7 @@ type ItaniumDemangler () =
       <|> attempt (pFunctionRetArgs)
 
   override __.Run str =
-    match runParserOnString (stmt) ItaniumUserState.Default "" str.[2..] with
+    match runParserOnString (stmt) ItaniumUserState.Default "" str[2..] with
     | Success (result, _, pos) ->
       if pos.Column = int64(str.Length) - 1L then
         Result.Ok <| ItaniumInterpreter.interpret result
@@ -570,4 +570,4 @@ type ItaniumDemangler () =
 
   /// Check if the given string is a well-formed mangled string.
   static member IsWellFormed (str: string) =
-    str.Length > 2 && str.[0 .. 1] = "_Z"
+    str.Length > 2 && str[0 .. 1] = "_Z"

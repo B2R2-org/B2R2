@@ -27,32 +27,32 @@ module B2R2.FrontEnd.NameMangling.ItaniumFunctionPointer
 /// Getting return from string gained from interpreter for FunctionPointer in
 /// ItaniumInterpreter.fs.
 let rec getReturn (input:string) index count res =
-  if input.[index] = ' ' && count = 0 && input.[index + 1] = '(' then
+  if input[index] = ' ' && count = 0 && input[index + 1] = '(' then
     (res, index)
-  elif input.[index] = '<' then
-    getReturn input (index + 1) (count + 1) (res + string(input.[index]))
-  elif input.[index] = '>' then
-    getReturn input (index + 1) (count - 1) (res + string(input.[index]))
+  elif input[index] = '<' then
+    getReturn input (index + 1) (count + 1) (res + string(input[index]))
+  elif input[index] = '>' then
+    getReturn input (index + 1) (count - 1) (res + string(input[index]))
   else
-    getReturn input (index + 1) (count) (res + string(input.[index]))
+    getReturn input (index + 1) (count) (res + string(input[index]))
 
 /// Seperating argument part of each function pointer.
 let rec getArgs (input:string) index count res =
   let len = String.length input
   if index = len then
     (res, index)
-  elif (input.[index] = '(' || input.[index] = ' ' ) && count = 0 then
+  elif (input[index] = '(' || input[index] = ' ' ) && count = 0 then
     (res, index)
-  elif input.[index] = '(' then
-    getArgs input (index + 1) (count + 1) (res + string(input.[index]))
-  elif input.[index] = ')' then
-    getArgs input (index + 1) (count - 1) (res + string(input.[index]))
+  elif input[index] = '(' then
+    getArgs input (index + 1) (count + 1) (res + string(input[index]))
+  elif input[index] = ')' then
+    getArgs input (index + 1) (count - 1) (res + string(input[index]))
   else
-    getArgs input (index + 1) (count) (res + string(input.[index]))
+    getArgs input (index + 1) (count) (res + string(input[index]))
 
 /// Getting qualifiers.
 let getQualifier (input:string) index =
-  if input.[index] = 'c' then
+  if input[index] = 'c' then
     ("const", index + 5)
   else
     ("volatile", index + 8)
@@ -65,7 +65,7 @@ let rec getList input index result =
   else
     let first, new_idx = getArgs input (index + 1) 1 "("
     let second, n_idx = getArgs input (new_idx + 1) 1 "("
-    if n_idx < len && (input.[n_idx + 1] = 'c' || input.[n_idx + 1] = 'v') then
+    if n_idx < len && (input[n_idx + 1] = 'c' || input[n_idx + 1] = 'v') then
       let a1, a2 = getQualifier input (n_idx + 1)
       getList input (a2 + 1) ((second + " " + a1) :: first :: result)
     else
@@ -90,7 +90,7 @@ let rec combine input cur res =
       let len = (String.length hd1) - 1
       let other_len = String.length res
       let result =
-        res.[0 .. (cur)] + hd1 + hd2 + res.[(cur + 1) .. other_len - 1]
+        res[0 .. (cur)] + hd1 + hd2 + res[(cur + 1) .. other_len - 1]
       combine tail (cur + len) result
   | _ -> ("", 0)
 

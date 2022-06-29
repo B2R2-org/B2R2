@@ -29,31 +29,17 @@ open B2R2
 open B2R2.FrontEnd.BinFile
 open B2R2.FrontEnd.BinLifter
 
-let initBasis isa =
-  match isa.Arch with
-  | Arch.IntelX64
-  | Arch.IntelX86 -> Intel.Basis.init isa
-  | Arch.ARMv7 -> ARM32.Basis.init isa
-  | Arch.AARCH64 -> ARM64.Basis.init isa
-  | Arch.MIPS1 | Arch.MIPS2 | Arch.MIPS3 | Arch.MIPS4 | Arch.MIPS5
-  | Arch.MIPS32 | Arch.MIPS32R2 | Arch.MIPS32R6
-  | Arch.MIPS64 | Arch.MIPS64R2 | Arch.MIPS64R6 -> MIPS.Basis.init isa
-  | Arch.EVM -> EVM.Basis.init isa
-  | Arch.TMS320C6000 -> TMS320C6000.Basis.init isa
-  | Arch.CILOnly -> CIL.Basis.init isa
-  | Arch.AVR -> AVR.Basis.init isa
-  | _ -> Utils.futureFeature ()
-
 let private appendOSInfo fmt isa =
   match fmt with
-  | FileFormat.ELFBinary -> fmt, isa, OS.Linux
-  | FileFormat.PEBinary -> fmt, isa, OS.Windows
-  | FileFormat.MachBinary -> fmt, isa, OS.MacOSX
+  | FileFormat.ELFBinary -> struct (fmt, isa, OS.Linux)
+  | FileFormat.PEBinary -> struct (fmt, isa, OS.Windows)
+  | FileFormat.MachBinary -> struct (fmt, isa, OS.MacOSX)
+  | FileFormat.WasmBinary -> struct (fmt, isa, OS.UnknownOS)
   | _ -> Utils.impossible ()
 
 let identifyFormatAndISAAndOS bytes isa os autoDetect =
   if autoDetect then FormatDetector.identify bytes isa ||> appendOSInfo
-  else FileFormat.RawBinary, isa, Option.defaultValue OS.UnknownOS os
+  else struct (FileFormat.RawBinary, isa, Option.defaultValue OS.UnknownOS os)
 
 let newFileInfo bytes (baddr: Addr option) path fmt isa regbay =
   match fmt with
@@ -63,23 +49,9 @@ let newFileInfo bytes (baddr: Addr option) path fmt isa regbay =
     PEFileInfo (bytes, path, baddr) :> FileInfo
   | FileFormat.MachBinary ->
     MachFileInfo (bytes, path, isa, baddr) :> FileInfo
+  | FileFormat.WasmBinary ->
+    WasmFileInfo (bytes, path, baddr) :> FileInfo
   | _ -> RawFileInfo (bytes, path, isa, baddr) :> FileInfo
-
-let initParser (isa: ISA) mode (fi: FileInfo) =
-  match isa.Arch with
-  | Arch.IntelX64
-  | Arch.IntelX86 -> Intel.IntelParser (isa.WordSize) :> Parser
-  | Arch.ARMv7 -> ARM32.ARM32Parser (isa, mode, fi.EntryPoint) :> Parser
-  | Arch.AARCH64 -> ARM64.ARM64Parser () :> Parser
-  | Arch.MIPS1 | Arch.MIPS2 | Arch.MIPS3 | Arch.MIPS4 | Arch.MIPS5
-  | Arch.MIPS32 | Arch.MIPS32R2 | Arch.MIPS32R6
-  | Arch.MIPS64 | Arch.MIPS64R2 | Arch.MIPS64R6 ->
-    MIPS.MIPSParser (isa.WordSize, isa.Arch) :> Parser
-  | Arch.EVM -> EVM.EVMParser (isa.WordSize) :> Parser
-  | Arch.TMS320C6000 -> TMS320C6000.TMS320C6000Parser () :> Parser
-  | Arch.CILOnly -> CIL.CILParser () :> Parser
-  | Arch.AVR -> AVR.AVRParser () :> Parser
-  | _ -> Utils.futureFeature ()
 
 /// Classify ranges to be either in-file or not-in-file. The second parameter
 /// (notinfiles) is a sequence of (exclusive) ranges within the myrange, which
@@ -99,32 +71,32 @@ let classifyRanges myrange notinfiles =
        else ((AddrRange (saddr, myrange.Max), true) :: infiles))
   |> List.rev
 
-let inline readIntBySize (fi: FileInfo) pos size =
+let inline readIntBySize (r: IBinReader) (fi: FileInfo) pos size =
   match size with
-  | 1 -> fi.BinReader.PeekInt8 pos |> int64 |> Ok
-  | 2 -> fi.BinReader.PeekInt16 pos |> int64 |> Ok
-  | 4 -> fi.BinReader.PeekInt32 pos |> int64 |> Ok
-  | 8 -> fi.BinReader.PeekInt64 pos |> Ok
+  | 1 -> r.ReadInt8 (fi.Span, pos) |> int64 |> Ok
+  | 2 -> r.ReadInt16 (fi.Span, pos) |> int64 |> Ok
+  | 4 -> r.ReadInt32 (fi.Span, pos) |> int64 |> Ok
+  | 8 -> r.ReadInt64 (fi.Span, pos) |> Ok
   | _ -> Error ErrorCase.InvalidMemoryRead
 
-let inline readUIntBySize (fi: FileInfo) pos size =
+let inline readUIntBySize (r: IBinReader) (fi: FileInfo) pos size =
   match size with
-  | 1 -> fi.BinReader.PeekUInt8 pos |> uint64 |> Ok
-  | 2 -> fi.BinReader.PeekUInt16 pos |> uint64 |> Ok
-  | 4 -> fi.BinReader.PeekUInt32 pos |> uint64 |> Ok
-  | 8 -> fi.BinReader.PeekUInt64 pos |> Ok
+  | 1 -> r.ReadUInt8 (fi.Span, pos) |> uint64 |> Ok
+  | 2 -> r.ReadUInt16 (fi.Span, pos) |> uint64 |> Ok
+  | 4 -> r.ReadUInt32 (fi.Span, pos) |> uint64 |> Ok
+  | 8 -> r.ReadUInt64 (fi.Span, pos) |> Ok
   | _ -> Error ErrorCase.InvalidMemoryRead
 
 let inline readASCII (fi: FileInfo) pos =
   let rec loop acc pos =
-    let b = fi.BinReader.PeekByte pos
+    let b = fi.Span[pos]
     if b = 0uy then List.rev (b :: acc) |> List.toArray
     else loop (b :: acc) (pos + 1)
   loop [] pos
 
 let inline parseInstrFromAddr (fi: FileInfo) (parser: Parser) addr =
-  fi.TranslateAddress addr
-  |> parser.Parse fi.BinReader addr
+  let offset = fi.TranslateAddress addr
+  parser.Parse (fi.Span.Slice offset, addr)
 
 let inline tryParseInstrFromAddr (fi: FileInfo) (parser: Parser) addr =
   try parseInstrFromAddr fi parser addr |> Ok
@@ -132,7 +104,7 @@ let inline tryParseInstrFromAddr (fi: FileInfo) (parser: Parser) addr =
 
 let inline tryParseInstrFromBinPtr fi (p: Parser) (bp: BinaryPointer) =
   try
-    let ins = p.Parse (fi: FileInfo).BinReader bp.Addr bp.Offset
+    let ins = p.Parse ((fi: FileInfo).Span.Slice bp.Offset, bp.Addr)
     if BinaryPointer.IsValidAccess bp (int ins.Length) then Ok ins
     else Error ErrorCase.ParsingFailure
   with _ ->

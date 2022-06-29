@@ -27,7 +27,7 @@ namespace B2R2.FrontEnd.BinLifter.AVR
 open B2R2
 
 module private RegisterSetLiteral =
-  let [<Literal>] arrLen = 2
+  let [<Literal>] ArrLen = 2
 
 open RegisterSetLiteral
 
@@ -35,11 +35,11 @@ type AVRRegisterSet (bitArray: uint64 [], s: Set<RegisterID>) =
   inherit NonEmptyRegisterSet (bitArray, s)
 
   new () =
-    AVRRegisterSet (RegisterSet.MakeInternalBitArray arrLen, Set.empty)
+    AVRRegisterSet (RegisterSet.MakeInternalBitArray ArrLen, Set.empty)
 
   override __.Tag = RegisterSetTag.AVR
 
-  override __.ArrSize = arrLen
+  override __.ArrSize = ArrLen
 
   override __.New arr s = new AVRRegisterSet (arr, s) :> RegisterSet
 
@@ -143,7 +143,7 @@ type AVRRegisterSet (bitArray: uint64 [], s: Set<RegisterID>) =
     |> Register.toRegID
 
   override __.ToString () =
-    sprintf "AVRRegisterSet<%x, %x>" __.BitArray.[0] __.BitArray.[1]
+    sprintf "AVRRegisterSet<%x, %x>" __.BitArray[0] __.BitArray[1]
 
 [<RequireQualifiedAccess>]
 module AVRRegisterSet =

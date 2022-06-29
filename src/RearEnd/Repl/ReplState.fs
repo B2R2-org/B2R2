@@ -25,7 +25,6 @@
 namespace B2R2.RearEnd.Repl
 
 open B2R2
-open B2R2.BinIR
 open B2R2.BinIR.LowUIR
 open B2R2.FrontEnd.BinLifter
 open B2R2.MiddleEnd.ConcEval
@@ -41,19 +40,19 @@ type ReplState (isa: ISA, regbay: RegisterBay, doFiltering) =
     regbay.GetAllRegExprs ()
     |> List.map (fun r ->
       (regbay.RegIDFromRegExpr r, BitVector.ofInt32 0 (TypeCheck.typeOf r)))
-    |> List.map (fun (x, y) -> (x, y))
-    |> rstate.PrepareContext 0 0UL
+    |> rstate.InitializeContext 0UL
   let mutable prevReg =
-    (rstate.GetCurrentContext ()).Registers.ToSeq () |> Seq.toArray
-  let mutable prevTmp =
-    (rstate.GetCurrentContext ()).Temporaries.ToSeq () |> Seq.toArray
+    rstate.Registers.ToArray ()
+    |> Array.map (fun (i, v) -> RegisterID.create i, v)
+  let mutable prevTmp = rstate.Temporaries.ToArray ()
   let generalRegs =
     regbay.GetGeneralRegExprs ()
     |> List.map regbay.RegIDFromRegExpr
     |> Set.ofList
 
   member private __.EvaluateStmts (stmts: Stmt []) =
-    stmts |> Array.iter (fun stmt -> Evaluator.evalStmt rstate stmt)
+    rstate.PrepareInstrEval stmts
+    Evaluator.evalStmts stmts rstate
 
   member private __.ComputeDelta prev curr =
     Array.fold2 (fun acc t1 t2 ->
@@ -64,9 +63,10 @@ type ReplState (isa: ISA, regbay: RegisterBay, doFiltering) =
   member __.Update stmts =
     try __.EvaluateStmts stmts
     with exc -> printfn "%s" exc.Message
-    let currContext = rstate.GetCurrentContext ()
-    let currReg = currContext.Registers.ToSeq () |> Seq.toArray
-    let currTmp = currContext.Temporaries.ToSeq () |> Seq.toArray
+    let currReg =
+      rstate.Registers.ToArray ()
+      |> Array.map (fun (i, v) -> RegisterID.create i, v)
+    let currTmp = rstate.Temporaries.ToArray ()
     let regdelta = __.ComputeDelta prevReg currReg
     prevReg <- currReg
     prevTmp <- currTmp
@@ -77,6 +77,7 @@ type ReplState (isa: ISA, regbay: RegisterBay, doFiltering) =
       regPairs
       |> List.filter (fun (r, _) -> Set.contains r generalRegs)
     else regPairs
+    |> List.filter (fun (_, v) -> not (isNull v))
 
   member __.GetAllRegValString delta =
     let set = Set.ofList delta

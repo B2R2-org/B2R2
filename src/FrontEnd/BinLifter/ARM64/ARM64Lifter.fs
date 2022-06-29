@@ -29,6 +29,7 @@ open B2R2.BinIR
 open B2R2.BinIR.LowUIR
 open B2R2.BinIR.LowUIR.AST.InfixOp
 open B2R2.FrontEnd.BinLifter
+open B2R2.FrontEnd.BinLifter.LiftingUtils
 open B2R2.FrontEnd.BinLifter.ARM64
 
 let inline getRegVar (ctxt: TranslationContext) name =
@@ -37,9 +38,6 @@ let inline getRegVar (ctxt: TranslationContext) name =
 let getPC ctxt = getRegVar ctxt R.PC
 
 let ror src amount width = (src >> amount) .| (src << (width .- amount))
-
-let numI32 n t = BitVector.ofInt32 n t |> AST.num // FIXME: exists in IntelLifter
-let numI64 n t = BitVector.ofInt64 n t |> AST.num
 
 let oprSzToExpr oprSize = numI32 (RegType.toBitWidth oprSize) oprSize
 
@@ -151,9 +149,9 @@ let transOprToExpr ins ctxt addr = function
   | OprRegister reg -> getRegVar ctxt reg
   | Memory mem -> transMem ins ctxt addr mem
   | SIMDOpr simd -> transSIMD ctxt simd
-  | Immediate imm -> AST.num <| BitVector.ofInt64 imm ins.OprSize
-  | NZCV nzcv -> AST.num <| BitVector.ofInt64 (int64 nzcv) ins.OprSize
-  | LSB lsb -> AST.num <| BitVector.ofInt64 (int64 lsb) ins.OprSize
+  | Immediate imm -> numI64 imm ins.OprSize
+  | NZCV nzcv -> numI64 (int64 nzcv) ins.OprSize
+  | LSB lsb -> numI64 (int64 lsb) ins.OprSize
   | _ -> raise <| NotImplementedIRException "transOprToExpr"
 
 let transOneOpr ins ctxt addr =
@@ -250,9 +248,9 @@ let transOprToExprOfADD ins ctxt addr (ir: IRBuilder) =
     let resTmps = Array.init (int eNum) (fun _ -> ir.NewTempVar eSz)
     let amt = RegType.toBitWidth eSz
     for i in 0 .. (int eNum) - 1 do
-      ir <! (s1Tmps.[i] := AST.extract s1 eSz (i * amt))
-      ir <! (s2Tmps.[i] := AST.extract s2 eSz (i * amt))
-      ir <! (resTmps.[i] := s1Tmps.[i] .+ s2Tmps.[i])
+      ir <! (s1Tmps[i] := AST.extract s1 eSz (i * amt))
+      ir <! (s2Tmps[i] := AST.extract s2 eSz (i * amt))
+      ir <! (resTmps[i] := s1Tmps[i] .+ s2Tmps[i])
     done
     ir <! (dst := AST.concatArr resTmps)
   | FourOperands (_, _, _, _) -> (* Arithmetic *)
@@ -1023,12 +1021,23 @@ let extr ins ctxt addr =
   let ir = IRBuilder (4)
   let dst, src1, src2, lsb = transOprToExprOfEXTR ins ctxt addr
   let oSz = ins.OprSize
-  let conSize = if oSz = 64<rt> then 128<rt> else 64<rt>
-  let con = ir.NewTempVar conSize
-  let mask = AST.num (BitVector.ofBInt (RegType.getMask oSz) conSize)
   startMark ins ir
-  ir <! (con := AST.concat src1 src2)
-  ir <! (dst := AST.xtlo oSz ((con >> (AST.zext conSize lsb)) .& mask))
+  if oSz = 32<rt> then
+    let con = ir.NewTempVar 64<rt>
+    ir <! (con := AST.concat src1 src2)
+    let mask = numI32 0xFFFFFFFF 64<rt>
+    ir <! (dst := AST.xtlo 32<rt> ((con >> (AST.zext 64<rt> lsb)) .& mask))
+  elif oSz = 64<rt> then
+    let lsb =
+      match ins.Operands with
+      | ThreeOperands (_, _, LSB shift) -> int32 shift
+      | FourOperands (_, _, _, LSB lsb) -> int32 lsb
+      | _ -> raise InvalidOperandException
+    if lsb = 0 then ir <! (dst := src2)
+    else
+      let leftAmt = numI32 (64 - lsb) 64<rt>
+      ir <! (dst := (src1 << leftAmt) .| (src2 >> (numI32 lsb 64<rt>)))
+  else raise InvalidOperandSizeException
   endMark ins ir
 
 let ldp ins ctxt addr =
@@ -1235,10 +1244,21 @@ let smaddl ins ctxt addr =
 let smulh ins ctxt addr =
   let ir = IRBuilder (4)
   let dst, src1, src2 = transThreeOprs ins ctxt addr
-  let result = ir.NewTempVar 128<rt>
+  let tSrc1B = ir.NewTempVar 64<rt>
+  let tSrc1A = ir.NewTempVar 64<rt>
+  let tSrc2B = ir.NewTempVar 64<rt>
+  let tSrc2A = ir.NewTempVar 64<rt>
+  let n32 = numI32 32 64<rt>
+  let mask = numI64 0xFFFFFFFFL 64<rt>
   startMark ins ir
-  ir <! (result := AST.sext 128<rt> src1 .* AST.sext 128<rt> src2)
-  ir <! (dst := AST.xthi 64<rt> result)
+  ir <! (tSrc1B := (src1 >> n32) .& mask)
+  ir <! (tSrc1A := src1 .& mask)
+  ir <! (tSrc2B := (src2 >> n32) .& mask)
+  ir <! (tSrc2A := src2 .& mask)
+  let high = tSrc1B .* tSrc2B
+  let mid = (tSrc1A .* tSrc2B) .+ (tSrc1B .* tSrc2A)
+  let low = (tSrc1A .* tSrc2A) >> n32
+  ir <! (dst := high .+ ((mid .+ low) >> n32)) (* [127:64] *)
   endMark ins ir
 
 let stp ins ctxt addr =
@@ -1389,10 +1409,20 @@ let umaddl ins ctxt addr =
 let umulh ins ctxt addr =
   let ir = IRBuilder (4)
   let dst, src1, src2 = transThreeOprs ins ctxt addr
-  let result = ir.NewTempVar 128<rt>
-  startMark ins ir
-  ir <! (result := AST.zext 128<rt> src1 .* AST.zext 128<rt> src2)
-  ir <! (dst := AST.xthi 64<rt> result)
+  let tSrc1B = ir.NewTempVar 64<rt>
+  let tSrc1A = ir.NewTempVar 64<rt>
+  let tSrc2B = ir.NewTempVar 64<rt>
+  let tSrc2A = ir.NewTempVar 64<rt>
+  let n32 = numI32 32 64<rt>
+  let mask = numI64 0xFFFFFFFFL 64<rt>
+  ir <! (tSrc1B := (src1 >> n32) .& mask)
+  ir <! (tSrc1A := src1 .& mask)
+  ir <! (tSrc2B := (src2 >> n32) .& mask)
+  ir <! (tSrc2A := src2 .& mask)
+  let high = tSrc1B .* tSrc2B
+  let mid = (tSrc1A .* tSrc2B) .+ (tSrc1B .* tSrc2A)
+  let low = (tSrc1A .* tSrc2A) >> n32
+  ir <! (dst := high .+ ((mid .+ low) >> n32)) (* [127:64] *)
   endMark ins ir
 
 let ubfm ins ctxt addr =
@@ -1518,6 +1548,5 @@ let translate ins ctxt =
          eprintfn "%A" o
 #endif
          raise <| NotImplementedIRException (Disasm.opCodeToString o)
-  |> fun ir -> ir.ToStmts ()
 
 // vim: set tw=80 sts=2 sw=2:

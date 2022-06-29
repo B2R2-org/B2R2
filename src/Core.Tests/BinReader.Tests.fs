@@ -46,8 +46,8 @@ type BinReaderTests () =
       ([| 0x83uy; 0x00uy; |], 0x03UL)
     |]
     for arr, res in u64 do
-      let r = BinReader.Init (arr, Endian.Little)
-      let v, c = r.PeekUInt64LEB128 0
+      let r = BinReader.binReaderLE
+      let v, _ = r.ReadUInt64LEB128 (arr, 0)
       Assert.AreEqual(res, v)
 
   [<TestMethod>]
@@ -64,8 +64,8 @@ type BinReaderTests () =
       ([| 0x83uy; 0x00uy; |], 0x03u)
     |]
     for arr, res in u32 do
-      let r = BinReader.Init (arr, Endian.Little)
-      let v, c = r.PeekUInt32LEB128 0
+      let r = BinReader.binReaderLE
+      let v, _ = r.ReadUInt32LEB128 (arr, 0)
       Assert.AreEqual(res, v)
 
   [<TestMethod>]
@@ -87,8 +87,8 @@ type BinReaderTests () =
       ([| 0x80uy; 0x80uy; 0x80uy; 0x80uy; 0x7fuy; |], -268435456L)
     |]
     for arr, res in s64 do
-      let r = BinReader.Init (arr, Endian.Little)
-      let v, c = r.PeekInt64LEB128 0
+      let r = BinReader.binReaderLE
+      let v, _ = r.ReadInt64LEB128 (arr, 0)
       Assert.AreEqual(res, v)
 
   [<TestMethod>]
@@ -106,9 +106,9 @@ type BinReaderTests () =
       ([| 0x80uy; 0x80uy; 0x80uy; 0x80uy; 0x7fuy; |], -268435456)
     |]
     for arr, res in s32 do
-        let r = BinReader.Init (arr, Endian.Little)
-        let v, c = r.PeekInt32LEB128 0
-        Assert.AreEqual(res, v)
+      let r = BinReader.binReaderLE
+      let v, _ = r.ReadInt32LEB128 (arr, 0)
+      Assert.AreEqual(res, v)
 
   [<TestMethod>]
   member __.``Overflow handling Test`` () =
@@ -116,24 +116,32 @@ type BinReaderTests () =
       [| 0xffuy; 0x80uy; 0x80uy; 0x80uy; 0x80uy;
          0x80uy; 0x80uy; 0x80uy; 0x80uy; 0x80uy; 0x7fuy; |]
     |]
-    let initBR bytes = BinReader.Init bytes
+    let r = BinReader.binReaderLE
     let decodeOverflowed func =
       try
-        func 0 |> ignore
+        func () |> ignore
         false
       with
         | :? LEB128DecodeException -> true
         | _ -> false
 
-    let u64Result = Array.map (fun arr ->
-      initBR(arr).PeekUInt64LEB128 |> decodeOverflowed) overflow
+    let u64Result =
+      overflow
+      |> Array.map (fun arr ->
+        decodeOverflowed (fun () -> r.ReadUInt64LEB128 (arr, 0)))
     Assert.IsTrue (Array.forall (fun ov -> ov) u64Result)
-    let u32Result = Array.map (fun arr ->
-      initBR(arr).PeekUInt32LEB128 |> decodeOverflowed) overflow
+    let u32Result =
+      overflow
+      |> Array.map (fun arr ->
+        decodeOverflowed (fun () -> r.ReadUInt32LEB128 (arr, 0)))
     Assert.IsTrue (Array.forall (fun ov -> ov) u32Result)
-    let s64Result = Array.map (fun arr ->
-      initBR(arr).PeekInt64LEB128 |> decodeOverflowed) overflow
+    let s64Result =
+      overflow
+      |> Array.map (fun arr ->
+        decodeOverflowed (fun () -> r.ReadInt64LEB128 (arr, 0)))
     Assert.IsTrue (Array.forall (fun ov -> ov) s64Result)
-    let s32Result = Array.map (fun arr ->
-      initBR(arr).PeekInt32LEB128 |> decodeOverflowed) overflow
+    let s32Result =
+      overflow
+      |> Array.map (fun arr ->
+        decodeOverflowed (fun () -> r.ReadInt32LEB128 (arr, 0)))
     Assert.IsTrue (Array.forall (fun ov -> ov) s32Result)

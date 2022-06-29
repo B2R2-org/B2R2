@@ -146,6 +146,7 @@ let cfgToJSON cfgType (ess: BinEssence) g root =
     Visualizer.getJSONFromGraph g [root]
   | SSACFG ->
     let struct (g, root) = SSACFG.ofIRCFG ess.BinHandle g root
+    let struct (g, root) = SSAPromotion.promote ess.BinHandle g root
     Visualizer.getJSONFromGraph g [root]
   | _ -> failwith "Invalid CFG type"
 
@@ -184,6 +185,7 @@ let handleFunctions req resp arbiter =
   let ess = Protocol.getBinEssence arbiter
   let names =
     ess.CodeManager.FunctionMaintainer.RegularFunctions
+    |> Seq.sortBy (fun c -> c.Entry)
     |> Seq.map (fun c -> { FuncID = c.FunctionID; FuncName = c.FunctionName })
     |> Seq.toArray
   Some (json<(JsonFuncInfo) []> names |> defaultEnc.GetBytes)
@@ -236,12 +238,12 @@ let getVarNames handler = function
 let handleDataflow req resp arbiter (args: string) =
   let ess = Protocol.getBinEssence arbiter
   let args = args.Split ([|','|])
-  let entry = args.[0] |> uint64
-  let addr = args.[1] |> uint64
-  let tag = args.[2] (* either variable or value. *)
+  let entry = args[0] |> uint64
+  let addr = args[1] |> uint64
+  let tag = args[2] (* either variable or value. *)
   match tag with
   | "variable" ->
-    let var = args.[3] |> ess.BinHandle.RegisterBay.RegIDFromString
+    let var = args[3] |> ess.BinHandle.RegisterBay.RegIDFromString
     try
       let cfg, root = BinEssence.getFunctionCFG ess entry |> Result.get
       let chain = DataFlowChain.init cfg root true
@@ -279,7 +281,7 @@ let handleAJAX req resp arbiter cmdMap query args =
 let handle (req: HttpListenerRequest) (resp: HttpListenerResponse) arbiter m =
   match req.Url.LocalPath.Remove (0, 1) with (* Remove the first '/' *)
   | "ajax/" ->
-    handleAJAX req resp arbiter m req.QueryString.["q"] req.QueryString.["args"]
+    handleAJAX req resp arbiter m req.QueryString["q"] req.QueryString["args"]
   | "" ->
     IO.Path.Combine (rootDir, "index.html") |> readIfExists |> answer req resp
   | path ->

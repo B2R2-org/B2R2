@@ -27,6 +27,7 @@ module B2R2.RearEnd.BinExplorer.Program
 open B2R2
 open B2R2.FrontEnd.BinInterface
 open B2R2.MiddleEnd.ControlFlowGraph
+open B2R2.MiddleEnd
 open B2R2.MiddleEnd.BinEssence
 open B2R2.MiddleEnd.ControlFlowAnalysis
 open B2R2.RearEnd
@@ -67,9 +68,21 @@ type BinExplorerOpts (isa) =
   /// Enable branch recovery analysis.
   member val EnableGapComp = false with get, set
 
+  /// ABI file for EVM byte code.
+  member val EVMAbiFile = "" with get, set
+
+  /// Enable analysis for EVM.
+  member val EnableEVMAnalysis = true with get, set
+
   /// List of analyses to perform.
-  member __.GetAnalyses () =
-    let preanalyses = [ yield LibcAnalysis () :> IPluggableAnalysis ]
+  member __.GetAnalyses arch =
+    let preanalyses =
+      [ if arch = Arch.EVM then
+          if __.EnableEVMAnalysis then
+            EVMCodeCopyAnalysis () :> IPluggableAnalysis
+            EVMTrampolineAnalysis (__.EVMAbiFile) :> IPluggableAnalysis
+        else
+          LibcAnalysis () :> IPluggableAnalysis ]
     let iteranalyses = []
     let postanalyses = []
     preanalyses, iteranalyses, postanalyses
@@ -87,26 +100,26 @@ type BinExplorerOpts (isa) =
   /// (2) Make sure firewall does not block the connection.
   static member OptIP () =
     let cb (opts: #CmdOpts) (arg: string []) =
-      (BinExplorerOpts.ToThis opts).IP <- arg.[0]; opts
+      (BinExplorerOpts.ToThis opts).IP <- arg[0]; opts
     CmdOpts.New ( descr = "Specify IP <address> (default: localhost)",
                   extra = 1, callback = cb, long = "--ip" )
 
   static member OptPort () =
     let cb (opts: #CmdOpts) (arg: string []) =
-      (BinExplorerOpts.ToThis opts).Port <- int arg.[0]; opts
+      (BinExplorerOpts.ToThis opts).Port <- int arg[0]; opts
     CmdOpts.New ( descr = "Specify host port <number> (default: 8282)",
                   extra = 1, callback = cb, short = "-p", long = "--port" )
 
   static member OptLogFile () =
     let cb (opts: #CmdOpts) (arg: string []) =
-      (BinExplorerOpts.ToThis opts).LogFile <- arg.[0]; opts
+      (BinExplorerOpts.ToThis opts).LogFile <- arg[0]; opts
     CmdOpts.New ( descr = "Specify log file <name> (default: B2R2.log)",
                   callback = cb, short = "-l", long = "--log" )
 
   /// "-a" or "--isa" option for specifying ISA.
   static member OptISA () =
     let cb (opts: #CmdOpts) (arg: string []) =
-      (BinExplorerOpts.ToThis opts).ISA <- ISA.OfString arg.[0]; opts
+      (BinExplorerOpts.ToThis opts).ISA <- ISA.OfString arg[0]; opts
     CmdOpts.New ( descr = "Specify <ISA> (e.g., x86) for fat binaries",
                   extra = 1, callback = cb, short = "-a", long= "--isa" )
 
@@ -119,7 +132,7 @@ type BinExplorerOpts (isa) =
 
   static member OptJsonDumpDir () =
     let cb (opts: #CmdOpts) (arg : string []) =
-      (BinExplorerOpts.ToThis opts).JsonDumpDir <- arg.[0]; opts
+      (BinExplorerOpts.ToThis opts).JsonDumpDir <- arg[0]; opts
     CmdOpts.New (
       descr = "Directory name to dump CFG json (no dump if empty)",
       extra = 1, callback = cb, short = "-j", long = "--jsondir")
@@ -145,6 +158,20 @@ type BinExplorerOpts (isa) =
       descr = "Disable speculative gap completion.",
       callback = cb, long = "--disable-gap-completion")
 
+  static member OptEVMAbiFile () =
+    let cb (opts: #CmdOpts) (arg : string []) =
+      (BinExplorerOpts.ToThis opts).EVMAbiFile <- arg[0]; opts
+    CmdOpts.New (
+      descr = "ABI file path for EVM bytecode.",
+      extra = 1, callback = cb, long = "--evmabi")
+
+  static member OptDisableEVMAnalysis () =
+    let cb (opts: #CmdOpts) (_arg : string []) =
+      (BinExplorerOpts.ToThis opts).EnableEVMAnalysis <- false; opts
+    CmdOpts.New (
+      descr = "Disable EVM analyses (for code copy and trampoline).",
+      callback = cb, long = "--disable-evm-analysis")
+
 let spec =
   [ CmdOpts.New ( descr="[Input Configuration]\n", dummy=true )
 
@@ -169,6 +196,8 @@ let spec =
 
     BinExplorerOpts.OptReadLine ()
     BinExplorerOpts.OptJsonDumpDir ()
+    BinExplorerOpts.OptEVMAbiFile ()
+    BinExplorerOpts.OptDisableEVMAnalysis ()
     CmdOpts.OptVerbose ()
     CmdOpts.OptHelp ()
 
@@ -178,7 +207,8 @@ let spec =
   ]
 
 let buildGraph (opts: BinExplorerOpts) handle =
-  let preanalyses, iteranalyses, postanalyses = opts.GetAnalyses ()
+  let arch = handle.ISA.Arch
+  let preanalyses, iteranalyses, postanalyses = opts.GetAnalyses arch
   BinEssence.init handle preanalyses iteranalyses postanalyses
 
 let startGUI (opts: BinExplorerOpts) arbiter =
@@ -200,7 +230,8 @@ let dumpJsonFiles jsonDir ess =
     CFGExport.toJson disasmcfg disasmJsonPath)
 
 let initBinHdl isa (name: string) =
-  BinHandle.Init (isa, ArchOperationMode.NoMode, true, None, name)
+  let autoDetect = not (isa.Arch = Architecture.EVM)
+  BinHandle.Init (isa, ArchOperationMode.NoMode, autoDetect, None, name)
 
 let interactiveMain files (opts: BinExplorerOpts) =
   if List.length files = 0 then
@@ -252,7 +283,7 @@ let runCommand cmdMap opts file cmd args =
   Cmd.handle cmdMap ess cmd args
   |> Array.iter out.Print
 
-let [<Literal>] private toolName = "binexplore"
+let [<Literal>] private ToolName = "binexplore"
 
 let batchMain opts paths args =
   match args with
@@ -263,7 +294,7 @@ let batchMain opts paths args =
 let parseAndRunBatchMode opts (beforeOpts, afterOpts) =
   CmdOpts.ParseAndRun (fun rest opts ->
     batchMain opts rest (Array.tail afterOpts |> Array.toList)
-  ) toolName "" spec opts beforeOpts
+  ) ToolName "" spec opts beforeOpts
 
 [<EntryPoint>]
 let main args =
@@ -271,6 +302,6 @@ let main args =
   match Array.tryFindIndex (fun a -> a = "--batch") args with
   | Some idx -> Array.splitAt idx args |> parseAndRunBatchMode opts
   | None ->
-    CmdOpts.ParseAndRun interactiveMain toolName "<binfile>" spec opts args
+    CmdOpts.ParseAndRun interactiveMain ToolName "<binfile>" spec opts args
 
 // vim: set tw=80 sts=2 sw=2:

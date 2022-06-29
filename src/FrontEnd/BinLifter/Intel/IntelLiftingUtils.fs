@@ -30,6 +30,7 @@ open B2R2.BinIR.LowUIR
 open B2R2.BinIR.LowUIR.AST.InfixOp
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinLifter.LiftingOperators
+open B2R2.FrontEnd.BinLifter.LiftingUtils
 open B2R2.FrontEnd.BinLifter.Intel.Helper
 
 open type BinOpType
@@ -39,14 +40,6 @@ let inline ( !. ) (ctxt: TranslationContext) name =
 
 let inline getPseudoRegVar (ctxt: TranslationContext) name pos =
   ctxt.GetPseudoRegVar (Register.toRegID name) pos
-
-let inline numU32 n t = BitVector.ofUInt32 n t |> AST.num
-
-let inline numI32 n t = BitVector.ofInt32 n t |> AST.num
-
-let inline numU64 n t = BitVector.ofUInt64 n t |> AST.num
-
-let inline numI64 n t = BitVector.ofInt64 n t |> AST.num
 
 let numInsLen insLen (ctxt: TranslationContext) = numU32 insLen ctxt.WordBitSize
 
@@ -65,18 +58,14 @@ let assert32 ctxt =
   if is64bit ctxt then raise InvalidISAException else ()
 #endif
 
-let inline tmpVars2 ir t =
-  struct (!*ir t, !*ir t)
-
-let inline tmpVars3 ir t =
-  struct (!*ir t, !*ir t, !*ir t)
-
-let inline tmpVars4 ir t =
-  struct (!*ir t, !*ir t, !*ir t, !*ir t)
-
 let inline getOperationSize (i: InsInfo) = i.MainOperationSize
 
 let inline getEffAddrSz (i: InsInfo) = i.PointerSize
+
+let inline getImmValue imm =
+  match imm with
+  | OprImm (imm, _) -> imm
+  | _ -> raise InvalidOperandException
 
 let private getMemExpr128 expr =
   match expr.E with
@@ -346,6 +335,16 @@ let dstAssign oprSize dst src =
          if dstBitSize > oprBitSize then dst := AST.zext dstOrigSz src
          elif dstBitSize = oprBitSize then dst := src
          else raise InvalidOperandSizeException
+
+/// For x87 FPU Top register or x87 FPU Tag word sections.
+let extractDstAssign e1 e2 =
+  match e1.E with
+  | Extract ({ E = BinOp (BinOpType.SHR, 16<rt>,
+    { E = BinOp (BinOpType.AND, 16<rt>,
+      ({ E = Var (16<rt>, rId, _, _) } as e1), mask, _) }, amt, _) }, 8<rt>,
+        0, _) when int rId = 0x4F (* FSW *) || int rId = 0x50 (* FTW *) ->
+    e1 := (e1 .& (AST.not mask)) .| (((AST.zext 16<rt> e2) << amt) .& mask)
+  | e -> printfn "%A" e; raise InvalidAssignmentException
 
 let maxNum rt =
   match rt with

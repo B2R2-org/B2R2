@@ -26,13 +26,13 @@ module B2R2.FrontEnd.Tests.TMS320
 
 open Microsoft.VisualStudio.TestTools.UnitTesting
 open B2R2
-open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinLifter.TMS320C6000
 
 let private test opcode unit oprs bytes =
-  let reader = BinReader.Init (bytes, Endian.Little)
+  let reader = BinReader.binReaderLE
+  let span = System.ReadOnlySpan bytes
   let mutable inpar = false
-  let ins = Parser.parse reader &inpar 0UL 0
+  let ins = Parser.parse span reader &inpar 0UL
   Assert.AreEqual (ins.Info.Opcode, opcode)
   Assert.AreEqual (ins.Info.FunctionalUnit, unit)
   Assert.AreEqual (ins.Info.Operands, oprs)

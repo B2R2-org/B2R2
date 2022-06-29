@@ -41,7 +41,7 @@ type CmdCredits () =
   override __.SubCommands = []
 
   override __.CallBack _ _ _args =
-    [| Attribution.copyright; |]
+    [| Attribution.Copyright; |]
     |> Array.map OutputNormal
 
 // vim: set tw=80 sts=2 sw=2:

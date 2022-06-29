@@ -24,6 +24,7 @@
 
 namespace B2R2.FrontEnd.BinLifter.TMS320C6000
 
+open System
 open B2R2
 open B2R2.FrontEnd.BinLifter
 
@@ -40,8 +41,14 @@ type TMS320C6000TranslationContext internal (isa, regexprs) =
 type TMS320C6000Parser () =
   inherit Parser ()
   let mutable inParallel = false
-  override __.Parse binReader addr pos =
-    Parser.parse binReader &inParallel addr pos :> Instruction
+  let reader = BinReader.binReaderLE
+
+  override __.Parse (bs: byte[], addr) =
+    let span = ReadOnlySpan bs
+    Parser.parse span reader &inParallel addr :> Instruction
+
+  override __.Parse (span: ByteSpan, addr) =
+    Parser.parse span reader &inParallel addr :> Instruction
 
   override __.OperationMode with get() = ArchOperationMode.NoMode and set _ = ()
 

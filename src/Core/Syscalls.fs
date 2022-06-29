@@ -29,475 +29,498 @@ exception UnhandledSyscallException
 
 /// Linux syscall type.
 type LinuxSyscall =
-  | Accept = 1
-  | Accept4 = 2
-  | Access = 3
-  | Acct = 4
-  | AddKey = 5
-  | AdjTimex = 6
-  | Alarm = 7
-  | AllocHugePages = 8
-  | ArcGetTLS = 9
-  | ArcSetTLS = 10
-  | ArcUsrCmpxchg = 11
-  | ArchPrctl = 12
-  | AtomicBarrier = 13
-  | AtomicCmpxchg32 = 14
-  | Bdflush = 15
-  | BfinSpinlock = 16
-  | Bind = 17
-  | Bpf = 18
-  | Brk = 19
-  | Breakpoint = 20
-  | CacheFlush = 21
-  | CapGet = 22
-  | CapSet = 23
-  | Chdir = 24
-  | Chmod = 25
-  | Chown = 26
-  | Chown32 = 27
-  | Chroot = 28
-  | ClockAdjtime = 29
+  | Accept = 0
+  | Accept4 = 1
+  | Access = 2
+  | Acct = 3
+  | AddKey = 4
+  | AdjTimex = 5
+  | Alarm = 6
+  | AllocHugePages = 7
+  | ArcGetTLS = 8
+  | ArcSetTLS = 9
+  | ArcUsrCmpxchg = 10
+  | ArchPrctl = 11
+  | AtomicBarrier = 12
+  | AtomicCmpxchg32 = 13
+  | Bdflush = 14
+  | BfinSpinlock = 15
+  | Bind = 16
+  | Bpf = 17
+  | Brk = 18
+  | Breakpoint = 19
+  | CacheFlush = 20
+  | CapGet = 21
+  | CapSet = 22
+  | Chdir = 23
+  | Chmod = 24
+  | Chown = 25
+  | Chown32 = 26
+  | Chroot = 27
+  | ClockAdjtime = 28
+  | ClockAdjtime64 = 29
   | ClockGetres = 30
-  | ClockGettime = 31
-  | ClockNanosleep = 32
-  | ClockSettime = 33
-  | Clone2 = 34
-  | Clone = 35
-  | Clone3 = 36
-  | Close = 37
-  | CmpxchgBadaddr = 38
-  | Connect = 39
-  | CopyFileRange = 40
-  | Creat = 41
-  | CreateModule = 42
-  | DeleteModule = 43
-  | DmaMemcpy = 44
-  | Dup = 45
-  | Dup2 = 46
-  | Dup3 = 47
-  | EpollCreate = 48
-  | EpollCreate1 = 49
-  | EpollCtl = 50
-  | EpollPwait = 51
-  | EpollWait = 52
-  | Eventfd = 53
-  | Eventfd2 = 54
-  | Execv = 55
-  | Execve = 56
-  | Execveat = 57
-  | Exit = 58
-  | ExitGroup = 59
-  | Faccessat = 60
-  | Fadvise64 = 61
-  | Fallocate = 62
-  | FanotifyInit = 63
-  | FanotifyMark = 64
-  | Fchdir = 65
-  | Fchmod = 66
-  | Fchmodat = 67
-  | Fchown = 68
-  | Fchown32 = 69
-  | Fchownat = 70
-  | Fcntl = 71
-  | Fcntl64 = 72
-  | Fdatasync = 73
-  | Fgetxattr = 74
-  | FinitModule = 75
-  | Flistxattr = 76
-  | Flock = 77
-  | Fork = 78
-  | FreeHugepages = 79
-  | Fremovexattr = 80
-  | Fsconfig = 81
-  | Fsetxattr = 82
-  | Fsmount = 83
-  | Fsopen = 84
-  | Fspick = 85
-  | Fstat = 86
-  | Fstat64 = 87
-  | Fstatat64 = 88
-  | Fstatfs = 89
-  | Fstatfs64 = 90
-  | Fsync = 91
-  | Ftruncate = 92
-  | Ftruncate64 = 93
-  | Futex = 94
-  | Futimesat = 95
-  | GetKernelSyms = 96
-  | GetMempolicy = 97
-  | GetRobustList = 98
-  | GetThreadArea = 99
-  | GetTLS = 100
-  | Getcpu = 101
-  | Getcwd = 102
-  | Getdents = 103
-  | Getdents64 = 104
-  | Getdomainname = 105
-  | Getdtablesize = 106
-  | Getegid = 107
-  | Getegid32 = 108
-  | Geteuid = 109
-  | Geteuid32 = 110
-  | Getgid = 111
-  | Getgid32 = 112
-  | Getgroups = 113
-  | Getgroups32 = 114
-  | Gethostname = 115
-  | Getitimer = 116
-  | Getpeername = 117
-  | Getpagesize = 118
-  | Getpgid = 119
-  | Getpgrp = 120
-  | Getpid = 121
-  | Getppid = 122
-  | Getpriority = 123
-  | Getrandom = 124
-  | Getresgid = 125
-  | Getresgid32 = 126
-  | Getresuid = 127
-  | Getresuid32 = 128
-  | Getrlimit = 129
-  | Getrusage = 130
-  | Getsid = 131
-  | Getsockname = 132
-  | Getsockopt = 133
-  | Gettid = 134
-  | Gettimeofday = 135
-  | Getuid = 136
-  | Getuid32 = 137
-  | Getunwind = 138
-  | Getxattr = 139
-  | Getxgid = 140
-  | Getxpid = 141
-  | Getxuid = 142
-  | InitModule = 143
-  | InotifyAddWatch = 144
-  | InotifyInit = 145
-  | InotifyInit1 = 146
-  | InotifyRmWatch = 147
-  | IoCancel = 148
-  | IoDestroy = 149
-  | IoGetevents = 150
-  | IoPgetevents = 151
-  | IoSetup = 152
-  | IoSubmit = 153
-  | IoUringEnter = 154
-  | IoUringRegister = 155
-  | IoUringSetup = 156
-  | Ioctl = 157
-  | Ioperm = 158
-  | Iopl = 159
-  | IoprioGet = 160
-  | IoprioSet = 161
-  | Ipc = 162
-  | Kcmp = 163
-  | KernFeatures = 164
-  | KexecFileLoad = 165
-  | KexecLoad = 166
-  | Keyctl = 167
-  | Kill = 168
-  | Lchown = 169
-  | Lchown32 = 170
-  | Lgetxattr = 171
-  | Link = 172
-  | Linkat = 173
-  | Listen = 174
-  | Listxattr = 175
-  | Llistxattr = 176
-  | LookupDcookie = 177
-  | Lremovexattr = 178
-  | Lseek = 179
-  | LLseek = 180
-  | Lsetxattr = 181
-  | Lstat = 182
-  | Lstat64 = 183
-  | Madvise = 184
-  | Mbind = 185
-  | MemoryOrdering = 186
-  | MetagGetTLS = 187
-  | MetagSetFpuFlags = 188
-  | MetagSetTLS = 189
-  | MetagSetglobalbit = 190
-  | Membarrier = 191
-  | MemfdCreate = 192
-  | MigratePages = 193
-  | Mincore = 194
-  | Mkdir = 195
-  | Mkdirat = 196
-  | Mknod = 197
-  | Mknodat = 198
-  | Mlock = 199
-  | Mlock2 = 200
-  | Mlockall = 201
-  | Mmap = 202
-  | Mmap2 = 203
-  | ModifyLdt = 204
-  | Mount = 205
-  | MoveMount = 206
-  | MovePages = 207
-  | Mprotect = 208
-  | MqGetsetattr = 209
-  | MqNotify = 210
-  | MqOpen = 211
-  | MqTimedreceive = 212
-  | MqTimedsend = 213
-  | MqUnlink = 214
-  | Mremap = 215
-  | Msgctl = 216
-  | Msgget = 217
-  | Msgrcv = 218
-  | Msgsnd = 219
-  | Msync = 220
-  | Munlock = 221
-  | Munlockall = 222
-  | Munmap = 223
-  | NameToHandleAt = 224
-  | Nanosleep = 225
-  | Newfstatat = 226
-  | NewSelect = 227
-  | Nfsservctl = 228
-  | Nice = 229
-  | OldAdjtimex = 230
-  | OldGetrlimit = 231
-  | Oldfstat = 232
-  | Oldlstat = 233
-  | Oldolduname = 234
-  | Oldstat = 235
-  | Oldumount = 236
-  | Olduname = 237
-  | Open = 238
-  | OpenByHandleAt = 239
-  | OpenTree = 240
-  | Openat = 241
-  | Openat2 = 242
-  | Or1kAtomic = 243
-  | Pause = 244
-  | PciconfigIobase = 245
-  | PciconfigRead = 246
-  | PciconfigWrite = 247
-  | PerfEventOpen = 248
-  | Personality = 249
-  | Perfctr = 250
-  | Perfmonctl = 251
-  | PidfdGetfd = 252
-  | PidfdSendSignal = 253
-  | PidfdOpen = 254
-  | Pipe = 255
-  | Pipe2 = 256
-  | PivotRoot = 257
-  | PkeyAlloc = 258
-  | PkeyFree = 259
-  | PkeyMprotect = 260
-  | Poll = 261
-  | Ppoll = 262
-  | Prctl = 263
-  | Pread = 264
-  | Pread64 = 265
-  | Preadv = 266
-  | Preadv2 = 267
-  | Prlimit64 = 268
-  | ProcessVmReadv = 269
-  | ProcessVmWritev = 270
-  | Pselect6 = 271
-  | Ptrace = 272
-  | Pwrite = 273
-  | Pwrite64 = 274
-  | Pwritev = 275
-  | Pwritev2 = 276
-  | QueryModule = 277
-  | Quotactl = 278
-  | Read = 279
-  | Readahead = 280
-  | Readdir = 281
-  | Readlink = 282
-  | Readlinkat = 283
-  | Readv = 284
-  | Reboot = 285
-  | Recv = 286
-  | Recvfrom = 287
-  | Recvmsg = 288
-  | Recvmmsg = 289
-  | RemapFilePages = 290
-  | Removexattr = 291
-  | Rename = 292
-  | Renameat = 293
-  | Renameat2 = 294
-  | RequestKey = 295
-  | RestartSyscall = 296
-  | RiscvFlushIcache = 297
-  | Rmdir = 298
-  | Rseq = 299
-  | RtSigaction = 300
-  | RtSigpending = 301
-  | RtSigprocmask = 302
-  | RtSigqueueinfo = 303
-  | RtSigreturn = 304
-  | RtSigsuspend = 305
-  | RtSigtimedwait = 306
-  | RtTgsigqueueinfo = 307
-  | Rtas = 308
-  | S390RuntimeInstr = 309
-  | S390PciMmioRead = 310
-  | S390PciMmioWrite = 311
-  | S390Sthyi = 312
-  | S390GuardedStorage = 313
-  | SchedGetAffinity = 314
-  | SchedGetPriorityMax = 315
-  | SchedGetPriorityMin = 316
-  | SchedGetaffinity = 317
-  | SchedGetattr = 318
-  | SchedGetparam = 319
-  | SchedGetscheduler = 320
-  | SchedRrGetInterval = 321
-  | SchedSetAffinity = 322
-  | SchedSetaffinity = 323
-  | SchedSetattr = 324
-  | SchedSetparam = 325
-  | SchedSetscheduler = 326
-  | SchedYield = 327
-  | Seccomp = 328
-  | Select = 329
-  | Semctl = 330
-  | Semget = 331
-  | Semop = 332
-  | Semtimedop = 333
-  | Send = 334
-  | Sendfile = 335
-  | Sendfile64 = 336
-  | Sendmmsg = 337
-  | Sendmsg = 338
-  | Sendto = 339
-  | SetMempolicy = 340
-  | SetRobustList = 341
-  | SetThreadArea = 342
-  | SetTidAddress = 343
-  | SetTLS = 344
-  | Setdomainname = 345
-  | Setfsgid = 346
-  | Setfsgid32 = 347
-  | Setfsuid = 348
-  | Setfsuid32 = 349
-  | Setgid = 350
-  | Setgid32 = 351
-  | Setgroups = 352
-  | Setgroups32 = 353
-  | Sethae = 354
-  | Sethostname = 355
-  | Setitimer = 356
-  | Setns = 357
-  | Setpgid = 358
-  | Setpgrp = 359
-  | Setpriority = 360
-  | Setregid = 361
-  | Setregid32 = 362
-  | Setresgid = 363
-  | Setresgid32 = 364
-  | Setresuid = 365
-  | Setresuid32 = 366
-  | Setreuid = 367
-  | Setreuid32 = 368
-  | Setrlimit = 369
-  | Setsid = 370
-  | Setsockopt = 371
-  | Settimeofday = 372
-  | Setuid = 373
-  | Setuid32 = 374
-  | Setup = 375
-  | Setxattr = 376
-  | Sgetmask = 377
-  | Shmat = 378
-  | Shmctl = 379
-  | Shmdt = 380
-  | Shmget = 381
-  | Shutdown = 382
-  | Sigaction = 383
-  | Sigaltstack = 384
-  | Signal = 385
-  | Signalfd = 386
-  | Signalfd4 = 387
-  | Sigpending = 388
-  | Sigprocmask = 389
-  | Sigreturn = 390
-  | Sigsuspend = 391
-  | Socket = 392
-  | Socketcall = 393
-  | Socketpair = 394
-  | Spill = 395
-  | Splice = 396
-  | SpuCreate = 397
-  | SpuRun = 398
-  | SramAlloc = 399
-  | SramFree = 400
-  | Ssetmask = 401
-  | Stat = 402
-  | Stat64 = 403
-  | Statfs = 404
-  | Statfs64 = 405
-  | Statx = 406
-  | Stime = 407
-  | SubpageProt = 408
-  | SwitchEndian = 409
-  | Swapcontext = 410
-  | Swapoff = 411
-  | Swapon = 412
-  | Symlink = 413
-  | Symlinkat = 414
-  | Sync = 415
-  | SyncFileRange = 416
-  | SyncFileRange2 = 417
-  | Syncfs = 418
-  | SysDebugSetcontext = 419
-  | Syscall = 420
-  | Sysctl = 421
-  | Sysfs = 422
-  | Sysinfo = 423
-  | Syslog = 424
-  | Sysmips = 425
-  | Tee = 426
-  | Tgkill = 427
-  | Time = 428
-  | TimerCreate = 429
-  | TimerDelete = 430
-  | TimerGetoverrun = 431
-  | TimerGettime = 432
-  | TimerSettime = 433
-  | TimerfdCreate = 434
-  | TimerfdGettime = 435
-  | TimerfdSettime = 436
-  | Times = 437
-  | Tkill = 438
-  | Truncate = 439
-  | Truncate64 = 440
-  | Ugetrlimit = 441
-  | Umask = 442
-  | Umount = 443
-  | Umount2 = 444
-  | Uname = 445
-  | Unlink = 446
-  | Unlinkat = 447
-  | Unshare = 448
-  | Uselib = 449
-  | Ustat = 450
-  | Userfaultfd = 451
-  | Usr26 = 452
-  | Usr32 = 453
-  | Utime = 454
-  | Utimensat = 455
-  | Utimes = 456
-  | UtrapInstall = 457
-  | Vfork = 458
-  | Vhangup = 459
-  | Vm86old = 460
-  | Vm86 = 461
-  | Vmsplice = 462
-  | Wait4 = 463
-  | Waitid = 464
-  | Waitpid = 465
-  | Write = 466
-  | Writev = 467
-  | Xtensa = 468
+  | ClockGetres64 = 31
+  | ClockGettime = 32
+  | ClockGettime64 = 33
+  | ClockNanosleep = 34
+  | ClockNanosleep64 = 35
+  | ClockSettime = 36
+  | ClockSettime64 = 37
+  | Clone2 = 38
+  | Clone = 39
+  | Clone3 = 40
+  | Close = 41
+  | CmpxchgBadaddr = 42
+  | Connect = 43
+  | CopyFileRange = 44
+  | Creat = 45
+  | CreateModule = 46
+  | DeleteModule = 47
+  | DmaMemcpy = 48
+  | Dup = 49
+  | Dup2 = 50
+  | Dup3 = 51
+  | EpollCreate = 52
+  | EpollCreate1 = 53
+  | EpollCtl = 54
+  | EpollPwait = 55
+  | EpollWait = 56
+  | Eventfd = 57
+  | Eventfd2 = 58
+  | Execv = 59
+  | Execve = 60
+  | Execveat = 61
+  | Exit = 62
+  | ExitGroup = 63
+  | Faccessat = 64
+  | Fadvise64 = 65
+  | Fadvise64_64 = 66
+  | Fallocate = 67
+  | FanotifyInit = 68
+  | FanotifyMark = 69
+  | Fchdir = 70
+  | Fchmod = 71
+  | Fchmodat = 72
+  | Fchown = 73
+  | Fchown32 = 74
+  | Fchownat = 75
+  | Fcntl = 76
+  | Fcntl64 = 77
+  | Fdatasync = 78
+  | Fgetxattr = 79
+  | FinitModule = 80
+  | Flistxattr = 81
+  | Flock = 82
+  | Fork = 83
+  | FreeHugepages = 84
+  | Fremovexattr = 85
+  | Fsconfig = 86
+  | Fsetxattr = 87
+  | Fsmount = 88
+  | Fsopen = 89
+  | Fspick = 90
+  | Fstat = 91
+  | Fstat64 = 92
+  | Fstatat64 = 93
+  | Fstatfs = 94
+  | Fstatfs64 = 95
+  | Fsync = 96
+  | Ftruncate = 97
+  | Ftruncate64 = 98
+  | Futex = 99
+  | Futex64 = 100
+  | Futimesat = 101
+  | GetKernelSyms = 102
+  | GetMempolicy = 103
+  | GetRobustList = 104
+  | GetThreadArea = 105
+  | GetTLS = 106
+  | Getcpu = 107
+  | Getcwd = 108
+  | Getdents = 109
+  | Getdents64 = 110
+  | Getdomainname = 111
+  | Getdtablesize = 112
+  | Getegid = 113
+  | Getegid32 = 114
+  | Geteuid = 115
+  | Geteuid32 = 116
+  | Getgid = 117
+  | Getgid32 = 118
+  | Getgroups = 119
+  | Getgroups32 = 120
+  | Gethostname = 121
+  | Getitimer = 122
+  | Getpeername = 123
+  | Getpagesize = 124
+  | Getpgid = 125
+  | Getpgrp = 126
+  | Getpid = 127
+  | Getppid = 128
+  | Getpriority = 129
+  | Getrandom = 130
+  | Getresgid = 131
+  | Getresgid32 = 132
+  | Getresuid = 133
+  | Getresuid32 = 134
+  | Getrlimit = 135
+  | Getrusage = 136
+  | Getsid = 137
+  | Getsockname = 138
+  | Getsockopt = 139
+  | Gettid = 140
+  | Gettimeofday = 141
+  | Getuid = 142
+  | Getuid32 = 143
+  | Getunwind = 144
+  | Getxattr = 145
+  | Getxgid = 146
+  | Getxpid = 147
+  | Getxuid = 148
+  | InitModule = 149
+  | InotifyAddWatch = 150
+  | InotifyInit = 151
+  | InotifyInit1 = 152
+  | InotifyRmWatch = 153
+  | IoCancel = 154
+  | IoDestroy = 155
+  | IoGetevents = 156
+  | IoPgetevents = 157
+  | IoPgetevents64 = 158
+  | IoSetup = 159
+  | IoSubmit = 160
+  | IoUringEnter = 161
+  | IoUringRegister = 162
+  | IoUringSetup = 163
+  | Ioctl = 164
+  | Ioperm = 165
+  | Iopl = 166
+  | IoprioGet = 167
+  | IoprioSet = 168
+  | Ipc = 169
+  | Kcmp = 170
+  | KernFeatures = 171
+  | KexecFileLoad = 172
+  | KexecLoad = 173
+  | Keyctl = 174
+  | Kill = 175
+  | Lchown = 176
+  | Lchown32 = 177
+  | Lgetxattr = 178
+  | Link = 179
+  | Linkat = 180
+  | Listen = 181
+  | Listxattr = 182
+  | Llistxattr = 183
+  | LookupDcookie = 184
+  | Lremovexattr = 185
+  | Lseek = 186
+  | LLseek = 187
+  | Lsetxattr = 188
+  | Lstat = 189
+  | Lstat64 = 190
+  | Madvise = 191
+  | Mbind = 192
+  | MemoryOrdering = 193
+  | MetagGetTLS = 194
+  | MetagSetFpuFlags = 195
+  | MetagSetTLS = 196
+  | MetagSetglobalbit = 197
+  | Membarrier = 198
+  | MemfdCreate = 199
+  | MigratePages = 200
+  | Mincore = 201
+  | Mkdir = 202
+  | Mkdirat = 203
+  | Mknod = 204
+  | Mknodat = 205
+  | Mlock = 206
+  | Mlock2 = 207
+  | Mlockall = 208
+  | Mmap = 209
+  | Mmap2 = 210
+  | ModifyLdt = 211
+  | Mount = 212
+  | MoveMount = 213
+  | MovePages = 214
+  | Mprotect = 215
+  | MqGetsetattr = 216
+  | MqNotify = 217
+  | MqOpen = 218
+  | MqTimedreceive = 219
+  | MqTimedreceive64 = 220
+  | MqTimedsend = 221
+  | MqTimedsend64 = 222
+  | MqUnlink = 223
+  | Mremap = 224
+  | Msgctl = 225
+  | Msgget = 226
+  | Msgrcv = 227
+  | Msgsnd = 228
+  | Msync = 229
+  | Munlock = 230
+  | Munlockall = 231
+  | Munmap = 232
+  | NameToHandleAt = 233
+  | Nanosleep = 234
+  | Newfstatat = 235
+  | NewSelect = 236
+  | Nfsservctl = 237
+  | Nice = 238
+  | OldAdjtimex = 239
+  | OldGetrlimit = 240
+  | Oldfstat = 241
+  | Oldlstat = 242
+  | Oldolduname = 243
+  | Oldstat = 244
+  | Oldumount = 245
+  | Olduname = 246
+  | Open = 247
+  | OpenByHandleAt = 248
+  | OpenTree = 249
+  | Openat = 250
+  | Openat2 = 251
+  | Or1kAtomic = 252
+  | Pause = 253
+  | PciconfigIobase = 254
+  | PciconfigRead = 255
+  | PciconfigWrite = 256
+  | PerfEventOpen = 257
+  | Personality = 258
+  | Perfctr = 259
+  | Perfmonctl = 260
+  | PidfdGetfd = 261
+  | PidfdSendSignal = 262
+  | PidfdOpen = 263
+  | Pipe = 264
+  | Pipe2 = 265
+  | PivotRoot = 266
+  | PkeyAlloc = 267
+  | PkeyFree = 268
+  | PkeyMprotect = 269
+  | Poll = 270
+  | Ppoll = 271
+  | Ppoll64 = 272
+  | Prctl = 273
+  | Pread = 274
+  | Pread64 = 275
+  | Preadv = 276
+  | Preadv2 = 277
+  | Prlimit64 = 278
+  | ProcessVmReadv = 279
+  | ProcessVmWritev = 280
+  | Pselect6 = 281
+  | Pselect6_64 = 282
+  | Ptrace = 283
+  | Pwrite = 284
+  | Pwrite64 = 285
+  | Pwritev = 286
+  | Pwritev2 = 287
+  | QueryModule = 288
+  | Quotactl = 289
+  | Read = 290
+  | Readahead = 291
+  | Readdir = 292
+  | Readlink = 293
+  | Readlinkat = 294
+  | Readv = 295
+  | Reboot = 296
+  | Recv = 297
+  | Recvfrom = 298
+  | Recvmsg = 299
+  | Recvmmsg = 300
+  | Recvmmsg64 = 301
+  | RemapFilePages = 302
+  | Removexattr = 303
+  | Rename = 304
+  | Renameat = 305
+  | Renameat2 = 306
+  | RequestKey = 307
+  | RestartSyscall = 308
+  | RiscvFlushIcache = 309
+  | Rmdir = 310
+  | Rseq = 311
+  | RtSigaction = 312
+  | RtSigpending = 313
+  | RtSigprocmask = 314
+  | RtSigqueueinfo = 315
+  | RtSigreturn = 316
+  | RtSigsuspend = 317
+  | RtSigtimedwait = 318
+  | RtSigtimedwait64 = 319
+  | RtTgsigqueueinfo = 320
+  | Rtas = 321
+  | S390RuntimeInstr = 322
+  | S390PciMmioRead = 323
+  | S390PciMmioWrite = 324
+  | S390Sthyi = 325
+  | S390GuardedStorage = 326
+  | SchedGetAffinity = 327
+  | SchedGetPriorityMax = 328
+  | SchedGetPriorityMin = 329
+  | SchedGetaffinity = 330
+  | SchedGetattr = 331
+  | SchedGetparam = 332
+  | SchedGetscheduler = 333
+  | SchedRrGetInterval = 334
+  | SchedRrGetInterval64 = 335
+  | SchedSetAffinity = 336
+  | SchedSetaffinity = 337
+  | SchedSetattr = 338
+  | SchedSetparam = 339
+  | SchedSetscheduler = 340
+  | SchedYield = 341
+  | Seccomp = 342
+  | Select = 343
+  | Semctl = 344
+  | Semget = 345
+  | Semop = 346
+  | Semtimedop = 347
+  | Semtimedop64 = 348
+  | Send = 349
+  | Sendfile = 350
+  | Sendfile64 = 351
+  | Sendmmsg = 352
+  | Sendmsg = 353
+  | Sendto = 354
+  | SetMempolicy = 355
+  | SetRobustList = 356
+  | SetThreadArea = 357
+  | SetTidAddress = 358
+  | SetTLS = 359
+  | Setdomainname = 360
+  | Setfsgid = 361
+  | Setfsgid32 = 362
+  | Setfsuid = 363
+  | Setfsuid32 = 364
+  | Setgid = 365
+  | Setgid32 = 366
+  | Setgroups = 367
+  | Setgroups32 = 368
+  | Sethae = 369
+  | Sethostname = 370
+  | Setitimer = 371
+  | Setns = 372
+  | Setpgid = 373
+  | Setpgrp = 374
+  | Setpriority = 375
+  | Setregid = 376
+  | Setregid32 = 377
+  | Setresgid = 378
+  | Setresgid32 = 379
+  | Setresuid = 380
+  | Setresuid32 = 381
+  | Setreuid = 382
+  | Setreuid32 = 383
+  | Setrlimit = 384
+  | Setsid = 385
+  | Setsockopt = 386
+  | Settimeofday = 387
+  | Setuid = 388
+  | Setuid32 = 389
+  | Setup = 390
+  | Setxattr = 391
+  | Sgetmask = 392
+  | Shmat = 393
+  | Shmctl = 394
+  | Shmdt = 395
+  | Shmget = 396
+  | Shutdown = 397
+  | Sigaction = 398
+  | Sigaltstack = 399
+  | Signal = 400
+  | Signalfd = 401
+  | Signalfd4 = 402
+  | Sigpending = 403
+  | Sigprocmask = 404
+  | Sigreturn = 405
+  | Sigsuspend = 406
+  | Socket = 407
+  | Socketcall = 408
+  | Socketpair = 409
+  | Spill = 410
+  | Splice = 411
+  | SpuCreate = 412
+  | SpuRun = 413
+  | SramAlloc = 414
+  | SramFree = 415
+  | Ssetmask = 416
+  | Stat = 417
+  | Stat64 = 418
+  | Statfs = 419
+  | Statfs64 = 420
+  | Statx = 421
+  | Stime = 422
+  | SubpageProt = 423
+  | SwitchEndian = 424
+  | Swapcontext = 425
+  | Swapoff = 426
+  | Swapon = 427
+  | Symlink = 428
+  | Symlinkat = 429
+  | Sync = 430
+  | SyncFileRange = 431
+  | SyncFileRange2 = 432
+  | Syncfs = 433
+  | SysDebugSetcontext = 434
+  | Syscall = 435
+  | Sysctl = 436
+  | Sysfs = 437
+  | Sysinfo = 438
+  | Syslog = 439
+  | Sysmips = 440
+  | Tee = 441
+  | Tgkill = 442
+  | Time = 443
+  | TimerCreate = 444
+  | TimerDelete = 445
+  | TimerGetoverrun = 446
+  | TimerGettime = 447
+  | TimerGettime64 = 448
+  | TimerSettime = 449
+  | TimerSettime64 = 450
+  | TimerfdCreate = 451
+  | TimerfdGettime = 452
+  | TimerfdGettime64 = 453
+  | TimerfdSettime = 454
+  | TimerfdSettime64 = 455
+  | Times = 456
+  | Tkill = 457
+  | Truncate = 458
+  | Truncate64 = 459
+  | Ugetrlimit = 460
+  | Umask = 461
+  | Umount = 462
+  | Umount2 = 463
+  | Uname = 464
+  | Unlink = 465
+  | Unlinkat = 466
+  | Unshare = 467
+  | Uselib = 468
+  | Ustat = 469
+  | Userfaultfd = 470
+  | Usr26 = 471
+  | Usr32 = 472
+  | Utime = 473
+  | Utimensat = 474
+  | Utimensat64 = 475
+  | Utimes = 476
+  | UtrapInstall = 477
+  | Vfork = 478
+  | Vhangup = 479
+  | Vm86old = 480
+  | Vm86 = 481
+  | Vmsplice = 482
+  | Vserver = 483
+  | Wait4 = 484
+  | Waitid = 485
+  | Waitpid = 486
+  | Write = 487
+  | Writev = 488
+  | Xtensa = 489
 
+[<RequireQualifiedAccess>]
 module LinuxSyscall =
   let private getX86Number = function
     | LinuxSyscall.RestartSyscall -> 0
@@ -756,6 +779,8 @@ module LinuxSyscall =
     | LinuxSyscall.Fstatfs64 -> 269
     | LinuxSyscall.Tgkill -> 270
     | LinuxSyscall.Utimes -> 271
+    | LinuxSyscall.Fadvise64_64 -> 272
+    | LinuxSyscall.Vserver -> 273
     | LinuxSyscall.Mbind -> 274
     | LinuxSyscall.GetMempolicy -> 275
     | LinuxSyscall.SetMempolicy -> 276
@@ -1459,6 +1484,8 @@ module LinuxSyscall =
     | 269 -> LinuxSyscall.Fstatfs64
     | 270 -> LinuxSyscall.Tgkill
     | 271 -> LinuxSyscall.Utimes
+    | 272 -> LinuxSyscall.Fadvise64_64
+    | 273 -> LinuxSyscall.Vserver
     | 274 -> LinuxSyscall.Mbind
     | 275 -> LinuxSyscall.GetMempolicy
     | 276 -> LinuxSyscall.SetMempolicy
@@ -1569,6 +1596,50 @@ module LinuxSyscall =
     | 382 -> LinuxSyscall.PkeyFree
     | 383 -> LinuxSyscall.Statx
     | 384 -> LinuxSyscall.ArchPrctl
+    | 385 -> LinuxSyscall.IoPgetevents
+    | 386 -> LinuxSyscall.Rseq
+    | 393 -> LinuxSyscall.Semget
+    | 394 -> LinuxSyscall.Semctl
+    | 395 -> LinuxSyscall.Shmget
+    | 396 -> LinuxSyscall.Shmctl
+    | 397 -> LinuxSyscall.Shmat
+    | 398 -> LinuxSyscall.Shmdt
+    | 399 -> LinuxSyscall.Msgget
+    | 400 -> LinuxSyscall.Msgsnd
+    | 401 -> LinuxSyscall.Msgrcv
+    | 402 -> LinuxSyscall.Msgctl
+    | 403 -> LinuxSyscall.ClockGettime64
+    | 404 -> LinuxSyscall.ClockSettime64
+    | 405 -> LinuxSyscall.ClockAdjtime64
+    | 406 -> LinuxSyscall.ClockGetres64
+    | 407 -> LinuxSyscall.ClockNanosleep64
+    | 408 -> LinuxSyscall.TimerGettime64
+    | 409 -> LinuxSyscall.TimerSettime64
+    | 410 -> LinuxSyscall.TimerfdGettime64
+    | 411 -> LinuxSyscall.TimerfdSettime64
+    | 412 -> LinuxSyscall.Utimensat64
+    | 413 -> LinuxSyscall.Pselect6_64
+    | 414 -> LinuxSyscall.Ppoll64
+    | 416 -> LinuxSyscall.IoPgetevents64
+    | 417 -> LinuxSyscall.Recvmmsg64
+    | 418 -> LinuxSyscall.MqTimedsend64
+    | 419 -> LinuxSyscall.MqTimedreceive64
+    | 420 -> LinuxSyscall.Semtimedop64
+    | 421 -> LinuxSyscall.RtSigtimedwait64
+    | 422 -> LinuxSyscall.Futex64
+    | 423 -> LinuxSyscall.SchedRrGetInterval64
+    | 424 -> LinuxSyscall.PidfdSendSignal
+    | 425 -> LinuxSyscall.IoUringSetup
+    | 426 -> LinuxSyscall.IoUringEnter
+    | 427 -> LinuxSyscall.IoUringRegister
+    | 428 -> LinuxSyscall.OpenTree
+    | 429 -> LinuxSyscall.MoveMount
+    | 430 -> LinuxSyscall.Fsopen
+    | 431 -> LinuxSyscall.Fsconfig
+    | 432 -> LinuxSyscall.Fsmount
+    | 433 -> LinuxSyscall.Fspick
+    | 434 -> LinuxSyscall.PidfdOpen
+    | 435 -> LinuxSyscall.Clone3
     | _ -> raise UnhandledSyscallException
 
   let private getX64Syscall = function
@@ -1905,7 +1976,7 @@ module LinuxSyscall =
     | Arch.IntelX64 -> getX64Syscall num
     | _ -> raise UnhandledSyscallException
 
-  let toStr = function
+  let toString = function
     | LinuxSyscall.Accept -> "accept"
     | LinuxSyscall.Accept4 -> "accept4"
     | LinuxSyscall.Access -> "access"
@@ -1935,10 +2006,15 @@ module LinuxSyscall =
     | LinuxSyscall.Chown32 -> "chown32"
     | LinuxSyscall.Chroot -> "chroot"
     | LinuxSyscall.ClockAdjtime -> "clock_adjtime"
+    | LinuxSyscall.ClockAdjtime64 -> "clock_adjtime64"
     | LinuxSyscall.ClockGetres -> "clock_getres"
+    | LinuxSyscall.ClockGetres64 -> "clock_getres64"
     | LinuxSyscall.ClockGettime -> "clock_gettime"
+    | LinuxSyscall.ClockGettime64 -> "clock_gettime64"
     | LinuxSyscall.ClockNanosleep -> "clock_nanosleep"
     | LinuxSyscall.ClockSettime -> "clock_settime"
+    | LinuxSyscall.ClockSettime64 -> "clock_settime64"
+    | LinuxSyscall.ClockNanosleep64 -> "clock_nanosleep64"
     | LinuxSyscall.Clone2 -> "clone2"
     | LinuxSyscall.Clone -> "clone"
     | LinuxSyscall.Clone3 -> "clone3"
@@ -1967,6 +2043,7 @@ module LinuxSyscall =
     | LinuxSyscall.ExitGroup -> "exit_group"
     | LinuxSyscall.Faccessat -> "faccessat"
     | LinuxSyscall.Fadvise64 -> "fadvise64"
+    | LinuxSyscall.Fadvise64_64 -> "fadvise64_64"
     | LinuxSyscall.Fallocate -> "fallocate"
     | LinuxSyscall.FanotifyInit -> "fanotify_init"
     | LinuxSyscall.FanotifyMark -> "fanotify_mark"
@@ -2000,6 +2077,7 @@ module LinuxSyscall =
     | LinuxSyscall.Ftruncate -> "ftruncate"
     | LinuxSyscall.Ftruncate64 -> "ftruncate64"
     | LinuxSyscall.Futex -> "futex"
+    | LinuxSyscall.Futex64 -> "futex64"
     | LinuxSyscall.Futimesat -> "futimesat"
     | LinuxSyscall.GetKernelSyms -> "get_kernel_syms"
     | LinuxSyscall.GetMempolicy -> "get_mempolicy"
@@ -2057,6 +2135,7 @@ module LinuxSyscall =
     | LinuxSyscall.IoDestroy -> "io_destroy"
     | LinuxSyscall.IoGetevents -> "io_getevents"
     | LinuxSyscall.IoPgetevents -> "io_pgetevents"
+    | LinuxSyscall.IoPgetevents64 -> "io_pgetevents64"
     | LinuxSyscall.IoSetup -> "io_setup"
     | LinuxSyscall.IoSubmit -> "io_submit"
     | LinuxSyscall.IoUringEnter -> "io_uring_enter"
@@ -2118,7 +2197,9 @@ module LinuxSyscall =
     | LinuxSyscall.MqNotify -> "mq_notify"
     | LinuxSyscall.MqOpen -> "mq_open"
     | LinuxSyscall.MqTimedreceive -> "mq_timedreceive"
+    | LinuxSyscall.MqTimedreceive64 -> "mq_timedreceive64"
     | LinuxSyscall.MqTimedsend -> "mq_timedsend"
+    | LinuxSyscall.MqTimedsend64 -> "mq_timedsend64"
     | LinuxSyscall.MqUnlink -> "mq_unlink"
     | LinuxSyscall.Mremap -> "mremap"
     | LinuxSyscall.Msgctl -> "msgctl"
@@ -2168,6 +2249,7 @@ module LinuxSyscall =
     | LinuxSyscall.PkeyMprotect -> "pkey_mprotect"
     | LinuxSyscall.Poll -> "poll"
     | LinuxSyscall.Ppoll -> "ppoll"
+    | LinuxSyscall.Ppoll64 -> "ppoll64"
     | LinuxSyscall.Prctl -> "prctl"
     | LinuxSyscall.Pread -> "pread"
     | LinuxSyscall.Pread64 -> "pread64"
@@ -2177,6 +2259,7 @@ module LinuxSyscall =
     | LinuxSyscall.ProcessVmReadv -> "process_vm_readv"
     | LinuxSyscall.ProcessVmWritev -> "process_vm_writev"
     | LinuxSyscall.Pselect6 -> "pselect6"
+    | LinuxSyscall.Pselect6_64 -> "pselect6_64"
     | LinuxSyscall.Ptrace -> "ptrace"
     | LinuxSyscall.Pwrite -> "pwrite"
     | LinuxSyscall.Pwrite64 -> "pwrite64"
@@ -2195,6 +2278,7 @@ module LinuxSyscall =
     | LinuxSyscall.Recvfrom -> "recvfrom"
     | LinuxSyscall.Recvmsg -> "recvmsg"
     | LinuxSyscall.Recvmmsg -> "recvmmsg"
+    | LinuxSyscall.Recvmmsg64 -> "recvmmsg64"
     | LinuxSyscall.RemapFilePages -> "remap_file_pages"
     | LinuxSyscall.Removexattr -> "removexattr"
     | LinuxSyscall.Rename -> "rename"
@@ -2212,6 +2296,7 @@ module LinuxSyscall =
     | LinuxSyscall.RtSigreturn -> "rt_sigreturn"
     | LinuxSyscall.RtSigsuspend -> "rt_sigsuspend"
     | LinuxSyscall.RtSigtimedwait -> "rt_sigtimedwait"
+    | LinuxSyscall.RtSigtimedwait64 -> "rt_sigtimedwait64"
     | LinuxSyscall.RtTgsigqueueinfo -> "rt_tgsigqueueinfo"
     | LinuxSyscall.Rtas -> "rtas"
     | LinuxSyscall.S390RuntimeInstr -> "s390_runtime_instr"
@@ -2227,6 +2312,7 @@ module LinuxSyscall =
     | LinuxSyscall.SchedGetparam -> "sched_getparam"
     | LinuxSyscall.SchedGetscheduler -> "sched_getscheduler"
     | LinuxSyscall.SchedRrGetInterval -> "sched_rr_get_interval"
+    | LinuxSyscall.SchedRrGetInterval64 -> "sched_rr_get_interval64"
     | LinuxSyscall.SchedSetAffinity -> "sched_set_affinity"
     | LinuxSyscall.SchedSetaffinity -> "sched_setaffinity"
     | LinuxSyscall.SchedSetattr -> "sched_setattr"
@@ -2239,6 +2325,7 @@ module LinuxSyscall =
     | LinuxSyscall.Semget -> "semget"
     | LinuxSyscall.Semop -> "semop"
     | LinuxSyscall.Semtimedop -> "semtimedop"
+    | LinuxSyscall.Semtimedop64 -> "semtimedop64"
     | LinuxSyscall.Send -> "send"
     | LinuxSyscall.Sendfile -> "sendfile"
     | LinuxSyscall.Sendfile64 -> "sendfile64"
@@ -2338,10 +2425,14 @@ module LinuxSyscall =
     | LinuxSyscall.TimerDelete -> "timer_delete"
     | LinuxSyscall.TimerGetoverrun -> "timer_getoverrun"
     | LinuxSyscall.TimerGettime -> "timer_gettime"
+    | LinuxSyscall.TimerGettime64 -> "timer_gettime64"
     | LinuxSyscall.TimerSettime -> "timer_settime"
+    | LinuxSyscall.TimerSettime64 -> "timer_settime64"
     | LinuxSyscall.TimerfdCreate -> "timerfd_create"
     | LinuxSyscall.TimerfdGettime -> "timerfd_gettime"
+    | LinuxSyscall.TimerfdGettime64 -> "timerfd_gettime64"
     | LinuxSyscall.TimerfdSettime -> "timerfd_settime"
+    | LinuxSyscall.TimerfdSettime64 -> "timerfd_settime64"
     | LinuxSyscall.Times -> "times"
     | LinuxSyscall.Tkill -> "tkill"
     | LinuxSyscall.Truncate -> "truncate"
@@ -2361,6 +2452,7 @@ module LinuxSyscall =
     | LinuxSyscall.Usr32 -> "usr32"
     | LinuxSyscall.Utime -> "utime"
     | LinuxSyscall.Utimensat -> "utimensat"
+    | LinuxSyscall.Utimensat64 -> "utimensat64"
     | LinuxSyscall.Utimes -> "utimes"
     | LinuxSyscall.UtrapInstall -> "utrap_install"
     | LinuxSyscall.Vfork -> "vfork"
@@ -2368,6 +2460,7 @@ module LinuxSyscall =
     | LinuxSyscall.Vm86old -> "vm86old"
     | LinuxSyscall.Vm86 -> "vm86"
     | LinuxSyscall.Vmsplice -> "vmsplice"
+    | LinuxSyscall.Vserver -> "vserver"
     | LinuxSyscall.Wait4 -> "wait4"
     | LinuxSyscall.Waitid -> "waitid"
     | LinuxSyscall.Waitpid -> "waitpid"

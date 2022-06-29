@@ -33,7 +33,7 @@ let badAccess _ _ =
   raise InvalidFileTypeException
 
 let computeMagicBytes (fi: ELFFileInfo) =
-  fi.ELF.BinReader.PeekBytes (16, 0) |> ColoredSegment.colorBytes
+  fi.ELF.BinReader.ReadBytes (fi.Span, 0, 16) |> ColoredSegment.colorBytes
 
 let computeEntryPoint (hdr: ELF.ELFHeader) =
   [ ColoredSegment.green <| String.u64ToHex hdr.EntryPoint ]
@@ -154,12 +154,12 @@ let printSymbolInfo isVerbose (fi: ELFFileInfo) (symbols: seq<Symbol>) =
       match fi.ELF.SymInfo.AddrToSymbTable.TryFind s.Address with
       | Some elfSymbol -> printSymbolInfoVerbose fi s elfSymbol cfg
       | None ->
-        match fi.ELF.RelocInfo.RelocByName.TryFind s.Name with
-        | Some reloc ->
+        match fi.ELF.RelocInfo.RelocByName.TryGetValue s.Name with
+        | true, reloc ->
           match reloc.RelSymbol with
           | Some elfSymbol -> printSymbolInfoVerbose fi s elfSymbol cfg
           | None -> printSymbolInfoNone fi s cfg
-        | None -> printSymbolInfoNone fi s cfg)
+        | false, _ -> printSymbolInfoNone fi s cfg)
   else
     let cfg = [ LeftAligned 15; addrColumn; LeftAligned 75; LeftAligned 15 ]
     out.PrintRow (true, cfg, [ "Kind"; "Address"; "Name"; "LibraryName" ])
@@ -234,8 +234,8 @@ let dumpLinkageTable (opts: FileViewerOpts) (fi: ELFFileInfo) =
     out.PrintLine "  ---"
     fi.GetLinkageTableEntries ()
     |> Seq.iter (fun e ->
-      match fi.ELF.RelocInfo.RelocByAddr.TryFind e.TableAddress with
-      | Some reloc ->
+      match fi.ELF.RelocInfo.RelocByAddr.TryGetValue e.TableAddress with
+      | true, reloc ->
         out.PrintRow (true, cfg,
           [ (Addr.toString fi.WordSize e.TrampolineAddress)
             (Addr.toString fi.WordSize e.TableAddress)
@@ -244,7 +244,7 @@ let dumpLinkageTable (opts: FileViewerOpts) (fi: ELFFileInfo) =
             reloc.RelAddend.ToString ()
             reloc.RelSecNumber.ToString ()
             reloc.RelType.ToString () ])
-      | None ->
+      | false, _ ->
         out.PrintRow (true, cfg,
           [ (Addr.toString fi.WordSize e.TrampolineAddress)
             (Addr.toString fi.WordSize e.TableAddress)
@@ -310,10 +310,10 @@ let dumpLSDA _hdl (fi: ELFFileInfo) =
   let cfg = [ addrColumn; LeftAligned 15; LeftAligned 15; addrColumn ]
   out.PrintRow (true, cfg, [ "Address"; "LP App"; "LP Val"; "TT End" ])
   fi.ELF.LSDAs
-  |> List.iter (fun lsda ->
+  |> Map.iter (fun lsdaAddr lsda ->
     let ttbase = lsda.Header.TTBase |> Option.defaultValue 0UL
     out.PrintRow (true, cfg,
-      [ Addr.toString fi.WordSize lsda.LSDAAddr
+      [ Addr.toString fi.WordSize lsdaAddr
         lsda.Header.LPAppEncoding.ToString ()
         lsda.Header.LPValueEncoding.ToString ()
         ttbase |> Addr.toString fi.WordSize ])

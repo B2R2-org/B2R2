@@ -37,7 +37,7 @@ let internal out = ConsoleCachedPrinter () :> Printer
 /// The colorful console printer.
 let internal colorout = ConsolePrinter () :> Printer
 
-let [<Literal>] illegalStr = "(illegal)"
+let [<Literal>] IllegalStr = "(illegal)"
 
 let getOptimizer (opts: BinDumpOpts) =
   match opts.DoOptimization with
@@ -51,7 +51,7 @@ let makeFuncSymbolDic hdl =
   hdl.FileInfo.GetFunctionAddresses ()
   |> Seq.iter (fun a ->
     if funcs.ContainsKey a then ()
-    else funcs.[a] <- Addr.toFuncName a)
+    else funcs[a] <- Addr.toFuncName a)
   funcs
 
 let makeLinkageTblSymbolDic hdl =
@@ -70,7 +70,7 @@ let makeArchModeDic hdl =
     hdl.FileInfo.GetSymbols ()
     |> Seq.iter (fun s ->
       if s.ArchOperationMode <> ArchOperationMode.NoMode then
-        modes.[s.Address] <- s.ArchOperationMode
+        modes[s.Address] <- s.ArchOperationMode
       else ())
   | _ -> ()
   modes
@@ -88,6 +88,10 @@ let getInstructionAlignment hdl =
   | Arch.MIPS64 | Arch.MIPS64R2 | Arch.MIPS64R6 -> 4
   | Arch.EVM -> 1
   | Arch.AVR -> 2
+  | Arch.SH4 -> 2
+  | Arch.PPC32 -> 4
+  | Arch.RISCV64 -> 4 (* FIXME *)
+  | Arch.WASM -> 1
   | _ -> Utils.futureFeature ()
 
 let convertToHexStr bytes =
@@ -147,8 +151,8 @@ let handleInvalidIns (hdl: BinHandle) bp isLift cfg =
   let wordSize = hdl.FileInfo.WordSize
   let align = getInstructionAlignment hdl
   let bytes = BinHandle.ReadBytes (hdl, bp=bp, nBytes=align)
-  if isLift then printLowUIR illegalStr bytes cfg
-  else printRegularDisasm illegalStr wordSize bp.Addr bytes cfg
+  if isLift then printLowUIR IllegalStr bytes cfg
+  else printRegularDisasm IllegalStr wordSize bp.Addr bytes cfg
   BinaryPointer.Advance bp align
 
 let printFuncSymbol (dict: Dictionary<Addr, string>) addr =

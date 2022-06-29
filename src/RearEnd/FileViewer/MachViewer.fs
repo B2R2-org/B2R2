@@ -257,8 +257,23 @@ let dumpFunctions (opts: FileViewerOpts) (fi: MachFileInfo) =
 let dumpArchiveHeader (opts: FileViewerOpts) (fi: MachFileInfo) =
   Utils.futureFeature ()
 
-let dumpUniversalHeader (opts: FileViewerOpts) (fi: MachFileInfo) =
-  Utils.futureFeature ()
+let dumpUniversalHeader (_opts: FileViewerOpts) (fi: MachFileInfo) =
+  let span = fi.Span
+  let reader = fi.Mach.BinReader
+  if Mach.Header.isFat span reader then
+    Mach.Fat.loadFats span reader
+    |> List.iteri (fun idx fat ->
+      let cpu = fat.CPUType
+      let cpusub = fat.CPUSubType
+      let arch = Mach.Header.cpuTypeToArch cpu cpusub
+      out.PrintSubsectionTitle ("Architecture #" + idx.ToString ())
+      out.PrintTwoCols "CPU Type:" (cpu.ToString ())
+      out.PrintTwoCols "CPU Subtype:" ("0x" + (uint32 cpusub).ToString ("x"))
+      out.PrintTwoCols "Architecture:" (ISA.ArchToString arch)
+      out.PrintTwoCols "Offset:" ("0x" + fat.Offset.ToString ("x"))
+      out.PrintTwoCols "Size:" (fat.Size.ToString ())
+    )
+  else printfn "Not a FAT binary."
 
 let printSegCmd (segCmd: Mach.SegCmd) idx =
   out.PrintSubsectionTitle ("Load command " + idx.ToString ())

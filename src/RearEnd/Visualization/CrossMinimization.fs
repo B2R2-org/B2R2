@@ -29,7 +29,7 @@ open B2R2.MiddleEnd.BinGraph
 type VLayout = Vertex<VisBBlock> [][]
 
 /// The maximum number of iterations.
-let [<Literal>] private maxCnt = 128
+let [<Literal>] private MaxCnt = 128
 
 let private computeMaxLayer (vGraph: VisGraph) =
   vGraph.FoldVertex (fun layer v ->
@@ -41,7 +41,7 @@ let private generateVPerLayer vGraph =
   let vPerLayer = Array.create (maxLayer + 1) []
   let folder (vPerLayer: Vertex<VisBBlock> list []) v =
     let layer = VisGraph.getLayer v
-    vPerLayer.[layer] <- v :: vPerLayer.[layer]
+    vPerLayer[layer] <- v :: vPerLayer[layer]
     vPerLayer
   vGraph.FoldVertex folder vPerLayer
 
@@ -65,13 +65,13 @@ let private baryCenter vGraph isDown (v: Vertex<VisBBlock>) =
     float xs / float (List.length neighbor), v
 
 let private bcReorderOneLayer vGraph (vLayout: VLayout) isDown layer =
-  let vertices = vLayout.[layer]
+  let vertices = vLayout[layer]
   vertices
   |> Array.map (baryCenter vGraph isDown)
   |> Array.sortBy fst
   |> Array.iteri (fun i (_, v) ->
     v.VData.Index <- i
-    vertices.[i] <- v)
+    vertices[i] <- v)
 
 let private phase1 vGraph vLayout isDown from maxLayer =
   let layers = if isDown then [from .. maxLayer] else [from .. -1 .. 0]
@@ -82,9 +82,9 @@ let rec private calcFirstIndex idx wlen =
 
 let rec private countLoop (tree: int []) southseq cnt index =
   if index > 0 then
-    let cnt = if index % 2 <> 0 then cnt + tree.[index + 1] else cnt
+    let cnt = if index % 2 <> 0 then cnt + tree[index + 1] else cnt
     let index = (index - 1) / 2
-    tree.[index] <- tree.[index] + 1
+    tree[index] <- tree[index] + 1
     countLoop tree southseq cnt index
   else cnt, tree
 
@@ -96,23 +96,23 @@ let private countCross southseq wlen =
   let cnt, _ =
     List.fold (fun (cnt, (tree: int [])) item ->
       let index = firstIndex + item
-      tree.[index] <- tree.[index] + 1
+      tree[index] <- tree[index] + 1
       countLoop tree southseq cnt index) (0, tree) southseq
   cnt
 
 let private bilayerCount vGraph (vLayout: VLayout) isDown layer =
-  let myLayer = vLayout.[layer]
+  let myLayer = vLayout[layer]
   let pairs, _ =
     if isDown then
       Array.fold (fun (acc, i) (v: Vertex<VisBBlock>) ->
         DiGraph.getSuccs vGraph v
         |> List.fold (fun acc w -> (i, w.VData.Index) :: acc) acc,
-        i + 1) ([], 0) vLayout.[layer - 1]
+        i + 1) ([], 0) vLayout[layer - 1]
     else
       Array.fold (fun (acc, i) (v: Vertex<VisBBlock>) ->
         DiGraph.getPreds vGraph v
         |> List.fold (fun acc w -> (i, w.VData.Index) :: acc) acc,
-        i + 1) ([], 0) vLayout.[layer + 1]
+        i + 1) ([], 0) vLayout[layer + 1]
   let pairs = List.sort pairs
   let southseq = List.map snd pairs
   countCross southseq (Array.length myLayer)
@@ -123,12 +123,12 @@ let private collectBaryCenters bcByValues (bc, v) =
   | None -> Map.add bc [v] bcByValues
 
 let private reorderVertices (vertices: Vertex<VisBBlock> []) idx (_, vs) =
-  List.fold (fun i v -> vertices.[i] <- v; v.VData.Index <- i; i + 1) idx vs
+  List.fold (fun i v -> vertices[i] <- v; v.VData.Index <- i; i + 1) idx vs
 
 let private reverseOneLayer vGraph vLayout isDown maxLayer layer =
   let count = bilayerCount vGraph vLayout isDown layer
   if count <> 0 then
-    let vertices = vLayout.[layer]
+    let vertices = vLayout[layer]
     let baryCenters = Array.map (baryCenter vGraph isDown) vertices
     let bcByValues = Array.fold collectBaryCenters Map.empty baryCenters
     let isReversed = Map.exists (fun _ vs -> List.length vs > 1) bcByValues
@@ -142,7 +142,7 @@ let private phase2 vGraph vLayout isDown maxLayer =
   List.iter (reverseOneLayer vGraph vLayout isDown maxLayer) layers
 
 let rec private sugiyamaReorder vGraph vLayout cnt hashSet =
-  if cnt = maxCnt then ()
+  if cnt = MaxCnt then ()
   else
     let maxLayer = Array.length vLayout - 1
     phase1 vGraph vLayout true 1 maxLayer

@@ -28,8 +28,7 @@ open B2R2
 open B2R2.FrontEnd.BinFile
 
 let defaultISA =
-  //FIXME
-  { Arch = Architecture.UnknownISA
+  { Arch = Architecture.WASM
     Endian = Endian.Little;
     WordSize = WordSize.Bit32 }
 
@@ -43,7 +42,7 @@ let entryPointOf wm =
   | Some ss ->
     match ss.Contents with
     | Some fi ->
-      let ii = 
+      let ii =
         wm.IndexMap
         |> Array.find (fun ii ->
           ii.Kind = IndexKind.Function
@@ -60,10 +59,10 @@ let textStartAddrOf wm =
 
 let importDescToSymKind desc =
   match desc with
-  | ImpFunc _ -> SymbolKind.ExternFunctionType
+  | ImpFunc _ -> SymExternFunctionType
   | ImpTable _
   | ImpMem _
-  | ImpGlobal _ -> SymbolKind.ObjectType
+  | ImpGlobal _ -> SymObjectType
 
 let importEntryToSymbol (importEntry: Import) =
   { Address = uint64 importEntry.Offset
@@ -75,10 +74,10 @@ let importEntryToSymbol (importEntry: Import) =
 
 let exportDescToSymKind desc =
   match desc with
-  | ExpFunc _ -> SymbolKind.FunctionType
+  | ExpFunc _ -> SymFunctionType
   | ExpTable _
   | ExpMem _
-  | ExpGlobal _ -> SymbolKind.ObjectType
+  | ExpGlobal _ -> SymObjectType
 
 let exportEntryToSymbol (exportEntry: Export) =
   { Address = uint64 exportEntry.Offset
@@ -120,7 +119,6 @@ let sectionIdToKind id =
   | SectionId.Table
   | SectionId.Memory
   | SectionId.Global -> SectionKind.WritableSection
-  | SectionId.Element
   | SectionId.Code -> SectionKind.ExecutableSection
   | _ -> SectionKind.ExtraSection
 
@@ -175,10 +173,9 @@ let tryFindFunSymName wm addr =
   let sym =
     getSymbols wm
     |> Seq.filter (fun s ->
-      s.Address = addr &&
-      (s.Kind = SymbolKind.ExternFunctionType ||
-        s.Kind = SymbolKind.FunctionType)
-      )
+      s.Address = addr
+      && (s.Kind = SymExternFunctionType || s.Kind = SymFunctionType)
+    )
     |> Seq.tryHead
   match sym with
   | Some s -> Ok s.Name

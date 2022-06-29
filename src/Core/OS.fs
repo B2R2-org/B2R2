@@ -27,7 +27,7 @@ namespace B2R2
 /// Raised when unknown OS type is detected.
 exception UnknownOSException
 
-/// Specify OS type.
+/// Operating System (OS) type.
 type OS =
   /// windows.
   | Windows = 1
@@ -53,6 +53,7 @@ module OS =
     else let vars = System.Environment.GetEnvironmentVariable "PATH"
          vars.Split (Path.PathSeparator) |> Array.exists testPath
 
+  /// Obtain an OS type from the given string.
   let ofString (s: string) =
     match s.ToLower () with
     | "windows" | "win" -> OS.Windows
@@ -61,6 +62,7 @@ module OS =
     | "unknown" -> OS.UnknownOS
     | _ -> invalidArg (nameof s) "Unknown OS string"
 
+  /// Return a string representation from the given OS type.
   let toString os =
     match os with
     | OS.Windows -> "Windows"

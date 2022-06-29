@@ -24,30 +24,8 @@
 
 namespace B2R2.FrontEnd.BinLifter.ARM32
 
-/// This is a fatal error that happens when B2R2 tries to access non-existing
-/// register symbol. This exception should not happen in general.
-exception internal InvalidRegAccessException
-
-exception internal InvalidTypeException
-
-exception internal InvalidRegWException
-
-exception internal InvalidSizeException
-
-exception internal InvalidSymbolChunkException
-
-exception internal InvalidOptionException
-
-exception internal InvalidIFlagException
-
-exception internal InvalidEndianException
-
 exception internal UnpredictableException
 
 exception internal UndefinedException
 
 exception internal InvalidShiftAmountException
-
-exception internal UnknownRegException
-
-exception internal UnallocatedException

@@ -24,6 +24,7 @@
 
 namespace B2R2.FrontEnd.BinFile
 
+open System
 open B2R2
 open B2R2.FrontEnd.BinFile.Wasm
 open B2R2.FrontEnd.BinFile.Wasm.Helper
@@ -38,7 +39,7 @@ type WasmFileInfo (bytes, path, baseAddr) =
   let baseAddr = defaultArg baseAddr 0UL
 
   new (bytes, path) = WasmFileInfo (bytes, path, None)
-  override __.BinReader = wm.BinReader
+  override __.Span = ReadOnlySpan bytes
   override __.FileFormat = FileFormat.WasmBinary
   override __.ISA = defaultISA
   override __.FileType = fileTypeOf wm
@@ -78,3 +79,4 @@ type WasmFileInfo (bytes, path, baseAddr) =
   override __.IsExecutableAddr _addr = Utils.futureFeature () // FIXME
   override __.GetNotInFileIntervals range =
     FileHelper.getNotInFileIntervals 0UL (uint64 bytes.LongLength) range
+  member __.WASM with get() = wm

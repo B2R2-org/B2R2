@@ -67,7 +67,7 @@ type CmdOpts () =
   static member private WriteIntro () =
     CmdOpts.WriteB2R2 false
     Printer.printToConsoleLine (", the Next-Generation Reversing Platform")
-    Printer.printToConsoleLine (Attribution.copyright + Environment.NewLine)
+    Printer.printToConsoleLine (Attribution.Copyright + Environment.NewLine)
 
   static member private CreateUsageGetter tool usageTail =
     fun () ->
@@ -79,7 +79,7 @@ type CmdOpts () =
   static member private TermFunction () = exit 1
 
   static member private parseCmdOpts spec defaultOpts argv tool usageTail =
-    let prog = Environment.GetCommandLineArgs().[0]
+    let prog = Environment.GetCommandLineArgs()[0]
     let usageGetter = CmdOpts.CreateUsageGetter tool usageTail
     try
       optParse spec usageGetter prog argv defaultOpts
@@ -95,7 +95,7 @@ type CmdOpts () =
       usagePrint spec prog usageGetter CmdOpts.TermFunction
 
   static member PrintUsage tool usageTail spec =
-    let prog = Environment.GetCommandLineArgs().[0]
+    let prog = Environment.GetCommandLineArgs()[0]
     let usageGetter = CmdOpts.CreateUsageGetter tool usageTail
     usagePrint spec prog usageGetter CmdOpts.TermFunction
 

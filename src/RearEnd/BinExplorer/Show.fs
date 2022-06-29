@@ -89,7 +89,7 @@ type CmdShow () =
     | (expr: string) :: _ ->
       let addr = CmdUtils.convHexString expr |> Option.defaultValue 0UL
       let sb = StringBuilder ()
-      if Char.IsDigit expr.[0] then
+      if Char.IsDigit expr[0] then
         ess.CodeManager.FunctionMaintainer.TryFind (addr)
       else ess.CodeManager.FunctionMaintainer.TryFind (expr)
       |> Option.map (fun callee -> (__.CalleeToString ess sb callee).ToString ())

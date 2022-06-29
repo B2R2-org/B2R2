@@ -45,12 +45,12 @@ let sectionIdToName (secId: SectionId) (off: int) =
   | SectionId.Data -> "data"
   | _ -> ""
 
-let private summerizeSections (reader: BinReader) offset =
+let private summerizeSections (bs: byte[]) (reader: IBinReader) offset =
   let rec loop (acc: _ list) no =
-    if reader.IsOutOfRange no then
+    if bs.Length <= no then
       List.rev acc
     else
-      let id, size, len = peekSectionHeader reader no
+      let id, size, len = peekSectionHeader bs reader no
       let headerSize = len + 1
       let no' = no + headerSize + int size
       let summary = {
@@ -81,91 +81,103 @@ let validateSectionsOrder secsSummary =
     else
     let sec1, sec2, secsSumm' = peekSecSummPair secsSumm
     match sec2 with
-      | Some sec ->
-        let id1 = sec1.Id
-        let id2 = sec.Id
-        let isValid' =
-          if id1 = SectionId.Custom || id2 = SectionId.Custom
-          then true
-          else idLtId id1 id2
-        if not isValid' then isValid'
-        else validationLoop secsSumm' isValid'
-      | None -> isValid
+    | Some sec ->
+      let id1 = sec1.Id
+      let id2 = sec.Id
+      let isValid' =
+        if id1 = SectionId.Custom || id2 = SectionId.Custom
+        then true
+        else idLtId id1 id2
+      if not isValid' then isValid'
+      else validationLoop secsSumm' isValid'
+    | None -> isValid
   validationLoop secsSummary true
 
-let updateSection wm id updateRec parseSec (secsSumm: SectionSummary list) =
+let updateSection bs reader wm id updateRec parseSec secsSumm =
   let secSumm =
-    secsSumm
+    (secsSumm: SectionSummary list)
     |> List.filter (fun sm -> sm.Id = id)
     |> List.tryHead
   match secSumm with
-    | Some sm ->
-      let secsSummary' =
-        secsSumm |> List.except [sm]
-      let sec =
-        parseSec wm.BinReader sm.Offset
-      (updateRec wm sec), secsSummary'
-    | None -> wm, secsSumm
+  | Some sm ->
+    let secsSummary' =
+      secsSumm |> List.except [sm]
+    let sec =
+      parseSec bs reader sm.Offset
+    (updateRec wm sec), secsSummary'
+  | None -> wm, secsSumm
 
-let updateCustomSection wasmModule secsSummary =
+let updateCustomSection bs reader wasmModule secsSummary =
   let ur wm sec =
     { wm with CustomSections = wm.CustomSections @ [ sec ] }
-  updateSection wasmModule SectionId.Custom ur parseCustomSec secsSummary
+  secsSummary
+  |> updateSection bs reader wasmModule SectionId.Custom ur parseCustomSec
 
-let updateTypeSection wasmModule secsSummary =
+let updateTypeSection bs reader wasmModule secsSummary =
   let ur wm sec =
     { wm with TypeSection = Some sec }
-  updateSection wasmModule SectionId.Type ur parseTypeSec secsSummary
+  secsSummary
+  |> updateSection bs reader wasmModule SectionId.Type ur parseTypeSec
 
-let updateImportSection wasmModule secsSummary =
+let updateImportSection bs reader wasmModule secsSummary =
   let ur wm sec =
     { wm with ImportSection = Some sec }
-  updateSection wasmModule SectionId.Import ur parseImportSec secsSummary
+  secsSummary
+  |> updateSection bs reader wasmModule SectionId.Import ur parseImportSec
 
-let updateFunctionSection wasmModule secsSummary =
+let updateFunctionSection bs reader wasmModule secsSummary =
   let ur wm sec =
     { wm with FunctionSection = Some sec }
-  updateSection wasmModule SectionId.Function ur parseFunctionSec secsSummary
+  secsSummary
+  |> updateSection bs reader wasmModule SectionId.Function ur parseFunctionSec
 
-let updateTableSection wasmModule secsSummary =
+let updateTableSection bs reader wasmModule secsSummary =
   let ur wm sec =
     { wm with TableSection = Some sec }
-  updateSection wasmModule SectionId.Table ur parseTableSec secsSummary
+  secsSummary
+  |> updateSection bs reader wasmModule SectionId.Table ur parseTableSec
 
-let updateMemorySection wasmModule secsSummary =
+let updateMemorySection bs reader wasmModule secsSummary =
   let ur wm sec =
     { wm with MemorySection = Some sec }
-  updateSection wasmModule SectionId.Memory ur parseMemorySec secsSummary
+  secsSummary
+  |> updateSection bs reader wasmModule SectionId.Memory ur parseMemorySec
 
-let updateGlobalSection wasmModule secsSummary =
+let updateGlobalSection bs reader wasmModule secsSummary =
   let ur wm sec =
     { wm with GlobalSection = Some sec }
-  updateSection wasmModule SectionId.Global ur parseGlobalSec secsSummary
+  secsSummary
+  |> updateSection bs reader wasmModule SectionId.Global ur parseGlobalSec
 
-let updateExportSection wasmModule secsSummary =
+let updateExportSection bs reader wasmModule secsSummary =
   let ur wm sec =
     { wm with ExportSection = Some sec }
-  updateSection wasmModule SectionId.Export ur parseExportSec secsSummary
+  secsSummary
+  |> updateSection bs reader wasmModule SectionId.Export ur parseExportSec
 
-let updateStartSection wasmModule secsSummary =
+let updateStartSection bs reader wasmModule secsSummary =
   let ur wm sec =
     { wm with StartSection = Some sec }
-  updateSection wasmModule SectionId.Start ur parseStartSec secsSummary
+  secsSummary
+  |> updateSection bs reader wasmModule SectionId.Start ur parseStartSec
 
-let updateElementSection wasmModule secsSummary =
+let updateElementSection bs reader wasmModule secsSummary =
   let ur wm sec =
     { wm with ElementSection = Some sec }
-  updateSection wasmModule SectionId.Element ur parseElementSec secsSummary
+  secsSummary
+  |> updateSection bs reader wasmModule SectionId.Element ur parseElementSec
 
-let updateCodeSection wasmModule secsSummary =
+let updateCodeSection bs reader wasmModule secsSummary =
   let ur wm sec =
     { wm with CodeSection = Some sec }
-  updateSection wasmModule SectionId.Code ur parseCodeSec secsSummary
+  secsSummary
+  |> updateSection bs reader wasmModule SectionId.Code ur parseCodeSec
 
-let updateDataSection wasmModule secsSummary =
+let updateDataSection bs reader wasmModule secsSummary =
   let ur wm sec =
     { wm with DataSection = Some sec }
-  updateSection wasmModule SectionId.Data ur parseDataSec secsSummary
+  secsSummary
+  |> updateSection bs reader wasmModule SectionId.Data ur parseDataSec
 
 let renameSecSumm (sm: SectionSummary) (secConts: CustomContents option) =
   let name =
@@ -189,10 +201,10 @@ let addSecSummToSecsInfo (secSumm: SectionSummary) (info: SectionsInfo) =
       SecArray = Array.append info.SecArray [| secSumm |]
   }
 
-let private parseWasmModule reader offset =
-  let version = Header.peekFormatVersion reader (offset + 4)
+let private parseWasmModule (bs: byte[]) (reader: IBinReader) offset =
+  let version = Header.peekFormatVersion (ReadOnlySpan bs) reader (offset + 4)
   let contOff = offset + 8
-  let secsSummary = summerizeSections reader contOff
+  let secsSummary = summerizeSections bs reader contOff
   if not (validateSectionsOrder secsSummary)
   then raise InvalidFileTypeException
   else
@@ -206,43 +218,43 @@ let private parseWasmModule reader offset =
         else addSecSummToSecsInfo secSumm info
     match secSumm.Id with
     | SectionId.Custom ->
-      let wm, sm = updateCustomSection wasmModule secsSummary
+      let wm, sm = updateCustomSection bs reader wasmModule secsSummary
       let lastCS = List.last wm.CustomSections
       let secSumm' = renameSecSumm secSumm lastCS.Contents
       let updatedInfo = addSecSummToSecsInfo secSumm' info'
       parsingLoop wm updatedInfo sm
     | SectionId.Type ->
-      let wm, sm = updateTypeSection wasmModule secsSummary
+      let wm, sm = updateTypeSection bs reader wasmModule secsSummary
       parsingLoop wm info' sm
     | SectionId.Import ->
-      let wm, sm = updateImportSection wasmModule secsSummary
+      let wm, sm = updateImportSection bs reader wasmModule secsSummary
       parsingLoop wm info' sm
     | SectionId.Function ->
-      let wm, sm = updateFunctionSection wasmModule secsSummary
+      let wm, sm = updateFunctionSection bs reader wasmModule secsSummary
       parsingLoop wm info' sm
     | SectionId.Table ->
-      let wm, sm = updateTableSection wasmModule secsSummary
+      let wm, sm = updateTableSection bs reader wasmModule secsSummary
       parsingLoop wm info' sm
     | SectionId.Memory ->
-      let wm, sm = updateMemorySection wasmModule secsSummary
+      let wm, sm = updateMemorySection bs reader wasmModule secsSummary
       parsingLoop wm info' sm
     | SectionId.Global ->
-      let wm, sm = updateGlobalSection wasmModule secsSummary
+      let wm, sm = updateGlobalSection bs reader wasmModule secsSummary
       parsingLoop wm info' sm
     | SectionId.Export ->
-      let wm, sm = updateExportSection wasmModule secsSummary
+      let wm, sm = updateExportSection bs reader wasmModule secsSummary
       parsingLoop wm info' sm
     | SectionId.Start ->
-      let wm, sm = updateStartSection wasmModule secsSummary
+      let wm, sm = updateStartSection bs reader wasmModule secsSummary
       parsingLoop wm info' sm
     | SectionId.Element ->
-      let wm, sm = updateElementSection wasmModule secsSummary
+      let wm, sm = updateElementSection bs reader wasmModule secsSummary
       parsingLoop wm info' sm
     | SectionId.Code ->
-      let wm, sm = updateCodeSection wasmModule secsSummary
+      let wm, sm = updateCodeSection bs reader wasmModule secsSummary
       parsingLoop wm info' sm
     | SectionId.Data ->
-      let wm, sm = updateDataSection wasmModule secsSummary
+      let wm, sm = updateDataSection bs reader wasmModule secsSummary
       parsingLoop wm info' sm
     | _ -> wasmModule
   let wasmModule = {
@@ -265,7 +277,6 @@ let private parseWasmModule reader offset =
         SecArray = Array.empty
       }
     IndexMap = Array.empty
-    BinReader = reader
   }
   parsingLoop wasmModule wasmModule.SectionsInfo secsSummary
 
@@ -275,6 +286,7 @@ let buildFuncIndexMap (wm: WasmModule) =
       Index = idx
       Kind = IndexKind.Function
       ElemOffset = elemOff }
+
   let importedFuncs, impSecOff =
     match wm.ImportSection with
     | Some sec ->
@@ -322,9 +334,8 @@ let buildModuleIndexMap wm =
       IndexMap = buildFuncIndexMap wm
   }
 
-let parse bytes =
-  let reader = BinReader.Init (bytes, Endian.Little)
-  if Header.isWasm reader 0 then ()
+let parse (bs: byte[]) =
+  if Header.isWasm (ReadOnlySpan bs) BinReader.binReaderLE then ()
   else raise FileFormatMismatchException
-  parseWasmModule reader 0
+  parseWasmModule bs BinReader.binReaderLE 0
   |> buildModuleIndexMap

@@ -1,7 +1,6 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net5.0</TargetFramework>
     <PackageLicenseFile>LICENSE.md</PackageLicenseFile>
     <PackageIcon>b2r2-240x240.png</PackageIcon>
     <PackageReadmeFile>README.md</PackageReadmeFile>
@@ -10,6 +9,8 @@
 
   <ItemGroup>
     <Compile Include="Helper.fs" />
+    <Compile Include="Basis.fs" />
+    <Compile Include="Parser.fs" />
     <Compile Include="BinHandle.fsi" />
     <Compile Include="BinHandle.fs" />
     <Compile Include="CallingConvention.fsi" />
@@ -30,8 +31,12 @@
     <ProjectReference Include="..\BinLifter\AVR\B2R2.FrontEnd.BinLifter.AVR.fsproj" />
     <ProjectReference Include="..\BinLifter\MIPS\B2R2.FrontEnd.BinLifter.MIPS.fsproj" />
     <ProjectReference Include="..\BinLifter\EVM\B2R2.FrontEnd.BinLifter.EVM.fsproj" />
+    <ProjectReference Include="..\BinLifter\PPC32\B2R2.FrontEnd.BinLifter.PPC32.fsproj" />
+    <ProjectReference Include="..\BinLifter\RISCV\B2R2.FrontEnd.BinLifter.RISCV.fsproj" />
     <ProjectReference Include="..\BinLifter\TMS320C6000\B2R2.FrontEnd.BinLifter.TMS320C6000.fsproj" />
     <ProjectReference Include="..\BinLifter\CIL\B2R2.FrontEnd.BinLifter.CIL.fsproj" />
+    <ProjectReference Include="..\BinLifter\SH4\B2R2.FrontEnd.BinLifter.SH4.fsproj" />
     <ProjectReference Include="..\BinLifter\Optimizer\B2R2.FrontEnd.BinLifter.Optimizer.fsproj" />
+    <ProjectReference Include="..\BinLifter\WASM\B2R2.FrontEnd.BinLifter.WASM.fsproj" />
   </ItemGroup>
 </Project>

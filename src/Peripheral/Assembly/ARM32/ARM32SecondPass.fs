@@ -26,17 +26,17 @@ module B2R2.Peripheral.Assembly.ARM32.SecondPass
 
 open B2R2
 open B2R2.FrontEnd.BinLifter.ARM32
-open B2R2.Peripheral.Assembly.ARM32
+open B2R2.Peripheral.Assembly.ARM32.ParserHelper
 
-let updateOperands insAddress operandList labelToAddress =
+let updateOperands _insAddress operandList labelToAddress =
   let rec doChecking operands (mapping: Map<string, Addr>) result =
     match operands with
-    | [] -> ParserHelper.extractOperands (List.rev result)
+    | [] -> extractOperands (List.rev result)
     | hd :: tail ->
       match hd with
       | GoToLabel (a1) ->
         if mapping.ContainsKey a1 then
-          let lblAddr = mapping.[a1]
+          let lblAddr = mapping[a1]
           let value = LiteralMode (int64 lblAddr) |> OprMemory
           doChecking tail mapping (value :: result)
         else
@@ -47,13 +47,13 @@ let updateOperands insAddress operandList labelToAddress =
 
 /// This is the second pass. UpdateInsInfos replaces every occurance of Labels
 /// coming as operands by their relative address values.
-let updateInsInfos (insInfoList: InsInfo List) labelToAddress =
+let updateInsInfos (insInfoList: AsmInsInfo list) labelToAddress =
   let rec doUpdate insInfos mapping result =
     match insInfos with
     | [] -> List.rev result
     | hd :: tail ->
       let operands = hd.Operands
-      let operands = ParserHelper.getOperandsAsList operands
+      let operands = getOperandsAsList operands
       let operands = updateOperands hd.Address operands mapping
       let newInsInfo = {hd with Operands = operands}
       doUpdate tail mapping (newInsInfo :: result)

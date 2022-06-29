@@ -24,12 +24,27 @@
 
 module B2R2.Peripheral.Assembly.ARM32.ParserHelper
 
+open B2R2
 open B2R2.FrontEnd.BinLifter.ARM32
 open FParsec
 
+type AsmInsInfo = {
+  Address: Addr
+  NumBytes: uint32
+  Condition: Condition
+  Opcode: Opcode
+  Operands: Operands
+  ITState: byte
+  WriteBack: bool
+  Qualifier: Qualifier
+  SIMDTyp: SIMDDataTypes option
+  Mode: ArchOperationMode
+  Cflag: bool option
+}
+
 type AssemblyLine =
   | LabelDefLine
-  | InstructionLine of InsInfo
+  | InstructionLine of AsmInsInfo
 
 /// Updates the dummy offset value by substituing the reg field of the dummy
 /// offset value by the register given.
@@ -142,18 +157,18 @@ let getPSRFlagFromStr (str: string) =
 
 let optionOprFromStr (str: string) =
   match str.ToLower () with
-  | "sy" -> SY
-  | "st" -> ST
-  | "ld" -> LD
-  | "ish" -> ISH
-  | "ishst" -> ISHST
-  | "ishld" -> ISHLD
-  | "nsh" -> NSH
-  | "nshst" -> NSHST
-  | "nshld" -> NSHLD
-  | "osh" -> OSH
-  | "oshst" -> OSHST
-  | "oshld" -> OSHLD
+  | "sy" -> BarrierOption.SY
+  | "st" -> BarrierOption.ST
+  | "ld" -> BarrierOption.LD
+  | "ish" -> BarrierOption.ISH
+  | "ishst" -> BarrierOption.ISHST
+  | "ishld" -> BarrierOption.ISHLD
+  | "nsh" -> BarrierOption.NSH
+  | "nshst" -> BarrierOption.NSHST
+  | "nshld" -> BarrierOption.NSHLD
+  | "osh" -> BarrierOption.OSH
+  | "oshst" -> BarrierOption.OSHST
+  | "oshld" -> BarrierOption.OSHLD
   | _ -> failwith "unknown OptionOperand"
 
 let iFlagFromStr (str: string) =
@@ -194,7 +209,7 @@ let newInsInfo addr opcode c it w q simd oprs iLen mode cflag =
     Opcode = opcode
     Operands = oprs
     ITState = it
-    WriteBack = if w then Some w else None
+    WriteBack = w
     Qualifier = q
     SIMDTyp = simd
     Mode = mode

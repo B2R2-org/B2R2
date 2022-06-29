@@ -44,8 +44,8 @@ type SimpleArithEvaluator () =
         elif res = "" then
           doConcatenation (res + hd) tail errorPos
         else
-          let lastChar = res.[res.Length - 1]
-          let firstChar = hd.[0]
+          let lastChar = res[res.Length - 1]
+          let firstChar = hd[0]
           if System.Char.IsDigit lastChar && System.Char.IsDigit firstChar then
             doConcatenation (res + " " + hd) tail res.Length
           else

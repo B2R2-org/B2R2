@@ -22,8 +22,9 @@
   SOFTWARE.
 *)
 
-module internal B2R2.FrontEnd.BinFile.Mach.Fat
+module B2R2.FrontEnd.BinFile.Mach.Fat
 
+open System
 open B2R2
 
 type FatArch = {
@@ -34,25 +35,30 @@ type FatArch = {
   Align: int
 }
 
-let readFatArch (reader: BinReader) pos =
-  { CPUType = reader.PeekInt32 pos |> LanguagePrimitives.EnumOfValue
-    CPUSubType = reader.PeekInt32 (pos + 4) |> LanguagePrimitives.EnumOfValue
-    Offset = reader.PeekInt32 (pos + 8)
-    Size = reader.PeekInt32 (pos + 12)
-    Align = reader.PeekInt32 (pos + 16) }
+let private readFatArch (span: ByteSpan) (r: IBinReader) pos =
+  { CPUType = r.ReadInt32 (span, pos) |> LanguagePrimitives.EnumOfValue
+    CPUSubType = r.ReadInt32 (span, pos + 4) |> LanguagePrimitives.EnumOfValue
+    Offset = r.ReadInt32 (span, pos + 8)
+    Size = r.ReadInt32 (span, pos + 12)
+    Align = r.ReadInt32 (span, pos + 16) }
 
-let rec loadFat acc reader pos cnt =
+let rec private loadFatAux acc span reader pos cnt =
   if cnt = 0 then acc
-  else let arch = readFatArch reader pos
-       loadFat (arch :: acc) reader (pos + 20) (cnt - 1)
+  else
+    let arch = readFatArch span reader pos
+    loadFatAux (arch :: acc) span reader (pos + 20) (cnt - 1)
 
-let matchISA isa fatArch =
+let loadFats (span: ByteSpan) (reader: IBinReader) =
+  let nArch = reader.ReadInt32 (span, 4)
+  loadFatAux [] span reader 8 nArch
+
+let private matchISA isa fatArch =
   let arch = Header.cpuTypeToArch fatArch.CPUType fatArch.CPUSubType
   isa.Arch = arch
 
-let computeOffsetAndSize (reader: BinReader) isa =
-  let reader = BinReader.RenewReader reader Endian.Big
-  let nArch = reader.PeekInt32 4
-  match loadFat [] reader 8 nArch |> List.tryFind (matchISA isa) with
-  | None -> raise InvalidISAException
-  | Some fatArch -> fatArch.Offset, fatArch.Size
+let rec findMatchingFatRecord isa fats =
+  match fats with
+  | fatArch :: tl ->
+    if matchISA isa fatArch then fatArch
+    else findMatchingFatRecord isa tl
+  | [] -> raise InvalidISAException

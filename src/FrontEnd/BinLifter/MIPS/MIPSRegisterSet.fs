@@ -27,18 +27,18 @@ namespace B2R2.FrontEnd.BinLifter.MIPS
 open B2R2
 
 module private RegisterSetLiteral =
-  let [<Literal>] arrLen = 2
+  let [<Literal>] ArrLen = 2
 
 open RegisterSetLiteral
 
 type MIPSRegisterSet (bitArray: uint64 [], s: Set<RegisterID>) =
   inherit NonEmptyRegisterSet (bitArray, s)
 
-  new () = MIPSRegisterSet (RegisterSet.MakeInternalBitArray arrLen, Set.empty)
+  new () = MIPSRegisterSet (RegisterSet.MakeInternalBitArray ArrLen, Set.empty)
 
   override __.Tag = RegisterSetTag.MIPS
 
-  override __.ArrSize = arrLen
+  override __.ArrSize = ArrLen
 
   override __.New arr s = new MIPSRegisterSet (arr, s) :> RegisterSet
 
@@ -186,7 +186,7 @@ type MIPSRegisterSet (bitArray: uint64 [], s: Set<RegisterID>) =
     |> Register.toRegID
 
   override __.ToString () =
-    sprintf "MIPSRegisterSet<%x, %x>" __.BitArray.[0] __.BitArray.[1]
+    sprintf "MIPSRegisterSet<%x, %x>" __.BitArray[0] __.BitArray[1]
 
 [<RequireQualifiedAccess>]
 module MIPSRegisterSet =

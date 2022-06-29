@@ -26,32 +26,40 @@ module internal B2R2.FrontEnd.BinLifter.ARM32.ParseUtils
 
 open B2R2
 open B2R2.FrontEnd.BinLifter.ARM32
-open B2R2.FrontEnd.BinLifter
 
-let extract binary n1 n2 =
-  let m, n = if max n1 n2 = n1 then n1, n2 else n2, n1
-  let range = m - n + 1u
-  if range > 31u then failwith "invaild range" else ()
-  let mask = pown 2 (int range) - 1 |> uint32
-  binary >>> int n &&& mask
+let inline extract (binary: uint32) m n =
+  (binary >>> n) &&& ((1u <<< (m - n + 1)) - 1u)
 
-let pickBit binary (pos: uint32) = binary >>> int pos &&& 0b1u
+let inline pickTwo (binary: uint32) n =
+  (binary >>> n) &&& 0b11u
 
-let concat (n1: uint32) (n2: uint32) shift = (n1 <<< shift) + n2
+let inline pickThree (binary: uint32) n =
+  (binary >>> n) &&& 0b111u
 
-let halve bin = bin &&& 0x0000ffffu, bin >>> 16
+let inline pickFour (binary: uint32) n =
+  (binary >>> n) &&& 0b1111u
+
+let inline pickFive (binary: uint32) n =
+  (binary >>> n) &&& 0b11111u
+
+let inline pickBit (binary: uint32) pos =
+  (binary >>> pos) &&& 0b1u
+
+let inline concat (n1: uint32) (n2: uint32) shift =
+  (n1 <<< shift) + n2
+
+let halve bin = struct (bin &&& 0x0000ffffu, bin >>> 16)
 
 let align (x: uint64) (y: uint64) = y * (x / y)
 
 /// The DecodeImmShift() function in the manual.
 let decodeImmShift typ imm5 =
   match typ with
-  | 0b00u -> SRTypeLSL, imm5
-  | 0b01u -> SRTypeLSR, if imm5 = 0ul then 32ul else imm5
-  | 0b10u -> SRTypeASR, if imm5 = 0ul then 32ul else imm5
-  | 0b11u when imm5 = 0ul -> SRTypeRRX, 1ul
-  | 0b11u -> SRTypeROR, imm5
-  | _ -> raise InvalidTypeException
+  | 0b00u -> struct (SRTypeLSL, imm5)
+  | 0b01u -> struct (SRTypeLSR, if imm5 = 0ul then 32ul else imm5)
+  | 0b10u -> struct (SRTypeASR, if imm5 = 0ul then 32ul else imm5)
+  | 0b11u when imm5 = 0ul -> struct (SRTypeRRX, 1ul)
+  | _ (* 0b11u *) -> struct (SRTypeROR, imm5)
 
 /// The DecodeRegShift() function in the manual.
 let decodeRegShift = function
@@ -59,7 +67,7 @@ let decodeRegShift = function
   | 0b01u -> SRTypeLSR
   | 0b10u -> SRTypeASR
   | 0b11u -> SRTypeROR
-  | _ -> raise InvalidTypeException
+  | _ -> Utils.impossible ()
 
 /// Test if the current instruction is in an IT block.
 let inITBlock itstate = List.isEmpty itstate |> not
@@ -94,22 +102,9 @@ let signExtend bitSize extSize (imm: uint64) =
     BigInteger.getMask extSize - BigInteger.getMask bitSize ||| (bigint imm)
     |> uint64
 
-let private getThumbLen (reader: BinReader) pos =
-  let b = reader.PeekUInt16 pos
-  match b >>> 11 with
-  | 0x1dus | 0x1eus | 0x1fus -> 4
-  | _ -> 2
-
-let getInstrLen reader offset = function
-  | ArchOperationMode.ThumbMode -> getThumbLen reader offset |> uint64
-  | ArchOperationMode.ARMMode -> 4UL
-  | _ -> raise InvalidTargetArchModeException
-
 let isUnconditional cond =
   match cond with
-  | None
-  | Some Condition.AL
-  | Some Condition.UN -> true
+  | Condition.AL | Condition.UN -> true
   | _ -> false
 
 // vim: set tw=80 sts=2 sw=2:

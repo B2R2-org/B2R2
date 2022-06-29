@@ -1268,7 +1268,7 @@ let getCtrlReg crHi crLo =
   | 0b00000u, 0b11001u -> R.DIER
   | 0b00000u, 0b10001u -> R.DNUM
   | 0b00000u, 0b11101u -> R.ECR
-  | 0b00000u, 0b11101u -> R.EFR
+  (* | 0b00000u, 0b11101u -> R.EFR *) // XXX: depending on the MVC
   | 0b00000u, 0b10010u -> R.FADCR
   | 0b00000u, 0b10011u -> R.FAUCR
   | 0b00000u, 0b10100u -> R.FMCR
@@ -1813,8 +1813,17 @@ let private parseCase010 bin =
 
 let private parseCase110 bin =
   let x, s = xBit bin, sBit bin
+  let creg = extract bin 31u 29u
   match extract bin 11u 5u with
   | 0b0011010u -> parseLUnitUnary bin
+  (* parseLUnitNonCond, D-3 *)
+  | 0b0001110u when creg = 0b0001u ->
+    parseSiXSiDi bin Op.SADDSUB (getLUnit s x)
+  | 0b0001111u when creg = 0b0001u ->
+    parseSiXSiDi bin Op.SADDSUB2 (getLUnit s x)
+  | 0b0110011u -> parseSiXSiDi bin Op.DPACKX2 (getLUnit s x)
+  | 0b0110100u -> parseSiXSiDi bin Op.DPACK2 (getLUnit s x)
+  | 0b0110110u -> parseSiXSiDi bin Op.SHFL3 (getLUnit s x)
   (* parseLUnitSrcs, D-1 *)
   | 0b0000000u -> parseI2Xi2I2 bin Op.PACK2 (getLUnit s x)
   | 0b0000001u -> parseDpSi bin Op.DPTRUNC (getLUnit s x)
@@ -1918,12 +1927,6 @@ let private parseCase110 bin =
   | 0b1111110u when isSrc1Zero bin -> parseXUiUi bin Op.MV (getLUnit s x)
   | 0b1111110u -> parseSc5XUiUi bin Op.OR (getLUnit s x)
   | 0b1111111u -> parseUiXUiUi bin Op.OR (getLUnit s x)
-  (* parseLUnitNonCond, D-3 *)
-  | 0b0001110u -> parseSiXSiDi bin Op.SADDSUB (getLUnit s x)
-  | 0b0001111u -> parseSiXSiDi bin Op.SADDSUB2 (getLUnit s x)
-  | 0b0110011u -> parseSiXSiDi bin Op.DPACKX2 (getLUnit s x)
-  | 0b0110100u -> parseSiXSiDi bin Op.DPACK2 (getLUnit s x)
-  | 0b0110110u -> parseSiXSiDi bin Op.SHFL3 (getLUnit s x)
   (* parseSUnitAddSubFloat, F-2 *)
   | 0b1110000u -> parseSpXSpSp bin Op.ADDSP (getSUnit s x)
   | 0b1110001u -> parseSpXSpSp bin Op.SUBSP (getSUnit s x)
@@ -1969,13 +1972,12 @@ let private parseInstruction bin =
   | 0b01u -> parseDUnitLoadStore bin
   | _ (* 0b11u *) -> parseDUnitLongImm bin
 
-let parse (reader: BinReader) (inParallel: byref<bool>) addr pos =
-  let struct (bin, nextPos) = reader.ReadUInt32 pos
-  let instrLen = nextPos - pos |> uint32
+let parse (span: ByteSpan) reader (inParallel: byref<bool>) addr =
+  let bin = (reader: IBinReader).ReadUInt32 (span, 0)
   let struct (opcode, unit, operands) = parseInstruction bin
   let insInfo =
     { Address = addr
-      NumBytes = instrLen
+      NumBytes = 4u
       Opcode = opcode
       Operands = operands
       FunctionalUnit = unit
@@ -1983,6 +1985,6 @@ let parse (reader: BinReader) (inParallel: byref<bool>) addr pos =
       IsParallel = inParallel
       EffectiveAddress = 0UL }
   inParallel <- pBit bin <> 0u
-  TMS320C6000Instruction (addr, instrLen, insInfo)
+  TMS320C6000Instruction (addr, 4u, insInfo)
 
 // vim: set tw=80 sts=2 sw=2:

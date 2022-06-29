@@ -24,6 +24,7 @@
 
 namespace B2R2.FrontEnd.BinFile
 
+open System
 open B2R2
 
 /// Raised when accessing an invalid address of a binary file.
@@ -40,19 +41,19 @@ type SymbolKind =
   /// The symbol type is not specified.
   | NoType
   /// The symbol is associated with a data object, such as a variable.
-  | ObjectType
+  | SymObjectType
   /// The symbol is associated with a general function.
-  | FunctionType
+  | SymFunctionType
   /// The symbol is associated with an external (imported) function.
-  | ExternFunctionType
+  | SymExternFunctionType
   /// The symbol is associated with a trampoline instruction, such as PLT.
-  | TrampolineType
+  | SymTrampolineType
   /// The symbol is associated with a section.
-  | SectionType
+  | SymSectionType
   /// The symbol gives the name of the source file associated with the obj file.
-  | FileType
+  | SymFileType
   /// The symbol is associated with a forwarding entry.
-  | ForwardType of bin: string * func: string
+  | SymForwardType of bin: string * func: string
 
 /// Is the symbol used for static target (static link editor) or dynamic target
 /// (dynamic linker)?
@@ -95,7 +96,7 @@ type SectionKind =
 type Section = {
   /// Address of the section.
   Address: Addr
-  /// File offset of the seciton.
+  /// File offset of the section.
   FileOffset: uint64
   /// Section kind.
   Kind: SectionKind
@@ -137,7 +138,7 @@ type FileType =
 
 /// File permission. Each permission corresponds to a bit, and thus, multiple
 /// permissions can be OR-ed.
-[<System.FlagsAttribute>]
+[<Flags>]
 type Permission =
   /// File is readable.
   | Readable = 4
@@ -146,13 +147,27 @@ type Permission =
   /// File is executable.
   | Executable = 1
 
+module Permission =
+  /// Permission to string.
+  [<CompiledName ("ToString")>]
+  let toString (p: Permission) =
+    let r = if p.HasFlag Permission.Readable then "r" else "-"
+    let w = if p.HasFlag Permission.Writable then "w" else "-"
+    let x = if p.HasFlag Permission.Executable then "x" else "-"
+    r + w + x
+
 /// A segment is a block of code/data that is loaded in the real memory at
 /// runtime. A segment can contain multiple sections in it.
 type Segment = {
   /// Address of the segment.
   Address: Addr
+  /// Offset in the file.
+  Offset: uint64
   /// Size of the segment.
   Size: uint64
+  /// Size of the corresponding segment in file. This can be smaller than
+  /// `Size` in which case the missing part is filled with zeros.
+  SizeInFile: uint64
   /// Permission of the segment.
   Permission: Permission
 }

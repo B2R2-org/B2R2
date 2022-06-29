@@ -24,6 +24,7 @@
 
 module B2R2.FrontEnd.BinLifter.MIPS.Parser
 
+open System
 open B2R2
 open B2R2.FrontEnd.BinLifter.MIPS.Helper
 open B2R2.FrontEnd.BinLifter.MIPS.Utils
@@ -31,11 +32,15 @@ open B2R2.FrontEnd.BinLifter.MIPS.Utils
 /// Check encoded field value
 let nd binary target = pickBit binary 17u = target
 let tf binary target = pickBit binary 16u = target
+let ztf binary target = extract binary 17u 16u (* 0:tf *) = target
 let cc binary target = extract binary 10u 8u = target
 let chk10to0 binary target = extract binary 10u 0u = target
 let chk10to6 binary target = extract binary 10u 6u = target
 let chk15to6 binary target = extract binary 15u 6u = target
+let chk15to11 binary target = extract binary 15u 11u = target
+let chk20to6 binary target = extract binary 20u 6u = target
 let chk20to16 binary target = extract binary 20u 16u = target
+let chk25to11 binary target = extract binary 25u 11u = target
 let chk25to21 binary target = extract binary 25u 21u = target
 
 let parseNOP binary =
@@ -108,32 +113,50 @@ let parseMFLO arch binary =
 let parseSPECIAL arch bin =
   match extract bin 5u 0u with
   | 0b000000u -> parseSLL bin
-  | 0b000001u -> failwith "MOVCI"
+  | 0b000001u when chk10to6 bin 0u && ztf bin 0b00u && isRel2 arch ->
+    Op.MOVF, None, None, getRdRsCc bin
+  | 0b000001u when chk10to6 bin 0u && ztf bin 0b01u && isRel2 arch ->
+    Op.MOVT, None, None, getRdRsCc bin
   | 0b000010u when chk25to21 bin 0u -> Op.SRL, None, None, getRdRtSa bin
   | 0b000010u when chk25to21 bin 1u -> Op.ROTR, None, None, getRdRtSa bin
   | 0b000011u when chk25to21 bin 0u -> Op.SRA, None, None, getRdRtSa bin
   | 0b000100u when chk10to6 bin 0u -> Op.SLLV, None, None, getRdRtRs bin
   | 0b000101u -> failwith "LSA"
   | 0b000110u when chk10to6 bin 0u -> Op.SRLV, None, None, getRdRtRs bin
-  | 0b000111u -> failwith "SRAV"
+  | 0b000110u when chk10to6 bin 1u && isRel2 arch ->
+    Op.ROTRV, None, None, getRdRtRs bin
+  | 0b000111u when chk10to6 bin 0u -> Op.SRAV, None, None, getRdRtRs bin
   | 0b001000u -> parseJR bin
   | 0b001001u -> parseJALR bin
   | 0b001010u when chk10to6 bin 0u -> Op.MOVZ, None, None, getRdRsRt bin
   | 0b001011u when chk10to6 bin 0u -> Op.MOVN, None, None, getRdRsRt bin
+  | 0b001101u -> Op.BREAK, None, None, NoOperand
+  | 0b001111u when chk25to11 bin 0u -> Op.SYNC, None, None, getStype bin
   | 0b010000u -> parseMFHI arch bin
+  | 0b010001u when isRel2 arch && chk20to6 bin 0u ->
+    Op.MTHI, None, None, getRs bin
   | 0b010010u -> parseMFLO arch bin
+  | 0b010011u when isRel2 arch && chk20to6 bin 0u ->
+    Op.MTLO, None, None, getRs bin
   | 0b010100u when chk10to6 bin 0u && isMIPS64 arch ->
     Op.DSLLV, None, None, getRdRtRs bin
   | 0b010110u when chk10to6 bin 0u && isMIPS64 arch ->
     Op.DSRLV, None, None, getRdRtRs bin
+  | 0b010110u when chk10to6 bin 1u && isMIPS64R2 arch ->
+    Op.DROTRV, None, None, getRdRtRs bin
+  | 0b010111u when chk10to6 bin 0u && isMIPS64 arch ->
+    Op.DSRAV, None, None, getRdRtRs bin
   | 0b011000u when chk15to6 bin 0u && isRel2 arch ->
     Op.MULT, None, None, getRsRt bin
   | 0b011001u when chk15to6 bin 0u -> Op.MULTU, None, None, getRsRt bin
+  | 0b011010u when chk15to6 bin 0u -> Op.DIV, None, None, getRsRt bin
   | 0b011011u -> parseDIVU arch bin
   | 0b011100u when chk15to6 bin 0u && isMIPS64R2 arch ->
     Op.DMULT, None, None, getRsRt bin
   | 0b011101u when chk15to6 bin 0u && isMIPS64R2 arch ->
     Op.DMULTU, None, None, getRsRt bin
+  | 0b011110u when chk15to6 bin 0u && isMIPS64R2 arch ->
+    Op.DDIV, None, None, getRsRt bin
   | 0b011111u when chk15to6 bin 0u && isMIPS64R2 arch ->
     Op.DDIVU, None, None, getRsRt bin
   | 0b100000u when chk10to6 bin 0u -> Op.ADD, None, None, getRdRsRt bin
@@ -162,6 +185,8 @@ let parseSPECIAL arch bin =
     Op.DSLL32, None, None, getRdRtSa bin
   | 0b111110u when chk25to21 bin 0u && isMIPS64 arch ->
     Op.DSRL32, None, None, getRdRtSa bin
+  | 0b111110u when chk25to21 bin 1u && isMIPS64R2 arch ->
+    Op.DROTR32, None, None, getRdRtSa bin
   | 0b111111u when chk25to21 bin 0u && isMIPS64 arch ->
     Op.DSRA32, None, None, getRdRtSa bin
   | _ -> failwith "Not Implemented."
@@ -185,8 +210,14 @@ let parseSPECIAL2 arch bin =
   match extract bin 5u 0u with
   | 0b000000u when isRel2 arch && chk15to6 bin 0u ->
     Op.MADD, None, None, getRsRt bin
+  | 0b000001u when isRel2 arch && chk15to6 bin 0u ->
+    Op.MADDU, None, None, getRsRt bin
   | 0b000010u when isRel2 arch && chk10to6 bin 0u ->
     Op.MUL, None, None, getRdRsRt bin
+  | 0b000100u when isRel2 arch && chk15to6 bin 0u ->
+    Op.MSUB, None, None, getRsRt bin
+  | 0b000101u when isRel2 arch && chk15to6 bin 0u ->
+    Op.MSUBU, None, None, getRsRt bin
   | 0b100000u -> parseR2CLZ bin
   | 0b100100u when isMIPS64 arch -> parseR2DCLZ bin
   | _ -> failwith "Not Implemented."
@@ -200,8 +231,9 @@ let parseSignExt arch binary =
     Op.DALIGN, None, None, getRdRsRtBp binary
   | 0u, 0b100u, 0u -> Op.SEB, None, None, getRdRt binary
   | 0u, 0b110u, 0u -> Op.SEH, None, None, getRdRt binary
-  | 0u, 0u, 10u when isRel2 arch -> Op.WSBH, None, None, getRdRt binary
-  | a -> failwith "Not Implemented."
+  | 0u, 0u, 0b10u when isRel2 arch ->
+    Op.WSBH, None, None, getRdRt binary
+  | _ -> failwith "Not Implemented."
 
 /// Table A.6 MIPS64 SEPCIAL3 Encoding of Function Field for Release of the
 /// Architecture
@@ -222,6 +254,23 @@ let parseSPECIAL3 arch binary =
   | 0b000111u when isMIPS64R2 arch ->
     Op.DINS, None, None, getRtRsPosSize binary
   | 0b100000u -> parseSignExt arch binary
+  | 0b100100u when chk25to21 binary 0u && isMIPS64R2 arch (* DBSHFL *) ->
+    match extract binary 10u 6u with
+    | 0b00010u -> Op.DSBH, None, None, getRdRt binary
+    | 0b00101u -> Op.DSHD, None, None, getRdRt binary
+    | _ -> failwith "Not Implemented."
+  | 0b100110u when pickBit binary 6u = 0u && isRel6 arch ->
+    Op.SC, None, None, getRtMemBaseOff9 binary 32<rt>
+  | 0b100111u when pickBit binary 6u = 0u && isRel6 arch ->
+    Op.SCD, None, None, getRtMemBaseOff9 binary 64<rt>
+  | 0b110101u when pickBit binary 6u = 0u && isRel6 arch ->
+    Op.PREF, None, None, getHintMemBaseOff9 binary 32<rt>
+  | 0b110110u when pickBit binary 6u = 0u && isRel6 arch ->
+    Op.LL, None, None, getRtMemBaseOff9 binary 32<rt>
+  | 0b110111u when pickBit binary 6u = 0u && isMIPS64R6 arch ->
+    Op.LL, None, None, getRtMemBaseOff9 binary 64<rt>
+  | 0b111011u when extract binary 10u 9u = 0u ->
+    Op.RDHWR, None, None, getRtRdSel binary
   | _ -> failwith "Not Implemented."
 
 /// The MIPS64 Instruction Set Reference Manual, Revision 6.06
@@ -260,18 +309,30 @@ let parseCOP1WhenRsS arch binary =
   | 0b000001u -> Op.SUB, None, Some Fmt.S, getFdFsFt binary
   | 0b000010u -> Op.MUL, None, Some Fmt.S, getFdFsFt binary
   | 0b000011u -> Op.DIV, None, Some Fmt.S, getFdFsFt binary
+  | 0b000100u -> Op.SQRT, None, Some Fmt.S, getFdFs binary
+  | 0b000101u -> Op.ABS, None, Some Fmt.S, getFdFs binary
+  | 0b000110u when chk20to16 binary 0u ->
+    Op.MOV, None, Some Fmt.S, getFdFs binary
+  | 0b000111u when chk20to16 binary 0u ->
+    Op.NEG, None, Some Fmt.S, getFdFs binary
   | 0b001001u when chk20to16 binary 0u ->
     Op.TRUNCL, None, Some Fmt.S, getFdFs binary
   | 0b001101u when chk20to16 binary 0u ->
     Op.TRUNCW, None, Some Fmt.S, getFdFs binary
-  | 0b111100u when isRel2 arch && cc binary 0u ->
-    Op.C, Some Condition.LT, Some Fmt.S, getFsFt binary
-  | 0b111100u when isRel2 arch ->
-    Op.C, Some Condition.LT, Some Fmt.S, getCcFsFt binary
-  | 0b111110u when isRel2 arch && cc binary 0u ->
-    Op.C, Some Condition.LE, Some Fmt.S, getFsFt binary
-  | 0b111110u when isRel2 arch ->
-    Op.C, Some Condition.LE, Some Fmt.S, getCcFsFt binary
+  | 0b010001u when ztf binary 0b00u && isRel2 arch ->
+    Op.MOVF, None, Some Fmt.S, getFdFsCc binary
+  | 0b010001u when ztf binary 0b01u && isRel2 arch ->
+    Op.MOVT, None, Some Fmt.S, getFdFsCc binary
+  | 0b010010u when isRel2 arch -> Op.MOVZ, None, Some Fmt.S, getFdFsRt binary
+  | 0b010011u when isRel2 arch -> Op.MOVN, None, Some Fmt.S, getFdFsRt binary
+  | 0b010101u -> Op.RECIP, None, Some Fmt.S, getFdFs binary
+  | 0b010110u -> Op.RSQRT, None, Some Fmt.S, getFdFs binary
+  | 0b100001u when chk20to16 binary 0u ->
+    Op.CVTD, None, Some Fmt.S, getFdFs binary
+  | b when b &&& 0b110000u = 0b110000u && isRel2 arch ->
+    let oprFn = if cc binary 0u then getFsFt else getCcFsFt
+    let cond = getCondition (extract binary 3u 0u) |> Some
+    Op.C, cond, Some Fmt.S, oprFn binary
   | _ -> failwith "Not Implemented."
 
 /// Table A.19 MIPS64 COP1 Encoding of Function Field When rs=D, Revision 6.06
@@ -281,30 +342,38 @@ let parseCOP1WhenRsD arch binary =
   | 0b000001u -> Op.SUB, None, Some Fmt.D, getFdFsFt binary
   | 0b000010u -> Op.MUL, None, Some Fmt.D, getFdFsFt binary
   | 0b000011u -> Op.DIV, None, Some Fmt.D, getFdFsFt binary
+  | 0b000100u -> Op.SQRT, None, Some Fmt.D, getFdFs binary
+  | 0b000101u -> Op.ABS, None, Some Fmt.D, getFdFs binary
   | 0b000110u when chk20to16 binary 0u ->
     Op.MOV, None, Some Fmt.D, getFdFs binary
+  | 0b000111u when chk20to16 binary 0u ->
+    Op.NEG, None, Some Fmt.D, getFdFs binary
+  | 0b001001u when chk20to16 binary 0u ->
+    Op.TRUNCL, None, Some Fmt.D, getFdFs binary
   | 0b001101u when chk20to16 binary 0u ->
     Op.TRUNCW, None, Some Fmt.D, getFdFs binary
+  | 0b010001u when ztf binary 0b00u && isRel2 arch ->
+    Op.MOVF, None, Some Fmt.D, getFdFsCc binary
+  | 0b010001u when ztf binary 0b01u && isRel2 arch ->
+    Op.MOVT, None, Some Fmt.D, getFdFsCc binary
+  | 0b010010u when isRel2 arch -> Op.MOVZ, None, Some Fmt.D, getFdFsRt binary
+  | 0b010011u when isRel2 arch -> Op.MOVN, None, Some Fmt.D, getFdFsRt binary
+  | 0b010101u -> Op.RECIP, None, Some Fmt.D, getFdFs binary
+  | 0b010110u -> Op.RSQRT, None, Some Fmt.D, getFdFs binary
   | 0b100000u when chk20to16 binary 0u ->
     Op.CVTS, None, Some Fmt.D, getFdFs binary
-  | 0b110010u when isRel2 arch && cc binary 0u ->
-    Op.C, Some Condition.EQ, Some Fmt.D, getFsFt binary
-  | 0b110010u when isRel2 arch ->
-    Op.C, Some Condition.EQ, Some Fmt.D, getCcFsFt binary
-  | 0b111100u when isRel2 arch && cc binary 0u ->
-    Op.C, Some Condition.LT, Some Fmt.D, getFsFt binary
-  | 0b111100u when isRel2 arch ->
-    Op.C, Some Condition.LT, Some Fmt.D, getCcFsFt binary
-  | 0b111110u when isRel2 arch && cc binary 0u ->
-    Op.C, Some Condition.LE, Some Fmt.D, getFsFt binary
-  | 0b111110u when isRel2 arch ->
-    Op.C, Some Condition.LE, Some Fmt.D, getCcFsFt binary
+  | b when b &&& 0b110000u = 0b110000u && isRel2 arch ->
+    let oprFn = if cc binary 0u then getFsFt else getCcFsFt
+    let cond = getCondition (extract binary 3u 0u) |> Some
+    Op.C, cond, Some Fmt.D, oprFn binary
   | _ -> failwith "Not Implemented."
 
 /// Table A.20 MIPS64 COP1 Encoding of Function Field When rs=W or L,
 /// Revision 6.06
 let parseCOP1WhenRsW _arch binary =
   match extract binary 5u 0u with
+  | 0b100000u when chk20to16 binary 0u ->
+    Op.CVTS, None, Some Fmt.W, getFdFs binary
   | 0b100001u when chk20to16 binary 0u ->
     Op.CVTD, None, Some Fmt.W, getFdFs binary
   | _ -> failwith "Not Implemented."
@@ -325,9 +394,13 @@ let parseCOP1 arch binary =
   | 0b00001u when chk10to0 binary 0u && isMIPS64 arch ->
     Op.DMFC1, None, None, getRtFs binary
   | 0b00010u when chk10to0 binary 0u -> Op.CFC1, None, None, getRtFs binary
+  | 0b00011u when chk10to0 binary 0u && isRel2 arch ->
+    Op.MFHC1, None, None, getRtFs binary
   | 0b00100u when chk10to0 binary 0u -> Op.MTC1, None, None, getRtFs binary
-  | 0b00110u when chk10to0 binary 0u -> Op.CTC1, None, None, getRtFs binary
   | 0b00101u when chk10to0 binary 0u -> Op.DMTC1, None, None, getRtFs binary
+  | 0b00110u when chk10to0 binary 0u -> Op.CTC1, None, None, getRtFs binary
+  | 0b00111u when chk10to0 binary 0u && isRel2 arch ->
+    Op.MTHC1, None, None, getRtFs binary
   | 0b01000u when nd binary 0u && tf binary 0u ->
     Op.BC1F, None, None, getCcOff binary
   | 0b01000u when nd binary 0u && tf binary 1u ->
@@ -338,14 +411,42 @@ let parseCOP1 arch binary =
   | 0b10101u -> parseCOP1WhenRsL arch binary
   | _ -> failwith "Not Implemented."
 
-/// The MIPS64 Instrecutin Set Reference Manual, Revision 6.06
+/// Table A.24 MIPS64 COP1X6R1 Encoding of Function Field on page 588,
+/// Revision 6.06.
+let parseCOP1X arch binary =
+  match extract binary 5u 0u with
+  | 0b000000u when chk15to11 binary 0u && isRel2 arch ->
+    Op.LWXC1, None, None, getFdMemBaseIdx binary 32<rt>
+  | 0b000001u when chk15to11 binary 0u && isRel2 arch ->
+    Op.LDXC1, None, None, getFdMemBaseIdx binary 64<rt>
+  | 0b001000u when chk10to6 binary 0u && isRel2 arch ->
+    Op.SWXC1, None, None, getFsMemBaseIdx binary 32<rt>
+  | 0b001001u when chk10to6 binary 0u && isRel2 arch ->
+    Op.SDXC1, None, None, getFsMemBaseIdx binary 64<rt>
+  | 0b001111u when chk10to6 binary 0u && isRel2 arch ->
+    Op.PREFX, None, None, getHintMemBaseIdx binary 32<rt>
+  | 0b100000u when isRel2 arch -> Op.MADD, None, Some Fmt.S, getFdFrFsFt binary
+  | 0b100001u when isRel2 arch -> Op.MADD, None, Some Fmt.D, getFdFrFsFt binary
+  | 0b100110u when isRel2 arch ->
+    Op.MADD, None, Some Fmt.PS, getFdFrFsFt binary
+  | 0b101000u when isRel2 arch -> Op.MSUB, None, Some Fmt.S, getFdFrFsFt binary
+  | 0b101001u when isRel2 arch -> Op.MSUB, None, Some Fmt.D, getFdFrFsFt binary
+  | 0b101110u when isRel2 arch ->
+    Op.MSUB, None, Some Fmt.PS, getFdFrFsFt binary
+  | 0b110000u when isRel2 arch -> Op.NMADD, None, Some Fmt.S, getFdFrFsFt binary
+  | 0b110001u when isRel2 arch -> Op.NMADD, None, Some Fmt.D, getFdFrFsFt binary
+  | 0b110110u when isRel2 arch ->
+    Op.NMADD, None, Some Fmt.PS, getFdFrFsFt binary
+  | _ -> failwith "Not Implemented."
+
+/// The MIPS64 Instrecutin Set Reference Manual, MD00087, Revision 6.06
 /// Table A.2 MIPS64 Encoding of the Opcode Field
 let parseOpcodeField arch binary =
   match extract binary 31u 26u with
   | 0b000000u -> parseSPECIAL arch binary
   | 0b000001u -> parseREGIMM arch binary
-  | 0b000010u -> failwith "J"
-  | 0b000011u -> failwith "JAL"
+  | 0b000010u -> Op.J, None, None, getTarget binary
+  | 0b000011u -> Op.JAL, None, None, getTarget binary
   | 0b000100u -> parseBEQ binary
   | 0b000101u -> Op.BNE, None, None, getRsRtRel16 binary
   | 0b000110u -> parsePOP06 binary
@@ -361,26 +462,30 @@ let parseOpcodeField arch binary =
   | 0b010000u -> failwith "COP0"
   | 0b010001u -> parseCOP1 arch binary
   | 0b010010u -> failwith "COP2"
-  | 0b010011u -> failwith "COP1X"
+  | 0b010011u -> parseCOP1X arch binary
   | 0b010100u -> failwith "BEQL"
   | 0b010101u -> failwith "BNEL"
   | 0b010110u -> failwith "BLEZL/POP26"
   | 0b010111u -> failwith "BGTZL/POP27"
   | 0b011000u -> failwith "DADDI/POP30"
   | 0b011001u when isMIPS64 arch -> Op.DADDIU, None, None, getRtRsImm16s binary
-  | 0b011010u -> failwith "LDL"
-  | 0b011011u -> failwith "LDR"
+  | 0b011010u when isMIPS64R2 arch ->
+    Op.LDL, None, None, getRtMemBaseOff binary 64<rt>
+  | 0b011011u when isMIPS64R2 arch ->
+    Op.LDR, None, None, getRtMemBaseOff binary 64<rt>
   | 0b011100u -> parseSPECIAL2 arch binary
   | 0b011101u -> failwith "JALX/DAUI"
   | 0b011110u -> failwith "MSA"
   | 0b011111u -> parseSPECIAL3 arch binary
   | 0b100000u -> Op.LB, None, None, getRtMemBaseOff binary 8<rt>
   | 0b100001u -> Op.LH, None, None, getRtMemBaseOff binary 16<rt>
-  | 0b100010u -> failwith "LWL"
+  | 0b100010u when isRel2 arch ->
+    Op.LWL, None, None, getRtMemBaseOff binary 32<rt>
   | 0b100011u -> Op.LW, None, None, getRtMemBaseOff binary 32<rt>
   | 0b100100u -> Op.LBU, None, None, getRtMemBaseOff binary 8<rt>
   | 0b100101u -> Op.LHU, None, None, getRtMemBaseOff binary 16<rt>
-  | 0b100110u -> failwith "LWR"
+  | 0b100110u when isRel2 arch ->
+    Op.LWR, None, None, getRtMemBaseOff binary 32<rt>
   | 0b100111u when isMIPS64 arch ->
     Op.LWU, None, None, getRtMemBaseOff binary 32<rt>
   | 0b101000u -> Op.SB, None, None, getRtMemBaseOff binary 8<rt>
@@ -395,20 +500,25 @@ let parseOpcodeField arch binary =
   | 0b101110u when isRel2 arch ->
     Op.SWR, None, None, getRtMemBaseOff binary 32<rt>
   | 0b101111u -> failwith "CACHE"
-  | 0b110000u -> failwith "LL"
+  | 0b110000u when isRel2 arch (* pre-Release 6 *) ->
+    Op.LL, None, None, getRtMemBaseOff binary 32<rt>
   | 0b110001u -> Op.LWC1, None, None, getFtMemBaseOff binary 32<rt>
   | 0b110010u -> failwith "LWC2"
-  | 0b110011u -> failwith "PREF"
-  | 0b110100u -> failwith "LLD"
+  | 0b110011u when isRel2 arch (* pre-Release 6 *) ->
+    Op.PREF, None, None, getHintMemBaseOff binary 32<rt>
+  | 0b110100u when isMIPS64R2 arch (* MIPS64 pre-Release 6 *) ->
+    Op.LLD, None, None, getRtMemBaseOff binary 64<rt>
   | 0b110101u -> Op.LDC1, None, None, getFtMemBaseOff binary 64<rt>
   | 0b110110u -> failwith "LDC2/BEQZC/JIC/POP66"
   | 0b110111u when isMIPS64 arch ->
     Op.LD, None, None, getRtMemBaseOff binary 64<rt>
-  | 0b111000u -> failwith "SC"
+  | 0b111000u when isRel2 arch (* pre-Release 6 *) ->
+    Op.SC, None, None, getRtMemBaseOff binary 32<rt>
   | 0b111001u -> Op.SWC1, None, None, getFtMemBaseOff binary 32<rt>
   | 0b111010u -> failwith "SWC2/BALC"
   | 0b111011u -> failwith "PCREL"
-  | 0b111100u -> failwith "SDC"
+  | 0b111100u when isRel2 arch (* pre-Release 6 *) ->
+    Op.SCD, None, None, getRtMemBaseOff binary 64<rt>
   | 0b111101u -> Op.SDC1, None, None, getFtMemBaseOff binary 64<rt>
   | 0b111110u -> failwith "SDC2/BNEZC/JIALC/POP76"
   | 0b111111u when isMIPS64 arch ->
@@ -423,19 +533,18 @@ let getOperationSize opcode wordSz =
   | Op.SD -> 64<rt>
   | _ -> WordSize.toRegType wordSz
 
-let parse (reader: BinReader) arch wordSize addr pos =
-  let struct (bin, nextPos) = reader.ReadUInt32 pos
-  let instrLen = nextPos - pos |> uint32
+let parse (span: ReadOnlySpan<byte>) (reader: IBinReader) arch wordSize addr =
+  let bin = reader.ReadUInt32 (span, 0)
   let opcode, cond, fmt, operands = parseOpcodeField arch bin
   let insInfo =
     { Address = addr
-      NumBytes = instrLen
+      NumBytes = 4u
       Condition = cond
       Fmt = fmt
       Opcode = opcode
       Operands = operands
       OperationSize = getOperationSize opcode wordSize
       Arch = arch }
-  MIPSInstruction (addr, instrLen, insInfo, wordSize)
+  MIPSInstruction (addr, 4u, insInfo, wordSize)
 
 // vim: set tw=80 sts=2 sw=2:

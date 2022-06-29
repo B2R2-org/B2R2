@@ -29,6 +29,7 @@ open B2R2.BinIR
 open B2R2.BinIR.LowUIR
 open B2R2.BinIR.LowUIR.AST.InfixOp
 open B2R2.FrontEnd.BinLifter
+open B2R2.FrontEnd.BinLifter.LiftingUtils
 open B2R2.FrontEnd.BinLifter.EVM
 
 let inline private getRegVar (ctxt: TranslationContext) name =
@@ -41,9 +42,6 @@ let inline private startMark insInfo (builder: IRBuilder) =
 
 let inline private endMark insInfo (builder: IRBuilder) =
   builder <! (AST.iemark (insInfo.NumBytes)); builder
-
-let inline private numI32 n t = BitVector.ofInt32 n t |> AST.num
-let inline private numU64 n t = BitVector.ofUInt64 n t |> AST.num
 
 let inline private updateGas ctxt gas builder =
   let gasReg = getRegVar ctxt R.GAS
@@ -148,8 +146,7 @@ let mulmod insInfo ctxt =
   updateGas ctxt insInfo.GAS builder
   endMark insInfo builder
 
-let private makeNum i =
-  AST.num <| BitVector.ofInt32 i OperationSize.regType
+let private makeNum i = numI32 i OperationSize.regType
 
 let signextend insInfo ctxt =
   let builder = new IRBuilder (12)
@@ -231,7 +228,7 @@ let jump insInfo ctxt =
   try
     startMark insInfo builder
     let dst = popFromStack ctxt builder
-    let dstAddr = dst .+ (BitVector.ofUInt64 insInfo.Offset 256<rt> |> AST.num)
+    let dstAddr = dst .+ (numU64 insInfo.Offset 256<rt>)
     updateGas ctxt insInfo.GAS builder
     builder <! AST.interjmp dstAddr InterJmpKind.Base
     endMark insInfo builder
@@ -243,7 +240,7 @@ let jumpi insInfo ctxt =
   let builder = new IRBuilder (12)
   startMark insInfo builder
   let dst = popFromStack ctxt builder
-  let dstAddr = dst .+ (BitVector.ofUInt64 insInfo.Offset 256<rt> |> AST.num)
+  let dstAddr = dst .+ (numU64 insInfo.Offset 256<rt>)
   let cond = popFromStack ctxt builder
   let fall = numU64 (insInfo.Address + 1UL) 64<rt>
   updateGas ctxt insInfo.GAS builder
@@ -295,7 +292,7 @@ let callExternFunc insInfo ctxt name argCount doesRet =
   let args = List.init argCount (fun _ -> popFromStack ctxt builder)
   let expr = AST.app name args OperationSize.regType
   if doesRet then pushToStack ctxt expr builder
-  else builder <! ((builder.NewTempVar OperationSize.regType) := expr)
+  else builder <! (AST.sideEffect (ExternalCall expr))
   updateGas ctxt insInfo.GAS builder
   endMark insInfo builder
 
@@ -358,7 +355,7 @@ let translate insInfo (ctxt: TranslationContext) =
   | ADDRESS -> callExternFunc insInfo ctxt "address" 0 true
   | BALANCE -> callExternFunc insInfo ctxt "balance" 1 true
   | ORIGIN -> callExternFunc insInfo ctxt "tx.origin" 0 true
-  | CALLER -> callExternFunc insInfo ctxt "msg.caller" 0 true
+  | CALLER -> callExternFunc insInfo ctxt "msg.sender" 0 true
   | CALLVALUE -> callExternFunc insInfo ctxt "msg.value" 0 true
   | CALLDATALOAD -> callExternFunc insInfo ctxt "msg.data" 1 true
   | CALLDATASIZE -> callExternFunc insInfo ctxt "msg.data.size" 0 true
@@ -466,4 +463,3 @@ let translate insInfo (ctxt: TranslationContext) =
   | STATICCALL -> callExternFunc insInfo ctxt "staticcall" 6 true
   | INVALID -> sideEffects insInfo Terminate
   | SELFDESTRUCT -> selfdestruct insInfo ctxt
-  |> fun builder -> builder.ToStmts ()

@@ -27,18 +27,18 @@ namespace B2R2.FrontEnd.BinLifter.Intel
 open B2R2
 
 module private RegisterSetLiteral =
-  let [<Literal>] arrLen = 4
+  let [<Literal>] ArrLen = 4
 
 open RegisterSetLiteral
 
 type IntelRegisterSet (bitArray: uint64 [], s: Set<RegisterID>) =
   inherit NonEmptyRegisterSet (bitArray, s)
 
-  new () = IntelRegisterSet (RegisterSet.MakeInternalBitArray arrLen, Set.empty)
+  new () = IntelRegisterSet (RegisterSet.MakeInternalBitArray ArrLen, Set.empty)
 
   override __.Tag = RegisterSetTag.Intel
 
-  override __.ArrSize = arrLen
+  override __.ArrSize = ArrLen
 
   override __.New arr s = new IntelRegisterSet (arr, s) :> RegisterSet
 
@@ -472,8 +472,8 @@ type IntelRegisterSet (bitArray: uint64 [], s: Set<RegisterID>) =
     |> Register.toRegID
 
   override __.ToString () =
-    sprintf "IntelRegisterSet<%x, %x, %x, %x>" __.BitArray.[0] __.BitArray.[1]
-      __.BitArray.[2] __.BitArray.[3]
+    sprintf "IntelRegisterSet<%x, %x, %x, %x>" __.BitArray[0] __.BitArray[1]
+      __.BitArray[2] __.BitArray[3]
 
 [<RequireQualifiedAccess>]
 module IntelRegisterSet =

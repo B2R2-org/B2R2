@@ -22,34 +22,35 @@
   SOFTWARE.
 *)
 
-module internal B2R2.FrontEnd.BinFile.Mach.Header
+module B2R2.FrontEnd.BinFile.Mach.Header
 
+open System
 open B2R2
 open B2R2.FrontEnd.BinFile
 
-let peekMagic (reader: BinReader) offset =
-  if reader.Length() > offset + sizeof<uint32>
-  then reader.PeekUInt32 offset
+let internal peekMagic (span: ByteSpan) reader =
+  if span.Length > 4
+  then (reader: IBinReader).ReadUInt32 (span, 0)
   else 0ul
   |> LanguagePrimitives.EnumOfValue
 
-let isFat reader offset =
-  match peekMagic reader offset with
+let isFat span reader =
+  match peekMagic span reader with
   | Magic.FATCigam | Magic.FATMagic -> true
   | _ -> false
 
-let isMach reader offset =
-  match peekMagic reader offset with
+let isMach span reader =
+  match peekMagic span reader with
   | Magic.MHCigam | Magic.MHCigam64 | Magic.MHMagic | Magic.MHMagic64 -> true
-  | _ -> isFat reader offset
+  | _ -> isFat span reader
 
-let peekCPUType (reader: BinReader) offset =
-  offset + 4 |> reader.PeekInt32 |> LanguagePrimitives.EnumOfValue
+let internal peekCPUType (span: ByteSpan) (reader: IBinReader) =
+  reader.ReadInt32 (span, 4) |> LanguagePrimitives.EnumOfValue
 
-let peekCPUSubType (reader: BinReader) offset =
-  offset + 8 |> reader.PeekInt32 |> LanguagePrimitives.EnumOfValue
+let internal peekCPUSubType (span: ByteSpan) (reader: IBinReader) =
+  reader.ReadInt32 (span, 8) |> LanguagePrimitives.EnumOfValue
 
-let getMIPSISA = function
+let internal getMIPSArch = function
   | CPUSubType.MIPSAll
   | CPUSubType.MIPSR2300
   | CPUSubType.MIPSR2600
@@ -63,34 +64,35 @@ let cpuTypeToArch cputype subtype =
   | CPUType.X64 -> Arch.IntelX64
   | CPUType.ARM -> Arch.ARMv7
   | CPUType.ARM64 -> Arch.AARCH64
-  | CPUType.MIPS -> getMIPSISA subtype
+  | CPUType.MIPS -> getMIPSArch subtype
   | _ -> Arch.UnknownISA
 
-let peekArch reader offset =
-  let cputype = peekCPUType reader offset
-  let subtype = peekCPUSubType reader offset
+let internal peekArch span reader =
+  let cputype = peekCPUType span reader
+  let subtype = peekCPUSubType span reader
   cpuTypeToArch cputype subtype
 
-let peekClass reader offset =
-  match peekMagic reader offset with
+let internal peekClass span reader =
+  match peekMagic span reader with
   | Magic.MHMagic | Magic.MHCigam -> WordSize.Bit32
   | Magic.MHMagic64 | Magic.MHCigam64 -> WordSize.Bit64
   | _ -> raise FileFormatMismatchException
 
-let magicToEndian = function
+let internal magicToEndian = function
   | Magic.MHMagic | Magic.MHMagic64 -> Endian.Little
   | Magic.MHCigam | Magic.MHCigam64 -> Endian.Big
   | _ -> raise FileFormatMismatchException
 
-let peekEndianness reader offset =
-  peekMagic reader offset |> magicToEndian
+let internal peekEndianness span reader =
+  peekMagic span reader
+  |> magicToEndian
 
-let parse reader offset =
-  { Magic = peekMagic reader offset
-    Class = peekClass reader offset
-    CPUType = peekCPUType reader offset
-    CPUSubType = peekCPUSubType reader offset
-    FileType = offset + 12 |> reader.PeekInt32 |> LanguagePrimitives.EnumOfValue
-    NumCmds = offset + 16 |> reader.PeekUInt32
-    SizeOfCmds = offset + 20 |> reader.PeekUInt32
-    Flags = offset + 24 |> reader.PeekInt32 |> LanguagePrimitives.EnumOfValue }
+let internal parse span reader =
+  { Magic = peekMagic span reader
+    Class = peekClass span reader
+    CPUType = peekCPUType span reader
+    CPUSubType = peekCPUSubType span reader
+    FileType = reader.ReadInt32 (span, 12) |> LanguagePrimitives.EnumOfValue
+    NumCmds = reader.ReadUInt32 (span, 16)
+    SizeOfCmds = reader.ReadUInt32 (span, 20)
+    Flags = reader.ReadInt32 (span, 24) |> LanguagePrimitives.EnumOfValue }

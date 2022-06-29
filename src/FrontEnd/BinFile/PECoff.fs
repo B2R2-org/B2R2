@@ -24,6 +24,8 @@
 
 module internal B2R2.FrontEnd.BinFile.PE.Coff
 
+open System
+open System.Collections.Generic
 open System.Reflection.PortableExecutable
 open System.Runtime.InteropServices
 open B2R2
@@ -96,13 +98,13 @@ let getWordSize = function
   | Machine.Amd64 -> WordSize.Bit64
   | _ -> WordSize.Bit32
 
-let parseLongSymbolName (binReader: BinReader) stroff offset =
-  peekCString binReader (stroff + offset)
+let parseLongSymbolName (span: ByteSpan) stroff offset =
+  peekCString span (stroff + offset)
 
-let parseSymbName (binReader: BinReader) offset stroff =
-  let bs = binReader.PeekSpan (8, offset)
-  if bs.[0] = 0uy && bs.[1] = 0uy && bs.[2] = 0uy && bs.[3] = 0uy then
-    MemoryMarshal.Read<int> (bs.Slice 4) |> parseLongSymbolName binReader stroff
+let parseSymbName (span: ByteSpan) offset stroff =
+  let bs = span.Slice (offset, 8)
+  if bs[0] = 0uy && bs[1] = 0uy && bs[2] = 0uy && bs[3] = 0uy then
+    parseLongSymbolName span stroff (MemoryMarshal.Read<int> (bs.Slice 4))
   else
     ByteArray.extractCStringFromSpan bs 0
 
@@ -115,12 +117,12 @@ let parseSymType typ =
 let parseStorageClass b =
   LanguagePrimitives.EnumOfValue<byte, StorageClass> (b)
 
-let accumulateSymbol name v secnum typ storage acc =
+let getCoffSymbol name v secnum typ storage =
   { SymbName = name
     SymbValue = v
     SecNumber = secnum
     SymbType = typ
-    StorageClass = storage } :: acc
+    StorageClass = storage }
 
 let toPESymbol symb =
   match symb.SymbType with
@@ -132,34 +134,36 @@ let toPESymbol symb =
   | _ -> None
 
 let buildSymbolMaps arr =
-  arr |> Array.fold (fun (byAddr, byName) symb ->
+  arr
+  |> Array.fold (fun (byAddr, byName) symb ->
     Map.add symb.Address symb byAddr,
     Map.add symb.Name symb byName
-    ) (Map.empty, Map.empty)
+  ) (Map.empty, Map.empty)
 
-let getSymbols (binReader: BinReader) (coff: CoffHeader) =
+let getSymbols (span: ByteSpan) reader (coff: CoffHeader) =
   let maxCnt = coff.NumberOfSymbols - 1
   let tbloff = coff.PointerToSymbolTable
   let stroff = tbloff + coff.NumberOfSymbols * 18
-  let rec parse acc auxcnt cnt =
+  let symbs = List<CoffSymbol> ()
+  let mutable auxcnt = 0
+  let mutable cnt = if tbloff = 0 then maxCnt else 0
+  while cnt < maxCnt do
     if auxcnt > 0 then (* TODO *)
-      if cnt >= maxCnt then acc
-      else parse acc (auxcnt - 1) (cnt + 1)
+      auxcnt <- auxcnt - 1
+      cnt <- cnt + 1
     else
       let offset = tbloff + cnt * 18
-      let name = parseSymbName binReader offset stroff
-      let v = binReader.PeekInt32 (offset + 8)
-      let secnum = binReader.PeekInt16 (offset + 12) |> int
-      let typ = binReader.PeekInt16 (offset + 14) |> parseSymType
-      let storage = binReader.PeekByte (offset + 16) |> parseStorageClass
-      let auxcnt = binReader.PeekByte (offset + 17) |> int
-      let acc = accumulateSymbol name v secnum typ storage acc
-      if cnt >= maxCnt then acc
-      else parse acc auxcnt (cnt + 1)
-  if tbloff = 0 then [] else parse [] 0 0
-  |> List.choose toPESymbol
+      let name = parseSymbName span offset stroff
+      let v = (reader: IBinReader).ReadInt32 (span, offset + 8)
+      let secnum = reader.ReadInt16 (span, offset + 12) |> int
+      let typ = reader.ReadInt16 (span, offset + 14) |> parseSymType
+      let storage = reader.ReadByte (span, offset + 16) |> parseStorageClass
+      symbs.Add (getCoffSymbol name v secnum typ storage)
+      auxcnt <- reader.ReadByte (span, offset + 17) |> int
+      cnt <- cnt + 1
+  Seq.choose toPESymbol symbs
   |> fun lst ->
-    let arr = Array.ofList lst
+    let arr = Array.ofSeq lst
     let byAddr, byName = buildSymbolMaps arr
     { SymbolByAddr = byAddr
       SymbolByName = byName

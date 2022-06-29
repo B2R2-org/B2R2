@@ -1,7 +1,6 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net5.0</TargetFramework>
     <IsPackable>false</IsPackable>
   </PropertyGroup>
 
@@ -25,8 +24,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.FSharpLu.Json" Version="0.11.6" />
-    <PackageReference Include="B2R2.MiddleEnd.BinEssence" Version="0.5.0" />
+    <PackageReference Include="Microsoft.FSharpLu.Json" Version="0.11.7" />
+    <PackageReference Include="B2R2.MiddleEnd.BinEssence" Version="0.6.0-rc2" />
   </ItemGroup>
 
 </Project>

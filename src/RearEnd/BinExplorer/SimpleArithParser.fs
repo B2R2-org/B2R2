@@ -33,7 +33,7 @@ module SimpleArithParser =
   /// Returns a tuple of the big int value of the string and the number of bits
   /// required to represent the number.
   let calculateValue (str : string) =
-    let rep = if (str.Length >= 2) then (str.[0 .. 1]) else ""
+    let rep = if (str.Length >= 2) then (str[0 .. 1]) else ""
     if rep = "0x" || rep = "0X" || rep = "0o" || rep = "0O" ||
       rep = "0b" || rep = "oB" then
       stringToBigint str

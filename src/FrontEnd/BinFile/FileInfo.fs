@@ -24,16 +24,17 @@
 
 namespace B2R2.FrontEnd.BinFile
 
-open B2R2
+open System
 open System.Runtime.InteropServices
+open B2R2
 
 /// FileInfo describes a binary file in a format-agnostic way.
 [<AbstractClass>]
 type FileInfo () =
   /// <summary>
-  ///   The corresponding binary reader.
+  ///   Raw byte values as a `ByteSpan`.
   /// </summary>
-  abstract BinReader: BinReader
+  abstract Span: ByteSpan
 
   /// <summary>
   ///   The format of this file: ELF, PE, Mach-O, or etc.
@@ -325,7 +326,9 @@ type FileInfo () =
   /// <summary>
   ///   Check if the given address is executable address for this binary. We say
   ///   a given address is executable if the address is within an executable
-  ///   section.
+  ///   segment. Note we consider the addresses of known read-only sections
+  ///   (such as .rodata) as non-executable, even though those sections are
+  ///   within an executable segment.
   /// </summary>
   /// <returns>
   ///   Returns true if the address is executable, false otherwise.
@@ -350,13 +353,13 @@ type FileInfo () =
   ///   A sequence of function symbols.
   /// </returns>
   member __.GetFunctionSymbols () =
-    let dict = System.Collections.Generic.Dictionary<Addr, Symbol> ()
-    __.GetStaticSymbols () |> Seq.iter (fun s -> dict.[s.Address] <- s)
+    let dict = Collections.Generic.Dictionary<Addr, Symbol> ()
+    __.GetStaticSymbols () |> Seq.iter (fun s -> dict[s.Address] <- s)
     __.GetDynamicSymbols (true) |> Seq.iter (fun s ->
-      if dict.ContainsKey s.Address then () else dict.[s.Address] <- s)
+      if dict.ContainsKey s.Address then () else dict[s.Address] <- s)
     dict
     |> Seq.map (fun (KeyValue (_, s)) -> s)
-    |> Seq.filter (fun s -> s.Kind = FunctionType)
+    |> Seq.filter (fun s -> s.Kind = SymFunctionType)
 
   /// <summary>
   ///   Returns a sequence of local function addresses (excluding external

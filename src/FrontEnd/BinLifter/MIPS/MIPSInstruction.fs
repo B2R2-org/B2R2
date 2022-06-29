@@ -39,14 +39,18 @@ type MIPSInstruction (addr, numBytes, insInfo, wordSize) =
     match __.Info.Opcode with
     | Opcode.B | Opcode.BAL | Opcode.BEQ | Opcode.BGEZ | Opcode.BGEZAL
     | Opcode.BGTZ | Opcode.BLEZ | Opcode.BLTZ | Opcode.BNE
-    | Opcode.JALR | Opcode.JALRHB | Opcode.JR | Opcode.JRHB -> true
+    | Opcode.JALR | Opcode.JALRHB | Opcode.JR | Opcode.JRHB
+    | Opcode.J | Opcode.JAL -> true
     | _ -> false
 
   override __.IsModeChanging () = false
 
   member __.HasConcJmpTarget () =
     match __.Info.Operands with
-    | OneOperand (OpAddr _) -> true
+    | OneOperand (OpAddr _)
+    | TwoOperands (_, OpAddr _)
+    | ThreeOperands (_, _, OpAddr _)
+    | OneOperand (OpImm _) -> true
     | _ -> false
 
   override __.IsDirectBranch () =
@@ -69,10 +73,16 @@ type MIPSInstruction (addr, numBytes, insInfo, wordSize) =
 
   override __.IsCall () =
     match __.Info.Opcode with
-    | Opcode.JR | Opcode.JALR | Opcode.JALRHB -> true
+    | Opcode.BAL | Opcode.BGEZAL | Opcode.JALR | Opcode.JALRHB | Opcode.JAL -> true
     | _ -> false
 
-  override __.IsRET () = false // XXX
+  override __.IsRET () =
+    match __.Info.Opcode with
+    | Opcode.JR ->
+      match __.Info.Operands with
+      | OneOperand (OpReg (Register.R31)) -> true
+      | _ -> false
+    | _ -> false
 
   override __.IsInterrupt () = Utils.futureFeature ()
 
@@ -87,6 +97,15 @@ type MIPSInstruction (addr, numBytes, insInfo, wordSize) =
       match __.Info.Operands with
       | OneOperand (OpAddr (Relative offset)) ->
         addr <- (int64 __.Address + offset) |> uint64
+        true
+      | TwoOperands (_, OpAddr (Relative offset)) ->
+        addr <- (int64 __.Address + offset) |> uint64
+        true
+      | ThreeOperands (_, _,OpAddr (Relative offset)) ->
+        addr <- (int64 __.Address + offset) |> uint64
+        true
+      | OneOperand (OpImm (imm)) ->
+        addr <- imm
         true
       | _ -> false
     else false
@@ -117,6 +136,9 @@ type MIPSInstruction (addr, numBytes, insInfo, wordSize) =
     __.Info.Opcode = Opcode.NOP
 
   override __.Translate ctxt =
+    (Lifter.translate __.Info ctxt).ToStmts ()
+
+  override __.TranslateToList ctxt =
     Lifter.translate __.Info ctxt
 
   override __.Disasm (showAddr, _resolveSymbol, _fileInfo) =

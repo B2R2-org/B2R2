@@ -68,7 +68,7 @@ type AssemblerOpts () =
   static member OptISA () =
     let cb (opts: #CmdOpts) (arg: string []) =
       (AssemblerOpts.ToThis opts).Mode <-
-        AssemblerMode.changeISA (ISA.OfString arg.[0])
+        AssemblerMode.changeISA (ISA.OfString arg[0])
           (AssemblerOpts.ToThis opts).Mode
       opts
     CmdOpts.New ( descr = "Specify <ISA> (e.g., x86) from command line",
@@ -77,7 +77,7 @@ type AssemblerOpts () =
   /// "-r" or "--base-addr" option for specifying a base address.
   static member OptBaseAddr () =
     let cb (opts: #CmdOpts) (arg: string []) =
-      (AssemblerOpts.ToThis opts).BaseAddress <- Convert.ToUInt64 (arg.[0], 16)
+      (AssemblerOpts.ToThis opts).BaseAddress <- Convert.ToUInt64 (arg[0], 16)
       opts
     CmdOpts.New ( descr = "Specify the base <address> in hex (default=0)",
                   extra = 1, callback = cb, short = "-r", long = "--base-addr" )

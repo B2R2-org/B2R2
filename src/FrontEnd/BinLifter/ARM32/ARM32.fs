@@ -27,12 +27,12 @@ namespace B2R2.FrontEnd.BinLifter.ARM32
 open B2R2
 open B2R2.FrontEnd.BinLifter
 
-/// Translation context for 32-bit ARM instructions.
+/// Translation context for 32-bit ARM instructions (ARMv7 and ARMv8 AARCH32).
 type ARM32TranslationContext internal (isa, regexprs) =
   inherit TranslationContext (isa)
   member val private RegExprs: RegExprs = regexprs
   override __.GetRegVar id = Register.ofRegID id |> __.RegExprs.GetRegVar
-  override __.GetPseudoRegVar _id _pos = failwith "Implement" // XXX
+  override __.GetPseudoRegVar _id _pos = Utils.futureFeature ()
 
 module Basis =
   let init isa =
@@ -42,25 +42,8 @@ module Basis =
       ARM32RegisterBay (regexprs) :> RegisterBay
     )
 
-  let detectThumb entryPoint (isa: ISA) =
-    match entryPoint, isa.Arch with
-    | Some entry, Arch.ARMv7 when entry % 2UL <> 0UL -> (* XXX: LIbraries? *)
-      ArchOperationMode.ThumbMode
-    | _ -> ArchOperationMode.ARMMode
-
-/// Parser for 32-bit ARM instructions. Parser will return a platform-agnostic
-/// instruction type (Instruction).
-type ARM32Parser (isa: ISA, mode, entryPoint: Addr option) =
-  inherit Parser ()
-  let mutable mode: ArchOperationMode =
-    if mode = ArchOperationMode.NoMode then Basis.detectThumb entryPoint isa
-    else mode
-  let mutable itstate: byte list = []
-
-  override __.OperationMode with get() = mode and set(m) = mode <- m
-
-  override __.Parse reader addr pos =
-    Parser.parse reader mode &itstate isa.Arch addr pos
-    :> Instruction
+  let initRegBay () =
+    let regexprs = RegExprs ()
+    ARM32RegisterBay (regexprs) :> RegisterBay
 
 // vim: set tw=80 sts=2 sw=2:

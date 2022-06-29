@@ -1,7 +1,6 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net5.0</TargetFramework>
     <PackageLicenseFile>LICENSE.md</PackageLicenseFile>
     <PackageIcon>b2r2-240x240.png</PackageIcon>
     <PackageReadmeFile>README.md</PackageReadmeFile>
@@ -21,8 +20,10 @@
     <Compile Include="ARM32IRHelper.fs" />
     <Compile Include="ARM32Lifter.fs" />
     <Compile Include="ARM32Instruction.fs" />
-    <Compile Include="ARM32ParserV7.fs" />
-    <Compile Include="ARM32ParserV8.fs" />
+    <Compile Include="ARM32Operands.fs" />
+    <Compile Include="ARM32Validator.fs" />
+    <Compile Include="ARM32ARMParser.fs" />
+    <Compile Include="ARM32ThumbParser.fs" />
     <Compile Include="ARM32Parser.fs" />
     <Compile Include="ARM32.fs" />
     <None Include="..\..\..\..\LICENSE.md" Pack="true" PackagePath="" />

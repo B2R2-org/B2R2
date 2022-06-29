@@ -24,160 +24,160 @@
 
 module B2R2.FrontEnd.BinLifter.EVM.Parser
 
+open System
 open B2R2
 open B2R2.FrontEnd.BinLifter
 
-let private parsePush (reader: BinReader) opcode size pos =
-  let struct (bytes, nextPos) = reader.ReadBytes (size, pos)
-  struct (opcode <| BitVector.ofArr (Array.rev bytes), 3, nextPos)
+let private parsePush (span: ReadOnlySpan<byte>) reader opcode size =
+  let bytes = (reader: IBinReader).ReadBytes (span, 1, int size)
+  struct (opcode <| BitVector.ofArr (Array.rev bytes), 3, 1u + size)
 
-let private parseOpcode (reader: BinReader) pos =
-  let struct (bin, nextPos) = reader.ReadByte pos
+let private parseOpcode (span: ReadOnlySpan<byte>) (reader: IBinReader) =
+  let bin = reader.ReadByte (span, 0)
   match bin with
-  | 0x00uy -> struct (STOP, 0, nextPos)
-  | 0x01uy -> struct (ADD, 3, nextPos)
-  | 0x02uy -> struct (MUL, 5, nextPos)
-  | 0x03uy -> struct (SUB, 3, nextPos)
-  | 0x04uy -> struct (DIV, 5, nextPos)
-  | 0x05uy -> struct (SDIV,50, nextPos)
-  | 0x06uy -> struct (MOD, 5, nextPos)
-  | 0x07uy -> struct (SMOD, 5, nextPos)
-  | 0x08uy -> struct (ADDMOD, 8, nextPos)
-  | 0x09uy -> struct (MULMOD, 8, nextPos)
-  | 0x0auy -> struct (EXP, 10, nextPos)
-  | 0x0buy -> struct (SIGNEXTEND, 5, nextPos)
-  | 0x10uy -> struct (LT, 3, nextPos)
-  | 0x11uy -> struct (GT, 3, nextPos)
-  | 0x12uy -> struct (SLT, 3, nextPos)
-  | 0x13uy -> struct (SGT, 3, nextPos)
-  | 0x14uy -> struct (EQ, 3, nextPos)
-  | 0x15uy -> struct (ISZERO, 3, nextPos)
-  | 0x16uy -> struct (AND, 3, nextPos)
-  | 0x17uy -> struct (OR, 3, nextPos)
-  | 0x18uy -> struct (XOR, 3, nextPos)
-  | 0x19uy -> struct (NOT, 3, nextPos)
-  | 0x1auy -> struct (BYTE, 3, nextPos)
-  | 0x1buy -> struct (SHL, 3, nextPos)
-  | 0x1cuy -> struct (SHR, 3, nextPos)
-  | 0x1duy -> struct (SAR, 3, nextPos)
-  | 0x20uy -> struct (SHA3, 30, nextPos)
-  | 0x30uy -> struct (ADDRESS, 2, nextPos)
-  | 0x31uy -> struct (BALANCE, 400, nextPos)
-  | 0x32uy -> struct (ORIGIN, 2, nextPos)
-  | 0x33uy -> struct (CALLER, 2, nextPos)
-  | 0x34uy -> struct (CALLVALUE, 2, nextPos)
-  | 0x35uy -> struct (CALLDATALOAD, 3, nextPos)
-  | 0x36uy -> struct (CALLDATASIZE, 2, nextPos)
-  | 0x37uy -> struct (CALLDATACOPY, 3, nextPos)
-  | 0x38uy -> struct (CODESIZE, 2, nextPos)
-  | 0x39uy -> struct (CODECOPY, 3, nextPos)
-  | 0x3auy -> struct (GASPRICE, 2, nextPos)
-  | 0x3buy -> struct (EXTCODESIZE, 700, nextPos)
-  | 0x3cuy -> struct (EXTCODECOPY, 700, nextPos)
-  | 0x3duy -> struct (RETURNDATASIZE, 2, nextPos)
-  | 0x3euy -> struct (RETURNDATACOPY, 3, nextPos)
-  | 0x40uy -> struct (BLOCKHASH, 20, nextPos)
-  | 0x41uy -> struct (COINBASE, 2, nextPos)
-  | 0x42uy -> struct (TIMESTAMP, 2, nextPos)
-  | 0x43uy -> struct (NUMBER, 2, nextPos)
-  | 0x44uy -> struct (DIFFICULTY, 2, nextPos)
-  | 0x45uy -> struct (GASLIMIT, 2, nextPos)
-  | 0x50uy -> struct (POP, 2, nextPos)
-  | 0x51uy -> struct (MLOAD, 3, nextPos)
-  | 0x52uy -> struct (MSTORE, 3, nextPos)
-  | 0x53uy -> struct (MSTORE8, 3, nextPos)
-  | 0x54uy -> struct (SLOAD, 200, nextPos)
-  | 0x55uy -> struct (SSTORE, 20000, nextPos)
-  | 0x56uy -> struct (JUMP, 8, nextPos)
-  | 0x57uy -> struct (JUMPI, 10, nextPos)
-  | 0x58uy -> struct (GETPC, 2, nextPos)
-  | 0x59uy -> struct (MSIZE, 2, nextPos)
-  | 0x5auy -> struct (GAS, 2, nextPos)
-  | 0x5buy -> struct (JUMPDEST, 1, nextPos)
-  | 0x60uy -> parsePush reader PUSH1 1 nextPos
-  | 0x61uy -> parsePush reader PUSH2 2 nextPos
-  | 0x62uy -> parsePush reader PUSH3 3 nextPos
-  | 0x63uy -> parsePush reader PUSH4 4 nextPos
-  | 0x64uy -> parsePush reader PUSH5 5 nextPos
-  | 0x65uy -> parsePush reader PUSH6 6 nextPos
-  | 0x66uy -> parsePush reader PUSH7 7 nextPos
-  | 0x67uy -> parsePush reader PUSH8 8 nextPos
-  | 0x68uy -> parsePush reader PUSH9 9 nextPos
-  | 0x69uy -> parsePush reader PUSH10 10 nextPos
-  | 0x6auy -> parsePush reader PUSH11 11 nextPos
-  | 0x6buy -> parsePush reader PUSH12 12 nextPos
-  | 0x6cuy -> parsePush reader PUSH13 13 nextPos
-  | 0x6duy -> parsePush reader PUSH14 14 nextPos
-  | 0x6euy -> parsePush reader PUSH15 15 nextPos
-  | 0x6fuy -> parsePush reader PUSH16 16 nextPos
-  | 0x70uy -> parsePush reader PUSH17 17 nextPos
-  | 0x71uy -> parsePush reader PUSH18 18 nextPos
-  | 0x72uy -> parsePush reader PUSH19 19 nextPos
-  | 0x73uy -> parsePush reader PUSH20 20 nextPos
-  | 0x74uy -> parsePush reader PUSH21 21 nextPos
-  | 0x75uy -> parsePush reader PUSH22 22 nextPos
-  | 0x76uy -> parsePush reader PUSH23 23 nextPos
-  | 0x77uy -> parsePush reader PUSH24 24 nextPos
-  | 0x78uy -> parsePush reader PUSH25 25 nextPos
-  | 0x79uy -> parsePush reader PUSH26 26 nextPos
-  | 0x7auy -> parsePush reader PUSH27 27 nextPos
-  | 0x7buy -> parsePush reader PUSH28 28 nextPos
-  | 0x7cuy -> parsePush reader PUSH29 29 nextPos
-  | 0x7duy -> parsePush reader PUSH30 30 nextPos
-  | 0x7euy -> parsePush reader PUSH31 31 nextPos
-  | 0x7fuy -> parsePush reader PUSH32 32 nextPos
-  | 0x80uy -> struct (DUP1, 3, nextPos)
-  | 0x81uy -> struct (DUP2, 3, nextPos)
-  | 0x82uy -> struct (DUP3, 3, nextPos)
-  | 0x83uy -> struct (DUP4, 3, nextPos)
-  | 0x84uy -> struct (DUP5, 3, nextPos)
-  | 0x85uy -> struct (DUP6, 3, nextPos)
-  | 0x86uy -> struct (DUP7, 3, nextPos)
-  | 0x87uy -> struct (DUP8, 3, nextPos)
-  | 0x88uy -> struct (DUP9, 3, nextPos)
-  | 0x89uy -> struct (DUP10, 3, nextPos)
-  | 0x8auy -> struct (DUP11, 3, nextPos)
-  | 0x8buy -> struct (DUP12, 3, nextPos)
-  | 0x8cuy -> struct (DUP13, 3, nextPos)
-  | 0x8duy -> struct (DUP14, 3, nextPos)
-  | 0x8euy -> struct (DUP15, 3, nextPos)
-  | 0x8fuy -> struct (DUP16, 3, nextPos)
-  | 0x90uy -> struct (SWAP1, 3, nextPos)
-  | 0x91uy -> struct (SWAP2, 3, nextPos)
-  | 0x92uy -> struct (SWAP3, 3, nextPos)
-  | 0x93uy -> struct (SWAP4, 3, nextPos)
-  | 0x94uy -> struct (SWAP5, 3, nextPos)
-  | 0x95uy -> struct (SWAP6, 3, nextPos)
-  | 0x96uy -> struct (SWAP7, 3, nextPos)
-  | 0x97uy -> struct (SWAP8, 3, nextPos)
-  | 0x98uy -> struct (SWAP9, 3, nextPos)
-  | 0x99uy -> struct (SWAP10, 3, nextPos)
-  | 0x9auy -> struct (SWAP11, 3, nextPos)
-  | 0x9buy -> struct (SWAP12, 3, nextPos)
-  | 0x9cuy -> struct (SWAP13, 3, nextPos)
-  | 0x9duy -> struct (SWAP14, 3, nextPos)
-  | 0x9euy -> struct (SWAP15, 3, nextPos)
-  | 0x9fuy -> struct (SWAP16, 3, nextPos)
-  | 0xa0uy -> struct (LOG0, 375, nextPos)
-  | 0xa1uy -> struct (LOG1, 750, nextPos)
-  | 0xa2uy -> struct (LOG2, 1125, nextPos)
-  | 0xa3uy -> struct (LOG3, 1500, nextPos)
-  | 0xa4uy -> struct (LOG4, 1875, nextPos)
-  | 0xf0uy -> struct (CREATE, 32000, nextPos)
-  | 0xf1uy -> struct (CALL, -1, nextPos)
-  | 0xf2uy -> struct (CALLCODE, -1, nextPos)
-  | 0xf3uy -> struct (RETURN, 0, nextPos)
-  | 0xf4uy -> struct (DELEGATECALL, -1, nextPos)
-  | 0xf5uy -> struct (CREATE2, 0, nextPos)
-  | 0xfauy -> struct (STATICCALL, 4, nextPos)
-  | 0xfduy -> struct (REVERT, 0, nextPos)
-  | 0xfeuy -> struct (INVALID, 0, nextPos)
-  | 0xffuy -> struct (SELFDESTRUCT, 5000, nextPos)
+  | 0x00uy -> struct (STOP, 0, 1u)
+  | 0x01uy -> struct (ADD, 3, 1u)
+  | 0x02uy -> struct (MUL, 5, 1u)
+  | 0x03uy -> struct (SUB, 3, 1u)
+  | 0x04uy -> struct (DIV, 5, 1u)
+  | 0x05uy -> struct (SDIV,50, 1u)
+  | 0x06uy -> struct (MOD, 5, 1u)
+  | 0x07uy -> struct (SMOD, 5, 1u)
+  | 0x08uy -> struct (ADDMOD, 8, 1u)
+  | 0x09uy -> struct (MULMOD, 8, 1u)
+  | 0x0auy -> struct (EXP, 10, 1u)
+  | 0x0buy -> struct (SIGNEXTEND, 5, 1u)
+  | 0x10uy -> struct (LT, 3, 1u)
+  | 0x11uy -> struct (GT, 3, 1u)
+  | 0x12uy -> struct (SLT, 3, 1u)
+  | 0x13uy -> struct (SGT, 3, 1u)
+  | 0x14uy -> struct (EQ, 3, 1u)
+  | 0x15uy -> struct (ISZERO, 3, 1u)
+  | 0x16uy -> struct (AND, 3, 1u)
+  | 0x17uy -> struct (OR, 3, 1u)
+  | 0x18uy -> struct (XOR, 3, 1u)
+  | 0x19uy -> struct (NOT, 3, 1u)
+  | 0x1auy -> struct (BYTE, 3, 1u)
+  | 0x1buy -> struct (SHL, 3, 1u)
+  | 0x1cuy -> struct (SHR, 3, 1u)
+  | 0x1duy -> struct (SAR, 3, 1u)
+  | 0x20uy -> struct (SHA3, 30, 1u)
+  | 0x30uy -> struct (ADDRESS, 2, 1u)
+  | 0x31uy -> struct (BALANCE, 400, 1u)
+  | 0x32uy -> struct (ORIGIN, 2, 1u)
+  | 0x33uy -> struct (CALLER, 2, 1u)
+  | 0x34uy -> struct (CALLVALUE, 2, 1u)
+  | 0x35uy -> struct (CALLDATALOAD, 3, 1u)
+  | 0x36uy -> struct (CALLDATASIZE, 2, 1u)
+  | 0x37uy -> struct (CALLDATACOPY, 3, 1u)
+  | 0x38uy -> struct (CODESIZE, 2, 1u)
+  | 0x39uy -> struct (CODECOPY, 3, 1u)
+  | 0x3auy -> struct (GASPRICE, 2, 1u)
+  | 0x3buy -> struct (EXTCODESIZE, 700, 1u)
+  | 0x3cuy -> struct (EXTCODECOPY, 700, 1u)
+  | 0x3duy -> struct (RETURNDATASIZE, 2, 1u)
+  | 0x3euy -> struct (RETURNDATACOPY, 3, 1u)
+  | 0x40uy -> struct (BLOCKHASH, 20, 1u)
+  | 0x41uy -> struct (COINBASE, 2, 1u)
+  | 0x42uy -> struct (TIMESTAMP, 2, 1u)
+  | 0x43uy -> struct (NUMBER, 2, 1u)
+  | 0x44uy -> struct (DIFFICULTY, 2, 1u)
+  | 0x45uy -> struct (GASLIMIT, 2, 1u)
+  | 0x50uy -> struct (POP, 2, 1u)
+  | 0x51uy -> struct (MLOAD, 3, 1u)
+  | 0x52uy -> struct (MSTORE, 3, 1u)
+  | 0x53uy -> struct (MSTORE8, 3, 1u)
+  | 0x54uy -> struct (SLOAD, 200, 1u)
+  | 0x55uy -> struct (SSTORE, 20000, 1u)
+  | 0x56uy -> struct (JUMP, 8, 1u)
+  | 0x57uy -> struct (JUMPI, 10, 1u)
+  | 0x58uy -> struct (GETPC, 2, 1u)
+  | 0x59uy -> struct (MSIZE, 2, 1u)
+  | 0x5auy -> struct (GAS, 2, 1u)
+  | 0x5buy -> struct (JUMPDEST, 1, 1u)
+  | 0x60uy -> parsePush span reader PUSH1 1u
+  | 0x61uy -> parsePush span reader PUSH2 2u
+  | 0x62uy -> parsePush span reader PUSH3 3u
+  | 0x63uy -> parsePush span reader PUSH4 4u
+  | 0x64uy -> parsePush span reader PUSH5 5u
+  | 0x65uy -> parsePush span reader PUSH6 6u
+  | 0x66uy -> parsePush span reader PUSH7 7u
+  | 0x67uy -> parsePush span reader PUSH8 8u
+  | 0x68uy -> parsePush span reader PUSH9 9u
+  | 0x69uy -> parsePush span reader PUSH10 10u
+  | 0x6auy -> parsePush span reader PUSH11 11u
+  | 0x6buy -> parsePush span reader PUSH12 12u
+  | 0x6cuy -> parsePush span reader PUSH13 13u
+  | 0x6duy -> parsePush span reader PUSH14 14u
+  | 0x6euy -> parsePush span reader PUSH15 15u
+  | 0x6fuy -> parsePush span reader PUSH16 16u
+  | 0x70uy -> parsePush span reader PUSH17 17u
+  | 0x71uy -> parsePush span reader PUSH18 18u
+  | 0x72uy -> parsePush span reader PUSH19 19u
+  | 0x73uy -> parsePush span reader PUSH20 20u
+  | 0x74uy -> parsePush span reader PUSH21 21u
+  | 0x75uy -> parsePush span reader PUSH22 22u
+  | 0x76uy -> parsePush span reader PUSH23 23u
+  | 0x77uy -> parsePush span reader PUSH24 24u
+  | 0x78uy -> parsePush span reader PUSH25 25u
+  | 0x79uy -> parsePush span reader PUSH26 26u
+  | 0x7auy -> parsePush span reader PUSH27 27u
+  | 0x7buy -> parsePush span reader PUSH28 28u
+  | 0x7cuy -> parsePush span reader PUSH29 29u
+  | 0x7duy -> parsePush span reader PUSH30 30u
+  | 0x7euy -> parsePush span reader PUSH31 31u
+  | 0x7fuy -> parsePush span reader PUSH32 32u
+  | 0x80uy -> struct (DUP1, 3, 1u)
+  | 0x81uy -> struct (DUP2, 3, 1u)
+  | 0x82uy -> struct (DUP3, 3, 1u)
+  | 0x83uy -> struct (DUP4, 3, 1u)
+  | 0x84uy -> struct (DUP5, 3, 1u)
+  | 0x85uy -> struct (DUP6, 3, 1u)
+  | 0x86uy -> struct (DUP7, 3, 1u)
+  | 0x87uy -> struct (DUP8, 3, 1u)
+  | 0x88uy -> struct (DUP9, 3, 1u)
+  | 0x89uy -> struct (DUP10, 3, 1u)
+  | 0x8auy -> struct (DUP11, 3, 1u)
+  | 0x8buy -> struct (DUP12, 3, 1u)
+  | 0x8cuy -> struct (DUP13, 3, 1u)
+  | 0x8duy -> struct (DUP14, 3, 1u)
+  | 0x8euy -> struct (DUP15, 3, 1u)
+  | 0x8fuy -> struct (DUP16, 3, 1u)
+  | 0x90uy -> struct (SWAP1, 3, 1u)
+  | 0x91uy -> struct (SWAP2, 3, 1u)
+  | 0x92uy -> struct (SWAP3, 3, 1u)
+  | 0x93uy -> struct (SWAP4, 3, 1u)
+  | 0x94uy -> struct (SWAP5, 3, 1u)
+  | 0x95uy -> struct (SWAP6, 3, 1u)
+  | 0x96uy -> struct (SWAP7, 3, 1u)
+  | 0x97uy -> struct (SWAP8, 3, 1u)
+  | 0x98uy -> struct (SWAP9, 3, 1u)
+  | 0x99uy -> struct (SWAP10, 3, 1u)
+  | 0x9auy -> struct (SWAP11, 3, 1u)
+  | 0x9buy -> struct (SWAP12, 3, 1u)
+  | 0x9cuy -> struct (SWAP13, 3, 1u)
+  | 0x9duy -> struct (SWAP14, 3, 1u)
+  | 0x9euy -> struct (SWAP15, 3, 1u)
+  | 0x9fuy -> struct (SWAP16, 3, 1u)
+  | 0xa0uy -> struct (LOG0, 375, 1u)
+  | 0xa1uy -> struct (LOG1, 750, 1u)
+  | 0xa2uy -> struct (LOG2, 1125, 1u)
+  | 0xa3uy -> struct (LOG3, 1500, 1u)
+  | 0xa4uy -> struct (LOG4, 1875, 1u)
+  | 0xf0uy -> struct (CREATE, 32000, 1u)
+  | 0xf1uy -> struct (CALL, -1, 1u)
+  | 0xf2uy -> struct (CALLCODE, -1, 1u)
+  | 0xf3uy -> struct (RETURN, 0, 1u)
+  | 0xf4uy -> struct (DELEGATECALL, -1, 1u)
+  | 0xf5uy -> struct (CREATE2, 0, 1u)
+  | 0xfauy -> struct (STATICCALL, 4, 1u)
+  | 0xfduy -> struct (REVERT, 0, 1u)
+  | 0xfeuy -> struct (INVALID, 0, 1u)
+  | 0xffuy -> struct (SELFDESTRUCT, 5000, 1u)
   | _ -> raise ParsingFailureException
 
-let parse (reader: BinReader) offset wordSize addr pos =
-  let struct (opcode, gas, nextPos) = parseOpcode reader pos
-  let instrLen = nextPos - pos |> uint32
+let parse span reader offset wordSize addr =
+  let struct (opcode, gas, instrLen) = parseOpcode span reader
   let insInfo =
     { Address = addr
       NumBytes = instrLen

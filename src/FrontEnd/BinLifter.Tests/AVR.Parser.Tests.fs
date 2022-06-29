@@ -29,8 +29,9 @@ open B2R2
 open B2R2.FrontEnd.BinLifter.AVR
 
 let private test opcode oprs bytes =
-  let reader = BinReader.Init (bytes, Endian.Little)
-  let ins = Parser.parse reader 0UL 0
+  let reader = BinReader.binReaderLE
+  let span = System.ReadOnlySpan bytes
+  let ins = Parser.parse span reader 0UL
   Assert.AreEqual (ins.Info.Opcode, opcode)
   Assert.AreEqual (ins.Info.Operands, oprs)
 
@@ -74,5 +75,5 @@ type AVRUnitTest () =
     test Opcode.LDI
         (TwoOperands (OprReg R.R24, OprImm 0xff))
         [| 0x8Fuy; 0xEFuy |]
-    
+
 

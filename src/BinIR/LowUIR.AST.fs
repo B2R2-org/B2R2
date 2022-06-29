@@ -76,8 +76,8 @@ let num bv =
   | Ok e -> e
   | Error isReclaimed ->
     let e' = { E = k; Tag = newETag (); HashKey = bv.GetHashCode () }
-    if isReclaimed then exprs.[k].SetTarget e'
-    else exprs.[k] <- WeakReference<Expr> e'
+    if isReclaimed then exprs[k].SetTarget e'
+    else exprs[k] <- WeakReference<Expr> e'
     e'
 #endif
 
@@ -92,8 +92,8 @@ let var t id name rs =
   | Ok e -> e
   | Error isReclaimed ->
     let e' = { E = k; Tag = newETag (); HashKey = E.HashVar t id }
-    if isReclaimed then exprs.[k].SetTarget e'
-    else exprs.[k] <- WeakReference<Expr> e'
+    if isReclaimed then exprs[k].SetTarget e'
+    else exprs[k] <- WeakReference<Expr> e'
     e'
 #endif
 
@@ -108,8 +108,8 @@ let pcvar t name =
   | Ok e -> e
   | Error isReclaimed ->
     let e' = { E = k; Tag = newETag (); HashKey = E.HashPCVar t }
-    if isReclaimed then exprs.[k].SetTarget e'
-    else exprs.[k] <- WeakReference<Expr> e'
+    if isReclaimed then exprs[k].SetTarget e'
+    else exprs[k] <- WeakReference<Expr> e'
     e'
 #endif
 
@@ -124,8 +124,8 @@ let tmpvar t id =
   | Ok e -> e
   | Error isReclaimed ->
     let e' = { E = k; Tag = newETag (); HashKey = E.HashTempVar t id }
-    if isReclaimed then exprs.[k].SetTarget e'
-    else exprs.[k] <- WeakReference<Expr> e'
+    if isReclaimed then exprs[k].SetTarget e'
+    else exprs[k] <- WeakReference<Expr> e'
     e'
 #endif
 
@@ -148,8 +148,8 @@ let unop op e =
     | Ok e -> e
     | Error isReclaimed ->
       let e' = { E = k; Tag = newETag (); HashKey = E.HashUnOp op e }
-      if isReclaimed then exprs.[k].SetTarget e'
-      else exprs.[k] <- WeakReference<Expr> e'
+      if isReclaimed then exprs[k].SetTarget e'
+      else exprs[k] <- WeakReference<Expr> e'
       e'
 #endif
 
@@ -164,8 +164,8 @@ let name symb =
   | Ok e -> e
   | Error isReclaimed ->
     let e' = { E = k; Tag = newETag (); HashKey = E.HashName symb }
-    if isReclaimed then exprs.[k].SetTarget e'
-    else exprs.[k] <- WeakReference<Expr> e'
+    if isReclaimed then exprs[k].SetTarget e'
+    else exprs[k] <- WeakReference<Expr> e'
     e'
 #endif
 
@@ -187,8 +187,8 @@ let binopWithType op t e1 e2 =
     | Ok e -> e
     | Error isReclaimed ->
       let e' = { E = k; Tag = newETag (); HashKey = E.HashBinOp op t e1 e2 }
-      if isReclaimed then exprs.[k].SetTarget e'
-      else exprs.[k] <- WeakReference<Expr> e'
+      if isReclaimed then exprs[k].SetTarget e'
+      else exprs[k] <- WeakReference<Expr> e'
       e'
 #endif
 
@@ -222,8 +222,8 @@ let cons a b =
     | Error isReclaimed ->
       let e' = { E = k; Tag = newETag ()
                  HashKey = E.HashBinOp BinOpType.CONS t a b }
-      if isReclaimed then exprs.[k].SetTarget e'
-      else exprs.[k] <- WeakReference<Expr> e'
+      if isReclaimed then exprs[k].SetTarget e'
+      else exprs[k] <- WeakReference<Expr> e'
       e'
 #endif
   | _ -> binop BinOpType.CONS a b
@@ -248,8 +248,8 @@ let funcName name =
   | Ok e -> e
   | Error isReclaimed ->
     let e' = { E = k; Tag = newETag (); HashKey = E.HashFuncName name }
-    if isReclaimed then exprs.[k].SetTarget e'
-    else exprs.[k] <- WeakReference<Expr> e'
+    if isReclaimed then exprs[k].SetTarget e'
+    else exprs[k] <- WeakReference<Expr> e'
     e'
 #endif
 
@@ -270,8 +270,8 @@ let app name args retType =
     | Error isReclaimed ->
       let e' = { E = k; Tag = newETag ()
                  HashKey = E.HashBinOp BinOpType.APP retType funName cons }
-      if isReclaimed then exprs.[k].SetTarget e'
-      else exprs.[k] <- WeakReference<Expr> e'
+      if isReclaimed then exprs[k].SetTarget e'
+      else exprs[k] <- WeakReference<Expr> e'
       e'
 #endif
 
@@ -293,8 +293,8 @@ let relop op e1 e2 =
     | Ok e -> e
     | Error isReclaimed ->
       let e' = { E = k; Tag = newETag (); HashKey = E.HashRelOp op e1 e2 }
-      if isReclaimed then exprs.[k].SetTarget e'
-      else exprs.[k] <- WeakReference<Expr> e'
+      if isReclaimed then exprs[k].SetTarget e'
+      else exprs[k] <- WeakReference<Expr> e'
       e'
 #endif
 
@@ -315,8 +315,8 @@ let load endian rt addr =
     | Ok e -> e
     | Error isReclaimed ->
       let e' = { E = k; Tag = newETag (); HashKey = E.HashLoad endian rt addr }
-      if isReclaimed then exprs.[k].SetTarget e'
-      else exprs.[k] <- WeakReference<Expr> e'
+      if isReclaimed then exprs[k].SetTarget e'
+      else exprs[k] <- WeakReference<Expr> e'
       e'
 #endif
 
@@ -347,8 +347,8 @@ let ite cond e1 e2 =
     | Ok e -> e
     | Error isReclaimed ->
       let e' = { E = k; Tag = newETag (); HashKey = E.HashIte cond e1 e2 }
-      if isReclaimed then exprs.[k].SetTarget e'
-      else exprs.[k] <- WeakReference<Expr> e'
+      if isReclaimed then exprs[k].SetTarget e'
+      else exprs[k] <- WeakReference<Expr> e'
       e'
 #endif
 
@@ -368,8 +368,8 @@ let cast kind rt e =
       | Ok e -> e
       | Error isReclaimed ->
         let e' = { E = k; Tag = newETag (); HashKey = E.HashCast kind rt e }
-        if isReclaimed then exprs.[k].SetTarget e'
-        else exprs.[k] <- WeakReference<Expr> e'
+        if isReclaimed then exprs[k].SetTarget e'
+        else exprs[k] <- WeakReference<Expr> e'
         e'
 #endif
     else e (* Remove unnecessary casting . *)
@@ -390,8 +390,8 @@ let extract expr rt pos =
     | Ok e -> e
     | Error isReclaimed ->
       let e' = { E = k; Tag = newETag (); HashKey = E.HashExtract e rt pos }
-      if isReclaimed then exprs.[k].SetTarget e'
-      else exprs.[k] <- WeakReference<Expr> e'
+      if isReclaimed then exprs[k].SetTarget e'
+      else exprs[k] <- WeakReference<Expr> e'
       e'
 #endif
   | _ ->
@@ -403,8 +403,8 @@ let extract expr rt pos =
     | Ok e -> e
     | Error isReclaimed ->
       let e' = { E = k; Tag = newETag (); HashKey = E.HashExtract expr rt pos }
-      if isReclaimed then exprs.[k].SetTarget e'
-      else exprs.[k] <- WeakReference<Expr> e'
+      if isReclaimed then exprs[k].SetTarget e'
+      else exprs[k] <- WeakReference<Expr> e'
       e'
 #endif
 
@@ -419,8 +419,8 @@ let undef rt s =
   | Ok e -> e
   | Error isReclaimed ->
     let e' = { E = k; Tag = newETag (); HashKey = E.HashUndef rt s }
-    if isReclaimed then exprs.[k].SetTarget e'
-    else exprs.[k] <- WeakReference<Expr> e'
+    if isReclaimed then exprs[k].SetTarget e'
+    else exprs[k] <- WeakReference<Expr> e'
     e'
 #endif
 
@@ -450,7 +450,7 @@ let rec private concatLoop (arr: Expr []) sPos ePos =
   let diff = ePos - sPos
   if diff > 0 then concat (concatLoop arr (sPos + diff / 2 + 1) ePos)
                           (concatLoop arr sPos (sPos + diff / 2))
-  elif diff = 0 then arr.[sPos]
+  elif diff = 0 then arr[sPos]
   else Utils.impossible ()
 
 /// Concatenate an array of expressions.
@@ -830,8 +830,8 @@ let ismark nBytes =
   | Ok s -> s
   | Error isReclaimed ->
     let s' = { S = k; Tag = newSTag (); HashKey = S.HashISMark nBytes }
-    if isReclaimed then stmts.[k].SetTarget s'
-    else stmts.[k] <- WeakReference<Stmt> s'
+    if isReclaimed then stmts[k].SetTarget s'
+    else stmts[k] <- WeakReference<Stmt> s'
     s'
 #endif
 
@@ -846,8 +846,8 @@ let iemark nBytes =
   | Ok s -> s
   | Error isReclaimed ->
     let s' = { S = k; Tag = newSTag (); HashKey = S.HashIEMark nBytes }
-    if isReclaimed then stmts.[k].SetTarget s'
-    else stmts.[k] <- WeakReference<Stmt> s'
+    if isReclaimed then stmts[k].SetTarget s'
+    else stmts[k] <- WeakReference<Stmt> s'
     s'
 #endif
 
@@ -862,8 +862,8 @@ let lmark s =
   | Ok s -> s
   | Error isReclaimed ->
     let s' = { S = k; Tag = newSTag (); HashKey = S.HashLMark s }
-    if isReclaimed then stmts.[k].SetTarget s'
-    else stmts.[k] <- WeakReference<Stmt> s'
+    if isReclaimed then stmts[k].SetTarget s'
+    else stmts[k] <- WeakReference<Stmt> s'
     s'
 #endif
 
@@ -878,15 +878,15 @@ let put dst src =
   | Ok s -> s
   | Error isReclaimed ->
     let s' = { S = k; Tag = newSTag (); HashKey = S.HashPut dst src }
-    if isReclaimed then stmts.[k].SetTarget s'
-    else stmts.[k] <- WeakReference<Stmt> s'
+    if isReclaimed then stmts[k].SetTarget s'
+    else stmts[k] <- WeakReference<Stmt> s'
     s'
 #endif
 
 let assignForExtractDst e1 e2 =
   match e1.E with
   | Extract ({ E = Var (t, _, _, _) } as e1, eTyp, 0, _)
-  | Extract ({ E = TempVar (t, _) } as e1, eTyp, 0, _)->
+  | Extract ({ E = TempVar (t, _) } as e1, eTyp, 0, _) ->
     let nMask = RegType.getMask t - RegType.getMask eTyp
     let mask = BitVector.ofBInt nMask t |> num
     let src = cast CastKind.ZeroExt t e2
@@ -914,8 +914,8 @@ let store endian addr v =
   | Ok s -> s
   | Error isReclaimed ->
     let s' = { S = k; Tag = newSTag (); HashKey = S.HashStore endian addr v }
-    if isReclaimed then stmts.[k].SetTarget s'
-    else stmts.[k] <- WeakReference<Stmt> s'
+    if isReclaimed then stmts[k].SetTarget s'
+    else stmts[k] <- WeakReference<Stmt> s'
     s'
 #endif
 
@@ -942,8 +942,8 @@ let jmp target =
   | Ok s -> s
   | Error isReclaimed ->
     let s' = { S = k; Tag = newSTag (); HashKey = S.HashJmp target }
-    if isReclaimed then stmts.[k].SetTarget s'
-    else stmts.[k] <- WeakReference<Stmt> s'
+    if isReclaimed then stmts[k].SetTarget s'
+    else stmts[k] <- WeakReference<Stmt> s'
     s'
 #endif
 
@@ -958,8 +958,8 @@ let cjmp cond dst1 dst2 =
   | Ok s -> s
   | Error isReclaimed ->
     let s' = { S = k; Tag = newSTag (); HashKey = S.HashCJmp cond dst1 dst2 }
-    if isReclaimed then stmts.[k].SetTarget s'
-    else stmts.[k] <- WeakReference<Stmt> s'
+    if isReclaimed then stmts[k].SetTarget s'
+    else stmts[k] <- WeakReference<Stmt> s'
     s'
 #endif
 
@@ -974,8 +974,8 @@ let interjmp dst kind =
   | Ok s -> s
   | Error isReclaimed ->
     let s' = { S = k; Tag = newSTag (); HashKey = S.HashInterJmp dst kind }
-    if isReclaimed then stmts.[k].SetTarget s'
-    else stmts.[k] <- WeakReference<Stmt> s'
+    if isReclaimed then stmts[k].SetTarget s'
+    else stmts[k] <- WeakReference<Stmt> s'
     s'
 #endif
 
@@ -990,8 +990,8 @@ let intercjmp cond d1 d2 =
   | Ok s -> s
   | Error isReclaimed ->
     let s' = { S = k; Tag = newSTag (); HashKey = S.HashInterCJmp cond d1 d2 }
-    if isReclaimed then stmts.[k].SetTarget s'
-    else stmts.[k] <- WeakReference<Stmt> s'
+    if isReclaimed then stmts[k].SetTarget s'
+    else stmts[k] <- WeakReference<Stmt> s'
     s'
 #endif
 
@@ -1006,8 +1006,8 @@ let sideEffect eff =
   | Ok s -> s
   | Error isReclaimed ->
     let s' = { S = k; Tag = newSTag (); HashKey = S.HashSideEffect eff }
-    if isReclaimed then stmts.[k].SetTarget s'
-    else stmts.[k] <- WeakReference<Stmt> s'
+    if isReclaimed then stmts[k].SetTarget s'
+    else stmts[k] <- WeakReference<Stmt> s'
     s'
 #endif
 

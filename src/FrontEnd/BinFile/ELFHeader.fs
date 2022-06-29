@@ -31,32 +31,31 @@ open B2R2.FrontEnd.BinFile.FileHelper
 let private elfMagicNumber = [| 0x7fuy; 0x45uy; 0x4cuy; 0x46uy |]
 
 /// Check if the file has a valid ELF header.
-let isELF (reader: BinReader) offset =
-  reader.Length() > offset + sizeof<uint32> &&
-  let span = reader.PeekSpan (4, offset)
-  span.SequenceEqual (ReadOnlySpan elfMagicNumber)
+let isELF (span: ByteSpan) =
+  span.Length > 4
+  && span.Slice(0, 4).SequenceEqual (ReadOnlySpan elfMagicNumber)
 
-let peekClass (reader: BinReader) offset =
-  match offset + 4 |> reader.PeekByte with
+let peekClass (span: ByteSpan) =
+  match span[4] with
   | 0x1uy -> WordSize.Bit32
   | 0x2uy -> WordSize.Bit64
   | _ -> raise InvalidWordSizeException
 
-let peekEndianness (reader: BinReader) offset =
-  match offset + 5 |> reader.PeekByte with
+let peekEndianness (span: ByteSpan) =
+  match span[5] with
   | 0x1uy -> Endian.Little
   | 0x2uy -> Endian.Big
   | _ -> raise InvalidEndianException
 
+let peekELFFileType (span: ByteSpan) (reader: IBinReader) =
+  reader.ReadUInt16 (span, 16)
+  |> LanguagePrimitives.EnumOfValue: ELFFileType
 
-let peekELFFileType (reader: BinReader) offset: ELFFileType =
-  offset + 16 |> reader.PeekUInt16 |> LanguagePrimitives.EnumOfValue
+let peekELFFlags span reader cls =
+  peekHeaderU32 span reader cls 0 36 48
 
-let peekELFFlags reader cls offset =
-  peekHeaderU32 reader cls offset 36 48
-
-let getMIPSISA (reader: BinReader) cls offset =
-  match peekELFFlags reader cls offset &&& 0xf0000000u with
+let getMIPSISA span reader cls =
+  match peekELFFlags span reader cls &&& 0xf0000000u with
   | 0x00000000u -> Arch.MIPS1
   | 0x10000000u -> Arch.MIPS2
   | 0x20000000u -> Arch.MIPS3
@@ -70,15 +69,18 @@ let getMIPSISA (reader: BinReader) cls offset =
   | 0xa0000000u -> Arch.MIPS64R6
   | c -> failwithf "invalid MIPS arch (%02x)" c
 
-let peekArch (reader: BinReader) cls offset =
-  match offset + 18 |> reader.PeekInt16 with
+let peekArch (span: ByteSpan) (reader: IBinReader) cls =
+  match reader.ReadInt16 (span, 18) with
   | 0x03s -> Arch.IntelX86
   | 0x3es -> Arch.IntelX64
   | 0x28s -> Arch.ARMv7
-  | 0xB7s -> Arch.AARCH64
-  | 0x08s
-  | 0x0as -> getMIPSISA reader cls offset
+  | 0xb7s -> Arch.AARCH64
+  | 0x08s | 0x0as -> getMIPSISA span reader cls
   | 0x53s -> Arch.AVR
+  | 0x2as -> Arch.SH4
+  | 0x14s -> Arch.PPC32
+  | 0x2bs -> Arch.Sparc64
+  | 0xf3s -> Arch.RISCV64 (* FIXME: RISCV *)
   | _ -> Arch.UnknownISA
 
 let computeNewBaseAddr ftype baseAddr =
@@ -86,24 +88,24 @@ let computeNewBaseAddr ftype baseAddr =
   | ELFFileType.Executable -> 0UL (* Non-pie executable must have zero base. *)
   | _ -> defaultArg baseAddr 0UL
 
-let parse baseAddr offset (reader: BinReader) =
-  let cls = peekClass reader offset
-  let ftype = peekELFFileType reader offset
+let parse span (reader: IBinReader) baseAddr =
+  let cls = peekClass span
+  let ftype = peekELFFileType span reader
   let baseAddr = computeNewBaseAddr ftype baseAddr
   { Class = cls
-    Endian = peekEndianness reader offset
-    Version = peekHeaderU32 reader cls offset 6 6
-    OSABI = offset + 7 |> reader.PeekByte |> LanguagePrimitives.EnumOfValue
-    OSABIVersion = offset + 8 |> reader.PeekByte |> uint32
+    Endian = peekEndianness span
+    Version = peekHeaderU32 span reader cls 0 6 6
+    OSABI = span[7] |> LanguagePrimitives.EnumOfValue
+    OSABIVersion = span[8] |> uint32
     ELFFileType = ftype
-    MachineType = peekArch reader cls offset
-    EntryPoint = peekHeaderNative reader cls offset 24 24 + baseAddr
-    PHdrTblOffset = peekHeaderNative reader cls offset 28 32
-    SHdrTblOffset = peekHeaderNative reader cls offset 32 40
-    ELFFlags = peekELFFlags reader cls offset
-    HeaderSize = peekHeaderU16 reader cls offset 40 52
-    PHdrEntrySize = peekHeaderU16 reader cls offset 42 54
-    PHdrNum = peekHeaderU16 reader cls offset 44 56
-    SHdrEntrySize = peekHeaderU16 reader cls offset 46 58
-    SHdrNum = peekHeaderU16 reader cls offset 48 60
-    SHdrStrIdx = peekHeaderU16 reader cls offset 50 62 }, baseAddr
+    MachineType = peekArch span reader cls
+    EntryPoint = peekHeaderNative span reader cls 0 24 24 + baseAddr
+    PHdrTblOffset = peekHeaderNative span reader cls 0 28 32
+    SHdrTblOffset = peekHeaderNative span reader cls 0 32 40
+    ELFFlags = peekELFFlags span reader cls
+    HeaderSize = peekHeaderU16 span reader cls 0 40 52
+    PHdrEntrySize = peekHeaderU16 span reader cls 0 42 54
+    PHdrNum = peekHeaderU16 span reader cls 0 44 56
+    SHdrEntrySize = peekHeaderU16 span reader cls 0 46 58
+    SHdrNum = peekHeaderU16 span reader cls 0 48 60
+    SHdrStrIdx = peekHeaderU16 span reader cls 0 50 62 }, baseAddr

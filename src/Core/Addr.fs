@@ -28,11 +28,11 @@ namespace B2R2
 type Addr = uint64
 
 module Addr =
-  let [<Literal>] private functionPrefix = "func_"
+  let [<Literal>] private FunctionPrefix = "func_"
 
   let toString wordSize (addr: Addr) =
     if wordSize = WordSize.Bit32 then (uint32 addr).ToString ("x8")
     else addr.ToString ("x16")
 
   let toFuncName (addr: Addr) =
-    functionPrefix + addr.ToString ("x")
+    FunctionPrefix + addr.ToString ("x")

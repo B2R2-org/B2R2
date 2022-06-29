@@ -77,8 +77,8 @@ let updateTempOut n ctxt =
 
 let rec createLoop (outs: Stmt []) (ins: Stmt []) (used: bool []) iIdx oIdx =
   if oIdx < outs.Length then
-    if used.[iIdx] then
-      outs.[oIdx] <- ins.[iIdx]
+    if used[iIdx] then
+      outs[oIdx] <- ins[iIdx]
       createLoop outs ins used (iIdx + 1) (oIdx + 1)
     else createLoop outs ins used (iIdx + 1) oIdx
   else outs
@@ -88,7 +88,7 @@ let createReducedStmts (stmts: Stmt []) reducedLen (used: bool []) =
 
 let rec optimizeLoop (stmts: Stmt []) (used: bool []) idx len ctxt =
   if idx >= 0 then
-    match stmts.[idx].S with
+    match stmts[idx].S with
     | Store (_, e1, e2) ->
       let ei1 = AST.getExprInfo e1
       let ei2 = AST.getExprInfo e2
@@ -110,13 +110,13 @@ let rec optimizeLoop (stmts: Stmt []) (used: bool []) idx len ctxt =
       let ei2 = AST.getExprInfo e2
       optimizeLoop stmts used (idx - 1) len (updateUse3 ei ei1 ei2 ctxt)
     | Put (v, e) when v = e ->
-      used.[idx] <- false
+      used[idx] <- false
       optimizeLoop stmts used (idx - 1) (len - 1) ctxt
     | Put ({ E = Var (_, rid, _, rs) }, rhs) ->
       let isUsed = RegisterSet.exist rid ctxt.UseRegisters
       let ctxt = if isUsed then removeUse rid ctxt else ctxt
       if not isUsed && RegisterSet.exist rid ctxt.OutRegisters then
-        used.[idx] <- false
+        used[idx] <- false
         optimizeLoop stmts used (idx - 1) (len - 1) ctxt
       else
         let ctxt = updateOut rs ctxt
@@ -126,12 +126,15 @@ let rec optimizeLoop (stmts: Stmt []) (used: bool []) idx len ctxt =
       let isUsed = Set.contains n ctxt.UseTempVar
       let ctxt = if isUsed then removeTempUse n ctxt else ctxt
       if not isUsed && (ctxt.IsLastBlock || Set.contains n ctxt.OutTempVar) then
-        used.[idx] <- false
+        used[idx] <- false
         optimizeLoop stmts used (idx - 1) (len - 1) ctxt
       else
         let ctxt = updateTempOut n ctxt
         let ctxt = updateUse (AST.getExprInfo rhs) ctxt
         optimizeLoop stmts used (idx - 1) len ctxt
+    | SideEffect (BinIR.SideEffect.ExternalCall expr) ->
+      let ctxt = updateUse (AST.getExprInfo expr) ctxt
+      optimizeLoop stmts used (idx - 1) len ctxt
     | LMark _ ->
       optimizeLoop stmts used (idx - 1) len { ctxt with IsLastBlock = false }
     | ISMark _ ->

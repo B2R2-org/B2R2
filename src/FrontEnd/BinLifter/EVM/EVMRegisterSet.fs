@@ -27,18 +27,18 @@ namespace B2R2.FrontEnd.BinLifter.EVM
 open B2R2
 
 module private RegisterSetLiteral =
-  let [<Literal>] arrLen = 2
+  let [<Literal>] ArrLen = 2
 
 open RegisterSetLiteral
 
 type EVMRegisterSet (bitArray: uint64 [], s: Set<RegisterID>) =
   inherit NonEmptyRegisterSet (bitArray, s)
 
-  new () = EVMRegisterSet (RegisterSet.MakeInternalBitArray arrLen, Set.empty)
+  new () = EVMRegisterSet (RegisterSet.MakeInternalBitArray ArrLen, Set.empty)
 
   override __.Tag = RegisterSetTag.EVM
 
-  override __.ArrSize = arrLen
+  override __.ArrSize = ArrLen
 
   override __.New arr s = new EVMRegisterSet (arr, s) :> RegisterSet
 
@@ -53,7 +53,7 @@ type EVMRegisterSet (bitArray: uint64 [], s: Set<RegisterID>) =
     | _ -> Utils.impossible ()
 
   override __.ToString () =
-    sprintf "EVMReisterSet<%x, %x>" __.BitArray.[0] __.BitArray.[1]
+    sprintf "EVMReisterSet<%x, %x>" __.BitArray[0] __.BitArray[1]
 
 [<RequireQualifiedAccess>]
 module EVMRegisterSet =

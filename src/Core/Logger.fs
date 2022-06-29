@@ -40,6 +40,7 @@ type LogLevel =
 /// Helper module for LogLevel
 [<RequireQualifiedAccess>]
 module LogLevel =
+  /// Get LogLevel from a given string.
   let ofString (str: string) =
     match str.ToLower () with
     | "1" | "l1" | "quiet" | "q" -> LogLevel.L1
@@ -47,6 +48,7 @@ module LogLevel =
     | "4" | "l4" -> LogLevel.L4
     | _ -> LogLevel.L2
 
+  /// Return a string representing the given LogLevel.
   let toString = function
     | LogLevel.L1 -> "L1"
     | LogLevel.L2 -> "L2"
@@ -56,11 +58,17 @@ module LogLevel =
 
 /// Basic logging facility.
 type ILogger =
-  /// Log string (without newline).
-  abstract Log: string * ?lev:LogLevel -> unit
+  /// Write a log message (without newline). If the given verbosity level (lvl)
+  /// is lower than it of the logger's, this will print out the given message.
+  /// If the logger's verbosity level is L4, then this function will always
+  /// print out messages regardless of the given `lvl`.
+  abstract Log: string * ?lvl:LogLevel -> unit
 
-  /// Log string with a new line.
-  abstract LogLine: string * ?lev:LogLevel -> unit
+  /// Write a log message with a newline. If the given verbosity level (lvl) is
+  /// lower than it of the logger's, this will print out the given message. If
+  /// the logger's verbosity level is L4, then this function will always print
+  /// out messages regardless of the given `lvl`.
+  abstract LogLine: string * ?lvl:LogLevel -> unit
 
 /// Log to a file.
 type FileLogger(filepath, ?level: LogLevel) =
@@ -68,7 +76,7 @@ type FileLogger(filepath, ?level: LogLevel) =
   let llev = defaultArg level LogLevel.L2
 
   override __.Finalize () =
-    fs.Close ()
+    try fs.Close () with _ -> ()
 
   interface ILogger with
     member __.Log (str, ?lvl) =

@@ -24,43 +24,42 @@
 
 module internal B2R2.FrontEnd.BinFile.ELF.Parser
 
+open System
 open B2R2
 open B2R2.FrontEnd.BinFile
 
-let parseGlobalSymbols reloc =
-  let folder map addr (rel: RelocationEntry) =
+let private parseGlobalSymbols reloc =
+  let folder map (KeyValue (addr, rel: RelocationEntry)) =
     match rel.RelType with
     | RelocationX86 RelocationX86.Reloc386GlobData
     | RelocationX64 RelocationX64.RelocX64GlobData ->
       Map.add addr (Option.get rel.RelSymbol) map
     | _ -> map
-  reloc.RelocByAddr |> Map.fold folder Map.empty
+  reloc.RelocByAddr |> Seq.fold folder Map.empty
 
-let rec loadCallSiteTable lsdaPointer = function
-  | [] -> []
-  | lsda :: rest ->
-    if lsdaPointer = lsda.LSDAAddr then lsda.CallSiteTable
-    else loadCallSiteTable lsdaPointer rest
+let inline private loadCallSiteTable lsdaPointer gccexctbl =
+  let lsda = Map.find lsdaPointer gccexctbl
+  lsda.CallSiteTable
 
-let rec loopCallSiteTable fde acc = function
+let rec private loopCallSiteTable fde acc = function
   | [] -> acc
-  | rcrd :: rest ->
+  | csrec :: rest ->
     let acc =
       let landingPad =
-        if rcrd.LandingPad = uint64 0 then rcrd.LandingPad
-        else fde.PCBegin + rcrd.LandingPad
-      let blockStart = fde.PCBegin + rcrd.Position
-      let blockEnd = fde.PCBegin + rcrd.Position + rcrd.Length - 1UL
+        if csrec.LandingPad = 0UL then 0UL
+        else fde.PCBegin + csrec.LandingPad
+      let blockStart = fde.PCBegin + csrec.Position
+      let blockEnd = fde.PCBegin + csrec.Position + csrec.Length - 1UL
       ARMap.add (AddrRange (blockStart, blockEnd)) landingPad acc
     loopCallSiteTable fde acc rest
 
-let buildExceptionTable fde gccexctbl tbl =
+let private buildExceptionTable fde gccexctbl tbl =
   match fde.LSDAPointer with
   | None -> tbl
   | Some lsdaPointer ->
     loopCallSiteTable fde tbl (loadCallSiteTable lsdaPointer gccexctbl)
 
-let accumulateExceptionTableInfo fde gccexctbl map =
+let private accumulateExceptionTableInfo fde gccexctbl map =
   fde
   |> Array.fold (fun map fde ->
      let functionRange = AddrRange (fde.PCBegin, fde.PCEnd - 1UL)
@@ -68,12 +67,15 @@ let accumulateExceptionTableInfo fde gccexctbl map =
      if ARMap.isEmpty exceptTable then map
      else ARMap.add functionRange exceptTable map) map
 
-let computeExceptionTable excframes gccexctbl =
+let private isRelocatable (eHdr: ELFHeader) =
+  eHdr.ELFFileType = ELFFileType.Relocatable
+
+let private computeExceptionTable excframes gccexctbl =
   excframes
   |> List.fold (fun map frame ->
     accumulateExceptionTableInfo frame.FDERecord gccexctbl map) ARMap.empty
 
-let computeUnwindingTable excframes =
+let private computeUnwindingTable excframes =
   excframes
   |> List.fold (fun tbl (f: CallFrameInformation) ->
     f.FDERecord |> Array.fold (fun tbl fde ->
@@ -81,7 +83,7 @@ let computeUnwindingTable excframes =
         Map.add i.Location i tbl) tbl
       ) tbl) Map.empty
 
-let invRanges wordSize segs getNextStartAddr =
+let private invRanges wordSize segs getNextStartAddr =
   segs
   |> List.sortBy (fun seg -> seg.PHAddr)
   |> List.fold (fun (set, saddr) seg ->
@@ -89,29 +91,58 @@ let invRanges wordSize segs getNextStartAddr =
        FileHelper.addInvRange set saddr seg.PHAddr, n) (IntervalSet.empty, 0UL)
   |> FileHelper.addLastInvRange wordSize
 
-let execRanges segs =
+let private addIntervalWithoutSection secS secE s e set =
+  let set =
+    if s < secS && secS < e then IntervalSet.add (AddrRange (s, secS - 1UL)) set
+    else set
+  let set =
+    if secE < e then IntervalSet.add (AddrRange (secE + 1UL, e)) set
+    else set
+  set
+
+let private addIntervalWithoutROSection rodata seg set =
+  let roS = rodata.SecAddr
+  let roE = roS + rodata.SecSize - 1UL
+  let segS = seg.PHAddr
+  let segE = segS + seg.PHMemSize - 1UL
+  if roE < segS || segE < roS then
+    IntervalSet.add (AddrRange (segS, segE)) set
+  else addIntervalWithoutSection roS roE segS segE set
+
+let private addExecutableInterval excludingSection s set =
+  match excludingSection with
+  | Some sec -> addIntervalWithoutROSection sec s set
+  | None ->
+    IntervalSet.add (AddrRange (s.PHAddr, s.PHAddr + s.PHMemSize - 1UL)) set
+
+let private execRanges secs segs =
+  (* Exclude .rodata even though it is included within an executable segment. *)
+  let rodata =
+    match Map.tryFind Section.SecROData secs.SecByName with
+    | Some rodata when rodata.SecAddr <> 0UL -> Some rodata
+    | _ -> None
   segs
   |> List.filter (fun seg ->
     seg.PHFlags &&& Permission.Executable = Permission.Executable)
-  |> List.fold (fun set s ->
-    IntervalSet.add (AddrRange (s.PHAddr, s.PHAddr + s.PHMemSize - 1UL)) set
-    ) IntervalSet.empty
+  |> List.fold (fun set seg ->
+    addExecutableInterval rodata seg set) IntervalSet.empty
 
-let private parseELF baseAddr regbay offset reader =
-  let eHdr, baseAddr = Header.parse baseAddr offset reader
+let private parseELF baseAddr regbay span (reader: IBinReader) =
+  let eHdr, baseAddr = Header.parse span reader baseAddr
   let isa = ISA.Init eHdr.MachineType eHdr.Endian
   let cls = eHdr.Class
-  let secs = Section.parse baseAddr eHdr reader
-  let proghdrs = ProgHeader.parse baseAddr eHdr reader
+  let secs = Section.parse baseAddr eHdr span reader
+  let proghdrs = ProgHeader.parse baseAddr eHdr span reader
   let segs = ProgHeader.getLoadableProgHeaders proghdrs
   let loadableSecNums = ProgHeader.getLoadableSecNums secs segs
-  let symbs = Symbol.parse baseAddr eHdr secs reader
-  let reloc = Relocs.parse baseAddr eHdr secs symbs reader
-  let plt = PLT.parse eHdr.MachineType secs reloc reader
+  let symbs = Symbol.parse baseAddr eHdr secs span reader
+  let reloc = Relocs.parse baseAddr eHdr secs symbs span reader
+  let plt = PLT.parse eHdr.MachineType secs reloc span reader
   let globals = parseGlobalSymbols reloc
   let symbs = Symbol.updatePLTSymbols plt symbs |> Symbol.updateGlobals globals
-  let excframes = ExceptionFrames.parse reader cls secs isa regbay
-  let lsdas = ELFGccExceptTable.parse reader cls secs
+  let excrel = if isRelocatable eHdr then Some reloc else None
+  let excframes = ExceptionFrames.parse span reader cls secs isa regbay excrel
+  let lsdas = ELFGccExceptTable.parse span reader cls secs
   let exctbls = computeExceptionTable excframes lsdas
   let unwindings = computeUnwindingTable excframes
   { ELFHdr = eHdr
@@ -129,15 +160,16 @@ let private parseELF baseAddr regbay offset reader =
     LSDAs = lsdas
     InvalidAddrRanges = invRanges cls segs (fun s -> s.PHAddr + s.PHMemSize)
     NotInFileRanges = invRanges cls segs (fun s -> s.PHAddr + s.PHFileSize)
-    ExecutableRanges = execRanges segs
-    BinReader = reader
+    ExecutableRanges = execRanges secs segs
     ISA = isa
-    UnwindingTbl = unwindings }
+    UnwindingTbl = unwindings
+    BinReader = reader }
 
-let parse bytes baseAddr regbay =
-  let reader = BinReader.Init (bytes, Endian.Little)
-  if Header.isELF reader 0 then ()
+let parse (bytes: byte[]) baseAddr regbay =
+  let span = ReadOnlySpan bytes
+  if Header.isELF span then ()
   else raise FileFormatMismatchException
-  Header.peekEndianness reader 0
-  |> BinReader.RenewReader reader
-  |> parseELF baseAddr regbay 0
+  match Header.peekEndianness span with
+  | Endian.Little -> parseELF baseAddr regbay span BinReader.binReaderLE
+  | Endian.Big -> parseELF baseAddr regbay span BinReader.binReaderBE
+  | _ -> Utils.impossible ()

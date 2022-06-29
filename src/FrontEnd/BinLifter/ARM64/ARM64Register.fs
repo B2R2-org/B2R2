@@ -26,24 +26,7 @@ namespace B2R2.FrontEnd.BinLifter.ARM64
 
 open B2R2
 
-/// <summary>
-///   ARMv8 registers. Below is how we encode register as a 20-bit integer.
-///   <para/>
-///   <code>
-///   19 18 17 16 15        ...        00 (bit position)
-///   +----------+----------------------+
-///   | Kind     |  Register ID.        |
-///   +----------+----------------------+
-///
-///   # Kind (19 - 16)
-///   - 0000 : General purpose registers.
-///   - 0001 : SIMD registers.
-///   - 0010 : VFP registers.
-///   - 0011 : Co-processor registers.
-///   - 0100 : Control flags.
-///   - 0101 : Control register.
-///   </code>
-/// </summary>
+/// ARMv8 (AArch64) registers.
 type Register =
   /// X0.
   | X0 = 0x0
@@ -180,490 +163,490 @@ type Register =
   /// Program counter.
   | PC = 0x42
   /// V0.
-  | V0 = 0x1000
+  | V0 = 0x43
   /// V1.
-  | V1 = 0x1001
+  | V1 = 0x44
   /// V2.
-  | V2 = 0x1002
+  | V2 = 0x45
   /// V3.
-  | V3 = 0x1003
+  | V3 = 0x46
   /// V4.
-  | V4 = 0x1004
+  | V4 = 0x47
   /// V5.
-  | V5 = 0x1005
+  | V5 = 0x48
   /// V6.
-  | V6 = 0x1006
+  | V6 = 0x49
   /// V7.
-  | V7 = 0x1007
+  | V7 = 0x4A
   /// V8.
-  | V8 = 0x1008
+  | V8 = 0x4B
   /// V9.
-  | V9 = 0x1009
+  | V9 = 0x4C
   /// v10.
-  | V10 = 0x100A
+  | V10 = 0x4D
   /// V11.
-  | V11 = 0x100B
+  | V11 = 0x4E
   /// V12.
-  | V12 = 0x100C
+  | V12 = 0x4F
   /// V13.
-  | V13 = 0x100D
+  | V13 = 0x50
   /// V14.
-  | V14 = 0x100E
+  | V14 = 0x51
   /// V15.
-  | V15 = 0x100F
+  | V15 = 0x52
   /// V16.
-  | V16 = 0x1010
+  | V16 = 0x53
   /// V17.
-  | V17 = 0x1011
+  | V17 = 0x54
   /// V18.
-  | V18 = 0x1012
+  | V18 = 0x55
   /// V19.
-  | V19 = 0x1013
+  | V19 = 0x56
   /// V20.
-  | V20 = 0x1014
+  | V20 = 0x57
   /// V21.
-  | V21 = 0x1015
+  | V21 = 0x58
   /// V22.
-  | V22 = 0x1016
+  | V22 = 0x59
   /// V23.
-  | V23 = 0x1017
+  | V23 = 0x5A
   /// V24.
-  | V24 = 0x1018
+  | V24 = 0x5B
   /// V25.
-  | V25 = 0x1019
+  | V25 = 0x5C
   /// V26.
-  | V26 = 0x102A
+  | V26 = 0x5D
   /// V27.
-  | V27 = 0x102B
+  | V27 = 0x5E
   /// V28.
-  | V28 = 0x102C
+  | V28 = 0x5F
   /// V29.
-  | V29 = 0x102D
+  | V29 = 0x60
   /// V30.
-  | V30 = 0x102E
+  | V30 = 0x61
   /// V31.
-  | V31 = 0x102F
+  | V31 = 0x62
   /// B0.
-  | B0 = 0x2000
+  | B0 = 0x63
   /// B1.
-  | B1 = 0x2001
+  | B1 = 0x64
   /// B2.
-  | B2 = 0x2002
+  | B2 = 0x65
   /// B3.
-  | B3 = 0x2003
+  | B3 = 0x66
   /// B4.
-  | B4 = 0x2004
+  | B4 = 0x67
   /// B5.
-  | B5 = 0x2005
+  | B5 = 0x68
   /// B6.
-  | B6 = 0x2006
+  | B6 = 0x69
   /// B7.
-  | B7 = 0x2007
+  | B7 = 0x6A
   /// B8.
-  | B8 = 0x2008
+  | B8 = 0x6B
   /// B9.
-  | B9 = 0x2009
+  | B9 = 0x6C
   /// B10.
-  | B10 = 0x200A
+  | B10 = 0x6D
   /// B11.
-  | B11 = 0x200B
+  | B11 = 0x6E
   /// B12.
-  | B12 = 0x200C
+  | B12 = 0x6F
   /// B13.
-  | B13 = 0x200D
+  | B13 = 0x70
   /// B14.
-  | B14 = 0x200E
+  | B14 = 0x71
   /// B15.
-  | B15 = 0x200F
+  | B15 = 0x72
   /// B16.
-  | B16 = 0x2010
+  | B16 = 0x73
   /// B17.
-  | B17 = 0x2011
+  | B17 = 0x74
   /// B18.
-  | B18 = 0x2012
+  | B18 = 0x75
   /// B19.
-  | B19 = 0x2013
+  | B19 = 0x76
   /// B20.
-  | B20 = 0x2014
+  | B20 = 0x77
   /// B21.
-  | B21 = 0x2015
+  | B21 = 0x78
   /// B22.
-  | B22 = 0x2016
+  | B22 = 0x79
   /// B23.
-  | B23 = 0x2017
+  | B23 = 0x7A
   /// B24.
-  | B24 = 0x2018
+  | B24 = 0x7B
   /// B25.
-  | B25 = 0x2019
+  | B25 = 0x7C
   /// B26.
-  | B26 = 0x201A
+  | B26 = 0x7D
   /// B27.
-  | B27 = 0x201B
+  | B27 = 0x7E
   /// B28.
-  | B28 = 0x201C
+  | B28 = 0x7F
   /// B29.
-  | B29 = 0x201D
+  | B29 = 0x80
   /// B30.
-  | B30 = 0x201E
+  | B30 = 0x81
   /// B31.
-  | B31 = 0x201F
+  | B31 = 0x82
   /// H0.
-  | H0 = 0x2020
+  | H0 = 0x83
   /// H1.
-  | H1 = 0x2021
+  | H1 = 0x84
   /// H2.
-  | H2 = 0x2022
+  | H2 = 0x85
   /// H3.
-  | H3 = 0x2023
+  | H3 = 0x86
   /// H4.
-  | H4 = 0x2024
+  | H4 = 0x87
   /// H5.
-  | H5 = 0x2025
+  | H5 = 0x88
   /// H6.
-  | H6 = 0x2026
+  | H6 = 0x89
   /// H7.
-  | H7 = 0x2027
+  | H7 = 0x8A
   /// H8.
-  | H8 = 0x2028
+  | H8 = 0x8B
   /// H9.
-  | H9 = 0x2029
+  | H9 = 0x8C
   /// H10.
-  | H10 = 0x202A
+  | H10 = 0x8D
   /// H11.
-  | H11 = 0x202B
+  | H11 = 0x8E
   /// H12.
-  | H12 = 0x202C
+  | H12 = 0x8F
   /// H13.
-  | H13 = 0x202D
+  | H13 = 0x90
   /// H14.
-  | H14 = 0x202E
+  | H14 = 0x91
   /// H15.
-  | H15 = 0x202F
+  | H15 = 0x92
   /// H16.
-  | H16 = 0x2030
+  | H16 = 0x93
   /// H17.
-  | H17 = 0x2031
+  | H17 = 0x94
   /// H18.
-  | H18 = 0x2032
+  | H18 = 0x95
   /// H19.
-  | H19 = 0x2033
+  | H19 = 0x96
   /// H20.
-  | H20 = 0x2034
+  | H20 = 0x97
   /// H21.
-  | H21 = 0x2035
+  | H21 = 0x98
   /// H22.
-  | H22 = 0x2036
+  | H22 = 0x99
   /// H23.
-  | H23 = 0x2037
+  | H23 = 0x9A
   /// H24.
-  | H24 = 0x2038
+  | H24 = 0x9B
   /// H25.
-  | H25 = 0x2039
+  | H25 = 0x9C
   /// H26.
-  | H26 = 0x203A
+  | H26 = 0x9D
   /// H27.
-  | H27 = 0x203B
+  | H27 = 0x9E
   /// H28.
-  | H28 = 0x203C
+  | H28 = 0x9F
   /// H29.
-  | H29 = 0x203D
+  | H29 = 0xA0
   /// H30.
-  | H30 = 0x203E
+  | H30 = 0xA1
   /// H31.
-  | H31 = 0x203F
+  | H31 = 0xA2
   /// S0.
-  | S0 = 0x2040
+  | S0 = 0xA3
   /// S1.
-  | S1 = 0x2041
+  | S1 = 0xA4
   /// S2.
-  | S2 = 0x2042
+  | S2 = 0xA5
   /// S3.
-  | S3 = 0x2043
+  | S3 = 0xA6
   /// S4.
-  | S4 = 0x2044
+  | S4 = 0xA7
   /// S5.
-  | S5 = 0x2045
+  | S5 = 0xA8
   /// S6.
-  | S6 = 0x2046
+  | S6 = 0xA9
   /// S7.
-  | S7 = 0x2047
+  | S7 = 0xAA
   /// S8.
-  | S8 = 0x2048
+  | S8 = 0xAB
   /// S9.
-  | S9 = 0x2049
+  | S9 = 0xAC
   /// S10.
-  | S10 = 0x204A
+  | S10 = 0xAD
   /// S11.
-  | S11 = 0x204B
+  | S11 = 0xAE
   /// S12.
-  | S12 = 0x204C
+  | S12 = 0xAF
   /// S13.
-  | S13 = 0x204D
+  | S13 = 0xB0
   /// S14.
-  | S14 = 0x204E
+  | S14 = 0xB1
   /// S15.
-  | S15 = 0x204F
+  | S15 = 0xB2
   /// S16.
-  | S16 = 0x2050
+  | S16 = 0xB3
   /// S17.
-  | S17 = 0x2051
+  | S17 = 0xB4
   /// S18.
-  | S18 = 0x2052
+  | S18 = 0xB5
   /// S19.
-  | S19 = 0x2053
+  | S19 = 0xB6
   /// S20.
-  | S20 = 0x2054
+  | S20 = 0xB7
   /// S21.
-  | S21 = 0x2055
+  | S21 = 0xB8
   /// S22.
-  | S22 = 0x2056
+  | S22 = 0xB9
   /// S23.
-  | S23 = 0x2057
+  | S23 = 0xBA
   /// S24.
-  | S24 = 0x2058
+  | S24 = 0xBB
   /// S25.
-  | S25 = 0x2059
+  | S25 = 0xBC
   /// S26.
-  | S26 = 0x205A
+  | S26 = 0xBD
   /// S27.
-  | S27 = 0x205B
+  | S27 = 0xBE
   /// S28.
-  | S28 = 0x205C
+  | S28 = 0xBF
   /// S29.
-  | S29 = 0x205D
+  | S29 = 0xC0
   /// S30.
-  | S30 = 0x205E
+  | S30 = 0xC1
   /// S31.
-  | S31 = 0x205F
+  | S31 = 0xC2
   /// D0.
-  | D0 = 0x2060
+  | D0 = 0xC3
   /// D1.
-  | D1 = 0x2061
+  | D1 = 0xC4
   /// D2.
-  | D2 = 0x2062
+  | D2 = 0xC5
   /// D3.
-  | D3 = 0x2063
+  | D3 = 0xC6
   /// D4.
-  | D4 = 0x2064
+  | D4 = 0xC7
   /// D5.
-  | D5 = 0x2065
+  | D5 = 0xC8
   /// D6.
-  | D6 = 0x2066
+  | D6 = 0xC9
   /// D7.
-  | D7 = 0x2067
+  | D7 = 0xCA
   /// D8.
-  | D8 = 0x2068
+  | D8 = 0xCB
   /// D9.
-  | D9 = 0x2069
+  | D9 = 0xCC
   /// D10.
-  | D10 = 0x206A
+  | D10 = 0xCD
   /// D11.
-  | D11 = 0x206B
+  | D11 = 0xCE
   /// D12.
-  | D12 = 0x206C
+  | D12 = 0xCF
   /// D13.
-  | D13 = 0x206D
+  | D13 = 0xD0
   /// D14.
-  | D14 = 0x206E
+  | D14 = 0xD1
   /// D15.
-  | D15 = 0x206F
+  | D15 = 0xD2
   /// D16.
-  | D16 = 0x2070
+  | D16 = 0xD3
   /// D17.
-  | D17 = 0x2071
+  | D17 = 0xD4
   /// D18.
-  | D18 = 0x2072
+  | D18 = 0xD5
   /// D19.
-  | D19 = 0x2073
+  | D19 = 0xD6
   /// D20.
-  | D20 = 0x2074
+  | D20 = 0xD7
   /// D21.
-  | D21 = 0x2075
+  | D21 = 0xD8
   /// D22.
-  | D22 = 0x2076
+  | D22 = 0xD9
   /// D23.
-  | D23 = 0x2077
+  | D23 = 0xDA
   /// D24.
-  | D24 = 0x2078
+  | D24 = 0xDB
   /// D25.
-  | D25 = 0x2079
+  | D25 = 0xDC
   /// D26.
-  | D26 = 0x207A
+  | D26 = 0xDD
   /// D27.
-  | D27 = 0x207B
+  | D27 = 0xDE
   /// D28.
-  | D28 = 0x207C
+  | D28 = 0xDF
   /// D29.
-  | D29 = 0x207D
+  | D29 = 0xE0
   /// D30.
-  | D30 = 0x207E
+  | D30 = 0xE1
   /// D31.
-  | D31 = 0x207F
+  | D31 = 0xE2
   /// Q0.
-  | Q0 = 0x2080
+  | Q0 = 0xE3
   /// Q1.
-  | Q1 = 0x2081
+  | Q1 = 0xE4
   /// Q2.
-  | Q2 = 0x2082
+  | Q2 = 0xE5
   /// Q3.
-  | Q3 = 0x2083
+  | Q3 = 0xE6
   /// Q4.
-  | Q4 = 0x2084
+  | Q4 = 0xE7
   /// Q5.
-  | Q5 = 0x2085
+  | Q5 = 0xE8
   /// Q6.
-  | Q6 = 0x2086
+  | Q6 = 0xE9
   /// Q7.
-  | Q7 = 0x2087
+  | Q7 = 0xEA
   /// Q8.
-  | Q8 = 0x2088
+  | Q8 = 0xEB
   /// Q9.
-  | Q9 = 0x2089
+  | Q9 = 0xEC
   /// Q10.
-  | Q10 = 0x208A
+  | Q10 = 0xED
   /// Q11.
-  | Q11 = 0x208B
+  | Q11 = 0xEE
   /// Q12.
-  | Q12 = 0x208C
+  | Q12 = 0xEF
   /// Q13.
-  | Q13 = 0x208D
+  | Q13 = 0xF0
   /// Q14.
-  | Q14 = 0x208E
+  | Q14 = 0xF1
   /// Q15.
-  | Q15 = 0x208F
+  | Q15 = 0xF2
   /// Q16.
-  | Q16 = 0x2090
+  | Q16 = 0xF3
   /// Q17.
-  | Q17 = 0x2091
+  | Q17 = 0xF4
   /// Q18.
-  | Q18 = 0x2092
+  | Q18 = 0xF5
   /// Q19.
-  | Q19 = 0x2093
+  | Q19 = 0xF6
   /// Q20.
-  | Q20 = 0x2094
+  | Q20 = 0xF7
   /// Q21.
-  | Q21 = 0x2095
+  | Q21 = 0xF8
   /// Q22.
-  | Q22 = 0x2096
+  | Q22 = 0xF9
   /// Q23.
-  | Q23 = 0x2097
+  | Q23 = 0xFA
   /// Q24.
-  | Q24 = 0x2098
+  | Q24 = 0xFB
   /// Q25.
-  | Q25 = 0x2099
+  | Q25 = 0xFC
   /// Q26.
-  | Q26 = 0x209A
+  | Q26 = 0xFD
   /// Q27.
-  | Q27 = 0x209B
+  | Q27 = 0xFE
   /// Q28.
-  | Q28 = 0x209C
+  | Q28 = 0xFF
   /// Q29.
-  | Q29 = 0x209D
+  | Q29 = 0x100
   /// Q30.
-  | Q30 = 0x209E
+  | Q30 = 0x101
   /// Q31.
-  | Q31 = 0x209F
+  | Q31 = 0x102
   /// Co-processor register
   /// C0.
-  | C0 = 0x3000
+  | C0 = 0x103
   /// C1.
-  | C1 = 0x3001
+  | C1 = 0x104
   /// C2.
-  | C2 = 0x3002
+  | C2 = 0x105
   /// C3.
-  | C3 = 0x3003
+  | C3 = 0x106
   /// C4.
-  | C4 = 0x3004
+  | C4 = 0x107
   /// C5.
-  | C5 = 0x3005
+  | C5 = 0x108
   /// C6
-  | C6 = 0x3006
+  | C6 = 0x109
   /// C7.
-  | C7 = 0x3007
+  | C7 = 0x10A
   /// C8.
-  | C8 = 0x3008
+  | C8 = 0x10B
   /// C9.
-  | C9 = 0x3009
+  | C9 = 0x10C
   /// C10.
-  | C10 = 0x300A
+  | C10 = 0x10D
   /// C11.
-  | C11 = 0x300B
+  | C11 = 0x10E
   /// C12.
-  | C12 = 0x300C
+  | C12 = 0x10F
   /// C13.
-  | C13 = 0x300D
+  | C13 = 0x110
   /// C14.
-  | C14 = 0x300E
+  | C14 = 0x111
   /// C15.
-  | C15 = 0x300F
+  | C15 = 0x112
   /// Negative condition flag.
-  | N = 0x4000
+  | N = 0x113
   /// Zero condition flag.
-  | Z = 0x4001
+  | Z = 0x114
   /// Carry condition flag.
-  | C = 0x4002
+  | C = 0x115
   /// Overflow condition flag.
-  | V = 0x4003
+  | V = 0x116
   /// Auxiliary Control Register (EL1).
-  | ACTLREL1 = 0x5000
+  | ACTLREL1 = 0x117
   /// Auxiliary Control Register (EL2).
-  | ACTLREL2 = 0x5001
+  | ACTLREL2 = 0x118
   /// Auxiliary Control Register (EL3).
-  | ACTLREL3 = 0x5002
+  | ACTLREL3 = 0x119
   /// Auxiliary Fault Status Register 0 (EL1).
-  | AFSR0EL1 = 0x5003
+  | AFSR0EL1 = 0x11A
   /// Auxiliary Fault Status Register 0 (EL2).
-  | AFSR0EL2 = 0x5004
+  | AFSR0EL2 = 0x11B
   /// Auxiliary Fault Status Register 0 (EL3).
-  | AFSR0EL3 = 0x5005
+  | AFSR0EL3 = 0x11C
   /// Auxiliary Fault Status Register 1 (EL1).
-  | AFSR1EL1 = 0x5006
+  | AFSR1EL1 = 0x11D
   /// Auxiliary Fault Status Register 1 (EL2).
-  | AFSR1EL2 = 0x5007
+  | AFSR1EL2 = 0x11E
   /// Auxiliary Fault Status Register 1 (EL3).
-  | AFSR1EL3 = 0x5008
+  | AFSR1EL3 = 0x11F
   /// Auxiliary ID Register.
-  | AIDREL1 = 0x5009
+  | AIDREL1 = 0x120
   /// Auxiliary Memory Attribute Indirection Register (EL1).
-  | AMAIREL1 = 0x500A
+  | AMAIREL1 = 0x121
   /// Auxiliary Memory Attribute Indirection Register (EL2).
-  | AMAIREL2 = 0x500B
+  | AMAIREL2 = 0x122
   /// Auxiliary Memory Attribute Indirection Register (EL3).
-  | AMAIREL3 = 0x500C
+  | AMAIREL3 = 0x123
   /// Current Cache Size ID Register.
-  | CCSIDREL1 = 0x500D
+  | CCSIDREL1 = 0x124
   /// Cache Level ID Register.
-  | CLIDREL1 = 0x500E
+  | CLIDREL1 = 0x125
   /// Context ID Register (EL1).
-  | CONTEXTIDREL1 = 0x500F
+  | CONTEXTIDREL1 = 0x126
   /// Architectural Feature Access Control Register.
-  | CPACREL1 = 0x5010
+  | CPACREL1 = 0x127
   /// Architectural Feature Trap Register (EL2).
-  | CPTREL2 = 0x5011
+  | CPTREL2 = 0x128
   /// Architectural Feature Trap Register (EL3).
-  | CPTREL3 = 0x5012
+  | CPTREL3 = 0x129
   /// Cache Size Selection Register.
-  | CSSELREL1 = 0x5013
+  | CSSELREL1 = 0x12A
   /// Cache Type Register.
-  | CTREL0 = 0x5014
+  | CTREL0 = 0x12B
   /// Domain Access Control Register.
-  | DACR32EL2 = 0x5015
+  | DACR32EL2 = 0x12C
   /// Data Cache Zero ID register.
-  | DCZIDEL0 = 0x5016
+  | DCZIDEL0 = 0x12D
   /// Exception Syndrome Register (EL1).
-  | ESREL1 = 0x5017
+  | ESREL1 = 0x12E
   /// Exception Syndrome Register (EL2).
-  | ESREL2 = 0x5018
+  | ESREL2 = 0x12F
   /// Exception Syndrome Register (EL3).
-  | ESREL3 = 0x5019
+  | ESREL3 = 0x130
   /// Hypervisor IPA Fault Address Register.
-  | HPFAREL2 = 0x501A
+  | HPFAREL2 = 0x131
   /// EL0 Read/Write Software Thread ID Register.
-  | TPIDREL0 = 0x501B
+  | TPIDREL0 = 0x132
   /// Floating-point Control Register.
-  | FPCR = 0x501C
+  | FPCR = 0x133
   /// Floating-point Status Register.
-  | FPSR = 0x501D
+  | FPSR = 0x134
 
 /// Shortcut for Register type.
 type internal R = Register
@@ -1338,4 +1321,3 @@ module Register =
     | R.Q28 | R.Q29 | R.Q30 | R.Q31 -> 128<rt>
     | R.N | R.Z | R.C | R.V -> 1<rt>
     | _ -> Utils.impossible ()
-

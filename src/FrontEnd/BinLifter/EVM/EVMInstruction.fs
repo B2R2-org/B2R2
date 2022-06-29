@@ -106,6 +106,9 @@ type EVMInstruction (addr, numBytes, insInfo, wordSize) =
   override __.IsNop () = false
 
   override __.Translate ctxt =
+    (Lifter.translate __.Info ctxt).ToStmts ()
+
+  override __.TranslateToList ctxt =
     Lifter.translate __.Info ctxt
 
   override __.Disasm (showAddr, _resolveSymbol, _fileInfo) =

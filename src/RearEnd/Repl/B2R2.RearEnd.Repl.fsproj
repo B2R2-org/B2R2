@@ -2,7 +2,6 @@
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net5.0</TargetFramework>
     <IsPackable>false</IsPackable>
   </PropertyGroup>
 
@@ -16,7 +15,7 @@
 
   <ItemGroup>
     <PackageReference Include="B2R2.FsReadLine" Version="0.1.5" />
-    <PackageReference Include="B2R2.MiddleEnd.ConcEval" Version="0.5.0" />
+    <PackageReference Include="B2R2.MiddleEnd.ConcEval" Version="0.6.0-rc2" />
   </ItemGroup>
 
   <ItemGroup>

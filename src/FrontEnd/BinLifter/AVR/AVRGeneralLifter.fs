@@ -30,13 +30,14 @@ open B2R2.BinIR.LowUIR
 open B2R2.BinIR.LowUIR.AST.InfixOp
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinLifter.LiftingOperators
+open B2R2.FrontEnd.BinLifter.LiftingUtils
 open B2R2.FrontEnd.BinLifter.AVR
 
-let inline numI32 n = BitVector.ofInt32 n 8<rt> |> AST.num
+let inline numI32 n = LiftingUtils.numI32 n 8<rt>
 
-let inline numI32PC n = BitVector.ofInt32 n 16<rt> |> AST.num
+let inline numI32PC n = LiftingUtils.numI32 n 16<rt>
 
-let inline numI22 n = BitVector.ofInt32 n 22<rt> |> AST.num
+let inline numI22 n = LiftingUtils.numI32 n 22<rt>
 
 let private cfOnAdd e1 e2 r =
   let e1High = AST.xthi 1<rt> e1
@@ -104,12 +105,6 @@ let transTwoOprs (ins: InsInfo) ctxt =
     struct (transOprToExpr ctxt o1,
             transOprToExpr ctxt o2)
   | _ -> raise InvalidOperandException
-
-let inline tmpVars2 ir t =
-  struct (!*ir t, !*ir t)
-
-let inline tmpVars3 ir t =
-  struct (!*ir t, !*ir t, !*ir t)
 
 let sideEffects insLen name =
   let ir = IRBuilder (4)

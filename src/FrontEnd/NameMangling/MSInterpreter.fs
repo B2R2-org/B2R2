@@ -117,7 +117,7 @@ let rec interpret (sample: MSExpr) =
                     else changeToNormalPointer ptr) fPtrs
       |> List.map interpret |> (List.reduce (+))).Trim ()
     let ptrStrsUpdated =
-      if ptrStrs.[0] = '*' then ptrStrs
+      if ptrStrs[0] = '*' then ptrStrs
       else " " + ptrStrs
     let modStr =
       if mods = None then ""
@@ -145,7 +145,7 @@ let rec interpret (sample: MSExpr) =
     let prefixes, modifier = modInfo
     let preStr, postStr = getPrefixModStr prefixes
     let postModifiedStr =
-      if postStr.Length > 0 then postStr.[1..] + " " else ""
+      if postStr.Length > 0 then postStr[1..] + " " else ""
     interpret typeN + CVModifier.toString modifier + preStr + postModifiedStr
 
   | PointerStrT (p, (prefix, cvMod), pComp) ->

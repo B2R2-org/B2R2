@@ -78,8 +78,18 @@ type Architecture =
   | CILIntel64 = 22
   /// Atmel AVR 8-bit microcontroller.
   | AVR = 23
+  /// SuperH (SH-4).
+  | SH4 = 24
+  /// PowerPC 32-bit.
+  | PPC32 = 25
+  /// Sparc 64-bit.
+  | Sparc64 = 26
+  /// RISCV 64-bit
+  | RISCV64 = 27
+  /// WASM
+  | WASM = 40
   /// Unknown ISA.
-  | UnknownISA = 30
+  | UnknownISA = 42
 
 type Arch = Architecture
 
@@ -150,6 +160,16 @@ with
       { Arch = arch; Endian = endian; WordSize = WordSize.Bit64 }
     | Arch.AVR ->
       { Arch = arch; Endian = endian; WordSize = WordSize.Bit8 }
+    | Arch.SH4 ->
+      { Arch = arch; Endian = endian; WordSize = WordSize.Bit32 }
+    | Arch.PPC32 ->
+      { Arch = arch; Endian = endian; WordSize = WordSize.Bit32 }
+    | Arch.Sparc64 ->
+      { Arch = arch; Endian = endian; WordSize = WordSize.Bit64 }
+    | Arch.RISCV64 ->
+      { Arch = arch; Endian = endian; WordSize = WordSize.Bit64 }
+    | Arch.WASM ->
+      { Arch = arch; Endian = endian; WordSize = WordSize.Bit32 }
     | _ -> raise InvalidISAException
 
   static member OfString (s: string) =
@@ -171,10 +191,16 @@ with
     | "mips64r2be" -> ISA.Init Arch.MIPS64R2 Endian.Big
     | "mips64r6" -> ISA.Init Arch.MIPS64R6 Endian.Little
     | "mips64r6be" -> ISA.Init Arch.MIPS64R6 Endian.Big
-    | "evm" -> ISA.Init Arch.EVM Endian.Little
+    | "evm" -> ISA.Init Arch.EVM Endian.Big
     | "tms320c6000" -> ISA.Init Arch.TMS320C6000 Endian.Little
     | "cil" -> ISA.Init Arch.CILOnly Endian.Little
     | "avr" | "avr8" -> ISA.Init Arch.AVR Endian.Little
+    | "sh4" | "sh-4" -> ISA.Init Arch.SH4 Endian.Little
+    | "sh4be" | "sh-4be" -> ISA.Init Arch.SH4 Endian.Big
+    | "ppc32" -> ISA.Init Arch.PPC32 Endian.Little
+    | "sparc" | "sparc64" -> ISA.Init Arch.Sparc64 Endian.Big
+    | "riscv64" -> ISA.Init Arch.RISCV64 Endian.Little
+    | "wasm" -> ISA.Init Arch.WASM Endian.Little
     | _ -> raise InvalidISAException
 
   static member ArchToString arch =
@@ -192,5 +218,10 @@ with
     | Arch.TMS320C6000 -> "TMS320C6000"
     | Arch.CILOnly -> "CIL"
     | Arch.AVR -> "AVR"
+    | Arch.SH4 -> "SH4"
+    | Arch.PPC32 -> "PPC32"
+    | Arch.Sparc64 -> "SPARC64"
+    | Arch.RISCV64 -> "RISCV64"
+    | Arch.WASM -> "WASM"
     | Arch.UnknownISA -> "Unknown"
     | _ -> "Not supported ISA"

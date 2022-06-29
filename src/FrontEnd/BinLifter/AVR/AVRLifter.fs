@@ -112,4 +112,3 @@ let translate (ins: InsInfo) insLen (ctxt : TranslationContext)  =
            eprintfn "%A" o
   #endif
            raise <| NotImplementedIRException (Disasm.opCodeToString o)
-  |> fun ir -> ir.ToStmts ()

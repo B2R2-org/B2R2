@@ -24,6 +24,7 @@
 
 module internal B2R2.FrontEnd.BinFile.Mach.Parser
 
+open System
 open B2R2
 open B2R2.FrontEnd.BinFile
 
@@ -69,18 +70,18 @@ let computeBaseAddr machHdr baseAddr =
   if machHdr.Flags.HasFlag MachFlag.MHPIE then defaultArg baseAddr 0UL
   else 0UL
 
-let parseMach baseAddr reader  =
-  let machHdr = Header.parse reader 0
+let parseMach baseAddr span reader  =
+  let machHdr = Header.parse span reader
   let baseAddr = computeBaseAddr machHdr baseAddr
   let cls = machHdr.Class
-  let cmds = LoadCommands.parse baseAddr reader machHdr
+  let cmds = LoadCommands.parse baseAddr span reader machHdr
   let segs = Segment.extract cmds
   let segmap = Segment.buildMap segs
-  let secs = Section.parseSections baseAddr reader cls segs
+  let secs = Section.parseSections baseAddr span reader cls segs
   let secText = Section.getTextSectionIndex secs.SecByNum
-  let symInfo = Symbol.parse baseAddr reader machHdr cmds secs secText
+  let symInfo = Symbol.parse baseAddr span reader machHdr cmds secs secText
   let relocs =
-    Reloc.parseRelocs reader secs.SecByNum
+    Reloc.parseRelocs span reader secs.SecByNum
     |> Array.map (Reloc.toSymbol symInfo.Symbols secs.SecByNum)
   { EntryPoint = computeEntryPoint segs cmds
     BaseAddr = baseAddr
@@ -97,17 +98,22 @@ let parseMach baseAddr reader  =
     ExecutableRanges = execRanges segs
     BinReader = reader }
 
-let updateReaderForFat bytes isa reader =
-  if Header.isFat reader 0 then
-    let offset, size = Fat.computeOffsetAndSize reader isa
-    let bytes = Array.sub bytes offset size
-    BinReader.Init (bytes)
-  else reader
+let private computeOffsetAndSize span reader isa =
+  let fatArch = Fat.loadFats span reader |> Fat.findMatchingFatRecord isa
+  struct (fatArch.Offset, fatArch.Size)
 
-let parse baseAddr bytes isa =
-  let reader = BinReader.Init (bytes) |> updateReaderForFat bytes isa
-  if Header.isMach reader 0 then ()
+let updateSpanForFat isa span reader =
+  if Header.isFat span reader then
+    let struct (offset, size) = computeOffsetAndSize span reader isa
+    span.Slice (offset, size)
+  else span
+
+let parse baseAddr (bytes: byte[]) isa =
+  let span = ReadOnlySpan bytes
+  let span = updateSpanForFat isa span BinReader.binReaderBE
+  if Header.isMach span BinReader.binReaderLE then ()
   else raise FileFormatMismatchException
-  Header.peekEndianness reader 0
-  |> BinReader.RenewReader reader
-  |> parseMach baseAddr
+  match Header.peekEndianness span BinReader.binReaderLE with
+  | Endian.Little -> parseMach baseAddr span BinReader.binReaderLE
+  | Endian.Big -> parseMach baseAddr span BinReader.binReaderBE
+  | _ -> Utils.impossible ()

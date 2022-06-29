@@ -58,28 +58,28 @@ let private emptyPartitionedEdges =
     SelfLoops = [] }
 
 /// The X offset between starting points of two adjacent edges.
-let [<Literal>] private edgeOffsetX = 4.0
+let [<Literal>] private EdgeOffsetX = 4.0
 
 /// The Y offset between starting points of two adjacent edges.
-let [<Literal>] private edgeOffsetY = 4.0
+let [<Literal>] private EdgeOffsetY = 4.0
 
 /// The length of the last segment of an edge. This value should be at least
 /// less than the half of blockIntervalY.
-let [<Literal>] private lastSegLen = 20.0
+let [<Literal>] private LastSegLen = 20.0
 
 /// An offset from a node to the surrounding box. This is to give some margin
 /// for the box.
-let [<Literal>] private nodeBoxOffset = 20.0
+let [<Literal>] private NodeBoxOffset = 20.0
 
 /// The margin to prevent an overlap between a node and its back edges.
-let [<Literal>] private backEdgeMargin = 10.0
+let [<Literal>] private BackEdgeMargin = 10.0
 
 /// A margin for deciding line fitness.
-let [<Literal>] private fitErrorMargin = 1.0
+let [<Literal>] private FitErrorMargin = 1.0
 
 /// If the number of incoming/outgoing edges of a layer exceeds this threshold,
 /// then we expand the layer's height.
-let [<Literal>] private layerHeightExpansionThreshold = 15
+let [<Literal>] private LayerHeightExpansionThreshold = 15
 
 let inline private isDummy (v: Vertex<VisBBlock>) = v.VData.IsDummy
 
@@ -120,16 +120,16 @@ let private getMaxDegree edges getter layer =
 let private downShiftLayers layers degree =
   Array.iter (Array.iter (fun (v: Vertex<VisBBlock>) ->
     let vData = v.VData
-    let newY = vData.Coordinate.Y + edgeOffsetY * float degree
+    let newY = vData.Coordinate.Y + EdgeOffsetY * float degree
     vData.Coordinate.Y <- newY)) layers
 
 let rec private adjustLayers isIncoming layerNum vLayout = function
   | [] -> ()
   | degree :: tl ->
-    if degree >= layerHeightExpansionThreshold then
+    if degree >= LayerHeightExpansionThreshold then
       let shiftStart = if isIncoming then layerNum else layerNum + 1
       if shiftStart < Array.length vLayout then
-        downShiftLayers vLayout.[ shiftStart .. ] degree
+        downShiftLayers vLayout[ shiftStart .. ] degree
       else ()
     else ()
     adjustLayers isIncoming (layerNum + 1) vLayout tl
@@ -165,13 +165,13 @@ let private makeDummyBox () = makeBox 0.0 0.0 0.0 0.0 true
 
 /// Convert a Vertex into a Box.
 let private vertexToBox (v: Vertex<VisBBlock>): Box =
-  let left = VisGraph.getXPos v - if (isDummy v) then 0.0 else nodeBoxOffset
+  let left = VisGraph.getXPos v - if (isDummy v) then 0.0 else NodeBoxOffset
   let right =
     (VisGraph.getXPos v + VisGraph.getWidth v
     * if (isDummy v) then 0.5 else 1.0)
-    + if (isDummy v) then 0.0 else nodeBoxOffset
-  let top = VisGraph.getYPos v - nodeBoxOffset
-  let bottom = (VisGraph.getYPos v + VisGraph.getHeight v) + nodeBoxOffset
+    + if (isDummy v) then 0.0 else NodeBoxOffset
+  let top = VisGraph.getYPos v - NodeBoxOffset
+  let bottom = (VisGraph.getYPos v + VisGraph.getHeight v) + NodeBoxOffset
   makeBox left right top bottom (isDummy v)
 
 /// Converts vertex arrays to Box arrays.
@@ -207,11 +207,11 @@ let private getIntersectingLines boxes =
     (makeLine hd.TopLeft.X hd.TopRight.X hd.TopLeft.Y) :: (aux [] hd tl)
   | _ -> Utils.impossible ()
 
-let private getBasicComponents vLayout boxes (v: Vertex<VisBBlock>) =
-  let layer = VisGraph.getLayer v
-  let nth = Array.findIndex ((=) v) (vLayout: Vertex<VisBBlock> [][]).[layer]
-  let boxarr = (boxes: Box [][]).[layer]
-  let box = boxes.[layer].[nth]
+let private getBasicComponents (vLayout: _[][]) (boxes: _[][]) v =
+  let layer = VisGraph.getLayer (v: Vertex<VisBBlock>)
+  let nth = Array.findIndex ((=) v) vLayout[layer]
+  let boxarr = boxes[layer]
+  let box: Box = boxes[layer][nth]
   struct (layer, boxarr, box)
 
 let private computeLayerDiff q r =
@@ -241,7 +241,7 @@ let private computeHeightPerLayer boxes =
 /// Computes starting and ending y-coordinates for each layer.
 let private computeYPositionsPerLayer boxes =
   let heights = computeHeightPerLayer boxes
-  let starts = Array.map (fun (layer: Box []) -> layer.[0].TopLeft.Y) boxes
+  let starts = Array.map (fun (layer: Box []) -> layer[0].TopLeft.Y) boxes
   let ends = Array.map2 (+) starts heights
   Array.map2 (fun x y -> (x, y)) starts ends
 
@@ -269,18 +269,18 @@ let rec private getBoxLeftBound reference index (boxarr: Box []) widthLine =
   match index with
   | i when i < 0 -> fst widthLine
   | i ->
-    if not (boxesOverlapping boxarr.[i] boxarr.[reference])
-      || (reference <> i && not (boxarr.[i].IsVirtual))
-    then boxarr.[i].TopRight.X
+    if not (boxesOverlapping boxarr[i] boxarr[reference])
+      || (reference <> i && not (boxarr[i].IsVirtual))
+    then boxarr[i].TopRight.X
     else getBoxLeftBound reference (i - 1) boxarr widthLine
 
 let rec private getBoxRightBound reference index (boxarr: Box []) widthLine =
   match index with
   | i when i > (Array.length boxarr) - 1 -> snd widthLine
   | i ->
-    if not (boxesOverlapping boxarr.[reference] boxarr.[i])
-      || (reference <> i && not (boxarr.[i].IsVirtual))
-    then boxarr.[i].TopLeft.X
+    if not (boxesOverlapping boxarr[reference] boxarr[i])
+      || (reference <> i && not (boxarr[i].IsVirtual))
+    then boxarr[i].TopLeft.X
     else getBoxRightBound reference (i + 1) boxarr widthLine
 
 let private initialBox box (boxarr: Box []) widthLine (_, bottom) =
@@ -294,20 +294,20 @@ let private initialBox box (boxarr: Box []) widthLine (_, bottom) =
 let private interLayerBox yPositions (left, right) layerNum =
   if layerNum >= Array.length yPositions - 1 then makeDummyBox ()
   else
-    let top = yPositions.[layerNum] |> snd
-    let bottom = yPositions.[layerNum + 1] |> fst
+    let top = yPositions[layerNum] |> snd
+    let bottom = yPositions[layerNum + 1] |> fst
     makeBox left right top bottom true
 
 /// Computes a box corresponding to a particular dummy node.
 let private virtualNodeBox boxes widthLine (yPositions: _ []) shrinkBox dummy =
   let dBox = dummy |> vertexToBox
   let dRow = Array.findIndex (Array.contains dBox) boxes
-  let boxarr = boxes.[dRow]
+  let boxarr = boxes[dRow]
   let dCol = Array.findIndex ((=) dBox) boxarr
   let left = getBoxLeftBound dCol dCol boxarr widthLine
   let right = getBoxRightBound dCol dCol boxarr widthLine
-  let top = yPositions.[dRow] |> fst
-  let bottom = yPositions.[dRow] |> snd
+  let top = yPositions[dRow] |> fst
+  let bottom = yPositions[dRow] |> snd
   let delta = (right - left) / 3.0
   if shrinkBox then makeBox (left + delta) (right - delta) top bottom true
   else makeBox left right top bottom true
@@ -329,7 +329,7 @@ let private lineFits (q: VisPosition) (r: VisPosition) line =
   let dy = (ry - qy)
   let m = (rx - qx) / dy
   let x = qx + m * (left.Y - qy)
-  let xFits = (x >= left.X - fitErrorMargin && x <= right.X + fitErrorMargin)
+  let xFits = (x >= left.X - FitErrorMargin && x <= right.X + FitErrorMargin)
   if xFits || (abs dy) < 0.1 then (-1, false)
   else
     if x < left.X then abs (int (x - left.X)), true
@@ -345,12 +345,12 @@ let rec private computePList (interLines: Line array) q r =
     |> Array.mapi (fun i v -> i, v)
     |> Array.maxBy (fun (_, (dist, _)) -> dist)
     |> fst
-  let farthestDist, isAtLeft = fitTupleArray.[furthestLineIndex]
-  let splitLine = interLines.[furthestLineIndex]
+  let farthestDist, isAtLeft = fitTupleArray[furthestLineIndex]
+  let splitLine = interLines[furthestLineIndex]
   if farthestDist > 0 then
     let p = if isAtLeft then splitLine.Left else splitLine.Right
-    let slice1 = interLines.[ .. furthestLineIndex ]
-    let slice2 = interLines.[ furthestLineIndex .. ]
+    let slice1 = interLines[ .. furthestLineIndex ]
+    let slice2 = interLines[ furthestLineIndex .. ]
     let segment1 = (computePList slice1 q p)
     let segment2 = (computePList slice2 p r)
     segment1 @ (p :: segment2)
@@ -360,16 +360,16 @@ let private computeRegularEdgePoints isBackEdge dummies boxes q r qBox rBox =
   let intersectingLines = getIntersectingLines boxes
   let tailQ, headR = getEntryPoint q, getExitPoint r (* Key points *)
   let q1 = makeVisPos (fst tailQ, snd tailQ)
-  let q2 = { q1 with Y = q1.Y + nodeBoxOffset }
+  let q2 = { q1 with Y = q1.Y + NodeBoxOffset }
   let r1 = makeVisPos (fst headR, snd headR)
-  let r2 = { r1 with Y = r1.Y - nodeBoxOffset }
+  let r2 = { r1 with Y = r1.Y - NodeBoxOffset }
   let qWidth = VisGraph.getWidth q
   if isBackEdge then
     let dummyBoxes = dummies |> Array.ofList |> Array.map vertexToBox
     let n = Array.length dummyBoxes
     let departLeft, arriveLeft =
       if n < 1 then nodeIsLeft r q, nodeIsLeft q r
-      else boxIsLeft dummyBoxes.[ n - 1 ] qBox, boxIsLeft dummyBoxes.[0] rBox
+      else boxIsLeft dummyBoxes[ n - 1 ] qBox, boxIsLeft dummyBoxes[0] rBox
     let q3 =
       { q2 with X = q2.X + 0.55 * qWidth * if departLeft then -1.0 else 1.0 }
     let r3 =
@@ -394,8 +394,8 @@ let private drawRegular g vLayout boxes dummyMap (q, r, edge: VisEdge) =
   let wLine = computeWidthLine boxes
   let interLayers = getLayersBetween dummies qLayer rLayer
   let initBox =
-    if isBackEdge then initialBox rBox rBoxArr wLine yPositions.[rLayer]
-    else initialBox qBox qBoxArr wLine yPositions.[qLayer]
+    if isBackEdge then initialBox rBox rBoxArr wLine yPositions[rLayer]
+    else initialBox qBox qBoxArr wLine yPositions[qLayer]
   let interLayerBoxes = List.map (interLayerBox yPositions wLine) interLayers
   let virtualNodeBoxes =
     List.map (virtualNodeBox boxes wLine yPositions isRecovered) dummies
@@ -416,9 +416,9 @@ let private drawSelfLoop g (v: Vertex<VisBBlock>) =
   let nodeWidth = VisGraph.getWidth v
   let eData = (g: VisGraph).FindEdgeData v v
   let startP, endP = getEntryPoint v, getExitPoint v
-  let p1 = (fst startP), (snd startP + lastSegLen)
-  let p2 = ((fst p1) + nodeWidth / 2.0 + backEdgeMargin), (snd p1)
-  let p3 = (fst p2), (snd endP) - lastSegLen
+  let p1 = (fst startP), (snd startP + LastSegLen)
+  let p2 = ((fst p1) + nodeWidth / 2.0 + BackEdgeMargin), (snd p1)
+  let p3 = (fst p2), (snd endP) - LastSegLen
   let p4 = (fst endP), snd p3
   let points = [ startP;  p1;  p2;  p3; p4; endP ] |> List.map makeVisPos
   eData.Points <- points
@@ -469,7 +469,7 @@ let private categorizeEdge isHeadPort acc (q, r, edge: VisEdge) =
     if q = r then { acc with SelfLoops = edge :: acc.SelfLoops }
     elif edge.IsBackEdge then
       let p1Index, p2Index = if isHeadPort then n - 2, n - 3 else 1, 2
-      if points.[p2Index].X < points.[p1Index].X then
+      if points[p2Index].X < points[p1Index].X then
         { acc with BackEdgesFromLeft = edge :: acc.BackEdgesFromLeft }
       else { acc with BackEdgesFromRight  = edge :: acc.BackEdgesFromRight }
     else { acc with ForwardEdges = edge :: acc.ForwardEdges }
@@ -492,7 +492,7 @@ let private getEdgeSlope isBackEdge isHeadPort (edge: VisEdge) =
     | true, false -> 4, 3
     | false, true -> n - 3, n - 2
     | false, false -> 1, 2
-  computeSlope points.[qIndex] points.[rIndex]
+  computeSlope points[qIndex] points[rIndex]
 
 let private sortPartitions isHead descending p =
   let sort = if descending then List.sortByDescending else List.sortBy
@@ -507,9 +507,9 @@ let rec private shiftHorizontally toLeft (edges: VisEdge list) offset =
   | edge :: rest ->
     let points = edge.Points |> Array.ofList
     let n = Array.length points
-    points.[ n - 3 ].X <- points.[ n - 3 ].X + offset
-    points.[ n - 4 ].X <- points.[ n - 4 ].X + offset
-    let nextOffset = offset + if toLeft then -edgeOffsetX else edgeOffsetX
+    points[ n - 3 ].X <- points[ n - 3 ].X + offset
+    points[ n - 4 ].X <- points[ n - 4 ].X + offset
+    let nextOffset = offset + if toLeft then -EdgeOffsetX else EdgeOffsetX
     shiftHorizontally toLeft rest nextOffset
 
 let private splitAux isHeadPort edge =
@@ -530,7 +530,7 @@ let private partitionsToMergedList partition =
   @ partition.BackEdgesFromRight
   @ partition.SelfLoops
 
-let private offsetX center i = float (i - center) * edgeOffsetX
+let private offsetX center i = float (i - center) * EdgeOffsetX
 
 let private shiftSegments isHeadPort (edge: VisEdge) offset =
   let pts = edge.Points |> Array.ofList
@@ -541,8 +541,8 @@ let private shiftSegments isHeadPort (edge: VisEdge) offset =
     | true, false -> 0, 1
     | false, true -> n - 2, n - 1
     | false, false -> 0, 1
-  pts.[i1].X <- pts.[i1].X + offset
-  pts.[i2].X <- pts.[i2].X + offset
+  pts[i1].X <- pts[i1].X + offset
+  pts[i2].X <- pts[i2].X + offset
 
 let rec private shiftVertically isHeadPort offset = function
   | [] -> ()
@@ -550,12 +550,12 @@ let rec private shiftVertically isHeadPort offset = function
     let pts = edge.Points |> Array.ofList
     if isHeadPort then
       let n = Array.length pts
-      pts.[n - 2].Y <- pts.[n - 2].Y + offset
-      if edge.IsBackEdge then pts.[n - 3].Y <- pts.[n - 3].Y + offset else ()
+      pts[n - 2].Y <- pts[n - 2].Y + offset
+      if edge.IsBackEdge then pts[n - 3].Y <- pts[n - 3].Y + offset else ()
     else
-      pts.[1].Y <- pts.[1].Y + offset
-      if edge.IsBackEdge then pts.[2].Y <- pts.[2].Y + offset else ()
-    let offset = offset + (if isHeadPort then -edgeOffsetY else edgeOffsetY)
+      pts[1].Y <- pts[1].Y + offset
+      if edge.IsBackEdge then pts[2].Y <- pts[2].Y + offset else ()
+    let offset = offset + (if isHeadPort then -EdgeOffsetY else EdgeOffsetY)
     shiftVertically isHeadPort offset rest
 
 /// Give some offsets to each neighboring edge of v.

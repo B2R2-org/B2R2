@@ -27,7 +27,7 @@ namespace B2R2.FrontEnd.BinLifter.TMS320C6000
 open B2R2
 
 module private RegisterSetLiteral =
-  let [<Literal>] arrLen = 2
+  let [<Literal>] ArrLen = 2
 
 open RegisterSetLiteral
 
@@ -35,11 +35,11 @@ type TMS320C6000RegisterSet (bitArray: uint64 [], s: Set<RegisterID>) =
   inherit NonEmptyRegisterSet (bitArray, s)
 
   new () =
-    TMS320C6000RegisterSet (RegisterSet.MakeInternalBitArray arrLen, Set.empty)
+    TMS320C6000RegisterSet (RegisterSet.MakeInternalBitArray ArrLen, Set.empty)
 
   override __.Tag = RegisterSetTag.TMS320C6000
 
-  override __.ArrSize = arrLen
+  override __.ArrSize = ArrLen
 
   override __.New arr s = new TMS320C6000RegisterSet (arr, s) :> RegisterSet
 
@@ -51,7 +51,7 @@ type TMS320C6000RegisterSet (bitArray: uint64 [], s: Set<RegisterID>) =
     Utils.futureFeature ()
 
   override __.ToString () =
-    sprintf "TMS320C6000RegisterSet<%x, %x>" __.BitArray.[0] __.BitArray.[1]
+    sprintf "TMS320C6000RegisterSet<%x, %x>" __.BitArray[0] __.BitArray[1]
 
 [<RequireQualifiedAccess>]
 module TMS320C6000RegisterSet =
