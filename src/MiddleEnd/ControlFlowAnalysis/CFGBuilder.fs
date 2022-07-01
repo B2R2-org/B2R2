@@ -206,7 +206,8 @@ module private CFGBuilder =
       if fn.HasVertex dstPp then
         fn.AddEdge (src, ProgramPoint (dst, 0), edge)
         Ok evts
-      elif edge = CallFallThroughEdge && dstBlk.FunctionEntry = dst then
+      elif (edge = CallFallThroughEdge || edge = ExceptionFallThroughEdge)
+           && dstBlk.FunctionEntry = dst then
         Ok evts (* Undetected no-return case, so we do not add fall-through. *)
       else (* Tail-call. *)
         buildFunction hdl codeMgr dataMgr dst mode evts
