@@ -1078,6 +1078,10 @@ let sSatQ ir i n =
   let sat = AST.ite cond1 AST.b1 (AST.ite cond2 AST.b1 (AST.num0 1<rt>))
   (r, sat)
 
+let sSat ir i n =
+  let (r, _) = sSatQ ir i n
+  r
+
 let qdadd (ins: InsInfo) insLen ctxt =
   let ir = IRBuilder (16)
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
@@ -1118,12 +1122,31 @@ let qsax (ins: InsInfo) insLen ctxt =
   !<ir insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   let dst, src1, src2 = transThreeOprs ins ctxt
-  let struct (sum, diff) = tmpVars2 ir 32<rt>
-  let xtlo src = AST.xtlo 16<rt> src |> AST.sext 32<rt>
-  let xthi src = AST.xthi 16<rt> src |> AST.sext 32<rt>
+  let struct (sum, diff) = tmpVars2 ir 16<rt>
+  let xtlo src = AST.xtlo 16<rt> src
+  let xthi src = AST.xthi 16<rt> src
   !!ir (sum := xtlo src1 .+ xthi src2)
   !!ir (diff := xthi src1 .- xtlo src2)
-  !!ir (dst := AST.concat (AST.xtlo 16<rt> diff) (AST.xtlo 16<rt> sum))
+  !!ir (sum := sSat ir sum (RegType.fromBitWidth 16))
+  !!ir (diff := sSat ir diff (RegType.fromBitWidth 16))
+  !!ir (dst := AST.concat diff sum)
+  putEndLabel ctxt lblIgnore isUnconditional None ir
+  !>ir insLen
+
+let qsub16 (ins: InsInfo) insLen ctxt =
+  let ir = IRBuilder (16)
+  let isUnconditional = ParseUtils.isUnconditional ins.Condition
+  !<ir insLen
+  let lblIgnore = checkCondition ins ctxt isUnconditional ir
+  let dst, src1, src2 = transThreeOprs ins ctxt
+  let struct (diff1, diff2) = tmpVars2 ir 16<rt>
+  let xtlo src = AST.xtlo 16<rt> src
+  let xthi src = AST.xthi 16<rt> src
+  !!ir (diff1 := xtlo src1 .- xtlo src2)
+  !!ir (diff2 := xthi src1 .- xthi src2)
+  !!ir (diff1 := sSat ir diff1 (RegType.fromBitWidth 16))
+  !!ir (diff2 := sSat ir diff2 (RegType.fromBitWidth 16))
+  !!ir (dst := AST.concat diff2 diff1)
   putEndLabel ctxt lblIgnore isUnconditional None ir
   !>ir insLen
 
@@ -4766,6 +4789,7 @@ let translate (ins: ARM32InternalInstruction) insLen ctxt =
   | Op.QDADD -> qdadd ins insLen ctxt
   | Op.QDSUB -> qdsub ins insLen ctxt
   | Op.QSAX -> qsax ins insLen ctxt
+  | Op.QSUB16 -> qsub16 ins insLen ctxt
   | Op.RBIT -> rbit ins ctxt
   | Op.REV -> rev ins ctxt
   | Op.ROR -> shiftInstr false ins SRTypeROR ctxt
