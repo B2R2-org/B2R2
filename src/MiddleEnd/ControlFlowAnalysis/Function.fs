@@ -495,7 +495,8 @@ type RegularFunction private (histMgr: HistoryManager, entry, name, thunkInfo) =
     let reachableNodes, reachableEdges = getReachables __.IRCFG entryBlk
     let callerBlk: IRVertex =
       DiGraph.getPreds __.IRCFG entryBlk
-      |> List.filter (fun v -> not <| Set.contains v reachableNodes)
+      |> List.filter (fun v ->
+        not <| Set.contains v reachableNodes && not (v.VData.IsFakeBlock ()))
       |> List.head
     reachableNodes
     |> Set.iter (fun v ->
