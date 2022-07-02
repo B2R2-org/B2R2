@@ -493,11 +493,11 @@ type RegularFunction private (histMgr: HistoryManager, entry, name, thunkInfo) =
     let entryBlk = regularVertices[ProgramPoint (newEntry, 0)]
     (* Transplant CFG first *)
     let reachableNodes, reachableEdges = getReachables __.IRCFG entryBlk
-    let callerBlk: IRVertex =
+    let callerBlk: IRVertex option =
       DiGraph.getPreds __.IRCFG entryBlk
       |> List.filter (fun v ->
         not <| Set.contains v reachableNodes && not (v.VData.IsFakeBlock ()))
-      |> List.head
+      |> List.tryHead
     reachableNodes
     |> Set.iter (fun v ->
       if v.VData.IsFakeBlock () then
@@ -511,9 +511,12 @@ type RegularFunction private (histMgr: HistoryManager, entry, name, thunkInfo) =
     |> Set.iter (fun (src, dst, e) ->
       RegularFunction.AddEdgeByType newFn src dst e)
     (* Replace newFn to FakeBlock *)
-    let callerPoint = callerBlk.VData.PPoint
-    let callSite = callerBlk.VData.LastInstruction.Address
-    __.AddEdge (callerPoint, callSite, newEntry, true, false)
+    match callerBlk with
+    | Some callerBlk ->
+      let callerPoint = callerBlk.VData.PPoint
+      let callSite = callerBlk.VData.LastInstruction.Address
+      __.AddEdge (callerPoint, callSite, newEntry, true, false)
+    | None -> ()
     (* Move necessary information *)
     reachableNodes
     |> Set.iter (fun v ->
