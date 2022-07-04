@@ -1668,6 +1668,14 @@ VFMADD231PS
 VFMADD231SD
 /// Fused Multiply-Add of Scalar Single-Precision Floating-Point Values.
 VFMADD231SS
+/// Multiply and Add Packed Double-Precision Floating-Point(Only AMD).
+VFMADDPD
+/// Multiply and Add Packed Single-Precision Floating-Point(Only AMD).
+VFMADDPS
+/// Multiply and Add Scalar Double-Precision Floating-Point(Only AMD).
+VFMADDSD
+/// Multiply and Add Scalar Single-Precision Floating-Point(Only AMD).
+VFMADDSS
 /// Fused Multiply-Alternating Add/Sub of Packed Double-Precision FP Values.
 VFMADDSUB132PD
 /// Fused Multiply-Alternating Add/Sub of Packed Single-Precision FP Values.
