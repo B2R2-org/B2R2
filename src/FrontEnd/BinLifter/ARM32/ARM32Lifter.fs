@@ -2140,6 +2140,23 @@ let smulacchalf ins ctxt s1top s2top =
   putEndLabel ctxt lblIgnore isUnconditional None builder
   endMark ins builder
 
+let smulacclonghalf (ins: InsInfo) insLen ctxt s1top s2top =
+  let ir = IRBuilder (16)
+  let isUnconditional = ParseUtils.isUnconditional ins.Condition
+  !<ir insLen
+  let lblIgnore = checkCondition ins ctxt isUnconditional ir
+  let dst1, dst2, src1, src2 = transFourOprs ins ctxt
+  let struct (o1, o2, result) = tmpVars3 ir 64<rt>
+  if s1top then !!ir (o1 := AST.xthi 16<rt> src1 |> AST.zext 64<rt>)
+  else !!ir (o1 := AST.xtlo 16<rt> src1 |> AST.sext 64<rt>)
+  if s2top then !!ir (o2 := AST.xthi 16<rt> src2 |> AST.zext 64<rt>)
+  else !!ir (o2 := AST.xtlo 16<rt> src2 |> AST.sext 64<rt>)
+  !!ir (result := o1 .* o2 .+ AST.concat dst2 dst1)
+  !!ir (dst2 := AST.xthi 32<rt> result)
+  !!ir (dst1 := AST.xtlo 32<rt> result)
+  putEndLabel ctxt lblIgnore isUnconditional None ir
+  !>ir insLen
+
 let parseOprOfB (ins: InsInfo) =
   let addr = bvOfBaseAddr (ins.Address + pcOffset ins)
   match ins.Operands with
@@ -2493,6 +2510,23 @@ let rev ins ctxt =
   builder <! (rd := combine8bitResults t4 t3 t2 t1)
   putEndLabel ctxt lblIgnore isUnconditional None builder
   endMark ins builder
+
+let rfedb (ins: InsInfo) insLen ctxt =
+  let ir = IRBuilder (16)
+  let isUnconditional = ParseUtils.isUnconditional ins.Condition
+  !<ir insLen
+  let lblIgnore = checkCondition ins ctxt isUnconditional ir
+  let dst = transOneOpr ins ctxt
+  let wback = ins.WriteBack
+  let struct (addr, newPcValue, spsr) = tmpVars3 ir 32<rt>
+  !!ir (addr := dst .- numI32 8 32<rt>)
+  !!ir (newPcValue := AST.loadLE 32<rt> addr)
+  !!ir (spsr := AST.loadLE 32<rt> (addr .+ numI32 4 32<rt>))
+  match wback with
+  | true -> !!ir (dst := dst .- numI32 8 32<rt>)
+  | _ -> !!ir (dst := dst)
+  putEndLabel ctxt lblIgnore isUnconditional None ir
+  !>ir insLen
 
 /// Store register.
 let str ins ctxt size =
@@ -4792,6 +4826,7 @@ let translate (ins: ARM32InternalInstruction) insLen ctxt =
   | Op.QSUB16 -> qsub16 ins insLen ctxt
   | Op.RBIT -> rbit ins ctxt
   | Op.REV -> rev ins ctxt
+  | Op.RFEDB -> rfedb ins insLen ctxt
   | Op.ROR -> shiftInstr false ins SRTypeROR ctxt
   | Op.RORS -> rors true ins ctxt
   | Op.RRX -> shiftInstr false ins SRTypeRRX ctxt
@@ -4810,6 +4845,8 @@ let translate (ins: ARM32InternalInstruction) insLen ctxt =
   | Op.SMLALS -> smulandacc true true ins ctxt
   | Op.SMLATB -> smulacchalf ins ctxt true false
   | Op.SMLATT -> smulacchalf ins ctxt true true
+  | Op.SMLALBT -> smulacclonghalf ins insLen ctxt false true
+  | Op.SMLALTT -> smulacclonghalf ins insLen ctxt true true
   | Op.SMULBB -> smulhalf ins ctxt false false
   | Op.SMULBT -> smulhalf ins ctxt false true
   | Op.SMULL -> smulandacc false false ins ctxt
