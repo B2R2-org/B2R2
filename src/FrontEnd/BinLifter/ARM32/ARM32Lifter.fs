@@ -2124,6 +2124,46 @@ let smulandacc isSetFlags doAcc ins ctxt =
   putEndLabel ctxt lblIgnore isUnconditional None builder
   endMark ins builder
 
+let smulacclongdual (ins: InsInfo) insLen ctxt sign =
+  let ir = IRBuilder (16)
+  let isUnconditional = ParseUtils.isUnconditional ins.Condition
+  !<ir insLen
+  let lblIgnore = checkCondition ins ctxt isUnconditional ir
+  let dst1, dst2, src1, src2 = transFourOprs ins ctxt
+  let o = !*ir 32<rt>
+  let struct (p1, p2, result) = tmpVars3 ir 64<rt>
+  let rotated = shiftROR src2 32<rt> 16u
+  let xtlo src = AST.xtlo 16<rt> src |> AST.sext 64<rt>
+  let xthi src = AST.xthi 16<rt> src |> AST.sext 64<rt>
+  if sign then !!ir (o := rotated)
+  else !!ir (o := src2)
+  !!ir (p1 := xtlo src1 .* xtlo o)
+  !!ir (p2 := xthi src1 .* xthi o)
+  !!ir (result := p1 .+ p2 .+ AST.concat dst2 dst1)
+  !!ir (dst2 := AST.xthi 32<rt> result)
+  !!ir (dst1 := AST.xtlo 32<rt> result)
+  putEndLabel ctxt lblIgnore isUnconditional None ir
+  !>ir insLen
+
+let smulaccwordbyhalf (ins: InsInfo) insLen ctxt sign =
+  let ir = IRBuilder (16)
+  let isUnconditional = ParseUtils.isUnconditional ins.Condition
+  !<ir insLen
+  let lblIgnore = checkCondition ins ctxt isUnconditional ir
+  let dst, src1, src2, src3 = transFourOprs ins ctxt
+  let o = !*ir 32<rt>
+  let result = !*ir 64<rt>
+  let sext src = AST.sext 64<rt> src
+  if sign then !!ir (o := AST.xthi 16<rt> src2 |> AST.sext 32<rt>)
+  else !!ir (o := AST.xtlo 16<rt> src2 |> AST.sext 32<rt>)
+  !!ir (result := sext src1 .* sext o .+ sext (src3 << numI32 16 32<rt>))
+  !!ir (dst := AST.extract result 32<rt> 16)
+  let cpsr = getRegVar ctxt R.CPSR
+  !!ir (cpsr := AST.ite ((result >> numI32 16 64<rt>) != sext dst)
+                           (enablePSRBits ctxt R.CPSR PSR_Q) cpsr)
+  putEndLabel ctxt lblIgnore isUnconditional None ir
+  !>ir insLen
+
 let smulacchalf ins ctxt s1top s2top =
   let builder = IRBuilder (8)
   let rd, rn, rm, ra = transFourOprs ins ctxt
@@ -2147,9 +2187,9 @@ let smulacclonghalf (ins: InsInfo) insLen ctxt s1top s2top =
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   let dst1, dst2, src1, src2 = transFourOprs ins ctxt
   let struct (o1, o2, result) = tmpVars3 ir 64<rt>
-  if s1top then !!ir (o1 := AST.xthi 16<rt> src1 |> AST.zext 64<rt>)
+  if s1top then !!ir (o1 := AST.xthi 16<rt> src1 |> AST.sext 64<rt>)
   else !!ir (o1 := AST.xtlo 16<rt> src1 |> AST.sext 64<rt>)
-  if s2top then !!ir (o2 := AST.xthi 16<rt> src2 |> AST.zext 64<rt>)
+  if s2top then !!ir (o2 := AST.xthi 16<rt> src2 |> AST.sext 64<rt>)
   else !!ir (o2 := AST.xtlo 16<rt> src2 |> AST.sext 64<rt>)
   !!ir (result := o1 .* o2 .+ AST.concat dst2 dst1)
   !!ir (dst2 := AST.xthi 32<rt> result)
@@ -4847,6 +4887,10 @@ let translate (ins: ARM32InternalInstruction) insLen ctxt =
   | Op.SMLATT -> smulacchalf ins ctxt true true
   | Op.SMLALBT -> smulacclonghalf ins insLen ctxt false true
   | Op.SMLALTT -> smulacclonghalf ins insLen ctxt true true
+  | Op.SMLALD -> smulacclongdual ins insLen ctxt false
+  | Op.SMLALDX -> smulacclongdual ins insLen ctxt true
+  | Op.SMLAWB -> smulaccwordbyhalf ins insLen ctxt false
+  | Op.SMLAWT -> smulaccwordbyhalf ins insLen ctxt true
   | Op.SMULBB -> smulhalf ins ctxt false false
   | Op.SMULBT -> smulhalf ins ctxt false true
   | Op.SMULL -> smulandacc false false ins ctxt
