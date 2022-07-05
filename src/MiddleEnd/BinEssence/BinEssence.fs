@@ -25,6 +25,7 @@
 namespace B2R2.MiddleEnd.BinEssence
 
 open B2R2
+open B2R2.FrontEnd.BinFile
 open B2R2.FrontEnd.BinInterface
 open B2R2.MiddleEnd.ControlFlowAnalysis
 
@@ -79,7 +80,8 @@ module BinEssence =
       |> addEntriesFromExceptionTable ess.CodeManager
     fi.EntryPoint
     |> Option.fold (fun acc addr ->
-      if addr <> 0UL then Set.add addr acc else acc) entries
+      if fi.FileType = FileType.LibFile && addr = 0UL then acc
+      else Set.add addr acc) entries
     |> Set.toList
     |> List.map (getFunctionOperationMode ess.BinHandle)
 
