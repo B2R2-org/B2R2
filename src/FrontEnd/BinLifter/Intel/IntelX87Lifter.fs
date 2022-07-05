@@ -184,6 +184,15 @@ let fld ins insLen ctxt =
 
 let private castFrom80Bit dstExpr dstSize srcB srcA ir =
   match dstSize with
+  | 16<rt> ->
+    let sign = srcB .& (numI32 0x8000 16<rt>)
+    let biasDiff = numI32 0x3ff0 16<rt>
+    let exponent = AST.zext 16<rt> (srcB .& (numI32 0x7fff 16<rt>)) .- biasDiff
+    let exponent = exponent << numI32 10 16<rt>
+    let n53 = numI32 53 64<rt>
+    let significand =
+      AST.xtlo 16<rt> ((srcA .& numI64 0x7FFFFFFFFFFFFFFFL 64<rt>) >> n53)
+    !!ir (dstExpr := (sign .| exponent .| significand))
   | 32<rt> ->
     let n16 = numI32 16 32<rt>
     let sign = (AST.zext 32<rt> srcB .& (numI32 0x8000 32<rt>)) << n16
