@@ -78,7 +78,8 @@ module BinEssence =
       |> Set.ofSeq
       |> addEntriesFromExceptionTable ess.CodeManager
     fi.EntryPoint
-    |> Option.fold (fun acc addr -> Set.add addr acc) entries
+    |> Option.fold (fun acc addr ->
+      if addr <> 0UL then Set.add addr acc else acc) entries
     |> Set.toList
     |> List.map (getFunctionOperationMode ess.BinHandle)
 
