@@ -74,7 +74,7 @@ module BinEssence =
   let private getInitialEntryPoints ess =
     let fi = ess.BinHandle.FileInfo
     let entries =
-      fi.GetFunctionAddresses (true) (* XXX this will become false later. *)
+      fi.GetFunctionAddresses (false)
       |> Set.ofSeq
       |> addEntriesFromExceptionTable ess.CodeManager
     fi.EntryPoint

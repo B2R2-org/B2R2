@@ -40,8 +40,7 @@ type ExceptionTable (hdl) =
         |> ARMap.fold (fun funcTbl range target ->
           if target = 0UL then funcTbl
           else ARMap.add range target funcTbl) ARMap.empty
-      if ARMap.isEmpty funcInfo then ()
-      else tbl[funcRange.Min] <- funcInfo)
+      tbl[funcRange.Min] <- funcInfo)
 
   /// For the given function entry and an instruction address, find the landing
   /// pad (exception target) of the instruction.
