@@ -76,19 +76,7 @@ with
 /// with the instruction address that holds the symbol.
 and LabelIdentifier = Addr * Symbol
 
-/// Represents an instruction-level basic block.
-type BBLInfo = {
-  /// The range (start addr, end addr) of the basic block.
-  BlkRange: AddrRange
-  /// Instruction addresses in the basic block.
-  InstrAddrs: Set<Addr>
-  /// IR-level leaders (program points) within the bbl.
-  IRLeaders: Set<ProgramPoint>
-  /// Function Entry
-  FunctionEntry: Addr
-}
-
-module BBLInfo =
+module BBLManager =
   /// Return the bitmask for the given BinHandle to correctly compute jump
   /// target addresses.
   let computeJumpTargetMask (hdl: BinHandle) =
@@ -436,7 +424,7 @@ module BBLInfo =
     tmp.IntraEdges |> List.iter fn.AddEdge
     tmp.InterEdges |> List.iter fn.AddEdge
 
-  let parse hdl instrs sAddr nextAddr fn fnMaintainer excTbl evts =
+  let parseBBLInfo hdl instrs sAddr nextAddr fn fnMaintainer excTbl evts =
     let tmp = scanBlock hdl fnMaintainer excTbl instrs fn sAddr evts
     buildVertices instrs nextAddr fn tmp
     buildEdges fn tmp
@@ -448,7 +436,7 @@ module BBLInfo =
         FunctionEntry = fn.Entry }, tmp.NextEvents
     )
 
-  let init blkRange blkAddrs irLeaders funcEntry =
+  let initBBLInfo blkRange blkAddrs irLeaders funcEntry =
     { BlkRange = blkRange
       InstrAddrs = blkAddrs |> Set.ofList
       IRLeaders = irLeaders

@@ -15,6 +15,7 @@
     <Compile Include="Function.fs" />
     <Compile Include="FunctionMaintainer.fs" />
     <Compile Include="ExceptionTable.fs" />
+    <Compile Include="BBLInfo.fs" />
     <Compile Include="CFGEvents.fs" />
     <Compile Include="BBLManager.fs" />
     <Compile Include="JumpTableMaintainer.fs" />

@@ -27,6 +27,8 @@ namespace B2R2.MiddleEnd.ControlFlowAnalysis
 open B2R2
 open B2R2.MiddleEnd.ControlFlowGraph
 
+open System.Collections.Generic
+
 /// A basic event that triggers CFG modifications.
 type BasicCFGEvent =
   /// Add a new function.
@@ -128,24 +130,28 @@ module CFGEvents =
         | elm -> elm)
     { evts with BasicEvents = basicEvents }
 
-  let updateEvtsAfterFuncSplit (newFn: RegularFunction) evts =
+  let updateEvtsAfterFuncSplit (bblMap: Dictionary<Addr, BBLInfo>) newFn evts =
     let basicEvents =
       evts.BasicEvents
       |> List.map (fun elm ->
         match elm with
-        | CFGEdge (_, src, dst, edge) when newFn.HasVertex src ->
+        | CFGEdge (_, src, dst, edge)
+          when (newFn: RegularFunction).HasVertex src ->
           CFGEdge (newFn, src, dst, edge)
         | CFGCall (_, callSite, callee, noFn)
           when newFn.Entry < callSite && newFn.MaxAddr > callSite ->
           CFGCall (newFn, callSite, callee, noFn)
         | CFGRet (_, callee, ftAddr, callSite)
-          when newFn.Entry < ftAddr && (newFn.MaxAddr + 1UL) >= ftAddr ->
+          when bblMap.ContainsKey ftAddr
+              && bblMap[ftAddr].FunctionEntry = newFn.Entry ->
           CFGRet (newFn, callee, ftAddr, callSite)
         | CFGIndCall (_, callSite)
-          when newFn.Entry < callSite && newFn.MaxAddr > callSite ->
+          when bblMap.ContainsKey callSite
+              && bblMap[callSite].FunctionEntry = newFn.Entry ->
           CFGIndCall (newFn, callSite)
         | CFGTailCall (_, callSite, callee)
-          when newFn.Entry < callSite && newFn.MaxAddr > callSite ->
+          when bblMap.ContainsKey callSite
+              && bblMap[callSite].FunctionEntry = newFn.Entry ->
           CFGTailCall (newFn, callSite, callee)
         | elm -> elm)
     { evts with BasicEvents = basicEvents }
