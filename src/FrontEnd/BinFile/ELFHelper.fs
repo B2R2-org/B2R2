@@ -51,29 +51,41 @@ let isRelocatable span elf =
 let inline getTextStartAddr elf =
   (Map.find Section.SecText elf.SecInfo.SecByName).SecAddr
 
-let inline private inMem seg addr =
-  let vAddr = seg.PHAddr
-  addr >= vAddr && addr < vAddr + seg.PHMemSize
+let inline private computeSubstitute offsetToAddr delta (ptr: Addr) =
+  if offsetToAddr then ptr + delta
+  else (* Addr to offset *) ptr - delta
+  |> Convert.ToInt32
 
-let translateWithSecs addr (secs: ELFSection []) =
+let translateWithSecs offsetToAddr ptr (secs: ELFSection []) =
   secs
-  |> Array.tryFindIndex (fun s ->
+  |> Array.tryFind (fun s ->
+    let secBase = if offsetToAddr then s.SecOffset else s.SecAddr
     s.SecType = SectionType.SHTProgBits
-    && s.SecAddr <= addr && (s.SecAddr + s.SecSize) > addr)
+    && secBase <= ptr && (secBase + s.SecSize) > ptr)
   |> function
     | None -> raise InvalidAddrReadException
-    | Some idx -> secs[idx].SecOffset + addr |> Convert.ToInt32
+    | Some s -> computeSubstitute offsetToAddr (s.SecAddr - s.SecOffset) ptr
 
-let rec translateWithSegs addr = function
+let rec translateWithSegs offsetToAddr ptr = function
   | seg :: tl ->
-    if inMem seg addr then Convert.ToInt32 (addr - seg.PHAddr + seg.PHOffset)
-    else translateWithSegs addr tl
+    let segBase, segSize =
+      if offsetToAddr then seg.PHOffset, seg.PHFileSize
+      else seg.PHAddr, seg.PHMemSize
+    if ptr >= segBase && ptr < segBase + segSize then
+      computeSubstitute offsetToAddr (seg.PHAddr - seg.PHOffset) ptr
+    else translateWithSegs offsetToAddr ptr tl
   | [] -> raise InvalidAddrReadException
 
-let translateAddr addr elf =
+let translate offsetToAddr ptr elf =
   match elf.LoadableSegments with
-  | [] -> translateWithSecs addr elf.SecInfo.SecByNum
-  | segs -> translateWithSegs addr segs
+  | [] -> translateWithSecs offsetToAddr ptr elf.SecInfo.SecByNum
+  | segs -> translateWithSegs offsetToAddr ptr segs
+
+let translateAddrToOffset addr elf =
+  translate false addr elf
+
+let translateOffsetToAddr offset elf =
+  translate true offset elf
 
 let isFuncSymb s =
   s.SymType = SymbolType.STTFunc || s.SymType = SymbolType.STTGNUIFunc
@@ -194,6 +206,18 @@ let getNotInFileIntervals elf range =
   |> List.map (FileHelper.trimByRange range)
   |> List.toSeq
 
+let getRelocatedAddr elf relocAddr defaultAddr =
+  match elf.RelocInfo.RelocByAddr.TryGetValue relocAddr with
+  | true, rel ->
+    match rel.RelType with
+    | RelocationX86 RelocationX86.Reloc38632
+    | RelocationX64 RelocationX64.RelocX6464 ->
+      match rel.RelSymbol with
+      | Some sym -> sym.Addr + rel.RelAddend
+      | _ -> defaultAddr
+    | _ -> defaultAddr
+  | _ -> defaultAddr
+
 let getFunctionAddrsFromLibcArray span elf s =
   let offset = int s.SecOffset
   let entrySize = int s.SecEntrySize
@@ -202,8 +226,14 @@ let getFunctionAddrsFromLibcArray span elf s =
   if entrySize = 0 then Seq.empty
   else
     let lst = List<Addr> ()
+    let addr = translateOffsetToAddr s.SecOffset elf
     for o in [| offset .. entrySize .. offset + size - entrySize |] do
-      lst.Add (FileHelper.peekUIntOfType span elf.BinReader readType o)
+      FileHelper.peekUIntOfType span elf.BinReader readType o
+      |> (fun fnAddr ->
+        if fnAddr = 0UL then
+          getRelocatedAddr elf (uint64 (addr + (o - offset))) fnAddr
+        else fnAddr)
+      |> lst.Add
     lst
 
 let getAddrsFromInitArray span elf =

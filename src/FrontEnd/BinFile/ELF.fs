@@ -62,7 +62,7 @@ type ELFFileInfo (bytes, path, baseAddr, regbay) =
 
   override __.TextStartAddr = getTextStartAddr elf
 
-  override __.TranslateAddress addr = translateAddr addr elf
+  override __.TranslateAddress addr = translateAddrToOffset addr elf
 
   override __.AddSymbol addr symbol = Utils.futureFeature ()
 
