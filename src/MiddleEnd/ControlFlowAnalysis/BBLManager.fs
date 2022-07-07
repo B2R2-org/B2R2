@@ -76,6 +76,7 @@ with
 /// with the instruction address that holds the symbol.
 and LabelIdentifier = Addr * Symbol
 
+[<RequireQualifiedAccess>]
 module BBLManager =
   /// Return the bitmask for the given BinHandle to correctly compute jump
   /// target addresses.
@@ -424,6 +425,7 @@ module BBLManager =
     tmp.IntraEdges |> List.iter fn.AddEdge
     tmp.InterEdges |> List.iter fn.AddEdge
 
+  /// Parse basic block info.
   let parseBBLInfo hdl instrs sAddr nextAddr fn fnMaintainer excTbl evts =
     let tmp = scanBlock hdl fnMaintainer excTbl instrs fn sAddr evts
     buildVertices instrs nextAddr fn tmp

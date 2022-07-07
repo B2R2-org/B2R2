@@ -35,29 +35,18 @@ module private FunctionMaintainer =
   let knownNoPLTFuncs =
     [| "__libc_start_main"; "__gmon_start__" |]
 
-  let isInternalFuncReloc hdl (relSym: ELF.ELFSymbol) =
-    match hdl.FileInfo.FileFormat with
-    | FileFormat.ELFBinary ->
+  let findInternalFuncReloc (elf: ELF.ELF) (symb: ELF.ELFSymbol) =
+    let reloc = elf.RelocInfo.RelocByAddr[symb.Addr]
+    match reloc.RelSymbol with
+    | Some relSym ->
       if relSym.SymType = ELF.SymbolType.STTFunc then
         match relSym.ParentSection with
-        | Some parent -> parent.SecName = ".text"
-        | _ -> false
-      else false
-    | _ -> false
-
-  let initInternalRefs hdl (internalRefs: Dictionary<Addr, Addr>) =
-    match hdl.FileInfo.FileFormat with
-    | FileFormat.ELFBinary ->
-      let elf = (hdl.FileInfo :?> ELFFileInfo).ELF
-      elf.PLT
-      |> ARMap.iter (fun range symb ->
-        let reloc = elf.RelocInfo.RelocByAddr[symb.Addr]
-        match reloc.RelSymbol with
-        | Some relSym when isInternalFuncReloc hdl relSym ->
-          internalRefs[range.Min] <- relSym.Addr
-        | _ -> ()
-        )
-    | _ -> ()
+        | Some parent ->
+          if parent.SecName = ".text" then Ok relSym
+          else Error ErrorCase.SymbolNotFound
+        | _ -> Error ErrorCase.SymbolNotFound
+      else Error ErrorCase.SymbolNotFound
+    | _ -> Error ErrorCase.SymbolNotFound
 
 /// Maintains functions in the binary.
 type FunctionMaintainer private (hdl, histMgr: HistoryManager) =
@@ -65,9 +54,6 @@ type FunctionMaintainer private (hdl, histMgr: HistoryManager) =
   let regularMap = Dictionary<Addr, RegularFunction> ()
   let nameMap = Dictionary<string, Addr> ()
   let internalRefs = Dictionary<Addr, Addr> ()
-
-  do
-    initInternalRefs hdl internalRefs
 
   /// The current number of functions.
   member __.Count with get() = addrMap.Count
@@ -163,19 +149,26 @@ type FunctionMaintainer private (hdl, histMgr: HistoryManager) =
     |> Map.iter (fun callee callers ->
       addrMap[callee].RegisterCallers callers)
 
-  member __.TranslateLinkageTable addr =
+  /// This is a mapping from a PLT address to an internal function address. Some
+  /// static binaries have a PLT entry for an internal function.
+  member __.InternalRefs with get() = internalRefs
+
+  /// If the given address belongs to a special PLT entry, then we convert it to
+  /// the address of the corresponding internal function.
+  member __.ConvertPLTToInternalRef (addr: Addr) =
     match internalRefs.TryGetValue addr with
-    | true, targ -> targ
-    | _ -> addr
+    | true, addr' -> addr'
+    | false, _ -> addr
 
   static member private InitELFExterns hdl (fnMaintainer: FunctionMaintainer) =
     let elf = (hdl.FileInfo :?> ELFFileInfo).ELF
     elf.PLT
     |> ARMap.iter (fun range symb ->
-      if fnMaintainer.TranslateLinkageTable range.Min = range.Min then
+      match findInternalFuncReloc elf symb with
+      | Ok relSym -> fnMaintainer.InternalRefs[range.Min] <- relSym.Addr
+      | Error _ ->
         let func = ExternalFunction.Init symb.Addr symb.SymName range.Min
-        fnMaintainer.AddFunction func
-      else ())
+        fnMaintainer.AddFunction func)
     elf.RelocInfo.RelocByAddr.Values
     |> Seq.iter (fun reloc ->
       match reloc.RelSymbol with

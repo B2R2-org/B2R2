@@ -24,10 +24,9 @@
 
 namespace B2R2.MiddleEnd.ControlFlowAnalysis
 
+open System.Collections.Generic
 open B2R2
 open B2R2.MiddleEnd.ControlFlowGraph
-
-open System.Collections.Generic
 
 /// A basic event that triggers CFG modifications.
 type BasicCFGEvent =

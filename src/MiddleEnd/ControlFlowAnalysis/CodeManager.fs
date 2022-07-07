@@ -74,7 +74,8 @@ type CodeManager (hdl) =
       let ins = postProcessInstrs hdl leaderAddr [] instrs
       let nextAddr = lastIns.Address + uint64 lastIns.Length
       let struct (bbl, evts) =
-        BBLManager.parseBBLInfo hdl ins leaderAddr nextAddr func fnMaintainer excTbl evts
+        BBLManager.parseBBLInfo hdl ins leaderAddr nextAddr func
+                                fnMaintainer excTbl evts
       bblMap[leaderAddr] <- bbl
       Ok evts
     | Error addr ->
@@ -125,7 +126,8 @@ type CodeManager (hdl) =
       |> List.iter (fun addr ->
         let ins = insMap[addr]
         insMap[addr] <- { ins with BBLAddr = leaderAddr })
-      bblMap[leaderAddr] <- BBLManager.initBBLInfo blkRange insAddrs irLeaders funcEntry
+      bblMap[leaderAddr] <-
+        BBLManager.initBBLInfo blkRange insAddrs irLeaders funcEntry
     | [] -> ()
 
   /// Remove the given BBLInfo.
@@ -189,7 +191,8 @@ type CodeManager (hdl) =
     let blkRange = AddrRange (fstBBL.BlkRange.Min, sndBBL.BlkRange.Max)
     let leaders =
       Set.union fstBBL.IRLeaders sndBBL.IRLeaders
-      |> Set.filter (fun leader -> not <| List.contains leader.Address restAddrs)
+      |> Set.filter (fun leader ->
+        not <| List.contains leader.Address restAddrs)
     let addrs =
       Set.union fstBBL.InstrAddrs sndBBL.InstrAddrs
       |> Set.filter (fun addr -> not <| List.contains addr restAddrs)
