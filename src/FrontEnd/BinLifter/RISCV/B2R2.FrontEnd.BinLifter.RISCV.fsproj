@@ -1,31 +1,29 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
-
+<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <PackageLicenseFile>LICENSE.md</PackageLicenseFile>
     <PackageIcon>b2r2-240x240.png</PackageIcon>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <Description>B2R2 RISCV frontend.</Description>
   </PropertyGroup>
-
   <ItemGroup>
     <Compile Include="RISCV64Register.fs" />
     <Compile Include="RISCV64RegisterSet.fs" />
     <Compile Include="RISCV64RegExprs.fs" />
     <Compile Include="RISCV64RegisterBay.fs" />
+    <Compile Include="RISCV64Instruction.fs" />
     <Compile Include="RISCV64Types.fs" />
     <Compile Include="RISCV64Disasm.fs" />
-    <Compile Include="RISCV64Instruction.fs" />
+    <Compile Include="RISCV64Utils.fs" />
+    <Compile Include="RISCV64Helper.fs" />
     <Compile Include="RISCV64Parser.fs" />
     <Compile Include="RISCV64.fs" />
     <None Include="..\..\..\..\LICENSE.md" Pack="true" PackagePath="" />
     <None Include="..\..\..\..\assets\b2r2-240x240.png" Pack="true" PackagePath="" />
     <None Include="README.md" Pack="true" PackagePath="" />
   </ItemGroup>
-
   <ItemGroup>
     <ProjectReference Include="..\..\..\Core\B2R2.Core.fsproj" />
     <ProjectReference Include="..\..\..\BinIR\B2R2.BinIR.fsproj" />
     <ProjectReference Include="..\Core\B2R2.FrontEnd.BinLifter.Core.fsproj" />
   </ItemGroup>
-
 </Project>
