@@ -79,9 +79,6 @@ let opCodeToString = function
   | Op.LWU -> "lwu"
   | Op.LD -> "ld"
   | Op.SD -> "sd"
-  | Op.SLLI -> "slli"
-  | Op.SRLI -> "srli"
-  | Op.SRAI -> "srai"
   | Op.ADDIW -> "addiw"
   | Op.SLLIW -> "slliw"
   | Op.SRLIW -> "srliw"
@@ -202,20 +199,60 @@ let inline buildOpcode ins (builder: DisasmBuilder<_>) =
   let str = opCodeToString ins.Opcode
   builder.Accumulate AsmWordKind.Mnemonic str
 
-let oprToString opr delim (builder: DisasmBuilder<_>) =
+let inline relToString pc offset (builder: DisasmBuilder<_>) =
+  let targetAddr = pc + uint64 offset
+  builder.Accumulate AsmWordKind.Value (String.u64ToHex targetAddr)
+
+
+let oprToString insInfo opr delim (builder: DisasmBuilder<_>) =
   match opr with
   | OpReg reg ->
     builder.Accumulate AsmWordKind.String delim
     builder.Accumulate AsmWordKind.Variable (Register.toString reg)
+  | OpImm imm
+  | OpShiftAmount imm ->
+    builder.Accumulate AsmWordKind.String delim
+    builder.Accumulate AsmWordKind.Value (String.u64ToHex imm)
+  | OpMem (b, Imm off, _) ->
+    builder.Accumulate AsmWordKind.String delim
+    builder.Accumulate AsmWordKind.String "("
+    builder.Accumulate AsmWordKind.Variable (Register.toString b)
+    builder.Accumulate AsmWordKind.String ")"
+  | OpMem (b, Reg off, _) ->
+    builder.Accumulate AsmWordKind.String delim
+    builder.Accumulate AsmWordKind.Variable (Register.toString off)
+    builder.Accumulate AsmWordKind.String "("
+    builder.Accumulate AsmWordKind.Variable (Register.toString b)
+    builder.Accumulate AsmWordKind.String ")"
+  | OpAddr (Relative offset) ->
+    builder.Accumulate AsmWordKind.String delim
+    relToString insInfo.Address offset builder
+  | OpAtomMemOper (aq, rl) -> 
+    if aq then builder.Accumulate AsmWordKind.String "aq"
+    if rl then builder.Accumulate AsmWordKind.String "rl"
+  | OpFenceMask(_, _) -> failwith "Not Implemented"
+  | OpRoundMode(_) -> failwith "Not Implemented"
+  | OpCSR(_) -> failwith "Not Implemented"
+
+
 
 let buildOprs insInfo builder =
   match insInfo.Operands with
   | NoOperand -> ()
   | OneOperand opr ->
-    oprToString opr " " builder
+    oprToString insInfo opr " " builder
   | TwoOperands (opr1, opr2) ->
-    oprToString opr1 " " builder
-    oprToString opr2 ", " builder
+    oprToString insInfo opr1 " " builder
+    oprToString insInfo opr2 ", " builder
+  | ThreeOperands (opr1, opr2, opr3) ->
+    oprToString insInfo opr1 " " builder
+    oprToString insInfo opr2 ", " builder
+    oprToString insInfo opr3 ", " builder
+  | FourOperands (opr1, opr2, opr3, opr4) ->
+    oprToString insInfo opr1 " " builder
+    oprToString insInfo opr2 ", " builder
+    oprToString insInfo opr3 ", " builder
+    oprToString insInfo opr4 ", " builder
 
 let disasm insInfo (builder: DisasmBuilder<_>) =
   if builder.ShowAddr then builder.AccumulateAddr () else ()
