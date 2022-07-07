@@ -70,7 +70,7 @@ module private CFGBuilder =
       let func =
         match codeMgr.FunctionMaintainer.TryFindRegular entry with
         | Some func -> func
-        | None -> codeMgr.FunctionMaintainer.GetOrAddFunction (hdl, entry)
+        | None -> codeMgr.FunctionMaintainer.GetOrAddFunction entry
       if func.HasVertex (ProgramPoint (entry, 0)) then Ok evts
       else buildBBL hdl codeMgr func mode entry evts (* Build new block *)
 
@@ -107,7 +107,7 @@ module private CFGBuilder =
     match codeMgr.FunctionMaintainer.TryFind (addr=callee) with
     | Some calleeFunc -> calleeFunc, evts
     | None ->
-      let calleeFunc = codeMgr.FunctionMaintainer.GetOrAddFunction (hdl, callee)
+      let calleeFunc = codeMgr.FunctionMaintainer.GetOrAddFunction callee
       let evts = CFGEvents.addFuncEvt callee ArchOperationMode.NoMode evts
       calleeFunc :> Function, evts
 
@@ -139,6 +139,7 @@ module private CFGBuilder =
     match callee with
     | Some 0UL -> Ok evts (* Ignore the callee for "call 0" cases. *)
     | Some callee ->
+        let callee = codeMgr.FunctionMaintainer.TranslateLinkageTable callee
         (fn: RegularFunction).AddEdge (callerPp, callSite, callee,
                                        isTailCall, isNoFn)
         if not isNoFn then

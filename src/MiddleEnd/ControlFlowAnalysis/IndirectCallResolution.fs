@@ -57,7 +57,7 @@ module private IndirectCallResolution =
 
   let handleUndiscoveredTarget hdl codeMgr func callSiteAddr target evts =
     updateCallInfo func callSiteAddr target
-    (codeMgr: CodeManager).FunctionMaintainer.GetOrAddFunction (hdl, target)
+    (codeMgr: CodeManager).FunctionMaintainer.GetOrAddFunction target
     |> ignore
     CFGEvents.addFuncEvt target ArchOperationMode.NoMode evts
 
