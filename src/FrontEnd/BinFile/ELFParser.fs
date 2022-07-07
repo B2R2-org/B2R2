@@ -64,8 +64,7 @@ let private accumulateExceptionTableInfo fde gccexctbl map =
   |> Array.fold (fun map fde ->
      let functionRange = AddrRange (fde.PCBegin, fde.PCEnd - 1UL)
      let exceptTable = buildExceptionTable fde gccexctbl ARMap.empty
-     if ARMap.isEmpty exceptTable then map
-     else ARMap.add functionRange exceptTable map) map
+     ARMap.add functionRange exceptTable map) map
 
 let private isRelocatable (eHdr: ELFHeader) =
   eHdr.ELFFileType = ELFFileType.Relocatable

@@ -66,7 +66,8 @@ module BinEssence =
 
   let private addEntriesFromExceptionTable (codeMgr: CodeManager) entries =
     codeMgr.ExceptionTable.Fold (fun entries (KeyValue (entry, _)) ->
-      Set.add entry entries) entries
+      if codeMgr.ExceptionTable.IsNoEntryFDE entry then entries
+      else Set.add entry entries) entries
 
   /// This function returns an initial sequence of entry points obtained from
   /// the binary itself (e.g., from its symbol information). Therefore, if the
@@ -75,7 +76,7 @@ module BinEssence =
   let private getInitialEntryPoints ess =
     let fi = ess.BinHandle.FileInfo
     let entries =
-      fi.GetFunctionAddresses (true) (* XXX this will become false later. *)
+      fi.GetFunctionAddresses ()
       |> Set.ofSeq
       |> addEntriesFromExceptionTable ess.CodeManager
     fi.EntryPoint

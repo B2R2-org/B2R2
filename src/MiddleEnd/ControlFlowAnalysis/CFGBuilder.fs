@@ -70,7 +70,7 @@ module private CFGBuilder =
       let func =
         match codeMgr.FunctionMaintainer.TryFindRegular entry with
         | Some func -> func
-        | None -> codeMgr.FunctionMaintainer.GetOrAddFunction (hdl, entry)
+        | None -> codeMgr.FunctionMaintainer.GetOrAddFunction entry
       if func.HasVertex (ProgramPoint (entry, 0)) then Ok evts
       else buildBBL hdl codeMgr func mode entry evts (* Build new block *)
 
@@ -103,11 +103,11 @@ module private CFGBuilder =
         fn.AddEdge (src, ProgramPoint (dst, 0), edge)
         Ok evts
 
-  let getCallee hdl (codeMgr: CodeManager) callee evts =
+  let getCallee (codeMgr: CodeManager) callee evts =
     match codeMgr.FunctionMaintainer.TryFind (addr=callee) with
     | Some calleeFunc -> calleeFunc, evts
     | None ->
-      let calleeFunc = codeMgr.FunctionMaintainer.GetOrAddFunction (hdl, callee)
+      let calleeFunc = codeMgr.FunctionMaintainer.GetOrAddFunction callee
       let evts = CFGEvents.addFuncEvt callee ArchOperationMode.NoMode evts
       calleeFunc :> Function, evts
 
@@ -127,7 +127,7 @@ module private CFGBuilder =
     | Some calleeFn -> Some calleeFn.Entry
     | _ -> None
 
-  let buildCall hdl codeMgr dataMgr fn callSite callee isTailCall isNoFn evts =
+  let buildCall codeMgr dataMgr fn callSite callee isTailCall isNoFn evts =
     let callerBBL = (codeMgr: CodeManager).GetBBL callSite
     let callerPp = Set.maxElement callerBBL.IRLeaders
     let relocFuncs = (dataMgr: DataManager).RelocatableFuncs
@@ -139,13 +139,14 @@ module private CFGBuilder =
     match callee with
     | Some 0UL -> Ok evts (* Ignore the callee for "call 0" cases. *)
     | Some callee ->
-        (fn: RegularFunction).AddEdge (callerPp, callSite, callee,
-                                       isTailCall, isNoFn)
-        if not isNoFn then
-          let calleeFn, evts = getCallee hdl codeMgr callee evts
-          markAsReturning fn isTailCall calleeFn
-          Ok evts
-        else Ok evts
+      let callee = codeMgr.FunctionMaintainer.ConvertPLTToInternalRef callee
+      (fn: RegularFunction).AddEdge (callerPp, callSite, callee,
+                                     isTailCall, isNoFn)
+      if not isNoFn then
+        let calleeFn, evts = getCallee codeMgr callee evts
+        markAsReturning fn isTailCall calleeFn
+        Ok evts
+      else Ok evts
     | _ ->
       let callerV = fn.FindVertex callerPp
       let last = callerV.VData.LastInstruction
@@ -160,7 +161,7 @@ module private CFGBuilder =
     Ok evts
 
   let buildTailCall hdl codeMgr dataMgr fn caller callee evts =
-    buildCall hdl codeMgr dataMgr fn caller callee true false evts
+    buildCall codeMgr dataMgr fn caller callee true false evts
 
   let makeCalleeNoReturn (codeMgr: CodeManager) fn callee callSite =
     let callee = codeMgr.FunctionMaintainer.Find (addr=callee)
@@ -211,7 +212,7 @@ module private CFGBuilder =
         Ok evts (* Undetected no-return case, so we do not add fall-through. *)
       else (* Tail-call. *)
         buildFunction hdl codeMgr dataMgr dst mode evts
-        |> Result.bind (buildCall hdl codeMgr dataMgr fn src.Address dst true false)
+        |> Result.bind (buildCall codeMgr dataMgr fn src.Address dst true false)
     elif isIntrudingBlk codeMgr dst then
       splitAndConnectEdge hdl codeMgr fn src dst edge evts
     elif not (codeMgr.HasInstruction dst) (* Jump to the middle of an instr *)
@@ -519,7 +520,7 @@ type CFGBuilder (hdl, codeMgr: CodeManager, dataMgr: DataManager) as this =
         fn.Entry (nameof CFGCall) csite callee (countEvts evts)
 #endif
       let evts = { evts with BasicEvents = tl }
-      update (buildCall hdl codeMgr dataMgr fn csite callee false noFn evts)
+      update (buildCall codeMgr dataMgr fn csite callee false noFn evts)
     | Ok ({ BasicEvents = CFGIndCall (fn, callSite) :: tl } as evts) ->
 #if CFGDEBUG
       dbglog (nameof CFGBuilder) "@%x %s (%x) %s"
