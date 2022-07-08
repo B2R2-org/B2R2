@@ -26,6 +26,7 @@ namespace B2R2.MiddleEnd.ControlFlowAnalysis
 
 open System.Collections.Generic
 open B2R2
+open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.ControlFlowGraph
 
 /// A basic event that triggers CFG modifications.
@@ -129,7 +130,14 @@ module CFGEvents =
         | elm -> elm)
     { evts with BasicEvents = basicEvents }
 
-  let updateEvtsAfterFuncSplit (bblMap: Dictionary<Addr, BBLInfo>) newFn evts =
+  let private hasRegularVertexContainingAddr cfg addr =
+    DiGraph.foldVertex cfg (fun acc (v: Vertex<IRBasicBlock>) ->
+      if v.VData.IsFakeBlock () then acc
+      else
+        let range = v.VData.Range
+        if range.Min <= addr && addr <= range.Max then true else acc) false
+
+  let updateEvtsAfterFuncSplit newFn evts =
     let basicEvents =
       evts.BasicEvents
       |> List.map (fun elm ->
@@ -141,16 +149,13 @@ module CFGEvents =
           when newFn.Entry < callSite && newFn.MaxAddr > callSite ->
           CFGCall (newFn, callSite, callee, noFn)
         | CFGRet (_, callee, ftAddr, callSite)
-          when bblMap.ContainsKey ftAddr
-              && bblMap[ftAddr].FunctionEntry = newFn.Entry ->
+          when hasRegularVertexContainingAddr newFn.IRCFG callSite ->
           CFGRet (newFn, callee, ftAddr, callSite)
         | CFGIndCall (_, callSite)
-          when bblMap.ContainsKey callSite
-              && bblMap[callSite].FunctionEntry = newFn.Entry ->
+          when hasRegularVertexContainingAddr newFn.IRCFG callSite ->
           CFGIndCall (newFn, callSite)
         | CFGTailCall (_, callSite, callee)
-          when bblMap.ContainsKey callSite
-              && bblMap[callSite].FunctionEntry = newFn.Entry ->
+          when hasRegularVertexContainingAddr newFn.IRCFG callSite ->
           CFGTailCall (newFn, callSite, callee)
         | elm -> elm)
     { evts with BasicEvents = basicEvents }

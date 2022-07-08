@@ -238,7 +238,7 @@ type CodeManager (hdl) =
       __.UpdateFunctionEntry bbl.BlkRange.Min bblAddr)
     fnMaintainer.AddFunction fn
     fn,
-    CFGEvents.updateEvtsAfterFuncSplit bblMap fn evts
+    CFGEvents.updateEvtsAfterFuncSplit fn evts
     |> CFGEvents.addPerFuncAnalysisEvt entry
 
   /// Return the exception table.
