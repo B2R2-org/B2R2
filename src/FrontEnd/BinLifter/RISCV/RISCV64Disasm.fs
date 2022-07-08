@@ -75,7 +75,7 @@ let opCodeToString = function
   | Op.CSRRWI -> "csrrwi"
   | Op.CSRRSI -> "csrrsi"
   | Op.CSRRCI -> "csrrci"
-  /// RV64I Base Instruction Set
+  (* RV64I Base Instruction Set *)
   | Op.LWU -> "lwu"
   | Op.LD -> "ld"
   | Op.SD -> "sd"
@@ -88,7 +88,7 @@ let opCodeToString = function
   | Op.SLLW -> "sllw"
   | Op.SRLW -> "srlw"
   | Op.SRAW -> "sraw"
-  /// RV32M Standard Extension 
+  (* RV32M Standard Extension *)
   | Op.MUL -> "mul"
   | Op.MULH -> "mulh"
   | Op.MULHSU -> "mulhsu"
@@ -97,13 +97,13 @@ let opCodeToString = function
   | Op.DIVU -> "divu"
   | Op.REM -> "rem"
   | Op.REMU -> "remu"
-  /// RV64M Standard Extension
+  (* RV64M Standard Extension *)
   | Op.MULW -> "mulw"
   | Op.DIVW -> "divw"
   | Op.DIVUW -> "divuw"
   | Op.REMW -> "remw"
   | Op.REMUW -> "remuw"
-  /// RV32A Standard Extension
+  (* RV32A Standard Extension *)
   | Op.LRdotW -> "lr.w"
   | Op.SCdotW -> "sc.w"
   | Op.AMOSWAPdotW -> "amoswap.w"
@@ -115,7 +115,7 @@ let opCodeToString = function
   | Op.AMOMAXdotW -> "amomax.w"
   | Op.AMOMINUdotW -> "amomin.w"
   | Op.AMOMAXUdotW -> "amomax.w"
-  /// RV64A Standard Extension
+  (* RV64A Standard Extension *)
   | Op.LRdotD -> "lr.d"
   | Op.SCdotD -> "sc.d"
   | Op.AMOSWAPdotD -> "amoswap.d"
@@ -127,7 +127,7 @@ let opCodeToString = function
   | Op.AMOMAXdotD -> "amomax.d"
   | Op.AMOMINUdotD -> "amominu.d"
   | Op.AMOMAXUdotD -> "amomaxu.d"
-  /// RV32F Standard Extension
+  (* RV32F Standard Extension *)
   | Op.FLW -> "flw"
   | Op.FSW -> "fsw"
   | Op.FMADDdotS -> "fmadd.s"
@@ -154,12 +154,12 @@ let opCodeToString = function
   | Op.FCVTdotSdotW -> "fcvt.w.s"
   | Op.FCVTdotSdotWU -> "fcvt.s.wu"
   | Op.FMVdotWdotX -> "fmv.w.x"
-  /// RV64F Standard Extension
+  (* RV64F Standard Extension *)
   | Op.FCVTdotLdotS -> "fcvt.l.s"
   | Op.FCVTdotLUdotS -> "fcvt.lu.s"
   | Op.FCVTdotSdotL -> "fcvt.s.l"
   | Op.FCVTdotSdotLU -> "fcvt.s.lu"
-  /// RV32D Standard Extension
+  (* RV32D Standard Extension *)
   | Op.FLD -> "fld"
   | Op.FSD -> "fsd"
   | Op.FMADDdotD -> "fmadd.d"
@@ -186,7 +186,7 @@ let opCodeToString = function
   | Op.FCVTdotWUdotD -> "fcvt.wu.d"
   | Op.FCVTdotDdotW -> "fcvt.d.w"
   | Op.FCVTdotDdotWU -> "fcvt.d.wu"
-  /// RV64D Standard Extension
+  (* RV64D Standard Extension *)
   | Op.FCVTdotLdotD -> "fcvt.l.d"
   | Op.FCVTdotLUdotD -> "fcvt.lu.d"
   | Op.FMVdotXdotD -> "fmv.x.d"
