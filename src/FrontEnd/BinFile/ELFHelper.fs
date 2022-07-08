@@ -220,21 +220,19 @@ let getRelocatedAddr elf relocAddr defaultAddr =
 
 let getFunctionAddrsFromLibcArray span elf s =
   let offset = int s.SecOffset
-  let entrySize = int s.SecEntrySize
-  let readType: WordSize = LanguagePrimitives.EnumOfValue (entrySize * 8)
+  let readType = elf.ELFHdr.Class
+  let entrySize = WordSize.toByteWidth readType
   let size = int s.SecSize
-  if entrySize = 0 then Seq.empty
-  else
-    let lst = List<Addr> ()
-    let addr = translateOffsetToAddr s.SecOffset elf
-    for o in [| offset .. entrySize .. offset + size - entrySize |] do
-      FileHelper.peekUIntOfType span elf.BinReader readType o
-      |> (fun fnAddr ->
-        if fnAddr = 0UL then
-          getRelocatedAddr elf (uint64 (addr + (o - offset))) fnAddr
-        else fnAddr)
-      |> lst.Add
-    lst
+  let lst = List<Addr> ()
+  let addr = translateOffsetToAddr s.SecOffset elf
+  for o in [| offset .. entrySize .. offset + size - entrySize |] do
+    FileHelper.peekUIntOfType span elf.BinReader readType o
+    |> (fun fnAddr ->
+      if fnAddr = 0UL then
+        getRelocatedAddr elf (uint64 (addr + (o - offset))) fnAddr
+      else fnAddr)
+    |> lst.Add
+  lst |> seq
 
 let getAddrsFromInitArray span elf =
   match Map.tryFind ".init_array" elf.SecInfo.SecByName with
