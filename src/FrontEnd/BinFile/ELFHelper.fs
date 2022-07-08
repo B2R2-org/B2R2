@@ -246,9 +246,19 @@ let getAddrsFromFiniArray span elf =
   | Some s -> getFunctionAddrsFromLibcArray span elf s
   | None -> Seq.empty
 
+let getAddrsFromSpecialSections elf =
+  [ ".init"; ".fini" ]
+  |> Seq.choose (fun secName ->
+    match Map.tryFind secName elf.SecInfo.SecByName with
+    | Some sec -> Some sec.SecAddr
+    | None -> None)
+
 let addExtraFunctionAddrs span elf useExceptionInfo addrs =
   let addrSet =
-    [ addrs; getAddrsFromInitArray span elf; getAddrsFromFiniArray span elf ]
+    [ addrs
+      getAddrsFromInitArray span elf
+      getAddrsFromFiniArray span elf
+      getAddrsFromSpecialSections elf ]
     |> Seq.concat
     |> Set.ofSeq
   if useExceptionInfo then (* XXX *)
