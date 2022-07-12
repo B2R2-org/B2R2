@@ -168,7 +168,7 @@ type EVMJmpResolution () =
       | _ -> UnknownPattern
     | _ -> Utils.impossible ()
 
-  override __.MarkIndJmpAsTarget _ fn insAddr src evts pattern =
+  override __.MarkIndJmpAsTarget _ _ fn insAddr src evts pattern =
     match pattern with
     | ConstJmpPattern addr ->
       (fn: RegularFunction).RemoveIndJump insAddr

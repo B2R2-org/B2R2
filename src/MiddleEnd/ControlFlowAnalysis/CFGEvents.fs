@@ -42,6 +42,8 @@ type BasicCFGEvent =
   | CFGRet of fn: RegularFunction * callee: Addr * ftAddr: Addr * callSite: Addr
   /// Add a fake block for an indirect call instruction.
   | CFGIndCall of fn: RegularFunction * callSite: Addr
+  /// Add a fake block for an indirect tail call instruction.
+  | CFGIndTailCall of fn: RegularFunction * callSite: Addr * callee: CalleeKind
   /// Add a fake block for a tail-call.
   | CFGTailCall of fn: RegularFunction * callSite: Addr * callee: Addr
 
@@ -92,6 +94,10 @@ module CFGEvents =
   let addIndCallEvt fn callSiteAddr evts =
     { evts with
         BasicEvents = CFGIndCall (fn, callSiteAddr) :: evts.BasicEvents }
+
+  let addIndTailCallEvt fn callSiteAddr callee evts =
+    { evts with
+        BasicEvents = CFGIndTailCall (fn, callSiteAddr, callee) :: evts.BasicEvents }
 
   let addTailCallEvt fn callSiteAddr callee evts =
     { evts with

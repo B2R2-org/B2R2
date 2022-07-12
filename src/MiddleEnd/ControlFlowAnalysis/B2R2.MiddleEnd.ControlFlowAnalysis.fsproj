@@ -28,7 +28,7 @@
     <Compile Include="IRHelper.fs" />
     <Compile Include="IndirectCallResolution.fs" />
     <Compile Include="IndirectJumpResolution.fs" />
-    <Compile Include="JmpTableResolution.fs" />
+    <Compile Include="RegularJmpResolution.fs" />
     <Compile Include="EVMJmpResolution.fs" />
     <Compile Include="NoReturnFunctionIdentification.fs" />
     <Compile Include="CFGBuilder.fs" />

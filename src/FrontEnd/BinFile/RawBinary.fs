@@ -66,6 +66,8 @@ type RawFileInfo (bytes: byte [], path, isa, baseAddr) =
 
   override __.TranslateAddress addr = System.Convert.ToInt32 (addr - baseAddr)
 
+  override __.GetRelocatedAddr relocAddr = Utils.futureFeature ()
+
   override __.AddSymbol addr symbol =
     symbolMap[addr] <- symbol
 

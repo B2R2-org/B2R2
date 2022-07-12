@@ -27,6 +27,7 @@ namespace B2R2.MiddleEnd.ControlFlowAnalysis
 open B2R2
 open B2R2.BinIR
 open B2R2.BinIR.SSA
+open B2R2.FrontEnd.BinFile
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinInterface
 open B2R2.MiddleEnd.ControlFlowGraph
@@ -34,7 +35,7 @@ open B2R2.MiddleEnd.ControlFlowAnalysis.IRHelper
 open B2R2.MiddleEnd.DataFlow
 
 [<AutoOpen>]
-module private JmpTableResolution =
+module private RegularJmpResolution =
 
   let rec isJmpTblAddr cpState = function
     | Var v ->
@@ -297,7 +298,24 @@ module private JmpTableResolution =
       Error (ErrorBranchRecovery (fnAddr, brAddr, Set.singleton fnAddr))
     else Ok <| (codeMgr: CodeManager).RollBack (evts, [ fnAddr ])
 
-  let classifyWithSymbolicExpr cpState baseExpr tblExpr rt =
+  let getRelocatedAddr (fi: FileInfo) relocationTarget defaultAddr =
+    match fi.GetRelocatedAddr relocationTarget with
+    | Ok addr -> addr
+    | Error _ -> defaultAddr
+
+  let classifyPCRelative hdl cpState pcVar offset =
+    match CPState.findReg cpState pcVar with
+    | Const bv ->
+      let ptr = BitVector.ToUInt64 bv + BitVector.ToUInt64 offset
+      let size = hdl.ISA.WordSize |> WordSize.toByteWidth
+      let fi = hdl.FileInfo
+      match BinHandle.TryReadUInt (hdl, ptr, size) with
+      | Ok target when target <> 0UL && fi.IsExecutableAddr target ->
+        ConstJmpPattern <| getRelocatedAddr fi ptr target
+      | _ -> UnknownPattern
+    | _ -> UnknownPattern
+
+  let classifyJumpTableExpr cpState baseExpr tblExpr rt =
     let baseExpr = foldWithConstant cpState baseExpr |> simplify
     let tblExpr =
       symbolicExpand cpState tblExpr
@@ -316,53 +334,57 @@ module private JmpTableResolution =
       JmpTablePattern (baseAddr, tblAddr, rt)
     | _ -> UnknownPattern
 
-  let classifyJmpExpr cpState = function
+  let classifyJmpExpr hdl cpState = function
     | BinOp (BinOpType.ADD, _, Num b, Load (_, t, memExpr))
     | BinOp (BinOpType.ADD, _, Load (_, t, memExpr), Num b)
     | BinOp (BinOpType.ADD, _, Num b, Cast (_, _, Load (_, t, memExpr)))
     | BinOp (BinOpType.ADD, _, Cast (_, _, Load (_, t, memExpr)), Num b) ->
       if isJmpTblAddr cpState memExpr then
-        classifyWithSymbolicExpr cpState (Num b) memExpr t
+        classifyJumpTableExpr cpState (Num b) memExpr t
       else UnknownPattern
     (* Symbolic patterns should be resolved with our constant analysis. *)
     | BinOp (BinOpType.ADD, _, (Load (_, _, e1) as l1),
                                (Load (_, t, e2) as l2)) ->
-      if isJmpTblAddr cpState e1 then classifyWithSymbolicExpr cpState l2 e1 t
-      elif isJmpTblAddr cpState e2 then classifyWithSymbolicExpr cpState l1 e2 t
+      if isJmpTblAddr cpState e1 then classifyJumpTableExpr cpState l2 e1 t
+      elif isJmpTblAddr cpState e2 then classifyJumpTableExpr cpState l1 e2 t
       else UnknownPattern
     | BinOp (BinOpType.ADD, _, baseExpr, Load (_, t, tblExpr))
     | BinOp (BinOpType.ADD, _, Load (_, t, tblExpr), baseExpr) ->
       if isJmpTblAddr cpState tblExpr then
-        classifyWithSymbolicExpr cpState baseExpr tblExpr t
+        classifyJumpTableExpr cpState baseExpr tblExpr t
       else UnknownPattern
+    (* This pattern is jump to an address stored at [PC + offset] *)
+    | Load (_, _, BinOp (BinOpType.ADD, _,
+                         Var ({ Kind = PCVar _} as pcVar), Num offset)) ->
+      classifyPCRelative hdl cpState pcVar offset
     (* Patterns from non-pie executables. *)
     | Load (_, t, memExpr)
     | Cast (_, _, Load (_, t, memExpr)) ->
       if isJmpTblAddr cpState memExpr then
-        classifyWithSymbolicExpr cpState (Num <| BitVector.Zero t) memExpr t
+        classifyJumpTableExpr cpState (Num <| BitVector.Zero t) memExpr t
       else UnknownPattern
     | _ -> UnknownPattern
 
-/// JmpTableResolution recovers jump targets of indirect jumps by inferring
-/// their jump tables. It first identifies jump table bases with constant
-/// propagation and recovers the entire table ranges by leveraging the
-/// structural properties of the binary.
-type JmpTableResolution (bld) =
+/// RegularJmpResolution recovers indirect tail calls and jump targets of
+/// indirect jumps by inferring their jump tables. It first identifies
+/// jump table bases with constant propagation and recovers the entire
+/// table ranges by leveraging the structural properties of the binary.
+type RegularJmpResolution (bld) =
   inherit IndirectJumpResolution ()
 
-  override __.Name = "JmpTableResolution"
+  override __.Name = "RegularJmpResolution"
 
-  override __.Classify _hdl _srcV cpState jmpType =
+  override __.Classify hdl _srcV cpState jmpType =
     match jmpType with
     | InterJmp jmpExpr ->
       let symbExpr = resolveExpr cpState false jmpExpr
 #if CFGDEBUG
       dbglog "IndJmpRecovery" "Pattern indjmp: %s" (Pp.expToString symbExpr)
 #endif
-      classifyJmpExpr cpState symbExpr
+      classifyJmpExpr hdl cpState symbExpr
     | _ -> Utils.impossible ()
 
-  override __.MarkIndJmpAsTarget dataMgr fn insAddr _ evts pattern =
+  override __.MarkIndJmpAsTarget codeMgr dataMgr fn insAddr _ evts pattern =
     match pattern with
     | JmpTablePattern (bAddr, tAddr, rt) ->
 #if CFGDEBUG
@@ -374,6 +396,23 @@ type JmpTableResolution (bld) =
         fn.MarkIndJumpAsJumpTbl insAddr tAddr
         Ok (true, evts)
       | Error jt -> Error (jt, tAddr) (* Overlapping jump table. *)
+    | ConstJmpPattern (target) ->
+#if CFGDEBUG
+      dbglog "IndJmpRecovery" "Found ConstJmpPattern %x" target
+#endif
+      fn.RemoveIndJump insAddr
+      let evts =
+        if codeMgr.FunctionMaintainer.Contains (addr=target) then
+          let callee = IndirectCallees <| Set.singleton target
+          CFGEvents.addPerFuncAnalysisEvt (fn: RegularFunction).Entry evts
+          |> CFGEvents.addIndTailCallEvt fn insAddr callee
+        else
+          fn.MarkIndJumpAsKnownJumpTargets insAddr (Set.singleton target)
+          let bblInfo = (codeMgr: CodeManager).GetBBL insAddr
+          let src = bblInfo.IRLeaders |> Set.maxElement
+          CFGEvents.addPerFuncAnalysisEvt (fn: RegularFunction).Entry evts
+          |> CFGEvents.addEdgeEvt fn src target IndirectJmpEdge
+      Ok (false, evts)
     | _ ->
       fn.MarkIndJumpAsUnknown insAddr
       Ok (false, evts)

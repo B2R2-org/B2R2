@@ -73,7 +73,8 @@ type IndirectJumpResolution () =
   /// Check the given BranchPattern and mark the indirect jump as an analysis
   /// target.
   abstract member MarkIndJmpAsTarget:
-    DataManager
+    CodeManager
+    -> DataManager
     -> RegularFunction
     -> Addr
     -> ProgramPoint
@@ -136,7 +137,7 @@ type IndirectJumpResolution () =
       let blkAddr = Set.minElement bblInfo.InstrAddrs
       let src = Set.maxElement bblInfo.IRLeaders
       __.AnalyzeBranchPattern hdl ssaCFG cpSt blkAddr
-      |> __.MarkIndJmpAsTarget dataMgr fn iAddr src evts
+      |> __.MarkIndJmpAsTarget codeMgr dataMgr fn iAddr src evts
       |> function
         | Ok (true, evts) ->
           __.Analyze hdl codeMgr dataMgr fn cpSt ssaCFG rest true evts

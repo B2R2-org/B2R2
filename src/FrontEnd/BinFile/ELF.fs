@@ -64,6 +64,8 @@ type ELFFileInfo (bytes, path, baseAddr, regbay) =
 
   override __.TranslateAddress addr = translateAddrToOffset addr elf
 
+  override __.GetRelocatedAddr relocAddr = getRelocatedAddr elf relocAddr
+
   override __.AddSymbol addr symbol = Utils.futureFeature ()
 
   override __.GetSymbols () = getSymbols elf

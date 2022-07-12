@@ -165,6 +165,6 @@ module IRBasicBlock =
     FakeIRBasicBlock (ProgramPoint (callee, 0), callSiteAddr, isTailCall)
     :> IRBasicBlock
 
-  let initIndirectCallBlock callSiteAddr =
-    FakeIRBasicBlock (ProgramPoint.GetFake (), callSiteAddr, false, true)
+  let initIndirectCallBlock callSiteAddr isTailCall =
+    FakeIRBasicBlock (ProgramPoint.GetFake (), callSiteAddr, isTailCall, true)
     :> IRBasicBlock

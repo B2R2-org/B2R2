@@ -201,17 +201,25 @@ let getNotInFileIntervals elf range =
   |> List.map (FileHelper.trimByRange range)
   |> List.toSeq
 
-let getRelocatedAddr elf relocAddr defaultAddr =
+let getRelocatedAddr elf relocAddr =
   match elf.RelocInfo.RelocByAddr.TryGetValue relocAddr with
   | true, rel ->
     match rel.RelType with
     | RelocationX86 RelocationX86.R_386_32
     | RelocationX64 RelocationX64.R_X86_64_64 ->
       match rel.RelSymbol with
-      | Some sym -> sym.Addr + rel.RelAddend
-      | _ -> defaultAddr
-    | _ -> defaultAddr
-  | _ -> defaultAddr
+      | Some sym -> sym.Addr + rel.RelAddend |> Ok
+      | _ -> Error ErrorCase.ItemNotFound
+    | RelocationX86 RelocationX86.R_386_JUMP_SLOT
+    | RelocationX64 RelocationX64.R_X86_64_JUMP_SLOT ->
+      match rel.RelSymbol with
+      | Some sym -> sym.Addr |> Ok
+      | _ -> Error ErrorCase.ItemNotFound
+    | RelocationX86 RelocationX86.R_386_IRELATIVE
+    | RelocationX64 RelocationX64.R_X86_64_IRELATIVE ->
+      Ok rel.RelAddend
+    | _ -> Error ErrorCase.ItemNotFound
+  | _ -> Error ErrorCase.ItemNotFound
 
 let getFunctionAddrsFromLibcArray span elf s =
   let offset = int s.SecOffset
@@ -224,9 +232,10 @@ let getFunctionAddrsFromLibcArray span elf s =
     FileHelper.peekUIntOfType span elf.BinReader readType o
     |> (fun fnAddr ->
       if fnAddr = 0UL then
-        getRelocatedAddr elf (uint64 (addr + (o - offset))) fnAddr
-      else fnAddr)
-    |> lst.Add
+        match getRelocatedAddr elf (uint64 (addr + (o - offset))) with
+        | Ok relocatedAddr -> lst.Add relocatedAddr
+        | Error _ -> ()
+      else lst.Add fnAddr)
   lst |> seq
 
 let getAddrsFromInitArray span elf =

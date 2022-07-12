@@ -107,6 +107,16 @@ type FileInfo () =
   abstract member TranslateAddress: addr: Addr -> int
 
   /// <summary>
+  ///   Return a relocated address of the given virtual address if there is a
+  ///   corresponding relocation entry.
+  /// </summary>
+  /// <param name="addr">Virtual address be relocated.</param>
+  /// <returns>
+  ///   Returns a relocated address for a given virtual address.
+  /// </returns>
+  abstract member GetRelocatedAddr: relocAddr: Addr -> Result<Addr, ErrorCase>
+
+  /// <summary>
    ///   Add a symbol for the address. This function is useful when we can
    ///   obtain extra symbol information from outside of B2R2.
    /// </summary>

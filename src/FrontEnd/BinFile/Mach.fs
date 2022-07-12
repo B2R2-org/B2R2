@@ -51,6 +51,7 @@ type MachFileInfo (bytes, path, isa, baseAddr) =
   override __.EntryPoint = mach.EntryPoint
   override __.TextStartAddr = getTextStartAddr mach
   override __.TranslateAddress addr = translateAddr mach addr
+  override __.GetRelocatedAddr relocAddr = Utils.futureFeature ()
   override __.AddSymbol addr symbol = Utils.futureFeature ()
   override __.GetSymbols () = getSymbols mach
   override __.GetStaticSymbols () = getStaticSymbols mach |> Array.toSeq
