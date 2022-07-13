@@ -26,7 +26,7 @@ module B2R2.FrontEnd.BinLifter.RISCV.Helper
 
 open B2R2
 open B2R2.FrontEnd.BinLifter
-open B2R2.FrontEnd.BinLifter.RISCV.Utils
+open B2R2.FrontEnd.BinLifter.BitData
 
 let getRm = function
   | 0u -> RoundMode.RNE

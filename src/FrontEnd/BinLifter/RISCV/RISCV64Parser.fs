@@ -28,7 +28,7 @@ open B2R2
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinLifter.BitData
 open B2R2.FrontEnd.BinLifter.RISCV.Helper
-open B2R2.FrontEnd.BinLifter.RISCV.Utils
+
 
 let isTwoBytes b =
   if b &&& 3us = 3us then false
@@ -155,8 +155,10 @@ let parseFence bin =
   if opcode = Op.FENCEdotI then
     struct (opcode, NoOperand)
   else
-    if getPred bin = 0b0011uy && getSucc bin = 0b0011uy then struct (Op.FENCEdotTSO, NoOperand)
-    else struct (opcode, getPredSucc bin)
+    if getPred bin = 0b0011uy && getSucc bin = 0b0011uy then
+      struct (Op.FENCEdotTSO, NoOperand)
+    else
+      struct (opcode, getPredSucc bin)
 
 let parseFloatArith bin =
   match extract bin 31u 25u with
@@ -493,18 +495,21 @@ let parseCdotJ bin =
   let from8to9 = extract bin 10u 9u <<< 8
   let from4to4 = pickBit bin 11u <<< 4
   let from11to11 = pickBit bin 12u <<< 11
-  let imm = from1to3 ||| from4to4 ||| from5to5 ||| from6to6 ||| from7to7 ||| from8to9 ||| from10to10 ||| from11to11 |> int64
+  let imm = from1to3 ||| from4to4 ||| from5to5 ||| from6to6 ||| from7to7
+                ||| from8to9 ||| from10to10 ||| from11to11 |> int64
   struct (Op.CdotJ, TwoOperands (R.X0 |> OpReg, imm |> Relative |> OpAddr))
 
 let parseCdotBranch bin =
-  let opcode = if extract bin 15u 13u = 0b111u then Op.CdotBEQZ else Op.CdotBNEZ
+  let opcode = if extract bin 15u 13u = 0b111u then Op.CdotBEQZ
+                else Op.CdotBNEZ
   let src = crs1_ bin
   let from1to2 = extract bin 3u 4u <<< 1
   let from3to4 = extract bin 10u 11u <<< 3
   let from5to5 = pickBit bin 2u <<< 5
   let from6to7 = extract bin 6u 5u <<< 6
   let from8to8 = pickBit bin 12u <<< 8
-  let imm = from1to2 ||| from3to4 ||| from5to5 ||| from6to7 ||| from8to8 |> int64 |> Relative |> OpAddr
+  let imm = from1to2 ||| from3to4 ||| from5to5 ||| from6to7 ||| from8to8
+            |> int64 |> Relative |> OpAddr
   struct (opcode, ThreeOperands (src, R.X0 |> OpReg, imm))
 
 let parseCdotADDIW bin =
@@ -551,7 +556,8 @@ let parseCdotLUI_ADDI16SP bin =
     let from6to6 = pickBit bin 5u <<< 6
     let from7to8 = extract bin 4u 3u <<< 7
     let from9to9 = pickBit bin 12u
-    let imm = from4to4 ||| from5to5 ||| from6to6 ||| from7to8 ||| from9to9 |> uint64
+    let imm = from4to4 ||| from5to5 ||| from6to6 ||| from7to8 ||| from9to9
+              |> uint64
     if imm = 0uL then raise ParsingFailureException
     else ()
     let signExtended = signExtend 10 32 imm |> OpImm
@@ -564,15 +570,15 @@ let parseCdotLUI_ADDI16SP bin =
     struct (Op.CdotLUI, TwoOperands (dest, imm |> uint64 |> OpImm))
 
 let parseCdotArith bin =
-  let code = (pickBit bin 12u) <<< 2 ||| extract bin 6u 5u
-  let opcode = match code with
-                | 0b000u -> Op.CdotSUB
-                | 0b001u -> Op.CdotXOR
-                | 0b010u -> Op.CdotOR
-                | 0b011u -> Op.CdotAND
-                | 0b100u -> Op.CdotSUBW
-                | 0b101u -> Op.CdotADDW
-                | _ -> raise ParsingFailureException
+  let opcode =
+    match (pickBit bin 12u) <<< 2 ||| extract bin 6u 5u with
+    | 0b000u -> Op.CdotSUB
+    | 0b001u -> Op.CdotXOR
+    | 0b010u -> Op.CdotOR
+    | 0b011u -> Op.CdotAND
+    | 0b100u -> Op.CdotSUBW
+    | 0b101u -> Op.CdotADDW
+    | _ -> raise ParsingFailureException
   let dest = crs1_ bin
   let src = crd_ bin
   struct (opcode, ThreeOperands (dest, dest, src))
@@ -581,7 +587,8 @@ let parseCdotJR_MV_EBREAK_JALR_ADD bin =
   if pickBit bin 12u = 0u then
     if extract bin 6u 2u = 0u then
       if extract bin 11u 7u = 0u then raise ParsingFailureException
-      else struct (Op.CdotJR, TwoOperands (R.X1 |> OpReg, RelativeBase (getRegFrom62 bin, 0uL) |> OpAddr))
+      else struct (Op.CdotJR, TwoOperands (R.X1 |> OpReg,
+                  RelativeBase (getRegFrom62 bin, 0uL) |> OpAddr))
     else
       let dest = crd bin
       let src = crs2 bin
@@ -591,7 +598,8 @@ let parseCdotJR_MV_EBREAK_JALR_ADD bin =
       if extract bin 11u 7u = 0u then
         struct (Op.CdotEBREAK, NoOperand)
       else
-        struct (Op.CdotJALR, TwoOperands (R.X1 |> OpReg, RelativeBase (getRegFrom117 bin, 0uL) |> OpAddr))
+        struct (Op.CdotJALR, TwoOperands (R.X1 |> OpReg,
+                RelativeBase (getRegFrom117 bin, 0uL) |> OpAddr))
     else
       let dest = crd bin
       let src = crs2 bin
@@ -599,7 +607,6 @@ let parseCdotJR_MV_EBREAK_JALR_ADD bin =
 
 let parseCdotNOP_ADDI bin =
   if extract bin 11u 7u = 0u then
-    // FIX ME
     struct (Op.CdotNOP, NoOperand)
   else
     let imm = (extract bin 6u 2u) ||| (pickBit bin 12u <<< 5) |> uint64
@@ -685,15 +692,17 @@ let private parseInstruction bin =
 
 let parse (span: ByteSpan) (reader: IBinReader) addr =
   let bin = reader.ReadUInt16 (span, 0)
-  let struct (struct (op, operands), instrLen) =
+  let struct (op, operands, instrLen) =
     match isTwoBytes bin with
     | true ->
       let bin = uint32 bin
-      struct (bin |> parseCompressedInstruction, 2u)
+      let struct (op, operands) = bin |> parseCompressedInstruction
+      struct (op, operands, 2u)
     | false ->
       let b2 = reader.ReadUInt16 (span, 2)
       let bin = ((uint32 b2) <<< 16) + (uint32 bin)
-      struct (bin |> parseInstruction, 4u)
+      let struct (op, operands) = bin |> parseInstruction
+      struct (op, operands, 4u)
   let insInfo =
     { Address = addr
       NumBytes = instrLen

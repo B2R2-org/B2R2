@@ -26,7 +26,7 @@ module B2R2.FrontEnd.BinLifter.RISCV.Disasm
 
 open B2R2
 open B2R2.FrontEnd.BinLifter
-open B2R2.FrontEnd.BinLifter.RISCV.Utils
+open B2R2.FrontEnd.BinLifter.BitData
 
 let opCodeToString = function
   | Op.LUI -> "lui"
@@ -244,10 +244,11 @@ let roundModeToString = function
   | _ -> Utils.impossible ()
 
 let fenceMaskToString x =
-  let i = if pickBit8 x 3u = 1uy then "i" else ""
-  let o = if pickBit8 x 2u = 1uy then "o" else ""
-  let r = if pickBit8 x 1u = 1uy then "r" else ""
-  let w = if pickBit8 x 0u = 1uy then "w" else ""
+  let bin = x |> uint32
+  let i = if pickBit bin 3u = 1u then "i" else ""
+  let o = if pickBit bin 2u = 1u then "o" else ""
+  let r = if pickBit bin 1u = 1u then "r" else ""
+  let w = if pickBit bin 0u = 1u then "w" else ""
   i + o + r + w
 
 let inline buildOpcode ins (builder: DisasmBuilder<_>) =

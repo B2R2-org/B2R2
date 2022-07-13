@@ -254,7 +254,7 @@ module Register =
     | R.X5 -> "t0"
     | R.X6 -> "t1"
     | R.X7 -> "t2"
-    | R.X8 -> "s0/fp"
+    | R.X8 -> "s0"
     | R.X9 -> "s1"
     | R.X10 -> "a0"
     | R.X11 -> "a1"
