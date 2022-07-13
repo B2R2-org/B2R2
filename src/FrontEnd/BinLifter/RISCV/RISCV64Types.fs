@@ -201,11 +201,50 @@ type Opcode =
   | FCVTdotDdotL = 153
   | FCVTdotDdotLU = 154
   | FMVdotDdotX = 155
-  | InvalOP = 156
+  | FENCEdotTSO = 156
+  (* RV64C Standard Extension *)
+  | CdotADDI4SPN = 157
+  | CdotFLD = 158
+  | CdotLW = 159
+  | CdotLD = 160
+  | CdotFSD = 161
+  | CdotSW = 162
+  | CdotSD = 163
+  | CdotNOP = 164
+  | CdotADDI = 165
+  | CdotADDIW = 166
+  | CdotLI = 167
+  | CdotADDI16SP = 168
+  | CdotLUI = 169
+  | CdotSRLI = 170
+  | CdotSRAI = 171
+  | CdotANDI = 172
+  | CdotSUB = 173
+  | CdotXOR = 174
+  | CdotOR = 175
+  | CdotAND = 176
+  | CdotSUBW = 177
+  | CdotADDW = 178
+  | CdotJ = 179
+  | CdotBEQZ = 180
+  | CdotBNEZ = 181
+  | CdotSLLI = 182
+  | CdotFLDSP = 183
+  | CdotLWSP = 184
+  | CdotLDSP = 185
+  | CdotJR = 186
+  | CdotMV = 187
+  | CdotEBREAK = 188
+  | CdotJALR = 189
+  | CdotADD = 190
+  | CdotFSDSP = 191
+  | CdotSWSP = 192
+  | CdotSDSP = 193
+  | InvalOP = 194
 
 type internal Op = Opcode
 
-type RoundMode = 
+type RoundMode =
   | RNE = 0
   | RTZ = 1
   | RDN = 2
@@ -216,19 +255,20 @@ type RoundMode =
 type Operand =
   | OpReg of Register
   | OpImm of Imm
-  | OpMem of Base * Offset * AccessLength
+  | OpMem of Base * Offset option * AccessLength
   | OpAddr of JumpTarget
   | OpShiftAmount of Imm
-  | OpFenceMask of Pred * Succ
+  | OpFenceMask of FenceMask * FenceMask
   | OpRoundMode of RoundMode
   | OpAtomMemOper of Aq * Rl
   | OpCSR of uint16
 and Aq = bool
 and Rl = bool
 and Imm = uint64
-and Pred = uint8
-and Succ = uint8
-and JumpTarget = Relative of int64
+and FenceMask = uint8
+and JumpTarget =
+  | Relative of int64
+  | RelativeBase of Base * Imm
 and Offset =
   | Imm of int64
   | Reg of Register
@@ -241,6 +281,7 @@ type Operands =
   | TwoOperands of Operand * Operand
   | ThreeOperands of Operand * Operand * Operand
   | FourOperands of Operand * Operand * Operand * Operand
+  | FiveOperands of Operand * Operand * Operand * Operand * Operand
 
 type internal Instruction = Opcode * Operands
 

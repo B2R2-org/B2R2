@@ -35,7 +35,7 @@ let getRm = function
   | 3u -> RoundMode.RUP
   | 4u -> RoundMode.RMM
   | 7u -> RoundMode.DYN
-  | _ -> failwith "invalid rounding mode"
+  | _ -> raise ParsingFailureException
 
 
 let getRegister = function
@@ -108,30 +108,61 @@ let getFRegister = function
   | 0x1Fuy -> R.F31
   | _ -> raise InvalidRegisterException
 
-let getRegFrom117 b = getRegister (extract b 11u 7u |> byte)
-let getRegFrom1915 b = getRegister (extract b 19u 15u |> byte)
-let getRegFrom2420 b = getRegister (extract b 24u 20u |> byte)
-let getRegFrom3127 b = getRegister (extract b 31u 27u |> byte)
+let getCompRegister = function
+  | 0x0uy -> R.X8
+  | 0x1uy -> R.X9
+  | 0x2uy -> R.X10
+  | 0x3uy -> R.X11
+  | 0x4uy -> R.X12
+  | 0x5uy -> R.X13
+  | 0x6uy -> R.X14
+  | 0x7uy -> R.X15
+  | _ -> Utils.impossible ()
 
-let getUImm b = (b &&& 0xfffff000u) |> uint64 |> OpImm
+let getFCompRegister = function
+  | 0x0uy -> R.F8
+  | 0x1uy -> R.F9
+  | 0x2uy -> R.F10
+  | 0x3uy -> R.F11
+  | 0x4uy -> R.F12
+  | 0x5uy -> R.F13
+  | 0x6uy -> R.F14
+  | 0x7uy -> R.F15
+  | _ -> Utils.impossible ()
+
+let getRegFrom117 b = getRegister (extract b 11u 7u |> byte)
+let getFRegFrom117 b = getFRegister (extract b 11u 7u |> byte)
+let getRegFrom1915 b = getRegister (extract b 19u 15u |> byte)
+let getFRegFrom1915 b = getFRegister (extract b 19u 15u |> byte)
+let getRegFrom2420 b = getRegister (extract b 24u 20u |> byte)
+let getFRegFrom2420 b = getFRegister (extract b 24u 20u |> byte)
+let getRegFrom3127 b = getRegister (extract b 31u 27u |> byte)
+let getFRegFrom3127 b = getFRegister (extract b 31u 27u |> byte)
+let getRegFrom62 b = getRegister (extract b 6u 2u |> byte)
+let getFRegFrom62 b = getFRegister (extract b 6u 2u |> byte)
+let getCompRegFrom42 b = getCompRegister (extract b 4u 2u |> byte)
+let getFCompRegFrom42 b = getFCompRegister (extract b 4u 2u |> byte)
+let getCompRegFrom97 b = getCompRegister (extract b 9u 7u |> byte)
+
+let getUImm b = (b &&& 0xfffff000u) |> uint64
 
 let getBImm b =
   let from4to1 = (extract b 11u 8u) <<< 1
   let from10to5 = (extract b 30u 25u) <<< 5
-  let from7to7 = (pickBit b 7u) <<< 7
+  let from11to11 = (pickBit b 7u) <<< 11
   let from31to12 = (pickBit b 31u) <<< 12
-  let imm = from31to12 ||| from7to7 ||| from10to5 ||| from4to1 |> uint64
-  signExtend 12 32 imm |> OpImm
+  let imm = from31to12 ||| from11to11 ||| from10to5 ||| from4to1 |> uint64
+  signExtend 12 32 imm
 
 let getIImm b =
   let imm = extract b 31u 20u |> uint64
-  signExtend 11 32 imm |> OpImm
+  signExtend 11 32 imm
 
 let getSImm b =
   let from4to0 = extract b 11u 7u
   let from11to5 = extract b 31u 25u <<< 5
   let imm = from11to5 ||| from4to0 |> uint64
-  signExtend 11 32 imm |> OpImm
+  signExtend 11 32 imm
 
 let getJImm bin =
   let from10to1 = (extract bin 30u 21u) <<< 1
@@ -139,41 +170,67 @@ let getJImm bin =
   let from19to12 = (extract bin 19u 12u) <<< 12
   let from20to20 = (pickBit bin 31u) <<< 20
   let imm = from10to1 ||| from11to11 ||| from19to12 ||| from20to20 |> uint64
-  signExtend 20 32 imm |> int64 |> Relative |> OpAddr
+  signExtend 20 32 imm |> int64
 
 let rd b = getRegFrom117 b |> OpReg
+let frd b = getFRegFrom117 b |> OpReg
 let rs1 b = getRegFrom1915 b |> OpReg
+let frs1 b = getFRegFrom1915 b |> OpReg
 let rs2 b = getRegFrom2420 b |> OpReg
+let frs2 b = getFRegFrom2420 b |> OpReg
 let rs3 b = getRegFrom3127 b |> OpReg
+let frs3 b = getFRegFrom3127 b |> OpReg
 let rm b = getRm (extract b 14u 12u) |> OpRoundMode
 let csr b = extract b 31u 20u |> uint16 |> OpCSR
 let uimm b = extract b 19u 15u |> uint64 |> OpImm
 let shamt b = (extract b 24u 20u) |> uint64 |> OpShiftAmount
+let crd b = getRegFrom117 b |> OpReg
+let cfrd b = getFRegFrom117 b |> OpReg
+let crs2 b = getRegFrom62 b |> OpReg
+let crs2_ b = getCompRegFrom42 b |> OpReg
+let cfrs2 b = getRegFrom62 b |> OpReg
+let cfrs2_ b = getFCompRegFrom42 b |> OpReg
+let crd_ b = getCompRegFrom42 b |> OpReg
+let cfrd_ b = getFCompRegFrom42 b |> OpReg
+let crs1_ b = getCompRegFrom97 b |> OpReg
 
 let getPred bin = extract bin 27u 24u |> uint8
 let getSucc bin = extract bin 23u 20u |> uint8
 let getAqRl bin = OpAtomMemOper(pickBit bin 26u > 0u, pickBit bin 25u > 0u)
-let getRdImm20 b = TwoOperands (rd b, getUImm b)
-let getPCRdImm20 b = ThreeOperands (R.PC |> OpReg, rd b, getUImm b)
-let getPCBImm b = TwoOperands (R.PC |> OpReg, getBImm b)
-let getRdRs1IImm b = ThreeOperands (rd b, rs1 b, getIImm b)
-let getRs2Rs1SImm b = ThreeOperands (rs2 b, rs1 b, getSImm b)
+let getRdImm20 b = TwoOperands (rd b, getUImm b |> OpImm)
+let getPCRdImm20 b = TwoOperands (rd b, (b &&& 0xfffff000u) |> int64 |> Relative |> OpAddr)
+let getRs1Rs2BImm b = ThreeOperands (rs1 b, rs2 b, getBImm b |> OpImm)
+let getRdRs1IImmAcc b acc =
+  let mem = (getRegFrom1915 b, getIImm b |> int64 |> Imm |> Some, acc)
+  TwoOperands (rd b, mem |> OpMem)
+let getRdRs1IImm b = ThreeOperands (rd b, rs1 b, getIImm b |> OpImm)
+let getFRdRs1Addr b acc =
+  TwoOperands(frd b, OpMem (getRegFrom1915 b, getIImm b |> int64 |> Imm |> Some, acc))
+let getRs2Rs1SImm b = ThreeOperands (rs2 b, rs1 b, getSImm b |> OpImm)
+let getFRs2Rs1Addr b acc =
+  TwoOperands (frs2 b, OpMem (getRegFrom1915 b, getSImm b |> int64 |> Imm |> Some, acc))
 let getRdRs1Shamt b = ThreeOperands(rd b, rs1 b, shamt b)
 let getRdRs1Rs2 b = ThreeOperands(rd b, rs1 b, rs2 b)
-let getPredSucc b = (getPred b, getSucc b) |> OpFenceMask |> OneOperand
+let getFRdRs1Rs2 b = ThreeOperands(frd b, frs1 b, frs2 b)
+let getPredSucc b = OneOperand ((getPred b, getSucc b) |> OpFenceMask)
 let getFunc3 b = extract b 14u 12u
 let getFunc7 b = extract b 31u 25u
 let getRs2 b = extract b 24u 20u
 let getRdRs1AqRlAcc b acc =
-  ThreeOperands (rd b, OpMem (getRegFrom1915 b, 0L |> Imm, acc), getAqRl b)
+  ThreeOperands (rd b, OpMem (getRegFrom1915 b, None, acc), getAqRl b)
 let getRdRs1Rs2AqRlAcc b acc =
-  let mem = OpMem (getRegFrom1915 b, 0L |> Imm, acc)
-  FourOperands (rd b, mem, rs2 b,  getAqRl b)
-let getRdJImm b = TwoOperands (rd b, getJImm b)
-let getRdRs1JImm b = ThreeOperands (rd b, rs1 b, getIImm b)
-let getRdRs1Rs2Rs3 b = FourOperands (rd b, rs1 b, rs2 b, rs3 b)
+  let mem = OpMem (getRegFrom1915 b, None, acc)
+  FourOperands (rd b, mem, rs2 b, getAqRl b)
+let getRdJImm b = TwoOperands (rd b, getJImm b |> Relative |> OpAddr)
+let getRdRs1JImm b =
+  let off = RelativeBase (getRegFrom1915 b, getIImm b)
+  TwoOperands (rd b, off |> OpAddr)
+let getFRdRs1Rs2Rs3Rm b = FiveOperands (frd b, frs1 b, frs2 b, frs3 b, rm b)
 let getRdRs1Rs2Rm b = FourOperands (rd b, rs1 b, rs2 b, rm b)
+let getFRdRs1Rs2Rm b = FourOperands (frd b, frs1 b, frs2 b, rm b)
 let getRdRs1Rm b = ThreeOperands (rd b, rs1 b, rm b)
+let getFRdRs1Rm b = ThreeOperands (frd b, frs1 b, rm b)
 let getRdRs1 b = TwoOperands (rd b, rs1 b)
-let getRdRs1CSR b = ThreeOperands (rd b, rs1 b, csr b)
-let getRdUImmCSR b = ThreeOperands (rd b, uimm b, csr b)
+let getFRdRs1 b = TwoOperands (frd b, frs1 b)
+let getRdCSRRs1 b = ThreeOperands (rd b, csr b, rs1 b)
+let getRdCSRUImm b = ThreeOperands (rd b, csr b, uimm b)

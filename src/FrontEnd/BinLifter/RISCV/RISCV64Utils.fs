@@ -32,6 +32,8 @@ let extract binary n1 n2 =
   let mask = pown 2 (int range) - 1 |> uint32
   binary >>> int n &&& mask
 
+let pickBit8 (binary: uint8) (pos: uint32) = binary >>> int pos &&& 0b1uy
+
 let pickBit binary (pos: uint32) = binary >>> int pos &&& 0b1u
 
 let signExtend bitSize extSize (imm: uint64) =

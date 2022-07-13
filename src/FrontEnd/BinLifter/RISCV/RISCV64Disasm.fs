@@ -26,6 +26,7 @@ module B2R2.FrontEnd.BinLifter.RISCV.Disasm
 
 open B2R2
 open B2R2.FrontEnd.BinLifter
+open B2R2.FrontEnd.BinLifter.RISCV.Utils
 
 let opCodeToString = function
   | Op.LUI -> "lui"
@@ -193,7 +194,61 @@ let opCodeToString = function
   | Op.FCVTdotDdotL -> "fcvt.d.l"
   | Op.FCVTdotDdotLU -> "fcvt.d.lu"
   | Op.FMVdotDdotX -> "fmv.d.x"
+  | Op.FENCEdotTSO -> "fence.tso"
+  | Op.CdotADDI4SPN -> "addi"
+  | Op.CdotFLD -> "fld"
+  | Op.CdotLW -> "lw"
+  | Op.CdotLD -> "ld"
+  | Op.CdotFSD -> "fsd"
+  | Op.CdotSW -> "sw"
+  | Op.CdotSD -> "sd"
+  | Op.CdotNOP -> "nop"
+  | Op.CdotADDI -> "addi"
+  | Op.CdotADDIW -> "addiw"
+  | Op.CdotLI -> "addi"
+  | Op.CdotADDI16SP -> "addi"
+  | Op.CdotLUI -> "lui"
+  | Op.CdotSRLI -> "srli"
+  | Op.CdotSRAI -> "srai"
+  | Op.CdotANDI -> "andi"
+  | Op.CdotSUB -> "sub"
+  | Op.CdotXOR -> "xor"
+  | Op.CdotOR -> "or"
+  | Op.CdotAND -> "and"
+  | Op.CdotSUBW -> "subw"
+  | Op.CdotADDW -> "addw"
+  | Op.CdotJ -> "jal"
+  | Op.CdotBEQZ -> "beq"
+  | Op.CdotBNEZ -> "bne"
+  | Op.CdotSLLI -> "slli"
+  | Op.CdotFLDSP -> "fld"
+  | Op.CdotLWSP -> "lw"
+  | Op.CdotLDSP -> "ld"
+  | Op.CdotJR -> "jalr"
+  | Op.CdotMV -> "add"
+  | Op.CdotEBREAK -> "ebreak"
+  | Op.CdotJALR -> "jalr"
+  | Op.CdotADD -> "add"
+  | Op.CdotFSDSP -> "fsd"
+  | Op.CdotSWSP -> "sw"
+  | Op.CdotSDSP -> "sd"
   | _ -> Utils.impossible ()
+
+let roundModeToString = function
+  | RoundMode.RNE -> "rne"
+  | RoundMode.RTZ -> "rtz"
+  | RoundMode.RDN -> "rdn"
+  | RoundMode.RUP -> "rup"
+  | RoundMode.RMM -> "rmm"
+  | RoundMode.DYN -> ""
+  | _ -> Utils.impossible ()
+
+let fenceMaskToString x =
+  let i = if pickBit8 x 3u = 1uy then "i" else ""
+  let o = if pickBit8 x 2u = 1uy then "o" else ""
+  let r = if pickBit8 x 1u = 1uy then "r" else ""
+  let w = if pickBit8 x 0u = 1uy then "w" else ""
+  i + o + r + w
 
 let inline buildOpcode ins (builder: DisasmBuilder<_>) =
   let str = opCodeToString ins.Opcode
@@ -213,12 +268,18 @@ let oprToString insInfo opr delim (builder: DisasmBuilder<_>) =
   | OpShiftAmount imm ->
     builder.Accumulate AsmWordKind.String delim
     builder.Accumulate AsmWordKind.Value (String.u64ToHex imm)
-  | OpMem (b, Imm off, _) ->
+  | OpMem (b, None, _) ->
     builder.Accumulate AsmWordKind.String delim
     builder.Accumulate AsmWordKind.String "("
     builder.Accumulate AsmWordKind.Variable (Register.toString b)
     builder.Accumulate AsmWordKind.String ")"
-  | OpMem (b, Reg off, _) ->
+  | OpMem (b, Some (Imm off), _) ->
+    builder.Accumulate AsmWordKind.String delim
+    builder.Accumulate AsmWordKind.Value (off.ToString ("D"))
+    builder.Accumulate AsmWordKind.String "("
+    builder.Accumulate AsmWordKind.Variable (Register.toString b)
+    builder.Accumulate AsmWordKind.String ")"
+  | OpMem (b, Some (Reg off), _) ->
     builder.Accumulate AsmWordKind.String delim
     builder.Accumulate AsmWordKind.Variable (Register.toString off)
     builder.Accumulate AsmWordKind.String "("
@@ -227,12 +288,28 @@ let oprToString insInfo opr delim (builder: DisasmBuilder<_>) =
   | OpAddr (Relative offset) ->
     builder.Accumulate AsmWordKind.String delim
     relToString insInfo.Address offset builder
-  | OpAtomMemOper (aq, rl) -> 
+  | OpAddr (RelativeBase (b, off)) ->
+    builder.Accumulate AsmWordKind.String delim
+    builder.Accumulate AsmWordKind.Value (off.ToString ("D"))
+    builder.Accumulate AsmWordKind.String "("
+    builder.Accumulate AsmWordKind.Variable (Register.toString b)
+    builder.Accumulate AsmWordKind.String ")"
+  | OpAtomMemOper (aq, rl) ->
     if aq then builder.Accumulate AsmWordKind.String "aq"
     if rl then builder.Accumulate AsmWordKind.String "rl"
-  | OpFenceMask(_, _) -> failwith "Not Implemented"
-  | OpRoundMode(_) -> failwith "Not Implemented"
-  | OpCSR(_) -> failwith "Not Implemented"
+  | OpFenceMask (pred, succ) ->
+    builder.Accumulate AsmWordKind.String delim
+    builder.Accumulate AsmWordKind.String (fenceMaskToString pred)
+    builder.Accumulate AsmWordKind.String ","
+    builder.Accumulate AsmWordKind.String (fenceMaskToString succ)
+  | OpRoundMode (rm) ->
+    if rm <> RoundMode.DYN then
+      builder.Accumulate AsmWordKind.String delim
+      builder.Accumulate AsmWordKind.String (roundModeToString rm)
+    else ()
+  | OpCSR (csr) ->
+    builder.Accumulate AsmWordKind.String delim
+    builder.Accumulate AsmWordKind.Value (String.u64ToHex (csr |> uint64))
 
 
 
@@ -253,6 +330,12 @@ let buildOprs insInfo builder =
     oprToString insInfo opr2 ", " builder
     oprToString insInfo opr3 ", " builder
     oprToString insInfo opr4 ", " builder
+  | FiveOperands (opr1, opr2, opr3, opr4, opr5) ->
+    oprToString insInfo opr1 " " builder
+    oprToString insInfo opr2 ", " builder
+    oprToString insInfo opr3 ", " builder
+    oprToString insInfo opr4 ", " builder
+    oprToString insInfo opr5 ", " builder
 
 let disasm insInfo (builder: DisasmBuilder<_>) =
   if builder.ShowAddr then builder.AccumulateAddr () else ()
