@@ -34,6 +34,7 @@ open B2R2.FrontEnd.BinLifter.LiftingUtils
 open B2R2.FrontEnd.BinLifter.Intel
 open B2R2.FrontEnd.BinLifter.Intel.LiftingUtils
 
+#if !EMULATION
 let private undefC0 = AST.undef 1<rt> "C0 is undefined."
 
 let private undefC1 = AST.undef 1<rt> "C1 is undefined."
@@ -52,6 +53,7 @@ let private cflagsUndefined023 ctxt ir =
   !!ir (!.ctxt R.FSWC0 := undefC0)
   !!ir (!.ctxt R.FSWC2 := undefC2)
   !!ir (!.ctxt R.FSWC3 := undefC3)
+#endif
 
 let inline private getFPUPseudoRegVars ctxt r =
   struct (getPseudoRegVar ctxt r 2, getPseudoRegVar ctxt r 1)
@@ -61,18 +63,22 @@ let private updateC1OnLoad ctxt ir =
   let c1Flag = !.ctxt R.FSWC1
   (* Top value has been wrapped around, which means stack overflow in B2R2. *)
   !!ir (c1Flag := (top == AST.num0 8<rt>))
+#if !EMULATION
   !!ir (!.ctxt R.FSWC0 := undefC0)
   !!ir (!.ctxt R.FSWC2 := undefC2)
   !!ir (!.ctxt R.FSWC3 := undefC3)
+#endif
 
 let private updateC1OnStore ctxt ir =
   let top = !.ctxt R.FTOP
   let c1Flag = !.ctxt R.FSWC1
   (* Top value has been wrapped around, which means stack underflow in B2R2. *)
   !!ir (c1Flag := (top != numI32 7 8<rt>))
+#if !EMULATION
   !!ir (!.ctxt R.FSWC0 := undefC0)
   !!ir (!.ctxt R.FSWC2 := undefC2)
   !!ir (!.ctxt R.FSWC3 := undefC3)
+#endif
 
 let private moveFPRegtoFPReg regdst regsrc ctxt ir =
   let struct (dstB, dstA) = getFPUPseudoRegVars ctxt regdst
@@ -284,9 +290,11 @@ let fisttp ins insLen ctxt =
   !!ir (oprExpr := AST.cast CastKind.FtoITrunc oprSize tmp1)
   !?ir (popFPUStack ctxt)
   !!ir (!.ctxt R.FSWC1 := AST.b0)
+#if !EMULATION
   !!ir (!.ctxt R.FSWC0 := undefC0)
   !!ir (!.ctxt R.FSWC2 := undefC2)
   !!ir (!.ctxt R.FSWC3 := undefC3)
+#endif
   !>ir insLen
 
 let private getTwoBCDDigits addrExpr addrSize startPos =
@@ -406,7 +414,9 @@ let fxch (ins: InsInfo) insLen ctxt =
   !!ir (srcB := tmpB)
   !!ir (srcA := tmpA)
   !!ir (!.ctxt R.FSWC1 := AST.b0)
+#if !EMULATION
   !?ir (cflagsUndefined023 ctxt)
+#endif
   !>ir insLen
 
 let private fcmov (ins: InsInfo) insLen ctxt cond =
@@ -420,9 +430,11 @@ let private fcmov (ins: InsInfo) insLen ctxt cond =
   !<ir insLen
   !!ir (dstB := AST.ite cond srcB dstB)
   !!ir (dstA := AST.ite cond srcA dstA)
+#if !EMULATION
   !!ir (!.ctxt R.FSWC0 := undefC0)
   !!ir (!.ctxt R.FSWC2 := undefC2)
   !!ir (!.ctxt R.FSWC3 := undefC3)
+#endif
   !>ir insLen
 
 let fcmove ins insLen ctxt =
@@ -591,9 +603,11 @@ let fabs _ins insLen ctxt =
   !<ir insLen
   !!ir (AST.extract st0b 1<rt> 15 := AST.b0)
   !!ir (!.ctxt R.FSWC1 := AST.b0)
+#if !EMULATION
   !!ir (!.ctxt R.FSWC0 := undefC0)
   !!ir (!.ctxt R.FSWC2 := undefC2)
   !!ir (!.ctxt R.FSWC3 := undefC3)
+#endif
   !>ir insLen
 
 let fchs _ins insLen ctxt =
@@ -604,9 +618,11 @@ let fchs _ins insLen ctxt =
   !!ir (tmp := AST.xthi 1<rt> st0b)
   !!ir (AST.xthi 1<rt> st0b := AST.not tmp)
   !!ir (!.ctxt R.FSWC1 := AST.b0)
+#if !EMULATION
   !!ir (!.ctxt R.FSWC0 := undefC0)
   !!ir (!.ctxt R.FSWC2 := undefC2)
   !!ir (!.ctxt R.FSWC3 := undefC3)
+#endif
   !>ir insLen
 
 let frndint _ins insLen ctxt =
@@ -799,8 +815,10 @@ let private ftrig _ins insLen ctxt trigFunc =
   !!ir (AST.lmark lout)
   !!ir (c2 := AST.b1)
   !!ir (AST.lmark lexit)
+#if !EMULATION
   !!ir (c0 := undefC0)
   !!ir (c3 := undefC3)
+#endif
   !!ir (c1:= AST.b0)
   !>ir insLen
 
@@ -836,8 +854,10 @@ let fsincos _ins insLen ctxt =
   !!ir (AST.lmark lout)
   !!ir (c2 := AST.b1)
   !!ir (AST.lmark lexit)
+#if !EMULATION
   !!ir (c0 := undefC0)
   !!ir (c3 := undefC3)
+#endif
   !?ir (updateC1OnLoad ctxt)
   !>ir insLen
 
@@ -868,8 +888,10 @@ let fptan _ins insLen ctxt =
   !!ir (AST.lmark lout)
   !!ir (c2 := AST.b1)
   !!ir (AST.lmark lexit)
+#if !EMULATION
   !!ir (c0 := undefC0)
   !!ir (c3 := undefC3)
+#endif
   !?ir (updateC1OnLoad ctxt)
   !>ir insLen
 
@@ -885,7 +907,9 @@ let fpatan _ins insLen ctxt =
   !?ir (castTo80Bit ctxt st1b st1a res)
   !?ir (popFPUStack ctxt)
   !?ir (updateC1OnStore ctxt)
+#if !EMULATION
   !?ir (cflagsUndefined023 ctxt)
+#endif
   !>ir insLen
 
 let f2xm1 _isn insLen ctxt =
@@ -900,7 +924,9 @@ let f2xm1 _isn insLen ctxt =
   !!ir (res := AST.fsub (AST.fpow f2 tmp) f1)
   !?ir (castTo80Bit ctxt st0b st0a res)
   !!ir (c1 := AST.b0)
+#if !EMULATION
   !?ir (cflagsUndefined023 ctxt)
+#endif
   !>ir insLen
 
 let fyl2x _ins insLen ctxt =
@@ -916,7 +942,9 @@ let fyl2x _ins insLen ctxt =
   !?ir (castTo80Bit ctxt st1b st1a res)
   !?ir (popFPUStack ctxt)
   !?ir (updateC1OnStore ctxt)
+#if !EMULATION
   !?ir (cflagsUndefined023 ctxt)
+#endif
   !>ir insLen
 
 let fyl2xp1 _ins insLen ctxt =
@@ -933,7 +961,9 @@ let fyl2xp1 _ins insLen ctxt =
   !?ir (castTo80Bit ctxt st1b st1a res)
   !?ir (popFPUStack ctxt)
   !?ir (updateC1OnStore ctxt)
+#if !EMULATION
   !?ir (cflagsUndefined023 ctxt)
+#endif
   !>ir insLen
 
 let fld1 _ins insLen ctxt =
@@ -971,9 +1001,11 @@ let fincstp _ins insLen ctxt =
   (* TOP in B2R2 is really a counter, so we decrement TOP here (same as pop). *)
   !!ir (extractDstAssign top (top .- AST.num1 8<rt>))
   !!ir (!.ctxt R.FSWC1 := AST.b0)
+#if !EMULATION
   !!ir (!.ctxt R.FSWC0 := undefC0)
   !!ir (!.ctxt R.FSWC2 := undefC2)
   !!ir (!.ctxt R.FSWC3 := undefC3)
+#endif
   !>ir insLen
 
 let fdecstp _ins insLen ctxt =
@@ -983,9 +1015,11 @@ let fdecstp _ins insLen ctxt =
   (* TOP in B2R2 is really a counter, so we increment TOP here. *)
   !!ir (extractDstAssign top (top .+ AST.num1 8<rt>))
   !!ir (!.ctxt R.FSWC1 := AST.b0)
+#if !EMULATION
   !!ir (!.ctxt R.FSWC0 := undefC0)
   !!ir (!.ctxt R.FSWC2 := undefC2)
   !!ir (!.ctxt R.FSWC3 := undefC3)
+#endif
   !>ir insLen
 
 let ffree (ins: InsInfo) insLen ctxt =
@@ -1042,10 +1076,12 @@ let fclex _ins insLen ctxt =
   !<ir insLen
   !!ir (AST.xtlo 7<rt> stsWrd := AST.num0 7<rt>)
   !!ir (AST.xthi 1<rt> stsWrd := AST.b0)
+#if !EMULATION
   !!ir (!.ctxt R.FSWC0 := undefC0)
   !!ir (!.ctxt R.FSWC1 := undefC1)
   !!ir (!.ctxt R.FSWC2 := undefC2)
   !!ir (!.ctxt R.FSWC3 := undefC3)
+#endif
   !>ir insLen
 
 let fstcw ins insLen ctxt =
@@ -1054,7 +1090,9 @@ let fstcw ins insLen ctxt =
   !<ir insLen
   checkFPUExceptions ctxt ir
   !!ir (oprExpr := !.ctxt R.FCW)
+#if !EMULATION
   allCFlagsUndefined ctxt ir
+#endif
   !>ir insLen
 
 let fnstcw ins insLen ctxt =
@@ -1062,7 +1100,9 @@ let fnstcw ins insLen ctxt =
   let oprExpr = transOneOpr ins insLen ctxt
   !<ir insLen
   !!ir (oprExpr := !.ctxt R.FCW)
+#if !EMULATION
   allCFlagsUndefined ctxt ir
+#endif
   !>ir insLen
 
 let fldcw ins insLen ctxt =
@@ -1070,10 +1110,12 @@ let fldcw ins insLen ctxt =
   let oprExpr = transOneOpr ins insLen ctxt
   !<ir insLen
   !!ir (!.ctxt R.FCW := oprExpr)
+#if !EMULATION
   !!ir (!.ctxt R.FSWC0 := undefC0)
   !!ir (!.ctxt R.FSWC1 := undefC1)
   !!ir (!.ctxt R.FSWC2 := undefC2)
   !!ir (!.ctxt R.FSWC3 := undefC3)
+#endif
   !>ir insLen
 
 let private m14fstenv dstAddr addrSize ctxt ir =
@@ -1231,7 +1273,9 @@ let fnstsw ins insLen ctxt =
   let oprExpr = transOneOpr ins insLen ctxt
   !<ir insLen
   !!ir (oprExpr := !.ctxt R.FSW)
+#if !EMULATION
   allCFlagsUndefined ctxt ir
+#endif
   !>ir insLen
 
 let wait _ins insLen ctxt =
@@ -1243,7 +1287,9 @@ let wait _ins insLen ctxt =
 let fnop _ins insLen ctxt =
   let ir = IRBuilder (8)
   !<ir insLen
+#if !EMULATION
   allCFlagsUndefined ctxt ir
+#endif
   !>ir insLen
 
 let inline private storeLE addr v =
