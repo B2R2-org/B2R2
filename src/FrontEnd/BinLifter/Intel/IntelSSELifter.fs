@@ -687,8 +687,8 @@ let ucomisd ins insLen ctxt =
   !!ir (pf := AST.b0)
   !!ir (cf := AST.ite (AST.flt opr1 opr2) AST.b1 AST.b0)
   let isNan expr =
-    (AST.extract expr 11<rt> 52  == AST.num (BitVector.unsignedMax 11<rt>))
-     .& (AST.xtlo 52<rt> expr != AST.num0 52<rt>)
+    (((AST.xthi 16<rt> expr) >> (numI32 5 16<rt>)) == numU32 0x7FFu 16<rt>)
+    .& ((expr >> (numI32 11 64<rt>)) != AST.num0 64<rt>)
   !!ir (AST.cjmp (isNan opr1 .| isNan opr2)
                  (AST.name lblNan) (AST.name lblExit))
   !!ir (AST.lmark lblNan)
