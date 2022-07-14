@@ -151,9 +151,9 @@ let printSymbolInfo isVerbose (fi: ELFFileInfo) (symbols: seq<Symbol>) =
     |> Seq.sortBy (fun s -> s.Address)
     |> Seq.sortBy (fun s -> s.Target)
     |> Seq.iter (fun s ->
-      match fi.ELF.SymInfo.AddrToSymbTable.TryFind s.Address with
-      | Some elfSymbol -> printSymbolInfoVerbose fi s elfSymbol cfg
-      | None ->
+      match fi.ELF.SymInfo.AddrToSymbTable.TryGetValue s.Address with
+      | true, elfSymbol -> printSymbolInfoVerbose fi s elfSymbol cfg
+      | false, _ ->
         match fi.ELF.RelocInfo.RelocByName.TryGetValue s.Name with
         | true, reloc ->
           match reloc.RelSymbol with

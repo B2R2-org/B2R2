@@ -28,6 +28,7 @@ open System.Collections.Generic
 open B2R2
 open B2R2.FrontEnd.BinFile
 open B2R2.FrontEnd.BinInterface
+open B2R2.FrontEnd.BinFile.ELF
 
 [<AutoOpen>]
 module private FunctionMaintainer =
@@ -35,18 +36,21 @@ module private FunctionMaintainer =
   let knownNoPLTFuncs =
     [| "__libc_start_main"; "__gmon_start__" |]
 
-  let findInternalFuncReloc (elf: ELF.ELF) (symb: ELF.ELFSymbol) =
-    let reloc = elf.RelocInfo.RelocByAddr[symb.Addr]
+  let findInternalFuncReloc (elf: ELF) (entry: LinkageTableEntry) =
+    let reloc = elf.RelocInfo.RelocByAddr[entry.TableAddress]
     match reloc.RelSymbol with
     | Some relSym ->
-      if relSym.SymType = ELF.SymbolType.STTFunc then
+      if relSym.SymType = SymbolType.STTFunc then
         match relSym.ParentSection with
         | Some parent ->
-          if parent.SecName = ".text" then Ok relSym
+          if parent.SecName = ".text" then Ok relSym.Addr
           else Error ErrorCase.SymbolNotFound
         | _ -> Error ErrorCase.SymbolNotFound
       else Error ErrorCase.SymbolNotFound
-    | _ -> Error ErrorCase.SymbolNotFound
+    | None ->
+      match reloc.RelType with
+      | RelocationX64 (RelocationX64.RelocX64IRelative) -> Ok reloc.RelAddend
+      | _ -> Error ErrorCase.SymbolNotFound
 
 /// Maintains functions in the binary.
 type FunctionMaintainer private (hdl, histMgr: HistoryManager) =
@@ -163,11 +167,12 @@ type FunctionMaintainer private (hdl, histMgr: HistoryManager) =
   static member private InitELFExterns hdl (fnMaintainer: FunctionMaintainer) =
     let elf = (hdl.FileInfo :?> ELFFileInfo).ELF
     elf.PLT
-    |> ARMap.iter (fun range symb ->
-      match findInternalFuncReloc elf symb with
-      | Ok relSym -> fnMaintainer.InternalRefs[range.Min] <- relSym.Addr
+    |> ARMap.iter (fun range entry ->
+      match findInternalFuncReloc elf entry with
+      | Ok fnAddr -> fnMaintainer.InternalRefs[range.Min] <- fnAddr
       | Error _ ->
-        let func = ExternalFunction.Init symb.Addr symb.SymName range.Min
+        let func =
+          ExternalFunction.Init entry.TableAddress entry.FuncName range.Min
         fnMaintainer.AddFunction func)
     elf.RelocInfo.RelocByAddr.Values
     |> Seq.iter (fun reloc ->

@@ -25,6 +25,7 @@
 module internal B2R2.FrontEnd.BinFile.ELF.Symbol
 
 open System
+open System.Collections.Generic
 open B2R2
 open B2R2.Monads.Maybe
 open B2R2.FrontEnd.BinFile
@@ -57,39 +58,39 @@ let verName (strTab: ByteSpan) vnaNameOffset =
   if vnaNameOffset >= strTab.Length then ""
   else ByteArray.extractCStringFromSpan strTab vnaNameOffset
 
-let rec parseNeededVerFromSecAux span (reader: IBinReader) strTab map pos =
+let rec parseNeededVerFromSecAux span (reader: IBinReader) strTab tbl pos =
   let idx = reader.ReadUInt16 (span=span, offset=pos + 6) (* vna_other *)
   let nameOffset = reader.ReadInt32 (span, pos + 8)
-  let map = Map.add idx (verName strTab nameOffset) map
+  (tbl: Dictionary<_, _>)[idx] <- verName strTab nameOffset
   let next = reader.ReadInt32 (span, pos + 12)
-  if next = 0 then map
-  else parseNeededVerFromSecAux span reader strTab map (pos + next)
+  if next = 0 then ()
+  else parseNeededVerFromSecAux span reader strTab tbl (pos + next)
 
-let rec parseNeededVerFromSec span (reader: IBinReader) strTab map pos =
+let rec parseNeededVerFromSec span (reader: IBinReader) strTab tbl pos =
   let auxOffset =
     reader.ReadInt32 (span=span, offset=pos + 8) + pos (* vn_aux + pos *)
-  let map = parseNeededVerFromSecAux span reader strTab map auxOffset
+  parseNeededVerFromSecAux span reader strTab tbl auxOffset
   let next = reader.ReadInt32 (span, pos + 12) (* vn_next *)
-  if next = 0 then map
-  else parseNeededVerFromSec span reader strTab map (pos + next)
+  if next = 0 then ()
+  else parseNeededVerFromSec span reader strTab tbl (pos + next)
 
 let parseNeededVersionTable tbl span reader strTab = function
-  | None -> tbl
+  | None -> ()
   | Some sec ->
     parseNeededVerFromSec span reader strTab tbl (Convert.ToInt32 sec.SecOffset)
 
-let rec parseDefinedVerFromSec span (reader: IBinReader) strTab map pos =
+let rec parseDefinedVerFromSec span (reader: IBinReader) strTab tbl pos =
   let auxOffset =
     reader.ReadInt32 (span=span, offset=pos + 12) + pos (* vd_aux + pos *)
   let idx = reader.ReadUInt16 (span, pos + 4) (* vd_ndx *)
   let nameOffset = reader.ReadInt32 (span, auxOffset) (* vda_name *)
-  let map = Map.add idx (verName strTab nameOffset) map
+  (tbl: Dictionary<_, _>)[idx] <- verName strTab nameOffset
   let next = reader.ReadInt32 (span, pos + 16) (* vd_next *)
-  if next = 0 then map
-  else parseDefinedVerFromSec span reader strTab map (pos + next)
+  if next = 0 then ()
+  else parseDefinedVerFromSec span reader strTab tbl (pos + next)
 
 let parseDefinedVersionTable tbl span reader strTab = function
-  | None -> tbl
+  | None -> ()
   | Some sec ->
     parseDefinedVerFromSec span reader strTab tbl
       (Convert.ToInt32 sec.SecOffset)
@@ -102,13 +103,14 @@ let rec accumulateVerTbl (span: ByteSpan) reader secs tbl nlst =
     let size = Convert.ToInt32 ss.SecSize
     let offset = Convert.ToInt32 ss.SecOffset
     let strTab = span.Slice (offset, size)
-    let tbl = parseNeededVersionTable tbl span reader strTab secs.VerNeedSec
-    let tbl = parseDefinedVersionTable tbl span reader strTab secs.VerDefSec
+    parseNeededVersionTable tbl span reader strTab secs.VerNeedSec
+    parseDefinedVersionTable tbl span reader strTab secs.VerDefSec
     accumulateVerTbl span reader secs tbl rest
   | [] -> tbl
 
 let parseVersionTable secs (span: ByteSpan) reader =
-  accumulateVerTbl span reader secs Map.empty secs.DynSymSecNums
+  let tbl = Dictionary ()
+  accumulateVerTbl span reader secs tbl secs.DynSymSecNums
 
 let parseVersData span (reader: IBinReader) symIdx verSymSec =
   let pos = verSymSec.SecOffset + (symIdx * 2UL) |> Convert.ToInt32
@@ -116,11 +118,11 @@ let parseVersData span (reader: IBinReader) symIdx verSymSec =
   if versData > 1us then Some versData
   else None
 
-let retrieveVer vtbl verData =
+let retrieveVer (vtbl: Dictionary<_, _>) verData =
   let t = if verData &&& 0x8000us = 0us then VerRegular else VerHidden
-  match Map.tryFind (verData &&& 0x7fffus) vtbl with
-  | None -> None
-  | Some verStr -> Some { VerType = t; VerName = verStr }
+  match vtbl.TryGetValue (verData &&& 0x7fffus) with
+  | true, verStr -> Some { VerType = t; VerName = verStr }
+  | false, _ -> None
 
 let adjustSymAddr baseAddr addr =
   if addr = 0UL then 0UL
@@ -215,9 +217,9 @@ let parseSymbols baseAddr eHdr secs (span: ByteSpan) reader vtbl acc symTblSec =
   let offset = Convert.ToInt32 symTblSec.SecOffset
   parseSymAux baseAddr eHdr secs span reader txt vtbl stbl 0UL max offset acc
 
-let getMergedSymbolTbl numbers symTbls =
+let getMergedSymbolTbl numbers (symTbls: Dictionary<_, _>) =
   numbers
-  |> List.fold (fun acc n -> Array.append (Map.find n symTbls) acc) [||]
+  |> List.fold (fun acc n -> Array.append (symTbls[n]) acc) [||]
 
 let private getStaticSymArrayInternal secInfo symTbl =
   getMergedSymbolTbl secInfo.StaticSymSecNums symTbl
@@ -232,34 +234,34 @@ let getDynamicSymArray elf =
   getDynamicSymArrayInternal elf.SecInfo elf.SymInfo.SecNumToSymbTbls
 
 let buildSymbolMap staticSymArr dynamicSymArr =
-  let folder map sym =
-    if sym.Addr > 0UL then Map.add sym.Addr sym map
-    else map
-  let map = staticSymArr |> Array.fold folder Map.empty
-  dynamicSymArr |> Array.fold folder map
+  let map = Dictionary<Addr, ELFSymbol> ()
+  let iterator sym =
+    if sym.Addr > 0UL then map[sym.Addr] <- sym
+    else ()
+  staticSymArr |> Array.iter iterator
+  dynamicSymArr |> Array.iter iterator
+  map
 
 let rec getSymTabs map baseAddr eHdr secs span reader vtbl = function
   | (n, symTblSec) :: rest ->
     let symbols = parseSymbols baseAddr eHdr secs span reader vtbl [] symTblSec
-    let map = Map.add n (Array.ofList symbols) map
+    (map: Dictionary<int, ELFSymbol[]>)[n] <- Array.ofList symbols
     getSymTabs map baseAddr eHdr secs span reader vtbl rest
-  | [] -> map
+  | [] -> ()
 
 let parse baseAddr eHdr secs span reader =
   let vtbl = parseVersionTable secs span reader
   let symTabNumbers = List.append secs.StaticSymSecNums secs.DynSymSecNums
   let symSecs = List.map (fun n -> n, secs.SecByNum[n]) symTabNumbers
-  let symTbls = getSymTabs Map.empty baseAddr eHdr secs span reader vtbl symSecs
+  let symTbls = Dictionary ()
+  getSymTabs symTbls baseAddr eHdr secs span reader vtbl symSecs
   let staticSymArr = getStaticSymArrayInternal secs symTbls
   let dynamicSymArr = getDynamicSymArrayInternal secs symTbls
   { VersionTable = vtbl
     SecNumToSymbTbls = symTbls
     AddrToSymbTable = buildSymbolMap staticSymArr dynamicSymArr }
 
-let updatePLTSymbols (plt: ARMap<ELFSymbol>) symInfo =
-  let update map = plt |> ARMap.fold (fun map r s -> Map.add r.Min s map) map
-  { symInfo with AddrToSymbTable = update symInfo.AddrToSymbTable }
-
-let updateGlobals (globals: Map<Addr, ELFSymbol>) symInfo =
-  let update map = globals |> Map.fold (fun map a s -> Map.add a s map) map
-  { symInfo with AddrToSymbTable = update symInfo.AddrToSymbTable }
+let updateGlobals symInfo (globals: Map<Addr, ELFSymbol>) =
+  let tbl = symInfo.AddrToSymbTable
+  globals |> Map.iter (fun a s -> tbl[a] <- s)
+  globals

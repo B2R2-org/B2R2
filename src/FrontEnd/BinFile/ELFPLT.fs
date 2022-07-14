@@ -26,6 +26,7 @@ module internal B2R2.FrontEnd.BinFile.ELF.PLT
 
 open System
 open B2R2
+open B2R2.FrontEnd.BinFile
 
 type CodeKind =
   | PIC
@@ -147,10 +148,10 @@ type X86NonPICRetriever () =
 
 type X86PICRetriever () =
   interface IPLTInfoRetriever with
-    member __.Get (addr, _, typ, span: ByteSpan, r: IBinReader, sec, gotBase) =
+    member __.Get (addr, _, typ, span: ByteSpan, r: IBinReader, sec, baseAddr) =
       let addrDiff = int (addr - typ.StartAddr)
       let offset = addrDiff + int typ.GOTOffset + int sec.SecOffset
-      { EntryRelocAddr = (r.ReadInt32 (span, offset) |> uint64) + gotBase
+      { EntryRelocAddr = (r.ReadInt32 (span, offset) |> uint64) + baseAddr
         NextEntryAddr = addr + uint64 typ.EntrySize } |> Ok
 
 let x86PICLazy (span: ByteSpan) sec =
@@ -309,12 +310,12 @@ let computeARMPLTHeaderSize (span: ByteSpan) reader sec =
 
 type ARMv7Retriever () =
   interface IPLTInfoRetriever with
-    member __.Get (addr, idx, typ, span: ByteSpan, r, sec, gotBase) =
+    member __.Get (addr, idx, typ, span: ByteSpan, r, sec, baseAddr) =
       let addrDiff = int (addr - typ.StartAddr)
       let hdrSize = computeARMPLTHeaderSize span r sec |> Option.get
       match computeARMPLTEntrySize span r sec hdrSize addrDiff with
       | Ok entSize ->
-        { EntryRelocAddr = gotBase + uint64 (idx * 4)
+        { EntryRelocAddr = baseAddr + uint64 (idx * 4)
           NextEntryAddr = addr + uint64 entSize } |> Ok
       | Error _ -> (* Just ignore this entry using the default entry size 16. *)
         { EntryRelocAddr = 0UL; NextEntryAddr = addr + 16UL } |> Ok
@@ -337,8 +338,8 @@ let armv7PLT span reader sec =
 
 type AArch64Retriever () =
   interface IPLTInfoRetriever with
-    member __.Get (addr, idx, _, _, _reader, _sec, gotBase) =
-      { EntryRelocAddr = gotBase + uint64 (idx * 8)
+    member __.Get (addr, idx, _, _, _reader, _sec, baseAddr) =
+      { EntryRelocAddr = baseAddr + uint64 (idx * 8)
         NextEntryAddr = addr + 16UL } |> Ok
 
 let aarchPLT _reader sec =
@@ -450,43 +451,53 @@ let findPLTType arch span reader sec =
   | Arch.SH4 -> sh4PLT sec
   | _ -> Utils.futureFeature ()
 
-let rec private parsePLTLoop gotBase typ rel span reader s eAddr idx map addr =
+let rec private
+  parsePLTLoop bAddr t rel symbs span reader s eAddr idx map addr =
   if addr >= eAddr then map
   else
     let info =
-      typ.InfoRetriever.Get (addr, idx, typ, span, reader, s, gotBase)
-      |> Result.get
-    // printfn "%x -> %x" addr info.EntryRelocAddr
+      t.InfoRetriever.Get (addr, idx, t, span, reader, s, bAddr) |> Result.get
     let nextAddr = info.NextEntryAddr
     let ar = AddrRange (addr, nextAddr - 1UL)
     match rel.RelocByAddr.TryGetValue info.EntryRelocAddr with
-    | true, r when r.RelSymbol.IsSome ->
-      let symb = Option.get r.RelSymbol
-      let symb = { symb with Addr = r.RelOffset }
-      let map = ARMap.add ar symb map
-      parsePLTLoop gotBase typ rel span reader s eAddr (idx + 1) map nextAddr
+    | true, r ->
+      let entry =
+        match r.RelSymbol with
+        | Some symb ->
+          symbs.AddrToSymbTable[addr] <- symb (* Update the symbol table. *)
+          { FuncName = symb.SymName
+            LibraryName = Symbol.versionToLibName symb.VerInfo
+            TrampolineAddress = addr
+            TableAddress = r.RelOffset }
+        | None ->
+          { FuncName = ""
+            LibraryName = ""
+            TrampolineAddress = addr
+            TableAddress = info.EntryRelocAddr }
+      let map = ARMap.add ar entry map
+      parsePLTLoop bAddr t rel symbs span reader s eAddr (idx + 1) map nextAddr
     | _ ->
-      parsePLTLoop gotBase typ rel span reader s eAddr (idx + 1) map nextAddr
+      parsePLTLoop bAddr t rel symbs span reader s eAddr (idx + 1) map nextAddr
 
-let private parsePLT gotBase typ reloc span reader (s: ELFSection) map =
+let private parsePLT baseAddr typ reloc symbs span reader (s: ELFSection) map =
   let startAddr, endAddr = typ.StartAddr, s.SecAddr + s.SecSize
-  parsePLTLoop gotBase typ reloc span reader s endAddr 0 map startAddr
+  parsePLTLoop baseAddr typ reloc symbs span reader s endAddr 0 map startAddr
 
-let rec loopSections map gotBase arch reloc span reader = function
+let rec loopSections map baseAddr arch reloc symbs span reader = function
   | sec :: rest ->
     match findPLTType arch span reader sec with
     | PLT desc ->
       let map =
         if isSecondaryLazy desc then map (* Ignore secondary lazy plt. *)
-        else parsePLT gotBase desc reloc span reader sec map
-      loopSections map gotBase arch reloc span reader rest
+        else parsePLT baseAddr desc reloc symbs span reader sec map
+      loopSections map baseAddr arch reloc symbs span reader rest
     | _ -> map
   | [] -> map
 
-let parse arch sections reloc span reader =
-  let gotBase = findGOTBase arch reloc sections
+let parse arch sections reloc symbs span reader =
+  let baseAddr = findGOTBase arch reloc sections
   let sections = filterPLTSections sections
-  match gotBase with
-  | Some gotBase ->
-    loopSections ARMap.empty gotBase arch reloc span reader sections
+  match baseAddr with
+  | Some baseAddr ->
+    loopSections ARMap.empty baseAddr arch reloc symbs span reader sections
   | _ -> ARMap.empty

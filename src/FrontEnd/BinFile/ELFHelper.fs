@@ -91,11 +91,11 @@ let isFuncSymb s =
   s.SymType = SymbolType.STTFunc || s.SymType = SymbolType.STTGNUIFunc
 
 let inline tryFindFuncSymb elf addr =
-  match Map.tryFind addr elf.SymInfo.AddrToSymbTable with
-  | None -> Error ErrorCase.SymbolNotFound
-  | Some s ->
+  match elf.SymInfo.AddrToSymbTable.TryGetValue addr with
+  | true, s ->
     if isFuncSymb s then Ok s.SymName
     else Error ErrorCase.SymbolNotFound
+  | false, _ -> Error ErrorCase.SymbolNotFound
 
 let getStaticSymbols elf =
   Symbol.getStaticSymArray elf
@@ -173,13 +173,8 @@ let getSegments elf isLoadable =
   |> List.toSeq
 
 let getPLT elf =
-  let create pltAddr (symb: ELFSymbol) =
-    { FuncName = symb.SymName
-      LibraryName = Symbol.versionToLibName symb.VerInfo
-      TrampolineAddress = pltAddr
-      TableAddress = symb.Addr }
   elf.PLT
-  |> ARMap.fold (fun acc addrRange s -> create addrRange.Min s :: acc) []
+  |> ARMap.fold (fun acc _ entry -> entry :: acc) []
   |> List.sortBy (fun entry -> entry.TrampolineAddress)
   |> List.toSeq
 

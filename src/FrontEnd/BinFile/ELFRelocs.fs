@@ -62,9 +62,9 @@ let nextRelOffset hasAdd cls offset =
   else offset + (if hasAdd then 24 else 16)
 
 let tryFindSymbTable idx symbInfo =
-  match Map.tryFind idx symbInfo.SecNumToSymbTbls with
-  | None -> [||]
-  | Some tbl -> tbl
+  match symbInfo.SecNumToSymbTbls.TryGetValue idx with
+  | true, tbl -> tbl
+  | false, _ -> [||]
 
 let accumulateRelocInfo relInfo rel =
   match rel.RelSymbol with

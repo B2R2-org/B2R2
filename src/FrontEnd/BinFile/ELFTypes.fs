@@ -854,11 +854,11 @@ type RelocInfo = {
 /// Main data structure for storing symbol information.
 type ELFSymbolInfo = {
   /// Linux-specific symbol version table containing versions required to link.
-  VersionTable: Map<uint16, string>
+  VersionTable: Dictionary<uint16, string>
   /// A mapping from a section number to the corresponding symbol table.
-  SecNumToSymbTbls: Map<int, ELFSymbol []>
+  SecNumToSymbTbls: Dictionary<int, ELFSymbol[]>
   /// Address to symbol mapping.
-  AddrToSymbTable: Map<Addr, ELFSymbol>
+  AddrToSymbTable: Dictionary<Addr, ELFSymbol>
 }
 
 /// This member tells what kind of segment this array element describes or
@@ -1039,7 +1039,7 @@ type ELF = {
   /// Relocation information.
   RelocInfo: RelocInfo
   /// Procedure Linkage Table.
-  PLT: ARMap<ELFSymbol>
+  PLT: ARMap<LinkageTableEntry>
   /// Global symbols (such as R_X86_64_GLOB_DAT).
   Globals: Map<Addr, ELFSymbol>
   /// Exception frame.
