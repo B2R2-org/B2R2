@@ -830,6 +830,15 @@ with
       RelocationSH4 <| LanguagePrimitives.EnumOfValue n
     | _ -> invalidArg (nameof arch) "Unsupported architecture for relocation."
 
+  static member ToString rt =
+    match rt with
+    | RelocationX86 t -> t.ToString ()
+    | RelocationX64 t -> t.ToString ()
+    | RelocationARMv7 t -> t.ToString ()
+    | RelocationARMv8 t -> t.ToString ()
+    | RelocationMIPS t -> t.ToString ()
+    | RelocationSH4 t -> t.ToString ()
+
 /// Relocation entry.
 type RelocationEntry = {
   /// The location at which to apply the relocation action.

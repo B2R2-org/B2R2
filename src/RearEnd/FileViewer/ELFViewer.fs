@@ -179,9 +179,25 @@ let dumpSymbols (opts: FileViewerOpts) (fi: ELFFileInfo) =
   fi.GetSymbols ()
   |> printSymbolInfo opts.Verbose fi
 
-let dumpRelocs (opts: FileViewerOpts) (fi: ELFFileInfo) =
-  fi.GetRelocationSymbols ()
-  |> printSymbolInfo opts.Verbose fi
+let dumpRelocs (_opts: FileViewerOpts) (fi: ELFFileInfo) =
+  let addrColumn = columnWidthOfAddr fi |> LeftAligned
+  let cfg = [ addrColumn; LeftAligned 24; RightAligned 8; LeftAligned 12 ]
+  out.PrintRow (true, cfg, [ "Address"; "Type"; "Addended"; "Symbol" ])
+  out.PrintLine "  ---"
+  fi.ELF.RelocInfo.RelocByAddr.Values
+  |> Seq.sortBy (fun reloc -> reloc.RelOffset)
+  |> Seq.iter (fun reloc ->
+    let symbol =
+      match reloc.RelSymbol with
+      | Some s when s.SymName.Length > 0 -> s.SymName
+      | _ -> "(n/a)"
+    out.PrintRow (true, cfg, [
+      Addr.toString fi.WordSize reloc.RelOffset
+      ELF.RelocationType.ToString reloc.RelType
+      reloc.RelAddend.ToString ("x")
+      symbol
+    ])
+  )
 
 let dumpFunctions (opts: FileViewerOpts) (fi: ELFFileInfo) =
   fi.GetFunctionSymbols ()
