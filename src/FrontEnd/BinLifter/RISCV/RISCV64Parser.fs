@@ -29,7 +29,6 @@ open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinLifter.BitData
 open B2R2.FrontEnd.BinLifter.RISCV.Helper
 
-
 let isTwoBytes b =
   if b &&& 3us = 3us then false
   else true
@@ -88,12 +87,9 @@ let parseOpImm bin =
     (* Shifts *)
     | 0b001u -> Op.SLLI
     | 0b101u ->
-      if extract bin 31u 26u = 0b000000u then
-        Op.SRLI
-      elif extract bin 31u 26u = 0b010000u then
-        Op.SRAI
-      else
-        raise ParsingFailureException
+      if extract bin 31u 26u = 0b000000u then Op.SRLI
+      elif extract bin 31u 26u = 0b010000u then Op.SRAI
+      else raise ParsingFailureException
     | _ -> raise ParsingFailureException
   match opcode with
   | Op.ADDI | Op.SLTI | Op.SLTIU | Op.XORI
@@ -147,7 +143,7 @@ let parseOp bin =
   struct (opcode, getRdRs1Rs2 bin)
 
 let parseEnvCall bin =
-  let opcode= if pickBit bin 20u = 1u then Op.ECALL else Op.EBREAK
+  let opcode = if pickBit bin 20u = 1u then Op.ECALL else Op.EBREAK
   struct (opcode, NoOperand)
 
 let parseFence bin =
@@ -561,7 +557,8 @@ let parseCdotLUI_ADDI16SP bin =
     if imm = 0uL then raise ParsingFailureException
     else ()
     let signExtended = signExtend 10 32 imm |> OpImm
-    struct (Op.CdotADDI16SP, ThreeOperands (R.X2 |> OpReg, R.X2 |> OpReg, signExtended))
+    struct (Op.CdotADDI16SP,
+            ThreeOperands (R.X2 |> OpReg, R.X2 |> OpReg, signExtended))
   else
     let imm = (extract bin 6u 2u <<< 12) ||| (pickBit bin 12u <<< 17)
     if imm = 0u then raise ParsingFailureException

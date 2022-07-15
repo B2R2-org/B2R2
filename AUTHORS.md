@@ -17,6 +17,7 @@ a list of the contributors in alphabetic order.
 - Mehdi Aghakishiyev
 - TA Thanh Dinh
 - HyungSeok Han
+- Abdirakhman Ismail
 - Cheonhoo Jeon
 - Subin Jeong
 - Minkyu Jung

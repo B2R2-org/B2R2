@@ -259,7 +259,6 @@ let inline relToString pc offset (builder: DisasmBuilder<_>) =
   let targetAddr = pc + uint64 offset
   builder.Accumulate AsmWordKind.Value (String.u64ToHex targetAddr)
 
-
 let oprToString insInfo opr delim (builder: DisasmBuilder<_>) =
   match opr with
   | OpReg reg ->
@@ -311,8 +310,6 @@ let oprToString insInfo opr delim (builder: DisasmBuilder<_>) =
   | OpCSR (csr) ->
     builder.Accumulate AsmWordKind.String delim
     builder.Accumulate AsmWordKind.Value (String.u64ToHex (csr |> uint64))
-
-
 
 let buildOprs insInfo builder =
   match insInfo.Operands with

@@ -61,7 +61,7 @@ type DisasmStringBuilder (showAddr, resolveSymb, wordSz, addr, len) =
   override __.Finalize () = sb.ToString ()
 
 type DisasmWordBuilder (showAddr, resolveSymb, wordSz, addr, len, n) =
-  inherit DisasmBuilder<AsmWord []> (showAddr, resolveSymb, wordSz, addr, len)
+  inherit DisasmBuilder<AsmWord[]> (showAddr, resolveSymb, wordSz, addr, len)
 
   let ab = AsmWordBuilder (n)
 
