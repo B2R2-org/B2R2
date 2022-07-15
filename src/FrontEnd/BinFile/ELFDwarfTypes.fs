@@ -439,17 +439,8 @@ module DWRegister =
     | Architecture.IntelX86 -> toIntelx86Register regnum
     | Architecture.IntelX64 -> toIntelx64Register regnum
     | Architecture.AARCH64 -> toAArch64Register regnum
-    | Architecture.MIPS1
-    | Architecture.MIPS2
-    | Architecture.MIPS3
     | Architecture.MIPS32
-    | Architecture.MIPS32R2
-    | Architecture.MIPS32R6
-    | Architecture.MIPS4
-    | Architecture.MIPS5
-    | Architecture.MIPS64
-    | Architecture.MIPS64R2
-    | Architecture.MIPS64R6 -> toMIPSRegister regnum
+    | Architecture.MIPS64 -> toMIPSRegister regnum
     | _ -> Utils.futureFeature ()
 
   let toRegisterExpr isa (regbay: RegisterBay) regnum =

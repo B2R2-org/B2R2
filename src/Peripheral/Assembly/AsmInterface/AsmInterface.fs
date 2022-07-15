@@ -35,14 +35,7 @@ type AsmInterface (hdl: BinHandle, startAddress) =
     | Architecture.IntelX64
     | Architecture.IntelX86 ->
       Intel.IntelAsmParser (hdl.ISA, startAddress) :> AsmParser
-    | Architecture.MIPS1
-    | Architecture.MIPS2
-    | Architecture.MIPS3
     | Architecture.MIPS32
-    | Architecture.MIPS32R2
-    | Architecture.MIPS32R6
-    | Architecture.MIPS4
-    | Architecture.MIPS5
     | Architecture.MIPS64
     | _ -> raise InvalidISAException
 

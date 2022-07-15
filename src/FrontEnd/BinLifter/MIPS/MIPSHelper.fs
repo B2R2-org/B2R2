@@ -28,14 +28,8 @@ open B2R2
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinLifter.MIPS.Utils
 
-let isRel2 arch = arch = Arch.MIPS32R2 || arch = Arch.MIPS64R2
-let isRel6 arch = arch = Arch.MIPS32R6 || arch = Arch.MIPS64R6
-let isMIPS32 arch = arch = Arch.MIPS32R2 || arch = Arch.MIPS32R6
-let isMIPS64 arch = arch = Arch.MIPS64R2 || arch = Arch.MIPS64R6
-let isMIPS32R2 arch = arch = Arch.MIPS32R2
-let isMIPS64R2 arch = arch = Arch.MIPS64R2
-let isMIPS32R6 arch = arch = Arch.MIPS32R6
-let isMIPS64R6 arch = arch = Arch.MIPS64R6
+let isMIPS32 arch = arch = Arch.MIPS32
+let isMIPS64 arch = arch = Arch.MIPS64
 
 let getRegister = function
   | 0x0uy -> R.R0
@@ -127,9 +121,9 @@ let getCondition = function
   | _ -> raise InvalidConditionException
 
 let gprLen = function
-  | Arch.MIPS32R2 | Arch.MIPS32R6 -> 32
-  | Arch.MIPS64R2 | Arch.MIPS64R6 -> 64
-  | _ -> failwith "Not Implemented."
+  | Arch.MIPS32 -> 32
+  | Arch.MIPS64 -> 64
+  | _ -> Utils.impossible ()
 
 let num9 b = extract b 15u 7u
 let num16 b = extract b 15u 0u
@@ -157,6 +151,7 @@ let cc20 b = getFRegFrom2018 b |> OpReg // FIXME: Floating Point cond code CC.
 
 let sa b = extract b 10u 6u |> uint64 |> OpShiftAmount
 let bp b = extract b 7u 6u |> uint64 |> OpImm
+let bp64 b = extract b 8u 6u |> uint64 |> OpImm
 
 let hint b = extract b 20u 16u |> uint64 |> OpImm (* FIMXE: hint on page 420 *)
 let sel b = extract b 8u 6u |> uint64 |> OpImm (* FIXME: sel on page 432 *)
@@ -229,6 +224,7 @@ let getHintMemBaseIdx b accLen = TwoOperands (hint b, memBaseIdx b accLen)
 let getRdRtSa b = ThreeOperands (rd b, rt b, sa b)
 let getRdRsCc b = ThreeOperands (rd b, rs b, cc20 b)
 let getRdRsRtBp b = FourOperands (rd b, rs b, rt b, bp b)
+let getRdRsRtBp64 b = FourOperands (rd b, rs b, rt b, bp64 b)
 let getRtRsPosSize b = let p, s = posSize b in FourOperands (rt b, rs b, p, s)
 let getRtRsPosSize2 b = let p, s = posSize2 b in FourOperands (rt b, rs b, p, s)
 let getRtRsPosSize3 b = let p, s = posSize3 b in FourOperands (rt b, rs b, p, s)

@@ -437,17 +437,8 @@ let findPLTType arch span reader sec =
   | Arch.ARMv7
   | Arch.AARCH32 -> armv7PLT span reader sec
   | Arch.AARCH64 -> aarchPLT reader sec
-  | Arch.MIPS1
-  | Arch.MIPS2
-  | Arch.MIPS3
   | Arch.MIPS32
-  | Arch.MIPS32R2
-  | Arch.MIPS32R6
-  | Arch.MIPS4
-  | Arch.MIPS5
-  | Arch.MIPS64
-  | Arch.MIPS64R2
-  | Arch.MIPS64R6 -> mipsPLT span reader sec
+  | Arch.MIPS64 -> mipsPLT span reader sec
   | Arch.SH4 -> sh4PLT sec
   | _ -> Utils.futureFeature ()
 

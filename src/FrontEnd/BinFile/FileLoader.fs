@@ -35,9 +35,7 @@ let private loadRegBay isa =
   | Arch.IntelX86 -> Intel.Basis.initRegBay isa.WordSize
   | Arch.ARMv7 -> ARM32.Basis.initRegBay ()
   | Arch.AARCH64 -> ARM64.Basis.initRegBay ()
-  | Arch.MIPS1 | Arch.MIPS2 | Arch.MIPS3 | Arch.MIPS4 | Arch.MIPS5
-  | Arch.MIPS32 | Arch.MIPS32R2 | Arch.MIPS32R6
-  | Arch.MIPS64 | Arch.MIPS64R2 | Arch.MIPS64R6 -> MIPS.Basis.initRegBay isa
+  | Arch.MIPS32 | Arch.MIPS64 -> MIPS.Basis.initRegBay isa
   | _ -> Utils.futureFeature ()
 
 /// Load a given byte array (binary file) and return a `FileInfo`.

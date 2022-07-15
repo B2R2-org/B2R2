@@ -32,7 +32,7 @@ open B2R2.FrontEnd.BinFile.FileHelper
 let peekInfoWithArch span reader eHdr offset =
   let info = peekHeaderNative span reader eHdr.Class offset 4 8
   match eHdr.MachineType with
-  | Arch.MIPS64 | Arch.MIPS64R2 | Arch.MIPS64R6 ->
+  | Arch.MIPS64 ->
     (* MIPS64el has a a 32-bit LE symbol index followed by four individual byte
        fields. *)
     if eHdr.Endian = Endian.Little then

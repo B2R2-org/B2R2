@@ -83,9 +83,7 @@ let getInstructionAlignment hdl =
     | ArchOperationMode.ThumbMode -> 2
     | _ -> 4
   | Arch.AARCH64 -> 4
-  | Arch.MIPS1 | Arch.MIPS2 | Arch.MIPS3 | Arch.MIPS4 | Arch.MIPS5
-  | Arch.MIPS32 | Arch.MIPS32R2 | Arch.MIPS32R6
-  | Arch.MIPS64 | Arch.MIPS64R2 | Arch.MIPS64R6 -> 4
+  | Arch.MIPS32 | Arch.MIPS64 -> 4
   | Arch.EVM -> 1
   | Arch.AVR -> 2
   | Arch.SH4 -> 2

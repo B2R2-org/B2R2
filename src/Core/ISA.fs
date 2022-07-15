@@ -42,28 +42,10 @@ type Architecture =
   | AARCH32 = 4
   /// ARMv8 64-bit mode.
   | AARCH64 = 5
-  /// MIPS1 (32-bit mode).
-  | MIPS1 = 6
-  /// MIPS2 (32-bit mode).
-  | MIPS2 = 7
-  /// MIPS3 (64-bit mode).
-  | MIPS3 = 8
-  /// MIPS4 (64-bit mode).
-  | MIPS4 = 9
-  /// MIPS5 (64-bit mode).
-  | MIPS5 = 10
-  /// MIPS32 (32-bit mode).
-  | MIPS32 = 11
-  /// MIPS32 Release2 (32-bit mode).
-  | MIPS32R2 = 12
-  /// MIPS32 Release6 (32-bit mode).
-  | MIPS32R6 = 13
-  /// MIPS64 (64-bit mode).
-  | MIPS64 = 14
-  /// MIPS64R2 (64-bit mode).
-  | MIPS64R2 = 15
-  /// MIPS64R6 (64-bit mode).
-  | MIPS64R6 = 16
+  /// MIPS 32-bit mode.
+  | MIPS32 = 6
+  /// MIPS 64-bit mode.
+  | MIPS64 = 7
   /// Ethereum Vritual Machine.
   | EVM = 17
   /// TMS320C54x, TMS320C55x, etc.
@@ -138,19 +120,10 @@ with
     | Arch.IntelX64 -> ISA.DefaultISA
     | Arch.ARMv7
     | Arch.AARCH32
-    | Arch.MIPS1
-    | Arch.MIPS2
-    | Arch.MIPS32
-    | Arch.MIPS32R2
-    | Arch.MIPS32R6 ->
+    | Arch.MIPS32 ->
       { Arch = arch; Endian = endian; WordSize = WordSize.Bit32 }
     | Arch.AARCH64
-    | Arch.MIPS3
-    | Arch.MIPS4
-    | Arch.MIPS5
-    | Arch.MIPS64
-    | Arch.MIPS64R2
-    | Arch.MIPS64R6 ->
+    | Arch.MIPS64 ->
       { Arch = arch; Endian = endian; WordSize = WordSize.Bit64 }
     | Arch.EVM ->
       { Arch = arch; Endian = endian; WordSize = WordSize.Bit256 }
@@ -183,14 +156,10 @@ with
     | "armv8a32be" | "aarch32be" -> ISA.Init Arch.AARCH32 Endian.Big
     | "armv8a64" | "aarch64"-> ISA.Init Arch.AARCH64 Endian.Little
     | "armv8a64be" | "aarch64be" -> ISA.Init Arch.AARCH64 Endian.Big
-    | "mips32r2" -> ISA.Init Arch.MIPS32R2 Endian.Little
-    | "mips32r2be" -> ISA.Init Arch.MIPS32R2 Endian.Big
-    | "mips32r6" -> ISA.Init Arch.MIPS32R6 Endian.Little
-    | "mips32r6be" -> ISA.Init Arch.MIPS32R6 Endian.Big
-    | "mips64r2" -> ISA.Init Arch.MIPS64R2 Endian.Little
-    | "mips64r2be" -> ISA.Init Arch.MIPS64R2 Endian.Big
-    | "mips64r6" -> ISA.Init Arch.MIPS64R6 Endian.Little
-    | "mips64r6be" -> ISA.Init Arch.MIPS64R6 Endian.Big
+    | "mips32" | "mips32le" -> ISA.Init Arch.MIPS32 Endian.Little
+    | "mips32be" -> ISA.Init Arch.MIPS32 Endian.Big
+    | "mips64" | "mips64le" -> ISA.Init Arch.MIPS64 Endian.Little
+    | "mips64be" -> ISA.Init Arch.MIPS64 Endian.Big
     | "evm" -> ISA.Init Arch.EVM Endian.Big
     | "tms320c6000" -> ISA.Init Arch.TMS320C6000 Endian.Little
     | "cil" -> ISA.Init Arch.CILOnly Endian.Little
@@ -210,10 +179,8 @@ with
     | Arch.ARMv7 -> "ARMv7"
     | Arch.AARCH32 -> "AARCH32"
     | Arch.AARCH64 -> "AARCH64"
-    | Arch.MIPS32R2 -> "MIPS32 Release 2"
-    | Arch.MIPS32R6 -> "MIPS32 Release 6"
-    | Arch.MIPS64R2 -> "MIPS64 Release 2"
-    | Arch.MIPS64R6 -> "MIPS64 Release 6"
+    | Arch.MIPS32 -> "MIPS32"
+    | Arch.MIPS64 -> "MIPS64"
     | Arch.EVM -> "EVM"
     | Arch.TMS320C6000 -> "TMS320C6000"
     | Arch.CILOnly -> "CIL"
