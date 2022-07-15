@@ -24,6 +24,8 @@
 
 namespace B2R2.FrontEnd.BinLifter
 
+open B2R2
+
 /// 32-bit binary representation.
 type BitData32 = uint32
 
@@ -39,3 +41,10 @@ module BitData =
   let pickBit binary (pos: uint32) = binary >>> int pos &&& 0b1u
 
   let concat (n1: uint32) (n2: uint32) shift = (n1 <<< shift) + n2
+
+  let signExtend bitSize extSize (imm: uint64) =
+    assert (bitSize <= extSize)
+    if imm >>> (bitSize - 1) = 0b0UL then imm
+    else
+      BigInteger.getMask extSize - BigInteger.getMask bitSize ||| (bigint imm)
+      |> uint64

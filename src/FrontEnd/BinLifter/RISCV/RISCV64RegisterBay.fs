@@ -41,7 +41,7 @@ type RISCV64RegisterBay () =
   override __.RegIDFromRegExpr (e) =
     match e.E with
     | Var (_, id, _ ,_) -> id
-    | PCVar (_, _) -> Register.toRegID Register.R0 (* FIXME *)
+    // | PCVar (_, _) -> Register.toRegID Register.R0 (* FIXME *)
     | _ -> failwith "not a register expression"
 
   override __.RegIDToRegExpr (id) = Utils.futureFeature ()
