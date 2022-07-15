@@ -262,17 +262,20 @@ let fist ins insLen ctxt doPop =
   let oprSize = TypeCheck.typeOf oprExpr
   let struct (st0b, st0a) = getFPUPseudoRegVars ctxt R.ST0
   let tmp0 = !*ir oprSize
-  let rcField = !*ir 2<rt> (* Rounding Control *)
-  let num2 = numI32 2 2<rt>
+  let rcField = !*ir 8<rt> (* Rounding Control *)
+  let num2 = numI32 2 8<rt>
   let cst00 = AST.cast CastKind.FtoIRound oprSize tmp0
   let cst01 = AST.cast CastKind.FtoIFloor oprSize tmp0
   let cst10 = AST.cast CastKind.FtoICeil oprSize tmp0
   let cst11 = AST.cast CastKind.FtoITrunc oprSize tmp0
   !<ir insLen
   !?ir (castFrom80Bit tmp0 oprSize st0b st0a)
-  !!ir (rcField := AST.extract (!.ctxt R.FCW) 2<rt> 10)
-  !!ir (tmp0 := AST.ite (rcField == AST.num0 2<rt>) cst00 cst11)
-  !!ir (tmp0 := AST.ite (rcField == AST.num1 2<rt>) cst01 tmp0)
+  !!ir (rcField := (AST.zext 8<rt> (AST.extract (!.ctxt R.FCW) 1<rt> 10)))
+  !!ir (rcField := (rcField << AST.num1 8<rt>))
+  !!ir (rcField :=
+    (rcField .| (AST.zext 8<rt> (AST.extract (!.ctxt R.FCW) 1<rt> 11))))
+  !!ir (tmp0 := AST.ite (rcField == AST.num0 8<rt>) cst00 cst11)
+  !!ir (tmp0 := AST.ite (rcField == AST.num1 8<rt>) cst01 tmp0)
   !!ir (tmp0 := AST.ite (rcField == num2) cst10 tmp0)
   !!ir (oprExpr := tmp0)
   if doPop then !?ir (popFPUStack ctxt) else ()
@@ -299,8 +302,13 @@ let fisttp ins insLen ctxt =
 
 let private getTwoBCDDigits addrExpr addrSize startPos =
   let byteValue = AST.loadLE 8<rt> (addrExpr .+ numI32 startPos addrSize)
-  let d1 = AST.extract byteValue 4<rt> 0 |> AST.sext 64<rt>
-  let d2 = AST.extract byteValue 4<rt> 4 |> AST.sext 64<rt>
+  let d1 =
+    let msb = AST.extract byteValue 1<rt> 3
+    (byteValue .& (AST.sext 8<rt> msb .| numI32 0xF0 8<rt>)) |> AST.sext 64<rt>
+  let d2 =
+    let msb = AST.extract byteValue 1<rt> 7
+    ((byteValue >> numI32 4 8<rt>) .& (AST.sext 8<rt> msb .| numI32 0xF0 8<rt>))
+    |> AST.sext 64<rt>
   struct (d1, d2)
 
 let private bcdToInt intgr addrExpr addrSize ir =
@@ -352,9 +360,9 @@ let fbld ins insLen ctxt =
   !>ir insLen
 
 let private storeTwoDigitBCD n10 addrExpr addrSize intgr pos ir =
-  let d1 = AST.extract (intgr .% n10) 4<rt> 0
-  let d2 = AST.extract ((intgr ./ n10) .% n10) 4<rt> 0
-  let ds = AST.concat d2 d1
+  let d1 = (AST.xtlo 8<rt> (intgr .% n10)) .& (numI32 0xF 8<rt>)
+  let d2 = (AST.xtlo 8<rt> ((intgr ./ n10) .% n10)) .& (numI32 0xF 8<rt>)
+  let ds = (d2 << (numI32 4 8<rt>)) .| d1
   !!ir (AST.store Endian.Little (addrExpr .+ numI32 pos addrSize) ds)
 
 let private storeBCD addrExpr addrSize intgr ir =
@@ -629,17 +637,20 @@ let frndint _ins insLen ctxt =
   let ir = IRBuilder (32)
   let struct (st0b, st0a) = getFPUPseudoRegVars ctxt R.ST0
   let tmp0 = !*ir 64<rt>
-  let rcField = !*ir 2<rt> (* Rounding Control *)
+  let rcField = !*ir 8<rt> (* Rounding Control *)
   let cst00 = AST.cast CastKind.FtoIRound 64<rt> tmp0
   let cst01 = AST.cast CastKind.FtoIFloor 64<rt> tmp0
   let cst10 = AST.cast CastKind.FtoICeil 64<rt> tmp0
   let cst11 = AST.cast CastKind.FtoITrunc 64<rt> tmp0
-  let num2 = numI32 2 2<rt>
+  let num2 = numI32 2 8<rt>
   !<ir insLen
   !?ir (castFrom80Bit tmp0 64<rt> st0b st0a)
-  !!ir (rcField := AST.extract (!.ctxt R.FCW) 2<rt> 10)
-  !!ir (tmp0 := AST.ite (rcField == AST.num0 2<rt>) cst00 cst11)
-  !!ir (tmp0 := AST.ite (rcField == AST.num1 2<rt>) cst01 tmp0)
+  !!ir (rcField := (AST.zext 8<rt> (AST.extract (!.ctxt R.FCW) 1<rt> 10)))
+  !!ir (rcField := (rcField << AST.num1 8<rt>))
+  !!ir (rcField :=
+    (rcField .| (AST.zext 8<rt> (AST.extract (!.ctxt R.FCW) 1<rt> 11))))
+  !!ir (tmp0 := AST.ite (rcField == AST.num0 8<rt>) cst00 cst11)
+  !!ir (tmp0 := AST.ite (rcField == AST.num1 8<rt>) cst01 tmp0)
   !!ir (tmp0 := AST.ite (rcField == num2) cst10 tmp0)
   !?ir (castTo80Bit ctxt st0b st0a (castToF64 tmp0))
   !?ir (updateC1OnStore ctxt)
@@ -774,7 +785,8 @@ let fxam _ins insLen ctxt =
   let struct (st0b, st0a) = getFPUPseudoRegVars ctxt R.ST0
   let n7fff = numI32 0x7fff 16<rt>
   let exponent = st0b .& n7fff
-  let nanCond = (exponent == n7fff) .& (AST.xtlo 62<rt> st0a != AST.num0 62<rt>)
+  let num = numI64 0x3FFFFFFFFFFFFFFFL 64<rt>
+  let nanCond = (exponent == n7fff) .& ((st0a .& num) != AST.num0 64<rt>)
   let c3Cond1 = (exponent == AST.num0 16<rt>)
   let isAllZero = (st0a == AST.num0 64<rt>) .& (st0b == AST.num0 16<rt>)
   let c2Cond0 = AST.not (isAllZero .| nanCond)
@@ -1074,7 +1086,7 @@ let fclex _ins insLen ctxt =
   let ir = IRBuilder (8)
   let stsWrd = !.ctxt R.FSW
   !<ir insLen
-  !!ir (AST.xtlo 7<rt> stsWrd := AST.num0 7<rt>)
+  !!ir (stsWrd := stsWrd .& (numI32 0xFF80 16<rt>))
   !!ir (AST.xthi 1<rt> stsWrd := AST.b0)
 #if !EMULATION
   !!ir (!.ctxt R.FSWC0 := undefC0)

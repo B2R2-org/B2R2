@@ -1264,39 +1264,37 @@ let vshufps ins insLen ctxt =
   let ir = IRBuilder (32)
   let struct (dst, src1, src2, imm) = getFourOprs ins
   let imm = transOprToExpr ins insLen ctxt imm
-  let cond1 = AST.xtlo 2<rt> imm
-  let cond2 = AST.extract imm 2<rt> 2
-  let cond3 = AST.extract imm 2<rt> 4
-  let cond4 = AST.extract imm 2<rt> 6
+  let cond shfAmt =
+    ((AST.xtlo 8<rt> imm) >> (numI32 shfAmt 8<rt>)) .& (numI32 0b11 8<rt>)
   let doShuf cond dst e1 e2 =
     !!ir (dst := AST.num0 32<rt>)
-    !!ir (dst := AST.ite (cond == AST.num0 2<rt>) (AST.xtlo 32<rt> e1) dst)
-    !!ir (dst := AST.ite (cond == AST.num1 2<rt>) (AST.xthi 32<rt> e1) dst)
-    !!ir (dst := AST.ite (cond == numI32 2 2<rt>) (AST.xtlo 32<rt> e2) dst)
-    !!ir (dst := AST.ite (cond == numI32 3 2<rt>) (AST.xthi 32<rt> e2) dst)
+    !!ir (dst := AST.ite (cond == AST.num0 8<rt>) (AST.xtlo 32<rt> e1) dst)
+    !!ir (dst := AST.ite (cond == AST.num1 8<rt>) (AST.xthi 32<rt> e1) dst)
+    !!ir (dst := AST.ite (cond == numI32 2 8<rt>) (AST.xtlo 32<rt> e2) dst)
+    !!ir (dst := AST.ite (cond == numI32 3 8<rt>) (AST.xthi 32<rt> e2) dst)
   !<ir insLen
   match getOperationSize ins with
   | 128<rt> ->
     let dstB, dstA = transOprToExpr128 ins insLen ctxt dst
     let sr1B, sr1A = transOprToExpr128 ins insLen ctxt src1
     let sr2B, sr2A = transOprToExpr128 ins insLen ctxt src2
-    doShuf cond1 (AST.xtlo 32<rt> dstA) sr1A sr1B
-    doShuf cond2 (AST.xthi 32<rt> dstA) sr1A sr1B
-    doShuf cond3 (AST.xtlo 32<rt> dstB) sr2A sr2B
-    doShuf cond4 (AST.xthi 32<rt> dstB) sr2A sr2B
+    doShuf (cond 0) (AST.xtlo 32<rt> dstA) sr1A sr1B
+    doShuf (cond 2) (AST.xthi 32<rt> dstA) sr1A sr1B
+    doShuf (cond 4) (AST.xtlo 32<rt> dstB) sr2A sr2B
+    doShuf (cond 6) (AST.xthi 32<rt> dstB) sr2A sr2B
     fillZeroHigh128 ctxt dst ir
   | 256<rt> ->
     let dstD, dstC, dstB, dstA = transOprToExpr256 ins insLen ctxt dst
     let sr1D, sr1C, sr1B, sr1A = transOprToExpr256 ins insLen ctxt src1
     let sr2D, sr2C, sr2B, sr2A = transOprToExpr256 ins insLen ctxt src2
-    doShuf cond1 (AST.xtlo 32<rt> dstA) sr1A sr1B
-    doShuf cond2 (AST.xthi 32<rt> dstA) sr1A sr1B
-    doShuf cond3 (AST.xtlo 32<rt> dstB) sr2A sr2B
-    doShuf cond4 (AST.xthi 32<rt> dstB) sr2A sr2B
-    doShuf cond1 (AST.xtlo 32<rt> dstC) sr1C sr1D
-    doShuf cond2 (AST.xthi 32<rt> dstC) sr1C sr1D
-    doShuf cond3 (AST.xtlo 32<rt> dstD) sr2C sr2D
-    doShuf cond4 (AST.xthi 32<rt> dstD) sr2C sr2D
+    doShuf (cond 0) (AST.xtlo 32<rt> dstA) sr1A sr1B
+    doShuf (cond 2) (AST.xthi 32<rt> dstA) sr1A sr1B
+    doShuf (cond 4) (AST.xtlo 32<rt> dstB) sr2A sr2B
+    doShuf (cond 6) (AST.xthi 32<rt> dstB) sr2A sr2B
+    doShuf (cond 0) (AST.xtlo 32<rt> dstC) sr1C sr1D
+    doShuf (cond 2) (AST.xthi 32<rt> dstC) sr1C sr1D
+    doShuf (cond 4) (AST.xtlo 32<rt> dstD) sr2C sr2D
+    doShuf (cond 6) (AST.xthi 32<rt> dstD) sr2C sr2D
   | _ -> raise InvalidOperandSizeException
   !>ir insLen
 
