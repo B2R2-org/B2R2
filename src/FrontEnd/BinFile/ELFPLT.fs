@@ -117,7 +117,7 @@ let findFirstJumpSlot reloc =
   reloc.RelocByAddr.Values
   |> Seq.fold (fun minval r ->
     match r.RelType with
-    | RelocationARMv8 RelocationARMv8.RelocAARCH64JmpSlot ->
+    | RelocationARMv8 RelocationARMv8.R_AARCH64_JUMP_SLOT ->
       if r.RelOffset < minval then r.RelOffset else minval
     | _ -> minval) UInt64.MaxValue
 

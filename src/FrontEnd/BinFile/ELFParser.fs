@@ -31,8 +31,12 @@ open B2R2.FrontEnd.BinFile
 let private parseGlobalSymbols reloc =
   let folder map (KeyValue (addr, rel: RelocationEntry)) =
     match rel.RelType with
-    | RelocationX86 RelocationX86.Reloc386GlobData
-    | RelocationX64 RelocationX64.RelocX64GlobData ->
+    | RelocationX86 RelocationX86.R_386_GLOB_DATA
+    | RelocationX64 RelocationX64.R_X86_64_GLOB_DATA
+    | RelocationARMv7 RelocationARMv7.R_ARM_GLOB_DATA
+    | RelocationARMv8 RelocationARMv8.R_AARCH64_GLOB_DATA
+    | RelocationMIPS RelocationMIPS.R_MIPS_GLOB_DAT
+    | RelocationSH4 RelocationSH4.R_SH_GLOB_DAT ->
       Map.add addr (Option.get rel.RelSymbol) map
     | _ -> map
   reloc.RelocByAddr |> Seq.fold folder Map.empty

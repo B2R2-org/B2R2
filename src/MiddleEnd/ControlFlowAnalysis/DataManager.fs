@@ -35,9 +35,9 @@ module private DataManager =
     let dict = Dictionary ()
     let iter (KeyValue (addr, rel: RelocationEntry)) =
       match rel.RelType with
-      | RelocationX86 RelocationX86.Reloc38632
-      | RelocationX86 RelocationX86.Reloc386PC32
-      | RelocationX64 RelocationX64.RelocX64PLT32 ->
+      | RelocationX86 RelocationX86.R_386_32
+      | RelocationX86 RelocationX86.R_386_PC32
+      | RelocationX64 RelocationX64.R_X86_64_PLT32 ->
         match rel.RelSymbol with
         | Some sym when sym.SymType = SymbolType.STTFunc ->
           dict.Add (addr, sym)

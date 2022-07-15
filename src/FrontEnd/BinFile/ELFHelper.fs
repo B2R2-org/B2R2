@@ -205,8 +205,8 @@ let getRelocatedAddr elf relocAddr defaultAddr =
   match elf.RelocInfo.RelocByAddr.TryGetValue relocAddr with
   | true, rel ->
     match rel.RelType with
-    | RelocationX86 RelocationX86.Reloc38632
-    | RelocationX64 RelocationX64.RelocX6464 ->
+    | RelocationX86 RelocationX86.R_386_32
+    | RelocationX64 RelocationX64.R_X86_64_64 ->
       match rel.RelSymbol with
       | Some sym -> sym.Addr + rel.RelAddend
       | _ -> defaultAddr

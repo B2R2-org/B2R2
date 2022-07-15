@@ -433,366 +433,469 @@ type ELFSymbol = {
 
 /// Relocation type for x86.
 type RelocationX86 =
-  /// x86: no relocation.
-  | Reloc386None = 0UL
-  /// x86: direct 32-bit (S + A).
-  | Reloc38632 = 1UL
-  /// x86: PC-relative 32-bit (S + A - P).
-  | Reloc386PC32 = 2UL
-  /// x86: 32-bit GOT entry (G + A).
-  | Reloc386GOT32 = 3UL
-  /// x86: 32-bit PLT entry (L + A - P).
-  | Reloc386PLT32 = 4UL
-  /// x86: copy symbol at runtime.
-  | Reloc386Copy = 5UL
-  /// x86: create GOT entry (S).
-  | Reloc386GlobData = 6UL
-  /// x86: create PLT entry (S).
-  | Reloc386JmpSlot = 7UL
-  /// x86: adjust by program base (S + A).
-  | Reloc386Relative = 8UL
-  /// x86: 32-bit offset to GOT (S + A - GOT).
-  | Reloc386GOTOffset = 9UL
-  /// x86: pc-relative offset to GOT (GOT + A - P).
-  | Reloc386GOTPC = 10UL
-  /// x86: (L + A).
-  | Reloc38632PLT = 11UL
-  /// x86 TLS relocations
-  | Reloc386TLSTPOFF = 14UL
-  | Reloc386TLSIE = 15UL
-  | Reloc386TLSGOTIE = 16UL
-  | Reloc386TLSLE = 17UL
-  | Reloc386TLSGD = 18UL
-  | Reloc386TLSLDM = 19UL
-  /// x86: (S + A).
-  | Reloc38616 = 20UL
-  /// x86: (S + A - P).
-  | Reloc386PC16 = 21UL
-  /// x86: (S + A).
-  | Reloc3868 = 22UL
-  /// x86: (S + A - P).
-  | Reloc386PC8 = 23UL
+  /// No relocation.
+  | R_386_NONE = 0UL
+  /// Direct 32-bit (S + A).
+  | R_386_32 = 1UL
+  /// PC-relative 32-bit (S + A - P).
+  | R_386_PC32 = 2UL
+  /// 32-bit GOT entry (G + A).
+  | R_386_GOT32 = 3UL
+  /// 32-bit PLT entry (L + A - P).
+  | R_386_PLT32 = 4UL
+  /// Copy symbol at runtime.
+  | R_386_COPY = 5UL
+  /// Create GOT entry (S).
+  | R_386_GLOB_DATA = 6UL
+  /// Create PLT entry (S).
+  | R_386_JUMP_SLOT = 7UL
+  /// Adjust by program base (S + A).
+  | R_386_RELATIVE = 8UL
+  /// 32-bit offset to GOT (S + A - GOT).
+  | R_386_GOTOFF = 9UL
+  /// PC-relative offset to GOT (GOT + A - P).
+  | R_386_GOTPC = 10UL
+  /// (L + A).
+  | R_386_32PLT = 11UL
+  | R_386_TLS_TPOFF = 14UL
+  | R_386_TLS_IE = 15UL
+  | R_386_TLS_GOTIE = 16UL
+  | R_386_TLS_LE = 17UL
+  | R_386_TLS_GD = 18UL
+  | R_386_TLS_LDM = 19UL
+  /// (S + A).
+  | R_386_16 = 20UL
+  /// (S + A - P).
+  | R_386_PC16 = 21UL
+  /// (S + A).
+  | R_386_8 = 22UL
+  /// (S + A - P).
+  | R_386_PC8 = 23UL
+  | R_386_TLS_GD_32 = 24UL
+  | R_386_TLS_GD_PUSH = 25UL
+  | R_386_TLS_GD_CALL = 26UL
+  | R_386_TLS_GD_POP = 27UL
+  | R_386_TLS_LDM_32 = 28UL
+  | R_386_TLS_LDM_PUSH = 29UL
+  | R_386_TLS_LDM_CALL = 30UL
+  | R_386_TLS_LDM_POP = 31UL
+  | R_386_TLS_LDO_32 = 32UL
+  | R_386_TLS_IE_32 = 33UL
+  | R_386_TLS_LE_32 = 34UL
+  | R_386_TLS_DTPMOD32 = 35UL
+  | R_386_TLS_DTPOFF32 = 36UL
+  | R_386_TLS_TPOFF32 = 37UL
+  /// (Z + A).
+  | R_386_SIZE32 = 38UL
   /// x86 more TLS relocations
-  | Reloc386TLSGD32 = 24UL
-  | Reloc386TLSGDPUSH = 25UL
-  | Reloc386TLSGDCALL = 26UL
-  | Reloc386TLSGDPOP = 27UL
-  | Reloc386TLSLDM32 = 28UL
-  | Reloc386TLSLDMPUSH = 29UL
-  | Reloc386TLSLDMCALL = 30UL
-  | Reloc386TLSLDMPOP = 31UL
-  | Reloc386TLSLDO32 = 32UL
-  | Reloc386TLSIE32 = 33UL
-  | Reloc386TLSLE32 = 34UL
-  | Reloc386TLSDTPMOD32 = 35UL
-  | Reloc386TLSDTPOFF32 = 36UL
-  | Reloc386TLSTPOFF32 = 37UL
-  /// x86: (Z + A).
-  | Reloc386SIZE32 = 38UL
-  /// x86 more TLS relocations
-  | Reloc386TLSGOTDESC = 39UL
-  | Reloc386TLSDESCCALL = 40UL
-  | Reloc386TLSDESC = 41UL
-  /// x86: indirect (B + A).
-  | Reloc386IRELATIVE = 42UL
-  /// x86: (G + A - GOT/G + A)
-  | Reloc386GOT32X = 43UL
-  /// x86: (A + (S >> 4)).
-  | Reloc386SEG16 = 44UL
-  /// x86: (A - S).
-  | Reloc386SUB16 = 45UL
-  /// x86: (A - S).
-  | Reloc386SUB32 = 46UL
+  | R_386_TLS_GOTDESC = 39UL
+  | R_386_TLS_DESC_CALL = 40UL
+  | R_386_TLS_DESC = 41UL
+  /// Indirect (B + A).
+  | R_386_IRELATIVE = 42UL
+  /// (G + A - GOT/G + A)
+  | R_386_GOT32X = 43UL
+  /// (A + (S >> 4)).
+  | R_386_SEG16 = 44UL
+  /// (A - S).
+  | R_386_SUB16 = 45UL
+  /// (A - S).
+  | R_386_SUB32 = 46UL
 
 /// Relocation type for x86-64.
 type RelocationX64 =
-  /// x86-64: no relocation.
-  | RelocX64None = 0UL
-  /// x86-64: direct 64-bit.
-  | RelocX6464 = 1UL
-  /// x86-64: PC-relative 32-bit.
-  | RelocX64PC32 = 2UL
-  /// x86-64: 32-bit GOT entry.
-  | RelocX64GOT32 = 3UL
-  /// x86-64: 32-bit PLT entry.
-  | RelocX64PLT32 = 4UL
-  /// x86-64: copy symbol at runtime.
-  | RelocX64Copy = 5UL
-  /// x86-64: create GOT entry.
-  | RelocX64GlobData = 6UL
-  /// x86-64: create PLT entry.
-  | RelocX64JmpSlot = 7UL
-  /// x86-64: adjust by program base.
-  | RelocX64Relative = 8UL
-  /// x86-64: 32-bit signed PC-relative offset to GOT.
-  | RelocX64GOTPCREL = 9UL
-  /// x86-64: direct 32-bit zero extended.
-  | RelocX6432 = 10UL
-  /// x86-64: direct 32-bit sign extended.
-  | RelocX6432S = 11UL
-  /// x86-64: direct 16-bit zero extended.
-  | RelocX6416 = 12UL
-  /// x86-64: 16-bit sign extended PC relative.
-  | RelocX64PC16 = 13UL
-  /// x86-64: direct 8-bit sign extended.
-  | RelocX648 = 14UL
-  /// x86-64: 8-bit sign extended PC relative.
-  | RelocX64PC8 = 15UL
-  /// x86-64: PC-relative 64 bit.
-  | RelocX64PC64 = 24UL
-  /// x86-64: 64-bit offset to GOT.
-  | RelocX64GOTOFF64 = 25UL
-  /// x86-64: 32-bit signed PC-relative offset to GOT.
-  | RelocX64GOTPC32 = 26UL
-  /// x86-64: 64-bit GOT entry offset.
-  | RelocX64GOT64 = 27UL
-  /// x86-64: 64-bit PC-relative offset to GOT entry.
-  | RelocX64GOTPCREL64 = 28UL
-  /// x86-64: 64-bit PC relative offset to GOT.
-  | RelocX64GOTPC64 = 29UL
-  /// x86-64: 64-bit GOT entry offset requiring PLT.
-  | RelocX64GOTPLT64 = 30UL
-  /// x86-64: 64-bit GOT relative offset to PLT entry.
-  | RelocX64PLTOFF64 = 31UL
-  /// x86-64: size of symbol plus 32-bit addend.
-  | RelocX64Size32 = 32UL
-  /// x86-64: size of symbol plus 64-bit addend.
-  | RelocX64Size64 = 33UL
-  /// x86-64: adjust indirectly by program base.
-  | RelocX64IRelative = 37UL
+  /// No relocation.
+  | R_X86_64_None = 0UL
+  /// Direct 64-bit.
+  | R_X86_64_64 = 1UL
+  /// PC-relative 32-bit.
+  | R_X86_64_PC32 = 2UL
+  /// 32-bit GOT entry.
+  | R_X86_64_GOT32 = 3UL
+  /// 32-bit PLT entry.
+  | R_X86_64_PLT32 = 4UL
+  /// Copy symbol at runtime.
+  | R_X86_64_COPY = 5UL
+  /// Create GOT entry.
+  | R_X86_64_GLOB_DATA = 6UL
+  /// Create PLT entry.
+  | R_X86_64_JUMP_SLOT = 7UL
+  /// Adjust by program base.
+  | R_X86_64_RELATIVE = 8UL
+  /// 32-bit signed PC-relative offset to GOT.
+  | R_X86_64_GOTPCREL = 9UL
+  /// Direct 32-bit zero extended.
+  | R_X86_64_32 = 10UL
+  /// Direct 32-bit sign extended.
+  | R_X86_64_32S = 11UL
+  /// Direct 16-bit zero extended.
+  | R_X86_64_16 = 12UL
+  /// 16-bit sign extended PC relative.
+  | R_X86_64_PC16 = 13UL
+  /// Direct 8-bit sign extended.
+  | R_X86_64_8 = 14UL
+  /// 8-bit sign extended PC relative.
+  | R_X86_64_PC8 = 15UL
+  /// PC-relative 64 bit.
+  | R_X86_64_PC64 = 24UL
+  /// 64-bit offset to GOT.
+  | R_X86_64_GOTOFF64 = 25UL
+  /// 32-bit signed PC-relative offset to GOT.
+  | R_X86_64_GOTPC32 = 26UL
+  /// 64-bit GOT entry offset.
+  | R_X86_64_GOT64 = 27UL
+  /// 64-bit PC-relative offset to GOT entry.
+  | R_X86_64_GOTPCREL64 = 28UL
+  /// 64-bit PC relative offset to GOT.
+  | R_X86_64_GOTPC64 = 29UL
+  /// 64-bit GOT entry offset requiring PLT.
+  | R_X86_64_GOTPLT64 = 30UL
+  /// 64-bit GOT relative offset to PLT entry.
+  | R_X86_64_PLTOFF64 = 31UL
+  /// Size of symbol plus 32-bit addend.
+  | R_X86_64_SIZE32 = 32UL
+  /// Size of symbol plus 64-bit addend.
+  | R_X86_64_SIZE64 = 33UL
+  /// Adjust indirectly by program base.
+  | R_X86_64_IRELATIVE = 37UL
 
 /// Relocation type for ARMv7.
 type RelocationARMv7 =
-  /// ARM: no reloc.
-  | RelocARMNone = 0UL
-  /// ARM: PC-relative 26-bit branch.
-  | RelocARMPC24 = 1UL
-  /// ARM: direct 32 bit.
-  | RelocARMABS32 = 2UL
-  /// ARM: PC-relative 32 bit.
-  | RelocARMREL32 = 3UL
-  /// ARM: PC-relative LDR.
-  | RelocARMPC13 = 4UL
-  /// ARM: direct 16 bit.
-  | RelocARMABS16 = 5UL
-  /// ARM: direct 12 bit.
-  | RelocARMABS12 = 6UL
-  /// ARM: direct 8 bit.
-  | RelocARMABS8 = 8UL
-  /// ARM: copy symbol at runtime.
-  | RelocARMCopy = 20UL
-  /// ARM: create GOT entry.
-  | RelocARMGlobData = 21UL
-  /// ARM: create PLT entry.
-  | RelocARMJmpSlot = 22UL
-  /// ARM: adjust by program base.
-  | RelocARMRelative = 23UL
-  /// ARM: 32-bit offset to GOT.
-  | RelocARMGOTOffset = 24UL
-  /// ARM: 32-bit PC-relative offset to GOT.
-  | RelocARMGOTPC = 25UL
-  /// ARM: 32-bit GOT entry.
-  | RelocARMGOT32 = 26UL
-  /// ARM: 32-bit PLT address.
-  | RelocARMPLT32 = 27UL
+  /// No reloc.
+  | R_ARM_None = 0UL
+  /// PC-relative 26-bit branch.
+  | R_ARM_PC24 = 1UL
+  /// Direct 32 bit.
+  | R_ARM_ABS32 = 2UL
+  /// PC-relative 32 bit.
+  | R_ARM_REL32 = 3UL
+  /// PC-relative LDR.
+  | R_ARM_LDR_PC_G0 = 4UL
+  /// Direct 16 bit.
+  | R_ARM_ABS16 = 5UL
+  /// Direct 12 bit.
+  | R_ARM_ABS12 = 6UL
+  /// Direct 8 bit.
+  | R_ARM_ABS8 = 8UL
+  /// Copy symbol at runtime.
+  | R_ARM_COPY = 20UL
+  /// Create GOT entry.
+  | R_ARM_GLOB_DATA = 21UL
+  /// Create PLT entry.
+  | R_ARM_JUMP_SLOT = 22UL
+  /// Adjust by program base.
+  | R_ARM_RELATIVE = 23UL
+  /// 32-bit offset to GOT.
+  | R_ARM_GOTOFF32 = 24UL
+  /// 32-bit PC-relative offset to GOT.
+  | R_ARM_BASE_PREL = 25UL
+  /// 32-bit GOT entry.
+  | R_ARM_GOT_BREL = 26UL
+  /// 32-bit PLT address.
+  | R_ARM_PLT32 = 27UL
 
 /// Relocation type for ARMv8.
 type RelocationARMv8 =
-  /// AARCH64: no reloc.
-  | RelocAARCH64None = 0UL
-  /// AARCH64: direct 64 bit.
-  | RelocAARCH64ABS64 = 257UL
-  /// AARCH64: direct 32 bit.
-  | RelocAARCH64ABS32 = 258UL
-  /// AARCH64: direct 16 bit.
-  | RelocAARCH64ABS16 = 259UL
-  /// AARCH64: PC-relative 64 bit.
-  | RelocAARCH64PREL64 = 260UL
-  /// AARCH64: PC-relative 32 bit.
-  | RelocAARCH64PREL32 = 261UL
-  /// AARCH64: PC-relative 16 bit.
-  | RelocAARCH64PREL16 = 262UL
-  /// AARCH64: GOT-relative 64 bit.
-  | RelocAARCH64GOTREL64 = 307UL
-  /// AARCH64: GOT-relative 32 bit.
-  | RelocAARCH64GOTREL32 = 308UL
-  /// AARCH64: copy symbol at runtime.
-  | RelocAARCH64Copy = 1024UL
-  /// AARCH64: create GOT entry.
-  | RelocAARCH64GlobData = 1025UL
-  /// AARCH64: create PLT entry.
-  | RelocAARCH64JmpSlot = 1026UL
+  /// No reloc.
+  | R_AARCH64_NONE = 0UL
+  /// Direct 64 bit.
+  | R_AARCH64_ABS64 = 257UL
+  /// Direct 32 bit.
+  | R_AARCH64_ABS32 = 258UL
+  /// Direct 16 bit.
+  | R_AARCH64_ABS16 = 259UL
+  /// PC-relative 64 bit.
+  | R_AARCH64_PREL64 = 260UL
+  /// PC-relative 32 bit.
+  | R_AARCH64_PREL32 = 261UL
+  /// PC-relative 16 bit.
+  | R_AARCH64_PREL16 = 262UL
+  /// GOT-relative 64 bit.
+  | R_AARCH64_GOTREL64 = 307UL
+  /// GOT-relative 32 bit.
+  | R_AARCH64_GOTREL32 = 308UL
+  /// Copy symbol at runtime.
+  | R_AARCH64_COPY = 1024UL
+  /// Create GOT entry.
+  | R_AARCH64_GLOB_DATA = 1025UL
+  /// Create PLT entry.
+  | R_AARCH64_JUMP_SLOT = 1026UL
+  /// Delta(S) + A.
+  | R_AARCH64_RELATIVE = 1027UL
 
 /// Relocation type for MIPS.
 type RelocationMIPS =
-  /// MIPS: no reloc.
-  | RelocMIPSNone = 0UL
-  /// MIPS: direct 16 bit.
-  | RelocMIPS16 = 1UL
-  /// MIPS: direct 32 bit.
-  | RelocMIPS32 = 2UL
-  /// MIPS: PC-relative 32 bit.
-  | RelocMIPSREL32 = 3UL
-  /// MIPS: direct 26 bit shifted.
-  | RelocMIPS26 = 4UL
-  /// MIPS: high 16 bit.
-  | RelocMIPSHigh16 = 5UL
-  /// MIPS: low 16 bit.
-  | RelocMIPSLow16 = 6UL
-  /// MIPS: GP-relative 16 bit.
-  | RelocMIPSGPREL16 = 7UL
-  /// MIPS: 16-bit literal entry.
-  | RelocMIPSLiteral = 8UL
-  /// MIPS: 16-bit GOT entry.
-  | RelocMIPSGOT16 = 9UL
-  /// MIPS: PC-relative 16 bit.
-  | RelocMIPSPC16 = 10UL
-  /// MIPS: 16-bit GOT entry for function.
-  | RelocMIPSCall16 = 11UL
-  /// MIPS: GP-relative 32 bit.
-  | RelocMIPSGPREL32 = 12UL
-  /// MIPS: 5-bit shift field.
-  | RelocMIPSShift5 = 16UL
-  /// MIPS: 6-bit shift field.
-  | RelocMIPSShift6 = 17UL
-  /// MIPS: direct 64 bit.
-  | RelocMIPS64 = 18UL
-  /// MIPS: displacement in the GOT.
-  | RelocMIPSGOTDisp = 19UL
-  /// MIPS: displacement to page pointer in the GOT.
-  | RelocMIPSGOTPage = 20UL
-  /// MIPS: Offset from page pointer in the GOT.
-  | RelocMIPSGOTOfst = 21UL
-  /// MIPS: HIgh 16 bits of displacement in the GOT.
-  | RelocMIPSHI16 = 22UL
-  /// MIPS: Low 16 bits of displacement in the GOT.
-  | RelocMIPSLO16 = 23UL
-  /// MIPS: 64-bit subtraction.
-  | RelocMIPSSub = 24UL
-  /// MIPS: Insert the addend as an instruction.
-  | RelocMIPSInsertA = 25UL
-  /// MIPS: Insert the addend as an instruction, and change all relocations to
+  /// No reloc.
+  | R_MIPS_NONE = 0UL
+  /// Direct 16 bit.
+  | R_MIPS_16 = 1UL
+  /// Direct 32 bit.
+  | R_MIPS_32 = 2UL
+  /// PC-relative 32 bit.
+  | R_MIPS_REL32 = 3UL
+  /// Direct 26 bit shifted.
+  | R_MIPS_26 = 4UL
+  /// High 16 bit.
+  | R_MIPS_HI16 = 5UL
+  /// Low 16 bit.
+  | R_MIPS_LO16 = 6UL
+  /// GP-relative 16 bit.
+  | R_MIPS_GPREL16 = 7UL
+  /// 16-bit literal entry.
+  | R_MIPS_LITERAL = 8UL
+  /// 16-bit GOT entry.
+  | R_MIPS_GOT16 = 9UL
+  /// PC-relative 16 bit.
+  | R_MIPS_PC16 = 10UL
+  /// 16-bit GOT entry for function.
+  | R_MIPS_CALL16 = 11UL
+  /// GP-relative 32 bit.
+  | R_MIPS_GPREL32 = 12UL
+  /// 5-bit shift field.
+  | R_MIPS_SHIFT5 = 16UL
+  /// 6-bit shift field.
+  | R_MIPS_SHIFT6 = 17UL
+  /// direct 64 bit.
+  | R_MIPS_64 = 18UL
+  /// displacement in the GOT.
+  | R_MIPS_GOT_DISP = 19UL
+  /// displacement to page pointer in the GOT.
+  | R_MIPS_GOT_PAGE = 20UL
+  /// Offset from page pointer in the GOT.
+  | R_MIPS_GOT_OFST = 21UL
+  /// HIgh 16 bits of displacement in the GOT.
+  | R_MIPS_GOT_HI16 = 22UL
+  /// Low 16 bits of displacement in the GOT.
+  | R_MIPS_GOT_LO16 = 23UL
+  /// 64-bit subtraction.
+  | R_MIPS_SUB = 24UL
+  /// Insert the addend as an instruction.
+  | R_MIPS_INSERT_A = 25UL
+  /// Insert the addend as an instruction, and change all relocations to
   /// refer to the old instruction at the address.
-  | RelocMIPSInsertB = 26UL
-  /// MIPS: Delete a 32 bit instruction.
-  | RelocMIPSDelete = 27UL
-  /// MIPS: Get the higher value of a 64 bit addend.
-  | RelocMIPSHigher = 28UL
-  /// MIPS: Get the highest value of a 64 bit addend.
-  | RelocMIPSHighest = 29UL
-  /// MIPS: High 16 bits of displacement in GOT.
-  | RelocMIPSCallHI16 = 30UL
-  /// MIPS: Low 16 bits of displacement in GOT.
-  | RelocMIPSCallLO16 = 31UL
-  /// MIPS: Section displacement, used by an associated event location section.
-  | RelocMIPSScnDisp = 32UL
-  /// MIPS: PC-relative 16 bit.
-  | RelocMIPSREL16 = 33UL
-  /// MIPS: Similiar to R_MIPS_REL32, but used for relocations in a GOT section.
-  | RelocMIPSRelGOT = 36UL
-  /// MIPS: Protected jump conversion.
-  | RelocMIPSJALR = 37UL
-  /// MIPS: Module number 32 bit.
-  | RelocMIPSTLSDTPMOD32 = 38UL
-  /// MIPS: Module-relative offset 32 bit.
-  | RelocMIPSTLSDTPREL32 = 39UL
-  /// MIPS: Module number 64 bit.
-  | RelocMIPSTLSDTPMOD64 = 40UL
-  /// MIPS: Module-relative offset 64 bit.
-  | RelocMIPSTLSDTPREL64 = 41UL
-  /// MIPS: 16 bit GOT offset for GD.
-  | RelocMIPSTLSGD = 42UL
-  /// MIPS: 16 bit GOT offset for LDM.
-  | RelocMIPSTLSLDM = 43UL
-  /// MIPS: Module-relative offset, high 16 bits.
-  | RelocMIPSTLSDTPRELHI16 = 44UL
-  /// MIPS: Module-relative offset, low 16 bits.
-  | RelocMIPSTLSDTPRELLO16 = 45UL
-  /// MIPS: 16 bit GOT offset for IE.
-  | RelocMIPSTLSGOTPRel = 46UL
-  /// MIPS: TP-relative offset, 32 bit.
-  | RelocMIPSTLSTPRel32 = 47UL
-  /// MIPS: TP-relative offset, 64 bit.
-  | RelocMIPSTLSTPRel64 = 48UL
-  /// MIPS: TP-relative offset, high 16 bits.
-  | RelocMIPSTLSTPRelHI16 = 49UL
-  /// MIPS: TP-relative offset, low 16 bits.
-  | RelocMIPSTLSTPRelLO16 = 50UL
-  /// MIPS: 32 bit relocation with no addend.
-  | RelocMIPSGlobDat = 51UL
-  /// MIPS: Copy symbol at runtime.
-  | RelocMIPSCopy = 126UL
-  /// MIPS: Jump slot.
-  | RelocMIPSJumpSlot = 127UL
-  /// MIPS: 32-bit PC-relative.
-  | RelocMIPSPC32 = 248UL
+  | R_MIPS_INSERT_B = 26UL
+  /// Delete a 32 bit instruction.
+  | R_MIPS_DELETE = 27UL
+  /// Get the higher value of a 64 bit addend.
+  | R_MIPS_HIGHER = 28UL
+  /// Get the highest value of a 64 bit addend.
+  | R_MIPS_HIGHEST = 29UL
+  /// High 16 bits of displacement in GOT.
+  | R_MIPS_CALL_HI16 = 30UL
+  /// Low 16 bits of displacement in GOT.
+  | R_MIPS_CALL_LO16 = 31UL
+  /// Section displacement, used by an associated event location section.
+  | R_MIPS_SCN_DISP = 32UL
+  /// PC-relative 16 bit.
+  | R_MIPS_REL16 = 33UL
+  /// Similiar to R_MIPS__REL32, but used for relocations in a GOT section.
+  | R_MIPS_RELGOT = 36UL
+  /// Protected jump conversion.
+  | R_MIPS_JALR = 37UL
+  /// Module number 32 bit.
+  | R_MIPS_TLS_DTPMOD32 = 38UL
+  /// Module-relative offset 32 bit.
+  | R_MIPS_TLS_DTPREL32 = 39UL
+  /// Module number 64 bit.
+  | R_MIPS_TLS_DTPMOD64 = 40UL
+  /// Module-relative offset 64 bit.
+  | R_MIPS_TLS_DTPREL64 = 41UL
+  /// 16 bit GOT offset for GD.
+  | R_MIPS_TLS_GD = 42UL
+  /// 16 bit GOT offset for LDM.
+  | R_MIPS_TLS_LDM = 43UL
+  /// Module-relative offset, high 16 bits.
+  | R_MIPS_TLS_DTPREL_HI16 = 44UL
+  /// Module-relative offset, low 16 bits.
+  | R_MIPS_TLS_DTPREL_LO16 = 45UL
+  /// 16 bit GOT offset for IE.
+  | R_MIPS_TLS_GOTPREL = 46UL
+  /// TP-relative offset, 32 bit.
+  | R_MIPS_TLS_TPREL32 = 47UL
+  /// TP-relative offset, 64 bit.
+  | R_MIPS_TLS_TPREL64 = 48UL
+  /// TP-relative offset, high 16 bits.
+  | R_MIPS_TLS_TPREL_HI16 = 49UL
+  /// TP-relative offset, low 16 bits.
+  | R_MIPS_TLS_TPREL_LO16 = 50UL
+  /// 32 bit relocation with no addend.
+  | R_MIPS_GLOB_DAT = 51UL
+  /// Copy symbol at runtime.
+  | R_MIPS_COPY = 126UL
+  /// Jump slot.
+  | R_MIPS_JUMP_SLOT = 127UL
+  /// 32-bit PC-relative.
+  | R_MIPS_PC32 = 248UL
 
 /// Relocation type for SH4.
 type RelocationSH4 =
-  /// SH4: no reloc.
-  | RelocSHUnused = 0UL
-  /// SH4: 32 bit immediate for WinCE.
-  | RelocSHIMM32CE = 2UL
-  /// SH4: 8-bit PC rel.
-  | RelocSHPCREL8 = 3UL
-  /// SH4: 16-bit PC rel.
-  | RelocSHPCREL16 = 4UL
-  /// SH4: high 8 bits of 24 bit address.
-  | RelocSHHigh8 = 5UL
-  /// SH4: low 16 bits of 24 bit immediate.
-  | RelocSHLow16 = 7UL
-  /// SH4: 24 bit immediate.
-  | RelocSH_IMM24 = 6UL
-  /// SH4: PC rel 8 bits *4 +ve.
-  | RelocSHPCDISP8BY4 = 9UL
-  /// SH4: PC rel 8 bits *2 +ve.
-  | RelocSHPCDISP8BY2 = 10UL
-  /// SH4: 8 bit branch.
-  | RelocSHPCDISP8 = 11UL
-  /// SH4: 12 bit branch.
-  | RelocSHPCDISP = 12UL
-  /// SH4: 32 bit immediate.
-  | RelocSHIMM32 = 14UL
-  /// SH4: 8 bit immediate.
-  | RelocSHIMM8 = 16UL
-  /// SH4: 8 bit immediate *2.
-  | RelocSHIMM8BY2 = 17UL
-  /// SH4: 8 bit immediate *4.
-  | RelocSHIMM8BY4 = 18UL
-  /// SH4: 4 bit immediate.
-  | RelocSHIMM4 = 19UL
-  /// SH4: 4 bit immediate *2.
-  | RelocSHIMM4BY2 = 20UL
-  /// SH4: 4 bit immediate *4.
-  | RelocSHIMM4BY4 = 21UL
-  /// SH4: PC rel 8 bits *2 unsigned.
-  | RelocSHPCRELIMM8BY2 = 22UL
-  /// SH4: PC rel 8 bits *4 unsigned.
-  | RelocSHPCRELIMM8BY4 = 23UL
-  /// SH4: 16 bit immediate.
-  | RelocSHIMM16 = 24UL
-  /// SH4: 8 bit switch table entry.
-  | RelocSHSWITCH8 = 33UL
-  /// SH4: 16 bit switch table entry.
-  | RelocSHSWITCH16 = 25UL
-  /// SH4: 32 bit switch table entry.
-  | RelocSHSWITCH32 = 26UL
-  /// SH4: .uses pseudo-op.
-  | RelocSHUses = 27UL
-  /// SH4: Count of constant pool uses.
-  | RelocSHCount = 28UL
-  /// SH4: .align pseudo-op
-  | RelocSHAlign = 29UL
-  /// SH4: start of code.
-  | RelocSHCode = 30UL
-  /// SH4: start of data.
-  | RelocSHData = 31UL
-  /// SH4: label.
-  | RelocSHLabel = 32UL
-  /// SH4: loop start.
-  | RelocSHLoopStart = 34UL
-  /// SH4: loop end.
-  | RelocSHLoopEnd = 35UL
+  | R_SH_NONE = 0UL
+  | R_SH_DIR32 = 1UL
+  | R_SH_REL32 = 2UL
+  | R_SH_DIR8WPN = 3UL
+  | R_SH_IND12W = 4UL
+  | R_SH_DIR8WPL = 5UL
+  | R_SH_DIR8WPZ = 6UL
+  | R_SH_DIR8BP = 7UL
+  | R_SH_DIR8W = 8UL
+  | R_SH_DIR8L = 9UL
+  | R_SH_LOOP_START = 10UL
+  | R_SH_LOOP_END = 11UL
+  | R_SH_GNU_VTINHERIT = 22UL
+  | R_SH_GNU_VTENTRY = 23UL
+  | R_SH_SWITCH8 = 24UL
+  | R_SH_SWITCH16 = 25UL
+  | R_SH_SWITCH32 = 26UL
+  | R_SH_USES = 27UL
+  | R_SH_COUNT = 28UL
+  | R_SH_ALIGN = 29UL
+  | R_SH_CODE = 30UL
+  | R_SH_DATA = 31UL
+  | R_SH_LABEL = 32UL
+  | R_SH_DIR16 = 33UL
+  | R_SH_DIR8 = 34UL
+  | R_SH_DIR8UL = 35UL
+  | R_SH_DIR8UW = 36UL
+  | R_SH_DIR8U = 37UL
+  | R_SH_DIR8SW = 38UL
+  | R_SH_DIR8S = 39UL
+  | R_SH_DIR4UL = 40UL
+  | R_SH_DIR4UW = 41UL
+  | R_SH_DIR4U = 42UL
+  | R_SH_PSHA = 43UL
+  | R_SH_PSHL = 44UL
+  | R_SH_DIR5U = 45UL
+  | R_SH_DIR6U = 46UL
+  | R_SH_DIR6S = 47UL
+  | R_SH_DIR10S = 48UL
+  | R_SH_DIR10SW = 49UL
+  | R_SH_DIR10SL = 50UL
+  | R_SH_DIR10SQ = 51UL
+  | R_SH_DIR16S = 53UL
+  | R_SH_TLS_GD_32 = 144UL
+  | R_SH_TLS_LD_32 = 145UL
+  | R_SH_TLS_LDO_32 = 146UL
+  | R_SH_TLS_IE_32 = 147UL
+  | R_SH_TLS_LE_32 = 148UL
+  | R_SH_TLS_DTPMOD32 = 149UL
+  | R_SH_TLS_DTPOFF32 = 150UL
+  | R_SH_TLS_TPOFF32 = 151UL
+  | R_SH_GOT32 = 160UL
+  | R_SH_PLT32 = 161UL
+  | R_SH_COPY = 162UL
+  | R_SH_GLOB_DAT = 163UL
+  | R_SH_JMP_SLOT = 164UL
+  | R_SH_RELATIVE = 165UL
+  | R_SH_GOTOFF = 166UL
+  | R_SH_GOTPC = 167UL
+  | R_SH_GOTPLT32 = 168UL
+  | R_SH_GOT_LOW16 = 169UL
+  | R_SH_GOT_MEDLOW16 = 170UL
+  | R_SH_GOT_MEDHI16 = 171UL
+  | R_SH_GOT_HI16 = 172UL
+  | R_SH_GOTPLT_LOW16 = 173UL
+  | R_SH_GOTPLT_MEDLOW16 = 174UL
+  | R_SH_GOTPLT_MEDHI16 = 175UL
+  | R_SH_GOTPLT_HI16 = 176UL
+  | R_SH_PLT_LOW16 = 177UL
+  | R_SH_PLT_MEDLOW16 = 178UL
+  | R_SH_PLT_MEDHI16 = 179UL
+  | R_SH_PLT_HI16 = 180UL
+  | R_SH_GOTOFF_LOW16 = 181UL
+  | R_SH_GOTOFF_MEDLOW16 = 182UL
+  | R_SH_GOTOFF_MEDHI16 = 183UL
+  | R_SH_GOTOFF_HI16 = 184UL
+  | R_SH_GOTPC_LOW16 = 185UL
+  | R_SH_GOTPC_MEDLOW16 = 186UL
+  | R_SH_GOTPC_MEDHI16 = 187UL
+  | R_SH_GOTPC_HI16 = 188UL
+  | R_SH_GOT10BY4 = 189UL
+  | R_SH_GOTPLT10BY4 = 190UL
+  | R_SH_GOT10BY8 = 191UL
+  | R_SH_GOTPLT10BY8 = 192UL
+  | R_SH_COPY64 = 193UL
+  | R_SH_GLOB_DAT64 = 194UL
+  | R_SH_JMP_SLOT64 = 195UL
+  | R_SH_RELATIVE64 = 196UL
+  | R_SH_GOT20 = 201UL
+  | R_SH_GOTOFF20 = 202UL
+  | R_SH_GOTFUNCDESC = 203UL
+  | R_SH_GOTFUNCDESC20 = 204UL
+  | R_SH_GOTOFFFUNCDESC = 205UL
+  | R_SH_GOTOFFFUNCDESC20 = 206UL
+  | R_SH_FUNCDESC = 207UL
+  | R_SH_FUNCDESC_VALUE = 208UL
+  | R_SH_SHMEDIA_CODE = 242UL
+  | R_SH_PT_16 = 243UL
+  | R_SH_IMMS16 = 244UL
+  | R_SH_IMMU16 = 245UL
+  | R_SH_IMM_LOW16 = 246UL
+  | R_SH_IMM_LOW16_PCREL = 247UL
+  | R_SH_IMM_MEDLOW16 = 248UL
+  | R_SH_IMM_MEDLOW16_PCREL = 249UL
+  | R_SH_IMM_MEDHI16 = 250UL
+  | R_SH_IMM_MEDHI16_PCREL = 251UL
+  | R_SH_IMM_HI16 = 252UL
+  | R_SH_IMM_HI16_PCREL = 253UL
+  | R_SH_64 = 254UL
+  | R_SH_64_PCREL = 255UL
+
+/// Relocation type for RISCV.
+type RelocationRISCV =
+  | R_RISCV_NONE = 0UL
+  | R_RISCV_32 = 1UL
+  | R_RISCV_64 = 2UL
+  | R_RISCV_RELATIVE = 3UL
+  | R_RISCV_COPY = 4UL
+  | R_RISCV_JUMP_SLOT = 5UL
+  | R_RISCV_TLS_DTPMOD32 = 6UL
+  | R_RISCV_TLS_DTPMOD64 = 7UL
+  | R_RISCV_TLS_DTPREL32 = 8UL
+  | R_RISCV_TLS_DTPREL64 = 9UL
+  | R_RISCV_TLS_TPREL32 = 10UL
+  | R_RISCV_TLS_TPREL64 = 11UL
+  | R_RISCV_BRANCH = 16UL
+  | R_RISCV_JAL = 17UL
+  | R_RISCV_CALL = 18UL
+  | R_RISCV_CALL_PLT = 19UL
+  | R_RISCV_GOT_HI20 = 20UL
+  | R_RISCV_TLS_GOT_HI20 = 21UL
+  | R_RISCV_TLS_GD_HI20 = 22UL
+  | R_RISCV_PCREL_HI20 = 23UL
+  | R_RISCV_PCREL_LO12_I = 24UL
+  | R_RISCV_PCREL_LO12_S = 25UL
+  | R_RISCV_HI20 = 26UL
+  | R_RISCV_LO12_I = 27UL
+  | R_RISCV_LO12_S = 28UL
+  | R_RISCV_TPREL_HI20 = 29UL
+  | R_RISCV_TPREL_LO12_I = 30UL
+  | R_RISCV_TPREL_LO12_S = 31UL
+  | R_RISCV_TPREL_ADD = 32UL
+  | R_RISCV_ADD8 = 33UL
+  | R_RISCV_ADD16 = 34UL
+  | R_RISCV_ADD32 = 35UL
+  | R_RISCV_ADD64 = 36UL
+  | R_RISCV_SUB8 = 37UL
+  | R_RISCV_SUB16 = 38UL
+  | R_RISCV_SUB32 = 39UL
+  | R_RISCV_SUB64 = 40UL
+  | R_RISCV_GNU_VTINHERIT = 41UL
+  | R_RISCV_GNU_VTENTRY = 42UL
+  | R_RISCV_ALIGN = 43UL
+  | R_RISCV_RVC_BRANCH = 44UL
+  | R_RISCV_RVC_JUMP = 45UL
+  | R_RISCV_RVC_LUI = 46UL
+  | R_RISCV_GPREL_I = 47UL
+  | R_RISCV_GPREL_S = 48UL
+  | R_RISCV_TPREL_I = 49UL
+  | R_RISCV_TPREL_S = 50UL
+  | R_RISCV_RELAX = 51UL
+  | R_RISCV_SUB6 = 52UL
+  | R_RISCV_SET6 = 53UL
+  | R_RISCV_SET8 = 54UL
+  | R_RISCV_SET16 = 55UL
+  | R_RISCV_SET32 = 56UL
+  | R_RISCV_32_PCREL = 57UL
 
 /// Relocation type.
 type RelocationType =
@@ -802,6 +905,7 @@ type RelocationType =
   | RelocationARMv8 of RelocationARMv8
   | RelocationMIPS of RelocationMIPS
   | RelocationSH4 of RelocationSH4
+  | RelocationRISCV of RelocationRISCV
 with
   static member FromNum arch n =
     match arch with
@@ -819,6 +923,8 @@ with
       RelocationMIPS <| LanguagePrimitives.EnumOfValue n
     | Architecture.SH4 ->
       RelocationSH4 <| LanguagePrimitives.EnumOfValue n
+    | Architecture.RISCV64 ->
+      RelocationRISCV <| LanguagePrimitives.EnumOfValue n
     | _ -> invalidArg (nameof arch) "Unsupported architecture for relocation."
 
   static member ToString rt =
@@ -829,6 +935,7 @@ with
     | RelocationARMv8 t -> t.ToString ()
     | RelocationMIPS t -> t.ToString ()
     | RelocationSH4 t -> t.ToString ()
+    | RelocationRISCV t -> t.ToString ()
 
 /// Relocation entry.
 type RelocationEntry = {

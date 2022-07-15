@@ -49,7 +49,7 @@ module private FunctionMaintainer =
       else Error ErrorCase.SymbolNotFound
     | None ->
       match reloc.RelType with
-      | RelocationX64 (RelocationX64.RelocX64IRelative) -> Ok reloc.RelAddend
+      | RelocationX64 (RelocationX64.R_X86_64_IRELATIVE) -> Ok reloc.RelAddend
       | _ -> Error ErrorCase.SymbolNotFound
 
 /// Maintains functions in the binary.

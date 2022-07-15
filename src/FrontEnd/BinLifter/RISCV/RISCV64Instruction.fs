@@ -84,19 +84,19 @@ type RISCV64Instruction (addr, numBytes, insInfo) =
 
   override __.Disasm (showAddr, _resolveSymbol, _fileInfo) =
     let builder =
-      DisasmStringBuilder (showAddr, false, WordSize.Bit32, addr, numBytes)
+      DisasmStringBuilder (showAddr, false, WordSize.Bit64, addr, numBytes)
     Disasm.disasm __.Info builder
     builder.Finalize ()
 
   override __.Disasm () =
     let builder =
-      DisasmStringBuilder (false, false, WordSize.Bit32, addr, numBytes)
+      DisasmStringBuilder (false, false, WordSize.Bit64, addr, numBytes)
     Disasm.disasm __.Info builder
     builder.Finalize ()
 
   override __.Decompose (showAddr) =
     let builder =
-      DisasmWordBuilder (showAddr, false, WordSize.Bit32, addr, numBytes, 8)
+      DisasmWordBuilder (showAddr, false, WordSize.Bit64, addr, numBytes, 8)
     Disasm.disasm __.Info builder
     builder.Finalize ()
 
