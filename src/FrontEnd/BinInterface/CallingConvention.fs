@@ -53,17 +53,8 @@ let returnRegister hdl =
   | Architecture.ARMv7
   | Architecture.AARCH32 -> ARM32.Register.R0 |> ARM32.Register.toRegID
   | Architecture.AARCH64 -> ARM64.Register.X0 |> ARM64.Register.toRegID
-  | Architecture.MIPS1
-  | Architecture.MIPS2
-  | Architecture.MIPS3
-  | Architecture.MIPS4
-  | Architecture.MIPS5
-  | Architecture.MIPS32
-  | Architecture.MIPS32R2
-  | Architecture.MIPS32R6
-  | Architecture.MIPS64
-  | Architecture.MIPS64R2
-  | Architecture.MIPS64R6 -> MIPS.Register.R2 |> MIPS.Register.toRegID
+  | Architecture.MIPS32 | Architecture.MIPS64 ->
+    MIPS.Register.R2 |> MIPS.Register.toRegID
   | _ -> Utils.futureFeature ()
 
 [<CompiledName("SyscallNumRegister")>]
@@ -74,17 +65,8 @@ let syscallNumRegister hdl =
   | Architecture.ARMv7
   | Architecture.AARCH32 -> ARM32.Register.R7 |> ARM32.Register.toRegID
   | Architecture.AARCH64 -> ARM64.Register.X8 |> ARM64.Register.toRegID
-  | Architecture.MIPS1
-  | Architecture.MIPS2
-  | Architecture.MIPS3
-  | Architecture.MIPS4
-  | Architecture.MIPS5
-  | Architecture.MIPS32
-  | Architecture.MIPS32R2
-  | Architecture.MIPS32R6
-  | Architecture.MIPS64
-  | Architecture.MIPS64R2
-  | Architecture.MIPS64R6 -> MIPS.Register.R2 |> MIPS.Register.toRegID
+  | Architecture.MIPS32 | Architecture.MIPS64 ->
+    MIPS.Register.R2 |> MIPS.Register.toRegID
   | _ -> Utils.futureFeature ()
 
 [<CompiledName("SyscallArgRegister")>]
@@ -127,17 +109,7 @@ let syscallArgRegister hdl num =
     | 5 -> ARM64.Register.X4 |> ARM64.Register.toRegID
     | 6 -> ARM64.Register.X5 |> ARM64.Register.toRegID
     | _ -> Utils.impossible ()
-  | OS.Linux, Architecture.MIPS1
-  | OS.Linux, Architecture.MIPS2
-  | OS.Linux, Architecture.MIPS3
-  | OS.Linux, Architecture.MIPS4
-  | OS.Linux, Architecture.MIPS5
-  | OS.Linux, Architecture.MIPS32
-  | OS.Linux, Architecture.MIPS32R2
-  | OS.Linux, Architecture.MIPS32R6
-  | OS.Linux, Architecture.MIPS64
-  | OS.Linux, Architecture.MIPS64R2
-  | OS.Linux, Architecture.MIPS64R6 ->
+  | OS.Linux, Architecture.MIPS32 | OS.Linux, Architecture.MIPS64 ->
     match num with
     | 1 -> MIPS.Register.R4 |> MIPS.Register.toRegID
     | 2 -> MIPS.Register.R5 |> MIPS.Register.toRegID
@@ -210,17 +182,7 @@ let isNonVolatile hdl rid =
     || rid = (ARM64.Register.X27 |> ARM64.Register.toRegID)
     || rid = (ARM64.Register.X28 |> ARM64.Register.toRegID)
     || rid = (ARM64.Register.X29 |> ARM64.Register.toRegID)
-  | OS.Linux, Arch.MIPS1
-  | OS.Linux, Arch.MIPS2
-  | OS.Linux, Arch.MIPS3
-  | OS.Linux, Arch.MIPS32
-  | OS.Linux, Arch.MIPS32R2
-  | OS.Linux, Arch.MIPS32R6
-  | OS.Linux, Arch.MIPS4
-  | OS.Linux, Arch.MIPS5
-  | OS.Linux, Arch.MIPS64
-  | OS.Linux, Arch.MIPS64R2
-  | OS.Linux, Arch.MIPS64R6 ->
+  | OS.Linux, Arch.MIPS32 | OS.Linux, Arch.MIPS64 ->
     rid = (MIPS.Register.R16 |> MIPS.Register.toRegID)
     || rid = (MIPS.Register.R17 |> MIPS.Register.toRegID)
     || rid = (MIPS.Register.R18 |> MIPS.Register.toRegID)

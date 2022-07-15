@@ -1316,7 +1316,7 @@ let translate insInfo (ctxt: TranslationContext) =
   | Op.DINSM -> dinsx insInfo checkDINSMPosSize ctxt
   | Op.DINSU -> dinsx insInfo checkDINSUPosSize ctxt
   | Op.DIV when insInfo.Fmt.IsSome -> sideEffects insInfo UnsupportedFP
-  | Op.DIVU when Helper.isRel2 insInfo.Arch  -> divu insInfo ctxt
+  | Op.DIVU -> divu insInfo ctxt
   | Op.DDIVU -> ddivu insInfo ctxt
   | Op.DMULT -> dmult insInfo ctxt
   | Op.DMULTU -> dmultu insInfo ctxt
@@ -1350,9 +1350,8 @@ let translate insInfo (ctxt: TranslationContext) =
   | Op.MOVZ -> movz insInfo ctxt
   | Op.MOVN -> movn insInfo ctxt
   | Op.MTC1 -> sideEffects insInfo UnsupportedFP
-  | Op.MUL when insInfo.Fmt.IsNone && Helper.isRel2 insInfo.Arch ->
-    mul insInfo ctxt
-  | Op.MUL when insInfo.Fmt.IsSome -> sideEffects insInfo UnsupportedFP
+  | Op.MUL when insInfo.Fmt.IsNone -> mul insInfo ctxt
+  | Op.MUL -> sideEffects insInfo UnsupportedFP
   | Op.MULT -> mult insInfo ctxt
   | Op.MULTU -> multu insInfo ctxt
   | Op.NOP -> nop insInfo

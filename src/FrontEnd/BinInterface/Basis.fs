@@ -37,9 +37,7 @@ let init isa =
   | Arch.IntelX86 -> Intel.Basis.init isa
   | Arch.ARMv7 | Arch.AARCH32 -> ARM32.Basis.init isa
   | Arch.AARCH64 -> ARM64.Basis.init isa
-  | Arch.MIPS1 | Arch.MIPS2 | Arch.MIPS3 | Arch.MIPS4 | Arch.MIPS5
-  | Arch.MIPS32 | Arch.MIPS32R2 | Arch.MIPS32R6
-  | Arch.MIPS64 | Arch.MIPS64R2 | Arch.MIPS64R6 -> MIPS.Basis.init isa
+  | Arch.MIPS32 | Arch.MIPS64 -> MIPS.Basis.init isa
   | Arch.EVM -> EVM.Basis.init isa
   | Arch.TMS320C6000 -> TMS320C6000.Basis.init isa
   | Arch.CILOnly -> CIL.Basis.init isa

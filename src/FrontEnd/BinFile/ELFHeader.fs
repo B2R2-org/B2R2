@@ -56,17 +56,17 @@ let peekELFFlags span reader cls =
 
 let getMIPSISA span reader cls =
   match peekELFFlags span reader cls &&& 0xf0000000u with
-  | 0x00000000u -> Arch.MIPS1
-  | 0x10000000u -> Arch.MIPS2
-  | 0x20000000u -> Arch.MIPS3
-  | 0x30000000u -> Arch.MIPS4
-  | 0x40000000u -> Arch.MIPS5
-  | 0x50000000u -> Arch.MIPS32
-  | 0x60000000u -> Arch.MIPS64
-  | 0x70000000u -> Arch.MIPS32R2
-  | 0x80000000u -> Arch.MIPS64R2
-  | 0x90000000u -> Arch.MIPS32R6
-  | 0xa0000000u -> Arch.MIPS64R6
+  | 0x00000000u
+  | 0x10000000u
+  | 0x20000000u
+  | 0x30000000u
+  | 0x40000000u
+  | 0x50000000u
+  | 0x70000000u
+  | 0x90000000u -> Arch.MIPS32
+  | 0x60000000u
+  | 0x80000000u
+  | 0xa0000000u -> Arch.MIPS64
   | c -> failwithf "invalid MIPS arch (%02x)" c
 
 let peekArch (span: ByteSpan) (reader: IBinReader) cls =

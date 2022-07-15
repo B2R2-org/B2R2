@@ -814,17 +814,8 @@ with
     | Architecture.AARCH32
     | Architecture.AARCH64 ->
       RelocationARMv8 <| LanguagePrimitives.EnumOfValue n
-    | Architecture.MIPS1
-    | Architecture.MIPS2
-    | Architecture.MIPS3
-    | Architecture.MIPS4
-    | Architecture.MIPS5
     | Architecture.MIPS32
-    | Architecture.MIPS32R2
-    | Architecture.MIPS32R6
-    | Architecture.MIPS64
-    | Architecture.MIPS64R2
-    | Architecture.MIPS64R6 ->
+    | Architecture.MIPS64 ->
       RelocationMIPS <| LanguagePrimitives.EnumOfValue n
     | Architecture.SH4 ->
       RelocationSH4 <| LanguagePrimitives.EnumOfValue n

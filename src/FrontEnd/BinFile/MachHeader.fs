@@ -55,7 +55,7 @@ let internal getMIPSArch = function
   | CPUSubType.MIPSR2300
   | CPUSubType.MIPSR2600
   | CPUSubType.MIPSR2800
-  | CPUSubType.MIPSR2000A -> Arch.MIPS32R2
+  | CPUSubType.MIPSR2000A -> Arch.MIPS32 (* MIPS32R2 *)
   | _ -> raise InvalidISAException
 
 let cpuTypeToArch cputype subtype =
