@@ -25,7 +25,6 @@
 namespace B2R2.FrontEnd.BinFile.ELF
 
 open LanguagePrimitives
-open System
 open B2R2
 open B2R2.BinIR
 open B2R2.FrontEnd.BinLifter
@@ -434,6 +433,9 @@ module DWRegister =
   let private toMIPSRegister (n: byte) =
     MIPS.Register.toRegID (EnumOfValue (int n))
 
+  let private toRISCVRegister (n: byte) =
+    RISCV.Register.toRegID (EnumOfValue (int n))
+
   let toRegID isa regnum =
     match isa.Arch with
     | Architecture.IntelX86 -> toIntelx86Register regnum
@@ -441,6 +443,7 @@ module DWRegister =
     | Architecture.AARCH64 -> toAArch64Register regnum
     | Architecture.MIPS32
     | Architecture.MIPS64 -> toMIPSRegister regnum
+    | Architecture.RISCV64 -> toRISCVRegister regnum
     | _ -> Utils.futureFeature ()
 
   let toRegisterExpr isa (regbay: RegisterBay) regnum =
