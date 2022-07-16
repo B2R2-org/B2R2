@@ -52,7 +52,7 @@ type PLTDescriptor = {
   /// Is secondary PLT?
   IsSecondary: bool
   /// Entry size of the PLT.
-  EntrySize: int
+  EntrySize: uint64
   /// Offset from a start of a PLT entry to the index to the GOT.
   GOTOffset: Addr
   /// Size of the instruction that refers to the GOT.
@@ -95,7 +95,7 @@ let isPLTSectionName name =
 let isSecondaryLazy desc =
   desc.IsSecondary && desc.LinkMethod = LazyBinding
 
-let gotAddr sections =
+let tryFindGOTAddr sections =
   match Map.tryFind ".got.plt" sections.SecByName with
   | Some s -> Some s.SecAddr
   | None ->
@@ -122,16 +122,16 @@ let findFirstJumpSlot reloc =
     | _ -> minval) UInt64.MaxValue
 
 let findGOTBase arch reloc sections =
-  let got = gotAddr sections
+  let bAddr = tryFindGOTAddr sections
   match arch with
   | Arch.IntelX86
-  | Arch.IntelX64 -> got
+  | Arch.IntelX64 -> bAddr
   | Arch.ARMv7
   | Arch.AARCH32 ->
-    got |> Option.map (fun _ -> findFirstPLTGOTAddr reloc sections)
+    bAddr |> Option.map (fun _ -> findFirstPLTGOTAddr reloc sections)
   | Arch.AARCH64 ->
-    got |> Option.map (fun _ -> findFirstJumpSlot reloc)
-  | _ -> got
+    bAddr |> Option.map (fun _ -> findFirstJumpSlot reloc)
+  | _ -> bAddr
 
 let filterPLTSections sections =
   sections.SecByName |> Map.fold (fun acc _ s ->
@@ -144,7 +144,7 @@ type X86NonPICRetriever () =
       let addrDiff = int (addr - typ.StartAddr)
       let offset = addrDiff + int typ.GOTOffset + int sec.SecOffset
       { EntryRelocAddr = r.ReadInt32 (span, offset) |> uint64
-        NextEntryAddr = addr + uint64 typ.EntrySize } |> Ok
+        NextEntryAddr = addr + typ.EntrySize } |> Ok
 
 type X86PICRetriever () =
   interface IPLTInfoRetriever with
@@ -152,7 +152,7 @@ type X86PICRetriever () =
       let addrDiff = int (addr - typ.StartAddr)
       let offset = addrDiff + int typ.GOTOffset + int sec.SecOffset
       { EntryRelocAddr = (r.ReadInt32 (span, offset) |> uint64) + baseAddr
-        NextEntryAddr = addr + uint64 typ.EntrySize } |> Ok
+        NextEntryAddr = addr + typ.EntrySize } |> Ok
 
 let x86PICLazy (span: ByteSpan) sec =
   let plt = span.Slice (int sec.SecOffset, int sec.SecSize)
@@ -169,7 +169,7 @@ let x86PICLazy (span: ByteSpan) sec =
     let isIBT = BytePattern.matchSpan ibtEntry (plt.Slice 16)
     let gotoff = if isIBT then 6UL else 2UL
     let retriever = X86PICRetriever () :> IPLTInfoRetriever
-    newPLT sec.SecAddr PIC LazyBinding isIBT 16 gotoff 0UL retriever |> Some
+    newPLT sec.SecAddr PIC LazyBinding isIBT 16UL gotoff 0UL retriever |> Some
   else None
 
 let x86NonPICLazy (span: ByteSpan) sec =
@@ -186,7 +186,8 @@ let x86NonPICLazy (span: ByteSpan) sec =
     let isIBT = BytePattern.matchSpan ibtEntry (plt.Slice 16)
     let gotoff = if isIBT then 6UL else 2UL
     let retriever = X86NonPICRetriever () :> IPLTInfoRetriever
-    newPLT sec.SecAddr NonPIC LazyBinding isIBT 16 gotoff 0UL retriever |> Some
+    newPLT sec.SecAddr NonPIC LazyBinding isIBT 16UL gotoff 0UL retriever
+    |> Some
   else None
 
 let x86PICNonLazy (span: ByteSpan) sec =
@@ -200,10 +201,10 @@ let x86PICNonLazy (span: ByteSpan) sec =
        AnyByte; AnyByte; AnyByte; AnyByte; AnyByte; AnyByte |]
   if BytePattern.matchSpan entry plt then
     let retriever = X86PICRetriever () :> IPLTInfoRetriever
-    newPLT sec.SecAddr PIC EagerBinding false 8 2UL 0UL retriever |> Some
+    newPLT sec.SecAddr PIC EagerBinding false 8UL 2UL 0UL retriever |> Some
   elif BytePattern.matchSpan ibtEntry plt then
     let retriever = X86PICRetriever () :> IPLTInfoRetriever
-    newPLT sec.SecAddr PIC EagerBinding true 8 6UL 0UL retriever |> Some
+    newPLT sec.SecAddr PIC EagerBinding true 8UL 6UL 0UL retriever |> Some
   else None
 
 let x86NonPICNonLazy (span: ByteSpan) sec =
@@ -217,10 +218,10 @@ let x86NonPICNonLazy (span: ByteSpan) sec =
        AnyByte; AnyByte; AnyByte; AnyByte; AnyByte; AnyByte |]
   if BytePattern.matchSpan entry plt then
     let retriever = X86NonPICRetriever () :> IPLTInfoRetriever
-    newPLT sec.SecAddr NonPIC EagerBinding false 8 2UL 0UL retriever |> Some
+    newPLT sec.SecAddr NonPIC EagerBinding false 8UL 2UL 0UL retriever |> Some
   elif BytePattern.matchSpan ibtEntry plt then
     let retriever = X86NonPICRetriever () :> IPLTInfoRetriever
-    newPLT sec.SecAddr NonPIC EagerBinding true 8 6UL 0UL retriever |> Some
+    newPLT sec.SecAddr NonPIC EagerBinding true 8UL 6UL 0UL retriever |> Some
   else None
 
 type X64Retriever () =
@@ -230,7 +231,7 @@ type X64Retriever () =
       let offset = addrDiff + int typ.GOTOffset + int sec.SecOffset
       let v = r.ReadInt32 (span, offset)
       { EntryRelocAddr = addr + typ.InstrSize + uint64 v
-        NextEntryAddr = addr + uint64 typ.EntrySize } |> Ok
+        NextEntryAddr = addr + typ.EntrySize } |> Ok
 
 let x64Lazy (span: ByteSpan) sec =
   let plt = span.Slice (int sec.SecOffset, int sec.SecSize)
@@ -248,13 +249,14 @@ let x64Lazy (span: ByteSpan) sec =
        AnyByte |]
   if BytePattern.matchSpan zeroEntry plt then
     let retriever = X64Retriever () :> IPLTInfoRetriever
-    newPLT sec.SecAddr DontCare LazyBinding false 16 2UL 6UL retriever |> Some
+    newPLT sec.SecAddr DontCare LazyBinding false 16UL 2UL 6UL retriever |> Some
   elif BytePattern.matchSpan ibtZeroEntry plt then
     let off, inssz =
       if BytePattern.matchSpan ibtEntry (plt.Slice 16) then 7UL, 11UL
       else 3UL, 7UL (* bnd *)
     let retriever = X64Retriever () :> IPLTInfoRetriever
-    newPLT sec.SecAddr DontCare LazyBinding true 16 off inssz retriever |> Some
+    newPLT sec.SecAddr DontCare LazyBinding true 16UL off inssz retriever
+    |> Some
   else None
 
 let x64NonLazy (span: ByteSpan) sec =
@@ -264,7 +266,7 @@ let x64NonLazy (span: ByteSpan) sec =
        AnyByte; AnyByte |]
   if BytePattern.matchSpan entry plt then
     let retriever = X64Retriever () :> IPLTInfoRetriever
-    newPLT sec.SecAddr DontCare EagerBinding false 8 2UL 6UL retriever |> Some
+    newPLT sec.SecAddr DontCare EagerBinding false 8UL 2UL 6UL retriever |> Some
   else None
 
 let x64IBT (span: ByteSpan) sec =
@@ -279,23 +281,24 @@ let x64IBT (span: ByteSpan) sec =
        AnyByte; AnyByte; AnyByte; AnyByte; AnyByte |]
   if BytePattern.matchSpan bndEntry plt then
     let retriever = X64Retriever () :> IPLTInfoRetriever
-    newPLT sec.SecAddr DontCare EagerBinding true 16 3UL 7UL retriever |> Some
+    newPLT sec.SecAddr DontCare EagerBinding true 16UL 3UL 7UL retriever |> Some
   elif BytePattern.matchSpan ibtEntry plt then
     let retriever = X64Retriever () :> IPLTInfoRetriever
-    newPLT sec.SecAddr DontCare EagerBinding true 16 7UL 11UL retriever |> Some
+    newPLT sec.SecAddr DontCare EagerBinding true 16UL 7UL 11UL retriever
+    |> Some
   else None
 
 let computeARMPLTEntrySize (span: ByteSpan) reader sec headerSize delta =
   if (reader: IBinReader).ReadInt32 (span, int sec.SecOffset) = 0xf8dfb500 then
-    Ok 16 (* THUMB-only *)
+    Ok 16UL (* THUMB-only *)
   else
     let offset = int sec.SecOffset + int headerSize + delta
     let size = if reader.ReadInt16 (span, offset) = 0x4778s then 4 else 0
     let offset = offset + size
     let ins = reader.ReadInt32 (span, offset) &&& 0xffffff00 (* strip imm *)
     if (headerSize = 16UL && ins = 0xe28fc600) || ins = 0xe28fc200 then
-      Ok (size + 16)
-    elif ins = 0xe28fc600 then Ok (size + 12)
+      Ok (uint64 (size + 16))
+    elif ins = 0xe28fc600 then Ok (uint64 (size + 12))
     else Error ErrorCase.InvalidFileFormat
 
 /// Get the size of the header of PLT (PLT Zero)
@@ -327,7 +330,7 @@ let armv7PLT span reader sec =
     if reader.ReadInt32 (span, int sec.SecOffset) = 0xf8dfb500 then
       (* push {lr} *)
       let retriever = ARMv7Retriever () :> IPLTInfoRetriever
-      newPLT startAddr DontCare LazyBinding false 16 4UL 4UL retriever
+      newPLT startAddr DontCare LazyBinding false 16UL 4UL 4UL retriever
     else
       match computeARMPLTEntrySize span reader sec headerSize 0 with
       | Ok sz ->
@@ -345,7 +348,7 @@ type AArch64Retriever () =
 let aarchPLT _reader sec =
   let startAddr = sec.SecAddr + 32UL
   let retriever = AArch64Retriever () :> IPLTInfoRetriever
-  newPLT startAddr DontCare LazyBinding false 16 0UL 4UL retriever
+  newPLT startAddr DontCare LazyBinding false 16UL 0UL 4UL retriever
 
 let readMicroMIPSOpcode (span: ByteSpan) (reader: IBinReader) offset =
   let v1 = reader.ReadUInt16 (span, offset) |> uint32
@@ -389,7 +392,7 @@ let mipsPLT span reader sec =
   | Some headerSize ->
     let startAddr = sec.SecAddr + headerSize
     let retriever = MIPSRetriever () :> IPLTInfoRetriever
-    newPLT startAddr DontCare LazyBinding false 16 0UL 4UL retriever
+    newPLT startAddr DontCare LazyBinding false 16UL 0UL 4UL retriever
   | None -> UnknownPLT
 
 type SH4Retriever () =
@@ -397,11 +400,11 @@ type SH4Retriever () =
     member __.Get (addr, _, typ, span: ByteSpan, r: IBinReader, sec, _) =
       let offset = int (addr - sec.SecAddr + sec.SecOffset) + 24
       Ok { EntryRelocAddr = r.ReadInt32 (span, offset) |> uint64
-           NextEntryAddr = addr + uint64 typ.EntrySize }
+           NextEntryAddr = addr + typ.EntrySize }
 
 let sh4PLT sec =
   let retriever = SH4Retriever () :> IPLTInfoRetriever
-  newPLT (sec.SecAddr + 28UL) DontCare LazyBinding false 28 0UL 2UL retriever
+  newPLT (sec.SecAddr + 28UL) DontCare LazyBinding false 28UL 0UL 2UL retriever
 
 let findX86PLTType span sec =
   (* This is dirty, but we cannot use a monad due to Span. *)
@@ -430,7 +433,35 @@ let findX64PLTType span sec =
       | Some t -> t
       | None -> UnknownPLT
 
-let findPLTType arch span reader sec =
+type GeneralRetriever (relocs: RelocationEntry[]) =
+  interface IPLTInfoRetriever with
+    member __.Get (addr, idx, typ, _, _, _, _) =
+      Ok { EntryRelocAddr = relocs[idx].RelOffset
+           NextEntryAddr = addr + typ.EntrySize }
+
+let createGeneralPLTDescriptor relocInfo rsec pltHeaderSize sec rtyp =
+  let count = rsec.SecSize / rsec.SecEntrySize (* number of PLT entries *)
+  let pltEntrySize = (sec.SecSize - pltHeaderSize) / count
+  let addr = sec.SecAddr + pltHeaderSize
+  let relocs =
+    relocInfo.RelocByAddr.Values
+    |> Seq.filter (fun r -> r.RelType = rtyp)
+    |> Seq.toArray
+  assert (relocs.Length = int count)
+  let retriever = GeneralRetriever (relocs) :> IPLTInfoRetriever
+  newPLT addr DontCare LazyBinding false pltEntrySize 0UL 0UL retriever
+
+let findGeneralPLTType relocInfo (secInfo: SectionInfo) pltHeaderSize sec rtyp =
+  match Map.tryFind ".rel.plt" secInfo.SecByName with
+  | Some rsec ->
+    createGeneralPLTDescriptor relocInfo rsec pltHeaderSize sec rtyp
+  | None ->
+    match Map.tryFind ".rela.plt" secInfo.SecByName with
+    | Some rsec ->
+      createGeneralPLTDescriptor relocInfo rsec pltHeaderSize sec rtyp
+    | None -> UnknownPLT
+
+let findPLTType arch reloc span reader secInfo sec =
   match arch with
   | Arch.IntelX86 -> findX86PLTType span sec
   | Arch.IntelX64 -> findX64PLTType span sec
@@ -440,6 +471,9 @@ let findPLTType arch span reader sec =
   | Arch.MIPS32
   | Arch.MIPS64 -> mipsPLT span reader sec
   | Arch.SH4 -> sh4PLT sec
+  | Arch.RISCV64 ->
+    let rtyp = RelocationRISCV RelocationRISCV.R_RISCV_JUMP_SLOT
+    findGeneralPLTType reloc secInfo 32UL sec rtyp
   | _ -> Utils.futureFeature ()
 
 let rec private
@@ -474,21 +508,23 @@ let private parsePLT baseAddr typ reloc symbs span reader (s: ELFSection) map =
   let startAddr, endAddr = typ.StartAddr, s.SecAddr + s.SecSize
   parsePLTLoop baseAddr typ reloc symbs span reader s endAddr 0 map startAddr
 
-let rec loopSections map baseAddr arch reloc symbs span reader = function
+let rec loopSections map baseAddr arch reloc symbs span reader secInfo
+  = function
   | sec :: rest ->
-    match findPLTType arch span reader sec with
+    match findPLTType arch reloc span reader secInfo sec with
     | PLT desc ->
       let map =
         if isSecondaryLazy desc then map (* Ignore secondary lazy plt. *)
         else parsePLT baseAddr desc reloc symbs span reader sec map
-      loopSections map baseAddr arch reloc symbs span reader rest
+      loopSections map baseAddr arch reloc symbs span reader secInfo rest
     | _ -> map
   | [] -> map
 
-let parse arch sections reloc symbs span reader =
-  let baseAddr = findGOTBase arch reloc sections
-  let sections = filterPLTSections sections
+let parse arch secInfo reloc symbs span reader =
+  let baseAddr = findGOTBase arch reloc secInfo
+  let sections = filterPLTSections secInfo
   match baseAddr with
   | Some baseAddr ->
-    loopSections ARMap.empty baseAddr arch reloc symbs span reader sections
+    loopSections
+      ARMap.empty baseAddr arch reloc symbs span reader secInfo sections
   | _ -> ARMap.empty
