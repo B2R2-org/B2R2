@@ -129,19 +129,19 @@ type BinReaderTests () =
       overflow
       |> Array.map (fun arr ->
         decodeOverflowed (fun () -> r.ReadUInt64LEB128 (arr, 0)))
-    Assert.IsTrue (Array.forall (fun ov -> ov) u64Result)
+    Assert.IsTrue (Array.forall id u64Result)
     let u32Result =
       overflow
       |> Array.map (fun arr ->
         decodeOverflowed (fun () -> r.ReadUInt32LEB128 (arr, 0)))
-    Assert.IsTrue (Array.forall (fun ov -> ov) u32Result)
+    Assert.IsTrue (Array.forall id u32Result)
     let s64Result =
       overflow
       |> Array.map (fun arr ->
         decodeOverflowed (fun () -> r.ReadInt64LEB128 (arr, 0)))
-    Assert.IsTrue (Array.forall (fun ov -> ov) s64Result)
+    Assert.IsTrue (Array.forall id s64Result)
     let s32Result =
       overflow
       |> Array.map (fun arr ->
         decodeOverflowed (fun () -> r.ReadInt32LEB128 (arr, 0)))
-    Assert.IsTrue (Array.forall (fun ov -> ov) s32Result)
+    Assert.IsTrue (Array.forall id s32Result)

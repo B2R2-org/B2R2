@@ -31,9 +31,9 @@ open System.Buffers.Binary
 /// B2R2 uses this type quite frequently.
 type ByteSpan = ReadOnlySpan<byte>
 
-/// IBinReader provides an interface for reading byte sequences from a byte array
-/// (or a Span). The way of reading can change depending on the endianness used
-/// by the target binary.
+/// IBinReader provides an interface for reading byte sequences from a byte
+/// array (or a Span). The way of reading can change depending on the endianness
+/// used by the target binary.
 type IBinReader =
   /// Get a read-only span of bytes (ByteSpan) from the given byte
   /// array.

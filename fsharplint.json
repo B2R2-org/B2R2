@@ -1,6 +1,6 @@
 {
     "ignoreFiles": [
-        "assemblyinfo.*"
+        "*.Assemblyinfo.*"
     ],
     "global": {
         "numIndentationSpaces": 2
@@ -278,9 +278,9 @@
         "enabled": false
     },
     "maxCharactersOnLine": {
-        "enabled": false,
+        "enabled": true,
         "config": {
-            "maxCharactersOnLine": 120
+            "maxCharactersOnLine": 80
         }
     },
     "trailingWhitespaceOnLine": {
@@ -297,7 +297,7 @@
             "maxLinesInFile": 1000
         }
     },
-    "trailingNewLineInFile": { "enabled": false },
+    "trailingNewLineInFile": { "enabled": true },
     "noTabCharacters": { "enabled": true },
     "noPartialFunctions": {
         "enabled": false,
