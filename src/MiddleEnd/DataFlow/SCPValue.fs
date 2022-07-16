@@ -69,9 +69,9 @@ module SCPValue =
     | Pointer bv -> Const (op bv)
     | c -> c
 
-  let neg c = unOp BitVector.neg c
+  let neg c = unOp BitVector.Neg c
 
-  let not c = unOp BitVector.bnot c
+  let not c = unOp BitVector.BNot c
 
   let binOp op c1 c2 =
     match c1, c2 with
@@ -79,23 +79,23 @@ module SCPValue =
     | Pointer bv1, Pointer bv2
     | Pointer bv1, Const bv2
     | Const bv1, Pointer bv2
-    | Const bv1, Const bv2 -> Const (op bv1 bv2)
+    | Const bv1, Const bv2 -> Const (op (bv1, bv2))
     | _ -> NotAConst
 
   let add c1 c2 =
     match c1, c2 with
     | Undef, _ | _, Undef -> Undef
     | Thunk bv1, Const bv2
-    | Const bv1, Thunk bv2 -> Pointer (BitVector.add bv1 bv2)
+    | Const bv1, Thunk bv2 -> Pointer (BitVector.Add (bv1, bv2))
     | Pointer bv1, Pointer bv2
     | Pointer bv1, Const bv2
     | Const bv1, Pointer bv2
-    | Const bv1, Const bv2 -> Const (BitVector.add bv1 bv2)
+    | Const bv1, Const bv2 -> Const (BitVector.Add (bv1, bv2))
     | _ -> NotAConst
 
-  let sub c1 c2 = binOp BitVector.sub c1 c2
+  let sub c1 c2 = binOp BitVector.Sub c1 c2
 
-  let mul c1 c2 = binOp BitVector.mul c1 c2
+  let mul c1 c2 = binOp BitVector.Mul c1 c2
 
   let divAux divop c1 c2 =
     match c1, c2 with
@@ -104,68 +104,68 @@ module SCPValue =
     | Pointer bv1, Const bv2
     | Const bv1, Pointer bv2
     | Const bv1, Const bv2 ->
-      if BitVector.isZero bv2 then NotAConst
-      else Const (divop bv1 bv2)
+      if BitVector.IsZero bv2 then NotAConst
+      else Const (divop (bv1, bv2))
     | _ -> NotAConst
 
-  let div c1 c2 = divAux BitVector.div c1 c2
+  let div c1 c2 = divAux BitVector.Div c1 c2
 
-  let sdiv c1 c2 = divAux BitVector.sdiv c1 c2
+  let sdiv c1 c2 = divAux BitVector.SDiv c1 c2
 
-  let ``mod`` c1 c2 = divAux BitVector.modulo c1 c2
+  let ``mod`` c1 c2 = divAux BitVector.Modulo c1 c2
 
-  let smod c1 c2 = divAux BitVector.smodulo c1 c2
+  let smod c1 c2 = divAux BitVector.SModulo c1 c2
 
-  let shl c1 c2 = binOp BitVector.shl c1 c2
+  let shl c1 c2 = binOp BitVector.Shl c1 c2
 
-  let shr c1 c2 = binOp BitVector.shr c1 c2
+  let shr c1 c2 = binOp BitVector.Shr c1 c2
 
-  let sar c1 c2 = binOp BitVector.sar c1 c2
+  let sar c1 c2 = binOp BitVector.Sar c1 c2
 
-  let ``and`` c1 c2 = binOp BitVector.band c1 c2
+  let ``and`` c1 c2 = binOp BitVector.BAnd c1 c2
 
-  let ``or`` c1 c2 = binOp BitVector.bor c1 c2
+  let ``or`` c1 c2 = binOp BitVector.BOr c1 c2
 
-  let xor c1 c2 = binOp BitVector.bxor c1 c2
+  let xor c1 c2 = binOp BitVector.BXor c1 c2
 
-  let concat c1 c2 = binOp BitVector.concat c1 c2
+  let concat c1 c2 = binOp BitVector.Concat c1 c2
 
   let relOp op c1 c2 = binOp op c1 c2
 
-  let eq c1 c2 = relOp BitVector.eq c1 c2
+  let eq c1 c2 = relOp BitVector.Eq c1 c2
 
-  let neq c1 c2 = relOp BitVector.neq c1 c2
+  let neq c1 c2 = relOp BitVector.Neq c1 c2
 
-  let gt c1 c2 = relOp BitVector.gt c1 c2
+  let gt c1 c2 = relOp BitVector.Gt c1 c2
 
-  let ge c1 c2 = relOp BitVector.ge c1 c2
+  let ge c1 c2 = relOp BitVector.Ge c1 c2
 
-  let sgt c1 c2 = relOp BitVector.sgt c1 c2
+  let sgt c1 c2 = relOp BitVector.SGt c1 c2
 
-  let sge c1 c2 = relOp BitVector.sge c1 c2
+  let sge c1 c2 = relOp BitVector.SGe c1 c2
 
-  let lt c1 c2 = relOp BitVector.lt c1 c2
+  let lt c1 c2 = relOp BitVector.Lt c1 c2
 
-  let le c1 c2 = relOp BitVector.le c1 c2
+  let le c1 c2 = relOp BitVector.Le c1 c2
 
-  let slt c1 c2 = relOp BitVector.slt c1 c2
+  let slt c1 c2 = relOp BitVector.SLt c1 c2
 
-  let sle c1 c2 = relOp BitVector.sle c1 c2
+  let sle c1 c2 = relOp BitVector.SLe c1 c2
 
   let ite cond c1 c2 =
     match cond with
     | Undef -> Undef
     | Pointer bv
     | Thunk bv
-    | Const bv -> if BitVector.isZero bv then c2 else c1
+    | Const bv -> if BitVector.IsZero bv then c2 else c1
     | NotAConst -> meet c1 c2
 
   let cast op rt c =
-    unOp (fun bv -> op bv rt) c
+    unOp (fun bv -> op (bv, rt)) c
 
-  let signExt rt c = cast BitVector.sext rt c
+  let signExt rt c = cast BitVector.SExt rt c
 
-  let zeroExt rt c = cast BitVector.zext rt c
+  let zeroExt rt c = cast BitVector.ZExt rt c
 
   let extract c rt pos =
-    unOp (fun bv -> BitVector.extract bv rt pos) c
+    unOp (fun bv -> BitVector.Extract (bv, rt, pos)) c

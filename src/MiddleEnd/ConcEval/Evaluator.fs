@@ -34,7 +34,7 @@ let rec evalConcrete (st: EvalState) e =
   match e.E with
   | Num n -> n
   | Var (_, n, _, _) -> st.GetReg n
-  | PCVar (t, _) -> BitVector.ofUInt64 st.PC t
+  | PCVar (t, _) -> BitVector.OfUInt64 st.PC t
   | TempVar (_, n) -> st.GetTmp n
   | UnOp (t, e, _) -> evalUnOp st e t
   | BinOp (t, _, e1, e2, _) -> evalBinOp st e1 e2 t
@@ -44,12 +44,12 @@ let rec evalConcrete (st: EvalState) e =
     let cond = evalConcrete st cond
     if cond = tr then evalConcrete st e1 else evalConcrete st e2
   | Cast (kind, t, e, _) -> evalCast st t e kind
-  | Extract (e, t, p, _) -> BitVector.extract (evalConcrete st e) t p
+  | Extract (e, t, p, _) -> BitVector.Extract (evalConcrete st e, t, p)
   | Undefined (_) -> raise UndefExpException
   | _ -> raise InvalidExprException
 
 and private evalLoad st endian t addr =
-  let addr = evalConcrete st addr |> BitVector.toUInt64
+  let addr = evalConcrete st addr |> BitVector.ToUInt64
   match st.Memory.Read addr endian t with
   | Ok v ->
     st.OnLoad st.PC addr v
@@ -60,78 +60,78 @@ and private evalLoad st endian t addr =
     | Error _ ->  raise (InvalidMemException addr)
 
 and private evalCast st t e = function
-  | CastKind.SignExt -> BitVector.sext (evalConcrete st e) t
-  | CastKind.ZeroExt -> BitVector.zext (evalConcrete st e) t
-  | CastKind.FloatCast -> BitVector.fcast (evalConcrete st e) t
-  | CastKind.IntToFloat -> BitVector.itof (evalConcrete st e) t
-  | CastKind.FtoICeil -> BitVector.ftoiceil (evalConcrete st e) t
-  | CastKind.FtoIFloor -> BitVector.ftoifloor (evalConcrete st e) t
-  | CastKind.FtoIRound -> BitVector.ftoiround (evalConcrete st e) t
-  | CastKind.FtoITrunc -> BitVector.ftoitrunc (evalConcrete st e) t
+  | CastKind.SignExt -> BitVector.SExt (evalConcrete st e, t)
+  | CastKind.ZeroExt -> BitVector.ZExt (evalConcrete st e, t)
+  | CastKind.FloatCast -> BitVector.FCast (evalConcrete st e, t)
+  | CastKind.IntToFloat -> BitVector.Itof (evalConcrete st e, t)
+  | CastKind.FtoICeil -> BitVector.FtoiCeil (evalConcrete st e, t)
+  | CastKind.FtoIFloor -> BitVector.FtoiFloor (evalConcrete st e, t)
+  | CastKind.FtoIRound -> BitVector.FtoiRound (evalConcrete st e, t)
+  | CastKind.FtoITrunc -> BitVector.FtoiTrunc (evalConcrete st e, t)
   | _ -> raise IllegalASTTypeException
 
 and private evalUnOp st e typ =
   let v = evalConcrete st e
   match typ with
-  | UnOpType.NEG -> BitVector.neg v
-  | UnOpType.NOT -> BitVector.bnot v
-  | UnOpType.FSQRT -> BitVector.fsqrt v
-  | UnOpType.FCOS -> BitVector.fcos v
-  | UnOpType.FSIN -> BitVector.fsin v
-  | UnOpType.FTAN -> BitVector.ftan v
-  | UnOpType.FATAN -> BitVector.fatan v
+  | UnOpType.NEG -> BitVector.Neg v
+  | UnOpType.NOT -> BitVector.BNot v
+  | UnOpType.FSQRT -> BitVector.FSqrt v
+  | UnOpType.FCOS -> BitVector.FCos v
+  | UnOpType.FSIN -> BitVector.FSin v
+  | UnOpType.FTAN -> BitVector.FTan v
+  | UnOpType.FATAN -> BitVector.FAtan v
   | _ -> raise IllegalASTTypeException
 
 and private evalBinOp st e1 e2 typ =
   let e1 = evalConcrete st e1
   let e2 = evalConcrete st e2
   match typ with
-  | BinOpType.ADD -> BitVector.add e1 e2
-  | BinOpType.SUB -> BitVector.sub e1 e2
-  | BinOpType.MUL  -> BitVector.mul e1 e2
-  | BinOpType.DIV -> BitVector.div e1 e2
-  | BinOpType.SDIV -> BitVector.sdiv e1 e2
-  | BinOpType.MOD -> BitVector.modulo e1 e2
-  | BinOpType.SMOD -> BitVector.smodulo e1 e2
-  | BinOpType.SHL -> BitVector.shl e1 e2
-  | BinOpType.SAR -> BitVector.sar e1 e2
-  | BinOpType.SHR -> BitVector.shr e1 e2
-  | BinOpType.AND -> BitVector.band e1 e2
-  | BinOpType.OR -> BitVector.bor e1 e2
-  | BinOpType.XOR -> BitVector.bxor e1 e2
-  | BinOpType.CONCAT -> BitVector.concat e1 e2
-  | BinOpType.FADD -> BitVector.fadd e1 e2
-  | BinOpType.FSUB -> BitVector.fsub e1 e2
-  | BinOpType.FMUL -> BitVector.fmul e1 e2
-  | BinOpType.FDIV -> BitVector.fdiv e1 e2
-  | BinOpType.FPOW -> BitVector.fpow e1 e2
-  | BinOpType.FLOG -> BitVector.flog e1 e2
+  | BinOpType.ADD -> BitVector.Add (e1, e2)
+  | BinOpType.SUB -> BitVector.Sub (e1, e2)
+  | BinOpType.MUL  -> BitVector.Mul (e1, e2)
+  | BinOpType.DIV -> BitVector.Div (e1, e2)
+  | BinOpType.SDIV -> BitVector.SDiv (e1, e2)
+  | BinOpType.MOD -> BitVector.Modulo (e1, e2)
+  | BinOpType.SMOD -> BitVector.SModulo (e1, e2)
+  | BinOpType.SHL -> BitVector.Shl (e1, e2)
+  | BinOpType.SAR -> BitVector.Sar (e1, e2)
+  | BinOpType.SHR -> BitVector.Shr (e1, e2)
+  | BinOpType.AND -> BitVector.BAnd (e1, e2)
+  | BinOpType.OR -> BitVector.BOr (e1, e2)
+  | BinOpType.XOR -> BitVector.BXor (e1, e2)
+  | BinOpType.CONCAT -> BitVector.Concat (e1, e2)
+  | BinOpType.FADD -> BitVector.FAdd (e1, e2)
+  | BinOpType.FSUB -> BitVector.FSub (e1, e2)
+  | BinOpType.FMUL -> BitVector.FMul (e1, e2)
+  | BinOpType.FDIV -> BitVector.FDiv (e1, e2)
+  | BinOpType.FPOW -> BitVector.FPow (e1, e2)
+  | BinOpType.FLOG -> BitVector.FLog (e1, e2)
   | _ -> raise IllegalASTTypeException
 
 and private evalRelOp st e1 e2 typ =
   let e1 = evalConcrete st e1
   let e2 = evalConcrete st e2
   match typ with
-  | RelOpType.EQ -> BitVector.eq e1 e2
-  | RelOpType.NEQ -> BitVector.neq e1 e2
-  | RelOpType.GT -> BitVector.gt e1 e2
-  | RelOpType.GE -> BitVector.ge e1 e2
-  | RelOpType.SGT -> BitVector.sgt e1 e2
-  | RelOpType.SGE -> BitVector.sge e1 e2
-  | RelOpType.LT -> BitVector.lt e1 e2
-  | RelOpType.LE -> BitVector.le e1 e2
-  | RelOpType.SLT -> BitVector.slt e1 e2
-  | RelOpType.SLE -> BitVector.sle e1 e2
-  | RelOpType.FLT -> BitVector.flt e1 e2
-  | RelOpType.FLE -> BitVector.fle e1 e2
-  | RelOpType.FGT -> BitVector.fgt e1 e2
-  | RelOpType.FGE -> BitVector.fge e1 e2
+  | RelOpType.EQ -> BitVector.Eq (e1, e2)
+  | RelOpType.NEQ -> BitVector.Neq (e1, e2)
+  | RelOpType.GT -> BitVector.Gt (e1, e2)
+  | RelOpType.GE -> BitVector.Ge (e1, e2)
+  | RelOpType.SGT -> BitVector.SGt (e1, e2)
+  | RelOpType.SGE -> BitVector.SGe (e1, e2)
+  | RelOpType.LT -> BitVector.Lt (e1, e2)
+  | RelOpType.LE -> BitVector.Le (e1, e2)
+  | RelOpType.SLT -> BitVector.SLt (e1, e2)
+  | RelOpType.SLE -> BitVector.SLe (e1, e2)
+  | RelOpType.FLT -> BitVector.FLt (e1, e2)
+  | RelOpType.FLE -> BitVector.FLe (e1, e2)
+  | RelOpType.FGT -> BitVector.FGt (e1, e2)
+  | RelOpType.FGE -> BitVector.FGe (e1, e2)
   | _ -> raise IllegalASTTypeException
 
 let private evalPCUpdate st rhs =
   let v = evalConcrete st rhs
   st.OnPut st.PC v
-  st.PC <- BitVector.toUInt64 v
+  st.PC <- BitVector.ToUInt64 v
 
 let evalUndef (st: EvalState) lhs =
   match lhs.E with
@@ -146,7 +146,7 @@ let private evalPut st lhs rhs =
     match lhs.E with
     | Var (_, n, _, _) -> st.SetReg n v
     | TempVar (_, n) -> st.SetTmp n v
-    | PCVar (_) -> st.PC <- BitVector.toUInt64 v
+    | PCVar (_) -> st.PC <- BitVector.ToUInt64 v
     | _ -> raise InvalidExprException
   with
     | UndefExpException
@@ -158,7 +158,7 @@ let private evalPut st lhs rhs =
 #endif
 
 let private evalStore st endian addr v =
-  let addr = evalConcrete st addr |> BitVector.toUInt64
+  let addr = evalConcrete st addr |> BitVector.ToUInt64
   let v = evalConcrete st v
   st.OnStore st.PC addr v
   st.Memory.Write addr v endian

@@ -35,10 +35,10 @@ module private LibcAnalysisHelper =
     let esp = (Intel.Register.ESP |> Intel.Register.toRegID)
     match (st: EvalState).TryGetReg esp with
     | Def sp ->
-      let p1 = BitVector.add (BitVector.ofInt32 4 32<rt>) sp
-      let p4 = BitVector.add (BitVector.ofInt32 16 32<rt>) sp
-      let p5 = BitVector.add (BitVector.ofInt32 20 32<rt>) sp
-      let p6 = BitVector.add (BitVector.ofInt32 24 32<rt>) sp
+      let p1 = BitVector.Add (BitVector.OfInt32 4 32<rt>, sp)
+      let p4 = BitVector.Add (BitVector.OfInt32 16 32<rt>, sp)
+      let p5 = BitVector.Add (BitVector.OfInt32 20 32<rt>, sp)
+      let p6 = BitVector.Add (BitVector.OfInt32 24 32<rt>, sp)
       [ readMem st p1 Endian.Little 32<rt>
         readMem st p4 Endian.Little 32<rt>
         readMem st p5 Endian.Little 32<rt>
@@ -62,7 +62,7 @@ module private LibcAnalysisHelper =
       readReg st (Intel.Register.R8 |> Intel.Register.toRegID)
       readReg st (Intel.Register.R9 |> Intel.Register.toRegID) ]
     |> List.choose id
-    |> List.map BitVector.toUInt64
+    |> List.map BitVector.ToUInt64
     |> List.filter (fun addr ->
       addr <> 0UL && ((codeMgr: CodeManager).HasInstruction addr |> not))
     |> function

@@ -28,13 +28,13 @@ open B2R2
 open B2R2.BinIR.LowUIR
 open B2R2.FrontEnd.BinLifter.LiftingOperators
 
-let inline numU32 n t = BitVector.ofUInt32 n t |> AST.num
+let inline numU32 n t = BitVector.OfUInt32 n t |> AST.num
 
-let inline numI32 n t = BitVector.ofInt32 n t |> AST.num
+let inline numI32 n t = BitVector.OfInt32 n t |> AST.num
 
-let inline numU64 n t = BitVector.ofUInt64 n t |> AST.num
+let inline numU64 n t = BitVector.OfUInt64 n t |> AST.num
 
-let inline numI64 n t = BitVector.ofInt64 n t |> AST.num
+let inline numI64 n t = BitVector.OfInt64 n t |> AST.num
 
 let inline tmpVars2 ir t =
   struct (!*ir t, !*ir t)

@@ -27,17 +27,17 @@ namespace B2R2
 open B2R2.FingerTree
 
 /// An element for our random access queue.
-type RandomAccessQueueElem<'a> (v) =
-  member val Val: 'a = v
+type RandomAccessQueueElem<'T> (v) =
+  member val Val: 'T = v
   override __.ToString () = __.Val.ToString ()
   interface IMeasured<Size> with
     member __.Measurement = Size (1u)
 
 /// Interval tree-based map: an interval of type (Addr) -> an
 /// RandomAccessQueueElement ('a).
-type RandomAccessQueue<'a> =
+type RandomAccessQueue<'T> =
   private
-    RandomAccessQueue of FingerTree<Size, RandomAccessQueueElem<'a>>
+    RandomAccessQueue of FingerTree<Size, RandomAccessQueueElem<'T>>
 
 /// A helper module for RandomAccessQueue<'a>.
 [<RequireQualifiedAccess>]

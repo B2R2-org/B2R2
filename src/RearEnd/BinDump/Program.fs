@@ -189,17 +189,17 @@ let dumpFile (opts: BinDumpOpts) filepath =
 let dumpFileMode files (opts: BinDumpOpts) =
   match List.partition System.IO.File.Exists files with
   | [], [] ->
-    Printer.printErrorToConsole "File(s) must be given."
+    Printer.PrintErrorToConsole "File(s) must be given."
     CmdOpts.PrintUsage ToolName UsageTail Cmd.spec
   | files, [] -> files |> List.iter (dumpFile opts)
   | _, errs ->
-    Printer.printErrorToConsole ("File(s) " + errs.ToString() + " not found!")
+    Printer.PrintErrorToConsole ("File(s) " + errs.ToString() + " not found!")
 
 let private assertBinaryLength hdl hexstr =
   let multiplier = getInstructionAlignment hdl
   if (Array.length hexstr) % multiplier = 0 then ()
   else
-    Printer.printErrorToConsole <|
+    Printer.PrintErrorToConsole <|
       "The hex string length must be multiple of " + multiplier.ToString ()
     exit 1
 

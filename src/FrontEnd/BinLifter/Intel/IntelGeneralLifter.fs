@@ -1158,7 +1158,7 @@ let insinstr (ins: InsInfo) insLen ctxt =
 
 let interrupt ins insLen ctxt =
   match transOneOpr ins insLen ctxt with
-  | { E = Num n } -> Interrupt (BitVector.toInt32 n) |> sideEffects insLen
+  | { E = Num n } -> Interrupt (BitVector.ToInt32 n) |> sideEffects insLen
   | _ -> raise InvalidOperandException
 
 let private getCondOfJcc (ins: IntelInternalInstruction)

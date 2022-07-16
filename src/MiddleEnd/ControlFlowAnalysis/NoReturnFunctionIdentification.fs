@@ -269,7 +269,7 @@ module private NoReturnFunctionIdentificationHelper =
     let esp = (Intel.Register.ESP |> Intel.Register.toRegID)
     match readReg st esp with
     | Some sp ->
-      let p = BitVector.add (BitVector.ofInt32 (4 * arg) 32<rt>) sp
+      let p = BitVector.Add (BitVector.OfInt32 (4 * arg) 32<rt>, sp)
       match readMem st p Endian.Little 32<rt> with
       | Some v -> v <> 0UL
       | None -> false
@@ -278,7 +278,7 @@ module private NoReturnFunctionIdentificationHelper =
   let hasNonZeroOnX64 hdl st arg =
     let reg = CallingConvention.functionArgRegister hdl arg
     match readReg st reg with
-    | Some bv -> BitVector.toUInt64 bv <> 0UL
+    | Some bv -> BitVector.ToUInt64 bv <> 0UL
     | None -> false
 
 /// NoReturnFunctionIdentification has two roles: (1) identify whether a
@@ -325,6 +325,6 @@ type NoReturnFunctionIdentification () =
       match readReg st reg with
       | None -> false
       | Some v ->
-        let n = BitVector.toInt32 v
+        let n = BitVector.ToInt32 v
         n = exitSyscall || n = exitGrpSyscall
     | _ -> false

@@ -552,13 +552,13 @@ let oprToString opr delim (builder: DisasmBuilder<_>) =
   | V128 (i32One, i32Two, i32Three, i32Four) ->
     builder.Accumulate AsmWordKind.String delim
     builder.Accumulate AsmWordKind.String "i32x4:"
-    builder.Accumulate AsmWordKind.Value (BitVector.valToString i32One)
+    builder.Accumulate AsmWordKind.Value (BitVector.ValToString i32One)
     builder.Accumulate AsmWordKind.String delim
-    builder.Accumulate AsmWordKind.Value (BitVector.valToString i32Two)
+    builder.Accumulate AsmWordKind.Value (BitVector.ValToString i32Two)
     builder.Accumulate AsmWordKind.String delim
-    builder.Accumulate AsmWordKind.Value (BitVector.valToString i32Three)
+    builder.Accumulate AsmWordKind.Value (BitVector.ValToString i32Three)
     builder.Accumulate AsmWordKind.String delim
-    builder.Accumulate AsmWordKind.Value (BitVector.valToString i32Four)
+    builder.Accumulate AsmWordKind.Value (BitVector.ValToString i32Four)
   | Alignment align ->
     builder.Accumulate AsmWordKind.String delim
     builder.Accumulate AsmWordKind.Value (align |> string)

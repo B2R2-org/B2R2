@@ -108,7 +108,7 @@ let parseAugmentationData span offset addrSize augstr =
 
 let num isa n =
   let rt = isa.WordSize |> WordSize.toRegType
-  AST.num (BitVector.ofUInt64 n rt)
+  AST.num (BitVector.OfUInt64 n rt)
 
 let regPlusNum isa regbay reg n =
   let regexp = DWRegister.toRegisterExpr isa regbay reg

@@ -36,11 +36,11 @@ let private memoryReader hdl _pc addr typ _e =
   let fileInfo = hdl.FileInfo
   if addr < System.UInt64.MaxValue && fileInfo.IsValidAddr addr then
     match BinHandle.TryReadBytes (hdl, addr, len) with
-    | Ok v -> Ok (BitVector.ofArr v)
+    | Ok v -> Ok (BitVector.OfArr v)
     | Error e -> Error e
   else Error ErrorCase.InvalidMemoryRead
 
-let private stackAddr t = BitVector.ofInt32 0x1000000 t
+let private stackAddr t = BitVector.OfInt32 0x1000000 t
 
 let private obtainStackDef hdl =
   match hdl.RegisterBay.StackPointer with
@@ -49,7 +49,7 @@ let private obtainStackDef hdl =
 
 let private obtainFramePointerDef hdl =
   match hdl.RegisterBay.FramePointer with
-  | Some r -> Some (r, hdl.ISA.WordSize |> WordSize.toRegType |> BitVector.zero)
+  | Some r -> Some (r, hdl.ISA.WordSize |> WordSize.toRegType |> BitVector.Zero)
   | None -> None
 
 let private initState hdl pc =
@@ -97,7 +97,7 @@ let readReg (st: EvalState) regID =
   | Undef -> None
 
 let readMem (st: EvalState) addr endian size =
-  let addr = BitVector.toUInt64 addr
+  let addr = BitVector.ToUInt64 addr
   match st.Memory.Read addr endian size with
-  | Ok bs -> BitVector.toUInt64 bs |> Some
+  | Ok bs -> BitVector.ToUInt64 bs |> Some
   | Error _ -> None

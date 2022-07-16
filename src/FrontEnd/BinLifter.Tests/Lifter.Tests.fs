@@ -36,7 +36,7 @@ module Lifter =
 
     [<TestMethod>]
     member __.``PP Test`` () =
-      let e = BitVector.ofUInt32 42ul 32<rt> |> AST.num
+      let e = BitVector.OfUInt32 42ul 32<rt> |> AST.num
       Assert.AreEqual (Pp.expToString e, "0x2a:I32")
       let e0 = AST.tmpvar 32<rt> 0
       Assert.AreEqual (Pp.expToString e0, "T_0:I32")

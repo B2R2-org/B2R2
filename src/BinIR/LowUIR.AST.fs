@@ -175,7 +175,7 @@ let inline private (===) e1 e2 =
 let binopWithType op t e1 e2 =
   match op, e1.E, e2.E with
   | _, Num n1, Num n2 -> ValueOptimizer.binop n1 n2 op |> num
-  | BinOpType.XOR, _, _ when e1 === e2 -> BitVector.zero t |> num
+  | BinOpType.XOR, _, _ when e1 === e2 -> BitVector.Zero t |> num
 #if ! HASHCONS
   | _ ->
     BinOp (op, t, e1, e2, ASTHelper.mergeTwoExprInfo e1 e2)
@@ -336,7 +336,7 @@ let ite cond e1 e2 =
   TypeCheck.checkEquivalence (TypeCheck.typeOf e1) (TypeCheck.typeOf e2)
 #endif
   match cond.E with
-  | Num (n) -> if BitVector.isOne n then e1 else e2 (* Assume valid cond *)
+  | Num (n) -> if BitVector.IsOne n then e1 else e2 (* Assume valid cond *)
   | _ ->
 #if ! HASHCONS
     Ite (cond, e1, e2, ASTHelper.mergeThreeExprInfo cond e1 e2)
@@ -426,19 +426,19 @@ let undef rt s =
 
 /// Construct a (Num 0) of size t.
 [<CompiledName("Num0")>]
-let num0 rt = num (BitVector.zero rt)
+let num0 rt = num (BitVector.Zero rt)
 
 /// Construct a (Num 1) of size t.
 [<CompiledName("Num1")>]
-let num1 rt = num (BitVector.one rt)
+let num1 rt = num (BitVector.One rt)
 
 /// Num expression for a one-bit number zero.
 [<CompiledName("B0")>]
-let b0 = num (BitVector.zero 1<rt>)
+let b0 = num (BitVector.Zero 1<rt>)
 
 /// Num expression for a one-bit number one.
 [<CompiledName("B1")>]
-let b1 = num (BitVector.one 1<rt>)
+let b1 = num (BitVector.One 1<rt>)
 
 /// Concatenation.
 [<CompiledName("Concat")>]
@@ -888,16 +888,16 @@ let assignForExtractDst e1 e2 =
   | Extract ({ E = Var (t, _, _, _) } as e1, eTyp, 0, _)
   | Extract ({ E = TempVar (t, _) } as e1, eTyp, 0, _) ->
     let nMask = RegType.getMask t - RegType.getMask eTyp
-    let mask = BitVector.ofBInt nMask t |> num
+    let mask = BitVector.OfBInt nMask t |> num
     let src = cast CastKind.ZeroExt t e2
     put e1 (binopWithType BinOpType.OR t
               (binopWithType BinOpType.AND t e1 mask) src)
   | Extract ({ E = Var (t, _, _, _) } as e1, eTyp, pos, _)
   | Extract ({ E = TempVar (t, _) } as e1, eTyp, pos, _) ->
     let nMask = RegType.getMask t - (RegType.getMask eTyp <<< pos)
-    let mask = BitVector.ofBInt nMask t |> num
+    let mask = BitVector.OfBInt nMask t |> num
     let src = cast CastKind.ZeroExt t e2
-    let shift = BitVector.ofInt32 pos t |> num
+    let shift = BitVector.OfInt32 pos t |> num
     let src = binopWithType BinOpType.SHL t src shift
     put e1 (binopWithType BinOpType.OR t
               (binopWithType BinOpType.AND t e1 mask) src)

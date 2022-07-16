@@ -31,67 +31,67 @@ open B2R2.BinIR
 [<RequireQualifiedAccess>]
 module internal ValueOptimizer =
   let inline unop n = function
-    | UnOpType.NEG -> BitVector.neg n
-    | UnOpType.NOT -> BitVector.bnot n
-    | UnOpType.FSQRT -> BitVector.fsqrt n
-    | UnOpType.FCOS -> BitVector.fcos n
-    | UnOpType.FSIN -> BitVector.fsin n
-    | UnOpType.FTAN -> BitVector.ftan n
-    | UnOpType.FATAN -> BitVector.fatan n
+    | UnOpType.NEG -> BitVector.Neg n
+    | UnOpType.NOT -> BitVector.BNot n
+    | UnOpType.FSQRT -> BitVector.FSqrt n
+    | UnOpType.FCOS -> BitVector.FCos n
+    | UnOpType.FSIN -> BitVector.FSin n
+    | UnOpType.FTAN -> BitVector.FTan n
+    | UnOpType.FATAN -> BitVector.FAtan n
     | _ -> Utils.impossible ()
 
   let inline binop n1 n2 = function
-    | BinOpType.ADD  -> BitVector.add n1 n2
-    | BinOpType.SUB  -> BitVector.sub n1 n2
-    | BinOpType.MUL  -> BitVector.mul n1 n2
-    | BinOpType.DIV  -> BitVector.div n1 n2
-    | BinOpType.SDIV -> BitVector.sdiv n1 n2
-    | BinOpType.MOD  -> BitVector.modulo n1 n2
-    | BinOpType.SMOD -> BitVector.smodulo n1 n2
-    | BinOpType.SHL  -> BitVector.shl n1 n2
-    | BinOpType.SAR  -> BitVector.sar n1 n2
-    | BinOpType.SHR  -> BitVector.shr n1 n2
-    | BinOpType.AND  -> BitVector.band n1 n2
-    | BinOpType.OR   -> BitVector.bor n1 n2
-    | BinOpType.XOR  -> BitVector.bxor n1 n2
-    | BinOpType.CONCAT -> BitVector.concat n1 n2
-    | BinOpType.FADD -> BitVector.fadd n1 n2
-    | BinOpType.FSUB -> BitVector.fsub n1 n2
-    | BinOpType.FMUL -> BitVector.fmul n1 n2
-    | BinOpType.FDIV -> BitVector.fdiv n1 n2
-    | BinOpType.FPOW -> BitVector.fpow n1 n2
-    | BinOpType.FLOG -> BitVector.flog n1 n2
+    | BinOpType.ADD  -> BitVector.Add (n1, n2)
+    | BinOpType.SUB  -> BitVector.Sub (n1, n2)
+    | BinOpType.MUL  -> BitVector.Mul (n1, n2)
+    | BinOpType.DIV  -> BitVector.Div (n1, n2)
+    | BinOpType.SDIV -> BitVector.SDiv (n1, n2)
+    | BinOpType.MOD  -> BitVector.Modulo (n1, n2)
+    | BinOpType.SMOD -> BitVector.SModulo (n1, n2)
+    | BinOpType.SHL  -> BitVector.Shl (n1, n2)
+    | BinOpType.SAR  -> BitVector.Sar (n1, n2)
+    | BinOpType.SHR  -> BitVector.Shr (n1, n2)
+    | BinOpType.AND  -> BitVector.BAnd (n1, n2)
+    | BinOpType.OR   -> BitVector.BOr (n1, n2)
+    | BinOpType.XOR  -> BitVector.BXor (n1, n2)
+    | BinOpType.CONCAT -> BitVector.Concat (n1, n2)
+    | BinOpType.FADD -> BitVector.FAdd (n1, n2)
+    | BinOpType.FSUB -> BitVector.FSub (n1, n2)
+    | BinOpType.FMUL -> BitVector.FMul (n1, n2)
+    | BinOpType.FDIV -> BitVector.FDiv (n1, n2)
+    | BinOpType.FPOW -> BitVector.FPow (n1, n2)
+    | BinOpType.FLOG -> BitVector.FLog (n1, n2)
     | _ -> Utils.impossible ()
 
   let inline relop n1 n2 = function
-    | RelOpType.EQ  -> BitVector.eq n1 n2
-    | RelOpType.NEQ -> BitVector.neq n1 n2
-    | RelOpType.GT  -> BitVector.gt n1 n2
-    | RelOpType.GE  -> BitVector.ge n1 n2
-    | RelOpType.SGT -> BitVector.sgt n1 n2
-    | RelOpType.SGE -> BitVector.sge n1 n2
-    | RelOpType.LT  -> BitVector.lt n1 n2
-    | RelOpType.LE  -> BitVector.le n1 n2
-    | RelOpType.SLT -> BitVector.slt n1 n2
-    | RelOpType.SLE -> BitVector.sle n1 n2
-    | RelOpType.FLT -> BitVector.flt n1 n2
-    | RelOpType.FLE -> BitVector.fle n1 n2
-    | RelOpType.FGT -> BitVector.fgt n1 n2
-    | RelOpType.FGE -> BitVector.fge n1 n2
+    | RelOpType.EQ  -> BitVector.Eq (n1, n2)
+    | RelOpType.NEQ -> BitVector.Neq (n1, n2)
+    | RelOpType.GT  -> BitVector.Gt (n1, n2)
+    | RelOpType.GE  -> BitVector.Ge (n1, n2)
+    | RelOpType.SGT -> BitVector.SGt (n1, n2)
+    | RelOpType.SGE -> BitVector.SGe (n1, n2)
+    | RelOpType.LT  -> BitVector.Lt (n1, n2)
+    | RelOpType.LE  -> BitVector.Le (n1, n2)
+    | RelOpType.SLT -> BitVector.SLt (n1, n2)
+    | RelOpType.SLE -> BitVector.SLe (n1, n2)
+    | RelOpType.FLT -> BitVector.FLt (n1, n2)
+    | RelOpType.FLE -> BitVector.FLe (n1, n2)
+    | RelOpType.FGT -> BitVector.FGt (n1, n2)
+    | RelOpType.FGE -> BitVector.FGe (n1, n2)
     | _ -> Utils.impossible ()
 
   let inline cast t n = function
-    | CastKind.SignExt -> BitVector.sext n t
-    | CastKind.ZeroExt -> BitVector.zext n t
-    | CastKind.FloatCast -> BitVector.fcast n t
-    | CastKind.IntToFloat -> BitVector.itof n t
-    | CastKind.FtoICeil -> BitVector.ftoiceil n t
-    | CastKind.FtoIFloor -> BitVector.ftoifloor n t
-    | CastKind.FtoIRound -> BitVector.ftoiround n t
-    | CastKind.FtoITrunc -> BitVector.ftoitrunc n t
+    | CastKind.SignExt -> BitVector.SExt (n, t)
+    | CastKind.ZeroExt -> BitVector.ZExt (n, t)
+    | CastKind.FloatCast -> BitVector.FCast (n, t)
+    | CastKind.IntToFloat -> BitVector.Itof (n, t)
+    | CastKind.FtoICeil -> BitVector.FtoiCeil (n, t)
+    | CastKind.FtoIFloor -> BitVector.FtoiFloor (n, t)
+    | CastKind.FtoIRound -> BitVector.FtoiRound (n, t)
+    | CastKind.FtoITrunc -> BitVector.FtoiTrunc (n, t)
     | _ -> Utils.impossible ()
 
-  let inline extract e t pos = BitVector.extract e t pos
+  let inline extract e t pos = BitVector.Extract (e, t, pos)
 
 [<RequireQualifiedAccess>]
 module internal ASTHelper =

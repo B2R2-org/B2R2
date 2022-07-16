@@ -30,73 +30,73 @@ exception InvalidDigitException
 exception InvalidNodeException
 
 /// Monoid with an identity, and an associative operation.
-type IMonoid<'a> =
-  abstract member Zero: 'a
-  abstract member Assoc: 'a -> 'a
+type IMonoid<'A> =
+  abstract member Zero: 'A
+  abstract member Assoc: 'A -> 'A
 
 /// A "typeclass" that has a measurement. The measurement should be a monoid.
-type IMeasured<'v when 'v :> IMonoid<'v>> =
-  abstract member Measurement: 'v
+type IMeasured<'V when 'V :> IMonoid<'V>> =
+  abstract member Measurement: 'V
 
 /// Returns the measurement.
 let inline calib (m: IMeasured<_>) = m.Measurement
 
-let inline combine<'v, 'a when 'v :> IMonoid<'v>
-                           and 'a :> IMeasured<'v>
-                  > (a: 'v) (b: 'v) = a.Assoc b
+let inline combine<'V, 'A when 'V :> IMonoid<'V>
+                           and 'A :> IMeasured<'V>
+                  > (a: 'V) (b: 'V) = a.Assoc b
 let inline (++) a b = combine a b
 
-type Prio<'a when 'a : comparison> =
+type Prio<'A when 'A : comparison> =
   | MInfty (* Minus infinity. *)
-  | Prio of 'a
+  | Prio of 'A
 
 /// A monoid that represents a priority.
-type Priority<'a when 'a : comparison> (p) =
+type Priority<'A when 'A : comparison> (p) =
   new () = Priority (MInfty)
-  member inline __.Value: Prio<'a> = p
+  member inline __.Value: Prio<'A> = p
   override __.ToString () =
     match p with
     | MInfty -> ""
     | Prio p -> p.ToString ()
-  interface IMonoid<Priority<'a>> with
+  interface IMonoid<Priority<'A>> with
     member __.Zero = Priority (MInfty)
-    member __.Assoc (rhs: Priority<'a>) =
+    member __.Assoc (rhs: Priority<'A>) =
       match __.Value, rhs.Value with
       | Prio m, Prio n -> Priority (Prio (if m > n then m else n))
       | MInfty, p
       | p, MInfty -> Priority (p)
 
-type Key<'a when 'a : comparison> =
+type Key<'A when 'A : comparison> =
   | NoKey
-  | Key of 'a
+  | Key of 'A
 
 /// A monoid that represents ordering.
-type Ordered<'a when 'a : comparison> (k) =
+type Ordered<'A when 'A : comparison> (k) =
   new () = Ordered (NoKey)
-  member inline __.Key: Key<'a> = k
+  member inline __.Key: Key<'A> = k
   override __.ToString () =
     match k with
     | NoKey -> ""
     | Key (k) -> k.ToString ()
-  interface IMonoid<Ordered<'a>> with
+  interface IMonoid<Ordered<'A>> with
     member __.Zero = Ordered (NoKey)
-    member __.Assoc (rhs: Ordered<'a>) =
+    member __.Assoc (rhs: Ordered<'A>) =
       match rhs.Key with
       | NoKey -> Ordered (k)
       | b -> Ordered (b)
 
 /// A monoid that represents an interval (uint64 * uint64).
-type InterMonoid<'a when 'a : comparison> (o, p) =
+type InterMonoid<'A when 'A : comparison> (o, p) =
   let v = o, p
-  new () = InterMonoid<'a> (new Ordered<'a>(), new Priority<'a>())
-  member inline __.Value: Ordered<'a> * Priority<'a> = v
+  new () = InterMonoid<'A> (new Ordered<'A>(), new Priority<'A>())
+  member inline __.Value: Ordered<'A> * Priority<'A> = v
   member __.GetMin () = o.Key
   member __.GetMax () = p.Value
   override __.ToString () = "(" + o.ToString () + "," + p.ToString () + ")"
-  interface IMonoid<InterMonoid<'a>> with
+  interface IMonoid<InterMonoid<'A>> with
     member __.Zero =
-      InterMonoid (new Ordered<'a>(), new Priority<'a>())
-    member __.Assoc (rhs: InterMonoid<'a>) =
+      InterMonoid (new Ordered<'A>(), new Priority<'A>())
+    member __.Assoc (rhs: InterMonoid<'A>) =
       let a1, b1 = __.Value
       let a2, b2 = rhs.Value
       InterMonoid (a1 ++ a2, b1 ++ b2)
@@ -111,9 +111,9 @@ type Size (s) =
     member __.Assoc (rhs: Size) = Size (s + rhs.Value)
 
 /// 2-3 tree node.
-type Node<'v, 'a when 'v :> IMonoid<'v>> =
-  | Node2 of 'v * 'a * 'a
-  | Node3 of 'v * 'a * 'a * 'a
+type Node<'V, 'A when 'V :> IMonoid<'V>> =
+  | Node2 of 'V * 'A * 'A
+  | Node3 of 'V * 'A * 'A * 'A
 with
   override __.ToString () =
     match __ with
@@ -135,19 +135,19 @@ with
     | Node2 (_, b, a) -> fn (fn acc b) a
     | Node3 (_, c, b, a) -> fn (fn (fn acc c) b) a
 
-  interface IMeasured<'v> with
+  interface IMeasured<'V> with
     member this.Measurement =
       match this with
       | Node2 (v, _, _)
       | Node3 (v, _, _, _) -> v
 
 /// Digit nodes actually store values.
-type Digit<'v, 'a when 'v :> IMonoid<'v>
-                   and 'a :> IMeasured<'v>> =
-  | One of 'a
-  | Two of 'a * 'a
-  | Three of 'a * 'a * 'a
-  | Four of 'a * 'a * 'a * 'a
+type Digit<'V, 'A when 'V :> IMonoid<'V>
+                   and 'A :> IMeasured<'V>> =
+  | One of 'A
+  | Two of 'A * 'A
+  | Three of 'A * 'A * 'A
+  | Four of 'A * 'A * 'A * 'A
 with
   override __.ToString () =
     match __ with
@@ -161,8 +161,8 @@ with
                                 + c.ToString () + ", "
                                 + d.ToString () + ")"
 
-  interface IMeasured<'v> with
-    member this.Measurement: 'v =
+  interface IMeasured<'V> with
+    member this.Measurement: 'V =
       match this with
       | Three (a, b, c) -> calib a ++ calib b ++ calib c
       | Two (a, b) -> calib a ++ calib b
@@ -184,15 +184,15 @@ with
     | Four (d, c, b, a) -> fn (fn (fn ((fn acc d)) c) b) a
 
 /// FingerTree defined in [Hinze 2006]. N.B. non-regular type is used.
-type FingerTree<'v, 'a when 'v :> IMonoid<'v>
-                        and 'v : (new: unit -> 'v)
-                        and 'a :> IMeasured<'v>> =
+type FingerTree<'V, 'A when 'V :> IMonoid<'V>
+                        and 'V : (new: unit -> 'V)
+                        and 'A :> IMeasured<'V>> =
   | Empty
-  | Single of 'a
-  | Deep of 'v
-          * Digit<'v, 'a>
-          * FingerTree<'v, Node<'v, 'a>>
-          * Digit<'v, 'a>
+  | Single of 'A
+  | Deep of 'V
+          * Digit<'V, 'A>
+          * FingerTree<'V, Node<'V, 'A>>
+          * Digit<'V, 'A>
 with
   override __.ToString () =
     match __ with
@@ -203,25 +203,25 @@ with
                                    + t.ToString () + ", "
                                    + r.ToString () + ")"
 
-  member __.Monoid: 'v = new 'v ()
+  member __.Monoid: 'V = new 'V ()
 
-  interface IMeasured<'v> with
-    member this.Measurement: 'v =
+  interface IMeasured<'V> with
+    member this.Measurement: 'V =
       match this with
       | Empty -> this.Monoid.Zero
       | Single x -> calib x
       | Deep (v, _, _, _) -> v
 
 /// View of a FingerMap.
-type View<'a, 'b> =
+type View<'A, 'B> =
   | Nil
-  | Cons of 'a * rest: 'b
+  | Cons of 'A * rest: 'B
 
 /// Split represents an element in a FingerTree with containers of elements to
 /// its left and right.
-type Split<'v, 'a> = 'v (* Left *)
-                   * 'a
-                   * 'v (* Right *)
+type Split<'V, 'A> = 'V (* Left *)
+                   * 'A
+                   * 'V (* Right *)
 
 let inline snocDigit lhs rhs =
   match lhs with
@@ -238,51 +238,51 @@ let inline consDigit lhs rhs =
   | _ -> raise InvalidDigitException
 
 /// Reduce a FingerTree from the right.
-let rec foldr<'v, 'a, 'b when 'v :> IMonoid<'v>
-                          and 'v : (new: unit -> 'v)
-                          and 'a :> IMeasured<'v>
-             > (f: 'a -> 'b -> 'b) (t: FingerTree<'v, 'a>) (acc: 'b) : 'b =
+let rec foldr<'V, 'A, 'B when 'V :> IMonoid<'V>
+                          and 'V : (new: unit -> 'V)
+                          and 'A :> IMeasured<'V>
+             > (f: 'A -> 'B -> 'B) (t: FingerTree<'V, 'A>) (acc: 'B) : 'B =
   match t with
   | Empty -> acc
   | Single x -> f x acc
   | Deep (_, pr, m, sf) ->
-    let acc = Digit<'v, 'a>.Foldr f sf acc
-    let acc = foldr (fun node acc -> Node<'v, 'a>.Foldr f node acc) m acc
-    Digit<'v, 'a>.Foldr f pr acc
+    let acc = Digit<'V, 'A>.Foldr f sf acc
+    let acc = foldr (fun node acc -> Node<'V, 'A>.Foldr f node acc) m acc
+    Digit<'V, 'A>.Foldr f pr acc
 
 /// Reduce a FingerTree from the left.
-let rec foldl<'v, 'a, 'b when 'v :> IMonoid<'v>
-                          and 'v : (new: unit -> 'v)
-                          and 'a :> IMeasured<'v>
-             > (fn: 'b -> 'a -> 'b) (acc: 'b) (t: FingerTree<'v, 'a>) : 'b =
+let rec foldl<'V, 'A, 'B when 'V :> IMonoid<'V>
+                          and 'V : (new: unit -> 'V)
+                          and 'A :> IMeasured<'V>
+             > (fn: 'B -> 'A -> 'B) (acc: 'B) (t: FingerTree<'V, 'A>) : 'B =
   match t with
   | Empty -> acc
   | Single x -> fn acc x
   | Deep (_, pr, m, sf) ->
-    let acc = Digit<'v, 'a>.Foldl fn acc pr
-    let acc = foldl (fun acc node -> Node<'v, 'a>.Foldl fn acc node) acc m
-    Digit<'v, 'a>.Foldl fn acc sf
+    let acc = Digit<'V, 'A>.Foldl fn acc pr
+    let acc = foldl (fun acc node -> Node<'V, 'A>.Foldl fn acc node) acc m
+    Digit<'V, 'A>.Foldl fn acc sf
 
 /// This is a helper class that defines FingerTree operations. This class
 /// contains only static members. We use this class to simplify type annotations
 /// for polymorphic recursion.
-type Op<'v, 'a when 'v :> IMonoid<'v>
-                and 'v : (new: unit -> 'v)
-                and 'a :> IMeasured<'v>> () =
+type Op<'V, 'A when 'V :> IMonoid<'V>
+                and 'V : (new: unit -> 'V)
+                and 'A :> IMeasured<'V>> () =
 
-  static member private Node2 a b : Node<'v, 'a> =
+  static member private Node2 a b : Node<'V, 'A> =
     Node2 (calib a ++ calib b, a, b)
 
-  static member private Node3 a b c : Node<'v, 'a> =
+  static member private Node3 a b c : Node<'V, 'A> =
     Node3 (calib a ++ calib b ++ calib c, a, b, c)
 
-  static member private Deep (pr: Digit<'v, 'a>,
-                              m: FingerTree<'v, Node<'v, 'a>>,
-                              sf: Digit<'v, 'a>) : FingerTree<'v, 'a> =
+  static member private Deep (pr: Digit<'V, 'A>,
+                              m: FingerTree<'V, Node<'V, 'A>>,
+                              sf: Digit<'V, 'A>) : FingerTree<'V, 'A> =
     Deep (calib pr ++ calib m ++ calib sf, pr, m, sf)
 
   /// (infixr): Prepend an element to a FingerTree.
-  static member Cons (a: 'a) (tree: FingerTree<'v, 'a>) : FingerTree<'v, 'a> =
+  static member Cons (a: 'A) (tree: FingerTree<'V, 'A>) : FingerTree<'V, 'A> =
     match tree with
     | Empty -> Single a
     | Single b -> Deep (calib a ++ calib b, One a, Empty, One b)
@@ -292,7 +292,7 @@ type Op<'v, 'a when 'v :> IMonoid<'v>
       Deep (calib a ++ v, consDigit a prefix, m, suffix)
 
   /// (infixl): Append an element to a FingerTree.
-  static member Snoc (tree: FingerTree<'v, 'a>) (a: 'a) : FingerTree<'v, 'a> =
+  static member Snoc (tree: FingerTree<'V, 'A>) (a: 'A) : FingerTree<'V, 'A> =
     match tree with
     | Empty -> Single a
     | Single b -> Deep (calib b ++ calib a, One b, Empty, One a)
@@ -301,16 +301,16 @@ type Op<'v, 'a when 'v :> IMonoid<'v>
     | Deep (v, prefix, m, suffix) ->
       Deep (v ++ calib a, prefix, m, snocDigit suffix a)
 
-  static member private DigitToTree s : FingerTree<'v, 'a> =
-    Digit<'v, 'a>.Foldr Op.Cons s Empty
+  static member private DigitToTree s : FingerTree<'V, 'A> =
+    Digit<'V, 'A>.Foldr Op.Cons s Empty
 
-  static member private NodeToDigit (node: Node<'v, 'a>) =
+  static member private NodeToDigit (node: Node<'V, 'A>) =
     match node with
     | Node2 (_, a, b) -> Two (a, b)
     | Node3 (_, a, b, c) -> Three (a, b, c)
 
-  static member ViewL (tree: FingerTree<'v, 'a>)
-                      : View<'a, FingerTree<'v, 'a>> =
+  static member ViewL (tree: FingerTree<'V, 'A>)
+                      : View<'A, FingerTree<'V, 'A>> =
     match tree with
     | Empty -> Nil
     | Single x -> Cons (x, Empty)
@@ -323,14 +323,14 @@ type Op<'v, 'a when 'v :> IMonoid<'v>
                     | _ -> raise InvalidDigitException
       Cons (hd, Op.Deep (tl, m, sf))
 
-  static member DeepL (m: FingerTree<'v, Node<'v, 'a>>)
-                      (suffix: Digit<'v, 'a>) : FingerTree<'v, 'a> =
+  static member DeepL (m: FingerTree<'V, Node<'V, 'A>>)
+                      (suffix: Digit<'V, 'A>) : FingerTree<'V, 'A> =
     match Op.ViewL m with
     | Nil -> Op.DigitToTree suffix
     | Cons (a, m') -> Op.Deep (Op.NodeToDigit a, m', suffix)
 
-  static member ViewR (tree: FingerTree<'v, 'a>)
-                      : View<'a, FingerTree<'v, 'a>> =
+  static member ViewR (tree: FingerTree<'V, 'A>)
+                      : View<'A, FingerTree<'V, 'A>> =
     match tree with
     | Empty -> Nil
     | Single x -> Cons (x, Empty)
@@ -343,61 +343,61 @@ type Op<'v, 'a when 'v :> IMonoid<'v>
                     | _ -> raise InvalidDigitException
       Cons (l, Op.Deep (pr, m, rest))
 
-  static member DeepR (m: FingerTree<'v, Node<'v, 'a>>) (prefix: Digit<'v, 'a>)
-                      : FingerTree<'v, 'a> =
+  static member DeepR (m: FingerTree<'V, Node<'V, 'A>>) (prefix: Digit<'V, 'A>)
+                      : FingerTree<'V, 'A> =
     match Op.ViewR m with
     | Nil -> Op.DigitToTree prefix
     | Cons (a, m') -> Op.Deep (prefix, m', Op.NodeToDigit a)
 
-  static member IsEmpty (tree: FingerTree<'v, 'a>) =
+  static member IsEmpty (tree: FingerTree<'V, 'A>) =
     match tree with
     | Empty -> true
     | _ -> false
 
   /// Return head of the left subtree.
-  static member HeadL (tree: FingerTree<'v, 'a>) =
+  static member HeadL (tree: FingerTree<'V, 'A>) =
     match Op.ViewL tree with
     | Nil -> raise EmptyTreeException
     | Cons (a, _) -> a
 
   /// Return tail of the left subtree.
-  static member TailL (tree: FingerTree<'v, 'a>) =
+  static member TailL (tree: FingerTree<'V, 'A>) =
     match Op.ViewL tree with
     | Nil -> raise EmptyTreeException
     | Cons (_, m) -> m
 
   /// Return head of the right subtree.
-  static member HeadR (tree: FingerTree<'v, 'a>) =
+  static member HeadR (tree: FingerTree<'V, 'A>) =
     match Op.ViewR tree with
     | Nil -> raise EmptyTreeException
     | Cons (a, _) -> a
 
   /// Return tail of the right subtree.
-  static member TailR (tree: FingerTree<'v, 'a>) =
+  static member TailR (tree: FingerTree<'V, 'A>) =
     match Op.ViewR tree with
     | Nil -> raise EmptyTreeException
     | Cons (_, m) -> m
 
-  static member private AddToLst acc (digit: Digit<'v, 'a>) =
+  static member private AddToLst acc (digit: Digit<'V, 'A>) =
     match digit with
     | One a -> a :: acc
     | Two (a, b) -> a :: b :: acc
     | Three (a, b, c) -> a :: b :: c :: acc
     | Four (a, b, c, d) -> a :: b :: c :: d :: acc
 
-  static member private NodeAcc : 'a list -> Node<'v, 'a> list = function
+  static member private NodeAcc : 'A list -> Node<'V, 'A> list = function
     | [a; b] -> [ Op.Node2 a b ]
     | [a; b; c] -> [ Op.Node3 a b c ]
     | [a; b; c; d] -> [ Op.Node2 a b; Op.Node2 c d ]
     | a :: b :: c :: xs -> Op.Node3 a b c :: Op.NodeAcc xs
     | _ -> raise InvalidNodeException
 
-  static member private Nodes sf1 ts pr2 : Node<'v, 'a> list =
+  static member private Nodes sf1 ts pr2 : Node<'V, 'A> list =
     Op.AddToLst ts sf1 @ Op.AddToLst [] pr2 |> Op.NodeAcc
 
-  static member private App3 (t1: FingerTree<'v, 'a>)
-                             (ts: 'a list)
-                             (t2: FingerTree<'v, 'a>) : FingerTree<'v, 'a> =
+  static member private App3 (t1: FingerTree<'V, 'A>)
+                             (ts: 'A list)
+                             (t2: FingerTree<'V, 'A>) : FingerTree<'V, 'A> =
     match t1, t2 with
     | Empty, xs -> List.foldBack Op.Cons ts xs
     | xs, Empty -> List.fold Op.Snoc xs ts
@@ -406,7 +406,7 @@ type Op<'v, 'a when 'v :> IMonoid<'v>
     | Deep (_, pr1, m1, sf1), Deep (_, pr2, m2, sf2) ->
       Op.Deep (pr1, Op.App3 m1 (Op.Nodes sf1 ts pr2) m2, sf2)
 
-  static member private SplitDigit pred i (digit: Digit<'v, 'a>) =
+  static member private SplitDigit pred i (digit: Digit<'V, 'A>) =
     match digit with
     | One (a) -> [], a, []
     | Two (a, b) ->
@@ -427,7 +427,7 @@ type Op<'v, 'a when 'v :> IMonoid<'v>
                 if pred i''' then [a; b], c, [d]
                 else [a; b; c], d, []
 
-  static member private LstToDigit (lst: 'a list) =
+  static member private LstToDigit (lst: 'A list) =
     match lst with
     | [a] -> One (a)
     | [a; b] -> Two (a, b)
@@ -435,7 +435,7 @@ type Op<'v, 'a when 'v :> IMonoid<'v>
     | [a; b; c; d] -> Four (a, b, c, d)
     | _ -> raise InvalidDigitException
 
-  static member private ToTree (lst: 'a list) =
+  static member private ToTree (lst: 'A list) =
     match lst with
     | [] -> Empty
     | [a] -> Single a
@@ -444,10 +444,10 @@ type Op<'v, 'a when 'v :> IMonoid<'v>
     | [a; b; c; d] -> Op.Deep (Three (a, b, c), Empty, One d)
     | _ -> raise InvalidDigitException
 
-  static member SplitTree (p: 'v -> bool)
-                          (i: 'v)
-                          (tree: FingerTree<'v, 'a>)
-                          : Split<FingerTree<'v, 'a>, 'a> =
+  static member SplitTree (p: 'V -> bool)
+                          (i: 'V)
+                          (tree: FingerTree<'V, 'A>)
+                          : Split<FingerTree<'V, 'A>, 'A> =
     match tree with
     | Empty -> raise EmptyTreeException
     | Single x -> Empty, x, Empty
@@ -476,8 +476,8 @@ type Op<'v, 'a when 'v :> IMonoid<'v>
           l, x, Op.ToTree r
 
   /// Split a FingerTree into two based on a predicate (p).
-  static member Split (p: 'v -> bool) (tree: FingerTree<'v, 'a>)
-                      : FingerTree<'v, 'a> * FingerTree<'v, 'a> =
+  static member Split (p: 'V -> bool) (tree: FingerTree<'V, 'A>)
+                      : FingerTree<'V, 'A> * FingerTree<'V, 'A> =
     match tree with
     | Empty -> (Empty, Empty)
     | xs when p (calib xs) ->
@@ -486,19 +486,19 @@ type Op<'v, 'a when 'v :> IMonoid<'v>
     | xs -> (xs, Empty)
 
   /// Take a subset of a FingerTree that satisfies the predicate (p).
-  static member TakeUntil p (tree: FingerTree<'v, 'a>) =
+  static member TakeUntil p (tree: FingerTree<'V, 'A>) =
     Op.Split p tree |> fst
 
   /// Take a subset of a FingerTree that does not satisfies the predicate (p).
-  static member DropUntil p (tree: FingerTree<'v, 'a>) =
+  static member DropUntil p (tree: FingerTree<'V, 'A>) =
     Op.Split p tree |> snd
 
   /// Concatenate two FingerTrees into one.
-  static member Concat (xs: FingerTree<'v, 'a>) (ys: FingerTree<'v, 'a>) =
+  static member Concat (xs: FingerTree<'V, 'A>) (ys: FingerTree<'V, 'A>) =
     Op.App3 xs [] ys
 
   /// TODO: (faster) lookup functions without building extra trees
-  static member Lookup (p: 'v -> bool) i (tree: FingerTree<'v, 'a>) : 'v * 'a =
+  static member Lookup (p: 'V -> bool) i (tree: FingerTree<'V, 'A>) : 'V * 'A =
     let zero = tree.Monoid.Zero
     let l, x, _ = Op.SplitTree p zero tree
     (i ++ calib l, x)

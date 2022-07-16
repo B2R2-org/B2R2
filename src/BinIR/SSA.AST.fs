@@ -29,7 +29,7 @@ open B2R2
 open B2R2.BinIR
 
 let rec typeOf = function
-  | Num bv -> BitVector.getType bv
+  | Num bv -> BitVector.GetType bv
   | Var { Kind = RegVar (rt, _, _) }
   | Var { Kind = PCVar rt }
   | Var { Kind = TempVar (rt, _) } -> rt
@@ -84,7 +84,7 @@ let rec private translateStmtAux defaultRegType addr (s: LowUIR.Stmt) =
   match s.S with
   | LowUIR.ISMark _ ->
     let pc = { Kind = PCVar (defaultRegType); Identifier = -1 }
-    let n = Num <| BitVector.ofUInt64 addr defaultRegType
+    let n = Num <| BitVector.OfUInt64 addr defaultRegType
     Def (pc, n) |> Some
   | LowUIR.IEMark _ -> None
   | LowUIR.LMark symb ->

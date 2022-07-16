@@ -45,7 +45,7 @@ let private printIns hdl addr bs =
 
 let inline private printResult fn = function
   | Ok res -> fn res
-  | Error err -> Printer.printErrorToConsole err
+  | Error err -> Printer.PrintErrorToConsole err
 
 let getAssemblyPrinter (opts: AssemblerOpts) =
   match opts.Mode with

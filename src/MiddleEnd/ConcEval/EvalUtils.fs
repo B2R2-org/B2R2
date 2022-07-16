@@ -26,4 +26,4 @@ module internal B2R2.MiddleEnd.ConcEval.EvalUtils
 
 open B2R2
 
-let tr = BitVector.one 1<rt>
+let tr = BitVector.One 1<rt>

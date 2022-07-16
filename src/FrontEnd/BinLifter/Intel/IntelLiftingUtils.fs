@@ -348,16 +348,16 @@ let extractDstAssign e1 e2 =
 
 let maxNum rt =
   match rt with
-  | 8<rt> -> BitVector.maxUInt8
-  | 16<rt> -> BitVector.maxUInt16
-  | 32<rt> -> BitVector.maxUInt32
-  | 64<rt> -> BitVector.maxUInt64
+  | 8<rt> -> BitVector.MaxUInt8
+  | 16<rt> -> BitVector.MaxUInt16
+  | 32<rt> -> BitVector.MaxUInt32
+  | 64<rt> -> BitVector.MaxUInt64
   | _ -> raise InvalidOperandSizeException
   |> AST.num
 
 let castNum newType e =
   match e.E with
-  | Num n -> BitVector.cast n newType |> AST.num
+  | Num n -> BitVector.Cast (n, newType) |> AST.num
   | _ -> raise InvalidOperandException
 
 let getMask oprSize =

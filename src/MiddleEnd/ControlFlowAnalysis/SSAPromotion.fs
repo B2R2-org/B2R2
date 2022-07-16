@@ -45,7 +45,7 @@ let private findLastStackDef v targetVarKind =
 let private updateIfStackValueIsConstant (v: Vertex<SSABasicBlock>) spState sp =
   match CPState.findReg spState sp with
   | SPValue.Const bv ->
-    let spValue = BitVector.toUInt64 bv
+    let spValue = BitVector.ToUInt64 bv
     let offset = Utils.InitialStackPointer - spValue |> int |> Some
     v.VData.FakeBlockInfo <-
       { v.VData.FakeBlockInfo with FrameDistance = offset }
@@ -67,7 +67,7 @@ let private updateStackFrameDistance hdl g (v: Vertex<SSABasicBlock>) spState =
 let private memStore ((pp, _) as stmtInfo) rt addr src =
   match addr with
   | SPValue.Const addr ->
-    let addr = BitVector.toUInt64 addr
+    let addr = BitVector.ToUInt64 addr
     let offset = int (int64 Utils.InitialStackPointer - int64 addr)
     let v = { Kind = StackVar (rt, offset); Identifier = 0 }
     Some (pp, Def (v, src))
@@ -76,7 +76,7 @@ let private memStore ((pp, _) as stmtInfo) rt addr src =
 let private loadToVar rt addr =
   match addr with
   | SPValue.Const addr ->
-    let addr = BitVector.toUInt64 addr
+    let addr = BitVector.ToUInt64 addr
     let offset = int (int64 Utils.InitialStackPointer - int64 addr)
     let v = { Kind = StackVar (rt, offset); Identifier = 0 }
     Some (Var v)

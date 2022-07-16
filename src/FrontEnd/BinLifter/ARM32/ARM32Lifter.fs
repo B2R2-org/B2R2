@@ -149,7 +149,7 @@ let isSetSCR_NS ctxt = getSCR ctxt SCR_NS == maskSCRForNSbit
 
 /// Gets the mask bits for fetching the NMFI bit from the SCTLR.
 /// SCTLR bit[27]
-let maskSCTLRForNMFIbit = AST.num <| BitVector.ofBInt 134217728I 32<rt>
+let maskSCTLRForNMFIbit = AST.num <| BitVector.OfBInt 134217728I 32<rt>
 
 let getSCTLR ctxt sctlrType =
   let sctlr = getRegVar ctxt R.SCTLR
@@ -223,8 +223,8 @@ let getCarryFlag ctxt =
   getPSR ctxt R.CPSR PSR_C >> (numI32 29 32<rt>)
 
 let getZeroMask maskSize regType =
-  BitVector.ofBInt (BigInteger.getMask maskSize) regType
-  |> BitVector.bnot |> AST.num
+  BitVector.OfBInt (BigInteger.getMask maskSize) regType
+  |> BitVector.BNot |> AST.num
 
 let zMaskAnd e regType maskSize =
   e .& (getZeroMask maskSize regType)
@@ -602,11 +602,11 @@ let currentModeIsNotUser ctxt =
 /// Bitstring replication, on page AppxP-2652.
 /// function : Replicate()
 let replicate expr regType lsb width value =
-  let v = BitVector.ofBInt (BigInteger.getMask width <<< lsb) regType
-  if value = 0 then expr .& (v |> BitVector.bnot |> AST.num) else expr .| (v |> AST.num)
+  let v = BitVector.OfBInt (BigInteger.getMask width <<< lsb) regType
+  if value = 0 then expr .& (v |> BitVector.BNot |> AST.num) else expr .| (v |> AST.num)
 
 /// All-ones bitstring, on page AppxP-2652.
-let ones rt = BitVector.ofBInt (RegType.getMask rt) rt |> AST.num
+let ones rt = BitVector.OfBInt (RegType.getMask rt) rt |> AST.num
 
 let writeModeBits ctxt value isExcptReturn (builder: IRBuilder) =
   let lblL8 = builder.NewSymbol "L8"
@@ -1153,8 +1153,8 @@ let subsAndRelatedInstr (ins: InsInfo) ctxt =
 let computeCarryOutFromImmCflag (ins: InsInfo) ctxt =
   match ins.Cflag with
   | Some v ->
-    if v then BitVector.one 1<rt> |> AST.num
-    else BitVector.zero 1<rt> |> AST.num
+    if v then BitVector.One 1<rt> |> AST.num
+    else BitVector.Zero 1<rt> |> AST.num
   | None -> getCarryFlag ctxt
 
 let translateLogicOp (ins: InsInfo) ctxt (builder: IRBuilder) =
@@ -2039,7 +2039,7 @@ let bx ins ctxt =
   endMark ins builder
 
 let movtAssign dst src =
-  let maskHigh16In32 = AST.num <| BitVector.ofBInt 4294901760I 32<rt>
+  let maskHigh16In32 = AST.num <| BitVector.OfBInt 4294901760I 32<rt>
   let clearHigh16In32 expr = expr .& AST.not maskHigh16In32
   dst := clearHigh16In32 dst .|
          (src << (numI32 16 32<rt>))
@@ -2533,7 +2533,7 @@ let bfi ins ctxt =
   let t0 = builder.NewTempVar 32<rt>
   let t1 = builder.NewTempVar 32<rt>
   let n = rn .&
-          (BitVector.ofBInt (BigInteger.getMask width) 32<rt> |> AST.num)
+          (BitVector.OfBInt (BigInteger.getMask width) 32<rt> |> AST.num)
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
   startMark ins builder
   let lblIgnore = checkCondition ins ctxt isUnconditional builder
@@ -2551,7 +2551,7 @@ let bfx ins ctxt signExtend =
   let lblIgnore = checkCondition ins ctxt isUnconditional builder
   if lsb + width - 1 > 31 || width < 0 then raise InvalidOperandException
   else ()
-  let v = BitVector.ofBInt (BigInteger.getMask width) 32<rt> |> AST.num
+  let v = BitVector.OfBInt (BigInteger.getMask width) 32<rt> |> AST.num
   builder <! (rd := (rn >> (numI32 lsb 32<rt>)) .& v)
   if signExtend && width > 1 then
     let msb = builder.NewTempVar 32<rt>
@@ -2993,7 +2993,7 @@ let elem vector e size = AST.extract vector (RegType.fromBitWidth size) (e * siz
 
 let elemForIR vector vSize index size =
   let index = AST.zext vSize index
-  let mask = AST.num <| BitVector.ofBInt (BigInteger.getMask size) vSize
+  let mask = AST.num <| BitVector.OfBInt (BigInteger.getMask size) vSize
   let eSize = numI32 size vSize
   (vector >> (index .* eSize)) .& mask |> AST.xtlo (RegType.fromBitWidth size)
 

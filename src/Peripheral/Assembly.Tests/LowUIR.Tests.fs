@@ -35,7 +35,7 @@ type LowUIRTests () =
   let regbay = Intel.Basis.initRegBay (WordSize.Bit64)
   let p = LowUIRParser (ISA.DefaultISA, regbay)
   let size1Num = BitVector.T
-  let size64Num = BitVector.cast size1Num 64<rt>
+  let size64Num = BitVector.Cast (size1Num, 64<rt>)
 
   [<TestMethod>]
   member __.``[IntelAssemblerLowUIR] Test Register Assignment ``() =
@@ -65,5 +65,5 @@ type LowUIRTests () =
     let regSet = Intel.IntelRegisterSet.singleton regID
     let answer =
       AST.put (AST.var 64<rt> regID "RAX" regSet)
-              (AST.num (BitVector.cast BitVector.F 64<rt>))
+              (AST.num (BitVector.Cast (BitVector.F, 64<rt>)))
     Assert.AreEqual (answer, result)

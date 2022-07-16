@@ -475,7 +475,7 @@ let cmpps ins insLen ctxt =
   let dst2A, dst2B = AST.xtlo 32<rt> dst2, AST.xthi 32<rt> dst2
   let imm = transOprToExpr ins insLen ctxt op3 |> AST.xtlo 8<rt>
   let isNan expr =
-    (AST.extract expr 8<rt> 23 == AST.num (BitVector.unsignedMax 8<rt>))
+    (AST.extract expr 8<rt> 23 == AST.num (BitVector.UnsignedMax 8<rt>))
      .& ((AST.xtlo 32<rt> expr >> numI32 9 32<rt>) != AST.num0 32<rt>)
   let cmpCond c expr1 expr2 =
     !!ir (c := AST.b0)
@@ -541,7 +541,7 @@ let cmpss ins insLen ctxt =
   let n num = numI32 num 8<rt>
   let max32 = maxNum 32<rt>
   let isNan expr =
-    (AST.extract expr 8<rt> 23 == AST.num (BitVector.unsignedMax 8<rt>))
+    (AST.extract expr 8<rt> 23 == AST.num (BitVector.UnsignedMax 8<rt>))
      .& ((AST.xtlo 32<rt> expr >> numI32 9 32<rt>) != AST.num0 32<rt>)
   let cond = !*ir 1<rt>
   !<ir insLen
@@ -600,7 +600,7 @@ let comiss ins insLen ctxt =
   !!ir (pf := AST.b0)
   !!ir (cf := AST.ite (AST.flt opr1 opr2) AST.b1 AST.b0)
   let isNan expr =
-    (AST.extract expr 8<rt> 23 == AST.num (BitVector.unsignedMax 8<rt>))
+    (AST.extract expr 8<rt> 23 == AST.num (BitVector.UnsignedMax 8<rt>))
      .& ((AST.xtlo 32<rt> expr >> numI32 9 32<rt>) != AST.num0 32<rt>)
   !!ir (AST.cjmp (isNan opr1 .| isNan opr2)
                  (AST.name lblNan) (AST.name lblExit))
@@ -658,7 +658,7 @@ let ucomiss ins insLen ctxt =
   !!ir (pf := AST.b0)
   !!ir (cf := AST.ite (AST.flt opr1 opr2) AST.b1 AST.b0)
   let isNan expr =
-    (AST.extract expr 8<rt> 23 == AST.num (BitVector.unsignedMax 8<rt>))
+    (AST.extract expr 8<rt> 23 == AST.num (BitVector.UnsignedMax 8<rt>))
      .& ((AST.xtlo 32<rt> expr >> numI32 9 32<rt>) != AST.num0 32<rt>)
   !!ir (AST.cjmp (isNan opr1 .| isNan opr2)
                  (AST.name lblNan) (AST.name lblExit))
@@ -1624,7 +1624,7 @@ and Return =
 
 let private getPcmpstrInfo opCode (imm: Expr) =
   let immByte = match imm.E with
-                | Num n -> BitVector.getValue n
+                | Num n -> BitVector.GetValue n
                 | _ -> raise InvalidExprException
   let agg = match (immByte >>> 2) &&& 3I with
             | v when v = 0I -> EqualAny

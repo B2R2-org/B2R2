@@ -97,9 +97,9 @@ module Summary =
     | _ when e = ESP -> Some 0
     | BinOp (BinOpType.ADD, 32<rt>, var, { E = Num (n) }, _)
     | BinOp (BinOpType.ADD, 32<rt>, { E = Num (n) }, var, _) when var = ESP ->
-      calcOffset (BitVector.toInt32 n)
+      calcOffset (BitVector.ToInt32 n)
     | BinOp (BinOpType.SUB, 32<rt>, var, { E = Num (n) }, _) when var = ESP ->
-      calcOffset (- (BitVector.toInt32 n))
+      calcOffset (- (BitVector.ToInt32 n))
     | _ -> None
 
   let private getStackOff (v: Value) =
@@ -133,12 +133,12 @@ module Summary =
              { E = Var (32<rt>, _, reg, _) }, { E = Num n }, _)
     | BinOp (BinOpType.ADD, _,
              { E = Num n }, { E = Var (32<rt>, _, reg, _) }, _) ->
-      Some (reg, BitVector.toUInt32 n)
+      Some (reg, BitVector.ToUInt32 n)
     | BinOp (BinOpType.SUB, _,
              { E = Var (32<rt>, _, reg, _) }, { E = Num n }, _)
     | BinOp (BinOpType.SUB, _,
              { E = Num n }, { E = Var (32<rt>, _, reg, _) }, _) ->
-      Some (reg, BitVector.neg n |> BitVector.toUInt32)
+      Some (reg, BitVector.Neg n |> BitVector.ToUInt32)
     | _ -> None
 
   let private isLinear (value: Value) = value.GetExpr () |> isLinearExpr
@@ -236,20 +236,20 @@ module Summary =
   let private checkRegs (sum: Summary) regs =
     let checker (reg, v) =
       match Map.tryFind reg sum.OutRegs with
-      | Some x when x = (BitVector.ofUInt32 v 32<rt> |> AST.num |> Value) ->
+      | Some x when x = (BitVector.OfUInt32 v 32<rt> |> AST.num |> Value) ->
         true
       | _ -> false
     Array.forall checker regs
 
   let private addNum32 (ptr: Value) num =
-    BitVector.ofInt32 num 32<rt>
+    BitVector.OfInt32 num 32<rt>
     |> AST.num
     |> Simplify.simplifyBinOp BinOpType.ADD 32<rt> (ptr.GetExpr ())
     |> Value
 
   let private toBytes (value: Value) =
     match value.GetExpr().E with
-    | Num n -> (BitVector.getValue n).ToByteArray () |> Some
+    | Num n -> (BitVector.GetValue n).ToByteArray () |> Some
     | _ -> None
 
   let private readMemStr (sum: Summary) ptr =

@@ -266,7 +266,7 @@ let gas insInfo ctxt =
 let push insInfo ctxt imm =
   let builder = new IRBuilder (8)
   startMark insInfo builder
-  let expr = BitVector.cast imm 256<rt> |> AST.num
+  let expr = BitVector.Cast (imm, 256<rt>) |> AST.num
   pushToStack ctxt expr builder
   updateGas ctxt insInfo.GAS builder
   endMark insInfo builder

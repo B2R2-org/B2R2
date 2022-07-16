@@ -54,12 +54,12 @@ module Value =
              { E = Var (32<rt>, _, reg, _) }, { E = Num n }, _)
     | BinOp (BinOpType.ADD, _,
              { E = Num n }, { E = Var (32<rt>, _, reg, _) }, _) ->
-      Some (reg, BitVector.toUInt32 n)
+      Some (reg, BitVector.ToUInt32 n)
     | BinOp (BinOpType.SUB, _,
              { E = Var (32<rt>, _, reg, _) }, { E = Num n }, _)
     | BinOp (BinOpType.SUB, _,
              { E = Num n }, { E = Var (32<rt>, _, reg, _) }, _) ->
-      Some (reg, BitVector.neg n |> BitVector.toUInt32)
+      Some (reg, BitVector.Neg n |> BitVector.ToUInt32)
     | _ -> None
 
 type State = {

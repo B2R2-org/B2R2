@@ -47,18 +47,20 @@ module SPValue =
     | Const bv1, Const bv2 -> if bv1 = bv2 then c1 else NotAConst
     | _ -> NotAConst
 
-  let binOp op c1 c2 =
-    match c1, c2 with
-    | Undef, _ | _, Undef -> Undef
-    | Const bv1, Const bv2 -> Const (op bv1 bv2)
-    | _ -> NotAConst
-
   let add c1 c2 =
     match c1, c2 with
     | Undef, _ | _, Undef -> Undef
-    | Const bv1, Const bv2 -> Const (BitVector.add bv1 bv2)
+    | Const bv1, Const bv2 -> Const (BitVector.Add (bv1, bv2))
     | _ -> NotAConst
 
-  let sub c1 c2 = binOp BitVector.sub c1 c2
+  let sub c1 c2 =
+    match c1, c2 with
+    | Undef, _ | _, Undef -> Undef
+    | Const bv1, Const bv2 -> Const (BitVector.Sub (bv1, bv2))
+    | _ -> NotAConst
 
-  let ``and`` c1 c2 = binOp BitVector.band c1 c2
+  let ``and`` c1 c2 =
+    match c1, c2 with
+    | Undef, _ | _, Undef -> Undef
+    | Const bv1, Const bv2 -> Const (BitVector.BAnd (bv1, bv2))
+    | _ -> NotAConst

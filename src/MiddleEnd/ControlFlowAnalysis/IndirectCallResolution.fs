@@ -82,7 +82,7 @@ module private IndirectCallResolution =
 #endif
       match resolveCallTarget cpState e with
       | Const bv ->
-        let target = BitVector.toUInt64 bv
+        let target = BitVector.ToUInt64 bv
         if target <> 0UL then Map.add callSiteAddr (Some target) acc
         else Map.add callSiteAddr None acc
       | NotAConst -> Map.add callSiteAddr None acc
@@ -105,10 +105,10 @@ module private IndirectCallResolution =
       | Some sec ->
         if sec.Name = ".rodata" || sec.Name = ".data" then
           let v = BinHandle.ReadUInt (hdl, addr, RegType.toByteWidth rt)
-          Some <| BitVector.ofUInt64 v rt
+          Some <| BitVector.OfUInt64 v rt
         elif sec.Name = ".got" then
           if codeMgr.FunctionMaintainer.Contains (addr=addr) then
-            Some <| BitVector.ofUInt64 addr rt
+            Some <| BitVector.OfUInt64 addr rt
           else None
         else None
       | None -> None

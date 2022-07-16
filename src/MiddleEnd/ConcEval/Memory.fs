@@ -61,13 +61,13 @@ type Memory () =
     | Endian.Little -> __.ReadLE [] addr len
     | _ -> __.ReadBE [] len addr 0UL
     |> function
-      | Ok lst -> Array.ofList lst |> BitVector.ofArr |> Ok
+      | Ok lst -> Array.ofList lst |> BitVector.OfArr |> Ok
       | Error e -> Error e
 
   /// Write a bitvector value to the memory.
   member __.Write addr v endian =
-    let len = BitVector.getType v |> RegType.toByteWidth |> int
-    let v = BitVector.getValue v
+    let len = BitVector.GetType v |> RegType.toByteWidth |> int
+    let v = BitVector.GetValue v
     if endian = Endian.Big then
       for i = 1 to len do
         let offset = i - 1

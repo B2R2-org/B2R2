@@ -220,7 +220,7 @@ let dump files opts =
   CmdOpts.SanitizeRestArgs files
   match files with
   | [] ->
-    Printer.printErrorToConsole "File(s) must be given."
+    Printer.PrintErrorToConsole "File(s) must be given."
     CmdOpts.PrintUsage ToolName UsageTail Cmd.spec
   | files ->
 #if DEBUG

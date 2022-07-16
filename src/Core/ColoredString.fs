@@ -111,7 +111,7 @@ module ColoredString =
         match prev with
         | Some (prevCol, prevStr) when prevCol = col ->
           loop (Some (prevCol, prevStr + str)) acc rest
-        | Some (_, _) -> loop (Some cur) (prev :: acc) rest
+        | Some (_) -> loop (Some cur) (prev :: acc) rest
         | None -> loop (Some cur) acc rest
     loop None [] s
 

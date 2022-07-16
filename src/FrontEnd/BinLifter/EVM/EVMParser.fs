@@ -30,7 +30,7 @@ open B2R2.FrontEnd.BinLifter
 
 let private parsePush (span: ReadOnlySpan<byte>) reader opcode size =
   let bytes = (reader: IBinReader).ReadBytes (span, 1, int size)
-  struct (opcode <| BitVector.ofArr (Array.rev bytes), 3, 1u + size)
+  struct (opcode <| BitVector.OfArr (Array.rev bytes), 3, 1u + size)
 
 let private parseOpcode (span: ReadOnlySpan<byte>) (reader: IBinReader) =
   let bin = reader.ReadByte (span, 0)

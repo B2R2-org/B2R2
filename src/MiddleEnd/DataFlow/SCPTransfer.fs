@@ -42,7 +42,7 @@ let private updateReadOnlyMem st mDst rt addr c =
 let evalLoad st m rt addr =
   match addr with
   | Const addr ->
-    let addr = BitVector.toUInt64 addr
+    let addr = BitVector.ToUInt64 addr
     match CPState.tryFindMem st m rt addr with
     | Some v -> v
     | None ->
@@ -107,7 +107,7 @@ let evalReturn st (blk: SSAVertex) ret var =
       let shiftAmount = Const (Utils.computeStackShift rt blk)
       evalBinOp BinOpType.ADD value shiftAmount
     elif GetPCThunkInfo.isGetPCThunk blk.VData.FakeBlockInfo.GetPCThunkInfo then
-      Thunk (BitVector.ofUInt64 ret rt)
+      Thunk (BitVector.OfUInt64 ret rt)
     elif CallingConvention.isNonVolatile hdl rid then
       CPState.findReg st var
     else NotAConst

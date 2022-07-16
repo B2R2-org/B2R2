@@ -1064,7 +1064,7 @@ let private checkFPUExceptions ctxt ir = ()
 
 let private clearFPU ctxt ir =
   let cw = numI32 895 16<rt>
-  let tw = BitVector.maxUInt16 |> AST.num
+  let tw = BitVector.MaxUInt16 |> AST.num
   !!ir (!.ctxt R.FCW := cw)
   !!ir (!.ctxt R.FSW := AST.num0 16<rt>)
   !!ir (!.ctxt R.FTW := tw)

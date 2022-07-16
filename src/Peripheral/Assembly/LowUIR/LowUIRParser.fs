@@ -62,7 +62,7 @@ type LowUIRParser (isa, regbay: RegisterBay) =
       if s.StartsWith ("0x") then
         BigInteger.Parse ("0" + s.Substring (2), NumberStyles.AllowHexSpecifier)
       else BigInteger.Parse (s)
-      |> BitVector.ofBInt
+      |> BitVector.OfBInt
 
   let pRegType =
     (anyOf "IiFf") >>. pint32 |>> RegType.fromBitWidth

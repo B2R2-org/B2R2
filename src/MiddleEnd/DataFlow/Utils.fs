@@ -74,4 +74,4 @@ let inline initMemory () =
 let computeStackShift rt (blk: SSAVertex) =
   let retAddrSize = RegType.toByteWidth rt |> int64
   let adj = blk.VData.FakeBlockInfo.UnwindingBytes
-  BitVector.ofInt64 (retAddrSize + adj) rt
+  BitVector.OfInt64 (retAddrSize + adj) rt

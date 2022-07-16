@@ -6607,7 +6607,7 @@ module EVM =
   type PUSHClass () =
     [<TestMethod>]
     member __.``[EVM] Push Parse Test`` () =
-      test (Opcode.PUSH10 <| (BitVector.ofBInt 316059037807746189465I 80<rt>))
+      test (Opcode.PUSH10 <| (BitVector.OfBInt 316059037807746189465I 80<rt>))
            [| 0x69uy; 0x00uy; 0x11uy; 0x22uy; 0x33uy; 0x44uy; 0x55uy; 0x66uy;
               0x77uy; 0x88uy; 0x99uy |]
 

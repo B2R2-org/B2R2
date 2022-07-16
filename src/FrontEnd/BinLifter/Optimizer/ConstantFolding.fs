@@ -37,67 +37,67 @@ type Context = {
 
 let private concretizeUnOp unopType bv =
   match unopType with
-  | UnOpType.NEG -> BitVector.neg bv
-  | UnOpType.NOT -> BitVector.bnot bv
-  | UnOpType.FSQRT -> BitVector.fsqrt bv
-  | UnOpType.FCOS -> BitVector.fcos bv
-  | UnOpType.FSIN -> BitVector.fsin bv
-  | UnOpType.FTAN -> BitVector.ftan bv
-  | UnOpType.FATAN -> BitVector.fatan bv
+  | UnOpType.NEG -> BitVector.Neg bv
+  | UnOpType.NOT -> BitVector.BNot bv
+  | UnOpType.FSQRT -> BitVector.FSqrt bv
+  | UnOpType.FCOS -> BitVector.FCos bv
+  | UnOpType.FSIN -> BitVector.FSin bv
+  | UnOpType.FTAN -> BitVector.FTan bv
+  | UnOpType.FATAN -> BitVector.FAtan bv
   | _ -> Utils.impossible ()
 
 let private concretizeBinOp binopType bv1 bv2 =
   match binopType with
-  | BinOpType.ADD -> BitVector.add bv1 bv2
-  | BinOpType.SUB -> BitVector.sub bv1 bv2
-  | BinOpType.MUL -> BitVector.mul bv1 bv2
-  | BinOpType.DIV -> BitVector.div bv1 bv2
-  | BinOpType.SDIV -> BitVector.sdiv bv1 bv2
-  | BinOpType.MOD -> BitVector.modulo bv1 bv2
-  | BinOpType.SMOD -> BitVector.smodulo bv1 bv2
-  | BinOpType.SHL -> BitVector.shl bv1 bv2
-  | BinOpType.SHR -> BitVector.shr bv1 bv2
-  | BinOpType.SAR -> BitVector.sar bv1 bv2
-  | BinOpType.AND -> BitVector.band bv1 bv2
-  | BinOpType.OR -> BitVector.bor bv1 bv2
-  | BinOpType.XOR -> BitVector.bxor bv1 bv2
-  | BinOpType.CONCAT -> BitVector.concat bv1 bv2
-  | BinOpType.FADD -> BitVector.fadd bv1 bv2
-  | BinOpType.FSUB -> BitVector.fsub bv1 bv2
-  | BinOpType.FMUL -> BitVector.fmul bv1 bv2
-  | BinOpType.FDIV -> BitVector.fdiv bv1 bv2
-  | BinOpType.FPOW -> BitVector.fpow bv1 bv2
-  | BinOpType.FLOG -> BitVector.flog bv1 bv2
+  | BinOpType.ADD -> BitVector.Add (bv1, bv2)
+  | BinOpType.SUB -> BitVector.Sub (bv1, bv2)
+  | BinOpType.MUL -> BitVector.Mul (bv1, bv2)
+  | BinOpType.DIV -> BitVector.Div (bv1, bv2)
+  | BinOpType.SDIV -> BitVector.SDiv (bv1, bv2)
+  | BinOpType.MOD -> BitVector.Modulo (bv1, bv2)
+  | BinOpType.SMOD -> BitVector.SModulo (bv1, bv2)
+  | BinOpType.SHL -> BitVector.Shl (bv1, bv2)
+  | BinOpType.SHR -> BitVector.Shr (bv1, bv2)
+  | BinOpType.SAR -> BitVector.Sar (bv1, bv2)
+  | BinOpType.AND -> BitVector.BAnd (bv1, bv2)
+  | BinOpType.OR -> BitVector.BOr (bv1, bv2)
+  | BinOpType.XOR -> BitVector.BXor (bv1, bv2)
+  | BinOpType.CONCAT -> BitVector.Concat (bv1, bv2)
+  | BinOpType.FADD -> BitVector.FAdd (bv1, bv2)
+  | BinOpType.FSUB -> BitVector.FSub (bv1, bv2)
+  | BinOpType.FMUL -> BitVector.FMul (bv1, bv2)
+  | BinOpType.FDIV -> BitVector.FDiv (bv1, bv2)
+  | BinOpType.FPOW -> BitVector.FPow (bv1, bv2)
+  | BinOpType.FLOG -> BitVector.FLog (bv1, bv2)
   | _ -> Utils.impossible ()
 
 let private concretizeRelOp relopType bv1 bv2 =
   match relopType with
-  | RelOpType.EQ -> BitVector.eq bv1 bv2
-  | RelOpType.NEQ -> BitVector.neq bv1 bv2
-  | RelOpType.GT -> BitVector.gt bv1 bv2
-  | RelOpType.GE -> BitVector.ge bv1 bv2
-  | RelOpType.SGT -> BitVector.sgt bv1 bv2
-  | RelOpType.SGE -> BitVector.sge bv1 bv2
-  | RelOpType.LT -> BitVector.lt bv1 bv2
-  | RelOpType.LE -> BitVector.le bv1 bv2
-  | RelOpType.SLT -> BitVector.slt bv1 bv2
-  | RelOpType.SLE -> BitVector.sle bv1 bv2
-  | RelOpType.FGT -> BitVector.fgt bv1 bv2
-  | RelOpType.FGE -> BitVector.fge bv1 bv2
-  | RelOpType.FLT -> BitVector.flt bv1 bv2
-  | RelOpType.FLE -> BitVector.fle bv1 bv2
+  | RelOpType.EQ -> BitVector.Eq (bv1, bv2)
+  | RelOpType.NEQ -> BitVector.Neq (bv1, bv2)
+  | RelOpType.GT -> BitVector.Gt (bv1, bv2)
+  | RelOpType.GE -> BitVector.Ge (bv1, bv2)
+  | RelOpType.SGT -> BitVector.SGt (bv1, bv2)
+  | RelOpType.SGE -> BitVector.SGe (bv1, bv2)
+  | RelOpType.LT -> BitVector.Lt (bv1, bv2)
+  | RelOpType.LE -> BitVector.Le (bv1, bv2)
+  | RelOpType.SLT -> BitVector.SLt (bv1, bv2)
+  | RelOpType.SLE -> BitVector.SLe (bv1, bv2)
+  | RelOpType.FGT -> BitVector.FGt (bv1, bv2)
+  | RelOpType.FGE -> BitVector.FGe (bv1, bv2)
+  | RelOpType.FLT -> BitVector.FLt (bv1, bv2)
+  | RelOpType.FLE -> BitVector.FLe (bv1, bv2)
   | _ -> Utils.impossible ()
 
 let private concretizeCast castType rt bv =
   match castType with
-  | CastKind.SignExt -> BitVector.sext bv rt
-  | CastKind.ZeroExt -> BitVector.zext bv rt
-  | CastKind.IntToFloat -> BitVector.itof bv rt
-  | CastKind.FtoIRound -> BitVector.ftoiround bv rt
-  | CastKind.FtoICeil -> BitVector.ftoiceil bv rt
-  | CastKind.FtoIFloor -> BitVector.ftoifloor bv rt
-  | CastKind.FtoITrunc -> BitVector.ftoitrunc bv rt
-  | CastKind.FloatCast -> BitVector.fcast bv rt
+  | CastKind.SignExt -> BitVector.SExt (bv, rt)
+  | CastKind.ZeroExt -> BitVector.ZExt (bv, rt)
+  | CastKind.IntToFloat -> BitVector.Itof (bv, rt)
+  | CastKind.FtoIRound -> BitVector.FtoiRound (bv, rt)
+  | CastKind.FtoICeil -> BitVector.FtoiCeil (bv, rt)
+  | CastKind.FtoIFloor -> BitVector.FtoiFloor (bv, rt)
+  | CastKind.FtoITrunc -> BitVector.FtoiTrunc (bv, rt)
+  | CastKind.FloatCast -> BitVector.FCast (bv, rt)
   | _ -> Utils.impossible ()
 
 let rec replace ctxt expr =
@@ -119,12 +119,12 @@ let rec replace ctxt expr =
     else struct (false, expr)
   | BinOp (BinOpType.ADD, _, e, { E = Num bv }, _)
   | BinOp (BinOpType.ADD, _, { E = Num bv }, e, _)
-    when BitVector.isZero bv ->
+    when BitVector.IsZero bv ->
     let struct (changed, e') = replace ctxt e
     if changed then struct (true, e') else struct (true, e)
   | BinOp (BinOpType.MUL, _, e, { E = Num bv }, _)
   | BinOp (BinOpType.MUL, _, { E = Num bv }, e, _)
-    when BitVector.isOne bv ->
+    when BitVector.IsOne bv ->
     let struct (changed, e') = replace ctxt e
     if changed then struct (true, e') else struct (true, e)
   | BinOp (t, _, e1, e2, _) ->
@@ -154,7 +154,7 @@ let rec replace ctxt expr =
     if changed0 || changed1 || changed2 then
       match cond.E with
       | Num bv ->
-        if BitVector.isTrue bv then struct (true, e1)
+        if BitVector.IsTrue bv then struct (true, e1)
         else struct (false, e2)
       | _ -> struct (true, AST.ite cond e1 e2)
     else struct (false, expr)
@@ -169,7 +169,7 @@ let rec replace ctxt expr =
     let struct (changed, e) = replace ctxt e
     if changed then
       match e.E with
-      | Num bv -> struct (true, AST.num <| BitVector.extract bv rt pos)
+      | Num bv -> struct (true, AST.num <| BitVector.Extract (bv, rt, pos))
       | _ -> struct (true, AST.extract e rt pos)
     else struct (false, expr)
   | _ -> struct (false, expr)
@@ -201,7 +201,7 @@ let rec optimizeLoop (stmts: Stmt []) idx ctxt =
       if c0 || c1 || c2 then
         stmts[idx] <-
           match cond.E with
-          | Num n when BitVector.isOne n -> AST.interjmp e1 InterJmpKind.Base
+          | Num n when BitVector.IsOne n -> AST.interjmp e1 InterJmpKind.Base
           | Num _ -> AST.interjmp e2 InterJmpKind.Base
           | _ -> AST.intercjmp cond e1 e2
       else ()
@@ -217,7 +217,7 @@ let rec optimizeLoop (stmts: Stmt []) idx ctxt =
       if c0 || c1 || c2 then
         stmts[idx] <-
           match cond.E with
-          | Num (n) when BitVector.isOne n -> AST.jmp e1
+          | Num (n) when BitVector.IsOne n -> AST.jmp e1
           | Num (_) -> AST.jmp e2
           | _ -> AST.cjmp cond e1 e2
       else ()

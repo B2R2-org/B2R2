@@ -85,7 +85,7 @@ module BBLManager =
     (* It is reasonable enough to assume that jump target addresses will never
        overflow when rt is greater than 64<rt>. *)
     if rt > 64<rt> then 0xFFFFFFFFFFFFFFFFUL
-    else BitVector.unsignedMax rt |> BitVector.toUInt64
+    else BitVector.UnsignedMax rt |> BitVector.ToUInt64
 
   let private maskingAddr hdl addr =
     let mask = computeJumpTargetMask hdl
@@ -126,7 +126,7 @@ module BBLManager =
     | InterJmp ({ E = BinOp (BinOpType.ADD, _, { E = PCVar (_) },
                                                { E = Num bv }, _) },
                 InterJmpKind.Base) ->
-      let target = (addr + BitVector.toUInt64 bv) |> maskingAddr hdl
+      let target = (addr + BitVector.ToUInt64 bv) |> maskingAddr hdl
       (* If the ijmp statement is the last one of the corresponding basic block,
          then we know it is used to jump to another bbl. If otherwise, the ijmp
          statement should branch to the current instruction. In such a case, we
@@ -139,8 +139,8 @@ module BBLManager =
                                                    { E = Num tBv }, _) },
                     { E = BinOp (BinOpType.ADD, _, { E = PCVar _ },
                                                    { E = Num fBv }, _) }) ->
-      let tTarget = (addr + BitVector.toUInt64 tBv) |> maskingAddr hdl
-      let fTarget = (addr + BitVector.toUInt64 fBv) |> maskingAddr hdl
+      let tTarget = (addr + BitVector.ToUInt64 tBv) |> maskingAddr hdl
+      let fTarget = (addr + BitVector.ToUInt64 fBv) |> maskingAddr hdl
       if isLast then
         addExplicitBranchEvents fm addr fn tTarget InterCJmpTrueEdge tmp
         |> addExplicitBranchEvents fm addr fn fTarget InterCJmpFalseEdge
@@ -148,14 +148,14 @@ module BBLManager =
     | InterCJmp (_, { E = BinOp (BinOpType.ADD, _, { E = PCVar _ },
                                                    { E = Num tBv }, _) },
                     _) ->
-      let tTarget = (addr + BitVector.toUInt64 tBv) |> maskingAddr hdl
+      let tTarget = (addr + BitVector.ToUInt64 tBv) |> maskingAddr hdl
       if isLast then
         addExplicitBranchEvents fm addr fn tTarget InterCJmpTrueEdge tmp
       else addAddrLeader tTarget tmp
     | InterCJmp (_, _,
                     { E = BinOp (BinOpType.ADD, _, { E = PCVar _ },
                                                    { E = Num fBv }, _) }) ->
-      let fTarget = (addr + BitVector.toUInt64 fBv) |> maskingAddr hdl
+      let fTarget = (addr + BitVector.ToUInt64 fBv) |> maskingAddr hdl
       if isLast then
         addExplicitBranchEvents fm addr fn fTarget InterCJmpFalseEdge tmp
       else addAddrLeader fTarget tmp
@@ -236,13 +236,13 @@ module BBLManager =
     | InterJmp ({ E = BinOp (BinOpType.ADD, _, { E = PCVar _ },
                                                { E = Num bv }, _) },
                 InterJmpKind.Base) ->
-      let target = (addr + BitVector.toUInt64 bv) |> maskingAddr hdl
+      let target = (addr + BitVector.ToUInt64 bv) |> maskingAddr hdl
       if isLast then leader, tmp
       else leader, addInterEdge leader target InterJmpEdge tmp
     | InterJmp ({ E = BinOp (BinOpType.ADD, _, { E = PCVar _ },
                                                { E = Num bv }, _) },
                 InterJmpKind.IsCall) ->
-      let target = (addr + BitVector.toUInt64 bv) |> maskingAddr hdl
+      let target = (addr + BitVector.ToUInt64 bv) |> maskingAddr hdl
       let ftAddr = addr + uint64 insInfo.Instruction.Length
       let tmp = addCallEdgeEvents addr excTbl fn leader target ftAddr tmp
       if isLast then leader, tmp
@@ -260,8 +260,8 @@ module BBLManager =
                                                    { E = Num tBv }, _) },
                     { E = BinOp (BinOpType.ADD, _, { E = PCVar _ },
                                                    { E = Num fBv }, _) }) ->
-      let tTarget = (addr + BitVector.toUInt64 tBv) |> maskingAddr hdl
-      let fTarget = (addr + BitVector.toUInt64 fBv) |> maskingAddr hdl
+      let tTarget = (addr + BitVector.ToUInt64 tBv) |> maskingAddr hdl
+      let fTarget = (addr + BitVector.ToUInt64 fBv) |> maskingAddr hdl
       if isLast then leader, tmp
       else
         let tmp =
@@ -271,13 +271,13 @@ module BBLManager =
     | InterCJmp (_, { E = BinOp (BinOpType.ADD, _, { E = PCVar _ },
                                                    { E = Num tBv }, _) },
                     _) ->
-      let tTarget = (addr + BitVector.toUInt64 tBv) |> maskingAddr hdl
+      let tTarget = (addr + BitVector.ToUInt64 tBv) |> maskingAddr hdl
       if isLast then leader, tmp
       else leader, addInterEdge leader tTarget InterCJmpTrueEdge tmp
     | InterCJmp (_, _,
                     { E = BinOp (BinOpType.ADD, _, { E = PCVar _ },
                                                    { E = Num fBv }, _) }) ->
-      let fTarget = (addr + BitVector.toUInt64 fBv) |> maskingAddr hdl
+      let fTarget = (addr + BitVector.ToUInt64 fBv) |> maskingAddr hdl
       if isLast then leader, tmp
       else leader, addInterEdge leader fTarget InterCJmpFalseEdge tmp
     | InterJmp (_, InterJmpKind.IsRet) -> leader, tmp

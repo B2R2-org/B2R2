@@ -47,7 +47,7 @@ module WordSize =
     | "64"  -> WordSize.Bit64
     | "128" -> WordSize.Bit128
     | "256" -> WordSize.Bit256
-    | _ -> failwith "Unknown WordSize."
+    | _ -> raise InvalidWordSizeException
 
   /// Transform a word size into a byte length.
   let toByteWidth (wordSize: WordSize) = int32 wordSize / 8
@@ -60,7 +60,7 @@ module WordSize =
     | WordSize.Bit64  -> 64<rt>
     | WordSize.Bit128 -> 128<rt>
     | WordSize.Bit256 -> 256<rt>
-    | _ -> failwith "Unknown WordSize."
+    | _ -> raise InvalidWordSizeException
 
   /// Transform a word size into a string.
   let toString wordSz = (toRegType wordSz).ToString ()

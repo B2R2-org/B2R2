@@ -36,11 +36,11 @@ open B2R2.FrontEnd.BinLifter.SH4
 
 let delaySlot = new List<IRBuilder>()
 
-let numI32 n = BitVector.ofInt32 n 32<rt> |> AST.num
+let numI32 n = BitVector.OfInt32 n 32<rt> |> AST.num
 
-let numI32PC n = BitVector.ofInt32 n 32<rt> |> AST.num
+let numI32PC n = BitVector.OfInt32 n 32<rt> |> AST.num
 
-let numI64 n = BitVector.ofInt64 n 16<rt> |> AST.num
+let numI64 n = BitVector.OfInt64 n 16<rt> |> AST.num
 
 let exprToInt (n: Expr) =
   match n.E with
@@ -48,7 +48,7 @@ let exprToInt (n: Expr) =
   | _ -> Utils.impossible()
 
 let bv1Check s =
-  exprToInt s |> BitVector.isOne
+  exprToInt s |> BitVector.IsOne
 
 let inline (!.) (ctxt: TranslationContext) reg =
   Register.toRegID reg |> ctxt.GetRegVar

@@ -67,7 +67,7 @@ module private JmpTableResolution =
     (* It is reasonable enough to assume that jump target addresses will never
        overflow when rt is greater than 64<rt>. *)
     if rt > 64<rt> then 0xFFFFFFFFFFFFFFFFUL
-    else BitVector.unsignedMax rt |> BitVector.toUInt64
+    else BitVector.UnsignedMax rt |> BitVector.ToUInt64
 
   /// Read a table entry and compute jump target
   let readTable hdl bAddr (entryAddr: Addr) size =
@@ -311,8 +311,8 @@ module private JmpTableResolution =
     | Num b, Num t
     | Num b, BinOp (BinOpType.ADD, _, Num t, _)
     | Num b, BinOp (BinOpType.ADD, _, _, Num t) ->
-      let baseAddr = BitVector.toUInt64 b
-      let tblAddr = BitVector.toUInt64 t
+      let baseAddr = BitVector.ToUInt64 b
+      let tblAddr = BitVector.ToUInt64 t
       JmpTablePattern (baseAddr, tblAddr, rt)
     | _ -> UnknownPattern
 
@@ -339,7 +339,7 @@ module private JmpTableResolution =
     | Load (_, t, memExpr)
     | Cast (_, _, Load (_, t, memExpr)) ->
       if isJmpTblAddr cpState memExpr then
-        classifyWithSymbolicExpr cpState (Num <| BitVector.zero t) memExpr t
+        classifyWithSymbolicExpr cpState (Num <| BitVector.Zero t) memExpr t
       else UnknownPattern
     | _ -> UnknownPattern
 

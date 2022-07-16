@@ -39,7 +39,7 @@ type ReplState (isa: ISA, regbay: RegisterBay, doFiltering) =
   do
     regbay.GetAllRegExprs ()
     |> List.map (fun r ->
-      (regbay.RegIDFromRegExpr r, BitVector.ofInt32 0 (TypeCheck.typeOf r)))
+      (regbay.RegIDFromRegExpr r, BitVector.OfInt32 0 (TypeCheck.typeOf r)))
     |> rstate.InitializeContext 0UL
   let mutable prevReg =
     rstate.Registers.ToArray ()

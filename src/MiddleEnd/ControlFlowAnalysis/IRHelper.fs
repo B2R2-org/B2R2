@@ -94,13 +94,13 @@ let rec simplify = function
   | BinOp (BinOpType.ADD, rt, BinOp (BinOpType.ADD, _, e, Num v1), Num v2)
   | BinOp (BinOpType.ADD, rt, Num v1, BinOp (BinOpType.ADD, _, e, Num v2))
   | BinOp (BinOpType.ADD, rt, Num v1, BinOp (BinOpType.ADD, _, Num v2, e)) ->
-    BinOp (BinOpType.ADD, rt, e, Num (BitVector.add v1 v2))
-  | BinOp (BinOpType.ADD, _, Num v1, Num v2) -> Num (BitVector.add v1 v2)
-  | BinOp (BinOpType.SUB, _, Num v1, Num v2) -> Num (BitVector.sub v1 v2)
-  | BinOp (BinOpType.MUL, _, Num v1, Num v2) -> Num (BitVector.mul v1 v2)
-  | BinOp (BinOpType.DIV, _, Num v1, Num v2) -> Num (BitVector.div v1 v2)
-  | BinOp (BinOpType.AND, _, Num v1, Num v2) -> Num (BitVector.band v1 v2)
-  | BinOp (BinOpType.OR, _, Num v1, Num v2) -> Num (BitVector.bor v1 v2)
+    BinOp (BinOpType.ADD, rt, e, Num (BitVector.Add (v1, v2)))
+  | BinOp (BinOpType.ADD, _, Num v1, Num v2) -> Num (BitVector.Add (v1, v2))
+  | BinOp (BinOpType.SUB, _, Num v1, Num v2) -> Num (BitVector.Sub (v1, v2))
+  | BinOp (BinOpType.MUL, _, Num v1, Num v2) -> Num (BitVector.Mul (v1, v2))
+  | BinOp (BinOpType.DIV, _, Num v1, Num v2) -> Num (BitVector.Div (v1, v2))
+  | BinOp (BinOpType.AND, _, Num v1, Num v2) -> Num (BitVector.BAnd (v1, v2))
+  | BinOp (BinOpType.OR, _, Num v1, Num v2) -> Num (BitVector.BOr (v1, v2))
   | BinOp (op, rt, e1, e2) -> BinOp (op, rt, simplify e1, simplify e2)
   | UnOp (op, rt, e) -> UnOp (op, rt, simplify e)
   | RelOp (op, rt, e1, e2) -> RelOp (op, rt, simplify e1, simplify e2)
@@ -122,7 +122,7 @@ let rec foldWithConstant cpState = function
   | Load (m, rt, addr) as e ->
     match foldWithConstant cpState addr with
     | Num addr ->
-      let addr = BitVector.toUInt64 addr
+      let addr = BitVector.ToUInt64 addr
       match CPState.tryFindMem cpState m rt addr with
       | Some (Const bv) | Some (Thunk bv) | Some (Pointer bv) -> Num bv
       | _ -> e
@@ -158,17 +158,17 @@ let tryResolveExprToBV cpState expr =
   | _ -> None
 
 let tryConvertBVToUInt32 bv =
-  let bv = BitVector.cast bv 256<rt>
-  let maxVal = BitVector.cast BitVector.maxUInt32 256<rt>
-  let isConvertible = BitVector.le bv maxVal |> BitVector.isTrue
-  if isConvertible then bv |> BitVector.toUInt32 |> Some
+  let bv = BitVector.Cast (bv, 256<rt>)
+  let maxVal = BitVector.Cast (BitVector.MaxUInt32, 256<rt>)
+  let isConvertible = BitVector.Le (bv, maxVal) |> BitVector.IsTrue
+  if isConvertible then bv |> BitVector.ToUInt32 |> Some
   else None
 
 let tryConvertBVToUInt64 bv =
-  let bv = BitVector.cast bv 256<rt>
-  let maxVal = BitVector.cast BitVector.maxUInt64 256<rt>
-  let isConvertible = BitVector.le bv maxVal |> BitVector.isTrue
-  if isConvertible then bv |> BitVector.toUInt64 |> Some
+  let bv = BitVector.Cast (bv, 256<rt>)
+  let maxVal = BitVector.Cast (BitVector.MaxUInt64, 256<rt>)
+  let isConvertible = BitVector.Le (bv, maxVal) |> BitVector.IsTrue
+  if isConvertible then bv |> BitVector.ToUInt64 |> Some
   else None
 
 let tryResolveExprToUInt32 cpState expr =

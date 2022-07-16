@@ -71,7 +71,7 @@ module private SSABasicBlockHelper =
   let computeNextPPoint (ppoint: ProgramPoint) = function
     | Def (v, Num bv) ->
       match v.Kind with
-      | PCVar _ -> ProgramPoint (BitVector.toUInt64 bv, 0)
+      | PCVar _ -> ProgramPoint (BitVector.ToUInt64 bv, 0)
       | _ -> ProgramPoint.Next ppoint
     | _ -> ProgramPoint.Next ppoint
 
@@ -193,7 +193,7 @@ type FakeSSABasicBlock (hdl, pp, retPoint: ProgramPoint, fakeBlkInfo) =
         let src = { Kind = dst.Kind; Identifier = -1 }
         Def (dst, ReturnVal (pp.Address, retPoint.Address, src)))
     let wordSize = hdl.ISA.WordSize |> WordSize.toRegType
-    let fallThrough = BitVector.ofUInt64 retPoint.Address wordSize
+    let fallThrough = BitVector.OfUInt64 retPoint.Address wordSize
     let jmpToFallThrough = Jmp (InterJmp (Num fallThrough))
     Array.append stmts [| jmpToFallThrough |]
     |> Array.map (fun s -> ProgramPoint.GetFake (), s)

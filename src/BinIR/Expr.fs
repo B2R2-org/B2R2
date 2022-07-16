@@ -235,7 +235,7 @@ with
 module Expr =
   let rec appendToString expr (sb: StringBuilder) =
     match expr.E with
-    | Num n -> sb.Append (BitVector.toString n) |> ignore
+    | Num n -> sb.Append (BitVector.ToString n) |> ignore
     | Var (_typ, _, n, _) -> sb.Append (n) |> ignore
     | Nil -> sb.Append ("nil") |> ignore
     | PCVar (_typ, n) -> sb.Append (n) |> ignore

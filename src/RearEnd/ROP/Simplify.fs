@@ -28,42 +28,42 @@ open B2R2
 open B2R2.BinIR
 open B2R2.BinIR.LowUIR
 
-let inline negNum x = BitVector.neg x |> AST.num
+let inline negNum x = BitVector.Neg x |> AST.num
 
-let inline zeroNum ty = BitVector.zero ty |> AST.num
+let inline zeroNum ty = BitVector.Zero ty |> AST.num
 
 let inline maxNum ty =
   match ty with
-  | 8<rt>  -> BitVector.maxUInt8  |> AST.num
-  | 16<rt> -> BitVector.maxUInt16 |> AST.num
-  | 32<rt> -> BitVector.maxUInt32 |> AST.num
-  | 64<rt> -> BitVector.maxUInt64 |> AST.num
+  | 8<rt>  -> BitVector.MaxUInt8  |> AST.num
+  | 16<rt> -> BitVector.MaxUInt16 |> AST.num
+  | 32<rt> -> BitVector.MaxUInt32 |> AST.num
+  | 64<rt> -> BitVector.MaxUInt64 |> AST.num
   | _ -> failwith "maxNum fail"
 
 let inline isZero e =
   match e.E with
-  | Num n -> (BitVector.getValue n).IsZero
+  | Num n -> (BitVector.GetValue n).IsZero
   | _ -> false
 
 let inline isOne e =
   match e.E with
-  | Num n -> (BitVector.getValue n).IsOne
+  | Num n -> (BitVector.GetValue n).IsOne
   | _ -> false
 
-let isFlippable x = (BitVector.isNegative x) && not (BitVector.isSignedMin x)
+let isFlippable x = (BitVector.IsNegative x) && not (BitVector.IsSignedMin x)
 
 let inline isMax ty e =
   match e.E with
-  | Num n -> (BitVector.one ty |> BitVector.add n |> BitVector.getValue).IsZero
+  | Num n -> (BitVector.Add (n, BitVector.One ty) |> BitVector.GetValue).IsZero
   | _ -> false
 
 let inline binADD e1 e2 = AST.binop BinOpType.ADD e1 e2
 
 let inline binSUB e1 e2 = AST.binop BinOpType.SUB e1 e2
 
-let inline subNum n1 n2 = BitVector.sub n1 n2 |> AST.num
+let inline subNum n1 n2 = BitVector.Sub (n1, n2) |> AST.num
 
-let inline addNum n1 n2 = BitVector.add n1 n2 |> AST.num
+let inline addNum n1 n2 = BitVector.Add (n1, n2) |> AST.num
 
 let rec simplify expr =
   match expr.E with
@@ -230,5 +230,5 @@ and simplifyBinOp op ty e1 e2  =
 
 and simplifyCast kind ty e1 =
   match kind, e1.E with
-  | CastKind.ZeroExt, Num n -> BitVector.zext n ty |> AST.num
+  | CastKind.ZeroExt, Num n -> BitVector.ZExt (n, ty) |> AST.num
   | _, _ -> AST.cast kind ty <| simplify e1
