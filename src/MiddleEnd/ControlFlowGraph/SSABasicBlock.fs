@@ -187,16 +187,18 @@ type FakeSSABasicBlock (hdl, pp, retPoint: ProgramPoint, fakeBlkInfo) =
   inherit SSABasicBlock (pp, [||])
 
   let mutable stmts: SSAStmtInfo [] =
-    let stmts = (* For a fake block, we check which var can be modified. *)
-      computeDefinedVars hdl fakeBlkInfo.GetPCThunkInfo fakeBlkInfo.IsPLT
-      |> Array.map (fun dst ->
-        let src = { Kind = dst.Kind; Identifier = -1 }
-        Def (dst, ReturnVal (pp.Address, retPoint.Address, src)))
-    let wordSize = hdl.ISA.WordSize |> WordSize.toRegType
-    let fallThrough = BitVector.OfUInt64 retPoint.Address wordSize
-    let jmpToFallThrough = Jmp (InterJmp (Num fallThrough))
-    Array.append stmts [| jmpToFallThrough |]
-    |> Array.map (fun s -> ProgramPoint.GetFake (), s)
+    if fakeBlkInfo.IsTailCall then [||]
+    else
+      let stmts = (* For a fake block, we check which var can be modified. *)
+        computeDefinedVars hdl fakeBlkInfo.GetPCThunkInfo fakeBlkInfo.IsPLT
+        |> Array.map (fun dst ->
+          let src = { Kind = dst.Kind; Identifier = -1 }
+          Def (dst, ReturnVal (pp.Address, retPoint.Address, src)))
+      let wordSize = hdl.ISA.WordSize |> WordSize.toRegType
+      let fallThrough = BitVector.OfUInt64 retPoint.Address wordSize
+      let jmpToFallThrough = Jmp (InterJmp (Num fallThrough))
+      Array.append stmts [| jmpToFallThrough |]
+      |> Array.map (fun s -> ProgramPoint.GetFake (), s)
 
   let mutable fakeBlkInfo = fakeBlkInfo
 

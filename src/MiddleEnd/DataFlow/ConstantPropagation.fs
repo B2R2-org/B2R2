@@ -67,13 +67,15 @@ type ConstantPropagation<'L when 'L: equality> (ssaCFG) =
       blk.VData.SSAStmtInfos
       |> Array.iter (fun (ppoint, stmt) ->
         st.CPCore.Transfer st ssaCFG blk ppoint stmt)
-      match blk.VData.GetLastStmt () with
-      | Jmp _ -> ()
-      | _ -> (* Fall-through cases. *)
-        DiGraph.getSuccs ssaCFG blk
-        |> List.iter (fun succ ->
-          let succid = succ.GetID ()
-          CPState.markExecutable st myid succid)
+      if blk.VData.IsFakeBlock () then ()
+      else
+        match blk.VData.GetLastStmt () with
+        | Jmp _ -> ()
+        | _ -> (* Fall-through cases. *)
+          DiGraph.getSuccs ssaCFG blk
+          |> List.iter (fun succ ->
+            let succid = succ.GetID ()
+            CPState.markExecutable st myid succid)
     else ()
 
   member __.Compute (root: Vertex<_>) =
