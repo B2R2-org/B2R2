@@ -107,6 +107,10 @@ type S =
   /// Otherwise, jump to the address specified by the third argument.
   | InterCJmp of Expr * Expr * Expr
 
+  /// External function call. This statement represents a uninterpreted function
+  /// call. The argument expression is in a curried form.
+  | ExternalCall of Expr
+
   /// This represents an instruction with side effects such as a system call.
   | SideEffect of SideEffect
 #if ! HASHCONS
@@ -158,8 +162,11 @@ with
   static member inline HashInterCJmp (cond: Expr) (t: Expr) (f: Expr) =
     19 * (19 * (19 * cond.HashKey + t.HashKey) + f.HashKey) + 9
 
+  static member inline HashExtCall (e: Expr) =
+    (19 * e.HashKey) + 10
+
   static member inline HashSideEffect (e: SideEffect) =
-    (19 * hash e) + 10
+    (19 * hash e) + 11
 
   override __.GetHashCode () =
     match __ with
@@ -172,6 +179,7 @@ with
     | CJmp (cond, t, f) -> S.HashCJmp cond t f
     | InterJmp (e, k) -> S.HashInterJmp e k
     | InterCJmp (cond, t, f) -> S.HashInterCJmp cond t f
+    | ExternalCall (e) -> S.HashExtCall e
     | SideEffect (e) -> S.HashSideEffect e
 #endif
 
@@ -242,6 +250,9 @@ module Stmt =
       Expr.appendToString t sb
       sb.Append (" else ijmp ") |> ignore
       Expr.appendToString f sb
+    | ExternalCall (args) ->
+      sb.Append ("Call") |> ignore
+      Expr.appendToString args sb
     | SideEffect eff ->
       sb.Append ("!!" + SideEffect.toString eff) |> ignore
 

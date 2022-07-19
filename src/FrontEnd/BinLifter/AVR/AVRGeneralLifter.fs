@@ -923,7 +923,7 @@ let des ins len ctxt =
   let ir = IRBuilder (4)
   let dst = transOneOpr ins ctxt
   !<ir len
-  !!ir (AST.sideEffect (ExternalCall dst))
+  !!ir (AST.sideEffect UnsupportedExtension)
   !>ir len
 
 let xch ins len ctxt =

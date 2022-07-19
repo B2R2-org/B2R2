@@ -26,6 +26,7 @@ namespace B2R2.BinIR.LowUIR
 
 open System.Text
 #if HASHCONS
+open System
 open LanguagePrimitives
 #endif
 open B2R2

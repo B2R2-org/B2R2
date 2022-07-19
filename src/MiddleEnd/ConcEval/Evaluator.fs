@@ -176,6 +176,18 @@ let private evalIntCJmp st cond t f =
   let cond = evalConcrete st cond
   evalPCUpdate st (if cond = tr then t else f)
 
+let rec concretizeArgs st acc = function
+  | arg :: tl ->
+    let v = evalConcrete st arg
+    concretizeArgs st (v :: acc) tl
+  | [] -> acc
+
+let private evalArgs st args =
+  match args with
+  | { E = BinOp (BinOpType.APP, _, _, args, _) } ->
+    uncurryArgs [] args |> concretizeArgs st []
+  | _ -> Utils.impossible ()
+
 let evalStmt (st: EvalState) s =
   match s.S with
   | ISMark (len) -> st.CurrentInsLen <- len; st.NextStmt ()
@@ -188,6 +200,7 @@ let evalStmt (st: EvalState) s =
   | CJmp (cond, t, f) -> evalCJmp st cond t f
   | InterJmp (target, _) -> evalPCUpdate st target |> st.AbortInstr
   | InterCJmp (c, t, f) -> evalIntCJmp st c t f |> st.AbortInstr
+  | ExternalCall (args) -> st.OnExternalCall (evalArgs st args) st
   | SideEffect eff -> st.OnSideEffect eff st
 
 let internal tryEvaluate stmt st =

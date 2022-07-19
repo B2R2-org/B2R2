@@ -186,7 +186,7 @@ type LowUIRParser (isa, regbay: RegisterBay) =
 
   let () =
     opp.TermParser <- term
-    pExprRef := pOps
+    pExprRef.Value <- pOps
 
     [ AST.binop BinOpType.ADD, "+", 3, Associativity.Left
       AST.binop BinOpType.SUB, "-", 3, Associativity.Left
@@ -292,6 +292,11 @@ type LowUIRParser (isa, regbay: RegisterBay) =
       let rt = TypeCheck.typeOf tExp
       AST.intercjmp cond tExp fExp)
 
+  let pExtCall =
+    ws
+    >>. (pstringCI "call " >>. pExpr)
+    |>> AST.extCall
+
   let pException =
     pstringCI "Exception"
     >>. ws >>. pchar '(' >>. ws >>. pIdentifier .>> ws .>> pchar ')'
@@ -313,7 +318,6 @@ type LowUIRParser (isa, regbay: RegisterBay) =
     <|> attempt (pstringCI "privinstr" >>% UnsupportedPrivInstr)
     <|> attempt (pstringCI "far" >>% UnsupportedFAR)
     <|> attempt (pstringCI "cpu extension" >>% UnsupportedExtension)
-    <|> attempt (pstringCI "call " >>. pExpr |>> ExternalCall)
 
   let pSideEffect =
     ws
@@ -330,6 +334,7 @@ type LowUIRParser (isa, regbay: RegisterBay) =
     <|> attempt pCJmp
     <|> attempt pInterJmp
     <|> attempt pInterCJmp
+    <|> attempt pExtCall
     <|> attempt pSideEffect
     >>= typeCheck
 

@@ -229,7 +229,7 @@ let rec optimizeLoop (stmts: Stmt []) idx ctxt =
                 | _ -> rhs
       updateContextAtDef ctxt lhs rhs
       optimizeLoop stmts (idx + 1) ctxt
-    | ISMark _ | IEMark _ | SideEffect _ ->
+    | ISMark _ | IEMark _ | ExternalCall _ | SideEffect _ ->
       optimizeLoop stmts (idx + 1) ctxt
   else stmts
 

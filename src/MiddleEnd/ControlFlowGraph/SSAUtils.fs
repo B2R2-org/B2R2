@@ -148,7 +148,7 @@ let rec introduceDefList count stack = function
 let renameStmt count stack (_, stmt) =
   match stmt with
   | SSA.LMark _ -> ()
-  | SSA.SideEffect (SSA.ExternalCall e, inVars, outVars) ->
+  | SSA.ExternalCall (e, inVars, outVars) ->
     renameExpr stack e
     renameVarList stack inVars
     introduceDefList count stack outVars

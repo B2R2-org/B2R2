@@ -81,13 +81,10 @@ module private SSABasicBlockHelper =
     inVar :: inVars, outVar :: outVars
 
   let private postprocessStmtForEVM = function
-    | SideEffect (eff, _, _) as stmt ->
-      match eff with
-      | ExternalCall (BinOp (BinOpType.APP, _,
-                                    FuncName "calldatacopy", _)) ->
-        let inVars, outVars = addInOutMemVars [] []
-        SideEffect (eff, inVars, outVars)
-      | _ -> stmt
+    | ExternalCall ((BinOp (BinOpType.APP, _, FuncName "calldatacopy", _)) as e,
+                    _, _) ->
+      let inVars, outVars = addInOutMemVars [] []
+      ExternalCall (e, inVars, outVars)
     | stmt -> stmt
 
   let private postprocessOthers stmt = stmt

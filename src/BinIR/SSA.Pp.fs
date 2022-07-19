@@ -155,10 +155,13 @@ let private stmtToStringAux stmt (sb: StringBuilder) =
       sb.Append (i.ToString ()) |> ignore
       sb.Append (";") |> ignore)
     sb.Append (")") |> ignore
-  | SideEffect (eff, inVars, outVars) ->
-    sb.Append ("SideEffect " + eff.ToString ()) |> ignore
+  | ExternalCall (args, inVars, outVars) ->
+    sb.Append ("call ") |> ignore
+    expToStringAux args sb
     variablesToString "OutVars" outVars sb
     variablesToString "InVars" inVars sb
+  | SideEffect (eff) ->
+    sb.Append ("SideEffect " + SideEffect.toString eff) |> ignore
 
 let expToString expr =
   let sb = new StringBuilder ()

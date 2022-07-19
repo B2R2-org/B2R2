@@ -995,6 +995,22 @@ let intercjmp cond d1 d2 =
     s'
 #endif
 
+/// An external call statement.
+[<CompiledName("ExtCall")>]
+let extCall appExpr =
+#if ! HASHCONS
+  ExternalCall (appExpr) |> ASTHelper.buildStmt
+#else
+  let k = ExternalCall appExpr
+  match tryGetStmt k with
+  | Ok s -> s
+  | Error isReclaimed ->
+    let s' = { S = k; Tag = newSTag (); HashKey = S.HashExtCall appExpr }
+    if isReclaimed then stmts[k].SetTarget s'
+    else stmts[k] <- WeakReference<Stmt> s'
+    s'
+#endif
+
 /// A SideEffect statement.
 [<CompiledName("SideEffect")>]
 let sideEffect eff =

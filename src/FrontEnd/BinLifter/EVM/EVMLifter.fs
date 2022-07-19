@@ -292,7 +292,7 @@ let callExternFunc insInfo ctxt name argCount doesRet =
   let args = List.init argCount (fun _ -> popFromStack ctxt builder)
   let expr = AST.app name args OperationSize.regType
   if doesRet then pushToStack ctxt expr builder
-  else builder <! (AST.sideEffect (ExternalCall expr))
+  else builder <! (AST.extCall expr)
   updateGas ctxt insInfo.GAS builder
   endMark insInfo builder
 

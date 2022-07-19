@@ -284,11 +284,11 @@
         }
     },
     "trailingWhitespaceOnLine": {
-        "enabled": false,
+        "enabled": true,
         "config": {
-            "numberOfSpacesAllowed": 1,
-            "oneSpaceAllowedAfterOperator": true,
-            "ignoreBlankLines": true
+            "numberOfSpacesAllowed": 0,
+            "oneSpaceAllowedAfterOperator": false,
+            "ignoreBlankLines": false
         }
     },
     "maxLinesInFile": {
@@ -297,7 +297,7 @@
             "maxLinesInFile": 1000
         }
     },
-    "trailingNewLineInFile": { "enabled": true },
+    "trailingNewLineInFile": { "enabled": false},
     "noTabCharacters": { "enabled": true },
     "noPartialFunctions": {
         "enabled": false,

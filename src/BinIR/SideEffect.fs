@@ -24,8 +24,6 @@
 
 namespace B2R2.BinIR
 
-open B2R2.BinIR.LowUIR
-
 /// Side effect kinds.
 type SideEffect =
   /// Software breakpoint.
@@ -62,8 +60,6 @@ type SideEffect =
   | UnsupportedFAR
   /// Unsupported processor extension.
   | UnsupportedExtension
-  /// External function call.
-  | ExternalCall of Expr
 
 module SideEffect =
   let toString = function
@@ -83,4 +79,3 @@ module SideEffect =
     | UnsupportedPrivInstr -> "PrivInstr"
     | UnsupportedFAR -> "FAR"
     | UnsupportedExtension -> "CPU extension"
-    | ExternalCall expr -> "Call " + Expr.toString expr

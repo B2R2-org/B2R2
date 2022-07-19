@@ -43,6 +43,9 @@ and StoreEventHandler =
 and PutEventHandler =
   delegate of Addr * BitVector -> unit
 
+and ExternalCallEventHandler =
+  delegate of BitVector list * EvalState -> unit
+
 and SideEffectEventHandler =
   delegate of SideEffect * EvalState -> unit
 
@@ -64,6 +67,7 @@ and EvalState (regs, temps, lbls, mem, ignoreUndef) =
   let mutable loadFailureHdl = LoadFailureEventHandler (fun _ _ _ e -> Error e)
   let mutable storeEventHdl = StoreEventHandler (fun _ _ _ -> ())
   let mutable putEventHdl = PutEventHandler (fun _ _ -> ())
+  let mutable externalCallEventHdl = ExternalCallEventHandler (fun _ _ -> ())
   let mutable sideEffectHdl = SideEffectEventHandler (fun _ _ -> ())
   let mutable stmtEvalHdl = StmtEvalEventHandler (fun _ -> ())
 
@@ -228,6 +232,10 @@ and EvalState (regs, temps, lbls, mem, ignoreUndef) =
   member __.PutEventHandler
     with get() = putEventHdl and set(f) = putEventHdl <- f
 
+  /// External call event handler.
+  member __.ExternalCallEventHandler
+    with get() = externalCallEventHdl and set(f) = externalCallEventHdl <- f
+
   /// Side-effect event handler.
   member __.SideEffectEventHandler
     with get() = sideEffectHdl and set(f) = sideEffectHdl <- f
@@ -250,6 +258,9 @@ and EvalState (regs, temps, lbls, mem, ignoreUndef) =
 
   member internal __.OnPut pc v =
     __.PutEventHandler.Invoke (pc, v)
+
+  member internal __.OnExternalCall args st =
+    __.ExternalCallEventHandler.Invoke (args, st)
 
   member internal __.OnSideEffect eff st =
     __.SideEffectEventHandler.Invoke (eff, st)
@@ -275,6 +286,7 @@ and EvalState (regs, temps, lbls, mem, ignoreUndef) =
                LoadFailureEventHandler=loadFailureHdl,
                StoreEventHandler=storeEventHdl,
                PutEventHandler=putEventHdl,
+               ExternalCallEventHandler=externalCallEventHdl,
                SideEffectEventHandler=sideEffectHdl,
                StmtEvalEventHandler=stmtEvalHdl)
 

@@ -202,6 +202,19 @@ let private evalIntCJmp st cond t f =
   | Ok cond -> evalPCUpdate st (if cond = tr then t else f)
   | Error e -> Error e
 
+let rec concretizeArgs st acc = function
+  | arg :: tl ->
+    match evalConcrete st arg with
+    | Ok (Def v) -> concretizeArgs st (v :: acc) tl
+    | _ -> Error ErrorCase.InvalidExprEvaluation
+  | [] -> Ok acc
+
+let private evalArgs st args =
+  match args with
+  | { E = BinOp (BinOpType.APP, _, _, args, _) } ->
+    uncurryArgs [] args |> concretizeArgs st []
+  | _ -> Utils.impossible ()
+
 /// Evaluate an IR statement.
 let evalStmt (st: EvalState) = function
   | ISMark (len) -> st.CurrentInsLen <- len; st.NextStmt () |> Ok
@@ -213,6 +226,8 @@ let evalStmt (st: EvalState) = function
   | CJmp (cond, t, f) -> evalCJmp st cond t f
   | InterJmp (target, _) -> evalPCUpdate st target |> Result.map st.AbortInstr
   | InterCJmp (c, t, f) -> evalIntCJmp st c t f |> Result.map st.AbortInstr
+  | ExternalCall (args) ->
+    evalArgs st args |> Result.map (fun args -> st.OnExternalCall args st)
   | SideEffect eff -> st.OnSideEffect eff st |> ignore |> Ok
 
 let internal tryEvaluate stmt st =
@@ -241,7 +256,7 @@ let rec internal evalStmts stmts result =
     else Ok st
   | Error _ -> result
 
-let rec private evalBlockLoop idx (blk: Stmt [][]) result =
+let rec private evalBlockLoop idx (blk: Stmt[][]) result =
   match result with
   | Ok (st: EvalState) ->
     if idx < blk.Length then

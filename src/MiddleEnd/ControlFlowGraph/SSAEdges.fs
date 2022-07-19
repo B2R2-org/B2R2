@@ -79,7 +79,7 @@ let compute ssaCFG =
     |> Array.foldi (fun acc idx (_, stmt) ->
       match stmt with
       | SSA.LMark _ -> acc
-      | SSA.SideEffect (SSA.ExternalCall expr, inVars, outVars) ->
+      | SSA.ExternalCall (expr, inVars, outVars) ->
         let loc = vid, idx
         computeUses loc expr acc
         |> addDefs outVars stmt

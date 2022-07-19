@@ -35,11 +35,11 @@ open B2R2.MiddleEnd.DataFlow
 type EVMCodeCopyAnalysis () =
   let accumulateCodeCopyInfo (cpState: CPState<SCPValue>) (stmt: SSA.Stmt) acc =
     match stmt with
-    | SideEffect (ExternalCall (
-                    BinOp (BinOpType.APP, _, FuncName "codecopy",
-                      BinOp (BinOpType.CONS, _, tmpVarDst,
-                        BinOp (BinOpType.CONS, _, tmpVarSrc,
-                          BinOp (BinOpType.CONS, _, tmpVarLen, _))))), _, _) ->
+    | ExternalCall (
+        BinOp (BinOpType.APP, _, FuncName "codecopy",
+          BinOp (BinOpType.CONS, _, tmpVarDst,
+            BinOp (BinOpType.CONS, _, tmpVarSrc,
+              BinOp (BinOpType.CONS, _, tmpVarLen, _)))), _, _) ->
       let dst = tmpVarDst |> IRHelper.tryResolveExprToUInt64 cpState
       let src = tmpVarSrc |> IRHelper.tryResolveExprToUInt64 cpState
       let len = tmpVarLen |> IRHelper.tryResolveExprToUInt64 cpState

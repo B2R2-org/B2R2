@@ -121,28 +121,11 @@ let rec private translateStmtAux defaultRegType addr (s: LowUIR.Stmt) =
     let expr3 = translateExpr expr3
     let jmp = InterCJmp (expr1, expr2, expr3)
     Jmp jmp |> Some
+  | LowUIR.ExternalCall (args) ->
+    let e = args |> translateExpr
+    ExternalCall (e, [], []) |> Some
   | LowUIR.SideEffect s ->
-    let ssaForm =
-      match s with
-      | Breakpoint -> SSA.Breakpoint
-      | ClockCounter -> SSA.ClockCounter
-      | Fence -> SSA.Fence
-      | Delay -> SSA.Delay
-      | Terminate -> SSA.Terminate
-      | Interrupt (v) -> SSA.Interrupt (v)
-      | Exception (v) -> SSA.Exception (v)
-      | Lock -> SSA.Lock
-      | Unlock -> SSA.Unlock
-      | ProcessorID -> SSA.ProcessorID
-      | SysCall -> SSA.SysCall
-      | UndefinedInstr -> SSA.UndefinedInstr
-      | UnsupportedFP -> SSA.UnsupportedFP
-      | UnsupportedPrivInstr -> SSA.UnsupportedPrivInstr
-      | UnsupportedFAR -> SSA.UnsupportedFAR
-      | UnsupportedExtension -> SSA.UnsupportedExtension
-      | ExternalCall (expr) ->
-        expr |> translateExpr |> SSA.ExternalCall
-    SideEffect (ssaForm, [], []) |> Some
+    SideEffect s |> Some
 
 let translateStmts defaultRegType addr fnPostprocess stmts =
   stmts

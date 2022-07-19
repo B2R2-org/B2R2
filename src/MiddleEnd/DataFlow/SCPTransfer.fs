@@ -170,4 +170,4 @@ let evalStmt st cfg blk = function
   | Def (v, e) -> evalDef st blk v e
   | Phi (v, ns) -> evalPhi st cfg blk v ns
   | Jmp jmpTy -> evalJmp st cfg blk jmpTy
-  | LMark _ | SideEffect _ -> ()
+  | LMark _ | ExternalCall _ | SideEffect _ -> ()
