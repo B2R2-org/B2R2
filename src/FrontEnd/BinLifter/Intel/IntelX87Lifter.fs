@@ -130,13 +130,13 @@ let private castTo80Bit ctxt tmpB tmpA srcExpr ir =
   | 32<rt> ->
     let tmpSrc = !*ir oprSize
     let n31 = numI32 31 32<rt>
-    let n15 = numI32 15 32<rt>
+    let n15 = numI32 15 16<rt>
     let n23 = numI32 23 32<rt>
     let one = numI32 1 32<rt>
-    let biasDiff = numI32 0x3f80 32<rt>
-    let sign = AST.xtlo 16<rt> (((tmpSrc >> n31) .& one) << n15)
+    let biasDiff = numI32 0x3f80 16<rt>
+    let sign = (AST.xtlo 16<rt> ((tmpSrc >> n31) .& one)) << n15
     let exponent =
-      AST.xtlo 16<rt> (((tmpSrc >> n23) .& (numI32 0xff 32<rt>)) .+ biasDiff)
+      (AST.xtlo 16<rt> (((tmpSrc >> n23) .& (numI32 0xff 32<rt>)))) .+ biasDiff
     let integerpart = numI64 0x0010000000000000L 64<rt>
     let significand =
       (AST.zext 64<rt> (tmpSrc .& numI32 0x7fffff 32<rt>)) .| integerpart
@@ -146,13 +146,13 @@ let private castTo80Bit ctxt tmpB tmpA srcExpr ir =
   | 64<rt> ->
     let tmpSrc = !*ir oprSize
     let n63 = numI32 63 64<rt>
-    let n15 = numI32 15 64<rt>
+    let n15 = numI32 15 16<rt>
     let n52 = numI32 52 64<rt>
     let one = numI32 1 64<rt>
-    let biasDiff = numI32 0x3c00 64<rt>
-    let sign = AST.xtlo 16<rt> (((tmpSrc >> n63) .& one) << n15)
+    let biasDiff = numI32 0x3c00 16<rt>
+    let sign = (AST.xtlo 16<rt> (((tmpSrc >> n63) .& one))) << n15
     let exponent =
-      AST.xtlo 16<rt> (((tmpSrc>> n52) .& (numI32 0x7ff 64<rt>)) .+ biasDiff)
+      (AST.xtlo 16<rt> (((tmpSrc>> n52) .& (numI32 0x7ff 64<rt>)))) .+ biasDiff
     let integerpart = numI64 0x0010000000000000L 64<rt>
     let significand = tmpSrc .& numI64 0xFFFFFFFFFFFFFL 64<rt> .| integerpart
     !!ir (tmpSrc := srcExpr)
@@ -983,8 +983,14 @@ let fld1 _ins insLen ctxt =
   fpuLoad insLen ctxt oprExpr
 
 let fldz _ins insLen ctxt =
-  let oprExpr = AST.num0 64<rt>
-  fpuLoad insLen ctxt oprExpr
+  let ir = IRBuilder (64)
+  let struct (st0b, st0a) = getFPUPseudoRegVars ctxt R.ST0
+  !<ir insLen
+  !?ir (pushFPUStack ctxt)
+  !!ir (st0b := AST.num0 16<rt>)
+  !!ir (st0a := AST.num0 64<rt>)
+  !?ir (updateC1OnLoad ctxt)
+  !>ir insLen
 
 let fldpi _ins insLen ctxt =
   let oprExpr = numU64 4614256656552045848UL 64<rt>
