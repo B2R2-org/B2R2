@@ -91,7 +91,7 @@ type ReplState (isa: ISA, regbay: RegisterBay, doFiltering) =
 
   /// Gets a temporary register name and EvalValue string representation.
   member private __.TempRegString (n: int) v =
-    "T_" + string (n) + ": " + v.ToString ()
+    "T_" + string (n) + ": " + (if isNull v then "n/a" else v.ToString ())
 
   member __.GetAllTempValString delta =
     let set = Set.ofList delta
