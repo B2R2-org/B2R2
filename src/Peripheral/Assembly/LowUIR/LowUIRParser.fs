@@ -80,7 +80,8 @@ type LowUIRParser (isa, regbay: RegisterBay) =
     |> List.map pstring |> List.map attempt |> choice |>> UnOpType.ofString
 
   let pCastType =
-    [ "sext"; "zext"; "float"; "round"; "ceil"; "floor"; "trunc"; "fext" ]
+    [ "sext"; "zext"; "float"; "round"; "ceil"; "floor"; "trunc"; "fext"
+      "roundf"; "ceilf"; "floorf"; "truncf" ]
     |> List.map pstring |> List.map attempt |> choice |>> CastKind.ofString
 
   let pExpr, pExprRef = createParserForwardedToRef ()

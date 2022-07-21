@@ -32,7 +32,7 @@ type CastKind =
   | ZeroExt = 1
   /// Integer to float conversion
   | IntToFloat = 2
-  /// Float to Nearest Integer rounded conversion
+  /// Float to Nearest Integer rounded conversion. Ties to even.
   | FtoIRound = 3
   /// Float to Integer rounded up conversion (toward +inf).
   | FtoICeil = 4
@@ -43,6 +43,18 @@ type CastKind =
   | FtoITrunc = 6
   /// Float to Float conversion with different precisions
   | FloatCast = 7
+  /// Float to Float conversion while rounding to nearest integer.. Ties to
+  /// even.
+  | FtoFRound = 8
+  /// Float to Float conversion while rounding toward +inf. E.g., 23.2 -> 24.0,
+  /// and -23.7 -> -23.
+  | FtoFCeil = 9
+  /// Float to Float conversion while rounding toward -inf. E.g., 23.7 -> 23.0,
+  /// and -23.2 -> -24.
+  | FtoFFloor = 10
+  /// Float to Float conversion while rounding toward zero. E.g. 23.7 -> 23.0,
+  /// and -23.7 -> -23.
+  | FtoFTrunc = 11
 
 module CastKind =
   let toString = function
@@ -54,6 +66,10 @@ module CastKind =
     | CastKind.FtoIFloor -> "floor"
     | CastKind.FtoITrunc -> "trunc"
     | CastKind.FloatCast -> "fext"
+    | CastKind.FtoFRound -> "roundf"
+    | CastKind.FtoFCeil -> "ceilf"
+    | CastKind.FtoFFloor -> "floorf"
+    | CastKind.FtoFTrunc -> "truncf"
     | _ -> raise IllegalASTTypeException
 
   let ofString = function
@@ -65,4 +81,8 @@ module CastKind =
     | "floor" -> CastKind.FtoIFloor
     | "trunc" -> CastKind.FtoITrunc
     | "fext" -> CastKind.FloatCast
+    | "roundf" -> CastKind.FtoFRound
+    | "ceilf" -> CastKind.FtoFCeil
+    | "floorf" -> CastKind.FtoFFloor
+    | "truncf" -> CastKind.FtoFTrunc
     | _ -> raise IllegalASTTypeException
