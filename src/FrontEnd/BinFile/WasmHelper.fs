@@ -94,9 +94,7 @@ let getDynamicSymbols wm excludeImported =
       match wm.ImportSection with
       | Some is ->
         match is.Contents with
-        | Some iv ->
-          iv.Elements
-          |> Array.map (fun ie -> importEntryToSymbol ie)
+        | Some iv -> iv.Elements |> Array.map importEntryToSymbol
         | None -> [||]
       | None -> [||]
     else [||]
@@ -104,9 +102,7 @@ let getDynamicSymbols wm excludeImported =
     match wm.ExportSection with
     | Some es ->
       match es.Contents with
-      | Some ev ->
-        ev.Elements
-        |> Array.map (fun ee -> exportEntryToSymbol ee)
+      | Some ev -> ev.Elements |> Array.map exportEntryToSymbol
       | None -> [||]
     | None -> [||]
   Seq.append imports exports
@@ -145,12 +141,10 @@ let getSectionsByName wm name =
   | None -> Seq.empty
 
 let importToLinkageTableEntry (entry: Import) =
-  {
-    FuncName = entry.Name
+  { FuncName = entry.Name
     LibraryName = entry.ModuleName
     TrampolineAddress = 0UL
-    TableAddress = uint64 entry.Offset
-  }
+    TableAddress = uint64 entry.Offset }
 
 let getImports wm =
   match wm.ImportSection with
@@ -158,13 +152,11 @@ let getImports wm =
     match sec.Contents with
     | Some conts ->
       conts.Elements
-      |> Array.filter
-        (fun ie ->
+      |> Array.filter (fun ie ->
           match ie.Desc with
           | ImpFunc _ -> true
-          | _ -> false
-        )
-      |> Array.map (fun ie -> importToLinkageTableEntry ie)
+          | _ -> false)
+      |> Array.map importToLinkageTableEntry
       |> Seq.ofArray
     | None -> Seq.empty
   | None -> Seq.empty

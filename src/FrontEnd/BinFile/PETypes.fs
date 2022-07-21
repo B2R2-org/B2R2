@@ -222,8 +222,8 @@ type SymFlags =
   | Managed = 0b0100
   | MSIL = 0b1000
 
-/// PE symbol. We separate B2R2.FrontEnd.BinFile.Symbol from format-specific symbol type
-/// for ease of analysis.
+/// PE symbol. We separate B2R2.FrontEnd.BinFile.Symbol from format-specific
+/// symbol type for ease of analysis.
 type PESymbol = {
   Flags: SymFlags
   Address: Addr

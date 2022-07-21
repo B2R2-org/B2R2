@@ -316,7 +316,8 @@ let parseImage execpath rawpdb baseAddr bytes reader (hdrs: PEHeaders) =
     ForwardMap = forwardMap
     RelocBlocks = parseRelocation bytes reader hdrs secs
     WordSize = wordSize
-    SymbolInfo = getPDBSymbols reader execpath rawpdb |> buildPDBInfo baseAddr secs
+    SymbolInfo =
+      getPDBSymbols reader execpath rawpdb |> buildPDBInfo baseAddr secs
     InvalidAddrRanges = computeInvalidAddrRanges wordSize baseAddr secs
     NotInFileRanges = computeNotInFileRanges wordSize baseAddr secs
     ExecutableRanges = execRanges baseAddr secs

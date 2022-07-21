@@ -46,7 +46,7 @@ type PEFileInfo (bytes, path, baseAddr, rawpdb) =
   override __.FileType = getFileType pe
   override __.FilePath = path
   override __.WordSize = getWordSize pe
-  override __.IsStripped = Array.length pe.SymbolInfo.SymbolArray = 0
+  override __.IsStripped = Array.isEmpty pe.SymbolInfo.SymbolArray
   override __.IsNXEnabled = isNXEnabled pe
   override __.IsRelocatable = isRelocatable pe
   override __.BaseAddress = pe.BaseAddr

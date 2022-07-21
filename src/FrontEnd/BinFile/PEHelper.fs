@@ -30,7 +30,7 @@ open B2R2.Monads
 open B2R2.FrontEnd.BinFile
 open System.Reflection.PortableExecutable
 
-let [<Literal>] secText = ".text"
+let [<Literal>] SecText = ".text"
 
 let getFileType pe =
   let c = pe.PEHeaders.CoffHeader.Characteristics
@@ -99,7 +99,7 @@ let getSectionsByName pe name =
   | Some sec -> secHdrToSection pe sec |> Seq.singleton
 
 let getTextStartAddr pe =
-  match getSectionsByName pe secText |> Seq.tryHead with
+  match getSectionsByName pe SecText |> Seq.tryHead with
   | None -> 0UL
   | Some sec -> sec.Address
 
@@ -222,7 +222,7 @@ let getSectionsByAddr pe addr =
     pe.SectionHeaders[idx] |> secHdrToSection pe |> Seq.singleton
 
 let getTextSections pe =
-  getSectionsByName pe secText
+  getSectionsByName pe SecText
 
 let getImportTable pe =
   pe.ImportMap

@@ -37,16 +37,16 @@ type Vector<'TElement> = {
 }
 
 type ValueType =
-  | i32 = 0x7Fuy
-  | i64 = 0x7Euy
-  | f32 = 0x7Duy
-  | f64 = 0x7Cuy
+  | I32 = 0x7Fuy
+  | I64 = 0x7Euy
+  | F32 = 0x7Duy
+  | F64 = 0x7Cuy
 
 type ConstExprValueType =
-  | i32 = 0x41uy
-  | i64 = 0x42uy
-  | f32 = 0x43uy
-  | f64 = 0x44uy
+  | I32 = 0x41uy
+  | I64 = 0x42uy
+  | F32 = 0x43uy
+  | F64 = 0x44uy
 
 type ConstExpr =
   | I32 of uint32

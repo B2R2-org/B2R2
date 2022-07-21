@@ -34,17 +34,17 @@ let peekConstExpr (span: ByteSpan) (reader: IBinReader) offset =
     |> LanguagePrimitives.EnumOfValue
   let offset' = offset + 1
   match evt with
-  | ConstExprValueType.i32 ->
+  | ConstExprValueType.I32 ->
     let v, len = reader.ReadUInt32LEB128 (span, offset')
     I32 (v), offset' + len + 1
-  | ConstExprValueType.i64 ->
+  | ConstExprValueType.I64 ->
     let v, len = reader.ReadUInt64LEB128 (span, offset')
     I64 (v), offset' + len + 1
-  | ConstExprValueType.f32 ->
+  | ConstExprValueType.F32 ->
     let b = reader.ReadBytes (span, offset', 4)
     let v = BitConverter.ToSingle (b, 0)
     F32 (v), offset' + 4 + 1
-  | ConstExprValueType.f64 ->
+  | ConstExprValueType.F64 ->
     let b = reader.ReadBytes (span, offset', 8)
     let v = BitConverter.ToDouble (b, 0)
     F64 (v), offset' + 8 + 1

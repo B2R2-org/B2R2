@@ -45,7 +45,7 @@ type WasmFileInfo (bytes, path, baseAddr) =
   override __.FileType = fileTypeOf wm
   override __.FilePath = path
   override __.WordSize = WordSize.Bit32
-  override __.IsStripped = List.length wm.CustomSections = 0
+  override __.IsStripped = List.isEmpty wm.CustomSections
   override __.IsNXEnabled = true
   override __.IsRelocatable = false
   override __.BaseAddress = baseAddr

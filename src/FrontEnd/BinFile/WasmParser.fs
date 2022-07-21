@@ -76,8 +76,7 @@ let private peekSecSummPair (secsSumm: SectionSummary list) =
 
 let validateSectionsOrder secsSummary =
   let rec validationLoop secsSumm isValid =
-    if List.length secsSumm = 0
-    then isValid
+    if List.isEmpty secsSumm then isValid
     else
     let sec1, sec2, secsSumm' = peekSecSummPair secsSumm
     match sec2 with
@@ -209,8 +208,8 @@ let private parseWasmModule (bs: byte[]) (reader: IBinReader) offset =
   then raise InvalidFileTypeException
   else
   let rec parsingLoop wasmModule info (secsSummary: SectionSummary list) =
-    if List.length secsSummary = 0
-    then { wasmModule with SectionsInfo = info }
+    if List.isEmpty secsSummary then
+      { wasmModule with SectionsInfo = info }
     else
     let secSumm = List.head secsSummary
     let info' =
@@ -329,10 +328,8 @@ let buildFuncIndexMap (wm: WasmModule) =
   other index maps maybe added in the future as needed.
 *)
 let buildModuleIndexMap wm =
-  {
-    wm with
-      IndexMap = buildFuncIndexMap wm
-  }
+  { wm with
+      IndexMap = buildFuncIndexMap wm }
 
 let parse (bs: byte[]) =
   if Header.isWasm (ReadOnlySpan bs) BinReader.binReaderLE then ()

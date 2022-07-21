@@ -140,11 +140,11 @@ let rec private readDynSecLoop acc span reader secEnd readType readSize offset =
   else
     let tag = peekUIntOfType span reader readType offset
     let value = peekUIntOfType span reader readType (offset + readSize)
-    let entry = { DTag = LanguagePrimitives.EnumOfValue tag; DVal = value }
+    let ent = { DTag = LanguagePrimitives.EnumOfValue tag; DVal = value }
     let nextOffset = offset + readSize + readSize
     (* Ignore after null entry *)
     let nextOffset = if value = 0UL && tag = 0UL then secEnd else nextOffset
-    readDynSecLoop (entry :: acc) span reader secEnd readType readSize nextOffset
+    readDynSecLoop (ent :: acc) span reader secEnd readType readSize nextOffset
 
 let parseDynamicSection span reader (sec: ELFSection) =
   let secStart = int sec.SecOffset

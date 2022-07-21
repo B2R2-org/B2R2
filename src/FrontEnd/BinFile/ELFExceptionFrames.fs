@@ -33,16 +33,16 @@ open B2R2.BinIR.LowUIR
 open B2R2.FrontEnd.BinFile.ELF.ExceptionHeaderEncoding
 
 /// Raised when an unhandled eh_frame version is encountered.
-exception UnhandledExceptionHandlingFrameVersion
+exception UnhandledEHFrameVersionException
 
 /// Raised when an unhandled augment string is encountered.
-exception UnhandledAugString
+exception UnhandledAugStringException
 
 /// Raised when CIE is not found by FDE
-exception CIENotFoundByFDE
+exception CIENotFoundByFDEException
 
 /// Raised when invalid sequence of dwarf instructions encountered.
-exception InvalidDWInstructionExpression
+exception InvalidDWInstructionExpException
 
 let [<Literal>] Ehframe = ".eh_frame"
 
@@ -92,7 +92,7 @@ let obtainAugData addrSize (arr: byte []) data offset = function
       ApplicationEncoding = app
       PersonalityRoutionPointer = [||] } :: data, offset + 1
   | 'S' -> data, offset (* This is a signal frame. *)
-  | _ -> raise UnhandledAugString
+  | _ -> raise UnhandledAugStringException
 
 let parseAugmentationData span offset addrSize augstr =
   if (augstr: string).StartsWith ('z') then
@@ -159,7 +159,7 @@ let rec parseExprs isa regbay exprs (span: ByteSpan) i maxIdx =
   if i >= maxIdx then
     match exprs with
     | [ exp ] -> exp
-    | _ -> raise InvalidDWInstructionExpression
+    | _ -> raise InvalidDWInstructionExpException
   else
     match span[i] |> DWOperation.parse with
     | DWOperation.DW_OP_breg0 ->
@@ -635,7 +635,7 @@ let parseCIE cls isa rbay span offset nextOffset =
         InitialCFA = cfa
         Augmentations = augs }
   else
-    raise UnhandledExceptionHandlingFrameVersion
+    raise UnhandledEHFrameVersionException
 
 let tryFindAugmentation cie format =
   cie.Augmentations |> List.tryFind (fun aug -> aug.Format = format)
@@ -700,7 +700,7 @@ let parseFDE cls isa regbay span reader sAddr offset nextOffset reloc cie =
       PCEnd = e
       LSDAPointer = lsdaPointer
       UnwindingInfo = info }
-  | None -> raise CIENotFoundByFDE
+  | None -> raise CIENotFoundByFDEException
 
 let accumulateCFIs cfis cie fdes =
   match cie with

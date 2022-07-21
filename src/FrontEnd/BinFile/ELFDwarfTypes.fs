@@ -31,7 +31,7 @@ open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinFile
 
 /// Raised when an unhandled encoding is encountered.
-exception UnhandledEncoding
+exception UnhandledEncodingException
 
 type ExceptionHeaderValue =
   /// No value is present.
@@ -104,7 +104,7 @@ module ExceptionHeaderEncoding =
     | ExceptionHeaderValue.DW_EH_PE_sdata8 ->
       let cv = reader.ReadInt64 (span, offset)
       struct (uint64 cv, offset + 8)
-    | _ -> printfn "%A" venc; raise UnhandledEncoding
+    | _ -> printfn "%A" venc; raise UnhandledEncodingException
 
   let parseEncoding b =
     if b &&& 0xFFuy = 255uy then
