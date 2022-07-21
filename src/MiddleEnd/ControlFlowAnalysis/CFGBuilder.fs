@@ -157,10 +157,15 @@ module private CFGBuilder =
 
   let buildIndCall (codeMgr: CodeManager) fn callSite evts =
     let callerPp = Set.maxElement (codeMgr.GetBBL callSite).IRLeaders
-    (fn: RegularFunction).AddEdge (callerPp, callSite)
+    (fn: RegularFunction).AddEdge (callerPp, callSite, None, false)
     Ok evts
 
-  let buildTailCall hdl codeMgr dataMgr fn caller callee evts =
+  let buildIndTailCall (codeMgr: CodeManager) fn callSite callee evts =
+    let callerPp = Set.maxElement (codeMgr.GetBBL callSite).IRLeaders
+    (fn: RegularFunction).AddEdge (callerPp, callSite, callee, true)
+    Ok evts
+
+  let buildTailCall codeMgr dataMgr fn caller callee evts =
     buildCall codeMgr dataMgr fn caller callee true false evts
 
   let makeCalleeNoReturn (codeMgr: CodeManager) fn callee callSite =
@@ -487,7 +492,7 @@ type CFGBuilder (hdl, codeMgr: CodeManager, dataMgr: DataManager) as this =
   let indjmp =
     match hdl.ISA.Arch with
     | Arch.EVM -> EVMJmpResolution () :> PerFunctionAnalysis
-    | _ -> JmpTableResolution (this) :> PerFunctionAnalysis
+    | _ -> RegularJmpResolution (this) :> PerFunctionAnalysis
 
 #if CFGDEBUG
   let countEvts evts =
@@ -541,7 +546,14 @@ type CFGBuilder (hdl, codeMgr: CodeManager, dataMgr: DataManager) as this =
         fn.Entry (nameof CFGTailCall) callSite callee (countEvts evts)
 #endif
       let evts = { evts with BasicEvents = tl }
-      update (buildTailCall hdl codeMgr dataMgr fn callSite callee evts)
+      update (buildTailCall codeMgr dataMgr fn callSite callee evts)
+    | Ok ({ BasicEvents = CFGIndTailCall (fn, callSite, callee) :: tl } as evts) ->
+#if CFGDEBUG
+      dbglog (nameof CFGBuilder) "@%x %s (%x) %s"
+        fn.Entry (nameof CFGIndTailCall) callSite (countEvts evts)
+#endif
+      let evts = { evts with BasicEvents = tl }
+      update (buildIndTailCall codeMgr fn callSite (Some callee) evts)
     | Ok ({ BasicEvents = []
             FunctionAnalysisAddrs = fnAddr :: tl } as evts) ->
 #if CFGDEBUG

@@ -76,6 +76,9 @@ type NoReturnProperty =
 type IndirectJumpKind =
   /// We did not analyzed this indirect jump yet.
   | YetAnalyzed
+  /// We found jump targets for this indirect jump, but this does not use a jump
+  /// table.
+  | KnownJumpTargets of Set<Addr>
   /// We found a corresponding jump table at Addr.
   | JmpTbl of tAddr: Addr
   /// We analyzed the given jump, and we could not determine its kind.
@@ -277,7 +280,8 @@ type RegularFunction private (histMgr: HistoryManager, entry, name, thunkInfo) =
     | true, v -> v
     | _ ->
       let bbl = (* When callee = 0UL, then it means an indirect call. *)
-        if callee = 0UL then IRBasicBlock.initIndirectCallBlock callSite
+        if callee = 0UL then
+          IRBasicBlock.initIndirectCallBlock callSite isTailCall
         else IRBasicBlock.initCallBlock callee callSite isTailCall
       __.AddFakeVertex edgeKey bbl
 
@@ -295,10 +299,12 @@ type RegularFunction private (histMgr: HistoryManager, entry, name, thunkInfo) =
     __.IRCFG <- DiGraph.addEdge __.IRCFG src dst CallEdge
 
   /// Add/replace an indirect call edge to this function.
-  member __.AddEdge (callerBlk, callSite) =
+  member __.AddEdge (callerBlk, callSite, knownCallee, isTailCall) =
     let src = regularVertices[callerBlk]
-    let dst = __.GetOrAddFakeVertex (callSite, 0UL, false)
-    callEdges[callSite] <- UnresolvedIndirectCallees
+    let dst = __.GetOrAddFakeVertex (callSite, 0UL, isTailCall)
+    match knownCallee with
+    | Some callee -> callEdges[callSite] <- callee
+    | None -> callEdges[callSite] <- UnresolvedIndirectCallees
     callEdgeChanged <- true
     __.IRCFG <- DiGraph.addEdge __.IRCFG src dst IndirectCallEdge
 
@@ -356,7 +362,9 @@ type RegularFunction private (histMgr: HistoryManager, entry, name, thunkInfo) =
       let isNoFunc = dst.VData.FakeBlockInfo.IsNoFunction
       fn.AddEdge (src.VData.PPoint, callSite, callee, isTailCall, isNoFunc)
     | IndirectCallEdge ->
-      fn.AddEdge (src.VData.PPoint, dst.VData.FakeBlockInfo.CallSite)
+      let callSite = dst.VData.FakeBlockInfo.CallSite
+      let isTailCall = dst.VData.FakeBlockInfo.IsTailCall
+      fn.AddEdge (src.VData.PPoint, callSite, None, isTailCall)
     | RetEdge ->
       let callSite = src.VData.FakeBlockInfo.CallSite
       let ftAddr = dst.VData.PPoint.Address
@@ -502,10 +510,8 @@ type RegularFunction private (histMgr: HistoryManager, entry, name, thunkInfo) =
     |> Set.iter (fun v ->
       if v.VData.IsFakeBlock () then
         let edgeKey = v.VData.FakeBlockInfo.CallSite, v.VData.PPoint.Address
-        __.RemoveFakeVertex edgeKey
         newFn.AddFakeVertex edgeKey v.VData |> ignore
       else
-        __.RemoveVertex v
         newFn.AddVertex v.VData |> ignore)
     reachableEdges
     |> Set.iter (fun (src, dst, e) ->
@@ -520,8 +526,12 @@ type RegularFunction private (histMgr: HistoryManager, entry, name, thunkInfo) =
     (* Move necessary information *)
     reachableNodes
     |> Set.iter (fun v ->
-      if v.VData.IsFakeBlock () then ()
-      else __.MoveBlockInfo newFn v)
+      if v.VData.IsFakeBlock () then
+        (v.VData.FakeBlockInfo.CallSite, v.VData.PPoint.Address)
+        |> __.RemoveFakeVertex
+      else
+        __.MoveBlockInfo newFn v
+        __.RemoveVertex v)
     let bbls =
       reachableNodes
       |> Set.filter (fun v -> not <| v.VData.IsFakeBlock ())
@@ -587,6 +597,10 @@ type RegularFunction private (histMgr: HistoryManager, entry, name, thunkInfo) =
   /// Mark the given indirect jump as unknown.
   member __.MarkIndJumpAsUnknown indJumpAddr =
     __.AddIndirectJump indJumpAddr UnknownIndJmp
+
+  /// Mark the given indirect jump as unknown.
+  member __.MarkIndJumpAsKnownJumpTargets indJumpAddr targets =
+    __.AddIndirectJump indJumpAddr (KnownJumpTargets targets)
 
   /// Mark the given indirect jump as analyzed; we know the table address of it.
   member __.MarkIndJumpAsJumpTbl indJumpAddr tAddr =
