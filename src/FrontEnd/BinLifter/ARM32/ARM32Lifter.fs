@@ -122,7 +122,7 @@ let getNSACR ctxt nsacrType =
   match nsacrType with
   | NSACR_RFR -> nsacr .& maskNSACRForRFRbit
 
-let isSetNSACR_RFR ctxt = getNSACR ctxt NSACR_RFR == maskNSACRForRFRbit
+let isSetNSACRForRFR ctxt = getNSACR ctxt NSACR_RFR == maskNSACRForRFRbit
 
 /// Gets the mask bits for fetching the AW bit from the SCR.
 /// SCR bit[5]
@@ -143,9 +143,9 @@ let getSCR ctxt scrType =
   | SCR_FW -> scr .& maskSCRForFWbit
   | SCR_NS -> scr .& maskSCRForNSbit
 
-let isSetSCR_AW ctxt = getSCR ctxt SCR_AW == maskSCRForAWbit
-let isSetSCR_FW ctxt = getSCR ctxt SCR_FW == maskSCRForFWbit
-let isSetSCR_NS ctxt = getSCR ctxt SCR_NS == maskSCRForNSbit
+let isSetSCRForAW ctxt = getSCR ctxt SCR_AW == maskSCRForAWbit
+let isSetSCRForFW ctxt = getSCR ctxt SCR_FW == maskSCRForFWbit
+let isSetSCRForNS ctxt = getSCR ctxt SCR_NS == maskSCRForNSbit
 
 /// Gets the mask bits for fetching the NMFI bit from the SCTLR.
 /// SCTLR bit[27]
@@ -156,7 +156,7 @@ let getSCTLR ctxt sctlrType =
   match sctlrType with
   | SCTLR_NMFI -> sctlr .& maskSCTLRForNMFIbit
 
-let isSetSCTLR_NMFI ctxt = getSCTLR ctxt SCTLR_NMFI == maskSCTLRForNMFIbit
+let isSetSCTLRForNMFI ctxt = getSCTLR ctxt SCTLR_NMFI == maskSCTLRForNMFIbit
 
 let enablePSRBits ctxt reg psrType =
   let psr = getRegVar ctxt reg
@@ -257,7 +257,7 @@ let parseCond = function
   | Condition.LE -> 0b110, 1
   | Condition.AL -> 0b111, 0
   | Condition.UN -> 0b111, 1
-  | _ -> failwith "Invalid condition"
+  | _ -> raise InvalidOperandException
 
 /// Returns TRUE if the current instruction needs to be executed. See page
 /// A8-289. function : ConditionPassed()
@@ -265,15 +265,16 @@ let conditionPassed ctxt cond =
   let cond1, cond2 = parseCond cond
   let result =
     match cond1 with
-    | 0b000 -> isSetCPSR_Z ctxt
-    | 0b001 -> isSetCPSR_C ctxt
-    | 0b010 -> isSetCPSR_N ctxt
-    | 0b011 -> isSetCPSR_V ctxt
-    | 0b100 -> isSetCPSR_C ctxt .& AST.not (isSetCPSR_Z ctxt)
-    | 0b101 -> isSetCPSR_N ctxt == isSetCPSR_V ctxt
-    | 0b110 -> isSetCPSR_N ctxt == isSetCPSR_V ctxt .& AST.not (isSetCPSR_Z ctxt)
+    | 0b000 -> isSetCPSRz ctxt
+    | 0b001 -> isSetCPSRc ctxt
+    | 0b010 -> isSetCPSRn ctxt
+    | 0b011 -> isSetCPSRv ctxt
+    | 0b100 -> isSetCPSRc ctxt .& AST.not (isSetCPSRz ctxt)
+    | 0b101 -> isSetCPSRn ctxt == isSetCPSRv ctxt
+    | 0b110 ->
+      isSetCPSRn ctxt == isSetCPSRv ctxt .& AST.not (isSetCPSRz ctxt)
     | 0b111 -> AST.b1
-    | _ -> failwith "Invalid condition"
+    | _ -> raise InvalidOperandException
   if cond1 <> 0b111 && cond2 = 1 then AST.not result else result
 
 /// Logical shift left of a bitstring, with carry output, on page A2-41.
@@ -339,7 +340,8 @@ let shiftRRXCForRegAmount value regType amount carryIn =
   let e1 = shiftLSLForRegAmount (AST.zext 32<rt> carryIn) regType
             (amount1 .- AST.num1 regType) carryIn
   let e2 = shiftLSRForRegAmount value regType (AST.num1 regType) carryIn
-  AST.ite chkZero value (e1 .| e2), AST.ite chkZero carryIn (AST.xtlo 1<rt> value)
+  AST.ite chkZero value (e1 .| e2),
+  AST.ite chkZero carryIn (AST.xtlo 1<rt> value)
 
 /// Rotate right with extend of a bitstring, on page A2-41. for Register amount.
 /// function : RRX()
@@ -586,7 +588,7 @@ let pcStoreValue ctxt = getPC ctxt
 /// Returns TRUE in Secure state or if no Security Extensions, on page B1-1157.
 /// function : IsSecure()
 let isSecure ctxt =
-  AST.not (haveSecurityExt ()) .| AST.not (isSetSCR_NS ctxt) .|
+  AST.not (haveSecurityExt ()) .| AST.not (isSetSCRForNS ctxt) .|
   (getPSR ctxt R.CPSR PSR_M == (numI32 0b10110 32<rt>))
 
 /// Return TRUE if current mode is executes at PL1 or higher, on page B1-1142.
@@ -603,7 +605,8 @@ let currentModeIsNotUser ctxt =
 /// function : Replicate()
 let replicate expr regType lsb width value =
   let v = BitVector.OfBInt (BigInteger.getMask width <<< lsb) regType
-  if value = 0 then expr .& (v |> BitVector.BNot |> AST.num) else expr .| (v |> AST.num)
+  if value = 0 then expr .& (v |> BitVector.BNot |> AST.num)
+  else expr .| (v |> AST.num)
 
 /// All-ones bitstring, on page AppxP-2652.
 let ones rt = BitVector.OfBInt (RegType.getMask rt) rt |> AST.num
@@ -624,7 +627,7 @@ let writeModeBits ctxt value isExcptReturn (builder: IRBuilder) =
   let num11010 = numI32 0b11010 32<rt>
   let chkSecure = AST.not (isSecure ctxt)
   let cond1 = chkSecure .& (valueM == (numI32 0b10110 32<rt>))
-  let cond2 = chkSecure .& isSetNSACR_RFR ctxt .&
+  let cond2 = chkSecure .& isSetNSACRForRFR ctxt .&
               (valueM == (numI32 0b10001 32<rt>))
   let cond3 = chkSecure .& (valueM == num11010)
   let cond4 = chkSecure .& (cpsrM != num11010) .& (valueM == num11010)
@@ -688,7 +691,7 @@ let cpsrWriteByInstr ctxt value bytemask isExcptReturn (builder: IRBuilder) =
     let eValue = value .& maskPSRForEbit
     builder <! (cpsr := disablePSRBits ctxt R.CPSR PSR_E .| eValue)
     let cond =
-      privileged .& (isSecure ctxt .| isSetSCR_AW ctxt .| haveVirtExt ())
+      privileged .& (isSecure ctxt .| isSetSCRForAW ctxt .| haveVirtExt ())
     builder <! (AST.cjmp cond (AST.name lblL0) (AST.name lblL1))
     builder <! (AST.lmark lblL0)
     let aValue = value .& maskPSRForAbit
@@ -704,7 +707,7 @@ let cpsrWriteByInstr ctxt value bytemask isExcptReturn (builder: IRBuilder) =
     let lblL6 = builder.NewSymbol "cpsrWriteByInstrL6"
     let lblL7 = builder.NewSymbol "cpsrWriteByInstrL7"
     let lblEnd = builder.NewSymbol "cpsrWriteByInstrEnd"
-    let nmfi = isSetSCTLR_NMFI ctxt
+    let nmfi = isSetSCTLRForNMFI ctxt
     builder <! (AST.cjmp privileged (AST.name lblL2) (AST.name lblL3))
     builder <! (AST.lmark lblL2)
     let iValue = value .& maskPSRForIbit
@@ -713,7 +716,7 @@ let cpsrWriteByInstr ctxt value bytemask isExcptReturn (builder: IRBuilder) =
 
     let chkValueF = (value .& maskPSRForFbit) == AST.num0 32<rt>
     let cond = privileged .& (AST.not nmfi .| chkValueF) .&
-               (isSecure ctxt .| isSetSCR_FW ctxt .| haveVirtExt ())
+               (isSecure ctxt .| isSetSCRForFW ctxt .| haveVirtExt ())
     builder <! (AST.cjmp cond (AST.name lblL4) (AST.name lblL5))
     builder <! (AST.lmark lblL4)
     let fValue = value .& maskPSRForFbit
@@ -978,7 +981,7 @@ let targetModeOfBL (ins: InsInfo) =
   | Op.BL, mode -> mode
   | Op.BLX, ArchOperationMode.ARMMode -> ArchOperationMode.ThumbMode
   | Op.BLX, ArchOperationMode.ThumbMode -> ArchOperationMode.ARMMode
-  | _ -> failwith "Invalid ARMMode"
+  | _ -> raise InvalidTargetArchModeException
 
 let parseOprOfBL ins =
   let targetMode = targetModeOfBL ins
@@ -1025,8 +1028,8 @@ let branchWithLink (ins: InsInfo) ctxt =
 
 let parseOprOfPUSHPOP (ins: InsInfo) =
   match ins.Operands with
-  | OneOperand (OprReg r) -> regsToUInt32 [ r ] //, true (unAlignedAllowed)
-  | OneOperand (OprRegList regs) -> regsToUInt32 regs //, false (unAlignedAllowed)
+  | OneOperand (OprReg r) -> regsToUInt32 [ r ]
+  | OneOperand (OprRegList regs) -> regsToUInt32 regs
   | _ -> raise InvalidOperandException
 
 let pushLoop ctxt numOfReg addr (builder: IRBuilder) =
@@ -1103,38 +1106,63 @@ let subsPCLRThumb ins ctxt =
 
 let parseResultOfSUBAndRela (ins: InsInfo) ctxt =
   match ins.Opcode with
-  | Op.ANDS -> let _, src1, src2 = parseOprOfADC ins ctxt in src1.& src2
-  | Op.EORS -> let _, src1, src2 = parseOprOfADC ins ctxt in src1 <+> src2
-  | Op.SUBS -> let _, src1, src2 = parseOprOfADC ins ctxt
-               let r, _, _ = addWithCarry src1 (AST.not src2) (AST.num1 32<rt>) in r
-  | Op.RSBS -> let _, src1, src2 = parseOprOfADC ins ctxt
-               let r, _, _ = addWithCarry (AST.not src1) src2 (AST.num1 32<rt>) in r
-  | Op.ADDS -> let _, src1, src2 = parseOprOfADC ins ctxt
-               let r, _, _ = addWithCarry src1 src2 (AST.num0 32<rt>) in r
-  | Op.ADCS -> let _, src1, src2 = parseOprOfADC ins ctxt
-               let r, _, _ = addWithCarry src1 src2 (getCarryFlag ctxt) in r
-  | Op.SBCS -> let _, src1, src2 = parseOprOfADC ins ctxt
-               let r, _, _ = addWithCarry src1 (AST.not src2) (getCarryFlag ctxt)
-               r
-  | Op.RSCS -> let _, src1, src2 = parseOprOfADC ins ctxt
-               let r, _, _ = addWithCarry (AST.not src1) src2 (getCarryFlag ctxt)
-               r
-  | Op.ORRS -> let _, src1, src2 = parseOprOfADC ins ctxt in src1 .| src2
-  | Op.MOVS -> let _, src = transTwoOprs ins ctxt in src
-  | Op.ASRS -> let _, src1, src2 = parseOprOfADC ins ctxt
-               shiftForRegAmount src1 32<rt> SRTypeASR src2 (getCarryFlag ctxt)
-  | Op.LSLS -> let _, src1, src2 = parseOprOfADC ins ctxt
-               shiftForRegAmount src1 32<rt> SRTypeLSL src2 (getCarryFlag ctxt)
-  | Op.LSRS -> let _, src1, src2 = parseOprOfADC ins ctxt
-               shiftForRegAmount src1 32<rt> SRTypeLSR src2 (getCarryFlag ctxt)
-  | Op.RORS -> let _, src1, src2 = parseOprOfADC ins ctxt
-               shiftForRegAmount src1 32<rt> SRTypeROR src2 (getCarryFlag ctxt)
+  | Op.ANDS ->
+    let _, src1, src2 = parseOprOfADC ins ctxt
+    src1.& src2
+  | Op.EORS ->
+    let _, src1, src2 = parseOprOfADC ins ctxt
+    src1 <+> src2
+  | Op.SUBS ->
+    let _, src1, src2 = parseOprOfADC ins ctxt
+    let r, _, _ = addWithCarry src1 (AST.not src2) (AST.num1 32<rt>)
+    r
+  | Op.RSBS ->
+    let _, src1, src2 = parseOprOfADC ins ctxt
+    let r, _, _ = addWithCarry (AST.not src1) src2 (AST.num1 32<rt>)
+    r
+  | Op.ADDS ->
+    let _, src1, src2 = parseOprOfADC ins ctxt
+    let r, _, _ = addWithCarry src1 src2 (AST.num0 32<rt>)
+    r
+  | Op.ADCS ->
+    let _, src1, src2 = parseOprOfADC ins ctxt
+    let r, _, _ = addWithCarry src1 src2 (getCarryFlag ctxt)
+    r
+  | Op.SBCS ->
+    let _, src1, src2 = parseOprOfADC ins ctxt
+    let r, _, _ = addWithCarry src1 (AST.not src2) (getCarryFlag ctxt)
+    r
+  | Op.RSCS ->
+    let _, src1, src2 = parseOprOfADC ins ctxt
+    let r, _, _ = addWithCarry (AST.not src1) src2 (getCarryFlag ctxt)
+    r
+  | Op.ORRS ->
+    let _, src1, src2 = parseOprOfADC ins ctxt
+    src1 .| src2
+  | Op.MOVS ->
+    let _, src = transTwoOprs ins ctxt
+    src
+  | Op.ASRS ->
+    let _, src1, src2 = parseOprOfADC ins ctxt
+    shiftForRegAmount src1 32<rt> SRTypeASR src2 (getCarryFlag ctxt)
+  | Op.LSLS ->
+    let _, src1, src2 = parseOprOfADC ins ctxt
+    shiftForRegAmount src1 32<rt> SRTypeLSL src2 (getCarryFlag ctxt)
+  | Op.LSRS ->
+    let _, src1, src2 = parseOprOfADC ins ctxt
+    shiftForRegAmount src1 32<rt> SRTypeLSR src2 (getCarryFlag ctxt)
+  | Op.RORS ->
+    let _, src1, src2 = parseOprOfADC ins ctxt
+    shiftForRegAmount src1 32<rt> SRTypeROR src2 (getCarryFlag ctxt)
   | Op.RRXS ->
     let _, src = transTwoOprs ins ctxt
     shiftForRegAmount src 32<rt> SRTypeRRX (AST.num1 32<rt>) (getCarryFlag ctxt)
-  | Op.BICS -> let _, src1, src2 = parseOprOfADC ins ctxt
-               src1 .& (AST.not src2)
-  | Op.MVNS -> let _, src = parseOprOfMVNS ins ctxt in AST.not src
+  | Op.BICS ->
+    let _, src1, src2 = parseOprOfADC ins ctxt
+    src1 .& (AST.not src2)
+  | Op.MVNS ->
+    let _, src = parseOprOfMVNS ins ctxt
+    AST.not src
   | _ -> raise InvalidOperandException
 
 /// B9.3.20 SUBS R.PC, R.LR and related instruction (ARM), on page B9-2010
@@ -1693,7 +1721,8 @@ let clz ins ctxt =
   let numSize = (numI32 32 32<rt>)
   let t1 = builder.NewTempVar 32<rt>
   let cond1 = t1 == (AST.num0 32<rt>)
-  let cond2 = src .& ((AST.num1 32<rt>) << (t1 .- AST.num1 32<rt>)) != (AST.num0 32<rt>)
+  let cond2 =
+    src .& ((AST.num1 32<rt>) << (t1 .- AST.num1 32<rt>)) != (AST.num0 32<rt>)
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
   startMark ins builder
   let lblIgnore = checkCondition ins ctxt isUnconditional builder
@@ -1836,7 +1865,8 @@ let umlal isSetFlags ins ctxt =
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
   startMark ins builder
   let lblIgnore = checkCondition ins ctxt isUnconditional builder
-  builder <! (result := AST.zext 64<rt> rn .* AST.zext 64<rt> rm .+ AST.concat rdLo rdHi)
+  builder <! (result := AST.zext 64<rt> rn .* AST.zext 64<rt> rm
+                     .+ AST.concat rdLo rdHi)
   builder <! (rdHi := AST.xthi 32<rt> result)
   builder <! (rdLo := AST.xtlo 32<rt> result)
   if isSetFlags then
@@ -1907,7 +1937,8 @@ let mul isSetFlags ins ctxt =
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
   startMark ins builder
   let lblIgnore = checkCondition ins ctxt isUnconditional builder
-  builder <! (result := AST.xtlo 32<rt> (AST.zext 64<rt> rn .* AST.zext 64<rt> rm))
+  builder <! (result := AST.xtlo 32<rt>
+                        (AST.zext 64<rt> rn .* AST.zext 64<rt> rm))
   builder <! (rd := result)
   if isSetFlags then
     let cpsr = getRegVar ctxt R.CPSR
@@ -2292,10 +2323,14 @@ let uadd8 ins ctxt =
   builder <! (sum3 := sel8Bits rn 16 .+ sel8Bits rm 16)
   builder <! (sum4 := sel8Bits rn 24 .+ sel8Bits rm 24)
   builder <! (rd := combine8bitResults sum1 sum2 sum3 sum4)
-  builder <! (ge0 := AST.ite (AST.ge sum1 n100) (AST.num1 32<rt>) (AST.num0 32<rt>))
-  builder <! (ge1 := AST.ite (AST.ge sum2 n100) (AST.num1 32<rt>) (AST.num0 32<rt>))
-  builder <! (ge2 := AST.ite (AST.ge sum3 n100) (AST.num1 32<rt>) (AST.num0 32<rt>))
-  builder <! (ge3 := AST.ite (AST.ge sum4 n100) (AST.num1 32<rt>) (AST.num0 32<rt>))
+  builder <!
+    (ge0 := AST.ite (AST.ge sum1 n100) (AST.num1 32<rt>) (AST.num0 32<rt>))
+  builder <!
+    (ge1 := AST.ite (AST.ge sum2 n100) (AST.num1 32<rt>) (AST.num0 32<rt>))
+  builder <!
+    (ge2 := AST.ite (AST.ge sum3 n100) (AST.num1 32<rt>) (AST.num0 32<rt>))
+  builder <!
+    (ge3 := AST.ite (AST.ge sum4 n100) (AST.num1 32<rt>) (AST.num0 32<rt>))
   builder <! (cpsr := combineGEs ge0 ge1 ge2 ge3 |> setPSR ctxt R.CPSR PSR_GE)
   putEndLabel ctxt lblIgnore isUnconditional None builder
   endMark ins builder
@@ -2315,10 +2350,12 @@ let sel ins ctxt =
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
   startMark ins builder
   let lblIgnore = checkCondition ins ctxt isUnconditional builder
-  builder <!  (t1 := AST.ite ((ge .& n1) == n1) (sel8Bits rn 0) (sel8Bits rm 0))
-  builder <!  (t2 := AST.ite ((ge .& n2) == n2) (sel8Bits rn 8) (sel8Bits rm 8))
-  builder <!  (t3 := AST.ite ((ge .& n4) == n4) (sel8Bits rn 16) (sel8Bits rm 16))
-  builder <!  (t4 := AST.ite ((ge .& n8) == n8) (sel8Bits rn 24) (sel8Bits rm 24))
+  builder <! (t1 := AST.ite ((ge .& n1) == n1) (sel8Bits rn 0) (sel8Bits rm 0))
+  builder <! (t2 := AST.ite ((ge .& n2) == n2) (sel8Bits rn 8) (sel8Bits rm 8))
+  builder <!
+    (t3 := AST.ite ((ge .& n4) == n4) (sel8Bits rn 16) (sel8Bits rm 16))
+  builder <!
+    (t4 := AST.ite ((ge .& n8) == n8) (sel8Bits rn 24) (sel8Bits rm 24))
   builder <! (rd := combine8bitResults t1 t2 t3 t4)
   putEndLabel ctxt lblIgnore isUnconditional None builder
   endMark ins builder
@@ -2364,7 +2401,8 @@ let str ins ctxt size =
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
   startMark ins builder
   let lblIgnore = checkCondition ins ctxt isUnconditional builder
-  if rt = getPC ctxt then builder <! (AST.loadLE 32<rt> addr := pcStoreValue ctxt)
+  if rt = getPC ctxt then
+    builder <! (AST.loadLE 32<rt> addr := pcStoreValue ctxt)
   elif size = 32<rt> then builder <! (AST.loadLE 32<rt> addr := rt)
   else builder <! (AST.loadLE size addr := AST.xtlo size rt)
   match writeback with
@@ -2379,7 +2417,8 @@ let strex ins ctxt =
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
   startMark ins builder
   let lblIgnore = checkCondition ins ctxt isUnconditional builder
-  if rt = getPC ctxt then builder <! (AST.loadLE 32<rt> addr := pcStoreValue ctxt)
+  if rt = getPC ctxt then
+    builder <! (AST.loadLE 32<rt> addr := pcStoreValue ctxt)
   else builder <! (AST.loadLE 32<rt> addr := rt)
   match writeback with
   | Some (basereg, newoffset) -> builder <! (basereg := newoffset)
@@ -2575,7 +2614,9 @@ let createTemporaries (builder: IRBuilder) cnt regtype =
 
 let extractUQOps r width =
   let typ = RegType.fromBitWidth width
-  [| for w in 0 .. width .. 31 do yield AST.extract r typ w |> AST.zext 32<rt> done |]
+  [| for w in 0 .. width .. 31 do
+       yield AST.extract r typ w |> AST.zext 32<rt>
+     done |]
 
 let saturate e width =
   let max32 = numI32 (pown 2 width - 1) 32<rt>
@@ -2989,7 +3030,8 @@ let getParsingInfo (ins: InsInfo) =
     RegIndex = regIndex
   }
 
-let elem vector e size = AST.extract vector (RegType.fromBitWidth size) (e * size)
+let elem vector e size =
+  AST.extract vector (RegType.fromBitWidth size) (e * size)
 
 let elemForIR vector vSize index size =
   let index = AST.zext vSize index
@@ -3070,7 +3112,8 @@ let isAdvancedSIMD (ins: InsInfo) =
   | ThreeOperands (OprReg _, OprReg _, OprSIMD _) -> false
   | _ -> false
 
-let absExpr expr size = AST.ite (AST.slt expr (AST.num0 size)) (AST.neg expr) (expr)
+let absExpr expr size =
+  AST.ite (AST.slt expr (AST.num0 size)) (AST.neg expr) (expr)
 
 let vabs (ins: InsInfo) ctxt =
   let builder = IRBuilder (8)
@@ -3171,10 +3214,12 @@ let vclz (ins: InsInfo) ctxt =
   endMark ins builder
 
 let maxExpr isUnsigned expr1 expr2 =
-  let op = if isUnsigned then AST.gt else AST.sgt in AST.ite (op expr1 expr2) expr1 expr2
+  let op = if isUnsigned then AST.gt else AST.sgt
+  AST.ite (op expr1 expr2) expr1 expr2
 
 let minExpr isUnsigned expr1 expr2 =
-  let op = if isUnsigned then AST.lt else AST.slt in AST.ite (op expr1 expr2) expr1 expr2
+  let op = if isUnsigned then AST.lt else AST.slt
+  AST.ite (op expr1 expr2) expr1 expr2
 
 let isUnsigned = function
   | Some (OneDT SIMDTypU8) | Some (OneDT SIMDTypU16)
@@ -3286,7 +3331,8 @@ let vldm (ins: InsInfo) ctxt =
     let word2 = AST.loadLE 32<rt> (addr .+ (numI32 4 32<rt>))
     let isbig = ctxt.Endianness = Endian.Big
     builder <!
-      (regList[r] := if isbig then AST.concat word1 word2 else AST.concat word2 word1)
+      (regList[r] := if isbig then AST.concat word1 word2
+                     else AST.concat word2 word1)
     builder <! (addr := addr .+ (numI32 8 32<rt>))
   putEndLabel ctxt lblIgnore isUnconditional None builder
   endMark ins builder
@@ -3321,7 +3367,8 @@ let vecMulAccOrSubLong (ins: InsInfo) ctxt add =
   let unsigned = isUnsigned ins.SIMDTyp
   for e in 0 .. p.Elements - 1 do
     let extend expr =
-      if unsigned then AST.zext (p.RtESize * 2) expr else AST.sext (p.RtESize * 2) expr
+      if unsigned then AST.zext (p.RtESize * 2) expr
+      else AST.sext (p.RtESize * 2) expr
     let product = extend (elem rn e p.ESize) .* extend (elem rm e p.ESize)
     let addend = if add then product else AST.not product
     builder <! (elem rd e (p.ESize * 2) := elem rd e (p.ESize * 2) .+ addend)
@@ -3695,7 +3742,8 @@ let vectorCompare (ins: InsInfo) ctxt cmp =
       let src2 = if isImm src2.E then AST.num0 p.RtESize
                  else elem (AST.extract src2 64<rt> (r * 64)) e p.ESize
       let t = cmp (elem src1 e p.ESize) src2
-      builder <! (elem rd e p.ESize := AST.ite t (ones p.RtESize) (AST.num0 p.RtESize))
+      builder <!
+        (elem rd e p.ESize := AST.ite t (ones p.RtESize) (AST.num0 p.RtESize))
   putEndLabel ctxt lblIgnore isUnconditional None builder
   endMark ins builder
 
@@ -3722,7 +3770,9 @@ let vtst (ins: InsInfo) ctxt =
     let rm = AST.extract rm 64<rt> (r * 64)
     for e in 0 .. p.Elements - 1 do
       let c = (elem rn e p.ESize .& elem rm e p.ESize) != AST.num0 p.RtESize
-      builder <! (elem rd e p.ESize := AST.ite c (AST.num1 p.RtESize) (AST.num0 p.RtESize))
+      builder <!
+        (elem rd e p.ESize :=
+          AST.ite c (AST.num1 p.RtESize) (AST.num0 p.RtESize))
   putEndLabel ctxt lblIgnore isUnconditional None builder
   endMark ins builder
 
@@ -3765,7 +3815,8 @@ let vorrImm (ins: InsInfo) ctxt =
   let imm = AST.concat imm imm // FIXME: A8-975
   let regs = if TypeCheck.typeOf rd = 64<rt> then 1 else 2
   for r in 0 .. regs - 1 do
-    builder <! (AST.extract rd 64<rt> (r * 64) := AST.extract rd 64<rt> (r * 64) .| imm)
+    builder <!
+      (AST.extract rd 64<rt> (r * 64) := AST.extract rd 64<rt> (r * 64) .| imm)
   putEndLabel ctxt lblIgnore isUnconditional None builder
   endMark ins builder
 
@@ -3798,7 +3849,8 @@ let vornImm (ins: InsInfo) ctxt =
   let regs = if TypeCheck.typeOf rd = 64<rt> then 1 else 2
   for r in 0 .. regs - 1 do
     builder <!
-      (AST.extract rd 64<rt> (r * 64) := AST.extract rd 64<rt> (r * 64) .| AST.not imm)
+      (AST.extract rd 64<rt> (r * 64) :=
+        AST.extract rd 64<rt> (r * 64) .| AST.not imm)
   putEndLabel ctxt lblIgnore isUnconditional None builder
   endMark ins builder
 

@@ -24,8 +24,8 @@
 
 module B2R2.FrontEnd.BinLifter.ARM64.Parser
 
-open System
 open B2R2
+open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinLifter.ARM64.Utils
 open B2R2.FrontEnd.BinLifter.ARM64.OperandHelper
 
@@ -38,336 +38,335 @@ let getOptionOrimm bin = OneOperand (optionOrimm bin)
 
 // Two operands
 (** Register - Register **)
-let getWdWn bin = TwoOperands (Wd bin, Wn bin)
-let getXdXn bin = TwoOperands (Xd bin, Xn bin)
-let getWdSn bin = TwoOperands (Wd bin, Sn bin)
-let getWdDn bin = TwoOperands (Wd bin, Dn bin)
-let getXdSn bin = TwoOperands (Xd bin, Sn bin)
-let getXdDn bin = TwoOperands (Xd bin, Dn bin)
-let getSdWn bin = TwoOperands (Sd bin, Wn bin)
-let getDdWn bin = TwoOperands (Dd bin, Wn bin)
-let getSdXn bin = TwoOperands (Sd bin, Xn bin)
-let getDdXn bin = TwoOperands (Dd bin, Xn bin)
-let getSdSn bin = TwoOperands (Sd bin, Sn bin)
-let getDdDn bin = TwoOperands (Dd bin, Dn bin)
-let getDdSn bin = TwoOperands (Dd bin, Sn bin)
-let getHdSn bin = TwoOperands (Hd bin, Sn bin)
-let getSdDn bin = TwoOperands (Sd bin, Dn bin)
-let getHdDn bin = TwoOperands (Hd bin, Dn bin)
-let getSdHn bin = TwoOperands (Sd bin, Hn bin)
-let getDdHn bin = TwoOperands (Dd bin, Hn bin)
-let getDnDm bin = TwoOperands (Dn bin, Dm bin)
-let getSnSm bin = TwoOperands (Sn bin, Sm bin)
-let getXdVnD1 bin = TwoOperands (Xd bin, VnD1 bin)
-let getVdVnt1 bin r = r bin; TwoOperands (Vd1 bin, VnTsq1 bin)
-let getVdVnt2 bin r = r bin; TwoOperands (Vd2 bin, VnTsq1 bin)
-let getVdVnt3 bin r = r bin; TwoOperands (Vd3a bin, VnTszq1 bin)
-let getVdVnt4 bin r = r bin; TwoOperands (Vd2 bin, VnTs2 bin)
-let getVdVnt5 bin = TwoOperands (Vd3a bin, VnTsz3 bin)
-let getVdD1Xn bin = TwoOperands (VdD1 bin, Xn bin)
-let getVd16BVn16B bin = TwoOperands (Vd16B bin, Vn16B bin)
-let getVdVn bin r = r bin; TwoOperands (Vd2 bin, Vn2 bin)
-let getVdVn2 bin = TwoOperands (Vd3a bin, Vn3 bin)
-let getVbdVan bin r = r bin; TwoOperands (Vd2 bin, Vn1 bin)
-let getVbdVan2 bin r = r bin; TwoOperands (Vd3b bin, Vn3 bin)
-let getVdtVnt bin r = r bin; TwoOperands (VdTsq1 bin, VnTsq1 bin)
-let getVdtVnt2 bin r = r bin; TwoOperands (VdTszq1 bin, VnTszq1 bin)
-let getVdtVnt3 bin = TwoOperands (VdTq1 bin, VnTq1 bin)
-let getVdtaVntb bin r = r bin; TwoOperands (VdTsq2 bin, VnTsq1 bin)
-let getVdtaVntb2 bin = TwoOperands (VdTsz1 bin, VnTszq2 bin)
-let getVdtbVnta bin r = r bin; TwoOperands (VdTsq1 bin, VnTs1 bin)
-let getVdtbVnta2 bin r = r bin; TwoOperands (VdTszq2 bin, VnTsz1 bin)
-let getVd4SVn4S bin = TwoOperands (Vd4S bin, Vn4S bin)
-let getVdtVntsidx bin = TwoOperands (VdTi5q bin, Vtsidx1 bin valN)
-let getVdtRn bin = TwoOperands (VdTi5q bin, Rn bin)
-let getWdVntsidx bin r = r bin; TwoOperands (Wd bin, Vtsidx1 bin valN)
-let getXdVntsidx bin r = r bin; TwoOperands (Xd bin, Vtsidx1 bin valN)
-let getVdtsidxRn bin = TwoOperands (Vtsidx1 bin valD, Rn bin)
-let getVdtsidx1Vntsidx2 bin = TwoOperands (Vtsidx1 bin valD, Vtsidx2 bin valN)
-let getVdVntidx bin = TwoOperands (Vd4 bin, Vntidx bin)
+let getWdWn bin = TwoOperands (wd bin, wn bin)
+let getXdXn bin = TwoOperands (xd bin, xn bin)
+let getWdSn bin = TwoOperands (wd bin, sn bin)
+let getWdDn bin = TwoOperands (wd bin, dn bin)
+let getXdSn bin = TwoOperands (xd bin, sn bin)
+let getXdDn bin = TwoOperands (xd bin, dn bin)
+let getSdWn bin = TwoOperands (sd bin, wn bin)
+let getDdWn bin = TwoOperands (dd bin, wn bin)
+let getSdXn bin = TwoOperands (sd bin, xn bin)
+let getDdXn bin = TwoOperands (dd bin, xn bin)
+let getSdSn bin = TwoOperands (sd bin, sn bin)
+let getDdDn bin = TwoOperands (dd bin, dn bin)
+let getDdSn bin = TwoOperands (dd bin, sn bin)
+let getHdSn bin = TwoOperands (hd bin, sn bin)
+let getSdDn bin = TwoOperands (sd bin, dn bin)
+let getHdDn bin = TwoOperands (hd bin, dn bin)
+let getSdHn bin = TwoOperands (sd bin, hn bin)
+let getDdHn bin = TwoOperands (dd bin, hn bin)
+let getDnDm bin = TwoOperands (dn bin, dm bin)
+let getSnSm bin = TwoOperands (sn bin, sm bin)
+let getXdVnD1 bin = TwoOperands (xd bin, vnD1 bin)
+let getVdVnt1 bin r = r bin; TwoOperands (vd1 bin, vntsq1 bin)
+let getVdVnt2 bin r = r bin; TwoOperands (vd2 bin, vntsq1 bin)
+let getVdVnt3 bin r = r bin; TwoOperands (vd3a bin, vntszq1 bin)
+let getVdVnt4 bin r = r bin; TwoOperands (vd2 bin, vnts2 bin)
+let getVdVnt5 bin = TwoOperands (vd3a bin, vntsz3 bin)
+let getVdD1Xn bin = TwoOperands (vdD1 bin, xn bin)
+let getVd16BVn16B bin = TwoOperands (vd16B bin, vn16B bin)
+let getVdVn bin r = r bin; TwoOperands (vd2 bin, vn2 bin)
+let getVdVn2 bin = TwoOperands (vd3a bin, vn3 bin)
+let getVbdVan bin r = r bin; TwoOperands (vd2 bin, vn1 bin)
+let getVbdVan2 bin r = r bin; TwoOperands (vd3b bin, vn3 bin)
+let getVdtVnt bin r = r bin; TwoOperands (vdtsq1 bin, vntsq1 bin)
+let getVdtVnt2 bin r = r bin; TwoOperands (vdtszq1 bin, vntszq1 bin)
+let getVdtVnt3 bin = TwoOperands (vdtq1 bin, vntq1 bin)
+let getVdtaVntb bin r = r bin; TwoOperands (vdtsq2 bin, vntsq1 bin)
+let getVdtaVntb2 bin = TwoOperands (vdtsz1 bin, vntszq2 bin)
+let getVdtbVnta bin r = r bin; TwoOperands (vdtsq1 bin, vnts1 bin)
+let getVdtbVnta2 bin r = r bin; TwoOperands (vdtszq2 bin, vntsz1 bin)
+let getVd4SVn4S bin = TwoOperands (vd4S bin, vn4S bin)
+let getVdtVntsidx bin = TwoOperands (vdti5q bin, vtsidx1 bin valN)
+let getVdtRn bin = TwoOperands (vdti5q bin, rn bin)
+let getWdVntsidx bin r = r bin; TwoOperands (wd bin, vtsidx1 bin valN)
+let getXdVntsidx bin r = r bin; TwoOperands (xd bin, vtsidx1 bin valN)
+let getVdtsidxRn bin = TwoOperands (vtsidx1 bin valD, rn bin)
+let getVdtsidx1Vntsidx2 bin = TwoOperands (vtsidx1 bin valD, vtsidx2 bin valN)
+let getVdVntidx bin = TwoOperands (vd4 bin, vntidx bin)
 
 (** Register - Immediate **)
-let getSnP0 bin = TwoOperands (Sn bin, P0)
-let getDnP0 bin = TwoOperands (Dn bin, P0)
-let getSdImm8 bin = TwoOperands (Sd bin, FImm8 bin)
-let getDdImm8 bin = TwoOperands (Dd bin, FImm8 bin)
-let getDdImm bin = TwoOperands (Dd bin, Imm64 bin)
-let getVd2DImm bin = TwoOperands (Vd2D bin, Imm64 bin)
-let getVdtFImm bin = TwoOperands (VdTq2 bin, fimm8 bin)
-let getVd2DFImm bin = TwoOperands (Vd2D bin, fimm8 bin)
+let getSnP0 bin = TwoOperands (sn bin, p0)
+let getDnP0 bin = TwoOperands (dn bin, p0)
+let getSdImm8 bin = TwoOperands (sd bin, fScalarImm8 bin)
+let getDdImm8 bin = TwoOperands (dd bin, fScalarImm8 bin)
+let getDdImm bin = TwoOperands (dd bin, imm64 bin)
+let getVd2DImm bin = TwoOperands (vd2D bin, imm64 bin)
+let getVdtFImm bin = TwoOperands (vdtq2 bin, fVecImm8 bin)
+let getVd2DFImm bin = TwoOperands (vd2D bin, fVecImm8 bin)
 
 (** Register - Memory **)
-let getWtMXSn bin = TwoOperands (Wt1 bin, memXSn bin)
-let getXtMXSn bin = TwoOperands (Xt1 bin, memXSn bin)
-let getWtBIXSnpimm bin scale = TwoOperands (Wt1 bin, memXSnPimm bin scale)
-let getXtBIXSnpimm bin scale = TwoOperands (Xt1 bin, memXSnPimm bin scale)
-let getBtBIXSnpimm bin = TwoOperands (Bt bin, memXSnPimm bin 1u)
-let getHtBIXSnpimm bin = TwoOperands (Ht bin, memXSnPimm bin 2u)
-let getStBIXSnpimm bin = TwoOperands (St1 bin, memXSnPimm bin 4u)
-let getDtBIXSnpimm bin = TwoOperands (Dt1 bin, memXSnPimm bin 8u)
-let getQtBIXSnpimm bin = TwoOperands (Qt1 bin, memXSnPimm bin 16u)
+let getWtMXSn bin = TwoOperands (wt1 bin, memXSn bin)
+let getXtMXSn bin = TwoOperands (xt1 bin, memXSn bin)
+let getWtBIXSnpimm bin scale = TwoOperands (wt1 bin, memXSnPimm bin scale)
+let getXtBIXSnpimm bin scale = TwoOperands (xt1 bin, memXSnPimm bin scale)
+let getBtBIXSnpimm bin = TwoOperands (bt bin, memXSnPimm bin 1u)
+let getHtBIXSnpimm bin = TwoOperands (ht bin, memXSnPimm bin 2u)
+let getStBIXSnpimm bin = TwoOperands (st1 bin, memXSnPimm bin 4u)
+let getDtBIXSnpimm bin = TwoOperands (dt1 bin, memXSnPimm bin 8u)
+let getQtBIXSnpimm bin = TwoOperands (qt1 bin, memXSnPimm bin 16u)
 let getPrfopimm5BIXSnpimm bin = TwoOperands (prfopImm5 bin, memXSnPimm bin 8u)
-let getWt1Wt2BIXSnimm b scl = ThreeOperands (Wt1 b, Wt2 b, memXSnSimm7 b scl)
-let getXt1Xt2BIXSnimm b scl = ThreeOperands (Xt1 b, Xt2 b, memXSnSimm7 b scl)
-let getSt1St2BIXSnimm b scl = ThreeOperands (St1 b, St2 b, memXSnSimm7 b scl)
-let getDt1Dt2BIXSnimm b scl = ThreeOperands (Dt1 b, Dt2 b, memXSnSimm7 b scl)
-let getQt1Qt2BIXSnimm b scl = ThreeOperands (Qt1 b, Qt2 b, memXSnSimm7 b scl)
-let getVt1tMXSn bin r = r bin; TwoOperands (Vt1t bin, memXSn bin)
-let getVt2tMXSn bin r = r bin; TwoOperands (Vt2t bin, memXSn bin)
-let getVt3tMXSn bin r = r bin; TwoOperands (Vt3t bin, memXSn bin)
-let getVt4tMXSn bin r = r bin; TwoOperands (Vt4t bin, memXSn bin)
+let getWt1Wt2BIXSnimm b scl = ThreeOperands (wt1 b, wt2 b, memXSnSimm7 b scl)
+let getXt1Xt2BIXSnimm b scl = ThreeOperands (xt1 b, xt2 b, memXSnSimm7 b scl)
+let getSt1St2BIXSnimm b scl = ThreeOperands (st1 b, st2 b, memXSnSimm7 b scl)
+let getDt1Dt2BIXSnimm b scl = ThreeOperands (dt1 b, dt2 b, memXSnSimm7 b scl)
+let getQt1Qt2BIXSnimm b scl = ThreeOperands (qt1 b, qt2 b, memXSnSimm7 b scl)
+let getVt1tMXSn bin r = r bin; TwoOperands (vt1t bin, memXSn bin)
+let getVt2tMXSn bin r = r bin; TwoOperands (vt2t bin, memXSn bin)
+let getVt3tMXSn bin r = r bin; TwoOperands (vt3t bin, memXSn bin)
+let getVt4tMXSn bin r = r bin; TwoOperands (vt4t bin, memXSn bin)
 
-let getVtntidxMXSn bin t n = TwoOperands (Vtntidx bin t n, memXSn bin)
-let getVt1BidxMXSn bin = getVtntidxMXSn bin VecB 1u
-let getVt2BidxMXSn bin = getVtntidxMXSn bin VecB 2u
-let getVt3BidxMXSn bin = getVtntidxMXSn bin VecB 3u
-let getVt4BidxMXSn bin = getVtntidxMXSn bin VecB 4u
-let getVt1HidxMXSn bin = getVtntidxMXSn bin VecH 1u
-let getVt2HidxMXSn bin = getVtntidxMXSn bin VecH 2u
-let getVt3HidxMXSn bin = getVtntidxMXSn bin VecH 3u
-let getVt4HidxMXSn bin = getVtntidxMXSn bin VecH 4u
-let getVt1SidxMXSn bin = getVtntidxMXSn bin VecS 1u
-let getVt2SidxMXSn bin = getVtntidxMXSn bin VecS 2u
-let getVt3SidxMXSn bin = getVtntidxMXSn bin VecS 3u
-let getVt4SidxMXSn bin = getVtntidxMXSn bin VecS 4u
-let getVt1DidxMXSn bin = getVtntidxMXSn bin VecD 1u
-let getVt2DidxMXSn bin = getVtntidxMXSn bin VecD 2u
-let getVt3DidxMXSn bin = getVtntidxMXSn bin VecD 3u
-let getVt4DidxMXSn bin = getVtntidxMXSn bin VecD 4u
-let getWtBIXSnsimm bin = TwoOperands (Wt1 bin, memXSnSimm9 bin)
-let getXtBIXSnsimm bin = TwoOperands (Xt1 bin, memXSnSimm9 bin)
-let getBtBIXSnsimm bin = TwoOperands (Bt bin, memXSnSimm9 bin)
-let getHtBIXSnsimm bin = TwoOperands (Ht bin, memXSnSimm9 bin)
-let getStBIXSnsimm bin = TwoOperands (St1 bin, memXSnSimm9 bin)
-let getDtBIXSnsimm bin = TwoOperands (Dt1 bin, memXSnSimm9 bin)
-let getQtBIXSnsimm bin = TwoOperands (Qt1 bin, memXSnSimm9 bin)
+let getvtntidxMXSn bin t n = TwoOperands (vtntidx bin t n, memXSn bin)
+let getVt1BidxMXSn bin = getvtntidxMXSn bin VecB 1u
+let getVt2BidxMXSn bin = getvtntidxMXSn bin VecB 2u
+let getVt3BidxMXSn bin = getvtntidxMXSn bin VecB 3u
+let getVt4BidxMXSn bin = getvtntidxMXSn bin VecB 4u
+let getVt1HidxMXSn bin = getvtntidxMXSn bin VecH 1u
+let getVt2HidxMXSn bin = getvtntidxMXSn bin VecH 2u
+let getVt3HidxMXSn bin = getvtntidxMXSn bin VecH 3u
+let getVt4HidxMXSn bin = getvtntidxMXSn bin VecH 4u
+let getVt1SidxMXSn bin = getvtntidxMXSn bin VecS 1u
+let getVt2SidxMXSn bin = getvtntidxMXSn bin VecS 2u
+let getVt3SidxMXSn bin = getvtntidxMXSn bin VecS 3u
+let getVt4SidxMXSn bin = getvtntidxMXSn bin VecS 4u
+let getVt1DidxMXSn bin = getvtntidxMXSn bin VecD 1u
+let getVt2DidxMXSn bin = getvtntidxMXSn bin VecD 2u
+let getVt3DidxMXSn bin = getvtntidxMXSn bin VecD 3u
+let getVt4DidxMXSn bin = getvtntidxMXSn bin VecD 4u
+let getWtBIXSnsimm bin = TwoOperands (wt1 bin, memXSnSimm9 bin)
+let getXtBIXSnsimm bin = TwoOperands (xt1 bin, memXSnSimm9 bin)
+let getBtBIXSnsimm bin = TwoOperands (bt bin, memXSnSimm9 bin)
+let getHtBIXSnsimm bin = TwoOperands (ht bin, memXSnSimm9 bin)
+let getStBIXSnsimm bin = TwoOperands (st1 bin, memXSnSimm9 bin)
+let getDtBIXSnsimm bin = TwoOperands (dt1 bin, memXSnSimm9 bin)
+let getQtBIXSnsimm bin = TwoOperands (qt1 bin, memXSnSimm9 bin)
 let getPrfopimm5BIXSnsimm bin = TwoOperands (prfopImm5 bin, memXSnSimm9 bin)
-let getWtBEXSnrmamt bin amt = TwoOperands (Wt1 bin, memExtXSnRmAmt bin amt)
-let getWtBRXSnxmamt bin = TwoOperands (Wt1 bin, memShfXSnXmAmt bin 0L)
-let getXtBEXSnrmamt bin amt = TwoOperands (Xt1 bin, memExtXSnRmAmt bin amt)
-let getXtBRXSnxmamt bin = TwoOperands (Xt1 bin, memShfXSnXmAmt bin 0L)
-let getBtBEXSnrmamt bin = TwoOperands (Bt bin, memExtXSnRmAmt bin 0L)
-let getBtBRXSnxmamt bin = TwoOperands (Bt bin, memShfXSnXmAmt bin 0L)
-let getHtBEXSnrmamt bin = TwoOperands (Ht bin, memExtXSnRmAmt bin 1L)
-let getStBEXSnrmamt bin = TwoOperands (St1 bin, memExtXSnRmAmt bin 2L)
-let getDtBEXSnrmamt bin = TwoOperands (Dt1 bin, memExtXSnRmAmt bin 3L)
-let getQtBEXSnrmamt bin = TwoOperands (Qt1 bin, memExtXSnRmAmt bin 4L)
+let getWtBEXSnrmamt bin amt = TwoOperands (wt1 bin, memExtXSnRmAmt bin amt)
+let getWtBRXSnxmamt bin = TwoOperands (wt1 bin, memShfXSnXmAmt bin 0L)
+let getXtBEXSnrmamt bin amt = TwoOperands (xt1 bin, memExtXSnRmAmt bin amt)
+let getXtBRXSnxmamt bin = TwoOperands (xt1 bin, memShfXSnXmAmt bin 0L)
+let getBtBEXSnrmamt bin = TwoOperands (bt bin, memExtXSnRmAmt bin 0L)
+let getBtBRXSnxmamt bin = TwoOperands (bt bin, memShfXSnXmAmt bin 0L)
+let getHtBEXSnrmamt bin = TwoOperands (ht bin, memExtXSnRmAmt bin 1L)
+let getStBEXSnrmamt bin = TwoOperands (st1 bin, memExtXSnRmAmt bin 2L)
+let getDtBEXSnrmamt bin = TwoOperands (dt1 bin, memExtXSnRmAmt bin 3L)
+let getQtBEXSnrmamt bin = TwoOperands (qt1 bin, memExtXSnRmAmt bin 4L)
 let getPrfopimm5BEXSnrmamt b = TwoOperands (prfopImm5 b, memExtXSnRmAmt b 3L)
-let getWtPoXSnsimm bin = TwoOperands (Wt1 bin, memPostXSnSimm bin)
-let getXtPoXSnsimm bin = TwoOperands (Xt1 bin, memPostXSnSimm bin)
-let getBtPoXSnsimm bin = TwoOperands (Bt bin, memPostXSnSimm bin)
-let getHtPoXSnsimm bin = TwoOperands (Ht bin, memPostXSnSimm bin)
-let getStPoXSnsimm bin = TwoOperands (St1 bin, memPostXSnSimm bin)
-let getDtPoXSnsimm bin = TwoOperands (Dt1 bin, memPostXSnSimm bin)
-let getQtPoXSnsimm bin = TwoOperands (Qt1 bin, memPostXSnSimm bin)
-let getWt1Wt2PoXSnimm b = ThreeOperands (Wt1 b, Wt2 b, memPostXSnImm b 2)
-let getXt1Xt2PoXSnimm b s = ThreeOperands (Xt1 b, Xt2 b, memPostXSnImm b s)
-let getSt1St2PoXSnimm b = ThreeOperands (St1 b, St2 b, memPostXSnImm b 2)
-let getDt1Dt2PoXSnimm b = ThreeOperands (Dt1 b, Dt2 b, memPostXSnImm b 3)
-let getQt1Qt2PoXSnimm b = ThreeOperands (Qt1 b, Qt2 b, memPostXSnImm b 4)
-let getWtPrXSnsimm bin = TwoOperands (Wt1 bin, memPreXSnSimm bin)
-let getXtPrXSnsimm bin = TwoOperands (Xt1 bin, memPreXSnSimm bin)
-let getBtPrXSnsimm bin = TwoOperands (Bt bin, memPreXSnSimm bin)
-let getHtPrXSnsimm bin = TwoOperands (Ht bin, memPreXSnSimm bin)
-let getStPrXSnsimm bin = TwoOperands (St1 bin, memPreXSnSimm bin)
-let getDtPrXSnsimm bin = TwoOperands (Dt1 bin, memPreXSnSimm bin)
-let getQtPrXSnsimm bin = TwoOperands (Qt1 bin, memPreXSnSimm bin)
-let getWt1Wt2PrXSnimm bin = ThreeOperands (Wt1 bin, Wt2 bin, memPreXSnImm bin 2)
-let getXt1Xt2PrXSnimm b s = ThreeOperands (Xt1 b, Xt2 b, memPreXSnImm b s)
-let getSt1St2PrXSnimm bin = ThreeOperands (St1 bin, St2 bin, memPreXSnImm bin 2)
-let getDt1Dt2PrXSnimm bin = ThreeOperands (Dt1 bin, Dt2 bin, memPreXSnImm bin 3)
-let getQt1Qt2PrXSnimm bin = ThreeOperands (Qt1 bin, Qt2 bin, memPreXSnImm bin 4)
+let getWtPoXSnsimm bin = TwoOperands (wt1 bin, memPostXSnSimm bin)
+let getXtPoXSnsimm bin = TwoOperands (xt1 bin, memPostXSnSimm bin)
+let getBtPoXSnsimm bin = TwoOperands (bt bin, memPostXSnSimm bin)
+let getHtPoXSnsimm bin = TwoOperands (ht bin, memPostXSnSimm bin)
+let getStPoXSnsimm bin = TwoOperands (st1 bin, memPostXSnSimm bin)
+let getDtPoXSnsimm bin = TwoOperands (dt1 bin, memPostXSnSimm bin)
+let getQtPoXSnsimm bin = TwoOperands (qt1 bin, memPostXSnSimm bin)
+let getWt1Wt2PoXSnimm b = ThreeOperands (wt1 b, wt2 b, memPostXSnImm b 2)
+let getXt1Xt2PoXSnimm b s = ThreeOperands (xt1 b, xt2 b, memPostXSnImm b s)
+let getSt1St2PoXSnimm b = ThreeOperands (st1 b, st2 b, memPostXSnImm b 2)
+let getDt1Dt2PoXSnimm b = ThreeOperands (dt1 b, dt2 b, memPostXSnImm b 3)
+let getQt1Qt2PoXSnimm b = ThreeOperands (qt1 b, qt2 b, memPostXSnImm b 4)
+let getWtPrXSnsimm bin = TwoOperands (wt1 bin, memPreXSnSimm bin)
+let getXtPrXSnsimm bin = TwoOperands (xt1 bin, memPreXSnSimm bin)
+let getBtPrXSnsimm bin = TwoOperands (bt bin, memPreXSnSimm bin)
+let getHtPrXSnsimm bin = TwoOperands (ht bin, memPreXSnSimm bin)
+let getStPrXSnsimm bin = TwoOperands (st1 bin, memPreXSnSimm bin)
+let getDtPrXSnsimm bin = TwoOperands (dt1 bin, memPreXSnSimm bin)
+let getQtPrXSnsimm bin = TwoOperands (qt1 bin, memPreXSnSimm bin)
+let getWt1Wt2PrXSnimm bin = ThreeOperands (wt1 bin, wt2 bin, memPreXSnImm bin 2)
+let getXt1Xt2PrXSnimm b s = ThreeOperands (xt1 b, xt2 b, memPreXSnImm b s)
+let getSt1St2PrXSnimm bin = ThreeOperands (st1 bin, st2 bin, memPreXSnImm bin 2)
+let getDt1Dt2PrXSnimm bin = ThreeOperands (dt1 bin, dt2 bin, memPreXSnImm bin 3)
+let getQt1Qt2PrXSnimm bin = ThreeOperands (qt1 bin, qt2 bin, memPreXSnImm bin 4)
 
-let getVtntidxPoXSnXm b t n = TwoOperands (Vtntidx b t n, memPostRegXSnxm b)
-let getVt1BidxPoXSnXm bin = getVtntidxPoXSnXm bin VecB 1u
-let getVt2BidxPoXSnXm bin = getVtntidxPoXSnXm bin VecB 2u
-let getVt3BidxPoXSnXm bin = getVtntidxPoXSnXm bin VecB 3u
-let getVt4BidxPoXSnXm bin = getVtntidxPoXSnXm bin VecB 4u
-let getVt1HidxPoXSnXm bin = getVtntidxPoXSnXm bin VecH 1u
-let getVt2HidxPoXSnXm bin = getVtntidxPoXSnXm bin VecH 2u
-let getVt3HidxPoXSnXm bin = getVtntidxPoXSnXm bin VecH 3u
-let getVt4HidxPoXSnXm bin = getVtntidxPoXSnXm bin VecH 4u
-let getVt1SidxPoXSnXm bin = getVtntidxPoXSnXm bin VecS 1u
-let getVt2SidxPoXSnXm bin = getVtntidxPoXSnXm bin VecS 2u
-let getVt3SidxPoXSnXm bin = getVtntidxPoXSnXm bin VecS 3u
-let getVt4SidxPoXSnXm bin = getVtntidxPoXSnXm bin VecS 4u
-let getVt1DidxPoXSnXm bin = getVtntidxPoXSnXm bin VecD 1u
-let getVt2DidxPoXSnXm bin = getVtntidxPoXSnXm bin VecD 2u
-let getVt3DidxPoXSnXm bin = getVtntidxPoXSnXm bin VecD 3u
-let getVt4DidxPoXSnXm bin = getVtntidxPoXSnXm bin VecD 4u
-let getVt1tPoXSnXm bin r = r bin; TwoOperands (Vt1t bin, memPostRegXSnxm bin)
-let getVt2tPoXSnXm bin r = r bin; TwoOperands (Vt2t bin, memPostRegXSnxm bin)
-let getVt3tPoXSnXm bin r = r bin; TwoOperands (Vt3t bin, memPostRegXSnxm bin)
-let getVt4tPoXSnXm bin r = r bin; TwoOperands (Vt4t bin, memPostRegXSnxm bin)
+let getvtntidxPoXSnXm b t n = TwoOperands (vtntidx b t n, memPostRegXSnxm b)
+let getVt1BidxPoXSnXm bin = getvtntidxPoXSnXm bin VecB 1u
+let getVt2BidxPoXSnXm bin = getvtntidxPoXSnXm bin VecB 2u
+let getVt3BidxPoXSnXm bin = getvtntidxPoXSnXm bin VecB 3u
+let getVt4BidxPoXSnXm bin = getvtntidxPoXSnXm bin VecB 4u
+let getVt1HidxPoXSnXm bin = getvtntidxPoXSnXm bin VecH 1u
+let getVt2HidxPoXSnXm bin = getvtntidxPoXSnXm bin VecH 2u
+let getVt3HidxPoXSnXm bin = getvtntidxPoXSnXm bin VecH 3u
+let getVt4HidxPoXSnXm bin = getvtntidxPoXSnXm bin VecH 4u
+let getVt1SidxPoXSnXm bin = getvtntidxPoXSnXm bin VecS 1u
+let getVt2SidxPoXSnXm bin = getvtntidxPoXSnXm bin VecS 2u
+let getVt3SidxPoXSnXm bin = getvtntidxPoXSnXm bin VecS 3u
+let getVt4SidxPoXSnXm bin = getvtntidxPoXSnXm bin VecS 4u
+let getVt1DidxPoXSnXm bin = getvtntidxPoXSnXm bin VecD 1u
+let getVt2DidxPoXSnXm bin = getvtntidxPoXSnXm bin VecD 2u
+let getVt3DidxPoXSnXm bin = getvtntidxPoXSnXm bin VecD 3u
+let getVt4DidxPoXSnXm bin = getvtntidxPoXSnXm bin VecD 4u
+let getVt1tPoXSnXm bin r = r bin; TwoOperands (vt1t bin, memPostRegXSnxm bin)
+let getVt2tPoXSnXm bin r = r bin; TwoOperands (vt2t bin, memPostRegXSnxm bin)
+let getVt3tPoXSnXm bin r = r bin; TwoOperands (vt3t bin, memPostRegXSnxm bin)
+let getVt4tPoXSnXm bin r = r bin; TwoOperands (vt4t bin, memPostRegXSnxm bin)
 
-let getVtntidxPoXSnImm b t n =
-  TwoOperands (Vtntidx b t n, memPostImmXSnimm b (iX t n))
-let getVt1BidxPoXSnI1 bin = getVtntidxPoXSnImm bin VecB 1u
-let getVt2BidxPoXSnI2 bin = getVtntidxPoXSnImm bin VecB 2u
-let getVt3BidxPoXSnI3 bin = getVtntidxPoXSnImm bin VecB 3u
-let getVt4BidxPoXSnI4 bin = getVtntidxPoXSnImm bin VecB 4u
-let getVt1HidxPoXSnI2 bin = getVtntidxPoXSnImm bin VecH 1u
-let getVt2HidxPoXSnI4 bin = getVtntidxPoXSnImm bin VecH 2u
-let getVt3HidxPoXSnI6 bin = getVtntidxPoXSnImm bin VecH 3u
-let getVt4HidxPoXSnI8 bin = getVtntidxPoXSnImm bin VecH 4u
-let getVt1SidxPoXSnI4 bin = getVtntidxPoXSnImm bin VecS 1u
-let getVt2SidxPoXSnI8 bin = getVtntidxPoXSnImm bin VecS 2u
-let getVt3SidxPoXSnI12 bin = getVtntidxPoXSnImm bin VecS 3u
-let getVt4SidxPoXSnI16 bin = getVtntidxPoXSnImm bin VecS 4u
-let getVt1DidxPoXSnI8 bin = getVtntidxPoXSnImm bin VecD 1u
-let getVt2DidxPoXSnI16 bin = getVtntidxPoXSnImm bin VecD 2u
-let getVt3DidxPoXSnI24 bin = getVtntidxPoXSnImm bin VecD 3u
-let getVt4DidxPoXSnI32 bin = getVtntidxPoXSnImm bin VecD 4u
+let getvtntidxPoXSnImm b t n =
+  TwoOperands (vtntidx b t n, memPostImmXSnimm b (iX t n))
+let getVt1BidxPoXSnI1 bin = getvtntidxPoXSnImm bin VecB 1u
+let getVt2BidxPoXSnI2 bin = getvtntidxPoXSnImm bin VecB 2u
+let getVt3BidxPoXSnI3 bin = getvtntidxPoXSnImm bin VecB 3u
+let getVt4BidxPoXSnI4 bin = getvtntidxPoXSnImm bin VecB 4u
+let getVt1HidxPoXSnI2 bin = getvtntidxPoXSnImm bin VecH 1u
+let getVt2HidxPoXSnI4 bin = getvtntidxPoXSnImm bin VecH 2u
+let getVt3HidxPoXSnI6 bin = getvtntidxPoXSnImm bin VecH 3u
+let getVt4HidxPoXSnI8 bin = getvtntidxPoXSnImm bin VecH 4u
+let getVt1SidxPoXSnI4 bin = getvtntidxPoXSnImm bin VecS 1u
+let getVt2SidxPoXSnI8 bin = getvtntidxPoXSnImm bin VecS 2u
+let getVt3SidxPoXSnI12 bin = getvtntidxPoXSnImm bin VecS 3u
+let getVt4SidxPoXSnI16 bin = getvtntidxPoXSnImm bin VecS 4u
+let getVt1DidxPoXSnI8 bin = getvtntidxPoXSnImm bin VecD 1u
+let getVt2DidxPoXSnI16 bin = getvtntidxPoXSnImm bin VecD 2u
+let getVt3DidxPoXSnI24 bin = getvtntidxPoXSnImm bin VecD 3u
+let getVt4DidxPoXSnI32 bin = getvtntidxPoXSnImm bin VecD 4u
 let getVttPoXSnImm1 b r vt i =
   r b; TwoOperands (vt b, memPostImmXSnimm b (immQ b i))
-let getVt1tPoXSnImm1 b r = getVttPoXSnImm1 b r Vt1t 1L
-let getVt2tPoXSnImm1 b r = getVttPoXSnImm1 b r Vt2t 2L
-let getVt3tPoXSnImm1 b r = getVttPoXSnImm1 b r Vt3t 3L
-let getVt4tPoXSnImm1 b r = getVttPoXSnImm1 b r Vt4t 4L
+let getVt1tPoXSnImm1 b r = getVttPoXSnImm1 b r vt1t 1L
+let getVt2tPoXSnImm1 b r = getVttPoXSnImm1 b r vt2t 2L
+let getVt3tPoXSnImm1 b r = getVttPoXSnImm1 b r vt3t 3L
+let getVt4tPoXSnImm1 b r = getVttPoXSnImm1 b r vt4t 4L
 let getVttPoXSnImm2 b vt i = TwoOperands (vt b, memPostImmXSnimm b (iN b i))
-let getVt1tPoXSnImm2 b = getVttPoXSnImm2 b Vt1t 1
-let getVt2tPoXSnImm2 b = getVttPoXSnImm2 b Vt2t 2
-let getVt3tPoXSnImm2 b = getVttPoXSnImm2 b Vt3t 3
-let getVt4tPoXSnImm2 b = getVttPoXSnImm2 b Vt4t 4
+let getVt1tPoXSnImm2 b = getVttPoXSnImm2 b vt1t 1
+let getVt2tPoXSnImm2 b = getVttPoXSnImm2 b vt2t 2
+let getVt3tPoXSnImm2 b = getVttPoXSnImm2 b vt3t 3
+let getVt4tPoXSnImm2 b = getVttPoXSnImm2 b vt4t 4
 
 (** Register - Label **)
-let getXdLabel bin amt = TwoOperands (Xd bin, label bin amt) (* <Xd>, <label> *)
-let getWtLabel bin = TwoOperands (Wt1 bin, lbImm19 bin) (* <Wt>, <label> *)
-let getXtLabel bin = TwoOperands (Xt1 bin, lbImm19 bin) (* <Xt>, <label> *)
-let getStLabel bin = TwoOperands (St1 bin, lbImm19 bin) (* <St>, <label> *)
-let getDtLabel bin = TwoOperands (Dt1 bin, lbImm19 bin) (* <Dt>, <label> *)
-let getQtLabel bin = TwoOperands (Qt1 bin, lbImm19 bin) (* <Qt>, <label> *)
+let getXdLabel bin amt = TwoOperands (xd bin, label bin amt) (* <xd>, <label> *)
+let getWtLabel bin = TwoOperands (wt1 bin, lbImm19 bin) (* <Wt>, <label> *)
+let getXtLabel bin = TwoOperands (xt1 bin, lbImm19 bin) (* <Xt>, <label> *)
+let getStLabel bin = TwoOperands (st1 bin, lbImm19 bin) (* <St>, <label> *)
+let getDtLabel bin = TwoOperands (dt1 bin, lbImm19 bin) (* <Dt>, <label> *)
+let getQtLabel bin = TwoOperands (qt1 bin, lbImm19 bin) (* <Qt>, <label> *)
 let getPrfopImm5Label bin =
   TwoOperands (prfopImm5 bin, lbImm19 bin) (* <prfop>|#<imm5>), <label> *)
 
 (* etc *)
-let getSysregOrctrlXt bin = TwoOperands (systemregOrctrl bin, Xt1 bin)
-let getXtSysregOrctrl bin = TwoOperands (Xt1 bin, systemregOrctrl bin)
+let getSysregOrctrlXt bin = TwoOperands (systemregOrctrl bin, xt1 bin)
+let getXtSysregOrctrl bin = TwoOperands (xt1 bin, systemregOrctrl bin)
 let getPstatefieldImm bin = TwoOperands (pstatefield bin, imm bin)
 
 // Three Operands
 (** Register - Register - Register **)
-let getWdWnWm bin = ThreeOperands (Wd bin, Wn bin, Wm bin)
-let getWdWnXm bin = ThreeOperands (Wd bin, Wn bin, Xm bin)
-let getXdXnXm bin = ThreeOperands (Xd bin, Xn bin, Xm bin)
-let getVdtaVntbVmtb b r = r b; ThreeOperands (VdTs1 b, VnTsq1 b, VmTsq1 b)
-let getVdtaVntaVmtb b r = r b; ThreeOperands (VdTs1 b, VnTs1 b, VmTsq1 b)
-let getVdtbVntaVmta b r = r b; ThreeOperands (VdTsq1 b, VnTs1 b, VmTs1 b)
-let getVdtVntVmt1 b r = r b; ThreeOperands (VdTsq1 b, VnTsq1 b, VmTsq1 b)
-let getVdtVntVmt2 b r = r b; ThreeOperands (VdTszq1 b, VnTszq1 b, VmTszq1 b)
-let getVdtVntVmt3 bin = ThreeOperands (VdTq1 bin, VnTq1 bin, VmTq1 bin)
-let getSdSnSm bin = ThreeOperands (Sd bin, Sn bin, Sm bin)
-let getDdDnDm bin = ThreeOperands (Dd bin, Dn bin, Dm bin)
-let getVdVnVm1 bin r = r bin; ThreeOperands (Vd2 bin, Vn2 bin, Vm2 bin)
-let getVdVnVm2 bin = ThreeOperands (Vd3a bin, Vn3 bin, Vm3 bin)
-let getVadVbnVbm bin r = r bin; ThreeOperands (Vd1 bin, Vn2 bin, Vm2 bin)
-let getQdSnVm4S bin = ThreeOperands (Qd bin, Sn bin, Vm4S bin)
-let getVd4SVn4SVm4S bin = ThreeOperands (Vd4S bin, Vn4S bin, Vm4S bin)
-let getQdQnVm4S bin = ThreeOperands (Qd bin, Qn bin, Vm4S bin)
-let getVdtVntVmt b r = r b; ThreeOperands (VdTsq1 b, VnTsq1 b, VmTsq1 b)
-let getVdtaVntbVmtsidx b r = r b; ThreeOperands (VdTs1 b, VnTsq1 b, Vmtsidx1 b)
+let getWdWnWm bin = ThreeOperands (wd bin, wn bin, wm bin)
+let getWdWnXm bin = ThreeOperands (wd bin, wn bin, xm bin)
+let getXdXnXm bin = ThreeOperands (xd bin, xn bin, xm bin)
+let getVdtaVntbVmtb b r = r b; ThreeOperands (vdts1 b, vntsq1 b, vmtsq1 b)
+let getVdtaVntaVmtb b r = r b; ThreeOperands (vdts1 b, vnts1 b, vmtsq1 b)
+let getVdtbVntaVmta b r = r b; ThreeOperands (vdtsq1 b, vnts1 b, vmts1 b)
+let getVdtVntVmt1 b r = r b; ThreeOperands (vdtsq1 b, vntsq1 b, vmtsq1 b)
+let getVdtVntVmt2 b r = r b; ThreeOperands (vdtszq1 b, vntszq1 b, vmtszq1 b)
+let getVdtVntVmt3 bin = ThreeOperands (vdtq1 bin, vntq1 bin, vmtq1 bin)
+let getSdSnSm bin = ThreeOperands (sd bin, sn bin, sm bin)
+let getDdDnDm bin = ThreeOperands (dd bin, dn bin, dm bin)
+let getVdVnVm1 bin r = r bin; ThreeOperands (vd2 bin, vn2 bin, vm2 bin)
+let getVdVnVm2 bin = ThreeOperands (vd3a bin, vn3 bin, vm3 bin)
+let getVadVbnVbm bin r = r bin; ThreeOperands (vd1 bin, vn2 bin, vm2 bin)
+let getQdSnVm4S bin = ThreeOperands (qd bin, sn bin, vm4S bin)
+let getVd4SVn4SVm4S bin = ThreeOperands (vd4S bin, vn4S bin, vm4S bin)
+let getQdQnVm4S bin = ThreeOperands (qd bin, qn bin, vm4S bin)
+let getVdtVntVmt b r = r b; ThreeOperands (vdtsq1 b, vntsq1 b, vmtsq1 b)
+let getVdtaVntbVmtsidx b r = r b; ThreeOperands (vdts1 b, vntsq1 b, vmtsidx1 b)
 let getVdtVntVmtsidx1 bin r =  (* size:Q - 3bit *)
-  r bin; ThreeOperands (VdTsq1 bin, VnTsq1 bin, Vmtsidx1 bin)
+  r bin; ThreeOperands (vdtsq1 bin, vntsq1 bin, vmtsidx1 bin)
 let getVdtVntVmtsidx2 bin r =  (* sz:Q - 2bit *)
-  r bin; ThreeOperands (VdTszq1 bin, VnTszq1 bin, Vmtsidx2 bin)
-let getVadVbnVmtsidx b r = r b; ThreeOperands (Vd1 b, Vn2 b, Vmtsidx1 b)
-let getVdVnVmtsidx1 b r = r b; ThreeOperands (Vd2 b, Vn2 b, Vmtsidx1 b)
-let getVdVnVmtsidx2 b r = r b; ThreeOperands (Vd3a b, Vn3 b, Vmtsidx2 b)
-let getVdtaVn116BVmta bin = ThreeOperands (VdTq1 bin, Vn116B bin, VmTq1 bin)
-let getVdtaVn216BVmta bin = ThreeOperands (VdTq1 bin, Vn216B bin, VmTq1 bin)
-let getVdtaVn316BVmta bin = ThreeOperands (VdTq1 bin, Vn316B bin, VmTq1 bin)
-let getVdtaVn416BVmta bin = ThreeOperands (VdTq1 bin, Vn416B bin, VmTq1 bin)
+  r bin; ThreeOperands (vdtszq1 bin, vntszq1 bin, vmtsidx2 bin)
+let getVadVbnVmtsidx b r = r b; ThreeOperands (vd1 b, vn2 b, vmtsidx1 b)
+let getVdVnVmtsidx1 b r = r b; ThreeOperands (vd2 b, vn2 b, vmtsidx1 b)
+let getVdVnVmtsidx2 b r = r b; ThreeOperands (vd3a b, vn3 b, vmtsidx2 b)
+let getVdtaVn116BVmta bin = ThreeOperands (vdtq1 bin, vn116B bin, vmtq1 bin)
+let getVdtaVn216BVmta bin = ThreeOperands (vdtq1 bin, vn216B bin, vmtq1 bin)
+let getVdtaVn316BVmta bin = ThreeOperands (vdtq1 bin, vn316B bin, vmtq1 bin)
+let getVdtaVn416BVmta bin = ThreeOperands (vdtq1 bin, vn416B bin, vmtq1 bin)
 
 (** Register - Register - Immediate **)
-let getVdtVntI0 b r = r b; ThreeOperands (VdTsq1 b, VnTsq1 b, Immediate 0L)
-let getVdtVntF0 b r = r b; ThreeOperands (VdTszq1 b, VnTszq1 b, FPImmediate 0.0)
-let getWSdWnImm bin = ThreeOperands (WSd bin, Wn bin, immNsr bin 32<rt>)
-let getWdWnImm bin = ThreeOperands (Wd bin, Wn bin, immNsr bin 32<rt>)
-let getXSdXnImm bin = ThreeOperands (XSd bin, Xn bin, immNsr bin 64<rt>)
-let getXdXnImm bin = ThreeOperands (Xd bin, Xn bin, immNsr bin 64<rt>)
-let getVdVnI0 bin r = r bin; ThreeOperands (Vd2 bin, Vn2 bin, Immediate 0L)
-let getVdVnF0 bin = ThreeOperands (Vd3a bin, Vn3 bin, FPImmediate 0.0)
+let getVdtVntI0 b r = r b; ThreeOperands (vdtsq1 b, vntsq1 b, Immediate 0L)
+let getVdtVntF0 b r = r b; ThreeOperands (vdtszq1 b, vntszq1 b, FPImmediate 0.0)
+let getWSdWnImm bin = ThreeOperands (wsd bin, wn bin, immNsr bin 32<rt>)
+let getWdWnImm bin = ThreeOperands (wd bin, wn bin, immNsr bin 32<rt>)
+let getXSdXnImm bin = ThreeOperands (xsd bin, xn bin, immNsr bin 64<rt>)
+let getXdXnImm bin = ThreeOperands (xd bin, xn bin, immNsr bin 64<rt>)
+let getVdVnI0 bin r = r bin; ThreeOperands (vd2 bin, vn2 bin, Immediate 0L)
+let getVdVnF0 bin = ThreeOperands (vd3a bin, vn3 bin, FPImmediate 0.0)
 
 (** Register - Register - Shift **)
-let getVdtaVntbShf2 b r = r b; ThreeOperands (VdTs1 b, VnTsq1 b, LShf1 b)
-let getVdVnShf bin r = r bin; ThreeOperands (Vd5 bin, Vn5 bin, RShfAmt bin)
-let getVdVnShf2 bin r = r bin; ThreeOperands (Vd5 bin, Vn5 bin, LShfAmt bin)
-let getVbdVanShf bin r = r bin; ThreeOperands (Vd5 bin, Vn6 bin, RShfAmt bin)
+let getVdtaVntbShf2 b r = r b; ThreeOperands (vdts1 b, vntsq1 b, lshf1 b)
+let getVdVnShf bin r = r bin; ThreeOperands (vd5 bin, vn5 bin, rshfAmt bin)
+let getVdVnShf2 bin r = r bin; ThreeOperands (vd5 bin, vn5 bin, lshfAmt bin)
+let getVbdVanShf bin r = r bin; ThreeOperands (vd5 bin, vn6 bin, rshfAmt bin)
 
 (** Register - Register - fbits **)
-let getSdWnFbits bin = ThreeOperands (Sd bin, Wn bin, fbits2 bin)
-let getWdSnFbits bin = ThreeOperands (Wd bin, Sn bin, fbits2 bin)
-let getDdWnFbits bin = ThreeOperands (Dd bin, Wn bin, fbits2 bin)
-let getWdDnFbits bin = ThreeOperands (Wd bin, Dn bin, fbits2 bin)
-let getSdXnFbits bin = ThreeOperands (Sd bin, Xn bin, fbits2 bin)
-let getXdSnFbits bin = ThreeOperands (Xd bin, Sn bin, fbits2 bin)
-let getDdXnFbits bin = ThreeOperands (Dd bin, Xn bin, fbits2 bin)
-let getXdDnFbits bin = ThreeOperands (Xd bin, Dn bin, fbits2 bin)
-let getVdVnFbits bin r = r bin; ThreeOperands (Vd5 bin, Vn5 bin, fbits1 bin)
+let getSdWnFbits bin = ThreeOperands (sd bin, wn bin, fbits2 bin)
+let getWdSnFbits bin = ThreeOperands (wd bin, sn bin, fbits2 bin)
+let getDdWnFbits bin = ThreeOperands (dd bin, wn bin, fbits2 bin)
+let getWdDnFbits bin = ThreeOperands (wd bin, dn bin, fbits2 bin)
+let getSdXnFbits bin = ThreeOperands (sd bin, xn bin, fbits2 bin)
+let getXdSnFbits bin = ThreeOperands (xd bin, sn bin, fbits2 bin)
+let getDdXnFbits bin = ThreeOperands (dd bin, xn bin, fbits2 bin)
+let getXdDnFbits bin = ThreeOperands (xd bin, dn bin, fbits2 bin)
+let getVdVnFbits bin r = r bin; ThreeOperands (vd5 bin, vn5 bin, fbits1 bin)
 
 (** Register - Register - Memory **)
-let getWsWtMXSn bin = ThreeOperands (Ws bin, Wt1 bin, memXSn bin)
-let getWsXtMXSn bin = ThreeOperands (Ws bin, Xt1 bin, memXSn bin)
-let getWt1Wt2MXSn bin = ThreeOperands (Wt1 bin, Wt2 bin, memXSn bin)
-let getXt1Xt2MXSn bin = ThreeOperands (Xt1 bin, Xt2 bin, memXSn bin)
+let getWsWtMXSn bin = ThreeOperands (ws bin, wt1 bin, memXSn bin)
+let getWsXtMXSn bin = ThreeOperands (ws bin, xt1 bin, memXSn bin)
+let getWt1Wt2MXSn bin = ThreeOperands (wt1 bin, wt2 bin, memXSn bin)
+let getXt1Xt2MXSn bin = ThreeOperands (xt1 bin, xt2 bin, memXSn bin)
 
 (** Register - Immediate - Shift **)
 let getVdtImm8LAmt bin oprVdt = function
   | Some s -> ThreeOperands (oprVdt bin, imm8 bin, s)
   | None -> TwoOperands (oprVdt bin, imm8 bin)
-let getVdtImm8LAmt1 bin = getVdtImm8LAmt bin VdTq1 None (* 8-bit *)
-let getVdtImm8LAmt2 bin = getVdtImm8LAmt bin VdTq3 (LAmt bin Amt16Imm)
-let getVdtImm8LAmt3 bin = getVdtImm8LAmt bin VdTq2 (LAmt bin Amt32Imm)
-let getVdtImm8MAmt bin = ThreeOperands (VdTq2 bin, imm8 bin, MAmt bin)
-let getWdImmLShf bin = ThreeOperands (Wd bin, imm16 bin, LShf3 bin)
-let getXdImmLShf bin = ThreeOperands (Xd bin, imm16 bin, LShf3 bin)
-let getVdtVntShf1 bin = ThreeOperands (VdTihq bin, VnTihq bin, RShfAmt bin)
-let getVdtVntShf2 bin = ThreeOperands (VdTihq bin, VnTihq bin, LShfAmt bin)
-let getVdtbVntaShf b r = r b; ThreeOperands (VdTihq b, VnTih b, RShfAmt b)
-let getVdtaVntbShf b r = r b; ThreeOperands (VdTih b, VnTihq b, LShfAmt b)
-let getVdtVntFbits b r = r b; ThreeOperands (VdTihq b, VnTihq b, fbits1 b)
+let getVdtImm8LAmt1 bin = getVdtImm8LAmt bin vdtq1 None (* 8-bit *)
+let getVdtImm8LAmt2 bin = getVdtImm8LAmt bin vdtq3 (lAmt bin amt16Imm)
+let getVdtImm8LAmt3 bin = getVdtImm8LAmt bin vdtq2 (lAmt bin amt32Imm)
+let getVdtImm8MAmt bin = ThreeOperands (vdtq2 bin, imm8 bin, mAmt bin)
+let getWdImmLShf bin = ThreeOperands (wd bin, imm16 bin, lshf3 bin)
+let getXdImmLShf bin = ThreeOperands (xd bin, imm16 bin, lshf3 bin)
+let getVdtVntShf1 bin = ThreeOperands (vdtihq bin, vntihq bin, rshfAmt bin)
+let getVdtVntShf2 bin = ThreeOperands (vdtihq bin, vntihq bin, lshfAmt bin)
+let getVdtbVntaShf b r = r b; ThreeOperands (vdtihq b, vntih b, rshfAmt b)
+let getVdtaVntbShf b r = r b; ThreeOperands (vdtih b, vntihq b, lshfAmt b)
+let getVdtVntFbits b r = r b; ThreeOperands (vdtihq b, vntihq b, fbits1 b)
 
 // Four Operands
-let getWdWnWmWa bin = FourOperands (Wd bin, Wn bin, Wm bin, Wa bin)
-let getXdWnWmXa bin = FourOperands (Xd bin, Wn bin, Wm bin, Xa bin)
-let getXdXnXmXa bin = FourOperands (Xd bin, Xn bin, Xm bin, Xa bin)
-let getVdtVntVmtIdx b = FourOperands (VdTq1 b, VnTq1 b, VmTq1 b, index b)
-let getWnWmNzcvCond bin = FourOperands (Wn bin, Wm bin, nzcv bin, cond bin)
-let getXnXmNzcvCond bin = FourOperands (Xn bin, Xm bin, nzcv bin, cond bin)
-let getWnImmNzcvCond bin = FourOperands (Wn bin, imm5 bin, nzcv bin, cond bin)
-let getXnImmNzcvCond bin = FourOperands (Xn bin, imm5 bin, nzcv bin, cond bin)
-let getWdWnWmCond bin = FourOperands (Wd bin, Wn bin, Wm bin, cond bin)
-let getXdXnXmCond bin = FourOperands (Xd bin, Xn bin, Xm bin, cond bin)
-let getSdSnSmSa bin = FourOperands (Sd bin, Sn bin, Sm bin, Sa bin)
-let getDdDnDmDa bin = FourOperands (Dd bin, Dn bin, Dm bin, Da bin)
-let getSdSnSmCond bin = FourOperands (Sd bin, Sn bin, Sm bin, cond bin)
-let getDdDnDmCond bin = FourOperands (Dd bin, Dn bin, Dm bin, cond bin)
-let getWdWnWmShfamt bin = FourOperands (Wd bin, Wn bin, Wm bin, Shfamt bin)
-let getXdXnXmShfamt bin = FourOperands (Xd bin, Xn bin, Xm bin, Shfamt bin)
-let getWSdWSnWmExtamt bin = FourOperands (WSd bin, WSn bin, Wm bin, Extamt bin)
-let getXSdXSnRmExtamt bin = FourOperands (XSd bin, XSn bin, Rm bin, Extamt bin)
-let getWdWSnImmShf bin = FourOperands (Wd bin, WSn bin, imm12 bin, LShf2 bin)
-let getXdXSnImmShf bin = FourOperands (Xd bin, XSn bin, imm12 bin, LShf2 bin)
-let getWSdWSnImmShf bin = FourOperands (WSd bin, WSn bin, imm12 bin, LShf2 bin)
-let getXSdXSnImmShf bin = FourOperands (XSd bin, XSn bin, imm12 bin, LShf2 bin)
+let getWdWnWmWa bin = FourOperands (wd bin, wn bin, wm bin, wa bin)
+let getXdWnWmXa bin = FourOperands (xd bin, wn bin, wm bin, xa bin)
+let getXdXnXmXa bin = FourOperands (xd bin, xn bin, xm bin, xa bin)
+let getVdtVntVmtIdx b = FourOperands (vdtq1 b, vntq1 b, vmtq1 b, index b)
+let getWnWmNzcvCond bin = FourOperands (wn bin, wm bin, nzcv bin, cond bin)
+let getXnXmNzcvCond bin = FourOperands (xn bin, xm bin, nzcv bin, cond bin)
+let getWnImmNzcvCond bin = FourOperands (wn bin, imm5 bin, nzcv bin, cond bin)
+let getXnImmNzcvCond bin = FourOperands (xn bin, imm5 bin, nzcv bin, cond bin)
+let getWdWnWmCond bin = FourOperands (wd bin, wn bin, wm bin, cond bin)
+let getXdXnXmCond bin = FourOperands (xd bin, xn bin, xm bin, cond bin)
+let getSdSnSmSa bin = FourOperands (sd bin, sn bin, sm bin, sa bin)
+let getDdDnDmDa bin = FourOperands (dd bin, dn bin, dm bin, da bin)
+let getSdSnSmCond bin = FourOperands (sd bin, sn bin, sm bin, cond bin)
+let getDdDnDmCond bin = FourOperands (dd bin, dn bin, dm bin, cond bin)
+let getWdWnWmShfamt bin = FourOperands (wd bin, wn bin, wm bin, shfamt bin)
+let getXdXnXmShfamt bin = FourOperands (xd bin, xn bin, xm bin, shfamt bin)
+let getWSdWSnWmExtamt bin = FourOperands (wsd bin, wsn bin, wm bin, extamt bin)
+let getXSdXSnRmExtamt bin = FourOperands (xsd bin, xsn bin, rm bin, extamt bin)
+let getWdWSnImmShf bin = FourOperands (wd bin, wsn bin, imm12 bin, lshf2 bin)
+let getXdXSnImmShf bin = FourOperands (xd bin, xsn bin, imm12 bin, lshf2 bin)
+let getWSdWSnImmShf bin = FourOperands (wsd bin, wsn bin, imm12 bin, lshf2 bin)
+let getXSdXSnImmShf bin = FourOperands (xsd bin, xsn bin, imm12 bin, lshf2 bin)
 let getWdWnImmrImms bin =
-  FourOperands (Wd bin, Wn bin, immr bin 31u, imms bin 31u)
+  FourOperands (wd bin, wn bin, immr bin 31u, imms bin 31u)
 let getXdXnImmrImms bin =
-  FourOperands (Xd bin, Xn bin, immr bin 63u, imms bin 63u)
-let getWdWnWmLsb bin = FourOperands (Wd bin, Wn bin, Wm bin, lsb bin 31u)
-let getXdXnXmLsb bin = FourOperands (Xd bin, Xn bin, Xm bin, lsb bin 63u)
-let getWsWt1Wt2MXSn bin = FourOperands (Ws bin, Wt1 bin, Wt2 bin, memXSn bin)
-let getWsXt1Xt2MXSn bin = FourOperands (Ws bin, Xt1 bin, Xt2 bin, memXSn bin)
-let getSnSmNZCVCond bin = FourOperands (Sn bin, Sm bin, nzcv bin, cond bin)
-let getDnDmNZCVCond bin = FourOperands (Dn bin, Dm bin, nzcv bin, cond bin)
+  FourOperands (xd bin, xn bin, immr bin 63u, imms bin 63u)
+let getWdWnWmLsb bin = FourOperands (wd bin, wn bin, wm bin, lsb bin 31u)
+let getXdXnXmLsb bin = FourOperands (xd bin, xn bin, xm bin, lsb bin 63u)
+let getWsWt1Wt2MXSn bin = FourOperands (ws bin, wt1 bin, wt2 bin, memXSn bin)
+let getWsXt1Xt2MXSn bin = FourOperands (ws bin, xt1 bin, xt2 bin, memXSn bin)
+let getSnSmNZCVCond bin = FourOperands (sn bin, sm bin, nzcv bin, cond bin)
+let getDnDmNZCVCond bin = FourOperands (dn bin, dm bin, nzcv bin, cond bin)
 
-// Five Operands
 let getOp1cncmop2Xt bin =
-  FiveOperands (op1 bin, Cn bin, Cm bin, op2 bin, Xt1 bin)
-let getXtOp1cncmop2 bin =
-  FiveOperands (Xt1 bin, op1 bin, Cn bin, Cm bin, op2 bin)
+  FiveOperands (op1 bin, cn bin, cm bin, op2 bin, xt1 bin)
 
-// SIMD Operation size
+let getXtOp1cncmop2 bin =
+  FiveOperands (xt1 bin, op1 bin, cn bin, cm bin, op2 bin)
+
 let getOprSizeByVector = function
   | VecB -> 8<rt>
   | VecH -> 16<rt>
@@ -384,13 +383,10 @@ let getOprSizeByVector = function
   | OneQ -> 128<rt>
 
 let getOprSizeBySIMDReg reg =
-  let unwrapSIMD = function
-    | SFReg sReg -> sReg
-    | _ -> failwith "Not implemented"
-  match unwrapSIMD reg with
-  | SIMDVecReg (_, v) -> getOprSizeByVector v
-  | SIMDVecRegWithIdx (_, v, _) -> getOprSizeByVector v
-  | _ -> failwith "None"
+  match reg with
+  | SFReg (SIMDVecReg (_, v)) -> getOprSizeByVector v
+  | SFReg (SIMDVecRegWithIdx (_, v, _)) -> getOprSizeByVector v
+  | _ -> raise InvalidOperandException
 
 let getFstOperand = function
   | OneOperand o -> o
@@ -398,11 +394,11 @@ let getFstOperand = function
   | ThreeOperands (o1, _, _) -> o1
   | FourOperands (o1, _, _, _) -> o1
   | FiveOperands (o1, _, _, _, _) -> o1
-  | NoOperand -> failwith "None"
+  | _ -> raise InvalidOperandException
 
 let getSIMDOperand = function
   | SIMDOpr simd -> simd
-  | _ -> failwith "Not SIMD operand"
+  | _ -> raise InvalidOperandException
 
 let getSIMDVectorOprSize (op, oprs) =
   op, oprs, getFstOperand oprs |> getSIMDOperand |> getOprSizeBySIMDReg
@@ -411,8 +407,7 @@ let getSIMDScalarOprSize o size (op, oprs) =
   match o with
   | 0b00u | 0b01u | 0b10u -> op, oprs, getVectorWidthBySize1 size
   | 0b11u -> op, oprs, getVectorWidthBySize2 size
-  | _ -> failwith "None"
-/////////////////////////////////////////////////////////////
+  | _ -> raise InvalidOperandException
 
 let changeToAliasOfAddSubImm bin instr =
   let isImm12Zero = valImm12 bin = 0b000000000000u
@@ -442,7 +437,7 @@ let parseAddSubImm bin =
   | 0b101u -> Opcode.ADDS, getXdXSnImmShf bin, 64<rt>
   | 0b110u -> Opcode.SUB, getXSdXSnImmShf bin, 64<rt>
   | 0b111u -> Opcode.SUBS, getXdXSnImmShf bin, 64<rt>
-  | _ -> failwith "Invalid cond (parse64AddSubImm)"
+  | _ -> raise InvalidOperandException
   |> changeToAliasOfAddSubImm bin
 
 let changeToAliasOfBitfield bin instr =
@@ -524,7 +519,7 @@ let parseBitfield bin =
   | 0b1001u -> Opcode.SBFM, getXdXnImmrImms bin, 64<rt>
   | 0b1011u -> Opcode.BFM, getXdXnImmrImms bin, 64<rt>
   | 0b1101u -> Opcode.UBFM, getXdXnImmrImms bin, 64<rt>
-  | _ -> failwith "Invalid cond (parse64Bitfield)"
+  | _ -> raise InvalidOperandException
   |> changeToAliasOfBitfield bin
 
 let changeToAliasOfExtract instr =
@@ -547,7 +542,7 @@ let parseExtract bin =
   | c when c &&& 0b11111000000u = 0b10010000000u ->
     Opcode.EXTR, getXdXnXmLsb bin, 64<rt>
   | c when c &&& 0b10010000000u = 0b10000000000u -> raise UnallocatedException
-  | _ -> failwith "Invalid cond (parse64Extract)"
+  | _ -> raise InvalidOperandException
   |> changeToAliasOfExtract
 
 let changeToAliasOfLogical bin instr =
@@ -571,7 +566,7 @@ let parseLogical bin =
   | c when c &&& 0b1110u = 0b1010u -> Opcode.ORR, getXSdXnImm bin, 64<rt>
   | c when c &&& 0b1110u = 0b1100u -> Opcode.EOR, getXSdXnImm bin, 64<rt>
   | c when c &&& 0b1110u = 0b1110u -> Opcode.ANDS, getXdXnImm bin, 64<rt>
-  | _ -> failwith "Invalid cond (parse64Logical)"
+  | _ -> raise InvalidOperandException
   |> changeToAliasOfLogical bin
 
 let changeToAliasOfMoveWide bin instr =
@@ -585,7 +580,7 @@ let changeToAliasOfMoveWide bin instr =
     Opcode.MOV, TwoOperands (xd, Immediate imm), oprSz
   | Opcode.MOVN, ThreeOperands (wd, Immediate imm16, Shift (_, Imm amt)), oprSz
       when not is64Bit && not (0b0L = imm16 && hw <> 0b00u)
-           && not (0b1111111111111111L = imm16) ->
+           && (0b1111111111111111L <> imm16) ->
     let imm = ~~~ (uint32 (imm16 <<< int32 amt)) |> int64
     Opcode.MOV, TwoOperands (wd, Immediate imm), oprSz
   (* C6.2.123 MOV (wide immediate) *)
@@ -606,7 +601,7 @@ let parseMoveWide bin =
   | c when c &&& 0b11100u = 0b10000u -> Opcode.MOVN, getXdImmLShf bin, 64<rt>
   | c when c &&& 0b11100u = 0b11000u -> Opcode.MOVZ, getXdImmLShf bin, 64<rt>
   | c when c &&& 0b11100u = 0b11100u -> Opcode.MOVK, getXdImmLShf bin, 64<rt>
-  | _ -> failwith "Invalid cond (parseMoveWide)"
+  | _ -> raise InvalidOperandException
   |> changeToAliasOfMoveWide bin
 
 let parsePCRel bin =
@@ -623,7 +618,7 @@ let parse64Group1 bin =
   | 0b101u -> parseMoveWide bin
   | 0b110u -> parseBitfield bin
   | 0b111u -> parseExtract bin
-  | _ -> failwith "Invalid op0 (parse64Group1)"
+  | _ -> raise InvalidOpcodeException
 
 let parseCompareAndBranchImm bin =
   let cond = concat (pickBit bin 31u) (pickBit bin 24u) 1 (* sf:op *)
@@ -632,7 +627,7 @@ let parseCompareAndBranchImm bin =
   | 0b01u -> Opcode.CBNZ, getWtLabel bin, 32<rt>
   | 0b10u -> Opcode.CBZ, getXtLabel bin, 64<rt>
   | 0b11u -> Opcode.CBNZ, getXtLabel bin, 64<rt>
-  | _ -> failwith "Invalid cond (parseCompareAndBranchImm)"
+  | _ -> raise InvalidOpcodeException
 
 let parseCondBranchImm bin =
   let cond = concat (pickBit bin 24u) (pickBit bin 4u) 1 (* o1:o0 *)
@@ -641,7 +636,7 @@ let parseCondBranchImm bin =
     | 0b00u -> getConditionOpcode (extract bin 3u 0u |> byte)
     | 0b01u -> raise UnallocatedException
     | 0b10u | 0b11u -> raise UnallocatedException
-    | _ -> failwith "Invalid Opcode"
+    | _ -> raise InvalidOpcodeException
   opCode, OneOperand (memLabel (signExtend 19 64 (valImm19 bin <<< 2 |> uint64)
                                |> int64)), 64<rt>
 
@@ -669,7 +664,7 @@ let parseExcepGen bin =
     | 0b10100010u -> Opcode.DCPS2
     | 0b10100011u -> Opcode.DCPS3
     | c when c &&& 0b11011100u = 0b11000000u -> raise UnallocatedException
-    | _ -> failwith "Invalid Opcode"
+    | _ -> raise InvalidOpcodeException
   opCode, OneOperand (Immediate (valImm16 bin |> int64)), 0<rt>
 
 let getISBOprs = function
@@ -742,7 +737,7 @@ let parseSystem bin =
     Opcode.SYSL, getXtOp1cncmop2 bin, 0<rt>
   | c when c &&& 0b1100000000000u = 0b1100000000000u ->
     Opcode.MRS, getXtSysregOrctrl bin, 0<rt>
-  | _ -> failwith "Invalid cond (parseSystem)"
+  | _ -> raise InvalidOperandException
   |> changeToAliasOfSystem bin
 
 let parseTestBranchImm bin =
@@ -790,7 +785,7 @@ let parseUncondBranchReg bin =
     Opcode.DRPS, NoOperand, 0<rt>
   | o when o &&& 1110u = 0110u -> raise UnallocatedException
   | o when o &&& 1000u = 1000u -> raise UnallocatedException
-  | _ -> failwith "Invalid opc (parseUncondBranchReg)"
+  | _ -> raise InvalidOpcodeException
 
 /// Branches, exception generating and system instructions
 let parse64Group2 bin =
@@ -809,7 +804,7 @@ let parse64Group2 bin =
   | ops when ops &&& 0b0111000u = 0b0010000u -> parseCompareAndBranchImm bin
   | ops when ops &&& 0b0111000u = 0b0011000u -> parseTestBranchImm bin
   | ops when ops &&& 0b0110000u = 0b0110000u -> raise UnallocatedException
-  | _ -> failwith "Invalid op0 (parse64Group2)"
+  | _ -> raise InvalidOpcodeException
 
 let parseAdvSIMDMul bin =
   let cond = concat (pickBit bin 22u) (extract bin 15u 12u) 4 (* L:opcode *)
@@ -840,7 +835,7 @@ let parseAdvSIMDMul bin =
   | 0b11010u -> Opcode.LD1, getVt2tMXSn bin resNone, 0<rt>
   | 0b11011u -> raise UnallocatedException
   | c when c &&& 0b11100u = 0b11100u -> raise UnallocatedException
-  | _ -> failwith "Invalid cond (parseAdvSIMDMul)"
+  | _ -> raise InvalidOpcodeException
 
 let parseAdvSIMDMulPostIndexed bin =
   let cond = concat (pickBit bin 22u) (extract bin 15u 12u) 4 (* L:opcode *)
@@ -892,7 +887,7 @@ let parseAdvSIMDMulPostIndexed bin =
   | 0b10111u when isRm11111 -> Opcode.LD1, getVt1tPoXSnImm1 bin resNone, 0<rt>
   | 0b11000u when isRm11111 -> Opcode.LD2, getVt2tPoXSnImm1 bin sizeQ110b, 0<rt>
   | 0b11010u when isRm11111 -> Opcode.LD1, getVt2tPoXSnImm1 bin resNone, 0<rt>
-  | _ -> failwith "Invalid cond (parseAdvSIMDMulPostIndexed)"
+  | _ -> raise InvalidOpcodeException
 
 let parseAdvSIMDSingle bin =
   let cond = concat (extract bin 22u 21u) (extract bin 15u 10u) 6
@@ -1000,7 +995,7 @@ let parseAdvSIMDSingle bin =
   | c when c &&& 0b11111100u = 0b11111000u ->
     Opcode.LD4R, getVt4tMXSn bin resNone, 0<rt>
   | c when c &&& 0b11111100u = 0b11111100u -> raise UnallocatedException
-  | _ -> failwith "Invalid cond (parseAdvSIMDSingle)"
+  | _ -> raise InvalidOpcodeException
 
 let parseAdvSIMDSinglePostIndexed bin =
   let cond = concat (extract bin 22u 21u) (extract bin 15u 10u) 6
@@ -1185,7 +1180,7 @@ let parseAdvSIMDSinglePostIndexed bin =
     Opcode.LD2R, getVt2tPoXSnImm2 bin, 0<rt>
   | c when c &&& 0b11111100u = 0b11111000u && isRm11111 ->
     Opcode.LD4R, getVt4tPoXSnImm2 bin, 0<rt>
-  | _ -> failwith "Invalid cond (parseAdvSIMDSinglePostIndexed)"
+  | _ -> raise InvalidOpcodeException
 
 let parseLoadRegLiteral bin =
   let cond = concat (extract bin 31u 30u) (pickBit bin 26u) 1 (* opc:V *)
@@ -1198,7 +1193,7 @@ let parseLoadRegLiteral bin =
   | 0b101u -> Opcode.LDR, getQtLabel bin, 128<rt>
   | 0b110u -> Opcode.PRFM, getPrfopImm5Label bin, 0<rt>
   | 0b111u -> raise UnallocatedException
-  | _ -> failwith "Invalid cond (parseLoadRegLiteral)"
+  | _ -> raise InvalidOpcodeException
 
 let parseLoadStoreExclusive bin =
   let cond = concat (concat (extract bin 31u 30u) (extract bin 23u 21u) 3)
@@ -1239,7 +1234,7 @@ let parseLoadStoreExclusive bin =
   | 0b110111u -> Opcode.LDAXP, getXt1Xt2MXSn bin, 64<rt>
   | 0b111001u -> Opcode.STLR, getXtMXSn bin, 64<rt>
   | 0b111101u -> Opcode.LDAR, getXtMXSn bin, 64<rt>
-  | _ -> failwith "Invalid cond (parseLoadStoreExclusive)"
+  | _ -> raise InvalidOpcodeException
 
 let parseLoadStoreNoAllocatePairOffset bin =
   let cond = concat (concat (extract bin 31u 30u) (pickBit bin 26u) 1)
@@ -1257,7 +1252,7 @@ let parseLoadStoreNoAllocatePairOffset bin =
   | 0b1010u -> Opcode.STNP, getQt1Qt2BIXSnimm bin 4, 128<rt>
   | 0b1011u -> Opcode.LDNP, getQt1Qt2BIXSnimm bin 4, 128<rt>
   | c when c &&& 0b1100u = 0b1100u -> raise UnallocatedException
-  | _ -> failwith "Invalid cond (parseLoadStoreNoAllocatePairOffset)"
+  | _ -> raise InvalidOpcodeException
 
 let parseLoadStoreRegImmPostIndexed bin =
   let cond = concat (concat (extract bin 31u 30u) (pickBit bin 26u) 1)
@@ -1290,7 +1285,7 @@ let parseLoadStoreRegImmPostIndexed bin =
   | 0b11010u -> raise UnallocatedException
   | 0b11100u -> Opcode.STR, getDtPoXSnsimm bin, 64<rt>
   | 0b11101u -> Opcode.LDR, getDtPoXSnsimm bin, 64<rt>
-  | _ -> failwith "Invalid cond (parseLoadStoreRegImmPostIndexed)"
+  | _ -> raise InvalidOpcodeException
 
 let parseLoadStoreRegImmPreIndexed bin =
   let cond = concat (concat (extract bin 31u 30u) (pickBit bin 26u) 1)
@@ -1323,7 +1318,7 @@ let parseLoadStoreRegImmPreIndexed bin =
   | 0b11010u -> raise UnallocatedException
   | 0b11000u -> Opcode.STR, getXtPrXSnsimm bin, 64<rt>
   | 0b11001u -> Opcode.LDR, getXtPrXSnsimm bin, 64<rt>
-  | _ -> failwith "Invalid cond (parseLoadStoreRegImmPreIndexed)"
+  | _ -> raise InvalidOpcodeException
 
 let parseLoadStoreRegOffset bin =
   let cond = concat (concat (extract bin 31u 30u) (pickBit bin 26u) 1)
@@ -1367,7 +1362,7 @@ let parseLoadStoreRegOffset bin =
   | 0b11010u -> Opcode.PRFM, getPrfopimm5BEXSnrmamt bin, 0<rt>
   | 0b11100u -> Opcode.STR, getDtBEXSnrmamt bin, 64<rt>
   | 0b01101u -> Opcode.LDR, getDtBEXSnrmamt bin, 64<rt>
-  | _ -> failwith "Invalid cond (parseLoadStoreRegOffset)"
+  | _ -> raise InvalidOpcodeException
 
 let parseLoadStoreRegUnprivileged bin =
   let cond = concat (concat (extract bin 31u 30u) (pickBit bin 26u) 1)
@@ -1389,7 +1384,7 @@ let parseLoadStoreRegUnprivileged bin =
   | 0b11000u -> Opcode.STTR, getXtBIXSnsimm bin, 64<rt>
   | 0b11001u -> Opcode.LDTR, getXtBIXSnsimm bin, 64<rt>
   | 0b11010u -> raise UnallocatedException
-  | _ -> failwith "Invalid cond (parseLoadStoreRegUnprivileged)"
+  | _ -> raise InvalidOpcodeException
 
 let parseLoadStoreRegUnscaledImm bin =
   let cond = concat (concat (extract bin 31u 30u) (pickBit bin 26u) 1)
@@ -1422,7 +1417,7 @@ let parseLoadStoreRegUnscaledImm bin =
   | 0b11010u -> Opcode.PRFUM, getPrfopimm5BIXSnsimm bin, 0<rt>
   | 0b11100u -> Opcode.STUR, getDtBIXSnsimm bin, 64<rt>
   | 0b11101u -> Opcode.LDUR, getDtBIXSnsimm bin, 64<rt>
-  | _ -> failwith "Invalid cond (parseLoadStoreRegUnscaledImm)"
+  | _ -> raise InvalidOpcodeException
 
 let parseLoadStoreRegUnsignedImm bin =
   let cond = concat (concat (extract bin 31u 30u) (pickBit bin 26u) 1)
@@ -1455,7 +1450,7 @@ let parseLoadStoreRegUnsignedImm bin =
   | 0b11010u -> Opcode.PRFM, getPrfopimm5BIXSnpimm bin, 0<rt>
   | 0b11100u -> Opcode.STR, getDtBIXSnpimm bin, 64<rt>
   | 0b11101u -> Opcode.LDR, getDtBIXSnpimm bin, 64<rt>
-  | _ -> failwith "Invalid cond (parseLoadStoreRegUnsignedImm)"
+  | _ -> raise InvalidOpcodeException
 
 let parseLoadStoreRegPairOffset bin =
   let cond = concat (concat (extract bin 31u 30u) (pickBit bin 26u) 1)
@@ -1474,7 +1469,7 @@ let parseLoadStoreRegPairOffset bin =
   | 0b1010u -> Opcode.STP, getQt1Qt2BIXSnimm bin 4, 128<rt>
   | 0b1011u -> Opcode.LDP, getQt1Qt2BIXSnimm bin 4, 128<rt>
   | c when c &&& 0b1100u = 0b1100u -> raise UnallocatedException
-  | _ -> failwith "Invalid cond (parseLoadStoreRegPairOffset)"
+  | _ -> raise InvalidOpcodeException
 
 let parseLoadStoreRegPairPostIndexed bin =
   let cond = concat (concat (extract bin 31u 30u) (pickBit bin 26u) 1)
@@ -1493,7 +1488,7 @@ let parseLoadStoreRegPairPostIndexed bin =
   | 0b1010u -> Opcode.STP, getQt1Qt2PoXSnimm bin, 128<rt>
   | 0b1011u -> Opcode.LDP, getQt1Qt2PoXSnimm bin, 128<rt>
   | c when c &&& 0b1100u = 0b1100u -> raise UnallocatedException
-  | _ -> failwith "Invalid cond (parseLoadStoreRegPairPostIndexed)"
+  | _ -> raise InvalidOpcodeException
 
 let parseLoadStoreRegPairPreIndexed bin =
   let cond = concat (concat (extract bin 31u 30u) (pickBit bin 26u) 1)
@@ -1512,7 +1507,7 @@ let parseLoadStoreRegPairPreIndexed bin =
   | 0b1010u -> Opcode.STP, getQt1Qt2PrXSnimm bin, 128<rt>
   | 0b1011u -> Opcode.LDP, getQt1Qt2PrXSnimm bin, 128<rt>
   | c when c &&& 0b1100u = 0b1100u -> raise UnallocatedException
-  | _ -> failwith "Invalid cond (parseLoadStoreRegPairPostIndexed)"
+  | _ -> raise InvalidOpcodeException
 
 /// Loads and stores
 let parse64Group3 bin =
@@ -1580,7 +1575,7 @@ let parse64Group3 bin =
     raise UnallocatedException
   | c when c &&& 0b01101000000000u = 0b01101000000000u ->
     parseLoadStoreRegUnsignedImm bin
-  | _ -> failwith "Invalid cond (parse64Group3)"
+  | _ -> raise InvalidOpcodeException
 
 /// The alias is always the preferred disassembly.
 let toAliasFromLSLV _ = Opcode.LSL
@@ -1620,7 +1615,7 @@ let parseDataProcessing2Src bin =
   | c when c &&& 0b11111010u = 0b10010000u -> raise UnallocatedException
   | 0b10010011u -> Opcode.CRC32X, getWdWnXm bin, 32<rt>
   | 0b10010111u -> Opcode.CRC32CX, getWdWnXm bin, 32<rt>
-  | _ -> failwith "Invalid cond (parseDataProcessing2Src)"
+  | _ -> raise InvalidOpcodeException
 
 let parseDataProcessing1Src bin =
   let cond = concat (concat (pickBit bin 31u) (pickBit bin 29u) 1)
@@ -1649,7 +1644,7 @@ let parseDataProcessing1Src bin =
   | 0b1000000000011u -> Opcode.REV, getXdXn bin, 64<rt>
   | 0b1000000000100u -> Opcode.CLZ, getXdXn bin, 64<rt>
   | 0b1000000000101u -> Opcode.CLS, getXdXn bin, 64<rt>
-  | _ -> failwith "Invalid cond (parseDataPorcessing1Src)"
+  | _ -> raise InvalidOpcodeException
 
 let changeToAliasOfShiftReg bin instr =
   let isShfZero = (valShift bin) = 0b00u
@@ -1687,7 +1682,7 @@ let parseLogicalShiftedReg bin =
   | 0b1101u -> Opcode.EON, getXdXnXmShfamt bin, 64<rt>
   | 0b1110u -> Opcode.ANDS, getXdXnXmShfamt bin, 64<rt>
   | 0b1111u -> Opcode.BICS, getXdXnXmShfamt bin, 64<rt>
-  | _ -> failwith "Invalid cond (parseLogicalShiftedReg)"
+  | _ -> raise InvalidOpcodeException
   |> changeToAliasOfShiftReg bin
 
 let changeToAliasOfAddSubShiftReg bin instr =
@@ -1715,7 +1710,7 @@ let parseAddSubShiftReg bin =
   | 0b101u -> Opcode.ADDS, getXdXnXmShfamt bin, 64<rt>
   | 0b110u -> Opcode.SUB, getXdXnXmShfamt bin, 64<rt>
   | 0b111u -> Opcode.SUBS, getXdXnXmShfamt bin, 64<rt>
-  | _ -> failwith "Invalid cond (parseAddSubShiftReg)"
+  | _ -> raise InvalidOpcodeException
   |> changeToAliasOfAddSubShiftReg bin
 
 let changeToAliasOfExtReg bin = function
@@ -1741,7 +1736,7 @@ let parseAddSubExtReg bin =
   | 0b10100u -> Opcode.ADDS, getXSdXSnRmExtamt bin, 64<rt>
   | 0b11000u -> Opcode.SUB, getXSdXSnRmExtamt bin, 64<rt>
   | 0b11100u -> Opcode.SUBS, getXSdXSnRmExtamt bin, 64<rt>
-  | _ -> failwith "Invalid cond (parseAddSubExtReg)"
+  | _ -> raise InvalidOpcodeException
   |> changeToAliasOfExtReg bin
 
 let changeToAliasOfWithCarry = function
@@ -1769,7 +1764,7 @@ let parseAddSubWithCarry bin =
     | 0b101000000u -> Opcode.ADCS, getXdXnXm bin, 64<rt>
     | 0b110000000u -> Opcode.SBC, getXdXnXm bin, 64<rt>
     | 0b111000000u -> Opcode.SBCS, getXdXnXm bin, 64<rt>
-    | _ -> failwith "Invalid cond (parseAddSubWithCarry)"
+    | _ -> raise InvalidOpcodeException
   if valN bin <> 0b11111u then instr else changeToAliasOfWithCarry instr
 
 let parseCondCmpReg bin =
@@ -1783,7 +1778,7 @@ let parseCondCmpReg bin =
   | 0b01100u -> Opcode.CCMP, getWnWmNzcvCond bin, 32<rt>
   | 0b10100u -> Opcode.CCMN, getXnXmNzcvCond bin, 64<rt>
   | 0b11100u -> Opcode.CCMP, getXnXmNzcvCond bin, 64<rt>
-  | _ -> failwith "Invalid cond (parseCondCmpReg)"
+  | _ -> raise InvalidOpcodeException
 
 let parseCondCmpImm bin =
   let cond = concat (concat (extract bin 31u 29u) (pickBit bin 10u) 1)
@@ -1796,7 +1791,7 @@ let parseCondCmpImm bin =
   | 0b01100u -> Opcode.CCMP, getWnImmNzcvCond bin, 32<rt>
   | 0b10100u -> Opcode.CCMN, getXnImmNzcvCond bin, 64<rt>
   | 0b11100u -> Opcode.CCMP, getXnImmNzcvCond bin, 64<rt>
-  | _ -> failwith "Invalid cond (parseCondCmpImm)"
+  | _ -> raise InvalidOpcodeException
 
 let changeToAliasOfCondSelect bin instr =
   let rm = valM bin
@@ -1834,7 +1829,7 @@ let parseCondSelect bin =
   | 0b10001u -> Opcode.CSINC, getXdXnXmCond bin, 64<rt>
   | 0b11000u -> Opcode.CSINV, getXdXnXmCond bin, 64<rt>
   | 0b11001u -> Opcode.CSNEG, getXdXnXmCond bin, 64<rt>
-  | _ -> failwith "Invalid cond (parseCondSelect)"
+  | _ -> raise InvalidOpcodeException
   |> changeToAliasOfCondSelect bin
 
 let changeToAliasOfDataProcessing3Src = function
@@ -1879,7 +1874,7 @@ let parseDataProcessing3Src bin =
   | 0b1001010u -> Opcode.UMADDL, getXdWnWmXa bin, 64<rt>
   | 0b1001011u -> Opcode.UMSUBL, getXdWnWmXa bin, 64<rt>
   | 0b1001100u -> Opcode.UMULH, getXdXnXm bin, 64<rt>
-  | _ -> failwith "Invalid cond (parseDataProcessing3Src)"
+  | _ -> raise InvalidOpcodeException
   |> fun instr -> if valA bin <> 0b11111u then instr
                   else changeToAliasOfDataProcessing3Src instr
 
@@ -1900,7 +1895,7 @@ let parse64Group4 bin =
   | 0b10100u -> parseCondSelect bin
   | c when c &&& 0b11001u = 0b10001u -> raise UnallocatedException
   | c when c &&& 0b11000u = 0b11000u -> parseDataProcessing3Src bin
-  | _ -> failwith "Invalid cond (parse64Group4)"
+  | _ -> raise InvalidOpcodeException
 
 let parseCryptAES bin =
   let cond = concat (extract bin 23u 22u) (extract bin 16u 12u) 5
@@ -1914,7 +1909,7 @@ let parseCryptAES bin =
   | 0b0000110u -> Opcode.AESMC, getVd16BVn16B bin, 0<rt>
   | 0b0000111u -> Opcode.AESIMC, getVd16BVn16B bin, 0<rt>
   | c when c &&& 0b1000000u = 0b1000000u -> raise UnallocatedException
-  | _ -> failwith "Invalid cond (parseCryptAES)"
+  | _ -> raise InvalidOpcodeException
 
 let parseAdvSIMDTableLookup bin =
   let cond = concat (extract bin 23u 22u) (extract bin 14u 12u) 3
@@ -1929,7 +1924,7 @@ let parseAdvSIMDTableLookup bin =
   | 0b00110u -> Opcode.TBL, getVdtaVn416BVmta bin, 0<rt>
   | 0b00111u -> Opcode.TBX, getVdtaVn416BVmta bin, 0<rt>
   | c when c &&& 0b10000u = 0b10000u -> raise UnallocatedException
-  | _ -> failwith "Invalid cond (parseAdvSIMDTableLookup)"
+  | _ -> raise InvalidOpcodeException
 
 /// [Opcode] <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
 let parseAdvSIMDPermute bin =
@@ -1942,14 +1937,14 @@ let parseAdvSIMDPermute bin =
   | 0b101u -> Opcode.UZP2, getVdtVntVmt bin sizeQ110, 0<rt>
   | 0b110u -> Opcode.TRN2, getVdtVntVmt bin sizeQ110, 0<rt>
   | 0b111u -> Opcode.ZIP2, getVdtVntVmt bin sizeQ110, 0<rt>
-  | _ -> failwith "Invalid cond (parseAdvSIMDPermute)"
+  | _ -> raise InvalidOpcodeException
 
 let parseAdvSIMDExtract bin =
   match extract bin 23u 22u with
   | c when c &&& 0b01u = 0b01u -> raise UnallocatedException
   | 0b00u -> Opcode.EXT, getVdtVntVmtIdx bin, 0<rt>
   | c when c &&& 0b10u = 0b10u -> raise UnallocatedException
-  | _ -> failwith "Invalid cond (parseAdvSIMDExtract)"
+  | _ -> raise InvalidOpcodeException
 
 let changeToAliasOfAdvSIMDCopy bin =
   let imm5 = valImm5 bin in function
@@ -1985,7 +1980,7 @@ let parseAdvSIMDCopy bin =
     Opcode.UMOV, getXdVntsidx bin imm5notx1000, 64<rt>
   | c when c &&& 0b11000000000u = 0b11000000000u ->
     Opcode.INS, getVdtsidx1Vntsidx2 bin, 0<rt>
-  | _ -> failwith "Invalid cond (parseAdvSIMDCopy)"
+  | _ -> raise InvalidOpcodeException
   |> changeToAliasOfAdvSIMDCopy bin
 
 let toAliasFromNOT _ = Opcode.MVN
@@ -2132,7 +2127,7 @@ let parseAdvSIMDTwoReg bin =
     Opcode.FRSQRTE, getVdtVnt2 bin szQ10, 0<rt>
   | c when c &&& 0b11011111u = 0b11011111u ->
     Opcode.FSQRT, getVdtVnt2 bin szQ10, 0<rt>
-  | _ -> failwith "Invalid cond (parseAdvSIMDTwoReg)"
+  | _ -> raise InvalidOpcodeException
 
 let parseAdvSIMDAcrossLanes bin =
   let cond = concat (concat (pickBit bin 29u) (extract bin 23u 22u) 2)
@@ -2171,7 +2166,7 @@ let parseAdvSIMDAcrossLanes bin =
     Opcode.FMINNMV, getVdVnt3 bin szQx011, 0<rt>
   | c when c &&& 0b11011111u = 0b11001111u ->
     Opcode.FMINV, getVdVnt3 bin szQx011, 0<rt>
-  | _ -> failwith "Invalid cond (parseAdvSIMDAcrossLanes)"
+  | _ -> raise InvalidOpcodeException
 
 let parseAdvSIMDThreeDiff bin =
   let cond = concat (pickBit bin 29u) (extract bin 15u 12u) 4 (* U:opcode *)
@@ -2233,7 +2228,7 @@ let parseAdvSIMDThreeDiff bin =
                 getVdtaVntbVmtb bin size11, 0<rt>
   | 0b11101u -> raise UnallocatedException
   | 0b11110u -> raise UnallocatedException
-  | _ -> failwith "Invalid cond (parseAdvSIMDThreeDiff)"
+  | _ -> raise InvalidOpcodeException
 
 let changeToAliasOfAdvSIMDThreeSame bin = function
   | Opcode.ORR, ThreeOperands (vdt, vnt, _) when valM bin = valN bin ->
@@ -2387,7 +2382,7 @@ let parseAdvSIMDThreeSame b =
   | c when c &&& 0b11011111u = 0b11011111u -> raise UnallocatedException
   | c when c &&& 0b11111111u = 0b11000011u -> Opcode.BIT, getVdtVntVmt3 b
   | c when c &&& 0b11111111u = 0b11100011u -> Opcode.BIF, getVdtVntVmt3 b
-  | _ -> failwith "Invalid cond (parseAdvSIMDThreeSame)"
+  | _ -> raise InvalidOpcodeException
   |> changeToAliasOfAdvSIMDThreeSame b
   |> getSIMDVectorOprSize
 
@@ -2422,7 +2417,7 @@ let parseAdvSIMDModImm bin =
   | c when c &&& 0b1111111u = 0b0111110u -> raise UnallocatedException
   | c when c &&& 0b1111111u = 0b1111100u -> Opcode.MOVI, getVd2DImm bin, 0<rt>
   | c when c &&& 0b1111111u = 0b1111110u -> Opcode.FMOV, getVd2DFImm bin, 0<rt>
-  | _ -> failwith "Invalid cond 1111110(parseAdvSIMDModImm)"
+  | _ -> raise InvalidOpcodeException
 
 let getAdvSIMDShfByImm b =
   let cond = concat (pickBit b 29u) (extract b 15u 11u) 5 (* U:opcode *)
@@ -2479,7 +2474,7 @@ let getAdvSIMDShfByImm b =
                  getVdtaVntbShf b immh1xxx, 0<rt>
   | 0b111100u -> Opcode.UCVTF, getVdtVntFbits b immhQ1, 0<rt>
   | 0b111111u -> Opcode.FCVTZU, getVdtVntFbits b immhQ1, 0<rt>
-  | _ -> failwith "Invalid cond (getAdvSIMDShfByImm)"
+  | _ -> raise InvalidOpcodeException
 
 let parseAdvSIMDVecXIdxElem bin =
   let cond = concat (concat (pickBit bin 29u) (extract bin 23u 22u) 2)
@@ -2540,7 +2535,7 @@ let parseAdvSIMDVecXIdxElem bin =
   | c when c &&& 0b1101111u = 0b1100101u -> raise UnallocatedException
   | c when c &&& 0b1101111u = 0b1101001u ->
     Opcode.FMULX, getVdtVntVmtsidx2 bin szL11, 0<rt>
-  | _ -> failwith "Invalid cond (parseAdvSIMDVecXIdxElem)"
+  | _ -> raise InvalidOpcodeException
 
 /// Data processing - SIMD and FP - 1
 let parse64Group5 bin =
@@ -2593,7 +2588,7 @@ let parse64Group5 bin =
     parseAdvSIMDVecXIdxElem bin
   | c when c &&& 0b100100000000000000u = 0b100000000000000000u ->
     raise UnallocatedException
-  | _ -> failwith "Invalid cond (parse64Group5)"
+  | _ -> raise InvalidOpcodeException
 
 let parseCryptThreeRegSHA bin =
   let cond = concat (extract bin 23u 22u) (extract bin 14u 12u) 3
@@ -2607,7 +2602,7 @@ let parseCryptThreeRegSHA bin =
   | 0b00100u -> Opcode.SHA256H, getQdQnVm4S bin, 128<rt>
   | 0b00101u -> Opcode.SHA256H2, getQdQnVm4S bin, 128<rt>
   | 0b00110u -> Opcode.SHA256SU1, getVd4SVn4SVm4S bin, 0<rt>
-  | _ -> failwith "Invalid cond (parseCryptThreeRegSHA)"
+  | _ -> raise InvalidOpcodeException
 
 let parseCryptTwoRegSHA bin =
   let cond = concat (extract bin 23u 22u) (extract bin 16u 12u) 5
@@ -2621,7 +2616,7 @@ let parseCryptTwoRegSHA bin =
   | 0b0000010u -> Opcode.SHA256SU0, getVd4SVn4S bin, 0<rt>
   | 0b0000011u -> raise UnallocatedException
   | c when c &&& 0b1000000u = 0b1000000u -> raise UnallocatedException
-  | _ -> failwith "Invalid cond (parseCryptTwoRegSHA)"
+  | _ -> raise InvalidOpcodeException
 
 /// This instruction is used by the alias MOV (scalar).
 /// The alias is always the preferred disassembly.
@@ -2639,7 +2634,7 @@ let parseAdvSIMDScalarCopy bin =
   | c when c &&& 0b1000001000u = 0b0000001000u -> raise UnallocatedException
   | c when c &&& 0b1011111111u = 0b0000000000u -> raise UnallocatedException
   | c when c &&& 0b1000000000u = 0b1000000000u -> raise UnallocatedException
-  | _ -> failwith "Invalid cond (parseAdvSIMDScalarCopy)"
+  | _ -> raise InvalidOpcodeException
 
 let parseAdvSIMDScalarTwoReg bin =
   let cond = concat (concat (extract bin 29u 29u) (extract bin 23u 22u) 2)
@@ -2716,7 +2711,7 @@ let parseAdvSIMDScalarTwoReg bin =
   | c when c &&& 0b11011111u = 0b11011101u ->
     Opcode.FRSQRTE, getVdVn2 bin, 0<rt>
   | c when c &&& 0b11011111u = 0b11011111u -> raise UnallocatedException
-  | _ -> failwith "Invalid cond (parseAdvSIMDScalarTwoReg)"
+  | _ -> raise InvalidOpcodeException
 
 let parseAdvSIMDScalarPairwise bin =
   let cond = concat (concat (extract bin 29u 29u) (extract bin 23u 22u) 2)
@@ -2740,7 +2735,7 @@ let parseAdvSIMDScalarPairwise bin =
   | c when c &&& 0b11011111u = 0b11001100u ->
     Opcode.FMINNMP, getVdVnt5 bin, 0<rt>
   | c when c &&& 0b11011111u = 0b11001111u -> Opcode.FMINP, getVdVnt5 bin, 0<rt>
-  | _ -> failwith "Invalid cond (parseAdvSIMDScalarPairwise)"
+  | _ -> raise InvalidOpcodeException
 
 let parseAdvSIMDScalarThreeDiff bin =
   let cond = concat (extract bin 29u 29u) (extract bin 15u 12u) 4
@@ -2760,7 +2755,7 @@ let parseAdvSIMDScalarThreeDiff bin =
   | c when c &&& 0b11111u = 0b11001u -> raise UnallocatedException
   | c when c &&& 0b11111u = 0b11011u -> raise UnallocatedException
   | c when c &&& 0b11111u = 0b11101u -> raise UnallocatedException
-  | _ -> failwith "Invalid cond (parseAdvSIMDScalarThreeDiff)"
+  | _ -> raise InvalidOpcodeException
 
 let parseAdvSIMDScalarThreeSame bin =
   let cond = concat (concat (extract bin 29u 29u) (extract bin 23u 22u) 2)
@@ -2852,7 +2847,7 @@ let parseAdvSIMDScalarThreeSame bin =
   | c when c &&& 0b11011111u = 0b11011101u -> Opcode.FACGT, getVdVnVm2 bin
   | c when c &&& 0b11011111u = 0b11011110u -> raise UnallocatedException
   | c when c &&& 0b11011111u = 0b11011111u -> raise UnallocatedException
-  | _ -> failwith "Invalid cond (parseAdvSIMDScalarThreeSame)"
+  | _ -> raise InvalidOpcodeException
   |> getSIMDScalarOprSize (extract bin 15u 14u) (valSize1 bin)
 
 let parseAdvSIMDScalarShiftByImm bin =
@@ -2901,7 +2896,7 @@ let parseAdvSIMDScalarShiftByImm bin =
   | 0b110011u -> Opcode.UQRSHRN, getVbdVanShf bin immh00001xxx, 0<rt>
   | 0b111100u -> Opcode.UCVTF, getVdVnFbits bin immh00xx, 0<rt>
   | 0b111111u -> Opcode.FCVTZU, getVdVnFbits bin immh00xx, 0<rt>
-  | _ -> failwith "Invalid cond (parseAdvSIMDScalarShiftByImm)"
+  | _ -> raise InvalidOpcodeException
 
 let parseAdvSIMDScalarXIdxElem b =
   let cond = concat (concat (extract b 29u 29u) (extract b 23u 22u) 2)
@@ -2938,7 +2933,7 @@ let parseAdvSIMDScalarXIdxElem b =
   | c when c &&& 0b1101111u = 0b1100101u -> raise UnallocatedException
   | c when c &&& 0b1101111u = 0b1101001u ->
     Opcode.FMULX, getVdVnVmtsidx2 b szL11, 0<rt>
-  | _ -> failwith "Invalid cond (parseAdvSIMDScalarXIdxElem)"
+  | _ -> raise InvalidOpcodeException
 
 let parseConvBetwFPAndFixedPt bin =
   let cond = concat (concat (concat (pickBit bin 31u) (pickBit bin 29u) 1)
@@ -2970,7 +2965,7 @@ let parseConvBetwFPAndFixedPt bin =
   | 0b100100011u -> Opcode.UCVTF, getDdXnFbits bin, 64<rt>
   | 0b100111000u -> Opcode.FCVTZS, getXdDnFbits bin, 64<rt>
   | 0b100111001u -> Opcode.FCVTZU, getXdDnFbits bin, 64<rt>
-  | _ -> failwith "Invalid cond (parsingConvBetwFPAndFixedPoint)"
+  | _ -> raise InvalidOpcodeException
 
 let parseConvBetwFPAndInt bin =
   let cond = concat (concat (concat (pickBit bin 31u) (pickBit bin 29u) 1)
@@ -3047,7 +3042,7 @@ let parseConvBetwFPAndInt bin =
   | 0b101001110u -> Opcode.FMOV, getXdVnD1 bin, 64<rt>
   | 0b101001111u -> Opcode.FMOV, getVdD1Xn bin, 0<rt>
   | c when c &&& 0b111110110u = 0b101010110u -> raise UnallocatedException
-  | _ -> failwith "Invalid cond (parseConvBetwFPAndInt)"
+  | _ -> raise InvalidOpcodeException
 
 let parseFPDP1Src bin =
   let cond = concat (concat (concat (pickBit bin 31u) (pickBit bin 29u) 1)
@@ -3095,7 +3090,7 @@ let parseFPDP1Src bin =
   | c when c &&& 0b1111111110u = 0b0011000110u -> raise UnallocatedException
   | 0b0011001101u -> raise UnallocatedException
   | c when c &&& 0b1000000000u = 0b1000000000u -> raise UnallocatedException
-  | _ -> failwith "Invalid cond (parseFPDP1Src)"
+  | _ -> raise InvalidOpcodeException
 
 let parseFPCompare bin =
   let cond = concat (concat (concat (concat (pickBit bin 31u)
@@ -3120,7 +3115,7 @@ let parseFPCompare bin =
   | 0b00010010000u -> Opcode.FCMPE, getDnDm bin, 64<rt>
   | 0b00010011000u -> Opcode.FCMPE, getDnP0 bin, 64<rt>
   | c when c &&& 0b10000000000u = 0b10000000000u -> raise UnallocatedException
-  | _ -> failwith "Invalid cond (parseFPCompare)"
+  | _ -> raise InvalidOpcodeException
 
 let parseFPImm bin =
   let cond = concat (concat (concat (pickBit bin 31u) (pickBit bin 29u) 1)
@@ -3137,7 +3132,7 @@ let parseFPImm bin =
   | 0b000000000u -> Opcode.FMOV, getSdImm8 bin, 32<rt>
   | 0b000100000u -> Opcode.FMOV, getDdImm8 bin, 64<rt>
   | c when c &&& 0b100000000u = 0b100000000u -> raise UnallocatedException
-  | _ -> failwith "Invalid cond (parseFPImm)"
+  | _ -> raise InvalidOpcodeException
 
 let parseFPCondComp bin =
   let cond = concat (concat (concat (pickBit bin 31u) (pickBit bin 29u) 1)
@@ -3151,7 +3146,7 @@ let parseFPCondComp bin =
   | 0b00010u -> Opcode.FCCMP, getDnDmNZCVCond bin, 64<rt>
   | 0b00011u -> Opcode.FCCMPE, getDnDmNZCVCond bin, 64<rt>
   | c when c &&& 0b10000u = 0b10000u -> raise UnallocatedException
-  | _ -> failwith "Invalid cond (parseFPCondComp)"
+  | _ -> raise InvalidOpcodeException
 
 let parseFPDP2Src bin =
   let cond = concat (concat (concat (pickBit bin 31u) (pickBit bin 29u) 1)
@@ -3182,7 +3177,7 @@ let parseFPDP2Src bin =
   | 0b00010111u -> Opcode.FMINNM, getDdDnDm bin, 64<rt>
   | 0b00011000u -> Opcode.FNMUL, getDdDnDm bin, 64<rt>
   | c when c &&& 0b10000000u = 0b10000000u -> raise UnallocatedException
-  | _ -> failwith "Invalid cond (parseFPDP2Src)"
+  | _ -> raise InvalidOpcodeException
 
 let parseFPCondSelect bin =
   let cond = concat (concat (pickBit bin 31u) (pickBit bin 29u) 1)
@@ -3193,7 +3188,7 @@ let parseFPCondSelect bin =
   | 0b0000u -> Opcode.FCSEL, getSdSnSmCond bin, 32<rt>
   | 0b0001u -> Opcode.FCSEL, getDdDnDmCond bin, 64<rt>
   | c when c &&& 0b1000u = 0b1000u -> raise UnallocatedException
-  | _ -> failwith "Invalid cond (parseFPCondSelect)"
+  | _ -> raise InvalidOpcodeException
 
 let parseFPDP3Src bin =
   let cond = concat (concat (concat (pickBit bin 31u) (pickBit bin 29u) 1)
@@ -3211,7 +3206,7 @@ let parseFPDP3Src bin =
   | 0b000110u -> Opcode.FNMADD, getDdDnDmDa bin, 64<rt>
   | 0b000111u -> Opcode.FNMSUB, getDdDnDmDa bin, 64<rt>
   | c when c &&& 0b100000u = 0b100000u -> raise UnallocatedException
-  | _ -> failwith "Invalid cond (parseFPDP3Src)"
+  | _ -> raise InvalidOpcodeException
 
 /// Data processing - SIMD and FP - 2
 let parse64Group6 bin =
@@ -3274,7 +3269,7 @@ let parse64Group6 bin =
     parseFPCondSelect bin
   | c when c &&& 0b010110000000000000u = 0b000110000000000000u ->
     parseFPDP3Src bin
-  | _ -> failwith "Invalid cond (parse64Group6)"
+  | _ -> raise InvalidOpcodeException
 
 let parseByGroupOfB64 bin =
   let op0 = extract bin 28u 25u
@@ -3292,7 +3287,7 @@ let parseByGroupOfB64 bin =
   | op0 when op0 &&& 0b1111u = 0b0111u -> parse64Group5 bin
   (* Data processing - SIMD and floating point *)
   | op0 when op0 &&& 0b1111u = 0b1111u -> parse64Group6 bin
-  | _ -> failwith "Invalid op0 (parseByGroupOfB64)"
+  | _ -> raise InvalidOpcodeException
 
 let parse (span: ByteSpan) (reader: IBinReader) addr =
   let bin = reader.ReadUInt32 (span, 0)

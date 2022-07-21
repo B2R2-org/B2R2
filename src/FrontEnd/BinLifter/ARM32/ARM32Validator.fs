@@ -407,9 +407,9 @@ let chkAlignPCRnD2regs bin =
 (* if Q == '1' && (Vd<0> == '1' || Vn<0> == '1' || Vm<0> == '1') then UNDEFINED
    if Q == '0' && imm4<3> == '1' then UNDEFINED *)
 let chkQVdImm bin =
-  let Q = pickBit bin 6 (* Q *)
-  ((Q = 1u && (pickBit bin 12 = 1u || pickBit bin 16 = 1u ||
-     pickBit bin 0 = 1u)) || (Q = 0u && pickBit bin 11 = 1u)) |> checkUndef
+  let q = pickBit bin 6 (* Q *)
+  ((q = 1u && (pickBit bin 12 = 1u || pickBit bin 16 = 1u ||
+     pickBit bin 0 = 1u)) || (q = 0u && pickBit bin 11 = 1u)) |> checkUndef
 
 (* if n+length > 32 then UNPREDICTABLE *)
 let chkPCRnLen bin =
@@ -957,7 +957,8 @@ let chkPCRdSRm bin =
 (* setflags = (S == '1')
    if (d == 15 && !setflags) || n == 15 then UNPREDICTABLE *)
 let chkPCRdSRn bin =
-  ((extract bin 11 8 = 15u && pickBit bin 20 <> 1u) || (extract bin 19 16 = 15u))
+  ((extract bin 11 8 = 15u && pickBit bin 20 <> 1u)
+    || (extract bin 19 16 = 15u))
   |> checkUnpred
 
 (* setflags = (S == '1')

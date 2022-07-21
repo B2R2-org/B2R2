@@ -230,11 +230,11 @@ let dumpJsonFiles jsonDir ess =
     CFGExport.toJson disasmcfg disasmJsonPath)
 
 let initBinHdl isa (name: string) =
-  let autoDetect = not (isa.Arch = Architecture.EVM)
+  let autoDetect = (isa.Arch <> Architecture.EVM)
   BinHandle.Init (isa, ArchOperationMode.NoMode, autoDetect, None, name)
 
 let interactiveMain files (opts: BinExplorerOpts) =
-  if List.length files = 0 then
+  if List.isEmpty files then
     eprintfn "A file should be given as input.\n\n\
               Type --help or --batch to see more info."; exit 1
   else

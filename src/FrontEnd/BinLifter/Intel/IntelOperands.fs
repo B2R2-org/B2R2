@@ -337,12 +337,12 @@ module internal OperandParsingHelper =
 
   open type RegGrp
 
-  /// The first 24 rows of Table 2-2. of the manual Vol. 2A.
-  /// The index of this tbl is a number that is a concatenation of (mod) and
-  /// (r/m) field of the ModR/M byte. Each element is a tuple of (MemLookupType,
-  /// and the size of the displacement). If the first value of the tuple (register
-  /// group) is None, it means we need to look up the SIB tbl (Table 2-3). If
-  /// not, then it represents the reg group of the base reigster.
+  /// The first 24 rows of Table 2-2. of the manual Vol. 2A. The index of this
+  /// tbl is a number that is a concatenation of (mod) and (r/m) field of the
+  /// ModR/M byte. Each element is a tuple of (MemLookupType, and the size of
+  /// the displacement). If the first value of the tuple (register group) is
+  /// None, it means we need to look up the SIB tbl (Table 2-3). If not, then it
+  /// represents the reg group of the base reigster.
   let parseMEM32 span rhlp modRM =
     let modVal = modRM &&& 0b11000000uy
     match modVal >>> 3 ||| (modRM &&& 0b00000111uy) with

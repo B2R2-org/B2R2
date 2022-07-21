@@ -82,7 +82,7 @@ let translateSectionChracteristics chars =
       | [] -> List.rev acc
       | enumChar :: t ->
         if uint64 enumChar &&& chars = uint64 enumChar
-          && not (uint64 enumChar = uint64 0) then
+          && (uint64 enumChar <> 0UL) then
           loop ((" - " + enumChar.ToString ()) :: acc) chars t
         else
           loop acc chars t

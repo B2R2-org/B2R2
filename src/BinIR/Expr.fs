@@ -308,6 +308,6 @@ module Expr =
       sb.Append (")") |> ignore
 
   let toString expr =
-    let sb = new StringBuilder ()
+    let sb = StringBuilder ()
     appendToString expr sb
     sb.ToString ()

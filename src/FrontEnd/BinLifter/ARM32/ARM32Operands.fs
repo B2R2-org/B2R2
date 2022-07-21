@@ -410,21 +410,21 @@ module OperandParsingHelper =
   /// shared/functions/float/vfpexpandimm/VFPExpandImm on page J1-7900.
   let vfpExpandImm bin imm8 =
     let size = extract bin 9 8 (* size *)
-    let E =
+    let e =
       match size (* N *) with
       | 0b01u -> 5
       | 0b10u -> 8
       | 0b11u -> 11
       | _ (* 00 *) -> raise UndefinedException
-    let F = (8 <<< (int size)) - E - 1
+    let f = (8 <<< (int size)) - e - 1
     let sign = pickBit imm8 7 |> int64
     let exp =
-      let n = RegType.fromBitWidth (E - 3)
-      ((~~~ (pickBit imm8 6) &&& 0b1u) |> int64 <<< ((E - 3) + 2)) +
+      let n = RegType.fromBitWidth (e - 3)
+      ((~~~ (pickBit imm8 6) &&& 0b1u) |> int64 <<< ((e - 3) + 2)) +
       ((replicate (pickBit imm8 6 |> int64) 1 n) <<< 2) +
       ((extract imm8 5 4) |> int64)
-    let frac = (extract imm8 3 0) <<< (F - 4) |> int64
-    (sign <<< (E + F)) + (exp <<< F) + frac
+    let frac = (extract imm8 3 0) <<< (f - 4) |> int64
+    (sign <<< (e + f)) + (exp <<< f) + frac
 
   /// aarch32/functions/common/A32ExpandImm_C on page J1-7766.
   /// Modified immediate constants in A32 instructions on page F2-4136.
@@ -436,7 +436,8 @@ module OperandParsingHelper =
 
   /// shared/functions/common/SignExtend on page J1-7849.
   let signExtend bitSize (bits: uint32) =
-    bits |> uint64 |> signExtend bitSize 32 |> System.Convert.ToInt64 |> memLabel
+    bits |> uint64
+    |> signExtend bitSize 32 |> System.Convert.ToInt64 |> memLabel
 
   /// shared/functions/common/BitCount on page J1-7845.
   let bitCount bits len =
@@ -733,8 +734,8 @@ module OperandParsingHelper =
     | None -> Condition.AL
 
   /// aarch32/functions/common/T32ExpandImm_C on page J1-7767.
-  // T32ExpandImm_C()
-  // ================
+  /// T32ExpandImm_C()
+  /// ================
   /// Modified immediate constants in A32 inOprInfoions on page F2-4135.
   let t32ExpandImm imm12 = (* _carryIn = *)
     if extract imm12 11 10 = 0b00u then
@@ -2260,7 +2261,8 @@ type internal OprQdDnDmidx () =
       concat (pickBit bin 7) (extract bin 19 16) 4 |> getVecDReg |> toSVReg
     let index = concat (pickBit bin 5) (pickBit bin 3) 1 (* M:Vm<3> *)
     let dmidx =
-      toSSReg (extract bin 2 0 (* Vm<2:0> *) |> getVecDReg, Some (index |> uint8))
+      toSSReg (extract bin 2 0 (* Vm<2:0> *) |> getVecDReg,
+               Some (index |> uint8))
     struct (ThreeOperands (qd, dn, dmidx), false, None)
 
 (* <Qd>, <Dn>, <Dm> *)
@@ -2309,7 +2311,8 @@ type internal OprQdQnDmidxm () =
       concat (pickBit bin 7) (extract bin 19 16) 4 |> getVecQReg |> toSVReg
     let index = concat (pickBit bin 5) (pickBit bin 3) 1 (* M:Vm<3> *)
     let dmidx =
-      toSSReg (extract bin 2 0 (* Vm<2:0> *) |> getVecDReg, Some (index |> uint8))
+      toSSReg (extract bin 2 0 (* Vm<2:0> *) |> getVecDReg,
+               Some (index |> uint8))
     struct (ThreeOperands (qd, qn, dmidx), false, None)
 
 (* <Dd>, <Qn>, <Qm> *)
@@ -2971,7 +2974,9 @@ type internal OprRdRnRmShfA () =
     let rm = extract bin 3 0 |> getRegister |> OprReg
     let struct (shift, amount) = (* stype imm5 *)
       decodeImmShift (extract bin 6 5) (extract bin 11 7)
-    struct (FourOperands (rd, rn, rm, OprShift (shift, Imm amount)), false, None)
+    struct (FourOperands (rd, rn, rm, OprShift (shift, Imm amount)),
+            false,
+            None)
 
 (* {<Rd>,} <Rn>, <Rm>, <shift> <Rs> *)
 type internal OprRdRnRmShfRs () =
@@ -3005,7 +3010,9 @@ type internal OprRdImmRnShfA () =
     let rn = extract bin 3 0 |> getRegister |> OprReg
     let struct (sTyp, amount) = (* sh:'0' *) (* imm5 *)
       decodeImmShift (extract bin 6 5) (extract bin 11 7)
-    struct (FourOperands (rd, imm, rn, OprShift (sTyp, Imm amount)), false, None)
+    struct (FourOperands (rd, imm, rn, OprShift (sTyp, Imm amount)),
+            false,
+            None)
 
 (* <Rd>, #<imm>, <Rn>, ASR #<amount> *)
 (* <Rd>, #<imm>, <Rn>, LSL #<amount> *)
@@ -3017,7 +3024,9 @@ type internal OprRdImmRnShfUA () =
     let rn = extract bin 3 0 |> getRegister |> OprReg
     let struct (sTyp, amount) = (* sh:'0' *) (* imm5 *)
       decodeImmShift (extract bin 6 5) (extract bin 11 7)
-    struct (FourOperands (rd, imm, rn, OprShift (sTyp, Imm amount)), false, None)
+    struct (FourOperands (rd, imm, rn, OprShift (sTyp, Imm amount)),
+            false,
+            None)
 
 (* <Rd>, <Rn>, #<lsb>, #<width> *)
 type internal OprRdRnLsbWidthA () =
@@ -3126,7 +3135,8 @@ type internal OprDdDnDm0Rotate () =
     let dn = (* N:Vn *)
       concat (pickBit bin 7) (extract bin 19 16) 4 |> getVecDReg |> toSVReg
     let dm0 (* M:Vm *)  =
-      toSSReg (concat (pickBit bin 5) (extract bin 3 0) 4 |> getVecDReg, Some 0uy)
+      toSSReg (concat (pickBit bin 5) (extract bin 3 0) 4 |> getVecDReg,
+               Some 0uy)
     let rotate =
       match extract bin 21 20 (* rot *) with
       | 0b00u -> 0L
@@ -3145,7 +3155,8 @@ type internal OprQdQnDm0Rotate () =
     let qn = (* N:Vn *)
       concat (pickBit bin 7) (extract bin 19 16) 4 |> getVecQReg |> toSVReg
     let dm0 (* M:Vm *)  =
-      toSSReg (concat (pickBit bin 5) (extract bin 3 0) 4 |> getVecDReg, Some 0uy)
+      toSSReg (concat (pickBit bin 5) (extract bin 3 0) 4 |> getVecDReg,
+               Some 0uy)
     let rotate =
       match extract bin 21 20 (* rot *) with
       | 0b00u -> 0L

@@ -164,7 +164,7 @@ let private castTo80Bit ctxt tmpB tmpA srcExpr ir =
       let addrSize = TypeCheck.typeOf addrExpr
       !!ir (tmpB := AST.loadLE 16<rt> (addrExpr .+ numI32 8 addrSize))
       !!ir (tmpA := AST.loadLE 64<rt> addrExpr)
-    | BinOp (_, _, { E = Var (_, r, _, _) }, { E = Var (_, _, _, _)}, _) ->
+    | BinOp (_, _, { E = Var (_, r, _, _) }, { E = Var (_)}, _) ->
       let reg = Register.pseudoRegToReg (Register.ofRegID r)
       let struct (srcB, srcA) = getFPUPseudoRegVars ctxt reg
       !!ir (tmpB := srcB)

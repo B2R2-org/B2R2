@@ -40,7 +40,7 @@ type ConstantPropagation<'L when 'L: equality> (ssaCFG) =
 
   member private __.GetNumIncomingExecutedEdges st (blk: SSAVertex) =
     let myid = blk.GetID ()
-    DiGraph.getPreds ssaCFG blk
+    DiGraph.GetPreds (ssaCFG, blk)
     |> List.map (fun p -> p.GetID (), myid)
     |> List.filter (fun (src, dst) -> CPState.isExecuted st src dst)
     |> List.length
@@ -52,7 +52,7 @@ type ConstantPropagation<'L when 'L: equality> (ssaCFG) =
       | Some uses ->
         uses
         |> Set.iter (fun (vid, idx) ->
-          let v = DiGraph.findVertexByID ssaCFG vid
+          let v = DiGraph.FindVertexByID (ssaCFG, vid)
           if __.GetNumIncomingExecutedEdges st v > 0 then
             let ppoint, stmt = v.VData.SSAStmtInfos[idx]
             st.CPCore.Transfer st ssaCFG v ppoint stmt
@@ -63,7 +63,7 @@ type ConstantPropagation<'L when 'L: equality> (ssaCFG) =
     if st.FlowWorkList.Count > 0 then
       let parentid, myid = st.FlowWorkList.Dequeue ()
       st.ExecutedEdges.Add (parentid, myid) |> ignore
-      let blk = DiGraph.findVertexByID ssaCFG myid
+      let blk = DiGraph.FindVertexByID (ssaCFG, myid)
       blk.VData.SSAStmtInfos
       |> Array.iter (fun (ppoint, stmt) ->
         st.CPCore.Transfer st ssaCFG blk ppoint stmt)
@@ -72,7 +72,7 @@ type ConstantPropagation<'L when 'L: equality> (ssaCFG) =
         match blk.VData.GetLastStmt () with
         | Jmp _ -> ()
         | _ -> (* Fall-through cases. *)
-          DiGraph.getSuccs ssaCFG blk
+          DiGraph.GetSuccs (ssaCFG, blk)
           |> List.iter (fun succ ->
             let succid = succ.GetID ()
             CPState.markExecutable st myid succid)

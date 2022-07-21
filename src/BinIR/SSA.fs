@@ -45,8 +45,7 @@ type VariableKind =
   /// Global variables. This variable is available only after the SSA promotion.
   | GlobalVar of RegType * Addr
 with
-  [<CompiledName("ToString")>]
-  static member toString = function
+  static member ToString = function
     | RegVar (_, _, n) -> n
     | PCVar (_) -> "PC"
     | TempVar (_, n) -> "T_" + n.ToString()
@@ -60,12 +59,10 @@ type Variable = {
   mutable Identifier: int
 }
 with
-  [<CompiledName("ToString")>]
-  static member toString ({ Kind = k; Identifier = i }) =
-    VariableKind.toString k + "_" + i.ToString ()
+  static member ToString ({ Kind = k; Identifier = i }) =
+    VariableKind.ToString k + "_" + i.ToString ()
 
-  [<CompiledName("IsPC")>]
-  static member isPC ({ Kind = k }) =
+  static member IsPC ({ Kind = k }) =
     match k with
     | PCVar (_) -> true
     | _ -> false

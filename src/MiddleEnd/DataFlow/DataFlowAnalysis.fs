@@ -56,15 +56,15 @@ type DataFlowHelper () =
 
 type private ForwardDataFlowHelper () =
   inherit DataFlowHelper ()
-  override __.Neighbor g v = DiGraph.getPreds g v
+  override __.Neighbor g v = DiGraph.GetPreds (g, v)
   override __.AddToWorkList g v worklist =
-    DiGraph.getSuccs g v |> List.iter worklist.Enqueue
+    DiGraph.GetSuccs (g, v) |> List.iter worklist.Enqueue
 
 type BackwardDataFlowHelper () =
   inherit DataFlowHelper ()
-  override __.Neighbor g v = DiGraph.getSuccs g v
+  override __.Neighbor g v = DiGraph.GetSuccs (g, v)
   override __.AddToWorkList g v worklist =
-    DiGraph.getPreds g v |> List.iter worklist.Enqueue
+    DiGraph.GetPreds (g, v) |> List.iter worklist.Enqueue
 
 /// Data-flow analysis framework. 'L is a lattice, 'V is a vertex data type of a
 /// graph.

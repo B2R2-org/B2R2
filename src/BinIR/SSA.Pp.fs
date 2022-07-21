@@ -33,7 +33,7 @@ open B2R2.BinIR
 let rec private expToStringAux expr (sb: StringBuilder) =
   match expr with
   | Num n -> sb.Append (BitVector.ToString n) |> ignore
-  | Var (v) -> sb.Append (Variable.toString v) |> ignore
+  | Var (v) -> sb.Append (Variable.ToString v) |> ignore
   | Nil -> sb.Append ("nil") |> ignore
   | FuncName (n) -> sb.Append (n) |> ignore
   | UnOp (op, _, e) ->
@@ -59,13 +59,13 @@ let rec private expToStringAux expr (sb: StringBuilder) =
     expToStringAux e2 sb
     sb.Append (")") |> ignore
   | Load (v, typ, e) ->
-    sb.Append (Variable.toString v) |> ignore
+    sb.Append (Variable.ToString v) |> ignore
     sb.Append ("[") |> ignore
     expToStringAux e sb
     sb.Append ("]:") |> ignore
     sb.Append (RegType.toString typ) |> ignore
   | Store (v, _, addr, e) ->
-    sb.Append (Variable.toString v) |> ignore
+    sb.Append (Variable.ToString v) |> ignore
     sb.Append ("[") |> ignore
     expToStringAux addr sb
     sb.Append (" <- ") |> ignore
@@ -114,7 +114,7 @@ let private variablesToString (kind: string) vars (sb: StringBuilder) =
   sb.Append (kind) |> ignore
   sb.Append ("(") |> ignore
   vars |> List.iter (fun v ->
-    sb.Append (Variable.toString v) |> ignore
+    sb.Append (Variable.ToString v) |> ignore
     sb.Append (";") |> ignore)
   sb.Append (")") |> ignore
 
@@ -125,7 +125,7 @@ let private stmtToStringAux stmt (sb: StringBuilder) =
     labelToString lbl sb
     sb.Append (")") |> ignore
   | Def (v, e) ->
-    sb.Append (Variable.toString v) |> ignore
+    sb.Append (Variable.ToString v) |> ignore
     sb.Append (" := ") |> ignore
     expToStringAux e sb
   | Jmp (IntraJmp (lbl))->
@@ -149,7 +149,7 @@ let private stmtToStringAux stmt (sb: StringBuilder) =
     sb.Append (" else Jmp ") |> ignore
     expToStringAux dst2 sb
   | Phi (def, indices) ->
-    sb.Append (Variable.toString def) |> ignore
+    sb.Append (Variable.ToString def) |> ignore
     sb.Append (" := phi(") |> ignore
     indices |> Array.iter (fun i ->
       sb.Append (i.ToString ()) |> ignore
@@ -164,12 +164,12 @@ let private stmtToStringAux stmt (sb: StringBuilder) =
     sb.Append ("SideEffect " + SideEffect.toString eff) |> ignore
 
 let expToString expr =
-  let sb = new StringBuilder ()
+  let sb = StringBuilder ()
   expToStringAux expr sb
   sb.ToString ()
 
 let stmtToString expr =
-  let sb = new StringBuilder ()
+  let sb = StringBuilder ()
   stmtToStringAux expr sb
   sb.ToString ()
 

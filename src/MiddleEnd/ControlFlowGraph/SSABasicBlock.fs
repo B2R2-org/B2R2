@@ -160,14 +160,13 @@ type SSABasicBlock (pp, instrs: InstructionInfo []) =
 type RegularSSABasicBlock (hdl: BinHandle, pp, instrs) =
   inherit SSABasicBlock (pp, instrs)
 
-  let mutable stmts: SSAStmtInfo [] =
-    (instrs: InstructionInfo [])
-    |> Array.map (fun i ->
+  let mutable stmts: SSAStmtInfo[] =
+    (instrs: InstructionInfo[])
+    |> Array.collect (fun i ->
       let wordSize = i.Instruction.WordSize |> WordSize.toRegType
       let stmts = i.Stmts
       let address = i.Instruction.Address
       AST.translateStmts wordSize address (postprocessStmt hdl) stmts)
-    |> Array.concat
     |> Array.map (fun s -> ProgramPoint.GetFake (), s)
 
   override __.SSAStmtInfos with get() = stmts and set(s) = stmts <- s

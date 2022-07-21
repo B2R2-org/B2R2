@@ -37,7 +37,6 @@ let getRm = function
   | 7u -> RoundMode.DYN
   | _ -> raise ParsingFailureException
 
-
 let getRegister = function
   | 0x0uy -> R.X0
   | 0x1uy -> R.X1
@@ -187,28 +186,33 @@ let shamt b = (extract b 24u 20u) |> uint64 |> OpShiftAmount
 let crd b = getRegFrom117 b |> OpReg
 let cfrd b = getFRegFrom117 b |> OpReg
 let crs2 b = getRegFrom62 b |> OpReg
-let crs2_ b = getCompRegFrom42 b |> OpReg
+let csrc2Comp b = getCompRegFrom42 b |> OpReg
 let cfrs2 b = getRegFrom62 b |> OpReg
-let cfrs2_ b = getFCompRegFrom42 b |> OpReg
-let crd_ b = getCompRegFrom42 b |> OpReg
-let cfrd_ b = getFCompRegFrom42 b |> OpReg
-let crs1_ b = getCompRegFrom97 b |> OpReg
+let cfrs2Comp b = getFCompRegFrom42 b |> OpReg
+let crdComp b = getCompRegFrom42 b |> OpReg
+let cfrdComp b = getFCompRegFrom42 b |> OpReg
+let csrc1Comp b = getCompRegFrom97 b |> OpReg
 
 let getPred bin = extract bin 27u 24u |> uint8
 let getSucc bin = extract bin 23u 20u |> uint8
 let getAqRl bin = OpAtomMemOper(pickBit bin 26u > 0u, pickBit bin 25u > 0u)
 let getRdImm20 b = TwoOperands (rd b, getUImm b |> OpImm)
-let getPCRdImm20 b = TwoOperands (rd b, (b &&& 0xfffff000u) |> int64 |> Relative |> OpAddr)
+let getPCRdImm20 b =
+  TwoOperands (rd b, (b &&& 0xfffff000u) |> int64 |> Relative |> OpAddr)
 let getRs1Rs2BImm b = ThreeOperands (rs1 b, rs2 b, getBImm b |> OpImm)
 let getRdRs1IImmAcc b acc =
   let mem = (getRegFrom1915 b, getIImm b |> int64 |> Imm |> Some, acc)
   TwoOperands (rd b, mem |> OpMem)
 let getRdRs1IImm b = ThreeOperands (rd b, rs1 b, getIImm b |> OpImm)
 let getFRdRs1Addr b acc =
-  TwoOperands(frd b, OpMem (getRegFrom1915 b, getIImm b |> int64 |> Imm |> Some, acc))
+  TwoOperands(frd b,
+              OpMem (getRegFrom1915 b, getIImm b |> int64 |> Imm |> Some,
+              acc))
 let getRs2Rs1SImm b = ThreeOperands (rs2 b, rs1 b, getSImm b |> OpImm)
 let getFRs2Rs1Addr b acc =
-  TwoOperands (frs2 b, OpMem (getRegFrom1915 b, getSImm b |> int64 |> Imm |> Some, acc))
+  TwoOperands (frs2 b, OpMem (getRegFrom1915 b,
+                              getSImm b |> int64 |> Imm |> Some,
+                              acc))
 let getRdRs1Shamt b = ThreeOperands(rd b, rs1 b, shamt b)
 let getRdRs1Rs2 b = ThreeOperands(rd b, rs1 b, rs2 b)
 let getFRdRs1Rs2 b = ThreeOperands(frd b, frs1 b, frs2 b)

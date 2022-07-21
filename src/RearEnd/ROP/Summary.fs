@@ -44,12 +44,11 @@ module Summary =
 
   let private emptyInput = (Set.empty, Set.empty)
 
-  // FIXME
-  let private ESP =
+  let private esp =
     let regID = Register.toRegID Register.ESP
     AST.var 32<rt> regID "ESP" (IntelRegisterSet.singleton regID)
 
-  let private REGS =
+  let private regs =
     [| "EIP"; "ESP"; "EBP"; "EAX"; "EBX"; "ECX"; "EDX"; "ESI"; "EDI" |]
 
   let private syscallOutRegs =
@@ -94,11 +93,11 @@ module Summary =
 
   let private getEspOff e =
     match e.E with
-    | _ when e = ESP -> Some 0
+    | _ when e = esp -> Some 0
     | BinOp (BinOpType.ADD, 32<rt>, var, { E = Num (n) }, _)
-    | BinOp (BinOpType.ADD, 32<rt>, { E = Num (n) }, var, _) when var = ESP ->
+    | BinOp (BinOpType.ADD, 32<rt>, { E = Num (n) }, var, _) when var = esp ->
       calcOffset (BitVector.ToInt32 n)
-    | BinOp (BinOpType.SUB, 32<rt>, var, { E = Num (n) }, _) when var = ESP ->
+    | BinOp (BinOpType.SUB, 32<rt>, var, { E = Num (n) }, _) when var = esp ->
       calcOffset (- (BitVector.ToInt32 n))
     | _ -> None
 
@@ -117,7 +116,7 @@ module Summary =
       match getRegStackOff reg sum.OutRegs with
       | Some v -> Map.add reg v acc
       | None -> acc
-    Array.fold folder Map.empty REGS
+    Array.fold folder Map.empty regs
 
   let private isStackMem (addr: Value) =
     match getEspOff (addr.GetExpr ()) with
@@ -176,7 +175,7 @@ module Summary =
   let inline containKeys keys map =
     Set.forall (fun k -> Map.containsKey k map) keys
 
-  let private isReg reg = Array.exists (fun x -> x = reg) REGS
+  let private isReg reg = Array.exists (fun x -> x = reg) regs
 
   let private getRegs regMap =
     let folder acc reg _ =

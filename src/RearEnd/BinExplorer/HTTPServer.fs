@@ -99,12 +99,12 @@ let defaultEnc = Text.Encoding.UTF8
 
 let json<'t> (obj: 't) =
   use ms = new IO.MemoryStream ()
-  (new DataContractJsonSerializer(typeof<'t>)).WriteObject(ms, obj)
+  (DataContractJsonSerializer(typeof<'t>)).WriteObject(ms, obj)
   Text.Encoding.Default.GetString (ms.ToArray ())
 
 let jsonParser<'t> (jsonString:string)  : 't =
   use ms = new IO.MemoryStream (Text.Encoding.Default.GetBytes(jsonString))
-  let obj = (new DataContractJsonSerializer(typeof<'t>)).ReadObject(ms)
+  let obj = (DataContractJsonSerializer(typeof<'t>)).ReadObject(ms)
   obj :?> 't
 
 let readIfExists path =

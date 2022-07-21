@@ -27,7 +27,10 @@ namespace B2R2.FrontEnd.BinLifter.Intel
 open B2R2
 open B2R2.BinIR.LowUIR
 open B2R2.BinIR.LowUIR.AST.InfixOp
+open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinLifter.LiftingUtils
+open B2R2.WordSize
+open type WordSize
 
 /// This is a fatal error that happens when B2R2 tries to access non-existing
 /// register symbol. This exception should not happen in general.
@@ -37,40 +40,40 @@ type internal RegExprs (wordSize) =
   let var sz t name = AST.var sz t name (IntelRegisterSet.singleton t)
 
   let reg64 wordSize t name =
-    if wordSize = WordSize.Bit32 then AST.undef 64<rt> name
+    if wordSize = Bit32 then AST.undef 64<rt> name
     else var 64<rt> t name
 
   let reg32 wordSize t name r64 =
-    if wordSize = WordSize.Bit32 then var 32<rt> t name
+    if wordSize = Bit32 then var 32<rt> t name
     else AST.xtlo 32<rt> r64
 
   let reg32ext wordSize name r64 =
-    if wordSize = WordSize.Bit32 then AST.undef 32<rt> name
+    if wordSize = Bit32 then AST.undef 32<rt> name
     else AST.xtlo 32<rt> r64
 
   let reg16 wordSize r32 r64 =
-    AST.xtlo 16<rt> (if wordSize = WordSize.Bit32 then r32 else r64)
+    AST.xtlo 16<rt> (if wordSize = Bit32 then r32 else r64)
 
   let reg16ext wordSize name r64 =
-    if wordSize = WordSize.Bit32 then AST.undef 16<rt> name
+    if wordSize = Bit32 then AST.undef 16<rt> name
     else AST.xtlo 16<rt> r64
 
   let regL8 wordSize r32 r64 =
-    AST.xtlo 8<rt> (if wordSize = WordSize.Bit32 then r32 else r64)
+    AST.xtlo 8<rt> (if wordSize = Bit32 then r32 else r64)
 
   let regH8 wordSize r32 r64 =
-    AST.extract (if wordSize = WordSize.Bit32 then r32 else r64) 8<rt> 8
+    AST.extract (if wordSize = Bit32 then r32 else r64) 8<rt> 8
 
   let regL8ext wordSize name r64 =
-    if wordSize = WordSize.Bit32 then AST.undef 16<rt> name
+    if wordSize = Bit32 then AST.undef 16<rt> name
     else AST.xtlo 8<rt> r64
 
 #if DEBUG
   let assert64Bit wordSize =
-    if wordSize = WordSize.Bit64 then () else raise InvalidRegAccessException
+    if wordSize = Bit64 then () else raise InvalidRegAccessException
 
   let assert32Bit wordSize =
-    if wordSize = WordSize.Bit32 then () else raise InvalidRegAccessException
+    if wordSize = Bit32 then () else raise InvalidRegAccessException
 #endif
 
   (* Registers *)
@@ -228,28 +231,28 @@ type internal RegExprs (wordSize) =
   member val SS = var 16<rt> (Register.toRegID Register.SS) "SS"
   (* Segment base regs *)
   member val CSBase =
-    var (WordSize.toRegType wordSize) (Register.toRegID Register.CSBase) "CSBase"
+    var (toRegType wordSize) (Register.toRegID Register.CSBase) "CSBase"
   member val DSBase =
-    var (WordSize.toRegType wordSize) (Register.toRegID Register.DSBase) "DSBase"
+    var (toRegType wordSize) (Register.toRegID Register.DSBase) "DSBase"
   member val ESBase =
-    var (WordSize.toRegType wordSize) (Register.toRegID Register.ESBase) "ESBase"
+    var (toRegType wordSize) (Register.toRegID Register.ESBase) "ESBase"
   member val FSBase =
-    var (WordSize.toRegType wordSize) (Register.toRegID Register.FSBase) "FSBase"
+    var (toRegType wordSize) (Register.toRegID Register.FSBase) "FSBase"
   member val GSBase =
-    var (WordSize.toRegType wordSize) (Register.toRegID Register.GSBase) "GSBase"
+    var (toRegType wordSize) (Register.toRegID Register.GSBase) "GSBase"
   member val SSBase =
-    var (WordSize.toRegType wordSize) (Register.toRegID Register.SSBase) "SSBase"
+    var (toRegType wordSize) (Register.toRegID Register.SSBase) "SSBase"
   (* Control regs *)
   member val CR0 =
-    var (WordSize.toRegType wordSize) (Register.toRegID Register.CR0) "CR0"
+    var (toRegType wordSize) (Register.toRegID Register.CR0) "CR0"
   member val CR2 =
-    var (WordSize.toRegType wordSize) (Register.toRegID Register.CR2) "CR2"
+    var (toRegType wordSize) (Register.toRegID Register.CR2) "CR2"
   member val CR3 =
-    var (WordSize.toRegType wordSize) (Register.toRegID Register.CR3) "CR3"
+    var (toRegType wordSize) (Register.toRegID Register.CR3) "CR3"
   member val CR4 =
-    var (WordSize.toRegType wordSize) (Register.toRegID Register.CR4) "CR4"
+    var (toRegType wordSize) (Register.toRegID Register.CR4) "CR4"
   member val CR8 =
-    var (WordSize.toRegType wordSize) (Register.toRegID Register.CR8) "CR8"
+    var (toRegType wordSize) (Register.toRegID Register.CR8) "CR8"
   (* EFLAGS *)
   member val OF = var 1<rt> (Register.toRegID Register.OF) "OF" with get
   member val DF = var 1<rt> (Register.toRegID Register.DF) "DF" with get
@@ -1655,6 +1658,6 @@ type internal RegExprs (wordSize) =
     | R.ST6, 2 -> __.ST6B
     | R.ST7, 1 -> __.ST7A
     | R.ST7, 2 -> __.ST7B
-    | _ -> raise B2R2.FrontEnd.BinLifter.UnhandledRegExprException
+    | _ -> raise UnhandledRegExprException
 
 // vim: set tw=80 sts=2 sw=2:

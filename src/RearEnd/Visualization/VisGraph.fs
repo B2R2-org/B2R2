@@ -51,18 +51,18 @@ module VisGraph =
       | true, v -> v
     (* In case there is no edge in the graph. *)
     let roots = roots |> List.map (getVisBBlock)
-    DiGraph.iterEdge g (fun src dst e ->
+    (g: DiGraph<_, _>).IterEdge (fun src dst e ->
       let srcV = getVisBBlock src
       let dstV = getVisBBlock dst
       let edge = VisEdge (e)
-      newGraph.AddEdge srcV dstV edge |> ignore)
+      newGraph.AddEdge (srcV, dstV, edge) |> ignore)
     newGraph, roots
 
   let getID v = Vertex<VisBBlock>.GetID v
 
-  let getPreds vGraph (v: Vertex<VisBBlock>) = DiGraph.getPreds vGraph v
+  let getPreds vGraph (v: Vertex<VisBBlock>) = DiGraph.GetPreds (vGraph, v)
 
-  let getSuccs vGraph (v: Vertex<VisBBlock>) = DiGraph.getSuccs vGraph v
+  let getSuccs vGraph (v: Vertex<VisBBlock>) = DiGraph.GetSuccs (vGraph, v)
 
   let getVData (v: Vertex<VisBBlock>) = v.VData
 

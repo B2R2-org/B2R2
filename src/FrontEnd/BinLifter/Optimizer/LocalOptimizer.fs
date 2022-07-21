@@ -40,7 +40,7 @@ module private Localizer =
     else List.rev (stmts :: acc) |> List.toArray
 
   let breakIntoBlocks (stmts: Stmt []) =
-    if Array.length stmts = 0 then [| stmts |]
+    if Array.isEmpty stmts then [| stmts |]
     else breakByMark [] stmts 1
 
 /// Intra-block local IR optimizer.
@@ -59,7 +59,5 @@ type LocalOptimizer =
   static member Optimize stmts =
     LocalOptimizer.TrimIEMark stmts
     |> breakIntoBlocks
-    |> Array.map (fun stmts ->
-      ConstantFolding.optimize stmts
-      |> DeadCodeElimination.optimize)
-    |> Array.concat
+    |> Array.collect
+      (ConstantFolding.optimize >> DeadCodeElimination.optimize)

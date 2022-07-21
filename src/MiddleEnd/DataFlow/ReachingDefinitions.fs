@@ -77,7 +77,7 @@ type LowUIRReachingDefinitions (cfg) as this =
     (gens: Dictionary<_, _>) (kills: Dictionary<_, _>) =
     let vpPerVar = Dictionary<VarExpr, Set<VarPoint<VarExpr>>> ()
     let vpPerVertex = Dictionary<VertexID, VarPoint<VarExpr> list> ()
-    DiGraph.iterVertex cfg (fun v ->
+    (cfg: DiGraph<_, _>).IterVertex (fun v ->
       let vid = v.GetID ()
       let defs = __.FindDefs v
       gens[vid] <- defs |> Set.ofList
@@ -87,7 +87,7 @@ type LowUIRReachingDefinitions (cfg) as this =
         else vpPerVar[v] <- Set.singleton vp
       )
     )
-    DiGraph.iterVertex cfg (fun v ->
+    cfg.IterVertex (fun v ->
       let vid = v.GetID ()
       let defVarPoints = vpPerVertex[vid]
       let vars = defVarPoints |> List.map (fun vp -> vp.VarExpr)

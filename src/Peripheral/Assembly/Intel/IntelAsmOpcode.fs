@@ -2934,11 +2934,13 @@ let vpalignr (ctxt: EncContext) ins =
     encVexRRRI ins ctxt.Arch
       (Some r2) ctxt.VEX256n66n0F3A [| 0x0Fuy |] r1 r3 imm 8<rt>
   (* Reg - Reg - Mem - Imm8 *)
-  | FourOperands (OprReg r1, OprReg r2, OprMem (b, s, d, 128<rt>), OprImm (imm, _))
+  | FourOperands (OprReg r1, OprReg r2,
+                  OprMem (b, s, d, 128<rt>), OprImm (imm, _))
     when isXMMReg r1 && isXMMReg r2 ->
     encVexRRMI ins ctxt.Arch
       (Some r2) ctxt.VEX128n66n0F3A [| 0x0Fuy |] r1 b s d imm 8<rt>
-  | FourOperands (OprReg r1, OprReg r2, OprMem (b, s, d, 256<rt>), OprImm (imm, _))
+  | FourOperands (OprReg r1, OprReg r2,
+                  OprMem (b, s, d, 256<rt>), OprImm (imm, _))
     when isYMMReg r1 && isYMMReg r2 ->
     encVexRRMI ins ctxt.Arch
       (Some r2) ctxt.VEX256n66n0F3A [| 0x0Fuy |] r1 b s d imm 8<rt>

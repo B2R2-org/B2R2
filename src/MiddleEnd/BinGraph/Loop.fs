@@ -24,26 +24,25 @@
 
 module B2R2.MiddleEnd.BinGraph.Loop
 
-open B2R2.Utils
 open System.Collections.Generic
 
 let private getBackEdges g root =
   let ctx = Dominator.initDominatorContext g root
   let doms =
     []
-    |> DiGraph.foldVertex g (fun acc v ->
+    |> g.FoldVertex (fun acc v ->
       (v, Dominator.doms ctx v) :: acc)
     |> Map.ofList
   []
-  |> DiGraph.foldEdge g (fun acc s d e ->
+  |> g.FoldEdge (fun acc s d e ->
     match doms[s] with
     | l when l |> List.exists (fun v -> v = d) -> (s, d) :: acc
     | _ -> acc)
 
-let private findIn g v = DiGraph<_, _>.findVertexByID g (Vertex<_>.GetID v)
+let private findIn g v = DiGraph<_, _>.FindVertexByID (g, Vertex<_>.GetID v)
 
 let getNaturalLoops g root =
-  let rev = DiGraph.reverse g
+  let rev = DiGraph.Reverse g
   getBackEdges g root
   |> List.fold (fun acc (s, d) ->
     let s = findIn rev s

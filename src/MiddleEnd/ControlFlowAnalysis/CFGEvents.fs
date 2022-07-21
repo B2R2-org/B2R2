@@ -24,7 +24,6 @@
 
 namespace B2R2.MiddleEnd.ControlFlowAnalysis
 
-open System.Collections.Generic
 open B2R2
 open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.ControlFlowGraph
@@ -97,7 +96,8 @@ module CFGEvents =
 
   let addIndTailCallEvt fn callSiteAddr callee evts =
     { evts with
-        BasicEvents = CFGIndTailCall (fn, callSiteAddr, callee) :: evts.BasicEvents }
+        BasicEvents =
+          CFGIndTailCall (fn, callSiteAddr, callee) :: evts.BasicEvents }
 
   let addTailCallEvt fn callSiteAddr callee evts =
     { evts with
@@ -137,7 +137,7 @@ module CFGEvents =
     { evts with BasicEvents = basicEvents }
 
   let private hasRegularVertexContainingAddr cfg addr =
-    DiGraph.foldVertex cfg (fun acc (v: Vertex<IRBasicBlock>) ->
+    (cfg: DiGraph<_, _>).FoldVertex (fun acc (v: Vertex<IRBasicBlock>) ->
       if v.VData.IsFakeBlock () then acc
       else
         let range = v.VData.Range

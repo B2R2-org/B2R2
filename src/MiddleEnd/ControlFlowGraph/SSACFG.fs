@@ -58,7 +58,7 @@ module SSACFG =
     | false, _ ->
       let instrs = vData.InsInfos
       let blk = SSABasicBlock.initRegular hdl pos instrs
-      let v, g = DiGraph.addVertex g blk
+      let v, g = DiGraph.AddVertex (g, blk)
       vMap.Add (pos, v)
       v, g
     | true, v -> v, g
@@ -69,7 +69,7 @@ module SSACFG =
     match fMap.TryGetValue pos with
     | false, _ ->
       let blk = SSABasicBlock.initFake hdl srcPos ftPos src.VData.FakeBlockInfo
-      let v, g = DiGraph.addVertex g blk
+      let v, g = DiGraph.AddVertex (g, blk)
       fMap.Add (pos, v)
       v, g
     | true, v -> v, g
@@ -78,22 +78,22 @@ module SSACFG =
     let root, ssaCFG = getVertex hdl ssaCFG vMap root
     let ssaCFG =
       ssaCFG
-      |> DiGraph.foldEdge irCFG (fun ssaCFG src dst e ->
+      |> (irCFG: DiGraph<_, _>).FoldEdge (fun ssaCFG src dst e ->
         (* If a node is fake, it is a call target. *)
         if (dst: Vertex<IRBasicBlock>).VData.IsFakeBlock () then
           let last = src.VData.LastInstruction
           let fall = ProgramPoint (last.Address + uint64 last.Length, 0)
           let srcV, ssaCFG = getVertex hdl ssaCFG vMap src
           let dstV, ssaCFG = getFakeVertex hdl ssaCFG fMap dst fall
-          DiGraph.addEdge ssaCFG srcV dstV e
+          DiGraph.AddEdge (ssaCFG, srcV, dstV, e)
         elif src.VData.IsFakeBlock () then
           let srcV, ssaCFG = getFakeVertex hdl ssaCFG fMap src dst.VData.PPoint
           let dstV, ssaCFG = getVertex hdl ssaCFG vMap dst
-          DiGraph.addEdge ssaCFG srcV dstV e
+          DiGraph.AddEdge (ssaCFG, srcV, dstV, e)
         else
           let srcV, ssaCFG = getVertex hdl ssaCFG vMap src
           let dstV, ssaCFG = getVertex hdl ssaCFG vMap dst
-          DiGraph.addEdge ssaCFG srcV dstV e)
+          DiGraph.AddEdge (ssaCFG, srcV, dstV, e))
     ssaCFG, root
 
   /// Add phis and rename all the variables.
@@ -110,15 +110,15 @@ module SSACFG =
     let fMap = FakeVMap ()
     let ssaCFG, root = convertToSSA hdl g ssaCFG vMap fMap root
     let vertices = Seq.append vMap.Values fMap.Values
-    DiGraph.findVertexBy ssaCFG (fun v ->
+    ssaCFG.FindVertexBy (fun v ->
       v.VData.PPoint = root.VData.PPoint && not <| v.VData.IsFakeBlock ())
     |> installPhis vertices ssaCFG
-    DiGraph.iterVertex ssaCFG (fun v -> v.VData.UpdatePPoints ())
+    ssaCFG.IterVertex (fun v -> v.VData.UpdatePPoints ())
     struct (ssaCFG, root)
 
   /// Find SSAVertex that includes the given instruction address.
-  let findVertexByAddr ssaCFG addr =
-    DiGraph.findVertexBy ssaCFG (fun (v: SSAVertex) ->
+  let findVertexByAddr (ssaCFG: DiGraph<_, _>) addr =
+    ssaCFG.FindVertexBy (fun (v: SSAVertex) ->
       if v.VData.IsFakeBlock () then false
       else v.VData.Range.IsIncluding addr)
 

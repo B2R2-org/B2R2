@@ -63,7 +63,7 @@ module ROPHandle =
       |> Ok
     with
     | B2R2.BinIR.InvalidExprException as e -> Error <| sprintf "%A" e
-    | e -> raise e
+    | _ -> reraise ()
 
   let private getSetterMap hdl =
     let folder acc info =

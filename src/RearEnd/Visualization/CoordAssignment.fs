@@ -81,11 +81,12 @@ let rec findTypeOneConflictLoop vGraph upperLen vertices conflicts l k0 l1 =
       let conflicts =
         vertices[l .. l1]
         |> Array.fold (markTypeOneConflict vGraph k0 k1) conflicts
-      findTypeOneConflictLoop vGraph upperLen vertices conflicts (l1 + 1) k1 (l1 + 1)
+      findTypeOneConflictLoop
+        vGraph upperLen vertices conflicts (l1 + 1) k1 (l1 + 1)
     else
       findTypeOneConflictLoop vGraph upperLen vertices conflicts l k0 (l1 + 1)
 
-let findTypeOneConflictAux vGraph (vLayout: _ [][]) conflicts (layer, vertices) =
+let findTypeOneConflictAux vGraph (vLayout: _[][]) conflicts (layer, vertices) =
   if layer > 0 && layer < Array.length vLayout - 1 then
     let nUpperVertices = Array.length vLayout[layer - 1]
     findTypeOneConflictLoop vGraph nUpperVertices vertices conflicts 0 -1 0
@@ -118,9 +119,9 @@ let vAlign vGraph vLayout maxLayer conflicts vDir hDir =
   let layers, neighborFn =
     match vDir with
     | Topmost ->
-      [0 .. (maxLayer - 1)], (fun v -> DiGraph.getPreds vGraph v)
+      [0 .. (maxLayer - 1)], (fun v -> DiGraph.GetPreds (vGraph, v))
     | Bottommost ->
-      [(maxLayer - 1) .. -1 .. 0], (fun v -> DiGraph.getSuccs vGraph v)
+      [(maxLayer - 1) .. -1 .. 0], (fun v -> DiGraph.GetSuccs (vGraph, v))
   let root = VertexMap ()
   let align = VertexMap ()
   (vGraph: VisGraph).IterVertex (fun v -> root[v] <- v; align[v] <- v)

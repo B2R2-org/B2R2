@@ -177,7 +177,7 @@ module private CFGBuilder =
 #endif
     let srcPp = ProgramPoint (callBlk.BlkRange.Min, 0)
     let src = (fn: RegularFunction).FindVertex srcPp
-    DiGraph.getSuccs fn.IRCFG src
+    DiGraph.GetSuccs (fn.IRCFG, src)
     |> List.iter (fun dst ->
       (* Do not remove fake block *)
       if not <| dst.VData.IsFakeBlock () then fn.RemoveEdge (src, dst))
@@ -269,7 +269,7 @@ module private CFGBuilder =
   let isIndirectSyscall hdl (fn: RegularFunction) (v: Vertex<IRBasicBlock>) =
     match hdl.FileInfo.FileFormat, hdl.FileInfo.ISA.Arch with
     | FileFormat.ELFBinary, Architecture.IntelX86 ->
-      let caller = DiGraph.getPreds fn.IRCFG v |> List.head
+      let caller = DiGraph.GetPreds (fn.IRCFG, v) |> List.head
       let callIns = caller.VData.LastInstruction :?> IntelInstruction
       match callIns.Prefixes, callIns.Operands with
       | Prefix.PrxGS, OneOperand (OprMem (None, None, Some 16L, _)) -> true
@@ -294,7 +294,7 @@ module private CFGBuilder =
            analyzer will not analyze this again. *)
         let callsite = v.VData.FakeBlockInfo.CallSite
         fn.UpdateCallEdgeInfo (callsite, IndirectCallees Set.empty)
-        let caller = DiGraph.getPreds fn.IRCFG v |> List.head
+        let caller = DiGraph.GetPreds (fn.IRCFG, v) |> List.head
         if noret.IsNoRetSyscallBlk hdl caller then infos, toAnalyze
         else accFTInfoFromFake codeMgr fn v infos, toAnalyze
       else
@@ -338,7 +338,7 @@ module private CFGBuilder =
       ) evts
 
   let updateCalleeInfo (codeMgr: CodeManager) (func: RegularFunction) =
-    DiGraph.iterVertex func.IRCFG (fun v ->
+    func.IRCFG.IterVertex (fun v ->
       if v.VData.IsFakeBlock () && v.VData.PPoint.Address <> 0UL
         && not v.VData.FakeBlockInfo.IsNoFunction then
         let calleeFunc = codeMgr.FunctionMaintainer.Find v.VData.PPoint.Address
@@ -442,7 +442,7 @@ module private CFGBuilder =
   ///
   /// TODO: We can extend this analysis further to make it more precise.
   let computeStackUnwindingAmount cfg =
-    DiGraph.getExits cfg
+    DiGraph.GetExits cfg
     |> List.fold (fun acc (v: Vertex<IRBasicBlock>) ->
       if Option.isSome acc || v.VData.IsFakeBlock () then acc
       else
@@ -462,7 +462,7 @@ module private CFGBuilder =
 
   let runPerFuncAnalysis hdl codeMgr dataMgr entry noret indcall indjmp evts =
     let fn = (codeMgr: CodeManager).FunctionMaintainer.FindRegular (addr=entry)
-    let exits = DiGraph.getExits (fn: RegularFunction).IRCFG
+    let exits = DiGraph.GetExits (fn: RegularFunction).IRCFG
     let ftInfos, toAnalyze = scanCandidates hdl codeMgr noret fn exits
     if not (List.isEmpty ftInfos) then
       addFallThroughEvts hdl codeMgr fn ftInfos evts |> Ok
@@ -547,7 +547,8 @@ type CFGBuilder (hdl, codeMgr: CodeManager, dataMgr: DataManager) as this =
 #endif
       let evts = { evts with BasicEvents = tl }
       update (buildTailCall codeMgr dataMgr fn callSite callee evts)
-    | Ok ({ BasicEvents = CFGIndTailCall (fn, callSite, callee) :: tl } as evts) ->
+    | Ok ({ BasicEvents = CFGIndTailCall (fn, callSite, callee) :: tl } as evts)
+      ->
 #if CFGDEBUG
       dbglog (nameof CFGBuilder) "@%x %s (%x) %s"
         fn.Entry (nameof CFGIndTailCall) callSite (countEvts evts)

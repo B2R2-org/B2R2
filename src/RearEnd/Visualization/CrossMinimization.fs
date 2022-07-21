@@ -53,12 +53,12 @@ let private alignVertices vertices =
   arr
 
 let private generateVLayout vPerLayer =
-  Array.map (fun vertices -> alignVertices vertices) vPerLayer
+  Array.map alignVertices vPerLayer
 
 let private baryCenter vGraph isDown (v: Vertex<VisBBlock>) =
   let neighbor =
-    if isDown then DiGraph.getPreds vGraph v
-    else DiGraph.getSuccs vGraph v
+    if isDown then DiGraph.GetPreds (vGraph, v)
+    else DiGraph.GetSuccs (vGraph, v)
   if List.isEmpty neighbor then System.Double.MaxValue, v
   else
     let xs = neighbor |> List.fold (fun acc v -> acc + v.VData.Index) 0
@@ -105,12 +105,12 @@ let private bilayerCount vGraph (vLayout: VLayout) isDown layer =
   let pairs, _ =
     if isDown then
       Array.fold (fun (acc, i) (v: Vertex<VisBBlock>) ->
-        DiGraph.getSuccs vGraph v
+        DiGraph.GetSuccs (vGraph, v)
         |> List.fold (fun acc w -> (i, w.VData.Index) :: acc) acc,
         i + 1) ([], 0) vLayout[layer - 1]
     else
       Array.fold (fun (acc, i) (v: Vertex<VisBBlock>) ->
-        DiGraph.getPreds vGraph v
+        DiGraph.GetPreds (vGraph, v)
         |> List.fold (fun acc w -> (i, w.VData.Index) :: acc) acc,
         i + 1) ([], 0) vLayout[layer + 1]
   let pairs = List.sort pairs

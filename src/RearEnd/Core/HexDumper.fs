@@ -47,9 +47,11 @@ module HexDumper =
       Array.append (bytes |> Array.map CS.byteToHex) padding
       |> Array.mapi (fun idx (color, hex) -> color, addSpace idx hex)
     let coloredAscii = bytes |> Array.map CS.byteToAscii
-    Array.append [| ColoredSegment (NoColor, " | ") |] coloredAscii
-    |> Array.append coloredHex
-    |> Array.append [| ColoredSegment (NoColor, addrStr + ": ") |]
+    [| [| ColoredSegment (NoColor, addrStr + ": ") |]
+       coloredHex
+       [| ColoredSegment (NoColor, " | ") |]
+       coloredAscii |]
+    |> Array.concat
     |> List.ofArray
     |> ColoredString.compile
     |> OutputColored
@@ -58,8 +60,8 @@ module HexDumper =
     let padding = padSpace chuckSize (bytes.Length)
     let hex =
       Array.append (bytes |> Array.map (fun b -> b.ToString ("X2"))) padding
-      |> Array.mapi (fun idx s -> addSpace idx s)
-      |> Array.fold (fun arr s -> arr + s) ""
+      |> Array.mapi addSpace
+      |> Array.fold (+) ""
     let ascii =
       bytes |> Array.fold (fun arr b -> arr + CS.getRepresentation b) ""
     addrStr + ": " + hex + " | " + ascii

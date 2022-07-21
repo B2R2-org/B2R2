@@ -99,26 +99,26 @@ type MSTests () =
     test mangled result
 
   [<TestMethod>]
-  member __.``MSDemangler: A nested function mangled ``() =
+  member __.``MSDemangler: A nested function mangled``() =
     let mangled = "?abc@??abc@@YAXXZ@YAH_FJ@Z"
     let result = "int __cdecl `void __cdecl abc(void)'::abc(__int16,long)"
     test mangled result
 
   [<TestMethod>]
-  member __.``MSDemangler: Operator mangled ``() =
+  member __.``MSDemangler: Operator mangled``() =
     let mangled = "??_PC@YAD_F@Z"
     let result = "char __cdecl 'udt returning'operator->(__int16)"
     test mangled result
 
   [<TestMethod>]
-  member __.``MSDemangler: Enumerated type mangled ``() =
+  member __.``MSDemangler: Enumerated type mangled``() =
     let mangled = "?something@@YAW7?$this@HG@nest@@HG@Z"
     let result = "enum unsigned long nest::this<int,unsigned short> \
     __cdecl something(int,unsigned short)"
     test mangled result
 
   [<TestMethod>]
-  member __.``MSDemangler: Pointer to pointer mangled ``() =
+  member __.``MSDemangler: Pointer to pointer mangled``() =
     let mangled = "?something@@YAGQBQBPBPBPCG@Z"
     let result = "unsigned short __cdecl something\
     (unsigned short volatile * const * const * const * const * const)"
@@ -132,21 +132,21 @@ type MSTests () =
     test mangled result
 
   [<TestMethod>]
-  member __.``MSDemangler: Different type of pointer mangled with modifiers ``() =
+  member __.``MSDemangler: Different type of ptr mangled with modifiers``() =
     let mangled = "?something@@YAHQFIFFKF@Z"
     let result = "int __cdecl something\
     (short volatile __unaligned __unaligned __unaligned * __restrict const)"
     test mangled result
 
   [<TestMethod>]
-  member __.``MSDemangler: Simple name back referencing mangled ``() =
+  member __.``MSDemangler: Simple name back referencing mangled``() =
     let mangled = "?something@nested@0@YAGFD@Z"
     let result = "unsigned short __cdecl something::\
     nested::something(short,char)"
     test mangled result
 
   [<TestMethod>]
-  member __.`` MSDemangler: Deconstructor and number namespace mangled ``() =
+  member __.`` MSDemangler: Deconstructor and number namespace mangled``() =
     let mangled = "??1?$someting@GFG@?1somethingOther@@YADFG@Z"
     let result = "char __cdecl somethingOther::`2'::someting<unsigned short\
     ,short,unsigned short>::~someting<unsigned short,short,unsigned short>\
@@ -154,7 +154,7 @@ type MSTests () =
     test mangled result
 
   [<TestMethod>]
-  member __.`` MSDemangler: Function return type modifier mangled ``() =
+  member __.`` MSDemangler: Function return type modifier mangled``() =
     let mangled = "?something@@YA?EFFEEICDJK@Z"
     let result = "char volatile __unaligned __unaligned __ptr64 \
     __ptr64 __ptr64 __restrict __cdecl something(long,unsigned long)"
@@ -200,7 +200,8 @@ type MSTests () =
 
   [<TestMethod>]
   member __.``MSDemangler: Constructor in template and substitutions``() =
-    let mangled = "??$?0U?$default_delete@V_Facet_base@std@@@std@@$0A@@?$unique_\
+    let mangled =
+      "??$?0U?$default_delete@V_Facet_base@std@@@std@@$0A@@?$unique_\
     ptr@V_Facet_base@std@@U?$default_delete@V_Facet_base@std@@@2@@std@@QAE@\
     PAV_Facet_base@1@@Z"
     let result = "public: __thiscall std::unique_ptr<class std::_Facet_base,\

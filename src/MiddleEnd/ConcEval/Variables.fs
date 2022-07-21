@@ -52,8 +52,8 @@ type Variables (vars) =
 module Variables =
   /// This is the maximum number of temporary variables per instruction. 64 is
   /// just a conservative number.
-  let [<Literal>] maxNumTemporaries = 64
+  let [<Literal>] MaxNumTemporaries = 64
 
   /// This is the maxinum number of register variables that an ISA can have.
   /// This is a conservative number.
-  let [<Literal>] maxNumVars = 1024
+  let [<Literal>] MaxNumVars = 1024

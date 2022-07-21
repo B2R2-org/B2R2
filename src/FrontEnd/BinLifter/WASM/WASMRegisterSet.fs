@@ -3,18 +3,18 @@ namespace B2R2.FrontEnd.BinLifter.WASM
 open B2R2
 
 module private RegisterSetLiteral =
-  let [<Literal>] arrLen = 2
+  let [<Literal>] ArrLen = 2
 
 open RegisterSetLiteral
 
 type WASMRegisterSet (bitArray: uint64 [], s: Set<RegisterID>) =
   inherit NonEmptyRegisterSet (bitArray, s)
 
-  new () = WASMRegisterSet (RegisterSet.MakeInternalBitArray arrLen, Set.empty)
+  new () = WASMRegisterSet (RegisterSet.MakeInternalBitArray ArrLen, Set.empty)
 
   override __.Tag = RegisterSetTag.WASM
 
-  override __.ArrSize = arrLen
+  override __.ArrSize = ArrLen
 
   override __.New arr s = new WASMRegisterSet (arr, s) :> RegisterSet
 

@@ -48,9 +48,9 @@ type CalleeKind =
   /// Callee (call target) is unresolved yet. This eventually will become
   /// IndirectCallees after indirect call analyses.
   | UnresolvedIndirectCallees
-  /// There can be "call 0" to call an external function. This pattern is typically
-  /// observed by object files, but sometimes we do see this pattern in regular
-  /// executables, e.g., GNU libc.
+  /// There can be "call 0" to call an external function. This pattern is
+  /// typically observed by object files, but sometimes we do see this pattern
+  /// in regular executables, e.g., GNU libc.
   | NullCallee
 
 /// NoReturnProperty of a function specifies whether the function will
@@ -248,7 +248,7 @@ type RegularFunction private (histMgr: HistoryManager, entry, name, thunkInfo) =
 
   /// Add a vertex of a parsed regular basic block to this function.
   member __.AddVertex (blk: IRBasicBlock) =
-    let v, g = DiGraph.addVertex __.IRCFG blk
+    let v, g = __.IRCFG.AddVertex blk
     __.IRCFG <- g
     regularVertices[blk.PPoint] <- v
     coverage.AddCoverage blk.Range
@@ -264,10 +264,10 @@ type RegularFunction private (histMgr: HistoryManager, entry, name, thunkInfo) =
   member __.AddEdge (srcPp, dstPp, edge) =
     let src = regularVertices[srcPp]
     let dst = regularVertices[dstPp]
-    __.IRCFG <- DiGraph.addEdge __.IRCFG src dst edge
+    __.IRCFG <- __.IRCFG.AddEdge (src, dst, edge)
 
   member private __.AddFakeVertex edgeKey bbl =
-    let v, g = DiGraph.addVertex __.IRCFG bbl
+    let v, g = __.IRCFG.AddVertex bbl
     __.IRCFG <- g
     fakeVertices[edgeKey] <- v
     v
@@ -296,7 +296,7 @@ type RegularFunction private (histMgr: HistoryManager, entry, name, thunkInfo) =
     else
       dst.VData.FakeBlockInfo <-
         { dst.VData.FakeBlockInfo with IsNoFunction = true }
-    __.IRCFG <- DiGraph.addEdge __.IRCFG src dst CallEdge
+    __.IRCFG <- DiGraph.AddEdge (__.IRCFG, src, dst, CallEdge)
 
   /// Add/replace an indirect call edge to this function.
   member __.AddEdge (callerBlk, callSite, knownCallee, isTailCall) =
@@ -306,13 +306,13 @@ type RegularFunction private (histMgr: HistoryManager, entry, name, thunkInfo) =
     | Some callee -> callEdges[callSite] <- callee
     | None -> callEdges[callSite] <- UnresolvedIndirectCallees
     callEdgeChanged <- true
-    __.IRCFG <- DiGraph.addEdge __.IRCFG src dst IndirectCallEdge
+    __.IRCFG <- DiGraph.AddEdge (__.IRCFG, src, dst, IndirectCallEdge)
 
   /// Add/replace a ret edge to this function.
   member __.AddEdge (callSite, callee, ftAddr) =
     let src = __.GetOrAddFakeVertex (callSite, callee, false)
     let dst = regularVertices[(ProgramPoint (ftAddr, 0))]
-    __.IRCFG <- DiGraph.addEdge __.IRCFG src dst RetEdge
+    __.IRCFG <- DiGraph.AddEdge (__.IRCFG, src, dst, RetEdge)
 
   /// Update the call edge info.
   member __.UpdateCallEdgeInfo (callSiteAddr, callee) =
@@ -321,7 +321,7 @@ type RegularFunction private (histMgr: HistoryManager, entry, name, thunkInfo) =
 
   /// Remove the basic block at the given program point from this function.
   member private __.RemoveVertex (v: Vertex<IRBasicBlock>) =
-    __.IRCFG <- DiGraph.removeVertex __.IRCFG v
+    __.IRCFG <- DiGraph.RemoveVertex (__.IRCFG, v)
     if v.VData.IsFakeBlock () then
       let callSite = v.VData.FakeBlockInfo.CallSite
       let edgeKey = callSite, v.VData.PPoint.Address
@@ -339,17 +339,17 @@ type RegularFunction private (histMgr: HistoryManager, entry, name, thunkInfo) =
   /// Remove the fake block from this function.
   member __.RemoveFakeVertex ((callSite, _) as fakeEdgeKey) =
     let v = fakeVertices[fakeEdgeKey]
-    __.IRCFG <- DiGraph.removeVertex __.IRCFG v
+    __.IRCFG <- DiGraph.RemoveVertex (__.IRCFG, v)
     fakeVertices.Remove (fakeEdgeKey) |> ignore
     callEdges.Remove callSite |> ignore
 
   /// Remove the given edge.
   member __.RemoveEdge (src, dst) =
-    __.IRCFG <- DiGraph.removeEdge __.IRCFG src dst
+    __.IRCFG <- DiGraph.RemoveEdge (__.IRCFG, src, dst)
 
   /// Remove the given edge.
   member __.RemoveEdge (src, dst, _kind) =
-    __.IRCFG <- DiGraph.removeEdge __.IRCFG src dst
+    __.IRCFG <- DiGraph.RemoveEdge (__.IRCFG, src, dst)
 
   static member AddEdgeByType (fn: RegularFunction)
                               (src: Vertex<IRBasicBlock>)
@@ -425,7 +425,10 @@ type RegularFunction private (histMgr: HistoryManager, entry, name, thunkInfo) =
 
   /// Merge two vertices connected with an inlined assembly chunk, where there
   /// is a control-flow to the middle of an instruction.
-  member __.MergeVerticesWithInlinedAsmChunk (insAddrs, srcPp, dstLeaders, chunk) =
+  member __.MergeVerticesWithInlinedAsmChunk (insAddrs,
+                                              srcPp,
+                                              dstLeaders,
+                                              chunk) =
     let minPp = Set.minElement (dstLeaders: Set<ProgramPoint>)
     let dstLeaders =
       Set.filter (fun (leader: ProgramPoint) ->
@@ -502,7 +505,7 @@ type RegularFunction private (histMgr: HistoryManager, entry, name, thunkInfo) =
     (* Transplant CFG first *)
     let reachableNodes, reachableEdges = getReachables __.IRCFG entryBlk
     let callerBlk: IRVertex option =
-      DiGraph.getPreds __.IRCFG entryBlk
+      DiGraph.GetPreds (__.IRCFG, entryBlk)
       |> List.filter (fun v ->
         not <| Set.contains v reachableNodes && not (v.VData.IsFakeBlock ()))
       |> List.tryHead
@@ -537,7 +540,7 @@ type RegularFunction private (histMgr: HistoryManager, entry, name, thunkInfo) =
       |> Set.filter (fun v -> not <| v.VData.IsFakeBlock ())
     (* Update max address *)
     let maxAddr =
-      DiGraph.foldVertex __.IRCFG (fun addr v ->
+      __.IRCFG.FoldVertex (fun addr v ->
         if Set.contains v reachableNodes then addr
         elif v.VData.IsFakeBlock () then addr
         else max v.VData.Range.Max addr) 0UL
@@ -621,7 +624,7 @@ type RegularFunction private (histMgr: HistoryManager, entry, name, thunkInfo) =
   member __.GetSSACFG hdl =
     if needRecalcSSA then
       let root =
-        DiGraph.findVertexBy __.IRCFG (fun v ->
+        __.IRCFG.FindVertexBy (fun v ->
           v.VData.PPoint.Address = __.Entry && not <| v.VData.IsFakeBlock ())
       let struct (ssa, root) = SSACFG.ofIRCFG hdl __.IRCFG root
       let struct (ssa, root) = SSAPromotion.promote hdl ssa root
@@ -630,7 +633,7 @@ type RegularFunction private (histMgr: HistoryManager, entry, name, thunkInfo) =
       ssa, root
     else
       let root =
-        DiGraph.findVertexBy ssacfg (fun v ->
+        ssacfg.FindVertexBy (fun v ->
           v.VData.PPoint.Address = __.Entry && not <| v.VData.IsFakeBlock ())
       ssacfg, root
 

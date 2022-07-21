@@ -411,9 +411,6 @@
             "List.empty ===> []",
             "Array.empty ===> [||]",
 
-            "x::[] ===> [x]",
-            "pattern: x::[] ===> [x]",
-
             "x @ [] ===> x",
 
             "List.isEmpty [] ===> true",

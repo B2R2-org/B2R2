@@ -73,7 +73,8 @@ type MIPSInstruction (addr, numBytes, insInfo, wordSize) =
 
   override __.IsCall () =
     match __.Info.Opcode with
-    | Opcode.BAL | Opcode.BGEZAL | Opcode.JALR | Opcode.JALRHB | Opcode.JAL -> true
+    | Opcode.BAL | Opcode.BGEZAL | Opcode.JALR | Opcode.JALRHB | Opcode.JAL ->
+      true
     | _ -> false
 
   override __.IsRET () =

@@ -83,7 +83,7 @@ module private EVMTrampolineAnalysis =
     |> function
       | Some func ->
         let struct (cpState, ssaCFG) = PerFunctionAnalysis.runCP hdl func None
-        DiGraph.iterVertex ssaCFG (fun v ->
+        ssaCFG.IterVertex (fun v ->
           Array.iter (fun (_, stmt) ->
             match tryGetTrampolineInfo cpState stmt with
             | Some (sign, addr) -> fn sign addr

@@ -56,7 +56,7 @@ type MSDemangler () =
 
   let phex =
     many1 upper .>> pchar '@' |>> List.map getHexChar |>> List.map string
-    |>> List.fold (fun s d -> s + d) "0x"
+    |>> List.fold (+) "0x"
     |>> int64
 
   /// Parses the encodedNumber in an MSMangled string.
@@ -532,7 +532,7 @@ type MSDemangler () =
         FunctionT (scope, mods, callT, newName, newReturn, tList.Tail, rtMod)
       )
 
-  (*---------------All Expressions from a mangled string------------------*)
+  (* ---------------All Expressions from a mangled string------------------ *)
   let allExpressions =
     attempt pFunc <|> attempt nonFunctionString <|> attempt allThunkFunc
     <|> attempt pTemplate <|> fullName
@@ -542,7 +542,7 @@ type MSDemangler () =
     | Success (result, _, _) ->
       let result = MSInterpreter.interpret result
       Result.Ok <| result.Trim ()
-    | Failure (_, _, _) ->
+    | Failure _ ->
       Result.Error ParsingFailure
 
   /// Check if the given string is a well-formed mangled string.

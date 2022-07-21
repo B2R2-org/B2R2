@@ -287,8 +287,8 @@ type ImperativeRangedCore<'D, 'E when 'D :> RangedVertexData and 'D: equality>
   member private __.AddEdgeToCore (src: Vertex<'D>) (dst: Vertex<'D>) e =
     __.CheckVertexExistence src
     __.CheckVertexExistence dst
-    if not <| vertices.Contains src then failwith "No"
-    if not <| vertices.Contains dst then failwith "No"
+    assert (vertices.Contains src)
+    assert (vertices.Contains dst)
     let srcid = src.GetID ()
     let dstid = dst.GetID ()
     if edges.ContainsKey (srcid, dstid) then ()

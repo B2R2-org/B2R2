@@ -27,7 +27,7 @@ namespace B2R2.FrontEnd.BinLifter.RISCV
 open B2R2
 
 module private RegisterSetLiteral =
-  let [<Literal>] arrLen = 2
+  let [<Literal>] ArrLen = 2
 
 open RegisterSetLiteral
 
@@ -35,11 +35,11 @@ type RISCV64RegisterSet (bitArray: uint64 [], s: Set<RegisterID>) =
   inherit NonEmptyRegisterSet (bitArray, s)
 
   new () =
-    RISCV64RegisterSet (RegisterSet.MakeInternalBitArray arrLen, Set.empty)
+    RISCV64RegisterSet (RegisterSet.MakeInternalBitArray ArrLen, Set.empty)
 
   override __.Tag = RegisterSetTag.RISCV64
 
-  override __.ArrSize = arrLen
+  override __.ArrSize = ArrLen
 
   override __.New arr s = new RISCV64RegisterSet (arr, s) :> RegisterSet
 

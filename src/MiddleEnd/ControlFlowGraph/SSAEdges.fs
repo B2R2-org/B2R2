@@ -70,10 +70,10 @@ let rec private computeUses loc expr acc =
 
 /// Compute SSA edge map (SSA Var -> a set of (VertexID, Stmt idx)). From a
 /// given ssa var, this function returns a set of SSA-edge destination.
-let compute ssaCFG =
+let compute (ssaCFG: DiGraph<_, _>) =
   let emptyInfo = { Uses = Map.empty; Defs = Map.empty }
   emptyInfo
-  |> DiGraph.foldVertex ssaCFG (fun acc (v: SSAVertex) ->
+  |> ssaCFG.FoldVertex (fun acc (v: SSAVertex) ->
     let vid = v.GetID ()
     v.VData.SSAStmtInfos
     |> Array.foldi (fun acc idx (_, stmt) ->

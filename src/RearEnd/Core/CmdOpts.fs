@@ -78,7 +78,7 @@ type CmdOpts () =
 
   static member private TermFunction () = exit 1
 
-  static member private parseCmdOpts spec defaultOpts argv tool usageTail =
+  static member private ParseCmdOpts spec defaultOpts argv tool usageTail =
     let prog = Environment.GetCommandLineArgs()[0]
     let usageGetter = CmdOpts.CreateUsageGetter tool usageTail
     try
@@ -101,7 +101,7 @@ type CmdOpts () =
 
   /// Parse command line arguments, and run the mainFn
   static member ParseAndRun mainFn tool usageTail spec (opts: #CmdOpts) args =
-    let rest, opts = CmdOpts.parseCmdOpts spec opts args tool usageTail
+    let rest, opts = CmdOpts.ParseCmdOpts spec opts args tool usageTail
     if opts.Verbose then CmdOpts.WriteIntro () else ()
     try mainFn rest opts; 0
     with e -> eprintfn "Error: %s" e.Message

@@ -288,8 +288,8 @@ module BBLManager =
     | SideEffect _ when insInfo.Instruction.IsExit () ->
       leader, { tmp with HasExplicitTerminator = true }
     (* For EVM. *)
-    | InterJmp ({ E = TempVar (_, _) }, _)
-    | InterCJmp (_, { E = TempVar (_, _) }, { E = Num _ }) ->
+    | InterJmp ({ E = TempVar _ }, _)
+    | InterCJmp (_, { E = TempVar _ }, { E = Num _ }) ->
       (fn: RegularFunction).RegisterNewIndJump addr
       leader, tmp
     | _ -> (* Fall-through cases. *)
@@ -343,7 +343,7 @@ module BBLManager =
       let tmp = addEdges hdl fm excTbl fn addr 0 false insInfo leader tmp
       let tmp = addFallThrough leader nextPp tmp
       includeEdges hdl fm excTbl leader tl fn tmp
-    | insInfo :: [] ->
+    | [insInfo] ->
       let addr = insInfo.Instruction.Address
       let pp = ProgramPoint (addr, 0)
       let leader = if Set.contains pp tmp.Leaders then pp else leader

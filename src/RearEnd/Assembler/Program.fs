@@ -91,7 +91,7 @@ let showBasicInfo (opts: AssemblerOpts) =
 
 let private asmFromFiles files printer =
   files
-  |> List.iter (fun file -> IO.File.ReadAllText file |> printer)
+  |> List.iter (IO.File.ReadAllText >> printer)
 
 let asmMain files opts =
   let printer = getAssemblyPrinter opts

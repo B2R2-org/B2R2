@@ -25,6 +25,7 @@
 namespace B2R2.FrontEnd.BinLifter.ARM32
 
 open B2R2
+open B2R2.FrontEnd.BinLifter
 open B2R2.BinIR.LowUIR
 
 type internal RegExprs () =
@@ -338,6 +339,6 @@ type internal RegExprs () =
     | R.SCTLR -> __.SCTLR
     | R.NSACR -> __.NSACR
     | R.FPSCR -> __.FPSCR
-    | _ -> raise B2R2.FrontEnd.BinLifter.UnhandledRegExprException
+    | _ -> raise UnhandledRegExprException
 
 // vim: set tw=80 sts=2 sw=2:

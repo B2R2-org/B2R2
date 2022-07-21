@@ -31,6 +31,6 @@ type DummyEntry =
   static member Connect g (root: Vertex<_>) =
     if root.IsDummy () then root, g
     else
-      let dummyEntry, g = DiGraph.addDummyVertex g
-      let g = DiGraph.addDummyEdge g dummyEntry root
+      let dummyEntry, g = DiGraph.AddDummyVertex g
+      let g = DiGraph.AddDummyEdge (g, dummyEntry, root)
       dummyEntry, g

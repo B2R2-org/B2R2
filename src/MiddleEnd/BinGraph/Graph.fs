@@ -44,7 +44,7 @@ type Graph<'D, 'E, 'G
   /// Number of vertices.
   abstract GetSize: unit -> int
 
-  /// Add a vertex into the graph, and return a reference to the added vertex.
+  /// Add a vertex to the graph, and return a reference to the added vertex.
   abstract AddVertex: 'D -> Vertex<'D> * 'G
 
   /// Remove the given vertex from the graph.
@@ -81,15 +81,15 @@ type Graph<'D, 'E, 'G
   abstract TryFindVertexBy: (Vertex<'D> -> bool) -> Vertex<'D> option
 
   /// Add an edge from src to dst.
-  abstract AddEdge: src: Vertex<'D> -> dst: Vertex<'D> -> 'E -> 'G
+  abstract AddEdge: src: Vertex<'D> * dst: Vertex<'D> * 'E -> 'G
 
   /// Remove the edge that spans from src to dst.
-  abstract RemoveEdge: src: Vertex<'D> -> dst: Vertex<'D> -> 'G
+  abstract RemoveEdge: src: Vertex<'D> * dst: Vertex<'D> -> 'G
 
   /// Find the data of the edge that spans from src to dst.
-  abstract FindEdgeData: src: Vertex<'D> -> dst: Vertex<'D> -> 'E
+  abstract FindEdgeData: src: Vertex<'D> * dst: Vertex<'D> -> 'E
 
-  abstract TryFindEdgeData: src: Vertex<'D> -> dst: Vertex<'D> -> 'E option
+  abstract TryFindEdgeData: src: Vertex<'D> * dst: Vertex<'D> -> 'E option
 
   /// Fold every vertex (the order can be arbitrary).
   abstract FoldVertex: ('a -> Vertex<'D> -> 'a) -> 'a -> 'a
@@ -111,4 +111,4 @@ type Graph<'D, 'E, 'G
 
   /// Return the DOT-representation of this graph.
   abstract ToDOTStr:
-    string -> (Vertex<'D> -> string) -> (Edge<'E> -> string) -> string
+    string * (Vertex<'D> -> string) * (Edge<'E> -> string) -> string

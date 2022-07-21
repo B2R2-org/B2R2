@@ -41,7 +41,7 @@ type CILRegisterBay () =
   override __.RegIDFromRegExpr (e) =
     match e.E with
     | Var (_, id, _ ,_) -> id
-    | PCVar (_, _) -> Register.toRegID Register.PC
+    | PCVar _ -> Register.toRegID Register.PC
     | _ -> failwith "not a register expression"
 
   override __.RegIDToRegExpr (id) = Utils.impossible ()

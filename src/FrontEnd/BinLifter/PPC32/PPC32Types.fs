@@ -478,9 +478,9 @@ type Operand =
   | OpReg of Register
   | ImmOp of Imm * Register
   | Immediate of Imm
-  | Branch of bi
+  | Branch of BI
 and Imm = uint64
-and bi = uint64
+and BI = uint64
 
 type Operands =
   | NoOperand

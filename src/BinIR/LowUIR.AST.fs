@@ -1070,10 +1070,10 @@ module InfixOp =
   /// Signed greater than or equal.
   let inline (?>=) e1 e2 = sge e1 e2
 
-  /// Signed less than.
+  /// Unsigned less than.
   let inline (.<) e1 e2 = lt e1 e2
 
-  /// Signed less than or equal.
+  /// Unsigned less than or equal.
   let inline (.<=) e1 e2 = le e1 e2
 
   /// Signed less than.

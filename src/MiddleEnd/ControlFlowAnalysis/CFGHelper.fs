@@ -47,15 +47,15 @@ module internal Dbg =
 /// outgoing edges, and (3) self-cycle edge.
 let categorizeNeighboringEdges g v =
   let incomings, cycle =
-    DiGraph.getPreds g v
+    DiGraph.GetPreds (g, v)
     |> List.fold (fun (incomings, cycle) p ->
-      let e = DiGraph.findEdgeData g p v
+      let e = DiGraph.FindEdgeData (g, p, v)
       if p.GetID () = v.GetID () then incomings, Some e
       else (p, e) :: incomings, cycle) ([], None)
   let outgoings =
-    DiGraph.getSuccs g v
+    DiGraph.GetSuccs (g, v)
     |> List.fold (fun outgoings s ->
-      let e = DiGraph.findEdgeData g v s
+      let e = DiGraph.FindEdgeData (g, v, s)
       if s.GetID () = v.GetID () then outgoings
       else (s, e) :: outgoings) []
   incomings, outgoings, cycle
@@ -65,7 +65,7 @@ let getReachables g v =
   let reachables =
     Set.empty |> Traversal.foldPostorder g [v] (fun acc v -> Set.add v acc)
   let edges = (* Collect corresponding edges. *)
-    DiGraph.foldEdge g (fun acc src dst e ->
+    g.FoldEdge (fun acc src dst e ->
       (* Collect only when both src and dst belong to vertices. *)
       if Set.contains src reachables && Set.contains dst reachables then
         Set.add (src, dst, e) acc

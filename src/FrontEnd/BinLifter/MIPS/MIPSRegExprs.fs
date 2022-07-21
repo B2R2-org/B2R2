@@ -26,6 +26,7 @@ namespace B2R2.FrontEnd.BinLifter.MIPS
 
 open B2R2
 open B2R2.BinIR.LowUIR
+open B2R2.FrontEnd.BinLifter
 
 type internal RegExprs (wordSize) =
   let var sz t name = AST.var sz t name (MIPSRegisterSet.singleton t)
@@ -172,6 +173,6 @@ type internal RegExprs (wordSize) =
     | R.F29 -> __.F29
     | R.F30 -> __.F30
     | R.F31 -> __.F31
-    | _ -> raise B2R2.FrontEnd.BinLifter.UnhandledRegExprException
+    | _ -> raise UnhandledRegExprException
 
 // vim: set tw=80 sts=2 sw=2:

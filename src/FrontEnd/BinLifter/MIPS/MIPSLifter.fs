@@ -129,7 +129,7 @@ let add insInfo ctxt =
   builder <! (result := rs .+ rt)
   builder <! (AST.cjmp cond (AST.name lblL0) (AST.name lblL1))
   builder <! (AST.lmark lblL0)
-  builder <! (AST.sideEffect UndefinedInstr) (* FIXME: (SignalException(IntegerOverflow)) *)
+  builder <! (AST.sideEffect (Exception "int overflow"))
   builder <! (AST.jmp (AST.name lblEnd))
   builder <! (AST.lmark lblL1)
   builder <! (rd := result)
@@ -156,7 +156,7 @@ let add64 insInfo ctxt =
   builder <! (result := AST.xtlo 32<rt> rs .+ AST.xtlo 32<rt> rt)
   builder <! (AST.cjmp cond2 (AST.name lblL2) (AST.name lblL3))
   builder <! (AST.lmark lblL0)
-  builder <! (AST.sideEffect UndefinedInstr) (* FIXME: (SignalException(IntegerOverflow)) *)
+  builder <! (AST.sideEffect (Exception "int overflow"))
   builder <! (AST.jmp (AST.name lblEnd))
   builder <! (AST.lmark lblL1)
   builder <! (rd := AST.sext 64<rt> result)
@@ -763,7 +763,8 @@ let lui insInfo ctxt =
   startMark insInfo builder
   if ctxt.WordBitSize = 64<rt> then
     builder <!
-      (rt := AST.sext 64<rt> (AST.concat (AST.xtlo 16<rt> imm) (AST.num0 16<rt>)))
+      (rt := AST.sext 64<rt>
+        (AST.concat (AST.xtlo 16<rt> imm) (AST.num0 16<rt>)))
   else builder <! (rt := AST.concat (AST.xtlo 16<rt> imm) (AST.num0 16<rt>))
   endMark insInfo builder
 
@@ -791,7 +792,8 @@ let madd insInfo ctxt =
     builder <! (lo := AST.sext 64<rt> (AST.xtlo 32<rt> result))
     builder <! (AST.lmark lblEnd)
   else
-    builder <! (result := (AST.concat hi lo) .+ (AST.sext 64<rt> rs .* AST.sext 64<rt> rt))
+    builder <! (result := (AST.concat hi lo)
+                       .+ (AST.sext 64<rt> rs .* AST.sext 64<rt> rt))
     builder <! (hi := AST.xthi 32<rt> result)
     builder <! (lo := AST.xtlo 32<rt> result)
   endMark insInfo builder
@@ -1119,7 +1121,8 @@ let slt insInfo ctxt =
   let builder = IRBuilder (4)
   let rd, rs, rt = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   let cond = AST.lt rs rt
-  let rtVal = AST.ite cond (AST.num1 ctxt.WordBitSize) (AST.num0 ctxt.WordBitSize)
+  let rtVal =
+    AST.ite cond (AST.num1 ctxt.WordBitSize) (AST.num0 ctxt.WordBitSize)
   startMark insInfo builder
   builder <! (rd := rtVal)
   endMark insInfo builder
@@ -1128,7 +1131,8 @@ let slti insInfo ctxt =
   let builder = IRBuilder (4)
   let rt, rs, imm = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   let cond = AST.lt rs imm
-  let rtVal = AST.ite cond (AST.num1 ctxt.WordBitSize) (AST.num0 ctxt.WordBitSize)
+  let rtVal =
+    AST.ite cond (AST.num1 ctxt.WordBitSize) (AST.num0 ctxt.WordBitSize)
   startMark insInfo builder
   builder <! (rt := rtVal)
   endMark insInfo builder
@@ -1138,7 +1142,8 @@ let sltiu insInfo (ctxt: TranslationContext) =
   let wordSz = ctxt.WordBitSize
   let rt, rs, imm = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   let cond = AST.lt (AST.zext (wordSz * 2) rs) (AST.zext (wordSz * 2) imm)
-  let rtVal = AST.ite cond (AST.num1 ctxt.WordBitSize) (AST.num0 ctxt.WordBitSize)
+  let rtVal =
+    AST.ite cond (AST.num1 ctxt.WordBitSize) (AST.num0 ctxt.WordBitSize)
   startMark insInfo builder
   builder <! (rt := rtVal)
   endMark insInfo builder
@@ -1148,7 +1153,8 @@ let sltu insInfo (ctxt: TranslationContext) =
   let wordSz = ctxt.WordBitSize
   let rd, rs, rt = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   let cond = AST.lt (AST.zext (wordSz * 2) rs) (AST.zext (wordSz * 2) rt)
-  let rtVal = AST.ite cond (AST.num1 ctxt.WordBitSize) (AST.num0 ctxt.WordBitSize)
+  let rtVal =
+    AST.ite cond (AST.num1 ctxt.WordBitSize) (AST.num0 ctxt.WordBitSize)
   startMark insInfo builder
   builder <! (rd := rtVal)
   endMark insInfo builder
@@ -1391,7 +1397,8 @@ let translate insInfo (ctxt: TranslationContext) =
   | Op.LDL | Op.LDR | Op.LDXC1 | Op.LWL | Op.LWR | Op.LWXC1 | Op.MADDU
   | Op.MFHC1 | Op.MOVF | Op.MOVN | Op.MOVT | Op.MSUB | Op.MTHC1 | Op.MTHI
   | Op.MTLO | Op.NEG | Op.ROTRV | Op.SDXC1 | Op.SQRT | Op.SRAV | Op.SWXC1
-  | Op.SYNC | Op.TRUNCL | Op.WSBH -> sideEffects insInfo UnsupportedExtension // XXX this is temporary fix
+  | Op.SYNC | Op.TRUNCL | Op.WSBH ->
+    sideEffects insInfo UnsupportedExtension // XXX this is a temporary fix
   | o ->
 #if DEBUG
          eprintfn "%A" o

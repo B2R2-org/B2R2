@@ -90,7 +90,7 @@ module private EVMJmpResolution =
     else checkIfStackHasFtAddr hdl srcV cpState ftAddr false
 
   let classifyJmpExpr hdl srcV cpState = function
-    | Var ({ Kind = StackVar (_, _); Identifier = 0; }) ->
+    | Var ({ Kind = StackVar _; Identifier = 0; }) ->
       match tryGetStackPointerValue hdl srcV cpState with
       (* Return back to a constant address stored on the stack. *)
       | Some addr -> ReturnPattern addr

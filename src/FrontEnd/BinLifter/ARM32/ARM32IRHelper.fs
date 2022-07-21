@@ -126,13 +126,13 @@ let internal getPSR ctxt reg psrType =
   | PSR_T -> psr .& maskPSRForTbit
   | PSR_M -> psr .& maskPSRForMbits
 
-let isSetCPSR_N ctxt = getPSR ctxt R.CPSR PSR_N == maskPSRForNbit
-let isSetCPSR_Z ctxt = getPSR ctxt R.CPSR PSR_Z == maskPSRForZbit
-let isSetCPSR_C ctxt = getPSR ctxt R.CPSR PSR_C == maskPSRForCbit
-let isSetCPSR_V ctxt = getPSR ctxt R.CPSR PSR_V == maskPSRForVbit
-let isSetCPSR_J ctxt = getPSR ctxt R.CPSR PSR_J == maskPSRForJbit
-let isSetCPSR_T ctxt = getPSR ctxt R.CPSR PSR_T == maskPSRForTbit
-let isSetCPSR_M ctxt = getPSR ctxt R.CPSR PSR_M == maskPSRForMbits
+let isSetCPSRn ctxt = getPSR ctxt R.CPSR PSR_N == maskPSRForNbit
+let isSetCPSRz ctxt = getPSR ctxt R.CPSR PSR_Z == maskPSRForZbit
+let isSetCPSRc ctxt = getPSR ctxt R.CPSR PSR_C == maskPSRForCbit
+let isSetCPSRv ctxt = getPSR ctxt R.CPSR PSR_V == maskPSRForVbit
+let isSetCPSRj ctxt = getPSR ctxt R.CPSR PSR_J == maskPSRForJbit
+let isSetCPSRt ctxt = getPSR ctxt R.CPSR PSR_T == maskPSRForTbit
+let isSetCPSRm ctxt = getPSR ctxt R.CPSR PSR_M == maskPSRForMbits
 
 /// Test whether mode number is valid, on page B1-1142.
 /// function : BadMode()
@@ -175,11 +175,11 @@ let currentModeIsHyp ctxt =
 
 /// Is this ARM instruction set, on page A2-51.
 let isInstrSetARM ctxt =
-  AST.not (isSetCPSR_J ctxt) .& AST.not (isSetCPSR_T ctxt)
+  AST.not (isSetCPSRj ctxt) .& AST.not (isSetCPSRt ctxt)
 
 /// Is this Thumb instruction set, on page A2-51.
-let isInstrSetThumb ctxt = AST.not (isSetCPSR_J ctxt) .& (isSetCPSR_T ctxt)
+let isInstrSetThumb ctxt = AST.not (isSetCPSRj ctxt) .& (isSetCPSRt ctxt)
 
 /// Is this ThumbEE instruction set, on page A2-51.
-let isInstrSetThumbEE ctxt = (isSetCPSR_J ctxt) .& (isSetCPSR_T ctxt)
+let isInstrSetThumbEE ctxt = (isSetCPSRj ctxt) .& (isSetCPSRt ctxt)
 

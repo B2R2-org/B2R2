@@ -69,12 +69,12 @@ and EvalState (regs, temps, lbls, mem, ignoreUndef) =
   let mutable putEventHdl = PutEventHandler (fun _ _ -> ())
   let mutable externalCallEventHdl = ExternalCallEventHandler (fun _ _ -> ())
   let mutable sideEffectHdl = SideEffectEventHandler (fun _ _ -> ())
-  let mutable stmtEvalHdl = StmtEvalEventHandler (fun _ -> ())
+  let mutable stmtEvalHdl = StmtEvalEventHandler ignore
 
   /// This constructor will simply create a fresh new EvalState.
   new () =
-    EvalState (Variables (Variables.maxNumVars),
-               Variables (Variables.maxNumTemporaries),
+    EvalState (Variables (Variables.MaxNumVars),
+               Variables (Variables.MaxNumTemporaries),
                Labels (),
                NonsharableMemory () :> Memory,
                false)
@@ -82,8 +82,8 @@ and EvalState (regs, temps, lbls, mem, ignoreUndef) =
   /// This constructor will simply create a fresh new EvalState with the given
   /// memory.
   new (mem) =
-    EvalState (Variables (Variables.maxNumVars),
-               Variables (Variables.maxNumTemporaries),
+    EvalState (Variables (Variables.MaxNumVars),
+               Variables (Variables.MaxNumTemporaries),
                Labels (),
                mem,
                false)
@@ -93,8 +93,8 @@ and EvalState (regs, temps, lbls, mem, ignoreUndef) =
   /// silently ignore Undef values. Such a feature is only useful for some
   /// static analyses.
   new (ignoreUndef) =
-    EvalState (Variables (Variables.maxNumVars),
-               Variables (Variables.maxNumTemporaries),
+    EvalState (Variables (Variables.MaxNumVars),
+               Variables (Variables.MaxNumTemporaries),
                Labels (),
                NonsharableMemory () :> Memory,
                ignoreUndef)

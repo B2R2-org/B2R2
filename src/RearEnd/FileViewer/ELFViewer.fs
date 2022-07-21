@@ -116,7 +116,7 @@ let printSymbolInfoVerbose (fi: ELFFileInfo) s (elfSymbol: ELF.ELFSymbol) cfg =
   let sectionIndex =
     match elfSymbol.SecHeaderIndex with
     | ELF.SectionHeaderIdx.SecIdx idx -> idx.ToString ()
-    | _ as idx -> idx.ToString ()
+    | idx -> idx.ToString ()
   out.PrintRow (true, cfg,
     [ targetString s
       Addr.toString fi.WordSize s.Address

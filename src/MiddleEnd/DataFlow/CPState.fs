@@ -111,22 +111,22 @@ module CPState =
 
   let markAllSuccessors st cfg (blk: SSAVertex) =
     let myid = blk.GetID ()
-    DiGraph.getSuccs cfg blk
+    DiGraph.GetSuccs (cfg, blk)
     |> List.iter (fun succ ->
       let succid = succ.GetID ()
       markExecutable st myid succid)
 
   let markExceptCallFallThrough st cfg (blk: SSAVertex) =
     let myid = blk.GetID ()
-    DiGraph.getSuccs cfg blk
+    DiGraph.GetSuccs (cfg, blk)
     |> List.iter (fun succ ->
-      if DiGraph.findEdgeData cfg blk succ <> CallFallThroughEdge then
+      if cfg.FindEdgeData (blk, succ) <> CallFallThroughEdge then
         let succid = succ.GetID ()
         markExecutable st myid succid
       else ())
 
   let getExecutableSources st cfg (blk: Vertex<_>) srcIDs =
-    let preds = DiGraph.getPreds cfg blk |> List.toArray
+    let preds = DiGraph.GetPreds (cfg, blk) |> List.toArray
     srcIDs
     |> Array.mapi (fun i srcID ->
       if isExecuted st (preds[i].GetID ()) (blk.GetID ()) then Some srcID

@@ -46,7 +46,7 @@ type CondensationGraph<'D when  'D :> VertexData> =
   DiGraph<CondensationBlock<'D>, unit>
 
 let initSCCInfo g =
-  let len = DiGraph.getSize g + 1
+  let len = DiGraph.GetSize g + 1
   { DFNumMap = Dictionary<VertexID, int>()
     Vertex = Array.zeroCreate len
     LowLink = Array.zeroCreate len }
@@ -58,7 +58,7 @@ let inline lowlink ctxt v =
   ctxt.LowLink[dfnum ctxt v]
 
 let rec assignSCC ctxt vNum stack scc =
-  if List.length stack <> 0 then
+  if not (List.isEmpty stack) then
     let wNum = List.head stack
     if wNum >= vNum then
       let stack = List.tail stack
@@ -83,7 +83,7 @@ let rec computeSCC g ctxt (v: Vertex<_>) n stack sccs =
   ctxt.LowLink[n] <- n
   ctxt.Vertex[n] <- v
   let n, stack, sccs =
-    DiGraph.getSuccs g v
+    DiGraph.GetSuccs (g, v)
     |> List.fold (computeLowLink g ctxt v) (n + 1, n :: stack, sccs)
   let stack, sccs = createSCC ctxt v stack sccs
   n, stack, sccs
@@ -103,7 +103,7 @@ and computeLowLink g ctxt v (n, stack, sccs) (w: Vertex<_>) =
 
 let compute g root =
   let ctxt = initSCCInfo g
-  DiGraph.getUnreachables g
+  DiGraph.GetUnreachables g
   |> Seq.fold (fun acc v -> Set.add v acc) Set.empty
   |> Set.add root
   |> Set.fold (fun (n, acc) root ->
@@ -118,13 +118,13 @@ let condensation graphInit g root =
   let vMap, cGraph =
     sccs
     |> Set.fold (fun (acc, cGraph) scc ->
-      let v, cGraph = DiGraph.addVertex cGraph <| CondensationBlock (scc)
+      let v, cGraph = DiGraph.AddVertex (cGraph, CondensationBlock (scc))
       let acc = Set.fold (fun acc w -> Map.add w v acc) acc scc
       acc, cGraph) (Map.empty, cGraph)
   Set.empty
-  |> DiGraph.foldEdge g (fun acc src dst _ ->
+  |> g.FoldEdge (fun acc src dst _ ->
     let src = Map.find src vMap
     let dst = Map.find dst vMap
     Set.add (src, dst) acc)
   |> Set.fold (fun condensation (src, dst) ->
-    DiGraph.addEdge condensation src dst ()) cGraph
+    DiGraph.AddEdge (condensation, src, dst, ())) cGraph

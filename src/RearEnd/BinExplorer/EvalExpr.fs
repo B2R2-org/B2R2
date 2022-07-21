@@ -62,7 +62,7 @@ type SimpleArithEvaluator () =
     let str = getIntegerPart value
     let intValue = BigInteger.Parse str
     let intValue =
-      if hasZeroFraction value = false && result.FloatValue < 0.0 then
+      if not (hasZeroFraction value) && result.FloatValue < 0.0 then
         intValue - 1I
       else intValue
     match typ with
@@ -96,7 +96,7 @@ type SimpleArithEvaluator () =
     [| result + space + "\n" + "Wrong Input" |]
 
   let processASCIICharacters str =
-    match SimpleArithASCIIPArser.run str with
+    match SimpleArithASCIIParser.run str with
     | Success (v, _, position) ->
       if position.Column <> int64 (str.Length + 1) then
         processASCIIError str position

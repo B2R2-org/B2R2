@@ -25,6 +25,7 @@
 namespace B2R2.FrontEnd.BinLifter.TMS320C6000
 
 open B2R2
+open B2R2.FrontEnd.BinLifter
 open B2R2.BinIR.LowUIR
 
 type internal RegExprs (wordSize) =
@@ -35,6 +36,6 @@ type internal RegExprs (wordSize) =
 
   member __.GetRegVar (name) =
     match name with
-    | _ -> raise B2R2.FrontEnd.BinLifter.UnhandledRegExprException
+    | _ -> raise UnhandledRegExprException
 
 // vim: set tw=80 sts=2 sw=2:

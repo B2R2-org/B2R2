@@ -92,7 +92,7 @@ type ItaniumDemangler () =
     |>> Vendor
 
   let builtinsingle =
-    satisfy (fun c -> if (getTypeS c <>"") then true else false)
+    satisfy (fun c -> getTypeS c <> "")
     |>> string |>> BuiltinTypeIndicator.ofString
 
   let builtindouble =

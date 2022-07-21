@@ -3430,7 +3430,8 @@ module internal ParsingHelper = begin
 
   let evex0F3883W1 = function
     | MPref.MPrxNP -> raise ParsingFailureException
-    | MPref.MPrx66 -> struct (VPMULTISHIFTQB, OD.XmmVvXm, SZ.VecDef) (* VxHxWx *)
+    | MPref.MPrx66 ->
+      struct (VPMULTISHIFTQB, OD.XmmVvXm, SZ.VecDef) (* VxHxWx *)
     | MPref.MPrxF3
     | MPref.MPrxF2
     | _ (* MPrx66F2 *) -> raise ParsingFailureException
@@ -5123,14 +5124,16 @@ module internal ParsingHelper = begin
 
   let vex0F3A6AW0 = function
     | MPref.MPrxNP -> raise ParsingFailureException
-    | MPref.MPrx66 -> struct (VFMADDSS, OD.XmmVvXmXmm, SZ.DqdDq) (* VdqHdqWdqdLdq *)
+    | MPref.MPrx66 ->
+      struct (VFMADDSS, OD.XmmVvXmXmm, SZ.DqdDq) (* VdqHdqWdqdLdq *)
     | MPref.MPrxF3
     | MPref.MPrxF2
     | _ (* MPrx66F2 *) -> raise ParsingFailureException
 
   let vex0F3A6AW1 = function
     | MPref.MPrxNP -> raise ParsingFailureException
-    | MPref.MPrx66 -> struct (VFMADDSS, OD.XmmVvXmmXm, SZ.DqdDq) (* VdqHdqLdqWdqd *)
+    | MPref.MPrx66 ->
+      struct (VFMADDSS, OD.XmmVvXmmXm, SZ.DqdDq) (* VdqHdqLdqWdqd *)
     | MPref.MPrxF3
     | MPref.MPrxF2
     | _ (* MPrx66F2 *) -> raise ParsingFailureException

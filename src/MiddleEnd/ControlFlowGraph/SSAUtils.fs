@@ -31,7 +31,7 @@ open B2R2.MiddleEnd.BinGraph
 let computeDominatorInfo g root =
   let domCtxt = Dominator.initDominatorContext g root
   let frontiers = Dominator.frontiers domCtxt
-  DiGraph.iterVertex g (fun (v: SSAVertex) ->
+  g.IterVertex (fun (v: SSAVertex) ->
     let dfnum = domCtxt.ForwardDomInfo.DFNumMap[v.GetID ()]
     v.VData.ImmDominator <- Dominator.idom domCtxt v
     v.VData.DomFrontier <- frontiers[dfnum])
@@ -53,7 +53,7 @@ let findPhiSites g defsPerNode variable (phiSites, workList) v =
       phiSites, workList
     | _ ->
       (* Insert Phi for v *)
-      DiGraph.getPreds g v
+      DiGraph.GetPreds (g, v)
       |> List.length
       |> v.VData.PrependPhi variable
       let phiSites = Set.add v phiSites
@@ -171,7 +171,7 @@ let renamePhiAux (stack: IDStack) preds (parent: SSAVertex) (_, stmt) =
 
 let renamePhi g stack parent (succ: SSAVertex) =
   succ.VData.SSAStmtInfos
-  |> Array.iter (renamePhiAux stack (DiGraph.getPreds g succ) parent)
+  |> Array.iter (renamePhiAux stack (DiGraph.GetPreds (g, succ)) parent)
 
 let popStack (stack: IDStack) (_, stmt) =
   match stmt with
@@ -181,7 +181,7 @@ let popStack (stack: IDStack) (_, stmt) =
 
 let rec rename g domTree count stack (v: SSAVertex) =
   v.VData.SSAStmtInfos |> Array.iter (renameStmt count stack)
-  DiGraph.getSuccs g v |> List.iter (renamePhi g stack v)
+  DiGraph.GetSuccs (g, v) |> List.iter (renamePhi g stack v)
   traverseChildren g domTree count stack (Map.find v domTree)
   v.VData.SSAStmtInfos |> Array.iter (popStack stack)
 

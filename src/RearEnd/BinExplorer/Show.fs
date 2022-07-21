@@ -51,9 +51,9 @@ type CmdShow () =
   member private __.CallerToString (sb: StringBuilder) (addr: Addr) =
     sb.Append ("  - referenced by " + String.u64ToHexNoPrefix addr + "\n")
 
-  member private __.CalleeToSimpleString ess prefix (sb: StringBuilder) (callee: Function) =
+  member private __.CalleeToSimpleString prefix (sb: StringBuilder) callee =
     let noret =
-      match callee.NoReturnProperty with
+      match (callee: Function).NoReturnProperty with
       | NoRet -> " [no return]"
       | ConditionalNoRet _ -> " [conditional no return]"
       | NotNoRetConfirmed | NotNoRet -> ""
@@ -65,7 +65,7 @@ type CmdShow () =
                + noret + " @ " + String.u64ToHexNoPrefix callee.Entry + "\n")
 
   member private __.CalleeToString ess (sb: StringBuilder) callee =
-    __.CalleeToSimpleString ess "" sb callee
+    __.CalleeToSimpleString "" sb callee
     |> (fun sb -> callee.Callers |> Seq.fold __.CallerToString sb)
 
   member __.ShowCaller ess = function
@@ -80,7 +80,7 @@ type CmdShow () =
           func.Callers
           |> Seq.fold (fun sb (addr: Addr) ->
             match ess.CodeManager.FunctionMaintainer.TryFind addr with
-            | Some callee -> __.CalleeToSimpleString ess "  - " sb callee
+            | Some callee -> __.CalleeToSimpleString "  - " sb callee
             | None -> sb) sb
         [| sb.ToString () |]
     | _ -> [| __.CmdHelp |]

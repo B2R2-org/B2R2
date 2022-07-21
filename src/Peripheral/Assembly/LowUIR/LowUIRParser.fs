@@ -35,7 +35,7 @@ open B2R2.BinIR.LowUIR
 open B2R2.Peripheral.Assembly.Utils
 open B2R2.Peripheral.Assembly.LowUIR.Helper
 
-type Parser<'t> = Parser<'t, RegType>
+type Parser<'T> = Parser<'T, RegType>
 
 type LowUIRParser (isa, regbay: RegisterBay) =
 
@@ -72,17 +72,21 @@ type LowUIRParser (isa, regbay: RegisterBay) =
     .>>. opt (pchar ':' >>. ws >>. pRegType)
     >>= (fun (toBV, typ) ->
       match typ with
-      | None -> getUserState |>> (fun t -> toBV t)
+      | None -> getUserState |>> toBV
       | Some typ -> preturn (toBV typ))
 
   let pUnaryOperator =
     [ "-"; "~"; "sqrt"; "cos"; "sin"; "tan"; "atan" ]
-    |> List.map pstring |> List.map attempt |> choice |>> UnOpType.ofString
+    |> List.map (pstring >> attempt)
+    |> choice
+    |>> UnOpType.ofString
 
   let pCastType =
     [ "sext"; "zext"; "float"; "round"; "ceil"; "floor"; "trunc"; "fext"
       "roundf"; "ceilf"; "floorf"; "truncf" ]
-    |> List.map pstring |> List.map attempt |> choice |>> CastKind.ofString
+    |> List.map (pstring >> attempt)
+    |> choice
+    |>> CastKind.ofString
 
   let pExpr, pExprRef = createParserForwardedToRef ()
 
@@ -91,8 +95,8 @@ type LowUIRParser (isa, regbay: RegisterBay) =
   let regnames = regbay.GetAllRegNames ()
 
   let pVar =
-    List.map pstringCI regnames
-    |> List.map attempt
+    regnames
+    |> List.map (pstringCI >> attempt)
     |> choice
     |>> regbay.StrToRegExpr
 

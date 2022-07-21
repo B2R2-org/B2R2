@@ -27,7 +27,7 @@ module B2R2.MiddleEnd.BinGraph.Traversal
 open System.Collections.Generic
 
 let inline private prependSuccessors g lst v =
-  DiGraph.getSuccs g v |> List.fold (fun lst s -> s :: lst) lst
+  DiGraph.GetSuccs (g, v) |> List.fold (fun lst s -> s :: lst) lst
 
 let rec private foldPreorderLoop visited g fn acc = function
   | [] -> acc
@@ -50,7 +50,7 @@ and consume visited g fn acc = function
   | [] -> struct (acc, [])
   | v :: rest ->
     let allSuccsVisited =
-      DiGraph.getSuccs g v
+      DiGraph.GetSuccs (g, v)
       |> List.forall (fun s -> s.GetID () |> visited.Contains)
     if allSuccsVisited then consume visited g fn (fn acc v) rest
     else struct (acc, v :: rest)
@@ -113,14 +113,14 @@ let iterRevPostorder g roots fn =
 let foldTopologically g roots fn acc =
   let visited = new HashSet<int> ()
   let roots =
-    DiGraph.getUnreachables g
+    DiGraph.GetUnreachables g
     |> Set.ofSeq
     |> List.foldBack Set.add roots
     |> Set.toList
     |> foldPostorderLoop visited g (fun acc v -> v :: acc) [] []
   (* Consider unreachable loop components. For those vertices, the order is
      random *)
-  DiGraph.getVertices g
+  DiGraph.GetVertices g
   |> Set.toList
   |> foldPostorderLoop visited g (fun acc v -> v :: acc) roots []
   |> List.fold fn acc

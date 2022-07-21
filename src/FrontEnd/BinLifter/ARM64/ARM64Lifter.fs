@@ -43,10 +43,10 @@ let oprSzToExpr oprSize = numI32 (RegType.toBitWidth oprSize) oprSize
 
 let inline private (<!) (ir: IRBuilder) (s) = ir.Append (s)
 
-// shared/functions/integer/AddWithCarry
-// AddWithCarry()
-// ==============
-// Integer addition with carry input, returning result and NZCV flags
+/// shared/functions/integer/AddWithCarry
+/// AddWithCarry()
+/// ==============
+/// Integer addition with carry input, returning result and NZCV flags
 let addWithCarry opr1 opr2 carryIn oSz =
   let result = opr1 .+ opr2 .+ carryIn
   let n = AST.xthi 1<rt> result
@@ -58,10 +58,10 @@ let addWithCarry opr1 opr2 carryIn oSz =
   let v = (o1 == o2) .& (o1 <+> r)
   result, (n, z, c, v)
 
-// aarch64/instrs/integer/shiftreg/ShiftReg
-// ShiftReg()
-// ==========
-// Perform shift of a register operand
+/// aarch64/instrs/integer/shiftreg/ShiftReg
+/// ShiftReg()
+/// ==========
+/// Perform shift of a register operand
 let shiftReg reg amount oprSize = function
   | SRTypeLSL -> reg << amount
   | SRTypeLSR -> reg >> amount
@@ -73,16 +73,16 @@ let transShiftAmout ctxt oprSize = function
   | Imm amt -> numI64 amt oprSize
   | Reg amt -> getRegVar ctxt amt
 
-// shared/functions/common/Extend
-// Extend()
-// ========
+/// shared/functions/common/Extend
+/// Extend()
+/// ========
 let extend reg oprSize isUnsigned =
   if isUnsigned then AST.zext oprSize reg else AST.sext oprSize reg
 
-// aarch64/instrs/extendreg/ExtendReg
-// ExtendReg()
-// ===========
-// Perform a register extension and shift
+/// aarch64/instrs/extendreg/ExtendReg
+/// ExtendReg()
+/// ===========
+/// Perform a register extension and shift
 let extendReg ctxt reg typ shift oprSize =
   let reg = getRegVar ctxt reg
   let shift = match shift with
@@ -253,7 +253,7 @@ let transOprToExprOfADD ins ctxt addr (ir: IRBuilder) =
       ir <! (resTmps[i] := s1Tmps[i] .+ s2Tmps[i])
     done
     ir <! (dst := AST.concatArr resTmps)
-  | FourOperands (_, _, _, _) -> (* Arithmetic *)
+  | FourOperands _ -> (* Arithmetic *)
     let dst, s1, s2 = transFourOprsWithBarrelShift ins ctxt addr
     let result, _ = addWithCarry s1 s2 (AST.num0 ins.OprSize) ins.OprSize
     ir <! (dst := result)
@@ -265,14 +265,14 @@ let transOprToExprOfADDS ins ctxt addr =
     getRegVar ctxt (if ins.OprSize = 64<rt> then R.XZR else R.WZR),
     transOprToExpr ins ctxt addr o1,
     transBarrelShiftToExpr ins ctxt o2 o3
-  | FourOperands (_, _, _, _) ->
+  | FourOperands _ ->
     transFourOprsWithBarrelShift ins ctxt addr
   | _ -> raise InvalidOperandException
 
 let transOprToExprOfAND ins ctxt addr =
   match ins.Operands with
-  | ThreeOperands (_, _, _) -> transThreeOprs ins ctxt addr
-  | FourOperands (_, _, _, _) ->
+  | ThreeOperands _ -> transThreeOprs ins ctxt addr
+  | FourOperands _ ->
     transFourOprsWithBarrelShift ins ctxt addr
   | _ -> raise InvalidOperandException
 
@@ -284,8 +284,8 @@ let transOprToExprOfANDS ins ctxt addr =
   | ThreeOperands (o1, o2, o3) when ins.Opcode = Opcode.TST -> (* TST (shfed) *)
     getRegVar ctxt (if ins.OprSize = 64<rt> then R.XZR else R.WZR),
     transOprToExpr ins ctxt addr o1, transBarrelShiftToExpr ins ctxt o2 o3
-  | ThreeOperands (_, _, _) -> transThreeOprs ins ctxt addr
-  | FourOperands (_, _, _, _) -> transFourOprsWithBarrelShift ins ctxt addr
+  | ThreeOperands _ -> transThreeOprs ins ctxt addr
+  | FourOperands _ -> transFourOprsWithBarrelShift ins ctxt addr
   | _ -> raise InvalidOperandException
 
 let transOprToExprOfBFM ins ctxt addr =
@@ -295,12 +295,13 @@ let transOprToExprOfBFM ins ctxt addr =
     transOprToExpr ins ctxt addr o2,
     transOprToExpr ins ctxt addr o3, (* FIXME: #(-<lsb> MOD 32/64) *)
     transOprToExpr ins ctxt addr (Immediate (o4 + 1L))
-  | FourOperands (o1, o2, Immediate o3, Immediate o4) when ins.Opcode = Opcode.BFXIL ->
+  | FourOperands (o1, o2, Immediate o3, Immediate o4)
+    when ins.Opcode = Opcode.BFXIL ->
     transOprToExpr ins ctxt addr o1,
     transOprToExpr ins ctxt addr o2,
     transOprToExpr ins ctxt addr (Immediate o3),
     transOprToExpr ins ctxt addr (Immediate (o4 - o3 + 1L))
-  | FourOperands (_, _, _, _) -> transFourOprs ins ctxt addr
+  | FourOperands _ -> transFourOprs ins ctxt addr
   | _ -> raise InvalidOperandException
 
 let unwrapCond = function
@@ -396,7 +397,7 @@ let transOprToExprOfCSNEG ins ctxt addr =
 
 let transOprToExprOfEOR ins ctxt addr =
   match ins.Operands with
-  | ThreeOperands (_, _, _) -> transThreeOprs ins ctxt addr
+  | ThreeOperands _ -> transThreeOprs ins ctxt addr
   | FourOperands (o1, o2, o3, o4) ->
     transOprToExpr ins ctxt addr o1,
     transOprToExpr ins ctxt addr o2,
@@ -408,14 +409,14 @@ let transOprToExprOfEXTR ins ctxt addr =
   | ThreeOperands (o1, o2, o3) -> (* ROR *)
     let o2 = transOprToExpr ins ctxt addr o2
     transOprToExpr ins ctxt addr o1, o2, o2, transOprToExpr ins ctxt addr o3
-  | FourOperands (_, _, _, _) -> transFourOprs ins ctxt addr
+  | FourOperands _ -> transFourOprs ins ctxt addr
   | _ -> raise InvalidOperandException
 
 let getIsWBackAndIsPostIndexByAddrMode = function
   | BaseMode _ -> false, false
   | PreIdxMode _ -> true, false
   | PostIdxMode _ -> true, true
-  | _ -> failwith "None"
+  | _ -> raise InvalidOperandException
 
 let getIsWBackAndIsPostIndex = function
   | TwoOperands (_, Memory mem) -> getIsWBackAndIsPostIndexByAddrMode mem
@@ -423,12 +424,9 @@ let getIsWBackAndIsPostIndex = function
   | _ -> raise InvalidOperandException
 
 let separateMemExpr expr =
-  let getExpr = function
-    | Load (e, t, expr, _) -> expr.E
-    | _ -> failwith "None"
-  match getExpr expr.E with
-  | BinOp (BinOpType.ADD, _, b, o, _) -> b, o
-  | _ -> failwith "None"
+  match expr.E with
+  | Load (_, _, { E = BinOp (BinOpType.ADD, _, b, o, _) }, _) -> b, o
+  | _ -> raise InvalidOperandException
 
 let transOprToExprOfLDP ins ctxt addr =
   match ins.Operands with
@@ -469,7 +467,7 @@ let transOprToExprOfMADD ins ctxt addr =
     transOprToExpr ins ctxt addr o2,
     transOprToExpr ins ctxt addr o3,
     getRegVar ctxt (if ins.OprSize = 64<rt> then R.XZR else R.WZR)
-  | FourOperands (_, _, _, _) -> transFourOprs ins ctxt addr
+  | FourOperands _ -> transFourOprs ins ctxt addr
   | _ -> raise InvalidOperandException
 
 let transOprToExprOfMOV ins ctxt addr =
@@ -490,7 +488,7 @@ let transOprToExprOfORN ins ctxt addr =
 
 let transOprToExprOfORR ins ctxt addr =
   match ins.Operands with
-  | ThreeOperands (_, _, _) -> transThreeOprs ins ctxt addr
+  | ThreeOperands _ -> transThreeOprs ins ctxt addr
   | FourOperands (o1, o2, o3, o4) ->
     transOprToExpr ins ctxt addr o1,
     transOprToExpr ins ctxt addr o2,
@@ -520,7 +518,7 @@ let transOprToExprOfSBFM ins ctxt addr =
     transOprToExpr ins ctxt addr o2,
     transOprToExpr ins ctxt addr (Immediate o3),
     transOprToExpr ins ctxt addr (Immediate (o4 - o3 + 1L))
-  | FourOperands (_, _, _, _) -> transFourOprs ins ctxt addr
+  | FourOperands _ -> transFourOprs ins ctxt addr
   | _ -> raise InvalidOperandException
 
 let transOprToExprOfSMADDL ins ctxt addr =
@@ -530,7 +528,7 @@ let transOprToExprOfSMADDL ins ctxt addr =
     transOprToExpr ins ctxt addr o2,
     transOprToExpr ins ctxt addr o3,
     getRegVar ctxt R.XZR
-  | FourOperands (_, _, _, _) -> transFourOprs ins ctxt addr
+  | FourOperands _ -> transFourOprs ins ctxt addr
   | _ -> raise InvalidOperandException
 
 let transOprToExprOfLDRB ins ctxt addr =
@@ -593,7 +591,7 @@ let transOprToExprOfUMADDL ins ctxt addr =
     transOprToExpr ins ctxt addr o2,
     transOprToExpr ins ctxt addr o3,
     getRegVar ctxt R.XZR
-  | FourOperands (_, _, _, _) -> transFourOprs ins ctxt addr
+  | FourOperands _ -> transFourOprs ins ctxt addr
   | _ -> raise InvalidOperandException
 
 let transOprToExprOfSUBS ins ctxt addr ir =
@@ -659,26 +657,19 @@ type BranchType =
   | BrTypeEXCEPTION
   | BrTypeUNKNOWN
 
-// shared/functions/memory/BranchAddr
-// BranchAddr()
-// ============
-// Return the virtual address with tag bits removed for storing to the
-// program counter.
-// let branchAddr vaddress el
-
-// shared/functions/registers/BranchTo
-// BranchTo()
-// ==========
-// Set program counter to a new address, which may include a tag in the top
-// eight bits, with a branch reason hint for possible use by hardware fetching
-// the next instruction.
+/// shared/functions/registers/BranchTo
+/// BranchTo()
+/// ==========
+/// Set program counter to a new address, which may include a tag in the top
+/// eight bits, with a branch reason hint for possible use by hardware fetching
+/// the next instruction.
 let branchTo ins ctxt target brType i (ir: IRBuilder) =
   ir <! (AST.interjmp target i) // FIXME: BranchAddr function
 
-// shared/functions/system/ConditionHolds
-// ConditionHolds()
-// ================
-// Return TRUE iff COND currently holds
+/// shared/functions/system/ConditionHolds
+/// ConditionHolds()
+/// ================
+/// Return TRUE iff COND currently holds
 let conditionHolds ctxt = function
   | EQ -> getRegVar ctxt R.Z == AST.b1
   | NE -> getRegVar ctxt R.Z == AST.b0
@@ -689,14 +680,15 @@ let conditionHolds ctxt = function
   | VS -> getRegVar ctxt R.V == AST.b1
   | VC -> getRegVar ctxt R.V == AST.b0
   | HI -> (getRegVar ctxt R.C == AST.b1) .& (getRegVar ctxt R.Z == AST.b0)
-  | LS -> AST.not ((getRegVar ctxt R.C == AST.b1) .& (getRegVar ctxt R.Z == AST.b0))
+  | LS ->
+    AST.not ((getRegVar ctxt R.C == AST.b1) .& (getRegVar ctxt R.Z == AST.b0))
   | GE -> getRegVar ctxt R.N == getRegVar ctxt R.V
   | LT -> getRegVar ctxt R.N != getRegVar ctxt R.V
   | GT -> (getRegVar ctxt R.N == getRegVar ctxt R.V) .&
           (getRegVar ctxt R.Z == AST.b0)
   | LE -> AST.not ((getRegVar ctxt R.N == getRegVar ctxt R.V) .&
                (getRegVar ctxt R.Z == AST.b0))
-  /// Condition flag values in the set '111x' indicate always true
+  (* Condition flag values in the set '111x' indicate always true *)
   | AL | NV -> AST.b1
   | _ -> failwith "Invalid condition"
 
@@ -752,11 +744,11 @@ let getMaskForIR n oprSize = (AST.num1 oprSize << n) .- AST.num1 oprSize
 // ================
 // Decode AArch64 bitfield and logical immediate masks which use a similar
 // encoding structure
-let decodeBitMasksForIR wmask tmask immN imms immr isImm oprSize (ir: IRBuilder) =
+let decodeBitMasksForIR wmask tmask immN imms immr oprSize (ir: IRBuilder) =
   let concatSz = RegType.fromBitWidth ((RegType.toBitWidth oprSize) * 2)
   let tLen = ir.NewTempVar concatSz
   let levels = ir.NewTempVar oprSize
-  let S, R = ir.NewTempVar oprSize, ir.NewTempVar oprSize
+  let s, r = ir.NewTempVar oprSize, ir.NewTempVar oprSize
   let diff = ir.NewTempVar oprSize
   let esize = ir.NewTempVar oprSize
   let d = ir.NewTempVar oprSize
@@ -764,18 +756,20 @@ let decodeBitMasksForIR wmask tmask immN imms immr isImm oprSize (ir: IRBuilder)
   let telem = ir.NewTempVar oprSize
   let n1 = AST.num1 oprSize
   let len = ir.NewTempVar oprSize
-  highestSetBitForIR tLen (AST.concat immN (AST.not imms)) (RegType.toBitWidth oprSize)
+  highestSetBitForIR tLen
+    (AST.concat immN (AST.not imms))
+    (RegType.toBitWidth oprSize)
     concatSz ir
   ir <! (len := AST.xtlo oprSize tLen)
   ir <! (levels := AST.zext oprSize len) // ZeroExtend (Ones(len), 6)
-  ir <! (S := imms .& levels)
-  ir <! (R := immr .& levels)
-  ir <! (diff := S .- R)
+  ir <! (s := imms .& levels)
+  ir <! (r := immr .& levels)
+  ir <! (diff := s .- r)
   ir <! (esize := AST.num1 oprSize << len)
   ir <! (d := diff .& getMaskForIR len oprSize)
-  ir <! (welem := AST.zext oprSize (S .+ n1))
+  ir <! (welem := AST.zext oprSize (s .+ n1))
   ir <! (telem := AST.zext oprSize (d .+ n1))
-  replicateForIR wmask (ror welem R (oprSzToExpr oprSize)) esize oprSize ir
+  replicateForIR wmask (ror welem r (oprSzToExpr oprSize)) esize oprSize ir
   replicateForIR tmask welem esize oprSize ir
 
 // shared/functions/common/CountLeadingZeroBits
@@ -874,7 +868,7 @@ let bfm ins ctxt addr =
   let oSz = ins.OprSize
   let wmask, tmask = ir.NewTempVar oSz, ir.NewTempVar oSz
   let immN = if ins.OprSize = 64<rt> then AST.num1 oSz else AST.num0 oSz
-  decodeBitMasksForIR wmask tmask immN imms immr (AST.num0 oSz) oSz ir
+  decodeBitMasksForIR wmask tmask immN imms immr oSz ir
   let width = oprSzToExpr ins.OprSize
   let bot = ir.NewTempVar ins.OprSize
   startMark ins ir
@@ -992,7 +986,9 @@ let csinc ins ctxt addr =
   let ir = IRBuilder (4)
   let dst, s1, s2, cond = transOprToExprOfCSINC ins ctxt addr
   startMark ins ir
-  ir <! (dst := AST.ite (conditionHolds ctxt cond) s1 (s2 .+ AST.num1 ins.OprSize))
+  ir <! (dst := AST.ite (conditionHolds ctxt cond)
+                        s1
+                        (s2 .+ AST.num1 ins.OprSize))
   endMark ins ir
 
 let csinv ins ctxt addr =
@@ -1228,7 +1224,7 @@ let sbfm ins ctxt addr =
   let immN = if oprSz = 64<rt> then AST.num1 oprSz else AST.num0 oprSz
   let width = oprSzToExpr oprSz
   startMark ins ir
-  decodeBitMasksForIR wmask tmask immN imms immr (AST.num0 oprSz) oprSz ir
+  decodeBitMasksForIR wmask tmask immN imms immr oprSz ir
   ir <! (bot := ror src immr width .& wmask)
   replicateForIR top src imms oprSz ir
   ir <! (dst := (top .& AST.not tmask) .| (bot .& tmask))
@@ -1432,7 +1428,7 @@ let ubfm ins ctxt addr =
   let bot = ir.NewTempVar oSz
   let wmask, tmask = ir.NewTempVar oSz, ir.NewTempVar oSz
   let immN = if ins.OprSize = 64<rt> then AST.num1 oSz else AST.num0 oSz
-  decodeBitMasksForIR wmask tmask immN imms immr (AST.num0 oSz) oSz ir
+  decodeBitMasksForIR wmask tmask immN imms immr oSz ir
   let width = oprSzToExpr ins.OprSize
   startMark ins ir
   ir <! (bot := ror src immr width .& wmask)

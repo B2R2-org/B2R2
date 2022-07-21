@@ -6818,7 +6818,8 @@ let parseAdvSIMDTwoRegsAndShfAmt (phlp: ParsingHelper) bin =
       | _ (* 1xxx *) -> SIMDTypI64
       |> oneDt
     let oprFn =
-      if pickBit bin 6 (* Q *) = 0u then OD.OprDdDmImmLeft else OD.OprQdQmImmLeft
+      if pickBit bin 6 (* Q *) = 0u then OD.OprDdDmImmLeft
+      else OD.OprQdQmImmLeft
     render phlp bin Op.VSHL dt oprFn
   | 0b010000u ->
     (* if Vm<0> == '1' then UNDEFINED *)

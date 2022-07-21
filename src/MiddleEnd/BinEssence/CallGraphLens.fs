@@ -44,7 +44,7 @@ module CallGraphLens =
       let name = func.FunctionName
       let ext = func.FunctionKind <> FunctionKind.Regular
       let v, g =
-        DiGraph.addVertex g (CallGraphBlock (entry, id, name, false, ext))
+        DiGraph.AddVertex (g, CallGraphBlock (entry, id, name, false, ext))
       vMap.Add (entry, v)
       v, g
     | true, v -> v, g
@@ -52,7 +52,7 @@ module CallGraphLens =
   let private addEdge ess vMap entry target callCFG =
     let src, callCFG = getVertex ess vMap entry callCFG
     let dst, callCFG = getVertex ess vMap target callCFG
-    DiGraph.addEdge callCFG src dst CallEdge
+    DiGraph.AddEdge (callCFG, src, dst, CallEdge)
 
   let private buildCG callCFG vMap ess =
     ess.CodeManager.FunctionMaintainer.RegularFunctions
@@ -71,4 +71,4 @@ module CallGraphLens =
   let build ess =
     let vMap = CallVMap ()
     let callCFG = buildCG (CallCFG.init PersistentGraph) vMap ess
-    callCFG, DiGraph.getUnreachables callCFG |> Seq.toList
+    callCFG, DiGraph.GetUnreachables callCFG |> Seq.toList

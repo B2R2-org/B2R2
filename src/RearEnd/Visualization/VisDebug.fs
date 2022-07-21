@@ -47,11 +47,11 @@ module VisDebug =
     sprintf "\tLayer: %d" vNode.VData.Layer |> logn
     logn "\tPreds: ["
     List.iter (fun (v: Vertex<VisBBlock>) ->
-      sprintf "%d, " (v.GetID ()) |> logn) <| DiGraph.getPreds vGraph vNode
+      sprintf "%d, " (v.GetID ()) |> logn) <| DiGraph.GetPreds (vGraph, vNode)
     logn "]"
     logn "\tSuccss: ["
     List.iter (fun (v: Vertex<VisBBlock>) ->
-      sprintf "%d, " (v.GetID ()) |> logn) <| DiGraph.getSuccs vGraph vNode
+      sprintf "%d, " (v.GetID ()) |> logn) <| DiGraph.GetSuccs (vGraph, vNode)
     logn "]"
     logn "}"
 

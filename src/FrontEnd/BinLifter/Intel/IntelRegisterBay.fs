@@ -28,55 +28,55 @@ open B2R2
 open B2R2.FrontEnd.BinLifter
 open B2R2.BinIR.LowUIR
 
-type IntelRegisterBay internal (wordSize, R: RegExprs) =
+type IntelRegisterBay internal (wordSize, r: RegExprs) =
 
   inherit RegisterBay ()
 
   override __.GetAllRegExprs () =
     if WordSize.is32 wordSize then
-      [ R.EAX; R.EBX; R.ECX; R.EDX; R.ESP; R.EBP; R.ESI; R.EDI; R.EIP; R.CSBase;
-        R.DSBase; R.ESBase; R.FSBase; R.GSBase; R.SSBase; R.CR0; R.CR2; R.CR3;
-        R.CR4; R.OF; R.DF; R.IF; R.TF; R.SF; R.ZF; R.AF; R.PF; R.CF; R.FCW;
-        R.FSW; R.FTW; R.FOP; R.FIP; R.FCS; R.FDP; R.FDS; R.MXCSR; R.MXCSRMASK;
-        R.PKRU; R.K0; R.K1; R.K2; R.K3; R.K4; R.K5; R.K6; R.K7; R.ST0A; R.ST0B;
-        R.ST1A; R.ST1B; R.ST2A; R.ST2B; R.ST3A; R.ST3B; R.ST4A; R.ST4B; R.ST5A;
-        R.ST5B; R.ST6A; R.ST6B; R.ST7A; R.ST7B; R.ZMM0A; R.ZMM0B; R.ZMM0C;
-        R.ZMM0D; R.ZMM0E; R.ZMM0F; R.ZMM0G; R.ZMM0H; R.ZMM1A; R.ZMM1B; R.ZMM1C;
-        R.ZMM1D; R.ZMM1E; R.ZMM1F; R.ZMM1G; R.ZMM1H; R.ZMM2A; R.ZMM2B; R.ZMM2C;
-        R.ZMM2D; R.ZMM2E; R.ZMM2F; R.ZMM2G; R.ZMM2H; R.ZMM3A; R.ZMM3B; R.ZMM3C;
-        R.ZMM3D; R.ZMM3E; R.ZMM3F; R.ZMM3G; R.ZMM3H; R.ZMM4A; R.ZMM4B; R.ZMM4C;
-        R.ZMM4D; R.ZMM4E; R.ZMM4F; R.ZMM4G; R.ZMM4H; R.ZMM5A; R.ZMM5B; R.ZMM5C;
-        R.ZMM5D; R.ZMM5E; R.ZMM5F; R.ZMM5G; R.ZMM5H; R.ZMM6A; R.ZMM6B; R.ZMM6C;
-        R.ZMM6D; R.ZMM6E; R.ZMM6F; R.ZMM6G; R.ZMM6H; R.ZMM7A; R.ZMM7B; R.ZMM7C;
-        R.ZMM7D; R.ZMM7E; R.ZMM7F; R.ZMM7G; R.ZMM7H; R.CS; R.DS; R.ES; R.FS;
-        R.GS; R.SS; R.DR0; R.DR1; R.DR2; R.DR3; R.DR6; R.DR7 ]
+      [ r.EAX; r.EBX; r.ECX; r.EDX; r.ESP; r.EBP; r.ESI; r.EDI; r.EIP; r.CSBase;
+        r.DSBase; r.ESBase; r.FSBase; r.GSBase; r.SSBase; r.CR0; r.CR2; r.CR3;
+        r.CR4; r.OF; r.DF; r.IF; r.TF; r.SF; r.ZF; r.AF; r.PF; r.CF; r.FCW;
+        r.FSW; r.FTW; r.FOP; r.FIP; r.FCS; r.FDP; r.FDS; r.MXCSR; r.MXCSRMASK;
+        r.PKRU; r.K0; r.K1; r.K2; r.K3; r.K4; r.K5; r.K6; r.K7; r.ST0A; r.ST0B;
+        r.ST1A; r.ST1B; r.ST2A; r.ST2B; r.ST3A; r.ST3B; r.ST4A; r.ST4B; r.ST5A;
+        r.ST5B; r.ST6A; r.ST6B; r.ST7A; r.ST7B; r.ZMM0A; r.ZMM0B; r.ZMM0C;
+        r.ZMM0D; r.ZMM0E; r.ZMM0F; r.ZMM0G; r.ZMM0H; r.ZMM1A; r.ZMM1B; r.ZMM1C;
+        r.ZMM1D; r.ZMM1E; r.ZMM1F; r.ZMM1G; r.ZMM1H; r.ZMM2A; r.ZMM2B; r.ZMM2C;
+        r.ZMM2D; r.ZMM2E; r.ZMM2F; r.ZMM2G; r.ZMM2H; r.ZMM3A; r.ZMM3B; r.ZMM3C;
+        r.ZMM3D; r.ZMM3E; r.ZMM3F; r.ZMM3G; r.ZMM3H; r.ZMM4A; r.ZMM4B; r.ZMM4C;
+        r.ZMM4D; r.ZMM4E; r.ZMM4F; r.ZMM4G; r.ZMM4H; r.ZMM5A; r.ZMM5B; r.ZMM5C;
+        r.ZMM5D; r.ZMM5E; r.ZMM5F; r.ZMM5G; r.ZMM5H; r.ZMM6A; r.ZMM6B; r.ZMM6C;
+        r.ZMM6D; r.ZMM6E; r.ZMM6F; r.ZMM6G; r.ZMM6H; r.ZMM7A; r.ZMM7B; r.ZMM7C;
+        r.ZMM7D; r.ZMM7E; r.ZMM7F; r.ZMM7G; r.ZMM7H; r.CS; r.DS; r.ES; r.FS;
+        r.GS; r.SS; r.DR0; r.DR1; r.DR2; r.DR3; r.DR6; r.DR7 ]
     else
-      [ R.RAX; R.RBX; R.RCX; R.RDX; R.RSP; R.RBP; R.RSI; R.RDI; R.R8; R.R9;
-        R.R10; R.R11; R.R12; R.R13; R.R14; R.R15; R.RIP; R.CSBase; R.DSBase;
-        R.ESBase; R.FSBase; R.GSBase; R.SSBase; R.CR0;R.CR2; R.CR3; R.CR4;
-        R.CR8; R.OF; R.DF; R.IF; R.TF; R.SF; R.ZF; R.AF; R.PF; R.CF; R.FCW;
-        R.FSW; R.FTW; R.FOP; R.FIP; R.FCS; R.FDP; R.FDS; R.MXCSR; R.MXCSRMASK;
-        R.PKRU; R.K0; R.K1; R.K2; R.K3; R.K4; R.K5; R.K6; R.K7; R.ST0A; R.ST0B;
-        R.ST1A; R.ST1B; R.ST2A; R.ST2B; R.ST3A; R.ST3B; R.ST4A; R.ST4B; R.ST5A;
-        R.ST5B; R.ST6A; R.ST6B; R.ST7A; R.ST7B; R.ZMM0A; R.ZMM0B; R.ZMM0C;
-        R.ZMM0D; R.ZMM0E; R.ZMM0F; R.ZMM0G; R.ZMM0H; R.ZMM1A; R.ZMM1B; R.ZMM1C;
-        R.ZMM1D; R.ZMM1E; R.ZMM1F; R.ZMM1G; R.ZMM1H; R.ZMM2A; R.ZMM2B; R.ZMM2C;
-        R.ZMM2D; R.ZMM2E; R.ZMM2F; R.ZMM2G; R.ZMM2H; R.ZMM3A; R.ZMM3B; R.ZMM3C;
-        R.ZMM3D; R.ZMM3E; R.ZMM3F; R.ZMM3G; R.ZMM3H; R.ZMM4A; R.ZMM4B; R.ZMM4C;
-        R.ZMM4D; R.ZMM4E; R.ZMM4F; R.ZMM4G; R.ZMM4H; R.ZMM5A; R.ZMM5B; R.ZMM5C;
-        R.ZMM5D; R.ZMM5E; R.ZMM5F; R.ZMM5G; R.ZMM5H; R.ZMM6A; R.ZMM6B; R.ZMM6C;
-        R.ZMM6D; R.ZMM6E; R.ZMM6F; R.ZMM6G; R.ZMM6H; R.ZMM7A; R.ZMM7B; R.ZMM7C;
-        R.ZMM7D; R.ZMM7E; R.ZMM7F; R.ZMM7G; R.ZMM7H; R.ZMM8A; R.ZMM8B; R.ZMM8C;
-        R.ZMM8D; R.ZMM8E; R.ZMM8F; R.ZMM8G; R.ZMM8H; R.ZMM9A; R.ZMM9B; R.ZMM9C;
-        R.ZMM9D; R.ZMM9E; R.ZMM9F; R.ZMM9G; R.ZMM9H; R.ZMM10A; R.ZMM10B;
-        R.ZMM10C; R.ZMM10D; R.ZMM10E; R.ZMM10F; R.ZMM10G; R.ZMM10H; R.ZMM11A;
-        R.ZMM11B; R.ZMM11C; R.ZMM11D; R.ZMM11E; R.ZMM11F; R.ZMM11G; R.ZMM11H;
-        R.ZMM12A; R.ZMM12B; R.ZMM12C; R.ZMM12D; R.ZMM12E; R.ZMM12F; R.ZMM12G;
-        R.ZMM12H; R.ZMM13A; R.ZMM13B; R.ZMM13C; R.ZMM13D; R.ZMM13E; R.ZMM13F;
-        R.ZMM13G; R.ZMM13H; R.ZMM14A; R.ZMM14B; R.ZMM14C; R.ZMM14D; R.ZMM14E;
-        R.ZMM14F; R.ZMM14G; R.ZMM14H; R.ZMM15A; R.ZMM15B; R.ZMM15C; R.ZMM15D;
-        R.ZMM15E; R.ZMM15F; R.ZMM15G; R.ZMM15H; R.CS; R.DS; R.ES; R.FS; R.GS;
-        R.SS; R.DR0; R.DR1; R.DR2; R.DR3; R.DR6; R.DR7 ]
+      [ r.RAX; r.RBX; r.RCX; r.RDX; r.RSP; r.RBP; r.RSI; r.RDI; r.R8; r.R9;
+        r.R10; r.R11; r.R12; r.R13; r.R14; r.R15; r.RIP; r.CSBase; r.DSBase;
+        r.ESBase; r.FSBase; r.GSBase; r.SSBase; r.CR0;r.CR2; r.CR3; r.CR4;
+        r.CR8; r.OF; r.DF; r.IF; r.TF; r.SF; r.ZF; r.AF; r.PF; r.CF; r.FCW;
+        r.FSW; r.FTW; r.FOP; r.FIP; r.FCS; r.FDP; r.FDS; r.MXCSR; r.MXCSRMASK;
+        r.PKRU; r.K0; r.K1; r.K2; r.K3; r.K4; r.K5; r.K6; r.K7; r.ST0A; r.ST0B;
+        r.ST1A; r.ST1B; r.ST2A; r.ST2B; r.ST3A; r.ST3B; r.ST4A; r.ST4B; r.ST5A;
+        r.ST5B; r.ST6A; r.ST6B; r.ST7A; r.ST7B; r.ZMM0A; r.ZMM0B; r.ZMM0C;
+        r.ZMM0D; r.ZMM0E; r.ZMM0F; r.ZMM0G; r.ZMM0H; r.ZMM1A; r.ZMM1B; r.ZMM1C;
+        r.ZMM1D; r.ZMM1E; r.ZMM1F; r.ZMM1G; r.ZMM1H; r.ZMM2A; r.ZMM2B; r.ZMM2C;
+        r.ZMM2D; r.ZMM2E; r.ZMM2F; r.ZMM2G; r.ZMM2H; r.ZMM3A; r.ZMM3B; r.ZMM3C;
+        r.ZMM3D; r.ZMM3E; r.ZMM3F; r.ZMM3G; r.ZMM3H; r.ZMM4A; r.ZMM4B; r.ZMM4C;
+        r.ZMM4D; r.ZMM4E; r.ZMM4F; r.ZMM4G; r.ZMM4H; r.ZMM5A; r.ZMM5B; r.ZMM5C;
+        r.ZMM5D; r.ZMM5E; r.ZMM5F; r.ZMM5G; r.ZMM5H; r.ZMM6A; r.ZMM6B; r.ZMM6C;
+        r.ZMM6D; r.ZMM6E; r.ZMM6F; r.ZMM6G; r.ZMM6H; r.ZMM7A; r.ZMM7B; r.ZMM7C;
+        r.ZMM7D; r.ZMM7E; r.ZMM7F; r.ZMM7G; r.ZMM7H; r.ZMM8A; r.ZMM8B; r.ZMM8C;
+        r.ZMM8D; r.ZMM8E; r.ZMM8F; r.ZMM8G; r.ZMM8H; r.ZMM9A; r.ZMM9B; r.ZMM9C;
+        r.ZMM9D; r.ZMM9E; r.ZMM9F; r.ZMM9G; r.ZMM9H; r.ZMM10A; r.ZMM10B;
+        r.ZMM10C; r.ZMM10D; r.ZMM10E; r.ZMM10F; r.ZMM10G; r.ZMM10H; r.ZMM11A;
+        r.ZMM11B; r.ZMM11C; r.ZMM11D; r.ZMM11E; r.ZMM11F; r.ZMM11G; r.ZMM11H;
+        r.ZMM12A; r.ZMM12B; r.ZMM12C; r.ZMM12D; r.ZMM12E; r.ZMM12F; r.ZMM12G;
+        r.ZMM12H; r.ZMM13A; r.ZMM13B; r.ZMM13C; r.ZMM13D; r.ZMM13E; r.ZMM13F;
+        r.ZMM13G; r.ZMM13H; r.ZMM14A; r.ZMM14B; r.ZMM14C; r.ZMM14D; r.ZMM14E;
+        r.ZMM14F; r.ZMM14G; r.ZMM14H; r.ZMM15A; r.ZMM15B; r.ZMM15C; r.ZMM15D;
+        r.ZMM15E; r.ZMM15F; r.ZMM15G; r.ZMM15H; r.CS; r.DS; r.ES; r.FS; r.GS;
+        r.SS; r.DR0; r.DR1; r.DR2; r.DR3; r.DR6; r.DR7 ]
 
   override __.GetAllRegNames () =
     __.GetAllRegExprs ()
@@ -84,12 +84,12 @@ type IntelRegisterBay internal (wordSize, R: RegExprs) =
 
   override __.GetGeneralRegExprs () =
     if WordSize.is32 wordSize then
-      [ R.EAX; R.EBX; R.ECX; R.EDX; R.ESP; R.EBP; R.ESI; R.EDI; R.EIP
-        R.OF; R.DF; R.IF; R.SF; R.ZF; R.AF; R.PF; R.CF ]
+      [ r.EAX; r.EBX; r.ECX; r.EDX; r.ESP; r.EBP; r.ESI; r.EDI; r.EIP
+        r.OF; r.DF; r.IF; r.SF; r.ZF; r.AF; r.PF; r.CF ]
     else
-      [ R.RAX; R.RBX; R.RCX; R.RDX; R.RSP; R.RBP; R.RSI; R.RDI; R.R8; R.R9
-        R.R10; R.R11; R.R12; R.R13; R.R14; R.R15; R.RIP
-        R.OF; R.DF; R.IF; R.SF; R.ZF; R.AF; R.PF; R.CF ]
+      [ r.RAX; r.RBX; r.RCX; r.RDX; r.RSP; r.RBP; r.RSI; r.RDI; r.R8; r.R9
+        r.R10; r.R11; r.R12; r.R13; r.R14; r.R15; r.RIP
+        r.OF; r.DF; r.IF; r.SF; r.ZF; r.AF; r.PF; r.CF ]
 
   override __.RegIDFromRegExpr (e) =
     match e.E with
@@ -100,296 +100,296 @@ type IntelRegisterBay internal (wordSize, R: RegExprs) =
     | _ -> failwith "not a register expression"
 
   override __.RegIDToRegExpr (id) =
-    Register.ofRegID id |> R.GetRegVar
+    Register.ofRegID id |> r.GetRegVar
 
   override __.StrToRegExpr (s: string) =
     match s.ToUpper () with
-    | "RAX" -> R.RAX
-    | "RBX" -> R.RBX
-    | "RCX" -> R.RCX
-    | "RDX" -> R.RDX
-    | "RSP" -> R.RSP
-    | "RBP" -> R.RBP
-    | "RSI" -> R.RSI
-    | "RDI" -> R.RDI
-    | "EAX" -> R.EAX
-    | "EBX" -> R.EBX
-    | "ECX" -> R.ECX
-    | "EDX" -> R.EDX
-    | "ESP" -> R.ESP
-    | "EBP" -> R.EBP
-    | "ESI" -> R.ESI
-    | "EDI" -> R.EDI
-    | "AX" -> R.AX
-    | "BX" -> R.BX
-    | "CX" -> R.CX
-    | "DX" -> R.DX
-    | "SP" -> R.SP
-    | "BP" -> R.BP
-    | "SI" -> R.SI
-    | "DI" -> R.DI
-    | "AL" -> R.AL
-    | "BL" -> R.BL
-    | "CL" -> R.CL
-    | "DL" -> R.DL
-    | "AH" -> R.AH
-    | "BH" -> R.BH
-    | "CH" -> R.CH
-    | "DH" -> R.DH
-    | "R8" -> R.R8
-    | "R9" -> R.R9
-    | "R10" -> R.R10
-    | "R11" -> R.R11
-    | "R12" -> R.R12
-    | "R13" -> R.R13
-    | "R14" -> R.R14
-    | "R15" -> R.R15
-    | "R8D" -> R.R8D
-    | "R9D" -> R.R9D
-    | "R10D" -> R.R10D
-    | "R11D" -> R.R11D
-    | "R12D" -> R.R12D
-    | "R13D" -> R.R13D
-    | "R14D" -> R.R14D
-    | "R15D" -> R.R15D
-    | "R8W" -> R.R8W
-    | "R9W" -> R.R9W
-    | "R10W" -> R.R10W
-    | "R11W" -> R.R11W
-    | "R12W" -> R.R12W
-    | "R13W" -> R.R13W
-    | "R14W" -> R.R14W
-    | "R15W" -> R.R15W
-    | "R8L" -> R.R8L
-    | "R9L" -> R.R9L
-    | "R10L" -> R.R10L
-    | "R11L" -> R.R11L
-    | "R12L" -> R.R12L
-    | "R13L" -> R.R13L
-    | "R14L" -> R.R14L
-    | "R15L" -> R.R15L
-    | "SPL" -> R.SPL
-    | "BPL" -> R.BPL
-    | "SIL" -> R.SIL
-    | "DIL" -> R.DIL
-    | "EIP" -> R.EIP
-    | "RIP" -> R.RIP
-    | "MM0" -> R.MM0
-    | "MM1" -> R.MM1
-    | "MM2" -> R.MM2
-    | "MM3" -> R.MM3
-    | "MM4" -> R.MM4
-    | "MM5" -> R.MM5
-    | "MM6" -> R.MM6
-    | "MM7" -> R.MM7
-    | "CS" -> R.CS
-    | "DS" -> R.DS
-    | "SS" -> R.SS
-    | "ES" -> R.ES
-    | "FS" -> R.FS
-    | "GS" -> R.GS
-    | "CSBASE" -> R.CSBase
-    | "DSBASE" -> R.DSBase
-    | "ESBASE" -> R.ESBase
-    | "FSBASE" -> R.FSBase
-    | "GSBASE" -> R.GSBase
-    | "SSBASE" -> R.SSBase
-    | "CR0" -> R.CR0
-    | "CR2" -> R.CR2
-    | "CR3" -> R.CR3
-    | "CR4" -> R.CR4
-    | "CR8" -> R.CR8
-    | "OF" -> R.OF
-    | "DF" -> R.DF
-    | "IF" -> R.IF
-    | "TF" -> R.TF
-    | "SF" -> R.SF
-    | "ZF" -> R.ZF
-    | "AF" -> R.AF
-    | "PF" -> R.PF
-    | "CF" -> R.CF
-    | "K0" -> R.K0
-    | "K1" -> R.K1
-    | "K2" -> R.K2
-    | "K3" -> R.K3
-    | "K4" -> R.K4
-    | "K5" -> R.K5
-    | "K6" -> R.K6
-    | "K7" -> R.K7
-    | "ST0A" -> R.ST0A
-    | "ST0B" -> R.ST0B
-    | "ST1A" -> R.ST1A
-    | "ST1B" -> R.ST1B
-    | "ST2A" -> R.ST2A
-    | "ST2B" -> R.ST2B
-    | "ST3A" -> R.ST3A
-    | "ST3B" -> R.ST3B
-    | "ST4A" -> R.ST4A
-    | "ST4B" -> R.ST4B
-    | "ST5A" -> R.ST5A
-    | "ST5B" -> R.ST5B
-    | "ST6A" -> R.ST6A
-    | "ST6B" -> R.ST6B
-    | "ST7A" -> R.ST7A
-    | "ST7B" -> R.ST7B
-    | "FCW" -> R.FCW
-    | "FSW" -> R.FSW
-    | "FTW" -> R.FTW
-    | "FOP" -> R.FOP
-    | "FIP" -> R.FIP
-    | "FCS" -> R.FCS
-    | "FDP" -> R.FDP
-    | "FDS" -> R.FDS
-    | "FTOP" -> R.FTOP
-    | "FTW0" -> R.FTW0
-    | "FTW1" -> R.FTW1
-    | "FTW2" -> R.FTW2
-    | "FTW3" -> R.FTW3
-    | "FTW4" -> R.FTW4
-    | "FTW5" -> R.FTW5
-    | "FTW6" -> R.FTW6
-    | "FTW7" -> R.FTW7
-    | "FSWC0" -> R.FSWC0
-    | "FSWC1" -> R.FSWC1
-    | "FSWC2" -> R.FSWC2
-    | "FSWC3" -> R.FSWC3
-    | "MXCSR" -> R.MXCSR
-    | "MXCSRMASK" -> R.MXCSRMASK
-    | "ZMM0A" -> R.ZMM0A
-    | "ZMM0B" -> R.ZMM0B
-    | "ZMM0C" -> R.ZMM0C
-    | "ZMM0D" -> R.ZMM0D
-    | "ZMM0E" -> R.ZMM0E
-    | "ZMM0F" -> R.ZMM0F
-    | "ZMM0G" -> R.ZMM0G
-    | "ZMM0H" -> R.ZMM0H
-    | "ZMM1A" -> R.ZMM1A
-    | "ZMM1B" -> R.ZMM1B
-    | "ZMM1C" -> R.ZMM1C
-    | "ZMM1D" -> R.ZMM1D
-    | "ZMM1E" -> R.ZMM1E
-    | "ZMM1F" -> R.ZMM1F
-    | "ZMM1G" -> R.ZMM1G
-    | "ZMM1H" -> R.ZMM1H
-    | "ZMM2A" -> R.ZMM2A
-    | "ZMM2B" -> R.ZMM2B
-    | "ZMM2C" -> R.ZMM2C
-    | "ZMM2D" -> R.ZMM2D
-    | "ZMM2E" -> R.ZMM2E
-    | "ZMM2F" -> R.ZMM2F
-    | "ZMM2G" -> R.ZMM2G
-    | "ZMM2H" -> R.ZMM2H
-    | "ZMM3A" -> R.ZMM3A
-    | "ZMM3B" -> R.ZMM3B
-    | "ZMM3C" -> R.ZMM3C
-    | "ZMM3D" -> R.ZMM3D
-    | "ZMM3E" -> R.ZMM3E
-    | "ZMM3F" -> R.ZMM3F
-    | "ZMM3G" -> R.ZMM3G
-    | "ZMM3H" -> R.ZMM3H
-    | "ZMM4A" -> R.ZMM4A
-    | "ZMM4B" -> R.ZMM4B
-    | "ZMM4C" -> R.ZMM4C
-    | "ZMM4D" -> R.ZMM4D
-    | "ZMM4E" -> R.ZMM4E
-    | "ZMM4F" -> R.ZMM4F
-    | "ZMM4G" -> R.ZMM4G
-    | "ZMM4H" -> R.ZMM4H
-    | "ZMM5A" -> R.ZMM5A
-    | "ZMM5B" -> R.ZMM5B
-    | "ZMM5C" -> R.ZMM5C
-    | "ZMM5D" -> R.ZMM5D
-    | "ZMM5E" -> R.ZMM5E
-    | "ZMM5F" -> R.ZMM5F
-    | "ZMM5G" -> R.ZMM5G
-    | "ZMM5H" -> R.ZMM5H
-    | "ZMM6A" -> R.ZMM6A
-    | "ZMM6B" -> R.ZMM6B
-    | "ZMM6C" -> R.ZMM6C
-    | "ZMM6D" -> R.ZMM6D
-    | "ZMM6E" -> R.ZMM6E
-    | "ZMM6F" -> R.ZMM6F
-    | "ZMM6G" -> R.ZMM6G
-    | "ZMM6H" -> R.ZMM6H
-    | "ZMM7A" -> R.ZMM7A
-    | "ZMM7B" -> R.ZMM7B
-    | "ZMM7C" -> R.ZMM7C
-    | "ZMM7D" -> R.ZMM7D
-    | "ZMM7E" -> R.ZMM7E
-    | "ZMM7F" -> R.ZMM7F
-    | "ZMM7G" -> R.ZMM7G
-    | "ZMM7H" -> R.ZMM7H
-    | "ZMM8A" -> R.ZMM8A
-    | "ZMM8B" -> R.ZMM8B
-    | "ZMM8C" -> R.ZMM8C
-    | "ZMM8D" -> R.ZMM8D
-    | "ZMM8E" -> R.ZMM8E
-    | "ZMM8F" -> R.ZMM8F
-    | "ZMM8G" -> R.ZMM8G
-    | "ZMM8H" -> R.ZMM8H
-    | "ZMM9A" -> R.ZMM9A
-    | "ZMM9B" -> R.ZMM9B
-    | "ZMM9C" -> R.ZMM9C
-    | "ZMM9D" -> R.ZMM9D
-    | "ZMM9E" -> R.ZMM9E
-    | "ZMM9F" -> R.ZMM9F
-    | "ZMM9G" -> R.ZMM9G
-    | "ZMM9H" -> R.ZMM9H
-    | "ZMM10A" -> R.ZMM10A
-    | "ZMM10B" -> R.ZMM10B
-    | "ZMM10C" -> R.ZMM10C
-    | "ZMM10D" -> R.ZMM10D
-    | "ZMM10E" -> R.ZMM10E
-    | "ZMM10F" -> R.ZMM10F
-    | "ZMM10G" -> R.ZMM10G
-    | "ZMM10H" -> R.ZMM10H
-    | "ZMM11A" -> R.ZMM11A
-    | "ZMM11B" -> R.ZMM11B
-    | "ZMM11C" -> R.ZMM11C
-    | "ZMM11D" -> R.ZMM11D
-    | "ZMM11E" -> R.ZMM11E
-    | "ZMM11F" -> R.ZMM11F
-    | "ZMM11G" -> R.ZMM11G
-    | "ZMM11H" -> R.ZMM11H
-    | "ZMM12A" -> R.ZMM12A
-    | "ZMM12B" -> R.ZMM12B
-    | "ZMM12C" -> R.ZMM12C
-    | "ZMM12D" -> R.ZMM12D
-    | "ZMM12E" -> R.ZMM12E
-    | "ZMM12F" -> R.ZMM12F
-    | "ZMM12G" -> R.ZMM12G
-    | "ZMM12H" -> R.ZMM12H
-    | "ZMM13A" -> R.ZMM13A
-    | "ZMM13B" -> R.ZMM13B
-    | "ZMM13C" -> R.ZMM13C
-    | "ZMM13D" -> R.ZMM13D
-    | "ZMM13E" -> R.ZMM13E
-    | "ZMM13F" -> R.ZMM13F
-    | "ZMM13G" -> R.ZMM13G
-    | "ZMM13H" -> R.ZMM13H
-    | "ZMM14A" -> R.ZMM14A
-    | "ZMM14B" -> R.ZMM14B
-    | "ZMM14C" -> R.ZMM14C
-    | "ZMM14D" -> R.ZMM14D
-    | "ZMM14E" -> R.ZMM14E
-    | "ZMM14F" -> R.ZMM14F
-    | "ZMM14G" -> R.ZMM14G
-    | "ZMM14H" -> R.ZMM14H
-    | "ZMM15A" -> R.ZMM15A
-    | "ZMM15B" -> R.ZMM15B
-    | "ZMM15C" -> R.ZMM15C
-    | "ZMM15D" -> R.ZMM15D
-    | "ZMM15E" -> R.ZMM15E
-    | "ZMM15F" -> R.ZMM15F
-    | "ZMM15G" -> R.ZMM15G
-    | "ZMM15H" -> R.ZMM15H
-    | "PKRU" -> R.PKRU
-    | "DR0" -> R.DR0
-    | "DR1" -> R.DR1
-    | "DR2" -> R.DR2
-    | "DR3" -> R.DR3
-    | "DR6" -> R.DR6
-    | "DR7" -> R.DR7
+    | "RAX" -> r.RAX
+    | "RBX" -> r.RBX
+    | "RCX" -> r.RCX
+    | "RDX" -> r.RDX
+    | "RSP" -> r.RSP
+    | "RBP" -> r.RBP
+    | "RSI" -> r.RSI
+    | "RDI" -> r.RDI
+    | "EAX" -> r.EAX
+    | "EBX" -> r.EBX
+    | "ECX" -> r.ECX
+    | "EDX" -> r.EDX
+    | "ESP" -> r.ESP
+    | "EBP" -> r.EBP
+    | "ESI" -> r.ESI
+    | "EDI" -> r.EDI
+    | "AX" -> r.AX
+    | "BX" -> r.BX
+    | "CX" -> r.CX
+    | "DX" -> r.DX
+    | "SP" -> r.SP
+    | "BP" -> r.BP
+    | "SI" -> r.SI
+    | "DI" -> r.DI
+    | "AL" -> r.AL
+    | "BL" -> r.BL
+    | "CL" -> r.CL
+    | "DL" -> r.DL
+    | "AH" -> r.AH
+    | "BH" -> r.BH
+    | "CH" -> r.CH
+    | "DH" -> r.DH
+    | "R8" -> r.R8
+    | "R9" -> r.R9
+    | "R10" -> r.R10
+    | "R11" -> r.R11
+    | "R12" -> r.R12
+    | "R13" -> r.R13
+    | "R14" -> r.R14
+    | "R15" -> r.R15
+    | "R8D" -> r.R8D
+    | "R9D" -> r.R9D
+    | "R10D" -> r.R10D
+    | "R11D" -> r.R11D
+    | "R12D" -> r.R12D
+    | "R13D" -> r.R13D
+    | "R14D" -> r.R14D
+    | "R15D" -> r.R15D
+    | "R8W" -> r.R8W
+    | "R9W" -> r.R9W
+    | "R10W" -> r.R10W
+    | "R11W" -> r.R11W
+    | "R12W" -> r.R12W
+    | "R13W" -> r.R13W
+    | "R14W" -> r.R14W
+    | "R15W" -> r.R15W
+    | "R8L" -> r.R8L
+    | "R9L" -> r.R9L
+    | "R10L" -> r.R10L
+    | "R11L" -> r.R11L
+    | "R12L" -> r.R12L
+    | "R13L" -> r.R13L
+    | "R14L" -> r.R14L
+    | "R15L" -> r.R15L
+    | "SPL" -> r.SPL
+    | "BPL" -> r.BPL
+    | "SIL" -> r.SIL
+    | "DIL" -> r.DIL
+    | "EIP" -> r.EIP
+    | "RIP" -> r.RIP
+    | "MM0" -> r.MM0
+    | "MM1" -> r.MM1
+    | "MM2" -> r.MM2
+    | "MM3" -> r.MM3
+    | "MM4" -> r.MM4
+    | "MM5" -> r.MM5
+    | "MM6" -> r.MM6
+    | "MM7" -> r.MM7
+    | "CS" -> r.CS
+    | "DS" -> r.DS
+    | "SS" -> r.SS
+    | "ES" -> r.ES
+    | "FS" -> r.FS
+    | "GS" -> r.GS
+    | "CSBASE" -> r.CSBase
+    | "DSBASE" -> r.DSBase
+    | "ESBASE" -> r.ESBase
+    | "FSBASE" -> r.FSBase
+    | "GSBASE" -> r.GSBase
+    | "SSBASE" -> r.SSBase
+    | "CR0" -> r.CR0
+    | "CR2" -> r.CR2
+    | "CR3" -> r.CR3
+    | "CR4" -> r.CR4
+    | "CR8" -> r.CR8
+    | "OF" -> r.OF
+    | "DF" -> r.DF
+    | "IF" -> r.IF
+    | "TF" -> r.TF
+    | "SF" -> r.SF
+    | "ZF" -> r.ZF
+    | "AF" -> r.AF
+    | "PF" -> r.PF
+    | "CF" -> r.CF
+    | "K0" -> r.K0
+    | "K1" -> r.K1
+    | "K2" -> r.K2
+    | "K3" -> r.K3
+    | "K4" -> r.K4
+    | "K5" -> r.K5
+    | "K6" -> r.K6
+    | "K7" -> r.K7
+    | "ST0A" -> r.ST0A
+    | "ST0B" -> r.ST0B
+    | "ST1A" -> r.ST1A
+    | "ST1B" -> r.ST1B
+    | "ST2A" -> r.ST2A
+    | "ST2B" -> r.ST2B
+    | "ST3A" -> r.ST3A
+    | "ST3B" -> r.ST3B
+    | "ST4A" -> r.ST4A
+    | "ST4B" -> r.ST4B
+    | "ST5A" -> r.ST5A
+    | "ST5B" -> r.ST5B
+    | "ST6A" -> r.ST6A
+    | "ST6B" -> r.ST6B
+    | "ST7A" -> r.ST7A
+    | "ST7B" -> r.ST7B
+    | "FCW" -> r.FCW
+    | "FSW" -> r.FSW
+    | "FTW" -> r.FTW
+    | "FOP" -> r.FOP
+    | "FIP" -> r.FIP
+    | "FCS" -> r.FCS
+    | "FDP" -> r.FDP
+    | "FDS" -> r.FDS
+    | "FTOP" -> r.FTOP
+    | "FTW0" -> r.FTW0
+    | "FTW1" -> r.FTW1
+    | "FTW2" -> r.FTW2
+    | "FTW3" -> r.FTW3
+    | "FTW4" -> r.FTW4
+    | "FTW5" -> r.FTW5
+    | "FTW6" -> r.FTW6
+    | "FTW7" -> r.FTW7
+    | "FSWC0" -> r.FSWC0
+    | "FSWC1" -> r.FSWC1
+    | "FSWC2" -> r.FSWC2
+    | "FSWC3" -> r.FSWC3
+    | "MXCSR" -> r.MXCSR
+    | "MXCSRMASK" -> r.MXCSRMASK
+    | "ZMM0A" -> r.ZMM0A
+    | "ZMM0B" -> r.ZMM0B
+    | "ZMM0C" -> r.ZMM0C
+    | "ZMM0D" -> r.ZMM0D
+    | "ZMM0E" -> r.ZMM0E
+    | "ZMM0F" -> r.ZMM0F
+    | "ZMM0G" -> r.ZMM0G
+    | "ZMM0H" -> r.ZMM0H
+    | "ZMM1A" -> r.ZMM1A
+    | "ZMM1B" -> r.ZMM1B
+    | "ZMM1C" -> r.ZMM1C
+    | "ZMM1D" -> r.ZMM1D
+    | "ZMM1E" -> r.ZMM1E
+    | "ZMM1F" -> r.ZMM1F
+    | "ZMM1G" -> r.ZMM1G
+    | "ZMM1H" -> r.ZMM1H
+    | "ZMM2A" -> r.ZMM2A
+    | "ZMM2B" -> r.ZMM2B
+    | "ZMM2C" -> r.ZMM2C
+    | "ZMM2D" -> r.ZMM2D
+    | "ZMM2E" -> r.ZMM2E
+    | "ZMM2F" -> r.ZMM2F
+    | "ZMM2G" -> r.ZMM2G
+    | "ZMM2H" -> r.ZMM2H
+    | "ZMM3A" -> r.ZMM3A
+    | "ZMM3B" -> r.ZMM3B
+    | "ZMM3C" -> r.ZMM3C
+    | "ZMM3D" -> r.ZMM3D
+    | "ZMM3E" -> r.ZMM3E
+    | "ZMM3F" -> r.ZMM3F
+    | "ZMM3G" -> r.ZMM3G
+    | "ZMM3H" -> r.ZMM3H
+    | "ZMM4A" -> r.ZMM4A
+    | "ZMM4B" -> r.ZMM4B
+    | "ZMM4C" -> r.ZMM4C
+    | "ZMM4D" -> r.ZMM4D
+    | "ZMM4E" -> r.ZMM4E
+    | "ZMM4F" -> r.ZMM4F
+    | "ZMM4G" -> r.ZMM4G
+    | "ZMM4H" -> r.ZMM4H
+    | "ZMM5A" -> r.ZMM5A
+    | "ZMM5B" -> r.ZMM5B
+    | "ZMM5C" -> r.ZMM5C
+    | "ZMM5D" -> r.ZMM5D
+    | "ZMM5E" -> r.ZMM5E
+    | "ZMM5F" -> r.ZMM5F
+    | "ZMM5G" -> r.ZMM5G
+    | "ZMM5H" -> r.ZMM5H
+    | "ZMM6A" -> r.ZMM6A
+    | "ZMM6B" -> r.ZMM6B
+    | "ZMM6C" -> r.ZMM6C
+    | "ZMM6D" -> r.ZMM6D
+    | "ZMM6E" -> r.ZMM6E
+    | "ZMM6F" -> r.ZMM6F
+    | "ZMM6G" -> r.ZMM6G
+    | "ZMM6H" -> r.ZMM6H
+    | "ZMM7A" -> r.ZMM7A
+    | "ZMM7B" -> r.ZMM7B
+    | "ZMM7C" -> r.ZMM7C
+    | "ZMM7D" -> r.ZMM7D
+    | "ZMM7E" -> r.ZMM7E
+    | "ZMM7F" -> r.ZMM7F
+    | "ZMM7G" -> r.ZMM7G
+    | "ZMM7H" -> r.ZMM7H
+    | "ZMM8A" -> r.ZMM8A
+    | "ZMM8B" -> r.ZMM8B
+    | "ZMM8C" -> r.ZMM8C
+    | "ZMM8D" -> r.ZMM8D
+    | "ZMM8E" -> r.ZMM8E
+    | "ZMM8F" -> r.ZMM8F
+    | "ZMM8G" -> r.ZMM8G
+    | "ZMM8H" -> r.ZMM8H
+    | "ZMM9A" -> r.ZMM9A
+    | "ZMM9B" -> r.ZMM9B
+    | "ZMM9C" -> r.ZMM9C
+    | "ZMM9D" -> r.ZMM9D
+    | "ZMM9E" -> r.ZMM9E
+    | "ZMM9F" -> r.ZMM9F
+    | "ZMM9G" -> r.ZMM9G
+    | "ZMM9H" -> r.ZMM9H
+    | "ZMM10A" -> r.ZMM10A
+    | "ZMM10B" -> r.ZMM10B
+    | "ZMM10C" -> r.ZMM10C
+    | "ZMM10D" -> r.ZMM10D
+    | "ZMM10E" -> r.ZMM10E
+    | "ZMM10F" -> r.ZMM10F
+    | "ZMM10G" -> r.ZMM10G
+    | "ZMM10H" -> r.ZMM10H
+    | "ZMM11A" -> r.ZMM11A
+    | "ZMM11B" -> r.ZMM11B
+    | "ZMM11C" -> r.ZMM11C
+    | "ZMM11D" -> r.ZMM11D
+    | "ZMM11E" -> r.ZMM11E
+    | "ZMM11F" -> r.ZMM11F
+    | "ZMM11G" -> r.ZMM11G
+    | "ZMM11H" -> r.ZMM11H
+    | "ZMM12A" -> r.ZMM12A
+    | "ZMM12B" -> r.ZMM12B
+    | "ZMM12C" -> r.ZMM12C
+    | "ZMM12D" -> r.ZMM12D
+    | "ZMM12E" -> r.ZMM12E
+    | "ZMM12F" -> r.ZMM12F
+    | "ZMM12G" -> r.ZMM12G
+    | "ZMM12H" -> r.ZMM12H
+    | "ZMM13A" -> r.ZMM13A
+    | "ZMM13B" -> r.ZMM13B
+    | "ZMM13C" -> r.ZMM13C
+    | "ZMM13D" -> r.ZMM13D
+    | "ZMM13E" -> r.ZMM13E
+    | "ZMM13F" -> r.ZMM13F
+    | "ZMM13G" -> r.ZMM13G
+    | "ZMM13H" -> r.ZMM13H
+    | "ZMM14A" -> r.ZMM14A
+    | "ZMM14B" -> r.ZMM14B
+    | "ZMM14C" -> r.ZMM14C
+    | "ZMM14D" -> r.ZMM14D
+    | "ZMM14E" -> r.ZMM14E
+    | "ZMM14F" -> r.ZMM14F
+    | "ZMM14G" -> r.ZMM14G
+    | "ZMM14H" -> r.ZMM14H
+    | "ZMM15A" -> r.ZMM15A
+    | "ZMM15B" -> r.ZMM15B
+    | "ZMM15C" -> r.ZMM15C
+    | "ZMM15D" -> r.ZMM15D
+    | "ZMM15E" -> r.ZMM15E
+    | "ZMM15F" -> r.ZMM15F
+    | "ZMM15G" -> r.ZMM15G
+    | "ZMM15H" -> r.ZMM15H
+    | "PKRU" -> r.PKRU
+    | "DR0" -> r.DR0
+    | "DR1" -> r.DR1
+    | "DR2" -> r.DR2
+    | "DR3" -> r.DR3
+    | "DR6" -> r.DR6
+    | "DR7" -> r.DR7
     | _ -> raise UnhandledRegExprException
 
   override __.RegIDFromString str =

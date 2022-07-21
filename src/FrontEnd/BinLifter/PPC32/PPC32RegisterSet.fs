@@ -27,7 +27,7 @@ namespace B2R2.FrontEnd.BinLifter.PPC32
 open B2R2
 
 module private RegisterSetLiteral =
-  let [<Literal>] arrLen = 2
+  let [<Literal>] ArrLen = 2
 
 open RegisterSetLiteral
 
@@ -35,11 +35,11 @@ type PPC32RegisterSet (bitArray: uint64 [], s: Set<RegisterID>) =
   inherit NonEmptyRegisterSet (bitArray, s)
 
   new () =
-    PPC32RegisterSet (RegisterSet.MakeInternalBitArray arrLen, Set.empty)
+    PPC32RegisterSet (RegisterSet.MakeInternalBitArray ArrLen, Set.empty)
 
   override __.Tag = RegisterSetTag.PPC32
 
-  override __.ArrSize = arrLen
+  override __.ArrSize = ArrLen
 
   override __.New arr s = new PPC32RegisterSet (arr, s) :> RegisterSet
 

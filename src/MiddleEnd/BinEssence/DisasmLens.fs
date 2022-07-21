@@ -41,13 +41,13 @@ module DisasmLens =
       range.Min <= addr && addr <= range.Max) blockInfos
 
   let canBeMerged ircfg v =
-    DiGraph.getSuccs ircfg v
+    DiGraph.GetSuccs (ircfg, v)
     |> List.exists (fun w ->
-      DiGraph.findEdgeData ircfg v w = CallFallThroughEdge &&
-        DiGraph.getPreds ircfg w |> List.length = 2)
+      DiGraph.FindEdgeData (ircfg, v, w) = CallFallThroughEdge &&
+        DiGraph.GetPreds (ircfg, w) |> List.length = 2)
 
   let getMergeMap blockInfos (ircfg: DiGraph<IRBasicBlock, _>) =
-    DiGraph.foldVertex ircfg (fun mergeMap v ->
+    ircfg.FoldVertex (fun mergeMap v ->
       if v.VData.IsFakeBlock () then mergeMap
       elif canBeMerged ircfg v then
         let bblAddr = findBlockStart blockInfos v.VData.PPoint.Address
@@ -56,33 +56,36 @@ module DisasmLens =
       else mergeMap) Map.empty
 
   let getEdgeInfos blockInfos (ircfg: DiGraph<IRBasicBlock, _>) =
-    DiGraph.foldEdge ircfg (fun edgeInfo src dst e ->
-      if src.VData.IsFakeBlock () || dst.VData.IsFakeBlock () then edgeInfo
+    ircfg.FoldEdge (fun edges src dst e ->
+      if src.VData.IsFakeBlock () || dst.VData.IsFakeBlock () then edges
       else
         let srcBBLAddr = findBlockStart blockInfos src.VData.PPoint.Address
         let dstBBLAddr = findBlockStart blockInfos dst.VData.PPoint.Address
-        if e = IntraCJmpFalseEdge || e = IntraCJmpTrueEdge || e = IntraJmpEdge then
-          edgeInfo
+        if e = IntraCJmpFalseEdge
+          || e = IntraCJmpTrueEdge
+          || e = IntraJmpEdge
+        then
+          edges
         elif srcBBLAddr <> dstBBLAddr then
-          Map.add (srcBBLAddr, dstBBLAddr) e edgeInfo
+          Map.add (srcBBLAddr, dstBBLAddr) e edges
         elif dstBBLAddr = dst.VData.PPoint.Address then
-          Map.add (srcBBLAddr, dstBBLAddr) e edgeInfo
-        else edgeInfo) Map.empty
+          Map.add (srcBBLAddr, dstBBLAddr) e edges
+        else edges) Map.empty
 
-  let rec resolveMerge codeMgr blockInfo vertexInfo edgeInfo mergeMap addr next addrs =
+  let rec resolveMerge codeMgr blockInfo vInfo edges mergeMap addr next addrs =
     let _, insAddrs = Map.find next blockInfo
     let instrs =
       insAddrs
       |> Set.toArray
       |> Array.map (fun addr ->
         (codeMgr: CodeManager).GetInstruction(addr).Instruction)
-      |> Array.append (Map.find addr vertexInfo)
-    let vertexInfo = Map.add addr instrs vertexInfo
-    let edgeInfo =
-      Map.fold (fun edgeInfo (src, dst) e ->
-        if src = addr then edgeInfo
-        elif src = next then Map.add (addr, dst) e edgeInfo
-        else Map.add (src, dst) e edgeInfo) Map.empty edgeInfo
+      |> Array.append (Map.find addr vInfo)
+    let vInfo = Map.add addr instrs vInfo
+    let edges =
+      Map.fold (fun edges (src, dst) e ->
+        if src = addr then edges
+        elif src = next then Map.add (addr, dst) e edges
+        else Map.add (src, dst) e edges) Map.empty edges
     let mergeMap =
       Map.fold (fun mergeMap fromAddr toAddr ->
         if fromAddr = addr then mergeMap
@@ -90,12 +93,12 @@ module DisasmLens =
         else Map.add fromAddr toAddr mergeMap) Map.empty mergeMap
     let addrs = List.filter (fun a -> a <> next) addrs
     match Map.tryFind addr mergeMap with
-    | None -> vertexInfo, edgeInfo, mergeMap, addrs
+    | None -> vInfo, edges, mergeMap, addrs
     | Some next ->
-      resolveMerge codeMgr blockInfo vertexInfo edgeInfo mergeMap addr next addrs
+      resolveMerge codeMgr blockInfo vInfo edges mergeMap addr next addrs
 
-  let rec mergeInfosLoop codeMgr blockInfo vertexInfo edgeInfo mergeMap = function
-    | [] -> vertexInfo, edgeInfo
+  let rec mergeInfosLoop codeMgr blockInfo vInfo edges mergeMap = function
+    | [] -> vInfo, edges
     | addr :: addrs ->
       let _, insAddrs = Map.find addr blockInfo
       let instrs =
@@ -103,35 +106,35 @@ module DisasmLens =
         |> Set.toArray
         |> Array.map (fun addr ->
           (codeMgr: CodeManager).GetInstruction(addr).Instruction)
-      let vertexInfo = Map.add addr instrs vertexInfo
-      let vertexInfo, edgeInfo, mergeMap, addrs =
+      let vInfo = Map.add addr instrs vInfo
+      let vInfo, edges, mergeMap, addrs =
         match Map.tryFind addr mergeMap with
-        | None -> vertexInfo, edgeInfo, mergeMap, addrs
+        | None -> vInfo, edges, mergeMap, addrs
         | Some next ->
-          resolveMerge codeMgr blockInfo vertexInfo edgeInfo mergeMap addr next addrs
-      mergeInfosLoop codeMgr blockInfo vertexInfo edgeInfo mergeMap addrs
+          resolveMerge codeMgr blockInfo vInfo edges mergeMap addr next addrs
+      mergeInfosLoop codeMgr blockInfo vInfo edges mergeMap addrs
 
-  let mergeInfos codeMgr blockInfos edgeInfos mergeMap =
+  let mergeInfos codeMgr blockInfos edges mergeMap =
     let addrs = Map.toList blockInfos |> List.map fst
-    mergeInfosLoop codeMgr blockInfos Map.empty edgeInfos mergeMap addrs
+    mergeInfosLoop codeMgr blockInfos Map.empty edges mergeMap addrs
 
   let addVertex (g, vMap: DisasmVMap) addr instrs =
     let blk = DisasmBasicBlock (instrs, ProgramPoint (addr, 0))
-    let v, g = DiGraph.addVertex g blk
+    let v, g = DiGraph.AddVertex (g, blk)
     vMap.Add (addr, v)
     g, vMap
 
   let addEdge (vMap: DisasmVMap) g (src, dst) e =
     let src = vMap[src]
     let dst = vMap[dst]
-    DiGraph.addEdge g src dst e
+    DiGraph.AddEdge (g, src, dst, e)
 
   let private buildCFG codeMgr blockInfos ircfg vMap dcfg =
     let mergeMap = getMergeMap blockInfos ircfg
-    let edgeInfos = getEdgeInfos blockInfos ircfg
-    let vertexInfo, edgeInfo = mergeInfos codeMgr blockInfos edgeInfos mergeMap
+    let edges = getEdgeInfos blockInfos ircfg
+    let vertexInfo, edges = mergeInfos codeMgr blockInfos edges mergeMap
     let dcfg, vMap = Map.fold addVertex (dcfg, vMap) vertexInfo
-    let dcfg = Map.fold (addEdge vMap) dcfg edgeInfo
+    let dcfg = Map.fold (addEdge vMap) dcfg edges
     dcfg
 
   let filter codeMgr (g: DiGraph<_, _>) (root: IRVertex) =

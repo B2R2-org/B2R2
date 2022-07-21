@@ -97,7 +97,7 @@ let rec private replaceLoad spState v e =
 
 let private stmtChooser spState v ((pp, stmt) as stmtInfo) =
   match stmt with
-  | Phi (_, _) -> None
+  | Phi _ -> None
   | Def ({ Kind = MemVar }, Store (_, rt, addr, src)) ->
     let addr = SPTransfer.evalExpr spState v addr
     memStore stmtInfo rt addr src
@@ -122,6 +122,6 @@ let promote hdl (ssaCFG: DiGraph<SSABasicBlock, CFGEdgeKind>) ssaRoot =
   let spp = StackPointerPropagation (hdl, ssaCFG)
   let spState = spp.Compute ssaRoot
   let vertices = List<SSAVertex> ()
-  DiGraph.iterVertex ssaCFG (prepare hdl ssaCFG spState vertices)
+  ssaCFG.IterVertex (prepare hdl ssaCFG spState vertices)
   SSACFG.installPhis vertices ssaCFG ssaRoot
   struct (ssaCFG, ssaRoot)

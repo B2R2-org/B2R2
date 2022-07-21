@@ -64,7 +64,7 @@ type EVMCodeCopyAnalysis () =
     (codeMgr: CodeManager).FunctionMaintainer.RegularFunctions
     |> Seq.fold (fun acc fn ->
       let struct (cpState, ssaCFG) = PerFunctionAnalysis.runCP hdl fn None
-      DiGraph.foldVertex ssaCFG (fun acc v ->
+      ssaCFG.FoldVertex (fun acc v ->
         v.VData.SSAStmtInfos
         |> Array.fold (fun acc (_, stmt) ->
           accumulateCodeCopyInfo cpState stmt acc

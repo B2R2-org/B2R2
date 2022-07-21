@@ -32,13 +32,15 @@ open B2R2.FrontEnd.BinInterface
 type CmdSearch () =
   inherit Cmd ()
 
+  let toResult idx = "Found @ " + String.u64ToHexNoPrefix idx
+
   let search hdl pattern =
     hdl.FileInfo.GetSegments (Permission.Readable)
-    |> Seq.map (fun s -> BinHandle.ReadBytes (hdl, s.Address, int s.Size)
-                         |> ByteArray.findIdxs 0UL pattern
-                         |> List.map (fun idx -> idx + s.Address))
-    |> Seq.concat
-    |> Seq.map (fun idx -> "Found @ " + String.u64ToHexNoPrefix idx)
+    |> Seq.collect (fun s ->
+      BinHandle.ReadBytes (hdl, s.Address, int s.Size)
+      |> ByteArray.findIdxs 0UL pattern
+      |> List.map (fun idx -> idx + s.Address))
+    |> Seq.map toResult
     |> Seq.toList
 
   override __.CmdName = "search"

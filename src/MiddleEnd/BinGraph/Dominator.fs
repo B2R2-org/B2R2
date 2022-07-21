@@ -65,7 +65,7 @@ type DominatorContext<'D, 'E when 'D :> VertexData and 'D : equality> = {
 
 let initDomInfo g =
   (* To reserve a room for entry (dummy) node. *)
-  let len = DiGraph.getSize g + 1
+  let len = DiGraph.GetSize g + 1
   { DFNumMap = Dictionary<VertexID, int> ()
     Vertex = Array.zeroCreate len
     Label = Array.create len 0
@@ -89,7 +89,7 @@ let rec assignDFNum g (info: DomInfo<'D>) n = function
     info.Vertex[n] <- v
     info.Label[n] <- n
     info.Parent[n] <- p
-    DiGraph.getSuccs g v
+    DiGraph.GetSuccs (g, v)
     |> List.fold (fun acc s -> (n, s) :: acc) stack
     |> assignDFNum g info (n+1)
   | _ :: stack -> assignDFNum g info n stack
@@ -160,7 +160,7 @@ let initDominator g root =
   for i = n downto 1 do
     let v = info.Vertex[i]
     let p = info.Parent[i]
-    DiGraph.getPreds g v |> List.map (dfnum info) |> computeSemiDom info i
+    DiGraph.GetPreds (g, v) |> List.map (dfnum info) |> computeSemiDom info i
     info.Bucket[info.Semi[i]] <- Set.add i info.Bucket[info.Semi[i]]
     link info p i (* Link the parent (p) to the forest. *)
     computeDomOrDelay info p
@@ -170,7 +170,7 @@ let initDominator g root =
       info.IDom[i] <- info.IDom[info.IDom[i]]
     else ()
   done
-  DiGraph.removeVertex g dummyEntry |> ignore
+  DiGraph.RemoveVertex (g, dummyEntry) |> ignore
   info
 
 let updateReachMap g exits reachMap =
@@ -179,7 +179,7 @@ let updateReachMap g exits reachMap =
     | (v: Vertex<_>) :: vs ->
       let reachMap = Map.add (v.GetID ()) true reachMap
       let vs =
-        DiGraph.getSuccs g v
+        DiGraph.GetSuccs (g, v)
         |> List.fold (fun acc (w: Vertex<_>) ->
           if Map.find (w.GetID ()) reachMap then acc else w :: acc) vs
       loop reachMap vs
@@ -193,9 +193,9 @@ let rec calculateExits (fg: DiGraph<_, _>) bg reachMap exits =
     let reachMap = updateReachMap bg exits reachMap
     let exits =
       fg.FoldVertex (fun acc (v: Vertex<_>) ->
-        let isExit = DiGraph.getSuccs fg v |> List.length = 0
+        let isExit = DiGraph.GetSuccs (fg, v) |> List.isEmpty
         if isExit && not <| Map.find (v.GetID ()) reachMap then
-          DiGraph.findVertexByID bg (v.GetID ()) :: acc
+          DiGraph.FindVertexByID (bg, v.GetID ()) :: acc
         else acc) exits
     calculateExits fg bg reachMap exits
 
@@ -206,29 +206,30 @@ let preparePostDomAnalysis fg root (bg: DiGraph<_, _>) =
   let fg, backEdges =
     fg.FoldEdge (fun (fg, acc) (src: Vertex<_>) (dst: Vertex<_>) edge ->
       if src.GetID () = dst.GetID () then
-        DiGraph.removeEdge fg src dst, (src, dst, edge) :: acc
+        DiGraph.RemoveEdge (fg, src, dst), (src, dst, edge) :: acc
       else fg, acc) (fg, [])
   let fg, backEdges =
     fg.FoldEdge (fun (fg, acc) (src: Vertex<_>) (dst: Vertex<_>) edge ->
       if Map.find src orderMap > Map.find dst orderMap then
-        DiGraph.removeEdge fg src dst, (src, dst, edge) :: acc
+        DiGraph.RemoveEdge (fg, src, dst), (src, dst, edge) :: acc
       else fg, acc) (fg, backEdges)
   let reachMap =
     bg.FoldVertex (fun acc (v: Vertex<_>) ->
       Map.add (v.GetID ()) false acc) Map.empty
   let exits =
-    DiGraph.getUnreachables bg |> Seq.toList |> calculateExits fg bg reachMap
+    DiGraph.GetUnreachables bg |> Seq.toList |> calculateExits fg bg reachMap
   (* Restore backedges. This is needed for imperative graphs. *)
-  let _ =
-    backEdges
-    |> List.fold (fun fg (src, dst, e) -> DiGraph.addEdge fg src dst e) fg
-  let dummy, bg = DiGraph.addDummyVertex bg
-  let bg = exits |> List.fold (fun bg v -> DiGraph.addDummyEdge bg dummy v) bg
+  backEdges
+  |> List.fold (fun fg (src, dst, e) -> DiGraph.AddEdge (fg, src, dst, e)) fg
+  |> ignore
+  let dummy, bg = DiGraph.AddDummyVertex bg
+  let bg =
+    exits |> List.fold (fun bg v -> DiGraph.AddDummyEdge (bg, dummy, v)) bg
   bg, dummy
 
 let initDominatorContext g root =
   let forward = initDominator g root
-  let g', root' = DiGraph.reverse g |> preparePostDomAnalysis g root
+  let g', root' = DiGraph.Reverse g |> preparePostDomAnalysis g root
   let backward = initDominator g' root'
   { ForwardGraph = g
     ForwardRoot = root
@@ -238,7 +239,7 @@ let initDominatorContext g root =
     BackwardDomInfo = backward }
 
 let checkVertexInGraph g (v: Vertex<_>) =
-  let v' = DiGraph.findVertexByData g v.VData
+  let v' = DiGraph.FindVertexByData (g, v.VData)
   if v === v' then ()
   else raise VertexNotFoundException
 
@@ -253,7 +254,7 @@ let idom ctxt v =
 
 let ipdom ctxt (v: Vertex<_>) =
   let g' = ctxt.BackwardGraph
-  let v = DiGraph.findVertexByData g' v.VData
+  let v = DiGraph.FindVertexByData (g', v.VData)
   idomAux ctxt.BackwardDomInfo v
 
 let rec domsAux acc v info =
@@ -269,9 +270,9 @@ let doms ctxt v =
 let pdoms ctxt v =
   domsAux [] v ctxt.BackwardDomInfo
 
-let computeDomTree g info =
+let computeDomTree (g: DiGraph<_, _>) info =
   let domTree = Array.create info.MaxLength []
-  DiGraph.iterVertex g (fun v ->
+  g.IterVertex (fun v ->
     let idom = info.IDom[dfnum info v]
     domTree[idom] <- v :: domTree[idom])
   domTree
@@ -286,7 +287,7 @@ let rec computeFrontierLocal s ctxt (parent: Vertex<_>) = function
 
 let rec computeDF domTree (frontiers: Vertex<_> list []) g ctxt r =
   let mutable s = Set.empty
-  for succ in DiGraph.getSuccs g r do
+  for succ in DiGraph.GetSuccs (g, r) do
     let succID = dfnum ctxt succ
     let domID = ctxt.IDom[succID]
     let d = ctxt.Vertex[ctxt.IDom[succID]]

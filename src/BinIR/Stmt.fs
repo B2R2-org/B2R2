@@ -257,6 +257,6 @@ module Stmt =
       sb.Append ("!!" + SideEffect.toString eff) |> ignore
 
   let toString stmt =
-    let sb = new StringBuilder ()
+    let sb = StringBuilder ()
     appendToString stmt sb
     sb.ToString ()
