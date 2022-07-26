@@ -90,7 +90,11 @@ type ARM64Instruction (addr, numBytes, insInfo, wordSize) =
     | Opcode.SVC | Opcode.HVC | Opcode.SMC -> true
     | _ -> false
 
-  override __.IsExit () = Utils.futureFeature ()
+  override __.IsExit () =
+    match __.Info.Opcode with
+    | Opcode.HLT
+    | Opcode.ERET -> true
+    | _ -> false
 
   override __.IsBBLEnd () =
        __.IsBranch ()

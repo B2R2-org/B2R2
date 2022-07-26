@@ -84,9 +84,15 @@ type MIPSInstruction (addr, numBytes, insInfo, wordSize) =
       | _ -> false
     | _ -> false
 
-  override __.IsInterrupt () = Utils.futureFeature ()
+  override __.IsInterrupt () =
+    match __.Info.Opcode with
+    | Opcode.SYSCALL | Opcode.WAIT -> true
+    | _ -> false
 
-  override __.IsExit () = Utils.futureFeature ()
+  override __.IsExit () =
+    match __.Info.Opcode with
+    | Opcode.DERET | Opcode.ERET | Opcode.ERETNC -> true
+    | _ -> false
 
   override __.IsBBLEnd () =
        __.IsBranch ()
