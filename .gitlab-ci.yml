@@ -8,12 +8,12 @@ build:
     stage: build
     before_script:
         - LATEST_COMMIT=$(git ls-remote https://gitlab-ci-token:${CI_JOB_TOKEN}@softsec.kaist.ac.kr:8000/B2R2/B2R2.git HEAD | awk '{print $1}')
-        - CHANGES=$(git diff-tree --no-commit-id --name-only -r $LATEST_COMMIT -r $CI_COMMIT_SHA | grep .fs\$)
+        - CHANGES=$(git diff-tree --no-commit-id --name-only -r $LATEST_COMMIT -r $CI_COMMIT_SHA)
     script:
         - dotnet restore
         - dotnet tool restore
         - echo $CHANGES
-        - for f in $CHANGES; do dotnet fsharplint lint $f; done
+        - for f in $(echo $CHANGES | grep .fs\$); do dotnet fsharplint lint $f; done
         - dotnet test
         - dotnet test -c Release
         - dotnet pack -p:PackageVersion=0.0.0-test -c Release -o `pwd`/build/
