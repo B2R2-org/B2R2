@@ -63,13 +63,12 @@ type IntelInstruction
     | _ -> false
 
   override __.IsCJmpOnTrue () =
-    __.IsCondBranch ()
-    && match opcode with
-       | Opcode.JA | Opcode.JB | Opcode.JBE | Opcode.JCXZ | Opcode.JECXZ
-       | Opcode.JG | Opcode.JL | Opcode.JLE | Opcode.JO | Opcode.JP
-       | Opcode.JRCXZ | Opcode.JS | Opcode.JZ | Opcode.LOOP | Opcode.LOOPE ->
-         true
-       | _ -> false
+    match opcode with
+    | Opcode.JA | Opcode.JB | Opcode.JBE | Opcode.JCXZ | Opcode.JECXZ
+    | Opcode.JG | Opcode.JL | Opcode.JLE | Opcode.JO | Opcode.JP
+    | Opcode.JRCXZ | Opcode.JS | Opcode.JZ | Opcode.LOOP | Opcode.LOOPE ->
+      true
+    | _ -> false
 
   override __.IsCall () =
     match opcode with

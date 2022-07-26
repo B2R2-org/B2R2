@@ -106,12 +106,16 @@ type ARM32Instruction (addr, nb, cond, op, opr, its, wb, q, s, m, cf) =
     | _ -> false
 
   override __.IsExit () =
-    Utils.futureFeature ()
+    match op with
+    | Opcode.HLT
+    | Opcode.UDF
+    | Opcode.ERET -> true
+    | _ -> false
 
   override __.IsBBLEnd () =
-    __.IsDirectBranch () ||
-    __.IsIndirectBranch () ||
-    __.IsInterrupt ()
+       __.IsBranch ()
+    || __.IsInterrupt ()
+    || __.IsExit ()
 
   override __.DirectBranchTarget (addr: byref<Addr>) =
     if __.IsBranch () then

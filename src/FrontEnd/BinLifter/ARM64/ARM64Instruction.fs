@@ -90,12 +90,16 @@ type ARM64Instruction (addr, numBytes, insInfo, wordSize) =
     | Opcode.SVC | Opcode.HVC | Opcode.SMC -> true
     | _ -> false
 
-  override __.IsExit () = Utils.futureFeature ()
+  override __.IsExit () =
+    match __.Info.Opcode with
+    | Opcode.HLT
+    | Opcode.ERET -> true
+    | _ -> false
 
-  override __.IsBBLEnd () = // FIXME
-    __.IsDirectBranch () ||
-    __.IsIndirectBranch () ||
-    __.IsInterrupt ()
+  override __.IsBBLEnd () =
+       __.IsBranch ()
+    || __.IsInterrupt ()
+    || __.IsExit ()
 
   override __.DirectBranchTarget (addr: byref<Addr>) =
     if __.IsBranch () then
@@ -113,7 +117,7 @@ type ARM64Instruction (addr, numBytes, insInfo, wordSize) =
     else false
 
   override __.IndirectTrampolineAddr (_addr: byref<Addr>) =
-    if __.IsBranch () then Utils.futureFeature ()
+    if __.IsIndirectBranch () then Utils.futureFeature ()
     else false
 
   override __.Immediate (v: byref<int64>) =
