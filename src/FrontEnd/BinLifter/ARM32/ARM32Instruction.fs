@@ -109,9 +109,9 @@ type ARM32Instruction (addr, nb, cond, op, opr, its, wb, q, s, m, cf) =
     Utils.futureFeature ()
 
   override __.IsBBLEnd () =
-    __.IsDirectBranch () ||
-    __.IsIndirectBranch () ||
-    __.IsInterrupt ()
+       __.IsBranch ()
+    || __.IsInterrupt ()
+    || __.IsExit ()
 
   override __.DirectBranchTarget (addr: byref<Addr>) =
     if __.IsBranch () then
