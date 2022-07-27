@@ -53,7 +53,12 @@ type ARM64Instruction (addr, numBytes, insInfo, wordSize) =
 
   member __.HasConcJmpTarget () =
     match __.Info.Operands with
+    (* All other instructions *)
     | OneOperand (Memory (LiteralMode _)) -> true
+    (* CBNZ and CBZ *)
+    | TwoOperands (_, Memory (LiteralMode _)) -> true
+    (* TBNZ and TBZ *)
+    | ThreeOperands (_, _, Memory (LiteralMode _)) -> true
     | _ -> false
 
   override __.IsDirectBranch () =
