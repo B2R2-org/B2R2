@@ -13,6 +13,7 @@
     <Compile Include="RISCV64Types.fs" />
     <Compile Include="RISCV64Helper.fs" />
     <Compile Include="RISCV64Disasm.fs" />
+    <Compile Include="RISCV64Lifter.fs" />
     <Compile Include="RISCV64Instruction.fs" />
     <Compile Include="RISCV64Parser.fs" />
     <Compile Include="RISCV64.fs" />

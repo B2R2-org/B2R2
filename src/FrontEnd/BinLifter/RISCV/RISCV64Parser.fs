@@ -65,14 +65,12 @@ let parseLoad bin =
   | _ -> raise ParsingFailureException
 
 let parseStore bin =
-  let opcode =
-    match getFunc3 bin with
-    | 0b000u -> Op.SB
-    | 0b001u -> Op.SH
-    | 0b010u -> Op.SW
-    | 0b011u -> Op.SD
-    | _ -> raise ParsingFailureException
-  struct (opcode, getRs2Rs1SImm bin)
+  match getFunc3 bin with
+  | 0b000u -> struct (Op.SB, getRs2Rs1SImm bin 8<rt>)
+  | 0b001u -> struct (Op.SH, getRs2Rs1SImm bin 16<rt>)
+  | 0b010u -> struct (Op.SW, getRs2Rs1SImm bin 32<rt>)
+  | 0b011u -> struct (Op.SD, getRs2Rs1SImm bin 64<rt>)
+  | _ -> raise ParsingFailureException
 
 let parseOpImm bin =
   let opcode =
@@ -178,7 +176,7 @@ let parseFloatArith bin =
   | 0b1100000u ->
     match getRs2 bin with
     | 0b00000u -> struct (Op.FCVTdotWdotS, getFRdRs1Rm bin)
-    | 0b00001u -> struct (Op.FCVTdotWUdotS, getFRdRs1 bin)
+    | 0b00001u -> struct (Op.FCVTdotWUdotS, getFRdRs1Rm bin)
     | 0b00010u -> struct (Op.FCVTdotLdotS, getFRdRs1Rm bin)
     | 0b00011u -> struct (Op.FCVTdotLUdotS, getFRdRs1Rm bin)
     | _ -> raise ParsingFailureException
@@ -186,14 +184,14 @@ let parseFloatArith bin =
     if getFunc3 bin = 0b000u && getRs2 bin = 0b00000u then
       struct (Op.FMVdotXdotW, getFRdRs1 bin)
     elif getFunc3 bin = 0b001u && getRs2 bin = 0b00000u then
-      struct (Op.FCLASSdotS, getFRdRs1 bin)
+      struct (Op.FCLASSdotS, getRdFRs1 bin)
     else
       raise ParsingFailureException
   | 0b1010000u ->
     match getFunc3 bin with
-    | 0b010u -> struct (Op.FEQdotS, getFRdRs1Rs2 bin)
-    | 0b001u -> struct (Op.FLTdotS, getFRdRs1Rs2 bin)
-    | 0b000u -> struct (Op.FLEdotS, getFRdRs1Rs2 bin)
+    | 0b010u -> struct (Op.FEQdotS, getFNRdRs1Rs2 bin)
+    | 0b001u -> struct (Op.FLTdotS, getFNRdRs1Rs2 bin)
+    | 0b000u -> struct (Op.FLEdotS, getFNRdRs1Rs2 bin)
     | _ -> raise ParsingFailureException
   | 0b1101000u ->
     match getRs2 bin with
@@ -204,7 +202,7 @@ let parseFloatArith bin =
     | _ -> raise ParsingFailureException
   | 0b1111000u ->
     if getRs2 bin = 0b00000u && getFunc3 bin = 0b000u then
-      struct (Op.FMVdotWdotX, getFRdRs1 bin)
+      struct (Op.FMVdotWdotX, getRdFRs1 bin)
     else
       raise ParsingFailureException
   | 0b0000001u -> struct (Op.FADDdotD, getFRdRs1Rs2Rm bin)
@@ -232,21 +230,21 @@ let parseFloatArith bin =
     else raise ParsingFailureException
   | 0b1010001u ->
     match getFunc3 bin with
-    | 0b010u -> struct (Op.FEQdotD, getFRdRs1Rs2 bin)
-    | 0b000u -> struct (Op.FLTdotD, getFRdRs1Rs2 bin)
-    | 0b001u -> struct (Op.FLEdotD, getFRdRs1Rs2 bin)
+    | 0b010u -> struct (Op.FEQdotD, getFNRdRs1Rs2 bin)
+    | 0b000u -> struct (Op.FLTdotD, getFNRdRs1Rs2 bin)
+    | 0b001u -> struct (Op.FLEdotD, getFNRdRs1Rs2 bin)
     | _ -> raise ParsingFailureException
   | 0b1110001u ->
     if getRs2 bin = 0b00000u && getFunc3 bin = 0b001u then
-      struct (Op.FCLASSdotD, getFRdRs1 bin)
+      struct (Op.FCLASSdotD, getRdFRs1 bin)
     elif getRs2 bin = 0b00000u && getFunc3 bin = 0b000u then
       struct (Op.FMVdotXdotD, getFRdRs1 bin)
     else
       raise ParsingFailureException
   | 0b1100001u ->
     match getRs2 bin with
-    | 0b00000u -> struct (Op.FCVTdotWdotD, getFRdRs1 bin)
-    | 0b00001u -> struct (Op.FCVTdotWUdotD, getFRdRs1 bin)
+    | 0b00000u -> struct (Op.FCVTdotWdotD, getFRdRs1Rm bin)
+    | 0b00001u -> struct (Op.FCVTdotWUdotD, getFRdRs1Rm bin)
     | 0b00010u -> struct (Op.FCVTdotLdotD, getFRdRs1Rm bin)
     | 0b00011u -> struct (Op.FCVTdotLUdotD, getFRdRs1Rm bin)
     | _ -> raise ParsingFailureException
@@ -259,7 +257,7 @@ let parseFloatArith bin =
     | _ -> raise ParsingFailureException
   | 0b1111001u ->
     if getRs2 bin = 0b00000u && getFunc3 bin = 0b000u then
-      struct (Op.FMVdotDdotX, getFRdRs1 bin)
+      struct (Op.FMVdotDdotX, getRdFRs1 bin)
     else
       raise ParsingFailureException
   | _ -> raise ParsingFailureException
@@ -382,44 +380,44 @@ let parseRegisterBasedLoadStore bin =
     let from2to2 = pickBit bin 6u <<< 2
     let from3to5 = extract bin 12u 10u <<< 3
     let from6to6 = pickBit bin 5u <<< 6
-    let imm = from2to2 ||| from3to5 ||| from6to6 |> int64 |> Imm |> Some
+    let imm = from2to2 ||| from3to5 ||| from6to6 |> uint32 |> Imm |> Some
     let b = getCompRegFrom97 bin
     struct (Op.CdotLW, TwoOperands (dest, OpMem (b, imm, 32<rt>)))
   | 0b011u ->
     let dest = crdComp bin
     let from3to5 = extract bin 12u 10u
     let from6to7 = extract bin 6u 5u
-    let imm = from3to5 ||| from6to7 |> int64 |> Imm |> Some
+    let imm = from3to5 ||| from6to7 |> uint32 |> Imm |> Some
     let b = getCompRegFrom97 bin
     struct (Op.CdotLD, TwoOperands (dest, OpMem (b, imm, 64<rt>)))
   | 0b001u ->
     let dest = cfrdComp bin
     let from3to5 = extract bin 12u 10u <<< 3
     let from6to7 = extract bin 6u 5u <<< 6
-    let imm = from3to5 ||| from6to7 |> int64 |> Imm |> Some
+    let imm = from3to5 ||| from6to7 |> uint32 |> Imm |> Some
     let b = getCompRegFrom97 bin
     struct (Op.CdotFLD, TwoOperands (dest, OpMem (b, imm, 64<rt>)))
   | 0b110u ->
-    let src = csrc2Comp bin
+    let src = crs2Comp bin
     let b = getCompRegFrom97 bin
     let from2to2 = pickBit bin 6u <<< 2
     let from3to5 = extract bin 10u 12u <<< 3
     let from6to6 = pickBit bin 5u <<< 6
-    let imm = from2to2 ||| from3to5 ||| from6to6 |> int64 |> Imm |> Some
+    let imm = from2to2 ||| from3to5 ||| from6to6 |> uint32 |> Imm |> Some
     struct (Op.CdotSW, TwoOperands (src, OpMem (b, imm, 32<rt>)))
   | 0b111u ->
-    let src = csrc2Comp bin
+    let src = crs2Comp bin
     let b = getCompRegFrom97 bin
     let from3to5 = extract bin 10u 12u <<< 3
     let from6to7 = extract bin 6u 5u <<< 6
-    let imm = from3to5 ||| from6to7 |> int64 |> Imm |> Some
+    let imm = from3to5 ||| from6to7 |> uint32 |> Imm |> Some
     struct (Op.CdotSD, TwoOperands (src, OpMem (b, imm, 64<rt>)))
   | 0b101u ->
     let src = cfrs2Comp bin
     let b = getCompRegFrom97 bin
     let from3to5 = extract bin 10u 12u <<< 3
     let from6to7 = extract bin 6u 5u <<< 6
-    let imm = from3to5 ||| from6to7 |> int64 |> Imm |> Some
+    let imm = from3to5 ||| from6to7 |> uint32 |> Imm |> Some
     struct (Op.CdotFSD, TwoOperands (src, OpMem (b, imm, 64<rt>)))
   | _ -> Utils.impossible ()
 
@@ -429,7 +427,7 @@ let parseStackBasedLoadStore bin =
     let from2to4 = extract bin 4u 6u <<< 2
     let from5to5 = pickBit bin 12u <<< 5
     let from6to7 = extract bin 2u 3u <<< 6
-    let imm = from2to4 ||| from5to5 ||| from6to7 |> int64 |> Imm |> Some
+    let imm = from2to4 ||| from5to5 ||| from6to7 |> uint32 |> Imm |> Some
     let dest = crd bin
     if extract bin 11u 7u = 0u then raise ParsingFailureException
     else ()
@@ -438,7 +436,7 @@ let parseStackBasedLoadStore bin =
     let from3to4 = extract bin 6u 5u <<< 3
     let from5to5 = pickBit bin 12u <<< 5
     let from6to8 = extract bin 2u 4u <<< 6
-    let imm = from3to4 ||| from5to5 ||| from6to8 |> int64 |> Imm |> Some
+    let imm = from3to4 ||| from5to5 ||| from6to8 |> uint32 |> Imm |> Some
     let dest = crd bin
     if extract bin 11u 7u = 0u then raise ParsingFailureException
     else ()
@@ -447,26 +445,26 @@ let parseStackBasedLoadStore bin =
     let from3to4 = extract bin 6u 5u <<< 3
     let from5to5 = pickBit bin 12u <<< 5
     let from6to8 = extract bin 2u 4u <<< 6
-    let imm = from3to4 ||| from5to5 ||| from6to8 |> int64 |> Imm |> Some
+    let imm = from3to4 ||| from5to5 ||| from6to8 |> uint32 |> Imm |> Some
     let dest = cfrd bin
     struct (Op.CdotFLDSP, TwoOperands (dest, OpMem (R.X2, imm, 64<rt>)))
   | 0b110u ->
     let rs2 = crs2 bin
     let from2to5 = extract bin 12u 9u <<< 2
     let from6to7 = extract bin 8u 7u <<< 6
-    let imm = from2to5 ||| from6to7 |> int64 |> Imm |> Some
+    let imm = from2to5 ||| from6to7 |> uint32 |> Imm |> Some
     struct (Op.CdotSWSP, TwoOperands (rs2, OpMem (R.X2, imm, 32<rt>)))
   | 0b111u ->
     let rs2 = crs2 bin
     let from3to5 = extract bin 12u 10u <<< 3
     let from6to8 = extract bin 9u 7u <<< 6
-    let imm = from3to5 ||| from6to8 |> int64 |> Imm |> Some
+    let imm = from3to5 ||| from6to8 |> uint32 |> Imm |> Some
     struct (Op.CdotSDSP, TwoOperands (rs2, OpMem (R.X2, imm, 64<rt>)))
   | 0b101u ->
     let rs2 = cfrs2 bin
     let from3to5 = extract bin 12u 10u <<< 2
     let from6to8 = extract bin 9u 7u <<< 6
-    let imm = from3to5 ||| from6to8 |> int64 |> Imm |> Some
+    let imm = from3to5 ||| from6to8 |> uint32 |> Imm |> Some
     struct (Op.CdotFSDSP, TwoOperands (rs2, OpMem (R.X2, imm, 64<rt>)))
   | _ -> Utils.impossible ()
 
@@ -475,9 +473,9 @@ let parseCdotADDI4SPN bin =
   let from3to3 = pickBit bin 5u <<< 3
   let from4to5 = extract bin 12u 11u <<< 4
   let from6to9 = extract bin 10u 7u <<< 6
-  let imm = from2to2 ||| from3to3 ||| from4to5 ||| from6to9 |> uint64
-  let dest = csrc2Comp bin
-  if imm = 0uL then raise ParsingFailureException
+  let imm = from2to2 ||| from3to3 ||| from4to5 ||| from6to9 |> uint32
+  let dest = crs2Comp bin
+  if imm = 0u then raise ParsingFailureException
   else ()
   struct (Op.CdotADDI4SPN, ThreeOperands (dest, R.X2 |> OpReg, imm |> OpImm))
 
@@ -497,7 +495,7 @@ let parseCdotJ bin =
 let parseCdotBranch bin =
   let opcode = if extract bin 15u 13u = 0b111u then Op.CdotBEQZ
                 else Op.CdotBNEZ
-  let src = csrc1Comp bin
+  let src = crs1Comp bin
   let from1to2 = extract bin 3u 4u <<< 1
   let from3to4 = extract bin 10u 11u <<< 3
   let from5to5 = pickBit bin 2u <<< 5
@@ -511,36 +509,36 @@ let parseCdotADDIW bin =
   if extract bin 11u 7u = 0u then raise ParsingFailureException
   else ()
   let imm = (extract bin 6u 2u) ||| (pickBit bin 12u <<< 5) |> uint64
-  let signExtended = signExtend 6 32 imm |> OpImm
+  let signExtended = signExtend 6 32 imm |> uint32 |> OpImm
   let dest = crd bin
   struct (Op.CdotADDIW, ThreeOperands (dest, dest, signExtended))
 
 let parseCdotLI bin =
   let dest = crd bin
   let imm = (extract bin 6u 2u) ||| (pickBit bin 12u <<< 5) |> uint64
-  let signExtended = signExtend 6 32 imm
+  let signExtended = signExtend 6 32 imm |> uint32
   struct (Op.CdotLI, ThreeOperands (dest, R.X0 |> OpReg, signExtended |> OpImm))
 
 let parseCdotANDI bin =
-  let dest = csrc1Comp bin
+  let dest = crs1Comp bin
   let from0to4 = extract bin 6u 2u
   let from5to5 = pickBit bin 12u <<< 5
   let imm = from0to4 ||| from5to5 |> uint64
-  let signExtended = signExtend 6 32 imm
+  let signExtended = signExtend 6 32 imm |> uint32
   struct (Op.CdotANDI, ThreeOperands (dest, dest, signExtended |> OpImm))
 
 let parseCdotSLLI bin =
   let from0to4 = extract bin 6u 2u
   let from5to5 = pickBit bin 12u <<< 5
-  let imm = from0to4 ||| from5to5 |> uint64
+  let imm = from0to4 ||| from5to5 |> uint32
   let dest = crd bin
   struct (Op.CdotSLLI, ThreeOperands (dest, dest, imm |> OpShiftAmount))
 
 let parseCdotSR bin =
-  let dest = csrc1Comp bin
+  let dest = crs1Comp bin
   let from0to4 = extract bin 6u 2u
   let from5to5 = pickBit bin 12u <<< 5
-  let imm = from0to4 ||| from5to5 |> uint64
+  let imm = from0to4 ||| from5to5 |> uint32
   let opcode = if extract bin 11u 10u = 0u then Op.CdotSRLI else Op.CdotSRAI
   struct (opcode, ThreeOperands (dest, dest, imm |> OpShiftAmount))
 
@@ -555,7 +553,7 @@ let parseCdotLUIADDI16SP bin =
               |> uint64
     if imm = 0uL then raise ParsingFailureException
     else ()
-    let signExtended = signExtend 10 32 imm |> OpImm
+    let signExtended = signExtend 10 32 imm |> uint32 |> OpImm
     struct (Op.CdotADDI16SP,
             ThreeOperands (R.X2 |> OpReg, R.X2 |> OpReg, signExtended))
   else
@@ -563,7 +561,7 @@ let parseCdotLUIADDI16SP bin =
     if imm = 0u then raise ParsingFailureException
     else ()
     let dest = crd bin
-    struct (Op.CdotLUI, TwoOperands (dest, imm |> uint64 |> OpImm))
+    struct (Op.CdotLUI, TwoOperands (dest, imm |> uint32 |> OpImm))
 
 let parseCdotArith bin =
   let opcode =
@@ -575,7 +573,7 @@ let parseCdotArith bin =
     | 0b100u -> Op.CdotSUBW
     | 0b101u -> Op.CdotADDW
     | _ -> raise ParsingFailureException
-  let dest = csrc1Comp bin
+  let dest = crs1Comp bin
   let src = crdComp bin
   struct (opcode, ThreeOperands (dest, dest, src))
 
@@ -584,7 +582,7 @@ let parseCdotJrMvEBREAKJalrAdd bin =
     if extract bin 6u 2u = 0u then
       if extract bin 11u 7u = 0u then raise ParsingFailureException
       else struct (Op.CdotJR, TwoOperands (R.X1 |> OpReg,
-                  RelativeBase (getRegFrom62 bin, 0uL) |> OpAddr))
+                  RelativeBase (getRegFrom62 bin, 0u) |> OpAddr))
     else
       let dest = crd bin
       let src = crs2 bin
@@ -595,7 +593,7 @@ let parseCdotJrMvEBREAKJalrAdd bin =
         struct (Op.CdotEBREAK, NoOperand)
       else
         struct (Op.CdotJALR, TwoOperands (R.X1 |> OpReg,
-                RelativeBase (getRegFrom117 bin, 0uL) |> OpAddr))
+                RelativeBase (getRegFrom117 bin, 0u) |> OpAddr))
     else
       let dest = crd bin
       let src = crs2 bin
@@ -606,7 +604,7 @@ let parseCdotNOPADDI bin =
     struct (Op.CdotNOP, NoOperand)
   else
     let imm = (extract bin 6u 2u) ||| (pickBit bin 12u <<< 5) |> uint64
-    let signExtended = signExtend 6 32 imm |> OpImm
+    let signExtended = signExtend 6 32 imm |> uint32 |> OpImm
     let dest = crd bin
     struct (Op.CdotADDI, ThreeOperands (dest, dest, signExtended))
 

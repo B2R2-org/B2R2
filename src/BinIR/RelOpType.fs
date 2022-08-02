@@ -54,6 +54,8 @@ type RelOpType =
   | FLT = 12
   /// Floating point less than or equal
   | FLE = 13
+  /// Floating point equal
+  | FEQ = 14
 
 module RelOpType =
   let toString = function
@@ -71,6 +73,7 @@ module RelOpType =
     | RelOpType.FGE -> ">=."
     | RelOpType.FLT -> "<."
     | RelOpType.FLE -> "<=."
+    | RelOpType.FEQ -> "=."
     | _ -> raise IllegalASTTypeException
 
   let ofString = function
@@ -88,4 +91,5 @@ module RelOpType =
     | ">=." -> RelOpType.FGE
     | "<." -> RelOpType.FLT
     | "<=." -> RelOpType.FLE
+    | "=." -> RelOpType.FEQ
     | _ -> raise IllegalASTTypeException
