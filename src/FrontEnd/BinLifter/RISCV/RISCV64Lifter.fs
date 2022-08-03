@@ -30,6 +30,7 @@ open B2R2.BinIR.LowUIR
 open B2R2.BinIR.LowUIR.AST.InfixOp
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinLifter.LiftingUtils
+open B2R2.FrontEnd.BinLifter.LiftingOperators
 open B2R2.FrontEnd.BinLifter.RISCV
 
 let inline getRegVar (ctxt: TranslationContext) name =
@@ -281,22 +282,22 @@ let roundingToCastInt x =
   | _ -> raise InvalidOperandException
 
 let dynamicRoundingFl (builder: IRBuilder) ctxt rt res =
-  let tmpVar = builder.NewTempVar rt
+  let tmpVar = !+builder rt
   let fscr =
     (AST.extract (getRegVar ctxt Register.FCSR) 4<rt> 6) .& (numI32 7 4<rt>)
   let condRNERMM = (fscr == numI32 0 4<rt>) .| (fscr == numI32 4 4<rt>)
   let condRTZ = (fscr == numI32 1 4<rt>)
   let condRDN = (fscr == numI32 2 4<rt>)
   let condRUP = (fscr == numI32 3 4<rt>)
-  let lblD0 = builder.NewSymbol "D0"
-  let lblD1 = builder.NewSymbol "D1"
-  let lblD2 = builder.NewSymbol "D2"
-  let lblD3 = builder.NewSymbol "D3"
-  let lblD4 = builder.NewSymbol "D4"
-  let lblD5 = builder.NewSymbol "D6"
-  let lblD6 = builder.NewSymbol "D7"
-  let lblDException = builder.NewSymbol "DException"
-  let lblDEnd = builder.NewSymbol "DEnd"
+  let lblD0 = !%builder "D0"
+  let lblD1 = !%builder "D1"
+  let lblD2 = !%builder "D2"
+  let lblD3 = !%builder "D3"
+  let lblD4 = !%builder "D4"
+  let lblD5 = !%builder "D6"
+  let lblD6 = !%builder "D7"
+  let lblDException = !%builder "DException"
+  let lblDEnd = !%builder "DEnd"
   builder <! (AST.cjmp condRNERMM (AST.name lblD0) (AST.name lblD1))
   builder <! (AST.lmark lblD0)
   builder <! (tmpVar := AST.cast (CastKind.FtoFRound) rt res)
@@ -322,22 +323,22 @@ let dynamicRoundingFl (builder: IRBuilder) ctxt rt res =
   tmpVar
 
 let dynamicRoundingInt (builder: IRBuilder) ctxt rt res =
-  let tmpVar = builder.NewTempVar rt
+  let tmpVar = !+builder rt
   let fscr =
     (AST.extract (getRegVar ctxt Register.FCSR) 4<rt> 6) .& (numI32 7 4<rt>)
   let condRNERMM = (fscr == numI32 0 4<rt>) .| (fscr == numI32 4 4<rt>)
   let condRTZ = (fscr == numI32 1 4<rt>)
   let condRDN = (fscr == numI32 2 4<rt>)
   let condRUP = (fscr == numI32 3 4<rt>)
-  let lblD0 = builder.NewSymbol "D0"
-  let lblD1 = builder.NewSymbol "D1"
-  let lblD2 = builder.NewSymbol "D2"
-  let lblD3 = builder.NewSymbol "D3"
-  let lblD4 = builder.NewSymbol "D4"
-  let lblD5 = builder.NewSymbol "D6"
-  let lblD6 = builder.NewSymbol "D7"
-  let lblDException = builder.NewSymbol "DException"
-  let lblDEnd = builder.NewSymbol "DEnd"
+  let lblD0 = !%builder "D0"
+  let lblD1 = !%builder "D1"
+  let lblD2 = !%builder "D2"
+  let lblD3 = !%builder "D3"
+  let lblD4 = !%builder "D4"
+  let lblD5 = !%builder "D6"
+  let lblD6 = !%builder "D7"
+  let lblDException = !%builder "DException"
+  let lblDEnd = !%builder "DEnd"
   builder <! (AST.cjmp condRNERMM (AST.name lblD0) (AST.name lblD1))
   builder <! (AST.lmark lblD0)
   builder <! (tmpVar := AST.cast (CastKind.FtoIRound) rt res)
@@ -469,16 +470,16 @@ let checkSubnormal rt e =
   | _ -> raise InvalidRegTypeException
 
 let add insInfo ctxt =
-  let builder = IRBuilder (4)
+  let builder = !*ctxt
   let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
-  let result = builder.NewTempVar 64<rt>
+  let result = !+builder 64<rt>
   startMark insInfo builder
   builder <! (result := rs1 .+ rs2)
   builder <! (rd := result)
   endMark insInfo builder
 
 let addw insInfo ctxt =
-  let builder = IRBuilder (4)
+  let builder = !*ctxt
   let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   startMark insInfo builder
   let rs1 = AST.xtlo 32<rt> rs1
@@ -487,7 +488,7 @@ let addw insInfo ctxt =
   endMark insInfo builder
 
 let subw insInfo ctxt =
-  let builder = IRBuilder (4)
+  let builder = !*ctxt
   let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   startMark insInfo builder
   let rs1 = AST.xtlo 32<rt> rs1
@@ -496,43 +497,43 @@ let subw insInfo ctxt =
   endMark insInfo builder
 
 let sub insInfo ctxt =
-  let builder = IRBuilder (4)
+  let builder = !*ctxt
   let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
-  let result = builder.NewTempVar 64<rt>
+  let result = !+builder 64<rt>
   startMark insInfo builder
   builder <! (result := rs1 .- rs2)
   builder <! (rd := result)
   endMark insInfo builder
 
 let ``and`` insInfo ctxt =
-  let builder = IRBuilder (4)
+  let builder = !*ctxt
   let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
-  let result = builder.NewTempVar 64<rt>
+  let result = !+builder 64<rt>
   startMark insInfo builder
   builder <! (result := rs1 .& rs2)
   builder <! (rd := result)
   endMark insInfo builder
 
 let ``or`` insInfo ctxt =
-  let builder = IRBuilder (4)
+  let builder = !*ctxt
   let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
-  let result = builder.NewTempVar 64<rt>
+  let result = !+builder 64<rt>
   startMark insInfo builder
   builder <! (result := rs1 .| rs2)
   builder <! (rd := result)
   endMark insInfo builder
 
 let xor insInfo ctxt =
-  let builder = IRBuilder (4)
+  let builder = !*ctxt
   let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
-  let result = builder.NewTempVar 64<rt>
+  let result = !+builder 64<rt>
   startMark insInfo builder
   builder <! (result := rs1 <+> rs2)
   builder <! (rd := result)
   endMark insInfo builder
 
 let slt insInfo ctxt =
-  let builder = IRBuilder (4)
+  let builder = !*ctxt
   let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   let cond = (rs1 ?< rs2)
   let rtVal = AST.ite cond (AST.num1 64<rt>) (AST.num0 64<rt>)
@@ -541,7 +542,7 @@ let slt insInfo ctxt =
   endMark insInfo builder
 
 let sltu insInfo (ctxt: TranslationContext) =
-  let builder = IRBuilder (4)
+  let builder = !*ctxt
   let wordSz = ctxt.WordBitSize
   let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   let cond = AST.lt rs1 rs2
@@ -551,7 +552,7 @@ let sltu insInfo (ctxt: TranslationContext) =
   endMark insInfo builder
 
 let sll insInfo ctxt =
-  let builder = IRBuilder (4)
+  let builder = !*ctxt
   let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   let shiftAmm = (rs2 .& numU64 0x3fUL 64<rt>)
   startMark insInfo builder
@@ -559,7 +560,7 @@ let sll insInfo ctxt =
   endMark insInfo builder
 
 let sllw insInfo ctxt =
-  let builder = IRBuilder (4)
+  let builder = !*ctxt
   let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   let rs1 = (AST.xtlo 32<rt> rs1)
   let rs2 = (AST.xtlo 32<rt> rs2)
@@ -569,7 +570,7 @@ let sllw insInfo ctxt =
   endMark insInfo builder
 
 let srl insInfo ctxt =
-  let builder = IRBuilder (4)
+  let builder = !*ctxt
   let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   let shiftAmm = (rs2 .& numU64 0x3fUL 64<rt>)
   startMark insInfo builder
@@ -577,7 +578,7 @@ let srl insInfo ctxt =
   endMark insInfo builder
 
 let srlw insInfo ctxt =
-  let builder = IRBuilder (4)
+  let builder = !*ctxt
   let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   let rs1 = (AST.xtlo 32<rt> rs1)
   let rs2 = (AST.xtlo 32<rt> rs2)
@@ -587,7 +588,7 @@ let srlw insInfo ctxt =
   endMark insInfo builder
 
 let sra insInfo ctxt =
-  let builder = IRBuilder (4)
+  let builder = !*ctxt
   let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   let shiftAmm = (rs2 .& numU64 0x3fUL 64<rt>)
   startMark insInfo builder
@@ -595,7 +596,7 @@ let sra insInfo ctxt =
   endMark insInfo builder
 
 let sraw insInfo ctxt =
-  let builder = IRBuilder (4)
+  let builder = !*ctxt
   let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   let rs1 = (AST.xtlo 32<rt> rs1)
   let rs2 = (AST.xtlo 32<rt> rs2)
@@ -605,56 +606,56 @@ let sraw insInfo ctxt =
   endMark insInfo builder
 
 let srai insInfo ctxt =
-  let builder = IRBuilder (4)
+  let builder = !*ctxt
   let rd, rs1, shiftAmm = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   startMark insInfo builder
   builder <! (rd := rs1 ?>> shiftAmm)
   endMark insInfo builder
 
 let srli insInfo ctxt =
-  let builder = IRBuilder (4)
+  let builder = !*ctxt
   let rd, rs1, shiftAmm = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   startMark insInfo builder
   builder <! (rd := rs1 >> shiftAmm)
   endMark insInfo builder
 
 let slli insInfo ctxt =
-  let builder = IRBuilder (4)
+  let builder = !*ctxt
   let rd, rs1, shiftAmm = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   startMark insInfo builder
   builder <! (rd := rs1 << shiftAmm)
   endMark insInfo builder
 
 let andi insInfo ctxt =
-  let builder = IRBuilder (4)
+  let builder = !*ctxt
   let rd, rs1, imm = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   startMark insInfo builder
   builder <! (rd := rs1 .& imm)
   endMark insInfo builder
 
 let addi insInfo ctxt =
-  let builder = IRBuilder (4)
+  let builder = !*ctxt
   let rd, rs1, imm = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   startMark insInfo builder
   builder <! (rd := rs1 .+ imm)
   endMark insInfo builder
 
 let ori insInfo ctxt =
-  let builder = IRBuilder (4)
+  let builder = !*ctxt
   let rd, rs1, imm = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   startMark insInfo builder
   builder <! (rd := rs1 .| imm)
   endMark insInfo builder
 
 let xori insInfo ctxt =
-  let builder = IRBuilder (4)
+  let builder = !*ctxt
   let rd, rs1, imm = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   startMark insInfo builder
   builder <! (rd := rs1 <+> imm)
   endMark insInfo builder
 
 let slti insInfo ctxt =
-  let builder = IRBuilder (4)
+  let builder = !*ctxt
   let rd, rs1, imm = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   let cond = (rs1 ?< imm)
   let rtVal = AST.ite cond (AST.num1 64<rt>) (AST.num0 64<rt>)
@@ -663,7 +664,7 @@ let slti insInfo ctxt =
   endMark insInfo builder
 
 let sltiu insInfo (ctxt: TranslationContext) =
-  let builder = IRBuilder (4)
+  let builder = !*ctxt
   let wordSz = ctxt.WordBitSize
   let rd, rs1, imm = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   let cond = AST.lt rs1 imm
@@ -672,13 +673,13 @@ let sltiu insInfo (ctxt: TranslationContext) =
   builder <! (rd := rtVal)
   endMark insInfo builder
 
-let nop insInfo =
-  let builder = IRBuilder (4)
+let nop insInfo ctxt =
+  let builder = !*ctxt
   startMark insInfo builder
   endMark insInfo builder
 
 let jal insInfo ctxt =
-  let builder = IRBuilder (4)
+  let builder = !*ctxt
   let rd, jumpTarget = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
   let r = bvOfBaseAddr ctxt insInfo.Address .+ bvOfInstrLen ctxt insInfo
   startMark insInfo builder
@@ -687,17 +688,17 @@ let jal insInfo ctxt =
   endMark insInfo builder
 
 let jalr insInfo ctxt =
-  let builder = IRBuilder (4)
+  let builder = !*ctxt
   let rd, jumpTarget = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
   let r = bvOfBaseAddr ctxt insInfo.Address .+ bvOfInstrLen ctxt insInfo
-  let jumpT = builder.NewTempVar 64<rt>
+  let jumpT = !+builder 64<rt>
   startMark insInfo builder
   builder <! (rd := r)
   builder <! (AST.interjmp jumpTarget InterJmpKind.Base)
   endMark insInfo builder
 
 let beq insInfo ctxt =
-  let builder = IRBuilder (4)
+  let builder = !*ctxt
   let rs1, rs2, offset = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   let cond = rs1 == rs2
   let fallThrough =
@@ -707,7 +708,7 @@ let beq insInfo ctxt =
   endMark insInfo builder
 
 let bne insInfo ctxt =
-  let builder = IRBuilder (4)
+  let builder = !*ctxt
   let rs1, rs2, offset = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   let cond = rs1 != rs2
   let fallThrough =
@@ -717,7 +718,7 @@ let bne insInfo ctxt =
   endMark insInfo builder
 
 let blt insInfo ctxt =
-  let builder = IRBuilder (4)
+  let builder = !*ctxt
   let rs1, rs2, offset = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   let cond = rs1 ?< rs2
   let fallThrough =
@@ -727,7 +728,7 @@ let blt insInfo ctxt =
   endMark insInfo builder
 
 let bge insInfo ctxt =
-  let builder = IRBuilder (4)
+  let builder = !*ctxt
   let rs1, rs2, offset = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   let cond = rs1 .>= rs2
   let fallThrough =
@@ -737,7 +738,7 @@ let bge insInfo ctxt =
   endMark insInfo builder
 
 let bltu insInfo ctxt =
-  let builder = IRBuilder (4)
+  let builder = !*ctxt
   let rs1, rs2, offset = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   let wordSz = ctxt.WordBitSize
   let cond = AST.lt rs1 rs2
@@ -748,7 +749,7 @@ let bltu insInfo ctxt =
   endMark insInfo builder
 
 let bgeu insInfo ctxt =
-  let builder = IRBuilder (4)
+  let builder = !*ctxt
   let rs1, rs2, offset = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   let wordSz = ctxt.WordBitSize
   let cond = AST.ge (AST.zext (wordSz * 2) rs1) (AST.zext (wordSz * 2) rs2)
@@ -759,136 +760,136 @@ let bgeu insInfo ctxt =
   endMark insInfo builder
 
 let load insInfo ctxt =
-  let builder = IRBuilder (4)
+  let builder = !*ctxt
   let rd, mem = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
   startMark insInfo builder
   builder <! (rd := AST.sext ctxt.WordBitSize mem)
   endMark insInfo builder
 
 let loadu insInfo ctxt =
-  let builder = IRBuilder (4)
+  let builder = !*ctxt
   let rd, mem = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
   startMark insInfo builder
   builder <! (rd := AST.zext ctxt.WordBitSize mem)
   endMark insInfo builder
 
 let store insInfo ctxt =
-  let builder = IRBuilder (4)
+  let builder = !*ctxt
   let rd, mem = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
   let accessLength = getAccessLength (snd (getTwoOprs insInfo))
   startMark insInfo builder
   builder <! (mem := AST.xtlo accessLength rd)
   endMark insInfo builder
 
-let sideEffects insInfo name =
-  let builder = IRBuilder (4)
+let sideEffects insInfo ctxt name =
+  let builder = !*ctxt
   startMark insInfo builder
   builder <! (AST.sideEffect name)
   endMark insInfo builder
 
 let lui insInfo ctxt =
-  let builder = IRBuilder (4)
+  let builder = !*ctxt
   let rd, imm = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
   startMark insInfo builder
   builder <! (rd := AST.sext 64<rt> imm)
   endMark insInfo builder
 
 let auipc insInfo ctxt =
-  let builder = IRBuilder (4)
+  let builder = !*ctxt
   let rd, imm = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
   let pc = bvOfBaseAddr ctxt insInfo.Address
-  let tmpImm = builder.NewTempVar 64<rt>
+  let tmpImm = !+builder 64<rt>
   startMark insInfo builder
   builder <! (tmpImm := AST.sext 64<rt> imm)
   builder <! (rd := tmpImm .+ pc)
   endMark insInfo builder
 
 let addiw insInfo ctxt =
-  let builder = IRBuilder (4)
+  let builder = !*ctxt
   let rd, rs1, imm = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   let lowBitsRs1 = AST.xtlo 32<rt> rs1
-  let retValue = builder.NewTempVar 32<rt>
+  let retValue = !+builder 32<rt>
   startMark insInfo builder
   builder <! (retValue := lowBitsRs1 .+ AST.xtlo 32<rt> imm)
   builder <! (rd := AST.sext 64<rt> retValue)
   endMark insInfo builder
 
 let slliw insInfo ctxt =
-  let builder = IRBuilder (4)
+  let builder = !*ctxt
   let rd, rs1, shamt = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   let lowBitsRs1 = AST.xtlo 32<rt> rs1
-  let retValue = builder.NewTempVar 32<rt>
+  let retValue = !+builder 32<rt>
   startMark insInfo builder
   builder <! (retValue := lowBitsRs1 << AST.xtlo 32<rt> shamt)
   builder <! (rd := AST.sext 64<rt> retValue)
   endMark insInfo builder
 
 let srliw insInfo ctxt =
-  let builder = IRBuilder (4)
+  let builder = !*ctxt
   let rd, rs1, shamt = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   let lowBitsRs1 = AST.xtlo 32<rt> rs1
-  let retValue = builder.NewTempVar 32<rt>
+  let retValue = !+builder 32<rt>
   startMark insInfo builder
   builder <! (retValue := lowBitsRs1 >> AST.xtlo 32<rt> shamt)
   builder <! (rd := AST.sext 64<rt> retValue)
   endMark insInfo builder
 
 let sraiw insInfo ctxt =
-  let builder = IRBuilder (4)
+  let builder = !*ctxt
   let rd, rs1, shamt = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   let lowBitsRs1 = AST.xtlo 32<rt> rs1
-  let retValue = builder.NewTempVar 32<rt>
+  let retValue = !+builder 32<rt>
   startMark insInfo builder
   builder <! (retValue := lowBitsRs1 ?>> AST.xtlo 32<rt> shamt)
   builder <! (rd := AST.sext 64<rt> retValue)
   endMark insInfo builder
 
 let mul insInfo ctxt =
-  let builder = IRBuilder (4)
+  let builder = !*ctxt
   let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   let extendedRs1 = AST.sext 128<rt> rs1
   let extendedRs2 = AST.sext 128<rt> rs2
-  let retValue = builder.NewTempVar 128<rt>
+  let retValue = !+builder 128<rt>
   startMark insInfo builder
   builder <! (retValue := extendedRs1 .* extendedRs2)
   builder <! (rd := AST.xtlo 64<rt> retValue)
   endMark insInfo builder
 
 let mulh insInfo ctxt =
-  let builder = IRBuilder (4)
+  let builder = !*ctxt
   let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   let extendedRs1 = AST.sext 128<rt> rs1
   let extendedRs2 = AST.sext 128<rt> rs2
-  let retValue = builder.NewTempVar 128<rt>
+  let retValue = !+builder 128<rt>
   startMark insInfo builder
   builder <! (retValue := extendedRs1 .* extendedRs2)
   builder <! (rd := AST.xthi 64<rt> retValue)
   endMark insInfo builder
 
 let mulhu insInfo ctxt =
-  let builder = IRBuilder (4)
+  let builder = !*ctxt
   let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   let extendedRs1 = AST.zext 128<rt> rs1
   let extendedRs2 = AST.zext 128<rt> rs2
-  let retValue = builder.NewTempVar 128<rt>
+  let retValue = !+builder 128<rt>
   startMark insInfo builder
   builder <! (retValue := extendedRs1 .* extendedRs2)
   builder <! (rd := AST.xthi 64<rt> retValue)
   endMark insInfo builder
 
 let mulhsu insInfo ctxt =
-  let builder = IRBuilder (4)
+  let builder = !*ctxt
   let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   let extendedRs1 = AST.sext 128<rt> rs1
   let extendedRs2 = AST.zext 128<rt> rs2
-  let retValue = builder.NewTempVar 128<rt>
+  let retValue = !+builder 128<rt>
   startMark insInfo builder
   builder <! (retValue := extendedRs1 .* extendedRs2)
   builder <! (rd := AST.xthi 64<rt> retValue)
   endMark insInfo builder
 
 let mulw insInfo ctxt =
-  let builder = IRBuilder (4)
+  let builder = !*ctxt
   let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   let lowBitsRs1 = AST.xtlo 32<rt> rs1
   let lowBitsRs2 = AST.xtlo 32<rt> rs2
@@ -897,16 +898,16 @@ let mulw insInfo ctxt =
   endMark insInfo builder
 
 let div insInfo ctxt =
-  let builder = IRBuilder (16)
+  let builder = !*ctxt
   let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   let condZero = (rs2 == AST.num0 64<rt>)
   let condOverflow
     = ((rs2 == numI32 -1 64<rt>) .& (rs1 == numI64 0x8000000000000000L 64<rt>))
-  let lblL0 = builder.NewSymbol "L0"
-  let lblL1 = builder.NewSymbol "L1"
-  let lblL2 = builder.NewSymbol "L2"
-  let lblL3 = builder.NewSymbol "L3"
-  let lblEnd = builder.NewSymbol "End"
+  let lblL0 = !%builder "L0"
+  let lblL1 = !%builder "L1"
+  let lblL2 = !%builder "L2"
+  let lblL3 = !%builder "L3"
+  let lblEnd = !%builder "End"
   startMark insInfo builder
   builder <! (AST.cjmp condZero (AST.name lblL0) (AST.name lblL1))
   builder <! (AST.lmark lblL0)
@@ -923,18 +924,18 @@ let div insInfo ctxt =
   endMark insInfo builder
 
 let divw insInfo ctxt =
-  let builder = IRBuilder (16)
+  let builder = !*ctxt
   let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   let rs1 = AST.xtlo 32<rt> rs1
   let rs2 = AST.xtlo 32<rt> rs2
   let condZero = (rs2 == AST.num0 32<rt>)
   let condOverflow =
     ((rs2 == numI32 -1 32<rt>) .& (rs1 == numI32 0x80000000 32<rt>))
-  let lblL0 = builder.NewSymbol "L0"
-  let lblL1 = builder.NewSymbol "L1"
-  let lblL2 = builder.NewSymbol "L2"
-  let lblL3 = builder.NewSymbol "L3"
-  let lblEnd = builder.NewSymbol "End"
+  let lblL0 = !%builder "L0"
+  let lblL1 = !%builder "L1"
+  let lblL2 = !%builder "L2"
+  let lblL3 = !%builder "L3"
+  let lblEnd = !%builder "End"
   startMark insInfo builder
   builder <! (AST.cjmp condZero (AST.name lblL0) (AST.name lblL1))
   builder <! (AST.lmark lblL0)
@@ -951,14 +952,14 @@ let divw insInfo ctxt =
   endMark insInfo builder
 
 let divuw insInfo ctxt =
-  let builder = IRBuilder (16)
+  let builder = !*ctxt
   let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   let rs1 = AST.xtlo 32<rt> rs1
   let rs2 = AST.xtlo 32<rt> rs2
   let condZero = (rs2 == AST.num0 32<rt>)
-  let lblL0 = builder.NewSymbol "L0"
-  let lblL1 = builder.NewSymbol "L1"
-  let lblEnd = builder.NewSymbol "End"
+  let lblL0 = !%builder "L0"
+  let lblL1 = !%builder "L1"
+  let lblEnd = !%builder "End"
   startMark insInfo builder
   builder <! (AST.cjmp condZero (AST.name lblL0) (AST.name lblL1))
   builder <! (AST.lmark lblL0)
@@ -970,12 +971,12 @@ let divuw insInfo ctxt =
   endMark insInfo builder
 
 let divu insInfo ctxt =
-  let builder = IRBuilder (16)
+  let builder = !*ctxt
   let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   let condZero = (rs2 == AST.num0 64<rt>)
-  let lblL0 = builder.NewSymbol "L0"
-  let lblL1 = builder.NewSymbol "L1"
-  let lblEnd = builder.NewSymbol "End"
+  let lblL0 = !%builder "L0"
+  let lblL1 = !%builder "L1"
+  let lblEnd = !%builder "End"
   startMark insInfo builder
   builder <! (AST.cjmp condZero (AST.name lblL0) (AST.name lblL1))
   builder <! (AST.lmark lblL0)
@@ -987,12 +988,12 @@ let divu insInfo ctxt =
   endMark insInfo builder
 
 let remu insInfo ctxt =
-  let builder = IRBuilder (16)
+  let builder = !*ctxt
   let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   let condZero = (rs2 == AST.num0 64<rt>)
-  let lblL0 = builder.NewSymbol "L0"
-  let lblL1 = builder.NewSymbol "L1"
-  let lblEnd = builder.NewSymbol "End"
+  let lblL0 = !%builder "L0"
+  let lblL1 = !%builder "L1"
+  let lblEnd = !%builder "End"
   startMark insInfo builder
   builder <! (AST.cjmp condZero (AST.name lblL0) (AST.name lblL1))
   builder <! (AST.lmark lblL0)
@@ -1004,16 +1005,16 @@ let remu insInfo ctxt =
   endMark insInfo builder
 
 let rem insInfo ctxt =
-  let builder = IRBuilder (16)
+  let builder = !*ctxt
   let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   let condZero = (rs2 == AST.num0 64<rt>)
   let condOverflow =
     ((rs2 == numI32 -1 64<rt>) .& (rs1 == numI64 0x8000000000000000L 64<rt>))
-  let lblL0 = builder.NewSymbol "L0"
-  let lblL1 = builder.NewSymbol "L1"
-  let lblL2 = builder.NewSymbol "L2"
-  let lblL3 = builder.NewSymbol "L3"
-  let lblEnd = builder.NewSymbol "End"
+  let lblL0 = !%builder "L0"
+  let lblL1 = !%builder "L1"
+  let lblL2 = !%builder "L2"
+  let lblL3 = !%builder "L3"
+  let lblEnd = !%builder "End"
   startMark insInfo builder
   builder <! (AST.cjmp condZero (AST.name lblL0) (AST.name lblL1))
   builder <! (AST.lmark lblL0)
@@ -1030,18 +1031,18 @@ let rem insInfo ctxt =
   endMark insInfo builder
 
 let remw insInfo ctxt =
-  let builder = IRBuilder (16)
+  let builder = !*ctxt
   let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   let rs1 = AST.xtlo 32<rt> rs1
   let rs2 = AST.xtlo 32<rt> rs2
   let condZero = (rs2 == AST.num0 32<rt>)
   let condOverflow =
     ((rs2 == numI32 -1 32<rt>) .& (rs1 == numI32 0x80000000 32<rt>))
-  let lblL0 = builder.NewSymbol "L0"
-  let lblL1 = builder.NewSymbol "L1"
-  let lblL2 = builder.NewSymbol "L2"
-  let lblL3 = builder.NewSymbol "L3"
-  let lblEnd = builder.NewSymbol "End"
+  let lblL0 = !%builder "L0"
+  let lblL1 = !%builder "L1"
+  let lblL2 = !%builder "L2"
+  let lblL3 = !%builder "L3"
+  let lblEnd = !%builder "End"
   startMark insInfo builder
   builder <! (AST.cjmp condZero (AST.name lblL0) (AST.name lblL1))
   builder <! (AST.lmark lblL0)
@@ -1058,14 +1059,14 @@ let remw insInfo ctxt =
   endMark insInfo builder
 
 let remuw insInfo ctxt =
-  let builder = IRBuilder (16)
+  let builder = !*ctxt
   let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   let rs1 = AST.xtlo 32<rt> rs1
   let rs2 = AST.xtlo 32<rt> rs2
   let condZero = (rs2 == AST.num0 32<rt>)
-  let lblL0 = builder.NewSymbol "L0"
-  let lblL1 = builder.NewSymbol "L1"
-  let lblEnd = builder.NewSymbol "End"
+  let lblL0 = !%builder "L0"
+  let lblL1 = !%builder "L1"
+  let lblEnd = !%builder "End"
   startMark insInfo builder
   builder <! (AST.cjmp condZero (AST.name lblL0) (AST.name lblL1))
   builder <! (AST.lmark lblL0)
@@ -1077,12 +1078,12 @@ let remuw insInfo ctxt =
   endMark insInfo builder
 
 let fld insInfo ctxt =
-  let builder = IRBuilder (16)
+  let builder = !*ctxt
   let rd, mem = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
   let condAlign = isAligned 64<rt> (getAddrFromMem mem)
-  let lblL0 = builder.NewSymbol "L0"
-  let lblL1 = builder.NewSymbol "L1"
-  let lblEnd = builder.NewSymbol "End"
+  let lblL0 = !%builder "L0"
+  let lblL1 = !%builder "L1"
+  let lblEnd = !%builder "End"
   startMark insInfo builder
   builder <! (AST.cjmp condAlign (AST.name lblL0) (AST.name lblL1))
   builder <! (AST.lmark lblL0)
@@ -1096,12 +1097,12 @@ let fld insInfo ctxt =
   endMark insInfo builder
 
 let fsd insInfo ctxt =
-  let builder = IRBuilder (16)
+  let builder = !*ctxt
   let rd, mem = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
   let condAlign = isAligned 64<rt> (getAddrFromMem mem)
-  let lblL0 = builder.NewSymbol "L0"
-  let lblL1 = builder.NewSymbol "L1"
-  let lblEnd = builder.NewSymbol "End"
+  let lblL0 = !%builder "L0"
+  let lblL1 = !%builder "L1"
+  let lblEnd = !%builder "End"
   startMark insInfo builder
   builder <! (AST.cjmp condAlign (AST.name lblL0) (AST.name lblL1))
   builder <! (AST.lmark lblL0)
@@ -1115,14 +1116,14 @@ let fsd insInfo ctxt =
   endMark insInfo builder
 
 let fltdots insInfo ctxt =
-  let builder = IRBuilder (16)
+  let builder = !*ctxt
   let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   let rs1 = (AST.xtlo 32<rt> rs1)
   let rs2 = (AST.xtlo 32<rt> rs2)
   let checkNan = (checkNan 32<rt> rs1 .| checkNan 32<rt> rs2)
-  let lblL0 = builder.NewSymbol "L0"
-  let lblL1 = builder.NewSymbol "L1"
-  let lblEnd = builder.NewSymbol "End"
+  let lblL0 = !%builder "L0"
+  let lblL1 = !%builder "L1"
+  let lblEnd = !%builder "End"
   let cond = AST.flt rs1 rs2
   let rtVal =
     AST.ite cond (AST.num1 ctxt.WordBitSize) (AST.num0 ctxt.WordBitSize)
@@ -1139,14 +1140,14 @@ let fltdots insInfo ctxt =
   endMark insInfo builder
 
 let fledots insInfo ctxt =
-  let builder = IRBuilder (16)
+  let builder = !*ctxt
   let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   let rs1 = (AST.xtlo 32<rt> rs1)
   let rs2 = (AST.xtlo 32<rt> rs2)
   let checkNan = (checkNan 32<rt> rs1 .| checkNan 32<rt> rs2)
-  let lblL0 = builder.NewSymbol "L0"
-  let lblL1 = builder.NewSymbol "L1"
-  let lblEnd = builder.NewSymbol "End"
+  let lblL0 = !%builder "L0"
+  let lblL1 = !%builder "L1"
+  let lblEnd = !%builder "End"
   let cond = AST.fle rs1 rs2
   let rtVal = AST.ite cond (AST.num1 64<rt>) (AST.num0 64<rt>)
   let fscr = getRegVar ctxt R.FCSR
@@ -1162,15 +1163,15 @@ let fledots insInfo ctxt =
   endMark insInfo builder
 
 let feqdots insInfo ctxt =
-  let builder = IRBuilder (16)
+  let builder = !*ctxt
   let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   let rs1 = (AST.xtlo 32<rt> rs1)
   let rs2 = (AST.xtlo 32<rt> rs2)
   let checkSNan = (checkSNan 32<rt> rs1 .| checkSNan 32<rt> rs2)
   let checkNan = (checkNan 32<rt> rs1 .| checkNan 32<rt> rs2)
-  let lblL0 = builder.NewSymbol "L0"
-  let lblL1 = builder.NewSymbol "L1"
-  let lblEnd = builder.NewSymbol "End"
+  let lblL0 = !%builder "L0"
+  let lblL1 = !%builder "L1"
+  let lblEnd = !%builder "End"
   let cond = AST.feq rs1 rs2
   let rtVal = AST.ite cond (AST.num1 64<rt>) (AST.num0 64<rt>)
   let fscr = getRegVar ctxt R.FCSR
@@ -1187,7 +1188,7 @@ let feqdots insInfo ctxt =
   endMark insInfo builder
 
 let fclassdots insInfo ctxt =
-  let builder = IRBuilder (32)
+  let builder = !*ctxt
   let rd, rs1 = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
   let rs1 = AST.xtlo 32<rt> rs1
 
@@ -1195,9 +1196,9 @@ let fclassdots insInfo ctxt =
   let negZero = numU32 0x80000000u 32<rt>
   let sign = AST.extract rs1 1<rt> 31
 
-  let lblPos = builder.NewSymbol "Pos"
-  let lblNeg = builder.NewSymbol "Neg"
-  let lblEnd = builder.NewSymbol "End"
+  let lblPos = !%builder "Pos"
+  let lblNeg = !%builder "Neg"
+  let lblEnd = !%builder "End"
 
   let condZero = (rs1 == plusZero) .| (rs1 == negZero)
   let condInf = checkInf 32<rt> rs1
@@ -1237,16 +1238,16 @@ let fclassdots insInfo ctxt =
   endMark insInfo builder
 
 let fclassdotd insInfo ctxt =
-  let builder = IRBuilder (32)
+  let builder = !*ctxt
   let rd, rs1 = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
 
   let plusZero = numU64 0uL 64<rt>
   let negZero = numU64 0x8000000000000000uL 64<rt>
   let sign = AST.extract rs1 1<rt> 63
 
-  let lblPos = builder.NewSymbol "Pos"
-  let lblNeg = builder.NewSymbol "Neg"
-  let lblEnd = builder.NewSymbol "End"
+  let lblPos = !%builder "Pos"
+  let lblNeg = !%builder "Neg"
+  let lblEnd = !%builder "End"
 
   let condZero = (rs1 == plusZero) .| (rs1 == negZero)
   let condInf = checkInf 64<rt> rs1
@@ -1286,14 +1287,14 @@ let fclassdotd insInfo ctxt =
   endMark insInfo builder
 
 let flw insInfo ctxt =
-  let builder = IRBuilder (16)
+  let builder = !*ctxt
   let rd, mem = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
-  let tmp = builder.NewTempVar 32<rt>
+  let tmp = !+builder 32<rt>
   let upperBitOne = (numU64 0xFFFFFFFF00000000uL 64<rt>)
   let condAlign = isAligned 32<rt> (getAddrFromMem mem)
-  let lblL0 = builder.NewSymbol "L0"
-  let lblL1 = builder.NewSymbol "L1"
-  let lblEnd = builder.NewSymbol "End"
+  let lblL0 = !%builder "L0"
+  let lblL1 = !%builder "L1"
+  let lblEnd = !%builder "End"
   startMark insInfo builder
   builder <! (AST.cjmp condAlign (AST.name lblL0) (AST.name lblL1))
   builder <! (AST.lmark lblL0)
@@ -1309,12 +1310,12 @@ let flw insInfo ctxt =
   endMark insInfo builder
 
 let fsw insInfo ctxt =
-  let builder = IRBuilder (16)
+  let builder = !*ctxt
   let rd, mem = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
   let condAlign = isAligned 32<rt> (getAddrFromMem mem)
-  let lblL0 = builder.NewSymbol "L0"
-  let lblL1 = builder.NewSymbol "L1"
-  let lblEnd = builder.NewSymbol "End"
+  let lblL0 = !%builder "L0"
+  let lblL1 = !%builder "L1"
+  let lblEnd = !%builder "End"
   startMark insInfo builder
   builder <! (AST.cjmp condAlign (AST.name lblL0) (AST.name lblL1))
   builder <! (AST.lmark lblL0)
@@ -1328,12 +1329,12 @@ let fsw insInfo ctxt =
   endMark insInfo builder
 
 let fltdotd insInfo ctxt =
-  let builder = IRBuilder (16)
+  let builder = !*ctxt
   let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   let checkNan = (checkNan 64<rt> rs1 .| checkNan 64<rt> rs2)
-  let lblL0 = builder.NewSymbol "L0"
-  let lblL1 = builder.NewSymbol "L1"
-  let lblEnd = builder.NewSymbol "End"
+  let lblL0 = !%builder "L0"
+  let lblL1 = !%builder "L1"
+  let lblEnd = !%builder "End"
   let cond = AST.flt rs1 rs2
   let rtVal = AST.ite cond (AST.num1 64<rt>) (AST.num0 64<rt>)
   let fscr = getRegVar ctxt R.FCSR
@@ -1349,12 +1350,12 @@ let fltdotd insInfo ctxt =
   endMark insInfo builder
 
 let fledotd insInfo ctxt =
-  let builder = IRBuilder (16)
+  let builder = !*ctxt
   let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   let checkNan = (checkNan 64<rt> rs1 .| checkNan 64<rt> rs2)
-  let lblL0 = builder.NewSymbol "L0"
-  let lblL1 = builder.NewSymbol "L1"
-  let lblEnd = builder.NewSymbol "End"
+  let lblL0 = !%builder "L0"
+  let lblL1 = !%builder "L1"
+  let lblEnd = !%builder "End"
   let cond = AST.fle rs1 rs2
   let rtVal = AST.ite cond (AST.num1 64<rt>) (AST.num0 64<rt>)
   let fscr = getRegVar ctxt R.FCSR
@@ -1370,13 +1371,13 @@ let fledotd insInfo ctxt =
   endMark insInfo builder
 
 let feqdotd insInfo ctxt =
-  let builder = IRBuilder (16)
+  let builder = !*ctxt
   let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   let checkSNan = (checkSNan 64<rt> rs1 .| checkSNan 64<rt> rs2)
   let checkNan = (checkNan 64<rt> rs1 .| checkNan 64<rt> rs2)
-  let lblL0 = builder.NewSymbol "L0"
-  let lblL1 = builder.NewSymbol "L1"
-  let lblEnd = builder.NewSymbol "End"
+  let lblL0 = !%builder "L0"
+  let lblL1 = !%builder "L1"
+  let lblEnd = !%builder "End"
   let cond = AST.feq rs1 rs2
   let rtVal = AST.ite cond (AST.num1 64<rt>) (AST.num0 64<rt>)
   let fscr = getRegVar ctxt R.FCSR
@@ -1393,14 +1394,14 @@ let feqdotd insInfo ctxt =
   endMark insInfo builder
 
 let fadddots insInfo ctxt =
-  let builder = IRBuilder (32)
+  let builder = !*ctxt
   let rd, rs1, rs2, rm = getFourOprs insInfo
   let rd, rs1, rs2 = (rd, rs1, rs2) |> transThreeOprs insInfo ctxt
   let rs1 = AST.xtlo 32<rt> rs1
   let rs2 = AST.xtlo 32<rt> rs2
   if rm <> OpRoundMode (RoundMode.DYN) then
     let rounding = roundingToCastFloat rm
-    let rtVal = builder.NewTempVar 32<rt>
+    let rtVal = !+builder 32<rt>
     let upperBitOne = (numU64 0xFFFFFFFF00000000uL 64<rt>)
     startMark insInfo builder
     builder <! (rtVal := AST.cast rounding 32<rt> (AST.fadd rs1 rs2))
@@ -1414,12 +1415,12 @@ let fadddots insInfo ctxt =
     endMark insInfo builder
 
 let fadddotd insInfo ctxt =
-  let builder = IRBuilder (32)
+  let builder = !*ctxt
   let rd, rs1, rs2, rm = getFourOprs insInfo
   let rd, rs1, rs2 = (rd, rs1, rs2) |> transThreeOprs insInfo ctxt
   if rm <> OpRoundMode (RoundMode.DYN) then
     let rounding = roundingToCastFloat rm
-    let rtVal = builder.NewTempVar 64<rt>
+    let rtVal = !+builder 64<rt>
     startMark insInfo builder
     builder <! (rtVal := AST.cast rounding 64<rt> (AST.fadd rs1 rs2))
     builder <! (rd := rtVal)
@@ -1431,7 +1432,7 @@ let fadddotd insInfo ctxt =
     endMark insInfo builder
 
 let fsubdots insInfo ctxt =
-  let builder = IRBuilder (32)
+  let builder = !*ctxt
   let rd, rs1, rs2, rm = getFourOprs insInfo
   let rd, rs1, rs2 = (rd, rs1, rs2) |> transThreeOprs insInfo ctxt
   let rs1 = AST.xtlo 32<rt> rs1
@@ -1439,7 +1440,7 @@ let fsubdots insInfo ctxt =
   let upperBitOne = (numU64 0xFFFFFFFF00000000uL 64<rt>)
   if rm <> OpRoundMode (RoundMode.DYN) then
     let rounding = roundingToCastFloat rm
-    let rtVal = builder.NewTempVar 32<rt>
+    let rtVal = !+builder 32<rt>
     startMark insInfo builder
     builder <! (rtVal := AST.cast rounding 32<rt> (AST.fsub rs1 rs2))
     builder <! (rd := (AST.zext 64<rt> rtVal) .| upperBitOne)
@@ -1451,12 +1452,12 @@ let fsubdots insInfo ctxt =
     endMark insInfo builder
 
 let fsubdotd insInfo ctxt =
-  let builder = IRBuilder (32)
+  let builder = !*ctxt
   let rd, rs1, rs2, rm = getFourOprs insInfo
   let rd, rs1, rs2 = (rd, rs1, rs2) |> transThreeOprs insInfo ctxt
   if rm <> OpRoundMode (RoundMode.DYN) then
     let rounding = roundingToCastFloat rm
-    let rtVal = builder.NewTempVar 64<rt>
+    let rtVal = !+builder 64<rt>
     startMark insInfo builder
     builder <! (rtVal := AST.cast rounding 64<rt> (AST.fsub rs1 rs2))
     builder <! (rd := rtVal)
@@ -1468,7 +1469,7 @@ let fsubdotd insInfo ctxt =
     endMark insInfo builder
 
 let fmuldots insInfo ctxt =
-  let builder = IRBuilder (32)
+  let builder = !*ctxt
   let rd, rs1, rs2, rm = getFourOprs insInfo
   let rd, rs1, rs2 = (rd, rs1, rs2) |> transThreeOprs insInfo ctxt
   let rs1 = AST.xtlo 32<rt> rs1
@@ -1476,7 +1477,7 @@ let fmuldots insInfo ctxt =
   let upperBitOne = (numU64 0xFFFFFFFF00000000uL 64<rt>)
   if rm <> OpRoundMode (RoundMode.DYN) then
     let rounding = roundingToCastFloat rm
-    let rtVal = builder.NewTempVar 32<rt>
+    let rtVal = !+builder 32<rt>
     startMark insInfo builder
     builder <! (rtVal := AST.cast rounding 32<rt> (AST.fmul rs1 rs2))
     builder <! (rd := (AST.zext 64<rt> rtVal) .| upperBitOne)
@@ -1488,12 +1489,12 @@ let fmuldots insInfo ctxt =
     endMark insInfo builder
 
 let fmuldotd insInfo ctxt =
-  let builder = IRBuilder (32)
+  let builder = !*ctxt
   let rd, rs1, rs2, rm = getFourOprs insInfo
   let rd, rs1, rs2 = (rd, rs1, rs2) |> transThreeOprs insInfo ctxt
   if rm <> OpRoundMode (RoundMode.DYN) then
     let rounding = roundingToCastFloat rm
-    let rtVal = builder.NewTempVar 64<rt>
+    let rtVal = !+builder 64<rt>
     startMark insInfo builder
     builder <! (rtVal := AST.cast rounding 64<rt> (AST.fmul rs1 rs2))
     builder <! (rd := rtVal)
@@ -1505,7 +1506,7 @@ let fmuldotd insInfo ctxt =
     endMark insInfo builder
 
 let fdivdots insInfo ctxt =
-  let builder = IRBuilder (32)
+  let builder = !*ctxt
   let rd, rs1, rs2, rm = getFourOprs insInfo
   let rd, rs1, rs2 = (rd, rs1, rs2) |> transThreeOprs insInfo ctxt
   let rs1 = AST.xtlo 32<rt> rs1
@@ -1513,7 +1514,7 @@ let fdivdots insInfo ctxt =
   let upperBitOne = (numU64 0xFFFFFFFF00000000uL 64<rt>)
   if rm <> OpRoundMode (RoundMode.DYN) then
     let rounding = roundingToCastFloat rm
-    let rtVal = builder.NewTempVar 32<rt>
+    let rtVal = !+builder 32<rt>
     startMark insInfo builder
     builder <! (rtVal := AST.cast rounding 32<rt> (AST.fdiv rs1 rs2))
     builder <! (rd := (AST.zext 64<rt> rtVal) .| upperBitOne)
@@ -1525,25 +1526,25 @@ let fdivdots insInfo ctxt =
     endMark insInfo builder
 
 let fdivdotd insInfo ctxt =
-  let builder = IRBuilder (32)
+  let builder = !*ctxt
   let rd, rs1, rs2, rm = getFourOprs insInfo
   let rd, rs1, rs2 = (rd, rs1, rs2) |> transThreeOprs insInfo ctxt
   let rounding = roundingToCastFloat rm
-  let rtVal = builder.NewTempVar 64<rt>
+  let rtVal = !+builder 64<rt>
   startMark insInfo builder
   builder <! (rtVal := AST.cast rounding 64<rt> (AST.fdiv rs1 rs2))
   builder <! (rd := rtVal)
   endMark insInfo builder
 
 let fsqrtdots insInfo ctxt =
-  let builder = IRBuilder (32)
+  let builder = !*ctxt
   let rd, rs1, rm = getThreeOprs insInfo
   let rd, rs1 = (rd, rs1) |> transTwoOprs insInfo ctxt
   let rs1 = AST.xtlo 32<rt> rs1
   let upperBitOne = (numU64 0xFFFFFFFF00000000uL 64<rt>)
   if rm <> OpRoundMode (RoundMode.DYN) then
     let rounding = roundingToCastFloat rm
-    let rtVal = builder.NewTempVar 32<rt>
+    let rtVal = !+builder 32<rt>
     startMark insInfo builder
     builder <! (rtVal := AST.cast rounding 32<rt> (AST.fsqrt rs1))
     builder <! (rd := (AST.zext 64<rt> rtVal) .| upperBitOne)
@@ -1555,12 +1556,12 @@ let fsqrtdots insInfo ctxt =
     endMark insInfo builder
 
 let fsqrtdotd insInfo ctxt =
-  let builder = IRBuilder (32)
+  let builder = !*ctxt
   let rd, rs1, rm = getThreeOprs insInfo
   let rd, rs1 = (rd, rs1) |> transTwoOprs insInfo ctxt
   if rm <> OpRoundMode (RoundMode.DYN) then
     let rounding = roundingToCastFloat rm
-    let rtVal = builder.NewTempVar 64<rt>
+    let rtVal = !+builder 64<rt>
     startMark insInfo builder
     builder <! (rtVal := AST.cast rounding 64<rt> (AST.fsqrt rs1))
     builder <! (rd := rtVal)
@@ -1572,11 +1573,11 @@ let fsqrtdotd insInfo ctxt =
     endMark insInfo builder
 
 let fmindots insInfo ctxt =
-  let builder = IRBuilder (4)
+  let builder = !*ctxt
   let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   let rs1 = AST.xtlo 32<rt> rs1
   let rs2 = AST.xtlo 32<rt> rs2
-  let rtVal = builder.NewTempVar 32<rt>
+  let rtVal = !+builder 32<rt>
   let upperBitOne = (numU64 0xFFFFFFFF00000000uL 64<rt>)
   let cond = AST.flt rs1 rs2
   startMark insInfo builder
@@ -1585,9 +1586,9 @@ let fmindots insInfo ctxt =
   endMark insInfo builder
 
 let fmindotd insInfo ctxt =
-  let builder = IRBuilder (4)
+  let builder = !*ctxt
   let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
-  let rtVal = builder.NewTempVar 64<rt>
+  let rtVal = !+builder 64<rt>
   let cond = AST.flt rs1 rs2
   startMark insInfo builder
   builder <! (rtVal := AST.ite cond rs1 rs2)
@@ -1595,11 +1596,11 @@ let fmindotd insInfo ctxt =
   endMark insInfo builder
 
 let fmaxdots insInfo ctxt =
-  let builder = IRBuilder (4)
+  let builder = !*ctxt
   let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   let rs1 = AST.xtlo 32<rt> rs1
   let rs2 = AST.xtlo 32<rt> rs2
-  let rtVal = builder.NewTempVar 32<rt>
+  let rtVal = !+builder 32<rt>
   let upperBitOne = (numU64 0xFFFFFFFF00000000uL 64<rt>)
   let cond = AST.flt rs1 rs2
   startMark insInfo builder
@@ -1608,9 +1609,9 @@ let fmaxdots insInfo ctxt =
   endMark insInfo builder
 
 let fmaxdotd insInfo ctxt =
-  let builder = IRBuilder (4)
+  let builder = !*ctxt
   let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
-  let rtVal = builder.NewTempVar 64<rt>
+  let rtVal = !+builder 64<rt>
   let cond = AST.flt rs1 rs2
   startMark insInfo builder
   builder <! (rtVal := AST.ite cond rs2 rs1)
@@ -1618,7 +1619,7 @@ let fmaxdotd insInfo ctxt =
   endMark insInfo builder
 
 let fmadddots insInfo ctxt =
-  let builder = IRBuilder (32)
+  let builder = !*ctxt
   let rd, rs1, rs2, rs3, rm = getFiveOprs insInfo
   let rd, rs1, rs2, rs3 = (rd, rs1, rs2, rs3) |> transFourOprs insInfo ctxt
   let rs1 = AST.xtlo 32<rt> rs1
@@ -1627,7 +1628,7 @@ let fmadddots insInfo ctxt =
   let upperBitOne = numU64 0xFFFFFFFF00000000uL 64<rt>
   if rm <> OpRoundMode (RoundMode.DYN) then
     let rounding = roundingToCastFloat rm
-    let rtVal = builder.NewTempVar 32<rt>
+    let rtVal = !+builder 32<rt>
     startMark insInfo builder
     builder <!
       (rtVal := AST.cast rounding 32<rt> (AST.fadd (AST.fmul rs1 rs2) rs3))
@@ -1641,12 +1642,12 @@ let fmadddots insInfo ctxt =
     endMark insInfo builder
 
 let fmadddotd insInfo ctxt =
-  let builder = IRBuilder (32)
+  let builder = !*ctxt
   let rd, rs1, rs2, rs3, rm = getFiveOprs insInfo
   let rd, rs1, rs2, rs3 = (rd, rs1, rs2, rs3) |> transFourOprs insInfo ctxt
   if rm <> OpRoundMode (RoundMode.DYN) then
     let rounding = roundingToCastFloat rm
-    let rtVal = builder.NewTempVar 64<rt>
+    let rtVal = !+builder 64<rt>
     startMark insInfo builder
     builder <!
       (rtVal := AST.cast rounding 64<rt> (AST.fadd (AST.fmul rs1 rs2) rs3))
@@ -1660,7 +1661,7 @@ let fmadddotd insInfo ctxt =
     endMark insInfo builder
 
 let fmsubdots insInfo ctxt =
-  let builder = IRBuilder (32)
+  let builder = !*ctxt
   let rd, rs1, rs2, rs3, rm = getFiveOprs insInfo
   let rd, rs1, rs2, rs3 = (rd, rs1, rs2, rs3) |> transFourOprs insInfo ctxt
   let rs1 = AST.xtlo 32<rt> rs1
@@ -1669,7 +1670,7 @@ let fmsubdots insInfo ctxt =
   let upperBitOne = (numU64 0xFFFFFFFF00000000uL 64<rt>)
   if rm <> OpRoundMode (RoundMode.DYN) then
     let rounding = roundingToCastFloat rm
-    let rtVal = builder.NewTempVar 32<rt>
+    let rtVal = !+builder 32<rt>
     startMark insInfo builder
     builder <!
       (rtVal := AST.cast rounding 32<rt> (AST.fsub (AST.fmul rs1 rs2) rs3))
@@ -1683,12 +1684,12 @@ let fmsubdots insInfo ctxt =
     endMark insInfo builder
 
 let fmsubdotd insInfo ctxt =
-  let builder = IRBuilder (32)
+  let builder = !*ctxt
   let rd, rs1, rs2, rs3, rm = getFiveOprs insInfo
   let rd, rs1, rs2, rs3 = (rd, rs1, rs2, rs3) |> transFourOprs insInfo ctxt
   if rm <> OpRoundMode (RoundMode.DYN) then
     let rounding = roundingToCastFloat rm
-    let rtVal = builder.NewTempVar 64<rt>
+    let rtVal = !+builder 64<rt>
     startMark insInfo builder
     builder <!
       (rtVal := AST.cast rounding 64<rt> (AST.fsub (AST.fmul rs1 rs2) rs3))
@@ -1702,7 +1703,7 @@ let fmsubdotd insInfo ctxt =
     endMark insInfo builder
 
 let fnmsubdots insInfo ctxt =
-  let builder = IRBuilder (32)
+  let builder = !*ctxt
   let rd, rs1, rs2, rs3, rm = getFiveOprs insInfo
   let rd, rs1, rs2, rs3 = (rd, rs1, rs2, rs3) |> transFourOprs insInfo ctxt
   let rs1 = AST.xtlo 32<rt> rs1
@@ -1712,7 +1713,7 @@ let fnmsubdots insInfo ctxt =
   let res = (AST.fsub (AST.neg rs3) (AST.fmul rs1 rs2))
   if rm <> OpRoundMode (RoundMode.DYN) then
     let rounding = roundingToCastFloat rm
-    let rtVal = builder.NewTempVar 32<rt>
+    let rtVal = !+builder 32<rt>
     startMark insInfo builder
     builder <! (rtVal := AST.cast rounding 32<rt> res)
     builder <! (rd := (AST.zext 64<rt> rtVal) .| upperBitOne)
@@ -1724,13 +1725,13 @@ let fnmsubdots insInfo ctxt =
     endMark insInfo builder
 
 let fnmsubdotd insInfo ctxt =
-  let builder = IRBuilder (32)
+  let builder = !*ctxt
   let rd, rs1, rs2, rs3, rm = getFiveOprs insInfo
   let rd, rs1, rs2, rs3 = (rd, rs1, rs2, rs3) |> transFourOprs insInfo ctxt
   let res = (AST.fsub (AST.neg rs3) (AST.fmul rs1 rs2))
   if rm <> OpRoundMode (RoundMode.DYN) then
     let rounding = roundingToCastFloat rm
-    let rtVal = builder.NewTempVar 64<rt>
+    let rtVal = !+builder 64<rt>
     startMark insInfo builder
     builder <! (rtVal := AST.cast rounding 64<rt> res)
     builder <! (rd := rtVal)
@@ -1742,7 +1743,7 @@ let fnmsubdotd insInfo ctxt =
     endMark insInfo builder
 
 let fnmadddots insInfo ctxt =
-  let builder = IRBuilder (32)
+  let builder = !*ctxt
   let rd, rs1, rs2, rs3, rm = getFiveOprs insInfo
   let rd, rs1, rs2, rs3 = (rd, rs1, rs2, rs3) |> transFourOprs insInfo ctxt
   let rs1 = AST.xtlo 32<rt> rs1
@@ -1752,7 +1753,7 @@ let fnmadddots insInfo ctxt =
   let res = (AST.fsub rs3 (AST.fmul rs1 rs2))
   if rm <> OpRoundMode (RoundMode.DYN) then
     let rounding = roundingToCastFloat rm
-    let rtVal = builder.NewTempVar 32<rt>
+    let rtVal = !+builder 32<rt>
     startMark insInfo builder
     builder <! (rtVal := AST.cast rounding 32<rt> res)
     builder <! (rd := (AST.zext 64<rt> rtVal) .| upperBitOne)
@@ -1764,13 +1765,13 @@ let fnmadddots insInfo ctxt =
     endMark insInfo builder
 
 let fnmadddotd insInfo ctxt =
-  let builder = IRBuilder (4)
+  let builder = !*ctxt
   let rd, rs1, rs2, rs3, rm = getFiveOprs insInfo
   let rd, rs1, rs2, rs3 = (rd, rs1, rs2, rs3) |> transFourOprs insInfo ctxt
   let res = (AST.fsub rs3 (AST.fmul rs1 rs2))
   if rm <> OpRoundMode (RoundMode.DYN) then
     let rounding = roundingToCastFloat rm
-    let rtVal = builder.NewTempVar 32<rt>
+    let rtVal = !+builder 32<rt>
     startMark insInfo builder
     builder <! (rtVal := AST.cast rounding 64<rt> res)
     builder <! (rd := rtVal)
@@ -1782,11 +1783,11 @@ let fnmadddotd insInfo ctxt =
     endMark insInfo builder
 
 let fsgnjdots insInfo ctxt =
-  let builder = IRBuilder (4)
+  let builder = !*ctxt
   let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   let rs1 = AST.xtlo 32<rt> rs1
   let rs2 = AST.xtlo 32<rt> rs2
-  let rtVal = builder.NewTempVar 32<rt>
+  let rtVal = !+builder 32<rt>
   let upperBitOne = (numU64 0xFFFFFFFF00000000uL 64<rt>)
   let mask = numU32 0x7fffffffu 32<rt>
   let sign = getSignFloat 32<rt> rs2
@@ -1796,9 +1797,9 @@ let fsgnjdots insInfo ctxt =
   endMark insInfo builder
 
 let fsgnjdotd insInfo ctxt =
-  let builder = IRBuilder (4)
+  let builder = !*ctxt
   let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
-  let rtVal = builder.NewTempVar 64<rt>
+  let rtVal = !+builder 64<rt>
   let mask = numU64 0x7FFFFFFFFFFFFFFFuL 64<rt>
   let sign = getSignFloat 64<rt> rs2
   startMark insInfo builder
@@ -1807,11 +1808,11 @@ let fsgnjdotd insInfo ctxt =
   endMark insInfo builder
 
 let fsgnjndots insInfo ctxt =
-  let builder = IRBuilder (4)
+  let builder = !*ctxt
   let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   let rs1 = AST.xtlo 32<rt> rs1
   let rs2 = AST.xtlo 32<rt> rs2
-  let rtVal = builder.NewTempVar 32<rt>
+  let rtVal = !+builder 32<rt>
   let upperBitOne = (numU64 0xFFFFFFFF00000000uL 64<rt>)
   let mask = numU32 0x7fffffffu 32<rt>
   let sign = getSignFloat 32<rt> rs2 <+> numU32 0x80000000u 32<rt>
@@ -1821,9 +1822,9 @@ let fsgnjndots insInfo ctxt =
   endMark insInfo builder
 
 let fsgnjndotd insInfo ctxt =
-  let builder = IRBuilder (4)
+  let builder = !*ctxt
   let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
-  let rtVal = builder.NewTempVar 64<rt>
+  let rtVal = !+builder 64<rt>
   let mask = numU64 0x7FFFFFFFFFFFFFFFuL 64<rt>
   let sign = getSignFloat 64<rt> rs2 <+> numU64 0x8000000000000000uL 64<rt>
   startMark insInfo builder
@@ -1832,11 +1833,11 @@ let fsgnjndotd insInfo ctxt =
   endMark insInfo builder
 
 let fsgnjxdots insInfo ctxt =
-  let builder = IRBuilder (4)
+  let builder = !*ctxt
   let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   let rs1 = AST.xtlo 32<rt> rs1
   let rs2 = AST.xtlo 32<rt> rs2
-  let rtVal = builder.NewTempVar 32<rt>
+  let rtVal = !+builder 32<rt>
   let upperBitOne = (numU64 0xFFFFFFFF00000000uL 64<rt>)
   let mask = numU32 0x7fffffffu 32<rt>
   let sign = (getSignFloat 32<rt> rs2) <+> (getSignFloat 32<rt> rs1)
@@ -1846,9 +1847,9 @@ let fsgnjxdots insInfo ctxt =
   endMark insInfo builder
 
 let fsgnjxdotd insInfo ctxt =
-  let builder = IRBuilder (4)
+  let builder = !*ctxt
   let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
-  let rtVal = builder.NewTempVar 64<rt>
+  let rtVal = !+builder 64<rt>
   let mask = numU64 0x7FFFFFFFFFFFFFFFuL 64<rt>
   let sign = getSignFloat 64<rt> rs2 <+> getSignFloat 64<rt> rs1
   startMark insInfo builder
@@ -1858,13 +1859,13 @@ let fsgnjxdotd insInfo ctxt =
 
 (* FIX ME: AQRL *)
 let amod insInfo ctxt op =
-  let builder = IRBuilder (16)
+  let builder = !*ctxt
   let rd, mem, rs2, aqrl = getFourOprs insInfo |> transFourOprs insInfo ctxt
   let cond = isAligned 64<rt> (getAddrFromMem mem)
-  let lblL0 = builder.NewSymbol "L0"
-  let lblL1 = builder.NewSymbol "L1"
-  let lblEnd = builder.NewSymbol "End"
-  let tmp = builder.NewTempVar 64<rt>
+  let lblL0 = !%builder "L0"
+  let lblL1 = !%builder "L1"
+  let lblEnd = !%builder "End"
+  let tmp = !+builder 64<rt>
   startMark insInfo builder
   builder <! (AST.cjmp cond (AST.name lblL0) (AST.name lblL1))
   builder <! (AST.lmark lblL0)
@@ -1880,14 +1881,14 @@ let amod insInfo ctxt op =
   endMark insInfo builder
 
 let amow insInfo ctxt op =
-  let builder = IRBuilder (16)
+  let builder = !*ctxt
   let rd, mem, rs2, aqrl = getFourOprs insInfo |> transFourOprs insInfo ctxt
   let rs2 = AST.xtlo 32<rt> rs2
   let cond = isAligned 64<rt> (getAddrFromMem mem)
-  let lblL0 = builder.NewSymbol "L0"
-  let lblL1 = builder.NewSymbol "L1"
-  let lblEnd = builder.NewSymbol "End"
-  let tmp = builder.NewTempVar 32<rt>
+  let lblL0 = !%builder "L0"
+  let lblL1 = !%builder "L1"
+  let lblEnd = !%builder "End"
+  let tmp = !+builder 32<rt>
   startMark insInfo builder
   builder <! (AST.cjmp cond (AST.name lblL0) (AST.name lblL1))
   builder <! (AST.lmark lblL0)
@@ -1903,28 +1904,28 @@ let amow insInfo ctxt op =
   endMark insInfo builder
 
 let fmvdotxdotw insInfo ctxt =
-  let builder = IRBuilder (4)
+  let builder = !*ctxt
   let rd, rs1 = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
   startMark insInfo builder
   builder <! (rd := AST.sext 64<rt> (AST.xtlo 32<rt> rs1))
   endMark insInfo builder
 
 let fmvdotwdotx insInfo ctxt =
-  let builder = IRBuilder (4)
+  let builder = !*ctxt
   let rd, rs1 = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
   startMark insInfo builder
   builder <! (rd := AST.xtlo 32<rt> rs1)
   endMark insInfo builder
 
 let fmvdotxdotd insInfo ctxt =
-  let builder = IRBuilder (4)
+  let builder = !*ctxt
   let rd, rs1 = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
   startMark insInfo builder
   builder <! (rd := rs1)
   endMark insInfo builder
 
 let fmvdotddotx insInfo ctxt =
-  let builder = IRBuilder (4)
+  let builder = !*ctxt
   let rd, rs1 = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
   startMark insInfo builder
   builder <! (rd := rs1)
@@ -1932,9 +1933,9 @@ let fmvdotddotx insInfo ctxt =
 
 (* TODO: x0 and 0 change write csr *)
 let csrrw insInfo ctxt =
-  let builder = IRBuilder(8)
+  let builder = !*ctxt
   let rd, csr, rs1 = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
-  let tmpVar = builder.NewTempVar 64<rt>
+  let tmpVar = !+builder 64<rt>
   startMark insInfo builder
   builder <! (AST.sideEffect Lock)
   builder <! (tmpVar := csr)
@@ -1944,9 +1945,9 @@ let csrrw insInfo ctxt =
   endMark insInfo builder
 
 let csrrwi insInfo ctxt =
-  let builder = IRBuilder(8)
+  let builder = !*ctxt
   let rd, csr, imm = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
-  let tmpVar = builder.NewTempVar 64<rt>
+  let tmpVar = !+builder 64<rt>
   startMark insInfo builder
   builder <! (AST.sideEffect Lock)
   builder <! (tmpVar := csr)
@@ -1956,9 +1957,9 @@ let csrrwi insInfo ctxt =
   endMark insInfo builder
 
 let csrrs insInfo ctxt =
-  let builder = IRBuilder(8)
+  let builder = !*ctxt
   let rd, csr, rs1 = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
-  let tmpVar = builder.NewTempVar 64<rt>
+  let tmpVar = !+builder 64<rt>
   startMark insInfo builder
   builder <! (AST.sideEffect Lock)
   builder <! (tmpVar := csr)
@@ -1968,9 +1969,9 @@ let csrrs insInfo ctxt =
   endMark insInfo builder
 
 let csrrsi insInfo ctxt =
-  let builder = IRBuilder(8)
+  let builder = !*ctxt
   let rd, csr, imm = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
-  let tmpVar = builder.NewTempVar 64<rt>
+  let tmpVar = !+builder 64<rt>
   startMark insInfo builder
   builder <! (AST.sideEffect Lock)
   builder <! (tmpVar := csr)
@@ -1980,9 +1981,9 @@ let csrrsi insInfo ctxt =
   endMark insInfo builder
 
 let csrrc insInfo ctxt =
-  let builder = IRBuilder(8)
+  let builder = !*ctxt
   let rd, csr, rs1 = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
-  let tmpVar = builder.NewTempVar 64<rt>
+  let tmpVar = !+builder 64<rt>
   startMark insInfo builder
   builder <! (AST.sideEffect Lock)
   builder <! (tmpVar := csr)
@@ -1992,9 +1993,9 @@ let csrrc insInfo ctxt =
   endMark insInfo builder
 
 let csrrci insInfo ctxt =
-  let builder = IRBuilder(8)
+  let builder = !*ctxt
   let rd, csr, imm = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
-  let tmpVar = builder.NewTempVar 64<rt>
+  let tmpVar = !+builder 64<rt>
   startMark insInfo builder
   builder <! (AST.sideEffect Lock)
   builder <! (tmpVar := csr)
@@ -2005,12 +2006,12 @@ let csrrci insInfo ctxt =
 
 (* TODO: RM and overflow *)
 let fcvtdotldotd insInfo ctxt =
-  let builder = IRBuilder (32)
+  let builder = !*ctxt
   let rd, rs1, rm = getThreeOprs insInfo
   let rd, rs1 = (rd, rs1) |> transTwoOprs insInfo ctxt
   if rm <> OpRoundMode (RoundMode.DYN) then
     let rounding = roundingToCastInt rm
-    let rtVal = builder.NewTempVar 64<rt>
+    let rtVal = !+builder 64<rt>
     startMark insInfo builder
     builder <! (rtVal := AST.cast rounding 64<rt> rs1)
     builder <! (rd := rtVal)
@@ -2022,12 +2023,12 @@ let fcvtdotldotd insInfo ctxt =
     endMark insInfo builder
 
 let fcvtdotwdotd insInfo ctxt =
-  let builder = IRBuilder (32)
+  let builder = !*ctxt
   let rd, rs1, rm = getThreeOprs insInfo
   let rd, rs1 = (rd, rs1) |> transTwoOprs insInfo ctxt
   if rm <> OpRoundMode (RoundMode.DYN) then
     let rounding = roundingToCastInt rm
-    let rtVal = builder.NewTempVar 64<rt>
+    let rtVal = !+builder 64<rt>
     startMark insInfo builder
     builder <! (rtVal := AST.cast rounding 32<rt> rs1)
     builder <! (rd := rtVal)
@@ -2039,13 +2040,13 @@ let fcvtdotwdotd insInfo ctxt =
     endMark insInfo builder
 
 let fcvtdotwdots insInfo ctxt =
-  let builder = IRBuilder (32)
+  let builder = !*ctxt
   let rd, rs1, rm = getThreeOprs insInfo
   let rd, rs1 = (rd, rs1) |> transTwoOprs insInfo ctxt
   let rs1 = AST.xtlo 32<rt> rs1
   if rm <> OpRoundMode (RoundMode.DYN) then
     let rounding = roundingToCastInt rm
-    let rtVal = builder.NewTempVar 32<rt>
+    let rtVal = !+builder 32<rt>
     startMark insInfo builder
     builder <! (rtVal := AST.cast rounding 32<rt> rs1)
     builder <! (rd := AST.sext 64<rt> rtVal)
@@ -2057,13 +2058,13 @@ let fcvtdotwdots insInfo ctxt =
     endMark insInfo builder
 
 let fcvtdotldots insInfo ctxt =
-  let builder = IRBuilder (32)
+  let builder = !*ctxt
   let rd, rs1, rm = getThreeOprs insInfo
   let rd, rs1 = (rd, rs1) |> transTwoOprs insInfo ctxt
   let rs1 = AST.xtlo 32<rt> rs1
   if rm <> OpRoundMode (RoundMode.DYN) then
     let rounding = roundingToCastInt rm
-    let rtVal = builder.NewTempVar 64<rt>
+    let rtVal = !+builder 64<rt>
     startMark insInfo builder
     builder <! (rtVal := AST.cast rounding 64<rt> rs1)
     builder <! (rd := AST.sext 64<rt> rtVal)
@@ -2075,30 +2076,30 @@ let fcvtdotldots insInfo ctxt =
     endMark insInfo builder
 
 let fcvtdotsdotw insInfo ctxt =
-  let builder = IRBuilder (4)
+  let builder = !*ctxt
   let rd, rs1, rm = getThreeOprs insInfo
   let rd, rs1 = (rd, rs1) |> transTwoOprs insInfo ctxt
   let rs1 = AST.xtlo 32<rt> rs1
   let upperBitOne = (numU64 0xFFFFFFFF00000000uL 64<rt>)
-  let rtVal = builder.NewTempVar 32<rt>
+  let rtVal = !+builder 32<rt>
   startMark insInfo builder
   builder <! (rtVal := AST.cast CastKind.IntToFloat 32<rt> rs1)
   builder <! (rd := (AST.zext 64<rt> rtVal) .| upperBitOne)
   endMark insInfo builder
 
 let fcvtdotsdotl insInfo ctxt =
-  let builder = IRBuilder (4)
+  let builder = !*ctxt
   let rd, rs1, rm = getThreeOprs insInfo
   let rd, rs1 = (rd, rs1) |> transTwoOprs insInfo ctxt
   let upperBitOne = (numU64 0xFFFFFFFF00000000uL 64<rt>)
-  let rtVal = builder.NewTempVar 32<rt>
+  let rtVal = !+builder 32<rt>
   startMark insInfo builder
   builder <! (rtVal := AST.cast CastKind.IntToFloat 32<rt> rs1)
   builder <! (rd := (AST.zext 64<rt> rtVal) .| upperBitOne)
   endMark insInfo builder
 
 let fcvtdotddotw insInfo ctxt =
-  let builder = IRBuilder (4)
+  let builder = !*ctxt
   let rd, rs1, rm = getThreeOprs insInfo
   let rd, rs1 = (rd, rs1) |> transTwoOprs insInfo ctxt
   startMark insInfo builder
@@ -2106,7 +2107,7 @@ let fcvtdotddotw insInfo ctxt =
   endMark insInfo builder
 
 let fcvtdotddotl insInfo ctxt =
-  let builder = IRBuilder (4)
+  let builder = !*ctxt
   let rd, rs1, rm = getThreeOprs insInfo
   let rd, rs1 = (rd, rs1) |> transTwoOprs insInfo ctxt
   startMark insInfo builder
@@ -2114,18 +2115,18 @@ let fcvtdotddotl insInfo ctxt =
   endMark insInfo builder
 
 let fcvtdotsdotd insInfo ctxt =
-  let builder = IRBuilder (4)
+  let builder = !*ctxt
   let rd, rs1, rm = getThreeOprs insInfo
   let rd, rs1 = (rd, rs1) |> transTwoOprs insInfo ctxt
   let upperBitOne = (numU64 0xFFFFFFFF00000000uL 64<rt>)
-  let rtVal = builder.NewTempVar 32<rt>
+  let rtVal = !+builder 32<rt>
   startMark insInfo builder
   builder <! (rtVal := AST.cast CastKind.FloatCast 32<rt> rs1)
   builder <! (rd := (AST.zext 64<rt> rtVal) .| upperBitOne)
   endMark insInfo builder
 
 let fcvtdotddots insInfo ctxt =
-  let builder = IRBuilder (4)
+  let builder = !*ctxt
   let rd, rs1, _ = getThreeOprs insInfo
   let rd, rs1 = (rd, rs1) |> transTwoOprs insInfo ctxt
   startMark insInfo builder
@@ -2134,7 +2135,7 @@ let fcvtdotddots insInfo ctxt =
 
 (* TODO: Add reservation check *)
 let lr insInfo ctxt =
-  let builder = IRBuilder (4)
+  let builder = !*ctxt
   let rd, mem, aqrl = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   startMark insInfo builder
   builder <! (rd := AST.sext ctxt.WordBitSize mem)
@@ -2142,7 +2143,7 @@ let lr insInfo ctxt =
 
 (* TODO: Add reservation check *)
 let sc insInfo ctxt =
-  let builder = IRBuilder (4)
+  let builder = !*ctxt
   let rd, mem, aqrl = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   let accessLength = getAccessLength (snd (getTwoOprs insInfo))
   startMark insInfo builder
@@ -2219,8 +2220,8 @@ let translate insInfo (ctxt: TranslationContext) =
   | Op.SW
   | Op.SD -> store insInfo ctxt
   | Op.CdotEBREAK
-  | Op.EBREAK -> sideEffects insInfo Breakpoint
-  | Op.ECALL -> sideEffects insInfo SysCall
+  | Op.EBREAK -> sideEffects insInfo ctxt Breakpoint
+  | Op.ECALL -> sideEffects insInfo ctxt SysCall
   | Op.CdotSRAI
   | Op.SRAI -> srai insInfo ctxt
   | Op.CdotSLLI
@@ -2240,7 +2241,7 @@ let translate insInfo (ctxt: TranslationContext) =
   | Op.MULHSU -> mulhsu insInfo ctxt
   | Op.MULHU -> mulhu insInfo ctxt
   | Op.MULW -> mulw insInfo ctxt
-  | Op.CdotNOP -> nop insInfo
+  | Op.CdotNOP -> nop insInfo ctxt
   | Op.CdotFLD
   | Op.CdotFLDSP
   | Op.FLD -> fld insInfo ctxt
@@ -2321,7 +2322,7 @@ let translate insInfo (ctxt: TranslationContext) =
   | Op.FCVTdotLdotS -> fcvtdotldots insInfo ctxt
   | Op.FENCE
   | Op.FENCEdotI
-  | Op.FENCEdotTSO -> nop insInfo
+  | Op.FENCEdotTSO -> nop insInfo ctxt
   | Op.LRdotW
   | Op.LRdotD -> lr insInfo ctxt
   | Op.SCdotW
