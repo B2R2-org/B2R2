@@ -226,6 +226,8 @@ type LowUIRParser (isa, regbay: RegisterBay) =
       AST.relop RelOpType.LE, "<=", 2, Associativity.Left
       AST.relop RelOpType.SLT, "?<", 2, Associativity.Left
       AST.relop RelOpType.SLE, "?<=", 2, Associativity.Left
+      AST.relop RelOpType.FEQ, "=.", 2, Associativity.Left
+      AST.relop RelOpType.FNEQ, "!=.", 2, Associativity.Left
       AST.relop RelOpType.FGT, ">.", 2, Associativity.Left
       AST.relop RelOpType.FGE, ">=.", 2, Associativity.Left
       AST.relop RelOpType.FLT, "<.", 2, Associativity.Left
