@@ -3,10 +3,10 @@
 
 # Current Developers (alphabetical order)
 
-- Jaeseung Choi <jschoi17@kaist.ac.kr>
 - Su Geun Ji <jsgtwins1@kaist.ac.kr>
 - Seung Il Jung <sijung@kaist.ac.kr>
 - Soomin Kim <soomink@kaist.ac.kr>
+- Hee Dong Yang <heedong@kaist.ac.kr>
 
 # Contributors
 
@@ -15,6 +15,7 @@ a list of the contributors in alphabetic order.
 
 - Anar Abbas
 - Mehdi Aghakishiyev
+- Jaeseung Choi
 - TA Thanh Dinh
 - HyungSeok Han
 - Abdirakhman Ismail
