@@ -31,7 +31,7 @@ open B2R2.BinIR.LowUIR
 /// states for translating/lifting instructions.
 [<AbstractClass>]
 type TranslationContext (isa) =
-  let irb = IRBuilder (421)
+  let irb = IRBuilder (241)
 
   /// Word size in bits (RegType).
   member val WordBitSize: RegType = WordSize.toRegType isa.WordSize
