@@ -71,3 +71,10 @@ type IRBuilder =
   ///   Returns an array of IR statements.
   /// </returns>
   member __.ToStmts () = __.ToArray ()
+
+  /// <summary>
+  ///   Call this function to start lifting an instruction.
+  /// </summary>
+  member __.PrepareLifting () =
+    __.TempVarCount <- 0
+    __.Clear ()

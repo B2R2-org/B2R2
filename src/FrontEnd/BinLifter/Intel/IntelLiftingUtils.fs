@@ -368,8 +368,8 @@ let getMask oprSize =
   | 64<rt> -> numI64 0xffffffffffffffffL oprSize
   | _ -> raise InvalidOperandSizeException
 
-let sideEffects insLen name =
-  let ir = IRBuilder (4)
+let sideEffects ctxt insLen name =
+  let ir = !*ctxt
   !<ir insLen
   !!ir (AST.sideEffect name)
   !>ir insLen

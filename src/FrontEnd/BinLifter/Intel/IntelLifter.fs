@@ -42,7 +42,7 @@ let translate (ins: IntelInternalInstruction) insLen ctxt =
   | OP.ANDN -> GeneralLifter.andn ins insLen ctxt
   | OP.ARPL -> GeneralLifter.arpl ins insLen ctxt
   | OP.BNDMOV -> GeneralLifter.bndmov ins insLen ctxt
-  | OP.BOUND -> GeneralLifter.nop insLen
+  | OP.BOUND -> GeneralLifter.nop insLen ctxt
   | OP.BSF -> GeneralLifter.bsf ins insLen ctxt
   | OP.BSR -> GeneralLifter.bsr ins insLen ctxt
   | OP.BSWAP -> GeneralLifter.bswap ins insLen ctxt
@@ -51,14 +51,14 @@ let translate (ins: IntelInternalInstruction) insLen ctxt =
   | OP.BTR -> GeneralLifter.btr ins insLen ctxt
   | OP.BTS -> GeneralLifter.bts ins insLen ctxt
   | OP.CALLNear -> GeneralLifter.call ins insLen ctxt
-  | OP.CALLFar -> LiftingUtils.sideEffects insLen UnsupportedFAR
+  | OP.CALLFar -> LiftingUtils.sideEffects ctxt insLen UnsupportedFAR
   | OP.CBW | OP.CWDE | OP.CDQE ->
     GeneralLifter.convBWQ ins insLen ctxt
   | OP.CLC -> GeneralLifter.clearFlag insLen ctxt R.CF
   | OP.CLD -> GeneralLifter.clearFlag insLen ctxt R.DF
   | OP.CLI -> GeneralLifter.clearFlag insLen ctxt R.IF
-  | OP.CLRSSBSY -> GeneralLifter.nop insLen
-  | OP.CLTS -> LiftingUtils.sideEffects insLen UnsupportedPrivInstr
+  | OP.CLRSSBSY -> GeneralLifter.nop insLen ctxt
+  | OP.CLTS -> LiftingUtils.sideEffects ctxt insLen UnsupportedPrivInstr
   | OP.CMC -> GeneralLifter.cmc ins insLen ctxt
   | OP.CMOVO | OP.CMOVNO | OP.CMOVB | OP.CMOVAE
   | OP.CMOVZ | OP.CMOVNZ | OP.CMOVBE | OP.CMOVA
@@ -71,31 +71,31 @@ let translate (ins: IntelInternalInstruction) insLen ctxt =
   | OP.CMPXCHG -> GeneralLifter.cmpxchg ins insLen ctxt
   | OP.CMPXCHG8B | OP.CMPXCHG16B ->
     GeneralLifter.compareExchangeBytes ins insLen ctxt
-  | OP.CPUID -> LiftingUtils.sideEffects insLen ProcessorID
-  | OP.CRC32 -> GeneralLifter.nop insLen
+  | OP.CPUID -> LiftingUtils.sideEffects ctxt insLen ProcessorID
+  | OP.CRC32 -> GeneralLifter.nop insLen ctxt
   | OP.CWD | OP.CDQ | OP.CQO ->
     GeneralLifter.convWDQ ins insLen ctxt
   | OP.DAA -> GeneralLifter.daa insLen ctxt
   | OP.DAS -> GeneralLifter.das insLen ctxt
   | OP.DEC -> GeneralLifter.dec ins insLen ctxt
   | OP.DIV | OP.IDIV -> GeneralLifter.div ins insLen ctxt
-  | OP.ENDBR32 | OP.ENDBR64 -> GeneralLifter.nop insLen
+  | OP.ENDBR32 | OP.ENDBR64 -> GeneralLifter.nop insLen ctxt
   | OP.ENTER -> GeneralLifter.enter ins insLen ctxt
-  | OP.HLT -> LiftingUtils.sideEffects insLen Delay
+  | OP.HLT -> LiftingUtils.sideEffects ctxt insLen Delay
   | OP.IMUL -> GeneralLifter.imul ins insLen ctxt
   | OP.INC -> GeneralLifter.inc ins insLen ctxt
-  | OP.INCSSPD | OP.INCSSPQ -> GeneralLifter.nop insLen
+  | OP.INCSSPD | OP.INCSSPQ -> GeneralLifter.nop insLen ctxt
   | OP.INSB | OP.INSW | OP.INSD ->
     GeneralLifter.insinstr ins insLen ctxt
   | OP.INT | OP.INTO -> GeneralLifter.interrupt ins insLen ctxt
-  | OP.INT3 -> LiftingUtils.sideEffects insLen Breakpoint
+  | OP.INT3 -> LiftingUtils.sideEffects ctxt insLen Breakpoint
   | OP.JMPFar | OP.JMPNear -> GeneralLifter.jmp ins insLen ctxt
   | OP.JO | OP.JNO | OP.JB | OP.JNB
   | OP.JZ | OP.JNZ | OP.JBE | OP.JA
   | OP.JS | OP.JNS | OP.JP | OP.JNP
   | OP.JL | OP.JNL | OP.JLE | OP.JG
   | OP.JECXZ | OP.JRCXZ -> GeneralLifter.jcc ins insLen ctxt
-  | OP.LAHF -> LiftingUtils.sideEffects insLen ProcessorID
+  | OP.LAHF -> LiftingUtils.sideEffects ctxt insLen ProcessorID
   | OP.LEA -> GeneralLifter.lea ins insLen ctxt
   | OP.LEAVE -> GeneralLifter.leave ins insLen ctxt
   | OP.LODSB | OP.LODSW | OP.LODSD | OP.LODSQ ->
@@ -104,7 +104,7 @@ let translate (ins: IntelInternalInstruction) insLen ctxt =
     GeneralLifter.loop ins insLen ctxt
   | OP.LZCNT -> GeneralLifter.lzcnt ins insLen ctxt
   | OP.LDS | OP.LES | OP.LFS | OP.LGS | OP.LSS ->
-    LiftingUtils.sideEffects insLen UnsupportedFAR
+    LiftingUtils.sideEffects ctxt insLen UnsupportedFAR
   | OP.MOV -> GeneralLifter.mov ins insLen ctxt
   | OP.MOVBE -> GeneralLifter.movbe ins insLen ctxt
   | OP.MOVSB | OP.MOVSW | OP.MOVSQ ->
@@ -113,7 +113,7 @@ let translate (ins: IntelInternalInstruction) insLen ctxt =
   | OP.MOVZX -> GeneralLifter.movzx ins insLen ctxt
   | OP.MUL -> GeneralLifter.mul ins insLen ctxt
   | OP.NEG -> GeneralLifter.neg ins insLen ctxt
-  | OP.NOP -> GeneralLifter.nop insLen
+  | OP.NOP -> GeneralLifter.nop insLen ctxt
   | OP.NOT -> GeneralLifter.not ins insLen ctxt
   | OP.OR -> GeneralLifter.logOr ins insLen ctxt
   | OP.OUTSB | OP.OUTSW | OP.OUTSD ->
@@ -132,25 +132,25 @@ let translate (ins: IntelInternalInstruction) insLen ctxt =
   | OP.RCL -> GeneralLifter.rcl ins insLen ctxt
   | OP.RCR -> GeneralLifter.rcr ins insLen ctxt
   | OP.RDMSR | OP.RSM ->
-    LiftingUtils.sideEffects insLen UnsupportedExtension
+    LiftingUtils.sideEffects ctxt insLen UnsupportedExtension
   | OP.RDPKRU -> GeneralLifter.rdpkru ins insLen ctxt
-  | OP.RDPMC -> LiftingUtils.sideEffects insLen UnsupportedExtension
-  | OP.RDRAND -> LiftingUtils.sideEffects insLen UnsupportedExtension
-  | OP.RDSSPD | OP.RDSSPQ -> GeneralLifter.nop insLen
-  | OP.RDTSC -> LiftingUtils.sideEffects insLen ClockCounter
-  | OP.RDTSCP -> LiftingUtils.sideEffects insLen ClockCounter
+  | OP.RDPMC -> LiftingUtils.sideEffects ctxt insLen UnsupportedExtension
+  | OP.RDRAND -> LiftingUtils.sideEffects ctxt insLen UnsupportedExtension
+  | OP.RDSSPD | OP.RDSSPQ -> GeneralLifter.nop insLen ctxt
+  | OP.RDTSC -> LiftingUtils.sideEffects ctxt insLen ClockCounter
+  | OP.RDTSCP -> LiftingUtils.sideEffects ctxt insLen ClockCounter
   | OP.RETNear -> GeneralLifter.ret ins insLen ctxt
   | OP.RETNearImm -> GeneralLifter.retWithImm ins insLen ctxt
-  | OP.RETFar -> LiftingUtils.sideEffects insLen UnsupportedFAR
-  | OP.RETFarImm -> LiftingUtils.sideEffects insLen UnsupportedFAR
+  | OP.RETFar -> LiftingUtils.sideEffects ctxt insLen UnsupportedFAR
+  | OP.RETFarImm -> LiftingUtils.sideEffects ctxt insLen UnsupportedFAR
   | OP.ROL -> GeneralLifter.rol ins insLen ctxt
   | OP.ROR -> GeneralLifter.ror ins insLen ctxt
   | OP.RORX -> GeneralLifter.rorx ins insLen ctxt
-  | OP.RSTORSSP -> GeneralLifter.nop insLen
+  | OP.RSTORSSP -> GeneralLifter.nop insLen ctxt
   | OP.SAHF -> GeneralLifter.sahf ins insLen ctxt
   | OP.SAR | OP.SHR | OP.SHL ->
     GeneralLifter.shift ins insLen ctxt
-  | OP.SAVEPREVSSP -> GeneralLifter.nop insLen
+  | OP.SAVEPREVSSP -> GeneralLifter.nop insLen ctxt
   | OP.SBB -> GeneralLifter.sbb ins insLen ctxt
   | OP.SCASB | OP.SCASW | OP.SCASD | OP.SCASQ ->
     GeneralLifter.scas ins insLen ctxt
@@ -159,7 +159,7 @@ let translate (ins: IntelInternalInstruction) insLen ctxt =
   | OP.SETS | OP.SETNS | OP.SETP | OP.SETNP
   | OP.SETL | OP.SETNL | OP.SETLE | OP.SETG ->
     GeneralLifter.setcc ins insLen ctxt
-  | OP.SETSSBSY -> GeneralLifter.nop insLen
+  | OP.SETSSBSY -> GeneralLifter.nop insLen ctxt
   | OP.SHLD -> GeneralLifter.shld ins insLen ctxt
   | OP.SHLX -> GeneralLifter.shlx ins insLen ctxt
   | OP.SHRD -> GeneralLifter.shrd ins insLen ctxt
@@ -169,36 +169,36 @@ let translate (ins: IntelInternalInstruction) insLen ctxt =
   | OP.STOSB | OP.STOSW | OP.STOSD | OP.STOSQ ->
     GeneralLifter.stos ins insLen ctxt
   | OP.SUB -> GeneralLifter.sub ins insLen ctxt
-  | OP.SYSCALL | OP.SYSENTER -> LiftingUtils.sideEffects insLen SysCall
+  | OP.SYSCALL | OP.SYSENTER -> LiftingUtils.sideEffects ctxt insLen SysCall
   | OP.SYSEXIT | OP.SYSRET ->
-    LiftingUtils.sideEffects insLen UnsupportedPrivInstr
+    LiftingUtils.sideEffects ctxt insLen UnsupportedPrivInstr
   | OP.TEST -> GeneralLifter.test ins insLen ctxt
   | OP.TZCNT -> GeneralLifter.tzcnt ins insLen ctxt
-  | OP.UD2 -> LiftingUtils.sideEffects insLen UndefinedInstr
-  | OP.WBINVD -> LiftingUtils.sideEffects insLen UnsupportedPrivInstr
+  | OP.UD2 -> LiftingUtils.sideEffects ctxt insLen UndefinedInstr
+  | OP.WBINVD -> LiftingUtils.sideEffects ctxt insLen UnsupportedPrivInstr
   | OP.WRFSBASE -> GeneralLifter.wrfsbase ins insLen ctxt
   | OP.WRGSBASE -> GeneralLifter.wrgsbase ins insLen ctxt
   | OP.WRPKRU -> GeneralLifter.wrpkru ins insLen ctxt
-  | OP.WRMSR -> LiftingUtils.sideEffects insLen UnsupportedPrivInstr
-  | OP.WRSSD | OP.WRSSQ -> GeneralLifter.nop insLen
-  | OP.WRUSSD | OP.WRUSSQ -> GeneralLifter.nop insLen
-  | OP.XABORT -> LiftingUtils.sideEffects insLen UnsupportedExtension
+  | OP.WRMSR -> LiftingUtils.sideEffects ctxt insLen UnsupportedPrivInstr
+  | OP.WRSSD | OP.WRSSQ -> GeneralLifter.nop insLen ctxt
+  | OP.WRUSSD | OP.WRUSSQ -> GeneralLifter.nop insLen ctxt
+  | OP.XABORT -> LiftingUtils.sideEffects ctxt insLen UnsupportedExtension
   | OP.XADD -> GeneralLifter.xadd ins insLen ctxt
-  | OP.XBEGIN -> LiftingUtils.sideEffects insLen UnsupportedExtension
+  | OP.XBEGIN -> LiftingUtils.sideEffects ctxt insLen UnsupportedExtension
   | OP.XCHG -> GeneralLifter.xchg ins insLen ctxt
-  | OP.XEND -> LiftingUtils.sideEffects insLen UnsupportedExtension
-  | OP.XGETBV -> LiftingUtils.sideEffects insLen UnsupportedExtension
+  | OP.XEND -> LiftingUtils.sideEffects ctxt insLen UnsupportedExtension
+  | OP.XGETBV -> LiftingUtils.sideEffects ctxt insLen UnsupportedExtension
   | OP.XLATB -> GeneralLifter.xlatb ins insLen ctxt
   | OP.XOR -> GeneralLifter.xor ins insLen ctxt
   | OP.XRSTOR | OP.XRSTORS | OP.XSAVE | OP.XSAVEC
   | OP.XSAVEC64 | OP.XSAVEOPT | OP.XSAVES | OP.XSAVES64 ->
-    LiftingUtils.sideEffects insLen UnsupportedExtension
-  | OP.XTEST -> LiftingUtils.sideEffects insLen UnsupportedExtension
+    LiftingUtils.sideEffects ctxt insLen UnsupportedExtension
+  | OP.XTEST -> LiftingUtils.sideEffects ctxt insLen UnsupportedExtension
   | OP.IN | OP.INVD | OP.INVLPG | OP.IRET | OP.IRETQ | OP.IRETW | OP.IRETD
   | OP.LAR | OP.LGDT | OP.LIDT | OP.LLDT
   | OP.LMSW | OP.LSL | OP.LTR | OP.OUT | OP.SGDT
   | OP.SIDT | OP.SLDT | OP.SMSW | OP.STR | OP.VERR ->
-    LiftingUtils.sideEffects insLen UnsupportedPrivInstr
+    LiftingUtils.sideEffects ctxt insLen UnsupportedPrivInstr
   | OP.MOVD -> MMXLifter.movd ins insLen ctxt
   | OP.MOVQ -> MMXLifter.movq ins insLen ctxt
   | OP.PACKSSDW -> MMXLifter.packssdw ins insLen ctxt
@@ -312,7 +312,7 @@ let translate (ins: IntelInternalInstruction) insLen ctxt =
   | OP.ORPD -> SSELifter.orpd ins insLen ctxt (* SSE2 *)
   | OP.XORPS -> SSELifter.xorps ins insLen ctxt
   | OP.XORPD -> SSELifter.xorpd ins insLen ctxt (* SSE2 *)
-  | OP.XSETBV -> LiftingUtils.sideEffects insLen UnsupportedPrivInstr
+  | OP.XSETBV -> LiftingUtils.sideEffects ctxt insLen UnsupportedPrivInstr
   | OP.SHUFPS -> SSELifter.shufps ins insLen ctxt
   | OP.SHUFPD -> SSELifter.shufpd ins insLen ctxt (* SSE2 *)
   | OP.UNPCKHPS -> SSELifter.unpckhps ins insLen ctxt
@@ -381,12 +381,12 @@ let translate (ins: IntelInternalInstruction) insLen ctxt =
   | OP.MOVNTPS -> SSELifter.movntps ins insLen ctxt
   | OP.PREFETCHNTA
   | OP.PREFETCHT0 | OP.PREFETCHT1
-  | OP.PREFETCHW | OP.PREFETCHT2 -> GeneralLifter.nop insLen
-  | OP.SFENCE -> LiftingUtils.sideEffects insLen Fence
-  | OP.CLFLUSH -> GeneralLifter.nop insLen (* SSE2 *)
-  | OP.LFENCE -> LiftingUtils.sideEffects insLen Fence (* SSE2 *)
-  | OP.MFENCE -> LiftingUtils.sideEffects insLen Fence (* SSE2 *)
-  | OP.PAUSE -> LiftingUtils.sideEffects insLen Delay (* SSE2 *)
+  | OP.PREFETCHW | OP.PREFETCHT2 -> GeneralLifter.nop insLen ctxt
+  | OP.SFENCE -> LiftingUtils.sideEffects ctxt insLen Fence
+  | OP.CLFLUSH -> GeneralLifter.nop insLen ctxt (* SSE2 *)
+  | OP.LFENCE -> LiftingUtils.sideEffects ctxt insLen Fence (* SSE2 *)
+  | OP.MFENCE -> LiftingUtils.sideEffects ctxt insLen Fence (* SSE2 *)
+  | OP.PAUSE -> LiftingUtils.sideEffects ctxt insLen Delay (* SSE2 *)
   | OP.MOVNTPD -> SSELifter.movntpd ins insLen ctxt (* SSE2 *)
   | OP.MOVNTDQ -> SSELifter.movntdq ins insLen ctxt (* SSE2 *)
   | OP.MOVNTI -> SSELifter.movnti ins insLen ctxt (* SSE2 *)
@@ -470,7 +470,7 @@ let translate (ins: IntelInternalInstruction) insLen ctxt =
   | OP.VEXTRACTF32X8 -> AVXLifter.vextracti32x8 ins insLen ctxt
   | OP.VEXTRACTI64X4 -> AVXLifter.vextracti64x4 ins insLen ctxt
   | OP.VINSERTI128 -> AVXLifter.vinserti128 ins insLen ctxt
-  | OP.VMPTRLD -> LiftingUtils.sideEffects insLen UnsupportedExtension
+  | OP.VMPTRLD -> LiftingUtils.sideEffects ctxt insLen UnsupportedExtension
   | OP.VPADDB -> AVXLifter.vpaddb ins insLen ctxt
   | OP.VPADDD -> AVXLifter.vpaddd ins insLen ctxt
   | OP.VPADDQ -> AVXLifter.vpaddq ins insLen ctxt
@@ -509,7 +509,7 @@ let translate (ins: IntelInternalInstruction) insLen ctxt =
   | OP.VPXORD -> AVXLifter.vpxord ins insLen ctxt
   | OP.VZEROUPPER -> AVXLifter.vzeroupper ins insLen ctxt
   | OP.VEXTRACTI32X8 -> AVXLifter.vextracti32x8 ins insLen ctxt
-  | OP.VERW -> LiftingUtils.sideEffects insLen UnsupportedPrivInstr
+  | OP.VERW -> LiftingUtils.sideEffects ctxt insLen UnsupportedPrivInstr
   | OP.VFMADD132SD -> AVXLifter.vfmadd132sd ins insLen ctxt
   | OP.VFMADD213SD -> AVXLifter.vfmadd213sd ins insLen ctxt
   | OP.VFMADD231SD -> AVXLifter.vfmadd231sd ins insLen ctxt
@@ -609,7 +609,7 @@ let translate (ins: IntelInternalInstruction) insLen ctxt =
          eprintfn "%A" o
          eprintfn "%A" ins
 #endif
-         LiftingUtils.sideEffects insLen UnsupportedExtension
+         LiftingUtils.sideEffects ctxt insLen UnsupportedExtension
          // raise <| NotImplementedIRException (Disasm.opCodeToString o)
 
 // vim: set tw=80 sts=2 sw=2:

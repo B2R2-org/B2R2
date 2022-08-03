@@ -66,7 +66,7 @@ let private movdMemToReg ctxt src r ir =
   | _ -> Utils.impossible ()
 
 let movd ins insLen ctxt =
-  let ir = IRBuilder (8)
+  let ir = !*ctxt
   let struct (dst, src) = getTwoOprs ins
   !<ir insLen
   match dst, src  with
@@ -109,7 +109,7 @@ let private movqMemToReg ctxt src r ir =
   | _ -> Utils.impossible ()
 
 let movq ins insLen ctxt =
-  let ir = IRBuilder (4)
+  let ir = !*ctxt
   let struct (dst, src) = getTwoOprs ins
   !<ir insLen
   match dst, src with
@@ -177,7 +177,7 @@ let private makeSrc ir packSize packNum src =
   tSrc
 
 let private buildPackedTwoOprs ins insLen ctxt packSz opFn bufSz dst src =
-  let ir = IRBuilder (bufSz)
+  let ir = !*ctxt
   let oprSize = getOperationSize ins
   let packNum = oprSize / packSz
   let makeSrc = makeSrc ir packSz
@@ -206,7 +206,7 @@ let private buildPackedTwoOprs ins insLen ctxt packSz opFn bufSz dst src =
   !>ir insLen
 
 let private buildPackedThreeOprs ins iLen ctxt packSz opFn bufSz dst s1 s2 =
-  let ir = IRBuilder (bufSz)
+  let ir = !*ctxt
   let oprSize = getOperationSize ins
   let packNum = oprSize / packSz
   let makeSrc = makeSrc ir packSz
@@ -452,7 +452,7 @@ let por ins insLen ctxt =
   buildPackedInstr ins insLen ctxt 64<rt> opPor 8
 
 let pxor ins insLen ctxt =
-  let ir = IRBuilder (4)
+  let ir = !*ctxt
   let oprSize = getOperationSize ins
   !<ir insLen
   match oprSize with
@@ -522,7 +522,7 @@ let psrad ins insLen ctxt =
   buildPackedInstr ins insLen ctxt 32<rt> opPsrad 16
 
 let emms _ins insLen ctxt =
-  let ir = IRBuilder (4)
+  let ir = !*ctxt
   !<ir insLen
   !!ir (!.ctxt R.FTW := maxNum 16<rt>)
   !>ir insLen
