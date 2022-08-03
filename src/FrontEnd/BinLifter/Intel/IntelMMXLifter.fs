@@ -35,7 +35,7 @@ open B2R2.FrontEnd.BinLifter.Intel
 open B2R2.FrontEnd.BinLifter.Intel.LiftingUtils
 
 let private movdRegToReg ctxt r1 r2 ir =
-  let tmp = !*ir 32<rt>
+  let tmp = !+ir 32<rt>
   match Register.getKind r1, Register.getKind r2 with
   | Register.Kind.XMM, _ ->
     !!ir (getPseudoRegVar ctxt r1 1 := AST.zext 64<rt> (!.ctxt r2))
@@ -171,7 +171,7 @@ let private saturateToUnsignedWord expr =
   AST.ite checkMin minNum (AST.ite checkMax maxNum expr)
 
 let private makeSrc ir packSize packNum src =
-  let tSrc = Array.init packNum (fun _ -> !*ir packSize)
+  let tSrc = Array.init packNum (fun _ -> !+ir packSize)
   for i in 0 .. packNum - 1 do
     !!ir (tSrc[i] := AST.extract src packSize (i * (int packSize)))
   tSrc

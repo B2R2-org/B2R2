@@ -395,7 +395,7 @@ let private makeAssignForVecMove ePrx k src dst idx =
              (makeIteMovMem ePrx k idx src dst AST.xtlo)
 
 let private makeAssignForEVEX ir ePrx k dst s1 s2 src2A src2 idx opFn =
-  let tmps = Array.init 2 (fun _ -> !*ir 32<rt>)
+  let tmps = Array.init 2 (fun _ -> !+ir 32<rt>)
   for i in 0 .. 1 do
     let s1 = AST.extract s1 32<rt> (i * 32)
     let s2 = AST.extract s2 32<rt> (i * 32)
@@ -583,7 +583,7 @@ let private fillZeroFromVLToMaxVL ctxt dst vl maxVl ir =
 
 let private makeAssignWithMaskR32 ir ePrx k elemSz dst src idx =
   let elemNum = 64 / int elemSz
-  let tmps = Array.init elemNum (fun _ -> !*ir elemSz)
+  let tmps = Array.init elemNum (fun _ -> !+ir elemSz)
   for i in 0 .. (elemNum - 1) do
     let pos = i * int elemSz
     let dst = AST.extract dst elemSz pos
@@ -593,7 +593,7 @@ let private makeAssignWithMaskR32 ir ePrx k elemSz dst src idx =
 
 let private makeAssignWithMask ir ePrx k elemSz dst src idx =
   let elemNum = 64 / int elemSz
-  let tmps = Array.init elemNum (fun _ -> !*ir elemSz)
+  let tmps = Array.init elemNum (fun _ -> !+ir elemSz)
   for i in 0 .. (elemNum - 1) do
     let pos = i * int elemSz
     let dst = AST.extract dst elemSz pos
@@ -604,7 +604,7 @@ let private makeAssignWithMask ir ePrx k elemSz dst src idx =
 
 let private makeAssignWithoutMask ir ePrx k elemSz dst src idx =
   let elemNum = 64 / int elemSz
-  let tmps = Array.init elemNum (fun _ -> !*ir elemSz)
+  let tmps = Array.init elemNum (fun _ -> !+ir elemSz)
   for i in 0 .. (elemNum - 1) do
     let pos = i * int elemSz
     let dst = AST.extract dst elemSz pos
@@ -1171,11 +1171,11 @@ let vshufi32x4 ins insLen ctxt =
       transOprToExpr512 ins insLen ctxt src2
     let struct (tDstD, tDstC, tDstB, tDstA) = tmpVars4 ir 64<rt>
     let struct (tDstH, tDstG, tDstF, tDstE) = tmpVars4 ir 64<rt>
-    let tS2Arr = Array.init (kl / 2) (fun _ -> !*ir 64<rt>)
+    let tS2Arr = Array.init (kl / 2) (fun _ -> !+ir 64<rt>)
     let src2Arr = [| src2A; src2B; src2C; src2D; src2E; src2F; src2G; src2H |]
     match src2 with
     | OprMem _ when ePrx.B = 1uy ->
-      let tSrcA = !*ir 64<rt>
+      let tSrcA = !+ir 64<rt>
       let tSrcA32 (* SRC2[31:0] *) = AST.extract src2A 32<rt> 0
       !!ir (tSrcA := AST.concat tSrcA32 tSrcA32)
       for i in 0 .. (kl / 2) - 1 do !!ir (tS2Arr[i] := tSrcA)
@@ -1422,7 +1422,7 @@ let vbroadcastss ins insLen ctxt =
   let ir = IRBuilder (32)
   let struct (dst, src) = getTwoOprs ins
   let src = transOprToExpr32 ins insLen ctxt src
-  let tmp = !*ir 32<rt>
+  let tmp = !+ir 32<rt>
   !<ir insLen
   match getOperationSize ins with
   | 128<rt> ->
@@ -1529,7 +1529,7 @@ let vinserti128 ins insLen ctxt =
   let src1D, src1C, src1B, src1A = transOprToExpr256 ins insLen ctxt src1
   let src2B, src2A = transOprToExpr128 ins insLen ctxt src2
   let imm = transOprToExpr ins insLen ctxt imm
-  let cond = !*ir 1<rt>
+  let cond = !+ir 1<rt>
   !<ir insLen
   !!ir (cond := AST.xtlo 1<rt> imm)
   !!ir (dstA := AST.ite cond src1A src2A)
@@ -1656,12 +1656,12 @@ let vpbroadcastb ins insLen ctxt =
       | OprMem _ -> transOprToExpr ins insLen ctxt src
       | _ -> raise InvalidOperandException
       |> AST.xtlo 8<rt>
-    let tSrc = !*ir 8<rt>
+    let tSrc = !+ir 8<rt>
     !<ir insLen
     !!ir (tSrc := src)
-    let tmps = Array.init 8 (fun _ -> !*ir 8<rt>)
+    let tmps = Array.init 8 (fun _ -> !+ir 8<rt>)
     for i in 0 .. 7 do !!ir (tmps[i] := tSrc) done
-    let t = !*ir 64<rt>
+    let t = !+ir 64<rt>
     !!ir (t := AST.concatArr tmps)
     match oprSize with
     | 128<rt> ->
@@ -1682,7 +1682,7 @@ let vpbroadcastd ins insLen ctxt =
   let ir = IRBuilder (8)
   let struct (dst, src) = getTwoOprs ins
   let oprSize = getOperationSize ins
-  let temp = !*ir 32<rt>
+  let temp = !+ir 32<rt>
   let src =
     match src with
     | OprReg r ->
@@ -1754,7 +1754,7 @@ let vpinsrd ins insLen ctxt =
   let sel = getImmValue count &&& 0b11L (* COUNT[1:0] *)
   let mask = numI64 (0xFFFFFFFFL <<< ((int32 sel * 32) % 64)) 64<rt>
   let amount = sel * 32L
-  let t = !*ir 64<rt>
+  let t = !+ir 64<rt>
   let expAmt = numI64 (amount % 64L) 64<rt>
   !<ir insLen
   !!ir (t := ((AST.zext 64<rt> src2) << expAmt) .& mask)
@@ -1794,8 +1794,8 @@ let vpshufb ins insLen ctxt =
     let dstB, dstA = transOprToExpr128 ins insLen ctxt dst
     let src1B, src1A = transOprToExpr128 ins insLen ctxt src1
     let src2B, src2A = transOprToExpr128 ins insLen ctxt src2
-    let highTmps = Array.init 8 (fun _ -> !*ir 8<rt>)
-    let lowTmps = Array.init 8 (fun _ -> !*ir 8<rt>)
+    let highTmps = Array.init 8 (fun _ -> !+ir 8<rt>)
+    let lowTmps = Array.init 8 (fun _ -> !+ir 8<rt>)
     let struct (tSrc1, tSrc2) = tmpVars2 ir 64<rt>
     for i in 0 .. cnt - 1 do
       !!ir (tSrc2 := if i < 8 then src2A else src2B)
@@ -1815,10 +1815,10 @@ let vpshufb ins insLen ctxt =
     let dstD, dstC, dstB, dstA = transOprToExpr256 ins insLen ctxt dst
     let src1D, src1C, src1B, src1A = transOprToExpr256 ins insLen ctxt src1
     let src2D, src2C, src2B, src2A = transOprToExpr256 ins insLen ctxt src2
-    let tmpsA = Array.init 8 (fun _ -> !*ir 8<rt>)
-    let tmpsB = Array.init 8 (fun _ -> !*ir 8<rt>)
-    let tmpsC = Array.init 8 (fun _ -> !*ir 8<rt>)
-    let tmpsD = Array.init 8 (fun _ -> !*ir 8<rt>)
+    let tmpsA = Array.init 8 (fun _ -> !+ir 8<rt>)
+    let tmpsB = Array.init 8 (fun _ -> !+ir 8<rt>)
+    let tmpsC = Array.init 8 (fun _ -> !+ir 8<rt>)
+    let tmpsD = Array.init 8 (fun _ -> !+ir 8<rt>)
     let struct (tSrc1, tSrc2) = tmpVars2 ir 64<rt>
     let src1 = [| src1A; src1B; src1C; src1D  |]
     let src2 = [| src2A; src2B; src2C; src2D  |]
@@ -1854,20 +1854,20 @@ let vpshufb ins insLen ctxt =
       transOprToExpr512 ins insLen ctxt src1
     let src2H, src2G, src2F, src2E, src2D, src2C, src2B, src2A =
       transOprToExpr512 ins insLen ctxt src2
-    let tmpsA = Array.init 8 (fun _ -> !*ir 8<rt>)
-    let tmpsB = Array.init 8 (fun _ -> !*ir 8<rt>)
-    let tmpsC = Array.init 8 (fun _ -> !*ir 8<rt>)
-    let tmpsD = Array.init 8 (fun _ -> !*ir 8<rt>)
-    let tmpsE = Array.init 8 (fun _ -> !*ir 8<rt>)
-    let tmpsF = Array.init 8 (fun _ -> !*ir 8<rt>)
-    let tmpsG = Array.init 8 (fun _ -> !*ir 8<rt>)
-    let tmpsH = Array.init 8 (fun _ -> !*ir 8<rt>)
+    let tmpsA = Array.init 8 (fun _ -> !+ir 8<rt>)
+    let tmpsB = Array.init 8 (fun _ -> !+ir 8<rt>)
+    let tmpsC = Array.init 8 (fun _ -> !+ir 8<rt>)
+    let tmpsD = Array.init 8 (fun _ -> !+ir 8<rt>)
+    let tmpsE = Array.init 8 (fun _ -> !+ir 8<rt>)
+    let tmpsF = Array.init 8 (fun _ -> !+ir 8<rt>)
+    let tmpsG = Array.init 8 (fun _ -> !+ir 8<rt>)
+    let tmpsH = Array.init 8 (fun _ -> !+ir 8<rt>)
     let src1 = [| src1A; src1B; src1C; src1D; src1E; src1F; src1G; src1H |]
     let src2 = [| src2A; src2B; src2C; src2D; src2E; src2F; src2G; src2H |]
     let struct (tSrc1, tSrc2) = tmpVars2 ir 64<rt>
     let numF = numU32 0xFu 8<rt>
     let n0 = AST.num0 8<rt>
-    let jmask = !*ir 8<rt>
+    let jmask = !+ir 8<rt>
     let ePrx = getEVEXPrx ins.VEXInfo
     let k = !.ctxt (ePrx.AAA |> Disasm.getOpmaskRegister)
     let lblNoMask = ir.NewSymbol "NoMasking"
@@ -2185,7 +2185,7 @@ let vpxor ins insLen ctxt =
   !>ir insLen
 
 let private makeAssignForEVEXWithDst ir ePrx k s1 s2 src2A dstA src2 idx =
-  let tmps = Array.init 2 (fun _ -> !*ir 32<rt>)
+  let tmps = Array.init 2 (fun _ -> !+ir 32<rt>)
   for i in 0 .. 1 do
     let s1 = AST.extract s1 32<rt> (i * 32)
     let s2 = AST.extract s2 32<rt> (i * 32)
@@ -2285,7 +2285,7 @@ let vfmadd132sd ins insLen ctxt =
   let _dstB, dstA = transOprToExpr128 ins insLen ctxt dst
   let src2 = transOprToExpr64 ins insLen ctxt src2
   let src3 = transOprToExpr64 ins insLen ctxt src3
-  let tmp = !*ir 64<rt>
+  let tmp = !+ir 64<rt>
   !<ir insLen
   !!ir (tmp := AST.fmul dstA src3)
   !!ir (dstA := AST.fadd tmp src2)
@@ -2298,7 +2298,7 @@ let vfmadd213sd ins insLen ctxt =
   let _dstB, dstA = transOprToExpr128 ins insLen ctxt dst
   let src2 = transOprToExpr64 ins insLen ctxt src2
   let src3 = transOprToExpr64 ins insLen ctxt src3
-  let tmp = !*ir 64<rt>
+  let tmp = !+ir 64<rt>
   !<ir insLen
   !!ir (tmp := AST.fmul dstA src2)
   !!ir (dstA := AST.fadd tmp src3)
@@ -2311,7 +2311,7 @@ let vfmadd231sd ins insLen ctxt =
   let _dstB, dstA = transOprToExpr128 ins insLen ctxt dst
   let src2 = transOprToExpr64 ins insLen ctxt src2
   let src3 = transOprToExpr64 ins insLen ctxt src3
-  let tmp = !*ir 64<rt>
+  let tmp = !+ir 64<rt>
   !<ir insLen
   !!ir (tmp := AST.fmul src2 src3)
   !!ir (dstA := AST.fadd dstA tmp)

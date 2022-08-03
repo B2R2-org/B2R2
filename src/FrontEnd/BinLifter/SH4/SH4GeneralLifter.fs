@@ -113,13 +113,13 @@ let trsMemOpr4toExpr ins ctxt =
   | _ -> Utils.impossible()
 
 let inline tmpVars2 ir t =
-  struct (!*ir t, !*ir t)
+  struct (!+ir t, !+ir t)
 
 let inline tmpVars3 ir t =
-  struct (!*ir t, !*ir t, !*ir t)
+  struct (!+ir t, !+ir t, !+ir t)
 
 let inline tmpVars4 ir t =
-  struct (!*ir t, !*ir t, !*ir t, !*ir t)
+  struct (!+ir t, !+ir t, !+ir t, !+ir t)
 
 let illSlot1 ir len ctxt =
   !<ir len
@@ -235,8 +235,8 @@ let add ins len ctxt =
   match src.E with
   | Num n ->
     let ir = IRBuilder (8)
-    let t1 = !*ir 8<rt>
-    let t2 = !*ir 32<rt>
+    let t1 = !+ir 8<rt>
+    let t2 = !+ir 32<rt>
     !<ir len
     !!ir (t1 := n |> AST.num |> AST.sext 8<rt>)
     !!ir (t2 := dst |> AST.sext 32<rt>)
@@ -260,7 +260,7 @@ let addc ins len ctxt =
   let oprSize = 32<rt>
   let ir = IRBuilder (16)
   let struct (t1,t2) = tmpVars2 ir oprSize
-  let t = !*ir 1<rt>
+  let t = !+ir 1<rt>
   !<ir len
   !!ir (t := AST.zext 1<rt> (!.ctxt R.T))
   !!ir (t1 := AST.zext 32<rt> <| AST.sext 32<rt> src)
@@ -276,7 +276,7 @@ let addv ins len ctxt =
   let oprSize = 32<rt>
   let ir = IRBuilder (8)
   let struct (t1,t2) = tmpVars2 ir oprSize
-  let t = !*ir 1<rt>
+  let t = !+ir 1<rt>
   !<ir len
   !!ir (t1 := AST.sext 32<rt> src)
   !!ir (t2 := AST.sext 32<rt> dst)
@@ -291,8 +291,8 @@ let ``and`` ins len ctxt =
   match src.E with
   | Num n ->
     let ir = IRBuilder (8)
-    let t1 = !*ir 8<rt>
-    let t2 = !*ir 32<rt>
+    let t1 = !+ir 8<rt>
+    let t2 = !+ir 32<rt>
     !<ir len
     !!ir (t1 := n |> AST.num |> AST.zext 8<rt>)
     !!ir (t2 := AST.zext 32<rt> dst)
@@ -329,9 +329,9 @@ let andb ins len ctxt =
 let bfHelper ir ins len ctxt =
   let disp = trsOneOpr ins ctxt
   let struct (pc, newPC, delayedPC) = tmpVars3 ir 32<rt>
-  let t = !*ir 1<rt>
-  let label = !*ir 8<rt>
-  let temp = !*ir 32<rt>
+  let t = !+ir 1<rt>
+  let label = !+ir 8<rt>
+  let temp = !+ir 32<rt>
   !<ir len
   !!ir (t := !.ctxt R.T |> AST.zext 1<rt>)
   !!ir (pc := !.ctxt R.PC |> AST.sext 32<rt>)
@@ -353,9 +353,9 @@ let bf ins len ctxt =
 let bfsHelper ir ins len ctxt =
   let disp = trsOneOpr ins ctxt
   let struct (pc, delayedPC) = tmpVars2 ir 32<rt>
-  let t = !*ir 1<rt>
-  let label = !*ir 8<rt>
-  let temp = !*ir 32<rt>
+  let t = !+ir 1<rt>
+  let label = !+ir 8<rt>
+  let temp = !+ir 32<rt>
   !<ir len
   !!ir (t := !.ctxt R.T |> AST.zext 1<rt>)
   !!ir (pc := !.ctxt R.PC |> AST.sext 32<rt>)
@@ -378,7 +378,7 @@ let bfs ins len ctxt =
 let braHelper ir ins len ctxt =
   let disp = trsOneOpr ins ctxt
   let struct (pc, temp, delayedPC) = tmpVars3 ir 32<rt>
-  let label = !*ir 12<rt>
+  let label = !+ir 12<rt>
   !<ir len
   !!ir (pc := AST.sext 32<rt> pc)
   !!ir (label := AST.sext 12<rt> disp)
@@ -419,7 +419,7 @@ let braf ins len ctxt =
 let bsrHelper ir ins len ctxt =
   let disp = trsOneOpr ins ctxt
   let struct (pc, delayedPR, temp, delayedPC) = tmpVars4 ir 32<rt>
-  let label = !*ir 12<rt>
+  let label = !+ir 12<rt>
   !<ir len
   !!ir (pc := !.ctxt R.PC |> AST.sext 32<rt>)
   !!ir (label := (AST.sext 32<rt> disp) << AST.b1)
@@ -442,7 +442,7 @@ let bsr ins len ctxt =
 let bsrfHelper ir ins len ctxt =
   let dst = trsOneOpr ins ctxt
   let struct (pc, delayedPR, op1, delayedPC) = tmpVars4 ir 32<rt>
-  let target = !*ir 32<rt>
+  let target = !+ir 32<rt>
   !<ir len
   !!ir (pc := !.ctxt R.PC |> AST.sext 32<rt>)
   !!ir (op1 := AST.sext 32<rt> dst)
@@ -465,8 +465,8 @@ let bsrf ins len ctxt =
 let btHelper ir ins len ctxt =
   let disp = trsOneOpr ins ctxt
   let struct (pc, newPC, delayedPC, temp) = tmpVars4 ir 32<rt>
-  let t = !*ir 1<rt>
-  let label = !*ir 8<rt>
+  let t = !+ir 1<rt>
+  let label = !+ir 8<rt>
   !<ir len
   !!ir (t := !.ctxt R.T |> AST.zext 1<rt>)
   !!ir (pc := !.ctxt R.PC |> AST.sext 32<rt>)
@@ -488,8 +488,8 @@ let bt ins len ctxt =
 let btsHelper ir ins len ctxt =
   let disp = trsOneOpr ins ctxt
   let struct (pc, delayedPC, temp) = tmpVars3 ir 32<rt>
-  let t = !*ir 1<rt>
-  let label = !*ir 8<rt>
+  let t = !+ir 1<rt>
+  let label = !+ir 8<rt>
   !<ir len
   !!ir (t := !.ctxt R.T |> AST.zext 1<rt>)
   !!ir (pc := !.ctxt R.PC |> AST.sext 32<rt>)
@@ -521,7 +521,7 @@ let clrmac ins len ctxt =
 
 let clrs len ctxt =
   let ir = IRBuilder (4)
-  let s = !*ir 1<rt>
+  let s = !+ir 1<rt>
   !<ir len
   !!ir (s := AST.b0)
   !!ir (!.ctxt R.S := AST.extract s 1<rt> 1)
@@ -529,7 +529,7 @@ let clrs len ctxt =
 
 let clrt len ctxt =
   let ir = IRBuilder (4)
-  let t = !*ir 1<rt>
+  let t = !+ir 1<rt>
   !<ir len
   !!ir (t := AST.b0)
   !!ir (!.ctxt R.T := AST.extract t 1<rt> 1)
@@ -540,9 +540,9 @@ let cmpeq ins len ctxt =
   match src.E with
   | Num n ->
     let ir = IRBuilder (8)
-    let r0 = !*ir 32<rt>
-    let imm = !*ir 8<rt>
-    let t = !*ir 1<rt>
+    let r0 = !+ir 32<rt>
+    let imm = !+ir 8<rt>
+    let t = !+ir 1<rt>
     !<ir len
     !!ir (r0 := AST.sext 32<rt> (!.ctxt R.R0))
     !!ir (imm := AST.sext 8<rt> (AST.num n))
@@ -552,7 +552,7 @@ let cmpeq ins len ctxt =
   | Var (_,_,r,_) ->
     let ir = IRBuilder (8)
     let struct (op1, op2) = tmpVars2 ir 32<rt>
-    let t = !*ir 1<rt>
+    let t = !+ir 1<rt>
     !<ir len
     !!ir (op1 := (r |> Register.ofString |> !.ctxt |> AST.sext 32<rt>))
     !!ir (op2 := AST.sext 32<rt> dst)
@@ -565,7 +565,7 @@ let cmpge ins len ctxt =
   let struct (src, dst) = trsTwoOpr ins ctxt
   let ir = IRBuilder (8)
   let struct (op1, op2) = tmpVars2 ir 32<rt>
-  let t = !*ir 1<rt>
+  let t = !+ir 1<rt>
   !<ir len
   !!ir (op1 := src |> AST.sext 32<rt>)
   !!ir (op2 := AST.sext 32<rt> dst)
@@ -577,7 +577,7 @@ let cmpgt ins len ctxt=
   let struct (src, dst) = trsTwoOpr ins ctxt
   let ir = IRBuilder (8)
   let struct (op1, op2) = tmpVars2 ir 32<rt>
-  let t = !*ir 1<rt>
+  let t = !+ir 1<rt>
   !<ir len
   !!ir (op1 := src |> AST.sext 32<rt>)
   !!ir (op2 := AST.sext 32<rt> dst)
@@ -589,7 +589,7 @@ let cmphi ins len ctxt =
   let struct (src, dst) = trsTwoOpr ins ctxt
   let ir = IRBuilder (8)
   let struct (op1, op2) = tmpVars2 ir 32<rt>
-  let t = !*ir 1<rt>
+  let t = !+ir 1<rt>
   !<ir len
   !!ir (op1 := src |> AST.zext 32<rt>)
   !!ir (op2 := AST.zext 32<rt> dst)
@@ -601,7 +601,7 @@ let cmphs ins len ctxt =
   let struct (src, dst) = trsTwoOpr ins ctxt
   let ir = IRBuilder (8)
   let struct (op1, op2) = tmpVars2 ir 32<rt>
-  let t = !*ir 1<rt>
+  let t = !+ir 1<rt>
   !<ir len
   !!ir (op1 := src |> AST.zext 32<rt>)
   !!ir (op2 := AST.zext 32<rt> dst)
@@ -612,8 +612,8 @@ let cmphs ins len ctxt =
 let cmppl ins len ctxt =
   let dst = trsOneOpr ins ctxt
   let ir = IRBuilder (4)
-  let op1 = !*ir 32<rt>
-  let t = !*ir 1<rt>
+  let op1 = !+ir 32<rt>
+  let t = !+ir 1<rt>
   !<ir len
   !!ir (op1 := AST.sext 32<rt> dst)
   !!ir (t := op1 ?> AST.b0)
@@ -623,8 +623,8 @@ let cmppl ins len ctxt =
 let cmppz ins len ctxt =
   let dst = trsOneOpr ins ctxt
   let ir = IRBuilder (8)
-  let op1 = !*ir 32<rt>
-  let t = !*ir 1<rt>
+  let op1 = !+ir 32<rt>
+  let t = !+ir 1<rt>
   !<ir len
   !!ir (op1 := AST.sext 32<rt> dst)
   !!ir (t := op1 ?>= AST.b0)
@@ -635,7 +635,7 @@ let cmpstr ins len ctxt =
   let struct (src, dst) = trsTwoOpr ins ctxt
   let ir = IRBuilder (16)
   let struct (op1, op2, temp) = tmpVars3 ir 32<rt>
-  let t = !*ir 1<rt>
+  let t = !+ir 1<rt>
   !<ir len
   !!ir (op1 := AST.sext 32<rt> src)
   !!ir (op2 := AST.sext 32<rt> dst)
@@ -679,7 +679,7 @@ let div1 ins len ctxt =
   let struct (src, dst) = trsTwoOpr ins ctxt
   let ir = IRBuilder (16)
   let struct (q, m, t) = tmpVars3 ir 1<rt>
-  let oldq = !*ir 1<rt>
+  let oldq = !+ir 1<rt>
   let struct (op1, op2) = tmpVars2 ir 32<rt>
   !<ir len
   !!ir (q := !.ctxt R.Q |> AST.zext 1<rt>)
@@ -702,7 +702,7 @@ let dmulsl ins len ctxt =
   let struct (src, dst) = trsTwoOpr ins ctxt
   let ir = IRBuilder (16)
   let struct (op1, op2) = tmpVars2 ir 32<rt>
-  let mac = !*ir 64<rt>
+  let mac = !+ir 64<rt>
   let struct (macl, mach) = tmpVars2 ir 32<rt>
   !<ir len
   !!ir (op1 := AST.sext 32<rt> src)
@@ -718,7 +718,7 @@ let dmulul ins len ctxt =
   let struct (src, dst) = trsTwoOpr ins ctxt
   let ir = IRBuilder (16)
   let struct (op1, op2) = tmpVars2 ir 32<rt>
-  let mac = !*ir 64<rt>
+  let mac = !+ir 64<rt>
   let struct (macl, mach) = tmpVars2 ir 32<rt>
   !<ir len
   !!ir (op1 := AST.sext 32<rt> src |> AST.zext 32<rt>)
@@ -733,8 +733,8 @@ let dmulul ins len ctxt =
 let dt ins len ctxt =
   let dst = trsOneOpr ins ctxt
   let ir = IRBuilder (8)
-  let op1 = !*ir 32<rt>
-  let t = !*ir 1<rt>
+  let op1 = !+ir 32<rt>
+  let t = !+ir 1<rt>
   !<ir len
   !!ir (op1 := AST.sext 32<rt> dst)
   !!ir (op1 := op1 .- AST.b1)
@@ -798,8 +798,8 @@ let fabs ins len ctxt =
       !!ir (dst := op1)
       !>ir len
     else
-      let sr = !*ir 32<rt>
-      let op1 = !*ir 64<rt>
+      let sr = !+ir 32<rt>
+      let op1 = !+ir 64<rt>
       !<ir len
       !!ir (sr := !.ctxt R.SR |> AST.zext 32<rt>)
       !!ir (op1 := dst)
@@ -854,7 +854,7 @@ let fadd ins len ctxt =
 let fcmpeq ins len ctxt =
   let struct (src, dst) = trsTwoOpr ins ctxt
   let ir = IRBuilder (16)
-  let t = !*ir 1<rt>
+  let t = !+ir 1<rt>
   match src.E with
   | Var (_,_,s,_) ->
     if s.StartsWith "fr" then
@@ -895,7 +895,7 @@ let fcmpeq ins len ctxt =
 let fcmpgt ins len ctxt =
   let struct (src, dst) = trsTwoOpr ins ctxt
   let ir = IRBuilder (16)
-  let t = !*ir 1<rt>
+  let t = !+ir 1<rt>
   match src.E with
   | Var (_,_,s,_) ->
     if s.StartsWith "fr" then
@@ -935,7 +935,7 @@ let fcnvds ins len ctxt =
   let struct (src, dst) = trsTwoOpr ins ctxt
   let ir = IRBuilder (16)
   let struct (sr, fps, fpul) = tmpVars3 ir 32<rt>
-  let op1 = !*ir 64<rt>
+  let op1 = !+ir 64<rt>
   !<ir len
   !!ir (sr := !.ctxt R.SR |> AST.zext 32<rt>)
   !!ir (fps := !.ctxt R.FPSCR |> AST.zext 32<rt>)
@@ -950,7 +950,7 @@ let fcnvsd ins len ctxt =
   let struct (src, dst) = trsTwoOpr ins ctxt
   let ir = IRBuilder (16)
   let struct (sr, fps, fpul) = tmpVars3 ir 32<rt>
-  let op1 = !*ir 64<rt>
+  let op1 = !+ir 64<rt>
   !<ir len
   !!ir (sr := !.ctxt R.SR |> AST.zext 32<rt>)
   !!ir (fps := !.ctxt R.FPSCR |> AST.zext 32<rt>)
@@ -1142,13 +1142,13 @@ let fmul ins len ctxt =
 let fneg ins len ctxt =
   let (dst) = trsOneOpr ins ctxt
   let ir = IRBuilder (16)
-  let sr = !*ir 32<rt>
-  let fps = !*ir 32<rt>
+  let sr = !+ir 32<rt>
+  let fps = !+ir 32<rt>
   let mode =
     match dst.E with
     | Var (_,_,r,_) -> r.StartsWith "DR"
     | _ -> Utils.impossible()
-  let op1 = if mode then !*ir 64<rt> else !*ir 32<rt>
+  let op1 = if mode then !+ir 64<rt> else !+ir 32<rt>
   !<ir len
   !!ir (sr := !.ctxt R.SR |> AST.zext 32<rt>)
   if mode then () else (!!ir (fps := !.ctxt R.FPSCR |> AST.zext 32<rt>))
@@ -1160,8 +1160,8 @@ let fneg ins len ctxt =
 
 let frchg ins len ctxt =
   let ir = IRBuilder (16)
-  let sr = !*ir 32<rt>
-  let fr = !*ir 1<rt>
+  let sr = !+ir 32<rt>
+  let fr = !+ir 1<rt>
   !<ir len
   !!ir (sr := !.ctxt R.SR |> AST.zext 32<rt>)
   !!ir (fr := !.ctxt R.FPSCR_FR |> AST.zext 1<rt>)
@@ -1172,8 +1172,8 @@ let frchg ins len ctxt =
 
 let fschg ins len ctxt =
   let ir = IRBuilder (16)
-  let sr = !*ir 32<rt>
-  let fr = !*ir 1<rt>
+  let sr = !+ir 32<rt>
+  let fr = !+ir 1<rt>
   !<ir len
   !!ir (sr := !.ctxt R.SR |> AST.zext 32<rt>)
   !!ir (fr := !.ctxt R.FPSCR_SZ |> AST.zext 1<rt>)
@@ -1190,7 +1190,7 @@ let fsqrt ins len ctxt =
     match dst.E with
     | Var (_,_,r,_) -> r.StartsWith "DR"
     | _ -> Utils.impossible()
-  let op1 = if mode then !*ir 64<rt> else !*ir 32<rt>
+  let op1 = if mode then !+ir 64<rt> else !+ir 32<rt>
   !<ir len
   !!ir (sr := !.ctxt R.SR |> AST.zext 32<rt>)
   !!ir (fps := !.ctxt R.FPSCR |> AST.zext 32<rt>)
@@ -1250,7 +1250,7 @@ let ftrc ins len ctxt =
     match dst.E with
     | Var (_,_,r,_) -> r.StartsWith "DR"
     | _ -> Utils.impossible()
-  let op1 = if mode then !*ir 64<rt> else !*ir 32<rt>
+  let op1 = if mode then !+ir 64<rt> else !+ir 32<rt>
   !<ir len
   !!ir (sr := !.ctxt R.SR |> AST.zext 32<rt>)
   !!ir (fps := !.ctxt R.FPSCR |> AST.zext 32<rt>)
@@ -1324,7 +1324,7 @@ let ldc ins len ctxt =
       !>ir len
     | "sr" ->
       let struct (op1, sr) = tmpVars2 ir 32<rt>
-      let md = !*ir 1<rt>
+      let md = !+ir 1<rt>
       !<ir len
       !!ir (md := R.MD |> !.ctxt |> AST.zext 1<rt>)
       if bv1Check md then () else resinst ir ctxt
@@ -1334,7 +1334,7 @@ let ldc ins len ctxt =
       !>ir len
     | "vbr" ->
       let struct (op1, vbr) = tmpVars2 ir 32<rt>
-      let md = !*ir 1<rt>
+      let md = !+ir 1<rt>
       !<ir len
       !!ir (md := R.MD |> !.ctxt |> AST.zext 1<rt>)
       if bv1Check md then () else resinst ir ctxt
@@ -1344,7 +1344,7 @@ let ldc ins len ctxt =
       !>ir len
     | "ssr" ->
       let struct (op1, ssr) = tmpVars2 ir 32<rt>
-      let md = !*ir 1<rt>
+      let md = !+ir 1<rt>
       !<ir len
       !!ir (md := R.MD |> !.ctxt |> AST.zext 1<rt>)
       if bv1Check md then () else resinst ir ctxt
@@ -1354,7 +1354,7 @@ let ldc ins len ctxt =
       !>ir len
     | "spc" ->
       let struct (op1, spc) = tmpVars2 ir 32<rt>
-      let md = !*ir 1<rt>
+      let md = !+ir 1<rt>
       !<ir len
       !!ir (md := R.MD |> !.ctxt |> AST.zext 1<rt>)
       if bv1Check md then () else resinst ir ctxt
@@ -1364,7 +1364,7 @@ let ldc ins len ctxt =
       !>ir len
     | "dbr" ->
       let struct (op1, dbr) = tmpVars2 ir 32<rt>
-      let md = !*ir 1<rt>
+      let md = !+ir 1<rt>
       !<ir len
       !!ir (md := R.MD |> !.ctxt |> AST.zext 1<rt>)
       if bv1Check md then () else resinst ir ctxt
@@ -1374,7 +1374,7 @@ let ldc ins len ctxt =
       !>ir len
     | _ ->
       let struct (op1, rnBank) = tmpVars2 ir 32<rt>
-      let md = !*ir 1<rt>
+      let md = !+ir 1<rt>
       !<ir len
       !!ir (md := R.MD |> !.ctxt |> AST.zext 1<rt>)
       if bv1Check md then () else resinst ir ctxt
@@ -1401,7 +1401,7 @@ let ldcl ins len ctxt =
       !!ir (!.ctxt R.GBR := AST.xtlo 32<rt> gbr)
       !>ir len
     | "sr" ->
-      let md = !*ir 1<rt>
+      let md = !+ir 1<rt>
       let struct (op1, address, sr) = tmpVars3 ir 32<rt>
       !<ir len
       !!ir (md := !.ctxt R.MD |> AST.zext 1<rt>)
@@ -1414,7 +1414,7 @@ let ldcl ins len ctxt =
       !!ir (!.ctxt R.SR := AST.xtlo 32<rt> sr)
       !>ir len
     | "vbr" ->
-      let md = !*ir 1<rt>
+      let md = !+ir 1<rt>
       let struct (op1, address, vbr) = tmpVars3 ir 32<rt>
       !<ir len
       !!ir (md := !.ctxt R.MD |> AST.zext 1<rt>)
@@ -1427,7 +1427,7 @@ let ldcl ins len ctxt =
       !!ir (!.ctxt R.VBR := AST.xtlo 32<rt> vbr)
       !>ir len
     | "ssr" ->
-      let md = !*ir 1<rt>
+      let md = !+ir 1<rt>
       let struct (op1, address, ssr) = tmpVars3 ir 32<rt>
       !<ir len
       !!ir (md := !.ctxt R.MD |> AST.zext 1<rt>)
@@ -1440,7 +1440,7 @@ let ldcl ins len ctxt =
       !!ir (!.ctxt R.SSR := AST.xtlo 32<rt> ssr)
       !>ir len
     | "spc" ->
-      let md = !*ir 1<rt>
+      let md = !+ir 1<rt>
       let struct (op1, address, spc) = tmpVars3 ir 32<rt>
       !<ir len
       !!ir (md := !.ctxt R.MD |> AST.zext 1<rt>)
@@ -1453,7 +1453,7 @@ let ldcl ins len ctxt =
       !!ir (!.ctxt R.SPC := AST.xtlo 32<rt> spc)
       !>ir len
     | "dbr" ->
-      let md = !*ir 1<rt>
+      let md = !+ir 1<rt>
       let struct (op1, address, dbr) = tmpVars3 ir 32<rt>
       !<ir len
       !!ir (md := !.ctxt R.MD |> AST.zext 1<rt>)
@@ -1466,7 +1466,7 @@ let ldcl ins len ctxt =
       !!ir (!.ctxt R.DBR := AST.xtlo 32<rt> dbr)
       !>ir len
     | _ ->
-      let md = !*ir 1<rt>
+      let md = !+ir 1<rt>
       let struct (op1, address, rnBank) = tmpVars3 ir 32<rt>
       !<ir len
       !!ir (md := !.ctxt R.MD |> AST.zext 1<rt>)
@@ -1627,10 +1627,10 @@ let macl ins len ctxt =
   let struct (macl, mach, temp) = tmpVars3 ir 32<rt>
   let struct (mField, nField) = tmpVars2 ir 4<rt>
   let struct (mAddr, nAddr, mul) = tmpVars3 ir 32<rt>
-  let s = !*ir 1<rt>
+  let s = !+ir 1<rt>
   let struct (value1, value2) = tmpVars2 ir 16<rt>
-  let result = !*ir 32<rt>
-  let mac = !*ir 32<rt>
+  let result = !+ir 32<rt>
+  let mac = !+ir 32<rt>
   let struct (m, n) =
     match src.E, dst.E with
     | Var (_,_,n1,_), Var (_,_,n2,_) ->
@@ -1677,9 +1677,9 @@ let macw ins len ctxt =
   let struct (macl, mach, temp) = tmpVars3 ir 32<rt>
   let struct (mField, nField) = tmpVars2 ir 4<rt>
   let struct (mAddr, nAddr, mul) = tmpVars3 ir 32<rt>
-  let s = !*ir 1<rt>
+  let s = !+ir 1<rt>
   let struct (value1, value2) = tmpVars2 ir 16<rt>
-  let result = !*ir 32<rt>
+  let result = !+ir 32<rt>
   let struct (m, n) =
     match src.E, dst.E with
     | Var (_,_,n1,_), Var (_,_,n2,_) ->
@@ -1742,7 +1742,7 @@ let mova ins len ctxt =
   let struct (src, dst) = trsTwoOpr ins ctxt
   let ir = IRBuilder (8)
   let struct (pc, r0) = tmpVars2 ir 32<rt>
-  let disp = !*ir 8<rt>
+  let disp = !+ir 8<rt>
   !<ir len
   !!ir (pc := !.ctxt R.PC |> AST.sext 32<rt>)
   !!ir (disp := (AST.zext 8<rt> src) << numI32 2)
@@ -1788,8 +1788,8 @@ let movb ins len ctxt =
   | TwoOperands (OpReg (Regdir _), OpReg (GbrDisp _)) ->
     let struct (src, dst) = trsTwoOpr ins ctxt
     let struct (gbr, address) = tmpVars2 ir 32<rt>
-    let disp = !*ir 8<rt>
-    let r0 = !*ir 32<rt>
+    let disp = !+ir 8<rt>
+    let r0 = !+ir 32<rt>
     !<ir len
     !!ir (gbr := !.ctxt R.GBR |> AST.sext 32<rt>)
     !!ir (r0 := !.ctxt R.R0 |> AST.sext 32<rt>)
@@ -1800,7 +1800,7 @@ let movb ins len ctxt =
   | TwoOperands (OpReg (Regdir _), OpReg (RegDisp _)) ->
     let struct (src, dst, imm) = trsMemOpr4toExpr ins ctxt
     let struct (op2, address, r0) = tmpVars3 ir 32<rt>
-    let disp = !*ir 4<rt>
+    let disp = !+ir 4<rt>
     !<ir len
     !!ir (r0 := !.ctxt R.R0 |> AST.sext 32<rt>)
     !!ir (disp := AST.zext 4<rt> imm)
@@ -1811,7 +1811,7 @@ let movb ins len ctxt =
   | TwoOperands (OpReg (RegIndir _), OpReg (Regdir _)) -> //0100 0100 0100 0000
     let struct (src, dst) = trsTwoOpr ins ctxt
     let struct (op1, address) = tmpVars2 ir 32<rt>
-    let op2 = !*ir 32<rt>
+    let op2 = !+ir 32<rt>
     !<ir len
     !!ir (op1 := AST.sext 32<rt> src)
     !!ir (address := AST.zext 32<rt> op1)
@@ -1821,9 +1821,9 @@ let movb ins len ctxt =
   | TwoOperands (OpReg (PostInc _), OpReg (Regdir _)) ->
     let struct (src, dst) = trsTwoOpr ins ctxt
     let struct (mField, nField) = tmpVars2 ir 4<rt>
-    let op1 = !*ir 32<rt>
-    let address = !*ir 32<rt>
-    let op2 = !*ir 16<rt>
+    let op1 = !+ir 32<rt>
+    let address = !+ir 32<rt>
+    let op2 = !+ir 16<rt>
     let struct (m, n) =
       match src.E, dst.E with
       | Var (_,_,n1,_), Var (_,_,n2,_) ->
@@ -1842,7 +1842,7 @@ let movb ins len ctxt =
   | TwoOperands (OpReg (IdxIndir _), OpReg (Regdir (_))) ->
     let struct (src, dst) = trsTwoOpr ins ctxt
     let struct (r0, op1, address) = tmpVars3 ir 32<rt>
-    let op2 = !*ir 8<rt>
+    let op2 = !+ir 8<rt>
     !<ir len
     !!ir (r0 := !.ctxt R.R0 |> AST.sext 32<rt>)
     !!ir (op1 := AST.sext 32<rt> src)
@@ -1853,8 +1853,8 @@ let movb ins len ctxt =
   | TwoOperands (OpReg (GbrDisp _), OpReg (Regdir _)) ->
     let struct (src, dst) = trsTwoOpr ins ctxt
     let struct (gbr, address) = tmpVars2 ir 32<rt>
-    let disp = !*ir 8<rt>
-    let r0 = !*ir 8<rt>
+    let disp = !+ir 8<rt>
+    let r0 = !+ir 8<rt>
     !<ir len
     !!ir (gbr := !.ctxt R.GBR |> AST.sext 32<rt>)
     !!ir (disp := AST.zext 8<rt> src)
@@ -1865,8 +1865,8 @@ let movb ins len ctxt =
   | TwoOperands (OpReg (RegDisp _), OpReg (Regdir _)) ->
     let struct (src, dst, imm) = trsMemOpr3toExpr ins ctxt
     let struct (op2, address) = tmpVars2 ir 32<rt>
-    let disp = !*ir 4<rt>
-    let r0 = !*ir 8<rt>
+    let disp = !+ir 4<rt>
+    let r0 = !+ir 8<rt>
     !<ir len
     !!ir (disp := AST.zext 4<rt> imm)
     !!ir (op2 := AST.sext 32<rt> src)
@@ -1912,8 +1912,8 @@ let movl ins len ctxt =
   | TwoOperands (OpReg (Regdir _), OpReg (GbrDisp _)) ->
     let struct (src, dst) = trsTwoOpr ins ctxt
     let struct (gbr, address) = tmpVars2 ir 32<rt>
-    let disp = !*ir 8<rt>
-    let r0 = !*ir 32<rt>
+    let disp = !+ir 8<rt>
+    let r0 = !+ir 32<rt>
     !<ir len
     !!ir (gbr := !.ctxt R.GBR |> AST.sext 32<rt>)
     !!ir (r0 := !.ctxt R.R0 |> AST.sext 32<rt>)
@@ -1924,7 +1924,7 @@ let movl ins len ctxt =
   | TwoOperands (OpReg (Regdir _), OpReg (RegDisp _)) ->
     let struct (src, dst, imm) = trsMemOpr4toExpr ins ctxt
     let struct (op3, address, op1) = tmpVars3 ir 32<rt>
-    let disp = !*ir 4<rt>
+    let disp = !+ir 4<rt>
     !<ir len
     !!ir (disp := AST.zext 4<rt> imm << numI32 2)
     !!ir (op1 := AST.sext 32<rt> src)
@@ -1935,7 +1935,7 @@ let movl ins len ctxt =
   | TwoOperands (OpReg (RegIndir _), OpReg (Regdir _)) ->
     let struct (src, dst) = trsTwoOpr ins ctxt
     let struct (op1, address) = tmpVars2 ir 32<rt>
-    let op2 = !*ir 32<rt>
+    let op2 = !+ir 32<rt>
     !<ir len
     !!ir (op1 := AST.sext 32<rt> src)
     !!ir (address := AST.zext 32<rt> op1)
@@ -1945,9 +1945,9 @@ let movl ins len ctxt =
   | TwoOperands (OpReg (PostInc _), OpReg (Regdir _)) ->
     let struct (src, dst) = trsTwoOpr ins ctxt
     let struct (mField, nField) = tmpVars2 ir 4<rt>
-    let op1 = !*ir 32<rt>
-    let address = !*ir 32<rt>
-    let op2 = !*ir 16<rt>
+    let op1 = !+ir 32<rt>
+    let address = !+ir 32<rt>
+    let op2 = !+ir 16<rt>
     let struct (m, n) =
       match src.E, dst.E with
       | Var (_,_,n1,_), Var (_,_,n2,_) ->
@@ -1966,7 +1966,7 @@ let movl ins len ctxt =
   | TwoOperands (OpReg (IdxIndir _), OpReg (Regdir _)) ->
     let struct (src, dst) = trsTwoOpr ins ctxt
     let struct (r0, op1, address) = tmpVars3 ir 32<rt>
-    let op2 = !*ir 32<rt>
+    let op2 = !+ir 32<rt>
     !<ir len
     !!ir (r0 := !.ctxt R.R0 |> AST.sext 32<rt>)
     !!ir (op1 := AST.sext 32<rt> src)
@@ -1977,8 +1977,8 @@ let movl ins len ctxt =
   | TwoOperands (OpReg (GbrDisp _), OpReg (Regdir _)) ->
     let struct (src, dst) = trsTwoOpr ins ctxt
     let struct (gbr, address) = tmpVars2 ir 32<rt>
-    let disp = !*ir 8<rt>
-    let r0 = !*ir 32<rt>
+    let disp = !+ir 8<rt>
+    let r0 = !+ir 32<rt>
     !<ir len
     !!ir (gbr := !.ctxt R.GBR |> AST.sext 32<rt>)
     !!ir (disp := AST.zext 8<rt> src << numI32 2)
@@ -1989,8 +1989,8 @@ let movl ins len ctxt =
   | TwoOperands (OpReg (PCrDisp _), OpReg (Regdir _)) ->
     let struct (src, dst) = trsTwoOpr ins ctxt
     let struct (pc, address) = tmpVars2 ir 32<rt>
-    let disp = !*ir 8<rt>
-    let op2 = !*ir 16<rt>
+    let disp = !+ir 8<rt>
+    let op2 = !+ir 16<rt>
     !<ir len
     !!ir (pc := !.ctxt R.PC |> AST.sext 32<rt>)
     !!ir (disp := AST.zext 8<rt> src << numI32 2)
@@ -2004,8 +2004,8 @@ let movl ins len ctxt =
   | TwoOperands (OpReg (RegDisp _), OpReg (Regdir _)) ->
     let struct (src, dst, imm) = trsMemOpr3toExpr ins ctxt
     let struct (op2, address) = tmpVars2 ir 32<rt>
-    let disp = !*ir 4<rt>
-    let op3 = !*ir 32<rt>
+    let disp = !+ir 4<rt>
+    let op3 = !+ir 32<rt>
     !<ir len
     !!ir (disp := AST.zext 4<rt> imm << numI32 2)
     !!ir (op2 := AST.sext 32<rt> src)
@@ -2051,8 +2051,8 @@ let movw ins len ctxt =
   | TwoOperands (OpReg (Regdir _), OpReg (GbrDisp (_))) ->
     let struct (src, dst) = trsTwoOpr ins ctxt
     let struct (gbr, address) = tmpVars2 ir 32<rt>
-    let disp = !*ir 8<rt>
-    let r0 = !*ir 32<rt>
+    let disp = !+ir 8<rt>
+    let r0 = !+ir 32<rt>
     !<ir len
     !!ir (gbr := !.ctxt R.GBR |> AST.sext 32<rt>)
     !!ir (r0 := !.ctxt R.R0 |> AST.sext 32<rt>)
@@ -2063,7 +2063,7 @@ let movw ins len ctxt =
   | TwoOperands (OpReg (Regdir _), OpReg (RegDisp (_))) ->
     let struct (src, dst, imm) = trsMemOpr4toExpr ins ctxt
     let struct (op2, address, r0) = tmpVars3 ir 32<rt>
-    let disp = !*ir 4<rt>
+    let disp = !+ir 4<rt>
     !<ir len
     !!ir (r0 := !.ctxt R.R0 |> AST.sext 32<rt>)
     !!ir (disp := AST.zext 4<rt> imm << AST.b1)
@@ -2074,7 +2074,7 @@ let movw ins len ctxt =
   | TwoOperands (OpReg (RegIndir _), OpReg (Regdir _)) ->
     let struct (src, dst) = trsTwoOpr ins ctxt
     let struct (op1, address) = tmpVars2 ir 32<rt>
-    let op2 = !*ir 16<rt>
+    let op2 = !+ir 16<rt>
     !<ir len
     !!ir (op1 := AST.sext 32<rt> src)
     !!ir (address := AST.zext 32<rt> op1)
@@ -2084,9 +2084,9 @@ let movw ins len ctxt =
   | TwoOperands (OpReg (PostInc _), OpReg (Regdir _)) ->
     let struct (src, dst) = trsTwoOpr ins ctxt
     let struct (mField, nField) = tmpVars2 ir 4<rt>
-    let op1 = !*ir 32<rt>
-    let address = !*ir 32<rt>
-    let op2 = !*ir 16<rt>
+    let op1 = !+ir 32<rt>
+    let address = !+ir 32<rt>
+    let op2 = !+ir 16<rt>
     let struct (m, n) =
       match src.E, dst.E with
       | Var (_,_,n1,_), Var (_,_,n2,_) ->
@@ -2105,7 +2105,7 @@ let movw ins len ctxt =
   | TwoOperands (OpReg (IdxIndir (_)), OpReg (Regdir (_))) ->
     let struct (src, dst) = trsTwoOpr ins ctxt
     let struct (r0, op1, address) = tmpVars3 ir 32<rt>
-    let op2 = !*ir 16<rt>
+    let op2 = !+ir 16<rt>
     !<ir len
     !!ir (r0 := !.ctxt R.R0 |> AST.sext 32<rt>)
     !!ir (op1 := AST.sext 32<rt> src)
@@ -2116,8 +2116,8 @@ let movw ins len ctxt =
   | TwoOperands (OpReg (GbrDisp (_)), OpReg (Regdir _)) ->
     let struct (src, dst) = trsTwoOpr ins ctxt
     let struct (gbr, address) = tmpVars2 ir 32<rt>
-    let disp = !*ir 8<rt>
-    let r0 = !*ir 16<rt>
+    let disp = !+ir 8<rt>
+    let r0 = !+ir 16<rt>
     !<ir len
     !!ir (gbr := !.ctxt R.GBR |> AST.sext 32<rt>)
     !!ir (disp := AST.zext 8<rt> src << AST.b1)
@@ -2128,8 +2128,8 @@ let movw ins len ctxt =
   | TwoOperands (OpReg (PCrDisp (_)), OpReg (Regdir _)) ->
     let struct (src, dst) = trsTwoOpr ins ctxt
     let struct (pc, address) = tmpVars2 ir 32<rt>
-    let disp = !*ir 8<rt>
-    let op2 = !*ir 16<rt>
+    let disp = !+ir 8<rt>
+    let op2 = !+ir 16<rt>
     !<ir len
     !!ir (pc := !.ctxt R.PC |> AST.sext 32<rt>)
     !!ir (disp := AST.zext 8<rt> src << AST.b1)
@@ -2142,8 +2142,8 @@ let movw ins len ctxt =
   | TwoOperands (OpReg (RegDisp (_)), OpReg (Regdir _)) ->
     let struct (src, dst, imm) = trsMemOpr3toExpr ins ctxt
     let struct (op2, address) = tmpVars2 ir 32<rt>
-    let disp = !*ir 4<rt>
-    let r0 = !*ir 16<rt>
+    let disp = !+ir 4<rt>
+    let r0 = !+ir 16<rt>
     !<ir len
     !!ir (disp := AST.zext 4<rt> imm << AST.b1)
     !!ir (op2 := AST.sext 32<rt> src)
@@ -2178,7 +2178,7 @@ let mull ins len ctxt =
   let struct (src, dst) = trsTwoOpr ins ctxt
   let ir = IRBuilder (8)
   let struct (op1, op2) = tmpVars2 ir 32<rt>
-  let macl = !*ir 64<rt>
+  let macl = !+ir 64<rt>
   !<ir len
   !!ir (op1 := AST.sext 32<rt> src)
   !!ir (op2 := AST.sext 32<rt> dst)
@@ -2190,7 +2190,7 @@ let mulsw ins len ctxt =
   let struct (src, dst) = trsTwoOpr ins ctxt
   let ir = IRBuilder (8)
   let struct (op1, op2) = tmpVars2 ir 16<rt>
-  let macl = !*ir 64<rt>
+  let macl = !+ir 64<rt>
   !<ir len
   !!ir (op1 := AST.sext 32<rt> src |> AST.sext 16<rt>)
   !!ir (op2 := AST.sext 32<rt> dst |> AST.sext 16<rt>)
@@ -2202,7 +2202,7 @@ let muluw ins len ctxt =
   let struct (src, dst) = trsTwoOpr ins ctxt
   let ir = IRBuilder (8)
   let struct (op1, op2) = tmpVars2 ir 16<rt>
-  let macl = !*ir 64<rt>
+  let macl = !+ir 64<rt>
   !<ir len
   !!ir (op1 := AST.sext 32<rt> src |> AST.zext 16<rt>)
   !!ir (op2 := AST.sext 32<rt> dst |> AST.zext 16<rt>)
@@ -2224,7 +2224,7 @@ let negc ins len ctxt =
   let struct (src, dst) = trsTwoOpr ins ctxt
   let ir = IRBuilder (16)
   let struct (op1, op2) = tmpVars2 ir 32<rt>
-  let t = !*ir 1<rt>
+  let t = !+ir 1<rt>
   !<ir len
   !!ir (t := !.ctxt R.T |> AST.zext 1<rt>)
   !!ir (op1 := AST.zext 32<rt> src)
@@ -2269,8 +2269,8 @@ let ``or`` ins len ctxt =
   let ir = IRBuilder (8)
   match src.E with
   | Num _ ->
-    let r0 = !*ir 32<rt>
-    let imm = !*ir 8<rt>
+    let r0 = !+ir 32<rt>
+    let imm = !+ir 8<rt>
     !<ir len
     !!ir (r0 := !.ctxt R.R0 |> AST.zext 32<rt>)
     !!ir (imm := AST.zext 8<rt> src)
@@ -2308,8 +2308,8 @@ let pref ins len = function
 let rotcl ins len ctxt =
   let dst = trsOneOpr ins ctxt
   let ir = IRBuilder (16)
-  let t = !*ir 1<rt>
-  let op1 = !*ir 32<rt>
+  let t = !+ir 1<rt>
+  let op1 = !+ir 32<rt>
   !<ir len
   !!ir (t := !.ctxt R.T |> AST.zext 32<rt>)
   !!ir (op1 := AST.zext 32<rt> dst)
@@ -2323,7 +2323,7 @@ let rotcr ins len ctxt =
   let dst = trsOneOpr ins ctxt
   let ir = IRBuilder (16)
   let struct (oldt, t) = tmpVars2 ir 1<rt>
-  let op1 = !*ir 32<rt>
+  let op1 = !+ir 32<rt>
   !<ir len
   !!ir (t := !.ctxt R.T |> AST.zext 32<rt>)
   !!ir (op1 := AST.zext 32<rt> dst)
@@ -2337,8 +2337,8 @@ let rotcr ins len ctxt =
 let rotl ins len ctxt =
   let dst = trsOneOpr ins ctxt
   let ir = IRBuilder (16)
-  let t = !*ir 1<rt>
-  let op1 = !*ir 32<rt>
+  let t = !+ir 1<rt>
+  let op1 = !+ir 32<rt>
   !<ir len
   !!ir (op1 := AST.zext 32<rt> dst)
   !!ir (t := AST.extract op1 1<rt> 31)
@@ -2350,8 +2350,8 @@ let rotl ins len ctxt =
 let rotr ins len ctxt =
   let dst = trsOneOpr ins ctxt
   let ir = IRBuilder (16)
-  let t = !*ir 1<rt>
-  let op1 = !*ir 32<rt>
+  let t = !+ir 1<rt>
+  let op1 = !+ir 32<rt>
   !<ir len
   !!ir (op1 := AST.zext 32<rt> dst)
   !!ir (t := AST.extract op1 1<rt> 1)
@@ -2362,7 +2362,7 @@ let rotr ins len ctxt =
 
 let rte ins len ctxt =
   let ir = IRBuilder (16)
-  let md = !*ir 1<rt>
+  let md = !+ir 1<rt>
   let struct (ssr, pc, target, delayedPC) = tmpVars4 ir 32<rt>
   !<ir len
   !!ir (md := !.ctxt R.MD |> AST.zext 1<rt>)
@@ -2390,7 +2390,7 @@ let rts ins len ctxt =
 
 let sets ins len ctxt =
   let ir = IRBuilder (8)
-  let s = !*ir 1<rt>
+  let s = !+ir 1<rt>
   !<ir len
   !!ir (s := AST.b1)
   !!ir (!.ctxt R.S := AST.extract s 1<rt> 1)
@@ -2398,7 +2398,7 @@ let sets ins len ctxt =
 
 let sett ins len ctxt =
   let ir = IRBuilder (8)
-  let t = !*ir 1<rt>
+  let t = !+ir 1<rt>
   !<ir len
   !!ir (t := AST.b1)
   !!ir (!.ctxt R.T := AST.extract t 1<rt> 1)
@@ -2408,7 +2408,7 @@ let shad ins len ctxt =
   let struct (src, dst) = trsTwoOpr ins ctxt
   let ir = IRBuilder (16)
   let struct (op1, op2) = tmpVars2 ir 32<rt>
-  let shift = !*ir 5<rt>
+  let shift = !+ir 5<rt>
   !<ir len
   !!ir (op1 := AST.sext 32<rt> src)
   !!ir (op2 := AST.sext 32<rt> dst)
@@ -2422,8 +2422,8 @@ let shad ins len ctxt =
 let shal ins len ctxt =
   let dst = trsOneOpr ins ctxt
   let ir = IRBuilder (8)
-  let op1 = !*ir 32<rt>
-  let t = !*ir 1<rt>
+  let op1 = !+ir 32<rt>
+  let t = !+ir 1<rt>
   !<ir len
   !!ir (op1 := AST.sext 32<rt> dst)
   !!ir (t := AST.extract op1 1<rt> 32)
@@ -2435,8 +2435,8 @@ let shal ins len ctxt =
 let shar ins len ctxt =
   let dst = trsOneOpr ins ctxt
   let ir = IRBuilder (8)
-  let op1 = !*ir 32<rt>
-  let t = !*ir 1<rt>
+  let op1 = !+ir 32<rt>
+  let t = !+ir 1<rt>
   !<ir len
   !!ir (op1 := AST.sext 32<rt> dst)
   !!ir (t := AST.extract op1 1<rt> 1)
@@ -2449,7 +2449,7 @@ let shld ins len ctxt =
   let struct (src, dst) = trsTwoOpr ins ctxt
   let ir = IRBuilder (16)
   let struct (op1, op2) = tmpVars2 ir 32<rt>
-  let shift = !*ir 32<rt>
+  let shift = !+ir 32<rt>
   !<ir len
   !!ir (op1 := AST.sext 32<rt> src)
   !!ir (op2 := AST.sext 32<rt> dst)
@@ -2463,8 +2463,8 @@ let shld ins len ctxt =
 let shll ins len ctxt =
   let dst = trsOneOpr ins ctxt
   let ir = IRBuilder (8)
-  let op1 = !*ir 32<rt>
-  let t = !*ir 1<rt>
+  let op1 = !+ir 32<rt>
+  let t = !+ir 1<rt>
   !<ir len
   !!ir (op1 := AST.zext 32<rt> dst)
   !!ir (t := AST.extract op1 1<rt> 1)
@@ -2476,7 +2476,7 @@ let shll ins len ctxt =
 let shll2 ins len ctxt =
   let dst = trsOneOpr ins ctxt
   let ir = IRBuilder (8)
-  let op1 = !*ir 32<rt>
+  let op1 = !+ir 32<rt>
   !<ir len
   !!ir (op1 := AST.zext 32<rt> dst)
   !!ir (op1 := op1 << numI32 2)
@@ -2486,7 +2486,7 @@ let shll2 ins len ctxt =
 let shll8 ins len ctxt =
   let dst = trsOneOpr ins ctxt
   let ir = IRBuilder (8)
-  let op1 = !*ir 32<rt>
+  let op1 = !+ir 32<rt>
   !<ir len
   !!ir (op1 := AST.zext 32<rt> dst)
   !!ir (op1 := op1 << numI32 8)
@@ -2496,7 +2496,7 @@ let shll8 ins len ctxt =
 let shll16 ins len ctxt =
   let dst = trsOneOpr ins ctxt
   let ir = IRBuilder (8)
-  let op1 = !*ir 32<rt>
+  let op1 = !+ir 32<rt>
   !<ir len
   !!ir (op1 := AST.zext 32<rt> dst)
   !!ir (op1 := op1 << numI32 16)
@@ -2506,8 +2506,8 @@ let shll16 ins len ctxt =
 let shlr ins len ctxt =
   let dst = trsOneOpr ins ctxt
   let ir = IRBuilder (8)
-  let op1 = !*ir 32<rt>
-  let t = !*ir 1<rt>
+  let op1 = !+ir 32<rt>
+  let t = !+ir 1<rt>
   !<ir len
   !!ir (op1 := AST.zext 32<rt> dst)
   !!ir (t := AST.extract op1 1<rt> 1)
@@ -2519,7 +2519,7 @@ let shlr ins len ctxt =
 let shlr2 ins len ctxt =
   let dst = trsOneOpr ins ctxt
   let ir = IRBuilder (8)
-  let op1 = !*ir 32<rt>
+  let op1 = !+ir 32<rt>
   !<ir len
   !!ir (op1 := AST.zext 32<rt> dst)
   !!ir (op1 := op1 >> numI32 2)
@@ -2529,7 +2529,7 @@ let shlr2 ins len ctxt =
 let shlr8 ins len ctxt =
   let dst = trsOneOpr ins ctxt
   let ir = IRBuilder (8)
-  let op1 = !*ir 32<rt>
+  let op1 = !+ir 32<rt>
   !<ir len
   !!ir (op1 := AST.zext 32<rt> dst)
   !!ir (op1 := op1 >> numI32 8)
@@ -2539,7 +2539,7 @@ let shlr8 ins len ctxt =
 let shlr16 ins len ctxt =
   let dst = trsOneOpr ins ctxt
   let ir = IRBuilder (8)
-  let op1 = !*ir 32<rt>
+  let op1 = !+ir 32<rt>
   !<ir len
   !!ir (op1 := AST.zext 32<rt> dst)
   !!ir (op1 := op1 >> numI32 16)
@@ -2554,7 +2554,7 @@ let sleep ins len ctxt =
 let stc ins len ctxt =
   let struct (src, dst) = trsTwoOpr ins ctxt
   let ir = IRBuilder (16)
-  let md = !*ir 1<rt>
+  let md = !+ir 1<rt>
   let struct (reg, op1) = tmpVars2 ir 32<rt>
   !<ir len
   !!ir (md := !.ctxt R.MD |> AST.zext 1<rt>)
@@ -2567,7 +2567,7 @@ let stc ins len ctxt =
 let stcl ins len ctxt =
   let struct (src, dst) = trsTwoOpr ins ctxt
   let ir = IRBuilder (16)
-  let md = !*ir 1<rt>
+  let md = !+ir 1<rt>
   let struct (reg, op1, address) = tmpVars3 ir 32<rt>
   !<ir len
   !!ir (md := !.ctxt R.MD |> AST.zext 1<rt>)
@@ -2646,7 +2646,7 @@ let subc ins len ctxt =
   let struct (src, dst) = trsTwoOpr ins ctxt
   let ir = IRBuilder (16)
   let struct (op1, op2) = tmpVars2 ir 32<rt>
-  let t = !*ir 1<rt>
+  let t = !+ir 1<rt>
   !<ir len
   !!ir (t := !.ctxt R.T |> AST.zext 1<rt>)
   !!ir (op1 := AST.sext 32<rt> src |> AST.zext 32<rt>)
@@ -2661,7 +2661,7 @@ let subv ins len ctxt =
   let struct (src, dst) = trsTwoOpr ins ctxt
   let ir = IRBuilder (8)
   let struct (op1, op2) = tmpVars2 ir 32<rt>
-  let t = !*ir 1<rt>
+  let t = !+ir 1<rt>
   !<ir len
   !!ir (op1 := AST.sext 32<rt> src)
   !!ir (op2 := AST.sext 32<rt> dst)
@@ -2699,8 +2699,8 @@ let tasb ins len ctxt =
   let dst = trsOneOpr ins ctxt
   let ir = IRBuilder (16)
   let struct (op1, address) = tmpVars2 ir 32<rt>
-  let value = !*ir 8<rt>
-  let t = !*ir 1<rt>
+  let value = !+ir 8<rt>
+  let t = !+ir 1<rt>
   !<ir len
   !!ir (op1 := AST.sext 32<rt> dst)
   !!ir (address := AST.zext 32<rt> op1)
@@ -2716,7 +2716,7 @@ let tasb ins len ctxt =
 let trapa ins len ctxt =
   let dst = trsOneOpr ins ctxt
   let ir = IRBuilder (8)
-  let imm = !*ir 8<rt>
+  let imm = !+ir 8<rt>
   !<ir len
   !!ir (imm := AST.zext 8<rt> dst)
   if (delaySlot.Count = 1) then illSlot2 ir len ctxt
@@ -2727,9 +2727,9 @@ let trapa ins len ctxt =
 let tst ins len ctxt =
   let struct (src, dst) = trsTwoOpr ins ctxt
   let ir = IRBuilder (16)
-  let r0 = !*ir 32<rt>
-  let imm = !*ir 8<rt>
-  let t = !*ir 1<rt>
+  let r0 = !+ir 32<rt>
+  let imm = !+ir 8<rt>
+  let t = !+ir 1<rt>
   !<ir len
   !!ir (r0 := !.ctxt R.R0 |> AST.sext 32<rt>)
   !!ir (imm := AST.zext 8<rt> src)
@@ -2742,7 +2742,7 @@ let tstb ins len ctxt =
   let ir = IRBuilder (16)
   let struct (r0, gbr, address) = tmpVars3 ir 32<rt>
   let struct (imm, value) = tmpVars2 ir 8<rt>
-  let t = !*ir 1<rt>
+  let t = !+ir 1<rt>
   !<ir len
   !!ir (r0 := !.ctxt R.R0 |> AST.sext 32<rt>)
   !!ir (gbr := !.ctxt R.GBR |> AST.sext 32<rt>)

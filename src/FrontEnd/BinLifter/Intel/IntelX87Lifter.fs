@@ -128,7 +128,7 @@ let private castTo80Bit ctxt tmpB tmpA srcExpr ir =
   let oprSize = TypeCheck.typeOf srcExpr
   match oprSize with
   | 32<rt> ->
-    let tmpSrc = !*ir oprSize
+    let tmpSrc = !+ir oprSize
     let n31 = numI32 31 32<rt>
     let n15 = numI32 15 16<rt>
     let n23 = numI32 23 32<rt>
@@ -144,7 +144,7 @@ let private castTo80Bit ctxt tmpB tmpA srcExpr ir =
     !!ir (tmpB := sign .| exponent)
     !!ir (tmpA := (significand << numI32 40 64<rt>))
   | 64<rt> ->
-    let tmpSrc = !*ir oprSize
+    let tmpSrc = !+ir oprSize
     let n63 = numI32 63 64<rt>
     let n15 = numI32 15 16<rt>
     let n52 = numI32 52 64<rt>
@@ -175,7 +175,7 @@ let private castTo80Bit ctxt tmpB tmpA srcExpr ir =
 let private fpuLoad insLen ctxt oprExpr =
   let ir = IRBuilder (64)
   let struct (st0b, st0a) = getFPUPseudoRegVars ctxt R.ST0
-  let tmpB, tmpA = !*ir 16<rt>, !*ir 64<rt>
+  let tmpB, tmpA = !+ir 16<rt>, !+ir 64<rt>
   !<ir insLen
   !?ir (castTo80Bit ctxt tmpB tmpA oprExpr)
   !?ir (pushFPUStack ctxt)
@@ -193,7 +193,7 @@ let private castFrom80Bit dstExpr dstSize srcB srcA ir =
   | 16<rt> ->
     let sign = srcB .& (numI32 0x8000 16<rt>)
     let biasDiff = numI32 0x3ff0 16<rt>
-    let tmpExp = !*ir 16<rt>
+    let tmpExp = !+ir 16<rt>
     let computedExp =
       AST.zext 16<rt> (srcB .& (numI32 0x7fff 16<rt>)) .- biasDiff
     let maxExp = numI32 0x3e 16<rt>
@@ -211,7 +211,7 @@ let private castFrom80Bit dstExpr dstSize srcB srcA ir =
     let n16 = numI32 16 32<rt>
     let sign = (AST.zext 32<rt> srcB .& (numI32 0x8000 32<rt>)) << n16
     let biasDiff = numI32 0x3f80 32<rt>
-    let tmpExp = !*ir 32<rt>
+    let tmpExp = !+ir 32<rt>
     let computedExp =
       (AST.zext 32<rt> (srcB .& (numI32 0x7fff 16<rt>)) .- biasDiff)
     let maxExp = numI32 0xfe 32<rt>
@@ -229,7 +229,7 @@ let private castFrom80Bit dstExpr dstSize srcB srcA ir =
     let n48 = numI32 48 64<rt>
     let sign = (AST.zext 64<rt> srcB .& (numI32 0x8000 64<rt>)) << n48
     let biasDiff = numI32 0x3c00 64<rt>
-    let tmpExp = !*ir 64<rt>
+    let tmpExp = !+ir 64<rt>
     let computedExp =
       (AST.zext 64<rt> (srcB .& (numI32 0x7fff 16<rt>)) .- biasDiff)
     let maxExp = numI32 0x7fe 64<rt>
@@ -270,7 +270,7 @@ let fild ins insLen ctxt =
   let ir = IRBuilder (32)
   let struct (st0b, st0a) = getFPUPseudoRegVars ctxt R.ST0
   let oprExpr = transOneOpr ins insLen ctxt
-  let tmpB, tmpA = !*ir 16<rt>, !*ir 64<rt>
+  let tmpB, tmpA = !+ir 16<rt>, !+ir 64<rt>
   !<ir insLen
   !?ir
     (castTo80Bit ctxt tmpB tmpA (AST.cast CastKind.IntToFloat 64<rt> oprExpr))
@@ -285,8 +285,8 @@ let fist ins insLen ctxt doPop =
   let oprExpr = transOneOpr ins insLen ctxt
   let oprSize = TypeCheck.typeOf oprExpr
   let struct (st0b, st0a) = getFPUPseudoRegVars ctxt R.ST0
-  let tmp0 = !*ir oprSize
-  let rcField = !*ir 8<rt> (* Rounding Control *)
+  let tmp0 = !+ir oprSize
+  let rcField = !+ir 8<rt> (* Rounding Control *)
   let num2 = numI32 2 8<rt>
   let cst00 = AST.cast CastKind.FtoIRound oprSize tmp0
   let cst01 = AST.cast CastKind.FtoIFloor oprSize tmp0
@@ -310,7 +310,7 @@ let fisttp ins insLen ctxt =
   let ir = IRBuilder (32)
   let oprExpr = transOneOpr ins insLen ctxt
   let oprSize = TypeCheck.typeOf oprExpr
-  let tmp1 = !*ir 64<rt>
+  let tmp1 = !+ir 64<rt>
   let struct (st0b, st0a) = getFPUPseudoRegVars ctxt R.ST0
   !<ir insLen
   !?ir (castFrom80Bit tmp1 64<rt> st0b st0a)
@@ -372,8 +372,8 @@ let fbld ins insLen ctxt =
   let struct (st0b, st0a) = getFPUPseudoRegVars ctxt R.ST0
   let src = transOneOpr ins insLen ctxt
   let struct (addrExpr, addrSize) = getLoadAddressExpr src
-  let intgr = !*ir 64<rt>
-  let tmpB, tmpA = !*ir 16<rt>, !*ir 64<rt>
+  let intgr = !+ir 64<rt>
+  let tmpB, tmpA = !+ir 16<rt>, !+ir 64<rt>
   !<ir insLen
   !?ir (bcdToInt intgr addrExpr addrSize)
   !?ir (castTo80Bit ctxt tmpB tmpA (AST.cast CastKind.IntToFloat 64<rt> intgr))
@@ -392,7 +392,7 @@ let private storeTwoDigitBCD n10 addrExpr addrSize intgr pos ir =
 let private storeBCD addrExpr addrSize intgr ir =
   let n10 = numI32 10 64<rt>
   let n100 = numI32 100 64<rt>
-  let sign = !*ir 1<rt>
+  let sign = !+ir 1<rt>
   let signByte = (AST.zext 8<rt> sign) << numI32 7 8<rt>
   !!ir (sign := AST.xthi 1<rt> intgr)
   !?ir (storeTwoDigitBCD n10 addrExpr addrSize intgr 0)
@@ -419,8 +419,8 @@ let fbstp ins insLen ctxt =
   let dst = transOneOpr ins insLen ctxt
   let struct (addrExpr, addrSize) = getLoadAddressExpr dst
   let struct (st0b, st0a) = getFPUPseudoRegVars ctxt R.ST0
-  let tmp = !*ir 64<rt>
-  let intgr = !*ir 64<rt>
+  let tmp = !+ir 64<rt>
+  let intgr = !+ir 64<rt>
   !<ir insLen
   !?ir (castFrom80Bit tmp 64<rt> st0b st0a)
   !!ir (intgr := AST.cast CastKind.FtoIRound 64<rt> tmp)
@@ -432,7 +432,7 @@ let fbstp ins insLen ctxt =
 let fxch (ins: InsInfo) insLen ctxt =
   let ir = IRBuilder (16)
   let struct (st0b, st0a) = getFPUPseudoRegVars ctxt R.ST0
-  let tmpB, tmpA = !*ir 16<rt>, !*ir 64<rt>
+  let tmpB, tmpA = !+ir 16<rt>, !+ir 64<rt>
   !<ir insLen
   !!ir (tmpB := st0b)
   !!ir (tmpA := st0a)
@@ -503,7 +503,7 @@ let private fpuFBinOp (ins: InsInfo) insLen ctxt binOp doPop leftToRight =
     let struct (st0b, st0a) = getFPUPseudoRegVars ctxt R.ST0
     let struct (st1b, st1a) = getFPUPseudoRegVars ctxt R.ST1
     let struct (tmp0, tmp1) = tmpVars2 ir 64<rt>
-    let res = !*ir 64<rt>
+    let res = !+ir 64<rt>
     !?ir (castFrom80Bit tmp0 64<rt> st0b st0a)
     !?ir (castFrom80Bit tmp1 64<rt> st1b st1a)
     if leftToRight then !!ir (res := binOp tmp0 tmp1)
@@ -514,7 +514,7 @@ let private fpuFBinOp (ins: InsInfo) insLen ctxt binOp doPop leftToRight =
     let oprSize = TypeCheck.typeOf oprExpr
     let struct (st0b, st0a) = getFPUPseudoRegVars ctxt R.ST0
     let struct (tmp0, tmp1) = tmpVars2 ir oprSize
-    let res = !*ir oprSize
+    let res = !+ir oprSize
     !?ir (castFrom80Bit tmp0 oprSize st0b st0a)
     !!ir (tmp1 := oprExpr)
     if leftToRight then !!ir (res := binOp tmp0 tmp1)
@@ -524,7 +524,7 @@ let private fpuFBinOp (ins: InsInfo) insLen ctxt binOp doPop leftToRight =
     let struct (r0B, r0A) = getFPUPseudoRegVars ctxt reg0
     let struct (r1B, r1A) = getFPUPseudoRegVars ctxt reg1
     let struct (tmp0, tmp1) = tmpVars2 ir 64<rt>
-    let res = !*ir 64<rt>
+    let res = !+ir 64<rt>
     !?ir (castFrom80Bit tmp0 64<rt> r0B r0A)
     !?ir (castFrom80Bit tmp1 64<rt> r1B r1A)
     if leftToRight then !!ir (res := binOp tmp0 tmp1)
@@ -540,7 +540,7 @@ let private fpuIntOp ins insLen ctxt binOp leftToRight =
   let struct (st0b, st0a) = getFPUPseudoRegVars ctxt R.ST0
   let oprExpr = transOneOpr ins insLen ctxt
   let struct (tmp, dst) = tmpVars2 ir 64<rt>
-  let res = !*ir 64<rt>
+  let res = !+ir 64<rt>
   !<ir insLen
   !!ir (tmp := AST.cast CastKind.IntToFloat 64<rt> oprExpr)
   !?ir (castFrom80Bit dst 64<rt> st0b st0a)
@@ -597,7 +597,7 @@ let fprem _ins insLen ctxt round =
   let lblGE64 = ir.NewSymbol "ExpDiffOutOfRange"
   let lblExit = ir.NewSymbol "Exit"
   let struct (tmp0, tmp1) = tmpVars2 ir 64<rt>
-  let expDiff = !*ir 16<rt>
+  let expDiff = !+ir 16<rt>
   let expMask = numI32 0x7fff 16<rt>
   let n64 = numI32 64 16<rt>
   let n2 = numI32 2 64<rt>
@@ -645,7 +645,7 @@ let fabs _ins insLen ctxt =
 let fchs _ins insLen ctxt =
   let ir = IRBuilder (8)
   let struct (st0b, _st0a) = getFPUPseudoRegVars ctxt R.ST0
-  let tmp = !*ir 1<rt>
+  let tmp = !+ir 1<rt>
   !<ir insLen
   !!ir (tmp := AST.xthi 1<rt> st0b)
   !!ir (AST.xthi 1<rt> st0b := AST.not tmp)
@@ -660,8 +660,8 @@ let fchs _ins insLen ctxt =
 let frndint _ins insLen ctxt =
   let ir = IRBuilder (32)
   let struct (st0b, st0a) = getFPUPseudoRegVars ctxt R.ST0
-  let tmp0 = !*ir 64<rt>
-  let rcField = !*ir 8<rt> (* Rounding Control *)
+  let tmp0 = !+ir 64<rt>
+  let rcField = !+ir 8<rt> (* Rounding Control *)
   let cst00 = AST.cast CastKind.FtoIRound 64<rt> tmp0
   let cst01 = AST.cast CastKind.FtoIFloor 64<rt> tmp0
   let cst10 = AST.cast CastKind.FtoICeil 64<rt> tmp0
@@ -696,7 +696,7 @@ let fscale _ins insLen ctxt =
 let fsqrt _ins insLen ctxt =
   let ir = IRBuilder (8)
   let struct (st0b, st0a) = getFPUPseudoRegVars ctxt R.ST0
-  let tmp0 = !*ir 64<rt>
+  let tmp0 = !+ir 64<rt>
   !<ir insLen
   !?ir (castFrom80Bit tmp0 64<rt> st0b st0a)
   !?ir (castTo80Bit ctxt st0b st0a (AST.unop UnOpType.FSQRT tmp0))
@@ -707,8 +707,8 @@ let fxtract _ins insLen ctxt =
   let ir = IRBuilder (64)
   let struct (st0b, st0a) = getFPUPseudoRegVars ctxt R.ST0
   let n3fff = numI32 0x3FFF 16<rt>
-  let tmpB, tmpA = !*ir 16<rt>, !*ir 64<rt>
-  let tmpF = !*ir 64<rt>
+  let tmpB, tmpA = !+ir 16<rt>, !+ir 64<rt>
+  let tmpF = !+ir 64<rt>
   !<ir insLen
   !!ir (tmpB := (st0b .& numI32 0x8000 16<rt>) .| n3fff)
   !!ir (tmpA := st0a)
@@ -795,7 +795,7 @@ let ftst _ins insLen ctxt =
   let c0 = !.ctxt R.FSWC0
   let c2 = !.ctxt R.FSWC2
   let c3 = !.ctxt R.FSWC3
-  let tmp = !*ir 64<rt>
+  let tmp = !+ir 64<rt>
   !<ir insLen
   !?ir (castFrom80Bit tmp 64<rt> st0b st0a)
   !!ir (c0 := AST.flt tmp num0V)
