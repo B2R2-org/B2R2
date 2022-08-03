@@ -761,6 +761,10 @@ let fdiv e1 e2 =
 #endif
   binopWithType BinOpType.FDIV t e1 e2
 
+/// Floating point equal.
+[<CompiledName("FEq")>]
+let feq e1 e2 = relop RelOpType.FEQ e1 e2
+
 /// Floating point greater than.
 [<CompiledName("FGt")>]
 let fgt e1 e2 = relop RelOpType.FGT e1 e2

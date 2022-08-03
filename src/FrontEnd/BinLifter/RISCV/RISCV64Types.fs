@@ -245,11 +245,18 @@ type Opcode =
 type internal Op = Opcode
 
 type RoundMode =
+  // Round to Nearest, ties to Even
   | RNE = 0
+  // Round towards Zero
   | RTZ = 1
+  // Round Down
   | RDN = 2
+  // Round Up
   | RUP = 3
+  // Round to Nearest, ties to Max Magnitude
   | RMM = 4
+  // In instruction's rm field selects dynamic mode;
+  // In Rounding Mode register, Invalid
   | DYN = 7
 
 type Operand =
@@ -264,14 +271,13 @@ type Operand =
   | OpCSR of uint16
 and Aq = bool
 and Rl = bool
-and Imm = uint64
+and Imm = uint32
 and FenceMask = uint8
 and JumpTarget =
   | Relative of int64
   | RelativeBase of Base * Imm
 and Offset =
-  | Imm of int64
-  | Reg of Register
+  | Imm of uint32
 and AccessLength = RegType
 and Base = Register
 
