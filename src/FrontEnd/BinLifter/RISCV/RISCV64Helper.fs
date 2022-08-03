@@ -198,18 +198,21 @@ let getSucc bin = extract bin 23u 20u |> uint8
 let getAqRl bin = OpAtomMemOper(pickBit bin 26u > 0u, pickBit bin 25u > 0u)
 let getRdImm20 b = TwoOperands (rd b, getUImm b |> OpImm)
 let getPCRdImm20 b = TwoOperands (rd b, getUImm b |> OpImm)
-let getRs1Rs2BImm b = ThreeOperands (rs1 b, rs2 b, getBImm b |> int64 |> Relative |> OpAddr)
+let getRs1Rs2BImm b =
+  ThreeOperands (rs1 b, rs2 b, getBImm b |> int64 |> Relative |> OpAddr)
 let getRdRs1IImmAcc b acc =
   let mem = (getRegFrom1915 b, getIImm b |> uint32 |> Imm |> Some, acc)
   TwoOperands (rd b, mem |> OpMem)
 let getRdRs1IImm b = ThreeOperands (rd b, rs1 b, getIImm b |> uint32 |> OpImm)
 let getFRdRs1Addr b acc =
-  TwoOperands(frd b, OpMem (getRegFrom1915 b, getIImm b |> uint32 |> Imm |> Some, acc))
+  let imm = getIImm b |> uint32 |> Imm |> Some
+  TwoOperands(frd b, OpMem (getRegFrom1915 b, imm, acc))
 let getRs2Rs1SImm b acc =
   let mem = (getRegFrom1915 b, getSImm b |> uint32 |> Imm |> Some, acc)
   TwoOperands (rs2 b, mem |> OpMem)
 let getFRs2Rs1Addr b acc =
-  TwoOperands (frs2 b, OpMem (getRegFrom1915 b, getSImm b |> uint32 |> Imm |> Some, acc))
+  let imm = getSImm b |> uint32 |> Imm |> Some
+  TwoOperands (frs2 b, OpMem (getRegFrom1915 b, imm, acc))
 let getRdRs1Shamt b = ThreeOperands(rd b, rs1 b, shamt b)
 let getRdRs1Rs2 b = ThreeOperands(rd b, rs1 b, rs2 b)
 let getFRdRs1Rs2 b = ThreeOperands(frd b, frs1 b, frs2 b)

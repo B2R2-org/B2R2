@@ -103,165 +103,324 @@ type internal RegExprs (wordSize) =
   member val PC = AST.pcvar regType "PC" with get
   member val FCSR = var 32<rt> (Register.toRegID Register.FCSR) "FCSR" with get
 
-  member val CSR0768 = var regType (Register.toRegID Register.CSR0768) "CSR0768" with get
-  member val CSR0769 = var regType (Register.toRegID Register.CSR0769) "CSR0769" with get
-  member val CSR0770 = var regType (Register.toRegID Register.CSR0770) "CSR0770" with get
-  member val CSR0771 = var regType (Register.toRegID Register.CSR0771) "CSR0771" with get
-  member val CSR0772 = var regType (Register.toRegID Register.CSR0772) "CSR0772" with get
-  member val CSR0773 = var regType (Register.toRegID Register.CSR0773) "CSR0773" with get
-  member val CSR0784 = var regType (Register.toRegID Register.CSR0784) "CSR0784" with get
-  member val CSR0832 = var regType (Register.toRegID Register.CSR0832) "CSR0832" with get
-  member val CSR0833 = var regType (Register.toRegID Register.CSR0833) "CSR0833" with get
-  member val CSR0834 = var regType (Register.toRegID Register.CSR0834) "CSR0834" with get
-  member val CSR0835 = var regType (Register.toRegID Register.CSR0835) "CSR0835" with get
-  member val CSR0836 = var regType (Register.toRegID Register.CSR0836) "CSR0836" with get
-  member val CSR0842 = var regType (Register.toRegID Register.CSR0842) "CSR0842" with get
-  member val CSR0843 = var regType (Register.toRegID Register.CSR0843) "CSR0843" with get
-  member val CSR3857 = var regType (Register.toRegID Register.CSR3857) "CSR3857" with get
-  member val CSR3858 = var regType (Register.toRegID Register.CSR3858) "CSR3858" with get
-  member val CSR3859 = var regType (Register.toRegID Register.CSR3859) "CSR3859" with get
-  member val CSR3860 = var regType (Register.toRegID Register.CSR3860) "CSR3860" with get
-  member val CSR0928 = var regType (Register.toRegID Register.CSR0928) "CSR0928" with get
-  member val CSR0930 = var regType (Register.toRegID Register.CSR0930) "CSR0930" with get
-  member val CSR0932 = var regType (Register.toRegID Register.CSR0932) "CSR0932" with get
-  member val CSR0934 = var regType (Register.toRegID Register.CSR0934) "CSR0934" with get
-  member val CSR0936 = var regType (Register.toRegID Register.CSR0936) "CSR0936" with get
-  member val CSR0938 = var regType (Register.toRegID Register.CSR0938) "CSR0938" with get
-  member val CSR0940 = var regType (Register.toRegID Register.CSR0940) "CSR0940" with get
-  member val CSR0942 = var regType (Register.toRegID Register.CSR0942) "CSR0942" with get
-  member val CSR0944 = var regType (Register.toRegID Register.CSR0944) "CSR0944" with get
-  member val CSR0945 = var regType (Register.toRegID Register.CSR0945) "CSR0945" with get
-  member val CSR0946 = var regType (Register.toRegID Register.CSR0946) "CSR0946" with get
-  member val CSR0947 = var regType (Register.toRegID Register.CSR0947) "CSR0947" with get
-  member val CSR0948 = var regType (Register.toRegID Register.CSR0948) "CSR0948" with get
-  member val CSR0949 = var regType (Register.toRegID Register.CSR0949) "CSR0949" with get
-  member val CSR0950 = var regType (Register.toRegID Register.CSR0950) "CSR0950" with get
-  member val CSR0951 = var regType (Register.toRegID Register.CSR0951) "CSR0951" with get
-  member val CSR0952 = var regType (Register.toRegID Register.CSR0952) "CSR0952" with get
-  member val CSR0953 = var regType (Register.toRegID Register.CSR0953) "CSR0953" with get
-  member val CSR0954 = var regType (Register.toRegID Register.CSR0954) "CSR0954" with get
-  member val CSR0955 = var regType (Register.toRegID Register.CSR0955) "CSR0955" with get
-  member val CSR0956 = var regType (Register.toRegID Register.CSR0956) "CSR0956" with get
-  member val CSR0957 = var regType (Register.toRegID Register.CSR0957) "CSR0957" with get
-  member val CSR0958 = var regType (Register.toRegID Register.CSR0958) "CSR0958" with get
-  member val CSR0959 = var regType (Register.toRegID Register.CSR0959) "CSR0959" with get
-  member val CSR0960 = var regType (Register.toRegID Register.CSR0960) "CSR0960" with get
-  member val CSR0961 = var regType (Register.toRegID Register.CSR0961) "CSR0961" with get
-  member val CSR0962 = var regType (Register.toRegID Register.CSR0962) "CSR0962" with get
-  member val CSR0963 = var regType (Register.toRegID Register.CSR0963) "CSR0963" with get
-  member val CSR0964 = var regType (Register.toRegID Register.CSR0964) "CSR0964" with get
-  member val CSR0965 = var regType (Register.toRegID Register.CSR0965) "CSR0965" with get
-  member val CSR0966 = var regType (Register.toRegID Register.CSR0966) "CSR0966" with get
-  member val CSR0967 = var regType (Register.toRegID Register.CSR0967) "CSR0967" with get
-  member val CSR0968 = var regType (Register.toRegID Register.CSR0968) "CSR0968" with get
-  member val CSR0969 = var regType (Register.toRegID Register.CSR0969) "CSR0969" with get
-  member val CSR0970 = var regType (Register.toRegID Register.CSR0970) "CSR0970" with get
-  member val CSR0971 = var regType (Register.toRegID Register.CSR0971) "CSR0971" with get
-  member val CSR0972 = var regType (Register.toRegID Register.CSR0972) "CSR0972" with get
-  member val CSR0973 = var regType (Register.toRegID Register.CSR0973) "CSR0973" with get
-  member val CSR0974 = var regType (Register.toRegID Register.CSR0974) "CSR0974" with get
-  member val CSR0975 = var regType (Register.toRegID Register.CSR0975) "CSR0975" with get
-  member val CSR0976 = var regType (Register.toRegID Register.CSR0976) "CSR0976" with get
-  member val CSR0977 = var regType (Register.toRegID Register.CSR0977) "CSR0977" with get
-  member val CSR0978 = var regType (Register.toRegID Register.CSR0978) "CSR0978" with get
-  member val CSR0979 = var regType (Register.toRegID Register.CSR0979) "CSR0979" with get
-  member val CSR0980 = var regType (Register.toRegID Register.CSR0980) "CSR0980" with get
-  member val CSR0981 = var regType (Register.toRegID Register.CSR0981) "CSR0981" with get
-  member val CSR0982 = var regType (Register.toRegID Register.CSR0982) "CSR0982" with get
-  member val CSR0983 = var regType (Register.toRegID Register.CSR0983) "CSR0983" with get
-  member val CSR0984 = var regType (Register.toRegID Register.CSR0984) "CSR0984" with get
-  member val CSR0985 = var regType (Register.toRegID Register.CSR0985) "CSR0985" with get
-  member val CSR0986 = var regType (Register.toRegID Register.CSR0986) "CSR0986" with get
-  member val CSR0987 = var regType (Register.toRegID Register.CSR0987) "CSR0987" with get
-  member val CSR0988 = var regType (Register.toRegID Register.CSR0988) "CSR0988" with get
-  member val CSR0989 = var regType (Register.toRegID Register.CSR0989) "CSR0989" with get
-  member val CSR0990 = var regType (Register.toRegID Register.CSR0990) "CSR0990" with get
-  member val CSR0991 = var regType (Register.toRegID Register.CSR0991) "CSR0991" with get
-  member val CSR0992 = var regType (Register.toRegID Register.CSR0992) "CSR0992" with get
-  member val CSR0993 = var regType (Register.toRegID Register.CSR0993) "CSR0993" with get
-  member val CSR0994 = var regType (Register.toRegID Register.CSR0994) "CSR0994" with get
-  member val CSR0995 = var regType (Register.toRegID Register.CSR0995) "CSR0995" with get
-  member val CSR0996 = var regType (Register.toRegID Register.CSR0996) "CSR0996" with get
-  member val CSR0997 = var regType (Register.toRegID Register.CSR0997) "CSR0997" with get
-  member val CSR0998 = var regType (Register.toRegID Register.CSR0998) "CSR0998" with get
-  member val CSR0999 = var regType (Register.toRegID Register.CSR0999) "CSR0999" with get
-  member val CSR1000 = var regType (Register.toRegID Register.CSR1000) "CSR1000" with get
-  member val CSR1001 = var regType (Register.toRegID Register.CSR1001) "CSR1001" with get
-  member val CSR1002 = var regType (Register.toRegID Register.CSR1002) "CSR1002" with get
-  member val CSR1003 = var regType (Register.toRegID Register.CSR1003) "CSR1003" with get
-  member val CSR1004 = var regType (Register.toRegID Register.CSR1004) "CSR1004" with get
-  member val CSR1005 = var regType (Register.toRegID Register.CSR1005) "CSR1005" with get
-  member val CSR1006 = var regType (Register.toRegID Register.CSR1006) "CSR1006" with get
-  member val CSR1007 = var regType (Register.toRegID Register.CSR1007) "CSR1007" with get
-  member val CSR2816 = var regType (Register.toRegID Register.CSR2816) "CSR2816" with get
-  member val CSR2818 = var regType (Register.toRegID Register.CSR2818) "CSR2818" with get
-  member val CSR2819 = var regType (Register.toRegID Register.CSR2819) "CSR2819" with get
-  member val CSR2820 = var regType (Register.toRegID Register.CSR2820) "CSR2820" with get
-  member val CSR2821 = var regType (Register.toRegID Register.CSR2821) "CSR2821" with get
-  member val CSR2822 = var regType (Register.toRegID Register.CSR2822) "CSR2822" with get
-  member val CSR2823 = var regType (Register.toRegID Register.CSR2823) "CSR2823" with get
-  member val CSR2824 = var regType (Register.toRegID Register.CSR2824) "CSR2824" with get
-  member val CSR2825 = var regType (Register.toRegID Register.CSR2825) "CSR2825" with get
-  member val CSR2826 = var regType (Register.toRegID Register.CSR2826) "CSR2826" with get
-  member val CSR2827 = var regType (Register.toRegID Register.CSR2827) "CSR2827" with get
-  member val CSR2828 = var regType (Register.toRegID Register.CSR2828) "CSR2828" with get
-  member val CSR2829 = var regType (Register.toRegID Register.CSR2829) "CSR2829" with get
-  member val CSR2830 = var regType (Register.toRegID Register.CSR2830) "CSR2830" with get
-  member val CSR2831 = var regType (Register.toRegID Register.CSR2831) "CSR2831" with get
-  member val CSR2832 = var regType (Register.toRegID Register.CSR2832) "CSR2832" with get
-  member val CSR2833 = var regType (Register.toRegID Register.CSR2833) "CSR2833" with get
-  member val CSR2834 = var regType (Register.toRegID Register.CSR2834) "CSR2834" with get
-  member val CSR2835 = var regType (Register.toRegID Register.CSR2835) "CSR2835" with get
-  member val CSR2836 = var regType (Register.toRegID Register.CSR2836) "CSR2836" with get
-  member val CSR2837 = var regType (Register.toRegID Register.CSR2837) "CSR2837" with get
-  member val CSR2838 = var regType (Register.toRegID Register.CSR2838) "CSR2838" with get
-  member val CSR2839 = var regType (Register.toRegID Register.CSR2839) "CSR2839" with get
-  member val CSR2840 = var regType (Register.toRegID Register.CSR2840) "CSR2840" with get
-  member val CSR2841 = var regType (Register.toRegID Register.CSR2841) "CSR2841" with get
-  member val CSR2842 = var regType (Register.toRegID Register.CSR2842) "CSR2842" with get
-  member val CSR2843 = var regType (Register.toRegID Register.CSR2843) "CSR2843" with get
-  member val CSR2844 = var regType (Register.toRegID Register.CSR2844) "CSR2844" with get
-  member val CSR2845 = var regType (Register.toRegID Register.CSR2845) "CSR2845" with get
-  member val CSR2846 = var regType (Register.toRegID Register.CSR2846) "CSR2846" with get
-  member val CSR2847 = var regType (Register.toRegID Register.CSR2847) "CSR2847" with get
-  member val CSR0800 = var regType (Register.toRegID Register.CSR0800) "CSR0800" with get
-  member val CSR0803 = var regType (Register.toRegID Register.CSR0803) "CSR0803" with get
-  member val CSR0804 = var regType (Register.toRegID Register.CSR0804) "CSR0804" with get
-  member val CSR0805 = var regType (Register.toRegID Register.CSR0805) "CSR0805" with get
-  member val CSR0806 = var regType (Register.toRegID Register.CSR0806) "CSR0806" with get
-  member val CSR0807 = var regType (Register.toRegID Register.CSR0807) "CSR0807" with get
-  member val CSR0808 = var regType (Register.toRegID Register.CSR0808) "CSR0808" with get
-  member val CSR0809 = var regType (Register.toRegID Register.CSR0809) "CSR0809" with get
-  member val CSR0810 = var regType (Register.toRegID Register.CSR0810) "CSR0810" with get
-  member val CSR0811 = var regType (Register.toRegID Register.CSR0811) "CSR0811" with get
-  member val CSR0812 = var regType (Register.toRegID Register.CSR0812) "CSR0812" with get
-  member val CSR0813 = var regType (Register.toRegID Register.CSR0813) "CSR0813" with get
-  member val CSR0814 = var regType (Register.toRegID Register.CSR0814) "CSR0814" with get
-  member val CSR0815 = var regType (Register.toRegID Register.CSR0815) "CSR0815" with get
-  member val CSR0816 = var regType (Register.toRegID Register.CSR0816) "CSR0816" with get
-  member val CSR0817 = var regType (Register.toRegID Register.CSR0817) "CSR0817" with get
-  member val CSR0818 = var regType (Register.toRegID Register.CSR0818) "CSR0818" with get
-  member val CSR0819 = var regType (Register.toRegID Register.CSR0819) "CSR0819" with get
-  member val CSR0820 = var regType (Register.toRegID Register.CSR0820) "CSR0820" with get
-  member val CSR0821 = var regType (Register.toRegID Register.CSR0821) "CSR0821" with get
-  member val CSR0822 = var regType (Register.toRegID Register.CSR0822) "CSR0822" with get
-  member val CSR0823 = var regType (Register.toRegID Register.CSR0823) "CSR0823" with get
-  member val CSR0824 = var regType (Register.toRegID Register.CSR0824) "CSR0824" with get
-  member val CSR0825 = var regType (Register.toRegID Register.CSR0825) "CSR0825" with get
-  member val CSR0826 = var regType (Register.toRegID Register.CSR0826) "CSR0826" with get
-  member val CSR0827 = var regType (Register.toRegID Register.CSR0827) "CSR0827" with get
-  member val CSR0828 = var regType (Register.toRegID Register.CSR0828) "CSR0828" with get
-  member val CSR0829 = var regType (Register.toRegID Register.CSR0829) "CSR0829" with get
-  member val CSR0830 = var regType (Register.toRegID Register.CSR0830) "CSR0830" with get
-  member val CSR0831 = var regType (Register.toRegID Register.CSR0831) "CSR0831" with get
-  member val CSR1952 = var regType (Register.toRegID Register.CSR1952) "CSR1952" with get
-  member val CSR1953 = var regType (Register.toRegID Register.CSR1953) "CSR1953" with get
-  member val CSR1954 = var regType (Register.toRegID Register.CSR1954) "CSR1954" with get
-  member val CSR1955 = var regType (Register.toRegID Register.CSR1955) "CSR1955" with get
-  member val CSR1968 = var regType (Register.toRegID Register.CSR1968) "CSR1968" with get
-  member val CSR1969 = var regType (Register.toRegID Register.CSR1969) "CSR1969" with get
-  member val CSR1970 = var regType (Register.toRegID Register.CSR1970) "CSR1970" with get
-  member val CSR1971 = var regType (Register.toRegID Register.CSR1971) "CSR1971" with get
+  member val CSR0768 =
+    var regType (Register.toRegID Register.CSR0768) "CSR0768" with get
+  member val CSR0769 =
+    var regType (Register.toRegID Register.CSR0769) "CSR0769" with get
+  member val CSR0770 =
+    var regType (Register.toRegID Register.CSR0770) "CSR0770" with get
+  member val CSR0771 =
+    var regType (Register.toRegID Register.CSR0771) "CSR0771" with get
+  member val CSR0772 =
+    var regType (Register.toRegID Register.CSR0772) "CSR0772" with get
+  member val CSR0773 =
+    var regType (Register.toRegID Register.CSR0773) "CSR0773" with get
+  member val CSR0784 =
+    var regType (Register.toRegID Register.CSR0784) "CSR0784" with get
+  member val CSR0832 =
+    var regType (Register.toRegID Register.CSR0832) "CSR0832" with get
+  member val CSR0833 =
+    var regType (Register.toRegID Register.CSR0833) "CSR0833" with get
+  member val CSR0834 =
+    var regType (Register.toRegID Register.CSR0834) "CSR0834" with get
+  member val CSR0835 =
+    var regType (Register.toRegID Register.CSR0835) "CSR0835" with get
+  member val CSR0836 =
+    var regType (Register.toRegID Register.CSR0836) "CSR0836" with get
+  member val CSR0842 =
+    var regType (Register.toRegID Register.CSR0842) "CSR0842" with get
+  member val CSR0843 =
+    var regType (Register.toRegID Register.CSR0843) "CSR0843" with get
+  member val CSR3857 =
+    var regType (Register.toRegID Register.CSR3857) "CSR3857" with get
+  member val CSR3858 =
+    var regType (Register.toRegID Register.CSR3858) "CSR3858" with get
+  member val CSR3859 =
+    var regType (Register.toRegID Register.CSR3859) "CSR3859" with get
+  member val CSR3860 =
+    var regType (Register.toRegID Register.CSR3860) "CSR3860" with get
+  member val CSR0928 =
+    var regType (Register.toRegID Register.CSR0928) "CSR0928" with get
+  member val CSR0930 =
+    var regType (Register.toRegID Register.CSR0930) "CSR0930" with get
+  member val CSR0932 =
+    var regType (Register.toRegID Register.CSR0932) "CSR0932" with get
+  member val CSR0934 =
+    var regType (Register.toRegID Register.CSR0934) "CSR0934" with get
+  member val CSR0936 =
+    var regType (Register.toRegID Register.CSR0936) "CSR0936" with get
+  member val CSR0938 =
+    var regType (Register.toRegID Register.CSR0938) "CSR0938" with get
+  member val CSR0940 =
+    var regType (Register.toRegID Register.CSR0940) "CSR0940" with get
+  member val CSR0942 =
+    var regType (Register.toRegID Register.CSR0942) "CSR0942" with get
+  member val CSR0944 =
+    var regType (Register.toRegID Register.CSR0944) "CSR0944" with get
+  member val CSR0945 =
+    var regType (Register.toRegID Register.CSR0945) "CSR0945" with get
+  member val CSR0946 =
+    var regType (Register.toRegID Register.CSR0946) "CSR0946" with get
+  member val CSR0947 =
+    var regType (Register.toRegID Register.CSR0947) "CSR0947" with get
+  member val CSR0948 =
+    var regType (Register.toRegID Register.CSR0948) "CSR0948" with get
+  member val CSR0949 =
+    var regType (Register.toRegID Register.CSR0949) "CSR0949" with get
+  member val CSR0950 =
+    var regType (Register.toRegID Register.CSR0950) "CSR0950" with get
+  member val CSR0951 =
+    var regType (Register.toRegID Register.CSR0951) "CSR0951" with get
+  member val CSR0952 =
+    var regType (Register.toRegID Register.CSR0952) "CSR0952" with get
+  member val CSR0953 =
+    var regType (Register.toRegID Register.CSR0953) "CSR0953" with get
+  member val CSR0954 =
+    var regType (Register.toRegID Register.CSR0954) "CSR0954" with get
+  member val CSR0955 =
+    var regType (Register.toRegID Register.CSR0955) "CSR0955" with get
+  member val CSR0956 =
+    var regType (Register.toRegID Register.CSR0956) "CSR0956" with get
+  member val CSR0957 =
+    var regType (Register.toRegID Register.CSR0957) "CSR0957" with get
+  member val CSR0958 =
+    var regType (Register.toRegID Register.CSR0958) "CSR0958" with get
+  member val CSR0959 =
+    var regType (Register.toRegID Register.CSR0959) "CSR0959" with get
+  member val CSR0960 =
+    var regType (Register.toRegID Register.CSR0960) "CSR0960" with get
+  member val CSR0961 =
+    var regType (Register.toRegID Register.CSR0961) "CSR0961" with get
+  member val CSR0962 =
+    var regType (Register.toRegID Register.CSR0962) "CSR0962" with get
+  member val CSR0963 =
+    var regType (Register.toRegID Register.CSR0963) "CSR0963" with get
+  member val CSR0964 =
+    var regType (Register.toRegID Register.CSR0964) "CSR0964" with get
+  member val CSR0965 =
+    var regType (Register.toRegID Register.CSR0965) "CSR0965" with get
+  member val CSR0966 =
+    var regType (Register.toRegID Register.CSR0966) "CSR0966" with get
+  member val CSR0967 =
+    var regType (Register.toRegID Register.CSR0967) "CSR0967" with get
+  member val CSR0968 =
+    var regType (Register.toRegID Register.CSR0968) "CSR0968" with get
+  member val CSR0969 =
+    var regType (Register.toRegID Register.CSR0969) "CSR0969" with get
+  member val CSR0970 =
+    var regType (Register.toRegID Register.CSR0970) "CSR0970" with get
+  member val CSR0971 =
+    var regType (Register.toRegID Register.CSR0971) "CSR0971" with get
+  member val CSR0972 =
+    var regType (Register.toRegID Register.CSR0972) "CSR0972" with get
+  member val CSR0973 =
+    var regType (Register.toRegID Register.CSR0973) "CSR0973" with get
+  member val CSR0974 =
+    var regType (Register.toRegID Register.CSR0974) "CSR0974" with get
+  member val CSR0975 =
+    var regType (Register.toRegID Register.CSR0975) "CSR0975" with get
+  member val CSR0976 =
+    var regType (Register.toRegID Register.CSR0976) "CSR0976" with get
+  member val CSR0977 =
+    var regType (Register.toRegID Register.CSR0977) "CSR0977" with get
+  member val CSR0978 =
+    var regType (Register.toRegID Register.CSR0978) "CSR0978" with get
+  member val CSR0979 =
+    var regType (Register.toRegID Register.CSR0979) "CSR0979" with get
+  member val CSR0980 =
+    var regType (Register.toRegID Register.CSR0980) "CSR0980" with get
+  member val CSR0981 =
+    var regType (Register.toRegID Register.CSR0981) "CSR0981" with get
+  member val CSR0982 =
+    var regType (Register.toRegID Register.CSR0982) "CSR0982" with get
+  member val CSR0983 =
+    var regType (Register.toRegID Register.CSR0983) "CSR0983" with get
+  member val CSR0984 =
+    var regType (Register.toRegID Register.CSR0984) "CSR0984" with get
+  member val CSR0985 =
+    var regType (Register.toRegID Register.CSR0985) "CSR0985" with get
+  member val CSR0986 =
+    var regType (Register.toRegID Register.CSR0986) "CSR0986" with get
+  member val CSR0987 =
+    var regType (Register.toRegID Register.CSR0987) "CSR0987" with get
+  member val CSR0988 =
+    var regType (Register.toRegID Register.CSR0988) "CSR0988" with get
+  member val CSR0989 =
+    var regType (Register.toRegID Register.CSR0989) "CSR0989" with get
+  member val CSR0990 =
+    var regType (Register.toRegID Register.CSR0990) "CSR0990" with get
+  member val CSR0991 =
+    var regType (Register.toRegID Register.CSR0991) "CSR0991" with get
+  member val CSR0992 =
+    var regType (Register.toRegID Register.CSR0992) "CSR0992" with get
+  member val CSR0993 =
+    var regType (Register.toRegID Register.CSR0993) "CSR0993" with get
+  member val CSR0994 =
+    var regType (Register.toRegID Register.CSR0994) "CSR0994" with get
+  member val CSR0995 =
+    var regType (Register.toRegID Register.CSR0995) "CSR0995" with get
+  member val CSR0996 =
+    var regType (Register.toRegID Register.CSR0996) "CSR0996" with get
+  member val CSR0997 =
+    var regType (Register.toRegID Register.CSR0997) "CSR0997" with get
+  member val CSR0998 =
+    var regType (Register.toRegID Register.CSR0998) "CSR0998" with get
+  member val CSR0999 =
+    var regType (Register.toRegID Register.CSR0999) "CSR0999" with get
+  member val CSR1000 =
+    var regType (Register.toRegID Register.CSR1000) "CSR1000" with get
+  member val CSR1001 =
+    var regType (Register.toRegID Register.CSR1001) "CSR1001" with get
+  member val CSR1002 =
+    var regType (Register.toRegID Register.CSR1002) "CSR1002" with get
+  member val CSR1003 =
+    var regType (Register.toRegID Register.CSR1003) "CSR1003" with get
+  member val CSR1004 =
+    var regType (Register.toRegID Register.CSR1004) "CSR1004" with get
+  member val CSR1005 =
+    var regType (Register.toRegID Register.CSR1005) "CSR1005" with get
+  member val CSR1006 =
+    var regType (Register.toRegID Register.CSR1006) "CSR1006" with get
+  member val CSR1007 =
+    var regType (Register.toRegID Register.CSR1007) "CSR1007" with get
+  member val CSR2816 =
+    var regType (Register.toRegID Register.CSR2816) "CSR2816" with get
+  member val CSR2818 =
+    var regType (Register.toRegID Register.CSR2818) "CSR2818" with get
+  member val CSR2819 =
+    var regType (Register.toRegID Register.CSR2819) "CSR2819" with get
+  member val CSR2820 =
+    var regType (Register.toRegID Register.CSR2820) "CSR2820" with get
+  member val CSR2821 =
+    var regType (Register.toRegID Register.CSR2821) "CSR2821" with get
+  member val CSR2822 =
+    var regType (Register.toRegID Register.CSR2822) "CSR2822" with get
+  member val CSR2823 =
+    var regType (Register.toRegID Register.CSR2823) "CSR2823" with get
+  member val CSR2824 =
+    var regType (Register.toRegID Register.CSR2824) "CSR2824" with get
+  member val CSR2825 =
+    var regType (Register.toRegID Register.CSR2825) "CSR2825" with get
+  member val CSR2826 =
+    var regType (Register.toRegID Register.CSR2826) "CSR2826" with get
+  member val CSR2827 =
+    var regType (Register.toRegID Register.CSR2827) "CSR2827" with get
+  member val CSR2828 =
+    var regType (Register.toRegID Register.CSR2828) "CSR2828" with get
+  member val CSR2829 =
+    var regType (Register.toRegID Register.CSR2829) "CSR2829" with get
+  member val CSR2830 =
+    var regType (Register.toRegID Register.CSR2830) "CSR2830" with get
+  member val CSR2831 =
+    var regType (Register.toRegID Register.CSR2831) "CSR2831" with get
+  member val CSR2832 =
+    var regType (Register.toRegID Register.CSR2832) "CSR2832" with get
+  member val CSR2833 =
+    var regType (Register.toRegID Register.CSR2833) "CSR2833" with get
+  member val CSR2834 =
+    var regType (Register.toRegID Register.CSR2834) "CSR2834" with get
+  member val CSR2835 =
+    var regType (Register.toRegID Register.CSR2835) "CSR2835" with get
+  member val CSR2836 =
+    var regType (Register.toRegID Register.CSR2836) "CSR2836" with get
+  member val CSR2837 =
+    var regType (Register.toRegID Register.CSR2837) "CSR2837" with get
+  member val CSR2838 =
+    var regType (Register.toRegID Register.CSR2838) "CSR2838" with get
+  member val CSR2839 =
+    var regType (Register.toRegID Register.CSR2839) "CSR2839" with get
+  member val CSR2840 =
+    var regType (Register.toRegID Register.CSR2840) "CSR2840" with get
+  member val CSR2841 =
+    var regType (Register.toRegID Register.CSR2841) "CSR2841" with get
+  member val CSR2842 =
+    var regType (Register.toRegID Register.CSR2842) "CSR2842" with get
+  member val CSR2843 =
+    var regType (Register.toRegID Register.CSR2843) "CSR2843" with get
+  member val CSR2844 =
+    var regType (Register.toRegID Register.CSR2844) "CSR2844" with get
+  member val CSR2845 =
+    var regType (Register.toRegID Register.CSR2845) "CSR2845" with get
+  member val CSR2846 =
+    var regType (Register.toRegID Register.CSR2846) "CSR2846" with get
+  member val CSR2847 =
+    var regType (Register.toRegID Register.CSR2847) "CSR2847" with get
+  member val CSR0800 =
+    var regType (Register.toRegID Register.CSR0800) "CSR0800" with get
+  member val CSR0803 =
+    var regType (Register.toRegID Register.CSR0803) "CSR0803" with get
+  member val CSR0804 =
+    var regType (Register.toRegID Register.CSR0804) "CSR0804" with get
+  member val CSR0805 =
+    var regType (Register.toRegID Register.CSR0805) "CSR0805" with get
+  member val CSR0806 =
+    var regType (Register.toRegID Register.CSR0806) "CSR0806" with get
+  member val CSR0807 =
+    var regType (Register.toRegID Register.CSR0807) "CSR0807" with get
+  member val CSR0808 =
+    var regType (Register.toRegID Register.CSR0808) "CSR0808" with get
+  member val CSR0809 =
+    var regType (Register.toRegID Register.CSR0809) "CSR0809" with get
+  member val CSR0810 =
+    var regType (Register.toRegID Register.CSR0810) "CSR0810" with get
+  member val CSR0811 =
+    var regType (Register.toRegID Register.CSR0811) "CSR0811" with get
+  member val CSR0812 =
+    var regType (Register.toRegID Register.CSR0812) "CSR0812" with get
+  member val CSR0813 =
+    var regType (Register.toRegID Register.CSR0813) "CSR0813" with get
+  member val CSR0814 =
+    var regType (Register.toRegID Register.CSR0814) "CSR0814" with get
+  member val CSR0815 =
+    var regType (Register.toRegID Register.CSR0815) "CSR0815" with get
+  member val CSR0816 =
+    var regType (Register.toRegID Register.CSR0816) "CSR0816" with get
+  member val CSR0817 =
+    var regType (Register.toRegID Register.CSR0817) "CSR0817" with get
+  member val CSR0818 =
+    var regType (Register.toRegID Register.CSR0818) "CSR0818" with get
+  member val CSR0819 =
+    var regType (Register.toRegID Register.CSR0819) "CSR0819" with get
+  member val CSR0820 =
+    var regType (Register.toRegID Register.CSR0820) "CSR0820" with get
+  member val CSR0821 =
+    var regType (Register.toRegID Register.CSR0821) "CSR0821" with get
+  member val CSR0822 =
+    var regType (Register.toRegID Register.CSR0822) "CSR0822" with get
+  member val CSR0823 =
+    var regType (Register.toRegID Register.CSR0823) "CSR0823" with get
+  member val CSR0824 =
+    var regType (Register.toRegID Register.CSR0824) "CSR0824" with get
+  member val CSR0825 =
+    var regType (Register.toRegID Register.CSR0825) "CSR0825" with get
+  member val CSR0826 =
+    var regType (Register.toRegID Register.CSR0826) "CSR0826" with get
+  member val CSR0827 =
+    var regType (Register.toRegID Register.CSR0827) "CSR0827" with get
+  member val CSR0828 =
+    var regType (Register.toRegID Register.CSR0828) "CSR0828" with get
+  member val CSR0829 =
+    var regType (Register.toRegID Register.CSR0829) "CSR0829" with get
+  member val CSR0830 =
+    var regType (Register.toRegID Register.CSR0830) "CSR0830" with get
+  member val CSR0831 =
+    var regType (Register.toRegID Register.CSR0831) "CSR0831" with get
+  member val CSR1952 =
+    var regType (Register.toRegID Register.CSR1952) "CSR1952" with get
+  member val CSR1953 =
+    var regType (Register.toRegID Register.CSR1953) "CSR1953" with get
+  member val CSR1954 =
+    var regType (Register.toRegID Register.CSR1954) "CSR1954" with get
+  member val CSR1955 =
+    var regType (Register.toRegID Register.CSR1955) "CSR1955" with get
+  member val CSR1968 =
+    var regType (Register.toRegID Register.CSR1968) "CSR1968" with get
+  member val CSR1969 =
+    var regType (Register.toRegID Register.CSR1969) "CSR1969" with get
+  member val CSR1970 =
+    var regType (Register.toRegID Register.CSR1970) "CSR1970" with get
+  member val CSR1971 =
+    var regType (Register.toRegID Register.CSR1971) "CSR1971" with get
 
   member __.GetRegVar (name) =
     match name with

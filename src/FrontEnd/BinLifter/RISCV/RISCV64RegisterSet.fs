@@ -41,7 +41,7 @@ type RISCV64RegisterSet (bitArray: uint64 [], s: Set<RegisterID>) =
 
   override __.ArrSize = ArrLen
 
-  override __.New arr s = new RISCV64RegisterSet (arr, s) :> RegisterSet
+  override __.New arr s = RISCV64RegisterSet (arr, s) :> RegisterSet
 
   override __.RegIDToIndex rid =
     match Register.ofRegID rid with
