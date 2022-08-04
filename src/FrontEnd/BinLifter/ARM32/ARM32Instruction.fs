@@ -188,10 +188,10 @@ type ARM32Instruction (addr, nb, cond, op, opr, its, wb, q, s, m, cf) =
     op = Op.NOP
 
   override __.Translate ctxt =
-    (Lifter.translate __ ctxt).ToStmts ()
+    (Lifter.translate __ nb ctxt).ToStmts ()
 
   override __.TranslateToList ctxt =
-    Lifter.translate __ ctxt
+    Lifter.translate __ nb ctxt
 
   override __.Disasm (showAddr, resolveSym, disasmHelper) =
     let builder =
