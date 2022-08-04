@@ -575,7 +575,7 @@ let parseOpcodeField arch binary =
   | 0b010000u -> failwith "COP0"
   | 0b010001u -> parseCOP1 arch binary
   | 0b010010u -> failwith "COP2"
-  | 0b010011u -> parseCOP1X arch binary
+  | 0b010011u -> parseCOP1X binary
   | 0b010100u -> Op.BEQL, None, None, getRsRtRel16 binary
   | 0b010101u -> Op.BNEL, None, None, getRsRtRel16 binary
   | 0b010110u -> failwith "BLEZL/POP26"
