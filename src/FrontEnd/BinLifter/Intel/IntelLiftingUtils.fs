@@ -217,6 +217,15 @@ let transOprToExprVec ins insLen ctxt opr =
   | OprImm (imm, _) -> [ numI64 imm (getOperationSize ins) ]
   | _ -> raise InvalidOperandException
 
+let transOprToExpr16 ins insLen ctxt opr =
+  match opr with
+  | OprReg r when Register.toRegType r > 64<rt> ->
+    getPseudoRegVar ctxt r 1 |> AST.xtlo 16<rt>
+  | OprReg r -> !.ctxt r
+  | OprMem (b, index, disp, 16<rt>) ->
+    transMem ins insLen ctxt b index disp 16<rt>
+  | _ -> raise InvalidOperandException
+
 let transOprToExpr32 ins insLen ctxt opr =
   match opr with
   | OprReg r when Register.toRegType r > 64<rt> ->

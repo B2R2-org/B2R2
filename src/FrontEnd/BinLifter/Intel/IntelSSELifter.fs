@@ -1199,6 +1199,73 @@ let pmovmskb ins insLen ctxt =
   | _ -> raise InvalidOperandException
   !>ir insLen
 
+let pmovsxbw ins insLen ctxt =
+  let ir = !*ctxt
+  let struct (dst, src) = getTwoOprs ins
+  let sext16ext8 src n = AST.sext 16<rt> (AST.extract src 8<rt> n)
+  !<ir insLen
+  match src with
+  | OprReg _ ->
+    let dstB, dstA = transOprToExpr128 ins insLen ctxt dst
+    let _srcB, srcA = transOprToExpr128 ins insLen ctxt src
+    !!ir (dstA := AST.concat
+      (AST.concat (sext16ext8 srcA 24) (sext16ext8 srcA 16))
+      (AST.concat (sext16ext8 srcA 8) (sext16ext8 srcA 0)))
+    !!ir (dstB := AST.concat
+      (AST.concat (sext16ext8 srcA 56) (sext16ext8 srcA 48))
+      (AST.concat (sext16ext8 srcA 40) (sext16ext8 srcA 32)))
+  | OprMem _ ->
+    let dstB, dstA = transOprToExpr128 ins insLen ctxt dst
+    let src = transOprToExpr64 ins insLen ctxt src
+    !!ir (dstA := AST.concat
+      (AST.concat (sext16ext8 src 24) (sext16ext8 src 16))
+      (AST.concat (sext16ext8 src 8) (sext16ext8 src 0)))
+    !!ir (dstB := AST.concat
+      (AST.concat (sext16ext8 src 56) (sext16ext8 src 48))
+      (AST.concat (sext16ext8 src 40) (sext16ext8 src 32)))
+  | _ -> raise InvalidOperandException
+  !>ir insLen
+
+let pmovsxbd ins insLen ctxt =
+  let ir = !*ctxt
+  let struct (dst, src) = getTwoOprs ins
+  !<ir insLen
+  match src with
+  | OprReg _ ->
+    let dstB, dstA = transOprToExpr128 ins insLen ctxt dst
+    let _srcB, srcA = transOprToExpr128 ins insLen ctxt src
+    !!ir (dstA := AST.concat (AST.sext 32<rt> (AST.extract srcA 8<rt> 8))
+                    (AST.sext 32<rt> (AST.xtlo 8<rt> srcA)))
+    !!ir (dstB := AST.concat (AST.sext 32<rt> (AST.extract srcA 8<rt> 24))
+                    (AST.sext 32<rt> (AST.extract srcA 8<rt> 16)))
+  | OprMem _ ->
+    let dstB, dstA = transOprToExpr128 ins insLen ctxt dst
+    let src = transOprToExpr32 ins insLen ctxt src
+    !!ir (dstA := AST.concat (AST.sext 32<rt> (AST.extract src 8<rt> 8))
+                    (AST.sext 32<rt> (AST.xtlo 8<rt> src)))
+    !!ir (dstB := AST.concat (AST.sext 32<rt> (AST.extract src 8<rt> 24))
+                    (AST.sext 32<rt> (AST.extract src 8<rt> 16)))
+  | _ -> raise InvalidOperandException
+  !>ir insLen
+
+let pmovsxbq ins insLen ctxt =
+  let ir = !*ctxt
+  let struct (dst, src) = getTwoOprs ins
+  !<ir insLen
+  match src with
+  | OprReg _ ->
+    let dstB, dstA = transOprToExpr128 ins insLen ctxt dst
+    let _srcB, srcA = transOprToExpr128 ins insLen ctxt src
+    !!ir (dstA := AST.sext 64<rt> (AST.xtlo 8<rt> srcA))
+    !!ir (dstB := AST.sext 64<rt> (AST.extract srcA 8<rt> 8))
+  | OprMem _ ->
+    let dstB, dstA = transOprToExpr128 ins insLen ctxt dst
+    let src = transOprToExpr16 ins insLen ctxt src
+    !!ir (dstA := AST.sext 64<rt> (AST.xtlo 8<rt> src))
+    !!ir (dstB := AST.sext 64<rt> (AST.extract src 8<rt> 8))
+  | _ -> raise InvalidOperandException
+  !>ir insLen
+
 let private opPmulhuw _ = opPmul AST.xthi AST.zext 32<rt> 16<rt>
 
 let pmulhuw ins insLen ctxt =
