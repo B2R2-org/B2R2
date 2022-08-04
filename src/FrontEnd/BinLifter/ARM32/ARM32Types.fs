@@ -1331,4 +1331,15 @@ type ARM32InternalInstruction (addr, nb, cond, op, opr, its, wb, q, s, m, cf) =
   /// Carry Flag from decoding instruction
   member __.Cflag with get(): bool option = cf
 
+  override __.ToString () =
+    $"Condition: {cond}{System.Environment.NewLine}\
+      Opcode: {op}{System.Environment.NewLine}\
+      Operands: {opr}{System.Environment.NewLine}\
+      ITState: {its}{System.Environment.NewLine}\
+      WriteBack: {wb}{System.Environment.NewLine}\
+      Qualifier: {q}{System.Environment.NewLine}\
+      SIMD: {s}{System.Environment.NewLine}\
+      Mode: {m}{System.Environment.NewLine}\
+      Cflag: {cf}{System.Environment.NewLine}"
+
 type internal InsInfo = ARM32InternalInstruction

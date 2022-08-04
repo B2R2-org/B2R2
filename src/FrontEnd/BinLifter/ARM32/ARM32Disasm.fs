@@ -823,13 +823,13 @@ let commentWithSymbol helper addr addrStr (builder: DisasmBuilder<_>) =
   if builder.ResolveSymbol then
     match (helper: DisasmHelper).FindFunctionSymbol (addr) with
     | Error _ ->
-      builder.Accumulate AsmWordKind.String addrStr
+      builder.Accumulate AsmWordKind.Value addrStr
     | Ok "" -> ()
     | Ok name ->
-      builder.Accumulate AsmWordKind.String (addrStr + " ; <")
-      builder.Accumulate AsmWordKind.Value name
-      builder.Accumulate AsmWordKind.String ">"
-  else ()
+      builder.Accumulate AsmWordKind.Value addrStr
+      builder.Accumulate AsmWordKind.String (" ; <" + name + ">")
+  else
+    builder.Accumulate AsmWordKind.Value addrStr
 
 let memHead hlp ins addr addrMode (builder: DisasmBuilder<_>) =
   match addrMode with
