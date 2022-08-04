@@ -822,18 +822,24 @@ let calculateRelativePC lbl addr = int32 addr + int32 lbl |> uint32 |> uint64
 let commentWithSymbol helper addr addrStr (builder: DisasmBuilder<_>) =
   if builder.ResolveSymbol then
     match (helper: DisasmHelper).FindFunctionSymbol (addr) with
-    | Error _ ->
-      builder.Accumulate AsmWordKind.Value addrStr
-    | Ok "" -> ()
-    | Ok name ->
+    | Ok name when name.Length > 0 ->
       builder.Accumulate AsmWordKind.Value addrStr
       builder.Accumulate AsmWordKind.String (" ; <" + name + ">")
-  else
-    builder.Accumulate AsmWordKind.Value addrStr
+    | _ ->
+      builder.Accumulate AsmWordKind.Value addrStr
+  else builder.Accumulate AsmWordKind.Value addrStr
 
-let memHead hlp ins addr addrMode (builder: DisasmBuilder<_>) =
+let memToString hlp ins addr addrMode (builder: DisasmBuilder<_>) =
   match addrMode with
-  | OffsetMode offset | PreIdxMode offset | PostIdxMode offset ->
+  | OffsetMode offset ->
+    builder.Accumulate AsmWordKind.String "["
+    offsetToString ins addrMode offset builder
+    builder.Accumulate AsmWordKind.String "]"
+  | PreIdxMode offset ->
+    builder.Accumulate AsmWordKind.String "["
+    offsetToString ins addrMode offset builder
+    builder.Accumulate AsmWordKind.String "]!"
+  | PostIdxMode offset ->
     builder.Accumulate AsmWordKind.String "["
     offsetToString ins addrMode offset builder
   | UnIdxMode (reg, opt) ->
@@ -841,24 +847,16 @@ let memHead hlp ins addr addrMode (builder: DisasmBuilder<_>) =
     buildReg ins false reg builder
     builder.Accumulate AsmWordKind.String "], {"
     optionToString opt builder
+    builder.Accumulate AsmWordKind.String "}"
   | LiteralMode lbl ->
     let addr = processAddrExn32 ins addr |> calculateRelativePC lbl
     let addrStr = "0x" + addr.ToString ("x")
-    match ins.Opcode with
-    | Op.BL | Op.BLX -> commentWithSymbol hlp addr addrStr builder
-    | _ -> builder.Accumulate AsmWordKind.String addrStr
-
-let memTail addrMode (builder: DisasmBuilder<_>) =
-  match addrMode with
-  | OffsetMode _ -> builder.Accumulate AsmWordKind.String "]"
-  | PreIdxMode _ -> builder.Accumulate AsmWordKind.String "]!"
-  | PostIdxMode _ -> ()
-  | UnIdxMode _ -> builder.Accumulate AsmWordKind.String "}"
-  | LiteralMode _ -> ()
-
-let memToString hlp ins addr addrMode builder =
-  memHead hlp ins addr addrMode builder
-  memTail addrMode builder
+    if ins.IsBranch () then
+      commentWithSymbol hlp addr addrStr builder
+    else
+      builder.Accumulate AsmWordKind.String "["
+      builder.Accumulate AsmWordKind.Value addrStr
+      builder.Accumulate AsmWordKind.String "]"
 
 let optToString = function
   | BarrierOption.SY -> "sy"
