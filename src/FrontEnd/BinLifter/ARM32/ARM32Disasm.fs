@@ -817,7 +817,7 @@ let processAddrExn32 (ins: InsInfo) addr =
   | Op.ADR -> ParseUtils.align pc 4UL
   | _ -> addr
 
-let calculateRelativePC lbl addr = int32 addr + int32 lbl |> uint64
+let calculateRelativePC lbl addr = int32 addr + int32 lbl |> uint32 |> uint64
 
 let commentWithSymbol helper addr addrStr (builder: DisasmBuilder<_>) =
   if builder.ResolveSymbol then
