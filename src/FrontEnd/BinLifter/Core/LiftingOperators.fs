@@ -45,7 +45,6 @@ let inline ( !% ) (ir: IRBuilder) label = ir.NewSymbol label
 
 /// The special operator for starting an instruction (ISMark).
 let inline ( !< ) (ir: IRBuilder) insLen =
-  ir.PrepareLifting ()
   ir.Append (AST.ismark insLen)
 
 /// The special operator for finishing an instruction (IEMark).

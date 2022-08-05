@@ -65,16 +65,14 @@ type IRBuilder =
   member __.Append stmt = __.Add (stmt)
 
   /// <summary>
-  ///   Create an array of IR statements from the buffer.
+  ///   Create an array of IR statements from the buffer. This function will
+  ///   clear up the buffer and initialize the tempvar count, too.
   /// </summary>
   /// <returns>
   ///   Returns an array of IR statements.
   /// </returns>
-  member __.ToStmts () = __.ToArray ()
-
-  /// <summary>
-  ///   Call this function to start lifting an instruction.
-  /// </summary>
-  member __.PrepareLifting () =
+  member __.ToStmts () =
     __.TempVarCount <- 0
+    let stmts = __.ToArray ()
     __.Clear ()
+    stmts
