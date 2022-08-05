@@ -144,10 +144,10 @@ type MIPSInstruction (addr, numBytes, insInfo, wordSize) =
     __.Info.Opcode = Opcode.NOP
 
   override __.Translate ctxt =
-    (Lifter.translate __.Info ctxt).ToStmts ()
+    (Lifter.translate __.Info numBytes ctxt).ToStmts ()
 
   override __.TranslateToList ctxt =
-    Lifter.translate __.Info ctxt
+    Lifter.translate __.Info numBytes ctxt
 
   override __.Disasm (showAddr, _resolveSymbol, _fileInfo) =
     let builder =
