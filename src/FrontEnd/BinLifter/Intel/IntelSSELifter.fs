@@ -1041,6 +1041,69 @@ let private opPavgw _ = opAveragePackedInt 16<rt>
 let pavgw ins insLen ctxt =
   buildPackedInstr ins insLen ctxt 16<rt> opPavgw 32
 
+let pextrb ins insLen ctxt =
+  let ir = !*ctxt
+  let struct (dst, src, count) = getThreeOprs ins
+  let dst = transOprToExpr ins insLen ctxt dst
+  let count = getImmValue count
+  let oprSize = getOperationSize ins
+  !<ir insLen
+  match src with
+  | OprReg reg ->
+    let srcB, srcA = getPseudoRegVar128 ctxt reg
+    let count = (count &&& 0b1111) (* COUNT[3:0] *) * 8L
+    let lAmt = numI64 (64L - (count % 64L)) 64<rt> (* Left Shift *)
+    let rAmt = numI64 (count % 64L) 64<rt> (* Right Shift *)
+    let result =
+      if count < 64 then
+        ((srcB << lAmt) .| (srcA >> rAmt)) .& numU32 0xFFu 64<rt>
+      else (srcB >> rAmt) .& numU32 0xFFu 64<rt>
+    !!ir (dstAssign oprSize dst (AST.xtlo oprSize result))
+  | _ -> raise InvalidOperandException
+  !>ir insLen
+
+let pextrd ins insLen ctxt =
+  let ir = !*ctxt
+  let struct (dst, src, count) = getThreeOprs ins
+  let dst = transOprToExpr ins insLen ctxt dst
+  let count = getImmValue count
+  let oprSize = getOperationSize ins
+  !<ir insLen
+  match src with
+  | OprReg reg ->
+    let srcB, srcA = getPseudoRegVar128 ctxt reg
+    let count = (count &&& 0b11) (* COUNT[1:0] *) * 32L
+    let lAmt = numI64 (64L - (count % 64L)) 64<rt> (* Left Shift *)
+    let rAmt = numI64 (count % 64L) 64<rt> (* Right Shift *)
+    let result =
+      if count < 64 then
+        ((srcB << lAmt) .| (srcA >> rAmt)) .& numU32 0xFFFFFFFFu 64<rt>
+      else (srcB >> rAmt) .& numU32 0xFFFFFFFFu 64<rt>
+    !!ir (dstAssign oprSize dst (AST.xtlo oprSize result))
+  | _ -> raise InvalidOperandException
+  !>ir insLen
+
+let pextrq ins insLen ctxt =
+  let ir = !*ctxt
+  let struct (dst, src, count) = getThreeOprs ins
+  let dst = transOprToExpr ins insLen ctxt dst
+  let count = getImmValue count
+  let oprSize = getOperationSize ins
+  !<ir insLen
+  match src with
+  | OprReg reg ->
+    let srcB, srcA = getPseudoRegVar128 ctxt reg
+    let count = (count &&& 0b1) (* COUNT[0] *) * 64L
+    let lAmt = numI64 (64L - (count % 64L)) 64<rt> (* Left Shift *)
+    let rAmt = numI64 (count % 64L) 64<rt> (* Right Shift *)
+    let result =
+      if count < 64 then
+        ((srcB << lAmt) .| (srcA >> rAmt))
+      else (srcB >> rAmt)
+    !!ir (dstAssign oprSize dst (AST.xtlo oprSize result))
+  | _ -> raise InvalidOperandException
+  !>ir insLen
+
 let pextrw ins insLen ctxt =
   let ir = !*ctxt
   let struct (dst, src, count) = getThreeOprs ins
