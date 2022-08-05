@@ -1318,13 +1318,15 @@ let logicalAnd isSetFlags (ins: InsInfo) insLen ctxt =
 
 let mov isSetFlags ins insLen ctxt =
   let ir = !*ctxt
-  let dst, res = transTwoOprs ins ctxt
+  let dst, src = transTwoOprs ins ctxt
   let result = !+ir 32<rt>
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
+  let pc = getPC ctxt
   !<ir insLen
   let lblIgnore = checkCondition ins insLen ctxt isUnconditional ir
-  !!ir (result := res)
-  if dst = getPC ctxt then aluWritePC ctxt ins isUnconditional result ir
+  if src = pc then !!ir (result := src .+ (numU64 (pcOffset ins) 32<rt>))
+  else !!ir (result := src)
+  if dst = pc then aluWritePC ctxt ins isUnconditional result ir
   else
     !!ir (dst := result)
     if isSetFlags then
