@@ -817,7 +817,10 @@ let processAddrExn32 (ins: InsInfo) addr =
   | Op.ADR -> ParseUtils.align pc 4UL
   | _ -> addr
 
-let calculateRelativePC lbl addr = int32 addr + int32 lbl |> uint32 |> uint64
+let calculateRelativePC (ins: InsInfo) lbl addr =
+  let delta = if ins.Mode = ArchOperationMode.ARMMode then 8 else 4
+  let offset = int32 lbl + delta
+  int32 addr + offset |> uint32 |> uint64
 
 let commentWithSymbol helper addr addrStr (builder: DisasmBuilder<_>) =
   if builder.ResolveSymbol then
@@ -849,7 +852,7 @@ let memToString hlp ins addr addrMode (builder: DisasmBuilder<_>) =
     optionToString opt builder
     builder.Accumulate AsmWordKind.String "}"
   | LiteralMode lbl ->
-    let addr = processAddrExn32 ins addr |> calculateRelativePC lbl
+    let addr = processAddrExn32 ins addr |> calculateRelativePC ins lbl
     let addrStr = "0x" + addr.ToString ("x")
     if ins.IsBranch () then
       commentWithSymbol hlp addr addrStr builder
