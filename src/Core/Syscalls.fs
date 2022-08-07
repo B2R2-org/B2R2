@@ -1603,6 +1603,12 @@ module LinuxSyscall =
     | LinuxSyscall.Clone3 -> 435
     | LinuxSyscall.Openat2 -> 437
     | LinuxSyscall.PidfdGetfd -> 438
+    | LinuxSyscall.Breakpoint -> 0x0f0001 (* __ARM_NR_breakpoint *)
+    | LinuxSyscall.CacheFlush -> 0x0f0002 (* __ARM_NR_cacheflush *)
+    | LinuxSyscall.Usr26 -> 0x0f0003 (* __ARM_NR_usr26 *)
+    | LinuxSyscall.Usr32 -> 0x0f0004 (* __ARM_NR_usr32 *)
+    | LinuxSyscall.SetTLS -> 0x0f0005 (* __ARM_NR_set_tls *)
+    | LinuxSyscall.GetTLS -> 0x0f0006 (* __ARM_NR_get_tls *)
     | _ -> raise UnhandledSyscallException
 
   let toNumber arch syscall =
@@ -2735,6 +2741,12 @@ module LinuxSyscall =
     | 435 -> LinuxSyscall.Clone3
     | 437 -> LinuxSyscall.Openat2
     | 438 -> LinuxSyscall.PidfdGetfd
+    | 0x0f0001 -> LinuxSyscall.Breakpoint (* __ARM_NR_breakpoint *)
+    | 0x0f0002 -> LinuxSyscall.CacheFlush (* __ARM_NR_cacheflush *)
+    | 0x0f0003 -> LinuxSyscall.Usr26 (* __ARM_NR_usr26 *)
+    | 0x0f0004 -> LinuxSyscall.Usr32 (* __ARM_NR_usr32 *)
+    | 0x0f0005 -> LinuxSyscall.SetTLS (* __ARM_NR_set_tls *)
+    | 0x0f0006 -> LinuxSyscall.GetTLS (* __ARM_NR_get_tls *)
     | _ -> raise UnhandledSyscallException
 
   let ofNumber arch num =
