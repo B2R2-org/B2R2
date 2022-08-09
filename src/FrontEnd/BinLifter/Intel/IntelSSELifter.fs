@@ -1041,6 +1041,69 @@ let private opPavgw _ = opAveragePackedInt 16<rt>
 let pavgw ins insLen ctxt =
   buildPackedInstr ins insLen ctxt 16<rt> opPavgw 32
 
+let pextrb ins insLen ctxt =
+  let ir = !*ctxt
+  let struct (dst, src, count) = getThreeOprs ins
+  let dst = transOprToExpr ins insLen ctxt dst
+  let count = getImmValue count
+  let oprSize = getOperationSize ins
+  !<ir insLen
+  match src with
+  | OprReg reg ->
+    let srcB, srcA = getPseudoRegVar128 ctxt reg
+    let count = (count &&& 0b1111) (* COUNT[3:0] *) * 8L
+    let lAmt = numI64 (64L - (count % 64L)) 64<rt> (* Left Shift *)
+    let rAmt = numI64 (count % 64L) 64<rt> (* Right Shift *)
+    let result =
+      if count < 64 then
+        ((srcB << lAmt) .| (srcA >> rAmt)) .& numU32 0xFFu 64<rt>
+      else (srcB >> rAmt) .& numU32 0xFFu 64<rt>
+    !!ir (dstAssign oprSize dst (AST.xtlo oprSize result))
+  | _ -> raise InvalidOperandException
+  !>ir insLen
+
+let pextrd ins insLen ctxt =
+  let ir = !*ctxt
+  let struct (dst, src, count) = getThreeOprs ins
+  let dst = transOprToExpr ins insLen ctxt dst
+  let count = getImmValue count
+  let oprSize = getOperationSize ins
+  !<ir insLen
+  match src with
+  | OprReg reg ->
+    let srcB, srcA = getPseudoRegVar128 ctxt reg
+    let count = (count &&& 0b11) (* COUNT[1:0] *) * 32L
+    let lAmt = numI64 (64L - (count % 64L)) 64<rt> (* Left Shift *)
+    let rAmt = numI64 (count % 64L) 64<rt> (* Right Shift *)
+    let result =
+      if count < 64 then
+        ((srcB << lAmt) .| (srcA >> rAmt)) .& numU32 0xFFFFFFFFu 64<rt>
+      else (srcB >> rAmt) .& numU32 0xFFFFFFFFu 64<rt>
+    !!ir (dstAssign oprSize dst (AST.xtlo oprSize result))
+  | _ -> raise InvalidOperandException
+  !>ir insLen
+
+let pextrq ins insLen ctxt =
+  let ir = !*ctxt
+  let struct (dst, src, count) = getThreeOprs ins
+  let dst = transOprToExpr ins insLen ctxt dst
+  let count = getImmValue count
+  let oprSize = getOperationSize ins
+  !<ir insLen
+  match src with
+  | OprReg reg ->
+    let srcB, srcA = getPseudoRegVar128 ctxt reg
+    let count = (count &&& 0b1) (* COUNT[0] *) * 64L
+    let lAmt = numI64 (64L - (count % 64L)) 64<rt> (* Left Shift *)
+    let rAmt = numI64 (count % 64L) 64<rt> (* Right Shift *)
+    let result =
+      if count < 64 then
+        ((srcB << lAmt) .| (srcA >> rAmt))
+      else (srcB >> rAmt)
+    !!ir (dstAssign oprSize dst (AST.xtlo oprSize result))
+  | _ -> raise InvalidOperandException
+  !>ir insLen
+
 let pextrw ins insLen ctxt =
   let ir = !*ctxt
   let struct (dst, src, count) = getThreeOprs ins
@@ -1196,6 +1259,73 @@ let pmovmskb ins insLen ctxt =
       AST.concat (AST.concat (concatBits tmpsD) (concatBits tmpsC))
         (AST.concat (concatBits tmpsB) (concatBits tmpsA))
     !!ir (dstAssign oprSize dst <| AST.zext oprSize tmps)
+  | _ -> raise InvalidOperandException
+  !>ir insLen
+
+let pmovsxbw ins insLen ctxt =
+  let ir = !*ctxt
+  let struct (dst, src) = getTwoOprs ins
+  let sext16ext8 src n = AST.sext 16<rt> (AST.extract src 8<rt> n)
+  !<ir insLen
+  match src with
+  | OprReg _ ->
+    let dstB, dstA = transOprToExpr128 ins insLen ctxt dst
+    let _srcB, srcA = transOprToExpr128 ins insLen ctxt src
+    !!ir (dstA := AST.concat
+      (AST.concat (sext16ext8 srcA 24) (sext16ext8 srcA 16))
+      (AST.concat (sext16ext8 srcA 8) (sext16ext8 srcA 0)))
+    !!ir (dstB := AST.concat
+      (AST.concat (sext16ext8 srcA 56) (sext16ext8 srcA 48))
+      (AST.concat (sext16ext8 srcA 40) (sext16ext8 srcA 32)))
+  | OprMem _ ->
+    let dstB, dstA = transOprToExpr128 ins insLen ctxt dst
+    let src = transOprToExpr64 ins insLen ctxt src
+    !!ir (dstA := AST.concat
+      (AST.concat (sext16ext8 src 24) (sext16ext8 src 16))
+      (AST.concat (sext16ext8 src 8) (sext16ext8 src 0)))
+    !!ir (dstB := AST.concat
+      (AST.concat (sext16ext8 src 56) (sext16ext8 src 48))
+      (AST.concat (sext16ext8 src 40) (sext16ext8 src 32)))
+  | _ -> raise InvalidOperandException
+  !>ir insLen
+
+let pmovsxbd ins insLen ctxt =
+  let ir = !*ctxt
+  let struct (dst, src) = getTwoOprs ins
+  !<ir insLen
+  match src with
+  | OprReg _ ->
+    let dstB, dstA = transOprToExpr128 ins insLen ctxt dst
+    let _srcB, srcA = transOprToExpr128 ins insLen ctxt src
+    !!ir (dstA := AST.concat (AST.sext 32<rt> (AST.extract srcA 8<rt> 8))
+                    (AST.sext 32<rt> (AST.xtlo 8<rt> srcA)))
+    !!ir (dstB := AST.concat (AST.sext 32<rt> (AST.extract srcA 8<rt> 24))
+                    (AST.sext 32<rt> (AST.extract srcA 8<rt> 16)))
+  | OprMem _ ->
+    let dstB, dstA = transOprToExpr128 ins insLen ctxt dst
+    let src = transOprToExpr32 ins insLen ctxt src
+    !!ir (dstA := AST.concat (AST.sext 32<rt> (AST.extract src 8<rt> 8))
+                    (AST.sext 32<rt> (AST.xtlo 8<rt> src)))
+    !!ir (dstB := AST.concat (AST.sext 32<rt> (AST.extract src 8<rt> 24))
+                    (AST.sext 32<rt> (AST.extract src 8<rt> 16)))
+  | _ -> raise InvalidOperandException
+  !>ir insLen
+
+let pmovsxbq ins insLen ctxt =
+  let ir = !*ctxt
+  let struct (dst, src) = getTwoOprs ins
+  !<ir insLen
+  match src with
+  | OprReg _ ->
+    let dstB, dstA = transOprToExpr128 ins insLen ctxt dst
+    let _srcB, srcA = transOprToExpr128 ins insLen ctxt src
+    !!ir (dstA := AST.sext 64<rt> (AST.xtlo 8<rt> srcA))
+    !!ir (dstB := AST.sext 64<rt> (AST.extract srcA 8<rt> 8))
+  | OprMem _ ->
+    let dstB, dstA = transOprToExpr128 ins insLen ctxt dst
+    let src = transOprToExpr16 ins insLen ctxt src
+    !!ir (dstA := AST.sext 64<rt> (AST.xtlo 8<rt> src))
+    !!ir (dstB := AST.sext 64<rt> (AST.extract src 8<rt> 8))
   | _ -> raise InvalidOperandException
   !>ir insLen
 

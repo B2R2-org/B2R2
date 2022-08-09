@@ -349,6 +349,9 @@ let translate (ins: IntelInternalInstruction) insLen ctxt =
   | OP.STMXCSR -> SSELifter.stmxcsr ins insLen ctxt
   | OP.PAVGB -> SSELifter.pavgb ins insLen ctxt
   | OP.PAVGW -> SSELifter.pavgw ins insLen ctxt
+  | OP.PEXTRB -> SSELifter.pextrb ins insLen ctxt
+  | OP.PEXTRD -> SSELifter.pextrd ins insLen ctxt
+  | OP.PEXTRQ -> SSELifter.pextrq ins insLen ctxt
   | OP.PEXTRW -> SSELifter.pextrw ins insLen ctxt
   | OP.PINSRW -> SSELifter.pinsrw ins insLen ctxt
   | OP.PMAXUB -> SSELifter.pmaxub ins insLen ctxt
@@ -359,6 +362,9 @@ let translate (ins: IntelInternalInstruction) insLen ctxt =
   | OP.PMINUD -> SSELifter.pminud ins insLen ctxt (* SSE4 *)
   | OP.PMINSB -> SSELifter.pminsb ins insLen ctxt (* SSE4 *)
   | OP.PMOVMSKB -> SSELifter.pmovmskb ins insLen ctxt
+  | OP.PMOVSXBW -> SSELifter.pmovsxbw ins insLen ctxt (* SSE4 *)
+  | OP.PMOVSXBD -> SSELifter.pmovsxbd ins insLen ctxt (* SSE4 *)
+  | OP.PMOVSXBQ -> SSELifter.pmovsxbq ins insLen ctxt (* SSE4 *)
   | OP.PMULHUW -> SSELifter.pmulhuw ins insLen ctxt
   | OP.PSADBW -> SSELifter.psadbw ins insLen ctxt
   | OP.PSHUFW -> SSELifter.pshufw ins insLen ctxt
@@ -485,6 +491,8 @@ let translate (ins: IntelInternalInstruction) insLen ctxt =
   | OP.VPCMPESTRI | OP.VPCMPESTRM | OP.VPCMPISTRI
   | OP.VPCMPISTRM -> SSELifter.pcmpstr ins insLen ctxt
   | OP.VPCMPGTB -> AVXLifter.vpcmpgtb ins insLen ctxt
+  | OP.VPEXTRD -> SSELifter.pextrd ins insLen ctxt
+  | OP.VPEXTRB -> SSELifter.pextrb ins insLen ctxt
   | OP.VPINSRD -> AVXLifter.vpinsrd ins insLen ctxt
   | OP.VPMINUB -> AVXLifter.vpminub ins insLen ctxt
   | OP.VPMINUD -> AVXLifter.vpminud ins insLen ctxt
