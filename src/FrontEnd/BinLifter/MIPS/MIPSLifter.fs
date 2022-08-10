@@ -52,8 +52,7 @@ let transOprToExpr insInfo ctxt = function
   | OpMem (b, Reg o, sz) ->
     AST.loadLE sz (getRegVar ctxt b .+ getRegVar ctxt o)
   | OpAddr (Relative o) ->
-    numI64 (int64 insInfo.Address + o + int64 insInfo.NumBytes) ctxt.WordBitSize
-    |> AST.loadLE ctxt.WordBitSize
+    numI64 (int64 insInfo.Address + o) ctxt.WordBitSize
   | GoToLabel _ -> raise InvalidOperandException
 
 let transOprToImm = function
