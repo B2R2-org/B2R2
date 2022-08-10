@@ -117,8 +117,9 @@ let transSIMD ctxt = function (* FIXME *)
   | FourRegs (s1, s2, s3, s4) -> raise <| NotImplementedIRException "FourRegs"
 
 let transImmOffset ctxt (addr: Addr) = function
-  | BaseOffset (bReg, Some imm) -> getRegVar ctxt bReg .+ numI64 imm 64<rt>
-  | BaseOffset (bReg, None) -> getRegVar ctxt bReg
+  | BaseOffset (bReg, Some imm) ->
+    getRegVar ctxt bReg .+ numI64 imm 64<rt> |> AST.loadLE 64<rt>
+  | BaseOffset (bReg, None) -> getRegVar ctxt bReg |> AST.loadLE 64<rt>
   | Lbl lbl -> numI64 (int64 addr + lbl) 64<rt>
 
 let transRegOff ins ctxt reg = function
@@ -136,10 +137,10 @@ let transRegOffset ins ctxt = function
 let transMemOffset ins ctxt addr = function
   | ImmOffset immOffset -> transImmOffset ctxt addr immOffset
   | RegOffset (bReg, reg, regOffset) ->
-    transRegOffset ins ctxt (bReg, reg, regOffset)
+    transRegOffset ins ctxt (bReg, reg, regOffset) |> AST.loadLE 64<rt>
 
 let transBaseMode ins ctxt addr offset =
-  transMemOffset ins ctxt addr offset |> AST.loadLE 64<rt>
+  transMemOffset ins ctxt addr offset
 
 let transMem ins ctxt addr = function
   | BaseMode offset -> transBaseMode ins ctxt addr offset
