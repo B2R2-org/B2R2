@@ -70,7 +70,7 @@ let private accumulateExceptionTableInfo fde gccexctbl map =
      let exceptTable = buildExceptionTable fde gccexctbl ARMap.empty
      ARMap.add functionRange exceptTable map) map
 
-let private isRelocatable (eHdr: ELFHeader) =
+let private isRelocatableFile (eHdr: ELFHeader) =
   eHdr.ELFFileType = ELFFileType.Relocatable
 
 let private computeExceptionTable excframes gccexctbl =
@@ -142,7 +142,7 @@ let private parseELF baseAddr regbay span (reader: IBinReader) =
   let reloc = Relocs.parse baseAddr eHdr secs symbs span reader
   let plt = PLT.parse eHdr.MachineType secs reloc symbs span reader
   let globals = parseGlobalSymbols reloc |> Symbol.updateGlobals symbs
-  let excrel = if isRelocatable eHdr then Some reloc else None
+  let excrel = if isRelocatableFile eHdr then Some reloc else None
   let excframes = ExceptionFrames.parse span reader cls secs isa regbay excrel
   let lsdas = ELFGccExceptTable.parse span reader cls secs
   let exctbls = computeExceptionTable excframes lsdas

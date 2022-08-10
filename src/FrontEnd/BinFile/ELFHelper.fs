@@ -43,7 +43,7 @@ let isNXEnabled elf =
   | _ -> false
 
 let isRelocatable span elf =
-  let pred (e: DynamicSectionEntry) = e.DTag = DynamicSectionTag.DTDebug
+  let pred (e: DynamicSectionEntry) = e.DTag = DynamicTag.DT_DEBUG
   elf.ELFHdr.ELFFileType = ELFFileType.SharedObject
   && Section.getDynamicSectionEntries span elf.BinReader elf.SecInfo
      |> List.exists pred
