@@ -492,7 +492,7 @@ type Action =
 module Action =
   let toString = function
     | Undefined -> "undef"
-    | SameValue -> "samevalue"
+    | SameValue -> "sv"
     | Offset o -> "c" + (o.ToString ("+0;-#"))
     | ValOffset o -> "v" + (o.ToString ("+0;-#"))
     | Register rid -> "r(" + rid.ToString () + ")"

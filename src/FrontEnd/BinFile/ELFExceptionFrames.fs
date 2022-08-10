@@ -533,6 +533,13 @@ let rec getUnwind acc cfa irule rst rule isa rbay lr cf df rr span i loc =
       let action = Register (DWRegister.toRegID isa reg2)
       let rule = Map.add target action rule
       getUnwind acc cfa irule rst rule isa rbay lr cf df rr span (i + cnt) loc
+    | DWCFAInstruction.DW_CFA_same_value ->
+      let reg, cnt = LEB128.DecodeUInt64 (span.Slice i)
+      let reg = byte reg
+      let target = Rule.getTarget isa rr reg
+      let action = SameValue
+      let rule = Map.add target action rule
+      getUnwind acc cfa irule rst rule isa rbay lr cf df rr span (i + cnt) loc
     | DWCFAInstruction.DW_CFA_expression ->
       let reg, cnt = LEB128.DecodeUInt64 (span.Slice i)
       let reg = byte reg
