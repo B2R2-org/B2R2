@@ -1769,6 +1769,35 @@ let vpminub ins insLen ctxt =
 let vpminud ins insLen ctxt =
   buildPackedInstr ins insLen ctxt 32<rt> SSELifter.opPminud 32
 
+let vpmovsxdq ins insLen ctxt =
+  let ir = !*ctxt
+  let struct (dst, src) = getTwoOprs ins
+  !<ir insLen
+  let r = match dst with | OprReg r -> r | _ -> raise InvalidOperandException
+  match Register.getKind r, src with
+  | Register.Kind.XMM, OprReg _ ->
+    let dstB, dstA = transOprToExpr128 ins insLen ctxt dst
+    let _srcB, srcA = transOprToExpr128 ins insLen ctxt src
+    !!ir (dstA := AST.sext 64<rt> (AST.xtlo 32<rt> srcA))
+    !!ir (dstB := AST.sext 64<rt> (AST.extract srcA 32<rt> 32))
+    fillZeroFromVLToMaxVL ctxt dst 128 512 ir
+  | Register.Kind.XMM, OprMem _ ->
+    let dstB, dstA = transOprToExpr128 ins insLen ctxt dst
+    let src = transOprToExpr64 ins insLen ctxt src
+    !!ir (dstA := AST.sext 64<rt> (AST.xtlo 32<rt> src))
+    !!ir (dstB := AST.sext 64<rt> (AST.extract src 32<rt> 32))
+    fillZeroFromVLToMaxVL ctxt dst 128 512 ir
+  | Register.Kind.YMM, _ ->
+    let dstD, dstC, dstB, dstA = transOprToExpr256 ins insLen ctxt dst
+    let srcB, srcA = transOprToExpr128 ins insLen ctxt src
+    !!ir (dstA := AST.sext 64<rt> (AST.xtlo 32<rt> srcA))
+    !!ir (dstB := AST.sext 64<rt> (AST.extract srcA 32<rt> 32))
+    !!ir (dstC := AST.sext 64<rt> (AST.xtlo 32<rt> srcB))
+    !!ir (dstD := AST.sext 64<rt> (AST.extract srcB 32<rt> 32))
+    fillZeroFromVLToMaxVL ctxt dst 256 512 ir
+  | _ -> raise InvalidOperandException
+  !>ir insLen
+
 let private opVpmuludq _ =
   let low32 expr = expr .& numI64 0xffffffffL 64<rt>
   Array.map2 (fun e1 e2 -> low32 e1 .* low32 e2)
