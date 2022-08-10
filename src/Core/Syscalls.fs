@@ -2769,6 +2769,8 @@ module LinuxSyscall =
     | LinuxSyscall.ArcSetTLS -> "arc_settls"
     | LinuxSyscall.ArcUsrCmpxchg -> "arc_usr_cmpxchg"
     | LinuxSyscall.ArchPrctl -> "arch_prctl"
+    | LinuxSyscall.ArmFadvise64 -> "arm_fadvise64_64"
+    | LinuxSyscall.ArmSyncFileRange -> "arm_sync_file_range"
     | LinuxSyscall.AtomicBarrier -> "atomic_barrier"
     | LinuxSyscall.AtomicCmpxchg32 -> "atomic_cmpxchg_32"
     | LinuxSyscall.Bdflush -> "bdflush"
