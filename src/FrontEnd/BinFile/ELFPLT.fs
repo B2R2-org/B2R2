@@ -520,11 +520,51 @@ let rec loopSections map baseAddr arch reloc symbs span reader secInfo
     | _ -> map
   | [] -> map
 
+let rec parseMIPSStubEntries armap offset maxOffset tbl span reader =
+  if offset >= maxOffset then armap
+  else
+    let fst = (reader: IBinReader).ReadInt32 (span = span, offset = int offset)
+    let snd = reader.ReadInt32 (span, offset = int offset + 4)
+    let thr = reader.ReadInt32 (span, offset = int offset + 8)
+    if fst = 0x8f998010 (* lw t9, -32752(gp) *)
+      && snd = 0x03e07825 (* move t7, ra *)
+      && thr = 0x0320f809 (* jalr t9 *)
+    then
+      let insBytes = reader.ReadUInt32 (span, int offset + 12)
+      let index = int (insBytes &&& 0xffffu)
+      let symbol = (tbl: ELFSymbol[])[index]
+      let entry =
+        { FuncName = symbol.SymName
+          LibraryName = Symbol.versionToLibName symbol.VerInfo
+          TrampolineAddress = symbol.Addr
+          TableAddress = 0UL }
+      let ar = AddrRange (symbol.Addr, symbol.Addr + 15UL)
+      let armap = ARMap.add ar entry armap
+      parseMIPSStubEntries armap (offset + 16UL) maxOffset tbl span reader
+    else armap
+
+let parseMIPSStubs secInfo symbs span reader =
+  match Map.tryFind ".MIPS.stubs" secInfo.SecByName with
+  | Some sec ->
+    let tags = Section.getDynamicSectionEntries span reader secInfo
+    let offset = sec.SecOffset
+    let maxOffset = offset + sec.SecSize
+    match List.tryFind (fun t -> t.DTag = DynamicTag.DT_MIPS_GOTSYM) tags with
+    | Some tag ->
+      let n = secInfo.DynSymSecNums |> List.head
+      let tbl = symbs.SecNumToSymbTbls[n]
+      assert (tbl.Length > int tag.DVal)
+      parseMIPSStubEntries ARMap.empty offset maxOffset tbl span reader
+    | None -> ARMap.empty
+  | None -> ARMap.empty
+
 let parse arch secInfo reloc symbs span reader =
   let baseAddr = findGOTBase arch reloc secInfo
   let sections = filterPLTSections secInfo
-  match baseAddr with
-  | Some baseAddr ->
-    loopSections
-      ARMap.empty baseAddr arch reloc symbs span reader secInfo sections
-  | _ -> ARMap.empty
+  match baseAddr, sections with
+  | Some baseAddr, secs when not (List.isEmpty secs) ->
+    loopSections ARMap.empty baseAddr arch reloc symbs span reader secInfo secs
+  | _ ->
+    if arch = Architecture.MIPS32 || arch = Architecture.MIPS64 then
+      parseMIPSStubs secInfo symbs span reader
+    else ARMap.empty

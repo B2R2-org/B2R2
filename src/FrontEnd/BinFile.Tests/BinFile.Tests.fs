@@ -365,15 +365,15 @@ module ELF =
     member __.``[BinFile] ELF File Parse Test (mips32_Stripped)`` () =
       let fi = parseFile mips32StrippedFileName
       Assert.AreEqual (Some 0x00004c80UL, fi.EntryPoint)
-      Assert.AreEqual (fi.FileType, FileType.LibFile)
-      Assert.AreEqual (fi.IsStripped, true)
-      Assert.AreEqual (fi.IsNXEnabled, false)
-      Assert.AreEqual (fi.GetSections () |> Seq.length, 34)
-      Assert.AreEqual (fi.GetStaticSymbols () |> Seq.length, 0)
-      Assert.AreEqual (fi.GetDynamicSymbols () |> Seq.length, 232)
-      Assert.AreEqual (fi.GetLinkageTableEntries () |> Seq.length, 0)
-      Assert.AreEqual (fi.TextStartAddr, 0x00002c50UL)
-      Assert.AreEqual (fi.WordSize, WordSize.Bit32)
+      Assert.AreEqual (FileType.LibFile, fi.FileType)
+      Assert.AreEqual (true, fi.IsStripped)
+      Assert.AreEqual (false, fi.IsNXEnabled)
+      Assert.AreEqual (34, fi.GetSections () |> Seq.length)
+      Assert.AreEqual (0, fi.GetStaticSymbols () |> Seq.length)
+      Assert.AreEqual (232, fi.GetDynamicSymbols () |> Seq.length)
+      Assert.AreEqual (106, fi.GetLinkageTableEntries () |> Seq.length)
+      Assert.AreEqual (0x00002c50UL, fi.TextStartAddr)
+      Assert.AreEqual (WordSize.Bit32, fi.WordSize)
       checkSymbol fi 0x0001c280UL "strcmp"
       checkSymbol fi 0x0001c240UL "getpwnam"
 
@@ -381,15 +381,15 @@ module ELF =
     member __.``[BinFile] ELF File Parse Test (mips32_Stripped_le)`` () =
       let fi = parseFile mips32LEStrippedFileName
       Assert.AreEqual (Some 0x00004c80UL, fi.EntryPoint)
-      Assert.AreEqual (fi.FileType, FileType.LibFile)
-      Assert.AreEqual (fi.IsStripped, true)
-      Assert.AreEqual (fi.IsNXEnabled, false)
-      Assert.AreEqual (fi.GetSections () |> Seq.length, 34)
-      Assert.AreEqual (fi.GetStaticSymbols () |> Seq.length, 0)
-      Assert.AreEqual (fi.GetDynamicSymbols () |> Seq.length, 232)
-      Assert.AreEqual (fi.GetLinkageTableEntries () |> Seq.length, 0)
-      Assert.AreEqual (fi.TextStartAddr, 0x00002c50UL)
-      Assert.AreEqual (fi.WordSize, WordSize.Bit32)
+      Assert.AreEqual (FileType.LibFile, fi.FileType)
+      Assert.AreEqual (true, fi.IsStripped)
+      Assert.AreEqual (false, fi.IsNXEnabled)
+      Assert.AreEqual (34, fi.GetSections () |> Seq.length)
+      Assert.AreEqual (0, fi.GetStaticSymbols () |> Seq.length)
+      Assert.AreEqual (232, fi.GetDynamicSymbols () |> Seq.length)
+      Assert.AreEqual (106, fi.GetLinkageTableEntries () |> Seq.length)
+      Assert.AreEqual (0x00002c50UL, fi.TextStartAddr)
+      Assert.AreEqual (WordSize.Bit32, fi.WordSize)
       checkSymbol fi 0x0001c280UL "__snprintf_chk"
       checkSymbol fi 0x0001c240UL "unsetenv"
 
