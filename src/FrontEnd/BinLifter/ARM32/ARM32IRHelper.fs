@@ -109,30 +109,31 @@ let maskPSRForMbits = AST.num <| BitVector.OfBInt 31I 32<rt>
 let internal getPSR ctxt reg psrType =
   let psr = getRegVar ctxt reg
   match psrType with
-  | PSR_Cond -> psr .& maskPSRForCondbits
-  | PSR_N -> psr .& maskPSRForNbit
-  | PSR_Z -> psr .& maskPSRForZbit
-  | PSR_C -> psr .& maskPSRForCbit
-  | PSR_V -> psr .& maskPSRForVbit
-  | PSR_Q -> psr .& maskPSRForQbit
-  | PSR_IT10 -> psr .& maskPSRForIT10bits
-  | PSR_J -> psr .& maskPSRForJbit
-  | PSR_GE -> psr .& maskPSRForGEbits
-  | PSR_IT72 -> psr .& maskPSRForIT72bits
-  | PSR_E -> psr .& maskPSRForEbit
-  | PSR_A -> psr .& maskPSRForAbit
-  | PSR_I -> psr .& maskPSRForIbit
-  | PSR_F -> psr .& maskPSRForFbit
-  | PSR_T -> psr .& maskPSRForTbit
-  | PSR_M -> psr .& maskPSRForMbits
+  | PSR.Cond -> psr .& maskPSRForCondbits
+  | PSR.N -> psr .& maskPSRForNbit
+  | PSR.Z -> psr .& maskPSRForZbit
+  | PSR.C -> psr .& maskPSRForCbit
+  | PSR.V -> psr .& maskPSRForVbit
+  | PSR.Q -> psr .& maskPSRForQbit
+  | PSR.IT10 -> psr .& maskPSRForIT10bits
+  | PSR.J -> psr .& maskPSRForJbit
+  | PSR.GE -> psr .& maskPSRForGEbits
+  | PSR.IT72 -> psr .& maskPSRForIT72bits
+  | PSR.E -> psr .& maskPSRForEbit
+  | PSR.A -> psr .& maskPSRForAbit
+  | PSR.I -> psr .& maskPSRForIbit
+  | PSR.F -> psr .& maskPSRForFbit
+  | PSR.T -> psr .& maskPSRForTbit
+  | PSR.M -> psr .& maskPSRForMbits
+  | _ -> Utils.impossible ()
 
-let isSetCPSRn ctxt = getPSR ctxt R.CPSR PSR_N == maskPSRForNbit
-let isSetCPSRz ctxt = getPSR ctxt R.CPSR PSR_Z == maskPSRForZbit
-let isSetCPSRc ctxt = getPSR ctxt R.CPSR PSR_C == maskPSRForCbit
-let isSetCPSRv ctxt = getPSR ctxt R.CPSR PSR_V == maskPSRForVbit
-let isSetCPSRj ctxt = getPSR ctxt R.CPSR PSR_J == maskPSRForJbit
-let isSetCPSRt ctxt = getPSR ctxt R.CPSR PSR_T == maskPSRForTbit
-let isSetCPSRm ctxt = getPSR ctxt R.CPSR PSR_M == maskPSRForMbits
+let isSetCPSRn ctxt = getPSR ctxt R.CPSR PSR.N == maskPSRForNbit
+let isSetCPSRz ctxt = getPSR ctxt R.CPSR PSR.Z == maskPSRForZbit
+let isSetCPSRc ctxt = getPSR ctxt R.CPSR PSR.C == maskPSRForCbit
+let isSetCPSRv ctxt = getPSR ctxt R.CPSR PSR.V == maskPSRForVbit
+let isSetCPSRj ctxt = getPSR ctxt R.CPSR PSR.J == maskPSRForJbit
+let isSetCPSRt ctxt = getPSR ctxt R.CPSR PSR.T == maskPSRForTbit
+let isSetCPSRm ctxt = getPSR ctxt R.CPSR PSR.M == maskPSRForMbits
 
 /// Test whether mode number is valid, on page B1-1142.
 /// function : BadMode()
@@ -159,7 +160,7 @@ let isBadMode modeM =
 /// Returns TRUE if current mode is User or System mode, on page B1-1142.
 /// function : CurrentModeIsUserOrSystem()
 let currentModeIsUserOrSystem ctxt =
-  let modeM = getPSR ctxt R.CPSR PSR_M
+  let modeM = getPSR ctxt R.CPSR PSR.M
   let modeCond = isBadMode modeM
   let ite1 = modeM == (numI32 0b11111 32<rt>)
   let ite2 = AST.ite (modeM == (numI32 0b10000 32<rt>)) AST.b1 ite1
@@ -168,7 +169,7 @@ let currentModeIsUserOrSystem ctxt =
 /// Returns TRUE if current mode is Hyp mode, on page B1-1142.
 /// function : CurrentModeIsHyp()
 let currentModeIsHyp ctxt =
-  let modeM = getPSR ctxt R.CPSR PSR_M
+  let modeM = getPSR ctxt R.CPSR PSR.M
   let modeCond = isBadMode modeM
   let ite1 = modeM == (numI32 0b11010 32<rt>)
   AST.ite modeCond (AST.undef 1<rt> "UNPREDICTABLE") ite1

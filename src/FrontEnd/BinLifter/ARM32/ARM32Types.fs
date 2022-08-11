@@ -1105,24 +1105,23 @@ type Opcode =
 
 type internal Op = Opcode
 
-[<Struct>]
 type internal PSR =
-  | PSR_Cond
-  | PSR_N
-  | PSR_Z
-  | PSR_C
-  | PSR_V
-  | PSR_Q
-  | PSR_IT10
-  | PSR_J
-  | PSR_GE
-  | PSR_IT72
-  | PSR_E
-  | PSR_A
-  | PSR_I
-  | PSR_F
-  | PSR_T
-  | PSR_M
+  | Cond = 0
+  | N = 1
+  | Z = 2
+  | C = 3
+  | V = 4
+  | Q = 5
+  | IT10 = 6
+  | J = 7
+  | GE = 8
+  | IT72 = 9
+  | E = 10
+  | A = 11
+  | I = 12
+  | F = 13
+  | T = 14
+  | M = 15
 
 [<Struct>]
 type internal SCTLR =
