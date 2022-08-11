@@ -1329,6 +1329,24 @@ let pmovsxbq ins insLen ctxt =
   | _ -> raise InvalidOperandException
   !>ir insLen
 
+let pmovsxdq ins insLen ctxt =
+  let ir = !*ctxt
+  let struct (dst, src) = getTwoOprs ins
+  !<ir insLen
+  match src with
+  | OprReg _ ->
+    let dstB, dstA = transOprToExpr128 ins insLen ctxt dst
+    let _srcB, srcA = transOprToExpr128 ins insLen ctxt src
+    !!ir (dstA := AST.sext 64<rt> (AST.xtlo 32<rt> srcA))
+    !!ir (dstB := AST.sext 64<rt> (AST.extract srcA 32<rt> 32))
+  | OprMem _ ->
+    let dstB, dstA = transOprToExpr128 ins insLen ctxt dst
+    let src = transOprToExpr64 ins insLen ctxt src
+    !!ir (dstA := AST.sext 64<rt> (AST.xtlo 32<rt> src))
+    !!ir (dstB := AST.sext 64<rt> (AST.extract src 32<rt> 32))
+  | _ -> raise InvalidOperandException
+  !>ir insLen
+
 let private opPmulhuw _ = opPmul AST.xthi AST.zext 32<rt> 16<rt>
 
 let pmulhuw ins insLen ctxt =
