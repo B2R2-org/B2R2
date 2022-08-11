@@ -1024,16 +1024,18 @@ let cbnz ins insLen ctxt addr =
   let ir = !*ctxt
   let test, label = transTwoOprs ins ctxt addr
   let pc = getPC ctxt
+  let fall = pc .+ numU32 insLen 64<rt>
   !<ir insLen
-  !!ir (AST.intercjmp (test != AST.num0 ins.OprSize) (pc .+ label) pc)
+  !!ir (AST.intercjmp (test != AST.num0 ins.OprSize) (pc .+ label) fall)
   !>ir insLen
 
 let cbz ins insLen ctxt addr =
   let ir = !*ctxt
   let test, label = transTwoOprs ins ctxt addr
   let pc = getPC ctxt
+  let fall = pc .+ numU32 insLen 64<rt>
   !<ir insLen
-  !!ir (AST.intercjmp (test == AST.num0 ins.OprSize) (pc .+ label) pc)
+  !!ir (AST.intercjmp (test == AST.num0 ins.OprSize) (pc .+ label) fall)
   !>ir insLen
 
 let ccmn ins insLen ctxt addr =
@@ -1683,18 +1685,20 @@ let tbnz ins insLen ctxt addr =
   let ir = !*ctxt
   let test, imm, label = transThreeOprs ins ctxt addr
   let pc = getPC ctxt
+  let fall = pc .+ numU32 insLen 64<rt>
   let cond = (test >> imm .& AST.num1 ins.OprSize) == AST.num1 ins.OprSize
   !<ir insLen
-  !!ir (AST.intercjmp cond (pc .+ label) pc)
+  !!ir (AST.intercjmp cond (pc .+ label) fall)
   !>ir insLen
 
 let tbz ins insLen ctxt addr =
   let ir = !*ctxt
   let test, imm, label = transThreeOprs ins ctxt addr
   let pc = getPC ctxt
+  let fall = pc .+ numU32 insLen 64<rt>
   let cond = (test >> imm .& AST.num1 ins.OprSize) == AST.num0 ins.OprSize
   !<ir insLen
-  !!ir (AST.intercjmp cond (pc .+ label) pc)
+  !!ir (AST.intercjmp cond (pc .+ label) fall)
   !>ir insLen
 
 let udiv ins insLen ctxt addr =
