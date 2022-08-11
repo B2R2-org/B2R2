@@ -948,8 +948,9 @@ let bCond ins insLen ctxt addr cond =
   let ir = !*ctxt
   let label = transOneOpr ins ctxt addr
   let pc = getPC ctxt
+  let fall = pc .+ numU32 insLen 64<rt>
   !<ir insLen
-  !!ir (AST.intercjmp (conditionHolds ctxt cond) (pc .+ label) pc)
+  !!ir (AST.intercjmp (conditionHolds ctxt cond) (pc .+ label) fall)
   !>ir insLen
 
 let bfm ins insLen ctxt addr =
