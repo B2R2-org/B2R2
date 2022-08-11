@@ -345,6 +345,7 @@ let translate (ins: IntelInternalInstruction) insLen ctxt =
     SSELifter.cvtss2si ins insLen ctxt false
   | OP.CVTTSD2SI | OP.VCVTTSD2SI -> (* SSE2 *)
     SSELifter.cvtsd2si ins insLen ctxt false
+  | OP.EXTRACTPS -> SSELifter.extractps ins insLen ctxt
   | OP.LDMXCSR -> SSELifter.ldmxcsr ins insLen ctxt
   | OP.STMXCSR -> SSELifter.stmxcsr ins insLen ctxt
   | OP.PAVGB -> SSELifter.pavgb ins insLen ctxt
@@ -476,6 +477,7 @@ let translate (ins: IntelInternalInstruction) insLen ctxt =
   | OP.VBROADCASTSS -> AVXLifter.vbroadcastss ins insLen ctxt
   | OP.VEXTRACTF32X8 -> AVXLifter.vextracti32x8 ins insLen ctxt
   | OP.VEXTRACTI64X4 -> AVXLifter.vextracti64x4 ins insLen ctxt
+  | OP.VEXTRACTPS -> SSELifter.extractps ins insLen ctxt
   | OP.VINSERTI128 -> AVXLifter.vinserti128 ins insLen ctxt
   | OP.VMPTRLD -> LiftingUtils.sideEffects ctxt insLen UnsupportedExtension
   | OP.VPADDB -> AVXLifter.vpaddb ins insLen ctxt
