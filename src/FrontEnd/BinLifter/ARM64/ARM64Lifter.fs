@@ -116,11 +116,11 @@ let transSIMD ctxt = function (* FIXME *)
   | ThreeRegs (s1, s2, s3) -> raise <| NotImplementedIRException "ThreeRegs"
   | FourRegs (s1, s2, s3, s4) -> raise <| NotImplementedIRException "FourRegs"
 
-let transImmOffset ctxt (addr: Addr) = function
+let transImmOffset ctxt = function
   | BaseOffset (bReg, Some imm) ->
     getRegVar ctxt bReg .+ numI64 imm 64<rt> |> AST.loadLE 64<rt>
   | BaseOffset (bReg, None) -> getRegVar ctxt bReg |> AST.loadLE 64<rt>
-  | Lbl lbl -> numI64 (int64 addr + lbl) 64<rt>
+  | Lbl lbl -> numI64 lbl 64<rt>
 
 let transRegOff ins ctxt reg = function
   | ShiftOffset (shfTyp, amt) ->
@@ -134,19 +134,19 @@ let transRegOffset ins ctxt = function
     getRegVar ctxt bReg .+ transRegOff ins ctxt reg regOffset
   | bReg, reg, None -> getRegVar ctxt bReg .+ getRegVar ctxt reg
 
-let transMemOffset ins ctxt addr = function
-  | ImmOffset immOffset -> transImmOffset ctxt addr immOffset
+let transMemOffset ins ctxt = function
+  | ImmOffset immOffset -> transImmOffset ctxt immOffset
   | RegOffset (bReg, reg, regOffset) ->
     transRegOffset ins ctxt (bReg, reg, regOffset) |> AST.loadLE 64<rt>
 
-let transBaseMode ins ctxt addr offset =
-  transMemOffset ins ctxt addr offset
+let transBaseMode ins ctxt offset =
+  transMemOffset ins ctxt offset
 
 let transMem ins ctxt addr = function
-  | BaseMode offset -> transBaseMode ins ctxt addr offset
-  | PreIdxMode offset -> transBaseMode ins ctxt addr offset
-  | PostIdxMode offset -> transBaseMode ins ctxt addr offset
-  | LiteralMode offset -> transBaseMode ins ctxt addr offset
+  | BaseMode offset -> transBaseMode ins ctxt offset
+  | PreIdxMode offset -> transBaseMode ins ctxt offset
+  | PostIdxMode offset -> transBaseMode ins ctxt offset
+  | LiteralMode offset -> transBaseMode ins ctxt offset
 
 let transOprToExpr ins ctxt addr = function
   | OprRegister reg -> getRegVar ctxt reg
