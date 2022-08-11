@@ -475,7 +475,7 @@ let transOprToExprOfLDR ins ctxt addr (ir: IRBuilder) =
     let address = !+ir 64<rt>
     let data = !+ir ins.OprSize
     !!ir (address := bReg)
-    !!ir (address := if isPostIndex then address .+ offset else address)
+    !!ir (address := if isPostIndex then address else address .+ offset)
     !!ir (data := AST.loadLE ins.OprSize address)
     !!ir (dst := AST.zext ins.OprSize data)
     if isWBack && isPostIndex then !!ir (bReg := address .+ offset)
@@ -1192,8 +1192,7 @@ let ldrb ins insLen ctxt addr =
   let data = !+ir 8<rt>
   !<ir insLen
   !!ir (address := bReg)
-  (* FIXME: isPostIndex *)
-  !!ir (address := if isPostIndex then address .+ offset else address)
+  !!ir (address := if isPostIndex then address else address .+ offset)
   !!ir (data := AST.loadLE 8<rt> address)
   !!ir (dst := AST.zext 32<rt> data)
   if isWBack && isPostIndex then !!ir (bReg := address .+ offset)
@@ -1208,7 +1207,7 @@ let ldrh ins insLen ctxt addr =
   let data = !+ir 16<rt>
   !<ir insLen
   !!ir (address := bReg)
-  !!ir (address := if isPostIndex then address .+ offset else address)
+  !!ir (address := if isPostIndex then address else address .+ offset)
   !!ir (data := AST.loadLE 16<rt> address)
   !!ir (dst := AST.zext 32<rt> data)
   if isWBack && isPostIndex then !!ir (bReg := address .+ offset)
