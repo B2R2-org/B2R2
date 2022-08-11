@@ -977,7 +977,7 @@ type internal OprMemImm () =
       let imm12 = extract bin 11 0 |> int64
       let rn = extract bin 19 16 |> getRegister
       let sign = pickBit bin 23 |> getSign |> Some
-      match concat (pickBit bin 24) (pickBit bin 21) 1 with
+      match pickTwoBitsApart bin 24 21 with
       | 0b10u -> memOffsetImm (rn, sign, Some imm12)
       | 0b11u -> memPreIdxImm  (rn, sign, Some imm12)
       | _ (* 0b0xu *) -> memPostIdxImm (rn, sign, Some imm12)
@@ -1489,7 +1489,7 @@ type internal OprRtMemImm12A () =
       let imm12 = extract bin 11 0 |> int64
       let rn = extract bin 19 16 |> getRegister
       let sign = pickBit bin 23 |> getSign |> Some
-      match concat (pickBit bin 24) (pickBit bin 21) 1 (* P:W *) with
+      match pickTwoBitsApart bin 24 21 (* P:W *) with
       | 0b10u -> memOffsetImm (rn, sign, Some imm12)
       | 0b00u -> memPostIdxImm (rn, sign, Some imm12)
       | 0b11u -> memPreIdxImm (rn, sign, Some imm12)
@@ -1510,7 +1510,7 @@ type internal OprRtMemShf () =
         decodeImmShift (extract bin 6 5) (extract bin 11 7)
       let shiftOffset = Some (shift, Imm imm)
       let sign = pickBit bin 23 |> getSign |> Some
-      match concat (pickBit bin 24) (pickBit bin 21) 1 (* P:W *) with
+      match pickTwoBitsApart bin 24 21 (* P:W *) with
       | 0b10u -> memOffsetReg (rn, sign, rm, shiftOffset)
       | 0b00u -> memPostIdxReg (rn, sign, rm, shiftOffset)
       | 0b11u -> memPreIdxReg (rn, sign, rm, shiftOffset)
@@ -1543,7 +1543,7 @@ type internal OprRtMemReg () =
       let rn = extract bin 19 16 |> getRegister
       let rm = extract bin 3 0 |> getRegister
       let sign = pickBit bin 23 |> getSign |> Some
-      match concat (pickBit bin 24) (pickBit bin 21) 1 (* P:W *) with
+      match pickTwoBitsApart bin 24 21 (* P:W *) with
       | 0b10u -> memOffsetReg (rn, sign, rm, None)
       | 0b00u -> memPostIdxReg (rn, sign, rm, None)
       | 0b11u -> memPreIdxReg (rn, sign, rm, None)
@@ -1574,7 +1574,7 @@ type internal OprRtMemImm () =
       let imm = (* imm4H:imm4L *)
         concat (extract bin 11 8) (extract bin 3 0) 4 |> int64
       let sign = pickBit bin 23 |> getSign |> Some
-      match concat (pickBit bin 24) (pickBit bin 21) 1 (* P:W *) with
+      match pickTwoBitsApart bin 24 21 (* P:W *) with
       | 0b10u -> memOffsetImm (rn, sign, if imm = 0L then None else Some imm)
       | 0b00u -> memPostIdxImm (rn, sign, Some imm)
       | 0b11u -> memPreIdxImm (rn, sign, Some imm)
@@ -2259,7 +2259,7 @@ type internal OprQdDnDmidx () =
       concat (pickBit bin 22) (extract bin 15 12) 4 |> getVecQReg |> toSVReg
     let dn = (* N:Vn *)
       concat (pickBit bin 7) (extract bin 19 16) 4 |> getVecDReg |> toSVReg
-    let index = concat (pickBit bin 5) (pickBit bin 3) 1 (* M:Vm<3> *)
+    let index = pickTwoBitsApart bin 5 3 (* M:Vm<3> *)
     let dmidx =
       toSSReg (extract bin 2 0 (* Vm<2:0> *) |> getVecDReg,
                Some (index |> uint8))
@@ -2309,7 +2309,7 @@ type internal OprQdQnDmidxm () =
       concat (pickBit bin 22) (extract bin 15 12) 4 |> getVecQReg |> toSVReg
     let qn = (* N:Vn *)
       concat (pickBit bin 7) (extract bin 19 16) 4 |> getVecQReg |> toSVReg
-    let index = concat (pickBit bin 5) (pickBit bin 3) 1 (* M:Vm<3> *)
+    let index = pickTwoBitsApart bin 5 3 (* M:Vm<3> *)
     let dmidx =
       toSSReg (extract bin 2 0 (* Vm<2:0> *) |> getVecDReg,
                Some (index |> uint8))
@@ -2338,7 +2338,7 @@ type internal OprDdDnDmx () =
       | _ -> raise UndefinedException
     let index =
       match extract bin 21 20 (* size *) with
-      | 0b01u -> concat (pickBit bin 5) (pickBit bin 3) 1 (* M:Vm<3> *)
+      | 0b01u -> pickTwoBitsApart bin 5 3 (* M:Vm<3> *)
       | 0b10u -> pickBit bin 5 (* Vm *)
       | _ -> raise UndefinedException
     let dd = (* D:Vd *)
@@ -2359,7 +2359,7 @@ type internal OprQdQnDmx () =
       | _ -> raise UndefinedException
     let index =
       match extract bin 21 20 (* size *) with
-      | 0b01u -> concat (pickBit bin 5) (pickBit bin 3) 1 (* M:Vm<3> *)
+      | 0b01u -> pickTwoBitsApart bin 5 3 (* M:Vm<3> *)
       | 0b10u -> pickBit bin 5 (* Vm *)
       | _ -> raise UndefinedException
     let qd = (* D:Vd *)
@@ -2380,7 +2380,7 @@ type internal OprQdDnDmx () =
       | _ -> raise UndefinedException
     let index =
       match extract bin 21 20 (* size *) with
-      | 0b01u -> concat (pickBit bin 5) (pickBit bin 3) 1 (* M:Vm<3> *)
+      | 0b01u -> pickTwoBitsApart bin 5 3 (* M:Vm<3> *)
       | 0b10u -> pickBit bin 5 (* Vm *)
       | _ -> raise UndefinedException
     let qd = (* D:Vd *)
@@ -2440,7 +2440,7 @@ type internal OprRtRt2MemReg () =
       let rn = extract bin 19 16 |> getRegister
       let rm = extract bin 3 0 |> getRegister
       let sign = pickBit bin 23 |> getSign |> Some
-      match concat (pickBit bin 24) (pickBit bin 21) 1 (* P:W *) with
+      match pickTwoBitsApart bin 24 21 (* P:W *) with
       | 0b10u -> memOffsetReg (rn, sign, rm, None)
       | 0b00u -> memPostIdxReg (rn, sign, rm, None)
       | 0b11u -> memPreIdxReg (rn, sign, rm, None)
@@ -2481,7 +2481,7 @@ type internal OprRtRt2MemImmA () =
       let imm4L = extract bin 3 0
       let imm = concat imm4H imm4L 4 |> int64
       let sign = pickBit bin 23 |> getSign |> Some
-      match concat (pickBit bin 24) (pickBit bin 21) 1 with
+      match pickTwoBitsApart bin 24 21 with
       | 0b10u -> memOffsetImm (rn, sign, if imm = 0L then None else Some imm)
       | 0b00u -> memPostIdxImm (rn, sign, Some imm)
       | 0b11u -> memPreIdxImm (rn, sign, Some imm)
@@ -2518,7 +2518,7 @@ type internal OprP14C5Mem () =
         | _ -> (extract bin 7 0 (* imm8 *)) * 4u |> int64
       let rn = extract bin 19 16 |> getRegister
       let sign = pickBit bin 23 (* U *) |> getSign |> Some
-      match concat (pickBit bin 24) (pickBit bin 21) 1 (* P:W *) with
+      match pickTwoBitsApart bin 24 21 (* P:W *) with
       | 0b10u -> memOffsetImm (rn, sign, Some imm32)
       | 0b01u -> memPostIdxImm (rn, sign, Some imm32)
       | 0b11u -> memPreIdxImm (rn, sign, Some imm32)
@@ -3213,7 +3213,7 @@ type internal OprCoprocCRdMem () =
       let rn = extract bin 19 16 |> getRegister
       let imm = extract bin 7 0 <<< 2 |> int64
       let sign = pickBit bin 23 |> getSign |> Some
-      match concat (pickBit bin 24) (pickBit bin 21) 1 (* P:W *) with
+      match pickTwoBitsApart bin 24 21 (* P:W *) with
       | 0b10u -> memOffsetImm (rn, sign, Some imm)
       | 0b11u -> memPreIdxImm (rn, sign, Some imm)
       | 0b01u -> memPostIdxImm (rn, sign, Some imm)
@@ -4106,7 +4106,7 @@ type internal OprRtRt2MemImmT () =
       let rn = extract bin 19 16 |> getRegister
       let imm = extract bin 7 0 <<< 2 |> int64
       let sign = pickBit bin 23 |> getSign |> Some
-      match concat (pickBit bin 24) (pickBit bin 21) 1 with
+      match pickTwoBitsApart bin 24 21 with
       | 0b10u -> memOffsetImm (rn, sign, Some imm)
       | 0b01u -> memPostIdxImm (rn, sign, Some imm)
       | 0b11u -> memPreIdxImm (rn, sign, Some imm)

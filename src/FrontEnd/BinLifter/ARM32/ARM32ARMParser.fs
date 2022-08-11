@@ -128,7 +128,9 @@ let parseLoadStoreReg (phlp: ParsingHelper) bin =
 /// Load/Store Dual, Half, Signed Byte (immediate, literal) on page F4-4221.
 let parseLoadStoreImm (phlp: ParsingHelper) bin =
   let decodeField = (* P:W:o1:op2 *)
-    concat (concat (pickBit bin 24) (pickTwo bin 20) 2) (pickTwo bin 5) 2
+    ((bin >>> 20) &&& 0b10000u) (* 24th bit *)
+    ||| ((bin >>> 18) &&& 0b01100u) (* 21, 20th bit *)
+    ||| ((bin >>> 5) &&& 0b00011u) (* 6, 5th bit *)
   let isNotRn1111 bin = pickFour bin 16 <> 0b1111u
   match decodeField (* P:W:o1:op2 *) with
   | 0b00010u when isNotRn1111 bin -> (* LDRD (immediate) *)
@@ -733,7 +735,7 @@ let parseHalfMulAndAccumulate (phlp: ParsingHelper) bin =
 
 /// Integer Data Processing (three register, immediate shift) on page F4-4227.
 let parseIntegerDataProcThreeRegImm (phlp: ParsingHelper) bin =
-  match concat (pickThree bin 21) (pickBit bin 20) 1 (* opc:S *) with
+  match pickFour bin 20 (* opc:S *) with
   | 0b0000u -> render phlp bin Op.AND None OD.OprRdRnRmShfA
   | 0b0001u -> render phlp bin Op.ANDS None OD.OprRdRnRmShfA
   | 0b0010u -> render phlp bin Op.EOR None OD.OprRdRnRmShfA
@@ -1169,10 +1171,8 @@ let changeToAliasOfSTR bin =
 
 /// Load/Store Word, Unsigned Byte (immediate, literal) on page F4-4234.
 let parseCase010 (phlp: ParsingHelper) bin =
-  let pw = concat (pickBit bin 24) (pickBit bin 21) 1
-  let o2o1 = concat (pickBit bin 22) (pickBit bin 20) 1
   let rn = pickFour bin 16
-  match concat pw o2o1 2 (* P:W:o2:o1 *) with
+  match pickFourBitsApart bin 24 21 22 20 (* P:W:o2:o1 *) with
   (* LDR (literal) *)
   | 0b0001u when rn = 0b1111u ->
 #if !EMULATION
@@ -1290,7 +1290,7 @@ let parseCase010 (phlp: ParsingHelper) bin =
 
 /// Load/Store Word, Unsigned Byte (register) on page F4-4235.
 let parseCase0110 (phlp: ParsingHelper) bin =
-  match concat (pickBit bin 24) (pickThree bin 20) 3 (* P:o2:W:o1 *) with
+  match ((bin >>> 21) &&& 0b1000u) ||| (pickThree bin 20) (* P:o2:W:o1 *) with
   | 0b0000u ->
 #if !EMULATION
     chkPCRmRn bin
@@ -1568,7 +1568,7 @@ let parseSaturate16bit (phlp: ParsingHelper) bin =
 
 /// Reverse Bit/Byte on page F4-4240.
 let parseReverseBitByte (phlp: ParsingHelper) bin =
-  match concat (pickBit bin 22) (pickBit bin 7) 1 (* o1:o2 *) with
+  match pickTwoBitsApart bin 22 7 (* o1:o2 *) with
   | 0b00u ->
 #if !EMULATION
     chkPCRdRm bin
@@ -2558,7 +2558,7 @@ let parseAdvancedSIMDandFP64bitMove (phlp: ParsingHelper) bin =
 
 /// System register 64-bit move on page F4-4254.
 let parseSystemReg64bitMove (phlp: ParsingHelper) bin =
-  match concat (pickBit bin 22) (pickBit bin 20) 1 (* D:L *) with
+  match pickTwoBitsApart bin 22 20 (* D:L *) with
   | 0b00u | 0b01u -> raise ParsingFailureException
   | 0b10u ->
 #if !EMULATION
@@ -2694,7 +2694,7 @@ let parseSysRegisterLdSt (phlp: ParsingHelper) bin =
   let isNotRn1111 bin = pickFour bin 16 <> 0b1111u
   let isCRd0101 bin = (pickFour bin 12) = 0b0101u
   let puw = concat (pickTwo bin 23) (pickBit bin 21) 1 (* P:U:W *)
-  let dL = concat (pickBit bin 22) (pickBit bin 20) 1 (* D:L *)
+  let dL = pickTwoBitsApart bin 22 20 (* D:L *)
   let cRdCp15 = concat (pickFour bin 12) (pickBit bin 8) 1 (* CRd:cp15 *)
   match concat dL (pickBit bin 8) 1 (* D:L:cp15 *) with
   | 0b000u | 0b001u | 0b010u | 0b011u (* 0b0xxu *)
@@ -3705,7 +3705,7 @@ let parseCPS (phlp: ParsingHelper) bin =
 
 /// Change Process State on page F4-4262.
 let parseChangeProcessState (phlp: ParsingHelper) bin =
-  match concat (pickBit bin 16) (pickBit bin 4) 1 (* op:mode<4> *) with
+  match pickTwoBitsApart bin 16 4 (* op:mode<4> *) with
   | 0b10u -> render phlp bin Op.SETEND None OD.OprEndianA
   | 0b00u | 0b01u -> parseCPS phlp bin
   | _ (* 11 *) -> raise ParsingFailureException
@@ -6878,7 +6878,7 @@ let parseAdvSIMDShfAndImmGen (phlp: ParsingHelper) bin =
 
 /// Advanced SIMD data-processing on page F4-4262.
 let parseAdvSIMDDataProc (phlp: ParsingHelper) bin =
-  match concat (pickBit bin 23) (pickBit bin 4) 1 (* op0:op1 *) with
+  match pickTwoBitsApart bin 23 4 (* op0:op1 *) with
   | 0b00u | 0b01u (* 0x *) ->
     parseAdvSIMDThreeRegsSameLen phlp bin
   | 0b10u -> parseAdvSIMDTwoThreeRegsDiffLen phlp bin
@@ -6905,7 +6905,7 @@ let parseBarriers (phlp: ParsingHelper) bin =
 /// Preload (immediate) on page F4-4273.
 let parsePreloadImm (phlp: ParsingHelper) bin =
   let isRn1111 bin = pickFour bin 16 = 0b1111u
-  match concat (pickBit bin 24) (pickBit bin 22) 1 (* D:R *) with
+  match pickTwoBitsApart bin 24 22 (* D:R *) with
   | 0b00u -> render phlp bin Op.NOP None OD.OprNo
   | 0b01u -> render phlp bin Op.PLI None OD.OprLabel12A
   | 0b10u | 0b11u when isRn1111 bin ->
@@ -6915,7 +6915,7 @@ let parsePreloadImm (phlp: ParsingHelper) bin =
 
 /// Preload (register) on page F4-4274.
 let parsePreloadReg (phlp: ParsingHelper) bin =
-  match concat (pickBit bin 24) (pickBit bin 22) 1 (* D:o2 *) with
+  match pickTwoBitsApart bin 24 22 (* D:o2 *) with
   | 0b00u -> render phlp bin Op.NOP None OD.OprNo
   | 0b01u ->
 #if !EMULATION

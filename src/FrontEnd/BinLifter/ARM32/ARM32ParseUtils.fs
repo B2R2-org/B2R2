@@ -45,6 +45,15 @@ let inline pickFive (binary: uint32) n =
 let inline pickBit (binary: uint32) pos =
   (binary >>> pos) &&& 0b1u
 
+let inline pickTwoBitsApart (binary: uint32) pos1 pos2 =
+  ((binary >>> (pos1 - 1)) &&& 0b10u) ||| ((binary >>> pos2) &&& 0b1u)
+
+let inline pickFourBitsApart (binary: uint32) pos1 pos2 pos3 pos4 =
+  ((binary >>> (pos1 - 3)) &&& 0b1000u)
+  ||| ((binary >>> (pos2 - 2)) &&& 0b100u)
+  ||| ((binary >>> (pos3 - 1)) &&& 0b0010u)
+  ||| ((binary >>> pos4) &&& 0b0001u)
+
 let inline concat (n1: uint32) (n2: uint32) shift =
   (n1 <<< shift) + n2
 
