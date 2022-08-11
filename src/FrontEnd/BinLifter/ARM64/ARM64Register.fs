@@ -546,107 +546,234 @@ type Register =
   | Q30 = 0x101
   /// Q31.
   | Q31 = 0x102
-  /// Co-processor register
+  /// V0A is the 1st 64-bit chunk of V0A.
+  | V0A = 0x103
+  /// V0B is the 2nd 64-bit chunk of V0B.
+  | V0B = 0x104
+  ///  V1A is the 1st 64-bit chunk of V1A.
+  | V1A = 0x105
+  /// V1B is the 2nd 64-bit chunk of V1B.
+  | V1B = 0x106
+  /// V2A is the 1st 64-bit chunk of V2A.
+  | V2A = 0x107
+  /// V2B is the 2nd 64-bit chunk of V2B.
+  | V2B = 0x108
+  /// V3A is the 1st 64-bit chunk of V3A.
+  | V3A = 0x109
+  /// V3B is the 2nd 64-bit chunk of V3B.
+  | V3B = 0x10A
+  /// V4A is the 1st 64-bit chunk of V4A.
+  | V4A = 0x10B
+  /// V4B is the 2nd 64-bit chunk of V4B.
+  | V4B = 0x10C
+  /// V5A is the 1st 64-bit chunk of V5A.
+  | V5A = 0x10D
+  /// V5B is the 2nd 64-bit chunk of V5B.
+  | V5B = 0x10E
+  /// V6A is the 1st 64-bit chunk of V6A.
+  | V6A = 0x10F
+  /// V6B is the 2nd 64-bit chunk of V6B.
+  | V6B = 0x110
+  /// V7A is the 1st 64-bit chunk of V7A.
+  | V7A = 0x111
+  /// V7B is the 2nd 64-bit chunk of V7B.
+  | V7B = 0x112
+  /// V8A is the 1st 64-bit chunk of V8A.
+  | V8A = 0x113
+  /// V8B is the 2nd 64-bit chunk of V8B.
+  | V8B = 0x114
+  /// V9A is the 1st 64-bit chunk of V9A.
+  | V9A = 0x115
+  /// V9B is the 2nd 64-bit chunk of V9B.
+  | V9B = 0x116
+  /// V10A is the 1st 64-bit chunk of V10A.
+  | V10A = 0x117
+  /// V10B is the 2nd 64-bit chunk of V10B.
+  | V10B = 0x118
+  /// V11A is the 1st 64-bit chunk of V11A.
+  | V11A = 0x119
+  /// V11B is the 2nd 64-bit chunk of V11B.
+  | V11B = 0x11A
+  /// V12A is the 1st 64-bit chunk of V12A.
+  | V12A = 0x11B
+  /// V12B is the 2nd 64-bit chunk of V12B.
+  | V12B = 0x11C
+  /// V13A is the 1st 64-bit chunk of V13A.
+  | V13A = 0x11D
+  /// V13B is the 2nd 64-bit chunk of V13B.
+  | V13B = 0x11E
+  /// V14A is the 1st 64-bit chunk of V14A.
+  | V14A = 0x11F
+  /// V14B is the 2nd 64-bit chunk of V14B.
+  | V14B = 0x120
+  /// V15A is the 1st 64-bit chunk of V15A.
+  | V15A = 0x121
+  /// V15B is the 2nd 64-bit chunk of V15B.
+  | V15B = 0x122
+  /// V16A is the 1st 64-bit chunk of V16A.
+  | V16A = 0x123
+  /// V16B is the 2nd 64-bit chunk of V16B.
+  | V16B = 0x124
+  /// V17A is the 1st 64-bit chunk of V17A.
+  | V17A = 0x125
+  /// V17B is the 2nd 64-bit chunk of V17B.
+  | V17B = 0x126
+  /// V18A is the 1st 64-bit chunk of V18A.
+  | V18A = 0x127
+  /// V18B is the 2nd 64-bit chunk of V18B.
+  | V18B = 0x128
+  /// V19A is the 1st 64-bit chunk of V19A.
+  | V19A = 0x129
+  /// V19B is the 2nd 64-bit chunk of V19B.
+  | V19B = 0x12A
+  /// V20A is the 1st 64-bit chunk of V20A.
+  | V20A = 0x12B
+  /// V20B is the 2nd 64-bit chunk of V20B.
+  | V20B = 0x12C
+  /// V21A is the 1st 64-bit chunk of V21A.
+  | V21A = 0x12D
+  /// V21B is the 2nd 64-bit chunk of V21B.
+  | V21B = 0x12E
+  /// V22A is the 1st 64-bit chunk of V22A.
+  | V22A = 0x12F
+  /// V22B is the 2nd 64-bit chunk of V22B.
+  | V22B = 0x130
+  /// V23A is the 1st 64-bit chunk of V23A.
+  | V23A = 0x131
+  /// V23B is the 2nd 64-bit chunk of V23B.
+  | V23B = 0x132
+  /// V24A is the 1st 64-bit chunk of V24A.
+  | V24A = 0x133
+  /// V24B is the 2nd 64-bit chunk of V24B.
+  | V24B = 0x134
+  /// V25A is the 1st 64-bit chunk of V25A.
+  | V25A = 0x135
+  /// V25B is the 2nd 64-bit chunk of V25B.
+  | V25B = 0x136
+  /// V26A is the 1st 64-bit chunk of V26A.
+  | V26A = 0x137
+  /// V26B is the 2nd 64-bit chunk of V26B.
+  | V26B = 0x138
+  /// V27A is the 1st 64-bit chunk of V27A.
+  | V27A = 0x139
+  /// V27B is the 2nd 64-bit chunk of V27B.
+  | V27B = 0x13A
+  /// V28A is the 1st 64-bit chunk of V28A.
+  | V28A = 0x13B
+  /// V28B is the 2nd 64-bit chunk of V28B.
+  | V28B = 0x13C
+  /// V29A is the 1st 64-bit chunk of V29A.
+  | V29A = 0x13D
+  /// V29B is the 2nd 64-bit chunk of V29B.
+  | V29B = 0x13E
+  /// V30A is the 1st 64-bit chunk of V30A.
+  | V30A = 0x13F
+  /// V30B is the 2nd 64-bit chunk of V30B.
+  | V30B = 0x140
+  /// V31A is the 1st 64-bit chunk of V31A.
+  | V31A = 0x141
+  /// V31B is the 2nd 64-bit chunk of V31B.
+  | V31B = 0x142
   /// C0.
-  | C0 = 0x103
+  | C0 = 0x143
   /// C1.
-  | C1 = 0x104
+  | C1 = 0x144
   /// C2.
-  | C2 = 0x105
+  | C2 = 0x145
   /// C3.
-  | C3 = 0x106
+  | C3 = 0x146
   /// C4.
-  | C4 = 0x107
+  | C4 = 0x147
   /// C5.
-  | C5 = 0x108
+  | C5 = 0x148
   /// C6
-  | C6 = 0x109
+  | C6 = 0x149
   /// C7.
-  | C7 = 0x10A
+  | C7 = 0x14A
   /// C8.
-  | C8 = 0x10B
+  | C8 = 0x14B
   /// C9.
-  | C9 = 0x10C
+  | C9 = 0x14C
   /// C10.
-  | C10 = 0x10D
+  | C10 = 0x14D
   /// C11.
-  | C11 = 0x10E
+  | C11 = 0x14E
   /// C12.
-  | C12 = 0x10F
+  | C12 = 0x14F
   /// C13.
-  | C13 = 0x110
+  | C13 = 0x150
   /// C14.
-  | C14 = 0x111
+  | C14 = 0x151
   /// C15.
-  | C15 = 0x112
+  | C15 = 0x152
   /// Negative condition flag.
-  | N = 0x113
+  | N = 0x153
   /// Zero condition flag.
-  | Z = 0x114
+  | Z = 0x154
   /// Carry condition flag.
-  | C = 0x115
+  | C = 0x155
   /// Overflow condition flag.
-  | V = 0x116
+  | V = 0x156
   /// Auxiliary Control Register (EL1).
-  | ACTLREL1 = 0x117
+  | ACTLREL1 = 0x157
   /// Auxiliary Control Register (EL2).
-  | ACTLREL2 = 0x118
+  | ACTLREL2 = 0x158
   /// Auxiliary Control Register (EL3).
-  | ACTLREL3 = 0x119
+  | ACTLREL3 = 0x159
   /// Auxiliary Fault Status Register 0 (EL1).
-  | AFSR0EL1 = 0x11A
+  | AFSR0EL1 = 0x15A
   /// Auxiliary Fault Status Register 0 (EL2).
-  | AFSR0EL2 = 0x11B
+  | AFSR0EL2 = 0x15B
   /// Auxiliary Fault Status Register 0 (EL3).
-  | AFSR0EL3 = 0x11C
+  | AFSR0EL3 = 0x15C
   /// Auxiliary Fault Status Register 1 (EL1).
-  | AFSR1EL1 = 0x11D
+  | AFSR1EL1 = 0x15D
   /// Auxiliary Fault Status Register 1 (EL2).
-  | AFSR1EL2 = 0x11E
+  | AFSR1EL2 = 0x15E
   /// Auxiliary Fault Status Register 1 (EL3).
-  | AFSR1EL3 = 0x11F
+  | AFSR1EL3 = 0x15F
   /// Auxiliary ID Register.
-  | AIDREL1 = 0x120
+  | AIDREL1 = 0x160
   /// Auxiliary Memory Attribute Indirection Register (EL1).
-  | AMAIREL1 = 0x121
+  | AMAIREL1 = 0x161
   /// Auxiliary Memory Attribute Indirection Register (EL2).
-  | AMAIREL2 = 0x122
+  | AMAIREL2 = 0x162
   /// Auxiliary Memory Attribute Indirection Register (EL3).
-  | AMAIREL3 = 0x123
+  | AMAIREL3 = 0x163
   /// Current Cache Size ID Register.
-  | CCSIDREL1 = 0x124
+  | CCSIDREL1 = 0x164
   /// Cache Level ID Register.
-  | CLIDREL1 = 0x125
+  | CLIDREL1 = 0x165
   /// Context ID Register (EL1).
-  | CONTEXTIDREL1 = 0x126
+  | CONTEXTIDREL1 = 0x166
   /// Architectural Feature Access Control Register.
-  | CPACREL1 = 0x127
+  | CPACREL1 = 0x167
   /// Architectural Feature Trap Register (EL2).
-  | CPTREL2 = 0x128
+  | CPTREL2 = 0x168
   /// Architectural Feature Trap Register (EL3).
-  | CPTREL3 = 0x129
+  | CPTREL3 = 0x169
   /// Cache Size Selection Register.
-  | CSSELREL1 = 0x12A
+  | CSSELREL1 = 0x16A
   /// Cache Type Register.
-  | CTREL0 = 0x12B
+  | CTREL0 = 0x16B
   /// Domain Access Control Register.
-  | DACR32EL2 = 0x12C
+  | DACR32EL2 = 0x16C
   /// Data Cache Zero ID register.
-  | DCZIDEL0 = 0x12D
+  | DCZIDEL0 = 0x16D
   /// Exception Syndrome Register (EL1).
-  | ESREL1 = 0x12E
+  | ESREL1 = 0x16E
   /// Exception Syndrome Register (EL2).
-  | ESREL2 = 0x12F
+  | ESREL2 = 0x16F
   /// Exception Syndrome Register (EL3).
-  | ESREL3 = 0x130
+  | ESREL3 = 0x170
   /// Hypervisor IPA Fault Address Register.
-  | HPFAREL2 = 0x131
+  | HPFAREL2 = 0x171
   /// EL0 Read/Write Software Thread ID Register.
-  | TPIDREL0 = 0x132
+  | TPIDREL0 = 0x172
   /// Floating-point Control Register.
-  | FPCR = 0x133
+  | FPCR = 0x173
   /// Floating-point Status Register.
-  | FPSR = 0x134
+  | FPSR = 0x174
 
 /// Shortcut for Register type.
 type internal R = Register
@@ -921,6 +1048,70 @@ module Register =
     | "q29" -> R.Q29
     | "q30" -> R.Q30
     | "q31" -> R.Q31
+    | "v0a" -> R.V0A
+    | "v0b" -> R.V0B
+    | "v1a" -> R.V1A
+    | "v1b" -> R.V1B
+    | "v2a" -> R.V2A
+    | "v2b" -> R.V2B
+    | "v3a" -> R.V3A
+    | "v3b" -> R.V3B
+    | "v4a" -> R.V4A
+    | "v4b" -> R.V4B
+    | "v5a" -> R.V5A
+    | "v5b" -> R.V5B
+    | "v6a" -> R.V6A
+    | "v6b" -> R.V6B
+    | "v7a" -> R.V7A
+    | "v7b" -> R.V7B
+    | "v8a" -> R.V8A
+    | "v8b" -> R.V8B
+    | "v9a" -> R.V9A
+    | "v9b" -> R.V9B
+    | "v10a" -> R.V10A
+    | "v10b" -> R.V10B
+    | "v11a" -> R.V11A
+    | "v11b" -> R.V11B
+    | "v12a" -> R.V12A
+    | "v12b" -> R.V12B
+    | "v13a" -> R.V13A
+    | "v13b" -> R.V13B
+    | "v14a" -> R.V14A
+    | "v14b" -> R.V14B
+    | "v15a" -> R.V15A
+    | "v15b" -> R.V15B
+    | "v16a" -> R.V16A
+    | "v16b" -> R.V16B
+    | "v17a" -> R.V17A
+    | "v17b" -> R.V17B
+    | "v18a" -> R.V18A
+    | "v18b" -> R.V18B
+    | "v19a" -> R.V19A
+    | "v19b" -> R.V19B
+    | "v20a" -> R.V20A
+    | "v20b" -> R.V20B
+    | "v21a" -> R.V21A
+    | "v21b" -> R.V21B
+    | "v22a" -> R.V22A
+    | "v22b" -> R.V22B
+    | "v23a" -> R.V23A
+    | "v23b" -> R.V23B
+    | "v24a" -> R.V24A
+    | "v24b" -> R.V24B
+    | "v25a" -> R.V25A
+    | "v25b" -> R.V25B
+    | "v26a" -> R.V26A
+    | "v26b" -> R.V26B
+    | "v27a" -> R.V27A
+    | "v27b" -> R.V27B
+    | "v28a" -> R.V28A
+    | "v28b" -> R.V28B
+    | "v29a" -> R.V29A
+    | "v29b" -> R.V29B
+    | "v30a" -> R.V30A
+    | "v30b" -> R.V30B
+    | "v31a" -> R.V31A
+    | "v31b" -> R.V31B
     | "c0" -> R.C0
     | "c1" -> R.C1
     | "c2" -> R.C2
@@ -1233,6 +1424,70 @@ module Register =
     | R.Q29 -> "q29"
     | R.Q30 -> "q30"
     | R.Q31 -> "q31"
+    | R.V0A -> "v0a"
+    | R.V0B -> "v0b"
+    | R.V1A -> "v1a"
+    | R.V1B -> "v1b"
+    | R.V2A -> "v2a"
+    | R.V2B -> "v2b"
+    | R.V3A -> "v3a"
+    | R.V3B -> "v3b"
+    | R.V4A -> "v4a"
+    | R.V4B -> "v4b"
+    | R.V5A -> "v5a"
+    | R.V5B -> "v5b"
+    | R.V6A -> "v6a"
+    | R.V6B -> "v6b"
+    | R.V7A -> "v7a"
+    | R.V7B -> "v7b"
+    | R.V8A -> "v8a"
+    | R.V8B -> "v8b"
+    | R.V9A -> "v9a"
+    | R.V9B -> "v9b"
+    | R.V10A -> "v10a"
+    | R.V10B -> "v10b"
+    | R.V11A -> "v11a"
+    | R.V11B -> "v11b"
+    | R.V12A -> "v12a"
+    | R.V12B -> "v12b"
+    | R.V13A -> "v13a"
+    | R.V13B -> "v13b"
+    | R.V14A -> "v14a"
+    | R.V14B -> "v14b"
+    | R.V15A -> "v15a"
+    | R.V15B -> "v15b"
+    | R.V16A -> "v16a"
+    | R.V16B -> "v16b"
+    | R.V17A -> "v17a"
+    | R.V17B -> "v17b"
+    | R.V18A -> "v18a"
+    | R.V18B -> "v18b"
+    | R.V19A -> "v19a"
+    | R.V19B -> "v19b"
+    | R.V20A -> "v20a"
+    | R.V20B -> "v20b"
+    | R.V21A -> "v21a"
+    | R.V21B -> "v21b"
+    | R.V22A -> "v22a"
+    | R.V22B -> "v22b"
+    | R.V23A -> "v23a"
+    | R.V23B -> "v23b"
+    | R.V24A -> "v24a"
+    | R.V24B -> "v24b"
+    | R.V25A -> "v25a"
+    | R.V25B -> "v25b"
+    | R.V26A -> "v26a"
+    | R.V26B -> "v26b"
+    | R.V27A -> "v27a"
+    | R.V27B -> "v27b"
+    | R.V28A -> "v28a"
+    | R.V28B -> "v28b"
+    | R.V29A -> "v29a"
+    | R.V29B -> "v29b"
+    | R.V30A -> "v30a"
+    | R.V30B -> "v30b"
+    | R.V31A -> "v31a"
+    | R.V31B -> "v31b"
     | R.C0 -> "c0"
     | R.C1 -> "c1"
     | R.C2 -> "c2"
@@ -1294,7 +1549,15 @@ module Register =
     | R.D10 | R.D11 | R.D12 | R.D13 | R.D14 | R.D15 | R.D16 | R.D17 | R.D18
     | R.D19 | R.D20 | R.D21 | R.D22 | R.D23 | R.D24 | R.D25 | R.D26 | R.D27
     | R.D28 | R.D29 | R.D30 | R.D31
+    | R.V12A | R.V12B | R.V13A | R.V13B | R.V14A | R.V14B | R.V15A | R.V15B
+    | R.V16A | R.V16B | R.V17A | R.V17B | R.V18A | R.V18B | R.V19A | R.V19B
+    | R.V20A | R.V20B | R.V21A | R.V21B | R.V22A | R.V22B | R.V23A | R.V23B
+    | R.V24A | R.V24B | R.V25A | R.V25B | R.V26A | R.V26B | R.V27A | R.V27B
+    | R.V28A | R.V28B | R.V29A | R.V29B | R.V30A | R.V30B | R.V31A | R.V31B
     | R.FPCR | R.FPSR -> 64<rt>
+    | R.V0A | R.V0B | R.V1A | R.V1B | R.V2A | R.V2B | R.V3A | R.V3B
+    | R.V4A | R.V4B | R.V5A | R.V5B | R.V6A | R.V6B | R.V7A | R.V7B
+    | R.V8A | R.V8B | R.V9A | R.V9B | R.V10A | R.V10B | R.V11A | R.V11B
     | R.W0 | R.W1 | R.W2 | R.W3 | R.W4 | R.W5 | R.W6 | R.W7 | R.W8 | R.W9
     | R.W10 | R.W11 | R.W12 | R.W13 | R.W14 | R.W15 | R.W16 | R.W17 | R.W18
     | R.W19 | R.W20 | R.W21 | R.W22 | R.W23 | R.W24 | R.W25 | R.W26 | R.W27

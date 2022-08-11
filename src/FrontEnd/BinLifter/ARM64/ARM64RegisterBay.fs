@@ -39,12 +39,20 @@ type ARM64RegisterBay internal (r: RegExprs) =
       r.W12; r.W13; r.W14; r.W15; r.W16; r.W17; r.W18; r.W19; r.W20; r.W21;
       r.W22; r.W23; r.W24; r.W25; r.W26; r.W27; r.W28; r.W29; r.W30; r.WZR;
       r.SP; r.WSP; r.PC;
-      r.V0; r.V1; r.V2; r.V3; r.V4; r.V5; r.V6; r.V7; r.V8; r.V9; r.V10; r.V11;
-      r.V12; r.V13; r.V14; r.V15; r.V16; r.V17; r.V18; r.V19; r.V20; r.V21;
-      r.V22; r.V23; r.V24; r.V25; r.V26; r.V27; r.V28; r.V29; r.V30; r.V31;
-      r.Q0; r.Q1; r.Q2; r.Q3; r.Q4; r.Q5; r.Q6; r.Q7; r.Q8; r.Q9; r.Q10; r.Q11;
-      r.Q12; r.Q13; r.Q14; r.Q15; r.Q16; r.Q17; r.Q18; r.Q19; r.Q20; r.Q21;
-      r.Q22; r.Q23; r.Q24; r.Q25; r.Q26; r.Q27; r.Q28; r.Q29; r.Q30; r.Q31;
+      r.V0A; r.V0B; r.V1A; r.V1B; r.V2A; r.V2B; r.V3A; r.V3B; r.V4A; r.V4B;
+      r.V5A; r.V5B; r.V6A; r.V6B; r.V7A; r.V7B; r.V8A; r.V8B; r.V9A; r.V9B;
+      r.V10A; r.V10B; r.V11A; r.V11B; r.V12A; r.V12B; r.V13A; r.V13B; r.V14A;
+      r.V14B; r.V15A; r.V15B; r.V16A; r.V16B; r.V17A; r.V17B; r.V18A; r.V18B;
+      r.V19A; r.V19B; r.V20A; r.V20B; r.V21A; r.V21B; r.V22A; r.V22B; r.V23A;
+      r.V23B; r.V24A; r.V24B; r.V25A; r.V25B; r.V26A; r.V26B; r.V27A; r.V27B;
+      r.V28A; r.V28B; r.V29A; r.V29B; r.V30A; r.V30B; r.V31A; r.V31B;
+      r.Q0A; r.Q0B; r.Q1A; r.Q1B; r.Q2A; r.Q2B; r.Q3A; r.Q3B; r.Q4A; r.Q4B;
+      r.Q5A; r.Q5B; r.Q6A; r.Q6B; r.Q7A; r.Q7B; r.Q8A; r.Q8B; r.Q9A; r.Q9B;
+      r.Q10A; r.Q10B; r.Q11A; r.Q11B; r.Q12A; r.Q12B; r.Q13A; r.Q13B; r.Q14A;
+      r.Q14B; r.Q15A; r.Q15B; r.Q16A; r.Q16B; r.Q17A; r.Q17B; r.Q18A; r.Q18B;
+      r.Q19A; r.Q19B; r.Q20A; r.Q20B; r.Q21A; r.Q21B; r.Q22A; r.Q22B; r.Q23A;
+      r.Q23B; r.Q24A; r.Q24B; r.Q25A; r.Q25B; r.Q26A; r.Q26B; r.Q27A; r.Q27B;
+      r.Q28A; r.Q28B; r.Q29A; r.Q29B; r.Q30A; r.Q30B; r.Q31A; r.Q31B;
       r.D0; r.D1; r.D2; r.D3; r.D4; r.D5; r.D6; r.D7; r.D8; r.D9; r.D10; r.D11;
       r.D12; r.D13; r.D14; r.D15; r.D16; r.D17; r.D18; r.D19; r.D20; r.D21;
       r.D22; r.D23; r.D24; r.D25; r.D26; r.D27; r.D28; r.D29; r.D30; r.D31;
@@ -147,70 +155,134 @@ type ARM64RegisterBay internal (r: RegExprs) =
     | "SP" -> r.SP
     | "WSP" -> r.WSP
     | "PC" -> r.PC
-    | "V0" -> r.V0
-    | "V1" -> r.V1
-    | "V2" -> r.V2
-    | "V3" -> r.V3
-    | "V4" -> r.V4
-    | "V5" -> r.V5
-    | "V6" -> r.V6
-    | "V7" -> r.V7
-    | "V8" -> r.V8
-    | "V9" -> r.V9
-    | "V10" -> r.V10
-    | "V11" -> r.V11
-    | "V12" -> r.V12
-    | "V13" -> r.V13
-    | "V14" -> r.V14
-    | "V15" -> r.V15
-    | "V16" -> r.V16
-    | "V17" -> r.V17
-    | "V18" -> r.V18
-    | "V19" -> r.V19
-    | "V20" -> r.V20
-    | "V21" -> r.V21
-    | "V22" -> r.V22
-    | "V23" -> r.V23
-    | "V24" -> r.V24
-    | "V25" -> r.V25
-    | "V26" -> r.V26
-    | "V27" -> r.V27
-    | "V28" -> r.V28
-    | "V29" -> r.V29
-    | "V30" -> r.V30
-    | "V31" -> r.V31
-    | "Q0" -> r.Q0
-    | "Q1" -> r.Q1
-    | "Q2" -> r.Q2
-    | "Q3" -> r.Q3
-    | "Q4" -> r.Q4
-    | "Q5" -> r.Q5
-    | "Q6" -> r.Q6
-    | "Q7" -> r.Q7
-    | "Q8" -> r.Q8
-    | "Q9" -> r.Q9
-    | "Q10" -> r.Q10
-    | "Q11" -> r.Q11
-    | "Q12" -> r.Q12
-    | "Q13" -> r.Q13
-    | "Q14" -> r.Q14
-    | "Q15" -> r.Q15
-    | "Q16" -> r.Q16
-    | "Q17" -> r.Q17
-    | "Q18" -> r.Q18
-    | "Q19" -> r.Q19
-    | "Q20" -> r.Q20
-    | "Q21" -> r.Q21
-    | "Q22" -> r.Q22
-    | "Q23" -> r.Q23
-    | "Q24" -> r.Q24
-    | "Q25" -> r.Q25
-    | "Q26" -> r.Q26
-    | "Q27" -> r.Q27
-    | "Q28" -> r.Q28
-    | "Q29" -> r.Q29
-    | "Q30" -> r.Q30
-    | "Q31" -> r.Q31
+    | "V0A" -> r.V0A
+    | "V0B" -> r.V0B
+    | "V1A" -> r.V1A
+    | "V1B" -> r.V1B
+    | "V2A" -> r.V2A
+    | "V2B" -> r.V2B
+    | "V3A" -> r.V3A
+    | "V3B" -> r.V3B
+    | "V4A" -> r.V4A
+    | "V4B" -> r.V4B
+    | "V5A" -> r.V5A
+    | "V5B" -> r.V5B
+    | "V6A" -> r.V6A
+    | "V6B" -> r.V6B
+    | "V7A" -> r.V7A
+    | "V7B" -> r.V7B
+    | "V8A" -> r.V8A
+    | "V8B" -> r.V8B
+    | "V9A" -> r.V9A
+    | "V9B" -> r.V9B
+    | "V10A" -> r.V10A
+    | "V10B" -> r.V10B
+    | "V11A" -> r.V11A
+    | "V11B" -> r.V11B
+    | "V12A" -> r.V12A
+    | "V12B" -> r.V12B
+    | "V13A" -> r.V13A
+    | "V13B" -> r.V13B
+    | "V14A" -> r.V14A
+    | "V14B" -> r.V14B
+    | "V15A" -> r.V15A
+    | "V15B" -> r.V15B
+    | "V16A" -> r.V16A
+    | "V16B" -> r.V16B
+    | "V17A" -> r.V17A
+    | "V17B" -> r.V17B
+    | "V18A" -> r.V18A
+    | "V18B" -> r.V18B
+    | "V19A" -> r.V19A
+    | "V19B" -> r.V19B
+    | "V20A" -> r.V20A
+    | "V20B" -> r.V20B
+    | "V21A" -> r.V21A
+    | "V21B" -> r.V21B
+    | "V22A" -> r.V22A
+    | "V22B" -> r.V22B
+    | "V23A" -> r.V23A
+    | "V23B" -> r.V23B
+    | "V24A" -> r.V24A
+    | "V24B" -> r.V24B
+    | "V25A" -> r.V25A
+    | "V25B" -> r.V25B
+    | "V26A" -> r.V26A
+    | "V26B" -> r.V26B
+    | "V27A" -> r.V27A
+    | "V27B" -> r.V27B
+    | "V28A" -> r.V28A
+    | "V28B" -> r.V28B
+    | "V29A" -> r.V29A
+    | "V29B" -> r.V29B
+    | "V30A" -> r.V30A
+    | "V30B" -> r.V30B
+    | "V31A" -> r.V31A
+    | "V31B" -> r.V31B
+    | "Q0A" -> r.Q0A
+    | "Q0B" -> r.Q0B
+    | "Q1A" -> r.Q1A
+    | "Q1B" -> r.Q1B
+    | "Q2A" -> r.Q2A
+    | "Q2B" -> r.Q2B
+    | "Q3A" -> r.Q3A
+    | "Q3B" -> r.Q3B
+    | "Q4A" -> r.Q4A
+    | "Q4B" -> r.Q4B
+    | "Q5A" -> r.Q5A
+    | "Q5B" -> r.Q5B
+    | "Q6A" -> r.Q6A
+    | "Q6B" -> r.Q6B
+    | "Q7A" -> r.Q7A
+    | "Q7B" -> r.Q7B
+    | "Q8A" -> r.Q8A
+    | "Q8B" -> r.Q8B
+    | "Q9A" -> r.Q9A
+    | "Q9B" -> r.Q9B
+    | "Q10A" -> r.Q10A
+    | "Q10B" -> r.Q10B
+    | "Q11A" -> r.Q11A
+    | "Q11B" -> r.Q11B
+    | "Q12A" -> r.Q12A
+    | "Q12B" -> r.Q12B
+    | "Q13A" -> r.Q13A
+    | "Q13B" -> r.Q13B
+    | "Q14A" -> r.Q14A
+    | "Q14B" -> r.Q14B
+    | "Q15A" -> r.Q15A
+    | "Q15B" -> r.Q15B
+    | "Q16A" -> r.Q16A
+    | "Q16B" -> r.Q16B
+    | "Q17A" -> r.Q17A
+    | "Q17B" -> r.Q17B
+    | "Q18A" -> r.Q18A
+    | "Q18B" -> r.Q18B
+    | "Q19A" -> r.Q19A
+    | "Q19B" -> r.Q19B
+    | "Q20A" -> r.Q20A
+    | "Q20B" -> r.Q20B
+    | "Q21A" -> r.Q21A
+    | "Q21B" -> r.Q21B
+    | "Q22A" -> r.Q22A
+    | "Q22B" -> r.Q22B
+    | "Q23A" -> r.Q23A
+    | "Q23B" -> r.Q23B
+    | "Q24A" -> r.Q24A
+    | "Q24B" -> r.Q24B
+    | "Q25A" -> r.Q25A
+    | "Q25B" -> r.Q25B
+    | "Q26A" -> r.Q26A
+    | "Q26B" -> r.Q26B
+    | "Q27A" -> r.Q27A
+    | "Q27B" -> r.Q27B
+    | "Q28A" -> r.Q28A
+    | "Q28B" -> r.Q28B
+    | "Q29A" -> r.Q29A
+    | "Q29B" -> r.Q29B
+    | "Q30A" -> r.Q30A
+    | "Q30B" -> r.Q30B
+    | "Q31A" -> r.Q31A
+    | "Q31B" -> r.Q31B
     | "D0" -> r.D0
     | "D1" -> r.D1
     | "D2" -> r.D2
