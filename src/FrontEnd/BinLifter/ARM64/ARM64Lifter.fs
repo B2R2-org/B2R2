@@ -1080,7 +1080,6 @@ let cmp ins insLen ctxt addr =
   !!ir (getRegVar ctxt R.Z := z)
   !!ir (getRegVar ctxt R.C := c)
   !!ir (getRegVar ctxt R.V := v)
-  !!ir (dst := result)
   !>ir insLen
 
 let csel ins insLen ctxt addr =
