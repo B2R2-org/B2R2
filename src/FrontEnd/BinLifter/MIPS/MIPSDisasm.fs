@@ -83,6 +83,7 @@ let opCodeToString = function
   | Op.BITSWAP -> "bitswap"
   | Op.BLEZ -> "blez"
   | Op.BLTZ -> "bltz"
+  | Op.BLTZAL -> "bltzal"
   | Op.BNE -> "bne"
   | Op.BNEL -> "bnel"
   | Op.BREAK -> "break"
