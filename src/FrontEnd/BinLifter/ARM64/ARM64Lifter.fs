@@ -1573,7 +1573,7 @@ let stp ins insLen ctxt addr =
   let src1, src2, (bReg, offset) = transOprToExprOfSTP ins ctxt addr
   let isWBack, isPostIndex = getIsWBackAndIsPostIndex ins.Operands
   let address = !+ir 64<rt>
-  let dByte = numI32 (RegType.toBitWidth ins.OprSize) 64<rt>
+  let dByte = numI32 (RegType.toByteWidth ins.OprSize) 64<rt>
   !<ir insLen
   !!ir (address := bReg)
   !!ir (address := if isPostIndex then address else address .+ offset)
