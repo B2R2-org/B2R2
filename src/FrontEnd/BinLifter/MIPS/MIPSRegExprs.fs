@@ -103,6 +103,7 @@ type internal RegExprs (wordSize) =
   member val HI = var regType (Register.toRegID Register.HI) "HI" with get
   member val LO = var regType (Register.toRegID Register.LO) "LO" with get
   member val PC = AST.pcvar regType "PC" with get
+  member val NextPC = var regType (Register.toRegID Register.NPC) "nPC" with get
 
   member __.GetRegVar (name) =
     match name with

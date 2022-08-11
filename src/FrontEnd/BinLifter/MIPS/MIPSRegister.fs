@@ -163,6 +163,8 @@ type Register =
   | LO = 0x101
   /// Program Counter.
   | PC = 0x102
+  /// Pseudo register for the next PC (nPC).
+  | NPC = 0x103
 
 /// Shortcut for Register type.
 type internal R = Register

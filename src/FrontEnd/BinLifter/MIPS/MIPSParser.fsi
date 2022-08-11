@@ -25,7 +25,6 @@
 /// MIPS instruction parser.
 module B2R2.FrontEnd.BinLifter.MIPS.Parser
 
-open System
 open B2R2
 
 /// Read in bytes and return a parsed instruction for MIPS. This function
