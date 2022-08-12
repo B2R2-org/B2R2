@@ -342,6 +342,40 @@ let private opPaddusw oprSize src1 src2 =
 let paddusw ins insLen ctxt =
   buildPackedInstr ins insLen ctxt 16<rt> opPaddusw 16
 
+let private mkPhaddsw ir src1 src2 =
+  let srcA = Array.init 4 (fun _ -> !+ir 16<rt>)
+  let srcB = Array.init 4 (fun _ -> !+ir 16<rt>)
+  for i in 0 .. 3 do
+    if i < 2 then
+      !!ir (srcA[i] := AST.extract src1 16<rt> (i * 32))
+      !!ir (srcB[i] := AST.extract src1 16<rt> (i * 32 + 16))
+    else
+      !!ir (srcA[i] := AST.extract src2 16<rt> ((i - 2) * 32))
+      !!ir (srcB[i] := AST.extract src2 16<rt> ((i - 2) * 32 + 16))
+  done
+  srcA, srcB
+
+let phaddsw ins insLen ctxt =
+  let ir = !*ctxt
+  let struct (dst, src) = getTwoOprs ins
+  let oprSize = getOperationSize ins
+  !<ir insLen
+  match oprSize with
+  | 64<rt> ->
+    let dst = transOprToExpr ins insLen ctxt dst
+    let src = transOprToExpr ins insLen ctxt src
+    let src1, src2 = mkPhaddsw ir dst src
+    !!ir (dst := opPaddsw oprSize src1 src2 |> AST.concatArr)
+  | 128<rt> ->
+    let dstB, dstA = transOprToExpr128 ins insLen ctxt dst
+    let srcB, srcA = transOprToExpr128 ins insLen ctxt src
+    let src1, src2 = mkPhaddsw ir dstA dstB
+    !!ir (dstA := opPaddsw oprSize src1 src2 |> AST.concatArr)
+    let src3, src4 = mkPhaddsw ir srcA srcB
+    !!ir (dstB := opPaddsw oprSize src3 src4 |> AST.concatArr)
+  | _ -> raise InvalidOperandSizeException
+  !>ir insLen
+
 let opPsub _ = Array.map2 (.-)
 
 let psubb ins insLen ctxt =

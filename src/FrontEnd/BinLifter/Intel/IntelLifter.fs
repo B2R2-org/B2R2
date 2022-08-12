@@ -217,6 +217,7 @@ let translate (ins: IntelInternalInstruction) insLen ctxt =
   | OP.PADDSW -> MMXLifter.paddsw ins insLen ctxt
   | OP.PADDUSB -> MMXLifter.paddusb ins insLen ctxt
   | OP.PADDUSW -> MMXLifter.paddusw ins insLen ctxt
+  | OP.PHADDSW -> MMXLifter.phaddsw ins insLen ctxt
   | OP.PSUBB -> MMXLifter.psubb ins insLen ctxt
   | OP.PSUBW -> MMXLifter.psubw ins insLen ctxt
   | OP.PSUBD -> MMXLifter.psubd ins insLen ctxt
