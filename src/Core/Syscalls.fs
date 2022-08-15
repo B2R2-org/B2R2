@@ -1221,6 +1221,8 @@ module LinuxSyscall =
     | LinuxSyscall.PkeyAlloc -> 330
     | LinuxSyscall.PkeyFree -> 331
     | LinuxSyscall.Statx -> 332
+    | LinuxSyscall.IoPgetevents -> 333
+    | LinuxSyscall.Rseq -> 334
     | _ -> raise UnhandledSyscallException
 
   let private getARMEABINumber = function
@@ -2359,6 +2361,8 @@ module LinuxSyscall =
     | 330 -> LinuxSyscall.PkeyAlloc
     | 331 -> LinuxSyscall.PkeyFree
     | 332 -> LinuxSyscall.Statx
+    | 333 -> LinuxSyscall.IoPgetevents
+    | 334 -> LinuxSyscall.Rseq
     | _ -> raise UnhandledSyscallException
 
   let private getARMEABISyscall = function
