@@ -40,7 +40,7 @@ type ARM64RegisterSet (bitArray: uint64 [], s: Set<RegisterID>) =
 
   override __.ArrSize = ArrLen
 
-  override __.New x s = new ARM64RegisterSet (x, s) :> RegisterSet
+  override __.New x s = ARM64RegisterSet (x, s) :> RegisterSet
 
   override __.RegIDToIndex rid =
     match Register.ofRegID rid with

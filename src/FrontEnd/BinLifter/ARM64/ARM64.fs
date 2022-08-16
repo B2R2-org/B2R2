@@ -35,7 +35,7 @@ type ARM64TranslationContext internal (isa, regexprs) =
   member val private RegExprs: RegExprs = regexprs
   override __.GetRegVar id = Register.ofRegID id |> __.RegExprs.GetRegVar
   override __.GetPseudoRegVar id pos =
-    __.RegExprs.GetPseudoRegVar (Register.ofRegID id ) pos
+    __.RegExprs.GetPseudoRegVar (Register.ofRegID id) pos
 
 /// Parser for 64-bit ARM instructions. Parser will return a platform-agnostic
 /// instruction type (Instruction).

@@ -1549,15 +1549,15 @@ module Register =
     | R.D10 | R.D11 | R.D12 | R.D13 | R.D14 | R.D15 | R.D16 | R.D17 | R.D18
     | R.D19 | R.D20 | R.D21 | R.D22 | R.D23 | R.D24 | R.D25 | R.D26 | R.D27
     | R.D28 | R.D29 | R.D30 | R.D31
+    | R.V0A | R.V0B | R.V1A | R.V1B | R.V2A | R.V2B | R.V3A | R.V3B
+    | R.V4A | R.V4B | R.V5A | R.V5B | R.V6A | R.V6B | R.V7A | R.V7B
+    | R.V8A | R.V8B | R.V9A | R.V9B | R.V10A | R.V10B | R.V11A | R.V11B
     | R.V12A | R.V12B | R.V13A | R.V13B | R.V14A | R.V14B | R.V15A | R.V15B
     | R.V16A | R.V16B | R.V17A | R.V17B | R.V18A | R.V18B | R.V19A | R.V19B
     | R.V20A | R.V20B | R.V21A | R.V21B | R.V22A | R.V22B | R.V23A | R.V23B
     | R.V24A | R.V24B | R.V25A | R.V25B | R.V26A | R.V26B | R.V27A | R.V27B
     | R.V28A | R.V28B | R.V29A | R.V29B | R.V30A | R.V30B | R.V31A | R.V31B
     | R.FPCR | R.FPSR -> 64<rt>
-    | R.V0A | R.V0B | R.V1A | R.V1B | R.V2A | R.V2B | R.V3A | R.V3B
-    | R.V4A | R.V4B | R.V5A | R.V5B | R.V6A | R.V6B | R.V7A | R.V7B
-    | R.V8A | R.V8B | R.V9A | R.V9B | R.V10A | R.V10B | R.V11A | R.V11B
     | R.W0 | R.W1 | R.W2 | R.W3 | R.W4 | R.W5 | R.W6 | R.W7 | R.W8 | R.W9
     | R.W10 | R.W11 | R.W12 | R.W13 | R.W14 | R.W15 | R.W16 | R.W17 | R.W18
     | R.W19 | R.W20 | R.W21 | R.W22 | R.W23 | R.W24 | R.W25 | R.W26 | R.W27
