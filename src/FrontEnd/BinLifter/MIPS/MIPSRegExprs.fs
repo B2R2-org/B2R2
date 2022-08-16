@@ -110,6 +110,7 @@ type internal RegExprs (wordSize) =
     | R.HI  -> __.HI
     | R.LO  -> __.LO
     | R.PC  -> __.PC
+    | R.NPC  -> __.NextPC
     | R.R0  -> __.R0
     | R.R1  -> __.R1
     | R.R2  -> __.R2
