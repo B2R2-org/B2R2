@@ -1368,6 +1368,28 @@ let pmovsxdq ins insLen ctxt =
   | _ -> raise InvalidOperandException
   !>ir insLen
 
+let pmovzxbd ins insLen ctxt =
+  let ir = !*ctxt
+  let struct (dst, src) = getTwoOprs ins
+  !<ir insLen
+  match src with
+  | OprReg _ ->
+    let dstB, dstA = transOprToExpr128 ins insLen ctxt dst
+    let _srcB, srcA = transOprToExpr128 ins insLen ctxt src
+    !!ir (dstA := AST.concat (AST.zext 32<rt> (AST.extract srcA 8<rt> 8))
+                    (AST.zext 32<rt> (AST.xtlo 8<rt> srcA)))
+    !!ir (dstB := AST.concat (AST.zext 32<rt> (AST.extract srcA 8<rt> 24))
+                    (AST.zext 32<rt> (AST.extract srcA 8<rt> 16)))
+  | OprMem _ ->
+    let dstB, dstA = transOprToExpr128 ins insLen ctxt dst
+    let src = transOprToExpr32 ins insLen ctxt src
+    !!ir (dstA := AST.concat (AST.zext 32<rt> (AST.extract src 8<rt> 8))
+                    (AST.zext 32<rt> (AST.xtlo 8<rt> src)))
+    !!ir (dstB := AST.concat (AST.zext 32<rt> (AST.extract src 8<rt> 24))
+                    (AST.zext 32<rt> (AST.extract src 8<rt> 16)))
+  | _ -> raise InvalidOperandException
+  !>ir insLen
+
 let private opPmulhuw _ = opPmul AST.xthi AST.zext 32<rt> 16<rt>
 
 let pmulhuw ins insLen ctxt =
