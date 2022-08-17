@@ -305,6 +305,19 @@ let add ins insLen ctxt =
   if hasLock ins.Prefixes then !!ir (AST.sideEffect Unlock) else ()
   !>ir insLen
 
+let adox ins insLen ctxt =
+  let struct (dst, src) = transTwoOprs ins insLen ctxt
+  let oprSize = getOperationSize ins
+  let ir = !*ctxt
+  let oF = !.ctxt R.OF
+  let struct (t1, t2, t3) = tmpVars3 ir oprSize
+  !<ir insLen
+  !!ir (t1 := dst)
+  !!ir (t2 := src)
+  !!ir (t3 := t1 .+ t2 .+ AST.zext oprSize oF)
+  !!ir (dstAssign oprSize dst t3)
+  !>ir insLen
+
 let ``and`` ins insLen ctxt =
   let struct (dst, src) = transTwoOprs ins insLen ctxt
   let oprSize = getOperationSize ins
@@ -545,6 +558,20 @@ let btr ins insLen ctxt =
 
 let bts ins insLen ctxt =
   bitTest ins insLen ctxt AST.b1
+
+let bzhi ins insLen ctxt =
+  let struct (dst, src1, src2) = transThreeOprs ins insLen ctxt
+  let oprSize = getOperationSize ins
+  let ir = !*ctxt
+  !<ir insLen
+  let n = AST.xtlo 8<rt> src2
+  let cond1 = n .< numI32 (RegType.toBitWidth oprSize) 8<rt>
+  let cond2 = n .> numI32 ((RegType.toBitWidth oprSize) - 1) 8<rt>
+  let tmp = AST.zext oprSize (numI32 (RegType.toBitWidth oprSize) 8<rt> .- n)
+  let cf = !.ctxt R.CF
+  !!ir (dst := AST.ite cond1 ((src1 << tmp) >> tmp) src1)
+  !!ir (cf := AST.ite cond2 AST.b1 AST.b0)
+  !>ir insLen
 
 let call ins insLen ctxt =
   let pc = getInstrPtr ctxt
