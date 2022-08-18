@@ -5,6 +5,7 @@
 
 - Su Geun Ji <jsgtwins1@kaist.ac.kr>
 - Seung Il Jung <sijung@kaist.ac.kr>
+- Jun Tae Kim <gnrkr789@kaist.ac.kr>
 - Soomin Kim <soomink@kaist.ac.kr>
 - Hee Dong Yang <heedong@kaist.ac.kr>
 
