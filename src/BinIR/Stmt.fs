@@ -47,6 +47,10 @@ type InterJmpKind =
   | SwitchToARM = 8
   /// A branch instructino that modifies the operation mode from ARM to Thumb.
   | SwitchToThumb = 16
+  /// This is not a jump instruction. This is only useful in special cases such
+  /// as when representing a delay slot of MIPS, and should never be used in
+  /// other cases.
+  | NotAJmp = -1
 
 /// IL Statements.
 /// NOTE: You MUST create Expr/Stmt through the AST module. *NEVER* directly

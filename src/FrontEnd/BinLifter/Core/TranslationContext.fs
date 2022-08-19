@@ -32,15 +32,21 @@ open B2R2.BinIR.LowUIR
 [<AbstractClass>]
 type TranslationContext (isa) =
   let irb = IRBuilder (241)
+  let mutable delayedJump = InterJmpKind.NotAJmp
 
   /// Word size in bits (RegType).
-  member val WordBitSize: RegType = WordSize.toRegType isa.WordSize
+  member __.WordBitSize with get(): RegType = WordSize.toRegType isa.WordSize
 
   /// The endianness.
-  member val Endianness: Endian = isa.Endian
+  member __.Endianness with get(): Endian = isa.Endian
 
   /// IRBuilder for lifting IRs.
   member __.IRBuilder with get() = irb
+
+  /// Remember if a branch is delayed. If delayed, we store its InterJmpKind.
+  /// Lifting results may vary depending on this variable.
+  member __.DelayedBranch
+    with get() = delayedJump and set(f) = delayedJump <- f
 
   /// <summary>
   ///   Get register expression from a given register ID.
