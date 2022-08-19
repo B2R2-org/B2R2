@@ -1668,6 +1668,37 @@ let movddup ins insLen ctxt =
   !!ir (dst1 := src)
   !>ir insLen
 
+let private getpackusdw dst srcB srcA tmp ir =
+  let z16 = AST.num0 16<rt>
+  let z32 = AST.num0 32<rt>
+  let f16 = numU32 0xFFFu 16<rt>
+  let f32 = numU32 0xFFFu 32<rt>
+  for i in 0 .. 3 do
+    let tTmp = AST.extract tmp 16<rt> (16 * i)
+    let tDst = AST.extract dst 16<rt> (16 * i)
+    if i < 2 then
+      let cond = (AST.extract srcA 32<rt> (32 * i)) .< z32
+      let cond2 = (AST.extract srcA 32<rt> (32 * i)) .< f32
+      !!ir (tTmp := AST.ite cond z16 tDst)
+      !!ir (tDst := AST.ite cond2 f16 tDst)
+    else
+      let cond = (AST.extract srcB 32<rt> (32 * (i - 2))) .< z32
+      let cond2 = (AST.extract srcB 32<rt> (32 * (i - 2))) .< f32
+      !!ir (tTmp := AST.ite cond z16 tDst)
+      !!ir (tDst := AST.ite cond2 f16 tDst)
+  done
+
+let packusdw ins insLen ctxt =
+  let ir = !*ctxt
+  let struct (dst, src) = getTwoOprs ins
+  let dstB, dstA = transOprToExpr128 ins insLen ctxt dst
+  let srcB, srcA = transOprToExpr128 ins insLen ctxt src
+  let struct (tmpA, tmpB) = tmpVars2 ir 64<rt>
+  !<ir insLen
+  getpackusdw dstA dstB dstA tmpA ir
+  getpackusdw dstB srcB srcA tmpB ir
+  !>ir insLen
+
 let palignr ins insLen ctxt =
   let ir = !*ctxt
   let struct (dst, src, imm) = getThreeOprs ins
