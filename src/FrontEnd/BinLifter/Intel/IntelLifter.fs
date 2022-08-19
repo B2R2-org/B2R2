@@ -38,6 +38,7 @@ let translate (ins: IntelInternalInstruction) insLen ctxt =
   | OP.AAS -> GeneralLifter.aas insLen ctxt
   | OP.ADC -> GeneralLifter.adc ins insLen ctxt
   | OP.ADD -> GeneralLifter.add ins insLen ctxt
+  | OP.ADOX-> GeneralLifter.adox ins insLen ctxt
   | OP.AND -> GeneralLifter.``and`` ins insLen ctxt
   | OP.ANDN -> GeneralLifter.andn ins insLen ctxt
   | OP.ARPL -> GeneralLifter.arpl ins insLen ctxt
@@ -50,6 +51,7 @@ let translate (ins: IntelInternalInstruction) insLen ctxt =
   | OP.BTC -> GeneralLifter.btc ins insLen ctxt
   | OP.BTR -> GeneralLifter.btr ins insLen ctxt
   | OP.BTS -> GeneralLifter.bts ins insLen ctxt
+  | OP.BZHI -> GeneralLifter.bzhi ins insLen ctxt
   | OP.CALLNear -> GeneralLifter.call ins insLen ctxt
   | OP.CALLFar -> LiftingUtils.sideEffects ctxt insLen UnsupportedFAR
   | OP.CBW | OP.CWDE | OP.CDQE ->

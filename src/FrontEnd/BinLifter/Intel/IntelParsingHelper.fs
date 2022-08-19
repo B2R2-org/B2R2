@@ -4473,14 +4473,14 @@ module internal ParsingHelper = begin
   let nor0F38F6W0 = function
     | MPref.MPrxNP -> struct (WRSSD, OD.GprRm, SZ.Def) (* GyEy *)
     | MPref.MPrx66 -> struct (ADCX, OD.GprRm, SZ.Def) (* GyEy *)
-    | MPref.MPrxF3
+    | MPref.MPrxF3 -> struct (ADOX, OD.GprRm, SZ.Def) (* GyEy *)
     | MPref.MPrxF2
     | _ (* MPrx66F2 *) -> raise ParsingFailureException
 
   let nor0F38F6W1 = function
     | MPref.MPrxNP -> struct (WRSSQ, OD.GprRm, SZ.Def) (* GyEy *)
     | MPref.MPrx66 -> struct (ADCX, OD.GprRm, SZ.Def) (* GyEy *)
-    | MPref.MPrxF3
+    | MPref.MPrxF3 -> struct (ADOX, OD.GprRm, SZ.Def) (* GyEy *)
     | MPref.MPrxF2
     | _ (* MPrx66F2 *) -> raise ParsingFailureException
 
