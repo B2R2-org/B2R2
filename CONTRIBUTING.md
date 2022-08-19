@@ -194,7 +194,7 @@ type Class() = // Bad
 ### JavaScript & CSS Coding Style
 
 We use camlCase for JavaScript, and BEM (Block, Element, and Modifier) for CSS.
-Specifically, we follow styles suggested from
+Specifically, we follow styles suggested from https://www.scaler.com/topics/css,
 https://www.w3schools.com/js/js_conventions.asp and http://getbem.com/naming/.
 Additionally, we use `js-` prefix for IDs of DOM objects, when they are used in
 JavaScript.
