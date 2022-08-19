@@ -126,7 +126,7 @@ let updatePCCond ctxt offset cond kind ir =
   ctxt.DelayedBranch <- kind
   !!ir (AST.cjmp cond (AST.name lblTrueCase) (AST.name lblFalseCase))
   !!ir (AST.lmark lblTrueCase)
-  !!ir (nPC := pc .+ offset)
+  !!ir (nPC := offset)
   !!ir (AST.jmp (AST.name lblEnd))
   !!ir (AST.lmark lblFalseCase)
   !!ir (nPC := pc .+ numI32 8 ctxt.WordBitSize)
