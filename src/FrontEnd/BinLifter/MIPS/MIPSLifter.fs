@@ -313,6 +313,16 @@ let bltz insInfo insLen ctxt =
   updatePCCond ctxt offset cond ir
   !>ir insLen
 
+let bltzal insInfo insLen ctxt =
+  let ir = !*ctxt
+  let rs, offset = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
+  let pc = getRegVar ctxt R.PC
+  let cond = AST.lt rs (AST.num0 ctxt.WordBitSize)
+  !<ir insLen
+  !!ir (getRegVar ctxt R.R31 := pc .+ numI32 8 ctxt.WordBitSize)
+  updatePCCond ctxt offset cond ir
+  !>ir insLen
+
 let bgez insInfo insLen ctxt =
   let ir = !*ctxt
   let rs, offset = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
@@ -1362,6 +1372,7 @@ let translate insInfo insLen (ctxt: TranslationContext) =
   | Op.BGTZ -> bgtz insInfo insLen ctxt
   | Op.BLEZ -> blez insInfo insLen ctxt
   | Op.BLTZ -> bltz insInfo insLen ctxt
+  | Op.BLTZAL -> bltzal insInfo insLen ctxt
   | Op.BNE | Op.BNEL -> bne insInfo insLen ctxt
   | Op.BREAK -> sideEffects insLen ctxt Breakpoint
   | Op.C | Op.CFC1 | Op.CTC1 -> sideEffects insLen ctxt UnsupportedFP
