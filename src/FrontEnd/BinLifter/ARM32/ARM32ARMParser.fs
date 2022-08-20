@@ -3517,7 +3517,7 @@ let parseFPMoveSpecialReg (phlp: ParsingHelper) bin =
     render phlp bin Op.VMSR None OD.OprSregRt
   | _ (* 0b1u *) ->
 #if !EMULATION
-    chkPCRt bin
+    chkPCRtR1 bin
 #endif
     render phlp bin Op.VMRS None OD.OprRtSreg
 

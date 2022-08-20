@@ -319,6 +319,11 @@ let chkPCRnWback bin = checkUnpred ((extract bin 19 16 = 15u) && (wbackW bin))
 (* if t == 15 then UNPREDICTABLE *)
 let chkPCRt bin = checkUnpred (extract bin 15 12 = 15u)
 
+(* if t == 15 && reg != '0001' then UNPREDICTABLE *)
+let chkPCRtR1 bin =
+  let reg = extract bin 19 16
+  checkUnpred (extract bin 15 12 = 15u && reg <> 0b0001u)
+
 (* if cond != '1110' then UNPREDICTABLE
    if t == 15 then UNPREDICTABLE *)
 let chkCondPCRt bin cond =

@@ -1196,7 +1196,8 @@ type internal OprSregRt () =
 type internal OprRtSreg () =
   inherit OperandParser ()
   override __.Render bin =
-    let rt = extract bin 15 12 |> getRegister |> OprReg
+    let rt = extract bin 15 12
+    let rt = if rt = 15u then R.APSR |> OprReg else rt |> getRegister |> OprReg
     struct (TwoOperands (rt, OprReg R.FPSCR), false, None)
 
 (* <Rd>, <spec_reg> *)
