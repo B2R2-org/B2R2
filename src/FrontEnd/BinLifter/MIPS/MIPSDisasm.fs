@@ -221,6 +221,7 @@ let opCodeToString = function
   | Op.SWXC1 -> "swxc1"
   | Op.SYNC -> "sync"
   | Op.TEQ -> "teq"
+  | Op.TEQI -> "teqi"
   | Op.TRUNCL -> "trunc.l"
   | Op.TRUNCW -> "trunc.w"
   | Op.WSBH -> "wsbh"

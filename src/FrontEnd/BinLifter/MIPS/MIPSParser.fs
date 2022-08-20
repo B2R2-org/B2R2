@@ -247,6 +247,7 @@ let parseREGIMM binary =
   match extract binary 20u 16u with
   | 0b00000u -> Op.BLTZ, None, None, getRsRel16 binary
   | 0b00001u -> Op.BGEZ, None, None, getRsRel16 binary
+  | 0b01100u -> Op.TEQI, None, None, getRsImm16 binary
   | 0b10000u -> Op.BLTZAL, None, None, getRsRel16 binary
   | 0b10001u -> parseBAL binary
   | _ -> raise ParsingFailureException
