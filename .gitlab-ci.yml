@@ -8,7 +8,7 @@ build:
     stage: build
     before_script:
         - LATEST_COMMIT=$(git ls-remote https://gitlab-ci-token:${CI_JOB_TOKEN}@softsec.kaist.ac.kr:8000/B2R2/B2R2.git HEAD | awk '{print $1}')
-        - CHANGES=$(if [ "$LATEST_COMMIT" == "$CI_COMMIT_SHA" ]; then git diff-tree --no-commit-id --name-only -r $LATEST_COMMIT; else git diff-tree --no-commit-id --name-only -r $LATEST_COMMIT -r $CI_COMMIT_SHA; fi)
+        - CHANGES=$(if [ "$LATEST_COMMIT" == "$CI_COMMIT_SHA" ]; then git diff-tree --no-commit-id --name-only -r $LATEST_COMMIT; else git diff-tree --no-commit-id --name-only -r $LATEST_COMMIT -r $CI_COMMIT_SHA; fi | grep -v .fsproj)
     script:
         - dotnet restore
         - dotnet tool restore
