@@ -1300,7 +1300,8 @@ type Operands =
 
 /// Basic information for a single ARMv7 instruction obtained after parsing.
 [<AbstractClass>]
-type ARM32InternalInstruction (addr, nb, cond, op, opr, its, wb, q, s, m, cf) =
+type ARM32InternalInstruction
+  (addr, nb, cond, op, opr, its, wb, q, s, m, cf, oSz) =
   inherit Instruction (addr, nb, WordSize.Bit32)
 
   /// Condition.
@@ -1327,8 +1328,11 @@ type ARM32InternalInstruction (addr, nb, cond, op, opr, its, wb, q, s, m, cf) =
   /// Target architecture mode.
   member __.Mode with get(): ArchOperationMode = m
 
-  /// Carry Flag from decoding instruction
+  /// Carry Flag from decoding instruction.
   member __.Cflag with get(): bool option = cf
+
+  /// Operation size.
+  member __.OprSize with get(): RegType = oSz
 
   override __.ToString () =
     $"Condition: {cond}{System.Environment.NewLine}\
@@ -1339,6 +1343,7 @@ type ARM32InternalInstruction (addr, nb, cond, op, opr, its, wb, q, s, m, cf) =
       Qualifier: {q}{System.Environment.NewLine}\
       SIMD: {s}{System.Environment.NewLine}\
       Mode: {m}{System.Environment.NewLine}\
-      Cflag: {cf}{System.Environment.NewLine}"
+      Cflag: {cf}{System.Environment.NewLine}\"
+      OprSize: {oSz}{System.Environment.NewLine}"
 
 type internal InsInfo = ARM32InternalInstruction
