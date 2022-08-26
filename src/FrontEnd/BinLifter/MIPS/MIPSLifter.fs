@@ -849,20 +849,40 @@ let lwl insInfo insLen ctxt =
   let rt, mem = getTwoOprs insInfo
   let baseOffset = transOprToBaseOffset ctxt mem
   let rt, mem = transTwoOprs insInfo ctxt (rt, mem)
-  let t1 = !+ir 32<rt>
-  let t2 = !+ir 32<rt>
+  let struct (t1, t2) = tmpVars2 ir 32<rt>
+  let is32Bit = ctxt.WordBitSize = 32<rt>
+  let rRt, baseOffset = AST.xtlo 32<rt> rt, AST.xtlo 32<rt> baseOffset
   let getMask size = (1L <<< size) - 1L
   let mask2 = numI64 (getMask 2) 32<rt>
-  let is32Bit = ctxt.WordBitSize = 32<rt>
-  let baseOffset = if is32Bit then baseOffset else AST.xtlo 32<rt> baseOffset
-  let rRt = if is32Bit then rt else AST.xtlo 32<rt> rt
   let vaddr0To1 = baseOffset .& mask2
   let num8 = numI32 8 32<rt>
   !<ir insLen
   !!ir (t1 := (numI32 3 32<rt> .- vaddr0To1) .* num8)
   !!ir (t2 := (AST.num1 32<rt> .+ vaddr0To1) .* num8)
-  let result =  (mem >> t1) << t1 .| (rRt >> t2)
+  let result = (mem >> t1) << t1 .| (rRt >> t2)
   !!ir (rt := if is32Bit then result else (result |> AST.sext 64<rt>))
+  !>ir insLen
+
+let lwr insInfo insLen ctxt =
+  let ir = !*ctxt
+  let rt, mem = getTwoOprs insInfo
+  let baseOffset = transOprToBaseOffset ctxt mem
+  let rt, mem = transTwoOprs insInfo ctxt (rt, mem)
+  let struct (t1, t2) = tmpVars2 ir 32<rt>
+  let rRt, baseOffset = AST.xtlo 32<rt> rt, AST.xtlo 32<rt> baseOffset
+  let getMask size = (1L <<< size) - 1L
+  let mask2 = numI64 (getMask 2) 32<rt>
+  let vaddr0To1 = baseOffset .& mask2
+  let num8 = numI32 8 32<rt>
+  !<ir insLen
+  !!ir (t1 := (numI32 4 32<rt> .- vaddr0To1) .* num8)
+  !!ir (t2 := vaddr0To1 .* num8)
+  let res = (rRt >> t1) << t1 .| (mem >> t2)
+  let result =
+    if ctxt.WordBitSize = 32<rt> then res
+    else AST.ite (vaddr0To1 == AST.num0 32<rt>)
+                 (AST.sext 64<rt> res) (AST.concat (AST.xthi 32<rt> rt) res)
+  !!ir (rt := result)
   !>ir insLen
 
 let madd insInfo insLen ctxt =
@@ -1488,6 +1508,7 @@ let translate insInfo insLen (ctxt: TranslationContext) =
     sideEffects insLen ctxt UnsupportedFP
   | Op.LUI -> lui insInfo insLen ctxt
   | Op.LWL -> lwl insInfo insLen ctxt
+  | Op.LWR -> lwr insInfo insLen ctxt
   | Op.MADD when insInfo.Fmt.IsNone -> madd insInfo insLen ctxt
   | Op.MADD -> sideEffects insLen ctxt UnsupportedFP
   | Op.MFHI -> mfhi insInfo insLen ctxt
@@ -1535,9 +1556,9 @@ let translate insInfo insLen (ctxt: TranslationContext) =
   | Op.XORI -> xori insInfo insLen ctxt
   | Op.ABS | Op.BC3F | Op.BC3FL | Op.BC3T | Op.BC3TL | Op.DDIV | Op.DIV
   | Op.DROTR32 | Op.DROTRV | Op.DSBH | Op.DSHD | Op.DSRAV | Op.J | Op.JAL
-  | Op.LDL | Op.LDR | Op.LDXC1 | Op.LWR | Op.LWXC1 | Op.MADDU
-  | Op.MFHC1 | Op.MOVF | Op.MOVN | Op.MOVT | Op.MSUB | Op.MTHC1 | Op.MTHI
-  | Op.MTLO | Op.NEG | Op.ROTRV | Op.SDXC1 | Op.SQRT | Op.SRAV | Op.SWXC1
+  | Op.LDL | Op.LDR | Op.LDXC1 | Op.LWXC1 | Op.MADDU | Op.MFHC1 | Op.MOVF
+  | Op.MOVN | Op.MOVT | Op.MSUB | Op.MTHC1 | Op.MTHI | Op.MTLO | Op.NEG
+  | Op.ROTRV | Op.SDXC1 | Op.SQRT | Op.SRAV | Op.SWXC1
   | Op.SYNC | Op.TRUNCL | Op.WSBH ->
     sideEffects insLen ctxt UnsupportedExtension // XXX this is a temporary fix
   | o ->
