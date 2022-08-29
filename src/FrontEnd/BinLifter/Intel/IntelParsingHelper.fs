@@ -4830,6 +4830,22 @@ module internal ParsingHelper = begin
     | MPref.MPrxF2
     | _ (* MPrx66F2 *) -> raise ParsingFailureException
 
+  let nor0F3A22W0 = function
+    | MPref.MPrxNP -> raise ParsingFailureException
+    | MPref.MPrx66 ->
+      struct (PINSRD, OD.GprRmImm8, SZ.DDq) (* VdqEdIb *)
+    | MPref.MPrxF3 -> raise ParsingFailureException
+    | MPref.MPrxF2
+    | _ (* MPrx66F2 *) -> raise ParsingFailureException
+
+  let nor0F3A22W1 = function
+    | MPref.MPrxNP -> raise ParsingFailureException
+    | MPref.MPrx66 ->
+      struct (PINSRQ, OD.GprRmImm8, SZ.QDq) (* VdqEqIb *)
+    | MPref.MPrxF3 -> raise ParsingFailureException
+    | MPref.MPrxF2
+    | _ (* MPrx66F2 *) -> raise ParsingFailureException
+
   let vex0F3A22W0 = function
     | MPref.MPrxNP -> raise ParsingFailureException
     | MPref.MPrx66 ->
@@ -5622,7 +5638,7 @@ module internal ParsingHelper = begin
       let struct (op, oidx, sidx) = fnVex (getMandPrx v.VPrefixes)
       render span rhlp op SzCond.Nor oidx sidx
 
-  /// Normal(REX.W), VEX(REX.W)
+  /// Select Normal(REX.W), VEX(REX.W)
   let selectVEXW (span: ByteSpan) rhlp fnNorW0 fnNorW1 fnVexW0 fnVexW1 =
     match (rhlp: ReadHelper).VEXInfo with
     | None ->
@@ -5634,14 +5650,13 @@ module internal ParsingHelper = begin
       let fnVex = if hasREXW rhlp.REXPrefix then fnVexW1 else fnVexW0
       getInstr v.VPrefixes fnVex
 
-  /// Normal/VEX (Both REX.W)
+  /// Normal(REX.W)/VEX(REX.W)
   let parseVEXW span rhlp fnNorW0 fnNorW1 fnVexW0 fnVexW1 =
     let struct (op, oidx, sidx) =
       selectVEXW span rhlp fnNorW0 fnNorW1 fnVexW0 fnVexW1
     render span rhlp op SzCond.Nor oidx sidx
 
-  /// Normal(REX.W), VEX(REX.W)
-  /// Normal, VEX, EVEX(REX.W)
+  /// Select Normal, VEX, EVEX(REX.W)
   let selectEVEX (rhlp: ReadHelper) fnNor fnVex fnEVexW0 fnEVexW1 =
     match rhlp.VEXInfo with
     | None ->
@@ -5654,13 +5669,12 @@ module internal ParsingHelper = begin
         getInstr v.VPrefixes fnEVex
       else getInstr v.VPrefixes fnVex
 
-  /// Normal/VEX/EVEX (EVEX REX.W)
+  /// Normal/VEX/EVEX(REX.W)
   let parseEVEX span rhlp fnNor fnVex fnEVexW0 fnEVexW1 =
-    let struct (op, oidx, sidx) =
-      selectEVEX rhlp fnNor fnVex fnEVexW0 fnEVexW1
+    let struct (op, oidx, sidx) = selectEVEX rhlp fnNor fnVex fnEVexW0 fnEVexW1
     render span rhlp op SzCond.Nor oidx sidx
 
-  /// VEX(REX.W), EVEX(REX.W)
+  /// Select VEX(REX.W), EVEX(REX.W)
   let selectEVEXW (rhlp: ReadHelper) fnVexW0 fnVexW1 fnEVexW0 fnEVexW1 =
     match rhlp.VEXInfo with
     | None -> raise ParsingFailureException
@@ -5672,10 +5686,33 @@ module internal ParsingHelper = begin
         let fnVex = if hasREXW rhlp.REXPrefix then fnVexW1 else fnVexW0
         getInstr v.VPrefixes fnVex
 
-  /// VEX/EVEX (Both REX.W)
+  /// VEX(REX.W)/EVEX(REX.W)
   let parseEVEXW span rhlp fnVexW0 fnVexW1 fnEVexW0 fnEVexW1 =
     let struct (op, oidx, sidx) =
       selectEVEXW rhlp fnVexW0 fnVexW1 fnEVexW0 fnEVexW1
+    render span rhlp op SzCond.Nor oidx sidx
+
+  /// Select Normal(REX.W), VEX(REX.W), EVEX(REX.W)
+  let selectEVEXAll (rhlp: ReadHelper) fnNorW0 fnNorW1 fnVexW0 fnVexW1 fnEVexW0
+                    fnEVexW1 =
+    match (rhlp: ReadHelper).VEXInfo with
+    | None ->
+      let fnNor = if hasREXW rhlp.REXPrefix then fnNorW1 else fnNorW0
+      let ins = getInstr rhlp.Prefixes fnNor
+      rhlp.Prefixes <- filterPrefs rhlp.Prefixes
+      ins
+    | Some v ->
+      if v.VEXType &&& VEXType.EVEX = VEXType.EVEX then
+        let fnEVex = if hasREXW rhlp.REXPrefix then fnEVexW1 else fnEVexW0
+        getInstr v.VPrefixes fnEVex
+      else
+        let fnVex = if hasREXW rhlp.REXPrefix then fnVexW1 else fnVexW0
+        getInstr v.VPrefixes fnVex
+
+  /// Normal(REX.W)/VEX(REX.W)/EVEX(REX.W)
+  let parseEVEXAll span rhlp fnNorW0 fnNorW1 fnVexW0 fnVexW1 fnEVexW0 fnEVexW1 =
+    let struct (op, oidx, sidx) =
+      selectEVEXAll rhlp fnNorW0 fnNorW1 fnVexW0 fnVexW1 fnEVexW0 fnEVexW1
     render span rhlp op SzCond.Nor oidx sidx
 
   /// Parse non-VEX instructions.
@@ -5930,7 +5967,8 @@ module internal ParsingHelper = begin
     | 0x20uy -> parseVEX span rhlp nor0F3A20 vex0F3A20
     | 0x21uy -> parseVEX span rhlp notEn vex0F3A21
     | 0x22uy ->
-      parseEVEXW span rhlp vex0F3A22W0 vex0F3A22W1 evex0F3A22W0 evex0F3A22W1
+      parseEVEXAll span rhlp nor0F3A22W0 nor0F3A22W1 vex0F3A22W0 vex0F3A22W1
+        evex0F3A22W0 evex0F3A22W1
     | 0x25uy -> parseEVEXW span rhlp notEn notEn evex0F3A25W0 evex0F3A25W1
     | 0x27uy -> parseEVEXW span rhlp notEn notEn notEn evex0F3A27W1
     | 0x38uy -> parseVEX span rhlp nor0F3A38 vex0F3A38
