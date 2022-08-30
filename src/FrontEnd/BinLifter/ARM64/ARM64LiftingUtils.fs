@@ -552,10 +552,12 @@ let transOprToExprOfSBFM ins ctxt addr =
     AST.num0 ins.OprSize,
     numI32 31 ins.OprSize
   | FourOperands (o1, o2, o3, Immediate o4) when ins.Opcode = Opcode.SBFIZ ->
+    let o3 = transOprToExpr ins ctxt addr o3
+    let o3 = (* #(-<lsb> MOD 32/64) *)
+      (o3 .* numI32 -1 ins.OprSize) .% (numI32 (int ins.OprSize) ins.OprSize)
     transOprToExpr ins ctxt addr o1,
-    transOprToExpr ins ctxt addr o2,
-    transOprToExpr ins ctxt addr o3, (* FIXME: #(-<lsb> MOD 32/64) *)
-    transOprToExpr ins ctxt addr (Immediate (o4 + 1L))
+    transOprToExpr ins ctxt addr o2, o3,
+    transOprToExpr ins ctxt addr (Immediate (o4 - 1L))
   | FourOperands (o1, o2, Immediate o3, Immediate o4)
     when ins.Opcode = Opcode.SBFX ->
     transOprToExpr ins ctxt addr o1,
@@ -739,87 +741,83 @@ let conditionHolds ctxt = function
   | AL | NV -> AST.b1
   | _ -> failwith "Invalid condition"
 
-// shared/functions/common/HighestSetBit
-// HighestSetBit()
-// ===============
+/// shared/functions/common/HighestSetBit
+/// HighestSetBit()
+/// ===============
 let highestSetBitForIR dst src width oprSz (ir: IRBuilder) =
   let lblLoop = !%ir "Loop"
   let lblLoopCont = !%ir "LoopContinue"
   let lblUpdateTmp = !%ir "UpdateTmp"
   let lblEnd = !%ir "End"
   let t = !+ir oprSz
+  let cond = !+ir 1<rt>
   let width = numI32 (width - 1) oprSz
   !!ir (t := width)
   !!ir (AST.lmark lblLoop)
-  !!ir (AST.cjmp (src >> t == AST.num1 oprSz) (AST.name lblEnd)
-                                               (AST.name lblLoopCont))
+  !!ir (cond := (src >> t) .& AST.num1 oprSz == AST.num1 oprSz)
+  !!ir (AST.cjmp cond (AST.name lblEnd) (AST.name lblLoopCont))
   !!ir (AST.lmark lblLoopCont)
-  !!ir (AST.cjmp (t == AST.num0 oprSz) (AST.name lblEnd)
-                                        (AST.name lblUpdateTmp))
+  !!ir (cond := t == AST.num0 oprSz)
+  !!ir (AST.cjmp cond (AST.name lblEnd) (AST.name lblUpdateTmp))
   !!ir (AST.lmark lblUpdateTmp)
   !!ir (t := t .- AST.num1 oprSz)
   !!ir (AST.jmp (AST.name lblLoop))
   !!ir (AST.lmark lblEnd)
-  !!ir (dst := width .- t)
+  !!ir (dst := t)
 
-// shared/functions/common/Replicate
-// Replicate()
-// ===========
+/// shared/functions/common/Replicate
+/// Replicate()
+/// ===========
 let replicateForIR dst value bits oprSize (ir: IRBuilder) =
   let lblLoop = !%ir "Loop"
   let lblEnd = !%ir "End"
   let lblLoopContinue = !%ir "LoopContinue"
-  let tmpAmt = !+ir oprSize
+  let tAmt = !+ir oprSize
   let oSz = oprSzToExpr oprSize
-  let tmpVal = !+ir oprSize
-  !!ir (tmpAmt := bits)
-  !!ir (tmpVal := value)
+  let tVal = !+ir oprSize
+  !!ir (tAmt := bits)
+  !!ir (tVal := value)
   !!ir (AST.lmark lblLoop)
-  !!ir (AST.cjmp (AST.ge tmpAmt oSz)
-                       (AST.name lblEnd) (AST.name lblLoopContinue))
+  !!ir (AST.cjmp (AST.ge tAmt oSz) (AST.name lblEnd) (AST.name lblLoopContinue))
   !!ir (AST.lmark lblLoopContinue)
-  !!ir (tmpVal := value << tmpAmt)
-  !!ir (tmpAmt := tmpAmt .+ bits)
+  !!ir (tVal := value << tAmt)
+  !!ir (tAmt := tAmt .+ bits)
   !!ir (AST.jmp (AST.name lblLoop))
   !!ir (AST.lmark lblEnd)
-  !!ir (dst := tmpVal)  (* FIXME: Check value *)
+  !!ir (dst := tVal)  (* FIXME: Check value *)
 
 let getMaskForIR n oprSize = (AST.num1 oprSize << n) .- AST.num1 oprSize
 
-// aarch64/instrs/integer/bitmasks/DecodeBitMasks
-// DecodeBitMasks()
-// ================
-// Decode AArch64 bitfield and logical immediate masks which use a similar
-// encoding structure
-let decodeBitMasksForIR wmask tmask immN imms immr oprSize ir = (* FIXME *)
-  let concatSz = RegType.fromBitWidth ((RegType.toBitWidth oprSize) * 2)
-  let tLen = !+ir concatSz
-  let levels = !+ir oprSize
-  let s, r = !+ir oprSize, !+ir oprSize
-  let diff = !+ir oprSize
-  let esize = !+ir oprSize
-  let d = !+ir oprSize
-  let welem = !+ir oprSize
-  let telem = !+ir oprSize
+/// aarch64/instrs/integer/bitmasks/DecodeBitMasks
+/// DecodeBitMasks()
+/// ================
+/// Decode AArch64 bitfield and logical immediate masks which use a similar
+/// encoding structure
+let decodeBitMasksForIR wmask tmask immN imms immr oprSize ir =
+  let imms = AST.xtlo 8<rt> imms
+  let immr = AST.xtlo 8<rt> immr
+  let immN = immN << numI32 6 8<rt>
+  let struct (len, levels) = tmpVars2 ir 8<rt>
+  let struct (s, r) = tmpVars2 ir oprSize
+  let struct (diff, esize, d) = tmpVars3 ir oprSize
+  let struct (welem, telem) = tmpVars2 ir oprSize
   let n1 = AST.num1 oprSize
-  let len = !+ir oprSize
-  highestSetBitForIR tLen (AST.concat immN (AST.not imms))
-                     (RegType.toBitWidth oprSize) concatSz ir
-  !!ir (len := AST.xtlo oprSize tLen)
-  !!ir (levels := AST.zext oprSize len) // ZeroExtend (Ones(len), 6)
-  !!ir (s := imms .& levels)
-  !!ir (r := immr .& levels)
+  let notImms = (AST.not imms) .& numI32 0x3F 8<rt>
+  highestSetBitForIR len (immN .| notImms) 7 8<rt> ir
+  !!ir (levels := getMaskForIR len 8<rt>) (* ZeroExtend (Ones(len), 6) *)
+  !!ir (s := (imms .& levels) |> AST.zext oprSize)
+  !!ir (r := (immr .& levels) |> AST.zext oprSize)
   !!ir (diff := s .- r)
-  !!ir (esize := AST.num1 oprSize << len)
-  !!ir (d := diff .& getMaskForIR len oprSize)
-  !!ir (welem := AST.zext oprSize (s .+ n1))
-  !!ir (telem := AST.zext oprSize (d .+ n1))
+  !!ir (esize := AST.num1 oprSize << AST.zext oprSize len)
+  !!ir (d := diff .& getMaskForIR (AST.zext oprSize len) oprSize)
+  !!ir (welem := getMaskForIR (s .+ n1) oprSize)
+  !!ir (telem := getMaskForIR (d .+ n1) oprSize)
   replicateForIR wmask (ror welem r (oprSzToExpr oprSize)) esize oprSize ir
-  replicateForIR tmask welem esize oprSize ir
+  replicateForIR tmask telem esize oprSize ir
 
-// shared/functions/common/CountLeadingZeroBits
-// CountLeadingZeroBits()
-// ======================
+/// shared/functions/common/CountLeadingZeroBits
+/// CountLeadingZeroBits()
+/// ======================
 let countLeadingZeroBitsForIR dst src oprSize ir =
   highestSetBitForIR dst src (RegType.toBitWidth oprSize) oprSize ir
 

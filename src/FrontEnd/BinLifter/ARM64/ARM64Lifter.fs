@@ -168,7 +168,7 @@ let bfm ins insLen ctxt addr =
   let dst, src, imms, immr = transOprToExprOfBFM ins ctxt addr
   let oSz = ins.OprSize
   let wmask, tmask = !+ir oSz, !+ir oSz
-  let immN = if ins.OprSize = 64<rt> then AST.num1 oSz else AST.num0 oSz
+  let immN = if ins.OprSize = 64<rt> then AST.num1 8<rt> else AST.num0 8<rt>
   decodeBitMasksForIR wmask tmask immN imms immr oSz ir
   let width = oprSzToExpr ins.OprSize
   let bot = !+ir ins.OprSize
@@ -832,12 +832,13 @@ let sbfm ins insLen ctxt addr =
   let oprSz = ins.OprSize
   let bot, top = !+ir oprSz, !+ir oprSz
   let wmask, tmask = !+ir oprSz, !+ir oprSz
-  let immN = if oprSz = 64<rt> then AST.num1 oprSz else AST.num0 oprSz
+  let immN = if oprSz = 64<rt> then AST.num1 8<rt> else AST.num0 8<rt>
   let width = oprSzToExpr oprSz
   !<ir insLen
   decodeBitMasksForIR wmask tmask immN imms immr oprSz ir
   !!ir (bot := ror src immr width .& wmask)
-  replicateForIR top src imms oprSz ir
+  let srcS = (src >> imms) .& (numI32 1 oprSz)
+  replicateForIR top srcS (oprSzToExpr oprSz) oprSz ir
   !!ir (dst := (top .& AST.not tmask) .| (bot .& tmask))
   !>ir insLen
 
@@ -1129,14 +1130,13 @@ let umull ins insLen ctxt addr =
     !!ir (dst := src3 .- (AST.zext 64<rt> src1 .* AST.zext 64<rt> src2))
   !>ir insLen
 
-
 let ubfm ins insLen ctxt addr =
   let ir = !*ctxt
   let dst, src, immr, imms = transOprToExprOfUBFM ins ctxt addr
   let oSz = ins.OprSize
   let bot = !+ir oSz
   let wmask, tmask = !+ir oSz, !+ir oSz
-  let immN = if ins.OprSize = 64<rt> then AST.num1 oSz else AST.num0 oSz
+  let immN = if ins.OprSize = 64<rt> then AST.num1 8<rt> else AST.num0 8<rt>
   decodeBitMasksForIR wmask tmask immN imms immr oSz ir
   let width = oprSzToExpr ins.OprSize
   !<ir insLen
