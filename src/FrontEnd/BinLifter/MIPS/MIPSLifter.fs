@@ -701,12 +701,23 @@ let ins insInfo insLen ctxt =
   if size = 32 then if rt = rs then () else !!ir (rt := rs)
   else
     let posExpr = numI32 pos ctxt.WordBitSize
+    let sizeExpr = numI32 size ctxt.WordBitSize
     let getMask size = (1L <<< size) - 1L
+    let lblL0 = !%ir "L0"
+    let lblL1 = !%ir "L1"
+    let lblEnd = !%ir "End"
+    let t1, t2 = posExpr, (posExpr .+ sizeExpr .- AST.num1 ctxt.WordBitSize)
+    !!ir (AST.cjmp (t1 .> t2) (AST.name lblL0) (AST.name lblL1))
+    !!ir (AST.lmark lblL0)
+    !!ir (AST.sideEffect UndefinedInstr) (* FIXME: UNPREDICTABLE *)
+    !!ir (AST.jmp (AST.name lblEnd))
+    !!ir (AST.lmark lblL1)
     let mask = numI64 (getMask size) ctxt.WordBitSize
     let rs', rt' =
       if pos = 0 then rs .& mask, rt .& (AST.not mask)
       else (rs .& mask) << posExpr, rt .& (AST.not (mask << posExpr))
     !!ir (rt := rt' .| rs')
+    !!ir (AST.lmark lblEnd)
   advancePC ctxt ir
   !>ir insLen
 
@@ -720,11 +731,13 @@ let ins64 insInfo insLen ctxt =
   let size = int32 (transOprToImm size)
   checkINSorExtPosSize pos size
   let posExpr = numI32 pos ctxt.WordBitSize
+  let sizeExpr = numI32 size ctxt.WordBitSize
   let getMask size = (1L <<< size) - 1L
   let lblL0 = !%ir "L0"
   let lblL1 = !%ir "L1"
   let lblEnd = !%ir "End"
-  let cond = notWordValue rs .| notWordValue rt
+  let t = posExpr .+ sizeExpr .- AST.num1 ctxt.WordBitSize
+  let cond = notWordValue rs .| notWordValue rt .| (posExpr .> t)
   !!ir (AST.cjmp cond (AST.name lblL0) (AST.name lblL1))
   !!ir (AST.lmark lblL0)
   !!ir (AST.sideEffect UndefinedInstr) (* FIXME: UNPREDICTABLE *)
@@ -1494,9 +1507,9 @@ let translate insInfo insLen (ctxt: TranslationContext) =
   | Op.DSRLV -> dsrlv insInfo insLen ctxt
   | Op.DSUBU -> subu insInfo insLen ctxt
   | Op.EHB -> nop insLen ctxt
-  | Op.EXT when ctxt.WordBitSize = 3232<rt> -> ext insInfo insLen ctxt
+  | Op.EXT when ctxt.WordBitSize = 32<rt> -> ext insInfo insLen ctxt
   | Op.EXT -> ext64 insInfo insLen ctxt
-  | Op.INS when ctxt.WordBitSize = 3232<rt> -> ins insInfo insLen ctxt
+  | Op.INS when ctxt.WordBitSize = 32<rt> -> ins insInfo insLen ctxt
   | Op.INS -> ins64 insInfo insLen ctxt
   | Op.JALR | Op.JALRHB -> jalr insInfo insLen ctxt
   | Op.JR | Op.JRHB -> jr insInfo insLen ctxt
