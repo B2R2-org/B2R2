@@ -695,59 +695,19 @@ let ins insInfo insLen ctxt =
   let rt, rs, pos, size = getFourOprs insInfo
   let rt = transOprToExpr insInfo ctxt rt
   let rs = transOprToExpr insInfo ctxt rs
-  let pos = int32 (transOprToImm pos)
-  let size = int32 (transOprToImm size)
+  let pos = transOprToImm pos |> int
+  let size = transOprToImm size |> int
+  let msb = pos + size - 1
+  let lsb = pos
   checkINSorExtPosSize pos size
-  if size = 32 then if rt = rs then () else !!ir (rt := rs)
-  else
-    let posExpr = numI32 pos ctxt.WordBitSize
-    let sizeExpr = numI32 size ctxt.WordBitSize
-    let getMask size = (1L <<< size) - 1L
-    let lblL0 = !%ir "L0"
-    let lblL1 = !%ir "L1"
-    let lblEnd = !%ir "End"
-    let t1, t2 = posExpr, (posExpr .+ sizeExpr .- AST.num1 ctxt.WordBitSize)
-    !!ir (AST.cjmp (t1 .> t2) (AST.name lblL0) (AST.name lblL1))
-    !!ir (AST.lmark lblL0)
-    !!ir (AST.sideEffect UndefinedInstr) (* FIXME: UNPREDICTABLE *)
-    !!ir (AST.jmp (AST.name lblEnd))
-    !!ir (AST.lmark lblL1)
-    let mask = numI64 (getMask size) ctxt.WordBitSize
-    let rs', rt' =
-      if pos = 0 then rs .& mask, rt .& (AST.not mask)
-      else (rs .& mask) << posExpr, rt .& (AST.not (mask << posExpr))
-    !!ir (rt := rt' .| rs')
-    !!ir (AST.lmark lblEnd)
-  advancePC ctxt ir
-  !>ir insLen
-
-let ins64 insInfo insLen ctxt =
-  let ir = !*ctxt
-  !<ir insLen
-  let rt, rs, pos, size = getFourOprs insInfo
-  let rt = transOprToExpr insInfo ctxt rt
-  let rs = transOprToExpr insInfo ctxt rs
-  let pos = int32 (transOprToImm pos)
-  let size = int32 (transOprToImm size)
-  checkINSorExtPosSize pos size
-  let posExpr = numI32 pos ctxt.WordBitSize
-  let sizeExpr = numI32 size ctxt.WordBitSize
+  if lsb > msb then raise InvalidOperandException else ()
   let getMask size = (1L <<< size) - 1L
-  let lblL0 = !%ir "L0"
-  let lblL1 = !%ir "L1"
-  let lblEnd = !%ir "End"
-  let t = posExpr .+ sizeExpr .- AST.num1 ctxt.WordBitSize
-  let cond = notWordValue rs .| notWordValue rt .| (posExpr .> t)
-  !!ir (AST.cjmp cond (AST.name lblL0) (AST.name lblL1))
-  !!ir (AST.lmark lblL0)
-  !!ir (AST.sideEffect UndefinedInstr) (* FIXME: UNPREDICTABLE *)
-  !!ir (AST.jmp (AST.name lblEnd))
-  !!ir (AST.lmark lblL1)
   let mask = numI64 (getMask size) ctxt.WordBitSize
-  let rs', rt' = if pos = 0 then rs .& mask, rt .& (AST.not mask)
-                 else (rs .& mask) << posExpr, rt .& (AST.not (mask << posExpr))
+  let posExpr = numI32 pos ctxt.WordBitSize
+  let rs', rt' =
+    if pos = 0 then rs .& mask, rt .& (AST.not mask)
+    else (rs .& mask) << posExpr, rt .& (AST.not (mask << posExpr))
   !!ir (rt := rt' .| rs')
-  !!ir (AST.lmark lblEnd)
   advancePC ctxt ir
   !>ir insLen
 
@@ -1509,8 +1469,7 @@ let translate insInfo insLen (ctxt: TranslationContext) =
   | Op.EHB -> nop insLen ctxt
   | Op.EXT when ctxt.WordBitSize = 32<rt> -> ext insInfo insLen ctxt
   | Op.EXT -> ext64 insInfo insLen ctxt
-  | Op.INS when ctxt.WordBitSize = 32<rt> -> ins insInfo insLen ctxt
-  | Op.INS -> ins64 insInfo insLen ctxt
+  | Op.INS -> ins insInfo insLen ctxt
   | Op.JALR | Op.JALRHB -> jalr insInfo insLen ctxt
   | Op.JR | Op.JRHB -> jr insInfo insLen ctxt
   | Op.PAUSE -> sideEffects insLen ctxt Delay
