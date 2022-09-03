@@ -220,6 +220,7 @@ let opCodeToString = function
   | Op.SWR -> "swr"
   | Op.SWXC1 -> "swxc1"
   | Op.SYNC -> "sync"
+  | Op.SYSCALL -> "syscall"
   | Op.TEQ -> "teq"
   | Op.TEQI -> "teqi"
   | Op.TRUNCL -> "trunc.l"

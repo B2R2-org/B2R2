@@ -137,6 +137,7 @@ let parseSPECIAL bin =
   | 0b001011u ->
     if b10to6 = 0u then Op.MOVN, None, None, getRdRsRt bin
     else raise ParsingFailureException
+  | 0b001100u -> Op.SYSCALL, None, None, NoOperand
   | 0b001101u -> Op.BREAK, None, None, NoOperand
   | 0b001111u ->
     if extract bin 25u 11u = 0u then Op.SYNC, None, None, getStype bin

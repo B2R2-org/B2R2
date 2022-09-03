@@ -1165,6 +1165,12 @@ let swr insInfo insLen ctxt =
   advancePC ctxt ir
   !>ir insLen
 
+let syscall insLen ctxt =
+  let ir = !*ctxt
+  !<ir insLen
+  !!ir (AST.sideEffect SysCall)
+  !>ir insLen
+
 let seb insInfo insLen ctxt =
   let ir = !*ctxt
   let rd, rt = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
@@ -1522,6 +1528,7 @@ let translate insInfo insLen (ctxt: TranslationContext) =
   | Op.SDR -> sdr insInfo insLen ctxt
   | Op.SWL -> swl insInfo insLen ctxt
   | Op.SWR -> swr insInfo insLen ctxt
+  | Op.SYSCALL -> syscall insLen ctxt
   | Op.TEQ -> teq insInfo insLen ctxt
   | Op.TRUNCL | Op.TRUNCW -> sideEffects insLen ctxt UnsupportedFP
   | Op.XOR -> logXor insInfo insLen ctxt
