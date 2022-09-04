@@ -1283,110 +1283,65 @@ let pmovmskb ins insLen ctxt =
   | _ -> raise InvalidOperandException
   !>ir insLen
 
-let pmovsxbw ins insLen ctxt =
+let private packedMove ir srcSz packSz dstA dstB src isSignExt =
+  let packNum = int (srcSz / packSz)
+  let dSz = 128<rt> / packNum
+  let tDst = Array.init packNum (fun _ -> !+ir dSz)
+  if isSignExt then
+    for i in 0 .. packNum - 1 do
+      !!ir (tDst[i] := AST.sext dSz (AST.extract src packSz (i * (int packSz))))
+  else
+    for i in 0 .. packNum - 1 do
+      !!ir (tDst[i] := AST.zext dSz (AST.extract src packSz (i * (int packSz))))
+  let tDstA, tDstB = tDst |> Array.splitAt (packNum / 2)
+  !!ir (dstA := tDstA |> AST.concatArr)
+  !!ir (dstB := tDstB |> AST.concatArr)
+
+let pmovbw ins insLen ctxt packSz isSignExt =
   let ir = !*ctxt
   let struct (dst, src) = getTwoOprs ins
-  let sext16ext8 src n = AST.sext 16<rt> (AST.extract src 8<rt> n)
   !<ir insLen
   match src with
   | OprReg _ ->
     let dstB, dstA = transOprToExpr128 ins insLen ctxt dst
-    let _srcB, srcA = transOprToExpr128 ins insLen ctxt src
-    !!ir (dstA := AST.concat
-      (AST.concat (sext16ext8 srcA 24) (sext16ext8 srcA 16))
-      (AST.concat (sext16ext8 srcA 8) (sext16ext8 srcA 0)))
-    !!ir (dstB := AST.concat
-      (AST.concat (sext16ext8 srcA 56) (sext16ext8 srcA 48))
-      (AST.concat (sext16ext8 srcA 40) (sext16ext8 srcA 32)))
+    let _, srcA = transOprToExpr128 ins insLen ctxt src
+    packedMove ir 64<rt> packSz dstA dstB srcA isSignExt
   | OprMem _ ->
     let dstB, dstA = transOprToExpr128 ins insLen ctxt dst
     let src = transOprToExpr64 ins insLen ctxt src
-    !!ir (dstA := AST.concat
-      (AST.concat (sext16ext8 src 24) (sext16ext8 src 16))
-      (AST.concat (sext16ext8 src 8) (sext16ext8 src 0)))
-    !!ir (dstB := AST.concat
-      (AST.concat (sext16ext8 src 56) (sext16ext8 src 48))
-      (AST.concat (sext16ext8 src 40) (sext16ext8 src 32)))
+    packedMove ir 64<rt> packSz dstA dstB src isSignExt
   | _ -> raise InvalidOperandException
   !>ir insLen
 
-let pmovsxbd ins insLen ctxt =
+let pmovbd ins insLen ctxt packSz isSignExt =
   let ir = !*ctxt
   let struct (dst, src) = getTwoOprs ins
   !<ir insLen
   match src with
   | OprReg _ ->
     let dstB, dstA = transOprToExpr128 ins insLen ctxt dst
-    let _srcB, srcA = transOprToExpr128 ins insLen ctxt src
-    !!ir (dstA := AST.concat (AST.sext 32<rt> (AST.extract srcA 8<rt> 8))
-                    (AST.sext 32<rt> (AST.xtlo 8<rt> srcA)))
-    !!ir (dstB := AST.concat (AST.sext 32<rt> (AST.extract srcA 8<rt> 24))
-                    (AST.sext 32<rt> (AST.extract srcA 8<rt> 16)))
+    let _, srcA = transOprToExpr128 ins insLen ctxt src
+    packedMove ir 32<rt> packSz dstA dstB (AST.xtlo 32<rt> srcA) isSignExt
   | OprMem _ ->
     let dstB, dstA = transOprToExpr128 ins insLen ctxt dst
     let src = transOprToExpr32 ins insLen ctxt src
-    !!ir (dstA := AST.concat (AST.sext 32<rt> (AST.extract src 8<rt> 8))
-                    (AST.sext 32<rt> (AST.xtlo 8<rt> src)))
-    !!ir (dstB := AST.concat (AST.sext 32<rt> (AST.extract src 8<rt> 24))
-                    (AST.sext 32<rt> (AST.extract src 8<rt> 16)))
+    packedMove ir 32<rt> packSz dstA dstB src isSignExt
   | _ -> raise InvalidOperandException
   !>ir insLen
 
-let pmovsxbq ins insLen ctxt =
+let pmovbq ins insLen ctxt packSz isSignExt =
   let ir = !*ctxt
   let struct (dst, src) = getTwoOprs ins
   !<ir insLen
   match src with
   | OprReg _ ->
     let dstB, dstA = transOprToExpr128 ins insLen ctxt dst
-    let _srcB, srcA = transOprToExpr128 ins insLen ctxt src
-    !!ir (dstA := AST.sext 64<rt> (AST.xtlo 8<rt> srcA))
-    !!ir (dstB := AST.sext 64<rt> (AST.extract srcA 8<rt> 8))
+    let _, srcA = transOprToExpr128 ins insLen ctxt src
+    packedMove ir 16<rt> packSz dstA dstB (AST.xtlo 16<rt> srcA) isSignExt
   | OprMem _ ->
     let dstB, dstA = transOprToExpr128 ins insLen ctxt dst
     let src = transOprToExpr16 ins insLen ctxt src
-    !!ir (dstA := AST.sext 64<rt> (AST.xtlo 8<rt> src))
-    !!ir (dstB := AST.sext 64<rt> (AST.extract src 8<rt> 8))
-  | _ -> raise InvalidOperandException
-  !>ir insLen
-
-let pmovsxdq ins insLen ctxt =
-  let ir = !*ctxt
-  let struct (dst, src) = getTwoOprs ins
-  !<ir insLen
-  match src with
-  | OprReg _ ->
-    let dstB, dstA = transOprToExpr128 ins insLen ctxt dst
-    let _srcB, srcA = transOprToExpr128 ins insLen ctxt src
-    !!ir (dstA := AST.sext 64<rt> (AST.xtlo 32<rt> srcA))
-    !!ir (dstB := AST.sext 64<rt> (AST.extract srcA 32<rt> 32))
-  | OprMem _ ->
-    let dstB, dstA = transOprToExpr128 ins insLen ctxt dst
-    let src = transOprToExpr64 ins insLen ctxt src
-    !!ir (dstA := AST.sext 64<rt> (AST.xtlo 32<rt> src))
-    !!ir (dstB := AST.sext 64<rt> (AST.extract src 32<rt> 32))
-  | _ -> raise InvalidOperandException
-  !>ir insLen
-
-let pmovzxbd ins insLen ctxt =
-  let ir = !*ctxt
-  let struct (dst, src) = getTwoOprs ins
-  !<ir insLen
-  match src with
-  | OprReg _ ->
-    let dstB, dstA = transOprToExpr128 ins insLen ctxt dst
-    let _srcB, srcA = transOprToExpr128 ins insLen ctxt src
-    !!ir (dstA := AST.concat (AST.zext 32<rt> (AST.extract srcA 8<rt> 8))
-                    (AST.zext 32<rt> (AST.xtlo 8<rt> srcA)))
-    !!ir (dstB := AST.concat (AST.zext 32<rt> (AST.extract srcA 8<rt> 24))
-                    (AST.zext 32<rt> (AST.extract srcA 8<rt> 16)))
-  | OprMem _ ->
-    let dstB, dstA = transOprToExpr128 ins insLen ctxt dst
-    let src = transOprToExpr32 ins insLen ctxt src
-    !!ir (dstA := AST.concat (AST.zext 32<rt> (AST.extract src 8<rt> 8))
-                    (AST.zext 32<rt> (AST.xtlo 8<rt> src)))
-    !!ir (dstB := AST.concat (AST.zext 32<rt> (AST.extract src 8<rt> 24))
-                    (AST.zext 32<rt> (AST.extract src 8<rt> 16)))
+    packedMove ir 16<rt> packSz dstA dstB src isSignExt
   | _ -> raise InvalidOperandException
   !>ir insLen
 
