@@ -577,28 +577,6 @@ let transOprToExprOfSMSUBL ins ctxt addr =
   | FourOperands _ -> transFourOprs ins ctxt addr
   | _ -> raise InvalidOperandException
 
-let transOprToExprOfLDRSW ins ctxt addr (ir: IRBuilder) =
-  let address = !+ir 64<rt>
-  let data = !+ir 32<rt>
-  match ins.Operands with
-  | TwoOperands (o1, Memory (LiteralMode o2)) ->
-    let dst = transOprToExpr ins ctxt addr o1
-    let offset = transOprToExpr ins ctxt addr (Memory (LiteralMode o2))
-    !!ir (address := getPC ctxt .+ offset)
-    !!ir (data := AST.loadLE 32<rt> address)
-    !!ir (dst := AST.sext 64<rt> data)
-  | TwoOperands (o1, o2) ->
-    let dst = transOprToExpr ins ctxt addr o1
-    let bReg, offset = transOprToExpr ins ctxt addr o2 |> separateMemExpr
-    let isWBack, isPostIndex = getIsWBackAndIsPostIndex ins.Operands
-    !!ir (address := bReg)
-    !!ir (address :=  address .+ offset)
-    !!ir (data := AST.loadLE 32<rt> address)
-    !!ir (dst := AST.sext 64<rt> data)
-    if isWBack && isPostIndex then !!ir (bReg := address .+ offset)
-    else if isWBack then !!ir (bReg := address) else ()
-  | _ -> raise InvalidOperandException
-
 let transOprToExprOfSUB ins ctxt addr =
   match ins.Operands with
   | ThreeOperands (o1, o2, o3)
@@ -633,30 +611,16 @@ let transOprToExprOfUMADDL ins ctxt addr =
   | FourOperands _ -> transFourOprs ins ctxt addr
   | _ -> raise InvalidOperandException
 
-let transOprToExprOfSUBS ins ctxt addr ir =
-  let oprSize = ins.OprSize
+let transOprToExprOfSUBS ins ctxt addr =
   match ins.Operands with
   | ThreeOperands (o1, o2, o3) ->
-    let dst = transOprToExpr ins ctxt addr o1
-    let s1 = getRegVar ctxt (if ins.OprSize = 64<rt> then R.XZR else R.WZR)
-    let s2 = transBarrelShiftToExpr ins ctxt o2 o3 |> AST.not
-    let result, (n, z, c, v) = addWithCarry s1 s2 (AST.num1 oprSize) oprSize
-    !!ir (getRegVar ctxt R.N := n)
-    !!ir (getRegVar ctxt R.Z := z)
-    !!ir (getRegVar ctxt R.C := c)
-    !!ir (getRegVar ctxt R.V := v)
-    !!ir (dst := result)
-
+    transOprToExpr ins ctxt addr o1,
+    getRegVar ctxt (if ins.OprSize = 64<rt> then R.XZR else R.WZR),
+    transBarrelShiftToExpr ins ctxt o2 o3 |> AST.not
   | FourOperands (o1, o2, o3, o4) ->
-    let dst = transOprToExpr ins ctxt addr o1
-    let s1 = transOprToExpr ins ctxt addr o2
-    let s2 = transBarrelShiftToExpr ins ctxt o3 o4 |> AST.not
-    let result, (n, z, c, v) = addWithCarry s1 s2 (AST.num1 oprSize) oprSize
-    !!ir (getRegVar ctxt R.N := n)
-    !!ir (getRegVar ctxt R.Z := z)
-    !!ir (getRegVar ctxt R.C := c)
-    !!ir (getRegVar ctxt R.V := v)
-    !!ir (dst := result)
+    transOprToExpr ins ctxt addr o1,
+    transOprToExpr ins ctxt addr o2,
+    transBarrelShiftToExpr ins ctxt o3 o4 |> AST.not
   | _ -> raise InvalidOperandException
 
 let transOprToExprOfUBFM ins ctxt addr =
@@ -820,5 +784,15 @@ let decodeBitMasksForIR wmask tmask immN imms immr oprSize ir =
 /// ======================
 let countLeadingZeroBitsForIR dst src oprSize ir =
   highestSetBitForIR dst src (RegType.toBitWidth oprSize) oprSize ir
+
+/// 64-bit operands generate a 64-bit result in the destination general-purpose
+/// register. 32-bit operands generate a 32-bit result, zero-extended to a
+/// 64-bit result in the destination general-purpose register.
+let dstAssign oprSize dst src =
+  let orgDst = AST.unwrap dst
+  let orgDstSz = orgDst |> TypeCheck.typeOf
+  if orgDstSz > oprSize then orgDst := AST.zext orgDstSz src
+  elif orgDstSz = oprSize then orgDst := src
+  else raise InvalidOperandSizeException
 
 // vim: set tw=80 sts=2 sw=2:
