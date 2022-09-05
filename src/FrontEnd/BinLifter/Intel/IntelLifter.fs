@@ -367,11 +367,18 @@ let translate (ins: IntelInternalInstruction) insLen ctxt =
   | OP.PMINUD -> SSELifter.pminud ins insLen ctxt (* SSE4 *)
   | OP.PMINSB -> SSELifter.pminsb ins insLen ctxt (* SSE4 *)
   | OP.PMOVMSKB -> SSELifter.pmovmskb ins insLen ctxt
-  | OP.PMOVSXBW -> SSELifter.pmovsxbw ins insLen ctxt (* SSE4 *)
-  | OP.PMOVSXBD -> SSELifter.pmovsxbd ins insLen ctxt (* SSE4 *)
-  | OP.PMOVSXBQ -> SSELifter.pmovsxbq ins insLen ctxt (* SSE4 *)
-  | OP.PMOVSXDQ -> SSELifter.pmovsxdq ins insLen ctxt (* SSE4 *)
-  | OP.PMOVZXBD -> SSELifter.pmovzxbd ins insLen ctxt (* SSE4 *)
+  | OP.PMOVSXBW -> SSELifter.pmovbw ins insLen ctxt 8<rt> true (* SSE4 *)
+  | OP.PMOVSXBD -> SSELifter.pmovbd ins insLen ctxt 8<rt> true (* SSE4 *)
+  | OP.PMOVSXBQ -> SSELifter.pmovbq ins insLen ctxt 8<rt> true (* SSE4 *)
+  | OP.PMOVSXWD -> SSELifter.pmovbw ins insLen ctxt 16<rt> true (* SSE4 *)
+  | OP.PMOVSXWQ -> SSELifter.pmovbd ins insLen ctxt 16<rt> true (* SSE4 *)
+  | OP.PMOVSXDQ -> SSELifter.pmovbw ins insLen ctxt 32<rt> true (* SSE4 *)
+  | OP.PMOVZXBW -> SSELifter.pmovbw ins insLen ctxt 8<rt> false (* SSE4 *)
+  | OP.PMOVZXBD -> SSELifter.pmovbd ins insLen ctxt 8<rt> false (* SSE4 *)
+  | OP.PMOVZXBQ -> SSELifter.pmovbq ins insLen ctxt 8<rt> false (* SSE4 *)
+  | OP.PMOVZXWD -> SSELifter.pmovbw ins insLen ctxt 16<rt> false (* SSE4 *)
+  | OP.PMOVZXWQ -> SSELifter.pmovbd ins insLen ctxt 16<rt> false (* SSE4 *)
+  | OP.PMOVZXDQ -> SSELifter.pmovbw ins insLen ctxt 32<rt> false (* SSE4 *)
   | OP.PMULHUW -> SSELifter.pmulhuw ins insLen ctxt
   | OP.PSADBW -> SSELifter.psadbw ins insLen ctxt
   | OP.PSHUFW -> SSELifter.pshufw ins insLen ctxt
