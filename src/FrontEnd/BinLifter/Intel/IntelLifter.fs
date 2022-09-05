@@ -219,6 +219,8 @@ let translate (ins: IntelInternalInstruction) insLen ctxt =
   | OP.PADDSW -> MMXLifter.paddsw ins insLen ctxt
   | OP.PADDUSB -> MMXLifter.paddusb ins insLen ctxt
   | OP.PADDUSW -> MMXLifter.paddusw ins insLen ctxt
+  | OP.PHADDD -> MMXLifter.phaddd ins insLen ctxt
+  | OP.PHADDW -> MMXLifter.phaddw ins insLen ctxt
   | OP.PHADDSW -> MMXLifter.phaddsw ins insLen ctxt
   | OP.PSUBB -> MMXLifter.psubb ins insLen ctxt
   | OP.PSUBW -> MMXLifter.psubw ins insLen ctxt
@@ -227,6 +229,9 @@ let translate (ins: IntelInternalInstruction) insLen ctxt =
   | OP.PSUBSW -> MMXLifter.psubsw ins insLen ctxt
   | OP.PSUBUSB -> MMXLifter.psubusb ins insLen ctxt
   | OP.PSUBUSW -> MMXLifter.psubusw ins insLen ctxt
+  | OP.PHSUBD -> MMXLifter.phsubd ins insLen ctxt
+  | OP.PHSUBW -> MMXLifter.phsubw ins insLen ctxt
+  | OP.PHSUBSW -> MMXLifter.phsubsw ins insLen ctxt
   | OP.PMULHW -> MMXLifter.pmulhw ins insLen ctxt
   | OP.PMULLW -> MMXLifter.pmullw ins insLen ctxt
   | OP.PMADDWD -> MMXLifter.pmaddwd ins insLen ctxt
