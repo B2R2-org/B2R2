@@ -17,6 +17,7 @@
     <Compile Include="ARM64Utils.fs" />
     <Compile Include="ARM64OperandHelper.fs" />
     <Compile Include="ARM64Disasm.fs" />
+    <Compile Include="ARM64LiftingUtils.fs" />
     <Compile Include="ARM64Lifter.fs" />
     <Compile Include="ARM64Instruction.fs" />
     <Compile Include="ARM64Parser.fsi" />

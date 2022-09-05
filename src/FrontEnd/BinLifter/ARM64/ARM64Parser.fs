@@ -2105,7 +2105,8 @@ let parseAdvSIMDTwoReg bin =
     Opcode.UCVTF, getVdtVnt2 bin szQ10, 0<rt>
   | c when c &&& 0b11111111u = 0b10000101u ->
     toAliasFromNOT Opcode.NOT, getVdtVnt3 bin, 0<rt>
-  | c when c &&& 0b11111111u = 0b10100101u -> Opcode.RBIT, getVdtVnt3 bin, 0<rt>
+  | c when c &&& 0b11111111u = 0b10100101u ->
+    (Opcode.RBIT, getVdtVnt3 bin) |> getSIMDVectorOprSize
   | c when c &&& 0b11011111u = 0b11000101u -> raise UnallocatedException
   | c when c &&& 0b11011111u = 0b11001100u ->
     Opcode.FCMGE, getVdtVntF0 bin szQ10, 0<rt>

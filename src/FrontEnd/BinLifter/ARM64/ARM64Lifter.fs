@@ -32,846 +32,15 @@ open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinLifter.LiftingOperators
 open B2R2.FrontEnd.BinLifter.LiftingUtils
 open B2R2.FrontEnd.BinLifter.ARM64
+open B2R2.FrontEnd.BinLifter.ARM64.LiftingUtils
 
-let inline getRegVar (ctxt: TranslationContext) name =
-  Register.toRegID name |> ctxt.GetRegVar
-
-let getPC ctxt = getRegVar ctxt R.PC
-
-let ror src amount width = (src >> amount) .| (src << (width .- amount))
-
-let oprSzToExpr oprSize = numI32 (RegType.toBitWidth oprSize) oprSize
-
-let inline private (<!) (ir: IRBuilder) (s) = ir.Append (s)
-
-/// shared/functions/integer/AddWithCarry
-/// AddWithCarry()
-/// ==============
-/// Integer addition with carry input, returning result and NZCV flags
-let addWithCarry opr1 opr2 carryIn oSz =
-  let result = opr1 .+ opr2 .+ carryIn
-  let n = AST.xthi 1<rt> result
-  let z = AST.relop RelOpType.EQ result (AST.num0 oSz)
-  let c = AST.gt opr1 result
-  let o1 = AST.xthi 1<rt> opr1
-  let o2 = AST.xthi 1<rt> opr2
-  let r = AST.xthi 1<rt> result
-  let v = (o1 == o2) .& (o1 <+> r)
-  result, (n, z, c, v)
-
-/// aarch64/instrs/integer/shiftreg/ShiftReg
-/// ShiftReg()
-/// ==========
-/// Perform shift of a register operand
-let shiftReg reg amount oprSize = function
-  | SRTypeLSL -> reg << amount
-  | SRTypeLSR -> reg >> amount
-  | SRTypeASR -> reg ?>> amount
-  | SRTypeROR -> ror reg amount (oprSzToExpr oprSize)
-  | _ -> raise InvalidOperandException
-
-let transShiftAmout ctxt oprSize = function
-  | Imm amt -> numI64 amt oprSize
-  | Reg amt -> getRegVar ctxt amt
-
-/// shared/functions/common/Extend
-/// Extend()
-/// ========
-let extend reg oprSize isUnsigned =
-  if isUnsigned then AST.zext oprSize reg else AST.sext oprSize reg
-
-/// aarch64/instrs/extendreg/ExtendReg
-/// ExtendReg()
-/// ===========
-/// Perform a register extension and shift
-let extendReg ctxt reg typ shift oprSize =
-  let reg = getRegVar ctxt reg
-  let shift =
-    match shift with
-    | Some shf -> shf |> int
-    | None -> 0L |> int
-  let isUnsigned, len =
-    match typ with
-    | ExtSXTB -> false, 8
-    | ExtSXTH -> false, 16
-    | ExtSXTW -> false, 32
-    | ExtSXTX -> false, 64
-    | ExtUXTB -> true, 8
-    | ExtUXTH -> true, 16
-    | ExtUXTW -> true, 32
-    | ExtUXTX -> true, 64
-  let len = min len ((RegType.toBitWidth oprSize) - shift)
-  let rTyp = RegType.fromBitWidth len
-  extend ((AST.xtlo rTyp  reg) << numI32 shift rTyp) oprSize isUnsigned
-
-let transSIMDRegToExpr ctxt = function (* FIXME *)
-  | SIMDFPScalarReg reg -> getRegVar ctxt reg
-  | SIMDVecReg (reg, v) -> getRegVar ctxt reg
-  | SIMDVecRegWithIdx (reg, v, idx) -> getRegVar ctxt reg
-
-let transSIMD ctxt = function (* FIXME *)
-  | SFReg reg -> transSIMDRegToExpr ctxt reg
-  | OneReg s -> raise <| NotImplementedIRException "OneReg"
-  | TwoRegs (s1, s2) -> raise <| NotImplementedIRException "TwoRegs"
-  | ThreeRegs (s1, s2, s3) -> raise <| NotImplementedIRException "ThreeRegs"
-  | FourRegs (s1, s2, s3, s4) -> raise <| NotImplementedIRException "FourRegs"
-
-let transImmOffset ctxt = function
-  | BaseOffset (bReg, Some imm) ->
-    getRegVar ctxt bReg .+ numI64 imm 64<rt> |> AST.loadLE 64<rt>
-  | BaseOffset (bReg, None) -> getRegVar ctxt bReg |> AST.loadLE 64<rt>
-  | Lbl lbl -> numI64 lbl 64<rt>
-
-let transRegOff ins ctxt reg = function
-  | ShiftOffset (shfTyp, amt) ->
-    let reg = getRegVar ctxt reg
-    let amount = transShiftAmout ctxt 64<rt> amt
-    shiftReg reg amount ins.OprSize shfTyp
-  | ExtRegOffset (extTyp, shf) -> extendReg ctxt reg extTyp shf 64<rt>
-
-let transRegOffset ins ctxt = function
-  | bReg, reg, Some regOffset ->
-    getRegVar ctxt bReg .+ transRegOff ins ctxt reg regOffset
-  | bReg, reg, None -> getRegVar ctxt bReg .+ getRegVar ctxt reg
-
-let transMemOffset ins ctxt = function
-  | ImmOffset immOffset -> transImmOffset ctxt immOffset
-  | RegOffset (bReg, reg, regOffset) ->
-    transRegOffset ins ctxt (bReg, reg, regOffset) |> AST.loadLE 64<rt>
-
-let transBaseMode ins ctxt offset =
-  transMemOffset ins ctxt offset
-
-let transMem ins ctxt addr = function
-  | BaseMode offset -> transBaseMode ins ctxt offset
-  | PreIdxMode offset -> transBaseMode ins ctxt offset
-  | PostIdxMode offset -> transBaseMode ins ctxt offset
-  | LiteralMode offset -> transBaseMode ins ctxt offset
-
-let transOprToExpr ins ctxt addr = function
-  | OprRegister reg -> getRegVar ctxt reg
-  | Memory mem -> transMem ins ctxt addr mem
-  | SIMDOpr simd -> transSIMD ctxt simd
-  | Immediate imm -> numI64 imm ins.OprSize
-  | NZCV nzcv -> numI64 (int64 nzcv) ins.OprSize
-  | LSB lsb -> numI64 (int64 lsb) ins.OprSize
-  | _ -> raise <| NotImplementedIRException "transOprToExpr"
-
-let transOneOpr ins ctxt addr =
-  match ins.Operands with
-  | OneOperand o -> transOprToExpr ins ctxt addr o
-  | _ -> raise InvalidOperandException
-
-let transTwoOprs ins ctxt addr =
-  match ins.Operands with
-  | TwoOperands (o1, o2) -> transOprToExpr ins ctxt addr o1,
-                            transOprToExpr ins ctxt addr o2
-  | _ -> raise InvalidOperandException
-
-let transThreeOprs ins ctxt addr =
-  match ins.Operands with
-  | ThreeOperands (o1, o2, o3) -> transOprToExpr ins ctxt addr o1,
-                                  transOprToExpr ins ctxt addr o2,
-                                  transOprToExpr ins ctxt addr o3
-  | _ -> raise InvalidOperandException
-
-let transFourOprs ins ctxt addr =
-  match ins.Operands with
-  | FourOperands (o1, o2, o3, o4) -> transOprToExpr ins ctxt addr o1,
-                                     transOprToExpr ins ctxt addr o2,
-                                     transOprToExpr ins ctxt addr o3,
-                                     transOprToExpr ins ctxt addr o4
-  | _ -> raise InvalidOperandException
-
-(* Barrel shift *)
-let transBarrelShiftToExpr ins ctxt src shift =
-  match src, shift with
-  | Immediate imm, Shift (typ, Imm amt) ->
-    let imm = match typ with
-              | SRTypeLSL -> imm <<< int32 amt
-              | SRTypeLSR -> imm >>> int32 amt
-              | _ -> failwith "Not implement"
-    numI64 imm ins.OprSize
-  | OprRegister reg, Shift (typ, amt) ->
-    let reg = getRegVar ctxt reg
-    let amount = transShiftAmout ctxt ins.OprSize amt
-    shiftReg reg amount ins.OprSize typ
-  | OprRegister reg, ExtReg (Some (ShiftOffset (typ, amt))) ->
-    let reg = getRegVar ctxt reg
-    let amount = transShiftAmout ctxt ins.OprSize amt
-    shiftReg reg amount ins.OprSize typ
-  | OprRegister reg, ExtReg (Some (ExtRegOffset (typ, shf))) ->
-    extendReg ctxt reg typ shf ins.OprSize
-  | OprRegister reg, ExtReg None -> getRegVar ctxt reg
-  | _ -> raise <| NotImplementedIRException "transBarrelShiftToExpr"
-
-let transFourOprsWithBarrelShift ins ctxt addr =
-  match ins.Operands with
-  | FourOperands (o1, o2, o3, o4) ->
-    transOprToExpr ins ctxt addr o1,
-    transOprToExpr ins ctxt addr o2,
-    transBarrelShiftToExpr ins ctxt o3 o4
-  | _ -> raise InvalidOperandException
-
-/// Number and size of elements
-let getElemNumAndSizeBySIMDVector = function
-  | VecB -> 1u, 8<rt>       (* Vector register names with element index *)
-  | VecH -> 1u, 16<rt>
-  | VecS -> 1u, 32<rt>
-  | VecD -> 1u, 64<rt>
-  | EightB -> 8u, 8<rt>     (* SIMD vector register names *)
-  | SixteenB -> 16u, 8<rt>
-  | FourH -> 4u, 16<rt>
-  | EightH -> 8u, 16<rt>
-  | TwoS -> 2u, 32<rt>
-  | FourS -> 4u, 32<rt>
-  | OneD -> 1u, 64<rt>
-  | TwoD -> 2u, 64<rt>
-  | OneQ -> 1u, 128<rt>
-
-let getElemNumAndSize oprSize = function
-  | SIMDFPScalarReg _ -> 1u, oprSize
-  | SIMDVecReg (_, v) -> getElemNumAndSizeBySIMDVector v
-  | SIMDVecRegWithIdx (_, v, _) -> getElemNumAndSizeBySIMDVector v
-
-let getSIMDReg = function
-  | SIMDOpr simd -> match simd with
-                    | SFReg sReg -> sReg
-                    | _ -> raise <| NotImplementedIRException "getSIMDReg"
-  | _ -> failwith "Invalid SIMD operand"
-
-let transOprToExprOfADD ins ctxt addr (ir: IRBuilder) =
-  match ins.Operands with
-  | ThreeOperands (o1, _, _) -> (* SIMD arithmetic *)
-    (*
-    let oSz = ins.OprSize
-    let dst, s1, s2 = transThreeOprs ins ctxt addr
-    let eNum, eSz = getElemNumAndSize oSz (getSIMDReg o1)
-    let s1Tmps = Array.init (int eNum) (fun _ -> !+ir eSz)
-    let s2Tmps = Array.init (int eNum) (fun _ -> !+ir eSz)
-    let resTmps = Array.init (int eNum) (fun _ -> !+ir eSz)
-    let amt = RegType.toBitWidth eSz
-    for i in 0 .. (int eNum) - 1 do
-      !!ir (s1Tmps[i] := AST.extract s1 eSz (i * amt))
-      !!ir (s2Tmps[i] := AST.extract s2 eSz (i * amt))
-      !!ir (resTmps[i] := s1Tmps[i] .+ s2Tmps[i])
-    done
-    !!ir (dst := AST.concatArr resTmps)
-    *)
-    !!ir (AST.sideEffect UnsupportedFP) (* FIXME *)
-  | FourOperands _ -> (* Arithmetic *)
-    let dst, s1, s2 = transFourOprsWithBarrelShift ins ctxt addr
-    let result, _ = addWithCarry s1 s2 (AST.num0 ins.OprSize) ins.OprSize
-    !!ir (dst := result)
-  | _ -> raise InvalidOperandException
-
-let transOprToExprOfADDS ins ctxt addr =
-  match ins.Operands with
-  | ThreeOperands (o1, o2, o3) -> (* CMN *)
-    getRegVar ctxt (if ins.OprSize = 64<rt> then R.XZR else R.WZR),
-    transOprToExpr ins ctxt addr o1,
-    transBarrelShiftToExpr ins ctxt o2 o3
-  | FourOperands _ -> transFourOprsWithBarrelShift ins ctxt addr
-  | _ -> raise InvalidOperandException
-
-let transOprToExprOfAND ins ctxt addr =
-  match ins.Operands with
-  | ThreeOperands _ -> transThreeOprs ins ctxt addr
-  | FourOperands _ -> transFourOprsWithBarrelShift ins ctxt addr
-  | _ -> raise InvalidOperandException
-
-let transOprToExprOfANDS ins ctxt addr =
-  match ins.Operands with
-  | TwoOperands (o1, o2) -> (* TST (immediate) *)
-    getRegVar ctxt (if ins.OprSize = 64<rt> then R.XZR else R.WZR),
-    transOprToExpr ins ctxt addr o1, transOprToExpr ins ctxt addr o2
-  | ThreeOperands (o1, o2, o3) when ins.Opcode = Opcode.TST -> (* TST (shfed) *)
-    getRegVar ctxt (if ins.OprSize = 64<rt> then R.XZR else R.WZR),
-    transOprToExpr ins ctxt addr o1, transBarrelShiftToExpr ins ctxt o2 o3
-  | ThreeOperands _ -> transThreeOprs ins ctxt addr
-  | FourOperands _ -> transFourOprsWithBarrelShift ins ctxt addr
-  | _ -> raise InvalidOperandException
-
-let transOprToExprOfBFM ins ctxt addr =
-  match ins.Operands with
-  | FourOperands (o1, o2, o3, Immediate o4) when ins.Opcode = Opcode.BFI ->
-    transOprToExpr ins ctxt addr o1,
-    transOprToExpr ins ctxt addr o2,
-    transOprToExpr ins ctxt addr o3, (* FIXME: #(-<lsb> MOD 32/64) *)
-    transOprToExpr ins ctxt addr (Immediate (o4 + 1L))
-  | FourOperands (o1, o2, Immediate o3, Immediate o4)
-    when ins.Opcode = Opcode.BFXIL ->
-    transOprToExpr ins ctxt addr o1,
-    transOprToExpr ins ctxt addr o2,
-    transOprToExpr ins ctxt addr (Immediate o3),
-    transOprToExpr ins ctxt addr (Immediate (o4 - o3 + 1L))
-  | FourOperands _ -> transFourOprs ins ctxt addr
-  | _ -> raise InvalidOperandException
-
-let unwrapCond = function
-  | Cond cond -> cond
-  | _ -> raise InvalidOperandException
-
-let invertCond = function
-  | EQ -> NV
-  | NE -> AL
-  | CS | HS -> LE
-  | CC | LO -> GT
-  | MI -> LT
-  | PL -> GE
-  | VS -> LS
-  | VC -> HI
-  | HI -> VC
-  | LS -> VS
-  | GE -> PL
-  | LT -> MI
-  | GT -> CC
-  | LE -> CS
-  | AL -> NE
-  | NV -> EQ
-
-let transOprToExprOfCCMN ins ctxt addr =
-  match ins.Operands with
-  | FourOperands (o1, o2, o3, o4) ->
-    transOprToExpr ins ctxt addr o1,
-    transOprToExpr ins ctxt addr o2,
-    transOprToExpr ins ctxt addr o3,
-    o4 |> unwrapCond
-  | _ -> raise InvalidOperandException
-
-let transOprToExprOfCCMP ins ctxt addr =
-  match ins.Operands with
-  | FourOperands (o1, o2, o3, o4) ->
-    transOprToExpr ins ctxt addr o1,
-    transOprToExpr ins ctxt addr o2,
-    transOprToExpr ins ctxt addr o3,
-    o4 |> unwrapCond
-  | _ -> raise InvalidOperandException
-
-let transOprToExprOfCMP ins ctxt addr =
-  match ins.Operands with
-  | ThreeOperands (o1, o2, o3) ->
-    transOprToExpr ins ctxt addr o1,
-    transBarrelShiftToExpr ins ctxt o2 o3
-  | _ -> raise InvalidOperandException
-
-let transOprToExprOfCSEL ins ctxt addr =
-  match ins.Operands with
-  | FourOperands (o1, o2, o3, o4) ->
-    transOprToExpr ins ctxt addr o1,
-    transOprToExpr ins ctxt addr o2,
-    transOprToExpr ins ctxt addr o3,
-    o4 |> unwrapCond
-  | _ -> raise InvalidOperandException
-
-let transOprToExprOfCSINC ins ctxt addr =
-  match ins.Operands with
-  | TwoOperands (o1, o2) -> (* CSET *)
-    transOprToExpr ins ctxt addr o1,
-    getRegVar ctxt (if ins.OprSize = 64<rt> then R.XZR else R.WZR),
-    getRegVar ctxt (if ins.OprSize = 64<rt> then R.XZR else R.WZR),
-    o2 |> unwrapCond |> invertCond
-  | ThreeOperands (o1, o2, o3) -> (* CINC *)
-    transOprToExpr ins ctxt addr o1,
-    transOprToExpr ins ctxt addr o2,
-    transOprToExpr ins ctxt addr o2,
-    o3 |> unwrapCond |> invertCond
-  | FourOperands (o1, o2, o3, o4) ->
-    transOprToExpr ins ctxt addr o1,
-    transOprToExpr ins ctxt addr o2,
-    transOprToExpr ins ctxt addr o3,
-    o4 |> unwrapCond
-  | _ -> raise InvalidOperandException
-
-let transOprToExprOfCSINV ins ctxt addr =
-  match ins.Operands with
-  | TwoOperands (o1, o2) -> (* CSETM *)
-    transOprToExpr ins ctxt addr o1,
-    getRegVar ctxt (if ins.OprSize = 64<rt> then R.XZR else R.WZR),
-    getRegVar ctxt (if ins.OprSize = 64<rt> then R.XZR else R.WZR),
-    o2 |> unwrapCond |> invertCond
-  | ThreeOperands (o1, o2, o3) -> (* CINV *)
-    let o2 = transOprToExpr ins ctxt addr o2
-    transOprToExpr ins ctxt addr o1, o2, o2, o3 |> unwrapCond
-
-  | FourOperands (o1, o2, o3, o4) -> (* CSINV *)
-    transOprToExpr ins ctxt addr o1,
-    transOprToExpr ins ctxt addr o2,
-    transOprToExpr ins ctxt addr o3,
-    o4 |> unwrapCond
-  | _ -> raise InvalidOperandException
-
-let transOprToExprOfCSNEG ins ctxt addr =
-  match ins.Operands with
-  | ThreeOperands (o1, o2, Cond o3) -> (* CNEG *)
-    let o2 = transOprToExpr ins ctxt addr o2
-    transOprToExpr ins ctxt addr o1, o2, o2, invertCond o3
-  | FourOperands (o1, o2, o3, o4) -> (* CSNEG *)
-    transOprToExpr ins ctxt addr o1,
-    transOprToExpr ins ctxt addr o2,
-    transOprToExpr ins ctxt addr o3,
-    o4|> unwrapCond
-  | _ -> raise InvalidOperandException
-
-let transOprToExprOfEOR ins ctxt addr =
-  match ins.Operands with
-  | ThreeOperands _ -> transThreeOprs ins ctxt addr
-  | FourOperands (o1, o2, o3, o4) when ins.Opcode = Opcode.EOR ->
-    transOprToExpr ins ctxt addr o1,
-    transOprToExpr ins ctxt addr o2,
-    transBarrelShiftToExpr ins ctxt o3 o4
-  | FourOperands (o1, o2, o3, o4) when ins.Opcode = Opcode.EON ->
-    transOprToExpr ins ctxt addr o1,
-    transOprToExpr ins ctxt addr o2,
-    transBarrelShiftToExpr ins ctxt o3 o4 |> AST.not
-  | _ -> raise InvalidOperandException
-
-let transOprToExprOfEXTR ins ctxt addr =
-  match ins.Operands with
-  | ThreeOperands (o1, o2, o3) -> (* ROR *)
-    let o2 = transOprToExpr ins ctxt addr o2
-    transOprToExpr ins ctxt addr o1, o2, o2, transOprToExpr ins ctxt addr o3
-  | FourOperands _ -> transFourOprs ins ctxt addr
-  | _ -> raise InvalidOperandException
-
-let getIsWBackAndIsPostIndexByAddrMode = function
-  | BaseMode _ -> false, false
-  | PreIdxMode _ -> true, false
-  | PostIdxMode _ -> true, true
-  | _ -> raise InvalidOperandException
-
-let getIsWBackAndIsPostIndex = function
-  | TwoOperands (_, Memory mem) -> getIsWBackAndIsPostIndexByAddrMode mem
-  | ThreeOperands (_, _, Memory mem) -> getIsWBackAndIsPostIndexByAddrMode mem
-  | _ -> raise InvalidOperandException
-
-let separateMemExpr expr =
-  match expr.E with
-  | Load (_, _, { E = BinOp (BinOpType.ADD, _, b, o, _) }, _) -> b, o
-  | _ -> raise InvalidOperandException
-
-let transOprToExprOfLDP ins ctxt addr =
-  match ins.Operands with
-  | ThreeOperands (o1, o2, o3) ->
-    transOprToExpr ins ctxt addr o1,
-    transOprToExpr ins ctxt addr o2,
-    transOprToExpr ins ctxt addr o3 |> separateMemExpr
-  | _ -> raise InvalidOperandException
-
-let transOprToExprOfLDR ins ctxt addr (ir: IRBuilder) =
-  match ins.Operands with
-  | TwoOperands (o1, Memory (LiteralMode o2)) -> (* LDR (literal) *)
-    let dst = transOprToExpr ins ctxt addr o1
-    let offset = transOprToExpr ins ctxt addr (Memory (LiteralMode o2))
-    let address = !+ir 64<rt>
-    let data = !+ir ins.OprSize
-    !!ir (address := getPC ctxt .+ offset)
-    !!ir (data := AST.loadLE ins.OprSize address)
-    !!ir (dst := data)
-  | TwoOperands (o1, o2) ->
-    let dst = transOprToExpr ins ctxt addr o1
-    let bReg, offset = transOprToExpr ins ctxt addr o2 |> separateMemExpr
-    let isWBack, isPostIndex = getIsWBackAndIsPostIndex ins.Operands
-    let address = !+ir 64<rt>
-    let data = !+ir ins.OprSize
-    !!ir (address := bReg)
-    !!ir (address := if isPostIndex then address else address .+ offset)
-    !!ir (data := AST.loadLE ins.OprSize address)
-    !!ir (dst := AST.zext ins.OprSize data)
-    if isWBack && isPostIndex then !!ir (bReg := address .+ offset)
-    else if isWBack then !!ir (bReg := address) else ()
-  | _ -> raise InvalidOperandException
-
-let transOprToExprOfMADD ins ctxt addr =
-  match ins.Operands with
-  | ThreeOperands (o1, o2, o3) -> (* MUL *)
-    transOprToExpr ins ctxt addr o1,
-    transOprToExpr ins ctxt addr o2,
-    transOprToExpr ins ctxt addr o3,
-    getRegVar ctxt (if ins.OprSize = 64<rt> then R.XZR else R.WZR)
-  | FourOperands _ -> transFourOprs ins ctxt addr
-  | _ -> raise InvalidOperandException
-
-let transOprToExprOfMOV ins ctxt addr =
-  match ins.Operands with
-  | TwoOperands (o1, o2) ->
-    transOprToExpr ins ctxt addr o1, transOprToExpr ins ctxt addr o2
-  | ThreeOperands (o1, o2, o3) ->
-    transOprToExpr ins ctxt addr o1, transBarrelShiftToExpr ins ctxt o2 o3
-  | _ -> raise InvalidOperandException
-
-let transOprToExprOfORN ins ctxt addr =
-  match ins.Operands with
-  | ThreeOperands (o1, o2, o3) when ins.Opcode = Opcode.MVN -> (* MVN *)
-    transOprToExpr ins ctxt addr o1,
-    getRegVar ctxt (if ins.OprSize = 64<rt> then R.XZR else R.WZR),
-    transBarrelShiftToExpr ins ctxt o2 o3
-  | FourOperands (o1, o2, o3, o4) when ins.Opcode = Opcode.ORN -> (* ORN *)
-    transOprToExpr ins ctxt addr o1,
-    transOprToExpr ins ctxt addr o2,
-    transBarrelShiftToExpr ins ctxt o3 o4
-  | _ -> raise InvalidOperandException
-
-let transOprToExprOfORR ins ctxt addr =
-  match ins.Operands with
-  | ThreeOperands _ -> transThreeOprs ins ctxt addr
-  | FourOperands (o1, o2, o3, o4) ->
-    transOprToExpr ins ctxt addr o1,
-    transOprToExpr ins ctxt addr o2,
-    transBarrelShiftToExpr ins ctxt o3 o4
-  | _ -> raise InvalidOperandException
-
-let unwrapReg e =
-  match e.E with
-  | Extract (e, 32<rt>, 0, _) -> e
-  | _ -> failwith "Invalid register"
-
-let transOprToExprOfSBFM ins ctxt addr =
-  match ins.Operands with
-  | TwoOperands (o1, o2) (* SXTB *)
-    when ins.Opcode = Opcode.SXTB ->
-    let o1 = transOprToExpr ins ctxt addr o1
-    let o2 = transOprToExpr ins ctxt addr o2
-    let o2 = if ins.OprSize = 64<rt> then o2 |> unwrapReg else o2
-    o1, o2, AST.num0 ins.OprSize, numI32 7 ins.OprSize
-  | TwoOperands (o1, o2) (* SXTH *)
-    when ins.Opcode = Opcode.SXTH ->
-    let o1 = transOprToExpr ins ctxt addr o1
-    let o2 = transOprToExpr ins ctxt addr o2
-    let o2 = if ins.OprSize = 64<rt> then o2 |> unwrapReg else o2
-    o1, o2, AST.num0 ins.OprSize, numI32 15 ins.OprSize
-  | TwoOperands (o1, o2) (* SXTW *)
-    when ins.Opcode = Opcode.SXTW ->
-    transOprToExpr ins ctxt addr o1,
-    transOprToExpr ins ctxt addr o2 |> unwrapReg,
-    AST.num0 ins.OprSize,
-    numI32 31 ins.OprSize
-  | FourOperands (o1, o2, o3, Immediate o4) when ins.Opcode = Opcode.SBFIZ ->
-    transOprToExpr ins ctxt addr o1,
-    transOprToExpr ins ctxt addr o2,
-    transOprToExpr ins ctxt addr o3, (* FIXME: #(-<lsb> MOD 32/64) *)
-    transOprToExpr ins ctxt addr (Immediate (o4 + 1L))
-  | FourOperands (o1, o2, Immediate o3, Immediate o4)
-    when ins.Opcode = Opcode.SBFX ->
-    transOprToExpr ins ctxt addr o1,
-    transOprToExpr ins ctxt addr o2,
-    transOprToExpr ins ctxt addr (Immediate o3),
-    transOprToExpr ins ctxt addr (Immediate (o4 - o3 + 1L))
-  | FourOperands _ -> transFourOprs ins ctxt addr
-  | _ -> raise InvalidOperandException
-
-let transOprToExprOfSMADDL ins ctxt addr =
-  match ins.Operands with
-  | ThreeOperands (o1, o2, o3) -> (* SMULL *)
-    transOprToExpr ins ctxt addr o1,
-    transOprToExpr ins ctxt addr o2,
-    transOprToExpr ins ctxt addr o3,
-    getRegVar ctxt R.XZR
-  | FourOperands _ -> transFourOprs ins ctxt addr
-  | _ -> raise InvalidOperandException
-
-let transOprToExprOfLDRB ins ctxt addr =
-  match ins.Operands with
-  | TwoOperands (o1, o2) ->
-    transOprToExpr ins ctxt addr o1,
-    transOprToExpr ins ctxt addr o2 |> separateMemExpr
-  | _ -> raise InvalidOperandException
-
-let transOprToExprOfLDRSW ins ctxt addr (ir: IRBuilder) =
-  let address = !+ir 64<rt>
-  let data = !+ir 32<rt>
-  match ins.Operands with
-  | TwoOperands (o1, Memory (LiteralMode o2)) ->
-    let dst = transOprToExpr ins ctxt addr o1
-    let offset = transOprToExpr ins ctxt addr (Memory (LiteralMode o2))
-    !!ir (address := getPC ctxt .+ offset)
-    !!ir (data := AST.loadLE 32<rt> address)
-    !!ir (dst := AST.sext 64<rt> data)
-
-  | TwoOperands (o1, o2) ->
-    let dst = transOprToExpr ins ctxt addr o1
-    let bReg, offset = transOprToExpr ins ctxt addr o2 |> separateMemExpr
-    let isWBack, isPostIndex = getIsWBackAndIsPostIndex ins.Operands
-    !!ir (address := bReg)
-    !!ir (address :=  address .+ offset)
-    !!ir (data := AST.loadLE 32<rt> address)
-    !!ir (dst := AST.sext 64<rt> data)
-    if isWBack && isPostIndex then !!ir (bReg := address .+ offset)
-    else if isWBack then !!ir (bReg := address) else ()
-  | _ -> raise InvalidOperandException
-
-let transOprToExprOfSTP ins ctxt addr =
-  match ins.Operands with
-  | ThreeOperands (o1, o2, o3) ->
-    transOprToExpr ins ctxt addr o1,
-    transOprToExpr ins ctxt addr o2,
-    transOprToExpr ins ctxt addr o3 |> separateMemExpr
-  | _ -> raise InvalidOperandException
-
-let transOprToExprOfSTR ins ctxt addr =
-  match ins.Operands with
-  | TwoOperands (o1, o2) ->
-    transOprToExpr ins ctxt addr o1,
-    transOprToExpr ins ctxt addr o2 |> separateMemExpr
-  | _ -> raise InvalidOperandException
-
-let transOprToExprOfSTRB ins ctxt addr =
-  match ins.Operands with
-  | TwoOperands (o1, o2) ->
-    transOprToExpr ins ctxt addr o1,
-    transOprToExpr ins ctxt addr o2 |> separateMemExpr
-  | _ -> raise InvalidOperandException
-
-let transOprToExprOfSTUR ins ctxt addr =
-  match ins.Operands with
-  | TwoOperands (o1, o2) ->
-    transOprToExpr ins ctxt addr o1,
-    transOprToExpr ins ctxt addr o2 |> separateMemExpr
-  | _ -> raise InvalidOperandException
-
-let transOprToExprOfSUB ins ctxt addr ir =
-  let oprSize = ins.OprSize
-  match ins.Operands with
-  | TwoOperands (SIMDOpr _, SIMDOpr _) -> (* FIXME: NEG SIMD Register *)
-    !!ir (AST.sideEffect UnsupportedFP)
-  | ThreeOperands (o1, o2, o3)
-    when ins.Opcode = Opcode.SUB -> (* FIXME: SUB SIMD Register *)
-    !!ir (AST.sideEffect UnsupportedFP)
-  | ThreeOperands (o1, o2, o3)
-    when ins.Opcode = Opcode.NEG ->
-    let dst = transOprToExpr ins ctxt addr o1
-    let s1 = getRegVar ctxt (if oprSize = 64<rt> then R.XZR else R.WZR)
-    let s2 = transBarrelShiftToExpr ins ctxt o2 o3 |> AST.not
-    let result, _ = addWithCarry s1 s2 (AST.num1 oprSize) oprSize
-    !!ir (dst := result)
-  | FourOperands (o1, o2, o3, o4) -> (* Arithmetic *)
-    let dst = transOprToExpr ins ctxt addr o1
-    let s1 = transOprToExpr ins ctxt addr o2
-    let s2 = transBarrelShiftToExpr ins ctxt o3 o4 |> AST.not
-    let result, _ = addWithCarry s1 s2 (AST.num1 oprSize) oprSize
-    !!ir (dst := result)
-  | _ -> raise InvalidOperandException
-
-let transOprToExprOfMSUB ins ctxt addr =
-  let oprSize = ins.OprSize
-  match ins.Operands with
-  | ThreeOperands (o1, o2, o3) -> (* MNEG *)
-    transOprToExpr ins ctxt addr o1,
-    transOprToExpr ins ctxt addr o2,
-    transOprToExpr ins ctxt addr o3,
-    getRegVar ctxt (if ins.OprSize = 64<rt> then R.XZR else R.WZR)
-  | FourOperands _ -> transFourOprs ins ctxt addr (* MSUB *)
-  | _ -> raise InvalidOperandException
-
-let transOprToExprOfUMADDL ins ctxt addr =
-  match ins.Operands with
-  | ThreeOperands (o1, o2, o3) -> (* UMULL / UMNEGL *)
-    transOprToExpr ins ctxt addr o1,
-    transOprToExpr ins ctxt addr o2,
-    transOprToExpr ins ctxt addr o3,
-    getRegVar ctxt R.XZR
-  | FourOperands _ -> transFourOprs ins ctxt addr
-  | _ -> raise InvalidOperandException
-
-let transOprToExprOfSUBS ins ctxt addr ir =
-  let oprSize = ins.OprSize
-  match ins.Operands with
-  | ThreeOperands (o1, o2, o3) ->
-    let dst = transOprToExpr ins ctxt addr o1
-    let s1 = getRegVar ctxt (if ins.OprSize = 64<rt> then R.XZR else R.WZR)
-    let s2 = transBarrelShiftToExpr ins ctxt o2 o3 |> AST.not
-    let result, (n, z, c, v) = addWithCarry s1 s2 (AST.num1 oprSize) oprSize
-    !!ir (getRegVar ctxt R.N := n)
-    !!ir (getRegVar ctxt R.Z := z)
-    !!ir (getRegVar ctxt R.C := c)
-    !!ir (getRegVar ctxt R.V := v)
-    !!ir (dst := result)
-
-  | FourOperands (o1, o2, o3, o4) ->
-    let dst = transOprToExpr ins ctxt addr o1
-    let s1 = transOprToExpr ins ctxt addr o2
-    let s2 = transBarrelShiftToExpr ins ctxt o3 o4 |> AST.not
-    let result, (n, z, c, v) = addWithCarry s1 s2 (AST.num1 oprSize) oprSize
-    !!ir (getRegVar ctxt R.N := n)
-    !!ir (getRegVar ctxt R.Z := z)
-    !!ir (getRegVar ctxt R.C := c)
-    !!ir (getRegVar ctxt R.V := v)
-    !!ir (dst := result)
-  | _ -> raise InvalidOperandException
-
-let transOprToExprOfUBFM ins ctxt addr =
-  match ins.Operands with
-  | TwoOperands (o1, o2) when ins.Opcode = Opcode.UXTB ->
-    transOprToExpr ins ctxt addr o1,
-    transOprToExpr ins ctxt addr o2,
-    numI64 0L ins.OprSize,
-    numI64 7L ins.OprSize
-  | TwoOperands (o1, o2) when ins.Opcode = Opcode.UXTH ->
-    transOprToExpr ins ctxt addr o1,
-    transOprToExpr ins ctxt addr o2,
-    numI64 0L ins.OprSize,
-    numI64 15L ins.OprSize
-  | ThreeOperands (o1, o2, Immediate o3) when ins.Opcode = Opcode.LSL ->
-    let opr3 = Immediate o3 (* FIXME: #(-<shift> MOD 32/64) *)
-    let width = RegType.toBitWidth ins.OprSize - 1 |> int64
-    transOprToExpr ins ctxt addr o1,
-    transOprToExpr ins ctxt addr o2,
-    transOprToExpr ins ctxt addr opr3,
-    transOprToExpr ins ctxt addr (Immediate (width - o3))
-  | ThreeOperands (o1, o2, o3) when ins.Opcode = Opcode.LSR ->
-    let width = RegType.toBitWidth ins.OprSize - 1 |> int64
-    transOprToExpr ins ctxt addr o1,
-    transOprToExpr ins ctxt addr o2,
-    transOprToExpr ins ctxt addr o3,
-    transOprToExpr ins ctxt addr (Immediate width)
-  | FourOperands (o1, o2, o3, Immediate o4) when ins.Opcode = Opcode.UBFIZ ->
-    transOprToExpr ins ctxt addr o1,
-    transOprToExpr ins ctxt addr o2,
-    transOprToExpr ins ctxt addr o3, (* FIXME: #(-<lsb> MOD 32/64) *)
-    transOprToExpr ins ctxt addr (Immediate (o4 + 1L))
-  | FourOperands (o1, o2, Immediate o3, Immediate o4)
-    when ins.Opcode = Opcode.UBFX ->
-    transOprToExpr ins ctxt addr o1,
-    transOprToExpr ins ctxt addr o2,
-    transOprToExpr ins ctxt addr (Immediate o3),
-    transOprToExpr ins ctxt addr (Immediate (o4 - o3 + 1L))
-  | _ -> raise InvalidOperandException
-
-type BranchType =
-  | BrTypeCALL
-  | BrTypeERET
-  | BrTypeDBGEXIT
-  | BrTypeRET
-  | BrTypeJMP
-  | BrTypeEXCEPTION
-  | BrTypeUNKNOWN
-
-/// shared/functions/registers/BranchTo
-/// BranchTo()
-/// ==========
-/// Set program counter to a new address, which may include a tag in the top
-/// eight bits, with a branch reason hint for possible use by hardware fetching
-/// the next instruction.
-let branchTo ins ctxt target brType i (ir: IRBuilder) =
-  !!ir (AST.interjmp target i) // FIXME: BranchAddr function
-
-/// shared/functions/system/ConditionHolds
-/// ConditionHolds()
-/// ================
-/// Return TRUE iff COND currently holds
-let conditionHolds ctxt = function
-  | EQ -> getRegVar ctxt R.Z == AST.b1
-  | NE -> getRegVar ctxt R.Z == AST.b0
-  | CS -> getRegVar ctxt R.C == AST.b1
-  | CC -> getRegVar ctxt R.C == AST.b0
-  | MI -> getRegVar ctxt R.N == AST.b1
-  | PL -> getRegVar ctxt R.N == AST.b0
-  | VS -> getRegVar ctxt R.V == AST.b1
-  | VC -> getRegVar ctxt R.V == AST.b0
-  | HI -> (getRegVar ctxt R.C == AST.b1) .& (getRegVar ctxt R.Z == AST.b0)
-  | LS -> AST.not ((getRegVar ctxt R.C == AST.b1) .&
-                  (getRegVar ctxt R.Z == AST.b0))
-  | GE -> getRegVar ctxt R.N == getRegVar ctxt R.V
-  | LT -> getRegVar ctxt R.N != getRegVar ctxt R.V
-  | GT -> (getRegVar ctxt R.N == getRegVar ctxt R.V) .&
-          (getRegVar ctxt R.Z == AST.b0)
-  | LE -> AST.not ((getRegVar ctxt R.N == getRegVar ctxt R.V) .&
-                  (getRegVar ctxt R.Z == AST.b0))
-  /// Condition flag values in the set '111x' indicate always true
-  | AL | NV -> AST.b1
-  | _ -> failwith "Invalid condition"
-
-// shared/functions/common/HighestSetBit
-// HighestSetBit()
-// ===============
-let highestSetBitForIR dst src width oprSz (ir: IRBuilder) =
-  let lblLoop = !%ir "Loop"
-  let lblLoopCont = !%ir "LoopContinue"
-  let lblUpdateTmp = !%ir "UpdateTmp"
-  let lblEnd = !%ir "End"
-  let t = !+ir oprSz
-  let width = numI32 (width - 1) oprSz
-  !!ir (t := width)
-  !!ir (AST.lmark lblLoop)
-  !!ir (AST.cjmp (src >> t == AST.num1 oprSz) (AST.name lblEnd)
-                                               (AST.name lblLoopCont))
-  !!ir (AST.lmark lblLoopCont)
-  !!ir (AST.cjmp (t == AST.num0 oprSz) (AST.name lblEnd)
-                                        (AST.name lblUpdateTmp))
-  !!ir (AST.lmark lblUpdateTmp)
-  !!ir (t := t .- AST.num1 oprSz)
-  !!ir (AST.jmp (AST.name lblLoop))
-  !!ir (AST.lmark lblEnd)
-  !!ir (dst := width .- t)
-
-// shared/functions/common/Replicate
-// Replicate()
-// ===========
-let replicateForIR dst value bits oprSize (ir: IRBuilder) =
-  let lblLoop = !%ir "Loop"
-  let lblEnd = !%ir "End"
-  let lblLoopContinue = !%ir "LoopContinue"
-  let tmpAmt = !+ir oprSize
-  let oSz = oprSzToExpr oprSize
-  let tmpVal = !+ir oprSize
-  !!ir (tmpAmt := bits)
-  !!ir (tmpVal := value)
-  !!ir (AST.lmark lblLoop)
-  !!ir (AST.cjmp (AST.ge tmpAmt oSz)
-                       (AST.name lblEnd) (AST.name lblLoopContinue))
-  !!ir (AST.lmark lblLoopContinue)
-  !!ir (tmpVal := value << tmpAmt)
-  !!ir (tmpAmt := tmpAmt .+ bits)
-  !!ir (AST.jmp (AST.name lblLoop))
-  !!ir (AST.lmark lblEnd)
-  !!ir (dst := tmpVal)  (* FIXME: Check value *)
-
-let getMaskForIR n oprSize = (AST.num1 oprSize << n) .- AST.num1 oprSize
-
-// aarch64/instrs/integer/bitmasks/DecodeBitMasks
-// DecodeBitMasks()
-// ================
-// Decode AArch64 bitfield and logical immediate masks which use a similar
-// encoding structure
-let decodeBitMasksForIR wmask tmask immN imms immr oprSize ir = (* FIXME *)
-  let concatSz = RegType.fromBitWidth ((RegType.toBitWidth oprSize) * 2)
-  let tLen = !+ir concatSz
-  let levels = !+ir oprSize
-  let s, r = !+ir oprSize, !+ir oprSize
-  let diff = !+ir oprSize
-  let esize = !+ir oprSize
-  let d = !+ir oprSize
-  let welem = !+ir oprSize
-  let telem = !+ir oprSize
-  let n1 = AST.num1 oprSize
-  let len = !+ir oprSize
-  highestSetBitForIR tLen (AST.concat immN (AST.not imms))
-                     (RegType.toBitWidth oprSize) concatSz ir
-  !!ir (len := AST.xtlo oprSize tLen)
-  !!ir (levels := AST.zext oprSize len) // ZeroExtend (Ones(len), 6)
-  !!ir (s := imms .& levels)
-  !!ir (r := immr .& levels)
-  !!ir (diff := s .- r)
-  !!ir (esize := AST.num1 oprSize << len)
-  !!ir (d := diff .& getMaskForIR len oprSize)
-  !!ir (welem := AST.zext oprSize (s .+ n1))
-  !!ir (telem := AST.zext oprSize (d .+ n1))
-  replicateForIR wmask (ror welem r (oprSzToExpr oprSize)) esize oprSize ir
-  replicateForIR tmask welem esize oprSize ir
-
-// shared/functions/common/CountLeadingZeroBits
-// CountLeadingZeroBits()
-// ======================
-let countLeadingZeroBitsForIR dst src oprSize ir =
-  highestSetBitForIR dst src (RegType.toBitWidth oprSize) oprSize ir
-
-let sideEffects ins insLen ctxt addr name =
+/// A module for all AArch64-IR translation functions
+let sideEffects insLen ctxt name =
   let ir = !*ctxt
   !<ir insLen
   !!ir (AST.sideEffect name)
   !>ir insLen
 
-/// A module for all AArch64-IR translation functions
 let adc ins insLen ctxt addr =
   let ir = !*ctxt
   let dst, src1, src2 = transThreeOprs ins ctxt addr
@@ -882,9 +51,40 @@ let adc ins insLen ctxt addr =
   !>ir insLen
 
 let add ins insLen ctxt addr =
-  let ir = !*ctxt // FIXME
+  let ir = !*ctxt
   !<ir insLen
-  transOprToExprOfADD ins ctxt addr ir
+  match ins.Operands with
+  | ThreeOperands (o1, o2, o3) when isSIMDVector o1 (* SIMD Vector *) ->
+    let dstB, dstA = transOprToExpr128 ins ctxt addr o1
+    let src1B, src1A = transOprToExpr128 ins ctxt addr o2
+    let src2B, src2A = transOprToExpr128 ins ctxt addr o3
+    let elements, eSize = getElemNumAndSize ins.OprSize (getSIMDReg o1)
+    let elements = elements / 2
+    let s1ATmps = Array.init elements (fun _ -> !+ir eSize)
+    let s1BTmps = Array.init elements (fun _ -> !+ir eSize)
+    let s2ATmps = Array.init elements (fun _ -> !+ir eSize)
+    let s2BTmps = Array.init elements (fun _ -> !+ir eSize)
+    let resATmps = Array.init elements (fun _ -> !+ir eSize)
+    let resBTmps = Array.init elements (fun _ -> !+ir eSize)
+    let amt = RegType.toBitWidth eSize
+    for i in 0 .. elements - 1 do
+      !!ir (s1ATmps[i] := AST.extract src1A eSize (i * amt))
+      !!ir (s1BTmps[i] := AST.extract src1B eSize (i * amt))
+      !!ir (s2ATmps[i] := AST.extract src2A eSize (i * amt))
+      !!ir (s2BTmps[i] := AST.extract src2B eSize (i * amt))
+      !!ir (resATmps[i] := s1ATmps[i] .+ s2ATmps[i])
+      !!ir (resBTmps[i] := s1BTmps[i] .+ s2BTmps[i])
+    done
+    !!ir (dstA := AST.concatArr resATmps)
+    !!ir (dstB := AST.concatArr resBTmps)
+  | ThreeOperands _ (* SIMD Scalar *) ->
+    let dst, src1, src2 = transThreeOprs ins ctxt addr
+    !!ir (dst := src1 .+ src2)
+  | FourOperands _ (* Arithmetic *) ->
+    let dst, s1, s2 = transFourOprsWithBarrelShift ins ctxt addr
+    let result, _ = addWithCarry s1 s2 (AST.num0 ins.OprSize) ins.OprSize
+    !!ir (dst := result)
+  | _ -> raise InvalidOperandException
   !>ir insLen
 
 let adds ins insLen ctxt addr =
@@ -916,9 +116,18 @@ let adrp ins insLen ctxt addr =
 
 let logAnd ins insLen ctxt addr = (* AND *)
   let ir = !*ctxt
-  let dst, src1, src2 = transOprToExprOfAND ins ctxt addr
   !<ir insLen
-  !!ir (dst := src1 .& src2)
+  match ins.OprSize with
+  | 128<rt> ->
+    let struct (dst, src1, src2) = getThreeOprs ins
+    let dstB, dstA = transOprToExpr128 ins ctxt addr dst
+    let src1B, src1A = transOprToExpr128 ins ctxt addr src1
+    let src2B, src2A = transOprToExpr128 ins ctxt addr src2
+    !!ir (dstA := src1A .& src2A)
+    !!ir (dstB := src1B .& src2B)
+  | _ ->
+    let dst, src1, src2 = transOprToExprOfAND ins ctxt addr
+    !!ir (dst := src1 .& src2)
   !>ir insLen
 
 let asrv ins insLen ctxt addr =
@@ -959,7 +168,7 @@ let bfm ins insLen ctxt addr =
   let dst, src, imms, immr = transOprToExprOfBFM ins ctxt addr
   let oSz = ins.OprSize
   let wmask, tmask = !+ir oSz, !+ir oSz
-  let immN = if ins.OprSize = 64<rt> then AST.num1 oSz else AST.num0 oSz
+  let immN = if ins.OprSize = 64<rt> then AST.num1 8<rt> else AST.num0 8<rt>
   decodeBitMasksForIR wmask tmask immN imms immr oSz ir
   let width = oprSzToExpr ins.OprSize
   let bot = !+ir ins.OprSize
@@ -1117,9 +326,21 @@ let csneg ins insLen ctxt addr =
 
 let eor ins insLen ctxt addr =
   let ir = !*ctxt
-  let dst, src1, src2 = transOprToExprOfEOR ins ctxt addr
   !<ir insLen
-  !!ir (dst := src1 <+> src2)
+  match ins.Operands with
+  | ThreeOperands (o1, o2, o3) when isSIMDVector o1 ->
+    let dstB, dstA = transOprToExpr128 ins ctxt addr o1
+    let src1B, src1A = transOprToExpr128 ins ctxt addr o2
+    let src2B, src2A = transOprToExpr128 ins ctxt addr o3
+    let struct (opr2, opr3) = tmpVars2 ir 64<rt>
+    !!ir (opr2 := AST.num0 64<rt>)
+    !!ir (opr3 := numI64 -1 64<rt>)
+    !!ir (dstA := src2A <+> ((opr2 <+> src1A) .& opr3))
+    if ins.OprSize = 64<rt> then ()
+    else !!ir (dstB := src2B <+> ((opr2 <+> src1B) .& opr3))
+  | _ ->
+    let dst, src1, src2 = transOprToExprOfEOR ins ctxt addr
+    !!ir (dst := src1 <+> src2)
   !>ir insLen
 
 let extr ins insLen ctxt addr =
@@ -1147,22 +368,38 @@ let extr ins insLen ctxt addr =
 
 let ldp ins insLen ctxt addr =
   let ir = !*ctxt
-  let src1, src2, (bReg, offset) = transOprToExprOfLDP ins ctxt addr
   let isWBack, isPostIndex = getIsWBackAndIsPostIndex ins.Operands
   let address = !+ir 64<rt>
-  let dByte = numI32 (RegType.toBitWidth ins.OprSize) 64<rt>
+  let dByte = numI32 (RegType.toByteWidth ins.OprSize) 64<rt>
   !<ir insLen
-  !!ir (address := bReg)
-  !!ir (address := if isPostIndex then address else address .+ offset)
-  !!ir (src1 := AST.loadLE ins.OprSize address)
-  !!ir (src2 := AST.loadLE ins.OprSize (address .+ dByte))
-  if isWBack && isPostIndex then !!ir (bReg := address .+ offset)
-  else if isWBack then !!ir (bReg := address) else ()
+  match ins.OprSize with
+  | 128<rt> ->
+    let struct (src1, src2, src3) = getThreeOprs ins
+    let src1B, src1A = transOprToExpr128 ins ctxt addr src1
+    let src2B, src2A = transOprToExpr128 ins ctxt addr src2
+    let bReg, offset = transOprToExpr ins ctxt addr src3 |> separateMemExpr
+    let n8 = numI32 8 64<rt>
+    !!ir (address := bReg)
+    !!ir (address := if isPostIndex then address else address .+ offset)
+    !!ir (src1A := AST.loadLE 64<rt> address)
+    !!ir (src1B := AST.loadLE 64<rt> address .+ n8)
+    !!ir (src2A := AST.loadLE 64<rt> (address .+ dByte))
+    !!ir (src2B := AST.loadLE 64<rt> (address .+ dByte .+ n8))
+    if isWBack && isPostIndex then !!ir (bReg := address .+ offset)
+    else if isWBack then !!ir (bReg := address) else ()
+  | _ ->
+    let src1, src2, (bReg, offset) = transThreeOprsSepMem ins ctxt addr
+    !!ir (address := bReg)
+    !!ir (address := if isPostIndex then address else address .+ offset)
+    !!ir (src1 := AST.loadLE ins.OprSize address)
+    !!ir (src2 := AST.loadLE ins.OprSize (address .+ dByte))
+    if isWBack && isPostIndex then !!ir (bReg := address .+ offset)
+    else if isWBack then !!ir (bReg := address) else ()
   !>ir insLen
 
 let ldpsw ins insLen ctxt addr =
   let ir = !*ctxt
-  let src1, src2, (bReg, offset) = transOprToExprOfLDP ins ctxt addr
+  let src1, src2, (bReg, offset) = transThreeOprsSepMem ins ctxt addr
   let isWBack, isPostIndex = getIsWBackAndIsPostIndex ins.Operands
   let address = !+ir 64<rt>
   let data1 = !+ir 32<rt>
@@ -1181,12 +418,51 @@ let ldpsw ins insLen ctxt addr =
 let ldr ins insLen ctxt addr =
   let ir = !*ctxt
   !<ir insLen
-  transOprToExprOfLDR ins ctxt addr ir
+  match ins.Operands with
+  | TwoOperands (o1, Memory (LiteralMode o2)) -> (* LDR (literal) *)
+    let offset = transOprToExpr ins ctxt addr (Memory (LiteralMode o2))
+    let address = !+ir 64<rt>
+    match ins.OprSize with
+    | 128<rt> ->
+      let dstB, dstA = transOprToExpr128 ins ctxt addr o1
+      !!ir (address := getPC ctxt .+ offset)
+      !!ir (dstA := AST.loadLE 64<rt> address)
+      !!ir (dstB := AST.loadLE 64<rt> (address .+ (numI32 8 64<rt>)))
+    | _ ->
+      let dst = transOprToExpr ins ctxt addr o1
+      let data = !+ir ins.OprSize
+      !!ir (address := getPC ctxt .+ offset)
+      !!ir (data := AST.loadLE ins.OprSize address)
+      !!ir (dst := data)
+  | TwoOperands (o1, o2) ->
+    let isWBack, isPostIndex = getIsWBackAndIsPostIndex ins.Operands
+    let address = !+ir 64<rt>
+    match ins.OprSize with
+    | 128<rt> ->
+      let dstB, dstA = transOprToExpr128 ins ctxt addr o1
+      let bReg, offset = transOprToExpr ins ctxt addr o2 |> separateMemExpr
+      !!ir (address := bReg)
+      !!ir (address := if isPostIndex then address else address .+ offset)
+      !!ir (dstA := AST.loadLE 64<rt> address)
+      !!ir (dstB := AST.loadLE 64<rt> (address .+ (numI32 8 64<rt>)))
+      if isWBack && isPostIndex then !!ir (bReg := address .+ offset)
+      else if isWBack then !!ir (bReg := address) else ()
+    | _ ->
+      let dst = transOprToExpr ins ctxt addr o1
+      let bReg, offset = transOprToExpr ins ctxt addr o2 |> separateMemExpr
+      let data = !+ir ins.OprSize
+      !!ir (address := bReg)
+      !!ir (address := if isPostIndex then address else address .+ offset)
+      !!ir (data := AST.loadLE ins.OprSize address)
+      !!ir (dst := AST.zext ins.OprSize data)
+      if isWBack && isPostIndex then !!ir (bReg := address .+ offset)
+      else if isWBack then !!ir (bReg := address) else ()
+  | _ -> raise InvalidOperandException
   !>ir insLen
 
 let ldrb ins insLen ctxt addr =
   let ir = !*ctxt
-  let dst, (bReg, offset) = transOprToExprOfLDRB ins ctxt addr
+  let dst, (bReg, offset) = transTwoOprsSepMem ins ctxt addr
   let isWBack, isPostIndex = getIsWBackAndIsPostIndex ins.Operands
   let address = !+ir 64<rt>
   let data = !+ir 8<rt>
@@ -1201,7 +477,7 @@ let ldrb ins insLen ctxt addr =
 
 let ldrh ins insLen ctxt addr =
   let ir = !*ctxt
-  let dst, (bReg, offset) = transOprToExprOfLDRB ins ctxt addr
+  let dst, (bReg, offset) = transTwoOprsSepMem ins ctxt addr
   let isWBack, isPostIndex = getIsWBackAndIsPostIndex ins.Operands
   let address = !+ir 64<rt>
   let data = !+ir 16<rt>
@@ -1215,7 +491,7 @@ let ldrh ins insLen ctxt addr =
   !>ir insLen
 
 let ldrsb ins insLen ctxt addr =
-  let dst, (bReg, offset) = transOprToExprOfLDRB ins ctxt addr
+  let dst, (bReg, offset) = transTwoOprsSepMem ins ctxt addr
   let isWBack, isPostIndex = getIsWBackAndIsPostIndex ins.Operands
   let ir = !*ctxt
   let address = !+ir 64<rt>
@@ -1230,7 +506,7 @@ let ldrsb ins insLen ctxt addr =
   !>ir insLen
 
 let ldrsh ins insLen ctxt addr =
-  let dst, (bReg, offset) = transOprToExprOfLDRB ins ctxt addr
+  let dst, (bReg, offset) = transTwoOprsSepMem ins ctxt addr
   let isWBack, isPostIndex = getIsWBackAndIsPostIndex ins.Operands
   let ir = !*ctxt
   let address = !+ir 64<rt>
@@ -1252,7 +528,7 @@ let ldrsw ins insLen ctxt addr =
 
 let ldtr ins insLen ctxt addr =
   let ir = !*ctxt
-  let dst, (bReg, offset) = transOprToExprOfLDRB ins ctxt addr
+  let dst, (bReg, offset) = transTwoOprsSepMem ins ctxt addr
   let address = !+ir 64<rt>
   let data = !+ir ins.OprSize
   !<ir insLen
@@ -1263,22 +539,34 @@ let ldtr ins insLen ctxt addr =
 
 let ldur ins insLen ctxt addr =
   let ir = !*ctxt
-  let dst, (bReg, offset) = transOprToExprOfLDRB ins ctxt addr
   let isWBack, isPostIndex = getIsWBackAndIsPostIndex ins.Operands
   let address = !+ir 64<rt>
   let data = !+ir ins.OprSize
   !<ir insLen
-  !!ir (address := bReg)
-  !!ir (address := if isPostIndex then address else address .+ offset)
-  !!ir (data := AST.loadLE ins.OprSize address)
-  !!ir (dst := data)
-  if isWBack && isPostIndex then !!ir (bReg := address .+ offset)
-  else if isWBack then !!ir (bReg := address) else ()
+  match ins.OprSize with
+  | 128<rt> ->
+    let struct (dst, src) = getTwoOprs ins
+    let dstB, dstA = transOprToExpr128 ins ctxt addr dst
+    let bReg, offset = transOprToExpr ins ctxt addr src |> separateMemExpr
+    !!ir (address := bReg)
+    !!ir (address := if isPostIndex then address else address .+ offset)
+    !!ir (dstA := AST.loadLE 64<rt> address)
+    !!ir (dstB := AST.loadLE 64<rt> (address .+ (numI32 8 64<rt>)))
+    if isWBack && isPostIndex then !!ir (bReg := address .+ offset)
+    else if isWBack then !!ir (bReg := address) else ()
+  | _ ->
+    let dst, (bReg, offset) = transTwoOprsSepMem ins ctxt addr
+    !!ir (address := bReg)
+    !!ir (address := if isPostIndex then address else address .+ offset)
+    !!ir (data := AST.loadLE ins.OprSize address)
+    !!ir (dst := data)
+    if isWBack && isPostIndex then !!ir (bReg := address .+ offset)
+    else if isWBack then !!ir (bReg := address) else ()
   !>ir insLen
 
 let ldurb ins insLen ctxt addr =
   let ir = !*ctxt
-  let src, (bReg, offset) = transOprToExprOfLDRB ins ctxt addr
+  let src, (bReg, offset) = transTwoOprsSepMem ins ctxt addr
   let address = !+ir 64<rt>
   let data = !+ir 8<rt>
   !<ir insLen
@@ -1290,7 +578,7 @@ let ldurb ins insLen ctxt addr =
 
 let ldurh ins insLen ctxt addr =
   let ir = !*ctxt
-  let src, (bReg, offset) = transOprToExprOfLDRB ins ctxt addr
+  let src, (bReg, offset) = transTwoOprsSepMem ins ctxt addr
   let address = !+ir 64<rt>
   let data = !+ir 16<rt>
   !<ir insLen
@@ -1301,7 +589,7 @@ let ldurh ins insLen ctxt addr =
   !>ir insLen
 
 let ldursb ins insLen ctxt addr =
-  let dst, (bReg, offset) = transOprToExprOfLDRB ins ctxt addr
+  let dst, (bReg, offset) = transTwoOprsSepMem ins ctxt addr
   let isWBack, isPostIndex = getIsWBackAndIsPostIndex ins.Operands
   let ir = !*ctxt
   let address = !+ir 64<rt>
@@ -1313,7 +601,7 @@ let ldursb ins insLen ctxt addr =
   !>ir insLen
 
 let ldursh ins insLen ctxt addr =
-  let dst, (bReg, offset) = transOprToExprOfLDRB ins ctxt addr
+  let dst, (bReg, offset) = transTwoOprsSepMem ins ctxt addr
   let isWBack, isPostIndex = getIsWBackAndIsPostIndex ins.Operands
   let ir = !*ctxt
   let address = !+ir 64<rt>
@@ -1325,7 +613,7 @@ let ldursh ins insLen ctxt addr =
   !>ir insLen
 
 let ldursw ins insLen ctxt addr =
-  let dst, (bReg, offset) = transOprToExprOfLDRB ins ctxt addr
+  let dst, (bReg, offset) = transTwoOprsSepMem ins ctxt addr
   let ir = !*ctxt
   let address = !+ir 64<rt>
   let data = !+ir 32<rt>
@@ -1400,7 +688,7 @@ let orn ins insLen ctxt addr =
   !<ir insLen
   match ins.Operands with
   | TwoOperands _ -> !!ir (AST.sideEffect UnsupportedFP)
-  | ThreeOperands(SIMDOpr _, SIMDOpr _, SIMDOpr _) ->
+  | ThreeOperands (SIMDOpr _, SIMDOpr _, SIMDOpr _) ->
     !!ir (AST.sideEffect UnsupportedFP)
   | _ ->
     let dst, src1, src2 = transOprToExprOfORN ins ctxt addr
@@ -1408,21 +696,48 @@ let orn ins insLen ctxt addr =
   !>ir insLen
 
 let orr ins insLen ctxt addr =
-  let dst, src1, src2 = transOprToExprOfORR ins ctxt addr
   let ir = !*ctxt
   !<ir insLen
-  !!ir (dst := src1 .| src2)
+  match ins.Operands with
+  | TwoOperands (SIMDOpr _, _) | ThreeOperands (SIMDOpr _, _, _) ->
+    !!ir (AST.sideEffect UnsupportedFP)
+  | _ ->
+    let dst, src1, src2 = transOprToExprOfORR ins ctxt addr
+    !!ir (dst := src1 .| src2)
   !>ir insLen
 
 let rbit ins insLen ctxt addr =
   let ir = !*ctxt
-  let dst, src = transTwoOprs ins ctxt addr
-  let datasize = if ins.OprSize = 64<rt> then 64 else 32
-  let tmp = !+ir ins.OprSize
-  !<ir insLen
-  for i in 0 .. (datasize - 1) do
-    !!ir (AST.extract tmp 1<rt> (datasize - 1 - i) := AST.extract src 1<rt> i)
-  !!ir (dst := tmp)
+  match ins.Operands with
+  | TwoOperands (OprRegister _, OprRegister _) ->
+    let dst, src = transTwoOprs ins ctxt addr
+    let datasize = if ins.OprSize = 64<rt> then 64 else 32
+    let tmp = !+ir ins.OprSize
+    !<ir insLen
+    for i in 0 .. (datasize - 1) do
+      !!ir (AST.extract tmp 1<rt> (datasize - 1 - i) := AST.extract src 1<rt> i)
+    !!ir (dst := tmp)
+  | _ ->
+    let struct (dst, src) = getTwoOprs ins
+    let dstB, dstA = transOprToExpr128 ins ctxt addr dst
+    let srcB, srcA = transOprToExpr128 ins ctxt addr src
+    let eSize = 8
+    let dataSize = int ins.OprSize
+    let elements = dataSize / eSize
+    let struct (resultA, resultB) = tmpVars2 ir 64<rt>
+    let struct (element, rev) = tmpVars2 ir 8<rt>
+    !<ir insLen
+    for e in 0 .. elements - 1 do
+      let src, result = if e < eSize then srcA, resultA else srcB, resultB
+      !!ir (element := AST.extract src 8<rt> ((e % 8) * 8))
+      for i in 0 .. 7 do
+        !!ir (AST.extract rev 1<rt> (7 - i) := AST.extract element 1<rt> i)
+      !!ir (AST.extract result 8<rt> ((e % 8) * 8) := rev)
+    if ins.OprSize = 128<rt> then
+      !!ir (dstA := resultA)
+      !!ir (dstB := resultB)
+    else
+      !!ir (dstA := resultA)
   !>ir insLen
 
 let ret ins insLen ctxt addr =
@@ -1517,12 +832,13 @@ let sbfm ins insLen ctxt addr =
   let oprSz = ins.OprSize
   let bot, top = !+ir oprSz, !+ir oprSz
   let wmask, tmask = !+ir oprSz, !+ir oprSz
-  let immN = if oprSz = 64<rt> then AST.num1 oprSz else AST.num0 oprSz
+  let immN = if oprSz = 64<rt> then AST.num1 8<rt> else AST.num0 8<rt>
   let width = oprSzToExpr oprSz
   !<ir insLen
   decodeBitMasksForIR wmask tmask immN imms immr oprSz ir
   !!ir (bot := ror src immr width .& wmask)
-  replicateForIR top src imms oprSz ir
+  let srcS = (src >> imms) .& (numI32 1 oprSz)
+  replicateForIR top srcS (oprSzToExpr oprSz) oprSz ir
   !!ir (dst := (top .& AST.not tmask) .| (bot .& tmask))
   !>ir insLen
 
@@ -1537,14 +853,14 @@ let sdiv ins insLen ctxt addr =
 
 let smaddl ins insLen ctxt addr =
   let ir = !*ctxt
-  let dst, src1, src2, src3 = transOprToExprOfSMADDL ins ctxt addr
+  let dst, src1, src2, src3 = transFourOprs ins ctxt addr
   !<ir insLen
   !!ir (dst := src3 .+ (AST.sext 64<rt> src1 .* AST.sext 64<rt> src2))
   !>ir insLen
 
 let smsubl ins insLen ctxt addr =
   let ir = !*ctxt
-  let dst, src1, src2, src3 = transOprToExprOfSMADDL ins ctxt addr
+  let dst, src1, src2, src3 = transOprToExprOfSMSUBL ins ctxt addr
   !<ir insLen
   !!ir (dst := src3 .- (AST.sext 64<rt> src1 .* AST.sext 64<rt> src2))
   !>ir insLen
@@ -1569,39 +885,79 @@ let smulh ins insLen ctxt addr =
   !!ir (dst := high .+ ((mid .+ low) >> n32)) (* [127:64] *)
   !>ir insLen
 
+let smull ins insLen ctxt addr =
+  let ir = !*ctxt
+  !<ir insLen
+  match ins.Operands with
+  | ThreeOperands (SIMDOpr _, _, _) -> !!ir (AST.sideEffect UnsupportedFP)
+  | _ ->
+    let dst, src1, src2 = transThreeOprs ins ctxt addr
+    let src3 = getRegVar ctxt R.XZR
+    !!ir (dst := src3 .+ (AST.sext 64<rt> src1 .* AST.sext 64<rt> src2))
+  !>ir insLen
+
 let stp ins insLen ctxt addr =
   let ir = !*ctxt
-  let src1, src2, (bReg, offset) = transOprToExprOfSTP ins ctxt addr
   let isWBack, isPostIndex = getIsWBackAndIsPostIndex ins.Operands
+  !<ir insLen
   let address = !+ir 64<rt>
   let dByte = numI32 (RegType.toByteWidth ins.OprSize) 64<rt>
-  !<ir insLen
-  !!ir (address := bReg)
-  !!ir (address := if isPostIndex then address else address .+ offset)
-  !!ir (AST.loadLE ins.OprSize address := src1)
-  !!ir (AST.loadLE ins.OprSize (address .+ dByte) := src2)
-  if isWBack && isPostIndex then !!ir (bReg := address .+ offset)
-  else if isWBack then !!ir (bReg := address) else ()
+  match ins.OprSize with
+  | 128<rt> ->
+    let struct (src1, src2, src3) = getThreeOprs ins
+    let src1B, src1A = transOprToExpr128 ins ctxt addr src1
+    let src2B, src2A = transOprToExpr128 ins ctxt addr src2
+    let bReg, offset = transOprToExpr ins ctxt addr src3 |> separateMemExpr
+    let n8 = numI32 8 64<rt>
+    !!ir (address := bReg)
+    !!ir (address := if isPostIndex then address else address .+ offset)
+    !!ir (AST.loadLE 64<rt> address := src1A)
+    !!ir (AST.loadLE 64<rt> (address .+ n8) := src1B)
+    !!ir (AST.loadLE 64<rt> (address .+ dByte) := src2A)
+    !!ir (AST.loadLE 64<rt> (address .+ dByte .+ n8) := src2B)
+    if isWBack && isPostIndex then !!ir (bReg := address .+ offset)
+    else if isWBack then !!ir (bReg := address) else ()
+  | _ ->
+    let src1, src2, (bReg, offset) = transThreeOprsSepMem ins ctxt addr
+    !!ir (address := bReg)
+    !!ir (address := if isPostIndex then address else address .+ offset)
+    !!ir (AST.loadLE ins.OprSize address := src1)
+    !!ir (AST.loadLE ins.OprSize (address .+ dByte) := src2)
+    if isWBack && isPostIndex then !!ir (bReg := address .+ offset)
+    else if isWBack then !!ir (bReg := address) else ()
   !>ir insLen
 
 let str ins insLen ctxt addr =
   let ir = !*ctxt
-  let src, (bReg, offset) = transOprToExprOfSTR ins ctxt addr
   let isWBack, isPostIndex = getIsWBackAndIsPostIndex ins.Operands
-  let address = !+ir 64<rt>
-  let data = !+ir ins.OprSize
   !<ir insLen
-  !!ir (address := bReg)
-  !!ir (address := if isPostIndex then address else address .+ offset)
-  !!ir (data := src)
-  !!ir (AST.loadLE ins.OprSize address := data)
-  if isWBack && isPostIndex then !!ir (bReg := address .+ offset)
-  else if isWBack then !!ir (bReg := address) else ()
+  match ins.OprSize with
+  | 128<rt> ->
+    let struct (src1, src2) = getTwoOprs ins
+    let srcB, srcA = transOprToExpr128 ins ctxt addr src1
+    let bReg, offset = transOprToExpr ins ctxt addr src2 |> separateMemExpr
+    let address = !+ir 64<rt>
+    !!ir (address := bReg)
+    !!ir (address := if isPostIndex then address else address .+ offset)
+    !!ir (AST.loadLE 64<rt> address := srcA)
+    !!ir (AST.loadLE 64<rt> (address .+ (numI32 8 64<rt>)) := srcB)
+    if isWBack && isPostIndex then !!ir (bReg := address .+ offset)
+    else if isWBack then !!ir (bReg := address) else ()
+  | _ ->
+    let src, (bReg, offset) = transTwoOprsSepMem ins ctxt addr
+    let address = !+ir 64<rt>
+    let data = !+ir ins.OprSize
+    !!ir (address := bReg)
+    !!ir (address := if isPostIndex then address else address .+ offset)
+    !!ir (data := src)
+    !!ir (AST.loadLE ins.OprSize address := data)
+    if isWBack && isPostIndex then !!ir (bReg := address .+ offset)
+    else if isWBack then !!ir (bReg := address) else ()
   !>ir insLen
 
 let strb ins insLen ctxt addr =
   let ir = !*ctxt
-  let src, (bReg, offset) = transOprToExprOfSTRB ins ctxt addr
+  let src, (bReg, offset) = transTwoOprsSepMem ins ctxt addr
   let isWBack, isPostIndex = getIsWBackAndIsPostIndex ins.Operands
   let address = !+ir 64<rt>
   let data = !+ir 8<rt>
@@ -1616,7 +972,7 @@ let strb ins insLen ctxt addr =
 
 let strh ins insLen ctxt addr =
   let ir = !*ctxt
-  let src, (bReg, offset) = transOprToExprOfSTRB ins ctxt addr
+  let src, (bReg, offset) = transTwoOprsSepMem ins ctxt addr
   let isWBack, isPostIndex = getIsWBackAndIsPostIndex ins.Operands
   let address = !+ir 64<rt>
   let data = !+ir 16<rt>
@@ -1631,22 +987,34 @@ let strh ins insLen ctxt addr =
 
 let stur ins insLen ctxt addr =
   let ir = !*ctxt
-  let src, (bReg, offset) = transOprToExprOfSTUR ins ctxt addr
   let isWBack, isPostIndex = getIsWBackAndIsPostIndex ins.Operands
   let address = !+ir 64<rt>
   let data = !+ir ins.OprSize
   !<ir insLen
-  !!ir (address := bReg)
-  !!ir (address := if isPostIndex then address else address .+ offset)
-  !!ir (data := src)
-  !!ir (AST.loadLE ins.OprSize address := data)
-  if isWBack && isPostIndex then !!ir (bReg := address .+ offset)
-  else if isWBack then !!ir (bReg := address) else ()
+  match ins.OprSize with
+  | 128<rt> ->
+    let struct (src1, src2) = getTwoOprs ins
+    let src1B, src1A = transOprToExpr128 ins ctxt addr src1
+    let bReg, offset = transOprToExpr ins ctxt addr src2 |> separateMemExpr
+    !!ir (address := bReg)
+    !!ir (address := if isPostIndex then address else address .+ offset)
+    !!ir (AST.loadLE 64<rt> address := src1A)
+    !!ir (AST.loadLE 64<rt> (address .+ (numI32 8 64<rt>)) := src1B)
+    if isWBack && isPostIndex then !!ir (bReg := address .+ offset)
+    else if isWBack then !!ir (bReg := address) else ()
+  | _ ->
+    let src, (bReg, offset) = transTwoOprsSepMem ins ctxt addr
+    !!ir (address := bReg)
+    !!ir (address := if isPostIndex then address else address .+ offset)
+    !!ir (data := src)
+    !!ir (AST.loadLE ins.OprSize address := data)
+    if isWBack && isPostIndex then !!ir (bReg := address .+ offset)
+    else if isWBack then !!ir (bReg := address) else ()
   !>ir insLen
 
 let sturb ins insLen ctxt addr =
   let ir = !*ctxt
-  let src, (bReg, offset) = transOprToExprOfSTUR ins ctxt addr
+  let src, (bReg, offset) = transTwoOprsSepMem ins ctxt addr
   let address = !+ir 64<rt>
   let data = !+ir 8<rt>
   !<ir insLen
@@ -1658,7 +1026,7 @@ let sturb ins insLen ctxt addr =
 
 let sturh ins insLen ctxt addr =
   let ir = !*ctxt
-  let src, (bReg, offset) = transOprToExprOfSTUR ins ctxt addr
+  let src, (bReg, offset) = transTwoOprsSepMem ins ctxt addr
   let address = !+ir 64<rt>
   let data = !+ir 16<rt>
   !<ir insLen
@@ -1671,7 +1039,15 @@ let sturh ins insLen ctxt addr =
 let sub ins insLen ctxt addr =
   let ir = !*ctxt
   !<ir insLen
-  transOprToExprOfSUB ins ctxt addr ir
+  match ins.Operands with
+  | TwoOperands (SIMDOpr _, SIMDOpr _) ->
+    !!ir (AST.sideEffect UnsupportedFP) (* FIXME: NEG SIMD Register *)
+  | ThreeOperands _ when ins.Opcode = Opcode.SUB ->
+    !!ir (AST.sideEffect UnsupportedFP) (* FIXME: SUB SIMD Register *)
+  | _ ->
+    let dst, src1, src2 = transOprToExprOfSUB ins ctxt addr
+    let result, _ = addWithCarry src1 src2 (AST.num1 ins.OprSize) ins.OprSize
+    !!ir (dst := result)
   !>ir insLen
 
 let subs ins insLen ctxt addr =
@@ -1711,7 +1087,7 @@ let udiv ins insLen ctxt addr =
 
 let umaddl ins insLen ctxt addr =
   let ir = !*ctxt
-  let dst, src1, src2, src3 = transOprToExprOfUMADDL ins ctxt addr
+  let dst, src1, src2, src3 = transFourOprs ins ctxt addr
   !<ir insLen
   !!ir (dst := src3 .+ (AST.zext 64<rt> src1 .* AST.zext 64<rt> src2))
   !>ir insLen
@@ -1743,13 +1119,24 @@ let umulh ins insLen ctxt addr =
   !!ir (dst := high .+ ((mid .+ low) >> n32)) (* [127:64] *)
   !>ir insLen
 
+let umull ins insLen ctxt addr =
+  let ir = !*ctxt
+  !<ir insLen
+  match ins.Operands with
+  | ThreeOperands (SIMDOpr _, _, _) -> !!ir (AST.sideEffect UnsupportedFP)
+  | _ ->
+    let dst, src1, src2 = transThreeOprs ins ctxt addr
+    let src3 = getRegVar ctxt R.XZR
+    !!ir (dst := src3 .- (AST.zext 64<rt> src1 .* AST.zext 64<rt> src2))
+  !>ir insLen
+
 let ubfm ins insLen ctxt addr =
   let ir = !*ctxt
   let dst, src, immr, imms = transOprToExprOfUBFM ins ctxt addr
   let oSz = ins.OprSize
   let bot = !+ir oSz
   let wmask, tmask = !+ir oSz, !+ir oSz
-  let immN = if ins.OprSize = 64<rt> then AST.num1 oSz else AST.num0 oSz
+  let immN = if ins.OprSize = 64<rt> then AST.num1 8<rt> else AST.num0 8<rt>
   decodeBitMasksForIR wmask tmask immN imms immr oSz ir
   let width = oprSzToExpr ins.OprSize
   !<ir insLen
@@ -1775,7 +1162,7 @@ let translate ins insLen ctxt =
   | Opcode.ADC -> adc ins insLen ctxt addr
   | Opcode.ADD -> add ins insLen ctxt addr
   | Opcode.ADDS | Opcode.CMN -> adds ins insLen ctxt addr
-  | Opcode.ADDP | Opcode.ADDV -> sideEffects ins insLen ctxt addr UnsupportedFP
+  | Opcode.ADDP | Opcode.ADDV -> sideEffects insLen ctxt UnsupportedFP
   | Opcode.ADR -> adr ins insLen ctxt addr
   | Opcode.ADRP -> adrp ins insLen ctxt addr
   | Opcode.AND -> logAnd ins insLen ctxt addr
@@ -1801,55 +1188,55 @@ let translate ins insLen ctxt =
   | Opcode.BFI | Opcode.BFXIL -> bfm ins insLen ctxt addr
   | Opcode.BIC -> bic ins insLen ctxt addr
   | Opcode.BICS -> bics ins insLen ctxt addr
-  | Opcode.BIF | Opcode.BIT -> sideEffects ins insLen ctxt addr UnsupportedFP
+  | Opcode.BIF | Opcode.BIT -> sideEffects insLen ctxt UnsupportedFP
   | Opcode.BL -> bl ins insLen ctxt addr
   | Opcode.BLR -> blr ins insLen ctxt addr
   | Opcode.BR -> br ins insLen ctxt addr
-  | Opcode.BRK -> sideEffects ins insLen ctxt addr Breakpoint
-  | Opcode.BSL -> sideEffects ins insLen ctxt addr UnsupportedFP
+  | Opcode.BRK -> sideEffects insLen ctxt Breakpoint
+  | Opcode.BSL -> sideEffects insLen ctxt UnsupportedFP
   | Opcode.CBNZ -> cbnz ins insLen ctxt addr
   | Opcode.CBZ -> cbz ins insLen ctxt addr
   | Opcode.CCMN -> ccmn ins insLen ctxt addr
   | Opcode.CCMP -> ccmp ins insLen ctxt addr
   | Opcode.CLZ -> clz ins insLen ctxt addr
   | Opcode.CMP -> cmp ins insLen ctxt addr
-  | Opcode.CMEQ -> sideEffects ins insLen ctxt addr UnsupportedFP
+  | Opcode.CMEQ -> sideEffects insLen ctxt UnsupportedFP
   | Opcode.CMGE | Opcode.CMLT | Opcode.CMTST ->
-    sideEffects ins insLen ctxt addr UnsupportedFP
-  | Opcode.CMHI | Opcode.CMHS -> sideEffects ins insLen ctxt addr UnsupportedFP
+    sideEffects insLen ctxt UnsupportedFP
+  | Opcode.CMHI | Opcode.CMHS -> sideEffects insLen ctxt UnsupportedFP
   | Opcode.CNEG | Opcode.CSNEG -> csneg ins insLen ctxt addr
-  | Opcode.CNT -> sideEffects ins insLen ctxt addr UnsupportedFP
+  | Opcode.CNT -> sideEffects insLen ctxt UnsupportedFP
   | Opcode.CSEL -> csel ins insLen ctxt addr
   | Opcode.CSETM | Opcode.CINV | Opcode.CSINV -> csinv ins insLen ctxt addr
   | Opcode.CSINC | Opcode.CINC | Opcode.CSET -> csinc ins insLen ctxt addr
-  | Opcode.DUP -> sideEffects ins insLen ctxt addr UnsupportedFP
+  | Opcode.DUP -> sideEffects insLen ctxt UnsupportedFP
   | Opcode.EOR | Opcode.EON -> eor ins insLen ctxt addr
-  | Opcode.EXT -> sideEffects ins insLen ctxt addr UnsupportedFP
+  | Opcode.EXT -> sideEffects insLen ctxt UnsupportedFP
   | Opcode.EXTR | Opcode.ROR -> extr ins insLen ctxt addr
-  | Opcode.FABS -> sideEffects ins insLen ctxt addr UnsupportedFP
-  | Opcode.FABD | Opcode.FADD -> sideEffects ins insLen ctxt addr UnsupportedFP
-  | Opcode.FADDP -> sideEffects ins insLen ctxt addr UnsupportedFP
-  | Opcode.FCCMP -> sideEffects ins insLen ctxt addr UnsupportedFP
-  | Opcode.FCMP -> sideEffects ins insLen ctxt addr UnsupportedFP
-  | Opcode.FCMPE -> sideEffects ins insLen ctxt addr UnsupportedFP
-  | Opcode.FCSEL -> sideEffects ins insLen ctxt addr UnsupportedFP
+  | Opcode.FABS -> sideEffects insLen ctxt UnsupportedFP
+  | Opcode.FABD | Opcode.FADD -> sideEffects insLen ctxt UnsupportedFP
+  | Opcode.FADDP -> sideEffects insLen ctxt UnsupportedFP
+  | Opcode.FCCMP -> sideEffects insLen ctxt UnsupportedFP
+  | Opcode.FCMP -> sideEffects insLen ctxt UnsupportedFP
+  | Opcode.FCMPE -> sideEffects insLen ctxt UnsupportedFP
+  | Opcode.FCSEL -> sideEffects insLen ctxt UnsupportedFP
   | Opcode.FCVT | Opcode.FCVTMU ->
-    sideEffects ins insLen ctxt addr UnsupportedFP
-  | Opcode.FCVTZS -> sideEffects ins insLen ctxt addr UnsupportedFP
-  | Opcode.FCVTZU -> sideEffects ins insLen ctxt addr UnsupportedFP
-  | Opcode.FDIV -> sideEffects ins insLen ctxt addr UnsupportedFP
-  | Opcode.FMAX -> sideEffects ins insLen ctxt addr UnsupportedFP
-  | Opcode.FMADD -> sideEffects ins insLen ctxt addr UnsupportedFP
-  | Opcode.FMOV -> sideEffects ins insLen ctxt addr UnsupportedFP
-  | Opcode.FMUL -> sideEffects ins insLen ctxt addr UnsupportedFP
-  | Opcode.FNEG -> sideEffects ins insLen ctxt addr UnsupportedFP
-  | Opcode.FNMUL -> sideEffects ins insLen ctxt addr UnsupportedFP
+    sideEffects insLen ctxt UnsupportedFP
+  | Opcode.FCVTZS -> sideEffects insLen ctxt UnsupportedFP
+  | Opcode.FCVTZU -> sideEffects insLen ctxt UnsupportedFP
+  | Opcode.FDIV -> sideEffects insLen ctxt UnsupportedFP
+  | Opcode.FMAX -> sideEffects insLen ctxt UnsupportedFP
+  | Opcode.FMADD -> sideEffects insLen ctxt UnsupportedFP
+  | Opcode.FMOV -> sideEffects insLen ctxt UnsupportedFP
+  | Opcode.FMUL -> sideEffects insLen ctxt UnsupportedFP
+  | Opcode.FNEG -> sideEffects insLen ctxt UnsupportedFP
+  | Opcode.FNMUL -> sideEffects insLen ctxt UnsupportedFP
   | Opcode.FRINTM | Opcode.FRINTA | Opcode.FRINTP ->
-    sideEffects ins insLen ctxt addr UnsupportedFP
-  | Opcode.FSUB -> sideEffects ins insLen ctxt addr UnsupportedFP
-  | Opcode.FSQRT -> sideEffects ins insLen ctxt addr UnsupportedFP
-  | Opcode.FMSUB -> sideEffects ins insLen ctxt addr UnsupportedFP
-  | Opcode.INS -> sideEffects ins insLen ctxt addr UnsupportedFP
+    sideEffects insLen ctxt UnsupportedFP
+  | Opcode.FSUB -> sideEffects insLen ctxt UnsupportedFP
+  | Opcode.FSQRT -> sideEffects insLen ctxt UnsupportedFP
+  | Opcode.FMSUB -> sideEffects insLen ctxt UnsupportedFP
+  | Opcode.INS -> sideEffects insLen ctxt UnsupportedFP
   | Opcode.LDP -> ldp ins insLen ctxt addr
   | Opcode.LDPSW -> ldpsw ins insLen ctxt addr
   | Opcode.LDR -> ldr ins insLen ctxt addr
@@ -1866,14 +1253,14 @@ let translate ins insLen ctxt =
   | Opcode.LDURSW -> ldursw ins insLen ctxt addr
   | Opcode.LD1 | Opcode.LD1R | Opcode.LD2 | Opcode.LD2R | Opcode.LD3
   | Opcode.LD3R | Opcode.LD4 | Opcode.LD4R ->
-    sideEffects ins insLen ctxt addr UnsupportedFP
+    sideEffects insLen ctxt UnsupportedFP
   | Opcode.LSL | Opcode.LSR -> distLogcalShift ins insLen ctxt addr
   | Opcode.MADD -> madd ins insLen ctxt addr
-  | Opcode.MLA -> sideEffects ins insLen ctxt addr UnsupportedFP
+  | Opcode.MLA -> sideEffects insLen ctxt UnsupportedFP
   | Opcode.MNEG -> msub ins insLen ctxt addr
   | Opcode.MOV | Opcode.MOVN | Opcode.MOVK | Opcode.MOVZ ->
     mov ins insLen ctxt addr
-  | Opcode.MOVI | Opcode.MVNI -> sideEffects ins insLen ctxt addr UnsupportedFP
+  | Opcode.MOVI | Opcode.MVNI -> sideEffects insLen ctxt UnsupportedFP
   | Opcode.MRS -> mrs ins insLen ctxt addr
   | Opcode.MSUB -> msub ins insLen ctxt addr
   | Opcode.MUL -> madd ins insLen ctxt addr
@@ -1893,15 +1280,16 @@ let translate ins insLen ctxt =
   | Opcode.SBC -> sbc ins insLen ctxt addr
   | Opcode.SBFIZ | Opcode.SBFX | Opcode.SXTB | Opcode.SXTH | Opcode.SXTW ->
     sbfm ins insLen ctxt addr
-  | Opcode.SCVTF -> sideEffects ins insLen ctxt addr UnsupportedFP
+  | Opcode.SCVTF -> sideEffects insLen ctxt UnsupportedFP
   | Opcode.SDIV -> sdiv ins insLen ctxt addr
-  | Opcode.SMADDL | Opcode.SMULL -> smaddl ins insLen ctxt addr
+  | Opcode.SMADDL -> smaddl ins insLen ctxt addr
   | Opcode.SMSUBL | Opcode.SMNEGL -> smsubl ins insLen ctxt addr
   | Opcode.SMULH -> smulh ins insLen ctxt addr
+  | Opcode.SMULL -> smull ins insLen ctxt addr
   | Opcode.SSHR | Opcode.SSHL |Opcode.SSHLL | Opcode.SSHLL2 | Opcode.SHL ->
-    sideEffects ins insLen ctxt addr UnsupportedFP
+    sideEffects insLen ctxt UnsupportedFP
   | Opcode.ST1 | Opcode.ST2 | Opcode.ST3 | Opcode.ST4 ->
-    sideEffects ins insLen ctxt addr UnsupportedFP
+    sideEffects insLen ctxt UnsupportedFP
   | Opcode.STP -> stp ins insLen ctxt addr
   | Opcode.STR -> str ins insLen ctxt addr
   | Opcode.STRB -> strb ins insLen ctxt addr
@@ -1911,30 +1299,31 @@ let translate ins insLen ctxt =
   | Opcode.STURH -> sturh ins insLen ctxt addr
   | Opcode.SUB -> sub ins insLen ctxt addr
   | Opcode.SUBS -> subs ins insLen ctxt addr
-  | Opcode.TBL -> sideEffects ins insLen ctxt addr UnsupportedFP
+  | Opcode.TBL -> sideEffects insLen ctxt UnsupportedFP
   | Opcode.TBNZ -> tbnz ins insLen ctxt addr
   | Opcode.TBZ -> tbz ins insLen ctxt addr
   | Opcode.TST -> ands ins insLen ctxt addr
   | Opcode.UADDLV | Opcode.UADDW | Opcode.UMAXV | Opcode.UMINV ->
-    sideEffects ins insLen ctxt addr UnsupportedFP
+    sideEffects insLen ctxt UnsupportedFP
   | Opcode.UBFIZ | Opcode.UBFX | Opcode.UXTB | Opcode.UXTH ->
     ubfm ins insLen ctxt addr
-  | Opcode.UCVTF -> sideEffects ins insLen ctxt addr UnsupportedFP
+  | Opcode.UCVTF -> sideEffects insLen ctxt UnsupportedFP
   | Opcode.UDIV -> udiv ins insLen ctxt addr
-  | Opcode.UMAX -> sideEffects ins insLen ctxt addr UnsupportedFP
-  | Opcode.UMADDL | Opcode.UMULL -> umaddl ins insLen ctxt addr
+  | Opcode.UMAX -> sideEffects insLen ctxt UnsupportedFP
+  | Opcode.UMADDL -> umaddl ins insLen ctxt addr
   | Opcode.UMLAL | Opcode.UMLAL2 ->
-    sideEffects ins insLen ctxt addr UnsupportedFP
+    sideEffects insLen ctxt UnsupportedFP
   | Opcode.UMSUBL | Opcode.UMNEGL -> umsubl ins insLen ctxt addr
   | Opcode.UMULH -> umulh ins insLen ctxt addr
-  | Opcode.UMOV -> sideEffects ins insLen ctxt addr UnsupportedFP
-  | Opcode.URSHL ->  sideEffects ins insLen ctxt addr UnsupportedFP
-  | Opcode.USHL -> sideEffects ins insLen ctxt addr UnsupportedFP
+  | Opcode.UMULL -> umull ins insLen ctxt addr
+  | Opcode.UMOV -> sideEffects insLen ctxt UnsupportedFP
+  | Opcode.URSHL ->  sideEffects insLen ctxt UnsupportedFP
+  | Opcode.USHL -> sideEffects insLen ctxt UnsupportedFP
   | Opcode.USHLL | Opcode.USHLL2 | Opcode.USHR ->
-    sideEffects ins insLen ctxt addr UnsupportedFP
+    sideEffects insLen ctxt UnsupportedFP
   | Opcode.UZP1 | Opcode.UZP2 | Opcode.ZIP1 | Opcode.ZIP2 ->
-    sideEffects ins insLen ctxt addr UnsupportedFP
-  | Opcode.XTN | Opcode.XTN2 -> sideEffects ins insLen ctxt addr UnsupportedFP
+    sideEffects insLen ctxt UnsupportedFP
+  | Opcode.XTN | Opcode.XTN2 -> sideEffects insLen ctxt UnsupportedFP
   | o ->
 #if DEBUG
          eprintfn "%A" o
