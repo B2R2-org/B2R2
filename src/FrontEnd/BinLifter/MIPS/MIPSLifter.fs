@@ -763,6 +763,21 @@ let loadu insInfo insLen ctxt =
   advancePC ctxt ir
   !>ir insLen
 
+let sldc1 insInfo insLen ctxt stORld =
+  let ir = !*ctxt
+  let ft, mem = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
+  !<ir insLen
+  if stORld then !!ir (mem := ft) else !!ir (ft := mem)
+  !>ir insLen
+
+let slwc1 insInfo insLen ctxt stORld =
+  let ir = !*ctxt
+  let ft, mem = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
+  !<ir insLen
+  if stORld then !!ir (mem := AST.xtlo 32<rt> ft)
+  else !!ir (AST.xtlo 32<rt> ft := mem)
+  !>ir insLen
+
 let ext insInfo insLen ctxt =
   let ir = !*ctxt
   !<ir insLen
@@ -1482,8 +1497,10 @@ let translate insInfo insLen (ctxt: TranslationContext) =
   | Op.LH | Op.LD -> loadHalfDword insInfo insLen ctxt
   | Op.LB | Op.LW -> loadByteWord insInfo insLen ctxt
   | Op.LBU | Op.LHU | Op.LWU -> loadu insInfo insLen ctxt
-  | Op.LDC1 | Op.LWC1 | Op.SDC1 | Op.SWC1 ->
-    sideEffects insLen ctxt UnsupportedFP
+  | Op.SDC1 -> sldc1 insInfo insLen ctxt true
+  | Op.LDC1 -> sldc1 insInfo insLen ctxt false
+  | Op.SWC1 -> slwc1 insInfo insLen ctxt true
+  | Op.LWC1 -> slwc1 insInfo insLen ctxt false
   | Op.LUI -> lui insInfo insLen ctxt
   | Op.LWL -> lwl insInfo insLen ctxt
   | Op.LWR -> lwr insInfo insLen ctxt
