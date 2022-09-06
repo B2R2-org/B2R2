@@ -185,6 +185,9 @@ let parseSPECIAL bin =
   | 0b100000u ->
     if b10to6 = 0u then Op.ADD, None, None, getRdRsRt bin
     else raise ParsingFailureException
+  | 0b101100u ->
+    if b10to6 = 0u then Op.DADD, None, None, getRdRsRt bin
+    else raise ParsingFailureException
   | 0b100001u ->
     if b10to6 = 0u then Op.ADDU, None, None, getRdRsRt bin
     else raise ParsingFailureException

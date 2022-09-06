@@ -94,6 +94,7 @@ let opCodeToString = function
   | Op.CVTD -> "cvt.d"
   | Op.CVTS -> "cvt.s"
   | Op.CVTW -> "cvt.w"
+  | Op.DADD -> "dadd"
   | Op.DADDIU -> "daddiu"
   | Op.DADDU -> "daddu"
   | Op.DALIGN -> "dalign"
