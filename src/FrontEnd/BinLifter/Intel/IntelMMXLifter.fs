@@ -503,10 +503,20 @@ let pxor ins insLen ctxt =
   !>ir insLen
 
 let private opShiftPackedDataLogical oprSize packSz shift src1 src2 =
-  let count = AST.concatArr src2 |> AST.zext oprSize
-  let cond = AST.gt count (numI32 ((int packSz) - 1) oprSize)
-  let shifted expr = AST.extract (shift (AST.zext oprSize expr) count) packSz 0
-  Array.map (fun e -> AST.ite cond (AST.num0 packSz) (shifted e)) src1
+  let pNum = int (oprSize / packSz)
+  let z = AST.num0 packSz
+  match oprSize with
+  | 64<rt> ->
+    let count = AST.concatArr src2 |> AST.zext 64<rt>
+    let cond = count .> (numI32 ((int packSz) - 1) 64<rt>)
+    Array.map (fun e ->
+      AST.ite cond z (AST.xtlo packSz (shift (AST.zext 64<rt> e) count))) src1
+  | 128<rt> ->
+    let count = AST.concatArr (Array.sub src2 0 (pNum / 2)) |> AST.zext 64<rt>
+    let cond = count .> (numI32 ((int packSz) - 1) 64<rt>)
+    Array.map (fun e ->
+      AST.ite cond z (AST.xtlo packSz (shift (AST.zext 64<rt> e) count))) src1
+   | _ -> raise InvalidOperandSizeException
 
 let private opPsllw oprSize = opShiftPackedDataLogical oprSize 16<rt> (<<)
 
@@ -539,11 +549,19 @@ let psrlq ins insLen ctxt =
   buildPackedInstr ins insLen ctxt 64<rt> opPsrlq 8
 
 let private opShiftPackedDataRightArith oprSize packSz src1 src2 =
-  let count = AST.concatArr src2 |> AST.zext oprSize
-  let cond = AST.gt count (numI32 ((int packSz) - 1) oprSize)
-  let count = AST.ite cond (numI32 (int packSz) oprSize) count
-  let shifted expr = AST.extract ((AST.sext oprSize expr) ?>> count) packSz 0
-  Array.map shifted src1
+  let pNum = int (oprSize / packSz)
+  match oprSize with
+  | 64<rt> ->
+    let count = AST.concatArr src2 |> AST.zext 64<rt>
+    let cond = count .> (numI32 ((int packSz) - 1) 64<rt>)
+    let count = AST.ite cond (numI32 (int packSz) 64<rt>) count
+    Array.map (fun e -> AST.xtlo packSz ((AST.sext 64<rt> e) ?>> count)) src1
+  | 128<rt> ->
+    let count = AST.concatArr (Array.sub src2 0 (pNum / 2)) |> AST.zext 64<rt>
+    let cond = count .> (numI32 ((int packSz) - 1) 64<rt>)
+    let count = AST.ite cond (numI32 (int packSz) 64<rt>) count
+    Array.map (fun e -> AST.xtlo packSz ((AST.sext 64<rt> e) ?>> count)) src1
+   | _ -> raise InvalidOperandSizeException
 
 let private opPsraw oprSize = opShiftPackedDataRightArith oprSize 16<rt>
 
