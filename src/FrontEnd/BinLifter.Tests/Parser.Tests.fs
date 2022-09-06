@@ -10794,7 +10794,7 @@ module MIPS32 =
         Op.LDC1
         None
         None
-        (TwoOperands (OpReg R.F4, OpMem (R.R2, Imm 2632L, 64<rt>)))
+        (TwoOperands (OpReg R.F4, OpMem (R.R2, Imm 2632L, 32<rt>)))
         [| 0xd4uy; 0x44uy; 0x0auy; 0x48uy |]
 
       test32R2
@@ -10808,7 +10808,7 @@ module MIPS32 =
         Op.SDC1
         None
         None
-        (TwoOperands (OpReg R.F0, OpMem (R.R29, Imm 16L, 64<rt>)))
+        (TwoOperands (OpReg R.F0, OpMem (R.R29, Imm 16L, 32<rt>)))
         [| 0xf7uy; 0xa0uy; 0x00uy; 0x10uy |]
 
       test32R2

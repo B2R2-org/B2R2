@@ -557,7 +557,7 @@ let parseCOP1X binary =
 
 /// The MIPS64 Instrecutin Set Reference Manual, MD00087, Revision 6.06
 /// Table A.2 MIPS64 Encoding of the Opcode Field
-let parseOpcodeField arch binary =
+let parseOpcodeField arch binary wordSize =
   match extract binary 31u 26u with
   | 0b000000u -> parseSPECIAL binary
   | 0b000001u -> parseREGIMM binary
@@ -615,7 +615,8 @@ let parseOpcodeField arch binary =
     Op.PREF, None, None, getHintMemBaseOff binary 32<rt>
   | 0b110100u (* MIPS64 pre-Release 6 *) ->
     Op.LLD, None, None, getRtMemBaseOff binary 64<rt>
-  | 0b110101u -> Op.LDC1, None, None, getFtMemBaseOff binary 64<rt>
+  | 0b110101u ->
+    Op.LDC1, None, None, getFtMemBaseOff binary (WordSize.toRegType wordSize)
   | 0b110110u -> failwith "LDC2/BEQZC/JIC/POP66"
   | 0b110111u -> Op.LD, None, None, getRtMemBaseOff binary 64<rt>
   | 0b111000u (* pre-Release 6 *) ->
@@ -625,7 +626,8 @@ let parseOpcodeField arch binary =
   | 0b111011u -> failwith "PCREL"
   | 0b111100u (* pre-Release 6 *) ->
     Op.SCD, None, None, getRtMemBaseOff binary 64<rt>
-  | 0b111101u -> Op.SDC1, None, None, getFtMemBaseOff binary 64<rt>
+  | 0b111101u ->
+    Op.SDC1, None, None, getFtMemBaseOff binary (WordSize.toRegType wordSize)
   | 0b111110u -> failwith "SDC2/BNEZC/JIALC/POP76"
   | 0b111111u ->
     Op.SD, None, None, getRtMemBaseOff binary 64<rt>
@@ -641,7 +643,7 @@ let getOperationSize opcode wordSz =
 
 let parse (span: ReadOnlySpan<byte>) (reader: IBinReader) arch wordSize addr =
   let bin = reader.ReadUInt32 (span, 0)
-  let opcode, cond, fmt, operands = parseOpcodeField arch bin
+  let opcode, cond, fmt, operands = parseOpcodeField arch bin wordSize
   let insInfo =
     { Address = addr
       NumBytes = 4u
