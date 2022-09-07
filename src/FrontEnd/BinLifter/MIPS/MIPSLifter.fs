@@ -1521,6 +1521,7 @@ let translate insInfo insLen (ctxt: TranslationContext) =
   | Op.NOR -> nor insInfo insLen ctxt
   | Op.OR -> logOr insInfo insLen ctxt
   | Op.ORI -> ori insInfo insLen ctxt
+  | Op.PREF | Op.PREFE | Op.PREFX -> nop insLen ctxt
   | Op.ROTR -> rotr insInfo insLen ctxt
   | Op.SLL -> sll insInfo insLen ctxt
   | Op.SLLV -> sllv insInfo insLen ctxt
