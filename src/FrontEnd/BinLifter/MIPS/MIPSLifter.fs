@@ -1546,6 +1546,7 @@ let translate insInfo insLen (ctxt: TranslationContext) =
   | Op.SDR -> sdr insInfo insLen ctxt
   | Op.SWL -> swl insInfo insLen ctxt
   | Op.SWR -> swr insInfo insLen ctxt
+  | Op.SYNC | Op.SYNCI -> nop insLen ctxt
   | Op.SYSCALL -> syscall insLen ctxt
   | Op.TEQ -> teq insInfo insLen ctxt
   | Op.TRUNCL | Op.TRUNCW -> sideEffects insLen ctxt UnsupportedFP
@@ -1556,7 +1557,7 @@ let translate insInfo insLen (ctxt: TranslationContext) =
   | Op.LDL | Op.LDR | Op.LDXC1 | Op.LWXC1 | Op.MADDU | Op.MFHC1 | Op.MOVF
   | Op.MOVN | Op.MOVT | Op.MSUB | Op.MTHC1 | Op.MTHI | Op.MTLO | Op.NEG
   | Op.ROTRV | Op.SDXC1 | Op.SQRT | Op.SRAV | Op.SWXC1
-  | Op.SYNC | Op.TRUNCL | Op.WSBH ->
+  | Op.TRUNCL | Op.WSBH ->
     sideEffects insLen ctxt UnsupportedExtension // XXX this is a temporary fix
   | o ->
 #if DEBUG
