@@ -355,25 +355,22 @@ let clz insInfo insLen ctxt =
   let ir = !*ctxt
   let lblLoop = !%ir "Loop"
   let lblContinue = !%ir "Continue"
-  let lblUpdate = !%ir "update"
   let lblEnd = !%ir "End"
   let wordSz = ctxt.WordBitSize
   let rd, rs = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
   let t = !+ir wordSz
-  let tmp = numI32 (32 - 1) wordSz
+  let n31 = numI32 31 wordSz
   !<ir insLen
-  !!ir (t := tmp)
+  !!ir (t := n31)
   !!ir (AST.lmark lblLoop)
   !!ir (AST.cjmp (rs >> t == AST.num1 wordSz)
                        (AST.name lblEnd) (AST.name lblContinue))
   !!ir (AST.lmark lblContinue)
-  !!ir (AST.cjmp (t == AST.num0 wordSz)
-                       (AST.name lblEnd) (AST.name lblUpdate))
-  !!ir (AST.lmark lblUpdate)
   !!ir (t := t .- AST.num1 wordSz)
-  !!ir (AST.jmp (AST.name lblLoop))
+  !!ir (AST.cjmp (t == numI32 -1 wordSz)
+                       (AST.name lblEnd) (AST.name lblLoop))
   !!ir (AST.lmark lblEnd)
-  !!ir (rd := t)
+  !!ir (rd := n31 .- t)
   advancePC ctxt ir
   !>ir insLen
 
@@ -391,25 +388,22 @@ let dclz insInfo insLen ctxt =
   let ir = !*ctxt
   let lblLoop = !%ir "Loop"
   let lblContinue = !%ir "Continue"
-  let lblUpdate = !%ir "update"
   let lblEnd = !%ir "End"
   let wordSz = ctxt.WordBitSize
   let rd, rs = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
   let t = !+ir wordSz
-  let tmp = numI32 (64 - 1) wordSz
+  let n63 = numI32 63 wordSz
   !<ir insLen
-  !!ir (t := tmp)
+  !!ir (t := n63)
   !!ir (AST.lmark lblLoop)
   !!ir (AST.cjmp (rs >> t == AST.num1 wordSz)
                        (AST.name lblEnd) (AST.name lblContinue))
   !!ir (AST.lmark lblContinue)
-  !!ir (AST.cjmp (t == AST.num0 wordSz)
-                       (AST.name lblEnd) (AST.name lblUpdate))
-  !!ir (AST.lmark lblUpdate)
   !!ir (t := t .- AST.num1 wordSz)
-  !!ir (AST.jmp (AST.name lblLoop))
+  !!ir (AST.cjmp (t == numI64 -1 wordSz)
+                       (AST.name lblEnd) (AST.name lblLoop))
   !!ir (AST.lmark lblEnd)
-  !!ir (rd := t)
+  !!ir (rd := n63 .- t)
   advancePC ctxt ir
   !>ir insLen
 
