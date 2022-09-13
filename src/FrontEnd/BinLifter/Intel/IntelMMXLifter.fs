@@ -342,20 +342,20 @@ let private opPaddusw oprSize src1 src2 =
 let paddusw ins insLen ctxt =
   buildPackedInstr ins insLen ctxt 16<rt> opPaddusw 16
 
-let private mkPhaddsw ir src1 src2 =
-  let srcA = Array.init 4 (fun _ -> !+ir 16<rt>)
-  let srcB = Array.init 4 (fun _ -> !+ir 16<rt>)
-  for i in 0 .. 3 do
-    if i < 2 then
-      !!ir (srcA[i] := AST.extract src1 16<rt> (i * 32))
-      !!ir (srcB[i] := AST.extract src1 16<rt> (i * 32 + 16))
-    else
-      !!ir (srcA[i] := AST.extract src2 16<rt> ((i - 2) * 32))
-      !!ir (srcB[i] := AST.extract src2 16<rt> ((i - 2) * 32 + 16))
+let private makeHorizonSrc ir packSz src1 src2 =
+  let packNum = 64<rt> / packSz
+  let pHalf = packNum / 2
+  let t1 = Array.init packNum (fun _ -> !+ir packSz)
+  let t2 = Array.init packNum (fun _ -> !+ir packSz)
+  for i in 0 .. pHalf - 1 do
+    !!ir (t1[i] := AST.extract src1 packSz (2 * i * (int packSz)))
+    !!ir (t2[i] := AST.extract src1 packSz ((2 * i + 1) * (int packSz)))
+    !!ir (t1[i + pHalf] := AST.extract src2 packSz (2 * i * (int packSz)))
+    !!ir (t2[i + pHalf] := AST.extract src2 packSz ((2 * i + 1) * (int packSz)))
   done
-  srcA, srcB
+  t1, t2
 
-let phaddsw ins insLen ctxt =
+let private packedHorizon ins insLen ctxt packSz opFn =
   let ir = !*ctxt
   let struct (dst, src) = getTwoOprs ins
   let oprSize = getOperationSize ins
@@ -364,17 +364,26 @@ let phaddsw ins insLen ctxt =
   | 64<rt> ->
     let dst = transOprToExpr ins insLen ctxt dst
     let src = transOprToExpr ins insLen ctxt src
-    let src1, src2 = mkPhaddsw ir dst src
-    !!ir (dst := opPaddsw oprSize src1 src2 |> AST.concatArr)
+    let src1, src2 = makeHorizonSrc ir packSz dst src
+    !!ir (dst := opFn oprSize src1 src2 |> AST.concatArr)
   | 128<rt> ->
     let dstB, dstA = transOprToExpr128 ins insLen ctxt dst
     let srcB, srcA = transOprToExpr128 ins insLen ctxt src
-    let src1, src2 = mkPhaddsw ir dstA dstB
-    !!ir (dstA := opPaddsw oprSize src1 src2 |> AST.concatArr)
-    let src3, src4 = mkPhaddsw ir srcA srcB
-    !!ir (dstB := opPaddsw oprSize src3 src4 |> AST.concatArr)
+    let src1, src2 = makeHorizonSrc ir packSz dstA dstB
+    !!ir (dstA := opFn oprSize src1 src2 |> AST.concatArr)
+    let src3, src4 = makeHorizonSrc ir packSz srcA srcB
+    !!ir (dstB := opFn oprSize src3 src4 |> AST.concatArr)
   | _ -> raise InvalidOperandSizeException
   !>ir insLen
+
+let phaddd ins insLen ctxt =
+  packedHorizon ins insLen ctxt 32<rt> (opP (.+))
+
+let phaddw ins insLen ctxt =
+  packedHorizon ins insLen ctxt 16<rt> (opP (.+))
+
+let phaddsw ins insLen ctxt =
+  packedHorizon ins insLen ctxt 16<rt> opPaddsw
 
 let opPsub _ = Array.map2 (.-)
 
@@ -410,6 +419,15 @@ let private opPsubusw oprSize src1 src2 =
 
 let psubusw ins insLen ctxt =
   buildPackedInstr ins insLen ctxt 16<rt> opPsubusw 8
+
+let phsubd ins insLen ctxt =
+  packedHorizon ins insLen ctxt 32<rt> (opP (.-))
+
+let phsubw ins insLen ctxt =
+  packedHorizon ins insLen ctxt 16<rt> (opP (.-))
+
+let phsubsw ins insLen ctxt =
+  packedHorizon ins insLen ctxt 16<rt> opPsubsw
 
 let opPmul resType extr extSz packSz src1 src2 =
   Array.map2 (fun e1 e2 -> extr extSz e1 .* extr extSz e2) src1 src2
