@@ -106,8 +106,11 @@ let checkOverfolwOnAdd e1 e2 r =
   let rHigh = AST.extract r 1<rt> 31
   (e1High == e2High) .& (e1High <+> rHigh)
 
-let notWordValue v =
-  (AST.xthi 32<rt> v) != AST.sext 32<rt> (AST.extract v 1<rt> 31)
+let checkOverfolwOnDadd e1 e2 r =
+  let e1High = AST.extract e1 1<rt> 63
+  let e2High = AST.extract e2 1<rt> 63
+  let rHigh = AST.extract r 1<rt> 63
+  (e1High == e2High) .& (e1High <+> rHigh)
 
 let advancePC (ctxt: TranslationContext) ir =
   if ctxt.DelayedBranch = InterJmpKind.NotAJmp then
@@ -132,16 +135,21 @@ let updatePCCond ctxt offset cond kind ir =
   !!ir (nPC := pc .+ numI32 8 ctxt.WordBitSize)
   !!ir (AST.lmark lblEnd)
 
+let private is32Bit (ctxt: TranslationContext) = ctxt.WordBitSize = 32<rt>
+
+let private signExtLo64 expr = AST.xtlo 32<rt> expr |> AST.sext 64<rt>
+
+let private signExtHi64 expr = AST.xthi 32<rt> expr |> AST.sext 64<rt>
+
 let add insInfo insLen ctxt =
   let ir = !*ctxt
   let lblL0 = !%ir "L0"
   let lblL1 = !%ir "L1"
   let lblEnd = !%ir "End"
   let rd, rs, rt = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
-  let result = !+ir 32<rt>
-  let cond = checkOverfolwOnAdd rs rt result
   !<ir insLen
-  !!ir (result := rs .+ rt)
+  let result = if is32Bit ctxt then rs .+ rt else signExtLo64 (rs .+ rt)
+  let cond = checkOverfolwOnAdd rs rt result
   !!ir (AST.cjmp cond (AST.name lblL0) (AST.name lblL1))
   !!ir (AST.lmark lblL0)
   !!ir (AST.sideEffect (Exception "int overflow"))
@@ -152,61 +160,12 @@ let add insInfo insLen ctxt =
   advancePC ctxt ir
   !>ir insLen
 
-let add64 insInfo insLen ctxt =
-  let ir = !*ctxt
-  let lblL0 = !%ir "L0"
-  let lblL1 = !%ir "L1"
-  let lblL2 = !%ir "L2"
-  let lblL3 = !%ir "L3"
-  let lblEnd = !%ir "End"
-  let rd, rs, rt = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
-  let result = !+ir 32<rt>
-  let cond = notWordValue rs .| notWordValue rt
-  let cond2 = checkOverfolwOnAdd rs rt result
-  !<ir insLen
-  !!ir (AST.cjmp cond (AST.name lblL0) (AST.name lblL1))
-  !!ir (AST.lmark lblL0)
-  !!ir (AST.sideEffect UndefinedInstr) (* FIXME: UNPREDICTABLE *)
-  !!ir (AST.jmp (AST.name lblEnd))
-  !!ir (AST.lmark lblL1)
-  !!ir (result := AST.xtlo 32<rt> rs .+ AST.xtlo 32<rt> rt)
-  !!ir (AST.cjmp cond2 (AST.name lblL2) (AST.name lblL3))
-  !!ir (AST.lmark lblL0)
-  !!ir (AST.sideEffect (Exception "int overflow"))
-  !!ir (AST.jmp (AST.name lblEnd))
-  !!ir (AST.lmark lblL1)
-  !!ir (rd := AST.sext 64<rt> result)
-  !!ir (AST.lmark lblEnd)
-  advancePC ctxt ir
-  !>ir insLen
-
 let addiu insInfo insLen ctxt =
   let ir = !*ctxt
   let rt, rs, imm = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
-  let result = !+ir 32<rt>
   !<ir insLen
-  !!ir (result := rs .+ imm)
+  let result = if is32Bit ctxt then rs .+ imm else signExtLo64 (rs .+ imm)
   !!ir (rt := result)
-  advancePC ctxt ir
-  !>ir insLen
-
-let addiu64 insInfo insLen ctxt =
-  let ir = !*ctxt
-  let lblL0 = !%ir "L0"
-  let lblL1 = !%ir "L1"
-  let lblEnd = !%ir "End"
-  let rt, rs, imm = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
-  let result = !+ir 64<rt>
-  let cond = notWordValue rs
-  !<ir insLen
-  !!ir (AST.cjmp cond (AST.name lblL0) (AST.name lblL1))
-  !!ir (AST.lmark lblL0)
-  !!ir (AST.sideEffect UndefinedInstr) (* FIXME: UNPREDICTABLE *)
-  !!ir (AST.jmp (AST.name lblEnd))
-  !!ir (AST.lmark lblL1)
-  !!ir (result := rs .+ imm)
-  !!ir (rt := AST.sext 64<rt> (AST.xtlo 32<rt> result))
-  !!ir (AST.lmark lblEnd)
   advancePC ctxt ir
   !>ir insLen
 
@@ -214,27 +173,8 @@ let addu insInfo insLen ctxt =
   let ir = !*ctxt
   let rd, rs, rt = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   !<ir insLen
-  !!ir (rd := rs .+ rt)
-  advancePC ctxt ir
-  !>ir insLen
-
-let addu64 insInfo insLen ctxt =
-  let ir = !*ctxt
-  let lblL0 = !%ir "L0"
-  let lblL1 = !%ir "L1"
-  let lblEnd = !%ir "End"
-  let rd, rs, rt = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
-  let result = !+ir 64<rt>
-  let cond = notWordValue rs .| notWordValue rt
-  !<ir insLen
-  !!ir (AST.cjmp cond (AST.name lblL0) (AST.name lblL1))
-  !!ir (AST.lmark lblL0)
-  !!ir (AST.sideEffect UndefinedInstr) (* FIXME: UNPREDICTABLE *)
-  !!ir (AST.jmp (AST.name lblEnd))
-  !!ir (AST.lmark lblL1)
-  !!ir (result := rs .+ rt)
-  !!ir (rd := AST.sext 64<rt> (AST.xtlo 32<rt> result))
-  !!ir (AST.lmark lblEnd)
+  let result = if is32Bit ctxt then rs .+ rt else signExtLo64 (rs .+ rt)
+  !!ir (rd := result)
   advancePC ctxt ir
   !>ir insLen
 
@@ -371,6 +311,34 @@ let clz insInfo insLen ctxt =
                        (AST.name lblEnd) (AST.name lblLoop))
   !!ir (AST.lmark lblEnd)
   !!ir (rd := n31 .- t)
+  advancePC ctxt ir
+  !>ir insLen
+
+let dadd insInfo insLen ctxt =
+  let ir = !*ctxt
+  let lblL0 = !%ir "L0"
+  let lblL1 = !%ir "L1"
+  let lblEnd = !%ir "End"
+  let rd, rs, rt = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
+  !<ir insLen
+  let cond = checkOverfolwOnDadd rs rt (rs .+ rt)
+  !!ir (AST.cjmp cond (AST.name lblL0) (AST.name lblL1))
+  !!ir (AST.lmark lblL0)
+  !!ir (AST.sideEffect (Exception "int overflow"))
+  !!ir (AST.jmp (AST.name lblEnd))
+  !!ir (AST.lmark lblL1)
+  !!ir (rd := rs .+ rt)
+  !!ir (AST.lmark lblEnd)
+  advancePC ctxt ir
+  !>ir insLen
+
+let daddu insInfo insLen ctxt =
+  let ir = !*ctxt
+  let rd, rs, rt = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
+  let result = !+ir 64<rt>
+  !<ir insLen
+  !!ir (result := rs .+ rt)
+  !!ir (rd := result)
   advancePC ctxt ir
   !>ir insLen
 
@@ -546,35 +514,19 @@ let divu insInfo insLen ctxt =
   let ir = !*ctxt
   !<ir insLen
   let rs, rt = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
-  let q = !+ir 64<rt>
-  let r = !+ir 64<rt>
   let hi = getRegVar ctxt R.HI
   let lo = getRegVar ctxt R.LO
-  if ctxt.WordBitSize = 64<rt> then
-    let lblL0 = !%ir "L0"
-    let lblL1 = !%ir "L1"
-    let lblEnd = !%ir "End"
-    let cond = notWordValue rs .| notWordValue rt
-    let mask = numI64 0xFFFFFFFFL 64<rt>
-    let rs = rs .& mask
-    let rt = rt .& mask
-    !!ir (AST.cjmp cond (AST.name lblL0) (AST.name lblL1))
-    !!ir (AST.lmark lblL0)
-    !!ir (AST.sideEffect UndefinedInstr) (* FIXME: UNPREDICTABLE *)
-    !!ir (AST.jmp (AST.name lblEnd))
-    !!ir (AST.lmark lblL1)
-    !!ir (q := rs ./ rt)
-    !!ir (r := rs .% rt)
-    !!ir (lo := AST.sext 64<rt> (AST.xtlo 32<rt> q))
-    !!ir (hi := AST.sext 64<rt> (AST.xtlo 32<rt> r))
-    !!ir (AST.lmark lblEnd)
+  !!ir (rt := AST.ite (rt == numI64 0 ctxt.WordBitSize)
+                (AST.undef ctxt.WordBitSize "UNPREDICTABLE") (rt))
+  if is32Bit ctxt then
+    !!ir (lo := (AST.zext 64<rt> rs ./ AST.zext 64<rt> rt) |> AST.xtlo 32<rt>)
+    !!ir (hi := (AST.zext 64<rt> rs .% AST.zext 64<rt> rt) |> AST.xtlo 32<rt>)
   else
-    let rs = AST.zext 64<rt> rs
-    let rt = AST.zext 64<rt> rt
-    !!ir (q := rs ./ rt)
-    !!ir (r := rs .% rt)
-    !!ir (lo := AST.xtlo 32<rt> q)
-    !!ir (hi := AST.xtlo 32<rt> r)
+    let mask = numI64 0xFFFFFFFFL 64<rt>
+    let q = (rs .& mask) ./ (rt .& mask)
+    let r = (rs .& mask) .% (rt .& mask)
+    !!ir (lo := signExtLo64 q)
+    !!ir (hi := signExtLo64 r)
   advancePC ctxt ir
   !>ir insLen
 
@@ -585,7 +537,7 @@ let dmult insInfo insLen ctxt =
   let result = !+ir 128<rt>
   let hi = getRegVar ctxt R.HI
   let lo = getRegVar ctxt R.LO
-  !!ir (result := (AST.sext 128<rt> rs) .* (AST.sext 128<rt> rt))
+  !!ir (result := AST.sext 128<rt> rs .* AST.sext 128<rt> rt)
   !!ir (lo := AST.xtlo 64<rt> result)
   !!ir (hi := AST.xthi 64<rt> result)
   advancePC ctxt ir
@@ -598,7 +550,7 @@ let dmultu insInfo insLen ctxt =
   let result = !+ir 128<rt>
   let hi = getRegVar ctxt R.HI
   let lo = getRegVar ctxt R.LO
-  !!ir (result := (AST.zext 128<rt> rs) .* (AST.zext 128<rt> rt))
+  !!ir (result := AST.zext 128<rt> rs .* AST.zext 128<rt> rt)
   !!ir (lo := AST.xtlo 64<rt> result)
   !!ir (hi := AST.xthi 64<rt> result)
   advancePC ctxt ir
@@ -778,39 +730,15 @@ let ext insInfo insLen ctxt =
   let rt, rs, pos, size = getFourOprs insInfo
   let rt = transOprToExpr insInfo ctxt rt
   let rs = transOprToExpr insInfo ctxt rs
-  let pos = int32 (transOprToImm pos)
-  let size = int32 (transOprToImm size)
-  let getMask size = (1L <<< size) - 1L
+  let pos = transOprToImm pos |> int
+  let size = transOprToImm size |> int
+  let msbd = size - 1
+  let lsb = pos
   checkINSorExtPosSize pos size
-  if size = 32 then if rt = rs then () else  !!ir (rt := rs)
-  else let rs = if pos = 0 then rs else rs >> numI32 pos ctxt.WordBitSize
-       !!ir (rt := rs .& numI64 (getMask size) ctxt.WordBitSize)
-  advancePC ctxt ir
-  !>ir insLen
-
-let ext64 insInfo insLen ctxt =
-  let ir = !*ctxt
-  !<ir insLen
-  let rt, rs, pos, size = getFourOprs insInfo
-  let rt = transOprToExpr insInfo ctxt rt
-  let rs = transOprToExpr insInfo ctxt rs
-  let pos = int32 (transOprToImm pos)
-  let size = int32 (transOprToImm size)
   let getMask size = (1L <<< size) - 1L
-  checkINSorExtPosSize pos size
-  let lblL0 = !%ir "L0"
-  let lblL1 = !%ir "L1"
-  let lblEnd = !%ir "End"
-  let cond = notWordValue rs
-  !!ir (AST.cjmp cond (AST.name lblL0) (AST.name lblL1))
-  !!ir (AST.lmark lblL0)
-  !!ir (AST.sideEffect UndefinedInstr) (* FIXME: UNPREDICTABLE *)
-  !!ir (AST.jmp (AST.name lblEnd))
-  !!ir (AST.lmark lblL1)
-  if size = 32 then if rt = rs then () else  !!ir (rt := rs)
-  else let rs = if pos = 0 then rs else rs >> numI32 pos ctxt.WordBitSize
-       !!ir (rt := rs .& numI64 (getMask size) ctxt.WordBitSize)
-  !!ir (AST.lmark lblEnd)
+  if lsb + msbd > 31 then raise InvalidOperandException else ()
+  let rs = if pos = 0 then rs else rs >> numI32 pos ctxt.WordBitSize
+  !!ir (rt := rs .& numI64 (getMask size) ctxt.WordBitSize)
   advancePC ctxt ir
   !>ir insLen
 
@@ -818,11 +746,11 @@ let lui insInfo insLen ctxt =
   let ir = !*ctxt
   let rt, imm = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
   !<ir insLen
-  if ctxt.WordBitSize = 64<rt> then
-    !!ir
-      (rt := AST.sext 64<rt>
-        (AST.concat (AST.xtlo 16<rt> imm) (AST.num0 16<rt>)))
-  else !!ir (rt := AST.concat (AST.xtlo 16<rt> imm) (AST.num0 16<rt>))
+  if is32Bit ctxt then
+    !!ir (rt := AST.concat (AST.xtlo 16<rt> imm) (AST.num0 16<rt>))
+  else
+    !!ir (rt := AST.sext 64<rt>
+                  (AST.concat (AST.xtlo 16<rt> imm) (AST.num0 16<rt>)))
   advancePC ctxt ir
   !>ir insLen
 
@@ -832,7 +760,6 @@ let lwl insInfo insLen ctxt =
   let baseOffset = transOprToBaseOffset ctxt mem
   let rt, mem = transTwoOprs insInfo ctxt (rt, mem)
   let struct (t1, t2) = tmpVars2 ir 32<rt>
-  let is32Bit = ctxt.WordBitSize = 32<rt>
   let rRt, baseOffset = AST.xtlo 32<rt> rt, AST.xtlo 32<rt> baseOffset
   let getMask size = (1L <<< size) - 1L
   let mask2 = numI64 (getMask 2) 32<rt>
@@ -842,7 +769,7 @@ let lwl insInfo insLen ctxt =
   !!ir (t1 := (numI32 3 32<rt> .- vaddr0To1) .* num8)
   !!ir (t2 := (AST.num1 32<rt> .+ vaddr0To1) .* num8)
   let result = (mem >> t1) << t1 .| (rRt >> t2)
-  !!ir (rt := if is32Bit then result else (result |> AST.sext 64<rt>))
+  !!ir (rt := if is32Bit ctxt then result else (result |> AST.sext 64<rt>))
   !>ir insLen
 
 let lwr insInfo insLen ctxt =
@@ -861,7 +788,7 @@ let lwr insInfo insLen ctxt =
   !!ir (t2 := vaddr0To1 .* num8)
   let res = (rRt >> t1) << t1 .| (mem >> t2)
   let result =
-    if ctxt.WordBitSize = 32<rt> then res
+    if is32Bit ctxt then res
     else AST.ite (vaddr0To1 == AST.num0 32<rt>)
                  (AST.sext 64<rt> res) (AST.concat (AST.xthi 32<rt> rt) res)
   !!ir (rt := result)
@@ -874,27 +801,17 @@ let madd insInfo insLen ctxt =
   let result = !+ir 64<rt>
   let hi = getRegVar ctxt R.HI
   let lo = getRegVar ctxt R.LO
-  if ctxt.WordBitSize = 64<rt> then
-    let lblL0 = !%ir "L0"
-    let lblL1 = !%ir "L1"
-    let lblEnd = !%ir "End"
-    let cond = notWordValue rs .| notWordValue rt
-    let hilo = AST.concat (AST.xtlo 32<rt> hi) (AST.xtlo 32<rt> lo)
-    let mask = numU32 0xFFFFu 64<rt>
-    !!ir (AST.cjmp cond (AST.name lblL0) (AST.name lblL1))
-    !!ir (AST.lmark lblL0)
-    !!ir (AST.sideEffect UndefinedInstr) (* FIXME: UNPREDICTABLE *)
-    !!ir (AST.jmp (AST.name lblEnd))
-    !!ir (AST.lmark lblL1)
-    !!ir (result := hilo .+ ((rs .& mask) .* (rt .& mask)))
-    !!ir (hi := AST.sext 64<rt> (AST.xthi 32<rt> result))
-    !!ir (lo := AST.sext 64<rt> (AST.xtlo 32<rt> result))
-    !!ir (AST.lmark lblEnd)
-  else
+  if is32Bit ctxt then
     !!ir (result := (AST.concat hi lo)
-                       .+ (AST.sext 64<rt> rs .* AST.sext 64<rt> rt))
+                      .+ (AST.sext 64<rt> rs .* AST.sext 64<rt> rt))
     !!ir (hi := AST.xthi 32<rt> result)
     !!ir (lo := AST.xtlo 32<rt> result)
+  else
+    let mask = numU32 0xFFFFu 64<rt>
+    let hilo = AST.concat (AST.xtlo 32<rt> hi) (AST.xtlo 32<rt> lo)
+    !!ir (result := hilo .+ ((rs .& mask) .* (rt .& mask)))
+    !!ir (hi := signExtHi64 result)
+    !!ir (lo := signExtLo64 result)
   advancePC ctxt ir
   !>ir insLen
 
@@ -936,25 +853,13 @@ let mul insInfo insLen ctxt =
   let ir = !*ctxt
   !<ir insLen
   let rd, rs, rt = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
-  let result = !+ir 64<rt>
   let hi = getRegVar ctxt R.HI
   let lo = getRegVar ctxt R.LO
-  if ctxt.WordBitSize = 64<rt> then
-    let lblL0 = !%ir "L0"
-    let lblL1 = !%ir "L1"
-    let lblEnd = !%ir "End"
-    let cond = notWordValue rs .| notWordValue rt
-    !!ir (AST.cjmp cond (AST.name lblL0) (AST.name lblL1))
-    !!ir (AST.lmark lblL0)
-    !!ir (AST.sideEffect UndefinedInstr) (* FIXME: UNPREDICTABLE *)
-    !!ir (AST.jmp (AST.name lblEnd))
-    !!ir (AST.lmark lblL1)
-    !!ir (result := rs .* rt)
-    !!ir (rd := AST.sext 64<rt> (AST.xtlo 32<rt> result))
-    !!ir (AST.lmark lblEnd)
-  else
-    !!ir (result := (AST.sext 64<rt> rs .* AST.sext 64<rt> rt))
-    !!ir (rd := AST.xtlo 32<rt> result)
+  let result =
+    if is32Bit ctxt then (AST.sext 64<rt> rs .* AST.sext 64<rt> rt)
+                           |> AST.xtlo 32<rt>
+    else signExtLo64 (rs .* rt)
+  !!ir (rd := result)
   !!ir (hi := AST.undef ctxt.WordBitSize "UNPREDICTABLE")
   !!ir (lo := AST.undef ctxt.WordBitSize "UNPREDICTABLE")
   advancePC ctxt ir
@@ -964,28 +869,18 @@ let mult insInfo insLen ctxt =
   let ir = !*ctxt
   !<ir insLen
   let rs, rt = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
-  let result = !+ir 64<rt>
   let hi = getRegVar ctxt R.HI
   let lo = getRegVar ctxt R.LO
-  if ctxt.WordBitSize = 64<rt> then
-    let lblL0 = !%ir "L0"
-    let lblL1 = !%ir "L1"
-    let lblEnd = !%ir "End"
-    let cond = notWordValue rs .| notWordValue rt
-    let mask = numI64 0xFFFFFFFFL 64<rt>
-    !!ir (AST.cjmp cond (AST.name lblL0) (AST.name lblL1))
-    !!ir (AST.lmark lblL0)
-    !!ir (AST.sideEffect UndefinedInstr) (* FIXME: UNPREDICTABLE *)
-    !!ir (AST.jmp (AST.name lblEnd))
-    !!ir (AST.lmark lblL1)
-    !!ir (result := (rs .& mask) .* (rt .& mask))
-    !!ir (lo := AST.sext 64<rt> (AST.xtlo 32<rt> result))
-    !!ir (hi := AST.sext 64<rt> (AST.xthi 32<rt> result))
-    !!ir (AST.lmark lblEnd)
-  else
-    !!ir (result := (AST.sext 64<rt> rs .* AST.sext 64<rt> rt))
-    !!ir (lo := AST.xtlo 32<rt> result)
-    !!ir (hi := AST.xthi 32<rt> result)
+  let mask = numI64 0xFFFFFFFFL 64<rt>
+  let result1, result2 =
+    if is32Bit ctxt then
+      (AST.sext 64<rt> rs .* AST.sext 64<rt> rt) |> AST.xtlo 32<rt>,
+      (AST.sext 64<rt> rs .* AST.sext 64<rt> rt) |> AST.xthi 32<rt>
+    else
+      signExtLo64 ((rs .& mask) .* (rt .& mask)),
+      signExtHi64 ((rs .& mask) .* (rt .& mask))
+  !!ir (lo := result1)
+  !!ir (hi := result2)
   advancePC ctxt ir
   !>ir insLen
 
@@ -993,28 +888,15 @@ let multu insInfo insLen ctxt =
   let ir = !*ctxt
   !<ir insLen
   let rs, rt = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
-  let result = !+ir 64<rt>
   let hi = getRegVar ctxt R.HI
   let lo = getRegVar ctxt R.LO
-  if ctxt.WordBitSize = 64<rt> then
-    let lblL0 = !%ir "L0"
-    let lblL1 = !%ir "L1"
-    let lblEnd = !%ir "End"
-    let cond = notWordValue rs .| notWordValue rt
-    let mask = numI64 0xFFFFFFFFL 64<rt>
-    !!ir (AST.cjmp cond (AST.name lblL0) (AST.name lblL1))
-    !!ir (AST.lmark lblL0)
-    !!ir (AST.sideEffect UndefinedInstr) (* FIXME: UNPREDICTABLE *)
-    !!ir (AST.jmp (AST.name lblEnd))
-    !!ir (AST.lmark lblL1)
-    !!ir (result := (rs .& mask) .* (rt .& mask))
-    !!ir (lo := AST.sext 64<rt> (AST.xtlo 32<rt> result))
-    !!ir (hi := AST.sext 64<rt> (AST.xthi 32<rt> result))
-    !!ir (AST.lmark lblEnd)
+  let mask = numI64 0xFFFFFFFFL 64<rt>
+  if is32Bit ctxt then
+    !!ir (lo := AST.zext 64<rt> rs .* AST.zext 64<rt> rt |> AST.xtlo 32<rt>)
+    !!ir (hi := AST.zext 64<rt> rs .* AST.zext 64<rt> rt |> AST.xthi 32<rt>)
   else
-    !!ir (result := (AST.zext 64<rt> rs .* AST.zext 64<rt> rt))
-    !!ir (lo := AST.xtlo 32<rt> result)
-    !!ir (hi := AST.xthi 32<rt> result)
+    !!ir (lo := signExtLo64 ((rs .& mask) .* (rt .& mask)))
+    !!ir (hi := signExtHi64 ((rs .& mask) .* (rt .& mask)))
   advancePC ctxt ir
   !>ir insLen
 
@@ -1052,15 +934,14 @@ let rotr insInfo insLen ctxt =
   let ir = !*ctxt
   let rd, rt, sa = getThreeOprs insInfo
   let rd, rt = transTwoOprs insInfo ctxt (rd, rt)
-  let sa = numI32 (int32 (transOprToImm sa)) 32<rt>
+  let sa = numU64 (transOprToImm sa) 32<rt>
   let size = numI32 32 32<rt>
   !<ir insLen
-  if ctxt.WordBitSize = 64<rt> then
-    let t1 = !+ir 32<rt>
-    !!ir (t1 := AST.xtlo 32<rt> rt)
-    !!ir (rd := AST.sext 64<rt> ((t1 << (size .- sa)) .| (t1 >> sa)))
-  else
+  if is32Bit ctxt then
     !!ir (rd := (rt << (size .- sa)) .| (rt >> sa))
+  else
+    !!ir (rd := ((AST.xtlo 32<rt> rt << (size .- sa)) .|
+                  (AST.xtlo 32<rt> rt >> sa)) |> AST.sext 64<rt>)
   advancePC ctxt ir
   !>ir insLen
 
@@ -1141,9 +1022,8 @@ let swl insInfo insLen ctxt =
   let t2 = !+ir 32<rt>
   let getMask size = (1L <<< size) - 1L
   let mask2 = numI64 (getMask 2) 32<rt>
-  let baseOffset = if ctxt.WordBitSize = 32<rt> then baseOffset
-                   else AST.xtlo 32<rt> baseOffset
-  let rt = if ctxt.WordBitSize = 32<rt> then rt else AST.xtlo 32<rt> rt
+  let baseOffset, rt = if is32Bit ctxt then baseOffset, rt
+                       else AST.xtlo 32<rt> baseOffset, AST.xtlo 32<rt> rt
   let vaddr0To2 = baseOffset .& mask2
   let num8 = numI32 8 32<rt>
   !<ir insLen
@@ -1162,9 +1042,8 @@ let swr insInfo insLen ctxt =
   let t2 = !+ir 32<rt>
   let getMask size = (1L <<< size) - 1L
   let mask2 = numI64 (getMask 2) 32<rt>
-  let baseOffset = if ctxt.WordBitSize = 32<rt> then baseOffset
-                   else AST.xtlo 32<rt> baseOffset
-  let rt = if ctxt.WordBitSize = 32<rt> then rt else AST.xtlo 32<rt> rt
+  let baseOffset, rt = if is32Bit ctxt then baseOffset, rt
+                       else AST.xtlo 32<rt> baseOffset, AST.xtlo 32<rt> rt
   let vaddr0To2 = baseOffset .& mask2
   let num8 = numI32 8 32<rt>
   !<ir insLen
@@ -1184,20 +1063,7 @@ let seb insInfo insLen ctxt =
   let ir = !*ctxt
   let rd, rt = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
   !<ir insLen
-  if ctxt.WordBitSize = 64<rt> then
-    let lblL0 = !%ir "L0"
-    let lblL1 = !%ir "L1"
-    let lblEnd = !%ir "End"
-    let cond = notWordValue rt
-    !!ir (AST.cjmp cond (AST.name lblL0) (AST.name lblL1))
-    !!ir (AST.lmark lblL0)
-    !!ir (AST.sideEffect UndefinedInstr) (* FIXME: UNPREDICTABLE *)
-    !!ir (AST.jmp (AST.name lblEnd))
-    !!ir (AST.lmark lblL1)
-    !!ir (rd := AST.sext 64<rt> (AST.extract rt 8<rt> 0))
-    !!ir (AST.lmark lblEnd)
-  else
-    !!ir (rd := AST.sext 32<rt> (AST.extract rt 8<rt> 0))
+  !!ir (rd := AST.sext ctxt.WordBitSize (AST.extract rt 8<rt> 0))
   advancePC ctxt ir
   !>ir insLen
 
@@ -1205,20 +1071,7 @@ let seh insInfo insLen ctxt =
   let ir = !*ctxt
   let rd, rt = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
   !<ir insLen
-  if ctxt.WordBitSize = 64<rt> then
-    let lblL0 = !%ir "L0"
-    let lblL1 = !%ir "L1"
-    let lblEnd = !%ir "End"
-    let cond = notWordValue rt
-    !!ir (AST.cjmp cond (AST.name lblL0) (AST.name lblL1))
-    !!ir (AST.lmark lblL0)
-    !!ir (AST.sideEffect UndefinedInstr) (* FIXME: UNPREDICTABLE *)
-    !!ir (AST.jmp (AST.name lblEnd))
-    !!ir (AST.lmark lblL1)
-    !!ir (rd := AST.sext 64<rt> (AST.extract rt 16<rt> 0))
-    !!ir (AST.lmark lblEnd)
-  else
-    !!ir (rd := AST.sext 32<rt> (AST.extract rt 16<rt> 0))
+  !!ir (rd := AST.sext ctxt.WordBitSize (AST.extract rt 16<rt> 0))
   advancePC ctxt ir
   !>ir insLen
 
@@ -1226,11 +1079,10 @@ let sll insInfo insLen ctxt =
   let ir = !*ctxt
   let rd, rt, sa = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   !<ir insLen
-  if ctxt.WordBitSize = 64<rt> then
-    let rt = AST.xtlo 32<rt> rt
-    !!ir (rd := AST.sext 64<rt> (rt << AST.xtlo 32<rt> sa))
-  else
+  if is32Bit ctxt then
     !!ir (rd := rt << sa)
+  else
+    !!ir (rd := AST.sext 64<rt> (AST.xtlo 32<rt> rt << AST.xtlo 32<rt> sa))
   advancePC ctxt ir
   !>ir insLen
 
@@ -1239,11 +1091,10 @@ let sllv insInfo insLen ctxt =
   let rd, rt, rs = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   let mask = numI32 31 32<rt>
   !<ir insLen
-  if ctxt.WordBitSize = 64<rt> then
+  if is32Bit ctxt then !!ir (rd := rt << (rs .& mask))
+  else
     let rt = AST.xtlo 32<rt> rt
     !!ir (rd := AST.sext 64<rt> (rt << (AST.xtlo 32<rt> rs .& mask)))
-  else
-    !!ir (rd := rt << (rs .& mask))
   advancePC ctxt ir
   !>ir insLen
 
@@ -1297,24 +1148,10 @@ let sra insInfo insLen ctxt =
   let ir = !*ctxt
   let rd, rt, sa = getThreeOprs insInfo
   let rd, rt = transTwoOprs insInfo ctxt (rd, rt)
-  let sa = numI32 (int32 (transOprToImm sa)) 32<rt>
+  let sa = numU64 (transOprToImm sa) 32<rt>
   !<ir insLen
-  if ctxt.WordBitSize = 64<rt> then
-    let lblL0 = !%ir "L0"
-    let lblL1 = !%ir "L1"
-    let lblEnd = !%ir "End"
-    let cond = notWordValue rt
-    let t1 = !+ir 32<rt>
-    !!ir (AST.cjmp cond (AST.name lblL0) (AST.name lblL1))
-    !!ir (AST.lmark lblL0)
-    !!ir (AST.sideEffect UndefinedInstr) (* FIXME: UNPREDICTABLE *)
-    !!ir (AST.jmp (AST.name lblEnd))
-    !!ir (AST.lmark lblL1)
-    !!ir (t1 := AST.xtlo 32<rt> rt)
-    !!ir (rd := AST.sext 64<rt> (t1 ?>> sa))
-    !!ir (AST.lmark lblEnd)
-  else
-    !!ir (rd := rt ?>> sa)
+  if is32Bit ctxt then !!ir (rd := rt ?>> sa)
+  else !!ir (rd := (AST.xtlo 32<rt> rt ?>> sa) |> AST.sext 64<rt>)
   advancePC ctxt ir
   !>ir insLen
 
@@ -1322,24 +1159,10 @@ let srl insInfo insLen ctxt =
   let ir = !*ctxt
   let rd, rt, sa = getThreeOprs insInfo
   let rd, rt = transTwoOprs insInfo ctxt (rd, rt)
-  let sa = numI32 (int32 (transOprToImm sa)) 32<rt>
+  let sa = numU64 (transOprToImm sa) 32<rt>
   !<ir insLen
-  if ctxt.WordBitSize = 64<rt> then
-    let lblL0 = !%ir "L0"
-    let lblL1 = !%ir "L1"
-    let lblEnd = !%ir "End"
-    let cond = notWordValue rt
-    let t1 = !+ir 32<rt>
-    !!ir (AST.cjmp cond (AST.name lblL0) (AST.name lblL1))
-    !!ir (AST.lmark lblL0)
-    !!ir (AST.sideEffect UndefinedInstr) (* FIXME: UNPREDICTABLE *)
-    !!ir (AST.jmp (AST.name lblEnd))
-    !!ir (AST.lmark lblL1)
-    !!ir (t1 := AST.xtlo 32<rt> rt)
-    !!ir (rd := AST.sext 64<rt> (t1 >> sa))
-    !!ir (AST.lmark lblEnd)
-  else
-    !!ir (rd := rt >> sa)
+  if is32Bit ctxt then !!ir (rd := rt >> sa)
+  else !!ir (rd := (AST.xtlo 32<rt> rt >> sa) |> AST.sext 64<rt>)
   advancePC ctxt ir
   !>ir insLen
 
@@ -1348,22 +1171,9 @@ let srlv insInfo insLen ctxt =
   let rd, rt, rs = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   let mask = numI32 31 32<rt>
   !<ir insLen
-  if ctxt.WordBitSize = 64<rt> then
-    let lblL0 = !%ir "L0"
-    let lblL1 = !%ir "L1"
-    let lblEnd = !%ir "End"
-    let cond = notWordValue rt
-    let t1 = !+ir 32<rt>
-    !!ir (AST.cjmp cond (AST.name lblL0) (AST.name lblL1))
-    !!ir (AST.lmark lblL0)
-    !!ir (AST.sideEffect UndefinedInstr) (* FIXME: UNPREDICTABLE *)
-    !!ir (AST.jmp (AST.name lblEnd))
-    !!ir (AST.lmark lblL1)
-    !!ir (t1 := AST.xtlo 32<rt> rt)
-    !!ir (rd := AST.sext 64<rt> (t1 >> (AST.xtlo 32<rt> rs .& mask)))
-    !!ir (AST.lmark lblEnd)
-  else
-    !!ir (rd := rt >> (rs .& mask))
+  if is32Bit ctxt then !!ir (rd := rt >> (rs .& mask))
+  else !!ir (rd := AST.sext 64<rt>
+                     (AST.xtlo 32<rt> rt >> (AST.xtlo 32<rt> rs .& mask)))
   advancePC ctxt ir
   !>ir insLen
 
@@ -1371,25 +1181,8 @@ let subu insInfo insLen ctxt =
   let ir = !*ctxt
   let rd, rs, rt = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   !<ir insLen
-  !!ir (rd := rs .- rt)
-  advancePC ctxt ir
-  !>ir insLen
-
-let subu64 insInfo insLen ctxt =
-  let ir = !*ctxt
-  let lblL0 = !%ir "L0"
-  let lblL1 = !%ir "L1"
-  let lblEnd = !%ir "End"
-  let rd, rs, rt = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
-  let cond = notWordValue rs .| notWordValue rt
-  !<ir insLen
-  !!ir (AST.cjmp cond (AST.name lblL0) (AST.name lblL1))
-  !!ir (AST.lmark lblL0)
-  !!ir (AST.sideEffect UndefinedInstr) (* FIXME: UNPREDICTABLE *)
-  !!ir (AST.jmp (AST.name lblEnd))
-  !!ir (AST.lmark lblL1)
-  !!ir (rd := rs .- rt)
-  !!ir (AST.lmark lblEnd)
+  let result = if is32Bit ctxt then rs .- rt else signExtLo64 (rs .- rt)
+  !!ir (rd := result)
   advancePC ctxt ir
   !>ir insLen
 
@@ -1430,14 +1223,10 @@ let transaui insInfo ctxt =
 
 let translate insInfo insLen (ctxt: TranslationContext) =
   match insInfo.Opcode with
-  | Op.ADD when insInfo.Fmt.IsNone && ctxt.WordBitSize = 32<rt> ->
-    add insInfo insLen ctxt
-  | Op.ADD when insInfo.Fmt.IsNone -> add64 insInfo insLen ctxt
+  | Op.ADD when insInfo.Fmt.IsNone -> add insInfo insLen ctxt
   | Op.ADD -> sideEffects insLen ctxt UnsupportedFP
-  | Op.ADDIU when ctxt.WordBitSize = 32<rt> -> addiu insInfo insLen ctxt
-  | Op.ADDIU -> addiu64 insInfo insLen ctxt
-  | Op.ADDU when ctxt.WordBitSize = 32<rt> -> addu insInfo insLen ctxt
-  | Op.ADDU -> addu64 insInfo insLen ctxt
+  | Op.ADDIU -> addiu insInfo insLen ctxt
+  | Op.ADDU -> addu insInfo insLen ctxt
   | Op.AND -> logAnd insInfo insLen ctxt
   | Op.ANDI -> andi insInfo insLen ctxt
   | Op.AUI -> transaui insInfo insLen ctxt
@@ -1456,7 +1245,8 @@ let translate insInfo insLen (ctxt: TranslationContext) =
   | Op.C | Op.CFC1 | Op.CTC1 -> sideEffects insLen ctxt UnsupportedFP
   | Op.CLZ -> clz insInfo insLen ctxt
   | Op.CVTD | Op.CVTS | Op.CVTW -> sideEffects insLen ctxt UnsupportedFP
-  | Op.DADDU -> addu insInfo insLen ctxt
+  | Op.DADD -> dadd insInfo insLen ctxt
+  | Op.DADDU -> daddu insInfo insLen ctxt
   | Op.DADDIU -> daddiu insInfo insLen ctxt
   | Op.DCLZ -> dclz insInfo insLen ctxt
   | Op.DMFC1 | Op.DMTC1 -> sideEffects insLen ctxt UnsupportedFP
@@ -1482,8 +1272,7 @@ let translate insInfo insLen (ctxt: TranslationContext) =
   | Op.DSRLV -> dsrlv insInfo insLen ctxt
   | Op.DSUBU -> subu insInfo insLen ctxt
   | Op.EHB -> nop insLen ctxt
-  | Op.EXT when ctxt.WordBitSize = 32<rt> -> ext insInfo insLen ctxt
-  | Op.EXT -> ext64 insInfo insLen ctxt
+  | Op.EXT -> ext insInfo insLen ctxt
   | Op.INS -> ins insInfo insLen ctxt
   | Op.JALR | Op.JALRHB -> jalr insInfo insLen ctxt
   | Op.JR | Op.JRHB -> jr insInfo insLen ctxt
@@ -1533,8 +1322,7 @@ let translate insInfo insLen (ctxt: TranslationContext) =
   | Op.SRL -> srl insInfo insLen ctxt
   | Op.SRLV -> srlv insInfo insLen ctxt
   | Op.SUB when insInfo.Fmt.IsSome -> sideEffects insLen ctxt UnsupportedFP
-  | Op.SUBU when ctxt.WordBitSize = 32<rt> -> subu insInfo insLen ctxt
-  | Op.SUBU -> subu64 insInfo insLen ctxt
+  | Op.SUBU -> subu insInfo insLen ctxt
   | Op.SW -> sw insInfo insLen ctxt
   | Op.SDL -> sdl insInfo insLen ctxt
   | Op.SDR -> sdr insInfo insLen ctxt

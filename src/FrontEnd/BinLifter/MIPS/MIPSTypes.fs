@@ -750,6 +750,8 @@ type Opcode =
   | XORI = 326
   /// Invalid Opcode.
   | InvalOP = 327
+  /// Add Dword.
+  | DADD = 328
 
 type internal Op = Opcode
 
