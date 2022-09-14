@@ -422,6 +422,9 @@ let translate (ins: IntelInternalInstruction) insLen ctxt =
   | OP.PALIGNR -> SSELifter.palignr ins insLen ctxt (* SSE3 *)
   | OP.ROUNDSD -> SSELifter.roundsd ins insLen ctxt (* SSE4 *)
   | OP.PINSRB -> SSELifter.pinsrb ins insLen ctxt (* SSE4 *)
+  | OP.PSIGNB -> SSELifter.psign ins insLen ctxt 8<rt> (* SSE3 *)
+  | OP.PSIGNW -> SSELifter.psign ins insLen ctxt 16<rt> (* SSE3 *)
+  | OP.PSIGND -> SSELifter.psign ins insLen ctxt 32<rt> (* SSE3 *)
   | OP.PTEST -> SSELifter.ptest ins insLen ctxt (* SSE4 *)
   | OP.PCMPEQQ -> SSELifter.pcmpeqq ins insLen ctxt (* SSE4 *)
   | OP.PCMPESTRI | OP.PCMPESTRM | OP.PCMPISTRI | OP.PCMPISTRM ->
