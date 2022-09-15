@@ -89,7 +89,7 @@ let add ins insLen ctxt addr =
 
 let adds ins insLen ctxt addr =
   let ir = !*ctxt
-  let dst, src1, src2 = transOprToExprOfADDS ins ctxt addr
+  let dst, src1, src2 = transFourOprsWithBarrelShift ins ctxt addr
   let oSz = ins.OprSize
   !<ir insLen
   let result, (n, z, c, v) = addWithCarry src1 src2 (AST.num0 oSz) oSz
@@ -140,7 +140,7 @@ let asrv ins insLen ctxt addr =
 
 let ands ins insLen ctxt addr =
   let ir = !*ctxt
-  let dst, src1, src2 = transOprToExprOfANDS ins ctxt addr
+  let dst, src1, src2 = transOprToExprOfAND ins ctxt addr
   !<ir insLen
   !!ir (dst := src1 .& src2)
   !>ir insLen
@@ -276,6 +276,18 @@ let clz ins insLen ctxt addr =
   let dst, src = transTwoOprs ins ctxt addr
   !<ir insLen
   countLeadingZeroBitsForIR dst src ins.OprSize ir
+  !>ir insLen
+
+let cmn ins insLen ctxt addr =
+  let ir = !*ctxt
+  let src1, src2 = transThreeOprsWithBarrelShift ins ctxt addr
+  let oSz = ins.OprSize
+  !<ir insLen
+  let _, (n, z, c, v) = addWithCarry src1 src2 (AST.num0 oSz) oSz
+  !!ir (getRegVar ctxt R.N := n)
+  !!ir (getRegVar ctxt R.Z := z)
+  !!ir (getRegVar ctxt R.C := c)
+  !!ir (getRegVar ctxt R.V := v)
   !>ir insLen
 
 let cmp ins insLen ctxt addr =
@@ -901,8 +913,7 @@ let smull ins insLen ctxt addr =
   | ThreeOperands (SIMDOpr _, _, _) -> !!ir (AST.sideEffect UnsupportedFP)
   | _ ->
     let dst, src1, src2 = transThreeOprs ins ctxt addr
-    let src3 = getRegVar ctxt R.XZR
-    !!ir (dst := src3 .+ (AST.sext 64<rt> src1 .* AST.sext 64<rt> src2))
+    !!ir (dst := AST.sext 64<rt> src1 .* AST.sext 64<rt> src2)
   !>ir insLen
 
 let stp ins insLen ctxt addr =
@@ -1092,6 +1103,18 @@ let tbz ins insLen ctxt addr =
   !!ir (AST.intercjmp cond (pc .+ label) fall)
   !>ir insLen
 
+let tst ins insLen ctxt addr =
+  let ir = !*ctxt
+  let src1, src2 = transOprToExprOfTST ins ctxt addr
+  let result = !+ir ins.OprSize
+  !<ir insLen
+  !!ir (result := src1 .& src2)
+  !!ir (getRegVar ctxt R.N := AST.xthi 1<rt> result)
+  !!ir (getRegVar ctxt R.Z := result == AST.num0 ins.OprSize)
+  !!ir (getRegVar ctxt R.C := AST.b0)
+  !!ir (getRegVar ctxt R.V := AST.b0)
+  !>ir insLen
+
 let udiv ins insLen ctxt addr =
   let ir = !*ctxt
   let dst, src1, src2 = transThreeOprs ins ctxt addr
@@ -1142,8 +1165,7 @@ let umull ins insLen ctxt addr =
   | ThreeOperands (SIMDOpr _, _, _) -> !!ir (AST.sideEffect UnsupportedFP)
   | _ ->
     let dst, src1, src2 = transThreeOprs ins ctxt addr
-    let src3 = getRegVar ctxt R.XZR
-    !!ir (dst := src3 .- (AST.zext 64<rt> src1 .* AST.zext 64<rt> src2))
+    !!ir (dst := AST.zext 64<rt> src1 .* AST.zext 64<rt> src2)
   !>ir insLen
 
 let ubfm ins insLen ctxt addr =
@@ -1153,9 +1175,9 @@ let ubfm ins insLen ctxt addr =
   let bot = !+ir oSz
   let wmask, tmask = !+ir oSz, !+ir oSz
   let immN = if ins.OprSize = 64<rt> then AST.num1 8<rt> else AST.num0 8<rt>
+  !<ir insLen
   decodeBitMasksForIR wmask tmask immN imms immr oSz ir
   let width = oprSzToExpr ins.OprSize
-  !<ir insLen
   !!ir (bot := ror src immr width .& wmask)
   !!ir (dstAssign ins.OprSize dst (bot .& tmask))
   !>ir insLen
@@ -1177,7 +1199,7 @@ let translate ins insLen ctxt =
   match ins.Opcode with
   | Opcode.ADC -> adc ins insLen ctxt addr
   | Opcode.ADD -> add ins insLen ctxt addr
-  | Opcode.ADDS | Opcode.CMN -> adds ins insLen ctxt addr
+  | Opcode.ADDS -> adds ins insLen ctxt addr
   | Opcode.ADDP | Opcode.ADDV -> sideEffects insLen ctxt UnsupportedFP
   | Opcode.ADR -> adr ins insLen ctxt addr
   | Opcode.ADRP -> adrp ins insLen ctxt addr
@@ -1215,6 +1237,7 @@ let translate ins insLen ctxt =
   | Opcode.CCMN -> ccmn ins insLen ctxt addr
   | Opcode.CCMP -> ccmp ins insLen ctxt addr
   | Opcode.CLZ -> clz ins insLen ctxt addr
+  | Opcode.CMN -> cmn ins insLen ctxt addr
   | Opcode.CMP -> cmp ins insLen ctxt addr
   | Opcode.CMEQ -> sideEffects insLen ctxt UnsupportedFP
   | Opcode.CMGE | Opcode.CMLT | Opcode.CMTST ->
@@ -1318,7 +1341,7 @@ let translate ins insLen ctxt =
   | Opcode.TBL -> sideEffects insLen ctxt UnsupportedFP
   | Opcode.TBNZ -> tbnz ins insLen ctxt addr
   | Opcode.TBZ -> tbz ins insLen ctxt addr
-  | Opcode.TST -> ands ins insLen ctxt addr
+  | Opcode.TST -> tst ins insLen ctxt addr
   | Opcode.UADDLV | Opcode.UADDW | Opcode.UMAXV | Opcode.UMINV ->
     sideEffects insLen ctxt UnsupportedFP
   | Opcode.UBFIZ | Opcode.UBFX | Opcode.UXTB | Opcode.UXTH ->

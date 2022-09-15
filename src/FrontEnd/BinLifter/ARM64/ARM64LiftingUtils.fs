@@ -165,7 +165,7 @@ let transMemOffset ins ctxt = function
 let transBaseMode ins ctxt offset =
   transMemOffset ins ctxt offset
 
-let transMem ins ctxt addr = function
+let transMem ins ctxt _addr = function
   | BaseMode offset -> transBaseMode ins ctxt offset
   | PreIdxMode offset -> transBaseMode ins ctxt offset
   | PostIdxMode offset -> transBaseMode ins ctxt offset
@@ -259,6 +259,13 @@ let transBarrelShiftToExpr ins ctxt src shift =
   | OprRegister reg, ExtReg None -> getRegVar ctxt reg
   | _ -> raise <| NotImplementedIRException "transBarrelShiftToExpr"
 
+let transThreeOprsWithBarrelShift ins ctxt addr =
+  match ins.Operands with
+  | ThreeOperands (o1, o2, o3) ->
+    transOprToExpr ins ctxt addr o1,
+    transBarrelShiftToExpr ins ctxt o2 o3
+  | _ -> raise InvalidOperandException
+
 let transFourOprsWithBarrelShift ins ctxt addr =
   match ins.Operands with
   | FourOperands (o1, o2, o3, o4) ->
@@ -307,29 +314,8 @@ let isSIMDVectorIdx opr =
   | SIMDOpr (SFReg (SIMDVecRegWithIdx _)) -> true
   | _ -> false
 
-let transOprToExprOfADDS ins ctxt addr =
-  match ins.Operands with
-  | ThreeOperands (o1, o2, o3) -> (* CMN *)
-    getRegVar ctxt (if ins.OprSize = 64<rt> then R.XZR else R.WZR),
-    transOprToExpr ins ctxt addr o1,
-    transBarrelShiftToExpr ins ctxt o2 o3
-  | FourOperands _ -> transFourOprsWithBarrelShift ins ctxt addr
-  | _ -> raise InvalidOperandException
-
 let transOprToExprOfAND ins ctxt addr =
   match ins.Operands with
-  | ThreeOperands _ -> transThreeOprs ins ctxt addr
-  | FourOperands _ -> transFourOprsWithBarrelShift ins ctxt addr
-  | _ -> raise InvalidOperandException
-
-let transOprToExprOfANDS ins ctxt addr =
-  match ins.Operands with
-  | TwoOperands (o1, o2) -> (* TST (immediate) *)
-    getRegVar ctxt (if ins.OprSize = 64<rt> then R.XZR else R.WZR),
-    transOprToExpr ins ctxt addr o1, transOprToExpr ins ctxt addr o2
-  | ThreeOperands (o1, o2, o3) when ins.Opcode = Opcode.TST -> (* TST (shfed) *)
-    getRegVar ctxt (if ins.OprSize = 64<rt> then R.XZR else R.WZR),
-    transOprToExpr ins ctxt addr o1, transBarrelShiftToExpr ins ctxt o2 o3
   | ThreeOperands _ -> transThreeOprs ins ctxt addr
   | FourOperands _ -> transFourOprsWithBarrelShift ins ctxt addr
   | _ -> raise InvalidOperandException
@@ -621,6 +607,14 @@ let transOprToExprOfSUBS ins ctxt addr =
     transOprToExpr ins ctxt addr o1,
     transOprToExpr ins ctxt addr o2,
     transBarrelShiftToExpr ins ctxt o3 o4 |> AST.not
+  | _ -> raise InvalidOperandException
+
+let transOprToExprOfTST ins ctxt addr =
+  match ins.Operands with
+  | TwoOperands (o1, o2) (* immediate *) ->
+    transOprToExpr ins ctxt addr o1, transOprToExpr ins ctxt addr o2
+  | ThreeOperands (o1, o2, o3) (* shfed *) ->
+    transOprToExpr ins ctxt addr o1, transBarrelShiftToExpr ins ctxt o2 o3
   | _ -> raise InvalidOperandException
 
 let transOprToExprOfUBFM ins ctxt addr =
