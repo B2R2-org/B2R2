@@ -1338,6 +1338,7 @@ let translate ins insLen ctxt =
   | Opcode.STURH -> sturh ins insLen ctxt addr
   | Opcode.SUB -> sub ins insLen ctxt addr
   | Opcode.SUBS -> subs ins insLen ctxt addr
+  | Opcode.SVC -> sideEffects insLen ctxt SysCall (* AArch64.CallSupervisor *)
   | Opcode.TBL -> sideEffects insLen ctxt UnsupportedFP
   | Opcode.TBNZ -> tbnz ins insLen ctxt addr
   | Opcode.TBZ -> tbz ins insLen ctxt addr
