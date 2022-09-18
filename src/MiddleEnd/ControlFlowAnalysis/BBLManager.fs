@@ -197,13 +197,12 @@ module BBLManager =
 
   let private addCallEdgeEvents callSite excTbl fn caller target ftAddr tmp =
     if target = ftAddr then (* Clang often produces PC-getter like this. *)
-      CFGEvents.addRetEvt fn target ftAddr callSite tmp.NextEvents
-      |> CFGEvents.addEdgeEvt fn caller ftAddr CallFallThroughEdge
-      |> CFGEvents.addCallEvt fn callSite target true
+      CFGEvents.addEdgeEvt fn caller ftAddr CallFallThroughEdge tmp.NextEvents
+      |> CFGEvents.addCallEvt fn callSite target
       |> updateNextEvents tmp
     else
       addExceptionEdgeEvents callSite excTbl fn caller tmp
-      |> CFGEvents.addCallEvt fn callSite target false
+      |> CFGEvents.addCallEvt fn callSite target
       |> updateNextEvents tmp
 
   let private addIndirectCallEvents callSite excTbl fn caller tmp =

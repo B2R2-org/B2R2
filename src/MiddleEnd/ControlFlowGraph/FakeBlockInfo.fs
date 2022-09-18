@@ -60,6 +60,4 @@ type FakeBlockInfo = {
   IsTailCall: bool
   /// Is the caller invoke this fake block as an indirect call?
   IsIndirectCall: bool
-  /// Is the callee is not really a function, e.g., PC-getter.
-  IsNoFunction: bool
 }
