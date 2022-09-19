@@ -1083,6 +1083,16 @@ let subs ins insLen ctxt addr =
   !!ir (dstAssign ins.OprSize dst result)
   !>ir insLen
 
+let svc ins insLen ctxt =
+  let ir = !*ctxt
+  let n =
+    match ins.Operands with
+    | OneOperand (Immediate n) -> int n
+    | _ -> raise InvalidOperandException
+  !<ir insLen
+  !!ir (AST.sideEffect (Interrupt n))
+  !>ir insLen
+
 let tbnz ins insLen ctxt addr =
   let ir = !*ctxt
   let test, imm, label = transThreeOprs ins ctxt addr
@@ -1338,7 +1348,7 @@ let translate ins insLen ctxt =
   | Opcode.STURH -> sturh ins insLen ctxt addr
   | Opcode.SUB -> sub ins insLen ctxt addr
   | Opcode.SUBS -> subs ins insLen ctxt addr
-  | Opcode.SVC -> sideEffects insLen ctxt SysCall (* AArch64.CallSupervisor *)
+  | Opcode.SVC -> svc ins insLen ctxt
   | Opcode.TBL -> sideEffects insLen ctxt UnsupportedFP
   | Opcode.TBNZ -> tbnz ins insLen ctxt addr
   | Opcode.TBZ -> tbz ins insLen ctxt addr
