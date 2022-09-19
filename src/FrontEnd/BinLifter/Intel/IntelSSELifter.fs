@@ -1733,6 +1733,36 @@ let pinsrb ins insLen ctxt =
   else !!ir (dstB := (dstB .& (AST.not mask)) .& t)
   !>ir insLen
 
+let private packedSign ir packNum packSz dst src =
+  let dst = makeSrc ir packSz packNum dst
+  let src = makeSrc ir packSz packNum src
+  let z = AST.num0 packSz
+  let tDst = Array.init packNum (fun _ -> !+ir packSz)
+  for i in 0 .. packNum - 1 do
+    let cond1 = src[i] .< z
+    let cond2 = src[i] == z
+    !!ir (tDst[i] := AST.ite cond2 z (AST.ite cond1 (AST.not dst[i]) dst[i]))
+  done
+  tDst
+
+let psign ins insLen ctxt packSz =
+  let ir = !*ctxt
+  let oprSize = getOperationSize ins
+  match oprSize with
+  | 64<rt> ->
+    let packNum = oprSize / packSz
+    let struct (dst, src) = transTwoOprs ins insLen ctxt
+    !!ir (dst := packedSign ir packNum packSz dst src |> AST.concatArr)
+  | 128<rt> ->
+    let packNum = oprSize / packSz / 2
+    let struct (dst, src) = getTwoOprs ins
+    let dstB, dstA = transOprToExpr128 ins insLen ctxt dst
+    let srcB, srcA = transOprToExpr128 ins insLen ctxt src
+    !!ir (dstA := packedSign ir packNum packSz dstA srcA |> AST.concatArr)
+    !!ir (dstB := packedSign ir packNum packSz dstB srcB |> AST.concatArr)
+  | _ -> raise InvalidOperandSizeException
+  !>ir insLen
+
 let ptest ins insLen ctxt =
   let ir = !*ctxt
   let struct (src1, src2) = getTwoOprs ins
