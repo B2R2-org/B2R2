@@ -483,14 +483,6 @@ let transOprToExprOfMADD ins ctxt addr =
   | FourOperands _ -> transFourOprs ins ctxt addr
   | _ -> raise InvalidOperandException
 
-let transOprToExprOfMOV ins ctxt addr =
-  match ins.Operands with
-  | TwoOperands (o1, o2) ->
-    transOprToExpr ins ctxt addr o1, transOprToExpr ins ctxt addr o2
-  | ThreeOperands (o1, o2, o3) ->
-    transOprToExpr ins ctxt addr o1, transBarrelShiftToExpr ins ctxt o2 o3
-  | _ -> raise InvalidOperandException
-
 let transOprToExprOfORN ins ctxt addr =
   match ins.Operands with
   | ThreeOperands (o1, o2, o3) when ins.Opcode = Opcode.MVN -> (* MVN *)

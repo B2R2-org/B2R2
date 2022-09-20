@@ -690,10 +690,38 @@ let mov ins insLen ctxt addr =
   match ins.Operands with
   | TwoOperands (_, SIMDOpr _) -> !!ir (AST.sideEffect UnsupportedFP)
   | _ ->
-    let dst, src = transOprToExprOfMOV ins ctxt addr
-    if ins.Opcode = Opcode.MOVN then
-      !!ir (dstAssign ins.OprSize dst (AST.not src))
-    else !!ir (dstAssign ins.OprSize dst src)
+    let dst, src = transTwoOprs ins ctxt addr
+    !!ir (dstAssign ins.OprSize dst src)
+  !>ir insLen
+
+let getWordMask ins shift =
+  match shift with
+  | Shift (SRTypeLSL, Imm amt) ->
+    numI64 (~~~ (0xFFFFL <<< (int amt))) ins.OprSize
+  | _ -> raise InvalidOperandException
+
+let movk ins insLen ctxt addr =
+  let ir = !*ctxt
+  !<ir insLen
+  let struct (dst, imm, shf) = getThreeOprs ins
+  let dst = transOprToExpr ins ctxt addr dst
+  let src = transBarrelShiftToExpr ins ctxt imm shf
+  let mask = getWordMask ins shf
+  !!ir (dstAssign ins.OprSize dst ((dst .& mask) .| src))
+  !>ir insLen
+
+let movn ins insLen ctxt addr =
+  let ir = !*ctxt
+  !<ir insLen
+  let dst, src = transThreeOprsWithBarrelShift ins ctxt addr
+  !!ir (dstAssign ins.OprSize dst (AST.not src))
+  !>ir insLen
+
+let movz ins insLen ctxt addr =
+  let ir = !*ctxt
+  !<ir insLen
+  let dst, src = transThreeOprsWithBarrelShift ins ctxt addr
+  !!ir (dstAssign ins.OprSize dst src)
   !>ir insLen
 
 let mrs ins insLen ctxt addr =
@@ -1307,9 +1335,11 @@ let translate ins insLen ctxt =
   | Opcode.MADD -> madd ins insLen ctxt addr
   | Opcode.MLA -> sideEffects insLen ctxt UnsupportedFP
   | Opcode.MNEG -> msub ins insLen ctxt addr
-  | Opcode.MOV | Opcode.MOVN | Opcode.MOVK | Opcode.MOVZ ->
-    mov ins insLen ctxt addr
+  | Opcode.MOV -> mov ins insLen ctxt addr
   | Opcode.MOVI | Opcode.MVNI -> sideEffects insLen ctxt UnsupportedFP
+  | Opcode.MOVK -> movk ins insLen ctxt addr
+  | Opcode.MOVN -> movn ins insLen ctxt addr
+  | Opcode.MOVZ -> movz ins insLen ctxt addr
   | Opcode.MRS -> mrs ins insLen ctxt addr
   | Opcode.MSUB -> msub ins insLen ctxt addr
   | Opcode.MUL -> madd ins insLen ctxt addr
