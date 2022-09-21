@@ -69,7 +69,7 @@ module private IndirectCallResolution =
     let lastIns = codeMgr.GetInstruction lastInsAddr
     let ftAddr = uint64 lastIns.Instruction.Length + lastInsAddr
     (func: RegularFunction).UpdateCallEdgeInfo (callSiteAddr, callee)
-    CFGEvents.addPerFuncAnalysisEvt func.Entry evts
+    CFGEvents.addPerFuncAnalysisEvt func.EntryPoint evts
     |> CFGEvents.addRetEvt func 0UL ftAddr callSiteAddr
     |> CFGEvents.addEdgeEvt func caller ftAddr CallFallThroughEdge
 

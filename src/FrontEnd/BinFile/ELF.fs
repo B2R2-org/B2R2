@@ -92,8 +92,6 @@ type ELFFileInfo (bytes, path, baseAddr, regbay) =
 
   override __.TryFindFunctionSymbolName (addr) = tryFindFuncSymb elf addr
 
-  override __.ExceptionTable = elf.ExceptionTable
-
   override __.ToBinaryPointer addr =
     BinaryPointer.OfSectionOpt (getSectionsByAddr elf addr |> Seq.tryHead)
 

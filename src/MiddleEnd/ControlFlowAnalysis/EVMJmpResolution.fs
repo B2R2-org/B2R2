@@ -123,7 +123,7 @@ type EVMJmpResolution () =
     if isEvtAdded then evts
     else
       isEvtAdded <- true
-      CFGEvents.addPerFuncAnalysisEvt fn.Entry evts
+      CFGEvents.addPerFuncAnalysisEvt fn.EntryPoint evts
 
   member private __.AddEvtsForConstJmp fn src addr evts =
     __.AddPerFuncEvt fn evts

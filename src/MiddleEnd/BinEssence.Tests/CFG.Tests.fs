@@ -127,7 +127,7 @@ type CFGTest1 () =
   [<TestMethod>]
   member __.``CFGInfo: Instruction BBLMap Test`` () =
     Assert.AreEqual (8, ess.CodeManager.BBLCount)
-    (* BlkRange Test *)
+    (* BlkRange test *)
     let expected =
       [ (0x00UL, 0x18UL); (0x19UL, 0x3eUL); (0x3fUL, 0x47UL); (0x48UL, 0x51UL);
         (0x52UL, 0x54UL); (0x55UL, 0x5eUL); (0x62UL, 0x70UL); (0x71UL, 0x80UL) ]
@@ -145,7 +145,7 @@ type CFGTest1 () =
         Set.add addr acc) Set.empty
       |> Set.toArray
     CollectionAssert.AreEqual (expectedBBLAddrs, actualBBLAddrs)
-    (* InstrAddrs Test *)
+    (* InstrAddrs test *)
     let expected =
       Map.empty
       |> Map.add 0x00UL [| 0x00UL; 0x01UL; 0x04UL; 0x08UL; 0x0fUL; 0x14UL |]
@@ -165,7 +165,7 @@ type CFGTest1 () =
     [ 0x00UL; 0x19UL; 0x3fUL; 0x48UL; 0x52UL; 0x55UL; 0x62UL ]
     |> List.iter (fun addr ->
       CollectionAssert.AreEqual (Map.find addr expected, Map.find addr actual))
-    (* IRLeaders Test *)
+    (* IRLeaders test *)
     let expected =
       Map.empty
       |> Map.add 0x00UL [| (0x00UL, 0) |]
@@ -186,7 +186,7 @@ type CFGTest1 () =
     [ 0x00UL; 0x19UL; 0x3fUL; 0x48UL; 0x52UL; 0x55UL; 0x62UL ]
     |> List.iter (fun addr ->
       CollectionAssert.AreEqual (Map.find addr expected, Map.find addr actual))
-    (* Entry Test*)
+    (* Entry point test*)
     let expected =
       [ (0x00UL, 0x00UL); (0x19UL, 0x00UL); (0x3fUL, 0x00UL); (0x48UL, 0x00UL);
         (0x52UL, 0x00UL); (0x55UL, 0x00UL); (0x62UL, 0x62UL); (0x71UL, 0x71UL) ]
@@ -232,12 +232,12 @@ type CFGTest1 () =
   [<TestMethod>]
   member __.``CFGInfo: Funcs Test`` () =
     Assert.AreEqual (3, ess.CodeManager.FunctionMaintainer.Count)
-    (* Entry test *)
+    (* Entry point test *)
     let expected = [ 0UL; 0x62UL; 0x71UL ] |> List.toArray
     let actual = ess.CodeManager.FunctionMaintainer.Entries |> Seq.toArray
     CollectionAssert.AreEqual (expected, actual)
     (* Function test except CFG *)
-    (* CallEdges Test *)
+    (* CallEdges test *)
     let expected =
       Map.empty
       |> Map.add 0x00UL [| (0x14UL, RegularCallee 0x62UL);
@@ -248,11 +248,11 @@ type CFGTest1 () =
     let actual =
       ess.CodeManager.FunctionMaintainer.RegularFunctions
       |> Seq.fold (fun acc func ->
-        Map.add func.Entry func.CallEdges acc) Map.empty
+        Map.add func.EntryPoint func.CallEdges acc) Map.empty
     [ 0x00UL; 0x62UL; 0x71UL ]
     |> List.iter (fun addr ->
       CollectionAssert.AreEqual (Map.find addr expected, Map.find addr actual))
-    (* Callers Test *)
+    (* Callers test *)
     let expected =
       Map.empty
       |> Map.add 0x00UL [| |]
@@ -261,11 +261,11 @@ type CFGTest1 () =
     let actual =
       ess.CodeManager.FunctionMaintainer.Functions
       |> Seq.fold (fun acc func ->
-        Map.add func.Entry (Seq.toArray func.Callers) acc) Map.empty
+        Map.add func.EntryPoint (Seq.toArray func.Callers) acc) Map.empty
     [ 0x00UL; 0x62UL; 0x71UL ]
     |> List.iter (fun addr ->
       CollectionAssert.AreEqual (Map.find addr expected, Map.find addr actual))
-    (* SyscallSites Test *)
+    (* SyscallSites test *)
     let expected =
       Map.empty
       |> Map.add 0x00UL [| |]
@@ -275,7 +275,7 @@ type CFGTest1 () =
       ess.CodeManager.FunctionMaintainer.RegularFunctions
       |> Seq.fold (fun acc func ->
         let syscallSites = func.SyscallSites |> Seq.toArray
-        Map.add func.Entry syscallSites acc) Map.empty
+        Map.add func.EntryPoint syscallSites acc) Map.empty
     [ 0x00UL; 0x62UL; 0x71UL ]
     |> List.iter (fun addr ->
       CollectionAssert.AreEqual (Map.find addr expected, Map.find addr actual))
@@ -420,7 +420,7 @@ type CFGTest2 () =
   [<TestMethod>]
   member __.``CFGInfo: Instruction BBLMap Test`` () =
     Assert.AreEqual (3, ess.CodeManager.BBLCount)
-    (* BlkRange Test *)
+    (* BlkRange test *)
     let expected =
       [ (0x00UL, 0x0bUL); (0x0cUL, 0x23UL); (0x24UL, 0x27UL) ]
       |> List.toArray
@@ -437,7 +437,7 @@ type CFGTest2 () =
         Set.add addr acc) Set.empty
       |> Set.toArray
     CollectionAssert.AreEqual (expectedBBLAddrs, actualBBLAddrs)
-    (* InstrAddrs Test *)
+    (* InstrAddrs test *)
     let expected =
       Map.empty
       |> Map.add 0x00UL [| 0x00UL; 0x01UL; 0x02UL; 0x07UL |]
@@ -450,7 +450,7 @@ type CFGTest2 () =
     [ 0x00UL; 0x0cUL; 0x24UL ]
     |> List.iter (fun addr ->
       CollectionAssert.AreEqual (Map.find addr expected, Map.find addr actual))
-    (* IRLeaders Test *)
+    (* IRLeaders test *)
     let expected =
       Map.empty
       |> Map.add 0x00UL [| (0x00UL, 0) |]
@@ -467,7 +467,7 @@ type CFGTest2 () =
     [ 0x00UL; 0x0cUL; 0x24UL ]
     |> List.iter (fun addr ->
       CollectionAssert.AreEqual (Map.find addr expected, Map.find addr actual))
-    (* Entry Test*)
+    (* Entry point test*)
     let expected =
       [ (0x00UL, 0x00UL); (0x0cUL, 0x00UL); (0x24UL, 0x24UL) ]
       |> List.toArray
@@ -511,12 +511,12 @@ type CFGTest2 () =
   [<TestMethod>]
   member __.``CFGInfo: Funcs Test`` () =
     Assert.AreEqual (2, ess.CodeManager.FunctionMaintainer.Count)
-    (* Entry test *)
+    (* Entry point test *)
     let expected = [ 0UL; 0x24UL ] |> List.toArray
     let actual = ess.CodeManager.FunctionMaintainer.Entries |> Seq.toArray
     CollectionAssert.AreEqual (expected, actual)
     (* Function test except CFG *)
-    (* CallEdges Test *)
+    (* CallEdges test *)
     let expected =
       Map.empty
       |> Map.add 0x00UL [| (0x07UL, RegularCallee 0x24UL) |]
@@ -524,11 +524,11 @@ type CFGTest2 () =
     let actual =
       ess.CodeManager.FunctionMaintainer.RegularFunctions
       |> Seq.fold (fun acc func ->
-        Map.add func.Entry func.CallEdges acc) Map.empty
+        Map.add func.EntryPoint func.CallEdges acc) Map.empty
     [ 0x00UL; 0x24UL ]
     |> List.iter (fun addr ->
       CollectionAssert.AreEqual (Map.find addr expected, Map.find addr actual))
-    (* Callers Test *)
+    (* Callers test *)
     let expected =
       Map.empty
       |> Map.add 0x00UL [| |]
@@ -536,11 +536,11 @@ type CFGTest2 () =
     let actual =
       ess.CodeManager.FunctionMaintainer.Functions
       |> Seq.fold (fun acc func ->
-        Map.add func.Entry (Seq.toArray func.Callers) acc) Map.empty
+        Map.add func.EntryPoint (Seq.toArray func.Callers) acc) Map.empty
     [ 0x00UL; 0x24UL ]
     |> List.iter (fun addr ->
       CollectionAssert.AreEqual (Map.find addr expected, Map.find addr actual))
-    (* SyscallSites Test *)
+    (* SyscallSites test *)
     let expected =
       Map.empty
       |> Map.add 0x00UL [| |]
@@ -549,7 +549,7 @@ type CFGTest2 () =
       ess.CodeManager.FunctionMaintainer.RegularFunctions
       |> Seq.fold (fun acc func ->
         let syscallSites = func.SyscallSites |> Seq.toArray
-        Map.add func.Entry syscallSites acc) Map.empty
+        Map.add func.EntryPoint syscallSites acc) Map.empty
     [ 0x00UL; 0x24UL ]
     |> List.iter (fun addr ->
       CollectionAssert.AreEqual (Map.find addr expected, Map.find addr actual))

@@ -28,6 +28,7 @@ open B2R2
 open B2R2.FrontEnd.BinInterface
 open B2R2.FrontEnd.BinFile
 open B2R2.RearEnd.FileViewer.Helper
+open B2R2.MiddleEnd.ControlFlowAnalysis
 
 let badAccess _ _ =
   raise InvalidFileTypeException
@@ -203,14 +204,11 @@ let dumpFunctions (opts: FileViewerOpts) (fi: ELFFileInfo) =
   fi.GetFunctionSymbols ()
   |> printSymbolInfo opts.Verbose fi
 
-let dumpExceptionTable (_opts: FileViewerOpts) (fi: ELFFileInfo) =
-  fi.ELF.ExceptionTable
-  |> ARMap.iter (fun _ ladingPads ->
-    ladingPads
-    |> ARMap.iter (fun range catchBlkAddr ->
-      out.PrintLine $"{range.Min:x}:{range.Max:x} -> {catchBlkAddr:x}"
-    )
-  )
+let dumpExceptionTable hdl (_opts: FileViewerOpts) (fi: ELFFileInfo) =
+  let exnTbl, _ = ELFExceptionTable.build hdl fi
+  exnTbl
+  |> ARMap.iter (fun range catchBlkAddr ->
+    out.PrintLine $"{range.Min:x}:{range.Max:x} -> {catchBlkAddr:x}")
 
 let dumpSegments (opts: FileViewerOpts) (fi: ELFFileInfo) =
   let addrColumn = columnWidthOfAddr fi |> LeftAligned

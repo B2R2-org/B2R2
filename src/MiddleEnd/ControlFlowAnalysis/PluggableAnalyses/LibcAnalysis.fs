@@ -102,7 +102,7 @@ module private LibcAnalysisHelper =
     match codeMgr.FunctionMaintainer.TryFind "__libc_start_main" with
     | Some func when func.FunctionKind = FunctionKind.External ->
       let _, trampoline = (func :?> ExternalFunction).TrampolineAddr ()
-      let isLibcStartMain addr = addr = func.Entry || addr = trampoline
+      let isLibcStartMain addr = addr = func.EntryPoint || addr = trampoline
       match List.tryExactlyOne <| Seq.toList func.Callers with
       | None -> false
       | Some caller ->
@@ -115,7 +115,7 @@ module private LibcAnalysisHelper =
             | IndirectCallees addrs -> Set.exists isLibcStartMain addrs
             | UnresolvedIndirectCallees (_) | NullCallee -> false)
           |> fst
-        analyzeLibcStartMain builder hdl codeMgr start.Entry callSite
+        analyzeLibcStartMain builder hdl codeMgr start.EntryPoint callSite
     | _ -> false
     |> function
     | true -> PluggableAnalysisOk

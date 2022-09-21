@@ -131,7 +131,7 @@ type IndirectJumpResolution () =
     | iAddr :: rest ->
 #if CFGDEBUG
       dbglog "IndJmpRecovery" "@%x Detected indjmp @ %x"
-        (fn: RegularFunction).Entry iAddr
+        (fn: RegularFunction).EntryPoint iAddr
 #endif
       let bblInfo = (codeMgr: CodeManager).GetBBL iAddr
       let blkAddr = Set.minElement bblInfo.InstrAddrs
@@ -167,7 +167,7 @@ type IndirectJumpResolution () =
       __.OnError codeMgr dataMgr fn evts err
 
   override __.Run hdl codeMgr dataMgr fn evts =
-    codeMgr.HistoryManager.StartRecordingFunctionHistory fn.Entry
+    codeMgr.HistoryManager.StartRecordingFunctionHistory fn.EntryPoint
     let res = __.Resolve hdl codeMgr dataMgr fn evts
-    codeMgr.HistoryManager.StopRecordingFunctionHistory fn.Entry
+    codeMgr.HistoryManager.StopRecordingFunctionHistory fn.EntryPoint
     res

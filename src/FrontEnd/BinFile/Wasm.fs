@@ -66,7 +66,6 @@ type WasmFileInfo (bytes, path, baseAddr) =
   override __.GetLinkageTableEntries () = getImports wm
   override __.IsLinkageTable _addr = Utils.futureFeature () // FIXME
   override __.TryFindFunctionSymbolName (addr) = tryFindFunSymName wm addr
-  override __.ExceptionTable = ARMap.empty
   override __.ToBinaryPointer addr =
     BinaryPointer.OfSectionOpt (getSectionsByAddr wm addr |> Seq.tryHead)
   override __.ToBinaryPointer name =

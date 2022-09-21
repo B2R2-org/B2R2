@@ -223,9 +223,9 @@ let dumpJsonFiles jsonDir ess =
   ess.CodeManager.FunctionMaintainer.RegularFunctions
   |> Seq.iter (fun func ->
     let id = func.FunctionID
-    let entry = func.Entry
+    let ep = func.EntryPoint
     let disasmJsonPath = Printf.sprintf "%s/%s.disasmCFG" jsonDir id
-    let cfg, root = BinEssence.getFunctionCFG ess entry |> Result.get
+    let cfg, root = BinEssence.getFunctionCFG ess ep |> Result.get
     let disasmcfg, _ = DisasmLens.filter ess.CodeManager cfg root
     CFGExport.toJson disasmcfg disasmJsonPath)
 

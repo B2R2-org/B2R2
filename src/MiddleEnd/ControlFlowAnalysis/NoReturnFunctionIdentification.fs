@@ -99,7 +99,7 @@ module private NoReturnFunctionIdentificationHelper =
               NoReturnDecision.meet cond IsNoReturning
             | _ ->
               if v.VData.FakeBlockInfo.IsTailCall then IsReturning
-              elif fn.Entry = callee then cond
+              elif fn.EntryPoint = callee then cond
               else Utils.impossible () (* We are only considering exit nodes. *)
           ) cond
         analyzeExits codeMgr fn cond tl
@@ -293,7 +293,8 @@ type NoReturnFunctionIdentification () =
 
   override __.Run hdl codeMgr _dataMgr func evts =
 #if CFGDEBUG
-    dbglog "NoRetAnalysis" "@%x before: %A" func.Entry func.NoReturnProperty
+    dbglog "NoRetAnalysis" "@%x before: %A"
+      func.EntryPoint func.NoReturnProperty
 #endif
     match func.NoReturnProperty with
     | UnknownNoRet -> performBasicNoRetAnalysis codeMgr func
@@ -301,7 +302,7 @@ type NoReturnFunctionIdentification () =
       performParamAnalysis hdl codeMgr func
     | _ -> ()
 #if CFGDEBUG
-    dbglog "NoRetAnalysis" "@%x after: %A" func.Entry func.NoReturnProperty
+    dbglog "NoRetAnalysis" "@%x after: %A" func.EntryPoint func.NoReturnProperty
 #endif
     Ok evts
 

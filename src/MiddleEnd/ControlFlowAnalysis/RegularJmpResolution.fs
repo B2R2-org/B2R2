@@ -78,7 +78,7 @@ module private RegularJmpResolution =
   let recoverIndirectEdge bld fn src dst =
     let evts =
       CFGEvents.empty
-      |> CFGEvents.addPerFuncAnalysisEvt (fn: RegularFunction).Entry
+      |> CFGEvents.addPerFuncAnalysisEvt (fn: RegularFunction).EntryPoint
       |> CFGEvents.addEdgeEvt fn src dst IndirectJmpEdge
     (bld: ICFGBuildable).Update evts
 
@@ -89,7 +89,7 @@ module private RegularJmpResolution =
     let src = bblInfo.IRLeaders |> Set.maxElement
 #if CFGDEBUG
     dbglog "IndJmpRecovery" "@%x Recovering %x -> %x (%x)"
-      (fn: RegularFunction).Entry src.Address dst entryAddr
+      (fn: RegularFunction).EntryPoint src.Address dst entryAddr
 #endif
     recoverIndirectEdge bld fn src dst
     |> Result.bind (fun _ ->
@@ -220,7 +220,7 @@ module private RegularJmpResolution =
 #if CFGDEBUG
     dbglog "IndJmpRecovery" "Read %x from %x" addr entryAddr
 #endif
-    if addr < (fn: RegularFunction).Entry || addr >= nextFnAddr then None
+    if addr < (fn: RegularFunction).EntryPoint || addr >= nextFnAddr then None
     else Some entryAddr
 
   /// This is a less safer path than the gap-oriented search. We compute the
@@ -273,7 +273,7 @@ module private RegularJmpResolution =
 
   let rec rollback
     (codeMgr: CodeManager) (dataMgr: DataManager) fn evts jt entryAddr e =
-    let fnAddr = (fn: RegularFunction).Entry
+    let fnAddr = (fn: RegularFunction).EntryPoint
     let brAddr = jt.InstructionAddr
 #if CFGDEBUG
     dbglog "IndJmpRecovery" "@%x Failed to recover %x (tbl %x), so rollback %s"
@@ -391,7 +391,7 @@ type RegularJmpResolution (bld) =
       dbglog "IndJmpRecovery" "Found known pattern %x, %x" bAddr tAddr
 #endif
       let tbls = dataMgr.JumpTables
-      match tbls.Register fn.Entry insAddr bAddr tAddr rt with
+      match tbls.Register fn.EntryPoint insAddr bAddr tAddr rt with
       | Ok () ->
         fn.MarkIndJumpAsJumpTbl insAddr tAddr
         Ok (true, evts)
@@ -404,13 +404,13 @@ type RegularJmpResolution (bld) =
       let evts =
         if codeMgr.FunctionMaintainer.Contains (addr=target) then
           let callee = IndirectCallees <| Set.singleton target
-          CFGEvents.addPerFuncAnalysisEvt (fn: RegularFunction).Entry evts
+          CFGEvents.addPerFuncAnalysisEvt (fn: RegularFunction).EntryPoint evts
           |> CFGEvents.addIndTailCallEvt fn insAddr callee
         else
           fn.MarkIndJumpAsKnownJumpTargets insAddr (Set.singleton target)
           let bblInfo = (codeMgr: CodeManager).GetBBL insAddr
           let src = bblInfo.IRLeaders |> Set.maxElement
-          CFGEvents.addPerFuncAnalysisEvt (fn: RegularFunction).Entry evts
+          CFGEvents.addPerFuncAnalysisEvt (fn: RegularFunction).EntryPoint evts
           |> CFGEvents.addEdgeEvt fn src target IndirectJmpEdge
       Ok (false, evts)
     | _ ->
@@ -435,7 +435,7 @@ type RegularJmpResolution (bld) =
       let oldTblAddr = oldJT.JTStartAddr
 #if CFGDEBUG
       dbglog "IndJmpRecovery" "@%x Failed to make jmptbl due to overlap: %x@%x"
-        fn.Entry oldBrAddr oldFnAddr
+        fn.EntryPoint oldBrAddr oldFnAddr
 #endif
       dataMgr.JumpTables.UpdatePotentialEndPoint oldTblAddr newTblAddr
       let fnToRollback = codeMgr.FunctionMaintainer.FindRegular oldFnAddr

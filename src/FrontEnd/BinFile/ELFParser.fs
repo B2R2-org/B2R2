@@ -41,42 +41,8 @@ let private parseGlobalSymbols reloc =
     | _ -> map
   reloc.RelocByAddr |> Seq.fold folder Map.empty
 
-let inline private loadCallSiteTable lsdaPointer gccexctbl =
-  let lsda = Map.find lsdaPointer gccexctbl
-  lsda.CallSiteTable
-
-let rec private loopCallSiteTable fde acc = function
-  | [] -> acc
-  | csrec :: rest ->
-    let acc =
-      let landingPad =
-        if csrec.LandingPad = 0UL then 0UL
-        else fde.PCBegin + csrec.LandingPad
-      let blockStart = fde.PCBegin + csrec.Position
-      let blockEnd = fde.PCBegin + csrec.Position + csrec.Length - 1UL
-      ARMap.add (AddrRange (blockStart, blockEnd)) landingPad acc
-    loopCallSiteTable fde acc rest
-
-let private buildExceptionTable fde gccexctbl tbl =
-  match fde.LSDAPointer with
-  | None -> tbl
-  | Some lsdaPointer ->
-    loopCallSiteTable fde tbl (loadCallSiteTable lsdaPointer gccexctbl)
-
-let private accumulateExceptionTableInfo fde gccexctbl map =
-  fde
-  |> Array.fold (fun map fde ->
-     let functionRange = AddrRange (fde.PCBegin, fde.PCEnd - 1UL)
-     let exceptTable = buildExceptionTable fde gccexctbl ARMap.empty
-     ARMap.add functionRange exceptTable map) map
-
 let private isRelocatableFile (eHdr: ELFHeader) =
   eHdr.ELFFileType = ELFFileType.Relocatable
-
-let private computeExceptionTable excframes gccexctbl =
-  excframes
-  |> List.fold (fun map frame ->
-    accumulateExceptionTableInfo frame.FDERecord gccexctbl map) ARMap.empty
 
 let private computeUnwindingTable excframes =
   excframes
@@ -145,7 +111,6 @@ let private parseELF baseAddr regbay span (reader: IBinReader) =
   let excrel = if isRelocatableFile eHdr then Some reloc else None
   let excframes = ExceptionFrames.parse span reader cls secs isa regbay excrel
   let lsdas = ELFGccExceptTable.parse span reader cls secs
-  let exctbls = computeExceptionTable excframes lsdas
   let unwindings = computeUnwindingTable excframes
   { ELFHdr = eHdr
     BaseAddr = baseAddr
@@ -158,7 +123,6 @@ let private parseELF baseAddr regbay span (reader: IBinReader) =
     PLT = plt
     Globals = globals
     ExceptionFrame = excframes
-    ExceptionTable = exctbls
     LSDAs = lsdas
     InvalidAddrRanges = invRanges cls segs (fun s -> s.PHAddr + s.PHMemSize)
     NotInFileRanges = invRanges cls segs (fun s -> s.PHAddr + s.PHFileSize)

@@ -152,7 +152,7 @@ module CFGEvents =
           when (newFn: RegularFunction).HasVertex src ->
           CFGEdge (newFn, src, dst, edge)
         | CFGCall (_, callSite, callee, noFn)
-          when newFn.Entry < callSite && newFn.MaxAddr > callSite ->
+          when newFn.EntryPoint < callSite && newFn.MaxAddr > callSite ->
           CFGCall (newFn, callSite, callee, noFn)
         | CFGRet (_, callee, ftAddr, callSite)
           when hasRegularVertexContainingAddr newFn.IRCFG callSite ->

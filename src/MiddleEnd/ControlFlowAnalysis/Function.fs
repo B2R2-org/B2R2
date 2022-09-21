@@ -90,13 +90,13 @@ type IndirectJumpKind =
 /// Function can also represent a function defined outside of the current
 /// binary. Such functions are called ExternalFunction.
 [<AbstractClass>]
-type Function (entry, name) =
-  let fid = Addr.toFuncName entry
+type Function (entryPoint, name) =
+  let fid = Addr.toFuncName entryPoint
   let callers = SortedSet<Addr> ()
   let mutable noRetProp = UnknownNoRet
 
   /// Starting address of the function.
-  member __.Entry with get(): Addr = entry
+  member __.EntryPoint with get(): Addr = entryPoint
 
   /// Function's unique ID. This field is used to distinguish between functions.
   member __.FunctionID with get(): string = fid
@@ -130,10 +130,10 @@ module private RegularFunction =
   /// We directly compare first 4 bytes of byte code. Because
   /// __x86.get_pc_thunk- family only has 4 bytes for its function body and
   /// their values are fixed.
-  let obtainGetPCThunkReg hdl (entry: Addr) =
+  let obtainGetPCThunkReg hdl (addr: Addr) =
     match hdl.ISA.Arch with
     | Arch.IntelX86 ->
-      match BinHandle.ReadUInt (hdl, entry, 4) with
+      match BinHandle.ReadUInt (hdl, addr, 4) with
       | 0xc324048bUL -> YesGetPCThunk <| hdl.RegisterBay.RegIDFromString "EAX"
       | 0xc3241c8bUL -> YesGetPCThunk <| hdl.RegisterBay.RegIDFromString "EBX"
       | 0xc3240c8bUL -> YesGetPCThunk <| hdl.RegisterBay.RegIDFromString "ECX"
@@ -146,8 +146,8 @@ module private RegularFunction =
 
 /// Regular function is a function that has its own body in the target binary.
 /// Therefore, regular functions have their own IR-level CFG.
-type RegularFunction private (histMgr: HistoryManager, entry, name, thunkInfo) =
-  inherit Function (entry, name)
+type RegularFunction private (histMgr: HistoryManager, ep, name, thunkInfo) =
+  inherit Function (ep, name)
 
   let callEdges = SortedList<Addr, CalleeKind> ()
   let syscallSites = SortedSet<Addr> ()
@@ -161,17 +161,17 @@ type RegularFunction private (histMgr: HistoryManager, entry, name, thunkInfo) =
   let mutable ssacfg = SSACFG.init PersistentGraph
   let mutable amountUnwinding = 0L
   let mutable getPCThunkInfo = thunkInfo
-  let mutable minAddr = entry
-  let mutable maxAddr = entry
+  let mutable minAddr = ep
+  let mutable maxAddr = ep
 
   /// Create a new RegularFunction.
-  new (histMgr, hdl, entry) =
+  new (histMgr, hdl, ep) =
     let name =
-      match hdl.FileInfo.TryFindFunctionSymbolName entry with
-      | Error _ -> Addr.toFuncName entry
+      match hdl.FileInfo.TryFindFunctionSymbolName ep with
+      | Error _ -> Addr.toFuncName ep
       | Ok name -> name
-    let thunkInfo = RegularFunction.obtainGetPCThunkReg hdl entry
-    RegularFunction (histMgr, entry, name, thunkInfo)
+    let thunkInfo = RegularFunction.obtainGetPCThunkReg hdl ep
+    RegularFunction (histMgr, ep, name, thunkInfo)
 
   override __.FunctionKind with get() = FunctionKind.Regular
 
@@ -625,7 +625,8 @@ type RegularFunction private (histMgr: HistoryManager, entry, name, thunkInfo) =
     if needRecalcSSA then
       let root =
         __.IRCFG.FindVertexBy (fun v ->
-          v.VData.PPoint.Address = __.Entry && not <| v.VData.IsFakeBlock ())
+          v.VData.PPoint.Address = __.EntryPoint
+          && not <| v.VData.IsFakeBlock ())
       let struct (ssa, root) = SSACFG.ofIRCFG hdl __.IRCFG root
       let struct (ssa, root) = SSAPromotion.promote hdl ssa root
       ssacfg <- ssa
@@ -634,7 +635,8 @@ type RegularFunction private (histMgr: HistoryManager, entry, name, thunkInfo) =
     else
       let root =
         ssacfg.FindVertexBy (fun v ->
-          v.VData.PPoint.Address = __.Entry && not <| v.VData.IsFakeBlock ())
+          v.VData.PPoint.Address = __.EntryPoint
+          && not <| v.VData.IsFakeBlock ())
       ssacfg, root
 
   member private __.AddXRef entry xrefs callee =
@@ -646,19 +648,19 @@ type RegularFunction private (histMgr: HistoryManager, entry, name, thunkInfo) =
   member __.AccumulateXRefs xrefs =
     if callEdgeChanged then
       callEdgeChanged <- false
-      let entry = __.Entry
+      let ep = __.EntryPoint
       callEdges
       |> Seq.fold (fun xrefs (KeyValue (_, callee)) ->
         match callee with
-        | RegularCallee callee -> __.AddXRef entry xrefs callee
-        | IndirectCallees callees -> Set.fold (__.AddXRef entry) xrefs callees
+        | RegularCallee callee -> __.AddXRef ep xrefs callee
+        | IndirectCallees callees -> Set.fold (__.AddXRef ep) xrefs callees
         | UnresolvedIndirectCallees | NullCallee -> xrefs) xrefs
     else xrefs
 
   /// Return the sorted gaps' ranges. Each range is a mapping from a start
   /// address to an end address (exclusive).
   member __.GapAddresses
-    with get() = coverage.ComputeGapAddrs __.Entry __.MaxAddr
+    with get() = coverage.ComputeGapAddrs __.EntryPoint __.MaxAddr
 
   /// Check if the function regards the given address as a valid instruction
   /// address.
@@ -670,8 +672,8 @@ type RegularFunction private (histMgr: HistoryManager, entry, name, thunkInfo) =
 /// entry with its corresponding GOT entry to consider such a pair as an
 /// external function, where its entry is located at the GOT and its trampoline
 /// is at the PLT.
-type ExternalFunction private (entry, name, trampoline) =
-  inherit Function (entry, name)
+type ExternalFunction private (ep, name, trampoline) =
+  inherit Function (ep, name)
 
   /// Known list of no-return function names.
   static let knownNoReturnFuncs =
@@ -699,9 +701,9 @@ type ExternalFunction private (entry, name, trampoline) =
     | _ -> addr <- trampoline; true
 
   /// Create a new ExternalFunction.
-  static member Init entry name trampoline =
+  static member Init ep name trampoline =
     let noretProp =
       if Array.contains name knownNoReturnFuncs then NoRet
       elif name = "error" || name = "error_at_line" then ConditionalNoRet 1
       else NotNoRet
-    ExternalFunction (entry, name, trampoline, NoReturnProperty = noretProp)
+    ExternalFunction (ep, name, trampoline, NoReturnProperty = noretProp)

@@ -112,8 +112,6 @@ type RawFileInfo (bytes: byte [], path, isa, baseAddr) =
     if symbolMap.ContainsKey(_addr) then Ok symbolMap[_addr].Name
     else Error ErrorCase.SymbolNotFound
 
-  override __.ExceptionTable = ARMap.empty
-
   override __.ToBinaryPointer addr =
     if addr = baseAddr then BinaryPointer (baseAddr, 0, size)
     else BinaryPointer.Null

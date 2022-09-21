@@ -188,28 +188,26 @@ module BBLManager =
     let dst = ProgramPoint (dstAddr, 0)
     { tmp with InterEdges = (src, dst, edge) :: tmp.InterEdges }
 
-  let private addExceptionEdgeEvents callSite excTbl fn entry caller tmp =
-    match (excTbl: ExceptionTable).TryFindExceptionTarget entry callSite with
+  let private addExceptionEdgeEvents callSite excTbl fn caller tmp =
+    match (excTbl: ExceptionTable).TryFindExceptionTarget callSite with
     | Some target ->
       tmp.NextEvents
       |> CFGEvents.addEdgeEvt fn caller target ExceptionFallThroughEdge
     | None -> tmp.NextEvents
 
   let private addCallEdgeEvents callSite excTbl fn caller target ftAddr tmp =
-    let entry = (fn: RegularFunction).Entry
     if target = ftAddr then (* Clang often produces PC-getter like this. *)
       CFGEvents.addRetEvt fn target ftAddr callSite tmp.NextEvents
       |> CFGEvents.addEdgeEvt fn caller ftAddr CallFallThroughEdge
       |> CFGEvents.addCallEvt fn callSite target true
       |> updateNextEvents tmp
     else
-      addExceptionEdgeEvents callSite excTbl fn entry caller tmp
+      addExceptionEdgeEvents callSite excTbl fn caller tmp
       |> CFGEvents.addCallEvt fn callSite target false
       |> updateNextEvents tmp
 
   let private addIndirectCallEvents callSite excTbl fn caller tmp =
-    let entry = (fn: RegularFunction).Entry
-    addExceptionEdgeEvents callSite excTbl fn entry caller tmp
+    addExceptionEdgeEvents callSite excTbl fn caller tmp
     |> CFGEvents.addIndCallEvt fn callSite
     |> updateNextEvents tmp
 
@@ -435,7 +433,7 @@ module BBLManager =
         InstrAddrs =
           instrs |> List.map (fun i -> i.Instruction.Address) |> Set.ofList
         IRLeaders = tmp.Leaders
-        FunctionEntry = fn.Entry }, tmp.NextEvents
+        FunctionEntry = fn.EntryPoint }, tmp.NextEvents
     )
 
   let initBBLInfo blkRange blkAddrs irLeaders funcEntry =

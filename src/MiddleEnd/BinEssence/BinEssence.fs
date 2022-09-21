@@ -64,11 +64,6 @@ module BinEssence =
       else entry, ArchOperationMode.ARMMode
     | _ -> entry, ArchOperationMode.NoMode
 
-  let private addEntriesFromExceptionTable (codeMgr: CodeManager) entries =
-    codeMgr.ExceptionTable.Fold (fun entries (KeyValue (entry, _)) ->
-      if codeMgr.ExceptionTable.IsNoEntryFDE entry then entries
-      else Set.add entry entries) entries
-
   /// This function returns an initial sequence of entry points obtained from
   /// the binary itself (e.g., from its symbol information). Therefore, if the
   /// binary is stripped, the returned sequence will be incomplete, and we need
@@ -78,7 +73,7 @@ module BinEssence =
     let entries =
       fi.GetFunctionAddresses ()
       |> Set.ofSeq
-      |> addEntriesFromExceptionTable ess.CodeManager
+      |> Set.union (ess.CodeManager.ExceptionTable.GetFunctionEntryPoints ())
     fi.EntryPoint
     |> Option.fold (fun acc addr ->
       if fi.FileType = FileType.LibFile && addr = 0UL then acc

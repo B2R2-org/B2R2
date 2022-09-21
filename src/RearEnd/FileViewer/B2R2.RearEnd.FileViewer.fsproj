@@ -17,6 +17,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\FrontEnd\BinInterface\B2R2.FrontEnd.BinInterface.fsproj" />
+    <ProjectReference Include="..\..\MiddleEnd\ControlFlowAnalysis\B2R2.MiddleEnd.ControlFlowAnalysis.fsproj" />
     <ProjectReference Include="..\Core\B2R2.RearEnd.Core.fsproj" />
   </ItemGroup>
 

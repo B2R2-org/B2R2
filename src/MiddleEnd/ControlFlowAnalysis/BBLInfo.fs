@@ -34,6 +34,6 @@ type BBLInfo = {
   InstrAddrs: Set<Addr>
   /// IR-level leaders (program points) within the bbl.
   IRLeaders: Set<ProgramPoint>
-  /// Function Entry
+  /// Function entry point.
   FunctionEntry: Addr
 }

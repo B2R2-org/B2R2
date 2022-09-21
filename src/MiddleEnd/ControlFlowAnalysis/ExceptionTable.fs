@@ -24,61 +24,83 @@
 
 namespace B2R2.MiddleEnd.ControlFlowAnalysis
 
-open System.Collections.Generic
 open B2R2
+open B2R2.FrontEnd.BinFile
 open B2R2.FrontEnd.BinInterface
 
-[<AutoOpen>]
-module private ExceptionTable =
+module ELFExceptionTable =
 
-  /// If an FDE contains an adderess which is referenced by a jump instruction
-  /// belonging to a basic block at a landing pad, then we decide that the FDE
-  /// is not for a valid function.
-  let updateNoEntryFDEs hdl (noEntryFDEs: HashSet<Addr>) funcRange target =
-    match BinHandle.ParseBBlock (hdl, addr=target) with
+  open B2R2.FrontEnd.BinFile.ELF
+
+  let inline private loadCallSiteTable lsdaPointer lsdas =
+    let lsda = Map.find lsdaPointer lsdas
+    lsda.CallSiteTable
+
+  /// If a landing pad has a direct branch to another function, then we consider
+  /// the frame containing the lading pad as a non-function FDE.
+  let private checkFDEIsFunction hdl fde landingPad =
+    match BinHandle.ParseBBlock (hdl, addr=landingPad) with
     | Ok (blk) ->
       let last = List.last blk
       if last.IsCall () |> not then
         match last.DirectBranchTarget () with
-        | true, jmpTarget ->
-          if (funcRange: AddrRange).Min <= jmpTarget
-            && jmpTarget <= funcRange.Max
-          then ()
-          else
-            match ARMap.tryFindKey jmpTarget hdl.FileInfo.ExceptionTable with
-            | Some rng -> noEntryFDEs.Add rng.Min |> ignore
-            | _ -> ()
-        | _ -> ()
-      else ()
-    | _ -> ()
+        | true, jmpTarget -> fde.PCBegin <= jmpTarget && jmpTarget < fde.PCEnd
+        | _ -> true
+      else true
+    | _ -> true
+
+  let rec private loopCallSiteTable hdl fde isFDEFunc acc = function
+    | [] -> acc, isFDEFunc
+    | csrec :: rest ->
+      let blockStart = fde.PCBegin + csrec.Position
+      let blockEnd = fde.PCBegin + csrec.Position + csrec.Length - 1UL
+      let landingPad =
+        if csrec.LandingPad = 0UL then 0UL else fde.PCBegin + csrec.LandingPad
+      if landingPad = 0UL then loopCallSiteTable hdl fde isFDEFunc acc rest
+      else
+        let acc = ARMap.add (AddrRange (blockStart, blockEnd)) landingPad acc
+        let isFDEFunc = checkFDEIsFunction hdl fde landingPad
+        loopCallSiteTable hdl fde isFDEFunc acc rest
+
+  let private buildExceptionTable hdl fde lsdas tbl =
+    match fde.LSDAPointer with
+    | None -> tbl, true
+    | Some lsdaPointer ->
+      loopCallSiteTable hdl fde true tbl (loadCallSiteTable lsdaPointer lsdas)
+
+  let private accumulateExceptionTableInfo acc hdl fde lsdas =
+    fde
+    |> Array.fold (fun (exnTbl, fnEntryPoints) fde ->
+       let exnTbl, isFDEFunction = buildExceptionTable hdl fde lsdas exnTbl
+       let fnEntryPoints =
+        if isFDEFunction then Set.add fde.PCBegin fnEntryPoints
+        else fnEntryPoints
+       exnTbl, fnEntryPoints) acc
+
+  let private computeExceptionTable hdl excframes lsdas =
+    excframes
+    |> List.fold (fun acc frame ->
+      accumulateExceptionTableInfo acc hdl frame.FDERecord lsdas
+    ) (ARMap.empty, Set.empty)
+
+  let build hdl (elf: ELFFileInfo) =
+    computeExceptionTable hdl elf.ELF.ExceptionFrame elf.ELF.LSDAs
 
 /// ExceptionTable holds parsed exception information of a binary code (given by
 /// the BinHandle).
 type ExceptionTable (hdl) =
-  let tbl = Dictionary<Addr, ARMap<Addr>> ()
-  let noEntryFDEs = HashSet<Addr> ()
-  do
-    hdl.FileInfo.ExceptionTable
-    |> ARMap.iter (fun funcRange funcTbl ->
-      let funcInfo =
-        funcTbl
-        |> ARMap.fold (fun funcTbl range target ->
-          if target = 0UL then funcTbl
-          else
-            updateNoEntryFDEs hdl noEntryFDEs funcRange target
-            ARMap.add range target funcTbl) ARMap.empty
-      tbl[funcRange.Min] <- funcInfo)
+  let exnTbl, funcEntryPoints =
+    match hdl.FileInfo.FileFormat with
+    | FileFormat.ELFBinary ->
+      ELFExceptionTable.build hdl (hdl.FileInfo :?> ELFFileInfo)
+    | _ -> ARMap.empty, Set.empty
 
-  /// For the given function entry and an instruction address, find the landing
-  /// pad (exception target) of the instruction.
-  member __.TryFindExceptionTarget entry insAddr =
-    match tbl.TryGetValue entry with
-    | true, funcTbl -> ARMap.tryFindByAddr insAddr funcTbl
-    | _ -> None
+  /// For a given instruction address, find the landing pad (exception target)
+  /// of the instruction.
+  member __.TryFindExceptionTarget insAddr =
+    ARMap.tryFindByAddr insAddr exnTbl
 
-  member __.IsNoEntryFDE addr =
-    noEntryFDEs.Contains addr
-
-  /// Fold every table entry.
-  member __.Fold fn acc =
-    tbl |> Seq.fold fn acc
+  /// Return a set of function entry points that are visible from exception
+  /// table information.
+  member __.GetFunctionEntryPoints () =
+    funcEntryPoints

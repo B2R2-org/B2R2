@@ -29,7 +29,6 @@ open B2R2.BinIR
 open B2R2.BinIR.SSA
 open B2R2.FrontEnd.BinInterface
 open B2R2.MiddleEnd.ControlFlowAnalysis
-open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.DataFlow
 
 type EVMCodeCopyAnalysis () =

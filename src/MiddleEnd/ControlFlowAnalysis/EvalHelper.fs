@@ -86,7 +86,7 @@ let evalFunctionUntilStopFn hdl (fn: RegularFunction) stopFn =
           | Some v -> evalLoop v st' stopFn
           | None -> None
       | Error _ -> None
-  let pc = fn.Entry
+  let pc = fn.EntryPoint
   let st = initState hdl pc
   let root = fn.FindVertex (ProgramPoint (pc, 0))
   evalLoop root st stopFn

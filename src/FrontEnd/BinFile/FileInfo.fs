@@ -266,13 +266,6 @@ type FileInfo () =
   abstract member TryFindFunctionSymbolName: Addr -> Result<string, ErrorCase>
 
   /// <summary>
-  ///   An exception table, which is a mapping from a function address to a set
-  ///   of landing pads. The landing pads are mappings from a range of
-  ///   instruction addresses to a landing pad address.
-  /// </summary>
-  abstract member ExceptionTable: ARMap<ARMap<Addr>>
-
-  /// <summary>
   ///   Convert the section at the address (Addr) into a binary pointer, which
   ///   can exclusively point to binary contents of the section.
   /// </summary>

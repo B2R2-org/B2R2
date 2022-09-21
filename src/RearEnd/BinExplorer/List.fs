@@ -37,7 +37,7 @@ type CmdList () =
 
   let listFunctions ess =
     ess.CodeManager.FunctionMaintainer.RegularFunctions
-    |> Seq.map (fun c -> c.Entry, c.FunctionID)
+    |> Seq.map (fun c -> c.EntryPoint, c.FunctionID)
     |> Seq.sortBy fst
     |> Seq.map (createFuncString ess.BinHandle)
     |> Seq.toArray

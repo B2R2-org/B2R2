@@ -155,7 +155,8 @@ let handleRegularCFG req resp (name: string) (ess: BinEssence) cfgType =
   | None -> answer req resp None
   | Some func ->
     try
-      let cfg, root = BinEssence.getFunctionCFG ess func.Entry |> Result.get
+      let cfg, root =
+        BinEssence.getFunctionCFG ess func.EntryPoint |> Result.get
       let s = cfgToJSON cfgType ess cfg root
       Some (defaultEnc.GetBytes s) |> answer req resp
     with e ->
@@ -185,7 +186,7 @@ let handleFunctions req resp arbiter =
   let ess = Protocol.getBinEssence arbiter
   let names =
     ess.CodeManager.FunctionMaintainer.RegularFunctions
-    |> Seq.sortBy (fun c -> c.Entry)
+    |> Seq.sortBy (fun c -> c.EntryPoint)
     |> Seq.map (fun c -> { FuncID = c.FunctionID; FuncName = c.FunctionName })
     |> Seq.toArray
   Some (json<(JsonFuncInfo) []> names |> defaultEnc.GetBytes)

@@ -62,7 +62,8 @@ type CmdShow () =
       sb.Append (prefix + callee.FunctionName + noret + "\n")
     else
       sb.Append (prefix + callee.FunctionName
-               + noret + " @ " + String.u64ToHexNoPrefix callee.Entry + "\n")
+               + noret + " @ "
+               + String.u64ToHexNoPrefix callee.EntryPoint + "\n")
 
   member private __.CalleeToString ess (sb: StringBuilder) callee =
     __.CalleeToSimpleString "" sb callee

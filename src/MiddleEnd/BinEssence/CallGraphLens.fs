@@ -60,11 +60,12 @@ module CallGraphLens =
       func.CallEdges
       |> Array.fold (fun callCFG (_, callee) ->
         match callee with
-        | RegularCallee target -> addEdge ess vMap func.Entry target callCFG
+        | RegularCallee target ->
+          addEdge ess vMap func.EntryPoint target callCFG
         | IndirectCallees targets ->
           targets
           |> Set.fold (fun callCFG target ->
-            addEdge ess vMap func.Entry target callCFG) callCFG
+            addEdge ess vMap func.EntryPoint target callCFG) callCFG
         | UnresolvedIndirectCallees (_) | NullCallee -> callCFG
       ) callCFG) callCFG
 

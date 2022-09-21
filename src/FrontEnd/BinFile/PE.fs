@@ -67,7 +67,6 @@ type PEFileInfo (bytes, path, baseAddr, rawpdb) =
   override __.GetLinkageTableEntries () = getImportTable pe
   override __.IsLinkageTable addr = isImportTable pe addr
   override __.TryFindFunctionSymbolName (addr) = tryFindFuncSymb pe addr
-  override __.ExceptionTable = ARMap.empty
   override __.ToBinaryPointer addr =
     BinaryPointer.OfSectionOpt (getSectionsByAddr pe addr |> Seq.tryHead)
   override __.ToBinaryPointer name =

@@ -93,9 +93,9 @@ let dumpFunctions (opts: FileViewerOpts) (fi: FileInfo) =
     PEViewer.dumpFunctions
     MachViewer.dumpFunctions
 
-let dumpExceptionTable (opts: FileViewerOpts) (fi: FileInfo) =
+let dumpExceptionTable hdl (opts: FileViewerOpts) (fi: FileInfo) =
   dumpSpecific opts fi "Exception Table"
-    ELFViewer.dumpExceptionTable
+    (ELFViewer.dumpExceptionTable hdl)
     PEViewer.badAccess
     MachViewer.badAccess
 
@@ -171,7 +171,7 @@ let printAll opts hdl (fi: FileInfo) =
   dumpSymbols opts fi
   dumpRelocs opts fi
   dumpFunctions opts fi
-  dumpExceptionTable opts fi
+  dumpExceptionTable hdl opts fi
   match fi with
    | :? ELFFileInfo as fi ->
      dumpSegments opts fi
@@ -197,7 +197,7 @@ let printSelectively hdl opts fi = function
   | DisplaySymbols -> dumpSymbols opts fi
   | DisplayRelocations -> dumpRelocs opts fi
   | DisplayFunctions -> dumpFunctions opts fi
-  | DisplayExceptionTable -> dumpExceptionTable opts fi
+  | DisplayExceptionTable -> dumpExceptionTable hdl opts fi
   | DisplayELFSpecific ELFDisplayProgramHeader -> dumpSegments opts fi
   | DisplayELFSpecific ELFDisplayPLT -> dumpLinkageTable opts fi
   | DisplayELFSpecific ELFDisplayEHFrame -> dumpEHFrame hdl fi

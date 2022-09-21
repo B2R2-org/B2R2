@@ -66,17 +66,17 @@ type FunctionMaintainer private (hdl, histMgr: HistoryManager) =
   member __.Functions
     with get () = addrMap |> Seq.map (fun (KeyValue (_, f)) -> f)
 
-  /// Return the sequence of function entry addresses.
+  /// Return the sequence of function entry point addresses.
   member __.Entries
     with get () = addrMap |> Seq.map (fun (KeyValue (a, _)) -> a)
 
-  /// Check if the given address belongs to a known function entry address.
+  /// Check if the given address is a known function entry point address.
   member __.Contains (addr) = addrMap.ContainsKey addr
 
   /// Check if there is a function with the given name.
   member __.Contains (name) = nameMap.ContainsKey name
 
-  /// Try to obtain a function by the given function entry address.
+  /// Try to obtain a function by the given function entry point address.
   member __.TryFind (addr) = addrMap.TryGetValue addr |> Utils.tupleToOpt
 
   /// Try to obtain a function by the given function name.
@@ -85,17 +85,17 @@ type FunctionMaintainer private (hdl, histMgr: HistoryManager) =
     | true, addr -> __.TryFind addr
     | _ -> None
 
-  /// Obtain a function by the given function entry address.
+  /// Obtain a function by the given function entry point address.
   member __.Find (addr) = addrMap[addr]
 
   /// Obtain a function by the given function name.
   member __.Find (name) = addrMap[nameMap[name]]
 
-  /// Obtain a regular function by the given function entry address.
+  /// Obtain a regular function by the given function entry point address.
   member __.TryFindRegular (addr) =
     regularMap.TryGetValue addr |> Utils.tupleToOpt
 
-  /// Obtain a regular function by the given function entry address.
+  /// Obtain a regular function by the given function entry point address.
   member __.FindRegular (addr) = regularMap[addr]
 
   /// Returns an array of regualr functions.
@@ -103,7 +103,7 @@ type FunctionMaintainer private (hdl, histMgr: HistoryManager) =
 
   /// Return the next function address relative to the given function (fn).
   member __.FindNextFunctionAddr (fn: RegularFunction) =
-    match SortedList.findLeastUpperBoundKey (fn.Entry + 1UL) addrMap with
+    match SortedList.findLeastUpperBoundKey (fn.EntryPoint + 1UL) addrMap with
     | Some ubAddr -> ubAddr
     | None -> System.UInt64.MaxValue
 
@@ -116,29 +116,29 @@ type FunctionMaintainer private (hdl, histMgr: HistoryManager) =
 
   /// Add an external function. This function should not be called outside.
   member private __.AddFunction (func: ExternalFunction) =
-    nameMap[func.FunctionID] <- func.Entry
-    nameMap[func.FunctionName] <- func.Entry
-    addrMap[func.Entry] <- func
+    nameMap[func.FunctionID] <- func.EntryPoint
+    nameMap[func.FunctionName] <- func.EntryPoint
+    addrMap[func.EntryPoint] <- func
     match func.TrampolineAddr () with
     | true, addr -> addrMap[addr] <- func
     | _ -> ()
 
   /// Add a new regular function
   member __.AddFunction (func: RegularFunction) =
-    let entry = func.Entry
-    nameMap[func.FunctionID] <- entry
-    nameMap[func.FunctionName] <- entry
-    addrMap[entry] <- func
-    regularMap[entry] <- func
+    let ep = func.EntryPoint
+    nameMap[func.FunctionID] <- ep
+    nameMap[func.FunctionName] <- ep
+    addrMap[ep] <- func
+    regularMap[ep] <- func
 
-  /// Get a regular function at the entry. If the entry does not contain any
+  /// Get a regular function at the address. If the addr does not belong to any
   /// function, create a new one and return it.
-  member __.GetOrAddFunction entry =
-    match regularMap.TryGetValue entry with
+  member __.GetOrAddFunction addr =
+    match regularMap.TryGetValue addr with
     | true, f -> f
     | false, _ ->
-      histMgr.Record <| CreatedFunction entry
-      let f = RegularFunction (histMgr, hdl, entry)
+      histMgr.Record <| CreatedFunction addr
+      let f = RegularFunction (histMgr, hdl, addr)
       __.AddFunction f
       f
 

@@ -65,7 +65,6 @@ type MachFileInfo (bytes, path, isa, baseAddr) =
   override __.GetLinkageTableEntries () = getPLT mach
   override __.IsLinkageTable addr = isPLT mach addr
   override __.TryFindFunctionSymbolName (addr) = tryFindFuncSymb mach addr
-  override __.ExceptionTable = ARMap.empty
   override __.ToBinaryPointer addr =
     BinaryPointer.OfSectionOpt (getSectionsByAddr mach addr |> Seq.tryHead)
   override __.ToBinaryPointer name =

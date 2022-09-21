@@ -1200,10 +1200,11 @@ type FrameDescriptionEntry = {
   UnwindingInfo: UnwindingEntry list
 }
 
-/// The main information block of .eh_frame.
+/// The main information block of .eh_frame. This exists roughly for every
+/// object file, although one object file may have multiple CFIs.
 type CallFrameInformation = {
   CIERecord: CommonInformationEntry
-  FDERecord: FrameDescriptionEntry []
+  FDERecord: FrameDescriptionEntry[]
 }
 
 /// Main ELF format representation.
@@ -1228,10 +1229,8 @@ type ELF = {
   PLT: ARMap<LinkageTableEntry>
   /// Global symbols (such as R_X86_64_GLOB_DAT).
   Globals: Map<Addr, ELFSymbol>
-  /// Exception frame.
+  /// Exception frames.
   ExceptionFrame: CallFrameInformation list
-  /// Exception table.
-  ExceptionTable: ARMap<ARMap<Addr>>
   /// LSDAs (Language Specific Data Areas).
   LSDAs: Map<Addr, LanguageSpecificDataArea>
   /// Invalid address ranges.
