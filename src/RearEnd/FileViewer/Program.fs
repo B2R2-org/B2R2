@@ -93,6 +93,12 @@ let dumpFunctions (opts: FileViewerOpts) (fi: FileInfo) =
     PEViewer.dumpFunctions
     MachViewer.dumpFunctions
 
+let dumpExceptionTable (opts: FileViewerOpts) (fi: FileInfo) =
+  dumpSpecific opts fi "Exception Table"
+    ELFViewer.dumpExceptionTable
+    PEViewer.badAccess
+    MachViewer.badAccess
+
 let dumpSegments (opts: FileViewerOpts) (fi: FileInfo) =
   dumpSpecific opts fi "Segment Information"
     ELFViewer.dumpSegments PEViewer.badAccess MachViewer.badAccess
@@ -105,9 +111,9 @@ let dumpEHFrame hdl (fi: FileInfo) =
   dumpSpecific hdl fi ".eh_frame Information"
     ELFViewer.dumpEHFrame PEViewer.badAccess MachViewer.badAccess
 
-let dumpLSDA hdl (fi: FileInfo) =
+let dumpGccExceptTable hdl (fi: FileInfo) =
   dumpSpecific hdl fi ".gcc_except_table Information"
-    ELFViewer.dumpLSDA PEViewer.badAccess MachViewer.badAccess
+    ELFViewer.dumpGccExceptTable PEViewer.badAccess MachViewer.badAccess
 
 let dumpNotes hdl (fi: FileInfo) =
   dumpSpecific hdl fi ".notes Information"
@@ -165,12 +171,13 @@ let printAll opts hdl (fi: FileInfo) =
   dumpSymbols opts fi
   dumpRelocs opts fi
   dumpFunctions opts fi
+  dumpExceptionTable opts fi
   match fi with
    | :? ELFFileInfo as fi ->
      dumpSegments opts fi
      dumpLinkageTable opts fi
      dumpEHFrame hdl fi
-     dumpLSDA hdl fi
+     dumpGccExceptTable hdl fi
    | :? PEFileInfo as fi ->
      dumpImports opts fi
      dumpExports opts fi
@@ -190,10 +197,11 @@ let printSelectively hdl opts fi = function
   | DisplaySymbols -> dumpSymbols opts fi
   | DisplayRelocations -> dumpRelocs opts fi
   | DisplayFunctions -> dumpFunctions opts fi
+  | DisplayExceptionTable -> dumpExceptionTable opts fi
   | DisplayELFSpecific ELFDisplayProgramHeader -> dumpSegments opts fi
   | DisplayELFSpecific ELFDisplayPLT -> dumpLinkageTable opts fi
   | DisplayELFSpecific ELFDisplayEHFrame -> dumpEHFrame hdl fi
-  | DisplayELFSpecific ELFDisplayLSDA -> dumpLSDA hdl fi
+  | DisplayELFSpecific ELFDisplayGccExceptTable -> dumpGccExceptTable hdl fi
   | DisplayELFSpecific ELFDisplayNotes -> dumpNotes hdl fi
   | DisplayPESpecific PEDisplayImports -> dumpImports opts fi
   | DisplayPESpecific PEDisplayExports -> dumpExports opts fi

@@ -203,6 +203,15 @@ let dumpFunctions (opts: FileViewerOpts) (fi: ELFFileInfo) =
   fi.GetFunctionSymbols ()
   |> printSymbolInfo opts.Verbose fi
 
+let dumpExceptionTable (_opts: FileViewerOpts) (fi: ELFFileInfo) =
+  fi.ELF.ExceptionTable
+  |> ARMap.iter (fun _ ladingPads ->
+    ladingPads
+    |> ARMap.iter (fun range catchBlkAddr ->
+      out.PrintLine $"{range.Min:x}:{range.Max:x} -> {catchBlkAddr:x}"
+    )
+  )
+
 let dumpSegments (opts: FileViewerOpts) (fi: ELFFileInfo) =
   let addrColumn = columnWidthOfAddr fi |> LeftAligned
   if opts.Verbose then
@@ -321,7 +330,7 @@ let dumpEHFrame hdl (fi: ELFFileInfo) =
     )
   )
 
-let dumpLSDA _hdl (fi: ELFFileInfo) =
+let dumpGccExceptTable _hdl (fi: ELFFileInfo) =
   let addrColumn = columnWidthOfAddr fi |> LeftAligned
   let cfg = [ addrColumn; LeftAligned 15; LeftAligned 15; addrColumn ]
   out.PrintRow (true, cfg, [ "Address"; "LP App"; "LP Val"; "TT End" ])

@@ -116,6 +116,13 @@ type FileViewerOpts () =
     CmdOpts.New (descr = "Display the function symbols",
                  callback = cb, short = "-f", long = "--functions")
 
+  /// "-x" or "--exceptions" option for displaying the exception table.
+  static member OptExceptionTable () =
+    let cb opts _ =
+      FileViewerOpts.AddOpt opts DisplayExceptionTable
+    CmdOpts.New (descr = "Display the exception table",
+                 callback = cb, short = "-x", long = "--exceptions")
+
   /// "--program-headers" option for displaying the program headers.
   static member OptProgramHeaders () =
     let cb opts _ =
@@ -137,13 +144,13 @@ type FileViewerOpts () =
     CmdOpts.New (descr = "Display the eh_frame information",
                  callback = cb, long = "--ehframe")
 
-  /// "--lsda" option for displaying the .gcc_except_table section information,
-  /// i.e., LSDAs.
-  static member OptLSDA () =
+  /// "--gcc-except-table" option for displaying the .gcc_except_table section
+  /// information.
+  static member OptGccExceptTable () =
     let cb opts _ =
-      FileViewerOpts.AddOpt opts (DisplayELFSpecific ELFDisplayLSDA)
-    CmdOpts.New (descr = "Display the LSDA information",
-                 callback = cb, long = "--lsda")
+      FileViewerOpts.AddOpt opts (DisplayELFSpecific ELFDisplayGccExceptTable)
+    CmdOpts.New (descr = "Display the gcc_except_table information",
+                 callback = cb, long = "--gcc-except-table")
 
   /// "--notes" option for displaying the notes section information.
   static member OptNotes () =
@@ -239,6 +246,7 @@ module Cmd =
       FileViewerOpts.OptSymbols ()
       FileViewerOpts.OptRelocs ()
       FileViewerOpts.OptFunctions ()
+      FileViewerOpts.OptExceptionTable ()
 
       CmdOpts.New (descr = "", dummy = true)
       CmdOpts.New (descr = "[ELF options]", dummy = true)
@@ -247,7 +255,7 @@ module Cmd =
       FileViewerOpts.OptProgramHeaders ()
       FileViewerOpts.OptPLT ()
       FileViewerOpts.OptEHFrame ()
-      FileViewerOpts.OptLSDA ()
+      FileViewerOpts.OptGccExceptTable ()
       FileViewerOpts.OptNotes ()
 
       CmdOpts.New (descr = "", dummy = true)
