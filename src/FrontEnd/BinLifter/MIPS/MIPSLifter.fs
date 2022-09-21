@@ -1017,7 +1017,7 @@ let sllv insInfo insLen ctxt =
 let slt insInfo insLen ctxt =
   let ir = !*ctxt
   let rd, rs, rt = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
-  let cond = AST.lt rs rt
+  let cond = AST.slt rs rt
   let rtVal =
     AST.ite cond (AST.num1 ctxt.WordBitSize) (AST.num0 ctxt.WordBitSize)
   !<ir insLen
@@ -1028,7 +1028,7 @@ let slt insInfo insLen ctxt =
 let slti insInfo insLen ctxt =
   let ir = !*ctxt
   let rt, rs, imm = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
-  let cond = AST.lt rs imm
+  let cond = AST.slt rs imm
   let rtVal =
     AST.ite cond (AST.num1 ctxt.WordBitSize) (AST.num0 ctxt.WordBitSize)
   !<ir insLen
