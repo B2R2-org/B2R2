@@ -322,10 +322,11 @@ let transOprToExprOfAND ins ctxt addr =
 
 let transOprToExprOfBFM ins ctxt addr =
   match ins.Operands with
-  | FourOperands (o1, o2, o3, Immediate o4) when ins.Opcode = Opcode.BFI ->
+  | FourOperands (o1, o2, Immediate o3, Immediate o4)
+    when ins.Opcode = Opcode.BFI ->
     transOprToExpr ins ctxt addr o1,
     transOprToExpr ins ctxt addr o2,
-    transOprToExpr ins ctxt addr o3, (* FIXME: #(-<lsb> MOD 32/64) *)
+    transOprToExpr ins ctxt addr (Immediate (-o3 % (int64 ins.OprSize))),
     transOprToExpr ins ctxt addr (Immediate (o4 + 1L))
   | FourOperands (o1, o2, Immediate o3, Immediate o4)
     when ins.Opcode = Opcode.BFXIL ->
@@ -621,23 +622,11 @@ let transOprToExprOfUBFM ins ctxt addr =
     transOprToExpr ins ctxt addr o2,
     numI64 0L ins.OprSize,
     numI64 15L ins.OprSize
-  | ThreeOperands (o1, o2, Immediate o3) when ins.Opcode = Opcode.LSL ->
-    let opr3 = Immediate o3 (* FIXME: #(-<shift> MOD 32/64) *)
-    let width = RegType.toBitWidth ins.OprSize - 1 |> int64
+  | FourOperands (o1, o2, Immediate o3, Immediate o4)
+    when ins.Opcode = Opcode.UBFIZ ->
     transOprToExpr ins ctxt addr o1,
     transOprToExpr ins ctxt addr o2,
-    transOprToExpr ins ctxt addr opr3,
-    transOprToExpr ins ctxt addr (Immediate (width - o3))
-  | ThreeOperands (o1, o2, o3) when ins.Opcode = Opcode.LSR ->
-    let width = RegType.toBitWidth ins.OprSize - 1 |> int64
-    transOprToExpr ins ctxt addr o1,
-    transOprToExpr ins ctxt addr o2,
-    transOprToExpr ins ctxt addr o3,
-    transOprToExpr ins ctxt addr (Immediate width)
-  | FourOperands (o1, o2, o3, Immediate o4) when ins.Opcode = Opcode.UBFIZ ->
-    transOprToExpr ins ctxt addr o1,
-    transOprToExpr ins ctxt addr o2,
-    transOprToExpr ins ctxt addr o3, (* FIXME: #(-<lsb> MOD 32/64) *)
+    transOprToExpr ins ctxt addr (Immediate (-o3 % (int64 ins.OprSize))),
     transOprToExpr ins ctxt addr (Immediate (o4 + 1L))
   | FourOperands (o1, o2, Immediate o3, Immediate o4)
     when ins.Opcode = Opcode.UBFX ->

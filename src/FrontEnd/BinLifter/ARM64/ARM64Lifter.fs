@@ -653,6 +653,13 @@ let ldursw ins insLen ctxt addr =
   !!ir (dstAssign ins.OprSize dst (AST.sext 64<rt> data))
   !>ir insLen
 
+let logShift ins insLen ctxt addr shift =
+  let ir = !*ctxt
+  let dst, src, amt = transThreeOprs ins ctxt addr
+  !<ir insLen
+  !!ir (dstAssign ins.OprSize dst (shift src amt))
+  !>ir insLen
+
 let lslv ins insLen ctxt addr =
   let ir = !*ctxt
   let dst, src1, src2 = transThreeOprs ins ctxt addr
@@ -1222,13 +1229,16 @@ let ubfm ins insLen ctxt addr =
 
 /// The logical shift left(or right) is the alias of LS{L|R}V and UBFM.
 /// Therefore, it is necessary to distribute to the original instruction.
-let distLogcalShift ins ctxt addr =
+let distLogicalLeftShift ins insLen ctxt addr =
   match ins.Operands with
-  | ThreeOperands (_, _, Immediate _) -> ubfm ins ctxt addr
-  | ThreeOperands (_, _, OprRegister _) when ins.Opcode = Opcode.LSL ->
-    lslv ins ctxt addr
-  | ThreeOperands (_, _, OprRegister _) when ins.Opcode = Opcode.LSR ->
-    lsrv ins ctxt addr
+  | ThreeOperands (_, _, Immediate _) -> logShift ins insLen ctxt addr (<<)
+  | ThreeOperands (_, _, OprRegister _) -> lslv ins insLen ctxt addr
+  | _ -> raise InvalidOperandException
+
+let distLogicalRightShift ins insLen ctxt addr =
+  match ins.Operands with
+  | ThreeOperands (_, _, Immediate _) -> logShift ins insLen ctxt addr (>>)
+  | ThreeOperands (_, _, OprRegister _) -> lsrv ins insLen ctxt addr
   | _ -> raise InvalidOperandException
 
 /// Translate IR.
@@ -1331,7 +1341,8 @@ let translate ins insLen ctxt =
   | Opcode.LD1 | Opcode.LD1R | Opcode.LD2 | Opcode.LD2R | Opcode.LD3
   | Opcode.LD3R | Opcode.LD4 | Opcode.LD4R ->
     sideEffects insLen ctxt UnsupportedFP
-  | Opcode.LSL | Opcode.LSR -> distLogcalShift ins insLen ctxt addr
+  | Opcode.LSL -> distLogicalLeftShift ins insLen ctxt addr
+  | Opcode.LSR -> distLogicalRightShift ins insLen ctxt addr
   | Opcode.MADD -> madd ins insLen ctxt addr
   | Opcode.MLA -> sideEffects insLen ctxt UnsupportedFP
   | Opcode.MNEG -> msub ins insLen ctxt addr
@@ -1365,7 +1376,7 @@ let translate ins insLen ctxt =
   | Opcode.SMSUBL | Opcode.SMNEGL -> smsubl ins insLen ctxt addr
   | Opcode.SMULH -> smulh ins insLen ctxt addr
   | Opcode.SMULL -> smull ins insLen ctxt addr
-  | Opcode.SSHR | Opcode.SSHL |Opcode.SSHLL | Opcode.SSHLL2 | Opcode.SHL ->
+  | Opcode.SSHR | Opcode.SSHL | Opcode.SSHLL | Opcode.SSHLL2 | Opcode.SHL ->
     sideEffects insLen ctxt UnsupportedFP
   | Opcode.ST1 | Opcode.ST2 | Opcode.ST3 | Opcode.ST4 ->
     sideEffects insLen ctxt UnsupportedFP
