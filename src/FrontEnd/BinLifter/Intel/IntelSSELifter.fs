@@ -1517,7 +1517,7 @@ let paddq ins insLen ctxt =
   buildPackedInstr ins insLen ctxt 64<rt> (opP (.+)) 8
 
 let psubq ins insLen ctxt =
-  buildPackedInstr ins insLen ctxt 64<rt> opPsub 8
+  buildPackedInstr ins insLen ctxt 64<rt> (opP (.-)) 8
 
 let pslldq ins insLen ctxt =
   let ir = !*ctxt

@@ -2149,7 +2149,7 @@ let vpsrld ins insLen ctxt =
   buildPackedInstr ins insLen ctxt 32<rt> opVpsrld 16
 
 let vpsubb ins insLen ctxt =
-  buildPackedInstr ins insLen ctxt 8<rt> opPsub 128
+  buildPackedInstr ins insLen ctxt 8<rt> (opP (.-)) 128
 
 let vptest ins insLen ctxt =
   if getOperationSize ins = 128<rt> then SSELifter.ptest ins insLen ctxt
