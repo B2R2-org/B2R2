@@ -162,19 +162,34 @@ let bCond ins insLen ctxt addr cond =
   !!ir (AST.intercjmp (conditionHolds ctxt cond) (pc .+ label) fall)
   !>ir insLen
 
-let bfm ins insLen ctxt addr =
+let bfm ins insLen ctxt addr dst src immr imms =
   let ir = !*ctxt
-  !<ir insLen
-  let dst, src, imms, immr = transOprToExprOfBFM ins ctxt addr
   let oSz = ins.OprSize
-  let wmask, tmask = !+ir oSz, !+ir oSz
-  let immN = if ins.OprSize = 64<rt> then AST.num1 8<rt> else AST.num0 8<rt>
-  decodeBitMasksForIR wmask tmask immN imms immr oSz ir
   let width = oprSzToExpr ins.OprSize
+  let struct (wmask, tmask) = decodeBitMasks immr imms (int oSz)
+  let dst = transOprToExpr ins ctxt addr dst
+  let src = transOprToExpr ins ctxt addr src
+  let immr = transOprToExpr ins ctxt addr immr
+  !<ir insLen
+  let struct (wMask, tMask) = tmpVars2 ir oSz
   let bot = !+ir ins.OprSize
-  !!ir (bot := (dst .& AST.not wmask) .| (ror src immr width .& wmask))
-  !!ir (dstAssign ins.OprSize dst ((dst .& AST.not tmask) .| (bot .& tmask)))
+  !!ir (wMask := numI64 wmask oSz)
+  !!ir (tMask := numI64 tmask oSz)
+  !!ir (bot := (dst .& AST.not wMask) .| (rorForIR src immr width .& wMask))
+  !!ir (dstAssign ins.OprSize dst ((dst .& AST.not tMask) .| (bot .& tMask)))
   !>ir insLen
+
+let bfi ins insLen ctxt addr =
+  let struct (dst, src, lsb, width) = getFourOprs ins
+  let immr =
+    ((getImmValue lsb * -1L) &&& 0x3F) % (int64 ins.OprSize) |> Immediate
+  let imms = getImmValue width - 1L |> Immediate
+  bfm ins insLen ctxt addr dst src immr imms
+
+let bfxil ins insLen ctxt addr =
+  let struct (dst, src, lsb, width) = getFourOprs ins
+  let imms = (getImmValue lsb) + (getImmValue width) - 1L |> Immediate
+  bfm ins insLen ctxt addr dst src lsb imms
 
 let bic ins insLen ctxt addr =
   let ir = !*ctxt
@@ -881,21 +896,37 @@ let sbc ins insLen ctxt addr =
   !!ir (dstAssign ins.OprSize dst result)
   !>ir insLen
 
-let sbfm ins insLen ctxt addr =
+let sbfm ins insLen ctxt addr dst src immr imms =
   let ir = !*ctxt
-  let dst, src, immr, imms = transOprToExprOfSBFM ins ctxt addr
   let oprSz = ins.OprSize
-  let bot, top = !+ir oprSz, !+ir oprSz
-  let wmask, tmask = !+ir oprSz, !+ir oprSz
-  let immN = if oprSz = 64<rt> then AST.num1 8<rt> else AST.num0 8<rt>
   let width = oprSzToExpr oprSz
+  let struct (wmask, tmask) = decodeBitMasks immr imms (int oprSz)
+  let immr = transOprToExpr ins ctxt addr immr
+  let imms = transOprToExpr ins ctxt addr imms
   !<ir insLen
-  decodeBitMasksForIR wmask tmask immN imms immr oprSz ir
-  !!ir (bot := ror src immr width .& wmask)
+  let struct (bot, top, tMask) = tmpVars3 ir oprSz
+  !!ir (bot := rorForIR src immr width .& (numI64 wmask oprSz))
   let srcS = (src >> imms) .& (numI32 1 oprSz)
   replicateForIR top srcS (oprSzToExpr oprSz) oprSz ir
-  !!ir (dstAssign ins.OprSize dst ((top .& AST.not tmask) .| (bot .& tmask)))
+  !!ir (tMask := numI64 tmask oprSz)
+  !!ir (dstAssign ins.OprSize dst ((top .& AST.not tMask) .| (bot .& tMask)))
   !>ir insLen
+
+let sbfiz ins insLen ctxt addr =
+  let struct (dst, src, lsb, width) = getFourOprs ins
+  let dst = transOprToExpr ins ctxt addr dst
+  let src = transOprToExpr ins ctxt addr src
+  let immr =
+    ((getImmValue lsb * -1L) &&& 0x3F) % (int64 ins.OprSize) |> Immediate
+  let imms = getImmValue width - 1L |> Immediate
+  sbfm ins insLen ctxt addr dst src immr imms
+
+let sbfx ins insLen ctxt addr =
+  let struct (dst, src, lsb, width) = getFourOprs ins
+  let dst = transOprToExpr ins ctxt addr dst
+  let src = transOprToExpr ins ctxt addr src
+  let imms = (getImmValue lsb) + (getImmValue width) - 1L |> Immediate
+  sbfm ins insLen ctxt addr dst src lsb imms
 
 let sdiv ins insLen ctxt addr =
   let ir = !*ctxt
@@ -1128,6 +1159,26 @@ let svc ins insLen ctxt =
   !!ir (AST.sideEffect (Interrupt n))
   !>ir insLen
 
+let sxtb ins insLen ctxt addr =
+  let struct (dst, src) = getTwoOprs ins
+  let dst = transOprToExpr ins ctxt addr dst
+  let src = transOprToExpr ins ctxt addr src
+  let src = if ins.OprSize = 64<rt> then unwrapReg src else src
+  sbfm ins insLen ctxt addr dst src (Immediate 0L) (Immediate 7L)
+
+let sxth ins insLen ctxt addr =
+  let struct (dst, src) = getTwoOprs ins
+  let dst = transOprToExpr ins ctxt addr dst
+  let src = transOprToExpr ins ctxt addr src
+  let src = if ins.OprSize = 64<rt> then unwrapReg src else src
+  sbfm ins insLen ctxt addr dst src (Immediate 0L) (Immediate 15L)
+
+let sxtw ins insLen ctxt addr =
+  let struct (dst, src) = getTwoOprs ins
+  let dst = transOprToExpr ins ctxt addr dst
+  let src = transOprToExpr ins ctxt addr src |> unwrapReg
+  sbfm ins insLen ctxt addr dst src (Immediate 0L) (Immediate 31L)
+
 let tbnz ins insLen ctxt addr =
   let ir = !*ctxt
   let test, imm, label = transThreeOprs ins ctxt addr
@@ -1159,6 +1210,32 @@ let tst ins insLen ctxt addr =
   !!ir (getRegVar ctxt R.C := AST.b0)
   !!ir (getRegVar ctxt R.V := AST.b0)
   !>ir insLen
+
+let ubfm ins insLen ctxt addr dst src immr imms =
+  let ir = !*ctxt
+  let oSz = ins.OprSize
+  let width = oprSzToExpr oSz
+  let struct (wmask, tmask) = decodeBitMasks immr imms (int oSz)
+  let dst = transOprToExpr ins ctxt addr dst
+  let src = transOprToExpr ins ctxt addr src
+  let immr = transOprToExpr ins ctxt addr immr
+  let bot = !+ir oSz
+  !<ir insLen
+  !!ir (bot := rorForIR src immr width .& (numI64 wmask oSz))
+  !!ir (dstAssign ins.OprSize dst (bot .& (numI64 tmask oSz)))
+  !>ir insLen
+
+let ubfiz ins insLen ctxt addr =
+  let struct (dst, src, lsb, width) = getFourOprs ins
+  let immr =
+    ((getImmValue lsb * -1L) &&& 0x3F) % (int64 ins.OprSize) |> Immediate
+  let imms = getImmValue width - 1L |> Immediate
+  ubfm ins insLen ctxt addr dst src immr imms
+
+let ubfx ins insLen ctxt addr =
+  let struct (dst, src, lsb, width) = getFourOprs ins
+  let imms = (getImmValue lsb) + (getImmValue width) - 1L |> Immediate
+  ubfm ins insLen ctxt addr dst src lsb imms
 
 let udiv ins insLen ctxt addr =
   let ir = !*ctxt
@@ -1213,19 +1290,13 @@ let umull ins insLen ctxt addr =
     !!ir (dst := AST.zext 64<rt> src1 .* AST.zext 64<rt> src2)
   !>ir insLen
 
-let ubfm ins insLen ctxt addr =
-  let ir = !*ctxt
-  let dst, src, immr, imms = transOprToExprOfUBFM ins ctxt addr
-  let oSz = ins.OprSize
-  let bot = !+ir oSz
-  let wmask, tmask = !+ir oSz, !+ir oSz
-  let immN = if ins.OprSize = 64<rt> then AST.num1 8<rt> else AST.num0 8<rt>
-  !<ir insLen
-  decodeBitMasksForIR wmask tmask immN imms immr oSz ir
-  let width = oprSzToExpr ins.OprSize
-  !!ir (bot := ror src immr width .& wmask)
-  !!ir (dstAssign ins.OprSize dst (bot .& tmask))
-  !>ir insLen
+let uxtb ins insLen ctxt addr =
+  let struct (dst, src) = getTwoOprs ins
+  ubfm ins insLen ctxt addr dst src (Immediate 0L) (Immediate 7L)
+
+let uxth ins insLen ctxt addr =
+  let struct (dst, src) = getTwoOprs ins
+  ubfm ins insLen ctxt addr dst src (Immediate 0L) (Immediate 15L)
 
 /// The logical shift left(or right) is the alias of LS{L|R}V and UBFM.
 /// Therefore, it is necessary to distribute to the original instruction.
@@ -1271,7 +1342,8 @@ let translate ins insLen ctxt =
   | Opcode.BLE -> bCond ins insLen ctxt addr LE
   | Opcode.BAL -> bCond ins insLen ctxt addr AL
   | Opcode.BNV -> bCond ins insLen ctxt addr NV
-  | Opcode.BFI | Opcode.BFXIL -> bfm ins insLen ctxt addr
+  | Opcode.BFI -> bfi ins insLen ctxt addr
+  | Opcode.BFXIL -> bfxil ins insLen ctxt addr
   | Opcode.BIC -> bic ins insLen ctxt addr
   | Opcode.BICS -> bics ins insLen ctxt addr
   | Opcode.BIF | Opcode.BIT -> sideEffects insLen ctxt UnsupportedFP
@@ -1368,8 +1440,8 @@ let translate ins insLen ctxt =
   | Opcode.REV64 -> rev ins insLen ctxt addr
   | Opcode.RORV -> rorv ins insLen ctxt addr
   | Opcode.SBC -> sbc ins insLen ctxt addr
-  | Opcode.SBFIZ | Opcode.SBFX | Opcode.SXTB | Opcode.SXTH | Opcode.SXTW ->
-    sbfm ins insLen ctxt addr
+  | Opcode.SBFIZ -> sbfiz ins insLen ctxt addr
+  | Opcode.SBFX -> sbfx ins insLen ctxt addr
   | Opcode.SCVTF -> sideEffects insLen ctxt UnsupportedFP
   | Opcode.SDIV -> sdiv ins insLen ctxt addr
   | Opcode.SMADDL -> smaddl ins insLen ctxt addr
@@ -1390,14 +1462,17 @@ let translate ins insLen ctxt =
   | Opcode.SUB -> sub ins insLen ctxt addr
   | Opcode.SUBS -> subs ins insLen ctxt addr
   | Opcode.SVC -> svc ins insLen ctxt
+  | Opcode.SXTB -> sxtb ins insLen ctxt addr
+  | Opcode.SXTH -> sxth ins insLen ctxt addr
+  | Opcode.SXTW -> sxtw ins insLen ctxt addr
   | Opcode.TBL -> sideEffects insLen ctxt UnsupportedFP
   | Opcode.TBNZ -> tbnz ins insLen ctxt addr
   | Opcode.TBZ -> tbz ins insLen ctxt addr
   | Opcode.TST -> tst ins insLen ctxt addr
   | Opcode.UADDLV | Opcode.UADDW | Opcode.UMAXV | Opcode.UMINV ->
     sideEffects insLen ctxt UnsupportedFP
-  | Opcode.UBFIZ | Opcode.UBFX | Opcode.UXTB | Opcode.UXTH ->
-    ubfm ins insLen ctxt addr
+  | Opcode.UBFIZ -> ubfiz ins insLen ctxt addr
+  | Opcode.UBFX -> ubfx ins insLen ctxt addr
   | Opcode.UCVTF -> sideEffects insLen ctxt UnsupportedFP
   | Opcode.UDIV -> udiv ins insLen ctxt addr
   | Opcode.UMAX -> sideEffects insLen ctxt UnsupportedFP
@@ -1408,10 +1483,12 @@ let translate ins insLen ctxt =
   | Opcode.UMULH -> umulh ins insLen ctxt addr
   | Opcode.UMULL -> umull ins insLen ctxt addr
   | Opcode.UMOV -> sideEffects insLen ctxt UnsupportedFP
-  | Opcode.URSHL ->  sideEffects insLen ctxt UnsupportedFP
+  | Opcode.URSHL -> sideEffects insLen ctxt UnsupportedFP
   | Opcode.USHL -> sideEffects insLen ctxt UnsupportedFP
   | Opcode.USHLL | Opcode.USHLL2 | Opcode.USHR ->
     sideEffects insLen ctxt UnsupportedFP
+  | Opcode.UXTB -> uxtb ins insLen ctxt addr
+  | Opcode.UXTH -> uxth ins insLen ctxt addr
   | Opcode.UZP1 | Opcode.UZP2 | Opcode.ZIP1 | Opcode.ZIP2 ->
     sideEffects insLen ctxt UnsupportedFP
   | Opcode.XTN | Opcode.XTN2 -> sideEffects insLen ctxt UnsupportedFP
