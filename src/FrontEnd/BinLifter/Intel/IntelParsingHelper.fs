@@ -5244,6 +5244,13 @@ module internal ParsingHelper = begin
     | MPref.MPrxF2
     | _ (* MPrx66F2 *) -> raise ParsingFailureException
 
+  let nor0F3ADF = function
+    | MPref.MPrxNP -> raise ParsingFailureException
+    | MPref.MPrx66 -> struct (AESKEYGENASSIST,OD.XmmRmImm8, SZ.DqDq)
+    | MPref.MPrxF3
+    | MPref.MPrxF2
+    | _ (* MPrx66F2 *) -> raise ParsingFailureException
+
   let nor0F3AF0 = function
     | MPref.MPrxNP
     | MPref.MPrx66
@@ -5997,6 +6004,7 @@ module internal ParsingHelper = begin
     | 0x73uy -> parseEVEXW span rhlp notEn notEn evex0F3A73W0 evex0F3A73W1
     | 0xCEuy -> parseEVEXW span rhlp notEn vex0F3ACEW1 notEn evex0F3ACEW1
     | 0xCFuy -> parseEVEXW span rhlp notEn vex0F3ACFW1 notEn evex0F3ACFW1
+    | 0xDFuy -> parseVEX span rhlp nor0F3ADF notEn
     | 0xF0uy -> parseVEX span rhlp nor0F3AF0 vex0F3AF0
     | _ -> raise ParsingFailureException
 
