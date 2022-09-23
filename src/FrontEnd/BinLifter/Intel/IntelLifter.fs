@@ -120,6 +120,8 @@ let translate (ins: IntelInternalInstruction) insLen ctxt =
   | OP.OR -> GeneralLifter.logOr ins insLen ctxt
   | OP.OUTSB | OP.OUTSW | OP.OUTSD ->
     GeneralLifter.outs ins insLen ctxt
+  | OP.PDEP -> GeneralLifter.pdep ins insLen ctxt
+  | OP.PEXT -> GeneralLifter.pext ins insLen ctxt
   | OP.POP -> GeneralLifter.pop ins insLen ctxt
   | OP.POPA -> GeneralLifter.popa insLen ctxt 16<rt>
   | OP.POPAD -> GeneralLifter.popa insLen ctxt 32<rt>

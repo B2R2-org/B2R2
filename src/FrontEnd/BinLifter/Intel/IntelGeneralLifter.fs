@@ -1547,6 +1547,34 @@ let outs (ins: InsInfo) insLen ctxt =
   else outsBody ins ctxt ir
   !>ir insLen
 
+let pdep ins insLen ctxt =
+  let struct (dst, src, mask) = transThreeOprs ins insLen ctxt
+  let oprSize = getOperationSize ins
+  let ir = !*ctxt
+  let tmp = !+ir oprSize
+  !<ir insLen
+  for i in 0 .. (int oprSize) - 1 do
+    let t = AST.extract src 1<rt> i
+    let cond = AST.extract mask 1<rt> i
+    !!ir (AST.extract tmp 1<rt> i := AST.ite cond (AST.b0) t)
+  done
+  !!ir (dst := tmp)
+  !>ir insLen
+
+let pext ins insLen ctxt =
+  let struct (dst, src, mask) = transThreeOprs ins insLen ctxt
+  let oSz = getOperationSize ins
+  let ir = !*ctxt
+  let tmp = !+ir oSz
+  !<ir insLen
+  for i in 0 .. (int oSz) - 1 do
+    let t = (tmp << AST.num1 oSz) .| (AST.zext oSz (AST.extract src 1<rt> i))
+    let cond = AST.extract mask 1<rt> i
+    !!ir (tmp := AST.ite cond tmp t)
+  done
+  !!ir (dst := tmp)
+  !>ir insLen
+
 let pop ins insLen ctxt =
   let dst = transOneOpr ins insLen ctxt
   let oprSize = getOperationSize ins
