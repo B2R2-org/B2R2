@@ -137,7 +137,7 @@ type EVMJmpResolution () =
   member private __.AddEvtsForConstCall fn src insAddr calleeAddr ftAddr evts =
     __.AddPerFuncEvt fn evts
     |> CFGEvents.addEdgeEvt fn src ftAddr CallFallThroughEdge
-    |> CFGEvents.addCallEvt fn insAddr calleeAddr false
+    |> CFGEvents.addCallEvt fn insAddr calleeAddr
 
   member private __.FinalizeFunctionInfo (fn: RegularFunction) sp =
     let spDiff = int64 <| Utils.InitialStackPointer - sp

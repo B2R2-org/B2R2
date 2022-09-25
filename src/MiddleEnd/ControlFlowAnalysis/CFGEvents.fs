@@ -36,7 +36,7 @@ type BasicCFGEvent =
   | CFGEdge of fn: RegularFunction
              * src: ProgramPoint * dst: Addr * edge: CFGEdgeKind
   /// Add an inter-procedural fake block for the call instruction.
-  | CFGCall of fn: RegularFunction * callSite: Addr * callee: Addr * noFn: bool
+  | CFGCall of fn: RegularFunction * callSite: Addr * callee: Addr
   /// Add a fake return edge for the call instruction.
   | CFGRet of fn: RegularFunction * callee: Addr * ftAddr: Addr * callSite: Addr
   /// Add a fake block for an indirect call instruction.
@@ -80,10 +80,10 @@ module CFGEvents =
     { evts with
         BasicEvents = CFGEdge (fn, src, dst, edge) :: evts.BasicEvents }
 
-  let addCallEvt fn callSiteAddr callee noFn evts =
+  let addCallEvt fn callSiteAddr callee evts =
     { evts with
         BasicEvents =
-          CFGCall (fn, callSiteAddr, callee, noFn) :: evts.BasicEvents }
+          CFGCall (fn, callSiteAddr, callee) :: evts.BasicEvents }
 
   let addRetEvt fn callee ftAddr callSiteAddr evts =
     { evts with
@@ -151,9 +151,9 @@ module CFGEvents =
         | CFGEdge (_, src, dst, edge)
           when (newFn: RegularFunction).HasVertex src ->
           CFGEdge (newFn, src, dst, edge)
-        | CFGCall (_, callSite, callee, noFn)
+        | CFGCall (_, callSite, callee)
           when newFn.EntryPoint < callSite && newFn.MaxAddr > callSite ->
-          CFGCall (newFn, callSite, callee, noFn)
+          CFGCall (newFn, callSite, callee)
         | CFGRet (_, callee, ftAddr, callSite)
           when hasRegularVertexContainingAddr newFn.IRCFG callSite ->
           CFGRet (newFn, callee, ftAddr, callSite)
