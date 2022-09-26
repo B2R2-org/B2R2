@@ -143,32 +143,32 @@ let private saturateSignedWordToUnsignedByte expr =
   AST.ite checkMin minNum (AST.ite checkMax maxNum (AST.xtlo 8<rt> expr))
 
 let private saturateToSignedByte expr =
-  let checkMin = AST.slt expr (numI32 -128 8<rt>)
-  let checkMax = AST.sgt expr (numI32 127 8<rt>)
-  let minNum = numI32 -128 8<rt>
-  let maxNum = numI32 127 8<rt>
-  AST.ite checkMin minNum (AST.ite checkMax maxNum expr)
+  let checkMin = AST.slt expr (numI32 0xff80 16<rt>)
+  let checkMax = AST.sgt expr (numI32 0x7f 16<rt>)
+  let minNum = numI32 0x80 8<rt>
+  let maxNum = numI32 0x7f 8<rt>
+  AST.ite checkMin minNum (AST.ite checkMax maxNum (AST.xtlo 8<rt> expr))
 
 let private saturateToSignedWord expr =
-  let checkMin = AST.slt expr (numI32 -32768 16<rt>)
-  let checkMax = AST.sgt expr (numI32 32767 16<rt>)
-  let minNum = numI32 -32768 16<rt>
-  let maxNum = numI32 32767 16<rt>
-  AST.ite checkMin minNum (AST.ite checkMax maxNum expr)
+  let checkMin = AST.slt expr (numI32 0xffff8000 32<rt>)
+  let checkMax = AST.sgt expr (numI32 0x7fff 32<rt>)
+  let minNum = numI32 0x8000 16<rt>
+  let maxNum = numI32 0x7fff 16<rt>
+  AST.ite checkMin minNum (AST.ite checkMax maxNum (AST.xtlo 16<rt> expr))
 
 let private saturateToUnsignedByte expr =
-  let checkMin = AST.lt expr (numU32 0u 8<rt>)
-  let checkMax = AST.gt expr (numU32 0xffu 8<rt>)
+  let checkMin = AST.slt expr (numI32 0 16<rt>)
+  let checkMax = AST.sgt expr (numI32 0xff 16<rt>)
   let minNum = numU32 0u 8<rt>
   let maxNum = numU32 0xffu 8<rt>
-  AST.ite checkMin minNum (AST.ite checkMax maxNum expr)
+  AST.ite checkMin minNum (AST.ite checkMax maxNum (AST.xtlo 8<rt> expr))
 
 let private saturateToUnsignedWord expr =
-  let checkMin = AST.lt expr (numU32 0u 16<rt>)
-  let checkMax = AST.gt expr (numU32 0xffffu 16<rt>)
+  let checkMin = AST.slt expr (numI32 0 32<rt>)
+  let checkMax = AST.sgt expr (numI32 0xffff 32<rt>)
   let minNum = numU32 0u 16<rt>
-  let maxNum = numU32 0xffu 16<rt>
-  AST.ite checkMin minNum (AST.ite checkMax maxNum expr)
+  let maxNum = numU32 0xffffu 16<rt>
+  AST.ite checkMin minNum (AST.ite checkMax maxNum (AST.xtlo 16<rt> expr))
 
 let makeSrc ir packSize packNum src =
   let tSrc = Array.init packNum (fun _ -> !+ir packSize)
@@ -319,25 +319,33 @@ let paddd ins insLen ctxt =
   buildPackedInstr ins insLen ctxt 32<rt> (opP (.+)) 8
 
 let private opPaddsb oprSize src1 src2 =
-  (opP (.+)) oprSize src1 src2 |> Array.map saturateToSignedByte
+  let src1 = src1 |> Array.map (AST.sext 16<rt>)
+  let src2 = src2 |> Array.map (AST.sext 16<rt>)
+  (opP (.+)) 16<rt> src1 src2 |> Array.map saturateToSignedByte
 
 let paddsb ins insLen ctxt =
   buildPackedInstr ins insLen ctxt 8<rt> opPaddsb 16
 
 let private opPaddsw oprSize src1 src2 =
-  (opP (.+)) oprSize src1 src2 |> Array.map saturateToSignedWord
+  let src1 = src1 |> Array.map (AST.sext 32<rt>)
+  let src2 = src2 |> Array.map (AST.sext 32<rt>)
+  (opP (.+)) 32<rt> src1 src2 |> Array.map saturateToSignedWord
 
 let paddsw ins insLen ctxt =
   buildPackedInstr ins insLen ctxt 16<rt> opPaddsw 16
 
 let private opPaddusb oprSize src1 src2 =
-  (opP (.+)) oprSize src1 src2 |> Array.map saturateToUnsignedByte
+  let src1 = src1 |> Array.map (AST.zext 16<rt>)
+  let src2 = src2 |> Array.map (AST.zext 16<rt>)
+  (opP (.+)) 16<rt> src1 src2 |> Array.map saturateToUnsignedByte
 
 let paddusb ins insLen ctxt =
   buildPackedInstr ins insLen ctxt 8<rt> opPaddusb 16
 
 let private opPaddusw oprSize src1 src2 =
-  (opP (.+)) oprSize src1 src2 |> Array.map saturateToUnsignedWord
+  let src1 = src1 |> Array.map (AST.zext 32<rt>)
+  let src2 = src2 |> Array.map (AST.zext 32<rt>)
+  (opP (.+)) 32<rt> src1 src2 |> Array.map saturateToUnsignedWord
 
 let paddusw ins insLen ctxt =
   buildPackedInstr ins insLen ctxt 16<rt> opPaddusw 16
@@ -385,37 +393,43 @@ let phaddw ins insLen ctxt =
 let phaddsw ins insLen ctxt =
   packedHorizon ins insLen ctxt 16<rt> opPaddsw
 
-let opPsub _ = Array.map2 (.-)
-
 let psubb ins insLen ctxt =
-  buildPackedInstr ins insLen ctxt 8<rt> opPsub 8
+  buildPackedInstr ins insLen ctxt 8<rt> (opP (.-)) 8
 
 let psubw ins insLen ctxt =
-  buildPackedInstr ins insLen ctxt 16<rt> opPsub 8
+  buildPackedInstr ins insLen ctxt 16<rt> (opP (.-)) 8
 
 let psubd ins insLen ctxt =
-  buildPackedInstr ins insLen ctxt 32<rt> opPsub 8
+  buildPackedInstr ins insLen ctxt 32<rt> (opP (.-)) 8
 
 let private opPsubsb oprSize src1 src2 =
-  opPsub oprSize src1 src2 |> Array.map saturateToSignedByte
+  let src1 = src1 |> Array.map (AST.sext 16<rt>)
+  let src2 = src2 |> Array.map (AST.sext 16<rt>)
+  (opP (.-)) 16<rt> src1 src2 |> Array.map saturateToSignedByte
 
 let psubsb ins insLen ctxt =
   buildPackedInstr ins insLen ctxt 8<rt> opPsubsb 8
 
 let private opPsubsw oprSize src1 src2 =
-  opPsub oprSize src1 src2 |> Array.map saturateToSignedWord
+  let src1 = src1 |> Array.map (AST.sext 32<rt>)
+  let src2 = src2 |> Array.map (AST.sext 32<rt>)
+  (opP (.-)) 32<rt> src1 src2 |> Array.map saturateToSignedWord
 
 let psubsw ins insLen ctxt =
   buildPackedInstr ins insLen ctxt 16<rt> opPsubsw 8
 
-let private opPsubusb oprSize src1 src2 =
-  opPsub oprSize src1 src2 |> Array.map saturateToUnsignedByte
+let private opPsubusb _ src1 src2 =
+  let src1 = src1 |> Array.map (AST.zext 16<rt>)
+  let src2 = src2 |> Array.map (AST.zext 16<rt>)
+  (opP (.-)) 16<rt> src1 src2 |> Array.map saturateToUnsignedByte
 
 let psubusb ins insLen ctxt =
   buildPackedInstr ins insLen ctxt 8<rt> opPsubusb 8
 
-let private opPsubusw oprSize src1 src2 =
-  opPsub oprSize src1 src2 |> Array.map saturateToUnsignedWord
+let private opPsubusw _ src1 src2 =
+  let src1 = src1 |> Array.map (AST.zext 32<rt>)
+  let src2 = src2 |> Array.map (AST.zext 32<rt>)
+  (opP (.-)) 32<rt> src1 src2 |> Array.map saturateToUnsignedWord
 
 let psubusw ins insLen ctxt =
   buildPackedInstr ins insLen ctxt 16<rt> opPsubusw 8
