@@ -1539,7 +1539,7 @@ let vinserti128 ins insLen ctxt =
   !>ir insLen
 
 let vpaddb ins insLen ctxt =
-  buildPackedInstr ins insLen ctxt 8<rt> (opP (.+)) 32
+  buildPackedInstr ins insLen ctxt 8<rt> (opP (.+))
 
 let vpaddd ins insLen ctxt =
   match getOperationSize ins with
@@ -1564,10 +1564,10 @@ let vpaddd ins insLen ctxt =
     !!ir (dstG := makeAssignForEVEX ir ePrx k dstG s1G s2G s2A src2 12 (.+))
     !!ir (dstH := makeAssignForEVEX ir ePrx k dstH s1H s2H s2A src2 14 (.+))
     !>ir insLen
-  | _ -> buildPackedInstr ins insLen ctxt 32<rt> (opP (.+)) 16
+  | _ -> buildPackedInstr ins insLen ctxt 32<rt> (opP (.+))
 
 let vpaddq ins insLen ctxt =
-  buildPackedInstr ins insLen ctxt 64<rt> (opP (.+)) 16
+  buildPackedInstr ins insLen ctxt 64<rt> (opP (.+))
 
 let vpalignr ins insLen ctxt =
   let ir = !*ctxt
@@ -1638,10 +1638,10 @@ let vpalignr ins insLen ctxt =
   !>ir insLen
 
 let vpand ins insLen ctxt =
-  buildPackedInstr ins insLen ctxt 64<rt> opPand 16
+  buildPackedInstr ins insLen ctxt 64<rt> opPand
 
 let vpandn ins insLen ctxt =
-  buildPackedInstr ins insLen ctxt 64<rt> opPandn 16
+  buildPackedInstr ins insLen ctxt 64<rt> opPandn
 
 let vpbroadcastb ins insLen ctxt =
   let ir = !*ctxt
@@ -1734,16 +1734,16 @@ let vpbroadcastd ins insLen ctxt =
 let vpcmpeqb ins insLen ctxt =
   match getOperationSize ins with
   | 512<rt> -> GeneralLifter.nop insLen ctxt (* FIXME: #197 *)
-  | _ -> buildPackedInstr ins insLen ctxt 8<rt> opPcmpeqb 64
+  | _ -> buildPackedInstr ins insLen ctxt 8<rt> opPcmpeqb
 
 let vpcmpeqd ins insLen ctxt =
-  buildPackedInstr ins insLen ctxt 32<rt> opPcmpeqd 32
+  buildPackedInstr ins insLen ctxt 32<rt> opPcmpeqd
 
 let vpcmpeqq ins insLen ctxt =
-  buildPackedInstr ins insLen ctxt 64<rt> SSELifter.opPcmpeqq 16
+  buildPackedInstr ins insLen ctxt 64<rt> SSELifter.opPcmpeqq
 
 let vpcmpgtb ins insLen ctxt =
-  buildPackedInstr ins insLen ctxt 8<rt> opPcmpgtb 64
+  buildPackedInstr ins insLen ctxt 8<rt> opPcmpgtb
 
 let vpinsrd ins insLen ctxt =
   let ir = !*ctxt
@@ -1764,10 +1764,10 @@ let vpinsrd ins insLen ctxt =
   !>ir insLen
 
 let vpminub ins insLen ctxt =
-  buildPackedInstr ins insLen ctxt 8<rt> SSELifter.opPminub 64
+  buildPackedInstr ins insLen ctxt 8<rt> SSELifter.opPminu
 
 let vpminud ins insLen ctxt =
-  buildPackedInstr ins insLen ctxt 32<rt> SSELifter.opPminud 32
+  buildPackedInstr ins insLen ctxt 32<rt> SSELifter.opPminu
 
 let vpmovsxdq ins insLen ctxt =
   let ir = !*ctxt
@@ -1803,12 +1803,12 @@ let private opVpmuludq _ =
   Array.map2 (fun e1 e2 -> low32 e1 .* low32 e2)
 
 let vpmuludq ins insLen ctxt =
-  buildPackedInstr ins insLen ctxt 64<rt> opVpmuludq 16
+  buildPackedInstr ins insLen ctxt 64<rt> opVpmuludq
 
 let vpor ins insLen ctxt =
   match getOperationSize ins with
   | 512<rt> -> GeneralLifter.nop insLen ctxt
-  | _ -> buildPackedInstr ins insLen ctxt 64<rt> opPor 8
+  | _ -> buildPackedInstr ins insLen ctxt 64<rt> opPor
 
 let vpshufb ins insLen ctxt =
   let struct (dst, src1, src2) = getThreeOprs ins
@@ -2017,12 +2017,12 @@ let private opVpslld oprSize = opShiftVpackedDataLogical oprSize 32<rt> (<<)
 let vpslld ins insLen ctxt =
   match getOperationSize ins with
   | 512<rt> -> GeneralLifter.nop insLen ctxt
-  | _ -> buildPackedInstr ins insLen ctxt 32<rt> opVpslld 16
+  | _ -> buildPackedInstr ins insLen ctxt 32<rt> opVpslld
 
 let private opVpsllq oprSize = opShiftVpackedDataLogical oprSize 64<rt> (<<)
 
 let vpsllq ins insLen ctxt =
-  buildPackedInstr ins insLen ctxt 64<rt> opVpsllq 16
+  buildPackedInstr ins insLen ctxt 64<rt> opVpsllq
 
 let vpslldq ins insLen ctxt =
   let ir = !*ctxt
@@ -2088,7 +2088,7 @@ let vpslldq ins insLen ctxt =
   !>ir insLen
 
 let vpsrlq ins insLen ctxt =
-  buildPackedInstr ins insLen ctxt 64<rt> opVpsllq 16
+  buildPackedInstr ins insLen ctxt 64<rt> opVpsllq
 
 let vpsrldq ins insLen ctxt =
   let ir = !*ctxt
@@ -2146,10 +2146,10 @@ let vpsrldq ins insLen ctxt =
 let private opVpsrld oprSize = opShiftVpackedDataLogical oprSize 32<rt> (<<)
 
 let vpsrld ins insLen ctxt =
-  buildPackedInstr ins insLen ctxt 32<rt> opVpsrld 16
+  buildPackedInstr ins insLen ctxt 32<rt> opVpsrld
 
 let vpsubb ins insLen ctxt =
-  buildPackedInstr ins insLen ctxt 8<rt> (opP (.-)) 128
+  buildPackedInstr ins insLen ctxt 8<rt> (opP (.-))
 
 let vptest ins insLen ctxt =
   if getOperationSize ins = 128<rt> then SSELifter.ptest ins insLen ctxt
@@ -2178,16 +2178,16 @@ let vptest ins insLen ctxt =
     !>ir insLen
 
 let vpunpckhdq ins insLen ctxt =
-  buildPackedInstr ins insLen ctxt 32<rt> opPunpckHigh 16
+  buildPackedInstr ins insLen ctxt 32<rt> opPunpckHigh
 
 let vpunpckhqdq ins insLen ctxt =
-  buildPackedInstr ins insLen ctxt 64<rt> opPunpckHigh 16
+  buildPackedInstr ins insLen ctxt 64<rt> opPunpckHigh
 
 let vpunpckldq ins insLen ctxt =
-  buildPackedInstr ins insLen ctxt 32<rt> opPunpckLow 16
+  buildPackedInstr ins insLen ctxt 32<rt> opPunpckLow
 
 let vpunpcklqdq ins insLen ctxt =
-  buildPackedInstr ins insLen ctxt 64<rt> opPunpckLow 16
+  buildPackedInstr ins insLen ctxt 64<rt> opPunpckLow
 
 let vpxor ins insLen ctxt =
   let ir = !*ctxt
