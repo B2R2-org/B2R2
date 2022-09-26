@@ -41,7 +41,9 @@ let inline getPseudoRegVar (ctxt: TranslationContext) name pos =
 
 let getPC ctxt = getRegVar ctxt R.PC
 
-let ror src amount width = (src >> amount) .| (src << (width .- amount))
+let rorForIR src amount width = (src >> amount) .| (src << (width .- amount))
+
+let ror x amount width = (x >>> amount) ||| (x <<< (width - amount))
 
 let oprSzToExpr oprSize = numI32 (RegType.toBitWidth oprSize) oprSize
 
@@ -57,6 +59,11 @@ let getThreeOprs ins =
   | ThreeOperands (o1, o2, o3) -> struct (o1, o2, o3)
   | _ -> raise InvalidOperandException
 
+let getFourOprs ins =
+  match ins.Operands with
+  | FourOperands (o1, o2, o3, o4) -> struct (o1, o2, o3, o4)
+  | _ -> raise InvalidOperandException
+
 let getPseudoRegVar128 ctxt r =
   getPseudoRegVar ctxt r 2, getPseudoRegVar ctxt r 1
 
@@ -65,6 +72,11 @@ let private getMemExpr128 expr =
   | Load (e, 128<rt>, expr, _) ->
     AST.load e 64<rt> (expr .+ numI32 8 (TypeCheck.typeOf expr)),
     AST.load e 64<rt> expr
+  | _ -> raise InvalidOperandException
+
+let getImmValue imm =
+  match imm with
+  | Immediate imm -> imm
   | _ -> raise InvalidOperandException
 
 /// shared/functions/integer/AddWithCarry
@@ -90,7 +102,7 @@ let shiftReg reg amount oprSize = function
   | SRTypeLSL -> reg << amount
   | SRTypeLSR -> reg >> amount
   | SRTypeASR -> reg ?>> amount
-  | SRTypeROR -> ror reg amount (oprSzToExpr oprSize)
+  | SRTypeROR -> rorForIR reg amount (oprSzToExpr oprSize)
   | _ -> raise InvalidOperandException
 
 let transShiftAmout ctxt oprSize = function
@@ -320,22 +332,6 @@ let transOprToExprOfAND ins ctxt addr =
   | FourOperands _ -> transFourOprsWithBarrelShift ins ctxt addr
   | _ -> raise InvalidOperandException
 
-let transOprToExprOfBFM ins ctxt addr =
-  match ins.Operands with
-  | FourOperands (o1, o2, o3, Immediate o4) when ins.Opcode = Opcode.BFI ->
-    transOprToExpr ins ctxt addr o1,
-    transOprToExpr ins ctxt addr o2,
-    transOprToExpr ins ctxt addr o3, (* FIXME: #(-<lsb> MOD 32/64) *)
-    transOprToExpr ins ctxt addr (Immediate (o4 + 1L))
-  | FourOperands (o1, o2, Immediate o3, Immediate o4)
-    when ins.Opcode = Opcode.BFXIL ->
-    transOprToExpr ins ctxt addr o1,
-    transOprToExpr ins ctxt addr o2,
-    transOprToExpr ins ctxt addr (Immediate o3),
-    transOprToExpr ins ctxt addr (Immediate (o4 - o3 + 1L))
-  | FourOperands _ -> transFourOprs ins ctxt addr
-  | _ -> raise InvalidOperandException
-
 let unwrapCond = function
   | Cond cond -> cond
   | _ -> raise InvalidOperandException
@@ -509,42 +505,6 @@ let unwrapReg e =
   | Extract (e, 32<rt>, 0, _) -> e
   | _ -> failwith "Invalid register"
 
-let transOprToExprOfSBFM ins ctxt addr =
-  match ins.Operands with
-  | TwoOperands (o1, o2) (* SXTB *)
-    when ins.Opcode = Opcode.SXTB ->
-    let o1 = transOprToExpr ins ctxt addr o1
-    let o2 = transOprToExpr ins ctxt addr o2
-    let o2 = if ins.OprSize = 64<rt> then o2 |> unwrapReg else o2
-    o1, o2, AST.num0 ins.OprSize, numI32 7 ins.OprSize
-  | TwoOperands (o1, o2) (* SXTH *)
-    when ins.Opcode = Opcode.SXTH ->
-    let o1 = transOprToExpr ins ctxt addr o1
-    let o2 = transOprToExpr ins ctxt addr o2
-    let o2 = if ins.OprSize = 64<rt> then o2 |> unwrapReg else o2
-    o1, o2, AST.num0 ins.OprSize, numI32 15 ins.OprSize
-  | TwoOperands (o1, o2) (* SXTW *)
-    when ins.Opcode = Opcode.SXTW ->
-    transOprToExpr ins ctxt addr o1,
-    transOprToExpr ins ctxt addr o2 |> unwrapReg,
-    AST.num0 ins.OprSize,
-    numI32 31 ins.OprSize
-  | FourOperands (o1, o2, o3, Immediate o4) when ins.Opcode = Opcode.SBFIZ ->
-    let o3 = transOprToExpr ins ctxt addr o3
-    let o3 = (* #(-<lsb> MOD 32/64) *)
-      (o3 .* numI32 -1 ins.OprSize) .% (numI32 (int ins.OprSize) ins.OprSize)
-    transOprToExpr ins ctxt addr o1,
-    transOprToExpr ins ctxt addr o2, o3,
-    transOprToExpr ins ctxt addr (Immediate (o4 - 1L))
-  | FourOperands (o1, o2, Immediate o3, Immediate o4)
-    when ins.Opcode = Opcode.SBFX ->
-    transOprToExpr ins ctxt addr o1,
-    transOprToExpr ins ctxt addr o2,
-    transOprToExpr ins ctxt addr (Immediate o3),
-    transOprToExpr ins ctxt addr (Immediate (o4 - o3 + 1L))
-  | FourOperands _ -> transFourOprs ins ctxt addr
-  | _ -> raise InvalidOperandException
-
 let transOprToExprOfSMSUBL ins ctxt addr =
   match ins.Operands with
   | ThreeOperands (o1, o2, o3) ->
@@ -607,44 +567,6 @@ let transOprToExprOfTST ins ctxt addr =
     transOprToExpr ins ctxt addr o1, transOprToExpr ins ctxt addr o2
   | ThreeOperands (o1, o2, o3) (* shfed *) ->
     transOprToExpr ins ctxt addr o1, transBarrelShiftToExpr ins ctxt o2 o3
-  | _ -> raise InvalidOperandException
-
-let transOprToExprOfUBFM ins ctxt addr =
-  match ins.Operands with
-  | TwoOperands (o1, o2) when ins.Opcode = Opcode.UXTB ->
-    transOprToExpr ins ctxt addr o1,
-    transOprToExpr ins ctxt addr o2,
-    numI64 0L ins.OprSize,
-    numI64 7L ins.OprSize
-  | TwoOperands (o1, o2) when ins.Opcode = Opcode.UXTH ->
-    transOprToExpr ins ctxt addr o1,
-    transOprToExpr ins ctxt addr o2,
-    numI64 0L ins.OprSize,
-    numI64 15L ins.OprSize
-  | ThreeOperands (o1, o2, Immediate o3) when ins.Opcode = Opcode.LSL ->
-    let opr3 = Immediate o3 (* FIXME: #(-<shift> MOD 32/64) *)
-    let width = RegType.toBitWidth ins.OprSize - 1 |> int64
-    transOprToExpr ins ctxt addr o1,
-    transOprToExpr ins ctxt addr o2,
-    transOprToExpr ins ctxt addr opr3,
-    transOprToExpr ins ctxt addr (Immediate (width - o3))
-  | ThreeOperands (o1, o2, o3) when ins.Opcode = Opcode.LSR ->
-    let width = RegType.toBitWidth ins.OprSize - 1 |> int64
-    transOprToExpr ins ctxt addr o1,
-    transOprToExpr ins ctxt addr o2,
-    transOprToExpr ins ctxt addr o3,
-    transOprToExpr ins ctxt addr (Immediate width)
-  | FourOperands (o1, o2, o3, Immediate o4) when ins.Opcode = Opcode.UBFIZ ->
-    transOprToExpr ins ctxt addr o1,
-    transOprToExpr ins ctxt addr o2,
-    transOprToExpr ins ctxt addr o3, (* FIXME: #(-<lsb> MOD 32/64) *)
-    transOprToExpr ins ctxt addr (Immediate (o4 + 1L))
-  | FourOperands (o1, o2, Immediate o3, Immediate o4)
-    when ins.Opcode = Opcode.UBFX ->
-    transOprToExpr ins ctxt addr o1,
-    transOprToExpr ins ctxt addr o2,
-    transOprToExpr ins ctxt addr (Immediate o3),
-    transOprToExpr ins ctxt addr (Immediate (o4 - o3 + 1L))
   | _ -> raise InvalidOperandException
 
 type BranchType =
@@ -715,6 +637,13 @@ let highestSetBitForIR dst src width oprSz (ir: IRBuilder) =
   !!ir (AST.lmark lblEnd)
   !!ir (dst := t)
 
+let highestSetBit x size =
+  let rec loop i =
+    if i < 0 then -1
+    elif (x >>> i) &&& 1 = 1 then i
+    else loop (i - 1)
+  loop (size - 1)
+
 /// shared/functions/common/Replicate
 /// Replicate()
 /// ===========
@@ -735,6 +664,10 @@ let replicateForIR dst value bits oprSize (ir: IRBuilder) =
   !!ir (AST.jmp (AST.name lblLoop))
   !!ir (AST.lmark lblEnd)
   !!ir (dst := tVal)  (* FIXME: Check value *)
+
+let replicate x eSize dstSize =
+  let rec loop x i = if i = 1 then x else loop (x <<< eSize ||| x) (i - 1)
+  loop x (dstSize / eSize)
 
 let getMaskForIR n oprSize = (AST.num1 oprSize << n) .- AST.num1 oprSize
 
@@ -762,8 +695,29 @@ let decodeBitMasksForIR wmask tmask immN imms immr oprSize ir =
   !!ir (d := diff .& getMaskForIR (AST.zext oprSize len) oprSize)
   !!ir (welem := getMaskForIR (s .+ n1) oprSize)
   !!ir (telem := getMaskForIR (d .+ n1) oprSize)
-  replicateForIR wmask (ror welem r (oprSzToExpr oprSize)) esize oprSize ir
+  replicateForIR wmask (rorForIR welem r (oprSzToExpr oprSize)) esize oprSize ir
   replicateForIR tmask telem esize oprSize ir
+
+let decodeBitMasks immr imms dataSize =
+  let immN = dataSize / 64
+  let immr = getImmValue immr |> int
+  let imms = getImmValue imms |> int
+  let immNNot = immN <<< 6 ||| (~~~ imms &&& 0x3F)
+  let len = highestSetBit immNNot 7
+  assert (len > 0)
+  assert (int dataSize >= (1 <<< len))
+  let levels = (1 <<< len) - 1
+  (* if immediate && (imms AND levels) == levels then UNDEFINED; *)
+  let s = imms &&& levels
+  let r = immr &&& levels
+  let diff = s - r
+  let eSize = 1 <<< len
+  let d = diff &&& levels
+  let welem = if (s + 1) = 64 then -1L else (1L <<< (s + 1)) - 1L
+  let telem = if (d + 1) = 64 then -1L else (1L <<< (d + 1)) - 1L
+  let wmask = replicate (ror welem r dataSize) eSize dataSize
+  let tmask = replicate telem eSize dataSize
+  struct (wmask, tmask)
 
 /// shared/functions/common/CountLeadingZeroBits
 /// CountLeadingZeroBits()
