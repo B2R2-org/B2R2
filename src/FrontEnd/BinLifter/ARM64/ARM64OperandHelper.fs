@@ -133,18 +133,6 @@ let getCoprocCRegister = function
   | 0x0Fuy -> R.C15
   | _ -> raise InvalidRegisterException
 
-let getDCOpr = function
- | 0b0000110001u -> IVAC
- | 0b0000110010u -> ISW
- | 0b0001010010u -> CSW
- | 0b0001110010u -> CISW
- | 0b0110100001u -> ZVA
- | 0b0111010001u -> CVAC
- | 0b0111011001u -> CVAU
- | 0b0111110001u -> CIVAC
- (* C5.3 A64 system instructions for cache maintenance *)
- | _ -> raise InvalidOperandException
-
 let simdFP0  = [| R.B0; R.H0; R.S0; R.D0; R.Q0 |]
 let simdFP1  = [| R.B1; R.H1; R.S1; R.D1; R.Q1 |]
 let simdFP2  = [| R.B2; R.H2; R.S2; R.D2; R.Q2 |]
@@ -1355,9 +1343,6 @@ let pstatefield bin = getPstate (conOp1Op2 bin) |> Pstate
 let optionOrimm bin = getOption64 (valCrm bin |> byte) |> getOptOrImm bin
 
 let systemregOrctrl bin = getControlRegister (extract bin 20u 5u) |> OprRegister
-
-let dcOp bin = getDCOpr (concat (extract bin 18u 16u) (extract bin 11u 5u) 7)
-               |> DCOpr |> SysOpr
 
 /// Reserved check function
 let resNone _ = ()

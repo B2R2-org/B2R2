@@ -1,477 +1,1008 @@
+/// Absolute value (vector and scalar form).
 ABS
+/// Add with carry.
 ADC
+/// Add with carry and set flags.
 ADCS
+/// Add.
 ADD
+/// Add returning high, narrow (vector form).
 ADDHN
+/// Add returning high, narrow (vector form).
 ADDHN2
+/// Add pairwise (vector and scalar form).
 ADDP
+/// Add and set flags.
 ADDS
+/// Add (across vector).
 ADDV
+/// Compute address of label at a PC-relative offset.
 ADR
+/// Compute address of 4KB page at a PC-relative offset.
 ADRP
+/// AES single round decryption.
 AESD
+/// AES single round encryption.
 AESE
+/// AES inverse mix columns.
 AESIMC
+/// AES mix columns.
 AESMC
+/// Bitwise AND.
 AND
+/// Bitwise AND and set flags.
 ANDS
+/// Arithmetic shift right.
 ASR
+/// Arithmetic shift right variable.
 ASRV
+/// Branch unconditionally.
 B
+/// Branch conditionally (AL).
 BAL
+/// Branch conditionally (CC).
 BCC
+/// Branch conditionally (CS).
 BCS
+/// Branch conditionally (EQ).
 BEQ
+/// Bitfield insert.
 BFI
+/// Bitfield move.
 BFM
+/// Bitfield extract and insert low.
 BFXIL
+/// Branch conditionally (GE).
 BGE
+/// Branch conditionally (GT).
 BGT
+/// Branch conditionally (HI).
 BHI
+/// Branch conditionally (HS).
 BHS
+/// Bitwise bit clear.
 BIC
+/// Bitwise bit clear and set flags.
 BICS
+/// Bitwise insert if false (vector form).
 BIF
+/// Bitwise insert if true (vector form).
 BIT
+/// Branch with link.
 BL
+/// Branch conditionally (LE).
 BLE
+/// Branch conditionally (LO).
 BLO
+/// Branch with link to register.
 BLR
+/// Branch conditionally (LS).
 BLS
+/// Branch conditionally (LT).
 BLT
+/// Branch conditionally (MI).
 BMI
+/// Branch conditionally (NE).
 BNE
+/// Branch conditionally (NV).
 BNV
+/// Branch conditionally (PL).
 BPL
+/// Branch to register.
 BR
+/// Breakpoint Instruction.
 BRK
+/// Bitwise select (vector form).
 BSL
+/// Branch conditionally (VC).
 BVC
+/// Branch conditionally (VS).
 BVS
+/// Compare and branch if nonzero.
 CBNZ
+/// Compare and branch if zero.
 CBZ
+/// Conditional compare negative (register or immediate).
 CCMN
+/// Conditional compare (register or immediate).
 CCMP
+/// Conditional increment.
 CINC
+/// Conditional invert.
 CINV
+/// Clear exclusive monitor.
 CLREX
+/// Count leading sign bits.
 CLS
+/// Count leading zero bits.
 CLZ
+/// Compare bitwise equal (vector and scalar form).
 CMEQ
+/// Compare signed greater than or equal (vector and scalar form).
 CMGE
+/// Compare signed greater than (vector and scalar form).
 CMGT
+/// Compare unsigned higher (vector and scalar form).
 CMHI
+/// Compare unsigned higher or same (vector and scalar form).
 CMHS
+/// Compare signed less than or equal to zero (vector and scalar form).
 CMLE
+/// Compare signed less than zero (vector and scalar form).
 CMLT
+/// Compare negative.
 CMN
+/// Compare negative.
 CMP
+/// Compare bitwise test bits nonzero (vector and scalar form).
 CMTST
+/// Conditional negate.
 CNEG
+/// Population count per byte (vector form).
 CNT
+/// CRC-32 sum from byte.
 CRC32B
+/// CRC-32C sum from byte.
 CRC32CB
+/// CRC-32C sum from halfword.
 CRC32CH
+/// CRC-32C sum from word.
 CRC32CW
+/// CRC-32C sum from doubleword.
 CRC32CX
+/// CRC-32 sum from halfword.
 CRC32H
+/// CRC-32 sum from word.
 CRC32W
+/// CRC-32 sum from doubleword.
 CRC32X
+/// Conditional select.
 CSEL
+/// Conditional set.
 CSET
+/// Conditional set mask.
 CSETM
+/// Conditional select increment.
 CSINC
+/// Conditional select inversion.
 CSINV
+/// Conditional select negation.
 CSNEG
-DC
+/// Clean of Data and Allocation Tags by Set/Way.
+DCCGDSW
+/// Clean of Data and Allocation Tags by VA to PoC.
+DCCGDVAC
+/// Clean of Data and Allocation Tags by VA to PoDP.
+DCCGDVADP
+/// Clean of Data and Allocation Tags by VA to PoP.
+DCCGDVAP
+/// Clean of Allocation Tags by Set/Way.
+DCCGSW
+/// Clean of Allocation Tags by VA to PoC.
+DCCGVAC
+/// Clean of Allocation Tags by VA to PoDP.
+DCCGVADP
+/// Clean of Allocation Tags by VA to PoP.
+DCCGVAP
+/// Clean and Invalidate of Data and Allocation Tags by Set/Way.
+DCCIGDSW
+/// Clean and Invalidate of Data and Allocation Tags by VA to PoC.
+DCCIGDVAC
+/// Clean and Invalidate of Allocation Tags by Set/Way.
+DCCIGSW
+/// Clean and Invalidate of Allocation Tags by VA to PoC.
+DCCIGVAC
+/// Data or unified Cache line Clean and Invalidate by Set/Way.
+DCCISW
+/// Data or unified Cache line Clean and Invalidate by VA to PoC.
+DCCIVAC
+/// Data or unified Cache line Clean by Set/Way.
+DCCSW
+/// Data or unified Cache line Clean by VA to PoC.
+DCCVAC
+/// Data or unified Cache line Clean by VA to PoDP.
+DCCVADP
+/// Data or unified Cache line Clean by VA to PoP.
+DCCVAP
+/// Data or unified Cache line Clean by VA to PoU.
+DCCVAU
+/// Data Cache set Allocation Tag by VA.
+DCGVA
+/// Data Cache set Allocation Tags and Zero by VA.
+DCGZVA
+/// Invalidate of Data and Allocation Tags by Set/Way.
+DCIGDSW
+/// Invalidate of Data and Allocation Tags by VA to PoC.
+DCIGDVAC
+/// Invalidate of Allocation Tags by Set/Way.
+DCIGSW
+/// Invalidate of Allocation Tags by VA to PoC.
+DCIGVAC
+/// Data or unified Cache line Invalidate by Set/Way.
+DCISW
+/// Data or unified Cache line Invalidate by VA to PoC.
+DCIVAC
+/// Debug switch to Exception level 1.
 DCPS1
+/// Debug switch to Exception level 2.
 DCPS2
+/// Debug switch to Exception level 3.
 DCPS3
+/// Data Cache Zero by VA.
+DCZVA
+/// Data memory barrier.
 DMB
+/// Debug restore PE state.
 DRPS
+/// Data synchronization barrier.
 DSB
+/// Duplicate general-purpose register to vector.
 DUP
+/// Bitwise exclusive OR NOT.
 EON
+/// Bitwise exclusive OR.
 EOR
+/// Exception return using current ELR and SPSR.
 ERET
+/// Extract vector from a pair of vectors.
 EXT
+/// Extract register from pair.
 EXTR
+/// Floating-point absolute difference (vector and scalar form).
 FABD
+/// Floating-point absolute (vector form).
 FABS
+/// Floating-point absolute compare greater than or equal.
 FACGE
+/// Floating-point absolute compare greater than (vector and scalar form).
 FACGT
+/// Floating-point add (vector form).
 FADD
+/// Floating-point add pairwise (vector and scalar form).
 FADDP
+/// Floating-point conditional quiet compare.
 FCCMP
+/// Floating-point conditional signaling compare.
 FCCMPE
+/// Floating-point compare equal (vector and scalar form).
 FCMEQ
+/// Floating-point compare greater than or equal (vector and scalar form).
 FCMGE
+/// Floating-point compare greater than (vector and scalar form).
 FCMGT
+/// Floating-point compare less than or equal to zero (vector and scalar).
 FCMLE
+/// Floating-point compare less than zero (vector and scalar form).
 FCMLT
+/// Floating-point quiet compare.
 FCMP
+/// Floating-point signaling compare.
 FCMPE
+/// Floating-point scalar conditional select.
 FCSEL
+/// Floating-point convert precision (scalar).
 FCVT
+/// FP convert to signed integer, rounding to nearest with ties to away.
 FCVTAS
+/// FP convert to unsigned integer, rounding to nearest with ties to away.
 FCVTAU
+/// Floating-point convert to higher precision long (vector form).
 FCVTL
+/// Floating-point convert to higher precision long (vector form).
 FCVTL2
+/// Floating-point convert to signed integer, rounding toward minus infinity.
 FCVTMS
+/// FP convert to unsigned integer, rounding toward minus infinity.
 FCVTMU
+/// Floating-point convert to lower precision narrow (vector form).
 FCVTN
+/// Floating-point convert to lower precision narrow (vector form).
 FCVTN2
+/// FP convert to signed integer, rounding to nearest with ties to even.
 FCVTNS
+/// FP convert to unsigned integer, rounding to nearest with ties to even.
 FCVTNU
+/// FP convert to signed integer, rounding toward positive infinity.
 FCVTPS
+/// FP convert to unsigned integer, rounding toward positive infinity.
 FCVTPU
+/// FP convert to lower precision narrow, rounding to odd (vector and scalar).
 FCVTXN
+/// FP convert to lower precision narrow, rounding to odd (vector and scalar).
 FCVTXN2
+/// FP convert to signed integer, rounding toward zero (vector and scalar).
 FCVTZS
+/// FP convert to unsigned integer, rounding toward zero (vector and scalar).
 FCVTZU
+/// Floating-point divide.
 FDIV
+/// Floating-point scalar fused multiply-add.
 FMADD
+/// Floating-point maximum.
 FMAX
+/// Floating-point maximum number.
 FMAXNM
+/// Floating-point maximum number pairwise (vector and scalar form).
 FMAXNMP
+/// Floating-point maximum number (across vector).
 FMAXNMV
+/// Floating-point maximum pairwise (vector and scalar form).
 FMAXP
+/// Floating-point maximum (across vector).
 FMAXV
+/// Floating-point minimum.
 FMIN
+/// Floating-point minimum number.
 FMINNM
+/// Floating-point minimum number pairwise (vector and scalar form).
 FMINNMP
+/// Floating-point minimum number (across vector).
 FMINNMV
+/// Floating-point minimum pairwise (vector and scalar form).
 FMINP
+/// Floating-point minimum (across vector).
 FMINV
+/// Floating-point fused multiply-add.
 FMLA
+/// Floating-point fused multiply-subtract.
 FMLS
+/// Floating-point move immediate.
 FMOV
+/// Floating-point scalar fused multiply-subtract.
 FMSUB
+/// Floating-point multiply.
 FMUL
+/// Floating-point multiply extended.
 FMULX
+/// Floating-point negate.
 FNEG
+/// Floating-point scalar negated fused multiply-add.
 FNMADD
+/// Floating-point scalar negated fused multiply-subtract.
 FNMSUB
+/// Floating-point scalar multiply-negate.
 FNMUL
+/// Floating-point reciprocal estimate (vector and scalar form).
 FRECPE
+/// Floating-point reciprocal step (vector and scalar form).
 FRECPS
+/// Floating-point reciprocal square root (scalar form).
 FRECPX
+/// Floating-point round to integral, to nearest with ties to away.
 FRINTA
+/// Floating-point round to integral, using current rounding mode.
 FRINTI
+/// Floating-point round to integral, toward minus infinity.
 FRINTM
+/// Floating-point round to integral, to nearest with ties to even.
 FRINTN
+/// Floating-point round to integral, toward positive infinity.
 FRINTP
+/// Floating-point round to integral exact, using current rounding mode.
 FRINTX
+/// Floating-point round to integral, toward zero.
 FRINTZ
+/// Floating-point reciprocal square root estimate.
 FRSQRTE
+/// Floating-point reciprocal square root step (vector and scalar form).
 FRSQRTS
+/// Floating-point square root,
 FSQRT
+/// Floating-point subtract.
 FSUB
+/// Unallocated hint.
 HINT
+/// Halt Instruction.
 HLT
+/// Generate exception targeting Exception level 2.
 HVC
+/// Insert vector element from general-purpose register.
 INS
+/// Instruction synchronization barrier.
 ISB
+/// Load single 1-element structure to one lane of one register.
 LD1
+/// Load single 1-element structure and replicate to all lanes of one reg.
 LD1R
+/// Load multiple 2-element structures to two consecutive registers.
 LD2
+/// Load single 2-element structure and replicate to all lanes of two regs.
 LD2R
+/// Load multiple 3-element structures to three consecutive registers.
 LD3
+/// Load single 3-element structure and replicate to all lanes of three regs.
 LD3R
+/// Load multiple 4-element structures to four consecutive registers.
 LD4
+/// Load single 4-element structure and replicate to all lanes of four regs.
 LD4R
+/// Load-Acquire register.
 LDAR
+/// Load-Acquire byte.
 LDARB
+/// Load-Acquire halfword.
 LDARH
+/// Load-Acquire Exclusive pair.
 LDAXP
+/// Load-Acquire Exclusive register.
 LDAXR
+/// Load-Acquire Exclusive byte.
 LDAXRB
+/// Load-Acquire Exclusive halfword.
 LDAXRH
+/// Load Non-temporal Pair.
 LDNP
+/// Load Pair.
 LDP
+/// Load Pair signed words.
 LDPSW
+/// Load register.
 LDR
+/// Load byte.
 LDRB
+/// Load halfword.
 LDRH
+/// Load signed byte.
 LDRSB
+/// Load signed halfword.
 LDRSH
+/// Load signed word.
 LDRSW
+/// Load unprivileged register.
 LDTR
+/// Load unprivileged byte.
 LDTRB
+/// Load unprivileged halfword.
 LDTRH
+/// Load unprivileged signed byte.
 LDTRSB
+/// Load unprivileged signed halfword.
 LDTRSH
+/// Load unprivileged signed word.
 LDTRSW
+/// Load register (unscaled offset).
 LDUR
+/// Load byte (unscaled offset).
 LDURB
+/// Load halfword (unscaled offset).
 LDURH
+/// Load signed byte (unscaled offset).
 LDURSB
+/// Load signed halfword (unscaled offset).
 LDURSH
+/// Load signed word (unscaled offset).
 LDURSW
+/// Load Exclusive pair.
 LDXP
+/// Load Exclusive register.
 LDXR
+/// Load Exclusive byte.
 LDXRB
+/// Load Exclusive halfword.
 LDXRH
+/// Logical shift left.
 LSL
+/// Logical shift left variable.
 LSLV
+/// Logical shift right.
 LSR
+/// Logical shift right variable.
 LSRV
+/// Multiply-add.
 MADD
+/// Multiply-add to accumulator.
 MLA
+/// Multiply-subtract from accumulator.
 MLS
+/// Multiply-negate.
 MNEG
+/// Move.
 MOV
+/// Move immediate.
 MOVI
+/// Move wide with keep.
 MOVK
+/// Move wide with NOT.
 MOVN
+/// Move wide with zero.
 MOVZ
+/// Move System register to general-purpose register.
 MRS
+/// Move general-purpose register to System register.
 MSR
+/// Multiply-subtract.
 MSUB
+/// Multiply.
 MUL
+/// Bitwise NOT.
 MVN
+/// Move inverted immediate.
 MVNI
+/// Negate.
 NEG
+/// Negate and set flags.
 NEGS
+/// Negate with carry.
 NGC
+/// Negate with carry and set flags.
 NGCS
+/// No operation.
 NOP
+/// Bitwise NOT.
 NOT
+/// Bitwise inclusive OR NOT.
 ORN
+/// Bitwise inclusive OR.
 ORR
+/// Polynomial multiply (vector form).
 PMUL
+/// Polynomial multiply long (vector form).
 PMULL
+/// Polynomial multiply long (vector form).
 PMULL2
+/// Prefetch memory.
 PRFM
+/// Prefetch memory (unscaled offset).
 PRFUM
+/// Rounding add returning high, narrow (vector form).
 RADDHN
+/// Rounding add returning high, narrow (vector form).
 RADDHN2
+/// Reverse bit order.
 RBIT
+/// Return from subroutine.
 RET
+/// Reverse bytes in register.
 REV
+/// Reverse bytes in halfwords.
 REV16
+/// Reverses bytes in words.
 REV32
+/// Reverse elements in 64-bit doublewords (vector form).
 REV64
+/// Rotate right.
 ROR
+/// Rotate right variable.
 RORV
+/// Rounding shift right narrow immediate (vector form).
 RSHRN
+/// Rounding shift right narrow immediate (vector form).
 RSHRN2
+/// Rounding subtract returning high, narrow (vector form).
 RSUBHN
+/// Rounding subtract returning high, narrow (vector form).
 RSUBHN2
+/// Signed absolute difference and accumulate (vector form).
 SABA
+/// Signed absolute difference and accumulate long (vector form).
 SABAL
+/// Signed absolute difference and accumulate long (vector form).
 SABAL2
+/// Signed absolute difference (vector form).
 SABD
+/// Signed absolute difference long (vector form).
 SABDL
+/// Signed absolute difference long (vector form).
 SABDL2
+/// Signed add and accumulate long pairwise (vector form).
 SADALP
+/// Signed add long (vector form).
 SADDL
+/// Signed add long (vector form).
 SADDL2
+/// Signed add long pairwise (vector form).
 SADDLP
+/// Signed add long (across vector).
 SADDLV
+/// Signed add wide (vector form).
 SADDW
+/// Signed add wide (vector form).
 SADDW2
+/// Subtract with carry.
 SBC
+/// Subtract with carry and set flags.
 SBCS
+/// Signed bitfield insert in zero.
 SBFIZ
+/// Signed bitfield move.
 SBFM
+/// Signed bitfield extract.
 SBFX
+/// Signed integer scalar convert to FP, using the current rounding mode.
 SCVTF
+/// Signed divide.
 SDIV
+/// Send event.
 SEV
+/// Send event local.
 SEVL
+/// SHA1 hash update (choose).
 SHA1C
+/// SHA1 fixed rotate.
 SHA1H
+/// SHA1 hash update (majority).
 SHA1M
+/// SHA1 hash update (parity).
 SHA1P
+/// SHA1 schedule update 0.
 SHA1SU0
+/// SHA1 schedule update 1.
 SHA1SU1
+/// SHA256 hash update (part 1).
 SHA256H
+/// SHA256 hash update (part 2).
 SHA256H2
+/// SHA256 schedule update 0.
 SHA256SU0
+/// SHA256 schedule update 1.
 SHA256SU1
+/// Signed halving add (vector form).
 SHADD
+/// Shift left immediate (vector and scalar form).
 SHL
+/// Shift left long (by element size) (vector form).
 SHLL
+/// Shift left long (by element size) (vector form).
 SHLL2
+/// Shift right narrow immediate (vector form).
 SHRN
+/// Shift right narrow immediate (vector form).
 SHRN2
+/// Signed halving subtract (vector form).
 SHSUB
+/// Shift left and insert immediate (vector and scalar form).
 SLI
+/// Signed multiply-add long.
 SMADDL
+/// Signed maximum (vector form).
 SMAX
+/// Signed maximum pairwise.
 SMAXP
+/// Signed maximum (across vector).
 SMAXV
+/// Generate exception targeting Exception level 3.
 SMC
+/// Signed minimum (vector form).
 SMIN
+/// Signed minimum pairwise.
 SMINP
+/// Signed minimum (across vector).
 SMINV
+/// Signed multiply-add long.
 SMLAL
+/// Signed multiply-add long.
 SMLAL2
+/// Signed multiply-subtract long.
 SMLSL
+/// Signed multiply-subtract long.
 SMLSL2
+/// Signed multiply-negate long.
 SMNEGL
+/// Signed move vector element to general-purpose register.
 SMOV
+/// Signed multiply-subtract long.
 SMSUBL
+/// Signed multiply high.
 SMULH
+/// Signed multiply long.
 SMULL
+/// Signed multiply long.
 SMULL2
+/// Signed saturating absolute value.
 SQABS
+/// Signed saturating add.
 SQADD
+/// Signed saturating doubling multiply-add long.
 SQDMLAL
+/// Signed saturating doubling multiply-add long.
 SQDMLAL2
+/// Signed saturating doubling multiply-subtract long.
 SQDMLSL
+/// Signed saturating doubling multiply-subtract long.
 SQDMLSL2
+/// Signed saturating doubling multiply returning high half.
 SQDMULH
+/// Signed saturating doubling multiply long.
 SQDMULL
+/// Signed saturating doubling multiply long.
 SQDMULL2
+/// Signed saturating negate.
 SQNEG
+/// Signed saturating rounding doubling multiply returning high half.
 SQRDMULH
+/// Signed saturating rounding shift left (register).
 SQRSHL
+/// Signed saturating rounded shift right narrow immediate.
 SQRSHRN
+/// Signed saturating rounded shift right narrow immediate.
 SQRSHRN2
+/// Signed saturating shift right unsigned narrow immediate.
 SQRSHRUN
+/// Signed saturating shift right unsigned narrow immediate.
 SQRSHRUN2
+/// Signed saturating shift left.
 SQSHL
+/// Signed saturating shift left unsigned immediate.
 SQSHLU
+/// Signed saturating shift right narrow immediate.
 SQSHRN
+/// Signed saturating shift right narrow immediate.
 SQSHRN2
+/// Signed saturating shift right unsigned narrow immediate.
 SQSHRUN
+/// Signed saturating shift right unsigned narrow immediate.
 SQSHRUN2
+/// Signed saturating subtract.
 SQSUB
+/// Signed saturating extract narrow.
 SQXTN
+/// Signed saturating extract narrow.
 SQXTN2
+/// Signed saturating extract unsigned narrow.
 SQXTUN
+/// Signed saturating extract unsigned narrow.
 SQXTUN2
+/// Signed rounding halving add.
 SRHADD
+/// Shift right and insert immediate.
 SRI
+/// Signed rounding shift left (register).
 SRSHL
+/// Signed rounding shift right immediate.
 SRSHR
+/// Signed rounding shift right and accumulate immediate.
 SRSRA
+/// Signed shift left (register).
 SSHL
+/// Signed shift left long immediate.
 SSHLL
+/// Signed shift left long immediate.
 SSHLL2
+/// Signed shift right immediate.
 SSHR
+/// Signed integer shift right and accumulate immediate.
 SSRA
+/// Signed subtract long.
 SSUBL
+/// Signed subtract long.
 SSUBL2
+/// Signed subtract wide.
 SSUBW
+/// Signed subtract wide.
 SSUBW2
+/// Store single 1-element structure from one lane of one register.
 ST1
+/// Store multiple 2-element structures from two consecutive registers.
 ST2
+/// Store multiple 3-element structures from three consecutive registers.
 ST3
+/// Store multiple 4-element structures from four consecutive registers.
 ST4
+/// Store-Release register.
 STLR
+/// Store-Release byte.
 STLRB
+/// Store-Release halfword.
 STLRH
+/// Store-Release Exclusive pair.
 STLXP
+/// Store-Release Exclusive register.
 STLXR
+/// Store-Release Exclusive byte.
 STLXRB
+/// Store-Release Exclusive halfword.
 STLXRH
+/// Store Non-temporal Pair.
 STNP
+/// Store Pair.
 STP
+/// Store register.
 STR
+/// Store byte.
 STRB
+/// Store halfword.
 STRH
+/// Store unprivileged register.
 STTR
+/// Store unprivileged byte.
 STTRB
+/// Store unprivileged halfword.
 STTRH
+/// Store register (unscaled offset).
 STUR
+/// Store byte (unscaled offset).
 STURB
+/// Store halfword (unscaled offset).
 STURH
+/// Store Exclusive pair.
 STXP
+/// Store Exclusive register.
 STXR
+/// Store Exclusive byte.
 STXRB
+/// Store Exclusive halfword.
 STXRH
+/// Subtract.
 SUB
+/// Subtract returning high, narrow.
 SUBHN
+/// Subtract returning high, narrow.
 SUBHN2
+/// Subtract and set flags.
 SUBS
+/// Signed saturating accumulate of unsigned value.
 SUQADD
+/// Generate exception targeting Exception level 1.
 SVC
+/// Sign-extend byte.
 SXTB
+/// Sign-extend halfword.
 SXTH
+/// Sign-extend word.
 SXTW
+/// System instruction.
 SYS
+/// System instruction with result.
 SYSL
+/// Table vector lookup.
 TBL
+/// Test bit and branch if nonzero.
 TBNZ
+/// Table vector lookup extension.
 TBX
+/// Test bit and branch if zero.
 TBZ
+/// Transpose vectors (primary).
 TRN1
+/// Transpose vectors (secondary).
 TRN2
+/// Test bits.
 TST
+/// Unsigned absolute difference and accumulate.
 UABA
+/// Unsigned absolute difference and accumulate long.
 UABAL
+/// Unsigned absolute difference and accumulate long.
 UABAL2
+/// Unsigned absolute difference.
 UABD
+/// Unsigned absolute difference long.
 UABDL
+/// Unsigned absolute difference long.
 UABDL2
+/// Unsigned add and accumulate long pairwise.
 UADALP
+/// Unsigned add long.
 UADDL
+/// Unsigned add long.
 UADDL2
+/// Unsigned add long pairwise.
 UADDLP
+/// Unsigned add long (across vector).
 UADDLV
+/// Unsigned add wide.
 UADDW
+/// Unsigned add wide.
 UADDW2
+/// Unsigned bitfield insert in zero.
 UBFIZ
+/// Unsigned bitfield move (32-bit).
 UBFM
+/// Unsigned bitfield extract.
 UBFX
+/// Unsigned integer scalar convert to FP, using the current rounding mode.
 UCVTF
+/// Unsigned divide.
 UDIV
+/// Unsigned halving add.
 UHADD
+/// Unsigned halving subtract.
 UHSUB
+/// Unsigned multiply-add long.
 UMADDL
+/// Unsigned maximum.
 UMAX
+/// Unsigned maximum pairwise.
 UMAXP
+/// Unsigned maximum (across vector).
 UMAXV
+/// Unsigned minimum.
 UMIN
+/// Unsigned minimum pairwise.
 UMINP
+/// Unsigned minimum (across vector).
 UMINV
+/// Unsigned multiply-add long.
 UMLAL
+/// Unsigned multiply-add long.
 UMLAL2
+/// Unsigned multiply-subtract long.
 UMLSL
+/// Unsigned multiply-subtract long.
 UMLSL2
+/// Unsigned multiply-negate long.
 UMNEGL
+/// Unsigned move vector element to general-purpose register.
 UMOV
+/// Unsigned multiply-subtract long.
 UMSUBL
+/// Unsigned multiply high.
 UMULH
+/// Unsigned multiply long.
 UMULL
+/// Unsigned multiply long.
 UMULL2
+/// Unsigned saturating add.
 UQADD
+/// Unsigned saturating rounding shift left (register).
 UQRSHL
+/// Unsigned saturating rounded shift right narrow immediate.
 UQRSHRN
+/// Unsigned saturating rounded shift right narrow immediate.
 UQRSHRN2
+/// Unsigned saturating shift left (register).
 UQSHL
+/// Unsigned saturating shift right narrow immediate.
 UQSHRN
+/// Unsigned saturating shift right narrow immediate.
 UQSHRN2
+/// Unsigned saturating subtract.
 UQSUB
+/// Unsigned saturating extract narrow.
 UQXTN
+/// Unsigned saturating extract narrow.
 UQXTN2
+/// Unsigned reciprocal estimate.
 URECPE
+/// Unsigned rounding halving add.
 URHADD
+/// Unsigned rounding shift left (register).
 URSHL
+/// Unsigned rounding shift right immediate.
 URSHR
+/// Unsigned reciprocal square root estimate.
 URSQRTE
+/// Unsigned integer rounding shift right and accumulate immediate.
 URSRA
+/// Unsigned shift left (register).
 USHL
+/// Unsigned shift left long immediate.
 USHLL
+/// Unsigned shift left long immediate.
 USHLL2
+/// Unsigned shift right immediate.
 USHR
+/// Unsigned saturating accumulate of signed value.
 USQADD
+/// Unsigned shift right and accumulate immediate.
 USRA
+/// Unsigned subtract long.
 USUBL
+/// Unsigned subtract long.
 USUBL2
+/// Unsigned subtract wide.
 USUBW
+/// Unsigned subtract wide.
 USUBW2
+/// Unsigned extend byte.
 UXTB
+/// Unsigned extend halfword.
 UXTH
+/// Unzip vectors (primary).
 UZP1
+/// Unzip vectors (secondary).
 UZP2
+/// Wait for event.
 WFE
+/// Wait for interrupt.
 WFI
+/// Extract narrow.
 XTN
+/// Extract narrow.
 XTN2
+/// Hint instruction.
 YIELD
+/// Zip vectors (primary).
 ZIP1
+/// Zip vectors (secondary).
 ZIP2

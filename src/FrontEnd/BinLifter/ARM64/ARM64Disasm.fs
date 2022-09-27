@@ -134,10 +134,37 @@ let opCodeToString = function
   | Opcode.CSINC -> "csinc"
   | Opcode.CSINV -> "csinv"
   | Opcode.CSNEG -> "csneg"
-  | Opcode.DC -> "dc"
+  | Opcode.DCCGDSW -> "dccgdsw"
+  | Opcode.DCCGDVAC -> "dccgdvac"
+  | Opcode.DCCGDVADP -> "dccgdvadp"
+  | Opcode.DCCGDVAP -> "dccgdvap"
+  | Opcode.DCCGSW -> "dccgsw"
+  | Opcode.DCCGVAC -> "dccgvac"
+  | Opcode.DCCGVADP -> "dccgvadp"
+  | Opcode.DCCGVAP -> "dccgvap"
+  | Opcode.DCCIGDSW -> "dccigdsw"
+  | Opcode.DCCIGDVAC -> "dccigdvac"
+  | Opcode.DCCIGSW -> "dccigsw"
+  | Opcode.DCCIGVAC -> "dccigvac"
+  | Opcode.DCCISW -> "dccisw"
+  | Opcode.DCCIVAC -> "dccivac"
+  | Opcode.DCCSW -> "dccsw"
+  | Opcode.DCCVAC -> "dccvac"
+  | Opcode.DCCVADP -> "dccvadp"
+  | Opcode.DCCVAP -> "dccvap"
+  | Opcode.DCCVAU -> "dccvau"
+  | Opcode.DCGVA -> "dcgva"
+  | Opcode.DCGZVA -> "dcgzva"
+  | Opcode.DCIGDSW -> "dcigdsw"
+  | Opcode.DCIGDVAC -> "dcigdvac"
+  | Opcode.DCIGSW -> "dcigsw"
+  | Opcode.DCIGVAC -> "dcigvac"
+  | Opcode.DCISW -> "dcisw"
+  | Opcode.DCIVAC -> "dcivac"
   | Opcode.DCPS1 -> "dcps1"
   | Opcode.DCPS2 -> "dcps2"
   | Opcode.DCPS3 -> "dcps3"
+  | Opcode.DCZVA -> "dczva"
   | Opcode.DMB -> "dmb"
   | Opcode.DRPS -> "drps"
   | Opcode.DSB -> "dsb"
@@ -770,19 +797,6 @@ let lsbToString = function
 
 let isRET ins = ins.Opcode = Opcode.RET
 
-let dcOprToString = function
-  | IVAC -> "ivac"
-  | ISW -> "isw"
-  | CSW -> "csw"
-  | CISW -> "cisw"
-  | ZVA -> "zva"
-  | CVAC -> "cvac"
-  | CVAU -> "cvau"
-  | CIVAC -> "civac"
-
-let sysOprToString = function
-  | DCOpr dc -> dcOprToString dc
-
 let oprToString i addr opr delim builder =
   match opr with
   | OprRegister reg when isRET i && reg = R.X30 -> ()
@@ -825,9 +839,6 @@ let oprToString i addr opr delim builder =
   | LSB ui8 ->
     prependDelimiter delim builder
     builder.Accumulate AsmWordKind.Variable (lsbToString ui8)
-  | SysOpr sys ->
-    prependDelimiter delim builder
-    builder.Accumulate AsmWordKind.Variable (sysOprToString sys)
 
 let inline buildOpcode ins (builder: DisasmBuilder<_>) =
   let opcode = opCodeToString ins.Opcode + condToString ins.Condition

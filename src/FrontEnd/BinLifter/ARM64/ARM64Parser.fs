@@ -671,11 +671,24 @@ let getISBOprs = function
   | 0b1111L -> OneOperand (Option SY)
   | imm -> OneOperand (Immediate imm)
 
+let private getDCInstruction bin =
+  match extract bin 18u 5u with
+  | 0b01101110100001u -> Opcode.DCZVA
+  | 0b00001110110001u -> Opcode.DCIVAC
+  | 0b00001110110010u -> Opcode.DCISW
+  | 0b01101111010001u -> Opcode.DCCVAC
+  | 0b00001111010010u -> Opcode.DCCSW
+  | 0b01101111011001u -> Opcode.DCCVAU
+  | 0b01101111110001u -> Opcode.DCCIVAC
+  | 0b00001111110010u -> Opcode.DCCISW
+  (* C5.3 A64 system instructions for cache maintenance *)
+  | _ -> raise InvalidOpcodeException
+
 let changeToAliasOfSystem bin instr =
   match instr with
   | Opcode.SYS, FiveOperands (_, OprRegister cn, _, _, xt), oSz
       when cn = R.C7 && SysOp bin = SysDC ->
-    Opcode.DC, TwoOperands (dcOp bin, xt), oSz
+    getDCInstruction bin, OneOperand xt, oSz
   | _ -> instr
 
 let parseSystem bin =

@@ -3714,8 +3714,8 @@ module ARM64 =
       test64 Opcode.SEVL NoOperand [| 0xd5uy; 0x03uy; 0x20uy; 0xbfuy |]
 
       test64
-        Opcode.DC
-        (TwoOperands (SysOpr (DCOpr ZVA), OprRegister R.X3))
+        Opcode.DCZVA
+        (OneOperand (OprRegister R.X3))
         [| 0xd5uy; 0x0buy; 0x74uy; 0x23uy |]
 
       test64
