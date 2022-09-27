@@ -654,6 +654,11 @@ type internal RegExprs () =
   /// Overflow condition flag
   member val V = var 1<rt> (Register.toRegID Register.V) "V"
 
+  (* System registers *)
+  /// Data Cache Zero ID register
+  member val DCZIDEL0 =
+    var 64<rt> (Register.toRegID Register.DCZIDEL0) "DCZID_EL0"
+
   member __.GetRegVar (name) =
     match name with
     | R.X0  -> __.X0
@@ -857,6 +862,7 @@ type internal RegExprs () =
     | R.Z -> __.Z
     | R.C -> __.C
     | R.V -> __.V
+    | R.DCZIDEL0 -> __.DCZIDEL0
     | _ -> raise UnhandledRegExprException
 
   member __.GetPseudoRegVar name pos =
