@@ -78,7 +78,7 @@ type Condition =
 ///   <c>scripts/genOpcode.fsx</c> from the `ARM64SupportedOpcodes.txt` file.
 /// </summary>
 type Opcode =
-   /// Absolute value (vector and scalar form).
+  /// Absolute value (vector and scalar form).
   | ABS = 0
   /// Add with carry.
   | ADC = 1
