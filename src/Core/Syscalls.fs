@@ -2730,6 +2730,16 @@ module LinuxSyscall =
     | 409 -> LinuxSyscall.TimerSettime64
     | 410 -> LinuxSyscall.TimerfdGettime64
     | 411 -> LinuxSyscall.TimerfdSettime64
+    | 412 -> LinuxSyscall.Utimensat64
+    | 413 -> LinuxSyscall.Pselect6_64
+    | 414 -> LinuxSyscall.Ppoll64
+    | 416 -> LinuxSyscall.IoPgetevents64
+    | 417 -> LinuxSyscall.Recvmmsg64
+    | 418 -> LinuxSyscall.MqTimedsend64
+    | 419 -> LinuxSyscall.MqTimedreceive64
+    | 420 -> LinuxSyscall.Semtimedop64
+    | 421 -> LinuxSyscall.RtSigtimedwait64
+    | 422 -> LinuxSyscall.Futex64
     | 423 -> LinuxSyscall.SchedRrGetInterval64
     | 424 -> LinuxSyscall.PidfdSendSignal
     | 425 -> LinuxSyscall.IoUringSetup
