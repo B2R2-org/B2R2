@@ -931,7 +931,7 @@ let assign dst src =
 #endif
   match dst.E with
   | Var _ | TempVar _ | PCVar _ -> put dst src
-  | Load (_, _, e, _) -> store Endian.Little e src
+  | Load (endian, _, e, _) -> store endian e src
   | Extract (_) -> assignForExtractDst dst src
   | _ -> raise InvalidAssignmentException
 

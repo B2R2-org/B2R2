@@ -46,9 +46,15 @@ let transOprToExpr insInfo ctxt = function
   | OpImm imm
   | OpShiftAmount imm -> numU64 imm ctxt.WordBitSize
   | OpMem (b, Imm o, sz) ->
-    AST.loadLE sz (getRegVar ctxt b .+ numI64 o ctxt.WordBitSize)
+    if ctxt.Endianness = Endian.Little then
+      AST.loadLE sz (getRegVar ctxt b .+ numI64 o ctxt.WordBitSize)
+    else
+      AST.loadBE sz (getRegVar ctxt b .+ numI64 o ctxt.WordBitSize)
   | OpMem (b, Reg o, sz) ->
-    AST.loadLE sz (getRegVar ctxt b .+ getRegVar ctxt o)
+    if ctxt.Endianness = Endian.Little then
+      AST.loadLE sz (getRegVar ctxt b .+ getRegVar ctxt o)
+    else
+      AST.loadBE sz (getRegVar ctxt b .+ getRegVar ctxt o)
   | OpAddr (Relative o) ->
     numI64 (int64 insInfo.Address + o) ctxt.WordBitSize
   | GoToLabel _ -> raise InvalidOperandException
