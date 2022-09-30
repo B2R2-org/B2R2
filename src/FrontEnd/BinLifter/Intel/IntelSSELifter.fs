@@ -192,10 +192,10 @@ let movsd (ins: InsInfo) insLen ctxt =
     !>ir insLen
 
 let addps ins insLen ctxt =
-  buildPackedInstr ins insLen ctxt 32<rt> (opP AST.fadd) 8
+  buildPackedInstr ins insLen ctxt 32<rt> (opP AST.fadd)
 
 let addpd ins insLen ctxt =
-  buildPackedInstr ins insLen ctxt 64<rt> (opP AST.fadd) 8
+  buildPackedInstr ins insLen ctxt 64<rt> (opP AST.fadd)
 
 let private getFstOperand = function
   | OneOperand o -> o
@@ -236,7 +236,7 @@ let addsd ins insLen ctxt =
   handleScalarFPOp ins insLen ctxt 64<rt> AST.fadd
 
 let subps ins insLen ctxt =
-  buildPackedInstr ins insLen ctxt 32<rt> (opP AST.fsub) 8
+  buildPackedInstr ins insLen ctxt 32<rt> (opP AST.fsub)
 
 let subpd ins insLen ctxt =
   let ir = !*ctxt
@@ -255,10 +255,10 @@ let subsd ins insLen ctxt =
   handleScalarFPOp ins insLen ctxt 64<rt> AST.fsub
 
 let mulps ins insLen ctxt =
-  buildPackedInstr ins insLen ctxt 32<rt> (opP AST.fmul) 8
+  buildPackedInstr ins insLen ctxt 32<rt> (opP AST.fmul)
 
 let mulpd ins insLen ctxt =
-  buildPackedInstr ins insLen ctxt 64<rt> (opP AST.fmul) 8
+  buildPackedInstr ins insLen ctxt 64<rt> (opP AST.fmul)
 
 let mulss ins insLen ctxt =
   handleScalarFPOp ins insLen ctxt 32<rt> AST.fmul
@@ -267,10 +267,10 @@ let mulsd ins insLen ctxt =
   handleScalarFPOp ins insLen ctxt 64<rt> AST.fmul
 
 let divps ins insLen ctxt =
-  buildPackedInstr ins insLen ctxt 32<rt> (opP AST.fdiv) 8
+  buildPackedInstr ins insLen ctxt 32<rt> (opP AST.fdiv)
 
 let divpd ins insLen ctxt =
-  buildPackedInstr ins insLen ctxt 64<rt> (opP AST.fdiv) 8
+  buildPackedInstr ins insLen ctxt 64<rt> (opP AST.fdiv)
 
 let divss ins insLen ctxt =
   handleScalarFPOp ins insLen ctxt 32<rt> AST.fdiv
@@ -702,30 +702,30 @@ let ucomisd ins insLen ctxt =
   !>ir insLen
 
 let andps ins insLen ctxt =
-  buildPackedInstr ins insLen ctxt 32<rt> opPand 16
+  buildPackedInstr ins insLen ctxt 32<rt> opPand
 
 let andpd ins insLen ctxt =
-  buildPackedInstr ins insLen ctxt 64<rt> opPand 16
+  buildPackedInstr ins insLen ctxt 64<rt> opPand
 
 let andnps ins insLen ctxt =
-  buildPackedInstr ins insLen ctxt 32<rt> opPandn 8
+  buildPackedInstr ins insLen ctxt 32<rt> opPandn
 
 let andnpd ins insLen ctxt =
-  buildPackedInstr ins insLen ctxt 64<rt> opPandn 8
+  buildPackedInstr ins insLen ctxt 64<rt> opPandn
 
 let orps ins insLen ctxt =
-  buildPackedInstr ins insLen ctxt 32<rt> opPor 16
+  buildPackedInstr ins insLen ctxt 32<rt> opPor
 
 let orpd ins insLen ctxt =
-  buildPackedInstr ins insLen ctxt 64<rt> opPor 16
+  buildPackedInstr ins insLen ctxt 64<rt> opPor
 
 let private opPxor _ = Array.map2 (.|)
 
 let xorps ins insLen ctxt =
-  buildPackedInstr ins insLen ctxt 32<rt> opPxor 16
+  buildPackedInstr ins insLen ctxt 32<rt> opPxor
 
 let xorpd ins insLen ctxt =
-  buildPackedInstr ins insLen ctxt 64<rt> opPxor 16
+  buildPackedInstr ins insLen ctxt 64<rt> opPxor
 
 let shufps ins insLen ctxt =
   let ir = !*ctxt
@@ -1055,12 +1055,12 @@ let private opAveragePackedInt (packSz: int<rt>) =
 let private opPavgb _ = opAveragePackedInt 8<rt>
 
 let pavgb ins insLen ctxt =
-  buildPackedInstr ins insLen ctxt 8<rt> opPavgb 64
+  buildPackedInstr ins insLen ctxt 8<rt> opPavgb
 
 let private opPavgw _ = opAveragePackedInt 16<rt>
 
 let pavgw ins insLen ctxt =
-  buildPackedInstr ins insLen ctxt 16<rt> opPavgw 32
+  buildPackedInstr ins insLen ctxt 16<rt> opPavgw
 
 let pextrb ins insLen ctxt =
   let ir = !*ctxt
@@ -1196,40 +1196,49 @@ let pinsrw ins insLen ctxt =
 let private opMaxMinPacked cmp =
   Array.map2 (fun e1 e2 -> AST.ite (cmp e1 e2) e1 e2)
 
-let private opPmaxub _ = opMaxMinPacked AST.gt
+let opPmaxu _ = opMaxMinPacked AST.gt
+
+let opPminu _ = opMaxMinPacked AST.lt
+
+let private opPmaxs _ = opMaxMinPacked AST.sgt
+
+let private opPmins _ = opMaxMinPacked AST.slt
 
 let pmaxub ins insLen ctxt =
-  buildPackedInstr ins insLen ctxt 8<rt> opPmaxub 64
+  buildPackedInstr ins insLen ctxt 8<rt> opPmaxu
 
-let private opPmaxsw _ = opMaxMinPacked AST.sgt
+let pmaxud ins insLen ctxt =
+  buildPackedInstr ins insLen ctxt 32<rt> opPmaxu
 
-let pmaxsw ins insLen ctxt =
-  buildPackedInstr ins insLen ctxt 16<rt> opPmaxsw 32
-
-let private opPmaxsb _ = opMaxMinPacked AST.sgt
+let pmaxuw ins insLen ctxt =
+  buildPackedInstr ins insLen ctxt 16<rt> opPmaxu
 
 let pmaxsb ins insLen ctxt =
-  buildPackedInstr ins insLen ctxt 8<rt> opPmaxsb 64
+  buildPackedInstr ins insLen ctxt 8<rt> opPmaxs
 
-let opPminub _ = opMaxMinPacked AST.lt
+let pmaxsd ins insLen ctxt =
+  buildPackedInstr ins insLen ctxt 32<rt> opPmaxs
+
+let pmaxsw ins insLen ctxt =
+  buildPackedInstr ins insLen ctxt 16<rt> opPmaxs
 
 let pminub ins insLen ctxt =
-  buildPackedInstr ins insLen ctxt 8<rt> opPminub 64
-
-let private opPminsw _ = opMaxMinPacked AST.slt
-
-let pminsw ins insLen ctxt =
-  buildPackedInstr ins insLen ctxt 16<rt> opPminsw 32
-
-let opPminud _ = opMaxMinPacked AST.lt
+  buildPackedInstr ins insLen ctxt 8<rt> opPminu
 
 let pminud ins insLen ctxt =
-  buildPackedInstr ins insLen ctxt 32<rt> opPminud 32
+  buildPackedInstr ins insLen ctxt 32<rt> opPminu
 
-let private opPminsb _ = opMaxMinPacked AST.slt
+let pminuw ins insLen ctxt =
+  buildPackedInstr ins insLen ctxt 16<rt> opPminu
 
 let pminsb ins insLen ctxt =
-  buildPackedInstr ins insLen ctxt 8<rt> opPminsb 32
+  buildPackedInstr ins insLen ctxt 8<rt> opPmins
+
+let pminsd ins insLen ctxt =
+  buildPackedInstr ins insLen ctxt 32<rt> opPmins
+
+let pminsw ins insLen ctxt =
+  buildPackedInstr ins insLen ctxt 16<rt> opPmins
 
 let private mskArrayInit cnt src =
   Array.init cnt (fun i -> AST.extract src 1<rt> (i * 8 + 7))
@@ -1348,14 +1357,14 @@ let pmovbq ins insLen ctxt packSz isSignExt =
 let private opPmulhuw _ = opPmul AST.xthi AST.zext 32<rt> 16<rt>
 
 let pmulhuw ins insLen ctxt =
-  buildPackedInstr ins insLen ctxt 16<rt> opPmulhuw 32
+  buildPackedInstr ins insLen ctxt 16<rt> opPmulhuw
 
 let private opPsadbw _ =
   let abs expr = AST.ite (AST.lt expr (AST.num0 8<rt>)) (AST.neg expr) (expr)
   Array.map2 (fun e1 e2 -> abs (e1 .- e2))
 
 let psadbw ins insLen ctxt =
-  buildPackedInstr ins insLen ctxt 8<rt> opPsadbw 64
+  buildPackedInstr ins insLen ctxt 8<rt> opPsadbw
 
 let pshufw ins insLen ctxt =
   let struct (dst, src, ord) = transThreeOprs ins insLen ctxt
@@ -1511,13 +1520,13 @@ let private opPmuludq _ =
   Array.map2 (fun e1 e2 -> low32 e1 .* low32 e2)
 
 let pmuludq ins insLen ctxt =
-  buildPackedInstr ins insLen ctxt 64<rt> opPmuludq 8
+  buildPackedInstr ins insLen ctxt 64<rt> opPmuludq
 
 let paddq ins insLen ctxt =
-  buildPackedInstr ins insLen ctxt 64<rt> (opP (.+)) 8
+  buildPackedInstr ins insLen ctxt 64<rt> (opP (.+))
 
 let psubq ins insLen ctxt =
-  buildPackedInstr ins insLen ctxt 64<rt> (opP (.-)) 8
+  buildPackedInstr ins insLen ctxt 64<rt> (opP (.-))
 
 let pslldq ins insLen ctxt =
   let ir = !*ctxt
@@ -1566,10 +1575,10 @@ let psrldq ins insLen ctxt =
   !>ir insLen
 
 let punpckhqdq ins insLen ctxt =
-  buildPackedInstr ins insLen ctxt 64<rt> opPunpckHigh 8
+  buildPackedInstr ins insLen ctxt 64<rt> opPunpckHigh
 
 let punpcklqdq ins insLen ctxt =
-  buildPackedInstr ins insLen ctxt 64<rt> opPunpckLow 8
+  buildPackedInstr ins insLen ctxt 64<rt> opPunpckLow
 
 let movntq ins insLen ctxt = buildMove ins insLen ctxt 4
 
@@ -1785,7 +1794,7 @@ let ptest ins insLen ctxt =
 let opPcmpeqq _ = opPcmp 64<rt> (==)
 
 let pcmpeqq ins insLen ctxt =
-  buildPackedInstr ins insLen ctxt 64<rt> opPcmpeqq 8
+  buildPackedInstr ins insLen ctxt 64<rt> opPcmpeqq
 
 /// XXX (cleanup required)
 /// imm8 control byte operation for PCMPESTRI, PCMPESTRM, etc..
