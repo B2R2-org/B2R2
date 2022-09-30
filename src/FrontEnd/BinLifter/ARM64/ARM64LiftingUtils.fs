@@ -337,22 +337,22 @@ let unwrapCond = function
   | _ -> raise InvalidOperandException
 
 let invertCond = function
-  | EQ -> NV
-  | NE -> AL
-  | CS | HS -> LE
-  | CC | LO -> GT
-  | MI -> LT
-  | PL -> GE
-  | VS -> LS
-  | VC -> HI
-  | HI -> VC
-  | LS -> VS
-  | GE -> PL
-  | LT -> MI
-  | GT -> CC
-  | LE -> CS
-  | AL -> NE
-  | NV -> EQ
+  | EQ -> NE
+  | NE -> EQ
+  | CS | HS -> CC
+  | CC | LO -> CS
+  | MI -> PL
+  | PL -> MI
+  | VS -> VC
+  | VC -> VS
+  | HI -> LS
+  | LS -> HI
+  | GE -> LT
+  | LT -> GE
+  | GT -> LE
+  | LE -> GT
+  | AL -> NV
+  | NV -> AL
 
 let transOprToExprOfCCMN ins ctxt addr =
   match ins.Operands with
