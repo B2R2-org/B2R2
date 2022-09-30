@@ -2412,6 +2412,13 @@ module internal ParsingHelper = begin
     | MPref.MPrxF2
     | _ (* MPrx66F2 *) -> raise ParsingFailureException
 
+  let nor0F3814 = function
+    | MPref.MPrxNP -> raise ParsingFailureException
+    | MPref.MPrx66 -> struct (BLENDVPS, OD.XmmXmXmm0, SZ.DqDq) (* VdqWdq *)
+    | MPref.MPrxF3
+    | MPref.MPrxF2
+    | _ (* MPrx66F2 *) -> raise ParsingFailureException
+
   let evex0F3814W0 = function
     | MPref.MPrxNP -> raise ParsingFailureException
     | MPref.MPrx66 -> struct (VPRORVD, OD.XmmVvXm, SZ.VecDef) (* VxHxWx *)
@@ -4639,6 +4646,14 @@ module internal ParsingHelper = begin
     | MPref.MPrxF2
     | _ (* MPrx66F2 *) -> raise ParsingFailureException
 
+  let nor0F3A0D = function
+    | MPref.MPrxNP -> raise ParsingFailureException
+    | MPref.MPrx66 ->
+      struct (BLENDPD, OD.XmmRmImm8, SZ.DqDq) (* VdqWdqIb *)
+    | MPref.MPrxF3
+    | MPref.MPrxF2
+    | _ (* MPrx66F2 *) -> raise ParsingFailureException
+
   let vex0F3A0C = function
     | MPref.MPrxNP -> raise ParsingFailureException
     | MPref.MPrx66 ->
@@ -5789,7 +5804,7 @@ module internal ParsingHelper = begin
     | 0x0auy -> parseVEX span rhlp nor0F380A vex0F380A
     | 0x0buy -> parseVEX span rhlp nor0F380B vex0F380B
     | 0x0cuy -> parseEVEXW span rhlp vex0F380CW0 notEn notEn notEn
-    | 0x14uy -> parseEVEXW span rhlp notEn notEn evex0F3814W0 evex0F3814W1
+    | 0x14uy -> parseEVEX span rhlp nor0F3814 notEn evex0F3814W0 evex0F3814W1
     | 0x15uy -> parseVEX span rhlp nor0F3815 notEn
     | 0x16uy -> parseVEXW span rhlp notEn notEn vex0F3816W0 notEn
     | 0x17uy -> parseVEX span rhlp nor0F3817 vex0F3817
@@ -5959,7 +5974,7 @@ module internal ParsingHelper = begin
     | 0x0Auy -> parseVEX span rhlp nor0F3A0A vex0F3A0A
     | 0x0Buy -> parseEVEX span rhlp nor0F3A0B vex0F3A0B notEn evex0F3A0BW1
     | 0x0Cuy -> parseVEX span rhlp nor0F3A0C vex0F3A0C
-    | 0x0Duy -> parseVEX span rhlp notEn vex0F3A0D
+    | 0x0Duy -> parseVEX span rhlp nor0F3A0D vex0F3A0D
     | 0x0Euy -> parseVEX span rhlp notEn vex0F3A0E
     | 0x0Fuy -> parseVEX span rhlp nor0F3A0F vex0F3A0F
     | 0x14uy -> parseVEXW span rhlp notEn notEn vex0F3A14W0 notEn

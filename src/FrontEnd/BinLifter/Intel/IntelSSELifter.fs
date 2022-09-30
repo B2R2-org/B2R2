@@ -1796,6 +1796,72 @@ let opPcmpeqq _ = opPcmp 64<rt> (==)
 let pcmpeqq ins insLen ctxt =
   buildPackedInstr ins insLen ctxt 64<rt> opPcmpeqq
 
+let blendpd ins insLen ctxt =
+  let ir = !*ctxt
+  let struct (dst, src, imm) = getThreeOprs ins
+  let dstB, dstA = transOprToExpr128 ins insLen ctxt dst
+  let srcB, srcA = transOprToExpr128 ins insLen ctxt src
+  let imm = transOprToExpr ins insLen ctxt imm
+  !<ir insLen
+  let cond1 = AST.not (AST.extract imm 1<rt> 0)
+  let cond2 = AST.not (AST.extract imm 1<rt> 1)
+  !!ir (dstA := AST.ite cond1 dstA srcA)
+  !!ir (dstB := AST.ite cond2 dstB srcB)
+  !>ir insLen
+
+let blendps ins insLen ctxt =
+  let ir = !*ctxt
+  let struct (dst, src, imm) = getThreeOprs ins
+  let dstB, dstA = transOprToExpr128 ins insLen ctxt dst
+  let srcB, srcA = transOprToExpr128 ins insLen ctxt src
+  let struct (t1, t2, t3, t4) = tmpVars4 ir 32<rt>
+  let imm = transOprToExpr ins insLen ctxt imm
+  !<ir insLen
+  let cond1 = AST.not (AST.extract imm 1<rt> 0)
+  let cond2 = AST.not (AST.extract imm 1<rt> 1)
+  let cond3 = AST.not (AST.extract imm 1<rt> 2)
+  let cond4 = AST.not (AST.extract imm 1<rt> 3)
+  !!ir (t1 := AST.ite cond1 (AST.xtlo 32<rt> dstA) (AST.xtlo 32<rt> srcA))
+  !!ir (t2 := AST.ite cond2 (AST.xthi 32<rt> dstA) (AST.xthi 32<rt> srcA))
+  !!ir (t3 := AST.ite cond3 (AST.xtlo 32<rt> dstB) (AST.xtlo 32<rt> srcB))
+  !!ir (t4 := AST.ite cond4 (AST.xthi 32<rt> dstB) (AST.xthi 32<rt> srcB))
+  !!ir (dstA := AST.concat t2 t1)
+  !!ir (dstB := AST.concat t4 t3)
+  !>ir insLen
+
+let blendvpd ins insLen ctxt =
+  let ir = !*ctxt
+  let struct (dst, src, xmm0) = getThreeOprs ins
+  let dstB, dstA = transOprToExpr128 ins insLen ctxt dst
+  let srcB, srcA = transOprToExpr128 ins insLen ctxt src
+  let xmm0B, xmm0A = transOprToExpr128 ins insLen ctxt xmm0
+  !<ir insLen
+  let cond1 = AST.not (AST.xthi 1<rt> xmm0A)
+  let cond2 = AST.not (AST.xthi 1<rt> xmm0B)
+  !!ir (dstA := AST.ite cond1 dstA srcA)
+  !!ir (dstB := AST.ite cond2 dstB srcB)
+  !>ir insLen
+
+let blendvps ins insLen ctxt =
+  let ir = !*ctxt
+  let struct (dst, src, xmm0) = getThreeOprs ins
+  let dstB, dstA = transOprToExpr128 ins insLen ctxt dst
+  let srcB, srcA = transOprToExpr128 ins insLen ctxt src
+  let xmm0B, xmm0A = transOprToExpr128 ins insLen ctxt xmm0
+  let struct (t1, t2, t3, t4) = tmpVars4 ir 32<rt>
+  !<ir insLen
+  let cond1 = AST.not (AST.extract xmm0A 1<rt> 31)
+  let cond2 = AST.not (AST.extract xmm0A 1<rt> 63)
+  let cond3 = AST.not (AST.extract xmm0B 1<rt> 31)
+  let cond4 = AST.not (AST.extract xmm0B 1<rt> 63)
+  !!ir (t1 := AST.ite cond1 (AST.xtlo 32<rt> dstA) (AST.xtlo 32<rt> srcA))
+  !!ir (t2 := AST.ite cond2 (AST.xthi 32<rt> dstA) (AST.xthi 32<rt> srcA))
+  !!ir (t3 := AST.ite cond3 (AST.xtlo 32<rt> dstB) (AST.xtlo 32<rt> srcB))
+  !!ir (t4 := AST.ite cond4 (AST.xthi 32<rt> dstB) (AST.xthi 32<rt> srcB))
+  !!ir (dstA := AST.concat t2 t1)
+  !!ir (dstB := AST.concat t4 t3)
+  !>ir insLen
+
 /// XXX (cleanup required)
 /// imm8 control byte operation for PCMPESTRI, PCMPESTRM, etc..
 /// See Chapter 4.1 of the manual vol. 2B.

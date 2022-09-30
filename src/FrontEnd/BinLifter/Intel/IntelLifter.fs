@@ -329,6 +329,10 @@ let translate (ins: IntelInternalInstruction) insLen ctxt =
   | OP.UNPCKHPD -> SSELifter.unpckhpd ins insLen ctxt (* SSE2 *)
   | OP.UNPCKLPS -> SSELifter.unpcklps ins insLen ctxt
   | OP.UNPCKLPD -> SSELifter.unpcklpd ins insLen ctxt (* SSE2 *)
+  | OP.BLENDPD -> SSELifter.blendpd ins insLen ctxt
+  | OP.BLENDPS -> SSELifter.blendps ins insLen ctxt
+  | OP.BLENDVPD -> SSELifter.blendvpd ins insLen ctxt
+  | OP.BLENDVPS -> SSELifter.blendvps ins insLen ctxt
   | OP.CVTPI2PS -> SSELifter.cvtpi2ps ins insLen ctxt
   | OP.CVTPI2PD -> SSELifter.cvtpi2pd ins insLen ctxt (* SSE2 *)
   | OP.CVTSI2SS -> SSELifter.cvtsi2ss ins insLen ctxt
