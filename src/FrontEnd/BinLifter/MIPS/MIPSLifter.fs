@@ -953,6 +953,12 @@ let sw insInfo insLen ctxt =
   advancePC ctxt ir
   !>ir insLen
 
+let private loadBaseAddr oprSz baseOffset (ctxt: TranslationContext) =
+  if ctxt.Endianness = Endian.Little then
+    AST.loadLE oprSz (baseOffset .& numI32 0xFFFFFFFC oprSz)
+  else
+    AST.loadBE oprSz (baseOffset .& numI32 0xFFFFFFFC oprSz)
+
 let storeLeftRight insInfo insLen ctxt memShf regShf amtOp oprSz =
   let ir = !*ctxt
   let rt, mem = getTwoOprs insInfo
@@ -966,7 +972,7 @@ let storeLeftRight insInfo insLen ctxt memShf regShf amtOp oprSz =
   let struct (t1, t2, t3) = tmpVars3 ir oprSz
   let mask = numI32 (((int oprSz) >>> 3) - 1) oprSz
   let vaddr0To2 = (baseOffset .& mask) <+> (transBigEndianCPU ctxt oprSz)
-  let baseAddress = AST.loadLE oprSz (baseOffset .& numI32 0xFFFFFFFC oprSz)
+  let baseAddress = loadBaseAddr oprSz baseOffset ctxt
   !<ir insLen
   !!ir (t1 := vaddr0To2)
   !!ir (t2 := (amtOp (mask .- t1) mask) .* numI32 8 oprSz)
@@ -1150,7 +1156,7 @@ let loadLeftRight insInfo insLen ctxt memShf regShf amtOp oprSz =
   let struct (t1, t2, t3) = tmpVars3 ir oprSz
   let mask = numI32 (((int oprSz) >>> 3) - 1) oprSz
   let vaddr0To2 = (baseOffset .& mask) <+> (transBigEndianCPU ctxt oprSz)
-  let baseAddress = AST.loadLE oprSz (baseOffset .& numI32 0xFFFFFFFC oprSz)
+  let baseAddress = loadBaseAddr oprSz baseOffset ctxt
   !<ir insLen
   !!ir (t1 := vaddr0To2)
   !!ir (t2 := ((amtOp t1 mask) .+ AST.num1 oprSz) .* numI32 8 oprSz)
