@@ -42,6 +42,7 @@ let translate (ins: IntelInternalInstruction) insLen ctxt =
   | OP.AND -> GeneralLifter.``and`` ins insLen ctxt
   | OP.ANDN -> GeneralLifter.andn ins insLen ctxt
   | OP.ARPL -> GeneralLifter.arpl ins insLen ctxt
+  | OP.BEXTR -> GeneralLifter.bextr ins insLen ctxt
   | OP.BNDMOV -> GeneralLifter.bndmov ins insLen ctxt
   | OP.BOUND -> GeneralLifter.nop insLen ctxt
   | OP.BSF -> GeneralLifter.bsf ins insLen ctxt
@@ -415,6 +416,10 @@ let translate (ins: IntelInternalInstruction) insLen ctxt =
   | OP.MOVNTPD -> SSELifter.movntpd ins insLen ctxt (* SSE2 *)
   | OP.MOVNTDQ -> SSELifter.movntdq ins insLen ctxt (* SSE2 *)
   | OP.MOVNTI -> SSELifter.movnti ins insLen ctxt (* SSE2 *)
+  | OP.HADDPD -> SSELifter.haddpd ins insLen ctxt (* SSE3 *)
+  | OP.HADDPS -> SSELifter.haddps ins insLen ctxt (* SSE3 *)
+  | OP.HSUBPD -> SSELifter.hsubpd ins insLen ctxt (* SSE3 *)
+  | OP.HSUBPS -> SSELifter.hsubps ins insLen ctxt (* SSE3 *)
   | OP.LDDQU -> SSELifter.lddqu ins insLen ctxt (* SSE3 *)
   | OP.MOVSHDUP -> SSELifter.movshdup ins insLen ctxt (* SSE3 *)
   | OP.MOVSLDUP -> SSELifter.movsldup ins insLen ctxt (* SSE3 *)
