@@ -647,23 +647,24 @@ let highestSetBit x size =
 /// shared/functions/common/Replicate
 /// Replicate()
 /// ===========
-let replicateForIR dst value bits oprSize (ir: IRBuilder) =
+let replicateForIR value bits oprSize (ir: IRBuilder) =
   let lblLoop = !%ir "Loop"
   let lblEnd = !%ir "End"
   let lblLoopContinue = !%ir "LoopContinue"
-  let tAmt = !+ir oprSize
+  let struct (tVal, tAmt) = tmpVars2 ir oprSize
   let oSz = oprSzToExpr oprSize
-  let tVal = !+ir oprSize
-  !!ir (tAmt := bits)
+  let num0 = AST.num0 oprSize
   !!ir (tVal := value)
+  !!ir (tAmt := bits)
+  !!ir (AST.cjmp (value == num0) (AST.name lblEnd) (AST.name lblLoop))
   !!ir (AST.lmark lblLoop)
   !!ir (AST.cjmp (AST.ge tAmt oSz) (AST.name lblEnd) (AST.name lblLoopContinue))
   !!ir (AST.lmark lblLoopContinue)
-  !!ir (tVal := value << tAmt)
+  !!ir (tVal := tVal .| (value << tAmt))
   !!ir (tAmt := tAmt .+ bits)
   !!ir (AST.jmp (AST.name lblLoop))
   !!ir (AST.lmark lblEnd)
-  !!ir (dst := tVal)  (* FIXME: Check value *)
+  tVal
 
 let replicate x eSize dstSize =
   let rec loop x i = if i = 1 then x else loop (x <<< eSize ||| x) (i - 1)
@@ -695,8 +696,9 @@ let decodeBitMasksForIR wmask tmask immN imms immr oprSize ir =
   !!ir (d := diff .& getMaskForIR (AST.zext oprSize len) oprSize)
   !!ir (welem := getMaskForIR (s .+ n1) oprSize)
   !!ir (telem := getMaskForIR (d .+ n1) oprSize)
-  replicateForIR wmask (rorForIR welem r (oprSzToExpr oprSize)) esize oprSize ir
-  replicateForIR tmask telem esize oprSize ir
+  let welem = rorForIR welem r (oprSzToExpr oprSize)
+  !!ir (wmask := replicateForIR welem esize oprSize ir)
+  !!ir (tmask := replicateForIR telem esize oprSize ir)
 
 let decodeBitMasks immr imms dataSize =
   let immN = dataSize / 64

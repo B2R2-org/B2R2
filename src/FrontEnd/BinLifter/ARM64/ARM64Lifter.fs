@@ -904,10 +904,10 @@ let sbfm ins insLen ctxt addr dst src immr imms =
   let immr = transOprToExpr ins ctxt addr immr
   let imms = transOprToExpr ins ctxt addr imms
   !<ir insLen
-  let struct (bot, top, tMask) = tmpVars3 ir oprSz
+  let struct (bot, top, tMask, srcS) = tmpVars4 ir oprSz
   !!ir (bot := rorForIR src immr width .& (numI64 wmask oprSz))
-  let srcS = (src >> imms) .& (numI32 1 oprSz)
-  replicateForIR top srcS (oprSzToExpr oprSz) oprSz ir
+  !!ir (srcS := (src >> (imms .- AST.num1 oprSz)) .& (numI32 1 oprSz))
+  !!ir (top := replicateForIR srcS (AST.num1 oprSz) oprSz ir)
   !!ir (tMask := numI64 tmask oprSz)
   !!ir (dstAssign ins.OprSize dst ((top .& AST.not tMask) .| (bot .& tMask)))
   !>ir insLen
