@@ -1031,6 +1031,18 @@ let extractps ins insLen ctxt =
   | _ -> raise InvalidOperandException
   !>ir insLen
 
+let hsubpd ins insLen ctxt =
+  packedHorizon ins insLen ctxt 64<rt> (opP (.-))
+
+let hsubps ins insLen ctxt =
+  packedHorizon ins insLen ctxt 32<rt> (opP (.-))
+
+let haddpd ins insLen ctxt =
+  packedHorizon ins insLen ctxt 64<rt> (opP (.+))
+
+let haddps ins insLen ctxt =
+  packedHorizon ins insLen ctxt 32<rt> (opP (.+))
+
 let ldmxcsr ins insLen ctxt =
   let ir = !*ctxt
   let src = transOneOpr ins insLen ctxt

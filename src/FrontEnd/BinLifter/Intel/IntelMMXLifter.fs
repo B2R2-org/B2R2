@@ -363,7 +363,7 @@ let private makeHorizonSrc ir packSz src1 src2 =
   done
   t1, t2
 
-let private packedHorizon ins insLen ctxt packSz opFn =
+let packedHorizon ins insLen ctxt packSz opFn =
   let ir = !*ctxt
   let struct (dst, src) = getTwoOprs ins
   let oprSize = getOperationSize ins

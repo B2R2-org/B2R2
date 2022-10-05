@@ -364,6 +364,27 @@ let arpl ins insLen ctxt =
   !!ir (zF := AST.lt t1 t2)
   !>ir insLen
 
+let bextr ins insLen ctxt =
+  let ir = !*ctxt
+  let oprSize = getOperationSize ins
+  let struct (dst, src1, src2) = transThreeOprs ins insLen ctxt
+  let zF = !.ctxt R.ZF
+  let struct (tmp, mask, start, len) = tmpVars4 ir oprSize
+  !<ir insLen
+  !!ir (start := AST.zext oprSize (AST.extract src2 8<rt> 0))
+  !!ir (len := AST.zext oprSize (AST.extract src2 8<rt> 8))
+  !!ir (mask := AST.not(mask) << len)
+  !!ir (tmp := AST.zext oprSize src1)
+  !!ir (tmp := (tmp >> start) .& AST.not(mask))
+  !!ir (dst := tmp)
+  !!ir (zF := (dst == AST.num0 oprSize))
+#if !EMULATION
+  !!ir (!.ctxt R.AF := undefAF)
+  !!ir (!.ctxt R.SF := undefSF)
+  !!ir (!.ctxt R.PF := undefPF)
+#endif
+  !>ir insLen
+
 let private bndmov64 ins insLen ctxt =
   let struct (dst, src) = getTwoOprs ins
   let dst1, dst2 = transOprToExpr128 ins insLen ctxt dst
