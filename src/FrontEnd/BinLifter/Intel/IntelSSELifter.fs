@@ -1032,16 +1032,16 @@ let extractps ins insLen ctxt =
   !>ir insLen
 
 let hsubpd ins insLen ctxt =
-  packedHorizon ins insLen ctxt 64<rt> (opP (.-))
+  packedHorizon ins insLen ctxt 64<rt> (opP AST.fsub)
 
 let hsubps ins insLen ctxt =
-  packedHorizon ins insLen ctxt 32<rt> (opP (.-))
+  packedHorizon ins insLen ctxt 32<rt> (opP AST.fsub)
 
 let haddpd ins insLen ctxt =
-  packedHorizon ins insLen ctxt 64<rt> (opP (.+))
+  packedHorizon ins insLen ctxt 64<rt> (opP AST.fadd)
 
 let haddps ins insLen ctxt =
-  packedHorizon ins insLen ctxt 32<rt> (opP (.+))
+  packedHorizon ins insLen ctxt 32<rt> (opP AST.fadd)
 
 let ldmxcsr ins insLen ctxt =
   let ir = !*ctxt
