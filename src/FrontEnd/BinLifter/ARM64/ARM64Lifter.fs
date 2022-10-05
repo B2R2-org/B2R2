@@ -349,6 +349,25 @@ let csneg ins insLen ctxt addr =
   !!ir (dstAssign ins.OprSize dst (AST.ite (conditionHolds ctxt cond) s1 s2))
   !>ir insLen
 
+let dup ins insLen ctxt addr =
+  let ir = !*ctxt
+  let struct (dst, src) = getTwoOprs ins
+  let elements, eSize = getElemNumAndSize ins.OprSize (getSIMDReg dst)
+  let dstB, dstA = transOprToExpr128 ins ctxt addr dst
+  let src = transOprToExpr ins ctxt addr src
+  let element = !+ir eSize
+  let result = Array.init elements (fun _ -> !+ir eSize)
+  !<ir insLen
+  !!ir (element := AST.xtlo eSize src)
+  Array.iter (fun e -> !!ir (e := element)) result
+  if elements * (int eSize) < 128 then
+    !!ir (dstA := AST.concatArr result[ 0 .. elements - 1 ])
+    !!ir (dstB := AST.num0 64<rt>)
+  else
+    !!ir (dstA := AST.concatArr result[ 0 .. (elements / 2 - 1) ])
+    !!ir (dstB := AST.concatArr result[ (elements / 2) .. elements - 1 ])
+  !>ir insLen
+
 let eor ins insLen ctxt addr =
   let ir = !*ctxt
   !<ir insLen
@@ -1368,7 +1387,7 @@ let translate ins insLen ctxt =
   | Opcode.CSEL -> csel ins insLen ctxt addr
   | Opcode.CSETM | Opcode.CINV | Opcode.CSINV -> csinv ins insLen ctxt addr
   | Opcode.CSINC | Opcode.CINC | Opcode.CSET -> csinc ins insLen ctxt addr
-  | Opcode.DUP -> sideEffects insLen ctxt UnsupportedFP
+  | Opcode.DUP -> dup ins insLen ctxt addr
   | Opcode.EOR | Opcode.EON -> eor ins insLen ctxt addr
   | Opcode.EXT -> sideEffects insLen ctxt UnsupportedFP
   | Opcode.EXTR | Opcode.ROR -> extr ins insLen ctxt addr
