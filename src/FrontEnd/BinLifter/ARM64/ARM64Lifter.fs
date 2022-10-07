@@ -317,6 +317,87 @@ let cmp ins insLen ctxt addr =
   !!ir (getRegVar ctxt R.V := v)
   !>ir insLen
 
+let cmeq ins insLen ctxt addr =
+  let ir = !*ctxt
+  let struct (dst, src1, src2) = getThreeOprs ins
+  !<ir insLen
+  match src2 with
+  (* zero *)
+  | Immediate _ ->
+    if isSIMDVector src1 then
+      let dstB, dstA = transOprToExpr128 ins ctxt addr dst
+      let src1B, src1A = transOprToExpr128 ins ctxt addr src1
+      let elements, eSize = getElemNumAndSize ins.OprSize (getSIMDReg dst)
+      let oprSize = elements * eSize
+      let struct (ones, zeros) = tmpVars2 ir eSize
+      !!ir (ones := numI64 -1L eSize)
+      !!ir (zeros := AST.num0 eSize)
+      if oprSize = 128<rt> then
+        let result1 = Array.init (elements / 2) (fun _ -> !+ir eSize)
+        let result2 = Array.init (elements / 2) (fun _ -> !+ir eSize)
+        for e in 0 .. (elements / 2) - 1 do
+          let element1 = AST.extract src1A eSize (e * int eSize)
+          let element2 = AST.extract src1B eSize (e * int eSize)
+          !!ir (result1[e] := AST.ite (element1 == zeros) ones zeros)
+          !!ir (result2[e] := AST.ite (element2 == zeros) ones zeros)
+        !!ir (dstA := AST.concatArr result1)
+        !!ir (dstB := AST.concatArr result2)
+      else
+        let result = Array.init elements (fun _ -> !+ir eSize)
+        for e in 0 .. elements - 1 do
+          let element = AST.extract src1A eSize (e * int eSize)
+          !!ir (result[e] := AST.ite (element == zeros) ones zeros)
+        !!ir (dstA := AST.concatArr result)
+        !!ir (dstB := AST.num0 64<rt>)
+    else
+      let dst = transOprToExpr ins ctxt addr dst
+      let src1 = transOprToExpr ins ctxt addr src1
+      let num0 = AST.num0 64<rt>
+      let result = !+ir 64<rt>
+      !!ir (result := AST.ite (src1 == num0) (numI64 -1L 64<rt>) num0)
+      !!ir (dst := result)
+  (* register *)
+  | SIMDOpr _ ->
+    if isSIMDVector src1 then
+      let dstB, dstA = transOprToExpr128 ins ctxt addr dst
+      let src1B, src1A = transOprToExpr128 ins ctxt addr src1
+      let src2B, src2A = transOprToExpr128 ins ctxt addr src1
+      let elements, eSize = getElemNumAndSize ins.OprSize (getSIMDReg dst)
+      let oprSize = elements * eSize
+      let struct (ones, zeros) = tmpVars2 ir eSize
+      !!ir (ones := numI64 -1L eSize)
+      !!ir (zeros := AST.num0 eSize)
+      if oprSize = 128<rt> then
+        let result1 = Array.init (elements / 2) (fun _ -> !+ir eSize)
+        let result2 = Array.init (elements / 2) (fun _ -> !+ir eSize)
+        for e in 0 .. (elements / 2) - 1 do
+          let element1A = AST.extract src1A eSize (e * int eSize)
+          let element1B = AST.extract src1B eSize (e * int eSize)
+          let element2A = AST.extract src2A eSize (e * int eSize)
+          let element2B = AST.extract src2B eSize (e * int eSize)
+          !!ir (result1[e] := AST.ite (element1A == element1B) ones zeros)
+          !!ir (result2[e] := AST.ite (element2A == element2B) ones zeros)
+        !!ir (dstA := AST.concatArr result1)
+        !!ir (dstB := AST.concatArr result2)
+      else
+        let result = Array.init elements (fun _ -> !+ir eSize)
+        for e in 0 .. elements - 1 do
+          let element1 = AST.extract src1A eSize (e * int eSize)
+          let element2 = AST.extract src2A eSize (e * int eSize)
+          !!ir (result[e] := AST.ite (element1 == element2) ones zeros)
+        !!ir (dstA := AST.concatArr result)
+        !!ir (dstB := AST.num0 64<rt>)
+    else
+      let dst = transOprToExpr ins ctxt addr dst
+      let src1 = transOprToExpr ins ctxt addr src1
+      let src2 = transOprToExpr ins ctxt addr src2
+      let num0 = AST.num0 64<rt>
+      let result = !+ir 64<rt>
+      !!ir (result := AST.ite (src1 == src2) (numI64 -1L 64<rt>) num0)
+      !!ir (dst := result)
+  | _ -> raise InvalidOperandException
+  !>ir insLen
+
 let csel ins insLen ctxt addr =
   let ir = !*ctxt
   let dst, s1, s2, cond = transOprToExprOfCSEL ins ctxt addr
@@ -1378,7 +1459,7 @@ let translate ins insLen ctxt =
   | Opcode.CLZ -> clz ins insLen ctxt addr
   | Opcode.CMN -> cmn ins insLen ctxt addr
   | Opcode.CMP -> cmp ins insLen ctxt addr
-  | Opcode.CMEQ -> sideEffects insLen ctxt UnsupportedFP
+  | Opcode.CMEQ -> cmeq ins insLen ctxt addr
   | Opcode.CMGE | Opcode.CMLT | Opcode.CMTST ->
     sideEffects insLen ctxt UnsupportedFP
   | Opcode.CMHI | Opcode.CMHS -> sideEffects insLen ctxt UnsupportedFP
