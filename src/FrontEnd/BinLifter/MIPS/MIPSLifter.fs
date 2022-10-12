@@ -583,38 +583,19 @@ let drotr insInfo insLen ctxt =
   advancePC ctxt ir
   !>ir insLen
 
-let dsll insInfo insLen ctxt =
-  let ir = !*ctxt
-  let rd, rt, sa = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
-  !<ir insLen
-  if sa = AST.num0 ctxt.WordBitSize then !!ir (rd := rt)
-  else !!ir (rd := rt << sa)
-  advancePC ctxt ir
-  !>ir insLen
-
-let dsll32 insInfo insLen ctxt =
-  let ir = !*ctxt
-  let rd, rt, sa = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
-  let sa = sa .+ numI32 32 64<rt>
-  !<ir insLen
-  !!ir (rd := rt << sa)
-  advancePC ctxt ir
-  !>ir insLen
-
-let dsllv insInfo insLen ctxt =
-  let ir = !*ctxt
-  let rd, rt, rs = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
-  !<ir insLen
-  !!ir (rd := rt << (rs .& numI32 63 64<rt>))
-  advancePC ctxt ir
-  !>ir insLen
-
 let dsra insInfo insLen ctxt =
   let ir = !*ctxt
   let rd, rt, sa = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   !<ir insLen
-  if sa = AST.num0 ctxt.WordBitSize then !!ir (rd := rt)
-  else !!ir (rd := rt ?>> sa)
+  !!ir (rd := rt ?>> sa |> AST.sext 64<rt>)
+  advancePC ctxt ir
+  !>ir insLen
+
+let dsrav insInfo insLen ctxt =
+  let ir = !*ctxt
+  let rd, rt, rs = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
+  !<ir insLen
+  !!ir (rd := rt ?>> (rs .& numI32 63 64<rt>) |> AST.sext 64<rt>)
   advancePC ctxt ir
   !>ir insLen
 
@@ -623,33 +604,32 @@ let dsra32 insInfo insLen ctxt =
   let rd, rt, sa = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   let sa = sa .+ numI32 32 64<rt>
   !<ir insLen
-  !!ir (rd := rt ?>> sa)
+  !!ir (rd := rt ?>> sa |> AST.sext 64<rt>)
   advancePC ctxt ir
   !>ir insLen
 
-let dsrl insInfo insLen ctxt =
-  let ir = !*ctxt
-  let rd, rt, sa = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
-  !<ir insLen
-  if sa = AST.num0 ctxt.WordBitSize then !!ir (rd := rt)
-  else !!ir (rd := rt >> sa)
-  advancePC ctxt ir
-  !>ir insLen
-
-let dsrl32 insInfo insLen ctxt =
+let dShiftLeftRight32 insInfo insLen ctxt shf =
   let ir = !*ctxt
   let rd, rt, sa = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   let sa = sa .+ numI32 32 64<rt>
   !<ir insLen
-  !!ir (rd := rt >> sa)
+  !!ir (rd := shf rt sa)
   advancePC ctxt ir
   !>ir insLen
 
-let dsrlv insInfo insLen ctxt =
+let dShiftLeftRight insInfo insLen ctxt shf =
+  let ir = !*ctxt
+  let rd, rt, sa = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
+  !<ir insLen
+  !!ir (rd := shf rt sa)
+  advancePC ctxt ir
+  !>ir insLen
+
+let dShiftLeftRightVar insInfo insLen ctxt shf =
   let ir = !*ctxt
   let rd, rt, rs = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   !<ir insLen
-  !!ir (rd := rt >> (rs .& numI32 63 64<rt>))
+  !!ir (rd := shf rt (rs .& numI32 63 64<rt>))
   advancePC ctxt ir
   !>ir insLen
 
@@ -1003,26 +983,53 @@ let seh insInfo insLen ctxt =
   advancePC ctxt ir
   !>ir insLen
 
-let sll insInfo insLen ctxt =
+let shiftLeftRight insInfo insLen ctxt shf =
   let ir = !*ctxt
   let rd, rt, sa = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   !<ir insLen
   if is32Bit ctxt then
-    !!ir (rd := rt << sa)
+    !!ir (rd := shf rt sa)
   else
-    !!ir (rd := AST.sext 64<rt> (AST.xtlo 32<rt> rt << AST.xtlo 32<rt> sa))
+    let struct (rt, sa) = AST.xtlo 32<rt> rt, AST.xtlo 32<rt> sa
+    !!ir (rd := shf rt sa |> AST.sext 64<rt>)
   advancePC ctxt ir
   !>ir insLen
 
-let sllv insInfo insLen ctxt =
+let sra insInfo insLen ctxt =
+  let ir = !*ctxt
+  let rd, rt, sa = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
+  !<ir insLen
+  if is32Bit ctxt then
+    !!ir (rd := rt ?>> sa |> AST.sext 32<rt>)
+  else
+    let struct (rt, sa) = AST.xtlo 32<rt> rt, AST.xtlo 32<rt> sa
+    !!ir (rd := rt ?>> sa |> AST.sext 64<rt>)
+  advancePC ctxt ir
+  !>ir insLen
+
+let srav insInfo insLen ctxt =
   let ir = !*ctxt
   let rd, rt, rs = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   let mask = numI32 31 32<rt>
   !<ir insLen
-  if is32Bit ctxt then !!ir (rd := rt << (rs .& mask))
+  if is32Bit ctxt then
+    !!ir (rd := rt ?>> (rs .& mask) |> AST.sext 32<rt>)
   else
-    let rt = AST.xtlo 32<rt> rt
-    !!ir (rd := AST.sext 64<rt> (rt << (AST.xtlo 32<rt> rs .& mask)))
+    let struct (rt, rs) = AST.xtlo 32<rt> rt, AST.xtlo 32<rt> rs
+    !!ir (rd := rt ?>> (rs .& mask) |> AST.sext 64<rt>)
+  advancePC ctxt ir
+  !>ir insLen
+
+let shiftLeftRightVar insInfo insLen ctxt shf =
+  let ir = !*ctxt
+  let rd, rt, rs = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
+  let mask = numI32 31 32<rt>
+  !<ir insLen
+  if is32Bit ctxt then
+    !!ir (rd := shf rt (rs .& mask))
+  else
+    let struct (rt, rs) = AST.xtlo 32<rt> rt, AST.xtlo 32<rt> rs
+    !!ir (rd := shf rt (rs .& mask) |> AST.sext 64<rt>)
   advancePC ctxt ir
   !>ir insLen
 
@@ -1069,39 +1076,6 @@ let sltu insInfo insLen ctxt =
     AST.ite cond (AST.num1 ctxt.WordBitSize) (AST.num0 ctxt.WordBitSize)
   !<ir insLen
   !!ir (rd := rtVal)
-  advancePC ctxt ir
-  !>ir insLen
-
-let sra insInfo insLen ctxt =
-  let ir = !*ctxt
-  let rd, rt, sa = getThreeOprs insInfo
-  let rd, rt = transTwoOprs insInfo ctxt (rd, rt)
-  let sa = numU64 (transOprToImm sa) 32<rt>
-  !<ir insLen
-  if is32Bit ctxt then !!ir (rd := rt ?>> sa)
-  else !!ir (rd := (AST.xtlo 32<rt> rt ?>> sa) |> AST.sext 64<rt>)
-  advancePC ctxt ir
-  !>ir insLen
-
-let srl insInfo insLen ctxt =
-  let ir = !*ctxt
-  let rd, rt, sa = getThreeOprs insInfo
-  let rd, rt = transTwoOprs insInfo ctxt (rd, rt)
-  let sa = numU64 (transOprToImm sa) 32<rt>
-  !<ir insLen
-  if is32Bit ctxt then !!ir (rd := rt >> sa)
-  else !!ir (rd := (AST.xtlo 32<rt> rt >> sa) |> AST.sext 64<rt>)
-  advancePC ctxt ir
-  !>ir insLen
-
-let srlv insInfo insLen ctxt =
-  let ir = !*ctxt
-  let rd, rt, rs = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
-  let mask = numI32 31 32<rt>
-  !<ir insLen
-  if is32Bit ctxt then !!ir (rd := rt >> (rs .& mask))
-  else !!ir (rd := AST.sext 64<rt>
-                     (AST.xtlo 32<rt> rt >> (AST.xtlo 32<rt> rs .& mask)))
   advancePC ctxt ir
   !>ir insLen
 
@@ -1213,14 +1187,15 @@ let translate insInfo insLen (ctxt: TranslationContext) =
   | Op.DMULT -> dmult insInfo insLen ctxt
   | Op.DMULTU -> dmultu insInfo insLen ctxt
   | Op.DROTR -> drotr insInfo insLen ctxt
-  | Op.DSLL -> dsll insInfo insLen ctxt
-  | Op.DSLL32 -> dsll32 insInfo insLen ctxt
-  | Op.DSLLV -> dsllv insInfo insLen ctxt
+  | Op.DSLL -> dShiftLeftRight insInfo insLen ctxt (<<)
+  | Op.DSLL32 -> dShiftLeftRight32 insInfo insLen ctxt (<<)
+  | Op.DSLLV -> dShiftLeftRightVar insInfo insLen ctxt (<<)
   | Op.DSRA -> dsra insInfo insLen ctxt
+  | Op.DSRAV -> dsrav insInfo insLen ctxt
   | Op.DSRA32 -> dsra32 insInfo insLen ctxt
-  | Op.DSRL -> dsrl insInfo insLen ctxt
-  | Op.DSRL32 -> dsrl32 insInfo insLen ctxt
-  | Op.DSRLV -> dsrlv insInfo insLen ctxt
+  | Op.DSRL -> dShiftLeftRight insInfo insLen ctxt (>>)
+  | Op.DSRL32 -> dShiftLeftRight32 insInfo insLen ctxt (>>)
+  | Op.DSRLV -> dShiftLeftRightVar insInfo insLen ctxt (>>)
   | Op.DSUBU -> subu insInfo insLen ctxt
   | Op.EHB -> nop insLen ctxt
   | Op.EXT -> ext insInfo insLen ctxt
@@ -1259,8 +1234,8 @@ let translate insInfo insLen (ctxt: TranslationContext) =
   | Op.ORI -> ori insInfo insLen ctxt
   | Op.PREF | Op.PREFE | Op.PREFX -> nop insLen ctxt
   | Op.ROTR -> rotr insInfo insLen ctxt
-  | Op.SLL -> sll insInfo insLen ctxt
-  | Op.SLLV -> sllv insInfo insLen ctxt
+  | Op.SLL -> shiftLeftRight insInfo insLen ctxt (<<)
+  | Op.SLLV -> shiftLeftRightVar insInfo insLen ctxt (<<)
   | Op.SLT -> slt insInfo insLen ctxt
   | Op.SLTI -> slti insInfo insLen ctxt
   | Op.SLTIU -> sltiu insInfo insLen ctxt
@@ -1272,8 +1247,9 @@ let translate insInfo insLen (ctxt: TranslationContext) =
   | Op.SEH -> seh insInfo insLen ctxt
   | Op.SH -> sh insInfo insLen ctxt
   | Op.SRA -> sra insInfo insLen ctxt
-  | Op.SRL -> srl insInfo insLen ctxt
-  | Op.SRLV -> srlv insInfo insLen ctxt
+  | Op.SRAV -> srav insInfo insLen ctxt
+  | Op.SRL -> shiftLeftRight insInfo insLen ctxt (>>)
+  | Op.SRLV -> shiftLeftRightVar insInfo insLen ctxt (>>)
   | Op.SUB when insInfo.Fmt.IsSome -> sideEffects insLen ctxt UnsupportedFP
   | Op.SUBU -> subu insInfo insLen ctxt
   | Op.SW -> sw insInfo insLen ctxt
@@ -1288,10 +1264,10 @@ let translate insInfo insLen (ctxt: TranslationContext) =
   | Op.XOR -> logXor insInfo insLen ctxt
   | Op.XORI -> xori insInfo insLen ctxt
   | Op.ABS | Op.BC3F | Op.BC3FL | Op.BC3T | Op.BC3TL | Op.DDIV | Op.DIV
-  | Op.DROTR32 | Op.DROTRV | Op.DSBH | Op.DSHD | Op.DSRAV | Op.J | Op.JAL
+  | Op.DROTR32 | Op.DROTRV | Op.DSBH | Op.DSHD | Op.J | Op.JAL
   | Op.LDXC1 | Op.LWXC1 | Op.MADDU | Op.MFHC1 | Op.MOVF
   | Op.MOVN | Op.MOVT | Op.MSUB | Op.MTHC1 | Op.MTHI | Op.MTLO | Op.NEG
-  | Op.ROTRV | Op.SDXC1 | Op.SQRT | Op.SRAV | Op.SWXC1
+  | Op.ROTRV | Op.SDXC1 | Op.SQRT | Op.SWXC1
   | Op.TRUNCL | Op.WSBH ->
     sideEffects insLen ctxt UnsupportedExtension // XXX this is a temporary fix
   | o ->
