@@ -375,6 +375,10 @@ type RegularFunction private (histMgr: HistoryManager, ep, name, thunkInfo) =
       insInfos
       |> Array.partition (fun insInfo ->
         insInfo.Instruction.Address < splitPoint.Address)
+    let dstInfos =
+      dstInfos
+      |> Array.map (fun insInfo ->
+        { insInfo with BBLAddr = splitPoint.Address })
     let srcBlk = IRBasicBlock.initRegular srcInfos v.VData.PPoint
     let dstBlk = IRBasicBlock.initRegular dstInfos splitPoint
     let src = __.AddVertex srcBlk
