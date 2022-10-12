@@ -1967,8 +1967,8 @@ let changeToAliasOfAdvSIMDCopy bin =
   | instr -> instr
 
 let parseAdvSIMDCopy bin =
-  let cond =  concat (concat (extract bin 30u 29u) (extract bin 20u 16u) 5)
-                     (extract bin 14u 11u) 4 (* Q:op:imm5:imm4 *)
+  let cond = concat (concat (extract bin 30u 29u) (extract bin 20u 16u) 5)
+                    (extract bin 14u 11u) 4 (* Q:op:imm5:imm4 *)
   match cond with
   | c when c &&& 0b00011110000u = 0b00000000000u -> raise UnallocatedException
   | c when c &&& 0b01000001111u = 0b00000000000u ->
