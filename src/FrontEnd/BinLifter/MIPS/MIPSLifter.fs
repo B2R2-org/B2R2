@@ -36,11 +36,6 @@ open B2R2.FrontEnd.BinLifter.MIPS
 let inline getRegVar (ctxt: TranslationContext) name =
   Register.toRegID name |> ctxt.GetRegVar
 
-let bvOfBaseAddr (ctxt: TranslationContext) addr = numU64 addr ctxt.WordBitSize
-
-let bvOfInstrLen (ctxt: TranslationContext) insInfo =
-  numU32 insInfo.NumBytes ctxt.WordBitSize
-
 let transOprToExpr insInfo ctxt = function
   | OpReg reg -> getRegVar ctxt reg
   | OpImm imm
@@ -633,6 +628,16 @@ let dShiftLeftRightVar insInfo insLen ctxt shf =
   advancePC ctxt ir
   !>ir insLen
 
+let dsubu insInfo insLen ctxt =
+  let ir = !*ctxt
+  let rd, rs, rt = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
+  let result = !+ir 64<rt>
+  !<ir insLen
+  !!ir (result := rs .- rt)
+  !!ir (rd := result)
+  advancePC ctxt ir
+  !>ir insLen
+
 let ins insInfo insLen ctxt =
   let ir = !*ctxt
   !<ir insLen
@@ -1196,7 +1201,7 @@ let translate insInfo insLen (ctxt: TranslationContext) =
   | Op.DSRL -> dShiftLeftRight insInfo insLen ctxt (>>)
   | Op.DSRL32 -> dShiftLeftRight32 insInfo insLen ctxt (>>)
   | Op.DSRLV -> dShiftLeftRightVar insInfo insLen ctxt (>>)
-  | Op.DSUBU -> subu insInfo insLen ctxt
+  | Op.DSUBU -> dsubu insInfo insLen ctxt
   | Op.EHB -> nop insLen ctxt
   | Op.EXT -> ext insInfo insLen ctxt
   | Op.INS -> ins insInfo insLen ctxt
@@ -1222,6 +1227,7 @@ let translate insInfo insLen (ctxt: TranslationContext) =
   | Op.MFC1 -> sideEffects insLen ctxt UnsupportedFP
   | Op.MOV -> sideEffects insLen ctxt UnsupportedFP
   | Op.MOVZ -> movz insInfo insLen ctxt
+  | Op.MOVN when insInfo.Fmt.IsSome -> sideEffects insLen ctxt UnsupportedFP
   | Op.MOVN -> movn insInfo insLen ctxt
   | Op.MTC1 -> sideEffects insLen ctxt UnsupportedFP
   | Op.MUL when insInfo.Fmt.IsNone -> mul insInfo insLen ctxt
@@ -1266,9 +1272,9 @@ let translate insInfo insLen (ctxt: TranslationContext) =
   | Op.ABS | Op.BC3F | Op.BC3FL | Op.BC3T | Op.BC3TL | Op.DDIV | Op.DIV
   | Op.DROTR32 | Op.DROTRV | Op.DSBH | Op.DSHD | Op.J | Op.JAL
   | Op.LDXC1 | Op.LWXC1 | Op.MADDU | Op.MFHC1 | Op.MOVF
-  | Op.MOVN | Op.MOVT | Op.MSUB | Op.MTHC1 | Op.MTHI | Op.MTLO | Op.NEG
+  | Op.MOVT | Op.MSUB | Op.MTHC1 | Op.MTHI | Op.MTLO | Op.NEG
   | Op.ROTRV | Op.SDXC1 | Op.SQRT | Op.SWXC1
-  | Op.TRUNCL | Op.WSBH ->
+  | Op.WSBH ->
     sideEffects insLen ctxt UnsupportedExtension // XXX this is a temporary fix
   | o ->
 #if DEBUG
