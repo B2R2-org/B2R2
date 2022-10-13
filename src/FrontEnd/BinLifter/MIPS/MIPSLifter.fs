@@ -792,6 +792,24 @@ let mflo insInfo insLen ctxt =
   advancePC ctxt ir
   !>ir insLen
 
+let mthi insInfo insLen ctxt =
+  let ir = !*ctxt
+  let rs = getOneOpr insInfo |> transOneOpr insInfo ctxt
+  let hi = getRegVar ctxt R.HI
+  !<ir insLen
+  !!ir (hi := rs)
+  advancePC ctxt ir
+  !>ir insLen
+
+let mtlo insInfo insLen ctxt =
+  let ir = !*ctxt
+  let rs = getOneOpr insInfo |> transOneOpr insInfo ctxt
+  let lo = getRegVar ctxt R.LO
+  !<ir insLen
+  !!ir (lo := rs)
+  advancePC ctxt ir
+  !>ir insLen
+
 let movz insInfo insLen ctxt =
   let ir = !*ctxt
   let rd, rs, rt = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
@@ -1224,6 +1242,8 @@ let translate insInfo insLen (ctxt: TranslationContext) =
   | Op.MADD -> sideEffects insLen ctxt UnsupportedFP
   | Op.MFHI -> mfhi insInfo insLen ctxt
   | Op.MFLO -> mflo insInfo insLen ctxt
+  | Op.MTHI -> mthi insInfo insLen ctxt
+  | Op.MTLO -> mtlo insInfo insLen ctxt
   | Op.MFC1 -> sideEffects insLen ctxt UnsupportedFP
   | Op.MOV -> sideEffects insLen ctxt UnsupportedFP
   | Op.MOVZ -> movz insInfo insLen ctxt
@@ -1270,11 +1290,9 @@ let translate insInfo insLen (ctxt: TranslationContext) =
   | Op.XOR -> logXor insInfo insLen ctxt
   | Op.XORI -> xori insInfo insLen ctxt
   | Op.ABS | Op.BC3F | Op.BC3FL | Op.BC3T | Op.BC3TL | Op.DDIV | Op.DIV
-  | Op.DROTR32 | Op.DROTRV | Op.DSBH | Op.DSHD | Op.J | Op.JAL
-  | Op.LDXC1 | Op.LWXC1 | Op.MADDU | Op.MFHC1 | Op.MOVF
-  | Op.MOVT | Op.MSUB | Op.MTHC1 | Op.MTHI | Op.MTLO | Op.NEG
-  | Op.ROTRV | Op.SDXC1 | Op.SQRT | Op.SWXC1
-  | Op.WSBH ->
+  | Op.DROTR32 | Op.DROTRV | Op.DSBH | Op.DSHD | Op.J | Op.JAL | Op.LDXC1
+  | Op.LWXC1 | Op.MADDU | Op.MFHC1 | Op.MOVF | Op.MOVT | Op.MSUB | Op.MTHC1
+  | Op.NEG | Op.ROTRV | Op.SDXC1 | Op.SQRT | Op.SWXC1 | Op.WSBH ->
     sideEffects insLen ctxt UnsupportedExtension // XXX this is a temporary fix
   | o ->
 #if DEBUG
