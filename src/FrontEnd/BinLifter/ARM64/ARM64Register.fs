@@ -770,10 +770,12 @@ type Register =
   | HPFAREL2 = 0x171
   /// EL0 Read/Write Software Thread ID Register.
   | TPIDREL0 = 0x172
+  /// Main ID Register.
+  | MIDREL1 = 0x173
   /// Floating-point Control Register.
-  | FPCR = 0x173
+  | FPCR = 0x174
   /// Floating-point Status Register.
-  | FPSR = 0x174
+  | FPSR = 0x175
 
 /// Shortcut for Register type.
 type internal R = Register
@@ -1160,6 +1162,7 @@ module Register =
     | "esrel3" -> R.ESREL3
     | "hpfarel2" -> R.HPFAREL2
     | "tpidrel0" -> R.TPIDREL0
+    | "midrel1" -> R.MIDREL1
     | "fpcr" -> R.FPCR
     | "fpsr" -> R.FPSR
     | _ -> Utils.impossible ()
@@ -1536,6 +1539,7 @@ module Register =
     | R.ESREL3 -> "esr_el3"
     | R.HPFAREL2 -> "hpfar_el2"
     | R.TPIDREL0 -> "tpidr_el0"
+    | R.MIDREL1 -> "midr_el1"
     | R.FPCR -> "fpcr"
     | R.FPSR -> "fpsr"
     | _ -> Utils.impossible ()

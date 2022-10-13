@@ -850,7 +850,7 @@ let mrs ins insLen ctxt addr =
   let ir = !*ctxt
   let dst, src = transTwoOprs ins ctxt addr
   !<ir insLen
-  !!ir (dst := src) (* FIXME: AArch64.SysRegRead *)
+  !!ir (dst := src)
   !>ir insLen
 
 let msub ins insLen ctxt addr =

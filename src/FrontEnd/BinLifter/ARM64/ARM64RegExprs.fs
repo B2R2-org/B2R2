@@ -658,6 +658,8 @@ type internal RegExprs () =
   /// Data Cache Zero ID register
   member val DCZIDEL0 =
     var 64<rt> (Register.toRegID Register.DCZIDEL0) "DCZID_EL0"
+  /// Main ID Register
+  member val MIDREL1 = var 64<rt> (Register.toRegID Register.MIDREL1) "MIDR_EL1"
 
   member __.GetRegVar (name) =
     match name with
@@ -863,6 +865,7 @@ type internal RegExprs () =
     | R.C -> __.C
     | R.V -> __.V
     | R.DCZIDEL0 -> __.DCZIDEL0
+    | R.MIDREL1 -> __.MIDREL1
     | _ -> raise UnhandledRegExprException
 
   member __.GetPseudoRegVar name pos =
