@@ -903,21 +903,23 @@ let transLableOprsOfBL ins targetMode imm =
 
 let targetModeOfBL (ins: InsInfo) =
   match ins.Opcode, ins.Mode with
-  | Op.BL, mode -> mode
-  | Op.BLX, ArchOperationMode.ARMMode -> ArchOperationMode.ThumbMode
-  | Op.BLX, ArchOperationMode.ThumbMode -> ArchOperationMode.ARMMode
+  | Op.BL, mode -> struct (mode, InterJmpKind.IsCall)
+  | Op.BLX, ArchOperationMode.ARMMode ->
+    struct (ArchOperationMode.ThumbMode, InterJmpKind.SwitchToThumb)
+  | Op.BLX, ArchOperationMode.ThumbMode ->
+    struct (ArchOperationMode.ARMMode, InterJmpKind.SwitchToARM)
   | _ -> raise InvalidTargetArchModeException
 
 let parseOprOfBL ins =
-  let targetMode = targetModeOfBL ins
+  let struct (targetMode, callKind) = targetModeOfBL ins
   match ins.Operands with
   | OneOperand (OprMemory (LiteralMode imm)) ->
-    transLableOprsOfBL ins targetMode imm, targetMode
+    struct (transLableOprsOfBL ins targetMode imm, targetMode, callKind)
   | _ -> raise InvalidOperandException
 
 let bl ins insLen ctxt =
   let ir = !*ctxt
-  let alignedAddr, targetMode = parseOprOfBL ins
+  let struct (alignedAddr, targetMode, callKind) = parseOprOfBL ins
   let lr = getRegVar ctxt R.LR
   let retAddr = bvOfBaseAddr ins.Address .+ (numI32 4 32<rt>)
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
@@ -926,7 +928,7 @@ let bl ins insLen ctxt =
   if ins.Mode = ArchOperationMode.ARMMode then !!ir (lr := retAddr)
   else !!ir (lr := maskAndOR retAddr (AST.num1 32<rt>) 32<rt> 1)
   selectInstrSet ctxt ir targetMode
-  !!ir (branchWritePC ctxt ins alignedAddr InterJmpKind.IsCall)
+  !!ir (branchWritePC ctxt ins alignedAddr callKind)
   putEndLabelForBranch ctxt lblIgnore ins ir
   !>ir insLen
 
