@@ -820,7 +820,8 @@ let processAddrExn32 (ins: InsInfo) addr =
 let calculateRelativePC (ins: InsInfo) lbl addr =
   let delta = if ins.Mode = ArchOperationMode.ARMMode then 8 else 4
   let offset = int32 lbl + delta
-  int32 addr + offset |> uint32 |> uint64
+  let addr = 4u * (uint32 addr / 4u) |> int32 (* Align (PC, 4) *)
+  addr + offset |> uint32 |> uint64
 
 let commentWithSymbol helper addr addrStr (builder: DisasmBuilder<_>) =
   if builder.ResolveSymbol then
