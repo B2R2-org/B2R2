@@ -302,7 +302,7 @@ let ruleToString (hdl: BinHandle) (rule: ELF.Rule) =
 let dumpEHFrame hdl (fi: ELFFileInfo) =
   let addrColumn = columnWidthOfAddr fi |> LeftAligned
   let cfg = [ addrColumn; LeftAligned 10; LeftAligned 50 ]
-  fi.ELF.ExceptionFrame
+  fi.ELF.ExceptionFrames
   |> List.iter (fun cfi ->
     out.PrintLine ("- CIE: \"{0}\" cf={1} df={2}",
       cfi.CIERecord.AugmentationString,

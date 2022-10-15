@@ -264,7 +264,7 @@ let addExtraFunctionAddrs span elf useExceptionInfo addrs =
     |> Seq.concat
     |> Set.ofSeq
   if useExceptionInfo then (* XXX *)
-    elf.ExceptionFrame
+    elf.ExceptionFrames
     |> List.fold (fun set cfi ->
       cfi.FDERecord
       |> Array.fold (fun set fde -> Set.add fde.PCBegin set) set

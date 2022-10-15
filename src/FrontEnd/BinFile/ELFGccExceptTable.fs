@@ -100,6 +100,19 @@ let rec parseActionTable acc span offset callsites =
     parseActionTable acc span offset tl
   | [] -> List.rev acc
 
+/// Parse one LSDA entry.
+let parseLSDA cls (span: ByteSpan) reader sAddr offset =
+  let header, offset = parseLSDAHeader cls span reader sAddr offset
+  let subspn = span.Slice (offset, int header.CallSiteTableSize)
+  let encoding = header.CallSiteValueEncoding
+  let callsites, hasAction =
+    parseCallSiteTable [] cls subspn reader 0 encoding false
+  let offset = offset + int header.CallSiteTableSize
+  let callsites =
+    if hasAction then parseActionTable [] span offset callsites
+    else callsites
+  struct ({ Header = header; CallSiteTable = callsites }, offset)
+
 let findMinOrZero lst =
   match lst with
   | [] -> 0L
@@ -136,28 +149,19 @@ let rec skipDummyAlign (span: ByteSpan) offset =
     else offset
 
 /// Parse language-specific data area.
-let rec parseLSDA cls (span: ByteSpan) reader sAddr offset lsdas =
+let rec parseLSDASection cls (span: ByteSpan) reader sAddr offset lsdas =
   if offset >= span.Length then lsdas
   else
     let lsdaAddr = sAddr + uint64 offset
-    let header, offset = parseLSDAHeader cls span reader sAddr offset
-    let subspn = span.Slice (offset, int header.CallSiteTableSize)
-    let encoding = header.CallSiteValueEncoding
-    let callsites, hasAction =
-      parseCallSiteTable [] cls subspn reader 0 encoding false
-    let offset = offset + int header.CallSiteTableSize
-    let callsites =
-      if hasAction then parseActionTable [] span offset callsites
-      else callsites
+    let struct (lsda, offset) = parseLSDA cls span reader sAddr offset
     let offset =
-      match header.TTBase with
+      match lsda.Header.TTBase with
       | Some ttbase -> int (ttbase - sAddr)
       | None -> offset
-    let offset = skipTypeTable span offset callsites
+    let offset = skipTypeTable span offset lsda.CallSiteTable
     let offset = skipDummyAlign span offset
-    let lsda = { Header = header; CallSiteTable = callsites }
     let lsdas = Map.add lsdaAddr lsda lsdas
-    parseLSDA cls span reader sAddr offset lsdas
+    parseLSDASection cls span reader sAddr offset lsdas
 
 let parse (span: ByteSpan) reader cls (secs: SectionInfo) =
   match Map.tryFind GccExceptTable secs.SecByName with
@@ -165,5 +169,5 @@ let parse (span: ByteSpan) reader cls (secs: SectionInfo) =
     let size = Convert.ToInt32 sec.SecSize
     let offset = Convert.ToInt32 sec.SecOffset
     let span = span.Slice (offset, size)
-    parseLSDA cls span reader sec.SecAddr 0 Map.empty
+    parseLSDASection cls span reader sec.SecAddr 0 Map.empty
   | None -> Map.empty

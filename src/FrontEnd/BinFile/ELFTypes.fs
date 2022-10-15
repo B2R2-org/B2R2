@@ -1230,7 +1230,7 @@ type ELF = {
   /// Global symbols (such as R_X86_64_GLOB_DAT).
   Globals: Map<Addr, ELFSymbol>
   /// Exception frames.
-  ExceptionFrame: CallFrameInformation list
+  ExceptionFrames: CallFrameInformation list
   /// LSDAs (Language Specific Data Areas).
   LSDAs: Map<Addr, LanguageSpecificDataArea>
   /// Invalid address ranges.

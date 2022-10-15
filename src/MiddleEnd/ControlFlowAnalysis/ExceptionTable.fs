@@ -84,7 +84,7 @@ module ELFExceptionTable =
     ) (ARMap.empty, Set.empty)
 
   let build hdl (elf: ELFFileInfo) =
-    computeExceptionTable hdl elf.ELF.ExceptionFrame elf.ELF.LSDAs
+    computeExceptionTable hdl elf.ELF.ExceptionFrames elf.ELF.LSDAs
 
 /// ExceptionTable holds parsed exception information of a binary code (given by
 /// the BinHandle).

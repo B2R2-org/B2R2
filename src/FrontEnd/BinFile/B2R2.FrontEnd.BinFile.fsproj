@@ -29,6 +29,7 @@
     <Compile Include="ELFPLT.fs" />
     <Compile Include="ELFExceptionFrames.fs" />
     <Compile Include="ELFGccExceptTable.fs" />
+    <Compile Include="ELFARMExceptionHandler.fs" />
     <Compile Include="ELFHelper.fs" />
     <Compile Include="ELFParser.fs" />
     <Compile Include="ELF.fs" />
