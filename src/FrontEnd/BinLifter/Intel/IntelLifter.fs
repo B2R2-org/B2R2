@@ -257,6 +257,8 @@ let translate (ins: IntelInternalInstruction) insLen ctxt =
   | OP.PSRAW -> MMXLifter.psraw ins insLen ctxt
   | OP.PSRAD -> MMXLifter.psrad ins insLen ctxt
   | OP.EMMS -> MMXLifter.emms ins insLen ctxt
+  | OP.ADDSUBPD -> SSELifter.addsubpd ins insLen ctxt
+  | OP.ADDSUBPS -> SSELifter.addsubps ins insLen ctxt
   | OP.MOVAPS -> SSELifter.movaps ins insLen ctxt
   | OP.MOVAPD -> SSELifter.movapd ins insLen ctxt (* SSE2 *)
   | OP.MOVUPS -> SSELifter.movups ins insLen ctxt
