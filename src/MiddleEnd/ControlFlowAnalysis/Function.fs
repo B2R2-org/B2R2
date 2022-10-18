@@ -506,7 +506,14 @@ type RegularFunction private (histMgr: HistoryManager, ep, name, thunkInfo) =
     let callerBlk: IRVertex option =
       DiGraph.GetPreds (__.IRCFG, entryBlk)
       |> List.filter (fun v ->
-        not <| Set.contains v reachableNodes && not (v.VData.IsFakeBlock ()))
+        (* Caller should not be reachable by new entry *)
+        not <| Set.contains v reachableNodes
+          (* Caller should not be a fake block *)
+          && not (v.VData.IsFakeBlock ())
+          (* Caller should have a tail-call jmp edge, not a call edge. Normally,
+             function splitting should not happen after a call instruction, but
+             this is to handle some exceptional cases (Issue #515). *)
+          && not (v.VData.LastInstruction.IsCall ()))
       |> List.tryHead
     reachableNodes
     |> Set.iter (fun v ->

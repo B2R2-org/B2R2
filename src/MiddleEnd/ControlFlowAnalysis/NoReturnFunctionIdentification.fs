@@ -324,10 +324,11 @@ type NoReturnFunctionIdentification () =
       let arch = hdl.ISA.Arch
       let exitSyscall = LinuxSyscall.toNumber arch LinuxSyscall.Exit
       let exitGrpSyscall = LinuxSyscall.toNumber arch LinuxSyscall.ExitGroup
+      let sigreturnSyscall = LinuxSyscall.toNumber arch LinuxSyscall.RtSigreturn
       let reg = CallingConvention.returnRegister hdl
       match readReg st reg with
       | None -> false
       | Some v ->
         let n = BitVector.ToInt32 v
-        n = exitSyscall || n = exitGrpSyscall
+        n = exitSyscall || n = exitGrpSyscall || n = sigreturnSyscall
     | _ -> false
