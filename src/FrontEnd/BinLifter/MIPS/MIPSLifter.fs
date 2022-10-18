@@ -1259,6 +1259,7 @@ let translate insInfo insLen (ctxt: TranslationContext) =
   | Op.OR -> logOr insInfo insLen ctxt
   | Op.ORI -> ori insInfo insLen ctxt
   | Op.PREF | Op.PREFE | Op.PREFX -> nop insLen ctxt
+  | Op.RDHWR -> sideEffects insLen ctxt ProcessorID
   | Op.ROTR -> rotr insInfo insLen ctxt
   | Op.SLL -> shiftLeftRight insInfo insLen ctxt (<<)
   | Op.SLLV -> shiftLeftRightVar insInfo insLen ctxt (<<)
