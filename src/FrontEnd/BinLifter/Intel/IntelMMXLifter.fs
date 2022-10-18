@@ -350,17 +350,22 @@ let private opPaddusw oprSize src1 src2 =
 let paddusw ins insLen ctxt =
   buildPackedInstr ins insLen ctxt 16<rt> opPaddusw
 
-let private makeHorizonSrc ir packSz src1 src2 =
+let makeHorizonSrc ir packSz src1 src2 =
   let packNum = 64<rt> / packSz
+  let iSz = int packSz
   let pHalf = packNum / 2
   let t1 = Array.init packNum (fun _ -> !+ir packSz)
   let t2 = Array.init packNum (fun _ -> !+ir packSz)
-  for i in 0 .. pHalf - 1 do
-    !!ir (t1[i] := AST.extract src1 packSz (2 * i * (int packSz)))
-    !!ir (t2[i] := AST.extract src1 packSz ((2 * i + 1) * (int packSz)))
-    !!ir (t1[i + pHalf] := AST.extract src2 packSz (2 * i * (int packSz)))
-    !!ir (t2[i + pHalf] := AST.extract src2 packSz ((2 * i + 1) * (int packSz)))
-  done
+  if packNum = 1 then
+   !! ir (t1[0]:= src1)
+   !! ir (t2[0]:= src2)
+  else
+    for i in 0 .. pHalf - 1 do
+      !!ir (t1[i] := AST.extract src1 packSz (2 * i * iSz))
+      !!ir (t2[i] := AST.extract src1 packSz ((2 * i + 1) * iSz))
+      !!ir (t1[i + pHalf] := AST.extract src2 packSz (2 * i * iSz))
+      !!ir (t2[i + pHalf] := AST.extract src2 packSz ((2 * i + 1) * iSz))
+    done
   t1, t2
 
 let packedHorizon ins insLen ctxt packSz opFn =

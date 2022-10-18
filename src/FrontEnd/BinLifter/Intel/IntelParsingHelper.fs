@@ -1582,6 +1582,13 @@ module internal ParsingHelper = begin
     | MPref.MPrxF2
     | _ (* MPrx66F2 *) -> raise ParsingFailureException
 
+  let nor0FD0 = function
+    | MPref.MPrxNP -> raise ParsingFailureException
+    | MPref.MPrx66 -> struct (ADDSUBPD, OD.GprRm, SZ.DqDq) (* VdqWdq *)
+    | MPref.MPrxF3 -> raise ParsingFailureException
+    | MPref.MPrxF2 -> struct (ADDSUBPS, OD.GprRm, SZ.DqDq) (* VdqWdq *)
+    | _ (* MPrx66F2 *) -> raise ParsingFailureException
+
   let vex0FD0 = function
     | MPref.MPrxNP -> raise ParsingFailureException
     | MPref.MPrx66 ->
@@ -6245,7 +6252,7 @@ module internal ParsingHelper = begin
     | 0xCDuy -> render span (ignOpSz rhlp) BSWAP SzCond.Nor OD.Rbp SZ.Def
     | 0xCEuy -> render span (ignOpSz rhlp) BSWAP SzCond.Nor OD.Rsi SZ.Def
     | 0xCFuy -> render span (ignOpSz rhlp) BSWAP SzCond.Nor OD.Rdi SZ.Def
-    | 0xD0uy -> parseVEX span rhlp notEn vex0FD0
+    | 0xD0uy -> parseVEX span rhlp nor0FD0 vex0FD0
     | 0xD1uy -> parseVEX span rhlp nor0FD1 vex0FD1
     | 0xD2uy -> parseVEX span rhlp nor0FD2 vex0FD2
     | 0xD3uy -> parseVEX span rhlp nor0FD3 vex0FD3

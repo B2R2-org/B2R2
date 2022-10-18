@@ -36,6 +36,31 @@ open B2R2.FrontEnd.BinLifter.Intel.Helper
 open B2R2.FrontEnd.BinLifter.Intel.LiftingUtils
 open B2R2.FrontEnd.BinLifter.Intel.MMXLifter
 
+let addsubpd ins insLen ctxt =
+  let ir = !*ctxt
+  let struct (dst, src) = getTwoOprs ins
+  let dstB, dstA = transOprToExpr128 ins insLen ctxt dst
+  let srcB, srcA = transOprToExpr128 ins insLen ctxt src
+  !<ir insLen
+  !!ir (dstA := AST.fsub dstA srcA)
+  !!ir (dstB := AST.fadd dstB srcB)
+  !>ir insLen
+
+let addsubps ins insLen ctxt =
+  let ir = !*ctxt
+  let struct (dst, src) = getTwoOprs ins
+  let dstB, dstA = transOprToExpr128 ins insLen ctxt dst
+  let srcB, srcA = transOprToExpr128 ins insLen ctxt src
+  let struct (t1, t2, t3, t4) = tmpVars4 ir 32<rt>
+  !<ir insLen
+  !!ir (t1 := AST.fsub (AST.xtlo 32<rt> dstA) (AST.xtlo 32<rt> srcA))
+  !!ir (t2 := AST.fadd (AST.xthi 32<rt> dstA) (AST.xthi 32<rt> srcA))
+  !!ir (t3 := AST.fsub (AST.xtlo 32<rt> dstB) (AST.xtlo 32<rt> srcB))
+  !!ir (t4 := AST.fadd (AST.xthi 32<rt> dstB) (AST.xthi 32<rt> srcB))
+  !!ir (dstA := AST.concat t2 t1)
+  !!ir (dstB := AST.concat t4 t3)
+  !>ir insLen
+
 let buildMove ins insLen ctxt bufSize =
   let ir = !*ctxt
   let oprSize = getOperationSize ins
@@ -1032,16 +1057,16 @@ let extractps ins insLen ctxt =
   !>ir insLen
 
 let hsubpd ins insLen ctxt =
-  packedHorizon ins insLen ctxt 64<rt> (opP (.-))
+  packedHorizon ins insLen ctxt 64<rt> (opP AST.fsub)
 
 let hsubps ins insLen ctxt =
-  packedHorizon ins insLen ctxt 32<rt> (opP (.-))
+  packedHorizon ins insLen ctxt 32<rt> (opP AST.fsub)
 
 let haddpd ins insLen ctxt =
-  packedHorizon ins insLen ctxt 64<rt> (opP (.+))
+  packedHorizon ins insLen ctxt 64<rt> (opP AST.fadd)
 
 let haddps ins insLen ctxt =
-  packedHorizon ins insLen ctxt 32<rt> (opP (.+))
+  packedHorizon ins insLen ctxt 32<rt> (opP AST.fadd)
 
 let ldmxcsr ins insLen ctxt =
   let ir = !*ctxt
