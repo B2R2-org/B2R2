@@ -251,7 +251,7 @@ let beq insInfo insLen ctxt =
 let blez insInfo insLen ctxt =
   let ir = !*ctxt
   let rs, offset = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
-  let cond = AST.le rs (AST.num0 ctxt.WordBitSize)
+  let cond = AST.sle rs (AST.num0 ctxt.WordBitSize)
   !<ir insLen
   updatePCCond ctxt offset cond InterJmpKind.Base ir
   !>ir insLen
@@ -259,7 +259,7 @@ let blez insInfo insLen ctxt =
 let bltz insInfo insLen ctxt =
   let ir = !*ctxt
   let rs, offset = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
-  let cond = AST.lt rs (AST.num0 ctxt.WordBitSize)
+  let cond = AST.slt rs (AST.num0 ctxt.WordBitSize)
   !<ir insLen
   updatePCCond ctxt offset cond InterJmpKind.Base ir
   !>ir insLen
@@ -268,7 +268,7 @@ let bltzal insInfo insLen ctxt =
   let ir = !*ctxt
   let rs, offset = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
   let pc = getRegVar ctxt R.PC
-  let cond = AST.lt rs (AST.num0 ctxt.WordBitSize)
+  let cond = AST.slt rs (AST.num0 ctxt.WordBitSize)
   !<ir insLen
   !!ir (getRegVar ctxt R.R31 := pc .+ numI32 8 ctxt.WordBitSize)
   updatePCCond ctxt offset cond InterJmpKind.IsCall ir
@@ -277,7 +277,7 @@ let bltzal insInfo insLen ctxt =
 let bgez insInfo insLen ctxt =
   let ir = !*ctxt
   let rs, offset = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
-  let cond = AST.ge rs (AST.num0 ctxt.WordBitSize)
+  let cond = AST.sge rs (AST.num0 ctxt.WordBitSize)
   !<ir insLen
   updatePCCond ctxt offset cond InterJmpKind.Base ir
   !>ir insLen
@@ -286,7 +286,7 @@ let bgezal insInfo insLen ctxt =
   let ir = !*ctxt
   let rs, offset = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
   let pc = getRegVar ctxt R.PC
-  let cond = AST.ge rs (AST.num0 ctxt.WordBitSize)
+  let cond = AST.sge rs (AST.num0 ctxt.WordBitSize)
   !<ir insLen
   !!ir (getRegVar ctxt R.R31 := pc .+ numI32 8 ctxt.WordBitSize)
   updatePCCond ctxt offset cond InterJmpKind.IsCall ir
@@ -295,7 +295,7 @@ let bgezal insInfo insLen ctxt =
 let bgtz insInfo insLen ctxt =
   let ir = !*ctxt
   let rs, offset = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
-  let cond = AST.gt rs (AST.num0 ctxt.WordBitSize)
+  let cond = AST.sgt rs (AST.num0 ctxt.WordBitSize)
   !<ir insLen
   updatePCCond ctxt offset cond InterJmpKind.Base ir
   !>ir insLen
