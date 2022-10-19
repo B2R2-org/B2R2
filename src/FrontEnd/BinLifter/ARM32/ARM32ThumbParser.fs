@@ -38,7 +38,7 @@ let render (phlp: ParsingHelper) (itstate: byref<BL>) it isInIT bin op dt q o =
   let struct (oprs, wback, cflags, oSz) = phlp.OprParsers.[int o].Render bin
   if isInIT then updateITSTATE &itstate else ()
   ARM32Instruction (phlp.InsAddr, phlp.Len, phlp.Cond, op, oprs,
-                    (byte it), wback, q, dt, phlp.Mode, cflags, oSz)
+                    (byte it), wback, q, dt, phlp.Mode, cflags, oSz, phlp.IsAdd)
 
 /// Add, subtract (three low registers) on page F3-4153.
 let parseAddSubThreeLowReg (phlp: ParsingHelper) (itstate: byref<BL>) isInIT b =
@@ -284,9 +284,10 @@ let parseLdStSPRelative phlp (itstate: byref<BL>) isInIT bin =
     render phlp &itstate 0 isInIT bin Op.LDR None N OD.OprRtMemSP
 
 /// Add PC/SP (immediate) on page F3-4151.
-let parseAddPCSPImm phlp (itstate: byref<BL>) isInIT bin =
+let parseAddPCSPImm (phlp: ParsingHelper) (itstate: byref<BL>) isInIT bin =
   match pickBit bin 11 (* SP *) with
   | 0b0u ->
+    phlp.IsAdd <- true
     render phlp &itstate 0 isInIT bin Op.ADR None N OD.OprRtLabelT
   | _ (* 1 *) ->
     render phlp &itstate 0 isInIT bin Op.ADD None N OD.OprRdSPImm8
@@ -7638,6 +7639,7 @@ let parseDataProcSimImm phlp (itstate: byref<BL>) isInIT bin =
 #if !EMULATION
     chkThumbPCRd bin
 #endif
+    phlp.IsAdd <- true
     render phlp &itstate 0 isInIT bin Op.ADR None W OD.OprRdLabelT
   | 0b00u (* rn != 11x1 *) ->
 #if !EMULATION
@@ -7655,6 +7657,7 @@ let parseDataProcSimImm phlp (itstate: byref<BL>) isInIT bin =
 #if !EMULATION
     chkThumbPCRd bin
 #endif
+    phlp.IsAdd <- false
     render phlp &itstate 0 isInIT bin Op.ADR None N OD.OprRdLabelT
   | _ (* 11 && rn != 11x1 *) ->
 #if !EMULATION
@@ -9217,6 +9220,7 @@ let parse32Bit phlp (itstate: byref<BL>) isInIT bin =
 let parse (span: B2R2.ByteSpan) (phlp: ParsingHelper) (itstate: byref<BL>) =
   let isInIT = not itstate.IsEmpty
   phlp.Cond <- getCondWithITSTATE itstate
+  phlp.IsAdd <- true
   let bin = phlp.BinReader.ReadUInt16 (span, 0) |> uint32
   match pickFive bin 11 (* op0:op1 *) with
   | 0b11100u ->
