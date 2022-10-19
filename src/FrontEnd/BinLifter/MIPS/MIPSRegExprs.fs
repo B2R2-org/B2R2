@@ -104,6 +104,8 @@ type internal RegExprs (wordSize) =
   member val LO = var regType (Register.toRegID Register.LO) "LO" with get
   member val PC = AST.pcvar regType "PC" with get
   member val NextPC = var regType (Register.toRegID Register.NPC) "nPC" with get
+  member val LLBit =
+    var 1<rt> (Register.toRegID Register.LLBit) "LLBit" with get
 
   member __.GetRegVar (name) =
     match name with
@@ -111,6 +113,7 @@ type internal RegExprs (wordSize) =
     | R.LO  -> __.LO
     | R.PC  -> __.PC
     | R.NPC  -> __.NextPC
+    | R.LLBit -> __.LLBit
     | R.R0  -> __.R0
     | R.R1  -> __.R1
     | R.R2  -> __.R2

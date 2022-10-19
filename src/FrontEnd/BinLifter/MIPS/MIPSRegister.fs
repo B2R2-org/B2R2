@@ -165,6 +165,9 @@ type Register =
   | PC = 0x102
   /// Pseudo register for the next PC (nPC).
   | NPC = 0x103
+  /// Pseudo register for LLBit. This is used to store the actual LLBit value
+  /// from the CPU after an exception.
+  | LLBit = 0x104
 
 /// Shortcut for Register type.
 type internal R = Register
@@ -247,6 +250,7 @@ module Register =
     | "hi" -> R.HI
     | "lo" -> R.LO
     | "pc" -> R.PC
+    | "llbit" -> R.LLBit
     | _ -> Utils.impossible ()
 
   let toString = function
@@ -317,4 +321,5 @@ module Register =
     | R.HI  -> "hi"
     | R.LO  -> "lo"
     | R.PC  -> "pc"
+    | R.LLBit -> "LLBit"
     | _ -> Utils.impossible ()

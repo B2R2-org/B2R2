@@ -687,7 +687,7 @@ let jr insInfo insLen ctxt =
   !!ir (nPC := rs)
   !>ir insLen
 
-let loadByteWord insInfo insLen ctxt =
+let loadSigned insInfo insLen ctxt =
   let ir = !*ctxt
   let rt, mem = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
   !<ir insLen
@@ -695,19 +695,20 @@ let loadByteWord insInfo insLen ctxt =
   advancePC ctxt ir
   !>ir insLen
 
-let loadHalfDword insInfo insLen ctxt =
-  let ir = !*ctxt
-  let rt, mem = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
-  !<ir insLen
-  !!ir (rt := AST.sext ctxt.WordBitSize mem)
-  advancePC ctxt ir
-  !>ir insLen
-
-let loadu insInfo insLen ctxt =
+let loadUnsigned insInfo insLen ctxt =
   let ir = !*ctxt
   let rt, mem = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
   !<ir insLen
   !!ir (rt := AST.zext ctxt.WordBitSize mem)
+  advancePC ctxt ir
+  !>ir insLen
+
+let loadLinked insInfo insLen ctxt =
+  let ir = !*ctxt
+  let rt, mem = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
+  !<ir insLen
+  !!ir (rt := AST.sext ctxt.WordBitSize mem)
+  !!ir (AST.sideEffect (Exception "SetLLBit")) (* This will set LLBit reg. *)
   advancePC ctxt ir
   !>ir insLen
 
@@ -909,6 +910,19 @@ let ori insInfo insLen ctxt =
   advancePC ctxt ir
   !>ir insLen
 
+let pause insLen ctxt =
+  let ir = !*ctxt
+  let llbit = getRegVar ctxt R.LLBit
+  let lblSpin = !%ir "Spin"
+  let lblEnd = !%ir "End"
+  !<ir insLen
+  !!ir (AST.lmark lblSpin)
+  !!ir (AST.sideEffect (Exception "GetLLBit"))
+  !!ir (AST.cjmp (llbit == AST.b1) (AST.name lblSpin) (AST.name lblEnd))
+  !!ir (AST.lmark lblEnd)
+  advancePC ctxt ir
+  !>ir insLen
+
 let rotr insInfo insLen ctxt =
   let ir = !*ctxt
   let rd, rt, sa = getThreeOprs insInfo
@@ -924,35 +938,28 @@ let rotr insInfo insLen ctxt =
   advancePC ctxt ir
   !>ir insLen
 
-let sb insInfo insLen ctxt =
+let store insInfo insLen width ctxt =
   let ir = !*ctxt
   let rt, mem = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
   !<ir insLen
-  !!ir (mem := AST.xtlo 8<rt> rt)
+  !!ir (mem := AST.xtlo width rt)
   advancePC ctxt ir
   !>ir insLen
 
-let sd insInfo insLen ctxt =
+let storeConditional insInfo insLen width ctxt =
   let ir = !*ctxt
+  let lblInRMW = !%ir "InRMW"
+  let lblEnd = !%ir "End"
   let rt, mem = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
+  let llbit = getRegVar ctxt R.LLBit
   !<ir insLen
-  !!ir (mem := AST.xtlo 64<rt> rt)
-  advancePC ctxt ir
-  !>ir insLen
-
-let sh insInfo insLen ctxt =
-  let ir = !*ctxt
-  let rt, mem = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
-  !<ir insLen
-  !!ir (mem := AST.xtlo 16<rt> rt)
-  advancePC ctxt ir
-  !>ir insLen
-
-let sw insInfo insLen ctxt =
-  let ir = !*ctxt
-  let rt, mem = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
-  !<ir insLen
-  !!ir (mem := AST.xtlo 32<rt> rt)
+  !!ir (AST.sideEffect (Exception "GetLLBit"))
+  !!ir (AST.cjmp (llbit == AST.b1) (AST.name lblInRMW) (AST.name lblEnd))
+  !!ir (AST.lmark lblInRMW)
+  !!ir (mem := AST.xtlo width rt)
+  !!ir (AST.lmark lblEnd)
+  !!ir (rt := AST.zext ctxt.WordBitSize llbit)
+  !!ir (AST.sideEffect (Exception "ClearLLBit"))
   advancePC ctxt ir
   !>ir insLen
 
@@ -1225,10 +1232,9 @@ let translate insInfo insLen (ctxt: TranslationContext) =
   | Op.INS -> ins insInfo insLen ctxt
   | Op.JALR | Op.JALRHB -> jalr insInfo insLen ctxt
   | Op.JR | Op.JRHB -> jr insInfo insLen ctxt
-  | Op.PAUSE -> sideEffects insLen ctxt Delay
-  | Op.LH | Op.LD -> loadHalfDword insInfo insLen ctxt
-  | Op.LB | Op.LW -> loadByteWord insInfo insLen ctxt
-  | Op.LBU | Op.LHU | Op.LWU -> loadu insInfo insLen ctxt
+  | Op.LD | Op.LB | Op.LH | Op.LW -> loadSigned insInfo insLen ctxt
+  | Op.LBU | Op.LHU | Op.LWU -> loadUnsigned insInfo insLen ctxt
+  | Op.LL -> loadLinked insInfo insLen ctxt
   | Op.SDC1 -> sldc1 insInfo insLen ctxt true
   | Op.LDC1 -> sldc1 insInfo insLen ctxt false
   | Op.SWC1 -> slwc1 insInfo insLen ctxt true
@@ -1258,6 +1264,7 @@ let translate insInfo insLen (ctxt: TranslationContext) =
   | Op.NOR -> nor insInfo insLen ctxt
   | Op.OR -> logOr insInfo insLen ctxt
   | Op.ORI -> ori insInfo insLen ctxt
+  | Op.PAUSE -> pause insLen ctxt
   | Op.PREF | Op.PREFE | Op.PREFX -> nop insLen ctxt
   | Op.RDHWR -> sideEffects insLen ctxt ProcessorID
   | Op.ROTR -> rotr insInfo insLen ctxt
@@ -1268,18 +1275,19 @@ let translate insInfo insLen (ctxt: TranslationContext) =
   | Op.SLTIU -> sltiu insInfo insLen ctxt
   | Op.SLTU -> sltu insInfo insLen ctxt
   | Op.SSNOP -> nop insLen ctxt
-  | Op.SB -> sb insInfo insLen ctxt
-  | Op.SD -> sd insInfo insLen ctxt
+  | Op.SB -> store insInfo insLen 8<rt> ctxt
+  | Op.SC -> storeConditional insInfo insLen 32<rt> ctxt
+  | Op.SD -> store insInfo insLen 64<rt> ctxt
   | Op.SEB -> seb insInfo insLen ctxt
   | Op.SEH -> seh insInfo insLen ctxt
-  | Op.SH -> sh insInfo insLen ctxt
+  | Op.SH -> store insInfo insLen 16<rt> ctxt
   | Op.SRA -> sra insInfo insLen ctxt
   | Op.SRAV -> srav insInfo insLen ctxt
   | Op.SRL -> shiftLeftRight insInfo insLen ctxt (>>)
   | Op.SRLV -> shiftLeftRightVar insInfo insLen ctxt (>>)
   | Op.SUB when insInfo.Fmt.IsSome -> sideEffects insLen ctxt UnsupportedFP
   | Op.SUBU -> subu insInfo insLen ctxt
-  | Op.SW -> sw insInfo insLen ctxt
+  | Op.SW -> store insInfo insLen 32<rt> ctxt
   | Op.SDL -> storeLeftRight insInfo insLen ctxt (<<) (>>) (.&) 64<rt>
   | Op.SDR -> storeLeftRight insInfo insLen ctxt (>>) (<<) (<+>) 64<rt>
   | Op.SWL -> storeLeftRight insInfo insLen ctxt (<<) (>>) (.&) 32<rt>
