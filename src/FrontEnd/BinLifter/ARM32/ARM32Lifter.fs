@@ -2745,9 +2745,12 @@ let parseOprOfADR (ins: InsInfo) insLen ctxt =
   match ins.Operands with
   | TwoOperands (OprReg rd, OprMemory (LiteralMode imm)) ->
     let addr = bvOfBaseAddr ins.Address
-    let addr = addr .+ (numI32 4 32<rt>)
+    let rel = if ins.Mode = ArchOperationMode.ARMMode then 8 else 4
+    let addr = addr .+ (numI32 rel 32<rt>)
     let pc = align addr (numI32 4 32<rt>)
-    getRegVar ctxt rd, pc .+ (numI64 imm 32<rt>)
+    let imm = numI64 imm 32<rt>
+    let pc = if ins.IsAdd then pc .+ imm else pc .- imm
+    getRegVar ctxt rd, pc
   | _ -> raise InvalidOperandException
 
 let it (ins: InsInfo) insLen ctxt =

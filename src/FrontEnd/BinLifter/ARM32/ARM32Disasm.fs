@@ -815,6 +815,8 @@ let processAddrExn32 (ins: InsInfo) addr =
   | Op.B | Op.BX -> pc
   | Op.BL | Op.BLX -> ParseUtils.align pc 4UL
   | Op.ADR -> ParseUtils.align pc 4UL
+  | Op.LDR | Op.LDRB | Op.LDRD | Op.LDRH | Op.LDRSB | Op.LDRSH | Op.PLD
+  | Op.PLDW | Op.PLI | Op.VLDR -> ParseUtils.align pc 4UL
   | _ -> addr
 
 let calculateRelativePC (ins: InsInfo) lbl addr =
