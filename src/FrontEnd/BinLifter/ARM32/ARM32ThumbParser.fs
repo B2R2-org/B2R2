@@ -7667,7 +7667,7 @@ let parseDataProcSimImm phlp (itstate: byref<BL>) isInIT bin =
 
 /// Move Wide (16-bit immediate) on page F3-4197.
 let parseMoveWide16BitImm phlp (itstate: byref<BL>) isInIT bin =
-  match pickBit bin 7 with
+  match pickBit bin 23 with
   | 0b0u ->
 #if !EMULATION
     chkThumbPCRd bin
