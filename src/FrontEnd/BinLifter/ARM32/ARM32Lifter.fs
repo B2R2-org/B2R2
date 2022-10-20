@@ -1253,9 +1253,16 @@ let logicalAnd isSetFlags (ins: InsInfo) insLen ctxt =
   putEndLabel ctxt lblIgnore ir
   !>ir insLen
 
+let parseOprsOfMOV (ins: InsInfo) ctxt =
+  match ins.Operands with
+  | TwoOperands _ -> transTwoOprs ins ctxt
+  | ThreeOperands (opr1, opr2, opr3) ->
+    struct (transOprToExpr ctxt opr1, transShiftOprs ctxt opr2 opr3)
+  | _ -> raise InvalidOperandException
+
 let mov isSetFlags ins insLen ctxt =
   let ir = !*ctxt
-  let struct (dst, src) = transTwoOprs ins ctxt
+  let struct (dst, src) = parseOprsOfMOV ins ctxt
   let result = !+ir 32<rt>
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
   let pc = getPC ctxt
@@ -2624,7 +2631,8 @@ let parseOprOfTableBranch (ins: InsInfo) insLen ctxt =
 
 let tableBranch (ins: InsInfo) insLen ctxt =
   let ir = !*ctxt
-  let pc = bvOfBaseAddr ins.Address
+  let offset = if ins.Mode = ArchOperationMode.ARMMode then 8 else 4
+  let pc = bvOfBaseAddr ins.Address .+ (numI32 offset 32<rt>)
   let halfwords = parseOprOfTableBranch ins insLen ctxt
   let numTwo = numI32 2 32<rt>
   let result = pc .+ (numTwo .* halfwords)
