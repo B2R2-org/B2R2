@@ -60,4 +60,8 @@ type FakeBlockInfo = {
   IsTailCall: bool
   /// Is the caller invoke this fake block as an indirect call?
   IsIndirectCall: bool
+  /// Is this a system call? This is possible when a `call` instruction is used
+  /// to make a system call. For example, in x86, `call dword ptr [GS:0x10]`
+  /// will be a system call.
+  IsSysCall: bool
 }

@@ -84,11 +84,15 @@ module private NoReturnFunctionIdentificationHelper =
       else vertices
     | _ -> vertices
 
+  let inline private getCallTargetsOfBlk (fn: RegularFunction) (v: IRVertex) =
+    fn.CallTargets v.VData.FakeBlockInfo.CallSite
+
   let rec analyzeExits (codeMgr: CodeManager) fn cond = function
     | (v: IRVertex) :: tl when cond = IsNoReturning || cond = IsUndecidable ->
       if v.VData.IsFakeBlock () then
+        let targets = getCallTargetsOfBlk fn v
         let cond =
-          (fn: RegularFunction).CallTargets v.VData.FakeBlockInfo.CallSite
+          targets
           |> Set.fold (fun cond callee ->
             let calleeFunc = codeMgr.FunctionMaintainer.Find callee
             match calleeFunc.NoReturnProperty with
@@ -102,6 +106,10 @@ module private NoReturnFunctionIdentificationHelper =
               elif fn.EntryPoint = callee then cond
               else Utils.impossible () (* We are only considering exit nodes. *)
           ) cond
+        let cond = (* This means there is a call to an exit syscall. *)
+          if Set.isEmpty targets && v.VData.FakeBlockInfo.IsSysCall then
+            NoReturnDecision.meet cond IsNoReturning
+          else cond
         analyzeExits codeMgr fn cond tl
       else
         let cond = NoReturnDecision.meet cond IsNoReturning

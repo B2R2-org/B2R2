@@ -293,6 +293,7 @@ module private CFGBuilder =
            analyzer will not analyze this again. *)
         let callsite = v.VData.FakeBlockInfo.CallSite
         fn.UpdateCallEdgeInfo (callsite, IndirectCallees Set.empty)
+        v.VData.FakeBlockInfo <- { v.VData.FakeBlockInfo with IsSysCall = true }
         let caller = DiGraph.GetPreds (fn.IRCFG, v) |> List.head
         if noret.IsNoRetSyscallBlk hdl caller then infos, toAnalyze
         else accFTInfoFromFake codeMgr fn v infos, toAnalyze
