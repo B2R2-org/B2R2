@@ -2624,7 +2624,8 @@ let parseOprOfTableBranch (ins: InsInfo) insLen ctxt =
 
 let tableBranch (ins: InsInfo) insLen ctxt =
   let ir = !*ctxt
-  let pc = bvOfBaseAddr ins.Address
+  let offset = if ins.Mode = ArchOperationMode.ARMMode then 8 else 4
+  let pc = bvOfBaseAddr ins.Address .+ (numI32 offset 32<rt>)
   let halfwords = parseOprOfTableBranch ins insLen ctxt
   let numTwo = numI32 2 32<rt>
   let result = pc .+ (numTwo .* halfwords)
