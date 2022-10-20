@@ -35,7 +35,7 @@ open B2R2.FrontEnd.BinLifter.ARM32.ARMValidator
 let render (phlp: ParsingHelper) bin opcode dt oidx =
   let struct (oprs, wback, cflags, oSz) = phlp.OprParsers.[int oidx].Render bin
   ARM32Instruction (phlp.InsAddr, phlp.Len, phlp.Cond, opcode, oprs,
-                    0uy, wback, N, dt, phlp.Mode, cflags, oSz)
+                    0uy, wback, N, dt, phlp.Mode, cflags, oSz, phlp.IsAdd)
 
 /// Load/Store Dual, Half, Signed Byte (register) on page F4-4221.
 let parseLoadStoreReg (phlp: ParsingHelper) bin =
@@ -7235,6 +7235,7 @@ let parseUncondInstr (phlp: ParsingHelper) bin =
 let parse (phlp: ParsingHelper) bin =
   let cond = pickFour bin 28 |> byte |> parseCond
   phlp.Cond <- cond
+  phlp.IsAdd <- true
   match pickTwo bin 26 (* op0<2:1> *) with
   | 0b00u when cond <> Condition.UN -> parseCase00 phlp bin
   | 0b01u when cond <> Condition.UN -> parseCase01 phlp bin

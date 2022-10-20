@@ -29,9 +29,9 @@ open B2R2.FrontEnd.BinLifter
 
 /// The internal representation for an ARM32 instruction used by our
 /// disassembler and lifter.
-type ARM32Instruction (addr, nb, cond, op, opr, its, wb, q, s, m, cf, oSz) =
+type ARM32Instruction (addr, nb, cond, op, opr, its, wb, q, s, m, cf, oSz, a) =
   inherit ARM32InternalInstruction (addr, nb, cond, op, opr,
-                                    its, wb, q, s, m, cf, oSz)
+                                    its, wb, q, s, m, cf, oSz, a)
 
   let dummyHelper = DisasmHelper ()
 

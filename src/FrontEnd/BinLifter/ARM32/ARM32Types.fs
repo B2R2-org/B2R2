@@ -1301,7 +1301,7 @@ type Operands =
 /// Basic information for a single ARMv7 instruction obtained after parsing.
 [<AbstractClass>]
 type ARM32InternalInstruction
-  (addr, nb, cond, op, opr, its, wb, q, s, m, cf, oSz) =
+  (addr, nb, cond, op, opr, its, wb, q, s, m, cf, oSz, isAdd) =
   inherit Instruction (addr, nb, WordSize.Bit32)
 
   /// Condition.
@@ -1334,6 +1334,9 @@ type ARM32InternalInstruction
   /// Operation size.
   member __.OprSize with get(): RegType = oSz
 
+  /// Add or subtract offsets.
+  member __.IsAdd with get(): bool = isAdd
+
   override __.ToString () =
     $"Condition: {cond}{System.Environment.NewLine}\
       Opcode: {op}{System.Environment.NewLine}\
@@ -1344,6 +1347,7 @@ type ARM32InternalInstruction
       SIMD: {s}{System.Environment.NewLine}\
       Mode: {m}{System.Environment.NewLine}\
       Cflag: {cf}{System.Environment.NewLine}\"
-      OprSize: {oSz}{System.Environment.NewLine}"
+      OprSize: {oSz}{System.Environment.NewLine}\"
+      IsAdd: {isAdd}{System.Environment.NewLine}"
 
 type internal InsInfo = ARM32InternalInstruction
