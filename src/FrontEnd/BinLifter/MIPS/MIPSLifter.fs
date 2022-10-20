@@ -1131,6 +1131,19 @@ let teq insInfo insLen ctxt =
   advancePC ctxt ir
   !>ir insLen
 
+let teqi insInfo insLen ctxt =
+  let ir = !*ctxt
+  let lblL0 = !%ir "L0"
+  let lblEnd = !%ir "End"
+  let rs, imm = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
+  !<ir insLen
+  !!ir (AST.cjmp (rs == imm) (AST.name lblL0) (AST.name lblEnd))
+  !!ir (AST.lmark lblL0)
+  !!ir (AST.sideEffect UndefinedInstr)
+  !!ir (AST.lmark lblEnd)
+  advancePC ctxt ir
+  !>ir insLen
+
 let logXor insInfo insLen ctxt =
   let ir = !*ctxt
   let rd, rs, rt = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
@@ -1170,12 +1183,6 @@ let loadLeftRight insInfo insLen ctxt memShf regShf amtOp oprSz =
   advancePC ctxt ir
   !>ir insLen
 
-let transaui insInfo ctxt =
-  match insInfo.Operands with
-  | TwoOperands _ -> lui insInfo ctxt
-  | ThreeOperands _ -> aui insInfo ctxt
-  | _ -> raise InvalidOperandException
-
 let translate insInfo insLen (ctxt: TranslationContext) =
   match insInfo.Opcode with
   | Op.ADD when insInfo.Fmt.IsNone -> add insInfo insLen ctxt
@@ -1184,7 +1191,7 @@ let translate insInfo insLen (ctxt: TranslationContext) =
   | Op.ADDU -> addu insInfo insLen ctxt
   | Op.AND -> logAnd insInfo insLen ctxt
   | Op.ANDI -> andi insInfo insLen ctxt
-  | Op.AUI -> transaui insInfo insLen ctxt
+  | Op.AUI -> aui insInfo insLen ctxt
   | Op.B -> b insInfo insLen ctxt
   | Op.BAL -> bal insInfo insLen ctxt
   | Op.BC1F | Op.BC1T -> sideEffects insLen ctxt UnsupportedFP
@@ -1295,6 +1302,7 @@ let translate insInfo insLen (ctxt: TranslationContext) =
   | Op.SYNC | Op.SYNCI -> nop insLen ctxt
   | Op.SYSCALL -> syscall insLen ctxt
   | Op.TEQ -> teq insInfo insLen ctxt
+  | Op.TEQI -> teqi insInfo insLen ctxt
   | Op.TRUNCL | Op.TRUNCW -> sideEffects insLen ctxt UnsupportedFP
   | Op.XOR -> logXor insInfo insLen ctxt
   | Op.XORI -> xori insInfo insLen ctxt

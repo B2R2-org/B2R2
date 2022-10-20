@@ -255,7 +255,7 @@ let getRsRtRel16 b = ThreeOperands (rs b, rt b, rel16 b) (* rs, rt, offset *)
 
 let getRsRel16 b = TwoOperands (rs b, rel16 b)
 
-let getRsImm16 b = TwoOperands (rs b, imm16 b)
+let getRsImm16s b = TwoOperands (rs b, imm16SignExt b)
 
 let getRtImm16 b = TwoOperands (rt b, imm16 b)
 
