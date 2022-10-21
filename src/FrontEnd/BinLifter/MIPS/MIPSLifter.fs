@@ -36,6 +36,13 @@ open B2R2.FrontEnd.BinLifter.MIPS
 let inline getRegVar (ctxt: TranslationContext) name =
   Register.toRegID name |> ctxt.GetRegVar
 
+let inline (:=) dst src =
+  match dst with
+  | { E = Var (_, rid, _, _) } when rid = Register.toRegID Register.R0 ->
+    dst := dst (* Prevent setting r0. Our optimizer will remove this anyways. *)
+  | _ ->
+    dst := src
+
 let transOprToExpr insInfo ctxt = function
   | OpReg reg -> getRegVar ctxt reg
   | OpImm imm
