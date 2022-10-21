@@ -1190,6 +1190,15 @@ let loadLeftRight insInfo insLen ctxt memShf regShf amtOp oprSz =
   advancePC ctxt ir
   !>ir insLen
 
+let recip insInfo insLen ctxt =
+  let ir = !*ctxt
+  let fd, fs = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
+  let sz = ctxt.WordBitSize
+  let fnum = AST.cast CastKind.IntToFloat sz (AST.num1 sz)
+  !<ir insLen
+  !!ir (fd := AST.fdiv fnum fs)
+  !>ir insLen
+
 let translate insInfo insLen (ctxt: TranslationContext) =
   match insInfo.Opcode with
   | Op.ADD when insInfo.Fmt.IsNone -> add insInfo insLen ctxt
@@ -1282,6 +1291,7 @@ let translate insInfo insLen (ctxt: TranslationContext) =
   | Op.PREF | Op.PREFE | Op.PREFX -> nop insLen ctxt
   | Op.RDHWR -> sideEffects insLen ctxt ProcessorID
   | Op.ROTR -> rotr insInfo insLen ctxt
+  | Op.RECIP -> recip insInfo insLen ctxt
   | Op.SLL -> shiftLeftRight insInfo insLen ctxt (<<)
   | Op.SLLV -> shiftLeftRightVar insInfo insLen ctxt (<<)
   | Op.SLT -> slt insInfo insLen ctxt
