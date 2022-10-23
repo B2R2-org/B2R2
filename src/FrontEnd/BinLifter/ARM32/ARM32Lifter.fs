@@ -2402,17 +2402,15 @@ let uadd8 ins insLen ctxt =
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
   !<ir insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
-  let n0 = AST.num1 32<rt>
-  let n1 = AST.num1 32<rt>
   !!ir (sum1 := sel8Bits rn 0 .+ sel8Bits rm 0)
   !!ir (sum2 := sel8Bits rn 8 .+ sel8Bits rm 8)
   !!ir (sum3 := sel8Bits rn 16 .+ sel8Bits rm 16)
   !!ir (sum4 := sel8Bits rn 24 .+ sel8Bits rm 24)
   !!ir (rd := combine8bitResults sum1 sum2 sum3 sum4)
-  !!ir (ge0 := AST.ite (AST.ge sum1 n100) n1 n0)
-  !!ir (ge1 := AST.ite (AST.ge sum2 n100) n1 n0)
-  !!ir (ge2 := AST.ite (AST.ge sum3 n100) n1 n0)
-  !!ir (ge3 := AST.ite (AST.ge sum4 n100) n1 n0)
+  !!ir (ge0 := AST.zext 32<rt> (AST.ge sum1 n100))
+  !!ir (ge1 := AST.zext 32<rt> (AST.ge sum2 n100))
+  !!ir (ge2 := AST.zext 32<rt> (AST.ge sum3 n100))
+  !!ir (ge3 := AST.zext 32<rt> (AST.ge sum4 n100))
   !!ir (cpsr := combineGEs ge0 ge1 ge2 ge3 |> setPSR ctxt R.CPSR PSR.GE)
   putEndLabel ctxt lblIgnore ir
   !>ir insLen
