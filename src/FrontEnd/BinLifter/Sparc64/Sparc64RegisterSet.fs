@@ -78,7 +78,7 @@ type Sparc64RegisterSet (bitArray: uint64 [], s: Set<RegisterID>) =
     | R.I6 -> 30
     | R.I7 -> 31
     | R.PC -> 32
-    | R.nPC -> 33
+    | R.NPC -> 33
     | R.Y -> 34
     | R.ASRs -> 35
     | R.CCR -> 36
@@ -138,7 +138,7 @@ type Sparc64RegisterSet (bitArray: uint64 [], s: Set<RegisterID>) =
     | 30 -> R.I6
     | 31 -> R.I7
     | 32 -> R.PC
-    | 33 -> R.nPC
+    | 33 -> R.NPC
     | 34 -> R.Y
     | 35 -> R.ASRs
     | 36 -> R.CCR

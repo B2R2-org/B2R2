@@ -60,7 +60,7 @@ type Register =
   | I6 = 0x1E
   | I7 = 0x1F
   | PC = 0x20
-  | nPC = 0x21
+  | NPC = 0x21
   | Y = 0x22
   | ASRs = 0x23
   | CCR = 0x24
@@ -133,7 +133,7 @@ module Register =
     | "i6" -> R.I6
     | "i7" -> R.I7
     | "pc" -> R.PC
-    | "npc" -> R.nPC
+    | "npc" -> R.NPC
     | "y" -> R.Y
     | "asrs" -> R.ASRs
     | "ccr" -> R.CCR
@@ -193,7 +193,7 @@ module Register =
     | R.I6 -> "I6"
     | R.I7 -> "I7"
     | R.PC -> "PC"
-    | R.nPC -> "nPC"
+    | R.NPC -> "nPC"
     | R.Y -> "Y"
     | R.ASRs -> "ASRs"
     | R.CCR -> "CCR"

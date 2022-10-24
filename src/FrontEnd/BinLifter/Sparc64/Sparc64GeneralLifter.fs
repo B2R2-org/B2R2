@@ -179,7 +179,7 @@ let add ins insLen ctxt =
   !!ir (dst := t3)
   !>ir insLen
 
-let addcc ins insLen ctxt = (* Fix me *)
+let addcc ins insLen ctxt = (* FIXME *)
   let struct (src, src1, dst) = transThreeOprs ins insLen ctxt
   let oprSize = 64<rt>
   let ir = IRBuilder (16)
@@ -212,7 +212,7 @@ let addC ins insLen ctxt =
   !!ir (dst := t3)
   !>ir insLen
 
-let addCcc ins insLen ctxt = (* Fix me *)
+let addCcc ins insLen ctxt = (* FIXME *)
   let struct (src, src1, dst) = transThreeOprs ins insLen ctxt
   let oprSize = 64<rt>
   let ir = IRBuilder (16)
@@ -243,7 +243,7 @@ let ``and`` ins insLen ctxt =
   !!ir (dst := r)
   !>ir insLen
 
-let andcc ins insLen ctxt = (* Fix me *)
+let andcc ins insLen ctxt = (* FIXME *)
   let struct (src, src1, dst) = transThreeOprs ins insLen ctxt
   let oprSize = 64<rt>
   let ir = IRBuilder (16)
@@ -271,7 +271,7 @@ let andn ins insLen ctxt =
   !!ir (dst := r)
   !>ir insLen
 
-let andncc ins insLen ctxt = (* Fix me *)
+let andncc ins insLen ctxt = (* FIXME *)
   let struct (src, src1, dst) = transThreeOprs ins insLen ctxt
   let oprSize = 64<rt>
   let ir = IRBuilder (16)
@@ -289,7 +289,7 @@ let andncc ins insLen ctxt = (* Fix me *)
   (* Add v bit (OverFlow) and icc field bits *)
   !>ir insLen
 
-let branch ins insLen ctxt = (* Fix me *)
+let branch ins insLen ctxt = (* FIXME *)
   let ir = IRBuilder (16)
   let struct (cc, dst) = transTwoOprs ins insLen ctxt
   let pc = !.ctxt R.PC
@@ -336,7 +336,7 @@ let call ins insLen ctxt =
   !!ir (sp := sp.- numI32PC 2)
   !>ir insLen
 
-let casa ins insLen ctxt = (* Fix me *)
+let casa ins insLen ctxt = (* FIXME *)
   let struct (src, src1, src2, dst) = transFourOprs ins insLen ctxt
   let oprSize = 64<rt>
   let ir = IRBuilder (16)
@@ -356,7 +356,7 @@ let ``done`` ins insLen ctxt =
   let ir = IRBuilder (16)
   !<ir insLen
   !!ir (!.ctxt R.PC := !.ctxt R.TNPC)
-  !!ir (!.ctxt R.nPC := !.ctxt R.TNPC .+ numI32PC 4)
+  !!ir (!.ctxt R.NPC := !.ctxt R.TNPC .+ numI32PC 4)
   !>ir insLen
 
 let fabs ins insLen ctxt =
@@ -392,7 +392,7 @@ let fadd ins insLen ctxt =
   !!ir (dst := r)
   !>ir insLen
 
-let fbranch ins insLen ctxt = (* Fix me *)
+let fbranch ins insLen ctxt = (* FIXME *)
   let ir = IRBuilder (16)
   let struct (cc, dst) = transTwoOprs ins insLen ctxt
   let pc = !.ctxt R.PC
@@ -664,8 +664,8 @@ let ld ins insLen ctxt =
   | Opcode.LDUB -> !!ir (dst := AST.cast CastKind.ZeroExt 8<rt> addr)
   | Opcode.LDUH -> !!ir (dst := AST.cast CastKind.ZeroExt 16<rt> addr)
   | Opcode.LDUW -> !!ir (dst := addr)
-  | Opcode.LDX -> !!ir (dst := addr) (* Fix me *)
-  | Opcode.LDD -> !!ir (dst := addr) (* Fix me *)
+  | Opcode.LDX -> !!ir (dst := addr) (* FIXME *)
+  | Opcode.LDD -> !!ir (dst := addr) (* FIXME *)
   | _ -> raise InvalidOpcodeException
   !>ir insLen
 
@@ -681,8 +681,8 @@ let lda ins insLen ctxt =
   | Opcode.LDUBA -> !!ir (dst := AST.cast CastKind.ZeroExt 8<rt> addr)
   | Opcode.LDUHA -> !!ir (dst := AST.cast CastKind.ZeroExt 16<rt> addr)
   | Opcode.LDUWA -> !!ir (dst := AST.cast CastKind.ZeroExt 32<rt> addr)
-  | Opcode.LDXA -> !!ir (dst := addr) (* Fix me *)
-  | Opcode.LDDA -> !!ir (dst := addr) (* Fix me *)
+  | Opcode.LDXA -> !!ir (dst := addr) (* FIXME *)
+  | Opcode.LDDA -> !!ir (dst := addr) (* FIXME *)
   | _ -> raise InvalidOpcodeException
   !>ir insLen
 
@@ -694,7 +694,7 @@ let ldstub ins insLen ctxt =
   !!ir (dst := AST.cast CastKind.ZeroExt 8<rt> addr)
   !>ir insLen
 
-let ldstuba ins insLen ctxt = (* Fix me *)
+let ldstuba ins insLen ctxt = (* FIXME *)
   let struct (addr, asi, dst) = transAddrFourOprs ins insLen ctxt
   let oprSize = 64<rt>
   let ir = IRBuilder (16)
@@ -702,7 +702,7 @@ let ldstuba ins insLen ctxt = (* Fix me *)
   !!ir (dst := AST.cast CastKind.ZeroExt 8<rt> addr)
   !>ir insLen
 
-let membar ins insLen ctxt = (* Fix me *)
+let membar ins insLen ctxt = (* FIXME *)
   let mask = transOneOpr ins insLen ctxt
   let oprSize = 64<rt>
   let ir = IRBuilder (16)
@@ -749,7 +749,7 @@ let movr ins insLen ctxt =
   !!ir (dst := t3)
   !>ir insLen
 
-let mulscc ins insLen ctxt = (* Fix me (page.202) *)
+let mulscc ins insLen ctxt = (* FIXME (page.202) *)
   let struct (src, src1, dst) = transThreeOprs ins insLen ctxt
   let oprSize = 64<rt>
   let ir = IRBuilder (16)
@@ -830,7 +830,7 @@ let retry ins insLen ctxt =
   let ir = IRBuilder (16)
   !<ir insLen
   !!ir (!.ctxt R.PC := !.ctxt R.TPC)
-  !!ir (!.ctxt R.nPC := !.ctxt R.TNPC)
+  !!ir (!.ctxt R.NPC := !.ctxt R.TNPC)
   !>ir insLen
 
 let save ins insLen ctxt =
@@ -845,7 +845,7 @@ let save ins insLen ctxt =
   !!ir (dst := t3)
   !>ir insLen
 
-let sdiv ins insLen ctxt = (* Fix me *)
+let sdiv ins insLen ctxt = (* FIXME *)
   let struct (src, src1, dst) = transThreeOprs ins insLen ctxt
   let oprSize = 64<rt>
   let ir = IRBuilder (16)
@@ -854,7 +854,7 @@ let sdiv ins insLen ctxt = (* Fix me *)
 
   !>ir insLen
 
-let sdivcc ins insLen ctxt = (* Fix me *)
+let sdivcc ins insLen ctxt = (* FIXME *)
   let struct (src, src1, dst) = transThreeOprs ins insLen ctxt
   let oprSize = 64<rt>
   let ir = IRBuilder (16)
@@ -878,7 +878,7 @@ let sdivx ins insLen ctxt =
   !!ir (dst := t3)
   !>ir insLen
 
-let sethi ins insLen ctxt = (* Fix me *)
+let sethi ins insLen ctxt = (* FIXME *)
   let struct (src, dst) = transTwoOprs ins insLen ctxt
   let oprSize = 64<rt>
   let ir = IRBuilder (16)
@@ -959,8 +959,8 @@ let stf ins insLen ctxt =
   | Opcode.STF -> !!ir (dst := AST.cast CastKind.FloatCast 32<rt> t1)
   | Opcode.STDF -> !!ir (dst := AST.cast CastKind.FloatCast 64<rt> t1)
   | Opcode.STQF -> !!ir (dst := AST.cast CastKind.FloatCast 128<rt> t1)
-  | Opcode.STFSR -> !!ir (dst := t1) (* Fix me *)
-  | Opcode.STXFSR -> !!ir (dst :=  t1) (* Fix me *)
+  | Opcode.STFSR -> !!ir (dst := t1) (* FIXME *)
+  | Opcode.STXFSR -> !!ir (dst :=  t1) (* FIXME *)
   | _ -> raise InvalidOpcodeException
   !>ir insLen
 
@@ -988,7 +988,7 @@ let sub ins insLen ctxt =
   !!ir (dst := t3)
   !>ir insLen
 
-let subcc ins insLen ctxt = (* Fix me *)
+let subcc ins insLen ctxt = (* FIXME *)
   let struct (src, src1, dst) = transThreeOprs ins insLen ctxt
   let oprSize = 64<rt>
   let ir = IRBuilder (16)
@@ -1000,7 +1000,7 @@ let subcc ins insLen ctxt = (* Fix me *)
   !!ir (dst := t3)
   !>ir insLen
 
-let subC ins insLen ctxt = (* Fix me *)
+let subC ins insLen ctxt = (* FIXME *)
   let struct (src, src1, dst) = transThreeOprs ins insLen ctxt
   let oprSize = 64<rt>
   let ir = IRBuilder (16)
@@ -1012,7 +1012,7 @@ let subC ins insLen ctxt = (* Fix me *)
   !!ir (dst := t3)
   !>ir insLen
 
-let subCcc ins insLen ctxt = (* Fix me *)
+let subCcc ins insLen ctxt = (* FIXME *)
   let struct (src, src1, dst) = transThreeOprs ins insLen ctxt
   let oprSize = 64<rt>
   let ir = IRBuilder (16)
@@ -1046,7 +1046,7 @@ let swapa ins insLen ctxt =
   !!ir (dst := t1)
   !>ir insLen
 
-let taddcc ins insLen ctxt = (* Fix me *)
+let taddcc ins insLen ctxt = (* FIXME *)
   let struct (src, src1, dst) = transThreeOprs ins insLen ctxt
   let oprSize = 64<rt>
   let ir = IRBuilder (16)
@@ -1058,7 +1058,7 @@ let taddcc ins insLen ctxt = (* Fix me *)
   !!ir (dst := t3)
   !>ir insLen
 
-let taddcctv ins insLen ctxt = (* Fix me *)
+let taddcctv ins insLen ctxt = (* FIXME *)
   let struct (src, src1, dst) = transThreeOprs ins insLen ctxt
   let oprSize = 64<rt>
   let ir = IRBuilder (16)
@@ -1070,7 +1070,7 @@ let taddcctv ins insLen ctxt = (* Fix me *)
   !!ir (dst := t3)
   !>ir insLen
 
-let tsubcc ins insLen ctxt = (* Fix me *)
+let tsubcc ins insLen ctxt = (* FIXME *)
   let struct (src, src1, dst) = transThreeOprs ins insLen ctxt
   let oprSize = 64<rt>
   let ir = IRBuilder (16)
@@ -1082,7 +1082,7 @@ let tsubcc ins insLen ctxt = (* Fix me *)
   !!ir (dst := t3)
   !>ir insLen
 
-let tsubcctv ins insLen ctxt = (* Fix me *)
+let tsubcctv ins insLen ctxt = (* FIXME *)
   let struct (src, src1, dst) = transThreeOprs ins insLen ctxt
   let oprSize = 64<rt>
   let ir = IRBuilder (16)
@@ -1106,7 +1106,7 @@ let udivx ins insLen ctxt =
   !!ir (dst := t3)
   !>ir insLen
 
-let umul ins insLen ctxt = (* Fix me *)
+let umul ins insLen ctxt = (* FIXME *)
   let struct (src, src1, dst) = transThreeOprs ins insLen ctxt
   let oprSize = 64<rt>
   let ir = IRBuilder (16)
@@ -1115,7 +1115,7 @@ let umul ins insLen ctxt = (* Fix me *)
   !!ir (dst := src .* src1)
   !>ir insLen
 
-let umulcc ins insLen ctxt = (* Fix me *)
+let umulcc ins insLen ctxt = (* FIXME *)
   let struct (src, src1, dst) = transThreeOprs ins insLen ctxt
   let oprSize = 64<rt>
   let ir = IRBuilder (16)
@@ -1140,7 +1140,7 @@ let xor ins insLen ctxt =
   !!ir (dst := src <+> src1)
   !>ir insLen
 
-let xorcc ins insLen ctxt = (* Fix me *)
+let xorcc ins insLen ctxt = (* FIXME *)
   let struct (src, src1, dst) = transThreeOprs ins insLen ctxt
   let oprSize = 64<rt>
   let ir = IRBuilder (16)
@@ -1156,7 +1156,7 @@ let xnor ins insLen ctxt =
   !!ir (dst := AST.not (src <+> src1))
   !>ir insLen
 
-let xnorcc ins insLen ctxt = (* Fix me *)
+let xnorcc ins insLen ctxt = (* FIXME *)
   let struct (src, src1, dst) = transThreeOprs ins insLen ctxt
   let oprSize = 64<rt>
   let ir = IRBuilder (16)

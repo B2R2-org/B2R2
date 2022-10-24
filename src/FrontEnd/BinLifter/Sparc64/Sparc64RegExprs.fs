@@ -25,6 +25,7 @@
 namespace B2R2.FrontEnd.BinLifter.Sparc64
 
 open B2R2
+open B2R2.FrontEnd.BinLifter
 open B2R2.BinIR.LowUIR
 
 type internal RegExprs (wordSize) =
@@ -66,7 +67,7 @@ type internal RegExprs (wordSize) =
   member val I6 = var regType (Register.toRegID Register.I6) "I6" with get
   member val I7 = var regType (Register.toRegID Register.I7) "I7" with get
   member val PC = var regType (Register.toRegID Register.PC) "PC" with get
-  member val nPC = var regType (Register.toRegID Register.nPC) "nPC" with get
+  member val NPC = var regType (Register.toRegID Register.NPC) "nPC" with get
   member val Y = var regType (Register.toRegID Register.Y) "Y" with get
   member val CCR = var regType (Register.toRegID Register.CCR) "CCR" with get
 
@@ -106,4 +107,4 @@ type internal RegExprs (wordSize) =
     | R.I7 -> __.I7
     | R.PC -> __.PC
     | R.CCR -> __.CCR
-    | _ -> raise B2R2.FrontEnd.BinLifter.UnhandledRegExprException
+    | _ -> raise UnhandledRegExprException

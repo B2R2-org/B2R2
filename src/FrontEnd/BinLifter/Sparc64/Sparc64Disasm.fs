@@ -440,19 +440,6 @@ let buildComment2 opr1 opr2 (builder: DisasmBuilder<_>) =
     | _ -> ()
   | _ -> ()
 
-let buildComment2_bracket opr1 opr2 (builder: DisasmBuilder<_>) =
-  match opr1, opr2 with
-  | OprImm imm, _ | _, OprImm imm ->
-    builder.Accumulate AsmWordKind.String "]     ; "
-    builder.Accumulate AsmWordKind.Value (string imm)
-  | OprMemory addrMode, _ | _, OprMemory addrMode ->
-    match addrMode with
-    | DispMode (reg, c) ->
-      builder.Accumulate AsmWordKind.String "]     ; "
-      builder.Accumulate AsmWordKind.Value (String.i32ToHex c)
-    | _ -> ()
-  | _ -> ()
-
 let buildComment3 opr1 opr2 opr3 (builder: DisasmBuilder<_>) =
   match opr1, opr2, opr3 with
   | OprImm imm, _, _ | _, OprImm imm, _ | _, _, OprImm imm ->
@@ -467,7 +454,7 @@ let buildComment3 opr1 opr2 opr3 (builder: DisasmBuilder<_>) =
     | _ -> ()
   | _ -> ()
 
-let buildComment3_bracket opr1 opr2 opr3 (builder: DisasmBuilder<_>) =
+let buildComment3Bracket opr1 opr2 opr3 (builder: DisasmBuilder<_>) =
   match opr1, opr2, opr3 with
   | OprImm imm, _, _ | _, OprImm imm, _ | _, _, OprImm imm ->
     builder.Accumulate AsmWordKind.String "]     ; "
@@ -579,7 +566,7 @@ let buildOprs ins pc builder =
       oprToString ins pc opr1 (Some " ") builder
       oprToString ins pc opr2 (Some ", [") builder
       oprToString ins pc opr3 (Some " + ") builder
-      buildComment3_bracket opr1 opr2 opr3 builder
+      buildComment3Bracket opr1 opr2 opr3 builder
     | _ ->
       oprToString ins pc opr1 (Some " ") builder
       oprToString ins pc opr2 (Some ", ") builder
