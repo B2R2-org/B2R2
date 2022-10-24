@@ -29,8 +29,8 @@ open B2R2.FrontEnd.BinLifter
 
 /// The internal representation for a Sparc64 instruction used by our
 /// disassembler and lifter.
-type Sparc64Instruction (addr, insInfo) =
-  inherit Instruction (addr, 4u, WordSize.Bit32)
+type Sparc64Instruction (addr, numBytes, insInfo) =
+  inherit Instruction (addr, numBytes, WordSize.Bit32)
 
   /// Basic instruction information.
   member val Info: InsInfo = insInfo
@@ -76,18 +76,28 @@ type Sparc64Instruction (addr, insInfo) =
 
   override __.IsNop () = Utils.futureFeature ()
 
-  override __.Translate _ctxt = Utils.futureFeature ()
+  override __.Translate ctxt =
+    Lifter.translate __.Info numBytes ctxt
 
   override __.TranslateToList _ctxt = Utils.futureFeature ()
 
   override __.Disasm (showAddr, _resolveSymbol, _fileInfo) =
-    Utils.futureFeature ()
+    let builder =
+      DisasmStringBuilder (showAddr, false, WordSize.Bit32, addr, numBytes)
+    Disasm.disasm __.Info builder
+    builder.Finalize ()
 
   override __.Disasm () =
-    Utils.futureFeature ()
+    let builder =
+      DisasmStringBuilder (false, false, WordSize.Bit32, addr, numBytes)
+    Disasm.disasm __.Info builder
+    builder.Finalize ()
 
   override __.Decompose (showAddr) =
-    Utils.futureFeature ()
+    let builder =
+      DisasmWordBuilder (showAddr, false, WordSize.Bit32, addr, numBytes, 8)
+    Disasm.disasm __.Info builder
+    builder.Finalize ()
 
   override __.IsInlinedAssembly () = false
 

@@ -30,6 +30,7 @@ a list of the contributors in alphabetic order.
 - Jaemin Kim
 - JungHyun Kim
 - Kangsu Kim
+- JeongWoo Lee
 - Junoh Lee
 - Minsu Lee
 - Sihoon Lee

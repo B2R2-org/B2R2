@@ -38,7 +38,11 @@ type Sparc64RegisterBay () =
 
   override __.GetGeneralRegExprs () = Utils.futureFeature ()
 
-  override __.RegIDFromRegExpr (e) = Utils.futureFeature ()
+  override __.RegIDFromRegExpr (e) =
+    match e.E with
+    | Var (_,id, _,_) -> id
+    | PCVar _ -> Register.toRegID Register.PC
+    | _ -> failwith "not a register expression"
 
   override __.RegIDToRegExpr (id) = Utils.futureFeature ()
   override __.StrToRegExpr _s = Utils.futureFeature ()
@@ -46,9 +50,9 @@ type Sparc64RegisterBay () =
   override __.RegIDToString _ = Utils.futureFeature ()
   override __.RegIDToRegType _ = Utils.futureFeature ()
   override __.GetRegisterAliases _ = Utils.futureFeature ()
-  override __.ProgramCounter = Utils.futureFeature ()
-  override __.StackPointer = Utils.futureFeature ()
-  override __.FramePointer = Utils.futureFeature ()
-  override __.IsProgramCounter _ = Utils.futureFeature ()
+  override __.ProgramCounter = Register.PC |> Register.toRegID
+  override __.StackPointer = Register.O6 |> Register.toRegID |> Some
+  override __.FramePointer = Register.I6 |> Register.toRegID |> Some
+  override __.IsProgramCounter regid = __.ProgramCounter = regid
   override __.IsStackPointer _ = Utils.futureFeature ()
   override __.IsFramePointer _ = Utils.futureFeature ()
