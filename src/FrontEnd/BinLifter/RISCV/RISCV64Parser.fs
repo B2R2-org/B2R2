@@ -140,7 +140,7 @@ let parseOp bin =
   struct (opcode, getRdRs1Rs2 bin)
 
 let parseEnvCall bin =
-  let opcode = if pickBit bin 20u = 1u then Op.ECALL else Op.EBREAK
+  let opcode = if pickBit bin 20u = 1u then Op.EBREAK else Op.ECALL
   struct (opcode, NoOperand)
 
 let parseFence bin =
