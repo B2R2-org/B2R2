@@ -976,6 +976,104 @@ type RelocationRISCV =
   | R_RISCV_SET32 = 56UL
   | R_RISCV_32_PCREL = 57UL
 
+/// Relocation type for PPC32.
+type RelocationPPC32 =
+  | R_PPC_NONE = 0UL
+  | R_PPC_ADDR32 = 1UL
+  | R_PPC_ADDR24 = 2UL
+  | R_PPC_ADDR16 = 3UL
+  | R_PPC_ADDR16_LO = 4UL
+  | R_PPC_ADDR16_HI = 5UL
+  | R_PPC_ADDR16_HA = 6UL
+  | R_PPC_ADDR14 = 7UL
+  | R_PPC_ADDR14_BRTAKEN = 8UL
+  | R_PPC_ADDR14_BRNTAKEN = 9UL
+  | R_PPC_REL24 = 10UL
+  | R_PPC_REL14 = 11UL
+  | R_PPC_REL14_BRTAKEN = 12UL
+  | R_PPC_REL14_BRNTAKEN = 13UL
+  | R_PPC_GOT16 = 14UL
+  | R_PPC_GOT16_LO = 15UL
+  | R_PPC_GOT16_HI = 16UL
+  | R_PPC_GOT16_HA = 17UL
+  | R_PPC_PLTREL24 = 18UL
+  | R_PPC_COPY = 19UL
+  | R_PPC_GLOB_DAT = 20UL
+  | R_PPC_JMP_SLOT = 21UL
+  | R_PPC_RELATIVE = 22UL
+  | R_PPC_LOCAL24PC = 23UL
+  | R_PPC_UADDR32 = 24UL
+  | R_PPC_UADDR16 = 25UL
+  | R_PPC_REL32 = 26UL
+  | R_PPC_PLT32 = 27UL
+  | R_PPC_PLTREL32 = 28UL
+  | R_PPC_PLT16_LO = 29UL
+  | R_PPC_PLT16_HI = 30UL
+  | R_PPC_PLT16_HA = 31UL
+  | R_PPC_SDAREL16 = 32UL
+  | R_PPC_SECTOFF = 33UL
+  | R_PPC_SECTOFF_LO = 34UL
+  | R_PPC_SECTOFF_HI = 35UL
+  | R_PPC_SECTOFF_HA = 36UL
+  | R_PPC_TLS = 67UL
+  | R_PPC_DTPMOD32 = 68UL
+  | R_PPC_TPREL16 = 69UL
+  | R_PPC_TPREL16_LO = 70UL
+  | R_PPC_TPREL16_HI = 71UL
+  | R_PPC_TPREL16_HA = 72UL
+  | R_PPC_TPREL32 = 73UL
+  | R_PPC_DTPREL16 = 74UL
+  | R_PPC_DTPREL16_LO = 75UL
+  | R_PPC_DTPREL16_HI = 76UL
+  | R_PPC_DTPREL16_HA = 77UL
+  | R_PPC_DTPREL32 = 78UL
+  | R_PPC_GOT_TLSGD16 = 79UL
+  | R_PPC_GOT_TLSGD16_LO = 80UL
+  | R_PPC_GOT_TLSGD16_HI = 81UL
+  | R_PPC_GOT_TLSGD16_HA = 82UL
+  | R_PPC_GOT_TLSLD16 = 83UL
+  | R_PPC_GOT_TLSLD16_LO = 84UL
+  | R_PPC_GOT_TLSLD16_HI = 85UL
+  | R_PPC_GOT_TLSLD16_HA = 86UL
+  | R_PPC_GOT_TPREL16 = 87UL
+  | R_PPC_GOT_TPREL16_LO = 88UL
+  | R_PPC_GOT_TPREL16_HI = 89UL
+  | R_PPC_GOT_TPREL16_HA = 90UL
+  | R_PPC_GOT_DTPREL16 = 91UL
+  | R_PPC_GOT_DTPREL16_LO = 92UL
+  | R_PPC_GOT_DTPREL16_HI = 93UL
+  | R_PPC_GOT_DTPREL16_HA = 94UL
+  | R_PPC_TLSGD = 95UL
+  | R_PPC_TLSLD = 96UL
+  | R_PPC_EMB_NADDR32 = 101UL
+  | R_PPC_EMB_NADDR16 = 102UL
+  | R_PPC_EMB_NADDR16_LO = 103UL
+  | R_PPC_EMB_NADDR16_HI = 104UL
+  | R_PPC_EMB_NADDR16_HA = 105UL
+  | R_PPC_EMB_SDAI16 = 106UL
+  | R_PPC_EMB_SDA2I16 = 107UL
+  | R_PPC_EMB_SDA2REL = 108UL
+  | R_PPC_EMB_SDA21 = 109UL
+  | R_PPC_EMB_MRKREF = 110UL
+  | R_PPC_EMB_RELSEC16 = 111UL
+  | R_PPC_EMB_RELST_LO = 112UL
+  | R_PPC_EMB_RELST_HI = 113UL
+  | R_PPC_EMB_RELST_HA = 114UL
+  | R_PPC_EMB_BIT_FLD = 115UL
+  | R_PPC_EMB_RELSDA = 116UL
+  | R_PPC_DIAB_SDA21_LO = 180UL
+  | R_PPC_DIAB_SDA21_HI = 181UL
+  | R_PPC_DIAB_SDA21_HA = 182UL
+  | R_PPC_DIAB_RELSDA_LO = 183UL
+  | R_PPC_DIAB_RELSDA_HI = 184UL
+  | R_PPC_DIAB_RELSDA_HA = 185UL
+  | R_PPC_IRELATIVE = 248UL
+  | R_PPC_REL16 = 249UL
+  | R_PPC_REL16_LO = 250UL
+  | R_PPC_REL16_HI = 251UL
+  | R_PPC_REL16_HA = 252UL
+  | R_PPC_TOC16 = 255UL
+
 /// Relocation type.
 type RelocationType =
   | RelocationX86 of RelocationX86
@@ -985,6 +1083,7 @@ type RelocationType =
   | RelocationMIPS of RelocationMIPS
   | RelocationSH4 of RelocationSH4
   | RelocationRISCV of RelocationRISCV
+  | RelocationPPC32 of RelocationPPC32
 with
   static member FromNum arch n =
     match arch with
@@ -1004,6 +1103,8 @@ with
       RelocationSH4 <| LanguagePrimitives.EnumOfValue n
     | Architecture.RISCV64 ->
       RelocationRISCV <| LanguagePrimitives.EnumOfValue n
+    | Architecture.PPC32 ->
+      RelocationPPC32 <| LanguagePrimitives.EnumOfValue n
     | _ -> invalidArg (nameof arch) "Unsupported architecture for relocation."
 
   static member ToString rt =
@@ -1015,6 +1116,7 @@ with
     | RelocationMIPS t -> t.ToString ()
     | RelocationSH4 t -> t.ToString ()
     | RelocationRISCV t -> t.ToString ()
+    | RelocationPPC32 t -> t.ToString ()
 
 /// Relocation entry.
 type RelocationEntry = {

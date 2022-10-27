@@ -41,7 +41,8 @@ type PPC32RegisterBay () =
   override __.RegIDFromRegExpr (e) =
     match e.E with
     | Var (_, id, _ ,_) -> id
-    | PCVar _ -> Register.toRegID Register.R0
+    | PCVar _ ->
+      Register.toRegID Register.GPR0 (* FIXME: Program Counter *)
     | _ -> failwith "not a register expression"
 
   override __.RegIDToRegExpr (id) = Utils.futureFeature ()

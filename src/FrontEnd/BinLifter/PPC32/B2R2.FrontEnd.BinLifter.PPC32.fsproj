@@ -13,7 +13,9 @@
     <Compile Include="PPC32RegExprs.fs" />
     <Compile Include="PPC32RegisterBay.fs" />
     <Compile Include="PPC32Types.fs" />
+    <Compile Include="PPC32OperandHelper.fs" />
     <Compile Include="PPC32Disasm.fs" />
+    <Compile Include="PPC32Lifter.fs" />
     <Compile Include="PPC32Instruction.fs" />
     <Compile Include="PPC32Parser.fs" />
     <Compile Include="PPC32.fs" />

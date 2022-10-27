@@ -471,6 +471,11 @@ let findPLTType arch reloc span reader secInfo sec =
   | Arch.MIPS32
   | Arch.MIPS64 -> mipsPLT span reader sec
   | Arch.SH4 -> sh4PLT sec
+  | Arch.PPC32 ->
+    if sec.SecFlags.HasFlag SectionFlag.SHFExecInstr then
+      (* let rtyp = RelocationPPC32 RelocationPPC32.R_PPC_JMP_SLOT *)
+      Utils.futureFeature () (* TODO: call findGeneralPLTType here. *)
+    else UnknownPLT
   | Arch.RISCV64 ->
     let rtyp = RelocationRISCV RelocationRISCV.R_RISCV_JUMP_SLOT
     findGeneralPLTType reloc secInfo 32UL sec rtyp

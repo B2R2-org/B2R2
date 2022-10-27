@@ -78,9 +78,10 @@ type PPC32Instruction (addr, numBytes, insInfo) =
 
   override __.IsNop () = Utils.futureFeature ()
 
-  override __.Translate _ctxt = Utils.futureFeature ()
+  override __.Translate ctxt =
+    (Lifter.translate __.Info numBytes ctxt).ToStmts ()
 
-  override __.TranslateToList _ctxt = Utils.futureFeature ()
+  override __.TranslateToList ctxt = Lifter.translate __.Info numBytes ctxt
 
   override __.Disasm (showAddr, _resolveSymbol, _fileInfo) =
     let builder =
