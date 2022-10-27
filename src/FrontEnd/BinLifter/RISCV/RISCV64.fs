@@ -62,4 +62,7 @@ module Basis =
       RISCV64RegisterBay () :> RegisterBay
     )
 
+  let initRegBay _isa =
+    RISCV64RegisterBay () :> RegisterBay
+
 // vim: set tw=80 sts=2 sw=2:
