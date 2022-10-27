@@ -24,7 +24,6 @@
 
 module B2R2.FrontEnd.BinFile.Mach.Header
 
-open System
 open B2R2
 open B2R2.FrontEnd.BinFile
 
@@ -39,7 +38,8 @@ let isFat span reader =
   | Magic.FATCigam | Magic.FATMagic -> true
   | _ -> false
 
-let isMach span reader =
+let isMach span =
+  let reader = BinReader.binReaderLE
   match peekMagic span reader with
   | Magic.MHCigam | Magic.MHCigam64 | Magic.MHMagic | Magic.MHMagic64 -> true
   | _ -> isFat span reader
@@ -79,13 +79,20 @@ let internal peekClass span reader =
   | _ -> raise FileFormatMismatchException
 
 let internal magicToEndian = function
-  | Magic.MHMagic | Magic.MHMagic64 -> Endian.Little
-  | Magic.MHCigam | Magic.MHCigam64 -> Endian.Big
+  | Magic.MHMagic | Magic.MHMagic64 | Magic.FATMagic -> Endian.Little
+  | Magic.MHCigam | Magic.MHCigam64 | Magic.FATCigam -> Endian.Big
   | _ -> raise FileFormatMismatchException
 
 let internal peekEndianness span reader =
   peekMagic span reader
   |> magicToEndian
+
+/// Detect the endianness and return an appropriate IBinReader.
+let internal getMachBinReader span =
+  match peekEndianness span BinReader.binReaderLE with
+  | Endian.Little -> BinReader.binReaderLE
+  | Endian.Big -> BinReader.binReaderBE
+  | _ -> Utils.impossible ()
 
 let internal parse span reader =
   { Magic = peekMagic span reader

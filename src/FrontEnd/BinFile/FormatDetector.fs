@@ -49,8 +49,8 @@ let private identifyPE bytes =
   | Error _ -> None
 
 let private identifyMach span isa =
-  let reader = BinReader.binReaderLE
-  if Mach.Header.isMach span reader then
+  if Mach.Header.isMach span then
+    let reader = Mach.Header.getMachBinReader span
     if Mach.Header.isFat span reader then
       let fat =
         Mach.Fat.loadFats span reader
