@@ -101,6 +101,8 @@ let rec simplify = function
   | BinOp (BinOpType.DIV, _, Num v1, Num v2) -> Num (BitVector.Div (v1, v2))
   | BinOp (BinOpType.AND, _, Num v1, Num v2) -> Num (BitVector.BAnd (v1, v2))
   | BinOp (BinOpType.OR, _, Num v1, Num v2) -> Num (BitVector.BOr (v1, v2))
+  | BinOp (BinOpType.SHR, _, Num v1, Num v2) -> Num (BitVector.Shr (v1, v2))
+  | BinOp (BinOpType.SHL, _, Num v1, Num v2) -> Num (BitVector.Shl (v1, v2))
   | BinOp (op, rt, e1, e2) -> BinOp (op, rt, simplify e1, simplify e2)
   | UnOp (op, rt, e) -> UnOp (op, rt, simplify e)
   | RelOp (op, rt, e1, e2) -> RelOp (op, rt, simplify e1, simplify e2)

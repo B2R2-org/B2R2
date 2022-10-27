@@ -95,15 +95,27 @@ let private swapStack (ctxt: TranslationContext) pos (builder: IRBuilder) =
   builder <! (AST.store Endian.Big (spReg .- (getSPSize pos)) tmp1)
   builder <! (AST.store Endian.Big spReg tmp2)
 
-/// Binary operations and relative operations.
-let basicOperation insInfo ctxt opFn =
+let startBasicOperation insInfo =
   let builder = new IRBuilder (12)
   startMark insInfo builder
-  let src1 = popFromStack ctxt builder
-  let src2 = popFromStack ctxt builder
+  builder
+
+let endBasicOperation ctxt opFn src1 src2 insInfo builder =
   pushToStack ctxt (opFn src1 src2) builder
   updateGas ctxt insInfo.GAS builder
   endMark insInfo builder
+
+/// Binary operations and relative operations.
+let basicOperation insInfo ctxt opFn =
+  let builder = startBasicOperation insInfo
+  let src1, src2 = popFromStack ctxt builder, popFromStack ctxt builder
+  endBasicOperation ctxt opFn src1 src2 insInfo builder
+
+/// Shift operations. They use the flipped order of operands.
+let shiftOperation insInfo ctxt opFn =
+  let builder = startBasicOperation insInfo
+  let src1, src2 = popFromStack ctxt builder, popFromStack ctxt builder
+  endBasicOperation ctxt opFn src2 src1 insInfo builder
 
 let add insInfo ctxt = basicOperation insInfo ctxt (.+)
 let mul insInfo ctxt = basicOperation insInfo ctxt (.*)
@@ -120,9 +132,9 @@ let eq insInfo ctxt = basicOperation insInfo ctxt (==)
 let logAnd insInfo ctxt = basicOperation insInfo ctxt (.&)
 let logOr insInfo ctxt = basicOperation insInfo ctxt (.|)
 let xor insInfo ctxt = basicOperation insInfo ctxt (<+>)
-let shl insInfo ctxt = basicOperation insInfo ctxt (<<)
-let shr insInfo ctxt = basicOperation insInfo ctxt (>>)
-let sar insInfo ctxt = basicOperation insInfo ctxt (?>>)
+let shl insInfo ctxt = shiftOperation insInfo ctxt (<<)
+let shr insInfo ctxt = shiftOperation insInfo ctxt (>>)
+let sar insInfo ctxt = shiftOperation insInfo ctxt (?>>)
 
 let addmod insInfo ctxt =
   let builder = new IRBuilder (12)

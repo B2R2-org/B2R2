@@ -65,7 +65,6 @@ type EVMInstruction (addr, numBytes, insInfo, wordSize) =
 
   override __.IsRET () =
     match __.Info.Opcode with
-    | Opcode.REVERT
     | Opcode.RETURN -> true
     | _ -> false
 
