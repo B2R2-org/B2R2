@@ -27,7 +27,6 @@ namespace B2R2.FrontEnd.BinLifter.PPC32
 open B2R2
 
 type Register =
-  /// General-Purpose Registers.
   | GPR0 = 0x0
   | GPR1 = 0x1
   | GPR2 = 0x2
@@ -60,7 +59,6 @@ type Register =
   | GPR29 = 0x1D
   | GPR30 = 0x1E
   | GPR31 = 0x1F
-  /// Floating-Point Registers.
   | FPR0 = 0x20
   | FPR1 = 0x21
   | FPR2 = 0x22
@@ -93,7 +91,6 @@ type Register =
   | FPR29 = 0x3D
   | FPR30 = 0x3E
   | FPR31 = 0x3F
-  /// Condition Register.
   | CR0 = 0x40
   | CR1 = 0x41
   | CR2 = 0x42
