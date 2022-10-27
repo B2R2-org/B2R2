@@ -62,4 +62,7 @@ module Basis =
       PPC32RegisterBay () :> RegisterBay
     )
 
+  let initRegBay _isa =
+    PPC32RegisterBay () :> RegisterBay
+
 // vim: set tw=80 sts=2 sw=2:

@@ -36,6 +36,7 @@ let private loadRegBay isa =
   | Arch.ARMv7 -> ARM32.Basis.initRegBay ()
   | Arch.AARCH64 -> ARM64.Basis.initRegBay ()
   | Arch.MIPS32 | Arch.MIPS64 -> MIPS.Basis.initRegBay isa
+  | Arch.PPC32 -> PPC32.Basis.initRegBay ()
   | _ -> Utils.futureFeature ()
 
 /// Load a given byte array (binary file) and return a `FileInfo`.
