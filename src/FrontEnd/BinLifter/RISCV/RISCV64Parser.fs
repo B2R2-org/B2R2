@@ -544,15 +544,16 @@ let parseCdotSR bin =
 
 let parseCdotLUIADDI16SP bin =
   if extract bin 11u 7u = 2u then
-    let from4to4 = pickBit bin 4u <<< 4
+    let from4to4 = pickBit bin 6u <<< 4
     let from5to5 = pickBit bin 2u <<< 5
     let from6to6 = pickBit bin 5u <<< 6
     let from7to8 = extract bin 4u 3u <<< 7
-    let from9to9 = pickBit bin 12u
+    let from9to9 = pickBit bin 12u <<< 9
     let imm = from4to4 ||| from5to5 ||| from6to6 ||| from7to8 ||| from9to9
               |> uint64
-    if imm = 0uL then raise ParsingFailureException
-    else ()
+#if DEBUG
+    if imm = 0uL then raise ParsingFailureException else ()
+#endif
     let signExtended = signExtend 10 32 imm |> uint32 |> OpImm
     struct (Op.CdotADDI16SP,
             ThreeOperands (R.X2 |> OpReg, R.X2 |> OpReg, signExtended))
