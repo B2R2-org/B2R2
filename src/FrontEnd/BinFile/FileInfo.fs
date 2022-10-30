@@ -357,12 +357,18 @@ type FileInfo () =
   /// </returns>
   member __.GetFunctionSymbols () =
     let dict = Collections.Generic.Dictionary<Addr, Symbol> ()
-    __.GetStaticSymbols () |> Seq.iter (fun s -> dict[s.Address] <- s)
+    __.GetStaticSymbols ()
+    |> Seq.iter (fun s ->
+      if s.Kind = SymFunctionType then dict[s.Address] <- s
+      elif s.Kind = SymNoType (* This is to handle ppc's PLT symbols. *)
+        && s.Address > 0UL && s.Name.Contains "pic32."
+      then dict[s.Address] <- s
+      else ())
     __.GetDynamicSymbols (true) |> Seq.iter (fun s ->
-      if dict.ContainsKey s.Address then () else dict[s.Address] <- s)
-    dict
-    |> Seq.map (fun (KeyValue (_, s)) -> s)
-    |> Seq.filter (fun s -> s.Kind = SymFunctionType)
+      if dict.ContainsKey s.Address then ()
+      elif s.Kind = SymFunctionType then dict[s.Address] <- s
+      else ())
+    dict.Values
 
   /// <summary>
   ///   Returns a sequence of local function addresses (excluding external
