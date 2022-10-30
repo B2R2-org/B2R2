@@ -183,6 +183,49 @@ let rec private parseSections p rdr span map = function
     parseSections p rdr span map rest
   | [] -> map
 
+/// This uses relocation information to parse PLT entries. This can be a general
+/// parser, but it is rather slow compared to platform-specific parsers. RISCV64
+/// relies on this.
+type GeneralPLTParser (secInfo, relocInfo, symbolInfo, pltHdrSize, relType) =
+  inherit PLTParser ()
+
+  let relocs =
+    relocInfo.RelocByAddr.Values
+    |> Seq.filter (fun r -> r.RelType = relType)
+    |> Seq.toArray
+
+  member internal __.Relocs with get() = relocs
+
+  member private __.CreateGeneralPLTDescriptor rsec sec =
+    let count = rsec.SecSize / rsec.SecEntrySize (* number of PLT entries *)
+    let pltEntrySize = (sec.SecSize - pltHdrSize) / count
+    let addr = sec.SecAddr + pltHdrSize
+    assert (__.Relocs.Length = int count)
+    newPLT DontCare AnyBinding false pltEntrySize 0UL addr
+
+  member private __.FindGeneralPLTType sec =
+    match Map.tryFind SecRelPLT secInfo.SecByName with
+    | Some rsec -> __.CreateGeneralPLTDescriptor rsec sec
+    | None ->
+      match Map.tryFind SecRelaPLT secInfo.SecByName with
+      | Some rsec -> __.CreateGeneralPLTDescriptor rsec sec
+      | None -> UnknownPLT
+
+  override __.ParseEntry (addr, idx, _sec, desc, _rdr, _span) =
+    { EntryRelocAddr = __.Relocs[idx].RelOffset
+      NextEntryAddr = addr + desc.EntrySize }
+
+  override __.ParseSection (sec, rdr, span, map) =
+    match __.FindGeneralPLTType sec with
+    | PLT desc ->
+      let sAddr, eAddr = desc.ExtraOffset, sec.SecAddr + sec.SecSize
+      parseEntries __ sec rdr span desc symbolInfo relocInfo map eAddr sAddr
+    | UnknownPLT -> map
+
+  override __.Parse (rdr, span) =
+    let pltSections = findPLTSections secInfo
+    parseSections __ rdr span ARMap.empty pltSections
+
 /// Intel x86 PLT parser.
 type X86PLTParser (secInfo, relocInfo, symbolInfo) =
   inherit PLTParser ()
@@ -535,46 +578,114 @@ type MIPSPLTParser (secInfo, relocInfo, symbolInfo) =
     if List.isEmpty pltSections then __.ParseMIPSStubs (rdr, span)
     else parseSections __ rdr span ARMap.empty pltSections
 
-/// This uses relocation information to parse PLT entries. This can be a general
-/// parser, but it is rather slow compared to platform-specific parsers. RISCV64
-/// relies on this.
-type GeneralPLTParser (secInfo, relocInfo, symbolInfo, pltHdrSize, relType) =
+/// Classic PPC that uses the .plt section. Modern PPC binaries use the "glink".
+type PPCClassicPLTParser (secInfo, relocInfo, symbolInfo, pltHdrSize, relType) =
+  inherit GeneralPLTParser (secInfo, relocInfo, symbolInfo, pltHdrSize, relType)
+
+  override __.ParseEntry (_addr, idx, _sec, _desc, _rdr, _span) =
+    let nextIdx = idx + 1
+    let nextEntryAddr =
+      if __.Relocs.Length > nextIdx then __.Relocs[nextIdx].RelOffset
+      else UInt64.MaxValue (* No more entries to parse. *)
+    { EntryRelocAddr = __.Relocs[idx].RelOffset
+      NextEntryAddr = nextEntryAddr }
+
+/// PPC PLT parser.
+type PPCPLTParser (secInfo, relocInfo, symbolInfo) =
   inherit PLTParser ()
 
-  let relocs =
-    relocInfo.RelocByAddr.Values
-    |> Seq.filter (fun r -> r.RelType = relType)
-    |> Seq.toArray
-
-  member private __.CreateGeneralPLTDescriptor rsec sec =
-    let count = rsec.SecSize / rsec.SecEntrySize (* number of PLT entries *)
-    let pltEntrySize = (sec.SecSize - pltHdrSize) / count
-    let addr = sec.SecAddr + pltHdrSize
-    assert (relocs.Length = int count)
-    newPLT DontCare AnyBinding false pltEntrySize 0UL addr
-
-  member private __.FindGeneralPLTType sec =
-    match Map.tryFind SecRelPLT secInfo.SecByName with
-    | Some rsec -> __.CreateGeneralPLTDescriptor rsec sec
-    | None ->
-      match Map.tryFind SecRelaPLT secInfo.SecByName with
-      | Some rsec -> __.CreateGeneralPLTDescriptor rsec sec
-      | None -> UnknownPLT
-
-  override __.ParseEntry (addr, idx, _sec, desc, _rdr, _span) =
-    { EntryRelocAddr = relocs[idx].RelOffset
-      NextEntryAddr = addr + desc.EntrySize }
+  override __.ParseEntry (_, _, _, _, _, _) = Utils.impossible ()
 
   override __.ParseSection (sec, rdr, span, map) =
-    match __.FindGeneralPLTType sec with
-    | PLT desc ->
-      let sAddr, eAddr = desc.ExtraOffset, sec.SecAddr + sec.SecSize
-      parseEntries __ sec rdr span desc symbolInfo relocInfo map eAddr sAddr
-    | UnknownPLT -> map
+    let rtyp = RelocationPPC32 RelocationPPC32.R_PPC_JMP_SLOT
+    let p = PPCClassicPLTParser (secInfo, relocInfo, symbolInfo, 0x48UL, rtyp)
+    p.ParseSection (sec, rdr, span, map)
+
+  member private __.ComputeGLinkAddrWithGOT (rdr, span: ByteSpan) =
+    let tags = Section.getDynamicSectionEntries span rdr secInfo
+    match List.tryFind (fun t -> t.DTag = DynamicTag.DT_PPC_GOT) tags with
+    | Some tag ->
+      let gotAddr = tag.DVal
+      match Map.tryFind SecGOT secInfo.SecByName with
+      | Some gotSection ->
+        let gotElemOneOffset = (* The second elem of GOT, i.e., GOT[1] *)
+          gotAddr - gotSection.SecAddr + 4UL + gotSection.SecOffset
+        let gotElemOne = rdr.ReadUInt32 (span, int gotElemOneOffset)
+        if gotElemOne = 0u then None else Some (uint64 gotElemOne)
+      | None -> None
+    | None -> None
+
+  member private __.ComputeGLinkAddrWithPLT (rdr: IBinReader, span: ByteSpan) =
+    match Map.tryFind SecPLT secInfo.SecByName with
+    | Some sec -> (* Get the glink address from the first entry of PLT *)
+      let glinkVMA = rdr.ReadUInt32 (span, int sec.SecOffset)
+      if glinkVMA = 0u then None else Some (uint64 glinkVMA)
+    | None -> None
+
+  member private __.ComputePLTEntryDelta (rdr, span: ByteSpan, stubOff, delta) =
+    let lastPLTEntryOffset = stubOff - delta
+    let ins1 = (rdr: IBinReader).ReadUInt32 (span, lastPLTEntryOffset)
+    let ins2 = rdr.ReadUInt32 (span, lastPLTEntryOffset + 4)
+    let ins3 = rdr.ReadUInt32 (span, lastPLTEntryOffset + 8)
+    let ins4 = rdr.ReadUInt32 (span, lastPLTEntryOffset + 12)
+    let isNonPICGlinkStub =
+      ((ins1 &&& 0xffff0000u) = 0x3d600000u) (* lis r11, ... *)
+      && ((ins2 &&& 0xffff0000u) = 0x816b0000u) (* lwz r11, ... *)
+      && (ins3 = 0x7d6903a6u) (* mtctr r11 *)
+      && (ins4 = 0x4e800420u) (* bctr *)
+    if isNonPICGlinkStub then Some delta
+    elif delta < 32 then __.ComputePLTEntryDelta (rdr, span, stubOff, delta + 8)
+    else None
+
+  member private __.ReadEntryLoop relocs delta idx map addr =
+    if idx >= 0 then
+      let reloc = (relocs: RelocationEntry[])[idx]
+      let ar = AddrRange (addr, addr + delta - 1UL)
+      let entry = makePLTEntry symbolInfo addr addr reloc
+      let map = ARMap.add ar entry map
+      __.ReadEntryLoop relocs delta (idx - 1) map (addr - delta)
+    else map
+
+  /// Read from the last PLT entry to the first. This is possible because we
+  /// have computed the delta between the last entry to the glink stub.
+  member private __.ReadPLTEntriesBackwards (glinkAddr, delta, count) =
+    let rtype = RelocationPPC32 RelocationPPC32.R_PPC_JMP_SLOT
+    let relocs =
+      relocInfo.RelocByAddr.Values
+      |> Seq.filter (fun r -> r.RelType = rtype)
+      |> Seq.toArray
+    assert (relocs.Length = count)
+    let addr = glinkAddr - delta
+    __.ReadEntryLoop relocs (uint64 delta) (count - 1) ARMap.empty addr
+
+  member private __.ReadPLTWithGLink (rdr, span: ByteSpan, glinkAddr) =
+    let relaPltSecOpt = Map.tryFind SecRelaPLT secInfo.SecByName
+    let glinkSecOpt = ARMap.tryFindByAddr glinkAddr secInfo.SecByAddr
+    match glinkSecOpt, relaPltSecOpt with
+    | Some glinkSec, Some relaSec ->
+      let glinkSecAddr = glinkSec.SecAddr
+      let stubOff = glinkAddr - glinkSecAddr + glinkSec.SecOffset |> int
+      let count = relaSec.SecSize / 12UL |> int (* Each entry has 12 bytes. *)
+      match __.ComputePLTEntryDelta (rdr, span, stubOff, 16) with
+      | Some delta ->
+        __.ReadPLTEntriesBackwards (glinkAddr, uint64 delta, count)
+      | None -> ARMap.empty
+    | _ -> ARMap.empty
+
+  member private __.ParseWithGLink (rdr, span) =
+    match __.ComputeGLinkAddrWithGOT (rdr, span) with
+    | Some glinkAddr -> __.ReadPLTWithGLink (rdr, span, glinkAddr)
+    | None ->
+      match __.ComputeGLinkAddrWithPLT (rdr, span) with
+      | Some glinkAddr -> __.ReadPLTWithGLink (rdr, span, glinkAddr)
+      | None -> ARMap.empty
 
   override __.Parse (rdr, span) =
-    let pltSections = findPLTSections secInfo
-    parseSections __ rdr span ARMap.empty pltSections
+    match Map.tryFind SecPLT secInfo.SecByName with
+    | Some sec when sec.SecFlags.HasFlag SectionFlag.SHFExecInstr ->
+      (* The given binary uses the classic format. *)
+      parseSections __ rdr span ARMap.empty [ sec ]
+    | _ -> __.ParseWithGLink (rdr, span)
 
 /// This will simply return an empty map.
 type NullPLTParser () =
@@ -593,9 +704,14 @@ let initPLTParser arch secInfo relocInfo symbolInfo =
     AARCH64PLTParser (secInfo, relocInfo, symbolInfo) :> PLTParser
   | Arch.MIPS32 | Arch.MIPS64 ->
     MIPSPLTParser (secInfo, relocInfo, symbolInfo) :> PLTParser
+  | Arch.PPC32 ->
+    PPCPLTParser (secInfo, relocInfo, symbolInfo) :> PLTParser
   | Arch.RISCV64 ->
     let rtype = RelocationRISCV RelocationRISCV.R_RISCV_JUMP_SLOT
-    GeneralPLTParser (secInfo, relocInfo, symbolInfo, 32UL, rtype)
+    GeneralPLTParser (secInfo, relocInfo, symbolInfo, 32UL, rtype) :> PLTParser
+  | Arch.SH4 ->
+    let rtype = RelocationSH4 RelocationSH4.R_SH_JMP_SLOT
+    GeneralPLTParser (secInfo, relocInfo, symbolInfo, 28UL, rtype) :> PLTParser
   | _ -> NullPLTParser () :> PLTParser
 
 let parse arch secInfo relocInfo symbolInfo span reader =
