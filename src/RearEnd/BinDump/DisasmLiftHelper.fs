@@ -52,6 +52,10 @@ let makeFuncSymbolDic hdl =
   |> Seq.iter (fun a ->
     if funcs.ContainsKey a then ()
     else funcs[a] <- Addr.toFuncName a)
+  hdl.FileInfo.GetLinkageTableEntries ()
+  |> Seq.iter (fun e ->
+    if e.TrampolineAddress = 0UL then ()
+    else funcs.TryAdd (e.TrampolineAddress, e.FuncName) |> ignore)
   funcs
 
 let makeLinkageTblSymbolDic hdl =
