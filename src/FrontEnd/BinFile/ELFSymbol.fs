@@ -35,11 +35,11 @@ let getSymbKind ndx = function
   | SymbolType.STTObject -> SymObjectType
   | SymbolType.STTGNUIFunc
   | SymbolType.STTFunc ->
-    if ndx = SHNUndef then NoType
+    if ndx = SHNUndef then SymNoType
     else SymFunctionType
   | SymbolType.STTSection -> SymSectionType
   | SymbolType.STTFile ->SymFileType
-  | _ -> NoType
+  | _ -> SymNoType
 
 let versionToLibName version =
   match version with

@@ -64,7 +64,7 @@ let machTypeToSymbKind sym secText =
     || sym.SymType = SymbolType.NOSO then
     SymFileType
   else
-    NoType
+    SymNoType
 
 let machSymbolToSymbol secText target sym =
   { Address = sym.SymAddr

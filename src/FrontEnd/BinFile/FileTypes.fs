@@ -39,7 +39,7 @@ exception InvalidFileTypeException
 /// Kinds of a symbol.
 type SymbolKind =
   /// The symbol type is not specified.
-  | NoType
+  | SymNoType
   /// The symbol is associated with a data object, such as a variable.
   | SymObjectType
   /// The symbol is associated with a general function.

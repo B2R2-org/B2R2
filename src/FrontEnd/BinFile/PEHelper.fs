@@ -113,7 +113,7 @@ let inline translateAddr pe addr =
 
 let pdbTypeToSymbKind = function
   | SymFlags.Function -> SymFunctionType
-  | _ -> NoType
+  | _ -> SymNoType
 
 let pdbSymbolToSymbol (sym: PESymbol) =
   { Address = sym.Address
@@ -204,7 +204,7 @@ let getRelocationSymbols pe =
   |> Seq.map (fun (block, entry) -> {
     Address = uint64 (block.PageRVA + uint32 entry.Offset)
     Name = String.Empty
-    Kind = SymbolKind.NoType
+    Kind = SymNoType
     Target = TargetKind.DynamicSymbol
     LibraryName = String.Empty
     ArchOperationMode = ArchOperationMode.NoMode })
