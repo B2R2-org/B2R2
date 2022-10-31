@@ -31,7 +31,7 @@ open B2R2.RearEnd.FileViewer.Helper
 open B2R2.MiddleEnd.ControlFlowAnalysis
 
 let badAccess _ _ =
-  raise InvalidFileTypeException
+  raise InvalidFileFormatException
 
 let computeMagicBytes (file: ELFBinFile) =
   file.ELF.BinReader.ReadBytes (file.Span, 0, 16) |> ColoredSegment.colorBytes

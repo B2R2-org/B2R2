@@ -41,7 +41,7 @@ let getTextSegOffset segs =
   let isTextSegment s = s.SegCmdName = "__TEXT"
   match segs |> List.tryFind isTextSegment with
   | Some s -> s.VMAddr
-  | _ -> raise FileFormatMismatchException
+  | _ -> raise InvalidFileFormatException
 
 let computeEntryPoint segs cmds =
   let mainOffset = getMainOffset cmds
@@ -112,5 +112,5 @@ let parse baseAddr (bytes: byte[]) isa =
   let span = ReadOnlySpan bytes
   let span = updateSpanForFat isa span BinReader.binReaderBE
   if Header.isMach span then ()
-  else raise FileFormatMismatchException
+  else raise InvalidFileFormatException
   parseMach baseAddr span (Header.getMachBinReader span)

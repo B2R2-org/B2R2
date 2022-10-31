@@ -24,7 +24,6 @@
 
 module internal B2R2.FrontEnd.BinFile.FileHelper
 
-open System
 open B2R2
 
 let peekUIntOfType (span: ByteSpan) (reader: IBinReader) bitType o =

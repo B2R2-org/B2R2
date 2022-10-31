@@ -25,6 +25,7 @@
 namespace B2R2.FrontEnd.BinFile
 
 open System
+open System.Runtime.InteropServices
 open B2R2
 open B2R2.FrontEnd.BinFile.ELF
 open B2R2.FrontEnd.BinFile.ELF.Helper
@@ -32,9 +33,10 @@ open B2R2.FrontEnd.BinFile.ELF.Helper
 /// <summary>
 ///   This class represents an ELF binary file.
 /// </summary>
-type ELFBinFile (bytes, path, baseAddr, regbay) =
+type ELFBinFile (bytes, path, baseAddr, regbay,
+                 [<Optional; DefaultParameterValue(false)>] forEmu: bool) =
   inherit BinFile ()
-  let elf = Parser.parse bytes baseAddr regbay
+  let elf = Parser.parse bytes baseAddr regbay forEmu
 
   new (bytes, path) = ELFBinFile (bytes, path, None, None)
 

@@ -243,7 +243,7 @@ let magicToWordSize = function
 let parsePDB reader (pdbBytes: byte[]) =
   let span = ReadOnlySpan pdbBytes
   if PDB.isPDBHeader span reader then ()
-  else raise FileFormatMismatchException
+  else raise InvalidFileFormatException
   PDB.parse span reader
 
 let getPDBSymbols reader (execpath: string) = function

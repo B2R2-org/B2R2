@@ -76,12 +76,12 @@ let internal peekClass span reader =
   match peekMagic span reader with
   | Magic.MHMagic | Magic.MHCigam -> WordSize.Bit32
   | Magic.MHMagic64 | Magic.MHCigam64 -> WordSize.Bit64
-  | _ -> raise FileFormatMismatchException
+  | _ -> raise InvalidFileFormatException
 
 let internal magicToEndian = function
   | Magic.MHMagic | Magic.MHMagic64 | Magic.FATMagic -> Endian.Little
   | Magic.MHCigam | Magic.MHCigam64 | Magic.FATCigam -> Endian.Big
-  | _ -> raise FileFormatMismatchException
+  | _ -> raise InvalidFileFormatException
 
 let internal peekEndianness span reader =
   peekMagic span reader

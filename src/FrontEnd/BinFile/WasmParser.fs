@@ -205,7 +205,7 @@ let private parseWasmModule (bs: byte[]) (reader: IBinReader) offset =
   let contOff = offset + 8
   let secsSummary = summerizeSections bs reader contOff
   if not (validateSectionsOrder secsSummary)
-  then raise InvalidFileTypeException
+  then raise InvalidFileFormatException
   else
   let rec parsingLoop wasmModule info (secsSummary: SectionSummary list) =
     if List.isEmpty secsSummary then
@@ -333,6 +333,6 @@ let buildModuleIndexMap wm =
 
 let parse (bs: byte[]) =
   if Header.isWasm (ReadOnlySpan bs) BinReader.binReaderLE then ()
-  else raise FileFormatMismatchException
+  else raise InvalidFileFormatException
   parseWasmModule bs BinReader.binReaderLE 0
   |> buildModuleIndexMap

@@ -42,7 +42,7 @@ let private loadRegBay isa =
 
 /// Load a given byte array (binary file) and return a `BinFile`.
 [<CompiledName ("Load")>]
-let load (binPath: string) (bytes: byte []) isa baseAddr =
+let load (binPath: string) (bytes: byte[]) isa baseAddr =
   let fmt, isa = FormatDetector.identify bytes isa
   let regbay = loadRegBay isa
   match fmt with
@@ -56,25 +56,37 @@ let load (binPath: string) (bytes: byte []) isa baseAddr =
 
 /// Load a given byte array (binary file) and return a `ELFBinFile`.
 [<CompiledName ("LoadELF")>]
-let loadELF (binPath: string) (bytes: byte []) isa baseAddr =
+let loadELF (binPath: string) (bytes: byte[]) isa baseAddr =
   let fmt, isa = FormatDetector.identify bytes isa
   let regbay = loadRegBay isa
   match fmt with
   | FileFormat.ELFBinary -> ELFBinFile (bytes, binPath, baseAddr, Some regbay)
-  | _ -> raise InvalidFileTypeException
+  | _ -> raise InvalidFileFormatException
+
+/// Load a given byte array (binary file) and return a `ELFBinFile` while
+/// parsing only basic information of the binary. This is to enable faster
+/// loading of BinFile when emulating binaries.
+[<CompiledName ("LoadELFForEmulation")>]
+let loadELFForEmulation (binPath: string) (bytes: byte[]) isa baseAddr =
+  let fmt, isa = FormatDetector.identify bytes isa
+  let regbay = loadRegBay isa
+  match fmt with
+  | FileFormat.ELFBinary ->
+    ELFBinFile (bytes, binPath, baseAddr, Some regbay, true)
+  | _ -> raise InvalidFileFormatException
 
 /// Load a given byte array (binary file) and return a `PEBinFile`.
 [<CompiledName ("LoadPE")>]
-let loadPE (binPath: string) (bytes: byte []) isa baseAddr =
+let loadPE (binPath: string) (bytes: byte[]) isa baseAddr =
   let fmt, _isa = FormatDetector.identify bytes isa
   match fmt with
   | FileFormat.PEBinary -> PEBinFile (bytes, binPath, baseAddr=baseAddr)
-  | _ -> raise InvalidFileTypeException
+  | _ -> raise InvalidFileFormatException
 
 /// Load a given byte array (binary file) and return a `MachBinFile`.
 [<CompiledName ("LoadMach")>]
-let loadMach (binPath: string) (bytes: byte []) isa baseAddr =
+let loadMach (binPath: string) (bytes: byte[]) isa baseAddr =
   let fmt, isa = FormatDetector.identify bytes isa
   match fmt with
   | FileFormat.MachBinary -> MachBinFile (bytes, binPath, isa, baseAddr)
-  | _ -> raise InvalidFileTypeException
+  | _ -> raise InvalidFileFormatException

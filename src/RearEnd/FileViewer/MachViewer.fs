@@ -30,7 +30,7 @@ open B2R2.FrontEnd.BinFile
 open B2R2.RearEnd.FileViewer.Helper
 
 let badAccess _ _ =
-  raise InvalidFileTypeException
+  raise InvalidFileFormatException
 
 let translateFlags flags =
   let enumFlags =

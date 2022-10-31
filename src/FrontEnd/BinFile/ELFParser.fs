@@ -106,13 +106,31 @@ let private parseExn span rdr cls secs isa rbay rel =
     let unwinds = computeUnwindingTable exns
     struct (exns, lsdas, unwinds)
 
-let private parseELF baseAddr rbay span (rdr: IBinReader) =
-  let eHdr, baseAddr = Header.parse span rdr baseAddr
+let private parseELFForEmulation eHdr baseAddr rdr proghdrs segs =
+  let isa = ISA.Init eHdr.MachineType eHdr.Endian
+  { ELFHdr = eHdr
+    BaseAddr = baseAddr
+    ProgHeaders = proghdrs
+    LoadableSegments = segs
+    LoadableSecNums = Set.empty
+    SecInfo = Unchecked.defaultof<SectionInfo>
+    SymInfo = Unchecked.defaultof<ELFSymbolInfo>
+    RelocInfo = Unchecked.defaultof<RelocInfo>
+    PLT = ARMap.empty
+    Globals = Map.empty
+    ExceptionFrames = []
+    LSDAs = Map.empty
+    InvalidAddrRanges = IntervalSet.empty
+    NotInFileRanges = IntervalSet.empty
+    ExecutableRanges = IntervalSet.empty
+    ISA = isa
+    UnwindingTbl = Map.empty
+    BinReader = rdr }
+
+let private parseELFFull eHdr baseAddr rbay span rdr proghdrs segs =
   let isa = ISA.Init eHdr.MachineType eHdr.Endian
   let cls = eHdr.Class
   let secs = Section.parse baseAddr eHdr span rdr
-  let proghdrs = ProgHeader.parse baseAddr eHdr span rdr
-  let segs = ProgHeader.getLoadableProgHeaders proghdrs
   let loadableSecNums = ProgHeader.getLoadableSecNums secs segs
   let symbs = Symbol.parse baseAddr eHdr secs span rdr
   let reloc = Relocs.parse baseAddr eHdr secs symbs span rdr
@@ -139,11 +157,18 @@ let private parseELF baseAddr rbay span (rdr: IBinReader) =
     UnwindingTbl = unwinds
     BinReader = rdr }
 
-let parse (bytes: byte[]) baseAddr rbay =
+let private parseELF baseAddr rbay span forEmu (rdr: IBinReader) =
+  let eHdr, baseAddr = Header.parse span rdr baseAddr
+  let proghdrs = ProgHeader.parse baseAddr eHdr span rdr
+  let segs = ProgHeader.getLoadableProgHeaders proghdrs
+  if forEmu then parseELFForEmulation eHdr baseAddr rdr proghdrs segs
+  else parseELFFull eHdr baseAddr rbay span rdr proghdrs segs
+
+let parse (bytes: byte[]) baseAddr rbay forEmu =
   let span = ReadOnlySpan bytes
   if Header.isELF span then ()
-  else raise FileFormatMismatchException
+  else raise InvalidFileFormatException
   match Header.peekEndianness span with
-  | Endian.Little -> parseELF baseAddr rbay span BinReader.binReaderLE
-  | Endian.Big -> parseELF baseAddr rbay span BinReader.binReaderBE
+  | Endian.Little -> parseELF baseAddr rbay span forEmu BinReader.binReaderLE
+  | Endian.Big -> parseELF baseAddr rbay span forEmu BinReader.binReaderBE
   | _ -> Utils.impossible ()

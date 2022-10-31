@@ -30,7 +30,7 @@ open B2R2.RearEnd.FileViewer.Helper
 open System.Reflection.PortableExecutable
 
 let badAccess _ _ =
-  raise InvalidFileTypeException
+  raise InvalidFileFormatException
 
 let translateChracteristics chars =
   let enumChars =
