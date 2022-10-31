@@ -83,16 +83,16 @@ module ELFExceptionTable =
       accumulateExceptionTableInfo acc hdl frame.FDERecord lsdas
     ) (ARMap.empty, Set.empty)
 
-  let build hdl (elf: ELFFileInfo) =
+  let build hdl (elf: ELFBinFile) =
     computeExceptionTable hdl elf.ELF.ExceptionFrames elf.ELF.LSDAs
 
 /// ExceptionTable holds parsed exception information of a binary code (given by
 /// the BinHandle).
 type ExceptionTable (hdl) =
   let exnTbl, funcEntryPoints =
-    match hdl.FileInfo.FileFormat with
+    match hdl.BinFile.FileFormat with
     | FileFormat.ELFBinary ->
-      ELFExceptionTable.build hdl (hdl.FileInfo :?> ELFFileInfo)
+      ELFExceptionTable.build hdl (hdl.BinFile :?> ELFBinFile)
     | _ -> ARMap.empty, Set.empty
 
   /// For a given instruction address, find the landing pad (exception target)

@@ -165,7 +165,7 @@ type FunctionMaintainer private (hdl, histMgr: HistoryManager) =
     | false, _ -> addr
 
   static member private InitELFExterns hdl (fnMaintainer: FunctionMaintainer) =
-    let elf = (hdl.FileInfo :?> ELFFileInfo).ELF
+    let elf = (hdl.BinFile :?> ELFBinFile).ELF
     elf.PLT
     |> ARMap.iter (fun range entry ->
       match findInternalFuncReloc elf entry with
@@ -189,7 +189,7 @@ type FunctionMaintainer private (hdl, histMgr: HistoryManager) =
 
   static member Init hdl histMgr =
     let fnMaintainer = FunctionMaintainer (hdl, histMgr)
-    match hdl.FileInfo.FileFormat with
+    match hdl.BinFile.FileFormat with
     | FileFormat.ELFBinary -> FunctionMaintainer.InitELFExterns hdl fnMaintainer
     | _ -> ()
     fnMaintainer

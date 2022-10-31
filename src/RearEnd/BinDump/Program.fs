@@ -80,7 +80,7 @@ let private makeTablePrinter hdl cfg (opts: BinDumpOpts) =
     else BinTableDisasmPrinter (hdl, cfg) :> BinPrinter
 
 let private dumpRawBinary (hdl: BinHandle) (opts: BinDumpOpts) cfg =
-  let bp = hdl.FileInfo.ToBinaryPointer hdl.FileInfo.BaseAddress
+  let bp = hdl.BinFile.ToBinaryPointer hdl.BinFile.BaseAddress
   let prn = makeCodePrinter hdl cfg opts
   prn.Print bp
   out.PrintLine ()
@@ -89,19 +89,19 @@ let printHexdump (opts: BinDumpOpts) sec hdl =
   let bp = BinaryPointer.OfSection sec
   let bytes = BinHandle.ReadBytes (hdl, bp=bp, nBytes=int sec.Size)
   let chunkSize = if opts.ShowWide then 32 else 16
-  HexDumper.dump chunkSize hdl.FileInfo.WordSize opts.ShowColor bp.Addr bytes
+  HexDumper.dump chunkSize hdl.BinFile.WordSize opts.ShowColor bp.Addr bytes
   |> Array.iter out.PrintLine
 
-let private hasNoContent (sec: Section) (fi: FileInfo) =
-  match fi with
-  | :? ELFFileInfo as fi ->
-    match fi.ELF.SecInfo.SecByName.TryFind sec.Name with
+let private hasNoContent (sec: Section) (file: BinFile) =
+  match file with
+  | :? ELFBinFile as file ->
+    match file.ELF.SecInfo.SecByName.TryFind sec.Name with
     | Some section -> section.SecType = ELF.SectionType.SHTNoBits
     | None -> true
   | _ -> false
 
 let dumpHex (opts: BinDumpOpts) (sec: Section) hdl =
-  if hasNoContent sec hdl.FileInfo then
+  if hasNoContent sec hdl.BinFile then
     out.PrintTwoCols "" "NOBITS section."
   else printHexdump opts sec hdl
   out.PrintLine ()
@@ -115,7 +115,7 @@ let private createBinHandleFromPath (opts: BinDumpOpts) filepath =
     fileName=filepath)
 
 let private isRawBinary hdl =
-  match hdl.FileInfo.FileFormat with
+  match hdl.BinFile.FileFormat with
   | FileFormat.ELFBinary
   | FileFormat.MachBinary
   | FileFormat.PEBinary
@@ -153,9 +153,9 @@ let private dumpSections hdl (opts: BinDumpOpts) (sections: seq<Section>) cfg =
       match s.Kind with
       | SectionKind.ExecutableSection ->
         hdl.Parser.OperationMode <- mymode
-        match hdl.FileInfo with
-        | :? WasmFileInfo as fi ->
-          match fi.WASM.CodeSection with
+        match hdl.BinFile with
+        | :? WasmBinFile as file ->
+          match file.WASM.CodeSection with
           | Some sec ->
             match sec.Contents with
             | Some conts -> Seq.iter (printWasmCode codeprn) conts.Elements
@@ -174,15 +174,15 @@ let private dumpRegularFile hdl (opts: BinDumpOpts) cfg =
   opts.ShowSymbols <- true
   match opts.InputSecName with
   | Some secname ->
-    dumpSections hdl opts (hdl.FileInfo.GetSections (secname)) cfg
+    dumpSections hdl opts (hdl.BinFile.GetSections (secname)) cfg
   | None ->
-    dumpSections hdl opts (hdl.FileInfo.GetSections ()) cfg
+    dumpSections hdl opts (hdl.BinFile.GetSections ()) cfg
 
 let dumpFile (opts: BinDumpOpts) filepath =
   opts.ShowAddress <- true
   let hdl = createBinHandleFromPath opts filepath
   let cfg = getTableConfig hdl opts.ShowLowUIR
-  printFileName hdl.FileInfo.FilePath
+  printFileName hdl.BinFile.FilePath
   if isRawBinary hdl then dumpRawBinary hdl opts cfg
   else dumpRegularFile hdl opts cfg
 

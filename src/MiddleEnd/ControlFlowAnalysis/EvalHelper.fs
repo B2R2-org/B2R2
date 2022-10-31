@@ -33,7 +33,7 @@ open B2R2.MiddleEnd.ConcEval
 
 let private memoryReader hdl _pc addr typ _e =
   let len = RegType.toByteWidth typ
-  let fileInfo = hdl.FileInfo
+  let fileInfo = hdl.BinFile
   if addr < System.UInt64.MaxValue && fileInfo.IsValidAddr addr then
     match BinHandle.TryReadBytes (hdl, addr, len) with
     | Ok v -> Ok (BitVector.OfArr v)

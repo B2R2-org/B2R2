@@ -32,12 +32,12 @@ open B2R2.FrontEnd.BinFile.Mach.Helper
 /// <summary>
 ///   This class represents a Mach-O binary file.
 /// </summary>
-type MachFileInfo (bytes, path, isa, baseAddr) =
-  inherit FileInfo ()
+type MachBinFile (bytes, path, isa, baseAddr) =
+  inherit BinFile ()
   let mach = Parser.parse baseAddr bytes isa
   let isa = getISA mach
 
-  new (bytes, path, isa) = MachFileInfo (bytes, path, isa, None)
+  new (bytes, path, isa) = MachBinFile (bytes, path, isa, None)
   override __.Span = ReadOnlySpan bytes
   override __.FileFormat = FileFormat.MachBinary
   override __.ISA = isa

@@ -100,8 +100,8 @@ module private IndirectCallResolution =
       | None -> handleUnresolvedCase func codeMgr callSiteAddr evts) evts
 
   let reader hdl (codeMgr: CodeManager) addr rt =
-    if hdl.FileInfo.IsValidAddr addr then
-      match hdl.FileInfo.GetSections addr |> Seq.tryHead with
+    if hdl.BinFile.IsValidAddr addr then
+      match hdl.BinFile.GetSections addr |> Seq.tryHead with
       | Some sec ->
         if sec.Name = ".rodata" || sec.Name = ".data" then
           let v = BinHandle.ReadUInt (hdl, addr, RegType.toByteWidth rt)

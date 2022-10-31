@@ -28,9 +28,9 @@ open System
 open System.Runtime.InteropServices
 open B2R2
 
-/// FileInfo describes a binary file in a format-agnostic way.
+/// BinFile describes a binary file in a format-agnostic way.
 [<AbstractClass>]
-type FileInfo () =
+type BinFile () =
   /// <summary>
   ///   Raw byte values as a `ByteSpan`.
   /// </summary>
@@ -350,7 +350,7 @@ type FileInfo () =
 
   /// <summary>
   ///   Returns a sequence of local function symbols (excluding external
-  ///   functions) from a given FileInfo.
+  ///   functions) from a given BinFile.
   /// </summary>
   /// <returns>
   ///   A sequence of function symbols.
@@ -372,7 +372,7 @@ type FileInfo () =
 
   /// <summary>
   ///   Returns a sequence of local function addresses (excluding external
-  ///   functions) from a given FileInfo. This function only considers addresses
+  ///   functions) from a given BinFile. This function only considers addresses
   ///   that are certain.
   /// </summary>
   /// <returns>
@@ -386,7 +386,7 @@ type FileInfo () =
 
   /// <summary>
   ///   Returns a sequence of local function addresses (excluding external
-  ///   functions) from a given FileInfo. If the argument is true, then this
+  ///   functions) from a given BinFile. If the argument is true, then this
   ///   funciton utilizes exception information of the binary to infer function
   ///   entries. Note that the inference process is not necessarily precise, so
   ///   this is really just an experimental feature, and will be removed in the

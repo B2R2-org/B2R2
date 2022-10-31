@@ -9,16 +9,16 @@
   <ItemGroup>
     <Compile Include="FileTypes.fs" />
     <Compile Include="BinaryPointer.fs" />
-    <Compile Include="FileInfo.fs" />
+    <Compile Include="BinFile.fs" />
     <Compile Include="FileHelper.fs" />
-    <Compile Include="RawBinary.fs" />
+    <Compile Include="RawBinFile.fs" />
     <Compile Include="WasmTypes.fs" />
     <Compile Include="WasmHeader.fs" />
     <Compile Include="WasmExpression.fs" />
     <Compile Include="WasmSection.fs" />
     <Compile Include="WasmParser.fs" />
     <Compile Include="WasmHelper.fs" />
-    <Compile Include="Wasm.fs" />
+    <Compile Include="WasmBinFile.fs" />
     <Compile Include="ELFDwarfTypes.fs" />
     <Compile Include="ELFTypes.fs" />
     <Compile Include="ELFHeader.fs" />
@@ -32,7 +32,7 @@
     <Compile Include="ELFARMExceptionHandler.fs" />
     <Compile Include="ELFHelper.fs" />
     <Compile Include="ELFParser.fs" />
-    <Compile Include="ELF.fs" />
+    <Compile Include="ELFBinFile.fs" />
     <Compile Include="MachTypes.fs" />
     <Compile Include="MachLoadCommands.fs" />
     <Compile Include="MachHeader.fs" />
@@ -43,13 +43,13 @@
     <Compile Include="MachSymbol.fs" />
     <Compile Include="MachHelper.fs" />
     <Compile Include="MachParser.fs" />
-    <Compile Include="Mach.fs" />
+    <Compile Include="MachBinFile.fs" />
     <Compile Include="PETypes.fs" />
     <Compile Include="PEPDB.fs" />
     <Compile Include="PEHelper.fs" />
     <Compile Include="PECoff.fs" />
     <Compile Include="PEParser.fs" />
-    <Compile Include="PE.fs" />
+    <Compile Include="PEBinFile.fs" />
     <Compile Include="FormatDetector.fs" />
     <Compile Include="FileLoader.fs" />
     <None Include="..\..\..\LICENSE.md" Pack="true" PackagePath="" />

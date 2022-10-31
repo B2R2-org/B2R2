@@ -35,7 +35,7 @@ type CmdSearch () =
   let toResult idx = "Found @ " + String.u64ToHexNoPrefix idx
 
   let search hdl pattern =
-    hdl.FileInfo.GetSegments (Permission.Readable)
+    hdl.BinFile.GetSegments (Permission.Readable)
     |> Seq.collect (fun s ->
       BinHandle.ReadBytes (hdl, s.Address, int s.Size)
       |> ByteArray.findIdxs 0UL pattern

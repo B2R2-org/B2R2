@@ -327,7 +327,7 @@ type NoReturnFunctionIdentification () =
   /// Check whether the given bbl has a no-return syscall (e.g., exit).
   member __.IsNoRetSyscallBlk hdl bbl =
     let st = evalBlock hdl bbl
-    match hdl.FileInfo.FileFormat with
+    match hdl.BinFile.FileFormat with
     | FileFormat.ELFBinary | FileFormat.RawBinary ->
       let arch = hdl.ISA.Arch
       let exitSyscall = LinuxSyscall.toNumber arch LinuxSyscall.Exit

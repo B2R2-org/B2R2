@@ -32,11 +32,11 @@ open B2R2.FrontEnd.BinFile.ELF.Helper
 /// <summary>
 ///   This class represents an ELF binary file.
 /// </summary>
-type ELFFileInfo (bytes, path, baseAddr, regbay) =
-  inherit FileInfo ()
+type ELFBinFile (bytes, path, baseAddr, regbay) =
+  inherit BinFile ()
   let elf = Parser.parse bytes baseAddr regbay
 
-  new (bytes, path) = ELFFileInfo (bytes, path, None, None)
+  new (bytes, path) = ELFBinFile (bytes, path, None, None)
 
   override __.Span = ReadOnlySpan bytes
 

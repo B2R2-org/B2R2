@@ -46,13 +46,13 @@ let getOptimizer (opts: BinDumpOpts) =
 
 let makeFuncSymbolDic hdl =
   let funcs = Dictionary ()
-  hdl.FileInfo.GetFunctionSymbols ()
+  hdl.BinFile.GetFunctionSymbols ()
   |> Seq.iter (fun s -> funcs.Add (s.Address, s.Name) |> ignore)
-  hdl.FileInfo.GetFunctionAddresses ()
+  hdl.BinFile.GetFunctionAddresses ()
   |> Seq.iter (fun a ->
     if funcs.ContainsKey a then ()
     else funcs[a] <- Addr.toFuncName a)
-  hdl.FileInfo.GetLinkageTableEntries ()
+  hdl.BinFile.GetLinkageTableEntries ()
   |> Seq.iter (fun e ->
     if e.TrampolineAddress = 0UL then ()
     else funcs.TryAdd (e.TrampolineAddress, e.FuncName) |> ignore)
@@ -60,7 +60,7 @@ let makeFuncSymbolDic hdl =
 
 let makeLinkageTblSymbolDic hdl =
   let funcs = Dictionary ()
-  hdl.FileInfo.GetLinkageTableEntries ()
+  hdl.BinFile.GetLinkageTableEntries ()
   |> Seq.iter (fun e ->
     if e.TrampolineAddress = 0UL then ()
     else funcs.TryAdd (e.TrampolineAddress, e.FuncName) |> ignore)
@@ -68,10 +68,10 @@ let makeLinkageTblSymbolDic hdl =
 
 let makeArchModeDic hdl =
   let modes = Dictionary ()
-  match hdl.FileInfo.FileFormat, hdl.ISA.Arch with
+  match hdl.BinFile.FileFormat, hdl.ISA.Arch with
   | FileFormat.ELFBinary, Arch.ARMv7
   | FileFormat.ELFBinary, Arch.AARCH32 ->
-    hdl.FileInfo.GetSymbols ()
+    hdl.BinFile.GetSymbols ()
     |> Seq.iter (fun s ->
       if s.ArchOperationMode <> ArchOperationMode.NoMode then
         modes[s.Address] <- s.ArchOperationMode
@@ -115,7 +115,7 @@ let printRegularDisasm disasmStr wordSize addr bytes cfg =
 
 let regularDisPrinter (hdl: BinHandle) showSymbs bp ins cfg =
   let disasmStr = BinHandle.DisasmInstr hdl false showSymbs ins
-  let wordSize = hdl.FileInfo.WordSize
+  let wordSize = hdl.BinFile.WordSize
   let bytes = BinHandle.ReadBytes (hdl, bp=bp, nBytes=int ins.Length)
   printRegularDisasm disasmStr wordSize bp.Addr bytes cfg
 
@@ -146,12 +146,12 @@ let printColorDisasm words wordSize addr bytes cfg =
 
 let colorDisPrinter (hdl: BinHandle) _ bp (ins: Instruction) cfg =
   let words = ins.Decompose (false)
-  let wordSize = hdl.FileInfo.WordSize
+  let wordSize = hdl.BinFile.WordSize
   let bytes = BinHandle.ReadBytes (hdl, bp=bp, nBytes=int ins.Length)
   printColorDisasm words wordSize bp.Addr bytes cfg
 
 let handleInvalidIns (hdl: BinHandle) bp isLift cfg =
-  let wordSize = hdl.FileInfo.WordSize
+  let wordSize = hdl.BinFile.WordSize
   let align = getInstructionAlignment hdl
   let bytes = BinHandle.ReadBytes (hdl, bp=bp, nBytes=align)
   if isLift then printLowUIR IllegalStr bytes cfg

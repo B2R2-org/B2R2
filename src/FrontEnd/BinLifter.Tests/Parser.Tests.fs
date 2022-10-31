@@ -2178,7 +2178,7 @@ module Intel =
     member __.``Intel IL Test`` () =
       let isa = ISA.Init Arch.IntelX86 Endian.Little
       let hdl = BinHandle.Init (isa)
-      Assert.AreEqual (0, hdl.FileInfo.Span.Length)
+      Assert.AreEqual (0, hdl.BinFile.Span.Length)
 #endif
 
 module ARMv7 =

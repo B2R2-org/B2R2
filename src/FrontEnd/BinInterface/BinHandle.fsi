@@ -35,7 +35,7 @@ open B2R2.FrontEnd.BinLifter
 /// access file-specific data.
 type BinHandle = {
   ISA: ISA
-  FileInfo: FileInfo
+  BinFile: BinFile
   DisasmHelper: DisasmHelper
   TranslationContext: TranslationContext
   Parser: Parser

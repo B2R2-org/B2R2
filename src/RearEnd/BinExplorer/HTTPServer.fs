@@ -133,7 +133,7 @@ let answer (req: HttpListenerRequest) (resp: HttpListenerResponse) = function
 
 let handleBinInfo req resp arbiter =
   let ess = Protocol.getBinEssence arbiter
-  let txt = ess.BinHandle.FileInfo.FilePath
+  let txt = ess.BinHandle.BinFile.FilePath
   let txt = "\"" + txt.Replace(@"\", @"\\") + "\""
   Some (defaultEnc.GetBytes (txt)) |> answer req resp
 
@@ -194,7 +194,7 @@ let handleFunctions req resp arbiter =
 
 let handleHexview req resp arbiter =
   let ess = Protocol.getBinEssence arbiter
-  ess.BinHandle.FileInfo.GetSegments ()
+  ess.BinHandle.BinFile.GetSegments ()
   |> Seq.map (fun seg ->
     let bs = BinHandle.ReadBytes (ess.BinHandle, seg.Address, int (seg.Size))
     let coloredHex = bs |> Array.map ColoredSegment.byteToHex

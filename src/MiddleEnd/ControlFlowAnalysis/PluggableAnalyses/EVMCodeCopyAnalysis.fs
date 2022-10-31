@@ -47,7 +47,7 @@ type EVMCodeCopyAnalysis () =
 
   let rec pickValidCopyInfo hdl = function
     | (Some 0UL, Some src, Some len) :: restCopyInfos ->
-      let bin = hdl.FileInfo.Span.ToArray ()
+      let bin = hdl.BinFile.Span.ToArray ()
       let binLen = uint64 bin.Length
       let srcStart = src
       let srcEnd = src + len - 1UL
@@ -76,6 +76,6 @@ type EVMCodeCopyAnalysis () =
     member __.Name = "EVM Code Copy Analysis"
 
     member __.Run _builder hdl codeMgr _dataMgr =
-      match hdl.FileInfo.ISA.Arch with
+      match hdl.BinFile.ISA.Arch with
       | Architecture.EVM -> recoverCopiedCode hdl codeMgr
       | _ -> PluggableAnalysisOk

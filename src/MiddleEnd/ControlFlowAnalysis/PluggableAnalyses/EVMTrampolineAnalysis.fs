@@ -99,14 +99,14 @@ type EVMTrampolineAnalysis (abiFile) =
       LibraryName = ""
       ArchOperationMode = ArchOperationMode.NoMode }
 
-  member private __.UpdateSymbols (fi: FileInfo) addr name =
-    fi.AddSymbol addr (__.MakeSymbol name addr)
+  member private __.UpdateSymbols (file: BinFile) addr name =
+    file.AddSymbol addr (__.MakeSymbol name addr)
 
   member private __.AnalyzeTrampoline hdl codeMgr =
-    let bytes = hdl.FileInfo.Span.ToArray ()
-    let isa = hdl.FileInfo.ISA
+    let bytes = hdl.BinFile.Span.ToArray ()
+    let isa = hdl.BinFile.ISA
     let newHdl = BinHandle.Init (isa, bytes)
-    let newFi = newHdl.FileInfo
+    let newFi = newHdl.BinFile
     let sigToName = if abiFile <> "" then parseABI abiFile else Map.empty
     let fn sign addr =
       let name =
@@ -121,6 +121,6 @@ type EVMTrampolineAnalysis (abiFile) =
     member __.Name = "EVM Trampoline Analysis"
 
     member __.Run _builder hdl codeMgr _dataMgr =
-      match hdl.FileInfo.ISA.Arch with
+      match hdl.BinFile.ISA.Arch with
       | Architecture.EVM -> __.AnalyzeTrampoline hdl codeMgr
       | _ -> PluggableAnalysisOk

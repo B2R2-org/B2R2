@@ -32,8 +32,8 @@ open B2R2
 ///   This class represents a raw binary file (containing only binary code and
 ///   data without file format)
 /// </summary>
-type RawFileInfo (bytes: byte [], path, isa, baseAddr) =
-  inherit FileInfo ()
+type RawBinFile (bytes: byte [], path, isa, baseAddr) =
+  inherit BinFile ()
   let baseAddr = defaultArg baseAddr 0UL
   let size = bytes.Length
   let usize = uint64 size

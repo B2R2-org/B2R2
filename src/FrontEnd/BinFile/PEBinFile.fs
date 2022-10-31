@@ -31,14 +31,14 @@ open B2R2.FrontEnd.BinFile.PE.Helper
 /// <summary>
 ///   This class represents a PE binary file.
 /// </summary>
-type PEFileInfo (bytes, path, baseAddr, rawpdb) =
-  inherit FileInfo ()
+type PEBinFile (bytes, path, baseAddr, rawpdb) =
+  inherit BinFile ()
   let pe = PE.Parser.parse bytes path baseAddr rawpdb
   let isa = getISA pe
 
-  new (bytes, path) = PEFileInfo (bytes, path, None, [||])
-  new (bytes, path, baseAddr) = PEFileInfo (bytes, path, baseAddr, [||])
-  new (bytes, path, rawpdb) = PEFileInfo (bytes, path, None, rawpdb)
+  new (bytes, path) = PEBinFile (bytes, path, None, [||])
+  new (bytes, path, baseAddr) = PEBinFile (bytes, path, baseAddr, [||])
+  new (bytes, path, rawpdb) = PEBinFile (bytes, path, None, rawpdb)
 
   override __.Span = ReadOnlySpan bytes
   override __.FileFormat = FileFormat.PEBinary

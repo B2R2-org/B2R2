@@ -184,7 +184,7 @@ module private RegularJmpResolution =
       None
     else
       let addr = readTable hdl jt.BranchBaseAddr entryAddr size
-      if hdl.FileInfo.IsValidAddr addr then
+      if hdl.BinFile.IsValidAddr addr then
         let nextAddr = entryAddr + uint64 size
         if Map.containsKey addr gaps then
           let confirmedEndPoint =
@@ -298,8 +298,8 @@ module private RegularJmpResolution =
       Error (ErrorBranchRecovery (fnAddr, brAddr, Set.singleton fnAddr))
     else Ok <| (codeMgr: CodeManager).RollBack (evts, [ fnAddr ])
 
-  let getRelocatedAddr (fi: FileInfo) relocationTarget defaultAddr =
-    match fi.GetRelocatedAddr relocationTarget with
+  let getRelocatedAddr (file: BinFile) relocationTarget defaultAddr =
+    match file.GetRelocatedAddr relocationTarget with
     | Ok addr -> addr
     | Error _ -> defaultAddr
 
@@ -308,10 +308,10 @@ module private RegularJmpResolution =
     | Const bv ->
       let ptr = BitVector.ToUInt64 bv + BitVector.ToUInt64 offset
       let size = hdl.ISA.WordSize |> WordSize.toByteWidth
-      let fi = hdl.FileInfo
+      let file = hdl.BinFile
       match BinHandle.TryReadUInt (hdl, ptr, size) with
-      | Ok target when target <> 0UL && fi.IsExecutableAddr target ->
-        ConstJmpPattern <| getRelocatedAddr fi ptr target
+      | Ok target when target <> 0UL && file.IsExecutableAddr target ->
+        ConstJmpPattern <| getRelocatedAddr file ptr target
       | _ -> UnknownPattern
     | _ -> UnknownPattern
 

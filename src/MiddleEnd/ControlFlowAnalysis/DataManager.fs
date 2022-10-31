@@ -47,8 +47,8 @@ module private DataManager =
     dict
 
   let parseRelocatableFuncs (hdl: BinHandle) =
-    match hdl.FileInfo with
-    | :? ELFFileInfo as efi -> parseRelocatableFunctionSymbols efi.ELF.RelocInfo
+    match hdl.BinFile with
+    | :? ELFBinFile as efi -> parseRelocatableFunctionSymbols efi.ELF.RelocInfo
     | _ -> Dictionary ()
 
 type DataManager (hdl) =

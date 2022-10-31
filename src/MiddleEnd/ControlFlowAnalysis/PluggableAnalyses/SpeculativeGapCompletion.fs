@@ -95,7 +95,7 @@ module private SpeculativeGapCompletionHelper =
         recoverGaps branchRecovery ess (shiftGaps shiftByOne gaps)
 
   let run branchRecovery ess =
-    ess.BinHandle.FileInfo.GetTextSections ()
+    ess.BinHandle.BinFile.GetTextSections ()
     |> Seq.map (fun sec ->
       let sAddr, eAddr = sec.Address, sec.Address + sec.Size
       findGaps ess sAddr eAddr)

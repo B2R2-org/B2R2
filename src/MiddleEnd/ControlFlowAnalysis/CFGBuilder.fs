@@ -203,7 +203,7 @@ module private CFGBuilder =
   /// call, nor a ret edge.
   let buildRegularEdge hdl (codeMgr: CodeManager) dataMgr fn src dst edge evts =
     let mode = ArchOperationMode.NoMode (* XXX: put mode in the event. *)
-    if not (hdl.FileInfo.IsExecutableAddr (fn: RegularFunction).EntryPoint) then
+    if not (hdl.BinFile.IsExecutableAddr (fn: RegularFunction).EntryPoint) then
       Error ErrorConnectingEdge (* Invalid bbl encountered. *)
     elif codeMgr.HasBBL dst then
       let dstPp = ProgramPoint (dst, 0)
@@ -266,7 +266,7 @@ module private CFGBuilder =
   /// call dword ptr [gs:0x10] is a system call in x86/x64 Linux environment.
   /// We pattern-match the instruction.
   let isIndirectSyscall hdl (fn: RegularFunction) (v: Vertex<IRBasicBlock>) =
-    match hdl.FileInfo.FileFormat, hdl.FileInfo.ISA.Arch with
+    match hdl.BinFile.FileFormat, hdl.BinFile.ISA.Arch with
     | FileFormat.ELFBinary, Architecture.IntelX86 ->
       let caller = DiGraph.GetPreds (fn.IRCFG, v) |> List.head
       let callIns = caller.VData.LastInstruction :?> IntelInstruction
@@ -325,7 +325,7 @@ module private CFGBuilder =
     |> List.fold (fun evts ftInfo ->
       match ftInfo with
       | FTCall (caller, callSite, callee, ftAddr) ->
-        if not (hdl.FileInfo.IsExecutableAddr ftAddr) then
+        if not (hdl.BinFile.IsExecutableAddr ftAddr) then
           let calleeFn = (codeMgr: CodeManager).FunctionMaintainer.Find callee
           calleeFn.NoReturnProperty <- NoRet
           evts
@@ -577,7 +577,7 @@ type CFGBuilder (hdl, codeMgr: CodeManager, dataMgr: DataManager) as this =
   /// Add new events to the event list (evts).
   member private __.AddNewFunction evts (entry, mode) =
     if codeMgr.FunctionMaintainer.Contains (addr=entry) then Ok evts
-    elif not <| hdl.FileInfo.IsExecutableAddr entry then Error ErrorParsing
+    elif not <| hdl.BinFile.IsExecutableAddr entry then Error ErrorParsing
     else CFGEvents.addFuncEvt entry mode evts |> Ok
 
   /// This is the only function that is available to users, which takes in a
@@ -587,7 +587,7 @@ type CFGBuilder (hdl, codeMgr: CodeManager, dataMgr: DataManager) as this =
   member __.AddNewFunctions entries =
 #if CFGDEBUG
     dbglog (nameof CFGBuilder) "Start by adding %d function(s) for %s"
-      (List.length entries) (hdl.FileInfo.FilePath)
+      (List.length entries) (hdl.BinFile.FilePath)
 #endif
     (* List.foldBack is used here to preserve the order of input entries *)
     List.foldBack (fun elm evts ->

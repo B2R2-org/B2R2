@@ -48,10 +48,10 @@ type CmdList () =
     + ":"
     + Addr.toString handler.ISA.WordSize (seg.Address + seg.Size)
     + " (" + seg.Size.ToString () + ") ("
-    + FileInfo.PermissionToString seg.Permission + ")"
+    + BinFile.PermissionToString seg.Permission + ")"
 
   let listSegments (handler: BinHandle) =
-    handler.FileInfo.GetSegments ()
+    handler.BinFile.GetSegments ()
     |> Seq.map (createSegmentString handler)
     |> Seq.toArray
 
@@ -65,7 +65,7 @@ type CmdList () =
     + " [" + sec.Name + "] "
 
   let listSections (handler: BinHandle) =
-    handler.FileInfo.GetSections ()
+    handler.BinFile.GetSections ()
     |> Seq.mapi (createSectionString handler)
     |> Seq.toArray
 

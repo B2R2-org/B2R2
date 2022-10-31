@@ -36,8 +36,8 @@ let normalizeEmpty s =
 let toNBytes (v: uint64) =
   v.ToString () + " bytes"
 
-let columnWidthOfAddr (fi: FileInfo) =
-  WordSize.toByteWidth fi.WordSize * 2
+let columnWidthOfAddr (file: BinFile) =
+  WordSize.toByteWidth file.WordSize * 2
 
 let targetString s =
   match s.Target with

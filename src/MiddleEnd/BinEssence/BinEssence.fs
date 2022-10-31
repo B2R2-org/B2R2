@@ -69,14 +69,14 @@ module BinEssence =
   /// binary is stripped, the returned sequence will be incomplete, and we need
   /// to expand it during the other analyses.
   let private getInitialEntryPoints ess =
-    let fi = ess.BinHandle.FileInfo
+    let file = ess.BinHandle.BinFile
     let entries =
-      fi.GetFunctionAddresses ()
+      file.GetFunctionAddresses ()
       |> Set.ofSeq
       |> Set.union (ess.CodeManager.ExceptionTable.GetFunctionEntryPoints ())
-    fi.EntryPoint
+    file.EntryPoint
     |> Option.fold (fun acc addr ->
-      if fi.FileType = FileType.LibFile && addr = 0UL then acc
+      if file.FileType = FileType.LibFile && addr = 0UL then acc
       else Set.add addr acc) entries
     |> Set.toList
     |> List.map (getFunctionOperationMode ess.BinHandle)

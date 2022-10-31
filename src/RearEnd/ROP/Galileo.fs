@@ -55,11 +55,11 @@ let getTailPatterns hdl =
   |> List.map toTail
 
 let private getExecutableSegs hdl =
-  let fi = hdl.FileInfo
+  let file = hdl.BinFile
   let rxRanges =
-    fi.GetSegments (Permission.Readable ||| Permission.Executable)
-  if not fi.IsNXEnabled then
-    fi.GetSegments (Permission.Readable)
+    file.GetSegments (Permission.Readable ||| Permission.Executable)
+  if not file.IsNXEnabled then
+    file.GetSegments (Permission.Readable)
     |> Seq.append rxRanges
     |> Seq.distinct
   else

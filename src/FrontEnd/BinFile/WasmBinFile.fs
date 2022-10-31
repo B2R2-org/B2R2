@@ -33,12 +33,12 @@ open B2R2.FrontEnd.BinFile.Wasm.Helper
 ///   This class represents a Web Assembly
 ///   (Wasm Module) binary file.
 /// </summary>
-type WasmFileInfo (bytes, path, baseAddr) =
-  inherit FileInfo ()
+type WasmBinFile (bytes, path, baseAddr) =
+  inherit BinFile ()
   let wm = Parser.parse bytes
   let baseAddr = defaultArg baseAddr 0UL
 
-  new (bytes, path) = WasmFileInfo (bytes, path, None)
+  new (bytes, path) = WasmBinFile (bytes, path, None)
   override __.Span = ReadOnlySpan bytes
   override __.FileFormat = FileFormat.WasmBinary
   override __.ISA = defaultISA

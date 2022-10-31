@@ -122,7 +122,7 @@ module private LibcAnalysisHelper =
     | false -> PluggableAnalysisError
 
   let recoverLibcEntries builder hdl codeMgr =
-    match hdl.FileInfo.FileFormat with
+    match hdl.BinFile.FileFormat with
     | FileFormat.ELFBinary ->
       recoverAddrsFromLibcStartMain builder hdl codeMgr
     | _ -> PluggableAnalysisError

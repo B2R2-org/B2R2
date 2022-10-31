@@ -37,10 +37,10 @@ type ROPHandle = {
 }
 
 module ROPHandle =
-  let inline getFileInfo hdl = hdl.BinHdl.FileInfo
+  let inline getFileInfo hdl = hdl.BinHdl.BinFile
 
   let inline tryFindPlt hdl name =
-    hdl.BinHdl.FileInfo.GetLinkageTableEntries ()
+    hdl.BinHdl.BinFile.GetLinkageTableEntries ()
     |> Seq.tryFind (fun entry -> entry.FuncName = name)
 
   let inline getKeys map = Map.fold (fun acc k _ -> Set.add k acc) Set.empty map
