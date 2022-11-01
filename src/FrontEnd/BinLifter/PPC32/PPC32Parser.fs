@@ -31,7 +31,8 @@ open B2R2.FrontEnd.BinLifter.PPC32.OperandHelper
 
 let parseTWI bin =
   let ra = getRegister (extract bin 20u 16u) |> OprReg
-  let value = extract bin 15u 0u |> uint64 |> OprImm
+  let simm = extract bin 15u 0u |> uint64
+  let value = signExtend 16 32 simm |> uint64 |> OprImm
   match extract bin 25u 21u with
   (* twlgti ra,value = twi 1,ra,value *)
   | 0x1u -> struct (Op.TWLGTI, TwoOperands (ra, value))
@@ -57,25 +58,28 @@ let parseTWI bin =
 let parseMULLI bin =
   let rd = getRegister (extract bin 25u 21u) |> OprReg
   let ra = getRegister (extract bin 20u 16u) |> OprReg
-  let simm = extract bin 15u 0u |> uint64 |> OprImm
-  struct (Op.MULLI, ThreeOperands (rd, ra, simm))
+  let simm = extract bin 15u 0u |> uint64
+  let value = signExtend 16 32 simm |> uint64 |> OprImm
+  struct (Op.MULLI, ThreeOperands (rd, ra, value))
 
 let parseSUBFIC bin =
   let rd = getRegister (extract bin 25u 21u) |> OprReg
   let ra = getRegister (extract bin 20u 16u) |> OprReg
-  let simm = extract bin 15u 0u |> uint64 |> OprImm
-  struct (Op.SUBFIC, ThreeOperands (rd, ra, simm))
+  let simm = extract bin 15u 0u |> uint64
+  let value = signExtend 16 32 simm |> uint64 |> OprImm
+  struct (Op.SUBFIC, ThreeOperands (rd, ra, value))
 
 let parseCMPLI bin =
   match pickBit bin 22u with
   | 0b0u ->
     let crfd = getCondRegister (extract bin 25u 23u) |> OprReg
     let ra = getRegister (extract bin 20u 16u) |> OprReg
-    let uimm = extract bin 15u 0u |> uint64 |> OprImm
+    let uimm = extract bin 15u 0u |> uint64
+    let value = signExtend 16 32 uimm |> uint64 |> OprImm
     match pickBit bin 21u with
     (* cmplwi crfd,ra,uimm = cmpli crfd,0,ra,uimm *)
-    | 0b0u -> struct (Op.CMPLWI, ThreeOperands (crfd, ra, uimm))
-    | _ -> struct (Op.CMPLI, FourOperands (crfd, OprImm 1UL, ra, uimm))
+    | 0b0u -> struct (Op.CMPLWI, ThreeOperands (crfd, ra, value))
+    | _ -> struct (Op.CMPLI, FourOperands (crfd, OprImm 1UL, ra, value))
   | _ (* 1 *) -> raise ParsingFailureException
 
 let parseCMPI bin =
@@ -83,30 +87,34 @@ let parseCMPI bin =
   | 0b0u ->
     let crfd = getCondRegister (extract bin 25u 23u) |> OprReg
     let ra = getRegister (extract bin 20u 16u) |> OprReg
-    let simm = extract bin 15u 0u |> uint64 |> OprImm
+    let simm = extract bin 15u 0u |> uint64
+    let value = signExtend 16 32 simm |> uint64 |> OprImm
     match pickBit bin 21u with
     (* cmpwl crfd,ra,uimm = cmpl crfd,0,ra,uimm *)
-    | 0b0u -> struct (Op.CMPWI, ThreeOperands (crfd, ra, simm))
-    | _ -> struct (Op.CMPI, FourOperands (crfd, OprImm 1UL, ra, simm))
+    | 0b0u -> struct (Op.CMPWI, ThreeOperands (crfd, ra, value))
+    | _ -> struct (Op.CMPI, FourOperands (crfd, OprImm 1UL, ra, value))
   | _ (* 1 *) -> raise ParsingFailureException
 
 let parseADDIC bin =
   let rd = getRegister (extract bin 25u 21u) |> OprReg
   let ra = getRegister (extract bin 20u 16u) |> OprReg
-  let value = extract bin 15u 0u |> uint64 |> OprImm
+  let simm = extract bin 15u 0u |> uint64
+  let value = signExtend 16 32 simm |> uint64 |> OprImm
   (* subic rd,ra,value = addic rd,ra,-value *)
   struct (Op.ADDIC, ThreeOperands (rd, ra, value))
 
 let parseADDICdot bin =
   let rd = getRegister (extract bin 25u 21u) |> OprReg
   let ra = getRegister (extract bin 20u 16u) |> OprReg
-  let value = extract bin 15u 0u |> uint64 |> OprImm
+  let simm = extract bin 15u 0u |> uint64
+  let value = signExtend 16 32 simm |> uint64 |> OprImm
   (* subic. rd,ra,value = addic. rd,ra,-value *)
   struct (Op.ADDICdot, ThreeOperands (rd, ra, value))
 
 let parseADDI bin =
   let rd = getRegister (extract bin 25u 21u) |> OprReg
-  let value = extract bin 15u 0u |> uint64 |> OprImm
+  let simm = extract bin 15u 0u |> uint64
+  let value = signExtend 16 32 simm |> uint64 |> OprImm
   match extract bin 20u 16u with
   | 0b0u -> struct (Op.LI, TwoOperands (rd, value))
   (* subi rd,ra,value = addi rd,ra,-value *)
@@ -116,7 +124,8 @@ let parseADDI bin =
 
 let parseADDIS bin =
   let rd = getRegister (extract bin 25u 21u) |> OprReg
-  let value = extract bin 15u 0u |> uint64 |> OprImm
+  let simm = extract bin 15u 0u |> uint64
+  let value = signExtend 16 32 simm |> uint64 |> OprImm
   match extract bin 20u 16u with
   | 0b0u -> struct (Op.LIS, TwoOperands (rd, value))
   (* subis rd,ra,value = addis rd,ra,-value *)
@@ -599,38 +608,44 @@ let parseORI bin =
   | _ ->
     let rs = getRegister (extract bin 25u 21u) |> OprReg
     let ra = getRegister (extract bin 20u 16u) |> OprReg
-    let uimm = extract bin 15u 0u |> uint64 |> OprImm
-    struct (Op.ORI, ThreeOperands(rs, ra, uimm))
+    let uimm = extract bin 15u 0u |> uint64
+    let value = signExtend 16 32 uimm |> uint64 |> OprImm
+    struct (Op.ORI, ThreeOperands(rs, ra, value))
 
 let parseORIS bin =
   let rs = getRegister (extract bin 25u 21u) |> OprReg
   let ra = getRegister (extract bin 20u 16u) |> OprReg
-  let uimm = extract bin 15u 0u |> uint64 |> OprImm
-  struct (Op.ORIS, ThreeOperands(rs, ra, uimm))
+  let uimm = extract bin 15u 0u |> uint64
+  let value = signExtend 16 32 uimm |> uint64 |> OprImm
+  struct (Op.ORIS, ThreeOperands(rs, ra, value))
 
 let parseXORI bin =
   let rs = getRegister (extract bin 25u 21u) |> OprReg
   let ra = getRegister (extract bin 20u 16u) |> OprReg
-  let uimm = extract bin 15u 0u |> uint64 |> OprImm
-  struct (Op.XORI, ThreeOperands(rs, ra, uimm))
+  let uimm = extract bin 15u 0u |> uint64
+  let value = signExtend 16 32 uimm |> uint64 |> OprImm
+  struct (Op.XORI, ThreeOperands(rs, ra, value))
 
 let parseXORIS bin =
   let rs = getRegister (extract bin 25u 21u) |> OprReg
   let ra = getRegister (extract bin 20u 16u) |> OprReg
-  let uimm = extract bin 15u 0u |> uint64 |> OprImm
-  struct (Op.XORIS, ThreeOperands(rs, ra, uimm))
+  let uimm = extract bin 15u 0u |> uint64
+  let value = signExtend 16 32 uimm |> uint64 |> OprImm
+  struct (Op.XORIS, ThreeOperands(rs, ra, value))
 
 let parseANDIdot bin =
   let rs = getRegister (extract bin 25u 21u) |> OprReg
   let ra = getRegister (extract bin 20u 16u) |> OprReg
-  let uimm = extract bin 15u 0u |> uint64 |> OprImm
-  struct (Op.ANDIdot, ThreeOperands(rs, ra, uimm))
+  let uimm = extract bin 15u 0u |> uint64
+  let value = signExtend 16 32 uimm |> uint64 |> OprImm
+  struct (Op.ANDIdot, ThreeOperands(rs, ra, value))
 
 let parseANDISdot bin =
   let rs = getRegister (extract bin 25u 21u) |> OprReg
   let ra = getRegister (extract bin 20u 16u) |> OprReg
-  let uimm = extract bin 15u 0u |> uint64 |> OprImm
-  struct (Op.ANDISdot, ThreeOperands(rs, ra, uimm))
+  let uimm = extract bin 15u 0u |> uint64
+  let value = signExtend 16 32 uimm |> uint64 |> OprImm
+  struct (Op.ANDISdot, ThreeOperands(rs, ra, value))
 
 let parseCMPandMCRXR bin =
   match pickBit bin 10u with
