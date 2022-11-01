@@ -33,8 +33,10 @@ type ARM32RegisterBay internal (r: RegExprs) =
 
   override __.GetAllRegExprs () =
     [ r.R0; r.R1; r.R2 ; r.R3; r.R4; r.R5; r.R6; r.R7; r.R8; r.SB; r.SL; r.FP;
-      r.IP; r.SP; r.LR; r.Q0; r.Q1; r.Q2; r.Q3; r.Q4; r.Q5; r.Q6; r.Q7; r.Q8;
-      r.Q9; r.Q10; r.Q11; r.Q12; r.Q13; r.Q14; r.Q15; r.D0; r.D1; r.D2; r.D3;
+      r.IP; r.SP; r.LR; r.Q0A; r.Q0B; r.Q1A; r.Q1B; r.Q2A; r.Q2B; r.Q3A; r.Q3B;
+      r.Q4A; r.Q4B; r.Q5A; r.Q5B; r.Q6A; r.Q6B; r.Q7A; r.Q7B; r.Q8A; r.Q8B;
+      r.Q9A; r.Q9B; r.Q10A; r.Q10B; r.Q11A; r.Q11B; r.Q12A; r.Q12B; r.Q13A;
+      r.Q13B; r.Q14A; r.Q14B; r.Q15A; r.Q15B; r.D0; r.D1; r.D2; r.D3;
       r.D4; r.D5; r.D6; r.D7; r.D8; r.D9; r.D10; r.D11; r.D12; r.D13; r.D14;
       r.D15; r.D16; r.D17; r.D18; r.D19; r.D20; r.D21; r.D22; r.D23; r.D24;
       r.D25; r.D26; r.D27; r.D28; r.D29; r.D30; r.D31; r.S0; r.S1; r.S2; r.S3;
@@ -53,7 +55,7 @@ type ARM32RegisterBay internal (r: RegExprs) =
 
   override __.RegIDFromRegExpr (e) =
     match e.E with
-    | Var (_, id, _ ,_) -> id
+    | Var (_, id, _, _) -> id
     | PCVar _ -> Register.toRegID Register.PC
     | _ -> failwith "not a register expression"
 
@@ -77,22 +79,38 @@ type ARM32RegisterBay internal (r: RegExprs) =
     | "IP" -> r.IP
     | "SP" -> r.SP
     | "LR" -> r.LR
-    | "Q0" -> r.Q0
-    | "Q1" -> r.Q1
-    | "Q2" -> r.Q2
-    | "Q3" -> r.Q3
-    | "Q4" -> r.Q4
-    | "Q5" -> r.Q5
-    | "Q6" -> r.Q6
-    | "Q7" -> r.Q7
-    | "Q8" -> r.Q8
-    | "Q9" -> r.Q9
-    | "Q10" -> r.Q10
-    | "Q11" -> r.Q11
-    | "Q12" -> r.Q12
-    | "Q13" -> r.Q13
-    | "Q14" -> r.Q14
-    | "Q15" -> r.Q15
+    | "Q0A" -> r.Q0A
+    | "Q0B" -> r.Q0B
+    | "Q1A" -> r.Q1A
+    | "Q1B" -> r.Q1B
+    | "Q2A" -> r.Q2A
+    | "Q2B" -> r.Q2B
+    | "Q3A" -> r.Q3A
+    | "Q3B" -> r.Q3B
+    | "Q4A" -> r.Q4A
+    | "Q4B" -> r.Q4B
+    | "Q5A" -> r.Q5A
+    | "Q5B" -> r.Q5B
+    | "Q6A" -> r.Q6A
+    | "Q6B" -> r.Q6B
+    | "Q7A" -> r.Q7A
+    | "Q7B" -> r.Q7B
+    | "Q8A" -> r.Q8A
+    | "Q8B" -> r.Q8B
+    | "Q9A" -> r.Q9A
+    | "Q9B" -> r.Q9B
+    | "Q10A" -> r.Q10A
+    | "Q10B" -> r.Q10B
+    | "Q11A" -> r.Q11A
+    | "Q11B" -> r.Q11B
+    | "Q12A" -> r.Q12A
+    | "Q12B" -> r.Q12B
+    | "Q13A" -> r.Q13A
+    | "Q13B" -> r.Q13B
+    | "Q14A" -> r.Q14A
+    | "Q14B" -> r.Q14B
+    | "Q15A" -> r.Q15A
+    | "Q15B" -> r.Q15B
     | "D0" -> r.D0
     | "D1" -> r.D1
     | "D2" -> r.D2

@@ -32,7 +32,8 @@ type ARM32TranslationContext internal (isa, regexprs) =
   inherit TranslationContext (isa)
   member val private RegExprs: RegExprs = regexprs
   override __.GetRegVar id = Register.ofRegID id |> __.RegExprs.GetRegVar
-  override __.GetPseudoRegVar _id _pos = Utils.futureFeature ()
+  override __.GetPseudoRegVar id pos = __.RegExprs.GetPseudoRegVar
+                                        (Register.ofRegID id) pos
 
 module Basis =
   let init isa =

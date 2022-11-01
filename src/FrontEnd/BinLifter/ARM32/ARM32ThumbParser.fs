@@ -105,8 +105,8 @@ let parseShfImmAddSubMovCmp phlp (itstate: byref<BL>) isInIT bin =
         then struct (Op.LSL, OD.OprRdRmImmT16)
       elif op = 0b01u && not inITBlock then struct (Op.LSRS, OD.OprRdRmImmT16)
       elif op = 0b01u && inITBlock then struct (Op.LSR, OD.OprRdRmImmT16)
-      else if inITBlock then struct (Op.MOV, OD.OprRdRmShfT16)
-           else phlp.Cond <- Condition.UN; struct (Op.MOVS, OD.OprRdRmShfT16)
+      elif inITBlock then struct (Op.MOV, OD.OprRdRmShfT16)
+        else phlp.Cond <- Condition.UN; struct (Op.MOVS, OD.OprRdRmShfT16)
     render phlp &itstate 0 isInIT bin opcode None N operands
   | _ (* 1xxx *) -> parseAddSubCmpMov phlp &itstate isInIT bin
 
@@ -1308,7 +1308,7 @@ let parseAdvSIMDThreeRegsOfSameLen phlp (itstate: byref<BL>) isInIT b =
 #if !EMULATION
     chkQVdVnVm b
 #endif
-    render phlp &itstate 0 isInIT b Op.VADD (oneDt SIMDTypI8)  N OD.OprDdDnDm
+    render phlp &itstate 0 isInIT b Op.VADD (oneDt SIMDTypI8) N OD.OprDdDnDm
   | 0b001100000u ->
 #if !EMULATION
     chkQVdVnVm b
@@ -1328,7 +1328,7 @@ let parseAdvSIMDThreeRegsOfSameLen phlp (itstate: byref<BL>) isInIT b =
 #if !EMULATION
     chkQVdVnVm b
 #endif
-    render phlp &itstate 0 isInIT b Op.VADD (oneDt SIMDTypI8)  N OD.OprQdQnQm
+    render phlp &itstate 0 isInIT b Op.VADD (oneDt SIMDTypI8) N OD.OprQdQnQm
   | 0b001100010u ->
 #if !EMULATION
     chkQVdVnVm b
@@ -2166,7 +2166,7 @@ let parseAdvSIMDThreeRegsOfSameLen phlp (itstate: byref<BL>) isInIT b =
 #endif
     render phlp &itstate 0 isInIT b Op.VBSL None N OD.OprQdQnQm
   (* VPMIN xxx101001 *)
-  | 0b011101001u | 0b111101001u  (* size == '11' *) -> raise UndefinedException
+  | 0b011101001u | 0b111101001u (* size == '11' *) -> raise UndefinedException
   | 0b000101001u ->
     render phlp &itstate 0 isInIT b Op.VPMIN (oneDt SIMDTypS8) N OD.OprDdDnDm
   | 0b001101001u ->
@@ -2586,7 +2586,7 @@ let parseAdvSIMDTwoRegsMisc phlp (itstate: byref<BL>) isInIT b =
 #if !EMULATION
     chkQVdVm b
 #endif
-    render phlp &itstate 0 isInIT b Op.VPADDL (oneDt SIMDTypS8)  N OD.OprDdDm
+    render phlp &itstate 0 isInIT b Op.VPADDL (oneDt SIMDTypS8) N OD.OprDdDm
   | 0b010001000u ->
 #if !EMULATION
     chkQVdVm b
@@ -2601,7 +2601,7 @@ let parseAdvSIMDTwoRegsMisc phlp (itstate: byref<BL>) isInIT b =
 #if !EMULATION
     chkQVdVm b
 #endif
-    render phlp &itstate 0 isInIT b Op.VPADDL (oneDt SIMDTypU8)  N OD.OprDdDm
+    render phlp &itstate 0 isInIT b Op.VPADDL (oneDt SIMDTypU8) N OD.OprDdDm
   | 0b010001010u ->
 #if !EMULATION
     chkQVdVm b
@@ -2616,7 +2616,7 @@ let parseAdvSIMDTwoRegsMisc phlp (itstate: byref<BL>) isInIT b =
 #if !EMULATION
     chkQVdVm b
 #endif
-    render phlp &itstate 0 isInIT b Op.VPADDL (oneDt SIMDTypS8)  N OD.OprQdQm
+    render phlp &itstate 0 isInIT b Op.VPADDL (oneDt SIMDTypS8) N OD.OprQdQm
   | 0b010001001u ->
 #if !EMULATION
     chkQVdVm b
@@ -2631,7 +2631,7 @@ let parseAdvSIMDTwoRegsMisc phlp (itstate: byref<BL>) isInIT b =
 #if !EMULATION
     chkQVdVm b
 #endif
-    render phlp &itstate 0 isInIT b Op.VPADDL (oneDt SIMDTypU8)  N OD.OprQdQm
+    render phlp &itstate 0 isInIT b Op.VPADDL (oneDt SIMDTypU8) N OD.OprQdQm
   | 0b010001011u ->
 #if !EMULATION
     chkQVdVm b
@@ -2723,7 +2723,7 @@ let parseAdvSIMDTwoRegsMisc phlp (itstate: byref<BL>) isInIT b =
 #if !EMULATION
     chkQVdVm b
 #endif
-    render phlp &itstate 0 isInIT b Op.VCLZ (oneDt SIMDTypI8)  N OD.OprDdDm
+    render phlp &itstate 0 isInIT b Op.VCLZ (oneDt SIMDTypI8) N OD.OprDdDm
   | 0b010010010u ->
 #if !EMULATION
     chkQVdVm b
@@ -2738,7 +2738,7 @@ let parseAdvSIMDTwoRegsMisc phlp (itstate: byref<BL>) isInIT b =
 #if !EMULATION
     chkQVdVm b
 #endif
-    render phlp &itstate 0 isInIT b Op.VCLZ (oneDt SIMDTypI8)  N OD.OprQdQm
+    render phlp &itstate 0 isInIT b Op.VCLZ (oneDt SIMDTypI8) N OD.OprQdQm
   | 0b010010011u ->
 #if !EMULATION
     chkQVdVm b
@@ -4127,7 +4127,7 @@ let parseAdvSIMDThreeRegsDiffLen phlp (itstate: byref<BL>) isInIT bin =
 #if !EMULATION
     chkPolySzITVd bin itstate
 #endif
-    let dt = getDTPoly bin |> oneDt
+    let dt = getDTPolyT bin |> oneDt
     render phlp &itstate 0 isInIT bin Op.VMULL dt N OD.OprQdDnDm
   | 0b11001u -> raise ParsingFailureException
   | 0b11011u -> raise ParsingFailureException
@@ -6014,13 +6014,13 @@ let parseAdvSIMDAndSysReg32BitMov phlp (itstate: byref<BL>) isInIT bin =
   | 0b000000u -> raise ParsingFailureException
   | 0b000001u -> (* Armv8.2 *)
     inITBlock itstate |> checkUnpred
-    let oprs = if pickBit bin 20 = 0u then OD.OprSnRt  else OD.OprRtSn
+    let oprs = if pickBit bin 20 = 0u then OD.OprSnRt else OD.OprRtSn
     render phlp &itstate 0 isInIT bin Op.VMOV (oneDt SIMDTypF16) N oprs
   | 0b000010u ->
 #if !EMULATION
     chkPCRt bin
 #endif
-    let oprs = if pickBit bin 20 = 0u then OD.OprSnRt  else OD.OprRtSn
+    let oprs = if pickBit bin 20 = 0u then OD.OprSnRt else OD.OprRtSn
     render phlp &itstate 0 isInIT bin Op.VMOV None N oprs
   | 0b001010u -> raise ParsingFailureException
   | 0b010010u | 0b011010u (* 01x010 *) -> raise ParsingFailureException
@@ -6309,12 +6309,12 @@ let parseFPMinMaxNum phlp (itstate: byref<BL>) isInIT bin =
   | 0b0u ->
     inITBlock itstate |> checkUnpred
     let dt = getDTFP bin
-    let oprs = if pickTwo bin 8 = 0b11u then OD.OprDdDnDm  else OD.OprSdSnSm
+    let oprs = if pickTwo bin 8 = 0b11u then OD.OprDdDnDm else OD.OprSdSnSm
     render phlp &itstate 0 isInIT bin Op.VMAXNM dt N oprs
   | _ (* 1 *) ->
     inITBlock itstate |> checkUnpred
     let dt = getDTFP bin
-    let oprs = if pickTwo bin 8 = 0b11u then OD.OprDdDnDm  else OD.OprSdSnSm
+    let oprs = if pickTwo bin 8 = 0b11u then OD.OprDdDnDm else OD.OprSdSnSm
     render phlp &itstate 0 isInIT bin Op.VMINNM dt N OD.OprDdDnDm
 
 /// Floating-point extraction and insertion on page F3-4186.
@@ -6335,49 +6335,49 @@ let parseFPDirConvToInt phlp (itstate: byref<BL>) isInIT bin =
     inITBlock itstate |> checkUnpred
     let dt = getDTFP bin
     let oprs =
-      if pickTwo bin 8 (* size *) = 0b11u then OD.OprDdDm  else OD.OprSdSm
+      if pickTwo bin 8 (* size *) = 0b11u then OD.OprDdDm else OD.OprSdSm
     render phlp &itstate 0 isInIT bin Op.VRINTA dt N oprs
   | 0b001u ->
     inITBlock itstate |> checkUnpred
     let dt = getDTFP bin
     let oprs =
-      if pickTwo bin 8 (* size *) = 0b11u then OD.OprDdDm  else OD.OprSdSm
+      if pickTwo bin 8 (* size *) = 0b11u then OD.OprDdDm else OD.OprSdSm
     render phlp &itstate 0 isInIT bin Op.VRINTN dt N oprs
   | 0b010u ->
     inITBlock itstate |> checkUnpred
     let dt = getDTFP bin
     let oprs =
-      if pickTwo bin 8 (* size *) = 0b11u then OD.OprDdDm  else OD.OprSdSm
+      if pickTwo bin 8 (* size *) = 0b11u then OD.OprDdDm else OD.OprSdSm
     render phlp &itstate 0 isInIT bin Op.VRINTP dt N oprs
   | 0b011u ->
     inITBlock itstate |> checkUnpred
     let dt = getDTFP bin
     let oprs =
-      if pickTwo bin 8 (* size *) = 0b11u then OD.OprDdDm  else OD.OprSdSm
+      if pickTwo bin 8 (* size *) = 0b11u then OD.OprDdDm else OD.OprSdSm
     render phlp &itstate 0 isInIT bin Op.VRINTM dt N oprs
   | 0b100u ->
     inITBlock itstate |> checkUnpred
     let dt = getDTFSU bin
     let oprs =
-      if pickTwo bin 8 (* size *) = 0b11u then OD.OprSdDm  else OD.OprSdSm
+      if pickTwo bin 8 (* size *) = 0b11u then OD.OprSdDm else OD.OprSdSm
     render phlp &itstate 0 isInIT bin Op.VCVTA dt N oprs
   | 0b101u ->
     inITBlock itstate |> checkUnpred
     let dt = getDTFSU bin
     let oprs =
-      if pickTwo bin 8 (* size *) = 0b11u then OD.OprSdDm  else OD.OprSdSm
+      if pickTwo bin 8 (* size *) = 0b11u then OD.OprSdDm else OD.OprSdSm
     render phlp &itstate 0 isInIT bin Op.VCVTN dt N oprs
   | 0b110u ->
     inITBlock itstate |> checkUnpred
     let dt = getDTFSU bin
     let oprs =
-      if pickTwo bin 8 (* size *) = 0b11u then OD.OprSdDm  else OD.OprSdSm
+      if pickTwo bin 8 (* size *) = 0b11u then OD.OprSdDm else OD.OprSdSm
     render phlp &itstate 0 isInIT bin Op.VCVTP dt N oprs
   | _ (* 111 *) ->
     inITBlock itstate |> checkUnpred
     let dt = getDTFSU bin
     let oprs =
-      if pickTwo bin 8 (* size *) = 0b11u then OD.OprSdDm  else OD.OprSdSm
+      if pickTwo bin 8 (* size *) = 0b11u then OD.OprSdDm else OD.OprSdSm
     render phlp &itstate 0 isInIT bin Op.VCVTM dt N oprs
 
 /// Advanced SIMD and floating-point multiply with accumulate on page F3-4187.

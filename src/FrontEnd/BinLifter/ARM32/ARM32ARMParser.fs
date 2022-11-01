@@ -2240,7 +2240,7 @@ let parseAdvSIMDThreeRegSameLenExt (phlp: ParsingHelper) bin =
 #endif
     render phlp bin Op.VUSDOT (oneDt SIMDTypS8) OD.OprDdDnDm
   | 0b01101101u | 0b01101111u (* 011011x1 *) -> raise ParsingFailureException
-  | 0b01101110u ->  (* Armv8.6 *)
+  | 0b01101110u -> (* Armv8.6 *)
 #if !EMULATION
     chkQVdVnVm bin
 #endif
@@ -6304,7 +6304,8 @@ let parseAdvSIMDDupScalar (phlp: ParsingHelper) bin =
 #if !EMULATION
     chkQVd bin
 #endif
-    render phlp bin Op.VDUP dt OD.OprDdDmx
+    let oprs = if pickBit bin 6 = 0u then OD.OprDdDmx else OD.OprQdDmx
+    render phlp bin Op.VDUP dt oprs
   | _ (* 001 or 01x or 1xx *) -> raise ParsingFailureException
 
 /// Advanced SIMD three registers of different lengths on page F4-4268.
@@ -6401,7 +6402,7 @@ let parseAdvSIMDThreeRegsDiffLen (phlp: ParsingHelper) bin =
 #endif
     render phlp bin Op.VRSUBHN dt OD.OprDdQnQm
   | 0b01100u | 0b01110u | 0b11100u | 0b11110u (* x11x0 *) ->
-    let dt = getDtA bin |> oneDt
+    let dt = getDTPolyA bin |> oneDt
 #if !EMULATION
     chkVd0 bin
 #endif
