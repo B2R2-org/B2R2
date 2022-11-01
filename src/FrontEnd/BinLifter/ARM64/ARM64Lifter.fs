@@ -491,6 +491,38 @@ let extr ins insLen ctxt addr =
   else raise InvalidOperandSizeException
   !>ir insLen
 
+let ld1 ins insLen ctxt addr =
+  let ir = !*ctxt
+  let isWBack, _ = getIsWBackAndIsPostIndex ins.Operands
+  let struct (dst, src) = getTwoOprs ins
+  let elements, eSize = getElemNumAndSize ins.OprSize (getSIMDReg dst)
+  let oprSize = elements * eSize
+  let dstList = transSIMDList ctxt dst
+  let bReg, mOffs = transOprToExpr ins ctxt addr src |> separateMemExpr
+  let struct (address, offs) = tmpVars2 ir 64<rt>
+  let struct (ebyte, ebit) = tmpVars2 ir 64<rt>
+  let elements = if oprSize = 128<rt> then elements / 2 else elements
+  let result = Array.init elements (fun _ -> !+ir eSize)
+  !<ir insLen
+  !!ir (ebyte := numI32 (eSize / 8<rt>) 64<rt>)
+  !!ir (ebit := numI32 (int eSize) 64<rt>)
+  !!ir (offs := AST.num0 64<rt>)
+  !!ir (address := bReg)
+  for r in 0 .. (List.length dstList - 1) do
+    for p in 0 .. (List.length dstList[r] - 1) do
+      for e in 0 .. elements - 1 do
+        !!ir (result[e] := AST.loadLE eSize (address .+ offs))
+        !!ir (offs := offs .+ ebyte)
+      done
+      if oprSize = 64<rt> && p = 1 then !!ir (dstList[r][p] := AST.num0 64<rt>)
+      else !!ir (dstList[r][p] := AST.concatArr result)
+    done
+  done
+  if isWBack then
+    if isRegOffset src then !!ir (offs := mOffs) else ()
+    !!ir (bReg := address .+ offs)
+  !>ir insLen
+
 let ldp ins insLen ctxt addr =
   let ir = !*ctxt
   let isWBack, isPostIndex = getIsWBackAndIsPostIndex ins.Operands
@@ -1496,6 +1528,10 @@ let translate ins insLen ctxt =
   | Opcode.FSQRT -> sideEffects insLen ctxt UnsupportedFP
   | Opcode.FMSUB -> sideEffects insLen ctxt UnsupportedFP
   | Opcode.INS -> sideEffects insLen ctxt UnsupportedFP
+  | Opcode.LD1 -> ld1 ins insLen ctxt addr
+  | Opcode.LD1R | Opcode.LD2 | Opcode.LD2R | Opcode.LD3
+  | Opcode.LD3R | Opcode.LD4 | Opcode.LD4R ->
+    sideEffects insLen ctxt UnsupportedFP
   | Opcode.LDP -> ldp ins insLen ctxt addr
   | Opcode.LDPSW -> ldpsw ins insLen ctxt addr
   | Opcode.LDR -> ldr ins insLen ctxt addr
@@ -1510,9 +1546,6 @@ let translate ins insLen ctxt =
   | Opcode.LDURSB -> ldursb ins insLen ctxt addr
   | Opcode.LDURSH -> ldursh ins insLen ctxt addr
   | Opcode.LDURSW -> ldursw ins insLen ctxt addr
-  | Opcode.LD1 | Opcode.LD1R | Opcode.LD2 | Opcode.LD2R | Opcode.LD3
-  | Opcode.LD3R | Opcode.LD4 | Opcode.LD4R ->
-    sideEffects insLen ctxt UnsupportedFP
   | Opcode.LSL -> distLogicalLeftShift ins insLen ctxt addr
   | Opcode.LSR -> distLogicalRightShift ins insLen ctxt addr
   | Opcode.MADD -> madd ins insLen ctxt addr
