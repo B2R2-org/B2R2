@@ -54,11 +54,11 @@ type ARM64Instruction (addr, numBytes, insInfo, wordSize) =
   member __.HasConcJmpTarget () =
     match __.Info.Operands with
     (* All other instructions *)
-    | OneOperand (Memory (LiteralMode _)) -> true
+    | OneOperand (OprMemory (LiteralMode _)) -> true
     (* CBNZ and CBZ *)
-    | TwoOperands (_, Memory (LiteralMode _)) -> true
+    | TwoOperands (_, OprMemory (LiteralMode _)) -> true
     (* TBNZ and TBZ *)
-    | ThreeOperands (_, _, Memory (LiteralMode _)) -> true
+    | ThreeOperands (_, _, OprMemory (LiteralMode _)) -> true
     | _ -> false
 
   override __.IsDirectBranch () =
@@ -109,14 +109,14 @@ type ARM64Instruction (addr, numBytes, insInfo, wordSize) =
   override __.DirectBranchTarget (addr: byref<Addr>) =
     if __.IsBranch () then
       match __.Info.Operands with
-      | OneOperand (Memory (LiteralMode (ImmOffset (Lbl offset)))) ->
+      | OneOperand (OprMemory (LiteralMode (ImmOffset (Lbl offset)))) ->
         addr <- (__.Address + uint64 offset)
         true
-      | TwoOperands (_, Memory (LiteralMode (ImmOffset (Lbl offset)))) ->
+      | TwoOperands (_, OprMemory (LiteralMode (ImmOffset (Lbl offset)))) ->
         addr <- (__.Address + uint64 offset)
         true
-      | ThreeOperands (_, _, Memory (LiteralMode (ImmOffset (Lbl offset)))) ->
-        addr <- (__.Address + uint64 offset)
+      | ThreeOperands (_, _, OprMemory (LiteralMode (ImmOffset (Lbl offs)))) ->
+        addr <- (__.Address + uint64 offs)
         true
       | _ -> false
     else false
@@ -127,21 +127,21 @@ type ARM64Instruction (addr, numBytes, insInfo, wordSize) =
 
   override __.Immediate (v: byref<int64>) =
     match __.Info.Operands with
-    | OneOperand (Immediate c)
-    | TwoOperands (Immediate c, _)
-    | TwoOperands (_, Immediate c)
-    | ThreeOperands (Immediate c, _, _)
-    | ThreeOperands (_, Immediate c, _)
-    | ThreeOperands (_, _, Immediate c)
-    | FourOperands (Immediate c, _, _, _)
-    | FourOperands (_, Immediate c, _, _)
-    | FourOperands (_, _, Immediate c, _)
-    | FourOperands (_, _, _, Immediate c)
-    | FiveOperands (Immediate c, _, _, _, _)
-    | FiveOperands (_, Immediate c, _, _, _)
-    | FiveOperands (_, _, Immediate c, _, _)
-    | FiveOperands (_, _, _, Immediate c, _)
-    | FiveOperands (_, _, _, _, Immediate c) -> v <- c; true
+    | OneOperand (OprImm c)
+    | TwoOperands (OprImm c, _)
+    | TwoOperands (_, OprImm c)
+    | ThreeOperands (OprImm c, _, _)
+    | ThreeOperands (_, OprImm c, _)
+    | ThreeOperands (_, _, OprImm c)
+    | FourOperands (OprImm c, _, _, _)
+    | FourOperands (_, OprImm c, _, _)
+    | FourOperands (_, _, OprImm c, _)
+    | FourOperands (_, _, _, OprImm c)
+    | FiveOperands (OprImm c, _, _, _, _)
+    | FiveOperands (_, OprImm c, _, _, _)
+    | FiveOperands (_, _, OprImm c, _, _)
+    | FiveOperands (_, _, _, OprImm c, _)
+    | FiveOperands (_, _, _, _, OprImm c) -> v <- c; true
     | _ -> false
 
   override __.GetNextInstrAddrs () = Utils.futureFeature ()
