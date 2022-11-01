@@ -76,6 +76,40 @@ let simdToExpr ctxt = function
 *)
   | _ -> raise InvalidOperandException
 
+let inline getPseudoRegVar (ctxt: TranslationContext) name pos =
+  ctxt.GetPseudoRegVar (Register.toRegID name) pos
+
+let getTwoOprs (ins: InsInfo) =
+  match ins.Operands with
+  | TwoOperands (o1, o2) -> struct (o1, o2)
+  | _ -> raise InvalidOperandException
+
+let getThreeOprs (ins: InsInfo) =
+  match ins.Operands with
+  | ThreeOperands (o1, o2, o3) -> struct (o1, o2, o3)
+  | _ -> raise InvalidOperandException
+
+let getFourOprs (ins: InsInfo) =
+  match ins.Operands with
+  | FourOperands (o1, o2, o3, o4) -> struct (o1, o2, o3, o4)
+  | _ -> raise InvalidOperandException
+
+let getImmValue imm =
+  match imm with
+  | OprImm imm -> imm
+  | _ -> raise InvalidOperandException
+
+let getPseudoRegVar128 ctxt r =
+  getPseudoRegVar ctxt r 2, getPseudoRegVar ctxt r 1
+
+let transOprToExpr128 ctxt = function
+  | OprSIMD (SFReg (Vector reg)) -> getPseudoRegVar128 ctxt reg
+  | _ -> raise InvalidOperandException
+
+let transOprToSclar ctxt = function
+  | OprSIMD (SFReg (Scalar (reg, Some idx))) -> getRegVar ctxt reg, int32 idx
+  | _ -> raise InvalidOperandException
+
 let transOprToExpr ctxt = function
   | OprSpecReg (reg, _)
   | OprReg reg -> getRegVar ctxt reg
@@ -573,7 +607,7 @@ let countLeadingZeroBits b size = size - 1 - highestSetBit b size
 
 /// OprMemory access that must be aligned, at specified privilege level,
 /// on page B2-1294. function : MemA[]
-let memAWithPriv addr size value = AST.b0  // FIXME
+let memAWithPriv addr size value = AST.b0 // FIXME
 
 /// OprMemory access that must be aligned, at current privilege level,
 /// on page B2-1294. function : MemA_with_priv[]
@@ -581,7 +615,7 @@ let memA addr size value = memAWithPriv addr size value
 
 /// OprMemory access that must be aligned, at specified privilege level,
 /// on page B2-1294. function : MemU_with_priv[]
-let memUWithPriv addr size value = AST.b0  // FIXME
+let memUWithPriv addr size value = AST.b0 // FIXME
 
 /// OprMemory access without alignment requirement, at current privilege level,
 /// on page B2-1295. function : MemU[]
@@ -603,8 +637,7 @@ let currentModeIsNotUser ctxt =
   let modeM = getPSR ctxt R.CPSR PSR.M
   let modeCond = isBadMode modeM
   let ite1 =
-    AST.ite (modeM == (numI32 0b10000 32<rt>))
-            AST.b0 AST.b1
+    AST.ite (modeM == (numI32 0b10000 32<rt>)) AST.b0 AST.b1
   AST.ite modeCond (AST.undef 1<rt> "UNPREDICTABLE") ite1
 
 /// Bitstring replication, on page AppxP-2652.
@@ -640,24 +673,24 @@ let writeModeBits ctxt value isExcptReturn (ir: IRBuilder) =
   let cond5 = (cpsrM == num11010) .& (valueM != num11010)
   !!ir (AST.cjmp cond1 (AST.name lblL8) (AST.name lblL9))
   !!ir (AST.lmark lblL8)
-  !!ir (AST.sideEffect UndefinedInstr)  // FIXME: (use UNPREDICTABLE)
+  !!ir (AST.sideEffect UndefinedInstr) // FIXME: (use UNPREDICTABLE)
   !!ir (AST.lmark lblL9)
   !!ir (AST.cjmp cond2 (AST.name lblL10) (AST.name lblL11))
   !!ir (AST.lmark lblL10)
-  !!ir (AST.sideEffect UndefinedInstr)  // FIXME: (use UNPREDICTABLE)
+  !!ir (AST.sideEffect UndefinedInstr) // FIXME: (use UNPREDICTABLE)
   !!ir (AST.lmark lblL11)
   !!ir (AST.cjmp cond3 (AST.name lblL12) (AST.name lblL13))
   !!ir (AST.lmark lblL12)
-  !!ir (AST.sideEffect UndefinedInstr)  // FIXME: (use UNPREDICTABLE)
+  !!ir (AST.sideEffect UndefinedInstr) // FIXME: (use UNPREDICTABLE)
   !!ir (AST.lmark lblL13)
   !!ir (AST.cjmp cond4 (AST.name lblL14) (AST.name lblL15))
   !!ir (AST.lmark lblL14)
-  !!ir (AST.sideEffect UndefinedInstr)  // FIXME: (use UNPREDICTABLE)
+  !!ir (AST.sideEffect UndefinedInstr) // FIXME: (use UNPREDICTABLE)
   !!ir (AST.lmark lblL15)
   !!ir (AST.cjmp cond5 (AST.name lblL16) (AST.name lblL17))
   !!ir (AST.lmark lblL16)
   if Operators.not isExcptReturn then
-    !!ir (AST.sideEffect UndefinedInstr)  // FIXME: (use UNPREDICTABLE)
+    !!ir (AST.sideEffect UndefinedInstr) // FIXME: (use UNPREDICTABLE)
   else ()
   !!ir (AST.lmark lblL17)
   let mValue = value .& maskPSRForMbits
@@ -697,10 +730,10 @@ let transThreeOprsOfADC (ins: InsInfo) ctxt =
 
 let transFourOprsOfADC (ins: InsInfo) ctxt =
   match ins.Operands with
-  | FourOperands (opr1, opr2, opr3 , (OprShift (_, Imm _) as opr4)) ->
+  | FourOperands (opr1, opr2, opr3, (OprShift (_, Imm _) as opr4)) ->
     let e1, e2 = transOprToExpr ctxt opr1, transOprToExpr ctxt opr2
     struct (e1, e2, transShiftOprs ctxt opr3 opr4)
-  | FourOperands (opr1, opr2, opr3 , OprRegShift (typ, reg)) ->
+  | FourOperands (opr1, opr2, opr3, OprRegShift (typ, reg)) ->
     let e1 = transOprToExpr ctxt opr1
     let e2 = transOprToExpr ctxt opr2
     let e3 = transOprToExpr ctxt opr3
@@ -728,9 +761,8 @@ let checkCondition (ins: InsInfo) ctxt isUnconditional (ir: IRBuilder) =
 /// Update ITState after normal execution of an IT-block instruction. See A2-52
 /// function: ITAdvance().
 let itAdvance ctxt (ir: IRBuilder) =
-  let itstate = !+ir 32<rt>
   let cond = !+ir 1<rt>
-  let nextstate = !+ir 32<rt>
+  let struct (itstate, nextstate) = tmpVars2 ir 32<rt>
   let lblThen = !%ir "LThen"
   let lblElse = !%ir "LElse"
   let lblEnd = !%ir "LEnd"
@@ -796,8 +828,7 @@ let adc isSetFlags ins insLen ctxt =
   let struct (dst, src1, src2) = parseOprOfADC ins ctxt
   let src1 = convertPCOpr ins insLen ctxt src1
   let src2 = convertPCOpr ins insLen ctxt src2
-  let t1, t2 = !+ir 32<rt>, !+ir 32<rt>
-  let result = !+ir 32<rt>
+  let struct (t1, t2, result) = tmpVars3 ir 32<rt>
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
   !<ir insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
@@ -839,11 +870,11 @@ let transThreeOprsOfADD (ins: InsInfo) insLen ctxt =
 
 let transFourOprsOfADD (ins: InsInfo) insLen ctxt =
   match ins.Operands with
-  | FourOperands (opr1, opr2, opr3 , (OprShift (_, Imm _) as opr4)) ->
+  | FourOperands (opr1, opr2, opr3, (OprShift (_, Imm _) as opr4)) ->
     let e1 = transOprToExpr ctxt opr1
     let e2 = transOprToExpr ctxt opr2
     struct (e1, e2, transShiftOprs ctxt opr3 opr4)
-  | FourOperands (opr1, opr2, opr3 , OprRegShift (typ, reg)) ->
+  | FourOperands (opr1, opr2, opr3, OprRegShift (typ, reg)) ->
     let e1 = transOprToExpr ctxt opr1
     let e2 = transOprToExpr ctxt opr2
     let e3 = transOprToExpr ctxt opr3
@@ -863,7 +894,7 @@ let add isSetFlags ins insLen ctxt =
   let struct (dst, src1, src2) = parseOprOfADD ins insLen ctxt
   let src1 = convertPCOpr ins insLen ctxt src1
   let src2 = convertPCOpr ins insLen ctxt src2
-  let t1, t2 = !+ir 32<rt>, !+ir 32<rt>
+  let struct (t1, t2) = tmpVars2 ir 32<rt>
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
   !<ir insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
@@ -1084,8 +1115,7 @@ let sub isSetFlags ins insLen ctxt =
   let struct (dst, src1, src2) = parseOprOfADD ins insLen ctxt
   let src1 = convertPCOpr ins insLen ctxt src1
   let src2 = convertPCOpr ins insLen ctxt src2
-  let t1, t2 = !+ir 32<rt>, !+ir 32<rt>
-  let result = !+ir 32<rt>
+  let struct (t1, t2, result) = tmpVars3 ir 32<rt>
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
   !<ir insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
@@ -1156,7 +1186,7 @@ let parseResultOfSUBAndRela (ins: InsInfo) ctxt =
     let struct (_, src1, src2) = parseOprOfADC ins ctxt
     src1 .| src2
   | Op.MOVS ->
-    let struct(_, src) = transTwoOprs ins ctxt
+    let struct (_, src) = transTwoOprs ins ctxt
     src
   | Op.ASRS ->
     let struct (_, src1, src2) = parseOprOfADC ins ctxt
@@ -1212,7 +1242,7 @@ let translateLogicOp (ins: InsInfo) insLen ctxt (ir: IRBuilder) =
     let struct (e1, e2, e3) = transThreeOprs ins ctxt
     let carryOut = computeCarryOutFromImmCflag ins insLen ctxt
     e1, e2, e3, carryOut
-  | FourOperands (opr1, opr2, opr3 , OprShift (typ, Imm imm)) ->
+  | FourOperands (opr1, opr2, opr3, OprShift (typ, Imm imm)) ->
     let t = !+ir 32<rt>
     let carryIn = getCarryFlag ctxt
     let dst = transOprToExpr ctxt opr1
@@ -1221,7 +1251,7 @@ let translateLogicOp (ins: InsInfo) insLen ctxt (ir: IRBuilder) =
     !!ir (t := rm)
     let shifted, carryOut = shiftC t 32<rt> typ imm carryIn
     dst, src1, shifted, carryOut
-  | FourOperands (opr1, opr2, opr3 , OprRegShift (typ, reg)) ->
+  | FourOperands (opr1, opr2, opr3, OprRegShift (typ, reg)) ->
     let t = !+ir 32<rt>
     let carryIn = getCarryFlag ctxt
     let dst = transOprToExpr ctxt opr1
@@ -1303,11 +1333,11 @@ let eor isSetFlags (ins: InsInfo) insLen ctxt =
 
 let transFourOprsOfRSB (ins: InsInfo) insLen ctxt =
   match ins.Operands with
-  | FourOperands (opr1, opr2, opr3 , (OprShift (_, Imm _) as opr4)) ->
+  | FourOperands (opr1, opr2, opr3, (OprShift (_, Imm _) as opr4)) ->
     let e1 = transOprToExpr ctxt opr1
     let e2 = transOprToExpr ctxt opr2
     struct (e1, e2, transShiftOprs ctxt opr3 opr4)
-  | FourOperands (opr1, opr2, opr3 , OprRegShift (typ, reg)) ->
+  | FourOperands (opr1, opr2, opr3, OprRegShift (typ, reg)) ->
     let e1 = transOprToExpr ctxt opr1
     let e2 = transOprToExpr ctxt opr2
     let e3 = transOprToExpr ctxt opr3
@@ -1324,8 +1354,7 @@ let parseOprOfRSB (ins: InsInfo) insLen ctxt =
 let rsb isSetFlags ins insLen ctxt =
   let ir = !*ctxt
   let struct (dst, src1, src2) = parseOprOfRSB ins insLen ctxt
-  let result = !+ir 32<rt>
-  let t1, t2 = !+ir 32<rt>, !+ir 32<rt>
+  let struct (t1, t2, result) = tmpVars3 ir 32<rt>
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
   !<ir insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
@@ -1356,11 +1385,11 @@ let transTwoOprsOfSBC (ins: InsInfo) insLen ctxt =
 
 let transFourOprsOfSBC (ins: InsInfo) insLen ctxt =
   match ins.Operands with
-  | FourOperands (opr1, opr2, opr3 , (OprShift (_, Imm _) as opr4)) ->
+  | FourOperands (opr1, opr2, opr3, (OprShift (_, Imm _) as opr4)) ->
     let e1 = transOprToExpr ctxt opr1
     let e2 = transOprToExpr ctxt opr2
     struct (e1, e2, transShiftOprs ctxt opr3 opr4)
-  | FourOperands (opr1, opr2, opr3 , OprRegShift (typ, reg)) ->
+  | FourOperands (opr1, opr2, opr3, OprRegShift (typ, reg)) ->
     let e1 = transOprToExpr ctxt opr1
     let e2 = transOprToExpr ctxt opr2
     let e3 = transOprToExpr ctxt opr3
@@ -1378,8 +1407,7 @@ let parseOprOfSBC (ins: InsInfo) insLen ctxt =
 let sbc isSetFlags ins insLen ctxt =
   let ir = !*ctxt
   let struct (dst, src1, src2) = parseOprOfSBC ins insLen ctxt
-  let t1, t2 = !+ir 32<rt>, !+ir 32<rt>
-  let result = !+ir 32<rt>
+  let struct (t1, t2, result) = tmpVars3 ir 32<rt>
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
   !<ir insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
@@ -1403,11 +1431,11 @@ let sbc isSetFlags ins insLen ctxt =
 
 let transFourOprsOfRSC (ins: InsInfo) insLen ctxt =
   match ins.Operands with
-  | FourOperands (opr1, opr2, opr3 , (OprShift (_, Imm _) as opr4)) ->
+  | FourOperands (opr1, opr2, opr3, (OprShift (_, Imm _) as opr4)) ->
     let e1 = transOprToExpr ctxt opr1
     let e2 = transOprToExpr ctxt opr2
     e1, e2, transShiftOprs ctxt opr3 opr4
-  | FourOperands (opr1, opr2, opr3 , OprRegShift (typ, reg)) ->
+  | FourOperands (opr1, opr2, opr3, OprRegShift (typ, reg)) ->
     let e1 = transOprToExpr ctxt opr1
     let e2 = transOprToExpr ctxt opr2
     let e3 = transOprToExpr ctxt opr3
@@ -1424,8 +1452,7 @@ let parseOprOfRSC (ins: InsInfo) insLen ctxt =
 let rsc isSetFlags ins insLen ctxt =
   let ir = !*ctxt
   let struct (dst, src1, src2) = parseOprOfRSC ins insLen ctxt
-  let t1, t2 = !+ir 32<rt>, !+ir 32<rt>
-  let result = !+ir 32<rt>
+  let struct (t1, t2, result) = tmpVars3 ir 32<rt>
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
   !<ir insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
@@ -1613,8 +1640,7 @@ let parseOprOfShiftInstr (ins: InsInfo) shiftTyp ctxt tmp =
 
 let shiftInstr isSetFlags ins insLen typ ctxt =
   let ir = !*ctxt
-  let srcTmp = !+ir 32<rt>
-  let result = !+ir 32<rt>
+  let struct (srcTmp, result) = tmpVars2 ir 32<rt>
   let dst, src, res, carryOut = parseOprOfShiftInstr ins typ ctxt srcTmp
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
   !<ir insLen
@@ -1800,9 +1826,8 @@ let parseOprOfCMN (ins: InsInfo) insLen ctxt =
 
 let cmn ins insLen ctxt =
   let ir = !*ctxt
-  let struct(dst, src) = parseOprOfCMN ins insLen ctxt
-  let result = !+ir 32<rt>
-  let t1, t2 = !+ir 32<rt>, !+ir 32<rt>
+  let struct (dst, src) = parseOprOfCMN ins insLen ctxt
+  let struct (t1, t2, result) = tmpVars3 ir 32<rt>
   let cpsr = getRegVar ctxt R.CPSR
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
   !<ir insLen
@@ -1868,8 +1893,7 @@ let parseOprOfCMP (ins: InsInfo) insLen ctxt =
 let cmp ins insLen ctxt =
   let ir = !*ctxt
   let struct (rn, rm) = parseOprOfCMP ins insLen ctxt
-  let result = !+ir 32<rt>
-  let t1, t2 = !+ir 32<rt>, !+ir 32<rt>
+  let struct (t1, t2, result) = tmpVars3 ir 32<rt>
   let cpsr = getRegVar ctxt R.CPSR
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
   !<ir insLen
@@ -2019,8 +2043,7 @@ let tst ins insLen ctxt =
 let smulhalf ins insLen ctxt s1top s2top =
   let ir = !*ctxt
   let struct (rd, rn, rm) = transThreeOprs ins ctxt
-  let t1 = !+ir 32<rt>
-  let t2 = !+ir 32<rt>
+  let struct (t1, t2) = tmpVars2 ir 32<rt>
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
   !<ir insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
@@ -2036,8 +2059,7 @@ let smulhalf ins insLen ctxt s1top s2top =
 let smulandacc isSetFlags doAcc ins insLen ctxt =
   let ir = !*ctxt
   let struct (rdLo, rdHi, rn, rm) = transFourOprs ins ctxt
-  let tmpresult = !+ir 64<rt>
-  let result = !+ir 64<rt>
+  let struct (tmpresult, result) = tmpVars2 ir 64<rt>
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
   !<ir insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
@@ -2097,8 +2119,7 @@ let smulaccwordbyhalf (ins: InsInfo) insLen ctxt sign =
 let smulacchalf ins insLen ctxt s1top s2top =
   let ir = !*ctxt
   let struct (rd, rn, rm, ra) = transFourOprs ins ctxt
-  let t1 = !+ir 32<rt>
-  let t2 = !+ir 32<rt>
+  let struct (t1, t2) = tmpVars2 ir 32<rt>
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
   !<ir insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
@@ -2215,8 +2236,7 @@ let getLDMStartAddr rn stackWidth = function
 
 let ldm opcode ins insLen ctxt wbackop =
   let ir = !*ctxt
-  let t0 = !+ir 32<rt>
-  let t1 = !+ir 32<rt>
+  let struct (t0, t1) = tmpVars2 ir 32<rt>
   let struct (rn, numOfRn, numOfReg) = parseOprOfLDM ins ctxt
   let wback = ins.WriteBack
   let stackWidth = 4 * bitCount numOfReg 16
@@ -2248,14 +2268,14 @@ let getOffAddrWithImm s r imm =
   | _, _ -> r
 
 let parseMemOfLDR ins insLen ctxt = function
-  | OprMemory (OffsetMode (ImmOffset (rn , s, imm))) ->
+  | OprMemory (OffsetMode (ImmOffset (rn, s, imm))) ->
     let rn = getRegVar ctxt rn |> convertPCOpr ins insLen ctxt
     struct (getOffAddrWithImm s rn imm, None)
-  | OprMemory (PreIdxMode (ImmOffset (rn , s, imm))) ->
+  | OprMemory (PreIdxMode (ImmOffset (rn, s, imm))) ->
     let rn = getRegVar ctxt rn
     let offsetAddr = getOffAddrWithImm s rn imm
     struct (offsetAddr, Some (rn, offsetAddr))
-  | OprMemory (PostIdxMode (ImmOffset (rn , s, imm))) ->
+  | OprMemory (PostIdxMode (ImmOffset (rn, s, imm))) ->
     let rn = getRegVar ctxt rn
     struct (rn, Some (rn, getOffAddrWithImm s rn imm))
   | OprMemory (LiteralMode imm) ->
@@ -2312,8 +2332,7 @@ let ldr ins insLen ctxt size ext =
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   match writeback with
   | Some (basereg, newoffset) ->
-    let taddr = !+ir 32<rt>
-    let twriteback = !+ir 32<rt>
+    let struct (taddr, twriteback) = tmpVars2 ir 32<rt>
     !!ir (taddr := addr)
     !!ir (twriteback := newoffset)
     !!ir (data := AST.loadLE size taddr |> ext 32<rt>)
@@ -2389,14 +2408,8 @@ let combineGEs ge0 ge1 ge2 ge3 =
 let uadd8 ins insLen ctxt =
   let ir = !*ctxt
   let struct (rd, rn, rm) = transThreeOprs ins ctxt
-  let sum1 = !+ir 32<rt>
-  let sum2 = !+ir 32<rt>
-  let sum3 = !+ir 32<rt>
-  let sum4 = !+ir 32<rt>
-  let ge0 = !+ir 32<rt>
-  let ge1 = !+ir 32<rt>
-  let ge2 = !+ir 32<rt>
-  let ge3 = !+ir 32<rt>
+  let struct (sum1, sum2, sum3, sum4) = tmpVars4 ir 32<rt>
+  let struct (ge0, ge1, ge2, ge3) = tmpVars4 ir 32<rt>
   let cpsr = getRegVar ctxt R.CPSR
   let n100 = numI32 0x100 32<rt>
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
@@ -2417,10 +2430,7 @@ let uadd8 ins insLen ctxt =
 
 let sel ins insLen ctxt =
   let ir = !*ctxt
-  let t1 = !+ir 32<rt>
-  let t2 = !+ir 32<rt>
-  let t3 = !+ir 32<rt>
-  let t4 = !+ir 32<rt>
+  let struct (t1, t2, t3, t4) = tmpVars4 ir 32<rt>
   let struct (rd, rn, rm) = transThreeOprs ins ctxt
   let n1 = AST.num1 32<rt>
   let n2 = numI32 2 32<rt>
@@ -2432,18 +2442,15 @@ let sel ins insLen ctxt =
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   !!ir (t1 := AST.ite ((ge .& n1) == n1) (sel8Bits rn 0) (sel8Bits rm 0))
   !!ir (t2 := AST.ite ((ge .& n2) == n2) (sel8Bits rn 8) (sel8Bits rm 8))
-  !!ir
-    (t3 := AST.ite ((ge .& n4) == n4) (sel8Bits rn 16) (sel8Bits rm 16))
-  !!ir
-    (t4 := AST.ite ((ge .& n8) == n8) (sel8Bits rn 24) (sel8Bits rm 24))
+  !!ir (t3 := AST.ite ((ge .& n4) == n4) (sel8Bits rn 16) (sel8Bits rm 16))
+  !!ir (t4 := AST.ite ((ge .& n8) == n8) (sel8Bits rn 24) (sel8Bits rm 24))
   !!ir (rd := combine8bitResults t1 t2 t3 t4)
   putEndLabel ctxt lblIgnore ir
   !>ir insLen
 
 let rbit ins insLen ctxt =
   let ir = !*ctxt
-  let t1 = !+ir 32<rt>
-  let t2 = !+ir 32<rt>
+  let struct (t1, t2) = tmpVars2 ir 32<rt>
   let struct (rd, rm) = transTwoOprs ins ctxt
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
   !<ir insLen
@@ -2458,18 +2465,15 @@ let rbit ins insLen ctxt =
 
 let rev ins insLen ctxt =
   let ir = !*ctxt
-  let t1 = !+ir 32<rt>
-  let t2 = !+ir 32<rt>
-  let t3 = !+ir 32<rt>
-  let t4 = !+ir 32<rt>
+  let struct (t1, t2, t3, t4) = tmpVars4 ir 32<rt>
   let struct (rd, rm) = transTwoOprs ins ctxt
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
   !<ir insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
-  !!ir (t1 :=  sel8Bits rm 0)
-  !!ir (t2 :=  sel8Bits rm 8)
-  !!ir (t3 :=  sel8Bits rm 16)
-  !!ir (t4 :=  sel8Bits rm 24)
+  !!ir (t1 := sel8Bits rm 0)
+  !!ir (t2 := sel8Bits rm 8)
+  !!ir (t3 := sel8Bits rm 16)
+  !!ir (t4 := sel8Bits rm 24)
   !!ir (rd := combine8bitResults t4 t3 t2 t1)
   putEndLabel ctxt lblIgnore ir
   !>ir insLen
@@ -2531,8 +2535,7 @@ let strd ins insLen ctxt =
   !<ir insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   !!ir (AST.loadLE 32<rt> addr := rt)
-  !!ir (AST.loadLE 32<rt>
-               (addr .+ (numI32 4 32<rt>)) := rt2)
+  !!ir (AST.loadLE 32<rt> (addr .+ (numI32 4 32<rt>)) := rt2)
   match writeback with
   | Some (basereg, newoffset) -> !!ir (basereg := newoffset)
   | None -> ()
@@ -2547,7 +2550,7 @@ let parseOprOfSTM (ins: InsInfo) insLen ctxt =
 
 let getSTMStartAddr rn msize = function
   | Op.STM | Op.STMIA | Op.STMEA -> rn
-  | Op.STMDA -> rn .- msize .+  (numI32 4 32<rt>)
+  | Op.STMDA -> rn .- msize .+ (numI32 4 32<rt>)
   | Op.STMDB -> rn .- msize
   | Op.STMIB -> rn .+ (numI32 4 32<rt>)
   | _ -> raise InvalidOpcodeException
@@ -2667,10 +2670,8 @@ let parseOprOfRdRnLsbWidth (ins: InsInfo) insLen ctxt =
 let bfi ins insLen ctxt =
   let ir = !*ctxt
   let rd, rn, lsb, width = parseOprOfRdRnLsbWidth ins insLen ctxt
-  let t0 = !+ir 32<rt>
-  let t1 = !+ir 32<rt>
-  let n = rn .&
-          (BitVector.OfBInt (BigInteger.getMask width) 32<rt> |> AST.num)
+  let struct (t0, t1) = tmpVars2 ir 32<rt>
+  let n = rn .& (BitVector.OfBInt (BigInteger.getMask width) 32<rt> |> AST.num)
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
   !<ir insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
@@ -2691,8 +2692,7 @@ let bfx ins insLen ctxt signExtend =
   let v = BitVector.OfBInt (BigInteger.getMask width) 32<rt> |> AST.num
   !!ir (rd := (rn >> (numI32 lsb 32<rt>)) .& v)
   if signExtend && width > 1 then
-    let msb = !+ir 32<rt>
-    let mask = !+ir 32<rt>
+    let struct (msb, mask) = tmpVars2 ir 32<rt>
     let msboffset = numI32 (lsb + width - 1) 32<rt>
     let shift = numI32 width 32<rt>
     !!ir (msb := (rn >> msboffset) .& AST.num1 32<rt>)
@@ -2842,7 +2842,7 @@ let checkSingleReg = function
 let parseOprOfVLDR (ins: InsInfo) insLen ctxt =
   match ins.Operands with
   | TwoOperands (OprSIMD (SFReg (Vector d)),
-                 OprMemory (OffsetMode (ImmOffset (rn , s, imm)))) ->
+                 OprMemory (OffsetMode (ImmOffset (rn, s, imm)))) ->
     let pc = getRegVar ctxt rn |> convertPCOpr ins insLen ctxt
     let baseAddr = align pc (numI32 4 32<rt>)
     getRegVar ctxt d, getOffAddrWithImm s baseAddr imm, checkSingleReg d
@@ -2859,19 +2859,18 @@ let vldr ins insLen ctxt =
     !!ir (data := AST.loadLE 32<rt> addr)
     !!ir (rd := data)
   else
-    let d1 = !+ir 32<rt>
-    let d2 = !+ir 32<rt>
+    let struct (d1, d2) = tmpVars2 ir 32<rt>
     !!ir (d1 := AST.loadLE 32<rt> addr)
     !!ir (d2 := AST.loadLE 32<rt> (addr .+ (numI32 4 32<rt>)))
     !!ir (rd := if ctxt.Endianness = Endian.Big then AST.concat d1 d2
-                      else AST.concat d2 d1)
+                else AST.concat d2 d1)
   putEndLabel ctxt lblIgnore ir
   !>ir insLen
 
 let parseOprOfVSTR (ins: InsInfo) insLen ctxt =
   match ins.Operands with
   | TwoOperands (OprSIMD (SFReg (Vector d)),
-                 OprMemory (OffsetMode (ImmOffset (rn , s, imm)))) ->
+                 OprMemory (OffsetMode (ImmOffset (rn, s, imm)))) ->
     let baseAddr = getRegVar ctxt rn
     getRegVar ctxt d, getOffAddrWithImm s baseAddr imm, checkSingleReg d
   | _ -> raise InvalidOperandException
@@ -2887,10 +2886,8 @@ let vstr (ins: InsInfo) insLen ctxt =
     let mem1 = AST.loadLE 32<rt> addr
     let mem2 = AST.loadLE 32<rt> (addr .+ (numI32 4 32<rt>))
     let isbig = ctxt.Endianness = Endian.Big
-    !!ir
-      (mem1 := if isbig then AST.xthi 32<rt> rd else AST.xtlo 32<rt> rd)
-    !!ir
-      (mem2 := if isbig then AST.xtlo 32<rt> rd else AST.xthi 32<rt> rd)
+    !!ir (mem1 := if isbig then AST.xthi 32<rt> rd else AST.xtlo 32<rt> rd)
+    !!ir (mem2 := if isbig then AST.xtlo 32<rt> rd else AST.xthi 32<rt> rd)
   putEndLabel ctxt lblIgnore ir
   !>ir insLen
 
@@ -2996,7 +2993,7 @@ let vpopLoop ctxt d imm isSReg addr (ir: IRBuilder) =
       let nextAddr = addr .+ (numI32 8 32<rt>)
       let isbig = ctxt.Endianness = Endian.Big
       !!ir (getRegVar ctxt reg := if isbig then AST.concat word1 word2
-                                        else AST.concat word2 word1)
+                                  else AST.concat word2 word1)
       nonSingleRegLoop (r + 1) nextAddr
     else ()
   let loopFn = if isSReg then singleRegLoop else nonSingleRegLoop
@@ -3065,11 +3062,20 @@ let parseOprOfVAND (ins: InsInfo) insLen ctxt =
 
 let vand (ins: InsInfo) insLen ctxt =
   let ir = !*ctxt
-  let dst, src1, src2 = parseOprOfVAND ins insLen ctxt
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
   !<ir insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
-  !!ir (dst := src1 .& src2)
+  match ins.OprSize with
+  | 128<rt> ->
+    let struct (dst, src1, src2) = getThreeOprs ins
+    let dstB, dstA = transOprToExpr128 ctxt dst
+    let src1B, src1A = transOprToExpr128 ctxt src1
+    let src2B, src2A = transOprToExpr128 ctxt src2
+    !!ir (dstA := src1A .& src2A)
+    !!ir (dstB := src1B .& src2B)
+  | _ ->
+    let dst, src1, src2 = parseOprOfVAND ins insLen ctxt
+    !!ir (dst := src1 .& src2)
   putEndLabel ctxt lblIgnore ir
   !>ir insLen
 
@@ -3109,7 +3115,7 @@ let getEBytes = function
   | Some (OneDT SIMDTyp32) | Some (OneDT SIMDTypS32) | Some (OneDT SIMDTypI32)
   | Some (OneDT SIMDTypU32) -> 4
   | Some (OneDT SIMDTyp64) | Some (OneDT SIMDTypS64) | Some (OneDT SIMDTypI64)
-  | Some (OneDT SIMDTypU64) -> 8
+  | Some (OneDT SIMDTypU64) | Some (OneDT SIMDTypP64) -> 8
   | _ -> raise InvalidOperandException
 
 let registerIndex = function
@@ -3130,7 +3136,7 @@ let getParsingInfo (ins: InsInfo) =
     Elements = elements
     RegIndex = regIndex }
 
-let elem vector e size =
+let private elem vector e size =
   AST.extract vector (RegType.fromBitWidth size) (e * size)
 
 let elemForIR vector vSize index size =
@@ -3149,26 +3155,24 @@ let getIndexOfVMOV = function
   | TwoOperands (OprSIMD (SFReg (Scalar (_, Some element))), _) -> int element
   | _ -> raise InvalidOperandException
 
-let isQwordReg = function
-  | R.Q0 | R.Q1 | R.Q2 | R.Q3 | R.Q4 | R.Q5 | R.Q6 | R.Q7 | R.Q8 | R.Q9 | R.Q10
-  | R.Q11 | R.Q12 | R.Q13 | R.Q14 | R.Q15 -> true
-  | _ -> false
-
 let parseOprOfVMOV (ins: InsInfo) insLen ctxt ir =
   match ins.Operands with
   | TwoOperands (OprSIMD _, OprSIMD _) ->
     let struct (dst, src) = transTwoOprs ins ctxt
     !!ir (dst := src)
   | TwoOperands (OprSIMD (SFReg (Vector reg)), OprImm _) ->
-    if isQwordReg reg then
+    match ins.OprSize with
+    | 128<rt> ->
+      let struct (dst, imm) = getTwoOprs ins
+      let dstB, dstA = transOprToExpr128 ctxt dst
+      let imm64 = AST.concat (transOprToExpr ctxt imm) (transOprToExpr ctxt imm)
+      !!ir (dstB := imm64)
+      !!ir (dstA := imm64)
+    | _ ->
       let struct (dst, imm) = transTwoOprs ins ctxt
       let imm64 = AST.concat imm imm // FIXME
       !!ir (AST.xtlo 64<rt> dst := imm64)
       !!ir (AST.xthi 64<rt> dst := imm64)
-    else
-      let struct (dst, imm) = transTwoOprs ins ctxt
-      let imm64 = AST.concat imm imm // FIXME
-      !!ir (dst := imm64)
   | TwoOperands (OprSIMD _, OprReg _) ->
     let struct (dst, src) = transTwoOprs ins ctxt
     let index = getIndexOfVMOV ins.Operands
@@ -3188,6 +3192,12 @@ let vmov (ins: InsInfo) insLen ctxt =
 (* VMOV(immediate)/VMOV(register) *)
 let isF32orF64 = function
   | Some (OneDT SIMDTypF32) | Some (OneDT SIMDTypF64) -> true
+  | _ -> false
+
+(* VABS(immediate)/VABS(register) *)
+let isF16orF32orF64 = function
+  | Some (OneDT SIMDTypF16) | Some (OneDT SIMDTypF32) | Some (OneDT SIMDTypF64)
+    -> true
   | _ -> false
 
 let isAdvSIMDByDT = function
@@ -3212,7 +3222,7 @@ let isAdvancedSIMD (ins: InsInfo) =
   | ThreeOperands (OprReg _, OprReg _, OprSIMD _) -> false
   | _ -> false
 
-let absExpr expr size =
+let private absExpr expr size =
   AST.ite (AST.slt expr (AST.num0 size)) (AST.neg expr) (expr)
 
 let vabs (ins: InsInfo) insLen ctxt =
@@ -3220,31 +3230,43 @@ let vabs (ins: InsInfo) insLen ctxt =
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
   !<ir insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
-  let struct (rd, rm) = transTwoOprs ins ctxt
   let p = getParsingInfo ins
-  let regs = if TypeCheck.typeOf rd = 64<rt> then 1 else 2
-  for r in 0 .. regs - 1 do
-    let rd = AST.extract rd 64<rt> (r * 64)
-    let rm = AST.extract rm 64<rt> (r * 64)
+  match ins.OprSize with
+  | 128<rt> ->
+    let struct (dst, src) = getTwoOprs ins
+    let dstB, dstA = transOprToExpr128 ctxt dst
+    let srcB, srcA = transOprToExpr128 ctxt src
     for e in 0 .. p.Elements - 1 do
-      !!ir (elem rd e p.ESize := absExpr (elem rm e p.ESize) p.RtESize)
+      !!ir (elem dstB e p.ESize := absExpr (elem srcB e p.ESize) p.RtESize)
+      !!ir (elem dstA e p.ESize := absExpr (elem srcA e p.ESize) p.RtESize)
+  | _ ->
+    let struct (dst, src) = transTwoOprs ins ctxt
+    for e in 0 .. p.Elements - 1 do
+      !!ir (elem dst e p.ESize := absExpr (elem src e p.ESize) p.RtESize)
   putEndLabel ctxt lblIgnore ir
   !>ir insLen
 
-let vadd (ins: InsInfo) insLen ctxt =
+let vaddsub (ins: InsInfo) insLen ctxt opFn =
   let ir = !*ctxt
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
   !<ir insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
-  let struct (rd, rn, rm) = transThreeOprs ins ctxt
   let p = getParsingInfo ins
-  let regs = if TypeCheck.typeOf rd = 64<rt> then 1 else 2
-  for r in 0 .. regs - 1 do
-    let rd = AST.extract rd 64<rt> (r * 64)
-    let rn = AST.extract rn 64<rt> (r * 64)
-    let rm = AST.extract rm 64<rt> (r * 64)
+  match ins.OprSize with
+  | 128<rt> ->
+    let struct (dst, src1, src2) = getThreeOprs ins
+    let dstB, dstA = transOprToExpr128 ctxt dst
+    let src1B, src1A = transOprToExpr128 ctxt src1
+    let src2B, src2A = transOprToExpr128 ctxt src2
     for e in 0 .. p.Elements - 1 do
-      !!ir (elem rd e p.ESize := elem rn e p.ESize .+ elem rm e p.ESize)
+      let elem expr = elem expr e p.ESize
+      !!ir (elem dstB := (opFn (elem src1B) (elem src2B)))
+      !!ir (elem dstA := (opFn (elem src1A) (elem src2A)))
+  | _ ->
+    let struct (dst, src1, src2) = transThreeOprs ins ctxt
+    for e in 0 .. p.Elements - 1 do
+      let elem value = elem value e p.ESize
+      !!ir (elem dst := (opFn (elem src1) (elem src2)))
   putEndLabel ctxt lblIgnore ir
   !>ir insLen
 
@@ -3253,28 +3275,39 @@ let vaddl (ins: InsInfo) insLen ctxt =
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
   !<ir insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
-  let struct (dst, src1, src2) = transThreeOprs ins ctxt
-  let esize = 8 * (getEBytes ins.SIMDTyp)
-  let rtEsize = RegType.fromBitWidth esize
-  let eSzDbl = rtEsize * 2
-  let elements = 64 / esize
-  let op1 = !+ir rtEsize
-  let result = !+ir eSzDbl
-  for e in 0 .. elements - 1 do
-    !!ir (op1 := elem src1 e esize)
-    !!ir (result := AST.zext eSzDbl op1 .+ AST.zext eSzDbl (elem src2 e esize))
-    !!ir (elem dst e (2 * esize) := result)
+  let p = getParsingInfo ins
+  let struct (dst, src1, src2) = getThreeOprs ins
+  let dstB, dstA = transOprToExpr128 ctxt dst
+  let src1 = transOprToExpr ctxt src1
+  let src2 = transOprToExpr ctxt src2
+  for e in 0 .. (p.Elements - 1) / 2 do
+    !!ir (elem dstA e (2 * p.ESize) :=
+      AST.zext (p.RtESize * 2) (elem src1 e p.ESize) .+
+      AST.zext (p.RtESize * 2) (elem src2 e p.ESize))
+    !!ir (elem dstB e (2 * p.ESize) :=
+      AST.zext (p.RtESize * 2) (elem src1 (e + p.Elements / 2) p.ESize) .+
+      AST.zext (p.RtESize * 2) (elem src2 (e + p.Elements / 2) p.ESize))
   putEndLabel ctxt lblIgnore ir
   !>ir insLen
 
 let parseOprOfVDUP (ins: InsInfo) insLen ctxt esize =
   match ins.Operands with
-  | TwoOperands (OprSIMD (SFReg (Vector rd)),
-                 OprSIMD (SFReg (Scalar (rm, Some idx)))) ->
-    getRegVar ctxt rd, elem (getRegVar ctxt rm) (int32 idx) esize
-  | TwoOperands (OprSIMD (SFReg (Vector rd)), OprReg rm) ->
-    getRegVar ctxt rd,
-    AST.xtlo (RegType.fromBitWidth esize) (getRegVar ctxt rm)
+  | TwoOperands (OprSIMD (SFReg (Vector dst)),
+                 OprSIMD (SFReg (Scalar (src, Some idx)))) ->
+    getRegVar ctxt dst, elem (getRegVar ctxt src) (int32 idx) esize
+  | TwoOperands (OprSIMD (SFReg (Vector dst)), OprReg src) ->
+    getRegVar ctxt dst,
+    AST.xtlo (RegType.fromBitWidth esize) (getRegVar ctxt src)
+  | _ -> raise InvalidOperandException
+
+let parseOprOfVDUP128 (ins: InsInfo) insLen ctxt esize =
+  match ins.Operands with
+  | TwoOperands (OprSIMD (SFReg (Vector dst)),
+                 OprSIMD (SFReg (Scalar (src, Some idx)))) ->
+    getPseudoRegVar128 ctxt dst, elem (getRegVar ctxt src) (int32 idx) esize
+  | TwoOperands (OprSIMD (SFReg (Vector dst)), OprReg src) ->
+    getPseudoRegVar128 ctxt dst,
+    AST.xtlo (RegType.fromBitWidth esize) (getRegVar ctxt src)
   | _ -> raise InvalidOperandException
 
 let vdup (ins: InsInfo) insLen ctxt =
@@ -3282,13 +3315,16 @@ let vdup (ins: InsInfo) insLen ctxt =
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
   !<ir insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
-  let esize = 8 * getEBytes ins.SIMDTyp
-  let rd, scalar = parseOprOfVDUP ins insLen ctxt esize
-  let elements = 64 / esize
-  let regs = if TypeCheck.typeOf rd = 64<rt> then 1 else 2
-  for r in 0 .. regs - 1 do
-    let rd = AST.extract rd 64<rt> (r * 64)
-    for e in 0 .. elements - 1 do !!ir (elem rd e esize := scalar) done
+  let p = getParsingInfo ins
+  match ins.OprSize with
+  | 128<rt> ->
+    let (dstB, dstA), scalar = parseOprOfVDUP128 ins insLen ctxt p.ESize
+    for e in 0 .. p.Elements - 1 do
+      !!ir (elem dstB e p.ESize := scalar)
+      !!ir (elem dstA e p.ESize := scalar)
+  | _ ->
+    let dst, scalar = parseOprOfVDUP ins insLen ctxt p.ESize
+    for e in 0 .. p.Elements - 1 do !!ir (elem dst e p.ESize := scalar) done
   putEndLabel ctxt lblIgnore ir
   !>ir insLen
 
@@ -3320,15 +3356,22 @@ let vclz (ins: InsInfo) insLen ctxt =
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
   !<ir insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
-  let struct (rd, rm) = transTwoOprs ins ctxt
-  let pInfo = getParsingInfo ins
-  let regs = if TypeCheck.typeOf rd = 64<rt> then 1 else 2
-  for r in 0 .. regs - 1 do
-    let rd = AST.extract rd 64<rt> (r * 64)
-    let rm = AST.extract rm 64<rt> (r * 64)
-    for e in 0 .. pInfo.Elements - 1 do
-      countLeadingZeroBitsForIR (elem rd e pInfo.ESize) (elem rm e pInfo.ESize)
-                                pInfo.RtESize ir
+  let p = getParsingInfo ins
+  match ins.OprSize with
+  | 128<rt> ->
+    let struct (dst, src) = getTwoOprs ins
+    let dstB, dstA = transOprToExpr128 ctxt dst
+    let srcB, srcA = transOprToExpr128 ctxt src
+    for e in 0 .. p.Elements - 1 do
+      countLeadingZeroBitsForIR (elem dstB e p.ESize)
+                                (elem srcB e p.ESize) p.RtESize ir
+      countLeadingZeroBitsForIR (elem dstA e p.ESize)
+                                (elem srcA e p.ESize) p.RtESize ir
+  | _ ->
+    let struct (dst, src) = transTwoOprs ins ctxt
+    for e in 0 .. p.Elements - 1 do
+      countLeadingZeroBitsForIR (elem dst e p.ESize)
+                                (elem src e p.ESize) p.RtESize ir
   putEndLabel ctxt lblIgnore ir
   !>ir insLen
 
@@ -3345,45 +3388,51 @@ let isUnsigned = function
   | Some (OneDT SIMDTypU32) | Some (OneDT SIMDTypU64) -> true
   | Some (OneDT SIMDTypS8) | Some (OneDT SIMDTypS16)
   | Some (OneDT SIMDTypS32) | Some (OneDT SIMDTypS64) | Some (OneDT SIMDTypP8)
-    -> false
+  | Some (OneDT SIMDTypP64) -> false
   | _ -> raise InvalidOperandException
+
+let private mulZExtend p size expr1 expr2 amtOp =
+  amtOp (AST.zext (p.RtESize * size) expr1) (AST.zext (p.RtESize * size) expr2)
+
+let private mulSExtend p size expr1 expr2 amtOp =
+  amtOp (AST.sext (p.RtESize * size) expr1) (AST.sext (p.RtESize * size) expr2)
+
+let private unsignExtend (ins: InsInfo) p size expr1 expr2 amtOp =
+  if isUnsigned ins.SIMDTyp then mulZExtend p size expr1 expr2 amtOp
+  else mulSExtend p size expr1 expr2 amtOp
 
 let vmaxmin (ins: InsInfo) insLen ctxt maximum =
   let ir = !*ctxt
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
   !<ir insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
-  let struct (rd, rn, rm) = transThreeOprs ins ctxt
-  let pInfo = getParsingInfo ins
-  let regs = if TypeCheck.typeOf rd = 64<rt> then 1 else 2
+  let p = getParsingInfo ins
   let unsigned = isUnsigned ins.SIMDTyp
-  for r in 0 .. regs - 1 do
-    let rn = AST.extract rn 64<rt> (r * 64)
-    let rm = AST.extract rm 64<rt> (r * 64)
-    let rd = AST.extract rd 64<rt> (r * 64)
-    for e in 0 .. pInfo.Elements - 1 do
-      let op1 = elem rn e pInfo.ESize
-      let op2 = elem rm e pInfo.ESize
+  match ins.OprSize with
+  | 128<rt> ->
+    let struct (dst, src1, src2) = getThreeOprs ins
+    let dstB, dstA = transOprToExpr128 ctxt dst
+    let src1B, src1A = transOprToExpr128 ctxt src1
+    let src2B, src2A = transOprToExpr128 ctxt src2
+    for e in 0 .. p.Elements - 1 do
+      let op1B, op2B = elem src1B e p.ESize, elem src2B e p.ESize
+      let op1A, op2A = elem src1A e p.ESize, elem src2A e p.ESize
+      let result1 =
+        if maximum then maxExpr unsigned op1B op2B
+        else minExpr unsigned op1B op2B
+      let result2 =
+        if maximum then maxExpr unsigned op1A op2A
+        else minExpr unsigned op1A op2A
+      !!ir (elem dstB e p.ESize := AST.xtlo p.RtESize result1)
+      !!ir (elem dstA e p.ESize := AST.xtlo p.RtESize result2)
+  | _ ->
+    let struct (dst, src1, src2) = transThreeOprs ins ctxt
+    for e in 0 .. p.Elements - 1 do
+      let op1 = elem src1 e p.ESize
+      let op2 = elem src2 e p.ESize
       let result =
         if maximum then maxExpr unsigned op1 op2 else minExpr unsigned op1 op2
-      !!ir (elem rd e pInfo.ESize := AST.xtlo pInfo.RtESize result)
-  putEndLabel ctxt lblIgnore ir
-  !>ir insLen
-
-let vsub (ins: InsInfo) insLen ctxt =
-  let ir = !*ctxt
-  let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
-  let struct (rd, rn, rm) = transThreeOprs ins ctxt
-  let p = getParsingInfo ins
-  let regs = if TypeCheck.typeOf rd = 64<rt> then 1 else 2
-  for r in 0 .. regs - 1 do
-    let rd = AST.extract rd 64<rt> (r * 64)
-    let rn = AST.extract rn 64<rt> (r * 64)
-    let rm = AST.extract rm 64<rt> (r * 64)
-    for e in 0 .. p.Elements - 1 do
-      !!ir (elem rd e p.ESize := elem rn e p.ESize .- elem rm e p.ESize)
+      !!ir (elem dst e p.ESize := AST.xtlo p.RtESize result)
   putEndLabel ctxt lblIgnore ir
   !>ir insLen
 
@@ -3449,9 +3498,8 @@ let vldm (ins: InsInfo) insLen ctxt =
     let word1 = AST.loadLE 32<rt> addr
     let word2 = AST.loadLE 32<rt> (addr .+ (numI32 4 32<rt>))
     let isbig = ctxt.Endianness = Endian.Big
-    !!ir
-      (regList[r] :=
-        if isbig then AST.concat word1 word2 else AST.concat word2 word1)
+    !!ir (regList[r] :=
+           if isbig then AST.concat word1 word2 else AST.concat word2 word1)
     !!ir (addr := addr .+ (numI32 8 32<rt>))
   putEndLabel ctxt lblIgnore ir
   !>ir insLen
@@ -3461,18 +3509,32 @@ let vecMulAccOrSub (ins: InsInfo) insLen ctxt add =
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
   !<ir insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
-  let struct (rd, rn, rm) = transThreeOprs ins ctxt
-  let pInfo = getParsingInfo ins
-  let regs = if TypeCheck.typeOf rd = 64<rt> then 1 else 2
-  for r in 0 .. regs - 1 do
-    let rd = AST.extract rd 64<rt> (r * 64)
-    let rn = AST.extract rn 64<rt> (r * 64)
-    let rm = AST.extract rm 64<rt> (r * 64)
-    for e in 0 .. pInfo.Elements - 1 do
-      let sext reg = AST.sext pInfo.RtESize (elem reg e pInfo.ESize)
-      let product = sext rn .* sext rm
+  let p = getParsingInfo ins
+  match ins.OprSize with
+  | 128<rt> ->
+    let struct (dst, src1, src2) = getThreeOprs ins
+    let dstB, dstA = transOprToExpr128 ctxt dst
+    let src1B, src1A = transOprToExpr128 ctxt src1
+    let src2B, src2A = transOprToExpr128 ctxt src2
+    for e in 0 .. p.Elements - 1 do
+      let sext1A = AST.sext p.RtESize (elem src1A e p.ESize)
+      let sext1B = AST.sext p.RtESize (elem src1B e p.ESize)
+      let sext2A = AST.sext p.RtESize (elem src2A e p.ESize)
+      let sext2B = AST.sext p.RtESize (elem src2B e p.ESize)
+      let productA = sext1A .* sext2A
+      let productB = sext1B .* sext2B
+      let addendA, addendB =
+        if add then productA, productB else AST.not productA, AST.not productB
+      !!ir (elem dstB e p.ESize := elem dstB e p.ESize .+ addendB)
+      !!ir (elem dstA e p.ESize := elem dstA e p.ESize .+ addendA)
+  | _ ->
+    let struct (dst, src1, src2) = transThreeOprs ins ctxt
+    for e in 0 .. p.Elements - 1 do
+      let sext1 = AST.sext p.RtESize (elem src1 e p.ESize)
+      let sext2 = AST.sext p.RtESize (elem src2 e p.ESize)
+      let product = sext1 .* sext2
       let addend = if add then product else AST.not product
-      !!ir (elem rd e pInfo.ESize := elem rd e pInfo.ESize .+ addend)
+      !!ir (elem dst e p.ESize := elem dst e p.ESize .+ addend)
   putEndLabel ctxt lblIgnore ir
   !>ir insLen
 
@@ -3481,43 +3543,55 @@ let vecMulAccOrSubLong (ins: InsInfo) insLen ctxt add =
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
   !<ir insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
-  let struct (rd, rn, rm) = transThreeOprs ins ctxt
   let p = getParsingInfo ins
   let unsigned = isUnsigned ins.SIMDTyp
-  for e in 0 .. p.Elements - 1 do
+  let struct (dst, src1, src2) = getThreeOprs ins
+  let dstB, dstA = transOprToExpr128 ctxt dst
+  let src1 = transOprToExpr ctxt src1
+  let src2 = transOprToExpr ctxt src2
+  for e in 0 .. (p.Elements - 1) / 2 do
     let extend expr =
       if unsigned then AST.zext (p.RtESize * 2) expr
       else AST.sext (p.RtESize * 2) expr
-    let product = extend (elem rn e p.ESize) .* extend (elem rm e p.ESize)
-    let addend = if add then product else AST.not product
-    !!ir (elem rd e (p.ESize * 2) := elem rd e (p.ESize * 2) .+ addend)
+    let productA = extend (elem src1 e p.ESize) .* extend (elem src2 e p.ESize)
+    let productB = extend (elem src1 (e + p.Elements / 2) p.ESize) .*
+                   extend (elem src2 (e + p.Elements / 2) p.ESize)
+    let addendA, addendB =
+      if add then productA, productB else AST.not productA, AST.not productB
+    !!ir (elem dstB e (p.ESize * 2) := elem dstB e (p.ESize * 2) .+ addendB)
+    !!ir (elem dstA e (p.ESize * 2) := elem dstA e (p.ESize * 2) .+ addendA)
   putEndLabel ctxt lblIgnore ir
   !>ir insLen
-
-let parseOprOfVMulByScalar (ins: InsInfo) insLen ctxt =
-  match ins.Operands with
-  | ThreeOperands (OprSIMD (SFReg (Vector rd)),
-                   OprSIMD (SFReg (Vector rn)),
-                   OprSIMD (SFReg (Scalar (rm, Some index)))) ->
-    getRegVar ctxt rd, getRegVar ctxt rn, (getRegVar ctxt rm, int32 index)
-  | _ -> raise InvalidOperandException
 
 let vecMulAccOrSubByScalar (ins: InsInfo) insLen ctxt add =
   let ir = !*ctxt
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
   !<ir insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
-  let rd, rn, (rm, index) = parseOprOfVMulByScalar ins insLen ctxt
   let p = getParsingInfo ins
-  let regs = if TypeCheck.typeOf rd = 64<rt> then 1 else 2
-  let op2val = AST.sext p.RtESize (elem rm index p.ESize)
-  for r in 0 .. regs - 1 do
-    let rd = AST.extract rd 64<rt> (r * 64)
-    let rn = AST.extract rn 64<rt> (r * 64)
+  let struct (dst, src1, src2) = getThreeOprs ins
+  let src2, index = transOprToSclar ctxt src2
+  let op2Val = AST.sext p.RtESize (elem src2 index p.ESize)
+  match ins.OprSize with
+  | 128<rt> ->
+    let dstB, dstA = transOprToExpr128 ctxt dst
+    let src1B, src1A = transOprToExpr128 ctxt src1
     for e in 0 .. p.Elements - 1 do
-      let op1val = AST.sext p.RtESize (elem rn e p.ESize)
-      let addend = if add then op1val .* op2val else AST.not (op1val .* op2val)
-      !!ir (elem rd e p.ESize := elem rd e p.ESize .+ addend)
+      let op1valA = AST.sext p.RtESize (elem src1A e p.ESize)
+      let op1valB = AST.sext p.RtESize (elem src1B e p.ESize)
+      let addendA, addendB =
+        if add then op1valA .* op2Val, op1valB .* op2Val
+        else AST.not (op1valA .* op2Val), AST.not (op1valB .* op2Val)
+      !!ir (elem dstB e p.ESize := elem dstB e p.ESize .+ addendB)
+      !!ir (elem dstA e p.ESize := elem dstA e p.ESize .+ addendA)
+  | _ ->
+    let dst = transOprToExpr ctxt dst
+    let src1 = transOprToExpr ctxt src1
+    for e in 0 .. p.Elements - 1 do
+      let op1val = AST.sext p.RtESize (elem src1 e p.ESize)
+      let addend =
+        if add then op1val .* op2Val else AST.not (op1val .* op2Val)
+      !!ir (elem dst e p.ESize := elem dst e p.ESize .+ addend)
   putEndLabel ctxt lblIgnore ir
   !>ir insLen
 
@@ -3526,14 +3600,21 @@ let vecMulAccOrSubLongByScalar (ins: InsInfo) insLen ctxt add =
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
   !<ir insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
-  let rd, rn, (rm, index) = parseOprOfVMulByScalar ins insLen ctxt
+  let struct (dst, src1, src2) = getThreeOprs ins
+  let dstB, dstA = transOprToExpr128 ctxt dst
+  let src1 = transOprToExpr ctxt src1
+  let src2, index = transOprToSclar ctxt src2
   let p = getParsingInfo ins
-  let ext = if isUnsigned ins.SIMDTyp then AST.sext else AST.zext
-  let op2val = ext (p.RtESize * 2) (elem rm index p.ESize)
-  for e in 0 .. p.Elements - 1 do
-    let op1val = ext (p.RtESize * 2) (elem rn e p.ESize)
-    let addend = if add then op1val .* op2val else AST.not (op1val .* op2val)
-    !!ir (elem rd e (p.ESize * 2) := elem rd e (p.ESize * 2) .+ addend)
+  let ext = if isUnsigned ins.SIMDTyp then AST.zext else AST.sext
+  let op2val = ext (p.RtESize * 2) (elem src2 index p.ESize)
+  for e in 0 .. (p.Elements - 1) / 2 do
+    let op1valA = ext (p.RtESize * 2) (elem src1 e p.ESize)
+    let op1valB = ext (p.RtESize * 2) (elem src1 (e + p.Elements / 2) p.ESize)
+    let addendA, addendB =
+      if add then op1valA .* op2val, op1valB .* op2val
+      else AST.not (op1valA .* op2val), AST.not (op1valB .* op2val)
+    !!ir (elem dstB e (p.ESize * 2) := elem dstB e (p.ESize * 2) .+ addendB)
+    !!ir (elem dstA e (p.ESize * 2) := elem dstA e (p.ESize * 2) .+ addendA)
   putEndLabel ctxt lblIgnore ir
   !>ir insLen
 
@@ -3570,40 +3651,56 @@ let vmlsl (ins: InsInfo) insLen ctxt =
   | _ -> raise InvalidOperandException
 
 let isPolynomial = function
-  | Some (OneDT SIMDTypP8) -> true
+  | Some (OneDT SIMDTypP8) | Some (OneDT SIMDTypP64) -> true
   | _ -> false
 
-// PolynomialMult()
-// A2.8.1 Pseudocode details of polynomial multiplication
-let polynomialMult op1 op2 size = AST.concat op1 op2 // FIXME
-(* A2.8.1 Pseudocode details of polynomial multiplication
-bits(M+N) PolynomialMult(bits(M) op1, bits(N) op2)
-  result = Zeros(M+N);
-  extended_op2 = Zeros(M) : op2;
-  for i=0 to M-1
-    if op1<i> == '1' then
-      result = result EOR LSL(extended_op2, i);
-  return result;
-*)
+/// shared/functions/vector/PolynomialMult, in page Armv8 Pseudocode-7927
+let polynomialMult op1 op2 size rtsize res (ir: IRBuilder) =
+  let extendedOP2 = AST.zext rtsize op2
+  for i = 0 to size - 1 do
+    let cond = AST.extract op1 1<rt> i
+    !!ir (res := AST.ite cond (res <+> (extendedOP2 << numI32 i rtsize)) res)
+
+let polynomialMultP64 op1 op2 size rtsize resA resB (ir: IRBuilder) =
+  for i = 0 to size - 1 do
+    let cond = AST.extract op1 1<rt> i
+    !!ir (resA := AST.ite cond (resA <+> (op2 << numI32 i rtsize)) resA)
+    !!ir (resB := AST.ite cond (resB <+> (op2 >> numI32 (64 - i) rtsize)) resB)
 
 let vecMul (ins: InsInfo) insLen ctxt =
   let ir = !*ctxt
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
   !<ir insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
-  let struct (rd, rn, rm) = transThreeOprs ins ctxt
   let p = getParsingInfo ins
-  let regs = if TypeCheck.typeOf rd = 64<rt> then 1 else 2
   let polynomial = isPolynomial ins.SIMDTyp
-  for r in 0 .. regs - 1 do
-    let rd = AST.extract rd 64<rt> (r * 64)
-    let rn = AST.extract rn 64<rt> (r * 64)
-    let rm = AST.extract rm 64<rt> (r * 64)
+  let struct (resultA, resultB) = tmpVars2 ir (p.RtESize * 2)
+  match ins.OprSize with
+  | 128<rt> ->
+    let struct (dst, src1, src2) = getThreeOprs ins
+    let dstB, dstA = transOprToExpr128 ctxt dst
+    let src1B, src1A = transOprToExpr128 ctxt src1
+    let src2B, src2A = transOprToExpr128 ctxt src2
     for e in 0 .. p.Elements - 1 do
-      let sext reg = AST.sext (p.RtESize * 2) (elem reg e p.ESize)
-      let product =
-        if polynomial then polynomialMult rn rm p.ESize else sext rn .* sext rm
-      !!ir (elem rd e p.ESize := AST.xtlo p.RtESize product)
+      let struct (op1A, op2A, op1B, op2B) =
+        elem src1A e p.ESize, elem src2A e p.ESize,
+        elem src1B e p.ESize, elem src2B e p.ESize
+      if polynomial then
+        polynomialMult op1A op2A p.ESize (p.RtESize * 2) resultA ir
+        polynomialMult op1B op2B p.ESize (p.RtESize * 2) resultB ir
+      else
+        !!ir (resultA := mulSExtend p 2 op1A op2A (.*))
+        !!ir (resultB := mulSExtend p 2 op1B op2B (.*))
+      !!ir (elem dstA e p.ESize := AST.xtlo p.RtESize resultA)
+      !!ir (elem dstB e p.ESize := AST.xtlo p.RtESize resultB)
+  | _ ->
+    let struct (dst, src1, src2) = transThreeOprs ins ctxt
+    for e in 0 .. p.Elements - 1 do
+      let struct (op1, op2) = elem src1 e p.ESize, elem src2 e p.ESize
+      if polynomial then
+        polynomialMult op1 op2 p.ESize (p.RtESize * 2) resultA ir
+      else !!ir (resultA := mulSExtend p 2 op1 op2 (.*))
+      !!ir (elem dst e p.ESize := AST.xtlo p.RtESize resultA)
   putEndLabel ctxt lblIgnore ir
   !>ir insLen
 
@@ -3612,15 +3709,32 @@ let vecMulLong (ins: InsInfo) insLen ctxt =
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
   !<ir insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
-  let struct (rd, rn, rm) = transThreeOprs ins ctxt
   let p = getParsingInfo ins
-  let unsigned = isUnsigned ins.SIMDTyp
-  for e in 0 .. p.Elements - 1 do
-    let extend reg =
-      if unsigned then AST.zext (p.RtESize * 2) (elem reg e p.ESize)
-      else AST.sext (p.RtESize * 2) (elem reg e p.ESize)
-    let product = AST.xtlo (p.RtESize * 2) (extend rn .* extend rm)
-    !!ir (elem rd e (p.ESize * 2) := product)
+  let polynomial = isPolynomial ins.SIMDTyp
+  let struct (dst, src1, src2) = getThreeOprs ins
+  let dstB, dstA = transOprToExpr128 ctxt dst
+  let src1 = transOprToExpr ctxt src1
+  let src2 = transOprToExpr ctxt src2
+  let isPolyAndE64 = polynomial && p.ESize = 64
+  let struct (regSize, eSize) =
+    if isPolyAndE64 then p.RtESize, p.ESize
+    else p.RtESize * 2, p.ESize * 2
+  let struct (resA, resB) = tmpVars2 ir regSize
+  for e in 0 .. (p.Elements - 1) / 2 do
+    let struct (op1A, op2A, op1B, op2B) =
+      elem src1 e p.ESize, elem src2 e p.ESize,
+      elem src1 (e + p.Elements / 2) p.ESize,
+      elem src2 (e + p.Elements / 2) p.ESize
+    if isPolyAndE64 then
+      polynomialMultP64 op1A op2A p.ESize p.RtESize resA resB ir
+    elif polynomial then
+      polynomialMult op1A op2A p.ESize (p.RtESize * 2) resA ir
+      polynomialMult op1A op2A p.ESize (p.RtESize * 2) resB ir
+    else
+      !!ir (resA := unsignExtend ins p 2 op1A op2A (.*))
+      !!ir (resB := unsignExtend ins p 2 op1B op2B (.*))
+    !!ir (elem dstB e eSize := AST.xtlo regSize resB)
+    !!ir (elem dstA e eSize := AST.xtlo regSize resA)
   putEndLabel ctxt lblIgnore ir
   !>ir insLen
 
@@ -3629,16 +3743,25 @@ let vecMulByScalar (ins: InsInfo) insLen ctxt =
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
   !<ir insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
-  let rd, rn, (rm, index) = parseOprOfVMulByScalar ins insLen ctxt
   let p = getParsingInfo ins
-  let regs = if TypeCheck.typeOf rd = 64<rt> then 1 else 2
-  let op2val = AST.sext (RegType.fromBitWidth p.ESize) (elem rm index p.ESize)
-  for r in 0 .. regs - 1 do
-    let rd = AST.extract rd 64<rt> (r * 64)
-    let rn = AST.extract rn 64<rt> (r * 64)
+  let struct (dst, src1, src2) = getThreeOprs ins
+  let src2, index = transOprToSclar ctxt src2
+  let op2val = elem src2 index p.ESize
+  match ins.OprSize with
+  | 128<rt> ->
+    let dstB, dstA = transOprToExpr128 ctxt dst
+    let src1B, src1A = transOprToExpr128 ctxt src1
     for e in 0 .. p.Elements - 1 do
-      let op1val = AST.sext p.RtESize (elem rn e p.ESize)
-      !!ir (elem rd e p.ESize := AST.xtlo p.RtESize (op1val .* op2val))
+      let resA = mulSExtend p 1 (elem src1A e p.ESize) op2val (.*)
+      let resB = mulSExtend p 1 (elem src1B e p.ESize) op2val (.*)
+      !!ir (elem dstB e p.ESize := AST.xtlo p.RtESize resB)
+      !!ir (elem dstA e p.ESize := AST.xtlo p.RtESize resA)
+  | _ ->
+    let dst = transOprToExpr ctxt dst
+    let src1 = transOprToExpr ctxt src1
+    for e in 0 .. p.Elements - 1 do
+      let res = mulSExtend p 1 (elem src1 e p.ESize) op2val (.*)
+      !!ir (elem dst e p.ESize := AST.xtlo p.RtESize res)
   putEndLabel ctxt lblIgnore ir
   !>ir insLen
 
@@ -3647,14 +3770,18 @@ let vecMulLongByScalar (ins: InsInfo) insLen ctxt =
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
   !<ir insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
-  let rd, rn, (rm, index) = parseOprOfVMulByScalar ins insLen ctxt
+  let struct (dst, src1, src2) = getThreeOprs ins
+  let dstB, dstA = transOprToExpr128 ctxt dst
+  let src1 = transOprToExpr ctxt src1
+  let src2, index = transOprToSclar ctxt src2
   let p = getParsingInfo ins
-  let rtESz = p.RtESize * 2
-  let ext = if isUnsigned ins.SIMDTyp then AST.sext else AST.zext
-  let op2val = ext rtESz (elem rm index p.ESize)
-  for e in 0 .. p.Elements - 1 do
-    let op1val = ext rtESz (elem rn e p.ESize)
-    !!ir (elem rd e (p.ESize * 2) := AST.xtlo rtESz (op1val .* op2val))
+  let op2val = elem src2 index p.ESize
+  let pele2 = p.Elements / 2
+  for e in 0 .. (p.Elements - 1) / 2 do
+    let resA = unsignExtend ins p 2 (elem src1 e p.ESize) op2val (.*)
+    let resB = unsignExtend ins p 2 (elem src1 (e + pele2) p.ESize) op2val (.*)
+    !!ir (elem dstB e (p.ESize * 2) := AST.xtlo (p.RtESize * 2) resB)
+    !!ir (elem dstA e (p.ESize * 2) := AST.xtlo (p.RtESize * 2) resA)
   putEndLabel ctxt lblIgnore ir
   !>ir insLen
 
@@ -3680,17 +3807,27 @@ let getSizeStartFromI16 = function
   | Some (OneDT SIMDTypI64) -> 0b10
   | _ -> raise InvalidOperandException
 
+let getSizeStartFrom16 = function
+  | Some (OneDT SIMDTyp16) -> 0b00
+  | Some (OneDT SIMDTyp32) -> 0b01
+  | Some (OneDT SIMDTyp64) -> 0b10
+  | _ -> raise InvalidOperandException
+
 let vmovn (ins: InsInfo) insLen ctxt =
   let ir = !*ctxt
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
   !<ir insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
-  let struct (rd, rm) = transTwoOprs ins ctxt
-  let esize = 8 <<< getSizeStartFromI16 ins.SIMDTyp
+  let struct (dst, src) = getTwoOprs ins
+  let dst = transOprToExpr ctxt dst
+  let srcB, srcA = transOprToExpr128 ctxt src
+  let esize = 8 <<< getSizeStartFrom16 ins.SIMDTyp
   let rtEsz = RegType.fromBitWidth esize
   let elements = 64 / esize
-  for e in 0 .. elements - 1 do
-    !!ir (elem rd e esize := AST.xtlo rtEsz (elem rm e (esize * 2)))
+  for e in 0 .. (elements - 1) / 2 do
+    !!ir (elem dst e esize := AST.xtlo rtEsz (elem srcB e esize))
+    !!ir (elem dst (e + elements / 2) esize :=
+         AST.xtlo rtEsz (elem srcA e esize))
   putEndLabel ctxt lblIgnore ir
   !>ir insLen
 
@@ -3699,15 +3836,22 @@ let vneg (ins: InsInfo) insLen ctxt =
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
   !<ir insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
-  let struct (rd, rm) = transTwoOprs ins ctxt
   let p = getParsingInfo ins
-  let regs = if TypeCheck.typeOf rd = 64<rt> then 1 else 2
-  for r in 0 .. regs - 1 do
-    let rd = AST.extract rd 64<rt> (r * 64)
-    let rm = AST.extract rm 64<rt> (r * 64)
+  match ins.OprSize with
+  | 128<rt> ->
+    let struct (dst, src) = getTwoOprs ins
+    let dstB, dstA = transOprToExpr128 ctxt dst
+    let srcB, srcA = transOprToExpr128 ctxt src
     for e in 0 .. p.Elements - 1 do
-      let result = AST.neg <| AST.sext p.RtESize (elem rm e p.ESize)
-      !!ir (elem rd e p.ESize := AST.xtlo p.RtESize result)
+      let result1 = AST.neg <| AST.sext p.RtESize (elem srcB e p.ESize)
+      let result2 = AST.neg <| AST.sext p.RtESize (elem srcA e p.ESize)
+      !!ir (elem dstB e p.ESize := AST.xtlo p.RtESize result1)
+      !!ir (elem dstA e p.ESize := AST.xtlo p.RtESize result2)
+  | _ ->
+    let struct (dst, src) = transTwoOprs ins ctxt
+    for e in 0 .. p.Elements - 1 do
+      let result = AST.neg <| AST.sext p.RtESize (elem src e p.ESize)
+      !!ir (elem dst e p.ESize := AST.xtlo p.RtESize result)
   putEndLabel ctxt lblIgnore ir
   !>ir insLen
 
@@ -3720,7 +3864,6 @@ let vpadd (ins: InsInfo) insLen ctxt =
   let p = getParsingInfo ins
   let h = p.Elements / 2
   let dest = !+ir 64<rt>
-  !!ir (dest := AST.num0 64<rt>)
   for e in 0 .. h - 1 do
     let addPair expr =
       elem expr (2 * e) p.ESize .+ elem expr (2 * e + 1) p.ESize
@@ -3735,18 +3878,27 @@ let vrshr (ins: InsInfo) insLen ctxt =
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
   !<ir insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
-  let struct (rd, rm, imm) = transThreeOprs ins ctxt
-  let imm = AST.zext 64<rt> imm
   let p = getParsingInfo ins
-  let regs = if TypeCheck.typeOf rd = 64<rt> then 1 else 2
   let extend = if isUnsigned ins.SIMDTyp then AST.zext else AST.sext
-  let roundConst = AST.num1 64<rt> << (imm .- AST.num1 64<rt>)
-  for r in 0 .. regs - 1 do
-    let rd = AST.extract rd 64<rt> (r * 64)
-    let rm = AST.extract rm 64<rt> (r * 64)
+  match ins.OprSize with
+  | 128<rt> ->
+    let struct (dst, src, imm) = getThreeOprs ins
+    let dstB, dstA = transOprToExpr128 ctxt dst
+    let srcB, srcA = transOprToExpr128 ctxt src
+    let imm = AST.zext 64<rt> (transOprToExpr ctxt imm)
+    let roundConst = AST.num1 64<rt> << (imm .- AST.num1 64<rt>)
     for e in 0 .. p.Elements - 1 do
-      let result = (extend 64<rt> (elem rm e p.ESize) .+ roundConst) >> imm
-      !!ir (elem rd e p.ESize := AST.xtlo p.RtESize result)
+      let result1 = (extend 64<rt> (elem srcB e p.ESize) .+ roundConst) >> imm
+      let result2 = (extend 64<rt> (elem srcA e p.ESize) .+ roundConst) >> imm
+      !!ir (elem dstB e p.ESize := AST.xtlo p.RtESize result1)
+      !!ir (elem dstA e p.ESize := AST.xtlo p.RtESize result2)
+  | _ ->
+    let struct (dst, src, imm) = transThreeOprs ins ctxt
+    let imm = AST.zext 64<rt> imm
+    let roundConst = AST.num1 64<rt> << (imm .- AST.num1 64<rt>)
+    for e in 0 .. p.Elements - 1 do
+      let result = (extend 64<rt> (elem src e p.ESize) .+ roundConst) >> imm
+      !!ir (elem dst e p.ESize := AST.xtlo p.RtESize result)
   putEndLabel ctxt lblIgnore ir
   !>ir insLen
 
@@ -3755,15 +3907,21 @@ let vshlImm (ins: InsInfo) insLen ctxt =
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
   !<ir insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
-  let struct (rd, rm, imm) = transThreeOprs ins ctxt
   let p = getParsingInfo ins
-  let imm = AST.zext p.RtESize imm
-  let regs = if TypeCheck.typeOf rd = 64<rt> then 1 else 2
-  for r in 0 .. regs - 1 do
-    let rd = AST.extract rd 64<rt> (r * 64)
-    let rm = AST.extract rm 64<rt> (r * 64)
+  match ins.OprSize with
+  | 128<rt> ->
+    let struct (dst, src, imm) = getThreeOprs ins
+    let dstB, dstA = transOprToExpr128 ctxt dst
+    let srcB, srcA = transOprToExpr128 ctxt src
+    let imm = AST.zext p.RtESize (transOprToExpr ctxt imm)
     for e in 0 .. p.Elements - 1 do
-      !!ir (elem rd e p.ESize := elem rm e p.ESize << imm)
+      !!ir (elem dstB e p.ESize := elem srcB e p.ESize << imm)
+      !!ir (elem dstA e p.ESize := elem srcA e p.ESize << imm)
+  | _ ->
+    let struct (dst, src, imm) = transThreeOprs ins ctxt
+    let imm = AST.zext p.RtESize imm
+    for e in 0 .. p.Elements - 1 do
+      !!ir (elem dst e p.ESize := elem src e p.ESize << imm)
   putEndLabel ctxt lblIgnore ir
   !>ir insLen
 
@@ -3772,17 +3930,27 @@ let vshlReg (ins: InsInfo) insLen ctxt =
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
   !<ir insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
-  let struct (rd, rm, rn) = transThreeOprs ins ctxt
   let p = getParsingInfo ins
-  let regs = if TypeCheck.typeOf rd = 64<rt> then 1 else 2
   let extend = if isUnsigned ins.SIMDTyp then AST.zext else AST.sext
-  for r in 0 .. regs - 1 do
-    let rd = AST.extract rd 64<rt> (r * 64)
-    let rm = AST.extract rm 64<rt> (r * 64)
+  match ins.OprSize with
+  | 128<rt> ->
+    let struct (dst, src1, src2) = getThreeOprs ins
+    let dstB, dstA = transOprToExpr128 ctxt dst
+    let src1B, src1A = transOprToExpr128 ctxt src1
+    let src2B, src2A = transOprToExpr128 ctxt src2
     for e in 0 .. p.Elements - 1 do
-      let shift = AST.sext 64<rt> (AST.xtlo 8<rt> (elem rn e p.ESize))
-      let result = extend 64<rt> (elem rm e p.ESize) << shift
-      !!ir (elem rd e p.ESize := AST.xtlo p.RtESize result)
+      let shift1 = AST.sext 64<rt> (AST.xtlo 8<rt> (elem src2B e p.ESize))
+      let shift2 = AST.sext 64<rt> (AST.xtlo 8<rt> (elem src2A e p.ESize))
+      let result1 = extend 64<rt> (elem src1B e p.ESize) << shift1
+      let result2 = extend 64<rt> (elem src1A e p.ESize) << shift2
+      !!ir (elem dstB e p.ESize := AST.xtlo p.RtESize result1)
+      !!ir (elem dstA e p.ESize := AST.xtlo p.RtESize result2)
+  | _ ->
+    let struct (dst, src1, src2) = transThreeOprs ins ctxt
+    for e in 0 .. p.Elements - 1 do
+      let shift = AST.sext 64<rt> (AST.xtlo 8<rt> (elem src2 e p.ESize))
+      let result = extend 64<rt> (elem src1 e p.ESize) << shift
+      !!ir (elem dst e p.ESize := AST.xtlo p.RtESize result)
   putEndLabel ctxt lblIgnore ir
   !>ir insLen
 
@@ -3797,17 +3965,25 @@ let vshr (ins: InsInfo) insLen ctxt =
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
   !<ir insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
-  let struct (rd, rm, imm) = transThreeOprs ins ctxt
   let p = getParsingInfo ins
-  let imm = AST.zext 64<rt> imm
-  let regs = if TypeCheck.typeOf rd = 64<rt> then 1 else 2
   let extend = if isUnsigned ins.SIMDTyp then AST.zext else AST.sext
-  for r in 0 .. regs - 1 do
-    let rd = AST.extract rd 64<rt> (r * 64)
-    let rm = AST.extract rm 64<rt> (r * 64)
+  match ins.OprSize with
+  | 128<rt> ->
+    let struct (dst, src, imm) = getThreeOprs ins
+    let dstB, dstA = transOprToExpr128 ctxt dst
+    let srcB, srcA = transOprToExpr128 ctxt dst
+    let imm = AST.zext 64<rt> (transOprToExpr ctxt imm)
     for e in 0 .. p.Elements - 1 do
-      let result = extend 64<rt> (elem rm e p.ESize) >> imm
-      !!ir (elem rd e p.ESize := AST.xtlo p.RtESize result)
+      let result1 = extend 64<rt> (elem srcB e p.ESize) >> imm
+      let result2 = extend 64<rt> (elem srcA e p.ESize) >> imm
+      !!ir (elem dstB e p.ESize := AST.xtlo p.RtESize result1)
+      !!ir (elem dstA e p.ESize := AST.xtlo p.RtESize result2)
+  | _ ->
+    let struct (dst, src, imm) = transThreeOprs ins ctxt
+    let imm = AST.zext 64<rt> imm
+    for e in 0 .. p.Elements - 1 do
+      let result = extend 64<rt> (elem src e p.ESize) >> imm
+      !!ir (elem dst e p.ESize := AST.xtlo p.RtESize result)
   putEndLabel ctxt lblIgnore ir
   !>ir insLen
 
@@ -3846,61 +4022,122 @@ let isImm = function
   | Num _ -> true
   | _ -> false
 
-let vectorCompare (ins: InsInfo) insLen ctxt cmp =
+let vectorCompareImm (ins: InsInfo) insLen ctxt cmp =
   let ir = !*ctxt
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
   !<ir insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
-  let struct (rd, src1, src2) = transThreeOprs ins ctxt
   let p = getParsingInfo ins
-  let regs = if TypeCheck.typeOf rd = 64<rt> then 1 else 2
-  for r in 0 .. regs - 1 do
-    let rd = AST.extract rd 64<rt> (r * 64)
-    let src1 = AST.extract src1 64<rt> (r * 64)
+  let num0 = AST.num0 p.RtESize
+  match ins.OprSize with
+  | 128<rt> ->
+    let struct (dst, src1, src2) = getThreeOprs ins
+    let dstB, dstA = transOprToExpr128 ctxt dst
+    let src1B, src1A = transOprToExpr128 ctxt src1
     for e in 0 .. p.Elements - 1 do
-      let src2 = if isImm src2.E then AST.num0 p.RtESize
-                 else elem (AST.extract src2 64<rt> (r * 64)) e p.ESize
-      let t = cmp (elem src1 e p.ESize) src2
-      !!ir
-        (elem rd e p.ESize := AST.ite t (ones p.RtESize) (AST.num0 p.RtESize))
+      let t1 = cmp (elem src1B e p.ESize) num0
+      let t2 = cmp (elem src1A e p.ESize) num0
+      !!ir (elem dstB e p.ESize := AST.ite t1 (ones p.RtESize) num0)
+      !!ir (elem dstA e p.ESize := AST.ite t2 (ones p.RtESize) num0)
+  | _ ->
+    let struct (dst, src1, src2) = transThreeOprs ins ctxt
+    for e in 0 .. p.Elements - 1 do
+      let t = cmp (elem src1 e p.ESize) num0
+      !!ir (elem dst e p.ESize := AST.ite t (ones p.RtESize) num0)
+  putEndLabel ctxt lblIgnore ir
+  !>ir insLen
+
+let vectorCompareReg (ins: InsInfo) insLen ctxt cmp =
+  let ir = !*ctxt
+  let isUnconditional = ParseUtils.isUnconditional ins.Condition
+  !<ir insLen
+  let lblIgnore = checkCondition ins ctxt isUnconditional ir
+  let p = getParsingInfo ins
+  let num0 = AST.num0 p.RtESize
+  match ins.OprSize with
+  | 128<rt> ->
+    let struct (dst, src1, src2) = getThreeOprs ins
+    let dstB, dstA = transOprToExpr128 ctxt dst
+    let src1B, src1A = transOprToExpr128 ctxt src1
+    let src2B, src2A = transOprToExpr128 ctxt src2
+    for e in 0 .. p.Elements - 1 do
+      let t1 = cmp (elem src1B e p.ESize) (elem src2B e p.ESize)
+      let t2 = cmp (elem src1A e p.ESize) (elem src2A e p.ESize)
+      !!ir (elem dstB e p.ESize := AST.ite t1 (ones p.RtESize) num0)
+      !!ir (elem dstA e p.ESize := AST.ite t2 (ones p.RtESize) num0)
+  | _ ->
+    let struct (dst, src1, src2) = transThreeOprs ins ctxt
+    for e in 0 .. p.Elements - 1 do
+      let t = cmp (elem src1 e p.ESize) (elem src2 e p.ESize)
+      !!ir (elem dst e p.ESize := AST.ite t (ones p.RtESize) num0)
   putEndLabel ctxt lblIgnore ir
   !>ir insLen
 
 let getCmp (ins: InsInfo) unsigned signed =
   if isUnsigned ins.SIMDTyp then unsigned else signed
 
-let vceq ins insLen ctxt =
-  vectorCompare ins insLen ctxt (==)
+let vceq (ins: InsInfo) insLen ctxt =
+  match ins.Operands with
+  | ThreeOperands (_, _, OprImm _) -> vectorCompareImm ins insLen ctxt (==)
+  | ThreeOperands (_, _, OprSIMD _) -> vectorCompareReg ins insLen ctxt (==)
+  | _ -> raise InvalidOperandException
 
-let vcge ins insLen ctxt =
-  vectorCompare ins insLen ctxt (getCmp ins AST.ge AST.sge)
+let vcge (ins: InsInfo) insLen ctxt =
+  match ins.Operands with
+  | ThreeOperands (_, _, OprImm _) -> vectorCompareImm ins insLen ctxt
+                                        (getCmp ins AST.ge AST.sge)
+  | ThreeOperands (_, _, OprSIMD _) -> vectorCompareReg ins insLen ctxt
+                                         (getCmp ins AST.ge AST.sge)
+  | _ -> raise InvalidOperandException
 
-let vcgt ins insLen ctxt =
-  vectorCompare ins insLen ctxt (getCmp ins AST.gt AST.sgt)
+let vcgt (ins: InsInfo) insLen ctxt =
+  match ins.Operands with
+  | ThreeOperands (_, _, OprImm _) -> vectorCompareImm ins insLen ctxt
+                                        (getCmp ins AST.gt AST.sgt)
+  | ThreeOperands (_, _, OprSIMD _) -> vectorCompareReg ins insLen ctxt
+                                         (getCmp ins AST.gt AST.sgt)
+  | _ -> raise InvalidOperandException
 
-let vcle ins insLen ctxt =
-  vectorCompare ins insLen ctxt (getCmp ins AST.le AST.sle)
+let vcle (ins: InsInfo) insLen ctxt =
+  match ins.Operands with
+  | ThreeOperands (_, _, OprImm _) -> vectorCompareImm ins insLen ctxt
+                                        (getCmp ins AST.le AST.sle)
+  | ThreeOperands (_, _, OprSIMD _) -> vectorCompareReg ins insLen ctxt
+                                         (getCmp ins AST.le AST.sle)
+  | _ -> raise InvalidOperandException
 
-let vclt ins insLen ctxt =
-  vectorCompare ins insLen ctxt (getCmp ins AST.lt AST.slt)
+let vclt (ins: InsInfo) insLen ctxt =
+  match ins.Operands with
+  | ThreeOperands (_, _, OprImm _) -> vectorCompareImm ins insLen ctxt
+                                        (getCmp ins AST.lt AST.slt)
+  | ThreeOperands (_, _, OprSIMD _) -> vectorCompareReg ins insLen ctxt
+                                         (getCmp ins AST.lt AST.slt)
+  | _ -> raise InvalidOperandException
 
 let vtst (ins: InsInfo) insLen ctxt =
   let ir = !*ctxt
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
   !<ir insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
-  let struct (rd, rn, rm) = transThreeOprs ins ctxt
   let p = getParsingInfo ins
-  let regs = if TypeCheck.typeOf rd = 64<rt> then 1 else 2
   let n0 = AST.num0 p.RtESize
   let n1 = AST.num1 p.RtESize
-  for r in 0 .. regs - 1 do
-    let rd = AST.extract rd 64<rt> (r * 64)
-    let rn = AST.extract rn 64<rt> (r * 64)
-    let rm = AST.extract rm 64<rt> (r * 64)
+  match ins.OprSize with
+  | 128<rt> ->
+    let struct (dst, src1, src2) = getThreeOprs ins
+    let dstB, dstA = transOprToExpr128 ctxt dst
+    let src1B, src1A = transOprToExpr128 ctxt src1
+    let src2B, src2A = transOprToExpr128 ctxt src2
     for e in 0 .. p.Elements - 1 do
-      let c = (elem rn e p.ESize .& elem rm e p.ESize) != AST.num0 p.RtESize
-      !!ir (elem rd e p.ESize := AST.ite c n1 n0)
+      let c = (elem src1B e p.ESize .& elem src2B e p.ESize) != n0
+      let c2 = (elem src1A e p.ESize .& elem src2A e p.ESize) != n0
+      !!ir (elem dstB e p.ESize := AST.ite c n1 n0)
+      !!ir (elem dstA e p.ESize := AST.ite c2 n1 n0)
+  | _ ->
+    let struct (dst, src1, src2) = transThreeOprs ins ctxt
+    for e in 0 .. p.Elements - 1 do
+      let c = (elem src1 e p.ESize .& elem src2 e p.ESize) != n0
+      !!ir (elem dst e p.ESize := AST.ite c n1 n0)
   putEndLabel ctxt lblIgnore ir
   !>ir insLen
 
@@ -3909,15 +4146,19 @@ let vrshrn (ins: InsInfo) insLen ctxt =
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
   !<ir insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
-  let struct (rd, rm, imm) = transThreeOprs ins ctxt
   let esize = 8 <<< getSizeStartFromI16 ins.SIMDTyp
   let rtEsz = RegType.fromBitWidth esize
-  let imm = AST.zext (rtEsz * 2) imm
   let elements = 64 / esize
+  let struct (dst, src, imm) = getThreeOprs ins
+  let dst = transOprToExpr ctxt dst
+  let srcB, srcA = transOprToExpr128 ctxt src
+  let imm = AST.zext (rtEsz * 2) (transOprToExpr ctxt imm)
   let roundConst = AST.num1 (rtEsz * 2) << (imm .- AST.num1 (rtEsz * 2))
-  for e in 0 .. elements - 1 do
-    let result = (elem rm e (2 * esize) .+ roundConst) >> imm
-    !!ir (elem rd e esize := AST.xtlo rtEsz result)
+  for e in 0 .. (elements / 2) - 1 do
+    let result1 = (elem srcB e (esize * 2) .+ roundConst) >> imm
+    let result2 = (elem srcA e (esize * 2) .+ roundConst) >> imm
+    !!ir (elem dst e esize := AST.xtlo rtEsz result1)
+    !!ir (elem dst e esize := AST.xtlo rtEsz result2)
   putEndLabel ctxt lblIgnore ir
   !>ir insLen
 
@@ -3926,11 +4167,17 @@ let vorrReg (ins: InsInfo) insLen ctxt =
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
   !<ir insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
-  let struct (rd, rn, rm) = transThreeOprs ins ctxt
-  let regs = if TypeCheck.typeOf rd = 64<rt> then 1 else 2
-  for r in 0 .. regs - 1 do
-    let reg expr = AST.extract expr 64<rt> (r * 64)
-    !!ir (reg rd := reg rn .| reg rm)
+  match ins.OprSize with
+  | 128<rt> ->
+    let struct (dst, src1, src2) = getThreeOprs ins
+    let dstB, dstA = transOprToExpr128 ctxt dst
+    let src1B, src1A = transOprToExpr128 ctxt src1
+    let src2B, src2A = transOprToExpr128 ctxt src2
+    !!ir (dstB := src1B .| src2B)
+    !!ir (dstA := src1A .| src2A)
+  | _ ->
+    let struct (dst, src1, src2) = transThreeOprs ins ctxt
+    !!ir (dst := src1 .| src2)
   putEndLabel ctxt lblIgnore ir
   !>ir insLen
 
@@ -3939,12 +4186,17 @@ let vorrImm (ins: InsInfo) insLen ctxt =
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
   !<ir insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
-  let struct (rd, imm) = transTwoOprs ins ctxt
-  let imm = AST.concat imm imm // FIXME: A8-975
-  let regs = if TypeCheck.typeOf rd = 64<rt> then 1 else 2
-  for r in 0 .. regs - 1 do
-    !!ir
-      (AST.extract rd 64<rt> (r * 64) := AST.extract rd 64<rt> (r * 64) .| imm)
+  match ins.OprSize with
+  | 128<rt> ->
+    let struct (dst, imm) = getTwoOprs ins
+    let dstB, dstA = transOprToExpr128 ctxt dst
+    let imm = AST.concat (transOprToExpr ctxt imm) (transOprToExpr ctxt imm)
+    !!ir (dstB := dstB .| imm)
+    !!ir (dstA := dstA .| imm)
+  | _ ->
+    let struct (dst, imm) = transTwoOprs ins ctxt
+    let imm = AST.concat imm imm // FIXME: A8-975
+    !!ir (dst := dst .| imm)
   putEndLabel ctxt lblIgnore ir
   !>ir insLen
 
@@ -3959,11 +4211,17 @@ let vornReg (ins: InsInfo) insLen ctxt =
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
   !<ir insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
-  let struct (rd, rn, rm) = transThreeOprs ins ctxt
-  let regs = if TypeCheck.typeOf rd = 64<rt> then 1 else 2
-  for r in 0 .. regs - 1 do
-    let reg expr = AST.extract expr 64<rt> (r * 64)
-    !!ir (reg rd := reg rn .| (AST.not <| reg rm))
+  match ins.OprSize with
+  | 128<rt> ->
+    let struct (dst, src1, src2) = getThreeOprs ins
+    let dstB, dstA = transOprToExpr128 ctxt dst
+    let src1B, src1A = transOprToExpr128 ctxt src1
+    let src2B, src2A = transOprToExpr128 ctxt src2
+    !!ir (dstB := src1B .| (AST.not <| src2B))
+    !!ir (dstA := src1A .| (AST.not <| src2A))
+  | _ ->
+    let struct (dst, src1, src2) = transThreeOprs ins ctxt
+    !!ir (dst := src1 .| (AST.not <| src2))
   putEndLabel ctxt lblIgnore ir
   !>ir insLen
 
@@ -3972,12 +4230,17 @@ let vornImm (ins: InsInfo) insLen ctxt =
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
   !<ir insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
-  let struct (rd, imm) = transTwoOprs ins ctxt
-  let imm = AST.concat imm imm // FIXME: A8-975
-  let regs = if TypeCheck.typeOf rd = 64<rt> then 1 else 2
-  for r in 0 .. regs - 1 do
-    let rd = AST.extract rd 64<rt> (r * 64)
-    !!ir (rd := rd .| AST.not imm)
+  match ins.OprSize with
+  | 128<rt> ->
+    let struct (dst, imm) = getTwoOprs ins
+    let dstB, dstA = transOprToExpr128 ctxt dst
+    let imm = AST.concat (transOprToExpr ctxt imm) (transOprToExpr ctxt imm)
+    !!ir (dstB := dstB .| AST.not imm)
+    !!ir (dstA := dstA .| AST.not imm)
+  | _ ->
+    let struct (dst, imm) = transTwoOprs ins ctxt
+    let imm = AST.concat imm imm // FIXME: A8-975
+    !!ir (dst := dst .| AST.not imm)
   putEndLabel ctxt lblIgnore ir
   !>ir insLen
 
@@ -4015,8 +4278,7 @@ let getRnAndRm ctxt = function
 
 let assignByEndian (ctxt: TranslationContext) dst src ir =
   let isbig = ctxt.Endianness = Endian.Big
-  !!ir
-    (dst := if isbig then AST.xthi 32<rt> src else AST.xtlo 32<rt> src)
+  !!ir (dst := if isbig then AST.xthi 32<rt> src else AST.xtlo 32<rt> src)
 
 let parseOprOfVecStAndLd ctxt (ins: InsInfo) =
   let rdList = parseDstList ins.Operands |> List.map (getRegVar ctxt)
@@ -4035,23 +4297,23 @@ let vst1Multi (ins: InsInfo) insLen ctxt =
   !<ir insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   let rdList, rn, rm = parseOprOfVecStAndLd ctxt ins
-  let pInfo = getParsingInfo ins
+  let p = getParsingInfo ins
   let regs = getRegs ins.Operands
   let addr = !+ir 32<rt>
   !!ir (addr := rn)
-  !!ir (rn := updateRn ins rn rm (8 * regs) pInfo.RegIndex)
+  !!ir (rn := updateRn ins rn rm (8 * regs) p.RegIndex)
   for r in 0 .. (regs - 1) do
-    for e in 0 .. (pInfo.Elements - 1) do
-      if pInfo.EBytes <> 8 then
-        let mem = AST.loadLE pInfo.RtESize addr
-        !!ir (mem := elem rdList[r] e pInfo.ESize)
+    for e in 0 .. (p.Elements - 1) do
+      if p.EBytes <> 8 then
+        let mem = AST.loadLE p.RtESize addr
+        !!ir (mem := elem rdList[r] e p.ESize)
       else
         let mem1 = AST.loadLE 32<rt> addr
         let mem2 = AST.loadLE 32<rt> (incAddr addr 4)
-        let reg = elem rdList[r] e pInfo.ESize
+        let reg = elem rdList[r] e p.ESize
         assignByEndian ctxt mem1 reg ir
         assignByEndian ctxt mem2 reg ir
-      !!ir (addr := addr .+ (numI32 pInfo.EBytes 32<rt>))
+      !!ir (addr := addr .+ (numI32 p.EBytes 32<rt>))
   putEndLabel ctxt lblIgnore ir
   !>ir insLen
 
@@ -4061,12 +4323,12 @@ let vst1Single (ins: InsInfo) insLen ctxt index =
   !<ir insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   let rd, rn, rm = parseOprOfVecStAndLd ctxt ins
-  let pInfo = getParsingInfo ins
+  let p = getParsingInfo ins
   let addr = !+ir 32<rt>
   !!ir (addr := rn)
-  !!ir (rn := updateRn ins rn rm pInfo.EBytes pInfo.RegIndex)
-  let mem = AST.loadLE pInfo.RtESize addr
-  !!ir (mem := elem rd[0] (int32 index) pInfo.ESize)
+  !!ir (rn := updateRn ins rn rm p.EBytes p.RegIndex)
+  let mem = AST.loadLE p.RtESize addr
+  !!ir (mem := elem rd[0] (int32 index) p.ESize)
   putEndLabel ctxt lblIgnore ir
   !>ir insLen
 
@@ -4086,12 +4348,12 @@ let vld1SingleOne (ins: InsInfo) insLen ctxt index =
   !<ir insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   let rd, rn, rm = parseOprOfVecStAndLd ctxt ins
-  let pInfo = getParsingInfo ins
+  let p = getParsingInfo ins
   let addr = !+ir 32<rt>
   !!ir (addr := rn)
-  !!ir (rn := updateRn ins rn rm pInfo.EBytes pInfo.RegIndex)
-  let mem = AST.loadLE pInfo.RtESize addr
-  !!ir (elem rd[0] (int32 index) pInfo.ESize := mem)
+  !!ir (rn := updateRn ins rn rm p.EBytes p.RegIndex)
+  let mem = AST.loadLE p.RtESize addr
+  !!ir (elem rd[0] (int32 index) p.ESize := mem)
   putEndLabel ctxt lblIgnore ir
   !>ir insLen
 
@@ -4101,12 +4363,12 @@ let vld1SingleAll (ins: InsInfo) insLen ctxt =
   !<ir insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   let rdList, rn, rm = parseOprOfVecStAndLd ctxt ins
-  let pInfo = getParsingInfo ins
+  let p = getParsingInfo ins
   let addr = !+ir 32<rt>
   !!ir (addr := rn)
-  !!ir (rn := updateRn ins rn rm pInfo.EBytes pInfo.RegIndex)
-  let mem = AST.loadLE pInfo.RtESize addr
-  let repElem = Array.replicate pInfo.Elements mem |> AST.concatArr
+  !!ir (rn := updateRn ins rn rm p.EBytes p.RegIndex)
+  let mem = AST.loadLE p.RtESize addr
+  let repElem = Array.replicate p.Elements mem |> AST.concatArr
   for r in 0 .. (List.length rdList - 1) do
     !!ir (rdList[r] := repElem) done
   putEndLabel ctxt lblIgnore ir
@@ -4118,27 +4380,26 @@ let vld1Multi (ins: InsInfo) insLen ctxt =
   !<ir insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   let rdList, rn, rm = parseOprOfVecStAndLd ctxt ins
-  let pInfo = getParsingInfo ins
+  let p = getParsingInfo ins
   let regs = getRegs ins.Operands
   let addr = !+ir 32<rt>
   !!ir (addr := rn)
-  !!ir (rn := updateRn ins rn rm (8 * regs) pInfo.RegIndex)
+  !!ir (rn := updateRn ins rn rm (8 * regs) p.RegIndex)
   for r in 0 .. (regs - 1) do
-    for e in 0 .. (pInfo.Elements - 1) do
-      if pInfo.EBytes <> 8 then
-        let data = !+ir pInfo.RtESize
-        !!ir (data := AST.loadLE pInfo.RtESize addr)
-        !!ir (elem rdList[r] e pInfo.ESize := data)
+    for e in 0 .. (p.Elements - 1) do
+      if p.EBytes <> 8 then
+        let data = !+ir p.RtESize
+        !!ir (data := AST.loadLE p.RtESize addr)
+        !!ir (elem rdList[r] e p.ESize := data)
       else
-        let data1 = !+ir 32<rt>
-        let data2 = !+ir 32<rt>
+        let struct (data1, data2) = tmpVars2 ir 32<rt>
         let mem1 = AST.loadLE 32<rt> addr
         let mem2 = AST.loadLE 32<rt> (addr .+ (numI32 4 32<rt>))
         let isbig = ctxt.Endianness = Endian.Big
         !!ir (data1 := if isbig then mem2 else mem1)
         !!ir (data2 := if isbig then mem1 else mem1)
-        !!ir (elem rdList[r] e pInfo.ESize := AST.concat data2 data1)
-      !!ir (addr := incAddr addr pInfo.EBytes)
+        !!ir (elem rdList[r] e p.ESize := AST.concat data2 data1)
+      !!ir (addr := incAddr addr p.EBytes)
   putEndLabel ctxt lblIgnore ir
   !>ir insLen
 
@@ -4162,19 +4423,19 @@ let vst2Multi (ins: InsInfo) insLen ctxt =
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   let rdList, rn, rm = parseOprOfVecStAndLd ctxt ins
   let regs = getRegs ins.Operands / 2
-  let pInfo = getParsingInfo ins
+  let p = getParsingInfo ins
   let addr = !+ir 32<rt>
   !!ir (addr := rn)
-  !!ir (rn := updateRn ins rn rm (16 * regs) pInfo.RegIndex)
+  !!ir (rn := updateRn ins rn rm (16 * regs) p.RegIndex)
   for r in 0 .. (regs - 1) do
     let rd1 = rdList[r * 2]
     let rd2 = rdList[r * 2 + 1]
-    for e in 0 .. (pInfo.Elements - 1) do
-      let mem1 = AST.loadLE pInfo.RtESize addr
-      let mem2 = AST.loadLE pInfo.RtESize (addr .+ (numI32 pInfo.EBytes 32<rt>))
-      !!ir (mem1 := elem rd1 e pInfo.ESize)
-      !!ir (mem2 := elem rd2 e pInfo.ESize)
-      !!ir (addr := addr .+ (numI32 (2 * pInfo.EBytes) 32<rt>))
+    for e in 0 .. (p.Elements - 1) do
+      let mem1 = AST.loadLE p.RtESize addr
+      let mem2 = AST.loadLE p.RtESize (addr .+ (numI32 p.EBytes 32<rt>))
+      !!ir (mem1 := elem rd1 e p.ESize)
+      !!ir (mem2 := elem rd2 e p.ESize)
+      !!ir (addr := addr .+ (numI32 (2 * p.EBytes) 32<rt>))
   putEndLabel ctxt lblIgnore ir
   !>ir insLen
 
@@ -4184,14 +4445,14 @@ let vst2Single (ins: InsInfo) insLen ctxt index =
   !<ir insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   let rdList, rn, rm = parseOprOfVecStAndLd ctxt ins
-  let pInfo = getParsingInfo ins
+  let p = getParsingInfo ins
   let addr = !+ir 32<rt>
   !!ir (addr := rn)
-  !!ir (rn := updateRn ins rn rm (16 * pInfo.EBytes) pInfo.RegIndex)
-  let mem1 = AST.loadLE pInfo.RtESize addr
-  let mem2 = AST.loadLE pInfo.RtESize (addr .+ (numI32 pInfo.EBytes 32<rt>))
-  !!ir (mem1 := elem rdList[0] index pInfo.ESize)
-  !!ir (mem2 := elem rdList[1] index pInfo.ESize)
+  !!ir (rn := updateRn ins rn rm (16 * p.EBytes) p.RegIndex)
+  let mem1 = AST.loadLE p.RtESize addr
+  let mem2 = AST.loadLE p.RtESize (addr .+ (numI32 p.EBytes 32<rt>))
+  !!ir (mem1 := elem rdList[0] index p.ESize)
+  !!ir (mem2 := elem rdList[1] index p.ESize)
   putEndLabel ctxt lblIgnore ir
   !>ir insLen
 
@@ -4211,18 +4472,18 @@ let vst3Multi (ins: InsInfo) insLen ctxt =
   !<ir insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   let rdList, rn, rm = parseOprOfVecStAndLd ctxt ins
-  let pInfo = getParsingInfo ins
+  let p = getParsingInfo ins
   let addr = !+ir 32<rt>
   !!ir (addr := rn)
-  !!ir (rn := updateRn ins rn rm 24 pInfo.RegIndex)
-  for e in 0 .. (pInfo.Elements - 1) do
-    let mem1 = AST.loadLE pInfo.RtESize addr
-    let mem2 = AST.loadLE pInfo.RtESize (incAddr addr pInfo.EBytes)
-    let mem3 = AST.loadLE pInfo.RtESize (incAddr addr (2 * pInfo.EBytes))
-    !!ir (mem1 := elem rdList[0] e pInfo.ESize)
-    !!ir (mem2 := elem rdList[1] e pInfo.ESize)
-    !!ir (mem3 := elem rdList[2] e pInfo.ESize)
-    !!ir (addr := incAddr addr (3 * pInfo.EBytes))
+  !!ir (rn := updateRn ins rn rm 24 p.RegIndex)
+  for e in 0 .. (p.Elements - 1) do
+    let mem1 = AST.loadLE p.RtESize addr
+    let mem2 = AST.loadLE p.RtESize (incAddr addr p.EBytes)
+    let mem3 = AST.loadLE p.RtESize (incAddr addr (2 * p.EBytes))
+    !!ir (mem1 := elem rdList[0] e p.ESize)
+    !!ir (mem2 := elem rdList[1] e p.ESize)
+    !!ir (mem3 := elem rdList[2] e p.ESize)
+    !!ir (addr := incAddr addr (3 * p.EBytes))
   putEndLabel ctxt lblIgnore ir
   !>ir insLen
 
@@ -4232,16 +4493,16 @@ let vst3Single (ins: InsInfo) insLen ctxt index =
   !<ir insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   let rdList, rn, rm = parseOprOfVecStAndLd ctxt ins
-  let pInfo = getParsingInfo ins
+  let p = getParsingInfo ins
   let addr = !+ir 32<rt>
   !!ir (addr := rn)
-  !!ir (rn := updateRn ins rn rm (3 * pInfo.EBytes) pInfo.RegIndex)
-  let mem1 = AST.loadLE pInfo.RtESize addr
-  let mem2 = AST.loadLE pInfo.RtESize (incAddr addr pInfo.EBytes)
-  let mem3 = AST.loadLE pInfo.RtESize (incAddr addr (2 * pInfo.EBytes))
-  !!ir (mem1 := elem rdList[0] index pInfo.ESize)
-  !!ir (mem2 := elem rdList[1] index pInfo.ESize)
-  !!ir (mem3 := elem rdList[2] index pInfo.ESize)
+  !!ir (rn := updateRn ins rn rm (3 * p.EBytes) p.RegIndex)
+  let mem1 = AST.loadLE p.RtESize addr
+  let mem2 = AST.loadLE p.RtESize (incAddr addr p.EBytes)
+  let mem3 = AST.loadLE p.RtESize (incAddr addr (2 * p.EBytes))
+  !!ir (mem1 := elem rdList[0] index p.ESize)
+  !!ir (mem2 := elem rdList[1] index p.ESize)
+  !!ir (mem3 := elem rdList[2] index p.ESize)
   putEndLabel ctxt lblIgnore ir
   !>ir insLen
 
@@ -4261,20 +4522,20 @@ let vst4Multi (ins: InsInfo) insLen ctxt =
   !<ir insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   let rdList, rn, rm = parseOprOfVecStAndLd ctxt ins
-  let pInfo = getParsingInfo ins
+  let p = getParsingInfo ins
   let addr = !+ir 32<rt>
   !!ir (addr := rn)
-  !!ir (rn := updateRn ins rn rm 32 pInfo.RegIndex)
-  for e in 0 .. (pInfo.Elements - 1) do
-    let mem1 = AST.loadLE pInfo.RtESize addr
-    let mem2 = AST.loadLE pInfo.RtESize (incAddr addr pInfo.EBytes)
-    let mem3 = AST.loadLE pInfo.RtESize (incAddr addr (2 * pInfo.EBytes))
-    let mem4 = AST.loadLE pInfo.RtESize (incAddr addr (3 * pInfo.EBytes))
-    !!ir (mem1 := elem rdList[0] e pInfo.ESize)
-    !!ir (mem2 := elem rdList[1] e pInfo.ESize)
-    !!ir (mem3 := elem rdList[2] e pInfo.ESize)
-    !!ir (mem4 := elem rdList[3] e pInfo.ESize)
-    !!ir (addr := incAddr addr (4 * pInfo.EBytes))
+  !!ir (rn := updateRn ins rn rm 32 p.RegIndex)
+  for e in 0 .. (p.Elements - 1) do
+    let mem1 = AST.loadLE p.RtESize addr
+    let mem2 = AST.loadLE p.RtESize (incAddr addr p.EBytes)
+    let mem3 = AST.loadLE p.RtESize (incAddr addr (2 * p.EBytes))
+    let mem4 = AST.loadLE p.RtESize (incAddr addr (3 * p.EBytes))
+    !!ir (mem1 := elem rdList[0] e p.ESize)
+    !!ir (mem2 := elem rdList[1] e p.ESize)
+    !!ir (mem3 := elem rdList[2] e p.ESize)
+    !!ir (mem4 := elem rdList[3] e p.ESize)
+    !!ir (addr := incAddr addr (4 * p.EBytes))
   putEndLabel ctxt lblIgnore ir
   !>ir insLen
 
@@ -4284,18 +4545,18 @@ let vst4Single (ins: InsInfo) insLen ctxt index =
   !<ir insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   let rdList, rn, rm = parseOprOfVecStAndLd ctxt ins
-  let pInfo = getParsingInfo ins
+  let p = getParsingInfo ins
   let addr = !+ir 32<rt>
   !!ir (addr := rn)
-  !!ir (rn := updateRn ins rn rm (4 * pInfo.EBytes) pInfo.RegIndex)
-  let mem1 = AST.loadLE pInfo.RtESize addr
-  let mem2 = AST.loadLE pInfo.RtESize (incAddr addr pInfo.EBytes)
-  let mem3 = AST.loadLE pInfo.RtESize (incAddr addr (2 * pInfo.EBytes))
-  let mem4 = AST.loadLE pInfo.RtESize (incAddr addr (3 * pInfo.EBytes))
-  !!ir (mem1 := elem rdList[0] index pInfo.ESize)
-  !!ir (mem2 := elem rdList[1] index pInfo.ESize)
-  !!ir (mem3 := elem rdList[2] index pInfo.ESize)
-  !!ir (mem4 := elem rdList[3] index pInfo.ESize)
+  !!ir (rn := updateRn ins rn rm (4 * p.EBytes) p.RegIndex)
+  let mem1 = AST.loadLE p.RtESize addr
+  let mem2 = AST.loadLE p.RtESize (incAddr addr p.EBytes)
+  let mem3 = AST.loadLE p.RtESize (incAddr addr (2 * p.EBytes))
+  let mem4 = AST.loadLE p.RtESize (incAddr addr (3 * p.EBytes))
+  !!ir (mem1 := elem rdList[0] index p.ESize)
+  !!ir (mem2 := elem rdList[1] index p.ESize)
+  !!ir (mem3 := elem rdList[2] index p.ESize)
+  !!ir (mem4 := elem rdList[3] index p.ESize)
   putEndLabel ctxt lblIgnore ir
   !>ir insLen
 
@@ -4315,14 +4576,14 @@ let vld2SingleOne (ins: InsInfo) insLen ctxt index =
   !<ir insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   let rdList, rn, rm = parseOprOfVecStAndLd ctxt ins
-  let pInfo = getParsingInfo ins
+  let p = getParsingInfo ins
   let addr = !+ir 32<rt>
   !!ir (addr := rn)
-  !!ir (rn := updateRn ins rn rm (2 * pInfo.EBytes) pInfo.RegIndex)
-  let mem1 = AST.loadLE pInfo.RtESize addr
-  let mem2 = AST.loadLE pInfo.RtESize (incAddr addr pInfo.EBytes)
-  !!ir (elem rdList[0] (int32 index) pInfo.ESize := mem1)
-  !!ir (elem rdList[1] (int32 index) pInfo.ESize := mem2)
+  !!ir (rn := updateRn ins rn rm (2 * p.EBytes) p.RegIndex)
+  let mem1 = AST.loadLE p.RtESize addr
+  let mem2 = AST.loadLE p.RtESize (incAddr addr p.EBytes)
+  !!ir (elem rdList[0] (int32 index) p.ESize := mem1)
+  !!ir (elem rdList[1] (int32 index) p.ESize := mem2)
   putEndLabel ctxt lblIgnore ir
   !>ir insLen
 
@@ -4332,14 +4593,14 @@ let vld2SingleAll (ins: InsInfo) insLen ctxt =
   !<ir insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   let rdList, rn, rm = parseOprOfVecStAndLd ctxt ins
-  let pInfo = getParsingInfo ins
+  let p = getParsingInfo ins
   let addr = !+ir 32<rt>
   !!ir (addr := rn)
-  !!ir (rn := updateRn ins rn rm (2 * pInfo.EBytes) pInfo.RegIndex)
-  let mem1 = AST.loadLE pInfo.RtESize addr
-  let mem2 = AST.loadLE pInfo.RtESize (incAddr addr pInfo.EBytes)
-  let repElem1 = Array.replicate pInfo.Elements mem1 |> AST.concatArr
-  let repElem2 = Array.replicate pInfo.Elements mem2 |> AST.concatArr
+  !!ir (rn := updateRn ins rn rm (2 * p.EBytes) p.RegIndex)
+  let mem1 = AST.loadLE p.RtESize addr
+  let mem2 = AST.loadLE p.RtESize (incAddr addr p.EBytes)
+  let repElem1 = Array.replicate p.Elements mem1 |> AST.concatArr
+  let repElem2 = Array.replicate p.Elements mem2 |> AST.concatArr
   !!ir (rdList[0] := repElem1)
   !!ir (rdList[1] := repElem2)
   putEndLabel ctxt lblIgnore ir
@@ -4351,20 +4612,20 @@ let vld2Multi (ins: InsInfo) insLen ctxt =
   !<ir insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   let rdList, rn, rm = parseOprOfVecStAndLd ctxt ins
-  let pInfo = getParsingInfo ins
+  let p = getParsingInfo ins
   let regs = getRegs ins.Operands / 2
   let addr = !+ir 32<rt>
   !!ir (addr := rn)
-  !!ir (rn := updateRn ins rn rm (16 * regs) pInfo.RegIndex)
+  !!ir (rn := updateRn ins rn rm (16 * regs) p.RegIndex)
   for r in 0 .. (regs - 1) do
     let rd1 = rdList[r * 2]
     let rd2 = rdList[r * 2 + 1]
-    for e in 0 .. (pInfo.Elements - 1) do
-      let mem1 = AST.loadLE pInfo.RtESize addr
-      let mem2 = AST.loadLE pInfo.RtESize (incAddr addr pInfo.EBytes)
-      !!ir (elem rd1 e pInfo.ESize := mem1)
-      !!ir (elem rd2 e pInfo.ESize := mem2)
-      !!ir (addr := incAddr addr (2 * pInfo.EBytes))
+    for e in 0 .. (p.Elements - 1) do
+      let mem1 = AST.loadLE p.RtESize addr
+      let mem2 = AST.loadLE p.RtESize (incAddr addr p.EBytes)
+      !!ir (elem rd1 e p.ESize := mem1)
+      !!ir (elem rd2 e p.ESize := mem2)
+      !!ir (addr := incAddr addr (2 * p.EBytes))
   putEndLabel ctxt lblIgnore ir
   !>ir insLen
 
@@ -4384,16 +4645,16 @@ let vld3SingleOne (ins: InsInfo) insLen ctxt index =
   !<ir insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   let rdList, rn, rm = parseOprOfVecStAndLd ctxt ins
-  let pInfo = getParsingInfo ins
+  let p = getParsingInfo ins
   let addr = !+ir 32<rt>
   !!ir (addr := rn)
-  !!ir (rn := updateRn ins rn rm (3 * pInfo.EBytes) pInfo.RegIndex)
-  let mem1 = AST.loadLE pInfo.RtESize addr
-  let mem2 = AST.loadLE pInfo.RtESize (incAddr addr pInfo.EBytes)
-  let mem3 = AST.loadLE pInfo.RtESize (incAddr addr (2 * pInfo.EBytes))
-  !!ir (elem rdList[0] (int32 index) pInfo.ESize := mem1)
-  !!ir (elem rdList[1] (int32 index) pInfo.ESize := mem2)
-  !!ir (elem rdList[2] (int32 index) pInfo.ESize := mem3)
+  !!ir (rn := updateRn ins rn rm (3 * p.EBytes) p.RegIndex)
+  let mem1 = AST.loadLE p.RtESize addr
+  let mem2 = AST.loadLE p.RtESize (incAddr addr p.EBytes)
+  let mem3 = AST.loadLE p.RtESize (incAddr addr (2 * p.EBytes))
+  !!ir (elem rdList[0] (int32 index) p.ESize := mem1)
+  !!ir (elem rdList[1] (int32 index) p.ESize := mem2)
+  !!ir (elem rdList[2] (int32 index) p.ESize := mem3)
   putEndLabel ctxt lblIgnore ir
   !>ir insLen
 
@@ -4403,16 +4664,16 @@ let vld3SingleAll (ins: InsInfo) insLen ctxt =
   !<ir insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   let rdList, rn, rm = parseOprOfVecStAndLd ctxt ins
-  let pInfo = getParsingInfo ins
+  let p = getParsingInfo ins
   let addr = !+ir 32<rt>
   !!ir (addr := rn)
-  !!ir (rn := updateRn ins rn rm (3 * pInfo.EBytes) pInfo.RegIndex)
-  let mem1 = AST.loadLE pInfo.RtESize addr
-  let mem2 = AST.loadLE pInfo.RtESize (incAddr addr pInfo.EBytes)
-  let mem3 = AST.loadLE pInfo.RtESize (incAddr addr (2 * pInfo.EBytes))
-  let repElem1 = Array.replicate pInfo.Elements mem1 |> AST.concatArr
-  let repElem2 = Array.replicate pInfo.Elements mem2 |> AST.concatArr
-  let repElem3 = Array.replicate pInfo.Elements mem3 |> AST.concatArr
+  !!ir (rn := updateRn ins rn rm (3 * p.EBytes) p.RegIndex)
+  let mem1 = AST.loadLE p.RtESize addr
+  let mem2 = AST.loadLE p.RtESize (incAddr addr p.EBytes)
+  let mem3 = AST.loadLE p.RtESize (incAddr addr (2 * p.EBytes))
+  let repElem1 = Array.replicate p.Elements mem1 |> AST.concatArr
+  let repElem2 = Array.replicate p.Elements mem2 |> AST.concatArr
+  let repElem3 = Array.replicate p.Elements mem3 |> AST.concatArr
   !!ir (rdList[0] := repElem1)
   !!ir (rdList[1] := repElem2)
   !!ir (rdList[2] := repElem3)
@@ -4425,18 +4686,18 @@ let vld3Multi (ins: InsInfo) insLen ctxt =
   !<ir insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   let rdList, rn, rm = parseOprOfVecStAndLd ctxt ins
-  let pInfo = getParsingInfo ins
+  let p = getParsingInfo ins
   let addr = !+ir 32<rt>
   !!ir (addr := rn)
-  !!ir (rn := updateRn ins rn rm 24 pInfo.RegIndex)
-  for e in 0 .. (pInfo.Elements - 1) do
-    let mem1 = AST.loadLE pInfo.RtESize addr
-    let mem2 = AST.loadLE pInfo.RtESize (incAddr addr pInfo.EBytes)
-    let mem3 = AST.loadLE pInfo.RtESize (incAddr addr (2 * pInfo.EBytes))
-    !!ir (elem rdList[0] e pInfo.ESize := mem1)
-    !!ir (elem rdList[1] e pInfo.ESize := mem2)
-    !!ir (elem rdList[2] e pInfo.ESize := mem3)
-    !!ir (addr := addr .+ (numI32 (3 * pInfo.EBytes) 32<rt>))
+  !!ir (rn := updateRn ins rn rm 24 p.RegIndex)
+  for e in 0 .. (p.Elements - 1) do
+    let mem1 = AST.loadLE p.RtESize addr
+    let mem2 = AST.loadLE p.RtESize (incAddr addr p.EBytes)
+    let mem3 = AST.loadLE p.RtESize (incAddr addr (2 * p.EBytes))
+    !!ir (elem rdList[0] e p.ESize := mem1)
+    !!ir (elem rdList[1] e p.ESize := mem2)
+    !!ir (elem rdList[2] e p.ESize := mem3)
+    !!ir (addr := addr .+ (numI32 (3 * p.EBytes) 32<rt>))
   putEndLabel ctxt lblIgnore ir
   !>ir insLen
 
@@ -4455,18 +4716,18 @@ let vld4SingleOne (ins: InsInfo) insLen ctxt index =
   !<ir insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   let rdList, rn, rm = parseOprOfVecStAndLd ctxt ins
-  let pInfo = getParsingInfo ins
+  let p = getParsingInfo ins
   let addr = !+ir 32<rt>
   !!ir (addr := rn)
-  !!ir (rn := updateRn ins rn rm (4 * pInfo.EBytes) pInfo.RegIndex)
-  let mem1 = AST.loadLE pInfo.RtESize addr
-  let mem2 = AST.loadLE pInfo.RtESize (incAddr addr pInfo.EBytes)
-  let mem3 = AST.loadLE pInfo.RtESize (incAddr addr (2 * pInfo.EBytes))
-  let mem4 = AST.loadLE pInfo.RtESize (incAddr addr (3 * pInfo.EBytes))
-  !!ir (elem rdList[0] (int32 index) pInfo.ESize := mem1)
-  !!ir (elem rdList[1] (int32 index) pInfo.ESize := mem2)
-  !!ir (elem rdList[2] (int32 index) pInfo.ESize := mem3)
-  !!ir (elem rdList[3] (int32 index) pInfo.ESize := mem4)
+  !!ir (rn := updateRn ins rn rm (4 * p.EBytes) p.RegIndex)
+  let mem1 = AST.loadLE p.RtESize addr
+  let mem2 = AST.loadLE p.RtESize (incAddr addr p.EBytes)
+  let mem3 = AST.loadLE p.RtESize (incAddr addr (2 * p.EBytes))
+  let mem4 = AST.loadLE p.RtESize (incAddr addr (3 * p.EBytes))
+  !!ir (elem rdList[0] (int32 index) p.ESize := mem1)
+  !!ir (elem rdList[1] (int32 index) p.ESize := mem2)
+  !!ir (elem rdList[2] (int32 index) p.ESize := mem3)
+  !!ir (elem rdList[3] (int32 index) p.ESize := mem4)
   putEndLabel ctxt lblIgnore ir
   !>ir insLen
 
@@ -4476,18 +4737,18 @@ let vld4SingleAll (ins: InsInfo) insLen ctxt =
   !<ir insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   let rdList, rn, rm = parseOprOfVecStAndLd ctxt ins
-  let pInfo = getParsingInfo ins
+  let p = getParsingInfo ins
   let addr = !+ir 32<rt>
   !!ir (addr := rn)
-  !!ir (rn := updateRn ins rn rm (4 * pInfo.EBytes) pInfo.RegIndex)
-  let mem1 = AST.loadLE pInfo.RtESize addr
-  let mem2 = AST.loadLE pInfo.RtESize (incAddr addr pInfo.EBytes)
-  let mem3 = AST.loadLE pInfo.RtESize (incAddr addr (2 * pInfo.EBytes))
-  let mem4 = AST.loadLE pInfo.RtESize (incAddr addr (3 * pInfo.EBytes))
-  let repElem1 = Array.replicate pInfo.Elements mem1 |> AST.concatArr
-  let repElem2 = Array.replicate pInfo.Elements mem2 |> AST.concatArr
-  let repElem3 = Array.replicate pInfo.Elements mem3 |> AST.concatArr
-  let repElem4 = Array.replicate pInfo.Elements mem4 |> AST.concatArr
+  !!ir (rn := updateRn ins rn rm (4 * p.EBytes) p.RegIndex)
+  let mem1 = AST.loadLE p.RtESize addr
+  let mem2 = AST.loadLE p.RtESize (incAddr addr p.EBytes)
+  let mem3 = AST.loadLE p.RtESize (incAddr addr (2 * p.EBytes))
+  let mem4 = AST.loadLE p.RtESize (incAddr addr (3 * p.EBytes))
+  let repElem1 = Array.replicate p.Elements mem1 |> AST.concatArr
+  let repElem2 = Array.replicate p.Elements mem2 |> AST.concatArr
+  let repElem3 = Array.replicate p.Elements mem3 |> AST.concatArr
+  let repElem4 = Array.replicate p.Elements mem4 |> AST.concatArr
   !!ir (rdList[0] := repElem1)
   !!ir (rdList[1] := repElem2)
   !!ir (rdList[2] := repElem3)
@@ -4501,20 +4762,20 @@ let vld4Multi (ins: InsInfo) insLen ctxt =
   !<ir insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   let rdList, rn, rm = parseOprOfVecStAndLd ctxt ins
-  let pInfo = getParsingInfo ins
+  let p = getParsingInfo ins
   let addr = !+ir 32<rt>
   !!ir (addr := rn)
-  !!ir (rn := updateRn ins rn rm 24 pInfo.RegIndex)
-  for e in 0 .. (pInfo.Elements - 1) do
-    let mem1 = AST.loadLE pInfo.RtESize addr
-    let mem2 = AST.loadLE pInfo.RtESize (incAddr addr pInfo.EBytes)
-    let mem3 = AST.loadLE pInfo.RtESize (incAddr addr (2 * pInfo.EBytes))
-    let mem4 = AST.loadLE pInfo.RtESize (incAddr addr (3 * pInfo.EBytes))
-    !!ir (elem rdList[0] e pInfo.ESize := mem1)
-    !!ir (elem rdList[1] e pInfo.ESize := mem2)
-    !!ir (elem rdList[2] e pInfo.ESize := mem3)
-    !!ir (elem rdList[3] e pInfo.ESize := mem4)
-    !!ir (addr := addr .+ (numI32 (4 * pInfo.EBytes) 32<rt>))
+  !!ir (rn := updateRn ins rn rm 24 p.RegIndex)
+  for e in 0 .. (p.Elements - 1) do
+    let mem1 = AST.loadLE p.RtESize addr
+    let mem2 = AST.loadLE p.RtESize (incAddr addr p.EBytes)
+    let mem3 = AST.loadLE p.RtESize (incAddr addr (2 * p.EBytes))
+    let mem4 = AST.loadLE p.RtESize (incAddr addr (3 * p.EBytes))
+    !!ir (elem rdList[0] e p.ESize := mem1)
+    !!ir (elem rdList[1] e p.ESize := mem2)
+    !!ir (elem rdList[2] e p.ESize := mem3)
+    !!ir (elem rdList[3] e p.ESize := mem4)
+    !!ir (addr := addr .+ (numI32 (4 * p.EBytes) 32<rt>))
   putEndLabel ctxt lblIgnore ir
   !>ir insLen
 
@@ -4530,7 +4791,7 @@ let vld4 (ins: InsInfo) insLen ctxt =
 let udf (ins: InsInfo) insLen ctxt =
   match ins.Operands with
   | OneOperand (OprImm n) -> sideEffects insLen ctxt (Interrupt (int n))
-  | _ ->  raise InvalidOperandException
+  | _ -> raise InvalidOperandException
 
 let uasx (ins: InsInfo) insLen ctxt =
   let ir = !*ctxt
@@ -4611,49 +4872,62 @@ let vext (ins: InsInfo) insLen ctxt =
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
   !<ir insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
-  let struct (dst, src1, src2, imm) = transFourOprs ins ctxt
-  let oprSize = TypeCheck.typeOf dst
-  let position = !+ir (oprSize * 2)
-  !!ir (position := imm .* (numI32 8 32<rt>) |> AST.zext (oprSize * 2))
-  !!ir (dst := AST.concat src2 src1 >> position |> AST.xtlo oprSize)
+  let struct (dst, src1, src2, imm) = getFourOprs ins
+  let imm = getImmValue imm
+  let rightAmt = numI64 ((8L * imm) % 64L) 64<rt>
+  let leftAmt = numI64 (64L - ((8L * imm) % 64L)) 64<rt>
+  match ins.OprSize with
+  | 128<rt> ->
+    let dstB, dstA = transOprToExpr128 ctxt dst
+    let src1B, src1A = transOprToExpr128 ctxt src1
+    let src2B, src2A = transOprToExpr128 ctxt src2
+    let struct (tSrc1B, tSrc1A, tSrc2B, tSrc2A) = tmpVars4 ir 64<rt>
+    !!ir (tSrc1A := src1A)
+    !!ir (tSrc1B := src1B)
+    !!ir (tSrc2A := src2A)
+    !!ir (tSrc2B := src2B)
+    if 8L * imm < 64 then
+      !!ir (dstA := (tSrc1B << leftAmt) .| (tSrc1A >> rightAmt))
+      !!ir (dstB := (tSrc2A << leftAmt) .| (tSrc1B >> rightAmt))
+    else
+      !!ir (dstA := (tSrc2A << leftAmt) .| (tSrc1B >> rightAmt))
+      !!ir (dstB := (tSrc2B << leftAmt) .| (tSrc2A >> rightAmt))
+  | _ ->
+    let struct (dst, src1, src2, _imm) = transFourOprs ins ctxt
+    let struct (tSrc2, tSrc1) = tmpVars2 ir 64<rt>
+    !!ir (tSrc1 := src1)
+    !!ir (tSrc2 := src2)
+    !!ir (dst := (tSrc2 << leftAmt) .| (tSrc1 >> rightAmt))
   putEndLabel ctxt lblIgnore ir
   !>ir insLen
 
-let vhadd (ins: InsInfo) insLen ctxt =
+let vhaddsub (ins: InsInfo) insLen ctxt opFn =
   let ir = !*ctxt
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
   !<ir insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
-  let struct (dst, src1, src2) = transThreeOprs ins ctxt
-  let esize = 8 * (getEBytes ins.SIMDTyp)
-  let rtEsize = RegType.fromBitWidth esize
-  let oprSize = TypeCheck.typeOf dst
-  let elements = oprSize / esize |> int
-  let struct (op1, op2, result) = tmpVars3 ir rtEsize
-  for e in 0 .. elements - 1 do
-    !!ir (op1 := elem src1 e esize)
-    !!ir (op2 := elem src2 e esize)
-    !!ir (result := op1 .+ op2)
-    !!ir (elem dst e esize := result >> (AST.num1 rtEsize))
-  putEndLabel ctxt lblIgnore ir
-  !>ir insLen
-
-let vhsub (ins: InsInfo) insLen ctxt =
-  let ir = !*ctxt
-  let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
-  let struct (dst, src1, src2) = transThreeOprs ins ctxt
-  let esize = 8 * (getEBytes ins.SIMDTyp)
-  let rtEsize = RegType.fromBitWidth esize
-  let oprSize = TypeCheck.typeOf dst
-  let elements = oprSize / esize |> int
-  let struct (op1, op2, result) = tmpVars3 ir rtEsize
-  for e in 0 .. elements - 1 do
-    !!ir (op1 := elem src1 e esize)
-    !!ir (op2 := elem src2 e esize)
-    !!ir (result := op1 .- op2)
-    !!ir (elem dst e esize := result >> (AST.num1 rtEsize))
+  let p = getParsingInfo ins
+  match ins.OprSize with
+  | 128<rt> ->
+    let struct (dst, src1, src2) = getThreeOprs ins
+    let dstB, dstA = transOprToExpr128 ctxt dst
+    let src1B, src1A = transOprToExpr128 ctxt src1
+    let src2B, src2A = transOprToExpr128 ctxt src2
+    let struct (op1B, op2B, op1A, op2A) = tmpVars4 ir p.RtESize
+    for e in 0 .. p.Elements - 1 do
+      !!ir (op1B := elem src1B e p.ESize)
+      !!ir (op2B := elem src2B e p.ESize)
+      !!ir (op1A := elem src1A e p.ESize)
+      !!ir (op2A := elem src2A e p.ESize)
+      !!ir (elem dstB e p.ESize := (opFn op1B op2B) >> (AST.num1 p.RtESize))
+      !!ir (elem dstA e p.ESize := (opFn op1A op2A) >> (AST.num1 p.RtESize))
+  | _ ->
+    let struct (dst, src1, src2) = transThreeOprs ins ctxt
+    let struct (op1, op2) = tmpVars2 ir p.RtESize
+    for e in 0 .. p.Elements - 1 do
+      !!ir (op1 := elem src1 e p.ESize)
+      !!ir (op2 := elem src2 e p.ESize)
+      !!ir (elem dst e p.ESize := (opFn op1 op2) >> (AST.num1 p.RtESize))
   putEndLabel ctxt lblIgnore ir
   !>ir insLen
 
@@ -4662,17 +4936,27 @@ let vrhadd (ins: InsInfo) insLen ctxt =
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
   !<ir insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
-  let struct (dst, src1, src2) = transThreeOprs ins ctxt
-  let esize = 8 * (getEBytes ins.SIMDTyp)
-  let rtEsize = RegType.fromBitWidth esize
-  let oprSize = TypeCheck.typeOf dst
-  let elements = oprSize / esize |> int
-  let struct (op1, op2) = tmpVars2 ir rtEsize
-  for e in 0 .. elements - 1 do
-    !!ir (op1 := elem src1 e esize)
-    !!ir (op2 := elem src2 e esize)
-    let result = op1 .+ op2 .+ AST.num1 rtEsize
-    !!ir (elem dst e esize := AST.xtlo rtEsize (result >> (AST.num1 rtEsize)))
+  let p = getParsingInfo ins
+  let struct (op1, op2) = tmpVars2 ir p.RtESize
+  let n1 = AST.num1 p.RtESize
+  match ins.OprSize with
+  | 128<rt> ->
+    let struct (dst, src1, src2) = getThreeOprs ins
+    let dstB, dstA = transOprToExpr128 ctxt dst
+    let src1B, src1A = transOprToExpr128 ctxt src1
+    let src2B, src2A = transOprToExpr128 ctxt src2
+    for e in 0 .. (64 / p.ESize) - 1 do
+      !!ir (op1 := elem src1B e p.ESize .+ elem src2B e p.ESize .+ n1)
+      !!ir (op2 := elem src1A e p.ESize .+ elem src2A e p.ESize .+ n1)
+      !!ir (elem dstB e p.ESize := AST.xtlo p.RtESize (op1 >> n1))
+      !!ir (elem dstA e p.ESize := AST.xtlo p.RtESize (op2 >> n1))
+  | _ ->
+    let struct (dst, src1, src2) = transThreeOprs ins ctxt
+    for e in 0 .. (64 / p.ESize) - 1 do
+      !!ir (op1 := elem src1 e p.ESize)
+      !!ir (op2 := elem src2 e p.ESize)
+      let result = op1 .+ op2 .+ n1
+      !!ir (elem dst e p.ESize := AST.xtlo p.RtESize (result >> n1))
   putEndLabel ctxt lblIgnore ir
   !>ir insLen
 
@@ -4681,17 +4965,28 @@ let vsra (ins: InsInfo) insLen ctxt =
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
   !<ir insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
-  let struct (dst, src, amt) = transThreeOprs ins ctxt
-  let esize = 8 * (getEBytes ins.SIMDTyp)
-  let rtEsize = RegType.fromBitWidth esize
-  let oprSize = TypeCheck.typeOf dst
-  let elements = oprSize / esize |> int
-  let struct (result, shfAmt) = tmpVars2 ir rtEsize
-  !!ir (shfAmt :=
-    if rtEsize = 64<rt> then AST.zext rtEsize amt else AST.xtlo rtEsize amt)
-  for e in 0 .. elements - 1 do
-    !!ir (result := (elem src e esize) >> shfAmt)
-    !!ir (elem dst e esize := elem dst e esize .+ result)
+  let p = getParsingInfo ins
+  let struct (result1, result2, shfAmt) = tmpVars3 ir p.RtESize
+  match ins.OprSize with
+  | 128<rt> ->
+    let struct (dst, src, imm) = getThreeOprs ins
+    let dstB, dstA = transOprToExpr128 ctxt dst
+    let srcB, srcA = transOprToExpr128 ctxt src
+    let imm = transOprToExpr ctxt imm
+    !!ir (shfAmt := if p.RtESize = 64<rt> then AST.zext p.RtESize imm
+                    else AST.xtlo p.RtESize imm)
+    for e in 0 .. p.Elements - 1 do
+      !!ir (result1 := srcB >> shfAmt)
+      !!ir (result2 := srcA >> shfAmt)
+      !!ir (dstB := dstB .+ result1)
+      !!ir (dstA := dstA .+ result2)
+  | _ ->
+    let struct (dst, src, imm) = transThreeOprs ins ctxt
+    !!ir (shfAmt := if p.RtESize = 64<rt> then AST.zext p.RtESize imm
+                    else AST.xtlo p.RtESize imm)
+    for e in 0 .. p.Elements - 1 do
+      !!ir (result1 := src >> shfAmt)
+      !!ir (dst := dst .+ result1)
   putEndLabel ctxt lblIgnore ir
   !>ir insLen
 
@@ -4700,18 +4995,48 @@ let vuzp (ins: InsInfo) insLen ctxt =
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
   !<ir insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
-  let struct (dst, src) = transTwoOprs ins ctxt
-  let esize = 8 * (getEBytes ins.SIMDTyp)
-  let oprSize = TypeCheck.typeOf dst
-  let zipped = !+ir (oprSize * 2)
-  if dst = src then
-    !!ir (dst := AST.undef oprSize "UNKNOWN")
-    !!ir (src := AST.undef oprSize "UNKNOWN")
-  else
-    !!ir (zipped := AST.concat src dst)
-    for e in 0 .. ((int oprSize) / esize) - 1 do
-      !!ir (elem dst e esize := elem zipped (e * 2) esize)
-      !!ir (elem src e esize := elem zipped (e * 2 + 1) esize)
+  let p = getParsingInfo ins
+  let struct (zip1B, zip1A, zip2B, zip2A) = tmpVars4 ir 64<rt>
+  let elements = (p.Elements - 1) / 2
+  match ins.OprSize with
+  | 128<rt> ->
+    let struct (dst, src) = getTwoOprs ins
+    let dstB, dstA = transOprToExpr128 ctxt dst
+    let srcB, srcA = transOprToExpr128 ctxt src
+    if dstB = srcB && dstA = srcA then
+      !!ir (dstB := AST.undef 64<rt> "UNKNOWN")
+      !!ir (dstA := AST.undef 64<rt> "UNKNOWN")
+      !!ir (srcB := AST.undef 64<rt> "UNKNOWN")
+      !!ir (srcA := AST.undef 64<rt> "UNKNOWN")
+    else
+      !!ir (zip1B := srcB)
+      !!ir (zip1A := srcA)
+      !!ir (zip2B := dstB)
+      !!ir (zip2A := dstA)
+      for e in 0 .. elements do
+        let pos = e + p.Elements / 2
+        !!ir (elem dstB pos p.ESize := elem zip1B (e * 2) p.ESize)
+        !!ir (elem srcB pos p.ESize := elem zip1B (e * 2 + 1) p.ESize)
+        !!ir (elem dstB e p.ESize := elem zip1A (e * 2) p.ESize)
+        !!ir (elem srcB e p.ESize := elem zip1A (e * 2 + 1) p.ESize)
+        !!ir (elem dstA pos p.ESize := elem zip2B (e * 2) p.ESize)
+        !!ir (elem srcA pos p.ESize := elem zip2B (e * 2 + 1) p.ESize)
+        !!ir (elem dstA e p.ESize := elem zip2A (e * 2) p.ESize)
+        !!ir (elem srcA e p.ESize := elem zip2A (e * 2 + 1) p.ESize)
+  | _ ->
+    let struct (dst, src) = transTwoOprs ins ctxt
+    if dst = src then
+      !!ir (dst := AST.undef ins.OprSize "UNKNOWN")
+      !!ir (src := AST.undef ins.OprSize "UNKNOWN")
+    else
+      !!ir (zip1B := src)
+      !!ir (zip1A := dst)
+      for e in 0 .. elements do
+        let pos = e + p.Elements / 2
+        !!ir (elem dst e p.ESize := elem zip1B (e * 2) p.ESize)
+        !!ir (elem src e p.ESize := elem zip1B (e * 2 + 1) p.ESize)
+        !!ir (elem dst pos p.ESize := elem zip1A (e * 2) p.ESize)
+        !!ir (elem src pos p.ESize := elem zip1A (e * 2 + 1) p.ESize)
   putEndLabel ctxt lblIgnore ir
   !>ir insLen
 
@@ -4869,10 +5194,11 @@ let translate (ins: ARM32InternalInstruction) insLen ctxt =
   | Op.UXTAH -> extendAndAdd ins insLen ctxt 16<rt>
   | Op.UXTB -> extend ins insLen ctxt AST.zext 8<rt>
   | Op.UXTH -> extend ins insLen ctxt AST.zext 16<rt>
-  | Op.VABS when isF32orF64 ins.SIMDTyp -> sideEffects insLen ctxt UnsupportedFP
+  | Op.VABS when isF16orF32orF64 ins.SIMDTyp ->
+    sideEffects insLen ctxt UnsupportedFP
   | Op.VABS -> vabs ins insLen ctxt
   | Op.VADD when isF32orF64 ins.SIMDTyp -> sideEffects insLen ctxt UnsupportedFP
-  | Op.VADD -> vadd ins insLen ctxt
+  | Op.VADD -> vaddsub ins insLen ctxt (.+)
   | Op.VADDL -> vaddl ins insLen ctxt
   | Op.VAND -> vand ins insLen ctxt
   | Op.VCEQ | Op.VCGE | Op.VCGT | Op.VCLE | Op.VCLT
@@ -4890,8 +5216,8 @@ let translate (ins: ARM32InternalInstruction) insLen ctxt =
     sideEffects insLen ctxt UnsupportedFP
   | Op.VDUP -> vdup ins insLen ctxt
   | Op.VEXT -> vext ins insLen ctxt
-  | Op.VHADD -> vhadd ins insLen ctxt
-  | Op.VHSUB -> vhsub ins insLen ctxt
+  | Op.VHADD -> vhaddsub ins insLen ctxt (.+)
+  | Op.VHSUB -> vhaddsub ins insLen ctxt (.-)
   | Op.VLD1 -> vld1 ins insLen ctxt
   | Op.VLD2 -> vld2 ins insLen ctxt
   | Op.VLD3 -> vld3 ins insLen ctxt
@@ -4902,7 +5228,7 @@ let translate (ins: ARM32InternalInstruction) insLen ctxt =
     sideEffects insLen ctxt UnsupportedFP
   | Op.VMAX -> vmaxmin ins insLen ctxt true
   | Op.VMIN -> vmaxmin ins insLen ctxt false
-  | Op.VMLA | Op.VMLS when isF32orF64 ins.SIMDTyp ->
+  | Op.VMLA | Op.VMLS when isF16orF32orF64 ins.SIMDTyp ->
     sideEffects insLen ctxt UnsupportedFP
   | Op.VMLA -> vmla ins insLen ctxt
   | Op.VMLAL -> vmlal ins insLen ctxt
@@ -4913,7 +5239,7 @@ let translate (ins: ARM32InternalInstruction) insLen ctxt =
   | Op.VMOV -> vmov ins insLen ctxt
   | Op.VMOVN -> vmovn ins insLen ctxt
   | Op.VMRS -> vmrs ins insLen ctxt
-  | Op.VMUL | Op.VMULL when isF32orF64 ins.SIMDTyp ->
+  | Op.VMUL | Op.VMULL when isF16orF32orF64 ins.SIMDTyp ->
     sideEffects insLen ctxt UnsupportedFP
   | Op.VMUL -> vmul ins insLen ctxt
   | Op.VMULL -> vmull ins insLen ctxt
@@ -4942,7 +5268,7 @@ let translate (ins: ARM32InternalInstruction) insLen ctxt =
   | Op.VSTR -> vstr ins insLen ctxt
   | Op.VSUB when isF32orF64 ins.SIMDTyp ->
     sideEffects insLen ctxt UnsupportedFP
-  | Op.VSUB -> vsub ins insLen ctxt
+  | Op.VSUB -> vaddsub ins insLen ctxt (.-)
   | Op.VTBL -> vecTbl ins insLen ctxt true
   | Op.VTBX -> vecTbl ins insLen ctxt false
   | Op.VTST -> vtst ins insLen ctxt

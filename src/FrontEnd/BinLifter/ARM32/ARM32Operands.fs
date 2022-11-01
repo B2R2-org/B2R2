@@ -585,6 +585,19 @@ module OperandParsingHelper =
     | _ (* 1xx *) -> SIMDTypS64
     |> oneDt
 
+  let getDTPolyA b =
+    (* op:U:size *)
+    match (pickBit b 9 <<< 3) + (pickBit b 24 <<< 2) + (extract b 21 20) with
+    | 0b0000u -> SIMDTypS8
+    | 0b0001u -> SIMDTypS16
+    | 0b0010u -> SIMDTypS32
+    | 0b0100u -> SIMDTypU8
+    | 0b0101u -> SIMDTypU16
+    | 0b0110u -> SIMDTypU32
+    | 0b1000u -> SIMDTypP8
+    | 0b1010u -> SIMDTypP64
+    | _ -> raise UndefinedException
+
   /// Operand functions
   let getBankedReg r sysM =
     match concat r sysM 5 with
@@ -754,10 +767,10 @@ module OperandParsingHelper =
   (* W == '1' *)
   let wbackW8 bin = pickBit bin 8 = 0b1u
 
-  (* S8  when U = 0, size = 00
+  (* S8 when U = 0, size = 00
      S16 when U = 0, size = 01
      S32 when U = 0, size = 10
-     U8  when U = 1, size = 00
+     U8 when U = 1, size = 00
      U16 when U = 1, size = 01
      U32 when U = 1, size = 10 *)
   let getDtT bin =
@@ -777,7 +790,7 @@ module OperandParsingHelper =
     | 0b10u -> SIMDTypU32
     | _ -> raise UndefinedException
 
-  (* 8 when  L = 0, imm6<5:3> = 001
+  (* 8 when L = 0, imm6<5:3> = 001
      16 when L = 0, imm6<5:3> = 01x
      32 when L = 0, imm6<5:3> = 1xx
      64 when L = 1, imm6<5:3> = xxx *)
@@ -792,10 +805,10 @@ module OperandParsingHelper =
     | _ (* 1xxx *) -> if isSign then SIMDTypS64 else SIMDTypU64
     |> oneDt
 
-  (* S8 when  U = 0, imm3H = 001
+  (* S8 when U = 0, imm3H = 001
      S16 when U = 0, imm3H = 010
      S32 when U = 0, imm3H = 100
-     U8 when  U = 1, imm3H = 001
+     U8 when U = 1, imm3H = 001
      U16 when U = 1, imm3H = 010
      U32 when U = 1, imm3H = 100 *)
   let getDTUImm3hT bin =
@@ -832,7 +845,7 @@ module OperandParsingHelper =
     | _ (* 1xx *) -> if isSign then SIMDTypS32 else SIMDTypU32
     |> oneDt
 
-  let getDTPoly b =
+  let getDTPolyT b =
     (* op:U:size *)
     match (pickBit b 9 <<< 3) + (pickBit b 28 <<< 2) + (extract b 21 20) with
     | 0b0000u -> SIMDTypS8
@@ -982,11 +995,11 @@ type internal OprMemImm () =
       let sign = pickBit bin 23 |> getSign |> Some
       match pickTwoBitsApart bin 24 21 with
       | 0b10u -> memOffsetImm (rn, sign, Some imm12)
-      | 0b11u -> memPreIdxImm  (rn, sign, Some imm12)
+      | 0b11u -> memPreIdxImm (rn, sign, Some imm12)
       | _ (* 0b0xu *) -> memPostIdxImm (rn, sign, Some imm12)
     struct (OneOperand mem, false, None, 32<rt>)
 
-(* [<Rn>, {+/-}<Rm> , RRX] *)
+(* [<Rn>, {+/-}<Rm>, RRX] *)
 (* [<Rn>, {+/-}<Rm> {, <shift> #<amount>}] *)
 type internal OprMemRegA () =
   inherit OperandParser ()
@@ -1019,7 +1032,7 @@ type internal OprImm24 () =
 type internal OprImm4A () =
   inherit OperandParser ()
   override __.Render bin =
-    let imm  = extract bin 3 0 |> int64 |> OprImm |> OneOperand
+    let imm = extract bin 3 0 |> int64 |> OprImm |> OneOperand
     struct (imm, false, None, 32<rt>)
 
 (* #<imm> *)
@@ -2031,7 +2044,7 @@ type internal OprListMemB () =
       match extract bin 11 10 (* size *) with
       | 0b00u -> extract bin 7 5 (* index_align<3:1> *)
       | 0b01u -> extract bin 7 6 (* index_align<3:2> *)
-      | 0b10u -> pickBit bin 7   (* index_align<3> *)
+      | 0b10u -> pickBit bin 7 (* index_align<3> *)
       | _ (* 11 *) -> raise UndefinedException
       |> uint8 |> Some
     let list =
@@ -2064,7 +2077,7 @@ type internal OprListMemD () =
       match extract bin 11 10 (* size *) with
       | 0b00u -> extract bin 7 5 (* index_align<3:1> *)
       | 0b01u -> extract bin 7 6 (* index_align<3:2> *)
-      | 0b10u -> pickBit bin 7    (* index_align<3> *)
+      | 0b10u -> pickBit bin 7 (* index_align<3> *)
       | _ (* 11 *) -> raise UndefinedException
       |> uint8 |> Some
     let list =
@@ -2132,7 +2145,7 @@ type internal OprSPMode () =
     let mode = extract bin 5 0 |> int64 |> OprImm
     struct (TwoOperands (OprReg R.SP, mode), wbackW bin, None, 32<rt>)
 
-(* <iflags> , #<mode> *)
+(* <iflags>, #<mode> *)
 type internal OprIflagsModeA () =
   inherit OperandParser ()
   override __.Render bin =
@@ -3106,7 +3119,7 @@ type internal OprDdDnDmidxRotate () =
       concat (pickBit bin 22) (extract bin 15 12) 4 |> getVecDReg |> toSVReg
     let dn = (* N:Vn *)
       concat (pickBit bin 7) (extract bin 19 16) 4 |> getVecDReg |> toSVReg
-    let dmidx (* Reg: Vm, Index: M *)  =
+    let dmidx (* Reg: Vm, Index: M *) =
       toSSReg (extract bin 3 0 |> getVecDReg, Some (pickBit bin 5 |> uint8))
     let rotate =
       match extract bin 21 20 (* rot *) with
@@ -3125,7 +3138,7 @@ type internal OprQdQnDmidxRotate () =
       concat (pickBit bin 22) (extract bin 15 12) 4 |> getVecQReg |> toSVReg
     let qn = (* N:Vn *)
       concat (pickBit bin 7) (extract bin 19 16) 4 |> getVecQReg |> toSVReg
-    let dmidx (* Reg: Vm, Index: M *)  =
+    let dmidx (* Reg: Vm, Index: M *) =
       toSSReg (extract bin 3 0 |> getVecDReg, Some (pickBit bin 5 |> uint8))
     let rotate =
       match extract bin 21 20 (* rot *) with
@@ -3144,7 +3157,7 @@ type internal OprDdDnDm0Rotate () =
       concat (pickBit bin 22) (extract bin 15 12) 4 |> getVecDReg |> toSVReg
     let dn = (* N:Vn *)
       concat (pickBit bin 7) (extract bin 19 16) 4 |> getVecDReg |> toSVReg
-    let dm0 (* M:Vm *)  =
+    let dm0 (* M:Vm *) =
       toSSReg (concat (pickBit bin 5) (extract bin 3 0) 4 |> getVecDReg,
                Some 0uy)
     let rotate =
@@ -3164,7 +3177,7 @@ type internal OprQdQnDm0Rotate () =
       concat (pickBit bin 22) (extract bin 15 12) 4 |> getVecQReg |> toSVReg
     let qn = (* N:Vn *)
       concat (pickBit bin 7) (extract bin 19 16) 4 |> getVecQReg |> toSVReg
-    let dm0 (* M:Vm *)  =
+    let dm0 (* M:Vm *) =
       toSSReg (concat (pickBit bin 5) (extract bin 3 0) 4 |> getVecDReg,
                Some 0uy)
     let rotate =
@@ -3366,7 +3379,7 @@ type internal OprIflagsT32 () =
     let iflags = OneOperand (OprIflag (getIflag (extract bin 7 5)))
     struct (iflags, false, None, 32<rt>)
 
-(* <iflags> , #<mode> *)
+(* <iflags>, #<mode> *)
 type internal OprIflagsModeT () =
   inherit OperandParser ()
   override __.Render bin =

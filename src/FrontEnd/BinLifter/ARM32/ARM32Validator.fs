@@ -578,7 +578,7 @@ let chkVd bin = pickBit bin 12 (* Vd<0> *) = 1u |> checkUndef
 (* if U == '0' && op == '0' then UNDEFINED
    if Q == '1' && (Vd<0> == '1' || Vm<0> == '1') then UNDEFINED *)
 let chkUOpQVdVm bin =
-  (((pickBit bin 24 (* U *)  = 0u) && (pickBit bin 8 (* op *) = 0u)) ||
+  (((pickBit bin 24 (* U *) = 0u) && (pickBit bin 8 (* op *) = 0u)) ||
    (pickBit bin 6 (* Q *) = 1u) &&
     ((pickBit bin 12 (* Vd<0> *) = 1u) || (pickBit bin 0 (* Vm<0> *) = 1u)))
     |> checkUndef
@@ -750,7 +750,7 @@ let chkRegsIT bin itstate =
    if sz == '1' && InITBlock() then UNPREDICTABLE *)
 let chkQVdVnVmSzIT bin itstate =
   ((pickBit bin 6 = 1u) &&
-   (pickBit bin 12 = 1u  || pickBit bin 16 = 1u || pickBit bin 0 = 1u))
+   (pickBit bin 12 = 1u || pickBit bin 16 = 1u || pickBit bin 0 = 1u))
    |> checkUndef
   (pickBit bin 20 = 1u && inITBlock itstate) |> checkUnpred
 

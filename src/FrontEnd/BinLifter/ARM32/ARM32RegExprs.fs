@@ -31,55 +31,71 @@ open B2R2.BinIR.LowUIR
 type internal RegExprs () =
   let var sz t name = AST.var sz t name (ARM32RegisterSet.singleton t)
 
-  let q0 = var 128<rt> (Register.toRegID Register.Q0) "Q0"
-  let q1 = var 128<rt> (Register.toRegID Register.Q1) "Q1"
-  let q2 = var 128<rt> (Register.toRegID Register.Q2) "Q2"
-  let q3 = var 128<rt> (Register.toRegID Register.Q3) "Q3"
-  let q4 = var 128<rt> (Register.toRegID Register.Q4) "Q4"
-  let q5 = var 128<rt> (Register.toRegID Register.Q5) "Q5"
-  let q6 = var 128<rt> (Register.toRegID Register.Q6) "Q6"
-  let q7 = var 128<rt> (Register.toRegID Register.Q7) "Q7"
-  let q8 = var 128<rt> (Register.toRegID Register.Q8) "Q8"
-  let q9 = var 128<rt> (Register.toRegID Register.Q9) "Q9"
-  let q10 = var 128<rt> (Register.toRegID Register.Q10) "Q10"
-  let q11 = var 128<rt> (Register.toRegID Register.Q11) "Q11"
-  let q12 = var 128<rt> (Register.toRegID Register.Q12) "Q12"
-  let q13 = var 128<rt> (Register.toRegID Register.Q13) "Q13"
-  let q14 = var 128<rt> (Register.toRegID Register.Q14) "Q14"
-  let q15 = var 128<rt> (Register.toRegID Register.Q15) "Q15"
+  let q0a = var 64<rt> (Register.toRegID Register.Q0A) "Q0A"
+  let q0b = var 64<rt> (Register.toRegID Register.Q0B) "Q0B"
+  let q1a = var 64<rt> (Register.toRegID Register.Q1A) "Q1A"
+  let q1b = var 64<rt> (Register.toRegID Register.Q1B) "Q1B"
+  let q2a = var 64<rt> (Register.toRegID Register.Q2A) "Q2A"
+  let q2b = var 64<rt> (Register.toRegID Register.Q2B) "Q2B"
+  let q3a = var 64<rt> (Register.toRegID Register.Q3A) "Q3A"
+  let q3b = var 64<rt> (Register.toRegID Register.Q3B) "Q3B"
+  let q4a = var 64<rt> (Register.toRegID Register.Q4A) "Q4A"
+  let q4b = var 64<rt> (Register.toRegID Register.Q4B) "Q4B"
+  let q5a = var 64<rt> (Register.toRegID Register.Q5A) "Q5A"
+  let q5b = var 64<rt> (Register.toRegID Register.Q5B) "Q5B"
+  let q6a = var 64<rt> (Register.toRegID Register.Q6A) "Q6A"
+  let q6b = var 64<rt> (Register.toRegID Register.Q6B) "Q6B"
+  let q7a = var 64<rt> (Register.toRegID Register.Q7A) "Q7A"
+  let q7b = var 64<rt> (Register.toRegID Register.Q7B) "Q7B"
+  let q8a = var 64<rt> (Register.toRegID Register.Q8A) "Q8A"
+  let q8b = var 64<rt> (Register.toRegID Register.Q8B) "Q8B"
+  let q9a = var 64<rt> (Register.toRegID Register.Q9A) "Q9A"
+  let q9b = var 64<rt> (Register.toRegID Register.Q9B) "Q9B"
+  let q10a = var 64<rt> (Register.toRegID Register.Q10A) "Q10A"
+  let q10b = var 64<rt> (Register.toRegID Register.Q10B) "Q10B"
+  let q11a = var 64<rt> (Register.toRegID Register.Q11A) "Q11A"
+  let q11b = var 64<rt> (Register.toRegID Register.Q11B) "Q11B"
+  let q12a = var 64<rt> (Register.toRegID Register.Q12A) "Q12A"
+  let q12b = var 64<rt> (Register.toRegID Register.Q12B) "Q12B"
+  let q13a = var 64<rt> (Register.toRegID Register.Q13A) "Q13A"
+  let q13b = var 64<rt> (Register.toRegID Register.Q13B) "Q13B"
+  let q14a = var 64<rt> (Register.toRegID Register.Q14A) "Q14A"
+  let q14b = var 64<rt> (Register.toRegID Register.Q14B) "Q14B"
+  let q15a = var 64<rt> (Register.toRegID Register.Q15A) "Q15A"
+  let q15b = var 64<rt> (Register.toRegID Register.Q15B) "Q15B"
 
-  let d0 = AST.xtlo 64<rt> q0
-  let d1 = AST.xthi 64<rt> q0
-  let d2 = AST.xtlo 64<rt> q1
-  let d3 = AST.xthi 64<rt> q1
-  let d4 = AST.xtlo 64<rt> q2
-  let d5 = AST.xthi 64<rt> q2
-  let d6 = AST.xtlo 64<rt> q3
-  let d7 = AST.xthi 64<rt> q3
-  let d8 = AST.xtlo 64<rt> q4
-  let d9 = AST.xthi 64<rt> q4
-  let d10 = AST.xtlo 64<rt> q5
-  let d11 = AST.xthi 64<rt> q5
-  let d12 = AST.xtlo 64<rt> q6
-  let d13 = AST.xthi 64<rt> q6
-  let d14 = AST.xtlo 64<rt> q7
-  let d15 = AST.xthi 64<rt> q7
-  let d16 = AST.xtlo 64<rt> q8
-  let d17 = AST.xthi 64<rt> q8
-  let d18 = AST.xtlo 64<rt> q9
-  let d19 = AST.xthi 64<rt> q9
-  let d20 = AST.xtlo 64<rt> q10
-  let d21 = AST.xthi 64<rt> q10
-  let d22 = AST.xtlo 64<rt> q11
-  let d23 = AST.xthi 64<rt> q11
-  let d24 = AST.xtlo 64<rt> q12
-  let d25 = AST.xthi 64<rt> q12
-  let d26 = AST.xtlo 64<rt> q13
-  let d27 = AST.xthi 64<rt> q13
-  let d28 = AST.xtlo 64<rt> q14
-  let d29 = AST.xthi 64<rt> q14
-  let d30 = AST.xtlo 64<rt> q15
-  let d31 = AST.xthi 64<rt> q15
+  let d0 = q0a
+  let d1 = q0b
+  let d2 = q1a
+  let d3 = q1b
+  let d4 = q2a
+  let d5 = q2b
+  let d6 = q3a
+  let d7 = q3b
+  let d8 = q4a
+  let d9 = q4b
+  let d10 = q5a
+  let d11 = q5b
+  let d12 = q6a
+  let d13 = q6b
+  let d14 = q7a
+  let d15 = q7b
+  let d16 = q8a
+  let d17 = q8b
+  let d18 = q9a
+  let d19 = q9b
+  let d20 = q10a
+  let d21 = q10b
+  let d22 = q11a
+  let d23 = q11b
+  let d24 = q12a
+  let d25 = q12b
+  let d26 = q13a
+  let d27 = q13b
+  let d28 = q14a
+  let d29 = q14b
+  let d30 = q15a
+  let d31 = q15b
 
   let s0 = AST.xtlo 32<rt> d0
   let s1 = AST.xthi 32<rt> d0
@@ -130,22 +146,38 @@ type internal RegExprs () =
   member val SP = var 32<rt> (Register.toRegID Register.SP) "SP" with get
   member val LR = var 32<rt> (Register.toRegID Register.LR) "LR" with get
 
-  member val Q0 = q0 with get
-  member val Q1 = q1 with get
-  member val Q2 = q2 with get
-  member val Q3 = q3 with get
-  member val Q4 = q4 with get
-  member val Q5 = q5 with get
-  member val Q6 = q6 with get
-  member val Q7 = q7 with get
-  member val Q8 = q8 with get
-  member val Q9 = q9 with get
-  member val Q10 = q10 with get
-  member val Q11 = q11 with get
-  member val Q12 = q12 with get
-  member val Q13 = q13 with get
-  member val Q14 = q14 with get
-  member val Q15 = q15 with get
+  member val Q0A = q0a with get
+  member val Q0B = q0b with get
+  member val Q1A = q1a with get
+  member val Q1B = q1b with get
+  member val Q2A = q2a with get
+  member val Q2B = q2b with get
+  member val Q3A = q3a with get
+  member val Q3B = q3b with get
+  member val Q4A = q4a with get
+  member val Q4B = q4b with get
+  member val Q5A = q5a with get
+  member val Q5B = q5b with get
+  member val Q6A = q6a with get
+  member val Q6B = q6b with get
+  member val Q7A = q7a with get
+  member val Q7B = q7b with get
+  member val Q8A = q8a with get
+  member val Q8B = q8b with get
+  member val Q9A = q9a with get
+  member val Q9B = q9b with get
+  member val Q10A = q10a with get
+  member val Q10B = q10b with get
+  member val Q11A = q11a with get
+  member val Q11B = q11b with get
+  member val Q12A = q12a with get
+  member val Q12B = q12b with get
+  member val Q13A = q13a with get
+  member val Q13B = q13b with get
+  member val Q14A = q14a with get
+  member val Q14B = q14b with get
+  member val Q15A = q15a with get
+  member val Q15B = q15b with get
 
   member val D0 = d0 with get
   member val D1 = d1 with get
@@ -252,16 +284,16 @@ type internal RegExprs () =
     | R.SP -> __.SP
     | R.LR -> __.LR
     | R.PC -> __.PC
-    | R.S0  -> __.S0
-    | R.S1  -> __.S1
-    | R.S2  -> __.S2
-    | R.S3  -> __.S3
-    | R.S4  -> __.S4
-    | R.S5  -> __.S5
-    | R.S6  -> __.S6
-    | R.S7  -> __.S7
-    | R.S8  -> __.S8
-    | R.S9  -> __.S9
+    | R.S0 -> __.S0
+    | R.S1 -> __.S1
+    | R.S2 -> __.S2
+    | R.S3 -> __.S3
+    | R.S4 -> __.S4
+    | R.S5 -> __.S5
+    | R.S6 -> __.S6
+    | R.S7 -> __.S7
+    | R.S8 -> __.S8
+    | R.S9 -> __.S9
     | R.S10 -> __.S10
     | R.S11 -> __.S11
     | R.S12 -> __.S12
@@ -316,22 +348,6 @@ type internal RegExprs () =
     | R.D29 -> __.D29
     | R.D30 -> __.D30
     | R.D31 -> __.D31
-    | R.Q0 -> __.Q0
-    | R.Q1 -> __.Q1
-    | R.Q2 -> __.Q2
-    | R.Q3 -> __.Q3
-    | R.Q4 -> __.Q4
-    | R.Q5 -> __.Q5
-    | R.Q6 -> __.Q6
-    | R.Q7 -> __.Q7
-    | R.Q8 -> __.Q8
-    | R.Q9 -> __.Q9
-    | R.Q10 -> __.Q10
-    | R.Q11 -> __.Q11
-    | R.Q12 -> __.Q12
-    | R.Q13 -> __.Q13
-    | R.Q14 -> __.Q14
-    | R.Q15 -> __.Q15
     | R.APSR -> __.APSR
     | R.SPSR -> __.SPSR
     | R.CPSR -> __.CPSR
@@ -340,5 +356,42 @@ type internal RegExprs () =
     | R.NSACR -> __.NSACR
     | R.FPSCR -> __.FPSCR
     | _ -> raise UnhandledRegExprException
+
+  member __.GetPseudoRegVar name pos =
+    match name, pos with
+    | R.Q0, 1 -> __.Q0A
+    | R.Q0, 2 -> __.Q0B
+    | R.Q1, 1 -> __.Q1A
+    | R.Q1, 2 -> __.Q1B
+    | R.Q2, 1 -> __.Q2A
+    | R.Q2, 2 -> __.Q2B
+    | R.Q3, 1 -> __.Q3A
+    | R.Q3, 2 -> __.Q3B
+    | R.Q4, 1 -> __.Q4A
+    | R.Q4, 2 -> __.Q4B
+    | R.Q5, 1 -> __.Q5A
+    | R.Q5, 2 -> __.Q5B
+    | R.Q6, 1 -> __.Q6A
+    | R.Q6, 2 -> __.Q6B
+    | R.Q7, 1 -> __.Q7A
+    | R.Q7, 2 -> __.Q7B
+    | R.Q8, 1 -> __.Q8A
+    | R.Q8, 2 -> __.Q8B
+    | R.Q9, 1 -> __.Q9A
+    | R.Q9, 2 -> __.Q9B
+    | R.Q10, 1 -> __.Q10A
+    | R.Q10, 2 -> __.Q10B
+    | R.Q11, 1 -> __.Q11A
+    | R.Q11, 2 -> __.Q11B
+    | R.Q12, 1 -> __.Q12A
+    | R.Q12, 2 -> __.Q12B
+    | R.Q13, 1 -> __.Q13A
+    | R.Q13, 2 -> __.Q13B
+    | R.Q14, 1 -> __.Q14A
+    | R.Q14, 2 -> __.Q14B
+    | R.Q15, 1 -> __.Q15A
+    | R.Q15, 2 -> __.Q15B
+    | _ -> raise UnhandledRegExprException
+
 
 // vim: set tw=80 sts=2 sw=2:
