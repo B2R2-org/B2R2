@@ -184,16 +184,18 @@ let dumpSectionDetails (secname: string) (file: PEBinFile) =
 
 let printSymbolInfo (file: PEBinFile) (symbols: seq<Symbol>) =
   let addrColumn = columnWidthOfAddr file |> LeftAligned
-  let cfg = [ LeftAligned 5; addrColumn; LeftAligned 50; LeftAligned 15 ]
-  out.PrintRow (true, cfg, [ "Kind"; "Address"; "Name"; "LibraryName" ])
+  let cfg = [ LeftAligned 3; LeftAligned 10
+              addrColumn; LeftAligned 50; LeftAligned 15 ]
+  out.PrintRow (true, cfg, [ "S/D"; "Kind"; "Address"; "Name"; "Lib Name" ])
   out.PrintLine "  ---"
   symbols
   |> Seq.sortBy (fun s -> s.Name)
   |> Seq.sortBy (fun s -> s.Address)
-  |> Seq.sortBy (fun s -> s.Target)
+  |> Seq.sortBy (fun s -> s.Visibility)
   |> Seq.iter (fun s ->
     out.PrintRow (true, cfg,
-      [ targetString s
+      [ visibilityString s
+        symbolKindString s
         Addr.toString file.WordSize s.Address
         normalizeEmpty s.Name
         (toLibString >> normalizeEmpty) s.LibraryName ]))
@@ -216,7 +218,7 @@ let inline addrFromRVA baseAddr rva =
 let dumpImports _ (file: PEBinFile) =
   let cfg = [ LeftAligned 50; LeftAligned 50; LeftAligned 20 ]
   out.PrintRow (true, cfg,
-    [ "FunctionName"; "LibraryName"; "TableAddress" ])
+    [ "FunctionName"; "Lib Name"; "TableAddress" ])
   out.PrintLine "  ---"
   file.PE.ImportMap
   |> Map.iter (fun addr info ->

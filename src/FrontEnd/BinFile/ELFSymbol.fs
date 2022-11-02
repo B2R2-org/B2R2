@@ -46,11 +46,11 @@ let versionToLibName version =
   | Some version -> version.VerName
   | None -> ""
 
-let toB2R2Symbol target (symb: ELFSymbol) =
+let toB2R2Symbol vis (symb: ELFSymbol) =
   { Address = symb.Addr
     Name = symb.SymName
     Kind = getSymbKind symb.SecHeaderIndex symb.SymType
-    Target = target
+    Visibility = vis
     LibraryName = versionToLibName symb.VerInfo
     ArchOperationMode = symb.ArchOperationMode }
 

@@ -39,11 +39,22 @@ let toNBytes (v: uint64) =
 let columnWidthOfAddr (file: BinFile) =
   WordSize.toByteWidth file.WordSize * 2
 
-let targetString s =
-  match s.Target with
-  | TargetKind.StaticSymbol -> "(s)"
-  | TargetKind.DynamicSymbol -> "(d)"
+let visibilityString s =
+  match s.Visibility with
+  | SymbolVisibility.StaticSymbol -> "(s)"
+  | SymbolVisibility.DynamicSymbol -> "(d)"
   | _ -> Utils.impossible ()
+
+let symbolKindString (s: Symbol) =
+  match s.Kind with
+  | SymNoType -> "unknown"
+  | SymObjectType -> "object"
+  | SymFunctionType -> "function"
+  | SymExternFunctionType -> "extfunc"
+  | SymTrampolineType -> "trampoline"
+  | SymSectionType -> "section"
+  | SymFileType -> "file"
+  | SymForwardType (bin, func) -> $"{func}@{bin}"
 
 let toLibString s =
   if System.String.IsNullOrEmpty s then s else "@" + s

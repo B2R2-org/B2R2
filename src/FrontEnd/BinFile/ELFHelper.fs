@@ -99,7 +99,7 @@ let inline tryFindFuncSymb elf addr =
 
 let getStaticSymbols elf =
   Symbol.getStaticSymArray elf
-  |> Array.map (Symbol.toB2R2Symbol TargetKind.StaticSymbol)
+  |> Array.map (Symbol.toB2R2Symbol SymbolVisibility.StaticSymbol)
   |> Array.toSeq
 
 let getDynamicSymbols excludeImported elf =
@@ -110,7 +110,7 @@ let getDynamicSymbols excludeImported elf =
     else alwaysTrue
   Symbol.getDynamicSymArray elf
   |> Array.filter filter
-  |> Array.map (Symbol.toB2R2Symbol TargetKind.DynamicSymbol)
+  |> Array.map (Symbol.toB2R2Symbol SymbolVisibility.DynamicSymbol)
   |> Array.toSeq
 
 let getSymbols elf =
@@ -123,7 +123,7 @@ let getRelocSymbols elf =
     reloc.RelSymbol
     |> Option.bind (fun s ->
          { s with Addr = reloc.RelOffset }
-         |> Symbol.toB2R2Symbol TargetKind.DynamicSymbol
+         |> Symbol.toB2R2Symbol SymbolVisibility.DynamicSymbol
          |> Some)
   elf.RelocInfo.RelocByName.Values
   |> Seq.choose translate

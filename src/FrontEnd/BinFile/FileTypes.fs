@@ -52,12 +52,12 @@ type SymbolKind =
   /// The symbol is associated with a forwarding entry.
   | SymForwardType of bin: string * func: string
 
-/// Is the symbol used for static target (static link editor) or dynamic target
-/// (dynamic linker)?
-type TargetKind =
-  /// Static symbols are used by link editor, and can be stripped off.
+/// Does the symbol need to be visible by external modules?
+type SymbolVisibility =
+  /// Static symbols do not need to be visible by external modules, and can be
+  /// stripped off.
   | StaticSymbol = 1
-  /// Dynamic symbols cannot be stripped off.
+  /// Dynamic symbols cannot be stripped off. This should be visible to externs.
   | DynamicSymbol = 2
 
 /// A symbol object defined in a file-format-agnostic way.
@@ -68,8 +68,8 @@ type Symbol = {
   Name: string
   /// Symbol kind.
   Kind: SymbolKind
-  /// Symbol target.
-  Target: TargetKind
+  /// Symbol visibility (static or dynamic).
+  Visibility: SymbolVisibility
   /// Corresponding library name.
   LibraryName: string
   /// Corresponding ArchOperationMode for this symbol, which is only meaningful

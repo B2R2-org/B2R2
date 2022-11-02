@@ -30,7 +30,6 @@ open B2R2
 open B2R2.BinIR
 open B2R2.FrontEnd.BinFile
 open B2R2.FrontEnd.BinInterface
-open B2R2.MiddleEnd.BinGraph
 
 [<AutoOpen>]
 module private EVMTrampolineAnalysis =
@@ -95,7 +94,7 @@ type EVMTrampolineAnalysis (abiFile) =
     { Address = addr
       Name = name
       Kind = SymFunctionType
-      Target = TargetKind.StaticSymbol
+      Visibility = SymbolVisibility.StaticSymbol
       LibraryName = ""
       ArchOperationMode = ArchOperationMode.NoMode }
 

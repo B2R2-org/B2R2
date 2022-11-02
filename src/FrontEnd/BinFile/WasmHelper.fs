@@ -68,7 +68,7 @@ let importEntryToSymbol (importEntry: Import) =
   { Address = uint64 importEntry.Offset
     Name = importEntry.Name
     Kind = importDescToSymKind importEntry.Desc
-    Target = TargetKind.DynamicSymbol
+    Visibility = SymbolVisibility.DynamicSymbol
     LibraryName = importEntry.ModuleName
     ArchOperationMode = ArchOperationMode.NoMode }
 
@@ -83,7 +83,7 @@ let exportEntryToSymbol (exportEntry: Export) =
   { Address = uint64 exportEntry.Offset
     Name = exportEntry.Name
     Kind = exportDescToSymKind exportEntry.Desc
-    Target = TargetKind.DynamicSymbol
+    Visibility = SymbolVisibility.DynamicSymbol
     LibraryName = ""
     ArchOperationMode = ArchOperationMode.NoMode }
 

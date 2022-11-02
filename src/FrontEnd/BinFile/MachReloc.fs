@@ -69,7 +69,7 @@ let toSymbol symbols secs reloc =
   { Address = translateRelocAddr reloc
     Name = translateRelocSymbol symbols secs reloc
     Kind = SymNoType (* FIXME *)
-    Target = TargetKind.DynamicSymbol
+    Visibility = SymbolVisibility.DynamicSymbol
     LibraryName = ""
     ArchOperationMode = ArchOperationMode.NoMode }
 

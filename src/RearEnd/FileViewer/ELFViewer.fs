@@ -119,7 +119,7 @@ let printSymbolInfoVerbose (file: ELFBinFile) s (elfSymbol: ELF.ELFSymbol) cfg =
     | ELF.SectionHeaderIdx.SecIdx idx -> idx.ToString ()
     | idx -> idx.ToString ()
   out.PrintRow (true, cfg,
-    [ targetString s
+    [ visibilityString s
       Addr.toString file.WordSize s.Address
       normalizeEmpty s.Name
       (toLibString >> normalizeEmpty) s.LibraryName
@@ -131,7 +131,7 @@ let printSymbolInfoVerbose (file: ELFBinFile) s (elfSymbol: ELF.ELFSymbol) cfg =
 
 let printSymbolInfoNone (file: ELFBinFile) s cfg =
   out.PrintRow (true, cfg,
-    [ targetString s
+    [ visibilityString s
       Addr.toString file.WordSize s.Address
       normalizeEmpty s.Name
       (toLibString >> normalizeEmpty) s.LibraryName
@@ -143,14 +143,14 @@ let printSymbolInfo isVerbose (file: ELFBinFile) (symbols: seq<Symbol>) =
     let cfg = [ LeftAligned 4; addrColumn; LeftAligned 55; LeftAligned 15
                 LeftAligned 8; LeftAligned 12; LeftAligned 12; LeftAligned 12
                 LeftAligned 8 ]
-    out.PrintRow (true, cfg, [ "Kind"; "Address"; "Name"; "LibraryName"
+    out.PrintRow (true, cfg, [ "S/D"; "Address"; "Name"; "Lib Name"
                                "Size"; "Type"; "Bind"; "Visibility"
                                "SectionIndex" ])
     out.PrintLine "  ---"
     symbols
     |> Seq.sortBy (fun s -> s.Name)
     |> Seq.sortBy (fun s -> s.Address)
-    |> Seq.sortBy (fun s -> s.Target)
+    |> Seq.sortBy (fun s -> s.Visibility)
     |> Seq.iter (fun s ->
       match file.ELF.SymInfo.AddrToSymbTable.TryGetValue s.Address with
       | true, elfSymbol -> printSymbolInfoVerbose file s elfSymbol cfg
@@ -162,16 +162,18 @@ let printSymbolInfo isVerbose (file: ELFBinFile) (symbols: seq<Symbol>) =
           | None -> printSymbolInfoNone file s cfg
         | false, _ -> printSymbolInfoNone file s cfg)
   else
-    let cfg = [ LeftAligned 15; addrColumn; LeftAligned 75; LeftAligned 15 ]
-    out.PrintRow (true, cfg, [ "Kind"; "Address"; "Name"; "LibraryName" ])
+    let cfg = [ LeftAligned 3; LeftAligned 10
+                addrColumn; LeftAligned 75; LeftAligned 15 ]
+    out.PrintRow (true, cfg, [ "S/D"; "Kind"; "Address"; "Name"; "Lib Name" ])
     out.PrintLine "  ---"
     symbols
     |> Seq.sortBy (fun s -> s.Name)
     |> Seq.sortBy (fun s -> s.Address)
-    |> Seq.sortBy (fun s -> s.Target)
+    |> Seq.sortBy (fun s -> s.Visibility)
     |> Seq.iter (fun s ->
       out.PrintRow (true, cfg,
-        [ targetString s
+        [ visibilityString s
+          symbolKindString s
           Addr.toString file.WordSize s.Address
           normalizeEmpty s.Name
           (toLibString >> normalizeEmpty) s.LibraryName ]))
@@ -252,7 +254,7 @@ let dumpLinkageTable (opts: FileViewerOpts) (file: ELFBinFile) =
     let cfg = [ addrColumn; addrColumn; LeftAligned 40; LeftAligned 15
                 LeftAligned 8; LeftAligned 6; LeftAligned 4 ]
     out.PrintRow (true, cfg,
-      [ "PLT Addr"; "GOT Addr"; "FunctionName"; "LibraryName"
+      [ "PLT Addr"; "GOT Addr"; "FunctionName"; "Lib Name"
         "Addend"; "SecIdx"; "Type" ])
     out.PrintLine "  ---"
     file.GetLinkageTableEntries ()
@@ -277,7 +279,7 @@ let dumpLinkageTable (opts: FileViewerOpts) (file: ELFBinFile) =
   else
     let cfg = [ addrColumn; addrColumn; LeftAligned 20; LeftAligned 15 ]
     out.PrintRow (true, cfg,
-      [ "PLT"; "GOT"; "FunctionName"; "LibraryName" ])
+      [ "PLT"; "GOT"; "FunctionName"; "Lib Name" ])
     out.PrintLine "  ---"
     file.GetLinkageTableEntries ()
     |> Seq.iter (fun e ->

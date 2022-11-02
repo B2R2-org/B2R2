@@ -66,18 +66,18 @@ let machTypeToSymbKind sym secText =
   else
     SymNoType
 
-let machSymbolToSymbol secText target sym =
+let machSymbolToSymbol secText vis sym =
   { Address = sym.SymAddr
     Name = sym.SymName
     Kind = machTypeToSymbKind sym secText
-    Target = target
+    Visibility = vis
     LibraryName = Symbol.getSymbolLibName sym
     ArchOperationMode = ArchOperationMode.NoMode }
 
 let getStaticSymbols mach =
   mach.SymInfo.Symbols
   |> Array.filter Symbol.isStatic
-  |> Array.map (machSymbolToSymbol mach.SecText TargetKind.StaticSymbol)
+  |> Array.map (machSymbolToSymbol mach.SecText SymbolVisibility.StaticSymbol)
 
 let isStripped mach =
   getStaticSymbols mach
@@ -102,7 +102,7 @@ let getDynamicSymbols excludeImported mach =
   mach.SymInfo.Symbols
   |> Array.filter Symbol.isDynamic
   |> fun arr -> if excludeImported then filter arr else arr
-  |> Array.map (machSymbolToSymbol mach.SecText TargetKind.DynamicSymbol)
+  |> Array.map (machSymbolToSymbol mach.SecText SymbolVisibility.DynamicSymbol)
 
 let getSymbols mach =
   let s = getStaticSymbols mach

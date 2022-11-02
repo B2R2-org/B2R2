@@ -191,7 +191,7 @@ let printSymbolInfoVerbose file s (machSymbol: Mach.MachSymbol) cfg =
         + "current version" + toVersionString info.DyLibCurVer
     | None -> "(n/a)"
   out.PrintRow (true, cfg,
-    [ targetString s
+    [ visibilityString s
       Addr.toString (file: MachBinFile).WordSize s.Address
       normalizeEmpty s.Name
       (toLibString >> normalizeEmpty) s.LibraryName
@@ -203,7 +203,7 @@ let printSymbolInfoVerbose file s (machSymbol: Mach.MachSymbol) cfg =
 
 let printSymbolInfoNone file s cfg =
   out.PrintRow (true, cfg,
-    [ targetString s
+    [ visibilityString s
       Addr.toString (file: MachBinFile).WordSize s.Address
       normalizeEmpty s.Name
       (toLibString >> normalizeEmpty) s.LibraryName
@@ -212,32 +212,34 @@ let printSymbolInfoNone file s cfg =
 let printSymbolInfo isVerbose (file: MachBinFile) (symbols: seq<Symbol>) =
   let addrColumn = columnWidthOfAddr file |> LeftAligned
   if isVerbose then
-    let cfg = [ LeftAligned 10; addrColumn; LeftAligned 40; LeftAligned 35
+    let cfg = [ LeftAligned 3; addrColumn; LeftAligned 40; LeftAligned 35
                 LeftAligned 8; LeftAligned 8; LeftAligned 8; LeftAligned 8
                 LeftAligned 8 ]
-    out.PrintRow (true, cfg, [ "Kind"; "Address"; "Name"; "LibraryName"
+    out.PrintRow (true, cfg, [ "S/D"; "Address"; "Name"; "Lib Name"
                                "Type"; "Description"; "External"; "Version"
                                "SectionIndex" ])
     out.PrintLine "  ---"
     symbols
     |> Seq.sortBy (fun s -> s.Name)
     |> Seq.sortBy (fun s -> s.Address)
-    |> Seq.sortBy (fun s -> s.Target)
+    |> Seq.sortBy (fun s -> s.Visibility)
     |> Seq.iter (fun s ->
       match file.Mach.SymInfo.SymbolMap.TryFind s.Address with
       | Some machSymbol -> printSymbolInfoVerbose file s machSymbol cfg
       | None -> printSymbolInfoNone file s cfg)
   else
-    let cfg = [ LeftAligned 10; addrColumn; LeftAligned 55; LeftAligned 15 ]
-    out.PrintRow (true, cfg, [ "Kind"; "Address"; "Name"; "LibraryName" ])
+    let cfg = [ LeftAligned 3; LeftAligned 10
+                addrColumn; LeftAligned 55; LeftAligned 15 ]
+    out.PrintRow (true, cfg, [ "S/D"; "Kind"; "Address"; "Name"; "Lib Name" ])
     out.PrintLine "  ---"
     symbols
     |> Seq.sortBy (fun s -> s.Name)
     |> Seq.sortBy (fun s -> s.Address)
-    |> Seq.sortBy (fun s -> s.Target)
+    |> Seq.sortBy (fun s -> s.Visibility)
     |> Seq.iter (fun s ->
       out.PrintRow (true, cfg,
-        [ targetString s
+        [ visibilityString s
+          symbolKindString s
           Addr.toString file.WordSize s.Address
           normalizeEmpty s.Name
           (toLibString >> normalizeEmpty) s.LibraryName ]))
@@ -389,7 +391,7 @@ let dumpLoadCommands _ (file: MachBinFile) =
 
 let dumpSharedLibs _ (file: MachBinFile) =
   let cfg = [ LeftAligned 35; LeftAligned 15; LeftAligned 15 ]
-  out.PrintRow (true, cfg, [ "LibraryName"; "CurVersion"; "CompatVersion" ])
+  out.PrintRow (true, cfg, [ "Lib Name"; "CurVersion"; "CompatVersion" ])
   file.Mach.Cmds
   |> List.iter (fun cmd ->
     match cmd with
