@@ -242,9 +242,9 @@ let getFiveOprs insInfo =
 let transOprToExpr insInfo ctxt = function
   | OpReg reg -> getRegVar ctxt reg
   | OpImm imm
-  | OpShiftAmount imm -> numU32 imm ctxt.WordBitSize
+  | OpShiftAmount imm -> numU64 imm ctxt.WordBitSize
   | OpMem (b, Some (Imm o), sz) ->
-    AST.loadLE sz (getRegVar ctxt b .+ numU32 o ctxt.WordBitSize)
+    AST.loadLE sz (getRegVar ctxt b .+ numU64 o ctxt.WordBitSize)
   | OpAddr (Relative o) ->
     numI64 (int64 insInfo.Address + o) ctxt.WordBitSize
   | OpAddr (RelativeBase (b, imm)) ->
