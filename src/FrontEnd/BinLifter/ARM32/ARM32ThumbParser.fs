@@ -7084,10 +7084,7 @@ let parseDataProcessingShiftReg phlp (itstate: byref<BL>) isInIT bin =
 #if !EMULATION
     chkPCRdSRnRm bin
 #endif
-    let struct (q, oprs) =
-      if inITBlock itstate |> not then struct (W, OD.OprRdRnRmT32)
-      else struct (N, OD.OprRdRnRmShfT)
-    render phlp &itstate 0 isInIT bin Op.ADDS None q oprs
+    render phlp &itstate 0 isInIT bin Op.ADDS None W OD.OprRdRnRmShfT
   | 0b10001u when rn = 0b1101u && rd <> 0b1111u ->
 #if !EMULATION
     chkPCRdSRm bin
