@@ -3561,8 +3561,8 @@ module ARM64 =
         (FourOperands (
           OprRegister R.W26,
           OprRegister R.W5,
-          Immediate 0x371L,
-          Shift (SRTypeLSL, Imm 12L)
+          OprImm 0x371L,
+          OprShift (SRTypeLSL, Imm 12L)
         ))
         [| 0x11uy; 0x4duy; 0xc4uy; 0xbauy |]
 
@@ -3574,8 +3574,8 @@ module ARM64 =
         (FourOperands (
           OprRegister R.W1,
           OprRegister R.W0,
-          Immediate 0x1L,
-          Immediate 0x1L
+          OprImm 0x1L,
+          OprImm 0x1L
         ))
         [| 0x13uy; 0x01uy; 0x04uy; 0x01uy |]
 
@@ -3588,7 +3588,7 @@ module ARM64 =
           OprRegister R.X2,
           OprRegister R.X1,
           OprRegister R.X0,
-          LSB 0x1uy
+          OprLSB 0x1uy
         ))
         [| 0x93uy; 0xc0uy; 0x04uy; 0x22uy |]
 
@@ -3600,7 +3600,7 @@ module ARM64 =
         (ThreeOperands (
           OprRegister R.W1,
           OprRegister R.W0,
-          Immediate 0x80000001L
+          OprImm 0x80000001L
         ))
         [| 0x12uy; 0x01uy; 0x04uy; 0x01uy |]
 
@@ -3609,13 +3609,13 @@ module ARM64 =
         (ThreeOperands (
           OprRegister R.W1,
           OprRegister R.W0,
-          Immediate 0xE0000001L
+          OprImm 0xE0000001L
         ))
         [| 0x12uy; 0x03uy; 0x0cuy; 0x01uy |]
 
       test64
         Opcode.AND
-        (ThreeOperands (OprRegister R.W1, OprRegister R.W0, Immediate 0x3L))
+        (ThreeOperands (OprRegister R.W1, OprRegister R.W0, OprImm 0x3L))
         [| 0x12uy; 0x20uy; 0x04uy; 0x01uy |]
 
       test64
@@ -3623,7 +3623,7 @@ module ARM64 =
         (ThreeOperands (
           OprRegister R.W1,
           OprRegister R.W1,
-          Immediate 0xffffffdfL
+          OprImm 0xffffffdfL
         ))
         [| 0x12uy; 0x1auy; 0x78uy; 0x21uy |]
 
@@ -3632,7 +3632,7 @@ module ARM64 =
         (ThreeOperands (
           OprRegister R.X1,
           OprRegister R.X0,
-          Immediate 0x300000003L
+          OprImm 0x300000003L
         ))
         [| 0x92uy; 0x20uy; 0x04uy; 0x01uy |]
 
@@ -3643,19 +3643,19 @@ module ARM64 =
         Opcode.MOVN
         (ThreeOperands (
           OprRegister R.X21,
-          Immediate 0x0L,
-          Shift (SRTypeLSL, Imm 0x10L)
+          OprImm 0x0L,
+          OprShift (SRTypeLSL, Imm 0x10L)
         ))
         [| 0x92uy; 0xa0uy; 0x00uy; 0x15uy |]
 
       test64
         Opcode.MOV
-        (TwoOperands (OprRegister R.XZR, Immediate 0XE002FFFFFFFFFFFFL))
+        (TwoOperands (OprRegister R.XZR, OprImm 0XE002FFFFFFFFFFFFL))
         [| 0x92uy; 0xe3uy; 0xffuy; 0xbfuy |] (* Alias of MOVN *)
 
       test64
         Opcode.MOV
-        (TwoOperands (OprRegister R.W26, Immediate 0x7FFFFFFFL))
+        (TwoOperands (OprRegister R.W26, OprImm 0x7FFFFFFFL))
         [| 0x12uy; 0xb0uy; 0x00uy; 0x1auy |] (* Alias of MOVN *)
 
     /// C4.2.6 PC-rel. addressing
@@ -3690,7 +3690,7 @@ module ARM64 =
     member __.``[AArch64] Exception generation Parse Test`` () =
       test64
         Opcode.SVC
-        (OneOperand (Immediate 0x3L))
+        (OneOperand (OprImm 0x3L))
         [| 0xd4uy; 0x00uy; 0x00uy; 0x61uy |]
 
     /// C4.3.4 System
@@ -3698,17 +3698,17 @@ module ARM64 =
     member __.``[AArch64] System Parse Test`` () =
       test64
         Opcode.MSR
-        (TwoOperands (Pstate SPSEL, Immediate 0x2L))
+        (TwoOperands (OprPstate SPSEL, OprImm 0x2L))
         [| 0xd5uy; 0x00uy; 0x42uy; 0xbfuy |]
 
       test64
         Opcode.MSR
-        (TwoOperands (Pstate DAIFSET, Immediate 0x2L))
+        (TwoOperands (OprPstate DAIFSET, OprImm 0x2L))
         [| 0xd5uy; 0x03uy; 0x42uy; 0xdfuy |]
 
       test64
         Opcode.HINT
-        (OneOperand (Immediate 0x6L))
+        (OneOperand (OprImm 0x6L))
         [| 0xd5uy; 0x03uy; 0x20uy; 0xdfuy |]
 
       test64 Opcode.SEVL NoOperand [| 0xd5uy; 0x03uy; 0x20uy; 0xbfuy |]
@@ -3722,10 +3722,10 @@ module ARM64 =
         Opcode.SYSL
         (FiveOperands (
           OprRegister R.X24,
-          Immediate 0L,
+          OprImm 0L,
           OprRegister R.C15,
           OprRegister R.C4,
-          Immediate 6L
+          OprImm 6L
         ))
         [| 0xd5uy; 0x28uy; 0xf4uy; 0xd8uy |]
 
@@ -3749,7 +3749,7 @@ module ARM64 =
     member __.``[AArch64] Test & branch (immediate) Parse Test`` () =
       test64
         Opcode.TBZ
-        (ThreeOperands (OprRegister R.X3, Immediate 0x21L, memLabel 0x8L))
+        (ThreeOperands (OprRegister R.X3, OprImm 0x21L, memLabel 0x8L))
         [| 0xb6uy; 0x08uy; 0x00uy; 0x43uy |]
 
     /// C4.3.6 Unconditional branch (immediate)
@@ -3777,14 +3777,11 @@ module ARM64 =
       test64
         Opcode.ST4
         (TwoOperands (
-          SIMDOpr (
-            FourRegs (
-              SIMDVecReg (R.V5, EightB),
-              SIMDVecReg (R.V6, EightB),
-              SIMDVecReg (R.V7, EightB),
-              SIMDVecReg (R.V8, EightB)
-            )
-          ),
+          OprSIMDList [
+            SIMDVecReg (R.V5, EightB);
+            SIMDVecReg (R.V6, EightB);
+            SIMDVecReg (R.V7, EightB);
+            SIMDVecReg (R.V8, EightB) ],
           memBaseImm (R.X14, None)
         ))
         [| 0x0cuy; 0x00uy; 0x01uy; 0xc5uy |]
@@ -3792,9 +3789,8 @@ module ARM64 =
       test64
         Opcode.ST2
         (TwoOperands (
-          SIMDOpr (
-            TwoRegs (SIMDVecReg (R.V24, EightB), SIMDVecReg (R.V25, EightB))
-          ),
+          OprSIMDList [
+            SIMDVecReg (R.V24, EightB); SIMDVecReg (R.V25, EightB) ],
           memBaseImm (R.X15, None)
         ))
         [| 0x0cuy; 0x00uy; 0x81uy; 0xf8uy |]
@@ -3802,14 +3798,11 @@ module ARM64 =
       test64
         Opcode.LD1
         (TwoOperands (
-          SIMDOpr (
-            FourRegs (
-              SIMDVecReg (R.V29, OneD),
-              SIMDVecReg (R.V30, OneD),
-              SIMDVecReg (R.V31, OneD),
-              SIMDVecReg (R.V0, OneD)
-            )
-          ),
+          OprSIMDList [
+            SIMDVecReg (R.V29, OneD);
+            SIMDVecReg (R.V30, OneD);
+            SIMDVecReg (R.V31, OneD);
+            SIMDVecReg (R.V0, OneD) ],
           memBaseImm (R.X25, None)
         ))
         [| 0x0cuy; 0x40uy; 0x2fuy; 0x3duy |]
@@ -3822,14 +3815,11 @@ module ARM64 =
       test64
         Opcode.ST4
         (TwoOperands (
-          SIMDOpr (
-            FourRegs (
-              SIMDVecReg (R.V1, FourH),
-              SIMDVecReg (R.V2, FourH),
-              SIMDVecReg (R.V3, FourH),
-              SIMDVecReg (R.V4, FourH)
-            )
-          ),
+          OprSIMDList [
+            SIMDVecReg (R.V1, FourH);
+            SIMDVecReg (R.V2, FourH);
+            SIMDVecReg (R.V3, FourH);
+            SIMDVecReg (R.V4, FourH) ],
           memPostIdxReg (R.X1, R.X0, None)
         ))
         [| 0x0cuy; 0x80uy; 0x04uy; 0x21uy |]
@@ -3837,14 +3827,11 @@ module ARM64 =
       test64
         Opcode.ST4
         (TwoOperands (
-          SIMDOpr (
-            FourRegs (
-              SIMDVecReg (R.V25, FourH),
-              SIMDVecReg (R.V26, FourH),
-              SIMDVecReg (R.V27, FourH),
-              SIMDVecReg (R.V28, FourH)
-            )
-          ),
+          OprSIMDList [
+            SIMDVecReg (R.V25, FourH);
+            SIMDVecReg (R.V26, FourH);
+            SIMDVecReg (R.V27, FourH);
+            SIMDVecReg (R.V28, FourH) ],
           memPostIdxReg (R.X9, R.X21, None)
         ))
         [| 0x0cuy; 0x95uy; 0x05uy; 0x39uy |]
@@ -3852,14 +3839,11 @@ module ARM64 =
       test64
         Opcode.ST4
         (TwoOperands (
-          SIMDOpr (
-            FourRegs (
-              SIMDVecReg (R.V4, EightH),
-              SIMDVecReg (R.V5, EightH),
-              SIMDVecReg (R.V6, EightH),
-              SIMDVecReg (R.V7, EightH)
-            )
-          ),
+          OprSIMDList [
+            SIMDVecReg (R.V4, EightH);
+            SIMDVecReg (R.V5, EightH);
+            SIMDVecReg (R.V6, EightH);
+            SIMDVecReg (R.V7, EightH) ],
           memPostIdxImm (R.X20, Some 0x40L)
         ))
         [| 0x4cuy; 0x9fuy; 0x06uy; 0x84uy |]
@@ -3867,13 +3851,10 @@ module ARM64 =
       test64
         Opcode.LD3
         (TwoOperands (
-          SIMDOpr (
-            ThreeRegs (
-              SIMDVecReg (R.V30, EightH),
-              SIMDVecReg (R.V31, EightH),
-              SIMDVecReg (R.V0, EightH)
-            )
-          ),
+          OprSIMDList [
+            SIMDVecReg (R.V30, EightH);
+            SIMDVecReg (R.V31, EightH);
+            SIMDVecReg (R.V0, EightH) ],
           memPostIdxReg (R.X21, R.X10, None)
         ))
         [| 0x4cuy; 0xcauy; 0x46uy; 0xbeuy |]
@@ -3881,14 +3862,11 @@ module ARM64 =
       test64
         Opcode.LD4
         (TwoOperands (
-          SIMDOpr (
-            FourRegs (
-              SIMDVecReg (R.V4, EightH),
-              SIMDVecReg (R.V5, EightH),
-              SIMDVecReg (R.V6, EightH),
-              SIMDVecReg (R.V7, EightH)
-            )
-          ),
+          OprSIMDList [
+            SIMDVecReg (R.V4, EightH);
+            SIMDVecReg (R.V5, EightH);
+            SIMDVecReg (R.V6, EightH);
+            SIMDVecReg (R.V7, EightH) ],
           memPostIdxImm (R.X20, Some 0x40L)
         ))
         [| 0x4cuy; 0xdfuy; 0x06uy; 0x84uy |]
@@ -3901,7 +3879,7 @@ module ARM64 =
       test64
         Opcode.ST1
         (TwoOperands (
-          SIMDOpr (OneReg (sVRegIdx R.V30 VecB 5uy)),
+          OprSIMDList [ sVRegIdx R.V30 VecB 5uy ],
           memBaseImm (R.X3, None)
         ))
         [| 0x0duy; 0x00uy; 0x14uy; 0x7euy |]
@@ -3909,13 +3887,10 @@ module ARM64 =
       test64
         Opcode.ST3
         (TwoOperands (
-          SIMDOpr (
-            ThreeRegs (
-              sVRegIdx R.V3 VecB 1uy,
-              sVRegIdx R.V4 VecB 1uy,
-              sVRegIdx R.V5 VecB 1uy
-            )
-          ),
+          OprSIMDList [
+            sVRegIdx R.V3 VecB 1uy;
+            sVRegIdx R.V4 VecB 1uy;
+            sVRegIdx R.V5 VecB 1uy ],
           memBaseImm (R.X14, None)
         ))
         [| 0x0duy; 0x00uy; 0x25uy; 0xc3uy |]
@@ -3923,14 +3898,11 @@ module ARM64 =
       test64
         Opcode.ST4
         (TwoOperands (
-          SIMDOpr (
-            FourRegs (
-              sVRegIdx R.V29 VecS 3uy,
-              sVRegIdx R.V30 VecS 3uy,
-              sVRegIdx R.V31 VecS 3uy,
-              sVRegIdx R.V0 VecS 3uy
-            )
-          ),
+          OprSIMDList [
+            sVRegIdx R.V29 VecS 3uy;
+            sVRegIdx R.V30 VecS 3uy;
+            sVRegIdx R.V31 VecS 3uy;
+            sVRegIdx R.V0 VecS 3uy ],
           memBaseImm (R.X21, None)
         ))
         [| 0x4duy; 0x20uy; 0xb2uy; 0xbduy |]
@@ -3938,9 +3910,7 @@ module ARM64 =
       test64
         Opcode.LD2
         (TwoOperands (
-          SIMDOpr (
-            TwoRegs (sVRegIdx R.V10 VecB 0xfuy, sVRegIdx R.V11 VecB 0xfuy)
-          ),
+          OprSIMDList [ sVRegIdx R.V10 VecB 0xfuy; sVRegIdx R.V11 VecB 0xfuy ],
           memBaseImm (R.X10, None)
         ))
         [| 0x4duy; 0x60uy; 0x1duy; 0x4auy |]
@@ -3948,13 +3918,10 @@ module ARM64 =
       test64
         Opcode.LD3R
         (TwoOperands (
-          SIMDOpr (
-            ThreeRegs (
-              SIMDVecReg (R.V21, EightH),
-              SIMDVecReg (R.V22, EightH),
-              SIMDVecReg (R.V23, EightH)
-            )
-          ),
+          OprSIMDList [
+            SIMDVecReg (R.V21, EightH);
+            SIMDVecReg (R.V22, EightH);
+            SIMDVecReg (R.V23, EightH) ],
           memBaseImm (R.X21, None)
         ))
         [| 0x4duy; 0x40uy; 0xe6uy; 0xb5uy |]
@@ -3967,7 +3934,7 @@ module ARM64 =
       test64
         Opcode.ST1
         (TwoOperands (
-          SIMDOpr (OneReg (sVRegIdx R.V30 VecB 1uy)),
+          OprSIMDList [ sVRegIdx R.V30 VecB 1uy ],
           memPostIdxReg (R.X21, R.X10, None)
         ))
         [| 0x0duy; 0x8auy; 0x06uy; 0xbeuy |]
@@ -3975,7 +3942,7 @@ module ARM64 =
       test64
         Opcode.ST1
         (TwoOperands (
-          SIMDOpr (OneReg (sVRegIdx R.V30 VecH 7uy)),
+          OprSIMDList [ sVRegIdx R.V30 VecH 7uy ],
           memPostIdxImm (R.X11, Some 0x2L)
         ))
         [| 0x4duy; 0x9fuy; 0x59uy; 0x7euy |]
@@ -3983,7 +3950,7 @@ module ARM64 =
       test64
         Opcode.ST2
         (TwoOperands (
-          SIMDOpr (TwoRegs (sVRegIdx R.V29 VecS 2uy, sVRegIdx R.V30 VecS 2uy)),
+          OprSIMDList [ sVRegIdx R.V29 VecS 2uy; sVRegIdx R.V30 VecS 2uy ],
           memPostIdxReg (R.X13, R.X21, None)
         ))
         [| 0x4duy; 0xb5uy; 0x81uy; 0xbduy |]
@@ -3991,7 +3958,7 @@ module ARM64 =
       test64
         Opcode.LD1
         (TwoOperands (
-          SIMDOpr (OneReg (sVRegIdx R.V30 VecB 1uy)),
+          OprSIMDList [ sVRegIdx R.V30 VecB 1uy ],
           memPostIdxReg (R.X21, R.X10, None)
         ))
         [| 0x0duy; 0xcauy; 0x06uy; 0xbeuy |]
@@ -3999,14 +3966,11 @@ module ARM64 =
       test64
         Opcode.LD4
         (TwoOperands (
-          SIMDOpr (
-            FourRegs (
-              sVRegIdx R.V29 VecB 0xeuy,
-              sVRegIdx R.V30 VecB 0xeuy,
-              sVRegIdx R.V31 VecB 0xeuy,
-              sVRegIdx R.V0 VecB 0xeuy
-            )
-          ),
+          OprSIMDList [
+            sVRegIdx R.V29 VecB 0xeuy;
+            sVRegIdx R.V30 VecB 0xeuy;
+            sVRegIdx R.V31 VecB 0xeuy;
+            sVRegIdx R.V0 VecB 0xeuy ],
           memPostIdxImm (R.X15, Some 0x4L)
         ))
         [| 0x4duy; 0xffuy; 0x39uy; 0xfduy |]
@@ -4026,7 +3990,7 @@ module ARM64 =
 
       test64
         Opcode.PRFM
-        (TwoOperands (PrfOp PLIL2STRM, memLabel 0x1004L))
+        (TwoOperands (OprPrfOp PLIL2STRM, memLabel 0x1004L))
         [| 0xd8uy; 0x00uy; 0x80uy; 0x2buy |]
 
     /// C4.4.6 Load/store exclusive
@@ -4172,7 +4136,7 @@ module ARM64 =
       test64
         Opcode.PRFM
         (TwoOperands (
-          Immediate 0x7L,
+          OprImm 0x7L,
           memBaseReg (R.X3, R.W3, Some (ExtRegOffset (ExtUXTW, Some 0x3L)))
         ))
         [| 0xf8uy; 0xa3uy; 0x58uy; 0x67uy |]
@@ -4180,7 +4144,7 @@ module ARM64 =
       test64
         Opcode.PRFM
         (TwoOperands (
-          PrfOp PLIL3KEEP,
+          OprPrfOp PLIL3KEEP,
           memBaseReg (R.X3, R.W3, Some (ExtRegOffset (ExtUXTW, Some 0x3L)))
         ))
         [| 0xf8uy; 0xa3uy; 0x58uy; 0x6cuy |]
@@ -4221,7 +4185,7 @@ module ARM64 =
 
       test64
         Opcode.PRFUM
-        (TwoOperands (Immediate 0x1cL, memBaseImm (R.X3, Some 0x1fL)))
+        (TwoOperands (OprImm 0x1cL, memBaseImm (R.X3, Some 0x1fL)))
         [| 0xf8uy; 0x81uy; 0xf0uy; 0x7cuy |]
 
     /// C4.4.13 Load/store register (unsigned immediate)
@@ -4239,7 +4203,7 @@ module ARM64 =
 
       test64
         Opcode.PRFM
-        (TwoOperands (PrfOp PSTL2KEEP, memBaseImm (R.X15, Some 0x7c00L)))
+        (TwoOperands (OprPrfOp PSTL2KEEP, memBaseImm (R.X15, Some 0x7c00L)))
         [| 0xf9uy; 0xbeuy; 0x01uy; 0xf2uy |]
 
     /// C4.4.14 Load/store register pair (offset)
@@ -4299,7 +4263,7 @@ module ARM64 =
           OprRegister R.WSP,
           OprRegister R.WSP,
           OprRegister R.WZR,
-          ExtReg None
+          OprExtReg None
         ))
         [| 0x0buy; 0x3fuy; 0x43uy; 0xffuy |]
 
@@ -4309,7 +4273,7 @@ module ARM64 =
           OprRegister R.WSP,
           OprRegister R.WSP,
           OprRegister R.WZR,
-          ExtReg (Some (ShiftOffset (SRTypeLSL, Imm 2L)))
+          OprExtReg (Some (ShiftOffset (SRTypeLSL, Imm 2L)))
         ))
         [| 0x0buy; 0x3fuy; 0x4buy; 0xffuy |]
 
@@ -4319,7 +4283,7 @@ module ARM64 =
           OprRegister R.SP,
           OprRegister R.X10,
           OprRegister R.W10,
-          ExtReg (Some (ExtRegOffset (ExtUXTW, Some 2L)))
+          OprExtReg (Some (ExtRegOffset (ExtUXTW, Some 2L)))
         ))
         [| 0x8buy; 0x2auy; 0x49uy; 0x5fuy |]
 
@@ -4328,7 +4292,7 @@ module ARM64 =
         (ThreeOperands (
           OprRegister R.SP,
           OprRegister R.X14,
-          ExtReg (Some (ShiftOffset (SRTypeLSL, Imm 1L)))
+          OprExtReg (Some (ShiftOffset (SRTypeLSL, Imm 1L)))
         ))
         [| 0xabuy; 0x2euy; 0x67uy; 0xffuy |]
 
@@ -4341,7 +4305,7 @@ module ARM64 =
           OprRegister R.W27,
           OprRegister R.W28,
           OprRegister R.W14,
-          Shift (SRTypeASR, Imm 23L)
+          OprShift (SRTypeASR, Imm 23L)
         ))
         [| 0x0buy; 0x8euy; 0x5fuy; 0x9buy |]
 
@@ -4351,7 +4315,7 @@ module ARM64 =
           OprRegister R.W11,
           OprRegister R.W29,
           OprRegister R.W14,
-          Shift (SRTypeLSR, Imm 7L)
+          OprShift (SRTypeLSR, Imm 7L)
         ))
         [| 0x6buy; 0x4euy; 0x1fuy; 0xabuy |]
 
@@ -4361,7 +4325,7 @@ module ARM64 =
           OprRegister R.X18,
           OprRegister R.X29,
           OprRegister R.X14,
-          Shift (SRTypeASR, Imm 7L)
+          OprShift (SRTypeASR, Imm 7L)
         ))
         [| 0xabuy; 0x8euy; 0x1fuy; 0xb2uy |]
 
@@ -4387,7 +4351,7 @@ module ARM64 =
     member __.``[AArch64] Conditional compare (immediate) Parse Test`` () =
       test64
         Opcode.CCMN
-        (FourOperands (OprRegister R.X3, Immediate 0x15L, NZCV 8uy, Cond GT))
+        (FourOperands (OprRegister R.X3, OprImm 0x15L, OprNZCV 8uy, OprCond GT))
         [| 0xbauy; 0x55uy; 0xc8uy; 0x68uy |]
 
     /// C4.5.5 Conditional compare (register)
@@ -4398,8 +4362,8 @@ module ARM64 =
         (FourOperands (
           OprRegister R.X15,
           OprRegister R.X28,
-          NZCV 0xfuy,
-          Cond PL
+          OprNZCV 0xfuy,
+          OprCond PL
         ))
         [| 0xbauy; 0x5cuy; 0x51uy; 0xefuy |]
 
@@ -4412,7 +4376,7 @@ module ARM64 =
           OprRegister R.X28,
           OprRegister R.X23,
           OprRegister R.X6,
-          Cond LS
+          OprCond LS
         ))
         [| 0x9auy; 0x86uy; 0x92uy; 0xfcuy |]
 
@@ -4422,28 +4386,28 @@ module ARM64 =
           OprRegister R.W21,
           OprRegister R.W0,
           OprRegister R.W16,
-          Cond CS
+          OprCond CS
         )) // HS
         [| 0x1auy; 0x90uy; 0x24uy; 0x15uy |]
 
       test64
         Opcode.CINC
-        (ThreeOperands (OprRegister R.W21, OprRegister R.W16, Cond CC)) // LO
+        (ThreeOperands (OprRegister R.W21, OprRegister R.W16, OprCond CC)) // LO
         [| 0x1auy; 0x90uy; 0x26uy; 0x15uy |]
 
       test64
         Opcode.CSET
-        (TwoOperands (OprRegister R.W7, Cond LE))
+        (TwoOperands (OprRegister R.W7, OprCond LE))
         [| 0x1auy; 0x9fuy; 0xc7uy; 0xe7uy |]
 
       test64
         Opcode.CINV
-        (ThreeOperands (OprRegister R.X10, OprRegister R.X7, Cond LE))
+        (ThreeOperands (OprRegister R.X10, OprRegister R.X7, OprCond LE))
         [| 0xdauy; 0x87uy; 0xc0uy; 0xeauy |]
 
       test64
         Opcode.CSETM
-        (TwoOperands (OprRegister R.X10, Cond LE))
+        (TwoOperands (OprRegister R.X10, OprCond LE))
         [| 0xdauy; 0x9fuy; 0xc3uy; 0xeauy |]
 
       test64
@@ -4452,7 +4416,7 @@ module ARM64 =
           OprRegister R.X10,
           OprRegister R.X27,
           OprRegister R.XZR,
-          Cond GT
+          OprCond GT
         ))
         [| 0xdauy; 0x9fuy; 0xc3uy; 0x6auy |]
 
@@ -4462,13 +4426,13 @@ module ARM64 =
           OprRegister R.W30,
           OprRegister R.W21,
           OprRegister R.W10,
-          Cond AL
+          OprCond AL
         ))
         [| 0x5auy; 0x8auy; 0xe6uy; 0xbeuy |]
 
       test64
         Opcode.CNEG
-        (ThreeOperands (OprRegister R.W30, OprRegister R.W21, Cond LE))
+        (ThreeOperands (OprRegister R.W30, OprRegister R.W21, OprCond LE))
         [| 0x5auy; 0x95uy; 0xc6uy; 0xbeuy |]
 
     /// C4.5.7 Data-processing (1 source)
@@ -4614,7 +4578,7 @@ module ARM64 =
           OprRegister R.X5,
           OprRegister R.X10,
           OprRegister R.X24,
-          Shift (SRTypeLSR, Imm 14L)
+          OprShift (SRTypeLSR, Imm 14L)
         ))
         [| 0x8auy; 0x58uy; 0x39uy; 0x45uy |]
 
@@ -4624,7 +4588,7 @@ module ARM64 =
           OprRegister R.W26,
           OprRegister R.W29,
           OprRegister R.W22,
-          Shift (SRTypeROR, Imm 7L)
+          OprShift (SRTypeROR, Imm 7L)
         ))
         [| 0x2auy; 0xf6uy; 0x1fuy; 0xbauy |]
 
@@ -4633,7 +4597,7 @@ module ARM64 =
         (ThreeOperands (
           OprRegister R.W26,
           OprRegister R.W22,
-          Shift (SRTypeROR, Imm 0x7L)
+          OprShift (SRTypeROR, Imm 0x7L)
         ))
         [| 0x2auy; 0xf6uy; 0x1fuy; 0xfauy |]
 
@@ -4647,7 +4611,7 @@ module ARM64 =
         Opcode.SADDLV
         (TwoOperands (
           scalReg R.D2,
-          SIMDOpr (SFReg (SIMDVecReg (R.V22, FourS)))
+          OprSIMD (SIMDVecReg (R.V22, FourS))
         ))
         [| 0x4euy; 0xb0uy; 0x3auy; 0xc2uy |]
 
@@ -4655,7 +4619,7 @@ module ARM64 =
         Opcode.SMAXV
         (TwoOperands (
           scalReg R.B18,
-          SIMDOpr (SFReg (SIMDVecReg (R.V6, EightB)))
+          OprSIMD (SIMDVecReg (R.V6, EightB))
         ))
         [| 0x0euy; 0x30uy; 0xa8uy; 0xd2uy |]
 
@@ -4663,7 +4627,7 @@ module ARM64 =
         Opcode.SMINV
         (TwoOperands (
           scalReg R.H10,
-          SIMDOpr (SFReg (SIMDVecReg (R.V16, FourH)))
+          OprSIMD (SIMDVecReg (R.V16, FourH))
         ))
         [| 0x0euy; 0x71uy; 0xaauy; 0x0auy |]
 
@@ -4671,7 +4635,7 @@ module ARM64 =
         Opcode.ADDV
         (TwoOperands (
           scalReg R.H26,
-          SIMDOpr (SFReg (SIMDVecReg (R.V4, EightH)))
+          OprSIMD (SIMDVecReg (R.V4, EightH))
         ))
         [| 0x4euy; 0x71uy; 0xb8uy; 0x9auy |]
 
@@ -4679,7 +4643,7 @@ module ARM64 =
         Opcode.UADDLV
         (TwoOperands (
           scalReg R.D17,
-          SIMDOpr (SFReg (SIMDVecReg (R.V9, FourS)))
+          OprSIMD (SIMDVecReg (R.V9, FourS))
         ))
         [| 0x6euy; 0xb0uy; 0x39uy; 0x31uy |]
 
@@ -4687,7 +4651,7 @@ module ARM64 =
         Opcode.UMAXV
         (TwoOperands (
           scalReg R.H8,
-          SIMDOpr (SFReg (SIMDVecReg (R.V28, FourH)))
+          OprSIMD (SIMDVecReg (R.V28, FourH))
         ))
         [| 0x2euy; 0x70uy; 0xabuy; 0x88uy |]
 
@@ -4695,7 +4659,7 @@ module ARM64 =
         Opcode.UMINV
         (TwoOperands (
           scalReg R.S10,
-          SIMDOpr (SFReg (SIMDVecReg (R.V23, FourS)))
+          OprSIMD (SIMDVecReg (R.V23, FourS))
         ))
         [| 0x6euy; 0xb1uy; 0xaauy; 0xeauy |]
 
@@ -4703,7 +4667,7 @@ module ARM64 =
         Opcode.FMAXNMV
         (TwoOperands (
           scalReg R.S11,
-          SIMDOpr (SFReg (SIMDVecReg (R.V18, FourS)))
+          OprSIMD (SIMDVecReg (R.V18, FourS))
         ))
         [| 0x6euy; 0x30uy; 0xcauy; 0x4buy |]
 
@@ -4711,7 +4675,7 @@ module ARM64 =
         Opcode.FMAXV
         (TwoOperands (
           scalReg R.S8,
-          SIMDOpr (SFReg (SIMDVecReg (R.V10, FourS)))
+          OprSIMD (SIMDVecReg (R.V10, FourS))
         ))
         [| 0x6euy; 0x30uy; 0xf9uy; 0x48uy |]
 
@@ -4719,7 +4683,7 @@ module ARM64 =
         Opcode.FMINNMV
         (TwoOperands (
           scalReg R.S12,
-          SIMDOpr (SFReg (SIMDVecReg (R.V22, FourS)))
+          OprSIMD (SIMDVecReg (R.V22, FourS))
         ))
         [| 0x6euy; 0xb0uy; 0xcauy; 0xccuy |]
 
@@ -4727,7 +4691,7 @@ module ARM64 =
         Opcode.FMINV
         (TwoOperands (
           scalReg R.S2,
-          SIMDOpr (SFReg (SIMDVecReg (R.V22, FourS)))
+          OprSIMD (SIMDVecReg (R.V22, FourS))
         ))
         [| 0x6euy; 0xb0uy; 0xfauy; 0xc2uy |]
 
@@ -4737,15 +4701,15 @@ module ARM64 =
       test64
         Opcode.DUP
         (TwoOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V6, TwoD))),
-          SIMDOpr (SFReg (sVRegIdx R.V4 VecD 1uy))
+          OprSIMD (SIMDVecReg (R.V6, TwoD)),
+          OprSIMD (sVRegIdx R.V4 VecD 1uy)
         ))
         [| 0x4euy; 0x18uy; 0x04uy; 0x86uy |]
 
       test64
         Opcode.DUP
         (TwoOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V1, TwoD))),
+          OprSIMD (SIMDVecReg (R.V1, TwoD)),
           OprRegister R.X3
         ))
         [| 0x4euy; 0x08uy; 0x0cuy; 0x61uy |]
@@ -4753,7 +4717,7 @@ module ARM64 =
       test64
         Opcode.DUP
         (TwoOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V28, FourH))),
+          OprSIMD (SIMDVecReg (R.V28, FourH)),
           OprRegister R.WZR
         )) // Online HEX To ARM Conv error
         [| 0x0euy; 0x1euy; 0x0fuy; 0xfcuy |]
@@ -4761,7 +4725,7 @@ module ARM64 =
       test64
         Opcode.DUP
         (TwoOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V28, FourH))),
+          OprSIMD (SIMDVecReg (R.V28, FourH)),
           OprRegister R.WZR
         ))
         [| 0x0euy; 0x02uy; 0x0fuy; 0xfcuy |]
@@ -4770,7 +4734,7 @@ module ARM64 =
         Opcode.SMOV
         (TwoOperands (
           OprRegister R.W26,
-          SIMDOpr (SFReg (sVRegIdx R.V7 VecH 0uy))
+          OprSIMD (sVRegIdx R.V7 VecH 0uy)
         ))
         [| 0x0euy; 0x02uy; 0x2cuy; 0xfauy |]
 
@@ -4778,7 +4742,7 @@ module ARM64 =
         Opcode.UMOV
         (TwoOperands (
           OprRegister R.W3,
-          SIMDOpr (SFReg (sVRegIdx R.V14 VecB 0uy))
+          OprSIMD (sVRegIdx R.V14 VecB 0uy)
         ))
         [| 0x0euy; 0x01uy; 0x3duy; 0xc3uy |]
 
@@ -4786,7 +4750,7 @@ module ARM64 =
         Opcode.MOV
         (TwoOperands (
           OprRegister R.W3,
-          SIMDOpr (SFReg (sVRegIdx R.V14 VecS 0uy))
+          OprSIMD (sVRegIdx R.V14 VecS 0uy)
         ))
         [| 0x0euy; 0x04uy; 0x3duy; 0xc3uy |]
 
@@ -4794,14 +4758,14 @@ module ARM64 =
         Opcode.MOV
         (TwoOperands (
           OprRegister R.X3,
-          SIMDOpr (SFReg (sVRegIdx R.V14 VecD 0uy))
+          OprSIMD (sVRegIdx R.V14 VecD 0uy)
         ))
         [| 0x4euy; 0x08uy; 0x3duy; 0xc3uy |]
 
       test64
         Opcode.INS
         (TwoOperands (
-          SIMDOpr (SFReg (sVRegIdx R.V9 VecS 0uy)),
+          OprSIMD (sVRegIdx R.V9 VecS 0uy),
           OprRegister R.W1
         ))
         [| 0x4euy; 0x04uy; 0x1cuy; 0x29uy |]
@@ -4809,8 +4773,8 @@ module ARM64 =
       test64
         Opcode.INS
         (TwoOperands (
-          SIMDOpr (SFReg (sVRegIdx R.V5 VecH 0uy)),
-          SIMDOpr (SFReg (sVRegIdx R.V6 VecH 7uy))
+          OprSIMD (sVRegIdx R.V5 VecH 0uy),
+          OprSIMD (sVRegIdx R.V6 VecH 7uy)
         ))
         [| 0x6euy; 0x02uy; 0x74uy; 0xc5uy |]
 
@@ -4820,20 +4784,20 @@ module ARM64 =
       test64
         Opcode.EXT
         (FourOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V3, SixteenB))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V12, SixteenB))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V6, SixteenB))),
-          Immediate 9L
+          OprSIMD (SIMDVecReg (R.V3, SixteenB)),
+          OprSIMD (SIMDVecReg (R.V12, SixteenB)),
+          OprSIMD (SIMDVecReg (R.V6, SixteenB)),
+          OprImm 9L
         ))
         [| 0x6euy; 0x06uy; 0x49uy; 0x83uy |]
 
       test64
         Opcode.EXT
         (FourOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V28, EightB))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V7, EightB))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V7, EightB))),
-          Immediate 7L
+          OprSIMD (SIMDVecReg (R.V28, EightB)),
+          OprSIMD (SIMDVecReg (R.V7, EightB)),
+          OprSIMD (SIMDVecReg (R.V7, EightB)),
+          OprImm 7L
         ))
         [| 0x2euy; 0x07uy; 0x38uy; 0xfcuy |]
 
@@ -4843,134 +4807,134 @@ module ARM64 =
       test64
         Opcode.MOVI
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V25, FourS))),
-          Immediate 0xAAL,
-          Shift (SRTypeLSL, Imm 24L)
+          OprSIMD (SIMDVecReg (R.V25, FourS)),
+          OprImm 0xAAL,
+          OprShift (SRTypeLSL, Imm 24L)
         ))
         [| 0x4fuy; 0x05uy; 0x65uy; 0x59uy |]
 
       test64
         Opcode.MOVI
         (TwoOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V25, FourS))),
-          Immediate 0xAAL
+          OprSIMD (SIMDVecReg (R.V25, FourS)),
+          OprImm 0xAAL
         ))
         [| 0x4fuy; 0x05uy; 0x05uy; 0x59uy |]
 
       test64
         Opcode.ORR
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, FourS))),
-          Immediate 0x46L,
-          Shift (SRTypeLSL, Imm 8L)
+          OprSIMD (SIMDVecReg (R.V5, FourS)),
+          OprImm 0x46L,
+          OprShift (SRTypeLSL, Imm 8L)
         ))
         [| 0x4fuy; 0x02uy; 0x34uy; 0xc5uy |]
 
       test64
         Opcode.MOVI
         (TwoOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V25, SixteenB))),
-          Immediate 0x2EL
+          OprSIMD (SIMDVecReg (R.V25, SixteenB)),
+          OprImm 0x2EL
         ))
         [| 0x4fuy; 0x01uy; 0xe5uy; 0xd9uy |]
 
       test64
         Opcode.ORR
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, FourH))),
-          Immediate 0xC7L,
-          Shift (SRTypeLSL, Imm 8L)
+          OprSIMD (SIMDVecReg (R.V5, FourH)),
+          OprImm 0xC7L,
+          OprShift (SRTypeLSL, Imm 8L)
         ))
         [| 0x0fuy; 0x06uy; 0xb4uy; 0xe5uy |]
 
       test64
         Opcode.MOVI
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V25, EightH))),
-          Immediate 0x9AL,
-          Shift (SRTypeLSL, Imm 8L)
+          OprSIMD (SIMDVecReg (R.V25, EightH)),
+          OprImm 0x9AL,
+          OprShift (SRTypeLSL, Imm 8L)
         ))
         [| 0x4fuy; 0x04uy; 0xa7uy; 0x59uy |]
 
       test64
         Opcode.MOVI
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V21, FourS))),
-          Immediate 0xB2L,
-          Shift (SRTypeMSL, Imm 8L)
+          OprSIMD (SIMDVecReg (R.V21, FourS)),
+          OprImm 0xB2L,
+          OprShift (SRTypeMSL, Imm 8L)
         ))
         [| 0x4fuy; 0x05uy; 0xc6uy; 0x55uy |]
 
       test64
         Opcode.FMOV
         (TwoOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, FourS))),
-          FPImmediate -11.5
+          OprSIMD (SIMDVecReg (R.V5, FourS)),
+          OprFPImm -11.5
         ))
         [| 0x4fuy; 0x05uy; 0xf4uy; 0xe5uy |]
 
       test64
         Opcode.MVNI
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V21, FourS))),
-          Immediate 0xE6L,
-          Shift (SRTypeLSL, Imm 8L)
+          OprSIMD (SIMDVecReg (R.V21, FourS)),
+          OprImm 0xE6L,
+          OprShift (SRTypeLSL, Imm 8L)
         ))
         [| 0x6fuy; 0x07uy; 0x24uy; 0xd5uy |]
 
       test64
         Opcode.BIC
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V7, TwoS))),
-          Immediate 0xB5L,
-          Shift (SRTypeLSL, Imm 8L)
+          OprSIMD (SIMDVecReg (R.V7, TwoS)),
+          OprImm 0xB5L,
+          OprShift (SRTypeLSL, Imm 8L)
         ))
         [| 0x2fuy; 0x05uy; 0x36uy; 0xa7uy |]
 
       test64
         Opcode.MVNI
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V21, EightH))),
-          Immediate 0xE6L,
-          Shift (SRTypeLSL, Imm 8L)
+          OprSIMD (SIMDVecReg (R.V21, EightH)),
+          OprImm 0xE6L,
+          OprShift (SRTypeLSL, Imm 8L)
         ))
         [| 0x6fuy; 0x07uy; 0xa4uy; 0xd5uy |]
 
       test64
         Opcode.BIC
         (TwoOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V7, FourH))),
-          Immediate 0xB5L
+          OprSIMD (SIMDVecReg (R.V7, FourH)),
+          OprImm 0xB5L
         ))
         [| 0x2fuy; 0x05uy; 0x96uy; 0xa7uy |]
 
       test64
         Opcode.MVNI
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V21, FourS))),
-          Immediate 0xE6L,
-          Shift (SRTypeMSL, Imm 8L)
+          OprSIMD (SIMDVecReg (R.V21, FourS)),
+          OprImm 0xE6L,
+          OprShift (SRTypeMSL, Imm 8L)
         ))
         [| 0x6fuy; 0x07uy; 0xc4uy; 0xd5uy |]
 
       test64
         Opcode.MOVI
-        (TwoOperands (scalReg R.D27, Immediate 0xFF00FFFFFF00FF00L))
+        (TwoOperands (scalReg R.D27, OprImm 0xFF00FFFFFF00FF00L))
         [| 0x2fuy; 0x05uy; 0xe7uy; 0x5buy |]
 
       test64
         Opcode.MOVI
         (TwoOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V23, TwoD))),
-          Immediate 0xFF00FFFFFF00FF00L
+          OprSIMD (SIMDVecReg (R.V23, TwoD)),
+          OprImm 0xFF00FFFFFF00FF00L
         ))
         [| 0x6fuy; 0x05uy; 0xe7uy; 0x57uy |]
 
       test64
         Opcode.FMOV
         (TwoOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, TwoD))),
-          FPImmediate -11.5
+          OprSIMD (SIMDVecReg (R.V5, TwoD)),
+          OprFPImm -11.5
         ))
         [| 0x6fuy; 0x05uy; 0xf4uy; 0xe5uy |]
 
@@ -4980,63 +4944,63 @@ module ARM64 =
       test64
         Opcode.UZP1
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V3, EightH))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V12, EightH))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V14, EightH)))
+          OprSIMD (SIMDVecReg (R.V3, EightH)),
+          OprSIMD (SIMDVecReg (R.V12, EightH)),
+          OprSIMD (SIMDVecReg (R.V14, EightH))
         ))
         [| 0x4euy; 0x4euy; 0x19uy; 0x83uy |]
 
       test64
         Opcode.TRN1
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V30, TwoS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V7, TwoS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V7, TwoS)))
+          OprSIMD (SIMDVecReg (R.V30, TwoS)),
+          OprSIMD (SIMDVecReg (R.V7, TwoS)),
+          OprSIMD (SIMDVecReg (R.V7, TwoS))
         ))
         [| 0x0euy; 0x87uy; 0x28uy; 0xfeuy |]
 
       test64
         Opcode.ZIP1
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V28, SixteenB))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V1, SixteenB))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V3, SixteenB)))
+          OprSIMD (SIMDVecReg (R.V28, SixteenB)),
+          OprSIMD (SIMDVecReg (R.V1, SixteenB)),
+          OprSIMD (SIMDVecReg (R.V3, SixteenB))
         ))
         [| 0x4euy; 0x03uy; 0x38uy; 0x3cuy |]
 
       test64
         Opcode.ZIP1
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V1, EightB))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V6, EightB))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V7, EightB)))
+          OprSIMD (SIMDVecReg (R.V1, EightB)),
+          OprSIMD (SIMDVecReg (R.V6, EightB)),
+          OprSIMD (SIMDVecReg (R.V7, EightB))
         ))
         [| 0x0euy; 0x07uy; 0x38uy; 0xc1uy |]
 
       test64
         Opcode.UZP2
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V6, TwoD))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V6, TwoD))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V1, TwoD)))
+          OprSIMD (SIMDVecReg (R.V6, TwoD)),
+          OprSIMD (SIMDVecReg (R.V6, TwoD)),
+          OprSIMD (SIMDVecReg (R.V1, TwoD))
         ))
         [| 0x4euy; 0xc1uy; 0x58uy; 0xc6uy |]
 
       test64
         Opcode.TRN2
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V3, TwoS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V6, TwoS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V7, TwoS)))
+          OprSIMD (SIMDVecReg (R.V3, TwoS)),
+          OprSIMD (SIMDVecReg (R.V6, TwoS)),
+          OprSIMD (SIMDVecReg (R.V7, TwoS))
         ))
         [| 0x0euy; 0x87uy; 0x68uy; 0xc3uy |]
 
       test64
         Opcode.ZIP2
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, SixteenB))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V4, SixteenB))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V1, SixteenB)))
+          OprSIMD (SIMDVecReg (R.V5, SixteenB)),
+          OprSIMD (SIMDVecReg (R.V4, SixteenB)),
+          OprSIMD (SIMDVecReg (R.V1, SixteenB))
         ))
         [| 0x4euy; 0x01uy; 0x78uy; 0x85uy |]
 
@@ -5045,12 +5009,12 @@ module ARM64 =
     member __.``[AArch64] Advanced SIMD scalar copy Parse Test`` () =
       test64
         Opcode.MOV
-        (TwoOperands (scalReg R.D10, SIMDOpr (SFReg (sVRegIdx R.V10 VecD 0uy))))
+        (TwoOperands (scalReg R.D10, OprSIMD (sVRegIdx R.V10 VecD 0uy)))
         [| 0x5euy; 0x08uy; 0x05uy; 0x4auy |]
 
       test64
         Opcode.MOV
-        (TwoOperands (scalReg R.B1, SIMDOpr (SFReg (sVRegIdx R.V10 VecB 3uy))))
+        (TwoOperands (scalReg R.B1, OprSIMD (sVRegIdx R.V10 VecB 3uy)))
         [| 0x5euy; 0x07uy; 0x05uy; 0x41uy |]
 
     /// C4.6.7 Advanced SIMD scalar pairwise
@@ -5058,14 +5022,14 @@ module ARM64 =
     member __.``[AArch64] Advanced SIMD scalar pairwise Parse Test`` () =
       test64
         Opcode.ADDP
-        (TwoOperands (scalReg R.D7, SIMDOpr (SFReg (SIMDVecReg (R.V3, TwoD)))))
+        (TwoOperands (scalReg R.D7, OprSIMD (SIMDVecReg (R.V3, TwoD))))
         [| 0x5euy; 0xf1uy; 0xb8uy; 0x67uy |]
 
       test64
         Opcode.FMAXNMP
         (TwoOperands (
           scalReg R.D15,
-          SIMDOpr (SFReg (SIMDVecReg (R.V14, TwoD)))
+          OprSIMD (SIMDVecReg (R.V14, TwoD))
         ))
         [| 0x7euy; 0x70uy; 0xc9uy; 0xcfuy |]
 
@@ -5073,7 +5037,7 @@ module ARM64 =
         Opcode.FADDP
         (TwoOperands (
           scalReg R.S31,
-          SIMDOpr (SFReg (SIMDVecReg (R.V15, TwoS)))
+          OprSIMD (SIMDVecReg (R.V15, TwoS))
         ))
         [| 0x7euy; 0x30uy; 0xd9uy; 0xffuy |]
 
@@ -5081,18 +5045,18 @@ module ARM64 =
         Opcode.FMAXP
         (TwoOperands (
           scalReg R.D18,
-          SIMDOpr (SFReg (SIMDVecReg (R.V17, TwoD)))
+          OprSIMD (SIMDVecReg (R.V17, TwoD))
         ))
         [| 0x7euy; 0x70uy; 0xfauy; 0x32uy |]
 
       test64
         Opcode.FMINNMP
-        (TwoOperands (scalReg R.S1, SIMDOpr (SFReg (SIMDVecReg (R.V14, TwoS)))))
+        (TwoOperands (scalReg R.S1, OprSIMD (SIMDVecReg (R.V14, TwoS))))
         [| 0x7euy; 0xb0uy; 0xc9uy; 0xc1uy |]
 
       test64
         Opcode.FMINP
-        (TwoOperands (scalReg R.D7, SIMDOpr (SFReg (SIMDVecReg (R.V1, TwoD)))))
+        (TwoOperands (scalReg R.D7, OprSIMD (SIMDVecReg (R.V1, TwoD))))
         [| 0x7euy; 0xf0uy; 0xf8uy; 0x27uy |]
 
     /// C4.6.8 Advanced SIMD scalar shift by immediate
@@ -5100,127 +5064,127 @@ module ARM64 =
     member __.``[AArch64] Advanced SIMD scalar shift by imm Parse Test`` () =
       test64
         Opcode.SSHR
-        (ThreeOperands (scalReg R.D1, scalReg R.D10, Immediate 0x3eL))
+        (ThreeOperands (scalReg R.D1, scalReg R.D10, OprImm 0x3eL))
         [| 0x5fuy; 0x42uy; 0x05uy; 0x41uy |]
 
       test64
         Opcode.SSRA
-        (ThreeOperands (scalReg R.D28, scalReg R.D3, Immediate 0x1cL))
+        (ThreeOperands (scalReg R.D28, scalReg R.D3, OprImm 0x1cL))
         [| 0x5fuy; 0x64uy; 0x14uy; 0x7cuy |]
 
       test64
         Opcode.SRSHR
-        (ThreeOperands (scalReg R.D1, scalReg R.D7, Immediate 0x27L))
+        (ThreeOperands (scalReg R.D1, scalReg R.D7, OprImm 0x27L))
         [| 0x5fuy; 0x59uy; 0x24uy; 0xe1uy |]
 
       test64
         Opcode.SRSRA
-        (ThreeOperands (scalReg R.D3, scalReg R.D6, Immediate 1L))
+        (ThreeOperands (scalReg R.D3, scalReg R.D6, OprImm 1L))
         [| 0x5fuy; 0x7fuy; 0x34uy; 0xc3uy |]
 
       test64
         Opcode.SHL
-        (ThreeOperands (scalReg R.D13, scalReg R.D7, Immediate 2L))
+        (ThreeOperands (scalReg R.D13, scalReg R.D7, OprImm 2L))
         [| 0x5fuy; 0x42uy; 0x54uy; 0xeduy |]
 
       test64
         Opcode.SQSHL
-        (ThreeOperands (scalReg R.S25, scalReg R.S16, Immediate 4L))
+        (ThreeOperands (scalReg R.S25, scalReg R.S16, OprImm 4L))
         [| 0x5fuy; 0x24uy; 0x76uy; 0x19uy |]
 
       test64
         Opcode.SQSHL
-        (ThreeOperands (scalReg R.D25, scalReg R.D16, Immediate 0x24L))
+        (ThreeOperands (scalReg R.D25, scalReg R.D16, OprImm 0x24L))
         [| 0x5fuy; 0x64uy; 0x76uy; 0x19uy |]
 
       test64
         Opcode.SQSHRN
-        (ThreeOperands (scalReg R.S7, scalReg R.D12, Immediate 0x17L))
+        (ThreeOperands (scalReg R.S7, scalReg R.D12, OprImm 0x17L))
         [| 0x5fuy; 0x29uy; 0x95uy; 0x87uy |]
 
       test64
         Opcode.SQRSHRN
-        (ThreeOperands (scalReg R.H25, scalReg R.S7, Immediate 1L))
+        (ThreeOperands (scalReg R.H25, scalReg R.S7, OprImm 1L))
         [| 0x5fuy; 0x1fuy; 0x9cuy; 0xf9uy |]
 
       test64
         Opcode.SCVTF
-        (ThreeOperands (scalReg R.D1, scalReg R.D6, Fbits 0x1fuy))
+        (ThreeOperands (scalReg R.D1, scalReg R.D6, OprFbits 0x1fuy))
         [| 0x5fuy; 0x61uy; 0xe4uy; 0xc1uy |]
 
       test64
         Opcode.FCVTZS
-        (ThreeOperands (scalReg R.D11, scalReg R.D8, Fbits 0x25uy))
+        (ThreeOperands (scalReg R.D11, scalReg R.D8, OprFbits 0x25uy))
         [| 0x5fuy; 0x5buy; 0xfduy; 0x0buy |]
 
       test64
         Opcode.USHR
-        (ThreeOperands (scalReg R.D7, scalReg R.D14, Immediate 0x17L))
+        (ThreeOperands (scalReg R.D7, scalReg R.D14, OprImm 0x17L))
         [| 0x7fuy; 0x69uy; 0x05uy; 0xc7uy |]
 
       test64
         Opcode.USRA
-        (ThreeOperands (scalReg R.D17, scalReg R.D1, Immediate 0x36L))
+        (ThreeOperands (scalReg R.D17, scalReg R.D1, OprImm 0x36L))
         [| 0x7fuy; 0x4auy; 0x14uy; 0x31uy |]
 
       test64
         Opcode.URSHR
-        (ThreeOperands (scalReg R.D9, scalReg R.D2, Immediate 0x20L))
+        (ThreeOperands (scalReg R.D9, scalReg R.D2, OprImm 0x20L))
         [| 0x7fuy; 0x60uy; 0x24uy; 0x49uy |]
 
       test64
         Opcode.URSRA
-        (ThreeOperands (scalReg R.D9, scalReg R.D6, Immediate 0x3cL))
+        (ThreeOperands (scalReg R.D9, scalReg R.D6, OprImm 0x3cL))
         [| 0x7fuy; 0x44uy; 0x34uy; 0xc9uy |]
 
       test64
         Opcode.SRI
-        (ThreeOperands (scalReg R.D3, scalReg R.D14, Immediate 0x1fL))
+        (ThreeOperands (scalReg R.D3, scalReg R.D14, OprImm 0x1fL))
         [| 0x7fuy; 0x61uy; 0x45uy; 0xc3uy |]
 
       test64
         Opcode.SLI
-        (ThreeOperands (scalReg R.D3, scalReg R.D6, Immediate 0xeL))
+        (ThreeOperands (scalReg R.D3, scalReg R.D6, OprImm 0xeL))
         [| 0x7fuy; 0x4euy; 0x54uy; 0xc3uy |]
 
       test64
         Opcode.SQSHLU
-        (ThreeOperands (scalReg R.S7, scalReg R.S20, Immediate 0xbL))
+        (ThreeOperands (scalReg R.S7, scalReg R.S20, OprImm 0xbL))
         [| 0x7fuy; 0x2buy; 0x66uy; 0x87uy |]
 
       test64
         Opcode.UQSHL
-        (ThreeOperands (scalReg R.B24, scalReg R.B7, Immediate 3L))
+        (ThreeOperands (scalReg R.B24, scalReg R.B7, OprImm 3L))
         [| 0x7fuy; 0x0buy; 0x74uy; 0xf8uy |]
 
       test64
         Opcode.SQSHRUN
-        (ThreeOperands (scalReg R.S13, scalReg R.D12, Immediate 0x11L))
+        (ThreeOperands (scalReg R.S13, scalReg R.D12, OprImm 0x11L))
         [| 0x7fuy; 0x2fuy; 0x85uy; 0x8duy |]
 
       test64
         Opcode.SQRSHRUN
-        (ThreeOperands (scalReg R.S16, scalReg R.D1, Immediate 6L))
+        (ThreeOperands (scalReg R.S16, scalReg R.D1, OprImm 6L))
         [| 0x7fuy; 0x3auy; 0x8cuy; 0x30uy |]
 
       test64
         Opcode.UQSHRN
-        (ThreeOperands (scalReg R.H13, scalReg R.S6, Immediate 0xbL))
+        (ThreeOperands (scalReg R.H13, scalReg R.S6, OprImm 0xbL))
         [| 0x7fuy; 0x15uy; 0x94uy; 0xcduy |]
 
       test64
         Opcode.UQRSHRN
-        (ThreeOperands (scalReg R.B6, scalReg R.H2, Immediate 4L))
+        (ThreeOperands (scalReg R.B6, scalReg R.H2, OprImm 4L))
         [| 0x7fuy; 0x0cuy; 0x9cuy; 0x46uy |]
 
       test64
         Opcode.UCVTF
-        (ThreeOperands (scalReg R.S1, scalReg R.S6, Fbits 0x1cuy))
+        (ThreeOperands (scalReg R.S1, scalReg R.S6, OprFbits 0x1cuy))
         [| 0x7fuy; 0x24uy; 0xe4uy; 0xc1uy |]
 
       test64
         Opcode.FCVTZU
-        (ThreeOperands (scalReg R.D3, scalReg R.D4, Fbits 0x2fuy))
+        (ThreeOperands (scalReg R.D3, scalReg R.D4, OprFbits 0x2fuy))
         [| 0x7fuy; 0x51uy; 0xfcuy; 0x83uy |]
 
     /// C4.6.9 Advanced SIMD scalar three different
@@ -5421,17 +5385,17 @@ module ARM64 =
 
       test64
         Opcode.CMGT
-        (ThreeOperands (scalReg R.D30, scalReg R.D15, Immediate 0L))
+        (ThreeOperands (scalReg R.D30, scalReg R.D15, OprImm 0L))
         [| 0x5euy; 0xe0uy; 0x89uy; 0xfeuy |]
 
       test64
         Opcode.CMEQ
-        (ThreeOperands (scalReg R.D20, scalReg R.D23, Immediate 0L))
+        (ThreeOperands (scalReg R.D20, scalReg R.D23, OprImm 0L))
         [| 0x5euy; 0xe0uy; 0x9auy; 0xf4uy |]
 
       test64
         Opcode.CMLT
-        (ThreeOperands (scalReg R.D28, scalReg R.D30, Immediate 0L))
+        (ThreeOperands (scalReg R.D28, scalReg R.D30, OprImm 0L))
         [| 0x5euy; 0xe0uy; 0xabuy; 0xdcuy |]
 
       test64
@@ -5466,17 +5430,17 @@ module ARM64 =
 
       test64
         Opcode.FCMGT
-        (ThreeOperands (scalReg R.S28, scalReg R.S21, FPImmediate 0.0))
+        (ThreeOperands (scalReg R.S28, scalReg R.S21, OprFPImm 0.0))
         [| 0x5euy; 0xa0uy; 0xcauy; 0xbcuy |]
 
       test64
         Opcode.FCMEQ
-        (ThreeOperands (scalReg R.D25, scalReg R.D17, FPImmediate 0.0))
+        (ThreeOperands (scalReg R.D25, scalReg R.D17, OprFPImm 0.0))
         [| 0x5euy; 0xe0uy; 0xdauy; 0x39uy |]
 
       test64
         Opcode.FCMGT
-        (ThreeOperands (scalReg R.D30, scalReg R.D15, FPImmediate 0.0))
+        (ThreeOperands (scalReg R.D30, scalReg R.D15, OprFPImm 0.0))
         [| 0x5euy; 0xe0uy; 0xc9uy; 0xfeuy |]
 
       test64
@@ -5511,12 +5475,12 @@ module ARM64 =
 
       test64
         Opcode.CMGE
-        (ThreeOperands (scalReg R.D1, scalReg R.D20, Immediate 0L))
+        (ThreeOperands (scalReg R.D1, scalReg R.D20, OprImm 0L))
         [| 0x7euy; 0xe0uy; 0x8auy; 0x81uy |]
 
       test64
         Opcode.CMLE
-        (ThreeOperands (scalReg R.D24, scalReg R.D17, Immediate 0L))
+        (ThreeOperands (scalReg R.D24, scalReg R.D17, OprImm 0L))
         [| 0x7euy; 0xe0uy; 0x9auy; 0x38uy |]
 
       test64
@@ -5561,12 +5525,12 @@ module ARM64 =
 
       test64
         Opcode.FCMGE
-        (ThreeOperands (scalReg R.S30, scalReg R.S23, FPImmediate 0.0))
+        (ThreeOperands (scalReg R.S30, scalReg R.S23, OprFPImm 0.0))
         [| 0x7euy; 0xa0uy; 0xcauy; 0xfeuy |]
 
       test64
         Opcode.FCMLE
-        (ThreeOperands (scalReg R.D8, scalReg R.D6, FPImmediate 0.0))
+        (ThreeOperands (scalReg R.D8, scalReg R.D6, OprFPImm 0.0))
         [| 0x7euy; 0xe0uy; 0xd8uy; 0xc8uy |]
 
       test64
@@ -5597,7 +5561,7 @@ module ARM64 =
         (ThreeOperands (
           scalReg R.D1,
           scalReg R.S17,
-          SIMDOpr (SFReg (sVRegIdx R.V8 VecS 2uy))
+          OprSIMD (sVRegIdx R.V8 VecS 2uy)
         ))
         [| 0x5fuy; 0x88uy; 0x3auy; 0x21uy |]
 
@@ -5606,7 +5570,7 @@ module ARM64 =
         (ThreeOperands (
           scalReg R.S26,
           scalReg R.H24,
-          SIMDOpr (SFReg (sVRegIdx R.V6 VecH 7uy))
+          OprSIMD (sVRegIdx R.V6 VecH 7uy)
         ))
         [| 0x5fuy; 0x76uy; 0x7buy; 0x1auy |]
 
@@ -5615,7 +5579,7 @@ module ARM64 =
         (ThreeOperands (
           scalReg R.D7,
           scalReg R.S19,
-          SIMDOpr (SFReg (sVRegIdx R.V12 VecS 3uy))
+          OprSIMD (sVRegIdx R.V12 VecS 3uy)
         ))
         [| 0x5fuy; 0xacuy; 0xbauy; 0x67uy |]
 
@@ -5624,7 +5588,7 @@ module ARM64 =
         (ThreeOperands (
           scalReg R.H3,
           scalReg R.H16,
-          SIMDOpr (SFReg (sVRegIdx R.V14 VecH 3uy))
+          OprSIMD (sVRegIdx R.V14 VecH 3uy)
         ))
         [| 0x5fuy; 0x7euy; 0xc2uy; 0x03uy |]
 
@@ -5633,7 +5597,7 @@ module ARM64 =
         (ThreeOperands (
           scalReg R.S27,
           scalReg R.S27,
-          SIMDOpr (SFReg (sVRegIdx R.V31 VecS 3uy))
+          OprSIMD (sVRegIdx R.V31 VecS 3uy)
         ))
         [| 0x5fuy; 0xbfuy; 0xcbuy; 0x7buy |]
 
@@ -5642,7 +5606,7 @@ module ARM64 =
         (ThreeOperands (
           scalReg R.H28,
           scalReg R.H19,
-          SIMDOpr (SFReg (sVRegIdx R.V15 VecH 7uy))
+          OprSIMD (sVRegIdx R.V15 VecH 7uy)
         ))
         [| 0x5fuy; 0x7fuy; 0xdauy; 0x7cuy |]
 
@@ -5651,7 +5615,7 @@ module ARM64 =
         (ThreeOperands (
           scalReg R.D3,
           scalReg R.D6,
-          SIMDOpr (SFReg (sVRegIdx R.V19 VecD 1uy))
+          OprSIMD (sVRegIdx R.V19 VecD 1uy)
         ))
         [| 0x5fuy; 0xd3uy; 0x18uy; 0xc3uy |]
 
@@ -5660,7 +5624,7 @@ module ARM64 =
         (ThreeOperands (
           scalReg R.S2,
           scalReg R.S1,
-          SIMDOpr (SFReg (sVRegIdx R.V16 VecS 3uy))
+          OprSIMD (sVRegIdx R.V16 VecS 3uy)
         ))
         [| 0x5fuy; 0xb0uy; 0x58uy; 0x22uy |]
 
@@ -5669,7 +5633,7 @@ module ARM64 =
         (ThreeOperands (
           scalReg R.D30,
           scalReg R.D3,
-          SIMDOpr (SFReg (sVRegIdx R.V17 VecD 1uy))
+          OprSIMD (sVRegIdx R.V17 VecD 1uy)
         ))
         [| 0x5fuy; 0xd1uy; 0x98uy; 0x7euy |]
 
@@ -5678,7 +5642,7 @@ module ARM64 =
         (ThreeOperands (
           scalReg R.S25,
           scalReg R.S6,
-          SIMDOpr (SFReg (sVRegIdx R.V30 VecS 1uy))
+          OprSIMD (sVRegIdx R.V30 VecS 1uy)
         ))
         [| 0x7fuy; 0xbeuy; 0x90uy; 0xd9uy |]
 
@@ -5688,279 +5652,279 @@ module ARM64 =
       test64
         Opcode.SSHR
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, SixteenB))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V14, SixteenB))),
-          Immediate 3L
+          OprSIMD (SIMDVecReg (R.V5, SixteenB)),
+          OprSIMD (SIMDVecReg (R.V14, SixteenB)),
+          OprImm 3L
         ))
         [| 0x4fuy; 0x0duy; 0x05uy; 0xc5uy |]
 
       test64
         Opcode.SSHR
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, EightH))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V14, EightH))),
-          Immediate 0xBL
+          OprSIMD (SIMDVecReg (R.V5, EightH)),
+          OprSIMD (SIMDVecReg (R.V14, EightH)),
+          OprImm 0xBL
         ))
         [| 0x4fuy; 0x15uy; 0x05uy; 0xc5uy |]
 
       test64
         Opcode.SSHR
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, FourS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V14, FourS))),
-          Immediate 0xBL
+          OprSIMD (SIMDVecReg (R.V5, FourS)),
+          OprSIMD (SIMDVecReg (R.V14, FourS)),
+          OprImm 0xBL
         ))
         [| 0x4fuy; 0x35uy; 0x05uy; 0xc5uy |]
 
       test64
         Opcode.SSHR
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, TwoD))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V14, TwoD))),
-          Immediate 0x2EL
+          OprSIMD (SIMDVecReg (R.V5, TwoD)),
+          OprSIMD (SIMDVecReg (R.V14, TwoD)),
+          OprImm 0x2EL
         ))
         [| 0x4fuy; 0x52uy; 0x05uy; 0xc5uy |]
 
       test64
         Opcode.SSRA
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, SixteenB))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V14, SixteenB))),
-          Immediate 3L
+          OprSIMD (SIMDVecReg (R.V5, SixteenB)),
+          OprSIMD (SIMDVecReg (R.V14, SixteenB)),
+          OprImm 3L
         ))
         [| 0x4fuy; 0x0duy; 0x15uy; 0xc5uy |]
 
       test64
         Opcode.SRSHR
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, EightH))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V14, EightH))),
-          Immediate 0xBL
+          OprSIMD (SIMDVecReg (R.V5, EightH)),
+          OprSIMD (SIMDVecReg (R.V14, EightH)),
+          OprImm 0xBL
         ))
         [| 0x4fuy; 0x15uy; 0x25uy; 0xc5uy |]
 
       test64
         Opcode.SRSRA
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, FourS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V14, FourS))),
-          Immediate 0xBL
+          OprSIMD (SIMDVecReg (R.V5, FourS)),
+          OprSIMD (SIMDVecReg (R.V14, FourS)),
+          OprImm 0xBL
         ))
         [| 0x4fuy; 0x35uy; 0x35uy; 0xc5uy |]
 
       test64
         Opcode.SHL
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, SixteenB))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V14, SixteenB))),
-          Immediate 5L
+          OprSIMD (SIMDVecReg (R.V5, SixteenB)),
+          OprSIMD (SIMDVecReg (R.V14, SixteenB)),
+          OprImm 5L
         ))
         [| 0x4fuy; 0x0duy; 0x55uy; 0xc5uy |]
 
       test64
         Opcode.SQSHL
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, SixteenB))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V14, SixteenB))),
-          Immediate 5L
+          OprSIMD (SIMDVecReg (R.V5, SixteenB)),
+          OprSIMD (SIMDVecReg (R.V14, SixteenB)),
+          OprImm 5L
         ))
         [| 0x4fuy; 0x0duy; 0x75uy; 0xc5uy |]
 
       test64
         Opcode.SHRN2
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, FourS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V14, TwoD))),
-          Immediate 0x12L
+          OprSIMD (SIMDVecReg (R.V5, FourS)),
+          OprSIMD (SIMDVecReg (R.V14, TwoD)),
+          OprImm 0x12L
         ))
         [| 0x4fuy; 0x2euy; 0x85uy; 0xc5uy |]
 
       test64
         Opcode.RSHRN2
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, SixteenB))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V14, EightH))),
-          Immediate 3L
+          OprSIMD (SIMDVecReg (R.V5, SixteenB)),
+          OprSIMD (SIMDVecReg (R.V14, EightH)),
+          OprImm 3L
         ))
         [| 0x4fuy; 0x0duy; 0x8duy; 0xc5uy |]
 
       test64
         Opcode.SQSHRN2
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, SixteenB))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V14, EightH))),
-          Immediate 3L
+          OprSIMD (SIMDVecReg (R.V5, SixteenB)),
+          OprSIMD (SIMDVecReg (R.V14, EightH)),
+          OprImm 3L
         ))
         [| 0x4fuy; 0x0duy; 0x95uy; 0xc5uy |]
 
       test64
         Opcode.SQRSHRN2
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, SixteenB))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V14, EightH))),
-          Immediate 3L
+          OprSIMD (SIMDVecReg (R.V5, SixteenB)),
+          OprSIMD (SIMDVecReg (R.V14, EightH)),
+          OprImm 3L
         ))
         [| 0x4fuy; 0x0duy; 0x9duy; 0xc5uy |]
 
       test64
         Opcode.SSHLL2
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, EightH))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V14, SixteenB))),
-          Immediate 5L
+          OprSIMD (SIMDVecReg (R.V5, EightH)),
+          OprSIMD (SIMDVecReg (R.V14, SixteenB)),
+          OprImm 5L
         ))
         [| 0x4fuy; 0x0duy; 0xa5uy; 0xc5uy |]
 
       test64
         Opcode.SCVTF
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V13, TwoD))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V10, TwoD))),
-          Fbits 0x31uy
+          OprSIMD (SIMDVecReg (R.V13, TwoD)),
+          OprSIMD (SIMDVecReg (R.V10, TwoD)),
+          OprFbits 0x31uy
         ))
         [| 0x4fuy; 0x4fuy; 0xe5uy; 0x4duy |]
 
       test64
         Opcode.FCVTZS
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V13, TwoD))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V10, TwoD))),
-          Fbits 0x31uy
+          OprSIMD (SIMDVecReg (R.V13, TwoD)),
+          OprSIMD (SIMDVecReg (R.V10, TwoD)),
+          OprFbits 0x31uy
         ))
         [| 0x4fuy; 0x4fuy; 0xfduy; 0x4duy |]
 
       test64
         Opcode.USHR
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, SixteenB))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V14, SixteenB))),
-          Immediate 3L
+          OprSIMD (SIMDVecReg (R.V5, SixteenB)),
+          OprSIMD (SIMDVecReg (R.V14, SixteenB)),
+          OprImm 3L
         ))
         [| 0x6fuy; 0x0duy; 0x05uy; 0xc5uy |]
 
       test64
         Opcode.USRA
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, SixteenB))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V14, SixteenB))),
-          Immediate 3L
+          OprSIMD (SIMDVecReg (R.V5, SixteenB)),
+          OprSIMD (SIMDVecReg (R.V14, SixteenB)),
+          OprImm 3L
         ))
         [| 0x6fuy; 0x0duy; 0x15uy; 0xc5uy |]
 
       test64
         Opcode.URSHR
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, SixteenB))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V14, SixteenB))),
-          Immediate 3L
+          OprSIMD (SIMDVecReg (R.V5, SixteenB)),
+          OprSIMD (SIMDVecReg (R.V14, SixteenB)),
+          OprImm 3L
         ))
         [| 0x6fuy; 0x0duy; 0x25uy; 0xc5uy |]
 
       test64
         Opcode.URSRA
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, SixteenB))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V14, SixteenB))),
-          Immediate 3L
+          OprSIMD (SIMDVecReg (R.V5, SixteenB)),
+          OprSIMD (SIMDVecReg (R.V14, SixteenB)),
+          OprImm 3L
         ))
         [| 0x6fuy; 0x0duy; 0x35uy; 0xc5uy |]
 
       test64
         Opcode.SRI
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, SixteenB))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V14, SixteenB))),
-          Immediate 3L
+          OprSIMD (SIMDVecReg (R.V5, SixteenB)),
+          OprSIMD (SIMDVecReg (R.V14, SixteenB)),
+          OprImm 3L
         ))
         [| 0x6fuy; 0x0duy; 0x45uy; 0xc5uy |]
 
       test64
         Opcode.SLI
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, SixteenB))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V14, SixteenB))),
-          Immediate 5L
+          OprSIMD (SIMDVecReg (R.V5, SixteenB)),
+          OprSIMD (SIMDVecReg (R.V14, SixteenB)),
+          OprImm 5L
         ))
         [| 0x6fuy; 0x0duy; 0x55uy; 0xc5uy |]
 
       test64
         Opcode.SQSHLU
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, SixteenB))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V14, SixteenB))),
-          Immediate 5L
+          OprSIMD (SIMDVecReg (R.V5, SixteenB)),
+          OprSIMD (SIMDVecReg (R.V14, SixteenB)),
+          OprImm 5L
         ))
         [| 0x6fuy; 0x0duy; 0x65uy; 0xc5uy |]
 
       test64
         Opcode.UQSHL
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, SixteenB))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V14, SixteenB))),
-          Immediate 5L
+          OprSIMD (SIMDVecReg (R.V5, SixteenB)),
+          OprSIMD (SIMDVecReg (R.V14, SixteenB)),
+          OprImm 5L
         ))
         [| 0x6fuy; 0x0duy; 0x75uy; 0xc5uy |]
 
       test64
         Opcode.SQSHRUN2
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, FourS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V14, TwoD))),
-          Immediate 0x17L
+          OprSIMD (SIMDVecReg (R.V5, FourS)),
+          OprSIMD (SIMDVecReg (R.V14, TwoD)),
+          OprImm 0x17L
         ))
         [| 0x6fuy; 0x29uy; 0x85uy; 0xc5uy |]
 
       test64
         Opcode.SQRSHRUN2
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, EightH))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V14, FourS))),
-          Immediate 5L
+          OprSIMD (SIMDVecReg (R.V5, EightH)),
+          OprSIMD (SIMDVecReg (R.V14, FourS)),
+          OprImm 5L
         ))
         [| 0x6fuy; 0x1buy; 0x8duy; 0xc5uy |]
 
       test64
         Opcode.UQSHRN2
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, FourS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V14, TwoD))),
-          Immediate 0x1AL
+          OprSIMD (SIMDVecReg (R.V5, FourS)),
+          OprSIMD (SIMDVecReg (R.V14, TwoD)),
+          OprImm 0x1AL
         ))
         [| 0x6fuy; 0x26uy; 0x95uy; 0xc5uy |]
 
       test64
         Opcode.UQRSHRN2
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, EightH))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V14, FourS))),
-          Immediate 1L
+          OprSIMD (SIMDVecReg (R.V5, EightH)),
+          OprSIMD (SIMDVecReg (R.V14, FourS)),
+          OprImm 1L
         ))
         [| 0x6fuy; 0x1fuy; 0x9duy; 0xc5uy |]
 
       test64
         Opcode.USHLL
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V27, TwoD))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, TwoS))),
-          Immediate 0xDL
+          OprSIMD (SIMDVecReg (R.V27, TwoD)),
+          OprSIMD (SIMDVecReg (R.V5, TwoS)),
+          OprImm 0xDL
         ))
         [| 0x2fuy; 0x2duy; 0xa4uy; 0xbbuy |]
 
       test64
         Opcode.UCVTF
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, FourS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V14, FourS))),
-          Fbits 7uy
+          OprSIMD (SIMDVecReg (R.V5, FourS)),
+          OprSIMD (SIMDVecReg (R.V14, FourS)),
+          OprFbits 7uy
         ))
         [| 0x6fuy; 0x39uy; 0xe5uy; 0xc5uy |]
 
       test64
         Opcode.FCVTZU
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, FourS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V14, FourS))),
-          Fbits 0x1Auy
+          OprSIMD (SIMDVecReg (R.V5, FourS)),
+          OprSIMD (SIMDVecReg (R.V14, FourS)),
+          OprFbits 0x1Auy
         ))
         [| 0x6fuy; 0x26uy; 0xfduy; 0xc5uy |]
 
@@ -5970,102 +5934,88 @@ module ARM64 =
       test64
         Opcode.TBL
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V1, SixteenB))),
-          SIMDOpr (
-            TwoRegs (SIMDVecReg (R.V6, SixteenB), SIMDVecReg (R.V7, SixteenB))
-          ),
-          SIMDOpr (SFReg (SIMDVecReg (R.V3, SixteenB)))
+          OprSIMD (SIMDVecReg (R.V1, SixteenB)),
+          OprSIMDList [
+            SIMDVecReg (R.V6, SixteenB); SIMDVecReg (R.V7, SixteenB) ],
+          OprSIMD (SIMDVecReg (R.V3, SixteenB))
         ))
         [| 0x4euy; 0x03uy; 0x20uy; 0xc1uy |]
 
       test64
         Opcode.TBL
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V9, EightB))),
-          SIMDOpr (
-            ThreeRegs (
-              SIMDVecReg (R.V22, SixteenB),
-              SIMDVecReg (R.V23, SixteenB),
-              SIMDVecReg (R.V24, SixteenB)
-            )
-          ),
-          SIMDOpr (SFReg (SIMDVecReg (R.V3, EightB)))
+          OprSIMD (SIMDVecReg (R.V9, EightB)),
+          OprSIMDList [
+            SIMDVecReg (R.V22, SixteenB);
+            SIMDVecReg (R.V23, SixteenB);
+            SIMDVecReg (R.V24, SixteenB) ],
+          OprSIMD (SIMDVecReg (R.V3, EightB))
         ))
         [| 0x0euy; 0x03uy; 0x42uy; 0xc9uy |]
 
       test64
         Opcode.TBL
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, SixteenB))),
-          SIMDOpr (
-            FourRegs (
-              SIMDVecReg (R.V31, SixteenB),
-              SIMDVecReg (R.V0, SixteenB),
-              SIMDVecReg (R.V1, SixteenB),
-              SIMDVecReg (R.V2, SixteenB)
-            )
-          ),
-          SIMDOpr (SFReg (SIMDVecReg (R.V3, SixteenB)))
+          OprSIMD (SIMDVecReg (R.V5, SixteenB)),
+          OprSIMDList [
+            SIMDVecReg (R.V31, SixteenB);
+            SIMDVecReg (R.V0, SixteenB);
+            SIMDVecReg (R.V1, SixteenB);
+            SIMDVecReg (R.V2, SixteenB) ],
+          OprSIMD (SIMDVecReg (R.V3, SixteenB))
         ))
         [| 0x4euy; 0x03uy; 0x63uy; 0xe5uy |]
 
       test64
         Opcode.TBL
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V17, EightB))),
-          SIMDOpr (OneReg (SIMDVecReg (R.V27, SixteenB))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V3, EightB)))
+          OprSIMD (SIMDVecReg (R.V17, EightB)),
+          OprSIMDList [ SIMDVecReg (R.V27, SixteenB) ],
+          OprSIMD (SIMDVecReg (R.V3, EightB))
         ))
         [| 0x0euy; 0x03uy; 0x03uy; 0x71uy |]
 
       test64
         Opcode.TBX
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V28, EightB))),
-          SIMDOpr (
-            TwoRegs (SIMDVecReg (R.V7, SixteenB), SIMDVecReg (R.V8, SixteenB))
-          ),
-          SIMDOpr (SFReg (SIMDVecReg (R.V25, EightB)))
+          OprSIMD (SIMDVecReg (R.V28, EightB)),
+          OprSIMDList [
+            SIMDVecReg (R.V7, SixteenB); SIMDVecReg (R.V8, SixteenB) ],
+          OprSIMD (SIMDVecReg (R.V25, EightB))
         ))
         [| 0x0euy; 0x19uy; 0x30uy; 0xfcuy |]
 
       test64
         Opcode.TBX
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V28, SixteenB))),
-          SIMDOpr (
-            ThreeRegs (
-              SIMDVecReg (R.V7, SixteenB),
-              SIMDVecReg (R.V8, SixteenB),
-              SIMDVecReg (R.V9, SixteenB)
-            )
-          ),
-          SIMDOpr (SFReg (SIMDVecReg (R.V25, SixteenB)))
+          OprSIMD (SIMDVecReg (R.V28, SixteenB)),
+          OprSIMDList [
+            SIMDVecReg (R.V7, SixteenB);
+            SIMDVecReg (R.V8, SixteenB);
+            SIMDVecReg (R.V9, SixteenB) ],
+          OprSIMD (SIMDVecReg (R.V25, SixteenB))
         ))
         [| 0x4euy; 0x19uy; 0x50uy; 0xfcuy |]
 
       test64
         Opcode.TBX
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V28, EightB))),
-          SIMDOpr (
-            FourRegs (
-              SIMDVecReg (R.V7, SixteenB),
-              SIMDVecReg (R.V8, SixteenB),
-              SIMDVecReg (R.V9, SixteenB),
-              SIMDVecReg (R.V10, SixteenB)
-            )
-          ),
-          SIMDOpr (SFReg (SIMDVecReg (R.V25, EightB)))
+          OprSIMD (SIMDVecReg (R.V28, EightB)),
+          OprSIMDList [
+            SIMDVecReg (R.V7, SixteenB);
+            SIMDVecReg (R.V8, SixteenB);
+            SIMDVecReg (R.V9, SixteenB);
+            SIMDVecReg (R.V10, SixteenB) ],
+          OprSIMD (SIMDVecReg (R.V25, EightB))
         ))
         [| 0x0euy; 0x19uy; 0x70uy; 0xfcuy |]
 
       test64
         Opcode.TBX
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V28, SixteenB))),
-          SIMDOpr (OneReg (SIMDVecReg (R.V7, SixteenB))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V25, SixteenB)))
+          OprSIMD (SIMDVecReg (R.V28, SixteenB)),
+          OprSIMDList [ SIMDVecReg (R.V7, SixteenB) ],
+          OprSIMD (SIMDVecReg (R.V25, SixteenB))
         ))
         [| 0x4euy; 0x19uy; 0x10uy; 0xfcuy |]
 
@@ -6075,252 +6025,252 @@ module ARM64 =
       test64
         Opcode.SADDL
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V26, FourS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V28, FourH))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V11, FourH)))
+          OprSIMD (SIMDVecReg (R.V26, FourS)),
+          OprSIMD (SIMDVecReg (R.V28, FourH)),
+          OprSIMD (SIMDVecReg (R.V11, FourH))
         ))
         [| 0x0euy; 0x6buy; 0x03uy; 0x9auy |]
 
       test64
         Opcode.SADDL2
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, TwoD))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V25, FourS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, FourS)))
+          OprSIMD (SIMDVecReg (R.V5, TwoD)),
+          OprSIMD (SIMDVecReg (R.V25, FourS)),
+          OprSIMD (SIMDVecReg (R.V5, FourS))
         ))
         [| 0x4euy; 0xa5uy; 0x03uy; 0x25uy |]
 
       test64
         Opcode.SADDW
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V26, EightH))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V21, EightH))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V7, EightB)))
+          OprSIMD (SIMDVecReg (R.V26, EightH)),
+          OprSIMD (SIMDVecReg (R.V21, EightH)),
+          OprSIMD (SIMDVecReg (R.V7, EightB))
         ))
         [| 0x0euy; 0x27uy; 0x12uy; 0xbauy |]
 
       test64
         Opcode.SADDW2
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V25, FourS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V3, FourS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V3, EightH)))
+          OprSIMD (SIMDVecReg (R.V25, FourS)),
+          OprSIMD (SIMDVecReg (R.V3, FourS)),
+          OprSIMD (SIMDVecReg (R.V3, EightH))
         ))
         [| 0x4euy; 0x63uy; 0x10uy; 0x79uy |]
 
       test64
         Opcode.SSUBL2
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V25, FourS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V3, EightH))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V3, EightH)))
+          OprSIMD (SIMDVecReg (R.V25, FourS)),
+          OprSIMD (SIMDVecReg (R.V3, EightH)),
+          OprSIMD (SIMDVecReg (R.V3, EightH))
         ))
         [| 0x4euy; 0x63uy; 0x20uy; 0x79uy |]
 
       test64
         Opcode.SSUBW2
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V25, FourS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V3, FourS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V3, EightH)))
+          OprSIMD (SIMDVecReg (R.V25, FourS)),
+          OprSIMD (SIMDVecReg (R.V3, FourS)),
+          OprSIMD (SIMDVecReg (R.V3, EightH))
         ))
         [| 0x4euy; 0x63uy; 0x30uy; 0x79uy |]
 
       test64
         Opcode.ADDHN2
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V25, EightH))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V3, FourS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V3, FourS)))
+          OprSIMD (SIMDVecReg (R.V25, EightH)),
+          OprSIMD (SIMDVecReg (R.V3, FourS)),
+          OprSIMD (SIMDVecReg (R.V3, FourS))
         ))
         [| 0x4euy; 0x63uy; 0x40uy; 0x79uy |]
 
       test64
         Opcode.SABAL2
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V25, FourS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V3, EightH))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V3, EightH)))
+          OprSIMD (SIMDVecReg (R.V25, FourS)),
+          OprSIMD (SIMDVecReg (R.V3, EightH)),
+          OprSIMD (SIMDVecReg (R.V3, EightH))
         ))
         [| 0x4euy; 0x63uy; 0x50uy; 0x79uy |]
 
       test64
         Opcode.SUBHN2
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V25, EightH))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V3, FourS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V3, FourS)))
+          OprSIMD (SIMDVecReg (R.V25, EightH)),
+          OprSIMD (SIMDVecReg (R.V3, FourS)),
+          OprSIMD (SIMDVecReg (R.V3, FourS))
         ))
         [| 0x4euy; 0x63uy; 0x60uy; 0x79uy |]
 
       test64
         Opcode.SABDL2
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V25, FourS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V3, EightH))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V3, EightH)))
+          OprSIMD (SIMDVecReg (R.V25, FourS)),
+          OprSIMD (SIMDVecReg (R.V3, EightH)),
+          OprSIMD (SIMDVecReg (R.V3, EightH))
         ))
         [| 0x4euy; 0x63uy; 0x70uy; 0x79uy |]
 
       test64
         Opcode.SMLAL
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V24, TwoD))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V18, TwoS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V6, TwoS)))
+          OprSIMD (SIMDVecReg (R.V24, TwoD)),
+          OprSIMD (SIMDVecReg (R.V18, TwoS)),
+          OprSIMD (SIMDVecReg (R.V6, TwoS))
         ))
         [| 0x0euy; 0xa6uy; 0x82uy; 0x58uy |]
 
       test64
         Opcode.SQDMLAL2
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V26, TwoD))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V23, FourS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V6, FourS)))
+          OprSIMD (SIMDVecReg (R.V26, TwoD)),
+          OprSIMD (SIMDVecReg (R.V23, FourS)),
+          OprSIMD (SIMDVecReg (R.V6, FourS))
         ))
         [| 0x4euy; 0xa6uy; 0x92uy; 0xfauy |]
 
       test64
         Opcode.SMLSL2
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V12, FourS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V17, EightH))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V6, EightH)))
+          OprSIMD (SIMDVecReg (R.V12, FourS)),
+          OprSIMD (SIMDVecReg (R.V17, EightH)),
+          OprSIMD (SIMDVecReg (R.V6, EightH))
         ))
         [| 0x4euy; 0x66uy; 0xa2uy; 0x2cuy |]
 
       test64
         Opcode.SQDMLSL2
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V3, TwoD))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V22, FourS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, FourS)))
+          OprSIMD (SIMDVecReg (R.V3, TwoD)),
+          OprSIMD (SIMDVecReg (R.V22, FourS)),
+          OprSIMD (SIMDVecReg (R.V5, FourS))
         ))
         [| 0x4euy; 0xa5uy; 0xb2uy; 0xc3uy |]
 
       test64
         Opcode.SMULL
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V28, FourS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V11, FourH))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, FourH)))
+          OprSIMD (SIMDVecReg (R.V28, FourS)),
+          OprSIMD (SIMDVecReg (R.V11, FourH)),
+          OprSIMD (SIMDVecReg (R.V5, FourH))
         ))
         [| 0x0euy; 0x65uy; 0xc1uy; 0x7cuy |]
 
       test64
         Opcode.SQDMULL
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V25, TwoD))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V3, TwoS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V8, TwoS)))
+          OprSIMD (SIMDVecReg (R.V25, TwoD)),
+          OprSIMD (SIMDVecReg (R.V3, TwoS)),
+          OprSIMD (SIMDVecReg (R.V8, TwoS))
         ))
         [| 0x0euy; 0xa8uy; 0xd0uy; 0x79uy |]
 
       test64
         Opcode.PMULL2
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, OneQ))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V18, TwoD))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V3, TwoD)))
+          OprSIMD (SIMDVecReg (R.V5, OneQ)),
+          OprSIMD (SIMDVecReg (R.V18, TwoD)),
+          OprSIMD (SIMDVecReg (R.V3, TwoD))
         ))
         [| 0x4euy; 0xe3uy; 0xe2uy; 0x45uy |]
 
       test64
         Opcode.UADDL
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V11, EightH))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V19, EightB))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V14, EightB)))
+          OprSIMD (SIMDVecReg (R.V11, EightH)),
+          OprSIMD (SIMDVecReg (R.V19, EightB)),
+          OprSIMD (SIMDVecReg (R.V14, EightB))
         ))
         [| 0x2euy; 0x2euy; 0x02uy; 0x6buy |]
 
       test64
         Opcode.UADDW2
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V18, TwoD))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V18, TwoD))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V14, FourS)))
+          OprSIMD (SIMDVecReg (R.V18, TwoD)),
+          OprSIMD (SIMDVecReg (R.V18, TwoD)),
+          OprSIMD (SIMDVecReg (R.V14, FourS))
         ))
         [| 0x6euy; 0xaeuy; 0x12uy; 0x52uy |]
 
       test64
         Opcode.USUBL
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V29, TwoD))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V21, TwoS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V1, TwoS)))
+          OprSIMD (SIMDVecReg (R.V29, TwoD)),
+          OprSIMD (SIMDVecReg (R.V21, TwoS)),
+          OprSIMD (SIMDVecReg (R.V1, TwoS))
         ))
         [| 0x2euy; 0xa1uy; 0x22uy; 0xbduy |]
 
       test64
         Opcode.USUBW2
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V27, EightH))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V28, EightH))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V7, SixteenB)))
+          OprSIMD (SIMDVecReg (R.V27, EightH)),
+          OprSIMD (SIMDVecReg (R.V28, EightH)),
+          OprSIMD (SIMDVecReg (R.V7, SixteenB))
         ))
         [| 0x6euy; 0x27uy; 0x33uy; 0x9buy |]
 
       test64
         Opcode.RADDHN2
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V27, SixteenB))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V28, EightH))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V7, EightH)))
+          OprSIMD (SIMDVecReg (R.V27, SixteenB)),
+          OprSIMD (SIMDVecReg (R.V28, EightH)),
+          OprSIMD (SIMDVecReg (R.V7, EightH))
         ))
         [| 0x6euy; 0x27uy; 0x43uy; 0x9buy |]
 
       test64
         Opcode.UABAL2
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V27, EightH))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V28, SixteenB))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V7, SixteenB)))
+          OprSIMD (SIMDVecReg (R.V27, EightH)),
+          OprSIMD (SIMDVecReg (R.V28, SixteenB)),
+          OprSIMD (SIMDVecReg (R.V7, SixteenB))
         ))
         [| 0x6euy; 0x27uy; 0x53uy; 0x9buy |]
 
       test64
         Opcode.RSUBHN2
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V27, SixteenB))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V28, EightH))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V7, EightH)))
+          OprSIMD (SIMDVecReg (R.V27, SixteenB)),
+          OprSIMD (SIMDVecReg (R.V28, EightH)),
+          OprSIMD (SIMDVecReg (R.V7, EightH))
         ))
         [| 0x6euy; 0x27uy; 0x63uy; 0x9buy |]
 
       test64
         Opcode.UABDL2
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V27, EightH))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V28, SixteenB))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V7, SixteenB)))
+          OprSIMD (SIMDVecReg (R.V27, EightH)),
+          OprSIMD (SIMDVecReg (R.V28, SixteenB)),
+          OprSIMD (SIMDVecReg (R.V7, SixteenB))
         ))
         [| 0x6euy; 0x27uy; 0x73uy; 0x9buy |]
 
       test64
         Opcode.UMLAL2
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V27, EightH))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V28, SixteenB))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V7, SixteenB)))
+          OprSIMD (SIMDVecReg (R.V27, EightH)),
+          OprSIMD (SIMDVecReg (R.V28, SixteenB)),
+          OprSIMD (SIMDVecReg (R.V7, SixteenB))
         ))
         [| 0x6euy; 0x27uy; 0x83uy; 0x9buy |]
 
       test64
         Opcode.UMLSL2
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V27, EightH))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V28, SixteenB))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V7, SixteenB)))
+          OprSIMD (SIMDVecReg (R.V27, EightH)),
+          OprSIMD (SIMDVecReg (R.V28, SixteenB)),
+          OprSIMD (SIMDVecReg (R.V7, SixteenB))
         ))
         [| 0x6euy; 0x27uy; 0xa3uy; 0x9buy |]
 
       test64
         Opcode.UMULL2
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V27, EightH))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V28, SixteenB))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V7, SixteenB)))
+          OprSIMD (SIMDVecReg (R.V27, EightH)),
+          OprSIMD (SIMDVecReg (R.V28, SixteenB)),
+          OprSIMD (SIMDVecReg (R.V7, SixteenB))
         ))
         [| 0x6euy; 0x27uy; 0xc3uy; 0x9buy |]
 
@@ -6330,692 +6280,692 @@ module ARM64 =
       test64
         Opcode.SHADD
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V21, SixteenB))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, SixteenB))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, SixteenB)))
+          OprSIMD (SIMDVecReg (R.V21, SixteenB)),
+          OprSIMD (SIMDVecReg (R.V5, SixteenB)),
+          OprSIMD (SIMDVecReg (R.V5, SixteenB))
         ))
         [| 0x4euy; 0x25uy; 0x04uy; 0xb5uy |]
 
       test64
         Opcode.SQADD
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V21, EightH))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, EightH))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, EightH)))
+          OprSIMD (SIMDVecReg (R.V21, EightH)),
+          OprSIMD (SIMDVecReg (R.V5, EightH)),
+          OprSIMD (SIMDVecReg (R.V5, EightH))
         ))
         [| 0x4euy; 0x65uy; 0x0cuy; 0xb5uy |]
 
       test64
         Opcode.SRHADD
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V21, FourS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, FourS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, FourS)))
+          OprSIMD (SIMDVecReg (R.V21, FourS)),
+          OprSIMD (SIMDVecReg (R.V5, FourS)),
+          OprSIMD (SIMDVecReg (R.V5, FourS))
         ))
         [| 0x4euy; 0xa5uy; 0x14uy; 0xb5uy |]
 
       test64
         Opcode.SHSUB
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V21, SixteenB))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, SixteenB))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, SixteenB)))
+          OprSIMD (SIMDVecReg (R.V21, SixteenB)),
+          OprSIMD (SIMDVecReg (R.V5, SixteenB)),
+          OprSIMD (SIMDVecReg (R.V5, SixteenB))
         ))
         [| 0x4euy; 0x25uy; 0x24uy; 0xb5uy |]
 
       test64
         Opcode.SQSUB
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V21, EightH))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, EightH))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, EightH)))
+          OprSIMD (SIMDVecReg (R.V21, EightH)),
+          OprSIMD (SIMDVecReg (R.V5, EightH)),
+          OprSIMD (SIMDVecReg (R.V5, EightH))
         ))
         [| 0x4euy; 0x65uy; 0x2cuy; 0xb5uy |]
 
       test64
         Opcode.CMGT
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V21, FourS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, FourS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, FourS)))
+          OprSIMD (SIMDVecReg (R.V21, FourS)),
+          OprSIMD (SIMDVecReg (R.V5, FourS)),
+          OprSIMD (SIMDVecReg (R.V5, FourS))
         ))
         [| 0x4euy; 0xa5uy; 0x34uy; 0xb5uy |]
 
       test64
         Opcode.CMGE
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V21, SixteenB))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, SixteenB))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, SixteenB)))
+          OprSIMD (SIMDVecReg (R.V21, SixteenB)),
+          OprSIMD (SIMDVecReg (R.V5, SixteenB)),
+          OprSIMD (SIMDVecReg (R.V5, SixteenB))
         ))
         [| 0x4euy; 0x25uy; 0x3cuy; 0xb5uy |]
 
       test64
         Opcode.SSHL
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V21, EightH))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, EightH))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, EightH)))
+          OprSIMD (SIMDVecReg (R.V21, EightH)),
+          OprSIMD (SIMDVecReg (R.V5, EightH)),
+          OprSIMD (SIMDVecReg (R.V5, EightH))
         ))
         [| 0x4euy; 0x65uy; 0x44uy; 0xb5uy |]
 
       test64
         Opcode.SQSHL
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V21, FourS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, FourS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, FourS)))
+          OprSIMD (SIMDVecReg (R.V21, FourS)),
+          OprSIMD (SIMDVecReg (R.V5, FourS)),
+          OprSIMD (SIMDVecReg (R.V5, FourS))
         ))
         [| 0x4euy; 0xa5uy; 0x4cuy; 0xb5uy |]
 
       test64
         Opcode.SRSHL
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V21, SixteenB))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, SixteenB))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, SixteenB)))
+          OprSIMD (SIMDVecReg (R.V21, SixteenB)),
+          OprSIMD (SIMDVecReg (R.V5, SixteenB)),
+          OprSIMD (SIMDVecReg (R.V5, SixteenB))
         ))
         [| 0x4euy; 0x25uy; 0x54uy; 0xb5uy |]
 
       test64
         Opcode.SQRSHL
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V21, EightH))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, EightH))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, EightH)))
+          OprSIMD (SIMDVecReg (R.V21, EightH)),
+          OprSIMD (SIMDVecReg (R.V5, EightH)),
+          OprSIMD (SIMDVecReg (R.V5, EightH))
         ))
         [| 0x4euy; 0x65uy; 0x5cuy; 0xb5uy |]
 
       test64
         Opcode.SMAX
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V21, FourS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, FourS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, FourS)))
+          OprSIMD (SIMDVecReg (R.V21, FourS)),
+          OprSIMD (SIMDVecReg (R.V5, FourS)),
+          OprSIMD (SIMDVecReg (R.V5, FourS))
         ))
         [| 0x4euy; 0xa5uy; 0x64uy; 0xb5uy |]
 
       test64
         Opcode.SMIN
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V21, SixteenB))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, SixteenB))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, SixteenB)))
+          OprSIMD (SIMDVecReg (R.V21, SixteenB)),
+          OprSIMD (SIMDVecReg (R.V5, SixteenB)),
+          OprSIMD (SIMDVecReg (R.V5, SixteenB))
         ))
         [| 0x4euy; 0x25uy; 0x6cuy; 0xb5uy |]
 
       test64
         Opcode.SABD
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V21, EightH))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, EightH))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, EightH)))
+          OprSIMD (SIMDVecReg (R.V21, EightH)),
+          OprSIMD (SIMDVecReg (R.V5, EightH)),
+          OprSIMD (SIMDVecReg (R.V5, EightH))
         ))
         [| 0x4euy; 0x65uy; 0x74uy; 0xb5uy |]
 
       test64
         Opcode.SABA
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V21, FourS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, FourS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, FourS)))
+          OprSIMD (SIMDVecReg (R.V21, FourS)),
+          OprSIMD (SIMDVecReg (R.V5, FourS)),
+          OprSIMD (SIMDVecReg (R.V5, FourS))
         ))
         [| 0x4euy; 0xa5uy; 0x7cuy; 0xb5uy |]
 
       test64
         Opcode.ADD
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V21, SixteenB))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, SixteenB))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, SixteenB)))
+          OprSIMD (SIMDVecReg (R.V21, SixteenB)),
+          OprSIMD (SIMDVecReg (R.V5, SixteenB)),
+          OprSIMD (SIMDVecReg (R.V5, SixteenB))
         ))
         [| 0x4euy; 0x25uy; 0x84uy; 0xb5uy |]
 
       test64
         Opcode.CMTST
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V21, EightH))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, EightH))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, EightH)))
+          OprSIMD (SIMDVecReg (R.V21, EightH)),
+          OprSIMD (SIMDVecReg (R.V5, EightH)),
+          OprSIMD (SIMDVecReg (R.V5, EightH))
         ))
         [| 0x4euy; 0x65uy; 0x8cuy; 0xb5uy |]
 
       test64
         Opcode.MLA
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V21, FourS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, FourS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, FourS)))
+          OprSIMD (SIMDVecReg (R.V21, FourS)),
+          OprSIMD (SIMDVecReg (R.V5, FourS)),
+          OprSIMD (SIMDVecReg (R.V5, FourS))
         ))
         [| 0x4euy; 0xa5uy; 0x94uy; 0xb5uy |]
 
       test64
         Opcode.MUL
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V21, SixteenB))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, SixteenB))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, SixteenB)))
+          OprSIMD (SIMDVecReg (R.V21, SixteenB)),
+          OprSIMD (SIMDVecReg (R.V5, SixteenB)),
+          OprSIMD (SIMDVecReg (R.V5, SixteenB))
         ))
         [| 0x4euy; 0x25uy; 0x9cuy; 0xb5uy |]
 
       test64
         Opcode.SMAXP
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V21, EightH))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, EightH))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, EightH)))
+          OprSIMD (SIMDVecReg (R.V21, EightH)),
+          OprSIMD (SIMDVecReg (R.V5, EightH)),
+          OprSIMD (SIMDVecReg (R.V5, EightH))
         ))
         [| 0x4euy; 0x65uy; 0xa4uy; 0xb5uy |]
 
       test64
         Opcode.SMINP
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V21, FourS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, FourS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, FourS)))
+          OprSIMD (SIMDVecReg (R.V21, FourS)),
+          OprSIMD (SIMDVecReg (R.V5, FourS)),
+          OprSIMD (SIMDVecReg (R.V5, FourS))
         ))
         [| 0x4euy; 0xa5uy; 0xacuy; 0xb5uy |]
 
       test64
         Opcode.SQDMULH
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V21, FourS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, FourS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, FourS)))
+          OprSIMD (SIMDVecReg (R.V21, FourS)),
+          OprSIMD (SIMDVecReg (R.V5, FourS)),
+          OprSIMD (SIMDVecReg (R.V5, FourS))
         ))
         [| 0x4euy; 0xa5uy; 0xb4uy; 0xb5uy |]
 
       test64
         Opcode.ADDP
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V21, EightH))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, EightH))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, EightH)))
+          OprSIMD (SIMDVecReg (R.V21, EightH)),
+          OprSIMD (SIMDVecReg (R.V5, EightH)),
+          OprSIMD (SIMDVecReg (R.V5, EightH))
         ))
         [| 0x4euy; 0x65uy; 0xbcuy; 0xb5uy |]
 
       test64
         Opcode.FMAXNM
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V21, FourS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V21, FourS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, FourS)))
+          OprSIMD (SIMDVecReg (R.V21, FourS)),
+          OprSIMD (SIMDVecReg (R.V21, FourS)),
+          OprSIMD (SIMDVecReg (R.V5, FourS))
         ))
         [| 0x4euy; 0x25uy; 0xc6uy; 0xb5uy |]
 
       test64
         Opcode.FMLA
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V21, TwoD))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V13, TwoD))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, TwoD)))
+          OprSIMD (SIMDVecReg (R.V21, TwoD)),
+          OprSIMD (SIMDVecReg (R.V13, TwoD)),
+          OprSIMD (SIMDVecReg (R.V5, TwoD))
         ))
         [| 0x4euy; 0x65uy; 0xcduy; 0xb5uy |]
 
       test64
         Opcode.FADD
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V21, FourS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, FourS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, FourS)))
+          OprSIMD (SIMDVecReg (R.V21, FourS)),
+          OprSIMD (SIMDVecReg (R.V5, FourS)),
+          OprSIMD (SIMDVecReg (R.V5, FourS))
         ))
         [| 0x4euy; 0x25uy; 0xd4uy; 0xb5uy |]
 
       test64
         Opcode.FMULX
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V17, TwoD))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, TwoD))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, TwoD)))
+          OprSIMD (SIMDVecReg (R.V17, TwoD)),
+          OprSIMD (SIMDVecReg (R.V5, TwoD)),
+          OprSIMD (SIMDVecReg (R.V5, TwoD))
         ))
         [| 0x4euy; 0x65uy; 0xdcuy; 0xb1uy |]
 
       test64
         Opcode.FCMEQ
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V21, FourS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V2, FourS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, FourS)))
+          OprSIMD (SIMDVecReg (R.V21, FourS)),
+          OprSIMD (SIMDVecReg (R.V2, FourS)),
+          OprSIMD (SIMDVecReg (R.V5, FourS))
         ))
         [| 0x4euy; 0x25uy; 0xe4uy; 0x55uy |]
 
       test64
         Opcode.FMAX
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V21, TwoD))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V13, TwoD))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, TwoD)))
+          OprSIMD (SIMDVecReg (R.V21, TwoD)),
+          OprSIMD (SIMDVecReg (R.V13, TwoD)),
+          OprSIMD (SIMDVecReg (R.V5, TwoD))
         ))
         [| 0x4euy; 0x65uy; 0xf5uy; 0xb5uy |]
 
       test64
         Opcode.FRECPS
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V21, FourS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V13, FourS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, FourS)))
+          OprSIMD (SIMDVecReg (R.V21, FourS)),
+          OprSIMD (SIMDVecReg (R.V13, FourS)),
+          OprSIMD (SIMDVecReg (R.V5, FourS))
         ))
         [| 0x4euy; 0x25uy; 0xfduy; 0xb5uy |]
 
       test64
         Opcode.AND
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V17, SixteenB))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, SixteenB))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, SixteenB)))
+          OprSIMD (SIMDVecReg (R.V17, SixteenB)),
+          OprSIMD (SIMDVecReg (R.V5, SixteenB)),
+          OprSIMD (SIMDVecReg (R.V5, SixteenB))
         ))
         [| 0x4euy; 0x25uy; 0x1cuy; 0xb1uy |]
 
       test64
         Opcode.BIC
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V25, SixteenB))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V21, SixteenB))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, SixteenB)))
+          OprSIMD (SIMDVecReg (R.V25, SixteenB)),
+          OprSIMD (SIMDVecReg (R.V21, SixteenB)),
+          OprSIMD (SIMDVecReg (R.V5, SixteenB))
         ))
         [| 0x4euy; 0x65uy; 0x1euy; 0xb9uy |]
 
       test64
         Opcode.FMINNM
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V29, FourS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V1, FourS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, FourS)))
+          OprSIMD (SIMDVecReg (R.V29, FourS)),
+          OprSIMD (SIMDVecReg (R.V1, FourS)),
+          OprSIMD (SIMDVecReg (R.V5, FourS))
         ))
         [| 0x4euy; 0xa5uy; 0xc4uy; 0x3duy |]
 
       test64
         Opcode.FMLS
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V20, TwoD))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V29, TwoD))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, TwoD)))
+          OprSIMD (SIMDVecReg (R.V20, TwoD)),
+          OprSIMD (SIMDVecReg (R.V29, TwoD)),
+          OprSIMD (SIMDVecReg (R.V5, TwoD))
         ))
         [| 0x4euy; 0xe5uy; 0xcfuy; 0xb4uy |]
 
       test64
         Opcode.FSUB
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V21, FourS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, FourS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, FourS)))
+          OprSIMD (SIMDVecReg (R.V21, FourS)),
+          OprSIMD (SIMDVecReg (R.V5, FourS)),
+          OprSIMD (SIMDVecReg (R.V5, FourS))
         ))
         [| 0x4euy; 0xa5uy; 0xd4uy; 0xb5uy |]
 
       test64
         Opcode.FMIN
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, TwoD))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V1, TwoD))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, TwoD)))
+          OprSIMD (SIMDVecReg (R.V5, TwoD)),
+          OprSIMD (SIMDVecReg (R.V1, TwoD)),
+          OprSIMD (SIMDVecReg (R.V5, TwoD))
         ))
         [| 0x4euy; 0xe5uy; 0xf4uy; 0x25uy |]
 
       test64
         Opcode.FRSQRTS
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V29, FourS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, FourS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, FourS)))
+          OprSIMD (SIMDVecReg (R.V29, FourS)),
+          OprSIMD (SIMDVecReg (R.V5, FourS)),
+          OprSIMD (SIMDVecReg (R.V5, FourS))
         ))
         [| 0x4euy; 0xa5uy; 0xfcuy; 0xbduy |]
 
       test64
         Opcode.MOV
         (TwoOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V21, SixteenB))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, SixteenB)))
+          OprSIMD (SIMDVecReg (R.V21, SixteenB)),
+          OprSIMD (SIMDVecReg (R.V5, SixteenB))
         ))
         [| 0x4euy; 0xa5uy; 0x1cuy; 0xb5uy |]
 
       test64
         Opcode.ORN
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V9, SixteenB))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V13, SixteenB))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, SixteenB)))
+          OprSIMD (SIMDVecReg (R.V9, SixteenB)),
+          OprSIMD (SIMDVecReg (R.V13, SixteenB)),
+          OprSIMD (SIMDVecReg (R.V5, SixteenB))
         ))
         [| 0x4euy; 0xe5uy; 0x1duy; 0xa9uy |]
 
       test64
         Opcode.UHADD
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V21, SixteenB))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, SixteenB))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, SixteenB)))
+          OprSIMD (SIMDVecReg (R.V21, SixteenB)),
+          OprSIMD (SIMDVecReg (R.V5, SixteenB)),
+          OprSIMD (SIMDVecReg (R.V5, SixteenB))
         ))
         [| 0x6euy; 0x25uy; 0x04uy; 0xb5uy |]
 
       test64
         Opcode.UQADD
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V21, EightH))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, EightH))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, EightH)))
+          OprSIMD (SIMDVecReg (R.V21, EightH)),
+          OprSIMD (SIMDVecReg (R.V5, EightH)),
+          OprSIMD (SIMDVecReg (R.V5, EightH))
         ))
         [| 0x6euy; 0x65uy; 0x0cuy; 0xb5uy |]
 
       test64
         Opcode.URHADD
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V21, FourS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, FourS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, FourS)))
+          OprSIMD (SIMDVecReg (R.V21, FourS)),
+          OprSIMD (SIMDVecReg (R.V5, FourS)),
+          OprSIMD (SIMDVecReg (R.V5, FourS))
         ))
         [| 0x6euy; 0xa5uy; 0x14uy; 0xb5uy |]
 
       test64
         Opcode.UHSUB
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V21, SixteenB))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, SixteenB))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, SixteenB)))
+          OprSIMD (SIMDVecReg (R.V21, SixteenB)),
+          OprSIMD (SIMDVecReg (R.V5, SixteenB)),
+          OprSIMD (SIMDVecReg (R.V5, SixteenB))
         ))
         [| 0x6euy; 0x25uy; 0x24uy; 0xb5uy |]
 
       test64
         Opcode.UQSUB
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V21, EightH))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, EightH))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, EightH)))
+          OprSIMD (SIMDVecReg (R.V21, EightH)),
+          OprSIMD (SIMDVecReg (R.V5, EightH)),
+          OprSIMD (SIMDVecReg (R.V5, EightH))
         ))
         [| 0x6euy; 0x65uy; 0x2cuy; 0xb5uy |]
 
       test64
         Opcode.CMHI
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V21, FourS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, FourS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, FourS)))
+          OprSIMD (SIMDVecReg (R.V21, FourS)),
+          OprSIMD (SIMDVecReg (R.V5, FourS)),
+          OprSIMD (SIMDVecReg (R.V5, FourS))
         ))
         [| 0x6euy; 0xa5uy; 0x34uy; 0xb5uy |]
 
       test64
         Opcode.CMHS
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V21, SixteenB))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, SixteenB))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, SixteenB)))
+          OprSIMD (SIMDVecReg (R.V21, SixteenB)),
+          OprSIMD (SIMDVecReg (R.V5, SixteenB)),
+          OprSIMD (SIMDVecReg (R.V5, SixteenB))
         ))
         [| 0x6euy; 0x25uy; 0x3cuy; 0xb5uy |]
 
       test64
         Opcode.USHL
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V21, EightH))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, EightH))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, EightH)))
+          OprSIMD (SIMDVecReg (R.V21, EightH)),
+          OprSIMD (SIMDVecReg (R.V5, EightH)),
+          OprSIMD (SIMDVecReg (R.V5, EightH))
         ))
         [| 0x6euy; 0x65uy; 0x44uy; 0xb5uy |]
 
       test64
         Opcode.UQSHL
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V21, FourS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, FourS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, FourS)))
+          OprSIMD (SIMDVecReg (R.V21, FourS)),
+          OprSIMD (SIMDVecReg (R.V5, FourS)),
+          OprSIMD (SIMDVecReg (R.V5, FourS))
         ))
         [| 0x6euy; 0xa5uy; 0x4cuy; 0xb5uy |]
 
       test64
         Opcode.URSHL
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V21, SixteenB))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, SixteenB))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, SixteenB)))
+          OprSIMD (SIMDVecReg (R.V21, SixteenB)),
+          OprSIMD (SIMDVecReg (R.V5, SixteenB)),
+          OprSIMD (SIMDVecReg (R.V5, SixteenB))
         ))
         [| 0x6euy; 0x25uy; 0x54uy; 0xb5uy |]
 
       test64
         Opcode.UQRSHL
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V21, EightH))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, EightH))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, EightH)))
+          OprSIMD (SIMDVecReg (R.V21, EightH)),
+          OprSIMD (SIMDVecReg (R.V5, EightH)),
+          OprSIMD (SIMDVecReg (R.V5, EightH))
         ))
         [| 0x6euy; 0x65uy; 0x5cuy; 0xb5uy |]
 
       test64
         Opcode.UMAX
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V21, FourS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, FourS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, FourS)))
+          OprSIMD (SIMDVecReg (R.V21, FourS)),
+          OprSIMD (SIMDVecReg (R.V5, FourS)),
+          OprSIMD (SIMDVecReg (R.V5, FourS))
         ))
         [| 0x6euy; 0xa5uy; 0x64uy; 0xb5uy |]
 
       test64
         Opcode.UMIN
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V21, SixteenB))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, SixteenB))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, SixteenB)))
+          OprSIMD (SIMDVecReg (R.V21, SixteenB)),
+          OprSIMD (SIMDVecReg (R.V5, SixteenB)),
+          OprSIMD (SIMDVecReg (R.V5, SixteenB))
         ))
         [| 0x6euy; 0x25uy; 0x6cuy; 0xb5uy |]
 
       test64
         Opcode.UABD
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V21, EightH))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, EightH))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, EightH)))
+          OprSIMD (SIMDVecReg (R.V21, EightH)),
+          OprSIMD (SIMDVecReg (R.V5, EightH)),
+          OprSIMD (SIMDVecReg (R.V5, EightH))
         ))
         [| 0x6euy; 0x65uy; 0x74uy; 0xb5uy |]
 
       test64
         Opcode.UABA
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V21, FourS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, FourS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, FourS)))
+          OprSIMD (SIMDVecReg (R.V21, FourS)),
+          OprSIMD (SIMDVecReg (R.V5, FourS)),
+          OprSIMD (SIMDVecReg (R.V5, FourS))
         ))
         [| 0x6euy; 0xa5uy; 0x7cuy; 0xb5uy |]
 
       test64
         Opcode.SUB
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V21, SixteenB))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, SixteenB))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, SixteenB)))
+          OprSIMD (SIMDVecReg (R.V21, SixteenB)),
+          OprSIMD (SIMDVecReg (R.V5, SixteenB)),
+          OprSIMD (SIMDVecReg (R.V5, SixteenB))
         ))
         [| 0x6euy; 0x25uy; 0x84uy; 0xb5uy |]
 
       test64
         Opcode.CMEQ
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V21, EightH))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, EightH))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, EightH)))
+          OprSIMD (SIMDVecReg (R.V21, EightH)),
+          OprSIMD (SIMDVecReg (R.V5, EightH)),
+          OprSIMD (SIMDVecReg (R.V5, EightH))
         ))
         [| 0x6euy; 0x65uy; 0x8cuy; 0xb5uy |]
 
       test64
         Opcode.MLS
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V21, FourS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, FourS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, FourS)))
+          OprSIMD (SIMDVecReg (R.V21, FourS)),
+          OprSIMD (SIMDVecReg (R.V5, FourS)),
+          OprSIMD (SIMDVecReg (R.V5, FourS))
         ))
         [| 0x6euy; 0xa5uy; 0x94uy; 0xb5uy |]
 
       test64
         Opcode.PMUL
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V21, SixteenB))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, SixteenB))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, SixteenB)))
+          OprSIMD (SIMDVecReg (R.V21, SixteenB)),
+          OprSIMD (SIMDVecReg (R.V5, SixteenB)),
+          OprSIMD (SIMDVecReg (R.V5, SixteenB))
         ))
         [| 0x6euy; 0x25uy; 0x9cuy; 0xb5uy |]
 
       test64
         Opcode.UMAXP
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V21, EightH))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, EightH))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, EightH)))
+          OprSIMD (SIMDVecReg (R.V21, EightH)),
+          OprSIMD (SIMDVecReg (R.V5, EightH)),
+          OprSIMD (SIMDVecReg (R.V5, EightH))
         ))
         [| 0x6euy; 0x65uy; 0xa4uy; 0xb5uy |]
 
       test64
         Opcode.UMINP
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V21, FourS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, FourS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, FourS)))
+          OprSIMD (SIMDVecReg (R.V21, FourS)),
+          OprSIMD (SIMDVecReg (R.V5, FourS)),
+          OprSIMD (SIMDVecReg (R.V5, FourS))
         ))
         [| 0x6euy; 0xa5uy; 0xacuy; 0xb5uy |]
 
       test64
         Opcode.SQRDMULH
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V21, EightH))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, EightH))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, EightH)))
+          OprSIMD (SIMDVecReg (R.V21, EightH)),
+          OprSIMD (SIMDVecReg (R.V5, EightH)),
+          OprSIMD (SIMDVecReg (R.V5, EightH))
         ))
         [| 0x6euy; 0x65uy; 0xb4uy; 0xb5uy |]
 
       test64
         Opcode.FMAXNMP
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V21, FourS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, FourS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, FourS)))
+          OprSIMD (SIMDVecReg (R.V21, FourS)),
+          OprSIMD (SIMDVecReg (R.V5, FourS)),
+          OprSIMD (SIMDVecReg (R.V5, FourS))
         ))
         [| 0x6euy; 0x25uy; 0xc4uy; 0xb5uy |]
 
       test64
         Opcode.FADDP
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V21, TwoD))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, TwoD))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, TwoD)))
+          OprSIMD (SIMDVecReg (R.V21, TwoD)),
+          OprSIMD (SIMDVecReg (R.V5, TwoD)),
+          OprSIMD (SIMDVecReg (R.V5, TwoD))
         ))
         [| 0x6euy; 0x65uy; 0xd4uy; 0xb5uy |]
 
       test64
         Opcode.FMUL
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V21, FourS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, FourS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, FourS)))
+          OprSIMD (SIMDVecReg (R.V21, FourS)),
+          OprSIMD (SIMDVecReg (R.V5, FourS)),
+          OprSIMD (SIMDVecReg (R.V5, FourS))
         ))
         [| 0x6euy; 0x25uy; 0xdcuy; 0xb5uy |]
 
       test64
         Opcode.FCMGE
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V21, TwoD))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, TwoD))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, TwoD)))
+          OprSIMD (SIMDVecReg (R.V21, TwoD)),
+          OprSIMD (SIMDVecReg (R.V5, TwoD)),
+          OprSIMD (SIMDVecReg (R.V5, TwoD))
         ))
         [| 0x6euy; 0x65uy; 0xe4uy; 0xb5uy |]
 
       test64
         Opcode.FACGE
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V21, FourS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, FourS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, FourS)))
+          OprSIMD (SIMDVecReg (R.V21, FourS)),
+          OprSIMD (SIMDVecReg (R.V5, FourS)),
+          OprSIMD (SIMDVecReg (R.V5, FourS))
         ))
         [| 0x6euy; 0x25uy; 0xecuy; 0xb5uy |]
 
       test64
         Opcode.FMAXP
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V21, TwoD))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, TwoD))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, TwoD)))
+          OprSIMD (SIMDVecReg (R.V21, TwoD)),
+          OprSIMD (SIMDVecReg (R.V5, TwoD)),
+          OprSIMD (SIMDVecReg (R.V5, TwoD))
         ))
         [| 0x6euy; 0x65uy; 0xf4uy; 0xb5uy |]
 
       test64
         Opcode.FDIV
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V21, FourS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, FourS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, FourS)))
+          OprSIMD (SIMDVecReg (R.V21, FourS)),
+          OprSIMD (SIMDVecReg (R.V5, FourS)),
+          OprSIMD (SIMDVecReg (R.V5, FourS))
         ))
         [| 0x6euy; 0x25uy; 0xfcuy; 0xb5uy |]
 
       test64
         Opcode.EOR
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V21, SixteenB))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, SixteenB))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, SixteenB)))
+          OprSIMD (SIMDVecReg (R.V21, SixteenB)),
+          OprSIMD (SIMDVecReg (R.V5, SixteenB)),
+          OprSIMD (SIMDVecReg (R.V5, SixteenB))
         ))
         [| 0x6euy; 0x25uy; 0x1cuy; 0xb5uy |]
 
       test64
         Opcode.BSL
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V21, SixteenB))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, SixteenB))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, SixteenB)))
+          OprSIMD (SIMDVecReg (R.V21, SixteenB)),
+          OprSIMD (SIMDVecReg (R.V5, SixteenB)),
+          OprSIMD (SIMDVecReg (R.V5, SixteenB))
         ))
         [| 0x6euy; 0x65uy; 0x1cuy; 0xb5uy |]
 
       test64
         Opcode.FMINNMP
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V21, FourS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, FourS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, FourS)))
+          OprSIMD (SIMDVecReg (R.V21, FourS)),
+          OprSIMD (SIMDVecReg (R.V5, FourS)),
+          OprSIMD (SIMDVecReg (R.V5, FourS))
         ))
         [| 0x6euy; 0xa5uy; 0xc4uy; 0xb5uy |]
 
       test64
         Opcode.FABD
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V21, TwoD))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, TwoD))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, TwoD)))
+          OprSIMD (SIMDVecReg (R.V21, TwoD)),
+          OprSIMD (SIMDVecReg (R.V5, TwoD)),
+          OprSIMD (SIMDVecReg (R.V5, TwoD))
         ))
         [| 0x6euy; 0xe5uy; 0xd4uy; 0xb5uy |]
 
       test64
         Opcode.FCMGT
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V21, FourS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, FourS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, FourS)))
+          OprSIMD (SIMDVecReg (R.V21, FourS)),
+          OprSIMD (SIMDVecReg (R.V5, FourS)),
+          OprSIMD (SIMDVecReg (R.V5, FourS))
         ))
         [| 0x6euy; 0xa5uy; 0xe4uy; 0xb5uy |]
 
       test64
         Opcode.FACGT
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V21, TwoD))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, TwoD))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, TwoD)))
+          OprSIMD (SIMDVecReg (R.V21, TwoD)),
+          OprSIMD (SIMDVecReg (R.V5, TwoD)),
+          OprSIMD (SIMDVecReg (R.V5, TwoD))
         ))
         [| 0x6euy; 0xe5uy; 0xecuy; 0xb5uy |]
 
       test64
         Opcode.FMINP
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V21, FourS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, FourS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, FourS)))
+          OprSIMD (SIMDVecReg (R.V21, FourS)),
+          OprSIMD (SIMDVecReg (R.V5, FourS)),
+          OprSIMD (SIMDVecReg (R.V5, FourS))
         ))
         [| 0x6euy; 0xa5uy; 0xf4uy; 0xb5uy |]
 
       test64
         Opcode.BIT
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V21, SixteenB))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, SixteenB))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, SixteenB)))
+          OprSIMD (SIMDVecReg (R.V21, SixteenB)),
+          OprSIMD (SIMDVecReg (R.V5, SixteenB)),
+          OprSIMD (SIMDVecReg (R.V5, SixteenB))
         ))
         [| 0x6euy; 0xa5uy; 0x1cuy; 0xb5uy |]
 
       test64
         Opcode.BIF
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V21, SixteenB))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, SixteenB))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, SixteenB)))
+          OprSIMD (SIMDVecReg (R.V21, SixteenB)),
+          OprSIMD (SIMDVecReg (R.V5, SixteenB)),
+          OprSIMD (SIMDVecReg (R.V5, SixteenB))
         ))
         [| 0x6euy; 0xe5uy; 0x1cuy; 0xb5uy |]
 
@@ -7025,115 +6975,115 @@ module ARM64 =
       test64
         Opcode.REV64
         (TwoOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V3, EightH))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V12, EightH)))
+          OprSIMD (SIMDVecReg (R.V3, EightH)),
+          OprSIMD (SIMDVecReg (R.V12, EightH))
         ))
         [| 0x4euy; 0x60uy; 0x09uy; 0x83uy |]
 
       test64
         Opcode.REV16
         (TwoOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V18, SixteenB))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, SixteenB)))
+          OprSIMD (SIMDVecReg (R.V18, SixteenB)),
+          OprSIMD (SIMDVecReg (R.V5, SixteenB))
         ))
         [| 0x4euy; 0x20uy; 0x18uy; 0xb2uy |]
 
       test64
         Opcode.SADDLP
         (TwoOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V3, FourS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V12, EightH)))
+          OprSIMD (SIMDVecReg (R.V3, FourS)),
+          OprSIMD (SIMDVecReg (R.V12, EightH))
         ))
         [| 0x4euy; 0x60uy; 0x29uy; 0x83uy |]
 
       test64
         Opcode.SUQADD
         (TwoOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V19, EightH))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V17, EightH)))
+          OprSIMD (SIMDVecReg (R.V19, EightH)),
+          OprSIMD (SIMDVecReg (R.V17, EightH))
         ))
         [| 0x4euy; 0x60uy; 0x3auy; 0x33uy |]
 
       test64
         Opcode.CLS
         (TwoOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V28, FourS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V3, FourS)))
+          OprSIMD (SIMDVecReg (R.V28, FourS)),
+          OprSIMD (SIMDVecReg (R.V3, FourS))
         ))
         [| 0x4euy; 0xa0uy; 0x48uy; 0x7cuy |]
 
       test64
         Opcode.SADDLP
         (TwoOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V13, OneD))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V6, TwoS)))
+          OprSIMD (SIMDVecReg (R.V13, OneD)),
+          OprSIMD (SIMDVecReg (R.V6, TwoS))
         ))
         [| 0x0euy; 0xa0uy; 0x28uy; 0xcduy |]
 
       test64
         Opcode.SQABS
         (TwoOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V6, TwoD))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V18, TwoD)))
+          OprSIMD (SIMDVecReg (R.V6, TwoD)),
+          OprSIMD (SIMDVecReg (R.V18, TwoD))
         ))
         [| 0x4euy; 0xe0uy; 0x7auy; 0x46uy |]
 
       test64
         Opcode.CMGT
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V7, SixteenB))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V3, SixteenB))),
-          Immediate 0L
+          OprSIMD (SIMDVecReg (R.V7, SixteenB)),
+          OprSIMD (SIMDVecReg (R.V3, SixteenB)),
+          OprImm 0L
         ))
         [| 0x4euy; 0x20uy; 0x88uy; 0x67uy |]
 
       test64
         Opcode.CMEQ
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V25, FourH))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V3, FourH))),
-          Immediate 0L
+          OprSIMD (SIMDVecReg (R.V25, FourH)),
+          OprSIMD (SIMDVecReg (R.V3, FourH)),
+          OprImm 0L
         ))
         [| 0x0euy; 0x60uy; 0x98uy; 0x79uy |]
 
       test64
         Opcode.CMLT
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V1, FourS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V2, FourS))),
-          Immediate 0L
+          OprSIMD (SIMDVecReg (R.V1, FourS)),
+          OprSIMD (SIMDVecReg (R.V2, FourS)),
+          OprImm 0L
         ))
         [| 0x4euy; 0xa0uy; 0xa8uy; 0x41uy |]
 
       test64
         Opcode.ABS
         (TwoOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V29, SixteenB))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V27, SixteenB)))
+          OprSIMD (SIMDVecReg (R.V29, SixteenB)),
+          OprSIMD (SIMDVecReg (R.V27, SixteenB))
         ))
         [| 0x4euy; 0x20uy; 0xbbuy; 0x7duy |]
 
       test64
         Opcode.XTN
         (TwoOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V25, TwoS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, TwoD)))
+          OprSIMD (SIMDVecReg (R.V25, TwoS)),
+          OprSIMD (SIMDVecReg (R.V5, TwoD))
         ))
         [| 0x0euy; 0xa1uy; 0x28uy; 0xb9uy |]
 
       test64
         Opcode.XTN2
         (TwoOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V24, FourS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V7, TwoD)))
+          OprSIMD (SIMDVecReg (R.V24, FourS)),
+          OprSIMD (SIMDVecReg (R.V7, TwoD))
         ))
         [| 0x4euy; 0xa1uy; 0x28uy; 0xf8uy |]
 
       test64
         Opcode.SQXTN
         (TwoOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V3, EightB))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V6, EightH)))
+          OprSIMD (SIMDVecReg (R.V3, EightB)),
+          OprSIMD (SIMDVecReg (R.V6, EightH))
         ))
         [| 0x0euy; 0x21uy; 0x48uy; 0xc3uy |]
 
@@ -7141,449 +7091,449 @@ module ARM64 =
       test64
         Opcode.SQXTN2
         (TwoOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, SixteenB))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V10, EightH)))
+          OprSIMD (SIMDVecReg (R.V5, SixteenB)),
+          OprSIMD (SIMDVecReg (R.V10, EightH))
         ))
         [| 0x4euy; 0x21uy; 0x49uy; 0x45uy |]
 
       test64
         Opcode.FCVTN
         (TwoOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, TwoS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V4, TwoD)))
+          OprSIMD (SIMDVecReg (R.V5, TwoS)),
+          OprSIMD (SIMDVecReg (R.V4, TwoD))
         ))
         [| 0x0euy; 0x61uy; 0x68uy; 0x85uy |]
 
       test64
         Opcode.FCVTN2
         (TwoOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V24, EightH))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V7, FourS)))
+          OprSIMD (SIMDVecReg (R.V24, EightH)),
+          OprSIMD (SIMDVecReg (R.V7, FourS))
         ))
         [| 0x4euy; 0x21uy; 0x68uy; 0xf8uy |]
 
       test64
         Opcode.FCVTL
         (TwoOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V28, FourS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V19, FourH)))
+          OprSIMD (SIMDVecReg (R.V28, FourS)),
+          OprSIMD (SIMDVecReg (R.V19, FourH))
         ))
         [| 0x0euy; 0x21uy; 0x7auy; 0x7cuy |]
 
       test64
         Opcode.FCVTL2
         (TwoOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V3, TwoD))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V26, FourS)))
+          OprSIMD (SIMDVecReg (R.V3, TwoD)),
+          OprSIMD (SIMDVecReg (R.V26, FourS))
         ))
         [| 0x4euy; 0x61uy; 0x7buy; 0x43uy |]
 
       test64
         Opcode.FRINTN
         (TwoOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V24, TwoD))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, TwoD)))
+          OprSIMD (SIMDVecReg (R.V24, TwoD)),
+          OprSIMD (SIMDVecReg (R.V5, TwoD))
         ))
         [| 0x4euy; 0x61uy; 0x88uy; 0xb8uy |]
 
       test64
         Opcode.FRINTM
         (TwoOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, TwoS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V3, TwoS)))
+          OprSIMD (SIMDVecReg (R.V5, TwoS)),
+          OprSIMD (SIMDVecReg (R.V3, TwoS))
         ))
         [| 0x0euy; 0x21uy; 0x98uy; 0x65uy |]
 
       test64
         Opcode.FCVTNS
         (TwoOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V13, FourS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V3, FourS)))
+          OprSIMD (SIMDVecReg (R.V13, FourS)),
+          OprSIMD (SIMDVecReg (R.V3, FourS))
         ))
         [| 0x4euy; 0x21uy; 0xa8uy; 0x6duy |]
 
       test64
         Opcode.FCVTMS
         (TwoOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V30, TwoS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V3, TwoS)))
+          OprSIMD (SIMDVecReg (R.V30, TwoS)),
+          OprSIMD (SIMDVecReg (R.V3, TwoS))
         ))
         [| 0x0euy; 0x21uy; 0xb8uy; 0x7euy |]
 
       test64
         Opcode.FCVTAS
         (TwoOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V22, TwoD))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V3, TwoD)))
+          OprSIMD (SIMDVecReg (R.V22, TwoD)),
+          OprSIMD (SIMDVecReg (R.V3, TwoD))
         ))
         [| 0x4euy; 0x61uy; 0xc8uy; 0x76uy |]
 
       test64
         Opcode.SCVTF
         (TwoOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V18, FourS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V4, FourS)))
+          OprSIMD (SIMDVecReg (R.V18, FourS)),
+          OprSIMD (SIMDVecReg (R.V4, FourS))
         ))
         [| 0x4euy; 0x21uy; 0xd8uy; 0x92uy |]
 
       test64
         Opcode.FCMGT
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V29, FourS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, FourS))),
-          FPImmediate 0.0
+          OprSIMD (SIMDVecReg (R.V29, FourS)),
+          OprSIMD (SIMDVecReg (R.V5, FourS)),
+          OprFPImm 0.0
         ))
         [| 0x4euy; 0xa0uy; 0xc8uy; 0xbduy |]
 
       test64
         Opcode.FCMEQ
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V30, TwoS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V1, TwoS))),
-          FPImmediate 0.0
+          OprSIMD (SIMDVecReg (R.V30, TwoS)),
+          OprSIMD (SIMDVecReg (R.V1, TwoS)),
+          OprFPImm 0.0
         ))
         [| 0x0euy; 0xa0uy; 0xd8uy; 0x3euy |]
 
       test64
         Opcode.FCMLT
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V25, TwoD))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V9, TwoD))),
-          FPImmediate 0.0
+          OprSIMD (SIMDVecReg (R.V25, TwoD)),
+          OprSIMD (SIMDVecReg (R.V9, TwoD)),
+          OprFPImm 0.0
         ))
         [| 0x4euy; 0xe0uy; 0xe9uy; 0x39uy |]
 
       test64
         Opcode.FABS
         (TwoOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V14, FourS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V4, FourS)))
+          OprSIMD (SIMDVecReg (R.V14, FourS)),
+          OprSIMD (SIMDVecReg (R.V4, FourS))
         ))
         [| 0x4euy; 0xa0uy; 0xf8uy; 0x8euy |]
 
       test64
         Opcode.FRINTP
         (TwoOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V22, TwoS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V4, TwoS)))
+          OprSIMD (SIMDVecReg (R.V22, TwoS)),
+          OprSIMD (SIMDVecReg (R.V4, TwoS))
         ))
         [| 0x0euy; 0xa1uy; 0x88uy; 0x96uy |]
 
       test64
         Opcode.FRINTZ
         (TwoOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V9, TwoD))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V2, TwoD)))
+          OprSIMD (SIMDVecReg (R.V9, TwoD)),
+          OprSIMD (SIMDVecReg (R.V2, TwoD))
         ))
         [| 0x4euy; 0xe1uy; 0x98uy; 0x49uy |]
 
       test64
         Opcode.FCVTPS
         (TwoOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V3, FourS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V22, FourS)))
+          OprSIMD (SIMDVecReg (R.V3, FourS)),
+          OprSIMD (SIMDVecReg (R.V22, FourS))
         ))
         [| 0x4euy; 0xa1uy; 0xaauy; 0xc3uy |]
 
       test64
         Opcode.FCVTZS
         (TwoOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V26, TwoS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V19, TwoS)))
+          OprSIMD (SIMDVecReg (R.V26, TwoS)),
+          OprSIMD (SIMDVecReg (R.V19, TwoS))
         ))
         [| 0x0euy; 0xa1uy; 0xbauy; 0x7auy |]
 
       test64
         Opcode.URECPE
         (TwoOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V7, TwoS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V6, TwoS)))
+          OprSIMD (SIMDVecReg (R.V7, TwoS)),
+          OprSIMD (SIMDVecReg (R.V6, TwoS))
         ))
         [| 0x0euy; 0xa1uy; 0xc8uy; 0xc7uy |]
 
       test64
         Opcode.FRECPE
         (TwoOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V3, TwoD))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V4, TwoD)))
+          OprSIMD (SIMDVecReg (R.V3, TwoD)),
+          OprSIMD (SIMDVecReg (R.V4, TwoD))
         ))
         [| 0x4euy; 0xe1uy; 0xd8uy; 0x83uy |]
 
       test64
         Opcode.REV32
         (TwoOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V30, EightH))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V1, EightH)))
+          OprSIMD (SIMDVecReg (R.V30, EightH)),
+          OprSIMD (SIMDVecReg (R.V1, EightH))
         ))
         [| 0x6euy; 0x60uy; 0x08uy; 0x3euy |]
 
       test64
         Opcode.UADDLP
         (TwoOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V28, TwoD))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V7, FourS)))
+          OprSIMD (SIMDVecReg (R.V28, TwoD)),
+          OprSIMD (SIMDVecReg (R.V7, FourS))
         ))
         [| 0x6euy; 0xa0uy; 0x28uy; 0xfcuy |]
 
       test64
         Opcode.USQADD
         (TwoOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V3, TwoD))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V4, TwoD)))
+          OprSIMD (SIMDVecReg (R.V3, TwoD)),
+          OprSIMD (SIMDVecReg (R.V4, TwoD))
         ))
         [| 0x6euy; 0xe0uy; 0x38uy; 0x83uy |]
 
       test64
         Opcode.CLZ
         (TwoOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V9, FourS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V6, FourS)))
+          OprSIMD (SIMDVecReg (R.V9, FourS)),
+          OprSIMD (SIMDVecReg (R.V6, FourS))
         ))
         [| 0x6euy; 0xa0uy; 0x48uy; 0xc9uy |]
 
       test64
         Opcode.UADALP
         (TwoOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V30, FourS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V1, EightH)))
+          OprSIMD (SIMDVecReg (R.V30, FourS)),
+          OprSIMD (SIMDVecReg (R.V1, EightH))
         ))
         [| 0x6euy; 0x60uy; 0x68uy; 0x3euy |]
 
       test64
         Opcode.SQNEG
         (TwoOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V15, TwoS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V7, TwoS)))
+          OprSIMD (SIMDVecReg (R.V15, TwoS)),
+          OprSIMD (SIMDVecReg (R.V7, TwoS))
         ))
         [| 0x2euy; 0xa0uy; 0x78uy; 0xefuy |]
 
       test64
         Opcode.CMGE
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V20, SixteenB))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V3, SixteenB))),
-          Immediate 0L
+          OprSIMD (SIMDVecReg (R.V20, SixteenB)),
+          OprSIMD (SIMDVecReg (R.V3, SixteenB)),
+          OprImm 0L
         ))
         [| 0x6euy; 0x20uy; 0x88uy; 0x74uy |]
 
       test64
         Opcode.CMLE
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V29, EightB))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V7, EightB))),
-          Immediate 0L
+          OprSIMD (SIMDVecReg (R.V29, EightB)),
+          OprSIMD (SIMDVecReg (R.V7, EightB)),
+          OprImm 0L
         ))
         [| 0x2euy; 0x20uy; 0x98uy; 0xfduy |]
 
       test64
         Opcode.NEG
         (TwoOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V10, EightH))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V6, EightH)))
+          OprSIMD (SIMDVecReg (R.V10, EightH)),
+          OprSIMD (SIMDVecReg (R.V6, EightH))
         ))
         [| 0x6euy; 0x60uy; 0xb8uy; 0xcauy |]
 
       test64
         Opcode.SQXTN
         (TwoOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V7, TwoS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V4, TwoD)))
+          OprSIMD (SIMDVecReg (R.V7, TwoS)),
+          OprSIMD (SIMDVecReg (R.V4, TwoD))
         ))
         [| 0x0euy; 0xa1uy; 0x48uy; 0x87uy |]
 
       test64
         Opcode.SQXTN2
         (TwoOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V20, EightH))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, FourS)))
+          OprSIMD (SIMDVecReg (R.V20, EightH)),
+          OprSIMD (SIMDVecReg (R.V5, FourS))
         ))
         [| 0x4euy; 0x61uy; 0x48uy; 0xb4uy |]
 
       test64
         Opcode.SHLL
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V21, TwoD))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V19, TwoS))),
-          Shift (SRTypeLSL, Imm 32L)
+          OprSIMD (SIMDVecReg (R.V21, TwoD)),
+          OprSIMD (SIMDVecReg (R.V19, TwoS)),
+          OprShift (SRTypeLSL, Imm 32L)
         ))
         [| 0x2euy; 0xa1uy; 0x3auy; 0x75uy |]
 
       test64
         Opcode.SHLL2
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V29, FourS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V19, EightH))),
-          Shift (SRTypeLSL, Imm 16L)
+          OprSIMD (SIMDVecReg (R.V29, FourS)),
+          OprSIMD (SIMDVecReg (R.V19, EightH)),
+          OprShift (SRTypeLSL, Imm 16L)
         ))
         [| 0x6euy; 0x61uy; 0x3auy; 0x7duy |]
 
       test64
         Opcode.UQXTN
         (TwoOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V9, TwoS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V7, TwoD)))
+          OprSIMD (SIMDVecReg (R.V9, TwoS)),
+          OprSIMD (SIMDVecReg (R.V7, TwoD))
         ))
         [| 0x2euy; 0xa1uy; 0x48uy; 0xe9uy |]
 
       test64
         Opcode.UQXTN2
         (TwoOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V2, EightH))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V6, FourS)))
+          OprSIMD (SIMDVecReg (R.V2, EightH)),
+          OprSIMD (SIMDVecReg (R.V6, FourS))
         ))
         [| 0x6euy; 0x61uy; 0x48uy; 0xc2uy |]
 
       test64
         Opcode.FCVTXN
         (TwoOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V10, TwoS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V6, TwoD)))
+          OprSIMD (SIMDVecReg (R.V10, TwoS)),
+          OprSIMD (SIMDVecReg (R.V6, TwoD))
         ))
         [| 0x2euy; 0x61uy; 0x68uy; 0xcauy |]
 
       test64
         Opcode.FCVTXN2
         (TwoOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, FourS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V14, TwoD)))
+          OprSIMD (SIMDVecReg (R.V5, FourS)),
+          OprSIMD (SIMDVecReg (R.V14, TwoD))
         ))
         [| 0x6euy; 0x61uy; 0x69uy; 0xc5uy |]
 
       test64
         Opcode.FRINTA
         (TwoOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V26, FourS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, FourS)))
+          OprSIMD (SIMDVecReg (R.V26, FourS)),
+          OprSIMD (SIMDVecReg (R.V5, FourS))
         ))
         [| 0x6euy; 0x21uy; 0x88uy; 0xbauy |]
 
       test64
         Opcode.FRINTX
         (TwoOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V28, TwoD))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, TwoD)))
+          OprSIMD (SIMDVecReg (R.V28, TwoD)),
+          OprSIMD (SIMDVecReg (R.V5, TwoD))
         ))
         [| 0x6euy; 0x61uy; 0x98uy; 0xbcuy |]
 
       test64
         Opcode.FCVTNU
         (TwoOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, TwoS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V6, TwoS)))
+          OprSIMD (SIMDVecReg (R.V5, TwoS)),
+          OprSIMD (SIMDVecReg (R.V6, TwoS))
         ))
         [| 0x2euy; 0x21uy; 0xa8uy; 0xc5uy |]
 
       test64
         Opcode.FCVTMU
         (TwoOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V6, FourS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V22, FourS)))
+          OprSIMD (SIMDVecReg (R.V6, FourS)),
+          OprSIMD (SIMDVecReg (R.V22, FourS))
         ))
         [| 0x6euy; 0x21uy; 0xbauy; 0xc6uy |]
 
       test64
         Opcode.FCVTAU
         (TwoOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, TwoS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V27, TwoS)))
+          OprSIMD (SIMDVecReg (R.V5, TwoS)),
+          OprSIMD (SIMDVecReg (R.V27, TwoS))
         ))
         [| 0x2euy; 0x21uy; 0xcbuy; 0x65uy |]
 
       test64
         Opcode.UCVTF
         (TwoOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V22, FourS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V4, FourS)))
+          OprSIMD (SIMDVecReg (R.V22, FourS)),
+          OprSIMD (SIMDVecReg (R.V4, FourS))
         ))
         [| 0x6euy; 0x21uy; 0xd8uy; 0x96uy |]
 
       test64
         Opcode.MVN
         (TwoOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V26, SixteenB))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V9, SixteenB)))
+          OprSIMD (SIMDVecReg (R.V26, SixteenB)),
+          OprSIMD (SIMDVecReg (R.V9, SixteenB))
         ))
         [| 0x6euy; 0x20uy; 0x59uy; 0x3auy |]
 
       test64
         Opcode.RBIT
         (TwoOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V18, EightB))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V7, EightB)))
+          OprSIMD (SIMDVecReg (R.V18, EightB)),
+          OprSIMD (SIMDVecReg (R.V7, EightB))
         ))
         [| 0x2euy; 0x60uy; 0x58uy; 0xf2uy |]
 
       test64
         Opcode.FCMGE
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, FourS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V23, FourS))),
-          FPImmediate 0.0
+          OprSIMD (SIMDVecReg (R.V5, FourS)),
+          OprSIMD (SIMDVecReg (R.V23, FourS)),
+          OprFPImm 0.0
         ))
         [| 0x6euy; 0xa0uy; 0xcauy; 0xe5uy |]
 
       test64
         Opcode.FCMLE
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V14, TwoS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V18, TwoS))),
-          FPImmediate 0.0
+          OprSIMD (SIMDVecReg (R.V14, TwoS)),
+          OprSIMD (SIMDVecReg (R.V18, TwoS)),
+          OprFPImm 0.0
         ))
         [| 0x2euy; 0xa0uy; 0xdauy; 0x4euy |]
 
       test64
         Opcode.FNEG
         (TwoOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V21, TwoD))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V19, TwoD)))
+          OprSIMD (SIMDVecReg (R.V21, TwoD)),
+          OprSIMD (SIMDVecReg (R.V19, TwoD))
         ))
         [| 0x6euy; 0xe0uy; 0xfauy; 0x75uy |]
 
       test64
         Opcode.FRINTI
         (TwoOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V30, TwoS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V21, TwoS)))
+          OprSIMD (SIMDVecReg (R.V30, TwoS)),
+          OprSIMD (SIMDVecReg (R.V21, TwoS))
         ))
         [| 0x2euy; 0xa1uy; 0x9auy; 0xbeuy |]
 
       test64
         Opcode.FCVTPU
         (TwoOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V9, TwoD))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V4, TwoD)))
+          OprSIMD (SIMDVecReg (R.V9, TwoD)),
+          OprSIMD (SIMDVecReg (R.V4, TwoD))
         ))
         [| 0x6euy; 0xe1uy; 0xa8uy; 0x89uy |]
 
       test64
         Opcode.FCVTZU
         (TwoOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V30, TwoS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V15, TwoS)))
+          OprSIMD (SIMDVecReg (R.V30, TwoS)),
+          OprSIMD (SIMDVecReg (R.V15, TwoS))
         ))
         [| 0x2euy; 0xa1uy; 0xb9uy; 0xfeuy |]
 
       test64
         Opcode.URSQRTE
         (TwoOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, FourS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V29, FourS)))
+          OprSIMD (SIMDVecReg (R.V5, FourS)),
+          OprSIMD (SIMDVecReg (R.V29, FourS))
         ))
         [| 0x6euy; 0xa1uy; 0xcbuy; 0xa5uy |]
 
       test64
         Opcode.FRSQRTE
         (TwoOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V18, TwoS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V25, TwoS)))
+          OprSIMD (SIMDVecReg (R.V18, TwoS)),
+          OprSIMD (SIMDVecReg (R.V25, TwoS))
         ))
         [| 0x2euy; 0xa1uy; 0xdbuy; 0x32uy |]
 
       test64
         Opcode.FSQRT
         (TwoOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V6, FourS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, FourS)))
+          OprSIMD (SIMDVecReg (R.V6, FourS)),
+          OprSIMD (SIMDVecReg (R.V5, FourS))
         ))
         [| 0x6euy; 0xa1uy; 0xf8uy; 0xa6uy |]
 
@@ -7593,162 +7543,162 @@ module ARM64 =
       test64
         Opcode.SMLAL2
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V26, FourS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V6, EightH))),
-          SIMDOpr (SFReg (sVRegIdx R.V2 VecH 6uy))
+          OprSIMD (SIMDVecReg (R.V26, FourS)),
+          OprSIMD (SIMDVecReg (R.V6, EightH)),
+          OprSIMD (sVRegIdx R.V2 VecH 6uy)
         ))
         [| 0x4fuy; 0x62uy; 0x28uy; 0xdauy |]
 
       test64
         Opcode.SQDMLAL2
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V2, TwoD))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V26, FourS))),
-          SIMDOpr (SFReg (sVRegIdx R.V17 VecS 3uy))
+          OprSIMD (SIMDVecReg (R.V2, TwoD)),
+          OprSIMD (SIMDVecReg (R.V26, FourS)),
+          OprSIMD (sVRegIdx R.V17 VecS 3uy)
         ))
         [| 0x4fuy; 0xb1uy; 0x3buy; 0x42uy |]
 
       test64
         Opcode.SMLSL2
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V10, FourS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V14, EightH))),
-          SIMDOpr (SFReg (sVRegIdx R.V9 VecH 3uy))
+          OprSIMD (SIMDVecReg (R.V10, FourS)),
+          OprSIMD (SIMDVecReg (R.V14, EightH)),
+          OprSIMD (sVRegIdx R.V9 VecH 3uy)
         ))
         [| 0x4fuy; 0x79uy; 0x61uy; 0xcauy |]
 
       test64
         Opcode.SQDMLSL
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V15, TwoD))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V1, TwoS))),
-          SIMDOpr (SFReg (sVRegIdx R.V18 VecS 0uy))
+          OprSIMD (SIMDVecReg (R.V15, TwoD)),
+          OprSIMD (SIMDVecReg (R.V1, TwoS)),
+          OprSIMD (sVRegIdx R.V18 VecS 0uy)
         ))
         [| 0x0fuy; 0x92uy; 0x70uy; 0x2fuy |]
 
       test64
         Opcode.MUL
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V2, FourH))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V26, FourH))),
-          SIMDOpr (SFReg (sVRegIdx R.V3 VecH 3uy))
+          OprSIMD (SIMDVecReg (R.V2, FourH)),
+          OprSIMD (SIMDVecReg (R.V26, FourH)),
+          OprSIMD (sVRegIdx R.V3 VecH 3uy)
         ))
         [| 0x0fuy; 0x73uy; 0x83uy; 0x42uy |]
 
       test64
         Opcode.SMULL
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, FourS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V6, FourH))),
-          SIMDOpr (SFReg (sVRegIdx R.V12 VecH 6uy))
+          OprSIMD (SIMDVecReg (R.V5, FourS)),
+          OprSIMD (SIMDVecReg (R.V6, FourH)),
+          OprSIMD (sVRegIdx R.V12 VecH 6uy)
         ))
         [| 0x0fuy; 0x6cuy; 0xa8uy; 0xc5uy |]
 
       test64
         Opcode.SQDMULL2
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V2, TwoD))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V26, FourS))),
-          SIMDOpr (SFReg (sVRegIdx R.V29 VecS 3uy))
+          OprSIMD (SIMDVecReg (R.V2, TwoD)),
+          OprSIMD (SIMDVecReg (R.V26, FourS)),
+          OprSIMD (sVRegIdx R.V29 VecS 3uy)
         ))
         [| 0x4fuy; 0xbduy; 0xbbuy; 0x42uy |]
 
       test64
         Opcode.SQDMULH
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V29, FourS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V26, FourS))),
-          SIMDOpr (SFReg (sVRegIdx R.V29 VecS 2uy))
+          OprSIMD (SIMDVecReg (R.V29, FourS)),
+          OprSIMD (SIMDVecReg (R.V26, FourS)),
+          OprSIMD (sVRegIdx R.V29 VecS 2uy)
         ))
         [| 0x4fuy; 0x9duy; 0xcbuy; 0x5duy |]
 
       test64
         Opcode.SQRDMULH
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V26, FourH))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V30, FourH))),
-          SIMDOpr (SFReg (sVRegIdx R.V13 VecH 1uy))
+          OprSIMD (SIMDVecReg (R.V26, FourH)),
+          OprSIMD (SIMDVecReg (R.V30, FourH)),
+          OprSIMD (sVRegIdx R.V13 VecH 1uy)
         ))
         [| 0x0fuy; 0x5duy; 0xd3uy; 0xdauy |]
 
       test64
         Opcode.FMLA
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V27, FourS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V26, FourS))),
-          SIMDOpr (SFReg (sVRegIdx R.V3 VecS 3uy))
+          OprSIMD (SIMDVecReg (R.V27, FourS)),
+          OprSIMD (SIMDVecReg (R.V26, FourS)),
+          OprSIMD (sVRegIdx R.V3 VecS 3uy)
         ))
         [| 0x4fuy; 0xa3uy; 0x1buy; 0x5buy |]
 
       test64
         Opcode.FMLS
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V27, TwoD))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V26, TwoD))),
-          SIMDOpr (SFReg (sVRegIdx R.V19 VecD 0uy))
+          OprSIMD (SIMDVecReg (R.V27, TwoD)),
+          OprSIMD (SIMDVecReg (R.V26, TwoD)),
+          OprSIMD (sVRegIdx R.V19 VecD 0uy)
         ))
         [| 0x4fuy; 0xd3uy; 0x53uy; 0x5buy |]
 
       test64
         Opcode.FMUL
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V27, FourS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V26, FourS))),
-          SIMDOpr (SFReg (sVRegIdx R.V3 VecS 2uy))
+          OprSIMD (SIMDVecReg (R.V27, FourS)),
+          OprSIMD (SIMDVecReg (R.V26, FourS)),
+          OprSIMD (sVRegIdx R.V3 VecS 2uy)
         ))
         [| 0x4fuy; 0x83uy; 0x9buy; 0x5buy |]
 
       test64
         Opcode.MLA
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V30, FourS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, FourS))),
-          SIMDOpr (SFReg (sVRegIdx R.V13 VecS 3uy))
+          OprSIMD (SIMDVecReg (R.V30, FourS)),
+          OprSIMD (SIMDVecReg (R.V5, FourS)),
+          OprSIMD (sVRegIdx R.V13 VecS 3uy)
         ))
         [| 0x6fuy; 0xaduy; 0x08uy; 0xbeuy |]
 
       test64
         Opcode.UMLAL2
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V22, FourS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V26, EightH))),
-          SIMDOpr (SFReg (sVRegIdx R.V15 VecH 7uy))
+          OprSIMD (SIMDVecReg (R.V22, FourS)),
+          OprSIMD (SIMDVecReg (R.V26, EightH)),
+          OprSIMD (sVRegIdx R.V15 VecH 7uy)
         ))
         [| 0x6fuy; 0x7fuy; 0x2buy; 0x56uy |]
 
       test64
         Opcode.MLS
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V10, FourS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V4, FourS))),
-          SIMDOpr (SFReg (sVRegIdx R.V23 VecS 2uy))
+          OprSIMD (SIMDVecReg (R.V10, FourS)),
+          OprSIMD (SIMDVecReg (R.V4, FourS)),
+          OprSIMD (sVRegIdx R.V23 VecS 2uy)
         ))
         [| 0x6fuy; 0x97uy; 0x48uy; 0x8auy |]
 
       test64
         Opcode.UMLSL
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V30, FourS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V6, FourH))),
-          SIMDOpr (SFReg (sVRegIdx R.V14 VecH 2uy))
+          OprSIMD (SIMDVecReg (R.V30, FourS)),
+          OprSIMD (SIMDVecReg (R.V6, FourH)),
+          OprSIMD (sVRegIdx R.V14 VecH 2uy)
         ))
         [| 0x2fuy; 0x6euy; 0x60uy; 0xdeuy |]
 
       test64
         Opcode.UMULL2
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V10, TwoD))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V7, FourS))),
-          SIMDOpr (SFReg (sVRegIdx R.V31 VecS 3uy))
+          OprSIMD (SIMDVecReg (R.V10, TwoD)),
+          OprSIMD (SIMDVecReg (R.V7, FourS)),
+          OprSIMD (sVRegIdx R.V31 VecS 3uy)
         ))
         [| 0x6fuy; 0xbfuy; 0xa8uy; 0xeauy |]
 
       test64
         Opcode.FMULX
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V5, FourS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V22, FourS))),
-          SIMDOpr (SFReg (sVRegIdx R.V13 VecS 1uy))
+          OprSIMD (SIMDVecReg (R.V5, FourS)),
+          OprSIMD (SIMDVecReg (R.V22, FourS)),
+          OprSIMD (sVRegIdx R.V13 VecS 1uy)
         ))
         [| 0x6fuy; 0xaduy; 0x92uy; 0xc5uy |]
 
@@ -7758,32 +7708,32 @@ module ARM64 =
       test64
         Opcode.AESE
         (TwoOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V21, SixteenB))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V21, SixteenB)))
+          OprSIMD (SIMDVecReg (R.V21, SixteenB)),
+          OprSIMD (SIMDVecReg (R.V21, SixteenB))
         ))
         [| 0x4euy; 0x28uy; 0x4auy; 0xb5uy |]
 
       test64
         Opcode.AESD
         (TwoOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V21, SixteenB))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V21, SixteenB)))
+          OprSIMD (SIMDVecReg (R.V21, SixteenB)),
+          OprSIMD (SIMDVecReg (R.V21, SixteenB))
         ))
         [| 0x4euy; 0x28uy; 0x5auy; 0xb5uy |]
 
       test64
         Opcode.AESMC
         (TwoOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V21, SixteenB))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V21, SixteenB)))
+          OprSIMD (SIMDVecReg (R.V21, SixteenB)),
+          OprSIMD (SIMDVecReg (R.V21, SixteenB))
         ))
         [| 0x4euy; 0x28uy; 0x6auy; 0xb5uy |]
 
       test64
         Opcode.AESIMC
         (TwoOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V21, SixteenB))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V21, SixteenB)))
+          OprSIMD (SIMDVecReg (R.V21, SixteenB)),
+          OprSIMD (SIMDVecReg (R.V21, SixteenB))
         ))
         [| 0x4euy; 0x28uy; 0x7auy; 0xb5uy |]
 
@@ -7795,7 +7745,7 @@ module ARM64 =
         (ThreeOperands (
           scalReg R.Q24,
           scalReg R.S27,
-          SIMDOpr (SFReg (SIMDVecReg (R.V25, FourS)))
+          OprSIMD (SIMDVecReg (R.V25, FourS))
         ))
         [| 0x5euy; 0x19uy; 0x03uy; 0x78uy |]
 
@@ -7804,7 +7754,7 @@ module ARM64 =
         (ThreeOperands (
           scalReg R.Q31,
           scalReg R.S31,
-          SIMDOpr (SFReg (SIMDVecReg (R.V19, FourS)))
+          OprSIMD (SIMDVecReg (R.V19, FourS))
         ))
         [| 0x5euy; 0x13uy; 0x13uy; 0xffuy |]
 
@@ -7813,16 +7763,16 @@ module ARM64 =
         (ThreeOperands (
           scalReg R.Q28,
           scalReg R.S21,
-          SIMDOpr (SFReg (SIMDVecReg (R.V14, FourS)))
+          OprSIMD (SIMDVecReg (R.V14, FourS))
         ))
         [| 0x5euy; 0x0euy; 0x22uy; 0xbcuy |]
 
       test64
         Opcode.SHA1SU0
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V7, FourS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V16, FourS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V23, FourS)))
+          OprSIMD (SIMDVecReg (R.V7, FourS)),
+          OprSIMD (SIMDVecReg (R.V16, FourS)),
+          OprSIMD (SIMDVecReg (R.V23, FourS))
         ))
         [| 0x5euy; 0x17uy; 0x32uy; 0x07uy |]
 
@@ -7831,7 +7781,7 @@ module ARM64 =
         (ThreeOperands (
           scalReg R.Q30,
           scalReg R.Q30,
-          SIMDOpr (SFReg (SIMDVecReg (R.V17, FourS)))
+          OprSIMD (SIMDVecReg (R.V17, FourS))
         ))
         [| 0x5euy; 0x11uy; 0x43uy; 0xdeuy |]
 
@@ -7840,16 +7790,16 @@ module ARM64 =
         (ThreeOperands (
           scalReg R.Q30,
           scalReg R.Q24,
-          SIMDOpr (SFReg (SIMDVecReg (R.V25, FourS)))
+          OprSIMD (SIMDVecReg (R.V25, FourS))
         ))
         [| 0x5euy; 0x19uy; 0x53uy; 0x1euy |]
 
       test64
         Opcode.SHA1SU0
         (ThreeOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V31, FourS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V21, FourS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V23, FourS)))
+          OprSIMD (SIMDVecReg (R.V31, FourS)),
+          OprSIMD (SIMDVecReg (R.V21, FourS)),
+          OprSIMD (SIMDVecReg (R.V23, FourS))
         ))
         [| 0x5euy; 0x17uy; 0x32uy; 0xbfuy |]
 
@@ -7864,16 +7814,16 @@ module ARM64 =
       test64
         Opcode.SHA1SU1
         (TwoOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V23, FourS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V30, FourS)))
+          OprSIMD (SIMDVecReg (R.V23, FourS)),
+          OprSIMD (SIMDVecReg (R.V30, FourS))
         ))
         [| 0x5euy; 0x28uy; 0x1buy; 0xd7uy |]
 
       test64
         Opcode.SHA256SU0
         (TwoOperands (
-          SIMDOpr (SFReg (SIMDVecReg (R.V21, FourS))),
-          SIMDOpr (SFReg (SIMDVecReg (R.V10, FourS)))
+          OprSIMD (SIMDVecReg (R.V21, FourS)),
+          OprSIMD (SIMDVecReg (R.V10, FourS))
         ))
         [| 0x5euy; 0x28uy; 0x29uy; 0x55uy |]
 
@@ -7887,7 +7837,7 @@ module ARM64 =
 
       test64
         Opcode.FCMP
-        (TwoOperands (scalReg R.S28, FPImmediate 0.0))
+        (TwoOperands (scalReg R.S28, OprFPImm 0.0))
         [| 0x1euy; 0x31uy; 0x23uy; 0x88uy |]
 
       test64
@@ -7897,7 +7847,7 @@ module ARM64 =
 
       test64
         Opcode.FCMPE
-        (TwoOperands (scalReg R.S17, FPImmediate 0.0))
+        (TwoOperands (scalReg R.S17, OprFPImm 0.0))
         [| 0x1euy; 0x39uy; 0x22uy; 0x38uy |]
 
       test64
@@ -7907,7 +7857,7 @@ module ARM64 =
 
       test64
         Opcode.FCMP
-        (TwoOperands (scalReg R.D14, FPImmediate 0.0))
+        (TwoOperands (scalReg R.D14, OprFPImm 0.0))
         [| 0x1euy; 0x79uy; 0x21uy; 0xc8uy |]
 
       test64
@@ -7917,7 +7867,7 @@ module ARM64 =
 
       test64
         Opcode.FCMPE
-        (TwoOperands (scalReg R.D29, FPImmediate 0.0))
+        (TwoOperands (scalReg R.D29, OprFPImm 0.0))
         [| 0x1euy; 0x63uy; 0x23uy; 0xb8uy |]
 
     /// C4.6.23 Floating-point conditional compare
@@ -7925,22 +7875,22 @@ module ARM64 =
     member __.``[AArch64] Floating-point conditional compare Parse Test`` () =
       test64
         Opcode.FCCMP
-        (FourOperands (scalReg R.S26, scalReg R.S13, NZCV 0xDuy, Cond CS)) // HS
+        (FourOperands (scalReg R.S26, scalReg R.S13, OprNZCV 0xDuy, OprCond CS))
         [| 0x1euy; 0x2duy; 0x27uy; 0x4duy |]
 
       test64
         Opcode.FCCMPE
-        (FourOperands (scalReg R.S26, scalReg R.S10, NZCV 6uy, Cond AL))
+        (FourOperands (scalReg R.S26, scalReg R.S10, OprNZCV 6uy, OprCond AL))
         [| 0x1euy; 0x2auy; 0xe7uy; 0x56uy |]
 
       test64
         Opcode.FCCMP
-        (FourOperands (scalReg R.D18, scalReg R.D9, NZCV 9uy, Cond CC))
-        [| 0x1euy; 0x69uy; 0x36uy; 0x49uy |] // LO
+        (FourOperands (scalReg R.D18, scalReg R.D9, OprNZCV 9uy, OprCond CC))
+        [| 0x1euy; 0x69uy; 0x36uy; 0x49uy |]
 
       test64
         Opcode.FCCMPE
-        (FourOperands (scalReg R.D26, scalReg R.D14, NZCV 2uy, Cond AL))
+        (FourOperands (scalReg R.D26, scalReg R.D14, OprNZCV 2uy, OprCond AL))
         [| 0x1euy; 0x6euy; 0xe7uy; 0x52uy |]
 
     /// C4.6.24 Floating-point conditional select
@@ -7948,12 +7898,12 @@ module ARM64 =
     member __.``[AArch64] Floating-point conditional select Parse Test`` () =
       test64
         Opcode.FCSEL
-        (FourOperands (scalReg R.S27, scalReg R.S2, scalReg R.S9, Cond CS))
+        (FourOperands (scalReg R.S27, scalReg R.S2, scalReg R.S9, OprCond CS))
         [| 0x1euy; 0x29uy; 0x2cuy; 0x5buy |]
 
       test64
         Opcode.FCSEL
-        (FourOperands (scalReg R.D19, scalReg R.D10, scalReg R.D28, Cond AL))
+        (FourOperands (scalReg R.D19, scalReg R.D10, scalReg R.D28, OprCond AL))
         [| 0x1euy; 0x7cuy; 0xeduy; 0x53uy |]
 
     /// C4.6.25 Floating-point data-processing (1 source)
@@ -8280,12 +8230,12 @@ module ARM64 =
     member __.``[AArch64] Floating-point immediate Parse Test`` () =
       test64
         Opcode.FMOV
-        (TwoOperands (scalReg R.S21, FPImmediate 2.0))
+        (TwoOperands (scalReg R.S21, OprFPImm 2.0))
         [| 0x1euy; 0x20uy; 0x10uy; 0x15uy |]
 
       test64
         Opcode.FMOV
-        (TwoOperands (scalReg R.D25, FPImmediate 10.5))
+        (TwoOperands (scalReg R.D25, OprFPImm 10.5))
         [| 0x1euy; 0x64uy; 0xb0uy; 0x19uy |]
 
     /// C4.6.29 Conversion between floating-point and fixed-point
@@ -8293,82 +8243,82 @@ module ARM64 =
     member __.``[AArch64] Conversion between FP and fixed-pt Parse Test`` () =
       test64
         Opcode.SCVTF
-        (ThreeOperands (scalReg R.S28, OprRegister R.W5, Fbits 0x16uy))
+        (ThreeOperands (scalReg R.S28, OprRegister R.W5, OprFbits 0x16uy))
         [| 0x1euy; 0x02uy; 0xa8uy; 0xbcuy |]
 
       test64
         Opcode.UCVTF
-        (ThreeOperands (scalReg R.S5, OprRegister R.W5, Fbits 2uy))
+        (ThreeOperands (scalReg R.S5, OprRegister R.W5, OprFbits 2uy))
         [| 0x1euy; 0x03uy; 0xf8uy; 0xa5uy |]
 
       test64
         Opcode.FCVTZS
-        (ThreeOperands (OprRegister R.W17, scalReg R.S4, Fbits 1uy))
+        (ThreeOperands (OprRegister R.W17, scalReg R.S4, OprFbits 1uy))
         [| 0x1euy; 0x18uy; 0xfcuy; 0x91uy |]
 
       test64
         Opcode.FCVTZU
-        (ThreeOperands (OprRegister R.W5, scalReg R.S14, Fbits 0x1Fuy))
+        (ThreeOperands (OprRegister R.W5, scalReg R.S14, OprFbits 0x1Fuy))
         [| 0x1euy; 0x19uy; 0x85uy; 0xc5uy |]
 
       test64
         Opcode.SCVTF
-        (ThreeOperands (scalReg R.D5, OprRegister R.W14, Fbits 0xFuy))
+        (ThreeOperands (scalReg R.D5, OprRegister R.W14, OprFbits 0xFuy))
         [| 0x1euy; 0x42uy; 0xc5uy; 0xc5uy |]
 
       test64
         Opcode.UCVTF
-        (ThreeOperands (scalReg R.D5, OprRegister R.W14, Fbits 0x17uy))
+        (ThreeOperands (scalReg R.D5, OprRegister R.W14, OprFbits 0x17uy))
         [| 0x1euy; 0x43uy; 0xa5uy; 0xc5uy |]
 
       test64
         Opcode.FCVTZS
-        (ThreeOperands (OprRegister R.W5, scalReg R.D14, Fbits 0x1Buy))
+        (ThreeOperands (OprRegister R.W5, scalReg R.D14, OprFbits 0x1Buy))
         [| 0x1euy; 0x58uy; 0x95uy; 0xc5uy |]
 
       test64
         Opcode.FCVTZU
-        (ThreeOperands (OprRegister R.W5, scalReg R.D26, Fbits 0x16uy))
+        (ThreeOperands (OprRegister R.W5, scalReg R.D26, OprFbits 0x16uy))
         [| 0x1euy; 0x59uy; 0xabuy; 0x45uy |]
 
       test64
         Opcode.SCVTF
-        (ThreeOperands (scalReg R.S17, OprRegister R.X6, Fbits 0xFuy))
+        (ThreeOperands (scalReg R.S17, OprRegister R.X6, OprFbits 0xFuy))
         [| 0x9euy; 0x02uy; 0xc4uy; 0xd1uy |]
 
       test64
         Opcode.UCVTF
-        (ThreeOperands (scalReg R.S5, OprRegister R.X13, Fbits 0x13uy))
+        (ThreeOperands (scalReg R.S5, OprRegister R.X13, OprFbits 0x13uy))
         [| 0x9euy; 0x03uy; 0xb5uy; 0xa5uy |]
 
       test64
         Opcode.FCVTZS
-        (ThreeOperands (OprRegister R.X13, scalReg R.S6, Fbits 4uy))
+        (ThreeOperands (OprRegister R.X13, scalReg R.S6, OprFbits 4uy))
         [| 0x9euy; 0x18uy; 0xf0uy; 0xcduy |]
 
       test64
         Opcode.FCVTZU
-        (ThreeOperands (OprRegister R.X13, scalReg R.S14, Fbits 0x1Buy))
+        (ThreeOperands (OprRegister R.X13, scalReg R.S14, OprFbits 0x1Buy))
         [| 0x9euy; 0x19uy; 0x95uy; 0xcduy |]
 
       test64
         Opcode.SCVTF
-        (ThreeOperands (scalReg R.D5, OprRegister R.X28, Fbits 0x1Euy))
+        (ThreeOperands (scalReg R.D5, OprRegister R.X28, OprFbits 0x1Euy))
         [| 0x9euy; 0x42uy; 0x8buy; 0x85uy |]
 
       test64
         Opcode.UCVTF
-        (ThreeOperands (scalReg R.D5, OprRegister R.X14, Fbits 0xFuy))
+        (ThreeOperands (scalReg R.D5, OprRegister R.X14, OprFbits 0xFuy))
         [| 0x9euy; 0x43uy; 0xc5uy; 0xc5uy |]
 
       test64
         Opcode.FCVTZS
-        (ThreeOperands (OprRegister R.X17, scalReg R.D22, Fbits 7uy))
+        (ThreeOperands (OprRegister R.X17, scalReg R.D22, OprFbits 7uy))
         [| 0x9euy; 0x58uy; 0xe6uy; 0xd1uy |]
 
       test64
         Opcode.FCVTZU
-        (ThreeOperands (OprRegister R.X18, scalReg R.D14, Fbits 0xCuy))
+        (ThreeOperands (OprRegister R.X18, scalReg R.D14, OprFbits 0xCuy))
         [| 0x9euy; 0x59uy; 0xd1uy; 0xd2uy |]
 
     /// C4.6.30 Conversion between floating-point and integer
@@ -8518,14 +8468,14 @@ module ARM64 =
         Opcode.FMOV
         (TwoOperands (
           OprRegister R.X29,
-          SIMDOpr (SFReg (sVRegIdx R.V16 VecD 1uy))
+          OprSIMD (sVRegIdx R.V16 VecD 1uy)
         ))
         [| 0x9euy; 0xaeuy; 0x02uy; 0x1duy |]
 
       test64
         Opcode.FMOV
         (TwoOperands (
-          SIMDOpr (SFReg (sVRegIdx R.V24 VecD 1uy)),
+          OprSIMD (sVRegIdx R.V24 VecD 1uy),
           OprRegister R.X23
         ))
         [| 0x9euy; 0xafuy; 0x02uy; 0xf8uy |]

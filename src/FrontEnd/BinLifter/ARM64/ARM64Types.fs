@@ -1158,16 +1158,6 @@ type SIMDFPRegister =
   | SIMDVecReg of SIMDVectorRegister
   | SIMDVecRegWithIdx of SIMDVectorRegisterWithIndex
 
-type SIMDOperand =
-  (* SIMD&FP register *)
-  | SFReg of SIMDFPRegister
-  (* SIMD vector register list or SIMD vector element list *)
-  | OneReg of SIMDFPRegister
-  | TwoRegs of SIMDFPRegister * SIMDFPRegister
-  | ThreeRegs of SIMDFPRegister * SIMDFPRegister * SIMDFPRegister
-  | FourRegs of SIMDFPRegister * SIMDFPRegister * SIMDFPRegister
-                * SIMDFPRegister
-
 type SystemOp =
   | SysAT
   | SysDC
@@ -1224,19 +1214,22 @@ type AddressingMode =
 
 type Operand =
   | OprRegister of Register
-  | SIMDOpr of SIMDOperand
-  | Immediate of Const
-  | FPImmediate of float
-  | NZCV of uint8
-  | Shift of Shift
-  | ExtReg of RegisterOffset option
-  | Memory of AddressingMode
-  | Option of OptionOpr
-  | Pstate of Pstate
-  | PrfOp of PrefetchOperation
-  | Cond of Condition
-  | Fbits of uint8  (* fractional bits *)
-  | LSB of uint8
+  (* SIMD&FP register *)
+  | OprSIMD of SIMDFPRegister
+  (* SIMD vector register list or SIMD vector element list *)
+  | OprSIMDList of SIMDFPRegister list
+  | OprImm of Const
+  | OprFPImm of float
+  | OprNZCV of uint8
+  | OprShift of Shift
+  | OprExtReg of RegisterOffset option
+  | OprMemory of AddressingMode
+  | OprOption of OptionOpr
+  | OprPstate of Pstate
+  | OprPrfOp of PrefetchOperation
+  | OprCond of Condition
+  | OprFbits of uint8  (* fractional bits *)
+  | OprLSB of uint8
 
 type Operands =
   | NoOperand

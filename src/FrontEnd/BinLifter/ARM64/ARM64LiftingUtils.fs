@@ -76,7 +76,7 @@ let private getMemExpr128 expr =
 
 let getImmValue imm =
   match imm with
-  | Immediate imm -> imm
+  | OprImm imm -> imm
   | _ -> raise InvalidOperandException
 
 /// shared/functions/integer/AddWithCarry
@@ -139,17 +139,25 @@ let extendReg ctxt reg typ shift oprSize =
   let rTyp = RegType.fromBitWidth len
   extend ((AST.xtlo rTyp  reg) << numI32 shift rTyp) oprSize isUnsigned
 
-let transSIMDRegToExpr ctxt = function (* FIXME *)
+let transSIMDReg ctxt = function (* FIXME *)
+  | SIMDFPScalarReg reg ->
+    if Register.toRegType reg < 128<rt> then [ getRegVar ctxt reg ]
+    else [ getPseudoRegVar ctxt reg 1; getPseudoRegVar ctxt reg 2 ]
+  | SIMDVecReg (reg, v) ->
+    if Register.toRegType reg < 128<rt> then [ getRegVar ctxt reg ]
+    else [ getPseudoRegVar ctxt reg 1; getPseudoRegVar ctxt reg 2 ]
+  | SIMDVecRegWithIdx (reg, v, idx) ->
+    if Register.toRegType reg < 128<rt> then [ getRegVar ctxt reg ]
+    else [ getPseudoRegVar ctxt reg 1; getPseudoRegVar ctxt reg 2 ]
+
+let transSIMDList ctxt = function (* FIXME *)
+  | OprSIMDList simds -> List.map (transSIMDReg ctxt) simds
+  | _ -> raise InvalidOperandException
+
+let transSIMD ctxt = function (* FIXME *)
   | SIMDFPScalarReg reg -> getRegVar ctxt reg
   | SIMDVecReg (reg, v) -> getRegVar ctxt reg
   | SIMDVecRegWithIdx (reg, v, idx) -> getRegVar ctxt reg
-
-let transSIMD ctxt = function (* FIXME *)
-  | SFReg reg -> transSIMDRegToExpr ctxt reg
-  | OneReg s -> raise <| NotImplementedIRException "OneReg"
-  | TwoRegs (s1, s2) -> raise <| NotImplementedIRException "TwoRegs"
-  | ThreeRegs (s1, s2, s3) -> raise <| NotImplementedIRException "ThreeRegs"
-  | FourRegs (s1, s2, s3, s4) -> raise <| NotImplementedIRException "FourRegs"
 
 let transImmOffset ctxt = function
   | BaseOffset (bReg, Some imm) ->
@@ -185,11 +193,11 @@ let transMem ins ctxt _addr = function
 
 let transOprToExpr ins ctxt addr = function
   | OprRegister reg -> getRegVar ctxt reg
-  | Memory mem -> transMem ins ctxt addr mem
-  | SIMDOpr simd -> transSIMD ctxt simd
-  | Immediate imm -> numI64 imm ins.OprSize
-  | NZCV nzcv -> numI64 (int64 nzcv) ins.OprSize
-  | LSB lsb -> numI64 (int64 lsb) ins.OprSize
+  | OprMemory mem -> transMem ins ctxt addr mem
+  | OprSIMD reg -> transSIMD ctxt reg
+  | OprImm imm -> numI64 imm ins.OprSize
+  | OprNZCV nzcv -> numI64 (int64 nzcv) ins.OprSize
+  | OprLSB lsb -> numI64 (int64 lsb) ins.OprSize
   | _ -> raise <| NotImplementedIRException "transOprToExpr"
 
 let separateMemExpr expr =
@@ -242,33 +250,33 @@ let transFourOprs ins ctxt addr =
   | _ -> raise InvalidOperandException
 
 let transOprToExpr128 ins ctxt addr = function
-  | SIMDOpr (SFReg (SIMDFPScalarReg reg)) -> getPseudoRegVar128 ctxt reg
-  | SIMDOpr (SFReg (SIMDVecReg (reg, _))) -> getPseudoRegVar128 ctxt reg
-  | SIMDOpr (SFReg (SIMDVecRegWithIdx (reg, _, _))) ->
+  | OprSIMD (SIMDFPScalarReg reg) -> getPseudoRegVar128 ctxt reg
+  | OprSIMD (SIMDVecReg (reg, _)) -> getPseudoRegVar128 ctxt reg
+  | OprSIMD (SIMDVecRegWithIdx (reg, _, _)) ->
     getPseudoRegVar128 ctxt reg
-  | Memory mem -> transMem ins ctxt addr mem |> getMemExpr128
+  | OprMemory mem -> transMem ins ctxt addr mem |> getMemExpr128
   | _ -> raise InvalidOperandException
 
 (* Barrel shift *)
 let transBarrelShiftToExpr ins ctxt src shift =
   match src, shift with
-  | Immediate imm, Shift (typ, Imm amt) ->
+  | OprImm imm, OprShift (typ, Imm amt) ->
     let imm = match typ with
               | SRTypeLSL -> imm <<< int32 amt
               | SRTypeLSR -> imm >>> int32 amt
               | _ -> failwith "Not implement"
     numI64 imm ins.OprSize
-  | OprRegister reg, Shift (typ, amt) ->
+  | OprRegister reg, OprShift (typ, amt) ->
     let reg = getRegVar ctxt reg
     let amount = transShiftAmout ctxt ins.OprSize amt
     shiftReg reg amount ins.OprSize typ
-  | OprRegister reg, ExtReg (Some (ShiftOffset (typ, amt))) ->
+  | OprRegister reg, OprExtReg (Some (ShiftOffset (typ, amt))) ->
     let reg = getRegVar ctxt reg
     let amount = transShiftAmout ctxt ins.OprSize amt
     shiftReg reg amount ins.OprSize typ
-  | OprRegister reg, ExtReg (Some (ExtRegOffset (typ, shf))) ->
+  | OprRegister reg, OprExtReg (Some (ExtRegOffset (typ, shf))) ->
     extendReg ctxt reg typ shf ins.OprSize
-  | OprRegister reg, ExtReg None -> getRegVar ctxt reg
+  | OprRegister reg, OprExtReg None -> getRegVar ctxt reg
   | _ -> raise <| NotImplementedIRException "transBarrelShiftToExpr"
 
 let transThreeOprsWithBarrelShift ins ctxt addr =
@@ -308,22 +316,30 @@ let getElemNumAndSize oprSize = function
   | SIMDVecRegWithIdx (_, v, _) -> getElemNumAndSizeBySIMDVector v
 
 let getSIMDReg = function
-  | SIMDOpr (SFReg sReg) -> sReg
+  | OprSIMD sReg -> sReg
+  | OprSIMDList regs -> regs[0]
   | _ -> raise InvalidOperandException
+
+let isRegOffset opr =
+  match opr with
+  | OprMemory (BaseMode (RegOffset _)) | OprMemory (PreIdxMode (RegOffset _))
+  | OprMemory (PostIdxMode (RegOffset _))
+  | OprMemory (LiteralMode (RegOffset _)) -> true
+  | _ -> false
 
 let isSIMDScalar opr =
   match opr with
-  | SIMDOpr (SFReg (SIMDFPScalarReg _)) -> true
+  | OprSIMD (SIMDFPScalarReg _) -> true
   | _ -> false
 
 let isSIMDVector opr =
   match opr with
-  | SIMDOpr (SFReg (SIMDVecReg _)) -> true
+  | OprSIMD (SIMDVecReg _) -> true
   | _ -> false
 
 let isSIMDVectorIdx opr =
   match opr with
-  | SIMDOpr (SFReg (SIMDVecRegWithIdx _)) -> true
+  | OprSIMD (SIMDVecRegWithIdx _) -> true
   | _ -> false
 
 let transOprToExprOfAND ins ctxt addr =
@@ -333,7 +349,7 @@ let transOprToExprOfAND ins ctxt addr =
   | _ -> raise InvalidOperandException
 
 let unwrapCond = function
-  | Cond cond -> cond
+  | OprCond cond -> cond
   | _ -> raise InvalidOperandException
 
 let invertCond = function
@@ -427,7 +443,7 @@ let transOprToExprOfCSINV ins ctxt addr =
 
 let transOprToExprOfCSNEG ins ctxt addr =
   match ins.Operands with
-  | ThreeOperands (o1, o2, Cond o3) -> (* CNEG *)
+  | ThreeOperands (o1, o2, OprCond o3) -> (* CNEG *)
     let o2 = transOprToExpr ins ctxt addr o2
     transOprToExpr ins ctxt addr o1, o2, o2, invertCond o3
   | FourOperands (o1, o2, o3, o4) -> (* CSNEG *)
@@ -465,8 +481,9 @@ let getIsWBackAndIsPostIndexByAddrMode = function
   | _ -> raise InvalidOperandException
 
 let getIsWBackAndIsPostIndex = function
-  | TwoOperands (_, Memory mem) -> getIsWBackAndIsPostIndexByAddrMode mem
-  | ThreeOperands (_, _, Memory mem) -> getIsWBackAndIsPostIndexByAddrMode mem
+  | TwoOperands (_, OprMemory mem) -> getIsWBackAndIsPostIndexByAddrMode mem
+  | ThreeOperands (_, _, OprMemory mem) ->
+    getIsWBackAndIsPostIndexByAddrMode mem
   | _ -> raise InvalidOperandException
 
 let transOprToExprOfMADD ins ctxt addr =

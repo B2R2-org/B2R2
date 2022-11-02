@@ -279,14 +279,14 @@ let getVdtaVn316BVmta bin = ThreeOperands (vdtq1 bin, vn316B bin, vmtq1 bin)
 let getVdtaVn416BVmta bin = ThreeOperands (vdtq1 bin, vn416B bin, vmtq1 bin)
 
 (** Register - Register - Immediate **)
-let getVdtVntI0 b r = r b; ThreeOperands (vdtsq1 b, vntsq1 b, Immediate 0L)
-let getVdtVntF0 b r = r b; ThreeOperands (vdtszq1 b, vntszq1 b, FPImmediate 0.0)
+let getVdtVntI0 b r = r b; ThreeOperands (vdtsq1 b, vntsq1 b, OprImm 0L)
+let getVdtVntF0 b r = r b; ThreeOperands (vdtszq1 b, vntszq1 b, OprFPImm 0.0)
 let getWSdWnImm bin = ThreeOperands (wsd bin, wn bin, immNsr bin 32<rt>)
 let getWdWnImm bin = ThreeOperands (wd bin, wn bin, immNsr bin 32<rt>)
 let getXSdXnImm bin = ThreeOperands (xsd bin, xn bin, immNsr bin 64<rt>)
 let getXdXnImm bin = ThreeOperands (xd bin, xn bin, immNsr bin 64<rt>)
-let getVdVnI0 bin r = r bin; ThreeOperands (vd2 bin, vn2 bin, Immediate 0L)
-let getVdVnF0 bin = ThreeOperands (vd3a bin, vn3 bin, FPImmediate 0.0)
+let getVdVnI0 bin r = r bin; ThreeOperands (vd2 bin, vn2 bin, OprImm 0L)
+let getVdVnF0 bin = ThreeOperands (vd3a bin, vn3 bin, OprFPImm 0.0)
 
 (** Register - Register - Shift **)
 let getVdtaVntbShf2 b r = r b; ThreeOperands (vdts1 b, vntsq1 b, lshf1 b)
@@ -384,8 +384,8 @@ let getOprSizeByVector = function
 
 let getOprSizeBySIMDReg reg =
   match reg with
-  | SFReg (SIMDVecReg (_, v)) -> getOprSizeByVector v
-  | SFReg (SIMDVecRegWithIdx (_, v, _)) -> getOprSizeByVector v
+  | SIMDVecReg (_, v) -> getOprSizeByVector v
+  | SIMDVecRegWithIdx (_, v, _) -> getOprSizeByVector v
   | _ -> raise InvalidOperandException
 
 let getFstOperand = function
@@ -397,7 +397,7 @@ let getFstOperand = function
   | _ -> raise InvalidOperandException
 
 let getSIMDOperand = function
-  | SIMDOpr simd -> simd
+  | OprSIMD simd -> simd
   | _ -> raise InvalidOperandException
 
 let getSIMDVectorOprSize (op, oprs) =
@@ -443,66 +443,66 @@ let parseAddSubImm bin =
 let changeToAliasOfBitfield bin instr =
   let sf = valMSB bin
   match instr with
-  | Opcode.SBFM, FourOperands (rd, rn, immr, Immediate imms), oprSize
+  | Opcode.SBFM, FourOperands (rd, rn, immr, OprImm imms), oprSize
       when (sf = 0u && imms = 0b011111L) || (sf = 1u && imms = 0b111111L) ->
     Opcode.ASR, ThreeOperands (rd, rn, immr), oprSize
-  | Opcode.SBFM, FourOperands (rd, rn, Immediate immr, Immediate imms), oSz
+  | Opcode.SBFM, FourOperands (rd, rn, OprImm immr, OprImm imms), oSz
       when imms < immr ->
     let lsb = (RegType.toBitWidth oSz |> int64) - immr
     Opcode.SBFIZ,
-    FourOperands (rd, rn, Immediate lsb, Immediate (imms + 1L)), oSz
-  | Opcode.SBFM, FourOperands (rd, rn, Immediate r, Immediate s), oSz
+    FourOperands (rd, rn, OprImm lsb, OprImm (imms + 1L)), oSz
+  | Opcode.SBFM, FourOperands (rd, rn, OprImm r, OprImm s), oSz
       when BFXPreferred sf 0u (uint32 s) (uint32 r) ->
-    Opcode.SBFX, FourOperands (rd, rn, Immediate r, Immediate (s - r + 1L)), oSz
-  | Opcode.SBFM, FourOperands (rd, _, Immediate immr, Immediate imms), oprSz
+    Opcode.SBFX, FourOperands (rd, rn, OprImm r, OprImm (s - r + 1L)), oSz
+  | Opcode.SBFM, FourOperands (rd, _, OprImm immr, OprImm imms), oprSz
       when (immr = 0b000000L) && (imms = 0b000111L) ->
     Opcode.SXTB,
     TwoOperands (rd, getRegister64 32<rt> (valN bin |> byte) |> OprRegister),
     oprSz
-  | Opcode.SBFM, FourOperands (rd, _, Immediate immr, Immediate imms), oprSz
+  | Opcode.SBFM, FourOperands (rd, _, OprImm immr, OprImm imms), oprSz
       when (immr = 0b000000L) && (imms = 0b001111L) ->
     Opcode.SXTH,
     TwoOperands (rd, getRegister64 32<rt> (valN bin |> byte) |> OprRegister),
     oprSz
-  | Opcode.SBFM, FourOperands (rd, _, Immediate immr, Immediate imms), oprSz
+  | Opcode.SBFM, FourOperands (rd, _, OprImm immr, OprImm imms), oprSz
       when (immr = 0b000000L) && (imms = 0b011111L) ->
     Opcode.SXTW,
     TwoOperands (rd, getRegister64 32<rt> (valN bin |> byte) |> OprRegister),
     oprSz
-  | Opcode.BFM, FourOperands (rd, rn, Immediate immr, Immediate imms), oprSize
+  | Opcode.BFM, FourOperands (rd, rn, OprImm immr, OprImm imms), oprSize
       when (valN bin <> 0b11111u) && (imms < immr) ->
     let lsb = (RegType.toBitWidth oprSize |> int64) - immr
     Opcode.BFI,
-    FourOperands (rd, rn, Immediate lsb, Immediate (imms + 1L)), oprSize
-  | Opcode.BFM, FourOperands (d, n, Immediate immr, Immediate imms), oprSize
+    FourOperands (rd, rn, OprImm lsb, OprImm (imms + 1L)), oprSize
+  | Opcode.BFM, FourOperands (d, n, OprImm immr, OprImm imms), oprSize
       when imms >= immr ->
     Opcode.BFXIL,
-    FourOperands (d, n, Immediate immr, Immediate (imms - immr + 1L)), oprSize
-  | Opcode.UBFM, FourOperands (rd, rn, Immediate immr, Immediate imms), oprSize
+    FourOperands (d, n, OprImm immr, OprImm (imms - immr + 1L)), oprSize
+  | Opcode.UBFM, FourOperands (rd, rn, OprImm immr, OprImm imms), oprSize
       when (oprSize = 32<rt>) && (imms <> 0b011111L) && (imms + 1L = immr) ->
-    Opcode.LSL, ThreeOperands (rd, rn, Immediate (31L - imms)), oprSize
-  | Opcode.UBFM, FourOperands (rd, rn, Immediate immr, Immediate imms), oprSize
+    Opcode.LSL, ThreeOperands (rd, rn, OprImm (31L - imms)), oprSize
+  | Opcode.UBFM, FourOperands (rd, rn, OprImm immr, OprImm imms), oprSize
       when (oprSize = 64<rt>) && (imms <> 0b111111L) && (imms + 1L = immr) ->
-    Opcode.LSL, ThreeOperands (rd, rn, Immediate (63L - imms)), oprSize
-  | Opcode.UBFM, FourOperands (rd, rn, immr, Immediate imms), oprSize
+    Opcode.LSL, ThreeOperands (rd, rn, OprImm (63L - imms)), oprSize
+  | Opcode.UBFM, FourOperands (rd, rn, immr, OprImm imms), oprSize
       when (oprSize = 32<rt>) && (imms = 0b011111L) ->
     Opcode.LSR, ThreeOperands (rd, rn, immr), oprSize
-  | Opcode.UBFM, FourOperands (rd, rn, immr, Immediate imms), oprSize
+  | Opcode.UBFM, FourOperands (rd, rn, immr, OprImm imms), oprSize
       when (oprSize = 64<rt>) && (imms = 0b111111L) ->
     Opcode.LSR, ThreeOperands (rd, rn, immr), oprSize
-  | Opcode.UBFM, FourOperands (rd, rn, Immediate immr, Immediate imms), oprSize
+  | Opcode.UBFM, FourOperands (rd, rn, OprImm immr, OprImm imms), oprSize
       when imms < immr ->
     let lsb = (RegType.toBitWidth oprSize |> int64) - immr
-    Opcode.UBFIZ, FourOperands (rd, rn, Immediate lsb, Immediate (imms + 1L)),
+    Opcode.UBFIZ, FourOperands (rd, rn, OprImm lsb, OprImm (imms + 1L)),
     oprSize
-  | Opcode.UBFM, FourOperands (rd, rn, Immediate immr, Immediate imms), oprSize
+  | Opcode.UBFM, FourOperands (rd, rn, OprImm immr, OprImm imms), oprSize
       when BFXPreferred sf 1u (uint32 imms) (uint32 immr) ->
     Opcode.UBFX,
-    FourOperands (rd, rn, Immediate immr, Immediate (imms - immr + 1L)), oprSize
-  | Opcode.UBFM, FourOperands (rd, rn, Immediate immr, Immediate imms), oprSize
+    FourOperands (rd, rn, OprImm immr, OprImm (imms - immr + 1L)), oprSize
+  | Opcode.UBFM, FourOperands (rd, rn, OprImm immr, OprImm imms), oprSize
       when immr = 0b000000L && imms = 0b000111L ->
     Opcode.UXTB, TwoOperands (rd, rn), oprSize
-  | Opcode.UBFM, FourOperands (rd, rn, Immediate immr, Immediate imms), oprSize
+  | Opcode.UBFM, FourOperands (rd, rn, OprImm immr, OprImm imms), oprSize
       when immr = 0b000000L && imms = 0b001111L ->
     Opcode.UXTH, TwoOperands (rd, rn), oprSize
   | _ -> instr
@@ -574,20 +574,20 @@ let changeToAliasOfMoveWide bin instr =
   let hw = extract bin 22u 21u
   match instr with
   (* C6.2.122 MOV (inverted wide immediate) *)
-  | Opcode.MOVN, ThreeOperands (xd, Immediate imm16, Shift (_, Imm amt)), oprSz
+  | Opcode.MOVN, ThreeOperands (xd, OprImm imm16, OprShift (_, Imm amt)), oprSz
       when is64Bit && not (0b0L = imm16 && hw <> 0b00u) ->
     let imm = ~~~ (imm16 <<< int32 amt)
-    Opcode.MOV, TwoOperands (xd, Immediate imm), oprSz
-  | Opcode.MOVN, ThreeOperands (wd, Immediate imm16, Shift (_, Imm amt)), oprSz
+    Opcode.MOV, TwoOperands (xd, OprImm imm), oprSz
+  | Opcode.MOVN, ThreeOperands (wd, OprImm imm16, OprShift (_, Imm amt)), oprSz
       when not is64Bit && not (0b0L = imm16 && hw <> 0b00u)
            && (0b1111111111111111L <> imm16) ->
     let imm = ~~~ (uint32 (imm16 <<< int32 amt)) |> int64
-    Opcode.MOV, TwoOperands (wd, Immediate imm), oprSz
+    Opcode.MOV, TwoOperands (wd, OprImm imm), oprSz
   (* C6.2.123 MOV (wide immediate) *)
-  | Opcode.MOVZ, ThreeOperands (rd, Immediate imm16, Shift (_, Imm amt)), oprSz
+  | Opcode.MOVZ, ThreeOperands (rd, OprImm imm16, OprShift (_, Imm amt)), oprSz
     when not (imm16 = 0b0L && hw <> 0b00u) ->
     let imm = imm16 <<< (int32 amt)
-    Opcode.MOV, TwoOperands (rd, Immediate imm), oprSz
+    Opcode.MOV, TwoOperands (rd, OprImm imm), oprSz
   | _ -> instr
 
 let parseMoveWide bin =
@@ -665,11 +665,11 @@ let parseExcepGen bin =
     | 0b10100011u -> Opcode.DCPS3
     | c when c &&& 0b11011100u = 0b11000000u -> raise UnallocatedException
     | _ -> raise InvalidOpcodeException
-  opCode, OneOperand (Immediate (valImm16 bin |> int64)), 0<rt>
+  opCode, OneOperand (OprImm (valImm16 bin |> int64)), 0<rt>
 
 let getISBOprs = function
-  | 0b1111L -> OneOperand (Option SY)
-  | imm -> OneOperand (Immediate imm)
+  | 0b1111L -> OneOperand (OprOption SY)
+  | imm -> OneOperand (OprImm imm)
 
 let private getDCInstruction bin =
   match extract bin 18u 5u with
@@ -719,7 +719,7 @@ let parseSystem bin =
   | c when c &&& 0b1111111111000u = 0b0000110010000u &&
            not isCRmZero && isRt1F ->
     let imm = concat (uint32 crm) (extract bin 7u 5u) 3 |> int64
-    Opcode.HINT, OneOperand (Immediate imm), 0<rt> (* Hints 8 to 127 variant *)
+    Opcode.HINT, OneOperand (OprImm imm), 0<rt> (* Hints 8 to 127 variant *)
   | 0b0000110010000u when isCRmZero && isRt1F -> Opcode.NOP, NoOperand, 0<rt>
   | 0b0000110010001u when isCRmZero && isRt1F -> Opcode.YIELD, NoOperand, 0<rt>
   | 0b0000110010010u when isCRmZero && isRt1F -> Opcode.WFE, NoOperand, 0<rt>
@@ -728,11 +728,11 @@ let parseSystem bin =
   | 0b0000110010101u when isCRmZero && isRt1F -> Opcode.SEVL, NoOperand, 0<rt>
   | c when c &&& 0b1111111111110u = 0b0000110010110u && isCRmZero && isRt1F ->
     let imm = concat (uint32 crm) (extract bin 7u 5u) 3 |> int64
-    Opcode.HINT, OneOperand (Immediate imm), 0<rt> (* Hints 6 and 7 variant *)
+    Opcode.HINT, OneOperand (OprImm imm), 0<rt> (* Hints 6 and 7 variant *)
   | 0b0000110011000u -> raise UnallocatedException
   | 0b0000110011001u -> raise UnallocatedException
   | 0b0000110011010u when isRt1F ->
-    Opcode.CLREX, OneOperand (Immediate crm), 0<rt>
+    Opcode.CLREX, OneOperand (OprImm crm), 0<rt>
   | 0b0000110011011u -> raise UnallocatedException
   | 0b0000110011100u when isRt1F -> Opcode.DSB, getOptionOrimm bin, 0<rt>
   | 0b0000110011101u when isRt1F -> Opcode.DMB, getOptionOrimm bin, 0<rt>
@@ -761,7 +761,7 @@ let parseTestBranchImm bin =
   let imm = concat b5 (extract bin 23u 19u) 5 |> int64
   let label =
     memLabel (extract bin 18u 5u <<< 2 |> uint64 |> signExtend 16 64 |> int64)
-  opCode, ThreeOperands (OprRegister rt, Immediate imm, label), oprSize
+  opCode, ThreeOperands (OprRegister rt, OprImm imm, label), oprSize
 
 let parseUncondBranchImm bin =
   let opCode = if (pickBit bin 31u) = 0u then Opcode.B else Opcode.BL
@@ -821,6 +821,7 @@ let parse64Group2 bin =
 
 let parseAdvSIMDMul bin =
   let cond = concat (pickBit bin 22u) (extract bin 15u 12u) 4 (* L:opcode *)
+  let oprSize = if pickBit bin 30u = 1u then 128<rt> else 64<rt>
   match cond with
   | 0b00000u -> Opcode.ST4, getVt4tMXSn bin sizeQ110b, 0<rt>
   | 0b00001u -> raise UnallocatedException
@@ -837,15 +838,15 @@ let parseAdvSIMDMul bin =
   | c when c &&& 0b11100u = 0b01100u -> raise UnallocatedException
   | 0b10000u -> Opcode.LD4, getVt4tMXSn bin sizeQ110b, 0<rt>
   | 0b10001u -> raise UnallocatedException
-  | 0b10010u -> Opcode.LD1, getVt4tMXSn bin resNone, 0<rt>
+  | 0b10010u -> Opcode.LD1, getVt4tMXSn bin resNone, oprSize
   | 0b10011u -> raise UnallocatedException
   | 0b10100u -> Opcode.LD3, getVt3tMXSn bin sizeQ110b, 0<rt>
   | 0b10101u -> raise UnallocatedException
-  | 0b10110u -> Opcode.LD1, getVt3tMXSn bin resNone, 0<rt>
-  | 0b10111u -> Opcode.LD1, getVt1tMXSn bin resNone, 0<rt>
+  | 0b10110u -> Opcode.LD1, getVt3tMXSn bin resNone, oprSize
+  | 0b10111u -> Opcode.LD1, getVt1tMXSn bin resNone, oprSize
   | 0b11000u -> Opcode.LD2, getVt2tMXSn bin sizeQ110b, 0<rt>
   | 0b11001u -> raise UnallocatedException
-  | 0b11010u -> Opcode.LD1, getVt2tMXSn bin resNone, 0<rt>
+  | 0b11010u -> Opcode.LD1, getVt2tMXSn bin resNone, oprSize
   | 0b11011u -> raise UnallocatedException
   | c when c &&& 0b11100u = 0b11100u -> raise UnallocatedException
   | _ -> raise InvalidOpcodeException
@@ -1810,8 +1811,8 @@ let changeToAliasOfCondSelect bin instr =
   let rm = valM bin
   let rn = valN bin
   let cnd = extract bin 15u 12u
-  let cond =
-    Cond (getCondition (byte (if cnd % 2u = 0b0u then cnd + 1u else cnd - 1u)))
+  let cond = if cnd % 2u = 0b0u then cnd + 1u else cnd - 1u
+             |> byte |> getCondition |> OprCond
   let isCondNot1111x = (extract bin 15u 12u) &&& 0b1110u <> 0b1110u
   let cond1 = rm <> 0b11111u && isCondNot1111x && rn <> 0b11111u && rn = rm
   let cond2 = rm = 0b11111u && isCondNot1111x && rn = 0b11111u

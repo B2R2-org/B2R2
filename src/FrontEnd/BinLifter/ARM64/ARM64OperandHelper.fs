@@ -32,15 +32,16 @@ open System.Runtime.CompilerServices
 [<assembly: InternalsVisibleTo("B2R2.FrontEnd.BinLifter.Tests")>]
 do ()
 
-let memBaseImm offset = Memory (BaseMode (ImmOffset (BaseOffset offset)))
-let memBaseReg offset = Memory (BaseMode (RegOffset offset))
-let memPreIdxImm offset = Memory (PreIdxMode (ImmOffset (BaseOffset offset)))
-let memPreIdxReg offset = Memory (PreIdxMode (RegOffset offset))
-let memPostIdxImm offset = Memory (PostIdxMode (ImmOffset (BaseOffset offset)))
-let memPostIdxReg offset = Memory (PostIdxMode (RegOffset offset))
-let memLabel lbl = Memory (LiteralMode (ImmOffset (Lbl lbl)))
+let memBaseImm offset = OprMemory (BaseMode (ImmOffset (BaseOffset offset)))
+let memBaseReg offset = OprMemory (BaseMode (RegOffset offset))
+let memPreIdxImm offset = OprMemory (PreIdxMode (ImmOffset (BaseOffset offset)))
+let memPreIdxReg offset = OprMemory (PreIdxMode (RegOffset offset))
+let memPostIdxImm offset =
+  OprMemory (PostIdxMode (ImmOffset (BaseOffset offset)))
+let memPostIdxReg offset = OprMemory (PostIdxMode (RegOffset offset))
+let memLabel lbl = OprMemory (LiteralMode (ImmOffset (Lbl lbl)))
 let sVRegIdx vReg vec idx = SIMDVecRegWithIdx (vReg, vec, idx)
-let scalReg reg = SIMDOpr (SFReg (SIMDFPScalarReg reg))
+let scalReg reg = OprSIMD (SIMDFPScalarReg reg)
 
 let getRegister64 oprSize = function
   | 0x0uy -> if oprSize = 32<rt> then R.W0 else R.X0
@@ -425,25 +426,25 @@ let getPstate = function
   | _ -> raise InvalidOperandException
 
 let getPrefetchOperation = function
-  | 0b00000uy -> PrfOp PLDL1KEEP
-  | 0b00001uy -> PrfOp PLDL1STRM
-  | 0b00010uy -> PrfOp PLDL2KEEP
-  | 0b00011uy -> PrfOp PLDL2STRM
-  | 0b00100uy -> PrfOp PLDL3KEEP
-  | 0b00101uy -> PrfOp PLDL3STRM
-  | 0b01000uy -> PrfOp PLIL1KEEP
-  | 0b01001uy -> PrfOp PLIL1STRM
-  | 0b01010uy -> PrfOp PLIL2KEEP
-  | 0b01011uy -> PrfOp PLIL2STRM
-  | 0b01100uy -> PrfOp PLIL3KEEP
-  | 0b01101uy -> PrfOp PLIL3STRM
-  | 0b10000uy -> PrfOp PSTL1KEEP
-  | 0b10001uy -> PrfOp PSTL1STRM
-  | 0b10010uy -> PrfOp PSTL2KEEP
-  | 0b10011uy -> PrfOp PSTL2STRM
-  | 0b10100uy -> PrfOp PSTL3KEEP
-  | 0b10101uy -> PrfOp PSTL3STRM
-  | rt -> Immediate (int64 rt)
+  | 0b00000uy -> OprPrfOp PLDL1KEEP
+  | 0b00001uy -> OprPrfOp PLDL1STRM
+  | 0b00010uy -> OprPrfOp PLDL2KEEP
+  | 0b00011uy -> OprPrfOp PLDL2STRM
+  | 0b00100uy -> OprPrfOp PLDL3KEEP
+  | 0b00101uy -> OprPrfOp PLDL3STRM
+  | 0b01000uy -> OprPrfOp PLIL1KEEP
+  | 0b01001uy -> OprPrfOp PLIL1STRM
+  | 0b01010uy -> OprPrfOp PLIL2KEEP
+  | 0b01011uy -> OprPrfOp PLIL2STRM
+  | 0b01100uy -> OprPrfOp PLIL3KEEP
+  | 0b01101uy -> OprPrfOp PLIL3STRM
+  | 0b10000uy -> OprPrfOp PSTL1KEEP
+  | 0b10001uy -> OprPrfOp PSTL1STRM
+  | 0b10010uy -> OprPrfOp PSTL2KEEP
+  | 0b10011uy -> OprPrfOp PSTL2STRM
+  | 0b10100uy -> OprPrfOp PSTL3KEEP
+  | 0b10101uy -> OprPrfOp PSTL3STRM
+  | rt -> OprImm (int64 rt)
 
 /// Table C1-1 Condition codes.
 let getCondition = function
@@ -629,35 +630,23 @@ let getOprSizeBySfN bin =
 
 (* SIMD&FP scalar register *)
 let getSIMDFPscalReg oprSize value =
-  SIMDOpr (SFReg (SIMDFPScalarReg (getSIMDFPRegister64 oprSize (byte value))))
+  OprSIMD (SIMDFPScalarReg (getSIMDFPRegister64 oprSize (byte value)))
 
 (* SIMD&FP vector register *)
 let getSIMDFPVecReg value t =
-  SIMDOpr (SFReg (SIMDVecReg (getVRegister64 (byte value), t)))
+  OprSIMD (SIMDVecReg (getVRegister64 (byte value), t))
 
 let getSIMDFPRegWithIdx value t idx =
-  SIMDOpr (SFReg (SIMDVecRegWithIdx (getVRegister64 (byte value), t, idx)))
+  OprSIMD (SIMDVecRegWithIdx (getVRegister64 (byte value), t, idx))
 
 (* SIMD vector register list *)
 let getSIMDVecReg t rLst =
-  let sr v = SIMDVecReg (v, t)
-  match rLst with
-  | [ vt ] -> OneReg (sr vt) |> SIMDOpr
-  | [ vt; vt2 ] -> TwoRegs (sr vt, sr vt2) |> SIMDOpr
-  | [ vt; vt2; vt3 ] -> ThreeRegs (sr vt, sr vt2, sr vt3) |> SIMDOpr
-  | [ vt; vt2; vt3; vt4 ] -> FourRegs (sr vt, sr vt2, sr vt3, sr vt4) |> SIMDOpr
-  | _ -> raise InvalidOperandException
+  List.map (fun v -> SIMDVecReg (v, t)) rLst |> OprSIMDList
 
 (* SIMD vector element list *)
 let getSIMDVecRegWithIdx vec idx rLst =
   let srIdx v = SIMDVecRegWithIdx (v, vec, idx)
-  match rLst with
-  | [ vt ] -> OneReg (srIdx vt) |> SIMDOpr
-  | [ vt; vt2 ] -> TwoRegs (srIdx vt, srIdx vt2) |> SIMDOpr
-  | [ vt; vt2; vt3 ] -> ThreeRegs (srIdx vt, srIdx vt2, srIdx vt3) |> SIMDOpr
-  | [ vt; vt2; vt3; vt4 ] ->
-    FourRegs (srIdx vt, srIdx vt2, srIdx vt3, srIdx vt4) |> SIMDOpr
-  | _ -> raise InvalidOperandException
+  List.map (fun v -> SIMDVecRegWithIdx (v, vec, idx)) rLst |> OprSIMDList
 
 let valA bin = extract bin 14u 10u (* T2 *)
 
@@ -1161,7 +1150,7 @@ let cn bin = getCoprocCRegister (valCrn bin |> byte) |> OprRegister
 
 let cm bin = getCoprocCRegister (valCrm bin |> byte) |> OprRegister
 
-let toImm imm = imm |> int64 |> Immediate
+let toImm imm = imm |> int64 |> OprImm
 
 let imm bin = valCrm bin |> toImm
 
@@ -1185,14 +1174,14 @@ let imms bin max = extract bin 15u 10u |> chkRange max |> toImm
 
 let immNsr bin oprSize = (* FIXME: bitmask immediate *)
   decodeBitMasks (pickBit bin 22u) (valImms bin) (valImmr bin) true oprSize
-  |> Immediate
+  |> OprImm
 
 let imm64 bin =
   let extBitToBytes n = if n = 0uy then 0UL else 255UL
   intToBits (concat (extract bin 18u 16u) (extract bin 9u 5u) 5) 8
   |> List.rev |> List.toArray
   |> Array.foldi (fun acc i e -> ((extBitToBytes e) <<< (i * 8)) + acc) 0UL
-  |> fst |> int64 |> Immediate
+  |> fst |> int64 |> OprImm
 
 let pimm12 bin scale = valImm12 bin * scale
 
@@ -1201,7 +1190,7 @@ let simm7 bin scale =
 
 let simm9 bin = extract bin 20u 12u |> uint64 |> signExtend 9 64
 
-let getFPImm fimm = getFloatingPointConstantValues fimm |> FPImmediate
+let getFPImm fimm = getFloatingPointConstantValues fimm |> OprFPImm
 
 let fScalarImm8 bin =
   (extract bin 20u 13u) |> getFPImm (* FMOV (scalar, immediate) *)
@@ -1209,9 +1198,9 @@ let fScalarImm8 bin =
 let fVecImm8 bin = (* FMOV (vector, immediate) *)
   concat (extract bin 18u 16u) (extract bin 9u 5u) 5 |> getFPImm
 
-let p0 = FPImmediate 0.0
+let p0 = OprFPImm 0.0
 
-let lsb bin max = extract bin 15u 10u |> chkRange max |> uint8 |> LSB
+let lsb bin max = extract bin 15u 10u |> chkRange max |> uint8 |> OprLSB
 
 let immQ bin n = if valQ bin = 0b0u then 8L * n else 16L * n
 
@@ -1248,15 +1237,15 @@ let amt32Ones bin = if pickBit bin 12u = 0b0u then 8L else 16L
 let lAmt bin amtFn =
   let amt = amtFn bin
   if amt = 0L then None
-  else Some (Shift (SRTypeLSL, Imm amt)) (* LSL #<amount> *)
+  else Some (OprShift (SRTypeLSL, Imm amt)) (* LSL #<amount> *)
 
-let mAmt bin = Shift (SRTypeMSL, Imm (amt32Ones bin))
+let mAmt bin = OprShift (SRTypeMSL, Imm (amt32Ones bin))
 
 let rshfAmt bin = (* Right shift amount *)
-  Immediate (getShiftAmountByImmh1 (valImmb bin) (valImmh bin) |> int64)
+  OprImm (getShiftAmountByImmh1 (valImmb bin) (valImmh bin) |> int64)
 
 let lshfAmt bin = (* Left shift amount *)
-  Immediate (getShiftAmountByImmh2 (valImmb bin) (valImmh bin) |> int64)
+  OprImm (getShiftAmountByImmh2 (valImmb bin) (valImmh bin) |> int64)
 
 (* Load/Store Offset (Register offset/Extend register offset) *)
 let regOffset bin amount = getRegOffset (valS2 bin) (valOption bin) amount
@@ -1264,15 +1253,16 @@ let regOffset bin amount = getRegOffset (valS2 bin) (valOption bin) amount
 let wmxm bin = if pickBit bin 13u = 0b0u then w (valM bin) else x (valM bin)
 
 (* Shift *)
-let lshf1 bin = Shift (SRTypeLSL, Imm (8 <<< (valSize1 bin |> int) |> int64))
+let lshf1 bin = OprShift (SRTypeLSL, Imm (8 <<< (valSize1 bin |> int) |> int64))
 
 let lshf2 bin = (* FIXME: If shift amount is 0, not present. *)
-  Shift (SRTypeLSL, Imm (getShiftAmountByShift (valShift bin) |> int64))
+  OprShift (SRTypeLSL, Imm (getShiftAmountByShift (valShift bin) |> int64))
 
 let lshf3 bin = (* FIXME: If shift amount is 0, not present. *)
-  Shift (SRTypeLSL, Imm ((extract bin 22u 21u) <<< 4 |> int64))
+  OprShift (SRTypeLSL, Imm ((extract bin 22u 21u) <<< 4 |> int64))
 
-let shfamt bin = Shift (decodeRegShift (valShift bin), Imm (imm6 bin |> int64))
+let shfamt bin =
+  OprShift (decodeRegShift (valShift bin), Imm (imm6 bin |> int64))
 
 (* Extend *)
 let extamt bin = (* FIXME: refactoring *)
@@ -1288,13 +1278,13 @@ let extamt bin = (* FIXME: refactoring *)
   | 64<rt> when isRdOrRn11111 && (o = 0b011u) ->
     Some (ShiftOffset (SRTypeLSL, Imm amt))
   | _ -> Some (ExtRegOffset (getExtend o, Some amt))
-  |> ExtReg
+  |> OprExtReg
 
 (* Fractional bits *)
 let fbits1 bin = (* immh:immb *)
-  Fbits (getShiftAmountByImmh1 (valImmb bin) (valImmh bin) |> uint8)
+  OprFbits (getShiftAmountByImmh1 (valImmb bin) (valImmh bin) |> uint8)
 
-let fbits2 bin = Fbits (64u - (valScale bin) |> uint8) (* scale *)
+let fbits2 bin = OprFbits (64u - (valScale bin) |> uint8) (* scale *)
 
 (* Memory *)
 let memXSn bin = memBaseImm (xs (valN bin), None)
@@ -1329,17 +1319,17 @@ let label bin amount =
   let imm = signExtend (21 + amount) 64 ((uint64 imm) <<< amount)
   memLabel (int64 imm)
 
-let cond bin = getCondition (extract bin 15u 12u |> byte) |> Cond
+let cond bin = getCondition (extract bin 15u 12u |> byte) |> OprCond
 
-let nzcv bin = extract bin 3u 0u |> uint8 |> NZCV
+let nzcv bin = extract bin 3u 0u |> uint8 |> OprNZCV
 
 let prfopImm5 bin = getPrefetchOperation (valT1 bin |> byte)
 
 let getOptOrImm bin = function
-  | Some option -> Option option
-  | None -> Immediate (valCrm bin |> int64)
+  | Some option -> OprOption option
+  | None -> OprImm (valCrm bin |> int64)
 
-let pstatefield bin = getPstate (conOp1Op2 bin) |> Pstate
+let pstatefield bin = getPstate (conOp1Op2 bin) |> OprPstate
 
 let optionOrimm bin = getOption64 (valCrm bin |> byte) |> getOptOrImm bin
 
