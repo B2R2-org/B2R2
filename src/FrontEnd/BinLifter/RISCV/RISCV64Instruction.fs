@@ -78,11 +78,11 @@ type RISCV64Instruction (addr, numBytes, insInfo) =
 
   override __.IsNop () = Utils.futureFeature ()
 
-  override __.Translate _ctxt =
-    (Lifter.translate __.Info _ctxt).ToStmts ()
+  override __.Translate ctxt =
+    (Lifter.translate __.Info numBytes ctxt).ToStmts ()
 
-  override __.TranslateToList _ctxt =
-    Lifter.translate __.Info _ctxt
+  override __.TranslateToList ctxt =
+    Lifter.translate __.Info numBytes ctxt
 
   override __.Disasm (showAddr, _resolveSymbol, _fileInfo) =
     let builder =
