@@ -267,7 +267,7 @@ let oprToString insInfo opr delim (builder: DisasmBuilder<_>) =
   | OpImm imm
   | OpShiftAmount imm ->
     builder.Accumulate AsmWordKind.String delim
-    builder.Accumulate AsmWordKind.Value (String.u32ToHex imm)
+    builder.Accumulate AsmWordKind.Value (String.u64ToHex imm)
   | OpMem (b, None, _) ->
     builder.Accumulate AsmWordKind.String delim
     builder.Accumulate AsmWordKind.String "("

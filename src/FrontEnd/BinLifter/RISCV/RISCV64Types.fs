@@ -271,13 +271,13 @@ type Operand =
   | OpCSR of uint16
 and Aq = bool
 and Rl = bool
-and Imm = uint32
+and Imm = uint64
 and FenceMask = uint8
 and JumpTarget =
   | Relative of int64
   | RelativeBase of Base * Imm
 and Offset =
-  | Imm of uint32
+  | Imm of uint64
 and AccessLength = RegType
 and Base = Register
 

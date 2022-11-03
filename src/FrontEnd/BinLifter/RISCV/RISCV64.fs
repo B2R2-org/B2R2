@@ -40,7 +40,7 @@ type RISCV64TranslationContext internal (isa, regexprs) =
 /// instruction type (Instruction).
 type RISCV64Parser (isa: ISA) =
   inherit Parser ()
-
+  let wordSize = int isa.WordSize
   let reader =
     if isa.Endian = Endian.Little then BinReader.binReaderLE
     else BinReader.binReaderBE
@@ -48,11 +48,11 @@ type RISCV64Parser (isa: ISA) =
   override __.OperationMode with get() = ArchOperationMode.NoMode and set _ = ()
 
   override __.Parse (span: ByteSpan, addr) =
-    Parser.parse span reader addr :> Instruction
+    Parser.parse span reader wordSize addr :> Instruction
 
   override __.Parse (bs: byte[], addr) =
     let span = ReadOnlySpan bs
-    Parser.parse span reader addr :> Instruction
+    Parser.parse span reader wordSize addr :> Instruction
 
 module Basis =
   let init (isa: ISA) =
