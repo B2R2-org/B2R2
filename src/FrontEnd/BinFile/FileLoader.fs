@@ -36,7 +36,7 @@ let private loadRegBay isa =
   | Arch.ARMv7 -> ARM32.Basis.initRegBay ()
   | Arch.AARCH64 -> ARM64.Basis.initRegBay ()
   | Arch.MIPS32 | Arch.MIPS64 -> MIPS.Basis.initRegBay isa
-  | Arch.PPC32 -> PPC32.Basis.initRegBay ()
+  | Arch.PPC32 -> PPC32.Basis.initRegBay isa
   | Arch.RISCV64 -> RISCV.Basis.initRegBay ()
   | _ -> Utils.futureFeature ()
 
