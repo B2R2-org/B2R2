@@ -38,6 +38,7 @@ let private loadRegBay isa =
   | Arch.MIPS32 | Arch.MIPS64 -> MIPS.Basis.initRegBay isa
   | Arch.PPC32 -> PPC32.Basis.initRegBay isa
   | Arch.RISCV64 -> RISCV.Basis.initRegBay isa
+  | Arch.SH4 -> SH4.Basis.initRegBay isa
   | _ -> Utils.futureFeature ()
 
 /// Load a given byte array (binary file) and return a `BinFile`.

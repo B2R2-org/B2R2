@@ -439,6 +439,9 @@ module DWRegister =
   let private toPPC32Register (n: byte) =
     PPC32.Register.toRegID (EnumOfValue (int n))
 
+  let private toSH4Register (n: byte) =
+    SH4.Register.toRegID (EnumOfValue (int n))
+
   let toRegID isa regnum =
     match isa.Arch with
     | Architecture.IntelX86 -> toIntelx86Register regnum
@@ -447,6 +450,7 @@ module DWRegister =
     | Architecture.MIPS32 | Architecture.MIPS64 -> toMIPSRegister regnum
     | Architecture.RISCV64 -> toRISCVRegister regnum
     | Architecture.PPC32 -> toPPC32Register regnum
+    | Architecture.SH4 -> toSH4Register regnum
     | _ -> Utils.futureFeature ()
 
   let toRegisterExpr isa (regbay: RegisterBay) regnum =

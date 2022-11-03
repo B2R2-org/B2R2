@@ -66,6 +66,7 @@
     <ProjectReference Include="..\BinLifter\MIPS\B2R2.FrontEnd.BinLifter.MIPS.fsproj" />
     <ProjectReference Include="..\BinLifter\PPC32\B2R2.FrontEnd.BinLifter.PPC32.fsproj" />
     <ProjectReference Include="..\BinLifter\RISCV\B2R2.FrontEnd.BinLifter.RISCV.fsproj" />
+    <ProjectReference Include="..\BinLifter\SH4\B2R2.FrontEnd.BinLifter.SH4.fsproj" />
   </ItemGroup>
 
   <ItemGroup>
