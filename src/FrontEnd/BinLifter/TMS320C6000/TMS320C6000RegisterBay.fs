@@ -42,7 +42,7 @@ type TMS320C6000RegisterBay () =
     match e.E with
     | Var (_, id, _ ,_) -> id
     | PCVar _ -> Register.toRegID Register.PCE1
-    | _ -> failwith "not a register expression"
+    | _ -> raise InvalidRegisterException
 
   override __.RegIDToRegExpr (id) = Utils.futureFeature ()
   override __.StrToRegExpr _s = Utils.futureFeature ()

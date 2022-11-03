@@ -97,7 +97,7 @@ type IntelRegisterBay internal (wordSize, r: RegExprs) =
     | PCVar (regT, _) ->
       if regT = 32<rt> then Register.toRegID Register.EIP
       else Register.toRegID Register.RIP
-    | _ -> failwith "not a register expression"
+    | _ -> raise InvalidRegisterException
 
   override __.RegIDToRegExpr (id) =
     Register.ofRegID id |> r.GetRegVar

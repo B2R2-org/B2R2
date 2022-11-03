@@ -59,10 +59,11 @@ module Basis =
     let regexprs = RegExprs (isa.WordSize)
     struct (
       RISCV64TranslationContext (isa, regexprs) :> TranslationContext,
-      RISCV64RegisterBay () :> RegisterBay
+      RISCV64RegisterBay (isa.WordSize, regexprs) :> RegisterBay
     )
 
-  let initRegBay _isa =
-    RISCV64RegisterBay () :> RegisterBay
+  let initRegBay isa =
+    let regexprs = RegExprs (isa.WordSize)
+    RISCV64RegisterBay (isa.WordSize, regexprs) :> RegisterBay
 
 // vim: set tw=80 sts=2 sw=2:

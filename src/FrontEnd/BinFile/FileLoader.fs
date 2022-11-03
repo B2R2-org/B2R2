@@ -33,11 +33,11 @@ let private loadRegBay isa =
   match isa.Arch with
   | Arch.IntelX64
   | Arch.IntelX86 -> Intel.Basis.initRegBay isa.WordSize
-  | Arch.ARMv7 -> ARM32.Basis.initRegBay ()
+  | Arch.ARMv7 | Arch.AARCH32 -> ARM32.Basis.initRegBay ()
   | Arch.AARCH64 -> ARM64.Basis.initRegBay ()
   | Arch.MIPS32 | Arch.MIPS64 -> MIPS.Basis.initRegBay isa
   | Arch.PPC32 -> PPC32.Basis.initRegBay isa
-  | Arch.RISCV64 -> RISCV.Basis.initRegBay ()
+  | Arch.RISCV64 -> RISCV.Basis.initRegBay isa
   | _ -> Utils.futureFeature ()
 
 /// Load a given byte array (binary file) and return a `BinFile`.

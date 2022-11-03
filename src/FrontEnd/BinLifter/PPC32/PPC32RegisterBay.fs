@@ -52,7 +52,7 @@ type PPC32RegisterBay internal (wordSize, r: RegExprs) =
   override __.RegIDFromRegExpr (e) =
     match e.E with
     | Var (_, id, _ ,_) -> id
-    | _ -> failwith "not a register expression"
+    | _ -> raise InvalidRegisterException
 
   override __.RegIDToRegExpr (id) =
     Register.ofRegID id |> r.GetRegVar

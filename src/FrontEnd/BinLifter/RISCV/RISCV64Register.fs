@@ -470,3 +470,14 @@ module Register =
     | R.F30 -> "ft10"
     | R.F31 -> "ft11"
     | _ -> Utils.impossible ()
+
+  let toRegType wordSize = function
+    | R.PC | R.X0 | R.X1 | R.X2 | R.X3 | R.X4 | R.X5 | R.X6 | R.X7 | R.X8
+    | R.X9 | R.X10 | R.X11 | R.X12 | R.X13 | R.X14 | R.X15 | R.X16 | R.X17
+    | R.X18 | R.X19 | R.X20 | R.X21 | R.X22 | R.X23 | R.X24 | R.X25 | R.X26
+    | R.X27 | R.X28 | R.X29 | R.X30 | R.X31 -> WordSize.toRegType wordSize
+    | R.F0 | R.F1 | R.F2 | R.F3 | R.F4 | R.F5 | R.F6 | R.F7 | R.F8 | R.F9
+    | R.F10 | R.F11 | R.F12 | R.F13 | R.F14 | R.F15 | R.F16 | R.F17 | R.F18
+    | R.F19 | R.F20 | R.F21 | R.F22 | R.F23 | R.F24 | R.F25 | R.F26 | R.F27
+    | R.F28 | R.F29 | R.F30 | R.F31 | R.FCSR -> 32<rt>
+    | _ -> Utils.impossible ()

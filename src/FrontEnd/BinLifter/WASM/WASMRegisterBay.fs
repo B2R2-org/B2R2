@@ -13,11 +13,9 @@ type WASMRegisterBay () =
 
   override __.GetGeneralRegExprs () = Utils.futureFeature ()
 
-  override __.RegIDFromRegExpr (e) =
-    match e.E with
-    | _ -> failwith "not a register expression"
+  override __.RegIDFromRegExpr (_e) = Utils.futureFeature ()
 
-  override __.RegIDToRegExpr (id) = Utils.impossible ()
+  override __.RegIDToRegExpr (_id) = Utils.impossible ()
 
   override __.StrToRegExpr _s = Utils.impossible ()
 

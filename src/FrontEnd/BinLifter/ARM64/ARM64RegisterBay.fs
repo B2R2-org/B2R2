@@ -81,7 +81,7 @@ type ARM64RegisterBay internal (r: RegExprs) =
     match e.E with
     | Var (_, id, _, _) -> id
     | PCVar _ -> Register.toRegID Register.PC
-    | _ -> failwith "not a register expression"
+    | _ -> raise InvalidRegisterException
 
   override __.RegIDToRegExpr (id) =
     Register.ofRegID id |> r.GetRegVar
