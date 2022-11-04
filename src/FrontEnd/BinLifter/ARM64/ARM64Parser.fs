@@ -2408,11 +2408,11 @@ let parseAdvSIMDModImm bin =
   | c when c &&& 0b0110011u = 0b0000000u ->
     Opcode.MOVI, getVdtImm8LAmt3 bin, 0<rt>
   | c when c &&& 0b0110011u = 0b0000010u ->
-    Opcode.ORR, getVdtImm8LAmt3 bin, 0<rt>
+    Opcode.ORR, getVdtImm8LAmt3 bin, 64<rt>
   | c when c &&& 0b0111011u = 0b0010000u ->
     Opcode.MOVI, getVdtImm8LAmt2 bin, 0<rt>
   | c when c &&& 0b0111011u = 0b0010010u ->
-    Opcode.ORR, getVdtImm8LAmt2 bin, 0<rt>
+    Opcode.ORR, getVdtImm8LAmt2 bin, 64<rt>
   | c when c &&& 0b0111101u = 0b0011000u ->
     Opcode.MOVI, getVdtImm8MAmt bin, 0<rt>
   | c when c &&& 0b0111111u = 0b0011100u ->
