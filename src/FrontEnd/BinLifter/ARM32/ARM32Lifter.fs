@@ -2171,6 +2171,7 @@ let bx ins insLen ctxt =
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
   !<ir insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
+  let rm = convertPCOpr ins insLen ctxt rm
   bxWritePC ctxt isUnconditional rm ir
   putEndLabelForBranch ctxt lblIgnore ins ir
   !>ir insLen
