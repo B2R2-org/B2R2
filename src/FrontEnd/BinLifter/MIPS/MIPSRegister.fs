@@ -181,40 +181,44 @@ module Register =
   let inline toRegID (reg: Register) =
     LanguagePrimitives.EnumToValue (reg) |> RegisterID.create
 
-  let ofString (str: string) =
+  let ofString wordSize (str: string) =
     match str.ToLowerInvariant () with
     | "r0" -> R.R0
-    | "r1" -> R.R1
-    | "r2" -> R.R2
-    | "r3" -> R.R3
-    | "r4" -> R.R4
-    | "r5" -> R.R5
-    | "r6" -> R.R6
-    | "r7" -> R.R7
-    | "r8" -> R.R8
-    | "r9" -> R.R9
-    | "r10" -> R.R10
-    | "r11" -> R.R11
-    | "r12" -> R.R12
-    | "r13" -> R.R13
-    | "r14" -> R.R14
-    | "r15" -> R.R15
-    | "r16" -> R.R16
-    | "r17" -> R.R17
-    | "r18" -> R.R18
-    | "r19" -> R.R19
-    | "r20" -> R.R20
-    | "r21" -> R.R21
-    | "r22" -> R.R22
-    | "r23" -> R.R23
-    | "r24" -> R.R24
-    | "r25" -> R.R25
-    | "r26" -> R.R26
-    | "r27" -> R.R27
-    | "r28" -> R.R28
-    | "r29" -> R.R29
-    | "r30" -> R.R30
-    | "r31" -> R.R31
+    | "r1" | "at" -> R.R1
+    | "r2" | "v0" -> R.R2
+    | "r3" | "v1" -> R.R3
+    | "r4" | "a0" -> R.R4
+    | "r5" | "a1" -> R.R5
+    | "r6" | "a2" -> R.R6
+    | "r7" | "a3" -> R.R7
+    | "r8" | "a4" -> R.R8
+    | "r9" | "a5" -> R.R9
+    | "r10" | "a6" -> R.R10
+    | "r11" | "a7" -> R.R11
+    | "t0" -> if wordSize = WordSize.Bit32 then R.R8 else R.R12
+    | "t1" -> if wordSize = WordSize.Bit32 then R.R9 else R.R13
+    | "t2" -> if wordSize = WordSize.Bit32 then R.R10 else R.R14
+    | "t3" -> if wordSize = WordSize.Bit32 then R.R11 else R.R15
+    | "r12" | "t4" -> R.R12
+    | "r13" | "t5" -> R.R13
+    | "r14" | "t6" -> R.R14
+    | "r15" | "t7" -> R.R15
+    | "r16" | "s0" -> R.R16
+    | "r17" | "s1" -> R.R17
+    | "r18" | "s2" -> R.R18
+    | "r19" | "s3" -> R.R19
+    | "r20" | "s4" -> R.R20
+    | "r21" | "s5" -> R.R21
+    | "r22" | "s6" -> R.R22
+    | "r23" | "s7" -> R.R23
+    | "r24" | "t8" -> R.R24
+    | "r25" | "t9" -> R.R25
+    | "r26" | "k0" -> R.R26
+    | "r27" | "k1" -> R.R27
+    | "r28" | "gp" -> R.R28
+    | "r29" | "sp" -> R.R29
+    | "r30" | "fp" -> R.R30
+    | "r31" | "ra" -> R.R31
     | "f0" -> R.F0
     | "f1" -> R.F1
     | "f2" -> R.F2
@@ -253,7 +257,7 @@ module Register =
     | "llbit" -> R.LLBit
     | _ -> Utils.impossible ()
 
-  let toString = function
+  let toString32 = function
     | R.R0  -> "r0"
     | R.R1  -> "at"
     | R.R2  -> "v0"
@@ -285,6 +289,77 @@ module Register =
     | R.R28 -> "gp"
     | R.R29 -> "sp"
     | R.R30 -> "fp"
+    | R.R31 -> "ra"
+    | R.F0  -> "f0"
+    | R.F1  -> "f1"
+    | R.F2  -> "f2"
+    | R.F3  -> "f3"
+    | R.F4  -> "f4"
+    | R.F5  -> "f5"
+    | R.F6  -> "f6"
+    | R.F7  -> "f7"
+    | R.F8  -> "f8"
+    | R.F9  -> "f9"
+    | R.F10 -> "f10"
+    | R.F11 -> "f11"
+    | R.F12 -> "f12"
+    | R.F13 -> "f13"
+    | R.F14 -> "f14"
+    | R.F15 -> "f15"
+    | R.F16 -> "f16"
+    | R.F17 -> "f17"
+    | R.F18 -> "f18"
+    | R.F19 -> "f19"
+    | R.F20 -> "f20"
+    | R.F21 -> "f21"
+    | R.F22 -> "f22"
+    | R.F23 -> "f23"
+    | R.F24 -> "f24"
+    | R.F25 -> "f25"
+    | R.F26 -> "f26"
+    | R.F27 -> "f27"
+    | R.F28 -> "f28"
+    | R.F29 -> "f29"
+    | R.F30 -> "f30"
+    | R.F31 -> "f31"
+    | R.HI  -> "hi"
+    | R.LO  -> "lo"
+    | R.PC  -> "pc"
+    | R.LLBit -> "LLBit"
+    | _ -> Utils.impossible ()
+
+  let toString64 = function
+    | R.R0  -> "r0"
+    | R.R1  -> "at"
+    | R.R2  -> "v0"
+    | R.R3  -> "v1"
+    | R.R4  -> "a0"
+    | R.R5  -> "a1"
+    | R.R6  -> "a2"
+    | R.R7  -> "a3"
+    | R.R8  -> "a4"
+    | R.R9  -> "a5"
+    | R.R10 -> "a6"
+    | R.R11 -> "a7"
+    | R.R12 -> "t0"
+    | R.R13 -> "t1"
+    | R.R14 -> "t2"
+    | R.R15 -> "t3"
+    | R.R16 -> "s0"
+    | R.R17 -> "s1"
+    | R.R18 -> "s2"
+    | R.R19 -> "s3"
+    | R.R20 -> "s4"
+    | R.R21 -> "s5"
+    | R.R22 -> "s6"
+    | R.R23 -> "s7"
+    | R.R24 -> "t8"
+    | R.R25 -> "t9"
+    | R.R26 -> "k0"
+    | R.R27 -> "k1"
+    | R.R28 -> "gp"
+    | R.R29 -> "sp"
+    | R.R30 -> "s8"
     | R.R31 -> "ra"
     | R.F0  -> "f0"
     | R.F1  -> "f1"

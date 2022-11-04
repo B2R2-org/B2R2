@@ -249,11 +249,16 @@ let inline relToString pc offset (builder: DisasmBuilder<_>) =
   let targetAddr = pc + uint64 offset
   builder.Accumulate AsmWordKind.Value (String.u64ToHex targetAddr)
 
+let inline regToString ins =
+  match ins.OperationSize with
+  | 64<rt> -> Register.toString64
+  | _ -> Register.toString32
+
 let oprToString insInfo opr delim (builder: DisasmBuilder<_>) =
   match opr with
   | OpReg reg ->
     builder.Accumulate AsmWordKind.String delim
-    builder.Accumulate AsmWordKind.Variable (Register.toString reg)
+    builder.Accumulate AsmWordKind.Variable (regToString insInfo reg)
   | OpImm imm
   | OpShiftAmount imm ->
     builder.Accumulate AsmWordKind.String delim
@@ -262,13 +267,13 @@ let oprToString insInfo opr delim (builder: DisasmBuilder<_>) =
     builder.Accumulate AsmWordKind.String delim
     builder.Accumulate AsmWordKind.Value (off.ToString ("D"))
     builder.Accumulate AsmWordKind.String "("
-    builder.Accumulate AsmWordKind.Variable (Register.toString b)
+    builder.Accumulate AsmWordKind.Variable (regToString insInfo b)
     builder.Accumulate AsmWordKind.String ")"
   | OpMem (b, Reg off, _) ->
     builder.Accumulate AsmWordKind.String delim
-    builder.Accumulate AsmWordKind.Variable (Register.toString off)
+    builder.Accumulate AsmWordKind.Variable (regToString insInfo off)
     builder.Accumulate AsmWordKind.String "("
-    builder.Accumulate AsmWordKind.Variable (Register.toString b)
+    builder.Accumulate AsmWordKind.Variable (regToString insInfo b)
     builder.Accumulate AsmWordKind.String ")"
   | OpAddr (Relative offset) ->
     builder.Accumulate AsmWordKind.String delim
