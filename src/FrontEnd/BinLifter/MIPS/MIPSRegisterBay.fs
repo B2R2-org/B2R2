@@ -134,7 +134,10 @@ type MIPSRegisterBay internal (wordSize, r: RegExprs) =
     Register.ofString str |> Register.toRegID
 
   override __.RegIDToString rid =
-    Register.ofRegID rid |> Register.toString
+    if wordSize = WordSize.Bit32 then
+      Register.ofRegID rid |> Register.toString32
+    else
+      Register.ofRegID rid |> Register.toString64
 
   override __.RegIDToRegType _rid =
     WordSize.toRegType wordSize
