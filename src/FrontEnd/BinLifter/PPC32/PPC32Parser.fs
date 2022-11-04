@@ -224,13 +224,22 @@ let parseSC bin =
   | 0b1u -> struct (Op.SC, NoOperand)
   | _ -> raise ParsingFailureException
 
-let parseBx bin =
-  let li = extract bin 25u 2u <<< 2 |> uint64 |> OprImm (* TargetAddress *)
+let parseBx bin addr =
+  let li = extract bin 25u 2u |> uint64
+  let signExtended = signExtend 25 32 (li <<< 2)
   match extract bin 1u 0u (* AA:LK *) with
-  | 0b00u -> struct (Op.B, OneOperand li)
-  | 0b01u -> struct (Op.BL, OneOperand li)
-  | 0b10u -> struct (Op.BA, OneOperand li)
-  | _ (* 11 *) -> struct (Op.BLA, OneOperand li)
+  | 0b00u ->
+    let value = uint32 addr + uint32 signExtended |> uint64 |> OprImm
+    struct (Op.B, OneOperand value)
+  | 0b01u ->
+    let value = uint32 addr + uint32 signExtended |> uint64 |> OprImm
+    struct (Op.BL, OneOperand value)
+  | 0b10u ->
+    let value = signExtended |> OprImm
+    struct (Op.BA, OneOperand value)
+  | _ (* 11 *) ->
+    let value = signExtended |> OprImm
+    struct (Op.BLA, OneOperand value)
 
 let parseMCRF bin =
   match pickBit bin 0u with
@@ -2135,7 +2144,7 @@ let parse3F bin =
   | 0x1Fu -> parseFNMADDx bin
   | _ -> raise ParsingFailureException
 
-let private parseInstruction bin =
+let private parseInstruction bin addr =
   match extract bin 31u 26u with
   | 0x3u -> parseTWI bin
   | 0x7u -> parseMULLI bin
@@ -2148,7 +2157,7 @@ let private parseInstruction bin =
   | 0xFu -> parseADDIS bin
   | 0x10u -> parseBCx bin
   | 0x11u when pickBit bin 0u = 0u -> parseSC bin
-  | 0x12u -> parseBx bin
+  | 0x12u -> parseBx bin addr
   | 0x13u -> parse13 bin
   | 0x14u -> parseRLWIMIx bin
   | 0x15u -> parseRLWINMx bin
@@ -2190,7 +2199,7 @@ let private parseInstruction bin =
 
 let parse (span: ByteSpan) (reader: IBinReader) addr =
   let bin = reader.ReadUInt32 (span, 0)
-  let struct (opcode, operands) = parseInstruction bin
+  let struct (opcode, operands) = parseInstruction bin addr
   let insInfo =
     { Address = addr
       NumBytes = 4u

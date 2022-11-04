@@ -213,33 +213,17 @@ let andidot ins insLen ctxt =
   !!ir (dst := src .& uimm)
   !>ir insLen
 
-let b ins insLen ctxt =
-  let addr = numU64 ins.Address 32<rt> .+ transOneOpr ins ctxt
-  let ir = !*ctxt
-  !<ir insLen
-  !!ir (AST.interjmp addr InterJmpKind.Base)
-  !>ir insLen
-
-let ba ins insLen ctxt =
+let branch ins insLen ctxt =
   let addr = transOneOpr ins ctxt
   let ir = !*ctxt
   !<ir insLen
   !!ir (AST.interjmp addr InterJmpKind.Base)
   !>ir insLen
 
-let bl ins insLen ctxt =
-  let addr = numU64 ins.Address 32<rt> .+ transOneOpr ins ctxt
-  let lr = !.ctxt R.LR
-  let ir = !*ctxt
-  !<ir insLen
-  !!ir (AST.interjmp addr InterJmpKind.Base)
-  !!ir (lr := numU64 ins.Address 32<rt> .+ numI32 4 32<rt>)
-  !>ir insLen
-
-let bla ins insLen ctxt =
+let blx ins insLen ctxt =
   let addr = transOneOpr ins ctxt
-  let lr = !.ctxt R.LR
   let ir = !*ctxt
+  let lr = !.ctxt R.LR
   !<ir insLen
   !!ir (AST.interjmp addr InterJmpKind.Base)
   !!ir (lr := numU64 ins.Address 32<rt> .+ numI32 4 32<rt>)
@@ -1349,10 +1333,10 @@ let translate (ins: InsInfo) insLen (ctxt: TranslationContext) =
   | Op.ADDZEdot -> addzedot ins insLen ctxt
   | Op.AND -> andx ins insLen ctxt
   | Op.ANDIdot -> andidot ins insLen ctxt
-  | Op.B -> b ins insLen ctxt
-  | Op.BA -> ba ins insLen ctxt
-  | Op.BL -> bl ins insLen ctxt
-  | Op.BLA -> bla ins insLen ctxt
+  | Op.B -> branch ins insLen ctxt
+  | Op.BA -> branch ins insLen ctxt
+  | Op.BL -> blx ins insLen ctxt
+  | Op.BLA -> blx ins insLen ctxt
   | Op.BC -> bc ins insLen ctxt
   | Op.BGE -> bge ins insLen ctxt
   | Op.BLE -> ble ins insLen ctxt
