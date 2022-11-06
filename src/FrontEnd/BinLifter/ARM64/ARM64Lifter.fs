@@ -913,8 +913,26 @@ let orr ins insLen ctxt addr =
   let ir = !*ctxt
   !<ir insLen
   match ins.Operands with
-  | TwoOperands (OprSIMD _, _) | ThreeOperands (OprSIMD _, _, _) ->
-    !!ir (AST.sideEffect UnsupportedFP)
+  | TwoOperands ((OprSIMD _) as o1, o2) ->
+    let dstB, dstA = transOprToExpr128 ins ctxt addr o1
+    let imm = transOprToExpr ins ctxt addr o2
+    !!ir (dstA := dstA .| imm)
+    !!ir (dstB := AST.num0 64<rt>)
+  | ThreeOperands (OprSIMD _, OprImm _, _) ->
+    let struct (dst, imm, shf) = getThreeOprs ins
+    let dstB, dstA = transOprToExpr128 ins ctxt addr dst
+    let src = transBarrelShiftToExpr ins ctxt imm shf
+    !!ir (dstA := dstA .| src)
+    !!ir (dstB := AST.num0 64<rt>)
+  | ThreeOperands (OprSIMD (SIMDVecReg (_, v)) as o1, o2, o3) ->
+    let dstB, dstA = transOprToExpr128 ins ctxt addr o1
+    let src1B, src1A = transOprToExpr128 ins ctxt addr o2
+    let src2B, src2A = transOprToExpr128 ins ctxt addr o3
+    let elements, eSize = getElemNumAndSizeBySIMDVector v
+    let oprSize = elements * eSize
+    !!ir (dstA := src1A .| src2A)
+    if oprSize = 128<rt> then !!ir (dstB := src1B .| src2B)
+    else !!ir (dstB := AST.num0 64<rt>)
   | _ ->
     let dst, src1, src2 = transOprToExprOfORR ins ctxt addr
     !!ir (dstAssign ins.OprSize dst (src1 .| src2))
