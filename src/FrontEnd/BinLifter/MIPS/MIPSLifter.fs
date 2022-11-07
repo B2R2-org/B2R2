@@ -190,6 +190,21 @@ let private mul64BitReg src1 src2 ir =
   !!ir (tLow := AST.ite isSign (AST.neg low) low)
   struct (tHigh, tLow)
 
+let private mul64BitRegU src1 src2 ir =
+  let struct (hiSrc1, loSrc1, hiSrc2, loSrc2) = tmpVars4 ir 64<rt>
+  let n32 = numI32 32 64<rt>
+  let mask = numI64 0xFFFFFFFFL 64<rt>
+  !!ir (hiSrc1 := (src1 >> n32) .& mask) (* SRC1[63:32] *)
+  !!ir (loSrc1 := src1 .& mask) (* SRC1[31:0] *)
+  !!ir (hiSrc2 := (src2 >> n32) .& mask) (* SRC2[63:32] *)
+  !!ir (loSrc2 := src2 .& mask) (* SRC2[31:0] *)
+  let pHigh = hiSrc1 .* hiSrc2
+  let pMid = (hiSrc1 .* loSrc2) .+ (loSrc1 .* hiSrc2)
+  let pLow = (loSrc1 .* loSrc2)
+  let high = pHigh .+ ((pMid .+ (pLow >> n32)) >> n32)
+  let low = pLow .+ ((pMid .& mask) << n32)
+  struct (high, low)
+
 let add insInfo insLen ctxt =
   let ir = !*ctxt
   let lblL0 = !%ir "L0"
@@ -577,6 +592,18 @@ let dmult insInfo insLen ctxt =
   !<ir insLen
   let rs, rt = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
   let struct (high, low) = mul64BitReg rs rt ir
+  let hi = getRegVar ctxt R.HI
+  let lo = getRegVar ctxt R.LO
+  !!ir (lo := low)
+  !!ir (hi := high)
+  advancePC ctxt ir
+  !>ir insLen
+
+let dmultu insInfo insLen ctxt =
+  let ir = !*ctxt
+  !<ir insLen
+  let rs, rt = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
+  let struct (high, low) = mul64BitRegU rs rt ir
   let hi = getRegVar ctxt R.HI
   let lo = getRegVar ctxt R.LO
   !!ir (lo := low)
@@ -1224,7 +1251,8 @@ let translate insInfo insLen (ctxt: TranslationContext) =
   | Op.DIV when insInfo.Fmt.IsSome -> sideEffects insLen ctxt UnsupportedFP
   | Op.DIVU -> divu insInfo insLen ctxt
   | Op.DDIVU -> ddivu insInfo insLen ctxt
-  | Op.DMULT | Op.DMULTU -> dmult insInfo insLen ctxt
+  | Op.DMULT -> dmult insInfo insLen ctxt
+  | Op.DMULTU -> dmultu insInfo insLen ctxt
   | Op.DROTR -> drotr insInfo insLen ctxt
   | Op.DSLL -> dShiftLeftRight insInfo insLen ctxt (<<)
   | Op.DSLL32 -> dShiftLeftRight32 insInfo insLen ctxt (<<)
