@@ -72,7 +72,9 @@ type IRBuilder =
   ///   Returns an array of IR statements.
   /// </returns>
   member __.ToStmts () =
+#if EMULATION
     __.TempVarCount <- 0
+#endif
     let stmts = __.ToArray ()
     __.Clear ()
     stmts
