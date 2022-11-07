@@ -17,10 +17,6 @@ build:
         - dotnet test
         - dotnet test -c Release
         - dotnet pack -p:PackageVersion=0.0.0-test -c Release -o `pwd`/build/
-    artifacts:
-        paths:
-            - build/
-        expire_in: 3 hrs
     tags:
         - b2r2
 
