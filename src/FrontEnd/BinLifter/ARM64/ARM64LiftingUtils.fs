@@ -142,6 +142,32 @@ let extendReg ctxt reg typ shift oprSize =
   let rTyp = RegType.fromBitWidth len
   extend ((AST.xtlo rTyp  reg) << numI32 shift rTyp) oprSize isUnsigned
 
+/// Number and size of elements
+let getElemNumAndSizeBySIMDVector = function
+  | VecB -> 1, 8<rt>       (* Vector register names with element index *)
+  | VecH -> 1, 16<rt>
+  | VecS -> 1, 32<rt>
+  | VecD -> 1, 64<rt>
+  | EightB -> 8, 8<rt>     (* SIMD vector register names *)
+  | SixteenB -> 16, 8<rt>
+  | FourH -> 4, 16<rt>
+  | EightH -> 8, 16<rt>
+  | TwoS -> 2, 32<rt>
+  | FourS -> 4, 32<rt>
+  | OneD -> 1, 64<rt>
+  | TwoD -> 2, 64<rt>
+  | OneQ -> 1, 128<rt>
+
+let getElemNumAndSize oprSize = function
+  | SIMDFPScalarReg _ -> 1, oprSize
+  | SIMDVecReg (_, v) -> getElemNumAndSizeBySIMDVector v
+  | SIMDVecRegWithIdx (_, v, _) -> getElemNumAndSizeBySIMDVector v
+
+let getSIMDReg = function
+  | OprSIMD sReg -> sReg
+  | OprSIMDList regs -> regs[0]
+  | _ -> raise InvalidOperandException
+
 let transSIMDReg ctxt = function (* FIXME *)
   | SIMDFPScalarReg reg ->
     if Register.toRegType reg < 128<rt> then [ getRegVar ctxt reg ]
@@ -160,7 +186,12 @@ let transSIMDList ctxt = function (* FIXME *)
 let transSIMD ctxt = function (* FIXME *)
   | SIMDFPScalarReg reg -> getRegVar ctxt reg
   | SIMDVecReg (reg, v) -> getRegVar ctxt reg
-  | SIMDVecRegWithIdx (reg, v, idx) -> getRegVar ctxt reg
+  | SIMDVecRegWithIdx (reg, v, idx) ->
+    let regB, regA = getPseudoRegVar128 ctxt reg
+    let _, esize = getElemNumAndSizeBySIMDVector v
+    let index = int idx * int esize
+    if index < 64 then AST.extract regA esize index
+    else AST.extract regB esize (index % 64)
 
 let transImmOffset ctxt = function
   | BaseOffset (bReg, Some imm) ->
@@ -295,32 +326,6 @@ let transFourOprsWithBarrelShift ins ctxt addr =
     transOprToExpr ins ctxt addr o1,
     transOprToExpr ins ctxt addr o2,
     transBarrelShiftToExpr ins ctxt o3 o4
-  | _ -> raise InvalidOperandException
-
-/// Number and size of elements
-let getElemNumAndSizeBySIMDVector = function
-  | VecB -> 1, 8<rt>       (* Vector register names with element index *)
-  | VecH -> 1, 16<rt>
-  | VecS -> 1, 32<rt>
-  | VecD -> 1, 64<rt>
-  | EightB -> 8, 8<rt>     (* SIMD vector register names *)
-  | SixteenB -> 16, 8<rt>
-  | FourH -> 4, 16<rt>
-  | EightH -> 8, 16<rt>
-  | TwoS -> 2, 32<rt>
-  | FourS -> 4, 32<rt>
-  | OneD -> 1, 64<rt>
-  | TwoD -> 2, 64<rt>
-  | OneQ -> 1, 128<rt>
-
-let getElemNumAndSize oprSize = function
-  | SIMDFPScalarReg _ -> 1, oprSize
-  | SIMDVecReg (_, v) -> getElemNumAndSizeBySIMDVector v
-  | SIMDVecRegWithIdx (_, v, _) -> getElemNumAndSizeBySIMDVector v
-
-let getSIMDReg = function
-  | OprSIMD sReg -> sReg
-  | OprSIMDList regs -> regs[0]
   | _ -> raise InvalidOperandException
 
 let isRegOffset opr =

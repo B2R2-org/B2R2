@@ -873,7 +873,9 @@ let mov ins insLen ctxt addr =
   let ir = !*ctxt
   !<ir insLen
   match ins.Operands with
-  | TwoOperands (_, OprSIMD _) -> !!ir (AST.sideEffect UnsupportedFP)
+  | TwoOperands (_, OprSIMD _) ->
+    let dst, src = transTwoOprs ins ctxt addr
+    !!ir (dstAssign ins.OprSize dst src)
   | _ ->
     let dst, src = transTwoOprs ins ctxt addr
     !!ir (dstAssign ins.OprSize dst src)
