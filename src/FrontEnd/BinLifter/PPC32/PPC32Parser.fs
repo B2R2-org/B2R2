@@ -1583,169 +1583,193 @@ let parse1F bin =
 let parseLWZ bin =
   let rd = getRegister (extract bin 25u 21u) |> OprReg
   let ra = getRegister (extract bin 20u 16u)
-  let d = extract bin 15u 0u |> int32
-  let mem = (d, ra) |> OprMem (* d (rA) *)
+  let d = extract bin 15u 0u |> uint64
+  let value = signExtend 16 32 d |> int32
+  let mem = (value, ra) |> OprMem (* d (rA) *)
   struct (Op.LWZ, TwoOperands(rd, mem))
 
 let parseLWZU bin =
   let rd = getRegister (extract bin 25u 21u) |> OprReg
   let ra = getRegister (extract bin 20u 16u)
-  let d = extract bin 15u 0u |> int32
-  let mem = (d, ra) |> OprMem (* d (rA) *)
+  let d = extract bin 15u 0u |> uint64
+  let value = signExtend 16 32 d |> int32
+  let mem = (value, ra) |> OprMem (* d (rA) *)
   struct (Op.LWZU, TwoOperands(rd, mem))
 
 let parseLBZ bin =
   let rd = getRegister (extract bin 25u 21u) |> OprReg
   let ra = getRegister (extract bin 20u 16u)
-  let d = extract bin 15u 0u |> int32
-  let mem = (d, ra) |> OprMem (* d (rA) *)
+  let d = extract bin 15u 0u |> uint64
+  let value = signExtend 16 32 d |> int32
+  let mem = (value, ra) |> OprMem (* d (rA) *)
   struct (Op.LBZ, TwoOperands(rd, mem))
 
 let parseLBZU bin =
   let rd = getRegister (extract bin 25u 21u) |> OprReg
   let ra = getRegister (extract bin 20u 16u)
-  let d = extract bin 15u 0u |> int32
-  let mem = (d, ra) |> OprMem (* d (rA) *)
+  let d = extract bin 15u 0u |> uint64
+  let value = signExtend 16 32 d |> int32
+  let mem = (value, ra) |> OprMem (* d (rA) *)
   struct (Op.LBZU, TwoOperands(rd, mem))
 
 let parseSTW bin =
   let rs = getRegister (extract bin 25u 21u) |> OprReg
   let ra = getRegister (extract bin 20u 16u)
-  let d = extract bin 15u 0u |> int32
-  let mem = (d, ra) |> OprMem (* d (rA) *)
+  let d = extract bin 15u 0u |> uint64
+  let value = signExtend 16 32 d |> int32
+  let mem = (value, ra) |> OprMem (* d (rA) *)
   struct (Op.STW, TwoOperands(rs, mem))
 
 let parseSTWU bin =
   let rs = getRegister (extract bin 25u 21u) |> OprReg
   let ra = getRegister (extract bin 20u 16u)
-  let d = extract bin 15u 0u |> int32
-  let mem = (d, ra) |> OprMem (* d (rA) *)
+  let d = extract bin 15u 0u |> uint64
+  let value = signExtend 16 32 d |> int32
+  let mem = (value, ra) |> OprMem (* d (rA) *)
   struct (Op.STWU, TwoOperands(rs, mem))
 
 let parseSTB bin =
   let rs = getRegister (extract bin 25u 21u) |> OprReg
   let ra = getRegister (extract bin 20u 16u)
-  let d = extract bin 15u 0u |> int32
-  let mem = (d, ra) |> OprMem (* d (rA) *)
+  let d = extract bin 15u 0u |> uint64
+  let value = signExtend 16 32 d |> int32
+  let mem = (value, ra) |> OprMem (* d (rA) *)
   struct (Op.STB, TwoOperands(rs, mem))
 
 let parseSTBU bin =
   let rs = getRegister (extract bin 25u 21u) |> OprReg
   let ra = getRegister (extract bin 20u 16u)
-  let d = extract bin 15u 0u |> int32
-  let mem = (d, ra) |> OprMem (* d (rA) *)
+  let d = extract bin 15u 0u |> uint64
+  let value = signExtend 16 32 d |> int32
+  let mem = (value, ra) |> OprMem (* d (rA) *)
   struct (Op.STBU, TwoOperands(rs, mem))
 
 let parseLHZ bin =
   let rd = getRegister (extract bin 25u 21u) |> OprReg
   let ra = getRegister (extract bin 20u 16u)
-  let d = extract bin 15u 0u |> int32
-  let mem = (d, ra) |> OprMem (* d (rA) *)
+  let d = extract bin 15u 0u |> uint64
+  let value = signExtend 16 32 d |> int32
+  let mem = (value, ra) |> OprMem (* d (rA) *)
   struct (Op.LHZ, TwoOperands(rd, mem))
 
 let parseLHZU bin =
   let rd = getRegister (extract bin 25u 21u) |> OprReg
   let ra = getRegister (extract bin 20u 16u)
-  let d = extract bin 15u 0u |> int32
-  let mem = (d, ra) |> OprMem (* d (rA) *)
+  let d = extract bin 15u 0u |> uint64
+  let value = signExtend 16 32 d |> int32
+  let mem = (value, ra) |> OprMem (* d (rA) *)
   struct (Op.LHZU, TwoOperands(rd, mem))
 
 let parseLHA bin =
   let rd = getRegister (extract bin 25u 21u) |> OprReg
   let ra = getRegister (extract bin 20u 16u)
-  let d = extract bin 15u 0u |> int32
-  let mem = (d, ra) |> OprMem (* d (rA) *)
+  let d = extract bin 15u 0u |> uint64
+  let value = signExtend 16 32 d |> int32
+  let mem = (value, ra) |> OprMem (* d (rA) *)
   struct (Op.LHA, TwoOperands(rd, mem))
 
 let parseLHAU bin =
   let rd = getRegister (extract bin 25u 21u) |> OprReg
   let ra = getRegister (extract bin 20u 16u)
-  let d = extract bin 15u 0u |> int32
-  let mem = (d, ra) |> OprMem (* d (rA) *)
+  let d = extract bin 15u 0u |> uint64
+  let value = signExtend 16 32 d |> int32
+  let mem = (value, ra) |> OprMem (* d (rA) *)
   struct (Op.LHAU, TwoOperands(rd, mem))
 
 let parseSTH bin =
   let rs = getRegister (extract bin 25u 21u) |> OprReg
   let ra = getRegister (extract bin 20u 16u)
-  let d = extract bin 15u 0u |> int32
-  let mem = (d, ra) |> OprMem (* d (rA) *)
+  let d = extract bin 15u 0u |> uint64
+  let value = signExtend 16 32 d |> int32
+  let mem = (value, ra) |> OprMem (* d (rA) *)
   struct (Op.STH, TwoOperands(rs, mem))
 
 let parseSTHU bin =
   let rs = getRegister (extract bin 25u 21u) |> OprReg
   let ra = getRegister (extract bin 20u 16u)
-  let d = extract bin 15u 0u |> int32
-  let mem = (d, ra) |> OprMem (* d (rA) *)
+  let d = extract bin 15u 0u |> uint64
+  let value = signExtend 16 32 d |> int32
+  let mem = (value, ra) |> OprMem (* d (rA) *)
   struct (Op.STHU, TwoOperands(rs, mem))
 
 let parseLMW bin =
   let rd = getRegister (extract bin 25u 21u) |> OprReg
   let ra = getRegister (extract bin 20u 16u)
-  let d = extract bin 15u 0u |> int32
-  let mem = (d, ra) |> OprMem (* d (rA) *)
+  let d = extract bin 15u 0u |> uint64
+  let value = signExtend 16 32 d |> int32
+  let mem = (value, ra) |> OprMem (* d (rA) *)
   struct (Op.LMW, TwoOperands(rd, mem))
 
 let parseSTMW bin =
   let rs = getRegister (extract bin 25u 21u) |> OprReg
   let ra = getRegister (extract bin 20u 16u)
-  let d = extract bin 15u 0u |> int32
-  let mem = (d, ra) |> OprMem (* d (rA) *)
+  let d = extract bin 15u 0u |> uint64
+  let value = signExtend 16 32 d |> int32
+  let mem = (value, ra) |> OprMem (* d (rA) *)
   struct (Op.STMW, TwoOperands(rs, mem))
 
 let parseLFS bin =
   let frd = getFPRegister (extract bin 25u 21u) |> OprReg
   let ra = getRegister (extract bin 20u 16u)
-  let d = extract bin 15u 0u |> int32
-  let mem = (d, ra) |> OprMem (* d (rA) *)
+  let d = extract bin 15u 0u |> uint64
+  let value = signExtend 16 32 d |> int32
+  let mem = (value, ra) |> OprMem (* d (rA) *)
   struct (Op.LFS, TwoOperands(frd, mem))
 
 let parseLFSU bin =
   let frd = getFPRegister (extract bin 25u 21u) |> OprReg
   let ra = getRegister (extract bin 20u 16u)
-  let d = extract bin 15u 0u |> int32
-  let mem = (d, ra) |> OprMem (* d (rA) *)
+  let d = extract bin 15u 0u |> uint64
+  let value = signExtend 16 32 d |> int32
+  let mem = (value, ra) |> OprMem (* d (rA) *)
   struct (Op.LFSU, TwoOperands(frd, mem))
 
 let parseLFD bin =
   let frd = getFPRegister (extract bin 25u 21u) |> OprReg
   let ra = getRegister (extract bin 20u 16u)
-  let d = extract bin 15u 0u |> int32
-  let mem = (d, ra) |> OprMem (* d (rA) *)
+  let d = extract bin 15u 0u |> uint64
+  let value = signExtend 16 32 d |> int32
+  let mem = (value, ra) |> OprMem (* d (rA) *)
   struct (Op.LFD, TwoOperands(frd, mem))
 
 let parseLFDU bin =
   let frd = getFPRegister (extract bin 25u 21u) |> OprReg
   let ra = getRegister (extract bin 20u 16u)
-  let d = extract bin 15u 0u |> int32
-  let mem = (d, ra) |> OprMem (* d (rA) *)
+  let d = extract bin 15u 0u |> uint64
+  let value = signExtend 16 32 d |> int32
+  let mem = (value, ra) |> OprMem (* d (rA) *)
   struct (Op.LFDU, TwoOperands(frd, mem))
 
 let parseSTFS bin =
   let frs = getFPRegister (extract bin 25u 21u) |> OprReg
   let ra = getRegister (extract bin 20u 16u)
-  let d = extract bin 15u 0u |> int32
-  let mem = (d, ra) |> OprMem (* d (rA) *)
+  let d = extract bin 15u 0u |> uint64
+  let value = signExtend 16 32 d |> int32
+  let mem = (value, ra) |> OprMem (* d (rA) *)
   struct (Op.STFS, TwoOperands(frs, mem))
 
 let parseSTFSU bin =
   let frs = getFPRegister (extract bin 25u 21u) |> OprReg
   let ra = getRegister (extract bin 20u 16u)
-  let d = extract bin 15u 0u |> int32
-  let mem = (d, ra) |> OprMem (* d (rA) *)
+  let d = extract bin 15u 0u |> uint64
+  let value = signExtend 16 32 d |> int32
+  let mem = (value, ra) |> OprMem (* d (rA) *)
   struct (Op.STFSU, TwoOperands(frs, mem))
 
 let parseSTFD bin =
   let frs = getFPRegister (extract bin 25u 21u) |> OprReg
   let ra = getRegister (extract bin 20u 16u)
-  let d = extract bin 15u 0u |> int32
-  let mem = (d, ra) |> OprMem (* d (rA) *)
+  let d = extract bin 15u 0u |> uint64
+  let value = signExtend 16 32 d |> int32
+  let mem = (value, ra) |> OprMem (* d (rA) *)
   struct (Op.STFD, TwoOperands(frs, mem))
 
 let parseSTFDU bin =
   let frs = getFPRegister (extract bin 25u 21u) |> OprReg
   let ra = getRegister (extract bin 20u 16u)
-  let d = extract bin 15u 0u |> int32
-  let mem = (d, ra) |> OprMem (* d (rA) *)
+  let d = extract bin 15u 0u |> uint64
+  let value = signExtend 16 32 d |> int32
+  let mem = (value, ra) |> OprMem (* d (rA) *)
   struct (Op.STFDU, TwoOperands(frs, mem))
 
 let parseFDIVSx bin =
