@@ -49,6 +49,9 @@ let oprSzToExpr oprSize = numI32 (RegType.toBitWidth oprSize) oprSize
 
 let inline private (<!) (ir: IRBuilder) (s) = ir.Append (s)
 
+let vectorToList vector esize =
+  List.init (64 / int esize) (fun e -> AST.extract vector esize (e * int esize))
+
 let getTwoOprs ins =
   match ins.Operands with
   | TwoOperands (o1, o2) -> struct (o1, o2)
