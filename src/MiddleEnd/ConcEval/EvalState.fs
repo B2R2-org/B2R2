@@ -28,29 +28,14 @@ open System.Runtime.InteropServices
 open B2R2
 open B2R2.BinIR
 
-type PerInstrHandler =
-  delegate of EvalState -> EvalState
-
-and LoadEventHandler =
-  delegate of Addr * Addr * BitVector -> unit
-
-and LoadFailureEventHandler =
+type LoadFailureEventHandler =
   delegate of Addr * Addr * RegType * ErrorCase -> Result<BitVector, ErrorCase>
-
-and StoreEventHandler =
-  delegate of Addr * Addr * BitVector -> unit
-
-and PutEventHandler =
-  delegate of Addr * BitVector -> unit
 
 and ExternalCallEventHandler =
   delegate of BitVector list * EvalState -> unit
 
 and SideEffectEventHandler =
   delegate of SideEffect * EvalState -> unit
-
-and StmtEvalEventHandler =
-  delegate of LowUIR.Stmt -> unit
 
 /// The main evaluation state that will be updated by evaluating every statement
 /// encountered during the course of execution. This can be considered as a
@@ -62,19 +47,14 @@ and EvalState (regs, temps, lbls, mem, ignoreUndef) =
   let mutable currentInsLen = 0u
   let mutable isInstrTerminated = false
   let mutable needToEvaluateIEMark = false
-  let mutable perInstrHdl = PerInstrHandler id
-  let mutable loadEventHdl = LoadEventHandler (fun _ _ _ -> ())
   let mutable loadFailureHdl = LoadFailureEventHandler (fun _ _ _ e -> Error e)
-  let mutable storeEventHdl = StoreEventHandler (fun _ _ _ -> ())
-  let mutable putEventHdl = PutEventHandler (fun _ _ -> ())
   let mutable externalCallEventHdl = ExternalCallEventHandler (fun _ _ -> ())
   let mutable sideEffectHdl = SideEffectEventHandler (fun _ _ -> ())
-  let mutable stmtEvalHdl = StmtEvalEventHandler ignore
 
   /// This constructor will simply create a fresh new EvalState.
   new () =
-    EvalState (Variables (Variables.MaxNumVars),
-               Variables (Variables.MaxNumTemporaries),
+    EvalState (Variables (),
+               Variables (),
                Labels (),
                NonsharableMemory () :> Memory,
                false)
@@ -82,8 +62,8 @@ and EvalState (regs, temps, lbls, mem, ignoreUndef) =
   /// This constructor will simply create a fresh new EvalState with the given
   /// memory.
   new (mem) =
-    EvalState (Variables (Variables.MaxNumVars),
-               Variables (Variables.MaxNumTemporaries),
+    EvalState (Variables (),
+               Variables (),
                Labels (),
                mem,
                false)
@@ -93,8 +73,8 @@ and EvalState (regs, temps, lbls, mem, ignoreUndef) =
   /// silently ignore Undef values. Such a feature is only useful for some
   /// static analyses.
   new (ignoreUndef) =
-    EvalState (Variables (Variables.MaxNumVars),
-               Variables (Variables.MaxNumTemporaries),
+    EvalState (Variables (),
+               Variables (),
                Labels (),
                NonsharableMemory () :> Memory,
                ignoreUndef)
@@ -211,26 +191,9 @@ and EvalState (regs, temps, lbls, mem, ignoreUndef) =
     __.Labels.Update stmts
     __.StmtIdx <- 0
 
-  /// Per-instruction handler.
-  member __.PerInstrHandler
-    with get() = perInstrHdl and set(f) = perInstrHdl <- f
-
-  /// Memory load event handler.
-  member __.LoadEventHandler
-    with get() = loadEventHdl and set(f) = loadEventHdl <- f
-
   /// Memory load failure (access violation) event handler.
   member __.LoadFailureEventHandler
     with get() = loadFailureHdl and set(f) = loadFailureHdl <- f
-
-  /// Memory store event handler.
-  member __.StoreEventHandler
-    with get() = storeEventHdl and set(f) = storeEventHdl <- f
-
-  /// Put event handler. The first parameter is PC, and the second is the value
-  /// that is put to the destination.
-  member __.PutEventHandler
-    with get() = putEventHdl and set(f) = putEventHdl <- f
 
   /// External call event handler.
   member __.ExternalCallEventHandler
@@ -240,33 +203,14 @@ and EvalState (regs, temps, lbls, mem, ignoreUndef) =
   member __.SideEffectEventHandler
     with get() = sideEffectHdl and set(f) = sideEffectHdl <- f
 
-  /// Statement evaluation event handler.
-  member __.StmtEvalEventHandler
-    with get() = stmtEvalHdl and set(f) = stmtEvalHdl <- f
-
-  member internal __.OnInstr st =
-    __.PerInstrHandler.Invoke st
-
-  member internal __.OnLoad pc addr v =
-    __.LoadEventHandler.Invoke (pc, addr, v)
-
   member internal __.OnLoadFailure pc addr rt e =
     __.LoadFailureEventHandler.Invoke (pc, addr, rt, e)
-
-  member internal __.OnStore pc addr v =
-    __.StoreEventHandler.Invoke (pc, addr, v)
-
-  member internal __.OnPut pc v =
-    __.PutEventHandler.Invoke (pc, v)
 
   member internal __.OnExternalCall args st =
     __.ExternalCallEventHandler.Invoke (args, st)
 
   member internal __.OnSideEffect eff st =
     __.SideEffectEventHandler.Invoke (eff, st)
-
-  member internal __.OnStmtEval stmt =
-    __.StmtEvalEventHandler.Invoke (stmt)
 
   /// Make a copy of this EvalState with a given new Memory.
   member __.Clone (newMem) =
@@ -281,14 +225,9 @@ and EvalState (regs, temps, lbls, mem, ignoreUndef) =
                CurrentInsLen=currentInsLen,
                IsInstrTerminated=isInstrTerminated,
                NeedToEvaluateIEMark=needToEvaluateIEMark,
-               PerInstrHandler=perInstrHdl,
-               LoadEventHandler=loadEventHdl,
                LoadFailureEventHandler=loadFailureHdl,
-               StoreEventHandler=storeEventHdl,
-               PutEventHandler=putEventHdl,
                ExternalCallEventHandler=externalCallEventHdl,
-               SideEffectEventHandler=sideEffectHdl,
-               StmtEvalEventHandler=stmtEvalHdl)
+               SideEffectEventHandler=sideEffectHdl)
 
   /// Make a copy of this EvalState.
   member __.Clone () = __.Clone (mem)

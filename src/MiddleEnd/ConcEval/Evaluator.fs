@@ -51,9 +51,7 @@ let rec evalConcrete (st: EvalState) e =
 and private evalLoad st endian t addr =
   let addr = evalConcrete st addr |> BitVector.ToUInt64
   match st.Memory.Read addr endian t with
-  | Ok v ->
-    st.OnLoad st.PC addr v
-    v
+  | Ok v -> v
   | Error e ->
     match st.OnLoadFailure st.PC addr t e with
     | Ok v -> v
@@ -130,7 +128,6 @@ and private evalRelOp st e1 e2 typ =
 
 let private evalPCUpdate st rhs =
   let v = evalConcrete st rhs
-  st.OnPut st.PC v
   st.PC <- BitVector.ToUInt64 v
 
 let evalUndef (st: EvalState) lhs =
@@ -142,7 +139,6 @@ let evalUndef (st: EvalState) lhs =
 let private evalPut st lhs rhs =
   try
     let v = evalConcrete st rhs
-    st.OnPut st.PC v
     match lhs.E with
     | Var (_, n, _, _) -> st.SetReg n v
     | TempVar (_, n) -> st.SetTmp n v
@@ -160,7 +156,6 @@ let private evalPut st lhs rhs =
 let private evalStore st endian addr v =
   let addr = evalConcrete st addr |> BitVector.ToUInt64
   let v = evalConcrete st v
-  st.OnStore st.PC addr v
   st.Memory.Write addr v endian
 
 let private evalJmp (st: EvalState) target =
@@ -215,17 +210,14 @@ let internal tryEvaluate stmt st =
 let rec evalStmts stmts (st: EvalState) =
   let idx = st.StmtIdx
   let numStmts = Array.length stmts
-  let st = if idx = 0 then st.OnInstr st else st
   if numStmts > idx then
     if st.IsInstrTerminated then
       if st.NeedToEvaluateIEMark then
         let stmt = stmts[numStmts - 1]
-        st.OnStmtEval stmt
         tryEvaluate stmt st
       else ()
     else
       let stmt = stmts[idx]
-      st.OnStmtEval stmt
       tryEvaluate stmt st
       evalStmts stmts st
   else ()
