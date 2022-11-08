@@ -219,6 +219,12 @@ let evalStmt (st: EvalState) = function
   | Store (e, addr, v) -> evalStore st e addr v |> Result.map st.NextStmt
   | Jmp target -> evalJmp st target
   | CJmp (cond, t, f) -> evalCJmp st cond t f
+  | InterJmp (target, InterJmpKind.SwitchToARM) ->
+    st.Mode <- ArchOperationMode.ARMMode
+    evalPCUpdate st target |> Result.map st.AbortInstr
+  | InterJmp (target, InterJmpKind.SwitchToThumb) ->
+    st.Mode <- ArchOperationMode.ThumbMode
+    evalPCUpdate st target |> Result.map st.AbortInstr
   | InterJmp (target, _) -> evalPCUpdate st target |> Result.map st.AbortInstr
   | InterCJmp (c, t, f) -> evalIntCJmp st c t f |> Result.map st.AbortInstr
   | ExternalCall (args) ->
