@@ -461,6 +461,43 @@ let checkSubnormal rt e =
     (e .& fullMantissa != AST.num0 64<rt>)
   | _ -> raise InvalidRegTypeException
 
+let private checkOverfolwOnDMul e1 e2 =
+  let mask64 = numI64 0xFFFFFFFFFFFFFFFFL 64<rt>
+  let bit32 = numI64 0x100000000L 64<rt>
+  let cond = mask64 .- e1 .< e2
+  AST.ite cond bit32 (AST.num0 64<rt>)
+
+let private mul64BitReg src1 src2 ir isSign =
+  let struct (hiSrc1, loSrc1, hiSrc2, loSrc2) = tmpVars4 ir 64<rt>
+  let struct (tHigh, tLow) = tmpVars2 ir 64<rt>
+  let struct (src1IsNeg, src2IsNeg, signBit) = tmpVars3 ir 1<rt>
+  let n32 = numI32 32 64<rt>
+  let mask32 = numI64 0xFFFFFFFFL 64<rt>
+  if isSign then
+    !!ir (src1IsNeg := AST.xthi 1<rt> src1)
+    !!ir (src2IsNeg := AST.xthi 1<rt> src2)
+    !!ir (src1 := AST.ite src1IsNeg (AST.neg src1) src1)
+    !!ir (src2 := AST.ite src2IsNeg (AST.neg src2) src2)
+  else ()
+  !!ir (hiSrc1 := (src1 >> n32) .& mask32) (* SRC1[63:32] *)
+  !!ir (loSrc1 := src1 .& mask32) (* SRC1[31:0] *)
+  !!ir (hiSrc2 := (src2 >> n32) .& mask32) (* SRC2[63:32] *)
+  !!ir (loSrc2 := src2 .& mask32) (* SRC2[31:0] *)
+  let pHigh = hiSrc1 .* hiSrc2
+  let pMid= (hiSrc1 .* loSrc2) .+ (loSrc1 .* hiSrc2)
+  let pLow = loSrc1 .* loSrc2
+  let overFlowBit = checkOverfolwOnDMul (hiSrc1 .* loSrc2) (loSrc1 .* hiSrc2)
+  let high = pHigh .+ ((pMid .+ (pLow >> n32)) >> n32) .+ overFlowBit
+  let low = pLow .+ ((pMid .& mask32) << n32)
+  if isSign then
+    !!ir (signBit := src1IsNeg <+> src2IsNeg)
+    !!ir (tHigh := AST.ite signBit (AST.not high) high)
+    !!ir (tLow := AST.ite signBit (AST.neg low) low)
+  else
+    !!ir (tHigh := high)
+    !!ir (tLow := low)
+  struct (tHigh, tLow)
+
 let add insInfo insLen ctxt =
   let ir = !*ctxt
   let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
@@ -836,48 +873,20 @@ let sraiw insInfo insLen ctxt =
   !!ir (rd := AST.sext 64<rt> retValue)
   !>ir insLen
 
-let mul insInfo insLen ctxt =
+let mul insInfo insLen ctxt isSign =
   let ir = !*ctxt
   let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
-  let extendedRs1 = AST.sext 128<rt> rs1
-  let extendedRs2 = AST.sext 128<rt> rs2
-  let retValue = !+ir 128<rt>
+  let struct (_, low) = mul64BitReg rs1 rs2 ir isSign
   !<ir insLen
-  !!ir (retValue := extendedRs1 .* extendedRs2)
-  !!ir (rd := AST.xtlo 64<rt> retValue)
+  !!ir (rd := low)
   !>ir insLen
 
-let mulh insInfo insLen ctxt =
+let mulhSignOrUnsign insInfo insLen ctxt isSign =
   let ir = !*ctxt
   let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
-  let extendedRs1 = AST.sext 128<rt> rs1
-  let extendedRs2 = AST.sext 128<rt> rs2
-  let retValue = !+ir 128<rt>
+  let struct (high, _) = mul64BitReg rs1 rs2 ir isSign
   !<ir insLen
-  !!ir (retValue := extendedRs1 .* extendedRs2)
-  !!ir (rd := AST.xthi 64<rt> retValue)
-  !>ir insLen
-
-let mulhu insInfo insLen ctxt =
-  let ir = !*ctxt
-  let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
-  let extendedRs1 = AST.zext 128<rt> rs1
-  let extendedRs2 = AST.zext 128<rt> rs2
-  let retValue = !+ir 128<rt>
-  !<ir insLen
-  !!ir (retValue := extendedRs1 .* extendedRs2)
-  !!ir (rd := AST.xthi 64<rt> retValue)
-  !>ir insLen
-
-let mulhsu insInfo insLen ctxt =
-  let ir = !*ctxt
-  let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
-  let extendedRs1 = AST.sext 128<rt> rs1
-  let extendedRs2 = AST.zext 128<rt> rs2
-  let retValue = !+ir 128<rt>
-  !<ir insLen
-  !!ir (retValue := extendedRs1 .* extendedRs2)
-  !!ir (rd := AST.xthi 64<rt> retValue)
+  !!ir (rd := high)
   !>ir insLen
 
 let mulw insInfo insLen ctxt =
@@ -2228,10 +2237,10 @@ let translate insInfo insLen (ctxt: TranslationContext) =
   | Op.SLLIW -> slliw insInfo insLen ctxt
   | Op.SRLIW -> srliw insInfo insLen ctxt
   | Op.SRAIW -> sraiw insInfo insLen ctxt
-  | Op.MUL -> mul insInfo insLen ctxt
-  | Op.MULH -> mulh insInfo insLen ctxt
-  | Op.MULHSU -> mulhsu insInfo insLen ctxt
-  | Op.MULHU -> mulhu insInfo insLen ctxt
+  | Op.MUL -> mul insInfo insLen ctxt true
+  | Op.MULH -> mulhSignOrUnsign insInfo insLen ctxt true
+  | Op.MULHU -> mulhSignOrUnsign insInfo insLen ctxt false
+  | Op.MULHSU -> mulhSignOrUnsign insInfo insLen ctxt true
   | Op.MULW -> mulw insInfo insLen ctxt
   | Op.CdotNOP -> nop insLen ctxt
   | Op.CdotFLD
