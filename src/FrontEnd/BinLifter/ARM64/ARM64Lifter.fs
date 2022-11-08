@@ -87,6 +87,37 @@ let add ins insLen ctxt addr =
   | _ -> raise InvalidOperandException
   !>ir insLen
 
+let addp ins insLen ctxt addr =
+  let ir = !*ctxt
+  !<ir insLen
+  let struct (dst, src1, src2) = getThreeOprs ins
+  let dstB, dstA = transOprToExpr128 ins ctxt addr dst
+  let src1B, src1A = transOprToExpr128 ins ctxt addr src1
+  let src2B, src2A = transOprToExpr128 ins ctxt addr src2
+  let elements, eSize = getElemNumAndSize ins.OprSize (getSIMDReg src2)
+  let oprSize = elements * eSize
+  let struct (element1, element2) = tmpVars2 ir eSize
+  let result = Array.init (elements * 2) (fun _ -> !+ir eSize)
+  let src1 =
+    if oprSize = 64<rt> then vectorToList src1A eSize
+    else List.append (vectorToList src1B eSize) (vectorToList src1A eSize)
+  let src2 =
+    if oprSize = 64<rt> then vectorToList src2A eSize
+    else List.append (vectorToList src2B eSize) (vectorToList src2A eSize)
+  let concat = List.append src2 src1
+  for e in 0 .. elements - 1 do
+    !!ir (element1 := concat[2 * e])
+    !!ir (element2 := concat[2 * e + 1])
+    !!ir (result[e] := element1 .+ element2)
+  done
+  if oprSize = 64<rt> then
+    !!ir (dstA := AST.concatArr result[0 .. elements - 1])
+    !!ir (dstB := AST.num0 64<rt>)
+  else
+    !!ir (dstA := AST.concatArr result[0 .. (elements / 2) - 1])
+    !!ir (dstB := AST.concatArr result[(elements / 2) .. elements - 1])
+  !>ir insLen
+
 let adds ins insLen ctxt addr =
   let ir = !*ctxt
   let dst, src1, src2 = transFourOprsWithBarrelShift ins ctxt addr
@@ -1468,8 +1499,9 @@ let translate ins insLen ctxt =
   match ins.Opcode with
   | Opcode.ADC -> adc ins insLen ctxt addr
   | Opcode.ADD -> add ins insLen ctxt addr
+  | Opcode.ADDP -> addp ins insLen ctxt addr
   | Opcode.ADDS -> adds ins insLen ctxt addr
-  | Opcode.ADDP | Opcode.ADDV -> sideEffects insLen ctxt UnsupportedFP
+  | Opcode.ADDV -> sideEffects insLen ctxt UnsupportedFP
   | Opcode.ADR -> adr ins insLen ctxt addr
   | Opcode.ADRP -> adrp ins insLen ctxt addr
   | Opcode.AND -> logAnd ins insLen ctxt addr
