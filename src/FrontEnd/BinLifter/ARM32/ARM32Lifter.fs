@@ -1242,6 +1242,12 @@ let translateLogicOp (ins: InsInfo) insLen ctxt (ir: IRBuilder) =
     let struct (e1, e2, e3) = transThreeOprs ins ctxt
     let carryOut = computeCarryOutFromImmCflag ins insLen ctxt
     e1, e2, e3, carryOut
+  | ThreeOperands (OprReg _, OprReg _, OprReg _) ->
+    let t = !+ir 32<rt>
+    let struct (e1, e2, e3) = transThreeOprs ins ctxt
+    !!ir (t := e3)
+    let shifted, carryOut = shiftC t 32<rt> SRTypeLSL 0u (getCarryFlag ctxt)
+    e1, e2, shifted, carryOut
   | FourOperands (opr1, opr2, opr3, OprShift (typ, Imm imm)) ->
     let t = !+ir 32<rt>
     let carryIn = getCarryFlag ctxt
