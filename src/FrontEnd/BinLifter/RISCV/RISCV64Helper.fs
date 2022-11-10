@@ -143,7 +143,9 @@ let getCompRegFrom42 b = getCompRegister (extract b 4u 2u |> byte)
 let getFCompRegFrom42 b = getFCompRegister (extract b 4u 2u |> byte)
 let getCompRegFrom97 b = getCompRegister (extract b 9u 7u |> byte)
 
-let getUImm b = b &&& 0xfffff000u
+let getUImm b wordSize =
+  let imm = extract b 31u 12u |> uint64
+  signExtend 20 wordSize imm
 
 let getBImm b wordSize =
   let from4to1 = (extract b 11u 8u) <<< 1
@@ -196,8 +198,8 @@ let crs1Comp b = getCompRegFrom97 b |> OpReg
 let getPred bin = extract bin 27u 24u |> uint8
 let getSucc bin = extract bin 23u 20u |> uint8
 let getAqRl bin = OpAtomMemOper(pickBit bin 26u > 0u, pickBit bin 25u > 0u)
-let getRdImm20 b = TwoOperands (rd b, getUImm b |> uint64 |> OpImm)
-let getPCRdImm20 b = TwoOperands (rd b, getUImm b |> uint64 |> OpImm)
+let getRdImm20 b wordSz = TwoOperands (rd b, getUImm b wordSz |> OpImm)
+let getPCRdImm20 b wordSz = TwoOperands (rd b, getUImm b wordSz |> OpImm)
 let getRs1Rs2BImm b wordSz =
   ThreeOperands (rs1 b, rs2 b, getBImm b wordSz |> int64 |> Relative |> OpAddr)
 let getRdRs1IImmAcc b acc wordSize =

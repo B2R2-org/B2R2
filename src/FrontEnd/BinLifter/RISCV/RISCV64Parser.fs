@@ -35,11 +35,11 @@ let isTwoBytes b =
 let getRegister = function
   | _ -> raise ParsingFailureException
 
-let parseLUI bin =
-  struct (Op.LUI, getRdImm20 bin)
+let parseLUI bin wordSize =
+  struct (Op.LUI, getRdImm20 bin wordSize)
 
-let parseAUIPC bin =
-  struct (Op.AUIPC, getPCRdImm20 bin)
+let parseAUIPC bin wordSize =
+  struct (Op.AUIPC, getPCRdImm20 bin wordSize)
 
 let parseBranch bin wordSize =
   let opcode =
@@ -659,8 +659,8 @@ let private parseCompressedInstruction wordSize bin =
 
 let private parseInstruction wordSize bin =
   match extract bin 6u 0u with
-  | 0b0110111u -> parseLUI bin
-  | 0b0010111u -> parseAUIPC bin
+  | 0b0110111u -> parseLUI bin wordSize
+  | 0b0010111u -> parseAUIPC bin wordSize
   | 0b1101111u -> parseJAL bin wordSize
   | 0b1100111u -> parseJALR bin wordSize
   | 0b1100011u -> parseBranch bin wordSize

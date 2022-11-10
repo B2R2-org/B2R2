@@ -819,18 +819,18 @@ let sideEffects insLen ctxt name =
 let lui insInfo insLen ctxt =
   let ir = !*ctxt
   let rd, imm = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
+  let imm = imm << numI32 12 ctxt.WordBitSize
   !<ir insLen
-  !!ir (rd := AST.sext 64<rt> imm)
+  !!ir (rd := imm)
   !>ir insLen
 
 let auipc insInfo insLen ctxt =
   let ir = !*ctxt
   let rd, imm = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
+  let imm = imm << numI32 12 ctxt.WordBitSize
   let pc = bvOfBaseAddr ctxt insInfo.Address
-  let tmpImm = !+ir 64<rt>
   !<ir insLen
-  !!ir (tmpImm := AST.sext 64<rt> imm)
-  !!ir (rd := tmpImm .+ pc)
+  !!ir (rd := pc .+ imm)
   !>ir insLen
 
 let addiw insInfo insLen ctxt =
