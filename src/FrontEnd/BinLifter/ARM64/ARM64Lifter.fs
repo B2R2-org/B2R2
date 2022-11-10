@@ -1553,6 +1553,7 @@ let translate ins insLen ctxt =
   | Opcode.CSETM | Opcode.CINV | Opcode.CSINV -> csinv ins insLen ctxt addr
   | Opcode.CSINC | Opcode.CINC | Opcode.CSET -> csinc ins insLen ctxt addr
   | Opcode.DUP -> dup ins insLen ctxt addr
+  | Opcode.DMB | Opcode.DSB | Opcode.ISB -> nop insLen ctxt
   | Opcode.EOR | Opcode.EON -> eor ins insLen ctxt addr
   | Opcode.EXT -> sideEffects insLen ctxt UnsupportedFP
   | Opcode.EXTR | Opcode.ROR -> extr ins insLen ctxt addr
