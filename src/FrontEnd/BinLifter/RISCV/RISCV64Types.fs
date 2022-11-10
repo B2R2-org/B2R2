@@ -277,7 +277,7 @@ and JumpTarget =
   | Relative of int64
   | RelativeBase of Base * Imm
 and Offset =
-  | Imm of uint64
+  | Imm of int64
 and AccessLength = RegType
 and Base = Register
 

@@ -201,18 +201,18 @@ let getPCRdImm20 b = TwoOperands (rd b, getUImm b |> uint64 |> OpImm)
 let getRs1Rs2BImm b wordSz =
   ThreeOperands (rs1 b, rs2 b, getBImm b wordSz |> int64 |> Relative |> OpAddr)
 let getRdRs1IImmAcc b acc wordSize =
-  let mem = (getRegFrom1915 b, getIImm b wordSize |> uint64 |> Imm |> Some, acc)
+  let mem = (getRegFrom1915 b, getIImm b wordSize |> int64 |> Imm |> Some, acc)
   TwoOperands (rd b, mem |> OpMem)
 let getRdRs1IImm b wordSize =
   ThreeOperands (rd b, rs1 b, getIImm b wordSize |> uint64 |> OpImm)
 let getFRdRs1Addr b acc wordSize =
-  let imm = getIImm b wordSize |> uint64 |> Imm |> Some
+  let imm = getIImm b wordSize |> int64 |> Imm |> Some
   TwoOperands(frd b, OpMem (getRegFrom1915 b, imm, acc))
 let getRs2Rs1SImm b acc wordSize =
-  let mem = (getRegFrom1915 b, getSImm b wordSize|> uint64 |> Imm |> Some, acc)
+  let mem = (getRegFrom1915 b, getSImm b wordSize |> int64 |> Imm |> Some, acc)
   TwoOperands (rs2 b, mem |> OpMem)
 let getFRs2Rs1Addr b acc wordSize =
-  let imm = getSImm b wordSize |> uint64 |> Imm |> Some
+  let imm = getSImm b wordSize |> int64 |> Imm |> Some
   TwoOperands (frs2 b, OpMem (getRegFrom1915 b, imm, acc))
 let getRdRs1Shamt b = ThreeOperands(rd b, rs1 b, shamt b)
 let getRdRs1Rs2 b = ThreeOperands(rd b, rs1 b, rs2 b)
