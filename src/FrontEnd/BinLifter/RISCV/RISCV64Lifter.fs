@@ -236,7 +236,7 @@ let transOprToExpr insInfo ctxt = function
   | OpImm imm
   | OpShiftAmount imm -> numU64 imm ctxt.WordBitSize
   | OpMem (b, Some (Imm o), sz) ->
-    AST.loadLE sz (getRegVar ctxt b .+ numU64 o ctxt.WordBitSize)
+    AST.loadLE sz (getRegVar ctxt b .+ numI64 o ctxt.WordBitSize)
   | OpAddr (Relative o) ->
     numI64 (int64 insInfo.Address + o) ctxt.WordBitSize
   | OpAddr (RelativeBase (b, imm)) ->

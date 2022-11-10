@@ -380,21 +380,21 @@ let parseRegisterBasedLoadStore bin =
     let from2to2 = pickBit bin 6u <<< 2
     let from3to5 = extract bin 12u 10u <<< 3
     let from6to6 = pickBit bin 5u <<< 6
-    let imm = from2to2 ||| from3to5 ||| from6to6 |> uint64 |> Imm |> Some
+    let imm = from2to2 ||| from3to5 ||| from6to6 |> int64 |> Imm |> Some
     let b = getCompRegFrom97 bin
     struct (Op.CdotLW, TwoOperands (dest, OpMem (b, imm, 32<rt>)))
   | 0b011u ->
     let dest = crdComp bin
     let from3to5 = extract bin 12u 10u
     let from6to7 = extract bin 6u 5u
-    let imm = from3to5 ||| from6to7 |> uint64 |> Imm |> Some
+    let imm = from3to5 ||| from6to7 |> int64 |> Imm |> Some
     let b = getCompRegFrom97 bin
     struct (Op.CdotLD, TwoOperands (dest, OpMem (b, imm, 64<rt>)))
   | 0b001u ->
     let dest = cfrdComp bin
     let from3to5 = extract bin 12u 10u <<< 3
     let from6to7 = extract bin 6u 5u <<< 6
-    let imm = from3to5 ||| from6to7 |> uint64 |> Imm |> Some
+    let imm = from3to5 ||| from6to7 |> int64 |> Imm |> Some
     let b = getCompRegFrom97 bin
     struct (Op.CdotFLD, TwoOperands (dest, OpMem (b, imm, 64<rt>)))
   | 0b110u ->
@@ -403,21 +403,21 @@ let parseRegisterBasedLoadStore bin =
     let from2to2 = pickBit bin 6u <<< 2
     let from3to5 = extract bin 10u 12u <<< 3
     let from6to6 = pickBit bin 5u <<< 6
-    let imm = from2to2 ||| from3to5 ||| from6to6 |> uint64 |> Imm |> Some
+    let imm = from2to2 ||| from3to5 ||| from6to6 |> int64 |> Imm |> Some
     struct (Op.CdotSW, TwoOperands (src, OpMem (b, imm, 32<rt>)))
   | 0b111u ->
     let src = crs2Comp bin
     let b = getCompRegFrom97 bin
     let from3to5 = extract bin 10u 12u <<< 3
     let from6to7 = extract bin 6u 5u <<< 6
-    let imm = from3to5 ||| from6to7 |> uint64 |> Imm |> Some
+    let imm = from3to5 ||| from6to7 |> int64 |> Imm |> Some
     struct (Op.CdotSD, TwoOperands (src, OpMem (b, imm, 64<rt>)))
   | 0b101u ->
     let src = cfrs2Comp bin
     let b = getCompRegFrom97 bin
     let from3to5 = extract bin 10u 12u <<< 3
     let from6to7 = extract bin 6u 5u <<< 6
-    let imm = from3to5 ||| from6to7 |> uint64 |> Imm |> Some
+    let imm = from3to5 ||| from6to7 |> int64 |> Imm |> Some
     struct (Op.CdotFSD, TwoOperands (src, OpMem (b, imm, 64<rt>)))
   | _ -> Utils.impossible ()
 
@@ -427,7 +427,7 @@ let parseStackBasedLoadStore bin =
     let from2to4 = extract bin 4u 6u <<< 2
     let from5to5 = pickBit bin 12u <<< 5
     let from6to7 = extract bin 2u 3u <<< 6
-    let imm = from2to4 ||| from5to5 ||| from6to7 |> uint64 |> Imm |> Some
+    let imm = from2to4 ||| from5to5 ||| from6to7 |> int64 |> Imm |> Some
     let dest = crd bin
     if extract bin 11u 7u = 0u then raise ParsingFailureException
     else ()
@@ -436,7 +436,7 @@ let parseStackBasedLoadStore bin =
     let from3to4 = extract bin 6u 5u <<< 3
     let from5to5 = pickBit bin 12u <<< 5
     let from6to8 = extract bin 2u 4u <<< 6
-    let imm = from3to4 ||| from5to5 ||| from6to8 |> uint64 |> Imm |> Some
+    let imm = from3to4 ||| from5to5 ||| from6to8 |> int64 |> Imm |> Some
     let dest = crd bin
     if extract bin 11u 7u = 0u then raise ParsingFailureException
     else ()
@@ -445,26 +445,26 @@ let parseStackBasedLoadStore bin =
     let from3to4 = extract bin 6u 5u <<< 3
     let from5to5 = pickBit bin 12u <<< 5
     let from6to8 = extract bin 2u 4u <<< 6
-    let imm = from3to4 ||| from5to5 ||| from6to8 |> uint64 |> Imm |> Some
+    let imm = from3to4 ||| from5to5 ||| from6to8 |> int64 |> Imm |> Some
     let dest = cfrd bin
     struct (Op.CdotFLDSP, TwoOperands (dest, OpMem (R.X2, imm, 64<rt>)))
   | 0b110u ->
     let rs2 = crs2 bin
     let from2to5 = extract bin 12u 9u <<< 2
     let from6to7 = extract bin 8u 7u <<< 6
-    let imm = from2to5 ||| from6to7 |> uint64 |> Imm |> Some
+    let imm = from2to5 ||| from6to7 |> int64 |> Imm |> Some
     struct (Op.CdotSWSP, TwoOperands (rs2, OpMem (R.X2, imm, 32<rt>)))
   | 0b111u ->
     let rs2 = crs2 bin
     let from3to5 = extract bin 12u 10u <<< 3
     let from6to8 = extract bin 9u 7u <<< 6
-    let imm = from3to5 ||| from6to8 |> uint64 |> Imm |> Some
+    let imm = from3to5 ||| from6to8 |> int64 |> Imm |> Some
     struct (Op.CdotSDSP, TwoOperands (rs2, OpMem (R.X2, imm, 64<rt>)))
   | 0b101u ->
     let rs2 = cfrs2 bin
     let from3to5 = extract bin 12u 10u <<< 2
     let from6to8 = extract bin 9u 7u <<< 6
-    let imm = from3to5 ||| from6to8 |> uint64 |> Imm |> Some
+    let imm = from3to5 ||| from6to8 |> int64 |> Imm |> Some
     struct (Op.CdotFSDSP, TwoOperands (rs2, OpMem (R.X2, imm, 64<rt>)))
   | _ -> Utils.impossible ()
 
