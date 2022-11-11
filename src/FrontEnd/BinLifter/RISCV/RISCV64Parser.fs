@@ -385,8 +385,8 @@ let parseRegisterBasedLoadStore bin =
     struct (Op.CdotLW, TwoOperands (dest, OpMem (b, imm, 32<rt>)))
   | 0b011u ->
     let dest = crdComp bin
-    let from3to5 = extract bin 12u 10u
-    let from6to7 = extract bin 6u 5u
+    let from3to5 = extract bin 12u 10u <<< 3
+    let from6to7 = extract bin 6u 5u <<< 6
     let imm = from3to5 ||| from6to7 |> int64 |> Imm |> Some
     let b = getCompRegFrom97 bin
     struct (Op.CdotLD, TwoOperands (dest, OpMem (b, imm, 64<rt>)))
@@ -479,7 +479,7 @@ let parseCdotADDI4SPN bin =
   else ()
   struct (Op.CdotADDI4SPN, ThreeOperands (dest, R.X2 |> OpReg, imm |> OpImm))
 
-let parseCdotJ bin =
+let parseCdotJ bin wordSize =
   let from1to3 = extract bin 5u 3u <<< 1
   let from5to5 = pickBit bin 2u <<< 5
   let from7to7 = pickBit bin 6u <<< 7
@@ -489,12 +489,13 @@ let parseCdotJ bin =
   let from4to4 = pickBit bin 11u <<< 4
   let from11to11 = pickBit bin 12u <<< 11
   let imm = from1to3 ||| from4to4 ||| from5to5 ||| from6to6 ||| from7to7
-                ||| from8to9 ||| from10to10 ||| from11to11 |> int64
-  struct (Op.CdotJ, TwoOperands (R.X0 |> OpReg, imm |> Relative |> OpAddr))
+                ||| from8to9 ||| from10to10 ||| from11to11 |> uint64
+                |> signExtend 11 wordSize |> int64 |> Relative |> OpAddr
+  struct (Op.CdotJ, TwoOperands (R.X0 |> OpReg, imm))
 
-let parseCdotBranch bin =
-  let opcode = if extract bin 15u 13u = 0b111u then Op.CdotBEQZ
-                else Op.CdotBNEZ
+let parseCdotBranch bin wordSize =
+  let opcode = if extract bin 15u 13u = 0b111u then Op.CdotBNEZ
+                else Op.CdotBEQZ
   let src = crs1Comp bin
   let from1to2 = extract bin 3u 4u <<< 1
   let from3to4 = extract bin 10u 11u <<< 3
@@ -502,6 +503,7 @@ let parseCdotBranch bin =
   let from6to7 = extract bin 6u 5u <<< 6
   let from8to8 = pickBit bin 12u <<< 8
   let imm = from1to2 ||| from3to4 ||| from5to5 ||| from6to7 ||| from8to8
+            |> uint64 |> signExtend 8 wordSize
             |> int64 |> Relative |> OpAddr
   struct (opcode, ThreeOperands (src, R.X0 |> OpReg, imm))
 
@@ -633,9 +635,9 @@ let parseQuadrant1 bin wordSize =
     | 0b10u -> parseCdotANDI bin wordSize
     | 0b11u -> parseCdotArith bin
     | _ -> Utils.impossible ()
-  | 0b101u -> parseCdotJ bin
+  | 0b101u -> parseCdotJ bin wordSize
   | 0b110u
-  | 0b111u -> parseCdotBranch bin
+  | 0b111u -> parseCdotBranch bin wordSize
   | _ -> raise ParsingFailureException
 
 let parseQuadrant2 bin wordSize =

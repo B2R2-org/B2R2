@@ -572,7 +572,6 @@ let slt insInfo insLen ctxt =
 
 let sltu insInfo insLen ctxt =
   let ir = !*ctxt
-  let wordSz = ctxt.WordBitSize
   let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   let cond = AST.lt rs1 rs2
   let rtVal = AST.ite cond (AST.num1 64<rt>) (AST.num0 64<rt>)
@@ -694,7 +693,6 @@ let slti insInfo insLen ctxt =
 
 let sltiu insInfo insLen ctxt =
   let ir = !*ctxt
-  let wordSz = ctxt.WordBitSize
   let rd, rs1, imm = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   let cond = AST.lt rs1 imm
   let rtVal = AST.ite cond (AST.num1 64<rt>) (AST.num0 64<rt>)
@@ -759,7 +757,7 @@ let blt insInfo insLen ctxt =
 let bge insInfo insLen ctxt =
   let ir = !*ctxt
   let rs1, rs2, offset = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
-  let cond = rs1 .>= rs2
+  let cond = rs1 ?>= rs2
   let fallThrough =
     bvOfBaseAddr ctxt insInfo.Address .+ bvOfInstrLen ctxt insInfo
   !<ir insLen
@@ -769,7 +767,6 @@ let bge insInfo insLen ctxt =
 let bltu insInfo insLen ctxt =
   let ir = !*ctxt
   let rs1, rs2, offset = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
-  let wordSz = ctxt.WordBitSize
   let cond = AST.lt rs1 rs2
   let fallThrough =
     bvOfBaseAddr ctxt insInfo.Address .+ bvOfInstrLen ctxt insInfo
@@ -780,8 +777,7 @@ let bltu insInfo insLen ctxt =
 let bgeu insInfo insLen ctxt =
   let ir = !*ctxt
   let rs1, rs2, offset = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
-  let wordSz = ctxt.WordBitSize
-  let cond = AST.ge (AST.zext (wordSz * 2) rs1) (AST.zext (wordSz * 2) rs2)
+  let cond = AST.ge rs1 rs2
   let fallThrough =
     bvOfBaseAddr ctxt insInfo.Address .+ bvOfInstrLen ctxt insInfo
   !<ir insLen
