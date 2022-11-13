@@ -202,7 +202,8 @@ let evalStmt (st: EvalState) s =
   | InterJmp (target, _) ->
     evalPCUpdate st target |> st.AbortInstr
   | InterCJmp (c, t, f) -> evalIntCJmp st c t f |> st.AbortInstr
-  | ExternalCall (args) -> st.OnExternalCall (evalArgs st args) st
+  | ExternalCall (args) ->
+    st.OnExternalCall (evalArgs st args) st |> st.NextStmt
   | SideEffect eff -> st.OnSideEffect eff st
 
 let internal tryEvaluate stmt st =

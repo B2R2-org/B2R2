@@ -228,7 +228,8 @@ let evalStmt (st: EvalState) = function
   | InterJmp (target, _) -> evalPCUpdate st target |> Result.map st.AbortInstr
   | InterCJmp (c, t, f) -> evalIntCJmp st c t f |> Result.map st.AbortInstr
   | ExternalCall (args) ->
-    evalArgs st args |> Result.map (fun args -> st.OnExternalCall args st)
+    evalArgs st args
+    |> Result.map (fun args -> st.OnExternalCall args st |> st.NextStmt)
   | SideEffect eff -> st.OnSideEffect eff st |> ignore |> Ok
 
 let internal tryEvaluate stmt st =
