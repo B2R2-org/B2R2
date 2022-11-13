@@ -299,9 +299,22 @@ type LowUIRParser (isa, regbay: RegisterBay) =
       let rt = TypeCheck.typeOf tExp
       AST.intercjmp cond tExp fExp)
 
+  let comma = pstring ","
+
+  let pArgs =
+    sepBy (ws >>. pExpr) comma
+
+  let pApp =
+    ws
+    >>. pIdentifier
+    .>>. pBetweenParen pArgs
+    .>> ws .>> pchar ':' .>> ws .>>. pRegType
+    |>> (fun ((fnName, args), rt) -> AST.app fnName args rt)
+
   let pExtCall =
     ws
-    >>. (pstringCI "call " >>. pExpr)
+    >>. pstringCI "call"
+    >>. pApp
     |>> AST.extCall
 
   let pException =

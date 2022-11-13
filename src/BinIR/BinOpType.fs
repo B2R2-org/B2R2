@@ -87,7 +87,6 @@ module BinOpType =
     | BinOpType.OR -> "|"
     | BinOpType.XOR -> "^"
     | BinOpType.CONCAT -> "++"
-    | BinOpType.APP -> "-|"
     | BinOpType.CONS -> "::"
     | BinOpType.FADD -> "+."
     | BinOpType.FSUB -> "-."
@@ -112,7 +111,6 @@ module BinOpType =
     | "|" -> BinOpType. OR
     | "^" -> BinOpType. XOR
     | "++" -> BinOpType.CONCAT
-    | "-|" -> BinOpType.APP
     | "::" -> BinOpType.CONS
     | "+." -> BinOpType.FADD
     | "-." -> BinOpType.FSUB

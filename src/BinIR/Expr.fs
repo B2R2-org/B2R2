@@ -259,6 +259,18 @@ module Expr =
       sb.Append (", ") |> ignore
       appendToString e2 sb
       sb.Append ("))") |> ignore
+    | BinOp (BinOpType.APP, typ, e1, e2, _) ->
+      appendToString e1 sb
+      sb.Append ("(") |> ignore
+      appendToString e2 sb
+      sb.Append ("):") |> ignore
+      sb.Append (RegType.toString typ) |> ignore
+    | BinOp (BinOpType.CONS, _typ, e1, { E = Nil }, _) ->
+      appendToString e1 sb
+    | BinOp (BinOpType.CONS, _typ, e1, e2, _) ->
+      appendToString e1 sb
+      sb.Append (", ") |> ignore
+      appendToString e2 sb
     | BinOp (op, _typ, e1, e2, _) ->
       sb.Append ("(") |> ignore
       appendToString e1 sb

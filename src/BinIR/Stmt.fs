@@ -43,9 +43,9 @@ type InterJmpKind =
   | IsRet = 2
   /// An exit, which will terminate the process.
   | IsExit = 4
-  /// A branch instructino that modifies the operation mode from Thumb to ARM.
+  /// A branch instruction that modifies the operation mode from Thumb to ARM.
   | SwitchToARM = 8
-  /// A branch instructino that modifies the operation mode from ARM to Thumb.
+  /// A branch instruction that modifies the operation mode from ARM to Thumb.
   | SwitchToThumb = 16
   /// This is not a jump instruction. This is only useful in special cases such
   /// as when representing a delay slot of MIPS, and should never be used in
@@ -255,7 +255,7 @@ module Stmt =
       sb.Append (" else ijmp ") |> ignore
       Expr.appendToString f sb
     | ExternalCall (args) ->
-      sb.Append ("Call") |> ignore
+      sb.Append ("call ") |> ignore
       Expr.appendToString args sb
     | SideEffect eff ->
       sb.Append ("!!" + SideEffect.toString eff) |> ignore

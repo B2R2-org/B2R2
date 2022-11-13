@@ -209,9 +209,9 @@ let binop op e1 e2 =
 /// Consing two expr.
 [<CompiledName("Cons")>]
 let cons a b =
+  let t = TypeCheck.typeOf a
   match b.E with
   | Nil ->
-    let t = TypeCheck.typeOf a
 #if ! HASHCONS
     BinOp (BinOpType.CONS, t, a, b, ASTHelper.getExprInfo a)
     |> ASTHelper.buildExpr
@@ -226,7 +226,7 @@ let cons a b =
       else exprs[k] <- WeakReference<Expr> e'
       e'
 #endif
-  | _ -> binop BinOpType.CONS a b
+  | _ -> binopWithType BinOpType.CONS t a b
 
 /// Nil.
 [<CompiledName("Nil")>]
