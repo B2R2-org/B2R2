@@ -98,14 +98,70 @@ type internal RegExprs (wordSize) =
   member val F29 =  var 64<rt> (Register.toRegID Register.F29) "F29" with get
   member val F30 =  var 64<rt> (Register.toRegID Register.F30) "F30" with get
   member val F31 =  var 64<rt> (Register.toRegID Register.F31) "F31" with get
-  member val CR0 = var 4<rt> (Register.toRegID Register.CR0) "CR0" with get
-  member val CR1 = var 4<rt> (Register.toRegID Register.CR1) "CR1" with get
-  member val CR2 = var 4<rt> (Register.toRegID Register.CR2) "CR2" with get
-  member val CR3 = var 4<rt> (Register.toRegID Register.CR3) "CR3" with get
-  member val CR4 = var 4<rt> (Register.toRegID Register.CR4) "CR4" with get
-  member val CR5 = var 4<rt> (Register.toRegID Register.CR5) "CR5" with get
-  member val CR6 = var 4<rt> (Register.toRegID Register.CR6) "CR6" with get
-  member val CR7 = var 4<rt> (Register.toRegID Register.CR7) "CR7" with get
+  member val CR0_0 =
+    var 1<rt> (Register.toRegID Register.CR0_0) "CR0_0" with get
+  member val CR0_1 =
+    var 1<rt> (Register.toRegID Register.CR0_1) "CR0_1" with get
+  member val CR0_2 =
+    var 1<rt> (Register.toRegID Register.CR0_2) "CR0_2" with get
+  member val CR0_3 =
+    var 1<rt> (Register.toRegID Register.CR0_3) "CR0_3" with get
+  member val CR1_0 =
+    var 1<rt> (Register.toRegID Register.CR1_0) "CR1_0" with get
+  member val CR1_1 =
+    var 1<rt> (Register.toRegID Register.CR1_1) "CR1_1" with get
+  member val CR1_2 =
+    var 1<rt> (Register.toRegID Register.CR1_2) "CR1_2" with get
+  member val CR1_3 =
+    var 1<rt> (Register.toRegID Register.CR1_3) "CR1_3" with get
+  member val CR2_0 =
+    var 1<rt> (Register.toRegID Register.CR2_0) "CR2_0" with get
+  member val CR2_1 =
+    var 1<rt> (Register.toRegID Register.CR2_1) "CR2_1" with get
+  member val CR2_2 =
+    var 1<rt> (Register.toRegID Register.CR2_2) "CR2_2" with get
+  member val CR2_3 =
+    var 1<rt> (Register.toRegID Register.CR2_3) "CR2_3" with get
+  member val CR3_0 =
+    var 1<rt> (Register.toRegID Register.CR3_0) "CR3_0" with get
+  member val CR3_1 =
+    var 1<rt> (Register.toRegID Register.CR3_1) "CR3_1" with get
+  member val CR3_2 =
+    var 1<rt> (Register.toRegID Register.CR3_2) "CR3_2" with get
+  member val CR3_3 =
+    var 1<rt> (Register.toRegID Register.CR3_3) "CR3_3" with get
+  member val CR4_0 =
+    var 1<rt> (Register.toRegID Register.CR4_0) "CR4_0" with get
+  member val CR4_1 =
+    var 1<rt> (Register.toRegID Register.CR4_1) "CR4_1" with get
+  member val CR4_2 =
+    var 1<rt> (Register.toRegID Register.CR4_2) "CR4_2" with get
+  member val CR4_3 =
+    var 1<rt> (Register.toRegID Register.CR4_3) "CR4_3" with get
+  member val CR5_0 =
+    var 1<rt> (Register.toRegID Register.CR5_0) "CR5_0" with get
+  member val CR5_1 =
+    var 1<rt> (Register.toRegID Register.CR5_1) "CR5_1" with get
+  member val CR5_2 =
+    var 1<rt> (Register.toRegID Register.CR5_2) "CR5_2" with get
+  member val CR5_3 =
+    var 1<rt> (Register.toRegID Register.CR5_3) "CR5_3" with get
+  member val CR6_0 =
+    var 1<rt> (Register.toRegID Register.CR6_0) "CR6_0" with get
+  member val CR6_1 =
+    var 1<rt> (Register.toRegID Register.CR6_1) "CR6_1" with get
+  member val CR6_2 =
+    var 1<rt> (Register.toRegID Register.CR6_2) "CR6_2" with get
+  member val CR6_3 =
+    var 1<rt> (Register.toRegID Register.CR6_3) "CR6_3" with get
+  member val CR7_0 =
+    var 1<rt> (Register.toRegID Register.CR7_0) "CR7_0" with get
+  member val CR7_1 =
+    var 1<rt> (Register.toRegID Register.CR7_1) "CR7_1" with get
+  member val CR7_2 =
+    var 1<rt> (Register.toRegID Register.CR7_2) "CR7_2" with get
+  member val CR7_3 =
+    var 1<rt> (Register.toRegID Register.CR7_3) "CR7_3" with get
   member val FPSCR =
     var 32<rt> (Register.toRegID Register.FPSCR) "FPSCR" with get
   member val XER = var 32<rt> (Register.toRegID Register.XER) "XER" with get
@@ -178,14 +234,38 @@ type internal RegExprs (wordSize) =
     | R.F29 -> __.F29
     | R.F30 -> __.F30
     | R.F31 -> __.F31
-    | R.CR0 -> __.CR0
-    | R.CR1 -> __.CR1
-    | R.CR2 -> __.CR2
-    | R.CR3 -> __.CR3
-    | R.CR4 -> __.CR4
-    | R.CR5 -> __.CR5
-    | R.CR6 -> __.CR6
-    | R.CR7 -> __.CR7
+    | R.CR0_0 -> __.CR0_0
+    | R.CR0_1 -> __.CR0_1
+    | R.CR0_2 -> __.CR0_2
+    | R.CR0_3 -> __.CR0_3
+    | R.CR1_0 -> __.CR1_0
+    | R.CR1_1 -> __.CR1_1
+    | R.CR1_2 -> __.CR1_2
+    | R.CR1_3 -> __.CR1_3
+    | R.CR2_0 -> __.CR2_0
+    | R.CR2_1 -> __.CR2_1
+    | R.CR2_2 -> __.CR2_2
+    | R.CR2_3 -> __.CR2_3
+    | R.CR3_0 -> __.CR3_0
+    | R.CR3_1 -> __.CR3_1
+    | R.CR3_2 -> __.CR3_2
+    | R.CR3_3 -> __.CR3_3
+    | R.CR4_0 -> __.CR4_0
+    | R.CR4_1 -> __.CR4_1
+    | R.CR4_2 -> __.CR4_2
+    | R.CR4_3 -> __.CR4_3
+    | R.CR5_0 -> __.CR5_0
+    | R.CR5_1 -> __.CR5_1
+    | R.CR5_2 -> __.CR5_2
+    | R.CR5_3 -> __.CR5_3
+    | R.CR6_0 -> __.CR6_0
+    | R.CR6_1 -> __.CR6_1
+    | R.CR6_2 -> __.CR6_2
+    | R.CR6_3 -> __.CR6_3
+    | R.CR7_0 -> __.CR7_0
+    | R.CR7_1 -> __.CR7_1
+    | R.CR7_2 -> __.CR7_2
+    | R.CR7_3 -> __.CR7_3
     | R.FPSCR -> __.FPSCR
     | R.XER -> __.XER
     | R.LR -> __.LR

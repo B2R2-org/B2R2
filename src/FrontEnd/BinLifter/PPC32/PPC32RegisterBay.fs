@@ -38,7 +38,10 @@ type PPC32RegisterBay internal (wordSize, r: RegExprs) =
       r.F0; r.F1; r.F2; r.F3; r.F4; r.F5; r.F6; r.F7; r.F8; r.F9; r.F10; r.F11
       r.F12; r.F13; r.F14; r.F15; r.F16; r.F17; r.F18; r.F19; r.F20; r.F21
       r.F22; r.F23; r.F24; r.F25; r.F26; r.F27; r.F28; r.F29; r.F30; r.F31
-      r.CR0; r.CR1; r.CR2; r.CR3; r.CR4; r.CR5; r.CR6; r.CR7 ]
+      r.CR0_0; r.CR0_1; r.CR0_2; r.CR0_3; r.CR1_0; r.CR1_1; r.CR1_2; r.CR1_3;
+      r.CR2_0; r.CR2_1; r.CR2_2; r.CR2_3; r.CR3_0; r.CR3_2; r.CR3_2; r.CR3_3;
+      r.CR4_0; r.CR4_1; r.CR4_2; r.CR4_3; r.CR5_0; r.CR5_1; r.CR5_2; r.CR5_3;
+      r.CR6_0; r.CR6_1; r.CR6_2; r.CR6_3; r.CR7_0; r.CR7_1; r.CR7_2; r.CR7_3; ]
 
   override __.GetAllRegNames () =
     __.GetAllRegExprs ()
@@ -123,14 +126,38 @@ type PPC32RegisterBay internal (wordSize, r: RegExprs) =
     | "f29" -> r.F29
     | "f30" -> r.F30
     | "f31" -> r.F31
-    | "cr0" -> r.CR0
-    | "cr1" -> r.CR1
-    | "cr2" -> r.CR2
-    | "cr3" -> r.CR3
-    | "cr4" -> r.CR4
-    | "cr5" -> r.CR5
-    | "cr6" -> r.CR6
-    | "cr7" -> r.CR7
+    | "cr0_0" -> r.CR0_0
+    | "cr0_1" -> r.CR0_1
+    | "cr0_2" -> r.CR0_2
+    | "cr0_3" -> r.CR0_3
+    | "cr1_0" -> r.CR1_0
+    | "cr1_1" -> r.CR1_1
+    | "cr1_2" -> r.CR1_2
+    | "cr1_3" -> r.CR1_3
+    | "cr2_0" -> r.CR2_0
+    | "cr2_1" -> r.CR2_1
+    | "cr2_2" -> r.CR2_2
+    | "cr2_3" -> r.CR2_3
+    | "cr3_0" -> r.CR3_0
+    | "cr3_1" -> r.CR3_1
+    | "cr3_2" -> r.CR3_2
+    | "cr3_3" -> r.CR3_3
+    | "cr4_0" -> r.CR4_0
+    | "cr4_1" -> r.CR4_1
+    | "cr4_2" -> r.CR4_2
+    | "cr4_3" -> r.CR4_3
+    | "cr5_0" -> r.CR5_0
+    | "cr5_1" -> r.CR5_1
+    | "cr5_2" -> r.CR5_2
+    | "cr5_3" -> r.CR5_3
+    | "cr6_0" -> r.CR6_0
+    | "cr6_1" -> r.CR6_1
+    | "cr6_2" -> r.CR6_2
+    | "cr6_3" -> r.CR6_3
+    | "cr7_0" -> r.CR7_0
+    | "cr7_1" -> r.CR7_1
+    | "cr7_2" -> r.CR7_2
+    | "cr7_3" -> r.CR7_3
     | _ -> raise UnhandledRegExprException
 
   override __.RegIDFromString str =

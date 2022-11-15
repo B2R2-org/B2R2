@@ -116,11 +116,14 @@ let getImmValue = function
   | _ -> raise InvalidOperandException
 
 let setCondReg ctxt ir result =
-  let cr0 = !.ctxt R.CR0
-  !!ir (AST.extract cr0 1<rt> 0 := result .< AST.num0 32<rt>)
-  !!ir (AST.extract cr0 1<rt> 1 := result .> AST.num0 32<rt>)
-  !!ir (AST.extract cr0 1<rt> 2 := result == AST.num0 32<rt>)
-  !!ir (AST.extract cr0 1<rt> 3 := AST.b0) /// FIXME: XER[SO]
+  let cr0A = !.ctxt R.CR0_0
+  let cr0B = !.ctxt R.CR0_1
+  let cr0C = !.ctxt R.CR0_2
+  let cr0D = !.ctxt R.CR0_3
+  !!ir (cr0A := result .< AST.num0 32<rt>)
+  !!ir (cr0B := result .> AST.num0 32<rt>)
+  !!ir (cr0C := result == AST.num0 32<rt>)
+  !!ir (cr0D := AST.b0) /// FIXME: XER[SO]
 
 let sideEffects insLen ctxt name =
   let ir = !*ctxt
@@ -338,12 +341,11 @@ let bcl ins insLen ctxt =
   let struct (bo, bi, addr) = getThreeOprs ins
   let bo = transOprToExpr ins ctxt bo
   let bi = getImmValue bi
-  let cr = getCondRegister (bi / 4u) |> !.ctxt
+  let cr = getCRbitRegister bi |> !.ctxt
   let addr = transOprToExpr ins ctxt addr
   let ir = !*ctxt
   let lr = !.ctxt R.LR
   let ctr = !.ctxt R.CTR
-  let idx = numU32 (bi % 4u) 4<rt>
   let bo x = AST.extract bo 1<rt> x
   let ctrOk = !+ir 1<rt>
   let condOk = !+ir 1<rt>
@@ -354,7 +356,7 @@ let bcl ins insLen ctxt =
   !!ir (lr := cia .+ numI32 4 32<rt>)
   !!ir (ctr := AST.ite (AST.not (bo 2)) (ctr .- AST.num1 32<rt>) ctr)
   !!ir (ctrOk := bo 2 .| ((ctr != AST.num0 32<rt>) <+> bo 3))
-  !!ir (condOk := bo 0 .| (AST.xtlo 1<rt> (cr >> idx) <+> AST.not (bo 1)))
+  !!ir (condOk := bo 0 .| (cr <+> AST.not (bo 1)))
   !!ir (temp := AST.ite (ctrOk .& condOk) nia (cia .+ numI32 4 32<rt>))
   !!ir (AST.interjmp temp InterJmpKind.Base)
   !>ir insLen

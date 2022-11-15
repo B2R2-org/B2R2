@@ -91,6 +91,7 @@ type Register =
   | F29 = 0x3D
   | F30 = 0x3E
   | F31 = 0x3F
+  /// CR0 - CR7 is 4bit chunk of CR.
   | CR0 = 0x40
   | CR1 = 0x41
   | CR2 = 0x42
@@ -99,14 +100,78 @@ type Register =
   | CR5 = 0x45
   | CR6 = 0x46
   | CR7 = 0x47
+  /// CR0_0 is the 1st 1-bit chunk of CR0.
+  | CR0_0 = 0x48
+  /// CR0_1 is the 2nd 1-bit chunk of CR0.
+  | CR0_1 = 0x49
+  /// CR0_2 is the 3rd 1-bit chunk of CR0.
+  | CR0_2 = 0x4A
+  /// CR0_3 is the 4th 1-bit chunk of CR0.
+  | CR0_3 = 0x4B
+  /// CR1_0 is the 1st 1-bit chunk of CR1.
+  | CR1_0 = 0x4C
+  /// CR1_1 is the 2nd 1-bit chunk of CR1.
+  | CR1_1 = 0x4D
+  /// CR1_2 is the 3rd 1-bit chunk of CR1.
+  | CR1_2 = 0x4E
+  /// CR1_3 is the 4th 1-bit chunk of CR1.
+  | CR1_3 = 0x4F
+  /// CR2_0 is the 1st 1-bit chunk of CR2.
+  | CR2_0 = 0x50
+  /// CR2_1 is the 2nd 1-bit chunk of CR2.
+  | CR2_1 = 0x51
+  /// CR2_2 is the 3rd 1-bit chunk of CR2.
+  | CR2_2 = 0x52
+  /// CR2_3 is the 4th 1-bit chunk of CR2.
+  | CR2_3 = 0x53
+  /// CR3_0 is the 1st 1-bit chunk of CR3.
+  | CR3_0 = 0x54
+  /// CR3_1 is the 2nd 1-bit chunk of CR3.
+  | CR3_1 = 0x55
+  /// CR3_2 is the 3rd 1-bit chunk of CR3.
+  | CR3_2 = 0x56
+  /// CR3_3 is the 4th 1-bit chunk of CR3.
+  | CR3_3 = 0x57
+  /// CR4_0 is the 1st 1-bit chunk of CR4.
+  | CR4_0 = 0x58
+  /// CR4_1 is the 2nd 1-bit chunk of CR4.
+  | CR4_1 = 0x59
+  /// CR4_2 is the 3rd 1-bit chunk of CR4.
+  | CR4_2 = 0x5A
+  /// CR4_3 is the 4th 1-bit chunk of CR4.
+  | CR4_3 = 0x5B
+  /// CR5_0 is the 1st 1-bit chunk of CR5.
+  | CR5_0 = 0x5C
+  /// CR5_1 is the 2nd 1-bit chunk of CR5.
+  | CR5_1 = 0x5D
+  /// CR5_2 is the 3rd 1-bit chunk of CR5.
+  | CR5_2 = 0x5E
+  /// CR5_3 is the 4th 1-bit chunk of CR5.
+  | CR5_3 = 0x5F
+  /// CR6_0 is the 1st 1-bit chunk of CR6.
+  | CR6_0 = 0x60
+  /// CR6_1 is the 2nd 1-bit chunk of CR6.
+  | CR6_1 = 0x61
+  /// CR6_2 is the 3rd 1-bit chunk of CR6.
+  | CR6_2 = 0x62
+  /// CR6_3 is the 4th 1-bit chunk of CR6.
+  | CR6_3 = 0x63
+  /// CR7_0 is the 1st 1-bit chunk of CR7.
+  | CR7_0 = 0x64
+  /// CR7_1 is the 2nd 1-bit chunk of CR7.
+  | CR7_1 = 0x65
+  /// CR7_2 is the 3rd 1-bit chunk of CR7.
+  | CR7_2 = 0x66
+  /// CR7_3 is the 4th 1-bit chunk of CR7.
+  | CR7_3 = 0x67
   /// XER Register.
-  | XER = 0x50
+  | XER = 0x70
   /// LR Register.
-  | LR = 0x51
+  | LR = 0x71
   /// Count Register.
-  | CTR = 0x52
+  | CTR = 0x72
   /// FPSCR Register
-  | FPSCR = 0x53
+  | FPSCR = 0x73
 
 /// Shortcut for Register type.
 type internal R = Register
@@ -194,6 +259,38 @@ module Register =
     | "cr5" -> R.CR5
     | "cr6" -> R.CR6
     | "cr7" -> R.CR7
+    | "cr0_0" -> R.CR0_0
+    | "cr0_1" -> R.CR0_1
+    | "cr0_2" -> R.CR0_2
+    | "cr0_3" -> R.CR0_3
+    | "cr1_0" -> R.CR1_0
+    | "cr1_1" -> R.CR1_1
+    | "cr1_2" -> R.CR1_2
+    | "cr1_3" -> R.CR1_3
+    | "cr2_0" -> R.CR2_0
+    | "cr2_1" -> R.CR2_1
+    | "cr2_2" -> R.CR2_2
+    | "cr2_3" -> R.CR2_3
+    | "cr3_0" -> R.CR3_0
+    | "cr3_1" -> R.CR3_1
+    | "cr3_2" -> R.CR3_2
+    | "cr3_3" -> R.CR3_3
+    | "cr4_0" -> R.CR4_0
+    | "cr4_1" -> R.CR4_1
+    | "cr4_2" -> R.CR4_2
+    | "cr4_3" -> R.CR4_3
+    | "cr5_0" -> R.CR5_0
+    | "cr5_1" -> R.CR5_1
+    | "cr5_2" -> R.CR5_2
+    | "cr5_3" -> R.CR5_3
+    | "cr6_0" -> R.CR6_0
+    | "cr6_1" -> R.CR6_1
+    | "cr6_2" -> R.CR6_2
+    | "cr6_3" -> R.CR6_3
+    | "cr7_0" -> R.CR7_0
+    | "cr7_1" -> R.CR7_1
+    | "cr7_2" -> R.CR7_2
+    | "cr7_3" -> R.CR7_3
     | _ -> Utils.impossible ()
 
   let toString = function
@@ -269,4 +366,36 @@ module Register =
     | R.CR5 -> "cr5"
     | R.CR6 -> "cr6"
     | R.CR7 -> "cr7"
+    | R.CR0_0 -> "cr0_0"
+    | R.CR0_1 -> "cr0_1"
+    | R.CR0_2 -> "cr0_2"
+    | R.CR0_3 -> "cr0_3"
+    | R.CR1_0 -> "cr1_0"
+    | R.CR1_1 -> "cr1_1"
+    | R.CR1_2 -> "cr1_2"
+    | R.CR1_3 -> "cr1_3"
+    | R.CR2_0 -> "cr2_0"
+    | R.CR2_1 -> "cr2_1"
+    | R.CR2_2 -> "cr2_2"
+    | R.CR2_3 -> "cr2_3"
+    | R.CR3_0 -> "cr3_0"
+    | R.CR3_1 -> "cr3_1"
+    | R.CR3_2 -> "cr3_2"
+    | R.CR3_3 -> "cr3_3"
+    | R.CR4_0 -> "cr4_0"
+    | R.CR4_1 -> "cr4_1"
+    | R.CR4_2 -> "cr4_2"
+    | R.CR4_3 -> "cr4_3"
+    | R.CR5_0 -> "cr5_0"
+    | R.CR5_1 -> "cr5_1"
+    | R.CR5_2 -> "cr5_2"
+    | R.CR5_3 -> "cr5_3"
+    | R.CR6_0 -> "cr6_0"
+    | R.CR6_1 -> "cr6_1"
+    | R.CR6_2 -> "cr6_2"
+    | R.CR6_3 -> "cr6_3"
+    | R.CR7_0 -> "cr7_0"
+    | R.CR7_1 -> "cr7_1"
+    | R.CR7_2 -> "cr7_2"
+    | R.CR7_3 -> "cr7_3"
     | _ -> Utils.impossible ()
