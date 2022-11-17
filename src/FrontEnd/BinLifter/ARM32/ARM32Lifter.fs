@@ -3196,6 +3196,22 @@ let vmov (ins: InsInfo) insLen ctxt =
   putEndLabel ctxt lblIgnore ir
   !>ir insLen
 
+let parseOprOfVMOVFP (ins: InsInfo) insLen ctxt ir =
+  match ins.Operands with
+  | TwoOperands (OprSIMD _, OprReg _) | TwoOperands (OprReg _, OprSIMD _) ->
+    let struct (dst, src) = transTwoOprs ins ctxt
+    !!ir (dst:= src)
+  | _ -> !!ir (AST.sideEffect UnsupportedFP)
+
+let vmovfp (ins: InsInfo) insLen ctxt =
+  let ir = !*ctxt
+  let isUnconditional = ParseUtils.isUnconditional ins.Condition
+  !<ir insLen
+  let lblIgnore = checkCondition ins ctxt isUnconditional ir
+  parseOprOfVMOVFP ins insLen ctxt ir
+  putEndLabel ctxt lblIgnore ir
+  !>ir insLen
+
 (* VMOV(immediate)/VMOV(register) *)
 let isF32orF64 = function
   | Some (OneDT SIMDTypF32) | Some (OneDT SIMDTypF64) -> true
@@ -5241,8 +5257,7 @@ let translate (ins: ARM32InternalInstruction) insLen ctxt =
   | Op.VMLAL -> vmlal ins insLen ctxt
   | Op.VMLS -> vmls ins insLen ctxt
   | Op.VMLSL -> vmlsl ins insLen ctxt
-  | Op.VMOV when Operators.not (isAdvancedSIMD ins) ->
-    sideEffects insLen ctxt UnsupportedFP
+  | Op.VMOV when Operators.not (isAdvancedSIMD ins) -> vmovfp ins insLen ctxt
   | Op.VMOV -> vmov ins insLen ctxt
   | Op.VMOVN -> vmovn ins insLen ctxt
   | Op.VMRS -> vmrs ins insLen ctxt
