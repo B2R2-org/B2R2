@@ -36,8 +36,6 @@ open B2R2.FrontEnd.BinLifter.Intel.RegGroup
 open B2R2.FrontEnd.BinLifter.Intel.Helper
 open B2R2.FrontEnd.BinLifter.Intel.LiftingUtils
 
-open type BinOpType
-
 #if !EMULATION
 let private undefCF = AST.undef 1<rt> "CF is undefined."
 
@@ -62,8 +60,8 @@ let private buildAF ctxt e1 e2 r size =
 let private buildPF ctxt r size cond ir =
   let struct (t1, t2) = tmpVars2 ir size
   let s2 = r <+> (r >> (AST.zext size (numU32 4ul 8<rt>)))
-  let s4 = s2 <+> (t1 >> (AST.zext size (numU32 2ul 8<rt>)))
-  let s5 = s4 <+> (t2 >> (AST.zext size (AST.num1 8<rt>)))
+  let s4 = t1 <+> (t1 >> (AST.zext size (numU32 2ul 8<rt>)))
+  let s5 = t2 <+> (t2 >> (AST.zext size (AST.num1 8<rt>)))
   let pf = !.ctxt R.PF
   let computedPF = AST.unop UnOpType.NOT (AST.xtlo 1<rt> s5)
   !!ir (t1 := s2)
