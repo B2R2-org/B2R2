@@ -471,6 +471,9 @@ type Opcode =
   | BCTRL = 432
   | MR = 433
   | InvalOP = 434
+  | BTLRL = 435
+  | BFLRL = 436
+  | BTCTRL = 437
 
 type internal Op = Opcode
 
