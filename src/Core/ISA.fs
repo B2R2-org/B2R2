@@ -156,9 +156,9 @@ with
     | "armv8a32be" | "aarch32be" -> ISA.Init Arch.AARCH32 Endian.Big
     | "armv8a64" | "aarch64"-> ISA.Init Arch.AARCH64 Endian.Little
     | "armv8a64be" | "aarch64be" -> ISA.Init Arch.AARCH64 Endian.Big
-    | "mips32" | "mips32le" -> ISA.Init Arch.MIPS32 Endian.Little
+    | "mipsel" | "mips32" | "mips32le" -> ISA.Init Arch.MIPS32 Endian.Little
     | "mips32be" -> ISA.Init Arch.MIPS32 Endian.Big
-    | "mips64" | "mips64le" -> ISA.Init Arch.MIPS64 Endian.Little
+    | "mips64el" | "mips64" | "mips64le" -> ISA.Init Arch.MIPS64 Endian.Little
     | "mips64be" -> ISA.Init Arch.MIPS64 Endian.Big
     | "evm" -> ISA.Init Arch.EVM Endian.Big
     | "tms320c6000" -> ISA.Init Arch.TMS320C6000 Endian.Little
