@@ -157,13 +157,13 @@ let getBImm b wordSize =
 
 let getIImm b wordSize =
   let imm = extract b 31u 20u |> uint64
-  signExtend 11 wordSize imm
+  signExtend 12 wordSize imm
 
 let getSImm b wordSize =
   let from4to0 = extract b 11u 7u
   let from11to5 = extract b 31u 25u <<< 5
   let imm = from11to5 ||| from4to0 |> uint64
-  signExtend 11 wordSize imm
+  signExtend 12 wordSize imm
 
 let getJImm bin wordSize =
   let from10to1 = (extract bin 30u 21u) <<< 1

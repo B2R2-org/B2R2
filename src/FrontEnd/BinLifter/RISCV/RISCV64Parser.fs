@@ -584,8 +584,8 @@ let parseCdotJrMvEBREAKJalrAdd bin =
   if pickBit bin 12u = 0u then
     if extract bin 6u 2u = 0u then
       if extract bin 11u 7u = 0u then raise ParsingFailureException
-      else struct (Op.CdotJR, TwoOperands (R.X1 |> OpReg,
-                  RelativeBase (getRegFrom62 bin, 0UL) |> OpAddr))
+      else struct (Op.CdotJR, TwoOperands (R.X0 |> OpReg,
+                  RelativeBase (getRegFrom117 bin, 0UL) |> OpAddr))
     else
       let dest = crd bin
       let src = crs2 bin

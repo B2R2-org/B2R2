@@ -36,6 +36,13 @@ open B2R2.FrontEnd.BinLifter.RISCV
 let inline getRegVar (ctxt: TranslationContext) name =
   Register.toRegID name |> ctxt.GetRegVar
 
+let inline (:=) dst src =
+  match dst with
+  | { E = Var (_, rid, _, _) } when rid = Register.toRegID Register.X0 ->
+    dst := dst (* Prevent setting x0. Our optimizer will remove this anyways. *)
+  | _ ->
+    dst := src
+
 let inline getCSRReg (ctxt: TranslationContext) csr =
   let csrReg =
     match csr with
@@ -240,8 +247,8 @@ let transOprToExpr insInfo ctxt = function
   | OpAddr (Relative o) ->
     numI64 (int64 insInfo.Address + o) ctxt.WordBitSize
   | OpAddr (RelativeBase (b, imm)) ->
-    (getRegVar ctxt b .+ numI64 (int64 imm) ctxt.WordBitSize) .&
-    (numU64 0xfffffffffffffffeUL 64<rt>)
+    if b = Register.X0 then AST.num0 ctxt.WordBitSize else
+    (getRegVar ctxt b .+ numI64 (int64 imm) ctxt.WordBitSize)
   | OpMem (b, None, sz) ->
     AST.loadLE sz (getRegVar ctxt b)
   | OpAtomMemOper (aq, rl) ->
@@ -718,10 +725,10 @@ let jalr insInfo insLen ctxt =
   let ir = !*ctxt
   let rd, jumpTarget = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
   let r = bvOfBaseAddr ctxt insInfo.Address .+ bvOfInstrLen ctxt insInfo
-  let jumpT = !+ir 64<rt>
   !<ir insLen
   !!ir (rd := r)
-  !!ir (AST.interjmp jumpTarget InterJmpKind.Base)
+  !!ir (AST.interjmp (if jumpTarget = AST.num0 ctxt.WordBitSize
+                      then rd else jumpTarget) InterJmpKind.Base)
   !>ir insLen
 
 let beq insInfo insLen ctxt =
