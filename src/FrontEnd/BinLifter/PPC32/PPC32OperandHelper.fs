@@ -33,11 +33,9 @@ let getFPRegister (n: uint32): Register =
 let getCondRegister (n: uint32): Register =
   n + 0x40u |> int |> LanguagePrimitives.EnumOfValue
 
+/// Used to specify a CR bit.
 let getCRbitRegister (n: uint32): Register =
   n + 0x48u |> int |> LanguagePrimitives.EnumOfValue
-
-/// Used to specify a CR bit.
-let getCRBit (bin: uint32) = OprRegBit (getCondRegister (bin / 4u), bin % 4u)
 
 /// Used to specify in the FPSCR.
 let getFPSCRBit (bin: uint32) = bin |> uint64 |> OprImm

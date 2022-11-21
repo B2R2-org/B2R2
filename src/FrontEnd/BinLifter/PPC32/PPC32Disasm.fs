@@ -504,13 +504,6 @@ let oprToString insInfo opr delim (builder: DisasmBuilder<_>) =
   | OprReg reg ->
     builder.Accumulate AsmWordKind.String delim
     builder.Accumulate AsmWordKind.Variable (Register.toString reg)
-  | OprRegBit (reg, idx) ->
-    builder.Accumulate AsmWordKind.String delim
-    builder.Accumulate AsmWordKind.Value (String.u32ToHex 4u)
-    builder.Accumulate AsmWordKind.String " * "
-    builder.Accumulate AsmWordKind.Variable (Register.toString reg)
-    builder.Accumulate AsmWordKind.String " + "
-    builder.Accumulate AsmWordKind.String (condToString (getCond idx))
   | OprMem (imm, reg) ->
     builder.Accumulate AsmWordKind.String delim
     builder.Accumulate AsmWordKind.Value (String.i32ToHex imm)

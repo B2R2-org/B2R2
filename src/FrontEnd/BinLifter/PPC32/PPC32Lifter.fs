@@ -62,7 +62,6 @@ let getExtMask mb me =
 
 let transOprToExpr ins (ctxt: TranslationContext) = function
   | OprReg reg -> !.ctxt reg
-  | OprRegBit (reg, idx) -> AST.extract (!.ctxt reg) 1<rt> (int idx)
   | OprMem (d, b) -> /// FIXME
     AST.loadLE 32<rt> (!.ctxt b .+ numI32 d ctxt.WordBitSize)
   | OprImm imm -> numU64 imm ctxt.WordBitSize
@@ -108,6 +107,31 @@ let transFiveOprs (ins: InsInfo) ctxt =
             transOprToExpr ins ctxt o3,
             transOprToExpr ins ctxt o4,
             transOprToExpr ins ctxt o5)
+  | _ -> raise InvalidOperandException
+
+let getCRRegValue ctxt reg =
+  match reg with
+  | R.CR0 -> !.ctxt R.CR0_0, !.ctxt R.CR0_1, !.ctxt R.CR0_2, !.ctxt R.CR0_3
+  | R.CR1 -> !.ctxt R.CR1_0, !.ctxt R.CR1_1, !.ctxt R.CR1_2, !.ctxt R.CR1_3
+  | R.CR2 -> !.ctxt R.CR2_0, !.ctxt R.CR2_1, !.ctxt R.CR2_2, !.ctxt R.CR2_3
+  | R.CR3 -> !.ctxt R.CR3_0, !.ctxt R.CR3_1, !.ctxt R.CR3_2, !.ctxt R.CR3_3
+  | R.CR4 -> !.ctxt R.CR4_0, !.ctxt R.CR4_1, !.ctxt R.CR4_2, !.ctxt R.CR4_3
+  | R.CR5 -> !.ctxt R.CR5_0, !.ctxt R.CR5_1, !.ctxt R.CR5_2, !.ctxt R.CR5_3
+  | R.CR6 -> !.ctxt R.CR6_0, !.ctxt R.CR6_1, !.ctxt R.CR6_2, !.ctxt R.CR6_3
+  | R.CR7 -> !.ctxt R.CR7_0, !.ctxt R.CR7_1, !.ctxt R.CR7_2, !.ctxt R.CR7_3
+  | _ -> raise InvalidOperandException
+
+let transCmpOprs (ins: InsInfo) ctxt =
+  match ins.Operands with
+  | ThreeOperands (OprReg o1, o2, o3) ->
+    struct (getCRRegValue ctxt o1,
+            transOprToExpr ins ctxt o2,
+            transOprToExpr ins ctxt o3)
+
+  | FourOperands (OprReg o1, _ , o3, o4) ->
+    struct (getCRRegValue ctxt o1,
+            transOprToExpr ins ctxt o3,
+            transOprToExpr ins ctxt o4)
   | _ -> raise InvalidOperandException
 
 let getImmValue = function
@@ -291,114 +315,30 @@ let clrlwi ins insLen ctxt =
   !!ir (ra := rs .& (getExtMask n (numI32 31 32<rt>)))
   !>ir insLen
 
-let cmpi ins insLen ctxt =
-  let struct (crf, l, ra, simm) = transFourOprs ins ctxt
-  if l = (AST.num1 32<rt>) then raise ParsingFailureException
-  let cond1 = simm .>= ra
-  let cond2 = simm == ra
-  let a = numI32 0b1000 4<rt>
-  let b = numI32 0b0100 4<rt>
-  let c = numI32 0b0010 4<rt>
-  let xer = !.ctxt R.XER
-  let ir = !*ctxt
-  let tmp = !+ir 4<rt>
-  !<ir insLen
-  !!ir (tmp := AST.ite cond1 (AST.ite cond2 c a) b)
-  !!ir (crf := tmp .| AST.zext 4<rt> (AST.xtlo 1<rt> xer))
-  !>ir insLen
-
-let cmpw ins insLen ctxt =
-  let struct (crf, ra, rb) = transThreeOprs ins ctxt
-  let cond1 = rb .>= ra
+let cmp ins insLen ctxt =
+  let struct ((crf0, crf1, crf2, crf3), ra, rb) = transCmpOprs ins ctxt
+  let cond1 = rb ?> ra
   let cond2 = rb == ra
   let xer = !.ctxt R.XER
-  let a = numI32 0b1000 4<rt>
-  let b = numI32 0b0100 4<rt>
-  let c = numI32 0b0010 4<rt>
   let ir = !*ctxt
-  let tmp = !+ir 4<rt>
   !<ir insLen
-  !!ir (tmp := AST.ite cond1 (AST.ite cond2 c a) b)
-  !!ir (crf := tmp .| AST.zext 4<rt> (AST.xtlo 1<rt> xer))
-  !>ir insLen
-
-let cmpwi ins insLen ctxt =
-  let struct (crf, ra, simm) = transThreeOprs ins ctxt
-  let cond1 = simm .>= ra
-  let cond2 = simm == ra
-  let a = numI32 0b1000 4<rt>
-  let b = numI32 0b0100 4<rt>
-  let c = numI32 0b0010 4<rt>
-  let xer = !.ctxt R.XER
-  let ir = !*ctxt
-  let tmp = !+ir 4<rt>
-  !<ir insLen
-  !!ir (tmp := AST.ite cond1 (AST.ite cond2 c a) b)
-  !!ir (crf := tmp .| AST.zext 4<rt> (AST.xtlo 1<rt> xer))
+  !!ir (crf0 := AST.ite cond1 AST.b1 AST.b0)
+  !!ir (crf1 := AST.ite cond1 AST.b0 (AST.ite cond2 AST.b0 AST.b1))
+  !!ir (crf2 := AST.ite cond2 AST.b1 AST.b0)
+  !!ir (crf3 := AST.xtlo 1<rt> xer)
   !>ir insLen
 
 let cmpl ins insLen ctxt =
-  let struct (crf, l, ra, rb) = transFourOprs ins ctxt
-  if l = (AST.num1 32<rt>) then raise ParsingFailureException
-  let cond1 = rb .>= ra
+  let struct ((crf0, crf1, crf2, crf3), ra, rb) = transCmpOprs ins ctxt
+  let cond1 = rb .> ra
   let cond2 = rb == ra
   let xer = !.ctxt R.XER
-  let a = numI32 0b1000 4<rt>
-  let b = numI32 0b0100 4<rt>
-  let c = numI32 0b0010 4<rt>
   let ir = !*ctxt
-  let tmp = !+ir 4<rt>
   !<ir insLen
-  !!ir (tmp := AST.ite cond1 (AST.ite cond2 c a) b)
-  !!ir (crf := tmp .| AST.zext 4<rt> (AST.xtlo 1<rt> xer))
-  !>ir insLen
-
-let cmpli ins insLen ctxt =
-  let struct (crf, l, ra, uimm) = transFourOprs ins ctxt
-  if l = (AST.num1 32<rt>) then raise ParsingFailureException
-  let uimm = AST.concat (AST.num0 16<rt>) (AST.xtlo 16<rt> uimm)
-  let cond1 = uimm .>= ra
-  let cond2 = uimm == ra
-  let xer = !.ctxt R.XER
-  let a = numI32 0b1000 4<rt>
-  let b = numI32 0b0100 4<rt>
-  let c = numI32 0b0010 4<rt>
-  let ir = !*ctxt
-  let tmp = !+ir 4<rt>
-  !<ir insLen
-  !!ir (tmp := AST.ite cond1 (AST.ite cond2 c a) b)
-  !!ir (crf := tmp .| AST.zext 4<rt> (AST.xtlo 1<rt> xer))
-  !>ir insLen
-
-let cmplw ins insLen ctxt =
-  let struct (crf, ra, rb) = transThreeOprs ins ctxt
-  let cond1 = rb .>= ra
-  let cond2 = rb == ra
-  let xer = !.ctxt R.XER
-  let a = numI32 0b1000 4<rt>
-  let b = numI32 0b0100 4<rt>
-  let c = numI32 0b0010 4<rt>
-  let ir = !*ctxt
-  let tmp = !+ir 4<rt>
-  !<ir insLen
-  !!ir (tmp := AST.ite cond1 (AST.ite cond2 c a) b)
-  !!ir (crf := tmp .| AST.zext 4<rt> (AST.xtlo 1<rt> xer))
-  !>ir insLen
-
-let cmplwi ins insLen ctxt =
-  let struct (crf, ra, uimm) = transThreeOprs ins ctxt
-  let uimm = AST.concat (AST.num0 16<rt>) (AST.xtlo 16<rt> uimm)
-  let cond1 = uimm .>= ra
-  let cond2 = uimm == ra
-  let a = numI32 0b1000 4<rt>
-  let b = numI32 0b0100 4<rt>
-  let c = numI32 0b0010 4<rt>
-  let xer = !.ctxt R.XER
-  let ir = !*ctxt
-  let tmp = !+ir 4<rt>
-  !<ir insLen
-  !!ir (tmp := AST.ite cond1 (AST.ite cond2 c a) b)
-  !!ir (crf := tmp .| AST.zext 4<rt> (AST.xtlo 1<rt> xer))
+  !!ir (crf0 := AST.ite cond1 AST.b1 AST.b0)
+  !!ir (crf1 := AST.ite cond1 AST.b0 (AST.ite cond2 AST.b0 AST.b1))
+  !!ir (crf2 := AST.ite cond2 AST.b1 AST.b0)
+  !!ir (crf3 := AST.xtlo 1<rt> xer)
   !>ir insLen
 
 let cntlzw ins insLen ctxt =
@@ -1113,13 +1053,12 @@ let translate (ins: InsInfo) insLen (ctxt: TranslationContext) =
   | Op.BCLR -> bclr ins insLen ctxt false
   | Op.BCLRL -> bclr ins insLen ctxt true
   | Op.CLRLWI -> clrlwi ins insLen ctxt
-  | Op.CMPI -> cmpi ins insLen ctxt
-  | Op.CMPWI -> cmpwi ins insLen ctxt
-  | Op.CMPL -> cmpl ins insLen ctxt
-  | Op.CMPLI -> cmpli ins insLen ctxt
-  | Op.CMPLW -> cmplw ins insLen ctxt
-  | Op.CMPLWI -> cmplwi ins insLen ctxt
-  | Op.CMPW -> cmpw ins insLen ctxt
+  | Op.CMPI | Op.CMPL | Op.CMPLI -> raise InvalidOperandException (* invaild *)
+  | Op.CMP -> cmp ins insLen ctxt
+  | Op.CMPW -> cmp ins insLen ctxt
+  | Op.CMPLW -> cmpl ins insLen ctxt
+  | Op.CMPLWI -> cmp ins insLen ctxt
+  | Op.CMPWI -> cmp ins insLen ctxt
   | Op.CNTLZW -> cntlzw ins insLen ctxt
   | Op.CRCLR -> crclr ins insLen ctxt
   | Op.CROR -> cror ins insLen ctxt
