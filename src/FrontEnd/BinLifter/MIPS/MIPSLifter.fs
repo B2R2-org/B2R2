@@ -116,6 +116,9 @@ let sideEffects insLen ctxt name =
   !!ir (AST.sideEffect name)
   !>ir insLen
 
+let private elem vector e size =
+  AST.extract vector (RegType.fromBitWidth size) (e * size)
+
 let checkOverfolwOnAdd e1 e2 r =
   let e1High = AST.extract e1 1<rt> 31
   let e2High = AST.extract e2 1<rt> 31
@@ -1156,6 +1159,19 @@ let logXor insInfo insLen ctxt =
   advancePC ctxt ir
   !>ir insLen
 
+let wsbh insInfo insLen ctxt =
+  let ir = !*ctxt
+  let rd, rt = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
+  let oprSz = ctxt.WordBitSize / 4
+  let t = !+ir ctxt.WordBitSize
+  !<ir insLen
+  for e in 0 .. 3 do
+    !!ir (elem t e (int oprSz) := AST.extract rt oprSz (int oprSz * (1 ^^^ e)))
+  done
+  !!ir (rd := AST.sext ctxt.WordBitSize t)
+  advancePC ctxt ir
+  !>ir insLen
+
 let xori insInfo insLen ctxt =
   let ir = !*ctxt
   let rt, rs, imm = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
@@ -1320,10 +1336,11 @@ let translate insInfo insLen (ctxt: TranslationContext) =
   | Op.TRUNCL | Op.TRUNCW -> sideEffects insLen ctxt UnsupportedFP
   | Op.XOR -> logXor insInfo insLen ctxt
   | Op.XORI -> xori insInfo insLen ctxt
+  | Op.WSBH -> wsbh insInfo insLen ctxt
   | Op.ABS | Op.BC3F | Op.BC3FL | Op.BC3T | Op.BC3TL | Op.DDIV | Op.DIV
   | Op.DROTR32 | Op.DROTRV | Op.DSBH | Op.DSHD | Op.J | Op.JAL | Op.LDXC1
   | Op.LWXC1 | Op.MADDU | Op.MFHC1 | Op.MOVF | Op.MOVT | Op.MSUB | Op.MTHC1
-  | Op.NEG | Op.ROTRV | Op.SDXC1 | Op.SQRT | Op.SWXC1 | Op.WSBH ->
+  | Op.NEG | Op.ROTRV | Op.SDXC1 | Op.SQRT | Op.SWXC1 ->
     sideEffects insLen ctxt UnsupportedExtension // XXX this is a temporary fix
   | o ->
 #if DEBUG
