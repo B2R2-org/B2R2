@@ -193,10 +193,18 @@ let private buildPackedTwoOprs ins insLen ctxt packSz opFn dst src =
     !!ir (dst := opFn oprSize src1 src2 |> AST.concatArr)
   | 128<rt> ->
     let packNum = packNum / (oprSize / 64<rt>)
-    let srcAppend src =
-      let src = transOprToExprVec ins insLen ctxt src
-      List.map (makeSrc packNum) src |> List.fold Array.append [||]
-    let tSrc = opFn oprSize (srcAppend dst) (srcAppend src)
+    let tSrc =
+      let tsrcFromDst =
+        transOprToExprVec ins insLen ctxt dst
+        |> List.map (makeSrc packNum)
+        |> List.fold Array.append [||]
+      let struct (t1, t2) = tmpVars2 ir 64<rt>
+      let tsrcFromSrc =
+        transOprToExprVec ins insLen ctxt src
+        |> List.zip [t1; t2]
+        |> List.iter (fun (t, s) -> !!ir (t := s))
+        List.map (makeSrc packNum) [t1; t2] |> List.fold Array.append [||]
+      opFn oprSize tsrcFromDst tsrcFromSrc
     let dst = transOprToExprVec ins insLen ctxt dst
     let packNum = Array.length tSrc / List.length dst
     let assign idx dst =
