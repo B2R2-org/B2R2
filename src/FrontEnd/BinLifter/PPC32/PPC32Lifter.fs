@@ -62,14 +62,13 @@ let getExtMask mb me =
 
 let transOprToExpr ins (ctxt: TranslationContext) = function
   | OprReg reg -> !.ctxt reg
-  | OprRegBit (reg, idx) -> AST.extract (!.ctxt reg) 1<rt> (int idx)
   | OprMem (d, b) -> /// FIXME
     AST.loadLE 32<rt> (!.ctxt b .+ numI32 d ctxt.WordBitSize)
   | OprImm imm -> numU64 imm ctxt.WordBitSize
   | OprAddr addr ->
-    numI64 (int64 (ins.Address + addr) + int64 ins.NumBytes) ctxt.WordBitSize
+    numI64 (int64 addr + int64 ins.NumBytes) ctxt.WordBitSize
     |> AST.loadLE ctxt.WordBitSize
-  | OprBI bi -> numU32 bi ctxt.WordBitSize
+  | OprBI bi -> getCRbitRegister bi |> !.ctxt
 
 let transOneOpr (ins: InsInfo) ctxt =
   match ins.Operands with
@@ -110,17 +109,45 @@ let transFiveOprs (ins: InsInfo) ctxt =
             transOprToExpr ins ctxt o5)
   | _ -> raise InvalidOperandException
 
+let getCRRegValue ctxt reg =
+  match reg with
+  | R.CR0 -> !.ctxt R.CR0_0, !.ctxt R.CR0_1, !.ctxt R.CR0_2, !.ctxt R.CR0_3
+  | R.CR1 -> !.ctxt R.CR1_0, !.ctxt R.CR1_1, !.ctxt R.CR1_2, !.ctxt R.CR1_3
+  | R.CR2 -> !.ctxt R.CR2_0, !.ctxt R.CR2_1, !.ctxt R.CR2_2, !.ctxt R.CR2_3
+  | R.CR3 -> !.ctxt R.CR3_0, !.ctxt R.CR3_1, !.ctxt R.CR3_2, !.ctxt R.CR3_3
+  | R.CR4 -> !.ctxt R.CR4_0, !.ctxt R.CR4_1, !.ctxt R.CR4_2, !.ctxt R.CR4_3
+  | R.CR5 -> !.ctxt R.CR5_0, !.ctxt R.CR5_1, !.ctxt R.CR5_2, !.ctxt R.CR5_3
+  | R.CR6 -> !.ctxt R.CR6_0, !.ctxt R.CR6_1, !.ctxt R.CR6_2, !.ctxt R.CR6_3
+  | R.CR7 -> !.ctxt R.CR7_0, !.ctxt R.CR7_1, !.ctxt R.CR7_2, !.ctxt R.CR7_3
+  | _ -> raise InvalidOperandException
+
+let transCmpOprs (ins: InsInfo) ctxt =
+  match ins.Operands with
+  | ThreeOperands (OprReg o1, o2, o3) ->
+    struct (getCRRegValue ctxt o1,
+            transOprToExpr ins ctxt o2,
+            transOprToExpr ins ctxt o3)
+
+  | FourOperands (OprReg o1, _ , o3, o4) ->
+    struct (getCRRegValue ctxt o1,
+            transOprToExpr ins ctxt o3,
+            transOprToExpr ins ctxt o4)
+  | _ -> raise InvalidOperandException
+
 let getImmValue = function
   | OprImm imm -> uint32 imm
   | OprBI imm -> imm
   | _ -> raise InvalidOperandException
 
 let setCondReg ctxt ir result =
-  let cr0 = !.ctxt R.CR0
-  !!ir (AST.extract cr0 1<rt> 0 := result .< AST.num0 32<rt>)
-  !!ir (AST.extract cr0 1<rt> 1 := result .> AST.num0 32<rt>)
-  !!ir (AST.extract cr0 1<rt> 2 := result == AST.num0 32<rt>)
-  !!ir (AST.extract cr0 1<rt> 3 := AST.b0) /// FIXME: XER[SO]
+  let cr0A = !.ctxt R.CR0_0
+  let cr0B = !.ctxt R.CR0_1
+  let cr0C = !.ctxt R.CR0_2
+  let cr0D = !.ctxt R.CR0_3
+  !!ir (cr0A := result .< AST.num0 32<rt>)
+  !!ir (cr0B := result .> AST.num0 32<rt>)
+  !!ir (cr0C := result == AST.num0 32<rt>)
+  !!ir (cr0D := AST.b0) /// FIXME: XER[SO]
 
 let sideEffects insLen ctxt name =
   let ir = !*ctxt
@@ -213,308 +240,72 @@ let andidot ins insLen ctxt =
   !!ir (dst := src .& uimm)
   !>ir insLen
 
-let branch ins insLen ctxt =
-  let addr = transOneOpr ins ctxt
-  let ir = !*ctxt
-  !<ir insLen
-  !!ir (AST.interjmp addr InterJmpKind.Base)
-  !>ir insLen
-
-let blx ins insLen ctxt =
+let b ins insLen ctxt lk =
   let addr = transOneOpr ins ctxt
   let ir = !*ctxt
   let lr = !.ctxt R.LR
   !<ir insLen
   !!ir (AST.interjmp addr InterJmpKind.Base)
-  !!ir (lr := numU64 ins.Address 32<rt> .+ numI32 4 32<rt>)
+  if lk then !!ir (lr := numU64 ins.Address 32<rt> .+ numI32 4 32<rt>)
   !>ir insLen
 
-let bc ins insLen ctxt =
-  let struct (bo, bi, addr) = getThreeOprs ins
-  let bo = transOprToExpr ins ctxt bo
-  let bi = getImmValue bi
-  let cr = getCondRegister (bi / 4u) |> !.ctxt
-  let addr = transOprToExpr ins ctxt addr
-  let ir = !*ctxt
-  let ctr = !.ctxt R.CTR
-  let idx = numU32 (bi % 4u) 4<rt>
-  let bo x = AST.extract bo 1<rt> x (* bo x *)
-  let ctrOk = !+ir 1<rt>
-  let condOk = !+ir 1<rt>
-  let cia = numU64 ins.Address 32<rt>
-  let nia = cia .+ AST.zext 32<rt> addr
-  let temp = !+ir 32<rt>
-  !<ir insLen
-  !!ir (ctr := AST.ite (AST.not (bo 2)) (ctr .- AST.num1 32<rt>) ctr)
-  !!ir (ctrOk := bo 2 .| ((ctr != AST.num0 32<rt>) <+> bo 3))
-  !!ir (condOk := bo 0 .| (AST.xtlo 1<rt> (cr >> idx) <+> AST.not (bo 1)))
-  !!ir (temp := AST.ite (ctrOk .& condOk) nia (cia .+ numI32 4 32<rt>))
-  !!ir (AST.interjmp temp InterJmpKind.Base)
-  !>ir insLen
-
-let bge ins insLen ctxt =
-  let struct (crs, addr) = transTwoOprs ins ctxt
-  let ir = !*ctxt
-  let condOk = !+ir 1<rt>
-  let cia = numU64 ins.Address 32<rt>
-  let nia = cia .+ AST.zext 32<rt> addr
-  let temp = !+ir 32<rt>
-  !<ir insLen
-  !!ir (condOk := (AST.xtlo 1<rt> crs <+> AST.b1)) (* FIXME: BO[0], BO[1] *)
-  !!ir (temp := AST.ite condOk nia (cia .+ numI32 4 32<rt>))
-  !!ir (AST.interjmp temp InterJmpKind.Base)
-  !>ir insLen
-
-let ble ins insLen ctxt =
-  let struct (crs, addr) = transTwoOprs ins ctxt
-  let ir = !*ctxt
-  let condOk = !+ir 1<rt>
-  let cia = numU64 ins.Address 32<rt>
-  let nia = cia .+ AST.zext 32<rt> addr
-  let temp = !+ir 32<rt>
-  !<ir insLen
-  (* FIXME: BO[0], BO[1] *)
-  !!ir (condOk := (AST.extract crs 1<rt> 1 <+> AST.b1))
-  !!ir (temp := AST.ite condOk nia (cia .+ numI32 4 32<rt>))
-  !!ir (AST.interjmp temp InterJmpKind.Base)
-  !>ir insLen
-
-let bne ins insLen ctxt =
-  let struct (crs, addr) = transTwoOprs ins ctxt
-  let ir = !*ctxt
-  let condOk = !+ir 1<rt>
-  let cia = numU64 ins.Address 32<rt>
-  let nia = cia .+ AST.zext 32<rt> addr
-  let temp = !+ir 32<rt>
-  !<ir insLen
-  (* FIXME: BO[0], BO[1] *)
-  !!ir (condOk := (AST.extract crs 1<rt> 2 <+> AST.b1))
-  !!ir (temp := AST.ite condOk nia (cia .+ numI32 4 32<rt>))
-  !!ir (AST.interjmp temp InterJmpKind.Base)
-  !>ir insLen
-
-let blt ins insLen ctxt =
-  let struct (crs, addr) = transTwoOprs ins ctxt
-  let ir = !*ctxt
-  let condOk = !+ir 1<rt>
-  let cia = numU64 ins.Address 32<rt>
-  let nia = cia .+ AST.zext 32<rt> addr
-  let temp = !+ir 32<rt>
-  !<ir insLen
-  !!ir (condOk := (AST.xtlo 1<rt> crs <+> AST.b1)) (* FIXME: BO[0], BO[1] *)
-  !!ir (temp := AST.ite condOk nia (cia .+ numI32 4 32<rt>))
-  !!ir (AST.interjmp temp InterJmpKind.Base)
-  !>ir insLen
-
-let bgt ins insLen ctxt =
-  let struct (crs, addr) = transTwoOprs ins ctxt
-  let ir = !*ctxt
-  let condOk = !+ir 1<rt>
-  let cia = numU64 ins.Address 32<rt>
-  let nia = cia .+ AST.zext 32<rt> addr
-  let temp = !+ir 32<rt>
-  !<ir insLen
-  (* FIXME: BO[0], BO[1] *)
-  !!ir (condOk := (AST.extract crs 1<rt> 1 <+> AST.b1))
-  !!ir (temp := AST.ite condOk nia (cia .+ numI32 4 32<rt>))
-  !!ir (AST.interjmp temp InterJmpKind.Base)
-  !>ir insLen
-
-let beq ins insLen ctxt =
-  let struct (crs, addr) = transTwoOprs ins ctxt
-  let ir = !*ctxt
-  let condOk = !+ir 1<rt>
-  let cia = numU64 ins.Address 32<rt>
-  let nia = cia .+ AST.zext 32<rt> addr
-  let temp = !+ir 32<rt>
-  !<ir insLen
-  (* FIXME: BO[0], BO[1] *)
-  !!ir (condOk := (AST.extract crs 1<rt> 2 <+> AST.b1))
-  !!ir (temp := AST.ite condOk nia (cia .+ numI32 4 32<rt>))
-  !!ir (AST.interjmp temp InterJmpKind.Base)
-  !>ir insLen
-
-let bcl ins insLen ctxt =
-  let struct (bo, bi, addr) = getThreeOprs ins
-  let bo = transOprToExpr ins ctxt bo
-  let bi = getImmValue bi
-  let cr = getCondRegister (bi / 4u) |> !.ctxt
-  let addr = transOprToExpr ins ctxt addr
+let bc ins insLen ctxt aa lk =
+  let struct (bo, cr, addr) = transThreeOprs ins ctxt
   let ir = !*ctxt
   let lr = !.ctxt R.LR
   let ctr = !.ctxt R.CTR
-  let idx = numU32 (bi % 4u) 4<rt>
   let bo x = AST.extract bo 1<rt> x
   let ctrOk = !+ir 1<rt>
   let condOk = !+ir 1<rt>
   let cia = numU64 ins.Address 32<rt>
-  let nia = cia .+ AST.zext 32<rt> addr
+  let nia = cia .+ numI32 4 32<rt>
   let temp = !+ir 32<rt>
   !<ir insLen
-  !!ir (lr := cia .+ numI32 4 32<rt>)
+  if lk then !!ir (lr := nia)
   !!ir (ctr := AST.ite (AST.not (bo 2)) (ctr .- AST.num1 32<rt>) ctr)
   !!ir (ctrOk := bo 2 .| ((ctr != AST.num0 32<rt>) <+> bo 3))
-  !!ir (condOk := bo 0 .| (AST.xtlo 1<rt> (cr >> idx) <+> AST.not (bo 1)))
-  !!ir (temp := AST.ite (ctrOk .& condOk) nia (cia .+ numI32 4 32<rt>))
+  !!ir (condOk := bo 0 .| (cr <+> AST.not (bo 1)))
+  if aa then !!ir (temp := AST.ite (ctrOk .& condOk) nia addr)
+  else !!ir (temp := AST.ite (ctrOk .& condOk) nia (cia .+ addr))
   !!ir (AST.interjmp temp InterJmpKind.Base)
   !>ir insLen
 
-let bcctr ins insLen ctxt =
-  let struct (bo, bi) = getTwoOprs ins
-  let bo = transOprToExpr ins ctxt bo
-  let bi = getImmValue bi
-  let cr = getCondRegister (bi / 4u) |> !.ctxt
+let bclr ins insLen ctxt lk =
+  let struct (bo, cr) = transTwoOprs ins ctxt
   let ir = !*ctxt
+  let lr = !.ctxt R.LR
   let ctr = !.ctxt R.CTR
-  let idx = numU32 (bi % 4u) 4<rt>
   let bo x = AST.extract bo 1<rt> x
-  let condOk = !+ir 1<rt>
-  let cia = numU64 ins.Address 32<rt>
-  let nia = AST.concat (AST.xtlo 30<rt> ctr) (AST.num0 2<rt>)
-  let temp = !+ir 32<rt>
-  !<ir insLen
-  !!ir (condOk := bo 0 .| (AST.xtlo 1<rt> (cr >> idx) <+> AST.not (bo 1)))
-  !!ir (temp := AST.ite condOk nia (cia .+ numI32 4 32<rt>))
-  !!ir (AST.interjmp temp InterJmpKind.Base)
-  !>ir insLen
-
-let bcctrl ins insLen ctxt =
-  let struct (bo, bi) = getTwoOprs ins
-  let bo = transOprToExpr ins ctxt bo
-  let bi = getImmValue bi
-  let cr = getCondRegister (bi / 4u) |> !.ctxt
-  let ir = !*ctxt
-  let ctr = !.ctxt R.CTR
-  let idx = numU32 (bi % 4u) 4<rt>
-  let bo x = AST.extract bo 1<rt> x
-  let condOk = !+ir 1<rt>
-  let cia = numU64 ins.Address 32<rt>
-  let nia = AST.concat (AST.xtlo 30<rt> ctr) (AST.num0 2<rt>)
-  let temp = !+ir 32<rt>
-  let lr = !.ctxt R.LR
-  !<ir insLen
-  !!ir (condOk := bo 0 .| (AST.xtlo 1<rt> (cr >> idx) <+> AST.not (bo 1)))
-  !!ir (temp := AST.ite condOk nia (cia .+ numI32 4 32<rt>))
-  !!ir (AST.interjmp temp InterJmpKind.Base)
-  !!ir (lr := cia .+ numI32 4 32<rt>)
-  !>ir insLen
-
-let bctr ins insLen ctxt =
-  let ir = !*ctxt
-  let condOk = !+ir 1<rt>
-  let cr = !.ctxt R.CR0
-  let ctr = !.ctxt R.CTR
-  let cia = numU64 ins.Address 32<rt>
-  let nia = AST.concat (AST.xtlo 30<rt> ctr) (AST.num0 2<rt>)
-  let temp = !+ir 32<rt>
-  !<ir insLen
-  !!ir (condOk := (AST.xtlo 1<rt> cr) <+> AST.b1)
-  !!ir (temp := AST.ite condOk nia (cia .+ numI32 4 32<rt>))
-  !!ir (AST.interjmp temp InterJmpKind.Base)
-  !>ir insLen
-
-let bctrl ins insLen ctxt =
-  let ir = !*ctxt
-  let condOk = !+ir 1<rt>
-  let cr = !.ctxt R.CR0
-  let ctr = !.ctxt R.CTR
-  let cia = numU64 ins.Address 32<rt>
-  let nia = AST.concat (AST.xtlo 30<rt> ctr) (AST.num0 2<rt>)
-  let temp = !+ir 32<rt>
-  let lr = !.ctxt R.LR
-  !<ir insLen
-  !!ir (condOk := (AST.xtlo 1<rt> cr) <+> AST.b1)
-  !!ir (temp := AST.ite condOk nia (cia .+ numI32 4 32<rt>))
-  !!ir (AST.interjmp temp InterJmpKind.Base)
-  !!ir (lr := cia .+ numI32 4 32<rt>)
-  !>ir insLen
-
-let bclr ins insLen ctxt =
-  let struct (bo, bi) = getTwoOprs ins
-  let bo = transOprToExpr ins ctxt bo
-  let bi = getImmValue bi
-  let cr = getCondRegister (bi / 4u) |> !.ctxt
-  let ir = !*ctxt
-  let lr = !.ctxt R.LR
-  let ctr = !.ctxt R.CTR
-  let idx = numU32 (bi % 4u) 4<rt>
-  let bo x = AST.extract bo 1<rt> x (* bo x *)
   let ctrOk = !+ir 1<rt>
   let condOk = !+ir 1<rt>
   let cia = numU64 ins.Address 32<rt>
-  let nia = AST.concat (AST.xtlo 30<rt> lr) (AST.num0 2<rt>)
+  let nia = cia .+ numI32 4 32<rt>
   let temp = !+ir 32<rt>
   !<ir insLen
   !!ir (ctr := AST.ite (AST.not (bo 2)) (ctr .- AST.num1 32<rt>) ctr)
   !!ir (ctrOk := bo 2 .| ((ctr != AST.num0 32<rt>) <+> bo 3))
-  !!ir (condOk := bo 0 .| (AST.xtlo 1<rt> (cr >> idx) <+> AST.not (bo 1)))
+  !!ir (condOk := bo 0 .| (cr <+> AST.not (bo 1)))
   !!ir (temp := AST.ite (ctrOk .& condOk) nia (cia .+ numI32 4 32<rt>))
+  !!ir (AST.interjmp temp InterJmpKind.Base)
+  if lk then !!ir (lr := nia)
   !>ir insLen
 
-let bclrl ins insLen ctxt =
-  let struct (bo, bi) = getTwoOprs ins
-  let bo = transOprToExpr ins ctxt bo
-  let bi = getImmValue bi
-  let cr = getCondRegister (bi / 4u) |> !.ctxt
+let bcctr ins insLen ctxt lk =
+  let struct (bo, cr) = transTwoOprs ins ctxt
   let ir = !*ctxt
   let lr = !.ctxt R.LR
   let ctr = !.ctxt R.CTR
-  let idx = numU32 (bi % 4u) 4<rt>
-  let bo x = AST.extract bo 1<rt> x (* bo x *)
-  let ctrOk = !+ir 1<rt>
+  let bo x = AST.extract bo 1<rt> x
   let condOk = !+ir 1<rt>
   let cia = numU64 ins.Address 32<rt>
-  let nia = AST.concat (AST.xtlo 30<rt> lr) (AST.num0 2<rt>)
+  let nia = cia .+ numI32 4 32<rt>
   let temp = !+ir 32<rt>
   !<ir insLen
-  !!ir (ctr := AST.ite (AST.not (bo 2)) (ctr .- AST.num1 32<rt>) ctr)
-  !!ir (ctrOk := bo 2 .| ((ctr != AST.num0 32<rt>) <+> bo 3))
-  !!ir (condOk := bo 0 .| (AST.xtlo 1<rt> (cr >> idx) <+> AST.not (bo 1)))
-  !!ir (temp := AST.ite (ctrOk .& condOk) nia (cia .+ numI32 4 32<rt>))
-  !!ir (lr := cia .+ numI32 4 32<rt>)
-  !>ir insLen
-
-let beqlr ins insLen ctxt =
-  let crs = transOneOpr ins ctxt
-  let ir = !*ctxt
-  let condOk = !+ir 1<rt>
-  let lr = !.ctxt R.LR
-  let cia = numU64 ins.Address 32<rt>
-  let nia = AST.concat (AST.xtlo 30<rt> lr) (AST.num0 2<rt>)
-  let temp = !+ir 32<rt>
-  !<ir insLen
-  (* FIXME: BO[0], BO[1] *)
-  !!ir (condOk := (AST.extract crs 1<rt> 2 <+> AST.b1))
-  !!ir (temp := AST.ite condOk nia (cia .+ numI32 4 32<rt>))
-  !>ir insLen
-
-let beqlrl ins insLen ctxt =
-  let crs = transOneOpr ins ctxt
-  let ir = !*ctxt
-  let condOk = !+ir 1<rt>
-  let lr = !.ctxt R.LR
-  let cia = numU64 ins.Address 32<rt>
-  let nia = AST.concat (AST.xtlo 30<rt> lr) (AST.num0 2<rt>)
-  let temp = !+ir 32<rt>
-  !<ir insLen
-  (* FIXME: BO[0], BO[1] *)
-  !!ir (condOk := (AST.extract crs 1<rt> 2 <+> AST.b1))
-  !!ir (temp := AST.ite condOk nia (cia .+ numI32 4 32<rt>))
-  !!ir (lr := cia .+ numI32 4 32<rt>)
-  !>ir insLen
-
-let blr ins insLen ctxt =
-  let ir = !*ctxt
-  let condOk = !+ir 1<rt>
-  let cr = !.ctxt R.CR0
-  let lr = !.ctxt R.LR
-  let cia = numU64 ins.Address 32<rt>
-  let nia = AST.concat (AST.xtlo 30<rt> lr) (AST.num0 2<rt>)
-  let temp = !+ir 32<rt>
-  !<ir insLen
-  !!ir (condOk := (AST.xtlo 1<rt> cr) <+> AST.b1)
-  !!ir (temp := AST.ite condOk nia (cia .+ numI32 4 32<rt>))
+  !!ir (condOk := bo 0 .| (cr <+> AST.not (bo 1)))
+  !!ir (temp := AST.ite condOk nia
+         (AST.concat (AST.xtlo 29<rt> ctr) (AST.num0 2<rt>)))
   !!ir (AST.interjmp temp InterJmpKind.Base)
+  if lk then !!ir (lr := nia)
   !>ir insLen
 
 let clrlwi ins insLen ctxt =
@@ -524,114 +315,30 @@ let clrlwi ins insLen ctxt =
   !!ir (ra := rs .& (getExtMask n (numI32 31 32<rt>)))
   !>ir insLen
 
-let cmpi ins insLen ctxt =
-  let struct (crf, l, ra, simm) = transFourOprs ins ctxt
-  if l = (AST.num1 32<rt>) then raise ParsingFailureException
-  let cond1 = simm .>= ra
-  let cond2 = simm == ra
-  let a = numI32 0b1000 4<rt>
-  let b = numI32 0b0100 4<rt>
-  let c = numI32 0b0010 4<rt>
-  let xer = !.ctxt R.XER
-  let ir = !*ctxt
-  let tmp = !+ir 4<rt>
-  !<ir insLen
-  !!ir (tmp := AST.ite cond1 (AST.ite cond2 c a) b)
-  !!ir (crf := tmp .| AST.zext 4<rt> (AST.xtlo 1<rt> xer))
-  !>ir insLen
-
-let cmpw ins insLen ctxt =
-  let struct (crf, ra, rb) = transThreeOprs ins ctxt
-  let cond1 = rb .>= ra
+let cmp ins insLen ctxt =
+  let struct ((crf0, crf1, crf2, crf3), ra, rb) = transCmpOprs ins ctxt
+  let cond1 = rb ?> ra
   let cond2 = rb == ra
   let xer = !.ctxt R.XER
-  let a = numI32 0b1000 4<rt>
-  let b = numI32 0b0100 4<rt>
-  let c = numI32 0b0010 4<rt>
   let ir = !*ctxt
-  let tmp = !+ir 4<rt>
   !<ir insLen
-  !!ir (tmp := AST.ite cond1 (AST.ite cond2 c a) b)
-  !!ir (crf := tmp .| AST.zext 4<rt> (AST.xtlo 1<rt> xer))
-  !>ir insLen
-
-let cmpwi ins insLen ctxt =
-  let struct (crf, ra, simm) = transThreeOprs ins ctxt
-  let cond1 = simm .>= ra
-  let cond2 = simm == ra
-  let a = numI32 0b1000 4<rt>
-  let b = numI32 0b0100 4<rt>
-  let c = numI32 0b0010 4<rt>
-  let xer = !.ctxt R.XER
-  let ir = !*ctxt
-  let tmp = !+ir 4<rt>
-  !<ir insLen
-  !!ir (tmp := AST.ite cond1 (AST.ite cond2 c a) b)
-  !!ir (crf := tmp .| AST.zext 4<rt> (AST.xtlo 1<rt> xer))
+  !!ir (crf0 := AST.ite cond1 AST.b1 AST.b0)
+  !!ir (crf1 := AST.ite cond1 AST.b0 (AST.ite cond2 AST.b0 AST.b1))
+  !!ir (crf2 := AST.ite cond2 AST.b1 AST.b0)
+  !!ir (crf3 := AST.xtlo 1<rt> xer)
   !>ir insLen
 
 let cmpl ins insLen ctxt =
-  let struct (crf, l, ra, rb) = transFourOprs ins ctxt
-  if l = (AST.num1 32<rt>) then raise ParsingFailureException
-  let cond1 = rb .>= ra
+  let struct ((crf0, crf1, crf2, crf3), ra, rb) = transCmpOprs ins ctxt
+  let cond1 = rb .> ra
   let cond2 = rb == ra
   let xer = !.ctxt R.XER
-  let a = numI32 0b1000 4<rt>
-  let b = numI32 0b0100 4<rt>
-  let c = numI32 0b0010 4<rt>
   let ir = !*ctxt
-  let tmp = !+ir 4<rt>
   !<ir insLen
-  !!ir (tmp := AST.ite cond1 (AST.ite cond2 c a) b)
-  !!ir (crf := tmp .| AST.zext 4<rt> (AST.xtlo 1<rt> xer))
-  !>ir insLen
-
-let cmpli ins insLen ctxt =
-  let struct (crf, l, ra, uimm) = transFourOprs ins ctxt
-  if l = (AST.num1 32<rt>) then raise ParsingFailureException
-  let uimm = AST.concat (AST.num0 16<rt>) (AST.xtlo 16<rt> uimm)
-  let cond1 = uimm .>= ra
-  let cond2 = uimm == ra
-  let xer = !.ctxt R.XER
-  let a = numI32 0b1000 4<rt>
-  let b = numI32 0b0100 4<rt>
-  let c = numI32 0b0010 4<rt>
-  let ir = !*ctxt
-  let tmp = !+ir 4<rt>
-  !<ir insLen
-  !!ir (tmp := AST.ite cond1 (AST.ite cond2 c a) b)
-  !!ir (crf := tmp .| AST.zext 4<rt> (AST.xtlo 1<rt> xer))
-  !>ir insLen
-
-let cmplw ins insLen ctxt =
-  let struct (crf, ra, rb) = transThreeOprs ins ctxt
-  let cond1 = rb .>= ra
-  let cond2 = rb == ra
-  let xer = !.ctxt R.XER
-  let a = numI32 0b1000 4<rt>
-  let b = numI32 0b0100 4<rt>
-  let c = numI32 0b0010 4<rt>
-  let ir = !*ctxt
-  let tmp = !+ir 4<rt>
-  !<ir insLen
-  !!ir (tmp := AST.ite cond1 (AST.ite cond2 c a) b)
-  !!ir (crf := tmp .| AST.zext 4<rt> (AST.xtlo 1<rt> xer))
-  !>ir insLen
-
-let cmplwi ins insLen ctxt =
-  let struct (crf, ra, uimm) = transThreeOprs ins ctxt
-  let uimm = AST.concat (AST.num0 16<rt>) (AST.xtlo 16<rt> uimm)
-  let cond1 = uimm .>= ra
-  let cond2 = uimm == ra
-  let a = numI32 0b1000 4<rt>
-  let b = numI32 0b0100 4<rt>
-  let c = numI32 0b0010 4<rt>
-  let xer = !.ctxt R.XER
-  let ir = !*ctxt
-  let tmp = !+ir 4<rt>
-  !<ir insLen
-  !!ir (tmp := AST.ite cond1 (AST.ite cond2 c a) b)
-  !!ir (crf := tmp .| AST.zext 4<rt> (AST.xtlo 1<rt> xer))
+  !!ir (crf0 := AST.ite cond1 AST.b1 AST.b0)
+  !!ir (crf1 := AST.ite cond1 AST.b0 (AST.ite cond2 AST.b0 AST.b1))
+  !!ir (crf2 := AST.ite cond2 AST.b1 AST.b0)
+  !!ir (crf3 := AST.xtlo 1<rt> xer)
   !>ir insLen
 
 let cntlzw ins insLen ctxt =
@@ -1333,35 +1040,25 @@ let translate (ins: InsInfo) insLen (ctxt: TranslationContext) =
   | Op.ADDZEdot -> addzedot ins insLen ctxt
   | Op.AND -> andx ins insLen ctxt
   | Op.ANDIdot -> andidot ins insLen ctxt
-  | Op.B -> branch ins insLen ctxt
-  | Op.BA -> branch ins insLen ctxt
-  | Op.BL -> blx ins insLen ctxt
-  | Op.BLA -> blx ins insLen ctxt
-  | Op.BC -> bc ins insLen ctxt
-  | Op.BGE -> bge ins insLen ctxt
-  | Op.BLE -> ble ins insLen ctxt
-  | Op.BNE -> bne ins insLen ctxt
-  | Op.BLT -> blt ins insLen ctxt
-  | Op.BGT -> bgt ins insLen ctxt
-  | Op.BEQ -> beq ins insLen ctxt
-  | Op.BCL -> bcl ins insLen ctxt
-  | Op.BCCTR -> bcctr ins insLen ctxt
-  | Op.BCCTRL -> bcctrl ins insLen ctxt
-  | Op.BCTR -> bctr ins insLen ctxt
-  | Op.BCTRL -> bctrl ins insLen ctxt
-  | Op.BCLR -> bclr ins insLen ctxt
-  | Op.BCLRL -> bclrl ins insLen ctxt
-  | Op.BEQLR -> beqlr ins insLen ctxt
-  | Op.BEQLRL -> beqlrl ins insLen ctxt
-  | Op.BLR -> blr ins insLen ctxt
+  | Op.B -> b ins insLen ctxt false
+  | Op.BA -> b ins insLen ctxt false
+  | Op.BL -> b ins insLen ctxt true
+  | Op.BLA -> b ins insLen ctxt true
+  | Op.BC -> bc ins insLen ctxt false false
+  | Op.BCA -> bc ins insLen ctxt true false
+  | Op.BCL -> bc ins insLen ctxt false true
+  | Op.BCLA -> bc ins insLen ctxt true true
+  | Op.BCCTR -> bcctr ins insLen ctxt false
+  | Op.BCCTRL -> bcctr ins insLen ctxt true
+  | Op.BCLR -> bclr ins insLen ctxt false
+  | Op.BCLRL -> bclr ins insLen ctxt true
   | Op.CLRLWI -> clrlwi ins insLen ctxt
-  | Op.CMPI -> cmpi ins insLen ctxt
-  | Op.CMPWI -> cmpwi ins insLen ctxt
-  | Op.CMPL -> cmpl ins insLen ctxt
-  | Op.CMPLI -> cmpli ins insLen ctxt
-  | Op.CMPLW -> cmplw ins insLen ctxt
-  | Op.CMPLWI -> cmplwi ins insLen ctxt
-  | Op.CMPW -> cmpw ins insLen ctxt
+  | Op.CMPI | Op.CMPL | Op.CMPLI -> raise InvalidOperandException (* invaild *)
+  | Op.CMP -> cmp ins insLen ctxt
+  | Op.CMPW -> cmp ins insLen ctxt
+  | Op.CMPLW -> cmpl ins insLen ctxt
+  | Op.CMPLWI -> cmp ins insLen ctxt
+  | Op.CMPWI -> cmp ins insLen ctxt
   | Op.CNTLZW -> cntlzw ins insLen ctxt
   | Op.CRCLR -> crclr ins insLen ctxt
   | Op.CROR -> cror ins insLen ctxt

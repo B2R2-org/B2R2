@@ -471,6 +471,9 @@ type Opcode =
   | BCTRL = 432
   | MR = 433
   | InvalOP = 434
+  | BTLRL = 435
+  | BFLRL = 436
+  | BTCTRL = 437
 
 type internal Op = Opcode
 
@@ -502,7 +505,6 @@ type Condition =
 
 type Operand =
   | OprReg of Register
-  | OprRegBit of Register * uint32
   | OprMem of D * Register
   | OprImm of Imm
   | OprAddr of TargetAddr
