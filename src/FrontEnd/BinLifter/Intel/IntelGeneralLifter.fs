@@ -70,20 +70,20 @@ let private buildPF ctxt r size cond ir =
          | None -> pf := computedPF
          | Some cond -> pf := AST.ite cond pf computedPF)
 
-let private enumSZPFlags ctxt r size ir =
-  !!ir (!.ctxt R.SF := AST.xthi 1<rt> r)
+let private enumSZPFlags ctxt r size sf ir =
+  !!ir (!.ctxt R.SF := sf)
   !!ir (!.ctxt R.ZF := r == (AST.num0 size))
   !?ir (buildPF ctxt r size None)
 
-let private enumASZPFlags ctxt e1 e2 r size ir =
+let private enumASZPFlags ctxt e1 e2 r size sf ir =
   !!ir (buildAF ctxt e1 e2 r size)
-  !?ir (enumSZPFlags ctxt r size)
+  !?ir (enumSZPFlags ctxt r size sf)
 
-let private enumEFLAGS ctxt e1 e2 e3 size cf ofl ir =
+let private enumEFLAGS ctxt e1 e2 e3 size cf ofl sf ir =
   !!ir (!.ctxt R.CF := cf)
   !!ir (!.ctxt R.OF := ofl)
   !!ir (buildAF ctxt e1 e2 e3 size)
-  !!ir (!.ctxt R.SF := AST.xthi 1<rt> e3)
+  !!ir (!.ctxt R.SF := sf)
   !!ir (!.ctxt R.ZF := e3 == (AST.num0 size))
   !?ir (buildPF ctxt e3 size None)
 
@@ -93,12 +93,15 @@ let private cfOnAdd e1 r = AST.lt r e1
 /// CF on sub.
 let private cfOnSub e1 e2 = AST.lt e1 e2
 
-/// OF on add.
-let private ofOnAdd e1 e2 r =
+/// OF and SF on add.
+let private osfOnAdd e1 e2 r ir =
+  let struct (t1, t2) = tmpVars2 ir 1<rt>
   let e1High = AST.xthi 1<rt> e1
   let e2High = AST.xthi 1<rt> e2
   let rHigh = AST.xthi 1<rt> r
-  (e1High == e2High) .& (e1High <+> rHigh)
+  !!ir (t1 := e1High)
+  !!ir (t2 := rHigh)
+  struct ((t1 == e2High) .& (t1 <+> t2), t2)
 
 /// OF on sub.
 let private ofOnSub e1 e2 r =
@@ -218,10 +221,11 @@ let aad ins insLen ctxt =
   let al = !.ctxt R.AL
   let ah = !.ctxt R.AH
   let ir = !*ctxt
+  let sf = AST.xthi 1<rt> al
   !<ir insLen
   !!ir (al := (al .+ (ah .* imm8)) .& (numI32 0xff 8<rt>))
   !!ir (ah := AST.num0 8<rt>)
-  !?ir (enumSZPFlags ctxt al 8<rt>)
+  !?ir (enumSZPFlags ctxt al 8<rt> sf)
 #if !EMULATION
   !!ir (!.ctxt R.OF := undefOF)
   !!ir (!.ctxt R.AF := undefAF)
@@ -237,10 +241,11 @@ let aam ins insLen ctxt =
   let al = !.ctxt R.AL
   let ah = !.ctxt R.AH
   let ir = !*ctxt
+  let sf = AST.xthi 1<rt> al
   !<ir insLen
   !!ir (ah := al ./ imm8)
   !!ir (al := al .% imm8)
-  !?ir (enumSZPFlags ctxt al 8<rt>)
+  !?ir (enumSZPFlags ctxt al 8<rt> sf)
 #if !EMULATION
   !!ir (!.ctxt R.OF := undefOF)
   !!ir (!.ctxt R.AF := undefAF)
@@ -284,8 +289,9 @@ let adc ins insLen ctxt =
   !!ir (t4 := t1 .+ t3)
   !!ir (dstAssign oprSize dst t4)
   !!ir (cf := AST.lt t3 t2 .| AST.lt t4 t1)
-  !!ir (!.ctxt R.OF := ofOnAdd t1 t2 t4)
-  !?ir (enumASZPFlags ctxt t1 t2 t4 oprSize)
+  let struct (ofl, sf) = osfOnAdd t1 t2 t4 ir
+  !!ir (!.ctxt R.OF := ofl)
+  !?ir (enumASZPFlags ctxt t1 t2 t4 oprSize sf)
   !>ir insLen
 
 let add ins insLen ctxt =
@@ -299,7 +305,8 @@ let add ins insLen ctxt =
   !!ir (t2 := src)
   !!ir (t3 := t1 .+ t2)
   !!ir (dstAssign oprSize dst t3)
-  !?ir (enumEFLAGS ctxt t1 t2 t3 oprSize (cfOnAdd t1 t3) (ofOnAdd t1 t2 t3))
+  let struct (ofl, sf) = osfOnAdd t1 t2 t3 ir
+  !?ir (enumEFLAGS ctxt t1 t2 t3 oprSize (cfOnAdd t1 t3) ofl sf)
   if hasLock ins.Prefixes then !!ir (AST.sideEffect Unlock) else ()
   !>ir insLen
 
@@ -321,6 +328,7 @@ let ``and`` ins insLen ctxt =
   let oprSize = getOperationSize ins
   let ir = !*ctxt
   let t = !+ir oprSize
+  let sf = AST.xthi 1<rt> t
   !<ir insLen
   if hasLock ins.Prefixes then !!ir (AST.sideEffect Lock) else ()
   !!ir (t := dst .& AST.sext oprSize src)
@@ -330,7 +338,7 @@ let ``and`` ins insLen ctxt =
 #if !EMULATION
   !!ir (!.ctxt R.AF := undefAF)
 #endif
-  !?ir (enumSZPFlags ctxt t oprSize)
+  !?ir (enumSZPFlags ctxt t oprSize sf)
   if hasLock ins.Prefixes then !!ir (AST.sideEffect Unlock) else ()
   !>ir insLen
 
@@ -675,11 +683,12 @@ let cmp ins insLen ctxt =
   let struct (src1, src2) = transTwoOprs ins insLen ctxt
   let ir = !*ctxt
   let struct (t1, t2, t3) = tmpVars3 ir oprSize
+  let sf = AST.xthi 1<rt> t3
   !<ir insLen
   !!ir (t1 := src1)
   !!ir (t2 := AST.sext oprSize src2)
   !!ir (t3 := t1 .- t2)
-  !?ir (enumEFLAGS ctxt t1 t2 t3 oprSize (cfOnSub t1 t2) (ofOnSub t1 t2 t3))
+  !?ir (enumEFLAGS ctxt t1 t2 t3 oprSize (cfOnSub t1 t2) (ofOnSub t1 t2 t3) sf)
   !>ir insLen
 
 let private cmpsBody ins ctxt ir =
@@ -691,12 +700,13 @@ let private cmpsBody ins ctxt ir =
   let src2 = AST.loadLE oprSize di
   let struct (t1, t2, t3) = tmpVars3 ir oprSize
   let amount = numI32 (RegType.toByteWidth oprSize) ctxt.WordBitSize
+  let sf = AST.xthi 1<rt> t3
   !!ir (t1 := src1)
   !!ir (t2 := src2)
   !!ir (t3 := t1 .- t2)
   !!ir (si := AST.ite df (si .- amount) (si .+ amount))
   !!ir (di := AST.ite df (di .- amount) (di .+ amount))
-  !?ir (enumEFLAGS ctxt t1 t2 t3 oprSize (cfOnSub t1 t2) (ofOnSub t1 t2 t3))
+  !?ir (enumEFLAGS ctxt t1 t2 t3 oprSize (cfOnSub t1 t2) (ofOnSub t1 t2 t3) sf)
 
 let cmps (ins: InsInfo) insLen ctxt =
   let pref = ins.Prefixes
@@ -825,6 +835,7 @@ let daa insLen ctxt =
   let subCond3 = AST.gt oldAl (numI32 0x99 8<rt>)
   let subCond4 = oldCf == AST.b1
   let cond2 = !+ir 1<rt>
+  let sf = AST.xthi 1<rt> al
   !<ir insLen
   !!ir (oldAl := al)
   !!ir (oldCf := cf)
@@ -836,7 +847,7 @@ let daa insLen ctxt =
   !!ir (cond2 := subCond3 .| subCond4)
   !!ir (al := AST.ite cond2 (al .+ numI32 0x60 8<rt>) al)
   !!ir (cf := cond2)
-  !?ir (enumSZPFlags ctxt al 8<rt>)
+  !?ir (enumSZPFlags ctxt al 8<rt> sf)
 #if !EMULATION
   !!ir (!.ctxt R.OF := undefOF)
 #endif
@@ -859,6 +870,7 @@ let das insLen ctxt =
   let subCond3 = AST.gt oldAl (numI32 0x99 8<rt>)
   let subCond4 = oldCf == AST.b1
   let cond2 = !+ir 1<rt>
+  let sf = AST.xthi 1<rt> al
   !<ir insLen
   !!ir (oldAl := al)
   !!ir (oldCf := cf)
@@ -870,7 +882,7 @@ let das insLen ctxt =
   !!ir (cond2 := subCond3 .| subCond4)
   !!ir (al := AST.ite cond2 (al .- numI32 0x60 8<rt>) al)
   !!ir (cf := cond2)
-  !?ir (enumSZPFlags ctxt al 8<rt>)
+  !?ir (enumSZPFlags ctxt al 8<rt> sf)
 #if !EMULATION
   !!ir (!.ctxt R.OF := undefOF)
 #endif
@@ -881,6 +893,7 @@ let dec ins insLen ctxt =
   let oprSize = getOperationSize ins
   let ir = !*ctxt
   let struct (t1, t2, t3) = tmpVars3 ir oprSize
+  let sf = AST.xthi 1<rt> t3
   !<ir insLen
   if hasLock ins.Prefixes then !!ir (AST.sideEffect Lock) else ()
   !!ir (t1 := dst)
@@ -888,7 +901,7 @@ let dec ins insLen ctxt =
   !!ir (t3 := (t1 .- t2))
   !!ir (dstAssign oprSize dst t3)
   !!ir (!.ctxt R.OF := ofOnSub t1 t2 t3)
-  !?ir (enumASZPFlags ctxt t1 t2 t3 oprSize)
+  !?ir (enumASZPFlags ctxt t1 t2 t3 oprSize sf)
   if hasLock ins.Prefixes then !!ir (AST.sideEffect Unlock) else ()
   !>ir insLen
 
@@ -1179,8 +1192,9 @@ let inc ins insLen ctxt =
   !!ir (t2 := AST.num1 oprSize)
   !!ir (t3 := (t1 .+ t2))
   !!ir (dstAssign oprSize dst t3)
-  !!ir (!.ctxt R.OF := ofOnAdd t1 t2 t3)
-  !?ir (enumASZPFlags ctxt t1 t2 t3 oprSize)
+  let struct (ofl, sf) = osfOnAdd t1 t2 t3 ir
+  !!ir (!.ctxt R.OF := ofl)
+  !?ir (enumASZPFlags ctxt t1 t2 t3 oprSize sf)
   if hasLock ins.Prefixes then !!ir (AST.sideEffect Unlock) else ()
   !>ir insLen
 
@@ -1500,12 +1514,13 @@ let neg ins insLen ctxt =
   let oprSize = getOperationSize ins
   let t = !+ir oprSize
   let oFCond = t == (AST.num1 oprSize << (numU32 31u oprSize) )
+  let sf = AST.xthi 1<rt> dst
   !<ir insLen
   !!ir (t := dst)
   !!ir (dstAssign oprSize dst (AST.neg t))
   !!ir (!.ctxt R.CF := t != AST.num0 oprSize)
   !!ir (!.ctxt R.OF := oFCond)
-  !?ir (enumASZPFlags ctxt t (AST.num0 oprSize) dst oprSize)
+  !?ir (enumASZPFlags ctxt t (AST.num0 oprSize) dst oprSize sf)
   !>ir insLen
 
 let nop insLen ctxt =
@@ -1526,6 +1541,7 @@ let logOr ins insLen ctxt =
   let struct (dst, src) = transTwoOprs ins insLen ctxt
   let oprSize = getOperationSize ins
   let t = !+ir oprSize
+  let sf = AST.xthi 1<rt> t
   !<ir insLen
   if hasLock ins.Prefixes then !!ir (AST.sideEffect Lock) else ()
   !!ir (t := (dst .| AST.sext oprSize src))
@@ -1535,7 +1551,7 @@ let logOr ins insLen ctxt =
 #if !EMULATION
   !!ir (!.ctxt R.AF := undefAF)
 #endif
-  !?ir (enumSZPFlags ctxt t oprSize)
+  !?ir (enumSZPFlags ctxt t oprSize sf)
   if hasLock ins.Prefixes then !!ir (AST.sideEffect Unlock) else ()
   !>ir insLen
 
@@ -1948,6 +1964,7 @@ let sbb ins insLen ctxt =
   let oprSize = getOperationSize ins
   let struct (t1, t2, t3, t4) = tmpVars4 ir oprSize
   let cf = !.ctxt R.CF
+  let sf = AST.xthi 1<rt> t4
   !<ir insLen
   !!ir (t1 := dst)
   !!ir (t2 := AST.sext oprSize src)
@@ -1956,7 +1973,7 @@ let sbb ins insLen ctxt =
   !!ir (dstAssign oprSize dst t4)
   !!ir (cf := (AST.lt t1 t3) .| (AST.lt t3 t2))
   !!ir (!.ctxt R.OF := ofOnSub t1 t2 t4)
-  !?ir (enumASZPFlags ctxt t1 t2 t4 oprSize)
+  !?ir (enumASZPFlags ctxt t1 t2 t4 oprSize sf)
   !>ir insLen
 
 let private scasBody ins ctxt ir =
@@ -1967,9 +1984,10 @@ let private scasBody ins ctxt ir =
   let di = !.ctxt (if is64bit ctxt then R.RDI else R.EDI)
   let tSrc = !+ir oprSize
   let amount = numI32 (RegType.toByteWidth oprSize) ctxt.WordBitSize
+  let sf = AST.xthi 1<rt> t
   !!ir (tSrc := AST.loadLE oprSize di)
   !!ir (t := x .- tSrc)
-  !?ir (enumEFLAGS ctxt x tSrc t oprSize (cfOnSub x tSrc) (ofOnSub x tSrc t))
+  !?ir (enumEFLAGS ctxt x tSrc t oprSize (cfOnSub x tSrc) (ofOnSub x tSrc t) sf)
   !!ir (di := AST.ite df (di .- amount) (di .+ amount))
 
 let scas (ins: InsInfo) insLen ctxt =
@@ -2028,6 +2046,7 @@ let inline shiftDblPrec ins insLen ctxt fnDst fnSrc isShl =
   let aF = !.ctxt R.AF
   let maxSz = numI32 (if is64REXW ctxt ins then 64 else 32) oprSize
   let final = AST.ite cond1 orig ((fnDst orig c) .| (fnSrc src (maxSz .- c)))
+  let sf = AST.xthi 1<rt> dst
   !<ir insLen
   !!ir (orig := dst)
   !!ir (c := (AST.zext oprSize cnt) .% maxSz)
@@ -2046,7 +2065,7 @@ let inline shiftDblPrec ins insLen ctxt fnDst fnSrc isShl =
   !!ir (oF := AST.ite cond1 oF
                (AST.ite cond2 (AST.xthi 1<rt> (orig <+> dst)) oF))
 #endif
-  !?ir (enumSZPFlags ctxt dst oprSize)
+  !?ir (enumSZPFlags ctxt dst oprSize sf)
   !>ir insLen
 
 let shld ins insLen ctxt =
@@ -2103,13 +2122,14 @@ let sub ins insLen ctxt =
   let oprSize = getOperationSize ins
   let ir = !*ctxt
   let struct (t1, t2, t3) = tmpVars3 ir oprSize
+  let sf = AST.xthi 1<rt> t3
   !<ir insLen
   if hasLock ins.Prefixes then !!ir (AST.sideEffect Lock) else ()
   !!ir (t1 := dst)
   !!ir (t2 := src)
   !!ir (t3 := t1 .- t2)
   !!ir (dstAssign oprSize dst t3)
-  !?ir (enumEFLAGS ctxt t1 t2 t3 oprSize (cfOnSub t1 t2) (ofOnSub t1 t2 t3))
+  !?ir (enumEFLAGS ctxt t1 t2 t3 oprSize (cfOnSub t1 t2) (ofOnSub t1 t2 t3) sf)
   if hasLock ins.Prefixes then !!ir (AST.sideEffect Unlock) else ()
   !>ir insLen
 
@@ -2194,12 +2214,14 @@ let xadd ins insLen ctxt =
   let struct (d, s) = transTwoOprs ins insLen ctxt
   let oprSize = getOperationSize ins
   let t = !+ir oprSize
+  let sf = AST.xthi 1<rt> t
   !<ir insLen
   if hasLock ins.Prefixes then !!ir (AST.sideEffect Lock) else ()
   !!ir (t := s .+ d)
   !!ir (dstAssign oprSize s d)
   !!ir (dstAssign oprSize d t)
-  !?ir (enumEFLAGS ctxt d s t oprSize (cfOnSub d s) (ofOnAdd d s t))
+  let struct (ofl, sf) = osfOnAdd d s t ir
+  !?ir (enumEFLAGS ctxt d s t oprSize (cfOnSub d s) ofl sf)
   if hasLock ins.Prefixes then !!ir (AST.sideEffect Unlock) else ()
   !>ir insLen
 
