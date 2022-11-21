@@ -701,8 +701,11 @@ let transShiftOprs ctxt opr1 opr2 =
   match opr1, opr2 with
   | OprReg _, OprShift (typ, Imm imm) ->
     let e = transOprToExpr ctxt opr1
-    let carryIn = getCarryFlag ctxt
-    shift e 32<rt> typ imm carryIn
+    shift e 32<rt> typ imm (getCarryFlag ctxt)
+  | OprReg _, OprRegShift (typ, reg) ->
+    let e = transOprToExpr ctxt opr1
+    let amount = AST.xtlo 8<rt> (getRegVar ctxt reg) |> AST.zext 32<rt>
+    shiftForRegAmount e 32<rt> typ amount (getCarryFlag ctxt)
   | _ -> raise InvalidOperandException
 
 let parseOprOfMVNS (ins: InsInfo) ctxt =
