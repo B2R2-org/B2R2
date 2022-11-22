@@ -1919,7 +1919,7 @@ let shift ins insLen ctxt =
   match ins.Opcode with
   | Opcode.SAR ->
     let prevLBit = AST.xtlo 1<rt> (tDst ?>> tCnt)
-    !!ir (dst := dst ?>> cnt)
+    !!ir (dst := tDst ?>> cnt)
     !!ir (tCnt := cnt .- n1)
     !!ir (cF := AST.ite cond2 cF prevLBit)
 #if !EMULATION
@@ -1930,7 +1930,7 @@ let shift ins insLen ctxt =
   | Opcode.SHL ->
     let prevHBit = AST.xthi 1<rt> (tDst << tCnt)
     let of1 = AST.xthi 1<rt> dst <+> cF
-    !!ir (dstAssign oprSize dst (dst << cnt))
+    !!ir (dstAssign oprSize dst (tDst << cnt))
     !!ir (tCnt := cnt .- n1)
     !!ir (cF := AST.ite cond2 cF prevHBit)
 #if !EMULATION
@@ -1940,7 +1940,7 @@ let shift ins insLen ctxt =
 #endif
   | Opcode.SHR ->
     let prevLBit = AST.xtlo 1<rt> (tDst ?>> tCnt)
-    !!ir (dstAssign oprSize dst (dst >> cnt))
+    !!ir (dstAssign oprSize dst (tDst >> cnt))
     !!ir (tCnt := cnt .- n1)
     !!ir (cF := AST.ite cond2 cF prevLBit)
 #if !EMULATION
@@ -1951,8 +1951,10 @@ let shift ins insLen ctxt =
 #endif
   | _ -> raise InvalidOpcodeException
   !!ir (sF := AST.ite cond2 sF (AST.xthi 1<rt> dst))
-  !?ir (buildPF ctxt dst oprSize (Some cond2))
-  !!ir (zF := AST.ite cond2 zF (dst == n0))
+  let tDst = !+ir oprSize
+  !!ir (tDst := dst)
+  !?ir (buildPF ctxt tDst oprSize (Some cond2))
+  !!ir (zF := AST.ite cond2 zF (tDst == n0))
 #if !EMULATION
   !!ir (aF := AST.ite cond2 aF undefAF)
 #endif
