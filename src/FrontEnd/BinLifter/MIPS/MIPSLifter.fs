@@ -1162,11 +1162,10 @@ let logXor insInfo insLen ctxt =
 let wsbh insInfo insLen ctxt =
   let ir = !*ctxt
   let rd, rt = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
-  let oprSz = ctxt.WordBitSize / 4
-  let t = !+ir ctxt.WordBitSize
+  let struct (t, eSize) = !+ir 32<rt>, int 8<rt>
   !<ir insLen
   for e in 0 .. 3 do
-    !!ir (elem t e (int oprSz) := AST.extract rt oprSz (int oprSz * (1 ^^^ e)))
+    !!ir (elem t e eSize := AST.extract rt 8<rt> (eSize * (1 ^^^ e)))
   done
   !!ir (rd := AST.sext ctxt.WordBitSize t)
   advancePC ctxt ir
