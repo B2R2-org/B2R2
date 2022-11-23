@@ -502,8 +502,8 @@ let parseCdotBranch bin wordSize =
   let from5to5 = pickBit bin 2u <<< 5
   let from6to7 = extract bin 6u 5u <<< 6
   let from8to8 = pickBit bin 12u <<< 8
-  let imm = from1to2 ||| from3to4 ||| from5to5 ||| from6to7 ||| from8to8
-            |> uint64 |> signExtend 8 wordSize
+  let imm = 0b0u ||| from1to2 ||| from3to4 ||| from5to5 ||| from6to7
+            ||| from8to8 |> uint64 |> signExtend 9 wordSize
             |> int64 |> Relative |> OpAddr
   struct (opcode, ThreeOperands (src, R.X0 |> OpReg, imm))
 
