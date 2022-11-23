@@ -322,7 +322,8 @@ let clz ins insLen ctxt addr =
   let ir = !*ctxt
   let dst, src = transTwoOprs ins ctxt addr
   !<ir insLen
-  countLeadingZeroBitsForIR dst src ins.OprSize ir
+  let res = countLeadingZeroBitsForIR src ins.OprSize ir
+  !!ir (dst := oprSzToExpr ins.OprSize .- (res .+ AST.num1 ins.OprSize))
   !>ir insLen
 
 let cmn ins insLen ctxt addr =
