@@ -641,7 +641,7 @@ let conditionHolds ctxt = function
 /// shared/functions/common/HighestSetBit
 /// HighestSetBit()
 /// ===============
-let highestSetBitForIR dst src width oprSz (ir: IRBuilder) =
+let highestSetBitForIR src width oprSz (ir: IRBuilder) =
   let lblLoop = !%ir "Loop"
   let lblLoopCont = !%ir "LoopContinue"
   let lblUpdateTmp = !%ir "UpdateTmp"
@@ -660,7 +660,7 @@ let highestSetBitForIR dst src width oprSz (ir: IRBuilder) =
   !!ir (t := t .- AST.num1 oprSz)
   !!ir (AST.jmp (AST.name lblLoop))
   !!ir (AST.lmark lblEnd)
-  !!ir (dst := t)
+  t
 
 let highestSetBit x size =
   let rec loop i =
@@ -712,7 +712,7 @@ let decodeBitMasksForIR wmask tmask immN imms immr oprSize ir =
   let struct (welem, telem) = tmpVars2 ir oprSize
   let n1 = AST.num1 oprSize
   let notImms = (AST.not imms) .& numI32 0x3F 8<rt>
-  highestSetBitForIR len (immN .| notImms) 7 8<rt> ir
+  !!ir (len := highestSetBitForIR (immN .| notImms) 7 8<rt> ir)
   !!ir (levels := getMaskForIR len 8<rt>) (* ZeroExtend (Ones(len), 6) *)
   !!ir (s := (imms .& levels) |> AST.zext oprSize)
   !!ir (r := (immr .& levels) |> AST.zext oprSize)
@@ -749,8 +749,8 @@ let decodeBitMasks immr imms dataSize =
 /// shared/functions/common/CountLeadingZeroBits
 /// CountLeadingZeroBits()
 /// ======================
-let countLeadingZeroBitsForIR dst src oprSize ir =
-  highestSetBitForIR dst src (RegType.toBitWidth oprSize) oprSize ir
+let countLeadingZeroBitsForIR src oprSize ir =
+  highestSetBitForIR src (RegType.toBitWidth oprSize) oprSize ir
 
 /// 64-bit operands generate a 64-bit result in the destination general-purpose
 /// register. 32-bit operands generate a 32-bit result, zero-extended to a
