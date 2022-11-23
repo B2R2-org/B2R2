@@ -66,8 +66,7 @@ let transOprToExpr ins (ctxt: TranslationContext) = function
     AST.loadLE 32<rt> (!.ctxt b .+ numI32 d ctxt.WordBitSize)
   | OprImm imm -> numU64 imm ctxt.WordBitSize
   | OprAddr addr ->
-    numI64 (int64 addr + int64 ins.NumBytes) ctxt.WordBitSize
-    |> AST.loadLE ctxt.WordBitSize
+    numI64 (int64 addr) ctxt.WordBitSize
   | OprBI bi -> getCRbitRegister bi |> !.ctxt
 
 let transOneOpr (ins: InsInfo) ctxt =
@@ -254,7 +253,10 @@ let bc ins insLen ctxt aa lk =
   let ir = !*ctxt
   let lr = !.ctxt R.LR
   let ctr = !.ctxt R.CTR
-  let bo x = AST.extract bo 1<rt> x
+  let boA = AST.extract bo 1<rt> 4
+  let boB = AST.extract bo 1<rt> 3
+  let boC = AST.extract bo 1<rt> 2
+  let boD = AST.extract bo 1<rt> 1
   let ctrOk = !+ir 1<rt>
   let condOk = !+ir 1<rt>
   let cia = numU64 ins.Address 32<rt>
@@ -262,11 +264,11 @@ let bc ins insLen ctxt aa lk =
   let temp = !+ir 32<rt>
   !<ir insLen
   if lk then !!ir (lr := nia)
-  !!ir (ctr := AST.ite (AST.not (bo 2)) (ctr .- AST.num1 32<rt>) ctr)
-  !!ir (ctrOk := bo 2 .| ((ctr != AST.num0 32<rt>) <+> bo 3))
-  !!ir (condOk := bo 0 .| (cr <+> AST.not (bo 1)))
-  if aa then !!ir (temp := AST.ite (ctrOk .& condOk) nia addr)
-  else !!ir (temp := AST.ite (ctrOk .& condOk) nia (cia .+ addr))
+  !!ir (ctr := AST.ite (AST.not boC) (ctr .- AST.num1 32<rt>) ctr)
+  !!ir (ctrOk := boC .| ((ctr != AST.num0 32<rt>) <+> boD))
+  !!ir (condOk := boA .| (cr <+> AST.not boB))
+  if aa then !!ir (temp := AST.ite (ctrOk .& condOk) addr nia)
+  else !!ir (temp := AST.ite (ctrOk .& condOk) (cia .+ addr) nia)
   !!ir (AST.interjmp temp InterJmpKind.Base)
   !>ir insLen
 
@@ -275,17 +277,21 @@ let bclr ins insLen ctxt lk =
   let ir = !*ctxt
   let lr = !.ctxt R.LR
   let ctr = !.ctxt R.CTR
-  let bo x = AST.extract bo 1<rt> x
+  let boA = AST.extract bo 1<rt> 4
+  let boB = AST.extract bo 1<rt> 3
+  let boC = AST.extract bo 1<rt> 2
+  let boD = AST.extract bo 1<rt> 1
   let ctrOk = !+ir 1<rt>
   let condOk = !+ir 1<rt>
   let cia = numU64 ins.Address 32<rt>
   let nia = cia .+ numI32 4 32<rt>
   let temp = !+ir 32<rt>
   !<ir insLen
-  !!ir (ctr := AST.ite (AST.not (bo 2)) (ctr .- AST.num1 32<rt>) ctr)
-  !!ir (ctrOk := bo 2 .| ((ctr != AST.num0 32<rt>) <+> bo 3))
-  !!ir (condOk := bo 0 .| (cr <+> AST.not (bo 1)))
-  !!ir (temp := AST.ite (ctrOk .& condOk) nia (cia .+ numI32 4 32<rt>))
+  !!ir (ctr := AST.ite (AST.not boC) (ctr .- AST.num1 32<rt>) ctr)
+  !!ir (ctrOk := boC .| ((ctr != AST.num0 32<rt>) <+> boD))
+  !!ir (condOk := boA .| (cr <+> AST.not boB))
+  !!ir (temp := AST.ite (ctrOk .& condOk)
+         (AST.concat (AST.xtlo 29<rt> lr) (AST.num0 2<rt>)) nia)
   !!ir (AST.interjmp temp InterJmpKind.Base)
   if lk then !!ir (lr := nia)
   !>ir insLen
@@ -295,15 +301,16 @@ let bcctr ins insLen ctxt lk =
   let ir = !*ctxt
   let lr = !.ctxt R.LR
   let ctr = !.ctxt R.CTR
-  let bo x = AST.extract bo 1<rt> x
+  let boA = AST.extract bo 1<rt> 4
+  let boB = AST.extract bo 1<rt> 3
   let condOk = !+ir 1<rt>
   let cia = numU64 ins.Address 32<rt>
   let nia = cia .+ numI32 4 32<rt>
   let temp = !+ir 32<rt>
   !<ir insLen
-  !!ir (condOk := bo 0 .| (cr <+> AST.not (bo 1)))
-  !!ir (temp := AST.ite condOk nia
-         (AST.concat (AST.xtlo 29<rt> ctr) (AST.num0 2<rt>)))
+  !!ir (condOk := boA .| (cr <+> AST.not boB))
+  !!ir (temp := AST.ite condOk
+          (AST.concat (AST.xtlo 29<rt> ctr) (AST.num0 2<rt>)) nia)
   !!ir (AST.interjmp temp InterJmpKind.Base)
   if lk then !!ir (lr := nia)
   !>ir insLen
