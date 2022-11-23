@@ -996,12 +996,14 @@ let parseOprOfPUSHPOP (ins: InsInfo) =
 let pushLoop ctxt numOfReg addr (ir: IRBuilder) =
   let loop addr count =
     if (numOfReg >>> count) &&& 1u = 1u then
+      let t = !+ir 32<rt>
+      !!ir (t := addr)
       if count = 13 && count <> lowestSetBit numOfReg 32 then
-        !!ir (AST.loadLE 32<rt> addr := (AST.undef 32<rt> "UNKNOWN"))
+        !!ir (AST.loadLE 32<rt> t := (AST.undef 32<rt> "UNKNOWN"))
       else
         let reg = count |> uint32 |> OperandHelper.getRegister
-        !!ir (AST.loadLE 32<rt> addr := getRegVar ctxt reg)
-      addr .+ (numI32 4 32<rt>)
+        !!ir (AST.loadLE 32<rt> t := getRegVar ctxt reg)
+      t .+ (numI32 4 32<rt>)
     else addr
   List.fold loop addr [ 0 .. 14 ]
 
