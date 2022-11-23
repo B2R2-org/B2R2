@@ -307,9 +307,10 @@ let ccmn ins insLen ctxt addr =
 let ccmp ins insLen ctxt addr =
   let ir = !*ctxt
   let src, imm, nzcv, cond = transOprToExprOfCCMP ins ctxt addr
-  !<ir insLen
-  let tCond = conditionHolds ctxt cond
   let oSz = ins.OprSize
+  !<ir insLen
+  let tCond = !+ir 1<rt>
+  !!ir (tCond := conditionHolds ctxt cond)
   let _, (n, z, c, v) = addWithCarry src (AST.not imm) (AST.num1 oSz) oSz
   !!ir (getRegVar ctxt R.N := (AST.ite tCond n (AST.extract nzcv 1<rt> 3)))
   !!ir (getRegVar ctxt R.Z := (AST.ite tCond z (AST.extract nzcv 1<rt> 2)))
