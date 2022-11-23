@@ -1911,7 +1911,9 @@ let shift ins insLen ctxt =
   let cF = !.ctxt R.CF
   let sF = !.ctxt R.SF
   let zF = !.ctxt R.ZF
+#if !EMULATION
   let aF = !.ctxt R.AF
+#endif
   let tDst = !+ir oprSize
   let tCnt = !+ir oprSize
   !<ir insLen
