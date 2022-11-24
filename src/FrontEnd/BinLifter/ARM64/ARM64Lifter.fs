@@ -172,8 +172,14 @@ let asrv ins insLen ctxt addr =
 let ands ins insLen ctxt addr =
   let ir = !*ctxt
   let dst, src1, src2 = transOprToExprOfAND ins ctxt addr
+  let result = !+ir ins.OprSize
   !<ir insLen
-  !!ir (dst := src1 .& src2)
+  !!ir (result := src1 .& src2)
+  !!ir (getRegVar ctxt R.N := AST.xthi 1<rt> result)
+  !!ir (getRegVar ctxt R.Z := (result == AST.num0 ins.OprSize))
+  !!ir (getRegVar ctxt R.C := AST.b0)
+  !!ir (getRegVar ctxt R.V := AST.b0)
+  !!ir (dstAssign ins.OprSize dst result)
   !>ir insLen
 
 let b ins insLen ctxt addr =
@@ -237,13 +243,12 @@ let bic ins insLen ctxt addr =
 
 let bics ins insLen ctxt addr =
   let dst, src1, src2 = transFourOprsWithBarrelShift ins ctxt addr
-  let z = if ins.OprSize = 64<rt> then AST.num0 64<rt> else AST.num0 32<rt>
   let ir = !*ctxt
   let result = !+ir ins.OprSize
   !<ir insLen
   !!ir (result := src1 .& AST.not src2)
   !!ir (getRegVar ctxt R.N := AST.xthi 1<rt> result)
-  !!ir (getRegVar ctxt R.Z := result == z)
+  !!ir (getRegVar ctxt R.Z := result == AST.num0 ins.OprSize)
   !!ir (getRegVar ctxt R.C := AST.b0)
   !!ir (getRegVar ctxt R.V := AST.b0)
   !!ir (dstAssign ins.OprSize dst result)
