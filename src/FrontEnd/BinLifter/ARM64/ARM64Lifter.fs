@@ -467,20 +467,20 @@ let dczva ins insLen ctxt addr =
   let ir = !*ctxt
   let src = transOneOpr ins ctxt addr
   let dczid = getRegVar ctxt R.DCZIDEL0
-  let struct (len, t, n4) = tmpVars3 ir 64<rt>
+  let struct (idx, n4, len) = tmpVars3 ir 64<rt>
   let lblLoop = !%ir "Loop"
   let lblLoopCont = !%ir "LoopContinue"
   let lblEnd = !%ir "End"
   !<ir insLen
-  !!ir (t := AST.num0 64<rt>)
+  !!ir (idx := AST.num0 64<rt>)
   !!ir (n4 := numI32 4 64<rt>)
   !!ir (len := (numI32 2 64<rt> << (dczid .+ numI32 1 64<rt>)))
   !!ir (len := len ./ n4)
   !!ir (AST.lmark lblLoop)
-  !!ir (AST.cjmp (t == len) (AST.name lblEnd) (AST.name lblLoopCont))
+  !!ir (AST.cjmp (idx == len) (AST.name lblEnd) (AST.name lblLoopCont))
   !!ir (AST.lmark lblLoopCont)
-  !!ir (t := t .+ AST.num1 64<rt>)
-  !!ir (AST.loadLE 32<rt> (src .+ (t .* n4)) := AST.num0 32<rt>)
+  !!ir (AST.loadLE 32<rt> (src .+ (idx .* n4)) := AST.num0 32<rt>)
+  !!ir (idx := idx .+ AST.num1 64<rt>)
   !!ir (AST.jmp (AST.name lblLoop))
   !!ir (AST.lmark lblEnd)
   !>ir insLen
