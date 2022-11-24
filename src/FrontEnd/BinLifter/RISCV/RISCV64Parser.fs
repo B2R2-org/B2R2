@@ -488,9 +488,9 @@ let parseCdotJ bin wordSize =
   let from8to9 = extract bin 10u 9u <<< 8
   let from4to4 = pickBit bin 11u <<< 4
   let from11to11 = pickBit bin 12u <<< 11
-  let imm = from1to3 ||| from4to4 ||| from5to5 ||| from6to6 ||| from7to7
-                ||| from8to9 ||| from10to10 ||| from11to11 |> uint64
-                |> signExtend 11 wordSize |> int64 |> Relative |> OpAddr
+  let imm = 0b0u ||| from1to3 ||| from4to4 ||| from5to5 ||| from6to6
+            ||| from7to7 ||| from8to9 ||| from10to10 ||| from11to11 |> uint64
+            |> signExtend 12 wordSize |> int64 |> Relative |> OpAddr
   struct (Op.CdotJ, TwoOperands (R.X0 |> OpReg, imm))
 
 let parseCdotBranch bin wordSize =
