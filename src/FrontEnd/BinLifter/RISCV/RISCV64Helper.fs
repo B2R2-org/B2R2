@@ -151,9 +151,10 @@ let getBImm b wordSize =
   let from4to1 = (extract b 11u 8u) <<< 1
   let from10to5 = (extract b 30u 25u) <<< 5
   let from11to11 = (pickBit b 7u) <<< 11
-  let from31to12 = (pickBit b 31u) <<< 12
-  let imm = from31to12 ||| from11to11 ||| from10to5 ||| from4to1 |> uint64
-  signExtend 12 wordSize imm |> int64
+  let from12to12 = (pickBit b 31u) <<< 12
+  let imm = from12to12 ||| from11to11 ||| from10to5 ||| from4to1 ||| 0b0u
+            |> uint64
+  signExtend 13 wordSize imm
 
 let getIImm b wordSize =
   let imm = extract b 31u 20u |> uint64
@@ -170,8 +171,9 @@ let getJImm bin wordSize =
   let from11to11 = (pickBit bin 20u) <<< 11
   let from19to12 = (extract bin 19u 12u) <<< 12
   let from20to20 = (pickBit bin 31u) <<< 20
-  let imm = from10to1 ||| from11to11 ||| from19to12 ||| from20to20 |> uint64
-  signExtend 20 wordSize imm |> int64
+  let imm = 0b0u ||| from10to1 ||| from11to11 ||| from19to12 ||| from20to20
+            |> uint64
+  signExtend 21 wordSize imm |> int64
 
 let rd b = getRegFrom117 b |> OpReg
 let frd b = getFRegFrom117 b |> OpReg
