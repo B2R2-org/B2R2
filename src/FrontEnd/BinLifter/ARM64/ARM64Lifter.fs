@@ -947,6 +947,13 @@ let mrs ins insLen ctxt addr =
   !!ir (dst := src)
   !>ir insLen
 
+let msr ins insLen ctxt addr =
+  let ir = !*ctxt
+  let dst, src = transTwoOprs ins ctxt addr
+  !<ir insLen
+  !!ir (dst := src)
+  !>ir insLen
+
 let msub ins insLen ctxt addr =
   let ir = !*ctxt
   let dst, src1, src2, src3 = transOprToExprOfMSUB ins ctxt addr
@@ -1640,6 +1647,7 @@ let translate ins insLen ctxt =
   | Opcode.MOVN -> movn ins insLen ctxt addr
   | Opcode.MOVZ -> movz ins insLen ctxt addr
   | Opcode.MRS -> mrs ins insLen ctxt addr
+  | Opcode.MSR -> msr ins insLen ctxt addr
   | Opcode.MSUB -> msub ins insLen ctxt addr
   | Opcode.MUL -> madd ins insLen ctxt addr
   | Opcode.MVN -> orn ins insLen ctxt addr

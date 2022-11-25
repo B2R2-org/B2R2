@@ -645,21 +645,24 @@ type internal RegExprs () =
   member val FPSR = var 64<rt> (Register.toRegID Register.FPSR) "FPSR"
 
   (* Process state, PSTATE *)
-  /// Negative condition flag
+  /// Negative condition flag.
   member val N = var 1<rt> (Register.toRegID Register.N) "N"
-  /// Zero condition flag
+  /// Zero condition flag.
   member val Z = var 1<rt> (Register.toRegID Register.Z) "Z"
-  /// Carry condition flag
+  /// Carry condition flag.
   member val C = var 1<rt> (Register.toRegID Register.C) "C"
-  /// Overflow condition flag
+  /// Overflow condition flag.
   member val V = var 1<rt> (Register.toRegID Register.V) "V"
 
   (* System registers *)
-  /// Data Cache Zero ID register
+  /// Data Cache Zero ID register.
   member val DCZIDEL0 =
     var 64<rt> (Register.toRegID Register.DCZIDEL0) "DCZID_EL0"
-  /// Main ID Register
+  /// Main ID Register.
   member val MIDREL1 = var 64<rt> (Register.toRegID Register.MIDREL1) "MIDR_EL1"
+  /// EL0 Read/Write Software Thread ID Register.
+  member val TPIDREL0 =
+    var 64<rt> (Register.toRegID Register.TPIDREL0) "TPIDR_EL0"
 
   member __.GetRegVar (name) =
     match name with
@@ -866,6 +869,7 @@ type internal RegExprs () =
     | R.V -> __.V
     | R.DCZIDEL0 -> __.DCZIDEL0
     | R.MIDREL1 -> __.MIDREL1
+    | R.TPIDREL0 -> __.TPIDREL0
     | _ -> raise UnhandledRegExprException
 
   member __.GetPseudoRegVar name pos =
