@@ -1617,6 +1617,7 @@ let translate ins insLen ctxt =
   | Opcode.FSUB -> sideEffects insLen ctxt UnsupportedFP
   | Opcode.FSQRT -> sideEffects insLen ctxt UnsupportedFP
   | Opcode.FMSUB -> sideEffects insLen ctxt UnsupportedFP
+  | Opcode.HINT -> nop insLen ctxt
   | Opcode.INS -> sideEffects insLen ctxt UnsupportedFP
   | Opcode.LD1 -> ld1 ins insLen ctxt addr
   | Opcode.LD1R | Opcode.LD2 | Opcode.LD2R | Opcode.LD3
