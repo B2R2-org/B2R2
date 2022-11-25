@@ -60,10 +60,16 @@ let getExtMask mb me =
   let mask = (System.UInt32.MaxValue >>> (32 - (me - mb + 1))) <<< mb
   numU32 mask 32<rt>
 
+let loadNative (ctxt: TranslationContext) rt addr =
+  match ctxt.Endianness with
+  | Endian.Big -> AST.loadBE rt addr
+  | Endian.Little -> AST.loadLE rt addr
+  | _ -> raise InvalidEndianException
+
 let transOprToExpr ins (ctxt: TranslationContext) = function
   | OprReg reg -> !.ctxt reg
   | OprMem (d, b) -> /// FIXME
-    AST.loadLE 32<rt> (!.ctxt b .+ numI32 d ctxt.WordBitSize)
+     loadNative ctxt 32<rt> (!.ctxt b .+ numI32 d ctxt.WordBitSize)
   | OprImm imm -> numU64 imm ctxt.WordBitSize
   | OprAddr addr ->
     numI64 (int64 addr) ctxt.WordBitSize
@@ -447,8 +453,7 @@ let lbz ins insLen ctxt =
   let dst = transOprToExpr ins ctxt o1
   let ir = !*ctxt
   !<ir insLen
-
-  !!ir (dst := AST.concat (AST.num0 24<rt>) (AST.loadLE 8<rt> ea))
+  !!ir (dst := AST.concat (AST.num0 24<rt>) (loadNative ctxt 8<rt> ea))
   !>ir insLen
 
 let lbzx ins insLen ctxt =
@@ -458,7 +463,7 @@ let lbzx ins insLen ctxt =
   let ea = !+ir 32<rt>
   !<ir insLen
   !!ir (ea := (AST.ite cond (AST.num0 32<rt>) src1) .+ src2)
-  !!ir (dst := AST.concat (AST.num0 24<rt>) (AST.loadLE 8<rt> ea))
+  !!ir (dst := AST.concat (AST.num0 24<rt>) (loadNative ctxt 8<rt> ea))
   !>ir insLen
 
 let lfd ins insLen ctxt =
@@ -470,7 +475,7 @@ let lfd ins insLen ctxt =
   let dst = transOprToExpr ins ctxt o1
   let ir = !*ctxt
   !<ir insLen
-  !!ir (dst := (AST.loadLE 64<rt> ea))
+  !!ir (dst := (loadNative ctxt 64<rt> ea))
   !>ir insLen
 
 let lfs ins insLen ctxt =
@@ -497,7 +502,7 @@ let lhz ins insLen ctxt =
   let dst = transOprToExpr ins ctxt o1
   let ir = !*ctxt
   !<ir insLen
-  !!ir (dst := AST.concat (AST.num0 16<rt>) (AST.loadLE 16<rt> ea))
+  !!ir (dst := AST.concat (AST.num0 16<rt>) (loadNative ctxt 16<rt> ea))
   !>ir insLen
 
 let li ins insLen ctxt =
@@ -540,7 +545,7 @@ let lwzx ins insLen ctxt =
   let cond = src1 == AST.num0 32<rt>
   let ir = !*ctxt
   !<ir insLen
-  !!ir (dst := AST.loadLE 32<rt>
+  !!ir (dst := loadNative ctxt 32<rt>
                ((AST.ite cond (AST.num0 32<rt>) src1) .+ src2))
   !>ir insLen
 
@@ -880,10 +885,9 @@ let stb ins insLen ctxt =
     | OprMem (d, b) -> (!.ctxt b .+ numI32 d ctxt.WordBitSize)
     | _ -> raise InvalidOperandException
   let src = transOprToExpr ins ctxt o1
-  let dst = AST.loadLE 8<rt> ea
   let ir = !*ctxt
   !<ir insLen
-  !!ir (dst := (AST.xthi 8<rt> src))
+  !!ir (loadNative ctxt 8<rt> ea := AST.xthi 8<rt> src)
   !>ir insLen
 
 let stbx ins insLen ctxt =
@@ -893,7 +897,7 @@ let stbx ins insLen ctxt =
   let ea = !+ir 32<rt>
   !<ir insLen
   !!ir (ea := (AST.ite cond (AST.num0 32<rt>) dst1) .+ dst2)
-  !!ir ((AST.loadLE 8<rt> ea) := (AST.xtlo 8<rt> src))
+  !!ir (loadNative ctxt 8<rt> ea := AST.xtlo 8<rt> src)
   !>ir insLen
 
 let stfd ins insLen ctxt =
@@ -905,7 +909,7 @@ let stfd ins insLen ctxt =
   let src = transOprToExpr ins ctxt o1
   let ir = !*ctxt
   !<ir insLen
-  !!ir ((AST.loadLE 64<rt> ea) := src)
+  !!ir (loadNative ctxt 64<rt> ea := src)
   !>ir insLen
 
 let stfs ins insLen ctxt =
@@ -925,10 +929,9 @@ let sth ins insLen ctxt =
     | OprMem (d, b) -> (!.ctxt b .+ numI32 d ctxt.WordBitSize)
     | _ -> raise InvalidOperandException
   let src = transOprToExpr ins ctxt o1
-  let dst = AST.loadLE 16<rt> ea
   let ir = !*ctxt
   !<ir insLen
-  !!ir (dst :=(AST.xtlo 16<rt> src))
+  !!ir (loadNative ctxt 16<rt> ea := AST.xtlo 16<rt> src)
   !>ir insLen
 
 let stw ins insLen ctxt =
@@ -957,7 +960,7 @@ let stwux ins insLen ctxt =
   let ea = !+ir 32<rt>
   !<ir insLen
   !!ir (ea := ra .+ rb)
-  !!ir ((AST.loadLE 32<rt> ea) := rs)
+  !!ir (loadNative ctxt 32<rt> ea := rs)
   !!ir (ra := ea)
   !>ir insLen
 
