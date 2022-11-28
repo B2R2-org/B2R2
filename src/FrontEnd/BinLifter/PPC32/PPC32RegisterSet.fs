@@ -79,8 +79,42 @@ type PPC32RegisterSet (bitArray: uint64 [], s: Set<RegisterID>) =
     | R.R31 -> 31
     | _ -> -1
 
-  override __.IndexToRegID _index: RegisterID =
-    Utils.futureFeature ()
+  override __.IndexToRegID index =
+    match index with
+    | 0 -> R.R0
+    | 1 -> R.R1
+    | 2 -> R.R2
+    | 3 -> R.R3
+    | 4 -> R.R4
+    | 5 -> R.R5
+    | 6 -> R.R6
+    | 7 -> R.R7
+    | 8 -> R.R8
+    | 9 -> R.R9
+    | 10 -> R.R10
+    | 11 -> R.R11
+    | 12 -> R.R12
+    | 13 -> R.R13
+    | 14 -> R.R14
+    | 15 -> R.R15
+    | 16 -> R.R16
+    | 17 -> R.R17
+    | 18 -> R.R18
+    | 19 -> R.R19
+    | 20 -> R.R20
+    | 21 -> R.R21
+    | 22 -> R.R22
+    | 23 -> R.R23
+    | 24 -> R.R24
+    | 25 -> R.R25
+    | 26 -> R.R26
+    | 27 -> R.R27
+    | 28 -> R.R28
+    | 29 -> R.R29
+    | 30 -> R.R30
+    | 31 -> R.R31
+    | _ -> Utils.impossible ()
+    |> Register.toRegID
 
   override __.ToString () =
     sprintf "PPC32RegisterSet<%x, %x>" __.BitArray.[0] __.BitArray.[1]
