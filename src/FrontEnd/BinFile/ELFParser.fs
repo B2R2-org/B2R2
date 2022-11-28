@@ -60,6 +60,13 @@ let private invRanges wordSize segs getNextStartAddr =
        FileHelper.addInvRange set saddr seg.PHAddr, n) (IntervalSet.empty, 0UL)
   |> FileHelper.addLastInvRange wordSize
 
+let private computeExecRangeFromSecs secs =
+  match Map.tryFind Section.SecText secs.SecByName with
+  | Some text ->
+    let range = AddrRange (text.SecAddr, text.SecAddr + text.SecSize - 1UL)
+    IntervalSet.empty |> IntervalSet.add range
+  | None -> IntervalSet.empty
+
 let private addIntervalWithoutSection secS secE s e set =
   let set =
     if s < secS && secS < e then IntervalSet.add (AddrRange (s, secS - 1UL)) set
@@ -90,11 +97,13 @@ let private execRanges secs segs =
     match Map.tryFind Section.SecROData secs.SecByName with
     | Some rodata when rodata.SecAddr <> 0UL -> Some rodata
     | _ -> None
-  segs
-  |> List.filter (fun seg ->
-    seg.PHFlags &&& Permission.Executable = Permission.Executable)
-  |> List.fold (fun set seg ->
-    addExecutableInterval rodata seg set) IntervalSet.empty
+  if List.isEmpty segs then computeExecRangeFromSecs secs
+  else
+    segs
+    |> List.filter (fun seg ->
+      seg.PHFlags &&& Permission.Executable = Permission.Executable)
+    |> List.fold (fun set seg ->
+      addExecutableInterval rodata seg set) IntervalSet.empty
 
 let private parseExn span rdr cls secs isa rbay rel =
   let exns = ExceptionFrames.parse span rdr cls secs isa rbay rel

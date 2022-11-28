@@ -331,7 +331,8 @@ type BinFile () =
   ///   a given address is executable if the address is within an executable
   ///   segment. Note we consider the addresses of known read-only sections
   ///   (such as .rodata) as non-executable, even though those sections are
-  ///   within an executable segment.
+  ///   within an executable segment. For object files, we simply consider a
+  ///   .text section's address range as executable.
   /// </summary>
   /// <returns>
   ///   Returns true if the address is executable, false otherwise.
