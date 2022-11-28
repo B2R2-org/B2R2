@@ -195,15 +195,10 @@ module BBLManager =
       |> CFGEvents.addEdgeEvt fn caller target ExceptionFallThroughEdge
     | None -> tmp.NextEvents
 
-  let private addCallEdgeEvents callSite excTbl fn caller target ftAddr tmp =
-    if target = ftAddr then (* Clang often produces PC-getter like this. *)
-      CFGEvents.addEdgeEvt fn caller ftAddr CallFallThroughEdge tmp.NextEvents
-      |> CFGEvents.addCallEvt fn callSite target
-      |> updateNextEvents tmp
-    else
-      addExceptionEdgeEvents callSite excTbl fn caller tmp
-      |> CFGEvents.addCallEvt fn callSite target
-      |> updateNextEvents tmp
+  let private addCallEdgeEvents callSite excTbl fn caller target tmp =
+    addExceptionEdgeEvents callSite excTbl fn caller tmp
+    |> CFGEvents.addCallEvt fn callSite target
+    |> updateNextEvents tmp
 
   let private addIndirectCallEvents callSite excTbl fn caller tmp =
     addExceptionEdgeEvents callSite excTbl fn caller tmp
@@ -240,8 +235,7 @@ module BBLManager =
                                                { E = Num bv }, _) },
                 InterJmpKind.IsCall) ->
       let target = (addr + BitVector.ToUInt64 bv) |> maskingAddr hdl
-      let ftAddr = addr + uint64 insInfo.Instruction.Length
-      let tmp = addCallEdgeEvents addr excTbl fn leader target ftAddr tmp
+      let tmp = addCallEdgeEvents addr excTbl fn leader target tmp
       if isLast then leader, tmp
       else leader, addInterEdge leader target InterJmpEdge tmp
     | InterJmp ({ E = Var _ }, InterJmpKind.Base)
