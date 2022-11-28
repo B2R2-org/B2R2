@@ -27,6 +27,7 @@ namespace B2R2.MiddleEnd.ControlFlowAnalysis
 open System.Collections.Generic
 open B2R2
 open B2R2.BinIR
+open B2R2.FrontEnd.BinFile
 open B2R2.FrontEnd.BinFile.ELF
 open B2R2.FrontEnd.BinInterface
 open B2R2.FrontEnd.BinLifter
@@ -227,7 +228,11 @@ module private CFGBuilder =
         let patternStart = List.head addrs
         let chunk = createJumpAfterLockChunk codeMgr patternStart addrs
         codeMgr.ReplaceInlinedAssemblyChunk addrs chunk evts |> Ok
-    elif dst = 0UL then Ok evts (* "jmp 0" case (as in "call 0"). *)
+    elif dst = 0UL then
+      Ok evts (* "jmp 0" case (as in "call 0"). *)
+    elif hdl.BinFile.FileType = FileType.ObjFile
+      && not (hdl.BinFile.IsExecutableAddr dst) then
+      Ok evts (* call outside a section (occurs in an object file) *)
     else
       match buildBBL hdl codeMgr fn mode dst evts with
       | Ok evts -> fn.AddEdge (src, ProgramPoint (dst, 0), edge); Ok evts
