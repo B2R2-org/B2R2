@@ -1238,10 +1238,10 @@ let parseLoadStoreExclusive bin =
   | 0b100111u -> Opcode.LDAXP, getWt1Wt2MXSn bin, 32<rt>
   | 0b101001u -> Opcode.STLR, getWtMXSn bin, 32<rt>
   | 0b101101u -> Opcode.LDAR, getWtMXSn bin, 32<rt>
-  | 0b110000u -> Opcode.STXR, getWsXtMXSn bin, 32<rt>
-  | 0b110001u -> Opcode.STLXR, getWsXtMXSn bin, 32<rt>
-  | 0b110010u -> Opcode.STXP, getWsXt1Xt2MXSn bin, 32<rt>
-  | 0b110011u -> Opcode.STLXP, getWsXt1Xt2MXSn bin, 32<rt>
+  | 0b110000u -> Opcode.STXR, getWsXtMXSn bin, 64<rt>
+  | 0b110001u -> Opcode.STLXR, getWsXtMXSn bin, 64<rt>
+  | 0b110010u -> Opcode.STXP, getWsXt1Xt2MXSn bin, 64<rt>
+  | 0b110011u -> Opcode.STLXP, getWsXt1Xt2MXSn bin, 64<rt>
   | 0b110100u -> Opcode.LDXR, getXtMXSn bin, 64<rt>
   | 0b110101u -> Opcode.LDAXR, getXtMXSn bin, 64<rt>
   | 0b110110u -> Opcode.LDXP, getXt1Xt2MXSn bin, 64<rt>

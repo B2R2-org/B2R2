@@ -583,6 +583,42 @@ let ld1 ins insLen ctxt addr =
     !!ir (bReg := address .+ offs)
   !>ir insLen
 
+let ldax ins insLen ctxt addr size =
+  let ir = !*ctxt
+  let dst, (bReg, offset) = transTwoOprsSepMem ins ctxt addr
+  let address = !+ir 64<rt>
+  !<ir insLen
+  !!ir (address := bReg .+ offset)
+  mark ctxt address (rtToExpr size) ir
+  !!ir (dstAssign ins.OprSize dst (AST.loadLE size address))
+  !>ir insLen
+
+let ldaxr ins insLen ctxt addr =
+  let ir = !*ctxt
+  let dst, (bReg, offset) = transTwoOprsSepMem ins ctxt addr
+  let address = !+ir 64<rt>
+  !<ir insLen
+  !!ir (address := bReg .+ offset)
+  mark ctxt address (rtToExpr ins.OprSize) ir
+  !!ir (dstAssign ins.OprSize dst (AST.loadLE ins.OprSize address))
+  !>ir insLen
+
+let ldaxp ins insLen ctxt addr =
+  let ir = !*ctxt
+  let dst1, dst2, (bReg, offset) = transThreeOprsSepMem ins ctxt addr
+  let address = !+ir 64<rt>
+  !<ir insLen
+  !!ir (address := bReg .+ offset)
+  mark ctxt address (rtToExpr ins.OprSize) ir
+  if ins.OprSize = 32<rt> then
+    let src = AST.loadLE 64<rt> address
+    !!ir (dstAssign ins.OprSize dst1 (AST.xtlo 32<rt> src))
+    !!ir (dstAssign ins.OprSize dst2 (AST.xthi 32<rt> src))
+  else
+    !!ir (dst1 := (AST.loadLE 64<rt> address))
+    !!ir (dst2 := (AST.loadLE 64<rt> (address .+ numI32 8 64<rt>)))
+  !>ir insLen
+
 let ldp ins insLen ctxt addr =
   let ir = !*ctxt
   let isWBack, isPostIndex = getIsWBackAndIsPostIndex ins.Operands
@@ -1201,6 +1237,46 @@ let smull ins insLen ctxt addr =
     !!ir (dst := AST.sext 64<rt> src1 .* AST.sext 64<rt> src2)
   !>ir insLen
 
+let stlx ins insLen ctxt addr size =
+  let ir = !*ctxt
+  let src1, src2, (bReg, offset) = transThreeOprsSepMem ins ctxt addr
+  let address = !+ir 64<rt>
+  let data = !+ir size
+  !<ir insLen
+  !!ir (address := bReg .+ offset)
+  !!ir (data := AST.xtlo size src2)
+  let status = exclusiveMonitorsPass ctxt address size data ir
+  !!ir (dstAssign 32<rt> src1 status)
+  !>ir insLen
+
+let stlxr ins insLen ctxt addr =
+  let ir = !*ctxt
+  let src1, src2, (bReg, offset) = transThreeOprsSepMem ins ctxt addr
+  let address = !+ir 64<rt>
+  let data = !+ir ins.OprSize
+  !<ir insLen
+  !!ir (address := bReg .+ offset)
+  !!ir (data := AST.zext ins.OprSize src2)
+  let status = exclusiveMonitorsPass ctxt address ins.OprSize data ir
+  !!ir (dstAssign 32<rt> src1 status)
+  !>ir insLen
+
+let stlxp ins insLen ctxt addr =
+  let ir = !*ctxt
+  let src1, src2, src3, (bReg, offset) = transFourOprsSepMem ins ctxt addr
+  let address = !+ir 64<rt>
+  !<ir insLen
+  !!ir (address := bReg .+ offset)
+  if ins.OprSize = 32<rt> then
+    let data = !+ir 64<rt>
+    !!ir (data := AST.concat (AST.xtlo 32<rt> src3) (AST.xtlo 32<rt> src2))
+    let status = exclusiveMonitorsPass ctxt address 64<rt> data ir
+    !!ir (dstAssign 32<rt> src1 status)
+  else
+    let status = exclusiveMonitorsPassPair ctxt address 64<rt> src2 src3 ir
+    !!ir (dstAssign 32<rt> src1 status)
+  !>ir insLen
+
 let stp ins insLen ctxt addr =
   let ir = !*ctxt
   let isWBack, isPostIndex = getIsWBackAndIsPostIndex ins.Operands
@@ -1216,6 +1292,7 @@ let stp ins insLen ctxt addr =
     let n8 = numI32 8 64<rt>
     !!ir (address := bReg)
     !!ir (address := if isPostIndex then address else address .+ offset)
+    unmark ctxt address (rtToExpr ins.OprSize) ir
     !!ir (AST.loadLE 64<rt> address := src1A)
     !!ir (AST.loadLE 64<rt> (address .+ n8) := src1B)
     !!ir (AST.loadLE 64<rt> (address .+ dByte) := src2A)
@@ -1226,6 +1303,7 @@ let stp ins insLen ctxt addr =
     let src1, src2, (bReg, offset) = transThreeOprsSepMem ins ctxt addr
     !!ir (address := bReg)
     !!ir (address := if isPostIndex then address else address .+ offset)
+    unmark ctxt address (rtToExpr ins.OprSize) ir
     !!ir (AST.loadLE ins.OprSize address := src1)
     !!ir (AST.loadLE ins.OprSize (address .+ dByte) := src2)
     if isWBack && isPostIndex then !!ir (bReg := address .+ offset)
@@ -1244,6 +1322,7 @@ let str ins insLen ctxt addr =
     let address = !+ir 64<rt>
     !!ir (address := bReg)
     !!ir (address := if isPostIndex then address else address .+ offset)
+    unmark ctxt address (rtToExpr ins.OprSize) ir
     !!ir (AST.loadLE 64<rt> address := srcA)
     !!ir (AST.loadLE 64<rt> (address .+ (numI32 8 64<rt>)) := srcB)
     if isWBack && isPostIndex then !!ir (bReg := address .+ offset)
@@ -1255,6 +1334,7 @@ let str ins insLen ctxt addr =
     !!ir (address := bReg)
     !!ir (address := if isPostIndex then address else address .+ offset)
     !!ir (data := src)
+    unmark ctxt address (rtToExpr ins.OprSize) ir
     !!ir (AST.loadLE ins.OprSize address := data)
     if isWBack && isPostIndex then !!ir (bReg := address .+ offset)
     else if isWBack then !!ir (bReg := address) else ()
@@ -1270,6 +1350,7 @@ let strb ins insLen ctxt addr =
   !!ir (address := bReg)
   !!ir (address := if isPostIndex then address else address .+ offset)
   !!ir (data := AST.xtlo 8<rt> src)
+  unmark ctxt address (rtToExpr ins.OprSize) ir
   !!ir (AST.loadLE 8<rt> address := data)
   if isWBack && isPostIndex then !!ir (bReg := address .+ offset)
   else if isWBack then !!ir (bReg := address) else ()
@@ -1285,6 +1366,7 @@ let strh ins insLen ctxt addr =
   !!ir (address := bReg)
   !!ir (address := if isPostIndex then address else address .+ offset)
   !!ir (data := AST.xtlo 16<rt> src)
+  unmark ctxt address (rtToExpr ins.OprSize) ir
   !!ir (AST.loadLE 16<rt> address := data)
   if isWBack && isPostIndex then !!ir (bReg := address .+ offset)
   else if isWBack then !!ir (bReg := address) else ()
@@ -1303,6 +1385,7 @@ let stur ins insLen ctxt addr =
     let bReg, offset = transOprToExpr ins ctxt addr src2 |> separateMemExpr
     !!ir (address := bReg)
     !!ir (address := if isPostIndex then address else address .+ offset)
+    unmark ctxt address (rtToExpr ins.OprSize) ir
     !!ir (AST.loadLE 64<rt> address := src1A)
     !!ir (AST.loadLE 64<rt> (address .+ (numI32 8 64<rt>)) := src1B)
     if isWBack && isPostIndex then !!ir (bReg := address .+ offset)
@@ -1312,6 +1395,7 @@ let stur ins insLen ctxt addr =
     !!ir (address := bReg)
     !!ir (address := if isPostIndex then address else address .+ offset)
     !!ir (data := src)
+    unmark ctxt address (rtToExpr ins.OprSize) ir
     !!ir (AST.loadLE ins.OprSize address := data)
     if isWBack && isPostIndex then !!ir (bReg := address .+ offset)
     else if isWBack then !!ir (bReg := address) else ()
@@ -1326,6 +1410,7 @@ let sturb ins insLen ctxt addr =
   !!ir (address := bReg)
   !!ir (address := address .+ offset)
   !!ir (data := AST.xtlo 8<rt> src)
+  unmark ctxt address (rtToExpr ins.OprSize) ir
   !!ir (AST.loadLE 8<rt> address := data)
   !>ir insLen
 
@@ -1338,6 +1423,7 @@ let sturh ins insLen ctxt addr =
   !!ir (address := bReg)
   !!ir (address := address .+ offset)
   !!ir (data := AST.xtlo 16<rt> src)
+  unmark ctxt address (rtToExpr ins.OprSize) ir
   !!ir (AST.loadLE 16<rt> address := data)
   !>ir insLen
 
@@ -1623,6 +1709,10 @@ let translate ins insLen ctxt =
   | Opcode.LD1R | Opcode.LD2 | Opcode.LD2R | Opcode.LD3
   | Opcode.LD3R | Opcode.LD4 | Opcode.LD4R ->
     sideEffects insLen ctxt UnsupportedFP
+  | Opcode.LDAXRB | Opcode.LDXRB -> ldax ins insLen ctxt addr 8<rt>
+  | Opcode.LDAXRH | Opcode.LDXRH -> ldax ins insLen ctxt addr 16<rt>
+  | Opcode.LDAXR | Opcode.LDXR -> ldaxr ins insLen ctxt addr
+  | Opcode.LDAXP | Opcode.LDXP -> ldaxp ins insLen ctxt addr
   | Opcode.LDP -> ldp ins insLen ctxt addr
   | Opcode.LDPSW -> ldpsw ins insLen ctxt addr
   | Opcode.LDR -> ldr ins insLen ctxt addr
@@ -1677,6 +1767,10 @@ let translate ins insLen ctxt =
     sideEffects insLen ctxt UnsupportedFP
   | Opcode.ST1 | Opcode.ST2 | Opcode.ST3 | Opcode.ST4 ->
     sideEffects insLen ctxt UnsupportedFP
+  | Opcode.STLXRB | Opcode.STXRB -> stlx ins insLen ctxt addr 8<rt>
+  | Opcode.STLXRH | Opcode.STXRH -> stlx ins insLen ctxt addr 16<rt>
+  | Opcode.STLXR | Opcode.STXR -> stlxr ins insLen ctxt addr
+  | Opcode.STLXP | Opcode.STXP -> stlxp ins insLen ctxt addr
   | Opcode.STP -> stp ins insLen ctxt addr
   | Opcode.STR -> str ins insLen ctxt addr
   | Opcode.STRB -> strb ins insLen ctxt addr

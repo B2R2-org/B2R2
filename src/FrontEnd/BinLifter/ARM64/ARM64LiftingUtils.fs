@@ -47,6 +47,8 @@ let ror x amount width = (x >>> amount) ||| (x <<< (width - amount))
 
 let oprSzToExpr oprSize = numI32 (RegType.toBitWidth oprSize) oprSize
 
+let rtToExpr rt = numI32 (RegType.toBitWidth rt) 64<rt>
+
 let inline private (<!) (ir: IRBuilder) (s) = ir.Append (s)
 
 let vectorToList vector esize =
@@ -237,6 +239,7 @@ let transOprToExpr ins ctxt addr = function
 let separateMemExpr expr =
   match expr.E with
   | Load (_, _, { E = BinOp (BinOpType.ADD, _, b, o, _) }, _) -> b, o
+  | Load (_, _, e, _) -> e, AST.num0 64<rt>
   | _ -> raise InvalidOperandException
 
 let transOneOpr ins ctxt addr =
@@ -281,6 +284,15 @@ let transFourOprs ins ctxt addr =
     transOprToExpr ins ctxt addr o2,
     transOprToExpr ins ctxt addr o3,
     transOprToExpr ins ctxt addr o4
+  | _ -> raise InvalidOperandException
+
+let transFourOprsSepMem ins ctxt addr =
+  match ins.Operands with
+  | FourOperands (o1, o2, o3, o4) ->
+    transOprToExpr ins ctxt addr o1,
+    transOprToExpr ins ctxt addr o2,
+    transOprToExpr ins ctxt addr o3,
+    transOprToExpr ins ctxt addr o4 |> separateMemExpr
   | _ -> raise InvalidOperandException
 
 let transOprToExpr128 ins ctxt addr = function
@@ -761,5 +773,53 @@ let dstAssign oprSize dst src =
   if orgDstSz > oprSize then orgDst := AST.zext orgDstSz src
   elif orgDstSz = oprSize then orgDst := src
   else raise InvalidOperandSizeException
+
+let mark ctxt addr size ir =
+  !!ir (getRegVar ctxt R.EMADDR := addr)
+  !!ir (getRegVar ctxt R.EMVAL := size)
+  !!ir (AST.sideEffect <| SideEffect.Exception "Mark")
+
+let unmark ctxt addr size ir =
+  !!ir (getRegVar ctxt R.EMADDR := addr)
+  !!ir (getRegVar ctxt R.EMVAL := size)
+  !!ir (AST.sideEffect <| SideEffect.Exception "Unmark")
+
+let isMarked ctxt addr size ir =
+  !!ir (getRegVar ctxt R.EMADDR := addr)
+  !!ir (getRegVar ctxt R.EMVAL := size)
+  !!ir (AST.sideEffect <| SideEffect.Exception "IsMarked")
+
+let exclusiveMonitorsPass ctxt address size data ir =
+  let lblPass = !%ir "EMPass"
+  let lblEnd = !%ir "End"
+  let emval = getRegVar ctxt R.EMVAL
+  let status = !+ir 32<rt>
+  !!ir (status := AST.num1 32<rt>)
+  isMarked ctxt address (rtToExpr size) ir
+  let cond = emval == AST.num1 64<rt>
+  !!ir (AST.cjmp cond (AST.name lblPass) (AST.name lblEnd))
+  !!ir (AST.lmark lblPass)
+  unmark ctxt address (rtToExpr size) ir
+  !!ir (AST.loadLE size address := data)
+  !!ir (status := AST.num0 32<rt>)
+  !!ir (AST.lmark lblEnd)
+  status
+
+let exclusiveMonitorsPassPair ctxt address size data1 data2 ir =
+  let lblPass = !%ir "EMPass"
+  let lblEnd = !%ir "End"
+  let emval = getRegVar ctxt R.EMVAL
+  let status = !+ir 32<rt>
+  !!ir (status := AST.num1 32<rt>)
+  isMarked ctxt address (rtToExpr size) ir
+  let cond = emval == AST.num1 64<rt>
+  !!ir (AST.cjmp cond (AST.name lblPass) (AST.name lblEnd))
+  !!ir (AST.lmark lblPass)
+  unmark ctxt address (rtToExpr size) ir
+  !!ir (AST.loadLE size address := data1)
+  !!ir (AST.loadLE size (address .+ numI32 8 64<rt>) := data2)
+  !!ir (status := AST.num0 32<rt>)
+  !!ir (AST.lmark lblEnd)
+  status
 
 // vim: set tw=80 sts=2 sw=2:
