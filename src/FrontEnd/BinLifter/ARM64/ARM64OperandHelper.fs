@@ -748,7 +748,7 @@ let x value = getRegister64 64<rt> (byte value)
 
 let wsr value = getRegister64orSP 32<rt> (byte value)
 
-let xs value = getRegister64orSP 64<rt> (byte value)
+let xsr value = getRegister64orSP 64<rt> (byte value)
 
 let r1 bin = getWidthByOption w x (valOption bin)
 
@@ -1106,9 +1106,11 @@ let xm bin = x (valM bin) |> OprRegister
 
 let xn bin = x (valN bin) |> OprRegister
 
-let xsd bin = xs (valD bin) |> OprRegister
+let xs bin = x (valS1 bin) |> OprRegister
 
-let xsn bin = xs (valN bin) |> OprRegister
+let xsd bin = xsr (valD bin) |> OprRegister
+
+let xsn bin = xsr (valN bin) |> OprRegister
 
 let xt1 bin = x (valT1 bin) |> OprRegister
 
@@ -1287,29 +1289,29 @@ let fbits1 bin = (* immh:immb *)
 let fbits2 bin = OprFbits (64u - (valScale bin) |> uint8) (* scale *)
 
 (* Memory *)
-let memXSn bin = memBaseImm (xs (valN bin), None)
+let memXSn bin = memBaseImm (xsr (valN bin), None)
 
-let memXSnPimm bin s = memBaseImm (xs (valN bin), Some (pimm12 bin s |> int64))
+let memXSnPimm bin s = memBaseImm (xsr (valN bin), Some (pimm12 bin s |> int64))
 
-let memXSnSimm7 bin s = memBaseImm (xs (valN bin), Some (simm7 bin s |> int64))
+let memXSnSimm7 bin s = memBaseImm (xsr (valN bin), Some (simm7 bin s |> int64))
 
-let memXSnSimm9 bin = memBaseImm (xs (valN bin), Some (simm9 bin |> int64))
+let memXSnSimm9 bin = memBaseImm (xsr (valN bin), Some (simm9 bin |> int64))
 
-let memPostXSnSimm b = memPostIdxImm (xs (valN b), Some (simm9 b |> int64))
+let memPostXSnSimm b = memPostIdxImm (xsr (valN b), Some (simm9 b |> int64))
 
-let memPostImmXSnimm bin imm = memPostIdxImm (xs (valN bin), Some imm)
+let memPostImmXSnimm bin imm = memPostIdxImm (xsr (valN bin), Some imm)
 
-let memPostRegXSnxm bin = memPostIdxReg (xs (valN bin), x (valM bin), None)
+let memPostRegXSnxm bin = memPostIdxReg (xsr (valN bin), x (valM bin), None)
 
-let memPreXSnSimm bin = memPreIdxImm (xs (valN bin), Some (simm9 bin |> int64))
+let memPreXSnSimm bin = memPreIdxImm (xsr (valN bin), Some (simm9 bin |> int64))
 
-let memPostXSnImm b s = memPostIdxImm (xs (valN b), Some (simm7 b s |> int64))
+let memPostXSnImm b s = memPostIdxImm (xsr (valN b), Some (simm7 b s |> int64))
 
-let memPreXSnImm b s = memPreIdxImm (xs (valN b), Some (simm7 b s |> int64))
+let memPreXSnImm b s = memPreIdxImm (xsr (valN b), Some (simm7 b s |> int64))
 
-let memExtXSnRmAmt b amt = memBaseReg (xs (valN b), wmxm b, regOffset b amt)
+let memExtXSnRmAmt b amt = memBaseReg (xsr (valN b), wmxm b, regOffset b amt)
 
-let memShfXSnXmAmt b amt = memBaseReg (xs (valN b), x (valM b), regOffset b amt)
+let memShfXSnXmAmt b amt = memBaseReg (xsr (valN b), x (valM b), regOffset b amt)
 
 let lbImm19 bin =
   memLabel (concat (imm19 bin) 0b00u 2 |> uint64 |> signExtend 21 64 |> int64)
