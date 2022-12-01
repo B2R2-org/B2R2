@@ -78,7 +78,7 @@ let private identifyWASM span isa =
 ///   input ISA. Otherwise, this function will raise InvalidISAException.
 /// </summary>
 [<CompiledName("Identify")>]
-let identify bytes isa =
+let identify (bytes: byte[]) isa =
   Monads.OrElse.orElse {
     yield! identifyELF (ReadOnlySpan bytes)
     yield! identifyPE bytes

@@ -28,7 +28,7 @@ open Microsoft.VisualStudio.TestTools.UnitTesting
 open B2R2
 open B2R2.FrontEnd.BinLifter.TMS320C6000
 
-let private test opcode unit oprs bytes =
+let private test opcode unit oprs (bytes: byte[]) =
   let reader = BinReader.binReaderLE
   let span = System.ReadOnlySpan bytes
   let mutable inpar = false

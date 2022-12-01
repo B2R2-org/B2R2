@@ -38,7 +38,7 @@ let struct (ctxt, _) = AVR.Basis.init isa
 let inline ( !. ) (ctxt: TranslationContext) name =
   Register.toRegID name |> ctxt.GetRegVar
 
-let private test bytes len (actStmts : Stmt [])  =
+let private test (bytes: byte[]) len (actStmts: Stmt[])  =
   let reader = BinReader.binReaderLE
   let span = System.ReadOnlySpan bytes
   let ins = Parser.parse span reader 0UL

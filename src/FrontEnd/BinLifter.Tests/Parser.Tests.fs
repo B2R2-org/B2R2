@@ -3534,13 +3534,12 @@ module ARM64 =
   open B2R2.FrontEnd.BinLifter.ARM64
   open B2R2.FrontEnd.BinLifter.ARM64.OperandHelper
 
-  let private test endian opcode oprs bytes =
+  let private test endian opcode oprs (bytes: byte[]) =
     let reader =
       if endian = Endian.Little then
         BinReader.binReaderLE
       else
         BinReader.binReaderBE
-
     let span = System.ReadOnlySpan bytes
     let ins = Parser.parse span reader 0UL
     let opcode' = ins.Info.Opcode
@@ -10158,13 +10157,12 @@ module ARMThumb =
 module MIPS64 =
   open B2R2.FrontEnd.BinLifter.MIPS
 
-  let private test arch endian opcode oprs bytes =
+  let private test arch endian opcode oprs (bytes: byte[]) =
     let reader =
       if endian = Endian.Little then
         BinReader.binReaderLE
       else
         BinReader.binReaderBE
-
     let span = System.ReadOnlySpan bytes
     let ins = Parser.parse span reader arch WordSize.Bit64 0UL
     let opcode' = ins.Info.Opcode
@@ -10297,13 +10295,12 @@ module MIPS64 =
 module MIPS32 =
   open B2R2.FrontEnd.BinLifter.MIPS
 
-  let private test arch endian opcode cond fmt oprs bytes =
+  let private test arch endian opcode cond fmt oprs (bytes: byte[]) =
     let reader =
       if endian = Endian.Little then
         BinReader.binReaderLE
       else
         BinReader.binReaderBE
-
     let span = System.ReadOnlySpan bytes
     let ins = Parser.parse span reader arch WordSize.Bit32 0UL
     let opcode' = ins.Info.Opcode
@@ -10832,7 +10829,7 @@ module MIPS32 =
 module EVM =
   open B2R2.FrontEnd.BinLifter.EVM
 
-  let private test opcode bytes =
+  let private test opcode (bytes: byte[]) =
     let reader = BinReader.binReaderLE
     let span = System.ReadOnlySpan bytes
     let ins = Parser.parse span reader 0UL WordSize.Bit64 0UL

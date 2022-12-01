@@ -324,7 +324,7 @@ let parseImage execpath rawpdb baseAddr bytes reader (hdrs: PEHeaders) =
     FindSectionIdxFromRVA = findSectionIndex hdrs secs
     BinReader = reader }
 
-let parseCoff baseAddr bytes reader (hdrs: PEHeaders) =
+let parseCoff baseAddr (bytes: byte[]) reader (hdrs: PEHeaders) =
   let coff = hdrs.CoffHeader
   let baseAddr = defaultArg baseAddr 0UL
   let wordSize = Coff.getWordSize coff.Machine

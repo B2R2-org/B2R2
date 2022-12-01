@@ -238,28 +238,28 @@ type BinReaderLE () =
       span.Slice(offset, size).ToArray()
       |> Array.map char
 
-    member __.ReadInt64LEB128 (bs, offset) =
+    member __.ReadInt64LEB128 (bs: byte[], offset) =
       let span = ReadOnlySpan (bs)
       LEB128.DecodeSInt64 (span.Slice offset)
 
     member __.ReadInt64LEB128 (span: ByteSpan, offset) =
       LEB128.DecodeSInt64 (span.Slice offset)
 
-    member __.ReadUInt64LEB128 (bs, offset) =
+    member __.ReadUInt64LEB128 (bs: byte[], offset) =
       let span = ReadOnlySpan (bs)
       LEB128.DecodeUInt64 (span.Slice offset)
 
     member __.ReadUInt64LEB128 (span: ByteSpan, offset) =
       LEB128.DecodeUInt64 (span.Slice offset)
 
-    member __.ReadInt32LEB128 (bs, offset) =
+    member __.ReadInt32LEB128 (bs: byte[], offset) =
       let span = ReadOnlySpan (bs)
       LEB128.DecodeSInt32 (span.Slice offset)
 
     member __.ReadInt32LEB128 (span: ByteSpan, offset) =
       LEB128.DecodeSInt32 (span.Slice offset)
 
-    member __.ReadUInt32LEB128 (bs, offset) =
+    member __.ReadUInt32LEB128 (bs: byte[], offset) =
       let span = ReadOnlySpan (bs)
       LEB128.DecodeUInt32 (span.Slice offset)
 
@@ -349,28 +349,28 @@ type BinReaderBE () =
       span.Slice(offset, size).ToArray()
       |> Array.map char
 
-    member __.ReadInt64LEB128 (bs, offset) =
+    member __.ReadInt64LEB128 (bs: byte[], offset) =
       let span = ReadOnlySpan (bs)
       LEB128.DecodeSInt64 (span.Slice offset)
 
     member __.ReadInt64LEB128 (span: ByteSpan, offset) =
       LEB128.DecodeSInt64 (span.Slice offset)
 
-    member __.ReadUInt64LEB128 (bs, offset) =
+    member __.ReadUInt64LEB128 (bs: byte[], offset) =
       let span = ReadOnlySpan (bs)
       LEB128.DecodeUInt64 (span.Slice offset)
 
     member __.ReadUInt64LEB128 (span: ByteSpan, offset) =
       LEB128.DecodeUInt64 (span.Slice offset)
 
-    member __.ReadInt32LEB128 (bs, offset) =
+    member __.ReadInt32LEB128 (bs: byte[], offset) =
       let span = ReadOnlySpan (bs)
       LEB128.DecodeSInt32 (span.Slice offset)
 
     member __.ReadInt32LEB128 (span: ByteSpan, offset) =
       LEB128.DecodeSInt32 (span.Slice offset)
 
-    member __.ReadUInt32LEB128 (bs, offset) =
+    member __.ReadUInt32LEB128 (bs: byte[], offset) =
       let span = ReadOnlySpan (bs)
       LEB128.DecodeUInt32 (span.Slice offset)
 

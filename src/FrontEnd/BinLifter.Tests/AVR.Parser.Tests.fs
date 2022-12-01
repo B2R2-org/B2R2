@@ -28,7 +28,7 @@ open Microsoft.VisualStudio.TestTools.UnitTesting
 open B2R2
 open B2R2.FrontEnd.BinLifter.AVR
 
-let private test opcode oprs bytes =
+let private test opcode oprs (bytes: byte[]) =
   let reader = BinReader.binReaderLE
   let span = System.ReadOnlySpan bytes
   let ins = Parser.parse span reader 0UL
