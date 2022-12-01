@@ -1311,7 +1311,8 @@ let memPreXSnImm b s = memPreIdxImm (xsr (valN b), Some (simm7 b s |> int64))
 
 let memExtXSnRmAmt b amt = memBaseReg (xsr (valN b), wmxm b, regOffset b amt)
 
-let memShfXSnXmAmt b amt = memBaseReg (xsr (valN b), x (valM b), regOffset b amt)
+let memShfXSnXmAmt b amt =
+  memBaseReg (xsr (valN b), x (valM b), regOffset b amt)
 
 let lbImm19 bin =
   memLabel (concat (imm19 bin) 0b00u 2 |> uint64 |> signExtend 21 64 |> int64)
