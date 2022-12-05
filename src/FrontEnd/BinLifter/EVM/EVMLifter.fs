@@ -379,12 +379,16 @@ let translate insInfo (ctxt: TranslationContext) =
   | EXTCODECOPY -> callExternFunc insInfo ctxt "extcodecopy" 4 false
   | RETURNDATASIZE -> callExternFunc insInfo ctxt "returndatasize" 0 true
   | RETURNDATACOPY -> callExternFunc insInfo ctxt "returndatacopy" 3 false
+  | EXTCODEHASH -> callExternFunc insInfo ctxt "extcodehash" 1 true
   | BLOCKHASH -> callExternFunc insInfo ctxt "blockhash" 1 true
   | COINBASE -> callExternFunc insInfo ctxt "block.coinbase" 0 true
   | TIMESTAMP -> callExternFunc insInfo ctxt "block.timestamp" 0 true
   | NUMBER -> callExternFunc insInfo ctxt "block.number" 0 true
   | DIFFICULTY -> callExternFunc insInfo ctxt "block.difficulty" 0 true
   | GASLIMIT -> callExternFunc insInfo ctxt "block.gaslimit" 0 true
+  | CHAINID -> callExternFunc insInfo ctxt "chainid" 0 true
+  | SELFBALANCE -> callExternFunc insInfo ctxt "selfbalance" 0 true
+  | BASEFEE -> callExternFunc insInfo ctxt "basefee" 0 true
   | POP -> pop insInfo ctxt
   | MLOAD -> mload insInfo ctxt
   | MSTORE -> mstore insInfo ctxt

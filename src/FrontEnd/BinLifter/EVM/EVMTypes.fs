@@ -168,6 +168,7 @@ type Opcode =
   | RETURNDATASIZE
   /// Copies data from the return data buffer to memory
   | RETURNDATACOPY
+  | EXTCODEHASH
   /// Get the hash of one of the 256 most recent complete blocks
   | BLOCKHASH
   /// Get the block's beneficiary address
@@ -180,6 +181,9 @@ type Opcode =
   | DIFFICULTY
   /// Get the block's gas limit
   | GASLIMIT
+  | CHAINID
+  | SELFBALANCE
+  | BASEFEE
   /// Remove word from stack
   | POP
   /// Load word from memory
