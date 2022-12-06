@@ -574,7 +574,7 @@ let divu insInfo insLen ctxt =
   let hi = getRegVar ctxt R.HI
   let lo = getRegVar ctxt R.LO
   !!ir (rt := AST.ite (rt == numI64 0 ctxt.WordBitSize)
-                (AST.undef ctxt.WordBitSize "UNPREDICTABLE") (rt))
+                (AST.undef ctxt.WordBitSize "UNPREDICTABLE") rt)
   if is32Bit ctxt then
     !!ir (lo := (AST.zext 64<rt> rs ./ AST.zext 64<rt> rt) |> AST.xtlo 32<rt>)
     !!ir (hi := (AST.zext 64<rt> rs .% AST.zext 64<rt> rt) |> AST.xtlo 32<rt>)
@@ -738,7 +738,7 @@ let loadLinked insInfo insLen ctxt =
   let rt, mem = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
   !<ir insLen
   !!ir (rt := AST.sext ctxt.WordBitSize mem)
-  !!ir (AST.sideEffect (Exception "SetLLBit")) (* This will set LLBit reg. *)
+  !!ir (AST.extCall <| AST.app "SetLLBit" [] ctxt.WordBitSize)
   advancePC ctxt ir
   !>ir insLen
 
@@ -950,7 +950,7 @@ let pause insLen ctxt =
   let lblEnd = !%ir "End"
   !<ir insLen
   !!ir (AST.lmark lblSpin)
-  !!ir (AST.sideEffect (Exception "GetLLBit"))
+  !!ir (AST.extCall <| AST.app "GetLLBit" [] ctxt.WordBitSize)
   !!ir (AST.cjmp (llbit == AST.b1) (AST.name lblSpin) (AST.name lblEnd))
   !!ir (AST.lmark lblEnd)
   advancePC ctxt ir
@@ -986,13 +986,13 @@ let storeConditional insInfo insLen width ctxt =
   let rt, mem = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
   let llbit = getRegVar ctxt R.LLBit
   !<ir insLen
-  !!ir (AST.sideEffect (Exception "GetLLBit"))
+  !!ir (AST.extCall <| AST.app "GetLLBit" [] ctxt.WordBitSize)
   !!ir (AST.cjmp (llbit == AST.b1) (AST.name lblInRMW) (AST.name lblEnd))
   !!ir (AST.lmark lblInRMW)
   !!ir (mem := AST.xtlo width rt)
   !!ir (AST.lmark lblEnd)
   !!ir (rt := AST.zext ctxt.WordBitSize llbit)
-  !!ir (AST.sideEffect (Exception "ClearLLBit"))
+  !!ir (AST.extCall <| AST.app "ClearLLBit" [] ctxt.WordBitSize)
   advancePC ctxt ir
   !>ir insLen
 
