@@ -664,11 +664,9 @@ type internal RegExprs () =
   member val TPIDREL0 =
     var 64<rt> (Register.toRegID Register.TPIDREL0) "TPIDR_EL0"
 
-  (* Exclusive Monitor *)
-  /// Pseudo register for passing exclusive monitor addresses.
-  member val EMADDR = var 64<rt> (Register.toRegID Register.EMADDR) "EMADDR"
-  /// Pseudo register for passing numbers related to Exclusive Monitor.
-  member val EMVAL = var 64<rt> (Register.toRegID Register.EMVAL) "EMVAL"
+  (* Extra pseudo registers. *)
+  /// Pseudo register for passing a return value from an external call.
+  member val ERET = var 64<rt> (Register.toRegID Register.ERET) "ERET"
 
   member __.GetRegVar (name) =
     match name with
@@ -876,8 +874,7 @@ type internal RegExprs () =
     | R.DCZIDEL0 -> __.DCZIDEL0
     | R.MIDREL1 -> __.MIDREL1
     | R.TPIDREL0 -> __.TPIDREL0
-    | R.EMADDR -> __.EMADDR
-    | R.EMVAL -> __.EMVAL
+    | R.ERET -> __.ERET
     | _ -> raise UnhandledRegExprException
 
   member __.GetPseudoRegVar name pos =

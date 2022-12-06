@@ -776,13 +776,9 @@ type Register =
   | FPCR = 0x174
   /// Floating-point Status Register.
   | FPSR = 0x175
-  /// Pseudo register for passing exclusive monitor addresses. This is set from
-  /// a LDX/LDAX instruction to set an Exclusive Monitor (EM).
-  | EMADDR = 0x176
-  /// Pseudo register for passing numbers related to Exclusive Monitor (EM). For
-  /// example, this is used to pass the number of bytes to mark from a LDX/LDAX
-  /// instruction.
-  | EMVAL = 0x177
+  /// Pseudo register for passing a return value from an external call. This is
+  /// used to handle instruction semantics for Exclusive Monitor (EM).
+  | ERET = 0x176
 
 /// Shortcut for Register type.
 type internal R = Register
@@ -1172,8 +1168,7 @@ module Register =
     | "midrel1" -> R.MIDREL1
     | "fpcr" -> R.FPCR
     | "fpsr" -> R.FPSR
-    | "emaddr" -> R.EMADDR
-    | "emval" -> R.EMVAL
+    | "eret" -> R.ERET
     | _ -> Utils.impossible ()
 
   let toString = function
@@ -1551,8 +1546,7 @@ module Register =
     | R.MIDREL1 -> "midr_el1"
     | R.FPCR -> "fpcr"
     | R.FPSR -> "fpsr"
-    | R.EMADDR -> "emaddr"
-    | R.EMVAL -> "emval"
+    | R.ERET -> "eret"
     | _ -> Utils.impossible ()
 
   let toRegType = function
@@ -1572,7 +1566,7 @@ module Register =
     | R.V20A | R.V20B | R.V21A | R.V21B | R.V22A | R.V22B | R.V23A | R.V23B
     | R.V24A | R.V24B | R.V25A | R.V25B | R.V26A | R.V26B | R.V27A | R.V27B
     | R.V28A | R.V28B | R.V29A | R.V29B | R.V30A | R.V30B | R.V31A | R.V31B
-    | R.FPCR | R.FPSR | R.EMADDR | R.EMVAL -> 64<rt>
+    | R.FPCR | R.FPSR | R.ERET -> 64<rt>
     | R.W0 | R.W1 | R.W2 | R.W3 | R.W4 | R.W5 | R.W6 | R.W7 | R.W8 | R.W9
     | R.W10 | R.W11 | R.W12 | R.W13 | R.W14 | R.W15 | R.W16 | R.W17 | R.W18
     | R.W19 | R.W20 | R.W21 | R.W22 | R.W23 | R.W24 | R.W25 | R.W26 | R.W27

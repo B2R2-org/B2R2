@@ -47,7 +47,7 @@ let ror x amount width = (x >>> amount) ||| (x <<< (width - amount))
 
 let oprSzToExpr oprSize = numI32 (RegType.toBitWidth oprSize) oprSize
 
-let rtToExpr rt = numI32 (RegType.toBitWidth rt) 64<rt>
+let memSizeToExpr rt = numI32 (RegType.toByteWidth rt) 64<rt>
 
 let inline private (<!) (ir: IRBuilder) (s) = ir.Append (s)
 
@@ -774,32 +774,26 @@ let dstAssign oprSize dst src =
   elif orgDstSz = oprSize then orgDst := src
   else raise InvalidOperandSizeException
 
-let mark ctxt addr size ir =
-  !!ir (getRegVar ctxt R.EMADDR := addr)
-  !!ir (getRegVar ctxt R.EMVAL := size)
-  !!ir (AST.sideEffect <| SideEffect.Exception "Mark")
+let mark (ctxt: TranslationContext) addr size ir =
+  !!ir (AST.extCall <| AST.app "Mark" [addr; size] ctxt.WordBitSize)
 
-let unmark ctxt addr size ir =
-  !!ir (getRegVar ctxt R.EMADDR := addr)
-  !!ir (getRegVar ctxt R.EMVAL := size)
-  !!ir (AST.sideEffect <| SideEffect.Exception "Unmark")
+let unmark (ctxt: TranslationContext) addr size ir =
+  !!ir (AST.extCall <| AST.app "Unmark" [addr; size] ctxt.WordBitSize)
 
-let isMarked ctxt addr size ir =
-  !!ir (getRegVar ctxt R.EMADDR := addr)
-  !!ir (getRegVar ctxt R.EMVAL := size)
-  !!ir (AST.sideEffect <| SideEffect.Exception "IsMarked")
+let isMarked (ctxt: TranslationContext) addr size ir =
+  !!ir (AST.extCall <| AST.app "IsMarked" [addr; size] ctxt.WordBitSize)
 
 let exclusiveMonitorsPass ctxt address size data ir =
   let lblPass = !%ir "EMPass"
   let lblEnd = !%ir "End"
-  let emval = getRegVar ctxt R.EMVAL
+  let emval = getRegVar ctxt R.ERET
   let status = !+ir 32<rt>
   !!ir (status := AST.num1 32<rt>)
-  isMarked ctxt address (rtToExpr size) ir
+  isMarked ctxt address (memSizeToExpr size) ir
   let cond = emval == AST.num1 64<rt>
   !!ir (AST.cjmp cond (AST.name lblPass) (AST.name lblEnd))
   !!ir (AST.lmark lblPass)
-  unmark ctxt address (rtToExpr size) ir
+  unmark ctxt address (memSizeToExpr size) ir
   !!ir (AST.loadLE size address := data)
   !!ir (status := AST.num0 32<rt>)
   !!ir (AST.lmark lblEnd)
@@ -808,14 +802,14 @@ let exclusiveMonitorsPass ctxt address size data ir =
 let exclusiveMonitorsPassPair ctxt address size data1 data2 ir =
   let lblPass = !%ir "EMPass"
   let lblEnd = !%ir "End"
-  let emval = getRegVar ctxt R.EMVAL
+  let emval = getRegVar ctxt R.ERET
   let status = !+ir 32<rt>
   !!ir (status := AST.num1 32<rt>)
-  isMarked ctxt address (rtToExpr size) ir
+  isMarked ctxt address (memSizeToExpr size) ir
   let cond = emval == AST.num1 64<rt>
   !!ir (AST.cjmp cond (AST.name lblPass) (AST.name lblEnd))
   !!ir (AST.lmark lblPass)
-  unmark ctxt address (rtToExpr size) ir
+  unmark ctxt address (memSizeToExpr size) ir
   !!ir (AST.loadLE size address := data1)
   !!ir (AST.loadLE size (address .+ numI32 8 64<rt>) := data2)
   !!ir (status := AST.num0 32<rt>)
