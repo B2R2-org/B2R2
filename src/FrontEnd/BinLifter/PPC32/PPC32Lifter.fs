@@ -779,6 +779,16 @@ let rlwinm ins insLen ctxt =
   !!ir (ra := rol .& (getExtMask mb me))
   !>ir insLen
 
+let rlwinmdot ins insLen ctxt =
+  let struct (ra, rs, sh, mb, me) = transFiveOprs ins ctxt
+  let ir = !*ctxt
+  let rol = !+ir 32<rt>
+  !<ir insLen
+  !!ir (rol := rotateLeft rs sh)
+  !!ir (ra := rol .& (getExtMask mb me))
+  setCondReg ctxt ir ra
+  !>ir insLen
+
 let rlwimi ins insLen ctxt =
   let struct (ra, rs, sh, mb, me) = transFiveOprs ins ctxt
   let ir = !*ctxt
@@ -983,6 +993,15 @@ let stwux ins insLen ctxt =
   !!ir (ra := ea)
   !>ir insLen
 
+let stwx ins insLen ctxt =
+  let struct (rs, ra, rb) = transThreeOprs ins ctxt
+  let ir = !*ctxt
+  let ea = !+ir 32<rt>
+  !<ir insLen
+  !!ir (ea := ra .+ rb)
+  !!ir (loadNative ctxt 32<rt> ea := rs)
+  !>ir insLen
+
 let subf ins insLen ctxt =
   let struct (dst, src1, src2) = transThreeOprs ins ctxt
   let ir = !*ctxt
@@ -1137,6 +1156,7 @@ let translate (ins: InsInfo) insLen (ctxt: TranslationContext) =
   | Op.ORIS -> oris ins insLen ctxt
   | Op.RLWIMI -> rlwimi ins insLen ctxt
   | Op.RLWINM -> rlwinm ins insLen ctxt
+  | Op.RLWINMdot -> rlwinmdot ins insLen ctxt
   | Op.ROTLW -> rotlw ins insLen ctxt
   | Op.ROTLWI -> rotlwi ins insLen ctxt
   | Op.SLW -> slw ins insLen ctxt
@@ -1154,6 +1174,7 @@ let translate (ins: InsInfo) insLen (ctxt: TranslationContext) =
   | Op.STW -> stw ins insLen ctxt
   | Op.STWU -> stwu ins insLen ctxt
   | Op.STWUX -> stwux ins insLen ctxt
+  | Op.STWX -> stwx ins insLen ctxt
   | Op.SUBF -> subf ins insLen ctxt
   | Op.SUBFC -> subfc ins insLen ctxt
   | Op.SUBFE -> subfe ins insLen ctxt
