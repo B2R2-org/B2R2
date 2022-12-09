@@ -560,11 +560,12 @@ let parseCdotLUIADDI16SP bin wordSize=
     struct (Op.CdotADDI16SP,
             ThreeOperands (R.X2 |> OpReg, R.X2 |> OpReg, signExtended))
   else
-    let imm = (extract bin 6u 2u) ||| (pickBit bin 12u <<< 5)
-    if imm = 0u then raise ParsingFailureException
+    let imm = (extract bin 6u 2u) ||| (pickBit bin 12u <<< 5) |> uint64
+    let signExtended = signExtend 6 wordSize imm |> uint64
+    if imm = 0uL then raise ParsingFailureException
     else ()
     let dest = crd bin
-    struct (Op.CdotLUI, TwoOperands (dest, imm |> uint64 |> OpImm))
+    struct (Op.CdotLUI, TwoOperands (dest, signExtended |> OpImm))
 
 let parseCdotArith bin =
   let opcode =
