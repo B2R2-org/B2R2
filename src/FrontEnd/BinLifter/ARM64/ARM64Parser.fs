@@ -307,6 +307,7 @@ let getVdVnFbits bin r = r bin; ThreeOperands (vd5 bin, vn5 bin, fbits1 bin)
 
 (** Register - Register - Memory **)
 let getWsWtMXSn bin = ThreeOperands (ws bin, wt1 bin, memXSn bin)
+let getXsXtMXSn bin = ThreeOperands (xs bin, xt1 bin, memXSn bin)
 let getWsXtMXSn bin = ThreeOperands (ws bin, xt1 bin, memXSn bin)
 let getWt1Wt2MXSn bin = ThreeOperands (wt1 bin, wt2 bin, memXSn bin)
 let getXt1Xt2MXSn bin = ThreeOperands (xt1 bin, xt2 bin, memXSn bin)
@@ -1212,10 +1213,14 @@ let parseLoadRegLiteral bin =
 let parseLoadStoreExclusive bin =
   let cond = concat (concat (extract bin 31u 30u) (extract bin 23u 21u) 3)
                     (pickBit bin 15u) 1 (* size:o2:L:o1:o0 *)
+  let rt2 = extract bin 14u 10u
   match cond with
-  | c when c &&& 0b001011u = 0b001000u -> raise UnallocatedException
-  | c when c &&& 0b001010u = 0b001010u -> raise UnallocatedException
-  | c when c &&& 0b100010u = 0b000010u -> raise UnallocatedException
+  | c when c &&& 0b001011u = 0b001000u (* FEAT_LOR *) ->
+    raise UnallocatedException
+  | c when c &&& 0b001010u = 0b001010u && rt2 <> 0b11111u ->
+    raise UnallocatedException
+  | c when c &&& 0b100010u = 0b000010u && rt2 <> 0b11111u ->
+    raise UnallocatedException
   | 0b000000u -> Opcode.STXRB, getWsWtMXSn bin, 32<rt>
   | 0b000001u -> Opcode.STLXRB, getWsWtMXSn bin, 32<rt>
   | 0b000100u -> Opcode.LDXRB, getWtMXSn bin, 32<rt>
@@ -1237,7 +1242,11 @@ let parseLoadStoreExclusive bin =
   | 0b100110u -> Opcode.LDXP, getWt1Wt2MXSn bin, 32<rt>
   | 0b100111u -> Opcode.LDAXP, getWt1Wt2MXSn bin, 32<rt>
   | 0b101001u -> Opcode.STLR, getWtMXSn bin, 32<rt>
+  | 0b101010u when rt2 = 0b11111u -> Opcode.CAS, getWsWtMXSn bin, 32<rt>
+  | 0b101011u when rt2 = 0b11111u -> Opcode.CASL, getWsWtMXSn bin, 32<rt>
   | 0b101101u -> Opcode.LDAR, getWtMXSn bin, 32<rt>
+  | 0b101110u when rt2 = 0b11111u -> Opcode.CASA, getWsWtMXSn bin, 32<rt>
+  | 0b101111u when rt2 = 0b11111u -> Opcode.CASAL, getWsWtMXSn bin, 32<rt>
   | 0b110000u -> Opcode.STXR, getWsXtMXSn bin, 64<rt>
   | 0b110001u -> Opcode.STLXR, getWsXtMXSn bin, 64<rt>
   | 0b110010u -> Opcode.STXP, getWsXt1Xt2MXSn bin, 64<rt>
@@ -1247,7 +1256,11 @@ let parseLoadStoreExclusive bin =
   | 0b110110u -> Opcode.LDXP, getXt1Xt2MXSn bin, 64<rt>
   | 0b110111u -> Opcode.LDAXP, getXt1Xt2MXSn bin, 64<rt>
   | 0b111001u -> Opcode.STLR, getXtMXSn bin, 64<rt>
+  | 0b111010u when rt2 = 0b11111u -> Opcode.CAS, getXsXtMXSn bin, 64<rt>
+  | 0b111011u when rt2 = 0b11111u -> Opcode.CASL, getXsXtMXSn bin, 64<rt>
   | 0b111101u -> Opcode.LDAR, getXtMXSn bin, 64<rt>
+  | 0b111110u when rt2 = 0b11111u -> Opcode.CASA, getXsXtMXSn bin, 64<rt>
+  | 0b111111u when rt2 = 0b11111u -> Opcode.CASAL, getXsXtMXSn bin, 64<rt>
   | _ -> raise InvalidOpcodeException
 
 let parseLoadStoreNoAllocatePairOffset bin =

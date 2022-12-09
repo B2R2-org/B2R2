@@ -291,6 +291,21 @@ let inline private compareBranch ins insLen ctxt addr cmp =
   !!ir (AST.intercjmp (cmp test (AST.num0 ins.OprSize)) (pc .+ label) fall)
   !>ir insLen
 
+let compareAndSwap ins insLen ctxt addr =
+  let ir = !*ctxt
+  let dst, src, mem = transThreeOprs ins ctxt addr
+  let struct (compareVal, newVal, oldVal) = tmpVars3 ir ins.OprSize
+  let memVal = !+ir 64<rt>
+  let cond = oldVal == compareVal
+  !<ir insLen
+  !!ir (compareVal := dst)
+  !!ir (newVal := src)
+  !!ir (memVal := mem)
+  !!ir (oldVal := memVal |> AST.xtlo ins.OprSize)
+  !!ir (mem := AST.ite cond (newVal |> AST.sext 64<rt>) memVal)
+  !!ir (dst := oldVal |> AST.zext ins.OprSize)
+  !>ir insLen
+
 let cbnz ins insLen ctxt addr = compareBranch ins insLen ctxt addr (!=)
 
 let cbz ins insLen ctxt addr = compareBranch ins insLen ctxt addr (==)
@@ -1658,6 +1673,8 @@ let translate ins insLen ctxt =
   | Opcode.BR -> br ins insLen ctxt addr
   | Opcode.BRK -> sideEffects insLen ctxt Breakpoint
   | Opcode.BSL -> sideEffects insLen ctxt UnsupportedFP
+  | Opcode.CAS | Opcode.CASA | Opcode.CASL | Opcode.CASAL ->
+    compareAndSwap ins insLen ctxt addr
   | Opcode.CBNZ -> cbnz ins insLen ctxt addr
   | Opcode.CBZ -> cbz ins insLen ctxt addr
   | Opcode.CCMN -> ccmn ins insLen ctxt addr
