@@ -462,7 +462,7 @@ let parseStackBasedLoadStore bin =
     struct (Op.CdotSDSP, TwoOperands (rs2, OpMem (R.X2, imm, 64<rt>)))
   | 0b101u ->
     let rs2 = cfrs2 bin
-    let from3to5 = extract bin 12u 10u <<< 2
+    let from3to5 = extract bin 12u 10u <<< 3
     let from6to8 = extract bin 9u 7u <<< 6
     let imm = from3to5 ||| from6to8 |> int64 |> Imm |> Some
     struct (Op.CdotFSDSP, TwoOperands (rs2, OpMem (R.X2, imm, 64<rt>)))
