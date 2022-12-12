@@ -1573,6 +1573,26 @@ let umaddl ins insLen ctxt addr =
   !!ir (dst := src3 .+ (AST.zext 64<rt> src1 .* AST.zext 64<rt> src2))
   !>ir insLen
 
+let uminv ins insLen ctxt addr =
+  let ir = !*ctxt
+  let struct (o1, o2) = getTwoOprs ins
+  let dst = transOprToExpr ins ctxt addr o1
+  let srcB, srcA = transOprToExpr128 ins ctxt addr o2
+  let elements, eSize = getElemNumAndSize ins.OprSize (getSIMDReg o2)
+  let struct (maxmin, element) = tmpVars2 ir eSize
+  !<ir insLen
+  !!ir (maxmin := AST.xtlo eSize srcA)
+  for e in 1 .. (elements / 2) - 1 do
+    !!ir (element := AST.extract srcA eSize (e * int eSize))
+    !!ir (maxmin := AST.ite (maxmin .<= element) maxmin element)
+  done
+  for e in 0 .. (elements / 2) - 1 do
+    !!ir (element := AST.extract srcB eSize (e * int eSize))
+    !!ir (maxmin := AST.ite (maxmin .<= element) maxmin element)
+  done
+  !!ir (dstAssign ins.OprSize dst (AST.xtlo eSize maxmin))
+  !>ir insLen
+
 let umsubl ins insLen ctxt addr =
   let dst, src1, src2, src3 = transOprToExprOfUMADDL ins ctxt addr
   let ir = !*ctxt
@@ -1805,7 +1825,7 @@ let translate ins insLen ctxt =
   | Opcode.TBNZ -> tbnz ins insLen ctxt addr
   | Opcode.TBZ -> tbz ins insLen ctxt addr
   | Opcode.TST -> tst ins insLen ctxt addr
-  | Opcode.UADDLV | Opcode.UADDW | Opcode.UMAXV | Opcode.UMINV ->
+  | Opcode.UADDLV | Opcode.UADDW | Opcode.UMAXV ->
     sideEffects insLen ctxt UnsupportedFP
   | Opcode.UBFIZ -> ubfiz ins insLen ctxt addr
   | Opcode.UBFX -> ubfx ins insLen ctxt addr
@@ -1813,6 +1833,7 @@ let translate ins insLen ctxt =
   | Opcode.UDIV -> udiv ins insLen ctxt addr
   | Opcode.UMAX -> sideEffects insLen ctxt UnsupportedFP
   | Opcode.UMADDL -> umaddl ins insLen ctxt addr
+  | Opcode.UMINV -> uminv ins insLen ctxt addr
   | Opcode.UMLAL | Opcode.UMLAL2 ->
     sideEffects insLen ctxt UnsupportedFP
   | Opcode.UMSUBL | Opcode.UMNEGL -> umsubl ins insLen ctxt addr
