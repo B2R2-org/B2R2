@@ -817,7 +817,7 @@ let rlwimi ins insLen ctxt =
 let rotlw ins insLen ctxt =
   let struct (ra, rs, rb) = transThreeOprs ins ctxt
   let ir = !*ctxt
-  let n = AST.sext 32<rt> (AST.xthi 4<rt> rb)
+  let n = (rb >> (numI32 27 32<rt>))
   let rol = rotateLeft rs n
   !<ir insLen
   !!ir (ra := rol) (* no mask *)
@@ -834,7 +834,7 @@ let rotlwi ins insLen ctxt =
 let slw ins insLen ctxt =
   let struct (dst, rs, rb) = transThreeOprs ins ctxt
   let ir = !*ctxt
-  let n = AST.sext 32<rt> (AST.xthi 4<rt> rb)
+  let n = (rb >> (numI32 27 32<rt>))
   let bit26 = AST.xtlo 1<rt> (rs >> numI32 26 32<rt> .& AST.num1 32<rt>)
   let cond = bit26 == AST.b0
   let z = AST.num0 32<rt>
@@ -863,7 +863,7 @@ let sraw ins insLen ctxt =
   let ca = !+ir 32<rt>
   let tmp = !+ir 32<rt>
   !<ir insLen
-  !!ir (n := AST.zext 32<rt> (AST.xthi 5<rt> rb))
+  !!ir (n := (rb >> (numI32 27 32<rt>)))
   !!ir (r := rotateLeft rs n)
   !!ir (m := AST.ite cond (getExtMask n (numI32 31 32<rt>)) z)
   !!ir (ra := (r .& m) .| (rs .& AST.not m))
@@ -910,9 +910,10 @@ let srawidot ins insLen ctxt =
 let srw ins insLen ctxt =
   let struct (dst, rs, rb) = transThreeOprs ins ctxt
   let ir = !*ctxt
-  let n = AST.sext 32<rt> (AST.xthi 4<rt> rb)
+  let n = !+ir 32<rt>
   !<ir insLen
-  !!ir (dst := (rs << ((numI32 32 32<rt>) .- n)) .| (rs >> n))
+  !!ir (n := (rb >> (numI32 27 32<rt>)))
+  !!ir (dst := rotateLeft rs ((numI32 32 32<rt>) .- n) )
   !>ir insLen
 
 let srwi ins insLen ctxt =
