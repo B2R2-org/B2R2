@@ -770,9 +770,13 @@ let countLeadingZeroBitsForIR src oprSize ir =
 let dstAssign oprSize dst src =
   let orgDst = AST.unwrap dst
   let orgDstSz = orgDst |> TypeCheck.typeOf
-  if orgDstSz > oprSize then orgDst := AST.zext orgDstSz src
-  elif orgDstSz = oprSize then orgDst := src
-  else raise InvalidOperandSizeException
+  match orgDst with
+  | { E = Var (_, rid, _, _) } when rid = Register.toRegID R.XZR ->
+    orgDst := AST.num0 orgDstSz
+  | _ ->
+    if orgDstSz > oprSize then orgDst := AST.zext orgDstSz src
+    elif orgDstSz = oprSize then orgDst := src
+    else raise InvalidOperandSizeException
 
 let mark (ctxt: TranslationContext) addr size ir =
   !!ir (AST.extCall <| AST.app "Mark" [addr; size] ctxt.WordBitSize)
