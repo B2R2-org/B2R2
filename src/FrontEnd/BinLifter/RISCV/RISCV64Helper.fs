@@ -231,6 +231,9 @@ let getRdRs1AqRlAcc b acc =
 let getRdRs1Rs2AqRlAcc b acc =
   let mem = OpMem (getRegFrom1915 b, None, acc)
   FourOperands (rd b, mem, rs2 b, getAqRl b)
+let getRdRs2Rs1AqRlAcc b acc =
+  let mem = OpMem (getRegFrom1915 b, None, acc)
+  FourOperands (rd b, rs2 b, mem, getAqRl b)
 let getRdJImm b wordSize =
   TwoOperands (rd b, getJImm b wordSize |> int64 |> Relative |> OpAddr)
 let getRdRs1JImm b wordSize =

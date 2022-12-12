@@ -1864,7 +1864,7 @@ let fsgnjxdotd insInfo insLen ctxt =
 (* FIX ME: AQRL *)
 let amod insInfo insLen ctxt op =
   let ir = !*ctxt
-  let rd, mem, rs2, aqrl = getFourOprs insInfo |> transFourOprs insInfo ctxt
+  let rd, rs2, mem, aqrl = getFourOprs insInfo |> transFourOprs insInfo ctxt
   let cond = isAligned 64<rt> (getAddrFromMem mem)
   let lblL0 = !%ir "L0"
   let lblL1 = !%ir "L1"
@@ -1886,9 +1886,9 @@ let amod insInfo insLen ctxt op =
 
 let amow insInfo insLen ctxt op =
   let ir = !*ctxt
-  let rd, mem, rs2, aqrl = getFourOprs insInfo |> transFourOprs insInfo ctxt
+  let rd, rs2, mem, aqrl = getFourOprs insInfo |> transFourOprs insInfo ctxt
   let rs2 = AST.xtlo 32<rt> rs2
-  let cond = isAligned 64<rt> (getAddrFromMem mem)
+  let cond = isAligned 32<rt> (getAddrFromMem mem)
   let lblL0 = !%ir "L0"
   let lblL1 = !%ir "L1"
   let lblEnd = !%ir "End"
@@ -1898,7 +1898,7 @@ let amow insInfo insLen ctxt op =
   !!ir (AST.lmark lblL0)
   !!ir (AST.sideEffect Lock)
   !!ir (tmp := mem)
-  !!ir (mem := AST.sext 64<rt> (op tmp rs2))
+  !!ir (mem := op tmp rs2)
   !!ir (rd := AST.sext 64<rt> tmp)
   !!ir (AST.sideEffect Unlock)
   !!ir (AST.jmp (AST.name lblEnd))
@@ -2146,13 +2146,12 @@ let lr insInfo insLen ctxt =
   !>ir insLen
 
 (* TODO: Add reservation check *)
-let sc insInfo insLen ctxt =
+let sc insInfo insLen ctxt oprSz =
   let ir = !*ctxt
-  let rd, mem, aqrl = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
-  let accessLength = getAccessLength (snd (getTwoOprs insInfo))
+  let rd, mem, rs2, aqrl = getFourOprs insInfo |> transFourOprs insInfo ctxt
   !<ir insLen
-  !!ir (mem := AST.xtlo accessLength rd)
-  !!ir (rd := numI32 0 64<rt>)
+  !!ir (mem := AST.xtlo oprSz rs2)
+  !!ir (rd := numI32 0 ctxt.WordBitSize)
   !>ir insLen
 
 let translate insInfo insLen (ctxt: TranslationContext) =
@@ -2337,8 +2336,8 @@ let translate insInfo insLen (ctxt: TranslationContext) =
   | Op.FENCEdotTSO -> nop insLen ctxt
   | Op.LRdotW
   | Op.LRdotD -> lr insInfo insLen ctxt
-  | Op.SCdotW
-  | Op.SCdotD -> sc insInfo insLen ctxt
+  | Op.SCdotW -> sc insInfo insLen ctxt 32<rt>
+  | Op.SCdotD -> sc insInfo insLen ctxt 64<rt>
   | Op.CSRRW -> csrrw insInfo insLen ctxt
   | Op.CSRRWI -> csrrwi insInfo insLen ctxt
   | Op.CSRRS -> csrrs insInfo insLen ctxt
