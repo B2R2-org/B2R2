@@ -205,6 +205,15 @@ let addic ins insLen ctxt =
   /// Affected: XER[CA]
   !>ir insLen
 
+let addicdot ins insLen ctxt =
+  let struct (dst, src, simm) = transThreeOprs ins ctxt
+  let ir = !*ctxt
+  !<ir insLen
+  !!ir (dst := src .+ simm)
+  setCondReg ctxt ir dst
+  /// Affected: XER[CA]
+  !>ir insLen
+
 let addis ins insLen ctxt =
   let struct (dst, src1, simm) = transThreeOprs ins ctxt
   let cond = src1 == AST.num0 32<rt>
@@ -1113,6 +1122,7 @@ let translate (ins: InsInfo) insLen (ctxt: TranslationContext) =
   | Op.ADDE -> adde ins insLen ctxt
   | Op.ADDI -> addi ins insLen ctxt
   | Op.ADDIC -> addic ins insLen ctxt
+  | Op.ADDICdot -> addicdot ins insLen ctxt
   | Op.ADDIS -> addis ins insLen ctxt
   | Op.ADDZE -> addze ins insLen ctxt
   | Op.ADDZEdot -> addzedot ins insLen ctxt
