@@ -334,13 +334,14 @@ let parseRLWINMx bin =
   | 0b0u ->
     match extract bin 15u 11u with
     | 0b0u when extract bin 5u 1u = 0x1Fu ->
-      let n = extract bin 15u 11u |> uint64 |> OprImm
       match extract bin 10u 6u with
       (* slwi ra,rs,0 = rlwinm ra,rs,0,0,31 *)
       | 0x0u ->
+        let n = extract bin 15u 11u |> uint64 |> OprImm
         struct (Op.SLWI, ThreeOperands(ra, rs, n))
       (* clrlwi ra,rs,n = rlwinm ra,rs,0,n,31 *)
       | _ ->
+        let n = extract bin 10u 6u |> uint64 |> OprImm
         struct (Op.CLRLWI, ThreeOperands(ra, rs, n))
     | _ ->
       match extract bin 10u 6u with
