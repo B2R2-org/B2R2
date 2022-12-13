@@ -198,12 +198,18 @@ let private buildPackedTwoOprs ins insLen ctxt packSz opFn dst src =
         transOprToExprVec ins insLen ctxt dst
         |> List.map (makeSrc packNum)
         |> List.fold Array.append [||]
-      let struct (t1, t2) = tmpVars2 ir 64<rt>
       let tsrcFromSrc =
-        transOprToExprVec ins insLen ctxt src
-        |> List.zip [t1; t2]
-        |> List.iter (fun (t, s) -> !!ir (t := s))
-        List.map (makeSrc packNum) [t1; t2] |> List.fold Array.append [||]
+        let exprVec = transOprToExprVec ins insLen ctxt src
+        let src =
+          if exprVec.Length = 2 then
+            let struct (t1, t2) = tmpVars2 ir 64<rt>
+            !!ir (t1 := exprVec[0])
+            !!ir (t2 := exprVec[1])
+            [t1; t2]
+          else exprVec
+        src
+        |> List.map (makeSrc packNum)
+        |> List.fold Array.append [||]
       opFn oprSize tsrcFromDst tsrcFromSrc
     let dst = transOprToExprVec ins insLen ctxt dst
     let packNum = Array.length tSrc / List.length dst
