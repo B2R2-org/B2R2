@@ -443,7 +443,7 @@ let parseANDIdot bin =
   let ra = getRegister (extract bin 20u 16u) |> OprReg
   let uimm = extract bin 15u 0u |> uint64
   let value = signExtend 16 32 uimm |> uint64 |> OprImm
-  struct (Op.ANDIdot, ThreeOperands(rs, ra, value))
+  struct (Op.ANDIdot, ThreeOperands(ra, rs, value))
 
 let parseANDISdot bin =
   let rs = getRegister (extract bin 25u 21u) |> OprReg
