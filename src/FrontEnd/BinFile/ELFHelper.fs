@@ -56,15 +56,23 @@ let inline private computeSubstitute offsetToAddr delta (ptr: Addr) =
   else (* Addr to offset *) ptr - delta
   |> Convert.ToInt32
 
-let translateWithSecs offsetToAddr ptr (secs: ELFSection []) =
+let translateWithSecs offsetToAddr ptr secInfo =
+  let secs = secInfo.SecByNum
+  let txtOffset =
+    match Map.tryFind Section.SecText secInfo.SecByName with
+    | Some text -> text.SecOffset
+    | None -> 0UL
   secs
   |> Array.tryFind (fun s ->
-    let secBase = if offsetToAddr then s.SecOffset else s.SecAddr
+    let secBase =
+      if offsetToAddr then s.SecOffset
+      else s.SecOffset - txtOffset + s.SecAddr
     s.SecType = SectionType.SHTProgBits
+    && s.SecFlags.HasFlag SectionFlag.SHFExecInstr
     && secBase <= ptr && (secBase + s.SecSize) > ptr)
   |> function
     | None -> raise InvalidAddrReadException
-    | Some s -> computeSubstitute offsetToAddr (s.SecAddr - s.SecOffset) ptr
+    | Some s -> computeSubstitute offsetToAddr (s.SecAddr - txtOffset) ptr
 
 let rec translateWithSegs offsetToAddr ptr = function
   | seg :: tl ->
@@ -78,7 +86,7 @@ let rec translateWithSegs offsetToAddr ptr = function
 
 let translate offsetToAddr ptr elf =
   match elf.LoadableSegments with
-  | [] -> translateWithSecs offsetToAddr ptr elf.SecInfo.SecByNum
+  | [] -> translateWithSecs offsetToAddr ptr elf.SecInfo
   | segs -> translateWithSegs offsetToAddr ptr segs
 
 let translateAddrToOffset addr elf =

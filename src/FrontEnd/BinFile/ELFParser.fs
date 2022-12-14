@@ -61,11 +61,21 @@ let private invRanges wordSize segs getNextStartAddr =
   |> FileHelper.addLastInvRange wordSize
 
 let private computeExecRangeFromSecs secs =
-  match Map.tryFind Section.SecText secs.SecByName with
-  | Some text ->
-    let range = AddrRange (text.SecAddr, text.SecAddr + text.SecSize - 1UL)
-    IntervalSet.empty |> IntervalSet.add range
-  | None -> IntervalSet.empty
+  let txtOffset =
+    match Map.tryFind Section.SecText secs.SecByName with
+    | Some text -> text.SecOffset
+    | None -> 0UL
+  secs.SecByNum
+  |> Array.fold (fun set sec ->
+    if sec.SecType = SectionType.SHTProgBits
+      && sec.SecFlags.HasFlag SectionFlag.SHFExecInstr
+    then
+      let offset = sec.SecOffset - txtOffset
+      let addr = sec.SecAddr + offset
+      let range = AddrRange (addr, addr + sec.SecSize - 1UL)
+      IntervalSet.add range set
+    else set
+  ) IntervalSet.empty
 
 let private addIntervalWithoutSection secS secE s e set =
   let set =

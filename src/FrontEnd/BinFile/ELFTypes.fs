@@ -220,7 +220,7 @@ type SectionInfo = {
   /// Section by name.
   SecByName: Map<string, ELFSection>
   /// Section by its number.
-  SecByNum: ELFSection []
+  SecByNum: ELFSection[]
   /// Static symbol section numbers.
   StaticSymSecNums: int list
   /// Dynamic symbol section numbers.
