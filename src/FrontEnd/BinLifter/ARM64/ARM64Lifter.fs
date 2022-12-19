@@ -50,6 +50,19 @@ let adc ins insLen ctxt addr =
   !!ir (dstAssign ins.OprSize dst result)
   !>ir insLen
 
+let adcs ins insLen ctxt addr =
+  let ir = !*ctxt
+  let dst, src1, src2 = transThreeOprs ins ctxt addr
+  let c = AST.zext ins.OprSize (getRegVar ctxt R.C)
+  !<ir insLen
+  let result, (n, z, c, v)= addWithCarry src1 src2 c ins.OprSize
+  !!ir (getRegVar ctxt R.N := n)
+  !!ir (getRegVar ctxt R.Z := z)
+  !!ir (getRegVar ctxt R.C := c)
+  !!ir (getRegVar ctxt R.V := v)
+  !!ir (dstAssign ins.OprSize dst result)
+  !>ir insLen
+
 let add ins insLen ctxt addr =
   let ir = !*ctxt
   !<ir insLen
@@ -1657,6 +1670,7 @@ let translate ins insLen ctxt =
   let addr = ins.Address
   match ins.Opcode with
   | Opcode.ADC -> adc ins insLen ctxt addr
+  | Opcode.ADCS -> adcs ins insLen ctxt addr
   | Opcode.ADD -> add ins insLen ctxt addr
   | Opcode.ADDP -> addp ins insLen ctxt addr
   | Opcode.ADDS -> adds ins insLen ctxt addr
