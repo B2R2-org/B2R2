@@ -299,14 +299,23 @@ let add ins insLen ctxt =
   !<ir insLen
   let struct (dst, src) = transTwoOprs ir ins insLen ctxt
   let oprSize = getOperationSize ins
-  let struct (t1, t2, t3) = tmpVars3 ir oprSize
-  if hasLock ins.Prefixes then !!ir (AST.sideEffect Lock) else ()
-  !!ir (t1 := dst)
-  !!ir (t2 := src)
-  !!ir (t3 := t1 .+ t2)
-  !!ir (dstAssign oprSize dst t3)
-  let struct (ofl, sf) = osfOnAdd t1 t2 t3 ir
-  !?ir (enumEFLAGS ctxt t1 t2 t3 oprSize (cfOnAdd t1 t3) ofl sf)
+  if src = dst then
+    let struct (t1, t2) = tmpVars2 ir oprSize
+    if hasLock ins.Prefixes then !!ir (AST.sideEffect Lock) else ()
+    !!ir (t1 := dst)
+    !!ir (t2 := t1 .+ t1)
+    !!ir (dstAssign oprSize dst t2)
+    let struct (ofl, sf) = osfOnAdd t1 t1 t2 ir
+    !?ir (enumEFLAGS ctxt t1 t1 t2 oprSize (cfOnAdd t1 t2) ofl sf)
+  else
+    let struct (t1, t2, t3) = tmpVars3 ir oprSize
+    if hasLock ins.Prefixes then !!ir (AST.sideEffect Lock) else ()
+    !!ir (t1 := dst)
+    !!ir (t2 := src)
+    !!ir (t3 := t1 .+ t2)
+    !!ir (dstAssign oprSize dst t3)
+    let struct (ofl, sf) = osfOnAdd t1 t2 t3 ir
+    !?ir (enumEFLAGS ctxt t1 t2 t3 oprSize (cfOnAdd t1 t3) ofl sf)
   if hasLock ins.Prefixes then !!ir (AST.sideEffect Unlock) else ()
   !>ir insLen
 
