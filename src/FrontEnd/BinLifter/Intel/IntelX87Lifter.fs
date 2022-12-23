@@ -185,8 +185,18 @@ let private fpuLoad insLen ctxt oprExpr =
   !>ir insLen
 
 let fld ins insLen ctxt =
-  let oprExpr = transOneOpr ins insLen ctxt
-  fpuLoad insLen ctxt oprExpr
+  let ir = !*ctxt
+  !<ir insLen
+  let oprExpr = transOneOpr ir ins insLen ctxt
+  let struct (st0b, st0a) = getFPUPseudoRegVars ctxt R.ST0
+  let tmpB, tmpA = !+ir 16<rt>, !+ir 64<rt>
+  !?ir (castTo80Bit ctxt tmpB tmpA oprExpr)
+  !?ir (pushFPUStack ctxt)
+  !!ir (st0b := tmpB)
+  !!ir (st0a := tmpA)
+  !?ir (updateC1OnLoad ctxt)
+  !>ir insLen
+
 
 let private castFrom80Bit dstExpr dstSize srcB srcA ir =
   match dstSize with
@@ -258,7 +268,7 @@ let ffst (ins: InsInfo) insLen ctxt doPop =
     !!ir (dstB := st0b)
     !!ir (dstA := st0a)
   | OneOperand (opr) ->
-    let oprExpr = transOprToExpr ins insLen ctxt opr
+    let oprExpr = transOprToExpr ir ins insLen ctxt opr
     let oprSize = TypeCheck.typeOf oprExpr
     !?ir (castFrom80Bit oprExpr oprSize st0b st0a)
   | _ -> raise InvalidOperandException
@@ -269,7 +279,7 @@ let ffst (ins: InsInfo) insLen ctxt doPop =
 let fild ins insLen ctxt =
   let ir = !*ctxt
   let struct (st0b, st0a) = getFPUPseudoRegVars ctxt R.ST0
-  let oprExpr = transOneOpr ins insLen ctxt
+  let oprExpr = transOneOpr ir ins insLen ctxt
   let tmpB, tmpA = !+ir 16<rt>, !+ir 64<rt>
   !<ir insLen
   !?ir
@@ -282,7 +292,8 @@ let fild ins insLen ctxt =
 
 let fist ins insLen ctxt doPop =
   let ir = !*ctxt
-  let oprExpr = transOneOpr ins insLen ctxt
+  !<ir insLen
+  let oprExpr = transOneOpr ir ins insLen ctxt
   let oprSize = TypeCheck.typeOf oprExpr
   let struct (st0b, st0a) = getFPUPseudoRegVars ctxt R.ST0
   let tmp0 = !+ir oprSize
@@ -292,7 +303,6 @@ let fist ins insLen ctxt doPop =
   let cst01 = AST.cast CastKind.FtoIFloor oprSize tmp0
   let cst10 = AST.cast CastKind.FtoICeil oprSize tmp0
   let cst11 = AST.cast CastKind.FtoITrunc oprSize tmp0
-  !<ir insLen
   !?ir (castFrom80Bit tmp0 oprSize st0b st0a)
   !!ir (rcField := (AST.zext 8<rt> (AST.extract (!.ctxt R.FCW) 1<rt> 10)))
   !!ir (rcField := (rcField << AST.num1 8<rt>))
@@ -308,11 +318,11 @@ let fist ins insLen ctxt doPop =
 
 let fisttp ins insLen ctxt =
   let ir = !*ctxt
-  let oprExpr = transOneOpr ins insLen ctxt
+  !<ir insLen
+  let oprExpr = transOneOpr ir ins insLen ctxt
   let oprSize = TypeCheck.typeOf oprExpr
   let tmp1 = !+ir 64<rt>
   let struct (st0b, st0a) = getFPUPseudoRegVars ctxt R.ST0
-  !<ir insLen
   !?ir (castFrom80Bit tmp1 64<rt> st0b st0a)
   !!ir (oprExpr := AST.cast CastKind.FtoITrunc oprSize tmp1)
   !?ir (popFPUStack ctxt)
@@ -369,12 +379,12 @@ let private bcdToInt intgr addrExpr addrSize ir =
 
 let fbld ins insLen ctxt =
   let ir = !*ctxt
+  !<ir insLen
   let struct (st0b, st0a) = getFPUPseudoRegVars ctxt R.ST0
-  let src = transOneOpr ins insLen ctxt
+  let src = transOneOpr ir ins insLen ctxt
   let struct (addrExpr, addrSize) = getLoadAddressExpr src
   let intgr = !+ir 64<rt>
   let tmpB, tmpA = !+ir 16<rt>, !+ir 64<rt>
-  !<ir insLen
   !?ir (bcdToInt intgr addrExpr addrSize)
   !?ir (castTo80Bit ctxt tmpB tmpA (AST.cast CastKind.IntToFloat 64<rt> intgr))
   !?ir (pushFPUStack ctxt)
@@ -416,12 +426,12 @@ let private storeBCD addrExpr addrSize intgr ir =
 
 let fbstp ins insLen ctxt =
   let ir = !*ctxt
-  let dst = transOneOpr ins insLen ctxt
+  !<ir insLen
+  let dst = transOneOpr ir ins insLen ctxt
   let struct (addrExpr, addrSize) = getLoadAddressExpr dst
   let struct (st0b, st0a) = getFPUPseudoRegVars ctxt R.ST0
   let tmp = !+ir 64<rt>
   let intgr = !+ir 64<rt>
-  !<ir insLen
   !?ir (castFrom80Bit tmp 64<rt> st0b st0a)
   !!ir (intgr := AST.cast CastKind.FtoIRound 64<rt> tmp)
   !?ir (storeBCD addrExpr addrSize intgr)
@@ -431,9 +441,9 @@ let fbstp ins insLen ctxt =
 
 let fxch (ins: InsInfo) insLen ctxt =
   let ir = !*ctxt
+  !<ir insLen
   let struct (st0b, st0a) = getFPUPseudoRegVars ctxt R.ST0
   let tmpB, tmpA = !+ir 16<rt>, !+ir 64<rt>
-  !<ir insLen
   !!ir (tmpB := st0b)
   !!ir (tmpA := st0a)
   let struct (srcB, srcA) =
@@ -453,13 +463,13 @@ let fxch (ins: InsInfo) insLen ctxt =
 
 let private fcmov (ins: InsInfo) insLen ctxt cond =
   let ir = !*ctxt
+  !<ir insLen
   let srcReg =
     match ins.Operands with
     | TwoOperands (_, OprReg reg) -> reg
     | _ -> raise InvalidOperandException
   let struct (srcB, srcA) = getFPUPseudoRegVars ctxt srcReg
   let struct (dstB, dstA) = getFPUPseudoRegVars ctxt R.ST0
-  !<ir insLen
   !!ir (dstB := AST.ite cond srcB dstB)
   !!ir (dstA := AST.ite cond srcA dstA)
 #if !EMULATION
@@ -510,7 +520,7 @@ let private fpuFBinOp (ins: InsInfo) insLen ctxt binOp doPop leftToRight =
     else !!ir (res := binOp tmp1 tmp0)
     !?ir (castTo80Bit ctxt st1b st1a res)
   | OneOperand opr ->
-    let oprExpr = transOneOpr ins insLen ctxt
+    let oprExpr = transOneOpr ir ins insLen ctxt
     let oprSize = TypeCheck.typeOf oprExpr
     let struct (st0b, st0a) = getFPUPseudoRegVars ctxt R.ST0
     let struct (tmp0, tmp1) = tmpVars2 ir oprSize
@@ -537,11 +547,11 @@ let private fpuFBinOp (ins: InsInfo) insLen ctxt binOp doPop leftToRight =
 
 let private fpuIntOp ins insLen ctxt binOp leftToRight =
   let ir = !*ctxt
+  !<ir insLen
   let struct (st0b, st0a) = getFPUPseudoRegVars ctxt R.ST0
-  let oprExpr = transOneOpr ins insLen ctxt
+  let oprExpr = transOneOpr ir ins insLen ctxt
   let struct (tmp, dst) = tmpVars2 ir 64<rt>
   let res = !+ir 64<rt>
-  !<ir insLen
   !!ir (tmp := AST.cast CastKind.IntToFloat 64<rt> oprExpr)
   !?ir (castFrom80Bit dst 64<rt> st0b st0a)
   if leftToRight then !!ir (res := binOp dst tmp)
@@ -733,7 +743,7 @@ let private prepareTwoOprsForComparison (ins: InsInfo) insLen ctxt ir =
     !?ir (castFrom80Bit tmp1 64<rt> st1b st1a)
   | OneOperand (opr) ->
     let struct (st0b, st0a) = getFPUPseudoRegVars ctxt R.ST0
-    let oprExpr = transOprToExpr ins insLen ctxt opr
+    let oprExpr = transOprToExpr ir ins insLen ctxt opr
     !?ir (castFrom80Bit tmp0 64<rt> st0b st0a)
     !!ir (tmp1 := AST.cast CastKind.FloatCast 64<rt> oprExpr)
   | TwoOperands (OprReg r1, OprReg r2) ->
@@ -761,10 +771,10 @@ let fcom (ins: InsInfo) insLen ctxt nPop unordered =
 
 let ficom ins insLen ctxt doPop =
   let ir = !*ctxt
-  let oprExpr = transOneOpr ins insLen ctxt
+  !<ir insLen
+  let oprExpr = transOneOpr ir ins insLen ctxt
   let struct (st0b, st0a) = getFPUPseudoRegVars ctxt R.ST0
   let struct (tmp0, tmp1) = tmpVars2 ir 64<rt>
-  !<ir insLen
   !?ir (castFrom80Bit tmp0 64<rt> st0b st0a)
   !!ir (tmp1 := AST.cast CastKind.IntToFloat 64<rt> oprExpr)
   !!ir (!.ctxt R.FSWC0 := AST.flt tmp0 tmp1)
@@ -1128,8 +1138,8 @@ let fclex _ins insLen ctxt =
 
 let fstcw ins insLen ctxt =
   let ir = !*ctxt
-  let oprExpr = transOneOpr ins insLen ctxt
   !<ir insLen
+  let oprExpr = transOneOpr ir ins insLen ctxt
   checkFPUExceptions ctxt ir
   !!ir (oprExpr := !.ctxt R.FCW)
 #if !EMULATION
@@ -1139,8 +1149,8 @@ let fstcw ins insLen ctxt =
 
 let fnstcw ins insLen ctxt =
   let ir = !*ctxt
-  let oprExpr = transOneOpr ins insLen ctxt
   !<ir insLen
+  let oprExpr = transOneOpr ir ins insLen ctxt
   !!ir (oprExpr := !.ctxt R.FCW)
 #if !EMULATION
   allCFlagsUndefined ctxt ir
@@ -1149,8 +1159,8 @@ let fnstcw ins insLen ctxt =
 
 let fldcw ins insLen ctxt =
   let ir = !*ctxt
-  let oprExpr = transOneOpr ins insLen ctxt
   !<ir insLen
+  let oprExpr = transOneOpr ir ins insLen ctxt
   !!ir (!.ctxt R.FCW := oprExpr)
 #if !EMULATION
   !!ir (!.ctxt R.FSWC0 := undefC0)
@@ -1184,9 +1194,9 @@ let private m28fstenv dstAddr addrSize ctxt ir =
 
 let fnstenv ins insLen ctxt =
   let ir = !*ctxt
-  let dst = transOneOpr ins insLen ctxt
-  let struct (addrExpr, addrSize) = getLoadAddressExpr dst
   !<ir insLen
+  let dst = transOneOpr ir ins insLen ctxt
+  let struct (addrExpr, addrSize) = getLoadAddressExpr dst
   match TypeCheck.typeOf dst with
   | 112<rt> -> m14fstenv addrExpr addrSize ctxt ir
   | 224<rt> -> m28fstenv addrExpr addrSize ctxt ir
@@ -1213,9 +1223,9 @@ let private m28fldenv srcAddr addrSize ctxt ir =
 
 let fldenv ins insLen ctxt =
   let ir = !*ctxt
-  let src = transOneOpr ins insLen ctxt
-  let struct (addrExpr, addrSize) = getLoadAddressExpr src
   !<ir insLen
+  let src = transOneOpr ir ins insLen ctxt
+  let struct (addrExpr, addrSize) = getLoadAddressExpr src
   match TypeCheck.typeOf src with
   | 112<rt> -> m14fldenv addrExpr addrSize ctxt ir
   | 224<rt> -> m28fldenv addrExpr addrSize ctxt ir
@@ -1250,9 +1260,9 @@ let private stSts dstAddr addrSize offset ctxt ir =
 
 let fnsave ins insLen ctxt =
   let ir = !*ctxt
-  let dst = transOneOpr ins insLen ctxt
-  let struct (addrExpr, addrSize) = getLoadAddressExpr dst
   !<ir insLen
+  let dst = transOneOpr ir ins insLen ctxt
+  let struct (addrExpr, addrSize) = getLoadAddressExpr dst
   match TypeCheck.typeOf dst with
   | 752<rt> ->
     m14fstenv addrExpr addrSize ctxt ir
@@ -1297,9 +1307,9 @@ let private ldSts srcAddr addrSize offset ctxt ir =
 
 let frstor ins insLen ctxt =
   let ir = !*ctxt
-  let src = transOneOpr ins insLen ctxt
-  let struct (addrExpr, addrSize) = getLoadAddressExpr src
   !<ir insLen
+  let src = transOneOpr ir ins insLen ctxt
+  let struct (addrExpr, addrSize) = getLoadAddressExpr src
   match TypeCheck.typeOf src with
   | 752<rt> ->
     m14fldenv addrExpr addrSize ctxt ir
@@ -1312,8 +1322,8 @@ let frstor ins insLen ctxt =
 
 let fnstsw ins insLen ctxt =
   let ir = !*ctxt
-  let oprExpr = transOneOpr ins insLen ctxt
   !<ir insLen
+  let oprExpr = transOneOpr ir ins insLen ctxt
   !!ir (oprExpr := !.ctxt R.FSW)
 #if !EMULATION
   allCFlagsUndefined ctxt ir
@@ -1423,9 +1433,9 @@ let private fxsaveInternal ctxt dstAddr addrSize is64bit ir =
 
 let fxsave ins insLen ctxt =
   let ir = !*ctxt
-  let dst = transOneOpr ins insLen ctxt
-  let struct (addrExpr, addrSize) = getLoadAddressExpr dst
   !<ir insLen
+  let dst = transOneOpr ir ins insLen ctxt
+  let struct (addrExpr, addrSize) = getLoadAddressExpr dst
   !?ir (fxsaveInternal ctxt addrExpr addrSize (ctxt.WordBitSize = 64<rt>))
   !>ir insLen
 
@@ -1515,8 +1525,8 @@ let private fxrstoreInternal ctxt srcAddr addrSz is64bit ir =
 
 let fxrstor ins insLen ctxt =
   let ir = !*ctxt
-  let src = transOneOpr ins insLen ctxt
-  let struct (addrExpr, addrSize) = getLoadAddressExpr src
   !<ir insLen
+  let src = transOneOpr ir ins insLen ctxt
+  let struct (addrExpr, addrSize) = getLoadAddressExpr src
   !?ir (fxrstoreInternal ctxt addrExpr addrSize (ctxt.WordBitSize = 64<rt>))
   !>ir insLen

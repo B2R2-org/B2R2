@@ -31,7 +31,6 @@ open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinInterface
 open B2R2.MiddleEnd.BinEssence
 open B2R2.MiddleEnd.DataFlow
-open B2R2.MiddleEnd.BinGraph
 
 [<TestClass>]
 type PersistentDataFlowTests () =
@@ -96,7 +95,7 @@ type PersistentDataFlowTests () =
       | Regular _ -> true
       | _ -> false)
     let solution = [
-      { ProgramPoint = ProgramPoint (0UL, 1)
+      { ProgramPoint = ProgramPoint (0UL, 2)
         VarExpr = Regular (Intel.Register.toRegID Intel.Register.EDX) }
       { ProgramPoint = ProgramPoint (4UL, 2)
         VarExpr = Regular (Intel.Register.toRegID Intel.Register.ESP) }
@@ -114,7 +113,7 @@ type PersistentDataFlowTests () =
         VarExpr = Regular (Intel.Register.toRegID Intel.Register.PF) }
       { ProgramPoint = ProgramPoint (5UL, 7)
         VarExpr = Regular (Intel.Register.toRegID Intel.Register.AF) }
-      { ProgramPoint = ProgramPoint (7UL, 1)
+      { ProgramPoint = ProgramPoint (7UL, 2)
         VarExpr = Regular (Intel.Register.toRegID Intel.Register.ECX) }
       { ProgramPoint = ProgramPoint (0xAUL, 4)
         VarExpr = Regular (Intel.Register.toRegID Intel.Register.CF) }
@@ -140,7 +139,7 @@ type PersistentDataFlowTests () =
         VarExpr = Regular (Intel.Register.toRegID Intel.Register.EDX) }
     let res = chain.UseDefChain |> Map.find vp |> Set.toArray
     let solution = [|
-      { ProgramPoint = ProgramPoint (0x0UL, 1)
+      { ProgramPoint = ProgramPoint (0x0UL, 2)
         VarExpr = Regular (Intel.Register.toRegID Intel.Register.EDX) } |]
     CollectionAssert.AreEqual (solution, res)
 
