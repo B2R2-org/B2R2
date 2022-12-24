@@ -2154,7 +2154,8 @@ let test ins insLen ctxt =
   let struct (src1, src2) = transTwoOprs ir false ins insLen ctxt
   let oprSize = getOperationSize ins
   let t = !+ir oprSize
-  !!ir (t := src1 .& src2)
+  if src1 = src2 then !!ir (t := src1)
+  else !!ir (t := src1 .& src2)
   !!ir (!.ctxt R.SF := AST.xthi 1<rt> t)
   !!ir (!.ctxt R.ZF := t == (AST.num0 oprSize))
   !?ir (buildPF ctxt t oprSize None)
