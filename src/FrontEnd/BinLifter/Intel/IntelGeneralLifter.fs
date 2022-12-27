@@ -738,13 +738,15 @@ let cmpxchg ins insLen ctxt =
   let t = !+ir oprSize
   let r = !+ir oprSize
   let acc = getRegOfSize ctxt oprSize grpEAX
+  let tAcc = !+ir oprSize
   let cond = !+ir 1<rt>
   let lblEq = !%ir "Equal"
   let lblNeq = !%ir "NotEqual"
   let lblEnd = !%ir "End"
   !!ir (t := dst)
-  !!ir (r := acc .- t)
-  !!ir (cond := acc == t)
+  !!ir (tAcc := acc)
+  !!ir (r := tAcc .- t)
+  !!ir (cond := tAcc == t)
   !!ir (AST.cjmp cond (AST.name lblEq) (AST.name lblNeq))
   !!ir (AST.lmark lblEq)
   !!ir (!.ctxt R.ZF := AST.b1)
@@ -754,11 +756,11 @@ let cmpxchg ins insLen ctxt =
   !!ir (!.ctxt R.ZF := AST.b0)
   !!ir (dstAssign oprSize acc t)
   !!ir (AST.lmark lblEnd)
-  !!ir (!.ctxt R.OF := ofOnSub acc t r)
+  !!ir (!.ctxt R.OF := ofOnSub tAcc t r)
   !!ir (!.ctxt R.SF := AST.xthi 1<rt> r)
-  !!ir (buildAF ctxt acc t r oprSize)
+  !!ir (buildAF ctxt tAcc t r oprSize)
   !?ir (buildPF ctxt r oprSize None)
-  !!ir (!.ctxt R.CF := AST.lt (acc .+ t) acc)
+  !!ir (!.ctxt R.CF := AST.lt (tAcc .+ t) tAcc)
   if hasLock ins.Prefixes then !!ir (AST.sideEffect Unlock) else ()
   !>ir insLen
 
