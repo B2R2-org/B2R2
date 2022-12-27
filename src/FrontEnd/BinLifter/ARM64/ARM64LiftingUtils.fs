@@ -72,6 +72,17 @@ let getFourOprs ins =
 let getPseudoRegVar128 ctxt r =
   getPseudoRegVar ctxt r 2, getPseudoRegVar ctxt r 1
 
+let getPseudoRegVarToArr ctxt reg eSize dataSize elems =
+  let regA = getPseudoRegVar ctxt reg 1
+  let pos = int eSize
+  if dataSize = 128<rt> then
+    let regB = getPseudoRegVar ctxt reg 2
+    let elems = elems / 2
+    let regA = Array.init elems (fun i -> AST.extract regA eSize (i * pos))
+    let regB = Array.init elems (fun i -> AST.extract regB eSize (i * pos))
+    Array.append regA regB
+  else Array.init elems (fun i -> AST.extract regA eSize (i * pos))
+
 let private getMemExpr128 expr =
   match expr.E with
   | Load (e, 128<rt>, expr, _) ->
@@ -144,53 +155,48 @@ let extendReg ctxt reg typ shift oprSize =
   let rTyp = RegType.fromBitWidth len
   extend ((AST.xtlo rTyp  reg) << numI32 shift rTyp) oprSize isUnsigned
 
-/// Number and size of elements
-let getElemNumAndSizeBySIMDVector = function
-  | VecB -> 1, 8<rt>       (* Vector register names with element index *)
-  | VecH -> 1, 16<rt>
-  | VecS -> 1, 32<rt>
-  | VecD -> 1, 64<rt>
-  | EightB -> 8, 8<rt>     (* SIMD vector register names *)
-  | SixteenB -> 16, 8<rt>
-  | FourH -> 4, 16<rt>
-  | EightH -> 8, 16<rt>
-  | TwoS -> 2, 32<rt>
-  | FourS -> 4, 32<rt>
-  | OneD -> 1, 64<rt>
-  | TwoD -> 2, 64<rt>
-  | OneQ -> 1, 128<rt>
+let getElemDataSzAndElemsByVector = function
+  (* Vector register names with element index *)
+  | VecB -> struct (8<rt>, 8<rt>, 1)
+  | VecH -> struct (16<rt>, 16<rt>, 1)
+  | VecS -> struct (32<rt>, 32<rt>, 1)
+  | VecD -> struct (64<rt>, 64<rt>, 1)
+  (* SIMD vector register names *)
+  | EightB -> struct (8<rt>, 64<rt>, 8)
+  | SixteenB -> struct (8<rt>, 128<rt>, 16)
+  | FourH -> struct (16<rt>, 64<rt>, 4)
+  | EightH -> struct (16<rt>, 128<rt>, 8)
+  | TwoS -> struct (32<rt>, 64<rt>, 2)
+  | FourS -> struct (32<rt>, 128<rt>, 4)
+  | OneD -> struct (64<rt>, 64<rt>, 1)
+  | TwoD -> struct (64<rt>, 128<rt>, 2)
+  | OneQ -> struct (128<rt>, 128<rt>, 1)
 
-let getElemNumAndSize oprSize = function
-  | SIMDFPScalarReg _ -> 1, oprSize
-  | SIMDVecReg (_, v) -> getElemNumAndSizeBySIMDVector v
-  | SIMDVecRegWithIdx (_, v, _) -> getElemNumAndSizeBySIMDVector v
-
-let getSIMDReg = function
-  | OprSIMD sReg -> sReg
-  | OprSIMDList regs -> regs[0]
+/// esize, datasize, elements
+let rec getElemDataSzAndElems = function
+  | OprSIMD (SIMDFPScalarReg v) ->
+    struct (Register.toRegType v, Register.toRegType v, 1)
+  | OprSIMD (SIMDVecReg (_, v)) -> getElemDataSzAndElemsByVector v
+  | OprSIMD (SIMDVecRegWithIdx (_, v, _)) -> getElemDataSzAndElemsByVector v
+  | OprSIMDList simds -> getElemDataSzAndElems (OprSIMD simds[0])
   | _ -> raise InvalidOperandException
 
 let transSIMDReg ctxt = function (* FIXME *)
-  | SIMDFPScalarReg reg ->
-    if Register.toRegType reg < 128<rt> then [ getRegVar ctxt reg ]
-    else [ getPseudoRegVar ctxt reg 1; getPseudoRegVar ctxt reg 2 ]
+  | SIMDFPScalarReg _ | SIMDVecRegWithIdx _ -> raise InvalidOperandException
   | SIMDVecReg (reg, v) ->
-    if Register.toRegType reg < 128<rt> then [ getRegVar ctxt reg ]
-    else [ getPseudoRegVar ctxt reg 1; getPseudoRegVar ctxt reg 2 ]
-  | SIMDVecRegWithIdx (reg, v, idx) ->
-    if Register.toRegType reg < 128<rt> then [ getRegVar ctxt reg ]
-    else [ getPseudoRegVar ctxt reg 1; getPseudoRegVar ctxt reg 2 ]
+    let struct (eSize, dataSize, elements) = getElemDataSzAndElemsByVector v
+    getPseudoRegVarToArr ctxt reg eSize dataSize elements
 
-let transSIMDList ctxt = function (* FIXME *)
-  | OprSIMDList simds -> List.map (transSIMDReg ctxt) simds
+let transSIMDListToExpr ctxt = function (* FIXME *)
+  | OprSIMDList simds -> Array.map (transSIMDReg ctxt) (List.toArray simds)
   | _ -> raise InvalidOperandException
 
 let transSIMD ctxt = function (* FIXME *)
   | SIMDFPScalarReg reg -> getRegVar ctxt reg
-  | SIMDVecReg (reg, v) -> getRegVar ctxt reg
+  | SIMDVecReg _ -> raise InvalidOperandException
   | SIMDVecRegWithIdx (reg, v, idx) ->
     let regB, regA = getPseudoRegVar128 ctxt reg
-    let _, esize = getElemNumAndSizeBySIMDVector v
+    let struct (esize, _, _) = getElemDataSzAndElemsByVector v
     let index = int idx * int esize
     if index < 64 then AST.extract regA esize index
     else AST.extract regB esize (index % 64)
@@ -298,9 +304,19 @@ let transFourOprsSepMem ins ctxt addr =
 let transOprToExpr128 ins ctxt addr = function
   | OprSIMD (SIMDFPScalarReg reg) -> getPseudoRegVar128 ctxt reg
   | OprSIMD (SIMDVecReg (reg, _)) -> getPseudoRegVar128 ctxt reg
-  | OprSIMD (SIMDVecRegWithIdx (reg, _, _)) ->
-    getPseudoRegVar128 ctxt reg
+  | OprSIMD (SIMDVecRegWithIdx (reg, _, _)) -> getPseudoRegVar128 ctxt reg
   | OprMemory mem -> transMem ins ctxt addr mem |> getMemExpr128
+  | _ -> raise InvalidOperandException
+
+let transSIMDOprToExpr ctxt eSize dataSize elements = function
+  | OprSIMD (SIMDFPScalarReg reg) ->
+    if dataSize = 128<rt> then
+      let regB, regA = getPseudoRegVar128 ctxt reg
+      [| regB; regA |]
+    else [| getRegVar ctxt reg |]
+  | OprSIMD (SIMDVecReg (reg, _)) ->
+    getPseudoRegVarToArr ctxt reg eSize dataSize elements
+  | OprSIMD (SIMDVecRegWithIdx (reg, v, idx)) -> raise InvalidOperandException
   | _ -> raise InvalidOperandException
 
 (* Barrel shift *)
@@ -777,6 +793,15 @@ let dstAssign oprSize dst src =
     if orgDstSz > oprSize then orgDst := AST.zext orgDstSz src
     elif orgDstSz = oprSize then orgDst := src
     else raise InvalidOperandSizeException
+
+let dstAssignForSIMD dstA dstB result dataSize elements ir =
+  if dataSize = 128<rt> then
+    let elems = elements / 2
+    !!ir (dstA := AST.concatArr (Array.sub result 0 elems))
+    !!ir (dstB := AST.concatArr (Array.sub result elems elems))
+  else
+    !!ir (dstA := AST.concatArr result)
+    !!ir (dstB := AST.num0 64<rt>)
 
 let mark (ctxt: TranslationContext) addr size ir =
   !!ir (AST.extCall <| AST.app "Mark" [addr; size] ctxt.WordBitSize)
