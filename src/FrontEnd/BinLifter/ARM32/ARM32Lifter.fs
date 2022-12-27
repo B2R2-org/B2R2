@@ -2298,11 +2298,10 @@ let parseMemOfLDR ins insLen ctxt = function
     struct (getOffAddrWithImm s rn imm, None)
   | OprMemory (PreIdxMode (ImmOffset (rn, s, imm))) ->
     let rn = getRegVar ctxt rn
-    let offsetAddr = getOffAddrWithImm s rn imm
-    struct (offsetAddr, Some (rn, offsetAddr))
+    struct (getOffAddrWithImm s rn imm, Some (rn, None))
   | OprMemory (PostIdxMode (ImmOffset (rn, s, imm))) ->
     let rn = getRegVar ctxt rn
-    struct (rn, Some (rn, getOffAddrWithImm s rn imm))
+    struct (rn, Some (rn, Some (getOffAddrWithImm s rn imm)))
   | OprMemory (LiteralMode imm) ->
     let addr = bvOfBaseAddr ins.Address
     let pc = align addr (numI32 4 32<rt>)
@@ -2311,19 +2310,17 @@ let parseMemOfLDR ins insLen ctxt = function
   | OprMemory (OffsetMode (RegOffset (n, _, m, None))) ->
     let m = getRegVar ctxt m |> convertPCOpr ins insLen ctxt
     let n = getRegVar ctxt n |> convertPCOpr ins insLen ctxt
-    let offset = shift m 32<rt> SRTypeLSL 0u (getCarryFlag ctxt)
-    struct (n .+ offset, None)
+    struct (n .+ shift m 32<rt> SRTypeLSL 0u (getCarryFlag ctxt), None)
   | OprMemory (PreIdxMode (RegOffset (n, s, m, None))) ->
     let rn = getRegVar ctxt n
     let offset =
       shift (getRegVar ctxt m) 32<rt> SRTypeLSL 0u (getCarryFlag ctxt)
-    let offsetAddr = getOffAddrWithExpr s rn offset
-    struct (offsetAddr, Some (rn, offsetAddr))
+    struct (getOffAddrWithExpr s rn offset, Some (rn, None))
   | OprMemory (PostIdxMode (RegOffset (n, s, m, None))) ->
     let rn = getRegVar ctxt n
     let offset =
       shift (getRegVar ctxt m) 32<rt> SRTypeLSL 0u (getCarryFlag ctxt)
-    struct (rn, Some (rn, getOffAddrWithExpr s rn offset))
+    struct (rn, Some (rn, Some (getOffAddrWithExpr s rn offset)))
   | OprMemory (OffsetMode (RegOffset (n, s, m, Some (t, Imm i)))) ->
     let rn = getRegVar ctxt n |> convertPCOpr ins insLen ctxt
     let rm = getRegVar ctxt m |> convertPCOpr ins insLen ctxt
@@ -2332,12 +2329,11 @@ let parseMemOfLDR ins insLen ctxt = function
   | OprMemory (PreIdxMode (RegOffset (n, s, m, Some (t, Imm i)))) ->
     let rn = getRegVar ctxt n
     let offset = shift (getRegVar ctxt m) 32<rt> t i (getCarryFlag ctxt)
-    let offsetAddr = getOffAddrWithExpr s rn offset
-    struct (offsetAddr, Some (rn, offsetAddr))
+    struct (getOffAddrWithExpr s rn offset, Some (rn, None))
   | OprMemory (PostIdxMode (RegOffset (n, s, m, Some (t, Imm i)))) ->
     let rn = getRegVar ctxt n
     let offset = shift (getRegVar ctxt m) 32<rt> t i (getCarryFlag ctxt)
-    struct (rn, Some (rn, getOffAddrWithExpr s rn offset))
+    struct (rn, Some (rn, Some (getOffAddrWithExpr s rn offset)))
   | _ -> raise InvalidOperandException
 
 let parseOprOfLDR (ins: InsInfo) insLen ctxt =
@@ -2356,12 +2352,17 @@ let ldr ins insLen ctxt size ext =
   !<ir insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   match writeback with
-  | Some (basereg, newoffset) ->
+  | Some (basereg, Some newoffset) ->
     let struct (taddr, twriteback) = tmpVars2 ir 32<rt>
     !!ir (taddr := addr)
     !!ir (twriteback := newoffset)
     !!ir (data := AST.loadLE size taddr |> ext 32<rt>)
     !!ir (basereg := twriteback)
+  | Some (basereg, None) ->
+    let taddr = !+ir 32<rt>
+    !!ir (taddr := addr)
+    !!ir (data := AST.loadLE size taddr |> ext 32<rt>)
+    !!ir (basereg := taddr)
   | None ->
     !!ir (data := AST.loadLE size addr |> ext 32<rt>)
   if rt = getPC ctxt then loadWritePC ctxt isUnconditional ir data
@@ -2374,11 +2375,10 @@ let parseMemOfLDRD ins insLen ctxt = function
     struct (getOffAddrWithExpr s (getRegVar ctxt n) (getRegVar ctxt m), None)
   | OprMemory (PreIdxMode (RegOffset (n, s, m, None))) ->
     let rn = getRegVar ctxt n
-    let offsetAddr = getOffAddrWithExpr s rn (getRegVar ctxt m)
-    struct (offsetAddr, Some (rn, offsetAddr))
+    struct (getOffAddrWithExpr s rn (getRegVar ctxt m), Some (rn, None))
   | OprMemory (PostIdxMode (RegOffset (n, s, m, None))) ->
     let rn = getRegVar ctxt n
-    struct (rn, Some (rn, getOffAddrWithExpr s rn (getRegVar ctxt m)))
+    struct (rn, Some (rn, Some (getOffAddrWithExpr s rn (getRegVar ctxt m))))
   | mem -> parseMemOfLDR ins insLen ctxt mem
 
 let parseOprOfLDRD (ins: InsInfo) insLen ctxt =
@@ -2397,13 +2397,18 @@ let ldrd ins insLen ctxt =
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   let n4 = numI32 4 32<rt>
   match writeback with
-  | Some (basereg, newoffset) ->
+  | Some (basereg, Some newoffset) ->
     let twriteback = !+ir 32<rt>
     !!ir (taddr := addr)
     !!ir (twriteback := newoffset)
     !!ir (rt := AST.loadLE 32<rt> taddr)
     !!ir (rt2 := AST.loadLE 32<rt> (taddr .+ n4))
     !!ir (basereg := twriteback)
+  | Some (basereg, None) ->
+    !!ir (taddr := addr)
+    !!ir (rt := AST.loadLE 32<rt> taddr)
+    !!ir (rt2 := AST.loadLE 32<rt> (taddr .+ n4))
+    !!ir (basereg := taddr)
   | None ->
     !!ir (taddr := addr)
     !!ir (rt := AST.loadLE 32<rt> taddr)
@@ -2527,12 +2532,12 @@ let str ins insLen ctxt size =
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
   !<ir insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
-  if rt =
-    getPC ctxt then !!ir (AST.loadLE 32<rt> addr := pcStoreValue ctxt)
+  if rt = getPC ctxt then !!ir (AST.loadLE 32<rt> addr := pcStoreValue ctxt)
   elif size = 32<rt> then !!ir (AST.loadLE 32<rt> addr := rt)
   else !!ir (AST.loadLE size addr := AST.xtlo size rt)
   match writeback with
-  | Some (basereg, newoffset) -> !!ir (basereg := newoffset)
+  | Some (basereg, Some newoffset) -> !!ir (basereg := newoffset)
+  | Some (basereg, None) -> !!ir (basereg := addr)
   | None -> ()
   putEndLabel ctxt lblIgnore ir
   !>ir insLen
@@ -2543,11 +2548,11 @@ let strex ins insLen ctxt =
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
   !<ir insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
-  if rt = getPC ctxt
-  then !!ir (AST.loadLE 32<rt> addr := pcStoreValue ctxt)
+  if rt = getPC ctxt then !!ir (AST.loadLE 32<rt> addr := pcStoreValue ctxt)
   else !!ir (AST.loadLE 32<rt> addr := rt)
   match writeback with
-  | Some (basereg, newoffset) -> !!ir (basereg := newoffset)
+  | Some (basereg, Some newoffset) -> !!ir (basereg := newoffset)
+  | Some (basereg, None) -> !!ir (basereg := addr)
   | None -> ()
   !!ir (rd := AST.num0 32<rt>) (* XXX: always succeeds for now *)
   putEndLabel ctxt lblIgnore ir
@@ -2562,7 +2567,8 @@ let strd ins insLen ctxt =
   !!ir (AST.loadLE 32<rt> addr := rt)
   !!ir (AST.loadLE 32<rt> (addr .+ (numI32 4 32<rt>)) := rt2)
   match writeback with
-  | Some (basereg, newoffset) -> !!ir (basereg := newoffset)
+  | Some (basereg, Some newoffset) -> !!ir (basereg := newoffset)
+  | Some (basereg, None) -> !!ir (basereg := addr)
   | None -> ()
   putEndLabel ctxt lblIgnore ir
   !>ir insLen
