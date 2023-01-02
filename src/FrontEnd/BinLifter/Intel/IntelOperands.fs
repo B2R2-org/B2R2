@@ -1089,7 +1089,7 @@ type internal OpM1 () =
   override __.Render (span, rhlp) =
     let modRM = rhlp.ReadByte span
     let opr = parseMemOrReg modRM span rhlp
-    TwoOperands (opr, OprImm (1L, 0<rt>))
+    TwoOperands (opr, OprImm (1L, rhlp.OperationSize))
 
 type internal OpRmCL () =
   inherit OperandParser ()
