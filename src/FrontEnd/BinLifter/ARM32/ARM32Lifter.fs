@@ -835,25 +835,24 @@ let adc isSetFlags ins insLen ctxt =
   let struct (dst, src1, src2) = parseOprOfADC ins ctxt
   let src1 = convertPCOpr ins insLen ctxt src1
   let src2 = convertPCOpr ins insLen ctxt src2
-  let struct (t1, t2) = tmpVars2 ir 32<rt>
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
   !<ir insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   if isSetFlags then
+    let struct (t1, t2) = tmpVars2 ir 32<rt>
     !!ir (t1 := src1)
     !!ir (t2 := src2)
     let struct (result, carryOut, overflow, rHigh) =
       addWithCarry t1 t2 (getCarryFlag ctxt) ir
-    if dst = getPC ctxt then aluWritePC ctxt ins isUnconditional result ir
-    else
-      !!ir (dst := result)
-      let cpsr = getRegVar ctxt R.CPSR
-      !!ir (cpsr := rHigh |> setPSR ctxt R.CPSR PSR.N)
-      !!ir (cpsr := result == AST.num0 32<rt> |> setPSR ctxt R.CPSR PSR.Z)
-      !!ir (cpsr := carryOut |> setPSR ctxt R.CPSR PSR.C)
-      !!ir (cpsr := overflow |> setPSR ctxt R.CPSR PSR.V)
+    !!ir (dst := result)
+    let cpsr = getRegVar ctxt R.CPSR
+    !!ir (cpsr := rHigh |> setPSR ctxt R.CPSR PSR.N)
+    !!ir (cpsr := result == AST.num0 32<rt> |> setPSR ctxt R.CPSR PSR.Z)
+    !!ir (cpsr := carryOut |> setPSR ctxt R.CPSR PSR.C)
+    !!ir (cpsr := overflow |> setPSR ctxt R.CPSR PSR.V)
   else
-    let result = addWithCarryOnlyResult src1 src2 (getCarryFlag ctxt)
+    let result = !+ir 32<rt>
+    !!ir (result := addWithCarryOnlyResult src1 src2 (getCarryFlag ctxt))
     if dst = getPC ctxt then aluWritePC ctxt ins isUnconditional result ir
     else !!ir (dst := result)
   putEndLabel ctxt lblIgnore ir
@@ -904,25 +903,24 @@ let add isSetFlags ins insLen ctxt =
   let struct (dst, src1, src2) = parseOprOfADD ins insLen ctxt
   let src1 = convertPCOpr ins insLen ctxt src1
   let src2 = convertPCOpr ins insLen ctxt src2
-  let struct (t1, t2) = tmpVars2 ir 32<rt>
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
   !<ir insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   if isSetFlags then
+    let struct (t1, t2) = tmpVars2 ir 32<rt>
     !!ir (t1 := src1)
     !!ir (t2 := src2)
     let struct (result, carryOut, overflow, rHigh) =
       addWithCarry t1 t2 (AST.num0 32<rt>) ir
-    if dst = getPC ctxt then aluWritePC ctxt ins isUnconditional result ir
-    else
-      !!ir (dst := result)
-      let cpsr = getRegVar ctxt R.CPSR
-      !!ir (cpsr := rHigh |> setPSR ctxt R.CPSR PSR.N)
-      !!ir (cpsr := result == AST.num0 32<rt> |> setPSR ctxt R.CPSR PSR.Z)
-      !!ir (cpsr := carryOut |> setPSR ctxt R.CPSR PSR.C)
-      !!ir (cpsr := overflow |> setPSR ctxt R.CPSR PSR.V)
+    !!ir (dst := result)
+    let cpsr = getRegVar ctxt R.CPSR
+    !!ir (cpsr := rHigh |> setPSR ctxt R.CPSR PSR.N)
+    !!ir (cpsr := result == AST.num0 32<rt> |> setPSR ctxt R.CPSR PSR.Z)
+    !!ir (cpsr := carryOut |> setPSR ctxt R.CPSR PSR.C)
+    !!ir (cpsr := overflow |> setPSR ctxt R.CPSR PSR.V)
   else
-    let result = addWithCarryOnlyResult src1 src2 (AST.num0 32<rt>)
+    let result = !+ir 32<rt>
+    !!ir (result := addWithCarryOnlyResult src1 src2 (AST.num0 32<rt>))
     if dst = getPC ctxt then aluWritePC ctxt ins isUnconditional result ir
     else !!ir (dst := result)
     putEndLabel ctxt lblIgnore ir
@@ -1131,25 +1129,25 @@ let sub isSetFlags ins insLen ctxt =
   let struct (dst, src1, src2) = parseOprOfADD ins insLen ctxt
   let src1 = convertPCOpr ins insLen ctxt src1
   let src2 = convertPCOpr ins insLen ctxt src2
-  let struct (t1, t2) = tmpVars2 ir 32<rt>
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
   !<ir insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   if isSetFlags then
+    let struct (t1, t2) = tmpVars2 ir 32<rt>
     !!ir (t1 := src1)
     !!ir (t2 := src2)
     let struct (result, carryOut, overflow, rHigh) =
       addWithCarry t1 (AST.not t2) (AST.num1 32<rt>) ir
-    if dst = getPC ctxt then aluWritePC ctxt ins isUnconditional result ir
-    else
-      !!ir (dst := result)
-      let cpsr = getRegVar ctxt R.CPSR
-      !!ir (cpsr := rHigh |> setPSR ctxt R.CPSR PSR.N)
-      !!ir (cpsr := result == AST.num0 32<rt> |> setPSR ctxt R.CPSR PSR.Z)
-      !!ir (cpsr := carryOut |> setPSR ctxt R.CPSR PSR.C)
-      !!ir (cpsr := overflow |> setPSR ctxt R.CPSR PSR.V)
+    !!ir (dst := result)
+    let cpsr = getRegVar ctxt R.CPSR
+    !!ir (cpsr := rHigh |> setPSR ctxt R.CPSR PSR.N)
+    !!ir (cpsr := result == AST.num0 32<rt> |> setPSR ctxt R.CPSR PSR.Z)
+    !!ir (cpsr := carryOut |> setPSR ctxt R.CPSR PSR.C)
+    !!ir (cpsr := overflow |> setPSR ctxt R.CPSR PSR.V)
   else
-    let result = addWithCarryOnlyResult src1 (AST.not src2) (AST.num1 32<rt>)
+    let result = !+ir 32<rt>
+    !!ir (result :=
+      addWithCarryOnlyResult src1 (AST.not src2) (AST.num1 32<rt>))
     if dst = getPC ctxt then aluWritePC ctxt ins isUnconditional result ir
     else !!ir (dst := result)
   putEndLabel ctxt lblIgnore ir
@@ -1382,16 +1380,16 @@ let rsb isSetFlags ins insLen ctxt =
     !!ir (t2 := src2)
     let struct (result, carryOut, overflow, rHigh) =
       addWithCarry (AST.not t1) t2 (AST.num1 32<rt>) ir
-    if dst = getPC ctxt then aluWritePC ctxt ins isUnconditional result ir
-    else
-      !!ir (dst := result)
-      let cpsr = getRegVar ctxt R.CPSR
-      !!ir (cpsr := rHigh |> setPSR ctxt R.CPSR PSR.N)
-      !!ir (cpsr := result == AST.num0 32<rt> |> setPSR ctxt R.CPSR PSR.Z)
-      !!ir (cpsr := carryOut |> setPSR ctxt R.CPSR PSR.C)
-      !!ir (cpsr := overflow |> setPSR ctxt R.CPSR PSR.V)
+    !!ir (dst := result)
+    let cpsr = getRegVar ctxt R.CPSR
+    !!ir (cpsr := rHigh |> setPSR ctxt R.CPSR PSR.N)
+    !!ir (cpsr := result == AST.num0 32<rt> |> setPSR ctxt R.CPSR PSR.Z)
+    !!ir (cpsr := carryOut |> setPSR ctxt R.CPSR PSR.C)
+    !!ir (cpsr := overflow |> setPSR ctxt R.CPSR PSR.V)
   else
-    let result = addWithCarryOnlyResult (AST.not src1) src2 (AST.num1 32<rt>)
+    let result = !+ir 32<rt>
+    !!ir (result :=
+      addWithCarryOnlyResult (AST.not src1) src2 (AST.num1 32<rt>))
     if dst = getPC ctxt then aluWritePC ctxt ins isUnconditional result ir
     else !!ir (dst := result)
   putEndLabel ctxt lblIgnore ir
@@ -1437,16 +1435,16 @@ let sbc isSetFlags ins insLen ctxt =
     !!ir (t2 := src2)
     let struct (result, carryOut, overflow, rHigh) =
       addWithCarry t1 (AST.not t2) (getCarryFlag ctxt) ir
-    if dst = getPC ctxt then aluWritePC ctxt ins isUnconditional result ir
-    else
-      !!ir (dst := result)
-      let cpsr = getRegVar ctxt R.CPSR
-      !!ir (cpsr := rHigh |> setPSR ctxt R.CPSR PSR.N)
-      !!ir (cpsr := result == AST.num0 32<rt> |> setPSR ctxt R.CPSR PSR.Z)
-      !!ir (cpsr := carryOut |> setPSR ctxt R.CPSR PSR.C)
-      !!ir (cpsr := overflow |> setPSR ctxt R.CPSR PSR.V)
+    !!ir (dst := result)
+    let cpsr = getRegVar ctxt R.CPSR
+    !!ir (cpsr := rHigh |> setPSR ctxt R.CPSR PSR.N)
+    !!ir (cpsr := result == AST.num0 32<rt> |> setPSR ctxt R.CPSR PSR.Z)
+    !!ir (cpsr := carryOut |> setPSR ctxt R.CPSR PSR.C)
+    !!ir (cpsr := overflow |> setPSR ctxt R.CPSR PSR.V)
   else
-    let result = addWithCarryOnlyResult src1 (AST.not src2) (getCarryFlag ctxt)
+    let result = !+ir 32<rt>
+    !!ir (result :=
+      addWithCarryOnlyResult src1 (AST.not src2) (getCarryFlag ctxt))
     if dst = getPC ctxt then aluWritePC ctxt ins isUnconditional result ir
     else !!ir (dst := result)
   putEndLabel ctxt lblIgnore ir
@@ -1484,16 +1482,16 @@ let rsc isSetFlags ins insLen ctxt =
     !!ir (t2 := src2)
     let struct (result, carryOut, overflow, rHigh) =
       addWithCarry (AST.not t1) t2 (getCarryFlag ctxt) ir
-    if dst = getPC ctxt then aluWritePC ctxt ins isUnconditional result ir
-    else
-      !!ir (dst := result)
-      let cpsr = getRegVar ctxt R.CPSR
-      !!ir (cpsr := rHigh |> setPSR ctxt R.CPSR PSR.N)
-      !!ir (cpsr := result == AST.num0 32<rt> |> setPSR ctxt R.CPSR PSR.Z)
-      !!ir (cpsr := carryOut |> setPSR ctxt R.CPSR PSR.C)
-      !!ir (cpsr := overflow |> setPSR ctxt R.CPSR PSR.V)
+    !!ir (dst := result)
+    let cpsr = getRegVar ctxt R.CPSR
+    !!ir (cpsr := rHigh |> setPSR ctxt R.CPSR PSR.N)
+    !!ir (cpsr := result == AST.num0 32<rt> |> setPSR ctxt R.CPSR PSR.Z)
+    !!ir (cpsr := carryOut |> setPSR ctxt R.CPSR PSR.C)
+    !!ir (cpsr := overflow |> setPSR ctxt R.CPSR PSR.V)
   else
-    let result = addWithCarryOnlyResult (AST.not src1) src2 (getCarryFlag ctxt)
+    let result = !+ir 32<rt>
+    !!ir (result :=
+      addWithCarryOnlyResult (AST.not src1) src2 (getCarryFlag ctxt))
     if dst = getPC ctxt then aluWritePC ctxt ins isUnconditional result ir
     else !!ir (dst := result)
   putEndLabel ctxt lblIgnore ir
