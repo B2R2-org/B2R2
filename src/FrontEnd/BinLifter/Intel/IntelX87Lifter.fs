@@ -126,6 +126,7 @@ let inline private getLoadAddressExpr (src: Expr) =
 
 let private castTo80Bit ctxt tmpB tmpA srcExpr ir =
   let oprSize = TypeCheck.typeOf srcExpr
+  let zero = AST.num0 oprSize
   match oprSize with
   | 32<rt> ->
     let tmpSrc = !+ir oprSize
@@ -141,8 +142,10 @@ let private castTo80Bit ctxt tmpB tmpA srcExpr ir =
     let significand =
       (AST.zext 64<rt> (tmpSrc .& numI32 0x7fffff 32<rt>)) .| integerpart
     !!ir (tmpSrc := srcExpr)
-    !!ir (tmpB := sign .| exponent)
-    !!ir (tmpA := (significand << numI32 40 64<rt>))
+    !!ir (tmpB := AST.ite (AST.eq tmpSrc zero)
+                          (AST.num0 16<rt>) (sign .| exponent))
+    !!ir (tmpA := AST.ite (AST.eq tmpSrc zero)
+                          (AST.num0 64<rt>) (significand << numI32 40 64<rt>))
   | 64<rt> ->
     let tmpSrc = !+ir oprSize
     let n63 = numI32 63 64<rt>
@@ -156,8 +159,10 @@ let private castTo80Bit ctxt tmpB tmpA srcExpr ir =
     let integerpart = numI64 0x0010000000000000L 64<rt>
     let significand = tmpSrc .& numI64 0xFFFFFFFFFFFFFL 64<rt> .| integerpart
     !!ir (tmpSrc := srcExpr)
-    !!ir (tmpB := sign .| exponent)
-    !!ir (tmpA := (significand << numI32 11 64<rt>))
+    !!ir (tmpB := AST.ite (AST.eq tmpSrc zero)
+                          (AST.num0 16<rt>) (sign .| exponent))
+    !!ir (tmpA := AST.ite (AST.eq tmpSrc zero)
+                          (AST.num0 64<rt>) (significand << numI32 11 64<rt>))
   | 80<rt> ->
     match srcExpr.E with
     | Load (_, _, addrExpr, _) ->
@@ -196,7 +201,6 @@ let fld ins insLen ctxt =
   !!ir (st0a := tmpA)
   !?ir (updateC1OnLoad ctxt)
   !>ir insLen
-
 
 let private castFrom80Bit dstExpr dstSize srcB srcA ir =
   match dstSize with
