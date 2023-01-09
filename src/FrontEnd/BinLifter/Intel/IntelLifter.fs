@@ -534,6 +534,7 @@ let translate (ins: IntelInternalInstruction) insLen ctxt =
   | OP.VPCMPGTB -> AVXLifter.vpcmpgtb ins insLen ctxt
   | OP.VPEXTRD -> SSELifter.pextrd ins insLen ctxt
   | OP.VPEXTRB -> SSELifter.pextrb ins insLen ctxt
+  | OP.VPINSRB -> AVXLifter.vpinsrb ins insLen ctxt
   | OP.VPINSRD -> AVXLifter.vpinsrd ins insLen ctxt
   | OP.VPMINSB -> AVXLifter.vpminsb ins insLen ctxt
   | OP.VPMINSD -> AVXLifter.vpminsd ins insLen ctxt

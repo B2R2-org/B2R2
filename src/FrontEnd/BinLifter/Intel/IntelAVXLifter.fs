@@ -1766,6 +1766,24 @@ let vpcmpeqq ins insLen ctxt =
 let vpcmpgtb ins insLen ctxt =
   buildPackedInstr ins insLen ctxt 8<rt> opPcmpgtb
 
+let vpinsrb ins insLen ctxt =
+  let ir = !*ctxt
+  !<ir insLen
+  let struct (dst, src1, src2, count) = getFourOprs ins
+  let dstB, dstA = transOprToExpr128 ir false ins insLen ctxt dst
+  let src1B, src1A = transOprToExpr128 ir false ins insLen ctxt src1
+  let src2 = transOprToExpr ir false ins insLen ctxt src2
+  let sel = getImmValue count &&& 0b1111L (* COUNT[3:0] *)
+  let mask = numI64 (0xFFL <<< ((int32 sel * 8) % 64)) 64<rt>
+  let amount = sel * 8L
+  let t = !+ir 64<rt>
+  let expAmt = numI64 (amount % 64L) 64<rt>
+  !!ir (t := ((AST.zext 64<rt> src2) << expAmt) .& mask)
+  if amount < 64 then !!ir (dstA := (src1A .& (AST.not mask)) .& t)
+  else !!ir (dstB := (src1B .& (AST.not mask)) .& t)
+  fillZeroFromVLToMaxVL ctxt dst 128 512 ir
+  !>ir insLen
+
 let vpinsrd ins insLen ctxt =
   let ir = !*ctxt
   !<ir insLen
@@ -1776,6 +1794,24 @@ let vpinsrd ins insLen ctxt =
   let sel = getImmValue count &&& 0b11L (* COUNT[1:0] *)
   let mask = numI64 (0xFFFFFFFFL <<< ((int32 sel * 32) % 64)) 64<rt>
   let amount = sel * 32L
+  let t = !+ir 64<rt>
+  let expAmt = numI64 (amount % 64L) 64<rt>
+  !!ir (t := ((AST.zext 64<rt> src2) << expAmt) .& mask)
+  if amount < 64 then !!ir (dstA := (src1A .& (AST.not mask)) .& t)
+  else !!ir (dstB := (src1B .& (AST.not mask)) .& t)
+  fillZeroFromVLToMaxVL ctxt dst 128 512 ir
+  !>ir insLen
+
+let vpinsrq ins insLen ctxt =
+  let ir = !*ctxt
+  !<ir insLen
+  let struct (dst, src1, src2, count) = getFourOprs ins
+  let dstB, dstA = transOprToExpr128 ir false ins insLen ctxt dst
+  let src1B, src1A = transOprToExpr128 ir false ins insLen ctxt src1
+  let src2 = transOprToExpr ir false ins insLen ctxt src2
+  let sel = getImmValue count &&& 0b1L (* COUNT[0] *)
+  let mask = numI64 (0xFFFFFFFFFFFFFFFFL <<< ((int32 sel * 64) % 64)) 64<rt>
+  let amount = sel * 64L
   let t = !+ir 64<rt>
   let expAmt = numI64 (amount % 64L) 64<rt>
   !!ir (t := ((AST.zext 64<rt> src2) << expAmt) .& mask)
