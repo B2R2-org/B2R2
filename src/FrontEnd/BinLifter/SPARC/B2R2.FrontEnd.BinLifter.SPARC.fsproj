@@ -8,17 +8,17 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="Sparc64Register.fs" />
-    <Compile Include="Sparc64RegisterSet.fs" />
-    <Compile Include="Sparc64RegExprs.fs" />
-    <Compile Include="Sparc64RegisterBay.fs" />
-    <Compile Include="Sparc64Types.fs" />
-    <Compile Include="Sparc64Disasm.fs" />
-    <Compile Include="Sparc64GeneralLifter.fs" />
-    <Compile Include="Sparc64Lifter.fs" />
-    <Compile Include="Sparc64Instruction.fs" />
-    <Compile Include="Sparc64Parser.fs" />
-    <Compile Include="Sparc64.fs" />
+    <Compile Include="SPARCRegister.fs" />
+    <Compile Include="SPARCRegisterSet.fs" />
+    <Compile Include="SPARCRegExprs.fs" />
+    <Compile Include="SPARCRegisterBay.fs" />
+    <Compile Include="SPARCTypes.fs" />
+    <Compile Include="SPARCDisasm.fs" />
+    <Compile Include="SPARCGeneralLifter.fs" />
+    <Compile Include="SPARCLifter.fs" />
+    <Compile Include="SPARCInstruction.fs" />
+    <Compile Include="SPARCParser.fs" />
+    <Compile Include="SPARC.fs" />
     <None Include="..\..\..\..\LICENSE.md" Pack="true" PackagePath="" />
     <None Include="..\..\..\..\assets\b2r2-240x240.png" Pack="true" PackagePath="" />
     <None Include="README.md" Pack="true" PackagePath="" />

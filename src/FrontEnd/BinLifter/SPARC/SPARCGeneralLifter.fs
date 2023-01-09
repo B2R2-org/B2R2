@@ -22,7 +22,7 @@
   SOFTWARE.
 *)
 
-module B2R2.FrontEnd.BinLifter.Sparc64.GeneralLifter
+module B2R2.FrontEnd.BinLifter.SPARC.GeneralLifter
 
 open B2R2
 open B2R2.BinIR
@@ -30,7 +30,7 @@ open B2R2.BinIR.LowUIR
 open B2R2.BinIR.LowUIR.AST.InfixOp
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinLifter.LiftingOperators
-open B2R2.FrontEnd.BinLifter.Sparc64
+open B2R2.FrontEnd.BinLifter.SPARC
 
 let inline getRegVar (ctxt: TranslationContext) name =
   Register.toRegID name |> ctxt.GetRegVar

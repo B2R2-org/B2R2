@@ -65,7 +65,7 @@ type Architecture =
   /// PowerPC 32-bit.
   | PPC32 = 25
   /// Sparc 64-bit.
-  | Sparc64 = 26
+  | SPARC = 26
   /// RISCV 64-bit
   | RISCV64 = 27
   /// WASM
@@ -137,7 +137,7 @@ with
       { Arch = arch; Endian = endian; WordSize = WordSize.Bit32 }
     | Arch.PPC32 ->
       { Arch = arch; Endian = endian; WordSize = WordSize.Bit32 }
-    | Arch.Sparc64 ->
+    | Arch.SPARC ->
       { Arch = arch; Endian = endian; WordSize = WordSize.Bit64 }
     | Arch.RISCV64 ->
       { Arch = arch; Endian = endian; WordSize = WordSize.Bit64 }
@@ -168,7 +168,7 @@ with
     | "sh4be" | "sh-4be" -> ISA.Init Arch.SH4 Endian.Big
     | "ppc32" | "ppc32le" -> ISA.Init Arch.PPC32 Endian.Little
     | "ppc32be" -> ISA.Init Arch.PPC32 Endian.Big
-    | "sparc" | "sparc64" -> ISA.Init Arch.Sparc64 Endian.Big
+    | "sparc" | "sparc64" -> ISA.Init Arch.SPARC Endian.Big
     | "riscv64" -> ISA.Init Arch.RISCV64 Endian.Little
     | "wasm" -> ISA.Init Arch.WASM Endian.Little
     | _ -> raise InvalidISAException
@@ -188,7 +188,7 @@ with
     | Arch.AVR -> "AVR"
     | Arch.SH4 -> "SH4"
     | Arch.PPC32 -> "PPC32"
-    | Arch.Sparc64 -> "SPARC64"
+    | Arch.SPARC -> "SPARC64"
     | Arch.RISCV64 -> "RISCV64"
     | Arch.WASM -> "WASM"
     | Arch.UnknownISA -> "Unknown"

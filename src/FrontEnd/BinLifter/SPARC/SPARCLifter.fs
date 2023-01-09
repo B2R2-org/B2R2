@@ -22,11 +22,11 @@
   SOFTWARE.
 *)
 
-module B2R2.FrontEnd.BinLifter.Sparc64.Lifter
+module B2R2.FrontEnd.BinLifter.SPARC.Lifter
 
 open B2R2.FrontEnd.BinLifter
-open B2R2.FrontEnd.BinLifter.Sparc64
-open B2R2.FrontEnd.BinLifter.Sparc64.GeneralLifter
+open B2R2.FrontEnd.BinLifter.SPARC
+open B2R2.FrontEnd.BinLifter.SPARC.GeneralLifter
 
 /// Translate IR.
 let translate (ins: InsInfo) insLen (ctxt: TranslationContext) =

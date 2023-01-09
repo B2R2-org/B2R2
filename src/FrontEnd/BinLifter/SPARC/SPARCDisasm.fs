@@ -22,11 +22,11 @@
   SOFTWARE.
 *)
 
-module B2R2.FrontEnd.BinLifter.Sparc64.Disasm
+module B2R2.FrontEnd.BinLifter.SPARC.Disasm
 
 open B2R2
 open B2R2.FrontEnd.BinLifter
-open B2R2.FrontEnd.BinLifter.Sparc64
+open B2R2.FrontEnd.BinLifter.SPARC
 
 let opCodeToString = function
   | Opcode.ADD -> "add"

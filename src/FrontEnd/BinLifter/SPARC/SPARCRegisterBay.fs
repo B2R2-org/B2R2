@@ -22,13 +22,13 @@
   SOFTWARE.
 *)
 
-namespace B2R2.FrontEnd.BinLifter.Sparc64
+namespace B2R2.FrontEnd.BinLifter.SPARC
 
 open B2R2
 open B2R2.FrontEnd.BinLifter
 open B2R2.BinIR.LowUIR
 
-type Sparc64RegisterBay () =
+type SPARCRegisterBay () =
 
   inherit RegisterBay ()
 

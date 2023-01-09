@@ -22,14 +22,14 @@
   SOFTWARE.
 *)
 
-namespace B2R2.FrontEnd.BinLifter.Sparc64
+namespace B2R2.FrontEnd.BinLifter.SPARC
 
 open B2R2
 open B2R2.FrontEnd.BinLifter
 
-/// The internal representation for a Sparc64 instruction used by our
+/// The internal representation for a SPARC instruction used by our
 /// disassembler and lifter.
-type Sparc64Instruction (addr, numBytes, insInfo) =
+type SPARCInstruction (addr, numBytes, insInfo) =
   inherit Instruction (addr, numBytes, WordSize.Bit32)
 
   /// Basic instruction information.

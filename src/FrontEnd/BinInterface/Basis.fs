@@ -45,5 +45,5 @@ let init isa =
   | Arch.SH4 -> SH4.Basis.init isa
   | Arch.PPC32 -> PPC32.Basis.init isa
   | Arch.RISCV64 -> RISCV.Basis.init isa
-  | Arch.Sparc64 -> Sparc64.Basis.init isa
+  | Arch.SPARC -> SPARC.Basis.init isa
   | _ -> Utils.futureFeature ()

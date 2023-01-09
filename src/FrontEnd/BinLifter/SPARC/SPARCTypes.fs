@@ -22,12 +22,12 @@
   SOFTWARE.
 *)
 
-namespace B2R2.FrontEnd.BinLifter.Sparc64
+namespace B2R2.FrontEnd.BinLifter.SPARC
 
 
 open B2R2
 open System.Runtime.CompilerServices
-open B2R2.FrontEnd.BinLifter.Sparc64
+open B2R2.FrontEnd.BinLifter.SPARC
 
 [<assembly: InternalsVisibleTo("B2R2.FrontEnd.BinLifter.Tests")>]
 do ()
@@ -810,7 +810,7 @@ type Operands =
   | FourOperands of Operand * Operand * Operand * Operand
   | FiveOperands of Operand * Operand * Operand * Operand * Operand
 
-/// Basic information obtained by parsing a Sparc64 instruction.
+/// Basic information obtained by parsing a SPARC instruction.
 [<NoComparison; CustomEquality>]
 type InsInfo = {
   /// Address.

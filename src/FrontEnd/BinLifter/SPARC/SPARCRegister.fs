@@ -22,7 +22,7 @@
   SOFTWARE.
 *)
 
-namespace B2R2.FrontEnd.BinLifter.Sparc64
+namespace B2R2.FrontEnd.BinLifter.SPARC
 
 open B2R2
 
@@ -88,7 +88,7 @@ type Register =
 /// Shortcut for Register type.
 type internal R = Register
 
-/// This module exposes several useful functions to handle Sparc64
+/// This module exposes several useful functions to handle SPARC
 /// registers.
 [<RequireQualifiedAccess>]
 module Register =

@@ -94,7 +94,7 @@ let getInstructionAlignment hdl =
   | Arch.PPC32 -> 4
   | Arch.RISCV64 -> 2
   | Arch.WASM -> 1
-  | Arch.Sparc64 -> 2
+  | Arch.SPARC -> 2
   | _ -> Utils.futureFeature ()
 
 let convertToHexStr bytes =

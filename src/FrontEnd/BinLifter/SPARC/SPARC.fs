@@ -22,23 +22,23 @@
   SOFTWARE.
 *)
 
-namespace B2R2.FrontEnd.BinLifter.Sparc64
+namespace B2R2.FrontEnd.BinLifter.SPARC
 
 open System
 open B2R2
 open B2R2.FrontEnd.BinLifter
 
-/// Translation context for Sparc64 instructions.
-type Sparc64TranslationContext internal (isa, regexprs) =
+/// Translation context for SPARC instructions.
+type SPARCTranslationContext internal (isa, regexprs) =
   inherit TranslationContext (isa)
   /// Register expressions.
   member val private RegExprs: RegExprs = regexprs
   override __.GetRegVar id = Register.ofRegID id |> __.RegExprs.GetRegVar
   override __.GetPseudoRegVar _id _pos = Utils.impossible ()
 
-/// Parser for Sparc64 instructions. Parser will return a platform-agnostic
+/// Parser for SPARC instructions. Parser will return a platform-agnostic
 /// instruction type (Instruction).
-type Sparc64Parser (isa: ISA) =
+type SPARCParser (isa: ISA) =
   inherit Parser ()
 
   let reader =
@@ -58,8 +58,8 @@ module Basis =
   let init (isa: ISA) =
     let regexprs = RegExprs (isa.WordSize)
     struct (
-      Sparc64TranslationContext (isa, regexprs) :> TranslationContext,
-      Sparc64RegisterBay () :> RegisterBay
+      SPARCTranslationContext (isa, regexprs) :> TranslationContext,
+      SPARCRegisterBay () :> RegisterBay
     )
 
 // vim: set tw=80 sts=2 sw=2:

@@ -22,7 +22,7 @@
   SOFTWARE.
 *)
 
-namespace B2R2.FrontEnd.BinLifter.Sparc64
+namespace B2R2.FrontEnd.BinLifter.SPARC
 
 open B2R2
 
@@ -31,17 +31,17 @@ module private RegisterSetLiteral =
 
 open RegisterSetLiteral
 
-type Sparc64RegisterSet (bitArray: uint64 [], s: Set<RegisterID>) =
+type SPARCRegisterSet (bitArray: uint64 [], s: Set<RegisterID>) =
   inherit NonEmptyRegisterSet (bitArray, s)
 
   new () =
-    Sparc64RegisterSet (RegisterSet.MakeInternalBitArray ArrLen, Set.empty)
+    SPARCRegisterSet (RegisterSet.MakeInternalBitArray ArrLen, Set.empty)
 
-  override __.Tag = RegisterSetTag.Sparc64
+  override __.Tag = RegisterSetTag.SPARC
 
   override __.ArrSize = ArrLen
 
-  override __.New arr s = new Sparc64RegisterSet (arr, s) :> RegisterSet
+  override __.New arr s = new SPARCRegisterSet (arr, s) :> RegisterSet
 
   override __.RegIDToIndex rid =
     match Register.ofRegID rid with
@@ -165,9 +165,9 @@ type Sparc64RegisterSet (bitArray: uint64 [], s: Set<RegisterID>) =
     |> Register.toRegID
 
   override __.ToString () =
-    sprintf "Sparc64RegisterSet<%x, %x>" __.BitArray.[0] __.BitArray.[1]
+    sprintf "SPARCRegisterSet<%x, %x>" __.BitArray.[0] __.BitArray.[1]
 
 [<RequireQualifiedAccess>]
-module Sparc64RegisterSet =
-  let singleton rid = Sparc64RegisterSet().Add(rid)
-  let empty = Sparc64RegisterSet () :> RegisterSet
+module SPARCRegisterSet =
+  let singleton rid = SPARCRegisterSet().Add(rid)
+  let empty = SPARCRegisterSet () :> RegisterSet

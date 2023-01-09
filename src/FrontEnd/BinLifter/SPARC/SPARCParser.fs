@@ -22,9 +22,9 @@
   SOFTWARE.
 *)
 
-module B2R2.FrontEnd.BinLifter.Sparc64.Parser
+module B2R2.FrontEnd.BinLifter.SPARC.Parser
 
-open B2R2.FrontEnd.BinLifter.Sparc64
+open B2R2.FrontEnd.BinLifter.SPARC
 
 open B2R2
 open B2R2.FrontEnd.BinLifter
@@ -1896,6 +1896,6 @@ let parse (span: ByteSpan) (reader: IBinReader) addr =
       Opcode = op
       Operands = operands }
 
-  Sparc64Instruction (addr, 4u, insInfo)
+  SPARCInstruction (addr, 4u, insInfo)
 
 // vim: set tw=80 sts=2 sw=2:

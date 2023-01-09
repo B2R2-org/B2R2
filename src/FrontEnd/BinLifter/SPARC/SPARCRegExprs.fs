@@ -22,14 +22,14 @@
   SOFTWARE.
 *)
 
-namespace B2R2.FrontEnd.BinLifter.Sparc64
+namespace B2R2.FrontEnd.BinLifter.SPARC
 
 open B2R2
 open B2R2.FrontEnd.BinLifter
 open B2R2.BinIR.LowUIR
 
 type internal RegExprs (wordSize) =
-  let var sz t name = AST.var sz t name (Sparc64RegisterSet.singleton t)
+  let var sz t name = AST.var sz t name (SPARCRegisterSet.singleton t)
 
   (* Registers *)
   let regType = WordSize.toRegType wordSize

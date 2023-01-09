@@ -46,5 +46,5 @@ let init (isa: ISA) mode (entryPoint: Addr option) =
   | Arch.SH4 -> SH4.SH4Parser (isa) :> Parser
   | Arch.PPC32 -> PPC32.PPC32Parser (isa) :> Parser
   | Arch.RISCV64 -> RISCV.RISCV64Parser (isa) :> Parser
-  | Arch.Sparc64 -> Sparc64.Sparc64Parser (isa) :> Parser
+  | Arch.SPARC -> SPARC.SPARCParser (isa) :> Parser
   | _ -> Utils.futureFeature ()

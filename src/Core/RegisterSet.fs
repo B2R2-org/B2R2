@@ -41,7 +41,7 @@ type RegisterSetTag =
   | AVR = 8
   | SH4 = 9
   | PPC32 = 10
-  | Sparc64 = 11
+  | SPARC = 11
   | RISCV64 = 12
   | WASM = 20
 

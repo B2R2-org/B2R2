@@ -39,7 +39,7 @@ Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "B2R2.FrontEnd.BinLifter.SH4
 EndProject
 Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "B2R2.FrontEnd.BinLifter.PPC32", "src\FrontEnd\BinLifter\PPC32\B2R2.FrontEnd.BinLifter.PPC32.fsproj", "{96993893-7A1E-4F01-827E-BDE2FA8537C9}"
 EndProject
-Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "B2R2.FrontEnd.BinLifter.Sparc64", "src\FrontEnd\BinLifter\Sparc64\B2R2.FrontEnd.BinLifter.Sparc64.fsproj", "{5A95A80D-9263-4573-9E2D-AACC5E225C3F}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "B2R2.FrontEnd.BinLifter.SPARC", "src\FrontEnd\BinLifter\SPARC\B2R2.FrontEnd.BinLifter.SPARC.fsproj", "{5A95A80D-9263-4573-9E2D-AACC5E225C3F}"
 EndProject
 Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "B2R2.FrontEnd.BinLifter.WASM", "src\FrontEnd\BinLifter\WASM\B2R2.FrontEnd.BinLifter.WASM.fsproj", "{DDA77DD5-651E-4180-97C1-839A501773DD}"
 EndProject
