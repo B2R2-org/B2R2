@@ -1329,7 +1329,7 @@ let pmovmskb ins insLen ctxt =
   | _ -> raise InvalidOperandException
   !>ir insLen
 
-let private packedMove ir srcSz packSz dstA dstB src isSignExt =
+let packedMove ir srcSz packSz dstA dstB src isSignExt =
   let packNum = int (srcSz / packSz)
   let dSz = 128<rt> / packNum
   let tDst = Array.init packNum (fun _ -> !+ir dSz)

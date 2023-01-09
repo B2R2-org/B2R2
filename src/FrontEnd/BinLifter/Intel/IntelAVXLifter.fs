@@ -34,6 +34,7 @@ open B2R2.FrontEnd.BinLifter.LiftingUtils
 open B2R2.FrontEnd.BinLifter.Intel
 open B2R2.FrontEnd.BinLifter.Intel.LiftingUtils
 open B2R2.FrontEnd.BinLifter.Intel.MMXLifter
+open B2R2.FrontEnd.BinLifter.Intel.SSELifter
 
 let private haveEVEXPrx = function
   | Some v -> Option.isSome v.EVEXPrx
@@ -879,7 +880,7 @@ let vmovdqa64 ins insLen ctxt =
   !>ir insLen
 
 let vmovntdq ins insLen ctxt =
-  SSELifter.buildMove ins insLen ctxt 16
+  buildMove ins insLen ctxt 16
 
 let vmovups ins insLen ctxt =
   buildVectorMove ins insLen ctxt
@@ -910,10 +911,10 @@ let vmovddup ins insLen ctxt =
   !>ir insLen
 
 let vmovntps ins insLen ctxt =
-  SSELifter.buildMove ins insLen ctxt 16
+  buildMove ins insLen ctxt 16
 
 let vmovntpd ins insLen ctxt =
-  SSELifter.buildMove ins insLen ctxt 16
+  buildMove ins insLen ctxt 16
 
 let vmovhlps ins insLen ctxt =
   let ir = !*ctxt
@@ -982,7 +983,7 @@ let vmovmskpd ins insLen ctxt =
   let struct (dst, src) = getTwoOprs ins
   let mskpd r =
     match Register.getKind r with
-    | Register.Kind.XMM -> SSELifter.movmskpd ins insLen ctxt
+    | Register.Kind.XMM -> movmskpd ins insLen ctxt
     | Register.Kind.YMM ->
       !<ir insLen
       let dst = transOprToExpr ir false ins insLen ctxt dst
@@ -1005,7 +1006,7 @@ let vmovmskps ins insLen ctxt =
   let struct (dst, src) = getTwoOprs ins
   let mskpd r =
     match Register.getKind r with
-    | Register.Kind.XMM -> SSELifter.movmskps ins insLen ctxt
+    | Register.Kind.XMM -> movmskps ins insLen ctxt
     | Register.Kind.YMM ->
       !<ir insLen
       let dst = transOprToExpr ir false ins insLen ctxt dst
@@ -1036,7 +1037,7 @@ let vmovsd (ins: InsInfo) insLen ctxt =
   let ir = !*ctxt
   !<ir insLen
   match ins.Operands with
-  | TwoOperands (OprMem _, _) -> SSELifter.movsd ins insLen ctxt
+  | TwoOperands (OprMem _, _) -> movsd ins insLen ctxt
   | TwoOperands (OprReg _ as dst, src) ->
     let dst2, dst1 = transOprToExpr128 ir false ins insLen ctxt dst
     let src = transOprToExpr64 ir false ins insLen ctxt src
@@ -1112,7 +1113,7 @@ let vmovss (ins: InsInfo) insLen ctxt =
   let ir = !*ctxt
   !<ir insLen
   match ins.Operands with
-  | TwoOperands (OprMem _, _) -> SSELifter.movss ins insLen ctxt
+  | TwoOperands (OprMem _, _) -> movss ins insLen ctxt
   | TwoOperands (OprReg _ as dst, src) ->
     let dst2, dst1 = transOprToExpr128 ir false ins insLen ctxt dst
     let src = transOprToExpr32 ir false ins insLen ctxt src
@@ -1832,7 +1833,7 @@ let vpminsb ins insLen ctxt =
 let vpminsd ins insLen ctxt =
   buildPackedInstr ins insLen ctxt 32<rt> SSELifter.opPmins
 
-let vpmovsxdq ins insLen ctxt =
+let vpmovbw ins insLen ctxt packSz isSignExt =
   let ir = !*ctxt
   !<ir insLen
   let struct (dst, src) = getTwoOprs ins
@@ -1840,23 +1841,69 @@ let vpmovsxdq ins insLen ctxt =
   match Register.getKind r, src with
   | Register.Kind.XMM, OprReg _ ->
     let dstB, dstA = transOprToExpr128 ir false ins insLen ctxt dst
-    let _srcB, srcA = transOprToExpr128 ir false ins insLen ctxt src
-    !!ir (dstA := AST.sext 64<rt> (AST.xtlo 32<rt> srcA))
-    !!ir (dstB := AST.sext 64<rt> (AST.extract srcA 32<rt> 32))
+    let _ , srcA = transOprToExpr128 ir false ins insLen ctxt src
+    packedMove ir 64<rt> packSz dstA dstB srcA isSignExt
     fillZeroFromVLToMaxVL ctxt dst 128 512 ir
   | Register.Kind.XMM, OprMem _ ->
     let dstB, dstA = transOprToExpr128 ir false ins insLen ctxt dst
     let src = transOprToExpr64 ir false ins insLen ctxt src
-    !!ir (dstA := AST.sext 64<rt> (AST.xtlo 32<rt> src))
-    !!ir (dstB := AST.sext 64<rt> (AST.extract src 32<rt> 32))
+    packedMove ir 64<rt> packSz dstA dstB src isSignExt
     fillZeroFromVLToMaxVL ctxt dst 128 512 ir
   | Register.Kind.YMM, _ ->
     let dstD, dstC, dstB, dstA = transOprToExpr256 ir false ins insLen ctxt dst
     let srcB, srcA = transOprToExpr128 ir false ins insLen ctxt src
-    !!ir (dstA := AST.sext 64<rt> (AST.xtlo 32<rt> srcA))
-    !!ir (dstB := AST.sext 64<rt> (AST.extract srcA 32<rt> 32))
-    !!ir (dstC := AST.sext 64<rt> (AST.xtlo 32<rt> srcB))
-    !!ir (dstD := AST.sext 64<rt> (AST.extract srcB 32<rt> 32))
+    packedMove ir 64<rt> packSz dstA dstB srcA isSignExt
+    packedMove ir 64<rt> packSz dstC dstD srcB isSignExt
+    fillZeroFromVLToMaxVL ctxt dst 256 512 ir
+  | _ -> raise InvalidOperandException
+  !>ir insLen
+
+let vpmovbd ins insLen ctxt packSz isSignExt =
+  let ir = !*ctxt
+  !<ir insLen
+  let struct (dst, src) = getTwoOprs ins
+  let r = match dst with | OprReg r -> r | _ -> raise InvalidOperandException
+  match Register.getKind r, src with
+  | Register.Kind.XMM, OprReg _ ->
+    let dstB, dstA = transOprToExpr128 ir false ins insLen ctxt dst
+    let _ , srcA = transOprToExpr128 ir false ins insLen ctxt src
+    packedMove ir 32<rt> packSz dstA dstB (AST.xtlo 32<rt> srcA) isSignExt
+    fillZeroFromVLToMaxVL ctxt dst 128 512 ir
+  | Register.Kind.XMM, OprMem _ ->
+    let dstB, dstA = transOprToExpr128 ir false ins insLen ctxt dst
+    let src = transOprToExpr64 ir false ins insLen ctxt src
+    packedMove ir 32<rt> packSz dstA dstB src isSignExt
+    fillZeroFromVLToMaxVL ctxt dst 128 512 ir
+  | Register.Kind.YMM, _ ->
+    let dstD, dstC, dstB, dstA = transOprToExpr256 ir false ins insLen ctxt dst
+    let _ , srcA = transOprToExpr128 ir false ins insLen ctxt src
+    packedMove ir 32<rt> packSz dstA dstB (AST.xtlo 32<rt> srcA) isSignExt
+    packedMove ir 32<rt> packSz dstC dstD (AST.xthi 32<rt> srcA) isSignExt
+    fillZeroFromVLToMaxVL ctxt dst 256 512 ir
+  | _ -> raise InvalidOperandException
+  !>ir insLen
+
+let vpmovbq ins insLen ctxt packSz isSignExt =
+  let ir = !*ctxt
+  !<ir insLen
+  let struct (dst, src) = getTwoOprs ins
+  let r = match dst with | OprReg r -> r | _ -> raise InvalidOperandException
+  match Register.getKind r, src with
+  | Register.Kind.XMM, OprReg _ ->
+    let dstB, dstA = transOprToExpr128 ir false ins insLen ctxt dst
+    let _ , srcA = transOprToExpr128 ir false ins insLen ctxt src
+    packedMove ir 16<rt> packSz dstA dstB (AST.xtlo 16<rt> srcA) isSignExt
+    fillZeroFromVLToMaxVL ctxt dst 128 512 ir
+  | Register.Kind.XMM, OprMem _ ->
+    let dstB, dstA = transOprToExpr128 ir false ins insLen ctxt dst
+    let src = transOprToExpr64 ir false ins insLen ctxt src
+    packedMove ir 16<rt> packSz dstA dstB src isSignExt
+    fillZeroFromVLToMaxVL ctxt dst 128 512 ir
+  | Register.Kind.YMM, _ ->
+    let dstD, dstC, dstB, dstA = transOprToExpr256 ir false ins insLen ctxt dst
+    let _ , srcA = transOprToExpr128 ir false ins insLen ctxt src
+    packedMove ir 16<rt> packSz dstA dstB (AST.xtlo 16<rt> srcA) isSignExt
+    packedMove ir 16<rt> packSz dstC dstD (AST.extract srcA 16<rt> 16) isSignExt
     fillZeroFromVLToMaxVL ctxt dst 256 512 ir
   | _ -> raise InvalidOperandException
   !>ir insLen
