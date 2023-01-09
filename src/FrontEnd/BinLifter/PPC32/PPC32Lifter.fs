@@ -1137,6 +1137,7 @@ let translate (ins: InsInfo) insLen (ctxt: TranslationContext) =
   | Op.FMADD -> fmadd ins insLen ctxt
   | Op.FMR -> fmr ins insLen ctxt
   | Op.FMSUB -> fmsub ins insLen ctxt
+  | Op.ISYNC -> sideEffects insLen ctxt ClockCounter
   | Op.LBZ -> lbz ins insLen ctxt
   | Op.LBZX -> lbzx ins insLen ctxt
   | Op.LFD -> lfd ins insLen ctxt
@@ -1176,6 +1177,7 @@ let translate (ins: InsInfo) insLen (ctxt: TranslationContext) =
   | Op.RLWINM -> rlwinm ins insLen ctxt
   | Op.RLWINMdot -> rlwinmdot ins insLen ctxt
   | Op.ROTLW -> rotlw ins insLen ctxt
+  | Op.SC -> sideEffects insLen ctxt SysCall
   | Op.SLW -> slw ins insLen ctxt
   | Op.SRAW -> sraw ins insLen ctxt
   | Op.SRAWI -> srawi ins insLen ctxt
