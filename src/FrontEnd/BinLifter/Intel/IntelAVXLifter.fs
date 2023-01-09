@@ -1790,6 +1790,12 @@ let vpminub ins insLen ctxt =
 let vpminud ins insLen ctxt =
   buildPackedInstr ins insLen ctxt 32<rt> SSELifter.opPminu
 
+let vpminsb ins insLen ctxt =
+  buildPackedInstr ins insLen ctxt 8<rt> SSELifter.opPmins
+
+let vpminsd ins insLen ctxt =
+  buildPackedInstr ins insLen ctxt 32<rt> SSELifter.opPmins
+
 let vpmovsxdq ins insLen ctxt =
   let ir = !*ctxt
   !<ir insLen
