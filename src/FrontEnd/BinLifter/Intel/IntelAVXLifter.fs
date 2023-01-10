@@ -1560,6 +1560,9 @@ let vinserti128 ins insLen ctxt =
 let vpaddb ins insLen ctxt =
   buildPackedInstr ins insLen ctxt 8<rt> (opP (.+))
 
+let vpmullw ins insLen ctxt =
+  buildPackedInstr ins insLen ctxt 16<rt> MMXLifter.opPmullw
+
 let vpaddd ins insLen ctxt =
   match getOperationSize ins with
   | 512<rt> ->
@@ -2027,6 +2030,11 @@ let vpmovbq ins insLen ctxt packSz isSignExt =
     fillZeroFromVLToMaxVL ctxt dst 256 512 ir
   | _ -> raise InvalidOperandException
   !>ir insLen
+
+let private opVpmulhuw _ = opPmul AST.xthi AST.zext 32<rt> 16<rt>
+
+let vpmulhuw ins insLen ctxt =
+  buildPackedInstr ins insLen ctxt 16<rt> opVpmulhuw
 
 let private opVpmuludq _ =
   let low32 expr = expr .& numI64 0xffffffffL 64<rt>

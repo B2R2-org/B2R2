@@ -471,7 +471,7 @@ let private opPmulhw _ = opPmul AST.xthi AST.sext 32<rt> 16<rt>
 let pmulhw ins insLen ctxt =
   buildPackedInstr ins insLen ctxt 16<rt> opPmulhw
 
-let private opPmullw _ = opPmul AST.xtlo AST.sext 32<rt> 16<rt>
+let opPmullw _ = opPmul AST.xtlo AST.sext 32<rt> 16<rt>
 
 let pmullw ins insLen ctxt =
   buildPackedInstr ins insLen ctxt 16<rt> opPmullw

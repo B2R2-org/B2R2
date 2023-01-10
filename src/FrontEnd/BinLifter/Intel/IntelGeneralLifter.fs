@@ -1698,6 +1698,42 @@ let mul ins insLen ctxt =
   | _ -> raise InvalidOperandSizeException
   !>ir insLen
 
+let mulx ins insLen ctxt =
+  let ir = !*ctxt
+  let oprSize = getOperationSize ins
+  !<ir insLen
+  match oprSize with
+  | 32<rt> ->
+    let struct (dst1, dst2, src) = transThreeOprs ir false ins insLen ctxt
+    let src1 = !+ir 32<rt>
+    let t = !+ir 64<rt>
+    !!ir (src1 := getRegOfSize ctxt oprSize grpEDX)
+    !!ir (t := AST.zext 64<rt> (src1 .* src))
+    !!ir (dst2 := AST.xtlo 32<rt> t)
+    !!ir (dst1 := AST.xthi 32<rt> t)
+  | 64<rt> ->
+    let struct (dst1, dst2, src) = transThreeOprs ir false ins insLen ctxt
+    let src1 = getRegOfSize ctxt oprSize grpEDX
+    let struct (hiSrc1, loSrc1, hiSrc, loSrc) = tmpVars4 ir 64<rt>
+    let struct (tHigh, tLow) = tmpVars2 ir 64<rt>
+    let n32 = numI32 32 64<rt>
+    let mask = numI64 0xFFFFFFFFL 64<rt>
+    !!ir (hiSrc1 := (src1 >> n32) .& mask) (* SRC1[63:32] *)
+    !!ir (loSrc1 := src1 .& mask) (* SRC1[31:0] *)
+    !!ir (hiSrc := (src >> n32) .& mask) (* SRC[63:32] *)
+    !!ir (loSrc := src .& mask) (* SRC[31:0] *)
+    let pHigh = hiSrc1 .* hiSrc
+    let pMid = (hiSrc1 .* loSrc) .+ (loSrc1 .* hiSrc)
+    let pLow = (loSrc1 .* loSrc)
+    let high = pHigh .+ ((pMid .+ (pLow  >> n32)) >> n32)
+    let low = pLow .+ ((pMid .& mask) << n32)
+    !!ir (tHigh := high)
+    !!ir (tLow := low)
+    !!ir (dstAssign oprSize dst1 tHigh)
+    !!ir (dstAssign oprSize dst2 tLow)
+  | _ -> raise InvalidOperandSizeException
+  !>ir insLen
+
 let neg ins insLen ctxt =
   let ir = !*ctxt
   !<ir insLen
@@ -2279,6 +2315,19 @@ let shlx ins insLen ctxt =
   !!ir (temp := src1)
   !!ir (AST.xthi 1<rt> dst := AST.xthi 1<rt> temp)
   !!ir (dst := dst << count)
+  !>ir insLen
+
+let shrx ins insLen ctxt =
+  let ir = !*ctxt
+  !<ir insLen
+  let struct (dst, src1, src2) = transThreeOprs ir false ins insLen ctxt
+  let oprSize = getOperationSize ins
+  let temp = !+ir oprSize
+  let countMask = if is64REXW ctxt ins then 0x3F else 0x1F // FIXME: CS.L = 1
+  let count = src2 .& (numI32 countMask oprSize)
+  !!ir (temp := src1)
+  !!ir (AST.xthi 1<rt> dst := AST.xthi 1<rt> temp)
+  !!ir (dst := dst >> count)
   !>ir insLen
 
 let setFlag insLen ctxt flag =

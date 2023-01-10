@@ -115,6 +115,7 @@ let translate (ins: IntelInternalInstruction) insLen ctxt =
   | OP.MOVSX | OP.MOVSXD -> GeneralLifter.movsx ins insLen ctxt
   | OP.MOVZX -> GeneralLifter.movzx ins insLen ctxt
   | OP.MUL -> GeneralLifter.mul ins insLen ctxt
+  | OP.MULX -> GeneralLifter.mulx ins insLen ctxt
   | OP.NEG -> GeneralLifter.neg ins insLen ctxt
   | OP.NOP -> GeneralLifter.nop insLen ctxt
   | OP.NOT -> GeneralLifter.not ins insLen ctxt
@@ -167,6 +168,7 @@ let translate (ins: IntelInternalInstruction) insLen ctxt =
   | OP.SETSSBSY -> GeneralLifter.nop insLen ctxt
   | OP.SHLD -> GeneralLifter.shld ins insLen ctxt
   | OP.SHLX -> GeneralLifter.shlx ins insLen ctxt
+  | OP.SHRX -> GeneralLifter.shrx ins insLen ctxt
   | OP.SHRD -> GeneralLifter.shrd ins insLen ctxt
   | OP.STC -> GeneralLifter.stc insLen ctxt
   | OP.STD -> GeneralLifter.std insLen ctxt
@@ -563,6 +565,8 @@ let translate (ins: IntelInternalInstruction) insLen ctxt =
   | OP.VPMOVMSKB -> SSELifter.pmovmskb ins insLen ctxt
   | OP.VPMULLD -> AVXLifter.vpmulld ins insLen ctxt
   | OP.VPMULUDQ -> AVXLifter.vpmuludq ins insLen ctxt
+  | OP.VPMULHUW -> AVXLifter.vpmulhuw ins insLen ctxt
+  | OP.VPMULLW -> AVXLifter.vpmullw ins insLen ctxt
   | OP.VPOR -> AVXLifter.vpor ins insLen ctxt
   | OP.VPSHUFB -> AVXLifter.vpshufb ins insLen ctxt
   | OP.VPSHUFD -> AVXLifter.vpshufd ins insLen ctxt
