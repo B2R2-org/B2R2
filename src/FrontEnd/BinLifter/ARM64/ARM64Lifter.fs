@@ -358,7 +358,7 @@ let cmp ins insLen ctxt addr =
   !!ir (getRegVar ctxt R.V := v)
   !>ir insLen
 
-let cmeq ins insLen ctxt addr =
+let compare ins insLen ctxt addr cond =
   let ir = !*ctxt
   !<ir insLen
   match ins.Operands with
@@ -370,14 +370,14 @@ let cmeq ins insLen ctxt addr =
     let struct (ones, zeros) = tmpVars2 ir eSize
     !!ir (ones := numI64 -1L eSize)
     !!ir (zeros := AST.num0 eSize)
-    let result = Array.map (fun e -> AST.ite (e == zeros) ones zeros) src1
+    let result = Array.map (fun e -> AST.ite (cond e zeros) ones zeros) src1
     dstAssignForSIMD dstA dstB result dataSize elements ir
   | ThreeOperands (OprSIMD (SIMDFPScalarReg _) as o1, o2, OprImm _) ->
     let dst = transOprToExpr ins ctxt addr o1
     let src1 = transOprToExpr ins ctxt addr o2
     let num0 = AST.num0 64<rt>
     let result = !+ir 64<rt>
-    !!ir (result := AST.ite (src1 == num0) (numI64 -1L 64<rt>) num0)
+    !!ir (result := AST.ite (cond src1 num0) (numI64 -1L 64<rt>) num0)
     !!ir (dst := result)
   (* register *)
   | ThreeOperands (OprSIMD (SIMDVecReg _) as o1, o2, o3) ->
@@ -389,7 +389,7 @@ let cmeq ins insLen ctxt addr =
     !!ir (ones := numI64 -1L eSize)
     !!ir (zeros := AST.num0 eSize)
     let result =
-      Array.map2 (fun e1 e2 -> AST.ite (e1 == e2) ones zeros) src1 src2
+      Array.map2 (fun e1 e2 -> AST.ite (cond e1 e2) ones zeros) src1 src2
     dstAssignForSIMD dstA dstB result dataSize elements ir
   | ThreeOperands (OprSIMD (SIMDFPScalarReg _) as o1, o2, o3) ->
     let dst = transOprToExpr ins ctxt addr o1
@@ -397,10 +397,13 @@ let cmeq ins insLen ctxt addr =
     let src2 = transOprToExpr ins ctxt addr o3
     let num0 = AST.num0 64<rt>
     let result = !+ir 64<rt>
-    !!ir (result := AST.ite (src1 == src2) (numI64 -1L 64<rt>) num0)
+    !!ir (result := AST.ite (cond src1 src2) (numI64 -1L 64<rt>) num0)
     !!ir (dst := result)
   | _ -> raise InvalidOperandException
   !>ir insLen
+
+let cmeq ins insLen ctxt addr = compare ins insLen ctxt addr (==)
+let cmgt ins insLen ctxt addr = compare ins insLen ctxt addr (.>)
 
 let csel ins insLen ctxt addr =
   let ir = !*ctxt
@@ -1639,6 +1642,7 @@ let translate ins insLen ctxt =
   | Opcode.CMEQ -> cmeq ins insLen ctxt addr
   | Opcode.CMGE | Opcode.CMLT | Opcode.CMTST ->
     sideEffects insLen ctxt UnsupportedFP
+  | Opcode.CMGT -> cmgt ins insLen ctxt addr
   | Opcode.CMHI | Opcode.CMHS -> sideEffects insLen ctxt UnsupportedFP
   | Opcode.CNEG | Opcode.CSNEG -> csneg ins insLen ctxt addr
   | Opcode.CNT -> sideEffects insLen ctxt UnsupportedFP
