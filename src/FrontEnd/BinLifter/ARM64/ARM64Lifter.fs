@@ -1559,7 +1559,7 @@ let usra ins insLen ctxt addr =
   let src = transSIMDOprToExpr ctxt eSize dataSize elements o2
   let shf = transOprToExpr ins ctxt addr o3 |> AST.xtlo eSize
   !<ir insLen
-  Array.map2 (fun e1 e2 -> (e1 .+ e2) >> shf) dst src
+  Array.map2 (fun e1 e2 -> e1 .+ (e2 >> shf)) dst src
   |> Array.iter2 (fun e1 e2 -> !!ir (e1 := e2)) dst
   !>ir insLen
 
