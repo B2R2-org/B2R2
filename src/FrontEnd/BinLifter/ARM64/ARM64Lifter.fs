@@ -1655,6 +1655,7 @@ let translate ins insLen ctxt =
   | Opcode.FABD | Opcode.FADD -> sideEffects insLen ctxt UnsupportedFP
   | Opcode.FADDP -> sideEffects insLen ctxt UnsupportedFP
   | Opcode.FCCMP -> sideEffects insLen ctxt UnsupportedFP
+  | Opcode.FCCMPE -> sideEffects insLen ctxt UnsupportedFP
   | Opcode.FCMP -> sideEffects insLen ctxt UnsupportedFP
   | Opcode.FCMPE -> sideEffects insLen ctxt UnsupportedFP
   | Opcode.FCSEL -> sideEffects insLen ctxt UnsupportedFP
@@ -1663,13 +1664,14 @@ let translate ins insLen ctxt =
   | Opcode.FCVTZS -> sideEffects insLen ctxt UnsupportedFP
   | Opcode.FCVTZU -> sideEffects insLen ctxt UnsupportedFP
   | Opcode.FDIV -> sideEffects insLen ctxt UnsupportedFP
-  | Opcode.FMAX -> sideEffects insLen ctxt UnsupportedFP
   | Opcode.FMADD -> sideEffects insLen ctxt UnsupportedFP
+  | Opcode.FMAX -> sideEffects insLen ctxt UnsupportedFP
+  | Opcode.FMAXNM -> sideEffects insLen ctxt UnsupportedFP
   | Opcode.FMOV -> sideEffects insLen ctxt UnsupportedFP
   | Opcode.FMUL -> sideEffects insLen ctxt UnsupportedFP
   | Opcode.FNEG -> sideEffects insLen ctxt UnsupportedFP
   | Opcode.FNMUL -> sideEffects insLen ctxt UnsupportedFP
-  | Opcode.FRINTM | Opcode.FRINTA | Opcode.FRINTP ->
+  | Opcode.FRINTM | Opcode.FRINTA | Opcode.FRINTP | Opcode.FRINTZ ->
     sideEffects insLen ctxt UnsupportedFP
   | Opcode.FSUB -> sideEffects insLen ctxt UnsupportedFP
   | Opcode.FSQRT -> sideEffects insLen ctxt UnsupportedFP
