@@ -1237,9 +1237,9 @@ let opPmaxu _ = opMaxMinPacked AST.gt
 
 let opPminu _ = opMaxMinPacked AST.lt
 
-let private opPmaxs _ = opMaxMinPacked AST.sgt
+let opPmaxs _ = opMaxMinPacked AST.sgt
 
-let private opPmins _ = opMaxMinPacked AST.slt
+let opPmins _ = opMaxMinPacked AST.slt
 
 let pmaxub ins insLen ctxt =
   buildPackedInstr ins insLen ctxt 8<rt> opPmaxu
