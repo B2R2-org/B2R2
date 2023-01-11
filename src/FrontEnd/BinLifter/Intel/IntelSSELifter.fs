@@ -1750,21 +1750,23 @@ let movddup ins insLen ctxt =
 let private getpackusdw dst srcB srcA tmp ir =
   let z16 = AST.num0 16<rt>
   let z32 = AST.num0 32<rt>
-  let f16 = numU32 0xFFFu 16<rt>
-  let f32 = numU32 0xFFFu 32<rt>
+  let f16 = numU32 0xFFFFu 16<rt>
+  let f32 = numU32 0xFFFFu 32<rt>
   for i in 0 .. 3 do
     let tTmp = AST.extract tmp 16<rt> (16 * i)
     let tDst = AST.extract dst 16<rt> (16 * i)
     if i < 2 then
+      let tCondDst = AST.extract dst 16<rt> (32 * i)
       let cond = (AST.extract srcA 32<rt> (32 * i)) .< z32
-      let cond2 = (AST.extract srcA 32<rt> (32 * i)) .< f32
-      !!ir (tTmp := AST.ite cond z16 tDst)
-      !!ir (tDst := AST.ite cond2 f16 tDst)
+      let cond2 = (AST.extract srcA 32<rt> (32 * i)) .> f32
+      !!ir (tTmp := AST.ite cond z16 tCondDst)
+      !!ir (tDst := AST.ite cond2 f16 tTmp)
     else
+      let tCondDst = AST.extract dst 16<rt> (32 * (i - 2))
       let cond = (AST.extract srcB 32<rt> (32 * (i - 2))) .< z32
-      let cond2 = (AST.extract srcB 32<rt> (32 * (i - 2))) .< f32
-      !!ir (tTmp := AST.ite cond z16 tDst)
-      !!ir (tDst := AST.ite cond2 f16 tDst)
+      let cond2 = (AST.extract srcB 32<rt> (32 * (i - 2))) .> f32
+      !!ir (tTmp := AST.ite cond z16 tCondDst)
+      !!ir (tDst := AST.ite cond2 f16 tTmp)
   done
 
 let packusdw ins insLen ctxt =

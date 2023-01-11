@@ -1785,6 +1785,56 @@ let vpblendvb ins insLen ctxt =
     !!ir (dstC := tDst[2] |> AST.concatArr)
     !!ir (dstD := tDst[3] |> AST.concatArr)
   | _ -> raise InvalidOperandException
+
+let private getvpackusdw dst srcB srcA tmp oprSize ir =
+  let z16 = AST.num0 16<rt>
+  let z32 = AST.num0 32<rt>
+  let f16 = numU32 0xFFFFu 16<rt>
+  let f32 = numU32 0xFFFFu 32<rt>
+  for i in 0 .. 3 do
+  let tTmp = AST.extract tmp 16<rt> (16 * i)
+  let tDst = AST.extract dst 16<rt> (16 * i)
+  let tSrcA = AST.extract srcA 16<rt> (16 * i)
+  let tSrcB = AST.extract srcB 16<rt> (16 * i)
+  if i < 2 then
+    let tCondSrc = AST.extract srcA 16<rt> (32 * i)
+    let cond = (AST.extract srcA 32<rt> (32 * i)) .< z32
+    let cond2 = (AST.extract srcA 32<rt> (32 * i)) .> f32
+    !!ir (tTmp := AST.ite cond z16 tCondSrc)
+    !!ir (tDst := AST.ite cond2 f16 tTmp)
+  else
+    let tCondSrc = AST.extract srcB 16<rt> (32 * (i - 2))
+    let cond = (AST.extract srcB 32<rt> (32 * (i - 2))) .< z32
+    let cond2 = (AST.extract srcB 32<rt> (32 * (i - 2))) .> f32
+    !!ir (tTmp := AST.ite cond z16 tCondSrc)
+    !!ir (tDst := AST.ite cond2 f16 tTmp)
+
+let vpackusdw ins insLen ctxt =
+  let ir = !*ctxt
+  !<ir insLen
+  let oprSize = getOperationSize ins
+  let struct (dst, src1, src2) = getThreeOprs ins
+  match oprSize with
+  | 128<rt> ->
+    let dstB, dstA = transOprToExpr128 ir false ins insLen ctxt dst
+    let src1B, src1A = transOprToExpr128 ir false ins insLen ctxt src1
+    let src2B, src2A = transOprToExpr128 ir false ins insLen ctxt src2
+    let struct (tmpA, tmpB) = tmpVars2 ir 64<rt>
+    getvpackusdw dstA src1B src1A tmpA oprSize ir
+    getvpackusdw dstB src2B src2A tmpB oprSize ir
+    fillZeroHigh128 ctxt dst ir
+  | 256<rt> ->
+    let dstD, dstC, dstB, dstA = transOprToExpr256 ir false ins insLen ctxt dst
+    let src1D, src1C, src1B, src1A =
+      transOprToExpr256 ir false ins insLen ctxt src1
+    let src2D, src2C, src2B, src2A =
+      transOprToExpr256 ir false ins insLen ctxt src2
+    let struct (tmpA, tmpB, tmpC, tmpD) = tmpVars4 ir 64<rt>
+    getvpackusdw dstA src1B src1A tmpA oprSize ir
+    getvpackusdw dstB src2B src2A tmpB oprSize ir
+    getvpackusdw dstC src1D src1C tmpC oprSize ir
+    getvpackusdw dstD src2D src2C tmpD oprSize ir
+  | _ -> raise InvalidOperandSizeException
   !>ir insLen
 
 let vpbroadcastb ins insLen ctxt =
