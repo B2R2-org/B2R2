@@ -1189,15 +1189,14 @@ let loadLeftRight insInfo insLen ctxt memShf regShf amtOp oprSz =
       if is32Bit ctxt then rt, baseOffset
       else AST.xtlo 32<rt> rt, AST.xtlo 32<rt> baseOffset
     else rt, baseOffset
-  let struct (t1, t2, t3) = tmpVars3 ir oprSz
+  let struct (vaddr0To2, t1, t2, t3) = tmpVars4 ir oprSz
   let mask = numI32 (((int oprSz) >>> 3) - 1) oprSz
-  let vaddr0To2 = (baseOffset .& mask) <+> (transBigEndianCPU ctxt oprSz)
-  let baseAddress = loadBaseAddr oprSz baseOffset
   !<ir insLen
-  !!ir (t1 := vaddr0To2)
-  !!ir (t2 := ((amtOp t1 mask) .+ AST.num1 oprSz) .* numI32 8 oprSz)
-  !!ir (t3 := (amtOp (mask .- t1) mask) .* numI32 8 oprSz)
-  let result = shifterLoad memShf regShf rRt t2 t3 baseAddress
+  !!ir (t1 := baseOffset)
+  !!ir (vaddr0To2 := t1 .& mask <+> (transBigEndianCPU ctxt oprSz))
+  !!ir (t2 := ((amtOp vaddr0To2 mask) .+ AST.num1 oprSz) .* numI32 8 oprSz)
+  !!ir (t3 := (amtOp (mask .- vaddr0To2) mask) .* numI32 8 oprSz)
+  let result = shifterLoad memShf regShf rRt t2 t3 (loadBaseAddr oprSz t1)
   !!ir (rt := if is32Bit ctxt then result else result |> AST.sext 64<rt>)
   advancePC ctxt ir
   !>ir insLen
