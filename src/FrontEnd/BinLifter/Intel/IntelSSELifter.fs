@@ -1833,6 +1833,36 @@ let opPcmpeqq _ = opPcmp 64<rt> (==)
 let pcmpeqq ins insLen ctxt =
   buildPackedInstr ins insLen ctxt 64<rt> opPcmpeqq
 
+let packedBlend ir oprSize packSz src1 src2 imm =
+  let packNum = int (oprSize / packSz)
+  let splitNum = int (oprSize / 64<rt>)
+  let srcNum = packNum / splitNum
+  let tDst = Array.init packNum (fun _ -> !+ir packSz)
+  let tsrc1 =
+    List.map (makeSrc ir packSz srcNum) src1 |> List.fold Array.append [||]
+  let tsrc2 =
+    List.map (makeSrc ir packSz srcNum) src2 |> List.fold Array.append [||]
+  for i in 0 .. packNum - 1 do
+    let cond = AST.extract imm 1<rt> i
+    !!ir (tDst[i] := AST.ite cond tsrc1[i] tsrc2[i])
+  tDst |> Array.splitInto splitNum
+
+let packedVblend ir oprSize packSz src1 src2 mask =
+  let packNum = int (oprSize / packSz)
+  let splitNum = int (oprSize / 64<rt>)
+  let srcNum = packNum / splitNum
+  let tDst = Array.init packNum (fun _ -> !+ir packSz)
+  let tsrc1 =
+    List.map (makeSrc ir packSz srcNum) src1 |> List.fold Array.append [||]
+  let tsrc2 =
+    List.map (makeSrc ir packSz srcNum) src2 |> List.fold Array.append [||]
+  let tmask =
+    List.map (makeSrc ir packSz srcNum) mask |> List.fold Array.append [||]
+  for i in 0 .. packNum - 1 do
+    let cond = AST.xthi 1<rt> tmask[i]
+    !!ir (tDst[i] := AST.ite cond tsrc1[i] tsrc2[i])
+  tDst |> Array.splitInto splitNum
+
 let blendpd ins insLen ctxt =
   let ir = !*ctxt
   !<ir insLen
@@ -1840,30 +1870,24 @@ let blendpd ins insLen ctxt =
   let dstB, dstA = transOprToExpr128 ir false ins insLen ctxt dst
   let srcB, srcA = transOprToExpr128 ir false ins insLen ctxt src
   let imm = transOprToExpr ir false ins insLen ctxt imm
-  let cond1 = AST.not (AST.extract imm 1<rt> 0)
-  let cond2 = AST.not (AST.extract imm 1<rt> 1)
-  !!ir (dstA := AST.ite cond1 dstA srcA)
-  !!ir (dstB := AST.ite cond2 dstB srcB)
+  let cond1 = AST.extract imm 1<rt> 0
+  let cond2 = AST.extract imm 1<rt> 1
+  !!ir (dstA := AST.ite cond1 srcA dstA)
+  !!ir (dstB := AST.ite cond2 srcB dstB)
   !>ir insLen
 
 let blendps ins insLen ctxt =
   let ir = !*ctxt
   !<ir insLen
+  let oprSize = getOperationSize ins
   let struct (dst, src, imm) = getThreeOprs ins
   let dstB, dstA = transOprToExpr128 ir false ins insLen ctxt dst
-  let srcB, srcA = transOprToExpr128 ir false ins insLen ctxt src
-  let struct (t1, t2, t3, t4) = tmpVars4 ir 32<rt>
+  let dst = transOprToExprVec ir false ins insLen ctxt dst
+  let src = transOprToExprVec ir false ins insLen ctxt src
   let imm = transOprToExpr ir false ins insLen ctxt imm
-  let cond1 = AST.not (AST.extract imm 1<rt> 0)
-  let cond2 = AST.not (AST.extract imm 1<rt> 1)
-  let cond3 = AST.not (AST.extract imm 1<rt> 2)
-  let cond4 = AST.not (AST.extract imm 1<rt> 3)
-  !!ir (t1 := AST.ite cond1 (AST.xtlo 32<rt> dstA) (AST.xtlo 32<rt> srcA))
-  !!ir (t2 := AST.ite cond2 (AST.xthi 32<rt> dstA) (AST.xthi 32<rt> srcA))
-  !!ir (t3 := AST.ite cond3 (AST.xtlo 32<rt> dstB) (AST.xtlo 32<rt> srcB))
-  !!ir (t4 := AST.ite cond4 (AST.xthi 32<rt> dstB) (AST.xthi 32<rt> srcB))
-  !!ir (dstA := AST.concat t2 t1)
-  !!ir (dstB := AST.concat t4 t3)
+  let tDst = packedBlend ir oprSize 32<rt> src dst imm
+  !!ir (dstA := tDst[0] |> AST.concatArr)
+  !!ir (dstB := tDst[1] |> AST.concatArr)
   !>ir insLen
 
 let blendvpd ins insLen ctxt =
@@ -1873,30 +1897,52 @@ let blendvpd ins insLen ctxt =
   let dstB, dstA = transOprToExpr128 ir false ins insLen ctxt dst
   let srcB, srcA = transOprToExpr128 ir false ins insLen ctxt src
   let xmm0B, xmm0A = transOprToExpr128 ir false ins insLen ctxt xmm0
-  let cond1 = AST.not (AST.xthi 1<rt> xmm0A)
-  let cond2 = AST.not (AST.xthi 1<rt> xmm0B)
-  !!ir (dstA := AST.ite cond1 dstA srcA)
-  !!ir (dstB := AST.ite cond2 dstB srcB)
+  let cond1 = AST.xthi 1<rt> xmm0A
+  let cond2 = AST.xthi 1<rt> xmm0B
+  !!ir (dstA := AST.ite cond1 srcA dstA)
+  !!ir (dstB := AST.ite cond2 srcB dstB)
   !>ir insLen
 
 let blendvps ins insLen ctxt =
   let ir = !*ctxt
   !<ir insLen
+  let oprSize = getOperationSize ins
   let struct (dst, src, xmm0) = getThreeOprs ins
   let dstB, dstA = transOprToExpr128 ir false ins insLen ctxt dst
-  let srcB, srcA = transOprToExpr128 ir false ins insLen ctxt src
-  let xmm0B, xmm0A = transOprToExpr128 ir false ins insLen ctxt xmm0
-  let struct (t1, t2, t3, t4) = tmpVars4 ir 32<rt>
-  let cond1 = AST.not (AST.extract xmm0A 1<rt> 31)
-  let cond2 = AST.not (AST.extract xmm0A 1<rt> 63)
-  let cond3 = AST.not (AST.extract xmm0B 1<rt> 31)
-  let cond4 = AST.not (AST.extract xmm0B 1<rt> 63)
-  !!ir (t1 := AST.ite cond1 (AST.xtlo 32<rt> dstA) (AST.xtlo 32<rt> srcA))
-  !!ir (t2 := AST.ite cond2 (AST.xthi 32<rt> dstA) (AST.xthi 32<rt> srcA))
-  !!ir (t3 := AST.ite cond3 (AST.xtlo 32<rt> dstB) (AST.xtlo 32<rt> srcB))
-  !!ir (t4 := AST.ite cond4 (AST.xthi 32<rt> dstB) (AST.xthi 32<rt> srcB))
-  !!ir (dstA := AST.concat t2 t1)
-  !!ir (dstB := AST.concat t4 t3)
+  let dst = transOprToExprVec ir false ins insLen ctxt dst
+  let src = transOprToExprVec ir false ins insLen ctxt src
+  let xmm0 = transOprToExprVec ir false ins insLen ctxt xmm0
+  let tDst = packedVblend ir oprSize 32<rt> src dst xmm0
+  !!ir (dstA := tDst[0] |> AST.concatArr)
+  !!ir (dstB := tDst[1] |> AST.concatArr)
+  !>ir insLen
+
+let pblendvb ins insLen ctxt =
+  let ir = !*ctxt
+  !<ir insLen
+  let oprSize = getOperationSize ins
+  let struct (dst, src, xmm0) = getThreeOprs ins
+  let dstB, dstA = transOprToExpr128 ir false ins insLen ctxt dst
+  let dst = transOprToExprVec ir false ins insLen ctxt dst
+  let src = transOprToExprVec ir false ins insLen ctxt src
+  let xmm0 = transOprToExprVec ir false ins insLen ctxt xmm0
+  let tDst = packedVblend ir oprSize 8<rt> src dst xmm0
+  !!ir (dstA := tDst[0] |> AST.concatArr)
+  !!ir (dstB := tDst[1] |> AST.concatArr)
+  !>ir insLen
+
+let pblendw ins insLen ctxt =
+  let ir = !*ctxt
+  !<ir insLen
+  let oprSize = getOperationSize ins
+  let struct (dst, src, imm) = getThreeOprs ins
+  let dstB, dstA = transOprToExpr128 ir false ins insLen ctxt dst
+  let dst = transOprToExprVec ir false ins insLen ctxt dst
+  let src = transOprToExprVec ir false ins insLen ctxt src
+  let imm = transOprToExpr ir false ins insLen ctxt imm
+  let tDst = packedBlend ir oprSize 16<rt> src dst imm
+  !!ir (dstA := tDst[0] |> AST.concatArr)
+  !!ir (dstB := tDst[1] |> AST.concatArr)
   !>ir insLen
 
 /// XXX (cleanup required)

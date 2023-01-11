@@ -1664,6 +1664,126 @@ let vpand ins insLen ctxt =
 let vpandn ins insLen ctxt =
   buildPackedInstr ins insLen ctxt 64<rt> opPandn
 
+let vblendvpd ins insLen ctxt =
+  let ir = !*ctxt
+  !<ir insLen
+  let oprSize = getOperationSize ins
+  let struct (dst, src1, src2, src3) = getFourOprs ins
+  let src1 = transOprToExprVec ir false ins insLen ctxt src1
+  let src2 = transOprToExprVec ir false ins insLen ctxt src2
+  let src3 = transOprToExprVec ir false ins insLen ctxt src3
+  let tDst = packedVblend ir oprSize 64<rt> src2 src1 src3
+  match oprSize with
+  | 128<rt> ->
+    let dstB, dstA = transOprToExpr128 ir false ins insLen ctxt dst
+    !!ir (dstA := tDst[0] |> AST.concatArr)
+    !!ir (dstB := tDst[1] |> AST.concatArr)
+    fillZeroFromVLToMaxVL ctxt dst 128 512 ir
+  | 256<rt> ->
+    let dstD, dstC, dstB, dstA = transOprToExpr256 ir false ins insLen ctxt dst
+    !!ir (dstA := tDst[0] |> AST.concatArr)
+    !!ir (dstB := tDst[1] |> AST.concatArr)
+    !!ir (dstC := tDst[2] |> AST.concatArr)
+    !!ir (dstD := tDst[3] |> AST.concatArr)
+  | _ -> raise InvalidOperandException
+  !>ir insLen
+
+let vblendvps ins insLen ctxt =
+  let ir = !*ctxt
+  !<ir insLen
+  let oprSize = getOperationSize ins
+  let struct (dst, src1, src2, src3) = getFourOprs ins
+  let src1 = transOprToExprVec ir false ins insLen ctxt src1
+  let src2 = transOprToExprVec ir false ins insLen ctxt src2
+  let src3 = transOprToExprVec ir false ins insLen ctxt src3
+  let tDst = packedVblend ir oprSize 32<rt> src2 src1 src3
+  match oprSize with
+  | 128<rt> ->
+    let dstB, dstA = transOprToExpr128 ir false ins insLen ctxt dst
+    !!ir (dstA := tDst[0] |> AST.concatArr)
+    !!ir (dstB := tDst[1] |> AST.concatArr)
+    fillZeroFromVLToMaxVL ctxt dst 128 512 ir
+  | 256<rt> ->
+    let dstD, dstC, dstB, dstA = transOprToExpr256 ir false ins insLen ctxt dst
+    !!ir (dstA := tDst[0] |> AST.concatArr)
+    !!ir (dstB := tDst[1] |> AST.concatArr)
+    !!ir (dstC := tDst[2] |> AST.concatArr)
+    !!ir (dstD := tDst[3] |> AST.concatArr)
+  | _ -> raise InvalidOperandException
+  !>ir insLen
+
+let vpblendd ins insLen ctxt =
+  let ir = !*ctxt
+  !<ir insLen
+  let oprSize = getOperationSize ins
+  let struct (dst, src1, src2, imm) = getFourOprs ins
+  let src1 = transOprToExprVec ir false ins insLen ctxt src1
+  let src2 = transOprToExprVec ir false ins insLen ctxt src2
+  let imm = transOprToExpr ir false ins insLen ctxt imm
+  let tDst = packedBlend ir oprSize 32<rt> src2 src1 imm
+  match oprSize with
+  | 128<rt> ->
+    let dstB, dstA = transOprToExpr128 ir false ins insLen ctxt dst
+    !!ir (dstA := tDst[0] |> AST.concatArr)
+    !!ir (dstB := tDst[1] |> AST.concatArr)
+    fillZeroFromVLToMaxVL ctxt dst 128 512 ir
+  | 256<rt> ->
+    let dstD, dstC, dstB, dstA = transOprToExpr256 ir false ins insLen ctxt dst
+    !!ir (dstA := tDst[0] |> AST.concatArr)
+    !!ir (dstB := tDst[1] |> AST.concatArr)
+    !!ir (dstC := tDst[2] |> AST.concatArr)
+    !!ir (dstD := tDst[3] |> AST.concatArr)
+  | _ -> raise InvalidOperandException
+  !>ir insLen
+
+let vpblendw ins insLen ctxt =
+  let ir = !*ctxt
+  !<ir insLen
+  let oprSize = getOperationSize ins
+  let struct (dst, src1, src2, imm) = getFourOprs ins
+  let src1 = transOprToExprVec ir false ins insLen ctxt src1
+  let src2 = transOprToExprVec ir false ins insLen ctxt src2
+  let imm = transOprToExpr ir false ins insLen ctxt imm
+  let tDst = packedBlend ir oprSize 16<rt> src2 src1 imm
+  match oprSize with
+  | 128<rt> ->
+    let dstB, dstA = transOprToExpr128 ir false ins insLen ctxt dst
+    !!ir (dstA := tDst[0] |> AST.concatArr)
+    !!ir (dstB := tDst[1] |> AST.concatArr)
+    fillZeroFromVLToMaxVL ctxt dst 128 512 ir
+  | 256<rt> ->
+    let dstD, dstC, dstB, dstA = transOprToExpr256 ir false ins insLen ctxt dst
+    !!ir (dstA := tDst[0] |> AST.concatArr)
+    !!ir (dstB := tDst[1] |> AST.concatArr)
+    !!ir (dstC := tDst[2] |> AST.concatArr)
+    !!ir (dstD := tDst[3] |> AST.concatArr)
+  | _ -> raise InvalidOperandException
+  !>ir insLen
+
+let vpblendvb ins insLen ctxt =
+  let ir = !*ctxt
+  !<ir insLen
+  let oprSize = getOperationSize ins
+  let struct (dst, src1, src2, src3) = getFourOprs ins
+  let src1 = transOprToExprVec ir false ins insLen ctxt src1
+  let src2 = transOprToExprVec ir false ins insLen ctxt src2
+  let src3 = transOprToExprVec ir false ins insLen ctxt src3
+  let tDst = packedVblend ir oprSize 8<rt> src2 src1 src3
+  match oprSize with
+  | 128<rt> ->
+    let dstB, dstA = transOprToExpr128 ir false ins insLen ctxt dst
+    !!ir (dstA := tDst[0] |> AST.concatArr)
+    !!ir (dstB := tDst[1] |> AST.concatArr)
+    fillZeroFromVLToMaxVL ctxt dst 128 512 ir
+  | 256<rt> ->
+    let dstD, dstC, dstB, dstA = transOprToExpr256 ir false ins insLen ctxt dst
+    !!ir (dstA := tDst[0] |> AST.concatArr)
+    !!ir (dstB := tDst[1] |> AST.concatArr)
+    !!ir (dstC := tDst[2] |> AST.concatArr)
+    !!ir (dstD := tDst[3] |> AST.concatArr)
+  | _ -> raise InvalidOperandException
+  !>ir insLen
+
 let vpbroadcastb ins insLen ctxt =
   let ir = !*ctxt
   let struct (dst, src) = getTwoOprs ins
