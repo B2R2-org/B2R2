@@ -1572,6 +1572,29 @@ let umull ins insLen ctxt addr =
     !!ir (dst := AST.zext 64<rt> src1 .* AST.zext 64<rt> src2)
   !>ir insLen
 
+let uqsub ins insLen ctxt addr =
+  let ir = !*ctxt
+  let struct (o1, o2, o3) = getThreeOprs ins
+  let struct (eSize, dataSize, elements) = getElemDataSzAndElems o1
+  let diff = !+ir 64<rt>
+  !<ir insLen
+  match ins.Operands with
+  | ThreeOperands (OprSIMD (SIMDVecReg _), _, _) ->
+    let dstB, dstA = transOprToExpr128 ins ctxt addr o1
+    let src1 = transSIMDOprToExpr ctxt eSize dataSize elements o2
+    let src2 = transSIMDOprToExpr ctxt eSize dataSize elements o3
+    let result =
+      Array.map2 (fun e1 e2 ->
+        let diff = AST.zext 64<rt> e1 .- AST.zext 64<rt> e2
+        satQ diff eSize true ir) src1 src2
+    dstAssignForSIMD dstA dstB result dataSize elements ir
+  | ThreeOperands (OprSIMD (SIMDFPScalarReg _), _, _) ->
+    let dst, src1, src2 = transThreeOprs ins ctxt addr
+    !!ir (diff := AST.zext 64<rt> src1 .- AST.zext 64<rt> src2)
+    !!ir (dstAssign eSize dst (satQ diff eSize true ir))
+  | _ -> raise InvalidOperandException
+  !>ir insLen
+
 let usra ins insLen ctxt addr =
   let ir = !*ctxt
   let struct (o1, o2, o3) = getThreeOprs ins
@@ -1798,6 +1821,7 @@ let translate ins insLen ctxt =
   | Opcode.UMULH -> umulh ins insLen ctxt addr
   | Opcode.UMULL -> umull ins insLen ctxt addr
   | Opcode.UMOV -> sideEffects insLen ctxt UnsupportedFP
+  | Opcode.UQSUB -> uqsub ins insLen ctxt addr
   | Opcode.URSHL -> sideEffects insLen ctxt UnsupportedFP
   | Opcode.USHL -> sideEffects insLen ctxt UnsupportedFP
   | Opcode.USHLL | Opcode.USHLL2 | Opcode.USHR ->

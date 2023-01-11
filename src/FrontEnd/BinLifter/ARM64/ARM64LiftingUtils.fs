@@ -780,6 +780,38 @@ let decodeBitMasks immr imms dataSize =
 let countLeadingZeroBitsForIR src oprSize ir =
   highestSetBitForIR src (RegType.toBitWidth oprSize) oprSize ir
 
+/// shared/functions/vector/UnsignedSatQ
+/// UnsignedSatQ()
+/// ==============
+let unsignedSatQ i (n: RegType) ir =
+  let struct (max, n0) = tmpVars2 ir n
+  let res = !+ir 64<rt>
+  !!ir (res := i)
+  !!ir (max := getMaskForIR (numI64 (int n) n) n)
+  !!ir (n0 := AST.num0 n)
+  let cond1 = res .> AST.sext 64<rt> max
+  let cond2 = res ?< AST.zext 64<rt> n0
+  AST.ite cond1 max (AST.ite cond2 n0 (AST.xtlo n res))
+
+/// shared/functions/vector/SignedSatQ
+/// SignedSatQ()
+/// ============
+let signedSatQ i n ir =
+  let struct (max, negRes) = tmpVars2 ir n
+  let res = !+ir 64<rt>
+  !!ir (res := i)
+  !!ir (max := getMaskForIR (numI64 (int n) n) n)
+  !!ir (negRes := AST.neg max)
+  let cond1 = res ?> AST.zext 64<rt> max
+  let cond2 = res ?< AST.zext 64<rt> negRes
+  AST.ite cond1 max (AST.ite cond2 negRes (AST.xtlo n res))
+
+/// shared/functions/vector/SatQ
+/// SatQ()
+/// ======
+let satQ i n isUnsigned ir = (* FIMXE: return saturated (FPSR.QC = '1') *)
+  if isUnsigned then unsignedSatQ i n ir else signedSatQ i n ir
+
 /// 64-bit operands generate a 64-bit result in the destination general-purpose
 /// register. 32-bit operands generate a 32-bit result, zero-extended to a
 /// 64-bit result in the destination general-purpose register.
