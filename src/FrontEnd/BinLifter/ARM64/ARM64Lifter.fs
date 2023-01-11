@@ -1464,6 +1464,24 @@ let tst ins insLen ctxt addr =
   !!ir (getRegVar ctxt R.V := AST.b0)
   !>ir insLen
 
+let uaddw ins insLen ctxt addr =
+  let ir = !*ctxt
+  let struct (dst, src1, src2) = getThreeOprs ins
+  let struct (eSize, dataSize, _) = getElemDataSzAndElems src2
+  let elements = 64<rt> / eSize
+  let dstB, dstA = transOprToExpr128 ins ctxt addr dst
+  let src1 = transSIMDOprToExpr ctxt (2 * eSize) 128<rt> elements src1
+  let src2 =
+    if dataSize = 128<rt> then
+      let src2 = transSIMDOprToExpr ctxt eSize dataSize (elements * 2) src2
+      Array.sub src2 elements elements
+    else transSIMDOprToExpr ctxt eSize dataSize elements src2
+  !<ir insLen
+  let result =
+    Array.map2 (fun e1 e2 -> e1 .+ (AST.zext (2 * eSize) e2)) src1 src2
+  dstAssignForSIMD dstA dstB result 128<rt> elements ir
+  !>ir insLen
+
 let ubfm ins insLen ctxt addr dst src immr imms =
   let ir = !*ctxt
   let oSz = ins.OprSize
@@ -1765,8 +1783,8 @@ let translate ins insLen ctxt =
   | Opcode.TBNZ -> tbnz ins insLen ctxt addr
   | Opcode.TBZ -> tbz ins insLen ctxt addr
   | Opcode.TST -> tst ins insLen ctxt addr
-  | Opcode.UADDLV | Opcode.UADDW | Opcode.UMAXV ->
-    sideEffects insLen ctxt UnsupportedFP
+  | Opcode.UADDLV | Opcode.UMAXV -> sideEffects insLen ctxt UnsupportedFP
+  | Opcode.UADDW | Opcode.UADDW2 -> uaddw ins insLen ctxt addr
   | Opcode.UBFIZ -> ubfiz ins insLen ctxt addr
   | Opcode.UBFX -> ubfx ins insLen ctxt addr
   | Opcode.UCVTF -> sideEffects insLen ctxt UnsupportedFP
