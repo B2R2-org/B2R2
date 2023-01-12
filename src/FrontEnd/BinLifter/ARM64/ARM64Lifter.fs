@@ -893,9 +893,17 @@ let mov ins insLen ctxt addr =
   let ir = !*ctxt
   !<ir insLen
   match ins.Operands with
-  | TwoOperands (_, OprSIMD _) ->
-    let dst, src = transTwoOprs ins ctxt addr
-    !!ir (dstAssign ins.OprSize dst src)
+  | TwoOperands (OprSIMD (SIMDVecReg _), OprSIMD (SIMDVecReg _)) ->
+    let struct (dst, src) = getTwoOprs ins
+    let struct (_, dataSize, _) = getElemDataSzAndElems dst
+    let dstB, dstA = transOprToExpr128 ins ctxt addr dst
+    let srcB, srcA = transOprToExpr128 ins ctxt addr src
+    if dataSize = 128<rt> then
+      !!ir (dstA := srcA)
+      !!ir (dstB := srcB)
+    else
+      !!ir (dstA := srcA)
+      !!ir (dstB := AST.num0 64<rt>)
   | _ ->
     let dst, src = transTwoOprs ins ctxt addr
     !!ir (dstAssign ins.OprSize dst src)
