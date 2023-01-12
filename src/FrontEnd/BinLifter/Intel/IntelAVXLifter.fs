@@ -1785,6 +1785,7 @@ let vpblendvb ins insLen ctxt =
     !!ir (dstC := tDst[2] |> AST.concatArr)
     !!ir (dstD := tDst[3] |> AST.concatArr)
   | _ -> raise InvalidOperandException
+  !>ir insLen
 
 let private getvpackusdw dst srcB srcA tmp oprSize ir =
   let z16 = AST.num0 16<rt>
@@ -1836,6 +1837,12 @@ let vpackusdw ins insLen ctxt =
     getvpackusdw dstD src2D src2C tmpD oprSize ir
   | _ -> raise InvalidOperandSizeException
   !>ir insLen
+
+let vpavgb ins insLen ctxt = (* FIXME: FillZeroMAXVL*)
+  buildPackedInstr ins insLen ctxt 8<rt> SSELifter.opPavgb
+
+let vpavgw ins insLen ctxt = (* FIXME: FillZeroMAXVL*)
+  buildPackedInstr ins insLen ctxt 16<rt> SSELifter.opPavgw
 
 let vpbroadcastb ins insLen ctxt =
   let ir = !*ctxt
@@ -1994,10 +2001,13 @@ let vpinsrq ins insLen ctxt =
   fillZeroFromVLToMaxVL ctxt dst 128 512 ir
   !>ir insLen
 
-let vpminub ins insLen ctxt =
+let vpmaxsd ins insLen ctxt = (* FIXME: FillZeroMAXVL*)
+  buildPackedInstr ins insLen ctxt 32<rt> SSELifter.opPmaxs
+
+let vpminub ins insLen ctxt = (* FIXME: FillZeroMAXVL*)
   buildPackedInstr ins insLen ctxt 8<rt> SSELifter.opPminu
 
-let vpminud ins insLen ctxt =
+let vpminud ins insLen ctxt = (* FIXME: FillZeroMAXVL*)
   buildPackedInstr ins insLen ctxt 32<rt> SSELifter.opPminu
 
 let vpminsb ins insLen ctxt =
@@ -2383,6 +2393,59 @@ let vpslldq ins insLen ctxt =
   | _ -> raise InvalidOperandSizeException
   !>ir insLen
 
+let private transOprToArr ir ins insLen ctxt packSize packNum oprSize opr =
+  let pos = int packSize
+  match oprSize with
+  | 128<rt> ->
+    let oprB, oprA = transOprToExpr128 ir false ins insLen ctxt opr
+    let oprA = Array.init packNum (fun i -> AST.extract oprA packSize (i * pos))
+    let oprB = Array.init packNum (fun i -> AST.extract oprB packSize (i * pos))
+    Array.append oprA oprB
+  | 256<rt> ->
+    let oprD, oprC, oprB, oprA = transOprToExpr256 ir false ins insLen ctxt opr
+    let oprA = Array.init packNum (fun i -> AST.extract oprA packSize (i * pos))
+    let oprB = Array.init packNum (fun i -> AST.extract oprB packSize (i * pos))
+    let oprC = Array.init packNum (fun i -> AST.extract oprC packSize (i * pos))
+    let oprD = Array.init packNum (fun i -> AST.extract oprD packSize (i * pos))
+    Array.concat [| oprA; oprB; oprC; oprD |]
+  | _ -> raise InvalidOperandSizeException
+
+let private shiftPackedDataRightArith ins insLen ctxt packSize =
+  let ir = !*ctxt
+  !<ir insLen
+  let oprSize = getOperationSize ins
+  let packNum = 64<rt> / packSize
+  let struct (dst, src1, src2) = getThreeOprs ins
+  let src1 = transOprToArr ir ins insLen ctxt packSize packNum oprSize src1
+  let src2 =
+    match src2 with
+    | OprImm _ -> transOprToExpr ir false ins insLen ctxt src2
+    | _ -> transOprToExpr128 ir false ins insLen ctxt src2 |> snd
+  let struct (cnt, max) = tmpVars2 ir packSize
+  !!ir (max := numI32 (int packSize) packSize)
+  !!ir (cnt := AST.xtlo packSize src2)
+  !!ir (cnt := AST.ite (cnt .> max .- AST.num1 packSize) max cnt)
+  match oprSize with
+  | 128<rt> ->
+    let dstB, dstA = transOprToExpr128 ir false ins insLen ctxt dst
+    let result = Array.map (fun e -> e >> cnt) src1
+    !!ir (dstA := Array.sub result 0 packNum |> AST.concatArr)
+    !!ir (dstB := Array.sub result (1 * packNum) packNum |> AST.concatArr)
+    fillZeroFromVLToMaxVL ctxt dst 128 512 ir
+  | 256<rt> ->
+    let dstD, dstC, dstB, dstA = transOprToExpr256 ir false ins insLen ctxt dst
+    let result = Array.map (fun e -> e >> cnt) src1
+    !!ir (dstA := Array.sub result 0 packNum |> AST.concatArr)
+    !!ir (dstB := Array.sub result (1 * packNum) packNum |> AST.concatArr)
+    !!ir (dstC := Array.sub result (2 * packNum) packNum |> AST.concatArr)
+    !!ir (dstD := Array.sub result (3 * packNum) packNum |> AST.concatArr)
+    fillZeroFromVLToMaxVL ctxt dst 256 512 ir
+  | _ -> raise InvalidOperandSizeException
+  !>ir insLen
+
+let vpsrad ins insLen ctxt = shiftPackedDataRightArith ins insLen ctxt 32<rt>
+let vpsraw ins insLen ctxt = shiftPackedDataRightArith ins insLen ctxt 16<rt>
+
 let vpsrlq ins insLen ctxt =
   buildPackedInstr ins insLen ctxt 64<rt> opVpsllq
 
@@ -2446,6 +2509,9 @@ let vpsrld ins insLen ctxt =
 
 let vpsubb ins insLen ctxt =
   buildPackedInstr ins insLen ctxt 8<rt> (opP (.-))
+
+let vpsubd ins insLen ctxt = (* FIXME: FillZeroMAXVL*)
+  buildPackedInstr ins insLen ctxt 32<rt> (opP (.-))
 
 let vptest ins insLen ctxt =
   if getOperationSize ins = 128<rt> then SSELifter.ptest ins insLen ctxt

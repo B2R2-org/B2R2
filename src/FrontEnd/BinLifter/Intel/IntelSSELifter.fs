@@ -1095,12 +1095,12 @@ let private opAveragePackedInt (packSz: int<rt>) =
     AST.extract (dblExt e1 .+ dblExt e2 .+ AST.num1 dblSz) packSz 1
   Array.map2 avg
 
-let private opPavgb _ = opAveragePackedInt 8<rt>
+let opPavgb _ = opAveragePackedInt 8<rt>
 
 let pavgb ins insLen ctxt =
   buildPackedInstr ins insLen ctxt 8<rt> opPavgb
 
-let private opPavgw _ = opAveragePackedInt 16<rt>
+let opPavgw _ = opAveragePackedInt 16<rt>
 
 let pavgw ins insLen ctxt =
   buildPackedInstr ins insLen ctxt 16<rt> opPavgw
