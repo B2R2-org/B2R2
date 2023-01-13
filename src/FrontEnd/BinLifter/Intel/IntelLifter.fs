@@ -572,6 +572,7 @@ let translate (ins: IntelInternalInstruction) insLen ctxt =
   | OP.VPMULHUW -> AVXLifter.vpmulhuw ins insLen ctxt
   | OP.VPMULLW -> AVXLifter.vpmullw ins insLen ctxt
   | OP.VPOR -> AVXLifter.vpor ins insLen ctxt
+  | OP.VPINSRW -> AVXLifter.vpinsrw ins insLen ctxt
   | OP.VPSHUFB -> AVXLifter.vpshufb ins insLen ctxt
   | OP.VPSHUFD -> AVXLifter.vpshufd ins insLen ctxt
   | OP.VPSLLD -> AVXLifter.vpslld ins insLen ctxt
@@ -579,6 +580,7 @@ let translate (ins: IntelInternalInstruction) insLen ctxt =
   | OP.VPSLLQ -> AVXLifter.vpsllq ins insLen ctxt
   | OP.VPSRAD -> AVXLifter.vpsrad ins insLen ctxt
   | OP.VPSRAW -> AVXLifter.vpsraw ins insLen ctxt
+  | OP.VPSRAVD -> AVXLifter.vpsravd ins insLen ctxt
   | OP.VPSRLD -> AVXLifter.vpsrld ins insLen ctxt
   | OP.VPSRLDQ -> AVXLifter.vpsrldq ins insLen ctxt
   | OP.VPSRLQ -> AVXLifter.vpsrlq ins insLen ctxt
@@ -587,8 +589,10 @@ let translate (ins: IntelInternalInstruction) insLen ctxt =
   | OP.VPTEST -> AVXLifter.vptest ins insLen ctxt
   | OP.VPUNPCKHDQ -> AVXLifter.vpunpckhdq ins insLen ctxt
   | OP.VPUNPCKHQDQ -> AVXLifter.vpunpckhqdq ins insLen ctxt
+  | OP.VPUNPCKHWD -> AVXLifter.vpunpckhwd ins insLen ctxt
   | OP.VPUNPCKLDQ -> AVXLifter.vpunpckldq ins insLen ctxt
   | OP.VPUNPCKLQDQ -> AVXLifter.vpunpcklqdq ins insLen ctxt
+  | OP.VPUNPCKLWD -> AVXLifter.vpunpcklwd ins insLen ctxt
   | OP.VPXOR -> AVXLifter.vpxor ins insLen ctxt
   | OP.VPXORD -> AVXLifter.vpxord ins insLen ctxt
   | OP.VZEROUPPER -> AVXLifter.vzeroupper ins insLen ctxt

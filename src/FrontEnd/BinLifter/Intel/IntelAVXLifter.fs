@@ -2267,6 +2267,32 @@ let vpshufb ins insLen ctxt =
   | _ -> raise InvalidOperandSizeException
   !>ir insLen
 
+let vpinsrw ins insLen ctxt =
+  let ir = !*ctxt
+  !<ir insLen
+  let struct (dst, src1, src2, count) = getFourOprs ins
+  let dstB, dstA = transOprToExpr128 ir false ins insLen ctxt dst
+  let src1B, src1A = transOprToExpr128 ir false ins insLen ctxt src1
+  let src2 = transOprToExpr ir false ins insLen ctxt src2
+  let sel = !+ir 64<rt>
+  let mask = !+ir 64<rt>
+  let count = getImmValue count
+  !!ir (sel := numI64 count 64<rt> .| numI64 7L 64<rt>)
+  !!ir (dstB := src1B)
+  !!ir (dstA := src1A)
+  if count > 3L then
+    let pos = (sel .- numI32 4 64<rt>) .* numI32 16 64<rt>
+    !!ir (mask := (numU64 0xffffUL 64<rt>) << pos)
+    !!ir (dstB := (dstB .& (AST.not mask))
+                        .| (AST.zext 64<rt> src2 << pos .& mask))
+  else
+    let pos = sel .* numI32 16 64<rt>
+    !!ir (mask := (numU64 0xffffUL 64<rt>) << pos)
+    !!ir (dstA := (dstA .& (AST.not mask))
+                        .| (AST.zext 64<rt> src2 << pos .& mask))
+  fillZeroFromVLToMaxVL ctxt dst 128 512 ir
+  !>ir insLen
+
 let vpshufd ins insLen ctxt =
   let struct (dst, src, ord) = getThreeOprs ins
   let ord = getImmValue ord
@@ -2446,6 +2472,51 @@ let private shiftPackedDataRightArith ins insLen ctxt packSize =
 let vpsrad ins insLen ctxt = shiftPackedDataRightArith ins insLen ctxt 32<rt>
 let vpsraw ins insLen ctxt = shiftPackedDataRightArith ins insLen ctxt 16<rt>
 
+let vpsravd ins insLen ctxt =
+  let ir = !*ctxt
+  !<ir insLen
+  let struct (dst, src1, src2) = getThreeOprs ins
+  let r = match dst with | OprReg r -> r | _ -> raise InvalidOperandException
+  match Register.getKind r with
+  | Register.Kind.XMM ->
+    let dstB, dstA = transOprToExpr128 ir false ins insLen ctxt dst
+    let src1B, src1A = transOprToExpr128 ir false ins insLen ctxt src1
+    let src2B, src2A = transOprToExpr128 ir false ins insLen ctxt src2
+    !!ir (AST.xtlo 32<rt> dstA :=
+           AST.sext 32<rt> ((AST.xtlo 32<rt> src1A) >> (AST.xtlo 32<rt> src2A)))
+    !!ir (AST.xthi 32<rt> dstA :=
+           AST.sext 32<rt> ((AST.xthi 32<rt> src1A) >> (AST.xthi 32<rt> src2A)))
+    !!ir (AST.xtlo 32<rt> dstB :=
+           AST.sext 32<rt> ((AST.xtlo 32<rt> src1B) >> (AST.xtlo 32<rt> src2B)))
+    !!ir (AST.xthi 32<rt> dstB :=
+           AST.sext 32<rt> ((AST.xthi 32<rt> src1B) >> (AST.xthi 32<rt> src2B)))
+    fillZeroFromVLToMaxVL ctxt dst 128 512 ir
+  | Register.Kind.YMM ->
+    let dstD, dstC, dstB, dstA = transOprToExpr256 ir false ins insLen ctxt dst
+    let src1D, src1C, src1B, src1A =
+      transOprToExpr256 ir false ins insLen ctxt src1
+    let src2D, src2C, src2B, src2A =
+      transOprToExpr256 ir false ins insLen ctxt src2
+    !!ir (AST.xtlo 32<rt> dstA :=
+           AST.sext 32<rt> ((AST.xtlo 32<rt> src1A) >> (AST.xtlo 32<rt> src2A)))
+    !!ir (AST.xthi 32<rt> dstA :=
+           AST.sext 32<rt> ((AST.xthi 32<rt> src1A) >> (AST.xthi 32<rt> src2A)))
+    !!ir (AST.xtlo 32<rt> dstB :=
+           AST.sext 32<rt> ((AST.xtlo 32<rt> src1B) >> (AST.xtlo 32<rt> src2B)))
+    !!ir (AST.xthi 32<rt> dstB :=
+           AST.sext 32<rt> ((AST.xthi 32<rt> src1B) >> (AST.xthi 32<rt> src2B)))
+    !!ir (AST.xtlo 32<rt> dstC :=
+           AST.sext 32<rt> ((AST.xtlo 32<rt> src1C) >> (AST.xtlo 32<rt> src2C)))
+    !!ir (AST.xthi 32<rt> dstC :=
+           AST.sext 32<rt> ((AST.xthi 32<rt> src1C) >> (AST.xthi 32<rt> src2C)))
+    !!ir (AST.xtlo 32<rt> dstD :=
+           AST.sext 32<rt> ((AST.xtlo 32<rt> src1D) >> (AST.xtlo 32<rt> src2D)))
+    !!ir (AST.xthi 32<rt> dstD :=
+           AST.sext 32<rt> ((AST.xthi 32<rt> src1D) >> (AST.xthi 32<rt> src2D)))
+    fillZeroFromVLToMaxVL ctxt dst 256 512 ir
+  | _ -> raise InvalidOperandSizeException
+  !>ir insLen
+
 let vpsrlq ins insLen ctxt =
   buildPackedInstr ins insLen ctxt 64<rt> opVpsllq
 
@@ -2546,6 +2617,44 @@ let vpunpckhdq ins insLen ctxt =
 
 let vpunpckhqdq ins insLen ctxt =
   buildPackedInstr ins insLen ctxt 64<rt> opPunpckHigh
+
+let private unpackLowHighData ins insLen ctxt packSize isHigh =
+  let ir = !*ctxt
+  !<ir insLen
+  let oprSize = getOperationSize ins
+  let packNum = 64<rt> / packSize
+  let allPackNum = oprSize / packSize
+  let struct (dst, src1, src2) = getThreeOprs ins
+  let src1 = transOprToArr ir ins insLen ctxt packSize packNum oprSize src1
+  let src2 = transOprToArr ir ins insLen ctxt packSize packNum oprSize src2
+  let resultA, resultB =
+    Array.fold2 (fun acc e1 e2 -> e2 :: e1 :: acc) [] src1 src2
+    |> List.rev |> List.toArray |> Array.splitAt allPackNum
+  match oprSize with
+  | 128<rt> ->
+    let dstB, dstA = transOprToExpr128 ir false ins insLen ctxt dst
+    let result = if isHigh then resultB else resultA
+    !!ir (dstA := Array.sub result 0 packNum |> AST.concatArr)
+    !!ir (dstB := Array.sub result packNum packNum |> AST.concatArr)
+    fillZeroFromVLToMaxVL ctxt dst 128 512 ir
+  | 256<rt> ->
+    let dstD, dstC, dstB, dstA = transOprToExpr256 ir false ins insLen ctxt dst
+    let resultA =
+      let resA, resB = Array.splitAt (allPackNum / 2) resultA
+      if isHigh then resB else resA
+    let resultB =
+      let resA, resB = Array.splitAt (allPackNum / 2) resultB
+      if isHigh then resB else resA
+    !!ir (dstA := Array.sub resultA 0 packNum |> AST.concatArr)
+    !!ir (dstB := Array.sub resultA packNum packNum |> AST.concatArr)
+    !!ir (dstC := Array.sub resultB 0 packNum |> AST.concatArr)
+    !!ir (dstD := Array.sub resultB packNum packNum |> AST.concatArr)
+    fillZeroFromVLToMaxVL ctxt dst 256 512 ir
+  | _ -> raise InvalidOperandSizeException
+  !>ir insLen
+
+let vpunpckhwd ins insLen ctxt = unpackLowHighData ins insLen ctxt 16<rt> true
+let vpunpcklwd ins insLen ctxt = unpackLowHighData ins insLen ctxt 16<rt> false
 
 let vpunpckldq ins insLen ctxt =
   buildPackedInstr ins insLen ctxt 32<rt> opPunpckLow
