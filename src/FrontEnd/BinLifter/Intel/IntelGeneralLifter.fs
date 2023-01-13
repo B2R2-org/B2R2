@@ -2304,7 +2304,7 @@ let shld ins insLen ctxt =
 let shrd ins insLen ctxt =
   shiftDblPrec ins insLen ctxt (>>) (<<) false
 
-let shlx ins insLen ctxt =
+let private shiftWithoutFlags ins insLen ctxt opFn =
   let ir = !*ctxt
   !<ir insLen
   let struct (dst, src1, src2) = transThreeOprs ir false ins insLen ctxt
@@ -2314,21 +2314,14 @@ let shlx ins insLen ctxt =
   let count = src2 .& (numI32 countMask oprSize)
   !!ir (temp := src1)
   !!ir (AST.xthi 1<rt> dst := AST.xthi 1<rt> temp)
-  !!ir (dst := dst << count)
+  !!ir (dst := opFn dst count)
   !>ir insLen
 
-let shrx ins insLen ctxt =
-  let ir = !*ctxt
-  !<ir insLen
-  let struct (dst, src1, src2) = transThreeOprs ir false ins insLen ctxt
-  let oprSize = getOperationSize ins
-  let temp = !+ir oprSize
-  let countMask = if is64REXW ctxt ins then 0x3F else 0x1F // FIXME: CS.L = 1
-  let count = src2 .& (numI32 countMask oprSize)
-  !!ir (temp := src1)
-  !!ir (AST.xthi 1<rt> dst := AST.xthi 1<rt> temp)
-  !!ir (dst := dst >> count)
-  !>ir insLen
+let sarx ins insLen ctxt = shiftWithoutFlags ins insLen ctxt (?>>)
+
+let shlx ins insLen ctxt = shiftWithoutFlags ins insLen ctxt (<<)
+
+let shrx ins insLen ctxt = shiftWithoutFlags ins insLen ctxt (>>)
 
 let setFlag insLen ctxt flag =
   let ir = !*ctxt

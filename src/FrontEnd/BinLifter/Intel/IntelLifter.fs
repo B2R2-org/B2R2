@@ -167,6 +167,7 @@ let translate (ins: IntelInternalInstruction) insLen ctxt =
     GeneralLifter.setcc ins insLen ctxt
   | OP.SETSSBSY -> GeneralLifter.nop insLen ctxt
   | OP.SHLD -> GeneralLifter.shld ins insLen ctxt
+  | OP.SARX -> GeneralLifter.sarx ins insLen ctxt
   | OP.SHLX -> GeneralLifter.shlx ins insLen ctxt
   | OP.SHRX -> GeneralLifter.shrx ins insLen ctxt
   | OP.SHRD -> GeneralLifter.shrd ins insLen ctxt
