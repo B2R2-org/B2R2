@@ -474,6 +474,7 @@ type Opcode =
   | BTLRL = 435
   | BFLRL = 436
   | BTCTRL = 437
+  | CLRRWI = 438
 
 type internal Op = Opcode
 

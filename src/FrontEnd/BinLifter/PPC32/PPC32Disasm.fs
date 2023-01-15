@@ -467,6 +467,7 @@ let opCodeToString = function
   | Op.BTLRL -> "btlrl"
   | Op.BFLRL -> "bflrl"
   | Op.BTCTRL -> "btctrl"
+  | Op.CLRRWI -> "clrrwi"
   | _ -> Utils.impossible ()
 
 let condToString = function
@@ -558,15 +559,24 @@ let buildSimpleMnemonic opcode bi addr insInfo (builder: DisasmBuilder<_>) =
   relToString insInfo.Address addr builder
 
 let buildCrMnemonic opcode bi (builder: DisasmBuilder<_>) =
-    let cr = extract bi 4u 2u |> getCondRegister
-    builder.Accumulate AsmWordKind.Mnemonic (opCodeToString opcode)
-    builder.Accumulate AsmWordKind.String " "
-    builder.Accumulate AsmWordKind.Variable (Register.toString cr)
+  let cr = extract bi 4u 2u |> getCondRegister
+  builder.Accumulate AsmWordKind.Mnemonic (opCodeToString opcode)
+  builder.Accumulate AsmWordKind.String " "
+  builder.Accumulate AsmWordKind.Variable (Register.toString cr)
 
 let buildTargetMnemonic opcode addr insInfo (builder: DisasmBuilder<_>) =
   builder.Accumulate AsmWordKind.Mnemonic (opCodeToString opcode)
   builder.Accumulate AsmWordKind.String " "
   relToString insInfo.Address addr builder
+
+let buildRotateMnemonic opcode ra rs n (builder: DisasmBuilder<_>) =
+  builder.Accumulate AsmWordKind.Mnemonic (opCodeToString opcode)
+  builder.Accumulate AsmWordKind.String " "
+  builder.Accumulate AsmWordKind.Variable (Register.toString ra)
+  builder.Accumulate AsmWordKind.String ", "
+  builder.Accumulate AsmWordKind.Variable (Register.toString rs)
+  builder.Accumulate AsmWordKind.String ", "
+  builder.Accumulate AsmWordKind.Value (String.u64ToHex n)
 
 let buildBC insInfo builder =
   match insInfo.Operands with
@@ -726,6 +736,22 @@ let buildBCCTRL insInfo builder =
       buildOprs insInfo builder
   | _ -> raise ParsingFailureException
 
+let buildRLWINM insInfo builder =
+  match insInfo.Operands with
+  | FiveOperands (OprReg ra, OprReg rs, OprImm sh, OprImm mb, OprImm me) ->
+    match sh, mb, me with
+    | _ , 0UL, 31UL -> buildRotateMnemonic Op.ROTLWI ra rs sh builder
+    | n1, 0UL, n2 when n2 = (31UL - n1) ->
+      buildRotateMnemonic Op.SLWI ra rs sh builder
+    | n1, n2, 31UL when n1 = (32UL - n2) ->
+      buildRotateMnemonic Op.SRWI ra rs mb builder
+    | 0UL, _ , 31UL -> buildRotateMnemonic Op.CLRLWI ra rs mb builder
+    | 0UL, 0UL, n -> buildRotateMnemonic Op.CLRRWI ra rs (31UL - me) builder
+    | _ ->
+      buildOpcode insInfo builder
+      buildOprs insInfo builder
+  | _ -> raise ParsingFailureException
+
 let disasm insInfo (builder: DisasmBuilder<_>) =
   if builder.ShowAddr then builder.AccumulateAddr () else ()
   match insInfo.Opcode with
@@ -737,6 +763,7 @@ let disasm insInfo (builder: DisasmBuilder<_>) =
   | Op.BCLRL -> buildBCLRL insInfo builder
   | Op.BCCTR -> buildBCCTR insInfo builder
   | Op.BCCTRL -> buildBCCTRL insInfo builder
+  | Op.RLWINM -> buildRLWINM insInfo builder
   | _ ->
     buildOpcode insInfo builder
     buildOprs insInfo builder

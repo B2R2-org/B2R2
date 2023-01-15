@@ -148,14 +148,15 @@ let getImmValue = function
   | _ -> raise InvalidOperandException
 
 let setCondReg ctxt ir result =
+  let xer = !.ctxt R.XER
   let cr0A = !.ctxt R.CR0_0
   let cr0B = !.ctxt R.CR0_1
   let cr0C = !.ctxt R.CR0_2
   let cr0D = !.ctxt R.CR0_3
-  !!ir (cr0A := result .< AST.num0 32<rt>)
-  !!ir (cr0B := result .> AST.num0 32<rt>)
+  !!ir (cr0A := result ?< AST.num0 32<rt>)
+  !!ir (cr0B := result ?> AST.num0 32<rt>)
   !!ir (cr0C := result == AST.num0 32<rt>)
-  !!ir (cr0D := AST.b0) /// FIXME: XER[SO]
+  !!ir (cr0D := AST.xtlo 1<rt> xer)
 
 let sideEffects insLen ctxt name =
   let ir = !*ctxt
@@ -164,6 +165,13 @@ let sideEffects insLen ctxt name =
   !>ir insLen
 
 let add ins insLen ctxt =
+  let struct (dst, src1, src2) = transThreeOprs ins ctxt
+  let ir = !*ctxt
+  !<ir insLen
+  !!ir (dst := src1 .+ src2)
+  !>ir insLen
+
+let adddot ins insLen ctxt =
   let struct (dst, src1, src2) = transThreeOprs ins ctxt
   let ir = !*ctxt
   !<ir insLen
@@ -270,8 +278,8 @@ let b ins insLen ctxt lk =
   let ir = !*ctxt
   let lr = !.ctxt R.LR
   !<ir insLen
-  !!ir (AST.interjmp addr InterJmpKind.Base)
   if lk then !!ir (lr := numU64 ins.Address 32<rt> .+ numI32 4 32<rt>)
+  !!ir (AST.interjmp addr InterJmpKind.Base)
   !>ir insLen
 
 let bc ins insLen ctxt aa lk =
@@ -316,9 +324,9 @@ let bclr ins insLen ctxt lk =
   !!ir (ctr := AST.ite (AST.not boC) (ctr .- AST.num1 32<rt>) ctr)
   !!ir (ctrOk := boC .| ((ctr != AST.num0 32<rt>) <+> boD))
   !!ir (condOk := boA .| (cr <+> AST.not boB))
-  !!ir (temp := AST.ite (ctrOk .& condOk) (lr << numI32 2 32<rt>) nia)
-  !!ir (AST.interjmp temp InterJmpKind.Base)
+  !!ir (temp := AST.ite (ctrOk .& condOk) (lr .& numI32 0xfffffffc 32<rt>) nia)
   if lk then !!ir (lr := nia)
+  !!ir (AST.interjmp temp InterJmpKind.Base)
   !>ir insLen
 
 let bcctr ins insLen ctxt lk =
@@ -334,17 +342,9 @@ let bcctr ins insLen ctxt lk =
   let temp = !+ir 32<rt>
   !<ir insLen
   !!ir (condOk := boA .| (cr <+> AST.not boB))
-  !!ir (temp := AST.ite condOk
-          (AST.concat (AST.xtlo 29<rt> ctr) (AST.num0 2<rt>)) nia)
-  !!ir (AST.interjmp temp InterJmpKind.Base)
+  !!ir (temp := AST.ite condOk (ctr .& numI32 0xfffffffc 32<rt>) nia)
   if lk then !!ir (lr := nia)
-  !>ir insLen
-
-let clrlwi ins insLen ctxt =
-  let struct (ra, rs, n) = transThreeOprs ins ctxt
-  let ir = !*ctxt
-  !<ir insLen (* No rotation *)
-  !!ir (ra := rs .& (getExtMask n (numI32 31 32<rt>)))
+  !!ir (AST.interjmp temp InterJmpKind.Base)
   !>ir insLen
 
 let cmp ins insLen ctxt =
@@ -733,8 +733,8 @@ let mulli ins insLen ctxt =
   let ir = !*ctxt
   let tmp = !+ir 64<rt>
   !<ir insLen
-  !!ir (tmp := (AST.sext 64<rt> ra) .* (AST.sext 64<rt> simm))
-  !!ir (dst := AST.extract tmp 32<rt> 16)
+  !!ir (tmp := (AST.zext 64<rt> ra) .* (AST.zext 64<rt> simm))
+  !!ir (dst := AST.xtlo 32<rt> tmp)
   !>ir insLen
 
 let mullw ins insLen ctxt =
@@ -832,14 +832,6 @@ let rotlw ins insLen ctxt =
   !!ir (ra := rol) (* no mask *)
   !>ir insLen
 
-let rotlwi ins insLen ctxt =
-  let struct (ra, rs, n) = transThreeOprs ins ctxt
-  let rol = rotateLeft rs n
-  let ir = !*ctxt
-  !<ir insLen
-  !!ir (ra := rol) (* no mask *)
-  !>ir insLen
-
 let slw ins insLen ctxt =
   let struct (dst, rs, rb) = transThreeOprs ins ctxt
   let ir = !*ctxt
@@ -850,14 +842,6 @@ let slw ins insLen ctxt =
   let rol = rotateLeft rs n
   !<ir insLen
   !!ir (dst := AST.ite cond rol z)
-  !>ir insLen
-
-let slwi ins insLen ctxt =
-  let struct (ra, rs, n) = transThreeOprs ins ctxt
-  let rol = rotateLeft rs n
-  let ir = !*ctxt
-  !<ir insLen
-  !!ir (ra := rol .& (getExtMask (AST.num0 32<rt>) (numI32 31 32<rt> .- n)))
   !>ir insLen
 
 let sraw ins insLen ctxt =
@@ -923,14 +907,6 @@ let srw ins insLen ctxt =
   !<ir insLen
   !!ir (n := (rb >> (numI32 27 32<rt>)))
   !!ir (dst := rotateLeft rs ((numI32 32 32<rt>) .- n) )
-  !>ir insLen
-
-let srwi ins insLen ctxt =
-  let struct (ra, rs, n) = transThreeOprs ins ctxt
-  let rol = (rs << ((numI32 32 32<rt>) .- n)) .| (rs >> n)
-  let ir = !*ctxt
-  !<ir insLen
-  !!ir (ra := rol .& (getExtMask n (numI32 31 32<rt>)))
   !>ir insLen
 
 let stb ins insLen ctxt =
@@ -1118,6 +1094,7 @@ let xoris ins insLen ctxt =
 let translate (ins: InsInfo) insLen (ctxt: TranslationContext) =
   match ins.Opcode with
   | Op.ADD -> add ins insLen ctxt
+  | Op.ADDdot -> adddot ins insLen ctxt
   | Op.ADDC -> addc ins insLen ctxt
   | Op.ADDE -> adde ins insLen ctxt
   | Op.ADDI -> addi ins insLen ctxt
@@ -1141,7 +1118,6 @@ let translate (ins: InsInfo) insLen (ctxt: TranslationContext) =
   | Op.BCCTRL -> bcctr ins insLen ctxt true
   | Op.BCLR -> bclr ins insLen ctxt false
   | Op.BCLRL -> bclr ins insLen ctxt true
-  | Op.CLRLWI -> clrlwi ins insLen ctxt
   | Op.CMPI | Op.CMPL | Op.CMPLI -> raise InvalidOperandException (* invaild *)
   | Op.CMP -> cmp ins insLen ctxt
   | Op.CMPW -> cmp ins insLen ctxt
@@ -1161,6 +1137,7 @@ let translate (ins: InsInfo) insLen (ctxt: TranslationContext) =
   | Op.FMADD -> fmadd ins insLen ctxt
   | Op.FMR -> fmr ins insLen ctxt
   | Op.FMSUB -> fmsub ins insLen ctxt
+  | Op.ISYNC -> sideEffects insLen ctxt ClockCounter
   | Op.LBZ -> lbz ins insLen ctxt
   | Op.LBZX -> lbzx ins insLen ctxt
   | Op.LFD -> lfd ins insLen ctxt
@@ -1200,14 +1177,12 @@ let translate (ins: InsInfo) insLen (ctxt: TranslationContext) =
   | Op.RLWINM -> rlwinm ins insLen ctxt
   | Op.RLWINMdot -> rlwinmdot ins insLen ctxt
   | Op.ROTLW -> rotlw ins insLen ctxt
-  | Op.ROTLWI -> rotlwi ins insLen ctxt
+  | Op.SC -> sideEffects insLen ctxt SysCall
   | Op.SLW -> slw ins insLen ctxt
-  | Op.SLWI -> slwi ins insLen ctxt
   | Op.SRAW -> sraw ins insLen ctxt
   | Op.SRAWI -> srawi ins insLen ctxt
   | Op.SRAWIdot -> srawidot ins insLen ctxt
   | Op.SRW -> srw ins insLen ctxt
-  | Op.SRWI -> srwi ins insLen ctxt
   | Op.STB -> stb ins insLen ctxt
   | Op.STBU -> stbu ins insLen ctxt
   | Op.STBX -> stbx ins insLen ctxt
