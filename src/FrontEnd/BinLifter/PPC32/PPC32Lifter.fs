@@ -117,7 +117,7 @@ let transFiveOprs (ins: InsInfo) ctxt =
             transOprToExpr ins ctxt o5)
   | _ -> raise InvalidOperandException
 
-let getCRRegValue ctxt reg =
+let transCRxToExpr ctxt reg =
   match reg with
   | R.CR0 -> !.ctxt R.CR0_0, !.ctxt R.CR0_1, !.ctxt R.CR0_2, !.ctxt R.CR0_3
   | R.CR1 -> !.ctxt R.CR1_0, !.ctxt R.CR1_1, !.ctxt R.CR1_2, !.ctxt R.CR1_3
@@ -132,15 +132,40 @@ let getCRRegValue ctxt reg =
 let transCmpOprs (ins: InsInfo) ctxt =
   match ins.Operands with
   | ThreeOperands (OprReg o1, o2, o3) ->
-    struct (getCRRegValue ctxt o1,
+    struct (transCRxToExpr ctxt o1,
             transOprToExpr ins ctxt o2,
             transOprToExpr ins ctxt o3)
 
   | FourOperands (OprReg o1, _ , o3, o4) ->
-    struct (getCRRegValue ctxt o1,
+    struct (transCRxToExpr ctxt o1,
             transOprToExpr ins ctxt o3,
             transOprToExpr ins ctxt o4)
   | _ -> raise InvalidOperandException
+
+let transCondOneOpr (ins: InsInfo) ctxt =
+  match ins.Operands with
+  | OneOperand (OprReg o) ->
+    transCRxToExpr ctxt o
+  | _ -> raise InvalidOperandException
+
+let transCondTwoOprs (ins: InsInfo) ctxt =
+  match ins.Operands with
+  | TwoOperands (OprReg o1, OprReg o2) ->
+    struct (transCRxToExpr ctxt o1, transCRxToExpr ctxt o2)
+  | _ -> raise InvalidOperandException
+
+let transCondThreeOprs (ins: InsInfo) ctxt =
+  match ins.Operands with
+  | ThreeOperands (OprReg o1, OprReg o2, OprReg o3) ->
+    struct (transCRxToExpr ctxt o1,
+            transCRxToExpr ctxt o2,
+            transCRxToExpr ctxt o3)
+  | _ -> raise InvalidOperandException
+
+let getCRRegValue ir cr ctxt =
+  for i in 0 .. 31 do
+    let crbit = uint32 (31 - i) |> getCRbitRegister |> !.ctxt
+    !!ir (AST.extract cr 1<rt> i := crbit)
 
 let getImmValue = function
   | OprImm imm -> uint32 imm
@@ -157,6 +182,11 @@ let setCondReg ctxt ir result =
   !!ir (cr0B := result ?> AST.num0 32<rt>)
   !!ir (cr0C := result == AST.num0 32<rt>)
   !!ir (cr0D := AST.xtlo 1<rt> xer)
+
+let setCRRegValue ir cr ctxt =
+  for i in 0 .. 31 do
+    let crbit = uint32 (31 - i) |> getCRbitRegister |> !.ctxt
+    !!ir (crbit := AST.extract cr 1<rt> i)
 
 let sideEffects insLen ctxt name =
   let ir = !*ctxt
@@ -400,7 +430,8 @@ let cntlzw ins insLen ctxt =
   !!ir (AST.lmark lblChkExit)
   !!ir (AST.cjmp (n == numI32 32 32<rt>) (AST.name lblLeave) (AST.name lblCmp))
   !!ir (AST.lmark lblCmp)
-  !!ir (AST.cjmp ((src >> n) .& n1) (AST.name lblLeave) (AST.name lblInc))
+  !!ir (AST.cjmp (AST.xtlo 1<rt> ((src >> n) .& n1))
+                 (AST.name lblLeave) (AST.name lblInc))
   !!ir (AST.lmark lblInc)
   !!ir (n := n .+ n1)
   !!ir (AST.jmp (AST.name lblChkExit))
@@ -409,24 +440,35 @@ let cntlzw ins insLen ctxt =
   !>ir insLen
 
 let crclr ins insLen ctxt =
-  let dst = transOneOpr ins ctxt
+  let crd0, crd1, crd2, crd3 = transCondOneOpr ins ctxt
   let ir = !*ctxt
   !<ir insLen
-  !!ir (dst := AST.b0)
+  !!ir (crd0 := AST.b0)
+  !!ir (crd1 := AST.b0)
+  !!ir (crd2 := AST.b0)
+  !!ir (crd3 := AST.b0)
   !>ir insLen
 
 let cror ins insLen ctxt =
-  let struct (dst, srcA, srcB) = transThreeOprs ins ctxt
+  let struct ((crd0, crd1, crd2, crd3),
+              (cra0, cra1, cra2, cra3),
+              (crb0, crb1, crb2, crb3)) = transCondThreeOprs ins ctxt
   let ir = !*ctxt
   !<ir insLen
-  !!ir (dst := srcA .| srcB)
+  !!ir (crd0 := cra0 .| crb0)
+  !!ir (crd1 := cra1 .| crb1)
+  !!ir (crd2 := cra2 .| crb2)
+  !!ir (crd3 := cra3 .| crb3)
   !>ir insLen
 
 let crset ins insLen ctxt =
-  let dst = transOneOpr ins ctxt
+  let crd0, crd1, crd2, crd3 = transCondOneOpr ins ctxt
   let ir = !*ctxt
   !<ir insLen
-  !!ir (dst := dst <+> AST.not dst)
+  !!ir (crd0 := crd0 <+> AST.not crd0)
+  !!ir (crd1 := crd1 <+> AST.not crd1)
+  !!ir (crd2 := crd2 <+> AST.not crd2)
+  !!ir (crd3 := crd3 <+> AST.not crd3)
   !>ir insLen
 
 let divw ins insLen ctxt =
@@ -592,6 +634,38 @@ let lwzx ins insLen ctxt =
   !!ir (dst := loadNative ctxt 32<rt> ea)
   !>ir insLen
 
+let mcrf ins insLen ctxt =
+  let struct ((crd0, crd1, crd2, crd3),
+              (crs0, crs1, crs2, crs3)) = transCondTwoOprs ins ctxt
+  let ir = !*ctxt
+  !<ir insLen
+  !!ir (crd0 := crs0)
+  !!ir (crd1 := crs1)
+  !!ir (crd2 := crs2)
+  !!ir (crd3 := crs3)
+  !>ir insLen
+
+let mcrxr ins insLen ctxt =
+  let crd0, crd1, crd2, crd3 = transCondOneOpr ins ctxt
+  let ir = !*ctxt
+  let xer = !.ctxt R.XER
+  !<ir insLen
+  !!ir (crd0 := AST.extract xer 1<rt> 0)
+  !!ir (crd1 := AST.extract xer 1<rt> 1)
+  !!ir (crd2 := AST.extract xer 1<rt> 2)
+  !!ir (crd3 := AST.extract xer 1<rt> 3)
+  !!ir (xer := xer .& numI32 0xfffffff0 32<rt>)
+  !>ir insLen
+
+let mfcr ins insLen ctxt =
+  let dst = transOneOpr ins ctxt
+  let ir = !*ctxt
+  let cr = !+ir 32<rt>
+  !<ir insLen
+  getCRRegValue ir cr ctxt
+  !!ir (dst := cr)
+  !>ir insLen
+
 let mfspr ins insLen ctxt =
   let struct (dst, spr) = transTwoOprs ins ctxt
   let ir = !*ctxt
@@ -651,6 +725,28 @@ let mtctr ins insLen ctxt =
   let ir = !*ctxt
   !<ir insLen
   !!ir (ctr := src)
+  !>ir insLen
+
+let private crmMask ir crm =
+  let tCrm = Array.init 4 (fun _ -> !+ir 8<rt>)
+  for i in 0..3 do
+    let cond1 = AST.extract crm 1<rt> (i * 2)
+    let cond2 = AST.extract crm 1<rt> (i * 2 + 1)
+    !!ir (tCrm[i] :=
+      AST.ite cond1 (AST.ite cond2 (numI32 0xff 8<rt>)(numI32 0xf 8<rt>))
+       (AST.ite cond2 (numI32 0xf0 8<rt>) (AST.num0 8<rt>)))
+  tCrm |> AST.concatArr
+
+let mtcrf ins insLen ctxt =
+  let struct (crm, rs) = transTwoOprs ins ctxt
+  let ir = !*ctxt
+  let mask = !+ir 32<rt>
+  let cr = !+ir 32<rt>
+  !<ir insLen
+  !!ir (mask := crmMask ir crm)
+  getCRRegValue ir cr ctxt
+  !!ir (cr := (rs .& mask) .| (cr .& AST.not mask))
+  setCRRegValue ir cr ctxt
   !>ir insLen
 
 let mtlr ins insLen ctxt =
@@ -772,7 +868,6 @@ let orx ins insLen ctxt =
 
 let ordot ins insLen ctxt =
   let struct (dst, src1, src2) = transThreeOprs ins ctxt
-  let cr0 = !.ctxt R.CR0
   let ir = !*ctxt
   !<ir insLen
   !!ir (dst := src1 .| src2)
@@ -1149,6 +1244,9 @@ let translate (ins: InsInfo) insLen (ctxt: TranslationContext) =
   | Op.LWZU -> lwzu ins insLen ctxt
   | Op.LWZUX -> lwzux ins insLen ctxt
   | Op.LWZX -> lwzx ins insLen ctxt
+  | Op.MCRF -> mcrf ins insLen ctxt
+  | Op.MCRXR -> mcrxr ins insLen ctxt
+  | Op.MFCR -> mfcr ins insLen ctxt
   | Op.MFSPR -> mfspr ins insLen ctxt
   | Op.MFCTR -> mfctr ins insLen ctxt
   | Op.MFFS -> mffs ins insLen ctxt
@@ -1157,6 +1255,7 @@ let translate (ins: InsInfo) insLen (ctxt: TranslationContext) =
   | Op.MR -> mr ins insLen ctxt
   | Op.MTSPR -> mtspr ins insLen ctxt
   | Op.MTCTR -> mtctr ins insLen ctxt
+  | Op.MTCRF -> mtcrf ins insLen ctxt
   | Op.MTFSB0 -> mtfsb0 ins insLen ctxt
   | Op.MTFSB1 -> mtfsb1 ins insLen ctxt
   | Op.MTFSF -> mtfsf ins insLen ctxt
