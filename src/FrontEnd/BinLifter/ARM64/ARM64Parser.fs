@@ -2483,7 +2483,7 @@ let getAdvSIMDShfByImm b =
   | 0b011100u -> Opcode.SCVTF, getVdtVntFbits b immhQ1, 0<rt>
   | 0b011111u -> Opcode.FCVTZS, getVdtVntFbits b immhQ1, 0<rt>
   | 0b100000u -> Opcode.USHR, getVdtVntShf1 b, 0<rt>
-  | 0b100010u -> Opcode.USRA, getVdtVntShf1 b, 0<rt>
+  | 0b100010u -> Opcode.USRA, getVdtVntShf1 b, 128<rt>
   | 0b100100u -> Opcode.URSHR, getVdtVntShf1 b, 0<rt>
   | 0b100110u -> Opcode.URSRA, getVdtVntShf1 b, 0<rt>
   | 0b101000u -> Opcode.SRI, getVdtVntShf1 b, 0<rt>
@@ -2911,7 +2911,7 @@ let parseAdvSIMDScalarShiftByImm bin =
   | 0b011100u -> Opcode.SCVTF, getVdVnFbits bin immh00xx, 0<rt>
   | 0b011111u -> Opcode.FCVTZS, getVdVnFbits bin immh00xx, 0<rt>
   | 0b100000u -> Opcode.USHR, getVdVnShf bin immh0xxx, 0<rt>
-  | 0b100010u -> Opcode.USRA, getVdVnShf bin immh0xxx, 0<rt>
+  | 0b100010u -> Opcode.USRA, getVdVnShf bin immh0xxx, 64<rt>
   | 0b100100u -> Opcode.URSHR, getVdVnShf bin immh0xxx, 0<rt>
   | 0b100110u -> Opcode.URSRA, getVdVnShf bin immh0xxx, 0<rt>
   | 0b101000u -> Opcode.SRI, getVdVnShf bin immh0xxx, 0<rt>
