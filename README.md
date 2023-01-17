@@ -116,14 +116,14 @@ Let's try to use B2R2 APIs.
 
     ```fsharp
     open B2R2
-    open B2R2.FrontEnd
+    open B2R2.FrontEnd.BinInterface
 
     [<EntryPoint>]
     let main argv =
       let isa = ISA.OfString "amd64"
       let bytes = [| 0x65uy; 0xffuy; 0x15uy; 0x10uy; 0x00uy; 0x00uy; 0x00uy |]
       let hdl = BinHandle.Init (isa, bytes)
-      let ins = BinHandle.ParseInstr hdl 0UL
+      let ins = BinHandle.ParseInstr (hdl, 0UL)
       ins.Translate hdl.TranslationContext |> printfn "%A"
       0
     ```
