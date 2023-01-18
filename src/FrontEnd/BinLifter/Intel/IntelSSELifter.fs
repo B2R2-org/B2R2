@@ -84,29 +84,29 @@ let addsubps ins insLen ctxt =
   !!ir (dstB := AST.concat t4 t3)
   !>ir insLen
 
-let buildMove ins insLen ctxt bufSize =
+let buildMove ins insLen ctxt =
   let ir = !*ctxt
-  let oprSize = getOperationSize ins
   !<ir insLen
+  let oprSize = getOperationSize ins
+  let packNum = 64<rt> / 64<rt>
   match oprSize with
   | 32<rt> | 64<rt> ->
     let struct (dst, src) = transTwoOprs ir false ins insLen ctxt
     !!ir (dst := src)
   | 128<rt> | 256<rt> | 512<rt> ->
     let struct (dst, src) = getTwoOprs ins
-    let dst = transOprToExprVec ir false ins insLen ctxt dst
-    let src = transOprToExprVec ir false ins insLen ctxt src
-    List.iter2 (fun d s -> !!ir (d := s)) dst src
+    let src = transOprToArr ir ins insLen ctxt 64<rt> packNum oprSize src
+    assignPackedInstr ir false ins insLen ctxt packNum oprSize dst src
   | _ -> raise InvalidOperandSizeException
   !>ir insLen
 
-let movaps ins insLen ctxt = buildMove ins insLen ctxt 4
+let movaps ins insLen ctxt = buildMove ins insLen ctxt
 
-let movapd ins insLen ctxt = buildMove ins insLen ctxt 4
+let movapd ins insLen ctxt = buildMove ins insLen ctxt
 
-let movups ins insLen ctxt = buildMove ins insLen ctxt 4
+let movups ins insLen ctxt = buildMove ins insLen ctxt
 
-let movupd ins insLen ctxt = buildMove ins insLen ctxt 4
+let movupd ins insLen ctxt = buildMove ins insLen ctxt
 
 let movhps ins insLen ctxt =
   let ir = !*ctxt
@@ -350,19 +350,13 @@ let rcpss ins insLen ctxt =
 
 let sqrtps ins insLen ctxt =
   let ir = !*ctxt
+  let oprSize = getOperationSize ins
+  let packNum = 64<rt> / 32<rt>
   !<ir insLen
-  let struct (opr1, opr2) = getTwoOprs ins
-  let dst2, dst1 = transOprToExpr128 ir false ins insLen ctxt opr1
-  let src2, src1 = transOprToExpr128 ir false ins insLen ctxt opr2
-  let struct (tmp1, tmp2, tmp3, tmp4) = tmpVars4 ir 32<rt>
-  !!ir (tmp1 := AST.xtlo 32<rt> src1)
-  !!ir (tmp2 := AST.xthi 32<rt> src1)
-  !!ir (tmp3 := AST.xtlo 32<rt> src2)
-  !!ir (tmp4 := AST.xthi 32<rt> src2)
-  !!ir (AST.xtlo 32<rt> dst1 := AST.unop UnOpType.FSQRT tmp1)
-  !!ir (AST.xthi 32<rt> dst1 := AST.unop UnOpType.FSQRT tmp2)
-  !!ir (AST.xtlo 32<rt> dst2 := AST.unop UnOpType.FSQRT tmp3)
-  !!ir (AST.xthi 32<rt> dst2 := AST.unop UnOpType.FSQRT tmp4)
+  let struct (dst, src) = getTwoOprs ins
+  let src = transOprToArr ir ins insLen ctxt 32<rt> packNum oprSize src
+  let result = Array.map (AST.unop UnOpType.FSQRT) src
+  assignPackedInstr ir false ins insLen ctxt packNum oprSize dst result
   !>ir insLen
 
 let sqrtpd ins insLen ctxt =
@@ -1407,78 +1401,35 @@ let private opPmulld _ = opPmul AST.xtlo AST.sext 32<rt> 32<rt>
 let pmulld ins insLen ctxt =
   buildPackedInstr ins insLen ctxt 32<rt> opPmulld
 
-let private opPsadbw _ =
+let private opPsadbw oprSize e1 e2 =
   let abs e1 e2 = AST.ite (AST.lt e1 e2) (e2 .- e1) (e1 .- e2)
-  Array.map2 abs
-
-let rec private sumLoop (arr: Expr []) sPos ePos =
-  let diff = ePos - sPos
-  if diff > 0 then
-    AST.binop BinOpType.ADD
-      (sumLoop arr (sPos + diff / 2 + 1) ePos)
-      (sumLoop arr sPos (sPos + diff / 2))
-  elif diff = 0 then
-    arr[sPos]
-  else
-    Utils.impossible ()
-
-let sumArr (arr: Expr[]) =
-  sumLoop arr 0 (Array.length arr - 1)
+  let temp = Array.map2 abs e1 e2
+  let n0 = AST.num0 16<rt>
+  let inline sum e1 e2 = AST.zext 16<rt> e1 .+ AST.zext 16<rt> e2
+  let zeros = Array.init 3 (fun _ -> n0)
+  match oprSize with
+  | 64<rt> ->
+    let res = Array.reduce sum (Array.sub temp 0 8)
+    Array.append [| res |] zeros
+  | 128<rt> ->
+    let res1 = Array.reduce sum (Array.sub temp 0 8)
+    let res2 = Array.reduce sum (Array.sub temp 8 8)
+    Array.concat [| [| res1 |]; zeros; [| res2 |]; zeros |]
+  | _ -> raise InvalidOperandSizeException
 
 let psadbw ins insLen ctxt =
   let ir = !*ctxt
-  let packSz = 8<rt>
-  let opFn = opPsadbw
-  let struct (dst, src) = getTwoOprs ins
   !<ir insLen
   let oprSize = getOperationSize ins
-  let packNum = oprSize / packSz
-  let makeSrc = makeSrc ir packSz
-  match oprSize with
-  | 64<rt> ->
-    let dst = transOprToExpr ir false ins insLen ctxt dst
-    let src = transOprToExpr ir false ins insLen ctxt src
-    let src1 = makeSrc packNum dst
-    let src2 = match src.E with
-               | Load (_, rt, _, _) -> makeSrc (rt / packSz) src
-               | _ -> makeSrc packNum src
-    let sum =
-      opFn oprSize src1 src2
-      |> Array.map (fun e -> AST.zext 16<rt> e)
-      |> sumArr
-      |> AST.zext 64<rt>
-    !!ir (dst := AST.zext oprSize sum)
-  | 128<rt> ->
-    let packNum = packNum / (oprSize / 64<rt>)
-    let tSrc =
-      let tsrcFromDst =
-        transOprToExprVec ir false ins insLen ctxt dst
-        |> List.map (makeSrc packNum)
-        |> List.fold Array.append [||]
-      let tsrcFromSrc =
-        let exprVec = transOprToExprVec ir false ins insLen ctxt src
-        let src =
-          if exprVec.Length = 2 then
-            let struct (t1, t2) = tmpVars2 ir 64<rt>
-            !!ir (t1 := exprVec[0])
-            !!ir (t2 := exprVec[1])
-            [t1; t2]
-          else exprVec
-        src
-        |> List.map (makeSrc packNum)
-        |> List.fold Array.append [||]
-      opFn oprSize tsrcFromDst tsrcFromSrc
-    let dst = transOprToExprVec ir false ins insLen ctxt dst
-    let packNum = Array.length tSrc / List.length dst
-    let assign idx dst =
-      let sum =
-        Array.sub tSrc (packNum * idx) packNum
-        |> Array.map (fun e -> AST.zext 16<rt> e)
-        |> sumArr
-        |> AST.zext 64<rt>
-      !!ir (dst := sum)
-    List.iteri assign dst
-  | _ -> raise InvalidOperandSizeException
+  let srcPackSz = 8<rt>
+  let srcPackNum = 64<rt> / srcPackSz
+  let dstPackSz = 16<rt>
+  let dstPackNum = 64<rt> / dstPackSz
+  let struct (dst, src) = getTwoOprs ins
+  let src1 = transOprToArr ir ins insLen ctxt srcPackSz srcPackNum oprSize dst
+  let src2 = transOprToArr ir ins insLen ctxt srcPackSz srcPackNum oprSize src
+  let result = opPsadbw oprSize src1 src2
+  assignPackedInstr ir false ins insLen ctxt dstPackNum oprSize dst result
   !>ir insLen
 
 let pshufw ins insLen ctxt =
@@ -1563,53 +1514,47 @@ let pshufhw ins insLen ctxt =
   !>ir insLen
 
 let pshufb ins insLen ctxt =
-  let oprSize = getOperationSize ins
-  let cnt = RegType.toBitWidth oprSize / 8
   let ir = !*ctxt
   !<ir insLen
-  let mask = numI32 (cnt - 1) 8<rt>
-  let n0 = AST.num0 8<rt>
+  let oprSize = getOperationSize ins
+  let packSize = 8<rt>
+  let packNum = 64<rt> / packSize
+  let allPackNum = oprSize / packSize
+  let struct (dst, src) = getTwoOprs ins
+  let src = transOprToArr ir ins insLen ctxt packSize packNum oprSize src
+  let struct (mask, n0) = tmpVars2 ir packSize
+  !!ir (mask := numI32 (int allPackNum - 1) packSize)
+  !!ir (n0 := AST.num0 packSize)
   match oprSize with
   | 64<rt> ->
-    let struct (dst, src) = transTwoOprs ir false ins insLen ctxt
-    let tmps = Array.init cnt (fun _ -> !+ir 8<rt>)
-    for i in 0 .. cnt - 1 do
-      let cond = AST.extract src 1<rt> (i * 8 + 7)
-      let idx = (AST.extract src 8<rt> (i * 8)) .& mask
-      let numShift = AST.zext oprSize idx .* numI32 8 oprSize
-      !!ir
-        (tmps[i] :=
-          AST.ite cond n0 (AST.xtlo 8<rt> (dst >> numShift)))
-    done
-    !!ir (dst := AST.concatArr tmps)
+    let dst = transOprToExpr ir false ins insLen ctxt dst
+    let n8 = numI32 8 oprSize
+    let shuffle src =
+      let idx = src .& mask
+      let numShift = AST.zext oprSize idx .* n8
+      AST.ite (AST.xthi 1<rt> src) n0 (AST.xtlo packSize (dst >> numShift))
+    !!ir (dst := Array.map shuffle src |> AST.concatArr)
   | 128<rt> ->
-    let struct (dst, src) = getTwoOprs ins
     let dstB, dstA = transOprToExpr128 ir false ins insLen ctxt dst
-    let srcB, srcA = transOprToExpr128 ir false ins insLen ctxt src
-    let highTmps = Array.init (cnt / 2) (fun _ -> !+ir 8<rt>)
-    let lowTmps = Array.init (cnt / 2) (fun _ -> !+ir 8<rt>)
-    let struct (tDst, tSrc) = tmpVars2 ir 64<rt>
-    for i in 0 .. cnt - 1 do
-      !!ir (tSrc := if i < 8 then srcA else srcB)
-      let cond = AST.extract tSrc 1<rt> (((i * 8) % 64) + 7)
-      let idx = (AST.extract tSrc 8<rt> ((i * 8) % 64)) .& mask
-      let numShift =
-        ((AST.zext 64<rt> idx) .* (numI32 8 64<rt>)) .% (numI32 64 64<rt>)
-      !!ir (tDst := AST.ite (idx .< numI32 8 8<rt>) dstA dstB)
-      let temp = AST.xtlo 8<rt> (tDst >> numShift)
-      if i < 8 then !!ir (lowTmps[i] := AST.ite cond n0 temp)
-      else !!ir (highTmps[i - 8] := AST.ite cond n0 temp)
-    done
-    !!ir (dstA := AST.concatArr lowTmps)
-    !!ir (dstB := AST.concatArr highTmps)
+    let n8 = !+ir 64<rt>
+    !!ir (n8 := numI32 8 64<rt>)
+    let shuffle src =
+      let idx = src .& mask
+      let numShift = ((AST.zext 64<rt> idx) .% n8) .* n8
+      let tDst = !+ir 64<rt>
+      !!ir (tDst := AST.ite (idx .< numI32 8 packSize) dstA dstB)
+      AST.ite (AST.xthi 1<rt> src) n0 (AST.xtlo packSize (tDst >> numShift))
+    let result = Array.map shuffle src
+    !!ir (dstA := Array.sub result 0 packNum |> AST.concatArr)
+    !!ir (dstB := Array.sub result packNum packNum |> AST.concatArr)
   | _ -> raise InvalidOperandSizeException
   !>ir insLen
 
 let movdqa ins insLen ctxt =
-  buildMove ins insLen ctxt 4
+  buildMove ins insLen ctxt
 
 let movdqu ins insLen ctxt =
-  buildMove ins insLen ctxt 4
+  buildMove ins insLen ctxt
 
 let movq2dq ins insLen ctxt =
   let ir = !*ctxt
@@ -1690,22 +1635,22 @@ let psrldq ins insLen ctxt =
   !>ir insLen
 
 let punpckhqdq ins insLen ctxt =
-  buildPackedInstr ins insLen ctxt 64<rt> opPunpckHigh
+  buildPackedInstr ins insLen ctxt 64<rt> opUnpackHighData
 
 let punpcklqdq ins insLen ctxt =
-  buildPackedInstr ins insLen ctxt 64<rt> opPunpckLow
+  buildPackedInstr ins insLen ctxt 64<rt> opUnpackLowData
 
-let movntq ins insLen ctxt = buildMove ins insLen ctxt 4
+let movntq ins insLen ctxt = buildMove ins insLen ctxt
 
-let movntps ins insLen ctxt = buildMove ins insLen ctxt 4
+let movntps ins insLen ctxt = buildMove ins insLen ctxt
 
-let movntpd ins insLen ctxt = buildMove ins insLen ctxt 4
+let movntpd ins insLen ctxt = buildMove ins insLen ctxt
 
-let movntdq ins insLen ctxt = buildMove ins insLen ctxt 4
+let movntdq ins insLen ctxt = buildMove ins insLen ctxt
 
-let movnti ins insLen ctxt = buildMove ins insLen ctxt 4
+let movnti ins insLen ctxt = buildMove ins insLen ctxt
 
-let lddqu ins insLen ctxt = buildMove ins insLen ctxt 4
+let lddqu ins insLen ctxt = buildMove ins insLen ctxt
 
 let movshdup ins insLen ctxt =
   let ir = !*ctxt
@@ -1747,37 +1692,29 @@ let movddup ins insLen ctxt =
   !!ir (dst1 := src)
   !>ir insLen
 
-let private getpackusdw dst srcB srcA tmp ir =
-  let z16 = AST.num0 16<rt>
-  let z32 = AST.num0 32<rt>
-  let f16 = numU32 0xFFFFu 16<rt>
-  let f32 = numU32 0xFFFFu 32<rt>
-  for i in 0 .. 3 do
-    let tTmp = AST.extract tmp 16<rt> (16 * i)
-    let tDst = AST.extract dst 16<rt> (16 * i)
-    if i < 2 then
-      let tCondDst = AST.extract dst 16<rt> (32 * i)
-      let cond = (AST.extract srcA 32<rt> (32 * i)) .< z32
-      let cond2 = (AST.extract srcA 32<rt> (32 * i)) .> f32
-      !!ir (tTmp := AST.ite cond z16 tCondDst)
-      !!ir (tDst := AST.ite cond2 f16 tTmp)
-    else
-      let tCondDst = AST.extract dst 16<rt> (32 * (i - 2))
-      let cond = (AST.extract srcB 32<rt> (32 * (i - 2))) .< z32
-      let cond2 = (AST.extract srcB 32<rt> (32 * (i - 2))) .> f32
-      !!ir (tTmp := AST.ite cond z16 tCondDst)
-      !!ir (tDst := AST.ite cond2 f16 tTmp)
-  done
+let packWithSaturation ir packSz src =
+  let z16 = AST.num0 (packSz / 2)
+  let z32 = AST.num0 packSz
+  let f16 = numU32 0xFFFFu (packSz / 2)
+  let f32 = numU32 0xFFFFu packSz
+  let tSrc = !+ir packSz
+  let tmp = !+ir (packSz / 2)
+  !!ir (tSrc := src)
+  !!ir (tmp := AST.ite (tSrc ?< z32) z16 (AST.xtlo (packSz / 2) tSrc))
+  !!ir (tmp := AST.ite (tSrc ?> f32) f16 tmp)
+  tmp
 
 let packusdw ins insLen ctxt =
   let ir = !*ctxt
   !<ir insLen
+  let oprSize = getOperationSize ins
+  let packNum = 64<rt> / 32<rt>
   let struct (dst, src) = getTwoOprs ins
-  let dstB, dstA = transOprToExpr128 ir false ins insLen ctxt dst
-  let srcB, srcA = transOprToExpr128 ir false ins insLen ctxt src
-  let struct (tmpA, tmpB) = tmpVars2 ir 64<rt>
-  getpackusdw dstA dstB dstA tmpA ir
-  getpackusdw dstB srcB srcA tmpB ir
+  let src1 = transOprToArr ir ins insLen ctxt 32<rt> packNum oprSize dst
+  let src2 = transOprToArr ir ins insLen ctxt 32<rt> packNum oprSize src
+  let src = Array.append src1 src2
+  let result = Array.map (packWithSaturation ir 32<rt>) src
+  assignPackedInstr ir false ins insLen ctxt (packNum * 2) oprSize dst result
   !>ir insLen
 
 let palignr ins insLen ctxt =
@@ -1858,34 +1795,26 @@ let pinsrb ins insLen ctxt =
   else !!ir (dstB := (dstB .& (AST.not mask)) .& t)
   !>ir insLen
 
-let private packedSign ir packNum packSz dst src =
-  let dst = makeSrc ir packSz packNum dst
-  let src = makeSrc ir packSz packNum src
-  let z = AST.num0 packSz
-  let tDst = Array.init packNum (fun _ -> !+ir packSz)
-  for i in 0 .. packNum - 1 do
-    let cond1 = src[i] .< z
-    let cond2 = src[i] == z
-    !!ir (tDst[i] := AST.ite cond2 z (AST.ite cond1 (AST.not dst[i]) dst[i]))
-  done
-  tDst
+let private packedSign ir packSz control inputVal =
+  let n0 = AST.num0 packSz
+  let struct (tControl, tInputVal) = tmpVars2 ir packSz
+  let struct (cond1, cond2) = tmpVars2 ir 1<rt>
+  !!ir (tControl := control)
+  !!ir (tInputVal := inputVal)
+  !!ir (cond1 := tControl ?< n0)
+  !!ir (cond2 := tControl == n0)
+  AST.ite cond1 (AST.neg tInputVal) (AST.ite cond2 n0 tInputVal)
 
 let psign ins insLen ctxt packSz =
   let ir = !*ctxt
+  !<ir insLen
   let oprSize = getOperationSize ins
-  match oprSize with
-  | 64<rt> ->
-    let packNum = oprSize / packSz
-    let struct (dst, src) = transTwoOprs ir false ins insLen ctxt
-    !!ir (dst := packedSign ir packNum packSz dst src |> AST.concatArr)
-  | 128<rt> ->
-    let packNum = oprSize / packSz / 2
-    let struct (dst, src) = getTwoOprs ins
-    let dstB, dstA = transOprToExpr128 ir false ins insLen ctxt dst
-    let srcB, srcA = transOprToExpr128 ir false ins insLen ctxt src
-    !!ir (dstA := packedSign ir packNum packSz dstA srcA |> AST.concatArr)
-    !!ir (dstB := packedSign ir packNum packSz dstB srcB |> AST.concatArr)
-  | _ -> raise InvalidOperandSizeException
+  let packNum = 64<rt> / packSz
+  let struct (dst, src) = getTwoOprs ins
+  let srcDst = transOprToArr ir ins insLen ctxt packSz packNum oprSize dst
+  let src = transOprToArr ir ins insLen ctxt packSz packNum oprSize src
+  let result = Array.map2 (packedSign ir packSz) src srcDst
+  assignPackedInstr ir false ins insLen ctxt packNum oprSize dst result
   !>ir insLen
 
 let ptest ins insLen ctxt =
@@ -1912,35 +1841,11 @@ let opPcmpeqq _ = opPcmp 64<rt> (==)
 let pcmpeqq ins insLen ctxt =
   buildPackedInstr ins insLen ctxt 64<rt> opPcmpeqq
 
-let packedBlend ir oprSize packSz src1 src2 imm =
-  let packNum = int (oprSize / packSz)
-  let splitNum = int (oprSize / 64<rt>)
-  let srcNum = packNum / splitNum
-  let tDst = Array.init packNum (fun _ -> !+ir packSz)
-  let tsrc1 =
-    List.map (makeSrc ir packSz srcNum) src1 |> List.fold Array.append [||]
-  let tsrc2 =
-    List.map (makeSrc ir packSz srcNum) src2 |> List.fold Array.append [||]
-  for i in 0 .. packNum - 1 do
-    let cond = AST.extract imm 1<rt> i
-    !!ir (tDst[i] := AST.ite cond tsrc1[i] tsrc2[i])
-  tDst |> Array.splitInto splitNum
+let packedBlend src1 src2 imm =
+  Array.mapi2 (fun i e1 e2 -> AST.ite (AST.extract imm 1<rt> i) e1 e2) src1 src2
 
-let packedVblend ir oprSize packSz src1 src2 mask =
-  let packNum = int (oprSize / packSz)
-  let splitNum = int (oprSize / 64<rt>)
-  let srcNum = packNum / splitNum
-  let tDst = Array.init packNum (fun _ -> !+ir packSz)
-  let tsrc1 =
-    List.map (makeSrc ir packSz srcNum) src1 |> List.fold Array.append [||]
-  let tsrc2 =
-    List.map (makeSrc ir packSz srcNum) src2 |> List.fold Array.append [||]
-  let tmask =
-    List.map (makeSrc ir packSz srcNum) mask |> List.fold Array.append [||]
-  for i in 0 .. packNum - 1 do
-    let cond = AST.xthi 1<rt> tmask[i]
-    !!ir (tDst[i] := AST.ite cond tsrc1[i] tsrc2[i])
-  tDst |> Array.splitInto splitNum
+let packedVblend src1 src2 (mask: Expr []) =
+  Array.mapi2 (fun i e1 e2 -> AST.ite (AST.xthi 1<rt> mask[i]) e1 e2) src1 src2
 
 let blendpd ins insLen ctxt =
   let ir = !*ctxt
@@ -1959,14 +1864,13 @@ let blendps ins insLen ctxt =
   let ir = !*ctxt
   !<ir insLen
   let oprSize = getOperationSize ins
+  let packNum = 64<rt> / 32<rt>
   let struct (dst, src, imm) = getThreeOprs ins
-  let dstB, dstA = transOprToExpr128 ir false ins insLen ctxt dst
-  let dst = transOprToExprVec ir false ins insLen ctxt dst
-  let src = transOprToExprVec ir false ins insLen ctxt src
+  let src1 = transOprToArr ir ins insLen ctxt 32<rt> packNum oprSize dst
+  let src2 = transOprToArr ir ins insLen ctxt 32<rt> packNum oprSize src
   let imm = transOprToExpr ir false ins insLen ctxt imm
-  let tDst = packedBlend ir oprSize 32<rt> src dst imm
-  !!ir (dstA := tDst[0] |> AST.concatArr)
-  !!ir (dstB := tDst[1] |> AST.concatArr)
+  let result = packedBlend src2 src1 imm
+  assignPackedInstr ir false ins insLen ctxt packNum oprSize dst result
   !>ir insLen
 
 let blendvpd ins insLen ctxt =
@@ -1986,42 +1890,39 @@ let blendvps ins insLen ctxt =
   let ir = !*ctxt
   !<ir insLen
   let oprSize = getOperationSize ins
+  let packNum = 64<rt> / 32<rt>
   let struct (dst, src, xmm0) = getThreeOprs ins
-  let dstB, dstA = transOprToExpr128 ir false ins insLen ctxt dst
-  let dst = transOprToExprVec ir false ins insLen ctxt dst
-  let src = transOprToExprVec ir false ins insLen ctxt src
-  let xmm0 = transOprToExprVec ir false ins insLen ctxt xmm0
-  let tDst = packedVblend ir oprSize 32<rt> src dst xmm0
-  !!ir (dstA := tDst[0] |> AST.concatArr)
-  !!ir (dstB := tDst[1] |> AST.concatArr)
+  let src1 = transOprToArr ir ins insLen ctxt 32<rt> packNum oprSize dst
+  let src2 = transOprToArr ir ins insLen ctxt 32<rt> packNum oprSize src
+  let xmm0 = transOprToArr ir ins insLen ctxt 32<rt> packNum oprSize xmm0
+  let result = packedVblend src2 src1 xmm0
+  assignPackedInstr ir false ins insLen ctxt packNum oprSize dst result
   !>ir insLen
 
 let pblendvb ins insLen ctxt =
   let ir = !*ctxt
   !<ir insLen
   let oprSize = getOperationSize ins
+  let packNum = 64<rt> / 8<rt>
   let struct (dst, src, xmm0) = getThreeOprs ins
-  let dstB, dstA = transOprToExpr128 ir false ins insLen ctxt dst
-  let dst = transOprToExprVec ir false ins insLen ctxt dst
-  let src = transOprToExprVec ir false ins insLen ctxt src
-  let xmm0 = transOprToExprVec ir false ins insLen ctxt xmm0
-  let tDst = packedVblend ir oprSize 8<rt> src dst xmm0
-  !!ir (dstA := tDst[0] |> AST.concatArr)
-  !!ir (dstB := tDst[1] |> AST.concatArr)
+  let src1 = transOprToArr ir ins insLen ctxt 8<rt> packNum oprSize dst
+  let src2 = transOprToArr ir ins insLen ctxt 8<rt> packNum oprSize src
+  let xmm0 = transOprToArr ir ins insLen ctxt 8<rt> packNum oprSize xmm0
+  let result = packedVblend src2 src1 xmm0
+  assignPackedInstr ir false ins insLen ctxt packNum oprSize dst result
   !>ir insLen
 
 let pblendw ins insLen ctxt =
   let ir = !*ctxt
   !<ir insLen
   let oprSize = getOperationSize ins
+  let packNum = 64<rt> / 16<rt>
   let struct (dst, src, imm) = getThreeOprs ins
-  let dstB, dstA = transOprToExpr128 ir false ins insLen ctxt dst
-  let dst = transOprToExprVec ir false ins insLen ctxt dst
-  let src = transOprToExprVec ir false ins insLen ctxt src
+  let src1 = transOprToArr ir ins insLen ctxt 16<rt> packNum oprSize dst
+  let src2 = transOprToArr ir ins insLen ctxt 16<rt> packNum oprSize src
   let imm = transOprToExpr ir false ins insLen ctxt imm
-  let tDst = packedBlend ir oprSize 16<rt> src dst imm
-  !!ir (dstA := tDst[0] |> AST.concatArr)
-  !!ir (dstB := tDst[1] |> AST.concatArr)
+  let result = packedBlend src2 src1 imm
+  assignPackedInstr ir false ins insLen ctxt packNum oprSize dst result
   !>ir insLen
 
 /// XXX (cleanup required)
@@ -2168,8 +2069,7 @@ let private genBoolRes ir ins insLen ctrl ctxt e1 e2
       (AST.ite (AST.not ck1[j] .& ck2[i]) (AST.num1 elemSz)
         (AST.ite (ck1[j] .& AST.not ck2[i]) (AST.num0 elemSz) b))
 
-let private aggOpr ins insLen
-           ctxt ctrl src1 src2 ck1 ck2 (res1 : Expr []) ir =
+let private aggOpr ins insLen ctxt ctrl src1 src2 ck1 ck2 (res1 : Expr []) ir =
   let nElem = int ctrl.NumElems
   let elemSz = RegType.fromBitWidth <| nElem
   let boolRes = genBoolRes ir ins insLen ctrl ctxt src2 src1 ck2 ck1

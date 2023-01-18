@@ -1518,8 +1518,8 @@ let getOpmaskRegister = function
 
 /// Zeroing/Merging (EVEX.z)
 let maskZtoString ev (builder: DisasmBuilder<_>) =
-  if ev.Z = Zeroing then ()
-  else builder.Accumulate AsmWordKind.String "{z}"
+  if ev.Z = Zeroing then builder.Accumulate AsmWordKind.String "{z}"
+  else ()
 
 /// Opmask register
 let maskRegToString ePrx (builder: DisasmBuilder<_>) =

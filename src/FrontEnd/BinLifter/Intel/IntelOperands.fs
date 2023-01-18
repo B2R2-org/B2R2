@@ -1332,7 +1332,8 @@ type internal OpKnGpr () =
   override __.Render (span, rhlp) =
     let modRM = rhlp.ReadByte span
     let opr1 = parseOpMaskReg (getReg modRM)
-    let opr2 = findRegRBits rhlp.RegSize rhlp.REXPrefix (getRM modRM) |> OprReg
+    let opr2 =
+      findRegRmAndSIBBase rhlp.RegSize rhlp.REXPrefix (getRM modRM) |> OprReg
     TwoOperands (opr1, opr2)
 
 type internal OpXmmVvXmmXm () =

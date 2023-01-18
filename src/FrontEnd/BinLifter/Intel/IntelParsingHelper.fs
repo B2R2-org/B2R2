@@ -107,7 +107,7 @@ module internal ParsingHelper = begin
     let vLen = getVLen l'l
     let aaa = span[pos + 2] &&& 0b111uy
     let z =
-      if (span[pos + 2] >>> 7 &&& 0b1uy) = 0uy then Zeroing
+      if (span[pos + 2] >>> 7 &&& 0b1uy) = 1uy then Zeroing
       else Merging
     let b = (span[pos + 2] >>> 4) &&& 0b1uy
     let e = Some { AAA = aaa; Z = z; B = b }

@@ -150,6 +150,10 @@ let isSegReg = function
   | Register.GS -> true
   | _ -> false
 
+let isMemOpr = function
+  | OprMem _ -> true
+  | _ -> false
+
 let private segRegToBase = function
   | R.CS -> R.CSBase
   | R.DS -> R.DSBase
@@ -309,6 +313,66 @@ let transJumpTargetOpr ir useTmpVar ins pc insLen (ctxt: TranslationContext) =
   | OneOperand (OprMem (b, index, disp, oprSize)) ->
     struct (transMem ir useTmpVar ins insLen ctxt b index disp oprSize, false)
   | _ -> raise InvalidOperandException
+
+let transOprToArr ir ins insLen ctxt packSize packNum oprSize opr =
+  let pos = int packSize
+  match oprSize with
+  | 64<rt> ->
+    let opr = transOprToExpr ir false ins insLen ctxt opr
+    Array.init packNum (fun i -> AST.extract opr packSize (i * pos))
+  | 128<rt> ->
+    let oprB, oprA = transOprToExpr128 ir false ins insLen ctxt opr
+    let oprA = Array.init packNum (fun i -> AST.extract oprA packSize (i * pos))
+    let oprB = Array.init packNum (fun i -> AST.extract oprB packSize (i * pos))
+    Array.append oprA oprB
+  | 256<rt> ->
+    let oprD, oprC, oprB, oprA = transOprToExpr256 ir false ins insLen ctxt opr
+    let oprA = Array.init packNum (fun i -> AST.extract oprA packSize (i * pos))
+    let oprB = Array.init packNum (fun i -> AST.extract oprB packSize (i * pos))
+    let oprC = Array.init packNum (fun i -> AST.extract oprC packSize (i * pos))
+    let oprD = Array.init packNum (fun i -> AST.extract oprD packSize (i * pos))
+    Array.concat [| oprA; oprB; oprC; oprD |]
+  | 512<rt> ->
+    let oprH, oprG, oprF, oprE, oprD, oprC, oprB, oprA =
+      transOprToExpr512 ir false ins insLen ctxt opr
+    let oprA = Array.init packNum (fun i -> AST.extract oprA packSize (i * pos))
+    let oprB = Array.init packNum (fun i -> AST.extract oprB packSize (i * pos))
+    let oprC = Array.init packNum (fun i -> AST.extract oprC packSize (i * pos))
+    let oprD = Array.init packNum (fun i -> AST.extract oprD packSize (i * pos))
+    let oprE = Array.init packNum (fun i -> AST.extract oprE packSize (i * pos))
+    let oprF = Array.init packNum (fun i -> AST.extract oprF packSize (i * pos))
+    let oprG = Array.init packNum (fun i -> AST.extract oprG packSize (i * pos))
+    let oprH = Array.init packNum (fun i -> AST.extract oprH packSize (i * pos))
+    Array.concat [| oprA; oprB; oprC; oprD; oprE; oprF; oprG; oprH |]
+  | _ -> raise InvalidOperandSizeException
+
+let assignPackedInstr ir useTmpVar ins insLen ctxt packNum oprSize dst result =
+  match oprSize with
+  | 64<rt> ->
+    let dst = transOprToExpr ir useTmpVar ins insLen ctxt dst
+    !!ir (dst := result |> AST.concatArr)
+  | 128<rt> ->
+    let dstB, dstA = transOprToExpr128 ir useTmpVar ins insLen ctxt dst
+    !!ir (dstA := Array.sub result 0 packNum |> AST.concatArr)
+    !!ir (dstB := Array.sub result packNum packNum |> AST.concatArr)
+  | 256<rt> ->
+    let dstD, dstC, dstB, dstA = transOprToExpr256 ir false ins insLen ctxt dst
+    !!ir (dstA := Array.sub result 0 packNum |> AST.concatArr)
+    !!ir (dstB := Array.sub result (1 * packNum) packNum |> AST.concatArr)
+    !!ir (dstC := Array.sub result (2 * packNum) packNum |> AST.concatArr)
+    !!ir (dstD := Array.sub result (3 * packNum) packNum |> AST.concatArr)
+  | 512<rt> ->
+    let dstH, dstG, dstF, dstE, dstD, dstC, dstB, dstA =
+      transOprToExpr512 ir false ins insLen ctxt dst
+    !!ir (dstA := Array.sub result 0 packNum |> AST.concatArr)
+    !!ir (dstB := Array.sub result (1 * packNum) packNum |> AST.concatArr)
+    !!ir (dstC := Array.sub result (2 * packNum) packNum |> AST.concatArr)
+    !!ir (dstD := Array.sub result (3 * packNum) packNum |> AST.concatArr)
+    !!ir (dstE := Array.sub result (4 * packNum) packNum |> AST.concatArr)
+    !!ir (dstF := Array.sub result (5 * packNum) packNum |> AST.concatArr)
+    !!ir (dstG := Array.sub result (6 * packNum) packNum |> AST.concatArr)
+    !!ir (dstH := Array.sub result (7 * packNum) packNum |> AST.concatArr)
+  | _ -> raise InvalidOperandSizeException
 
 let getTwoOprs (ins: InsInfo) =
   match ins.Operands with

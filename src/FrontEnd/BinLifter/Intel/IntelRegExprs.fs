@@ -1353,7 +1353,7 @@ type internal RegExprs (wordSize) =
 #if DEBUG
       assert64Bit wordSize
 #endif
-      __.ZMM8F
+      __.ZMM8H
     | R.ZMM9, 1 ->
 #if DEBUG
       assert64Bit wordSize
@@ -1393,7 +1393,7 @@ type internal RegExprs (wordSize) =
 #if DEBUG
       assert64Bit wordSize
 #endif
-      __.ZMM9F
+      __.ZMM9H
     | R.ZMM10, 1 ->
 #if DEBUG
       assert64Bit wordSize
@@ -1433,7 +1433,7 @@ type internal RegExprs (wordSize) =
 #if DEBUG
       assert64Bit wordSize
 #endif
-      __.ZMM10F
+      __.ZMM10H
     | R.ZMM11, 1 ->
 #if DEBUG
       assert64Bit wordSize
@@ -1473,7 +1473,7 @@ type internal RegExprs (wordSize) =
 #if DEBUG
       assert64Bit wordSize
 #endif
-      __.ZMM11F
+      __.ZMM11H
     | R.ZMM12, 1 ->
 #if DEBUG
       assert64Bit wordSize
@@ -1513,7 +1513,7 @@ type internal RegExprs (wordSize) =
 #if DEBUG
       assert64Bit wordSize
 #endif
-      __.ZMM12F
+      __.ZMM12H
     | R.ZMM13, 1 ->
 #if DEBUG
       assert64Bit wordSize
@@ -1553,7 +1553,7 @@ type internal RegExprs (wordSize) =
 #if DEBUG
       assert64Bit wordSize
 #endif
-      __.ZMM13F
+      __.ZMM13H
     | R.ZMM14, 1 ->
 #if DEBUG
       assert64Bit wordSize
@@ -1593,7 +1593,7 @@ type internal RegExprs (wordSize) =
 #if DEBUG
       assert64Bit wordSize
 #endif
-      __.ZMM14F
+      __.ZMM14H
     | R.ZMM15, 1 ->
 #if DEBUG
       assert64Bit wordSize
@@ -1633,7 +1633,7 @@ type internal RegExprs (wordSize) =
 #if DEBUG
       assert64Bit wordSize
 #endif
-      __.ZMM15F
+      __.ZMM15H
     | R.BND0, 1 -> __.BND0A
     | R.BND0, 2 -> __.BND0B
     | R.BND1, 1 -> __.BND1A

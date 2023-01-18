@@ -481,8 +481,8 @@ let translate (ins: IntelInternalInstruction) insLen ctxt =
   | OP.VCVTSS2SD -> AVXLifter.vcvtss2sd ins insLen ctxt
   | OP.VMOVD -> AVXLifter.vmovd ins insLen ctxt
   | OP.VMOVQ -> AVXLifter.vmovq ins insLen ctxt
-  | OP.VMOVAPS -> AVXLifter.vmovdqu ins insLen ctxt
-  | OP.VMOVAPD -> AVXLifter.vmovdqu ins insLen ctxt
+  | OP.VMOVAPS -> AVXLifter.vmovaps ins insLen ctxt
+  | OP.VMOVAPD -> AVXLifter.vmovapd ins insLen ctxt
   | OP.VMOVDQU -> AVXLifter.vmovdqu ins insLen ctxt
   | OP.VMOVDQU16 -> AVXLifter.vmovdqu16 ins insLen ctxt
   | OP.VMOVDQU64 -> AVXLifter.vmovdqu64 ins insLen ctxt
