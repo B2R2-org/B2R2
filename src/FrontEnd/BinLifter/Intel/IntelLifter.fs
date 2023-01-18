@@ -522,6 +522,7 @@ let translate (ins: IntelInternalInstruction) insLen ctxt =
   | OP.VBROADCASTI128 -> AVXLifter.vbroadcasti128 ins insLen ctxt
   | OP.VBROADCASTSS -> AVXLifter.vbroadcastss ins insLen ctxt
   | OP.VEXTRACTF32X8 -> AVXLifter.vextracti32x8 ins insLen ctxt
+  | OP.VEXTRACTI128 -> AVXLifter.vextracti128 ins insLen ctxt
   | OP.VEXTRACTI64X4 -> AVXLifter.vextracti64x4 ins insLen ctxt
   | OP.VEXTRACTPS -> SSELifter.extractps ins insLen ctxt
   | OP.VINSERTI128 -> AVXLifter.vinserti128 ins insLen ctxt
@@ -547,6 +548,7 @@ let translate (ins: IntelInternalInstruction) insLen ctxt =
   | OP.VPCMPESTRI | OP.VPCMPESTRM | OP.VPCMPISTRI
   | OP.VPCMPISTRM -> SSELifter.pcmpstr ins insLen ctxt
   | OP.VPCMPGTB -> AVXLifter.vpcmpgtb ins insLen ctxt
+  | OP.VPERM2I128 -> AVXLifter.vperm2i128 ins insLen ctxt
   | OP.VPERMD -> AVXLifter.vpermd ins insLen ctxt
   | OP.VPERMQ -> AVXLifter.vpermq ins insLen ctxt
   | OP.VPEXTRD -> SSELifter.pextrd ins insLen ctxt

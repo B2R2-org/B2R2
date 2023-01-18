@@ -1501,6 +1501,22 @@ let vextracti32x8 ins insLen ctxt =
   | _ -> raise InvalidOperandException
   !>ir insLen
 
+let vextracti128 ins insLen ctxt =
+  let ir = !*ctxt
+  !<ir insLen
+  let struct (dst, src, imm) = getThreeOprs ins
+  let dstB, dstA = transOprToExpr128 ir false ins insLen ctxt dst
+  let srcD, srcC, srcB, srcA = transOprToExpr256 ir false ins insLen ctxt src
+  let imm = transOprToExpr ir false ins insLen ctxt imm
+  let cond = !+ir 1<rt>
+  !!ir (cond := AST.xtlo 1<rt> imm)
+  !!ir (dstA := AST.ite cond srcC srcA)
+  !!ir (dstB := AST.ite cond srcD srcB)
+  match dst with
+  | OprReg _ -> fillZeroFromVLToMaxVL ctxt dst 128 512 ir
+  | _ -> ()
+  !>ir insLen
+
 let vextracti64x4 ins insLen ctxt =
   let ir = !*ctxt
   !<ir insLen
@@ -2019,6 +2035,38 @@ let vpinsrb ins insLen ctxt =
   if amount < 64 then !!ir (dstA := (src1A .& (AST.not mask)) .& t)
   else !!ir (dstB := (src1B .& (AST.not mask)) .& t)
   fillZeroFromVLToMaxVL ctxt dst 128 512 ir
+
+let vperm2i128 ins insLen ctxt =
+  let ir = !*ctxt
+  let struct (dst, src1, src2, imm) = getFourOprs ins
+  let dstD, dstC, dstB, dstA = transOprToExpr256 ir false ins insLen ctxt dst
+  let src1D, src1C, src1B, src1A =
+    transOprToExpr256 ir false ins insLen ctxt src1
+  let src2D, src2C, src2B, src2A =
+    transOprToExpr256 ir false ins insLen ctxt src2
+  let imm = getImmValue imm
+  let struct (tDstA, tDstB, tDstC, tDstD) = tmpVars4 ir 64<rt>
+  !<ir insLen
+  let cond count = (imm >>> count) &&& 0b11L
+  let imm0 (* imm8[3] *) = (imm >>> 3) &&& 0b1L
+  let imm1 (* imm8[7] *) = (imm >>> 7) &&& 0b1L
+  let getSrc cond =
+    match cond with
+    | 0L -> src1A, src1B
+    | 1L -> src1C, src1D
+    | 2L -> src2A, src2B
+    | _ -> src2C, src2D
+  let src1, src2 = getSrc (cond 0)
+  !!ir (tDstA := src1)
+  !!ir (tDstB := src2)
+  let src1, src2 = getSrc (cond 4)
+  !!ir (tDstC := src1)
+  !!ir (tDstD := src2)
+  !!ir (dstA := if imm0 = 1L then AST.num0 64<rt> else tDstA)
+  !!ir (dstB := if imm0 = 1L then AST.num0 64<rt> else tDstB)
+  !!ir (dstC := if imm1 = 1L then AST.num0 64<rt> else tDstC)
+  !!ir (dstD := if imm1 = 1L then AST.num0 64<rt> else tDstD)
+  !>ir insLen
 
 let private getSrc cond dst e0 e1 e2 e3 e4 e5 e6 e7 ir =
   !!ir (dst := AST.ite (cond == AST.num0 8<rt>) e0
