@@ -297,10 +297,20 @@ let anddot ins insLen ctxt =
 
 let andidot ins insLen ctxt =
   let struct (dst, src, uimm) = transThreeOprs ins ctxt
-  let uimm = AST.concat (AST.num0 16<rt>) (AST.xtlo 16<rt> uimm)
+  let uimm = uimm .& numI32 0xffff 32<rt>
   let ir = !*ctxt
   !<ir insLen
   !!ir (dst := src .& uimm)
+  setCondReg ctxt ir dst
+  !>ir insLen
+
+let andisdot ins insLen ctxt =
+  let struct (dst, src, uimm) = transThreeOprs ins ctxt
+  let uimm = uimm << numI32 16 32<rt>
+  let ir = !*ctxt
+  !<ir insLen
+  !!ir (dst := src .+ uimm)
+  setCondReg ctxt ir dst
   !>ir insLen
 
 let b ins insLen ctxt lk =
@@ -528,6 +538,29 @@ let lbz ins insLen ctxt =
   let ir = !*ctxt
   !<ir insLen
   !!ir (dst := AST.zext 32<rt> (loadNative ctxt 8<rt> ea))
+  !>ir insLen
+
+let lbzu ins insLen ctxt =
+  let struct (o1, o2) = getTwoOprs ins
+  let ea, ra =
+    match o2 with
+    | OprMem (d, b) -> (!.ctxt b .+ numI32 d ctxt.WordBitSize), !.ctxt b
+    | _ -> raise InvalidOperandException
+  let rd = transOprToExpr ins ctxt o1
+  let ir = !*ctxt
+  !<ir insLen
+  !!ir (rd := AST.zext 32<rt> (loadNative ctxt 8<rt> ea))
+  !!ir (ra := ea)
+  !>ir insLen
+
+let lbzux ins insLen ctxt =
+  let struct (rd, ra, rb) = transThreeOprs ins ctxt
+  let ir = !*ctxt
+  let ea = !+ir 32<rt>
+  !<ir insLen
+  !!ir (ea := ra .+ rb)
+  !!ir (rd := AST.zext 32<rt> (loadNative ctxt 8<rt> ea))
+  !!ir (ra := ea)
   !>ir insLen
 
 let lbzx ins insLen ctxt =
@@ -854,6 +887,14 @@ let nor ins insLen ctxt =
   !!ir (dst := AST.not (src1 .| src2))
   !>ir insLen
 
+let nordot ins insLen ctxt =
+  let struct (dst, src1, src2) = transThreeOprs ins ctxt
+  let ir = !*ctxt
+  !<ir insLen
+  !!ir (dst := AST.not (src1 .| src2))
+  setCondReg ctxt ir dst
+  !>ir insLen
+
 let nop insLen ctxt =
   let ir = !*ctxt
   !<ir insLen
@@ -1119,6 +1160,14 @@ let subf ins insLen ctxt =
   !!ir (dst := (AST.not src1) .+ src2 .+ (AST.num1 32<rt>))
   !>ir insLen
 
+let subfdot ins insLen ctxt =
+  let struct (dst, src1, src2) = transThreeOprs ins ctxt
+  let ir = !*ctxt
+  !<ir insLen
+  !!ir (dst := (AST.not src1) .+ src2 .+ (AST.num1 32<rt>))
+  setCondReg ctxt ir dst
+  !>ir insLen
+
 let subfc ins insLen ctxt =
   let struct (dst, src1, src2) = transThreeOprs ins ctxt
   let ir = !*ctxt
@@ -1201,6 +1250,7 @@ let translate (ins: InsInfo) insLen (ctxt: TranslationContext) =
   | Op.AND -> andx ins insLen ctxt
   | Op.ANDdot -> anddot ins insLen ctxt
   | Op.ANDIdot -> andidot ins insLen ctxt
+  | Op.ANDISdot -> andisdot ins insLen ctxt
   | Op.B -> b ins insLen ctxt false
   | Op.BA -> b ins insLen ctxt false
   | Op.BL -> b ins insLen ctxt true
@@ -1234,6 +1284,8 @@ let translate (ins: InsInfo) insLen (ctxt: TranslationContext) =
   | Op.FMSUB -> fmsub ins insLen ctxt
   | Op.ISYNC -> sideEffects insLen ctxt ClockCounter
   | Op.LBZ -> lbz ins insLen ctxt
+  | Op.LBZU -> lbzu ins insLen ctxt
+  | Op.LBZUX -> lbzux ins insLen ctxt
   | Op.LBZX -> lbzx ins insLen ctxt
   | Op.LFD -> lfd ins insLen ctxt
   | Op.LFS -> lfs ins insLen ctxt
@@ -1267,6 +1319,7 @@ let translate (ins: InsInfo) insLen (ctxt: TranslationContext) =
   | Op.MULLW -> mullw ins insLen ctxt
   | Op.NEG -> neg ins insLen ctxt
   | Op.NOR -> nor ins insLen ctxt
+  | Op.NORdot -> nordot ins insLen ctxt
   | Op.NOP -> nop insLen ctxt
   | Op.OR -> orx ins insLen ctxt
   | Op.ORdot -> ordot ins insLen ctxt
@@ -1293,6 +1346,7 @@ let translate (ins: InsInfo) insLen (ctxt: TranslationContext) =
   | Op.STWUX -> stwux ins insLen ctxt
   | Op.STWX -> stwx ins insLen ctxt
   | Op.SUBF -> subf ins insLen ctxt
+  | Op.SUBFdot -> subfdot ins insLen ctxt
   | Op.SUBFC -> subfc ins insLen ctxt
   | Op.SUBFE -> subfe ins insLen ctxt
   | Op.SUBFIC -> subfic ins insLen ctxt
