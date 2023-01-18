@@ -541,6 +541,7 @@ let translate (ins: IntelInternalInstruction) insLen ctxt =
   | OP.VPAVGB -> AVXLifter.vpavgb ins insLen ctxt
   | OP.VPAVGW -> AVXLifter.vpavgw ins insLen ctxt
   | OP.VPBROADCASTB -> AVXLifter.vpbroadcastb ins insLen ctxt
+  | OP.VPBROADCASTW -> AVXLifter.vpbroadcastw ins insLen ctxt
   | OP.VPBROADCASTD -> AVXLifter.vpbroadcastd ins insLen ctxt
   | OP.VPCMPEQB -> AVXLifter.vpcmpeqb ins insLen ctxt
   | OP.VPCMPEQD -> AVXLifter.vpcmpeqd ins insLen ctxt
@@ -571,6 +572,7 @@ let translate (ins: IntelInternalInstruction) insLen ctxt =
   | OP.VPMOVZXWD -> AVXLifter.vpmovbw ins insLen ctxt 16<rt> false (* AVX2 *)
   | OP.VPMOVZXWQ -> AVXLifter.vpmovbd ins insLen ctxt 16<rt> false (* AVX2 *)
   | OP.VPMOVZXDQ -> AVXLifter.vpmovbw ins insLen ctxt 32<rt> false (* AVX2 *)
+  | OP.VPMOVD2M -> AVXLifter.vpmovd2m ins insLen ctxt
   | OP.VPMOVMSKB -> SSELifter.pmovmskb ins insLen ctxt
   | OP.VPMULLD -> AVXLifter.vpmulld ins insLen ctxt
   | OP.VPMULUDQ -> AVXLifter.vpmuludq ins insLen ctxt

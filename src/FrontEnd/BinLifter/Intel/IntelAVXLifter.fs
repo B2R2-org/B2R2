@@ -1952,6 +1952,43 @@ let vpbroadcastb ins insLen ctxt =
     | _ -> raise InvalidOperandSizeException
   !>ir insLen
 
+let vpbroadcastw ins insLen ctxt =
+  let ir = !*ctxt
+  let struct (dst, src) = getTwoOprs ins
+  let oprSize = getOperationSize ins
+  match oprSize with
+  | 512<rt> -> () (* FIXME: #196 *)
+  | _ ->
+    !<ir insLen
+    let src =
+      match src with
+      | OprReg _ -> transOprToExpr128 ir false ins insLen ctxt src |> snd
+      | OprMem _ -> transOprToExpr ir false ins insLen ctxt src
+      | _ -> raise InvalidOperandException
+      |> AST.xtlo 16<rt>
+    let tSrc = !+ir 16<rt>
+    !!ir (tSrc := src)
+    let tmps = Array.init 4 (fun _ -> !+ir 16<rt>)
+    for i in 0 .. 3 do !!ir (tmps[i] := tSrc) done
+    let t = !+ir 64<rt>
+    !!ir (t := AST.concatArr tmps)
+    match oprSize with
+    | 128<rt> ->
+      let dstB, dstA = transOprToExpr128 ir false ins insLen ctxt dst
+      !!ir (dstA := t)
+      !!ir (dstB := t)
+      fillZeroFromVLToMaxVL ctxt dst 128 512 ir
+    | 256<rt> ->
+      let dstD, dstC, dstB, dstA =
+        transOprToExpr256 ir false ins insLen ctxt dst
+      !!ir (dstA := t)
+      !!ir (dstB := t)
+      !!ir (dstC := t)
+      !!ir (dstD := t)
+      fillZeroFromVLToMaxVL ctxt dst 256 512 ir
+    | _ -> raise InvalidOperandSizeException
+  !>ir insLen
+
 let vpbroadcastd ins insLen ctxt =
   let ir = !*ctxt
   let struct (dst, src) = getTwoOprs ins
@@ -2257,6 +2294,23 @@ let vpmovbq ins insLen ctxt packSz isSignExt =
     packedMove ir 16<rt> packSz dstC dstD (AST.extract srcA 16<rt> 16) isSignExt
     fillZeroFromVLToMaxVL ctxt dst 256 512 ir
   | _ -> raise InvalidOperandException
+  !>ir insLen
+
+let vpmovd2m ins insLen ctxt =
+  let ir = !*ctxt
+  !<ir insLen
+  let oprSize = getOperationSize ins
+  let packSize = 32<rt>
+  let packNum = 64<rt> / packSize
+  let struct (dst, src) = getTwoOprs ins
+  let dst = transOprToExpr ir false ins insLen ctxt dst
+  let src = transOprToArr ir ins insLen ctxt packSize packNum oprSize src
+  let tmp = !+ir 16<rt>
+  !!ir (tmp := AST.num0 16<rt>)
+  let assignShf idx expr =
+    !!ir (tmp := tmp .| ((AST.zext 16<rt> expr) << (numI32 idx 16<rt>)))
+  Array.map (fun e -> AST.xthi 1<rt> e) src |> Array.iteri assignShf
+  !!ir (dst := AST.zext 64<rt> tmp)
   !>ir insLen
 
 let private opVpmulhuw _ = opPmul AST.xthi AST.zext 32<rt> 16<rt>
