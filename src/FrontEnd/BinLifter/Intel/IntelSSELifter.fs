@@ -1396,6 +1396,11 @@ let private opPmulhuw _ = opPmul AST.xthi AST.zext 32<rt> 16<rt>
 let pmulhuw ins insLen ctxt =
   buildPackedInstr ins insLen ctxt 16<rt> opPmulhuw
 
+let private opPmulld _ = opPmul AST.xtlo AST.sext 32<rt> 32<rt>
+
+let pmulld ins insLen ctxt =
+  buildPackedInstr ins insLen ctxt 32<rt> opPmulld
+
 let private opPsadbw _ =
   let abs expr = AST.ite (AST.lt expr (AST.num0 8<rt>)) (AST.neg expr) (expr)
   Array.map2 (fun e1 e2 -> abs (e1 .- e2))

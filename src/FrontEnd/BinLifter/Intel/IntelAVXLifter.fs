@@ -1832,6 +1832,11 @@ let private opVpmuludq _ =
 let vpmuludq ins insLen ctxt =
   buildPackedInstr ins insLen ctxt 64<rt> opVpmuludq
 
+let private opVpmulld _ = opPmul AST.xtlo AST.sext 32<rt> 32<rt>
+
+let vpmulld ins insLen ctxt =
+  buildPackedInstr ins insLen ctxt 32<rt> opVpmulld
+
 let vpor ins insLen ctxt =
   match getOperationSize ins with
   | 512<rt> -> GeneralLifter.nop insLen ctxt
