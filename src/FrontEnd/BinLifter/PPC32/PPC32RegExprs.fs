@@ -167,6 +167,7 @@ type internal RegExprs (wordSize) =
   member val XER = var 32<rt> (Register.toRegID Register.XER) "XER" with get
   member val LR = var regType (Register.toRegID Register.LR) "LR" with get
   member val CTR = var regType (Register.toRegID Register.CTR) "CTR" with get
+  member val PVR = var 32<rt> (Register.toRegID Register.PVR) "PVR" with get
 
   member __.GetRegVar (name) =
     match name with
@@ -270,6 +271,7 @@ type internal RegExprs (wordSize) =
     | R.XER -> __.XER
     | R.LR -> __.LR
     | R.CTR -> __.CTR
+    | R.PVR -> __.PVR
     | _ -> raise UnhandledRegExprException
 
 // vim: set tw=80 sts=2 sw=2:

@@ -172,6 +172,17 @@ let getImmValue = function
   | OprBI imm -> imm
   | _ -> raise InvalidOperandException
 
+let getSPRReg ctxt imm  =
+  match uint32 imm with
+  | 1u -> !.ctxt R.XER
+  | 8u -> !.ctxt R.LR
+  | 9u -> !.ctxt R.CTR
+  | 287u -> !.ctxt R.PVR
+  | 18u | 19u | 22u | 25u | 26u | 27u | 272u | 273u | 274u | 275u | 282u | 528u
+  | 529u | 530u | 531u | 532u | 533u | 534u | 535u | 536u | 537u | 538u | 539u
+  | 540u | 541u | 542u | 543u | 1013u -> raise UnhandledRegExprException
+  | _ -> raise InvalidOperandException
+
 let setCondReg ctxt ir result =
   let xer = !.ctxt R.XER
   let cr0A = !.ctxt R.CR0_0
@@ -699,13 +710,6 @@ let mfcr ins insLen ctxt =
   !!ir (dst := cr)
   !>ir insLen
 
-let mfspr ins insLen ctxt =
-  let struct (dst, spr) = transTwoOprs ins ctxt
-  let ir = !*ctxt
-  !<ir insLen
-  !!ir (dst := spr)
-  !>ir insLen
-
 let mfctr ins insLen ctxt =
   let dst = transOneOpr ins ctxt
   let ctr = !.ctxt R.CTR
@@ -730,6 +734,17 @@ let mflr ins insLen ctxt =
   !!ir (dst := lr)
   !>ir insLen
 
+let mfspr ins insLen ctxt =
+  let struct (dst, spr) =
+    match ins.Operands with
+    | TwoOperands (o1, OprImm o2) ->
+      transOprToExpr ins ctxt o1, getSPRReg ctxt o2
+    | _ -> raise InvalidOperandException
+  let ir = !*ctxt
+  !<ir insLen
+  !!ir (dst := spr)
+  !>ir insLen
+
 let mfxer ins insLen ctxt =
   let dst = transOneOpr ins ctxt
   let xer = !.ctxt R.XER
@@ -745,19 +760,23 @@ let mr ins insLen ctxt =
   !!ir (dst := src .| src)
   !>ir insLen
 
-let mtspr ins insLen ctxt =
-  let struct (src, spr) = transTwoOprs ins ctxt
-  let ir = !*ctxt
-  !<ir insLen
-  !!ir (spr := src)
-  !>ir insLen
-
 let mtctr ins insLen ctxt =
   let src = transOneOpr ins ctxt
   let ctr = !.ctxt R.CTR
   let ir = !*ctxt
   !<ir insLen
   !!ir (ctr := src)
+  !>ir insLen
+
+let mtspr ins insLen ctxt =
+  let struct (src, spr) =
+    match ins.Operands with
+    | TwoOperands (o1, OprImm o2) ->
+      transOprToExpr ins ctxt o1, getSPRReg ctxt o2
+    | _ -> raise InvalidOperandException
+  let ir = !*ctxt
+  !<ir insLen
+  !!ir (spr := src)
   !>ir insLen
 
 let private crmMask ir crm =

@@ -1007,16 +1007,18 @@ let parseMFSPR bin =
     let rd = getRegister (extract bin 25u 21u) |> OprReg
     match concat (extract bin 15u 11u) (extract bin 20u 16u) 5 with
     (* mfxer rd = mfspr rd,1 *)
-    | 0x1u -> struct (Op.MFXER, OneOperand rd)
+    | 1u -> struct (Op.MFXER, OneOperand rd)
     (* mflr rd = mfspr rd,8 *)
-    | 0x8u -> struct (Op.MFLR, OneOperand rd)
+    | 8u -> struct (Op.MFLR, OneOperand rd)
     (* mfctr rd = mfspr rd,9 *)
-    | 0x9u -> struct (Op.MFCTR, OneOperand rd)
-    | _ ->
-      (* FIXME: SPRegister *)
+    | 9u -> struct (Op.MFCTR, OneOperand rd)
+    | 18u | 19u | 22u | 25u | 26u | 27u | 272u | 273u | 274u | 275u | 282u
+    | 287u | 528u | 529u | 530u | 531u | 532u | 533u | 534u | 535u | 536u
+    | 537u | 538u | 539u | 540u | 541u | 542u | 543u | 1013u ->
       let spr =
         getSPRegister (concat (extract bin 15u 11u) (extract bin 20u 16u) 5)
       struct (Op.MFSPR, TwoOperands (rd, spr))
+    | _ ->  raise ParsingFailureException
   | _ (* 1 *) -> raise ParsingFailureException
 
 let parseEIEIO bin =
