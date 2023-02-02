@@ -216,8 +216,10 @@ module private CFGBuilder =
            && dstBlk.FunctionEntry = dst then
         Ok evts (* Undetected no-return case, so we do not add fall-through. *)
       else (* Tail-call. *)
+        let srcBlk = codeMgr.GetBBL src.Address
+        let callSite = srcBlk.InstrAddrs |> Set.maxElement
         buildFunction hdl codeMgr dataMgr dst mode evts
-        |> Result.bind (buildCall codeMgr dataMgr fn src.Address dst true)
+        |> Result.bind (buildCall codeMgr dataMgr fn callSite dst true)
     elif isIntrudingBlk codeMgr dst then
       splitAndConnectEdge hdl codeMgr fn src dst edge evts
     elif not (codeMgr.HasInstruction dst) (* Jump to the middle of an instr *)
