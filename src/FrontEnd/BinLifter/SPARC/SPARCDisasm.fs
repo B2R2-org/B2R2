@@ -133,21 +133,117 @@ let opCodeToString = function
   | Opcode.FMOVd -> "fmovd"
   | Opcode.FMOVq -> "fmovq"
   | Opcode.FMOVA -> "fmova"
+  | Opcode.FMOVsA -> "fmovsa"
+  | Opcode.FMOVdA -> "fmovda"
+  | Opcode.FMOVqA -> "fmovqa"
   | Opcode.FMOVN -> "fmovn"
-  | Opcode.FMOVNE -> "fmoven"
+  | Opcode.FMOVsN -> "fmovsn"
+  | Opcode.FMOVdN -> "fmovdn"
+  | Opcode.FMOVqN -> "fmovqn"
+  | Opcode.FMOVNE -> "fmovne"
+  | Opcode.FMOVsNE -> "fmovsne"
+  | Opcode.FMOVdNE -> "fmovdne"
+  | Opcode.FMOVqNE -> "fmovqne"
   | Opcode.FMOVE -> "fmove"
+  | Opcode.FMOVsE -> "fmovse"
+  | Opcode.FMOVdE -> "fmovde"
+  | Opcode.FMOVqE -> "fmovqe"
   | Opcode.FMOVG -> "fmovg"
+  | Opcode.FMOVsG -> "fmovsg"
+  | Opcode.FMOVdG -> "fmovdg"
+  | Opcode.FMOVqG -> "fmovqg"
   | Opcode.FMOVLE -> "fmovle"
+  | Opcode.FMOVsLE -> "fmovsle"
+  | Opcode.FMOVdLE -> "fmovdle"
+  | Opcode.FMOVqLE -> "fmovqle"
   | Opcode.FMOVGE -> "fmovge"
+  | Opcode.FMOVsGE -> "fmovsge"
+  | Opcode.FMOVdGE -> "fmovdge"
+  | Opcode.FMOVqGE -> "fmovqge"
   | Opcode.FMOVL -> "fmovl"
+  | Opcode.FMOVsL -> "fmovsl"
+  | Opcode.FMOVdL -> "fmovdl"
+  | Opcode.FMOVqL -> "fmovql"
   | Opcode.FMOVGU -> "fmovgu"
+  | Opcode.FMOVsGU -> "fmovsgu"
+  | Opcode.FMOVdGU -> "fmovdgu"
+  | Opcode.FMOVqGU -> "fmovqgu"
   | Opcode.FMOVLEU -> "fmovleu"
+  | Opcode.FMOVsLEU -> "fmovsleu"
+  | Opcode.FMOVdLEU -> "fmovdleu"
+  | Opcode.FMOVqLEU -> "fmovqleu"
   | Opcode.FMOVCC -> "fmovcc"
+  | Opcode.FMOVsCC -> "fmovscc"
+  | Opcode.FMOVdCC -> "fmovdcc"
+  | Opcode.FMOVqCC -> "fmovqcc"
   | Opcode.FMOVCS -> "fmovcs"
+  | Opcode.FMOVsCS -> "fmovscs"
+  | Opcode.FMOVdCS -> "fmovdcs"
+  | Opcode.FMOVqCS -> "fmovqcs"
   | Opcode.FMOVPOS -> "fmovpos"
+  | Opcode.FMOVsPOS -> "fmovspos"
+  | Opcode.FMOVdPOS -> "fmovspos"
+  | Opcode.FMOVqPOS -> "fmovqpos"
   | Opcode.FMOVNEG -> "fmovneg"
+  | Opcode.FMOVsNEG -> "fmovsneg"
+  | Opcode.FMOVdNEG -> "fmovdneg"
+  | Opcode.FMOVqNEG -> "fmovqneg"
   | Opcode.FMOVVC -> "fmovvc"
+  | Opcode.FMOVsVC -> "fmovsvc"
+  | Opcode.FMOVdVC -> "fmovdvc"
+  | Opcode.FMOVqVC -> "fmovqvc"
   | Opcode.FMOVVS -> "fmovvs"
+  | Opcode.FMOVsVS -> "fmovsvs"
+  | Opcode.FMOVdVS -> "fmovdvs"
+  | Opcode.FMOVqVS -> "fmovqvs"
+  | Opcode.FMOVFsA -> "fmovsa"
+  | Opcode.FMOVFdA -> "fmovda"
+  | Opcode.FMOVFqA -> "fmovqa"
+  | Opcode.FMOVFsN -> "fmovsn"
+  | Opcode.FMOVFdN -> "fmovdn"
+  | Opcode.FMOVFqN -> "fmovqn"
+  | Opcode.FMOVFsU -> "fmovsu"
+  | Opcode.FMOVFdU -> "fmovdu"
+  | Opcode.FMOVFqU -> "fmovqu"
+  | Opcode.FMOVFsG -> "fmovsg"
+  | Opcode.FMOVFdG -> "fmovdg"
+  | Opcode.FMOVFqG -> "fmovqg"
+  | Opcode.FMOVFsUG -> "fmovsug"
+  | Opcode.FMOVFdUG -> "fmovdug"
+  | Opcode.FMOVFqUG -> "fmovqug"
+  | Opcode.FMOVFsL -> "fmovsl"
+  | Opcode.FMOVFdL -> "fmovdl"
+  | Opcode.FMOVFqL -> "fmovql"
+  | Opcode.FMOVFsUL -> "fmovsul"
+  | Opcode.FMOVFdUL -> "fmovdul"
+  | Opcode.FMOVFqUL -> "fmovqul"
+  | Opcode.FMOVFsLG -> "fmovslg"
+  | Opcode.FMOVFdLG -> "fmovdlg"
+  | Opcode.FMOVFqLG -> "fmovqlg"
+  | Opcode.FMOVFsNE -> "fmovsne"
+  | Opcode.FMOVFdNE -> "fmovdne"
+  | Opcode.FMOVFqNE -> "fmovqne"
+  | Opcode.FMOVFsE -> "fmovse"
+  | Opcode.FMOVFdE -> "fmovde"
+  | Opcode.FMOVFqE -> "fmovqe"
+  | Opcode.FMOVFsUE -> "fmovsue"
+  | Opcode.FMOVFdUE -> "fmovdue"
+  | Opcode.FMOVFqUE -> "fmovque"
+  | Opcode.FMOVFsGE -> "fmovsge"
+  | Opcode.FMOVFdGE -> "fmovdge"
+  | Opcode.FMOVFqGE -> "fmovqge"
+  | Opcode.FMOVFsUGE -> "fmovsuge"
+  | Opcode.FMOVFdUGE -> "fmovduge"
+  | Opcode.FMOVFqUGE -> "fmovquge"
+  | Opcode.FMOVFsLE -> "fmovsle"
+  | Opcode.FMOVFdLE -> "fmovdle"
+  | Opcode.FMOVFqLE -> "fmovqle"
+  | Opcode.FMOVFsULE -> "fmovsule"
+  | Opcode.FMOVFdULE -> "fmovdule"
+  | Opcode.FMOVFqULE -> "fmovqule"
+  | Opcode.FMOVFsO -> "fmovso"
+  | Opcode.FMOVFdO -> "fmovdo"
+  | Opcode.FMOVFqO -> "fmovqo"
   | Opcode.FMOVFA -> "fmovfa"
   | Opcode.FMOVFN -> "fmovfn"
   | Opcode.FMOVFU -> "fmovfu"
@@ -170,6 +266,24 @@ let opCodeToString = function
   | Opcode.FMOVRNZ -> "fmovrne"
   | Opcode.FMOVRGZ -> "fmovrgz"
   | Opcode.FMOVRGEZ -> "fmovrgez"
+  | Opcode.FMOVRsZ -> "fmovrse"
+  | Opcode.FMOVRsLEZ -> "fmovrslez"
+  | Opcode.FMOVRsLZ -> "fmovrslz"
+  | Opcode.FMOVRsNZ -> "fmovrsne"
+  | Opcode.FMOVRsGZ -> "fmovrsgz"
+  | Opcode.FMOVRsGEZ -> "fmovrsgez"
+  | Opcode.FMOVRdZ -> "fmovrde"
+  | Opcode.FMOVRdLEZ -> "fmovrdlez"
+  | Opcode.FMOVRdLZ -> "fmovrdlz"
+  | Opcode.FMOVRdNZ -> "fmovrdne"
+  | Opcode.FMOVRdGZ -> "fmovrdgz"
+  | Opcode.FMOVRdGEZ -> "fmovrdgez"
+  | Opcode.FMOVRqZ -> "fmovrqe"
+  | Opcode.FMOVRqLEZ -> "fmovrqlez"
+  | Opcode.FMOVRqLZ -> "fmovrqlz"
+  | Opcode.FMOVRqNZ -> "fmovrqne"
+  | Opcode.FMOVRqGZ -> "fmovrqgz"
+  | Opcode.FMOVRqGEZ -> "fmovrqgez"
   | Opcode.FMULs -> "fmuls"
   | Opcode.FMULd -> "fmuld"
   | Opcode.FMULq -> "fmulq"
@@ -430,12 +544,12 @@ let oprToString ins addr operand delim builder =
 let buildComment2 opr1 opr2 (builder: DisasmBuilder<_>) =
   match opr1, opr2 with
   | OprImm imm, _ | _, OprImm imm ->
-    builder.Accumulate AsmWordKind.String "     ; "
+    builder.Accumulate AsmWordKind.String "     ! "
     builder.Accumulate AsmWordKind.Value (string imm)
   | OprMemory addrMode, _ | _, OprMemory addrMode ->
     match addrMode with
     | DispMode (reg, c) ->
-      builder.Accumulate AsmWordKind.String "     ; "
+      builder.Accumulate AsmWordKind.String "     ! "
       builder.Accumulate AsmWordKind.Value (String.i32ToHex c)
     | _ -> ()
   | _ -> ()
@@ -443,13 +557,13 @@ let buildComment2 opr1 opr2 (builder: DisasmBuilder<_>) =
 let buildComment3 opr1 opr2 opr3 (builder: DisasmBuilder<_>) =
   match opr1, opr2, opr3 with
   | OprImm imm, _, _ | _, OprImm imm, _ | _, _, OprImm imm ->
-    builder.Accumulate AsmWordKind.String "     ; "
+    builder.Accumulate AsmWordKind.String "     ! "
     builder.Accumulate AsmWordKind.Value (string imm)
   | OprMemory addrMode, _, _ | _, OprMemory addrMode, _
   | _, _, OprMemory addrMode ->
     match addrMode with
     | DispMode (reg, c) ->
-      builder.Accumulate AsmWordKind.String "     ; "
+      builder.Accumulate AsmWordKind.String "     ! "
       builder.Accumulate AsmWordKind.Value (String.i32ToHex c)
     | _ -> ()
   | _ -> ()
@@ -457,22 +571,24 @@ let buildComment3 opr1 opr2 opr3 (builder: DisasmBuilder<_>) =
 let buildComment3Bracket opr1 opr2 opr3 (builder: DisasmBuilder<_>) =
   match opr1, opr2, opr3 with
   | OprImm imm, _, _ | _, OprImm imm, _ | _, _, OprImm imm ->
-    builder.Accumulate AsmWordKind.String "]     ; "
+    builder.Accumulate AsmWordKind.String "]     ! "
     builder.Accumulate AsmWordKind.Value (string imm)
   | OprMemory addrMode, _, _ | _, OprMemory addrMode, _
   | _, _, OprMemory addrMode ->
     match addrMode with
     | DispMode (reg, c) ->
-      builder.Accumulate AsmWordKind.String "]     ; "
+      builder.Accumulate AsmWordKind.String "]     ! "
       builder.Accumulate AsmWordKind.Value (String.i32ToHex c)
     | _ -> ()
+  | OprReg _, OprReg _, OprReg _ ->
+    builder.Accumulate AsmWordKind.String "]"
   | _ -> ()
 
 let buildComment4 opr1 opr2 opr3 opr4 (builder: DisasmBuilder<_>) =
   match opr1, opr2, opr3, opr4 with
   | OprImm imm, _, _, _ | _, OprImm imm, _, _ | _, _, OprImm imm, _
   | _, _, _, OprImm imm ->
-    builder.Accumulate AsmWordKind.String "     ; "
+    builder.Accumulate AsmWordKind.String "     ! "
     builder.Accumulate AsmWordKind.Value (string imm)
   | _ -> ()
 
@@ -480,14 +596,14 @@ let buildComment5 opr1 opr2 opr3 opr4 opr5 (builder: DisasmBuilder<_>) =
   match opr1, opr2, opr3, opr4, opr5 with
   | OprImm imm, _, _, _ ,_ | _, OprImm imm, _, _, _ | _, _, OprImm imm, _, _
   | _, _, _, OprImm imm, _ | _, _, _, _, OprImm imm ->
-    builder.Accumulate AsmWordKind.String "     ; "
+    builder.Accumulate AsmWordKind.String "     ! "
     builder.Accumulate AsmWordKind.Value (string imm)
   | OprMemory addrMode, _, _, _, _ | _, OprMemory addrMode, _, _, _
   | _, _, OprMemory addrMode, _, _ | _, _, _, OprMemory addrMode, _
   | _, _, _, _, OprMemory addrMode ->
     match addrMode with
     | DispMode (reg, c) ->
-      builder.Accumulate AsmWordKind.String "     ; "
+      builder.Accumulate AsmWordKind.String "     ! "
       builder.Accumulate AsmWordKind.Value (String.i32ToHex c)
     | _ -> ()
   | _ -> ()
@@ -534,14 +650,20 @@ let buildOprs ins pc builder =
         prependDelimiter (Some ", ") builder
         immToStringNoPrefix (pcValue + k) builder
       | _ -> Utils.impossible ()
+    | Opcode.FdTOx | Opcode.FNEGs | Opcode.FNEGd | Opcode.FNEGq | Opcode.FABSs
+    | Opcode.FABSd | Opcode.FABSq | Opcode.FSQRTs | Opcode.FSQRTd
+    | Opcode.FSQRTq | Opcode.FCMPs | Opcode.FCMPd | Opcode.FCMPq
+    | Opcode.FMOVs | Opcode.FMOVd | Opcode.FMOVq ->
+      oprToString ins pc opr1 (Some " ") builder
+      oprToString ins pc opr2 (Some ", ") builder
     | _ ->
       match (opr1, opr2) with
       | (OprReg reg, OprReg reg1) ->
         oprToString ins pc opr1 (Some " ") builder
-        oprToString ins pc opr2 (Some " + ") builder
+        oprToString ins pc opr2 (Some ", ") builder
       | (OprReg reg, OprImm imm) ->
         oprToString ins pc opr1 (Some " ") builder
-        oprToString ins pc opr2 (Some " + ") builder
+        oprToString ins pc opr2 (Some ", ") builder
       | _ ->
         match ins.Opcode with
         | Opcode.SETHI ->
@@ -567,6 +689,11 @@ let buildOprs ins pc builder =
       oprToString ins pc opr2 (Some ", [") builder
       oprToString ins pc opr3 (Some " + ") builder
       buildComment3Bracket opr1 opr2 opr3 builder
+    | Opcode.JMPL ->
+      oprToString ins pc opr1 (Some " ") builder
+      oprToString ins pc opr2 (Some " + ") builder
+      oprToString ins pc opr3 (Some ", ") builder
+      buildComment3 opr1 opr2 opr3 builder
     | _ ->
       oprToString ins pc opr1 (Some " ") builder
       oprToString ins pc opr2 (Some ", ") builder
@@ -574,7 +701,13 @@ let buildOprs ins pc builder =
       buildComment3 opr1 opr2 opr3 builder
   | FourOperands (opr1, opr2, opr3, opr4) ->
     match ins.Opcode with
-    | Opcode.LDFA | Opcode.LDDFA | Opcode.LDQFA | Opcode.PREFETCHA ->
+    | Opcode.LDFA | Opcode.LDDFA | Opcode.LDQFA ->
+      oprToString ins pc opr1 (Some " [") builder
+      oprToString ins pc opr2 (Some " + ") builder
+      oprToString ins pc opr3 (Some "] ") builder
+      oprToString ins pc opr4 (Some ", ") builder
+      buildComment4 opr1 opr2 opr3 opr4 builder
+    | Opcode.PREFETCHA ->
       oprToString ins pc opr1 (Some " [") builder
       oprToString ins pc opr2 (Some " + ") builder
       oprToString ins pc opr3 (Some "], ") builder
@@ -585,6 +718,12 @@ let buildOprs ins pc builder =
       oprToString ins pc opr2 (Some ", [") builder
       oprToString ins pc opr3 (Some " + ") builder
       oprToString ins pc opr4 (Some "], ") builder
+      buildComment4 opr1 opr2 opr3 opr4 builder
+    | Opcode.STFA | Opcode.STDFA | Opcode.STQFA ->
+      oprToString ins pc opr1 (Some " ") builder
+      oprToString ins pc opr2 (Some ", [") builder
+      oprToString ins pc opr3 (Some " + ") builder
+      oprToString ins pc opr4 (Some "] ") builder
       buildComment4 opr1 opr2 opr3 opr4 builder
     | _ ->
       oprToString ins pc opr1 (Some " ") builder
