@@ -194,6 +194,10 @@ let setCondReg ctxt ir result =
   !!ir (cr0C := result == AST.num0 32<rt>)
   !!ir (cr0D := AST.xtlo 1<rt> xer)
 
+let setCarryOut ctxt ir =
+  let xerCA = AST.extract (!.ctxt R.XER) 1<rt> 2
+  !!ir (xerCA := AST.b0)
+
 let setCRRegValue ir cr ctxt =
   for i in 0 .. 31 do
     let crbit = uint32 (31 - i) |> getCRbitRegister |> !.ctxt
@@ -225,17 +229,16 @@ let addc ins insLen ctxt =
   let ir = !*ctxt
   !<ir insLen
   !!ir (dst := src1 .+ src2)
-  /// Affected: XER[CA]
+  setCarryOut ctxt ir
   !>ir insLen
 
 let adde ins insLen ctxt =
   let struct (dst, src1, src2) = transThreeOprs ins ctxt
-  let xer = !.ctxt R.XER
-  let ca = AST.zext 32<rt> (AST.extract xer 1<rt> 2)
+  let xerCA = AST.zext 32<rt> (AST.extract (!.ctxt R.XER) 1<rt> 2)
   let ir = !*ctxt
   !<ir insLen
-  !!ir (dst := src1 .+ src2 .+ ca)
-  /// Affected: XER[CA]
+  !!ir (dst := src1 .+ src2 .+ xerCA)
+  setCarryOut ctxt ir
   !>ir insLen
 
 let addi ins insLen ctxt =
@@ -251,7 +254,7 @@ let addic ins insLen ctxt =
   let ir = !*ctxt
   !<ir insLen
   !!ir (dst := src1 .+ simm)
-  /// Affected: XER[CA]
+  setCarryOut ctxt ir
   !>ir insLen
 
 let addicdot ins insLen ctxt =
@@ -260,7 +263,7 @@ let addicdot ins insLen ctxt =
   !<ir insLen
   !!ir (dst := src .+ simm)
   setCondReg ctxt ir dst
-  /// Affected: XER[CA]
+  setCarryOut ctxt ir
   !>ir insLen
 
 let addis ins insLen ctxt =
@@ -272,23 +275,32 @@ let addis ins insLen ctxt =
   !!ir (dst := (AST.ite cond simm (src1 .+ simm)))
   !>ir insLen
 
-let addze ins insLen ctxt =
+let addme ins insLen ctxt =
   let struct (dst, src) = transTwoOprs ins ctxt
-  let xer = !.ctxt R.XER
-  let ca = AST.zext 32<rt> (AST.extract xer 1<rt> 2)
+  let xerCA = AST.zext 32<rt> (AST.extract (!.ctxt R.XER) 1<rt> 2)
   let ir = !*ctxt
   !<ir insLen
-  !!ir (dst := src .+ ca)
+  !!ir (dst := src .+ xerCA .- AST.num1 32<rt>)
+  setCarryOut ctxt ir
+  !>ir insLen
+
+let addze ins insLen ctxt =
+  let struct (dst, src) = transTwoOprs ins ctxt
+  let xerCA = AST.zext 32<rt> (AST.extract (!.ctxt R.XER) 1<rt> 2)
+  let ir = !*ctxt
+  !<ir insLen
+  !!ir (dst := src .+ xerCA)
+  setCarryOut ctxt ir
   !>ir insLen
 
 let addzedot ins insLen ctxt =
   let struct (dst, src) = transTwoOprs ins ctxt
-  let xer = !.ctxt R.XER
-  let ca = AST.zext 32<rt> (AST.extract xer 1<rt> 2)
+  let xerCA = AST.zext 32<rt> (AST.extract (!.ctxt R.XER) 1<rt> 2)
   let ir = !*ctxt
   !<ir insLen
-  !!ir (dst := src .+ ca)
+  !!ir (dst := src .+ xerCA)
   setCondReg ctxt ir dst
+  setCarryOut ctxt ir
   !>ir insLen
 
 let andx ins insLen ctxt =
@@ -1228,17 +1240,16 @@ let subfc ins insLen ctxt =
   let ir = !*ctxt
   !<ir insLen
   !!ir (dst := (AST.not src1) .+ src2 .+ AST.num1 32<rt>)
-  /// Affected: XER[CA]
+  setCarryOut ctxt ir
   !>ir insLen
 
 let subfe ins insLen ctxt =
   let struct (dst, src1, src2) = transThreeOprs ins ctxt
-  let xer = !.ctxt R.XER
-  let ca = AST.zext 32<rt> (AST.extract xer 1<rt> 2)
+  let xerCA = AST.zext 32<rt> (AST.extract (!.ctxt R.XER) 1<rt> 2)
   let ir = !*ctxt
   !<ir insLen
-  !!ir (dst := (AST.not src1) .+ src2 .+ ca)
-  /// Affected: XER[CA]
+  !!ir (dst := (AST.not src1) .+ src2 .+ xerCA)
+  setCarryOut ctxt ir
   !>ir insLen
 
 let subfic ins insLen ctxt  =
@@ -1246,16 +1257,25 @@ let subfic ins insLen ctxt  =
   let ir = !*ctxt
   !<ir insLen
   !!ir (dst := (AST.not src1) .+ simm .+ AST.num1 32<rt>)
-  /// Affected: XER[CA]
+  setCarryOut ctxt ir
+  !>ir insLen
+
+let subfme ins insLen ctxt =
+  let struct (dst, src) = transTwoOprs ins ctxt
+  let xerCA = AST.zext 32<rt> (AST.extract (!.ctxt R.XER) 1<rt> 2)
+  let ir = !*ctxt
+  !<ir insLen
+  !!ir (dst := (AST.not src) .+ xerCA .- AST.num1 32<rt>)
+  setCarryOut ctxt ir
   !>ir insLen
 
 let subfze ins insLen ctxt =
   let struct (dst, src) = transTwoOprs ins ctxt
-  let xer = !.ctxt R.XER
-  let ca = AST.zext 32<rt> (AST.extract xer 1<rt> 2)
+  let xerCA = AST.zext 32<rt> (AST.extract (!.ctxt R.XER) 1<rt> 2)
   let ir = !*ctxt
   !<ir insLen
-  !!ir (dst := (AST.not src) .+ ca)
+  !!ir (dst := (AST.not src) .+ xerCA)
+  setCarryOut ctxt ir
   !>ir insLen
 
 let xor ins insLen ctxt =
