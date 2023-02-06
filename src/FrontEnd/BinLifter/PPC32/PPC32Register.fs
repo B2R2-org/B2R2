@@ -172,6 +172,8 @@ type Register =
   | CTR = 0x72
   /// FPSCR Register
   | FPSCR = 0x73
+  /// Processor Version Register.
+  | PVR = 0x74
 
 /// Shortcut for Register type.
 type internal R = Register
