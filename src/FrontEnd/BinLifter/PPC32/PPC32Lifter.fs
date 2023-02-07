@@ -232,12 +232,30 @@ let addc ins insLen ctxt =
   setCarryOut ctxt ir
   !>ir insLen
 
+let addcdot ins insLen ctxt =
+  let struct (dst, src1, src2) = transThreeOprs ins ctxt
+  let ir = !*ctxt
+  !<ir insLen
+  !!ir (dst := src1 .+ src2)
+  setCondReg ctxt ir dst
+  !>ir insLen
+
 let adde ins insLen ctxt =
   let struct (dst, src1, src2) = transThreeOprs ins ctxt
   let xerCA = AST.zext 32<rt> (AST.extract (!.ctxt R.XER) 1<rt> 2)
   let ir = !*ctxt
   !<ir insLen
   !!ir (dst := src1 .+ src2 .+ xerCA)
+  setCarryOut ctxt ir
+  !>ir insLen
+
+let addedot ins insLen ctxt =
+  let struct (dst, src1, src2) = transThreeOprs ins ctxt
+  let xerCA = AST.zext 32<rt> (AST.extract (!.ctxt R.XER) 1<rt> 2)
+  let ir = !*ctxt
+  !<ir insLen
+  !!ir (dst := src1 .+ src2 .+ xerCA)
+  setCondReg ctxt ir dst
   setCarryOut ctxt ir
   !>ir insLen
 
@@ -284,6 +302,16 @@ let addme ins insLen ctxt =
   setCarryOut ctxt ir
   !>ir insLen
 
+let addmedot ins insLen ctxt =
+  let struct (dst, src) = transTwoOprs ins ctxt
+  let xerCA = AST.zext 32<rt> (AST.extract (!.ctxt R.XER) 1<rt> 2)
+  let ir = !*ctxt
+  !<ir insLen
+  !!ir (dst := src .+ xerCA .- AST.num1 32<rt>)
+  setCondReg ctxt ir dst
+  setCarryOut ctxt ir
+  !>ir insLen
+
 let addze ins insLen ctxt =
   let struct (dst, src) = transTwoOprs ins ctxt
   let xerCA = AST.zext 32<rt> (AST.extract (!.ctxt R.XER) 1<rt> 2)
@@ -315,6 +343,21 @@ let anddot ins insLen ctxt =
   let ir = !*ctxt
   !<ir insLen
   !!ir (dst := src1 .& src2)
+  setCondReg ctxt ir dst
+  !>ir insLen
+
+let andc ins insLen ctxt =
+  let struct (dst, src1, src2) = transThreeOprs ins ctxt
+  let ir = !*ctxt
+  !<ir insLen
+  !!ir (dst := src1 .& AST.not(src2))
+  !>ir insLen
+
+let andcdot ins insLen ctxt =
+  let struct (dst, src1, src2) = transThreeOprs ins ctxt
+  let ir = !*ctxt
+  !<ir insLen
+  !!ir (dst := src1 .& AST.not(src2))
   setCondReg ctxt ir dst
   !>ir insLen
 
@@ -1315,15 +1358,21 @@ let translate (ins: InsInfo) insLen (ctxt: TranslationContext) =
   | Op.ADD -> add ins insLen ctxt
   | Op.ADDdot -> adddot ins insLen ctxt
   | Op.ADDC -> addc ins insLen ctxt
+  | Op.ADDCdot -> addcdot ins insLen ctxt
   | Op.ADDE -> adde ins insLen ctxt
+  | Op.ADDEdot -> addedot ins insLen ctxt
   | Op.ADDI -> addi ins insLen ctxt
   | Op.ADDIC -> addic ins insLen ctxt
   | Op.ADDICdot -> addicdot ins insLen ctxt
   | Op.ADDIS -> addis ins insLen ctxt
+  | Op.ADDME -> addme ins insLen ctxt
+  | Op.ADDMEdot -> addmedot ins insLen ctxt
   | Op.ADDZE -> addze ins insLen ctxt
   | Op.ADDZEdot -> addzedot ins insLen ctxt
   | Op.AND -> andx ins insLen ctxt
   | Op.ANDdot -> anddot ins insLen ctxt
+  | Op.ANDC -> andc ins insLen ctxt
+  | Op.ANDCdot -> andcdot ins insLen ctxt
   | Op.ANDIdot -> andidot ins insLen ctxt
   | Op.ANDISdot -> andisdot ins insLen ctxt
   | Op.B -> b ins insLen ctxt false
