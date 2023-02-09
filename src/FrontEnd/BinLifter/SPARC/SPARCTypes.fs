@@ -423,45 +423,25 @@ type Opcode =
   | LDFA = 181
   /// Load Floating-Point State Register Lower
   | LDFSR = 182
-
   | LDQF = 183
-
   | LDQFA = 184
-
   | LDSB = 185
-
   | LDSBA = 186
-
   | LDSH = 187
-
   | LDSHA = 188
-
   | LDSTUB = 189
-
   | LDSTUBA = 190
-
   | LDSW = 191
-
   | LDSWA = 192
-
   | LDUB = 193
-
   | LDUBA = 194
-
   | LDUH = 195
-
   | LDUHA = 196
-
   | LDUW = 197
-
   | LDUWA = 198
-
   | LDX = 199
-
   | LDXA = 200
-
   | LDXFSR = 201
-
   | MEMBAR = 202
   /// Move Integer Register on Condition (MOVcc)
   /// Move Integer Register if Condition is Satisfied
@@ -579,17 +559,11 @@ type Opcode =
   | RDTICK = 257
   /// Read Y Register
   | RDY = 258
-
   | RESTORE = 259
-
   | RESTORED = 260
-
   | RETRY = 261
-
   | RETURN = 262
-
   | SAVE = 263
-
   | SAVED = 264
   /// Signed Integer Divide
   | SDIV = 265
@@ -597,154 +571,194 @@ type Opcode =
   | SDIVcc = 266
   /// Signed Divide
   | SDIVX = 267
-
   | SETHI = 268
-
   | SIR = 269
-
   | SLL = 270
-
   | SLLX = 271
-
   | SMUL = 272
-
   | SMULcc = 273
-
   | SRA = 274
-
   | SRAX = 275
-
   | SRL = 276
-
   | SRLX = 277
-
   | STB = 278
-
   | STBA = 279
-
   | STBAR = 280
-
   | STD = 281
-
   | STDA = 282
-
   | STDF = 283
-
   | STDFA = 284
-
   | STF = 285
-
   | STFA = 286
-
   | STFSR = 287
-
   | STH = 288
-
   | STHA = 289
-
   | STQF = 290
-
   | STQFA = 291
-
   | STW = 292
-
   | STWA = 293
-
   | STX = 294
-
   | STXA = 295
-
   | STXFSR = 296
-
   | SUB = 297
-
   | SUBcc = 298
-
   | SUBC = 299
-
   | SUBCcc = 300
-
   | SWAP = 301
-
   | SWAPA = 302
-
   | TADDcc = 303
-
   | TADDccTV = 304
-
   | Tcc = 305
-
   | TA = 306
-
   | TN = 307
-
   | TNE = 308
-
   | TE = 309
-
   | TG = 310
-
   | TLE = 311
-
   | TGE = 312
-
   | TL = 313
-
   | TGU = 314
-
   | TLEU = 315
-
   | TCC = 316
-
   | TCS = 317
-
   | TPOS = 318
-
   | TNEG = 319
-
   | TVC = 320
-
   | TVS = 321
-
   | TSUBcc = 322
-
   | TSUBccTV = 323
-
   | UDIV = 324
-
   | UDIVcc = 325
-
   | UDIVX = 326
-
   | UMUL = 327
-
   | UMULcc = 328
-
   | WRASI = 329
-
   | WRASR = 330
-
   | WRCCR = 331
-
   | WRFPRS = 332
-
   | WRPR = 333
-
   | WRY = 334
-
   | WNOR = 335
-
   | WNORcc = 336
-
   | XOR = 337
-
   | XORcc = 338
-
   | XNOR = 339
-
   | XNORcc = 340
-
-  | InvalidOp = 341
+  | FMOVsA = 341
+  | FMOVdA = 342
+  | FMOVqA = 343
+  | FMOVsN = 344
+  | FMOVdN = 345
+  | FMOVqN = 346
+  | FMOVsNE = 347
+  | FMOVdNE = 348
+  | FMOVqNE = 349
+  | FMOVsE = 350
+  | FMOVdE = 351
+  | FMOVqE = 352
+  | FMOVsG = 353
+  | FMOVdG = 354
+  | FMOVqG = 355
+  | FMOVsLE = 357
+  | FMOVdLE = 358
+  | FMOVqLE = 359
+  | FMOVsGE = 361
+  | FMOVdGE = 362
+  | FMOVqGE = 363
+  | FMOVsL = 365
+  | FMOVdL = 366
+  | FMOVqL = 367
+  | FMOVsGU = 369
+  | FMOVdGU = 370
+  | FMOVqGU = 371
+  | FMOVsLEU = 373
+  | FMOVdLEU = 374
+  | FMOVqLEU = 375
+  | FMOVsCC = 377
+  | FMOVdCC = 378
+  | FMOVqCC = 379
+  | FMOVsCS = 382
+  | FMOVdCS = 383
+  | FMOVqCS = 384
+  | FMOVsPOS = 386
+  | FMOVdPOS = 387
+  | FMOVqPOS = 388
+  | FMOVsNEG = 390
+  | FMOVdNEG = 391
+  | FMOVqNEG = 392
+  | FMOVsVC = 394
+  | FMOVdVC = 395
+  | FMOVqVC = 396
+  | FMOVsVS = 398
+  | FMOVdVS = 399
+  | FMOVqVS = 400
+  | FMOVFsA = 401
+  | FMOVFdA = 402
+  | FMOVFqA = 403
+  | FMOVFsN = 404
+  | FMOVFdN = 405
+  | FMOVFqN = 406
+  | FMOVFsU = 407
+  | FMOVFdU = 408
+  | FMOVFqU = 409
+  | FMOVFsG = 410
+  | FMOVFdG = 411
+  | FMOVFqG = 412
+  | FMOVFsUG = 413
+  | FMOVFdUG = 414
+  | FMOVFqUG = 415
+  | FMOVFsL = 416
+  | FMOVFdL = 417
+  | FMOVFqL = 418
+  | FMOVFsUL = 419
+  | FMOVFdUL = 420
+  | FMOVFqUL = 421
+  | FMOVFsLG = 422
+  | FMOVFdLG = 423
+  | FMOVFqLG = 424
+  | FMOVFsNE = 425
+  | FMOVFdNE = 426
+  | FMOVFqNE = 427
+  | FMOVFsE = 428
+  | FMOVFdE = 429
+  | FMOVFqE = 430
+  | FMOVFsUE = 431
+  | FMOVFdUE = 432
+  | FMOVFqUE = 433
+  | FMOVFsGE = 434
+  | FMOVFdGE = 435
+  | FMOVFqGE = 436
+  | FMOVFsUGE = 437
+  | FMOVFdUGE = 438
+  | FMOVFqUGE = 439
+  | FMOVFsLE = 440
+  | FMOVFdLE = 441
+  | FMOVFqLE = 442
+  | FMOVFsULE = 443
+  | FMOVFdULE = 444
+  | FMOVFqULE = 445
+  | FMOVFsO = 446
+  | FMOVFdO = 447
+  | FMOVFqO = 448
+  | FMOVRsZ = 449
+  | FMOVRsLEZ = 450
+  | FMOVRsLZ = 451
+  | FMOVRsNZ = 452
+  | FMOVRsGZ = 453
+  | FMOVRsGEZ = 454
+  | FMOVRdZ = 455
+  | FMOVRdLEZ = 456
+  | FMOVRdLZ = 457
+  | FMOVRdNZ = 458
+  | FMOVRdGZ = 459
+  | FMOVRdGEZ = 460
+  | FMOVRqZ = 461
+  | FMOVRqLEZ = 462
+  | FMOVRqLZ = 463
+  | FMOVRqNZ = 464
+  | FMOVRqGZ = 465
+  | FMOVRqGEZ = 466
+  | InvalidOp = 467
 
 type ConditionCode =
   /// floating-point condition code
@@ -778,12 +792,12 @@ module ConditionCode =
     | _ -> Utils.impossible ()
 
   let toString = function
-    | ConditionCode.Fcc0 -> "fcc0"
-    | ConditionCode.Fcc1 -> "fcc1"
-    | ConditionCode.Fcc2 -> "fcc2"
-    | ConditionCode.Fcc3 -> "fcc3"
-    | ConditionCode.Icc -> "icc"
-    | ConditionCode.Xcc -> "xcc"
+    | ConditionCode.Fcc0 -> "%fcc0"
+    | ConditionCode.Fcc1 -> "%fcc1"
+    | ConditionCode.Fcc2 -> "%fcc2"
+    | ConditionCode.Fcc3 -> "%fcc3"
+    | ConditionCode.Icc -> "%icc"
+    | ConditionCode.Xcc -> "%xcc"
     | _ -> Utils.impossible ()
 
 type Const = int32
