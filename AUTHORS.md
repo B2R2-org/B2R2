@@ -16,6 +16,7 @@ a list of the contributors in alphabetic order.
 
 - Anar Abbas
 - Mehdi Aghakishiyev
+- Zunnoor Fayyaz Awan
 - Jaeseung Choi
 - TA Thanh Dinh
 - HyungSeok Han
