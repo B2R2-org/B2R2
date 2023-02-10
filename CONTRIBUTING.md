@@ -60,7 +60,13 @@ before you proceed as we mostly follow it.
 - We use nouns for variables (or parameters).
 - We *mostly* use verbs for function names.
 
+### Line-endings
+
+We always use unix-style (LF) line-endings for every file.
+
 #### Editor Settings
+
+- See our [.editorconfig](.editorconfig)
 
 - For Emacs users:
     ```
