@@ -156,14 +156,14 @@ module Register =
     | "g5" -> R.G5
     | "g6" -> R.G6
     | "g7" -> R.G7
-    | "O0" -> R.O0
-    | "O1" -> R.O1
-    | "O2" -> R.O2
-    | "O3" -> R.O3
-    | "O4" -> R.O4
-    | "O5" -> R.O5
-    | "O6" -> R.O6
-    | "O7" -> R.O7
+    | "o0" -> R.O0
+    | "o1" -> R.O1
+    | "o2" -> R.O2
+    | "o3" -> R.O3
+    | "o4" -> R.O4
+    | "o5" -> R.O5
+    | "o6" -> R.O6
+    | "o7" -> R.O7
     | "l0" -> R.L0
     | "l1" -> R.L1
     | "l2" -> R.L2
@@ -288,31 +288,31 @@ module Register =
     | R.I5 -> "%i5"
     | R.I6 -> "%i6"
     | R.I7 -> "%i7"
-    | R.PC -> "PC"
-    | R.NPC -> "nPC"
-    | R.Y -> "Y"
-    | R.ASRs -> "ASRs"
-    | R.CCR -> "CCR"
-    | R.FPRS -> "FPRS"
+    | R.PC -> "pc"
+    | R.NPC -> "npc"
+    | R.Y -> "y"
+    | R.ASRs -> "asrs"
+    | R.CCR -> "ccr"
+    | R.FPRS -> "fprs"
     | R.FSR -> "%fsr"
     | R.ASI -> "%asi"
-    | R.TICK -> "TICK"
-    | R.PSTATE -> "PSTATE"
-    | R.TL -> "TL"
-    | R.PIL -> "PIL"
-    | R.TPC -> "TPC"
-    | R.TNPC -> "TNPC"
-    | R.TSTATE -> "TSTATE"
-    | R.TT -> "TT"
-    | R.TBA -> "TBA"
-    | R.VER -> "VER"
-    | R.CWP -> "CWP"
-    | R.CANSAVE -> "CANSAVE"
-    | R.CANRESTORE -> "CANRESTORE"
-    | R.OTHERWIN -> "OTHERWIN"
-    | R.WSTATE -> "WSTATE"
-    | R.FQ -> "fq"
-    | R.CLEANWIN -> "CLEANWIN"
+    | R.TICK -> "%tick"
+    | R.PSTATE -> "%pstate"
+    | R.TL -> "%tl"
+    | R.PIL -> "%pil"
+    | R.TPC -> "%tpc"
+    | R.TNPC -> "%tnpc"
+    | R.TSTATE -> "%tstate"
+    | R.TT -> "%tt"
+    | R.TBA -> "%tba"
+    | R.VER -> "%ver"
+    | R.CWP -> "%cwp"
+    | R.CANSAVE -> "%cansave"
+    | R.CANRESTORE -> "%canrestore"
+    | R.OTHERWIN -> "%otherwin"
+    | R.WSTATE -> "%wstate"
+    | R.FQ -> "%fq"
+    | R.CLEANWIN -> "%cleanwin"
     | R.F0 -> "%f0"
     | R.F1 -> "%f1"
     | R.F2 -> "%f2"

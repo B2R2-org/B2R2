@@ -75,6 +75,7 @@ let opCodeToString = function
   | Opcode.BRGZ -> "brgz"
   | Opcode.BRGEZ -> "brgez"
   | Opcode.CALL -> "call"
+  | Opcode.CASA -> "casa"
   | Opcode.CASXA -> "casxa"
   | Opcode.DONE -> "done"
   | Opcode.FABSs -> "fabss"
@@ -397,7 +398,7 @@ let opCodeToString = function
   | Opcode.RDCCR -> "rd"
   | Opcode.RDFPRS -> "rd"
   | Opcode.RDPC -> "rd"
-  | Opcode.RDPR -> "rd"
+  | Opcode.RDPR -> "rdpr"
   | Opcode.RDTICK -> "rd"
   | Opcode.RDY -> "rd"
   | Opcode.RESTORE -> "restore"
@@ -472,7 +473,7 @@ let opCodeToString = function
   | Opcode.WRASR -> "wr"
   | Opcode.WRCCR -> "wr"
   | Opcode.WRFPRS -> "wr"
-  | Opcode.WRPR -> "wr"
+  | Opcode.WRPR -> "wrpr"
   | Opcode.WRY -> "wr"
   | Opcode.WNOR -> "wnor"
   | Opcode.WNORcc -> "wnorcc"
@@ -532,8 +533,9 @@ let oprToString ins addr operand delim builder =
   | OprCC cc ->
     prependDelimiter delim builder
     ccToString cc builder
-  | OprPriReg k ->
-    prependDelimiter delim builder (* FIXME *)
+  | OprPriReg prireg ->
+    prependDelimiter delim builder
+    buildReg ins prireg builder
   | OprAddr k ->
     prependDelimiter delim builder
     immToString k builder
@@ -614,41 +616,40 @@ let buildOprs ins pc builder =
   | NoOperand -> ()
   | OneOperand opr ->
     match ins.Opcode with
-    | Opcode.CALL | Opcode.FBA | Opcode.FBN | Opcode.FBU | Opcode.FBG
-    | Opcode.FBUG | Opcode.FBL | Opcode.FBUL | Opcode.FBLG | Opcode.FBNE
-    | Opcode.FBE | Opcode.FBUE | Opcode.FBGE | Opcode.FBUGE | Opcode.FBLE
-    | Opcode.FBULE | Opcode.FBO | Opcode.FBPA | Opcode.FBPN | Opcode.FBPU
-    | Opcode.FBPG | Opcode.FBPUG | Opcode.FBPL | Opcode.FBPUL | Opcode.FBPLG
-    | Opcode.FBPNE | Opcode.FBPE | Opcode.FBPUE | Opcode.FBPGE | Opcode.FBPUGE
-    | Opcode.FBPLE | Opcode.FBPULE | Opcode.FBPO | Opcode.BA | Opcode.BN
-    | Opcode.BNE | Opcode.BE | Opcode.BG | Opcode.BLE | Opcode.BGE
-    | Opcode.BL | Opcode.BGU | Opcode.BLEU | Opcode.BCC | Opcode.BCS
-    | Opcode.BPOS | Opcode.BNEG | Opcode.BVC | Opcode.BVS ->
-       match opr with
-       | OprAddr k ->
-         prependDelimiter (Some " ") builder
-         immToStringNoPrefix (pcValue + k) builder
-       | _ -> Utils.impossible ()
+    | Opcode.CALL ->
+        match opr with
+        | OprAddr k ->
+         prependDelimiter (Some " 0x") builder
+         immToStringNoPrefix (k) builder
+        | _ -> Utils.impossible ()
     | _ ->
       oprToString ins pc opr (Some " ") builder
   | TwoOperands (opr1, opr2) ->
     match ins.Opcode with
-    | Opcode.BPA | Opcode.BPN | Opcode.BPNE | Opcode.BPE | Opcode.BPG
-    | Opcode.BPLE | Opcode.BPGE | Opcode.BPL | Opcode.BPGU | Opcode.BPLEU
-    | Opcode.BPCC | Opcode.BPCS | Opcode.BPPOS | Opcode.BPNEG | Opcode.BPVC
-    | Opcode.BPVS | Opcode.BRZ | Opcode.BRLEZ | Opcode.BRLZ | Opcode.BRNZ
-    | Opcode.BRGZ | Opcode.BRGEZ ->
+    | Opcode.FBA  | Opcode.FBN | Opcode.FBU
+    | Opcode.FBG | Opcode.FBUG | Opcode.FBL
+    | Opcode.FBUL | Opcode.FBLG | Opcode.FBNE
+    | Opcode.FBE | Opcode.FBUE | Opcode.FBGE | Opcode.FBUGE
+    | Opcode.FBLE | Opcode.FBULE | Opcode.FBO ->
       match opr1, opr2 with
-      | OprCC c, OprImm k ->
-        prependDelimiter (Some " ") builder
-        ccToString c builder
-        prependDelimiter (Some ", ") builder
-        immToStringNoPrefix (pcValue + k) builder
-      | OprReg reg, OprImm k ->
-        prependDelimiter (Some " ") builder
-        buildReg ins reg builder
-        prependDelimiter (Some ", ") builder
-        immToStringNoPrefix (pcValue + k) builder
+      | OprImm 0b0, OprAddr k ->
+        prependDelimiter (Some " 0x") builder
+        immToStringNoPrefix (k) builder
+      | OprImm 0b1, OprAddr k ->
+        prependDelimiter (Some ",a 0x") builder
+        immToStringNoPrefix (k) builder
+      | _ -> Utils.impossible ()
+    | Opcode.BA | Opcode.BN
+    | Opcode.BNE | Opcode.BE | Opcode.BG | Opcode.BLE | Opcode.BGE
+    | Opcode.BL | Opcode.BGU | Opcode.BLEU | Opcode.BCC | Opcode.BCS
+    | Opcode.BPOS | Opcode.BNEG | Opcode.BVC | Opcode.BVS ->
+      match opr1, opr2 with
+      | OprImm 0b0, OprAddr k ->
+        prependDelimiter (Some " 0x") builder
+        immToStringNoPrefix (k) builder
+      | OprImm 0b1, OprAddr k ->
+        prependDelimiter (Some ",a 0x") builder
+        immToStringNoPrefix (k) builder
       | _ -> Utils.impossible ()
     | Opcode.FdTOx | Opcode.FNEGs | Opcode.FNEGd | Opcode.FNEGq | Opcode.FABSs
     | Opcode.FABSd | Opcode.FABSq | Opcode.FSQRTs | Opcode.FSQRTd
@@ -701,12 +702,90 @@ let buildOprs ins pc builder =
       buildComment3 opr1 opr2 opr3 builder
   | FourOperands (opr1, opr2, opr3, opr4) ->
     match ins.Opcode with
-    | Opcode.LDFA | Opcode.LDDFA | Opcode.LDQFA ->
+    | Opcode.BPA | Opcode.BPN | Opcode.BPNE | Opcode.BPE | Opcode.BPG
+    | Opcode.BPLE | Opcode.BPGE | Opcode.BPL | Opcode.BPGU | Opcode.BPLEU
+    | Opcode.BPCC | Opcode.BPCS | Opcode.BPPOS | Opcode.BPNEG | Opcode.BPVC
+    | Opcode.BPVS ->
+      match opr1, opr2, opr3, opr4 with
+      | OprCC c, OprAddr k, OprImm 0b0, OprImm 0b0 ->
+        prependDelimiter (Some ",pn ") builder
+        ccToString c builder
+        prependDelimiter (Some ", 0x") builder
+        immToStringNoPrefix (k) builder
+      | OprCC c, OprAddr k, OprImm 0b1, OprImm 0b0 ->
+        prependDelimiter (Some ",a,pn ") builder
+        ccToString c builder
+        prependDelimiter (Some ", 0x") builder
+        immToStringNoPrefix (k) builder
+      | OprCC c, OprAddr k, OprImm 0b0, OprImm 0b1 ->
+        prependDelimiter (Some ",pt ") builder
+        ccToString c builder
+        prependDelimiter (Some ", 0x") builder
+        immToStringNoPrefix (k) builder
+      | OprCC c, OprAddr k, OprImm 0b1, OprImm 0b1 ->
+        prependDelimiter (Some ",a,pt ") builder
+        ccToString c builder
+        prependDelimiter (Some ", 0x") builder
+        immToStringNoPrefix (k) builder
+      | _ -> Utils.impossible ()
+    | Opcode.FBPA | Opcode.FBPN | Opcode.FBPU | Opcode.FBPG | Opcode.FBPUG
+    | Opcode.FBPL | Opcode.FBPUL | Opcode.FBPLG | Opcode.FBPNE | Opcode.FBPE
+    | Opcode.FBPUE | Opcode.FBPGE | Opcode.FBPUGE | Opcode.FBPLE
+    | Opcode.FBPULE | Opcode.FBPO->
+      match opr1, opr2, opr3, opr4 with
+      | OprCC c, OprAddr k, OprImm 0b0, OprImm 0b0 ->
+        prependDelimiter (Some ",pn ") builder
+        ccToString c builder
+        prependDelimiter (Some ", 0x") builder
+        immToStringNoPrefix (k) builder
+      | OprCC c, OprAddr k, OprImm 0b1, OprImm 0b0 ->
+        prependDelimiter (Some ",a,pn ") builder
+        ccToString c builder
+        prependDelimiter (Some ", 0x") builder
+        immToStringNoPrefix (k) builder
+      | OprCC c, OprAddr k, OprImm 0b0, OprImm 0b1 ->
+        prependDelimiter (Some ",pt ") builder
+        ccToString c builder
+        prependDelimiter (Some ", 0x") builder
+        immToStringNoPrefix (k) builder
+      | OprCC c, OprAddr k, OprImm 0b1, OprImm 0b1 ->
+        prependDelimiter (Some ",a,pt ") builder
+        ccToString c builder
+        prependDelimiter (Some ", 0x") builder
+        immToStringNoPrefix (k) builder
+      | _ -> Utils.impossible ()
+    | Opcode.LDFA | Opcode.LDDFA | Opcode.LDQFA | Opcode.LDSTUBA
+    | Opcode.LDSBA | Opcode.LDSHA | Opcode.LDSWA | Opcode.LDUBA
+    | Opcode.LDUHA | Opcode.LDUWA | Opcode.LDXA | Opcode.LDDA ->
       oprToString ins pc opr1 (Some " [") builder
       oprToString ins pc opr2 (Some " + ") builder
       oprToString ins pc opr3 (Some "] ") builder
       oprToString ins pc opr4 (Some ", ") builder
       buildComment4 opr1 opr2 opr3 opr4 builder
+    | Opcode.BRZ | Opcode.BRLEZ | Opcode.BRLZ | Opcode.BRNZ
+    | Opcode.BRGZ | Opcode.BRGEZ ->
+      match opr1, opr2, opr3, opr4 with
+      | OprReg reg, OprAddr k, OprImm 0b0, OprImm 0b0 ->
+        prependDelimiter (Some ",pn ") builder
+        buildReg ins reg builder
+        prependDelimiter (Some ", 0x") builder
+        immToStringNoPrefix (k) builder
+      | OprReg reg, OprAddr k, OprImm 0b0, OprImm 0b1 ->
+        prependDelimiter (Some ",pt ") builder
+        buildReg ins reg builder
+        prependDelimiter (Some ", 0x") builder
+        immToStringNoPrefix (k) builder
+      | OprReg reg, OprAddr k, OprImm 0b1, OprImm 0b0 ->
+        prependDelimiter (Some ",a,pn ") builder
+        buildReg ins reg builder
+        prependDelimiter (Some ", 0x") builder
+        immToStringNoPrefix (k) builder
+      | OprReg reg, OprAddr k, OprImm 0b1, OprImm 0b1 ->
+        prependDelimiter (Some ",a,pt ") builder
+        buildReg ins reg builder
+        prependDelimiter (Some ", 0x") builder
+        immToStringNoPrefix (k) builder
+      | _ -> Utils.impossible ()
     | Opcode.PREFETCHA ->
       oprToString ins pc opr1 (Some " [") builder
       oprToString ins pc opr2 (Some " + ") builder
@@ -717,13 +796,25 @@ let buildOprs ins pc builder =
       oprToString ins pc opr1 (Some " ") builder
       oprToString ins pc opr2 (Some ", [") builder
       oprToString ins pc opr3 (Some " + ") builder
-      oprToString ins pc opr4 (Some "], ") builder
+      oprToString ins pc opr4 (Some "] ") builder
       buildComment4 opr1 opr2 opr3 opr4 builder
     | Opcode.STFA | Opcode.STDFA | Opcode.STQFA ->
       oprToString ins pc opr1 (Some " ") builder
       oprToString ins pc opr2 (Some ", [") builder
       oprToString ins pc opr3 (Some " + ") builder
       oprToString ins pc opr4 (Some "] ") builder
+      buildComment4 opr1 opr2 opr3 opr4 builder
+    | Opcode.SWAPA ->
+      oprToString ins pc opr1 (Some " [") builder
+      oprToString ins pc opr2 (Some " + ") builder
+      oprToString ins pc opr3 (Some "] ") builder
+      oprToString ins pc opr4 (Some ", ") builder
+      buildComment4 opr1 opr2 opr3 opr4 builder
+    | Opcode.CASA | Opcode.CASXA ->
+      oprToString ins pc opr1 (Some " [") builder
+      oprToString ins pc opr2 (Some "] ") builder
+      oprToString ins pc opr3 (Some ", ") builder
+      oprToString ins pc opr4 (Some ", ") builder
       buildComment4 opr1 opr2 opr3 opr4 builder
     | _ ->
       oprToString ins pc opr1 (Some " ") builder
