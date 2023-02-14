@@ -492,7 +492,7 @@ let cmpli ins insLen ctxt =
   !>ir insLen
 
 let cntlzw ins insLen ctxt =
-  let struct (dst, src) = transTwoOprs ins ctxt
+  let struct (ra, rs) = transTwoOprs ins ctxt
   let ir = !*ctxt
   !<ir insLen
   let lblChkExit = !%ir "CheckExit"
@@ -505,13 +505,13 @@ let cntlzw ins insLen ctxt =
   !!ir (AST.lmark lblChkExit)
   !!ir (AST.cjmp (n == numI32 32 32<rt>) (AST.name lblLeave) (AST.name lblCmp))
   !!ir (AST.lmark lblCmp)
-  !!ir (AST.cjmp (AST.xtlo 1<rt> ((src >> n) .& n1))
+  !!ir (AST.cjmp (AST.xthi 1<rt> ((rs << n) .& n1))
                  (AST.name lblLeave) (AST.name lblInc))
   !!ir (AST.lmark lblInc)
   !!ir (n := n .+ n1)
   !!ir (AST.jmp (AST.name lblChkExit))
   !!ir (AST.lmark lblLeave)
-  !!ir (dst := n)
+  !!ir (ra := n)
   !>ir insLen
 
 let crclr ins insLen ctxt =
@@ -650,7 +650,7 @@ let lfd ins insLen ctxt =
   !!ir (dst := loadNative ctxt 64<rt> ea)
   !>ir insLen
 
-let lfs ins insLen ctxt =
+let lfs ins insLen ctxt = /// FIXME
   let struct (dst, ea) = transTwoOprs ins ctxt
   let w1 = AST.extract ea 1<rt> 1
   let w2 = (AST.zext 64<rt> (AST.xthi 30<rt> ea)) << numI32 29 64<rt>
@@ -1027,7 +1027,7 @@ let orcdot ins insLen ctxt =
 
 let ori ins insLen ctxt =
   let struct (dst, src, uimm) = transThreeOprs ins ctxt
-  let uimm = AST.concat (AST.num0 16<rt>) (AST.xtlo 16<rt> uimm)
+  let uimm = AST.zext 32<rt> (AST.xtlo 16<rt> uimm)
   let ir = !*ctxt
   !<ir insLen
   !!ir (dst := src .| uimm)
@@ -1072,7 +1072,7 @@ let rlwimi ins insLen ctxt =
 let rotlw ins insLen ctxt =
   let struct (ra, rs, rb) = transThreeOprs ins ctxt
   let ir = !*ctxt
-  let n = (rb >> (numI32 27 32<rt>))
+  let n = rb .& numI32 0x1f 32<rt>
   let rol = rotateLeft rs n
   !<ir insLen
   !!ir (ra := rol) (* no mask *)
@@ -1081,8 +1081,8 @@ let rotlw ins insLen ctxt =
 let slw ins insLen ctxt =
   let struct (dst, rs, rb) = transThreeOprs ins ctxt
   let ir = !*ctxt
-  let n = (rb >> (numI32 27 32<rt>))
-  let bit26 = AST.xtlo 1<rt> (rs >> numI32 26 32<rt> .& AST.num1 32<rt>)
+  let n = rb .& numI32 0x1f 32<rt>
+  let bit26 = AST.xtlo 1<rt> (rs >> numI32 5 32<rt> .& AST.num1 32<rt>)
   let cond = bit26 == AST.b0
   let z = AST.num0 32<rt>
   let rol = rotateLeft rs n
@@ -1094,7 +1094,8 @@ let sraw ins insLen ctxt =
   let struct (ra, rs, rb) = transThreeOprs ins ctxt
   let xer = !.ctxt R.XER
   let z = AST.num0 32<rt>
-  let cond = AST.extract rb 1<rt> 26 == AST.b0
+  let bit26 = AST.extract rb 1<rt> 5
+  let cond = bit26 == AST.b0
   let ir = !*ctxt
   let n = !+ir 32<rt>
   let r = !+ir 32<rt>
@@ -1102,7 +1103,7 @@ let sraw ins insLen ctxt =
   let ca = !+ir 32<rt>
   let tmp = !+ir 32<rt>
   !<ir insLen
-  !!ir (n := (rb >> (numI32 27 32<rt>)))
+  !!ir (n := rb .& numI32 0x1f 32<rt>)
   !!ir (r := rotateLeft rs n)
   !!ir (m := AST.ite cond (getExtMask n (numI32 31 32<rt>)) z)
   !!ir (ra := (r .& m) .| (rs .& AST.not m))
@@ -1151,7 +1152,7 @@ let srw ins insLen ctxt =
   let ir = !*ctxt
   let n = !+ir 32<rt>
   !<ir insLen
-  !!ir (n := (rb >> (numI32 27 32<rt>)))
+  !!ir (n := rb .& numI32 0x1f 32<rt>)
   !!ir (dst := rotateLeft rs ((numI32 32 32<rt>) .- n) )
   !>ir insLen
 
@@ -1164,7 +1165,7 @@ let stb ins insLen ctxt =
   let src = transOprToExpr ins ctxt o1
   let ir = !*ctxt
   !<ir insLen
-  !!ir (loadNative ctxt 8<rt> ea := AST.xthi 8<rt> src)
+  !!ir (loadNative ctxt 8<rt> ea := AST.xtlo 8<rt> src)
   !>ir insLen
 
 let stbx ins insLen ctxt =
@@ -1174,7 +1175,7 @@ let stbx ins insLen ctxt =
   let ea = !+ir 32<rt>
   !<ir insLen
   !!ir (ea := (AST.ite cond (AST.num0 32<rt>) dst1) .+ dst2)
-  !!ir (loadNative ctxt 8<rt> ea := AST.xthi 8<rt> src)
+  !!ir (loadNative ctxt 8<rt> ea := AST.xtlo 8<rt> src)
   !>ir insLen
 
 let stbu ins insLen ctxt =
@@ -1186,7 +1187,7 @@ let stbu ins insLen ctxt =
   let src = transOprToExpr ins ctxt o1
   let ir = !*ctxt
   !<ir insLen
-  !!ir (loadNative ctxt 8<rt> ea := AST.xthi 8<rt> src)
+  !!ir (loadNative ctxt 8<rt> ea := AST.xtlo 8<rt> src)
   !!ir (ra := ea)
   !>ir insLen
 
@@ -1202,7 +1203,7 @@ let stfd ins insLen ctxt =
   !!ir (loadNative ctxt 64<rt> ea := src)
   !>ir insLen
 
-let stfs ins insLen ctxt =
+let stfs ins insLen ctxt = // FIXME
   let struct (src, dst) = transTwoOprs ins ctxt
   let ir = !*ctxt
   let tmp = !+ir 32<rt>
@@ -1221,7 +1222,17 @@ let sth ins insLen ctxt =
   let src = transOprToExpr ins ctxt o1
   let ir = !*ctxt
   !<ir insLen
-  !!ir (loadNative ctxt 16<rt> ea := AST.xthi 16<rt> src)
+  !!ir (loadNative ctxt 16<rt> ea := AST.xtlo 16<rt> src)
+  !>ir insLen
+
+let sthx ins insLen ctxt =
+  let struct (src, dst1, dst2) = transThreeOprs ins ctxt
+  let cond = dst1 == AST.num0 32<rt>
+  let ir = !*ctxt
+  let ea = !+ir 32<rt>
+  !<ir insLen
+  !!ir (ea := (AST.ite cond (AST.num0 32<rt>) dst1) .+ dst2)
+  !!ir (loadNative ctxt 16<rt> ea := AST.xtlo 16<rt> src)
   !>ir insLen
 
 let stw ins insLen ctxt =
