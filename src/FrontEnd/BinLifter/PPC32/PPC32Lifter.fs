@@ -1411,6 +1411,7 @@ let translate (ins: InsInfo) insLen (ctxt: TranslationContext) =
   | Op.DIVW -> divw ins insLen ctxt
   | Op.DIVWU -> divwu ins insLen ctxt
   | Op.EXTSB -> extsb ins insLen ctxt
+  | Op.EIEIO -> nop insLen ctxt
   | Op.FABS | Op.FADD | Op.FADDS | Op.FCMPU | Op.FCTIWZ | Op.FDIV | Op.FDIVS
   | Op.FMUL | Op.FMULS | Op.FRSP | Op.FSUB | Op.FSUBS ->
     sideEffects insLen ctxt UnsupportedFP
