@@ -1114,69 +1114,50 @@ let rotlw ins insLen ctxt =
 let slw ins insLen ctxt =
   let struct (dst, rs, rb) = transThreeOprs ins ctxt
   let ir = !*ctxt
-  let n = rb .& numI32 0x1f 32<rt>
-  let bit26 = AST.xtlo 1<rt> (rs >> numI32 5 32<rt> .& AST.num1 32<rt>)
-  let cond = bit26 == AST.b0
+  let n = !+ir 32<rt>
   let z = AST.num0 32<rt>
-  let rol = rotateLeft rs n
   !<ir insLen
-  !!ir (dst := AST.ite cond rol z)
+  !!ir (n := rb .& numI32 0x1f 32<rt>)
+  !!ir (dst := rs << n)
   !>ir insLen
 
 let sraw ins insLen ctxt =
   let struct (ra, rs, rb) = transThreeOprs ins ctxt
-  let xer = !.ctxt R.XER
+  let xerCA = AST.extract (!.ctxt R.XER) 1<rt> 2
   let z = AST.num0 32<rt>
-  let bit26 = AST.extract rb 1<rt> 5
-  let cond = bit26 == AST.b0
+  let cond1 = rb .& numI32 0x20 32<rt> == z
   let ir = !*ctxt
   let n = !+ir 32<rt>
-  let r = !+ir 32<rt>
-  let m = !+ir 32<rt>
-  let ca = !+ir 32<rt>
-  let tmp = !+ir 32<rt>
   !<ir insLen
   !!ir (n := rb .& numI32 0x1f 32<rt>)
-  !!ir (r := rotateLeft rs n)
-  !!ir (m := AST.ite cond (getExtMask n (numI32 31 32<rt>)) z)
-  !!ir (ra := (r .& m) .| (rs .& AST.not m))
-  !!ir (tmp := AST.ite ((r .& AST.not m) != z) (AST.num1 32<rt>) z)
-  !!ir (ca := rs .& tmp)
-  !!ir ((AST.extract xer 1<rt> 2) := (AST.xtlo 1<rt> ca))
+  !!ir (ra := AST.ite cond1 (rs ?>> n) (rs ?>> numI32 31 32<rt>))
+  let cond2 = ra ?< z
+  let cond3 = (rs .& ((AST.num1 32<rt> << n) .- AST.num1 32<rt>)) == z
+  !!ir (xerCA := AST.ite cond2 (AST.ite cond3 AST.b0 AST.b1) AST.b0)
   !>ir insLen
 
 let srawi ins insLen ctxt =
   let struct (ra, rs, sh) = transThreeOprs ins ctxt
-  let xer = !.ctxt R.XER
+  let xerCA = AST.extract (!.ctxt R.XER) 1<rt> 2
   let z = AST.num0 32<rt>
-  let m = getExtMask sh (numI32 31 32<rt>)
   let ir = !*ctxt
-  let r = !+ir 32<rt>
-  let ca = !+ir 32<rt>
-  let tmp = !+ir 32<rt>
   !<ir insLen
-  !!ir (r := (rs << ((numI32 32 32<rt>) .- sh)) .| (rs >> sh))
-  !!ir (ra := (r .& m) .| (rs .& AST.not m))
-  !!ir (tmp := AST.ite ((r .& AST.not m) != z) (AST.num1 32<rt>) z)
-  !!ir (ca := rs .& tmp)
-  !!ir ((AST.extract xer 1<rt> 2) := (AST.xtlo 1<rt> ca))
+  !!ir (ra := rs ?>> sh)
+  let cond1 = ra ?< z
+  let cond2 = (rs .& ((AST.num1 32<rt> << sh) .- AST.num1 32<rt>)) == z
+  !!ir (xerCA := AST.ite cond1 (AST.ite cond2 AST.b0 AST.b1) AST.b0)
   !>ir insLen
 
 let srawidot ins insLen ctxt =
   let struct (ra, rs, sh) = transThreeOprs ins ctxt
-  let xer = !.ctxt R.XER
+  let xerCA = AST.extract (!.ctxt R.XER) 1<rt> 2
   let z = AST.num0 32<rt>
-  let m = getExtMask sh (numI32 31 32<rt>)
   let ir = !*ctxt
-  let r = !+ir 32<rt>
-  let ca = !+ir 32<rt>
-  let tmp = !+ir 32<rt>
   !<ir insLen
-  !!ir (r := (rs << ((numI32 32 32<rt>) .- sh)) .| (rs >> sh))
-  !!ir (ra := (r .& m) .| (rs .& AST.not m))
-  !!ir (tmp := AST.ite ((r .& AST.not m) != z) (AST.num1 32<rt>) z)
-  !!ir (ca := rs .& tmp)
-  !!ir ((AST.extract xer 1<rt> 2) := (AST.xtlo 1<rt> ca))
+  !!ir (ra := rs ?>> sh)
+  let cond1 = ra ?< z
+  let cond2 = (rs .& ((AST.num1 32<rt> << sh) .- AST.num1 32<rt>)) == z
+  !!ir (xerCA := AST.ite cond1 (AST.ite cond2 AST.b0 AST.b1) AST.b0)
   setCondReg ctxt ir ra
   !>ir insLen
 
@@ -1186,7 +1167,7 @@ let srw ins insLen ctxt =
   let n = !+ir 32<rt>
   !<ir insLen
   !!ir (n := rb .& numI32 0x1f 32<rt>)
-  !!ir (dst := rotateLeft rs ((numI32 32 32<rt>) .- n) )
+  !!ir (dst := rs >> n)
   !>ir insLen
 
 let stb ins insLen ctxt =
