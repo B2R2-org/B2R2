@@ -786,13 +786,18 @@ let shufpd ins insLen ctxt =
   let ir = !*ctxt
   !<ir insLen
   let struct (dst, src, imm) = getThreeOprs ins
-  let dst2, dst1 = transOprToExpr128 ir false ins insLen ctxt dst
-  let src2, src1 = transOprToExpr128 ir false ins insLen ctxt src
+  let dstB, dstA = transOprToExpr128 ir false ins insLen ctxt dst
+  let srcB, srcA = transOprToExpr128 ir false ins insLen ctxt src
   let imm = transOprToExpr ir false ins insLen ctxt imm
   let cond1 = AST.xtlo 1<rt> imm
   let cond2 = AST.extract imm 1<rt> 1
-  !!ir (dst1 := AST.ite cond1 dst2 dst1)
-  !!ir (dst2 := AST.ite cond2 src2 src1)
+  let struct (src1A, src1B, src2A, src2B) = tmpVars4 ir 64<rt>
+  !!ir (src1A := dstA)
+  !!ir (src1B := dstB)
+  !!ir (src2A := srcA)
+  !!ir (src2B := srcB)
+  !!ir (dstA := AST.ite cond1 src1B src1A)
+  !!ir (dstB := AST.ite cond2 src2B src2A)
   !>ir insLen
 
 let unpckhps ins insLen ctxt =
