@@ -1470,13 +1470,15 @@ let mul ins insLen ctxt =
 #endif
   | 16<rt> | 32<rt> ->
     let dblWidth = RegType.double oprSize
-    let src1 = AST.zext dblWidth (getRegOfSize ctxt oprSize grpEAX)
+    let edx = getRegOfSize ctxt oprSize grpEDX
+    let eax = getRegOfSize ctxt oprSize grpEAX
+    let src1 = AST.zext dblWidth eax
     let src2 = AST.zext dblWidth (transOneOpr ir false ins insLen ctxt)
     let t = !+ir dblWidth
     !!ir (t := src1 .* src2)
     let cond = !+ir 1<rt>
-    !!ir (getRegOfSize ctxt oprSize grpEDX := AST.xthi oprSize t)
-    !!ir (getRegOfSize ctxt oprSize grpEAX := AST.xtlo oprSize t)
+    !!ir (dstAssign oprSize edx (AST.xthi oprSize t))
+    !!ir (dstAssign oprSize eax (AST.xtlo oprSize t))
     !!ir (cond := AST.xthi oprSize t != (AST.num0 oprSize))
     !!ir (!.ctxt R.CF := cond)
     !!ir (!.ctxt R.OF := cond)
