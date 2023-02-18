@@ -629,12 +629,9 @@ let convBWQ ins insLen ctxt =
   let opr = !.ctxt (if is64bit ctxt then R.RAX else R.EAX)
   let ir = !*ctxt
   !<ir insLen
-  !!ir (
-    match getOperationSize ins with
-    | 16<rt> -> AST.xtlo 16<rt> opr := AST.sext 16<rt> (AST.xtlo 8<rt> opr)
-    | 32<rt> -> AST.xtlo 32<rt> opr := AST.sext 32<rt> (AST.xtlo 16<rt> opr)
-    | 64<rt> -> opr := AST.sext 64<rt> (AST.xtlo 32<rt> opr)
-    | _ -> raise InvalidOperandSizeException)
+  let oprSize = getOperationSize ins
+  let src = AST.sext oprSize (AST.xtlo (oprSize / 2) opr)
+  !!ir (dstAssign oprSize (AST.xtlo oprSize opr) src)
   !>ir insLen
 
 let clearFlag insLen ctxt flagReg =
