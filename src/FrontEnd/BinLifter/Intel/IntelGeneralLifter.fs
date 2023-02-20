@@ -917,18 +917,62 @@ let dec ins insLen ctxt =
   if hasLock ins.Prefixes then !!ir (AST.sideEffect Unlock) else ()
   !>ir insLen
 
+let private mul64Bit src1 src2 ir =
+  let struct (hiSrc1, loSrc1, hiSrc2, loSrc2) = tmpVars4 ir 64<rt>
+  let struct (tSrc1, tSrc2) = tmpVars2 ir 64<rt>
+  let struct (tHigh, tLow) = tmpVars2 ir 64<rt>
+  let n32 = numI32 32 64<rt>
+  let mask = numI64 0xFFFFFFFFL 64<rt>
+  !!ir (tSrc1 := src1)
+  !!ir (tSrc2 := src2)
+  !!ir (hiSrc1 := (tSrc1 >> n32) .& mask) (* SRC1[63:32] *)
+  !!ir (loSrc1 := tSrc1 .& mask) (* SRC1[31:0] *)
+  !!ir (hiSrc2 := (tSrc2 >> n32) .& mask) (* SRC2[63:32] *)
+  !!ir (loSrc2 := tSrc2 .& mask) (* SRC2[31:0] *)
+  let pHigh = hiSrc1 .* hiSrc2
+  let pMid = (hiSrc1 .* loSrc2) .+ (loSrc1 .* hiSrc2)
+  let pLow = (loSrc1 .* loSrc2)
+  let high = pHigh .+ ((pMid .+ (pLow  >> n32)) >> n32)
+  let low = pLow .+ ((pMid .& mask) << n32)
+  !!ir (tHigh := high)
+  !!ir (tLow := low)
+  struct (tHigh, tLow)
+
+let private helperRemSub remHi remLo srcHi srcLo ir =
+  let cond = remLo .< srcLo
+  !!ir (remLo := remLo .- srcLo)
+  !!ir (remHi := remHi .- srcHi)
+  !!ir (remHi := remHi .- AST.ite cond (AST.num1 64<rt>) (AST.num0 64<rt>))
+
+let helperRemAdd remHi remLo srcHi srcLo remMsb ir =
+  let r = !+ir 64<rt>
+  let cond = ((AST.xthi 1<rt> remLo) == (AST.xthi 1<rt> srcHi))
+              .& ((AST.xthi 1<rt> remLo) <+> (AST.xthi 1<rt> r))
+  let toAdd = AST.ite cond (AST.num1 64<rt>) (AST.num0 64<rt>)
+  !!ir (r := remLo .+ srcHi)
+  !!ir (remLo := AST.ite remMsb r remLo)
+  !!ir (remHi := AST.ite remMsb (srcLo .+ toAdd) remHi)
+
 let divideWithoutConcat opcode oprSize divisor lblAssign lblErr ctxt ir =
-  let rdx, rax = !.ctxt R.RDX, !.ctxt R.RAX
   let struct (trdx, trax, tdivisor) = tmpVars3 ir oprSize
+  let rdx, rax = !.ctxt R.RDX, !.ctxt R.RAX
+  let struct (lz, y, t, nrmDvsr) = tmpVars4 ir oprSize
+  let struct (remHi, remLo) = tmpVars2 ir oprSize
+  let struct (qh, ql, q) = tmpVars3 ir oprSize
+  let remMsb = !+ir 1<rt>
+  let n32 = numI32 32 64<rt>
+  let zero = AST.num0 64<rt>
+  let one = AST.num1 64<rt>
+  let numF = numI64 0xffffffff oprSize
+  let condGE = (remHi >> n32) .>= (nrmDvsr >> n32)
   let updateSign = !+ir 1<rt>
   let lblComputable = !%ir "Computable"
   let lblEasy = !%ir "Easy"
   let lblHard = !%ir "Hard"
   let isEasy = trdx == AST.num0 oprSize
-  let errChk = AST.gt tdivisor trdx
+  let errChk = AST.gt divisor trdx
   let quotient = !+ir oprSize
   let remainder = !+ir oprSize
-  let bignum = numI64 0x8000000000000000L oprSize
   match opcode with
   | Opcode.DIV ->
     !!ir (trdx := rdx)
@@ -940,6 +984,8 @@ let divideWithoutConcat opcode oprSize divisor lblAssign lblErr ctxt ir =
     !!ir (divisorIsNeg := (AST.xthi 1<rt> divisor == AST.b1))
     !!ir (trdx := AST.ite dividendIsNeg (AST.not rdx) rdx)
     !!ir (trax := AST.ite dividendIsNeg (AST.not rax .+ numI32 1 oprSize) rax)
+    let carry = AST.ite (AST.``and`` dividendIsNeg (AST.eq trax zero)) one zero
+    !!ir (trdx := trdx .+ carry)
     !!ir (tdivisor := AST.ite divisorIsNeg (AST.neg divisor) divisor)
     !!ir (updateSign := dividendIsNeg <+> divisorIsNeg)
   | _ -> raise InvalidOpcodeException
@@ -951,8 +997,58 @@ let divideWithoutConcat opcode oprSize divisor lblAssign lblErr ctxt ir =
   !!ir (remainder := trax .% tdivisor)
   !!ir (AST.jmp (AST.name lblAssign))
   !!ir (AST.lmark lblHard)
-  !!ir (quotient := (bignum ./ (tdivisor ./ trdx)) .+ (trax ./ tdivisor))
-  !!ir (remainder := trax .- (quotient .* tdivisor))
+  // normalize divisor; adjust dividend accordingly (initial partial remainder)
+  !!ir (lz := (numI64 64L oprSize))
+  !!ir (t := tdivisor)
+  !!ir (y := (t >> (numI64 32 oprSize)))
+  !!ir (lz := (AST.ite (y != zero) (lz .- numI64 32 oprSize) lz))
+  !!ir (t := (AST.ite (y != zero) y t))
+  !!ir (y := (t >> (numI64 16 oprSize)))
+  !!ir (lz := (AST.ite (y != zero) (lz .- numI64 16 oprSize) lz))
+  !!ir (t := (AST.ite (y != zero) y t))
+  !!ir (y := (t >> (numI64 8 oprSize)))
+  !!ir (lz := (AST.ite (y != zero) (lz .- numI64 8 oprSize) lz))
+  !!ir (t := (AST.ite (y != zero) y t))
+  !!ir (y := (t >> (numI64 4 oprSize)))
+  !!ir (lz := (AST.ite (y != zero) (lz .- numI64 4 oprSize) lz))
+  !!ir (t := (AST.ite (y != zero) y t))
+  !!ir (y := (t >> (numI64 2 oprSize)))
+  !!ir (lz := (AST.ite (y != zero) (lz .- numI64 2 oprSize) lz))
+  !!ir (t := (AST.ite (y != zero) y t))
+  !!ir (y := (t >> (numI64 1 oprSize)))
+  !!ir (lz := (AST.ite (y != zero) (lz .- numI64 2 oprSize) (lz .- t)))
+  !!ir (nrmDvsr := tdivisor << lz)
+  !!ir (t := AST.ite (lz != zero) (trax >> ((numI64 64 oprSize) .- lz)) zero)
+  !!ir (remHi := (trdx << lz) .| t)
+  !!ir (remLo := trax << lz)
+  !!ir (qh := AST.ite condGE numF (remHi ./ (nrmDvsr >> n32)))
+  // compute remainder; correct quotient "digit" if remainder negative
+  let struct (prodHi, prodLo) = mul64Bit (qh << n32) nrmDvsr ir
+  helperRemSub remHi remLo prodHi prodLo ir
+  !!ir (remMsb := (AST.xthi 1<rt> remHi))
+  !!ir (qh := (AST.ite remMsb (qh .- one) (qh)))
+  helperRemAdd remHi remLo (nrmDvsr << n32) (nrmDvsr >> n32) remMsb ir
+  !!ir (remMsb := (AST.xthi 1<rt> remHi))
+  !!ir (qh := (AST.ite remMsb (qh .- one) (qh)))
+  helperRemAdd remHi remLo (nrmDvsr << n32) (nrmDvsr >> n32) remMsb ir
+  !!ir (remHi := (remHi << n32) .| (remLo >> n32))
+  !!ir (remLo := (remLo << n32))
+  // compute least significant quotient "digit"; TAOCP: may be off by 0, +1, +2
+  !!ir (ql := AST.ite condGE numF (remHi ./ (nrmDvsr >> n32)))
+  !!ir (q := (qh << n32) .| ql)
+  let struct (prodHi, prodLo) = mul64Bit (qh << n32) nrmDvsr ir
+  helperRemSub trdx trax prodHi prodLo ir
+  !!ir (remLo := trax)
+  !!ir (remHi := trdx)
+  !!ir (remMsb := (AST.xthi 1<rt> remHi))
+  !!ir (q := (AST.ite remMsb (q .- one) q))
+  helperRemAdd remHi remLo tdivisor zero remMsb ir
+  !!ir (remMsb := (AST.xthi 1<rt> remHi))
+  !!ir (q := (AST.ite remMsb (q .- one) q))
+  let struct (prodHi, prodLo) = mul64Bit q tdivisor ir
+  helperRemSub trdx trax prodHi prodLo ir
+  !!ir (quotient := q)
+  !!ir (remainder := trax)
   !!ir (AST.lmark lblAssign)
   match opcode with
   | Opcode.DIV ->
@@ -1082,6 +1178,8 @@ let private imul64Bit src1 src2 ir =
   let struct (tSrc1, tSrc2) = tmpVars2 ir 64<rt>
   let struct (tHigh, tLow) = tmpVars2 ir 64<rt>
   let n32 = numI32 32 64<rt>
+  let zero = numI32 0 64<rt>
+  let one = numI32 1 64<rt>
   let mask = numI64 0xFFFFFFFFL 64<rt>
   let struct (src1IsNeg, src2IsNeg, isSign) = tmpVars3 ir 1<rt>
   !!ir (src1IsNeg := AST.xthi 1<rt> src1)
@@ -1092,7 +1190,7 @@ let private imul64Bit src1 src2 ir =
   !!ir (loSrc1 := tSrc1 .& mask) (* SRC1[31:0] *)
   !!ir (hiSrc2 := (tSrc2 >> n32) .& mask) (* SRC2[63:32] *)
   !!ir (loSrc2 := tSrc2 .& mask) (* SRC2[31:0] *)
-  let pHigh = hiSrc1 .* hiSrc1
+  let pHigh = hiSrc1 .* hiSrc2
   let pMid = (hiSrc1 .* loSrc2) .+ (loSrc1 .* hiSrc2)
   let pLow = (loSrc1 .* loSrc2)
   let high = pHigh .+ ((pMid .+ (pLow  >> n32)) >> n32)
@@ -1100,6 +1198,8 @@ let private imul64Bit src1 src2 ir =
   !!ir (isSign := src1IsNeg <+> src2IsNeg)
   !!ir (tHigh := AST.ite isSign (AST.not high) high)
   !!ir (tLow := AST.ite isSign (AST.neg low) low)
+  let carry = AST.ite (AST.``and`` isSign (AST.eq tLow zero)) one zero
+  !!ir (tHigh := tHigh .+ carry)
   struct (tHigh, tLow)
 
 let private oneOperandImul ctxt oprSize src ir =
