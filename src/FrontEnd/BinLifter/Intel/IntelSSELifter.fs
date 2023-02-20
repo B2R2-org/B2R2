@@ -166,9 +166,9 @@ let movmskpd ins insLen ctxt =
   let dst = transOprToExpr ir false ins insLen ctxt dst
   let src1, src2 = transOprToExpr128 ir false ins insLen ctxt src
   let oprSize = getOperationSize ins
-  let src63 = AST.sext oprSize (AST.xthi 1<rt> src2)
-  let src127 = (AST.sext oprSize (AST.xthi 1<rt> src1)) << AST.num1 oprSize
-  !!ir (dst := src63 .| src127)
+  let src63 = AST.zext oprSize (AST.xthi 1<rt> src2)
+  let src127 = (AST.zext oprSize (AST.xthi 1<rt> src1)) << AST.num1 oprSize
+  !!ir (dstAssign oprSize dst (src63 .| src127))
   !>ir insLen
 
 let movss (ins: InsInfo) insLen ctxt =
