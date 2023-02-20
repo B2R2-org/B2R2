@@ -1498,6 +1498,90 @@ module internal ParsingHelper = begin
       struct (VMOVDQU8, OD.RmGpr, SZ.VecDef) (* WZxzVZxz *)
     | _ (* MPrx66F2 *) -> raise ParsingFailureException
 
+  let nor0F90 = function
+    | MPref.MPrxNP -> struct (SETO, OD.Mem, SZ.Byte) (* Eb *)
+    | MPref.MPrx66
+    | MPref.MPrxF3
+    | MPref.MPrxF2
+    | _ (* MPrx66F2 *) -> raise ParsingFailureException
+
+  let vex0F90W0 = function
+    | MPref.MPrxNP -> struct (KMOVW, OD.KnKm, SZ.QQw) (* k1, k2/m16 *)
+    | MPref.MPrx66 -> struct (KMOVB, OD.KnKm, SZ.QQb) (* k1, k2/m8 *)
+    | MPref.MPrxF3
+    | MPref.MPrxF2
+    | _ (* MPrx66F2 *) -> raise ParsingFailureException
+
+  let vex0F90W1 = function
+    | MPref.MPrxNP -> struct (KMOVQ, OD.KnKm, SZ.Q) (* k1, k2/m64 *)
+    | MPref.MPrx66 -> struct (KMOVD, OD.KnKm, SZ.QQd) (* k1, k2/m32 *)
+    | MPref.MPrxF3
+    | MPref.MPrxF2
+    | _ (* MPrx66F2 *) -> raise ParsingFailureException
+
+  let nor0F91 = function
+    | MPref.MPrxNP -> struct (SETNO, OD.Mem, SZ.Byte) (* Eb *)
+    | MPref.MPrx66
+    | MPref.MPrxF3
+    | MPref.MPrxF2
+    | _ (* MPrx66F2 *) -> raise ParsingFailureException
+
+  let vex0F91W0 = function
+    | MPref.MPrxNP -> struct (KMOVW, OD.MKn, SZ.QQw) (* m16, k1 *)
+    | MPref.MPrx66 -> struct (KMOVB, OD.MKn, SZ.QQb) (* m8, k1 *)
+    | MPref.MPrxF3
+    | MPref.MPrxF2
+    | _ (* MPrx66F2 *) -> raise ParsingFailureException
+
+  let vex0F91W1 = function
+    | MPref.MPrxNP -> struct (KMOVQ, OD.MKn, SZ.Q) (* m64, k1 *)
+    | MPref.MPrx66 -> struct (KMOVD, OD.MKn, SZ.QQd) (* m32, k1 *)
+    | MPref.MPrxF3
+    | MPref.MPrxF2
+    | _ (* MPrx66F2 *) -> raise ParsingFailureException
+
+  let nor0F92 = function
+    | MPref.MPrxNP -> struct (SETB, OD.Mem, SZ.Byte) (* Eb *)
+    | MPref.MPrx66
+    | MPref.MPrxF3
+    | MPref.MPrxF2
+    | _ (* MPrx66F2 *) -> raise ParsingFailureException
+
+  let vex0F92W0 = function
+    | MPref.MPrxNP -> struct (KMOVW, OD.KnGpr, SZ.Def) (* k1, r32 *)
+    | MPref.MPrx66 -> struct (KMOVB, OD.KnGpr, SZ.Def) (* k1, r32 *)
+    | MPref.MPrxF3 -> raise ParsingFailureException
+    | MPref.MPrxF2 -> struct (KMOVD, OD.KnGpr, SZ.Def) (* k1, r32 *)
+    | _ (* MPrx66F2 *) -> raise ParsingFailureException
+
+  let vex0F92W1 = function
+    | MPref.MPrxNP
+    | MPref.MPrx66
+    | MPref.MPrxF3 -> raise ParsingFailureException
+    | MPref.MPrxF2 -> struct (KMOVQ, OD.KnGpr, SZ.Def) (* k1, r64 *)
+    | _ (* MPrx66F2 *) -> raise ParsingFailureException
+
+  let nor0F93 = function
+    | MPref.MPrxNP -> struct (SETNB, OD.Mem, SZ.Byte) (* Eb *)
+    | MPref.MPrx66
+    | MPref.MPrxF3
+    | MPref.MPrxF2
+    | _ (* MPrx66F2 *) -> raise ParsingFailureException
+
+  let vex0F93W0 = function
+    | MPref.MPrxNP -> struct (KMOVW, OD.GprKn, SZ.Def) (* r32, k1 *)
+    | MPref.MPrx66 -> struct (KMOVB, OD.GprKn, SZ.Def) (* r32, k1 *)
+    | MPref.MPrxF3 -> raise ParsingFailureException
+    | MPref.MPrxF2 -> struct (KMOVD, OD.GprKn, SZ.Def) (* r32, k1 *)
+    | _ (* MPrx66F2 *) -> raise ParsingFailureException
+
+  let vex0F93W1 = function
+    | MPref.MPrxNP
+    | MPref.MPrx66
+    | MPref.MPrxF3 -> raise ParsingFailureException
+    | MPref.MPrxF2 -> struct (KMOVQ, OD.GprKn, SZ.Def) (* r64, k1 *)
+    | _ (* MPrx66F2 *) -> raise ParsingFailureException
+
   let nor0FC2 = function
     | MPref.MPrxNP ->
       struct (CMPPS, OD.XmmRmImm8, SZ.DqDq) (* VdqWdqIb *)
@@ -6309,10 +6393,10 @@ module internal ParsingHelper = begin
     | 0x8Duy -> addBND rhlp; render span rhlp JNL SzCond.F64 OD.Rel SZ.D64
     | 0x8Euy -> addBND rhlp; render span rhlp JLE SzCond.F64 OD.Rel SZ.D64
     | 0x8Fuy -> addBND rhlp; render span rhlp JG SzCond.F64 OD.Rel SZ.D64
-    | 0x90uy -> render span rhlp SETO SzCond.Nor OD.Mem SZ.Byte
-    | 0x91uy -> render span rhlp SETNO SzCond.Nor OD.Mem SZ.Byte
-    | 0x92uy -> render span rhlp SETB SzCond.Nor OD.Mem SZ.Byte
-    | 0x93uy -> render span rhlp SETNB SzCond.Nor OD.Mem SZ.Byte
+    | 0x90uy -> parseVEXW span rhlp nor0F90 nor0F90 vex0F90W0 vex0F90W1
+    | 0x91uy -> parseVEXW span rhlp nor0F91 nor0F91 vex0F91W0 vex0F91W1
+    | 0x92uy -> parseVEXW span rhlp nor0F92 nor0F92 vex0F92W0 vex0F92W1
+    | 0x93uy -> parseVEXW span rhlp nor0F93 nor0F93 vex0F93W0 vex0F93W1
     | 0x94uy -> render span rhlp SETZ SzCond.Nor OD.Mem SZ.Byte
     | 0x95uy -> render span rhlp SETNZ SzCond.Nor OD.Mem SZ.Byte
     | 0x96uy -> render span rhlp SETBE SzCond.Nor OD.Mem SZ.Byte
