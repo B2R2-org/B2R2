@@ -503,7 +503,7 @@ let bsr ins insLen ctxt =
   !!ir (t := t .- AST.num1 oprSize)
   !!ir (AST.jmp (AST.name lblLoopCond))
   !!ir (AST.lmark lblLE)
-  !!ir (dst := t)
+  !!ir (dstAssign oprSize dst t)
   !!ir (AST.lmark lblEnd)
 #if !EMULATION
   !!ir (!.ctxt R.CF := undefCF)
