@@ -147,6 +147,8 @@ type OprDesc =
   | KnVvXmImm8 = 113
   | KnGpr = 114
   | XmmVvXmmXm = 115
+  | KnKm = 116
+  | MKn = 117
 
 module internal OperandParsingHelper =
   /// Find a specific reg. The bitmask will be used to extract a specific REX
@@ -1335,3 +1337,21 @@ type internal OpXmmVvXmmXm () =
     let imm8 = (rhlp.ReadUInt8 (span) >>> 4) &&& mask |> int (* imm8[7:4] *)
     let opr3 = findRegNoREX rhlp.RegSize rhlp.REXPrefix imm8 |> OprReg
     FourOperands (opr1, opr2, opr3, opr4)
+
+type internal OpKnKm () =
+  inherit OperandParser ()
+  override __.Render (span, rhlp) =
+    let modRM = rhlp.ReadByte span
+    let opr1 = parseOpMaskReg (getReg modRM)
+    let opr2 = if modIsMemory modRM then parseMemory modRM span rhlp
+               else parseOpMaskReg (getRM modRM)
+    TwoOperands (opr1, opr2)
+
+type internal OpMKn () =
+  inherit OperandParser ()
+  override __.Render (span, rhlp) =
+    let modRM = rhlp.ReadByte span
+    let opr1 = if modIsMemory modRM then parseMemory modRM span rhlp
+               else raise ParsingFailureException
+    let opr2 = parseOpMaskReg (getReg modRM)
+    TwoOperands (opr1, opr2)

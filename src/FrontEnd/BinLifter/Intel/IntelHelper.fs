@@ -1112,6 +1112,42 @@ type SzY () =
     rhlp.RegSize <- effOprSz
     rhlp.OperationSize <- effOprSz
 
+/// KnKm MKn
+type SzQQb () =
+  inherit InsSizeComputer ()
+  override __.Render rhlp szCond =
+    let effAddrSz = getEffAddrSize rhlp
+    let effOprSz = getEffOprSize rhlp szCond
+    rhlp.MemEffOprSize <- 8<rt>
+    rhlp.MemEffAddrSize <- effAddrSz
+    rhlp.MemEffRegSize <- effOprSz
+    rhlp.RegSize <- effOprSz
+    rhlp.OperationSize <- 8<rt>
+
+/// KnKm MKn
+type SzQQd () =
+  inherit InsSizeComputer ()
+  override __.Render rhlp szCond =
+    let effAddrSz = getEffAddrSize rhlp
+    let effOprSz = getEffOprSize rhlp szCond
+    rhlp.MemEffOprSize <- 32<rt>
+    rhlp.MemEffAddrSize <- effAddrSz
+    rhlp.MemEffRegSize <- effOprSz
+    rhlp.RegSize <- effOprSz
+    rhlp.OperationSize <- 32<rt>
+
+/// KnKm MKn
+type SzQQw () =
+  inherit InsSizeComputer ()
+  override __.Render rhlp szCond =
+    let effAddrSz = getEffAddrSize rhlp
+    let effOprSz = getEffOprSize rhlp szCond
+    rhlp.MemEffOprSize <- 16<rt>
+    rhlp.MemEffAddrSize <- effAddrSz
+    rhlp.MemEffRegSize <- effOprSz
+    rhlp.RegSize <- effOprSz
+    rhlp.OperationSize <- 16<rt>
+
 type SizeKind =
   | Byte = 0
   | Word = 1
@@ -1186,5 +1222,8 @@ type SizeKind =
   | Qq = 70
   | DqwdX = 71
   | Y = 72
+  | QQb = 73
+  | QQd = 74
+  | QQw = 75
 
 // vim: set tw=80 sts=2 sw=2:
