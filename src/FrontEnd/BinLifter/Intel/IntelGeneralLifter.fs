@@ -816,7 +816,7 @@ let convWDQ ins insLen (ctxt: TranslationContext) =
     let eax = !.ctxt R.EAX
     let edx = !.ctxt R.EDX
     !!ir (t := AST.sext 64<rt> eax)
-    !!ir (edx := AST.xthi 32<rt> t)
+    !!ir (dstAssign oprSize edx (AST.xthi 32<rt> t))
     !!ir (eax := AST.xtlo 32<rt> t)
   | 64<rt>, 64<rt> ->
     let rdx = !.ctxt R.RDX
