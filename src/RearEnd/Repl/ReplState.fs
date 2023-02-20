@@ -37,6 +37,9 @@ type ReplState (isa: ISA, regbay: RegisterBay, doFiltering) =
   let rstate = EvalState ()
   let mutable parser = BinParser isa.Arch
   do
+    rstate.SideEffectEventHandler <-
+      (fun e st -> printfn $"[*] Unhandled side-effect ({e}) encountered"
+                   st.IsInstrTerminated <- true)
     regbay.GetAllRegExprs ()
     |> List.map (fun r ->
       (regbay.RegIDFromRegExpr r, BitVector.OfInt32 0 (TypeCheck.typeOf r)))
