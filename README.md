@@ -59,7 +59,7 @@ progress, but we look forward to your contributions! Feel free to write a PR
 (Pull Request) while making sure that you have read our [contribution
 guideline](CONTRIBUTING.md).
 
-| Feature               | x86         | x86-64      | ARMv7                | ARMv8                | MIPS32               | MIPS64               | EVM         | TMS320C600  | AVR         | PPC         | SPARC64     | SH4                   | RISC-V      |
+| Feature               | x86         | x86-64      | ARMv7                | ARMv8                | MIPS32               | MIPS64               | EVM         | TMS320C600  | AVR         | PPC         | SPARC     | SH4                   | RISC-V      |
 |-----------------------|:-----------:|:-----------:|:--------------------:|:--------------------:|:--------------------:|:--------------------:|:-----------:|:-----------:|:-----------:|:-----------:|:-----------:|:---------------------:|:-----------:|
 | Instruction Parsing   | :full_moon: | :full_moon: | :full_moon:          | :full_moon:          | :full_moon:          | :full_moon:          | :full_moon: | :full_moon: | :full_moon: | :full_moon: | :full_moon: | :waxing_gibbous_moon: | :full_moon: |
 | Disassembly           | :full_moon: | :full_moon: | :full_moon:          | :full_moon:          | :full_moon:          | :full_moon:          | :full_moon: | :full_moon: | :full_moon: | :full_moon: | :new_moon:  | :waxing_gibbous_moon: | :full_moon: |
