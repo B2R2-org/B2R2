@@ -563,10 +563,12 @@ let private setBit ins bitBase bitOffset oprSize setValue =
     let mask = setValue << bitOffset
     let loadMem = AST.load e t (expr .+ addrOffset)
     loadMem := (loadMem .& (getMask oprSize .- mask)) .| mask
-  | _ -> if isVar bitBase.E
-         then let mask = setValue << maskOffset bitOffset oprSize
-              bitBase := (bitBase .& (getMask oprSize .- mask)) .| mask
-         else raise InvalidExprException
+  | _ ->
+    if isVar bitBase.E then
+      let mask = setValue << maskOffset bitOffset oprSize
+      dstAssign oprSize bitBase ((bitBase .& (getMask oprSize .- mask)) .| mask)
+    else
+      raise InvalidExprException
 
 let bitTest ins insLen ctxt setValue =
   let ir = !*ctxt
