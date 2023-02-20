@@ -883,25 +883,28 @@ and BitVectorSmall (n, len) =
   override __.Shr (rhs: BitVector) =
     if len <> rhs.Length then raise ArithTypeMismatchException else ()
     let v1 = n
-    let v2 = rhs.SmallValue () |> uint16 |> int
+    let v2 = rhs.SmallValue ()
     (* In .NET, 1UL >>> 63 = 0, but 1UL >>> 64 = 1 *)
-    BitVectorSmall (v1 >>> (min v2 63), len) :> BitVector
+    if v2 >= 64UL then BitVectorSmall (0UL, len) :> BitVector
+    else BitVectorSmall (v1 >>> (int v2), len) :> BitVector
 
   override __.Sar (rhs: BitVector) =
     if len <> rhs.Length then raise ArithTypeMismatchException else ()
     let v1 = n
-    let v2 = rhs.SmallValue () |> uint16 |> int
+    let v2 = rhs.SmallValue ()
     (* In .NET, 1UL >>> 63 = 0, but 1UL >>> 64 = 1 *)
-    let res = v1 >>> (min v2 63)
-    if len = 1<rt> then
-      if v2 = 0 then __ :> BitVector else BitVector.Zero len
-    elif isSmallPositive len v1 then BitVectorSmall (res, len) :> BitVector
+    if v2 >= 64UL then BitVectorSmall (0UL, len) :> BitVector
     else
-      let pad =
-        (UInt64.MaxValue >>> (64 - int len))
-        - (if int len <= v2 then 0UL
-           else UInt64.MaxValue >>> (64 - (int len - v2)))
-      BitVectorSmall (res ||| pad, len) :> BitVector
+      let res = v1 >>> (int v2)
+      if len = 1<rt> then
+        if v2 = 0UL then __ :> BitVector else BitVector.Zero len
+      elif isSmallPositive len v1 then BitVectorSmall (res, len) :> BitVector
+      else
+        let pad =
+          (UInt64.MaxValue >>> (64 - int len))
+          - (if int len <= int v2 then 0UL
+             else UInt64.MaxValue >>> (64 - (int len - int v2)))
+        BitVectorSmall (res ||| pad, len) :> BitVector
 
   override __.Not () =
     BitVectorSmall ((~~~ n) |> adaptSmall len, len) :> BitVector
@@ -1460,11 +1463,14 @@ and BitVectorBig (n, len) =
     if len <> rhs.Length then raise ArithTypeMismatchException else ()
     let v1 = n
     let v2 = rhs.SmallValue () |> uint16 |> int
-    let res = v1 >>> v2
-    if isBigPositive len v1 then BitVectorBig (res, len) :> BitVector
+    if v2 >= int len then BitVectorBig (0, len) :> BitVector
     else
-      let pad = ((bigOne <<< int len) - bigOne) - ((bigOne <<< (int len - v2)))
-      BitVectorBig (res ||| pad, len) :> BitVector
+      let res = v1 >>> v2
+      if isBigPositive len v1 then BitVectorBig (res, len) :> BitVector
+      else
+        let pad =
+          ((bigOne <<< int len) - bigOne) - ((bigOne <<< (int len - v2)))
+        BitVectorBig (res ||| pad, len) :> BitVector
 
   override __.Not () =
     BitVectorBig ((bigOne <<< (int len)) - bigOne - n, len) :> BitVector

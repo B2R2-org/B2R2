@@ -152,7 +152,7 @@ type BitVectorTests () =
 
   [<TestMethod>]
   member __.``Basic Arithmetic 5`` () =
-    // test for signed division
+    (* test for signed division *)
     let n1 = BitVector.OfInt64 (-4L) 64<rt>
     let n2 = BitVector.OfInt64 (-2L) 64<rt>
     Assert.AreEqual (BitVector.ToString <| BitVector.SDiv (n1, n2), "0x2:I64")
@@ -170,7 +170,7 @@ type BitVectorTests () =
 
   [<TestMethod>]
   member __.``Basic Arithmetic 6`` () =
-    // test for shift operations
+    (* test for shift operations *)
     let n1 = BitVector.OfInt64 1L 32<rt>
     let n2 = BitVector.OfInt64 31L 32<rt>
     let n3 = BitVector.OfInt64 32L 32<rt>
@@ -199,7 +199,7 @@ type BitVectorTests () =
 
   [<TestMethod>]
   member __.``Basic Arithmetic 7`` () =
-    // test for 1 bit operation
+    (* test for 1 bit operation *)
     let n0 = BitVector.OfInt64 (0L) 1<rt>
     let n1 = BitVector.OfInt64 (1L) 1<rt>
     Assert.AreEqual (BitVector.ToString <| BitVector.Add (n1, n0), "0x1:I1")
@@ -228,12 +228,18 @@ type BitVectorTests () =
   member __.``Shift by a Large Amount`` () =
     let n1 = BitVector.OfUInt32 1ul 32<rt>
     let n2 = BitVector.OfInt32 128 32<rt>
-    let n3 = BitVector.OfUInt32 1ul 128<rt>
-    let n4 = BitVector.OfInt32 128 128<rt>
+    let n3 = BitVector.OfUInt64 0x8000000000000000UL 64<rt>
+    let n4 = BitVector.OfInt32 64 64<rt>
+    let n5 = BitVector.OfBInt (1I <<< 127) 128<rt>
+    let n6 = BitVector.OfInt32 128 128<rt>
     Assert.AreEqual (BitVector.ToString <| BitVector.Shr (n1, n2), "0x0:I32")
     Assert.AreEqual (BitVector.ToString <| BitVector.Shl (n1, n2), "0x0:I32")
-    Assert.AreEqual (BitVector.ToString <| BitVector.Shr (n3, n4), "0x0:I128")
-    Assert.AreEqual (BitVector.ToString <| BitVector.Shl (n3, n4), "0x0:I128")
+    Assert.AreEqual (BitVector.ToString <| BitVector.Shr (n3, n4), "0x0:I64")
+    Assert.AreEqual (BitVector.ToString <| BitVector.Sar (n3, n4), "0x0:I64")
+    Assert.AreEqual (BitVector.ToString <| BitVector.Shl (n3, n4), "0x0:I64")
+    Assert.AreEqual (BitVector.ToString <| BitVector.Shr (n5, n6), "0x0:I128")
+    Assert.AreEqual (BitVector.ToString <| BitVector.Sar (n5, n6), "0x0:I128")
+    Assert.AreEqual (BitVector.ToString <| BitVector.Shl (n5, n6), "0x0:I128")
 
   [<TestMethod>]
   member __.``Unsigned Modulo`` () =
@@ -247,7 +253,7 @@ type BitVectorTests () =
 
   [<TestMethod>]
   member __.``Signed Modulo`` () =
-    // Added for signed modulo bug test
+    (* Added for signed modulo bug test *)
     let n1 = BitVector.OfUInt32 5ul 32<rt>
     let n2 = BitVector.OfInt32 3l 32<rt>
     Assert.AreEqual (BitVector.SModulo (n1, n2), BitVector.OfInt32 2 32<rt>)
@@ -272,7 +278,7 @@ type BitVectorTests () =
     let n1 = BitVector.OfBInt -5I 256<rt>
     let n2 = BitVector.OfInt64 3L 256<rt>
     Assert.AreEqual (BitVector.SModulo (n1, n2), BitVector.OfInt32 -2 256<rt>)
-    // zero value test
+    (* zero value test *)
     let n1 = BitVector.OfUInt32 6ul 32<rt>
     let n2 = BitVector.OfInt32 3l 32<rt>
     Assert.AreEqual (BitVector.SModulo (n1, n2), BitVector.OfInt32 0l 32<rt>)
@@ -375,7 +381,7 @@ type BitVectorTests () =
 
   [<TestMethod>]
   member __.``Size Extension``() =
-    // Extension.
+    (* Extension. *)
     let e1 = BitVector.OfInt32 -1 8<rt>
     Assert.AreEqual (BitVector.ZExt (e1, 32<rt>), BitVector.OfInt32 0xff 32<rt>)
     let e1 = BitVector.OfUInt32 0xffu 8<rt>
