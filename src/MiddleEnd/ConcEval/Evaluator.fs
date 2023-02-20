@@ -130,12 +130,6 @@ let private evalPCUpdate st rhs =
   let v = evalConcrete st rhs
   st.PC <- BitVector.ToUInt64 v
 
-let evalUndef (st: EvalState) lhs =
-  match lhs.E with
-  | Var (_, n, _, _) -> st.UnsetReg n
-  | TempVar (_, n) -> st.UnsetTmp n
-  | _ -> raise InvalidExprException
-
 let private evalPut st lhs rhs =
   try
     let v = evalConcrete st rhs
@@ -146,12 +140,7 @@ let private evalPut st lhs rhs =
     | _ -> raise InvalidExprException
   with
     | UndefExpException
-    | :? System.Collections.Generic.KeyNotFoundException ->
-#if EMULATION
-      ()
-#else
-      evalUndef st lhs
-#endif
+    | :? System.Collections.Generic.KeyNotFoundException -> ()
 
 let private evalStore st endian addr v =
   let addr = evalConcrete st addr |> BitVector.ToUInt64
@@ -188,7 +177,7 @@ let evalStmt (st: EvalState) s =
   | ISMark (len) -> st.CurrentInsLen <- len; st.NextStmt ()
   | IEMark (len) -> st.AdvancePC len; st.AbortInstr ()
   | LMark _ -> st.NextStmt ()
-  | Put (lhs, { E = Undefined (_) }) -> evalUndef st lhs |> st.NextStmt
+  | Put (_, { E = Undefined (_) }) -> st.NextStmt ()
   | Put (lhs, rhs) -> evalPut st lhs rhs |> st.NextStmt
   | Store (e, addr, v) -> evalStore st e addr v |> st.NextStmt
   | Jmp target -> evalJmp st target
