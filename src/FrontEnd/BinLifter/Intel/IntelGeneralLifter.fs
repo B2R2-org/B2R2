@@ -561,12 +561,14 @@ let private setBit ins bitBase bitOffset oprSize setValue =
     let addrOffset, bitOffset = calculateOffset bitOffset oprSize
     let addrOffset = AST.zext effAddrSz addrOffset
     let mask = setValue << bitOffset
+    let bit = (AST.zext oprSize AST.b1) << bitOffset
     let loadMem = AST.load e t (expr .+ addrOffset)
-    loadMem := (loadMem .& (getMask oprSize .- mask)) .| mask
+    loadMem := (loadMem .& (getMask oprSize .- bit)) .| mask
   | _ ->
     if isVar bitBase.E then
       let mask = setValue << maskOffset bitOffset oprSize
-      dstAssign oprSize bitBase ((bitBase .& (getMask oprSize .- mask)) .| mask)
+      let bit = (AST.zext oprSize AST.b1) << maskOffset bitOffset oprSize
+      dstAssign oprSize bitBase ((bitBase .& (getMask oprSize .- bit)) .| mask)
     else
       raise InvalidExprException
 
