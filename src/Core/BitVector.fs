@@ -1463,7 +1463,7 @@ and BitVectorBig (n, len) =
     if len <> rhs.Length then raise ArithTypeMismatchException else ()
     let v1 = n
     let v2 = rhs.SmallValue () |> uint16 |> int
-    if v2 >= int len then BitVectorBig (0, len) :> BitVector
+    if v2 >= int len then BitVectorBig (0I, len) :> BitVector
     else
       let res = v1 >>> v2
       if isBigPositive len v1 then BitVectorBig (res, len) :> BitVector
