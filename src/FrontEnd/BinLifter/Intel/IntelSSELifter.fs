@@ -831,14 +831,14 @@ let unpcklps ins insLen ctxt =
   let ir = !*ctxt
   !<ir insLen
   let struct (dst, src) = getTwoOprs ins
-  let dst2, dst1 = transOprToExpr128 ir false ins insLen ctxt dst
-  let _src2, src1 = transOprToExpr128 ir false ins insLen ctxt src
-  let _dst1A, dst1B = AST.xtlo 32<rt> dst1, AST.xthi 32<rt> dst1
-  let dst2A, dst2B = AST.xtlo 32<rt> dst2, AST.xthi 32<rt> dst2
-  let src1A, src1B = AST.xtlo 32<rt> src1, AST.xthi 32<rt> src1
-  !!ir (dst2A := dst1B)
-  !!ir (dst1B := src1A)
-  !!ir (dst2B := src1B)
+  let dstB, dstA = transOprToExpr128 ir false ins insLen ctxt dst
+  let _, srcA = transOprToExpr128 ir false ins insLen ctxt src
+  let struct (tSrc1A, tSrc1B, tSrc2A) = tmpVars3 ir 64<rt>
+  !!ir (tSrc1A := dstA)
+  !!ir (tSrc1B := dstB)
+  !!ir (tSrc2A := srcA)
+  !!ir (dstA := AST.concat (AST.xtlo 32<rt> tSrc2A) (AST.xtlo 32<rt> tSrc1A))
+  !!ir (dstB := AST.concat (AST.xthi 32<rt> tSrc2A) (AST.xthi 32<rt> tSrc1A))
   !>ir insLen
 
 let unpcklpd ins insLen ctxt =
