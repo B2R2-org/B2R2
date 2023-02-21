@@ -1937,7 +1937,7 @@ let shift ins insLen ctxt =
   match ins.Opcode with
   | Opcode.SAR ->
     let prevLBit = AST.xtlo 1<rt> (tDst ?>> tCnt)
-    !!ir (dst := tDst ?>> cnt)
+    !!ir (dstAssign oprSize dst (tDst ?>> cnt))
     !!ir (tCnt := cnt .- n1)
     !!ir (cF := AST.ite cond2 cF prevLBit)
 #if !EMULATION
