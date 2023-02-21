@@ -665,38 +665,73 @@ let lfs ins insLen ctxt = /// FIXME
   !!ir (dst := tmp .& w2)
   !>ir insLen
 
+let lha ins insLen ctxt =
+  let struct (o1, o2) = getTwoOprs ins
+  let ea =
+    match o2 with
+    | OprMem (d, b) -> (!.ctxt b .+ numI32 d ctxt.WordBitSize)
+    | _ -> raise InvalidOperandException
+  let rd = transOprToExpr ins ctxt o1
+  let ir = !*ctxt
+  !<ir insLen
+  !!ir (rd := AST.sext 32<rt> (loadNative ctxt 16<rt> ea))
+  !>ir insLen
+
+let lhau ins insLen ctxt =
+  let struct (o1 , o2) = getTwoOprs ins
+  let ea, ra =
+    match o2 with
+    | OprMem (d, b) -> (!.ctxt b .+ numI32 d ctxt.WordBitSize), !.ctxt b
+    | _ -> raise InvalidOperandException
+  let dst = transOprToExpr ins ctxt o1
+  let ir = !*ctxt
+  !<ir insLen
+  !!ir (dst := AST.sext 32<rt> (loadNative ctxt 16<rt> ea))
+  !!ir (ra := ea)
+  !>ir insLen
+
+let lhaux ins insLen ctxt =
+  let struct (rd, ra, rb) = transThreeOprs ins ctxt
+  let ir = !*ctxt
+  let ea = !+ir 32<rt>
+  !<ir insLen
+  !!ir (ea := ra .+ rb)
+  !!ir (rd := AST.sext 32<rt> (loadNative ctxt 16<rt> ea))
+  !!ir (ra := ea)
+  !>ir insLen
+
+let lhax ins insLen ctxt =
+  let struct (rd, ra, rb) = transThreeOprs ins ctxt
+  let ir = !*ctxt
+  let cond = ra == AST.num0 32<rt>
+  let ea = !+ir 32<rt>
+  !<ir insLen
+  !!ir (ea := (AST.ite cond (AST.num0 32<rt>) ra) .+ rb)
+  !!ir (rd := AST.sext 32<rt> (loadNative ctxt 16<rt> ea))
+  !>ir insLen
+
 let lhz ins insLen ctxt =
   let struct (o1, o2) = getTwoOprs ins
   let ea =
     match o2 with
     | OprMem (d, b) -> (!.ctxt b .+ numI32 d ctxt.WordBitSize)
     | _ -> raise InvalidOperandException
-  let dst = transOprToExpr ins ctxt o1
-  let ir = !*ctxt
-  !<ir insLen
-  !!ir (dst := AST.zext 32<rt> (loadNative ctxt 16<rt> ea))
-  !>ir insLen
-
-let lhzx ins insLen ctxt =
-  let struct (rd, ra, rb) = transThreeOprs ins ctxt
-  let cond = ra == AST.num0 32<rt>
-  let ir = !*ctxt
-  let ea = !+ir 32<rt>
-  !<ir insLen
-  !!ir (ea := (AST.ite cond (AST.num0 32<rt>) ra) .+ rb)
-  !!ir (rd := AST.zext 32<rt> (loadNative ctxt 16<rt> ea))
-  !>ir insLen
-
-let lhzu ins insLen ctxt =
-  let struct (o1, o2) = getTwoOprs ins
-  let ea, ra =
-    match o2 with
-    | OprMem (d, b) -> (!.ctxt b .+ numI32 d ctxt.WordBitSize), !.ctxt b
-    | _ -> raise InvalidOperandException
   let rd = transOprToExpr ins ctxt o1
   let ir = !*ctxt
   !<ir insLen
   !!ir (rd := AST.zext 32<rt> (loadNative ctxt 16<rt> ea))
+  !>ir insLen
+
+let lhzu ins insLen ctxt =
+  let struct (o1 , o2) = getTwoOprs ins
+  let ea, ra =
+    match o2 with
+    | OprMem (d, b) -> (!.ctxt b .+ numI32 d ctxt.WordBitSize), !.ctxt b
+    | _ -> raise InvalidOperandException
+  let dst = transOprToExpr ins ctxt o1
+  let ir = !*ctxt
+  !<ir insLen
+  !!ir (dst := AST.zext 32<rt> (loadNative ctxt 16<rt> ea))
   !!ir (ra := ea)
   !>ir insLen
 
@@ -708,6 +743,16 @@ let lhzux ins insLen ctxt =
   !!ir (ea := ra .+ rb)
   !!ir (rd := AST.zext 32<rt> (loadNative ctxt 16<rt> ea))
   !!ir (ra := ea)
+  !>ir insLen
+
+let lhzx ins insLen ctxt =
+  let struct (rd, ra, rb) = transThreeOprs ins ctxt
+  let cond = ra == AST.num0 32<rt>
+  let ir = !*ctxt
+  let ea = !+ir 32<rt>
+  !<ir insLen
+  !!ir (ea := (AST.ite cond (AST.num0 32<rt>) ra) .+ rb)
+  !!ir (rd := AST.zext 32<rt> (loadNative ctxt 16<rt> ea))
   !>ir insLen
 
 let li ins insLen ctxt =
@@ -1205,6 +1250,16 @@ let stbu ins insLen ctxt =
   !!ir (ra := ea)
   !>ir insLen
 
+let stbux ins insLen ctxt =
+  let struct (rs, ra, rb) = transThreeOprs ins ctxt
+  let ir = !*ctxt
+  let ea = !+ir 32<rt>
+  !<ir insLen
+  !!ir (ea := ra .+ rb)
+  !!ir (loadNative ctxt 8<rt> ea := AST.xtlo 8<rt> rs)
+  !!ir (ra := ra)
+  !>ir insLen
+
 let stfd ins insLen ctxt =
   let struct (o1, o2) = getTwoOprs ins
   let ea =
@@ -1239,6 +1294,19 @@ let sth ins insLen ctxt =
   !!ir (loadNative ctxt 16<rt> ea := AST.xtlo 16<rt> src)
   !>ir insLen
 
+let sthu ins insLen ctxt =
+  let struct (o1, o2) = getTwoOprs ins
+  let ea, ra =
+    match o2 with
+    | OprMem (d, b) -> (!.ctxt b .+ numI32 d ctxt.WordBitSize), !.ctxt b
+    | _ -> raise InvalidOperandException
+  let rs = transOprToExpr ins ctxt o1
+  let ir = !*ctxt
+  !<ir insLen
+  !!ir (loadNative ctxt 16<rt> ea := AST.xtlo 16<rt> rs)
+  !!ir (ra := ea)
+  !>ir insLen
+
 let sthx ins insLen ctxt =
   let struct (src, dst1, dst2) = transThreeOprs ins ctxt
   let cond = dst1 == AST.num0 32<rt>
@@ -1247,6 +1315,16 @@ let sthx ins insLen ctxt =
   !<ir insLen
   !!ir (ea := (AST.ite cond (AST.num0 32<rt>) dst1) .+ dst2)
   !!ir (loadNative ctxt 16<rt> ea := AST.xtlo 16<rt> src)
+  !>ir insLen
+
+let sthux ins insLen ctxt =
+  let struct (rs, ra, rb) = transThreeOprs ins ctxt
+  let ir = !*ctxt
+  let ea = !+ir 32<rt>
+  !<ir insLen
+  !!ir (ea := ra .+ rb)
+  !!ir (loadNative ctxt 16<rt> ea := AST.xtlo 16<rt> rs)
+  !!ir (ra := ra)
   !>ir insLen
 
 let stw ins insLen ctxt =
@@ -1439,10 +1517,14 @@ let translate (ins: InsInfo) insLen (ctxt: TranslationContext) =
   | Op.LBZX -> lbzx ins insLen ctxt
   | Op.LFD -> lfd ins insLen ctxt
   | Op.LFS -> lfs ins insLen ctxt
+  | Op.LHA -> lha ins insLen ctxt
+  | Op.LHAU -> lhau ins insLen ctxt
+  | Op.LHAUX ->lhaux ins insLen ctxt
+  | Op.LHAX -> lhax ins insLen ctxt
   | Op.LHZ -> lhz ins insLen ctxt
-  | Op.LHZX -> lhzx ins insLen ctxt
   | Op.LHZU -> lhzu ins insLen ctxt
-  | Op.LHZUX -> lhzux ins insLen ctxt
+  | Op.LHZUX ->lhzux ins insLen ctxt
+  | Op.LHZX -> lhzx ins insLen ctxt
   | Op.LI -> li ins insLen ctxt
   | Op.LIS -> lis ins insLen ctxt
   | Op.LWZ -> lwz ins insLen ctxt
@@ -1493,9 +1575,13 @@ let translate (ins: InsInfo) insLen (ctxt: TranslationContext) =
   | Op.STB -> stb ins insLen ctxt
   | Op.STBU -> stbu ins insLen ctxt
   | Op.STBX -> stbx ins insLen ctxt
+  | Op.STBUX -> stbux ins insLen ctxt
   | Op.STFD -> stfd ins insLen ctxt
   | Op.STFS -> stfs ins insLen ctxt
   | Op.STH -> sth ins insLen ctxt
+  | Op.STHU -> sthu ins insLen ctxt
+  | Op.STHX -> sthx ins insLen ctxt
+  | Op.STHUX -> sthux ins insLen ctxt
   | Op.STW -> stw ins insLen ctxt
   | Op.STWU -> stwu ins insLen ctxt
   | Op.STWUX -> stwux ins insLen ctxt
