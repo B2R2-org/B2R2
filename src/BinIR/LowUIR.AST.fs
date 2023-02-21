@@ -717,7 +717,7 @@ let fadd e1 e2 =
     TypeCheck.typeOf e1
 #endif
 #if ! HASHCONS
-  binopWithType BinOpType.FADD t e2 e1
+  binopWithType BinOpType.FADD t e1 e2
 #else
   if e1 < e2 then binopWithType BinOpType.FADD t e1 e2
   else binopWithType BinOpType.FADD t e2 e1
