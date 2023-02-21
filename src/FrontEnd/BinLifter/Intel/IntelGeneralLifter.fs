@@ -1082,6 +1082,8 @@ let private imul64Bit src1 src2 ir =
   let struct (tSrc1, tSrc2) = tmpVars2 ir 64<rt>
   let struct (tHigh, tLow) = tmpVars2 ir 64<rt>
   let n32 = numI32 32 64<rt>
+  let zero = numI32 0 64<rt>
+  let one = numI32 1 64<rt>
   let mask = numI64 0xFFFFFFFFL 64<rt>
   let struct (src1IsNeg, src2IsNeg, isSign) = tmpVars3 ir 1<rt>
   !!ir (src1IsNeg := AST.xthi 1<rt> src1)
@@ -1092,7 +1094,7 @@ let private imul64Bit src1 src2 ir =
   !!ir (loSrc1 := tSrc1 .& mask) (* SRC1[31:0] *)
   !!ir (hiSrc2 := (tSrc2 >> n32) .& mask) (* SRC2[63:32] *)
   !!ir (loSrc2 := tSrc2 .& mask) (* SRC2[31:0] *)
-  let pHigh = hiSrc1 .* hiSrc1
+  let pHigh = hiSrc1 .* hiSrc2
   let pMid = (hiSrc1 .* loSrc2) .+ (loSrc1 .* hiSrc2)
   let pLow = (loSrc1 .* loSrc2)
   let high = pHigh .+ ((pMid .+ (pLow  >> n32)) >> n32)
@@ -1100,6 +1102,8 @@ let private imul64Bit src1 src2 ir =
   !!ir (isSign := src1IsNeg <+> src2IsNeg)
   !!ir (tHigh := AST.ite isSign (AST.not high) high)
   !!ir (tLow := AST.ite isSign (AST.neg low) low)
+  let carry = AST.ite (AST.``and`` isSign (AST.eq tLow zero)) one zero
+  !!ir (tHigh := tHigh .+ carry)
   struct (tHigh, tLow)
 
 let private oneOperandImul ctxt oprSize src ir =
