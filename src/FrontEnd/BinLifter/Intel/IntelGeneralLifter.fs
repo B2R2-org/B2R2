@@ -152,15 +152,19 @@ let rec private isVar = function
   | _ -> false
 
 let private calculateOffset offset oprSize =
-  let offset = AST.zext oprSize offset
-  match oprSize with
-  | 16<rt> -> numU32 2u 16<rt> .* (offset ./ numU32 16u 16<rt>),
-              offset .& numU32 15u 16<rt>
-  | 32<rt> -> numU32 4u 32<rt> .* (offset ./ numU32 32u 32<rt>),
-              offset .& numU32 31u 32<rt>
-  | 64<rt> -> numU32 4u 64<rt> .* (offset ./ numU32 32u 64<rt>),
-              offset .& numU32 31u 64<rt>
-  | _ -> raise InvalidOperandSizeException
+  match offset.E with
+  | Num _ ->
+    numU32 0u oprSize , maskOffset offset oprSize
+  | _ ->
+    let offset = AST.zext oprSize offset
+    match oprSize with
+    | 16<rt> -> numU32 2u 16<rt> .* (offset ./ numU32 16u 16<rt>),
+                offset .& numU32 15u 16<rt>
+    | 32<rt> -> numU32 4u 32<rt> .* (offset ./ numU32 32u 32<rt>),
+                offset .& numU32 31u 32<rt>
+    | 64<rt> -> numU32 4u 64<rt> .* (offset ./ numU32 32u 64<rt>),
+                offset .& numU32 31u 64<rt>
+    | _ -> raise InvalidOperandSizeException
 
 let private strRepeat ins insLen ctxt body cond (ir: IRBuilder) =
   let lblExit = !%ir "Exit"
