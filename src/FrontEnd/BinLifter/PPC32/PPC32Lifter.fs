@@ -515,35 +515,38 @@ let cntlzw ins insLen ctxt =
   !>ir insLen
 
 let crclr ins insLen ctxt =
-  let crd0, crd1, crd2, crd3 = transCondOneOpr ins ctxt
+  let crbd = transOneOpr ins ctxt
   let ir = !*ctxt
   !<ir insLen
-  !!ir (crd0 := AST.b0)
-  !!ir (crd1 := AST.b0)
-  !!ir (crd2 := AST.b0)
-  !!ir (crd3 := AST.b0)
+  !!ir (crbd := AST.b0)
   !>ir insLen
 
 let cror ins insLen ctxt =
-  let struct ((crd0, crd1, crd2, crd3),
-              (cra0, cra1, cra2, cra3),
-              (crb0, crb1, crb2, crb3)) = transCondThreeOprs ins ctxt
+  let struct (crbD, crbA, crbB) = transThreeOprs ins ctxt
   let ir = !*ctxt
   !<ir insLen
-  !!ir (crd0 := cra0 .| crb0)
-  !!ir (crd1 := cra1 .| crb1)
-  !!ir (crd2 := cra2 .| crb2)
-  !!ir (crd3 := cra3 .| crb3)
+  !!ir (crbD := crbA .| crbB)
   !>ir insLen
 
 let crset ins insLen ctxt =
-  let crd0, crd1, crd2, crd3 = transCondOneOpr ins ctxt
+  let struct (crbD, crbA, crbB) = transThreeOprs ins ctxt
   let ir = !*ctxt
   !<ir insLen
-  !!ir (crd0 := crd0 <+> AST.not crd0)
-  !!ir (crd1 := crd1 <+> AST.not crd1)
-  !!ir (crd2 := crd2 <+> AST.not crd2)
-  !!ir (crd3 := crd3 <+> AST.not crd3)
+  !!ir (crbD := crbA <+> AST.not(crbB))
+  !>ir insLen
+
+let crnand ins insLen ctxt =
+  let struct (crbD, crbA, crbB) = transThreeOprs ins ctxt
+  let ir = !*ctxt
+  !<ir insLen
+  !!ir (crbD := AST.not (crbA .& crbB))
+  !>ir insLen
+
+let crxor ins insLen ctxt =
+  let struct (crbD, crbA, crbB) = transThreeOprs ins ctxt
+  let ir = !*ctxt
+  !<ir insLen
+  !!ir (crbD := crbA <+> crbB)
   !>ir insLen
 
 let divw ins insLen ctxt =
@@ -1498,6 +1501,7 @@ let translate (ins: InsInfo) insLen (ctxt: TranslationContext) =
   | Op.CMPWI -> cmp ins insLen ctxt
   | Op.CNTLZW -> cntlzw ins insLen ctxt
   | Op.CRCLR -> crclr ins insLen ctxt
+  | Op.CRXOR -> crxor ins insLen ctxt
   | Op.CROR -> cror ins insLen ctxt
   | Op.CRSET -> crset ins insLen ctxt
   | Op.DIVW -> divw ins insLen ctxt

@@ -181,13 +181,13 @@ let parseBCLRx bin =
 let parseCRNOR bin =
   match pickBit bin 0u with
   | 0b0u ->
-    let crbd = getCondRegister (extract bin 25u 21u) |> OprReg
-    let crba = getCondRegister (extract bin 20u 16u) |> OprReg
+    let crbd = extract bin 25u 21u |> OprBI
+    let crba = extract bin 20u 16u |> OprBI
     (* crnot crbd,crba = crnor crbd,crba,crba *)
     if extract bin 20u 16u = extract bin 15u 11u then
       struct (Op.CRNOT, TwoOperands (crbd, crba))
     else
-      let crbb = getCondRegister (extract bin 15u 11u) |> OprReg
+      let crbb = extract bin 15u 11u |> OprBI
       struct (Op.CRNOR, ThreeOperands (crbd, crba, crbb))
   | _ (* 1 *) -> raise ParsingFailureException
 
@@ -200,9 +200,9 @@ let parseRFI bin =
 let parseCRANDC bin =
   match pickBit bin 0u with
   | 0b0u ->
-    let crbd = getCondRegister (extract bin 25u 21u) |> OprReg
-    let crba = getCondRegister (extract bin 20u 16u) |> OprReg
-    let crbb = getCondRegister (extract bin 15u 11u) |> OprReg
+    let crbd = extract bin 25u 21u |> OprBI
+    let crba = extract bin 20u 16u |> OprBI
+    let crbb = extract bin 15u 11u |> OprBI
     struct (Op.CRANDC, ThreeOperands (crbd, crba, crbb))
   | _ (* 1 *) -> raise ParsingFailureException
 
@@ -215,76 +215,70 @@ let parseISYNC bin =
 let parseCRXOR bin =
   match pickBit bin 0u with
   | 0b0u ->
-    let crbd = getCondRegister (extract bin 25u 21u) |> OprReg
-    (* crclr crbd = crxor crbd,crbd,crbd *)
-    if extract bin 25u 21u = extract bin 20u 16u then
-      if extract bin 20u 16u = extract bin 15u 11u then
-        struct (Op.CRCLR, OneOperand crbd)
-      else
-        let crba = getCondRegister (extract bin 20u 16u) |> OprReg
-        let crbb = getCondRegister (extract bin 15u 11u) |> OprReg
-        struct (Op.CRXOR, ThreeOperands (crbd, crba, crbb))
+    let crbd = extract bin 25u 21u |> OprBI
+    let crba = extract bin 20u 16u |> OprBI
+    let crbb = extract bin 15u 11u |> OprBI
+    if (crbd = crba) && (crbd = crbb) then
+      struct (Op.CRCLR, OneOperand crbd)
     else
-      let crba = getCondRegister (extract bin 20u 16u) |> OprReg
-      let crbb = getCondRegister (extract bin 15u 11u) |> OprReg
       struct (Op.CRXOR, ThreeOperands (crbd, crba, crbb))
   | _ (* 1 *) -> raise ParsingFailureException
 
 let parseCRNAND bin =
   match pickBit bin 0u with
   | 0b0u ->
-    let crbd = getCondRegister (extract bin 25u 21u) |> OprReg
-    let crba = getCondRegister (extract bin 20u 16u) |> OprReg
-    let crbb = getCondRegister (extract bin 15u 11u) |> OprReg
+    let crbd = extract bin 25u 21u |> OprBI
+    let crba = extract bin 20u 16u |> OprBI
+    let crbb = extract bin 15u 11u |> OprBI
     struct (Op.CRNAND, ThreeOperands (crbd, crba, crbb))
   | _ (* 1 *) -> raise ParsingFailureException
 
 let parseCRAND bin =
   match pickBit bin 0u with
   | 0b0u ->
-    let crbd = getCondRegister (extract bin 25u 21u) |> OprReg
-    let crba = getCondRegister (extract bin 20u 16u) |> OprReg
-    let crbb = getCondRegister (extract bin 15u 11u) |> OprReg
+    let crbd = extract bin 25u 21u |> OprBI
+    let crba = extract bin 20u 16u |> OprBI
+    let crbb = extract bin 15u 11u |> OprBI
     struct (Op.CRAND, ThreeOperands (crbd, crba, crbb))
   | _ (* 1 *) -> raise ParsingFailureException
 
 let parseCREQV bin =
   match pickBit bin 0u with
   | 0b0u ->
-    let crbd = getCondRegister (extract bin 25u 21u) |> OprReg
+    let crbd = extract bin 25u 21u |> OprBI
     (* crset crbd = creqv crbd,crbd,crbd *)
     if extract bin 25u 21u = extract bin 20u 16u then
       if extract bin 20u 16u = extract bin 15u 11u then
         struct (Op.CRSET, OneOperand crbd)
       else
-        let crba = getCondRegister (extract bin 20u 16u) |> OprReg
-        let crbb = getCondRegister (extract bin 15u 11u) |> OprReg
+        let crba = extract bin 20u 16u |> OprBI
+        let crbb = extract bin 15u 11u |> OprBI
         struct (Op.CREQV, ThreeOperands (crbd, crba, crbb))
     else
-      let crba = getCondRegister (extract bin 20u 16u) |> OprReg
-      let crbb = getCondRegister (extract bin 15u 11u) |> OprReg
+      let crba = extract bin 20u 16u |> OprBI
+      let crbb = extract bin 15u 11u |> OprBI
       struct (Op.CREQV, ThreeOperands (crbd, crba, crbb))
   | _ (* 1 *) -> raise ParsingFailureException
 
 let parseCRORC bin =
   match pickBit bin 0u with
   | 0b0u ->
-    let crbd = getCondRegister (extract bin 25u 21u) |> OprReg
-    let crba = getCondRegister (extract bin 20u 16u) |> OprReg
-    let crbb = getCondRegister (extract bin 15u 11u) |> OprReg
+    let crbd = extract bin 25u 21u |> OprBI
+    let crba = extract bin 20u 16u |> OprBI
+    let crbb = extract bin 15u 11u |> OprBI
     struct (Op.CRORC, ThreeOperands (crbd, crba, crbb))
   | _ (* 1 *) -> raise ParsingFailureException
 
 let parseCROR bin =
   match pickBit bin 0u with
   | 0b0u ->
-    let crbd = getCondRegister (extract bin 25u 21u) |> OprReg
-    let crba = getCondRegister (extract bin 20u 16u) |> OprReg
+    let crbd = extract bin 25u 21u |> OprBI
+    let crba = extract bin 20u 16u |> OprBI
     (* crmove crbd,crba = cror crbd,crba,crba *)
     if extract bin 20u 16u = extract bin 15u 11u then
       struct (Op.CRMOVE, TwoOperands (crbd, crba))
     else
-      let crbb = getCondRegister (extract bin 15u 11u) |> OprReg
+      let crbb = extract bin 15u 11u |> OprBI
       struct (Op.CROR, ThreeOperands (crbd, crba, crbb))
   | _ (* 1 *) -> raise ParsingFailureException
 
@@ -983,8 +977,8 @@ let parseSRAWIx bin =
   let ra = getRegister (extract bin 20u 16u) |> OprReg
   let sh = extract bin 15u 11u |> uint64 |> OprImm
   match pickBit bin 0u with
-  | 0b0u -> struct (Op.SRAWI, ThreeOperands (rs, ra, sh))
-  | _ (* 1 *) -> struct (Op.SRAWIdot, ThreeOperands (rs, ra, sh))
+  | 0b0u -> struct (Op.SRAWI, ThreeOperands (ra, rs, sh))
+  | _ (* 1 *) -> struct (Op.SRAWIdot, ThreeOperands (ra, rs, sh))
 
 let parseXORx bin =
   let rs = getRegister (extract bin 25u 21u) |> OprReg
