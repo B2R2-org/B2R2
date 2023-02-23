@@ -983,8 +983,8 @@ let parseSRAWIx bin =
   let ra = getRegister (extract bin 20u 16u) |> OprReg
   let sh = extract bin 15u 11u |> uint64 |> OprImm
   match pickBit bin 0u with
-  | 0b0u -> struct (Op.SRAWI, ThreeOperands (rs, ra, sh))
-  | _ (* 1 *) -> struct (Op.SRAWIdot, ThreeOperands (rs, ra, sh))
+  | 0b0u -> struct (Op.SRAWI, ThreeOperands (ra, rs, sh))
+  | _ (* 1 *) -> struct (Op.SRAWIdot, ThreeOperands (ra, rs, sh))
 
 let parseXORx bin =
   let rs = getRegister (extract bin 25u 21u) |> OprReg
