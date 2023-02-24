@@ -494,24 +494,23 @@ let cmpli ins insLen ctxt =
 let cntlzw ins insLen ctxt =
   let struct (ra, rs) = transTwoOprs ins ctxt
   let ir = !*ctxt
+  let mask1 = numI32 0x55555555 32<rt>
+  let mask2 = numI32 0x33333333 32<rt>
+  let mask3 = numI32 0x0f0f0f0f 32<rt>
   !<ir insLen
-  let lblChkExit = !%ir "CheckExit"
-  let lblCmp = !%ir "Compare"
-  let lblInc = !%ir "Increase"
-  let lblLeave = !%ir "Leave"
-  let n = !+ir 32<rt> (* Temp Var *)
-  let n1 = AST.num1 32<rt>
-  !!ir (n := AST.num0 32<rt>)
-  !!ir (AST.lmark lblChkExit)
-  !!ir (AST.cjmp (n == numI32 32 32<rt>) (AST.name lblLeave) (AST.name lblCmp))
-  !!ir (AST.lmark lblCmp)
-  !!ir (AST.cjmp (AST.xthi 1<rt> ((rs << n) .& n1))
-                 (AST.name lblLeave) (AST.name lblInc))
-  !!ir (AST.lmark lblInc)
-  !!ir (n := n .+ n1)
-  !!ir (AST.jmp (AST.name lblChkExit))
-  !!ir (AST.lmark lblLeave)
-  !!ir (ra := n)
+  let x = !+ir 32<rt>
+  !!ir (x := rs)
+  !!ir (x := x .| (x >> numI32 1 32<rt>))
+  !!ir (x := x .| (x >> numI32 2 32<rt>))
+  !!ir (x := x .| (x >> numI32 4 32<rt>))
+  !!ir (x := x .| (x >> numI32 8 32<rt>))
+  !!ir (x := x .| (x >> numI32 16 32<rt>))
+  !!ir (x := x .- ((x >> numI32 1 32<rt>) .& mask1))
+  !!ir (x := ((x >> numI32 2 32<rt>) .& mask2) .+ (x .& mask2))
+  !!ir (x := (x >> numI32 4 32<rt>) .+ (x .& mask3))
+  !!ir (x := x .+ (x >> numI32 8 32<rt>))
+  !!ir (x := x .+ (x >> numI32 16 32<rt>))
+  !!ir (ra := numI32 32 32<rt> .- (x .& numI32 63 32<rt>))
   !>ir insLen
 
 let crclr ins insLen ctxt =
@@ -1504,6 +1503,7 @@ let translate (ins: InsInfo) insLen (ctxt: TranslationContext) =
   | Op.CRXOR -> crxor ins insLen ctxt
   | Op.CROR -> cror ins insLen ctxt
   | Op.CRSET -> crset ins insLen ctxt
+  | Op.DCBTST -> nop insLen ctxt
   | Op.DIVW -> divw ins insLen ctxt
   | Op.DIVWU -> divwu ins insLen ctxt
   | Op.EXTSB -> extsb ins insLen ctxt
