@@ -2160,36 +2160,36 @@ let setcc ins insLen ctxt =
 let inline shiftDblPrec ins insLen ctxt fnDst fnSrc isShl =
   let ir = !*ctxt
   !<ir insLen
+  let oprSz = getOperationSize ins
+  let exprOprSz = numI32 (int oprSz) oprSz
   let struct (dst, src, cnt) = transThreeOprs ir false ins insLen ctxt
-  let oprSize = getOperationSize ins
-  let orig = !+ir oprSize
-  let c = !+ir oprSize
-  let cond1 = c == AST.num0 oprSize
-  let cond2 = c == AST.num1 oprSize
+  let struct (count, size, tDst, tSrc) = tmpVars4 ir oprSz
+  let org = !+ir oprSz
   let cF = !.ctxt R.CF
   let oF = !.ctxt R.OF
   let aF = !.ctxt R.AF
-  let maxSz = numI32 (if is64REXW ctxt ins then 64 else 32) oprSize
-  let final = AST.ite cond1 orig ((fnDst orig c) .| (fnSrc src (maxSz .- c)))
   let sf = AST.xthi 1<rt> dst
-  !!ir (orig := dst)
-  !!ir (c := (AST.zext oprSize cnt) .% maxSz)
-  !!ir (dstAssign oprSize dst final)
-  !!ir (
-    if isShl then
-      cF := AST.ite cond1 cF (AST.xtlo 1<rt> (orig >> (maxSz .- c)))
-    else
-      cF := AST.ite cond1 cF (AST.xtlo 1<rt> (orig >> (c .- AST.num1 oprSize)))
-  )
+  let cond1 = count == AST.num0 oprSz
+  let cond2 = count == AST.num1 oprSz
+  !!ir (org := dst)
+  !!ir (size := exprOprSz)
+  let wordSize = numI32 (if hasREXW ins.REXPrefix then 64 else 32) oprSz
+  !!ir (count := (cnt .% wordSize))
+  !!ir (tDst := dst)
+  !!ir (tSrc := src)
+  !!ir (tDst := fnDst tDst count)
+  !!ir (tSrc := fnSrc tSrc (size .- count))
+  !!ir (dstAssign oprSz dst (AST.ite cond1 org (tDst .| tSrc)))
+  let amount = if isShl then size .- count else count .- AST.num1 oprSz
+  !!ir (cF := AST.ite cond1 cF (AST.xtlo 1<rt> (org >> amount)))
+  let overflow = AST.xthi 1<rt> (org <+> dst)
 #if !EMULATION
-  !!ir (oF := AST.ite cond1 oF
-               (AST.ite cond2 (AST.xthi 1<rt> (orig <+> dst)) undefOF))
+  !!ir (oF := AST.ite cond1 oF (AST.ite cond2 overflow undefOF))
   !!ir (aF := AST.ite cond1 aF undefAF)
 #else
-  !!ir (oF := AST.ite cond1 oF
-               (AST.ite cond2 (AST.xthi 1<rt> (orig <+> dst)) oF))
+  !!ir (oF := AST.ite cond1 oF (AST.ite cond2 overflow AST.b0))
 #endif
-  !?ir (enumSZPFlags ctxt dst oprSize sf)
+  !?ir (enumSZPFlags ctxt dst oprSz sf)
   !>ir insLen
 
 let shld ins insLen ctxt =
