@@ -2354,12 +2354,14 @@ let xchg ins insLen ctxt =
   let ir = !*ctxt
   !<ir insLen
   let struct (dst, src) = transTwoOprs ir false ins insLen ctxt
+  let oprSize = getOperationSize ins
   if dst <> src then
-    let oprSize = getOperationSize ins
     let t = !+ir oprSize
     !!ir (t := dst)
     !!ir (dstAssign oprSize dst src)
     !!ir (dstAssign oprSize src t)
+  else
+    !!ir (dstAssign oprSize dst src)
   !>ir insLen
 
 let xlatb ins insLen ctxt =
