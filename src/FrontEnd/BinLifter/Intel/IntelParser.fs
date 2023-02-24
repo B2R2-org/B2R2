@@ -125,6 +125,7 @@ type IntelParser (wordSz) =
        OpImmImm () :> OperandParser
        OpRmImm () :> OperandParser
        OpRmImm8 () :> OperandParser
+       OpRmSImm8 () :> OperandParser
        OpMmxImm8 () :> OperandParser
        OpMem () :> OperandParser
        OpM1 () :> OperandParser
