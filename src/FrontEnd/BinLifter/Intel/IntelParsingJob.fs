@@ -1053,7 +1053,7 @@ type internal OneOp80 () =
   inherit ParsingJob ()
   override __.Run (span, rhlp) =
     let struct (op, oidx, szidx, szCond) =
-      parseGrpOpKind span rhlp OD.RmImm8 SZ.Byte OpGroup.G1
+      parseGrpOpKind span rhlp OD.RmSImm8 SZ.Byte OpGroup.G1
     render span rhlp op szCond oidx szidx
 
 type internal OneOp81 () =
@@ -1067,14 +1067,14 @@ type internal OneOp82 () =
   inherit ParsingJob ()
   override __.Run (span, rhlp) =
     let struct (op, oidx, szidx, szCond) =
-      parseGrpOpKind span rhlp OD.RmImm8 SZ.Byte OpGroup.G1Inv64
+      parseGrpOpKind span rhlp OD.RmSImm8 SZ.Byte OpGroup.G1Inv64
     render span rhlp op szCond oidx szidx
 
 type internal OneOp83 () =
   inherit ParsingJob ()
   override __.Run (span, rhlp) =
     let struct (op, oidx, szidx, szCond) =
-      parseGrpOpKind span rhlp OD.RmImm8 SZ.Def OpGroup.G1
+      parseGrpOpKind span rhlp OD.RmSImm8 SZ.Def OpGroup.G1
     render span rhlp op szCond oidx szidx
 
 type internal OneOp84 () =
@@ -1531,14 +1531,14 @@ type internal OneOpC0 () =
   inherit ParsingJob ()
   override __.Run (span, rhlp) =
     let struct (op, oidx, szidx, szCond) =
-      parseGrpOpKind span rhlp OD.RmImm8 SZ.Byte OpGroup.G2
+      parseGrpOpKind span rhlp OD.RmSImm8 SZ.Byte OpGroup.G2
     render span rhlp op szCond oidx szidx
 
 type internal OneOpC1 () =
   inherit ParsingJob ()
   override __.Run (span, rhlp) =
     let struct (op, oidx, szidx, szCond) =
-      parseGrpOpKind span rhlp OD.RmImm8 SZ.Def OpGroup.G2
+      parseGrpOpKind span rhlp OD.RmSImm8 SZ.Def OpGroup.G2
     render span rhlp op szCond oidx szidx
 
 type internal OneOpC2 () =
@@ -1594,7 +1594,7 @@ type internal OneOpC6 () =
   inherit ParsingJob ()
   override __.Run (span, rhlp) =
     let struct (op, oidx, szidx, szCond) =
-      parseGrpOpKind span rhlp OD.RmImm8 SZ.Byte OpGroup.G11A
+      parseGrpOpKind span rhlp OD.RmSImm8 SZ.Byte OpGroup.G11A
     render span rhlp op szCond oidx szidx
 
 type internal OneOpC7 () =

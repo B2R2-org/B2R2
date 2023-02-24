@@ -5575,7 +5575,7 @@ module internal ParsingHelper = begin
   let getGrp3OpKind oidx sidx oprGrp regBits =
     match regBits with
     | 0b000 when oprGrp = OpGroup.G3A ->
-      struct (TEST, OD.RmImm8, SZ.Byte, SzCond.Nor)
+      struct (TEST, OD.RmSImm8, SZ.Byte, SzCond.Nor)
     | 0b000 when oprGrp = OpGroup.G3B ->
       struct (TEST, OD.RmImm, SZ.Def, SzCond.Nor)
     | 0b010 -> struct (NOT, oidx, sidx, SzCond.Nor)
@@ -5699,17 +5699,17 @@ module internal ParsingHelper = begin
     | false, 0b010, false -> struct (PSRLW, OD.MmxImm8, SZ.Q, SzCond.Nor)
     | false, 0b010, true  ->
       if rhlp.VEXInfo = None then
-        struct (PSRLW, OD.RmImm8, SZ.Dq, SzCond.Nor)
+        struct (PSRLW, OD.RmSImm8, SZ.Dq, SzCond.Nor)
       else struct (VPSRLW, OD.VvRmImm8, SZ.VecDef, SzCond.Nor)
     | false, 0b100, false -> struct (PSRAW, OD.MmxImm8, SZ.Q, SzCond.Nor)
     | false, 0b100, true  ->
       if rhlp.VEXInfo = None then
-        struct (PSRAW, OD.RmImm8, SZ.Dq, SzCond.Nor)
+        struct (PSRAW, OD.RmSImm8, SZ.Dq, SzCond.Nor)
       else struct (VPSRAW, OD.VvRmImm8, SZ.VecDef, SzCond.Nor)
     | false, 0b110, false -> struct (PSLLW, OD.MmxImm8, SZ.Q, SzCond.Nor)
     | false, 0b110, true  ->
       if rhlp.VEXInfo = None then
-        struct (PSLLW, OD.RmImm8, SZ.Dq, SzCond.Nor)
+        struct (PSLLW, OD.RmSImm8, SZ.Dq, SzCond.Nor)
       else struct (VPSLLW, OD.VvRmImm8, SZ.VecDef, SzCond.Nor)
     | _ -> raise ParsingFailureException
 
@@ -5718,17 +5718,17 @@ module internal ParsingHelper = begin
     | false, 0b010, false -> struct (PSRLD, OD.MmxImm8, SZ.Q, SzCond.Nor)
     | false, 0b010, true  ->
       if rhlp.VEXInfo = None then
-        struct (PSRLD, OD.RmImm8, SZ.Dq, SzCond.Nor)
+        struct (PSRLD, OD.RmSImm8, SZ.Dq, SzCond.Nor)
       else struct (VPSRLD, OD.VvRmImm8, SZ.VecDef, SzCond.Nor)
     | false, 0b100, false -> struct (PSRAD, OD.MmxImm8, SZ.Q, SzCond.Nor)
     | false, 0b100, true  ->
       if rhlp.VEXInfo = None then
-        struct (PSRAD, OD.RmImm8, SZ.Dq, SzCond.Nor)
+        struct (PSRAD, OD.RmSImm8, SZ.Dq, SzCond.Nor)
       else struct (VPSRAD, OD.VvRmImm8, SZ.VecDef, SzCond.Nor)
     | false, 0b110, false -> struct (PSLLD, OD.MmxImm8, SZ.Q, SzCond.Nor)
     | false, 0b110, true  ->
       if rhlp.VEXInfo = None then
-        struct (PSLLD, OD.RmImm8, SZ.Dq, SzCond.Nor)
+        struct (PSLLD, OD.RmSImm8, SZ.Dq, SzCond.Nor)
       else struct (VPSLLD, OD.VvRmImm8, SZ.VecDef, SzCond.Nor)
     | _ -> raise ParsingFailureException
 
@@ -5738,7 +5738,7 @@ module internal ParsingHelper = begin
       struct (PSRLQ, OD.MmxImm8, SZ.Q, SzCond.Nor)
     | false, 0b010, true  ->
       if rhlp.VEXInfo = None then
-        struct (PSRLQ, OD.RmImm8, SZ.Dq, SzCond.Nor)
+        struct (PSRLQ, OD.RmSImm8, SZ.Dq, SzCond.Nor)
       else struct (VPSRLQ, OD.VvRmImm8, SZ.VecDef, SzCond.Nor)
     | false, 0b011, true  ->
       if rhlp.VEXInfo = None then
@@ -5747,7 +5747,7 @@ module internal ParsingHelper = begin
     | false, 0b110, false -> struct (PSLLQ, OD.MmxImm8, SZ.Q, SzCond.Nor)
     | false, 0b110, true  ->
       if rhlp.VEXInfo = None then
-        struct (PSLLQ, OD.RmImm8, SZ.Dq, SzCond.Nor)
+        struct (PSLLQ, OD.RmSImm8, SZ.Dq, SzCond.Nor)
       else struct (VPSLLQ, OD.VvRmImm8, SZ.VecDef, SzCond.Nor)
     | false, 0b111, true  ->
       if rhlp.VEXInfo = None then
@@ -6513,7 +6513,7 @@ module internal ParsingHelper = begin
     | 0xFEuy -> parseVEX span rhlp nor0FFE vex0FFE
     | 0x00uy -> parseGrpOp span rhlp OpGroup.G6 OD.No SZ.Def
     | 0x01uy -> parseGrpOp span rhlp OpGroup.G7 OD.No SZ.Def
-    | 0xBAuy -> parseGrpOp span rhlp OpGroup.G8 OD.RmImm8 SZ.Def
+    | 0xBAuy -> parseGrpOp span rhlp OpGroup.G8 OD.RmSImm8 SZ.Def
     | 0xC7uy -> parseGrpOp span rhlp OpGroup.G9 OD.No SZ.Def
     | 0x71uy -> parseGrpOp span rhlp OpGroup.G12 OD.No SZ.Def
     | 0x72uy -> parseGrpOp span rhlp OpGroup.G13 OD.No SZ.Def

@@ -118,37 +118,38 @@ type OprDesc =
   | ImmImm = 84
   | RmImm = 85
   | RmImm8 = 86
-  | MmxImm8 = 87
-  | Mem = 88
-  | M1 = 89
-  | RmCL = 90
-  | XmmVvXm = 91
-  | GprVvRm = 92
-  | XmVvXmm = 93
-  | Gpr = 94
-  | RmXmmImm8 = 95
-  | XmmRmImm8 = 96
-  | MmxMmImm8 = 97
-  | MmxRmImm8 = 98
-  | GprMmxImm8 = 99
-  | XmmVvXmImm8 = 100
-  | XmmVvXmXmm = 101
-  | XmRegImm8 = 102
-  | GprRmVv = 103
-  | VvRmImm8 = 104
-  | RmGprCL = 105
-  | XmmXmXmm0 = 106
-  | XmmXmVv = 107
-  | VvRm = 108
-  | GprRmImm8Imm8 = 109
-  | RmImm8Imm8 = 110
-  | KnVvXm = 111
-  | GprKn = 112
-  | KnVvXmImm8 = 113
-  | KnGpr = 114
-  | XmmVvXmmXm = 115
-  | KnKm = 116
-  | MKn = 117
+  | RmSImm8 = 87
+  | MmxImm8 = 88
+  | Mem = 89
+  | M1 = 90
+  | RmCL = 91
+  | XmmVvXm = 92
+  | GprVvRm = 93
+  | XmVvXmm = 94
+  | Gpr = 95
+  | RmXmmImm8 = 96
+  | XmmRmImm8 = 97
+  | MmxMmImm8 = 98
+  | MmxRmImm8 = 99
+  | GprMmxImm8 = 100
+  | XmmVvXmImm8 = 101
+  | XmmVvXmXmm = 102
+  | XmRegImm8 = 103
+  | GprRmVv = 104
+  | VvRmImm8 = 105
+  | RmGprCL = 106
+  | XmmXmXmm0 = 107
+  | XmmXmVv = 108
+  | VvRm = 109
+  | GprRmImm8Imm8 = 110
+  | RmImm8Imm8 = 111
+  | KnVvXm = 112
+  | GprKn = 113
+  | KnVvXmImm8 = 114
+  | KnGpr = 115
+  | XmmVvXmmXm = 116
+  | KnKm = 117
+  | MKn = 118
 
 module internal OperandParsingHelper =
   /// Find a specific reg. The bitmask will be used to extract a specific REX
@@ -1062,6 +1063,14 @@ type internal OpRmImm () =
     TwoOperands (opr1, opr2)
 
 type internal OpRmImm8 () =
+  inherit OperandParser ()
+  override __.Render (span, rhlp) =
+    let modRM = rhlp.ReadByte span
+    let opr1 = parseMemOrReg modRM span rhlp
+    let opr2 = parseOprImm span rhlp 8<rt>
+    TwoOperands (opr1, opr2)
+
+type internal OpRmSImm8 () =
   inherit OperandParser ()
   override __.Render (span, rhlp) =
     let modRM = rhlp.ReadByte span
