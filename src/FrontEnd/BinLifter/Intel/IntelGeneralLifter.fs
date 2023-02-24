@@ -1464,24 +1464,61 @@ let loop ins insLen ctxt =
 
 let lzcnt ins insLen ctxt =
   let ir = !*ctxt
-  !<ir insLen
-  let lblLoop = !%ir "Loop"
-  let lblExit = !%ir "Exit"
-  let lblLoopCond = !%ir "LoopCond"
-  let struct (dst, src) = transTwoOprs ir false ins insLen ctxt
   let oprSize = getOperationSize ins
+  let struct (dst, src) = transTwoOprs ir false ins insLen ctxt
+  !<ir insLen
+  let x = !+ir oprSize
   let n = AST.num0 oprSize
-  let temp = !+ir oprSize
-  !!ir (temp := numI32 (RegType.toBitWidth oprSize - 1) oprSize)
-  !!ir (dst := n)
-  !!ir (AST.lmark lblLoopCond)
-  let cond1 = (AST.ge temp n) .& ((AST.xtlo 1<rt> (src >> temp)) == AST.b0)
-  !!ir (AST.cjmp cond1 (AST.name lblLoop) (AST.name lblExit))
-  !!ir (AST.lmark lblLoop)
-  !!ir (temp := temp .- AST.num1 oprSize)
-  !!ir (dst := dst .+ AST.num1 oprSize)
-  !!ir (AST.jmp (AST.name lblLoopCond))
-  !!ir (AST.lmark lblExit)
+  match oprSize with
+  | 16<rt> ->
+    let mask1 = numI32 0x5555 16<rt>
+    let mask2 = numI32 0x3333 16<rt>
+    let mask3 = numI32 0x0f0f 16<rt>
+    !!ir (x := src)
+    !!ir (x := x .| (x >> numI32 1 16<rt>))
+    !!ir (x := x .| (x >> numI32 2 16<rt>))
+    !!ir (x := x .| (x >> numI32 4 16<rt>))
+    !!ir (x := x .| (x >> numI32 8 16<rt>))
+    !!ir (x := x .- ((x >> numI32 1 16<rt>) .& mask1))
+    !!ir (x := ((x >> numI32 2 16<rt>) .& mask2) .+ (x .& mask2))
+    !!ir (x := ((x >> numI32 4 16<rt>) .+ x) .& mask3)
+    !!ir (x := x .+ (x >> numI32 8 16<rt>))
+    !!ir (dst := numI32 16 16<rt> .- (x .& numI32 31 16<rt>))
+  | 32<rt> ->
+    let mask1 = numI32 0x55555555 32<rt>
+    let mask2 = numI32 0x33333333 32<rt>
+    let mask3 = numI32 0x0f0f0f0f 32<rt>
+    !!ir (x := src)
+    !!ir (x := x .| (x >> numI32 1 32<rt>))
+    !!ir (x := x .| (x >> numI32 2 32<rt>))
+    !!ir (x := x .| (x >> numI32 4 32<rt>))
+    !!ir (x := x .| (x >> numI32 8 32<rt>))
+    !!ir (x := x .| (x >> numI32 16 32<rt>))
+    !!ir (x := x .- ((x >> numI32 1 32<rt>) .& mask1))
+    !!ir (x := ((x >> numI32 2 32<rt>) .& mask2) .+ (x .& mask2))
+    !!ir (x := ((x >> numI32 4 32<rt>) .+ x) .& mask3)
+    !!ir (x := x .+ (x >> numI32 8 32<rt>))
+    !!ir (x := x .+ (x >> numI32 16 32<rt>))
+    !!ir (dst := numI32 32 32<rt> .- (x .& numI32 63 32<rt>))
+  | 64<rt> ->
+    let mask1 = numU64 0x5555555555555555UL 64<rt>
+    let mask2 = numU64 0x3333333333333333UL 64<rt>
+    let mask3 = numU64 0x0f0f0f0f0f0f0f0fUL 64<rt>
+    !!ir (x := src)
+    !!ir (x := x .| (x >> numI32 1 64<rt>))
+    !!ir (x := x .| (x >> numI32 2 64<rt>))
+    !!ir (x := x .| (x >> numI32 4 64<rt>))
+    !!ir (x := x .| (x >> numI32 8 64<rt>))
+    !!ir (x := x .| (x >> numI32 16 64<rt>))
+    !!ir (x := x .| (x >> numI32 32 64<rt>))
+    !!ir (x := x .- ((x >> numI32 1 64<rt>) .& mask1))
+    !!ir (x := ((x >> numI32 2 64<rt>) .& mask2) .+ (x .& mask2))
+    !!ir (x := ((x >> numI32 4 64<rt>) .+ x) .& mask3)
+    !!ir (x := x .+ (x >> numI32 8 64<rt>))
+    !!ir (x := x .+ (x >> numI32 16 64<rt>))
+    !!ir (x := x .+ (x >> numI32 32 64<rt>))
+    !!ir (dst := numI32 64 64<rt> .- (x .& numI32 127 64<rt>))
+  | _ -> raise InvalidOperandSizeException
   let oprSize = numI32 (RegType.toBitWidth oprSize) oprSize
   !!ir (!.ctxt R.CF := dst == oprSize)
   !!ir (!.ctxt R.ZF := dst == n)
