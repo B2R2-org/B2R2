@@ -184,15 +184,15 @@ let getSPRReg ctxt imm  =
   | _ -> raise InvalidOperandException
 
 let setCondReg ctxt ir result =
-  let xer = !.ctxt R.XER
-  let cr0A = !.ctxt R.CR0_0
-  let cr0B = !.ctxt R.CR0_1
-  let cr0C = !.ctxt R.CR0_2
-  let cr0D = !.ctxt R.CR0_3
-  !!ir (cr0A := result ?< AST.num0 32<rt>)
-  !!ir (cr0B := result ?> AST.num0 32<rt>)
-  !!ir (cr0C := result == AST.num0 32<rt>)
-  !!ir (cr0D := AST.xtlo 1<rt> xer)
+  let xerSO = AST.xtlo 1<rt> (!.ctxt R.XER)
+  let cr0LT = !.ctxt R.CR0_0
+  let cr0GT = !.ctxt R.CR0_1
+  let cr0EQ = !.ctxt R.CR0_2
+  let cr0SO = !.ctxt R.CR0_3
+  !!ir (cr0LT := result ?< AST.num0 32<rt>)
+  !!ir (cr0GT := result ?> AST.num0 32<rt>)
+  !!ir (cr0EQ := result == AST.num0 32<rt>)
+  !!ir (cr0SO := xerSO)
 
 let setCarryOut ctxt ir =
   let xerCA = AST.extract (!.ctxt R.XER) 1<rt> 2
@@ -772,6 +772,17 @@ let lis ins insLen ctxt =
   !!ir (dst := simm)
   !>ir insLen
 
+let lwarx ins insLen ctxt =
+  let struct (rd, ra, rb) = transThreeOprs ins ctxt
+  let ir = !*ctxt
+  !<ir insLen
+  let cond = ra == AST.num0 32<rt>
+  let ea = !+ir 32<rt>
+  !!ir (ea := (AST.ite cond (AST.num0 32<rt>) ra) .+ rb)
+  !!ir (AST.extCall <| AST.app "Reserve" [ea] 32<rt>)
+  !!ir (rd := loadNative ctxt 32<rt> ea)
+  !>ir insLen
+
 let lwz ins insLen ctxt =
   let struct (dst, src) = transTwoOprs ins ctxt
   let ir = !*ctxt
@@ -1336,6 +1347,31 @@ let stw ins insLen ctxt =
   !!ir (dst := src)
   !>ir insLen
 
+let stwcxdot ins insLen ctxt =
+  let struct (rs, ra, rb) = transThreeOprs ins ctxt
+  let res = !.ctxt R.RES
+  let xerSO = AST.xtlo 1<rt> (!.ctxt R.XER)
+  let cr0LT = !.ctxt R.CR0_0
+  let cr0GT = !.ctxt R.CR0_1
+  let cr0EQ = !.ctxt R.CR0_2
+  let cr0SO = !.ctxt R.CR0_3
+  let ir = !*ctxt
+  !<ir insLen
+  let lblRES = !%ir "RES"
+  let lblEnd = !%ir "End"
+  let ea = !+ir 32<rt>
+  !!ir (ea := ra .+ rb)
+  !!ir (AST.extCall <| AST.app "IsReserved" [ea] 32<rt>)
+  !!ir (AST.cjmp (res == AST.b1) (AST.name lblRES) (AST.name lblEnd))
+  !!ir (AST.lmark lblRES)
+  !!ir (loadNative ctxt 32<rt> ea := rs)
+  !!ir (AST.lmark lblEnd)
+  !!ir (cr0LT := AST.b0)
+  !!ir (cr0GT := AST.b0)
+  !!ir (cr0EQ := AST.b0)
+  !!ir (cr0SO := xerSO)
+  !>ir insLen
+
 let stwu ins insLen ctxt =
   let struct ( _ , o2) = getTwoOprs ins
   let ea, ra =
@@ -1531,6 +1567,7 @@ let translate (ins: InsInfo) insLen (ctxt: TranslationContext) =
   | Op.LHZX -> lhzx ins insLen ctxt
   | Op.LI -> li ins insLen ctxt
   | Op.LIS -> lis ins insLen ctxt
+  | Op.LWARX -> lwarx ins insLen ctxt
   | Op.LWZ -> lwz ins insLen ctxt
   | Op.LWZU -> lwzu ins insLen ctxt
   | Op.LWZUX -> lwzux ins insLen ctxt
@@ -1587,6 +1624,7 @@ let translate (ins: InsInfo) insLen (ctxt: TranslationContext) =
   | Op.STHX -> sthx ins insLen ctxt
   | Op.STHUX -> sthux ins insLen ctxt
   | Op.STW -> stw ins insLen ctxt
+  | Op.STWCXdot -> stwcxdot ins insLen ctxt
   | Op.STWU -> stwu ins insLen ctxt
   | Op.STWUX -> stwux ins insLen ctxt
   | Op.STWX -> stwx ins insLen ctxt

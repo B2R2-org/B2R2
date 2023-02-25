@@ -174,6 +174,8 @@ type Register =
   | FPSCR = 0x73
   /// Processor Version Register.
   | PVR = 0x74
+  /// Pseudo register for Reserve.
+  | RES = 0x75
 
 /// Shortcut for Register type.
 type internal R = Register
@@ -293,6 +295,7 @@ module Register =
     | "cr7_1" -> R.CR7_1
     | "cr7_2" -> R.CR7_2
     | "cr7_3" -> R.CR7_3
+    | "res" -> R.RES
     | _ -> Utils.impossible ()
 
   let toString = function
@@ -400,4 +403,5 @@ module Register =
     | R.CR7_1 -> "cr7_1"
     | R.CR7_2 -> "cr7_2"
     | R.CR7_3 -> "cr7_3"
+    | R.RES -> "res"
     | _ -> Utils.impossible ()
