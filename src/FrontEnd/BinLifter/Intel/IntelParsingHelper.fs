@@ -5852,6 +5852,8 @@ module internal ParsingHelper = begin
   /// prefix to decide the opcode.
   let inline filterPrefs (prefix: Prefix) = prefix &&& ClearVEXPrefMask
 
+  let inline filterREPZPrefs (prefix: Prefix) = prefix &&& ClearREPZPrefMask
+
   let getInstr prefix fnInstr = fnInstr (getMandPrx prefix)
 
   /// The main instruction rendering function.
@@ -6432,16 +6434,18 @@ module internal ParsingHelper = begin
     | 0xB7uy -> render span rhlp MOVZX SzCond.Nor OD.GprRm SZ.WV
     | 0xB8uy when not <| hasREPZ rhlp.Prefixes -> raise ParsingFailureException
     | 0xB8uy ->
-      rhlp.Prefixes <- filterPrefs rhlp.Prefixes
+      rhlp.Prefixes <- filterREPZPrefs rhlp.Prefixes
       render span rhlp POPCNT SzCond.Nor OD.GprRm SZ.Def
     | 0xBBuy when hasREPZ rhlp.Prefixes -> raise ParsingFailureException
     | 0xBBuy -> render span rhlp BTC SzCond.Nor OD.RmGpr SZ.Def
+
     | 0xBCuy when hasREPZ rhlp.Prefixes ->
-      rhlp.Prefixes <- filterPrefs rhlp.Prefixes
+      rhlp.Prefixes <- filterREPZPrefs rhlp.Prefixes
       render span rhlp TZCNT SzCond.Nor OD.GprRm SZ.Def
     | 0xBCuy -> render span rhlp BSF SzCond.Nor OD.GprRm SZ.Def
+
     | 0xBDuy when hasREPZ rhlp.Prefixes ->
-      rhlp.Prefixes <- filterPrefs rhlp.Prefixes
+      rhlp.Prefixes <- filterREPZPrefs rhlp.Prefixes
       render span rhlp LZCNT SzCond.Nor OD.GprRm SZ.Def
     | 0xBDuy -> render span rhlp BSR SzCond.Nor OD.GprRm SZ.Def
     | 0xBEuy -> render span rhlp MOVSX SzCond.Nor OD.GprRm SZ.BV
