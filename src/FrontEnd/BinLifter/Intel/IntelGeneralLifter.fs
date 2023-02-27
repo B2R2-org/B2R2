@@ -952,13 +952,13 @@ let private helperRemSub remHi remLo srcHi srcLo ir =
 let helperRemAdd remHi remLo srcHi srcLo remMsb ir =
   let r = !+ir 64<rt>
   let t = !+ir 1<rt>
-  let cond = ((AST.xthi 1<rt> remLo) == (AST.xthi 1<rt> srcHi))
+  let cond = ((AST.xthi 1<rt> remLo) == (AST.xthi 1<rt> srcLo))
               .& ((AST.xthi 1<rt> remLo) <+> (AST.xthi 1<rt> r))
+  !!ir (r := remLo .+ srcLo)
   !!ir (t := cond)
-  !!ir (r := remLo .+ srcHi)
   !!ir (remLo := AST.ite remMsb r remLo)
   let toAdd = AST.ite t (AST.num1 64<rt>) (AST.num0 64<rt>)
-  !!ir (remHi := AST.ite remMsb (srcLo .+ toAdd) remHi)
+  !!ir (remHi := AST.ite remMsb (remHi .+ srcHi .+ toAdd) remHi)
 
 let divideWithoutConcat opcode oprSize divisor lblAssign lblErr ctxt ir =
   let struct (trdx, trax, tdivisor) = tmpVars3 ir oprSize
@@ -1035,16 +1035,16 @@ let divideWithoutConcat opcode oprSize divisor lblAssign lblErr ctxt ir =
   helperRemSub remHi remLo prodHi prodLo ir
   !!ir (remMsb := (AST.xthi 1<rt> remHi))
   !!ir (qh := (AST.ite remMsb (qh .- one) (qh)))
-  helperRemAdd remHi remLo (nrmDvsr << n32) (nrmDvsr >> n32) remMsb ir
+  helperRemAdd remHi remLo (nrmDvsr >> n32) (nrmDvsr << n32) remMsb ir
   !!ir (remMsb := (AST.xthi 1<rt> remHi))
   !!ir (qh := (AST.ite remMsb (qh .- one) (qh)))
-  helperRemAdd remHi remLo (nrmDvsr << n32) (nrmDvsr >> n32) remMsb ir
+  helperRemAdd remHi remLo (nrmDvsr >> n32) (nrmDvsr << n32) remMsb ir
   !!ir (remHi := (remHi << n32) .| (remLo >> n32))
   !!ir (remLo := (remLo << n32))
   (* compute least significant quotient "digit";
      TAOCP: may be off by 0, +1, +2 *)
   !!ir (ql := AST.ite condGE numF (remHi ./ (nrmDvsr >> n32)))
-  !!ir (q := (qh << n32) .| ql)
+  !!ir (q := (qh << n32) .+ ql)
   (* compute remainder; correct quotient "digit" if remainder negative *)
   let struct (prodHi, prodLo) = mul64Bit q tdivisor ir
   !!ir (remLo := trax)
@@ -1052,7 +1052,7 @@ let divideWithoutConcat opcode oprSize divisor lblAssign lblErr ctxt ir =
   helperRemSub remHi remLo prodHi prodLo ir
   !!ir (remMsb := (AST.xthi 1<rt> remHi))
   !!ir (q := (AST.ite remMsb (q .- one) q))
-  helperRemAdd remHi remLo tdivisor zero remMsb ir
+  helperRemAdd remHi remLo zero tdivisor remMsb ir
   !!ir (remMsb := (AST.xthi 1<rt> remHi))
   !!ir (q := (AST.ite remMsb (q .- one) q))
   let struct (prodHi, prodLo) = mul64Bit q tdivisor ir
@@ -1065,8 +1065,9 @@ let divideWithoutConcat opcode oprSize divisor lblAssign lblErr ctxt ir =
     !!ir (dstAssign oprSize rax quotient)
     !!ir (dstAssign oprSize rdx remainder)
   | Opcode.IDIV ->
+    let isDividendNeg = AST.xthi 1<rt> rdx == AST.b1
     !!ir (rax := (AST.ite updateSign (AST.neg quotient) quotient))
-    !!ir (rdx := (AST.ite updateSign (AST.neg remainder) remainder))
+    !!ir (rdx := (AST.ite isDividendNeg (AST.neg remainder) remainder))
   | _ -> raise InvalidOpcodeException
 
 let private getDividend ctxt = function
