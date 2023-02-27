@@ -98,7 +98,7 @@ let translate (ins: IntelInternalInstruction) insLen ctxt =
   | OP.JS | OP.JNS | OP.JP | OP.JNP
   | OP.JL | OP.JNL | OP.JLE | OP.JG
   | OP.JECXZ | OP.JRCXZ -> GeneralLifter.jcc ins insLen ctxt
-  | OP.LAHF -> LiftingUtils.sideEffects ctxt insLen ProcessorID
+  | OP.LAHF -> GeneralLifter.lahf ins insLen ctxt
   | OP.LEA -> GeneralLifter.lea ins insLen ctxt
   | OP.LEAVE -> GeneralLifter.leave ins insLen ctxt
   | OP.LODSB | OP.LODSW | OP.LODSD | OP.LODSQ ->
