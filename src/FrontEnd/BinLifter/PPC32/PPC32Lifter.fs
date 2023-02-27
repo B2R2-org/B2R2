@@ -1357,18 +1357,23 @@ let stwcxdot ins insLen ctxt =
   let cr0SO = !.ctxt R.CR0_3
   let ir = !*ctxt
   !<ir insLen
-  let lblRES = !%ir "RES"
+  let lblRes = !%ir "Reserved"
+  let lblNoRes = !%ir "NotReserved"
   let lblEnd = !%ir "End"
   let ea = !+ir 32<rt>
   !!ir (ea := ra .+ rb)
   !!ir (AST.extCall <| AST.app "IsReserved" [ea] 32<rt>)
-  !!ir (AST.cjmp (res == AST.b1) (AST.name lblRES) (AST.name lblEnd))
-  !!ir (AST.lmark lblRES)
+  !!ir (AST.cjmp (res == AST.b1) (AST.name lblRes) (AST.name lblNoRes))
+  !!ir (AST.lmark lblRes)
   !!ir (loadNative ctxt 32<rt> ea := rs)
+  !!ir (res := AST.b0)
+  !!ir (cr0EQ := AST.b1)
+  !!ir (AST.jmp (AST.name lblEnd))
+  !!ir (AST.lmark lblNoRes)
+  !!ir (cr0EQ := AST.b0)
   !!ir (AST.lmark lblEnd)
   !!ir (cr0LT := AST.b0)
   !!ir (cr0GT := AST.b0)
-  !!ir (cr0EQ := AST.b0)
   !!ir (cr0SO := xerSO)
   !>ir insLen
 
@@ -1550,7 +1555,7 @@ let translate (ins: InsInfo) insLen (ctxt: TranslationContext) =
   | Op.FMADD -> fmadd ins insLen ctxt
   | Op.FMR -> fmr ins insLen ctxt
   | Op.FMSUB -> fmsub ins insLen ctxt
-  | Op.ISYNC -> sideEffects insLen ctxt ClockCounter
+  | Op.ISYNC -> nop insLen ctxt
   | Op.LBZ -> lbz ins insLen ctxt
   | Op.LBZU -> lbzu ins insLen ctxt
   | Op.LBZUX -> lbzux ins insLen ctxt
@@ -1634,6 +1639,7 @@ let translate (ins: InsInfo) insLen (ctxt: TranslationContext) =
   | Op.SUBFE -> subfe ins insLen ctxt
   | Op.SUBFIC -> subfic ins insLen ctxt
   | Op.SUBFZE -> subfze ins insLen ctxt
+  | Op.SYNC -> nop insLen ctxt
   | Op.XOR -> xor ins insLen ctxt
   | Op.XORdot -> xordot ins insLen ctxt
   | Op.XORI -> xori ins insLen ctxt
