@@ -2314,25 +2314,59 @@ let test ins insLen ctxt =
 
 let tzcnt ins insLen ctxt =
   let ir = !*ctxt
-  !<ir insLen
-  let lblLoop = !%ir "Loop"
-  let lblExit = !%ir "Exit"
-  let lblLoopCond = !%ir "LoopCond"
-  let struct (dst, src) = transTwoOprs ir false ins insLen ctxt
   let oprSize = getOperationSize ins
+  let struct (dst, src) = transTwoOprs ir false ins insLen ctxt
+  !<ir insLen
+  let lblCnt = !%ir "Count"
+  let lblZero = !%ir "Zero"
+  let lblEnd = !%ir "End"
+  let z = AST.num0 oprSize
   let max = numI32 (RegType.toBitWidth oprSize) oprSize
-  let t1 = !+ir oprSize
-  !!ir (t1 := AST.num0 oprSize)
-  !!ir (AST.lmark lblLoopCond)
-  let cond = (AST.lt t1 max) .& (AST.xtlo 1<rt> (src >> t1) == AST.b0)
-  !!ir (AST.cjmp cond (AST.name lblLoop) (AST.name lblExit))
-  !!ir (AST.lmark lblLoop)
-  !!ir (t1 := t1 .+ AST.num1 oprSize)
-  !!ir (AST.jmp (AST.name lblLoopCond))
-  !!ir (AST.lmark lblExit)
-  !!ir (dstAssign oprSize dst t1)
+  let struct (t1, t2, res) = tmpVars3 ir oprSize
+  !!ir (t1 := src)
+  !!ir (AST.cjmp (t1 == z) (AST.name lblZero) (AST.name lblCnt))
+  !!ir (AST.lmark lblZero)
+  !!ir (dst := max)
+  !!ir (AST.jmp (AST.name lblEnd))
+  !!ir (AST.lmark lblCnt)
+  !!ir (res := z)
+  !!ir (t1 := t1 .& (t1 .* numI32 0xFFFFFFFF oprSize))
+  match oprSize with
+  | 16<rt> ->
+    !!ir (t2 := t1 >> numI32 8 32<rt>)
+    !!ir (t1 := AST.ite (t2 != z) t2 t1)
+    !!ir (res := AST.ite (t2 != z) (res .+  numI32 8 16<rt>) res)
+    !!ir (t2 := t1 >> numI32 4 32<rt>)
+    !!ir (t1 := AST.ite (t2 != z) t2 t1)
+    !!ir (res := AST.ite (t2 != z) (res .+  numI32 4 16<rt>) res)
+  | 32<rt> ->
+    !!ir (t2 := t1 >> numI32 16 32<rt>)
+    !!ir (t1 := AST.ite (t2 != z) t2 t1)
+    !!ir (res := AST.ite (t2 != z) (res .+  numI32 16 32<rt>) res)
+    !!ir (t2 := t1 >> numI32 8 32<rt>)
+    !!ir (t1 := AST.ite (t2 != z) t2 t1)
+    !!ir (res := AST.ite (t2 != z) (res .+  numI32 8 32<rt>) res)
+    !!ir (t2 := t1 >> numI32 4 32<rt>)
+    !!ir (t1 := AST.ite (t2 != z) t2 t1)
+    !!ir (res := AST.ite (t2 != z) (res .+  numI32 4 32<rt>) res)
+  | 64<rt> ->
+    !!ir (t2 := t1 >> numI32 32 64<rt>)
+    !!ir (t1 := AST.ite (t2 != z) t2 t1)
+    !!ir (res := AST.ite (t2 != z) (res .+  numI32 32 64<rt>) res)
+    !!ir (t2 := t1 >> numI32 16 64<rt>)
+    !!ir (t1 := AST.ite (t2 != z) t2 t1)
+    !!ir (res := AST.ite (t2 != z) (res .+  numI32 16 64<rt>) res)
+    !!ir (t2 := t1 >> numI32 8 64<rt>)
+    !!ir (t1 := AST.ite (t2 != z) t2 t1)
+    !!ir (res := AST.ite (t2 != z) (res .+  numI32 8 64<rt>) res)
+    !!ir (t2 := t1 >> numI32 4 64<rt>)
+    !!ir (t1 := AST.ite (t2 != z) t2 t1)
+    !!ir (res := AST.ite (t2 != z) (res .+  numI32 4 64<rt>) res)
+  | _ -> raise InvalidOperandSizeException
+  !!ir (dst := res .+ ((t1 >> numI32 1 oprSize) .- (t1 >> numI32 3 oprSize)))
+  !!ir (AST.lmark lblEnd)
   !!ir (!.ctxt R.CF := dst == max)
-  !!ir (!.ctxt R.ZF := dst == AST.num0 oprSize)
+  !!ir (!.ctxt R.ZF := dst == z)
 #if !EMULATION
   !!ir (!.ctxt R.OF := undefOF)
   !!ir (!.ctxt R.SF := undefSF)
