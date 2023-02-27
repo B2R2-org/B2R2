@@ -69,6 +69,15 @@ let loadNative (ctxt: TranslationContext) rt addr =
   | Endian.Little -> AST.loadLE rt addr
   | _ -> raise InvalidEndianException
 
+let transEffectiveAddrToExpr opr (ctxt: TranslationContext) =
+  match opr with
+  | OprMem (d, b) ->
+      if b = R.R0 then numI32 d ctxt.WordBitSize
+      else (!.ctxt b .+ numI32 d ctxt.WordBitSize)
+  | OprReg reg ->
+      if reg = R.R0 then AST.num0 32<rt> else !.ctxt reg
+  | _ -> raise InvalidOperandException
+
 let transOprToExpr ins (ctxt: TranslationContext) = function
   | OprReg reg -> !.ctxt reg
   | OprMem (d, b) -> /// FIXME
@@ -595,12 +604,9 @@ let fmsub ins insLen ctxt =
   /// Affected: FPRF, FR, FI, FX, OX, UX, XX, VXSNAN, VXISI, VXIMZ
   !>ir insLen
 
-let lbz ins insLen ctxt =
+let lbz ins insLen (ctxt: TranslationContext) =
   let struct (o1, o2) = getTwoOprs ins
-  let ea =
-    match o2 with
-    | OprMem (d, b) -> (!.ctxt b .+ numI32 d ctxt.WordBitSize)
-    | _ -> raise InvalidOperandException
+  let ea = transEffectiveAddrToExpr o2 ctxt
   let dst = transOprToExpr ins ctxt o1
   let ir = !*ctxt
   !<ir insLen
@@ -631,13 +637,15 @@ let lbzux ins insLen ctxt =
   !>ir insLen
 
 let lbzx ins insLen ctxt =
-  let struct (dst, src1, src2) = transThreeOprs ins ctxt
-  let cond = src1 == AST.num0 32<rt>
+  let struct (o1, o2, o3) = getThreeOprs ins
+  let rd = transOprToExpr ins ctxt o1
+  let ra = transEffectiveAddrToExpr o2 ctxt
+  let rb = transOprToExpr ins ctxt o3
   let ir = !*ctxt
   let ea = !+ir 32<rt>
   !<ir insLen
-  !!ir (ea := (AST.ite cond (AST.num0 32<rt>) src1) .+ src2)
-  !!ir (dst := AST.zext 32<rt> (loadNative ctxt 8<rt> ea))
+  !!ir (ea := ra .+ rb)
+  !!ir (rd := AST.zext 32<rt> (loadNative ctxt 8<rt> ea))
   !>ir insLen
 
 let lfd ins insLen ctxt =
@@ -667,12 +675,9 @@ let lfs ins insLen ctxt = /// FIXME
   !!ir (dst := tmp .& w2)
   !>ir insLen
 
-let lha ins insLen ctxt =
+let lha ins insLen (ctxt: TranslationContext) =
   let struct (o1, o2) = getTwoOprs ins
-  let ea =
-    match o2 with
-    | OprMem (d, b) -> (!.ctxt b .+ numI32 d ctxt.WordBitSize)
-    | _ -> raise InvalidOperandException
+  let ea = transEffectiveAddrToExpr o2 ctxt
   let rd = transOprToExpr ins ctxt o1
   let ir = !*ctxt
   !<ir insLen
@@ -703,21 +708,20 @@ let lhaux ins insLen ctxt =
   !>ir insLen
 
 let lhax ins insLen ctxt =
-  let struct (rd, ra, rb) = transThreeOprs ins ctxt
+  let struct (o1, o2, o3) = getThreeOprs ins
+  let rd = transOprToExpr ins ctxt o1
+  let ra = transEffectiveAddrToExpr o2 ctxt
+  let rb = transOprToExpr ins ctxt o3
   let ir = !*ctxt
-  let cond = ra == AST.num0 32<rt>
   let ea = !+ir 32<rt>
   !<ir insLen
-  !!ir (ea := (AST.ite cond (AST.num0 32<rt>) ra) .+ rb)
+  !!ir (ea := ra .+ rb)
   !!ir (rd := AST.sext 32<rt> (loadNative ctxt 16<rt> ea))
   !>ir insLen
 
-let lhz ins insLen ctxt =
+let lhz ins insLen (ctxt: TranslationContext) =
   let struct (o1, o2) = getTwoOprs ins
-  let ea =
-    match o2 with
-    | OprMem (d, b) -> (!.ctxt b .+ numI32 d ctxt.WordBitSize)
-    | _ -> raise InvalidOperandException
+  let ea = transEffectiveAddrToExpr o2 ctxt
   let rd = transOprToExpr ins ctxt o1
   let ir = !*ctxt
   !<ir insLen
@@ -725,7 +729,7 @@ let lhz ins insLen ctxt =
   !>ir insLen
 
 let lhzu ins insLen ctxt =
-  let struct (o1 , o2) = getTwoOprs ins
+  let struct (o1, o2) = getTwoOprs ins
   let ea, ra =
     match o2 with
     | OprMem (d, b) -> (!.ctxt b .+ numI32 d ctxt.WordBitSize), !.ctxt b
@@ -748,12 +752,14 @@ let lhzux ins insLen ctxt =
   !>ir insLen
 
 let lhzx ins insLen ctxt =
-  let struct (rd, ra, rb) = transThreeOprs ins ctxt
-  let cond = ra == AST.num0 32<rt>
+  let struct (o1, o2, o3) = getThreeOprs ins
+  let rd = transOprToExpr ins ctxt o1
+  let ra = transEffectiveAddrToExpr o2 ctxt
+  let rb = transOprToExpr ins ctxt o3
   let ir = !*ctxt
   let ea = !+ir 32<rt>
   !<ir insLen
-  !!ir (ea := (AST.ite cond (AST.num0 32<rt>) ra) .+ rb)
+  !!ir (ea := ra .+ rb)
   !!ir (rd := AST.zext 32<rt> (loadNative ctxt 16<rt> ea))
   !>ir insLen
 
@@ -773,30 +779,35 @@ let lis ins insLen ctxt =
   !>ir insLen
 
 let lwarx ins insLen ctxt =
-  let struct (rd, ra, rb) = transThreeOprs ins ctxt
+  let struct (o1, o2, o3) = getThreeOprs ins
+  let rd = transOprToExpr ins ctxt o1
+  let ra = transEffectiveAddrToExpr o2 ctxt
+  let rb = transOprToExpr ins ctxt o3
   let ir = !*ctxt
   !<ir insLen
-  let cond = ra == AST.num0 32<rt>
   let ea = !+ir 32<rt>
-  !!ir (ea := (AST.ite cond (AST.num0 32<rt>) ra) .+ rb)
+  !!ir (ea := ra .+ rb)
   !!ir (AST.extCall <| AST.app "Reserve" [ea] 32<rt>)
   !!ir (rd := loadNative ctxt 32<rt> ea)
   !>ir insLen
 
-let lwz ins insLen ctxt =
-  let struct (dst, src) = transTwoOprs ins ctxt
+let lwz ins insLen (ctxt: TranslationContext) =
+  let struct (o1, o2) = getTwoOprs ins
+  let ea = transEffectiveAddrToExpr o2 ctxt
+  let dst = transOprToExpr ins ctxt o1
   let ir = !*ctxt
   !<ir insLen
-  !!ir (dst := src)
+  !!ir (dst := loadNative ctxt 32<rt> ea)
   !>ir insLen
 
 let lwzu ins insLen ctxt =
-  let struct ( _ , o2) = getTwoOprs ins
+  let struct (o1 , o2) = getTwoOprs ins
   let ea, ra =
     match o2 with
     | OprMem (d, b) -> (!.ctxt b .+ numI32 d ctxt.WordBitSize), !.ctxt b
     | _ -> raise InvalidOperandException
-  let struct (dst, src) = transTwoOprs ins ctxt
+  let dst = transOprToExpr ins ctxt o1
+  let src = transOprToExpr ins ctxt o2
   let ir = !*ctxt
   !<ir insLen
   !!ir (dst := src)
@@ -814,13 +825,15 @@ let lwzux ins insLen ctxt =
   !>ir insLen
 
 let lwzx ins insLen ctxt =
-  let struct (dst, src1, src2) = transThreeOprs ins ctxt
-  let cond = src1 == AST.num0 32<rt>
+  let struct (o1, o2, o3) = getThreeOprs ins
+  let rd = transOprToExpr ins ctxt o1
+  let ra = transEffectiveAddrToExpr o2 ctxt
+  let rb = transOprToExpr ins ctxt o3
   let ir = !*ctxt
   let ea = !+ir 32<rt>
   !<ir insLen
-  !!ir (ea := (AST.ite cond (AST.num0 32<rt>) src1) .+ src2)
-  !!ir (dst := loadNative ctxt 32<rt> ea)
+  !!ir (ea := ra .+ rb)
+  !!ir (rd := loadNative ctxt 32<rt> ea)
   !>ir insLen
 
 let mcrf ins insLen ctxt =
@@ -1228,30 +1241,30 @@ let srw ins insLen ctxt =
   !!ir (dst := rs >> n)
   !>ir insLen
 
-let stb ins insLen ctxt =
+let stb ins insLen (ctxt: TranslationContext) =
   let struct (o1, o2) = getTwoOprs ins
-  let ea =
-    match o2 with
-    | OprMem (d, b) -> (!.ctxt b .+ numI32 d ctxt.WordBitSize)
-    | _ -> raise InvalidOperandException
-  let src = transOprToExpr ins ctxt o1
   let ir = !*ctxt
+  let ea = transEffectiveAddrToExpr o2 ctxt
+  let src = transOprToExpr ins ctxt o1
   !<ir insLen
   !!ir (loadNative ctxt 8<rt> ea := AST.xtlo 8<rt> src)
   !>ir insLen
 
 let stbx ins insLen ctxt =
-  let struct (src, dst1, dst2) = transThreeOprs ins ctxt
-  let cond = dst1 == AST.num0 32<rt>
+  let struct (o1, o2, o3) = getThreeOprs ins
+  let rs = transOprToExpr ins ctxt o1
+  let ra = transEffectiveAddrToExpr o2 ctxt
+  let rb = transOprToExpr ins ctxt o3
   let ir = !*ctxt
   let ea = !+ir 32<rt>
   !<ir insLen
-  !!ir (ea := (AST.ite cond (AST.num0 32<rt>) dst1) .+ dst2)
-  !!ir (loadNative ctxt 8<rt> ea := AST.xtlo 8<rt> src)
+  !!ir (ea := ra .+ rb)
+  !!ir (loadNative ctxt 8<rt> ea := AST.xtlo 8<rt> rs)
   !>ir insLen
 
 let stbu ins insLen ctxt =
   let struct (o1, o2) = getTwoOprs ins
+  let ir = !*ctxt
   let ea, ra =
     match o2 with
     | OprMem (d, b) -> (!.ctxt b .+ numI32 d ctxt.WordBitSize), !.ctxt b
@@ -1275,10 +1288,7 @@ let stbux ins insLen ctxt =
 
 let stfd ins insLen ctxt =
   let struct (o1, o2) = getTwoOprs ins
-  let ea =
-    match o2 with
-    | OprMem (d, b) -> (!.ctxt b .+ numI32 d ctxt.WordBitSize)
-    | _ -> raise InvalidOperandException
+  let ea = transEffectiveAddrToExpr o2 ctxt
   let src = transOprToExpr ins ctxt o1
   let ir = !*ctxt
   !<ir insLen
@@ -1295,12 +1305,9 @@ let stfs ins insLen ctxt = // FIXME
   !!ir (dst := tmp)
   !>ir insLen
 
-let sth ins insLen ctxt =
+let sth ins insLen (ctxt: TranslationContext) =
   let struct (o1, o2) = getTwoOprs ins
-  let ea =
-    match o2 with
-    | OprMem (d, b) -> (!.ctxt b .+ numI32 d ctxt.WordBitSize)
-    | _ -> raise InvalidOperandException
+  let ea = transEffectiveAddrToExpr o2 ctxt
   let src = transOprToExpr ins ctxt o1
   let ir = !*ctxt
   !<ir insLen
@@ -1321,13 +1328,15 @@ let sthu ins insLen ctxt =
   !>ir insLen
 
 let sthx ins insLen ctxt =
-  let struct (src, dst1, dst2) = transThreeOprs ins ctxt
-  let cond = dst1 == AST.num0 32<rt>
+  let struct (o1, o2, o3) = getThreeOprs ins
+  let rs = transOprToExpr ins ctxt o1
+  let ra = transEffectiveAddrToExpr o2 ctxt
+  let rb = transOprToExpr ins ctxt o3
   let ir = !*ctxt
   let ea = !+ir 32<rt>
   !<ir insLen
-  !!ir (ea := (AST.ite cond (AST.num0 32<rt>) dst1) .+ dst2)
-  !!ir (loadNative ctxt 16<rt> ea := AST.xtlo 16<rt> src)
+  !!ir (ea := ra .+ rb)
+  !!ir (loadNative ctxt 16<rt> ea := AST.xtlo 16<rt> rs)
   !>ir insLen
 
 let sthux ins insLen ctxt =
@@ -1340,15 +1349,20 @@ let sthux ins insLen ctxt =
   !!ir (ra := ra)
   !>ir insLen
 
-let stw ins insLen ctxt =
-  let struct (src, dst) = transTwoOprs ins ctxt
+let stw ins insLen (ctxt: TranslationContext) =
+  let struct (o1, o2) = getTwoOprs ins
   let ir = !*ctxt
-  !<ir insLen
-  !!ir (dst := src)
+  let ea = transEffectiveAddrToExpr o2 ctxt
+  let src = transOprToExpr ins ctxt o1
+  let ir = !*ctxt
+  !!ir (loadNative ctxt 32<rt> ea := src)
   !>ir insLen
 
 let stwcxdot ins insLen ctxt =
-  let struct (rs, ra, rb) = transThreeOprs ins ctxt
+  let struct (o1, o2, o3) = getThreeOprs ins
+  let rs = transOprToExpr ins ctxt o1
+  let ra = transEffectiveAddrToExpr o2 ctxt
+  let rb = transOprToExpr ins ctxt o3
   let res = !.ctxt R.RES
   let xerSO = AST.xtlo 1<rt> (!.ctxt R.XER)
   let cr0LT = !.ctxt R.CR0_0
@@ -1378,15 +1392,15 @@ let stwcxdot ins insLen ctxt =
   !>ir insLen
 
 let stwu ins insLen ctxt =
-  let struct ( _ , o2) = getTwoOprs ins
+  let struct (o1, o2) = getTwoOprs ins
   let ea, ra =
     match o2 with
     | OprMem (d, b) -> (!.ctxt b .+ numI32 d ctxt.WordBitSize), !.ctxt b
     | _ -> raise InvalidOperandException
-  let struct (src, dst) = transTwoOprs ins ctxt
+  let src = transOprToExpr ins ctxt o1
   let ir = !*ctxt
   !<ir insLen
-  !!ir (dst := src)
+  !!ir (loadNative ctxt 32<rt> ea := src)
   !!ir (ra := ea)
   !>ir insLen
 
@@ -1401,7 +1415,10 @@ let stwux ins insLen ctxt =
   !>ir insLen
 
 let stwx ins insLen ctxt =
-  let struct (rs, ra, rb) = transThreeOprs ins ctxt
+  let struct (o1, o2, o3) = getThreeOprs ins
+  let rs = transOprToExpr ins ctxt o1
+  let ra = transEffectiveAddrToExpr o2 ctxt
+  let rb = transOprToExpr ins ctxt o3
   let ir = !*ctxt
   let ea = !+ir 32<rt>
   !<ir insLen
