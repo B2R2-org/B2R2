@@ -1399,6 +1399,25 @@ let private convertSrc = function
   | Load (_, _, expr, _) -> expr
   | _ -> Utils.impossible ()
 
+let lahf ins insLen ctxt =
+  let ir = !*ctxt
+  let t = !+ir 8<rt>
+  !<ir insLen
+  let ah = !.ctxt R.AH
+  let cf = AST.zext 8<rt> (!.ctxt R.CF)
+  let pf = AST.zext 8<rt> (!.ctxt R.PF)
+  let af = AST.zext 8<rt> (!.ctxt R.AF)
+  let zf = AST.zext 8<rt> (!.ctxt R.ZF)
+  let sf = AST.zext 8<rt> (!.ctxt R.SF)
+  !!ir (t := numI32 2 8<rt>)
+  !!ir (t := t .| cf)
+  !!ir (t := t .| (pf << numI32 2 8<rt>))
+  !!ir (t := t .| (af << numI32 4 8<rt>))
+  !!ir (t := t .| (zf << numI32 6 8<rt>))
+  !!ir (t := t .| (sf << numI32 7 8<rt>))
+  !!ir (ah := t)
+  !>ir insLen
+
 let lea ins insLen ctxt =
   let ir = !*ctxt
   !<ir insLen
