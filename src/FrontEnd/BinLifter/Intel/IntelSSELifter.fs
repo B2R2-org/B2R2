@@ -746,7 +746,7 @@ let orps ins insLen ctxt =
 let orpd ins insLen ctxt =
   buildPackedInstr ins insLen ctxt 64<rt> opPor
 
-let private opPxor _ = Array.map2 (.|)
+let private opPxor _ = Array.map2 (<+>)
 
 let xorps ins insLen ctxt =
   buildPackedInstr ins insLen ctxt 32<rt> opPxor
