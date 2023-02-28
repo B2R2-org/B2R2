@@ -2357,10 +2357,10 @@ let tzcnt ins insLen ctxt =
   !!ir (t1 := t1 .& (t1 .* numI32 0xFFFFFFFF oprSize))
   match oprSize with
   | 16<rt> ->
-    !!ir (t2 := t1 >> numI32 8 32<rt>)
+    !!ir (t2 := t1 >> numI32 8 16<rt>)
     !!ir (t1 := AST.ite (t2 != z) t2 t1)
     !!ir (res := AST.ite (t2 != z) (res .+  numI32 8 16<rt>) res)
-    !!ir (t2 := t1 >> numI32 4 32<rt>)
+    !!ir (t2 := t1 >> numI32 4 16<rt>)
     !!ir (t1 := AST.ite (t2 != z) t2 t1)
     !!ir (res := AST.ite (t2 != z) (res .+  numI32 4 16<rt>) res)
   | 32<rt> ->
