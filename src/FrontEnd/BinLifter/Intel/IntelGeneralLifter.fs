@@ -613,7 +613,7 @@ let bzhi ins insLen ctxt =
   let cond2 = n .> numI32 ((RegType.toBitWidth oprSize) - 1) 8<rt>
   let tmp = AST.zext oprSize (numI32 (RegType.toBitWidth oprSize) 8<rt> .- n)
   let cf = !.ctxt R.CF
-  !!ir (dst := AST.ite cond1 ((src1 << tmp) >> tmp) src1)
+  !!ir (dstAssign oprSize dst (AST.ite cond1 ((src1 << tmp) >> tmp) src1))
   !!ir (cf := AST.ite cond2 AST.b1 AST.b0)
   !>ir insLen
 
