@@ -778,26 +778,26 @@ let compareExchangeBytes ins insLen ctxt =
   match oprSize with
   | 64<rt> ->
     let dst = transOneOpr ir false ins insLen ctxt
-    let edx = getRegOfSize ctxt 32<rt> grpEDX
-    let eax = getRegOfSize ctxt 32<rt> grpEAX
-    let ecx = getRegOfSize ctxt 32<rt> grpECX
-    let ebx = getRegOfSize ctxt 32<rt> grpEBX
+    let eax = !.ctxt R.EAX
+    let ecx = !.ctxt R.ECX
+    let edx = !.ctxt R.EDX
+    let ebx = !.ctxt R.EBX
     let t = !+ir oprSize
     !!ir (t := dst)
     !!ir (cond := AST.concat edx eax == t)
     !!ir (zf := cond)
-    !!ir (eax := AST.ite cond eax (AST.extract t 32<rt> 0))
-    !!ir (edx := AST.ite cond edx (AST.extract t 32<rt> 32))
+    !!ir (dstAssign 32<rt> eax (AST.ite cond eax (AST.xtlo 32<rt> t)))
+    !!ir (dstAssign 32<rt> edx (AST.ite cond edx (AST.xthi 32<rt> t)))
     !!ir (dst := AST.ite cond (AST.concat ecx ebx) t)
   | 128<rt> ->
     let dstB, dstA =
       match ins.Operands with
       | OneOperand opr -> transOprToExpr128 ir false ins insLen ctxt opr
       | _ -> raise InvalidOperandException
-    let rdx = getRegOfSize ctxt 64<rt> grpEDX
-    let rax = getRegOfSize ctxt 64<rt> grpEAX
-    let rcx = getRegOfSize ctxt 64<rt> grpECX
-    let rbx = getRegOfSize ctxt 64<rt> grpEBX
+    let rax = !.ctxt R.RAX
+    let rcx = !.ctxt R.RCX
+    let rdx = !.ctxt R.RDX
+    let rbx = !.ctxt R.RBX
     !!ir (cond := (dstB == rdx) .& (dstA == rax))
     !!ir (zf := cond)
     !!ir (rax := AST.ite cond rax dstA)
