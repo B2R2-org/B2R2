@@ -36,6 +36,31 @@ open B2R2.FrontEnd.BinLifter.Intel.Helper
 open B2R2.FrontEnd.BinLifter.Intel.LiftingUtils
 open B2R2.FrontEnd.BinLifter.Intel.MMXLifter
 
+let getExponent isDouble src =
+  if isDouble then
+    let numMantissa =  numI32 52 64<rt>
+    let mask = numI32 0x7FF 64<rt>
+    let bias = numI32 1023 32<rt>
+    (AST.xtlo 32<rt> ((src >> numMantissa) .& mask)) .- bias
+  else
+    let numMantissa = numI32 23 32<rt>
+    let mask = numI32 0xff 32<rt>
+    let bias = numI32 127 32<rt>
+    ((src >> numMantissa) .& mask) .- bias
+
+let getMantissa isDouble src =
+  let mask =
+    if isDouble then numU64 0xffffffffffffUL 64<rt>
+    else numU64 0x7fffffUL 32<rt>
+  src .& mask
+
+let isNan isDouble expr =
+  let exponent = getExponent isDouble expr
+  let mantissa = getMantissa isDouble expr
+  let e = if isDouble then numI32 0x7ff 32<rt> else numI32 0xff 32<rt>
+  let zero = if isDouble then AST.num0 64<rt> else AST.num0 32<rt>
+  (exponent == e) .& (mantissa != zero)
+
 let addsubpd ins insLen ctxt =
   let ir = !*ctxt
   !<ir insLen
@@ -503,18 +528,17 @@ let cmpps ins insLen ctxt =
     transOprToExpr ir false ins insLen ctxt op3 |> AST.xtlo 8<rt>
     .& numI32 0x7 8<rt>
   let n i = numI32 i 8<rt>
-  let isNan expr =
-    (AST.extract expr 8<rt> 23 == AST.num (BitVector.UnsignedMax 8<rt>))
-     .& ((AST.xtlo 32<rt> expr >> numI32 9 32<rt>) != AST.num0 32<rt>)
   let cmpCond c expr1 expr2 =
     !!ir (c := AST.ite (imm == n 0) (expr1 == expr2) c)
     !!ir (c := AST.ite (imm == n 1) (AST.flt expr1  expr2) c)
     !!ir (c := AST.ite (imm == n 2) (AST.fle expr1 expr2) c)
-    !!ir (c := AST.ite (imm == n 3) (isNan expr1 .| isNan expr2) c)
+    !!ir (c := AST.ite (imm == n 3) (isNan false expr1 .| isNan false expr2) c)
     !!ir (c := AST.ite (imm == n 4) (expr1 != expr2) c)
     !!ir (c := AST.ite (imm == n 5) (AST.flt expr1 expr2 |> AST.not) c)
     !!ir (c := AST.ite (imm == n 6) (AST.fle expr1 expr2 |> AST.not) c)
-    !!ir (c := AST.ite (imm == n 7) (isNan expr1 .| isNan expr2 |> AST.not) c)
+    !!ir (c :=
+      AST.ite
+        (imm == n 7) (isNan false expr1 .| isNan false expr2 |> AST.not) c)
   let struct (cond1, cond2, cond3, cond4) = tmpVars4 ir 1<rt>
   cmpCond cond1 dst1A (AST.xtlo 32<rt> src1)
   cmpCond cond2 dst1B (AST.xthi 32<rt> src1)
@@ -536,18 +560,16 @@ let cmppd ins insLen ctxt =
     transOprToExpr ir false ins insLen ctxt op3 |> AST.xtlo 8<rt>
     .& numI32 0x7 8<rt>
   let n i = numI32 i 8<rt>
-  let isNan expr =
-    (((AST.xthi 16<rt> expr) >> (numI32 5 16<rt>)) == numU32 0x7FFu 16<rt>)
-     .& ((expr >> (numI32 11 64<rt>)) != AST.num0 64<rt>)
   let cmpCond c expr1 expr2 =
     !!ir (c := AST.ite (imm == n 0) (expr1 == expr2) c)
     !!ir (c := AST.ite (imm == n 1) (AST.flt expr1  expr2) c)
     !!ir (c := AST.ite (imm == n 2) (AST.fle expr1 expr2) c)
-    !!ir (c := AST.ite (imm == n 3) (isNan expr1 .| isNan expr2) c)
+    !!ir (c := AST.ite (imm == n 3) (isNan true expr1 .| isNan true expr2) c)
     !!ir (c := AST.ite (imm == n 4) (expr1 != expr2) c)
     !!ir (c := AST.ite (imm == n 5) (AST.flt expr1 expr2 |> AST.not) c)
     !!ir (c := AST.ite (imm == n 6) (AST.fle expr1 expr2 |> AST.not) c)
-    !!ir (c := AST.ite (imm == n 7) (isNan expr1 .| isNan expr2 |> AST.not) c)
+    !!ir (c :=
+      AST.ite (imm == n 7) (isNan true expr1 .| isNan true expr2 |> AST.not) c)
   let struct (cond1, cond2) = tmpVars2 ir 1<rt>
   cmpCond cond1 dst1 src1
   cmpCond cond2 dst2 src2
@@ -566,19 +588,18 @@ let cmpss ins insLen ctxt =
     .& numI32 0x7 8<rt>
   let n num = numI32 num 8<rt>
   let max32 = maxNum 32<rt>
-  let isNan expr =
-    (AST.extract expr 8<rt> 23 == AST.num (BitVector.UnsignedMax 8<rt>))
-     .& ((AST.xtlo 32<rt> expr >> numI32 9 32<rt>) != AST.num0 32<rt>)
   let cond = !+ir 1<rt>
   !!ir (cond := AST.ite (imm == n 0) (AST.feq dst src) cond)
   !!ir (cond := AST.ite (imm == n 1) (AST.flt dst src) cond)
   !!ir (cond := AST.ite (imm == n 2) (AST.fle dst src) cond)
-  !!ir (cond := AST.ite (imm == n 3) ((isNan dst) .| (isNan src)) cond)
+  !!ir (cond :=
+    AST.ite (imm == n 3) ((isNan false dst) .| (isNan false src)) cond)
   !!ir (cond := AST.ite (imm == n 4) (dst != src) cond)
   !!ir (cond := AST.ite (imm == n 5) (AST.flt dst src |> AST.not) cond)
   !!ir (cond := AST.ite (imm == n 6) (AST.fle dst src |> AST.not) cond)
-  !!ir (cond := AST.ite (imm == n 7)
-                          ((isNan dst) .| (isNan src) |> AST.not) cond)
+  !!ir (cond :=
+    AST.ite
+      (imm == n 7) ((isNan false dst) .| (isNan false src) |> AST.not) cond)
   !!ir (dst := AST.ite cond max32 (AST.num0 32<rt>))
   !>ir insLen
 
@@ -595,19 +616,18 @@ let cmpsd (ins: InsInfo) insLen ctxt =
       .& numI32 0x7 8<rt>
     let n i = numI32 i 8<rt>
     let max64 = maxNum 64<rt>
-    let isNan expr =
-      (((AST.xthi 16<rt> expr) >> (numI32 5 16<rt>)) == numU32 0x7FFu 16<rt>)
-       .& ((expr >> (numI32 11 64<rt>)) != AST.num0 64<rt>)
     let cond = !+ir 1<rt>
     !!ir (cond := AST.ite (imm == n 0) (AST.feq dst src) cond)
     !!ir (cond := AST.ite (imm == n 1) (AST.flt dst src) cond)
     !!ir (cond := AST.ite (imm == n 2) (AST.fle dst src) cond)
-    !!ir (cond := AST.ite (imm == n 3) ((isNan dst) .| (isNan src)) cond)
+    !!ir (cond :=
+      AST.ite (imm == n 3) ((isNan true dst) .| (isNan true src)) cond)
     !!ir (cond := AST.ite (imm == n 4) (dst != src) cond)
     !!ir (cond := AST.ite (imm == n 5) (AST.flt dst src |> AST.not) cond)
     !!ir (cond := AST.ite (imm == n 6) (AST.fle dst src |> AST.not) cond)
-    !!ir (cond := AST.ite (imm == n 7)
-                            ((isNan dst) .| (isNan src) |> AST.not) cond)
+    !!ir (cond :=
+      AST.ite
+        (imm == n 7) ((isNan true dst) .| (isNan true src) |> AST.not) cond)
     !!ir (dst := AST.ite cond max64 (AST.num0 64<rt>))
     !>ir insLen
   | _ -> raise InvalidOperandException
@@ -626,10 +646,7 @@ let comiss ins insLen ctxt =
   !!ir (zf := AST.ite (opr1 == opr2) AST.b1 AST.b0)
   !!ir (pf := AST.b0)
   !!ir (cf := AST.ite (AST.flt opr1 opr2) AST.b1 AST.b0)
-  let isNan expr =
-    (AST.extract expr 8<rt> 23 == AST.num (BitVector.UnsignedMax 8<rt>))
-     .& ((AST.xtlo 32<rt> expr >> numI32 9 32<rt>) != AST.num0 32<rt>)
-  !!ir (AST.cjmp (isNan opr1 .| isNan opr2)
+  !!ir (AST.cjmp (isNan false opr1 .| isNan false opr2)
                  (AST.name lblNan) (AST.name lblExit))
   !!ir (AST.lmark lblNan)
   !!ir (zf := AST.b1)
@@ -655,10 +672,7 @@ let comisd ins insLen ctxt =
   !!ir (zf := AST.ite (opr1 == opr2) AST.b1 AST.b0)
   !!ir (pf := AST.b0)
   !!ir (cf := AST.ite (AST.flt opr1 opr2) AST.b1 AST.b0)
-  let isNan expr =
-    (((AST.xthi 16<rt> expr) >> (numI32 5 16<rt>)) == numU32 0x7FFu 16<rt>)
-     .& ((expr >> (numI32 11 64<rt>)) != AST.num0 64<rt>)
-  !!ir (AST.cjmp (isNan opr1 .| isNan opr2)
+  !!ir (AST.cjmp (isNan true opr1 .| isNan true opr2)
                  (AST.name lblNan) (AST.name lblExit))
   !!ir (AST.lmark lblNan)
   !!ir (zf := AST.b1)
@@ -684,10 +698,7 @@ let ucomiss ins insLen ctxt =
   !!ir (zf := AST.ite (opr1 == opr2) AST.b1 AST.b0)
   !!ir (pf := AST.b0)
   !!ir (cf := AST.ite (AST.flt opr1 opr2) AST.b1 AST.b0)
-  let isNan expr =
-    (AST.extract expr 8<rt> 23 == AST.num (BitVector.UnsignedMax 8<rt>))
-     .& ((AST.xtlo 32<rt> expr >> numI32 9 32<rt>) != AST.num0 32<rt>)
-  !!ir (AST.cjmp (isNan opr1 .| isNan opr2)
+  !!ir (AST.cjmp (isNan false opr1 .| isNan false opr2)
                  (AST.name lblNan) (AST.name lblExit))
   !!ir (AST.lmark lblNan)
   !!ir (zf := AST.b1)
@@ -713,10 +724,7 @@ let ucomisd ins insLen ctxt =
   !!ir (zf := AST.ite (opr1 == opr2) AST.b1 AST.b0)
   !!ir (pf := AST.b0)
   !!ir (cf := AST.ite (AST.flt opr1 opr2) AST.b1 AST.b0)
-  let isNan expr =
-    (((AST.xthi 16<rt> expr) >> (numI32 5 16<rt>)) == numU32 0x7FFu 16<rt>)
-     .& ((expr >> (numI32 11 64<rt>)) != AST.num0 64<rt>)
-  !!ir (AST.cjmp (isNan opr1 .| isNan opr2)
+  !!ir (AST.cjmp (isNan true opr1 .| isNan true opr2)
                  (AST.name lblNan) (AST.name lblExit))
   !!ir (AST.lmark lblNan)
   !!ir (zf := AST.b1)
