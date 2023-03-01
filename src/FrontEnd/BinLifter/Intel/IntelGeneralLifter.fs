@@ -952,8 +952,7 @@ let private helperRemSub remHi remLo srcHi srcLo ir =
 let helperRemAdd remHi remLo srcHi srcLo remMsb ir =
   let r = !+ir 64<rt>
   let t = !+ir 1<rt>
-  let cond = ((AST.xthi 1<rt> remLo) == (AST.xthi 1<rt> srcLo))
-              .& ((AST.xthi 1<rt> remLo) <+> (AST.xthi 1<rt> r))
+  let cond = r .< remHi
   !!ir (r := remLo .+ srcLo)
   !!ir (t := cond)
   !!ir (remLo := AST.ite remMsb r remLo)
