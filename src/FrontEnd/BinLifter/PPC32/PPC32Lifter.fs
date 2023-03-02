@@ -596,7 +596,35 @@ let extsb ins insLen ctxt =
   let ir = !*ctxt
   let tmp = !+ir 8<rt>
   !<ir insLen
-  !!ir (tmp := AST.xthi 8<rt> rs)
+  !!ir (tmp := AST.xtlo 8<rt> rs)
+  !!ir (ra := AST.sext 32<rt> tmp)
+  !>ir insLen
+
+let extsbdot ins insLen ctxt =
+  let struct (ra, rs) = transTwoOprs ins ctxt
+  let ir = !*ctxt
+  let tmp = !+ir 8<rt>
+  !<ir insLen
+  !!ir (tmp := AST.xtlo 8<rt> rs)
+  !!ir (ra := AST.sext 32<rt> tmp)
+  setCondReg ctxt ir ra
+  !>ir insLen
+
+let extsh ins insLen ctxt =
+  let struct (ra, rs) = transTwoOprs ins ctxt
+  let ir = !*ctxt
+  let tmp = !+ir 16<rt>
+  !<ir insLen
+  !!ir (tmp := AST.xtlo 16<rt> rs)
+  !!ir (ra := AST.sext 32<rt> tmp)
+  !>ir insLen
+
+let extshdot ins insLen ctxt =
+  let struct (ra, rs) = transTwoOprs ins ctxt
+  let ir = !*ctxt
+  let tmp = !+ir 16<rt>
+  !<ir insLen
+  !!ir (tmp := AST.xtlo 16<rt> rs)
   !!ir (ra := AST.sext 32<rt> tmp)
   setCondReg ctxt ir ra
   !>ir insLen
@@ -1549,6 +1577,9 @@ let translate (ins: InsInfo) insLen (ctxt: TranslationContext) =
   | Op.DIVW -> divw ins insLen ctxt
   | Op.DIVWU -> divwu ins insLen ctxt
   | Op.EXTSB -> extsb ins insLen ctxt
+  | Op.EXTSBdot -> extsbdot ins insLen ctxt
+  | Op.EXTSH -> extsh ins insLen ctxt
+  | Op.EXTSHdot -> extshdot ins insLen ctxt
   | Op.EIEIO -> nop insLen ctxt
   | Op.FABS | Op.FADD | Op.FADDS | Op.FCMPU | Op.FCTIWZ | Op.FDIV | Op.FDIVS
   | Op.FMUL | Op.FMULS | Op.FRSP | Op.FSUB | Op.FSUBS ->
