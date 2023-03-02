@@ -1614,6 +1614,7 @@ let translate (ins: InsInfo) insLen (ctxt: TranslationContext) =
   | Op.CRXOR -> crxor ins insLen ctxt
   | Op.CROR -> cror ins insLen ctxt
   | Op.CRSET -> crset ins insLen ctxt
+  | Op.DCBT -> nop insLen ctxt
   | Op.DCBTST -> nop insLen ctxt
   | Op.DIVW -> divw ins insLen ctxt
   | Op.DIVWU -> divwu ins insLen ctxt
