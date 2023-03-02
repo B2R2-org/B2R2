@@ -32,14 +32,24 @@ type CastKind =
   | ZeroExt = 1
   /// Integer to float conversion
   | IntToFloat = 2
-  /// Float to Nearest Integer rounded conversion. Ties to even.
+  /// Float to Nearest Integer rounded conversion. Ties to even. When the given
+  /// float is too large to be represented as an integer, the result is MIN_INT,
+  /// i.e., 0x80000000 for 32-bit integers and 0x8000000000000000 for 64-bit
+  /// integers.
   | FtoIRound = 3
-  /// Float to Integer rounded up conversion (toward +inf).
+  /// Float to Integer rounded up conversion (toward +inf). When the given float
+  /// is too large to be represented as an integer, the result is MIN_INT, i.e.,
+  /// 0x80000000 for 32-bit integers and 0x8000000000000000 for 64-bit integers.
   | FtoICeil = 4
-  /// Float to Integer rounded down conversion (toward -inf).
+  /// Float to Integer rounded down conversion (toward -inf). When the given
+  /// float is too large to be represented as an integer, the result is MIN_INT,
+  /// i.e., 0x80000000 for 32-bit integers and 0x8000000000000000 for 64-bit
+  /// integers.
   | FtoIFloor = 5
   /// Float to Integer truncated conversion (closest to but no greater in
-  /// absolute value than the infinitely precise result).
+  /// absolute value than the infinitely precise result). When the given float
+  /// is too large to be represented as an integer, the result is MIN_INT, i.e.,
+  /// 0x80000000 for 32-bit integers and 0x8000000000000000 for 64-bit integers.
   | FtoITrunc = 6
   /// Float to Float conversion with different precisions
   | FloatCast = 7
