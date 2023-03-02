@@ -1054,7 +1054,7 @@ let mulhwdot ins insLen ctxt =
   !<ir insLen
   !!ir (tmp := (AST.sext 64<rt> ra) .* (AST.sext 64<rt> rb))
   !!ir (dst := AST.xthi 32<rt> tmp)
-  setCondReg ctxt ir tmp
+  setCondReg ctxt ir dst
   !>ir insLen
 
 let mulhwu ins insLen ctxt =
@@ -1073,7 +1073,7 @@ let mulhwudot ins insLen ctxt =
   !<ir insLen
   !!ir (tmp := (AST.zext 64<rt> ra) .* (AST.zext 64<rt> rb))
   !!ir (dst := AST.xthi 32<rt> tmp)
-  setCondReg ctxt ir tmp
+  setCondReg ctxt ir dst
   !>ir insLen
 
 let mulli ins insLen ctxt =
@@ -1092,6 +1092,39 @@ let mullw ins insLen ctxt =
   !<ir insLen
   !!ir (tmp := (AST.zext 64<rt> src1) .* (AST.zext 64<rt> src2))
   !!ir (dst := AST.xtlo 32<rt> tmp)
+  !>ir insLen
+
+let mullwdot ins insLen ctxt =
+  let struct (dst, src1, src2) = transThreeOprs ins ctxt
+  let ir = !*ctxt
+  let tmp = !+ir 64<rt>
+  !<ir insLen
+  !!ir (tmp := (AST.zext 64<rt> src1) .* (AST.zext 64<rt> src2))
+  !!ir (dst := AST.xtlo 32<rt> tmp)
+  setCondReg ctxt ir dst
+  !>ir insLen
+
+let mullwo ins insLen ctxt =
+  let struct (dst, src1, src2) = transThreeOprs ins ctxt
+  let xerOV = AST.extract (!.ctxt R.XER) 1<rt> 1
+  let ir = !*ctxt
+  let tmp = !+ir 64<rt>
+  !<ir insLen
+  !!ir (tmp := (AST.zext 64<rt> src1) .* (AST.zext 64<rt> src2))
+  !!ir (xerOV := AST.ite (tmp .< numU64 0xFFFFFFFFUL 64<rt>) AST.b0 AST.b1)
+  !!ir (dst := AST.xtlo 32<rt> tmp)
+  !>ir insLen
+
+let mullwodot ins insLen ctxt =
+  let struct (dst, src1, src2) = transThreeOprs ins ctxt
+  let xerOV = AST.extract (!.ctxt R.XER) 1<rt> 1
+  let ir = !*ctxt
+  let tmp = !+ir 64<rt>
+  !<ir insLen
+  !!ir (tmp := (AST.zext 64<rt> src1) .* (AST.zext 64<rt> src2))
+  !!ir (xerOV := AST.ite (tmp .< numU64 0xFFFFFFFFUL 64<rt>) AST.b0 AST.b1)
+  !!ir (dst := AST.xtlo 32<rt> tmp)
+  setCondReg ctxt ir dst
   !>ir insLen
 
 let neg ins insLen ctxt =
@@ -1630,6 +1663,9 @@ let translate (ins: InsInfo) insLen (ctxt: TranslationContext) =
   | Op.MULHWU -> mulhwu ins insLen ctxt
   | Op.MULLI -> mulli ins insLen ctxt
   | Op.MULLW -> mullw ins insLen ctxt
+  | Op.MULLWdot -> mullwdot ins insLen ctxt
+  | Op.MULLWO -> mullwo ins insLen ctxt
+  | Op.MULLWOdot -> mullwodot ins insLen ctxt
   | Op.NEG -> neg ins insLen ctxt
   | Op.NOR -> nor ins insLen ctxt
   | Op.NORdot -> nordot ins insLen ctxt
