@@ -629,6 +629,14 @@ let extshdot ins insLen ctxt =
   setCondReg ctxt ir ra
   !>ir insLen
 
+let eqvx ins insLen updateCond ctxt =
+  let struct (ra, rs, rb) = transThreeOprs ins ctxt
+  let ir = !*ctxt
+  !<ir insLen
+  !!ir (ra := AST.not (rs <+> rb))
+  if updateCond then setCondReg ctxt ir ra else ()
+  !>ir insLen
+
 let fmadd ins insLen ctxt =
   let struct (dst, src1, src2, src3) = transFourOprs ins ctxt
   let ir = !*ctxt
@@ -1614,6 +1622,8 @@ let translate (ins: InsInfo) insLen (ctxt: TranslationContext) =
   | Op.EXTSH -> extsh ins insLen ctxt
   | Op.EXTSHdot -> extshdot ins insLen ctxt
   | Op.EIEIO -> nop insLen ctxt
+  | Op.EQV -> eqvx ins insLen false ctxt
+  | Op.EQVdot -> eqvx ins insLen true ctxt
   | Op.FABS | Op.FADD | Op.FADDS | Op.FCMPU | Op.FCTIWZ | Op.FDIV | Op.FDIVS
   | Op.FMUL | Op.FMULS | Op.FRSP | Op.FSUB | Op.FSUBS ->
     sideEffects insLen ctxt UnsupportedFP
