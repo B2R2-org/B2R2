@@ -1411,6 +1411,7 @@ let stw ins insLen (ctxt: TranslationContext) =
   let ea = transEAWithOffset o2 ctxt
   let src = transOpr ctxt o1
   let ir = !*ctxt
+  !<ir insLen
   !!ir (loadNative ctxt 32<rt> ea := src)
   !>ir insLen
 
