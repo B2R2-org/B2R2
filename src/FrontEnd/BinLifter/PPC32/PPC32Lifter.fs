@@ -1089,7 +1089,7 @@ let mulli ins insLen ctxt =
   let ir = !*ctxt
   let tmp = !+ir 64<rt>
   !<ir insLen
-  !!ir (tmp := (AST.zext 64<rt> ra) .* (AST.zext 64<rt> simm))
+  !!ir (tmp := (AST.sext 64<rt> ra) .* (AST.sext 64<rt> simm))
   !!ir (dst := AST.xtlo 32<rt> tmp)
   !>ir insLen
 
@@ -1098,7 +1098,7 @@ let mullw ins insLen ctxt =
   let ir = !*ctxt
   let tmp = !+ir 64<rt>
   !<ir insLen
-  !!ir (tmp := (AST.zext 64<rt> src1) .* (AST.zext 64<rt> src2))
+  !!ir (tmp := (AST.sext 64<rt> src1) .* (AST.sext 64<rt> src2))
   !!ir (dst := AST.xtlo 32<rt> tmp)
   !>ir insLen
 
@@ -1107,7 +1107,7 @@ let mullwdot ins insLen ctxt =
   let ir = !*ctxt
   let tmp = !+ir 64<rt>
   !<ir insLen
-  !!ir (tmp := (AST.zext 64<rt> src1) .* (AST.zext 64<rt> src2))
+  !!ir (tmp := (AST.sext 64<rt> src1) .* (AST.sext 64<rt> src2))
   !!ir (dst := AST.xtlo 32<rt> tmp)
   setCondReg ctxt ir dst
   !>ir insLen
@@ -1118,7 +1118,7 @@ let mullwo ins insLen ctxt =
   let ir = !*ctxt
   let tmp = !+ir 64<rt>
   !<ir insLen
-  !!ir (tmp := (AST.zext 64<rt> src1) .* (AST.zext 64<rt> src2))
+  !!ir (tmp := (AST.sext 64<rt> src1) .* (AST.sext 64<rt> src2))
   !!ir (xerOV := AST.ite (tmp .< numU64 0xFFFFFFFFUL 64<rt>) AST.b0 AST.b1)
   !!ir (dst := AST.xtlo 32<rt> tmp)
   !>ir insLen
@@ -1129,7 +1129,7 @@ let mullwodot ins insLen ctxt =
   let ir = !*ctxt
   let tmp = !+ir 64<rt>
   !<ir insLen
-  !!ir (tmp := (AST.zext 64<rt> src1) .* (AST.zext 64<rt> src2))
+  !!ir (tmp := (AST.sext 64<rt> src1) .* (AST.sext 64<rt> src2))
   !!ir (xerOV := AST.ite (tmp .< numU64 0xFFFFFFFFUL 64<rt>) AST.b0 AST.b1)
   !!ir (dst := AST.xtlo 32<rt> tmp)
   setCondReg ctxt ir dst
