@@ -223,9 +223,9 @@ let setCondReg ctxt ir result =
   !!ir (cr0EQ := result == AST.num0 32<rt>)
   !!ir (cr0SO := xerSO)
 
-let setCarryOut ctxt ir =
+let setCarryOut ctxt expA expB ir =
   let xerCA = AST.extract (!.ctxt R.XER) 1<rt> 2
-  !!ir (xerCA := AST.b0)
+  !!ir (xerCA := AST.lt expA expB)
 
 let setCRRegValue ir cr ctxt =
   for i in 0 .. 31 do
@@ -258,7 +258,7 @@ let addc ins insLen ctxt =
   let ir = !*ctxt
   !<ir insLen
   !!ir (dst := src1 .+ src2)
-  setCarryOut ctxt ir
+  setCarryOut ctxt dst src1 ir
   !>ir insLen
 
 let addcdot ins insLen ctxt =
@@ -275,7 +275,7 @@ let adde ins insLen ctxt =
   let ir = !*ctxt
   !<ir insLen
   !!ir (dst := src1 .+ src2 .+ xerCA)
-  setCarryOut ctxt ir
+  setCarryOut ctxt dst src1 ir
   !>ir insLen
 
 let addedot ins insLen ctxt =
@@ -285,7 +285,7 @@ let addedot ins insLen ctxt =
   !<ir insLen
   !!ir (dst := src1 .+ src2 .+ xerCA)
   setCondReg ctxt ir dst
-  setCarryOut ctxt ir
+  setCarryOut ctxt dst src1 ir
   !>ir insLen
 
 let addi ins insLen ctxt =
@@ -301,7 +301,7 @@ let addic ins insLen ctxt =
   let ir = !*ctxt
   !<ir insLen
   !!ir (dst := src1 .+ simm)
-  setCarryOut ctxt ir
+  setCarryOut ctxt dst src1 ir
   !>ir insLen
 
 let addicdot ins insLen ctxt =
@@ -310,7 +310,7 @@ let addicdot ins insLen ctxt =
   !<ir insLen
   !!ir (dst := src .+ simm)
   setCondReg ctxt ir dst
-  setCarryOut ctxt ir
+  setCarryOut ctxt dst src ir
   !>ir insLen
 
 let addis ins insLen ctxt =
@@ -328,7 +328,7 @@ let addme ins insLen ctxt =
   let ir = !*ctxt
   !<ir insLen
   !!ir (dst := src .+ xerCA .- AST.num1 32<rt>)
-  setCarryOut ctxt ir
+  setCarryOut ctxt dst src ir
   !>ir insLen
 
 let addmedot ins insLen ctxt =
@@ -338,7 +338,7 @@ let addmedot ins insLen ctxt =
   !<ir insLen
   !!ir (dst := src .+ xerCA .- AST.num1 32<rt>)
   setCondReg ctxt ir dst
-  setCarryOut ctxt ir
+  setCarryOut ctxt dst src ir
   !>ir insLen
 
 let addze ins insLen ctxt =
@@ -347,7 +347,7 @@ let addze ins insLen ctxt =
   let ir = !*ctxt
   !<ir insLen
   !!ir (dst := src .+ xerCA)
-  setCarryOut ctxt ir
+  setCarryOut ctxt dst src ir
   !>ir insLen
 
 let addzedot ins insLen ctxt =
@@ -357,7 +357,7 @@ let addzedot ins insLen ctxt =
   !<ir insLen
   !!ir (dst := src .+ xerCA)
   setCondReg ctxt ir dst
-  setCarryOut ctxt ir
+  setCarryOut ctxt dst src ir
   !>ir insLen
 
 let andx ins insLen ctxt =
@@ -1499,7 +1499,7 @@ let subfc ins insLen ctxt =
   let ir = !*ctxt
   !<ir insLen
   !!ir (dst := (AST.not src1) .+ src2 .+ AST.num1 32<rt>)
-  setCarryOut ctxt ir
+  setCarryOut ctxt dst src2 ir
   !>ir insLen
 
 let subfe ins insLen ctxt =
@@ -1508,7 +1508,7 @@ let subfe ins insLen ctxt =
   let ir = !*ctxt
   !<ir insLen
   !!ir (dst := (AST.not src1) .+ src2 .+ xerCA)
-  setCarryOut ctxt ir
+  setCarryOut ctxt dst src2 ir
   !>ir insLen
 
 let subfic ins insLen ctxt  =
@@ -1516,16 +1516,17 @@ let subfic ins insLen ctxt  =
   let ir = !*ctxt
   !<ir insLen
   !!ir (dst := (AST.not src1) .+ simm .+ AST.num1 32<rt>)
-  setCarryOut ctxt ir
+  setCarryOut ctxt dst simm ir
   !>ir insLen
 
 let subfme ins insLen ctxt =
   let struct (dst, src) = transTwoOprs ins ctxt
   let xerCA = AST.zext 32<rt> (AST.extract (!.ctxt R.XER) 1<rt> 2)
   let ir = !*ctxt
+  let minusone = AST.num (BitVector.OfUInt32 0xffffffffu 32<rt>)
   !<ir insLen
-  !!ir (dst := (AST.not src) .+ xerCA .- AST.num1 32<rt>)
-  setCarryOut ctxt ir
+  !!ir (dst := (AST.not src) .+ xerCA .+ minusone)
+  setCarryOut ctxt dst minusone ir
   !>ir insLen
 
 let subfze ins insLen ctxt =
@@ -1534,7 +1535,7 @@ let subfze ins insLen ctxt =
   let ir = !*ctxt
   !<ir insLen
   !!ir (dst := (AST.not src) .+ xerCA)
-  setCarryOut ctxt ir
+  setCarryOut ctxt dst (AST.num0 32<rt>) ir
   !>ir insLen
 
 let xor ins insLen ctxt =
