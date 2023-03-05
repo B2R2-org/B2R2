@@ -395,7 +395,7 @@ let bextr ins insLen ctxt =
   !!ir (mask := AST.not(mask) << len)
   !!ir (tmp := AST.zext oprSize src1)
   !!ir (tmp := (tmp >> start) .& AST.not(mask))
-  !!ir (dst := tmp)
+  !!ir (dstAssign oprSize dst tmp)
   !!ir (zF := (dst == AST.num0 oprSize))
 #if !EMULATION
   !!ir (!.ctxt R.AF := undefAF)
