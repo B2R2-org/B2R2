@@ -289,14 +289,7 @@ let subps ins insLen ctxt =
   buildPackedInstr ins insLen ctxt 32<rt> (opP AST.fsub)
 
 let subpd ins insLen ctxt =
-  let ir = !*ctxt
-  !<ir insLen
-  let struct (dst, src) = getTwoOprs ins
-  let dst1, dst2 = transOprToExpr128 ir false ins insLen ctxt dst
-  let src1, src2 = transOprToExpr128 ir false ins insLen ctxt src
-  !!ir (dst1 := dst1 .- src1)
-  !!ir (dst2 := dst2 .- src2)
-  !>ir insLen
+  buildPackedInstr ins insLen ctxt 64<rt> (opP AST.fsub)
 
 let subss ins insLen ctxt =
   handleScalarFPOp ins insLen ctxt 32<rt> AST.fsub
@@ -1776,7 +1769,6 @@ let roundsd ins insLen ctxt =
   let cster castKind = AST.cast castKind 64<rt> src
   let imm2 = (AST.xtlo 8<rt> imm) .& (numI32 0b11 8<rt>)
   !!ir (tmp := AST.ite (AST.extract imm 1<rt> 2) rc imm2)
-  !!ir (dst := AST.num0 64<rt>)
   !!ir (dst := AST.ite (tmp == AST.num0 8<rt>) (cster CastKind.FtoFRound) dst)
   !!ir (dst := AST.ite (tmp == AST.num1 8<rt>) (cster CastKind.FtoFFloor) dst)
   !!ir (dst := AST.ite (tmp == numI32 2 8<rt>) (cster CastKind.FtoFCeil) dst)
