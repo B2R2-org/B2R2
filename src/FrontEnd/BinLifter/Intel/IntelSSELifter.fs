@@ -1777,10 +1777,10 @@ let roundsd ins insLen ctxt =
   let imm2 = (AST.xtlo 8<rt> imm) .& (numI32 0b11 8<rt>)
   !!ir (tmp := AST.ite (AST.extract imm 1<rt> 2) rc imm2)
   !!ir (dst := AST.num0 64<rt>)
-  !!ir (dst := AST.ite (tmp == AST.num0 8<rt>) (cster CastKind.FtoIRound) dst)
-  !!ir (dst := AST.ite (tmp == AST.num1 8<rt>) (cster CastKind.FtoIFloor) dst)
-  !!ir (dst := AST.ite (tmp == numI32 2 8<rt>) (cster CastKind.FtoICeil) dst)
-  !!ir (dst := AST.ite (tmp == numI32 3 8<rt>) (cster CastKind.FtoITrunc) dst)
+  !!ir (dst := AST.ite (tmp == AST.num0 8<rt>) (cster CastKind.FtoFRound) dst)
+  !!ir (dst := AST.ite (tmp == AST.num1 8<rt>) (cster CastKind.FtoFFloor) dst)
+  !!ir (dst := AST.ite (tmp == numI32 2 8<rt>) (cster CastKind.FtoFCeil) dst)
+  !!ir (dst := AST.ite (tmp == numI32 3 8<rt>) (cster CastKind.FtoFTrunc) dst)
   !>ir insLen
 
 let pinsrb ins insLen ctxt =
