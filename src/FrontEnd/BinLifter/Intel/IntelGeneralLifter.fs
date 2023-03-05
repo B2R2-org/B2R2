@@ -2387,7 +2387,8 @@ let tzcnt ins insLen ctxt =
     !!ir (t1 := AST.ite (t2 != z) t2 t1)
     !!ir (res := AST.ite (t2 != z) (res .+  numI32 4 64<rt>) res)
   | _ -> raise InvalidOperandSizeException
-  !!ir (dst := res .+ ((t1 >> numI32 1 oprSize) .- (t1 >> numI32 3 oprSize)))
+  let v = (res .+ ((t1 >> numI32 1 oprSize) .- (t1 >> numI32 3 oprSize)))
+  !!ir (dstAssign oprSize dst v)
   !!ir (AST.lmark lblEnd)
   !!ir (!.ctxt R.CF := dst == max)
   !!ir (!.ctxt R.ZF := dst == z)
