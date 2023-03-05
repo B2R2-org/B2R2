@@ -397,8 +397,8 @@ let packedHorizon ins insLen ctxt packSz opFn =
     let dstB, dstA = transOprToExpr128 ir false ins insLen ctxt dst
     let srcB, srcA = transOprToExpr128 ir false ins insLen ctxt src
     let src1, src2 = makeHorizonSrc ir packSz dstA dstB
-    !!ir (dstA := opFn oprSize src1 src2 |> AST.concatArr)
     let src3, src4 = makeHorizonSrc ir packSz srcA srcB
+    !!ir (dstA := opFn oprSize src1 src2 |> AST.concatArr)
     !!ir (dstB := opFn oprSize src3 src4 |> AST.concatArr)
   | _ -> raise InvalidOperandSizeException
   !>ir insLen
