@@ -289,14 +289,7 @@ let subps ins insLen ctxt =
   buildPackedInstr ins insLen ctxt 32<rt> (opP AST.fsub)
 
 let subpd ins insLen ctxt =
-  let ir = !*ctxt
-  !<ir insLen
-  let struct (dst, src) = getTwoOprs ins
-  let dst1, dst2 = transOprToExpr128 ir false ins insLen ctxt dst
-  let src1, src2 = transOprToExpr128 ir false ins insLen ctxt src
-  !!ir (dst1 := dst1 .- src1)
-  !!ir (dst2 := dst2 .- src2)
-  !>ir insLen
+  buildPackedInstr ins insLen ctxt 64<rt> (opP AST.fsub)
 
 let subss ins insLen ctxt =
   handleScalarFPOp ins insLen ctxt 32<rt> AST.fsub
