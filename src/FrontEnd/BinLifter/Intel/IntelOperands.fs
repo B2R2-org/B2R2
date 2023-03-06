@@ -402,7 +402,7 @@ module internal OperandParsingHelper =
     match rhlp.VEXInfo with
     | None -> raise ParsingFailureException
     | Some vInfo ->
-      let grp = (int vInfo.VVVV) &&& 0b111
+      let grp = (int vInfo.VVVV) &&& 0b1111
       int (grpEAX rhlp.RegSize) + grp
       |> LanguagePrimitives.EnumOfValue<int, Register>
       |> OprReg
