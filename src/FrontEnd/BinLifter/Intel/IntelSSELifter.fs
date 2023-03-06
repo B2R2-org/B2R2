@@ -1408,11 +1408,78 @@ let pmulld ins insLen ctxt =
   buildPackedInstr ins insLen ctxt 32<rt> opPmulld
 
 let private opPsadbw _ =
-  let abs expr = AST.ite (AST.lt expr (AST.num0 8<rt>)) (AST.neg expr) (expr)
-  Array.map2 (fun e1 e2 -> abs (e1 .- e2))
+  let abs e1 e2 = AST.ite (AST.lt e1 e2) (e2 .- e1) (e1 .- e2)
+  Array.map2 abs
+
+let rec private sumLoop (arr: Expr []) sPos ePos =
+  let diff = ePos - sPos
+  if diff > 0 then
+    AST.binop BinOpType.ADD
+      (sumLoop arr (sPos + diff / 2 + 1) ePos)
+      (sumLoop arr sPos (sPos + diff / 2))
+  elif diff = 0 then
+    arr[sPos]
+  else
+    Utils.impossible ()
+
+let sumArr (arr: Expr[]) =
+  sumLoop arr 0 (Array.length arr - 1)
 
 let psadbw ins insLen ctxt =
-  buildPackedInstr ins insLen ctxt 8<rt> opPsadbw
+  let ir = !*ctxt
+  let packSz = 8<rt>
+  let opFn = opPsadbw
+  let struct (dst, src) = getTwoOprs ins
+  !<ir insLen
+  let oprSize = getOperationSize ins
+  let packNum = oprSize / packSz
+  let makeSrc = makeSrc ir packSz
+  match oprSize with
+  | 64<rt> ->
+    let dst = transOprToExpr ir false ins insLen ctxt dst
+    let src = transOprToExpr ir false ins insLen ctxt src
+    let src1 = makeSrc packNum dst
+    let src2 = match src.E with
+               | Load (_, rt, _, _) -> makeSrc (rt / packSz) src
+               | _ -> makeSrc packNum src
+    let sum =
+      opFn oprSize src1 src2
+      |> Array.map (fun e -> AST.zext 16<rt> e)
+      |> sumArr
+      |> AST.zext 64<rt>
+    !!ir (dst := AST.zext oprSize sum)
+  | 128<rt> ->
+    let packNum = packNum / (oprSize / 64<rt>)
+    let tSrc =
+      let tsrcFromDst =
+        transOprToExprVec ir false ins insLen ctxt dst
+        |> List.map (makeSrc packNum)
+        |> List.fold Array.append [||]
+      let tsrcFromSrc =
+        let exprVec = transOprToExprVec ir false ins insLen ctxt src
+        let src =
+          if exprVec.Length = 2 then
+            let struct (t1, t2) = tmpVars2 ir 64<rt>
+            !!ir (t1 := exprVec[0])
+            !!ir (t2 := exprVec[1])
+            [t1; t2]
+          else exprVec
+        src
+        |> List.map (makeSrc packNum)
+        |> List.fold Array.append [||]
+      opFn oprSize tsrcFromDst tsrcFromSrc
+    let dst = transOprToExprVec ir false ins insLen ctxt dst
+    let packNum = Array.length tSrc / List.length dst
+    let assign idx dst =
+      let sum =
+        Array.sub tSrc (packNum * idx) packNum
+        |> Array.map (fun e -> AST.zext 16<rt> e)
+        |> sumArr
+        |> AST.zext 64<rt>
+      !!ir (dst := sum)
+    List.iteri assign dst
+  | _ -> raise InvalidOperandSizeException
+  !>ir insLen
 
 let pshufw ins insLen ctxt =
   let ir = !*ctxt
