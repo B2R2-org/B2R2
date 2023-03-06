@@ -2350,7 +2350,7 @@ let tzcnt ins insLen ctxt =
   !!ir (t1 := src)
   !!ir (AST.cjmp (t1 == z) (AST.name lblZero) (AST.name lblCnt))
   !!ir (AST.lmark lblZero)
-  !!ir (dst := max)
+  !!ir (dstAssign oprSize dst max)
   !!ir (AST.jmp (AST.name lblEnd))
   !!ir (AST.lmark lblCnt)
   !!ir (res := z)
