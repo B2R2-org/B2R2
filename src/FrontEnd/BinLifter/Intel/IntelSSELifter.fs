@@ -40,13 +40,11 @@ let getExponent isDouble src =
   if isDouble then
     let numMantissa =  numI32 52 64<rt>
     let mask = numI32 0x7FF 64<rt>
-    let bias = numI32 1023 32<rt>
-    (AST.xtlo 32<rt> ((src >> numMantissa) .& mask)) .- bias
+    AST.xtlo 32<rt> ((src >> numMantissa) .& mask)
   else
     let numMantissa = numI32 23 32<rt>
     let mask = numI32 0xff 32<rt>
-    let bias = numI32 127 32<rt>
-    ((src >> numMantissa) .& mask) .- bias
+    (src >> numMantissa) .& mask
 
 let getMantissa isDouble src =
   let mask =
