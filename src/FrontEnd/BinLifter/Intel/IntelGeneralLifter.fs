@@ -938,7 +938,10 @@ let private mul64Bit src1 src2 ir =
   let pLow = (loSrc1 .* loSrc2)
   let high = pHigh .+ ((pMid .+ (pLow  >> n32)) >> n32)
   let low = pLow .+ ((pMid .& mask) << n32)
-  !!ir (tHigh := high)
+  let isOverflow =
+    hiSrc1 .* loSrc2 .> numI64 0xffffffff_ffffffffL 64<rt> .- loSrc1 .* hiSrc2
+  !!ir (tHigh :=
+    high .+ AST.ite isOverflow (numI64 0x100000000L 64<rt>) (AST.num0 64<rt>))
   !!ir (tLow := low)
   struct (tHigh, tLow)
 
@@ -1203,7 +1206,10 @@ let private imul64Bit src1 src2 ir =
   let pHigh = hiSrc1 .* hiSrc2
   let pMid = (hiSrc1 .* loSrc2) .+ (loSrc1 .* hiSrc2)
   let pLow = (loSrc1 .* loSrc2)
-  let high = pHigh .+ ((pMid .+ (pLow  >> n32)) >> n32)
+  let isOverflow =
+    hiSrc1 .* loSrc2 .> numI64 0xffffffff_ffffffffL 64<rt> .- loSrc1 .* hiSrc2
+  let c = AST.ite isOverflow (numI64 0x100000000L 64<rt>) (AST.num0 64<rt>)
+  let high = pHigh .+ ((pMid .+ (pLow  >> n32)) >> n32) .+ c
   let low = pLow .+ ((pMid .& mask) << n32)
   !!ir (isSign := src1IsNeg <+> src2IsNeg)
   !!ir (tHigh := AST.ite isSign (AST.not high) high)
@@ -1672,7 +1678,10 @@ let mul ins insLen ctxt =
     let pLow = (loRAX .* loSrc)
     let high = pHigh .+ ((pMid .+ (pLow  >> n32)) >> n32)
     let low = pLow .+ ((pMid .& mask) << n32)
-    !!ir (tHigh := high)
+    let isOverflow =
+      hiRAX .* loSrc .> numI64 0xffffffff_ffffffffL 64<rt> .- loRAX .* hiSrc
+    !!ir (tHigh :=
+      high .+ AST.ite isOverflow (numI64 0x100000000L 64<rt>) (AST.num0 64<rt>))
     !!ir (tLow := low)
     !!ir (dstAssign oprSize rdx tHigh)
     !!ir (dstAssign oprSize rax tLow)
