@@ -1220,8 +1220,8 @@ let pinsrw ins insLen ctxt =
     | Register.Kind.XMM ->
       let dst1, dst2 = transOprToExpr128 ir false ins insLen ctxt dst
       let mask = !+ir 64<rt>
-      let count = getImmValue count
-      !!ir (sel := numI64 (count &&& 0b111) 64<rt>)
+      let count = getImmValue count &&& 0b111
+      !!ir (sel := numI64 count 64<rt>)
       if count > 3L then
         let pos = (sel .- numI32 4 64<rt>) .* numI32 16 64<rt>
         !!ir (mask := (numU64 0xffffUL 64<rt>) << pos)
