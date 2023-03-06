@@ -95,7 +95,7 @@ let buildMove ins insLen ctxt =
     !!ir (dst := src)
   | 128<rt> | 256<rt> | 512<rt> ->
     let struct (dst, src) = getTwoOprs ins
-    let src = transOprToArr ir ins insLen ctxt 64<rt> packNum oprSize src
+    let src = transOprToArr ir false ins insLen ctxt 64<rt> packNum oprSize src
     assignPackedInstr ir false ins insLen ctxt packNum oprSize dst src
   | _ -> raise InvalidOperandSizeException
   !>ir insLen
@@ -354,7 +354,7 @@ let sqrtps ins insLen ctxt =
   let packNum = 64<rt> / 32<rt>
   !<ir insLen
   let struct (dst, src) = getTwoOprs ins
-  let src = transOprToArr ir ins insLen ctxt 32<rt> packNum oprSize src
+  let src = transOprToArr ir false ins insLen ctxt 32<rt> packNum oprSize src
   let result = Array.map (AST.unop UnOpType.FSQRT) src
   assignPackedInstr ir false ins insLen ctxt packNum oprSize dst result
   !>ir insLen
@@ -1421,15 +1421,15 @@ let psadbw ins insLen ctxt =
   let ir = !*ctxt
   !<ir insLen
   let oprSize = getOperationSize ins
-  let srcPackSz = 8<rt>
-  let srcPackNum = 64<rt> / srcPackSz
-  let dstPackSz = 16<rt>
-  let dstPackNum = 64<rt> / dstPackSz
+  let sPackSz = 8<rt> (* SRC Pack size *)
+  let sPackNum = 64<rt> / sPackSz
+  let dPackSz = 16<rt> (* DST Pack size *)
+  let dPackNum = 64<rt> / dPackSz
   let struct (dst, src) = getTwoOprs ins
-  let src1 = transOprToArr ir ins insLen ctxt srcPackSz srcPackNum oprSize dst
-  let src2 = transOprToArr ir ins insLen ctxt srcPackSz srcPackNum oprSize src
+  let src1 = transOprToArr ir true ins insLen ctxt sPackSz sPackNum oprSize dst
+  let src2 = transOprToArr ir true ins insLen ctxt sPackSz sPackNum oprSize src
   let result = opPsadbw oprSize src1 src2
-  assignPackedInstr ir false ins insLen ctxt dstPackNum oprSize dst result
+  assignPackedInstr ir false ins insLen ctxt dPackNum oprSize dst result
   !>ir insLen
 
 let pshufw ins insLen ctxt =
@@ -1521,7 +1521,7 @@ let pshufb ins insLen ctxt =
   let packNum = 64<rt> / packSize
   let allPackNum = oprSize / packSize
   let struct (dst, src) = getTwoOprs ins
-  let src = transOprToArr ir ins insLen ctxt packSize packNum oprSize src
+  let src = transOprToArr ir false ins insLen ctxt packSize packNum oprSize src
   let struct (mask, n0) = tmpVars2 ir packSize
   !!ir (mask := numI32 (int allPackNum - 1) packSize)
   !!ir (n0 := AST.num0 packSize)
@@ -1710,8 +1710,8 @@ let packusdw ins insLen ctxt =
   let oprSize = getOperationSize ins
   let packNum = 64<rt> / 32<rt>
   let struct (dst, src) = getTwoOprs ins
-  let src1 = transOprToArr ir ins insLen ctxt 32<rt> packNum oprSize dst
-  let src2 = transOprToArr ir ins insLen ctxt 32<rt> packNum oprSize src
+  let src1 = transOprToArr ir true ins insLen ctxt 32<rt> packNum oprSize dst
+  let src2 = transOprToArr ir true ins insLen ctxt 32<rt> packNum oprSize src
   let src = Array.append src1 src2
   let result = Array.map (packWithSaturation ir 32<rt>) src
   assignPackedInstr ir false ins insLen ctxt (packNum * 2) oprSize dst result
@@ -1811,8 +1811,8 @@ let psign ins insLen ctxt packSz =
   let oprSize = getOperationSize ins
   let packNum = 64<rt> / packSz
   let struct (dst, src) = getTwoOprs ins
-  let srcDst = transOprToArr ir ins insLen ctxt packSz packNum oprSize dst
-  let src = transOprToArr ir ins insLen ctxt packSz packNum oprSize src
+  let srcDst = transOprToArr ir true ins insLen ctxt packSz packNum oprSize dst
+  let src = transOprToArr ir true ins insLen ctxt packSz packNum oprSize src
   let result = Array.map2 (packedSign ir packSz) src srcDst
   assignPackedInstr ir false ins insLen ctxt packNum oprSize dst result
   !>ir insLen
@@ -1866,8 +1866,8 @@ let blendps ins insLen ctxt =
   let oprSize = getOperationSize ins
   let packNum = 64<rt> / 32<rt>
   let struct (dst, src, imm) = getThreeOprs ins
-  let src1 = transOprToArr ir ins insLen ctxt 32<rt> packNum oprSize dst
-  let src2 = transOprToArr ir ins insLen ctxt 32<rt> packNum oprSize src
+  let src1 = transOprToArr ir true ins insLen ctxt 32<rt> packNum oprSize dst
+  let src2 = transOprToArr ir true ins insLen ctxt 32<rt> packNum oprSize src
   let imm = transOprToExpr ir false ins insLen ctxt imm
   let result = packedBlend src2 src1 imm
   assignPackedInstr ir false ins insLen ctxt packNum oprSize dst result
@@ -1892,9 +1892,9 @@ let blendvps ins insLen ctxt =
   let oprSize = getOperationSize ins
   let packNum = 64<rt> / 32<rt>
   let struct (dst, src, xmm0) = getThreeOprs ins
-  let src1 = transOprToArr ir ins insLen ctxt 32<rt> packNum oprSize dst
-  let src2 = transOprToArr ir ins insLen ctxt 32<rt> packNum oprSize src
-  let xmm0 = transOprToArr ir ins insLen ctxt 32<rt> packNum oprSize xmm0
+  let src1 = transOprToArr ir true ins insLen ctxt 32<rt> packNum oprSize dst
+  let src2 = transOprToArr ir true ins insLen ctxt 32<rt> packNum oprSize src
+  let xmm0 = transOprToArr ir false ins insLen ctxt 32<rt> packNum oprSize xmm0
   let result = packedVblend src2 src1 xmm0
   assignPackedInstr ir false ins insLen ctxt packNum oprSize dst result
   !>ir insLen
@@ -1905,9 +1905,9 @@ let pblendvb ins insLen ctxt =
   let oprSize = getOperationSize ins
   let packNum = 64<rt> / 8<rt>
   let struct (dst, src, xmm0) = getThreeOprs ins
-  let src1 = transOprToArr ir ins insLen ctxt 8<rt> packNum oprSize dst
-  let src2 = transOprToArr ir ins insLen ctxt 8<rt> packNum oprSize src
-  let xmm0 = transOprToArr ir ins insLen ctxt 8<rt> packNum oprSize xmm0
+  let src1 = transOprToArr ir true ins insLen ctxt 8<rt> packNum oprSize dst
+  let src2 = transOprToArr ir true ins insLen ctxt 8<rt> packNum oprSize src
+  let xmm0 = transOprToArr ir false ins insLen ctxt 8<rt> packNum oprSize xmm0
   let result = packedVblend src2 src1 xmm0
   assignPackedInstr ir false ins insLen ctxt packNum oprSize dst result
   !>ir insLen
@@ -1918,8 +1918,8 @@ let pblendw ins insLen ctxt =
   let oprSize = getOperationSize ins
   let packNum = 64<rt> / 16<rt>
   let struct (dst, src, imm) = getThreeOprs ins
-  let src1 = transOprToArr ir ins insLen ctxt 16<rt> packNum oprSize dst
-  let src2 = transOprToArr ir ins insLen ctxt 16<rt> packNum oprSize src
+  let src1 = transOprToArr ir true ins insLen ctxt 16<rt> packNum oprSize dst
+  let src2 = transOprToArr ir true ins insLen ctxt 16<rt> packNum oprSize src
   let imm = transOprToExpr ir false ins insLen ctxt imm
   let result = packedBlend src2 src1 imm
   assignPackedInstr ir false ins insLen ctxt packNum oprSize dst result

@@ -1705,12 +1705,13 @@ let mulx ins insLen ctxt =
   match oprSize with
   | 32<rt> ->
     let struct (dst1, dst2, src) = transThreeOprs ir false ins insLen ctxt
-    let src1 = !+ir 32<rt>
-    let t = !+ir 64<rt>
-    !!ir (src1 := getRegOfSize ctxt oprSize grpEDX)
-    !!ir (t := AST.zext 64<rt> (src1 .* src))
-    !!ir (dst2 := AST.xtlo 32<rt> t)
-    !!ir (dst1 := AST.xthi 32<rt> t)
+    let dblWidth = RegType.double oprSize
+    let src1 = AST.zext dblWidth (getRegOfSize ctxt oprSize grpEDX)
+    let src2 = AST.zext dblWidth src
+    let t = !+ir dblWidth
+    !!ir (t := src1 .* src2)
+    !!ir (dstAssign oprSize dst2 (AST.xtlo 32<rt> t))
+    !!ir (dstAssign oprSize dst1 (AST.xthi 32<rt> t))
   | 64<rt> ->
     let struct (dst1, dst2, src) = transThreeOprs ir false ins insLen ctxt
     let src1 = getRegOfSize ctxt oprSize grpEDX
@@ -2309,12 +2310,9 @@ let private shiftWithoutFlags ins insLen ctxt opFn =
   !<ir insLen
   let struct (dst, src1, src2) = transThreeOprs ir false ins insLen ctxt
   let oprSize = getOperationSize ins
-  let temp = !+ir oprSize
   let countMask = if is64REXW ctxt ins then 0x3F else 0x1F // FIXME: CS.L = 1
   let count = src2 .& (numI32 countMask oprSize)
-  !!ir (temp := src1)
-  !!ir (AST.xthi 1<rt> dst := AST.xthi 1<rt> temp)
-  !!ir (dst := opFn dst count)
+  !!ir (dstAssign oprSize dst (opFn src1 count))
   !>ir insLen
 
 let sarx ins insLen ctxt = shiftWithoutFlags ins insLen ctxt (?>>)

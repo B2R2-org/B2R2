@@ -84,8 +84,8 @@ let private buildPackedFPInstr ins insLen ctxt packSz opFn =
   let packNum = 64<rt> / packSz
   !<ir insLen
   let struct (dst, src1, src2) = getThreeOprs ins
-  let src1 = transOprToArr ir ins insLen ctxt packSz packNum oprSize src1
-  let src2 = transOprToArr ir ins insLen ctxt packSz packNum oprSize src2
+  let src1 = transOprToArr ir false ins insLen ctxt packSz packNum oprSize src1
+  let src2 = transOprToArr ir false ins insLen ctxt packSz packNum oprSize src2
   let src = Array.map2 opFn src1 src2
   assignPackedInstr ir false ins insLen ctxt packNum oprSize dst src
   fillZeroFromVLToMaxVL ctxt dst oprSize 512 ir
@@ -116,7 +116,7 @@ let vsqrtps ins insLen ctxt =
   let packNum = 64<rt> / 32<rt>
   !<ir insLen
   let struct (dst, src) = getTwoOprs ins
-  let src = transOprToArr ir ins insLen ctxt 32<rt> packNum oprSize src
+  let src = transOprToArr ir false ins insLen ctxt 32<rt> packNum oprSize src
   let result = Array.map (AST.unop UnOpType.FSQRT) src
   assignPackedInstr ir false ins insLen ctxt packNum oprSize dst result
   fillZeroFromVLToMaxVL ctxt dst oprSize 512 ir
@@ -351,13 +351,13 @@ let private buildVectorMove ins insLen ctxt packSz =
   let packSz, packNum =
     if isAVX512 then packSz, 64<rt> / packSz else 64<rt>, 64<rt> / 64<rt>
   let struct (dst, src) = getTwoOprs ins
-  let src = transOprToArr ir ins insLen ctxt packSz packNum oprSz src
+  let src = transOprToArr ir false ins insLen ctxt packSz packNum oprSz src
   let result =
     if isAVX512 then
-      let tDst = transOprToArr ir ins insLen ctxt packSz packNum oprSz dst
+      let eDst = transOprToArr ir false ins insLen ctxt packSz packNum oprSz dst
       let ePrx = getEVEXPrx ins.VEXInfo
       let k = !.ctxt (ePrx.AAA |> Disasm.getOpmaskRegister)
-      makeAssignWithMask ir ePrx k oprSz packSz tDst src (isMemOpr dst)
+      makeAssignWithMask ir ePrx k oprSz packSz eDst src (isMemOpr dst)
     else src
   assignPackedInstr ir false ins insLen ctxt packNum oprSz dst result
   fillZeroFromVLToMaxVL ctxt dst oprSz 512 ir
@@ -374,10 +374,10 @@ let private buildVectorMoveAVX512 ins insLen ctxt packSz =
   let struct (dst, src) = getTwoOprs ins
   let ePrx = getEVEXPrx ins.VEXInfo
   let k = !.ctxt (ePrx.AAA |> Disasm.getOpmaskRegister)
-  let tDst = transOprToArr ir ins insLen ctxt packSz packNum oprSize dst
-  let src = transOprToArr ir ins insLen ctxt packSz packNum oprSize src
+  let eDst = transOprToArr ir false ins insLen ctxt packSz packNum oprSize dst
+  let src = transOprToArr ir false ins insLen ctxt packSz packNum oprSize src
   let result =
-    makeAssignWithMask ir ePrx k oprSize packSz tDst src (isMemOpr dst)
+    makeAssignWithMask ir ePrx k oprSize packSz eDst src (isMemOpr dst)
   assignPackedInstr ir false ins insLen ctxt packNum oprSize dst result
   fillZeroFromVLToMaxVL ctxt dst oprSize 512 ir
   !>ir insLen
@@ -673,8 +673,8 @@ let vshufi32x4 ins insLen ctxt =
     match src2 with
     | OprMem _ -> true
     | _ -> false
-  let src1 = transOprToArr ir ins insLen ctxt packSz packNum oprSize src1
-  let src2 = transOprToArr ir ins insLen ctxt packSz packNum oprSize src2
+  let src1 = transOprToArr ir false ins insLen ctxt packSz packNum oprSize src1
+  let src2 = transOprToArr ir false ins insLen ctxt packSz packNum oprSize src2
   let imm8 = getImmValue imm
   let ePrx = getEVEXPrx ins.VEXInfo
   let k = !.ctxt (ePrx.AAA |> Disasm.getOpmaskRegister)
@@ -687,7 +687,8 @@ let vshufi32x4 ins insLen ctxt =
   match oprSize with
   | 256<rt> ->
     let halfPNum = oprSize / packSz / 2
-    let orgDst = transOprToArr ir ins insLen ctxt packSz packNum oprSize dst
+    let orgDst =
+      transOprToArr ir false ins insLen ctxt packSz packNum oprSize dst
     let tDstA = Array.init halfPNum (fun _ -> !+ir packSz)
     let tDstB = Array.init halfPNum (fun _ -> !+ir packSz)
     let imm0 (* imm8[0] *) = imm8 &&& 0b1L |> int
@@ -699,7 +700,8 @@ let vshufi32x4 ins insLen ctxt =
     assignPackedInstr ir false ins insLen ctxt packNum oprSize dst result
   | 512<rt> ->
     let pNum = oprSize / packSz / 4
-    let orgDst = transOprToArr ir ins insLen ctxt packSz packNum oprSize dst
+    let orgDst =
+      transOprToArr ir false ins insLen ctxt packSz packNum oprSize dst
     let tDstA = Array.init pNum (fun _ -> !+ir packSz)
     let tDstB = Array.init pNum (fun _ -> !+ir packSz)
     let tDstC = Array.init pNum (fun _ -> !+ir packSz)
@@ -897,15 +899,15 @@ let vxorps ins insLen ctxt =
   let packSz = 32<rt>
   let packNum = 64<rt> / packSz
   let struct (dst, src1, src2) = getThreeOprs ins
-  let tDst = transOprToArr ir ins insLen ctxt packSz packNum oprSz dst
-  let tSrc1 = transOprToArr ir ins insLen ctxt packSz packNum oprSz src1
-  let tSrc2 = transOprToArr ir ins insLen ctxt packSz packNum oprSz src2
+  let eDst = transOprToArr ir false ins insLen ctxt packSz packNum oprSz dst
+  let tSrc1 = transOprToArr ir false ins insLen ctxt packSz packNum oprSz src1
+  let tSrc2 = transOprToArr ir false ins insLen ctxt packSz packNum oprSz src2
   let result =
     if haveEVEXPrx ins.VEXInfo then
       let isSrc2Mem = isMemOpr src2
       let ePrx = getEVEXPrx ins.VEXInfo
       let k = !.ctxt (ePrx.AAA |> Disasm.getOpmaskRegister)
-      makeAssignEVEX ir ePrx k oprSz packSz tDst tSrc1 tSrc2 (<+>) isSrc2Mem
+      makeAssignEVEX ir ePrx k oprSz packSz eDst tSrc1 tSrc2 (<+>) isSrc2Mem
     else Array.map2 (<+>) tSrc1 tSrc2
   assignPackedInstr ir false ins insLen ctxt packNum oprSz dst result
   fillZeroFromVLToMaxVL ctxt dst oprSz 512 ir
@@ -966,12 +968,13 @@ let vextracti32x8 ins insLen ctxt =
   let struct (dst, src, imm) = getThreeOprs ins
   let ePrx = getEVEXPrx ins.VEXInfo
   let k = !.ctxt (ePrx.AAA |> Disasm.getOpmaskRegister)
-  let tDst = transOprToArr ir ins insLen ctxt packSz packNum oprSize dst
-  let src = transOprToArr ir ins insLen ctxt packSz packNum (oprSize * 2) src
+  let eDst = transOprToArr ir false ins insLen ctxt packSz packNum oprSize dst
+  let src =
+    transOprToArr ir false ins insLen ctxt packSz packNum (oprSize * 2) src
   let imm0 = getImmValue imm &&& 0b1L |> int (* imm8[0] *)
   let tmpDst = Array.sub src (allPackNum * imm0) allPackNum
   let result =
-    makeAssignWithMask ir ePrx k oprSize packSz tDst tmpDst (isMemOpr dst)
+    makeAssignWithMask ir ePrx k oprSize packSz eDst tmpDst (isMemOpr dst)
   assignPackedInstr ir false ins insLen ctxt packNum oprSize dst result
   fillZeroFromVLToMaxVL ctxt dst oprSize 512 ir
   !>ir insLen
@@ -1059,15 +1062,15 @@ let vpaddd ins insLen ctxt =
   let packSz = 32<rt>
   let packNum = 64<rt> / packSz
   let struct (dst, src1, src2) = getThreeOprs ins
-  let tDst = transOprToArr ir ins insLen ctxt packSz packNum oprSz dst
-  let tSrc1 = transOprToArr ir ins insLen ctxt packSz packNum oprSz src1
-  let tSrc2 = transOprToArr ir ins insLen ctxt packSz packNum oprSz src2
+  let eDst = transOprToArr ir false ins insLen ctxt packSz packNum oprSz dst
+  let tSrc1 = transOprToArr ir false ins insLen ctxt packSz packNum oprSz src1
+  let tSrc2 = transOprToArr ir false ins insLen ctxt packSz packNum oprSz src2
   let result =
     if haveEVEXPrx ins.VEXInfo then
       let isSrc2Mem = isMemOpr src2
       let ePrx = getEVEXPrx ins.VEXInfo
       let k = !.ctxt (ePrx.AAA |> Disasm.getOpmaskRegister)
-      makeAssignEVEX ir ePrx k oprSz packSz tDst tSrc1 tSrc2 (.+) isSrc2Mem
+      makeAssignEVEX ir ePrx k oprSz packSz eDst tSrc1 tSrc2 (.+) isSrc2Mem
     else Array.map2 (.+) tSrc1 tSrc2
   assignPackedInstr ir false ins insLen ctxt packNum oprSz dst result
   fillZeroFromVLToMaxVL ctxt dst oprSz 512 ir
@@ -1158,9 +1161,9 @@ let vblendvpd ins insLen ctxt =
   let oprSize = getOperationSize ins
   let packNum = 64<rt> / 64<rt>
   let struct (dst, src1, src2, src3) = getFourOprs ins
-  let src1 = transOprToArr ir ins insLen ctxt 64<rt> packNum oprSize src1
-  let src2 = transOprToArr ir ins insLen ctxt 64<rt> packNum oprSize src2
-  let src3 = transOprToArr ir ins insLen ctxt 64<rt> packNum oprSize src3
+  let src1 = transOprToArr ir false ins insLen ctxt 64<rt> packNum oprSize src1
+  let src2 = transOprToArr ir false ins insLen ctxt 64<rt> packNum oprSize src2
+  let src3 = transOprToArr ir false ins insLen ctxt 64<rt> packNum oprSize src3
   let result = packedVblend src2 src1 src3
   assignPackedInstr ir false ins insLen ctxt packNum oprSize dst result
   !>ir insLen
@@ -1171,9 +1174,9 @@ let vblendvps ins insLen ctxt =
   let oprSize = getOperationSize ins
   let packNum = 64<rt> / 32<rt>
   let struct (dst, src1, src2, src3) = getFourOprs ins
-  let src1 = transOprToArr ir ins insLen ctxt 32<rt> packNum oprSize src1
-  let src2 = transOprToArr ir ins insLen ctxt 32<rt> packNum oprSize src2
-  let src3 = transOprToArr ir ins insLen ctxt 32<rt> packNum oprSize src3
+  let src1 = transOprToArr ir false ins insLen ctxt 32<rt> packNum oprSize src1
+  let src2 = transOprToArr ir false ins insLen ctxt 32<rt> packNum oprSize src2
+  let src3 = transOprToArr ir false ins insLen ctxt 32<rt> packNum oprSize src3
   let result = packedVblend src2 src1 src3
   assignPackedInstr ir false ins insLen ctxt packNum oprSize dst result
   !>ir insLen
@@ -1184,8 +1187,8 @@ let vpblendd ins insLen ctxt =
   let oprSize = getOperationSize ins
   let packNum = 64<rt> / 32<rt>
   let struct (dst, src1, src2, imm) = getFourOprs ins
-  let src1 = transOprToArr ir ins insLen ctxt 32<rt> packNum oprSize src1
-  let src2 = transOprToArr ir ins insLen ctxt 32<rt> packNum oprSize src2
+  let src1 = transOprToArr ir false ins insLen ctxt 32<rt> packNum oprSize src1
+  let src2 = transOprToArr ir false ins insLen ctxt 32<rt> packNum oprSize src2
   let imm = transOprToExpr ir false ins insLen ctxt imm
   let result = packedBlend src2 src1 imm
   assignPackedInstr ir false ins insLen ctxt packNum oprSize dst result
@@ -1197,8 +1200,8 @@ let vpblendw ins insLen ctxt =
   let oprSize = getOperationSize ins
   let packNum = 64<rt> / 16<rt>
   let struct (dst, src1, src2, imm) = getFourOprs ins
-  let src1 = transOprToArr ir ins insLen ctxt 16<rt> packNum oprSize src1
-  let src2 = transOprToArr ir ins insLen ctxt 16<rt> packNum oprSize src2
+  let src1 = transOprToArr ir false ins insLen ctxt 16<rt> packNum oprSize src1
+  let src2 = transOprToArr ir false ins insLen ctxt 16<rt> packNum oprSize src2
   let imm = transOprToExpr ir false ins insLen ctxt imm
   let result = packedBlend src2 src1 imm
   assignPackedInstr ir false ins insLen ctxt packNum oprSize dst result
@@ -1210,9 +1213,9 @@ let vpblendvb ins insLen ctxt =
   let oprSize = getOperationSize ins
   let packNum = 64<rt> / 8<rt>
   let struct (dst, src1, src2, src3) = getFourOprs ins
-  let src1 = transOprToArr ir ins insLen ctxt 8<rt> packNum oprSize src1
-  let src2 = transOprToArr ir ins insLen ctxt 8<rt> packNum oprSize src2
-  let src3 = transOprToArr ir ins insLen ctxt 8<rt> packNum oprSize src3
+  let src1 = transOprToArr ir false ins insLen ctxt 8<rt> packNum oprSize src1
+  let src2 = transOprToArr ir false ins insLen ctxt 8<rt> packNum oprSize src2
+  let src3 = transOprToArr ir false ins insLen ctxt 8<rt> packNum oprSize src3
   let result = packedVblend src2 src1 src3
   assignPackedInstr ir false ins insLen ctxt packNum oprSize dst result
   !>ir insLen
@@ -1224,8 +1227,8 @@ let vpackusdw ins insLen ctxt =
   let packNum = 64<rt> / 32<rt>
   let allPackNum = oprSize / 32<rt>
   let struct (dst, src1, src2) = getThreeOprs ins
-  let src1 = transOprToArr ir ins insLen ctxt 32<rt> packNum oprSize src1
-  let src2 = transOprToArr ir ins insLen ctxt 32<rt> packNum oprSize src2
+  let src1 = transOprToArr ir false ins insLen ctxt 32<rt> packNum oprSize src1
+  let src2 = transOprToArr ir false ins insLen ctxt 32<rt> packNum oprSize src2
   let src =
     match oprSize with
     | 128<rt> -> Array.append src1 src2
@@ -1254,8 +1257,8 @@ let vpackuswb ins insLen ctxt =
   let packNum = 64<rt> / 16<rt>
   let allPackNum = oprSize / 16<rt>
   let struct (dst, src1, src2) = getThreeOprs ins
-  let src1 = transOprToArr ir ins insLen ctxt 16<rt> packNum oprSize src1
-  let src2 = transOprToArr ir ins insLen ctxt 16<rt> packNum oprSize src2
+  let src1 = transOprToArr ir false ins insLen ctxt 16<rt> packNum oprSize src1
+  let src2 = transOprToArr ir false ins insLen ctxt 16<rt> packNum oprSize src2
   let src =
     match oprSize with
     | 128<rt> -> Array.append src1 src2
@@ -1281,7 +1284,7 @@ let vpbroadcast ins insLen ctxt packSz =
   let packNum = 64<rt> / packSz
   let allPackNum = oprSize / packSz
   let struct (dst, src) = getTwoOprs ins
-  let tDst = transOprToArr ir ins insLen ctxt packSz packNum oprSize dst
+  let eDst = transOprToArr ir false ins insLen ctxt packSz packNum oprSize dst
   let src =
     match src with
     | OprReg r ->
@@ -1300,7 +1303,7 @@ let vpbroadcast ins insLen ctxt packSz =
     if haveEVEXPrx ins.VEXInfo then
       let ePrx = getEVEXPrx ins.VEXInfo
       let k = !.ctxt (ePrx.AAA |> Disasm.getOpmaskRegister)
-      makeAssignWithMask ir ePrx k oprSize packSz tDst src (isMemOpr dst)
+      makeAssignWithMask ir ePrx k oprSize packSz eDst src (isMemOpr dst)
     else src
   assignPackedInstr ir false ins insLen ctxt packNum oprSize dst result
   fillZeroFromVLToMaxVL ctxt dst oprSize 512 ir
@@ -1427,16 +1430,14 @@ let vpermd ins insLen ctxt =
 
 let vpermq ins insLen ctxt =
   let ir = !*ctxt
-  let struct (dst, src, imm) = getThreeOprs ins
-  let dstD, dstC, dstB, dstA = transOprToExpr256 ir false ins insLen ctxt dst
-  let srcD, srcC, srcB, srcA = transOprToExpr256 ir false ins insLen ctxt src
-  let imm = getImmValue imm |> int
-  let srcArr = [| srcA; srcB; srcC; srcD |]
   !<ir insLen
-  !!ir (dstA := srcArr[imm &&& 0b11])
-  !!ir (dstB := srcArr[(imm >>> 2) &&& 0b11])
-  !!ir (dstC := srcArr[(imm >>> 4) &&& 0b11])
-  !!ir (dstD := srcArr[(imm >>> 6) &&& 0b11])
+  let oprSize = getOperationSize ins
+  let struct (dst, src, imm) = getThreeOprs ins
+  let src = transOprToArr ir true ins insLen ctxt 64<rt> 1 oprSize src
+  let imm = getImmValue imm |> int
+  let result = Array.init 4 (fun i -> src[ (imm >>> (i * 2)) &&& 0b11 ])
+  assignPackedInstr ir false ins insLen ctxt 1 oprSize dst result
+  fillZeroFromVLToMaxVL ctxt dst oprSize 512 ir
   !>ir insLen
 
 let vpinsrd ins insLen ctxt =
@@ -1602,7 +1603,7 @@ let vpmovd2m ins insLen ctxt =
   let packNum = 64<rt> / packSize
   let struct (dst, src) = getTwoOprs ins
   let dst = transOprToExpr ir false ins insLen ctxt dst
-  let src = transOprToArr ir ins insLen ctxt packSize packNum oprSize src
+  let src = transOprToArr ir false ins insLen ctxt packSize packNum oprSize src
   let tmp = !+ir 16<rt>
   !!ir (tmp := AST.num0 16<rt>)
   let assignShf idx expr =
@@ -1636,39 +1637,39 @@ let vpor ins insLen ctxt =
 let vpshufb ins insLen ctxt =
   let ir = !*ctxt
   !<ir insLen
-  let oprSize = getOperationSize ins
-  let packSize = 8<rt>
-  let packNum = 64<rt> / packSize
+  let oprSz = getOperationSize ins
+  let packSz = 8<rt>
+  let packNum = 64<rt> / packSz
   let struct (dst, src1, src2) = getThreeOprs ins
-  let nPackSz = numI32 (int packSize) packSize
-  let n64 = numI32 64 packSize
-  let src1 = transOprToArr ir ins insLen ctxt 64<rt> 1 oprSize src1
-  let src2 = transOprToArr ir ins insLen ctxt packSize packNum oprSize src2
-  let mask = numI32 0xF packSize
-  let n0 = AST.num0 packSize
+  let nPackSz = numI32 (int packSz) packSz
+  let n64 = numI32 64 packSz
+  let src1 = transOprToArr ir false ins insLen ctxt 64<rt> 1 oprSz src1
+  let src2 = transOprToArr ir false ins insLen ctxt packSz packNum oprSz src2
+  let mask = numI32 0xF packSz
+  let n0 = AST.num0 packSz
   let n1 = AST.num1 1<rt>
   let inline getSrcByIdx i idx =
     let shfAmt = (idx .& mask) .* nPackSz
     let index = AST.zext 64<rt> (shfAmt .% n64)
-    let idxA = (i / (128<rt> / packSize)) * 2
+    let idxA = (i / (128<rt> / packSz)) * 2
     let idxB = idxA + 1
     ((AST.ite (shfAmt .< n64) src1[idxA] src1[idxB]) >> index)
-    |> AST.xtlo packSize
+    |> AST.xtlo packSz
   let inline shuffle i src2 =
     AST.ite (AST.xthi 1<rt> src2 == n1) n0 (getSrcByIdx i src2)
   let inline shuffleOfEVEX ePrx k i dst src2 =
     let cond = getVectorMoveCond ePrx k i
     let shuff = AST.ite (AST.xthi 1<rt> src2 == n1) n0 (getSrcByIdx i src2)
-    AST.ite cond shuff (maskWithEPrx ePrx dst packSize)
+    AST.ite cond shuff (maskWithEPrx ePrx dst packSz)
   let result =
     if haveEVEXPrx ins.VEXInfo then
-      let tDst = transOprToArr ir ins insLen ctxt packSize packNum oprSize dst
+      let eDst = transOprToArr ir false ins insLen ctxt packSz packNum oprSz dst
       let ePrx = getEVEXPrx ins.VEXInfo
       let k = !.ctxt (ePrx.AAA |> Disasm.getOpmaskRegister)
-      Array.mapi2 (shuffleOfEVEX ePrx k) tDst src2
+      Array.mapi2 (shuffleOfEVEX ePrx k) eDst src2
     else Array.mapi shuffle src2
-  assignPackedInstr ir false ins insLen ctxt packNum oprSize dst result
-  fillZeroFromVLToMaxVL ctxt dst oprSize 512 ir
+  assignPackedInstr ir false ins insLen ctxt packNum oprSz dst result
+  fillZeroFromVLToMaxVL ctxt dst oprSz 512 ir
   !>ir insLen
 
 let vpshufd ins insLen ctxt =
@@ -1679,8 +1680,8 @@ let vpshufd ins insLen ctxt =
   let packNum = 64<rt> / packSize
   let allPackNum = oprSize / packSize
   let struct (dst, src1, src2) = getThreeOprs ins
-  let tDst = transOprToArr ir ins insLen ctxt packSize packNum oprSize dst
-  let src = transOprToArr ir ins insLen ctxt packSize packNum oprSize src1
+  let eDst = transOprToArr ir false ins insLen ctxt packSize packNum oprSize dst
+  let src = transOprToArr ir false ins insLen ctxt packSize packNum oprSize src1
   let ord = getImmValue src2 |> int
   let inline getIdx i = (i / 4 * 4) + ((ord >>> ((i &&& 0x3) * 2)) &&& 0x3)
   let result =
@@ -1692,7 +1693,7 @@ let vpshufd ins insLen ctxt =
           Array.init allPackNum (fun _ -> Array.head src)
         else src
       let src = Array.init allPackNum (fun i -> src[ getIdx i ])
-      makeAssignWithMask ir ePrx k oprSize packSize tDst src false
+      makeAssignWithMask ir ePrx k oprSize packSize eDst src false
     else
       let getIdx i = (i / 4 * 4) + ((ord >>> ((i &&& 0x3) * 2)) &&& 0x3)
       Array.init allPackNum (fun i -> src[ getIdx i ])
@@ -1784,21 +1785,23 @@ let vpslldq ins insLen ctxt =
 let private shiftPackedDataRight ins insLen ctxt packSize shf =
   let ir = !*ctxt
   !<ir insLen
-  let oprSize = getOperationSize ins
+  let oprSz = getOperationSize ins
   let packNum = 64<rt> / packSize
   let struct (dst, src1, src2) = getThreeOprs ins
-  let src1 = transOprToArr ir ins insLen ctxt packSize packNum oprSize src1
+  let src1 = transOprToArr ir false ins insLen ctxt packSize packNum oprSz src1
   let src2 =
     match src2 with
     | OprImm _ -> transOprToExpr ir false ins insLen ctxt src2
     | _ -> transOprToExpr128 ir false ins insLen ctxt src2 |> snd
-  let struct (cnt, max) = tmpVars2 ir packSize
-  !!ir (max := numI32 (int packSize) packSize)
-  !!ir (cnt := AST.xtlo packSize src2)
-  !!ir (cnt := AST.ite (cnt .> max .- AST.num1 packSize) max cnt)
+  let struct (tCnt, max) = tmpVars2 ir 64<rt>
+  let cnt = !+ir packSize
+  !!ir (max := numI32 (int packSize) 64<rt>)
+  !!ir (tCnt := AST.xtlo 64<rt> src2)
+  !!ir (tCnt := AST.ite (tCnt .> max .- AST.num1 64<rt>) max tCnt)
+  !!ir (cnt := AST.xtlo packSize tCnt)
   let result = Array.map (fun e -> shf e cnt) src1
-  assignPackedInstr ir false ins insLen ctxt packNum oprSize dst result
-  fillZeroFromVLToMaxVL ctxt dst oprSize 512 ir
+  assignPackedInstr ir false ins insLen ctxt packNum oprSz dst result
+  fillZeroFromVLToMaxVL ctxt dst oprSz 512 ir
   !>ir insLen
 
 let vpsrad ins insLen ctxt = shiftPackedDataRight ins insLen ctxt 32<rt> (?>>)
@@ -1816,13 +1819,13 @@ let vpsravd ins insLen ctxt =
     let src1B, src1A = transOprToExpr128 ir false ins insLen ctxt src1
     let src2B, src2A = transOprToExpr128 ir false ins insLen ctxt src2
     !!ir (AST.xtlo 32<rt> dstA :=
-           AST.sext 32<rt> ((AST.xtlo 32<rt> src1A) >> (AST.xtlo 32<rt> src2A)))
+          AST.sext 32<rt> ((AST.xtlo 32<rt> src1A) ?>> (AST.xtlo 32<rt> src2A)))
     !!ir (AST.xthi 32<rt> dstA :=
-           AST.sext 32<rt> ((AST.xthi 32<rt> src1A) >> (AST.xthi 32<rt> src2A)))
+          AST.sext 32<rt> ((AST.xthi 32<rt> src1A) ?>> (AST.xthi 32<rt> src2A)))
     !!ir (AST.xtlo 32<rt> dstB :=
-           AST.sext 32<rt> ((AST.xtlo 32<rt> src1B) >> (AST.xtlo 32<rt> src2B)))
+          AST.sext 32<rt> ((AST.xtlo 32<rt> src1B) ?>> (AST.xtlo 32<rt> src2B)))
     !!ir (AST.xthi 32<rt> dstB :=
-           AST.sext 32<rt> ((AST.xthi 32<rt> src1B) >> (AST.xthi 32<rt> src2B)))
+          AST.sext 32<rt> ((AST.xthi 32<rt> src1B) ?>> (AST.xthi 32<rt> src2B)))
     fillZeroFromVLToMaxVL ctxt dst oprSize 512 ir
   | Register.Kind.YMM ->
     let dstD, dstC, dstB, dstA = transOprToExpr256 ir false ins insLen ctxt dst
@@ -1831,21 +1834,21 @@ let vpsravd ins insLen ctxt =
     let src2D, src2C, src2B, src2A =
       transOprToExpr256 ir false ins insLen ctxt src2
     !!ir (AST.xtlo 32<rt> dstA :=
-           AST.sext 32<rt> ((AST.xtlo 32<rt> src1A) >> (AST.xtlo 32<rt> src2A)))
+          AST.sext 32<rt> ((AST.xtlo 32<rt> src1A) ?>> (AST.xtlo 32<rt> src2A)))
     !!ir (AST.xthi 32<rt> dstA :=
-           AST.sext 32<rt> ((AST.xthi 32<rt> src1A) >> (AST.xthi 32<rt> src2A)))
+          AST.sext 32<rt> ((AST.xthi 32<rt> src1A) ?>> (AST.xthi 32<rt> src2A)))
     !!ir (AST.xtlo 32<rt> dstB :=
-           AST.sext 32<rt> ((AST.xtlo 32<rt> src1B) >> (AST.xtlo 32<rt> src2B)))
+          AST.sext 32<rt> ((AST.xtlo 32<rt> src1B) ?>> (AST.xtlo 32<rt> src2B)))
     !!ir (AST.xthi 32<rt> dstB :=
-           AST.sext 32<rt> ((AST.xthi 32<rt> src1B) >> (AST.xthi 32<rt> src2B)))
+          AST.sext 32<rt> ((AST.xthi 32<rt> src1B) ?>> (AST.xthi 32<rt> src2B)))
     !!ir (AST.xtlo 32<rt> dstC :=
-           AST.sext 32<rt> ((AST.xtlo 32<rt> src1C) >> (AST.xtlo 32<rt> src2C)))
+          AST.sext 32<rt> ((AST.xtlo 32<rt> src1C) ?>> (AST.xtlo 32<rt> src2C)))
     !!ir (AST.xthi 32<rt> dstC :=
-           AST.sext 32<rt> ((AST.xthi 32<rt> src1C) >> (AST.xthi 32<rt> src2C)))
+          AST.sext 32<rt> ((AST.xthi 32<rt> src1C) ?>> (AST.xthi 32<rt> src2C)))
     !!ir (AST.xtlo 32<rt> dstD :=
-           AST.sext 32<rt> ((AST.xtlo 32<rt> src1D) >> (AST.xtlo 32<rt> src2D)))
+          AST.sext 32<rt> ((AST.xtlo 32<rt> src1D) ?>> (AST.xtlo 32<rt> src2D)))
     !!ir (AST.xthi 32<rt> dstD :=
-           AST.sext 32<rt> ((AST.xthi 32<rt> src1D) >> (AST.xthi 32<rt> src2D)))
+          AST.sext 32<rt> ((AST.xthi 32<rt> src1D) ?>> (AST.xthi 32<rt> src2D)))
     fillZeroFromVLToMaxVL ctxt dst oprSize 512 ir
   | _ -> raise InvalidOperandSizeException
   !>ir insLen
@@ -1991,9 +1994,9 @@ let vpxord ins insLen ctxt =
   let packSz = 32<rt>
   let packNum = 64<rt> / packSz
   let struct (dst, src1, src2) = getThreeOprs ins
-  let tDst = transOprToArr ir ins insLen ctxt packSz packNum oprSz dst
-  let tSrc1 = transOprToArr ir ins insLen ctxt packSz packNum oprSz src1
-  let tSrc2 = transOprToArr ir ins insLen ctxt packSz packNum oprSz src2
+  let tDst = transOprToArr ir false ins insLen ctxt packSz packNum oprSz dst
+  let tSrc1 = transOprToArr ir false ins insLen ctxt packSz packNum oprSz src1
+  let tSrc2 = transOprToArr ir false ins insLen ctxt packSz packNum oprSz src2
   let result =
     if haveEVEXPrx ins.VEXInfo then
       let isSrc2Mem = isMemOpr src2

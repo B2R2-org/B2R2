@@ -593,7 +593,7 @@ let translate (ins: IntelInternalInstruction) insLen ctxt =
   | OP.VPSRLDQ -> AVXLifter.vpsrldq ins insLen ctxt
   | OP.VPSRLQ -> AVXLifter.vpsrlq ins insLen ctxt
   | OP.VPSUBB -> AVXLifter.vpsubb ins insLen ctxt
-  | OP.VPSUBD -> AVXLifter.vpsubb ins insLen ctxt
+  | OP.VPSUBD -> AVXLifter.vpsubd ins insLen ctxt
   | OP.VPTEST -> AVXLifter.vptest ins insLen ctxt
   | OP.VPUNPCKHDQ -> AVXLifter.vpunpckhdq ins insLen ctxt
   | OP.VPUNPCKHQDQ -> AVXLifter.vpunpckhqdq ins insLen ctxt
