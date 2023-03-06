@@ -392,7 +392,7 @@ let bextr ins insLen ctxt =
   let struct (tmp, mask, start, len) = tmpVars4 ir oprSize
   !!ir (start := AST.zext oprSize (AST.extract src2 8<rt> 0))
   !!ir (len := AST.zext oprSize (AST.extract src2 8<rt> 8))
-  !!ir (mask := AST.not(mask) << len)
+  !!ir (mask := AST.not(numI32 0 oprSize) << len)
   !!ir (tmp := AST.zext oprSize src1)
   !!ir (tmp := (tmp >> start) .& AST.not(mask))
   !!ir (dstAssign oprSize dst tmp)
