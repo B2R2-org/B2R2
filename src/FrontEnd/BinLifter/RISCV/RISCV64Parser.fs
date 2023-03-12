@@ -134,8 +134,10 @@ let parseOp bin =
       | 0b0000000u -> Op.AND
       | _ -> raise ParsingFailureException
     | 0b100u ->
-      if getFunc7 bin = 0b0000000u then Op.XOR
-      else raise ParsingFailureException
+      match getFunc7 bin with
+      | 0b0000001u -> Op.DIV
+      | 0b0000000u -> Op.XOR
+      | _ -> raise ParsingFailureException
     | _ -> raise ParsingFailureException
   struct (opcode, getRdRs1Rs2 bin)
 
