@@ -252,19 +252,12 @@ let sideEffects insLen ctxt name =
   !!ir (AST.sideEffect name)
   !>ir insLen
 
-let add ins insLen ctxt =
+let add ins insLen updateCond ctxt =
   let struct (dst, src1, src2) = transThreeOprs ins ctxt
   let ir = !*ctxt
   !<ir insLen
   !!ir (dst := src1 .+ src2)
-  !>ir insLen
-
-let adddot ins insLen ctxt =
-  let struct (dst, src1, src2) = transThreeOprs ins ctxt
-  let ir = !*ctxt
-  !<ir insLen
-  !!ir (dst := src1 .+ src2)
-  setCondReg ctxt ir dst
+  if updateCond then setCondReg ctxt ir dst else ()
   !>ir insLen
 
 let addc ins insLen ctxt =
@@ -299,7 +292,6 @@ let addedot ins insLen ctxt =
   !<ir insLen
   !!ir (dst := src1 .+ src2 .+ xerCA)
   setCondReg ctxt ir dst
-  setCarryOut ctxt dst src1 ir
   !>ir insLen
 
 let addi ins insLen ctxt =
@@ -310,21 +302,13 @@ let addi ins insLen ctxt =
   !!ir (dst := (AST.ite cond simm (src1 .+ simm)))
   !>ir insLen
 
-let addic ins insLen ctxt =
+let addic ins insLen updateCond ctxt =
   let struct (dst, src1, simm) = transThreeOprs ins ctxt
   let ir = !*ctxt
   !<ir insLen
   !!ir (dst := src1 .+ simm)
+  if updateCond then setCondReg ctxt ir dst else ()
   setCarryOut ctxt dst src1 ir
-  !>ir insLen
-
-let addicdot ins insLen ctxt =
-  let struct (dst, src, simm) = transThreeOprs ins ctxt
-  let ir = !*ctxt
-  !<ir insLen
-  !!ir (dst := src .+ simm)
-  setCondReg ctxt ir dst
-  setCarryOut ctxt dst src ir
   !>ir insLen
 
 let addis ins insLen ctxt =
@@ -352,7 +336,6 @@ let addmedot ins insLen ctxt =
   !<ir insLen
   !!ir (dst := src .+ xerCA .- AST.num1 32<rt>)
   setCondReg ctxt ir dst
-  setCarryOut ctxt dst src ir
   !>ir insLen
 
 let addze ins insLen ctxt =
@@ -371,37 +354,22 @@ let addzedot ins insLen ctxt =
   !<ir insLen
   !!ir (dst := src .+ xerCA)
   setCondReg ctxt ir dst
-  setCarryOut ctxt dst src ir
   !>ir insLen
 
-let andx ins insLen ctxt =
+let andx ins insLen updateCond ctxt =
   let struct (dst, src1, src2) = transThreeOprs ins ctxt
   let ir = !*ctxt
   !<ir insLen
   !!ir (dst := src1 .& src2)
+  if updateCond then setCondReg ctxt ir dst else ()
   !>ir insLen
 
-let anddot ins insLen ctxt =
-  let struct (dst, src1, src2) = transThreeOprs ins ctxt
-  let ir = !*ctxt
-  !<ir insLen
-  !!ir (dst := src1 .& src2)
-  setCondReg ctxt ir dst
-  !>ir insLen
-
-let andc ins insLen ctxt =
+let andc ins insLen updateCond ctxt =
   let struct (dst, src1, src2) = transThreeOprs ins ctxt
   let ir = !*ctxt
   !<ir insLen
   !!ir (dst := src1 .& AST.not(src2))
-  !>ir insLen
-
-let andcdot ins insLen ctxt =
-  let struct (dst, src1, src2) = transThreeOprs ins ctxt
-  let ir = !*ctxt
-  !<ir insLen
-  !!ir (dst := src1 .& AST.not(src2))
-  setCondReg ctxt ir dst
+  if updateCond then setCondReg ctxt ir dst else ()
   !>ir insLen
 
 let andidot ins insLen ctxt =
@@ -536,7 +504,7 @@ let cmpli ins insLen ctxt =
   !!ir (crf3 := AST.xtlo 1<rt> xer)
   !>ir insLen
 
-let cntlzw ins insLen ctxt =
+let cntlzw ins insLen updateCond ctxt =
   let struct (ra, rs) = transTwoOprs ins ctxt
   let ir = !*ctxt
   let mask1 = numI32 0x55555555 32<rt>
@@ -556,6 +524,7 @@ let cntlzw ins insLen ctxt =
   !!ir (x := x .+ (x >> numI32 8 32<rt>))
   !!ir (x := x .+ (x >> numI32 16 32<rt>))
   !!ir (ra := numI32 32 32<rt> .- (x .& numI32 63 32<rt>))
+  if updateCond then setCondReg ctxt ir ra else ()
   !>ir insLen
 
 let crclr ins insLen ctxt =
@@ -593,56 +562,40 @@ let crxor ins insLen ctxt =
   !!ir (crbD := crbA <+> crbB)
   !>ir insLen
 
-let divw ins insLen ctxt =
+let divw ins insLen updateCond ctxt =
   let struct (dst, src1, src2) = transThreeOprs ins ctxt
   let ir = !*ctxt
   !<ir insLen
   !!ir (dst := AST.ite (src2 == AST.num0 32<rt>) dst (src1 ?/ src2))
+  if updateCond then setCondReg ctxt ir dst else ()
   !>ir insLen
 
-let divwu ins insLen ctxt =
+let divwu ins insLen updateCond ctxt =
   let struct (dst, src1, src2) = transThreeOprs ins ctxt
   let ir = !*ctxt
   !<ir insLen
   !!ir (dst := AST.ite (src2 == AST.num0 32<rt>) dst (src1 ./ src2))
+  if updateCond then setCondReg ctxt ir dst else ()
   !>ir insLen
 
-let extsb ins insLen ctxt =
+let extsb ins insLen updateCond ctxt =
   let struct (ra, rs) = transTwoOprs ins ctxt
   let ir = !*ctxt
   let tmp = !+ir 8<rt>
   !<ir insLen
   !!ir (tmp := AST.xtlo 8<rt> rs)
   !!ir (ra := AST.sext 32<rt> tmp)
+  if updateCond then setCondReg ctxt ir ra else ()
   !>ir insLen
 
-let extsbdot ins insLen ctxt =
-  let struct (ra, rs) = transTwoOprs ins ctxt
-  let ir = !*ctxt
-  let tmp = !+ir 8<rt>
-  !<ir insLen
-  !!ir (tmp := AST.xtlo 8<rt> rs)
-  !!ir (ra := AST.sext 32<rt> tmp)
-  setCondReg ctxt ir ra
-  !>ir insLen
-
-let extsh ins insLen ctxt =
+let extsh ins insLen updateCond ctxt =
   let struct (ra, rs) = transTwoOprs ins ctxt
   let ir = !*ctxt
   let tmp = !+ir 16<rt>
   !<ir insLen
   !!ir (tmp := AST.xtlo 16<rt> rs)
   !!ir (ra := AST.sext 32<rt> tmp)
-  !>ir insLen
-
-let extshdot ins insLen ctxt =
-  let struct (ra, rs) = transTwoOprs ins ctxt
-  let ir = !*ctxt
-  let tmp = !+ir 16<rt>
-  !<ir insLen
-  !!ir (tmp := AST.xtlo 16<rt> rs)
-  !!ir (ra := AST.sext 32<rt> tmp)
-  setCondReg ctxt ir ra
+  if updateCond then setCondReg ctxt ir ra else ()
   !>ir insLen
 
 let eqvx ins insLen updateCond ctxt =
@@ -1062,42 +1015,24 @@ let mtxer ins insLen ctxt =
   !!ir (xer := src)
   !>ir insLen
 
-let mulhw ins insLen ctxt =
+let mulhw ins insLen updateCond ctxt =
   let struct (dst, ra, rb) = transThreeOprs ins ctxt
   let ir = !*ctxt
   let tmp = !+ir 64<rt>
   !<ir insLen
   !!ir (tmp := (AST.sext 64<rt> ra) .* (AST.sext 64<rt> rb))
   !!ir (dst := AST.xthi 32<rt> tmp)
+  if updateCond then setCondReg ctxt ir dst else ()
   !>ir insLen
 
-let mulhwdot ins insLen ctxt =
-  let struct (dst, ra, rb) = transThreeOprs ins ctxt
-  let ir = !*ctxt
-  let tmp = !+ir 64<rt>
-  !<ir insLen
-  !!ir (tmp := (AST.sext 64<rt> ra) .* (AST.sext 64<rt> rb))
-  !!ir (dst := AST.xthi 32<rt> tmp)
-  setCondReg ctxt ir dst
-  !>ir insLen
-
-let mulhwu ins insLen ctxt =
+let mulhwu ins insLen updateCond ctxt =
   let struct (dst, ra, rb) = transThreeOprs ins ctxt
   let ir = !*ctxt
   let tmp = !+ir 64<rt>
   !<ir insLen
   !!ir (tmp := (AST.zext 64<rt> ra) .* (AST.zext 64<rt> rb))
   !!ir (dst := AST.xthi 32<rt> tmp)
-  !>ir insLen
-
-let mulhwudot ins insLen ctxt =
-  let struct (dst, ra, rb) = transThreeOprs ins ctxt
-  let ir = !*ctxt
-  let tmp = !+ir 64<rt>
-  !<ir insLen
-  !!ir (tmp := (AST.zext 64<rt> ra) .* (AST.zext 64<rt> rb))
-  !!ir (dst := AST.xthi 32<rt> tmp)
-  setCondReg ctxt ir dst
+  if updateCond then setCondReg ctxt ir dst else ()
   !>ir insLen
 
 let mulli ins insLen ctxt =
@@ -1109,26 +1044,17 @@ let mulli ins insLen ctxt =
   !!ir (dst := AST.xtlo 32<rt> tmp)
   !>ir insLen
 
-let mullw ins insLen ctxt =
+let mullw ins insLen updateCond ctxt =
   let struct (dst, src1, src2) = transThreeOprs ins ctxt
   let ir = !*ctxt
   let tmp = !+ir 64<rt>
   !<ir insLen
   !!ir (tmp := (AST.sext 64<rt> src1) .* (AST.sext 64<rt> src2))
   !!ir (dst := AST.xtlo 32<rt> tmp)
+  if updateCond then setCondReg ctxt ir dst else ()
   !>ir insLen
 
-let mullwdot ins insLen ctxt =
-  let struct (dst, src1, src2) = transThreeOprs ins ctxt
-  let ir = !*ctxt
-  let tmp = !+ir 64<rt>
-  !<ir insLen
-  !!ir (tmp := (AST.sext 64<rt> src1) .* (AST.sext 64<rt> src2))
-  !!ir (dst := AST.xtlo 32<rt> tmp)
-  setCondReg ctxt ir dst
-  !>ir insLen
-
-let mullwo ins insLen ctxt =
+let mullwo ins insLen updateCond ctxt =
   let struct (dst, src1, src2) = transThreeOprs ins ctxt
   let xerOV = AST.extract (!.ctxt R.XER) 1<rt> 1
   let ir = !*ctxt
@@ -1137,40 +1063,31 @@ let mullwo ins insLen ctxt =
   !!ir (tmp := (AST.sext 64<rt> src1) .* (AST.sext 64<rt> src2))
   !!ir (xerOV := AST.ite (tmp .< numU64 0xFFFFFFFFUL 64<rt>) AST.b0 AST.b1)
   !!ir (dst := AST.xtlo 32<rt> tmp)
+  if updateCond then setCondReg ctxt ir dst else ()
   !>ir insLen
 
-let mullwodot ins insLen ctxt =
+let nand ins insLen updateCond ctxt =
   let struct (dst, src1, src2) = transThreeOprs ins ctxt
-  let xerOV = AST.extract (!.ctxt R.XER) 1<rt> 1
   let ir = !*ctxt
-  let tmp = !+ir 64<rt>
   !<ir insLen
-  !!ir (tmp := (AST.sext 64<rt> src1) .* (AST.sext 64<rt> src2))
-  !!ir (xerOV := AST.ite (tmp .< numU64 0xFFFFFFFFUL 64<rt>) AST.b0 AST.b1)
-  !!ir (dst := AST.xtlo 32<rt> tmp)
-  setCondReg ctxt ir dst
+  !!ir (dst := AST.not(src1 .& src2))
+  if updateCond then setCondReg ctxt ir dst else ()
   !>ir insLen
 
-let neg ins insLen ctxt =
+let neg ins insLen updateCond ctxt =
   let struct (dst, src) = transTwoOprs ins ctxt
   let ir = !*ctxt
   !<ir insLen
   !!ir (dst := (AST.not src) .+ AST.num1 32<rt>)
+  if updateCond then setCondReg ctxt ir dst else ()
   !>ir insLen
 
-let nor ins insLen ctxt =
+let nor ins insLen updateCond ctxt =
   let struct (dst, src1, src2) = transThreeOprs ins ctxt
   let ir = !*ctxt
   !<ir insLen
   !!ir (dst := AST.not (src1 .| src2))
-  !>ir insLen
-
-let nordot ins insLen ctxt =
-  let struct (dst, src1, src2) = transThreeOprs ins ctxt
-  let ir = !*ctxt
-  !<ir insLen
-  !!ir (dst := AST.not (src1 .| src2))
-  setCondReg ctxt ir dst
+  if updateCond then setCondReg ctxt ir dst else ()
   !>ir insLen
 
 let nop insLen ctxt =
@@ -1178,34 +1095,20 @@ let nop insLen ctxt =
   !<ir insLen
   !>ir insLen
 
-let orx ins insLen ctxt =
+let orx ins insLen updateCond ctxt =
   let struct (dst, src1, src2) = transThreeOprs ins ctxt
   let ir = !*ctxt
   !<ir insLen
   !!ir (dst := src1 .| src2)
+  if updateCond then setCondReg ctxt ir dst else ()
   !>ir insLen
 
-let ordot ins insLen ctxt =
-  let struct (dst, src1, src2) = transThreeOprs ins ctxt
-  let ir = !*ctxt
-  !<ir insLen
-  !!ir (dst := src1 .| src2)
-  setCondReg ctxt ir dst
-  !>ir insLen
-
-let orc ins insLen ctxt =
+let orc ins insLen updateCond ctxt =
   let struct (dst, src1, src2) = transThreeOprs ins ctxt
   let ir = !*ctxt
   !<ir insLen
   !!ir (dst := src1 .| AST.not(src2))
-  !>ir insLen
-
-let orcdot ins insLen ctxt =
-  let struct (dst, src1, src2) = transThreeOprs ins ctxt
-  let ir = !*ctxt
-  !<ir insLen
-  !!ir (dst := src1 .| AST.not(src2))
-  setCondReg ctxt ir dst
+  if updateCond then setCondReg ctxt ir dst else ()
   !>ir insLen
 
 let ori ins insLen ctxt =
@@ -1224,23 +1127,14 @@ let oris ins insLen ctxt =
   !!ir (dst := src .| uimm)
   !>ir insLen
 
-let rlwinm ins insLen ctxt =
+let rlwinm ins insLen updateCond ctxt =
   let struct (ra, rs, sh, mb, me) = transFiveOprs ins ctxt
   let ir = !*ctxt
   let rol = !+ir 32<rt>
   !<ir insLen
   !!ir (rol := rotateLeft rs sh)
   !!ir (ra := rol .& (getExtMask mb me))
-  !>ir insLen
-
-let rlwinmdot ins insLen ctxt =
-  let struct (ra, rs, sh, mb, me) = transFiveOprs ins ctxt
-  let ir = !*ctxt
-  let rol = !+ir 32<rt>
-  !<ir insLen
-  !!ir (rol := rotateLeft rs sh)
-  !!ir (ra := rol .& (getExtMask mb me))
-  setCondReg ctxt ir ra
+  if updateCond then setCondReg ctxt ir ra else ()
   !>ir insLen
 
 let rlwimi ins insLen ctxt =
@@ -1261,7 +1155,7 @@ let rotlw ins insLen ctxt =
   !!ir (ra := rol) (* no mask *)
   !>ir insLen
 
-let slw ins insLen ctxt =
+let slw ins insLen updateCond ctxt =
   let struct (dst, rs, rb) = transThreeOprs ins ctxt
   let ir = !*ctxt
   let n = !+ir 32<rt>
@@ -1269,9 +1163,10 @@ let slw ins insLen ctxt =
   !<ir insLen
   !!ir (n := rb .& numI32 0x1f 32<rt>)
   !!ir (dst := rs << n)
+  if updateCond then setCondReg ctxt ir dst else ()
   !>ir insLen
 
-let sraw ins insLen ctxt =
+let sraw ins insLen updateCond ctxt =
   let struct (ra, rs, rb) = transThreeOprs ins ctxt
   let xerCA = AST.extract (!.ctxt R.XER) 1<rt> 2
   let z = AST.num0 32<rt>
@@ -1284,9 +1179,10 @@ let sraw ins insLen ctxt =
   let cond2 = ra ?< z
   let cond3 = (rs .& ((AST.num1 32<rt> << n) .- AST.num1 32<rt>)) == z
   !!ir (xerCA := AST.ite cond2 (AST.ite cond3 AST.b0 AST.b1) AST.b0)
+  if updateCond then setCondReg ctxt ir ra else ()
   !>ir insLen
 
-let srawi ins insLen ctxt =
+let srawi ins insLen updateCond ctxt =
   let struct (ra, rs, sh) = transThreeOprs ins ctxt
   let xerCA = AST.extract (!.ctxt R.XER) 1<rt> 2
   let z = AST.num0 32<rt>
@@ -1296,28 +1192,17 @@ let srawi ins insLen ctxt =
   let cond1 = ra ?< z
   let cond2 = (rs .& ((AST.num1 32<rt> << sh) .- AST.num1 32<rt>)) == z
   !!ir (xerCA := AST.ite cond1 (AST.ite cond2 AST.b0 AST.b1) AST.b0)
+  if updateCond then setCondReg ctxt ir ra else ()
   !>ir insLen
 
-let srawidot ins insLen ctxt =
-  let struct (ra, rs, sh) = transThreeOprs ins ctxt
-  let xerCA = AST.extract (!.ctxt R.XER) 1<rt> 2
-  let z = AST.num0 32<rt>
-  let ir = !*ctxt
-  !<ir insLen
-  !!ir (ra := rs ?>> sh)
-  let cond1 = ra ?< z
-  let cond2 = (rs .& ((AST.num1 32<rt> << sh) .- AST.num1 32<rt>)) == z
-  !!ir (xerCA := AST.ite cond1 (AST.ite cond2 AST.b0 AST.b1) AST.b0)
-  setCondReg ctxt ir ra
-  !>ir insLen
-
-let srw ins insLen ctxt =
+let srw ins insLen updateCond ctxt =
   let struct (dst, rs, rb) = transThreeOprs ins ctxt
   let ir = !*ctxt
   let n = !+ir 32<rt>
   !<ir insLen
   !!ir (n := rb .& numI32 0x1f 32<rt>)
   !!ir (dst := rs >> n)
+  if updateCond then setCondReg ctxt ir dst else ()
   !>ir insLen
 
 let stb ins insLen (ctxt: TranslationContext) =
@@ -1555,19 +1440,12 @@ let subfze ins insLen ctxt =
   setCarryOut ctxt dst (AST.num0 32<rt>) ir
   !>ir insLen
 
-let xor ins insLen ctxt =
+let xor ins insLen updateCond ctxt =
   let struct (dst, src1, src2) = transThreeOprs ins ctxt
   let ir = !*ctxt
   !<ir insLen
   !!ir (dst := (src1 <+> src2))
-  !>ir insLen
-
-let xordot ins insLen ctxt =
-  let struct (dst, src1, src2) = transThreeOprs ins ctxt
-  let ir = !*ctxt
-  !<ir insLen
-  !!ir (dst := (src1 <+> src2))
-  setCondReg ctxt ir dst
+  if updateCond then setCondReg ctxt ir dst else ()
   !>ir insLen
 
 let xori ins insLen ctxt =
@@ -1589,24 +1467,24 @@ let xoris ins insLen ctxt =
 /// Translate IR.
 let translate (ins: InsInfo) insLen (ctxt: TranslationContext) =
   match ins.Opcode with
-  | Op.ADD -> add ins insLen ctxt
-  | Op.ADDdot -> adddot ins insLen ctxt
+  | Op.ADD -> add ins insLen false ctxt
+  | Op.ADDdot -> add ins insLen true ctxt
   | Op.ADDC -> addc ins insLen ctxt
   | Op.ADDCdot -> addcdot ins insLen ctxt
   | Op.ADDE -> adde ins insLen ctxt
   | Op.ADDEdot -> addedot ins insLen ctxt
   | Op.ADDI -> addi ins insLen ctxt
-  | Op.ADDIC -> addic ins insLen ctxt
-  | Op.ADDICdot -> addicdot ins insLen ctxt
+  | Op.ADDIC -> addic ins insLen false ctxt
+  | Op.ADDICdot -> addic ins insLen true ctxt
   | Op.ADDIS -> addis ins insLen ctxt
   | Op.ADDME -> addme ins insLen ctxt
   | Op.ADDMEdot -> addmedot ins insLen ctxt
   | Op.ADDZE -> addze ins insLen ctxt
   | Op.ADDZEdot -> addzedot ins insLen ctxt
-  | Op.AND -> andx ins insLen ctxt
-  | Op.ANDdot -> anddot ins insLen ctxt
-  | Op.ANDC -> andc ins insLen ctxt
-  | Op.ANDCdot -> andcdot ins insLen ctxt
+  | Op.AND -> andx ins insLen false ctxt
+  | Op.ANDdot -> andx ins insLen true ctxt
+  | Op.ANDC -> andc ins insLen false ctxt
+  | Op.ANDCdot -> andc ins insLen true ctxt
   | Op.ANDIdot -> andidot ins insLen ctxt
   | Op.ANDISdot -> andisdot ins insLen ctxt
   | Op.B -> b ins insLen ctxt false
@@ -1627,19 +1505,20 @@ let translate (ins: InsInfo) insLen (ctxt: TranslationContext) =
   | Op.CMPLW -> cmpl ins insLen ctxt
   | Op.CMPLWI -> cmpli ins insLen ctxt
   | Op.CMPWI -> cmp ins insLen ctxt
-  | Op.CNTLZW -> cntlzw ins insLen ctxt
+  | Op.CNTLZW -> cntlzw ins insLen false ctxt
+  | Op.CNTLZWdot -> cntlzw ins insLen true ctxt
   | Op.CRCLR -> crclr ins insLen ctxt
   | Op.CRXOR -> crxor ins insLen ctxt
   | Op.CROR -> cror ins insLen ctxt
   | Op.CRSET -> crset ins insLen ctxt
   | Op.DCBT -> nop insLen ctxt
   | Op.DCBTST -> nop insLen ctxt
-  | Op.DIVW -> divw ins insLen ctxt
-  | Op.DIVWU -> divwu ins insLen ctxt
-  | Op.EXTSB -> extsb ins insLen ctxt
-  | Op.EXTSBdot -> extsbdot ins insLen ctxt
-  | Op.EXTSH -> extsh ins insLen ctxt
-  | Op.EXTSHdot -> extshdot ins insLen ctxt
+  | Op.DIVW -> divw ins insLen false ctxt
+  | Op.DIVWU -> divwu ins insLen true ctxt
+  | Op.EXTSB -> extsb ins insLen false ctxt
+  | Op.EXTSBdot -> extsb ins insLen true ctxt
+  | Op.EXTSH -> extsh ins insLen false ctxt
+  | Op.EXTSHdot -> extsh ins insLen true ctxt
   | Op.EIEIO -> nop insLen ctxt
   | Op.EQV -> eqvx ins insLen false ctxt
   | Op.EQVdot -> eqvx ins insLen true ctxt
@@ -1688,33 +1567,39 @@ let translate (ins: InsInfo) insLen (ctxt: TranslationContext) =
   | Op.MTFSF -> mtfsf ins insLen ctxt
   | Op.MTLR -> mtlr ins insLen ctxt
   | Op.MTXER -> mtxer ins insLen ctxt
-  | Op.MULHW -> mulhw ins insLen ctxt
-  | Op.MULHWU -> mulhwu ins insLen ctxt
+  | Op.MULHW -> mulhw ins insLen false ctxt
+  | Op.MULHWU -> mulhwu ins insLen true ctxt
   | Op.MULLI -> mulli ins insLen ctxt
-  | Op.MULLW -> mullw ins insLen ctxt
-  | Op.MULLWdot -> mullwdot ins insLen ctxt
-  | Op.MULLWO -> mullwo ins insLen ctxt
-  | Op.MULLWOdot -> mullwodot ins insLen ctxt
-  | Op.NEG -> neg ins insLen ctxt
-  | Op.NOR -> nor ins insLen ctxt
-  | Op.NORdot -> nordot ins insLen ctxt
+  | Op.MULLW -> mullw ins insLen false ctxt
+  | Op.MULLWdot -> mullw ins insLen true ctxt
+  | Op.MULLWO -> mullwo ins insLen false ctxt
+  | Op.MULLWOdot -> mullwo ins insLen true ctxt
+  | Op.NAND -> nand ins insLen false ctxt
+  | Op.NANDdot -> nand ins insLen true ctxt
+  | Op.NEG -> neg ins insLen false ctxt
+  | Op.NEGdot -> neg ins insLen true ctxt
+  | Op.NOR -> nor ins insLen false ctxt
+  | Op.NORdot -> nor ins insLen true ctxt
   | Op.NOP -> nop insLen ctxt
-  | Op.ORC -> orc ins insLen ctxt
-  | Op.ORCdot -> orcdot ins insLen ctxt
-  | Op.OR -> orx ins insLen ctxt
-  | Op.ORdot -> ordot ins insLen ctxt
+  | Op.ORC -> orc ins insLen false ctxt
+  | Op.ORCdot -> orc ins insLen true ctxt
+  | Op.OR -> orx ins insLen false ctxt
+  | Op.ORdot -> orx ins insLen true ctxt
   | Op.ORI -> ori ins insLen ctxt
   | Op.ORIS -> oris ins insLen ctxt
   | Op.RLWIMI -> rlwimi ins insLen ctxt
-  | Op.RLWINM -> rlwinm ins insLen ctxt
-  | Op.RLWINMdot -> rlwinmdot ins insLen ctxt
+  | Op.RLWINM -> rlwinm ins insLen false ctxt
+  | Op.RLWINMdot -> rlwinm ins insLen true ctxt
   | Op.ROTLW -> rotlw ins insLen ctxt
   | Op.SC -> sideEffects insLen ctxt SysCall
-  | Op.SLW -> slw ins insLen ctxt
-  | Op.SRAW -> sraw ins insLen ctxt
-  | Op.SRAWI -> srawi ins insLen ctxt
-  | Op.SRAWIdot -> srawidot ins insLen ctxt
-  | Op.SRW -> srw ins insLen ctxt
+  | Op.SLW -> slw ins insLen false ctxt
+  | Op.SLWdot -> slw ins insLen true ctxt
+  | Op.SRAW -> sraw ins insLen false ctxt
+  | Op.SRAWdot -> sraw ins insLen true ctxt
+  | Op.SRAWI -> srawi ins insLen false ctxt
+  | Op.SRAWIdot -> srawi ins insLen true ctxt
+  | Op.SRW -> srw ins insLen false ctxt
+  | Op.SRWdot -> srw ins insLen true ctxt
   | Op.STB -> stb ins insLen ctxt
   | Op.STBU -> stbu ins insLen ctxt
   | Op.STBX -> stbx ins insLen ctxt
@@ -1737,8 +1622,8 @@ let translate (ins: InsInfo) insLen (ctxt: TranslationContext) =
   | Op.SUBFIC -> subfic ins insLen ctxt
   | Op.SUBFZE -> subfze ins insLen ctxt
   | Op.SYNC -> nop insLen ctxt
-  | Op.XOR -> xor ins insLen ctxt
-  | Op.XORdot -> xordot ins insLen ctxt
+  | Op.XOR -> xor ins insLen false ctxt
+  | Op.XORdot -> xor ins insLen true ctxt
   | Op.XORI -> xori ins insLen ctxt
   | Op.XORIS -> xoris ins insLen ctxt
   | o ->
