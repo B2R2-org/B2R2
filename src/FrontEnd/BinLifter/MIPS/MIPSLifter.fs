@@ -1205,7 +1205,7 @@ let recip insInfo insLen ctxt =
   let ir = !*ctxt
   let fd, fs = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
   let sz = ctxt.WordBitSize
-  let fnum = AST.cast CastKind.IntToFloat sz (AST.num1 sz)
+  let fnum = AST.cast CastKind.SIntToFloat sz (AST.num1 sz)
   !<ir insLen
   !!ir (fd := AST.fdiv fnum fs)
   !>ir insLen

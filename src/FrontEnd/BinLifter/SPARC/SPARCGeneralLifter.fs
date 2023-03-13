@@ -464,11 +464,11 @@ let fito ins insLen ctxt =
   !!ir (t1 := src)
   match ins.Opcode with
   | Opcode.FiTOs ->
-    !!ir (dst := AST.cast CastKind.IntToFloat 32<rt> t1)
+    !!ir (dst := AST.cast CastKind.SIntToFloat 32<rt> t1)
   | Opcode.FiTOd ->
-    !!ir (dst := AST.cast CastKind.IntToFloat 64<rt> t1)
+    !!ir (dst := AST.cast CastKind.SIntToFloat 64<rt> t1)
   | Opcode.FiTOq ->
-    !!ir (dst := AST.cast CastKind.IntToFloat 128<rt> t1)
+    !!ir (dst := AST.cast CastKind.SIntToFloat 128<rt> t1)
   | _ -> raise InvalidOpcodeException
   !>ir insLen
 
@@ -610,11 +610,11 @@ let fxto ins insLen ctxt =
   !!ir (t1 := src)
   match ins.Opcode with
   | Opcode.FxTOs ->
-    !!ir (dst := AST.cast CastKind.IntToFloat 32<rt> t1)
+    !!ir (dst := AST.cast CastKind.SIntToFloat 32<rt> t1)
   | Opcode.FxTOd ->
-    !!ir (dst := AST.cast CastKind.IntToFloat 64<rt> t1)
+    !!ir (dst := AST.cast CastKind.SIntToFloat 64<rt> t1)
   | Opcode.FxTOq ->
-    !!ir (dst := AST.cast CastKind.IntToFloat 128<rt> t1)
+    !!ir (dst := AST.cast CastKind.SIntToFloat 128<rt> t1)
   | _ -> raise InvalidOpcodeException
   !>ir insLen
 

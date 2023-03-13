@@ -82,7 +82,8 @@ let internal canCast kind newType e =
     if oldType < newType then true
     else if oldType = newType then false
     else castErr newType oldType
-  | CastKind.IntToFloat ->
+  | CastKind.SIntToFloat
+  | CastKind.UIntToFloat ->
     if isValidFloatType newType then true else raise InvalidFloatTypeException
   | CastKind.FloatCast ->
     if isValidFloatType oldType && isValidFloatType newType then true

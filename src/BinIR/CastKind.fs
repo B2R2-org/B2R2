@@ -30,47 +30,50 @@ type CastKind =
   | SignExt = 0
   /// Zero-extending conversion
   | ZeroExt = 1
-  /// Integer to float conversion
-  | IntToFloat = 2
+  /// Signed integer to float conversion
+  | SIntToFloat = 2
+  /// Unsigned integer to float conversion
+  | UIntToFloat = 3
   /// Float to Nearest Integer rounded conversion. Ties to even. When the given
   /// float is too large to be represented as an integer, the result is MIN_INT,
   /// i.e., 0x80000000 for 32-bit integers and 0x8000000000000000 for 64-bit
   /// integers.
-  | FtoIRound = 3
+  | FtoIRound = 4
   /// Float to Integer rounded up conversion (toward +inf). When the given float
   /// is too large to be represented as an integer, the result is MIN_INT, i.e.,
   /// 0x80000000 for 32-bit integers and 0x8000000000000000 for 64-bit integers.
-  | FtoICeil = 4
+  | FtoICeil = 5
   /// Float to Integer rounded down conversion (toward -inf). When the given
   /// float is too large to be represented as an integer, the result is MIN_INT,
   /// i.e., 0x80000000 for 32-bit integers and 0x8000000000000000 for 64-bit
   /// integers.
-  | FtoIFloor = 5
+  | FtoIFloor = 6
   /// Float to Integer truncated conversion (closest to but no greater in
   /// absolute value than the infinitely precise result). When the given float
   /// is too large to be represented as an integer, the result is MIN_INT, i.e.,
   /// 0x80000000 for 32-bit integers and 0x8000000000000000 for 64-bit integers.
-  | FtoITrunc = 6
+  | FtoITrunc = 7
   /// Float to Float conversion with different precisions
-  | FloatCast = 7
+  | FloatCast = 8
   /// Float to Float conversion while rounding to nearest integer.. Ties to
   /// even.
-  | FtoFRound = 8
+  | FtoFRound = 9
   /// Float to Float conversion while rounding toward +inf. E.g., 23.2 -> 24.0,
   /// and -23.7 -> -23.
-  | FtoFCeil = 9
+  | FtoFCeil = 10
   /// Float to Float conversion while rounding toward -inf. E.g., 23.7 -> 23.0,
   /// and -23.2 -> -24.
-  | FtoFFloor = 10
+  | FtoFFloor = 11
   /// Float to Float conversion while rounding toward zero. E.g. 23.7 -> 23.0,
   /// and -23.7 -> -23.
-  | FtoFTrunc = 11
+  | FtoFTrunc = 12
 
 module CastKind =
   let toString = function
     | CastKind.SignExt -> "sext"
     | CastKind.ZeroExt -> "zext"
-    | CastKind.IntToFloat -> "float"
+    | CastKind.SIntToFloat -> "sfloat"
+    | CastKind.UIntToFloat -> "ufloat"
     | CastKind.FtoIRound -> "round"
     | CastKind.FtoICeil -> "ceil"
     | CastKind.FtoIFloor -> "floor"
@@ -85,7 +88,8 @@ module CastKind =
   let ofString = function
     | "sext" -> CastKind.SignExt
     | "zext" -> CastKind.ZeroExt
-    | "float" -> CastKind.IntToFloat
+    | "sfloat" -> CastKind.SIntToFloat
+    | "ufloat" -> CastKind.UIntToFloat
     | "round" -> CastKind.FtoIRound
     | "ceil" -> CastKind.FtoICeil
     | "floor" -> CastKind.FtoIFloor
