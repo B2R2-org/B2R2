@@ -516,6 +516,78 @@ let extr ins insLen ctxt addr =
   else raise InvalidOperandSizeException
   !>ir insLen
 
+let fabs ins insLen ctxt addr =
+  let ir = !*ctxt
+  !<ir insLen
+  let dst, src = transTwoOprs ins ctxt addr
+  let oprSize = ins.OprSize
+  let n1 = AST.num1 oprSize
+  !!ir (dstAssign oprSize dst ((src << n1) >> n1))
+  !>ir insLen
+
+let fadd ins insLen ctxt addr =
+  let ir = !*ctxt
+  !<ir insLen
+  let dst, src1, src2 = transThreeOprs ins ctxt addr
+  let oprSize = ins.OprSize
+  !!ir (dstAssign oprSize dst (AST.fadd src1 src2))
+  !>ir insLen
+
+let private fpCompare v1 v2 =
+  AST.ite (AST.eq v1 v2) (numI32 0b0110 8<rt>)
+    (AST.ite (AST.flt v1 v2) (numI32 0b1000 8<rt>) (numI32 0b0010 8<rt>))
+
+let fcmp ins insLen ctxt addr =
+  let ir = !*ctxt
+  !<ir insLen
+  let src1, src2 = transTwoOprs ins ctxt addr
+  let nzcv = !+ir 8<rt>
+  !!ir (nzcv := fpCompare src1 src2)
+  !!ir (getRegVar ctxt R.N := AST.extract nzcv 1<rt> 3)
+  !!ir (getRegVar ctxt R.Z := AST.extract nzcv 1<rt> 2)
+  !!ir (getRegVar ctxt R.C := AST.extract nzcv 1<rt> 1)
+  !!ir (getRegVar ctxt R.V := AST.extract nzcv 1<rt> 0)
+  !>ir insLen
+
+let fcvt ins insLen ctxt addr =
+  let ir = !*ctxt
+  !<ir insLen
+  let dst, src = transTwoOprs ins ctxt addr
+  let oprSize = ins.OprSize
+  !!ir (dstAssign oprSize dst (AST.cast CastKind.FloatCast oprSize src))
+  !>ir insLen
+
+let fdiv ins insLen ctxt addr =
+  let ir = !*ctxt
+  !<ir insLen
+  let dst, src1, src2 = transThreeOprs ins ctxt addr
+  let oprSize = ins.OprSize
+  !!ir (dstAssign oprSize dst (AST.fdiv src1 src2))
+  !>ir insLen
+
+let fmov ins insLen ctxt addr =
+  let ir = !*ctxt
+  !<ir insLen
+  let dst, src = transTwoOprs ins ctxt addr
+  !!ir (dstAssign ins.OprSize dst src)
+  !>ir insLen
+
+let fmul ins insLen ctxt addr =
+  let ir = !*ctxt
+  !<ir insLen
+  let dst, src1, src2 = transThreeOprs ins ctxt addr
+  let oprSize = ins.OprSize
+  !!ir (dstAssign oprSize dst (AST.fmul src1 src2))
+  !>ir insLen
+
+let fsub ins insLen ctxt addr =
+  let ir = !*ctxt
+  !<ir insLen
+  let dst, src1, src2 = transThreeOprs ins ctxt addr
+  let oprSize = ins.OprSize
+  !!ir (dstAssign oprSize dst (AST.fsub src1 src2))
+  !>ir insLen
+
 let ld1 ins insLen ctxt addr =
   let ir = !*ctxt
   let isWBack, _ = getIsWBackAndIsPostIndex ins.Operands
@@ -1705,29 +1777,30 @@ let translate ins insLen ctxt =
   | Opcode.EOR | Opcode.EON -> eor ins insLen ctxt addr
   | Opcode.EXT -> sideEffects insLen ctxt UnsupportedFP
   | Opcode.EXTR | Opcode.ROR -> extr ins insLen ctxt addr
-  | Opcode.FABS -> sideEffects insLen ctxt UnsupportedFP
-  | Opcode.FABD | Opcode.FADD -> sideEffects insLen ctxt UnsupportedFP
+  | Opcode.FABS -> fabs ins insLen ctxt addr
+  | Opcode.FABD -> sideEffects insLen ctxt UnsupportedFP
+  | Opcode.FADD -> fadd ins insLen ctxt addr
   | Opcode.FADDP -> sideEffects insLen ctxt UnsupportedFP
   | Opcode.FCCMP -> sideEffects insLen ctxt UnsupportedFP
   | Opcode.FCCMPE -> sideEffects insLen ctxt UnsupportedFP
-  | Opcode.FCMP -> sideEffects insLen ctxt UnsupportedFP
+  | Opcode.FCMP -> fcmp ins insLen ctxt addr
   | Opcode.FCMPE -> sideEffects insLen ctxt UnsupportedFP
   | Opcode.FCSEL -> sideEffects insLen ctxt UnsupportedFP
-  | Opcode.FCVT | Opcode.FCVTMU ->
-    sideEffects insLen ctxt UnsupportedFP
+  | Opcode.FCVT -> fcvt ins insLen ctxt addr
+  | Opcode.FCVTMU -> sideEffects insLen ctxt UnsupportedFP
   | Opcode.FCVTZS -> sideEffects insLen ctxt UnsupportedFP
   | Opcode.FCVTZU -> sideEffects insLen ctxt UnsupportedFP
-  | Opcode.FDIV -> sideEffects insLen ctxt UnsupportedFP
+  | Opcode.FDIV -> fdiv ins insLen ctxt addr
   | Opcode.FMADD -> sideEffects insLen ctxt UnsupportedFP
   | Opcode.FMAX -> sideEffects insLen ctxt UnsupportedFP
   | Opcode.FMAXNM -> sideEffects insLen ctxt UnsupportedFP
-  | Opcode.FMOV -> sideEffects insLen ctxt UnsupportedFP
-  | Opcode.FMUL -> sideEffects insLen ctxt UnsupportedFP
+  | Opcode.FMOV -> fmov ins insLen ctxt addr
+  | Opcode.FMUL -> fmul ins insLen ctxt addr
   | Opcode.FNEG -> sideEffects insLen ctxt UnsupportedFP
   | Opcode.FNMUL -> sideEffects insLen ctxt UnsupportedFP
   | Opcode.FRINTM | Opcode.FRINTA | Opcode.FRINTP | Opcode.FRINTZ ->
     sideEffects insLen ctxt UnsupportedFP
-  | Opcode.FSUB -> sideEffects insLen ctxt UnsupportedFP
+  | Opcode.FSUB -> fsub ins insLen ctxt addr
   | Opcode.FSQRT -> sideEffects insLen ctxt UnsupportedFP
   | Opcode.FMSUB -> sideEffects insLen ctxt UnsupportedFP
   | Opcode.HINT -> nop insLen ctxt
