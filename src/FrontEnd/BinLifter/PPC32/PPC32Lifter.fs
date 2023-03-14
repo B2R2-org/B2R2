@@ -541,11 +541,25 @@ let cror ins insLen ctxt =
   !!ir (crbD := crbA .| crbB)
   !>ir insLen
 
-let crset ins insLen ctxt =
+let crorc ins insLen ctxt =
+  let struct (crbD, crbA, crbB) = transThreeOprs ins ctxt
+  let ir = !*ctxt
+  !<ir insLen
+  !!ir (crbD := crbA .| (AST.not crbB))
+  !>ir insLen
+
+let creqv ins insLen ctxt =
   let struct (crbD, crbA, crbB) = transThreeOprs ins ctxt
   let ir = !*ctxt
   !<ir insLen
   !!ir (crbD := crbA <+> AST.not(crbB))
+  !>ir insLen
+
+let crset ins insLen ctxt =
+  let crbD = transOneOpr ins ctxt
+  let ir = !*ctxt
+  !<ir insLen
+  !!ir (crbD := crbD <+> AST.not(crbD))
   !>ir insLen
 
 let crnand ins insLen ctxt =
@@ -553,6 +567,20 @@ let crnand ins insLen ctxt =
   let ir = !*ctxt
   !<ir insLen
   !!ir (crbD := AST.not (crbA .& crbB))
+  !>ir insLen
+
+let crnor ins insLen ctxt =
+  let struct (crbD, crbA, crbB) = transThreeOprs ins ctxt
+  let ir = !*ctxt
+  !<ir insLen
+  !!ir (crbD := AST.not (crbA .| crbB))
+  !>ir insLen
+
+let crnot ins insLen ctxt =
+  let struct (crbD, crbA) = transTwoOprs ins ctxt
+  let ir = !*ctxt
+  !<ir insLen
+  !!ir (crbD := AST.not crbA)
   !>ir insLen
 
 let crxor ins insLen ctxt =
@@ -1159,7 +1187,6 @@ let slw ins insLen updateCond ctxt =
   let struct (dst, rs, rb) = transThreeOprs ins ctxt
   let ir = !*ctxt
   let n = !+ir 32<rt>
-  let z = AST.num0 32<rt>
   !<ir insLen
   !!ir (n := rb .& numI32 0x1f 32<rt>)
   !!ir (dst := rs << n)
@@ -1508,9 +1535,13 @@ let translate (ins: InsInfo) insLen (ctxt: TranslationContext) =
   | Op.CNTLZW -> cntlzw ins insLen false ctxt
   | Op.CNTLZWdot -> cntlzw ins insLen true ctxt
   | Op.CRCLR -> crclr ins insLen ctxt
+  | Op.CREQV -> creqv ins insLen ctxt
   | Op.CRXOR -> crxor ins insLen ctxt
   | Op.CROR -> cror ins insLen ctxt
+  | Op.CRORC -> crorc ins insLen ctxt
   | Op.CRSET -> crset ins insLen ctxt
+  | Op.CRNOR -> crnor ins insLen ctxt
+  | Op.CRNOT -> crnot ins insLen ctxt
   | Op.DCBT -> nop insLen ctxt
   | Op.DCBTST -> nop insLen ctxt
   | Op.DIVW -> divw ins insLen false ctxt
