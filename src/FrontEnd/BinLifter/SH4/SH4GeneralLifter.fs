@@ -1041,7 +1041,7 @@ let ``float`` ins len ctxt =
   !!ir (sr := !.ctxt R.SR |> AST.zext 32<rt>)
   !!ir (fps := !.ctxt R.FPSCR |> AST.zext 32<rt>)
   fpudisChecker ir ctxt
-  !!ir (op1 := AST.cast CastKind.IntToFloat mode fpul)
+  !!ir (op1 := AST.cast CastKind.SIntToFloat mode fpul)
   !!ir (dst := op1)
   !>ir len
 

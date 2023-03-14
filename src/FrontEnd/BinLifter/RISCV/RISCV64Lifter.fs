@@ -2087,7 +2087,7 @@ let fcvtdotsdotw insInfo insLen ctxt =
   let upperBitOne = (numU64 0xFFFFFFFF00000000uL 64<rt>)
   let rtVal = !+ir 32<rt>
   !<ir insLen
-  !!ir (rtVal := AST.cast CastKind.IntToFloat 32<rt> rs1)
+  !!ir (rtVal := AST.cast CastKind.SIntToFloat 32<rt> rs1)
   !!ir (rd := (AST.zext 64<rt> rtVal) .| upperBitOne)
   !>ir insLen
 
@@ -2098,7 +2098,7 @@ let fcvtdotsdotl insInfo insLen ctxt =
   let upperBitOne = (numU64 0xFFFFFFFF00000000uL 64<rt>)
   let rtVal = !+ir 32<rt>
   !<ir insLen
-  !!ir (rtVal := AST.cast CastKind.IntToFloat 32<rt> rs1)
+  !!ir (rtVal := AST.cast CastKind.SIntToFloat 32<rt> rs1)
   !!ir (rd := (AST.zext 64<rt> rtVal) .| upperBitOne)
   !>ir insLen
 
@@ -2107,7 +2107,7 @@ let fcvtdotddotw insInfo insLen ctxt =
   let rd, rs1, rm = getThreeOprs insInfo
   let rd, rs1 = (rd, rs1) |> transTwoOprs insInfo ctxt
   !<ir insLen
-  !!ir (rd := AST.cast CastKind.IntToFloat 64<rt> (AST.xtlo 32<rt> rs1))
+  !!ir (rd := AST.cast CastKind.SIntToFloat 64<rt> (AST.xtlo 32<rt> rs1))
   !>ir insLen
 
 let fcvtdotddotl insInfo insLen ctxt =
@@ -2115,7 +2115,7 @@ let fcvtdotddotl insInfo insLen ctxt =
   let rd, rs1, rm = getThreeOprs insInfo
   let rd, rs1 = (rd, rs1) |> transTwoOprs insInfo ctxt
   !<ir insLen
-  !!ir (rd := AST.cast CastKind.IntToFloat 64<rt> rs1)
+  !!ir (rd := AST.cast CastKind.SIntToFloat 64<rt> rs1)
   !>ir insLen
 
 let fcvtdotsdotd insInfo insLen ctxt =

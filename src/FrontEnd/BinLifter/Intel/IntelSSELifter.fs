@@ -858,8 +858,8 @@ let cvtpi2ps ins insLen ctxt =
   let struct (tmp2, tmp1) = tmpVars2 ir 32<rt>
   !!ir (tmp1 := AST.xtlo 32<rt> src)
   !!ir (tmp2 := AST.xthi 32<rt> src)
-  !!ir (AST.xtlo 32<rt> dst := AST.cast CastKind.IntToFloat 32<rt> tmp1)
-  !!ir (AST.xthi 32<rt> dst := AST.cast CastKind.IntToFloat 32<rt> tmp2)
+  !!ir (AST.xtlo 32<rt> dst := AST.cast CastKind.SIntToFloat 32<rt> tmp1)
+  !!ir (AST.xthi 32<rt> dst := AST.cast CastKind.SIntToFloat 32<rt> tmp2)
   !>ir insLen
 
 let cvtdq2pd ins insLen ctxt =
@@ -871,8 +871,8 @@ let cvtdq2pd ins insLen ctxt =
   let struct (tmp1, tmp2) = tmpVars2 ir 32<rt>
   !!ir (tmp1 := AST.xtlo 32<rt> src)
   !!ir (tmp2 := AST.xthi 32<rt> src)
-  !!ir (dst1 := AST.cast CastKind.IntToFloat 64<rt> tmp1)
-  !!ir (dst2 := AST.cast CastKind.IntToFloat 64<rt> tmp2)
+  !!ir (dst1 := AST.cast CastKind.SIntToFloat 64<rt> tmp1)
+  !!ir (dst2 := AST.cast CastKind.SIntToFloat 64<rt> tmp2)
   !>ir insLen
 
 let cvtpi2pd ins insLen ctxt = cvtdq2pd ins insLen ctxt
@@ -883,7 +883,7 @@ let cvtsi2ss ins insLen ctxt =
   let struct (dst, src) = getTwoOprs ins
   let dst = transOprToExpr64 ir false ins insLen ctxt dst
   let src = transOprToExpr ir false ins insLen ctxt src
-  !!ir (AST.xtlo 32<rt> dst := AST.cast CastKind.IntToFloat 32<rt> src)
+  !!ir (AST.xtlo 32<rt> dst := AST.cast CastKind.SIntToFloat 32<rt> src)
   !>ir insLen
 
 let cvtsi2sd ins insLen ctxt =
@@ -892,7 +892,7 @@ let cvtsi2sd ins insLen ctxt =
   let struct (dst, src) = getTwoOprs ins
   let dst = transOprToExpr64 ir false ins insLen ctxt dst
   let src = transOprToExpr ir false ins insLen ctxt src
-  !!ir (dst := AST.cast CastKind.IntToFloat 64<rt> src)
+  !!ir (dst := AST.cast CastKind.SIntToFloat 64<rt> src)
   !>ir insLen
 
 let cvtps2pi ins insLen ctxt rounded =
@@ -967,10 +967,10 @@ let cvtdq2ps ins insLen ctxt =
   !!ir (tmp2 := AST.xthi 32<rt> src1)
   !!ir (tmp3 := AST.xtlo 32<rt> src2)
   !!ir (tmp4 := AST.xthi 32<rt> src2)
-  !!ir (AST.xtlo 32<rt> dst1 := AST.cast CastKind.IntToFloat 32<rt> tmp1)
-  !!ir (AST.xthi 32<rt> dst1 := AST.cast CastKind.IntToFloat 32<rt> tmp2)
-  !!ir (AST.xtlo 32<rt> dst2 := AST.cast CastKind.IntToFloat 32<rt> tmp3)
-  !!ir (AST.xthi 32<rt> dst2 := AST.cast CastKind.IntToFloat 32<rt> tmp4)
+  !!ir (AST.xtlo 32<rt> dst1 := AST.cast CastKind.SIntToFloat 32<rt> tmp1)
+  !!ir (AST.xthi 32<rt> dst1 := AST.cast CastKind.SIntToFloat 32<rt> tmp2)
+  !!ir (AST.xtlo 32<rt> dst2 := AST.cast CastKind.SIntToFloat 32<rt> tmp3)
+  !!ir (AST.xthi 32<rt> dst2 := AST.cast CastKind.SIntToFloat 32<rt> tmp4)
   !>ir insLen
 
 let cvtps2dq ins insLen ctxt rounded =

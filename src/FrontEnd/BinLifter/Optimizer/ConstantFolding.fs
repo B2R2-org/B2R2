@@ -92,7 +92,8 @@ let private concretizeCast castType rt bv =
   match castType with
   | CastKind.SignExt -> BitVector.SExt (bv, rt)
   | CastKind.ZeroExt -> BitVector.ZExt (bv, rt)
-  | CastKind.IntToFloat -> BitVector.Itof (bv, rt)
+  | CastKind.SIntToFloat -> BitVector.Itof (bv, rt, true)
+  | CastKind.UIntToFloat -> BitVector.Itof (bv, rt, false)
   | CastKind.FtoIRound -> BitVector.FtoiRound (bv, rt)
   | CastKind.FtoICeil -> BitVector.FtoiCeil (bv, rt)
   | CastKind.FtoIFloor -> BitVector.FtoiFloor (bv, rt)

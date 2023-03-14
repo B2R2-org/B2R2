@@ -287,7 +287,7 @@ let fild ins insLen ctxt =
   let tmpB, tmpA = !+ir 16<rt>, !+ir 64<rt>
   !<ir insLen
   !?ir
-    (castTo80Bit ctxt tmpB tmpA (AST.cast CastKind.IntToFloat 64<rt> oprExpr))
+    (castTo80Bit ctxt tmpB tmpA (AST.cast CastKind.SIntToFloat 64<rt> oprExpr))
   !?ir (pushFPUStack ctxt)
   !!ir (st0b := tmpB)
   !!ir (st0a := tmpA)
@@ -390,7 +390,7 @@ let fbld ins insLen ctxt =
   let intgr = !+ir 64<rt>
   let tmpB, tmpA = !+ir 16<rt>, !+ir 64<rt>
   !?ir (bcdToInt intgr addrExpr addrSize)
-  !?ir (castTo80Bit ctxt tmpB tmpA (AST.cast CastKind.IntToFloat 64<rt> intgr))
+  !?ir (castTo80Bit ctxt tmpB tmpA (AST.cast CastKind.SIntToFloat 64<rt> intgr))
   !?ir (pushFPUStack ctxt)
   !!ir (st0b := tmpB)
   !!ir (st0a := tmpA)
@@ -556,7 +556,7 @@ let private fpuIntOp ins insLen ctxt binOp leftToRight =
   let oprExpr = transOneOpr ir false ins insLen ctxt
   let struct (tmp, dst) = tmpVars2 ir 64<rt>
   let res = !+ir 64<rt>
-  !!ir (tmp := AST.cast CastKind.IntToFloat 64<rt> oprExpr)
+  !!ir (tmp := AST.cast CastKind.SIntToFloat 64<rt> oprExpr)
   !?ir (castFrom80Bit dst 64<rt> st0b st0a)
   if leftToRight then !!ir (res := binOp dst tmp)
   else !!ir (res := binOp tmp dst)
@@ -600,7 +600,7 @@ let fidivr ins insLen ctxt =
   fpuIntOp ins insLen ctxt AST.fdiv false
 
 let inline private castToF64 intexp =
-  AST.cast CastKind.IntToFloat 64<rt> intexp
+  AST.cast CastKind.SIntToFloat 64<rt> intexp
 
 let fprem _ins insLen ctxt round =
   let ir = !*ctxt
@@ -780,7 +780,7 @@ let ficom ins insLen ctxt doPop =
   let struct (st0b, st0a) = getFPUPseudoRegVars ctxt R.ST0
   let struct (tmp0, tmp1) = tmpVars2 ir 64<rt>
   !?ir (castFrom80Bit tmp0 64<rt> st0b st0a)
-  !!ir (tmp1 := AST.cast CastKind.IntToFloat 64<rt> oprExpr)
+  !!ir (tmp1 := AST.cast CastKind.SIntToFloat 64<rt> oprExpr)
   !!ir (!.ctxt R.FSWC0 := AST.flt tmp0 tmp1)
   !!ir (!.ctxt R.FSWC2 := AST.b0)
   !!ir (!.ctxt R.FSWC3 := tmp0 == tmp1)
@@ -838,7 +838,7 @@ let fxam _ins insLen ctxt =
 
 let private checkForTrigFunction unsigned lin lout ir =
   let maxLimit = numI64 (1L <<< 63) 64<rt>
-  let maxFloat = AST.cast CastKind.IntToFloat 64<rt> maxLimit
+  let maxFloat = AST.cast CastKind.SIntToFloat 64<rt> maxLimit
   !!ir (AST.cjmp (AST.flt unsigned maxFloat) (AST.name lin) (AST.name lout))
 
 let private ftrig _ins insLen ctxt trigFunc =

@@ -744,7 +744,7 @@ let fmul e1 e2 =
     TypeCheck.typeOf e1
 #endif
 #if ! HASHCONS
-  binopWithType BinOpType.FMUL t e2 e1
+  binopWithType BinOpType.FMUL t e1 e2
 #else
   if e1 < e2 then binopWithType BinOpType.FMUL t e1 e2
   else binopWithType BinOpType.FMUL t e2 e1

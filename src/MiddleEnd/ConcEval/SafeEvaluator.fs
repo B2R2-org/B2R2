@@ -90,7 +90,8 @@ and private evalCast st t e = function
   | CastKind.SignExt -> evalConcrete st e |> map1 BitVector.SExt t
   | CastKind.ZeroExt -> evalConcrete st e |> map1 BitVector.ZExt t
   | CastKind.FloatCast -> evalConcrete st e |> map1 BitVector.FCast t
-  | CastKind.IntToFloat -> evalConcrete st e |> map1 BitVector.Itof t
+  | CastKind.SIntToFloat -> evalConcrete st e |> map2 BitVector.Itof t true
+  | CastKind.UIntToFloat -> evalConcrete st e |> map2 BitVector.Itof t false
   | CastKind.FtoICeil -> evalConcrete st e |> map1 BitVector.FtoiCeil t
   | CastKind.FtoIFloor -> evalConcrete st e |> map1 BitVector.FtoiFloor t
   | CastKind.FtoIRound -> evalConcrete st e |> map1 BitVector.FtoiRound t

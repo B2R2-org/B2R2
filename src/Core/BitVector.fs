@@ -244,7 +244,7 @@ type BitVector internal (len) =
   abstract FCast: RegType -> BitVector
 
   /// Integer to float conversion.
-  abstract Itof: RegType -> BitVector
+  abstract Itof: RegType * bool -> BitVector
 
   /// Floating point to integer conversion with truncation.
   abstract FtoiTrunc: RegType -> BitVector
@@ -638,7 +638,8 @@ type BitVector internal (len) =
   static member inline FCast (v1: BitVector, rt) = v1.FCast rt
 
   /// BitVector integer to float conversion.
-  static member inline Itof (v1: BitVector, rt) = v1.Itof rt
+  static member inline Itof (v1: BitVector, rt, isSigned) =
+    v1.Itof (rt, isSigned)
 
   /// BitVector float to integer conversion with truncation.
   static member inline FtoiTrunc (v1: BitVector, rt) = v1.FtoiTrunc rt
@@ -1150,17 +1151,19 @@ and BitVectorSmall (n, len) =
       BitVectorBig (__.SmallValue () |> encodeBigFloat, targetLen) :> BitVector
     | _ -> raise ArithTypeMismatchException
 
-  override __.Itof targetLen =
-    let signedInt = n |> int64
+  override __.Itof (targetLen, isSigned) =
     match targetLen with
     | 32<rt> ->
-      let u64 = BitConverter.SingleToInt32Bits (float32 signedInt) |> uint64
+      let fpv = if isSigned then n |> int64 |> float32 else n |> float32
+      let u64 = BitConverter.SingleToInt32Bits fpv |> uint64
       BitVectorSmall (u64, targetLen) :> BitVector
     | 64<rt> ->
-      let u64 = BitConverter.DoubleToInt64Bits (float signedInt) |> uint64
+      let fpv = if isSigned then n |> int64 |> float else n |> float
+      let u64 = BitConverter.DoubleToInt64Bits fpv |> uint64
       BitVectorSmall (u64, targetLen) :> BitVector
     | 80<rt> ->
-      let u64 = BitConverter.DoubleToInt64Bits (float signedInt) |> uint64
+      let fpv = if isSigned then n |> int64 |> float else n |> float
+      let u64 = BitConverter.DoubleToInt64Bits fpv |> uint64
       BitVectorBig (bigint u64, targetLen) :> BitVector
     | _ -> raise ArithTypeMismatchException
 
@@ -1661,7 +1664,7 @@ and BitVectorBig (n, len) =
     | 80<rt>, 80<rt> -> __ :> BitVector
     | _ -> raise ArithTypeMismatchException
 
-  override __.Itof targetLen =
+  override __.Itof (targetLen, _) =
     let v = if isBigPositive len n then n else - n
     match targetLen with
     | 32<rt> ->
