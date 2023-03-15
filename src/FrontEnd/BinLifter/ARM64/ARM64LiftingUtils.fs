@@ -240,6 +240,11 @@ let transOprToExpr ins ctxt addr = function
   | OprImm imm -> numI64 imm ins.OprSize
   | OprNZCV nzcv -> numI64 (int64 nzcv) ins.OprSize
   | OprLSB lsb -> numI64 (int64 lsb) ins.OprSize
+  | OprFPImm float ->
+    if ins.OprSize = 64<rt> then
+      numI64 (System.BitConverter.DoubleToInt64Bits float) ins.OprSize
+    else
+      numI64 (System.BitConverter.SingleToInt32Bits (float32 float)) ins.OprSize
   | _ -> raise <| NotImplementedIRException "transOprToExpr"
 
 let separateMemExpr expr =
