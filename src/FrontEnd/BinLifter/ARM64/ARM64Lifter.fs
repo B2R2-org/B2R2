@@ -405,6 +405,7 @@ let compare ins insLen ctxt addr cond =
 
 let cmeq ins insLen ctxt addr = compare ins insLen ctxt addr (==)
 let cmgt ins insLen ctxt addr = compare ins insLen ctxt addr (.>)
+let cmge ins insLen ctxt addr = compare ins insLen ctxt addr (.>=)
 
 let csel ins insLen ctxt addr =
   let ir = !*ctxt
@@ -549,12 +550,107 @@ let fcmp ins insLen ctxt addr =
   !!ir (getRegVar ctxt R.V := AST.extract nzcv 1<rt> 0)
   !>ir insLen
 
+let getExponent isDouble src =
+  if isDouble then
+    let numMantissa =  numI32 52 64<rt>
+    let mask = numI32 0x7FF 64<rt>
+    AST.xtlo 32<rt> ((src >> numMantissa) .& mask)
+  else
+    let numMantissa = numI32 23 32<rt>
+    let mask = numI32 0xff 32<rt>
+    (src >> numMantissa) .& mask
+
+let getMantissa isDouble src =
+  let mask =
+    if isDouble then numU64 0xffffffffffffUL 64<rt>
+    else numU64 0x7fffffUL 32<rt>
+  src .& mask
+
+let isNan isDouble expr =
+  let exponent = getExponent isDouble expr
+  let mantissa = getMantissa isDouble expr
+  let e = if isDouble then numI32 0x7ff 32<rt> else numI32 0xff 32<rt>
+  let zero = if isDouble then AST.num0 64<rt> else AST.num0 32<rt>
+  (exponent == e) .& (mantissa != zero)
+
+let fcmpe ins insLen ctxt addr =
+  let ir = !*ctxt
+  !<ir insLen
+  let src1, src2 = transTwoOprs ins ctxt addr
+  let nzcv = !+ir 8<rt>
+  let lblNan = !%ir "IsNan"
+  let lblExit = !%ir "Exit"
+  let isNan =  (* FIXME *)
+    match ins.OprSize with
+    | 64<rt> -> isNan true src1 .| isNan true src2
+    | _ -> isNan false src2 .| isNan false src2
+  !!ir (nzcv := fpCompare src1 src2)
+  !!ir (getRegVar ctxt R.N := AST.extract nzcv 1<rt> 3)
+  !!ir (getRegVar ctxt R.Z := AST.extract nzcv 1<rt> 2)
+  !!ir (getRegVar ctxt R.C := AST.extract nzcv 1<rt> 1)
+  !!ir (AST.cjmp isNan (AST.name lblNan) (AST.name lblExit))
+  !!ir (AST.lmark lblNan)
+  !!ir (getRegVar ctxt R.V := AST.num1 1<rt>)
+  !!ir (AST.lmark lblExit)
+  !!ir (nzcv := fpCompare src1 src2)
+  !!ir (getRegVar ctxt R.V := AST.num0 1<rt>)
+  !>ir insLen
+
+let fcsel ins insLen ctxt addr =
+  let ir = !*ctxt
+  let dst, s1, s2, cond = transOprToExprOfCSEL ins ctxt addr
+  let fs1 = AST.cast CastKind.FloatCast ins.OprSize s1
+  let fs2 = AST.cast CastKind.FloatCast ins.OprSize s2
+  !<ir insLen
+  !!ir (dstAssign ins.OprSize dst (AST.ite (conditionHolds ctxt cond) fs1 fs2))
+  !>ir insLen
+
 let fcvt ins insLen ctxt addr =
   let ir = !*ctxt
   !<ir insLen
   let dst, src = transTwoOprs ins ctxt addr
   let oprSize = ins.OprSize
   !!ir (dstAssign oprSize dst (AST.cast CastKind.FloatCast oprSize src))
+  !>ir insLen
+
+let fpToFixed ins src fbits unsigned round =
+  let oprSz = ins.OprSize
+  let signOrUnsigned = if unsigned then AST.cast CastKind.UIntToFloat oprSz src
+                       else AST.cast CastKind.SIntToFloat oprSz src
+  let mulBits = AST.cast CastKind.SIntToFloat oprSz (AST.num1 oprSz << fbits)
+  let value = AST.cast CastKind.FtoIFloor oprSz
+               (AST.fmul signOrUnsigned mulBits)
+  let result =
+    match round with
+    | FPRounding_TIEEVEN
+    | FPRounding_TIEAWAY -> AST.cast CastKind.FtoIRound oprSz
+    | FPRounding_Zero -> AST.cast CastKind.FtoITrunc oprSz
+    | FPRounding_POSINF -> AST.cast CastKind.FtoICeil oprSz
+    | FPRounding_NEGINF -> AST.cast CastKind.FtoIFloor oprSz
+  result value
+
+let fcvtmsOrU ins insLen ctxt addr unsigned =
+  let ir = !*ctxt
+  let oprSize = ins.OprSize
+  !<ir insLen
+  let dst, src = transTwoOprs ins ctxt addr
+  let result = fpToFixed ins src (AST.num0 oprSize) unsigned FPRounding_NEGINF
+  !!ir (dstAssign oprSize dst result)
+  !>ir insLen
+
+let fcvtzsOrU ins insLen ctxt addr unsigned =
+  let ir = !*ctxt
+  let oprSize = ins.OprSize
+  !<ir insLen
+  match ins.Operands with
+  | TwoOperands (_) ->
+    let dst, src = transTwoOprs ins ctxt addr
+    let result = fpToFixed ins src (AST.num0 oprSize) unsigned FPRounding_Zero
+    !!ir (dstAssign oprSize dst result)
+  | _ ->
+    let dst, src, fbits = transThreeOprs ins ctxt addr
+    let result = fpToFixed ins src fbits unsigned FPRounding_Zero
+    !!ir (dstAssign oprSize dst result)
   !>ir insLen
 
 let fdiv ins insLen ctxt addr =
@@ -609,6 +705,16 @@ let ld1 ins insLen ctxt addr =
   if isWBack then
     if isRegOffset src then !!ir (offs := mOffs) else ()
     !!ir (bReg := address .+ offs)
+  !>ir insLen
+
+let ldarb ins insLen ctxt addr =
+  let ir = !*ctxt
+  let dst, (bReg, offset) = transTwoOprsSepMem ins ctxt addr
+  let address = !+ir 64<rt>
+  !<ir insLen
+  !!ir (address := bReg .+ offset)
+  mark ctxt address (memSizeToExpr 8<rt>) ir
+  !!ir (dstAssign ins.OprSize dst (AST.loadLE 8<rt> address))
   !>ir insLen
 
 let ldax ins insLen ctxt addr size =
@@ -982,7 +1088,28 @@ let mov ins insLen ctxt addr =
     !!ir (dstAssign ins.OprSize dst src)
   !>ir insLen
 
-let getWordMask ins shift =
+let movi ins insLen ctxt addr =
+  let ir = !*ctxt
+  let rImm = !+ir ins.OprSize
+  !<ir insLen
+  match ins.Operands with
+  | TwoOperands (OprSIMD (SIMDFPScalarReg _), OprImm _) ->
+    let dst, src = transTwoOprs ins ctxt addr
+    !!ir (dstAssign ins.OprSize dst src)
+  | _ ->
+    let dstB, dstA, imm, dataSize, cond, amtBit =
+      transOprToExprOfMOVI ins ctxt addr
+    !!ir (rImm := if cond then replicateForIR imm amtBit ins.OprSize ir
+                  else imm)
+    if dataSize = 128<rt> then
+      !!ir (dstAssign ins.OprSize dstA rImm)
+      !!ir (dstAssign ins.OprSize dstB rImm)
+    else
+      !!ir (dstAssign ins.OprSize dstA rImm)
+      !!ir (dstB := AST.num0 64<rt>)
+  !>ir insLen
+
+let private getWordMask ins shift =
   match shift with
   | OprShift (SRTypeLSL, Imm amt) ->
     numI64 (~~~ (0xFFFFL <<< (int amt))) ins.OprSize
@@ -1212,6 +1339,38 @@ let sbfx ins insLen ctxt addr =
   let imms = (getImmValue lsb) + (getImmValue width) - 1L |> OprImm
   sbfm ins insLen ctxt addr dst src lsb imms
 
+let fixedToFp oprSz src fbits unsigned round =
+  let intOperand = if unsigned then AST.cast CastKind.UIntToFloat oprSz src
+                   else AST.cast CastKind.SIntToFloat oprSz src
+  let num0 = AST.cast CastKind.SIntToFloat oprSz (AST.num0 oprSz)
+  let divBits = AST.cast CastKind.SIntToFloat oprSz (AST.num1 oprSz << fbits)
+  let realOperand = AST.fdiv intOperand divBits
+  let cond = AST.eq realOperand num0
+  let result =
+    match round with
+    | FPRounding_TIEEVEN
+    | FPRounding_TIEAWAY -> AST.cast CastKind.FtoFRound oprSz
+    | FPRounding_Zero -> AST.cast CastKind.FtoFTrunc oprSz
+    | FPRounding_POSINF -> AST.cast CastKind.FtoFCeil oprSz
+    | FPRounding_NEGINF -> AST.cast CastKind.FtoFFloor oprSz
+  AST.ite cond (AST.num0 oprSz) (result realOperand)
+
+let scvtf ins insLen ctxt addr =
+  let ir = !*ctxt
+  let oprSize = ins.OprSize
+  !<ir insLen
+  match ins.Operands with
+  | TwoOperands (_) ->
+    let dst, src = transTwoOprs ins ctxt addr
+    let result = fixedToFp oprSize src (AST.num0 oprSize)
+                  false FPRounding_TIEEVEN
+    !!ir (dstAssign oprSize dst result)
+  | _ ->
+    let dst, src, fbits = transThreeOprs ins ctxt addr
+    let result = fixedToFp oprSize src fbits false FPRounding_TIEEVEN
+    !!ir (dstAssign oprSize dst result)
+  !>ir insLen
+
 let sdiv ins insLen ctxt addr =
   let ir = !*ctxt
   let dst, src1, src2 = transThreeOprs ins ctxt addr
@@ -1220,6 +1379,23 @@ let sdiv ins insLen ctxt addr =
   (* FIXME: RoundTowardsZero *)
   let result = AST.ite cond (AST.num0 ins.OprSize) (src1 ./ src2)
   !!ir (dstAssign ins.OprSize dst result)
+  !>ir insLen
+
+let shl ins insLen ctxt addr =
+  let ir = !*ctxt
+  let struct (dst, src, amt) = getThreeOprs ins
+  let struct (eSize, dataSize, elements) = getElemDataSzAndElems src
+  !<ir insLen
+  match ins.Operands with
+  | ThreeOperands (OprSIMD (SIMDFPScalarReg _), _, _) ->
+    let dst, src, amt = transThreeOprs ins ctxt addr
+    !!ir (dstAssign ins.OprSize dst (src << amt))
+  | _ ->
+    let dstB, dstA = transOprToExpr128 ins ctxt addr dst
+    let src = transSIMDOprToExpr ctxt eSize dataSize elements src
+    let amt = transOprToExpr ins ctxt addr amt |> AST.xtlo eSize
+    let result = Array.map (fun e -> e << amt) src
+    dstAssignForSIMD dstA dstB result dataSize elements ir
   !>ir insLen
 
 let smaddl ins insLen ctxt addr =
@@ -1264,6 +1440,17 @@ let smull ins insLen ctxt addr =
   | _ ->
     let dst, src1, src2 = transThreeOprs ins ctxt addr
     !!ir (dst := AST.sext 64<rt> src1 .* AST.sext 64<rt> src2)
+  !>ir insLen
+
+let stlrb ins insLen ctxt addr =
+  let ir = !*ctxt
+  let src, (bReg, offset) = transTwoOprsSepMem ins ctxt addr
+  let address = !+ir 64<rt>
+  let data = !+ir 8<rt>
+  !<ir insLen
+  !!ir (address := bReg .+ offset)
+  !!ir (data := AST.xtlo 8<rt> src)
+  !!ir (AST.loadLE 8<rt> address := data)
   !>ir insLen
 
 let stlx ins insLen ctxt addr size =
@@ -1696,6 +1883,22 @@ let uxth ins insLen ctxt addr =
   let struct (dst, src) = getTwoOprs ins
   ubfm ins insLen ctxt addr dst src (OprImm 0L) (OprImm 15L)
 
+let uzp ins insLen ctxt addr op =
+  let ir = !*ctxt
+  let struct (dst, src1, srcH) = getThreeOprs ins
+  let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
+  !<ir insLen
+  let dstB, dstA = transOprToExpr128 ins ctxt addr dst
+  let src1 = transSIMDOprToExpr ctxt eSize dataSize elements src1
+  let srcH = transSIMDOprToExpr ctxt eSize dataSize elements srcH
+  let result =
+    Array.append src1 srcH
+    |> Array.mapi (fun i x -> (i, x))
+    |> Array.filter (fun (i, _) -> i % 2 = op)
+    |> Array.map snd
+  dstAssignForSIMD dstA dstB result dataSize elements ir
+  !>ir insLen
+
 /// The logical shift left(or right) is the alias of LS{L|R}V and UBFM.
 /// Therefore, it is necessary to distribute to the original instruction.
 let distLogicalLeftShift ins insLen ctxt addr =
@@ -1762,8 +1965,9 @@ let translate ins insLen ctxt =
   | Opcode.CMN -> cmn ins insLen ctxt addr
   | Opcode.CMP -> cmp ins insLen ctxt addr
   | Opcode.CMEQ -> cmeq ins insLen ctxt addr
-  | Opcode.CMGE | Opcode.CMLT | Opcode.CMTST ->
+  | Opcode.CMLT | Opcode.CMTST ->
     sideEffects insLen ctxt UnsupportedFP
+  | Opcode.CMGE -> cmge ins insLen ctxt addr
   | Opcode.CMGT -> cmgt ins insLen ctxt addr
   | Opcode.CMHI | Opcode.CMHS -> sideEffects insLen ctxt UnsupportedFP
   | Opcode.CNEG | Opcode.CSNEG -> csneg ins insLen ctxt addr
@@ -1784,12 +1988,13 @@ let translate ins insLen ctxt =
   | Opcode.FCCMP -> sideEffects insLen ctxt UnsupportedFP
   | Opcode.FCCMPE -> sideEffects insLen ctxt UnsupportedFP
   | Opcode.FCMP -> fcmp ins insLen ctxt addr
-  | Opcode.FCMPE -> sideEffects insLen ctxt UnsupportedFP
-  | Opcode.FCSEL -> sideEffects insLen ctxt UnsupportedFP
+  | Opcode.FCMPE -> fcmpe ins insLen ctxt addr
+  | Opcode.FCSEL -> fcsel ins insLen ctxt addr
   | Opcode.FCVT -> fcvt ins insLen ctxt addr
-  | Opcode.FCVTMU -> sideEffects insLen ctxt UnsupportedFP
-  | Opcode.FCVTZS -> sideEffects insLen ctxt UnsupportedFP
-  | Opcode.FCVTZU -> sideEffects insLen ctxt UnsupportedFP
+  | Opcode.FCVTMS -> fcvtmsOrU ins insLen ctxt addr false
+  | Opcode.FCVTMU -> fcvtmsOrU ins insLen ctxt addr true
+  | Opcode.FCVTZS -> fcvtzsOrU ins insLen ctxt addr false
+  | Opcode.FCVTZU -> fcvtzsOrU ins insLen ctxt addr true
   | Opcode.FDIV -> fdiv ins insLen ctxt addr
   | Opcode.FMADD -> sideEffects insLen ctxt UnsupportedFP
   | Opcode.FMAX -> sideEffects insLen ctxt UnsupportedFP
@@ -1809,6 +2014,7 @@ let translate ins insLen ctxt =
   | Opcode.LD1R | Opcode.LD2 | Opcode.LD2R | Opcode.LD3
   | Opcode.LD3R | Opcode.LD4 | Opcode.LD4R ->
     sideEffects insLen ctxt UnsupportedFP
+  | Opcode.LDARB -> ldarb ins insLen ctxt addr
   | Opcode.LDAXRB | Opcode.LDXRB -> ldax ins insLen ctxt addr 8<rt>
   | Opcode.LDAXRH | Opcode.LDXRH -> ldax ins insLen ctxt addr 16<rt>
   | Opcode.LDAXR | Opcode.LDXR -> ldaxr ins insLen ctxt addr
@@ -1833,7 +2039,7 @@ let translate ins insLen ctxt =
   | Opcode.MLA -> sideEffects insLen ctxt UnsupportedFP
   | Opcode.MNEG -> msub ins insLen ctxt addr
   | Opcode.MOV -> mov ins insLen ctxt addr
-  | Opcode.MOVI | Opcode.MVNI -> sideEffects insLen ctxt UnsupportedFP
+  | Opcode.MOVI -> movi ins insLen ctxt addr
   | Opcode.MOVK -> movk ins insLen ctxt addr
   | Opcode.MOVN -> movn ins insLen ctxt addr
   | Opcode.MOVZ -> movz ins insLen ctxt addr
@@ -1842,6 +2048,7 @@ let translate ins insLen ctxt =
   | Opcode.MSUB -> msub ins insLen ctxt addr
   | Opcode.MUL -> madd ins insLen ctxt addr
   | Opcode.MVN -> orn ins insLen ctxt addr
+  | Opcode.MVNI -> sideEffects insLen ctxt UnsupportedFP
   | Opcode.NEG -> sub ins insLen ctxt addr
   | Opcode.NEGS -> subs ins insLen ctxt addr
   | Opcode.NOP -> nop insLen ctxt
@@ -1857,16 +2064,18 @@ let translate ins insLen ctxt =
   | Opcode.SBC -> sbc ins insLen ctxt addr
   | Opcode.SBFIZ -> sbfiz ins insLen ctxt addr
   | Opcode.SBFX -> sbfx ins insLen ctxt addr
-  | Opcode.SCVTF -> sideEffects insLen ctxt UnsupportedFP
+  | Opcode.SCVTF -> scvtf ins insLen ctxt addr
   | Opcode.SDIV -> sdiv ins insLen ctxt addr
   | Opcode.SMADDL -> smaddl ins insLen ctxt addr
   | Opcode.SMSUBL | Opcode.SMNEGL -> smsubl ins insLen ctxt addr
   | Opcode.SMULH -> smulh ins insLen ctxt addr
   | Opcode.SMULL -> smull ins insLen ctxt addr
-  | Opcode.SSHR | Opcode.SSHL | Opcode.SSHLL | Opcode.SSHLL2 | Opcode.SHL ->
+  | Opcode.SHL -> shl ins insLen ctxt addr
+  | Opcode.SSHR | Opcode.SSHL | Opcode.SSHLL | Opcode.SSHLL2  ->
     sideEffects insLen ctxt UnsupportedFP
   | Opcode.ST1 | Opcode.ST2 | Opcode.ST3 | Opcode.ST4 ->
     sideEffects insLen ctxt UnsupportedFP
+  | Opcode.STLRB -> stlrb ins insLen ctxt addr
   | Opcode.STLXRB | Opcode.STXRB -> stlx ins insLen ctxt addr 8<rt>
   | Opcode.STLXRH | Opcode.STXRH -> stlx ins insLen ctxt addr 16<rt>
   | Opcode.STLXR | Opcode.STXR -> stlxr ins insLen ctxt addr
@@ -1911,7 +2120,9 @@ let translate ins insLen ctxt =
   | Opcode.USRA -> usra ins insLen ctxt addr
   | Opcode.UXTB -> uxtb ins insLen ctxt addr
   | Opcode.UXTH -> uxth ins insLen ctxt addr
-  | Opcode.UZP1 | Opcode.UZP2 | Opcode.ZIP1 | Opcode.ZIP2 ->
+  | Opcode.UZP1 -> uzp ins insLen ctxt addr 0
+  | Opcode.UZP2 -> uzp ins insLen ctxt addr 1
+  | Opcode.ZIP1 | Opcode.ZIP2 ->
     sideEffects insLen ctxt UnsupportedFP
   | Opcode.XTN | Opcode.XTN2 -> sideEffects insLen ctxt UnsupportedFP
   | o ->

@@ -240,6 +240,7 @@ let transOprToExpr ins ctxt addr = function
   | OprImm imm -> numI64 imm ins.OprSize
   | OprNZCV nzcv -> numI64 (int64 nzcv) ins.OprSize
   | OprLSB lsb -> numI64 (int64 lsb) ins.OprSize
+  | OprFbits fbits -> numI64 (int64 fbits) ins.OprSize
   | OprFPImm float ->
     if ins.OprSize = 64<rt> then
       numI64 (System.BitConverter.DoubleToInt64Bits float) ins.OprSize
@@ -331,6 +332,8 @@ let transBarrelShiftToExpr ins ctxt src shift =
     let imm = match typ with
               | SRTypeLSL -> imm <<< int32 amt
               | SRTypeLSR -> imm >>> int32 amt
+              | SRTypeMSL -> (imm <<< int32 amt) +
+                             (int64 1 <<< int32 amt) - int64 1
               | _ -> failwith "Not implement"
     numI64 imm ins.OprSize
   | OprRegister reg, OprShift (typ, amt) ->
@@ -562,6 +565,25 @@ let unwrapReg e =
   match e.E with
   | Extract (e, 32<rt>, 0, _) -> e
   | _ -> failwith "Invalid register"
+
+let transOprToExprOfMOVI ins ctxt addr =
+  match ins.Operands with
+  | TwoOperands (OprSIMD (SIMDVecReg _), OprImm _) ->
+    let struct (dst, src) = getTwoOprs ins
+    let dstB, dstA = transOprToExpr128 ins ctxt addr dst
+    let struct (eSize, dataSize, _) = getElemDataSzAndElems dst
+    let cond = not (dataSize = 128<rt> && eSize = 64<rt>)
+    let imm = transOprToExpr ins ctxt addr src
+    let amtBit = numI32 (int32 eSize) ins.OprSize
+    dstB, dstA, imm, dataSize, cond, amtBit
+  | ThreeOperands (OprSIMD (SIMDVecReg _), OprImm _, OprShift _) ->
+    let struct (dst, src, amount) = getThreeOprs ins
+    let dstB, dstA = transOprToExpr128 ins ctxt addr dst
+    let imm = transBarrelShiftToExpr ins ctxt src amount
+    let struct (eSize, dataSize, _) = getElemDataSzAndElems dst
+    let amtBit = numI32 (int32 eSize) ins.OprSize
+    dstB, dstA, imm, dataSize, true, amtBit
+  | _ -> raise InvalidOperandException
 
 let transOprToExprOfSMSUBL ins ctxt addr =
   match ins.Operands with

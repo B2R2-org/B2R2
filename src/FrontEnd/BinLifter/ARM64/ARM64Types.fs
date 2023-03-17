@@ -3200,6 +3200,13 @@ type AddressingMode =
   | PostIdxMode of Offset
   | LiteralMode of Offset
 
+type RoundMode =
+  | FPRounding_TIEEVEN
+  | FPRounding_TIEAWAY
+  | FPRounding_Zero
+  | FPRounding_POSINF
+  | FPRounding_NEGINF
+
 type Operand =
   | OprRegister of Register
   (* SIMD&FP register *)
