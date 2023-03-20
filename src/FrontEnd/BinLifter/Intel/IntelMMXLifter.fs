@@ -69,7 +69,7 @@ let movd ins insLen ctxt =
   let ir = !*ctxt
   !<ir insLen
   let struct (dst, src) = getTwoOprs ins
-  match dst, src  with
+  match dst, src with
   | OprReg r1, OprReg r2 -> movdRegToReg ctxt r1 r2 ir
   | OprMem _, OprReg r -> let dst = transOprToExpr ir false ins insLen ctxt dst
                           movdRegToMem ctxt dst r ir
@@ -92,13 +92,13 @@ let private movqRegToReg ctxt r1 r2 ir =
   | Register.Kind.MMX, Register.Kind.GP
   | Register.Kind.GP, Register.Kind.MMX ->
     !!ir (!.ctxt r1 := !.ctxt r2)
-  | _, _ -> Utils.impossible ()
+  | _ -> raise InvalidOperandException
 
 let private movqRegToMem ctxt dst r ir =
   match Register.getKind r with
   | Register.Kind.XMM -> !!ir (dst := getPseudoRegVar ctxt r 1)
   | Register.Kind.MMX -> !!ir (dst := !.ctxt r)
-  | _ -> Utils.impossible ()
+  | _ -> raise InvalidOperandException
 
 let private movqMemToReg ctxt src r ir =
   match Register.getKind r with
@@ -106,7 +106,7 @@ let private movqMemToReg ctxt src r ir =
     !!ir (getPseudoRegVar ctxt r 1 := src)
     !!ir (getPseudoRegVar ctxt r 2 := AST.num0 64<rt>)
   | Register.Kind.MMX -> !!ir (!.ctxt r := src)
-  | _ -> Utils.impossible ()
+  | _ -> raise InvalidOperandException
 
 let movq ins insLen ctxt =
   let ir = !*ctxt
@@ -170,81 +170,27 @@ let private saturateToUnsignedWord expr =
   let maxNum = numU32 0xffffu 16<rt>
   AST.ite checkMin minNum (AST.ite checkMax maxNum (AST.xtlo 16<rt> expr))
 
-let makeSrc ir packSize packNum src =
-  let tSrc = Array.init packNum (fun _ -> !+ir packSize)
-  for i in 0 .. packNum - 1 do
-    !!ir (tSrc[i] := AST.extract src packSize (i * (int packSize)))
-  tSrc
-
 let private buildPackedTwoOprs ins insLen ctxt packSz opFn dst src =
   let ir = !*ctxt
   !<ir insLen
   let oprSize = getOperationSize ins
-  let packNum = oprSize / packSz
-  let makeSrc = makeSrc ir packSz
-  match oprSize with
-  | 64<rt> ->
-    let dst = transOprToExpr ir false ins insLen ctxt dst
-    let src = transOprToExpr ir false ins insLen ctxt src
-    let src1 = makeSrc packNum dst
-    let src2 = match src.E with
-               | Load (_, rt, _, _) -> makeSrc (rt / packSz) src
-               | _ -> makeSrc packNum src
-    !!ir (dst := opFn oprSize src1 src2 |> AST.concatArr)
-  | 128<rt> ->
-    let packNum = packNum / (oprSize / 64<rt>)
-    let tSrc =
-      let tsrcFromDst =
-        transOprToExprVec ir false ins insLen ctxt dst
-        |> List.map (makeSrc packNum)
-        |> List.fold Array.append [||]
-      let tsrcFromSrc =
-        let exprVec = transOprToExprVec ir false ins insLen ctxt src
-        let src =
-          if exprVec.Length = 2 then
-            let struct (t1, t2) = tmpVars2 ir 64<rt>
-            !!ir (t1 := exprVec[0])
-            !!ir (t2 := exprVec[1])
-            [t1; t2]
-          else exprVec
-        src
-        |> List.map (makeSrc packNum)
-        |> List.fold Array.append [||]
-      opFn oprSize tsrcFromDst tsrcFromSrc
-    let dst = transOprToExprVec ir false ins insLen ctxt dst
-    let packNum = Array.length tSrc / List.length dst
-    let assign idx dst =
-      !!ir (dst := Array.sub tSrc (packNum * idx) packNum |> AST.concatArr)
-    List.iteri assign dst
-  | _ -> raise InvalidOperandSizeException
+  let packNum = 64<rt> / packSz
+  let src1 = transOprToArr ir true ins insLen ctxt packSz packNum oprSize dst
+  let src2 = transOprToArr ir true ins insLen ctxt packSz packNum oprSize src
+  let result = opFn oprSize src1 src2
+  assignPackedInstr ir false ins insLen ctxt packNum oprSize dst result
   !>ir insLen
 
-let private buildPackedThreeOprs ins iLen ctxt packSz opFn dst s1 s2 =
+let private buildPackedThreeOprs ins insLen ctxt packSz opFn dst src1 src2 =
   let ir = !*ctxt
+  !<ir insLen
   let oprSize = getOperationSize ins
-  let packNum = oprSize / packSz
-  let makeSrc = makeSrc ir packSz
-  !<ir iLen
-  match oprSize with
-  | 64<rt> ->
-    let dst = transOprToExpr ir false ins iLen ctxt dst
-    let src1 = transOprToExpr ir false ins iLen ctxt s1
-    let src2 = transOprToExpr ir false ins iLen ctxt s2
-    let src1 = makeSrc packNum src1
-    let src2 = makeSrc packNum src2
-    !!ir (dst := opFn oprSize src1 src2 |> AST.concatArr)
-  | 128<rt> | 256<rt> ->
-    let packNum = packNum / (oprSize / 64<rt>)
-    let dst = transOprToExprVec ir false ins iLen ctxt dst
-    let srcAppend src =
-      let src = transOprToExprVec ir false ins iLen ctxt src
-      List.map (makeSrc packNum) src |> List.fold Array.append [||]
-    let tSrc = opFn oprSize (srcAppend s1) (srcAppend s2)
-    let assign idx dst =
-      !!ir (dst := Array.sub tSrc (packNum * idx) packNum |> AST.concatArr)
-    List.iteri assign dst
-  | _ -> raise InvalidOperandSizeException
-  !>ir iLen
+  let packNum = 64<rt> / packSz
+  let src1 = transOprToArr ir true ins insLen ctxt packSz packNum oprSize src1
+  let src2 = transOprToArr ir true ins insLen ctxt packSz packNum oprSize src2
+  let result = opFn oprSize src1 src2
+  assignPackedInstr ir false ins insLen ctxt packNum oprSize dst result
+  !>ir insLen
 
 let buildPackedInstr (ins: InsInfo) insLen ctxt packSz opFn =
   match ins.Operands with
@@ -254,72 +200,210 @@ let buildPackedInstr (ins: InsInfo) insLen ctxt packSz opFn =
     buildPackedThreeOprs ins insLen ctxt packSz opFn o1 o2 o3
   | _ -> raise InvalidOperandException
 
+let private packWithSaturation ins insLen ctxt packSz opFn =
+  let ir = !*ctxt
+  !<ir insLen
+  let oprSize = getOperationSize ins
+  let sPackSz = packSz
+  let sPackNum = 64<rt> / sPackSz
+  let dPackSz = packSz / 2
+  let dPackNum = 64<rt> / dPackSz
+  let struct (dst, src) = getTwoOprs ins
+  let src1 = transOprToArr ir true ins insLen ctxt sPackSz sPackNum oprSize dst
+  let src2 = transOprToArr ir true ins insLen ctxt sPackSz sPackNum oprSize src
+  let result = opFn oprSize src1 src2
+  assignPackedInstr ir false ins insLen ctxt dPackNum oprSize dst result
+  !>ir insLen
+
 let private opPackssdw _ src1 src2 =
   Array.append src1 src2 |> Array.map saturateSignedDwordToSignedWord
 
 let packssdw ins insLen ctxt =
-  buildPackedInstr ins insLen ctxt 32<rt> opPackssdw
+  packWithSaturation ins insLen ctxt 32<rt> opPackssdw
 
 let private opPacksswb _ src1 src2 =
   Array.append src1 src2 |> Array.map saturateSignedWordToSignedByte
 
 let packsswb ins insLen ctxt =
-  buildPackedInstr ins insLen ctxt 16<rt> opPacksswb
+  packWithSaturation ins insLen ctxt 16<rt> opPacksswb
 
 let private opPackuswb _ src1 src2 =
   Array.append src1 src2 |> Array.map saturateSignedWordToUnsignedByte
 
 let packuswb ins insLen ctxt =
-  buildPackedInstr ins insLen ctxt 16<rt> opPackuswb
+  packWithSaturation ins insLen ctxt 16<rt> opPackuswb
 
-let private opPunpck oprSize src1 src2 isHigh =
-  match oprSize with
-  | 64<rt> | 128<rt> ->
-    let half = Array.length src1 / 2
-    let sPos = if isHigh then half else 0
-    let src1 = Array.sub src1 sPos half
-    let src2 = Array.sub src2 sPos half
+let r128to256 = function
+  | OprReg R.XMM0 -> R.YMM0
+  | OprReg R.XMM1 -> R.YMM1
+  | OprReg R.XMM2 -> R.YMM2
+  | OprReg R.XMM3 -> R.YMM3
+  | OprReg R.XMM4 -> R.YMM4
+  | OprReg R.XMM5 -> R.YMM5
+  | OprReg R.XMM6 -> R.YMM6
+  | OprReg R.XMM7 -> R.YMM7
+  | OprReg R.XMM8 -> R.YMM8
+  | OprReg R.XMM9 -> R.YMM9
+  | OprReg R.XMM10 -> R.YMM10
+  | OprReg R.XMM11 -> R.YMM11
+  | OprReg R.XMM12 -> R.YMM12
+  | OprReg R.XMM13 -> R.YMM13
+  | OprReg R.XMM14 -> R.YMM14
+  | OprReg R.XMM15 -> R.YMM15
+  | _ -> raise InvalidOperandException
+
+let r128to512 = function
+  | OprReg R.XMM0 -> R.ZMM0
+  | OprReg R.XMM1 -> R.ZMM1
+  | OprReg R.XMM2 -> R.ZMM2
+  | OprReg R.XMM3 -> R.ZMM3
+  | OprReg R.XMM4 -> R.ZMM4
+  | OprReg R.XMM5 -> R.ZMM5
+  | OprReg R.XMM6 -> R.ZMM6
+  | OprReg R.XMM7 -> R.ZMM7
+  | OprReg R.XMM8 -> R.ZMM8
+  | OprReg R.XMM9 -> R.ZMM9
+  | OprReg R.XMM10 -> R.ZMM10
+  | OprReg R.XMM11 -> R.ZMM11
+  | OprReg R.XMM12 -> R.ZMM12
+  | OprReg R.XMM13 -> R.ZMM13
+  | OprReg R.XMM14 -> R.ZMM14
+  | OprReg R.XMM15 -> R.ZMM15
+  | _ -> raise InvalidOperandException
+
+let r256to512 = function
+  | OprReg R.YMM0 -> R.ZMM0
+  | OprReg R.YMM1 -> R.ZMM1
+  | OprReg R.YMM2 -> R.ZMM2
+  | OprReg R.YMM3 -> R.ZMM3
+  | OprReg R.YMM4 -> R.ZMM4
+  | OprReg R.YMM5 -> R.ZMM5
+  | OprReg R.YMM6 -> R.ZMM6
+  | OprReg R.YMM7 -> R.ZMM7
+  | OprReg R.YMM8 -> R.ZMM8
+  | OprReg R.YMM9 -> R.ZMM9
+  | OprReg R.YMM10 -> R.ZMM10
+  | OprReg R.YMM11 -> R.ZMM11
+  | OprReg R.YMM12 -> R.ZMM12
+  | OprReg R.YMM13 -> R.ZMM13
+  | OprReg R.YMM14 -> R.ZMM14
+  | OprReg R.YMM15 -> R.ZMM15
+  | _ -> raise InvalidOperandException
+
+let fillZeroHigh128 ctxt dst ir =
+  let dst = r128to256 dst
+  let dstC, dstD = getPseudoRegVar ctxt dst 3, getPseudoRegVar ctxt dst 4
+  let n0 = AST.num0 64<rt>
+  !!ir (dstC := n0)
+  !!ir (dstD := n0)
+
+let fillZeroHigh256 ctxt dst ir =
+  let dst = r256to512 dst
+  let dstE, dstF, dstG, dstH =
+    getPseudoRegVar ctxt dst 3, getPseudoRegVar ctxt dst 4,
+    getPseudoRegVar ctxt dst 5, getPseudoRegVar ctxt dst 6
+  let n0 = AST.num0 64<rt>
+  !!ir (dstE := n0)
+  !!ir (dstF := n0)
+  !!ir (dstG := n0)
+  !!ir (dstH := n0)
+
+let fillZeroFromVLToMaxVL ctxt dst vl maxVl ir =
+  let n0 = AST.num0 64<rt>
+  match dst with
+  | OprReg _ ->
+    match maxVl, vl with
+    | 512, 128<rt> ->
+      let dst = r128to512 dst
+      let dstC, dstD, dstE, dstF, dstG, dstH =
+        getPseudoRegVar ctxt dst 3, getPseudoRegVar ctxt dst 4,
+        getPseudoRegVar ctxt dst 5, getPseudoRegVar ctxt dst 6,
+        getPseudoRegVar ctxt dst 7, getPseudoRegVar ctxt dst 8
+      !!ir (dstC := n0)
+      !!ir (dstD := n0)
+      !!ir (dstE := n0)
+      !!ir (dstF := n0)
+      !!ir (dstG := n0)
+      !!ir (dstH := n0)
+    | 512, 256<rt> ->
+      let dst = r256to512 dst
+      let dstE, dstF, dstG, dstH =
+        getPseudoRegVar ctxt dst 5, getPseudoRegVar ctxt dst 6,
+        getPseudoRegVar ctxt dst 7, getPseudoRegVar ctxt dst 8
+      !!ir (dstE := n0)
+      !!ir (dstF := n0)
+      !!ir (dstG := n0)
+      !!ir (dstH := n0)
+    | 512, 512<rt> -> ()
+    | _ -> raise InvalidOperandSizeException
+  | _ -> ()
+
+let unpackLowHighData ins insLen ctxt packSize isHigh =
+  let ir = !*ctxt
+  !<ir insLen
+  let oprSz = getOperationSize ins
+  let packNum = 64<rt> / packSize
+  let allPackNum = oprSz / packSize
+  let struct (dst, src1, src2) = getThreeOprs ins
+  let src1 = transOprToArr ir true ins insLen ctxt packSize packNum oprSz src1
+  let src2 = transOprToArr ir true ins insLen ctxt packSize packNum oprSz src2
+  let resultA, resultB =
+    Array.fold2 (fun acc e1 e2 -> e2 :: e1 :: acc) [] src1 src2
+    |> List.rev |> List.toArray |> Array.splitAt allPackNum
+  let result =
+    if oprSz = 128<rt> then
+      if isHigh then resultB else resultA
+    elif oprSz = 256<rt> then
+      let resALow, resAHigh = Array.splitAt (allPackNum / 2) resultA
+      let resBLow, resBHigh = Array.splitAt (allPackNum / 2) resultB
+      if isHigh then Array.append resAHigh resBHigh else
+      Array.append resALow resBLow
+    else raise InvalidOperandSizeException
+  assignPackedInstr ir false ins insLen ctxt packNum oprSz dst result
+  fillZeroFromVLToMaxVL ctxt dst oprSz 512 ir
+  !>ir insLen
+
+let opUnpackHighData oprSize src1 src2 =
+  let result =
     Array.fold2 (fun acc e1 e2 -> e2 :: e1 :: acc) [] src1 src2
     |> List.rev |> List.toArray
-  | 256<rt> ->
-    let half = Array.length src1 / 2
-    let src1A = Array.sub src1 0 half
-    let src1B = Array.sub src1 half half
-    let src2A = Array.sub src2 0 half
-    let src2B = Array.sub src2 half half
-    let half = Array.length src1A / 2
-    let sPos = if isHigh then half else 0
-    let src1A = Array.sub src1A sPos half
-    let src2A = Array.sub src2A sPos half
-    let src1B = Array.sub src1B sPos half
-    let src2B = Array.sub src2B sPos half
-    List.append
-      (Array.fold2 (fun acc e1 e2 -> e2 :: e1 :: acc) [] src1B src2B)
-      (Array.fold2 (fun acc e1 e2 -> e2 :: e1 :: acc) [] src1A src2A)
+  let resultA, resultB = Array.splitAt (Array.length result / 2) result
+  if oprSize = 128<rt> then resultB
+  elif oprSize = 256<rt> then
+    let _, resAHigh = Array.splitAt (Array.length resultA / 2) resultA
+    let _, resBHigh = Array.splitAt (Array.length resultB / 2) resultB
+    Array.append resAHigh resBHigh
+  else raise InvalidOperandSizeException
+
+let opUnpackLowData oprSize src1 src2 =
+  let result =
+    Array.fold2 (fun acc e1 e2 -> e2 :: e1 :: acc) [] src1 src2
     |> List.rev |> List.toArray
-  | _ -> raise InvalidOperandSizeException
-
-let opPunpckHigh oprSize src1 src2 = opPunpck oprSize src1 src2 true
-
-let opPunpckLow oprSize src1 src2 = opPunpck oprSize src1 src2 false
+  let resultA, resultB = Array.splitAt (Array.length result / 2) result
+  if oprSize = 128<rt> then resultA
+  elif oprSize = 256<rt> then
+    let resALow, _ = Array.splitAt (Array.length resultA / 2) resultA
+    let resBLow, _ = Array.splitAt (Array.length resultB / 2) resultB
+    Array.append resALow resBLow
+  else raise InvalidOperandSizeException
 
 let punpckhbw ins insLen ctxt =
-  buildPackedInstr ins insLen ctxt 8<rt> opPunpckHigh
+  buildPackedInstr ins insLen ctxt 8<rt> opUnpackHighData
 
 let punpckhwd ins insLen ctxt =
-  buildPackedInstr ins insLen ctxt 16<rt> opPunpckHigh
+  buildPackedInstr ins insLen ctxt 16<rt> opUnpackHighData
 
 let punpckhdq ins insLen ctxt =
-  buildPackedInstr ins insLen ctxt 32<rt> opPunpckHigh
+  buildPackedInstr ins insLen ctxt 32<rt> opUnpackHighData
 
 let punpcklbw ins insLen ctxt =
-  buildPackedInstr ins insLen ctxt 8<rt> opPunpckLow
+  buildPackedInstr ins insLen ctxt 8<rt> opUnpackLowData
 
 let punpcklwd ins insLen ctxt =
-  buildPackedInstr ins insLen ctxt 16<rt> opPunpckLow
+  buildPackedInstr ins insLen ctxt 16<rt> opUnpackLowData
 
 let punpckldq ins insLen ctxt =
-  buildPackedInstr ins insLen ctxt 32<rt> opPunpckLow
+  buildPackedInstr ins insLen ctxt 32<rt> opUnpackLowData
 
 let opP op _ = Array.map2 (op)
 
@@ -364,43 +448,24 @@ let private opPaddusw oprSize src1 src2 =
 let paddusw ins insLen ctxt =
   buildPackedInstr ins insLen ctxt 16<rt> opPaddusw
 
-let makeHorizonSrc ir packSz src1 src2 =
-  let packNum = 64<rt> / packSz
-  let iSz = int packSz
-  let pHalf = packNum / 2
-  let t1 = Array.init packNum (fun _ -> !+ir packSz)
-  let t2 = Array.init packNum (fun _ -> !+ir packSz)
-  if packNum = 1 then
-   !! ir (t1[0]:= src1)
-   !! ir (t2[0]:= src2)
-  else
-    for i in 0 .. pHalf - 1 do
-      !!ir (t1[i] := AST.extract src1 packSz (2 * i * iSz))
-      !!ir (t2[i] := AST.extract src1 packSz ((2 * i + 1) * iSz))
-      !!ir (t1[i + pHalf] := AST.extract src2 packSz (2 * i * iSz))
-      !!ir (t2[i + pHalf] := AST.extract src2 packSz ((2 * i + 1) * iSz))
-    done
-  t1, t2
+let private makeHorizonSrc src1 src2 =
+  let (odd, even), _ =
+    Array.foldi (fun (odd, even) i e ->
+                  if i % 2 = 0 then e :: odd, even
+                  else odd, e :: even) ([], []) (Array.append src1 src2)
+  odd |> List.rev |> List.toArray, even |> List.rev |> List.toArray
 
 let packedHorizon ins insLen ctxt packSz opFn =
   let ir = !*ctxt
   !<ir insLen
-  let struct (dst, src) = getTwoOprs ins
   let oprSize = getOperationSize ins
-  match oprSize with
-  | 64<rt> ->
-    let dst = transOprToExpr ir false ins insLen ctxt dst
-    let src = transOprToExpr ir false ins insLen ctxt src
-    let src1, src2 = makeHorizonSrc ir packSz dst src
-    !!ir (dst := opFn oprSize src1 src2 |> AST.concatArr)
-  | 128<rt> ->
-    let dstB, dstA = transOprToExpr128 ir false ins insLen ctxt dst
-    let srcB, srcA = transOprToExpr128 ir false ins insLen ctxt src
-    let src1, src2 = makeHorizonSrc ir packSz dstA dstB
-    let src3, src4 = makeHorizonSrc ir packSz srcA srcB
-    !!ir (dstA := opFn oprSize src1 src2 |> AST.concatArr)
-    !!ir (dstB := opFn oprSize src3 src4 |> AST.concatArr)
-  | _ -> raise InvalidOperandSizeException
+  let struct (dst, src) = getTwoOprs ins
+  let packNum = 64<rt> / packSz
+  let src1 = transOprToArr ir true ins insLen ctxt packSz packNum oprSize dst
+  let src2 = transOprToArr ir true ins insLen ctxt packSz packNum oprSize src
+  let src1, src2 = makeHorizonSrc src1 src2
+  let result = opFn oprSize src1 src2
+  assignPackedInstr ir false ins insLen ctxt packNum oprSize dst result
   !>ir insLen
 
 let phaddd ins insLen ctxt =
@@ -471,7 +536,7 @@ let private opPmulhw _ = opPmul AST.xthi AST.sext 32<rt> 16<rt>
 let pmulhw ins insLen ctxt =
   buildPackedInstr ins insLen ctxt 16<rt> opPmulhw
 
-let private opPmullw _ = opPmul AST.xtlo AST.sext 32<rt> 16<rt>
+let opPmullw _ = opPmul AST.xtlo AST.sext 32<rt> 16<rt>
 
 let pmullw ins insLen ctxt =
   buildPackedInstr ins insLen ctxt 16<rt> opPmullw
