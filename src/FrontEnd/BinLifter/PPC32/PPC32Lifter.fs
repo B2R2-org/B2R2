@@ -227,7 +227,7 @@ let getSPRReg ctxt imm  =
   | _ -> raise InvalidOperandException
 
 let setCondReg ctxt ir result =
-  let xerSO = AST.xtlo 1<rt> (!.ctxt R.XER)
+  let xerSO = AST.xthi 1<rt> (!.ctxt R.XER)
   let cr0LT = !.ctxt R.CR0_0
   let cr0GT = !.ctxt R.CR0_1
   let cr0EQ = !.ctxt R.CR0_2
@@ -238,7 +238,7 @@ let setCondReg ctxt ir result =
   !!ir (cr0SO := xerSO)
 
 let setCarryOut ctxt expA expB ir =
-  let xerCA = AST.extract (!.ctxt R.XER) 1<rt> 2
+  let xerCA = AST.extract (!.ctxt R.XER) 1<rt> 29
   !!ir (xerCA := AST.lt expA expB)
 
 let setCRRegValue ir cr ctxt =
@@ -278,7 +278,7 @@ let addcdot ins insLen ctxt =
 
 let adde ins insLen ctxt =
   let struct (dst, src1, src2) = transThreeOprs ins ctxt
-  let xerCA = AST.zext 32<rt> (AST.extract (!.ctxt R.XER) 1<rt> 2)
+  let xerCA = AST.zext 32<rt> (AST.extract (!.ctxt R.XER) 1<rt> 29)
   let ir = !*ctxt
   !<ir insLen
   !!ir (dst := src1 .+ src2 .+ xerCA)
@@ -287,7 +287,7 @@ let adde ins insLen ctxt =
 
 let addedot ins insLen ctxt =
   let struct (dst, src1, src2) = transThreeOprs ins ctxt
-  let xerCA = AST.zext 32<rt> (AST.extract (!.ctxt R.XER) 1<rt> 2)
+  let xerCA = AST.zext 32<rt> (AST.extract (!.ctxt R.XER) 1<rt> 29)
   let ir = !*ctxt
   !<ir insLen
   !!ir (dst := src1 .+ src2 .+ xerCA)
@@ -322,7 +322,7 @@ let addis ins insLen ctxt =
 
 let addme ins insLen ctxt =
   let struct (dst, src) = transTwoOprs ins ctxt
-  let xerCA = AST.zext 32<rt> (AST.extract (!.ctxt R.XER) 1<rt> 2)
+  let xerCA = AST.zext 32<rt> (AST.extract (!.ctxt R.XER) 1<rt> 29)
   let ir = !*ctxt
   !<ir insLen
   !!ir (dst := src .+ xerCA .- AST.num1 32<rt>)
@@ -331,7 +331,7 @@ let addme ins insLen ctxt =
 
 let addmedot ins insLen ctxt =
   let struct (dst, src) = transTwoOprs ins ctxt
-  let xerCA = AST.zext 32<rt> (AST.extract (!.ctxt R.XER) 1<rt> 2)
+  let xerCA = AST.zext 32<rt> (AST.extract (!.ctxt R.XER) 1<rt> 29)
   let ir = !*ctxt
   !<ir insLen
   !!ir (dst := src .+ xerCA .- AST.num1 32<rt>)
@@ -340,7 +340,7 @@ let addmedot ins insLen ctxt =
 
 let addze ins insLen ctxt =
   let struct (dst, src) = transTwoOprs ins ctxt
-  let xerCA = AST.zext 32<rt> (AST.extract (!.ctxt R.XER) 1<rt> 2)
+  let xerCA = AST.zext 32<rt> (AST.extract (!.ctxt R.XER) 1<rt> 29)
   let ir = !*ctxt
   !<ir insLen
   !!ir (dst := src .+ xerCA)
@@ -349,7 +349,7 @@ let addze ins insLen ctxt =
 
 let addzedot ins insLen ctxt =
   let struct (dst, src) = transTwoOprs ins ctxt
-  let xerCA = AST.zext 32<rt> (AST.extract (!.ctxt R.XER) 1<rt> 2)
+  let xerCA = AST.zext 32<rt> (AST.extract (!.ctxt R.XER) 1<rt> 29)
   let ir = !*ctxt
   !<ir insLen
   !!ir (dst := src .+ xerCA)
@@ -475,7 +475,7 @@ let cmp ins insLen ctxt =
   !!ir (crf0 := cond1)
   !!ir (crf1 := cond2)
   !!ir (crf2 := AST.ite cond1 AST.b0 (AST.not cond2))
-  !!ir (crf3 := AST.xtlo 1<rt> xer)
+  !!ir (crf3 := AST.xthi 1<rt> xer)
   !>ir insLen
 
 let cmpl ins insLen ctxt =
@@ -488,7 +488,7 @@ let cmpl ins insLen ctxt =
   !!ir (crf0 := cond1)
   !!ir (crf1 := cond2)
   !!ir (crf2 := AST.ite cond1 AST.b0 (AST.not cond2))
-  !!ir (crf3 := AST.xtlo 1<rt> xer)
+  !!ir (crf3 := AST.xthi 1<rt> xer)
   !>ir insLen
 
 let cmpli ins insLen ctxt =
@@ -501,7 +501,7 @@ let cmpli ins insLen ctxt =
   !!ir (crf0 := cond1)
   !!ir (crf1 := cond2)
   !!ir (crf2 := AST.ite cond1 AST.b0 (AST.not cond2))
-  !!ir (crf3 := AST.xtlo 1<rt> xer)
+  !!ir (crf3 := AST.xthi 1<rt> xer)
   !>ir insLen
 
 let cntlzw ins insLen updateCond ctxt =
@@ -879,11 +879,11 @@ let mcrxr ins insLen ctxt =
   let ir = !*ctxt
   let xer = !.ctxt R.XER
   !<ir insLen
-  !!ir (crd0 := AST.extract xer 1<rt> 0)
-  !!ir (crd1 := AST.extract xer 1<rt> 1)
-  !!ir (crd2 := AST.extract xer 1<rt> 2)
-  !!ir (crd3 := AST.extract xer 1<rt> 3)
-  !!ir (xer := xer .& numI32 0xfffffff0 32<rt>)
+  !!ir (crd0 := AST.extract xer 1<rt> 31)
+  !!ir (crd1 := AST.extract xer 1<rt> 30)
+  !!ir (crd2 := AST.extract xer 1<rt> 29)
+  !!ir (crd3 := AST.extract xer 1<rt> 28)
+  !!ir (xer := xer .& numI32 0x0fffffff 32<rt>)
   !>ir insLen
 
 let mfcr ins insLen ctxt =
@@ -1084,7 +1084,7 @@ let mullw ins insLen updateCond ctxt =
 
 let mullwo ins insLen updateCond ctxt =
   let struct (dst, src1, src2) = transThreeOprs ins ctxt
-  let xerOV = AST.extract (!.ctxt R.XER) 1<rt> 1
+  let xerOV = AST.extract (!.ctxt R.XER) 1<rt> 30
   let ir = !*ctxt
   let tmp = !+ir 64<rt>
   !<ir insLen
@@ -1195,7 +1195,7 @@ let slw ins insLen updateCond ctxt =
 
 let sraw ins insLen updateCond ctxt =
   let struct (ra, rs, rb) = transThreeOprs ins ctxt
-  let xerCA = AST.extract (!.ctxt R.XER) 1<rt> 2
+  let xerCA = AST.extract (!.ctxt R.XER) 1<rt> 29
   let z = AST.num0 32<rt>
   let cond1 = rb .& numI32 0x20 32<rt> == z
   let ir = !*ctxt
@@ -1211,7 +1211,7 @@ let sraw ins insLen updateCond ctxt =
 
 let srawi ins insLen updateCond ctxt =
   let struct (ra, rs, sh) = transThreeOprs ins ctxt
-  let xerCA = AST.extract (!.ctxt R.XER) 1<rt> 2
+  let xerCA = AST.extract (!.ctxt R.XER) 1<rt> 29
   let z = AST.num0 32<rt>
   let ir = !*ctxt
   !<ir insLen
@@ -1348,7 +1348,7 @@ let stwcxdot ins insLen ctxt =
   let rs = transOpr ctxt o1
   let ea = transEAWithIndexReg o2 o3 ctxt
   let res = !.ctxt R.RES
-  let xerSO = AST.xtlo 1<rt> (!.ctxt R.XER)
+  let xerSO = AST.xthi 1<rt> (!.ctxt R.XER)
   let cr0LT = !.ctxt R.CR0_0
   let cr0GT = !.ctxt R.CR0_1
   let cr0EQ = !.ctxt R.CR0_2
@@ -1433,7 +1433,7 @@ let subfc ins insLen ctxt =
 
 let subfe ins insLen ctxt =
   let struct (dst, src1, src2) = transThreeOprs ins ctxt
-  let xerCA = AST.zext 32<rt> (AST.extract (!.ctxt R.XER) 1<rt> 2)
+  let xerCA = AST.zext 32<rt> (AST.extract (!.ctxt R.XER) 1<rt> 29)
   let ir = !*ctxt
   !<ir insLen
   !!ir (dst := (AST.not src1) .+ src2 .+ xerCA)
@@ -1450,7 +1450,7 @@ let subfic ins insLen ctxt  =
 
 let subfme ins insLen ctxt =
   let struct (dst, src) = transTwoOprs ins ctxt
-  let xerCA = AST.zext 32<rt> (AST.extract (!.ctxt R.XER) 1<rt> 2)
+  let xerCA = AST.zext 32<rt> (AST.extract (!.ctxt R.XER) 1<rt> 29)
   let ir = !*ctxt
   let minusone = AST.num (BitVector.OfUInt32 0xffffffffu 32<rt>)
   !<ir insLen
@@ -1460,7 +1460,7 @@ let subfme ins insLen ctxt =
 
 let subfze ins insLen ctxt =
   let struct (dst, src) = transTwoOprs ins ctxt
-  let xerCA = AST.zext 32<rt> (AST.extract (!.ctxt R.XER) 1<rt> 2)
+  let xerCA = AST.zext 32<rt> (AST.extract (!.ctxt R.XER) 1<rt> 29)
   let ir = !*ctxt
   !<ir insLen
   !!ir (dst := (AST.not src) .+ xerCA)
