@@ -191,6 +191,20 @@ let transCondThreeOprs (ins: InsInfo) ctxt =
             transCRxToExpr ctxt o3)
   | _ -> raise InvalidOperandException
 
+let transBranchTwoOprs (ins: InsInfo) ctxt =
+  match ins.Operands with
+  | TwoOperands (OprImm o1, OprBI o2) ->
+    struct (uint32 o1, getCRbitRegister o2 |> !.ctxt)
+  | _ -> raise InvalidOperandException
+
+let transBranchThreeOprs (ins: InsInfo) ctxt =
+  match ins.Operands with
+  | ThreeOperands (OprImm o1, OprBI o2, OprAddr o3) ->
+    struct (uint32 o1,
+            getCRbitRegister o2 |> !.ctxt,
+            numI64 (int64 o3) ctxt.WordBitSize)
+  | _ -> raise InvalidOperandException
+
 let getCRRegValue ir cr ctxt =
   for i in 0 .. 31 do
     let crbit = uint32 (31 - i) |> getCRbitRegister |> !.ctxt
@@ -417,14 +431,14 @@ let b ins insLen ctxt lk =
   !>ir insLen
 
 let bc ins insLen ctxt aa lk =
-  let struct (bo, cr, addr) = transThreeOprs ins ctxt
+  let struct (bo, cr, addr) = transBranchThreeOprs ins ctxt
   let ir = !*ctxt
   let lr = !.ctxt R.LR
   let ctr = !.ctxt R.CTR
-  let boA = AST.extract bo 1<rt> 4
-  let boB = AST.extract bo 1<rt> 3
-  let boC = AST.extract bo 1<rt> 2
-  let boD = AST.extract bo 1<rt> 1
+  let bo0 = numU32 ((bo >>> 4) &&& 1u) 1<rt>
+  let bo1 = numU32 ((bo >>> 3) &&& 1u) 1<rt>
+  let bo2 = numU32 ((bo >>> 2) &&& 1u) 1<rt>
+  let bo3 = numU32 ((bo >>> 1) &&& 1u) 1<rt>
   let ctrOk = !+ir 1<rt>
   let condOk = !+ir 1<rt>
   let cia = numU64 ins.Address 32<rt>
@@ -432,50 +446,52 @@ let bc ins insLen ctxt aa lk =
   let temp = !+ir 32<rt>
   !<ir insLen
   if lk then !!ir (lr := nia)
-  !!ir (ctr := AST.ite (AST.not boC) (ctr .- AST.num1 32<rt>) ctr)
-  !!ir (ctrOk := boC .| ((ctr != AST.num0 32<rt>) <+> boD))
-  !!ir (condOk := boA .| (cr <+> AST.not boB))
+  !!ir (ctr :=
+          if ((bo >>> 2) &&& 1u = 1u) then ctr else (ctr .- AST.num1 32<rt>))
+  !!ir (ctrOk := bo2 .| ((ctr != AST.num0 32<rt>) <+> bo3))
+  !!ir (condOk := bo0 .| (cr <+> AST.not bo1))
   if aa then !!ir (temp := AST.ite (ctrOk .& condOk) addr nia)
   else !!ir (temp := AST.ite (ctrOk .& condOk) (cia .+ addr) nia)
   !!ir (AST.interjmp temp InterJmpKind.Base)
   !>ir insLen
 
 let bclr ins insLen ctxt lk =
-  let struct (bo, cr) = transTwoOprs ins ctxt
+  let struct (bo, cr) = transBranchTwoOprs ins ctxt
   let ir = !*ctxt
   let lr = !.ctxt R.LR
   let ctr = !.ctxt R.CTR
-  let boA = AST.extract bo 1<rt> 4
-  let boB = AST.extract bo 1<rt> 3
-  let boC = AST.extract bo 1<rt> 2
-  let boD = AST.extract bo 1<rt> 1
+  let bo0 = numU32 ((bo >>> 4) &&& 1u) 1<rt>
+  let bo1 = numU32 ((bo >>> 3) &&& 1u) 1<rt>
+  let bo2 = numU32 ((bo >>> 2) &&& 1u) 1<rt>
+  let bo3 = numU32 ((bo >>> 1) &&& 1u) 1<rt>
   let ctrOk = !+ir 1<rt>
   let condOk = !+ir 1<rt>
   let cia = numU64 ins.Address 32<rt>
   let nia = cia .+ numI32 4 32<rt>
   let temp = !+ir 32<rt>
   !<ir insLen
-  !!ir (ctr := AST.ite (AST.not boC) (ctr .- AST.num1 32<rt>) ctr)
-  !!ir (ctrOk := boC .| ((ctr != AST.num0 32<rt>) <+> boD))
-  !!ir (condOk := boA .| (cr <+> AST.not boB))
+  !!ir (ctr :=
+          if ((bo >>> 2) &&& 1u = 1u) then ctr else (ctr .- AST.num1 32<rt>))
+  !!ir (ctrOk := bo2 .| ((ctr != AST.num0 32<rt>) <+> bo3))
+  !!ir (condOk := bo0 .| (cr <+> AST.not bo1))
   !!ir (temp := AST.ite (ctrOk .& condOk) (lr .& numI32 0xfffffffc 32<rt>) nia)
   if lk then !!ir (lr := nia)
   !!ir (AST.interjmp temp InterJmpKind.Base)
   !>ir insLen
 
 let bcctr ins insLen ctxt lk =
-  let struct (bo, cr) = transTwoOprs ins ctxt
+  let struct (bo, cr) = transBranchTwoOprs ins ctxt
   let ir = !*ctxt
   let lr = !.ctxt R.LR
   let ctr = !.ctxt R.CTR
-  let boA = AST.extract bo 1<rt> 4
-  let boB = AST.extract bo 1<rt> 3
+  let bo0 = numU32 ((bo >>> 4) &&& 1u) 1<rt>
+  let bo1 = numU32 ((bo >>> 3) &&& 1u) 1<rt>
   let condOk = !+ir 1<rt>
   let cia = numU64 ins.Address 32<rt>
   let nia = cia .+ numI32 4 32<rt>
   let temp = !+ir 32<rt>
   !<ir insLen
-  !!ir (condOk := boA .| (cr <+> AST.not boB))
+  !!ir (condOk := bo0 .| (cr <+> AST.not bo1))
   !!ir (temp := AST.ite condOk (ctr .& numI32 0xfffffffc 32<rt>) nia)
   if lk then !!ir (lr := nia)
   !!ir (AST.interjmp temp InterJmpKind.Base)
