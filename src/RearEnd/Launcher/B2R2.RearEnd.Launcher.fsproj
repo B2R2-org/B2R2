@@ -25,6 +25,7 @@
     <ProjectReference Include="..\BinExplorer\B2R2.RearEnd.BinExplorer.fsproj" />
     <ProjectReference Include="..\Repl\B2R2.RearEnd.Repl.fsproj" />
     <ProjectReference Include="..\Assembler\B2R2.RearEnd.Assembler.fsproj" />
+    <ProjectReference Include="..\Transformer\B2R2.RearEnd.Transformer.fsproj" />
   </ItemGroup>
 
 </Project>
