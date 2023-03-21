@@ -34,7 +34,7 @@ type ParseAction () =
     member __.InputType with get() = typeof<byte[]>
     member __.OutputType with get() = typeof<BinHandle>
     member __.Description with get() = """
-    Takes in an string and returns the parsed binary, i.e., BinHandle. The given
+    Takes in a string and returns the parsed binary, i.e., BinHandle. The given
     input string can either represent a file path or a hexstring. If the given
     string represents a valid file path, then the file will be loaded.
     Otherwise, we consider the input string as a hexstring, and return a Binary

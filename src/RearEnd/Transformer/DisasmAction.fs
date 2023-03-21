@@ -52,22 +52,22 @@ type DisasmAction () =
       - <isa> <mode>: disassemble the binary for the given ISA and mode.
       - <isa>: disassemble the binary for the given ISA.
 """
-    member __.Transform args bs =
-      let bs = unbox<TaggedByteArray> bs
-      let baseAddr = Some bs.Address
+    member __.Transform args input =
+      let taggedAddr, taggedISA, bs = ByteArray.toTuple input
+      let baseAddr = Some taggedAddr
       let hdl =
         match args with
         | isa :: mode :: [] ->
           let isa = ISA.OfString isa
           let mode = ArchOperationMode.ofString mode
-          BinHandle.Init (isa, mode, false, baseAddr, bytes=bs.Bytes)
+          BinHandle.Init (isa, mode, false, baseAddr, bytes=bs)
         | isa :: [] ->
           let isa = ISA.OfString isa
           let mode = ArchOperationMode.NoMode
-          BinHandle.Init (isa, mode, false, baseAddr, bytes=bs.Bytes)
+          BinHandle.Init (isa, mode, false, baseAddr, bytes=bs)
         | [] ->
           let mode = ArchOperationMode.NoMode
-          BinHandle.Init (bs.ISA, mode, false, baseAddr, bytes=bs.Bytes)
+          BinHandle.Init (taggedISA, mode, false, baseAddr, bytes=bs)
         | _ -> invalidArg (nameof DisasmAction) "Invalid arguments given."
-      let bp = BinaryPointer (bs.Address, 0, bs.Bytes.Length)
+      let bp = BinaryPointer (taggedAddr, 0, bs.Length)
       disasm [] hdl bp

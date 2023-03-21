@@ -6,8 +6,9 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="ByteArray.fs" />
+    <Compile Include="Utils.fs" />
     <Compile Include="Types.fs" />
+    <Compile Include="ByteArray.fs" />
     <Compile Include="IAction.fs" />
     <Compile Include="DisasmAction.fs" />
     <Compile Include="ListAction.fs" />

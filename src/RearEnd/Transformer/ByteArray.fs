@@ -24,6 +24,10 @@
 
 module B2R2.RearEnd.Transformer.ByteArray
 
-let makeSummaryString (bs: byte[]) =
-  let s = bs[..16] |> Array.map (sprintf "%02x") |> String.concat " "
-  if bs.Length > 16 then s + " ..." else s
+open B2R2
+
+let toTuple (o: obj) =
+  match o with
+  | :? TaggedByteArray as bs -> bs.Address, bs.ISA, bs.Bytes
+  | :? (byte[]) as bs -> 0UL, ISA.DefaultISA, bs
+  | _ -> invalidArg (nameof o) "Invalid input type."

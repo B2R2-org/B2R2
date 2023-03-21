@@ -35,7 +35,7 @@ type TaggedByteArray = {
 }
 with
   override __.ToString () =
-    let s = ByteArray.makeSummaryString __.Bytes
+    let s = Utils.makeByteArraySummary __.Bytes
     $"0x{__.Address:x}: {ISA.ArchToString __.ISA.Arch}: {s}"
 
 /// Instruction tagged with its corresponding bytes.
@@ -45,5 +45,5 @@ type TaggedInstruction = {
 }
 with
   override __.ToString () =
-    let bs = __.Bytes |> ByteArray.makeSummaryString
+    let bs = __.Bytes |> Utils.makeByteArraySummary
     $"0x{__.Instruction.Address:x}: {bs}: {__.Instruction.Disasm ()}"
