@@ -272,33 +272,17 @@ let vmovd ins insLen ctxt =
   !<ir insLen
   let struct (dst, src) = getTwoOprs ins
   let oprSize = getOperationSize ins
-  let n0 = AST.num0 64<rt>
-  match dst, src with
-  | OprReg r1, OprReg r2 ->
-    match Register.getKind r1, Register.getKind r2 with
-    | Register.Kind.XMM, Register.Kind.GP ->
-      let dstD, dstC, dstB, dstA = getPseudoRegVar256 ctxt (r128to256 dst)
-      let src = !.ctxt r2
-      !!ir (dstAssign 32<rt> dstA src)
-      !!ir (dstB := n0)
-      !!ir (dstC := n0)
-      !!ir (dstD := n0)
-    | Register.Kind.GP, Register.Kind.XMM ->
-      let dst = !.ctxt r1
-      let srcA = getPseudoRegVar ctxt r2 1
-      !!ir (dstAssign oprSize dst (AST.xtlo 32<rt> srcA))
-    | _ -> raise InvalidOperandException
-  | OprReg r, OprMem _ ->
-    let dstD, dstC, dstB, dstA = getPseudoRegVar256 ctxt (r128to256 dst)
-    let src = transOprToExpr ir false ins insLen ctxt src
-    !!ir (dstAssign 32<rt> dstA src)
-    !!ir (dstB := n0)
-    !!ir (dstC := n0)
-    !!ir (dstD := n0)
-  | OprMem _, OprReg r ->
+  match oprSize with
+  | 32<rt> ->
     let dst = transOprToExpr ir false ins insLen ctxt dst
-    let srcA = getPseudoRegVar ctxt r 1
-    !!ir (dst := AST.xtlo 32<rt> srcA)
+    let _, srcA = transOprToExpr128 ir false ins insLen ctxt src
+    !!ir (dstAssign oprSize dst (AST.xtlo oprSize srcA))
+  | 128<rt> ->
+    let dstB, dstA = transOprToExpr128 ir false ins insLen ctxt dst
+    let src = transOprToExpr ir false ins insLen ctxt src
+    !!ir (dstA := AST.zext 64<rt> src)
+    !!ir (dstB := AST.num0 64<rt>)
+    fillZeroFromVLToMaxVL ctxt dst oprSize 512 ir
   | _ -> raise InvalidOperandSizeException
   !>ir insLen
 
@@ -306,41 +290,38 @@ let vmovq ins insLen ctxt =
   let ir = !*ctxt
   !<ir insLen
   let struct (dst, src) = getTwoOprs ins
+  let oprSize = getOperationSize ins
   let n0 = AST.num0 64<rt>
   match dst, src with
-  | OprReg r1, OprReg r2 ->
-    match Register.getKind r1, Register.getKind r2 with
-    | Register.Kind.XMM, Register.Kind.XMM ->
-      let dstD, dstC, dstB, dstA = getPseudoRegVar256 ctxt (r128to256 dst)
-      let srcA = getPseudoRegVar ctxt r2 1
-      !!ir (dstA := srcA)
-      !!ir (dstB := n0)
-      !!ir (dstC := n0)
-      !!ir (dstD := n0)
-    | Register.Kind.XMM, Register.Kind.GP ->
-      let dstD, dstC, dstB, dstA = getPseudoRegVar256 ctxt (r128to256 dst)
-      let src = !.ctxt r2
-      !!ir (dstA := src)
-      !!ir (dstB := n0)
-      !!ir (dstC := n0)
-      !!ir (dstD := n0)
-    | Register.Kind.GP, Register.Kind.XMM ->
-      let dst = !.ctxt r1
-      let srcA = getPseudoRegVar ctxt r2 1
-      !!ir (dst := srcA)
-    | _ -> raise InvalidOperandException
   | OprReg _, OprMem _ ->
-    let dstD, dstC, dstB, dstA = getPseudoRegVar256 ctxt (r128to256 dst)
+    let dstB, dstA = transOprToExpr128 ir false ins insLen ctxt dst
     let src = transOprToExpr ir false ins insLen ctxt src
     !!ir (dstA := src)
     !!ir (dstB := n0)
-    !!ir (dstC := n0)
-    !!ir (dstD := n0)
-  | OprMem _, OprReg r ->
+    fillZeroFromVLToMaxVL ctxt dst oprSize 512 ir
+  | OprMem _, OprReg _ ->
     let dst = transOprToExpr ir false ins insLen ctxt dst
-    let srcA = getPseudoRegVar ctxt r 1
+    let _, srcA = transOprToExpr128 ir false ins insLen ctxt src
     !!ir (dst := srcA)
-  | _ -> raise InvalidOperandSizeException
+  | OprReg r1, OprReg r2 ->
+    match Register.getKind r1, Register.getKind r2 with
+    | Register.Kind.XMM, Register.Kind.GP ->
+      let dstB, dstA = transOprToExpr128 ir false ins insLen ctxt dst
+      let src = transOprToExpr ir false ins insLen ctxt src
+      !!ir (dstA := src)
+      !!ir (dstB := n0)
+      fillZeroFromVLToMaxVL ctxt dst oprSize 512 ir
+    | Register.Kind.GP, Register.Kind.XMM ->
+      let dst = transOprToExpr ir false ins insLen ctxt dst
+      let _, srcA = transOprToExpr128 ir false ins insLen ctxt src
+      !!ir (dst := srcA)
+    | _ -> (* XMM, XMM *)
+      let dstB, dstA = transOprToExpr128 ir false ins insLen ctxt dst
+      let _, srcA = transOprToExpr128 ir false ins insLen ctxt src
+      !!ir (dstA := srcA)
+      !!ir (dstB := n0)
+      fillZeroFromVLToMaxVL ctxt dst oprSize 512 ir
+  | _ -> raise InvalidOperandException
   !>ir insLen
 
 let private buildVectorMove ins insLen ctxt packSz =
@@ -1050,10 +1031,10 @@ let vinserti128 ins insLen ctxt =
   !>ir insLen
 
 let vpaddb ins insLen ctxt =
-  buildPackedInstr ins insLen ctxt 8<rt> (opP (.+))
+  buildPackedInstr ins insLen ctxt true 8<rt> (opP (.+))
 
 let vpmullw ins insLen ctxt =
-  buildPackedInstr ins insLen ctxt 16<rt> MMXLifter.opPmullw
+  buildPackedInstr ins insLen ctxt true 16<rt> MMXLifter.opPmullw
 
 let vpaddd ins insLen ctxt =
   let ir = !*ctxt
@@ -1077,7 +1058,7 @@ let vpaddd ins insLen ctxt =
   !>ir insLen
 
 let vpaddq ins insLen ctxt =
-  buildPackedInstr ins insLen ctxt 64<rt> (opP (.+))
+  buildPackedInstr ins insLen ctxt true 64<rt> (opP (.+))
 
 let vpalignr ins insLen ctxt =
   let ir = !*ctxt
@@ -1150,10 +1131,10 @@ let vpalignr ins insLen ctxt =
   !>ir insLen
 
 let vpand ins insLen ctxt =
-  buildPackedInstr ins insLen ctxt 64<rt> opPand
+  buildPackedInstr ins insLen ctxt true 64<rt> opPand
 
 let vpandn ins insLen ctxt =
-  buildPackedInstr ins insLen ctxt 64<rt> opPandn
+  buildPackedInstr ins insLen ctxt true 64<rt> opPandn
 
 let vblendvpd ins insLen ctxt =
   let ir = !*ctxt
@@ -1271,11 +1252,11 @@ let vpackuswb ins insLen ctxt =
   assignPackedInstr ir false ins insLen ctxt (packNum * 2) oprSize dst result
   !>ir insLen
 
-let vpavgb ins insLen ctxt = (* FIXME: FillZeroMAXVL*)
-  buildPackedInstr ins insLen ctxt 8<rt> SSELifter.opPavgb
+let vpavgb ins insLen ctxt =
+  buildPackedInstr ins insLen ctxt true 8<rt> SSELifter.opPavgb
 
-let vpavgw ins insLen ctxt = (* FIXME: FillZeroMAXVL*)
-  buildPackedInstr ins insLen ctxt 16<rt> SSELifter.opPavgw
+let vpavgw ins insLen ctxt =
+  buildPackedInstr ins insLen ctxt true 16<rt> SSELifter.opPavgw
 
 let vpbroadcast ins insLen ctxt packSz =
   let ir = !*ctxt
@@ -1316,16 +1297,16 @@ let vpbroadcastw ins insLen ctxt = vpbroadcast ins insLen ctxt 16<rt>
 let vpcmpeqb ins insLen ctxt =
   match getOperationSize ins with
   | 512<rt> -> GeneralLifter.nop insLen ctxt (* FIXME: #197 *)
-  | _ -> buildPackedInstr ins insLen ctxt 8<rt> opPcmpeqb
+  | _ -> buildPackedInstr ins insLen ctxt true 8<rt> opPcmpeqb
 
 let vpcmpeqd ins insLen ctxt =
-  buildPackedInstr ins insLen ctxt 32<rt> opPcmpeqd
+  buildPackedInstr ins insLen ctxt true 32<rt> opPcmpeqd
 
 let vpcmpeqq ins insLen ctxt =
-  buildPackedInstr ins insLen ctxt 64<rt> SSELifter.opPcmpeqq
+  buildPackedInstr ins insLen ctxt true 64<rt> SSELifter.opPcmpeqq
 
 let vpcmpgtb ins insLen ctxt =
-  buildPackedInstr ins insLen ctxt 8<rt> opPcmpgtb
+  buildPackedInstr ins insLen ctxt true 8<rt> opPcmpgtb
 
 let vpinsrb ins insLen ctxt =
   let ir = !*ctxt
@@ -1502,20 +1483,20 @@ let vpinsrw ins insLen ctxt =
   fillZeroFromVLToMaxVL ctxt dst (getOperationSize ins) 512 ir
   !>ir insLen
 
-let vpmaxsd ins insLen ctxt = (* FIXME: FillZeroMAXVL*)
-  buildPackedInstr ins insLen ctxt 32<rt> SSELifter.opPmaxs
+let vpmaxsd ins insLen ctxt =
+  buildPackedInstr ins insLen ctxt true 32<rt> SSELifter.opPmaxs
 
-let vpminub ins insLen ctxt = (* FIXME: FillZeroMAXVL*)
-  buildPackedInstr ins insLen ctxt 8<rt> SSELifter.opPminu
+let vpminub ins insLen ctxt =
+  buildPackedInstr ins insLen ctxt true 8<rt> SSELifter.opPminu
 
-let vpminud ins insLen ctxt = (* FIXME: FillZeroMAXVL*)
-  buildPackedInstr ins insLen ctxt 32<rt> SSELifter.opPminu
+let vpminud ins insLen ctxt =
+  buildPackedInstr ins insLen ctxt true 32<rt> SSELifter.opPminu
 
 let vpminsb ins insLen ctxt =
-  buildPackedInstr ins insLen ctxt 8<rt> SSELifter.opPmins
+  buildPackedInstr ins insLen ctxt true 8<rt> SSELifter.opPmins
 
 let vpminsd ins insLen ctxt =
-  buildPackedInstr ins insLen ctxt 32<rt> SSELifter.opPmins
+  buildPackedInstr ins insLen ctxt true 32<rt> SSELifter.opPmins
 
 let vpmovbw ins insLen ctxt packSz isSignExt =
   let ir = !*ctxt
@@ -1615,24 +1596,24 @@ let vpmovd2m ins insLen ctxt =
 let private opVpmulhuw _ = opPmul AST.xthi AST.zext 32<rt> 16<rt>
 
 let vpmulhuw ins insLen ctxt =
-  buildPackedInstr ins insLen ctxt 16<rt> opVpmulhuw
+  buildPackedInstr ins insLen ctxt true 16<rt> opVpmulhuw
 
 let private opVpmuludq _ =
   let low32 expr = expr .& numI64 0xffffffffL 64<rt>
   Array.map2 (fun e1 e2 -> low32 e1 .* low32 e2)
 
 let vpmuludq ins insLen ctxt =
-  buildPackedInstr ins insLen ctxt 64<rt> opVpmuludq
+  buildPackedInstr ins insLen ctxt true 64<rt> opVpmuludq
 
 let private opVpmulld _ = opPmul AST.xtlo AST.sext 32<rt> 32<rt>
 
 let vpmulld ins insLen ctxt =
-  buildPackedInstr ins insLen ctxt 32<rt> opVpmulld
+  buildPackedInstr ins insLen ctxt true 32<rt> opVpmulld
 
 let vpor ins insLen ctxt =
   match getOperationSize ins with
   | 512<rt> -> GeneralLifter.nop insLen ctxt
-  | _ -> buildPackedInstr ins insLen ctxt 64<rt> opPor
+  | _ -> buildPackedInstr ins insLen ctxt true 64<rt> opPor
 
 let vpshufb ins insLen ctxt =
   let ir = !*ctxt
@@ -1712,12 +1693,12 @@ let private opVpslld oprSize = opShiftVpackedDataLogical oprSize 32<rt> (<<)
 let vpslld ins insLen ctxt =
   match getOperationSize ins with
   | 512<rt> -> GeneralLifter.nop insLen ctxt
-  | _ -> buildPackedInstr ins insLen ctxt 32<rt> opVpslld
+  | _ -> buildPackedInstr ins insLen ctxt true 32<rt> opVpslld
 
 let private opVpsllq oprSize = opShiftVpackedDataLogical oprSize 64<rt> (<<)
 
 let vpsllq ins insLen ctxt =
-  buildPackedInstr ins insLen ctxt 64<rt> opVpsllq
+  buildPackedInstr ins insLen ctxt true 64<rt> opVpsllq
 
 let vpslldq ins insLen ctxt =
   let ir = !*ctxt
@@ -1810,51 +1791,25 @@ let vpsraw ins insLen ctxt = shiftPackedDataRight ins insLen ctxt 16<rt> (?>>)
 let vpsravd ins insLen ctxt =
   let ir = !*ctxt
   !<ir insLen
-  let oprSize = getOperationSize ins
+  let oprSz = getOperationSize ins
+  let packSize = 32<rt>
+  let packNum = 64<rt> / packSize
   let struct (dst, src1, src2) = getThreeOprs ins
-  let r = match dst with | OprReg r -> r | _ -> raise InvalidOperandException
-  match Register.getKind r with
-  | Register.Kind.XMM ->
-    let dstB, dstA = transOprToExpr128 ir false ins insLen ctxt dst
-    let src1B, src1A = transOprToExpr128 ir false ins insLen ctxt src1
-    let src2B, src2A = transOprToExpr128 ir false ins insLen ctxt src2
-    !!ir (AST.xtlo 32<rt> dstA :=
-          AST.sext 32<rt> ((AST.xtlo 32<rt> src1A) ?>> (AST.xtlo 32<rt> src2A)))
-    !!ir (AST.xthi 32<rt> dstA :=
-          AST.sext 32<rt> ((AST.xthi 32<rt> src1A) ?>> (AST.xthi 32<rt> src2A)))
-    !!ir (AST.xtlo 32<rt> dstB :=
-          AST.sext 32<rt> ((AST.xtlo 32<rt> src1B) ?>> (AST.xtlo 32<rt> src2B)))
-    !!ir (AST.xthi 32<rt> dstB :=
-          AST.sext 32<rt> ((AST.xthi 32<rt> src1B) ?>> (AST.xthi 32<rt> src2B)))
-    fillZeroFromVLToMaxVL ctxt dst oprSize 512 ir
-  | Register.Kind.YMM ->
-    let dstD, dstC, dstB, dstA = transOprToExpr256 ir false ins insLen ctxt dst
-    let src1D, src1C, src1B, src1A =
-      transOprToExpr256 ir false ins insLen ctxt src1
-    let src2D, src2C, src2B, src2A =
-      transOprToExpr256 ir false ins insLen ctxt src2
-    !!ir (AST.xtlo 32<rt> dstA :=
-          AST.sext 32<rt> ((AST.xtlo 32<rt> src1A) ?>> (AST.xtlo 32<rt> src2A)))
-    !!ir (AST.xthi 32<rt> dstA :=
-          AST.sext 32<rt> ((AST.xthi 32<rt> src1A) ?>> (AST.xthi 32<rt> src2A)))
-    !!ir (AST.xtlo 32<rt> dstB :=
-          AST.sext 32<rt> ((AST.xtlo 32<rt> src1B) ?>> (AST.xtlo 32<rt> src2B)))
-    !!ir (AST.xthi 32<rt> dstB :=
-          AST.sext 32<rt> ((AST.xthi 32<rt> src1B) ?>> (AST.xthi 32<rt> src2B)))
-    !!ir (AST.xtlo 32<rt> dstC :=
-          AST.sext 32<rt> ((AST.xtlo 32<rt> src1C) ?>> (AST.xtlo 32<rt> src2C)))
-    !!ir (AST.xthi 32<rt> dstC :=
-          AST.sext 32<rt> ((AST.xthi 32<rt> src1C) ?>> (AST.xthi 32<rt> src2C)))
-    !!ir (AST.xtlo 32<rt> dstD :=
-          AST.sext 32<rt> ((AST.xtlo 32<rt> src1D) ?>> (AST.xtlo 32<rt> src2D)))
-    !!ir (AST.xthi 32<rt> dstD :=
-          AST.sext 32<rt> ((AST.xthi 32<rt> src1D) ?>> (AST.xthi 32<rt> src2D)))
-    fillZeroFromVLToMaxVL ctxt dst oprSize 512 ir
-  | _ -> raise InvalidOperandSizeException
+  let src1 = transOprToArr ir false ins insLen ctxt packSize packNum oprSz src1
+  let src2 = transOprToArr ir false ins insLen ctxt packSize packNum oprSz src2
+  let struct (n0, n32, max) = tmpVars3 ir packSize
+  !!ir (n0 := AST.num0 packSize)
+  !!ir (n32 := numI32 32 packSize)
+  !!ir (max := numI32 0xFFFFFFFF packSize)
+  let fillSignBit e1 e2 =
+    AST.ite (e2 .< n32) (e1 ?>> e2) (AST.ite (AST.xthi 1<rt> e1) max n0)
+  let result = Array.map2 fillSignBit src1 src2
+  assignPackedInstr ir false ins insLen ctxt packNum oprSz dst result
+  fillZeroFromVLToMaxVL ctxt dst oprSz 512 ir
   !>ir insLen
 
 let vpsrlq ins insLen ctxt =
-  buildPackedInstr ins insLen ctxt 64<rt> opVpsllq
+  buildPackedInstr ins insLen ctxt true 64<rt> opVpsllq
 
 let vpsrldq ins insLen ctxt =
   let ir = !*ctxt
@@ -1913,10 +1868,10 @@ let vpsrld ins insLen ctxt = shiftPackedDataRight ins insLen ctxt 32<rt> (>>)
 let vpsrlw ins insLen ctxt = shiftPackedDataRight ins insLen ctxt 16<rt> (>>)
 
 let vpsubb ins insLen ctxt =
-  buildPackedInstr ins insLen ctxt 8<rt> (opP (.-))
+  buildPackedInstr ins insLen ctxt true 8<rt> (opP (.-))
 
-let vpsubd ins insLen ctxt = (* FIXME: FillZeroMAXVL*)
-  buildPackedInstr ins insLen ctxt 32<rt> (opP (.-))
+let vpsubd ins insLen ctxt =
+  buildPackedInstr ins insLen ctxt true 32<rt> (opP (.-))
 
 let vptest ins insLen ctxt =
   if getOperationSize ins = 128<rt> then SSELifter.ptest ins insLen ctxt
@@ -1947,19 +1902,19 @@ let vptest ins insLen ctxt =
     !>ir insLen
 
 let vpunpckhdq ins insLen ctxt =
-  buildPackedInstr ins insLen ctxt 32<rt> opUnpackHighData
+  buildPackedInstr ins insLen ctxt true 32<rt> opUnpackHighData
 
 let vpunpckhqdq ins insLen ctxt =
-  buildPackedInstr ins insLen ctxt 64<rt> opUnpackHighData
+  buildPackedInstr ins insLen ctxt true 64<rt> opUnpackHighData
 
 let vpunpckhwd ins insLen ctxt = unpackLowHighData ins insLen ctxt 16<rt> true
 let vpunpcklwd ins insLen ctxt = unpackLowHighData ins insLen ctxt 16<rt> false
 
 let vpunpckldq ins insLen ctxt =
-  buildPackedInstr ins insLen ctxt 32<rt> opUnpackLowData
+  buildPackedInstr ins insLen ctxt true 32<rt> opUnpackLowData
 
 let vpunpcklqdq ins insLen ctxt =
-  buildPackedInstr ins insLen ctxt 64<rt> opUnpackLowData
+  buildPackedInstr ins insLen ctxt true 64<rt> opUnpackLowData
 
 let vpxor ins insLen ctxt =
   let ir = !*ctxt

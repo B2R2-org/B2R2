@@ -6275,6 +6275,14 @@ module internal ParsingHelper = begin
     rhlp
 
   let pTwoByteOp span (rhlp: ReadHelper) byte =
+  (*
+    printfn "============= %X =============" byte
+    printfn "MemEffAddrSize %A" rhlp.MemEffAddrSize
+    printfn "MemEffOprSize %A" rhlp.MemEffOprSize
+    printfn "MemEffRegSize %A" rhlp.MemEffRegSize
+    printfn "RegSize %A" rhlp.RegSize
+    printfn "OperationSize %A" rhlp.OperationSize
+  *)
     match byte with
     | 0x02uy -> render span rhlp LAR SzCond.Nor OD.GprRm SZ.WV
     | 0x03uy -> render span rhlp LSL SzCond.Nor OD.GprRm SZ.WV
