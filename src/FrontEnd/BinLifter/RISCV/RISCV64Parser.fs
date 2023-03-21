@@ -162,7 +162,7 @@ let parseFloatArith bin =
   | 0b0001000u -> struct (Op.FMULdotS, getFRdRs1Rs2Rm bin)
   | 0b0001100u -> struct (Op.FDIVdotS, getFRdRs1Rs2Rm bin)
   | 0b0101100u ->
-    if extract bin 24u 20u = 0u then struct (Op.FSQRTdotS, getFRdRs1Rm bin)
+    if extract bin 24u 20u = 0u then struct (Op.FSQRTdotS, getFRdFRs1Rm bin)
     else raise ParsingFailureException
   | 0b0010000u ->
     match getFunc3 bin with
@@ -177,10 +177,10 @@ let parseFloatArith bin =
     | _ -> raise ParsingFailureException
   | 0b1100000u ->
     match getRs2 bin with
-    | 0b00000u -> struct (Op.FCVTdotWdotS, getFRdRs1Rm bin)
-    | 0b00001u -> struct (Op.FCVTdotWUdotS, getFRdRs1Rm bin)
-    | 0b00010u -> struct (Op.FCVTdotLdotS, getFRdRs1Rm bin)
-    | 0b00011u -> struct (Op.FCVTdotLUdotS, getFRdRs1Rm bin)
+    | 0b00000u -> struct (Op.FCVTdotWdotS, getRdFRs1Rm bin)
+    | 0b00001u -> struct (Op.FCVTdotWUdotS, getRdFRs1Rm bin)
+    | 0b00010u -> struct (Op.FCVTdotLdotS, getRdFRs1Rm bin)
+    | 0b00011u -> struct (Op.FCVTdotLUdotS, getRdFRs1Rm bin)
     | _ -> raise ParsingFailureException
   | 0b1110000u ->
     if getFunc3 bin = 0b000u && getRs2 bin = 0b00000u then
@@ -212,7 +212,7 @@ let parseFloatArith bin =
   | 0b0001001u -> struct (Op.FMULdotD, getFRdRs1Rs2Rm bin)
   | 0b0001101u -> struct (Op.FDIVdotD, getFRdRs1Rs2Rm bin)
   | 0b0101101u ->
-    if getRs2 bin = 0u then struct (Op.FSQRTdotD, getFRdRs1Rm bin)
+    if getRs2 bin = 0u then struct (Op.FSQRTdotD, getFRdFRs1Rm bin)
     else raise ParsingFailureException
   | 0b0010001u ->
     match getFunc3 bin with
@@ -225,10 +225,10 @@ let parseFloatArith bin =
     elif getFunc3 bin = 0b001u then struct (Op.FMAXdotD, getFRdRs1Rs2 bin)
     else raise ParsingFailureException
   | 0b0100000u ->
-    if getRs2 bin = 0b00001u then struct (Op.FCVTdotSdotD, getFRdRs1Rm bin)
+    if getRs2 bin = 0b00001u then struct (Op.FCVTdotSdotD, getFRdFRs1Rm bin)
     else raise ParsingFailureException
   | 0b0100001u ->
-    if getRs2 bin = 0b00000u then struct (Op.FCVTdotDdotS, getFRdRs1Rm bin)
+    if getRs2 bin = 0b00000u then struct (Op.FCVTdotDdotS, getFRdFRs1Rm bin)
     else raise ParsingFailureException
   | 0b1010001u ->
     match getFunc3 bin with
@@ -245,10 +245,10 @@ let parseFloatArith bin =
       raise ParsingFailureException
   | 0b1100001u ->
     match getRs2 bin with
-    | 0b00000u -> struct (Op.FCVTdotWdotD, getFRdRs1Rm bin)
-    | 0b00001u -> struct (Op.FCVTdotWUdotD, getFRdRs1Rm bin)
-    | 0b00010u -> struct (Op.FCVTdotLdotD, getFRdRs1Rm bin)
-    | 0b00011u -> struct (Op.FCVTdotLUdotD, getFRdRs1Rm bin)
+    | 0b00000u -> struct (Op.FCVTdotWdotD, getRdFRs1Rm bin)
+    | 0b00001u -> struct (Op.FCVTdotWUdotD, getRdFRs1Rm bin)
+    | 0b00010u -> struct (Op.FCVTdotLdotD, getRdFRs1Rm bin)
+    | 0b00011u -> struct (Op.FCVTdotLUdotD, getRdFRs1Rm bin)
     | _ -> raise ParsingFailureException
   | 0b1101001u ->
     match getRs2 bin with
