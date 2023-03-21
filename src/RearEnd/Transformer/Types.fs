@@ -24,29 +24,26 @@
 
 namespace B2R2.RearEnd.Transformer
 
-open System
+open B2R2
+open B2R2.FrontEnd.BinLifter
 
-/// The `print` action.
-type PrintAction () =
-  let printByteArray (o: obj) =
-    let bs = o :?> byte[]
-    ByteArray.makeSummaryString bs
-    |> Console.WriteLine
+/// Byte array tagged with additional information.
+type TaggedByteArray = {
+  Address: Addr
+  ISA: ISA
+  Bytes: byte[]
+}
+with
+  override __.ToString () =
+    let s = ByteArray.makeSummaryString __.Bytes
+    $"0x{__.Address:x}: {ISA.ArchToString __.ISA.Arch}: {s}"
 
-  let printArray (o: obj) =
-    o :?> _[]
-    |> Array.iter (fun o -> Console.WriteLine $"{o}")
-
-  interface IAction with
-    member __.ActionID with get() = "print"
-    member __.InputType with get() = typeof<obj>
-    member __.OutputType with get() = typeof<unit>
-    member __.Description with get() = """
-    Takes in an object and prints its value.
-"""
-    member __.Transform _args o =
-      let typ = o.GetType ()
-      if typ = typeof<byte[]> then printByteArray o
-      elif typ.IsArray then printArray o
-      else Console.WriteLine (o.ToString ())
-      () (* This is to make compiler happy. *)
+/// Instruction tagged with its corresponding bytes.
+type TaggedInstruction = {
+  Instruction: Instruction
+  Bytes: byte[]
+}
+with
+  override __.ToString () =
+    let bs = __.Bytes |> ByteArray.makeSummaryString
+    $"0x{__.Instruction.Address:x}: {bs}: {__.Instruction.Disasm ()}"

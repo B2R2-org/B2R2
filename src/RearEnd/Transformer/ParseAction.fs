@@ -39,6 +39,9 @@ type ParseAction () =
     string represents a valid file path, then the file will be loaded.
     Otherwise, we consider the input string as a hexstring, and return a Binary
     with a raw binary format.
+
+      - <isa> <mode>: parse the binary for the given ISA and mode.
+      - <isa>: parse the binary for the given ISA.
 """
     member __.Transform args bs =
       let bs = unbox<byte[]> bs

@@ -25,6 +25,7 @@
 namespace B2R2.RearEnd.Transformer
 
 open System
+open B2R2
 open B2R2.FrontEnd.BinInterface
 
 /// The `slice` action.
@@ -37,7 +38,9 @@ type SliceAction () =
     else
       let o1 = bin.BinFile.TranslateAddress a1
       let o2 = bin.BinFile.TranslateAddress a2
-      bin.BinFile.Span.Slice(o1, o2 - o1 + 1).ToArray ()
+      { TaggedByteArray.Address = a1
+        ISA = bin.ISA
+        Bytes = bin.BinFile.Span.Slice(o1, o2 - o1 + 1).ToArray () }
 
   let sliceBySectionName (bin: BinHandle) secName =
     let sec = bin.BinFile.GetSections (name=secName) |> Seq.exactlyOne
@@ -48,11 +51,11 @@ type SliceAction () =
   interface IAction with
     member __.ActionID with get() = "slice"
     member __.InputType with get() = typeof<BinHandle>
-    member __.OutputType with get() = typeof<byte[]>
+    member __.OutputType with get() = typeof<TaggedByteArray>
     member __.Description with get() = """
-    Takes in a parsed binary and returns a byte array of a part of the binary.
-    Users can specify a specific address range or a section name to slice the
-    binary.
+    Takes in a parsed binary and returns a byte array of a part of the binary
+    along with its starting address.  Users can specify a specific address range
+    or a section name to slice the binary.
 
       - <a1> <a2>: returns a slice of the bianry from <a1> to <a2>.
       - <sec_name>: returns a slice of the binary of the section <sec_name>.
