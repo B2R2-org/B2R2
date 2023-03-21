@@ -24,34 +24,28 @@
 
 namespace B2R2.RearEnd.Transformer
 
-open B2R2
 open B2R2.FrontEnd.BinInterface
 
-/// The `parse` action.
-type ParseAction () =
+/// The `list` action.
+type ListAction () =
+  let listSections (bin: BinHandle) =
+    bin.BinFile.GetSections ()
+    |> Seq.toArray
+
   interface IAction with
-    member __.ActionID with get() = "parse"
-    member __.InputType with get() = typeof<byte[]>
-    member __.OutputType with get() = typeof<BinHandle>
+    member __.ActionID with get() = "list"
+    member __.InputType with get() = typeof<BinHandle>
+    member __.OutputType with get() = typeof<obj>
     member __.Description with get() = """
-    Takes in an string and returns the parsed binary, i.e., BinHandle. The given
-    input string can either represent a file path or a hexstring. If the given
-    string represents a valid file path, then the file will be loaded.
-    Otherwise, we consider the input string as a hexstring, and return a Binary
-    with a raw binary format.
+    Takes in a parsed binary and returns a list of elements such as functions,
+    sections, etc. The output type is determined by the extra argument.
+    Currently, we support the following output types:
+
+      - `sections` (sects|ss): returns a list of sections.
 """
-    member __.Transform args bs =
-      let bs = unbox<byte[]> bs
+    member __.Transform args bin =
+      let bin = unbox<BinHandle> bin
       match args with
-      | isa :: mode :: [] ->
-        let isa = ISA.OfString isa
-        let mode = ArchOperationMode.ofString mode
-        BinHandle.Init (isa, mode, false, None, bytes=bs)
-      | isa :: [] ->
-        let isa = ISA.OfString isa
-        let mode = ArchOperationMode.NoMode
-        BinHandle.Init (isa, mode, false, None, bytes=bs)
-      | [] ->
-        let mode = ArchOperationMode.NoMode
-        BinHandle.Init (ISA.DefaultISA, mode, true, None, bytes=bs)
-      | _ -> invalidArg (nameof ParseAction) "Invalid arguments given."
+      | [ "sections" ] | [ "sects" ] | [ "ss" ] ->
+        listSections bin
+      | _ -> invalidArg (nameof ListAction) "Invalid argument."

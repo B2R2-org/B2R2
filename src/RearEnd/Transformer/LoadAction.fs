@@ -33,7 +33,7 @@ type LoadAction () =
     member __.ActionID with get() = "load"
     member __.InputType with get() = typeof<string>
     member __.OutputType with get() = typeof<byte[]>
-    member __.Description with get() ="""
+    member __.Description with get() = """
     Takes in a string and returns the raw byte array. The given input string can
     either represent a file path or a hexstring. If the given string represents
     a valid file path, then the raw file content will be loaded. Otherwise, we

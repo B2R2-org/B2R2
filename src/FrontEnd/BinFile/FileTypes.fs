@@ -108,6 +108,11 @@ with
   member __.ToAddrRange () =
     AddrRange (__.Address, __.Address + __.Size - 1UL)
 
+  override __.ToString () =
+    $"Section [{__.Name}] ({__.Kind}) \
+      @ {__.Address:x}-{(__.Address + __.Size):x} \
+      @ {__.FileOffset:x}"
+
 /// Linkage table entry object, which basically refers to PLT or IAT.
 type LinkageTableEntry = {
   /// Target function name for dynamic linking.

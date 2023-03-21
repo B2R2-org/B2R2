@@ -131,7 +131,18 @@ let private parseActions args actionMap =
 #if DEBUG
     if actionID <> "help" then Console.WriteLine $"[*] {actionID}" else ()
 #endif
-    action.Transform args input
+    try action.Transform args input
+    with
+      | :? InvalidCastException ->
+        Console.WriteLine $"Error ({actionID}): action type mismatch."
+        exit 1
+      | :? NullReferenceException ->
+        Console.WriteLine
+          $"Error ({actionID}): this action should follow another."
+        exit 1
+      | e ->
+        Console.WriteLine $"Error ({actionID}): {e}"
+        exit 1
   ) ()
 
 [<EntryPoint>]
