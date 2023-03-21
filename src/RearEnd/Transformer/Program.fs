@@ -24,13 +24,16 @@
 
 module B2R2.RearEnd.Transformer.Program
 
+open System
 open System.IO
 open System.Reflection
 open FSharp.Compiler.CodeAnalysis
 open B2R2
+open B2R2.RearEnd
 
-let [<Literal>] private Usage = """
-Usage: b2r2 transformer [-f file|-d file] [action] (-- [action] ...)
+let [<Literal>] private Usage = """[Usage]
+
+b2r2 transformer [-f file|-d file] [action] (-- [action] ...)
 
 Transformer runs a chain of transforming actions (IAction). An action takes in
 an object as input and returns another object as output. Any number of actions
@@ -53,16 +56,19 @@ type private HelpAction (map: Map<string, IAction>) =
     member __.OutputType with get() = typeof<unit>
     member __.Description with get() = ""
     member __.Transform _args _ =
-      printfn "%s" Usage
+      Console.WriteLine ()
+      CmdOpts.WriteIntro ()
+      Console.WriteLine Usage
       map |> Map.iter (fun id act ->
-        printfn $"- {id}: {act.InputType.Name} -> {act.OutputType.Name}"
-        printfn $"{act.Description}")
+        Console.WriteLine
+          $"- {id}: {act.InputType.Name} -> {act.OutputType.Name}"
+        Console.WriteLine $"{act.Description}")
       exit 0
 
 let private accumulateActions map actions =
   actions
   |> Array.fold (fun map t ->
-    let act = System.Activator.CreateInstance t :?> IAction
+    let act = Activator.CreateInstance t :?> IAction
     if Map.containsKey act.ActionID map then
       invalidOp $"Duplicate action ID: {act.ActionID}"
     else
@@ -95,7 +101,7 @@ let private compileUserActions filePath =
     if exitCode = 0 then
       loadUserDLL dllPath
     else
-      errs |> Array.iter (fun d -> d.ToString () |> printfn "%s")
+      errs |> Array.iter (fun d -> d.ToString () |> Console.WriteLine)
       invalidOp $"Failed to compile {filePath}"
   else
     invalidOp $"File not found: {filePath}"
@@ -122,6 +128,9 @@ let private parseActions args actionMap =
     let actionID = List.head grp
     let args = List.tail grp
     let action: IAction = Map.find (actionID.ToLowerInvariant ()) actionMap
+#if DEBUG
+    if actionID <> "help" then Console.WriteLine $"[*] {actionID}" else ()
+#endif
     action.Transform args input
   ) ()
 

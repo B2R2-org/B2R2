@@ -25,21 +25,24 @@
 namespace B2R2.RearEnd.Transformer
 
 open System
-open System.IO
 
-/// The interface for a transforming action.
-type IAction =
-  /// Action command ID.
-  abstract member ActionID: string
+/// The `print` action.
+type PrintAction () =
+  let printByteArray (o: obj) =
+    let bs = o :?> byte[]
+    let s = bs[..16] |> Array.map (sprintf "%02x") |> String.concat " "
+    let s = if bs.Length > 16 then s + " ..." else s
+    Console.WriteLine s
 
-  /// Input object type.
-  abstract member InputType: Type
-
-  /// Output object type.
-  abstract member OutputType: Type
-
-  /// Description about this action.
-  abstract member Description: string
-
-  /// Transform the input object to the output object.
-  abstract member Transform: string list -> obj -> obj
+  interface IAction with
+    member __.ActionID with get() = "print"
+    member __.InputType with get() = typeof<obj>
+    member __.OutputType with get() = typeof<unit>
+    member __.Description with get() ="""
+    Takes in an object and prints its value.
+"""
+    member __.Transform _args o =
+      let typ = o.GetType ()
+      if typ = typeof<byte[]> then printByteArray o
+      else Console.WriteLine (o.ToString ())
+      () (* This is to make compiler happy. *)

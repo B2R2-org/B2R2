@@ -7,6 +7,9 @@
 
   <ItemGroup>
     <Compile Include="IAction.fs" />
+    <Compile Include="LoadAction.fs" />
+    <Compile Include="ParseAction.fs" />
+    <Compile Include="PrintAction.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
 

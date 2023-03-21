@@ -24,22 +24,24 @@
 
 namespace B2R2.RearEnd.Transformer
 
-open System
 open System.IO
+open B2R2
 
-/// The interface for a transforming action.
-type IAction =
-  /// Action command ID.
-  abstract member ActionID: string
-
-  /// Input object type.
-  abstract member InputType: Type
-
-  /// Output object type.
-  abstract member OutputType: Type
-
-  /// Description about this action.
-  abstract member Description: string
-
-  /// Transform the input object to the output object.
-  abstract member Transform: string list -> obj -> obj
+/// The `load` action.
+type LoadAction () =
+  interface IAction with
+    member __.ActionID with get() = "load"
+    member __.InputType with get() = typeof<string>
+    member __.OutputType with get() = typeof<byte[]>
+    member __.Description with get() ="""
+    Takes in a string and returns the raw byte array. The given input string can
+    either represent a file path or a hexstring. If the given string represents
+    a valid file path, then the raw file content will be loaded. Otherwise, we
+    consider the input string as a hexstring, and return it as is.
+"""
+    member __.Transform args _ =
+      match args with
+      | s :: [] ->
+        if File.Exists (path=s) then File.ReadAllBytes s
+        else ByteArray.ofHexString s
+      | _ -> invalidArg (nameof LoadAction) "Invalid arguments given."

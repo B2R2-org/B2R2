@@ -64,7 +64,7 @@ type CmdOpts () =
     |> Printer.PrintToConsole
     if newLine then Printer.PrintToConsoleLine () else ()
 
-  static member private WriteIntro () =
+  static member WriteIntro () =
     CmdOpts.WriteB2R2 false
     Printer.PrintToConsoleLine (", the Next-Generation Reversing Platform")
     Printer.PrintToConsoleLine (Attribution.Copyright + Environment.NewLine)
@@ -73,7 +73,7 @@ type CmdOpts () =
     fun () ->
       CmdOpts.WriteIntro ()
       let tail = if String.IsNullOrEmpty usageTail then "" else " " + usageTail
-      String.Format ("[Usage]{0}{0}dotnet b2r2 {1} %o{2}",
+      String.Format ("[Usage]{0}{0}b2r2 {1} %o{2}",
                      Environment.NewLine, tool, tail)
 
   static member private TermFunction () = exit 1
