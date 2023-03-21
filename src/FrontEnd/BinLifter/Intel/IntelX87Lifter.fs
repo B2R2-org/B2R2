@@ -138,14 +138,14 @@ let private castTo80Bit ctxt tmpB tmpA srcExpr ir =
     let sign = (AST.xtlo 16<rt> ((tmpSrc >> n31) .& one)) << n15
     let exponent =
       (AST.xtlo 16<rt> (((tmpSrc >> n23) .& (numI32 0xff 32<rt>)))) .+ biasDiff
-    let integerpart = numI64 0x0010000000000000L 64<rt>
-    let significand =
-      (AST.zext 64<rt> (tmpSrc .& numI32 0x7fffff 32<rt>)) .| integerpart
+    let integerpart = numI64 0x8000000000000000L 64<rt>
+    let significand = (AST.zext 64<rt> (tmpSrc .& numI32 0x7fffff 32<rt>))
     !!ir (tmpSrc := srcExpr)
     !!ir (tmpB := AST.ite (AST.eq tmpSrc zero)
                           (AST.num0 16<rt>) (sign .| exponent))
-    !!ir (tmpA := AST.ite (AST.eq tmpSrc zero)
+    !!ir (tmpA := (AST.ite (AST.eq tmpSrc zero)
                           (AST.num0 64<rt>) (significand << numI32 40 64<rt>))
+                  .| integerpart)
   | 64<rt> ->
     let tmpSrc = !+ir oprSize
     let n63 = numI32 63 64<rt>
@@ -156,13 +156,14 @@ let private castTo80Bit ctxt tmpB tmpA srcExpr ir =
     let sign = (AST.xtlo 16<rt> (((tmpSrc >> n63) .& one))) << n15
     let exponent =
       (AST.xtlo 16<rt> (((tmpSrc>> n52) .& (numI32 0x7ff 64<rt>)))) .+ biasDiff
-    let integerpart = numI64 0x0010000000000000L 64<rt>
-    let significand = tmpSrc .& numI64 0xFFFFFFFFFFFFFL 64<rt> .| integerpart
+    let integerpart = numI64 0x8000000000000000L 64<rt>
+    let significand = tmpSrc .& numI64 0xFFFFFFFFFFFFFL 64<rt>
     !!ir (tmpSrc := srcExpr)
     !!ir (tmpB := AST.ite (AST.eq tmpSrc zero)
                           (AST.num0 16<rt>) (sign .| exponent))
-    !!ir (tmpA := AST.ite (AST.eq tmpSrc zero)
+    !!ir (tmpA := (AST.ite (AST.eq tmpSrc zero)
                           (AST.num0 64<rt>) (significand << numI32 11 64<rt>))
+                  .| integerpart)
   | 80<rt> ->
     match srcExpr.E with
     | Load (_, _, addrExpr, _) ->
@@ -523,7 +524,7 @@ let private fpuFBinOp (ins: InsInfo) insLen ctxt binOp doPop leftToRight =
     if leftToRight then !!ir (res := binOp tmp0 tmp1)
     else !!ir (res := binOp tmp1 tmp0)
     !?ir (castTo80Bit ctxt st1b st1a res)
-  | OneOperand opr ->
+  | OneOperand _ ->
     let oprExpr = transOneOpr ir false ins insLen ctxt
     let oprSize = TypeCheck.typeOf oprExpr
     let struct (st0b, st0a) = getFPUPseudoRegVars ctxt R.ST0
