@@ -2014,6 +2014,9 @@ let fcvtdotldotd insInfo insLen ctxt =
   let rd, rs1 = (rd, rs1) |> transTwoOprs insInfo ctxt
   let llMaxInFloat = numU64 0x43e0000000000000uL 64<rt>
   let llMinInFloat = numU64 0xc3e0000000000000uL 64<rt>
+  let condInf = checkInf 64<rt> rs1
+  let condNaN = checkNan 64<rt> rs1
+  let sign = AST.xthi 1<rt> rs1
   if rm <> OpRoundMode (RoundMode.DYN) then
     let rounding = roundingToCastFloat rm
     let roundingInt = roundingToCastInt rm
@@ -2022,14 +2025,14 @@ let fcvtdotldotd insInfo insLen ctxt =
     (* rounded value *)
     !!ir (rtVal := AST.cast rounding 64<rt> rs1)
     (* check for out-of-range *)
-    !!ir (rtVal := AST.ite (AST.fle rtVal llMinInFloat) (llMinInFloat) (rtVal))
+    !!ir (rtVal := AST.ite (AST.fle rtVal llMinInFloat) llMinInFloat rtVal)
     !!ir (rtVal := AST.ite (AST.fge rtVal llMaxInFloat) llMaxInFloat rtVal)
     (* NaN Check *)
-    !!ir (rtVal := AST.ite (checkNan 64<rt> rs1) (llMaxInFloat) (rtVal))
+    !!ir (rtVal := AST.ite condNaN llMaxInFloat rtVal)
     (* +inf *)
-    !!ir (rtVal := AST.ite (checkInf 64<rt> rs1 .& (AST.not (AST.xthi 1<rt> rs1))) (llMaxInFloat) (rtVal))
+    !!ir (rtVal := AST.ite (condInf .& (AST.not sign)) llMaxInFloat rtVal)
     (* -inf *)
-    !!ir (rtVal := AST.ite (checkInf 64<rt> rs1 .& (AST.xthi 1<rt> rs1)) (llMinInFloat) (rtVal))
+    !!ir (rtVal := AST.ite (condInf .& sign) llMinInFloat rtVal)
     !!ir (rd := AST.cast roundingInt 64<rt> rtVal)
     !>ir insLen
   else
@@ -2037,14 +2040,14 @@ let fcvtdotldotd insInfo insLen ctxt =
     (* rounded value *)
     let rtVal = dynamicRoundingFl ir ctxt 64<rt> rs1
     (* check for out-of-range *)
-    !!ir (rtVal := AST.ite (AST.fle rtVal llMinInFloat) (llMinInFloat) (rtVal))
+    !!ir (rtVal := AST.ite (AST.fle rtVal llMinInFloat) llMinInFloat rtVal)
     !!ir (rtVal := AST.ite (AST.fge rtVal llMaxInFloat) llMaxInFloat rtVal)
     (* NaN Check *)
-    !!ir (rtVal := AST.ite (checkNan 64<rt> rs1) (llMaxInFloat) (rtVal))
+    !!ir (rtVal := AST.ite condNaN llMaxInFloat rtVal)
     (* +inf *)
-    !!ir (rtVal := AST.ite (checkInf 64<rt> rs1 .& (AST.not (AST.xthi 1<rt> rs1))) (llMaxInFloat) (rtVal))
+    !!ir (rtVal := AST.ite (condInf .& (AST.not sign)) llMaxInFloat rtVal)
     (* -inf *)
-    !!ir (rtVal := AST.ite (checkInf 64<rt> rs1 .& (AST.xthi 1<rt> rs1)) (llMinInFloat) (rtVal))
+    !!ir (rtVal := AST.ite (condInf .& sign) llMinInFloat rtVal)
     let rdVal = dynamicRoundingInt ir ctxt 64<rt> rtVal
     !!ir (rd := rdVal)
     !>ir insLen
@@ -2055,6 +2058,9 @@ let fcvtdotludotd insInfo insLen ctxt =
   let rd, rs1 = (rd, rs1) |> transTwoOprs insInfo ctxt
   let ullMaxInFloat = numU64 0x43f0000000000000uL 64<rt>
   let ullMinInFloat = numU64 0uL 64<rt>
+  let condInf = checkInf 64<rt> rs1
+  let condNaN = checkNan 64<rt> rs1
+  let sign = AST.xthi 1<rt> rs1
   if rm <> OpRoundMode (RoundMode.DYN) then
     let rounding = roundingToCastFloat rm
     let roundingInt = roundingToCastInt rm
@@ -2063,14 +2069,14 @@ let fcvtdotludotd insInfo insLen ctxt =
     (* rounded value *)
     !!ir (rtVal := AST.cast rounding 64<rt> rs1)
     (* check for out-of-range *)
-    !!ir (rtVal := AST.ite (AST.fle rtVal ullMinInFloat) (ullMinInFloat) (rtVal))
+    !!ir (rtVal := AST.ite (AST.fle rtVal ullMinInFloat) ullMinInFloat rtVal)
     !!ir (rtVal := AST.ite (AST.fge rtVal ullMaxInFloat) ullMaxInFloat rtVal)
     (* NaN Check *)
-    !!ir (rtVal := AST.ite (checkNan 64<rt> rs1) (ullMaxInFloat) (rtVal))
+    !!ir (rtVal := AST.ite condNaN ullMaxInFloat rtVal)
     (* +inf *)
-    !!ir (rtVal := AST.ite (checkInf 64<rt> rs1 .& (AST.not (AST.xthi 1<rt> rs1))) (ullMaxInFloat) (rtVal))
+    !!ir (rtVal := AST.ite (condInf .& (AST.not sign)) ullMaxInFloat rtVal)
     (* -inf *)
-    !!ir (rtVal := AST.ite (checkInf 64<rt> rs1 .& (AST.xthi 1<rt> rs1)) (ullMinInFloat) (rtVal))
+    !!ir (rtVal := AST.ite (condInf .& sign) ullMinInFloat rtVal)
     !!ir (rd := AST.cast roundingInt 64<rt> rtVal)
     !>ir insLen
   else
@@ -2078,14 +2084,14 @@ let fcvtdotludotd insInfo insLen ctxt =
     (* rounded value *)
     let rtVal = dynamicRoundingFl ir ctxt 64<rt> rs1
     (* check for out-of-range *)
-    !!ir (rtVal := AST.ite (AST.fle rtVal ullMinInFloat) (ullMinInFloat) (rtVal))
+    !!ir (rtVal := AST.ite (AST.fle rtVal ullMinInFloat) ullMinInFloat rtVal)
     !!ir (rtVal := AST.ite (AST.fge rtVal ullMaxInFloat) ullMaxInFloat rtVal)
     (* NaN Check *)
-    !!ir (rtVal := AST.ite (checkNan 64<rt> rs1) (ullMaxInFloat) (rtVal))
+    !!ir (rtVal := AST.ite condNaN ullMaxInFloat rtVal)
     (* +inf *)
-    !!ir (rtVal := AST.ite (checkInf 64<rt> rs1 .& (AST.not (AST.xthi 1<rt> rs1))) (ullMaxInFloat) (rtVal))
+    !!ir (rtVal := AST.ite (condInf .& (AST.not sign)) ullMaxInFloat rtVal)
     (* -inf *)
-    !!ir (rtVal := AST.ite (checkInf 64<rt> rs1 .& (AST.xthi 1<rt> rs1)) (ullMinInFloat) (rtVal))
+    !!ir (rtVal := AST.ite (condInf .& sign) ullMinInFloat rtVal)
     let rdVal = dynamicRoundingInt ir ctxt 64<rt> rtVal
     !!ir (rd := rdVal)
     !>ir insLen
@@ -2096,6 +2102,9 @@ let fcvtdotwdotd insInfo insLen ctxt =
   let rd, rs1 = (rd, rs1) |> transTwoOprs insInfo ctxt
   let intMaxInFloat = numU64 0x41dfffffffc00000uL 64<rt>
   let intMinInFloat = numU64 0xc1e0000000000000uL 64<rt>
+  let condInf = checkInf 64<rt> rs1
+  let condNaN = checkNan 64<rt> rs1
+  let sign = AST.xthi 1<rt> rs1
   if rm <> OpRoundMode (RoundMode.DYN) then
     let rounding = roundingToCastFloat rm
     let roundingInt = roundingToCastInt rm
@@ -2104,14 +2113,14 @@ let fcvtdotwdotd insInfo insLen ctxt =
     (* rounded value *)
     !!ir (rtVal := AST.cast rounding 64<rt> rs1)
     (* check for out-of-range *)
-    !!ir (rtVal := AST.ite (AST.fle rtVal intMinInFloat) (intMinInFloat) (rtVal))
+    !!ir (rtVal := AST.ite (AST.fle rtVal intMinInFloat) intMinInFloat rtVal)
     !!ir (rtVal := AST.ite (AST.fge rtVal intMaxInFloat) intMaxInFloat rtVal)
     (* NaN Check *)
-    !!ir (rtVal := AST.ite (checkNan 64<rt> rs1) (intMaxInFloat) (rtVal))
+    !!ir (rtVal := AST.ite condNaN intMaxInFloat rtVal)
     (* +inf *)
-    !!ir (rtVal := AST.ite (checkInf 64<rt> rs1 .& (AST.not (AST.xthi 1<rt> rs1))) (intMaxInFloat) (rtVal))
+    !!ir (rtVal := AST.ite (condInf .& (AST.not sign)) intMaxInFloat rtVal)
     (* -inf *)
-    !!ir (rtVal := AST.ite (checkInf 64<rt> rs1 .& (AST.xthi 1<rt> rs1)) (intMinInFloat) (rtVal))
+    !!ir (rtVal := AST.ite (condInf .& sign) intMinInFloat rtVal)
     !!ir (rd := AST.sext 32<rt> (AST.cast roundingInt 64<rt> rtVal))
     !>ir insLen
   else
@@ -2119,14 +2128,14 @@ let fcvtdotwdotd insInfo insLen ctxt =
     (* rounded value *)
     let rtVal = dynamicRoundingFl ir ctxt 64<rt> rs1
     (* check for out-of-range *)
-    !!ir (rtVal := AST.ite (AST.fle rtVal intMinInFloat) (intMinInFloat) (rtVal))
+    !!ir (rtVal := AST.ite (AST.fle rtVal intMinInFloat) intMinInFloat rtVal)
     !!ir (rtVal := AST.ite (AST.fge rtVal intMaxInFloat) intMaxInFloat rtVal)
     (* NaN Check *)
-    !!ir (rtVal := AST.ite (checkNan 64<rt> rs1) (intMaxInFloat) (rtVal))
+    !!ir (rtVal := AST.ite condNaN intMaxInFloat rtVal)
     (* +inf *)
-    !!ir (rtVal := AST.ite (checkInf 64<rt> rs1 .& (AST.not (AST.xthi 1<rt> rs1))) (intMaxInFloat) (rtVal))
+    !!ir (rtVal := AST.ite (condInf .& (AST.not sign)) intMaxInFloat rtVal)
     (* -inf *)
-    !!ir (rtVal := AST.ite (checkInf 64<rt> rs1 .& (AST.xthi 1<rt> rs1)) (intMinInFloat) (rtVal))
+    !!ir (rtVal := AST.ite (condInf .& sign) intMinInFloat rtVal)
     let rdVal = dynamicRoundingInt ir ctxt 32<rt> rtVal
     !!ir (rd := AST.sext 64<rt> rdVal)
     !>ir insLen
@@ -2137,6 +2146,9 @@ let fcvtdotwudotd insInfo insLen ctxt =
   let rd, rs1 = (rd, rs1) |> transTwoOprs insInfo ctxt
   let uintMaxInFloat = numU64 0x41efffffffe00000uL 64<rt>
   let uintMinInFloat = numU64 0uL 64<rt>
+  let condInf = checkInf 64<rt> rs1
+  let condNaN = checkNan 64<rt> rs1
+  let sign = AST.xthi 1<rt> rs1
   if rm <> OpRoundMode (RoundMode.DYN) then
     let rounding = roundingToCastFloat rm
     let roundingInt = roundingToCastInt rm
@@ -2145,14 +2157,14 @@ let fcvtdotwudotd insInfo insLen ctxt =
     (* rounded value *)
     !!ir (rtVal := AST.cast rounding 64<rt> rs1)
     (* check for out-of-range *)
-    !!ir (rtVal := AST.ite (AST.fle rtVal uintMinInFloat) (uintMinInFloat) (rtVal))
+    !!ir (rtVal := AST.ite (AST.fle rtVal uintMinInFloat) uintMinInFloat rtVal)
     !!ir (rtVal := AST.ite (AST.fge rtVal uintMaxInFloat) uintMaxInFloat rtVal)
     (* NaN Check *)
-    !!ir (rtVal := AST.ite (checkNan 64<rt> rs1) (uintMaxInFloat) (rtVal))
+    !!ir (rtVal := AST.ite condNaN uintMaxInFloat rtVal)
     (* +inf *)
-    !!ir (rtVal := AST.ite (checkInf 64<rt> rs1 .& (AST.not (AST.xthi 1<rt> rs1))) (uintMaxInFloat) (rtVal))
+    !!ir (rtVal := AST.ite (condInf .& (AST.not sign)) uintMaxInFloat rtVal)
     (* -inf *)
-    !!ir (rtVal := AST.ite (checkInf 64<rt> rs1 .& (AST.xthi 1<rt> rs1)) (uintMinInFloat) (rtVal))
+    !!ir (rtVal := AST.ite (condInf .& sign) uintMinInFloat rtVal)
     !!ir (rd := AST.sext 32<rt> (AST.cast roundingInt 64<rt> rtVal))
     !>ir insLen
   else
@@ -2160,14 +2172,14 @@ let fcvtdotwudotd insInfo insLen ctxt =
     (* rounded value *)
     let rtVal = dynamicRoundingFl ir ctxt 64<rt> rs1
     (* check for out-of-range *)
-    !!ir (rtVal := AST.ite (AST.fle rtVal uintMinInFloat) (uintMinInFloat) (rtVal))
+    !!ir (rtVal := AST.ite (AST.fle rtVal uintMinInFloat) uintMinInFloat rtVal)
     !!ir (rtVal := AST.ite (AST.fge rtVal uintMaxInFloat) uintMaxInFloat rtVal)
     (* NaN Check *)
-    !!ir (rtVal := AST.ite (checkNan 64<rt> rs1) (uintMaxInFloat) (rtVal))
+    !!ir (rtVal := AST.ite condNaN uintMaxInFloat rtVal)
     (* +inf *)
-    !!ir (rtVal := AST.ite (checkInf 64<rt> rs1 .& (AST.not (AST.xthi 1<rt> rs1))) (uintMaxInFloat) (rtVal))
+    !!ir (rtVal := AST.ite (condInf .& (AST.not sign)) uintMaxInFloat rtVal)
     (* -inf *)
-    !!ir (rtVal := AST.ite (checkInf 64<rt> rs1 .& (AST.xthi 1<rt> rs1)) (uintMinInFloat) (rtVal))
+    !!ir (rtVal := AST.ite (condInf .& sign) uintMinInFloat rtVal)
     let rdVal = dynamicRoundingInt ir ctxt 32<rt> rtVal
     !!ir (rd := AST.sext 64<rt> rdVal)
     !>ir insLen
@@ -2179,6 +2191,9 @@ let fcvtdotwdots insInfo insLen ctxt =
   let rs1 = AST.xtlo 32<rt> rs1
   let intMaxInFloat = numU32 0x4f000000u 32<rt>
   let intMinInFloat = numU32 0xcf000000u 32<rt>
+  let condInf = checkInf 32<rt> rs1
+  let condNaN = checkNan 32<rt> rs1
+  let sign = AST.xthi 1<rt> rs1
   if rm <> OpRoundMode (RoundMode.DYN) then
     let rounding = roundingToCastFloat rm
     let roundingInt = roundingToCastInt rm
@@ -2187,32 +2202,32 @@ let fcvtdotwdots insInfo insLen ctxt =
     (* rounded value *)
     !!ir (rtVal := AST.cast rounding 32<rt> rs1)
     (* check for out-of-range *)
-    !!ir (rtVal := AST.ite (AST.fle rtVal intMinInFloat) (intMinInFloat) (rtVal))
+    !!ir (rtVal := AST.ite (AST.fle rtVal intMinInFloat) intMinInFloat rtVal)
     !!ir (rtVal := AST.ite (AST.fge rtVal intMaxInFloat) intMaxInFloat rtVal)
     (* NaN Check *)
-    !!ir (rtVal := AST.ite (checkNan 32<rt> rs1) (intMaxInFloat) (rtVal))
+    !!ir (rtVal := AST.ite condNaN intMaxInFloat rtVal)
     (* +inf *)
-    !!ir (rtVal := AST.ite (checkInf 32<rt> rs1 .& (AST.not (AST.xthi 1<rt> rs1))) (intMaxInFloat) (rtVal))
+    !!ir (rtVal := AST.ite (condInf .& (AST.not sign)) intMaxInFloat rtVal)
     (* -inf *)
-    !!ir (rtVal := AST.ite (checkInf 32<rt> rs1 .& (AST.xthi 1<rt> rs1)) (intMinInFloat) (rtVal))
+    !!ir (rtVal := AST.ite (condInf .& sign) intMinInFloat rtVal)
     !!ir (rtVal := AST.cast roundingInt 32<rt> rtVal)
-    !!ir (rd := (AST.sext 64<rt> rtVal))
+    !!ir (rd := AST.sext 64<rt> rtVal)
     !>ir insLen
   else
     !<ir insLen
     (* rounded value *)
     let rtVal = dynamicRoundingFl ir ctxt 32<rt> rs1
     (* check for out-of-range *)
-    !!ir (rtVal := AST.ite (AST.fle rtVal intMinInFloat) (intMinInFloat) (rtVal))
+    !!ir (rtVal := AST.ite (AST.fle rtVal intMinInFloat) intMinInFloat rtVal)
     !!ir (rtVal := AST.ite (AST.fge rtVal intMaxInFloat) intMaxInFloat rtVal)
     (* NaN Check *)
-    !!ir (rtVal := AST.ite (checkNan 32<rt> rs1) (intMaxInFloat) (rtVal))
+    !!ir (rtVal := AST.ite condNaN intMaxInFloat rtVal)
     (* +inf *)
-    !!ir (rtVal := AST.ite (checkInf 32<rt> rs1 .& (AST.not (AST.xthi 1<rt> rs1))) (intMaxInFloat) (rtVal))
+    !!ir (rtVal := AST.ite (condInf .& (AST.not sign)) intMaxInFloat rtVal)
     (* -inf *)
-    !!ir (rtVal := AST.ite (checkInf 32<rt> rs1 .& (AST.xthi 1<rt> rs1)) (intMinInFloat) (rtVal))
+    !!ir (rtVal := AST.ite (condInf .& sign) intMinInFloat rtVal)
     let rdVal = dynamicRoundingInt ir ctxt 32<rt> rtVal
-    !!ir (rd := (AST.sext 64<rt> rdVal))
+    !!ir (rd := AST.sext 64<rt> rdVal)
     !>ir insLen
 
 let fcvtdotwudots insInfo insLen ctxt =
@@ -2222,6 +2237,9 @@ let fcvtdotwudots insInfo insLen ctxt =
   let rs1 = AST.xtlo 32<rt> rs1
   let uintMaxInFloat = numU32 0x4f800000u 32<rt>
   let uintMinInFloat = numU32 0x0u 32<rt>
+  let condInf = checkInf 32<rt> rs1
+  let condNaN = checkNan 32<rt> rs1
+  let sign = AST.xthi 1<rt> rs1
   if rm <> OpRoundMode (RoundMode.DYN) then
     let rounding = roundingToCastFloat rm
     let roundingInt = roundingToCastInt rm
@@ -2230,32 +2248,32 @@ let fcvtdotwudots insInfo insLen ctxt =
     (* rounded value *)
     !!ir (rtVal := AST.cast rounding 32<rt> rs1)
     (* check for out-of-range *)
-    !!ir (rtVal := AST.ite (AST.fle rtVal uintMinInFloat) (uintMinInFloat) (rtVal))
+    !!ir (rtVal := AST.ite (AST.fle rtVal uintMinInFloat) uintMinInFloat rtVal)
     !!ir (rtVal := AST.ite (AST.fge rtVal uintMaxInFloat) uintMaxInFloat rtVal)
     (* NaN Check *)
-    !!ir (rtVal := AST.ite (checkNan 32<rt> rs1) (uintMaxInFloat) (rtVal))
+    !!ir (rtVal := AST.ite condNaN uintMaxInFloat rtVal)
     (* +inf *)
-    !!ir (rtVal := AST.ite (checkInf 32<rt> rs1 .& (AST.not (AST.xthi 1<rt> rs1))) (uintMaxInFloat) (rtVal))
+    !!ir (rtVal := AST.ite (condInf .& (AST.not sign)) uintMaxInFloat rtVal)
     (* -inf *)
-    !!ir (rtVal := AST.ite (checkInf 32<rt> rs1 .& (AST.xthi 1<rt> rs1)) (uintMinInFloat) (rtVal))
+    !!ir (rtVal := AST.ite (condInf .& sign) uintMinInFloat rtVal)
     !!ir (rtVal := AST.cast roundingInt 32<rt> rtVal)
-    !!ir (rd := (AST.sext 64<rt> rtVal))
+    !!ir (rd := AST.sext 64<rt> rtVal)
     !>ir insLen
   else
     !<ir insLen
     (* rounded value *)
     let rtVal = dynamicRoundingFl ir ctxt 32<rt> rs1
     (* check for out-of-range *)
-    !!ir (rtVal := AST.ite (AST.fle rtVal uintMinInFloat) (uintMinInFloat) (rtVal))
+    !!ir (rtVal := AST.ite (AST.fle rtVal uintMinInFloat) uintMinInFloat rtVal)
     !!ir (rtVal := AST.ite (AST.fge rtVal uintMaxInFloat) uintMaxInFloat rtVal)
     (* NaN Check *)
-    !!ir (rtVal := AST.ite (checkNan 32<rt> rs1) (uintMaxInFloat) (rtVal))
+    !!ir (rtVal := AST.ite condNaN uintMaxInFloat rtVal)
     (* +inf *)
-    !!ir (rtVal := AST.ite (checkInf 32<rt> rs1 .& (AST.not (AST.xthi 1<rt> rs1))) (uintMaxInFloat) (rtVal))
+    !!ir (rtVal := AST.ite (condInf .& (AST.not condInf)) uintMaxInFloat rtVal)
     (* -inf *)
-    !!ir (rtVal := AST.ite (checkInf 32<rt> rs1 .& (AST.xthi 1<rt> rs1)) (uintMinInFloat) (rtVal))
+    !!ir (rtVal := AST.ite (condInf .& sign) uintMinInFloat rtVal)
     let rdVal = dynamicRoundingInt ir ctxt 32<rt> rtVal
-    !!ir (rd := (AST.sext 64<rt> rdVal))
+    !!ir (rd := AST.sext 64<rt> rdVal)
     !>ir insLen
 
 let fcvtdotldots insInfo insLen ctxt =
@@ -2265,6 +2283,9 @@ let fcvtdotldots insInfo insLen ctxt =
   let rs1 = AST.xtlo 32<rt> rs1
   let llMaxInFloat = numU64 0x43e0000000000000uL 64<rt>
   let llMinInFloat = numU64 0xc3e0000000000000uL 64<rt>
+  let condInf = checkInf 32<rt> rs1
+  let condNaN = checkNan 32<rt> rs1
+  let sign = AST.xthi 1<rt> rs1
   if rm <> OpRoundMode (RoundMode.DYN) then
     let rounding = roundingToCastFloat rm
     let roundingInt = roundingToCastInt rm
@@ -2275,14 +2296,14 @@ let fcvtdotldots insInfo insLen ctxt =
     !!ir (t0 := AST.cast rounding 32<rt> rs1)
     !!ir (rtVal := AST.cast CastKind.FloatCast 64<rt> t0)
     (* check for out-of-range *)
-    !!ir (rtVal := AST.ite (AST.fle rtVal llMinInFloat) (llMinInFloat) (rtVal))
+    !!ir (rtVal := AST.ite (AST.fle rtVal llMinInFloat) llMinInFloat rtVal)
     !!ir (rtVal := AST.ite (AST.fge rtVal llMaxInFloat) llMaxInFloat rtVal)
     (* NaN Check *)
-    !!ir (rtVal := AST.ite (checkNan 32<rt> rs1) (llMaxInFloat) (rtVal))
+    !!ir (rtVal := AST.ite condNaN llMaxInFloat rtVal)
     (* +inf *)
-    !!ir (rtVal := AST.ite (checkInf 32<rt> rs1 .& (AST.not (AST.xthi 1<rt> rs1))) (llMaxInFloat) (rtVal))
+    !!ir (rtVal := AST.ite (condInf .& (AST.not sign)) llMaxInFloat rtVal)
     (* -inf *)
-    !!ir (rtVal := AST.ite (checkInf 32<rt> rs1 .& (AST.xthi 1<rt> rs1)) (llMinInFloat) (rtVal))
+    !!ir (rtVal := AST.ite (condInf .& sign) llMinInFloat rtVal)
     !!ir (rd := AST.cast roundingInt 64<rt> rtVal)
     !>ir insLen
   else
@@ -2292,14 +2313,14 @@ let fcvtdotldots insInfo insLen ctxt =
     let rtVal = !+ir 64<rt>
     (* check for out-of-range *)
     !!ir (rtVal := AST.cast CastKind.FloatCast 64<rt> t0)
-    !!ir (rtVal := AST.ite (AST.fle rtVal llMinInFloat) (llMinInFloat) (rtVal))
+    !!ir (rtVal := AST.ite (AST.fle rtVal llMinInFloat) llMinInFloat rtVal)
     !!ir (rtVal := AST.ite (AST.fge rtVal llMaxInFloat) llMaxInFloat rtVal)
     (* NaN Check *)
-    !!ir (rtVal := AST.ite (checkNan 32<rt> rs1) (llMaxInFloat) (rtVal))
+    !!ir (rtVal := AST.ite condNaN llMaxInFloat rtVal)
     (* +inf *)
-    !!ir (rtVal := AST.ite (checkInf 32<rt> rs1 .& (AST.not (AST.xthi 1<rt> rs1))) (llMaxInFloat) (rtVal))
+    !!ir (rtVal := AST.ite (condInf .& (AST.not sign)) llMaxInFloat rtVal)
     (* -inf *)
-    !!ir (rtVal := AST.ite (checkInf 32<rt> rs1 .& (AST.xthi 1<rt> rs1)) (llMinInFloat) (rtVal))
+    !!ir (rtVal := AST.ite (condInf .& sign) llMinInFloat rtVal)
     let rdVal = dynamicRoundingInt ir ctxt 64<rt> rtVal
     !!ir (rd := rdVal)
     !>ir insLen
@@ -2311,6 +2332,9 @@ let fcvtdotludots insInfo insLen ctxt =
   let rs1 = AST.xtlo 32<rt> rs1
   let llMaxInFloat = numU64 0x43e0000000000000uL 64<rt>
   let llMinInFloat = numU64 0uL 64<rt>
+  let condInf = checkInf 32<rt> rs1
+  let condNaN = checkNan 32<rt> rs1
+  let sign = AST.xthi 1<rt> rs1
   if rm <> OpRoundMode (RoundMode.DYN) then
     let rounding = roundingToCastFloat rm
     let roundingInt = roundingToCastInt rm
@@ -2321,14 +2345,14 @@ let fcvtdotludots insInfo insLen ctxt =
     !!ir (t0 := AST.cast rounding 32<rt> rs1)
     !!ir (rtVal := AST.cast CastKind.FloatCast 64<rt> t0)
     (* check for out-of-range *)
-    !!ir (rtVal := AST.ite (AST.fle rtVal llMinInFloat) (llMinInFloat) (rtVal))
+    !!ir (rtVal := AST.ite (AST.fle rtVal llMinInFloat) llMinInFloat rtVal)
     !!ir (rtVal := AST.ite (AST.fge rtVal llMaxInFloat) llMaxInFloat rtVal)
     (* NaN Check *)
-    !!ir (rtVal := AST.ite (checkNan 32<rt> rs1) (llMaxInFloat) (rtVal))
+    !!ir (rtVal := AST.ite (condNaN) (llMaxInFloat) (rtVal))
     (* +inf *)
-    !!ir (rtVal := AST.ite (checkInf 32<rt> rs1 .& (AST.not (AST.xthi 1<rt> rs1))) (llMaxInFloat) (rtVal))
+    !!ir (rtVal := AST.ite (condInf .& (AST.not sign)) llMaxInFloat rtVal)
     (* -inf *)
-    !!ir (rtVal := AST.ite (checkInf 32<rt> rs1 .& (AST.xthi 1<rt> rs1)) (llMinInFloat) (rtVal))
+    !!ir (rtVal := AST.ite (condInf .& sign) llMinInFloat rtVal)
     !!ir (rd := AST.cast roundingInt 64<rt> rtVal)
     !>ir insLen
   else
@@ -2338,14 +2362,14 @@ let fcvtdotludots insInfo insLen ctxt =
     let rtVal = !+ir 64<rt>
     (* check for out-of-range *)
     !!ir (rtVal := AST.cast CastKind.FloatCast 64<rt> t0)
-    !!ir (rtVal := AST.ite (AST.fle rtVal llMinInFloat) (llMinInFloat) (rtVal))
+    !!ir (rtVal := AST.ite (AST.fle rtVal llMinInFloat) llMinInFloat rtVal)
     !!ir (rtVal := AST.ite (AST.fge rtVal llMaxInFloat) llMaxInFloat rtVal)
     (* NaN Check *)
-    !!ir (rtVal := AST.ite (checkNan 32<rt> rs1) (llMaxInFloat) (rtVal))
+    !!ir (rtVal := AST.ite condNaN llMaxInFloat rtVal)
     (* +inf *)
-    !!ir (rtVal := AST.ite (checkInf 32<rt> rs1 .& (AST.not (AST.xthi 1<rt> rs1))) (llMaxInFloat) (rtVal))
+    !!ir (rtVal := AST.ite (condInf .& (AST.not sign)) llMaxInFloat rtVal)
     (* -inf *)
-    !!ir (rtVal := AST.ite (checkInf 32<rt> rs1 .& (AST.xthi 1<rt> rs1)) (llMinInFloat) (rtVal))
+    !!ir (rtVal := AST.ite (condInf .& sign) llMinInFloat rtVal)
     let rdVal = dynamicRoundingInt ir ctxt 64<rt> rtVal
     !!ir (rd := rdVal)
     !>ir insLen
