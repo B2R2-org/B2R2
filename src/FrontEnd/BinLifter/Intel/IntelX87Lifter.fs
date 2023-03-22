@@ -1038,7 +1038,7 @@ let fldpi _ins insLen ctxt =
   fpuLoad insLen ctxt oprExpr
 
 let fldl2e _ins insLen ctxt =
-  let oprExpr = numU64 4599094494223104509UL 64<rt>
+  let oprExpr = numU64 4609176140021203710UL 64<rt>
   fpuLoad insLen ctxt oprExpr
 
 let fldln2 _ins insLen ctxt =
