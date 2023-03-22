@@ -956,7 +956,7 @@ let fpatan _ins insLen ctxt =
   !<ir insLen
   !?ir (castFrom80Bit tmp0 64<rt> st0b st0a)
   !?ir (castFrom80Bit tmp1 64<rt> st1b st1a)
-  !!ir (res := AST.fatan (AST.fdiv tmp0 tmp1))
+  !!ir (res := AST.fatan (AST.fdiv tmp1 tmp0))
   !?ir (castTo80Bit ctxt st1b st1a res)
   !?ir (popFPUStack ctxt)
   !?ir (updateC1OnStore ctxt)
