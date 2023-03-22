@@ -29,7 +29,7 @@ open System
 
 /// A pointer to binary, which is used to exclusively point to a portion of a
 /// binary, e.g., a section. It holds both the virtual address as well as the
-/// file offset.
+/// file offset. Both Offset and MaxOffset are inclusive.
 type BinaryPointer =
   struct
     /// Virtual address.
@@ -46,15 +46,15 @@ with
   static member Null = BinaryPointer (0UL, 0, 0)
 
   static member inline IsValid (bp: BinaryPointer) =
-    bp.Offset < bp.MaxOffset
+    bp.Offset <= bp.MaxOffset
 
   static member inline IsValidAccess (bp: BinaryPointer) size =
-    (bp.Offset + size) <= bp.MaxOffset
+    (bp.Offset + size - 1) <= bp.MaxOffset
 
   static member OfSection (s: Section) =
     BinaryPointer (s.Address,
       Convert.ToInt32 s.FileOffset,
-      Convert.ToInt32 s.FileOffset + Convert.ToInt32 s.Size)
+      Convert.ToInt32 s.FileOffset + Convert.ToInt32 s.Size - 1)
 
   static member OfSectionOpt section =
     match section with

@@ -69,5 +69,5 @@ type DisasmAction () =
           let mode = ArchOperationMode.NoMode
           BinHandle.Init (taggedISA, mode, false, baseAddr, bytes=bs)
         | _ -> invalidArg (nameof DisasmAction) "Invalid arguments given."
-      let bp = BinaryPointer (taggedAddr, 0, bs.Length)
+      let bp = BinaryPointer (taggedAddr, 0, bs.Length - 1)
       disasm [] hdl bp
