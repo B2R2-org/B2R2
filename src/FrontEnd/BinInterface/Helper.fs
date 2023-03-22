@@ -35,6 +35,7 @@ let private appendOSInfo fmt isa =
   | FileFormat.PEBinary -> struct (fmt, isa, OS.Windows)
   | FileFormat.MachBinary -> struct (fmt, isa, OS.MacOSX)
   | FileFormat.WasmBinary -> struct (fmt, isa, OS.UnknownOS)
+  | FileFormat.RawBinary -> struct (fmt, isa, OS.UnknownOS)
   | _ -> Utils.impossible ()
 
 let identifyFormatAndISAAndOS bytes isa os autoDetect =
