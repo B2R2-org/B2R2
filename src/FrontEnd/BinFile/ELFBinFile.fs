@@ -64,7 +64,8 @@ type ELFBinFile (bytes, path, baseAddr, regbay,
 
   override __.TextStartAddr = getTextStartAddr elf
 
-  override __.TranslateAddress addr = translateAddrToOffset addr elf
+  override __.TranslateAddress addr =
+    translateAddrToOffset addr elf |> Convert.ToInt32
 
   override __.GetRelocatedAddr relocAddr = getRelocatedAddr elf relocAddr
 

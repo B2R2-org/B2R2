@@ -54,7 +54,6 @@ let inline getTextStartAddr elf =
 let inline private computeSubstitute offsetToAddr delta (ptr: Addr) =
   if offsetToAddr then ptr + delta
   else (* Addr to offset *) ptr - delta
-  |> Convert.ToInt32
 
 let translateWithSecs offsetToAddr ptr secInfo =
   let secs = secInfo.SecByNum
@@ -240,7 +239,7 @@ let getFunctionAddrsFromLibcArray span elf s =
     FileHelper.peekUIntOfType span elf.BinReader readType o
     |> (fun fnAddr ->
       if fnAddr = 0UL then
-        match getRelocatedAddr elf (uint64 (addr + (o - offset))) with
+        match getRelocatedAddr elf (addr + uint64 (o - offset)) with
         | Ok relocatedAddr -> lst.Add relocatedAddr
         | Error _ -> ()
       else lst.Add fnAddr)
