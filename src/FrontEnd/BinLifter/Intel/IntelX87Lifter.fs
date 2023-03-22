@@ -528,10 +528,11 @@ let private fpuFBinOp (ins: InsInfo) insLen ctxt binOp doPop leftToRight =
     let oprExpr = transOneOpr ir false ins insLen ctxt
     let oprSize = TypeCheck.typeOf oprExpr
     let struct (st0b, st0a) = getFPUPseudoRegVars ctxt R.ST0
-    let struct (tmp0, tmp1) = tmpVars2 ir oprSize
-    let res = !+ir oprSize
-    !?ir (castFrom80Bit tmp0 oprSize st0b st0a)
-    !!ir (tmp1 := oprExpr)
+    let struct (tmp0, tmp1) = tmpVars2 ir 64<rt>
+    let res = !+ir 64<rt>
+    !?ir (castFrom80Bit tmp0 64<rt> st0b st0a)
+    if oprSize = 64<rt> then !!ir (tmp1 := oprExpr)
+    else !!ir (tmp1 := AST.cast CastKind.FloatCast 64<rt> oprExpr)
     if leftToRight then !!ir (res := binOp tmp0 tmp1)
     else !!ir (res := binOp tmp1 tmp0)
     !?ir (castTo80Bit ctxt st0b st0a res)
