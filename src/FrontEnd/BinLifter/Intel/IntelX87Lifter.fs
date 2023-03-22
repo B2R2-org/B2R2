@@ -729,9 +729,10 @@ let fxtract _ins insLen ctxt =
   !!ir (tmpB := (st0b .& numI32 0x8000 16<rt>) .| n3fff)
   !!ir (tmpA := st0a)
   !!ir (tmpF := castToF64 ((st0b .& numI32 0x7fff 16<rt>) .- n3fff))
-  !?ir (pushFPUStack ctxt)
   !?ir (castTo80Bit ctxt st0b st0a tmpF)
-  !?ir (updateC1OnStore ctxt)
+  !?ir (pushFPUStack ctxt)
+  !!ir (st0b := tmpB)
+  !!ir (st0a := tmpA)
   !>ir insLen
 
 let private prepareTwoOprsForComparison (ins: InsInfo) insLen ctxt ir =
