@@ -756,6 +756,20 @@ let lhax ins insLen ctxt =
   !!ir (rd := AST.sext 32<rt> (loadNative ctxt 16<rt> ea))
   !>ir insLen
 
+let lhbrx ins insLen ctxt =
+  let struct (o1, o2, o3) = getThreeOprs ins
+  let rd = transOpr ctxt o1
+  let ea = transEAWithIndexReg o2 o3 ctxt
+  let ir = !*ctxt
+  let tmp = !+ir 16<rt>
+  let revtmp = !+ir 16<rt>
+  !<ir insLen
+  !!ir (tmp := loadNative ctxt 16<rt> ea)
+  !!ir (AST.xthi 8<rt> revtmp := AST.xtlo 8<rt> tmp)
+  !!ir (AST.xtlo 8<rt> revtmp := AST.xthi 8<rt> tmp)
+  !!ir (rd := AST.zext 32<rt> revtmp)
+  !>ir insLen
+
 let lhz ins insLen (ctxt: TranslationContext) =
   let struct (o1, o2) = getTwoOprs ins
   let ea = transEAWithOffset o2 ctxt
@@ -821,6 +835,20 @@ let lwarx ins insLen ctxt =
   !!ir (tmpEA := ea)
   !!ir (AST.extCall <| AST.app "Reserve" [tmpEA] 32<rt>)
   !!ir (rd := loadNative ctxt 32<rt> tmpEA)
+  !>ir insLen
+
+let lwbrx ins insLen ctxt =
+  let struct (o1, o2, o3) = getThreeOprs ins
+  let rd = transOpr ctxt o1
+  let ea = transEAWithIndexReg o2 o3 ctxt
+  let ir = !*ctxt
+  let tmp = !+ir 32<rt>
+  !<ir insLen
+  !!ir (tmp := loadNative ctxt 32<rt> ea)
+  !!ir (AST.extract rd 8<rt> 0:= AST.extract tmp 8<rt> 24)
+  !!ir (AST.extract rd 8<rt> 8:= AST.extract tmp 8<rt> 16)
+  !!ir (AST.extract rd 8<rt> 16:= AST.extract tmp 8<rt> 8)
+  !!ir (AST.extract rd 8<rt> 24:= AST.extract tmp 8<rt> 0)
   !>ir insLen
 
 let lwz ins insLen (ctxt: TranslationContext) =
@@ -1301,6 +1329,17 @@ let sth ins insLen (ctxt: TranslationContext) =
   !!ir (loadNative ctxt 16<rt> ea := AST.xtlo 16<rt> src)
   !>ir insLen
 
+let sthbrx ins insLen ctxt =
+  let struct (o1, o2, o3) = getThreeOprs ins
+  let rs = transOpr ctxt o1
+  let ea = transEAWithIndexReg o2 o3 ctxt
+  let ir = !*ctxt
+  let revtmp = !+ir 16<rt>
+  !<ir insLen
+  !!ir (revtmp := AST.concat (AST.extract rs 8<rt> 0) (AST.extract rs 8<rt> 8))
+  !!ir (loadNative ctxt 16<rt> ea := revtmp)
+  !>ir insLen
+
 let sthx ins insLen ctxt =
   let struct (o1, o2, o3) = getThreeOprs ins
   let rs = transOpr ctxt o1
@@ -1341,6 +1380,20 @@ let stw ins insLen (ctxt: TranslationContext) =
   let ir = !*ctxt
   !<ir insLen
   !!ir (loadNative ctxt 32<rt> ea := src)
+  !>ir insLen
+
+let stwbrx ins insLen ctxt =
+  let struct (o1, o2, o3) = getThreeOprs ins
+  let rs = transOpr ctxt o1
+  let ea = transEAWithIndexReg o2 o3 ctxt
+  let ir = !*ctxt
+  let revtmp = !+ir 32<rt>
+  !<ir insLen
+  !!ir (AST.extract revtmp 8<rt> 0:= AST.extract rs 8<rt> 24)
+  !!ir (AST.extract revtmp 8<rt> 8:= AST.extract rs 8<rt> 16)
+  !!ir (AST.extract revtmp 8<rt> 16:= AST.extract rs 8<rt> 8)
+  !!ir (AST.extract revtmp 8<rt> 24:= AST.extract rs 8<rt> 0)
+  !!ir (loadNative ctxt 32<rt> ea := revtmp)
   !>ir insLen
 
 let stwcxdot ins insLen ctxt =
@@ -1570,6 +1623,7 @@ let translate (ins: InsInfo) insLen (ctxt: TranslationContext) =
   | Op.LHAU -> lhau ins insLen ctxt
   | Op.LHAUX ->lhaux ins insLen ctxt
   | Op.LHAX -> lhax ins insLen ctxt
+  | Op.LHBRX -> lhbrx ins insLen ctxt
   | Op.LHZ -> lhz ins insLen ctxt
   | Op.LHZU -> lhzu ins insLen ctxt
   | Op.LHZUX ->lhzux ins insLen ctxt
@@ -1577,6 +1631,7 @@ let translate (ins: InsInfo) insLen (ctxt: TranslationContext) =
   | Op.LI -> li ins insLen ctxt
   | Op.LIS -> lis ins insLen ctxt
   | Op.LWARX -> lwarx ins insLen ctxt
+  | Op.LWBRX -> lwbrx ins insLen ctxt
   | Op.LWZ -> lwz ins insLen ctxt
   | Op.LWZU -> lwzu ins insLen ctxt
   | Op.LWZUX -> lwzux ins insLen ctxt
@@ -1638,10 +1693,12 @@ let translate (ins: InsInfo) insLen (ctxt: TranslationContext) =
   | Op.STFD -> stfd ins insLen ctxt
   | Op.STFS -> stfs ins insLen ctxt
   | Op.STH -> sth ins insLen ctxt
+  | Op.STHBRX -> sthbrx ins insLen ctxt
   | Op.STHU -> sthu ins insLen ctxt
   | Op.STHX -> sthx ins insLen ctxt
   | Op.STHUX -> sthux ins insLen ctxt
   | Op.STW -> stw ins insLen ctxt
+  | Op.STWBRX -> stwbrx ins insLen ctxt
   | Op.STWCXdot -> stwcxdot ins insLen ctxt
   | Op.STWU -> stwu ins insLen ctxt
   | Op.STWUX -> stwux ins insLen ctxt
