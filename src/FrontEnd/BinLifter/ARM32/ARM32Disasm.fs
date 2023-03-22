@@ -875,7 +875,7 @@ let optToString = function
   | BarrierOption.OSH -> "osh"
   | BarrierOption.OSHST -> "oshst"
   | BarrierOption.OSHLD -> "oshld"
-  | _ -> raise ParsingFailureException
+  | opt -> opt.ToString () (* otherwise *)
 
 let iFlagToString = function
   | A -> "a"
