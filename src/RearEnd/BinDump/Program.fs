@@ -130,7 +130,7 @@ let private printWasmCode (printer: BinPrinter) (code: Wasm.Code) =
   let locals = code.Locals
   let localsSize = List.sumBy (fun (l: Wasm.LocalDecl) -> l.LocalDeclLen) locals
   let offset = code.Offset + code.LenFieldSize + localsSize + 1
-  let maxOffset = code.Offset + code.LenFieldSize + int32 code.CodeSize
+  let maxOffset = code.Offset + code.LenFieldSize + int32 code.CodeSize - 1
   let bp = BinaryPointer (uint64 offset, offset, maxOffset)
   printer.Print bp
   out.PrintLine ()
@@ -214,7 +214,7 @@ let dumpHexStringMode (opts: BinDumpOpts) =
   opts.ShowColor <- true
   let printer = makeCodePrinter hdl cfg opts
   let baseAddr = defaultArg opts.BaseAddress 0UL
-  let bp = BinaryPointer (baseAddr, 0, opts.InputHexStr.Length)
+  let bp = BinaryPointer (baseAddr, 0, opts.InputHexStr.Length - 1)
   printer.Print bp
   out.PrintLine ()
 

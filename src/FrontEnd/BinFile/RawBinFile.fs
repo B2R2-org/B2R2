@@ -113,7 +113,7 @@ type RawBinFile (bytes: byte [], path, isa, baseAddr) =
     else Error ErrorCase.SymbolNotFound
 
   override __.ToBinaryPointer addr =
-    if addr = baseAddr then BinaryPointer (baseAddr, 0, size)
+    if addr = baseAddr then BinaryPointer (baseAddr, 0, size - 1)
     else BinaryPointer.Null
 
   override __.ToBinaryPointer (_name: string) = BinaryPointer.Null
