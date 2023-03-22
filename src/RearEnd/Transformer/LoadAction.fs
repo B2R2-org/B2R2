@@ -32,7 +32,7 @@ type LoadAction () =
   interface IAction with
     member __.ActionID with get() = "load"
     member __.InputType with get() = typeof<string>
-    member __.OutputType with get() = typeof<byte[]>
+    member __.OutputType with get() = typeof<ByteArray>
     member __.Description with get() = """
     Takes in a string and returns the raw byte array. The given input string can
     either represent a file path or a hexstring. If the given string represents
@@ -42,6 +42,8 @@ type LoadAction () =
     member __.Transform args _ =
       match args with
       | s :: [] ->
-        if File.Exists (path=s) then File.ReadAllBytes s
-        else ByteArray.ofHexString s
+        if File.Exists (path=s) then
+          { Address = 0UL; ISA = None; Bytes = File.ReadAllBytes s }
+        else
+          { Address = 0UL; ISA = None; Bytes = ByteArray.ofHexString s }
       | _ -> invalidArg (nameof LoadAction) "Invalid arguments given."

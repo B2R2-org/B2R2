@@ -32,19 +32,25 @@ open B2R2.FrontEnd.BinInterface
 type DisasmAction () =
   let rec disasm acc hdl bp =
     if BinaryPointer.IsValid bp then
-      let instr = BinHandle.ParseInstr (hdl, bp)
-      let insLen = int instr.Length
-      let insBytes = hdl.BinFile.Span.Slice(bp.Offset, insLen).ToArray()
-      let bp = BinaryPointer.Advance bp insLen
-      let acc = { Instruction = instr; Bytes = insBytes } :: acc
-      disasm acc hdl bp
+      match BinHandle.TryParseInstr (hdl, bp) with
+      | Ok instr ->
+        let insLen = int instr.Length
+        let insBytes = hdl.BinFile.Span.Slice(bp.Offset, insLen).ToArray()
+        let bp = BinaryPointer.Advance bp insLen
+        let acc = ValidInstruction (instr, insBytes) :: acc
+        disasm acc hdl bp
+      | Error _ ->
+        let acc =
+          BadInstruction (bp.Addr, [| hdl.BinFile.Span[bp.Offset] |]) :: acc
+        let bp = BinaryPointer.Advance bp 1
+        disasm acc hdl bp
     else
       List.rev acc |> List.toArray
 
   interface IAction with
     member __.ActionID with get() = "disasm"
-    member __.InputType with get() = typeof<TaggedByteArray>
-    member __.OutputType with get() = typeof<TaggedInstruction[]>
+    member __.InputType with get() = typeof<ByteArray>
+    member __.OutputType with get() = typeof<Instruction[]>
     member __.Description with get() = """
     Takes in a binary array and linearly disassemble the binary to return a list
     of instructions along with its corresponding bytes.
@@ -53,21 +59,22 @@ type DisasmAction () =
       - <isa>: disassemble the binary for the given ISA.
 """
     member __.Transform args input =
-      let taggedAddr, taggedISA, bs = ByteArray.toTuple input
-      let baseAddr = Some taggedAddr
+      let barr = unbox<ByteArray> input
+      let baseAddr = Some barr.Address
       let hdl =
         match args with
         | isa :: mode :: [] ->
           let isa = ISA.OfString isa
           let mode = ArchOperationMode.ofString mode
-          BinHandle.Init (isa, mode, false, baseAddr, bytes=bs)
+          BinHandle.Init (isa, mode, false, baseAddr, bytes=barr.Bytes)
         | isa :: [] ->
           let isa = ISA.OfString isa
           let mode = ArchOperationMode.NoMode
-          BinHandle.Init (isa, mode, false, baseAddr, bytes=bs)
+          BinHandle.Init (isa, mode, false, baseAddr, bytes=barr.Bytes)
         | [] ->
+          let isa = Utils.unwrapISA barr.ISA
           let mode = ArchOperationMode.NoMode
-          BinHandle.Init (taggedISA, mode, false, baseAddr, bytes=bs)
+          BinHandle.Init (isa, mode, false, baseAddr, bytes=barr.Bytes)
         | _ -> invalidArg (nameof DisasmAction) "Invalid arguments given."
-      let bp = BinaryPointer (taggedAddr, 0, bs.Length - 1)
+      let bp = BinaryPointer (barr.Address, 0, barr.Bytes.Length - 1)
       disasm [] hdl bp

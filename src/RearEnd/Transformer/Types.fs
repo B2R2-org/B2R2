@@ -25,25 +25,30 @@
 namespace B2R2.RearEnd.Transformer
 
 open B2R2
-open B2R2.FrontEnd.BinLifter
 
 /// Byte array tagged with additional information.
-type TaggedByteArray = {
+type ByteArray = {
   Address: Addr
-  ISA: ISA
+  ISA: ISA option
   Bytes: byte[]
 }
 with
   override __.ToString () =
     let s = Utils.makeByteArraySummary __.Bytes
-    $"0x{__.Address:x}: {ISA.ArchToString __.ISA.Arch}: {s}"
+    match __.ISA with
+    | Some isa -> $"0x{__.Address:x}: {ISA.ArchToString isa.Arch}: {s}"
+    | None -> $"0x{__.Address:x}: {s}"
 
 /// Instruction tagged with its corresponding bytes.
-type TaggedInstruction = {
-  Instruction: Instruction
-  Bytes: byte[]
-}
+type Instruction =
+  | ValidInstruction of FrontEnd.BinLifter.Instruction * byte[]
+  | BadInstruction of Addr * byte[]
 with
   override __.ToString () =
-    let bs = __.Bytes |> Utils.makeByteArraySummary
-    $"0x{__.Instruction.Address:x}: {bs}: {__.Instruction.Disasm ()}"
+    match __ with
+    | ValidInstruction (ins, bs) ->
+      let bs = Utils.makeByteArraySummary bs
+      $"0x{ins.Address:x}: {bs}: {ins.Disasm ()}"
+    | BadInstruction (addr, bs) ->
+      let bs = Utils.makeByteArraySummary bs
+      $"0x{addr:x}: {bs}: (bad)"

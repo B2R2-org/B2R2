@@ -25,7 +25,6 @@
 namespace B2R2.RearEnd.Transformer
 
 open System
-open System.IO
 
 /// The interface for a transforming action.
 type IAction =

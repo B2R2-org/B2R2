@@ -28,25 +28,19 @@ open System
 
 /// The `print` action.
 type PrintAction () =
-  let printByteArray (o: obj) =
-    let bs = o :?> byte[]
-    Utils.makeByteArraySummary bs
-    |> Console.WriteLine
-
   let printArray (o: obj) =
-    o :?> _[]
-    |> Array.iter (fun o -> Console.WriteLine $"{o}")
+    let arr = o :?> _[]
+    arr |> Array.iter (fun o -> Console.WriteLine $"{o}")
 
   interface IAction with
     member __.ActionID with get() = "print"
     member __.InputType with get() = typeof<obj>
     member __.OutputType with get() = typeof<unit>
     member __.Description with get() = """
-    Takes in an object and prints its value.
+    Takes in an input object and prints its value.
 """
     member __.Transform _args o =
       let typ = o.GetType ()
-      if typ = typeof<byte[]> then printByteArray o
-      elif typ.IsArray then printArray o
+      if typ.IsArray then printArray o
       else Console.WriteLine (o.ToString ())
       () (* This is to make compiler happy. *)

@@ -38,8 +38,8 @@ type SliceAction () =
     else
       let o1 = bin.BinFile.TranslateAddress a1
       let o2 = bin.BinFile.TranslateAddress a2
-      { TaggedByteArray.Address = a1
-        ISA = bin.ISA
+      { Address = a1
+        ISA = Some bin.ISA
         Bytes = bin.BinFile.Span.Slice(o1, o2 - o1 + 1).ToArray () }
 
   let sliceBySectionName (bin: BinHandle) secName =
@@ -51,13 +51,14 @@ type SliceAction () =
   interface IAction with
     member __.ActionID with get() = "slice"
     member __.InputType with get() = typeof<BinHandle>
-    member __.OutputType with get() = typeof<TaggedByteArray>
+    member __.OutputType with get() = typeof<ByteArray>
     member __.Description with get() = """
     Takes in a parsed binary and returns a byte array of a part of the binary
     along with its starting address.  Users can specify a specific address range
     or a section name to slice the binary.
 
       - <a1> <a2>: returns a slice of the bianry from <a1> to <a2>.
+      - <a1> +<n>: returns a slice of the bianry from <a1> to <a1 + n - 1>.
       - <sec_name>: returns a slice of the binary of the section <sec_name>.
 """
     member __.Transform args bin =
@@ -65,7 +66,11 @@ type SliceAction () =
       match args with
       | a1 :: a2 :: [] ->
         let a1 = Convert.ToUInt64 (a1, 16)
-        let a2 = Convert.ToUInt64 (a2, 16)
+        let a2 =
+          if a2.StartsWith '+' then
+            let numBase = if a2.StartsWith "+0x" then 16 else 10
+            a1 + Convert.ToUInt64 (a2[1..], numBase) - 1UL
+          else Convert.ToUInt64 (a2, 16)
         sliceByAddrRange bin a1 a2
       | secName :: [] ->
         sliceBySectionName bin secName

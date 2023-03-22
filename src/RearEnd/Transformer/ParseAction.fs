@@ -31,30 +31,29 @@ open B2R2.FrontEnd.BinInterface
 type ParseAction () =
   interface IAction with
     member __.ActionID with get() = "parse"
-    member __.InputType with get() = typeof<byte[]>
+    member __.InputType with get() = typeof<ByteArray>
     member __.OutputType with get() = typeof<BinHandle>
     member __.Description with get() = """
-    Takes in a string and returns the parsed binary, i.e., BinHandle. The given
-    input string can either represent a file path or a hexstring. If the given
-    string represents a valid file path, then the file will be loaded.
-    Otherwise, we consider the input string as a hexstring, and return a Binary
-    with a raw binary format.
+    Takes in a byte array and returns the parsed binary, i.e., BinHandle. If the
+    <isa> and <mode> arguments are not given, this action considers the binary
+    as a well-formed file and automatically parses its header information.
 
       - <isa> <mode>: parse the binary for the given ISA and mode.
       - <isa>: parse the binary for the given ISA.
 """
-    member __.Transform args bs =
-      let bs = unbox<byte[]> bs
+    member __.Transform args input =
+      let barr = unbox<ByteArray> input
       match args with
       | isa :: mode :: [] ->
         let isa = ISA.OfString isa
         let mode = ArchOperationMode.ofString mode
-        BinHandle.Init (isa, mode, false, None, bytes=bs)
+        BinHandle.Init (isa, mode, false, None, bytes=barr.Bytes)
       | isa :: [] ->
         let isa = ISA.OfString isa
         let mode = ArchOperationMode.NoMode
-        BinHandle.Init (isa, mode, false, None, bytes=bs)
+        BinHandle.Init (isa, mode, false, None, bytes=barr.Bytes)
       | [] ->
+        let isa = Utils.unwrapISA barr.ISA
         let mode = ArchOperationMode.NoMode
-        BinHandle.Init (ISA.DefaultISA, mode, true, None, bytes=bs)
+        BinHandle.Init (isa, mode, true, None, bytes=barr.Bytes)
       | _ -> invalidArg (nameof ParseAction) "Invalid arguments given."

@@ -24,8 +24,12 @@
 
 module B2R2.RearEnd.Transformer.Utils
 
-open System
+open B2R2
 
 let makeByteArraySummary (bs: byte[]) =
   let s = bs[..16] |> Array.map (sprintf "%02x") |> String.concat " "
   if bs.Length > 16 then s + " ..." else s
+
+let unwrapISA = function
+  | Some isa -> isa
+  | None -> ISA.DefaultISA
