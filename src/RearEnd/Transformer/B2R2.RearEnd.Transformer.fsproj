@@ -15,6 +15,7 @@
     <Compile Include="LoadAction.fs" />
     <Compile Include="PrintAction.fs" />
     <Compile Include="SliceAction.fs" />
+    <Compile Include="WriteAction.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
 

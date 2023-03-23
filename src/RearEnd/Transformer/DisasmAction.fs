@@ -57,9 +57,9 @@ type DisasmAction () =
 
   interface IAction with
     member __.ActionID with get() = "disasm"
-    member __.Signature with get() = "Binary -> Instruction[]"
+    member __.Signature with get() = "Binary -> Instruction array"
     member __.Description with get() = """
-    Takes in a binary and linearly disassemble the binary to return a list of
+    Take in a binary and linearly disassemble the binary to return a list of
     instructions along with its corresponding bytes.
 """
     member __.Transform args collection =

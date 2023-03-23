@@ -24,40 +24,39 @@
 
 namespace B2R2.RearEnd.Transformer
 
-open FSharp.Reflection
+open System.IO
 open B2R2
 
-/// The `print` action.
-type PrintAction () =
-  let rec print (o: obj) =
-    let typ = o.GetType ()
-    if typ = typeof<ObjCollection> then printObjCollection o
-    elif typ.IsArray then printArray o
-    elif FSharpType.IsUnion typ
-      && typ.BaseType = typeof<OutString> then printOutString o
-    else Printer.PrintToConsoleLine (o.ToString ())
+/// The `write` action.
+type WriteAction () =
+  let rec write fname (o: obj) =
+    match o with
+    | :? Binary as bin -> writeBinary fname bin
+    | :? OutString as os -> writeOutString fname os
+    | _ -> File.WriteAllText (fname, o.ToString ())
 
-  and printObjCollection (o: obj) =
-    let res = o :?> ObjCollection
-    res.Values
-    |> Array.iteri (fun idx v ->
-      Printer.PrintToConsoleLine $"[*] result({idx})"
-      print v)
+  and writeBinary fname bin =
+    let hdl = Binary.Handle bin
+    File.WriteAllBytes (fname, hdl.BinFile.Span.ToArray ())
 
-  and printArray (o: obj) =
-    let arr = o :?> _[]
-    arr |> Array.iter print
-
-  and printOutString (o: obj) =
-    let os = o :?> OutString
-    Printer.PrintToConsole os
+  and writeOutString fname os =
+    File.WriteAllText (fname, OutString.toString os)
 
   interface IAction with
-    member __.ActionID with get() = "print"
-    member __.Signature with get() = "'a -> unit"
+    member __.ActionID with get() = "write"
+    member __.Signature
+      with get() = "'a * <file> -> unit"
     member __.Description with get() = """
-    Take in an input object and print out its value.
+    Take in an input object and write out its content to the <file>.
 """
-    member __.Transform _args o =
-      print (box o)
-      { Values = [||] }
+    member __.Transform args collection =
+      if args.Length = collection.Values.Length then
+        let args = List.toArray args
+        Array.iter2 write args collection.Values
+        { Values = [||] }
+      elif args.Length = 1 then
+        let fname = List.head args
+        let fnames = collection.Values |> Array.mapi (fun i _ -> $"{fname}.{i}")
+        Array.iter2 write fnames collection.Values
+        { Values = [||] }
+      else invalidArg (nameof args) "Input lengths mismatch."

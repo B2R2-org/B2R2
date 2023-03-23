@@ -166,8 +166,8 @@ let private runCommand input actionMap (cmd: string list) =
     | :? NullReferenceException ->
       Printer.PrintErrorToConsole $"({actionID}) action should follow another."
       exit 1
-    | :? ArgumentException ->
-      Printer.PrintErrorToConsole $"invalid input/arg to ({actionID})."
+    | :? ArgumentException as e ->
+      Printer.PrintErrorToConsole $"{e.Message}"
       exit 1
     | e ->
       Printer.PrintErrorToConsole $"({actionID}): {e}"

@@ -41,20 +41,20 @@ type LoadAction () =
   interface IAction with
     member __.ActionID with get() = "load"
     member __.Signature
-      with get() = "unit * <str> (* <isa> * <mode>): string -> Binary"
+      with get() = "unit * <str> * [isa] * [mode]: string -> Binary"
     member __.Description with get() = """
-    Takes in a string <str> and returns a binary object. The given input string
+    Take in a string <str> and return a binary object. The given input string
     can either represent a file path or a hexstring. If the given string
     represents a valid file path, then the raw file content will be loaded.
     Otherwise, we consider the input string as a hexstring, and return the
     corresponding binary.
 
-      - <isa> <mode>: parse the binary for the given ISA and mode.
-      - <isa>: parse the binary for the given ISA.
+      - [isa] : parse the binary for the given ISA.
+      - [mode]: parse the binary for the given operation mode.
 """
     member __.Transform args collection =
       if collection.Values |> Array.forall isNull then ()
-      else invalidArg (nameof LoadAction) "Invalid argument type."
+      else invalidArg (nameof collection) "Invalid argument type."
       match args with
       | s :: isa :: mode :: "raw" :: [] ->
         let isa = ISA.OfString isa
@@ -69,4 +69,4 @@ type LoadAction () =
         { Values = [| load isa ArchOperationMode.NoMode true s |] }
       | s :: [] ->
         { Values = [| load ISA.DefaultISA ArchOperationMode.NoMode true s |] }
-      | _ -> invalidArg (nameof LoadAction) "Invalid arguments given."
+      | _ -> invalidArg (nameof args) "Invalid arguments given."

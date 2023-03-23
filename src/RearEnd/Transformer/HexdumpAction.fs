@@ -32,7 +32,7 @@ type HexdumpAction () =
   let rec hexdump (o: obj) =
     let typ = o.GetType ()
     if typ = typeof<Binary> then hexdumpBinary o
-    else invalidArg (nameof HexdumpAction) "Invalid input type."
+    else invalidArg (nameof o) "Invalid input type."
 
   and hexdumpBinary o =
     let bin = unbox<Binary> o
@@ -45,10 +45,10 @@ type HexdumpAction () =
     member __.ActionID with get() = "hexdump"
     member __.Signature with get() = "Binary -> string"
     member __.Description with get() = """
-    Takes in a binary and converts it to a hexdump string.
+    Take in a binary and convert it to a hexdump string.
 """
     member __.Transform args collection =
       match args with
       | [] ->
         { Values = collection.Values |> Array.map hexdump }
-      | _ -> invalidArg (nameof HexdumpAction) "Invalid argument given."
+      | _ -> invalidArg (nameof args) "Invalid argument given."

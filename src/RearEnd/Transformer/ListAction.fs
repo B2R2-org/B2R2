@@ -37,11 +37,11 @@ type ListAction () =
 
   interface IAction with
     member __.ActionID with get() = "list"
-    member __.Signature with get() = "Binary (* <cmd>) -> unit"
+    member __.Signature with get() = "Binary * [cmd] -> unit"
     member __.Description with get() = """
-    Takes in a parsed binary and returns a list of elements such as functions,
-    sections, etc. The output type is determined by the extra <cmd> argument.
-    Currently, we support the following <cmd>:
+    Take in a parsed binary and return a list of elements such as functions,
+    sections, etc. The output type is determined by the extra [cmd] argument.
+    Currently, we support the following [cmd]:
 
       - `sections` (sects|ss): returns a list of sections.
 """
@@ -49,4 +49,4 @@ type ListAction () =
       match args with
       | [ "sections" ] | [ "sects" ] | [ "ss" ] ->
         { Values = collection.Values |> Array.map listSections }
-      | _ -> invalidArg (nameof ListAction) "Invalid argument."
+      | _ -> invalidArg (nameof args) "Invalid argument."

@@ -31,10 +31,10 @@ open B2R2.FrontEnd.BinInterface
 /// The `slice` action.
 type SliceAction () =
   let sliceByAddrRange (hdl: BinHandle) a1 a2 =
-    if a1 > a2 then invalidArg (nameof SliceAction) "Invalid address range."
+    if a1 > a2 then invalidArg (nameof hdl) "Invalid address range."
     elif not (hdl.BinFile.IsInFileAddr a1)
       || not (hdl.BinFile.IsInFileAddr a2) then
-      invalidArg (nameof SliceAction) "Address out of range."
+      invalidArg (nameof hdl) "Address out of range."
     else
       let o1 = hdl.BinFile.TranslateAddress a1
       let o2 = hdl.BinFile.TranslateAddress a2
@@ -65,20 +65,20 @@ type SliceAction () =
       sliceByAddrRange hdl a1 a2 |> box
     | secName :: [] ->
       sliceBySectionName hdl secName |> box
-    | _ -> invalidArg (nameof SliceAction) "Invalid argument."
+    | _ -> invalidArg (nameof args) "Invalid argument."
 
   let slice args (input: obj) =
     match input with
     | :? Binary as bin -> sliceBin args bin
-    | _ -> invalidArg (nameof SliceAction) "Invalid input type."
+    | _ -> invalidArg (nameof input) "Invalid input type."
 
   interface IAction with
     member __.ActionID with get() = "slice"
-    member __.Signature with get() = "Binary (* <arg>) -> Binary"
+    member __.Signature with get() = "Binary * [optional arg(s)] -> Binary"
     member __.Description with get() = """
-    Takes in a byte array or a BinHandle and returns a byte array of a part of
-    the binary along with its starting address. Users can specify a specific
-    address range or a section name as argument(s), which are listed below.
+    Take in a byte array or a BinHandle and return a byte array of a part of the
+    binary along with its starting address. Users can specify a specific address
+    range or a section name as argument(s), which are listed below.
 
       - <a1> <a2>: returns a slice of the bianry from <a1> to <a2>.
       - <a1> +<n>: returns a slice of the bianry from <a1> to <a1 + n - 1>.
