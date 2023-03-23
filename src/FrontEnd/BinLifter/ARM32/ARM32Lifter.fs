@@ -3140,11 +3140,14 @@ let getEBytes = function
   | Some (OneDT SIMDTyp8) | Some (OneDT SIMDTypS8) | Some (OneDT SIMDTypI8)
   | Some (OneDT SIMDTypU8) | Some (OneDT SIMDTypP8) -> 1
   | Some (OneDT SIMDTyp16) | Some (OneDT SIMDTypS16) | Some (OneDT SIMDTypI16)
-  | Some (OneDT SIMDTypU16) -> 2
+  | Some (OneDT SIMDTypU16) | Some (OneDT SIMDTypF16)
+  | Some (TwoDT (SIMDTypF32, SIMDTypF16))
+  | Some (TwoDT (SIMDTypF16, SIMDTypF32)) -> 2
   | Some (OneDT SIMDTyp32) | Some (OneDT SIMDTypS32) | Some (OneDT SIMDTypI32)
-  | Some (OneDT SIMDTypU32) -> 4
+  | Some (OneDT SIMDTypU32) | Some (OneDT SIMDTypF32) -> 4
   | Some (OneDT SIMDTyp64) | Some (OneDT SIMDTypS64) | Some (OneDT SIMDTypI64)
-  | Some (OneDT SIMDTypU64) | Some (OneDT SIMDTypP64) -> 8
+  | Some (OneDT SIMDTypU64) | Some (OneDT SIMDTypP64)
+  | Some (OneDT SIMDTypF64) -> 8
   | _ -> raise InvalidOperandException
 
 let registerIndex = function
@@ -3174,63 +3177,96 @@ let elemForIR vector vSize index size =
   let eSize = numI32 size vSize
   (vector >> (index .* eSize)) .& mask |> AST.xtlo (RegType.fromBitWidth size)
 
-let getESzieOfVMOV = function
-  | Some (OneDT SIMDTyp8) -> 8
-  | Some (OneDT SIMDTyp16) -> 16
-  | Some (OneDT SIMDTyp32) -> 32
+let isUnsigned = function
+  | Some (OneDT SIMDTypU8) | Some (OneDT SIMDTypU16)
+  | Some (OneDT SIMDTypU32) | Some (OneDT SIMDTypU64) -> true
+  | Some (OneDT SIMDTypS8) | Some (OneDT SIMDTypS16)
+  | Some (OneDT SIMDTypS32) | Some (OneDT SIMDTypS64) | Some (OneDT SIMDTypP8)
+  | Some (OneDT SIMDTypP64) | Some (OneDT SIMDTyp8) | Some (OneDT SIMDTyp16)
+  | Some (OneDT SIMDTyp32) | Some (OneDT SIMDTyp64) -> false
   | _ -> raise InvalidOperandException
 
-let getIndexOfVMOV = function
-  | TwoOperands (OprSIMD (SFReg (Scalar (_, Some element))), _) -> int element
-  | _ -> raise InvalidOperandException
-
-let parseOprOfVMOV (ins: InsInfo) insLen ctxt ir =
+let parseOprOfVMOV (ins: InsInfo) ctxt ir =
   match ins.Operands with
+  (* VMOV (immediate) *)
+  | TwoOperands (OprSIMD _ as o1, OprImm imm) ->
+    match ins.OprSize with
+    | 128<rt> ->
+      let dstB, dstA = transOprToExpr128 ctxt o1
+      let imm = numI64 imm (ins.OprSize / 2) (* FIXME: OprImm lifting *)
+      !!ir (dstB := imm)
+      !!ir (dstA := imm)
+    | _ ->
+      let dst = transOprToExpr ctxt o1
+      let imm = numI64 imm ins.OprSize (* FIXME: OprImm lifting *)
+      !!ir (dst := imm)
+  (* VMOV (general-purpose register to scalar) *)
+  | TwoOperands (OprSIMD (SFReg (Scalar (_, Some element))), OprReg _) ->
+    let struct (dst, src) = transTwoOprs ins ctxt
+    let p = getParsingInfo ins
+    let index = int element
+    !!ir (elem dst index p.ESize := AST.xtlo p.RtESize src)
+  (* VMOV (scalar to general-purpose register) *)
+  | TwoOperands (OprReg _, OprSIMD (SFReg (Scalar (_, Some element)))) ->
+    let struct (dst, src) = transTwoOprs ins ctxt
+    let p = getParsingInfo ins
+    let index = int element
+    let extend = if isUnsigned ins.SIMDTyp then AST.zext else AST.sext
+    !!ir (dst := extend 32<rt> (elem src index p.ESize))
+  (* VMOV (between general-purpose register and single-precision) *)
+  | TwoOperands _ ->
+    let struct (dst, src) = transTwoOprs ins ctxt
+    !!ir (dst := src)
+  (* VMOV (between two general-purpose registers and a doubleword
+    floating-point register) *)
+  | ThreeOperands (OprSIMD _, OprReg _, OprReg _) ->
+    let struct (dst, src1, src2) = transThreeOprs ins ctxt
+    !!ir (AST.xtlo 32<rt> dst := src1)
+    !!ir (AST.xthi 32<rt> dst := src2)
+  | ThreeOperands (OprReg _, OprReg _, OprSIMD _) ->
+    let struct (dst1, dst2, src) = transThreeOprs ins ctxt
+    !!ir (dst1 := AST.xtlo 32<rt> src)
+    !!ir (dst2 := AST.xthi 32<rt> src)
+  (* VMOV (between two general-purpose registers and two single-precision
+    registers) *)
+  | FourOperands _ ->
+    let struct (dst1, dst2, src1, src2) = transFourOprs ins ctxt
+    !!ir (dst1 := src1)
+    !!ir (dst2 := src2)
+  | _ -> raise InvalidOperandException
+
+let parseOprOfVMOVFP (ins: InsInfo) ctxt ir =
+  match ins.Operands with
+  (* VMOV (between general-purpose register and half-precision) *)
+  | TwoOperands (OprSIMD _, OprReg _) | TwoOperands (OprReg _, OprSIMD _) ->
+    let struct (dst, src) = transTwoOprs ins ctxt
+    !!ir (dst := AST.zext 32<rt> (AST.xtlo 16<rt> src))
+  (* VMOV (register) *)
   | TwoOperands (OprSIMD _, OprSIMD _) ->
     let struct (dst, src) = transTwoOprs ins ctxt
     !!ir (dst := src)
-  | TwoOperands (OprSIMD (SFReg (Vector reg)), OprImm _) ->
-    match ins.OprSize with
-    | 128<rt> ->
-      let struct (dst, imm) = getTwoOprs ins
-      let dstB, dstA = transOprToExpr128 ctxt dst
-      let imm64 = AST.concat (transOprToExpr ctxt imm) (transOprToExpr ctxt imm)
-      !!ir (dstB := imm64)
-      !!ir (dstA := imm64)
-    | _ ->
-      let struct (dst, imm) = transTwoOprs ins ctxt
-      let imm64 = AST.concat imm imm // FIXME
-      !!ir (AST.xtlo 64<rt> dst := imm64)
-      !!ir (AST.xthi 64<rt> dst := imm64)
-  | TwoOperands (OprSIMD _, OprReg _) ->
-    let struct (dst, src) = transTwoOprs ins ctxt
-    let index = getIndexOfVMOV ins.Operands
-    let esize = getESzieOfVMOV ins.SIMDTyp
-    !!ir (elem dst index esize := src)
-  | _ -> raise InvalidOperandException
+  (* VMOV (immediate) *)
+  | TwoOperands (OprSIMD _ as o1, OprImm imm) ->
+    let dst = transOprToExpr ctxt o1
+    let imm = numI64 imm ins.OprSize (* FIXME: OprImm lifting *)
+    !!ir (dst := imm)
+  | _ -> !!ir (AST.sideEffect UnsupportedFP)
 
 let vmov (ins: InsInfo) insLen ctxt =
   let ir = !*ctxt
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
   !<ir insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
-  parseOprOfVMOV ins insLen ctxt ir
+  parseOprOfVMOV ins ctxt ir
   putEndLabel ctxt lblIgnore ir
   !>ir insLen
-
-let parseOprOfVMOVFP (ins: InsInfo) insLen ctxt ir =
-  match ins.Operands with
-  | TwoOperands (OprSIMD _, OprReg _) | TwoOperands (OprReg _, OprSIMD _) ->
-    let struct (dst, src) = transTwoOprs ins ctxt
-    !!ir (dst:= src)
-  | _ -> !!ir (AST.sideEffect UnsupportedFP)
 
 let vmovfp (ins: InsInfo) insLen ctxt =
   let ir = !*ctxt
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
   !<ir insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
-  parseOprOfVMOVFP ins insLen ctxt ir
+  parseOprOfVMOVFP ins ctxt ir
   putEndLabel ctxt lblIgnore ir
   !>ir insLen
 
@@ -3243,28 +3279,6 @@ let isF32orF64 = function
 let isF16orF32orF64 = function
   | Some (OneDT SIMDTypF16) | Some (OneDT SIMDTypF32) | Some (OneDT SIMDTypF64)
     -> true
-  | _ -> false
-
-let isAdvSIMDByDT = function
-  (* VMOV (ARM core register to scalar/scalar to ARM core register) *)
-  | Some (OneDT SIMDTyp8) | Some (OneDT SIMDTyp16) -> true
-  | Some (OneDT SIMDTyp32) -> false
-  (* VMOV (between ARM core register and single-precision register) *)
-  (* VMOV (between two ARM core registers and two single-precision registers) *)
-  | None -> false
-  | _ -> raise UndefinedException
-
-let isAdvancedSIMD (ins: InsInfo) =
-  match ins.Operands with
-  | TwoOperands (OprSIMD _, OprImm _) | TwoOperands (OprSIMD _, OprSIMD _) ->
-    isF32orF64 ins.SIMDTyp |> not
-  | TwoOperands (OprSIMD _, OprReg _) | TwoOperands (OprReg _, OprSIMD _)
-  | FourOperands (OprSIMD _, OprSIMD _, OprReg _, OprReg _)
-  | FourOperands (OprReg _, OprReg _, OprSIMD _, OprSIMD _) ->
-    isAdvSIMDByDT ins.SIMDTyp
-  (* VMOV (between two ARM core registers and a dword extension register) *)
-  | ThreeOperands (OprSIMD _, OprReg _, OprReg _)
-  | ThreeOperands (OprReg _, OprReg _, OprSIMD _) -> false
   | _ -> false
 
 let private absExpr expr size =
@@ -3298,6 +3312,26 @@ let vaddsub (ins: InsInfo) insLen ctxt opFn =
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   let p = getParsingInfo ins
   match ins.OprSize with
+  (* FP, p.ESize 16 *)
+  | 32<rt> when p.ESize = 16 ->
+    let struct (dst, src1, src2) = transThreeOprs ins ctxt
+    !!ir (dst :=
+      AST.zext 32<rt> (opFn (AST.xtlo 16<rt> src1) (AST.xtlo 16<rt> src2)))
+  (* FP, p.ESize 32 *)
+  | 32<rt> ->
+    let struct (dst, src1, src2) = transThreeOprs ins ctxt
+    !!ir (dst := opFn src1 src2)
+  (* FP, p.ESize 64 *)
+  | 64<rt> when p.ESize = 64 ->
+    let struct (dst, src1, src2) = transThreeOprs ins ctxt
+    !!ir (dst := opFn src1 src2)
+  (* SIMD *)
+  | 64<rt> ->
+    let struct (dst, src1, src2) = transThreeOprs ins ctxt
+    for e in 0 .. p.Elements - 1 do
+      let elem value = elem value e p.ESize
+      !!ir (elem dst := (opFn (elem src1) (elem src2)))
+  (* SIMD *)
   | 128<rt> ->
     let struct (dst, src1, src2) = getThreeOprs ins
     let dstB, dstA = transOprToExpr128 ctxt dst
@@ -3307,11 +3341,7 @@ let vaddsub (ins: InsInfo) insLen ctxt opFn =
       let elem expr = elem expr e p.ESize
       !!ir (elem dstB := (opFn (elem src1B) (elem src2B)))
       !!ir (elem dstA := (opFn (elem src1A) (elem src2A)))
-  | _ ->
-    let struct (dst, src1, src2) = transThreeOprs ins ctxt
-    for e in 0 .. p.Elements - 1 do
-      let elem value = elem value e p.ESize
-      !!ir (elem dst := (opFn (elem src1) (elem src2)))
+  | _ -> raise InvalidOperandException
   putEndLabel ctxt lblIgnore ir
   !>ir insLen
 
@@ -3335,6 +3365,64 @@ let vaddl (ins: InsInfo) insLen ctxt =
   putEndLabel ctxt lblIgnore ir
   !>ir insLen
 
+let isDoubleToSingle = function
+  | Some (TwoDT (SIMDTypF32, SIMDTypF64)) -> true
+  | Some (TwoDT (SIMDTypF64, SIMDTypF32)) -> false
+  | _ -> raise InvalidOperandException
+
+let parseOprOfVCVT (ins: InsInfo) ctxt ir =
+  (* FIXME *)
+  match ins.Operands with
+  | TwoOperands(OprSIMD _, OprSIMD _) ->
+    match ins.OprSize with
+    (* FIXME *)
+    (* VCVT (between half-precision and single-precision, Advanced SIMD) *)
+    | 128<rt> ->
+      let struct (dst, src) = getTwoOprs ins
+      let dstB, dstA = transOprToExpr128 ctxt dst
+      let src = transOprToExpr ctxt src
+      let p = getParsingInfo ins
+      let struct (tdstB, tdstA) = tmpVars2 ir 64<rt>
+      !!ir (tdstA := (dstB << numI32 63 64<rt>) .| (dstA >> AST.num1 64<rt>))
+      !!ir (tdstB := dstB >> AST.num1 64<rt>)
+      for e in 0 .. (p.Elements - 1) / 2 do
+        !!ir (elem tdstB e 32 :=
+          AST.cast CastKind.FloatCast 32<rt> (elem src (e + 2) 16))
+        !!ir (elem tdstA e 32 :=
+          AST.cast CastKind.FloatCast 32<rt> (elem src e 16))
+      !!ir (dstB := tdstB)
+      !!ir (dstA := tdstA)
+    | 64<rt> ->
+      let struct (dst, src) = getTwoOprs ins
+      let dst = transOprToExpr ctxt dst
+      let srcB, srcA = transOprToExpr128 ctxt src
+      let p = getParsingInfo ins
+      let struct (tsrcB, tsrcA) = tmpVars2 ir 64<rt>
+      !!ir (tsrcA := (srcB << numI32 63 64<rt>) .| (srcA >> AST.num1 64<rt>))
+      !!ir (tsrcB := srcB >> AST.num1 64<rt>)
+      for e in 0 .. (p.Elements - 1) / 2 do
+        !!ir (elem dst (e + 2) 16 :=
+          AST.cast CastKind.FloatCast 16<rt> (elem tsrcB e 32))
+        !!ir (elem dst e 16 :=
+          AST.cast CastKind.FloatCast 16<rt> (elem tsrcA e 32))
+    (* VCVT (between double-precision and single-precision) *)
+    | _ ->
+      let struct (dst, src) = transTwoOprs ins ctxt
+      let cast =
+        if isDoubleToSingle ins.SIMDTyp then AST.cast CastKind.FloatCast 32<rt>
+        else AST.cast CastKind.FloatCast 64<rt>
+      !!ir (dst := cast src)
+  | _ -> raise InvalidOperandException
+
+let vcvt (ins: InsInfo) insLen ctxt =
+  let ir = !*ctxt
+  let isUnconditional = ParseUtils.isUnconditional ins.Condition
+  !<ir insLen
+  let lblIgnore = checkCondition ins ctxt isUnconditional ir
+  parseOprOfVCVT ins ctxt ir
+  putEndLabel ctxt lblIgnore ir
+  !>ir insLen
+
 let parseOprOfVDUP (ins: InsInfo) insLen ctxt esize =
   match ins.Operands with
   | TwoOperands (OprSIMD (SFReg (Vector dst)),
@@ -3354,6 +3442,23 @@ let parseOprOfVDUP128 (ins: InsInfo) insLen ctxt esize =
     getPseudoRegVar128 ctxt dst,
     AST.xtlo (RegType.fromBitWidth esize) (getRegVar ctxt src)
   | _ -> raise InvalidOperandException
+
+let vdiv (ins: InsInfo) insLen ctxt =
+  let ir = !*ctxt
+  let isUnconditional = ParseUtils.isUnconditional ins.Condition
+  !<ir insLen
+  let lblIgnore = checkCondition ins ctxt isUnconditional ir
+  let p = getParsingInfo ins
+  match p.ESize with
+  | 16 ->
+    let struct (dst, src1, src2) = transThreeOprs ins ctxt
+    !!ir (dst :=
+      AST.zext 32<rt> (AST.fdiv (AST.xtlo 16<rt> src1) (AST.xtlo 16<rt> src2)))
+  | _ ->
+    let struct (dst, src1, src2) = transThreeOprs ins ctxt
+    !!ir (dst := AST.fdiv src1 src2)
+  putEndLabel ctxt lblIgnore ir
+  !>ir insLen
 
 let vdup (ins: InsInfo) insLen ctxt =
   let ir = !*ctxt
@@ -3427,14 +3532,6 @@ let maxExpr isUnsigned expr1 expr2 =
 let minExpr isUnsigned expr1 expr2 =
   let op = if isUnsigned then AST.lt else AST.slt
   AST.ite (op expr1 expr2) expr1 expr2
-
-let isUnsigned = function
-  | Some (OneDT SIMDTypU8) | Some (OneDT SIMDTypU16)
-  | Some (OneDT SIMDTypU32) | Some (OneDT SIMDTypU64) -> true
-  | Some (OneDT SIMDTypS8) | Some (OneDT SIMDTypS16)
-  | Some (OneDT SIMDTypS32) | Some (OneDT SIMDTypS64) | Some (OneDT SIMDTypP8)
-  | Some (OneDT SIMDTypP64) -> false
-  | _ -> raise InvalidOperandException
 
 let private mulZExtend p size expr1 expr2 amtOp =
   amtOp (AST.zext (p.RtESize * size) expr1) (AST.zext (p.RtESize * size) expr2)
@@ -3712,7 +3809,7 @@ let polynomialMultP64 op1 op2 size rtsize resA resB (ir: IRBuilder) =
     !!ir (resA := AST.ite cond (resA <+> (op2 << numI32 i rtsize)) resA)
     !!ir (resB := AST.ite cond (resB <+> (op2 >> numI32 (64 - i) rtsize)) resB)
 
-let vecMul (ins: InsInfo) insLen ctxt =
+let vecMul (ins: InsInfo) insLen ctxt opFn =
   let ir = !*ctxt
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
   !<ir insLen
@@ -3721,6 +3818,29 @@ let vecMul (ins: InsInfo) insLen ctxt =
   let polynomial = isPolynomial ins.SIMDTyp
   let struct (resultA, resultB) = tmpVars2 ir (p.RtESize * 2)
   match ins.OprSize with
+  (* FP, p.ESize 16 *)
+  | 32<rt> when p.ESize = 16 ->
+    let struct (dst, src1, src2) = transThreeOprs ins ctxt
+    !!ir (dst :=
+      AST.zext 32<rt> (opFn (AST.xtlo 16<rt> src1) (AST.xtlo 16<rt> src2)))
+  (* FP, p.ESize 32 *)
+  | 32<rt> ->
+    let struct (dst, src1, src2) = transThreeOprs ins ctxt
+    !!ir (dst := opFn src1 src2)
+  (* FP, p.ESize 64 *)
+  | 64<rt> when p.ESize = 64 ->
+    let struct (dst, src1, src2) = transThreeOprs ins ctxt
+    !!ir (dst := opFn src1 src2)
+  (* SIMD *)
+  | 64<rt> ->
+    let struct (dst, src1, src2) = transThreeOprs ins ctxt
+    for e in 0 .. p.Elements - 1 do
+      let struct (op1, op2) = elem src1 e p.ESize, elem src2 e p.ESize
+      if polynomial then
+        polynomialMult op1 op2 p.ESize (p.RtESize * 2) resultA ir
+      else !!ir (resultA := mulSExtend p 2 op1 op2 opFn)
+      !!ir (elem dst e p.ESize := AST.xtlo p.RtESize resultA)
+  (* SIMD *)
   | 128<rt> ->
     let struct (dst, src1, src2) = getThreeOprs ins
     let dstB, dstA = transOprToExpr128 ctxt dst
@@ -3734,18 +3854,11 @@ let vecMul (ins: InsInfo) insLen ctxt =
         polynomialMult op1A op2A p.ESize (p.RtESize * 2) resultA ir
         polynomialMult op1B op2B p.ESize (p.RtESize * 2) resultB ir
       else
-        !!ir (resultA := mulSExtend p 2 op1A op2A (.*))
-        !!ir (resultB := mulSExtend p 2 op1B op2B (.*))
+        !!ir (resultA := mulSExtend p 2 op1A op2A opFn)
+        !!ir (resultB := mulSExtend p 2 op1B op2B opFn)
       !!ir (elem dstA e p.ESize := AST.xtlo p.RtESize resultA)
       !!ir (elem dstB e p.ESize := AST.xtlo p.RtESize resultB)
-  | _ ->
-    let struct (dst, src1, src2) = transThreeOprs ins ctxt
-    for e in 0 .. p.Elements - 1 do
-      let struct (op1, op2) = elem src1 e p.ESize, elem src2 e p.ESize
-      if polynomial then
-        polynomialMult op1 op2 p.ESize (p.RtESize * 2) resultA ir
-      else !!ir (resultA := mulSExtend p 2 op1 op2 (.*))
-      !!ir (elem dst e p.ESize := AST.xtlo p.RtESize resultA)
+  | _ -> raise InvalidOperandException
   putEndLabel ctxt lblIgnore ir
   !>ir insLen
 
@@ -3783,7 +3896,7 @@ let vecMulLong (ins: InsInfo) insLen ctxt =
   putEndLabel ctxt lblIgnore ir
   !>ir insLen
 
-let vecMulByScalar (ins: InsInfo) insLen ctxt =
+let vecMulByScalar (ins: InsInfo) insLen ctxt opFn =
   let ir = !*ctxt
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
   !<ir insLen
@@ -3797,15 +3910,15 @@ let vecMulByScalar (ins: InsInfo) insLen ctxt =
     let dstB, dstA = transOprToExpr128 ctxt dst
     let src1B, src1A = transOprToExpr128 ctxt src1
     for e in 0 .. p.Elements - 1 do
-      let resA = mulSExtend p 1 (elem src1A e p.ESize) op2val (.*)
-      let resB = mulSExtend p 1 (elem src1B e p.ESize) op2val (.*)
+      let resA = mulSExtend p 1 (elem src1A e p.ESize) op2val opFn
+      let resB = mulSExtend p 1 (elem src1B e p.ESize) op2val opFn
       !!ir (elem dstB e p.ESize := AST.xtlo p.RtESize resB)
       !!ir (elem dstA e p.ESize := AST.xtlo p.RtESize resA)
   | _ ->
     let dst = transOprToExpr ctxt dst
     let src1 = transOprToExpr ctxt src1
     for e in 0 .. p.Elements - 1 do
-      let res = mulSExtend p 1 (elem src1 e p.ESize) op2val (.*)
+      let res = mulSExtend p 1 (elem src1 e p.ESize) op2val opFn
       !!ir (elem dst e p.ESize := AST.xtlo p.RtESize res)
   putEndLabel ctxt lblIgnore ir
   !>ir insLen
@@ -3830,12 +3943,12 @@ let vecMulLongByScalar (ins: InsInfo) insLen ctxt =
   putEndLabel ctxt lblIgnore ir
   !>ir insLen
 
-let vmul (ins: InsInfo) insLen ctxt =
+let vmul (ins: InsInfo) insLen ctxt opFn =
   match ins.Operands with
   | ThreeOperands (_, _, OprSIMD (SFReg (Vector _))) ->
-    vecMul ins insLen ctxt
+    vecMul ins insLen ctxt opFn
   | ThreeOperands (_, _, OprSIMD (SFReg (Scalar _))) ->
-    vecMulByScalar ins insLen ctxt
+    vecMulByScalar ins insLen ctxt opFn
   | _ -> raise InvalidOperandException
 
 let vmull (ins: InsInfo) insLen ctxt =
@@ -5242,7 +5355,7 @@ let translate (ins: ARM32InternalInstruction) insLen ctxt =
   | Op.VABS when isF16orF32orF64 ins.SIMDTyp ->
     sideEffects insLen ctxt UnsupportedFP
   | Op.VABS -> vabs ins insLen ctxt
-  | Op.VADD when isF32orF64 ins.SIMDTyp -> sideEffects insLen ctxt UnsupportedFP
+  | Op.VADD when isF16orF32orF64 ins.SIMDTyp -> vaddsub ins insLen ctxt AST.fadd
   | Op.VADD -> vaddsub ins insLen ctxt (.+)
   | Op.VADDL -> vaddl ins insLen ctxt
   | Op.VAND -> vand ins insLen ctxt
@@ -5255,10 +5368,11 @@ let translate (ins: ARM32InternalInstruction) insLen ctxt =
   | Op.VCLT -> vclt ins insLen ctxt
   | Op.VCLZ -> vclz ins insLen ctxt
   | Op.VCMLA -> sideEffects insLen ctxt UnsupportedFP
-  | Op.VCMP | Op.VCMPE | Op.VACGE | Op.VACGT | Op.VACLE | Op.VACLT | Op.VCVT
-  | Op.VCVTR | Op.VDIV | Op.VFMA | Op.VFMS | Op.VFNMA | Op.VFNMS | Op.VMSR
-  | Op.VNMLA | Op.VNMLS | Op.VNMUL | Op.VSQRT ->
-    sideEffects insLen ctxt UnsupportedFP
+  | Op.VCMP | Op.VCMPE | Op.VACGE | Op.VACGT | Op.VACLE | Op.VACLT | Op.VCVTR
+  | Op.VFMA | Op.VFMS | Op.VFNMA | Op.VFNMS | Op.VMSR | Op.VNMLA | Op.VNMLS
+  | Op.VNMUL | Op.VSQRT -> sideEffects insLen ctxt UnsupportedFP
+  | Op.VCVT -> vcvt ins insLen ctxt
+  | Op.VDIV -> vdiv ins insLen ctxt
   | Op.VDUP -> vdup ins insLen ctxt
   | Op.VEXT -> vext ins insLen ctxt
   | Op.VHADD -> vhaddsub ins insLen ctxt (.+)
@@ -5279,13 +5393,12 @@ let translate (ins: ARM32InternalInstruction) insLen ctxt =
   | Op.VMLAL -> vmlal ins insLen ctxt
   | Op.VMLS -> vmls ins insLen ctxt
   | Op.VMLSL -> vmlsl ins insLen ctxt
-  | Op.VMOV when Operators.not (isAdvancedSIMD ins) -> vmovfp ins insLen ctxt
+  | Op.VMOV when isF16orF32orF64 ins.SIMDTyp -> vmovfp ins insLen ctxt
   | Op.VMOV -> vmov ins insLen ctxt
   | Op.VMOVN -> vmovn ins insLen ctxt
   | Op.VMRS -> vmrs ins insLen ctxt
-  | Op.VMUL | Op.VMULL when isF16orF32orF64 ins.SIMDTyp ->
-    sideEffects insLen ctxt UnsupportedFP
-  | Op.VMUL -> vmul ins insLen ctxt
+  | Op.VMUL when isF16orF32orF64 ins.SIMDTyp -> vmul ins insLen ctxt AST.fmul
+  | Op.VMUL -> vmul ins insLen ctxt (.*)
   | Op.VMULL -> vmull ins insLen ctxt
   | Op.VNEG when isF32orF64 ins.SIMDTyp ->
     sideEffects insLen ctxt UnsupportedFP
@@ -5310,8 +5423,7 @@ let translate (ins: ARM32InternalInstruction) insLen ctxt =
   | Op.VST4 -> vst4 ins insLen ctxt
   | Op.VSTM | Op.VSTMIA | Op.VSTMDB -> vstm ins insLen ctxt
   | Op.VSTR -> vstr ins insLen ctxt
-  | Op.VSUB when isF32orF64 ins.SIMDTyp ->
-    sideEffects insLen ctxt UnsupportedFP
+  | Op.VSUB when isF16orF32orF64 ins.SIMDTyp -> vaddsub ins insLen ctxt AST.fsub
   | Op.VSUB -> vaddsub ins insLen ctxt (.-)
   | Op.VTBL -> vecTbl ins insLen ctxt true
   | Op.VTBX -> vecTbl ins insLen ctxt false
