@@ -26,7 +26,9 @@ namespace B2R2
 
 open System
 
-type Color = Red | Green | Yellow | Blue | DarkCyan | DarkYellow | NoColor
+type Color =
+  Red | Green | Yellow | Blue | DarkCyan | DarkYellow | NoColor
+  | RedHighlight | GreenHighlight
 
 module Color =
   let toString = function
@@ -37,6 +39,8 @@ module Color =
     | Blue -> "blue"
     | DarkCyan -> "darkcyan"
     | DarkYellow -> "darkyellow"
+    | RedHighlight -> "redhighlight"
+    | GreenHighlight -> "greenhighlight"
 
 type ColoredSegment = Color * string
 
@@ -89,6 +93,8 @@ module ColoredSegment =
   let inline blue str: ColoredSegment = Blue, str
   let inline dcyan str: ColoredSegment = DarkCyan, str
   let inline dyellow str: ColoredSegment = DarkYellow, str
+  let inline redhighlight str: ColoredSegment = RedHighlight, str
+  let inline greenhighlight str: ColoredSegment = GreenHighlight, str
 
 type ColoredString = ColoredSegment list
 
@@ -103,6 +109,10 @@ module ColoredString =
     | Blue -> Console.ForegroundColor <- ConsoleColor.Blue
     | DarkCyan -> Console.ForegroundColor <- ConsoleColor.DarkCyan
     | DarkYellow -> Console.ForegroundColor <- ConsoleColor.DarkYellow
+    | RedHighlight -> Console.ForegroundColor <- ConsoleColor.Red
+                      Console.BackgroundColor <- ConsoleColor.Red
+    | GreenHighlight -> Console.ForegroundColor <- ConsoleColor.Green
+                        Console.BackgroundColor <- ConsoleColor.Green
 
   let compile (s: ColoredString): ColoredString =
     let rec loop prev acc = function
