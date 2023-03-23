@@ -74,11 +74,11 @@ type SliceAction () =
 
   interface IAction with
     member __.ActionID with get() = "slice"
-    member __.Signature with get() = "Binary -> Binary"
+    member __.Signature with get() = "Binary (* <arg>) -> Binary"
     member __.Description with get() = """
     Takes in a byte array or a BinHandle and returns a byte array of a part of
     the binary along with its starting address. Users can specify a specific
-    address range or a section name to slice the binary.
+    address range or a section name as argument(s), which are listed below.
 
       - <a1> <a2>: returns a slice of the bianry from <a1> to <a2>.
       - <a1> +<n>: returns a slice of the bianry from <a1> to <a1 + n - 1>.

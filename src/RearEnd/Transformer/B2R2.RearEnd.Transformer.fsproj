@@ -10,6 +10,7 @@
     <Compile Include="Types.fs" />
     <Compile Include="IAction.fs" />
     <Compile Include="DisasmAction.fs" />
+    <Compile Include="HexdumpAction.fs" />
     <Compile Include="ListAction.fs" />
     <Compile Include="LoadAction.fs" />
     <Compile Include="PrintAction.fs" />

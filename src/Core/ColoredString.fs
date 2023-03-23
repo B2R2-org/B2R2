@@ -27,8 +27,15 @@ namespace B2R2
 open System
 
 type Color =
-  Red | Green | Yellow | Blue | DarkCyan | DarkYellow | NoColor
-  | RedHighlight | GreenHighlight
+  | Red
+  | Green
+  | Yellow
+  | Blue
+  | DarkCyan
+  | DarkYellow
+  | NoColor
+  | RedHighlight
+  | GreenHighlight
 
 module Color =
   let toString = function

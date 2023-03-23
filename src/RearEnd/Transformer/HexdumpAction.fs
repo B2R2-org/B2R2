@@ -24,29 +24,31 @@
 
 namespace B2R2.RearEnd.Transformer
 
-open B2R2.FrontEnd.BinInterface
+open B2R2
+open B2R2.RearEnd
 
-/// The `list` action.
-type ListAction () =
-  let listSections (input: obj) =
-    let bin = unbox<Binary> input
+/// The `hexdump` action.
+type HexdumpAction () =
+  let rec hexdump (o: obj) =
+    let typ = o.GetType ()
+    if typ = typeof<Binary> then hexdumpBinary o
+    else invalidArg (nameof HexdumpAction) "Invalid input type."
+
+  and hexdumpBinary o =
+    let bin = unbox<Binary> o
     let hdl = Binary.Handle bin
-    hdl.BinFile.GetSections ()
-    |> Seq.toArray
+    let bs = hdl.BinFile.Span.ToArray ()
+    HexDumper.dump 16 hdl.BinFile.WordSize true hdl.BinFile.BaseAddress bs
     |> box
 
   interface IAction with
-    member __.ActionID with get() = "list"
-    member __.Signature with get() = "Binary (* <cmd>) -> unit"
+    member __.ActionID with get() = "hexdump"
+    member __.Signature with get() = "Binary -> string"
     member __.Description with get() = """
-    Takes in a parsed binary and returns a list of elements such as functions,
-    sections, etc. The output type is determined by the extra <cmd> argument.
-    Currently, we support the following <cmd>:
-
-      - `sections` (sects|ss): returns a list of sections.
+    Takes in a binary and converts it to a hexdump string.
 """
     member __.Transform args collection =
       match args with
-      | [ "sections" ] | [ "sects" ] | [ "ss" ] ->
-        { Values = collection.Values |> Array.map listSections }
-      | _ -> invalidArg (nameof ListAction) "Invalid argument."
+      | [] ->
+        { Values = collection.Values |> Array.map hexdump }
+      | _ -> invalidArg (nameof HexdumpAction) "Invalid argument given."

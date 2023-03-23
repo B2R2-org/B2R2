@@ -111,6 +111,9 @@ type Printer () =
     Printer.PrintToConsoleLine ()
 
   static member PrintToConsole s =
+    OutString.toConsole s
+
+  static member PrintToConsole s =
     ColoredString.toConsole s
 
   static member PrintToConsole (s: string, [<ParamArray>] args) =

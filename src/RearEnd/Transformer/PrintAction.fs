@@ -24,6 +24,7 @@
 
 namespace B2R2.RearEnd.Transformer
 
+open FSharp.Reflection
 open B2R2
 
 /// The `print` action.
@@ -32,6 +33,8 @@ type PrintAction () =
     let typ = o.GetType ()
     if typ = typeof<ObjCollection> then printObjCollection o
     elif typ.IsArray then printArray o
+    elif FSharpType.IsUnion typ
+      && typ.BaseType = typeof<OutString> then printOutString o
     else Printer.PrintToConsoleLine (o.ToString ())
 
   and printObjCollection (o: obj) =
@@ -44,6 +47,10 @@ type PrintAction () =
   and printArray (o: obj) =
     let arr = o :?> _[]
     arr |> Array.iter print
+
+  and printOutString (o: obj) =
+    let os = o :?> OutString
+    Printer.PrintToConsole os
 
   interface IAction with
     member __.ActionID with get() = "print"
