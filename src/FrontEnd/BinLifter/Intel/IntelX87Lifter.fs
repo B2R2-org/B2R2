@@ -528,10 +528,11 @@ let private fpuFBinOp (ins: InsInfo) insLen ctxt binOp doPop leftToRight =
     let oprExpr = transOneOpr ir false ins insLen ctxt
     let oprSize = TypeCheck.typeOf oprExpr
     let struct (st0b, st0a) = getFPUPseudoRegVars ctxt R.ST0
-    let struct (tmp0, tmp1) = tmpVars2 ir oprSize
-    let res = !+ir oprSize
-    !?ir (castFrom80Bit tmp0 oprSize st0b st0a)
-    !!ir (tmp1 := oprExpr)
+    let struct (tmp0, tmp1) = tmpVars2 ir 64<rt>
+    let res = !+ir 64<rt>
+    !?ir (castFrom80Bit tmp0 64<rt> st0b st0a)
+    if oprSize = 64<rt> then !!ir (tmp1 := oprExpr)
+    else !!ir (tmp1 := AST.cast CastKind.FloatCast 64<rt> oprExpr)
     if leftToRight then !!ir (res := binOp tmp0 tmp1)
     else !!ir (res := binOp tmp1 tmp0)
     !?ir (castTo80Bit ctxt st0b st0a res)
@@ -728,9 +729,10 @@ let fxtract _ins insLen ctxt =
   !!ir (tmpB := (st0b .& numI32 0x8000 16<rt>) .| n3fff)
   !!ir (tmpA := st0a)
   !!ir (tmpF := castToF64 ((st0b .& numI32 0x7fff 16<rt>) .- n3fff))
-  !?ir (pushFPUStack ctxt)
   !?ir (castTo80Bit ctxt st0b st0a tmpF)
-  !?ir (updateC1OnStore ctxt)
+  !?ir (pushFPUStack ctxt)
+  !!ir (st0b := tmpB)
+  !!ir (st0a := tmpA)
   !>ir insLen
 
 let private prepareTwoOprsForComparison (ins: InsInfo) insLen ctxt ir =
@@ -954,7 +956,7 @@ let fpatan _ins insLen ctxt =
   !<ir insLen
   !?ir (castFrom80Bit tmp0 64<rt> st0b st0a)
   !?ir (castFrom80Bit tmp1 64<rt> st1b st1a)
-  !!ir (res := AST.fatan (AST.fdiv tmp0 tmp1))
+  !!ir (res := AST.fatan (AST.fdiv tmp1 tmp0))
   !?ir (castTo80Bit ctxt st1b st1a res)
   !?ir (popFPUStack ctxt)
   !?ir (updateC1OnStore ctxt)
@@ -1036,7 +1038,7 @@ let fldpi _ins insLen ctxt =
   fpuLoad insLen ctxt oprExpr
 
 let fldl2e _ins insLen ctxt =
-  let oprExpr = numU64 4599094494223104509UL 64<rt>
+  let oprExpr = numU64 4609176140021203710UL 64<rt>
   fpuLoad insLen ctxt oprExpr
 
 let fldln2 _ins insLen ctxt =
