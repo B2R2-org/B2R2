@@ -315,9 +315,9 @@ type Register =
   | CSR1970 = 0x13D
   | CSR1971 = 0x13E
   /// Program Counter.
-  | PC = 0x1000
+  | PC = 0x13F
   /// Floating point control and status register.
-  | FCSR = 0x1001
+  | FCSR = 0x140
 
 
 
