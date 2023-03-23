@@ -24,7 +24,7 @@
 
 namespace B2R2.RearEnd.Transformer
 
-open System
+open B2R2
 
 /// The `print` action.
 type PrintAction () =
@@ -32,13 +32,13 @@ type PrintAction () =
     let typ = o.GetType ()
     if typ = typeof<ObjCollection> then printObjCollection o
     elif typ.IsArray then printArray o
-    else Console.WriteLine (o.ToString ())
+    else Printer.PrintToConsoleLine (o.ToString ())
 
   and printObjCollection (o: obj) =
     let res = o :?> ObjCollection
     res.Values
     |> Array.iteri (fun idx v ->
-      Console.WriteLine $"[*] result({idx})"
+      Printer.PrintToConsoleLine $"[*] result({idx})"
       print v)
 
   and printArray (o: obj) =

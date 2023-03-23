@@ -56,13 +56,12 @@ type private HelpAction (map: Map<string, IAction>) =
     member __.Signature with get() = "'a -> 'b"
     member __.Description with get() = ""
     member __.Transform _args _ =
-      Console.WriteLine ()
+      Printer.PrintToConsoleLine ()
       CmdOpts.WriteIntro ()
-      Console.WriteLine Usage
+      Printer.PrintToConsoleLine Usage
       map |> Map.iter (fun id act ->
-        Console.WriteLine
-          $"- {id}: {act.Signature}"
-        Console.WriteLine $"{act.Description}")
+        Printer.PrintToConsoleLine $"- {id}: {act.Signature}"
+        Printer.PrintToConsoleLine $"{act.Description}")
       exit 0
 
 let private accumulateActions map actions =
@@ -101,7 +100,7 @@ let private compileUserActions filePath =
     if exitCode = 0 then
       loadUserDLL dllPath
     else
-      errs |> Array.iter (fun d -> d.ToString () |> Console.WriteLine)
+      errs |> Array.iter (fun d -> d.ToString () |> Printer.PrintToConsoleLine)
       invalidOp $"Failed to compile {filePath}"
   else
     invalidOp $"File not found: {filePath}"
@@ -142,7 +141,7 @@ let private checkValidityOfCommandGroup cmdgrp =
   let fstActionID = List.head actionIDs
   if actionIDs |> List.forall (fun actionID -> actionID = fstActionID) then ()
   else
-    Console.WriteLine $"Error: different actions in the same group."
+    Printer.PrintErrorToConsole "different actions in the same group."
     exit 1
 
 let private runCommand input actionMap (cmd: string list) =
@@ -152,26 +151,26 @@ let private runCommand input actionMap (cmd: string list) =
     match Map.tryFind (actionID.ToLowerInvariant ()) actionMap with
     | Some act -> act
     | None ->
-      Console.WriteLine $"Error: ({actionID}) is not a valid action."
+      Printer.PrintErrorToConsole $"({actionID}) is not a valid action."
       exit 1
 #if DEBUG
-  if actionID <> "help" then Console.WriteLine $"[*] {actionID}" else ()
+  if actionID <> "help" then Printer.PrintToConsoleLine $"[*] {actionID}"
+  else ()
 #endif
   try
     action.Transform args input
   with
     | :? InvalidCastException ->
-      Console.WriteLine $"Error: ({actionID}) action type mismatch."
+      Printer.PrintErrorToConsole $"({actionID}) action type mismatch."
       exit 1
     | :? NullReferenceException ->
-      Console.WriteLine
-        $"Error: ({actionID}) action should follow another."
+      Printer.PrintErrorToConsole $"({actionID}) action should follow another."
       exit 1
     | :? ArgumentException ->
-      Console.WriteLine $"Error: invalid input/arg to ({actionID})."
+      Printer.PrintErrorToConsole $"invalid input/arg to ({actionID})."
       exit 1
     | e ->
-      Console.WriteLine $"Error ({actionID}): {e}"
+      Printer.PrintErrorToConsole $"({actionID}): {e}"
       exit 1
 
 let inline private unwrap (c: ObjCollection) = c.Values

@@ -31,8 +31,13 @@ let makeByteArraySummary (bs: byte[]) =
   if bs.Length > 16 then s + " ..." else s
 
 let makeSpanSummary (bs: ByteSpan) =
-  let s =
-    bs.Slice(0, 16).ToArray ()
+  if bs.Length > 16 then
+    let s =
+      bs.Slice(0, 16).ToArray ()
+      |> Array.map (sprintf "%02x")
+      |> String.concat " "
+    s + " ..."
+  else
+    bs.Slice(0).ToArray ()
     |> Array.map (sprintf "%02x")
     |> String.concat " "
-  if bs.Length > 16 then s + " ..." else s
