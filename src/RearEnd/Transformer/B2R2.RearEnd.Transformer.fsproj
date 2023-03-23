@@ -11,10 +11,12 @@
     <Compile Include="IAction.fs" />
     <Compile Include="DisasmAction.fs" />
     <Compile Include="HexdumpAction.fs" />
+    <Compile Include="JaccardAction.fs" />
     <Compile Include="ListAction.fs" />
     <Compile Include="LoadAction.fs" />
     <Compile Include="PrintAction.fs" />
     <Compile Include="SliceAction.fs" />
+    <Compile Include="WinnowingAction.fs" />
     <Compile Include="WriteAction.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>

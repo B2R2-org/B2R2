@@ -128,11 +128,15 @@ let rec private breakCommandByComma cmds cmd = function
     breakCommandByComma cmds [] rest
   | arg :: rest -> breakCommandByComma cmds (arg :: cmd) rest
 
+let private accumulateIfNotEmpty grp acc =
+  if List.isEmpty grp then acc
+  else List.rev grp :: acc
+
 let rec private parseActionCommands grps grp = function
-  | [] -> List.rev (List.rev grp :: grps)
+  | [] -> List.rev (accumulateIfNotEmpty grp grps)
   | "--" :: rest ->
     let grps =
-      if List.isEmpty grp then grps else (List.rev grp) :: grps
+      if List.isEmpty grp then grps else accumulateIfNotEmpty grp grps
     parseActionCommands grps [] rest
   | arg :: rest -> parseActionCommands grps (arg :: grp) rest
 
@@ -144,7 +148,7 @@ let private checkValidityOfCommandGroup cmdgrp =
     Printer.PrintErrorToConsole "different actions in the same group."
     exit 1
 
-let private runCommand input actionMap (cmd: string list) =
+let private runCommand actionMap input (cmd: string list) =
   let actionID = List.head cmd
   let args = List.tail cmd
   let action: IAction =
@@ -175,6 +179,10 @@ let private runCommand input actionMap (cmd: string list) =
 
 let inline private unwrap (c: ObjCollection) = c.Values
 
+let autoPrint actionMap collection =
+  if collection.Values.Length = 0 then ()
+  else runCommand actionMap collection [ "print" ] |> ignore
+
 let private parseActions args actionMap =
   args
   |> splitBySpecialSeparators
@@ -184,9 +192,10 @@ let private parseActions args actionMap =
     checkValidityOfCommandGroup cmdgrp
     { Values =
         cmdgrp
-        |> List.map (fun cmd -> runCommand input actionMap cmd |> unwrap)
+        |> List.map (fun cmd -> runCommand actionMap input cmd |> unwrap)
         |> Array.concat }
   ) { Values = [| () |] }
+  |> autoPrint actionMap
 
 [<EntryPoint>]
 let main argv =

@@ -54,10 +54,17 @@ with
     match __ with
     | ValidInstruction (ins, bs) ->
       let bs = Utils.makeByteArraySummary bs
-      $"0x{ins.Address:x}: {bs}: {ins.Disasm ()}"
+      $"{ins.Address:x16} | {bs.PadRight 32} | {ins.Disasm ()}"
     | BadInstruction (addr, bs) ->
       let bs = Utils.makeByteArraySummary bs
-      $"0x{addr:x}: {bs}: (bad)"
+      $"{addr:x16} | {bs.PadRight 32} | (bad)"
+
+/// Fingerprint of a binary, which is a set of (byte * position) tuple.
+type Fingerprint = Fingerprint of Set<byte * int>
+with
+  override __.ToString () =
+    match __ with
+    | Fingerprint _ -> $"{__.GetHashCode ():x}"
 
 /// Collection of objects.
 type ObjCollection = {
