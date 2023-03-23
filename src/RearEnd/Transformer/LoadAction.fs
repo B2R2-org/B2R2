@@ -26,24 +26,44 @@ namespace B2R2.RearEnd.Transformer
 
 open System.IO
 open B2R2
+open B2R2.FrontEnd.BinInterface
 
 /// The `load` action.
 type LoadAction () =
+  let load isa mode parseFileFormat s =
+    if File.Exists (path=s) then
+      BinHandle.Init (isa, mode, parseFileFormat, None, File.ReadAllBytes s)
+      |> Binary
+    else
+      BinHandle.Init (isa, mode, false, None, ByteArray.ofHexString s)
+      |> Binary
+
   interface IAction with
     member __.ActionID with get() = "load"
-    member __.InputType with get() = typeof<string>
-    member __.OutputType with get() = typeof<ByteArray>
+    member __.Signature with get() = "string -> Binary"
     member __.Description with get() = """
-    Takes in a string and returns the raw byte array. The given input string can
+    Takes in a string and returns a binary object. The given input string can
     either represent a file path or a hexstring. If the given string represents
     a valid file path, then the raw file content will be loaded. Otherwise, we
-    consider the input string as a hexstring, and return it as is.
+    consider the input string as a hexstring, and return the corresponding
+    binary.
+
+      - <isa> <mode>: parse the binary for the given ISA and mode.
+      - <isa>: parse the binary for the given ISA.
 """
     member __.Transform args _ =
       match args with
+      | s :: isa :: mode :: "raw" :: [] ->
+        let isa = ISA.OfString isa
+        let mode = ArchOperationMode.ofString mode
+        { Values = [| load isa mode false s |] }
+      | s :: isa :: mode :: [] ->
+        let isa = ISA.OfString isa
+        let mode = ArchOperationMode.ofString mode
+        { Values = [| load isa mode true s |] }
+      | s :: isa :: [] ->
+        let isa = ISA.OfString isa
+        { Values = [| load isa ArchOperationMode.NoMode true s |] }
       | s :: [] ->
-        if File.Exists (path=s) then
-          { Address = 0UL; ISA = None; Bytes = File.ReadAllBytes s }
-        else
-          { Address = 0UL; ISA = None; Bytes = ByteArray.ofHexString s }
+        { Values = [| load ISA.DefaultISA ArchOperationMode.NoMode true s |] }
       | _ -> invalidArg (nameof LoadAction) "Invalid arguments given."

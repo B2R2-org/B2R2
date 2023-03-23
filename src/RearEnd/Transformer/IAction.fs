@@ -31,14 +31,11 @@ type IAction =
   /// Action command ID.
   abstract member ActionID: string
 
-  /// Input object type.
-  abstract member InputType: Type
-
-  /// Output object type.
-  abstract member OutputType: Type
+  /// Signature string.
+  abstract member Signature: string
 
   /// Description about this action.
   abstract member Description: string
 
-  /// Transform the input object to the output object.
-  abstract member Transform: string list -> obj -> obj
+  /// Transform the input object collection to the output object collction.
+  abstract member Transform: string list -> ObjCollection -> ObjCollection

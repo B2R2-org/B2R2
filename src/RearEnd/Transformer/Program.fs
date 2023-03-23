@@ -35,10 +35,11 @@ let [<Literal>] private Usage = """[Usage]
 
 b2r2 transformer [-f file|-d file] [action] (-- [action] ...)
 
-Transformer runs a chain of transforming actions (IAction). An action takes in
-an object as input and returns another object as output. Any number of actions
-can be chained together as long as their types match. Users can define their own
-action(s) by implementing the IAction interface.
+Transformer runs a chain of transforming actions (IAction). An action takes in a
+collection of objects as input and returns another collection of objects as
+output. Any number of actions can be chained together as long as their types
+match. Users can define their own action(s) by implementing the IAction
+interface.
 
 [Options]
 
@@ -52,8 +53,7 @@ action(s) by implementing the IAction interface.
 type private HelpAction (map: Map<string, IAction>) =
   interface IAction with
     member __.ActionID with get() = "help"
-    member __.InputType with get() = typeof<obj>
-    member __.OutputType with get() = typeof<unit>
+    member __.Signature with get() = "'a -> 'b"
     member __.Description with get() = ""
     member __.Transform _args _ =
       Console.WriteLine ()
@@ -61,7 +61,7 @@ type private HelpAction (map: Map<string, IAction>) =
       Console.WriteLine Usage
       map |> Map.iter (fun id act ->
         Console.WriteLine
-          $"- {id}: {act.InputType.Name} -> {act.OutputType.Name}"
+          $"- {id}: {act.Signature}"
         Console.WriteLine $"{act.Description}")
       exit 0
 
@@ -115,35 +115,79 @@ let private retrieveActionMap map =
   let helpAction = HelpAction map :> IAction
   Map.add helpAction.ActionID helpAction map
 
-let rec private groupActions grps grp = function
+let private splitBySpecialSeparators (args: string list) =
+  args
+  |> List.collect (fun arg ->
+    arg.Replace("--", " -- ")
+       .Replace(",", " , ")
+       .Split (' ', StringSplitOptions.RemoveEmptyEntries) |> Array.toList)
+
+let rec private breakCommandByComma cmds cmd = function
+  | [] -> List.rev (List.rev cmd :: cmds)
+  | "," :: rest ->
+    let cmds = if List.isEmpty cmd then cmds else (List.rev cmd) :: cmds
+    breakCommandByComma cmds [] rest
+  | arg :: rest -> breakCommandByComma cmds (arg :: cmd) rest
+
+let rec private parseActionCommands grps grp = function
   | [] -> List.rev (List.rev grp :: grps)
   | "--" :: rest ->
-    let grps = if List.isEmpty grp then grps else (List.rev grp) :: grps
-    groupActions grps [] rest
-  | arg :: rest -> groupActions grps (arg :: grp) rest
+    let grps =
+      if List.isEmpty grp then grps else (List.rev grp) :: grps
+    parseActionCommands grps [] rest
+  | arg :: rest -> parseActionCommands grps (arg :: grp) rest
+
+let private checkValidityOfCommandGroup cmdgrp =
+  let actionIDs = cmdgrp |> List.map List.tryHead
+  let fstActionID = List.head actionIDs
+  if actionIDs |> List.forall (fun actionID -> actionID = fstActionID) then ()
+  else
+    Console.WriteLine $"Error: different actions in the same group."
+    exit 1
+
+let private runCommand input actionMap (cmd: string list) =
+  let actionID = List.head cmd
+  let args = List.tail cmd
+  let action: IAction =
+    match Map.tryFind (actionID.ToLowerInvariant ()) actionMap with
+    | Some act -> act
+    | None ->
+      Console.WriteLine $"Error: ({actionID}) is not a valid action."
+      exit 1
+#if DEBUG
+  if actionID <> "help" then Console.WriteLine $"[*] {actionID}" else ()
+#endif
+  try
+    action.Transform args input
+  with
+    | :? InvalidCastException ->
+      Console.WriteLine $"Error: ({actionID}) action type mismatch."
+      exit 1
+    | :? NullReferenceException ->
+      Console.WriteLine
+        $"Error: ({actionID}) action should follow another."
+      exit 1
+    | :? ArgumentException ->
+      Console.WriteLine $"Error: invalid input/arg to ({actionID})."
+      exit 1
+    | e ->
+      Console.WriteLine $"Error ({actionID}): {e}"
+      exit 1
+
+let inline private unwrap (c: ObjCollection) = c.Values
 
 let private parseActions args actionMap =
-  groupActions [] [] args
-  |> List.fold (fun input grp ->
-    let actionID = List.head grp
-    let args = List.tail grp
-    let action: IAction = Map.find (actionID.ToLowerInvariant ()) actionMap
-#if DEBUG
-    if actionID <> "help" then Console.WriteLine $"[*] {actionID}" else ()
-#endif
-    try action.Transform args input
-    with
-      | :? InvalidCastException ->
-        Console.WriteLine $"Error ({actionID}): action type mismatch."
-        exit 1
-      | :? NullReferenceException ->
-        Console.WriteLine
-          $"Error ({actionID}): this action should follow another."
-        exit 1
-      | e ->
-        Console.WriteLine $"Error ({actionID}): {e}"
-        exit 1
-  ) ()
+  args
+  |> splitBySpecialSeparators
+  |> parseActionCommands [] []
+  |> List.map (breakCommandByComma [] [])
+  |> List.fold (fun input cmdgrp ->
+    checkValidityOfCommandGroup cmdgrp
+    { Values =
+        cmdgrp
+        |> List.map (fun cmd -> runCommand input actionMap cmd |> unwrap)
+        |> Array.concat }
+  ) { Values = [| () |] }
 
 [<EntryPoint>]
 let main argv =

@@ -25,19 +25,25 @@
 namespace B2R2.RearEnd.Transformer
 
 open B2R2
+open B2R2.FrontEnd.BinInterface
 
-/// Byte array tagged with additional information.
-type ByteArray = {
-  Address: Addr
-  ISA: ISA option
-  Bytes: byte[]
-}
+/// Binary is the main data object representing a byte sequence tagged with
+/// some useful information.
+type Binary = Binary of BinHandle
 with
+  static member Handle bin =
+    match bin with
+    | Binary hdl -> hdl
+
   override __.ToString () =
-    let s = Utils.makeByteArraySummary __.Bytes
-    match __.ISA with
-    | Some isa -> $"0x{__.Address:x}: {ISA.ArchToString isa.Arch}: {s}"
-    | None -> $"0x{__.Address:x}: {s}"
+    match __ with
+    | Binary hdl when hdl.BinFile.FileFormat = FileFormat.RawBinary ->
+      let s = Utils.makeSpanSummary hdl.BinFile.Span
+      $"Raw, 0x{hdl.BinFile.BaseAddress:x}: {s}"
+    | Binary hdl ->
+      let s = Utils.makeSpanSummary hdl.BinFile.Span
+      let fmt = FileFormat.toString hdl.BinFile.FileFormat
+      $"{fmt}, 0x{hdl.BinFile.BaseAddress:x}: {s}"
 
 /// Instruction tagged with its corresponding bytes.
 type Instruction =
@@ -52,3 +58,8 @@ with
     | BadInstruction (addr, bs) ->
       let bs = Utils.makeByteArraySummary bs
       $"0x{addr:x}: {bs}: (bad)"
+
+/// Collection of objects.
+type ObjCollection = {
+  Values: obj array
+}

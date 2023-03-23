@@ -47,34 +47,20 @@ type DisasmAction () =
     else
       List.rev acc |> List.toArray
 
+  let disasmByteArray args (o: obj) =
+    let bin = unbox<Binary> o
+    let hdl = Binary.Handle bin
+    let baddr = hdl.BinFile.BaseAddress
+    let bp = BinaryPointer (baddr, 0, hdl.BinFile.Span.Length - 1)
+    disasm [] hdl bp
+    |> box
+
   interface IAction with
     member __.ActionID with get() = "disasm"
-    member __.InputType with get() = typeof<ByteArray>
-    member __.OutputType with get() = typeof<Instruction[]>
+    member __.Signature with get() = "Binary -> Instruction[]"
     member __.Description with get() = """
-    Takes in a binary array and linearly disassemble the binary to return a list
-    of instructions along with its corresponding bytes.
-
-      - <isa> <mode>: disassemble the binary for the given ISA and mode.
-      - <isa>: disassemble the binary for the given ISA.
+    Takes in a binary and linearly disassemble the binary to return a list of
+    instructions along with its corresponding bytes.
 """
-    member __.Transform args input =
-      let barr = unbox<ByteArray> input
-      let baseAddr = Some barr.Address
-      let hdl =
-        match args with
-        | isa :: mode :: [] ->
-          let isa = ISA.OfString isa
-          let mode = ArchOperationMode.ofString mode
-          BinHandle.Init (isa, mode, false, baseAddr, bytes=barr.Bytes)
-        | isa :: [] ->
-          let isa = ISA.OfString isa
-          let mode = ArchOperationMode.NoMode
-          BinHandle.Init (isa, mode, false, baseAddr, bytes=barr.Bytes)
-        | [] ->
-          let isa = Utils.unwrapISA barr.ISA
-          let mode = ArchOperationMode.NoMode
-          BinHandle.Init (isa, mode, false, baseAddr, bytes=barr.Bytes)
-        | _ -> invalidArg (nameof DisasmAction) "Invalid arguments given."
-      let bp = BinaryPointer (barr.Address, 0, barr.Bytes.Length - 1)
-      disasm [] hdl bp
+    member __.Transform args collection =
+      { Values = collection.Values |> Array.map (disasmByteArray args) }

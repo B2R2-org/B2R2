@@ -12,7 +12,6 @@
     <Compile Include="DisasmAction.fs" />
     <Compile Include="ListAction.fs" />
     <Compile Include="LoadAction.fs" />
-    <Compile Include="ParseAction.fs" />
     <Compile Include="PrintAction.fs" />
     <Compile Include="SliceAction.fs" />
     <Compile Include="Program.fs" />

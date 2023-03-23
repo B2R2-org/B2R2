@@ -30,6 +30,9 @@ let makeByteArraySummary (bs: byte[]) =
   let s = bs[..16] |> Array.map (sprintf "%02x") |> String.concat " "
   if bs.Length > 16 then s + " ..." else s
 
-let unwrapISA = function
-  | Some isa -> isa
-  | None -> ISA.DefaultISA
+let makeSpanSummary (bs: ByteSpan) =
+  let s =
+    bs.Slice(0, 16).ToArray ()
+    |> Array.map (sprintf "%02x")
+    |> String.concat " "
+  if bs.Length > 16 then s + " ..." else s

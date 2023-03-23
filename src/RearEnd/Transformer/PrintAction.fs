@@ -28,19 +28,29 @@ open System
 
 /// The `print` action.
 type PrintAction () =
-  let printArray (o: obj) =
+  let rec print (o: obj) =
+    let typ = o.GetType ()
+    if typ = typeof<ObjCollection> then printObjCollection o
+    elif typ.IsArray then printArray o
+    else Console.WriteLine (o.ToString ())
+
+  and printObjCollection (o: obj) =
+    let res = o :?> ObjCollection
+    res.Values
+    |> Array.iteri (fun idx v ->
+      Console.WriteLine $"[*] result({idx})"
+      print v)
+
+  and printArray (o: obj) =
     let arr = o :?> _[]
-    arr |> Array.iter (fun o -> Console.WriteLine $"{o}")
+    arr |> Array.iter print
 
   interface IAction with
     member __.ActionID with get() = "print"
-    member __.InputType with get() = typeof<obj>
-    member __.OutputType with get() = typeof<unit>
+    member __.Signature with get() = "'a -> unit"
     member __.Description with get() = """
     Takes in an input object and prints its value.
 """
     member __.Transform _args o =
-      let typ = o.GetType ()
-      if typ.IsArray then printArray o
-      else Console.WriteLine (o.ToString ())
-      () (* This is to make compiler happy. *)
+      print (box o)
+      { Values = [||] }

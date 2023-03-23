@@ -28,14 +28,16 @@ open B2R2.FrontEnd.BinInterface
 
 /// The `list` action.
 type ListAction () =
-  let listSections (bin: BinHandle) =
-    bin.BinFile.GetSections ()
+  let listSections (input: obj) =
+    let bin = unbox<Binary> input
+    let hdl = Binary.Handle bin
+    hdl.BinFile.GetSections ()
     |> Seq.toArray
+    |> box
 
   interface IAction with
     member __.ActionID with get() = "list"
-    member __.InputType with get() = typeof<BinHandle>
-    member __.OutputType with get() = typeof<obj>
+    member __.Signature with get() = "Binary -> unit"
     member __.Description with get() = """
     Takes in a parsed binary and returns a list of elements such as functions,
     sections, etc. The output type is determined by the extra argument.
@@ -43,9 +45,8 @@ type ListAction () =
 
       - `sections` (sects|ss): returns a list of sections.
 """
-    member __.Transform args bin =
-      let bin = unbox<BinHandle> bin
+    member __.Transform args collection =
       match args with
       | [ "sections" ] | [ "sects" ] | [ "ss" ] ->
-        listSections bin
+        { Values = collection.Values |> Array.map listSections }
       | _ -> invalidArg (nameof ListAction) "Invalid argument."

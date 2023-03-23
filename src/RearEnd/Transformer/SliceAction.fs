@@ -30,48 +30,59 @@ open B2R2.FrontEnd.BinInterface
 
 /// The `slice` action.
 type SliceAction () =
-  let sliceByAddrRange (bin: BinHandle) a1 a2 =
+  let sliceByAddrRange (hdl: BinHandle) a1 a2 =
     if a1 > a2 then invalidArg (nameof SliceAction) "Invalid address range."
-    elif not (bin.BinFile.IsInFileAddr a1)
-      || not (bin.BinFile.IsInFileAddr a2) then
+    elif not (hdl.BinFile.IsInFileAddr a1)
+      || not (hdl.BinFile.IsInFileAddr a2) then
       invalidArg (nameof SliceAction) "Address out of range."
     else
-      let o1 = bin.BinFile.TranslateAddress a1
-      let o2 = bin.BinFile.TranslateAddress a2
-      { Address = a1
-        ISA = Some bin.ISA
-        Bytes = bin.BinFile.Span.Slice(o1, o2 - o1 + 1).ToArray () }
+      let o1 = hdl.BinFile.TranslateAddress a1
+      let o2 = hdl.BinFile.TranslateAddress a2
+      let bs = hdl.BinFile.Span.Slice(o1, o2 - o1 + 1).ToArray ()
+      BinHandle.Init (hdl.ISA, hdl.Parser.OperationMode, false, None, bs)
+      |> Binary
 
-  let sliceBySectionName (bin: BinHandle) secName =
-    let sec = bin.BinFile.GetSections (name=secName) |> Seq.exactlyOne
+  let sliceBySectionName (hdl: BinHandle) secName =
+    let sec = hdl.BinFile.GetSections (name=secName) |> Seq.exactlyOne
     let a1 = sec.Address
     let a2 = a1 + sec.Size - 1UL
-    sliceByAddrRange bin a1 a2
+    sliceByAddrRange hdl a1 a2
+
+  let parseTwoArgs (a1: string) (a2: string) =
+    let a1 = Convert.ToUInt64 (a1, 16)
+    let a2 =
+      if a2.StartsWith '+' then
+        let numBase = if a2.StartsWith "+0x" then 16 else 10
+        a1 + Convert.ToUInt64 (a2[1..], numBase) - 1UL
+      else Convert.ToUInt64 (a2, 16)
+    a1, a2
+
+  let sliceBin args (bin: Binary) =
+    let hdl = Binary.Handle bin
+    match args with
+    | a1 :: a2 :: [] ->
+      let a1, a2 = parseTwoArgs a1 a2
+      sliceByAddrRange hdl a1 a2 |> box
+    | secName :: [] ->
+      sliceBySectionName hdl secName |> box
+    | _ -> invalidArg (nameof SliceAction) "Invalid argument."
+
+  let slice args (input: obj) =
+    match input with
+    | :? Binary as bin -> sliceBin args bin
+    | _ -> invalidArg (nameof SliceAction) "Invalid input type."
 
   interface IAction with
     member __.ActionID with get() = "slice"
-    member __.InputType with get() = typeof<BinHandle>
-    member __.OutputType with get() = typeof<ByteArray>
+    member __.Signature with get() = "Binary -> Binary"
     member __.Description with get() = """
-    Takes in a parsed binary and returns a byte array of a part of the binary
-    along with its starting address.  Users can specify a specific address range
-    or a section name to slice the binary.
+    Takes in a byte array or a BinHandle and returns a byte array of a part of
+    the binary along with its starting address. Users can specify a specific
+    address range or a section name to slice the binary.
 
       - <a1> <a2>: returns a slice of the bianry from <a1> to <a2>.
       - <a1> +<n>: returns a slice of the bianry from <a1> to <a1 + n - 1>.
       - <sec_name>: returns a slice of the binary of the section <sec_name>.
 """
-    member __.Transform args bin =
-      let bin = unbox<BinHandle> bin
-      match args with
-      | a1 :: a2 :: [] ->
-        let a1 = Convert.ToUInt64 (a1, 16)
-        let a2 =
-          if a2.StartsWith '+' then
-            let numBase = if a2.StartsWith "+0x" then 16 else 10
-            a1 + Convert.ToUInt64 (a2[1..], numBase) - 1UL
-          else Convert.ToUInt64 (a2, 16)
-        sliceByAddrRange bin a1 a2
-      | secName :: [] ->
-        sliceBySectionName bin secName
-      | _ -> invalidArg (nameof ListAction) "Invalid argument."
+    member __.Transform args collection =
+      { Values = collection.Values |> Array.map (slice args) }
