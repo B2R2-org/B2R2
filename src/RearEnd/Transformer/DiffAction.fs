@@ -264,13 +264,23 @@ type DiffAction () =
     |> cmpChangedLines kvd dd1 dd2
     dd1.ChangedLineNumbers, dd2.ChangedLineNumbers
 
+  let [<Literal>] NumBytesPerLine = 16
+
+  let padSpace (arr: _[]) =
+    let len = arr.Length
+    let padLen = NumBytesPerLine - len % NumBytesPerLine
+    Array.concat [| arr
+                    (Array.replicate (padLen - 1) (NoColor, "   "))
+                    [| (NoColor, "    ") |] |]
+
   let colorResult bs color res =
     let hex = byteArrayToHexStringArray bs
     Array.mapi2 (fun idx hex needColor ->
       (if needColor then color else NoColor),
       (if idx = bs.Length - 1 then hex else hex + " ")
     ) hex res
-    |> Array.chunkBySize 16
+    |> padSpace
+    |> Array.chunkBySize NumBytesPerLine
 
   let diff bin1 bin2 =
     let hdl1, hdl2 = Binary.Handle bin1, Binary.Handle bin2
@@ -278,9 +288,11 @@ type DiffAction () =
     let dd1, dd2 = prepareMyers bs1 bs2
     let res1, res2 = myersDiff dd1 dd2
     let res1, res2 = colorResult bs1 Red res1, colorResult bs2 Green res2
-    Array.map2 (fun line1 line2 ->
-      Array.concat [| line1
-                      [| (NoColor, " | ") |]
+    Array.mapi2 (fun lnum line1 line2 ->
+      let offsetStr = (lnum * NumBytesPerLine).ToString("x").PadLeft 8
+      Array.concat [| [| (NoColor, offsetStr + " | ")  |]
+                      line1
+                      [| (NoColor, "| ") |]
                       line2
                       [| (NoColor, Environment.NewLine) |] |]) res1 res2
     |> Array.concat
