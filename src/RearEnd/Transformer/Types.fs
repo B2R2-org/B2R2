@@ -41,11 +41,11 @@ with
     match __ with
     | Binary hdl when hdl.BinFile.FileFormat = FileFormat.RawBinary ->
       let s = Utils.makeSpanSummary hdl.BinFile.Span
-      $"Raw, 0x{hdl.BinFile.BaseAddress:x}: {s}"
+      $"Binary(Raw) | 0x{hdl.BinFile.BaseAddress:x8} | {s}"
     | Binary hdl ->
       let s = Utils.makeSpanSummary hdl.BinFile.Span
       let fmt = FileFormat.toString hdl.BinFile.FileFormat
-      $"{fmt}, 0x{hdl.BinFile.BaseAddress:x}: {s}"
+      $"Binary({fmt}) | 0x{hdl.BinFile.BaseAddress:x8} | {s}"
 
 /// Instruction tagged with its corresponding bytes.
 type Instruction =
@@ -62,16 +62,18 @@ with
       $"{addr:x16} | {bs.PadRight 32} | (bad)"
 
 /// Fingerprint of a binary, which is a list of (hash * byte position) tuple.
-type Fingerprint = Fingerprint of (int * int) list
+type Fingerprint = {
+  Patterns: (int * int) list
+  NGramSize: int
+  WindowSize: int
+}
 with
   override __.ToString () =
-    match __ with
-    | Fingerprint lst ->
-      let sb = StringBuilder ()
-      lst
-      |> List.iter (fun (b, p) ->
-        sb.Append $"{b:x2}@{p}{Environment.NewLine}" |> ignore)
-      sb.ToString ()
+    let sb = StringBuilder ()
+    __.Patterns
+    |> List.iter (fun (b, p) ->
+      sb.Append $"{b:x2}@{p}{Environment.NewLine}" |> ignore)
+    sb.ToString ()
 
 /// Collection of objects.
 type ObjCollection = {

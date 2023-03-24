@@ -25,18 +25,10 @@
 namespace B2R2.RearEnd.Transformer
 
 open System
-open System.IO.Hashing
 open B2R2
 
 /// The `winnowing` action.
 type WinnowingAction () =
-  let rec buildNgram acc n (span: ByteSpan) idx =
-    if idx <= span.Length - n then
-      let bs = span.Slice(idx, n).ToArray ()
-      let h = XxHash32.Hash bs |> BitConverter.ToInt32
-      buildNgram ((h, idx) :: acc) n span (idx + 1)
-    else List.rev acc |> List.toArray
-
   let rec min (span: Span<int * int>) (minHash, minPos) idx =
     if idx < span.Length then
       let curHash, curPos = span[idx]
@@ -47,13 +39,15 @@ type WinnowingAction () =
       min span (minHash, minPos) (idx + 1)
     else (minHash, minPos)
 
-  let rec computeFingerprint acc prev wsz idx (ngrams: (int * int) array) =
+  let rec computeFingerprint acc prev n wsz idx (ngrams: (int * int) array) =
     if idx <= ngrams.Length - wsz then
       let span = ngrams.AsSpan (idx, wsz)
       let m = min span (Int32.MaxValue, Int32.MaxValue) 0
-      if fst prev = fst m then computeFingerprint acc prev wsz (idx + 1) ngrams
-      else computeFingerprint (m :: acc) m wsz (idx + 1) ngrams
-    else List.rev acc |> Fingerprint
+      if fst prev = fst m then
+        computeFingerprint acc prev n wsz (idx + 1) ngrams
+      else
+        computeFingerprint (m :: acc) m n wsz (idx + 1) ngrams
+    else { Patterns = List.rev acc; NGramSize = n; WindowSize = wsz }
 
   let winnowing n wsz input =
     let bin = unbox<Binary> input
@@ -62,8 +56,8 @@ type WinnowingAction () =
     if span.Length < n + wsz then
       invalidArg (nameof input) "The input binary is too small."
     else
-      buildNgram [] n span 0
-      |> computeFingerprint [] (0, 0) wsz 0
+      Utils.buildNgram [] n span 0
+      |> computeFingerprint [] (0, 0) n wsz 0
       |> box
 
   interface IAction with

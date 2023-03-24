@@ -24,6 +24,8 @@
 
 module B2R2.RearEnd.Transformer.Utils
 
+open System
+open System.IO.Hashing
 open B2R2
 
 let makeByteArraySummary (bs: byte[]) =
@@ -44,3 +46,10 @@ let makeSpanSummary (bs: ByteSpan) =
     bs.Slice(0).ToArray ()
     |> Array.map (sprintf "%02x")
     |> String.concat " "
+
+let rec buildNgram acc n (span: ByteSpan) idx =
+  if idx <= span.Length - n then
+    let bs = span.Slice(idx, n).ToArray ()
+    let h = XxHash32.Hash bs |> BitConverter.ToInt32
+    buildNgram ((h, idx) :: acc) n span (idx + 1)
+  else List.rev acc |> List.toArray

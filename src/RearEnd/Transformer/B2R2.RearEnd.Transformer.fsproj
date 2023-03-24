@@ -9,6 +9,7 @@
     <Compile Include="Utils.fs" />
     <Compile Include="Types.fs" />
     <Compile Include="IAction.fs" />
+    <Compile Include="DetectAction.fs" />
     <Compile Include="DiffAction.fs" />
     <Compile Include="DisasmAction.fs" />
     <Compile Include="GrepAction.fs" />

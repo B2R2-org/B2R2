@@ -28,9 +28,9 @@ namespace B2R2.RearEnd.Transformer
 type JaccardAction () =
   let jaccard fp0 fp1 =
     match unbox<Fingerprint> fp0, unbox<Fingerprint> fp1 with
-    | Fingerprint fp0, Fingerprint fp1 ->
-      let s0 = List.fold (fun set (v, _) -> Set.add v set) Set.empty fp0
-      let s1 = List.fold (fun set (v, _) -> Set.add v set) Set.empty fp1
+    | fp0, fp1 ->
+      let s0 = List.fold (fun s (v, _) -> Set.add v s) Set.empty fp0.Patterns
+      let s1 = List.fold (fun s (v, _) -> Set.add v s) Set.empty fp1.Patterns
       float (Set.intersect s0 s1 |> Set.count)
       / float (Set.union s0 s1 |> Set.count)
 

@@ -304,7 +304,7 @@ type DiffAction () =
     member __.ActionID with get() = "diff"
     member __.Signature with get() = "Binary[] -> OutString"
     member __.Description with get() = """
-    Takes in two binaries as input and returns a diff string as output.
+    Take in two binaries as input and return a diff string as output.
 """
     member __.Transform args collection =
       let bins = collection.Values
