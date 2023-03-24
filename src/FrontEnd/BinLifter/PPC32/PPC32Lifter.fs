@@ -226,7 +226,7 @@ let getSPRReg ctxt imm  =
   | 540u | 541u | 542u | 543u | 1013u -> raise UnhandledRegExprException
   | _ -> raise InvalidOperandException
 
-let setCondReg ctxt ir result =
+let setCR0Reg ctxt ir result =
   let xerSO = AST.xthi 1<rt> (!.ctxt R.XER)
   let cr0LT = !.ctxt R.CR0_0
   let cr0GT = !.ctxt R.CR0_1
@@ -236,6 +236,17 @@ let setCondReg ctxt ir result =
   !!ir (cr0GT := result ?> AST.num0 32<rt>)
   !!ir (cr0EQ := result == AST.num0 32<rt>)
   !!ir (cr0SO := xerSO)
+
+let setCR1Reg ctxt ir =
+  let fpscr = !.ctxt R.FPSCR
+  let cr1FX = !.ctxt R.CR1_0
+  let cr1FEX = !.ctxt R.CR1_1
+  let cr1VX = !.ctxt R.CR1_2
+  let cr1OX = !.ctxt R.CR1_3
+  !!ir (cr1FX := AST.extract fpscr 1<rt> 31)
+  !!ir (cr1FEX := AST.extract fpscr 1<rt> 30)
+  !!ir (cr1VX := AST.extract fpscr 1<rt> 29)
+  !!ir (cr1OX := AST.extract fpscr 1<rt> 28)
 
 let isNaN frx =
   let exponent = (frx >> numI32 52 64<rt>) .& numI32 0x7FF 64<rt>
@@ -291,7 +302,7 @@ let add ins insLen updateCond ctxt =
   let ir = !*ctxt
   !<ir insLen
   !!ir (dst := src1 .+ src2)
-  if updateCond then setCondReg ctxt ir dst else ()
+  if updateCond then setCR0Reg ctxt ir dst else ()
   !>ir insLen
 
 let addc ins insLen ctxt =
@@ -307,7 +318,7 @@ let addcdot ins insLen ctxt =
   let ir = !*ctxt
   !<ir insLen
   !!ir (dst := src1 .+ src2)
-  setCondReg ctxt ir dst
+  setCR0Reg ctxt ir dst
   !>ir insLen
 
 let adde ins insLen ctxt =
@@ -325,7 +336,7 @@ let addedot ins insLen ctxt =
   let ir = !*ctxt
   !<ir insLen
   !!ir (dst := src1 .+ src2 .+ xerCA)
-  setCondReg ctxt ir dst
+  setCR0Reg ctxt ir dst
   !>ir insLen
 
 let addi ins insLen ctxt =
@@ -341,7 +352,7 @@ let addic ins insLen updateCond ctxt =
   let ir = !*ctxt
   !<ir insLen
   !!ir (dst := src1 .+ simm)
-  if updateCond then setCondReg ctxt ir dst else ()
+  if updateCond then setCR0Reg ctxt ir dst else ()
   setCarryOut ctxt dst src1 ir
   !>ir insLen
 
@@ -369,7 +380,7 @@ let addmedot ins insLen ctxt =
   let ir = !*ctxt
   !<ir insLen
   !!ir (dst := src .+ xerCA .- AST.num1 32<rt>)
-  setCondReg ctxt ir dst
+  setCR0Reg ctxt ir dst
   !>ir insLen
 
 let addze ins insLen ctxt =
@@ -387,7 +398,7 @@ let addzedot ins insLen ctxt =
   let ir = !*ctxt
   !<ir insLen
   !!ir (dst := src .+ xerCA)
-  setCondReg ctxt ir dst
+  setCR0Reg ctxt ir dst
   !>ir insLen
 
 let andx ins insLen updateCond ctxt =
@@ -395,7 +406,7 @@ let andx ins insLen updateCond ctxt =
   let ir = !*ctxt
   !<ir insLen
   !!ir (dst := src1 .& src2)
-  if updateCond then setCondReg ctxt ir dst else ()
+  if updateCond then setCR0Reg ctxt ir dst else ()
   !>ir insLen
 
 let andc ins insLen updateCond ctxt =
@@ -403,7 +414,7 @@ let andc ins insLen updateCond ctxt =
   let ir = !*ctxt
   !<ir insLen
   !!ir (dst := src1 .& AST.not(src2))
-  if updateCond then setCondReg ctxt ir dst else ()
+  if updateCond then setCR0Reg ctxt ir dst else ()
   !>ir insLen
 
 let andidot ins insLen ctxt =
@@ -411,7 +422,7 @@ let andidot ins insLen ctxt =
   let ir = !*ctxt
   !<ir insLen
   !!ir (dst := src .& uimm)
-  setCondReg ctxt ir dst
+  setCR0Reg ctxt ir dst
   !>ir insLen
 
 let andisdot ins insLen ctxt =
@@ -420,7 +431,7 @@ let andisdot ins insLen ctxt =
   let ir = !*ctxt
   !<ir insLen
   !!ir (dst := src .& uimm)
-  setCondReg ctxt ir dst
+  setCR0Reg ctxt ir dst
   !>ir insLen
 
 let b ins insLen ctxt lk =
@@ -558,7 +569,7 @@ let cntlzw ins insLen updateCond ctxt =
   !!ir (x := x .+ (x >> numI32 8 32<rt>))
   !!ir (x := x .+ (x >> numI32 16 32<rt>))
   !!ir (ra := numI32 32 32<rt> .- (x .& numI32 63 32<rt>))
-  if updateCond then setCondReg ctxt ir ra else ()
+  if updateCond then setCR0Reg ctxt ir ra else ()
   !>ir insLen
 
 let crclr ins insLen ctxt =
@@ -629,7 +640,7 @@ let divw ins insLen updateCond ctxt =
   let ir = !*ctxt
   !<ir insLen
   !!ir (dst := AST.ite (src2 == AST.num0 32<rt>) dst (src1 ?/ src2))
-  if updateCond then setCondReg ctxt ir dst else ()
+  if updateCond then setCR0Reg ctxt ir dst else ()
   !>ir insLen
 
 let divwu ins insLen updateCond ctxt =
@@ -637,7 +648,7 @@ let divwu ins insLen updateCond ctxt =
   let ir = !*ctxt
   !<ir insLen
   !!ir (dst := AST.ite (src2 == AST.num0 32<rt>) dst (src1 ./ src2))
-  if updateCond then setCondReg ctxt ir dst else ()
+  if updateCond then setCR0Reg ctxt ir dst else ()
   !>ir insLen
 
 let extsb ins insLen updateCond ctxt =
@@ -647,7 +658,7 @@ let extsb ins insLen updateCond ctxt =
   !<ir insLen
   !!ir (tmp := AST.xtlo 8<rt> rs)
   !!ir (ra := AST.sext 32<rt> tmp)
-  if updateCond then setCondReg ctxt ir ra else ()
+  if updateCond then setCR0Reg ctxt ir ra else ()
   !>ir insLen
 
 let extsh ins insLen updateCond ctxt =
@@ -657,7 +668,7 @@ let extsh ins insLen updateCond ctxt =
   !<ir insLen
   !!ir (tmp := AST.xtlo 16<rt> rs)
   !!ir (ra := AST.sext 32<rt> tmp)
-  if updateCond then setCondReg ctxt ir ra else ()
+  if updateCond then setCR0Reg ctxt ir ra else ()
   !>ir insLen
 
 let eqvx ins insLen updateCond ctxt =
@@ -665,7 +676,7 @@ let eqvx ins insLen updateCond ctxt =
   let ir = !*ctxt
   !<ir insLen
   !!ir (ra := AST.not (rs <+> rb))
-  if updateCond then setCondReg ctxt ir ra else ()
+  if updateCond then setCR0Reg ctxt ir ra else ()
   !>ir insLen
 
 let fabs ins insLen updateCond ctxt =
@@ -673,6 +684,7 @@ let fabs ins insLen updateCond ctxt =
   let ir = !*ctxt
   !<ir insLen
   !!ir (frd := frb .& numU64 0x7fffffffffffffffUL 64<rt>)
+  if updateCond then setCR1Reg ctxt ir else ()
   !>ir insLen
 
 let fadd ins insLen updateCond isDouble ctxt =
@@ -687,6 +699,7 @@ let fadd ins insLen updateCond isDouble ctxt =
     !!ir (tmp := AST.fadd fraS frbS)
     !!ir (frd := AST.cast CastKind.FloatCast 64<rt> tmp)
   setFPRF ctxt ir frd
+  if updateCond then setCR1Reg ctxt ir else ()
   !>ir insLen
 
 let fcmpu ins insLen ctxt =
@@ -713,6 +726,7 @@ let fdiv ins insLen updateCond isDouble ctxt =
     !!ir (tmp := AST.fdiv fraS frbS)
     !!ir (frd := AST.cast CastKind.FloatCast 64<rt> tmp)
   setFPRF ctxt ir frd
+  if updateCond then setCR1Reg ctxt ir else ()
   !>ir insLen
 
 let fsub ins insLen updateCond isDouble ctxt =
@@ -727,6 +741,7 @@ let fsub ins insLen updateCond isDouble ctxt =
     !!ir (tmp := AST.fsub fraS frbS)
     !!ir (frd := AST.cast CastKind.FloatCast 64<rt> tmp)
   setFPRF ctxt ir frd
+  if updateCond then setCR1Reg ctxt ir else ()
   !>ir insLen
 
 let fmadd ins insLen updateCond isDouble ctxt =
@@ -742,6 +757,7 @@ let fmadd ins insLen updateCond isDouble ctxt =
     !!ir (tmp := AST.fadd (AST.fmul fraS frcS) frbS)
     !!ir (frd := AST.cast CastKind.FloatCast 64<rt> tmp)
   setFPRF ctxt ir frd
+  if updateCond then setCR1Reg ctxt ir else ()
   !>ir insLen
 
 let fmr ins insLen updateCond ctxt =
@@ -749,6 +765,7 @@ let fmr ins insLen updateCond ctxt =
   let ir = !*ctxt
   !<ir insLen
   !!ir (dst := src)
+  if updateCond then setCR1Reg ctxt ir else ()
   !>ir insLen
 
 let fmsub ins insLen updateCond isDouble ctxt =
@@ -764,6 +781,7 @@ let fmsub ins insLen updateCond isDouble ctxt =
     !!ir (tmp := AST.fsub (AST.fmul fraS frcS) frbS)
     !!ir (frd := AST.cast CastKind.FloatCast 64<rt> tmp)
   setFPRF ctxt ir frd
+  if updateCond then setCR1Reg ctxt ir else ()
   !>ir insLen
 
 let fmul ins insLen updateCond isDouble ctxt =
@@ -778,6 +796,7 @@ let fmul ins insLen updateCond isDouble ctxt =
     !!ir (tmp := AST.fmul fraS frbS)
     !!ir (frd := AST.cast CastKind.FloatCast 64<rt> tmp)
   setFPRF ctxt ir frd
+  if updateCond then setCR1Reg ctxt ir else ()
   !>ir insLen
 
 let fnabs ins insLen updateCond ctxt =
@@ -785,6 +804,7 @@ let fnabs ins insLen updateCond ctxt =
   let ir = !*ctxt
   !<ir insLen
   !!ir (frd := frb .| numU64 0x8000000000000000UL 64<rt>)
+  if updateCond then setCR1Reg ctxt ir else ()
   !>ir insLen
 
 let fneg ins insLen updateCond ctxt =
@@ -792,6 +812,7 @@ let fneg ins insLen updateCond ctxt =
   let ir = !*ctxt
   !<ir insLen
   !!ir (frd := AST.fneg frb)
+  if updateCond then setCR1Reg ctxt ir else ()
   !>ir insLen
 
 let fsel ins insLen updateCond ctxt =
@@ -800,6 +821,7 @@ let fsel ins insLen updateCond ctxt =
   let cond = AST.fge fra (AST.num0 64<rt>)
   !<ir insLen
   !!ir (frd := AST.ite cond frc frb)
+  if updateCond then setCR1Reg ctxt ir else ()
   !>ir insLen
 
 let lbz ins insLen (ctxt: TranslationContext) =
@@ -1175,6 +1197,7 @@ let mtfsb0 ins insLen updateCond ctxt =
   !<ir insLen
   if crbD <> 1 && crbD <> 2 then
     !!ir (AST.extract fpscr 1<rt> crbD := AST.b0)
+  if updateCond then setCR1Reg ctxt ir else ()
   (* Affected: FX *)
   !>ir insLen
 
@@ -1185,6 +1208,7 @@ let mtfsb1 ins insLen updateCond ctxt =
   !<ir insLen
   if crbD <> 1 && crbD <> 2 then
     !!ir (AST.extract fpscr 1<rt> crbD := AST.b1)
+  if updateCond then setCR1Reg ctxt ir else ()
   (* Affected: FX *)
   !>ir insLen
 
@@ -1223,7 +1247,7 @@ let mulhw ins insLen updateCond ctxt =
   !<ir insLen
   !!ir (tmp := (AST.sext 64<rt> ra) .* (AST.sext 64<rt> rb))
   !!ir (dst := AST.xthi 32<rt> tmp)
-  if updateCond then setCondReg ctxt ir dst else ()
+  if updateCond then setCR0Reg ctxt ir dst else ()
   !>ir insLen
 
 let mulhwu ins insLen updateCond ctxt =
@@ -1233,7 +1257,7 @@ let mulhwu ins insLen updateCond ctxt =
   !<ir insLen
   !!ir (tmp := (AST.zext 64<rt> ra) .* (AST.zext 64<rt> rb))
   !!ir (dst := AST.xthi 32<rt> tmp)
-  if updateCond then setCondReg ctxt ir dst else ()
+  if updateCond then setCR0Reg ctxt ir dst else ()
   !>ir insLen
 
 let mulli ins insLen ctxt =
@@ -1252,7 +1276,7 @@ let mullw ins insLen updateCond ctxt =
   !<ir insLen
   !!ir (tmp := (AST.sext 64<rt> src1) .* (AST.sext 64<rt> src2))
   !!ir (dst := AST.xtlo 32<rt> tmp)
-  if updateCond then setCondReg ctxt ir dst else ()
+  if updateCond then setCR0Reg ctxt ir dst else ()
   !>ir insLen
 
 let mullwo ins insLen updateCond ctxt =
@@ -1264,7 +1288,7 @@ let mullwo ins insLen updateCond ctxt =
   !!ir (tmp := (AST.sext 64<rt> src1) .* (AST.sext 64<rt> src2))
   !!ir (xerOV := AST.ite (tmp .< numU64 0xFFFFFFFFUL 64<rt>) AST.b0 AST.b1)
   !!ir (dst := AST.xtlo 32<rt> tmp)
-  if updateCond then setCondReg ctxt ir dst else ()
+  if updateCond then setCR0Reg ctxt ir dst else ()
   !>ir insLen
 
 let nand ins insLen updateCond ctxt =
@@ -1272,7 +1296,7 @@ let nand ins insLen updateCond ctxt =
   let ir = !*ctxt
   !<ir insLen
   !!ir (dst := AST.not(src1 .& src2))
-  if updateCond then setCondReg ctxt ir dst else ()
+  if updateCond then setCR0Reg ctxt ir dst else ()
   !>ir insLen
 
 let neg ins insLen updateCond ctxt =
@@ -1280,7 +1304,7 @@ let neg ins insLen updateCond ctxt =
   let ir = !*ctxt
   !<ir insLen
   !!ir (dst := (AST.not src) .+ AST.num1 32<rt>)
-  if updateCond then setCondReg ctxt ir dst else ()
+  if updateCond then setCR0Reg ctxt ir dst else ()
   !>ir insLen
 
 let nor ins insLen updateCond ctxt =
@@ -1288,7 +1312,7 @@ let nor ins insLen updateCond ctxt =
   let ir = !*ctxt
   !<ir insLen
   !!ir (dst := AST.not (src1 .| src2))
-  if updateCond then setCondReg ctxt ir dst else ()
+  if updateCond then setCR0Reg ctxt ir dst else ()
   !>ir insLen
 
 let nop insLen ctxt =
@@ -1301,7 +1325,7 @@ let orx ins insLen updateCond ctxt =
   let ir = !*ctxt
   !<ir insLen
   !!ir (dst := src1 .| src2)
-  if updateCond then setCondReg ctxt ir dst else ()
+  if updateCond then setCR0Reg ctxt ir dst else ()
   !>ir insLen
 
 let orc ins insLen updateCond ctxt =
@@ -1309,7 +1333,7 @@ let orc ins insLen updateCond ctxt =
   let ir = !*ctxt
   !<ir insLen
   !!ir (dst := src1 .| AST.not(src2))
-  if updateCond then setCondReg ctxt ir dst else ()
+  if updateCond then setCR0Reg ctxt ir dst else ()
   !>ir insLen
 
 let ori ins insLen ctxt =
@@ -1335,7 +1359,7 @@ let rlwinm ins insLen updateCond ctxt =
   !<ir insLen
   !!ir (rol := rotateLeft rs sh)
   !!ir (ra := rol .& (getExtMask mb me))
-  if updateCond then setCondReg ctxt ir ra else ()
+  if updateCond then setCR0Reg ctxt ir ra else ()
   !>ir insLen
 
 let rlwimi ins insLen ctxt =
@@ -1363,7 +1387,7 @@ let slw ins insLen updateCond ctxt =
   !<ir insLen
   !!ir (n := rb .& numI32 0x1f 32<rt>)
   !!ir (dst := rs << n)
-  if updateCond then setCondReg ctxt ir dst else ()
+  if updateCond then setCR0Reg ctxt ir dst else ()
   !>ir insLen
 
 let sraw ins insLen updateCond ctxt =
@@ -1379,7 +1403,7 @@ let sraw ins insLen updateCond ctxt =
   let cond2 = ra ?< z
   let cond3 = (rs .& ((AST.num1 32<rt> << n) .- AST.num1 32<rt>)) == z
   !!ir (xerCA := AST.ite cond2 (AST.ite cond3 AST.b0 AST.b1) AST.b0)
-  if updateCond then setCondReg ctxt ir ra else ()
+  if updateCond then setCR0Reg ctxt ir ra else ()
   !>ir insLen
 
 let srawi ins insLen updateCond ctxt =
@@ -1392,7 +1416,7 @@ let srawi ins insLen updateCond ctxt =
   let cond1 = ra ?< z
   let cond2 = (rs .& ((AST.num1 32<rt> << sh) .- AST.num1 32<rt>)) == z
   !!ir (xerCA := AST.ite cond1 (AST.ite cond2 AST.b0 AST.b1) AST.b0)
-  if updateCond then setCondReg ctxt ir ra else ()
+  if updateCond then setCR0Reg ctxt ir ra else ()
   !>ir insLen
 
 let srw ins insLen updateCond ctxt =
@@ -1402,7 +1426,7 @@ let srw ins insLen updateCond ctxt =
   !<ir insLen
   !!ir (n := rb .& numI32 0x1f 32<rt>)
   !!ir (dst := rs >> n)
-  if updateCond then setCondReg ctxt ir dst else ()
+  if updateCond then setCR0Reg ctxt ir dst else ()
   !>ir insLen
 
 let stb ins insLen (ctxt: TranslationContext) =
@@ -1618,7 +1642,7 @@ let subfdot ins insLen ctxt =
   let ir = !*ctxt
   !<ir insLen
   !!ir (dst := (AST.not src1) .+ src2 .+ (AST.num1 32<rt>))
-  setCondReg ctxt ir dst
+  setCR0Reg ctxt ir dst
   !>ir insLen
 
 let subfc ins insLen ctxt =
@@ -1670,7 +1694,7 @@ let xor ins insLen updateCond ctxt =
   let ir = !*ctxt
   !<ir insLen
   !!ir (dst := (src1 <+> src2))
-  if updateCond then setCondReg ctxt ir dst else ()
+  if updateCond then setCR0Reg ctxt ir dst else ()
   !>ir insLen
 
 let xori ins insLen ctxt =
