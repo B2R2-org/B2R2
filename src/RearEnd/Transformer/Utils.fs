@@ -30,6 +30,9 @@ let makeByteArraySummary (bs: byte[]) =
   let s = bs[..16] |> Array.map (sprintf "%02x") |> String.concat " "
   if bs.Length > 16 then s + " ..." else s
 
+let byteArrayToHexStringArray (bs: byte[]) =
+  bs |> Array.map (sprintf "%02x")
+
 let makeSpanSummary (bs: ByteSpan) =
   if bs.Length > 16 then
     let s =
