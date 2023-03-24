@@ -11,6 +11,7 @@
     <Compile Include="IAction.fs" />
     <Compile Include="DiffAction.fs" />
     <Compile Include="DisasmAction.fs" />
+    <Compile Include="GrepAction.fs" />
     <Compile Include="HexdumpAction.fs" />
     <Compile Include="JaccardAction.fs" />
     <Compile Include="ListAction.fs" />

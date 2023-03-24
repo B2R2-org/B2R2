@@ -24,9 +24,6 @@
 
 namespace B2R2.RearEnd.Transformer
 
-open System
-open B2R2
-
 /// The `jaccard` action.
 type JaccardAction () =
   let jaccard fp0 fp1 =
@@ -44,6 +41,8 @@ type JaccardAction () =
     Take in two fingerprints and returns the jaccard index between them.
 """
     member __.Transform args collection =
-      if collection.Values.Length = 2 then
+      if args.Length <> 0 then
+        invalidArg (nameof args) "No arguments should be given."
+      elif collection.Values.Length = 2 then
         { Values = [| jaccard collection.Values[0] collection.Values[1] |] }
       else invalidArg (nameof collection) "Two fingerprints should be given."

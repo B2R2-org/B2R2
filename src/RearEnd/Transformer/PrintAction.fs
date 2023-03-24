@@ -50,7 +50,7 @@ type PrintAction () =
 
   and printOutString (o: obj) =
     let os = o :?> OutString
-    Printer.PrintToConsole os
+    Printer.PrintToConsoleLine os
 
   interface IAction with
     member __.ActionID with get() = "print"

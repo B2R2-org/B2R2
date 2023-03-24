@@ -106,10 +106,6 @@ type Printer () =
   /// Flush out everything.
   abstract Flush: unit -> unit
 
-  static member PrintErrorToConsole str =
-    [ CS.nocolor "[*] Error: "; CS.red str ] |> Printer.PrintToConsoleLine
-    Printer.PrintToConsoleLine ()
-
   static member PrintToConsole s =
     OutString.toConsole s
 
@@ -120,6 +116,9 @@ type Printer () =
     Console.Write (s, args)
 
   static member PrintToConsoleLine s =
+    OutString.toConsoleLine s
+
+  static member PrintToConsoleLine s =
     ColoredString.toConsoleLine s
 
   static member PrintToConsoleLine (s: string, [<ParamArray>] args) =
@@ -127,6 +126,10 @@ type Printer () =
 
   static member PrintToConsoleLine () =
     Console.WriteLine ()
+
+  static member PrintErrorToConsole str =
+    [ CS.nocolor "[*] Error: "; CS.red str ] |> Printer.PrintToConsoleLine
+    Printer.PrintToConsoleLine ()
 
 /// ConsolePrinter simply prints out strings to console whenever a print method
 /// is called. This printer does not perform any caching, so it immediately
