@@ -24,6 +24,8 @@
 
 namespace B2R2.RearEnd.Transformer
 
+open System
+open System.Text
 open B2R2
 open B2R2.FrontEnd.BinInterface
 
@@ -59,12 +61,17 @@ with
       let bs = Utils.makeByteArraySummary bs
       $"{addr:x16} | {bs.PadRight 32} | (bad)"
 
-/// Fingerprint of a binary, which is a set of (byte * position) tuple.
-type Fingerprint = Fingerprint of Set<byte * int>
+/// Fingerprint of a binary, which is a list of (hash * byte position) tuple.
+type Fingerprint = Fingerprint of (int * int) list
 with
   override __.ToString () =
     match __ with
-    | Fingerprint _ -> $"{__.GetHashCode ():x}"
+    | Fingerprint lst ->
+      let sb = StringBuilder ()
+      lst
+      |> List.iter (fun (b, p) ->
+        sb.Append $"{b:x2}@{p}{Environment.NewLine}" |> ignore)
+      sb.ToString ()
 
 /// Collection of objects.
 type ObjCollection = {

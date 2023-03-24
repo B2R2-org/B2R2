@@ -32,8 +32,10 @@ type JaccardAction () =
   let jaccard fp0 fp1 =
     match unbox<Fingerprint> fp0, unbox<Fingerprint> fp1 with
     | Fingerprint fp0, Fingerprint fp1 ->
-      float (Set.intersect fp0 fp1 |> Set.count)
-      / float (Set.union fp0 fp1 |> Set.count)
+      let s0 = List.fold (fun set (v, _) -> Set.add v set) Set.empty fp0
+      let s1 = List.fold (fun set (v, _) -> Set.add v set) Set.empty fp1
+      float (Set.intersect s0 s1 |> Set.count)
+      / float (Set.union s0 s1 |> Set.count)
 
   interface IAction with
     member __.ActionID with get() = "jaccard"

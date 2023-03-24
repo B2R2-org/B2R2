@@ -29,49 +29,62 @@ open B2R2
 
 /// The `winnowing` action.
 type WinnowingAction () =
-  let rec min (span: ByteSpan) (minVal, minPos) offset pos =
-    if pos < span.Length then
-      let curVal = span[pos]
-      let minVal, minPos =
-        if minVal > curVal then curVal, pos
-        elif minVal = curVal && minPos < pos then curVal, pos
-        else minVal, minPos
-      min span (minVal, minPos) offset (pos + 1)
-    else (minVal, offset + minPos)
+  let computeHash (bs: byte[]) =
+    let mutable h = 0
+    for i = 0 to bs.Length - 1 do
+      h <- h * 31 + int bs[i]
+    h
 
-  let rec iterNgram acc wsz (span: ByteSpan) idx =
-    if idx <= span.Length - wsz then
-      let m = min (span.Slice (idx, wsz)) (Byte.MaxValue, Int32.MaxValue) idx 0
-      iterNgram (Set.add m acc) wsz span (idx + 1)
-    else acc
+  let rec buildNgram acc n (span: ByteSpan) idx =
+    if idx <= span.Length - n then
+      let bs = span.Slice(idx, n).ToArray ()
+      let h = computeHash bs
+      buildNgram ((h, idx) :: acc) n span (idx + 1)
+    else List.rev acc |> List.toArray
 
-  let winnowing wsz input =
+  let rec min (span: Span<int * int>) (minHash, minPos) idx =
+    if idx < span.Length then
+      let curHash, curPos = span[idx]
+      let minHash, minPos =
+        if minHash > curHash then curHash, curPos
+        elif minHash = curHash && minPos < curPos then curHash, curPos
+        else minHash, minPos
+      min span (minHash, minPos) (idx + 1)
+    else (minHash, minPos)
+
+  let rec computeFingerprint acc prev wsz idx (ngrams: (int * int) array) =
+    if idx <= ngrams.Length - wsz then
+      let span = ngrams.AsSpan (idx, wsz)
+      let m = min span (Int32.MaxValue, Int32.MaxValue) 0
+      if prev = m then computeFingerprint acc prev wsz (idx + 1) ngrams
+      else computeFingerprint (m :: acc) m wsz (idx + 1) ngrams
+    else List.rev acc |> Fingerprint
+
+  let winnowing n wsz input =
     let bin = unbox<Binary> input
     let hdl = Binary.Handle bin
     let span = hdl.BinFile.Span
-    if span.Length < wsz then
-      min span (Byte.MaxValue, Int32.MaxValue) 0 0
-      |> Set.singleton
-      |> Fingerprint
-      |> box
+    if span.Length < n + wsz then
+      invalidArg (nameof input) "The input binary is too small."
     else
-      iterNgram Set.empty wsz span 0
-      |> Fingerprint
+      buildNgram [] n span 0
+      |> computeFingerprint [] (0, 0) wsz 0
       |> box
 
   interface IAction with
     member __.ActionID with get() = "winnowing"
-    member __.Signature with get() = "Binary * [wsz] -> FingerPrint"
+    member __.Signature with get() = "Binary * [n] * [wsz] -> FingerPrint"
     member __.Description with get() = """
     Take in an input binary and returns its fingerprint, which is essentially a
-    set of (byte * position) tuples.
+    list of (hash * byte position) tuples.
 
-      - [wsz] : Sliding window size to take n-gram. The default is 4.
+      - [n] : Size of n-gram. The default is 4.
+      - [w] : Window size. The default is 4.
 """
     member __.Transform args collection =
-      let wsz =
+      let n, wsz =
         match args with
-        | [] -> 4
-        | n :: [] -> Convert.ToInt32 n
+        | [] -> 4, 4
+        | n :: w :: [] -> Convert.ToInt32 n, Convert.ToInt32 w
         | _ -> invalidArg (nameof args) "Two many arguments given."
-      { Values = collection.Values |> Array.map (winnowing wsz) }
+      { Values = collection.Values |> Array.map (winnowing n wsz) }
