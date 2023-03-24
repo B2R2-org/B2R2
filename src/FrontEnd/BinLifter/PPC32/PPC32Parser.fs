@@ -1855,7 +1855,7 @@ let parseMFFSx bin =
   | _ -> raise ParsingFailureException
 
 let parseMTFSFx bin =
-  let fm = getFM (extract bin 24u 17u)
+  let fm = extract bin 24u 17u |> uint64 |> OprImm
   let frb = getFPRegister (extract bin 15u 11u) |> OprReg
   match pickBit bin 0u with
   | 0b0u when concat (pickBit bin 25u) (pickBit bin 16u) 1 = 0u ->
