@@ -30,6 +30,11 @@ open B2R2
 
 /// The `detect` action.
 type DetectAction () =
+  let resultToString (path: string, matchRate: float) =
+    [ (NoColor, $"{path}: {matchRate:F}") ]
+    |> OutputColored
+    |> box
+
   let detectFile fp path =
     let bs = File.ReadAllBytes path
     let span = ReadOnlySpan bs
@@ -42,19 +47,18 @@ type DetectAction () =
       |> List.fold (fun cnt pattern ->
         let hash, _ = pattern
         if ngram.Contains hash then cnt + 1 else cnt) 0
-    let matchRate = float matchCnt / float fp.Patterns.Length
-    [ (NoColor, $"{path}: {matchRate:F}") ]
-    |> OutputColored
-    |> box
+    path, (float matchCnt / float fp.Patterns.Length)
 
   let detectDir fp path =
     Directory.GetFiles path
     |> Array.map (detectFile fp)
+    |> Array.sortByDescending snd
+    |> Array.map resultToString
     |> box
 
   let detect path input =
     let fp = unbox<Fingerprint> input
-    if File.Exists path then detectFile fp path
+    if File.Exists path then detectFile fp path |> resultToString
     elif Directory.Exists path then detectDir fp path
     else invalidArg (nameof path) "File not found."
 
