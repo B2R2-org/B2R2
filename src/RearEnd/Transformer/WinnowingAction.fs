@@ -25,20 +25,15 @@
 namespace B2R2.RearEnd.Transformer
 
 open System
+open System.IO.Hashing
 open B2R2
 
 /// The `winnowing` action.
 type WinnowingAction () =
-  let computeHash (bs: byte[]) =
-    let mutable h = 0
-    for i = 0 to bs.Length - 1 do
-      h <- h * 31 + int bs[i]
-    h
-
   let rec buildNgram acc n (span: ByteSpan) idx =
     if idx <= span.Length - n then
       let bs = span.Slice(idx, n).ToArray ()
-      let h = computeHash bs
+      let h = XxHash32.Hash bs |> BitConverter.ToInt32
       buildNgram ((h, idx) :: acc) n span (idx + 1)
     else List.rev acc |> List.toArray
 
@@ -56,7 +51,7 @@ type WinnowingAction () =
     if idx <= ngrams.Length - wsz then
       let span = ngrams.AsSpan (idx, wsz)
       let m = min span (Int32.MaxValue, Int32.MaxValue) 0
-      if prev = m then computeFingerprint acc prev wsz (idx + 1) ngrams
+      if fst prev = fst m then computeFingerprint acc prev wsz (idx + 1) ngrams
       else computeFingerprint (m :: acc) m wsz (idx + 1) ngrams
     else List.rev acc |> Fingerprint
 

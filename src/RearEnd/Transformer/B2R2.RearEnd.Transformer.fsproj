@@ -30,6 +30,7 @@
 
   <ItemGroup>
     <PackageReference Include="FSharp.Compiler.Service" Version="43.7.200" />
+    <PackageReference Include="System.IO.Hashing" Version="7.0.0" />
   </ItemGroup>
 
 </Project>

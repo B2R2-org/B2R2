@@ -78,8 +78,10 @@ B2R2 relies on a tiny set of external .NET libraries, and our design principle
 is to use a minimum number of libraries. Below is a list of libraries that we
 leverage.
 
-- [System.Reflection.Metadata](https://www.nuget.org/packages/System.Reflection.Metadata/)
-- [Microsoft.FSharpLu.Json](https://www.nuget.org/packages/Microsoft.FSharpLu.Json/)
+- [System.Reflection.Metadata](https://www.nuget.org/packages/System.Reflection.Metadata)
+- [System.IO.Hashing](https://www.nuget.org/packages/System.IO.Hashing)
+- [Microsoft.FSharpLu.Json](https://www.nuget.org/packages/Microsoft.FSharpLu.Json)
+- [FSharp.Compiler.Service](https://www.nuget.org/packages/FSharp.Compiler.Service)
 - [FParsec](https://www.nuget.org/packages/FParsec)
 
 API Documentation
