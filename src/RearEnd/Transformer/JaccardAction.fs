@@ -36,7 +36,7 @@ type JaccardAction () =
 
   interface IAction with
     member __.ActionID with get() = "jaccard"
-    member __.Signature with get() = "FingerPrint[] -> int"
+    member __.Signature with get() = "FingerPrint collection -> int"
     member __.Description with get() = """
     Take in two fingerprints and returns the jaccard index between them.
 """

@@ -24,7 +24,6 @@
 
 namespace B2R2.FrontEnd.BinLifter
 
-open System
 open B2R2
 
 /// A platform-independent instruction parser.

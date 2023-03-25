@@ -302,7 +302,7 @@ type DiffAction () =
 
   interface IAction with
     member __.ActionID with get() = "diff"
-    member __.Signature with get() = "Binary[] -> OutString"
+    member __.Signature with get() = "Binary collection -> OutString"
     member __.Description with get() = """
     Take in two binaries as input and return a diff string as output.
 """

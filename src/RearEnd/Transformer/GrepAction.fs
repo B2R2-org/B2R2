@@ -24,6 +24,7 @@
 
 namespace B2R2.RearEnd.Transformer
 
+open System
 open System.Text.RegularExpressions
 open B2R2
 open B2R2.FrontEnd.BinInterface
@@ -31,7 +32,7 @@ open B2R2.RearEnd.Transformer.Utils
 
 /// The `grep` action.
 type GrepAction () =
-  let grepFromBinary pattern bin =
+  let grepFromBinary pattern bytesBefore bytesAfter bin =
     let hdl = Binary.Handle bin
     let bs = hdl.BinFile.Span.ToArray ()
     let hs = byteArrayToHexStringArray bs |> String.concat ""
@@ -42,30 +43,51 @@ type GrepAction () =
       else None)
     |> Seq.toArray
     |> Array.map (fun (i, len) ->
+      let soff = if (i - bytesBefore) < 0 then 0 else i - bytesBefore
+      let eoff = i + len - 1
+      let eoff = if (eoff + bytesAfter) >= bs.Length then bs.Length - 1
+                 else eoff + bytesAfter
       BinHandle.Init (hdl.BinFile.ISA, hdl.Parser.OperationMode,
-                      false, Some (uint64 i), bs[i .. i+len-1])
+                      false, Some (uint64 soff), bs[soff .. eoff])
       |> Binary)
     |> box
 
-  let grep pattern (input: obj) =
+  let grep pattern bytesBefore bytesAfter (input: obj) =
     match input with
-    | :? Binary as bin -> grepFromBinary pattern bin
+    | :? Binary as bin -> grepFromBinary pattern bytesBefore bytesAfter bin
     | _ -> invalidArg (nameof input) "Invalid object is given."
 
   interface IAction with
     member __.ActionID with get() = "grep"
-    member __.Signature with get() = "'a array * [pattern] -> 'a array"
+    member __.Signature
+      with get() =
+        "'a array * <pattern> * [bytes before] * [bytes after] -> 'a array"
     member __.Description with get() = """
     Take in an array as input and return one or more matched items from the
-    array as in the `grep` command. The [pattern] represents a binary pattern
+    array as in the `grep` command. The <pattern> represents a binary pattern
     using a regular expression with hexstrings. For example, the pattern
     "3031.." will match a three-byte sequence {{ 0x30, 0x31, * }}, where * means
     any byte. Note that '.' means any 4-bit value in our regular expression.
     Similarly, the pattern "(30)+" means a sequence of 0x30s of any length,
     e.g., {{ 0x30, 0x30, 0x30, 0x30, 0x30 }} will match the pattern.
+
+    Two optional arguments [bytes before] and [bytes after] can be given to get
+    the context of the matched items. For example, if [bytes before] is 2 and
+    [bytes after] is 1, then the matched items will be surrounded by two bytes
+    before and one line after. If the matched items are at the beginning or end
+    of the array, the context will be truncated accordingly.
 """
     member __.Transform args collection =
       match args with
+      | pattern :: bytesBefore :: bytesAfter :: [] ->
+        let bytesBefore = Convert.ToInt32 bytesBefore
+        let bytesAfter = Convert.ToInt32 bytesAfter
+        { Values = collection.Values
+                   |> Array.map (grep pattern bytesBefore bytesAfter) }
+      | pattern :: bytesBefore :: [] ->
+        let bytesBefore = Convert.ToInt32 bytesBefore
+        { Values = collection.Values
+                   |> Array.map (grep pattern bytesBefore 0) }
       | [ pattern ] ->
-        { Values = collection.Values |> Array.map (grep pattern) }
+        { Values = collection.Values |> Array.map (grep pattern 0 0) }
       | _ -> invalidArg (nameof args) "Single pattern should be given."
