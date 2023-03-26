@@ -28,10 +28,11 @@ open System
 open System.Text
 open B2R2
 open B2R2.FrontEnd.BinInterface
+open type FileFormat
 
 /// Binary is the main data object representing a byte sequence tagged with
 /// some useful information.
-type Binary = Binary of BinHandle * annotation: string
+type Binary = Binary of Lazy<BinHandle> * annotation: string
 with
   static member Init annot hdl = Binary (hdl, annot)
 
@@ -39,7 +40,7 @@ with
 
   static member Handle bin =
     match bin with
-    | Binary (hdl, _) -> hdl
+    | Binary (hdl, _) -> hdl.Value
 
   static member Annotation bin =
     match bin with
@@ -47,10 +48,12 @@ with
 
   override __.ToString () =
     match __ with
-    | Binary (hdl, annot) when hdl.BinFile.FileFormat = FileFormat.RawBinary ->
+    | Binary (hdl, annot) when hdl.Value.BinFile.FileFormat = RawBinary ->
+      let hdl = hdl.Value
       let s = Utils.makeSpanSummary hdl.BinFile.Span
       $"Binary(Raw) | 0x{hdl.BinFile.BaseAddress:x8} | {s}{annot}"
     | Binary (hdl, annot) ->
+      let hdl = hdl.Value
       let s = Utils.makeSpanSummary hdl.BinFile.Span
       let fmt = FileFormat.toString hdl.BinFile.FileFormat
       let path = hdl.BinFile.FilePath

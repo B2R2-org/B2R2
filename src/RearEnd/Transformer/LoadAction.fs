@@ -32,17 +32,17 @@ open B2R2.FrontEnd.BinInterface
 type LoadAction () =
   let load isa mode parseFileFormat s =
     if File.Exists (path=s) then
-      BinHandle.Init (isa, mode, parseFileFormat, None, s)
+      lazy BinHandle.Init (isa, mode, parseFileFormat, None, s)
       |> Binary.PlainInit
       |> box
       |> Array.singleton
     elif Directory.Exists (path=s) then
       Directory.GetFiles s
       |> Array.map (fun f ->
-        BinHandle.Init (isa, mode, parseFileFormat, None, f)
+        lazy BinHandle.Init (isa, mode, parseFileFormat, None, f)
         |> Binary.PlainInit |> box)
     else
-      BinHandle.Init (isa, mode, false, None, ByteArray.ofHexString s)
+      lazy BinHandle.Init (isa, mode, false, None, ByteArray.ofHexString s)
       |> Binary.PlainInit
       |> box
       |> Array.singleton

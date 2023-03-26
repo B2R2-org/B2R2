@@ -46,8 +46,8 @@ type SliceAction () =
       let o1 = hdl.BinFile.TranslateAddress a1
       let o2 = hdl.BinFile.TranslateAddress a2
       let bs = hdl.BinFile.Span.Slice(o1, o2 - o1 + 1).ToArray ()
-      BinHandle.Init (hdl.ISA, hdl.Parser.OperationMode, false, None, bs)
-      |> Binary.Init (makeAnnotation hdl)
+      lazy BinHandle.Init (hdl.ISA, hdl.Parser.OperationMode, false, None, bs)
+      |> Binary.Init (makeAnnotation bin)
 
   let sliceBySectionName bin secName =
     let hdl = Binary.Handle bin

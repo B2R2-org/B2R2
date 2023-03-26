@@ -53,9 +53,9 @@ type GrepAction () =
       let eoff = i + len - 1
       let eoff = if (eoff + bytesAfter) >= bs.Length then bs.Length - 1
                  else eoff + bytesAfter
-      BinHandle.Init (hdl.BinFile.ISA, hdl.Parser.OperationMode,
-                      false, Some (uint64 soff), bs[soff .. eoff])
-      |> Binary.Init (makeAnnotation hdl))
+      lazy BinHandle.Init (hdl.BinFile.ISA, hdl.Parser.OperationMode,
+                           false, Some (uint64 soff), bs[soff .. eoff])
+      |> Binary.Init (makeAnnotation bin))
     |> box
 
   let grep pattern bytesBefore bytesAfter (input: obj) =
