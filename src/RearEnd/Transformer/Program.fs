@@ -43,7 +43,7 @@ interface.
 
 [Options]
 
--f <fsx file>  : Load a custom F# file (.fs or .fsx) to define custom actions.
+-f <fs file>   : Load a custom F# file (.fs or .fsx) to define custom actions.
 -d <dll file>  : Load a dll file defining custom actions.
 
 [Actions]

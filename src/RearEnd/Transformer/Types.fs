@@ -31,21 +31,31 @@ open B2R2.FrontEnd.BinInterface
 
 /// Binary is the main data object representing a byte sequence tagged with
 /// some useful information.
-type Binary = Binary of BinHandle
+type Binary = Binary of BinHandle * annotation: string
 with
+  static member Init annot hdl = Binary (hdl, annot)
+
+  static member PlainInit hdl = Binary (hdl, "")
+
   static member Handle bin =
     match bin with
-    | Binary hdl -> hdl
+    | Binary (hdl, _) -> hdl
+
+  static member Annotation bin =
+    match bin with
+    | Binary (_, annot) -> annot
 
   override __.ToString () =
     match __ with
-    | Binary hdl when hdl.BinFile.FileFormat = FileFormat.RawBinary ->
+    | Binary (hdl, annot) when hdl.BinFile.FileFormat = FileFormat.RawBinary ->
       let s = Utils.makeSpanSummary hdl.BinFile.Span
-      $"Binary(Raw) | 0x{hdl.BinFile.BaseAddress:x8} | {s}"
-    | Binary hdl ->
+      $"Binary(Raw) | 0x{hdl.BinFile.BaseAddress:x8} | {s}{annot}"
+    | Binary (hdl, annot) ->
       let s = Utils.makeSpanSummary hdl.BinFile.Span
       let fmt = FileFormat.toString hdl.BinFile.FileFormat
-      $"Binary({fmt}) | 0x{hdl.BinFile.BaseAddress:x8} | {s}"
+      let path = hdl.BinFile.FilePath
+      let finfo = if String.IsNullOrEmpty path then "" else $", {path}"
+      $"Binary({fmt}{finfo}) | 0x{hdl.BinFile.BaseAddress:x8} | {s}{annot}"
 
 /// Instruction tagged with its corresponding bytes.
 type Instruction =
