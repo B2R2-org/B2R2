@@ -5526,7 +5526,6 @@ module internal ParsingHelper = begin
     | 3 -> RCR
     | 4 -> SHL
     | 5 -> SHR
-    | 6 -> InvalOP
     | 7 -> SAR
     | _ -> raise ParsingFailureException
 
@@ -5557,10 +5556,6 @@ module internal ParsingHelper = begin
     | _ -> raise ParsingFailureException
 
   let grp8Op = function
-    | 0 -> InvalOP
-    | 1 -> InvalOP
-    | 2 -> InvalOP
-    | 3 -> InvalOP
     | 4 -> BT
     | 5 -> BTS
     | 6 -> BTR
