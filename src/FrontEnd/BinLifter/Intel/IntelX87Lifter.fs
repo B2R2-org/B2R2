@@ -706,7 +706,7 @@ let fscale _ins insLen ctxt =
   !?ir (castFrom80Bit tmp0 64<rt> st0b st0a)
   !?ir (castFrom80Bit tmp1 64<rt> st1b st1a)
   !!ir (tmp2 := numI32 1 64<rt> << (AST.cast CastKind.FtoITrunc 64<rt> tmp1))
-  !?ir (castTo80Bit ctxt st0b st0a (AST.fmul tmp1 (castToF64 tmp2)))
+  !?ir (castTo80Bit ctxt st0b st0a (AST.fmul tmp0 (castToF64 tmp2)))
   !?ir (updateC1OnStore ctxt)
   !>ir insLen
 
