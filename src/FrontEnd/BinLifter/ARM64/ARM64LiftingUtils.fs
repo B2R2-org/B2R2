@@ -326,26 +326,26 @@ let transSIMDOprToExpr ctxt eSize dataSize elements = function
   | _ -> raise InvalidOperandException
 
 (* Barrel shift *)
-let transBarrelShiftToExpr ins ctxt src shift =
+let transBarrelShiftToExpr oprSize ctxt src shift =
   match src, shift with
   | OprImm imm, OprShift (typ, Imm amt) ->
-    let imm = match typ with
-              | SRTypeLSL -> imm <<< int32 amt
-              | SRTypeLSR -> imm >>> int32 amt
-              | SRTypeMSL -> (imm <<< int32 amt) +
-                             (int64 1 <<< int32 amt) - int64 1
-              | _ -> failwith "Not implement"
-    numI64 imm ins.OprSize
+    let imm =
+      match typ with
+      | SRTypeLSL -> imm <<< int32 amt
+      | SRTypeLSR -> imm >>> int32 amt
+      | SRTypeMSL -> (imm <<< int32 amt) + (1L <<< int32 amt) - 1L
+      | _ -> failwith "Not implement"
+    numI64 imm oprSize
   | OprRegister reg, OprShift (typ, amt) ->
     let reg = getRegVar ctxt reg
-    let amount = transShiftAmout ctxt ins.OprSize amt
-    shiftReg reg amount ins.OprSize typ
+    let amount = transShiftAmout ctxt oprSize amt
+    shiftReg reg amount oprSize typ
   | OprRegister reg, OprExtReg (Some (ShiftOffset (typ, amt))) ->
     let reg = getRegVar ctxt reg
-    let amount = transShiftAmout ctxt ins.OprSize amt
-    shiftReg reg amount ins.OprSize typ
+    let amount = transShiftAmout ctxt oprSize amt
+    shiftReg reg amount oprSize typ
   | OprRegister reg, OprExtReg (Some (ExtRegOffset (typ, shf))) ->
-    extendReg ctxt reg typ shf ins.OprSize
+    extendReg ctxt reg typ shf oprSize
   | OprRegister reg, OprExtReg None -> getRegVar ctxt reg
   | _ -> raise <| NotImplementedIRException "transBarrelShiftToExpr"
 
@@ -353,7 +353,7 @@ let transThreeOprsWithBarrelShift ins ctxt addr =
   match ins.Operands with
   | ThreeOperands (o1, o2, o3) ->
     transOprToExpr ins ctxt addr o1,
-    transBarrelShiftToExpr ins ctxt o2 o3
+    transBarrelShiftToExpr ins.OprSize ctxt o2 o3
   | _ -> raise InvalidOperandException
 
 let transFourOprsWithBarrelShift ins ctxt addr =
@@ -361,7 +361,7 @@ let transFourOprsWithBarrelShift ins ctxt addr =
   | FourOperands (o1, o2, o3, o4) ->
     transOprToExpr ins ctxt addr o1,
     transOprToExpr ins ctxt addr o2,
-    transBarrelShiftToExpr ins ctxt o3 o4
+    transBarrelShiftToExpr ins.OprSize ctxt o3 o4
   | _ -> raise InvalidOperandException
 
 let isRegOffset opr =
@@ -436,7 +436,7 @@ let transOprToExprOfCMP ins ctxt addr =
   match ins.Operands with
   | ThreeOperands (o1, o2, o3) ->
     transOprToExpr ins ctxt addr o1,
-    transBarrelShiftToExpr ins ctxt o2 o3
+    transBarrelShiftToExpr ins.OprSize ctxt o2 o3
   | _ -> raise InvalidOperandException
 
 let transOprToExprOfCSEL ins ctxt addr =
@@ -503,11 +503,11 @@ let transOprToExprOfEOR ins ctxt addr =
   | FourOperands (o1, o2, o3, o4) when ins.Opcode = Opcode.EOR ->
     transOprToExpr ins ctxt addr o1,
     transOprToExpr ins ctxt addr o2,
-    transBarrelShiftToExpr ins ctxt o3 o4
+    transBarrelShiftToExpr ins.OprSize ctxt o3 o4
   | FourOperands (o1, o2, o3, o4) when ins.Opcode = Opcode.EON ->
     transOprToExpr ins ctxt addr o1,
     transOprToExpr ins ctxt addr o2,
-    transBarrelShiftToExpr ins ctxt o3 o4 |> AST.not
+    transBarrelShiftToExpr ins.OprSize ctxt o3 o4 |> AST.not
   | _ -> raise InvalidOperandException
 
 let transOprToExprOfEXTR ins ctxt addr =
@@ -545,11 +545,11 @@ let transOprToExprOfORN ins ctxt addr =
   | ThreeOperands (o1, o2, o3) when ins.Opcode = Opcode.MVN -> (* MVN *)
     transOprToExpr ins ctxt addr o1,
     getRegVar ctxt (if ins.OprSize = 64<rt> then R.XZR else R.WZR),
-    transBarrelShiftToExpr ins ctxt o2 o3
+    transBarrelShiftToExpr ins.OprSize ctxt o2 o3
   | FourOperands (o1, o2, o3, o4) when ins.Opcode = Opcode.ORN -> (* ORN *)
     transOprToExpr ins ctxt addr o1,
     transOprToExpr ins ctxt addr o2,
-    transBarrelShiftToExpr ins ctxt o3 o4
+    transBarrelShiftToExpr ins.OprSize ctxt o3 o4
   | _ -> raise InvalidOperandException
 
 let transOprToExprOfORR ins ctxt addr =
@@ -558,7 +558,7 @@ let transOprToExprOfORR ins ctxt addr =
   | FourOperands (o1, o2, o3, o4) ->
     transOprToExpr ins ctxt addr o1,
     transOprToExpr ins ctxt addr o2,
-    transBarrelShiftToExpr ins ctxt o3 o4
+    transBarrelShiftToExpr ins.OprSize ctxt o3 o4
   | _ -> raise InvalidOperandException
 
 let unwrapReg e =
@@ -570,19 +570,17 @@ let transOprToExprOfMOVI ins ctxt addr =
   match ins.Operands with
   | TwoOperands (OprSIMD (SIMDVecReg _), OprImm _) ->
     let struct (dst, src) = getTwoOprs ins
-    let dstB, dstA = transOprToExpr128 ins ctxt addr dst
     let struct (eSize, dataSize, _) = getElemDataSzAndElems dst
     let cond = not (dataSize = 128<rt> && eSize = 64<rt>)
     let imm = transOprToExpr ins ctxt addr src
     let amtBit = numI32 (int32 eSize) ins.OprSize
-    dstB, dstA, imm, dataSize, cond, amtBit
+    dst, imm, dataSize, cond, amtBit
   | ThreeOperands (OprSIMD (SIMDVecReg _), OprImm _, OprShift _) ->
     let struct (dst, src, amount) = getThreeOprs ins
-    let dstB, dstA = transOprToExpr128 ins ctxt addr dst
-    let imm = transBarrelShiftToExpr ins ctxt src amount
+    let imm = transBarrelShiftToExpr ins.OprSize ctxt src amount
     let struct (eSize, dataSize, _) = getElemDataSzAndElems dst
     let amtBit = numI32 (int32 eSize) ins.OprSize
-    dstB, dstA, imm, dataSize, true, amtBit
+    dst, imm, dataSize, true, amtBit
   | _ -> raise InvalidOperandException
 
 let transOprToExprOfSMSUBL ins ctxt addr =
@@ -601,11 +599,11 @@ let transOprToExprOfSUB ins ctxt addr =
     when ins.Opcode = Opcode.NEG ->
     transOprToExpr ins ctxt addr o1,
     getRegVar ctxt (if ins.OprSize = 64<rt> then R.XZR else R.WZR),
-    transBarrelShiftToExpr ins ctxt o2 o3 |> AST.not
+    transBarrelShiftToExpr ins.OprSize ctxt o2 o3 |> AST.not
   | FourOperands (o1, o2, o3, o4) -> (* Arithmetic *)
     transOprToExpr ins ctxt addr o1,
     transOprToExpr ins ctxt addr o2,
-    transBarrelShiftToExpr ins ctxt o3 o4 |> AST.not
+    transBarrelShiftToExpr ins.OprSize ctxt o3 o4 |> AST.not
   | _ -> raise InvalidOperandException
 
 let transOprToExprOfMSUB ins ctxt addr =
@@ -634,11 +632,11 @@ let transOprToExprOfSUBS ins ctxt addr =
   | ThreeOperands (o1, o2, o3) ->
     transOprToExpr ins ctxt addr o1,
     getRegVar ctxt (if ins.OprSize = 64<rt> then R.XZR else R.WZR),
-    transBarrelShiftToExpr ins ctxt o2 o3 |> AST.not
+    transBarrelShiftToExpr ins.OprSize ctxt o2 o3 |> AST.not
   | FourOperands (o1, o2, o3, o4) ->
     transOprToExpr ins ctxt addr o1,
     transOprToExpr ins ctxt addr o2,
-    transBarrelShiftToExpr ins ctxt o3 o4 |> AST.not
+    transBarrelShiftToExpr ins.OprSize ctxt o3 o4 |> AST.not
   | _ -> raise InvalidOperandException
 
 let transOprToExprOfTST ins ctxt addr =
@@ -646,7 +644,8 @@ let transOprToExprOfTST ins ctxt addr =
   | TwoOperands (o1, o2) (* immediate *) ->
     transOprToExpr ins ctxt addr o1, transOprToExpr ins ctxt addr o2
   | ThreeOperands (o1, o2, o3) (* shfed *) ->
-    transOprToExpr ins ctxt addr o1, transBarrelShiftToExpr ins ctxt o2 o3
+    transOprToExpr ins ctxt addr o1,
+    transBarrelShiftToExpr ins.OprSize ctxt o2 o3
   | _ -> raise InvalidOperandException
 
 type BranchType =
@@ -852,6 +851,15 @@ let dstAssign oprSize dst src =
     if orgDstSz > oprSize then orgDst := AST.zext orgDstSz src
     elif orgDstSz = oprSize then orgDst := src
     else raise InvalidOperandSizeException
+
+let dstAssign128 ins ctxt addr dst srcA srcB dataSize ir =
+  let dstB, dstA = transOprToExpr128 ins ctxt addr dst
+  if dataSize = 128<rt> then
+    !!ir (dstA := srcA)
+    !!ir (dstB := srcB)
+  else
+    !!ir (dstA := srcA)
+    !!ir (dstB := AST.num0 64<rt>)
 
 let dstAssignForSIMD dstA dstB result dataSize elements ir =
   if dataSize = 128<rt> then

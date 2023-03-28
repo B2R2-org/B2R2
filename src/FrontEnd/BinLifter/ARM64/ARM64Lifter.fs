@@ -1075,14 +1075,8 @@ let mov ins insLen ctxt addr =
   | TwoOperands (OprSIMD (SIMDVecReg _), OprSIMD (SIMDVecReg _)) ->
     let struct (dst, src) = getTwoOprs ins
     let struct (_, dataSize, _) = getElemDataSzAndElems dst
-    let dstB, dstA = transOprToExpr128 ins ctxt addr dst
     let srcB, srcA = transOprToExpr128 ins ctxt addr src
-    if dataSize = 128<rt> then
-      !!ir (dstA := srcA)
-      !!ir (dstB := srcB)
-    else
-      !!ir (dstA := srcA)
-      !!ir (dstB := AST.num0 64<rt>)
+    dstAssign128 ins ctxt addr dst srcA srcB dataSize ir
   | _ ->
     let dst, src = transTwoOprs ins ctxt addr
     !!ir (dstAssign ins.OprSize dst src)
@@ -1097,16 +1091,10 @@ let movi ins insLen ctxt addr =
     let dst, src = transTwoOprs ins ctxt addr
     !!ir (dstAssign ins.OprSize dst src)
   | _ ->
-    let dstB, dstA, imm, dataSize, cond, amtBit =
-      transOprToExprOfMOVI ins ctxt addr
+    let dst, imm, dataSize, cond, amtBit = transOprToExprOfMOVI ins ctxt addr
     !!ir (rImm := if cond then replicateForIR imm amtBit ins.OprSize ir
                   else imm)
-    if dataSize = 128<rt> then
-      !!ir (dstAssign ins.OprSize dstA rImm)
-      !!ir (dstAssign ins.OprSize dstB rImm)
-    else
-      !!ir (dstAssign ins.OprSize dstA rImm)
-      !!ir (dstB := AST.num0 64<rt>)
+    dstAssign128 ins ctxt addr dst rImm rImm dataSize ir
   !>ir insLen
 
 let private getWordMask ins shift =
@@ -1120,7 +1108,7 @@ let movk ins insLen ctxt addr =
   !<ir insLen
   let struct (dst, imm, shf) = getThreeOprs ins
   let dst = transOprToExpr ins ctxt addr dst
-  let src = transBarrelShiftToExpr ins ctxt imm shf
+  let src = transBarrelShiftToExpr ins.OprSize ctxt imm shf
   let mask = getWordMask ins shf
   !!ir (dstAssign ins.OprSize dst ((dst .& mask) .| src))
   !>ir insLen
@@ -1189,7 +1177,7 @@ let orr ins insLen ctxt addr =
   | ThreeOperands (OprSIMD _, OprImm _, _) ->
     let struct (dst, imm, shf) = getThreeOprs ins
     let dstB, dstA = transOprToExpr128 ins ctxt addr dst
-    let src = transBarrelShiftToExpr ins ctxt imm shf
+    let src = transBarrelShiftToExpr ins.OprSize ctxt imm shf
     !!ir (dstA := dstA .| src)
     !!ir (dstB := AST.num0 64<rt>)
   | ThreeOperands (OprSIMD (SIMDVecReg (_, v)) as o1, o2, o3) ->
