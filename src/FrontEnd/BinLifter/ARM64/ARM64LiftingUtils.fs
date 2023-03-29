@@ -181,8 +181,21 @@ let rec getElemDataSzAndElems = function
   | OprSIMDList simds -> getElemDataSzAndElems (OprSIMD simds[0])
   | _ -> raise InvalidOperandException
 
+let rec getVectorIndex = function
+  | OprSIMD (SIMDFPScalarReg v) ->
+    struct (Register.toRegType v, Register.toRegType v, 1)
+  | OprSIMD (SIMDVecReg (_, v)) -> getElemDataSzAndElemsByVector v
+  | OprSIMD (SIMDVecRegWithIdx (_, v, _)) -> getElemDataSzAndElemsByVector v
+  | OprSIMDList simds -> getElemDataSzAndElems (OprSIMD simds[0])
+  | _ -> raise InvalidOperandException
+
 let transSIMDReg ctxt = function (* FIXME *)
-  | SIMDFPScalarReg _ | SIMDVecRegWithIdx _ -> raise InvalidOperandException
+  | SIMDFPScalarReg reg -> [| getRegVar ctxt reg |]
+  | SIMDVecRegWithIdx (reg, v, idx) ->
+    let struct (eSize, _, _) = getElemDataSzAndElemsByVector v
+    let index = int eSize * int idx
+    [| if index < 64 then AST.extract (getPseudoRegVar ctxt reg 1) eSize index
+       else AST.extract (getPseudoRegVar ctxt reg 2) eSize (index % 64) |]
   | SIMDVecReg (reg, v) ->
     let struct (eSize, dataSize, elements) = getElemDataSzAndElemsByVector v
     getPseudoRegVarToArr ctxt reg eSize dataSize elements
@@ -247,6 +260,14 @@ let transOprToExpr ins ctxt addr = function
     else
       numI64 (System.BitConverter.SingleToInt32Bits (float32 float)) ins.OprSize
   | _ -> raise <| NotImplementedIRException "transOprToExpr"
+
+let transOprToExprFPImm ins eSize src =
+  match eSize, src with
+  | 32<rt>, OprFPImm float ->
+    numI64 (System.BitConverter.SingleToInt32Bits (float32 float)) ins.OprSize
+  | 64<rt>, OprFPImm float ->
+    numI64 (System.BitConverter.DoubleToInt64Bits float) ins.OprSize
+  | _ -> raise InvalidOperandException
 
 let separateMemExpr expr =
   match expr.E with
@@ -314,6 +335,13 @@ let transOprToExpr128 ins ctxt addr = function
   | OprMemory mem -> transMem ins ctxt addr mem |> getMemExpr128
   | _ -> raise InvalidOperandException
 
+let transVectorWithIdx ins ctxt addr (idx: Index) (opr: Operand) =
+  let struct (eSize, _, _) = getElemDataSzAndElems opr
+  let index = int eSize * int idx
+  let regB, regA = transOprToExpr128 ins ctxt addr opr
+  if index < 64 then AST.extract regA eSize index
+  else AST.extract regB eSize (index % 64)
+
 let transSIMDOprToExpr ctxt eSize dataSize elements = function
   | OprSIMD (SIMDFPScalarReg reg) ->
     if dataSize = 128<rt> then
@@ -322,7 +350,7 @@ let transSIMDOprToExpr ctxt eSize dataSize elements = function
     else [| getRegVar ctxt reg |]
   | OprSIMD (SIMDVecReg (reg, _)) ->
     getPseudoRegVarToArr ctxt reg eSize dataSize elements
-  | OprSIMD (SIMDVecRegWithIdx (reg, v, idx)) -> raise InvalidOperandException
+  | OprSIMD (SIMDVecRegWithIdx _) -> raise InvalidOperandException
   | _ -> raise InvalidOperandException
 
 (* Barrel shift *)
@@ -566,23 +594,6 @@ let unwrapReg e =
   | Extract (e, 32<rt>, 0, _) -> e
   | _ -> failwith "Invalid register"
 
-let transOprToExprOfMOVI ins ctxt addr =
-  match ins.Operands with
-  | TwoOperands (OprSIMD (SIMDVecReg _), OprImm _) ->
-    let struct (dst, src) = getTwoOprs ins
-    let struct (eSize, dataSize, _) = getElemDataSzAndElems dst
-    let cond = not (dataSize = 128<rt> && eSize = 64<rt>)
-    let imm = transOprToExpr ins ctxt addr src
-    let amtBit = numI32 (int32 eSize) ins.OprSize
-    dst, imm, dataSize, cond, amtBit
-  | ThreeOperands (OprSIMD (SIMDVecReg _), OprImm _, OprShift _) ->
-    let struct (dst, src, amount) = getThreeOprs ins
-    let imm = transBarrelShiftToExpr ins.OprSize ctxt src amount
-    let struct (eSize, dataSize, _) = getElemDataSzAndElems dst
-    let amtBit = numI32 (int32 eSize) ins.OprSize
-    dst, imm, dataSize, true, amtBit
-  | _ -> raise InvalidOperandException
-
 let transOprToExprOfSMSUBL ins ctxt addr =
   match ins.Operands with
   | ThreeOperands (o1, o2, o3) ->
@@ -748,6 +759,26 @@ let replicateForIR value bits oprSize (ir: IRBuilder) =
 let replicate x eSize dstSize =
   let rec loop x i = if i = 1 then x else loop (x <<< eSize ||| x) (i - 1)
   loop x (dstSize / eSize)
+
+let advSIMDExpandImm ir (eSize: int<rt>) src =
+  let splitCnt = numI32 (int32 eSize) 64<rt>
+  replicateForIR src splitCnt 64<rt> ir
+
+let fpToFixed ins src fbits unsigned round =
+  let oprSz = ins.OprSize
+  let signOrUnsigned = if unsigned then AST.cast CastKind.UIntToFloat oprSz src
+                       else AST.cast CastKind.SIntToFloat oprSz src
+  let mulBits = AST.cast CastKind.SIntToFloat oprSz (AST.num1 oprSz << fbits)
+  let value = AST.cast CastKind.FtoIFloor oprSz
+               (AST.fmul signOrUnsigned mulBits)
+  let result =
+    match round with
+    | FPRounding_TIEEVEN
+    | FPRounding_TIEAWAY -> AST.cast CastKind.FtoIRound oprSz
+    | FPRounding_Zero -> AST.cast CastKind.FtoITrunc oprSz
+    | FPRounding_POSINF -> AST.cast CastKind.FtoICeil oprSz
+    | FPRounding_NEGINF -> AST.cast CastKind.FtoIFloor oprSz
+  result value
 
 let getMaskForIR n oprSize = (AST.num1 oprSize << n) .- AST.num1 oprSize
 

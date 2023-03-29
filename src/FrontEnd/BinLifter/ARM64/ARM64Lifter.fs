@@ -220,10 +220,22 @@ let bic ins insLen ctxt addr =
   let ir = !*ctxt
   !<ir insLen
   match ins.Operands with
-  | TwoOperands _ -> (* FIXME: SIMD Register *)
-    !!ir (AST.sideEffect UnsupportedFP)
-  | ThreeOperands _ -> (* FIXME: SIMD Register *)
-    !!ir (AST.sideEffect UnsupportedFP)
+  | ThreeOperands (OprSIMD (SIMDVecReg _), OprSIMD (SIMDVecReg _), _) ->
+    let struct (dst, src1, src2) = getThreeOprs ins
+    let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
+    let dstB, dstA = transOprToExpr128 ins ctxt addr dst
+    let src1 = transSIMDOprToExpr ctxt eSize dataSize elements src1
+    let src2 = transSIMDOprToExpr ctxt eSize dataSize elements src2
+    let result = Array.map2 (fun s1 s2 -> s1 .& AST.not s2) src1 src2
+    dstAssignForSIMD dstA dstB result dataSize elements ir
+  | ThreeOperands (OprSIMD (SIMDVecReg _), OprImm _, OprShift _)  ->
+    let struct (dst, src, amount) = getThreeOprs ins
+    let struct (eSize, dataSize, _) = getElemDataSzAndElems dst
+    let dstB, dstA = transOprToExpr128 ins ctxt addr dst
+    let imm = transBarrelShiftToExpr ins.OprSize ctxt src amount
+              |> advSIMDExpandImm ir eSize
+              |> AST.not
+    dstAssign128 ins ctxt addr dst (dstA .& imm) (dstB .& imm) dataSize ir
   | _ ->
     let dst, src1, src2 = transFourOprsWithBarrelShift ins ctxt addr
     !!ir (dstAssign ins.OprSize dst (src1 .& AST.not src2))
@@ -613,22 +625,6 @@ let fcvt ins insLen ctxt addr =
   !!ir (dstAssign oprSize dst (AST.cast CastKind.FloatCast oprSize src))
   !>ir insLen
 
-let fpToFixed ins src fbits unsigned round =
-  let oprSz = ins.OprSize
-  let signOrUnsigned = if unsigned then AST.cast CastKind.UIntToFloat oprSz src
-                       else AST.cast CastKind.SIntToFloat oprSz src
-  let mulBits = AST.cast CastKind.SIntToFloat oprSz (AST.num1 oprSz << fbits)
-  let value = AST.cast CastKind.FtoIFloor oprSz
-               (AST.fmul signOrUnsigned mulBits)
-  let result =
-    match round with
-    | FPRounding_TIEEVEN
-    | FPRounding_TIEAWAY -> AST.cast CastKind.FtoIRound oprSz
-    | FPRounding_Zero -> AST.cast CastKind.FtoITrunc oprSz
-    | FPRounding_POSINF -> AST.cast CastKind.FtoICeil oprSz
-    | FPRounding_NEGINF -> AST.cast CastKind.FtoIFloor oprSz
-  result value
-
 let fcvtmsOrU ins insLen ctxt addr unsigned =
   let ir = !*ctxt
   let oprSize = ins.OprSize
@@ -664,8 +660,29 @@ let fdiv ins insLen ctxt addr =
 let fmov ins insLen ctxt addr =
   let ir = !*ctxt
   !<ir insLen
-  let dst, src = transTwoOprs ins ctxt addr
-  !!ir (dstAssign ins.OprSize dst src)
+  match ins.Operands with
+  | TwoOperands (OprRegister _, OprSIMD (SIMDVecRegWithIdx _)) ->
+    let struct (dst, src) = getTwoOprs ins
+    let dst = transOprToExpr ins ctxt addr dst
+    let srcB, _ = transOprToExpr128 ins ctxt addr src
+    !!ir (dstAssign ins.OprSize dst srcB)
+  | TwoOperands (OprSIMD (SIMDVecRegWithIdx _), OprRegister _) ->
+    let struct (dst, src) = getTwoOprs ins
+    let dstB, dstA = transOprToExpr128 ins ctxt addr dst
+    let src = transOprToExpr ins ctxt addr src
+    !!ir (dstA := dstA)
+    !!ir (dstB := src)
+  | TwoOperands (OprSIMD (SIMDVecReg _), OprFPImm _) ->
+    let struct (dst, src) = getTwoOprs ins
+    let struct (eSize, dataSize, _) = getElemDataSzAndElems dst
+    let src = if eSize <> 64<rt> then
+                transOprToExprFPImm ins eSize src
+                |> advSIMDExpandImm ir eSize
+              else transOprToExprFPImm ins eSize src
+    dstAssign128 ins ctxt addr dst src src dataSize ir
+  | _ ->
+    let dst, src = transTwoOprs ins ctxt addr
+    !!ir (dstAssign ins.OprSize dst src)
   !>ir insLen
 
 let fmul ins insLen ctxt addr =
@@ -682,6 +699,25 @@ let fsub ins insLen ctxt addr =
   let dst, src1, src2 = transThreeOprs ins ctxt addr
   let oprSize = ins.OprSize
   !!ir (dstAssign oprSize dst (AST.fsub src1 src2))
+  !>ir insLen
+
+let insv ins insLen ctxt addr =
+  let ir = !*ctxt
+  !<ir insLen
+  match ins.Operands with
+  | TwoOperands (OprSIMD (SIMDVecRegWithIdx (_, _, fstIdx)),
+    OprSIMD (SIMDVecRegWithIdx (_, _, sndIdx))) ->
+    let struct (o1, o2) = getTwoOprs ins
+    let dst = transVectorWithIdx ins ctxt addr fstIdx o1
+    let src = transVectorWithIdx ins ctxt addr sndIdx o2
+    !!ir (dst := src)
+  | TwoOperands (OprSIMD (SIMDVecRegWithIdx (_, _, idx)), OprRegister _) ->
+    let struct (o1, o2) = getTwoOprs ins
+    let src = transOprToExpr ins ctxt addr o2
+    let struct (eSize, _, _) = getElemDataSzAndElems o1
+    let dst = transVectorWithIdx ins ctxt addr idx o1
+    !!ir (dst := AST.xtlo eSize src)
+  | _ -> raise InvalidOperandException
   !>ir insLen
 
 let ld1 ins insLen ctxt addr =
@@ -705,6 +741,16 @@ let ld1 ins insLen ctxt addr =
   if isWBack then
     if isRegOffset src then !!ir (offs := mOffs) else ()
     !!ir (bReg := address .+ offs)
+  !>ir insLen
+
+let ldar ins insLen ctxt addr =
+  let ir = !*ctxt
+  let dst, (bReg, offset) = transTwoOprsSepMem ins ctxt addr
+  let address = !+ir 64<rt>
+  !<ir insLen
+  !!ir (address := bReg .+ offset)
+  mark ctxt address (memSizeToExpr ins.OprSize) ir
+  !!ir (dstAssign ins.OprSize dst (AST.loadLE ins.OprSize address))
   !>ir insLen
 
 let ldarb ins insLen ctxt addr =
@@ -1061,8 +1107,13 @@ let madd ins insLen ctxt addr =
   let ir = !*ctxt
   !<ir insLen
   match ins.Operands with
-  | ThreeOperands (OprSIMD _, OprSIMD _, OprSIMD _) ->
-    !!ir (AST.sideEffect UnsupportedFP)
+  | ThreeOperands (OprSIMD _ as o1, o2, o3) ->
+    let struct (eSize, dataSize, elements) = getElemDataSzAndElems o1
+    let dstB, dstA = transOprToExpr128 ins ctxt addr o1
+    let src1 = transSIMDOprToExpr ctxt eSize dataSize elements o2
+    let src2 = transSIMDOprToExpr ctxt eSize dataSize elements o3
+    let result = Array.map2 (.*) src1 src2
+    dstAssignForSIMD dstA dstB  result dataSize elements ir
   | _ ->
     let dst, src1, src2, src3 = transOprToExprOfMADD ins ctxt addr
     !!ir (dstAssign ins.OprSize dst (src3 .+ (src1 .* src2)))
@@ -1084,17 +1135,26 @@ let mov ins insLen ctxt addr =
 
 let movi ins insLen ctxt addr =
   let ir = !*ctxt
-  let rImm = !+ir ins.OprSize
   !<ir insLen
   match ins.Operands with
   | TwoOperands (OprSIMD (SIMDFPScalarReg _), OprImm _) ->
     let dst, src = transTwoOprs ins ctxt addr
     !!ir (dstAssign ins.OprSize dst src)
-  | _ ->
-    let dst, imm, dataSize, cond, amtBit = transOprToExprOfMOVI ins ctxt addr
-    !!ir (rImm := if cond then replicateForIR imm amtBit ins.OprSize ir
-                  else imm)
-    dstAssign128 ins ctxt addr dst rImm rImm dataSize ir
+  | TwoOperands (OprSIMD (SIMDVecReg _), OprImm _) ->
+    let struct (dst, src) = getTwoOprs ins
+    let struct (eSize, dataSize, _) = getElemDataSzAndElems dst
+    let imm = if not (dataSize = 128<rt> && eSize = 64<rt>) then
+                transOprToExpr ins ctxt addr src
+                |> advSIMDExpandImm ir eSize
+              else transOprToExpr ins ctxt addr src
+    dstAssign128 ins ctxt addr dst imm imm dataSize ir
+  | ThreeOperands (OprSIMD (SIMDVecReg _), OprImm _, OprShift _) ->
+    let struct (dst, src, amount) = getThreeOprs ins
+    let struct (eSize, dataSize, _) = getElemDataSzAndElems dst
+    let imm = transBarrelShiftToExpr ins.OprSize ctxt src amount
+              |> advSIMDExpandImm ir eSize
+    dstAssign128 ins ctxt addr dst imm imm dataSize ir
+  | _ -> raise InvalidOperandException
   !>ir insLen
 
 let private getWordMask ins shift =
@@ -1148,6 +1208,26 @@ let msub ins insLen ctxt addr =
   !!ir (dstAssign ins.OprSize dst (src3 .- (src1 .* src2)))
   !>ir insLen
 
+let mvni ins insLen ctxt addr =
+  let ir = !*ctxt
+  !<ir insLen
+  match ins.Operands with
+  | TwoOperands _ ->
+    let struct (dst, src) = getTwoOprs ins
+    let struct (eSize, dataSize, _) = getElemDataSzAndElems dst
+    let imm = transOprToExpr ins ctxt addr src
+              |> advSIMDExpandImm ir eSize
+              |> AST.not
+    dstAssign128 ins ctxt addr dst imm imm dataSize ir
+  | _ ->
+    let struct (dst, src, shf) = getThreeOprs ins
+    let struct (eSize, dataSize, _) = getElemDataSzAndElems dst
+    let src = transBarrelShiftToExpr 64<rt> ctxt src shf
+              |> advSIMDExpandImm ir eSize
+              |> AST.not
+    dstAssign128 ins ctxt addr dst src src dataSize ir
+  !>ir insLen
+
 let nop insLen ctxt =
   let ir = !*ctxt
   !<ir insLen
@@ -1169,25 +1249,20 @@ let orr ins insLen ctxt addr =
   let ir = !*ctxt
   !<ir insLen
   match ins.Operands with
-  | TwoOperands ((OprSIMD _) as o1, o2) ->
-    let dstB, dstA = transOprToExpr128 ins ctxt addr o1
-    let imm = transOprToExpr ins ctxt addr o2
-    !!ir (dstA := dstA .| imm)
-    !!ir (dstB := AST.num0 64<rt>)
   | ThreeOperands (OprSIMD _, OprImm _, _) ->
     let struct (dst, imm, shf) = getThreeOprs ins
+    let struct (eSize, dataSize, _) = getElemDataSzAndElems dst
     let dstB, dstA = transOprToExpr128 ins ctxt addr dst
     let src = transBarrelShiftToExpr ins.OprSize ctxt imm shf
-    !!ir (dstA := dstA .| src)
-    !!ir (dstB := AST.num0 64<rt>)
+              |> advSIMDExpandImm ir eSize
+    dstAssign128 ins ctxt addr dst (dstA .| src) (dstB .| src) dataSize ir
   | ThreeOperands (OprSIMD (SIMDVecReg (_, v)) as o1, o2, o3) ->
     let struct (_, dataSize, _) = getElemDataSzAndElems o1
-    let dstB, dstA = transOprToExpr128 ins ctxt addr o1
     let src1B, src1A = transOprToExpr128 ins ctxt addr o2
     let src2B, src2A = transOprToExpr128 ins ctxt addr o3
-    !!ir (dstA := src1A .| src2A)
-    if dataSize = 128<rt> then !!ir (dstB := src1B .| src2B)
-    else !!ir (dstB := AST.num0 64<rt>)
+    let resultB = src1B .| src2B
+    let resultA = src1A .| src2A
+    dstAssign128 ins ctxt addr o1 resultA resultB dataSize ir
   | _ ->
     let dst, src1, src2 = transOprToExprOfORR ins ctxt addr
     !!ir (dstAssign ins.OprSize dst (src1 .| src2))
@@ -1362,10 +1437,18 @@ let scvtf ins insLen ctxt addr =
 let sdiv ins insLen ctxt addr =
   let ir = !*ctxt
   let dst, src1, src2 = transThreeOprs ins ctxt addr
-  let cond = src2 == AST.num0 ins.OprSize
+  let num0 = AST.num0 ins.OprSize
+  let cond1 = AST.eq src2 num0
+  let fSrc1 = AST.cast CastKind.SIntToFloat ins.OprSize src1
+  let fSrc2 = AST.cast CastKind.SIntToFloat ins.OprSize src2
+  let realSrc = AST.fdiv fSrc1 fSrc2
+  let cond2  = AST.eq realSrc num0
+  let cond3 = AST.fgt realSrc num0
   !<ir insLen
-  (* FIXME: RoundTowardsZero *)
-  let result = AST.ite cond (AST.num0 ins.OprSize) (src1 ./ src2)
+  let roundDown = realSrc |> AST.cast CastKind.FtoITrunc ins.OprSize
+  let roundUp = realSrc |> AST.cast CastKind.FtoICeil ins.OprSize
+  let roundToZero = AST.ite cond2 num0 (AST.ite cond3 roundDown roundUp)
+  let result = AST.ite cond1 num0 roundToZero
   !!ir (dstAssign ins.OprSize dst result)
   !>ir insLen
 
@@ -1428,6 +1511,32 @@ let smull ins insLen ctxt addr =
   | _ ->
     let dst, src1, src2 = transThreeOprs ins ctxt addr
     !!ir (dst := AST.sext 64<rt> src1 .* AST.sext 64<rt> src2)
+  !>ir insLen
+
+let signOrUnsignShift ins insLen ctxt addr opFn =
+  let ir = !*ctxt
+  let struct (dst, src, amt) = getThreeOprs ins
+  let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
+  !<ir insLen
+  match ins.Operands with
+  | ThreeOperands (OprSIMD (SIMDFPScalarReg _), _, _) ->
+    let dst, src, amt = transThreeOprs ins ctxt addr
+    !!ir (dstAssign ins.OprSize dst (opFn src amt))
+  | _ ->
+    let dstB, dstA = transOprToExpr128 ins ctxt addr dst
+    let src = transSIMDOprToExpr ctxt eSize dataSize elements src
+    let amt = transOprToExpr ins ctxt addr amt |> AST.xtlo eSize
+    let result = Array.map (fun e -> opFn e amt) src
+    dstAssignForSIMD dstA dstB result dataSize elements ir
+  !>ir insLen
+
+let stlr ins insLen ctxt addr =
+  let ir = !*ctxt
+  let src, (bReg, offset) = transTwoOprsSepMem ins ctxt addr
+  let address = !+ir 64<rt>
+  !<ir insLen
+  !!ir (address := bReg .+ offset)
+  !!ir (dstAssign ins.OprSize (AST.loadLE ins.OprSize address) src)
   !>ir insLen
 
 let stlrb ins insLen ctxt addr =
@@ -1635,10 +1744,27 @@ let sub ins insLen ctxt addr =
   let ir = !*ctxt
   !<ir insLen
   match ins.Operands with
-  | TwoOperands (OprSIMD _, OprSIMD _) ->
-    !!ir (AST.sideEffect UnsupportedFP) (* FIXME: NEG SIMD Register *)
-  | ThreeOperands _ when ins.Opcode = Opcode.SUB ->
-    !!ir (AST.sideEffect UnsupportedFP) (* FIXME: SUB SIMD Register *)
+  | TwoOperands (OprSIMD (SIMDFPScalarReg _), _) ->
+    let dst, src = transTwoOprs ins ctxt addr
+    !!ir (dstAssign ins.OprSize dst (AST.neg src))
+  | TwoOperands (OprSIMD (SIMDVecReg _) as o1, o2) ->
+    let dstB, dstA = transOprToExpr128 ins ctxt addr o1
+    let struct (eSize, dataSize, elements) = getElemDataSzAndElems o2
+    let src = transSIMDOprToExpr ctxt eSize dataSize elements o2
+    let result = Array.map (AST.neg) src
+    dstAssignForSIMD dstA dstB result dataSize elements ir
+  | ThreeOperands (OprSIMD (SIMDFPScalarReg _), _, _)
+      when ins.Opcode = Opcode.SUB ->
+    let dst, src1, src2 = transThreeOprs ins ctxt addr
+    !!ir (dstAssign ins.OprSize dst (src1 .- src2))
+  | ThreeOperands (OprSIMD (SIMDVecReg _) as o1, o2, o3)
+      when ins.Opcode = Opcode.SUB ->
+    let dstB, dstA = transOprToExpr128 ins ctxt addr o1
+    let struct (eSize, dataSize, elements) = getElemDataSzAndElems o1
+    let src1 = transSIMDOprToExpr ctxt eSize dataSize elements o2
+    let src2 = transSIMDOprToExpr ctxt eSize dataSize elements o3
+    let result = Array.map2 (.-) src1 src2
+    dstAssignForSIMD dstA dstB result dataSize elements ir
   | _ ->
     let dst, src1, src2 = transOprToExprOfSUB ins ctxt addr
     let result, _ = addWithCarry src1 src2 (AST.num1 ins.OprSize) ins.OprSize
@@ -1767,10 +1893,15 @@ let ubfx ins insLen ctxt addr =
 let udiv ins insLen ctxt addr =
   let ir = !*ctxt
   let dst, src1, src2 = transThreeOprs ins ctxt addr
-  let cond = src2 == AST.num0 ins.OprSize
+  let num0 = AST.num0 ins.OprSize
+  let cond1 = AST.eq src2 num0
+  let realSrc = AST.fdiv src1 src2
+  let cond2 = AST.eq realSrc num0
   !<ir insLen
-  let result = AST.ite cond (AST.num0 ins.OprSize) (src1 ./ src2)
-  !!ir (dstAssign ins.OprSize dst result) (* FIXME: RoundTwoardsZero *)
+  let roundDown = realSrc |> AST.cast CastKind.FtoITrunc ins.OprSize
+  let roundToZero = AST.ite cond2 num0 roundDown
+  let result = AST.ite cond1 num0 roundToZero
+  !!ir (dstAssign ins.OprSize dst result)
   !>ir insLen
 
 let umaddl ins insLen ctxt addr =
@@ -1851,6 +1982,53 @@ let uqsub ins insLen ctxt addr =
   | _ -> raise InvalidOperandException
   !>ir insLen
 
+let vectorPart ctxt eSize srcSize elements src =
+  let regA, regB =
+    match src with
+    | OprSIMD (SIMDVecReg (reg, _)) ->
+      getPseudoRegVar ctxt reg 1, getPseudoRegVar ctxt reg 2
+    | _ -> raise InvalidOperandException
+  let pos = int eSize
+  if srcSize <> 128<rt> then
+    Array.init elements (fun i -> AST.extract regA eSize (i * pos))
+  else
+    Array.init (elements / 2) (fun i -> AST.extract regB eSize (i * pos))
+
+let signOrUnsignShiftLeft ins insLen ctxt addr =
+  let ir = !*ctxt
+  let struct (o1, o2, o3) = getThreeOprs ins
+  let struct (_, srcDataSize, srcElements) = getElemDataSzAndElems o2
+  let fixedDataSize = 64<rt>
+  let eSize = fixedDataSize / srcElements
+  let qSize = srcDataSize / srcElements
+  let elements = fixedDataSize / qSize
+  !<ir insLen
+  let dst = transSIMDOprToExpr ctxt (2 * qSize) (2 * fixedDataSize) elements o1
+  let amt = transOprToExpr ins ctxt addr o3 |> AST.xtlo (2 * qSize)
+  let result = vectorPart ctxt eSize srcDataSize srcElements o2
+               |> Array.map (fun s -> (AST.zext (2 * qSize) s) << amt)
+  Array.iter2 (fun d s -> !!ir (d := s)) dst result
+  !>ir insLen
+
+let roundShiftLeft ins insLen ctxt addr =
+  let ir = !*ctxt
+  !<ir insLen
+  match ins.Operands with
+  | ThreeOperands (OprSIMD (SIMDFPScalarReg _), _, _) ->
+    let dst, src, shiftReg = transThreeOprs ins ctxt addr
+    let round = src << (shiftReg .& numI64 0xffL 64<rt>)
+    !!ir (dstAssign ins.OprSize dst round)
+  | _ ->
+    let struct (dst, src, shiftReg) = getThreeOprs ins
+    let struct (eSize, dataSize, elements) = getElemDataSzAndElems src
+    let dstB, dstA = transOprToExpr128 ins ctxt addr dst
+    let src = transSIMDOprToExpr ctxt eSize dataSize elements src
+    let shiftReg = transSIMDOprToExpr ctxt eSize dataSize elements shiftReg
+                   |> Array.map (fun r -> r .& numI64 0xffL eSize)
+    let result = Array.map2 (<<) src shiftReg
+    dstAssignForSIMD dstA dstB result dataSize elements ir
+  !>ir insLen
+
 let usra ins insLen ctxt addr =
   let ir = !*ctxt
   let struct (o1, o2, o3) = getThreeOprs ins
@@ -1885,6 +2063,43 @@ let uzp ins insLen ctxt addr op =
     |> Array.filter (fun (i, _) -> i % 2 = op)
     |> Array.map snd
   dstAssignForSIMD dstA dstB result dataSize elements ir
+  !>ir insLen
+
+let zip ins insLen ctxt addr =
+  let ir = !*ctxt
+  let struct (dst, src1, src2) = getThreeOprs ins
+  let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
+  !<ir insLen
+  let dstB, dstA = transOprToExpr128 ins ctxt addr dst
+  let src1 = transSIMDOprToExpr ctxt eSize dataSize elements src1
+  let src2 = transSIMDOprToExpr ctxt eSize dataSize elements src2
+  let result = Array.init elements (fun i -> if i % 2 = 0 then src1.[i / 2]
+                                             else src2.[i / 2])
+  dstAssignForSIMD dstA dstB result dataSize elements ir
+  !>ir insLen
+
+let xtn ins insLen ctxt addr =
+  let ir = !*ctxt
+  !<ir insLen
+  let struct (dst, src) = getTwoOprs ins
+  let struct (eSize, dataSize, elements) = getElemDataSzAndElems src
+  let dstB, dstA = transOprToExpr128 ins ctxt addr dst
+  let src = transSIMDOprToExpr ctxt eSize dataSize elements src
+            |> Array.map (AST.xtlo (eSize / 2))
+  !!ir (dstA := AST.concatArr src)
+  !!ir (dstB := AST.num0 64<rt>)
+  !>ir insLen
+
+let xtn2 ins insLen ctxt addr =
+  let ir = !*ctxt
+  !<ir insLen
+  let struct (dst, src) = getTwoOprs ins
+  let struct (eSize, dataSize, elements) = getElemDataSzAndElems src
+  let dstB, dstA = transOprToExpr128 ins ctxt addr dst
+  let src = transSIMDOprToExpr ctxt eSize dataSize elements src
+            |> Array.map (AST.xtlo (eSize / 2))
+  !!ir (dstA := dstA)
+  !!ir (dstB := AST.concatArr src)
   !>ir insLen
 
 /// The logical shift left(or right) is the alias of LS{L|R}V and UBFM.
@@ -1997,11 +2212,12 @@ let translate ins insLen ctxt =
   | Opcode.FSQRT -> sideEffects insLen ctxt UnsupportedFP
   | Opcode.FMSUB -> sideEffects insLen ctxt UnsupportedFP
   | Opcode.HINT -> nop insLen ctxt
-  | Opcode.INS -> sideEffects insLen ctxt UnsupportedFP
+  | Opcode.INS -> insv ins insLen ctxt addr
   | Opcode.LD1 -> ld1 ins insLen ctxt addr
   | Opcode.LD1R | Opcode.LD2 | Opcode.LD2R | Opcode.LD3
   | Opcode.LD3R | Opcode.LD4 | Opcode.LD4R ->
     sideEffects insLen ctxt UnsupportedFP
+  | Opcode.LDAR -> ldar ins insLen ctxt addr
   | Opcode.LDARB -> ldarb ins insLen ctxt addr
   | Opcode.LDAXRB | Opcode.LDXRB -> ldax ins insLen ctxt addr 8<rt>
   | Opcode.LDAXRH | Opcode.LDXRH -> ldax ins insLen ctxt addr 16<rt>
@@ -2036,7 +2252,7 @@ let translate ins insLen ctxt =
   | Opcode.MSUB -> msub ins insLen ctxt addr
   | Opcode.MUL -> madd ins insLen ctxt addr
   | Opcode.MVN -> orn ins insLen ctxt addr
-  | Opcode.MVNI -> sideEffects insLen ctxt UnsupportedFP
+  | Opcode.MVNI -> mvni ins insLen ctxt addr
   | Opcode.NEG -> sub ins insLen ctxt addr
   | Opcode.NEGS -> subs ins insLen ctxt addr
   | Opcode.NOP -> nop insLen ctxt
@@ -2059,10 +2275,14 @@ let translate ins insLen ctxt =
   | Opcode.SMULH -> smulh ins insLen ctxt addr
   | Opcode.SMULL -> smull ins insLen ctxt addr
   | Opcode.SHL -> shl ins insLen ctxt addr
-  | Opcode.SSHR | Opcode.SSHL | Opcode.SSHLL | Opcode.SSHLL2  ->
-    sideEffects insLen ctxt UnsupportedFP
+  | Opcode.SSHR -> signOrUnsignShift ins insLen ctxt addr (?>>)
+  | Opcode.USHR -> signOrUnsignShift ins insLen ctxt addr (>>)
+  | Opcode.SSHL | Opcode.USHL -> signOrUnsignShift ins insLen ctxt addr (<<)
+  | Opcode.SSHLL | Opcode.SSHLL2 | Opcode.USHLL | Opcode.USHLL2 ->
+    signOrUnsignShiftLeft ins insLen ctxt addr
   | Opcode.ST1 | Opcode.ST2 | Opcode.ST3 | Opcode.ST4 ->
     sideEffects insLen ctxt UnsupportedFP
+  | Opcode.STLR -> stlr ins insLen ctxt addr
   | Opcode.STLRB -> stlrb ins insLen ctxt addr
   | Opcode.STLXRB | Opcode.STXRB -> stlx ins insLen ctxt addr 8<rt>
   | Opcode.STLXRH | Opcode.STXRH -> stlx ins insLen ctxt addr 16<rt>
@@ -2101,18 +2321,15 @@ let translate ins insLen ctxt =
   | Opcode.UMULL -> umull ins insLen ctxt addr
   | Opcode.UMOV -> sideEffects insLen ctxt UnsupportedFP
   | Opcode.UQSUB -> uqsub ins insLen ctxt addr
-  | Opcode.URSHL -> sideEffects insLen ctxt UnsupportedFP
-  | Opcode.USHL -> sideEffects insLen ctxt UnsupportedFP
-  | Opcode.USHLL | Opcode.USHLL2 | Opcode.USHR ->
-    sideEffects insLen ctxt UnsupportedFP
+  | Opcode.URSHL | Opcode.SRSHL -> roundShiftLeft ins insLen ctxt addr
   | Opcode.USRA -> usra ins insLen ctxt addr
   | Opcode.UXTB -> uxtb ins insLen ctxt addr
   | Opcode.UXTH -> uxth ins insLen ctxt addr
   | Opcode.UZP1 -> uzp ins insLen ctxt addr 0
   | Opcode.UZP2 -> uzp ins insLen ctxt addr 1
-  | Opcode.ZIP1 | Opcode.ZIP2 ->
-    sideEffects insLen ctxt UnsupportedFP
-  | Opcode.XTN | Opcode.XTN2 -> sideEffects insLen ctxt UnsupportedFP
+  | Opcode.ZIP1 | Opcode.ZIP2 -> zip ins insLen ctxt addr
+  | Opcode.XTN -> xtn ins insLen ctxt addr
+  | Opcode.XTN2 -> xtn2 ins insLen ctxt addr
   | o ->
 #if DEBUG
          eprintfn "%A" o
