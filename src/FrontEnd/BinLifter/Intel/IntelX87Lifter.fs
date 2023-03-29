@@ -699,14 +699,21 @@ let frndint _ins insLen ctxt =
 
 let fscale _ins insLen ctxt =
   let ir = !*ctxt
-  let struct (tmp0, tmp1, tmp2) = tmpVars3 ir 64<rt>
+  let struct (tmp0, tmp1, tmp2, tmp3) = tmpVars4 ir 64<rt>
   let struct (st0b, st0a) = getFPUPseudoRegVars ctxt R.ST0
   let struct (st1b, st1a) = getFPUPseudoRegVars ctxt R.ST1
   !<ir insLen
   !?ir (castFrom80Bit tmp0 64<rt> st0b st0a)
   !?ir (castFrom80Bit tmp1 64<rt> st1b st1a)
-  !!ir (tmp2 := numI32 1 64<rt> << (AST.cast CastKind.FtoITrunc 64<rt> tmp1))
-  !?ir (castTo80Bit ctxt st0b st0a (AST.fmul tmp0 (castToF64 tmp2)))
+  !!ir (tmp2 := AST.cast CastKind.FtoITrunc 64<rt> tmp1)
+  let exp = AST.ite (tmp2 ?>= numI64 0L 64<rt>) tmp2 (AST.neg tmp2)
+  !!ir (tmp3 := numI32 1 64<rt> << exp)
+  let v =
+    AST.ite
+      (tmp2 ?>= numI64 0L 64<rt>)
+      (AST.fmul tmp0 (castToF64 tmp3))
+      (AST.fdiv tmp0 (castToF64 tmp3))
+  !?ir (castTo80Bit ctxt st0b st0a v)
   !?ir (updateC1OnStore ctxt)
   !>ir insLen
 
