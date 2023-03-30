@@ -67,8 +67,8 @@ let private buildPF ctxt r size cond ir =
   !!ir (t1 := s2)
   !!ir (t2 := s4)
   !!ir (match cond with
-         | None -> pf := computedPF
-         | Some cond -> pf := AST.ite cond pf computedPF)
+        | None -> pf := computedPF
+        | Some cond -> pf := AST.ite cond pf computedPF)
 
 let private enumSZPFlags ctxt r size sf ir =
   !!ir (!.ctxt R.SF := sf)
@@ -1168,20 +1168,23 @@ let enter ins insLen ctxt =
   !?ir (auxPush ctxt.WordBitSize ctxt bp)
   !!ir (frameTemp := sp)
   !!ir (addrSize := getAddrSize ctxt.WordBitSize)
-  !!ir (AST.cjmp (nestingLevel == AST.num0 oSz)
-                 (AST.name lblCont) (AST.name lblLevelCheck))
-  !!ir (AST.lmark lblLevelCheck)
-  !!ir (cnt := nestingLevel .- AST.num1 oSz)
-  !!ir (AST.cjmp (AST.gt nestingLevel (AST.num1 oSz))
-                 (AST.name lblLoop) (AST.name lblLv1))
-  !!ir (AST.lmark lblLoop)
-  !!ir (bp := bp .- addrSize)
-  !?ir (auxPush ctxt.WordBitSize ctxt (AST.loadLE ctxt.WordBitSize bp))
-  !!ir (cnt := cnt .- AST.num1 oSz)
-  !!ir (AST.cjmp (cnt == AST.num0 oSz) (AST.name lblCont) (AST.name lblLoop))
-  !!ir (AST.lmark lblLv1)
-  !?ir (auxPush ctxt.WordBitSize ctxt frameTemp)
-  !!ir (AST.lmark lblCont)
+  if imm8 .% (numI32 32 oSz) = (numI32 0 oSz) then
+    () (* IR Optimization: Do not add unnecessary IRs *)
+  else
+    !!ir (AST.cjmp (nestingLevel == AST.num0 oSz)
+                   (AST.name lblCont) (AST.name lblLevelCheck))
+    !!ir (AST.lmark lblLevelCheck)
+    !!ir (cnt := nestingLevel .- AST.num1 oSz)
+    !!ir (AST.cjmp (AST.gt nestingLevel (AST.num1 oSz))
+                   (AST.name lblLoop) (AST.name lblLv1))
+    !!ir (AST.lmark lblLoop)
+    !!ir (bp := bp .- addrSize)
+    !?ir (auxPush ctxt.WordBitSize ctxt (AST.loadLE ctxt.WordBitSize bp))
+    !!ir (cnt := cnt .- AST.num1 oSz)
+    !!ir (AST.cjmp (cnt == AST.num0 oSz) (AST.name lblCont) (AST.name lblLoop))
+    !!ir (AST.lmark lblLv1)
+    !?ir (auxPush ctxt.WordBitSize ctxt frameTemp)
+    !!ir (AST.lmark lblCont)
   !!ir (bp := frameTemp)
   !!ir (sp := sp .- AST.zext ctxt.WordBitSize allocSize)
   !>ir insLen
