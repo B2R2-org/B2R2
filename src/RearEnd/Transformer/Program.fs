@@ -27,7 +27,9 @@ module B2R2.RearEnd.Transformer.Program
 open System
 open System.IO
 open System.Reflection
-open FSharp.Compiler.CodeAnalysis
+open System.Text
+open FSharp.Compiler.Interactive.Shell
+open FSharp.Compiler.Tokenization
 open B2R2
 open B2R2.RearEnd
 
@@ -91,17 +93,9 @@ let private loadUserDLL dllPath =
 let private compileUserActions filePath =
   if File.Exists filePath then
     let filePath = Path.GetFullPath filePath
-    let checker = FSharpChecker.Create ()
-    let dllPath = Path.ChangeExtension (filePath, ".dll")
-    let asmPath = Assembly.GetEntryAssembly().GetName().Name
-    let compArgs =
-      [| "fsc.exe"; "-o"; dllPath; "-a"; filePath; $"--reference:{asmPath}" |]
-    let errs, exitCode = checker.Compile compArgs |> Async.RunSynchronously
-    if exitCode = 0 then
-      loadUserDLL dllPath
-    else
-      errs |> Array.iter (fun d -> d.ToString () |> Printer.PrintToConsoleLine)
-      invalidOp $"Failed to compile {filePath}"
+    let t = Compiler.compile filePath
+    Array.singleton t
+    |> accumulateActions Map.empty
   else
     invalidOp $"File not found: {filePath}"
 

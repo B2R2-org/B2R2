@@ -21,6 +21,7 @@
     <Compile Include="SliceAction.fs" />
     <Compile Include="WinnowingAction.fs" />
     <Compile Include="WriteAction.fs" />
+    <Compile Include="Compiler.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
 
