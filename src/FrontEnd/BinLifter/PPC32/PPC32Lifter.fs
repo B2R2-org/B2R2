@@ -226,6 +226,15 @@ let getSPRReg ctxt imm  =
   | 540u | 541u | 542u | 543u | 1013u -> raise UnhandledRegExprException
   | _ -> raise InvalidOperandException
 
+let roundingToCastFloat ctxt frx =
+  let fpscr = !.ctxt R.FPSCR
+  let rnA = AST.extract fpscr 1<rt> 1
+  let rnB = AST.extract fpscr 1<rt> 0
+  AST.ite rnA (AST.ite rnB (AST.cast CastKind.FtoFFloor 64<rt> frx)
+                           (AST.cast CastKind.FtoFCeil 64<rt> frx))
+              (AST.ite rnB (AST.cast CastKind.FtoFTrunc 64<rt> frx)
+                           (AST.cast CastKind.FtoFRound 64<rt> frx))
+
 let setCR0Reg ctxt ir result =
   let xerSO = AST.xthi 1<rt> (!.ctxt R.XER)
   let cr0LT = !.ctxt R.CR0_0
@@ -254,6 +263,16 @@ let isNaN frx =
   let e = numI32 0x7ff 64<rt>
   let zero = AST.num0 64<rt>
   AST.xtlo 1<rt> ((exponent == e) .& (fraction != zero))
+
+let isSNaN frx =
+  let nanChecker = isNaN frx
+  let signalBit = numU64 (1uL <<< 51) 64<rt>
+  nanChecker .& ((frx .& signalBit) == AST.num0 64<rt>)
+
+let isQNaN frx =
+  let nanChecker = isNaN frx
+  let signalBit = numU64 (1uL <<< 51) 64<rt>
+  nanChecker .& ((frx .& signalBit) != AST.num0 64<rt>)
 
 let isInfinity frx =
   let exponent = (frx >> numI32 52 64<rt>) .& numI32 0x7FF 64<rt>
@@ -702,16 +721,55 @@ let fadd ins insLen updateCond isDouble ctxt =
   if updateCond then setCR1Reg ctxt ir else ()
   !>ir insLen
 
+let fcmpo ins insLen ctxt =
+  let struct ((crf0, crf1, crf2, crf3), fra, frb) = transCmpOprs ins ctxt
+  let fpscr = !.ctxt R.FPSCR
+  let vxsnan = AST.extract fpscr 1<rt> 24
+  let vxvc = AST.extract fpscr 1<rt> 19
+  let fl = AST.extract fpscr 1<rt> 15
+  let fg = AST.extract fpscr 1<rt> 14
+  let fe = AST.extract fpscr 1<rt> 13
+  let fu = AST.extract fpscr 1<rt> 12
+  let ve = AST.extract fpscr 1<rt> 7
+  let cond1 = AST.flt fra frb
+  let cond2 = AST.fgt fra frb
+  let cond3 = (isSNaN fra) .| (isSNaN frb)
+  let cond4 = (isQNaN fra) .| (isQNaN frb)
+  let ir = !*ctxt
+  !<ir insLen
+  !!ir (fl := cond1)
+  !!ir (fg := cond2)
+  !!ir (fe := AST.ite cond1 AST.b0 (AST.not cond2))
+  !!ir (fu := (isNaN fra) .| (isNaN frb))
+  !!ir (crf0 := fl)
+  !!ir (crf1 := fg)
+  !!ir (crf2 := fe)
+  !!ir (crf3 := fu)
+  !!ir (vxsnan := cond3)
+  !!ir (vxvc := AST.ite cond3 (AST.ite ve AST.b0 AST.b1) cond4)
+  !>ir insLen
+
 let fcmpu ins insLen ctxt =
   let struct ((crf0, crf1, crf2, crf3), fra, frb) = transCmpOprs ins ctxt
+  let fpscr = !.ctxt R.FPSCR
+  let vxsnan = AST.extract fpscr 1<rt> 24
+  let fl = AST.extract fpscr 1<rt> 15
+  let fg = AST.extract fpscr 1<rt> 14
+  let fe = AST.extract fpscr 1<rt> 13
+  let fu = AST.extract fpscr 1<rt> 12
   let cond1 = AST.flt fra frb
   let cond2 = AST.fgt fra frb
   let ir = !*ctxt
   !<ir insLen
-  !!ir (crf0 := cond1)
-  !!ir (crf1 := cond2)
-  !!ir (crf2 := AST.ite cond1 AST.b0 (AST.not cond2))
-  !!ir (crf3 := (isNaN fra) .| (isNaN frb))
+  !!ir (fl := cond1)
+  !!ir (fg := cond2)
+  !!ir (fe := AST.ite cond1 AST.b0 (AST.not cond2))
+  !!ir (fu := (isNaN fra) .| (isNaN frb))
+  !!ir (crf0 := fl)
+  !!ir (crf1 := fg)
+  !!ir (crf2 := fe)
+  !!ir (crf3 := fu)
+  !!ir (vxsnan := (isSNaN fra) .| (isSNaN frb))
   !>ir insLen
 
 let fdiv ins insLen updateCond isDouble ctxt =
@@ -729,6 +787,15 @@ let fdiv ins insLen updateCond isDouble ctxt =
   if updateCond then setCR1Reg ctxt ir else ()
   !>ir insLen
 
+let frsp ins insLen updateCond ctxt =
+  let ir = !*ctxt
+  let struct (frd, frb) = transTwoOprs ins ctxt
+  !<ir insLen
+  !!ir (frd := roundingToCastFloat ctxt frb)
+  setFPRF ctxt ir frd
+  if updateCond then setCR1Reg ctxt ir else ()
+  !>ir insLen
+
 let fsub ins insLen updateCond isDouble ctxt =
   let struct (frd, fra, frb) = transThreeOprs ins ctxt
   let ir = !*ctxt
@@ -739,6 +806,20 @@ let fsub ins insLen updateCond isDouble ctxt =
     let fraS = AST.cast CastKind.FloatCast 32<rt> fra
     let frbS = AST.cast CastKind.FloatCast 32<rt> frb
     !!ir (tmp := AST.fsub fraS frbS)
+    !!ir (frd := AST.cast CastKind.FloatCast 64<rt> tmp)
+  setFPRF ctxt ir frd
+  if updateCond then setCR1Reg ctxt ir else ()
+  !>ir insLen
+
+let fsqrt ins insLen updateCond isDouble ctxt =
+  let ir = !*ctxt
+  let struct (frd, frb) = transTwoOprs ins ctxt
+  let tmp = !+ir 32<rt>
+  !<ir insLen
+  if isDouble then !!ir (frd := AST.fsqrt frb)
+  else
+    let frbS = AST.cast CastKind.FloatCast 32<rt> frb
+    !!ir (tmp := AST.fsqrt frbS)
     !!ir (frd := AST.cast CastKind.FloatCast 64<rt> tmp)
   setFPRF ctxt ir frd
   if updateCond then setCR1Reg ctxt ir else ()
@@ -1196,7 +1277,7 @@ let mtfsb0 ins insLen updateCond ctxt =
   let ir = !*ctxt
   !<ir insLen
   if crbD <> 1 && crbD <> 2 then
-    !!ir (AST.extract fpscr 1<rt> crbD := AST.b0)
+    !!ir (AST.extract fpscr 1<rt> (31 - crbD) := AST.b0)
   if updateCond then setCR1Reg ctxt ir else ()
   (* Affected: FX *)
   !>ir insLen
@@ -1207,7 +1288,7 @@ let mtfsb1 ins insLen updateCond ctxt =
   let ir = !*ctxt
   !<ir insLen
   if crbD <> 1 && crbD <> 2 then
-    !!ir (AST.extract fpscr 1<rt> crbD := AST.b1)
+    !!ir (AST.extract fpscr 1<rt> (31 - crbD) := AST.b1)
   if updateCond then setCR1Reg ctxt ir else ()
   (* Affected: FX *)
   !>ir insLen
@@ -1781,16 +1862,14 @@ let translate (ins: InsInfo) insLen (ctxt: TranslationContext) =
   | Op.FADDS -> fadd ins insLen false false ctxt
   | Op.FADDdot -> fadd ins insLen true true ctxt
   | Op.FADDSdot -> fadd ins insLen true false ctxt
+  | Op.FCMPO -> fcmpo ins insLen ctxt
   | Op.FCMPU -> fcmpu ins insLen ctxt
   | Op.FDIV -> fdiv ins insLen false true ctxt
   | Op.FDIVS -> fdiv ins insLen false false ctxt
   | Op.FDIVdot -> fdiv ins insLen true true ctxt
   | Op.FDIVSdot -> fdiv ins insLen true false ctxt
-  | Op.FSUB -> fsub ins insLen false true ctxt
-  | Op.FSUBS -> fsub ins insLen false false ctxt
-  | Op.FSUBdot -> fsub ins insLen true true ctxt
-  | Op.FSUBSdot -> fsub ins insLen true false ctxt
-  | Op.FCTIWZ | Op.FRSP -> sideEffects insLen ctxt UnsupportedFP
+  | Op.FRSP -> frsp ins insLen false ctxt
+  | Op.FRSPdot -> frsp ins insLen true ctxt
   | Op.FMADD -> fmadd ins insLen false true ctxt
   | Op.FMADDS -> fmadd ins insLen false false ctxt
   | Op.FMADDdot -> fmadd ins insLen true true ctxt
@@ -1811,6 +1890,14 @@ let translate (ins: InsInfo) insLen (ctxt: TranslationContext) =
   | Op.FNEGdot -> fneg ins insLen true ctxt
   | Op.FSEL -> fsel ins insLen false ctxt
   | Op.FSELdot -> fsel ins insLen true ctxt
+  | Op.FSUB -> fsub ins insLen false true ctxt
+  | Op.FSUBS -> fsub ins insLen false false ctxt
+  | Op.FSUBdot -> fsub ins insLen true true ctxt
+  | Op.FSUBSdot -> fsub ins insLen true false ctxt
+  | Op.FSQRT -> fsqrt ins insLen false true ctxt
+  | Op.FSQRTS -> fsqrt ins insLen false false ctxt
+  | Op.FSQRTdot -> fsqrt ins insLen true true ctxt
+  | Op.FSQRTSdot -> fsqrt ins insLen true false ctxt
   | Op.ISYNC -> nop insLen ctxt
   | Op.LBZ -> lbz ins insLen ctxt
   | Op.LBZU -> lbzu ins insLen ctxt
