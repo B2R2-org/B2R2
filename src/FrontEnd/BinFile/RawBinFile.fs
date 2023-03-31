@@ -32,9 +32,9 @@ open B2R2
 ///   This class represents a raw binary file (containing only binary code and
 ///   data without file format)
 /// </summary>
-type RawBinFile (bytes: byte [], path, isa, baseAddr) =
+type RawBinFile (bytes: byte [], path, isa, baseOpt) =
   inherit BinFile ()
-  let baseAddr = defaultArg baseAddr 0UL
+  let baseAddr = defaultArg baseOpt 0UL
   let size = bytes.Length
   let usize = uint64 size
 
@@ -132,5 +132,11 @@ type RawBinFile (bytes: byte [], path, isa, baseAddr) =
 
   override __.GetNotInFileIntervals range =
     FileHelper.getNotInFileIntervals baseAddr usize range
+
+  override __.NewBinFile bs =
+    RawBinFile (bs, path, isa, Some baseAddr)
+
+  override __.NewBinFile (bs, baseAddr) =
+    RawBinFile (bs, path, isa, Some baseAddr)
 
 // vim: set tw=80 sts=2 sw=2:

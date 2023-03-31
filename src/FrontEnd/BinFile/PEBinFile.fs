@@ -77,6 +77,9 @@ type PEBinFile (bytes, path, baseAddr, rawpdb) =
   override __.IsInFileRange range = isInFileRange pe range
   override __.IsExecutableAddr addr = isExecutableAddr pe addr
   override __.GetNotInFileIntervals range = getNotInFileIntervals pe range
+  override __.NewBinFile bs = PEBinFile (bs, path, baseAddr, rawpdb)
+  override __.NewBinFile (bs, baseAddr) =
+    PEBinFile (bs, path, Some baseAddr, rawpdb)
   member __.PE with get() = pe
   member __.RawPDB = rawpdb
 

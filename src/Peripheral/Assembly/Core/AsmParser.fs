@@ -38,7 +38,7 @@ type AsmParser () =
     |> Result.bind (fun bins ->
       bins
       |> List.fold (fun acc bs ->
-        let hdl = BinHandle.UpdateCode hdl addr bs
+        let hdl = BinHandle.NewBinHandle (hdl, addr, bs)
         let ins = BinHandle.ParseInstr (hdl, addr)
         BinHandle.LiftInstr hdl ins :: acc
       ) []

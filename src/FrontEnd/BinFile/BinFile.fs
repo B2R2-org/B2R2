@@ -403,6 +403,30 @@ type BinFile () =
     |> Seq.map (fun s -> s.Address)
 
   /// <summary>
+  ///   Return a new BinFile by replacing the content with the given byte array,
+  ///   assuming the file format, ISA, and its file path do not change. The new
+  ///   byte array is placed at the same base address as the original one. This
+  ///   function does not directly affect the corresponding file in the file
+  ///   system, though.
+  /// </summary>
+  /// <return>
+  ///   A newly generated BinFile.
+  /// </return>
+  abstract member NewBinFile: byte[] -> BinFile
+
+  /// <summary>
+  ///   Return a new BinFile by replacing the content with the given byte array,
+  ///   assuming the file format, ISA, and its file path do not change. The new
+  ///   byte array is placed at the given base address (baseAddr). This function
+  ///   does not directly affect the corresponding file in the file system,
+  ///   though.
+  /// </summary>
+  /// <return>
+  ///   A newly generated BinFile.
+  /// </return>
+  abstract member NewBinFile: byte[] * baseAddr: Addr -> BinFile
+
+  /// <summary>
   ///   Get a sequence of executable sections including linkage table code
   ///   sections such as PLT.
   /// </summary>

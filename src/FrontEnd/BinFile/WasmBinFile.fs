@@ -79,4 +79,6 @@ type WasmBinFile (bytes, path, baseAddr) =
   override __.IsExecutableAddr _addr = Utils.futureFeature () // FIXME
   override __.GetNotInFileIntervals range =
     FileHelper.getNotInFileIntervals 0UL (uint64 bytes.LongLength) range
+  override __.NewBinFile bs = WasmBinFile (bs, path, Some baseAddr)
+  override __.NewBinFile (bs, baseAddr) = WasmBinFile (bs, path, Some baseAddr)
   member __.WASM with get() = wm

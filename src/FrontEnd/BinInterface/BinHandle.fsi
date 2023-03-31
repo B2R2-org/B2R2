@@ -254,29 +254,27 @@ with
   static member Init: isa: ISA * os: OS -> BinHandle
 
   /// <summary>
-  ///   Update BinHandle to have new code at a new address (addr). BinHandle
-  ///   is *immutable*.
-  /// </summary>
-  /// <param name="hdl">The BinHandle to update.</param>
-  /// <param name="addr">The new address to use.</param>
-  /// <param name="bs">The new code in bytes.</param>
-  /// <returns>New BinHandle.</returns>
-  static member UpdateCode:
-    hdl: BinHandle -> addr: Addr -> bs: byte [] -> BinHandle
-
-  /// <summary>
-  ///   Update BinHandle by patching the code at the address (addr). Note that
-  ///   BinHandle itself is *immutable*, and thus, this function returns a new
+  ///   Return a new BinHandle that contains the given byte array as its core.
+  ///   Since BinHandle is *immutable*, this will not affect the given
   ///   BinHandle.
   /// </summary>
   /// <param name="hdl">The BinHandle to update.</param>
-  /// <param name="addr">The new address to use.</param>
   /// <param name="bs">The new code in bytes.</param>
-  /// <returns>
-  ///   Return (BinHandle) if succeeded, (ErrorCase) otherwise.
-  /// </returns>
-  static member PatchCode:
-    hdl: BinHandle -> addr: Addr -> bs: byte [] -> Result<BinHandle, ErrorCase>
+  /// <returns>New BinHandle.</returns>
+  static member NewBinHandle:
+    hdl: BinHandle * bs: byte [] -> BinHandle
+
+  /// <summary>
+  ///   Return a new BinHandle that contains the given byte array as its core
+  ///   located at the given address.  Since BinHandle is *immutable*, this will
+  ///   not affect the given BinHandle.
+  /// </summary>
+  /// <param name="hdl">The BinHandle to update.</param>
+  /// <param name="addr">The new address to use for the binary.</param>
+  /// <param name="bs">The new code in bytes.</param>
+  /// <returns>New BinHandle.</returns>
+  static member NewBinHandle:
+    hdl: BinHandle * addr: Addr * bs: byte [] -> BinHandle
 
   /// <summary>
   ///   Return the byte array of size (nBytes) at the addr from the given

@@ -38,7 +38,7 @@ let [<Literal>] private NormalPrompt = "> "
 
 let private printIns hdl addr bs =
   let bCode = (BitConverter.ToString (bs)).Replace ("-", "")
-  let hdl = BinHandle.UpdateCode hdl addr bs
+  let hdl = BinHandle.NewBinHandle (hdl, addr, bs)
   let ins = BinHandle.ParseInstr (hdl, addr)
   out.PrintLine (sprintf "%08x: %-20s     %s" addr bCode (ins.Disasm ()))
   addr + uint64 (Array.length bs)

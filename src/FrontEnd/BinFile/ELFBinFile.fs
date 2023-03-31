@@ -121,6 +121,11 @@ type ELFBinFile (bytes, path, baseAddr, regbay,
     base.GetFunctionAddresses ()
     |> addExtraFunctionAddrs (ReadOnlySpan bytes) elf useExcInfo
 
+  override __.NewBinFile bs = ELFBinFile (bs, path, baseAddr, regbay, forEmu)
+
+  override __.NewBinFile (bs, baseAddr) =
+    ELFBinFile (bs, path, Some baseAddr, regbay, forEmu)
+
   member __.ELF with get() = elf
 
   member __.RegisterBay = regbay

@@ -91,45 +91,11 @@ with
 
   static member Init (isa: ISA) = BinHandle.Init (isa, ([||]: byte []))
 
-  static member UpdateCode hdl addr bs =
-    { hdl with BinFile = RawBinFile (bs, "", hdl.ISA, Some addr) :> BinFile }
+  static member NewBinHandle (hdl, bs) =
+    { hdl with BinFile = hdl.BinFile.NewBinFile bs }
 
-  static member private UpdateFileInfo h file =
-    { h with BinFile = file }
-
-  static member PatchCode hdl addr (bs: byte[]) =
-    let f = hdl.BinFile
-    let idx = int <| addr - f.BaseAddress
-    let lastIdx = idx + bs.Length - 1
-    if f.Span.Length <= idx || f.Span.Length <= lastIdx then
-      Error ErrorCase.InvalidMemoryRead
-    else
-      let dup = f.Span.ToArray ()
-      Buffer.BlockCopy (bs, 0, dup, idx, bs.Length)
-      match f with
-      | :? RawBinFile ->
-        RawBinFile (dup, f.FilePath, f.ISA, Some f.BaseAddress) :> BinFile
-        |> BinHandle.UpdateFileInfo hdl
-        |> Ok
-      | :? ELFBinFile as f ->
-        ELFBinFile (dup, f.FilePath, Some f.BaseAddress, f.RegisterBay)
-        :> BinFile
-        |> BinHandle.UpdateFileInfo hdl
-        |> Ok
-      | :? MachBinFile ->
-        MachBinFile (dup, f.FilePath, f.ISA, Some f.BaseAddress) :> BinFile
-        |> BinHandle.UpdateFileInfo hdl
-        |> Ok
-      | :? PEBinFile as f ->
-        PEBinFile (dup, f.FilePath, Some f.BaseAddress, f.RawPDB)
-        :> BinFile
-        |> BinHandle.UpdateFileInfo hdl
-        |> Ok
-      | :? WasmBinFile ->
-        WasmBinFile (dup, f.FilePath, Some f.BaseAddress) :> BinFile
-        |> BinHandle.UpdateFileInfo hdl
-        |> Ok
-      | _ -> Error ErrorCase.InvalidFileFormat
+  static member NewBinHandle (hdl, addr, bs) =
+    { hdl with BinFile = hdl.BinFile.NewBinFile (bs, addr) }
 
   member __.ReadBytes (addr: Addr, nBytes) =
     BinHandle.ReadBytes (__, addr, nBytes)
