@@ -39,30 +39,34 @@ type WinnowingAction () =
       min span (minHash, minPos) (idx + 1)
     else (minHash, minPos)
 
-  let rec computeFingerprint acc prev n wsz idx (ngrams: (int * int) array) =
+  let rec computeFingerprint acc annot prev n wsz idx (ngrams: (int * int)[]) =
     if idx <= ngrams.Length - wsz then
       let span = ngrams.AsSpan (idx, wsz)
       let m = min span (Int32.MaxValue, Int32.MaxValue) 0
       if fst prev = fst m then
-        computeFingerprint acc prev n wsz (idx + 1) ngrams
+        computeFingerprint acc annot prev n wsz (idx + 1) ngrams
       else
-        computeFingerprint (m :: acc) m n wsz (idx + 1) ngrams
-    else { Patterns = List.rev acc; NGramSize = n; WindowSize = wsz }
+        computeFingerprint (m :: acc) annot m n wsz (idx + 1) ngrams
+    else { Patterns = List.rev acc
+           NGramSize = n
+           WindowSize = wsz
+           Annotation = annot }
 
   let winnowing n wsz input =
     let bin = unbox<Binary> input
     let hdl = Binary.Handle bin
+    let annot = Binary.MakeAnnotation "Winnowing from " bin
     let span = hdl.BinFile.Span
     if span.Length < n + wsz then
       invalidArg (nameof input) "The input binary is too small."
     else
       Utils.buildNgram [] n span 0
-      |> computeFingerprint [] (0, 0) n wsz 0
+      |> computeFingerprint [] annot (0, 0) n wsz 0
       |> box
 
   interface IAction with
     member __.ActionID with get() = "winnowing"
-    member __.Signature with get() = "Binary * [n] * [wsz] -> FingerPrint"
+    member __.Signature with get() = "Binary * [n] * [wsz] -> Fingerprint"
     member __.Description with get() = """
     Take in an input binary and returns its fingerprint, which is essentially a
     list of (hash * byte position) tuples.

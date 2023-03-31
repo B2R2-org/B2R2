@@ -32,6 +32,7 @@ type PrintAction () =
   let rec print (o: obj) =
     let typ = o.GetType ()
     if typ = typeof<ObjCollection> then printObjCollection o
+    elif typ = typeof<ClusterResult> then printClusterResult o
     elif typ.IsArray then printArray o
     elif FSharpType.IsUnion typ
       && typ.BaseType = typeof<OutString> then printOutString o
@@ -43,6 +44,14 @@ type PrintAction () =
     |> Array.iteri (fun idx v ->
       Printer.PrintToConsoleLine $"[*] result({idx})"
       print v)
+
+  and printClusterResult (o: obj) =
+    let res = o :?> ClusterResult
+    res.Clusters
+    |> Array.iteri (fun idx cluster ->
+      cluster
+      |> Array.iter (fun elem ->
+        Printer.PrintToConsoleLine $"  - Cluster({idx}): {elem}"))
 
   and printArray (o: obj) =
     let arr = o :?> _[]

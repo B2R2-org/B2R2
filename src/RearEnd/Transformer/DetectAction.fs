@@ -64,7 +64,7 @@ type DetectAction () =
 
   interface IAction with
     member __.ActionID with get() = "detect"
-    member __.Signature with get() = "FingerPrint * <path> -> OutString"
+    member __.Signature with get() = "Fingerprint * <path> -> OutString"
     member __.Description with get() = """
     Take in a fingerprint and a path as input, and analyze file(s) in the given
     path to detect the fingerprint. This action will eventually return a match

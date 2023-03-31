@@ -30,12 +30,6 @@ open B2R2.FrontEnd.BinInterface
 
 /// The `slice` action.
 type SliceAction () =
-  let makeAnnotation bin =
-    let hdl = Binary.Handle bin
-    let path = hdl.BinFile.FilePath
-    if String.IsNullOrEmpty path then Binary.Annotation bin
-    else $" | Sliced from {path}"
-
   let sliceByAddrRange bin a1 a2 =
     let hdl = Binary.Handle bin
     if a1 > a2 then invalidArg (nameof bin) "Invalid address range."
@@ -47,7 +41,7 @@ type SliceAction () =
       let o2 = hdl.BinFile.TranslateAddress a2
       let bs = hdl.BinFile.Span.Slice(o1, o2 - o1 + 1).ToArray ()
       lazy BinHandle.Init (hdl.ISA, hdl.Parser.OperationMode, false, None, bs)
-      |> Binary.Init (makeAnnotation bin)
+      |> Binary.Init (Binary.MakeAnnotation "Sliced from " bin)
 
   let sliceBySectionName bin secName =
     let hdl = Binary.Handle bin

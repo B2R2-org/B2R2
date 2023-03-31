@@ -32,12 +32,6 @@ open B2R2.RearEnd.Transformer.Utils
 
 /// The `grep` action.
 type GrepAction () =
-  let makeAnnotation (bin: Binary) =
-    let hdl = Binary.Handle bin
-    let path = hdl.BinFile.FilePath
-    if String.IsNullOrEmpty path then Binary.Annotation bin
-    else $" | Greped from {path}"
-
   let grepFromBinary pattern bytesBefore bytesAfter bin =
     let hdl = Binary.Handle bin
     let bs = hdl.BinFile.Span.ToArray ()
@@ -55,7 +49,7 @@ type GrepAction () =
                  else eoff + bytesAfter
       lazy BinHandle.Init (hdl.BinFile.ISA, hdl.Parser.OperationMode,
                            false, Some (uint64 soff), bs[soff .. eoff])
-      |> Binary.Init (makeAnnotation bin))
+      |> Binary.Init (Binary.MakeAnnotation "Greped from " bin))
     |> box
 
   let grep pattern bytesBefore bytesAfter (input: obj) =

@@ -46,19 +46,32 @@ with
     match bin with
     | Binary (_, annot) -> annot
 
+  static member MakeAnnotation prefix bin =
+    match bin with
+    | Binary (hdl, annot) ->
+      let path = hdl.Value.BinFile.FilePath
+      if String.IsNullOrEmpty path then annot
+      else $"{prefix}{path}"
+
   override __.ToString () =
     match __ with
     | Binary (hdl, annot) when hdl.Value.BinFile.FileFormat = RawBinary ->
       let hdl = hdl.Value
       let s = Utils.makeSpanSummary hdl.BinFile.Span
-      $"Binary(Raw) | 0x{hdl.BinFile.BaseAddress:x8} | {s}{annot}"
+      if String.IsNullOrEmpty annot then
+        $"Binary(Raw) | 0x{hdl.BinFile.BaseAddress:x8} | {s}"
+      else
+        $"Binary(Raw) | 0x{hdl.BinFile.BaseAddress:x8} | {s} | {annot}"
     | Binary (hdl, annot) ->
       let hdl = hdl.Value
       let s = Utils.makeSpanSummary hdl.BinFile.Span
       let fmt = FileFormat.toString hdl.BinFile.FileFormat
       let path = hdl.BinFile.FilePath
       let finfo = if String.IsNullOrEmpty path then "" else $", {path}"
-      $"Binary({fmt}{finfo}) | 0x{hdl.BinFile.BaseAddress:x8} | {s}{annot}"
+      if String.IsNullOrEmpty annot then
+        $"Binary({fmt}{finfo}) | 0x{hdl.BinFile.BaseAddress:x8} | {s}"
+      else
+        $"Binary({fmt}{finfo}) | 0x{hdl.BinFile.BaseAddress:x8} | {s} | {annot}"
 
 /// Instruction tagged with its corresponding bytes.
 type Instruction =
@@ -79,10 +92,12 @@ type Fingerprint = {
   Patterns: (int * int) list
   NGramSize: int
   WindowSize: int
+  Annotation: string
 }
 with
   override __.ToString () =
     let sb = StringBuilder ()
+    sb.Append $"({__.Annotation}){Environment.NewLine}" |> ignore
     __.Patterns
     |> List.iter (fun (b, p) ->
       sb.Append $"{b:x2}@{p}{Environment.NewLine}" |> ignore)
@@ -91,4 +106,9 @@ with
 /// Collection of objects.
 type ObjCollection = {
   Values: obj array
+}
+
+/// Clustering result.
+type ClusterResult = {
+  Clusters: string array array
 }
