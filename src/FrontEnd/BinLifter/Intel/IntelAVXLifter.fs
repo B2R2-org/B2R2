@@ -828,8 +828,8 @@ let vunpcklps ins insLen ctxt =
   match getOperationSize ins with
   | 128<rt> ->
     let dstB, dstA = transOprToExpr128 ir false ins insLen ctxt dst
-    let _src1B, src1A = transOprToExpr128 ir false ins insLen ctxt src1
-    let _src2B, src2A = transOprToExpr128 ir false ins insLen ctxt src2
+    let _src1B, src1A = transOprToExpr128 ir true ins insLen ctxt src1
+    let _src2B, src2A = transOprToExpr128 ir true ins insLen ctxt src2
     !!ir (AST.xtlo 32<rt> dstA := AST.xtlo 32<rt> src1A)
     !!ir (AST.xthi 32<rt> dstA := AST.xtlo 32<rt> src2A)
     !!ir (AST.xtlo 32<rt> dstB := AST.xthi 32<rt> src1A)
@@ -837,8 +837,8 @@ let vunpcklps ins insLen ctxt =
     fillZeroHigh128 ctxt dst ir
   | 256<rt> ->
     let dstD, dstC, dstB, dstA = transOprToExpr256 ir false ins insLen ctxt dst
-    let _, src1C, _, src1A = transOprToExpr256 ir false ins insLen ctxt src1
-    let _, src2C, _, src2A = transOprToExpr256 ir false ins insLen ctxt src2
+    let _, src1C, _, src1A = transOprToExpr256 ir true ins insLen ctxt src1
+    let _, src2C, _, src2A = transOprToExpr256 ir true ins insLen ctxt src2
     !!ir (AST.xtlo 32<rt> dstA := AST.xtlo 32<rt> src1A)
     !!ir (AST.xthi 32<rt> dstA := AST.xtlo 32<rt> src2A)
     !!ir (AST.xtlo 32<rt> dstB := AST.xthi 32<rt> src1A)
@@ -857,15 +857,15 @@ let vunpcklpd ins insLen ctxt =
   match getOperationSize ins with
   | 128<rt> ->
     let dstB, dstA = transOprToExpr128 ir false ins insLen ctxt dst
-    let _src1B, src1A = transOprToExpr128 ir false ins insLen ctxt src1
-    let _src2B, src2A = transOprToExpr128 ir false ins insLen ctxt src2
+    let _src1B, src1A = transOprToExpr128 ir true ins insLen ctxt src1
+    let _src2B, src2A = transOprToExpr128 ir true ins insLen ctxt src2
     !!ir (dstA := src1A)
     !!ir (dstB := src2A)
     fillZeroHigh128 ctxt dst ir
   | 256<rt> ->
     let dstD, dstC, dstB, dstA = transOprToExpr256 ir false ins insLen ctxt dst
-    let _, src1C, _, src1A = transOprToExpr256 ir false ins insLen ctxt src1
-    let _, src2C, _, src2A = transOprToExpr256 ir false ins insLen ctxt src2
+    let _, src1C, _, src1A = transOprToExpr256 ir true ins insLen ctxt src1
+    let _, src2C, _, src2A = transOprToExpr256 ir true ins insLen ctxt src2
     !!ir (dstA := src1A)
     !!ir (dstB := src2A)
     !!ir (dstC := src1C)
