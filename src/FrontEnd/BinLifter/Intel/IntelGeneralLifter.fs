@@ -1827,7 +1827,7 @@ let pdep ins insLen ctxt =
     let cond = AST.extract mask 1<rt> i
     !!ir (AST.extract tmp 1<rt> i := AST.ite cond (AST.b0) t)
   done
-  !!ir (dst := tmp)
+  !!ir (dstAssign oprSize dst tmp)
   !>ir insLen
 
 let pext ins insLen ctxt =
