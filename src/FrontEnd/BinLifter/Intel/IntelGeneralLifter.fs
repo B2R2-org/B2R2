@@ -2109,10 +2109,12 @@ let rorx ins insLen ctxt =
   let y = !+ir oprSize
   if oprSize = 32<rt> then
     !!ir (y := imm .& (numI32 0x1F oprSize))
-    !!ir (dst := (src >> y) .| (src << (numI32 32 oprSize .- y)))
+    !!ir (dstAssign oprSize dst
+      ((src >> y) .| (src << (numI32 32 oprSize .- y))))
   else (* OperandSize = 64 *)
     !!ir (y := imm .& (numI32 0x3F oprSize))
-    !!ir (dst := (src >> y) .| (src << (numI32 64 oprSize .- y)))
+    !!ir (dstAssign oprSize dst
+      ((src >> y) .| (src << (numI32 64 oprSize .- y))))
   !>ir insLen
 
 let sahf ins insLen ctxt =
