@@ -413,8 +413,8 @@ let vmovhlps ins insLen ctxt =
   let dstB, dstA = transOprToExpr128 ir false ins insLen ctxt dst
   let src1B, _src1A = transOprToExpr128 ir false ins insLen ctxt src1
   let src2B, _src2A = transOprToExpr128 ir false ins insLen ctxt src2
-  !!ir (dstA := src1B)
-  !!ir (dstB := src2B)
+  !!ir (dstA := src2B)
+  !!ir (dstB := src1B)
   fillZeroHigh128 ctxt dst ir
   !>ir insLen
 
@@ -443,8 +443,8 @@ let vmovlhps ins insLen ctxt =
   !<ir insLen
   let struct (dst, src1, src2) = getThreeOprs ins
   let dstB, dstA = transOprToExpr128 ir false ins insLen ctxt dst
-  let _src1B, src1A = transOprToExpr128 ir false ins insLen ctxt src1
-  let _src2B, src2A = transOprToExpr128 ir false ins insLen ctxt src2
+  let _src1B, src1A = transOprToExpr128 ir true ins insLen ctxt src1
+  let _src2B, src2A = transOprToExpr128 ir true ins insLen ctxt src2
   !!ir (dstA := src1A)
   !!ir (dstB := src2A)
   fillZeroHigh128 ctxt dst ir
