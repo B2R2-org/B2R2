@@ -1731,6 +1731,10 @@ let mulx ins insLen ctxt =
     let pLow = (loSrc1 .* loSrc)
     let high = pHigh .+ ((pMid .+ (pLow  >> n32)) >> n32)
     let low = pLow .+ ((pMid .& mask) << n32)
+    let isOverflow =
+      hiSrc1 .* loSrc .> numI64 0xffffffff_ffffffffL 64<rt> .- loSrc1 .* hiSrc
+    !!ir (tHigh :=
+      high .+ AST.ite isOverflow (numI64 0x100000000L 64<rt>) (AST.num0 64<rt>))
     !!ir (tHigh := high)
     !!ir (tLow := low)
     !!ir (dstAssign oprSize dst1 tHigh)
