@@ -1321,8 +1321,8 @@ let vpinsrb ins insLen ctxt =
   let t = !+ir 64<rt>
   let expAmt = numI64 (amount % 64L) 64<rt>
   !!ir (t := ((AST.zext 64<rt> src2) << expAmt) .& mask)
-  if amount < 64 then !!ir (dstA := (src1A .& (AST.not mask)) .& t)
-  else !!ir (dstB := (src1B .& (AST.not mask)) .& t)
+  if amount < 64 then !!ir (dstA := (src1A .& (AST.not mask)) .| t)
+  else !!ir (dstB := (src1B .& (AST.not mask)) .| t)
   fillZeroFromVLToMaxVL ctxt dst (getOperationSize ins) 512 ir
   !>ir insLen
 
@@ -1434,8 +1434,8 @@ let vpinsrd ins insLen ctxt =
   let t = !+ir 64<rt>
   let expAmt = numI64 (amount % 64L) 64<rt>
   !!ir (t := ((AST.zext 64<rt> src2) << expAmt) .& mask)
-  if amount < 64 then !!ir (dstA := (src1A .& (AST.not mask)) .& t)
-  else !!ir (dstB := (src1B .& (AST.not mask)) .& t)
+  if amount < 64 then !!ir (dstA := (src1A .& (AST.not mask)) .| t)
+  else !!ir (dstB := (src1B .& (AST.not mask)) .| t)
   fillZeroFromVLToMaxVL ctxt dst (getOperationSize ins) 512 ir
   !>ir insLen
 
@@ -1452,8 +1452,8 @@ let vpinsrq ins insLen ctxt =
   let t = !+ir 64<rt>
   let expAmt = numI64 (amount % 64L) 64<rt>
   !!ir (t := ((AST.zext 64<rt> src2) << expAmt) .& mask)
-  if amount < 64 then !!ir (dstA := (src1A .& (AST.not mask)) .& t)
-  else !!ir (dstB := (src1B .& (AST.not mask)) .& t)
+  if amount < 64 then !!ir (dstA := (src1A .& (AST.not mask)) .| t)
+  else !!ir (dstB := (src1B .& (AST.not mask)) .| t)
   fillZeroFromVLToMaxVL ctxt dst (getOperationSize ins) 512 ir
   !>ir insLen
 

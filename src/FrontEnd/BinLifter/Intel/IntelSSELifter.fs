@@ -1791,8 +1791,8 @@ let pinsrb ins insLen ctxt =
   let t = !+ir 64<rt>
   let expAmt = numI64 (amount % 64L) 64<rt>
   !!ir (t := ((AST.zext 64<rt> (AST.xtlo 8<rt> src)) << expAmt) .& mask)
-  if amount < 64 then !!ir (dstA := (dstA .& (AST.not mask)) .& t)
-  else !!ir (dstB := (dstB .& (AST.not mask)) .& t)
+  if amount < 64 then !!ir (dstA := (dstA .& (AST.not mask)) .| t)
+  else !!ir (dstB := (dstB .& (AST.not mask)) .| t)
   !>ir insLen
 
 let private packedSign ir packSz control inputVal =
