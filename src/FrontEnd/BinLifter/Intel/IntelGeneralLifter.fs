@@ -1517,7 +1517,7 @@ let lzcnt ins insLen ctxt =
     !!ir (x := ((x >> numI32 2 16<rt>) .& mask2) .+ (x .& mask2))
     !!ir (x := ((x >> numI32 4 16<rt>) .+ x) .& mask3)
     !!ir (x := x .+ (x >> numI32 8 16<rt>))
-    !!ir (dst := numI32 16 16<rt> .- (x .& numI32 31 16<rt>))
+    !!ir (dstAssign oprSize dst (numI32 16 16<rt> .- (x .& numI32 31 16<rt>)))
   | 32<rt> ->
     let mask1 = numI32 0x55555555 32<rt>
     let mask2 = numI32 0x33333333 32<rt>
@@ -1533,7 +1533,7 @@ let lzcnt ins insLen ctxt =
     !!ir (x := ((x >> numI32 4 32<rt>) .+ x) .& mask3)
     !!ir (x := x .+ (x >> numI32 8 32<rt>))
     !!ir (x := x .+ (x >> numI32 16 32<rt>))
-    !!ir (dst := numI32 32 32<rt> .- (x .& numI32 63 32<rt>))
+    !!ir (dstAssign oprSize dst (numI32 32 32<rt> .- (x .& numI32 63 32<rt>)))
   | 64<rt> ->
     let mask1 = numU64 0x5555555555555555UL 64<rt>
     let mask2 = numU64 0x3333333333333333UL 64<rt>
@@ -1551,7 +1551,7 @@ let lzcnt ins insLen ctxt =
     !!ir (x := x .+ (x >> numI32 8 64<rt>))
     !!ir (x := x .+ (x >> numI32 16 64<rt>))
     !!ir (x := x .+ (x >> numI32 32 64<rt>))
-    !!ir (dst := numI32 64 64<rt> .- (x .& numI32 127 64<rt>))
+    !!ir (dstAssign oprSize dst (numI32 64 64<rt> .- (x .& numI32 127 64<rt>)))
   | _ -> raise InvalidOperandSizeException
   let oprSize = numI32 (RegType.toBitWidth oprSize) oprSize
   !!ir (!.ctxt R.CF := dst == oprSize)
