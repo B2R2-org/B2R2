@@ -28,22 +28,24 @@ open System
 open System.IO.Hashing
 open B2R2
 
+let [<Literal>] MaxByteShow = 14
+
 let makeByteArraySummary (bs: byte[]) =
-  let s = bs[..16] |> Array.map (sprintf "%02x") |> String.concat " "
-  if bs.Length > 16 then s + " ..." else s
+  let s = bs[..MaxByteShow] |> Array.map (sprintf "%02x") |> String.concat " "
+  if bs.Length > MaxByteShow then s + " ..." else s
 
 let byteArrayToHexStringArray (bs: byte[]) =
   bs |> Array.map (sprintf "%02x")
 
 let makeSpanSummary (bs: ByteSpan) =
-  if bs.Length > 16 then
+  if bs.Length > MaxByteShow then
     let s =
-      bs.Slice(0, 16).ToArray ()
+      bs.Slice(0, MaxByteShow).ToArray ()
       |> Array.map (sprintf "%02x")
       |> String.concat " "
     s + " ..."
   else
-    bs.Slice(0).ToArray ()
+    bs.ToArray ()
     |> Array.map (sprintf "%02x")
     |> String.concat " "
 

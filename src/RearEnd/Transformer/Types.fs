@@ -82,7 +82,7 @@ with
     match __ with
     | ValidInstruction (ins, bs) ->
       let bs = Utils.makeByteArraySummary bs
-      $"{ins.Address:x16} | {bs.PadRight 32} | {ins.Disasm ()}"
+      $"{ins.Address:x16} | {bs.PadRight 48} | {ins.Disasm ()}"
     | BadInstruction (addr, bs) ->
       let bs = Utils.makeByteArraySummary bs
       $"{addr:x16} | {bs.PadRight 32} | (bad)"
