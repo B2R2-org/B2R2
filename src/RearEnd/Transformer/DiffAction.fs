@@ -282,12 +282,19 @@ type DiffAction () =
     |> padSpace
     |> Array.chunkBySize NumBytesPerLine
 
+  let equalizeLines lines1 lines2 =
+    let maxlines = max (Array.length lines1) (Array.length lines2)
+    let dummyLine = padSpace [| (NoColor, "  ") |]
+    Array.append lines1 (Array.replicate (maxlines - lines1.Length) dummyLine),
+    Array.append lines2 (Array.replicate (maxlines - lines2.Length) dummyLine)
+
   let diff bin1 bin2 =
     let hdl1, hdl2 = Binary.Handle bin1, Binary.Handle bin2
     let bs1, bs2 = hdl1.BinFile.Span.ToArray (), hdl2.BinFile.Span.ToArray ()
     let dd1, dd2 = prepareMyers bs1 bs2
     let res1, res2 = myersDiff dd1 dd2
     let res1, res2 = colorResult bs1 Red res1, colorResult bs2 Green res2
+    let res1, res2 = equalizeLines res1 res2
     Array.mapi2 (fun lnum line1 line2 ->
       let offsetStr = (lnum * NumBytesPerLine).ToString("x").PadLeft 8
       Array.concat [| [| (NoColor, offsetStr + " | ")  |]
