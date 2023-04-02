@@ -32,11 +32,11 @@ open B2R2.RearEnd.Transformer.Utils
 
 /// The `grep` action.
 type GrepAction () =
-  let grepFromBinary pattern bytesBefore bytesAfter bin =
+  let grepFromBinary (pattern: string) bytesBefore bytesAfter bin =
     let hdl = Binary.Handle bin
     let bs = hdl.BinFile.Span.ToArray ()
     let hs = byteArrayToHexStringArray bs |> String.concat ""
-    let regex = Regex (pattern)
+    let regex = Regex (pattern.ToLowerInvariant ())
     regex.Matches hs
     |> Seq.choose (fun m ->
       if m.Index % 2 = 0 then Some (m.Index / 2, m.Length / 2)
