@@ -1517,7 +1517,7 @@ let lzcnt ins insLen ctxt =
     !!ir (x := ((x >> numI32 2 16<rt>) .& mask2) .+ (x .& mask2))
     !!ir (x := ((x >> numI32 4 16<rt>) .+ x) .& mask3)
     !!ir (x := x .+ (x >> numI32 8 16<rt>))
-    !!ir (dst := numI32 16 16<rt> .- (x .& numI32 31 16<rt>))
+    !!ir (dstAssign oprSize dst (numI32 16 16<rt> .- (x .& numI32 31 16<rt>)))
   | 32<rt> ->
     let mask1 = numI32 0x55555555 32<rt>
     let mask2 = numI32 0x33333333 32<rt>
@@ -1533,7 +1533,7 @@ let lzcnt ins insLen ctxt =
     !!ir (x := ((x >> numI32 4 32<rt>) .+ x) .& mask3)
     !!ir (x := x .+ (x >> numI32 8 32<rt>))
     !!ir (x := x .+ (x >> numI32 16 32<rt>))
-    !!ir (dst := numI32 32 32<rt> .- (x .& numI32 63 32<rt>))
+    !!ir (dstAssign oprSize dst (numI32 32 32<rt> .- (x .& numI32 63 32<rt>)))
   | 64<rt> ->
     let mask1 = numU64 0x5555555555555555UL 64<rt>
     let mask2 = numU64 0x3333333333333333UL 64<rt>
@@ -1551,7 +1551,7 @@ let lzcnt ins insLen ctxt =
     !!ir (x := x .+ (x >> numI32 8 64<rt>))
     !!ir (x := x .+ (x >> numI32 16 64<rt>))
     !!ir (x := x .+ (x >> numI32 32 64<rt>))
-    !!ir (dst := numI32 64 64<rt> .- (x .& numI32 127 64<rt>))
+    !!ir (dstAssign oprSize dst (numI32 64 64<rt> .- (x .& numI32 127 64<rt>)))
   | _ -> raise InvalidOperandSizeException
   let oprSize = numI32 (RegType.toBitWidth oprSize) oprSize
   !!ir (!.ctxt R.CF := dst == oprSize)
@@ -1731,6 +1731,10 @@ let mulx ins insLen ctxt =
     let pLow = (loSrc1 .* loSrc)
     let high = pHigh .+ ((pMid .+ (pLow  >> n32)) >> n32)
     let low = pLow .+ ((pMid .& mask) << n32)
+    let isOverflow =
+      hiSrc1 .* loSrc .> numI64 0xffffffff_ffffffffL 64<rt> .- loSrc1 .* hiSrc
+    !!ir (tHigh :=
+      high .+ AST.ite isOverflow (numI64 0x100000000L 64<rt>) (AST.num0 64<rt>))
     !!ir (tHigh := high)
     !!ir (tLow := low)
     !!ir (dstAssign oprSize dst1 tHigh)
@@ -1823,7 +1827,7 @@ let pdep ins insLen ctxt =
     let cond = AST.extract mask 1<rt> i
     !!ir (AST.extract tmp 1<rt> i := AST.ite cond (AST.b0) t)
   done
-  !!ir (dst := tmp)
+  !!ir (dstAssign oprSize dst tmp)
   !>ir insLen
 
 let pext ins insLen ctxt =
@@ -1837,7 +1841,7 @@ let pext ins insLen ctxt =
     let cond = AST.extract mask 1<rt> i
     !!ir (tmp := AST.ite cond tmp t)
   done
-  !!ir (dst := tmp)
+  !!ir (dstAssign oSz dst tmp)
   !>ir insLen
 
 let pop ins insLen ctxt =
@@ -2109,10 +2113,12 @@ let rorx ins insLen ctxt =
   let y = !+ir oprSize
   if oprSize = 32<rt> then
     !!ir (y := imm .& (numI32 0x1F oprSize))
-    !!ir (dst := (src >> y) .| (src << (numI32 32 oprSize .- y)))
+    !!ir (dstAssign oprSize dst
+      ((src >> y) .| (src << (numI32 32 oprSize .- y))))
   else (* OperandSize = 64 *)
     !!ir (y := imm .& (numI32 0x3F oprSize))
-    !!ir (dst := (src >> y) .| (src << (numI32 64 oprSize .- y)))
+    !!ir (dstAssign oprSize dst
+      ((src >> y) .| (src << (numI32 64 oprSize .- y))))
   !>ir insLen
 
 let sahf ins insLen ctxt =
