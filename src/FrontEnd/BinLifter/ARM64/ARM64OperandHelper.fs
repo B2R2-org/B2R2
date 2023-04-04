@@ -1425,4 +1425,25 @@ let imm5notx1000 bin =
   chkReserved (List.filter (fun e -> e <> 0b01000u && e <> 0b11000u)
                            [ 0b00000u .. 0b11111u ]) (valImm5 bin)
 
+/// by Q.
+let getOprSizeByQ bin = if valQ bin = 0u then 64<rt> else 128<rt>
+
+/// by size field (base 8).
+let getOprSzBySize bin = RegType.fromBitWidth (8 <<< (valSize1 bin |> int))
+
+/// by sz field (base 32).
+let getOprSzBySz bin =
+  RegType.fromBitWidth (32 <<< (pickBit bin 22u |> int))
+
+/// by HighestSetBit.
+let getOprSzByHSB bin =
+  RegType.fromBitWidth (8 <<< ((highestSetBit 4 (extract bin 22u 19u)) |> int))
+
+/// by immh.
+let getOprSzByImmh bin =
+  match extract bin 22u 21u with
+  | 0b11u | 0b10u -> 64<rt>
+  | 0b01u -> 32<rt>
+  | _ -> 16<rt>
+
 // vim: set tw=80 sts=2 sw=2:
