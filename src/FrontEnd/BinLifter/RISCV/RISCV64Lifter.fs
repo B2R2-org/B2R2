@@ -288,15 +288,15 @@ let dynamicRoundingFl ir ctxt rt res =
   let condRTZ = (fscr == numI32 1 4<rt>)
   let condRDN = (fscr == numI32 2 4<rt>)
   let condRUP = (fscr == numI32 3 4<rt>)
-  let lblD0 = !%ir "D0"
-  let lblD1 = !%ir "D1"
-  let lblD2 = !%ir "D2"
-  let lblD3 = !%ir "D3"
-  let lblD4 = !%ir "D4"
-  let lblD5 = !%ir "D6"
-  let lblD6 = !%ir "D7"
-  let lblDException = !%ir "DException"
-  let lblDEnd = !%ir "DEnd"
+  let lblD0 = !%ir "DF0"
+  let lblD1 = !%ir "DF1"
+  let lblD2 = !%ir "DF2"
+  let lblD3 = !%ir "DF3"
+  let lblD4 = !%ir "DF4"
+  let lblD5 = !%ir "DF6"
+  let lblD6 = !%ir "DF7"
+  let lblDException = !%ir "DFException"
+  let lblDEnd = !%ir "DFEnd"
   !!ir (AST.cjmp condRNERMM (AST.name lblD0) (AST.name lblD1))
   !!ir (AST.lmark lblD0)
   !!ir (tmpVar := AST.cast (CastKind.FtoFRound) rt res)
@@ -324,20 +324,20 @@ let dynamicRoundingFl ir ctxt rt res =
 let dynamicRoundingInt ir ctxt rt res =
   let tmpVar = !+ir rt
   let fscr =
-    (AST.extract (getRegVar ctxt Register.FCSR) 4<rt> 6) .& (numI32 7 4<rt>)
+    (AST.extract (getRegVar ctxt Register.FCSR) 4<rt> 5) .& (numI32 7 4<rt>)
   let condRNERMM = (fscr == numI32 0 4<rt>) .| (fscr == numI32 4 4<rt>)
   let condRTZ = (fscr == numI32 1 4<rt>)
   let condRDN = (fscr == numI32 2 4<rt>)
   let condRUP = (fscr == numI32 3 4<rt>)
-  let lblD0 = !%ir "D0"
-  let lblD1 = !%ir "D1"
-  let lblD2 = !%ir "D2"
-  let lblD3 = !%ir "D3"
-  let lblD4 = !%ir "D4"
-  let lblD5 = !%ir "D6"
-  let lblD6 = !%ir "D7"
-  let lblDException = !%ir "DException"
-  let lblDEnd = !%ir "DEnd"
+  let lblD0 = !%ir "DI0"
+  let lblD1 = !%ir "DI1"
+  let lblD2 = !%ir "DI2"
+  let lblD3 = !%ir "DI3"
+  let lblD4 = !%ir "DI4"
+  let lblD5 = !%ir "DI6"
+  let lblD6 = !%ir "DI7"
+  let lblDException = !%ir "DIException"
+  let lblDEnd = !%ir "DIEnd"
   !!ir (AST.cjmp condRNERMM (AST.name lblD0) (AST.name lblD1))
   !!ir (AST.lmark lblD0)
   !!ir (tmpVar := AST.cast (CastKind.FtoIRound) rt res)
@@ -1917,8 +1917,9 @@ let fmvdotxdotw insInfo insLen ctxt =
 let fmvdotwdotx insInfo insLen ctxt =
   let ir = !*ctxt
   let rd, rs1 = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
+  let upperBitOne = (numU64 0xFFFFFFFF00000000uL 64<rt>)
   !<ir insLen
-  !!ir (rd := AST.xtlo 32<rt> rs1)
+  !!ir (rd := AST.zext 64<rt> (AST.xtlo 32<rt> rs1) .| upperBitOne)
   !>ir insLen
 
 let fmvdotxdotd insInfo insLen ctxt =
