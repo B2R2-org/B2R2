@@ -623,7 +623,7 @@ let fprem _ins insLen ctxt round =
   !?ir (castFrom80Bit tmp0 64<rt> st0b st0a)
   !?ir (castFrom80Bit tmp1 64<rt> st1b st1a)
   !!ir (expDiff := (st0b .& expMask) .- (st1b .& expMask))
-  !!ir (AST.cjmp (AST.lt expDiff n64) (AST.name lblLT64) (AST.name lblGE64))
+  !!ir (AST.cjmp (AST.slt expDiff n64) (AST.name lblLT64) (AST.name lblGE64))
   !!ir (AST.lmark lblLT64) (* D < 64 *)
   !!ir (divres := AST.fdiv tmp0 tmp1)
   !!ir (intres := AST.cast caster 64<rt> divres)
@@ -682,17 +682,15 @@ let frndint _ins insLen ctxt =
   let cst00 = AST.cast CastKind.FtoIRound 64<rt> tmp0
   let cst01 = AST.cast CastKind.FtoIFloor 64<rt> tmp0
   let cst10 = AST.cast CastKind.FtoICeil 64<rt> tmp0
-  let cst11 = AST.cast CastKind.FtoITrunc 64<rt> tmp0
-  let num2 = numI32 2 8<rt>
   !<ir insLen
   !?ir (castFrom80Bit tmp0 64<rt> st0b st0a)
-  !!ir (rcField := (AST.zext 8<rt> (AST.extract (!.ctxt R.FCW) 1<rt> 10)))
+  !!ir (rcField := (AST.zext 8<rt> (AST.extract (!.ctxt R.FCW) 1<rt> 11)))
   !!ir (rcField := (rcField << AST.num1 8<rt>))
   !!ir (rcField :=
-    (rcField .| (AST.zext 8<rt> (AST.extract (!.ctxt R.FCW) 1<rt> 11))))
-  !!ir (tmp0 := AST.ite (rcField == AST.num0 8<rt>) cst00 cst11)
+    (rcField .| (AST.zext 8<rt> (AST.extract (!.ctxt R.FCW) 1<rt> 10))))
+  !!ir (tmp0 := AST.ite (rcField == AST.num0 8<rt>) cst00 tmp0)
   !!ir (tmp0 := AST.ite (rcField == AST.num1 8<rt>) cst01 tmp0)
-  !!ir (tmp0 := AST.ite (rcField == num2) cst10 tmp0)
+  !!ir (tmp0 := AST.ite (rcField == numI32 2 8<rt>) cst10 tmp0)
   !?ir (castTo80Bit ctxt st0b st0a (castToF64 tmp0))
   !?ir (updateC1OnStore ctxt)
   !>ir insLen
@@ -702,17 +700,16 @@ let fscale _ins insLen ctxt =
   let struct (tmp0, tmp1, tmp2, tmp3) = tmpVars4 ir 64<rt>
   let struct (st0b, st0a) = getFPUPseudoRegVars ctxt R.ST0
   let struct (st1b, st1a) = getFPUPseudoRegVars ctxt R.ST1
+  let f2 = numI32 2 64<rt> |> castToF64
   !<ir insLen
   !?ir (castFrom80Bit tmp0 64<rt> st0b st0a)
   !?ir (castFrom80Bit tmp1 64<rt> st1b st1a)
   !!ir (tmp2 := AST.cast CastKind.FtoITrunc 64<rt> tmp1)
   let exp = AST.ite (tmp2 ?>= numI64 0L 64<rt>) tmp2 (AST.neg tmp2)
-  !!ir (tmp3 := numI32 1 64<rt> << exp)
+  !!ir (tmp3 := AST.fpow f2 (castToF64 exp))
   let v =
     AST.ite
-      (tmp2 ?>= numI64 0L 64<rt>)
-      (AST.fmul tmp0 (castToF64 tmp3))
-      (AST.fdiv tmp0 (castToF64 tmp3))
+      (tmp2 ?>= numI64 0L 64<rt>) (AST.fmul tmp0 tmp3) (AST.fdiv tmp0 tmp3)
   !?ir (castTo80Bit ctxt st0b st0a v)
   !?ir (updateC1OnStore ctxt)
   !>ir insLen
