@@ -351,6 +351,7 @@ let cmp ins insLen ctxt addr =
   let src1, src2 = transOprToExprOfCMP ins ctxt addr
   let oSz = ins.OprSize
   !<ir insLen
+  let struct (s1, s2) = tmpVars2 ir oSz
   let _, (n, z, c, v) = addWithCarry src1 (AST.not src2) (AST.num1 oSz) oSz
   !!ir (getRegVar ctxt R.N := n)
   !!ir (getRegVar ctxt R.Z := z)

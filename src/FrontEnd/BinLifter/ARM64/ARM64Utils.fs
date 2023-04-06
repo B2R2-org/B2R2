@@ -79,13 +79,6 @@ let BFXPreferred sf uns imms immr =
 
 // HighestSetBit()
 // ===============
-(*
-let highestSetBit nBit num =
-  let rec loop n =
-    if n < 0 then failwith "There is no SetBit"
-    else if pickBit num (uint32 n) = 0b1u then n else loop (n - 1)
-  loop (nBit - 1)
-*)
 let highestSetBit nBit imm =
   let rec loop idx =
     if idx < 0 then failwith "There is no SeBit"
