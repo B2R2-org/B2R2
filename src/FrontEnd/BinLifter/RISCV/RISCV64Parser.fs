@@ -204,7 +204,7 @@ let parseFloatArith bin =
     | _ -> raise ParsingFailureException
   | 0b1111000u ->
     if getRs2 bin = 0b00000u && getFunc3 bin = 0b000u then
-      struct (Op.FMVdotWdotX, getRdFRs1 bin)
+      struct (Op.FMVdotWdotX, getFRdRs1 bin)
     else
       raise ParsingFailureException
   | 0b0000001u -> struct (Op.FADDdotD, getFRdRs1Rs2Rm bin)
@@ -259,7 +259,7 @@ let parseFloatArith bin =
     | _ -> raise ParsingFailureException
   | 0b1111001u ->
     if getRs2 bin = 0b00000u && getFunc3 bin = 0b000u then
-      struct (Op.FMVdotDdotX, getRdFRs1 bin)
+      struct (Op.FMVdotDdotX, getFRdRs1 bin)
     else
       raise ParsingFailureException
   | _ -> raise ParsingFailureException
