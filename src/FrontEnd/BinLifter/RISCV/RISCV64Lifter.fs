@@ -283,11 +283,11 @@ let roundingToCastInt x =
 let dynamicRoundingFl ir ctxt rt res =
   let tmpVar = !+ir rt
   let fscr =
-    (AST.extract (getRegVar ctxt Register.FCSR) 4<rt> 6) .& (numI32 7 4<rt>)
-  let condRNERMM = (fscr == numI32 0 4<rt>) .| (fscr == numI32 4 4<rt>)
-  let condRTZ = (fscr == numI32 1 4<rt>)
-  let condRDN = (fscr == numI32 2 4<rt>)
-  let condRUP = (fscr == numI32 3 4<rt>)
+    (AST.extract (getRegVar ctxt Register.FCSR) 8<rt> 6) .& (numI32 7 8<rt>)
+  let condRNERMM = (fscr == numI32 0 8<rt>) .| (fscr == numI32 4 8<rt>)
+  let condRTZ = (fscr == numI32 1 8<rt>)
+  let condRDN = (fscr == numI32 2 8<rt>)
+  let condRUP = (fscr == numI32 3 8<rt>)
   let lblD0 = !%ir "DF0"
   let lblD1 = !%ir "DF1"
   let lblD2 = !%ir "DF2"
@@ -324,11 +324,11 @@ let dynamicRoundingFl ir ctxt rt res =
 let dynamicRoundingInt ir ctxt rt res =
   let tmpVar = !+ir rt
   let fscr =
-    (AST.extract (getRegVar ctxt Register.FCSR) 4<rt> 5) .& (numI32 7 4<rt>)
-  let condRNERMM = (fscr == numI32 0 4<rt>) .| (fscr == numI32 4 4<rt>)
-  let condRTZ = (fscr == numI32 1 4<rt>)
-  let condRDN = (fscr == numI32 2 4<rt>)
-  let condRUP = (fscr == numI32 3 4<rt>)
+    (AST.extract (getRegVar ctxt Register.FCSR) 8<rt> 5) .& (numI32 7 8<rt>)
+  let condRNERMM = (fscr == numI32 0 8<rt>) .| (fscr == numI32 4 8<rt>)
+  let condRTZ = (fscr == numI32 1 8<rt>)
+  let condRDN = (fscr == numI32 2 8<rt>)
+  let condRUP = (fscr == numI32 3 8<rt>)
   let lblD0 = !%ir "DI0"
   let lblD1 = !%ir "DI1"
   let lblD2 = !%ir "DI2"
