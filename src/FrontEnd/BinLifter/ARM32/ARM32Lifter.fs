@@ -110,40 +110,42 @@ let transOprToSclar ctxt = function
   | OprSIMD (SFReg (Scalar (reg, Some idx))) -> getRegVar ctxt reg, int32 idx
   | _ -> raise InvalidOperandException
 
-let transOprToExpr ctxt = function
+let transOprToExpr (ins: InsInfo) ctxt = function
   | OprSpecReg (reg, _)
   | OprReg reg -> getRegVar ctxt reg
   | OprRegList regs -> regsToExpr regs
   | OprSIMD simd -> simdToExpr ctxt simd
-  | OprImm imm -> numI64 imm 32<rt> // FIXME
+  | OprImm imm ->
+    let oprSize = if ins.OprSize = 128<rt> then 64<rt> else ins.OprSize
+    numI64 imm oprSize
   | _ -> raise InvalidOperandException
 
 let transOneOpr (ins: InsInfo) ctxt =
   match ins.Operands with
-  | OneOperand opr -> transOprToExpr ctxt opr
+  | OneOperand opr -> transOprToExpr ins ctxt opr
   | _ -> raise InvalidOperandException
 
 let transTwoOprs (ins: InsInfo) ctxt =
   match ins.Operands with
   | TwoOperands (opr1, opr2) ->
-    struct (transOprToExpr ctxt opr1, transOprToExpr ctxt opr2)
+    struct (transOprToExpr ins ctxt opr1, transOprToExpr ins ctxt opr2)
   | _ -> raise InvalidOperandException
 
 let transThreeOprs (ins: InsInfo) ctxt =
   match ins.Operands with
   | ThreeOperands (opr1, opr2, opr3) ->
-    struct (transOprToExpr ctxt opr1,
-            transOprToExpr ctxt opr2,
-            transOprToExpr ctxt opr3)
+    struct (transOprToExpr ins ctxt opr1,
+            transOprToExpr ins ctxt opr2,
+            transOprToExpr ins ctxt opr3)
   | _ -> raise InvalidOperandException
 
 let transFourOprs (ins: InsInfo) ctxt =
   match ins.Operands with
   | FourOperands (o1, o2, o3, o4) ->
-    struct (transOprToExpr ctxt o1,
-            transOprToExpr ctxt o2,
-            transOprToExpr ctxt o3,
-            transOprToExpr ctxt o4)
+    struct (transOprToExpr ins ctxt o1,
+            transOprToExpr ins ctxt o2,
+            transOprToExpr ins ctxt o3,
+            transOprToExpr ins ctxt o4)
   | _ -> raise InvalidOperandException
 
 let bvOfBaseAddr addr = numU64 addr 32<rt>
@@ -701,13 +703,13 @@ let writeModeBits ctxt value isExcptReturn (ir: IRBuilder) =
   !!ir
     (getRegVar ctxt R.CPSR := disablePSRBits ctxt R.CPSR PSR.M .| mValue)
 
-let transShiftOprs ctxt opr1 opr2 =
+let transShiftOprs ins ctxt opr1 opr2 =
   match opr1, opr2 with
   | OprReg _, OprShift (typ, Imm imm) ->
-    let e = transOprToExpr ctxt opr1
+    let e = transOprToExpr ins ctxt opr1
     shift e 32<rt> typ imm (getCarryFlag ctxt)
   | OprReg _, OprRegShift (typ, reg) ->
-    let e = transOprToExpr ctxt opr1
+    let e = transOprToExpr ins ctxt opr1
     let amount = AST.xtlo 8<rt> (getRegVar ctxt reg) |> AST.zext 32<rt>
     shiftForRegAmount e 32<rt> typ amount (getCarryFlag ctxt)
   | _ -> raise InvalidOperandException
@@ -716,7 +718,7 @@ let parseOprOfMVNS (ins: InsInfo) ctxt =
   match ins.Operands with
   | TwoOperands (OprReg _, OprImm _) -> transTwoOprs ins ctxt
   | ThreeOperands (opr1, opr2, opr3) ->
-    struct (transOprToExpr ctxt opr1, transShiftOprs ctxt opr2 opr3)
+    struct (transOprToExpr ins ctxt opr1, transShiftOprs ins ctxt opr2 opr3)
   | _ -> raise InvalidOperandException
 
 let transTwoOprsOfADC (ins: InsInfo) ctxt =
@@ -738,12 +740,12 @@ let transThreeOprsOfADC (ins: InsInfo) ctxt =
 let transFourOprsOfADC (ins: InsInfo) ctxt =
   match ins.Operands with
   | FourOperands (opr1, opr2, opr3, (OprShift (_, Imm _) as opr4)) ->
-    let e1, e2 = transOprToExpr ctxt opr1, transOprToExpr ctxt opr2
-    struct (e1, e2, transShiftOprs ctxt opr3 opr4)
+    let e1, e2 = transOprToExpr ins ctxt opr1, transOprToExpr ins ctxt opr2
+    struct (e1, e2, transShiftOprs ins ctxt opr3 opr4)
   | FourOperands (opr1, opr2, opr3, OprRegShift (typ, reg)) ->
-    let e1 = transOprToExpr ctxt opr1
-    let e2 = transOprToExpr ctxt opr2
-    let e3 = transOprToExpr ctxt opr3
+    let e1 = transOprToExpr ins ctxt opr1
+    let e2 = transOprToExpr ins ctxt opr2
+    let e3 = transOprToExpr ins ctxt opr3
     let amount = AST.xtlo 8<rt> (getRegVar ctxt reg) |> AST.zext 32<rt>
     struct (e1, e2, shiftForRegAmount e3 32<rt> typ amount (getCarryFlag ctxt))
   | _ -> raise InvalidOperandException
@@ -880,13 +882,13 @@ let transThreeOprsOfADD (ins: InsInfo) insLen ctxt =
 let transFourOprsOfADD (ins: InsInfo) insLen ctxt =
   match ins.Operands with
   | FourOperands (opr1, opr2, opr3, (OprShift (_, Imm _) as opr4)) ->
-    let e1 = transOprToExpr ctxt opr1
-    let e2 = transOprToExpr ctxt opr2
-    struct (e1, e2, transShiftOprs ctxt opr3 opr4)
+    let e1 = transOprToExpr ins ctxt opr1
+    let e2 = transOprToExpr ins ctxt opr2
+    struct (e1, e2, transShiftOprs ins ctxt opr3 opr4)
   | FourOperands (opr1, opr2, opr3, OprRegShift (typ, reg)) ->
-    let e1 = transOprToExpr ctxt opr1
-    let e2 = transOprToExpr ctxt opr2
-    let e3 = transOprToExpr ctxt opr3
+    let e1 = transOprToExpr ins ctxt opr1
+    let e2 = transOprToExpr ins ctxt opr2
+    let e3 = transOprToExpr ins ctxt opr3
     let amount = AST.xtlo 8<rt> (getRegVar ctxt reg) |> AST.zext 32<rt>
     struct (e1, e2, shiftForRegAmount e3 32<rt> typ amount (getCarryFlag ctxt))
   | _ -> raise InvalidOperandException
@@ -1262,18 +1264,18 @@ let translateLogicOp (ins: InsInfo) insLen ctxt (ir: IRBuilder) =
   | FourOperands (opr1, opr2, opr3, OprShift (typ, Imm imm)) ->
     let t = !+ir 32<rt>
     let carryIn = getCarryFlag ctxt
-    let dst = transOprToExpr ctxt opr1
-    let src1 = transOprToExpr ctxt opr2
-    let rm = transOprToExpr ctxt opr3
+    let dst = transOprToExpr ins ctxt opr1
+    let src1 = transOprToExpr ins ctxt opr2
+    let rm = transOprToExpr ins ctxt opr3
     !!ir (t := rm)
     let shifted, carryOut = shiftC t 32<rt> typ imm carryIn
     dst, src1, shifted, carryOut
   | FourOperands (opr1, opr2, opr3, OprRegShift (typ, reg)) ->
     let t = !+ir 32<rt>
     let carryIn = getCarryFlag ctxt
-    let dst = transOprToExpr ctxt opr1
-    let src1 = transOprToExpr ctxt opr2
-    let rm = transOprToExpr ctxt opr3
+    let dst = transOprToExpr ins ctxt opr1
+    let src1 = transOprToExpr ins ctxt opr2
+    let rm = transOprToExpr ins ctxt opr3
     !!ir (t := rm)
     let amount = AST.xtlo 8<rt> (getRegVar ctxt reg) |> AST.zext 32<rt>
     let shifted, carryOut = shiftCForRegAmount t 32<rt> typ amount carryIn
@@ -1304,7 +1306,7 @@ let parseOprsOfMOV (ins: InsInfo) ctxt =
   match ins.Operands with
   | TwoOperands _ -> transTwoOprs ins ctxt
   | ThreeOperands (opr1, opr2, opr3) ->
-    struct (transOprToExpr ctxt opr1, transShiftOprs ctxt opr2 opr3)
+    struct (transOprToExpr ins ctxt opr1, transShiftOprs ins ctxt opr2 opr3)
   | _ -> raise InvalidOperandException
 
 let mov isSetFlags ins insLen ctxt =
@@ -1351,13 +1353,13 @@ let eor isSetFlags (ins: InsInfo) insLen ctxt =
 let transFourOprsOfRSB (ins: InsInfo) insLen ctxt =
   match ins.Operands with
   | FourOperands (opr1, opr2, opr3, (OprShift (_, Imm _) as opr4)) ->
-    let e1 = transOprToExpr ctxt opr1
-    let e2 = transOprToExpr ctxt opr2
-    struct (e1, e2, transShiftOprs ctxt opr3 opr4)
+    let e1 = transOprToExpr ins ctxt opr1
+    let e2 = transOprToExpr ins ctxt opr2
+    struct (e1, e2, transShiftOprs ins ctxt opr3 opr4)
   | FourOperands (opr1, opr2, opr3, OprRegShift (typ, reg)) ->
-    let e1 = transOprToExpr ctxt opr1
-    let e2 = transOprToExpr ctxt opr2
-    let e3 = transOprToExpr ctxt opr3
+    let e1 = transOprToExpr ins ctxt opr1
+    let e2 = transOprToExpr ins ctxt opr2
+    let e3 = transOprToExpr ins ctxt opr3
     let amount = AST.xtlo 8<rt> (getRegVar ctxt reg) |> AST.zext 32<rt>
     struct (e1, e2, shiftForRegAmount e3 32<rt> typ amount (getCarryFlag ctxt))
   | _ -> raise InvalidOperandException
@@ -1405,13 +1407,13 @@ let transTwoOprsOfSBC (ins: InsInfo) insLen ctxt =
 let transFourOprsOfSBC (ins: InsInfo) insLen ctxt =
   match ins.Operands with
   | FourOperands (opr1, opr2, opr3, (OprShift (_, Imm _) as opr4)) ->
-    let e1 = transOprToExpr ctxt opr1
-    let e2 = transOprToExpr ctxt opr2
-    struct (e1, e2, transShiftOprs ctxt opr3 opr4)
+    let e1 = transOprToExpr ins ctxt opr1
+    let e2 = transOprToExpr ins ctxt opr2
+    struct (e1, e2, transShiftOprs ins ctxt opr3 opr4)
   | FourOperands (opr1, opr2, opr3, OprRegShift (typ, reg)) ->
-    let e1 = transOprToExpr ctxt opr1
-    let e2 = transOprToExpr ctxt opr2
-    let e3 = transOprToExpr ctxt opr3
+    let e1 = transOprToExpr ins ctxt opr1
+    let e2 = transOprToExpr ins ctxt opr2
+    let e3 = transOprToExpr ins ctxt opr3
     let amount = AST.xtlo 8<rt> (getRegVar ctxt reg) |> AST.zext 32<rt>
     struct (e1, e2, shiftForRegAmount e3 32<rt> typ amount (getCarryFlag ctxt))
   | _ -> raise InvalidOperandException
@@ -1453,13 +1455,13 @@ let sbc isSetFlags ins insLen ctxt =
 let transFourOprsOfRSC (ins: InsInfo) insLen ctxt =
   match ins.Operands with
   | FourOperands (opr1, opr2, opr3, (OprShift (_, Imm _) as opr4)) ->
-    let e1 = transOprToExpr ctxt opr1
-    let e2 = transOprToExpr ctxt opr2
-    e1, e2, transShiftOprs ctxt opr3 opr4
+    let e1 = transOprToExpr ins ctxt opr1
+    let e2 = transOprToExpr ins ctxt opr2
+    e1, e2, transShiftOprs ins ctxt opr3 opr4
   | FourOperands (opr1, opr2, opr3, OprRegShift (typ, reg)) ->
-    let e1 = transOprToExpr ctxt opr1
-    let e2 = transOprToExpr ctxt opr2
-    let e3 = transOprToExpr ctxt opr3
+    let e1 = transOprToExpr ins ctxt opr1
+    let e2 = transOprToExpr ins ctxt opr2
+    let e3 = transOprToExpr ins ctxt opr3
     let amount = AST.xtlo 8<rt> (getRegVar ctxt reg) |> AST.zext 32<rt>
     e1, e2, shiftForRegAmount e3 32<rt> typ amount (getCarryFlag ctxt)
   | _ -> raise InvalidOperandException
@@ -1572,14 +1574,14 @@ let transThreeOprsOfMVN (ins: InsInfo) insLen ctxt =
   match ins.Operands with
   | ThreeOperands (opr1, opr2, OprShift (typ, Imm imm)) ->
     let carryIn = getCarryFlag ctxt
-    let dst = transOprToExpr ctxt opr1
-    let src = transOprToExpr ctxt opr2
+    let dst = transOprToExpr ins ctxt opr1
+    let src = transOprToExpr ins ctxt opr2
     let shifted, carryOut = shiftC src 32<rt> typ imm carryIn
     struct (dst, shifted, carryOut)
   | ThreeOperands (opr1, opr2, OprRegShift (typ, rs)) ->
     let carryIn = getCarryFlag ctxt
-    let dst = transOprToExpr ctxt opr1
-    let src = transOprToExpr ctxt opr2
+    let dst = transOprToExpr ins ctxt opr1
+    let src = transOprToExpr ins ctxt opr2
     let amount = AST.xtlo 8<rt> (getRegVar ctxt rs) |> AST.zext 32<rt>
     let shifted, carryOut = shiftCForRegAmount src 32<rt> typ amount carryIn
     struct (dst, shifted, carryOut)
@@ -1640,8 +1642,8 @@ let transTwoOprsOfShiftInstr (ins: InsInfo) shiftTyp ctxt tmp =
 let transThreeOprsOfShiftInstr (ins: InsInfo) shiftTyp ctxt tmp =
   match ins.Operands with
   | ThreeOperands (opr1, opr2, OprImm imm) ->
-    let e1 = transOprToExpr ctxt opr1
-    let e2 = transOprToExpr ctxt opr2
+    let e1 = transOprToExpr ins ctxt opr1
+    let e2 = transOprToExpr ins ctxt opr2
     let shiftN = getImmShiftFromShiftType (uint32 imm) shiftTyp
     let shifted, carryOut =
       shiftC tmp 32<rt> shiftTyp shiftN (getCarryFlag ctxt)
@@ -1828,14 +1830,14 @@ let transThreeOprsOfCMN (ins: InsInfo) insLen ctxt =
   match ins.Operands with
   | ThreeOperands (opr1, opr2, OprShift (typ, Imm imm)) ->
     let carryIn = getCarryFlag ctxt
-    let dst = transOprToExpr ctxt opr1
-    let src = transOprToExpr ctxt opr2
+    let dst = transOprToExpr ins ctxt opr1
+    let src = transOprToExpr ins ctxt opr2
     let shifted = shift src 32<rt> typ imm carryIn
     struct (dst, shifted)
   | ThreeOperands (opr1, opr2, OprRegShift (typ, rs)) ->
     let carryIn = getCarryFlag ctxt
-    let dst = transOprToExpr ctxt opr1
-    let src = transOprToExpr ctxt opr2
+    let dst = transOprToExpr ins ctxt opr1
+    let src = transOprToExpr ins ctxt opr2
     let amount = AST.xtlo 8<rt> (getRegVar ctxt rs) |> AST.zext 32<rt>
     let shifted = shiftForRegAmount src 32<rt> typ amount carryIn
     struct (dst, shifted)
@@ -1896,13 +1898,13 @@ let transThreeOprsOfCMP (ins: InsInfo) insLen ctxt =
   match ins.Operands with
   | ThreeOperands (opr1, opr2, OprShift (typ, Imm imm)) ->
     let carryIn = getCarryFlag ctxt
-    let dst = transOprToExpr ctxt opr1
-    let src = transOprToExpr ctxt opr2
+    let dst = transOprToExpr ins ctxt opr1
+    let src = transOprToExpr ins ctxt opr2
     struct (dst, shift src 32<rt> typ imm carryIn)
   | ThreeOperands (opr1, opr2, OprRegShift (typ, rs)) ->
     let carryIn = getCarryFlag ctxt
-    let dst = transOprToExpr ctxt opr1
-    let src = transOprToExpr ctxt opr2
+    let dst = transOprToExpr ins ctxt opr1
+    let src = transOprToExpr ins ctxt opr2
     let amount = AST.xtlo 8<rt> (getRegVar ctxt rs) |> AST.zext 32<rt>
     struct (dst, shiftForRegAmount src 32<rt> typ amount carryIn)
   | _ -> raise InvalidOperandException
@@ -1976,14 +1978,14 @@ let transOprsOfTEQ (ins: InsInfo) insLen ctxt =
     rn, imm, getCarryFlag ctxt
   | ThreeOperands (opr1, opr2, OprShift (typ, Imm imm)) ->
     let carryIn = getCarryFlag ctxt
-    let rn = transOprToExpr ctxt opr1
-    let rm = transOprToExpr ctxt opr2
+    let rn = transOprToExpr ins ctxt opr1
+    let rm = transOprToExpr ins ctxt opr2
     let shifted, carryOut = shiftC rm 32<rt> typ imm carryIn
     rn, shifted, carryOut
   | ThreeOperands (opr1, opr2, OprRegShift (typ, rs)) ->
     let carryIn = getCarryFlag ctxt
-    let rn = transOprToExpr ctxt opr1
-    let rm = transOprToExpr ctxt opr2
+    let rn = transOprToExpr ins ctxt opr1
+    let rm = transOprToExpr ins ctxt opr2
     let amount = AST.xtlo 8<rt> (getRegVar ctxt rs) |> AST.zext 32<rt>
     let shifted, carryOut = shiftCForRegAmount rm 32<rt> typ amount carryIn
     rn, shifted, carryOut
@@ -2034,14 +2036,14 @@ let transOprsOfTST (ins: InsInfo) insLen ctxt =
     struct (e1, shifted, carryOut)
   | ThreeOperands (opr1, opr2, OprShift (typ, Imm imm)) ->
     let carryIn = getCarryFlag ctxt
-    let rn = transOprToExpr ctxt opr1
-    let rm = transOprToExpr ctxt opr2
+    let rn = transOprToExpr ins ctxt opr1
+    let rm = transOprToExpr ins ctxt opr2
     let shifted, carryOut = shiftC rm 32<rt> typ imm carryIn
     struct (rn, shifted, carryOut)
   | ThreeOperands (opr1, opr2, OprRegShift (typ, rs)) ->
     let carryIn = getCarryFlag ctxt
-    let rn = transOprToExpr ctxt opr1
-    let rm = transOprToExpr ctxt opr2
+    let rn = transOprToExpr ins ctxt opr1
+    let rm = transOprToExpr ins ctxt opr2
     let amount = AST.xtlo 8<rt> (getRegVar ctxt rs) |> AST.zext 32<rt>
     let shifted, carryOut = shiftCForRegAmount rm 32<rt> typ amount carryIn
     struct (rn, shifted, carryOut)
@@ -3189,16 +3191,17 @@ let isUnsigned = function
 let parseOprOfVMOV (ins: InsInfo) ctxt ir =
   match ins.Operands with
   (* VMOV (immediate) *)
-  | TwoOperands (OprSIMD _ as o1, OprImm imm) ->
+  | TwoOperands (OprSIMD _, OprImm _) ->
+    let struct (dst, imm) = getTwoOprs ins
     match ins.OprSize with
     | 128<rt> ->
-      let dstB, dstA = transOprToExpr128 ctxt o1
-      let imm = numI64 imm (ins.OprSize / 2) (* FIXME: OprImm lifting *)
+      let dstB, dstA = transOprToExpr128 ctxt dst
+      let imm = transOprToExpr ins ctxt imm
       !!ir (dstB := imm)
       !!ir (dstA := imm)
     | _ ->
-      let dst = transOprToExpr ctxt o1
-      let imm = numI64 imm ins.OprSize (* FIXME: OprImm lifting *)
+      let dst = transOprToExpr ins ctxt dst
+      let imm = transOprToExpr ins ctxt imm
       !!ir (dst := imm)
   (* VMOV (general-purpose register to scalar) *)
   | TwoOperands (OprSIMD (SFReg (Scalar (_, Some element))), OprReg _) ->
@@ -3246,10 +3249,9 @@ let parseOprOfVMOVFP (ins: InsInfo) ctxt ir =
     let struct (dst, src) = transTwoOprs ins ctxt
     !!ir (dst := src)
   (* VMOV (immediate) *)
-  | TwoOperands (OprSIMD _ as o1, OprImm imm) ->
-    let dst = transOprToExpr ctxt o1
-    let imm = numI64 imm ins.OprSize (* FIXME: OprImm lifting *)
-    !!ir (dst := imm)
+  | TwoOperands (OprSIMD _, OprImm _) ->
+    let struct (dst, imm) = transTwoOprs ins ctxt
+    !!ir (dst := AST.zext ins.OprSize imm)
   | _ -> !!ir (AST.sideEffect UnsupportedFP)
 
 let vmov (ins: InsInfo) insLen ctxt =
@@ -3353,8 +3355,8 @@ let vaddl (ins: InsInfo) insLen ctxt =
   let p = getParsingInfo ins
   let struct (dst, src1, src2) = getThreeOprs ins
   let dstB, dstA = transOprToExpr128 ctxt dst
-  let src1 = transOprToExpr ctxt src1
-  let src2 = transOprToExpr ctxt src2
+  let src1 = transOprToExpr ins ctxt src1
+  let src2 = transOprToExpr ins ctxt src2
   for e in 0 .. (p.Elements - 1) / 2 do
     !!ir (elem dstA e (2 * p.ESize) :=
       AST.zext (p.RtESize * 2) (elem src1 e p.ESize) .+
@@ -3380,7 +3382,7 @@ let parseOprOfVCVT (ins: InsInfo) ctxt ir =
     | 128<rt> ->
       let struct (dst, src) = getTwoOprs ins
       let dstB, dstA = transOprToExpr128 ctxt dst
-      let src = transOprToExpr ctxt src
+      let src = transOprToExpr ins ctxt src
       let p = getParsingInfo ins
       let struct (tdstB, tdstA) = tmpVars2 ir 64<rt>
       !!ir (tdstA := (dstB << numI32 63 64<rt>) .| (dstA >> AST.num1 64<rt>))
@@ -3394,7 +3396,7 @@ let parseOprOfVCVT (ins: InsInfo) ctxt ir =
       !!ir (dstA := tdstA)
     | 64<rt> ->
       let struct (dst, src) = getTwoOprs ins
-      let dst = transOprToExpr ctxt dst
+      let dst = transOprToExpr ins ctxt dst
       let srcB, srcA = transOprToExpr128 ctxt src
       let p = getParsingInfo ins
       let struct (tsrcB, tsrcA) = tmpVars2 ir 64<rt>
@@ -3689,8 +3691,8 @@ let vecMulAccOrSubLong (ins: InsInfo) insLen ctxt add =
   let unsigned = isUnsigned ins.SIMDTyp
   let struct (dst, src1, src2) = getThreeOprs ins
   let dstB, dstA = transOprToExpr128 ctxt dst
-  let src1 = transOprToExpr ctxt src1
-  let src2 = transOprToExpr ctxt src2
+  let src1 = transOprToExpr ins ctxt src1
+  let src2 = transOprToExpr ins ctxt src2
   for e in 0 .. (p.Elements - 1) / 2 do
     let extend expr =
       if unsigned then AST.zext (p.RtESize * 2) expr
@@ -3727,8 +3729,8 @@ let vecMulAccOrSubByScalar (ins: InsInfo) insLen ctxt add =
       !!ir (elem dstB e p.ESize := elem dstB e p.ESize .+ addendB)
       !!ir (elem dstA e p.ESize := elem dstA e p.ESize .+ addendA)
   | _ ->
-    let dst = transOprToExpr ctxt dst
-    let src1 = transOprToExpr ctxt src1
+    let dst = transOprToExpr ins ctxt dst
+    let src1 = transOprToExpr ins ctxt src1
     for e in 0 .. p.Elements - 1 do
       let op1val = AST.sext p.RtESize (elem src1 e p.ESize)
       let addend =
@@ -3744,7 +3746,7 @@ let vecMulAccOrSubLongByScalar (ins: InsInfo) insLen ctxt add =
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   let struct (dst, src1, src2) = getThreeOprs ins
   let dstB, dstA = transOprToExpr128 ctxt dst
-  let src1 = transOprToExpr ctxt src1
+  let src1 = transOprToExpr ins ctxt src1
   let src2, index = transOprToSclar ctxt src2
   let p = getParsingInfo ins
   let ext = if isUnsigned ins.SIMDTyp then AST.zext else AST.sext
@@ -3871,8 +3873,8 @@ let vecMulLong (ins: InsInfo) insLen ctxt =
   let polynomial = isPolynomial ins.SIMDTyp
   let struct (dst, src1, src2) = getThreeOprs ins
   let dstB, dstA = transOprToExpr128 ctxt dst
-  let src1 = transOprToExpr ctxt src1
-  let src2 = transOprToExpr ctxt src2
+  let src1 = transOprToExpr ins ctxt src1
+  let src2 = transOprToExpr ins ctxt src2
   let isPolyAndE64 = polynomial && p.ESize = 64
   let struct (regSize, eSize) =
     if isPolyAndE64 then p.RtESize, p.ESize
@@ -3915,8 +3917,8 @@ let vecMulByScalar (ins: InsInfo) insLen ctxt opFn =
       !!ir (elem dstB e p.ESize := AST.xtlo p.RtESize resB)
       !!ir (elem dstA e p.ESize := AST.xtlo p.RtESize resA)
   | _ ->
-    let dst = transOprToExpr ctxt dst
-    let src1 = transOprToExpr ctxt src1
+    let dst = transOprToExpr ins ctxt dst
+    let src1 = transOprToExpr ins ctxt src1
     for e in 0 .. p.Elements - 1 do
       let res = mulSExtend p 1 (elem src1 e p.ESize) op2val opFn
       !!ir (elem dst e p.ESize := AST.xtlo p.RtESize res)
@@ -3930,7 +3932,7 @@ let vecMulLongByScalar (ins: InsInfo) insLen ctxt =
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   let struct (dst, src1, src2) = getThreeOprs ins
   let dstB, dstA = transOprToExpr128 ctxt dst
-  let src1 = transOprToExpr ctxt src1
+  let src1 = transOprToExpr ins ctxt src1
   let src2, index = transOprToSclar ctxt src2
   let p = getParsingInfo ins
   let op2val = elem src2 index p.ESize
@@ -3977,7 +3979,7 @@ let vmovn (ins: InsInfo) insLen ctxt =
   !<ir insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   let struct (dst, src) = getTwoOprs ins
-  let dst = transOprToExpr ctxt dst
+  let dst = transOprToExpr ins ctxt dst
   let srcB, srcA = transOprToExpr128 ctxt src
   let esize = 8 <<< getSizeStartFrom16 ins.SIMDTyp
   let rtEsz = RegType.fromBitWidth esize
@@ -4043,7 +4045,7 @@ let vrshr (ins: InsInfo) insLen ctxt =
     let struct (dst, src, imm) = getThreeOprs ins
     let dstB, dstA = transOprToExpr128 ctxt dst
     let srcB, srcA = transOprToExpr128 ctxt src
-    let imm = AST.zext 64<rt> (transOprToExpr ctxt imm)
+    let imm = AST.zext 64<rt> (transOprToExpr ins ctxt imm)
     let roundConst = AST.num1 64<rt> << (imm .- AST.num1 64<rt>)
     for e in 0 .. p.Elements - 1 do
       let result1 = (extend 64<rt> (elem srcB e p.ESize) .+ roundConst) >> imm
@@ -4071,7 +4073,7 @@ let vshlImm (ins: InsInfo) insLen ctxt =
     let struct (dst, src, imm) = getThreeOprs ins
     let dstB, dstA = transOprToExpr128 ctxt dst
     let srcB, srcA = transOprToExpr128 ctxt src
-    let imm = AST.zext p.RtESize (transOprToExpr ctxt imm)
+    let imm = AST.zext p.RtESize (transOprToExpr ins ctxt imm)
     for e in 0 .. p.Elements - 1 do
       !!ir (elem dstB e p.ESize := elem srcB e p.ESize << imm)
       !!ir (elem dstA e p.ESize := elem srcA e p.ESize << imm)
@@ -4130,7 +4132,7 @@ let vshr (ins: InsInfo) insLen ctxt =
     let struct (dst, src, imm) = getThreeOprs ins
     let dstB, dstA = transOprToExpr128 ctxt dst
     let srcB, srcA = transOprToExpr128 ctxt dst
-    let imm = AST.zext 64<rt> (transOprToExpr ctxt imm)
+    let imm = AST.zext 64<rt> (transOprToExpr ins ctxt imm)
     for e in 0 .. p.Elements - 1 do
       let result1 = extend 64<rt> (elem srcB e p.ESize) >> imm
       let result2 = extend 64<rt> (elem srcA e p.ESize) >> imm
@@ -4308,9 +4310,9 @@ let vrshrn (ins: InsInfo) insLen ctxt =
   let rtEsz = RegType.fromBitWidth esize
   let elements = 64 / esize
   let struct (dst, src, imm) = getThreeOprs ins
-  let dst = transOprToExpr ctxt dst
+  let dst = transOprToExpr ins ctxt dst
   let srcB, srcA = transOprToExpr128 ctxt src
-  let imm = AST.zext (rtEsz * 2) (transOprToExpr ctxt imm)
+  let imm = AST.zext (rtEsz * 2) (transOprToExpr ins ctxt imm)
   let roundConst = AST.num1 (rtEsz * 2) << (imm .- AST.num1 (rtEsz * 2))
   for e in 0 .. (elements / 2) - 1 do
     let result1 = (elem srcB e (esize * 2) .+ roundConst) >> imm
@@ -4348,7 +4350,8 @@ let vorrImm (ins: InsInfo) insLen ctxt =
   | 128<rt> ->
     let struct (dst, imm) = getTwoOprs ins
     let dstB, dstA = transOprToExpr128 ctxt dst
-    let imm = AST.concat (transOprToExpr ctxt imm) (transOprToExpr ctxt imm)
+    let imm =
+      AST.concat (transOprToExpr ins ctxt imm) (transOprToExpr ins ctxt imm)
     !!ir (dstB := dstB .| imm)
     !!ir (dstA := dstA .| imm)
   | _ ->
@@ -4392,7 +4395,8 @@ let vornImm (ins: InsInfo) insLen ctxt =
   | 128<rt> ->
     let struct (dst, imm) = getTwoOprs ins
     let dstB, dstA = transOprToExpr128 ctxt dst
-    let imm = AST.concat (transOprToExpr ctxt imm) (transOprToExpr ctxt imm)
+    let imm =
+      AST.concat (transOprToExpr ins ctxt imm) (transOprToExpr ins ctxt imm)
     !!ir (dstB := dstB .| AST.not imm)
     !!ir (dstA := dstA .| AST.not imm)
   | _ ->
@@ -5130,7 +5134,7 @@ let vsra (ins: InsInfo) insLen ctxt =
     let struct (dst, src, imm) = getThreeOprs ins
     let dstB, dstA = transOprToExpr128 ctxt dst
     let srcB, srcA = transOprToExpr128 ctxt src
-    let imm = transOprToExpr ctxt imm
+    let imm = transOprToExpr ins ctxt imm
     !!ir (shfAmt := if p.RtESize = 64<rt> then AST.zext p.RtESize imm
                     else AST.xtlo p.RtESize imm)
     for e in 0 .. p.Elements - 1 do
