@@ -451,7 +451,7 @@ let getSignFloat rt e =
   | 32<rt> ->
     e .& (numU32 0x80000000u 32<rt>)
   | 64<rt> ->
-    e .& (numU64 0x8000000000000000uL 32<rt>)
+    e .& (numU64 0x8000000000000000uL 64<rt>)
   | _ -> raise InvalidRegTypeException
 
 let checkSubnormal rt e =
@@ -477,19 +477,24 @@ let private checkOverfolwOnDMul e1 e2 =
 let private mul64BitReg src1 src2 ir isSign =
   let struct (hiSrc1, loSrc1, hiSrc2, loSrc2) = tmpVars4 ir 64<rt>
   let struct (tHigh, tLow) = tmpVars2 ir 64<rt>
+  let struct (tSrc1, tSrc2) = tmpVars2 ir 64<rt>
   let struct (src1IsNeg, src2IsNeg, signBit) = tmpVars3 ir 1<rt>
   let n32 = numI32 32 64<rt>
   let mask32 = numI64 0xFFFFFFFFL 64<rt>
+  let zero = numI32 0 64<rt>
+  let one = numI32 1 64<rt>
   if isSign then
     !!ir (src1IsNeg := AST.xthi 1<rt> src1)
     !!ir (src2IsNeg := AST.xthi 1<rt> src2)
-    !!ir (src1 := AST.ite src1IsNeg (AST.neg src1) src1)
-    !!ir (src2 := AST.ite src2IsNeg (AST.neg src2) src2)
-  else ()
-  !!ir (hiSrc1 := (src1 >> n32) .& mask32) (* SRC1[63:32] *)
-  !!ir (loSrc1 := src1 .& mask32) (* SRC1[31:0] *)
-  !!ir (hiSrc2 := (src2 >> n32) .& mask32) (* SRC2[63:32] *)
-  !!ir (loSrc2 := src2 .& mask32) (* SRC2[31:0] *)
+    !!ir (tSrc1 := AST.ite src1IsNeg (AST.neg src1) src1)
+    !!ir (tSrc2 := AST.ite src2IsNeg (AST.neg src2) src2)
+  else
+    !!ir (tSrc1 := src1)
+    !!ir (tSrc2 := src2)
+  !!ir (hiSrc1 := (tSrc1 >> n32) .& mask32) (* SRC1[63:32] *)
+  !!ir (loSrc1 := tSrc1 .& mask32) (* SRC1[31:0] *)
+  !!ir (hiSrc2 := (tSrc2 >> n32) .& mask32) (* SRC2[63:32] *)
+  !!ir (loSrc2 := tSrc2 .& mask32) (* SRC2[31:0] *)
   let pHigh = hiSrc1 .* hiSrc2
   let pMid= (hiSrc1 .* loSrc2) .+ (loSrc1 .* hiSrc2)
   let pLow = loSrc1 .* loSrc2
@@ -500,6 +505,8 @@ let private mul64BitReg src1 src2 ir isSign =
     !!ir (signBit := src1IsNeg <+> src2IsNeg)
     !!ir (tHigh := AST.ite signBit (AST.not high) high)
     !!ir (tLow := AST.ite signBit (AST.neg low) low)
+    let carry = AST.ite (AST.``and`` signBit (AST.eq tLow zero)) one zero
+    !!ir (tHigh := tHigh .+ carry)
   else
     !!ir (tHigh := high)
     !!ir (tLow := low)
@@ -1714,7 +1721,7 @@ let fnmsubdots insInfo insLen ctxt =
   let rs2 = AST.xtlo 32<rt> rs2
   let rs3 = AST.xtlo 32<rt> rs3
   let upperBitOne = (numU64 0xFFFFFFFF00000000uL 64<rt>)
-  let res = (AST.fsub (AST.neg rs3) (AST.fmul rs1 rs2))
+  let res = (AST.fsub (rs3) (AST.fmul rs1 rs2))
   if rm <> OpRoundMode (RoundMode.DYN) then
     let rounding = roundingToCastFloat rm
     let rtVal = !+ir 32<rt>
@@ -1732,7 +1739,7 @@ let fnmsubdotd insInfo insLen ctxt =
   let ir = !*ctxt
   let rd, rs1, rs2, rs3, rm = getFiveOprs insInfo
   let rd, rs1, rs2, rs3 = (rd, rs1, rs2, rs3) |> transFourOprs insInfo ctxt
-  let res = (AST.fsub (AST.neg rs3) (AST.fmul rs1 rs2))
+  let res = (AST.fsub (rs3) (AST.fmul rs1 rs2))
   if rm <> OpRoundMode (RoundMode.DYN) then
     let rounding = roundingToCastFloat rm
     let rtVal = !+ir 64<rt>
