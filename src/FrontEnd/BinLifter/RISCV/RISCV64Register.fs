@@ -479,5 +479,6 @@ module Register =
     | R.F0 | R.F1 | R.F2 | R.F3 | R.F4 | R.F5 | R.F6 | R.F7 | R.F8 | R.F9
     | R.F10 | R.F11 | R.F12 | R.F13 | R.F14 | R.F15 | R.F16 | R.F17 | R.F18
     | R.F19 | R.F20 | R.F21 | R.F22 | R.F23 | R.F24 | R.F25 | R.F26 | R.F27
-    | R.F28 | R.F29 | R.F30 | R.F31 | R.FCSR -> 32<rt>
+    | R.F28 | R.F29 | R.F30 | R.F31 -> 64<rt>
+    | R.FCSR -> 32<rt>
     | _ -> Utils.impossible ()
