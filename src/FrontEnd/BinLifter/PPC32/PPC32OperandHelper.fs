@@ -47,5 +47,3 @@ let getSPRegister (bin: uint32) =  bin |> uint64 |> OprImm
 
 let getTBRRegister (bin: uint32) = bin |> uint64 |> OprImm
 
-let getFM (bin: uint32) = bin |> uint64 |> OprImm
-
