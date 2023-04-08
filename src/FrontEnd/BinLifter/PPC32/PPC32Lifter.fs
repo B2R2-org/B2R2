@@ -952,7 +952,7 @@ let lfd ins insLen ctxt =
   let v = loadNative ctxt 64<rt> ea
   let ir = !*ctxt
   !<ir insLen
-  !!ir (dst := AST.cast CastKind.FloatCast 64<rt> v)
+  !!ir (dst := v)
   !>ir insLen
 
 let lfs ins insLen ctxt =
