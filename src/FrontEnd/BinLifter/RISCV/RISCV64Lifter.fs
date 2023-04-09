@@ -46,6 +46,9 @@ let inline (:=) dst src =
 let inline getCSRReg (ctxt: TranslationContext) csr =
   let csrReg =
     match csr with
+    | 0001us -> Register.FFLAGS
+    | 0002us -> Register.FRM
+    | 0003us -> Register.FCSR
     | 0768us -> Register.CSR0768
     | 0769us -> Register.CSR0769
     | 0770us -> Register.CSR0770
@@ -272,12 +275,11 @@ let roundingToCastInt x =
 
 let dynamicRoundingInt ir ctxt rt res =
   let tmpVar = !+ir rt
-  let fscr =
-    (AST.extract (getRegVar ctxt Register.FCSR) 8<rt> 5) .& (numI32 7 8<rt>)
-  let condRNERMM = (fscr == numI32 0 8<rt>) .| (fscr == numI32 4 8<rt>)
-  let condRTZ = (fscr == numI32 1 8<rt>)
-  let condRDN = (fscr == numI32 2 8<rt>)
-  let condRUP = (fscr == numI32 3 8<rt>)
+  let frm = (getRegVar ctxt Register.FRM) .& (numI32 7 8<rt>)
+  let condRNERMM = (frm == numI32 0 8<rt>) .| (frm == numI32 4 8<rt>)
+  let condRTZ = (frm == numI32 1 8<rt>)
+  let condRDN = (frm == numI32 2 8<rt>)
+  let condRUP = (frm == numI32 3 8<rt>)
   let lblD0 = !%ir "DI0"
   let lblD1 = !%ir "DI1"
   let lblD2 = !%ir "DI2"
@@ -1087,7 +1089,7 @@ let fltdots insInfo insLen ctxt =
   let cond = AST.flt rs1 rs2
   let rtVal =
     AST.ite cond (AST.num1 ctxt.WordBitSize) (AST.num0 ctxt.WordBitSize)
-  let fscr = getRegVar ctxt R.FCSR
+  let fflags = getRegVar ctxt R.FFLAGS
   !<ir insLen
   !!ir (AST.cjmp checkNan (AST.name lblL1) (AST.name lblL0))
   !!ir (AST.lmark lblL0)
@@ -1095,7 +1097,7 @@ let fltdots insInfo insLen ctxt =
   !!ir (AST.jmp (AST.name lblEnd))
   !!ir (AST.lmark lblL1)
   !!ir (rd := numU64 0uL 64<rt>)
-  !!ir (fscr := fscr .| numU32 16u 32<rt>)
+  !!ir (fflags := fflags .| numU32 16u 32<rt>)
   !!ir (AST.lmark lblEnd)
   !>ir insLen
 
@@ -1110,7 +1112,7 @@ let fledots insInfo insLen ctxt =
   let lblEnd = !%ir "End"
   let cond = AST.fle rs1 rs2
   let rtVal = AST.ite cond (AST.num1 64<rt>) (AST.num0 64<rt>)
-  let fscr = getRegVar ctxt R.FCSR
+  let fflags = getRegVar ctxt R.FFLAGS
   !<ir insLen
   !!ir (AST.cjmp checkNan (AST.name lblL1) (AST.name lblL0))
   !!ir (AST.lmark lblL0)
@@ -1118,7 +1120,7 @@ let fledots insInfo insLen ctxt =
   !!ir (AST.jmp (AST.name lblEnd))
   !!ir (AST.lmark lblL1)
   !!ir (rd := numU64 0uL 64<rt>)
-  !!ir (fscr := fscr .| numU32 16u 32<rt>)
+  !!ir (fflags := fflags .| numU32 16u 32<rt>)
   !!ir (AST.lmark lblEnd)
   !>ir insLen
 
@@ -1134,7 +1136,7 @@ let feqdots insInfo insLen ctxt =
   let lblEnd = !%ir "End"
   let cond = AST.eq rs1 rs2
   let rtVal = AST.ite cond (AST.num1 64<rt>) (AST.num0 64<rt>)
-  let fscr = getRegVar ctxt R.FCSR
+  let fflags = getRegVar ctxt R.FFLAGS
   let flagFscr = (AST.ite (checkSNan) (numU32 16u 32<rt>) (AST.num0 32<rt>))
   !<ir insLen
   !!ir (AST.cjmp checkNan (AST.name lblL1) (AST.name lblL0))
@@ -1143,7 +1145,7 @@ let feqdots insInfo insLen ctxt =
   !!ir (AST.jmp (AST.name lblEnd))
   !!ir (AST.lmark lblL1)
   !!ir (rd := numU64 0uL 64<rt>)
-  !!ir (fscr := fscr .| flagFscr)
+  !!ir (fflags := fflags .| flagFscr)
   !!ir (AST.lmark lblEnd)
   !>ir insLen
 
@@ -1297,7 +1299,7 @@ let fltdotd insInfo insLen ctxt =
   let lblEnd = !%ir "End"
   let cond = AST.flt rs1 rs2
   let rtVal = AST.ite cond (AST.num1 64<rt>) (AST.num0 64<rt>)
-  let fscr = getRegVar ctxt R.FCSR
+  let fflags = getRegVar ctxt R.FFLAGS
   !<ir insLen
   !!ir (AST.cjmp checkNan (AST.name lblL1) (AST.name lblL0))
   !!ir (AST.lmark lblL0)
@@ -1305,7 +1307,7 @@ let fltdotd insInfo insLen ctxt =
   !!ir (AST.jmp (AST.name lblEnd))
   !!ir (AST.lmark lblL1)
   !!ir (rd := numU64 0uL 64<rt>)
-  !!ir (fscr := fscr .| numU32 16u 32<rt>)
+  !!ir (fflags := fflags .| numU32 16u 32<rt>)
   !!ir (AST.lmark lblEnd)
   !>ir insLen
 
@@ -1318,7 +1320,7 @@ let fledotd insInfo insLen ctxt =
   let lblEnd = !%ir "End"
   let cond = AST.fle rs1 rs2
   let rtVal = AST.ite cond (AST.num1 64<rt>) (AST.num0 64<rt>)
-  let fscr = getRegVar ctxt R.FCSR
+  let fflags = getRegVar ctxt R.FFLAGS
   !<ir insLen
   !!ir (AST.cjmp checkNan (AST.name lblL1) (AST.name lblL0))
   !!ir (AST.lmark lblL0)
@@ -1326,7 +1328,7 @@ let fledotd insInfo insLen ctxt =
   !!ir (AST.jmp (AST.name lblEnd))
   !!ir (AST.lmark lblL1)
   !!ir (rd := numU64 0uL 64<rt>)
-  !!ir (fscr := fscr .| numU32 16u 32<rt>)
+  !!ir (fflags := fflags .| numU32 16u 32<rt>)
   !!ir (AST.lmark lblEnd)
   !>ir insLen
 
@@ -1340,7 +1342,7 @@ let feqdotd insInfo insLen ctxt =
   let lblEnd = !%ir "End"
   let cond = AST.eq rs1 rs2
   let rtVal = AST.ite cond (AST.num1 64<rt>) (AST.num0 64<rt>)
-  let fscr = getRegVar ctxt R.FCSR
+  let fflags = getRegVar ctxt R.FFLAGS
   let flagFscr = (AST.ite (checkSNan) (numU32 16u 32<rt>) (AST.num0 32<rt>))
   !<ir insLen
   !!ir (AST.cjmp checkNan (AST.name lblL1) (AST.name lblL0))
@@ -1349,7 +1351,7 @@ let feqdotd insInfo insLen ctxt =
   !!ir (AST.jmp (AST.name lblEnd))
   !!ir (AST.lmark lblL1)
   !!ir (rd := numU64 0uL 64<rt>)
-  !!ir (fscr := fscr .| flagFscr)
+  !!ir (fflags := fflags .| flagFscr)
   !!ir (AST.lmark lblEnd)
   !>ir insLen
 
@@ -1412,7 +1414,7 @@ let fmuldotd insInfo insLen ctxt =
   let rd, rs1, rs2, _ = getFourOprs insInfo
   let rd, rs1, rs2 = (rd, rs1, rs2) |> transThreeOprs insInfo ctxt
   !<ir insLen
-  let rtVal = AST.mul rs1 rs2
+  let rtVal = AST.fmul rs1 rs2
   !!ir (rd := rtVal)
   !>ir insLen
 
@@ -1749,71 +1751,74 @@ let fmvdotddotx insInfo insLen ctxt =
 let csrrw insInfo insLen ctxt =
   let ir = !*ctxt
   let rd, csr, rs1 = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
-  let tmpVar = !+ir 64<rt>
+  let tmpVar = !+ir 32<rt>
+  let r = AST.xtlo 32<rt> rs1
   !<ir insLen
   !!ir (AST.sideEffect Lock)
   !!ir (tmpVar := csr)
-  !!ir (csr := rs1)
-  !!ir (rd := tmpVar)
+  !!ir (csr := r)
+  !!ir (rd := AST.zext 64<rt> tmpVar)
   !!ir (AST.sideEffect Unlock)
   !>ir insLen
 
 let csrrwi insInfo insLen ctxt =
   let ir = !*ctxt
   let rd, csr, imm = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
-  let tmpVar = !+ir 64<rt>
+  let tmpVar = !+ir 32<rt>
   !<ir insLen
   !!ir (AST.sideEffect Lock)
   !!ir (tmpVar := csr)
-  !!ir (csr := AST.zext 64<rt> imm)
-  !!ir (rd := tmpVar)
+  !!ir (csr := AST.zext 32<rt> imm)
+  !!ir (rd := AST.zext 64<rt> tmpVar)
   !!ir (AST.sideEffect Unlock)
   !>ir insLen
 
 let csrrs insInfo insLen ctxt =
   let ir = !*ctxt
   let rd, csr, rs1 = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
-  let tmpVar = !+ir 64<rt>
+  let tmpVar = !+ir 32<rt>
+  let r = AST.xtlo 32<rt> rs1
   !<ir insLen
   !!ir (AST.sideEffect Lock)
   !!ir (tmpVar := csr)
-  !!ir (csr := tmpVar .| rs1)
-  !!ir (rd := tmpVar)
+  !!ir (csr := tmpVar .| r)
+  !!ir (rd := AST.zext 64<rt> tmpVar)
   !!ir (AST.sideEffect Unlock)
   !>ir insLen
 
 let csrrsi insInfo insLen ctxt =
   let ir = !*ctxt
   let rd, csr, imm = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
-  let tmpVar = !+ir 64<rt>
+  let tmpVar = !+ir 32<rt>
   !<ir insLen
   !!ir (AST.sideEffect Lock)
   !!ir (tmpVar := csr)
-  !!ir (csr := tmpVar .| (AST.zext 64<rt> imm))
-  !!ir (rd := tmpVar)
+  !!ir (csr := tmpVar .| (AST.zext 32<rt> imm))
+  !!ir (rd := AST.zext 64<rt> tmpVar)
   !!ir (AST.sideEffect Unlock)
   !>ir insLen
 
 let csrrc insInfo insLen ctxt =
   let ir = !*ctxt
   let rd, csr, rs1 = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
-  let tmpVar = !+ir 64<rt>
+  let tmpVar = !+ir 32<rt>
+  let r = AST.xtlo 32<rt> rs1
   !<ir insLen
   !!ir (AST.sideEffect Lock)
   !!ir (tmpVar := csr)
-  !!ir (csr := tmpVar .& (AST.neg rs1))
-  !!ir (rd := tmpVar)
+  !!ir (csr := tmpVar .& (AST.neg r))
+  !!ir (rd := AST.zext 64<rt> tmpVar)
   !!ir (AST.sideEffect Unlock)
   !>ir insLen
 
 let csrrci insInfo insLen ctxt =
   let ir = !*ctxt
   let rd, csr, imm = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
-  let tmpVar = !+ir 64<rt>
+  let tmpVar = !+ir 32<rt>
   !<ir insLen
   !!ir (AST.sideEffect Lock)
   !!ir (tmpVar := csr)
-  !!ir (csr := tmpVar .& (AST.neg (AST.zext 64<rt> imm)))
+  !!ir (csr := tmpVar .& (AST.neg (AST.zext 32<rt> imm)))
   !!ir (rd := tmpVar)
   !!ir (AST.sideEffect Unlock)
   !>ir insLen

@@ -159,7 +159,8 @@ type Register =
   | PC = 0x40
   /// Floating point control and status register.
   | FCSR = 0x41
-  | CSR0001 = 0x42
+  /// Floating-Point Accrued Exceptions.
+  | FFLAGS = 0x42
   | CSR0768 = 0x43
   | CSR0769 = 0x44
   | CSR0770 = 0x45
@@ -319,6 +320,8 @@ type Register =
   | CSR1969 = 0x13F
   | CSR1970 = 0x140
   | CSR1971 = 0x141
+  /// Floating-Point Dynamic Rounding Mode.
+  | FRM = 0x142
 
 /// Shortcut for Register type.
 type internal R = Register
