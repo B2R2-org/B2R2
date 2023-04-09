@@ -166,7 +166,7 @@ let parseFloatArith bin =
     else raise ParsingFailureException
   | 0b0010000u ->
     match getFunc3 bin with
-    | 0b000u -> struct (Op.FSGNJdotS, getFRdRs1Rs2Rm bin)
+    | 0b000u -> struct (Op.FSGNJdotS, getFRdRs1Rs2 bin)
     | 0b001u -> struct (Op.FSGNJNdotS, getFRdRs1Rs2 bin)
     | 0b010u -> struct (Op.FSGNJXdotS, getFRdRs1Rs2 bin)
     | _ -> raise ParsingFailureException
