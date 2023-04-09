@@ -205,7 +205,9 @@ let inline getCSRReg (ctxt: TranslationContext) csr =
     | 1969us -> Register.CSR1969
     | 1970us -> Register.CSR1970
     | 1971us -> Register.CSR1971
-    | _ -> raise InvalidRegisterException
+    | _ ->
+      eprintfn "%A" csr
+      raise InvalidRegisterException
   Register.toRegID csrReg |> ctxt.GetRegVar
 
 let bvOfBaseAddr (ctxt: TranslationContext) addr = numU64 addr ctxt.WordBitSize
@@ -1540,12 +1542,18 @@ let fdivdotd insInfo insLen ctxt =
   let ir = !*ctxt
   let rd, rs1, rs2, rm = getFourOprs insInfo
   let rd, rs1, rs2 = (rd, rs1, rs2) |> transThreeOprs insInfo ctxt
-  let rounding = roundingToCastFloat rm
-  let rtVal = !+ir 64<rt>
-  !<ir insLen
-  !!ir (rtVal := AST.cast rounding 64<rt> (AST.fdiv rs1 rs2))
-  !!ir (rd := rtVal)
-  !>ir insLen
+  if rm <> OpRoundMode (RoundMode.DYN) then
+    let rounding = roundingToCastFloat rm
+    let rtVal = !+ir 64<rt>
+    !<ir insLen
+    !!ir (rtVal := AST.cast rounding 64<rt> (AST.fdiv rs1 rs2))
+    !!ir (rd := rtVal)
+    !>ir insLen
+  else
+    !<ir insLen
+    let rtVal = dynamicRoundingFl ir ctxt 64<rt> (AST.fdiv rs1 rs2)
+    !!ir (rd := rtVal)
+    !>ir insLen
 
 let fsqrtdots insInfo insLen ctxt =
   let ir = !*ctxt
@@ -2129,7 +2137,7 @@ let fcvtdotwdotd insInfo insLen ctxt =
     !!ir (rtVal := AST.ite (condInf .& (AST.not sign)) intMaxInFloat rtVal)
     (* -inf *)
     !!ir (rtVal := AST.ite (condInf .& sign) intMinInFloat rtVal)
-    !!ir (rd := AST.sext 32<rt> (AST.cast roundingInt 64<rt> rtVal))
+    !!ir (rd := AST.sext 64<rt> (AST.cast roundingInt 32<rt> rtVal))
     !>ir insLen
   else
     !<ir insLen
