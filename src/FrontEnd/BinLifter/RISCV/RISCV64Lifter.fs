@@ -886,16 +886,16 @@ let sraiw insInfo insLen ctxt =
 let mul insInfo insLen ctxt isSign =
   let ir = !*ctxt
   let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
-  let struct (_, low) = mul64BitReg rs1 rs2 ir isSign
   !<ir insLen
+  let struct (_, low) = mul64BitReg rs1 rs2 ir isSign
   !!ir (rd := low)
   !>ir insLen
 
 let mulhSignOrUnsign insInfo insLen ctxt isSign =
   let ir = !*ctxt
   let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
-  let struct (high, _) = mul64BitReg rs1 rs2 ir isSign
   !<ir insLen
+  let struct (high, _) = mul64BitReg rs1 rs2 ir isSign
   !!ir (rd := high)
   !>ir insLen
 
