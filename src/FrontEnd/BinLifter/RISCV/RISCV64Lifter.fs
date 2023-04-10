@@ -826,7 +826,8 @@ let store insInfo insLen ctxt =
   let rd, mem = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
   let accessLength = getAccessLength (snd (getTwoOprs insInfo))
   !<ir insLen
-  !!ir (mem := AST.xtlo accessLength rd)
+  if accessLength = 64<rt> then !!ir (mem := rd)
+  else !!ir (mem := AST.xtlo accessLength rd)
   !>ir insLen
 
 let sideEffects insLen ctxt name =
