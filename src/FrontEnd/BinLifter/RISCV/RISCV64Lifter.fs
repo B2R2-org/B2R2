@@ -252,8 +252,12 @@ let transOprToExpr insInfo ctxt = function
   | OpAddr (Relative o) ->
     numI64 (int64 insInfo.Address + o) ctxt.WordBitSize
   | OpAddr (RelativeBase (b, imm)) ->
-    if b = Register.X0 then AST.num0 ctxt.WordBitSize else
-    (getRegVar ctxt b .+ numI64 (int64 imm) ctxt.WordBitSize)
+    if b = Register.X0 then
+      AST.num0 ctxt.WordBitSize
+    else
+      let target = (getRegVar ctxt b .+ numI64 (int64 imm) ctxt.WordBitSize)
+      let mask = numI64 0xFFFFFFFF_FFFFFFFEL 64<rt>
+      target .& mask
   | OpMem (b, None, sz) ->
     AST.loadLE sz (getRegVar ctxt b)
   | OpAtomMemOper (aq, rl) ->
@@ -735,10 +739,12 @@ let jalr insInfo insLen ctxt =
   let ir = !*ctxt
   let rd, jumpTarget = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
   let r = bvOfBaseAddr ctxt insInfo.Address .+ bvOfInstrLen ctxt insInfo
+  let target = !+ir 64<rt>
   !<ir insLen
+  !!ir (target := jumpTarget)
   !!ir (rd := r)
-  !!ir (AST.interjmp (if jumpTarget = AST.num0 ctxt.WordBitSize
-                      then rd else jumpTarget) InterJmpKind.Base)
+  !!ir (AST.interjmp (if target = AST.num0 ctxt.WordBitSize
+                      then rd else target) InterJmpKind.Base)
   !>ir insLen
 
 let beq insInfo insLen ctxt =
