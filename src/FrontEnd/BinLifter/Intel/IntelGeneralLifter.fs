@@ -1600,9 +1600,7 @@ let private movsBody ins ctxt ir =
 let movs (ins: InsInfo) insLen ctxt =
   let ir = !*ctxt
   !<ir insLen
-  if hasREPZ ins.Prefixes then
-    strRepeat ins insLen ctxt movsBody None ir
-  elif hasREPNZ ins.Prefixes then Utils.impossible ()
+  if hasREPZ ins.Prefixes then strRepeat ins insLen ctxt movsBody None ir
   else movsBody ins ctxt ir
   !>ir insLen
 

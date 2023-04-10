@@ -1323,7 +1323,8 @@ type internal OneOpA4 () =
     rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Nor
     rhlp.OperationSize <- 8<rt>
     let oprs = rhlp.OprParsers[int OD.No].Render (span, rhlp)
-    newInsInfo rhlp Opcode.MOVSB oprs
+    if hasREPNZ rhlp.Prefixes then raise ParsingFailureException
+    else newInsInfo rhlp Opcode.MOVSB oprs
 
 type internal OneOpA5 () =
   inherit ParsingJob ()
