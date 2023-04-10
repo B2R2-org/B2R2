@@ -226,15 +226,6 @@ let getSPRReg ctxt imm  =
   | 540u | 541u | 542u | 543u | 1013u -> raise UnhandledRegExprException
   | _ -> raise InvalidOperandException
 
-let roundingToCastFloat ctxt frx =
-  let fpscr = !.ctxt R.FPSCR
-  let rnA = AST.extract fpscr 1<rt> 1
-  let rnB = AST.extract fpscr 1<rt> 0
-  AST.ite rnA (AST.ite rnB (AST.cast CastKind.FtoFFloor 64<rt> frx)
-                           (AST.cast CastKind.FtoFCeil 64<rt> frx))
-              (AST.ite rnB (AST.cast CastKind.FtoFTrunc 64<rt> frx)
-                           (AST.cast CastKind.FtoFRound 64<rt> frx))
-
 let setCR0Reg ctxt ir result =
   let xerSO = AST.xthi 1<rt> (!.ctxt R.XER)
   let cr0LT = !.ctxt R.CR0_0
@@ -791,7 +782,8 @@ let frsp ins insLen updateCond ctxt =
   let ir = !*ctxt
   let struct (frd, frb) = transTwoOprs ins ctxt
   !<ir insLen
-  !!ir (frd := roundingToCastFloat ctxt frb)
+  let single = AST.cast CastKind.FloatCast 32<rt> frb
+  !!ir (frd := AST.cast CastKind.FloatCast 64<rt> single)
   setFPRF ctxt ir frd
   if updateCond then setCR1Reg ctxt ir else ()
   !>ir insLen
