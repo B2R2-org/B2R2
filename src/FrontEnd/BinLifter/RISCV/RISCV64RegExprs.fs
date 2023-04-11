@@ -26,13 +26,17 @@ namespace B2R2.FrontEnd.BinLifter.RISCV
 
 open B2R2
 open B2R2.FrontEnd.BinLifter
+open B2R2.FrontEnd.BinLifter.LiftingUtils
 open B2R2.BinIR.LowUIR
+open B2R2.BinIR.LowUIR.AST.InfixOp
 
 type internal RegExprs (wordSize) =
   let var sz t name = AST.var sz t name (RISCV64RegisterSet.singleton t)
 
   (* Registers *)
   let regType = WordSize.toRegType wordSize
+  let fflags = var 32<rt> (Register.toRegID Register.FFLAGS) "FFLAGS"
+  let frm = var 32<rt> (Register.toRegID Register.FRM) "FRM"
 
   member val X0 = var regType (Register.toRegID Register.X0) "X0" with get
   member val X1 = var regType (Register.toRegID Register.X1) "X1" with get
@@ -101,7 +105,11 @@ type internal RegExprs (wordSize) =
   member val F31 = var regType (Register.toRegID Register.F31) "F31" with get
 
   member val PC = AST.pcvar regType "PC" with get
-  member val FCSR = var 32<rt> (Register.toRegID Register.FCSR) "FCSR" with get
+  member val FFLAGS = fflags with get
+  member val FRM = frm with get
+  member val FCSR =
+    (fflags .& (numI32 0b11111 32<rt>))
+    .| ((frm .& (numI32 0b111 32<rt>)) << numI32 5 32<rt>) with get
 
   member val CSR0768 =
     var regType (Register.toRegID Register.CSR0768) "CSR0768" with get
@@ -489,6 +497,8 @@ type internal RegExprs (wordSize) =
     | R.F29 -> __.F29
     | R.F30 -> __.F30
     | R.F31 -> __.F31
+    | R.FFLAGS -> __.FFLAGS
+    | R.FRM -> __.FRM
     | R.FCSR -> __.FCSR
     | R.CSR0768 -> __.CSR0768
     | R.CSR0769 -> __.CSR0769
