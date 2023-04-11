@@ -1940,7 +1940,7 @@ let umlal isSetFlags ins insLen ctxt =
   !<ir insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   !!ir
-    (result := AST.zext 64<rt> rn .* AST.zext 64<rt> rm .+ AST.concat rdLo rdHi)
+    (result := AST.zext 64<rt> rn .* AST.zext 64<rt> rm .+ AST.concat rdHi rdLo)
   !!ir (rdHi := AST.xthi 32<rt> result)
   !!ir (rdLo := AST.xtlo 32<rt> result)
   if isSetFlags then
