@@ -838,9 +838,10 @@ let fcom (ins: InsInfo) insLen ctxt nPop unordered =
   let c3 = !.ctxt R.FSWC3
   !<ir insLen
   let struct (tmp0, tmp1) = prepareTwoOprsForComparison ins insLen ctxt ir
-  !!ir (c0 := AST.flt tmp0 tmp1)
-  !!ir (c2 := AST.b0)
-  !!ir (c3 := (tmp0 == tmp1))
+  let isNan = isNan true tmp0 .| isNan true tmp1
+  !!ir (c0 := isNan .| AST.flt tmp0 tmp1)
+  !!ir (c2 := isNan .| AST.b0)
+  !!ir (c3 := isNan .| (tmp0 == tmp1))
   !!ir (!.ctxt R.FSWC1 := AST.b0)
   if nPop > 0 then !?ir (popFPUStack ctxt) else ()
   if nPop = 2 then !?ir (popFPUStack ctxt) else ()
@@ -854,9 +855,10 @@ let ficom ins insLen ctxt doPop =
   let struct (tmp0, tmp1) = tmpVars2 ir 64<rt>
   !?ir (castFrom80Bit tmp0 64<rt> st0b st0a)
   !!ir (tmp1 := AST.cast CastKind.SIntToFloat 64<rt> oprExpr)
-  !!ir (!.ctxt R.FSWC0 := AST.flt tmp0 tmp1)
-  !!ir (!.ctxt R.FSWC2 := AST.b0)
-  !!ir (!.ctxt R.FSWC3 := tmp0 == tmp1)
+  let isNan = isNan true tmp0 .| isNan true tmp1
+  !!ir (!.ctxt R.FSWC0 := isNan .| AST.flt tmp0 tmp1)
+  !!ir (!.ctxt R.FSWC2 := isNan .| AST.b0)
+  !!ir (!.ctxt R.FSWC3 := isNan .| tmp0 == tmp1)
   !!ir (!.ctxt R.FSWC1 := AST.b0)
   if doPop then !?ir (popFPUStack ctxt) else ()
   !>ir insLen
@@ -868,9 +870,10 @@ let fcomi ins insLen ctxt doPop =
   let cf = !.ctxt R.CF
   !<ir insLen
   let struct (tmp0, tmp1) = prepareTwoOprsForComparison ins insLen ctxt ir
-  !!ir (cf := AST.flt tmp0 tmp1)
-  !!ir (pf := AST.b0)
-  !!ir (zf := (tmp0 == tmp1))
+  let isNan = isNan true tmp0 .| isNan true tmp1
+  !!ir (cf := isNan .| AST.flt tmp0 tmp1)
+  !!ir (pf := isNan .| AST.b0)
+  !!ir (zf := isNan .| (tmp0 == tmp1))
   !!ir (!.ctxt R.FSWC1 := AST.b0)
   if doPop then !?ir (popFPUStack ctxt) else ()
   !>ir insLen
