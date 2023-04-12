@@ -2254,7 +2254,7 @@ let parseOprOfLDM (ins: InsInfo) ctxt =
 
 let getLDMStartAddr rn stackWidth = function
   | Op.LDM | Op.LDMIA -> rn
-  | Op.LDMDA -> rn .- (numI32 (stackWidth + 4) 32<rt>)
+  | Op.LDMDA -> rn .- (numI32 stackWidth 32<rt>) .+ (numI32 4 32<rt>)
   | Op.LDMDB -> rn .- (numI32 stackWidth 32<rt>)
   | Op.LDMIB -> rn .+ (numI32 4 32<rt>)
   | _ -> raise InvalidOpcodeException
