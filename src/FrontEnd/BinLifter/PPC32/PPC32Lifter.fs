@@ -1931,7 +1931,7 @@ let translate (ins: InsInfo) insLen (ctxt: TranslationContext) =
   | Op.FSQRTS -> fsqrt ins insLen false false ctxt
   | Op.FSQRTdot -> fsqrt ins insLen true true ctxt
   | Op.FSQRTSdot -> fsqrt ins insLen true false ctxt
-  | Op.ISYNC -> nop insLen ctxt
+  | Op.ISYNC | Op.LWSYNC | Op.SYNC -> nop insLen ctxt
   | Op.LBZ -> lbz ins insLen ctxt
   | Op.LBZU -> lbzu ins insLen ctxt
   | Op.LBZUX -> lbzux ins insLen ctxt
@@ -2030,7 +2030,6 @@ let translate (ins: InsInfo) insLen (ctxt: TranslationContext) =
   | Op.SUBFE -> subfe ins insLen ctxt
   | Op.SUBFIC -> subfic ins insLen ctxt
   | Op.SUBFZE -> subfze ins insLen ctxt
-  | Op.SYNC -> nop insLen ctxt
   | Op.XOR -> xor ins insLen false ctxt
   | Op.XORdot -> xor ins insLen true ctxt
   | Op.XORI -> xori ins insLen ctxt

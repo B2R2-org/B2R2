@@ -468,6 +468,7 @@ let opCodeToString = function
   | Op.BFLRL -> "bflrl"
   | Op.BTCTRL -> "btctrl"
   | Op.CLRRWI -> "clrrwi"
+  | Op.LWSYNC -> "lwsync"
   | _ -> Utils.impossible ()
 
 let condToString = function

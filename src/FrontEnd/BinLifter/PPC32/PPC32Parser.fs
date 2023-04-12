@@ -636,6 +636,8 @@ let parseDCBFandSYNC bin =
     struct (Op.DCBF, TwoOperands (ra, rb))
   | 0b1u when extract bin 25u 11u = 0u ->
     struct (Op.SYNC, NoOperand)
+  | 0b1u when extract bin 25u 21u = 1u ->
+    struct (Op.LWSYNC, NoOperand)
   | _ -> raise ParsingFailureException
 
 let parseLBZXandLFDX bin =
