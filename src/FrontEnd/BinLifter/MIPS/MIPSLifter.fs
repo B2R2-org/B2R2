@@ -697,6 +697,27 @@ let getJALROprs insInfo ctxt =
     struct (transOprToExpr insInfo ctxt o1, transOprToExpr insInfo ctxt o2)
   | _ -> raise InvalidOperandException
 
+let j insInfo insLen ctxt =
+  let ir = !*ctxt
+  let nPC = getRegVar ctxt R.NPC
+  let dest = getOneOpr insInfo |> transOprToExpr insInfo ctxt
+  ctxt.DelayedBranch <- InterJmpKind.Base
+  !<ir insLen
+  !!ir (nPC := dest)
+  !>ir insLen
+
+let jal insInfo insLen ctxt =
+  let ir = !*ctxt
+  let pc = getRegVar ctxt R.PC
+  let nPC = getRegVar ctxt R.NPC
+  let lr = getRegVar ctxt R.R31
+  let dest = getOneOpr insInfo |> transOprToExpr insInfo ctxt
+  ctxt.DelayedBranch <- InterJmpKind.IsCall
+  !<ir insLen
+  !!ir (lr := pc .+ numI32 8 ctxt.WordBitSize)
+  !!ir (nPC := dest)
+  !>ir insLen
+
 let jalr insInfo insLen ctxt =
   let ir = !*ctxt
   let pc = getRegVar ctxt R.PC
@@ -1264,6 +1285,8 @@ let translate insInfo insLen (ctxt: TranslationContext) =
   | Op.EHB -> nop insLen ctxt
   | Op.EXT -> ext insInfo insLen ctxt
   | Op.INS -> ins insInfo insLen ctxt
+  | Op.J -> j insInfo insLen ctxt
+  | Op.JAL -> jal insInfo insLen ctxt
   | Op.JALR | Op.JALRHB -> jalr insInfo insLen ctxt
   | Op.JR | Op.JRHB -> jr insInfo insLen ctxt
   | Op.LD | Op.LB | Op.LH | Op.LW -> loadSigned insInfo insLen ctxt
