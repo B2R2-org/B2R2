@@ -939,8 +939,10 @@ let lbz ins insLen (ctxt: TranslationContext) =
   let ea = transEAWithOffset o2 ctxt
   let dst = transOpr ctxt o1
   let ir = !*ctxt
+  let tmpEA = !+ir 32<rt>
   !<ir insLen
-  !!ir (dst := AST.zext 32<rt> (loadNative ctxt 8<rt> ea))
+  !!ir (tmpEA := ea)
+  !!ir (dst := AST.zext 32<rt> (loadNative ctxt 8<rt> tmpEA))
   !>ir insLen
 
 let lbzu ins insLen ctxt =
@@ -948,21 +950,23 @@ let lbzu ins insLen ctxt =
   let struct (ea, ra) = transEAWithOffsetForUpdate o2 ctxt
   let rd = transOpr ctxt o1
   let ir = !*ctxt
+  let tmpEA = !+ir 32<rt>
   !<ir insLen
-  !!ir (rd := AST.zext 32<rt> (loadNative ctxt 8<rt> ea))
-  !!ir (ra := ea)
+  !!ir (tmpEA := ea)
+  !!ir (rd := AST.zext 32<rt> (loadNative ctxt 8<rt> tmpEA))
+  !!ir (ra := tmpEA)
   !>ir insLen
 
 let lbzux ins insLen ctxt =
   let struct (o1, o2, o3) = getThreeOprs ins
   let rd = transOpr ctxt o1
-  let struct (ea, rA) = transEAWithIndexRegForUpdate o2 o3 ctxt
+  let struct (ea, ra) = transEAWithIndexRegForUpdate o2 o3 ctxt
   let ir = !*ctxt
   let tmpEA = !+ir 32<rt>
   !<ir insLen
   !!ir (tmpEA := ea)
   !!ir (rd := AST.zext 32<rt> (loadNative ctxt 8<rt> tmpEA))
-  !!ir (rA := tmpEA)
+  !!ir (ra := tmpEA)
   !>ir insLen
 
 let lbzx ins insLen ctxt =
@@ -970,28 +974,106 @@ let lbzx ins insLen ctxt =
   let rd = transOpr ctxt o1
   let ea = transEAWithIndexReg o2 o3 ctxt
   let ir = !*ctxt
+  let tmpEA = !+ir 32<rt>
   !<ir insLen
-  !!ir (rd := AST.zext 32<rt> (loadNative ctxt 8<rt> ea))
+  !!ir (tmpEA := ea)
+  !!ir (rd := AST.zext 32<rt> (loadNative ctxt 8<rt> tmpEA))
   !>ir insLen
 
 let lfd ins insLen ctxt =
   let struct (o1, o2) = getTwoOprs ins
   let ea = transEAWithOffset o2 ctxt
   let dst = transOpr ctxt o1
-  let v = loadNative ctxt 64<rt> ea
   let ir = !*ctxt
+  let tmpEA = !+ir 32<rt>
   !<ir insLen
-  !!ir (dst := v)
+  !!ir (tmpEA := ea)
+  !!ir (dst := loadNative ctxt 64<rt> tmpEA)
+  !>ir insLen
+
+let lfdu ins insLen ctxt =
+  let struct (o1, o2) = getTwoOprs ins
+  let struct (ea, ra) = transEAWithOffsetForUpdate o2 ctxt
+  let dst = transOpr ctxt o1
+  let ir = !*ctxt
+  let tmpEA = !+ir 32<rt>
+  !<ir insLen
+  !!ir (tmpEA := ea)
+  !!ir (dst := loadNative ctxt 64<rt> tmpEA)
+  !!ir (ra := tmpEA)
+  !>ir insLen
+
+let lfdux ins insLen ctxt =
+  let struct (o1, o2, o3) = getThreeOprs ins
+  let dst = transOpr ctxt o1
+  let struct (ea, ra) = transEAWithIndexRegForUpdate o2 o3 ctxt
+  let ir = !*ctxt
+  let tmpEA = !+ir 32<rt>
+  !<ir insLen
+  !!ir (tmpEA := ea)
+  !!ir (dst := loadNative ctxt 64<rt> tmpEA)
+  !!ir (ra := tmpEA)
+  !>ir insLen
+
+let lfdx ins insLen ctxt =
+  let struct (o1, o2, o3) = getThreeOprs ins
+  let dst = transOpr ctxt o1
+  let ea = transEAWithIndexReg o2 o3 ctxt
+  let ir = !*ctxt
+  let tmpEA = !+ir 32<rt>
+  !<ir insLen
+  !!ir (tmpEA := ea)
+  !!ir (dst := loadNative ctxt 64<rt> tmpEA)
   !>ir insLen
 
 let lfs ins insLen ctxt =
   let struct (o1, o2) = getTwoOprs ins
   let ea = transEAWithOffset o2 ctxt
   let dst = transOpr ctxt o1
-  let v = loadNative ctxt 32<rt> ea
   let ir = !*ctxt
+  let tmpEA = !+ir 32<rt>
+  let v = loadNative ctxt 32<rt> tmpEA
   !<ir insLen
+  !!ir (tmpEA := ea)
   !!ir (dst := AST.cast CastKind.FloatCast 64<rt> v)
+  !>ir insLen
+
+let lfsu ins insLen ctxt =
+  let struct (o1, o2) = getTwoOprs ins
+  let struct (ea, ra) = transEAWithOffsetForUpdate o2 ctxt
+  let frd = transOpr ctxt o1
+  let ir = !*ctxt
+  let tmpEA = !+ir 32<rt>
+  let v = loadNative ctxt 32<rt> tmpEA
+  !<ir insLen
+  !!ir (tmpEA := ea)
+  !!ir (frd := AST.cast CastKind.FloatCast 64<rt> v)
+  !!ir (ra := tmpEA)
+  !>ir insLen
+
+let lfsux ins insLen ctxt =
+  let struct (o1, o2, o3) = getThreeOprs ins
+  let frd = transOpr ctxt o1
+  let struct (ea, ra) = transEAWithIndexRegForUpdate o2 o3 ctxt
+  let ir = !*ctxt
+  let tmpEA = !+ir 32<rt>
+  let v = loadNative ctxt 32<rt> tmpEA
+  !<ir insLen
+  !!ir (tmpEA := ea)
+  !!ir (frd := AST.cast CastKind.FloatCast 64<rt> v)
+  !!ir (ra := tmpEA)
+  !>ir insLen
+
+let lfsx ins insLen ctxt =
+  let struct (o1, o2, o3) = getThreeOprs ins
+  let frd = transOpr ctxt o1
+  let ea = transEAWithIndexReg o2 o3 ctxt
+  let ir = !*ctxt
+  let tmpEA = !+ir 32<rt>
+  let v = loadNative ctxt 32<rt> tmpEA
+  !<ir insLen
+  !!ir (tmpEA := ea)
+  !!ir (frd := AST.cast CastKind.FloatCast 64<rt> v)
   !>ir insLen
 
 let lha ins insLen (ctxt: TranslationContext) =
@@ -999,8 +1081,10 @@ let lha ins insLen (ctxt: TranslationContext) =
   let ea = transEAWithOffset o2 ctxt
   let rd = transOpr ctxt o1
   let ir = !*ctxt
+  let tmpEA = !+ir 32<rt>
   !<ir insLen
-  !!ir (rd := AST.sext 32<rt> (loadNative ctxt 16<rt> ea))
+  !!ir (tmpEA := ea)
+  !!ir (rd := AST.sext 32<rt> (loadNative ctxt 16<rt> tmpEA))
   !>ir insLen
 
 let lhau ins insLen ctxt =
@@ -1008,21 +1092,23 @@ let lhau ins insLen ctxt =
   let struct (ea, ra) = transEAWithOffsetForUpdate o2 ctxt
   let rd = transOpr ctxt o1
   let ir = !*ctxt
+  let tmpEA = !+ir 32<rt>
   !<ir insLen
-  !!ir (rd := AST.sext 32<rt> (loadNative ctxt 16<rt> ea))
-  !!ir (ra := ea)
+  !!ir (tmpEA := ea)
+  !!ir (rd := AST.sext 32<rt> (loadNative ctxt 16<rt> tmpEA))
+  !!ir (ra := tmpEA)
   !>ir insLen
 
 let lhaux ins insLen ctxt =
   let struct (o1, o2, o3) = getThreeOprs ins
   let rd = transOpr ctxt o1
-  let struct (ea, rA) = transEAWithIndexRegForUpdate o2 o3 ctxt
+  let struct (ea, ra) = transEAWithIndexRegForUpdate o2 o3 ctxt
   let ir = !*ctxt
   let tmpEA = !+ir 32<rt>
   !<ir insLen
   !!ir (tmpEA := ea)
   !!ir (rd := AST.sext 32<rt> (loadNative ctxt 16<rt> tmpEA))
-  !!ir (rA := tmpEA)
+  !!ir (ra := tmpEA)
   !>ir insLen
 
 let lhax ins insLen ctxt =
@@ -1030,8 +1116,10 @@ let lhax ins insLen ctxt =
   let rd = transOpr ctxt o1
   let ea = transEAWithIndexReg o2 o3 ctxt
   let ir = !*ctxt
+  let tmpEA = !+ir 32<rt>
   !<ir insLen
-  !!ir (rd := AST.sext 32<rt> (loadNative ctxt 16<rt> ea))
+  !!ir (tmpEA := ea)
+  !!ir (rd := AST.sext 32<rt> (loadNative ctxt 16<rt> tmpEA))
   !>ir insLen
 
 let lhbrx ins insLen ctxt =
@@ -1039,12 +1127,14 @@ let lhbrx ins insLen ctxt =
   let rd = transOpr ctxt o1
   let ea = transEAWithIndexReg o2 o3 ctxt
   let ir = !*ctxt
-  let tmp = !+ir 16<rt>
+  let tmpEA = !+ir 32<rt>
+  let tmpMem = !+ir 16<rt>
   let revtmp = !+ir 16<rt>
   !<ir insLen
-  !!ir (tmp := loadNative ctxt 16<rt> ea)
-  !!ir (AST.xthi 8<rt> revtmp := AST.xtlo 8<rt> tmp)
-  !!ir (AST.xtlo 8<rt> revtmp := AST.xthi 8<rt> tmp)
+  !!ir (tmpEA := ea)
+  !!ir (tmpMem := loadNative ctxt 16<rt> tmpEA)
+  !!ir (AST.xthi 8<rt> revtmp := AST.xtlo 8<rt> tmpMem)
+  !!ir (AST.xtlo 8<rt> revtmp := AST.xthi 8<rt> tmpMem)
   !!ir (rd := AST.zext 32<rt> revtmp)
   !>ir insLen
 
@@ -1053,8 +1143,10 @@ let lhz ins insLen (ctxt: TranslationContext) =
   let ea = transEAWithOffset o2 ctxt
   let rd = transOpr ctxt o1
   let ir = !*ctxt
+  let tmpEA = !+ir 32<rt>
   !<ir insLen
-  !!ir (rd := AST.zext 32<rt> (loadNative ctxt 16<rt> ea))
+  !!ir (tmpEA := ea)
+  !!ir (rd := AST.zext 32<rt> (loadNative ctxt 16<rt> tmpEA))
   !>ir insLen
 
 let lhzu ins insLen ctxt =
@@ -1062,8 +1154,10 @@ let lhzu ins insLen ctxt =
   let struct (ea, ra) = transEAWithOffsetForUpdate o2 ctxt
   let rd = transOpr ctxt o1
   let ir = !*ctxt
+  let tmpEA = !+ir 32<rt>
   !<ir insLen
-  !!ir (rd := AST.zext 32<rt> (loadNative ctxt 16<rt> ea))
+  !!ir (tmpEA := ea)
+  !!ir (rd := AST.zext 32<rt> (loadNative ctxt 16<rt> tmpEA))
   !!ir (ra := ea)
   !>ir insLen
 
@@ -1084,8 +1178,10 @@ let lhzx ins insLen ctxt =
   let rd = transOpr ctxt o1
   let ea = transEAWithIndexReg o2 o3 ctxt
   let ir = !*ctxt
+  let tmpEA = !+ir 32<rt>
   !<ir insLen
-  !!ir (rd := AST.zext 32<rt> (loadNative ctxt 16<rt> ea))
+  !!ir (tmpEA := ea)
+  !!ir (rd := AST.zext 32<rt> (loadNative ctxt 16<rt> tmpEA))
   !>ir insLen
 
 let li ins insLen ctxt =
@@ -1108,7 +1204,7 @@ let lwarx ins insLen ctxt =
   let rd = transOpr ctxt o1
   let ea = transEAWithIndexReg o2 o3 ctxt
   let ir = !*ctxt
-  let tmpEA= !+ir 32<rt>
+  let tmpEA = !+ir 32<rt>
   !<ir insLen
   !!ir (tmpEA := ea)
   !!ir (AST.extCall <| AST.app "Reserve" [tmpEA] 32<rt>)
@@ -1120,22 +1216,26 @@ let lwbrx ins insLen ctxt =
   let rd = transOpr ctxt o1
   let ea = transEAWithIndexReg o2 o3 ctxt
   let ir = !*ctxt
-  let tmp = !+ir 32<rt>
+  let tmpEA = !+ir 32<rt>
+  let tmpMem = !+ir 32<rt>
   !<ir insLen
-  !!ir (tmp := loadNative ctxt 32<rt> ea)
-  !!ir (AST.extract rd 8<rt> 0:= AST.extract tmp 8<rt> 24)
-  !!ir (AST.extract rd 8<rt> 8:= AST.extract tmp 8<rt> 16)
-  !!ir (AST.extract rd 8<rt> 16:= AST.extract tmp 8<rt> 8)
-  !!ir (AST.extract rd 8<rt> 24:= AST.extract tmp 8<rt> 0)
+  !!ir (tmpEA := ea)
+  !!ir (tmpMem := loadNative ctxt 32<rt> tmpEA)
+  !!ir (AST.extract rd 8<rt> 0 := AST.extract tmpMem 8<rt> 24)
+  !!ir (AST.extract rd 8<rt> 8 := AST.extract tmpMem 8<rt> 16)
+  !!ir (AST.extract rd 8<rt> 16 := AST.extract tmpMem 8<rt> 8)
+  !!ir (AST.extract rd 8<rt> 24 := AST.extract tmpMem 8<rt> 0)
   !>ir insLen
 
-let lwz ins insLen (ctxt: TranslationContext) =
+let lwz ins insLen ctxt =
   let struct (o1, o2) = getTwoOprs ins
   let ea = transEAWithOffset o2 ctxt
   let dst = transOpr ctxt o1
   let ir = !*ctxt
+  let tmpEA = !+ir 32<rt>
   !<ir insLen
-  !!ir (dst := loadNative ctxt 32<rt> ea)
+  !!ir (tmpEA := ea)
+  !!ir (dst := loadNative ctxt 32<rt> tmpEA)
   !>ir insLen
 
 let lwzu ins insLen ctxt =
@@ -1143,21 +1243,23 @@ let lwzu ins insLen ctxt =
   let struct (ea, ra) = transEAWithOffsetForUpdate o2 ctxt
   let rd = transOpr ctxt o1
   let ir = !*ctxt
+  let tmpEA = !+ir 32<rt>
   !<ir insLen
-  !!ir (rd := loadNative ctxt 32<rt> ea)
-  !!ir (ra := ea)
+  !!ir (tmpEA := ea)
+  !!ir (rd := loadNative ctxt 32<rt> tmpEA)
+  !!ir (ra := tmpEA)
   !>ir insLen
 
 let lwzux ins insLen ctxt =
   let struct (o1, o2, o3) = getThreeOprs ins
   let rd = transOpr ctxt o1
-  let struct (ea, rA) = transEAWithIndexRegForUpdate o2 o3 ctxt
+  let struct (ea, ra) = transEAWithIndexRegForUpdate o2 o3 ctxt
   let ir = !*ctxt
   let tmpEA = !+ir 32<rt>
   !<ir insLen
   !!ir (tmpEA := ea)
   !!ir (rd := loadNative ctxt 32<rt> tmpEA)
-  !!ir (rA := tmpEA)
+  !!ir (ra := tmpEA)
   !>ir insLen
 
 let lwzx ins insLen ctxt =
@@ -1165,8 +1267,10 @@ let lwzx ins insLen ctxt =
   let rd = transOpr ctxt o1
   let ea = transEAWithIndexReg o2 o3 ctxt
   let ir = !*ctxt
+  let tmpEA = !+ir 32<rt>
   !<ir insLen
-  !!ir (rd := loadNative ctxt 32<rt> ea)
+  !!ir (tmpEA := ea)
+  !!ir (rd := loadNative ctxt 32<rt> tmpEA)
   !>ir insLen
 
 let mcrf ins insLen ctxt =
@@ -1539,13 +1643,15 @@ let srw ins insLen updateCond ctxt =
   if updateCond then setCR0Reg ctxt ir dst else ()
   !>ir insLen
 
-let stb ins insLen (ctxt: TranslationContext) =
+let stb ins insLen ctxt =
   let struct (o1, o2) = getTwoOprs ins
   let ea = transEAWithOffset o2 ctxt
   let src = transOpr ctxt o1
   let ir = !*ctxt
+  let tmpEA = !+ir 32<rt>
   !<ir insLen
-  !!ir (loadNative ctxt 8<rt> ea := AST.xtlo 8<rt> src)
+  !!ir (tmpEA := ea)
+  !!ir (loadNative ctxt 8<rt> tmpEA := AST.xtlo 8<rt> src)
   !>ir insLen
 
 let stbx ins insLen ctxt =
@@ -1553,8 +1659,10 @@ let stbx ins insLen ctxt =
   let rs = transOpr ctxt o1
   let ea = transEAWithIndexReg o2 o3 ctxt
   let ir = !*ctxt
+  let tmpEA = !+ir 32<rt>
   !<ir insLen
-  !!ir (loadNative ctxt 8<rt> ea := AST.xtlo 8<rt> rs)
+  !!ir (tmpEA := ea)
+  !!ir (loadNative ctxt 8<rt> tmpEA := AST.xtlo 8<rt> rs)
   !>ir insLen
 
 let stbu ins insLen ctxt =
@@ -1584,28 +1692,118 @@ let stbux ins insLen ctxt =
 let stfd ins insLen ctxt =
   let struct (o1, o2) = getTwoOprs ins
   let ea = transEAWithOffset o2 ctxt
-  let src = transOpr ctxt o1
+  let frs = transOpr ctxt o1
   let ir = !*ctxt
+  let tmpEA = !+ir 32<rt>
   !<ir insLen
-  !!ir (loadNative ctxt 64<rt> ea := src)
+  !!ir (tmpEA := ea)
+  !!ir (loadNative ctxt 64<rt> tmpEA := frs)
+  !>ir insLen
+
+let stfdx ins insLen ctxt =
+  let struct (o1, o2) = getTwoOprs ins
+  let struct (ea, ra) = transEAWithOffsetForUpdate o2 ctxt
+  let frs = transOpr ctxt o1
+  let ir = !*ctxt
+  let tmpEA = !+ir 32<rt>
+  !<ir insLen
+  !!ir (tmpEA := ea)
+  !!ir (loadNative ctxt 64<rt> tmpEA := frs)
+  !!ir (ra := tmpEA)
+  !>ir insLen
+
+let stfdu ins insLen ctxt =
+  let struct (o1, o2) = getTwoOprs ins
+  let struct (ea, ra) = transEAWithOffsetForUpdate o2 ctxt
+  let frs = transOpr ctxt o1
+  let ir = !*ctxt
+  let tmpEA = !+ir 32<rt>
+  !<ir insLen
+  !!ir (tmpEA := ea)
+  !!ir (loadNative ctxt 64<rt> tmpEA := frs)
+  !!ir (ra := tmpEA)
+  !>ir insLen
+
+let stfdux ins insLen ctxt =
+  let struct (o1, o2, o3) = getThreeOprs ins
+  let frs = transOpr ctxt o1
+  let struct (ea, rA) = transEAWithIndexRegForUpdate o2 o3 ctxt
+  let ir = !*ctxt
+  let tmpEA = !+ir 32<rt>
+  !<ir insLen
+  !!ir (tmpEA := ea)
+  !!ir (loadNative ctxt 64<rt> tmpEA := frs)
+  !!ir (rA := tmpEA)
+  !>ir insLen
+
+let stfiwx ins insLen ctxt =
+  let struct (o1, o2, o3) = getThreeOprs ins
+  let frs = transOpr ctxt o1
+  let struct (ea, rA) = transEAWithIndexRegForUpdate o2 o3 ctxt
+  let ir = !*ctxt
+  let tmpEA = !+ir 32<rt>
+  !<ir insLen
+  !!ir (tmpEA := ea)
+  !!ir (loadNative ctxt 32<rt> tmpEA := AST.xtlo 32<rt> frs)
+  !!ir (rA := tmpEA)
   !>ir insLen
 
 let stfs ins insLen ctxt =
   let struct (o1, o2) = getTwoOprs ins
   let ea = transEAWithOffset o2 ctxt
-  let src = transOpr ctxt o1
+  let frs = transOpr ctxt o1
   let ir = !*ctxt
+  let tmpEA = !+ir 32<rt>
   !<ir insLen
-  !!ir (loadNative ctxt 32<rt> ea := AST.cast CastKind.FloatCast 32<rt> src)
+  !!ir (tmpEA := ea)
+  !!ir (loadNative ctxt 32<rt> tmpEA := AST.cast CastKind.FloatCast 32<rt> frs)
   !>ir insLen
 
-let sth ins insLen (ctxt: TranslationContext) =
+let stfsx ins insLen ctxt =
+  let struct (o1, o2) = getTwoOprs ins
+  let struct (ea, ra) = transEAWithOffsetForUpdate o2 ctxt
+  let frs = transOpr ctxt o1
+  let ir = !*ctxt
+  let tmpEA = !+ir 32<rt>
+  !<ir insLen
+  !!ir (tmpEA := ea)
+  !!ir (loadNative ctxt 32<rt> tmpEA := AST.cast CastKind.FloatCast 32<rt> frs)
+  !!ir (ra := tmpEA)
+  !>ir insLen
+
+let stfsu ins insLen ctxt =
+  let struct (o1, o2) = getTwoOprs ins
+  let struct (ea, ra) = transEAWithOffsetForUpdate o2 ctxt
+  let frs = transOpr ctxt o1
+  let ir = !*ctxt
+  let tmpEA = !+ir 32<rt>
+  !<ir insLen
+  !!ir (tmpEA := ea)
+  !!ir (loadNative ctxt 32<rt> tmpEA := AST.cast CastKind.FloatCast 32<rt> frs)
+  !!ir (ra := tmpEA)
+  !>ir insLen
+
+let stfsux ins insLen ctxt =
+  let struct (o1, o2, o3) = getThreeOprs ins
+  let frs = transOpr ctxt o1
+  let struct (ea, rA) = transEAWithIndexRegForUpdate o2 o3 ctxt
+  let ir = !*ctxt
+  let tmpEA = !+ir 32<rt>
+  !<ir insLen
+  !!ir (tmpEA := ea)
+  !!ir (loadNative ctxt 32<rt> tmpEA := AST.cast CastKind.FloatCast 32<rt> frs)
+  !!ir (rA := tmpEA)
+  !>ir insLen
+
+let sth ins insLen ctxt =
   let struct (o1, o2) = getTwoOprs ins
   let ea = transEAWithOffset o2 ctxt
   let src = transOpr ctxt o1
   let ir = !*ctxt
+  let tmpEA = !+ir 32<rt>
   !<ir insLen
-  !!ir (loadNative ctxt 16<rt> ea := AST.xtlo 16<rt> src)
+  !!ir (tmpEA := ea)
+  !!ir (loadNative ctxt 16<rt> tmpEA := AST.xtlo 16<rt> src)
   !>ir insLen
 
 let sthbrx ins insLen ctxt =
@@ -1624,8 +1822,10 @@ let sthx ins insLen ctxt =
   let rs = transOpr ctxt o1
   let ea = transEAWithIndexReg o2 o3 ctxt
   let ir = !*ctxt
+  let tmpEA = !+ir 32<rt>
   !<ir insLen
-  !!ir (loadNative ctxt 16<rt> ea := AST.xtlo 16<rt> rs)
+  !!ir (tmpEA := ea)
+  !!ir (loadNative ctxt 16<rt> tmpEA := AST.xtlo 16<rt> rs)
   !>ir insLen
 
 let sthu ins insLen ctxt =
@@ -1652,13 +1852,15 @@ let sthux ins insLen ctxt =
   !!ir (rA := tmpEA)
   !>ir insLen
 
-let stw ins insLen (ctxt: TranslationContext) =
+let stw ins insLen ctxt =
   let struct (o1, o2) = getTwoOprs ins
   let ea = transEAWithOffset o2 ctxt
   let src = transOpr ctxt o1
   let ir = !*ctxt
+  let tmpEA = !+ir 32<rt>
   !<ir insLen
-  !!ir (loadNative ctxt 32<rt> ea := src)
+  !!ir (tmpEA := ea)
+  !!ir (loadNative ctxt 32<rt> tmpEA := src)
   !>ir insLen
 
 let stwbrx ins insLen ctxt =
@@ -1666,13 +1868,15 @@ let stwbrx ins insLen ctxt =
   let rs = transOpr ctxt o1
   let ea = transEAWithIndexReg o2 o3 ctxt
   let ir = !*ctxt
+  let tmpEA = !+ir 32<rt>
   let revtmp = !+ir 32<rt>
   !<ir insLen
+  !!ir (tmpEA := ea)
   !!ir (AST.extract revtmp 8<rt> 0:= AST.extract rs 8<rt> 24)
   !!ir (AST.extract revtmp 8<rt> 8:= AST.extract rs 8<rt> 16)
   !!ir (AST.extract revtmp 8<rt> 16:= AST.extract rs 8<rt> 8)
   !!ir (AST.extract revtmp 8<rt> 24:= AST.extract rs 8<rt> 0)
-  !!ir (loadNative ctxt 32<rt> ea := revtmp)
+  !!ir (loadNative ctxt 32<rt> tmpEA := revtmp)
   !>ir insLen
 
 let stwcxdot ins insLen ctxt =
@@ -1736,8 +1940,10 @@ let stwx ins insLen ctxt =
   let rs = transOpr ctxt o1
   let ea = transEAWithIndexReg o2 o3 ctxt
   let ir = !*ctxt
+  let tmpEA = !+ir 32<rt>
   !<ir insLen
-  !!ir (loadNative ctxt 32<rt> ea := rs)
+  !!ir (tmpEA := ea)
+  !!ir (loadNative ctxt 32<rt> tmpEA := rs)
   !>ir insLen
 
 let subf ins insLen ctxt =
@@ -1937,7 +2143,13 @@ let translate (ins: InsInfo) insLen (ctxt: TranslationContext) =
   | Op.LBZUX -> lbzux ins insLen ctxt
   | Op.LBZX -> lbzx ins insLen ctxt
   | Op.LFD -> lfd ins insLen ctxt
+  | Op.LFDU -> lfdu ins insLen ctxt
+  | Op.LFDUX -> lfdux ins insLen ctxt
+  | Op.LFDX -> lfdx ins insLen ctxt
   | Op.LFS -> lfs ins insLen ctxt
+  | Op.LFSU -> lfsu ins insLen ctxt
+  | Op.LFSUX -> lfsux ins insLen ctxt
+  | Op.LFSX -> lfsx ins insLen ctxt
   | Op.LHA -> lha ins insLen ctxt
   | Op.LHAU -> lhau ins insLen ctxt
   | Op.LHAUX ->lhaux ins insLen ctxt
@@ -2012,7 +2224,14 @@ let translate (ins: InsInfo) insLen (ctxt: TranslationContext) =
   | Op.STBX -> stbx ins insLen ctxt
   | Op.STBUX -> stbux ins insLen ctxt
   | Op.STFD -> stfd ins insLen ctxt
+  | Op.STFDX -> stfdx ins insLen ctxt
+  | Op.STFDU -> stfdu ins insLen ctxt
+  | Op.STFDUX -> stfdux ins insLen ctxt
+  | Op.STFIWX -> stfiwx ins insLen ctxt
   | Op.STFS -> stfs ins insLen ctxt
+  | Op.STFSX -> stfsx ins insLen ctxt
+  | Op.STFSU -> stfsu ins insLen ctxt
+  | Op.STFSUX -> stfsux ins insLen ctxt
   | Op.STH -> sth ins insLen ctxt
   | Op.STHBRX -> sthbrx ins insLen ctxt
   | Op.STHU -> sthu ins insLen ctxt
