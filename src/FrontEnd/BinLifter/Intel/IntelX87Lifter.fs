@@ -130,40 +130,54 @@ let private castTo80Bit ctxt tmpB tmpA srcExpr ir =
   match oprSize with
   | 32<rt> ->
     let tmpSrc = !+ir oprSize
+    let biasedExponent = !+ir 16<rt>
     let n31 = numI32 31 32<rt>
     let n15 = numI32 15 16<rt>
     let n23 = numI32 23 32<rt>
     let one = numI32 1 32<rt>
     let biasDiff = numI32 0x3f80 16<rt>
     let sign = (AST.xtlo 16<rt> ((tmpSrc >> n31) .& one)) << n15
-    let exponent =
-      (AST.xtlo 16<rt> (((tmpSrc >> n23) .& (numI32 0xff 32<rt>)))) .+ biasDiff
     let integerpart = numI64 0x8000000000000000L 64<rt>
     let significand = (AST.zext 64<rt> (tmpSrc .& numI32 0x7fffff 32<rt>))
     !!ir (tmpSrc := srcExpr)
-    !!ir (tmpB := AST.ite (AST.eq tmpSrc zero)
-                          (AST.num0 16<rt>) (sign .| exponent))
-    !!ir (tmpA := (AST.ite (AST.eq tmpSrc zero)
-                          (AST.num0 64<rt>) (significand << numI32 40 64<rt>))
-                  .| integerpart)
+    !!ir (biasedExponent :=
+      AST.xtlo 16<rt> ((tmpSrc >> n23) .& (numI32 0xff 32<rt>)))
+    let exponent =
+      AST.ite (biasedExponent == numI32 0 16<rt>) (numI32 0 16<rt>)
+        (AST.ite (biasedExponent == numI32 0xff 16<rt>)
+          (numI32 0x7fff 16<rt>)
+          (biasedExponent .+ biasDiff))
+    !!ir (tmpB := sign .| exponent)
+    !!ir (tmpA :=
+      AST.ite
+        (AST.eq tmpSrc zero)
+        (AST.num0 64<rt>)
+        (integerpart .| (significand << numI32 40 64<rt>)))
   | 64<rt> ->
     let tmpSrc = !+ir oprSize
+    let biasedExponent = !+ir 16<rt>
     let n63 = numI32 63 64<rt>
     let n15 = numI32 15 16<rt>
     let n52 = numI32 52 64<rt>
     let one = numI32 1 64<rt>
     let biasDiff = numI32 0x3c00 16<rt>
     let sign = (AST.xtlo 16<rt> (((tmpSrc >> n63) .& one))) << n15
-    let exponent =
-      (AST.xtlo 16<rt> (((tmpSrc>> n52) .& (numI32 0x7ff 64<rt>)))) .+ biasDiff
     let integerpart = numI64 0x8000000000000000L 64<rt>
     let significand = tmpSrc .& numI64 0xFFFFFFFFFFFFFL 64<rt>
     !!ir (tmpSrc := srcExpr)
-    !!ir (tmpB := AST.ite (AST.eq tmpSrc zero)
-                          (AST.num0 16<rt>) (sign .| exponent))
-    !!ir (tmpA := (AST.ite (AST.eq tmpSrc zero)
-                          (AST.num0 64<rt>) (significand << numI32 11 64<rt>))
-                  .| integerpart)
+    !!ir (biasedExponent :=
+      AST.xtlo 16<rt> ((tmpSrc >> n52) .& (numI32 0x7ff 64<rt>)))
+    let exponent =
+      AST.ite (biasedExponent == numI32 0 16<rt>) (numI32 0 16<rt>)
+        (AST.ite (biasedExponent == numI32 0x7ff 16<rt>)
+          (numI32 0x7fff 16<rt>)
+          (biasedExponent .+ biasDiff))
+    !!ir (tmpB :=  sign .| exponent)
+    !!ir (tmpA :=
+      AST.ite
+        (AST.eq tmpSrc zero)
+        (AST.num0 64<rt>)
+        (integerpart .| (significand << numI32 11 64<rt>)))
   | 80<rt> ->
     match srcExpr.E with
     | Load (_, _, addrExpr, _) ->
@@ -209,14 +223,14 @@ let private castFrom80Bit dstExpr dstSize srcB srcA ir =
     let sign = srcB .& (numI32 0x8000 16<rt>)
     let biasDiff = numI32 0x3ff0 16<rt>
     let tmpExp = !+ir 16<rt>
-    let computedExp =
-      AST.zext 16<rt> (srcB .& (numI32 0x7fff 16<rt>)) .- biasDiff
-    let maxExp = numI32 0x3e 16<rt>
+    let exp = srcB .& numI32 0x7fff 16<rt>
+    let computedExp = exp .- biasDiff
+    let maxExp = numI32 0x1f 16<rt>
     let exponent =
-      AST.ite (AST.eq srcB (AST.num0 16<rt>))
-        (AST.num0 16<rt>)
-        (AST.ite (AST.gt tmpExp maxExp) maxExp tmpExp)
-    let exponent = exponent << numI32 10 16<rt>
+      AST.ite (exp == AST.num0 16<rt>) (AST.num0 16<rt>)
+        (AST.ite (exp == numI32 0x7fff 16<rt>) (numI32 0x1f 16<rt>)
+          (AST.ite (computedExp .> maxExp) maxExp computedExp))
+      << numI32 10 64<rt>
     let n53 = numI32 53 64<rt>
     let significand =
       AST.xtlo 16<rt> ((srcA .& numI64 0x7FFFFFFFFFFFFFFFL 64<rt>) >> n53)
@@ -228,14 +242,14 @@ let private castFrom80Bit dstExpr dstSize srcB srcA ir =
     let biasDiff = numI32 0x3c00 64<rt>
     let tmpExp = !+ir 64<rt>
     let tmpExp2 = !+ir 64<rt>
-    let computedExp =
-      (AST.zext 64<rt> (srcB .& (numI32 0x7fff 16<rt>)) .- biasDiff)
-    let maxExp = numI32 0x7fe 64<rt>
+    let exp = srcB .& numI32 0x7fff 16<rt>
+    let computedExp = AST.zext 64<rt> exp .- biasDiff
+    let maxExp = numI32 0x7ff 64<rt>
     let exponent =
-      AST.ite (AST.eq srcB (AST.num0 16<rt>))
-        (AST.num0 64<rt>)
-        (AST.ite (AST.gt tmpExp maxExp) maxExp tmpExp)
-    let exponent = exponent << numI32 52 64<rt>
+      AST.ite (exp == AST.num0 16<rt>) (AST.num0 64<rt>)
+        (AST.ite (exp == numI32 0x7fff 16<rt>) (numI32 0x7ff 64<rt>)
+          (AST.ite (computedExp .> maxExp) maxExp computedExp))
+      << numI32 52 64<rt>
     let n11 = numI32 11 64<rt>
     let significand = (srcA .& numI64 0x7FFFFFFFFFFFFFFFL 64<rt>) >> n11
     !!ir (tmpExp := computedExp)
@@ -246,14 +260,14 @@ let private castFrom80Bit dstExpr dstSize srcB srcA ir =
     let sign = (AST.zext 64<rt> srcB .& (numI32 0x8000 64<rt>)) << n48
     let biasDiff = numI32 0x3c00 64<rt>
     let tmpExp = !+ir 64<rt>
-    let computedExp =
-      (AST.zext 64<rt> (srcB .& (numI32 0x7fff 16<rt>)) .- biasDiff)
-    let maxExp = numI32 0x7fe 64<rt>
+    let exp = srcB .& numI32 0x7fff 16<rt>
+    let computedExp = AST.zext 64<rt> exp .- biasDiff
+    let maxExp = numI32 0x7ff 64<rt>
     let exponent =
-      AST.ite (AST.eq srcB (AST.num0 16<rt>))
-        (AST.num0 64<rt>)
-        (AST.ite (AST.gt tmpExp maxExp) maxExp tmpExp)
-    let exponent = exponent << numI32 52 64<rt>
+      AST.ite (exp == AST.num0 16<rt>) (AST.num0 64<rt>)
+        (AST.ite (exp == numI32 0x7fff 16<rt>) (numI32 0x7ff 64<rt>)
+          (AST.ite (computedExp .> maxExp) maxExp computedExp))
+      << numI32 52 64<rt>
     let n11 = numI32 11 64<rt>
     let significand = (srcA .& numI64 0x7FFFFFFFFFFFFFFFL 64<rt>) >> n11
     !!ir (tmpExp := computedExp)
