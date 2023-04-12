@@ -896,20 +896,23 @@ let ftst _ins insLen ctxt =
 
 let fxam _ins insLen ctxt =
   let ir = !*ctxt
+  let top = !.ctxt R.FTOP
   let struct (st0b, st0a) = getFPUPseudoRegVars ctxt R.ST0
   let n7fff = numI32 0x7fff 16<rt>
   let exponent = st0b .& n7fff
-  let num = numI64 0x3FFFFFFFFFFFFFFFL 64<rt>
-  let nanCond = (exponent == n7fff) .& ((st0a .& num) != AST.num0 64<rt>)
-  let c3Cond1 = (exponent == AST.num0 16<rt>)
-  let isAllZero = (st0a == AST.num0 64<rt>) .& (st0b == AST.num0 16<rt>)
-  let c2Cond0 = AST.not (isAllZero .| nanCond)
-  let c0Cond1 = (exponent == n7fff)
+  let num = numI64 0x7FFFFFFF_FFFFFFFFL 64<rt>
+  let isNaN = (exponent == n7fff) .& ((st0a .& num) != AST.num0 64<rt>)
+  let isInf = (exponent == n7fff) .& ((st0a .& num) == AST.num0 64<rt>)
+  let isZero = (st0a == AST.num0 64<rt>) .& (exponent == AST.num0 16<rt>)
+  let isEmpty = top == numI32 0 8<rt>
+  let c3Cond = isZero .| isEmpty
+  let c2Cond = AST.not (isNaN .| isZero .| isEmpty)
+  let c0Cond = isNaN .| isInf .| isEmpty
   !<ir insLen
   !!ir (!.ctxt R.FSWC1 := AST.xthi 1<rt> st0b)
-  !!ir (!.ctxt R.FSWC3 := c3Cond1)
-  !!ir (!.ctxt R.FSWC2 := c2Cond0)
-  !!ir (!.ctxt R.FSWC0 := c0Cond1)
+  !!ir (!.ctxt R.FSWC3 := c3Cond)
+  !!ir (!.ctxt R.FSWC2 := c2Cond)
+  !!ir (!.ctxt R.FSWC0 := c0Cond)
   !>ir insLen
 
 let private checkForTrigFunction unsigned lin lout ir =
