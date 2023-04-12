@@ -733,13 +733,20 @@ let fchs _ins insLen ctxt =
 let frndint _ins insLen ctxt =
   let ir = !*ctxt
   let struct (st0b, st0a) = getFPUPseudoRegVars ctxt R.ST0
+  let lblOrdered = !%ir "Ordered"
+  let lblExit = !%ir "Exit"
   let tmp0 = !+ir 64<rt>
   let rcField = !+ir 8<rt> (* Rounding Control *)
   let cst00 = AST.cast CastKind.FtoIRound 64<rt> tmp0
   let cst01 = AST.cast CastKind.FtoIFloor 64<rt> tmp0
   let cst10 = AST.cast CastKind.FtoICeil 64<rt> tmp0
+  let cst11 = AST.cast CastKind.FtoITrunc 64<rt> tmp0
   !<ir insLen
   !?ir (castFrom80Bit tmp0 64<rt> st0b st0a)
+  !!ir (AST.cjmp
+    (isUnordered true tmp0)
+    (AST.name lblExit) (AST.name lblOrdered))
+  !!ir (AST.lmark lblOrdered)
   !!ir (rcField := (AST.zext 8<rt> (AST.extract (!.ctxt R.FCW) 1<rt> 11)))
   !!ir (rcField := (rcField << AST.num1 8<rt>))
   !!ir (rcField :=
@@ -747,7 +754,9 @@ let frndint _ins insLen ctxt =
   !!ir (tmp0 := AST.ite (rcField == AST.num0 8<rt>) cst00 tmp0)
   !!ir (tmp0 := AST.ite (rcField == AST.num1 8<rt>) cst01 tmp0)
   !!ir (tmp0 := AST.ite (rcField == numI32 2 8<rt>) cst10 tmp0)
+  !!ir (tmp0 := AST.ite (rcField == numI32 3 8<rt>) cst11 tmp0)
   !?ir (castTo80Bit ctxt st0b st0a (castToF64 tmp0))
+  !!ir (AST.lmark lblExit)
   !?ir (updateC1OnStore ctxt)
   !>ir insLen
 
