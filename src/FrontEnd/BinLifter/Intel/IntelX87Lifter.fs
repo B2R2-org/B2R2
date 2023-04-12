@@ -619,11 +619,45 @@ let fidivr ins insLen ctxt =
 let inline private castToF64 intexp =
   AST.cast CastKind.SIntToFloat 64<rt> intexp
 
+let getExponent isDouble src =
+  if isDouble then
+    let numMantissa =  numI32 52 64<rt>
+    let mask = numI32 0x7FF 64<rt>
+    AST.xtlo 32<rt> ((src >> numMantissa) .& mask)
+  else
+    let numMantissa = numI32 23 32<rt>
+    let mask = numI32 0xff 32<rt>
+    (src >> numMantissa) .& mask
+
+let getMantissa isDouble src =
+  let mask =
+    if isDouble then numU64 0xfffff_ffffffffUL 64<rt>
+    else numU64 0x7fffffUL 32<rt>
+  src .& mask
+
+let isNan isDouble expr =
+  let exponent = getExponent isDouble expr
+  let mantissa = getMantissa isDouble expr
+  let e = if isDouble then numI32 0x7ff 32<rt> else numI32 0xff 32<rt>
+  let zero = if isDouble then AST.num0 64<rt> else AST.num0 32<rt>
+  (exponent == e) .& (mantissa != zero)
+
+let isInf isDouble expr =
+  let exponent = getExponent isDouble expr
+  let mantissa = getMantissa isDouble expr
+  let e = if isDouble then numI32 0x7ff 32<rt> else numI32 0xff 32<rt>
+  let zero = if isDouble then AST.num0 64<rt> else AST.num0 32<rt>
+  (exponent == e) .& (mantissa == zero)
+
+let isUnordered isDouble expr = isNan isDouble expr .| isInf isDouble expr
+
 let fprem _ins insLen ctxt round =
   let ir = !*ctxt
   let struct (st0b, st0a) = getFPUPseudoRegVars ctxt R.ST0
   let struct (st1b, st1a) = getFPUPseudoRegVars ctxt R.ST1
   let caster = if round then CastKind.FtoIRound else CastKind.FtoITrunc
+  let lblUnordered = !%ir "Unordered"
+  let lblOrdered = !%ir "Ordered"
   let lblLT64 = !%ir "ExpDiffInRange"
   let lblGE64 = !%ir "ExpDiffOutOfRange"
   let lblExit = !%ir "Exit"
@@ -631,12 +665,20 @@ let fprem _ins insLen ctxt round =
   let expDiff = !+ir 16<rt>
   let expMask = numI32 0x7fff 16<rt>
   let n64 = numI32 64 16<rt>
-  let n2 = numI32 2 64<rt>
+  let n2 = numI32 2 64<rt> |> castToF64
   let struct (divres, intres, tmpres, divider) = tmpVars4 ir 64<rt>
   !<ir insLen
   !?ir (castFrom80Bit tmp0 64<rt> st0b st0a)
   !?ir (castFrom80Bit tmp1 64<rt> st1b st1a)
   !!ir (expDiff := (st0b .& expMask) .- (st1b .& expMask))
+  !!ir (AST.cjmp
+    (isUnordered true tmp0 .| isUnordered true tmp1)
+    (AST.name lblUnordered) (AST.name lblOrdered))
+  !!ir (AST.lmark lblUnordered)
+  !?ir (castTo80Bit ctxt st0b st0a (AST.ite (isUnordered true tmp0) tmp0 tmp1))
+  !!ir (!.ctxt R.FSWC2 := AST.b0)
+  !!ir (AST.jmp (AST.name lblExit))
+  !!ir (AST.lmark lblOrdered)
   !!ir (AST.cjmp (AST.slt expDiff n64) (AST.name lblLT64) (AST.name lblGE64))
   !!ir (AST.lmark lblLT64) (* D < 64 *)
   !!ir (divres := AST.fdiv tmp0 tmp1)
