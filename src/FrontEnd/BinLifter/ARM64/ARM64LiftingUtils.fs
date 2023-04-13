@@ -189,6 +189,18 @@ let rec getVectorIndex = function
   | OprSIMDList simds -> getElemDataSzAndElems (OprSIMD simds[0])
   | _ -> raise InvalidOperandException
 
+let vectorPart ctxt src eSize = (* FIXME *)
+  let struct (_, part, elements) = getElemDataSzAndElems src
+  let pos = int eSize
+  match src with
+  | OprSIMD (SIMDVecReg (reg, _)) ->
+    let regA = getPseudoRegVar ctxt reg 1
+    if part = 128<rt> then
+      let regB = getPseudoRegVar ctxt reg 2
+      Array.init (elements / 2) (fun i -> AST.extract regB eSize (i * pos))
+    else Array.init elements (fun i -> AST.extract regA eSize (i * pos))
+  | _ -> raise InvalidOperandException
+
 let transSIMDReg ctxt = function (* FIXME *)
   | SIMDFPScalarReg reg -> [| getRegVar ctxt reg |]
   | SIMDVecRegWithIdx (reg, v, idx) ->
@@ -334,13 +346,6 @@ let transOprToExpr128 ins ctxt addr = function
   | OprSIMD (SIMDVecRegWithIdx (reg, _, _)) -> getPseudoRegVar128 ctxt reg
   | OprMemory mem -> transMem ins ctxt addr mem |> getMemExpr128
   | _ -> raise InvalidOperandException
-
-let transVectorWithIdx ins ctxt addr (idx: Index) (opr: Operand) =
-  let struct (eSize, _, _) = getElemDataSzAndElems opr
-  let index = int eSize * int idx
-  let regB, regA = transOprToExpr128 ins ctxt addr opr
-  if index < 64 then AST.extract regA eSize index
-  else AST.extract regB eSize (index % 64)
 
 let transSIMDOprToExpr ctxt eSize dataSize elements = function
   | OprSIMD (SIMDFPScalarReg reg) ->
@@ -760,6 +765,7 @@ let replicate x eSize dstSize =
   loop x (dstSize / eSize)
 
 let advSIMDExpandImm ir (eSize: int<rt>) src =
+  let src = AST.xtlo 64<rt> src
   let splitCnt = numI32 (int32 eSize) 64<rt>
   replicateForIR src splitCnt 64<rt> ir
 
