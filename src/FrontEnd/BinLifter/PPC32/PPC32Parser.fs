@@ -1782,9 +1782,9 @@ let parseFNEGx bin =
   let frd = getFPRegister (extract bin 25u 21u) |> OprReg
   let frb = getFPRegister (extract bin 15u 11u) |> OprReg
   match pickBit bin 0u with
-  | 0b0u when extract bin 20u 11u = 0u ->
+  | 0b0u when extract bin 20u 16u = 0u ->
     struct (Op.FNEG, TwoOperands (frd, frb))
-  | 0b1u when extract bin 20u 11u = 0u ->
+  | 0b1u when extract bin 20u 16u = 0u ->
     struct (Op.FNEGdot, TwoOperands (frd, frb))
   | _ -> raise ParsingFailureException
 
