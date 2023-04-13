@@ -1859,11 +1859,10 @@ let parseMFFSx bin =
 let parseMTFSFx bin =
   let fm = extract bin 24u 17u |> uint64 |> OprImm
   let frb = getFPRegister (extract bin 15u 11u) |> OprReg
+  (* FIXME: PowerISA v3.1 *)
   match pickBit bin 0u with
-  | 0b0u when concat (pickBit bin 25u) (pickBit bin 16u) 1 = 0u ->
-    struct (Op.MTFSF, TwoOperands (fm, frb))
-  | 0b1u when concat (pickBit bin 25u) (pickBit bin 16u) 1 = 0u ->
-    struct (Op.MTFSFdot, TwoOperands (fm, frb))
+  | 0b0u -> struct (Op.MTFSF, TwoOperands (fm, frb))
+  | 0b1u -> struct (Op.MTFSFdot, TwoOperands (fm, frb))
   | _ -> raise ParsingFailureException
 
 let parse3F bin =
