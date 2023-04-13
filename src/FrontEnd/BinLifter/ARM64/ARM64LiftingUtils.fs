@@ -872,16 +872,26 @@ let satQ i n isUnsigned ir = (* FIMXE: return saturated (FPSR.QC = '1') *)
 /// 64-bit operands generate a 64-bit result in the destination general-purpose
 /// register. 32-bit operands generate a 32-bit result, zero-extended to a
 /// 64-bit result in the destination general-purpose register.
-let dstAssign oprSize dst src =
+let dstAssign oprSize dst src ir =
   let orgDst = AST.unwrap dst
   let orgDstSz = orgDst |> TypeCheck.typeOf
   match orgDst with
   | { E = Var (_, rid, _, _) } when rid = Register.toRegID R.XZR ->
-    orgDst := AST.num0 orgDstSz
+    !!ir (orgDst := AST.num0 orgDstSz)
   | _ ->
-    if orgDstSz > oprSize then orgDst := AST.zext orgDstSz src
-    elif orgDstSz = oprSize then orgDst := src
+    if orgDstSz > oprSize then !!ir (orgDst := AST.zext orgDstSz src)
+    elif orgDstSz = oprSize then !!ir (orgDst := src)
     else raise InvalidOperandSizeException
+
+/// The SIMDFP Scalar register needs a function to get the upper 64-bit.
+let dstAssignScalar ins ctxt addr dst src eSize ir =
+  match dst with
+  | OprSIMD (SIMDFPScalarReg reg) ->
+    let reg = OprSIMD (SIMDFPScalarReg (Register.getOrgSIMDReg reg))
+    let dstB, dstA = transOprToExpr128 ins ctxt addr reg
+    dstAssign eSize dstA src ir
+    !!ir (dstB := AST.num0 64<rt>)
+  | _ -> raise InvalidOperandException
 
 let dstAssign128 ins ctxt addr dst srcA srcB dataSize ir =
   let dstB, dstA = transOprToExpr128 ins ctxt addr dst

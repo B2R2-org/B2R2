@@ -1593,3 +1593,38 @@ module Register =
     | R.Q28 | R.Q29 | R.Q30 | R.Q31 -> 128<rt>
     | R.N | R.Z | R.C | R.V -> 1<rt>
     | _ -> Utils.impossible ()
+
+  let getOrgSIMDReg = function
+    | R.B0 | R.H0 | R.S0 | R.D0 | R.Q0 -> R.V0
+    | R.B1 | R.H1 | R.S1 | R.D1 | R.Q1 -> R.V1
+    | R.B2 | R.H2 | R.S2 | R.D2 | R.Q2 -> R.V2
+    | R.B3 | R.H3 | R.S3 | R.D3 | R.Q3 -> R.V3
+    | R.B4 | R.H4 | R.S4 | R.D4 | R.Q4 -> R.V4
+    | R.B5 | R.H5 | R.S5 | R.D5 | R.Q5 -> R.V5
+    | R.B6 | R.H6 | R.S6 | R.D6 | R.Q6 -> R.V6
+    | R.B7 | R.H7 | R.S7 | R.D7 | R.Q7 -> R.V7
+    | R.B8 | R.H8 | R.S8 | R.D8 | R.Q8 -> R.V8
+    | R.B9 | R.H9 | R.S9 | R.D9 | R.Q9 -> R.V9
+    | R.B10 | R.H10 | R.S10 | R.D10 | R.Q10 -> R.V10
+    | R.B11 | R.H11 | R.S11 | R.D11 | R.Q11 -> R.V11
+    | R.B12 | R.H12 | R.S12 | R.D12 | R.Q12 -> R.V12
+    | R.B13 | R.H13 | R.S13 | R.D13 | R.Q13 -> R.V13
+    | R.B14 | R.H14 | R.S14 | R.D14 | R.Q14 -> R.V14
+    | R.B15 | R.H15 | R.S15 | R.D15 | R.Q15 -> R.V15
+    | R.B16 | R.H16 | R.S16 | R.D16 | R.Q16 -> R.V16
+    | R.B17 | R.H17 | R.S17 | R.D17 | R.Q17 -> R.V17
+    | R.B18 | R.H18 | R.S18 | R.D18 | R.Q18 -> R.V18
+    | R.B19 | R.H19 | R.S19 | R.D19 | R.Q19 -> R.V19
+    | R.B20 | R.H20 | R.S20 | R.D20 | R.Q20 -> R.V20
+    | R.B21 | R.H21 | R.S21 | R.D21 | R.Q21 -> R.V21
+    | R.B22 | R.H22 | R.S22 | R.D22 | R.Q22 -> R.V22
+    | R.B23 | R.H23 | R.S23 | R.D23 | R.Q23 -> R.V23
+    | R.B24 | R.H24 | R.S24 | R.D24 | R.Q24 -> R.V24
+    | R.B25 | R.H25 | R.S25 | R.D25 | R.Q25 -> R.V25
+    | R.B26 | R.H26 | R.S26 | R.D26 | R.Q26 -> R.V26
+    | R.B27 | R.H27 | R.S27 | R.D27 | R.Q27 -> R.V27
+    | R.B28 | R.H28 | R.S28 | R.D28 | R.Q28 -> R.V28
+    | R.B29 | R.H29 | R.S29 | R.D29 | R.Q29 -> R.V29
+    | R.B30 | R.H30 | R.S30 | R.D30 | R.Q30 -> R.V30
+    | R.B31 | R.H31 | R.S31 | R.D31 | R.Q31 -> R.V31
+    | _ -> Utils.impossible ()
