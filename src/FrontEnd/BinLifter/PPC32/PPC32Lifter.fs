@@ -1363,6 +1363,24 @@ let mtctr ins insLen ctxt =
   !!ir (ctr := src)
   !>ir insLen
 
+let mtfsfi ins insLen updateCond ctxt =
+  let struct (crfd, imm) = getTwoOprs ins
+  let crfd = crfd |> getImmValue |> int
+  let pos = 4 * (7 - crfd)
+  let imm = transOpr ctxt imm
+  let fpscr = !.ctxt R.FPSCR
+  let ir = !*ctxt
+  !<ir insLen
+  if crfd = 0 then
+    !!ir (AST.extract fpscr 1<rt> 31 := AST.extract imm 1<rt> 3)
+    !!ir (AST.extract fpscr 1<rt> 28 := AST.extract imm 1<rt> 0)
+  else
+    !!ir (AST.extract fpscr 1<rt> (pos + 3) := AST.extract imm 1<rt> 3)
+    !!ir (AST.extract fpscr 1<rt> (pos + 2) := AST.extract imm 1<rt> 2)
+    !!ir (AST.extract fpscr 1<rt> (pos+ 1) := AST.extract imm 1<rt> 1)
+    !!ir (AST.extract fpscr 1<rt> pos := AST.extract imm 1<rt> 0)
+  !>ir insLen
+
 let mtspr ins insLen ctxt =
   let struct (src, spr) =
     match ins.Operands with
@@ -2176,9 +2194,11 @@ let translate (ins: InsInfo) insLen (ctxt: TranslationContext) =
   | Op.MFLR -> mflr ins insLen ctxt
   | Op.MFXER -> mfxer ins insLen ctxt
   | Op.MR -> mr ins insLen ctxt
-  | Op.MTSPR -> mtspr ins insLen ctxt
   | Op.MTCTR -> mtctr ins insLen ctxt
   | Op.MTCRF -> mtcrf ins insLen ctxt
+  | Op.MTFSFI -> mtfsfi ins insLen false ctxt
+  | Op.MTFSFIdot -> mtfsfi ins insLen true ctxt
+  | Op.MTSPR -> mtspr ins insLen ctxt
   | Op.MTFSB0 -> mtfsb0 ins insLen false ctxt
   | Op.MTFSB0dot -> mtfsb0 ins insLen true ctxt
   | Op.MTFSB1 -> mtfsb1 ins insLen false ctxt

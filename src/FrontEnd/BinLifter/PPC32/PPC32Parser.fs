@@ -1818,7 +1818,7 @@ let parseFMRx bin =
   | _ -> raise ParsingFailureException
 
 let parseMTFSFIx bin =
-  let crfd = getCondRegister (extract bin 25u 23u) |> OprReg
+  let crfd = extract bin 25u 23u |> uint64 |> OprImm
   let imm = extract bin 15u 12u |> uint64 |> OprImm
   match pickBit bin 0u with
   | 0b0u when concat (extract bin 22u 16u) (pickBit bin 11u) 7 = 0u ->
