@@ -625,7 +625,7 @@ let fcvt ins insLen ctxt addr =
   !!ir (dstAssign oprSize dst (AST.cast CastKind.FloatCast oprSize src))
   !>ir insLen
 
-let fcvtmsOrU ins insLen ctxt addr unsigned =
+let fcvtm ins insLen ctxt addr unsigned =
   let ir = !*ctxt
   let oprSize = ins.OprSize
   !<ir insLen
@@ -634,12 +634,12 @@ let fcvtmsOrU ins insLen ctxt addr unsigned =
   !!ir (dstAssign oprSize dst result)
   !>ir insLen
 
-let fcvtzsOrU ins insLen ctxt addr unsigned =
+let fcvtz ins insLen ctxt addr unsigned =
   let ir = !*ctxt
   let oprSize = ins.OprSize
   !<ir insLen
   match ins.Operands with
-  | TwoOperands (_) ->
+  | TwoOperands _ ->
     let dst, src = transTwoOprs ins ctxt addr
     let result = fpToFixed ins src (AST.num0 oprSize) unsigned FPRounding_Zero
     !!ir (dstAssign oprSize dst result)
@@ -1513,7 +1513,7 @@ let smull ins insLen ctxt addr =
     !!ir (dst := AST.sext 64<rt> src1 .* AST.sext 64<rt> src2)
   !>ir insLen
 
-let signOrUnsignShift ins insLen ctxt addr opFn =
+let shift ins insLen ctxt addr opFn =
   let ir = !*ctxt
   let struct (dst, src, amt) = getThreeOprs ins
   let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
@@ -1982,7 +1982,7 @@ let uqsub ins insLen ctxt addr =
   | _ -> raise InvalidOperandException
   !>ir insLen
 
-let vectorPart ctxt eSize srcSize elements src =
+let private vectorPart ctxt eSize srcSize elements src =
   let regA, regB =
     match src with
     | OprSIMD (SIMDVecReg (reg, _)) ->
@@ -1991,10 +1991,9 @@ let vectorPart ctxt eSize srcSize elements src =
   let pos = int eSize
   if srcSize <> 128<rt> then
     Array.init elements (fun i -> AST.extract regA eSize (i * pos))
-  else
-    Array.init (elements / 2) (fun i -> AST.extract regB eSize (i * pos))
+  else Array.init (elements / 2) (fun i -> AST.extract regB eSize (i * pos))
 
-let signOrUnsignShiftLeft ins insLen ctxt addr =
+let shiftLeftLong ins insLen ctxt addr =
   let ir = !*ctxt
   let struct (o1, o2, o3) = getThreeOprs ins
   let struct (_, srcDataSize, srcElements) = getElemDataSzAndElems o2
@@ -2065,19 +2064,6 @@ let uzp ins insLen ctxt addr op =
   dstAssignForSIMD dstA dstB result dataSize elements ir
   !>ir insLen
 
-let zip ins insLen ctxt addr =
-  let ir = !*ctxt
-  let struct (dst, src1, src2) = getThreeOprs ins
-  let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
-  !<ir insLen
-  let dstB, dstA = transOprToExpr128 ins ctxt addr dst
-  let src1 = transSIMDOprToExpr ctxt eSize dataSize elements src1
-  let src2 = transSIMDOprToExpr ctxt eSize dataSize elements src2
-  let result = Array.init elements (fun i -> if i % 2 = 0 then src1.[i / 2]
-                                             else src2.[i / 2])
-  dstAssignForSIMD dstA dstB result dataSize elements ir
-  !>ir insLen
-
 let xtn ins insLen ctxt addr =
   let ir = !*ctxt
   !<ir insLen
@@ -2100,6 +2086,19 @@ let xtn2 ins insLen ctxt addr =
             |> Array.map (AST.xtlo (eSize / 2))
   !!ir (dstA := dstA)
   !!ir (dstB := AST.concatArr src)
+  !>ir insLen
+
+let zip ins insLen ctxt addr =
+  let ir = !*ctxt
+  let struct (dst, src1, src2) = getThreeOprs ins
+  let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
+  !<ir insLen
+  let dstB, dstA = transOprToExpr128 ins ctxt addr dst
+  let src1 = transSIMDOprToExpr ctxt eSize dataSize elements src1
+  let src2 = transSIMDOprToExpr ctxt eSize dataSize elements src2
+  let result = Array.init elements (fun i -> if i % 2 = 0 then src1.[i / 2]
+                                             else src2.[i / 2])
+  dstAssignForSIMD dstA dstB result dataSize elements ir
   !>ir insLen
 
 /// The logical shift left(or right) is the alias of LS{L|R}V and UBFM.
@@ -2132,32 +2131,33 @@ let translate ins insLen ctxt =
   | Opcode.ANDS -> ands ins insLen ctxt addr
   | Opcode.ASR -> asrv ins insLen ctxt addr
   | Opcode.B -> b ins insLen ctxt addr
-  | Opcode.BEQ -> bCond ins insLen ctxt addr EQ
-  | Opcode.BNE -> bCond ins insLen ctxt addr NE
-  | Opcode.BCS -> bCond ins insLen ctxt addr CS
-  | Opcode.BCC -> bCond ins insLen ctxt addr CC
-  | Opcode.BMI -> bCond ins insLen ctxt addr MI
-  | Opcode.BPL -> bCond ins insLen ctxt addr PL
-  | Opcode.BVS -> bCond ins insLen ctxt addr VS
-  | Opcode.BVC -> bCond ins insLen ctxt addr VC
-  | Opcode.BHI -> bCond ins insLen ctxt addr HI
-  | Opcode.BLS -> bCond ins insLen ctxt addr LS
-  | Opcode.BGE -> bCond ins insLen ctxt addr GE
-  | Opcode.BLT -> bCond ins insLen ctxt addr LT
-  | Opcode.BGT -> bCond ins insLen ctxt addr GT
-  | Opcode.BLE -> bCond ins insLen ctxt addr LE
   | Opcode.BAL -> bCond ins insLen ctxt addr AL
-  | Opcode.BNV -> bCond ins insLen ctxt addr NV
+  | Opcode.BCC -> bCond ins insLen ctxt addr CC
+  | Opcode.BCS -> bCond ins insLen ctxt addr CS
+  | Opcode.BEQ -> bCond ins insLen ctxt addr EQ
   | Opcode.BFI -> bfi ins insLen ctxt addr
   | Opcode.BFXIL -> bfxil ins insLen ctxt addr
+  | Opcode.BGE -> bCond ins insLen ctxt addr GE
+  | Opcode.BGT -> bCond ins insLen ctxt addr GT
+  | Opcode.BHI -> bCond ins insLen ctxt addr HI
   | Opcode.BIC -> bic ins insLen ctxt addr
   | Opcode.BICS -> bics ins insLen ctxt addr
-  | Opcode.BIF | Opcode.BIT -> sideEffects insLen ctxt UnsupportedFP
+  | Opcode.BIF -> sideEffects insLen ctxt UnsupportedFP
+  | Opcode.BIT -> sideEffects insLen ctxt UnsupportedFP
   | Opcode.BL -> bl ins insLen ctxt addr
+  | Opcode.BLE -> bCond ins insLen ctxt addr LE
   | Opcode.BLR -> blr ins insLen ctxt addr
+  | Opcode.BLS -> bCond ins insLen ctxt addr LS
+  | Opcode.BLT -> bCond ins insLen ctxt addr LT
+  | Opcode.BMI -> bCond ins insLen ctxt addr MI
+  | Opcode.BNE -> bCond ins insLen ctxt addr NE
+  | Opcode.BNV -> bCond ins insLen ctxt addr NV
+  | Opcode.BPL -> bCond ins insLen ctxt addr PL
   | Opcode.BR -> br ins insLen ctxt addr
   | Opcode.BRK -> sideEffects insLen ctxt Breakpoint
   | Opcode.BSL -> sideEffects insLen ctxt UnsupportedFP
+  | Opcode.BVC -> bCond ins insLen ctxt addr VC
+  | Opcode.BVS -> bCond ins insLen ctxt addr VS
   | Opcode.CAS | Opcode.CASA | Opcode.CASL | Opcode.CASAL ->
     compareAndSwap ins insLen ctxt addr
   | Opcode.CBNZ -> cbnz ins insLen ctxt addr
@@ -2165,27 +2165,28 @@ let translate ins insLen ctxt =
   | Opcode.CCMN -> ccmn ins insLen ctxt addr
   | Opcode.CCMP -> ccmp ins insLen ctxt addr
   | Opcode.CLZ -> clz ins insLen ctxt addr
-  | Opcode.CMN -> cmn ins insLen ctxt addr
-  | Opcode.CMP -> cmp ins insLen ctxt addr
   | Opcode.CMEQ -> cmeq ins insLen ctxt addr
-  | Opcode.CMLT | Opcode.CMTST ->
-    sideEffects insLen ctxt UnsupportedFP
   | Opcode.CMGE -> cmge ins insLen ctxt addr
   | Opcode.CMGT -> cmgt ins insLen ctxt addr
-  | Opcode.CMHI | Opcode.CMHS -> sideEffects insLen ctxt UnsupportedFP
+  | Opcode.CMHI -> sideEffects insLen ctxt UnsupportedFP
+  | Opcode.CMHS -> sideEffects insLen ctxt UnsupportedFP
+  | Opcode.CMLT -> sideEffects insLen ctxt UnsupportedFP
+  | Opcode.CMN -> cmn ins insLen ctxt addr
+  | Opcode.CMP -> cmp ins insLen ctxt addr
+  | Opcode.CMTST -> sideEffects insLen ctxt UnsupportedFP
   | Opcode.CNEG | Opcode.CSNEG -> csneg ins insLen ctxt addr
   | Opcode.CNT -> sideEffects insLen ctxt UnsupportedFP
   | Opcode.CSEL -> csel ins insLen ctxt addr
   | Opcode.CSETM | Opcode.CINV | Opcode.CSINV -> csinv ins insLen ctxt addr
   | Opcode.CSINC | Opcode.CINC | Opcode.CSET -> csinc ins insLen ctxt addr
   | Opcode.DCZVA -> dczva ins insLen ctxt addr
-  | Opcode.DUP -> dup ins insLen ctxt addr
   | Opcode.DMB | Opcode.DSB | Opcode.ISB -> nop insLen ctxt
+  | Opcode.DUP -> dup ins insLen ctxt addr
   | Opcode.EOR | Opcode.EON -> eor ins insLen ctxt addr
   | Opcode.EXT -> sideEffects insLen ctxt UnsupportedFP
   | Opcode.EXTR | Opcode.ROR -> extr ins insLen ctxt addr
-  | Opcode.FABS -> fabs ins insLen ctxt addr
   | Opcode.FABD -> sideEffects insLen ctxt UnsupportedFP
+  | Opcode.FABS -> fabs ins insLen ctxt addr
   | Opcode.FADD -> fadd ins insLen ctxt addr
   | Opcode.FADDP -> sideEffects insLen ctxt UnsupportedFP
   | Opcode.FCCMP -> sideEffects insLen ctxt UnsupportedFP
@@ -2194,43 +2195,49 @@ let translate ins insLen ctxt =
   | Opcode.FCMPE -> fcmpe ins insLen ctxt addr
   | Opcode.FCSEL -> fcsel ins insLen ctxt addr
   | Opcode.FCVT -> fcvt ins insLen ctxt addr
-  | Opcode.FCVTMS -> fcvtmsOrU ins insLen ctxt addr false
-  | Opcode.FCVTMU -> fcvtmsOrU ins insLen ctxt addr true
-  | Opcode.FCVTZS -> fcvtzsOrU ins insLen ctxt addr false
-  | Opcode.FCVTZU -> fcvtzsOrU ins insLen ctxt addr true
+  | Opcode.FCVTMS -> fcvtm ins insLen ctxt addr false
+  | Opcode.FCVTMU -> fcvtm ins insLen ctxt addr true
+  | Opcode.FCVTZS -> fcvtz ins insLen ctxt addr false
+  | Opcode.FCVTZU -> fcvtz ins insLen ctxt addr true
   | Opcode.FDIV -> fdiv ins insLen ctxt addr
   | Opcode.FMADD -> sideEffects insLen ctxt UnsupportedFP
   | Opcode.FMAX -> sideEffects insLen ctxt UnsupportedFP
   | Opcode.FMAXNM -> sideEffects insLen ctxt UnsupportedFP
   | Opcode.FMOV -> fmov ins insLen ctxt addr
+  | Opcode.FMSUB -> sideEffects insLen ctxt UnsupportedFP
   | Opcode.FMUL -> fmul ins insLen ctxt addr
   | Opcode.FNEG -> sideEffects insLen ctxt UnsupportedFP
   | Opcode.FNMUL -> sideEffects insLen ctxt UnsupportedFP
-  | Opcode.FRINTM | Opcode.FRINTA | Opcode.FRINTP | Opcode.FRINTZ ->
-    sideEffects insLen ctxt UnsupportedFP
-  | Opcode.FSUB -> fsub ins insLen ctxt addr
+  | Opcode.FRINTA -> sideEffects insLen ctxt UnsupportedFP
+  | Opcode.FRINTM -> sideEffects insLen ctxt UnsupportedFP
+  | Opcode.FRINTP -> sideEffects insLen ctxt UnsupportedFP
+  | Opcode.FRINTZ -> sideEffects insLen ctxt UnsupportedFP
   | Opcode.FSQRT -> sideEffects insLen ctxt UnsupportedFP
-  | Opcode.FMSUB -> sideEffects insLen ctxt UnsupportedFP
+  | Opcode.FSUB -> fsub ins insLen ctxt addr
   | Opcode.HINT -> nop insLen ctxt
   | Opcode.INS -> insv ins insLen ctxt addr
   | Opcode.LD1 -> ld1 ins insLen ctxt addr
-  | Opcode.LD1R | Opcode.LD2 | Opcode.LD2R | Opcode.LD3
-  | Opcode.LD3R | Opcode.LD4 | Opcode.LD4R ->
-    sideEffects insLen ctxt UnsupportedFP
+  | Opcode.LD1R -> sideEffects insLen ctxt UnsupportedFP
+  | Opcode.LD2 -> sideEffects insLen ctxt UnsupportedFP
+  | Opcode.LD2R -> sideEffects insLen ctxt UnsupportedFP
+  | Opcode.LD3 -> sideEffects insLen ctxt UnsupportedFP
+  | Opcode.LD3R -> sideEffects insLen ctxt UnsupportedFP
+  | Opcode.LD4 -> sideEffects insLen ctxt UnsupportedFP
+  | Opcode.LD4R -> sideEffects insLen ctxt UnsupportedFP
   | Opcode.LDAR -> ldar ins insLen ctxt addr
   | Opcode.LDARB -> ldarb ins insLen ctxt addr
+  | Opcode.LDAXP | Opcode.LDXP -> ldaxp ins insLen ctxt addr
+  | Opcode.LDAXR | Opcode.LDXR -> ldaxr ins insLen ctxt addr
   | Opcode.LDAXRB | Opcode.LDXRB -> ldax ins insLen ctxt addr 8<rt>
   | Opcode.LDAXRH | Opcode.LDXRH -> ldax ins insLen ctxt addr 16<rt>
-  | Opcode.LDAXR | Opcode.LDXR -> ldaxr ins insLen ctxt addr
-  | Opcode.LDAXP | Opcode.LDXP -> ldaxp ins insLen ctxt addr
   | Opcode.LDP -> ldp ins insLen ctxt addr
   | Opcode.LDPSW -> ldpsw ins insLen ctxt addr
   | Opcode.LDR -> ldr ins insLen ctxt addr
   | Opcode.LDRB -> ldrb ins insLen ctxt addr
-  | Opcode.LDRSB -> ldrsb ins insLen ctxt addr
   | Opcode.LDRH -> ldrh ins insLen ctxt addr
-  | Opcode.LDRSW -> ldrsw ins insLen ctxt addr
+  | Opcode.LDRSB -> ldrsb ins insLen ctxt addr
   | Opcode.LDRSH -> ldrsh ins insLen ctxt addr
+  | Opcode.LDRSW -> ldrsw ins insLen ctxt addr
   | Opcode.LDUR -> ldur ins insLen ctxt addr
   | Opcode.LDURB -> ldurb ins insLen ctxt addr
   | Opcode.LDURH -> ldurh ins insLen ctxt addr
@@ -2270,24 +2277,25 @@ let translate ins insLen ctxt =
   | Opcode.SBFX -> sbfx ins insLen ctxt addr
   | Opcode.SCVTF -> scvtf ins insLen ctxt addr
   | Opcode.SDIV -> sdiv ins insLen ctxt addr
+  | Opcode.SHL -> shl ins insLen ctxt addr
   | Opcode.SMADDL -> smaddl ins insLen ctxt addr
   | Opcode.SMSUBL | Opcode.SMNEGL -> smsubl ins insLen ctxt addr
   | Opcode.SMULH -> smulh ins insLen ctxt addr
   | Opcode.SMULL -> smull ins insLen ctxt addr
-  | Opcode.SHL -> shl ins insLen ctxt addr
-  | Opcode.SSHR -> signOrUnsignShift ins insLen ctxt addr (?>>)
-  | Opcode.USHR -> signOrUnsignShift ins insLen ctxt addr (>>)
-  | Opcode.SSHL | Opcode.USHL -> signOrUnsignShift ins insLen ctxt addr (<<)
+  | Opcode.SSHL | Opcode.USHL -> shift ins insLen ctxt addr (<<)
   | Opcode.SSHLL | Opcode.SSHLL2 | Opcode.USHLL | Opcode.USHLL2 ->
-    signOrUnsignShiftLeft ins insLen ctxt addr
-  | Opcode.ST1 | Opcode.ST2 | Opcode.ST3 | Opcode.ST4 ->
-    sideEffects insLen ctxt UnsupportedFP
+    shiftLeftLong ins insLen ctxt addr
+  | Opcode.SSHR -> shift ins insLen ctxt addr (?>>)
+  | Opcode.ST1 -> sideEffects insLen ctxt UnsupportedFP
+  | Opcode.ST2 -> sideEffects insLen ctxt UnsupportedFP
+  | Opcode.ST3 -> sideEffects insLen ctxt UnsupportedFP
+  | Opcode.ST4 -> sideEffects insLen ctxt UnsupportedFP
   | Opcode.STLR -> stlr ins insLen ctxt addr
   | Opcode.STLRB -> stlrb ins insLen ctxt addr
+  | Opcode.STLXP | Opcode.STXP -> stlxp ins insLen ctxt addr
+  | Opcode.STLXR | Opcode.STXR -> stlxr ins insLen ctxt addr
   | Opcode.STLXRB | Opcode.STXRB -> stlx ins insLen ctxt addr 8<rt>
   | Opcode.STLXRH | Opcode.STXRH -> stlx ins insLen ctxt addr 16<rt>
-  | Opcode.STLXR | Opcode.STXR -> stlxr ins insLen ctxt addr
-  | Opcode.STLXP | Opcode.STXP -> stlxp ins insLen ctxt addr
   | Opcode.STP -> stp ins insLen ctxt addr
   | Opcode.STR -> str ins insLen ctxt addr
   | Opcode.STRB -> strb ins insLen ctxt addr
@@ -2305,31 +2313,33 @@ let translate ins insLen ctxt =
   | Opcode.TBNZ -> tbnz ins insLen ctxt addr
   | Opcode.TBZ -> tbz ins insLen ctxt addr
   | Opcode.TST -> tst ins insLen ctxt addr
-  | Opcode.UADDLV | Opcode.UMAXV -> sideEffects insLen ctxt UnsupportedFP
+  | Opcode.UADDLV -> sideEffects insLen ctxt UnsupportedFP
   | Opcode.UADDW | Opcode.UADDW2 -> uaddw ins insLen ctxt addr
   | Opcode.UBFIZ -> ubfiz ins insLen ctxt addr
   | Opcode.UBFX -> ubfx ins insLen ctxt addr
   | Opcode.UCVTF -> sideEffects insLen ctxt UnsupportedFP
   | Opcode.UDIV -> udiv ins insLen ctxt addr
-  | Opcode.UMAX -> sideEffects insLen ctxt UnsupportedFP
   | Opcode.UMADDL -> umaddl ins insLen ctxt addr
+  | Opcode.UMAX -> sideEffects insLen ctxt UnsupportedFP
+  | Opcode.UMAXV -> sideEffects insLen ctxt UnsupportedFP
   | Opcode.UMINV -> uminv ins insLen ctxt addr
-  | Opcode.UMLAL | Opcode.UMLAL2 ->
-    sideEffects insLen ctxt UnsupportedFP
+  | Opcode.UMLAL -> sideEffects insLen ctxt UnsupportedFP
+  | Opcode.UMLAL2 -> sideEffects insLen ctxt UnsupportedFP
+  | Opcode.UMOV -> sideEffects insLen ctxt UnsupportedFP
   | Opcode.UMSUBL | Opcode.UMNEGL -> umsubl ins insLen ctxt addr
   | Opcode.UMULH -> umulh ins insLen ctxt addr
   | Opcode.UMULL -> umull ins insLen ctxt addr
-  | Opcode.UMOV -> sideEffects insLen ctxt UnsupportedFP
   | Opcode.UQSUB -> uqsub ins insLen ctxt addr
   | Opcode.URSHL | Opcode.SRSHL -> roundShiftLeft ins insLen ctxt addr
+  | Opcode.USHR -> shift ins insLen ctxt addr (>>)
   | Opcode.USRA -> usra ins insLen ctxt addr
   | Opcode.UXTB -> uxtb ins insLen ctxt addr
   | Opcode.UXTH -> uxth ins insLen ctxt addr
   | Opcode.UZP1 -> uzp ins insLen ctxt addr 0
   | Opcode.UZP2 -> uzp ins insLen ctxt addr 1
-  | Opcode.ZIP1 | Opcode.ZIP2 -> zip ins insLen ctxt addr
   | Opcode.XTN -> xtn ins insLen ctxt addr
   | Opcode.XTN2 -> xtn2 ins insLen ctxt addr
+  | Opcode.ZIP1 | Opcode.ZIP2 -> zip ins insLen ctxt addr
   | o ->
 #if DEBUG
          eprintfn "%A" o
