@@ -41,6 +41,19 @@ let sideEffects insLen ctxt name =
   !!ir (AST.sideEffect name)
   !>ir insLen
 
+let abs ins insLen ctxt addr =
+  let ir = !*ctxt
+  !<ir insLen
+  let struct (dst, src) = getTwoOprs ins
+  let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
+  let n1 = !+ir eSize
+  !!ir (n1 := AST.num1 eSize)
+  let dstB, dstA = transOprToExpr128 ins ctxt addr dst
+  let src = transSIMDOprToExpr ctxt eSize dataSize elements src
+  let result = Array.map (fun e -> (e << n1) >> n1) src
+  dstAssignForSIMD dstA dstB result dataSize elements ir
+  !>ir insLen
+
 let adc ins insLen ctxt addr =
   let ir = !*ctxt
   let dst, src1, src2 = transThreeOprs ins ctxt addr
@@ -117,6 +130,17 @@ let adds ins insLen ctxt addr =
   !!ir (getRegVar ctxt R.C := c)
   !!ir (getRegVar ctxt R.V := v)
   dstAssign ins.OprSize dst result ir
+  !>ir insLen
+
+let addv ins insLen ctxt addr =
+  let ir = !*ctxt
+  !<ir insLen
+  let struct (dst, src) = getTwoOprs ins
+  let struct (eSize, dataSize, elements) = getElemDataSzAndElems src
+  let src = transSIMDOprToExpr ctxt eSize dataSize elements src
+  let result = Array.reduce (.+) src
+  dstAssignScalar ins ctxt addr dst result eSize ir
+
   !>ir insLen
 
 let adr ins insLen ctxt addr =
@@ -232,9 +256,9 @@ let bic ins insLen ctxt addr =
     let struct (dst, src, amount) = getThreeOprs ins
     let struct (eSize, dataSize, _) = getElemDataSzAndElems dst
     let dstB, dstA = transOprToExpr128 ins ctxt addr dst
-    let imm = transBarrelShiftToExpr ins.OprSize ctxt src amount
-              |> advSIMDExpandImm ir eSize
-              |> AST.not
+    let imm =
+      transBarrelShiftToExpr ins.OprSize ctxt src amount
+      |> advSIMDExpandImm ir eSize |> AST.not
     dstAssign128 ins ctxt addr dst (dstA .& imm) (dstB .& imm) dataSize ir
   | _ ->
     let dst, src1, src2 = transFourOprsWithBarrelShift ins ctxt addr
@@ -252,6 +276,27 @@ let bics ins insLen ctxt addr =
   !!ir (getRegVar ctxt R.C := AST.b0)
   !!ir (getRegVar ctxt R.V := AST.b0)
   dstAssign ins.OprSize dst result ir
+  !>ir insLen
+
+let bif ins insLen ctxt addr =
+  let ir = !*ctxt
+  !<ir insLen
+  let struct (dst, src1, src2) = getThreeOprs ins
+  let dstB, dstA = transOprToExpr128 ins ctxt addr dst
+  let src1B, src1A = transOprToExpr128 ins ctxt addr src1
+  let src2B, src2A = transOprToExpr128 ins ctxt addr src2
+  let struct (opr1A, opr3A, opr4A) = tmpVars3 ir 64<rt>
+  let struct (opr1B, opr3B, opr4B) = tmpVars3 ir 64<rt>
+  !!ir (opr1A := dstA)
+  !!ir (opr1B := dstB)
+  !!ir (opr3A := AST.not src2A)
+  !!ir (opr3B := AST.not src2B)
+  !!ir (opr4A := src1A)
+  !!ir (opr4B := src1B)
+  !!ir (dstA := AST.xor opr1A ((AST.xor opr1A opr4A) .& opr3A))
+  if ins.OprSize = 128<rt> then
+    !!ir (dstB := AST.xor opr1B ((AST.xor opr1B opr4B) .& opr3B))
+  else !!ir (dstB := AST.num0 64<rt>)
   !>ir insLen
 
 let bl ins insLen ctxt addr =
@@ -2125,12 +2170,13 @@ let distLogicalRightShift ins insLen ctxt addr =
 let translate ins insLen ctxt =
   let addr = ins.Address
   match ins.Opcode with
+  | Opcode.ABS -> abs ins insLen ctxt addr
   | Opcode.ADC -> adc ins insLen ctxt addr
   | Opcode.ADCS -> adcs ins insLen ctxt addr
   | Opcode.ADD -> add ins insLen ctxt addr
   | Opcode.ADDP -> addp ins insLen ctxt addr
   | Opcode.ADDS -> adds ins insLen ctxt addr
-  | Opcode.ADDV -> sideEffects insLen ctxt UnsupportedFP
+  | Opcode.ADDV -> addv ins insLen ctxt addr
   | Opcode.ADR -> adr ins insLen ctxt addr
   | Opcode.ADRP -> adrp ins insLen ctxt addr
   | Opcode.AND -> logAnd ins insLen ctxt addr
@@ -2148,7 +2194,7 @@ let translate ins insLen ctxt =
   | Opcode.BHI -> bCond ins insLen ctxt addr HI
   | Opcode.BIC -> bic ins insLen ctxt addr
   | Opcode.BICS -> bics ins insLen ctxt addr
-  | Opcode.BIF -> sideEffects insLen ctxt UnsupportedFP
+  | Opcode.BIF -> bif ins insLen ctxt addr
   | Opcode.BIT -> sideEffects insLen ctxt UnsupportedFP
   | Opcode.BL -> bl ins insLen ctxt addr
   | Opcode.BLE -> bCond ins insLen ctxt addr LE
