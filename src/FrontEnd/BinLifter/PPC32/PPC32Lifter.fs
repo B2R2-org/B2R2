@@ -243,6 +243,23 @@ let roundingToCastInt ctxt ir frd frb =
                             (AST.cast CastKind.FtoICeil 64<rt> frb))
   !!ir (AST.lmark lblEnd)
 
+let roundingToCastFloat ctxt ir rtyp frd frb =
+  let fpscr = !.ctxt R.FPSCR
+  let rnA = AST.extract fpscr 1<rt> 1
+  let rnB = AST.extract fpscr 1<rt> 0
+  let lblRN0 = !%ir "RN0x"
+  let lblRN1 = !%ir "RN1x"
+  let lblEnd = !%ir "End"
+  !!ir (AST.cjmp rnA (AST.name lblRN1) (AST.name lblRN0))
+  !!ir (AST.lmark lblRN0)
+  !!ir (frd := AST.ite rnB (AST.cast CastKind.FtoFTrunc rtyp frb)
+                            (AST.cast CastKind.FtoFRound rtyp frb))
+  !!ir (AST.jmp (AST.name lblEnd))
+  !!ir (AST.lmark lblRN1)
+  !!ir (frd := AST.ite rnB (AST.cast CastKind.FtoFFloor rtyp frb)
+                            (AST.cast CastKind.FtoFCeil rtyp frb))
+  !!ir (AST.lmark lblEnd)
+
 let setCR0Reg ctxt ir result =
   let xerSO = AST.xthi 1<rt> (!.ctxt R.XER)
   let cr0LT = !.ctxt R.CR0_0
@@ -750,20 +767,28 @@ let fabs ins insLen updateCond ctxt =
   if updateCond then setCR1Reg ctxt ir else ()
   !>ir insLen
 
-let fadd ins insLen updateCond isDouble ctxt =
+let fAddOrSub ins insLen updateCond isDouble fnOp ctxt =
   let struct (frd, fra, frb) = transThreeOprs ins ctxt
   let ir = !*ctxt
-  let tmp = !+ir 32<rt>
   !<ir insLen
-  if isDouble then !!ir (frd := AST.fadd fra frb)
+  if isDouble then
+    let tmpResult = !+ir 64<rt>
+    !!ir (tmpResult := fnOp fra frb)
+    roundingToCastFloat ctxt ir 64<rt> frd tmpResult
   else
+    let tmpResult = !+ir 32<rt>
+    let tmpRounded = !+ir 32<rt>
     let fraS = AST.cast CastKind.FloatCast 32<rt> fra
     let frbS = AST.cast CastKind.FloatCast 32<rt> frb
-    !!ir (tmp := AST.fadd fraS frbS)
-    !!ir (frd := AST.cast CastKind.FloatCast 64<rt> tmp)
+    !!ir (tmpResult := fnOp fraS frbS)
+    roundingToCastFloat ctxt ir 32<rt> tmpRounded tmpResult
+    !!ir (frd := AST.cast CastKind.FloatCast 64<rt> tmpRounded)
   setFPRF ctxt ir frd
   if updateCond then setCR1Reg ctxt ir else ()
   !>ir insLen
+
+let fadd ins insLen updateCond isDouble ctxt =
+  fAddOrSub ins insLen updateCond isDouble AST.fadd ctxt
 
 let fcmpo ins insLen ctxt =
   let struct ((crf0, crf1, crf2, crf3), fra, frb) = transCmpOprs ins ctxt
@@ -842,19 +867,7 @@ let frsp ins insLen updateCond ctxt =
   !>ir insLen
 
 let fsub ins insLen updateCond isDouble ctxt =
-  let struct (frd, fra, frb) = transThreeOprs ins ctxt
-  let ir = !*ctxt
-  let tmp = !+ir 32<rt>
-  !<ir insLen
-  if isDouble then !!ir (frd := AST.fsub fra frb)
-  else
-    let fraS = AST.cast CastKind.FloatCast 32<rt> fra
-    let frbS = AST.cast CastKind.FloatCast 32<rt> frb
-    !!ir (tmp := AST.fsub fraS frbS)
-    !!ir (frd := AST.cast CastKind.FloatCast 64<rt> tmp)
-  setFPRF ctxt ir frd
-  if updateCond then setCR1Reg ctxt ir else ()
-  !>ir insLen
+  fAddOrSub ins insLen updateCond isDouble AST.fsub ctxt
 
 let fsqrt ins insLen updateCond isDouble ctxt =
   let ir = !*ctxt
