@@ -505,7 +505,6 @@ let transOprToExprOfCSINV ins ctxt addr =
   | ThreeOperands (o1, o2, o3) -> (* CINV *)
     let o2 = transOprToExpr ins ctxt addr o2
     transOprToExpr ins ctxt addr o1, o2, o2, o3 |> unwrapCond
-
   | FourOperands (o1, o2, o3, o4) -> (* CSINV *)
     transOprToExpr ins ctxt addr o1,
     transOprToExpr ins ctxt addr o2,
@@ -868,6 +867,14 @@ let signedSatQ i n ir =
 /// ======
 let satQ i n isUnsigned ir = (* FIMXE: return saturated (FPSR.QC = '1') *)
   if isUnsigned then unsignedSatQ i n ir else signedSatQ i n ir
+
+/// shared/functions/common/BitCount
+// BitCount()
+// ==========
+let bitCount bitSize x =
+  let size = int bitSize
+  Array.init size (fun i -> (x >> (numI32 i bitSize)) .& (AST.num1 bitSize))
+  |> Array.reduce (.+)
 
 /// 64-bit operands generate a 64-bit result in the destination general-purpose
 /// register. 32-bit operands generate a 32-bit result, zero-extended to a
