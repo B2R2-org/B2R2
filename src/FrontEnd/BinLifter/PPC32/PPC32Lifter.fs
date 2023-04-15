@@ -1412,7 +1412,7 @@ let mffs ins insLen ctxt =
   let fpscr = !.ctxt R.FPSCR
   let ir = !*ctxt
   !<ir insLen
-  !!ir ((AST.xthi 32<rt> dst) := fpscr)
+  !!ir (dst := AST.zext 64<rt> fpscr)
   !>ir insLen
 
 let mflr ins insLen ctxt =
@@ -1541,21 +1541,11 @@ let mtfsb1 ins insLen updateCond ctxt =
 let mtfsf ins insLen ctxt =
   let struct (fm, frB) = getTwoOprs ins
   let frB = transOpr ctxt frB
-  let fm = getImmValue fm
+  let fm = BitVector.OfUInt32 (getImmValue fm) 32<rt> |> AST.num
   let fpscr = !.ctxt R.FPSCR
   let ir = !*ctxt
   !<ir insLen
-  for i in 0 .. 6 do
-    if (fm >>> (7 - i)) &&& 1u = 1u then
-      let n = i * 4
-      !!ir (AST.extract fpscr 1<rt> n := AST.extract frB 1<rt> n)
-      !!ir (AST.extract fpscr 1<rt> (n + 1) := AST.extract frB 1<rt> (n + 1))
-      !!ir (AST.extract fpscr 1<rt> (n + 2) := AST.extract frB 1<rt> (n + 2))
-      !!ir (AST.extract fpscr 1<rt> (n + 3) := AST.extract frB 1<rt> (n + 3))
-    done
-  if fm &&& 1u = 1u then
-    !!ir (AST.extract fpscr 1<rt> 31 := AST.extract frB 1<rt> 31)
-    !!ir (AST.extract fpscr 1<rt> 28 := AST.extract frB 1<rt> 28)
+  !!ir (fpscr := AST.xtlo 32<rt> frB .& fm)
   !>ir insLen
 
 let mtxer ins insLen ctxt =
