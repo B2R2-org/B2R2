@@ -284,7 +284,7 @@ let setCR1Reg ctxt ir =
 
 let isNaN frx =
   let exponent = (frx >> numI32 52 64<rt>) .& numI32 0x7FF 64<rt>
-  let fraction = frx .& numU64 0xffffffffffffUL 64<rt>
+  let fraction = frx .& numU64 0xfffff_ffffffffUL 64<rt>
   let e = numI32 0x7ff 64<rt>
   let zero = AST.num0 64<rt>
   AST.xtlo 1<rt> ((exponent == e) .& (fraction != zero))
@@ -790,7 +790,7 @@ let fAddOrSub ins insLen updateCond isDouble fnOp ctxt =
 let fadd ins insLen updateCond isDouble ctxt =
   fAddOrSub ins insLen updateCond isDouble AST.fadd ctxt
 
-let fcmpo ins insLen ctxt =
+let fcmp ins insLen ctxt isOrdered =
   let struct ((crf0, crf1, crf2, crf3), fra, frb) = transCmpOprs ins ctxt
   let fpscr = !.ctxt R.FPSCR
   let vxsnan = AST.extract fpscr 1<rt> 24
@@ -805,41 +805,40 @@ let fcmpo ins insLen ctxt =
   let cond3 = (isSNaN fra) .| (isSNaN frb)
   let cond4 = (isQNaN fra) .| (isQNaN frb)
   let ir = !*ctxt
+  let nanFlag = !+ir 1<rt>
+  let lblNan = !%ir "NaN"
+  let lblRegular = !%ir "Regular"
+  let lblEnd = !%ir "End"
   !<ir insLen
   !!ir (fl := cond1)
   !!ir (fg := cond2)
   !!ir (fe := AST.ite cond1 AST.b0 (AST.not cond2))
-  !!ir (fu := (isNaN fra) .| (isNaN frb))
+  !!ir (nanFlag := (isNaN fra) .| (isNaN frb))
+  !!ir (fu := nanFlag)
+  !!ir (AST.cjmp nanFlag (AST.name lblNan) (AST.name lblRegular))
+  !!ir (AST.lmark lblNan)
+  !!ir (crf0 := AST.b0)
+  !!ir (crf1 := AST.b0)
+  !!ir (crf2 := AST.b0)
+  !!ir (crf3 := AST.b1)
+  !!ir (AST.jmp (AST.name lblEnd))
+  !!ir (AST.lmark lblRegular)
   !!ir (crf0 := fl)
   !!ir (crf1 := fg)
   !!ir (crf2 := fe)
   !!ir (crf3 := fu)
+  !!ir (AST.lmark lblEnd)
   !!ir (vxsnan := cond3)
-  !!ir (vxvc := AST.ite cond3 (AST.ite ve AST.b0 AST.b1) cond4)
+  if isOrdered then
+    !!ir (vxvc := AST.ite cond3 (AST.ite ve AST.b0 AST.b1) cond4)
+  else ()
   !>ir insLen
 
+let fcmpo ins insLen ctxt =
+  fcmp ins insLen ctxt true
+
 let fcmpu ins insLen ctxt =
-  let struct ((crf0, crf1, crf2, crf3), fra, frb) = transCmpOprs ins ctxt
-  let fpscr = !.ctxt R.FPSCR
-  let vxsnan = AST.extract fpscr 1<rt> 24
-  let fl = AST.extract fpscr 1<rt> 15
-  let fg = AST.extract fpscr 1<rt> 14
-  let fe = AST.extract fpscr 1<rt> 13
-  let fu = AST.extract fpscr 1<rt> 12
-  let cond1 = AST.flt fra frb
-  let cond2 = AST.fgt fra frb
-  let ir = !*ctxt
-  !<ir insLen
-  !!ir (fl := cond1)
-  !!ir (fg := cond2)
-  !!ir (fe := AST.ite cond1 AST.b0 (AST.not cond2))
-  !!ir (fu := (isNaN fra) .| (isNaN frb))
-  !!ir (crf0 := fl)
-  !!ir (crf1 := fg)
-  !!ir (crf2 := fe)
-  !!ir (crf3 := fu)
-  !!ir (vxsnan := (isSNaN fra) .| (isSNaN frb))
-  !>ir insLen
+  fcmp ins insLen ctxt false
 
 let fdiv ins insLen updateCond isDouble ctxt =
   let struct (frd, fra, frb) = transThreeOprs ins ctxt
