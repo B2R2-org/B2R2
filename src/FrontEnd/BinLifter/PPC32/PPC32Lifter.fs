@@ -243,23 +243,6 @@ let roundingToCastInt ctxt ir frd frb =
                             (AST.cast CastKind.FtoICeil 64<rt> frb))
   !!ir (AST.lmark lblEnd)
 
-let roundingToCastFloat ctxt ir rtyp frd frb =
-  let fpscr = !.ctxt R.FPSCR
-  let rnA = AST.extract fpscr 1<rt> 1
-  let rnB = AST.extract fpscr 1<rt> 0
-  let lblRN0 = !%ir "RN0x"
-  let lblRN1 = !%ir "RN1x"
-  let lblEnd = !%ir "End"
-  !!ir (AST.cjmp rnA (AST.name lblRN1) (AST.name lblRN0))
-  !!ir (AST.lmark lblRN0)
-  !!ir (frd := AST.ite rnB (AST.cast CastKind.FtoFTrunc rtyp frb)
-                            (AST.cast CastKind.FtoFRound rtyp frb))
-  !!ir (AST.jmp (AST.name lblEnd))
-  !!ir (AST.lmark lblRN1)
-  !!ir (frd := AST.ite rnB (AST.cast CastKind.FtoFFloor rtyp frb)
-                            (AST.cast CastKind.FtoFCeil rtyp frb))
-  !!ir (AST.lmark lblEnd)
-
 let setCR0Reg ctxt ir result =
   let xerSO = AST.xthi 1<rt> (!.ctxt R.XER)
   let cr0LT = !.ctxt R.CR0_0
@@ -282,12 +265,22 @@ let setCR1Reg ctxt ir =
   !!ir (cr1VX := AST.extract fpscr 1<rt> 29)
   !!ir (cr1OX := AST.extract fpscr 1<rt> 28)
 
+let inline getFraction rtyp frx =
+  match rtyp with
+  | 32<rt> -> frx .& numU32 0x7fffffu 32<rt>
+  | 64<rt> -> frx .& numU64 0xfffff_ffffffffUL 64<rt>
+  | _ -> Utils.impossible ()
+
+let hasFraction rtyp frx =
+  getFraction rtyp frx != AST.num0 rtyp
+
+let hasNoFraction rtyp frx =
+  getFraction rtyp frx == AST.num0 rtyp
+
 let isNaN frx =
   let exponent = (frx >> numI32 52 64<rt>) .& numI32 0x7FF 64<rt>
-  let fraction = frx .& numU64 0xfffff_ffffffffUL 64<rt>
   let e = numI32 0x7ff 64<rt>
-  let zero = AST.num0 64<rt>
-  AST.xtlo 1<rt> ((exponent == e) .& (fraction != zero))
+  AST.xtlo 1<rt> ((exponent == e) .& hasFraction 64<rt> frx)
 
 let isSNaN frx =
   let nanChecker = isNaN frx
@@ -767,22 +760,75 @@ let fabs ins insLen updateCond ctxt =
   if updateCond then setCR1Reg ctxt ir else ()
   !>ir insLen
 
+let roundingToCastFloat ctxt ir rtyp fnOp fra frb frd =
+  let tmpA = !+ir rtyp
+  let tmpB = !+ir rtyp
+  let tmpValue = !+ir rtyp
+  let tmpResult = !+ir rtyp
+  let fpscr = !.ctxt R.FPSCR
+  let rnA = AST.extract fpscr 1<rt> 1
+  let rnB = AST.extract fpscr 1<rt> 0
+  let lblA = !%ir "CondA"
+  let lblB = !%ir "CondB"
+  let lblDefault = !%ir "Default"
+  let lblNext = !%ir "Next"
+  let lblCondARN0 = !%ir "CondA.RN0x"
+  let lblCondARN1 = !%ir "CondA.RN1x"
+  let lblCondBRN0 = !%ir "CondB.RN0x"
+  let lblCondBRN1 = !%ir "CondB.RN1x"
+  let lblRN0 = !%ir "RN0x"
+  let lblRN1 = !%ir "RN1x"
+  let lblEnd = !%ir "End"
+  !!ir (tmpA := fra)
+  !!ir (tmpB := frb)
+  !!ir (AST.cjmp (hasNoFraction rtyp fra) (AST.name lblA) (AST.name lblNext))
+  !!ir (AST.lmark lblA)
+  (* Condition A: fra has no fraction, so round frb. *)
+  !!ir (AST.cjmp rnA (AST.name lblCondARN1) (AST.name lblCondARN0))
+  !!ir (AST.lmark lblCondARN0)
+  !!ir (tmpB := AST.ite rnB (AST.cast CastKind.FtoFTrunc rtyp frb)
+                            (AST.cast CastKind.FtoFRound rtyp frb))
+  !!ir (AST.jmp (AST.name lblDefault))
+  !!ir (AST.lmark lblCondARN1)
+  !!ir (tmpB := AST.ite rnB (AST.cast CastKind.FtoFFloor rtyp frb)
+                            (AST.cast CastKind.FtoFCeil rtyp frb))
+  !!ir (AST.jmp (AST.name lblDefault))
+  !!ir (AST.lmark lblNext)
+  !!ir (AST.cjmp (hasNoFraction rtyp frb) (AST.name lblB) (AST.name lblDefault))
+  !!ir (AST.lmark lblB)
+  (* Condition B: frb has no fraction, so round fra. *)
+  !!ir (AST.cjmp rnA (AST.name lblCondBRN1) (AST.name lblCondBRN0))
+  !!ir (AST.lmark lblCondBRN0)
+  !!ir (tmpA := AST.ite rnB (AST.cast CastKind.FtoFTrunc rtyp fra)
+                            (AST.cast CastKind.FtoFRound rtyp fra))
+  !!ir (AST.jmp (AST.name lblDefault))
+  !!ir (AST.lmark lblCondBRN1)
+  !!ir (tmpA := AST.ite rnB (AST.cast CastKind.FtoFFloor rtyp fra)
+                            (AST.cast CastKind.FtoFCeil rtyp fra))
+  (* Default case: round the result. *)
+  !!ir (AST.lmark lblDefault)
+  !!ir (tmpValue := fnOp tmpA tmpB)
+  !!ir (AST.cjmp rnA (AST.name lblRN1) (AST.name lblRN0))
+  !!ir (AST.lmark lblRN0)
+  !!ir (tmpResult := AST.ite rnB (AST.cast CastKind.FtoFTrunc rtyp tmpValue)
+                                 (AST.cast CastKind.FtoFRound rtyp tmpValue))
+  !!ir (AST.jmp (AST.name lblEnd))
+  !!ir (AST.lmark lblRN1)
+  !!ir (tmpResult := AST.ite rnB (AST.cast CastKind.FtoFFloor rtyp tmpValue)
+                                 (AST.cast CastKind.FtoFCeil rtyp tmpValue))
+  !!ir (AST.lmark lblEnd)
+  !!ir (frd := AST.cast CastKind.FloatCast 64<rt> tmpResult)
+
 let fAddOrSub ins insLen updateCond isDouble fnOp ctxt =
   let struct (frd, fra, frb) = transThreeOprs ins ctxt
   let ir = !*ctxt
   !<ir insLen
   if isDouble then
-    let tmpResult = !+ir 64<rt>
-    !!ir (tmpResult := fnOp fra frb)
-    roundingToCastFloat ctxt ir 64<rt> frd tmpResult
+    roundingToCastFloat ctxt ir 64<rt> fnOp fra frb frd
   else
-    let tmpResult = !+ir 32<rt>
-    let tmpRounded = !+ir 32<rt>
-    let fraS = AST.cast CastKind.FloatCast 32<rt> fra
-    let frbS = AST.cast CastKind.FloatCast 32<rt> frb
-    !!ir (tmpResult := fnOp fraS frbS)
-    roundingToCastFloat ctxt ir 32<rt> tmpRounded tmpResult
-    !!ir (frd := AST.cast CastKind.FloatCast 64<rt> tmpRounded)
+    let fra = AST.cast CastKind.FloatCast 32<rt> fra
+    let frb = AST.cast CastKind.FloatCast 32<rt> frb
+    roundingToCastFloat ctxt ir 32<rt> fnOp fra frb frd
   setFPRF ctxt ir frd
   if updateCond then setCR1Reg ctxt ir else ()
   !>ir insLen
