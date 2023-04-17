@@ -846,7 +846,7 @@ let auipc insInfo insLen ctxt =
   let rd, imm = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
   let pc = bvOfBaseAddr ctxt insInfo.Address
   !<ir insLen
-  !!ir (rd := pc .+ imm << numI32 12 ctxt.WordBitSize)
+  !!ir (rd := pc .+ (imm << numI32 12 ctxt.WordBitSize))
   !>ir insLen
 
 let addiw insInfo insLen ctxt =
