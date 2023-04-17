@@ -1078,9 +1078,9 @@ let parseEXTSHx bin =
   let ra = getRegister (extract bin 20u 16u) |> OprReg
   match concat (pickBit bin 10u) (pickBit bin 0u) 1 (* 1:Rc *) with
   | 0b10u when extract bin 15u 11u = 0u ->
-    struct (Op.EXTSH, TwoOperands (rs, ra))
+    struct (Op.EXTSH, TwoOperands (ra, rs))
   | 0b11u when extract bin 15u 11u = 0u ->
-    struct (Op.EXTSHdot, TwoOperands (rs, ra))
+    struct (Op.EXTSHdot, TwoOperands (ra, rs))
   | _ (* 0x *) -> raise ParsingFailureException
 
 let parseORCx bin =
@@ -1115,9 +1115,9 @@ let parseEXTSBx bin =
   let ra = getRegister (extract bin 20u 16u) |> OprReg
   match concat (pickBit bin 10u) (pickBit bin 0u) 1 (* 1:Rc *) with
   | 0b10u when extract bin 15u 11u = 0u ->
-    struct (Op.EXTSB, TwoOperands (rs, ra))
+    struct (Op.EXTSB, TwoOperands (ra, rs))
   | 0b11u when extract bin 15u 11u = 0u ->
-    struct (Op.EXTSBdot, TwoOperands (rs, ra))
+    struct (Op.EXTSBdot, TwoOperands (ra, rs))
   | _ (* 0x *) -> raise ParsingFailureException
 
 let parseORx bin =
