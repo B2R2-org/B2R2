@@ -57,8 +57,13 @@ let getExtMask mb me =
     match mb.E, me.E with
     | Num b, Num m -> struct (b.SmallValue () |> int, m.SmallValue () |> int)
     | _ -> raise InvalidExprException
-  let mb, me = 31 - me, 31 - mb
-  let mask = (System.UInt32.MaxValue >>> (32 - (me - mb + 1))) <<< mb
+  let allOnes = System.UInt32.MaxValue
+  let mask =
+    if mb = me + 1 then allOnes
+    elif me = 31 then allOnes >>> mb
+    else
+      let v = (allOnes >>> mb) ^^^ (allOnes >>> (me + 1))
+      if mb > me then ~~~v else v
   numU32 mask 32<rt>
 
 let rotateLeft rs sh = (rs << sh) .| (rs >> ((numI32 32 32<rt>) .- sh))
