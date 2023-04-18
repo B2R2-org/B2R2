@@ -953,10 +953,16 @@ let fctiw ins insLen updateCond ctxt =
 
 let fctiwz ins insLen updateCond ctxt =
   let ir = !*ctxt
-  let tmp = !+ir 64<rt>
+  let intMaxInFloat = numU64 0x41dfffffffc00000uL 64<rt>
+  let intMinInFloat = numU64 0xc1e0000000000000uL 64<rt>
+  let intMax = numU64 0x7fffffffUL 64<rt>
+  let intMin = numU64 0x80000000UL 64<rt>
   let struct (frd, frb) = transTwoOprs ins ctxt
   !<ir insLen
   !!ir (frd := AST.cast CastKind.FtoITrunc 64<rt> frb)
+  !!ir (frd := AST.ite (isNaN frb) intMin frd)
+  !!ir (frd := AST.ite (AST.fle frb intMinInFloat) intMin frd)
+  !!ir (frd := AST.ite (AST.fge frb intMaxInFloat) intMax frd)
   setFPRF ctxt ir frd
   if updateCond then setCR1Reg ctxt ir else ()
   !>ir insLen
