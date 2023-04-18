@@ -4913,16 +4913,28 @@ module internal ParsingHelper = begin
 
   let vex0F3A16W0 = function
     | MPref.MPrxNP -> raise ParsingFailureException
-    | MPref.MPrx66 ->
-      struct (VPEXTRD, OD.XmRegImm8, SZ.VyDqMR)
+    | MPref.MPrx66 -> struct (VPEXTRD, OD.XmRegImm8, SZ.VyDqMR)
+    | MPref.MPrxF3
+    | MPref.MPrxF2
+    | _ (* MPrx66F2 *) -> raise ParsingFailureException
+
+  let vex0F3A16W1 = function
+    | MPref.MPrxNP -> raise ParsingFailureException
+    | MPref.MPrx66 -> struct (VPEXTRQ, OD.XmRegImm8, SZ.VyDqMR)
     | MPref.MPrxF3
     | MPref.MPrxF2
     | _ (* MPrx66F2 *) -> raise ParsingFailureException
 
   let evex0F3A16W0 = function
     | MPref.MPrxNP -> raise ParsingFailureException
-    | MPref.MPrx66 ->
-      struct (VPEXTRD, OD.XmRegImm8, SZ.VyDqMR)
+    | MPref.MPrx66 -> struct (VPEXTRD, OD.XmRegImm8, SZ.VyDqMR)
+    | MPref.MPrxF3
+    | MPref.MPrxF2
+    | _ (* MPrx66F2 *) -> raise ParsingFailureException
+
+  let evex0F3A16W1 = function
+    | MPref.MPrxNP -> raise ParsingFailureException
+    | MPref.MPrx66 -> struct (VPEXTRQ, OD.XmRegImm8, SZ.VyDqMR)
     | MPref.MPrxF3
     | MPref.MPrxF2
     | _ (* MPrx66F2 *) -> raise ParsingFailureException
@@ -5857,6 +5869,8 @@ module internal ParsingHelper = begin
 
   let inline filterREPZPrefs (prefix: Prefix) = prefix &&& ClearREPZPrefMask
 
+  let inline filterREXWPrefs (rex: REXPrefix) = rex &&& ClearREXWPrefMask
+
   let getInstr prefix fnInstr = fnInstr (getMandPrx prefix)
 
   /// The main instruction rendering function.
@@ -6210,8 +6224,12 @@ module internal ParsingHelper = begin
     | 0x14uy -> parseVEXW span rhlp nor0F3A14 nor0F3A14 vex0F3A14W0 notEn
     | 0x15uy -> parseVEX span rhlp nor0F3A15 vex0F3A15
     | 0x16uy ->
-      parseEVEXAll span rhlp nor0F3A16W0 nor0F3A16W1 vex0F3A16W0 notEn
-        evex0F3A16W0 notEn
+      /// VEX.W/EVEX.W in non-64 bit is ignored; the instructions behaves as
+      /// if the W0 version is used.
+      if rhlp.WordSize = WordSize.Bit64 then ()
+      else rhlp.REXPrefix <- filterREXWPrefs rhlp.REXPrefix
+      parseEVEXAll span rhlp nor0F3A16W0 nor0F3A16W1 vex0F3A16W0 vex0F3A16W1
+        evex0F3A16W0 evex0F3A16W1
     | 0x17uy -> parseEVEX span rhlp nor0F3A17 vex0F3A17 notEn notEn
     | 0x18uy -> parseEVEXW span rhlp vex0F3A18W0 notEn notEn notEn
     | 0x19uy -> parseEVEXW span rhlp vex0F3A19W0 notEn evex0F3A19W0 evex0F3A19W1

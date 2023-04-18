@@ -177,6 +177,9 @@ let [<Literal>] ClearVEXPrefMask: Prefix = EnumOfValue 0xFBF5
 /// Filter out PrxREPZ(0x8)
 let [<Literal>] ClearREPZPrefMask: Prefix = EnumOfValue 0xFFF7
 
+/// Filter out REXW(0x8)
+let [<Literal>] ClearREXWPrefMask: REXPrefix = EnumOfValue 0xFFF7
+
 /// Filter out group 1 prefixes.
 let [<Literal>] ClearGrp1PrefMask: Prefix = EnumOfValue 0xFFF0
 

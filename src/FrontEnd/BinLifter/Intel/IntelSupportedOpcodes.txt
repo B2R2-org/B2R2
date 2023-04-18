@@ -2170,8 +2170,10 @@ VPEXPANDQ
 VPEXPANDW
 /// Extract Byte.
 VPEXTRB
-/// Extract DWord.
+/// Extract Dword.
 VPEXTRD
+/// Extract Qword.
+VPEXTRQ
 /// Extract Word.
 VPEXTRW
 /// Gather packed dword values using signed Dword/Qword indices.

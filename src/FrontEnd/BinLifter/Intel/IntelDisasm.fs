@@ -1104,6 +1104,7 @@ let opCodeToString = function
   | Opcode.VPEXPANDW -> "vpexpandw"
   | Opcode.VPEXTRB -> "vpextrb"
   | Opcode.VPEXTRD -> "vpextrd"
+  | Opcode.VPEXTRQ -> "vpextrq"
   | Opcode.VPEXTRW -> "vpextrw"
   | Opcode.VPGATHERDD -> "vpgatherdd"
   | Opcode.VPGATHERDQ -> "vpgatherdq"
