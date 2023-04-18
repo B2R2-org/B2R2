@@ -2130,6 +2130,24 @@ let subfze ins insLen updateCond ovCond ctxt =
   if updateCond then setCR0Reg ctxt ir dst else ()
   !>ir insLen
 
+let trap insLen ctxt =
+  let ir = !*ctxt
+  !<ir insLen
+  !!ir (AST.sideEffect (Interrupt 0))
+  !>ir insLen
+
+let trapCond ins insLen cmpOp ctxt =
+  let struct (ra, rb) = transTwoOprs ins ctxt
+  let ir = !*ctxt
+  let lblTrap = !%ir "Trap"
+  let lblEnd = !%ir "End"
+  !<ir insLen
+  !!ir (AST.cjmp (cmpOp ra rb) (AST.name lblTrap) (AST.name lblEnd))
+  !!ir (AST.lmark lblTrap)
+  !!ir (AST.sideEffect (Interrupt 0))
+  !!ir (AST.lmark lblEnd)
+  !>ir insLen
+
 let xor ins insLen updateCond ctxt =
   let struct (dst, src1, src2) = transThreeOprs ins ctxt
   let ir = !*ctxt
@@ -2412,6 +2430,27 @@ let translate (ins: InsInfo) insLen (ctxt: TranslationContext) =
   | Op.SUBFZEdot -> subfze ins insLen true false ctxt
   | Op.SUBFZEO -> subfze ins insLen false true ctxt
   | Op.SUBFZEOdot -> subfze ins insLen true true ctxt
+  | Op.TRAP | Op.TWI -> trap insLen ctxt
+  | Op.TWLT -> trapCond ins insLen (AST.slt) ctxt
+  | Op.TWLE -> trapCond ins insLen (AST.sle) ctxt
+  | Op.TWEQ -> trapCond ins insLen (AST.eq) ctxt
+  | Op.TWGE -> trapCond ins insLen (AST.sge) ctxt
+  | Op.TWGT -> trapCond ins insLen (AST.sgt) ctxt
+  | Op.TWNE -> trapCond ins insLen (AST.neq) ctxt
+  | Op.TWLLT -> trapCond ins insLen (AST.lt) ctxt
+  | Op.TWLLE -> trapCond ins insLen (AST.le) ctxt
+  | Op.TWLNL -> trapCond ins insLen (AST.ge) ctxt
+  | Op.TWLGT -> trapCond ins insLen (AST.gt) ctxt
+  | Op.TWLTI -> trapCond ins insLen (AST.slt) ctxt
+  | Op.TWLEI -> trapCond ins insLen (AST.sle) ctxt
+  | Op.TWEQI -> trapCond ins insLen (AST.eq) ctxt
+  | Op.TWGEI -> trapCond ins insLen (AST.sge) ctxt
+  | Op.TWGTI -> trapCond ins insLen (AST.sgt) ctxt
+  | Op.TWNEI -> trapCond ins insLen (AST.neq) ctxt
+  | Op.TWLLTI -> trapCond ins insLen (AST.lt) ctxt
+  | Op.TWLLEI -> trapCond ins insLen (AST.le) ctxt
+  | Op.TWLNLI -> trapCond ins insLen (AST.ge) ctxt
+  | Op.TWLGTI -> trapCond ins insLen (AST.gt) ctxt
   | Op.XOR -> xor ins insLen false ctxt
   | Op.XORdot -> xor ins insLen true ctxt
   | Op.XORI -> xori ins insLen ctxt

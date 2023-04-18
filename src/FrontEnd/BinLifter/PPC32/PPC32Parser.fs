@@ -35,19 +35,25 @@ let parseTWI bin =
   let value = signExtend 16 32 simm |> uint64 |> OprImm
   match extract bin 25u 21u with
   (* twlgti ra,value = twi 1,ra,value *)
-  | 0x1u -> struct (Op.TWLGTI, TwoOperands (ra, value))
+  | 1u -> struct (Op.TWLGTI, TwoOperands (ra, value))
   (* twllti ra,value = twi 2,ra,value *)
-  | 0x2u -> struct (Op.TWLLTI, TwoOperands (ra, value))
+  | 2u -> struct (Op.TWLLTI, TwoOperands (ra, value))
   (* tweqi ra,value = twi 4,ra,value *)
-  | 0x4u -> struct (Op.TWEQI, TwoOperands (ra, value))
+  | 4u -> struct (Op.TWEQI, TwoOperands (ra, value))
   (* twlnli ra,value = twi 5,ra,value *)
-  | 0x5u -> struct (Op.TWLNLI, TwoOperands (ra, value))
+  | 5u -> struct (Op.TWLNLI, TwoOperands (ra, value))
+  (* twllei ra,value = twi 6,ra,value *)
+  | 6u -> struct (Op.TWLLEI, TwoOperands (ra, value))
   (* twgti ra,value = twi 8,ra,value *)
-  | 0x8u -> struct (Op.TWGTI, TwoOperands (ra, value))
+  | 8u -> struct (Op.TWGTI, TwoOperands (ra, value))
+  (* twgei ra,value = twi 12,ra,value *)
+  | 12u -> struct (Op.TWGEI, TwoOperands (ra, value))
   (* twlti ra,value = twi 16,ra,value *)
-  | 0x10u -> struct (Op.TWLTI, TwoOperands (ra, value))
+  | 16u -> struct (Op.TWLTI, TwoOperands (ra, value))
+  (* twlei ra,value = twi 20,ra,value *)
+  | 20u -> struct (Op.TWLEI, TwoOperands (ra, value))
   (* twnei ra,value = twi 24,ra,value *)
-  | 0x18u -> struct (Op.TWNEI, TwoOperands (ra, value))
+  | 24u -> struct (Op.TWNEI, TwoOperands (ra, value))
   (* twllei ra,value = twlngi ra, value = twi 6,ra,value
      twgei ra,value = twlgei ra, value = twnli ra, value = twi 12,ra,value
      twlei ra,value = twngi ra, value = twi 20,ra,value *)
@@ -416,28 +422,26 @@ let parseTW bin =
     let rb = getRegister (extract bin 15u 11u) |> OprReg
     match extract bin 25u 21u with
     (* twlgt ra,rb = tw 1,ra,rb *)
-    | 0x1u -> struct (Op.TWLGT, TwoOperands (ra, rb))
+    | 1u -> struct (Op.TWLGT, TwoOperands (ra, rb))
     (* twllt ra,rb = tw 2,ra,rb *)
-    | 0x2u -> struct (Op.TWLLT, TwoOperands (ra, rb))
+    | 2u -> struct (Op.TWLLT, TwoOperands (ra, rb))
     (* tweq ra,rb = tw 4,ra,rb *)
-    | 0x4u -> struct (Op.TWEQ, TwoOperands (ra, rb))
+    | 4u -> struct (Op.TWEQ, TwoOperands (ra, rb))
     (* twlnl ra,rb = tw 5,ra,rb *)
-    | 0x5u -> struct (Op.TWLNL, TwoOperands (ra, rb))
+    | 5u -> struct (Op.TWLNL, TwoOperands (ra, rb))
+    (* twllel ra,rb = tw 6,ra,rb *)
+    | 6u -> struct (Op.TWLLE, TwoOperands (ra, rb))
     (* twgt ra,rb = tw 8,ra,rb *)
-    | 0x8u -> struct (Op.TWGT, TwoOperands (ra, rb))
+    | 8u -> struct (Op.TWGT, TwoOperands (ra, rb))
+    (* twge ra,rb = tw 12,ra,rb *)
+    | 12u -> struct (Op.TWGE, TwoOperands (ra, rb))
     (* twlt ra,rb = tw 16,ra,rb *)
-    | 0x10u -> struct (Op.TWLT, TwoOperands (ra, rb))
+    | 16u -> struct (Op.TWLT, TwoOperands (ra, rb))
+    (* twle ra,rb = tw 20,ra,rb *)
+    | 20u -> struct (Op.TWLE, TwoOperands (ra, rb))
     (* twne ra,rb = tw 24,ra,rb *)
-    | 0x18u -> struct (Op.TWNE, TwoOperands (ra, rb))
-    | 0x1Fu ->
-      match extract bin 20u 11u with
-      | 0x0u -> struct (Op.TRAP, NoOperand)
-      (* twlle ra,rb = twlng ra, rb = tw 6,ra,rb
-         twge ra,rb = twlge ra, rb = twnl ra, rb = tw 12,ra,rb
-         twle ra,rb = twng ra, rb = tw 20,ra,rb *)
-      | _ ->
-        let tO = extract bin 25u 21u |> uint64 |> OprImm
-        struct (Op.TW, ThreeOperands (tO, ra, rb))
+    | 24u -> struct (Op.TWNE, TwoOperands (ra, rb))
+    | 31u when extract bin 20u 11u = 0u -> struct (Op.TRAP, NoOperand)
     | _ ->
       let tO = extract bin 25u 21u |> uint64 |> OprImm
       struct (Op.TW, ThreeOperands (tO, ra, rb))
