@@ -1464,9 +1464,21 @@ let orn ins insLen ctxt addr =
   let ir = !*ctxt
   !<ir insLen
   match ins.Operands with
-  | TwoOperands _ -> !!ir (AST.sideEffect UnsupportedFP)
-  | ThreeOperands (OprSIMD _, OprSIMD _, OprSIMD _) ->
-    !!ir (AST.sideEffect UnsupportedFP)
+  | TwoOperands _ ->
+    let struct (dst, src) = getTwoOprs ins
+    let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
+    let dstB, dstA = transOprToExpr128 ins ctxt addr dst
+    let src = transSIMDOprToExpr ctxt eSize dataSize elements src
+    let result = Array.map AST.not src
+    !<ir insLen
+    dstAssignForSIMD dstA dstB result dataSize elements ir
+  | ThreeOperands (OprSIMD (SIMDVecReg _ ) as o1, o2, o3) ->
+    let struct (_, dataSize, _) = getElemDataSzAndElems o1
+    let src1B, src1A = transOprToExpr128 ins ctxt addr o2
+    let src2B, src2A = transOprToExpr128 ins ctxt addr o3
+    let resultB = src1B .| (AST.not src2B)
+    let resultA = src1A .| (AST.not src2A)
+    dstAssign128 ins ctxt addr o1 resultA resultB dataSize ir
   | _ ->
     let dst, src1, src2 = transOprToExprOfORN ins ctxt addr
     dstAssign ins.OprSize dst (src1 .| AST.not src2) ir
