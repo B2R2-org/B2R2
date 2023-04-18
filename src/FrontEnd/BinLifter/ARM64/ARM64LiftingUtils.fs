@@ -769,13 +769,11 @@ let advSIMDExpandImm ir (eSize: int<rt>) src =
   let splitCnt = numI32 (int32 eSize) 64<rt>
   replicateForIR src splitCnt 64<rt> ir
 
-let fpToFixed ins src fbits unsigned round =
-  let oprSz = ins.OprSize
-  let signOrUnsigned = if unsigned then AST.cast CastKind.UIntToFloat oprSz src
-                       else AST.cast CastKind.SIntToFloat oprSz src
+let fpToFixed oprSz src fbits unsigned round =
+  let cast = if unsigned then CastKind.UIntToFloat else CastKind.SIntToFloat
+  let src = AST.cast cast oprSz src
   let mulBits = AST.cast CastKind.SIntToFloat oprSz (AST.num1 oprSz << fbits)
-  let value = AST.cast CastKind.FtoIFloor oprSz
-               (AST.fmul signOrUnsigned mulBits)
+  let value = AST.cast CastKind.FtoIFloor oprSz (AST.fmul src mulBits)
   let result =
     match round with
     | FPRounding_TIEEVEN

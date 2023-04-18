@@ -97,26 +97,25 @@ let add ins insLen ctxt addr =
   | _ -> raise InvalidOperandException
   !>ir insLen
 
-let private addPair elements =
-  let elem1, elem2 =
-    let rec loop idx e1 e2 elems =
-      match elems with
-      | [] -> e1, e2
-      | e :: t -> if idx % 2 = 0 then loop (idx + 1) (e :: e1) e2 t
-                  else loop (idx + 1) e1 (e :: e2) t
-    loop 0 [] [] elements
-  List.map2 (.+) elem1 elem2 |> List.rev
-
 let addp ins insLen ctxt addr =
   let ir = !*ctxt
   !<ir insLen
-  let struct (dst, src1, src2) = getThreeOprs ins
-  let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
-  let dstB, dstA = transOprToExpr128 ins ctxt addr dst
-  let src1 = transSIMDOprToExpr ctxt eSize dataSize elements src1
-  let src2 = transSIMDOprToExpr ctxt eSize dataSize elements src2
-  let result = Array.append src1 src2 |> Array.toList |> addPair |> List.toArray
-  dstAssignForSIMD dstA dstB result dataSize elements ir
+  match ins.Operands with
+  | TwoOperands (dst, src) -> (* Scalar *)
+    let struct (eSize, dataSize, elements) = getElemDataSzAndElems src
+    let src = transSIMDOprToExpr ctxt eSize dataSize elements src
+    let result = Array.reduce (.+) src
+    dstAssignScalar ins ctxt addr dst result eSize ir
+  | ThreeOperands (dst, src1, src2) -> (* Vector *)
+    let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
+    let dstB, dstA = transOprToExpr128 ins ctxt addr dst
+    let src1 = transSIMDOprToExpr ctxt eSize dataSize elements src1
+    let src2 = transSIMDOprToExpr ctxt eSize dataSize elements src2
+    let result =
+      Array.append src1 src2 |> Array.chunkBySize 2
+      |> Array.map (fun e -> e[0] .+ e[1])
+    dstAssignForSIMD dstA dstB result dataSize elements ir
+  | _ -> raise InvalidOperandException
   !>ir insLen
 
 let adds ins insLen ctxt addr =
@@ -787,6 +786,50 @@ let fccmp ins insLen ctxt addr =
   !!ir (getRegVar ctxt R.V := AST.ite tCond (getFlag flags 0) (getFlag nzcv 0))
   !>ir insLen
 
+let fccmpe ins insLen ctxt addr =
+  let ir = !*ctxt
+  !<ir insLen
+  let src1, src2, nzcv, cond = transOprToExprOfCCMP ins ctxt addr
+  let tCond = !+ir 1<rt>
+  let flags = !+ir 8<rt>
+  !!ir (tCond := conditionHolds ctxt cond)
+  !!ir (flags := fpCompare src1 src2) (* FIXME: signal_nans *)
+  !!ir (getRegVar ctxt R.N := AST.ite tCond (getFlag flags 3) (getFlag nzcv 3))
+  !!ir (getRegVar ctxt R.Z := AST.ite tCond (getFlag flags 2) (getFlag nzcv 2))
+  !!ir (getRegVar ctxt R.C := AST.ite tCond (getFlag flags 1) (getFlag nzcv 1))
+  !!ir (getRegVar ctxt R.V := AST.ite tCond (getFlag flags 0) (getFlag nzcv 0))
+  !>ir insLen
+
+let fcmgt ins insLen ctxt addr =
+  let ir = !*ctxt
+  !<ir insLen
+  let struct (dst, src1, src2) = getThreeOprs ins
+  let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
+  let struct (ones, zeros) = tmpVars2 ir eSize
+  !!ir (ones := numI64 -1 eSize)
+  !!ir (zeros := AST.num0 eSize)
+  match dst, src2 with
+  | OprSIMD (SIMDFPScalarReg _) as o1, _ ->
+    let _, src1, src2 = transThreeOprs ins ctxt addr
+    let result = AST.ite (AST.fgt src1 src2) ones zeros
+    dstAssignScalar ins ctxt addr o1 result eSize ir
+  | OprSIMD (SIMDVecReg _), OprFPImm _ ->
+    let dstB, dstA = transOprToExpr128 ins ctxt addr dst
+    let src1 = transSIMDOprToExpr ctxt eSize dataSize elements src1
+    let src2 = transOprToExpr ins ctxt addr src2 |> AST.xtlo eSize
+    let result =
+      Array.map (fun e -> AST.ite (AST.fgt e src2) ones zeros) src1
+    dstAssignForSIMD dstA dstB result dataSize elements ir
+  | OprSIMD (SIMDVecReg _), _ ->
+    let dstB, dstA = transOprToExpr128 ins ctxt addr dst
+    let src1 = transSIMDOprToExpr ctxt eSize dataSize elements src1
+    let src2 = transSIMDOprToExpr ctxt eSize dataSize elements src2
+    let result =
+      Array.map2 (fun e1 e2 -> AST.ite (AST.fgt e1 e2) ones zeros) src1 src2
+    dstAssignForSIMD dstA dstB result dataSize elements ir
+  | _ -> raise InvalidOperandException
+  !>ir insLen
+
 let fcmp ins insLen ctxt addr =
   let ir = !*ctxt
   !<ir insLen
@@ -855,36 +898,99 @@ let fcvt ins insLen ctxt addr =
   dstAssign oprSize dst (AST.cast CastKind.FloatCast oprSize src) ir
   !>ir insLen
 
-let fcvtm ins insLen ctxt addr unsigned =
+let private fpConvert ins insLen ctxt addr isUnsigned round =
   let ir = !*ctxt
-  let oprSize = ins.OprSize
-  !<ir insLen
-  let dst, src = transTwoOprs ins ctxt addr
-  let result = fpToFixed ins src (AST.num0 oprSize) unsigned FPRounding_NEGINF
-  dstAssign oprSize dst result ir
-  !>ir insLen
-
-let fcvtz ins insLen ctxt addr unsigned =
-  let ir = !*ctxt
-  let oprSize = ins.OprSize
   !<ir insLen
   match ins.Operands with
-  | TwoOperands _ ->
+  (* vector *)
+  | TwoOperands (OprSIMD (SIMDVecReg _) as o1, o2) ->
+    let struct (eSize, dataSize, elements) = getElemDataSzAndElems o1
+    let dstB, dstA = transOprToExpr128 ins ctxt addr o1
+    let src = transSIMDOprToExpr ctxt eSize dataSize elements o2
+    let n0 = AST.num0 eSize
+    let result =
+      Array.map (fun e -> fpToFixed eSize e n0 isUnsigned round) src
+    dstAssignForSIMD dstA dstB result dataSize elements ir
+  (* vector #<fbits> *)
+  | ThreeOperands (OprSIMD (SIMDVecReg _) as o1, o2, OprFbits fbits) ->
+    let struct (eSz, dataSize, elements) = getElemDataSzAndElems o1
+    let dstB, dstA = transOprToExpr128 ins ctxt addr o1
+    let src = transSIMDOprToExpr ctxt eSz dataSize elements o2
+    let fbits = numI32 (int fbits) eSz
+    let result =
+      Array.map (fun e -> fpToFixed eSz e fbits isUnsigned FPRounding_Zero) src
+    dstAssignForSIMD dstA dstB result dataSize elements ir
+  (* scalar *)
+  | TwoOperands (OprSIMD (SIMDFPScalarReg _) as o1, o2) ->
+    let src = transOprToExpr ins ctxt addr o2
+    let result =
+      fpToFixed ins.OprSize src (AST.num0 ins.OprSize) isUnsigned round
+    dstAssignScalar ins ctxt addr o1 result ins.OprSize ir
+  (* scalar #<fbits> *)
+  | ThreeOperands (OprSIMD (SIMDFPScalarReg _) as o1, _, OprFbits _) ->
+    let _, src, fbits = transThreeOprs ins ctxt addr
+    let result = fpToFixed ins.OprSize src fbits isUnsigned FPRounding_Zero
+    dstAssignScalar ins ctxt addr o1 result ins.OprSize ir
+  (* float *)
+  | TwoOperands (OprRegister _, _) ->
     let dst, src = transTwoOprs ins ctxt addr
-    let result = fpToFixed ins src (AST.num0 oprSize) unsigned FPRounding_Zero
-    dstAssign oprSize dst result ir
-  | _ ->
+    let result =
+      fpToFixed ins.OprSize src (AST.num0 ins.OprSize) isUnsigned round
+    dstAssign ins.OprSize dst result ir
+  (* float #<fbits> *)
+  | ThreeOperands (OprRegister _, _, OprFbits _) ->
     let dst, src, fbits = transThreeOprs ins ctxt addr
-    let result = fpToFixed ins src fbits unsigned FPRounding_Zero
-    dstAssign oprSize dst result ir
+    let result = fpToFixed ins.OprSize src fbits isUnsigned FPRounding_Zero
+    dstAssign ins.OprSize dst result ir
+  | _ -> raise InvalidOperandException
   !>ir insLen
+
+let fcvtas ins insLen ctxt addr =
+  fpConvert ins insLen ctxt addr false FPRounding_TIEAWAY
+let fcvtau ins insLen ctxt addr =
+  fpConvert ins insLen ctxt addr true FPRounding_TIEAWAY
+
+let fcvtms ins insLen ctxt addr =
+  fpConvert ins insLen ctxt addr false FPRounding_POSINF
+let fcvtmu ins insLen ctxt addr =
+  fpConvert ins insLen ctxt addr true FPRounding_POSINF
+
+let fcvtps ins insLen ctxt addr =
+  fpConvert ins insLen ctxt addr false FPRounding_TIEEVEN
+let fcvtpu ins insLen ctxt addr =
+  fpConvert ins insLen ctxt addr true FPRounding_TIEEVEN
+
+let fcvtzs ins insLen ctxt addr =
+  fpConvert ins insLen ctxt addr false FPRounding_NEGINF
+let fcvtzu ins insLen ctxt addr =
+  fpConvert ins insLen ctxt addr true FPRounding_NEGINF
 
 let fdiv ins insLen ctxt addr =
   let ir = !*ctxt
   !<ir insLen
-  let dst, src1, src2 = transThreeOprs ins ctxt addr
-  let oprSize = ins.OprSize
-  dstAssign oprSize dst (AST.fdiv src1 src2) ir
+  let struct (dst, src1, src2) = getThreeOprs ins
+  let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
+  match dst with
+  | OprSIMD (SIMDFPScalarReg _) ->
+    let _, src1, src2 = transThreeOprs ins ctxt addr
+    dstAssignScalar ins ctxt addr dst (AST.fdiv src1 src2) eSize ir
+  | OprSIMD (SIMDVecReg _) ->
+    let dstB, dstA = transOprToExpr128 ins ctxt addr dst
+    let src1 = transSIMDOprToExpr ctxt eSize dataSize elements src1
+    let src2 = transSIMDOprToExpr ctxt eSize dataSize elements src2
+    let result = Array.map2 (AST.fdiv) src1 src2
+    dstAssignForSIMD dstA dstB result dataSize elements ir
+  | _ -> raise InvalidOperandException
+  !>ir insLen
+
+let fmadd ins insLen ctxt addr =
+  let ir = !*ctxt
+  !<ir insLen
+  let struct (dst, _, _, _) = getFourOprs ins
+  let struct (eSize, _, _) = getElemDataSzAndElems dst
+  let _, src1, src2, src3 = transFourOprs ins ctxt addr
+  let result = (AST.fadd src3 (AST.fmul src1 src2))
+  dstAssignScalar ins ctxt addr dst result eSize ir
   !>ir insLen
 
 let fmov ins insLen ctxt addr =
@@ -905,14 +1011,24 @@ let fmov ins insLen ctxt addr =
   | TwoOperands (OprSIMD (SIMDVecReg _), OprFPImm _) ->
     let struct (dst, src) = getTwoOprs ins
     let struct (eSize, dataSize, _) = getElemDataSzAndElems dst
-    let src = if eSize <> 64<rt> then
-                transOprToExprFPImm ins eSize src
-                |> advSIMDExpandImm ir eSize
-              else transOprToExprFPImm ins eSize src
+    let src =
+      if eSize <> 64<rt> then
+        transOprToExprFPImm ins eSize src |> advSIMDExpandImm ir eSize
+      else transOprToExprFPImm ins eSize src
     dstAssign128 ins ctxt addr dst src src dataSize ir
   | _ ->
     let dst, src = transTwoOprs ins ctxt addr
     dstAssign ins.OprSize dst src ir
+  !>ir insLen
+
+let fmsub ins insLen ctxt addr =
+  let ir = !*ctxt
+  !<ir insLen
+  let struct (dst, _, _, _) = getFourOprs ins
+  let struct (eSize, _, _) = getElemDataSzAndElems dst
+  let _, src1, src2, src3 = transFourOprs ins ctxt addr
+  let result = AST.fsub src3 (AST.fmul src1 src2)
+  dstAssignScalar ins ctxt addr dst result eSize ir
   !>ir insLen
 
 let fmul ins insLen ctxt addr =
@@ -2520,21 +2636,26 @@ let translate ins insLen ctxt =
   | Opcode.FADD -> fadd ins insLen ctxt addr
   | Opcode.FADDP -> faddp ins insLen ctxt addr
   | Opcode.FCCMP -> fccmp ins insLen ctxt addr
-  | Opcode.FCCMPE -> sideEffects insLen ctxt UnsupportedFP
+  | Opcode.FCCMPE -> fccmpe ins insLen ctxt addr
+  | Opcode.FCMGT -> fcmgt ins insLen ctxt addr
   | Opcode.FCMP -> fcmp ins insLen ctxt addr
   | Opcode.FCMPE -> fcmpe ins insLen ctxt addr
   | Opcode.FCSEL -> fcsel ins insLen ctxt addr
   | Opcode.FCVT -> fcvt ins insLen ctxt addr
-  | Opcode.FCVTMS -> fcvtm ins insLen ctxt addr false
-  | Opcode.FCVTMU -> fcvtm ins insLen ctxt addr true
-  | Opcode.FCVTZS -> fcvtz ins insLen ctxt addr false
-  | Opcode.FCVTZU -> fcvtz ins insLen ctxt addr true
+  | Opcode.FCVTAS -> fcvtas ins insLen ctxt addr
+  | Opcode.FCVTAU -> fcvtau ins insLen ctxt addr
+  | Opcode.FCVTMS -> fcvtms ins insLen ctxt addr
+  | Opcode.FCVTMU -> fcvtmu ins insLen ctxt addr
+  | Opcode.FCVTPS -> fcvtps ins insLen ctxt addr
+  | Opcode.FCVTPU -> fcvtpu ins insLen ctxt addr
+  | Opcode.FCVTZS -> fcvtzs ins insLen ctxt addr
+  | Opcode.FCVTZU -> fcvtzu ins insLen ctxt addr
   | Opcode.FDIV -> fdiv ins insLen ctxt addr
-  | Opcode.FMADD -> sideEffects insLen ctxt UnsupportedFP
+  | Opcode.FMADD -> fmadd ins insLen ctxt addr
   | Opcode.FMAX -> sideEffects insLen ctxt UnsupportedFP
   | Opcode.FMAXNM -> sideEffects insLen ctxt UnsupportedFP
   | Opcode.FMOV -> fmov ins insLen ctxt addr
-  | Opcode.FMSUB -> sideEffects insLen ctxt UnsupportedFP
+  | Opcode.FMSUB -> fmsub ins insLen ctxt addr
   | Opcode.FMUL -> fmul ins insLen ctxt addr
   | Opcode.FNEG -> sideEffects insLen ctxt UnsupportedFP
   | Opcode.FNMUL -> sideEffects insLen ctxt UnsupportedFP
