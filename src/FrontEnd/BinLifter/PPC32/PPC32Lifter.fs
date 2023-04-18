@@ -572,7 +572,7 @@ let bclr ins insLen ctxt lk =
   !!ir (ctrOk := bo2 .| ((ctr != AST.num0 32<rt>) <+> bo3))
   !!ir (condOk := bo0 .| (cr <+> AST.not bo1))
   !!ir (temp := AST.ite (ctrOk .& condOk) (lr .& numI32 0xfffffffc 32<rt>) nia)
-  if lk then !!ir (lr := nia)
+  if lk then !!ir (lr := AST.ite (ctrOk .& condOk) nia lr)
   !!ir (AST.interjmp temp InterJmpKind.Base)
   !>ir insLen
 
@@ -590,7 +590,7 @@ let bcctr ins insLen ctxt lk =
   !<ir insLen
   !!ir (condOk := bo0 .| (cr <+> AST.not bo1))
   !!ir (temp := AST.ite condOk (ctr .& numI32 0xfffffffc 32<rt>) nia)
-  if lk then !!ir (lr := nia)
+  if lk then !!ir (lr := AST.ite condOk nia lr)
   !!ir (AST.interjmp temp InterJmpKind.Base)
   !>ir insLen
 
