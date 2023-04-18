@@ -1719,7 +1719,9 @@ let slw ins insLen updateCond ctxt =
   let n = !+ir 32<rt>
   !<ir insLen
   !!ir (n := rb .& numI32 0x1f 32<rt>)
-  !!ir (dst := rs << n)
+  let z = AST.num0 32<rt>
+  let cond1 = rb .& numI32 0x20 32<rt> == z
+  !!ir (dst := AST.ite cond1 (rs << n) (numI32 0 32<rt>))
   if updateCond then setCR0Reg ctxt ir dst else ()
   !>ir insLen
 
@@ -1758,7 +1760,9 @@ let srw ins insLen updateCond ctxt =
   let n = !+ir 32<rt>
   !<ir insLen
   !!ir (n := rb .& numI32 0x1f 32<rt>)
-  !!ir (dst := rs >> n)
+  let z = AST.num0 32<rt>
+  let cond1 = rb .& numI32 0x20 32<rt> == z
+  !!ir (dst := AST.ite cond1 (rs >> n) (numI32 0 32<rt>))
   if updateCond then setCR0Reg ctxt ir dst else ()
   !>ir insLen
 
