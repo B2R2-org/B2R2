@@ -57,8 +57,13 @@ let getExtMask mb me =
     match mb.E, me.E with
     | Num b, Num m -> struct (b.SmallValue () |> int, m.SmallValue () |> int)
     | _ -> raise InvalidExprException
-  let mb, me = 31 - me, 31 - mb
-  let mask = (System.UInt32.MaxValue >>> (32 - (me - mb + 1))) <<< mb
+  let allOnes = System.UInt32.MaxValue
+  let mask =
+    if mb = me + 1 then allOnes
+    elif me = 31 then allOnes >>> mb
+    else
+      let v = (allOnes >>> mb) ^^^ (allOnes >>> (me + 1))
+      if mb > me then ~~~v else v
   numU32 mask 32<rt>
 
 let rotateLeft rs sh = (rs << sh) .| (rs >> ((numI32 32 32<rt>) .- sh))
@@ -319,9 +324,9 @@ let setFPRF ctxt ir result =
   !!ir (fe := AST.eq (result << AST.num1 64<rt>) (AST.num0 64<rt>))
   !!ir (fu := isNaN result .| isInfinity result)
 
-let setCarryOut ctxt expA expB ir =
+let setCarryOut ctxt res ir =
   let xerCA = AST.extract (!.ctxt R.XER) 1<rt> 29
-  !!ir (xerCA := AST.lt expA expB)
+  !!ir (xerCA := AST.extract res 1<rt> 32)
 
 let setCRRegValue ir cr ctxt =
   for i in 0 .. 31 do
@@ -358,7 +363,7 @@ let isSignedDivOV ctxt expA expB ir =
   let minValue = numI32 0x80000000 32<rt>
   let xerSO = AST.extract (!.ctxt R.XER) 1<rt> 31
   let xerOV = AST.extract (!.ctxt R.XER) 1<rt> 30
-  let cond = (expA == minValue) .& expB == (numI32 0xFFFFFFFF 32<rt>)
+  let cond = (expA == minValue) .& (expB == (numI32 0xFFFFFFFF 32<rt>))
   !!ir (checkOF := AST.ite (expB == AST.num0 32<rt>) AST.b0 cond)
   !!ir (xerOV := checkOF)
   !!ir (xerSO := checkOF .& xerSO)
@@ -394,26 +399,28 @@ let add ins insLen updateCond ovCond ctxt =
 let addc ins insLen updateCond ovCond ctxt =
   let struct (dst, src1, src2) = transThreeOprs ins ctxt
   let ir = !*ctxt
-  let struct (t1, t2) = tmpVars2 ir 32<rt>
+  let struct (t1, t2, t3) = tmpVars3 ir 64<rt>
   !<ir insLen
-  !!ir (t1 := src1)
-  !!ir (t2 := src2)
-  !!ir (dst := t1 .+ t2)
-  setCarryOut ctxt dst src1 ir
+  !!ir (t1 := AST.zext 64<rt> src1)
+  !!ir (t2 := AST.zext 64<rt> src2)
+  !!ir (t3 := t1 .+ t2)
+  !!ir (dst := AST.xtlo 32<rt> t3)
+  setCarryOut ctxt t3 ir
   if ovCond then isAddSubOV ctxt t1 t2 dst ir else ()
   if updateCond then setCR0Reg ctxt ir dst else ()
   !>ir insLen
 
 let adde ins insLen updateCond ovCond ctxt =
   let struct (dst, src1, src2) = transThreeOprs ins ctxt
-  let xerCA = AST.zext 32<rt> (AST.extract (!.ctxt R.XER) 1<rt> 29)
+  let xerCA = AST.zext 64<rt> (AST.extract (!.ctxt R.XER) 1<rt> 29)
   let ir = !*ctxt
-  let struct (t1, t2) = tmpVars2 ir 32<rt>
+  let struct (t1, t2, t3) = tmpVars3 ir 64<rt>
   !<ir insLen
-  !!ir (t1 := src1)
-  !!ir (t2 := src2)
-  !!ir (dst := t1 .+ t2 .+ xerCA)
-  setCarryOut ctxt dst src1 ir
+  !!ir (t1 := AST.zext 64<rt> src1)
+  !!ir (t2 := AST.zext 64<rt> src2)
+  !!ir (t3 := t1 .+ t2 .+ xerCA)
+  !!ir (dst := AST.xtlo 32<rt> t3)
+  setCarryOut ctxt t3 ir
   if ovCond then isAddSubOV ctxt t1 t2 dst ir else ()
   if updateCond then setCR0Reg ctxt ir dst else ()
   !>ir insLen
@@ -429,10 +436,14 @@ let addi ins insLen ctxt =
 let addic ins insLen updateCond ctxt =
   let struct (dst, src1, simm) = transThreeOprs ins ctxt
   let ir = !*ctxt
+  let struct (t1, t2, t3) = tmpVars3 ir 64<rt>
   !<ir insLen
-  !!ir (dst := src1 .+ simm)
+  !!ir (t1 := AST.zext 64<rt> src1)
+  !!ir (t2 := AST.zext 64<rt> simm)
+  !!ir (t3 := t1 .+ t2)
+  !!ir (dst := AST.xtlo 32<rt> t3)
+  setCarryOut ctxt t3 ir
   if updateCond then setCR0Reg ctxt ir dst else ()
-  setCarryOut ctxt dst src1 ir
   !>ir insLen
 
 let addis ins insLen ctxt =
@@ -446,28 +457,30 @@ let addis ins insLen ctxt =
 
 let addme ins insLen updateCond ovCond ctxt =
   let struct (dst, src) = transTwoOprs ins ctxt
-  let xerCA = AST.zext 32<rt> (AST.extract (!.ctxt R.XER) 1<rt> 29)
+  let xerCA = AST.zext 64<rt> (AST.extract (!.ctxt R.XER) 1<rt> 29)
   let ir = !*ctxt
-  let struct (t1, t2) = tmpVars2 ir 32<rt>
+  let struct (t1, t2, t3) = tmpVars3 ir 64<rt>
   !<ir insLen
-  !!ir (t1 := src)
+  !!ir (t1 := AST.zext 64<rt> src)
   !!ir (t2 := xerCA)
-  !!ir (dst := t1 .+ t2 .- AST.num1 32<rt>)
+  !!ir (t3 := t1 .+ t2 .- AST.num1 64<rt>)
+  !!ir (dst := AST.xtlo 32<rt> t3)
+  setCarryOut ctxt t3 ir
   if ovCond then isAddSubOV ctxt t1 t2 dst ir else ()
-  setCarryOut ctxt dst src ir
   if updateCond then setCR0Reg ctxt ir dst else ()
   !>ir insLen
 
 let addze ins insLen updateCond ovCond ctxt =
   let struct (dst, src) = transTwoOprs ins ctxt
-  let xerCA = AST.zext 32<rt> (AST.extract (!.ctxt R.XER) 1<rt> 29)
+  let xerCA = AST.zext 64<rt> (AST.extract (!.ctxt R.XER) 1<rt> 29)
   let ir = !*ctxt
-  let struct (t1, t2) = tmpVars2 ir 32<rt>
+  let struct (t1, t2, t3) = tmpVars3 ir 64<rt>
   !<ir insLen
-  !!ir (t1 := src)
+  !!ir (t1 := AST.zext 64<rt> src)
   !!ir (t2 := xerCA)
-  !!ir (dst := t1 .+ t2)
-  setCarryOut ctxt dst src ir
+  !!ir (t3 := t1 .+ t2)
+  !!ir (dst := AST.xtlo 32<rt> t3)
+  setCarryOut ctxt t3 ir
   if ovCond then isAddSubOV ctxt t1 t2 dst ir else ()
   if updateCond then setCR0Reg ctxt ir dst else ()
   !>ir insLen
@@ -559,7 +572,7 @@ let bclr ins insLen ctxt lk =
   !!ir (ctrOk := bo2 .| ((ctr != AST.num0 32<rt>) <+> bo3))
   !!ir (condOk := bo0 .| (cr <+> AST.not bo1))
   !!ir (temp := AST.ite (ctrOk .& condOk) (lr .& numI32 0xfffffffc 32<rt>) nia)
-  if lk then !!ir (lr := nia)
+  if lk then !!ir (lr := AST.ite (ctrOk .& condOk) nia lr)
   !!ir (AST.interjmp temp InterJmpKind.Base)
   !>ir insLen
 
@@ -577,7 +590,7 @@ let bcctr ins insLen ctxt lk =
   !<ir insLen
   !!ir (condOk := bo0 .| (cr <+> AST.not bo1))
   !!ir (temp := AST.ite condOk (ctr .& numI32 0xfffffffc 32<rt>) nia)
-  if lk then !!ir (lr := nia)
+  if lk then !!ir (lr := AST.ite condOk nia lr)
   !!ir (AST.interjmp temp InterJmpKind.Base)
   !>ir insLen
 
@@ -940,10 +953,16 @@ let fctiw ins insLen updateCond ctxt =
 
 let fctiwz ins insLen updateCond ctxt =
   let ir = !*ctxt
-  let tmp = !+ir 64<rt>
+  let intMaxInFloat = numU64 0x41dfffffffc00000uL 64<rt>
+  let intMinInFloat = numU64 0xc1e0000000000000uL 64<rt>
+  let intMax = numU64 0x7fffffffUL 64<rt>
+  let intMin = numU64 0x80000000UL 64<rt>
   let struct (frd, frb) = transTwoOprs ins ctxt
   !<ir insLen
   !!ir (frd := AST.cast CastKind.FtoITrunc 64<rt> frb)
+  !!ir (frd := AST.ite (isNaN frb) intMin frd)
+  !!ir (frd := AST.ite (AST.fle frb intMinInFloat) intMin frd)
+  !!ir (frd := AST.ite (AST.fge frb intMaxInFloat) intMax frd)
   setFPRF ctxt ir frd
   if updateCond then setCR1Reg ctxt ir else ()
   !>ir insLen
@@ -1706,7 +1725,9 @@ let slw ins insLen updateCond ctxt =
   let n = !+ir 32<rt>
   !<ir insLen
   !!ir (n := rb .& numI32 0x1f 32<rt>)
-  !!ir (dst := rs << n)
+  let z = AST.num0 32<rt>
+  let cond1 = rb .& numI32 0x20 32<rt> == z
+  !!ir (dst := AST.ite cond1 (rs << n) (numI32 0 32<rt>))
   if updateCond then setCR0Reg ctxt ir dst else ()
   !>ir insLen
 
@@ -1745,7 +1766,9 @@ let srw ins insLen updateCond ctxt =
   let n = !+ir 32<rt>
   !<ir insLen
   !!ir (n := rb .& numI32 0x1f 32<rt>)
-  !!ir (dst := rs >> n)
+  let z = AST.num0 32<rt>
+  let cond1 = rb .& numI32 0x20 32<rt> == z
+  !!ir (dst := AST.ite cond1 (rs >> n) (numI32 0 32<rt>))
   if updateCond then setCR0Reg ctxt ir dst else ()
   !>ir insLen
 
@@ -2067,28 +2090,30 @@ let subf ins insLen updateCond ovCond ctxt =
 
 let subfc ins insLen updateCond ovCond ctxt =
   let struct (dst, src1, src2) = transThreeOprs ins ctxt
-  let one = AST.num1 32<rt>
+  let one = AST.num1 64<rt>
   let ir = !*ctxt
-  let struct (t1, t2) = tmpVars2 ir 32<rt>
+  let struct (t1, t2, t3) = tmpVars3 ir 64<rt>
   !<ir insLen
-  !!ir (t1 := AST.not src1)
-  !!ir (t2 := src2)
-  !!ir (dst := t1 .+ t2 .+ one)
-  setCarryOut ctxt dst src2 ir
+  !!ir (t1 := AST.zext 64<rt> (AST.not src1))
+  !!ir (t2 := AST.zext 64<rt> src2)
+  !!ir (t3 := t1 .+ t2 .+ one)
+  !!ir (dst := AST.xtlo 32<rt> t3)
+  setCarryOut ctxt t3 ir
   if ovCond then isAddSubOV ctxt t1 t2 dst ir else ()
   if updateCond then setCR0Reg ctxt ir dst else ()
   !>ir insLen
 
 let subfe ins insLen updateCond ovCond ctxt =
   let struct (dst, src1, src2) = transThreeOprs ins ctxt
-  let xerCA = AST.zext 32<rt> (AST.extract (!.ctxt R.XER) 1<rt> 29)
+  let xerCA = AST.zext 64<rt> (AST.extract (!.ctxt R.XER) 1<rt> 29)
   let ir = !*ctxt
-  let struct (t1, t2) = tmpVars2 ir 32<rt>
+  let struct (t1, t2, t3) = tmpVars3 ir 64<rt>
   !<ir insLen
-  !!ir (t1 := AST.not src1)
-  !!ir (t2 := src2)
-  !!ir (dst := t1 .+ t2 .+ xerCA)
-  setCarryOut ctxt dst (AST.not src1) ir
+  !!ir (t1 := AST.zext 64<rt> (AST.not src1))
+  !!ir (t2 := AST.zext 64<rt> src2)
+  !!ir (t3 := t1 .+ t2 .+ xerCA)
+  !!ir (dst := AST.xtlo 32<rt> t3)
+  setCarryOut ctxt t3 ir
   if ovCond then isAddSubOV ctxt t1 t2 dst ir else ()
   if updateCond then setCR0Reg ctxt ir dst else ()
   !>ir insLen
@@ -2096,36 +2121,42 @@ let subfe ins insLen updateCond ovCond ctxt =
 let subfic ins insLen ctxt  =
   let struct (dst, src1, simm) = transThreeOprs ins ctxt
   let ir = !*ctxt
+  let struct (t1, t2, t3) = tmpVars3 ir 64<rt>
   !<ir insLen
-  !!ir (dst := (AST.not src1) .+ simm .+ AST.num1 32<rt>)
-  setCarryOut ctxt dst simm ir
+  !!ir (t1 := AST.zext 64<rt> (AST.not src1))
+  !!ir (t2 := AST.zext 64<rt> simm)
+  !!ir (t3 := t1 .+ t2 .+ AST.num1 64<rt>)
+  !!ir (dst := AST.xtlo 32<rt> t3)
+  setCarryOut ctxt t3 ir
   !>ir insLen
 
 let subfme ins insLen updateCond ovCond ctxt =
   let struct (dst, src) = transTwoOprs ins ctxt
-  let xerCA = AST.zext 32<rt> (AST.extract (!.ctxt R.XER) 1<rt> 29)
+  let xerCA = AST.zext 64<rt> (AST.extract (!.ctxt R.XER) 1<rt> 29)
   let ir = !*ctxt
-  let struct (t1, t2) = tmpVars2 ir 32<rt>
-  let minusone = AST.num (BitVector.OfUInt32 0xffffffffu 32<rt>)
+  let struct (t1, t2, t3) = tmpVars3 ir 64<rt>
+  let minusone = AST.num (BitVector.OfUInt32 0xffffffffu 64<rt>)
   !<ir insLen
-  !!ir (t1 := AST.not src)
+  !!ir (t1 := AST.zext 64<rt> (AST.not src))
   !!ir (t2 := xerCA)
-  !!ir (dst := t1 .+ t2 .+ minusone)
-  setCarryOut ctxt dst minusone ir
+  !!ir (t3 := t1 .+ t2 .+ minusone)
+  !!ir (dst := AST.xtlo 32<rt> t3)
+  setCarryOut ctxt t3 ir
   if ovCond then isAddSubOV ctxt t1 t2 dst ir else ()
   if updateCond then setCR0Reg ctxt ir dst else ()
   !>ir insLen
 
 let subfze ins insLen updateCond ovCond ctxt =
   let struct (dst, src) = transTwoOprs ins ctxt
-  let xerCA = AST.zext 32<rt> (AST.extract (!.ctxt R.XER) 1<rt> 29)
+  let xerCA = AST.zext 64<rt> (AST.extract (!.ctxt R.XER) 1<rt> 29)
   let ir = !*ctxt
-  let struct (t1, t2) = tmpVars2 ir 32<rt>
+  let struct (t1, t2, t3) = tmpVars3 ir 64<rt>
   !<ir insLen
-  !!ir (t1 := AST.not src)
+  !!ir (t1 := AST.zext 64<rt> (AST.not src))
   !!ir (t2 := xerCA)
-  !!ir (dst := t1 .+ t2)
-  setCarryOut ctxt dst (AST.num0 32<rt>) ir
+  !!ir (t3 := t1 .+ t2)
+  !!ir (dst := AST.xtlo 32<rt> t3)
+  setCarryOut ctxt t3 ir
   if ovCond then isAddSubOV ctxt t1 t2 dst ir else ()
   if updateCond then setCR0Reg ctxt ir dst else ()
   !>ir insLen
@@ -2348,7 +2379,8 @@ let translate (ins: InsInfo) insLen (ctxt: TranslationContext) =
   | Op.MTLR -> mtlr ins insLen ctxt
   | Op.MTXER -> mtxer ins insLen ctxt
   | Op.MULHW -> mulhw ins insLen false ctxt
-  | Op.MULHWU -> mulhwu ins insLen true ctxt
+  | Op.MULHWU -> mulhwu ins insLen false ctxt
+  | Op.MULHWUdot -> mulhwu ins insLen true ctxt
   | Op.MULLI -> mulli ins insLen ctxt
   | Op.MULLW -> mullw ins insLen false false ctxt
   | Op.MULLWdot -> mullw ins insLen true false ctxt
