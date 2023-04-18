@@ -2373,7 +2373,8 @@ let translate (ins: InsInfo) insLen (ctxt: TranslationContext) =
   | Op.MTLR -> mtlr ins insLen ctxt
   | Op.MTXER -> mtxer ins insLen ctxt
   | Op.MULHW -> mulhw ins insLen false ctxt
-  | Op.MULHWU -> mulhwu ins insLen true ctxt
+  | Op.MULHWU -> mulhwu ins insLen false ctxt
+  | Op.MULHWUdot -> mulhwu ins insLen true ctxt
   | Op.MULLI -> mulli ins insLen ctxt
   | Op.MULLW -> mullw ins insLen false false ctxt
   | Op.MULLWdot -> mullw ins insLen true false ctxt
