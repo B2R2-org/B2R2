@@ -999,6 +999,26 @@ let fnmadds ins insLen updateCond ctxt =
   if updateCond then setCR1Reg ctxt ir else ()
   !>ir insLen
 
+let fnmsub ins insLen updateCond ctxt =
+  let struct (frd, fra, frc, frb) = transFourOprs ins ctxt
+  let ir = !*ctxt
+  !<ir insLen
+  !!ir (frd := AST.fneg (AST.fsub (AST.fmul fra frc) frb))
+  if updateCond then setCR1Reg ctxt ir else ()
+  !>ir insLen
+
+let fnmsubs ins insLen updateCond ctxt =
+  let struct (frd, fra, frc, frb) = transFourOprs ins ctxt
+  let ir = !*ctxt
+  let fra = AST.cast CastKind.FloatCast 32<rt> fra
+  let frc = AST.cast CastKind.FloatCast 32<rt> frc
+  let frb = AST.cast CastKind.FloatCast 32<rt> frb
+  !<ir insLen
+  let res = AST.fneg (AST.fsub (AST.fmul fra frc) frb)
+  !!ir (frd := AST.cast CastKind.FloatCast 64<rt> res)
+  if updateCond then setCR1Reg ctxt ir else ()
+  !>ir insLen
+
 let fsel ins insLen updateCond ctxt =
   let struct(frd, fra, frc, frb) = transFourOprs ins ctxt
   let ir = !*ctxt
@@ -2280,6 +2300,10 @@ let translate (ins: InsInfo) insLen (ctxt: TranslationContext) =
   | Op.FNMADDdot -> fnmadd ins insLen true ctxt
   | Op.FNMADDS -> fnmadds ins insLen false ctxt
   | Op.FNMADDSdot -> fnmadds ins insLen true ctxt
+  | Op.FNMSUB -> fnmsub ins insLen false ctxt
+  | Op.FNMSUBdot -> fnmsub ins insLen true ctxt
+  | Op.FNMSUBS -> fnmsubs ins insLen false ctxt
+  | Op.FNMSUBSdot -> fnmsubs ins insLen true ctxt
   | Op.FSEL -> fsel ins insLen false ctxt
   | Op.FSELdot -> fsel ins insLen true ctxt
   | Op.FSUB -> fsub ins insLen false true ctxt
