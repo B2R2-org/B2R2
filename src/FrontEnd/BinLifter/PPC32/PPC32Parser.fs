@@ -620,7 +620,7 @@ let parseMFMSRandMFSR bin =
     let rd = getRegister (extract bin 25u 21u) |> OprReg
     (* FIXME: SegRegister *)
     let sr = getSegRegister (extract bin 19u 16u)
-    struct (Op.MFSR, TwoOperands (sr, rd))
+    struct (Op.MFSR, TwoOperands (rd, sr))
   | _ -> raise ParsingFailureException
 
 let parseLSWI bin =
@@ -811,7 +811,7 @@ let parseMTSR bin =
     let rs = getRegister (extract bin 25u 21u) |> OprReg
     (* FIXME: SegRegister *)
     let sr = getSegRegister (extract bin 19u 16u)
-    struct (Op.MTSR, TwoOperands (rs, sr))
+    struct (Op.MTSR, TwoOperands (sr, rs))
   | _ (* 1 *) -> raise ParsingFailureException
 
 let parseSTSWI bin =
@@ -876,9 +876,9 @@ let parseMULLWx bin =
 let parseMTSRIN bin =
   match concat (pickBit bin 10u) (pickBit bin 0u) 1 with
   | 0b10u when extract bin 20u 16u = 0u ->
-    let rd = getRegister (extract bin 25u 21u) |> OprReg
+    let rs = getRegister (extract bin 25u 21u) |> OprReg
     let rb = getRegister (extract bin 15u 11u) |> OprReg
-    struct (Op.MTSRIN, TwoOperands (rd, rb))
+    struct (Op.MTSRIN, TwoOperands (rs, rb))
   | _ (* 11, 0x *) -> raise ParsingFailureException
 
 let parseDCBTSTandDCBA bin =
@@ -1165,7 +1165,7 @@ let parseMTSPR bin =
       (* FIXME: SPRegister *)
       let spr =
         getSPRegister (concat (extract bin 15u 11u) (extract bin 20u 16u) 5)
-      struct (Op.MTSPR, TwoOperands (rs, spr))
+      struct (Op.MTSPR, TwoOperands (spr, rs))
   | _ (* 1 *) -> raise ParsingFailureException
 
 let parseDCBIandICBI bin =
