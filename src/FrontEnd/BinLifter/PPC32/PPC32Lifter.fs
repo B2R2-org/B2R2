@@ -1476,14 +1476,14 @@ let mtfsfi ins insLen updateCond ctxt =
   !>ir insLen
 
 let mtspr ins insLen ctxt =
-  let struct (src, spr) =
+  let struct (spr, rs) =
     match ins.Operands with
-    | TwoOperands (o1, OprImm o2) ->
-      transOpr ctxt o1, getSPRReg ctxt o2
+    | TwoOperands (OprImm o1, o2) ->
+      getSPRReg ctxt o1, transOpr ctxt o2
     | _ -> raise InvalidOperandException
   let ir = !*ctxt
   !<ir insLen
-  !!ir (spr := src)
+  !!ir (spr := rs)
   !>ir insLen
 
 let private crmMask ir crm =
