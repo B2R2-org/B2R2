@@ -189,7 +189,7 @@ let rec getVectorIndex = function
   | OprSIMDList simds -> getElemDataSzAndElems (OprSIMD simds[0])
   | _ -> raise InvalidOperandException
 
-let vectorPart ctxt src eSize = (* FIXME *)
+let vectorPart ctxt eSize src = (* FIXME *)
   let struct (_, part, elements) = getElemDataSzAndElems src
   let pos = int eSize
   match src with
