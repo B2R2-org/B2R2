@@ -1446,6 +1446,46 @@ let lsrv ins insLen ctxt addr =
   dstAssign ins.OprSize dst result ir
   !>ir insLen
 
+let maxMin ins insLen ctxt addr opFn =
+  let ir = !*ctxt
+  let struct (o1, o2, o3) = getThreeOprs ins
+  let struct (eSize, dataSize, elements) = getElemDataSzAndElems o1
+  let dstB, dstA = transOprToExpr128 ins ctxt addr o1
+  let src1 = transSIMDOprToExpr ctxt eSize dataSize elements o2
+  let src2 = transSIMDOprToExpr ctxt eSize dataSize elements o3
+  let result = Array.map2 (fun s1 s2 -> AST.ite (opFn s1 s2) s1 s2) src1 src2
+  !<ir insLen
+  dstAssignForSIMD dstA dstB result dataSize elements ir
+  !>ir insLen
+
+let maxMinv ins insLen ctxt addr opFn =
+  let ir = !*ctxt
+  let struct (o1, o2) = getTwoOprs ins
+  let struct (eSize, dataSize, elements) = getElemDataSzAndElems o2
+  let dst = transOprToExpr ins ctxt addr o1
+  let src = transSIMDOprToExpr ctxt eSize dataSize elements o2
+  let minMax = !+ir eSize
+  !<ir insLen
+  !!ir (minMax := src[0])
+  Array.sub src 1 (elements - 1)
+  |> Array.iter (fun e -> !!ir (minMax := AST.ite (opFn minMax e) minMax e))
+  dstAssign eSize dst minMax ir
+  !>ir insLen
+
+let maxMinp ins insLen ctxt addr opFn =
+  let ir = !*ctxt
+  let struct (dst, src1, src2) = getThreeOprs ins
+  let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
+  let dstB, dstA = transOprToExpr128 ins ctxt addr dst
+  let src1 = transSIMDOprToExpr ctxt eSize dataSize elements src1
+  let src2 = transSIMDOprToExpr ctxt eSize dataSize elements src2
+  !<ir insLen
+  let result =
+    Array.append src2 src1 |> Array.chunkBySize 2
+    |> Array.map (fun e -> AST.ite (opFn e[0] e[1]) e[0] e[1])
+  dstAssignForSIMD dstB dstA result dataSize elements ir
+  !>ir insLen
+
 let madd ins insLen ctxt addr =
   let ir = !*ctxt
   !<ir insLen
@@ -1588,7 +1628,7 @@ let orn ins insLen ctxt addr =
     let result = Array.map AST.not src
     !<ir insLen
     dstAssignForSIMD dstA dstB result dataSize elements ir
-  | ThreeOperands (OprSIMD (SIMDVecReg _ ) as o1, o2, o3) ->
+  | ThreeOperands (OprSIMD (SIMDVecReg _) as o1, o2, o3) ->
     let struct (_, dataSize, _) = getElemDataSzAndElems o1
     let src1B, src1A = transOprToExpr128 ins ctxt addr o2
     let src2B, src2A = transOprToExpr128 ins ctxt addr o3
@@ -2345,32 +2385,6 @@ let umaddl ins insLen ctxt addr =
   !!ir (dst := src3 .+ (AST.zext 64<rt> src1 .* AST.zext 64<rt> src2))
   !>ir insLen
 
-let umaxMin ins insLen ctxt addr opFn =
-  let ir = !*ctxt
-  let struct (o1, o2, o3) = getThreeOprs ins
-  let struct (eSize, dataSize, elements) = getElemDataSzAndElems o1
-  let dstB, dstA = transOprToExpr128 ins ctxt addr o1
-  let src1 = transSIMDOprToExpr ctxt eSize dataSize elements o2
-  let src2 = transSIMDOprToExpr ctxt eSize dataSize elements o3
-  let result = Array.map2 (fun s1 s2 -> AST.ite (opFn s1 s2) s1 s2) src1 src2
-  !<ir insLen
-  dstAssignForSIMD dstA dstB result dataSize elements ir
-  !>ir insLen
-
-let umaxMinv ins insLen ctxt addr opFn =
-  let ir = !*ctxt
-  let struct (o1, o2) = getTwoOprs ins
-  let struct (eSize, dataSize, elements) = getElemDataSzAndElems o2
-  let dst = transOprToExpr ins ctxt addr o1
-  let src = transSIMDOprToExpr ctxt eSize dataSize elements o2
-  let minMax = !+ir eSize
-  !<ir insLen
-  !!ir (minMax := src[0])
-  Array.sub src 1 (elements - 1)
-  |> Array.iter (fun e -> !!ir (minMax := AST.ite (opFn minMax e) minMax e))
-  dstAssign eSize dst minMax ir
-  !>ir insLen
-
 let umlal ins insLen ctxt addr =
   let ir = !*ctxt
   !<ir insLen
@@ -2868,6 +2882,12 @@ let translate ins insLen ctxt =
   | Opcode.SSRA -> shiftRight ins insLen ctxt addr (?>>)
   | Opcode.SSUBL | Opcode.SSUBL2 -> ssubl ins insLen ctxt addr
   | Opcode.SSUBW | Opcode.SSUBW2 -> ssubw ins insLen ctxt addr
+  | Opcode.SMAX -> maxMin ins insLen ctxt addr (?>=)
+  | Opcode.SMAXP -> maxMinp ins insLen ctxt addr (?>=)
+  | Opcode.SMAXV -> maxMinv ins insLen ctxt addr (?>=)
+  | Opcode.SMIN -> maxMin ins insLen ctxt addr (?<=)
+  | Opcode.SMINP -> maxMinp ins insLen ctxt addr (?<=)
+  | Opcode.SMINV -> maxMinv ins insLen ctxt addr (?<=)
   | Opcode.ST1 -> sideEffects insLen ctxt UnsupportedFP
   | Opcode.ST2 -> sideEffects insLen ctxt UnsupportedFP
   | Opcode.ST3 -> sideEffects insLen ctxt UnsupportedFP
@@ -2905,10 +2925,12 @@ let translate ins insLen ctxt =
   | Opcode.UCVTF -> icvtf ins insLen ctxt addr true
   | Opcode.UDIV -> udiv ins insLen ctxt addr
   | Opcode.UMADDL -> umaddl ins insLen ctxt addr
-  | Opcode.UMAX -> umaxMin ins insLen ctxt addr (.>=)
-  | Opcode.UMAXV -> umaxMinv ins insLen ctxt addr (.>=)
-  | Opcode.UMIN -> umaxMin ins insLen ctxt addr (.<=)
-  | Opcode.UMINV -> umaxMinv ins insLen ctxt addr (.<=)
+  | Opcode.UMAX -> maxMin ins insLen ctxt addr (.>=)
+  | Opcode.UMAXP -> maxMinp ins insLen ctxt addr (.>=)
+  | Opcode.UMAXV -> maxMinv ins insLen ctxt addr (.>=)
+  | Opcode.UMIN -> maxMin ins insLen ctxt addr (.<=)
+  | Opcode.UMINP -> maxMinp ins insLen ctxt addr (.<=)
+  | Opcode.UMINV -> maxMinv ins insLen ctxt addr (.<=)
   | Opcode.UMLAL | Opcode.UMLAL2 -> umlal ins insLen ctxt addr
   | Opcode.UMOV -> umov ins insLen ctxt addr
   | Opcode.UMSUBL | Opcode.UMNEGL -> umsubl ins insLen ctxt addr
