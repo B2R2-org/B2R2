@@ -945,12 +945,12 @@ let parseSRAWx bin =
   | _ (* 0x *) -> raise ParsingFailureException
 
 let parseEQVx bin =
-  let rd = getRegister (extract bin 25u 21u) |> OprReg
+  let rs = getRegister (extract bin 25u 21u) |> OprReg
   let ra = getRegister (extract bin 20u 16u) |> OprReg
   let rb = getRegister (extract bin 15u 11u) |> OprReg
   match concat (pickBit bin 10u) (pickBit bin 0u) 1 (* 0:Rc *) with
-  | 0b00u -> struct (Op.EQV, ThreeOperands (rd, ra, rb))
-  | 0b01u -> struct (Op.EQVdot, ThreeOperands (rd, ra, rb))
+  | 0b00u -> struct (Op.EQV, ThreeOperands (ra, rs, rb))
+  | 0b01u -> struct (Op.EQVdot, ThreeOperands (ra, rs, rb))
   | _ (* 1x *) -> raise ParsingFailureException
 
 let parseTLBIE bin =
