@@ -1830,15 +1830,14 @@ let stfd ins insLen ctxt =
   !>ir insLen
 
 let stfdx ins insLen ctxt =
-  let struct (o1, o2) = getTwoOprs ins
-  let struct (ea, ra) = transEAWithOffsetForUpdate o2 ctxt
+  let struct (o1, o2, o3) = getThreeOprs ins
+  let ea = transEAWithIndexReg o2 o3 ctxt
   let frs = transOpr ctxt o1
   let ir = !*ctxt
   let tmpEA = !+ir 32<rt>
   !<ir insLen
   !!ir (tmpEA := ea)
   !!ir (loadNative ctxt 64<rt> tmpEA := frs)
-  !!ir (ra := tmpEA)
   !>ir insLen
 
 let stfdu ins insLen ctxt =
@@ -1889,15 +1888,14 @@ let stfs ins insLen ctxt =
   !>ir insLen
 
 let stfsx ins insLen ctxt =
-  let struct (o1, o2) = getTwoOprs ins
-  let struct (ea, ra) = transEAWithOffsetForUpdate o2 ctxt
+  let struct (o1, o2, o3) = getThreeOprs ins
+  let ea = transEAWithIndexReg o2 o3 ctxt
   let frs = transOpr ctxt o1
   let ir = !*ctxt
   let tmpEA = !+ir 32<rt>
   !<ir insLen
   !!ir (tmpEA := ea)
   !!ir (loadNative ctxt 32<rt> tmpEA := AST.cast CastKind.FloatCast 32<rt> frs)
-  !!ir (ra := tmpEA)
   !>ir insLen
 
 let stfsu ins insLen ctxt =
