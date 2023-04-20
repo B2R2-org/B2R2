@@ -908,8 +908,7 @@ let private fpConvert ins insLen ctxt addr isUnsigned round =
     let dstB, dstA = transOprToExpr128 ins ctxt addr o1
     let src = transSIMDOprToExpr ctxt eSize dataSize elements o2
     let n0 = AST.num0 eSize
-    let result =
-      Array.map (fun e -> fpToFixed eSize e n0 isUnsigned round) src
+    let result = Array.map (fun e -> fpToFixed eSize e n0 isUnsigned round) src
     dstAssignForSIMD dstA dstB result dataSize elements ir
   (* vector #<fbits> *)
   | ThreeOperands (OprSIMD (SIMDVecReg _) as o1, o2, OprFbits fbits) ->
@@ -918,7 +917,7 @@ let private fpConvert ins insLen ctxt addr isUnsigned round =
     let src = transSIMDOprToExpr ctxt eSz dataSize elements o2
     let fbits = numI32 (int fbits) eSz
     let result =
-      Array.map (fun e -> fpToFixed eSz e fbits isUnsigned FPRounding_Zero) src
+      Array.map (fun e -> fpToFixed eSz e fbits isUnsigned round) src
     dstAssignForSIMD dstA dstB result dataSize elements ir
   (* scalar *)
   | TwoOperands (OprSIMD (SIMDFPScalarReg _) as o1, o2) ->
@@ -929,7 +928,7 @@ let private fpConvert ins insLen ctxt addr isUnsigned round =
   (* scalar #<fbits> *)
   | ThreeOperands (OprSIMD (SIMDFPScalarReg _) as o1, _, OprFbits _) ->
     let _, src, fbits = transThreeOprs ins ctxt addr
-    let result = fpToFixed ins.OprSize src fbits isUnsigned FPRounding_Zero
+    let result = fpToFixed ins.OprSize src fbits isUnsigned round
     dstAssignScalar ins ctxt addr o1 result ins.OprSize ir
   (* float *)
   | TwoOperands (OprRegister _, _) ->
@@ -940,7 +939,7 @@ let private fpConvert ins insLen ctxt addr isUnsigned round =
   (* float #<fbits> *)
   | ThreeOperands (OprRegister _, _, OprFbits _) ->
     let dst, src, fbits = transThreeOprs ins ctxt addr
-    let result = fpToFixed ins.OprSize src fbits isUnsigned FPRounding_Zero
+    let result = fpToFixed ins.OprSize src fbits isUnsigned round
     dstAssign ins.OprSize dst result ir
   | _ -> raise InvalidOperandException
   !>ir insLen
@@ -951,19 +950,19 @@ let fcvtau ins insLen ctxt addr =
   fpConvert ins insLen ctxt addr true FPRounding_TIEAWAY
 
 let fcvtms ins insLen ctxt addr =
-  fpConvert ins insLen ctxt addr false FPRounding_POSINF
+  fpConvert ins insLen ctxt addr false FPRounding_NEGINF
 let fcvtmu ins insLen ctxt addr =
-  fpConvert ins insLen ctxt addr true FPRounding_POSINF
+  fpConvert ins insLen ctxt addr true FPRounding_NEGINF
 
 let fcvtps ins insLen ctxt addr =
-  fpConvert ins insLen ctxt addr false FPRounding_TIEEVEN
+  fpConvert ins insLen ctxt addr false FPRounding_POSINF
 let fcvtpu ins insLen ctxt addr =
-  fpConvert ins insLen ctxt addr true FPRounding_TIEEVEN
+  fpConvert ins insLen ctxt addr true FPRounding_POSINF
 
 let fcvtzs ins insLen ctxt addr =
-  fpConvert ins insLen ctxt addr false FPRounding_NEGINF
+  fpConvert ins insLen ctxt addr false FPRounding_Zero
 let fcvtzu ins insLen ctxt addr =
-  fpConvert ins insLen ctxt addr true FPRounding_NEGINF
+  fpConvert ins insLen ctxt addr true FPRounding_Zero
 
 let fdiv ins insLen ctxt addr =
   let ir = !*ctxt

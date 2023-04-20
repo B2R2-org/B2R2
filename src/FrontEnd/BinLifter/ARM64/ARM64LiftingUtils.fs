@@ -24,6 +24,7 @@
 
 module internal B2R2.FrontEnd.BinLifter.ARM64.LiftingUtils
 
+open System
 open B2R2
 open B2R2.BinIR
 open B2R2.BinIR.LowUIR
@@ -268,17 +269,16 @@ let transOprToExpr ins ctxt addr = function
   | OprFbits fbits -> numI64 (int64 fbits) ins.OprSize
   | OprFPImm float ->
     if ins.OprSize = 64<rt> then
-      numI64 (System.BitConverter.DoubleToInt64Bits float) ins.OprSize
-    else
-      numI64 (System.BitConverter.SingleToInt32Bits (float32 float)) ins.OprSize
+      numI64 (BitConverter.DoubleToInt64Bits float) ins.OprSize
+    else numI64 (BitConverter.SingleToInt32Bits (float32 float)) ins.OprSize
   | _ -> raise <| NotImplementedIRException "transOprToExpr"
 
 let transOprToExprFPImm ins eSize src =
   match eSize, src with
   | 32<rt>, OprFPImm float ->
-    numI64 (System.BitConverter.SingleToInt32Bits (float32 float)) ins.OprSize
+    numI64 (BitConverter.SingleToInt32Bits (float32 float)) ins.OprSize
   | 64<rt>, OprFPImm float ->
-    numI64 (System.BitConverter.DoubleToInt64Bits float) ins.OprSize
+    numI64 (BitConverter.DoubleToInt64Bits float) ins.OprSize
   | _ -> raise InvalidOperandException
 
 let separateMemExpr expr =
@@ -769,20 +769,6 @@ let advSIMDExpandImm ir (eSize: int<rt>) src =
   let splitCnt = numI32 (int32 eSize) 64<rt>
   replicateForIR src splitCnt 64<rt> ir
 
-let fpToFixed oprSz src fbits unsigned round =
-  let cast = if unsigned then CastKind.UIntToFloat else CastKind.SIntToFloat
-  let src = AST.cast cast oprSz src
-  let mulBits = AST.cast CastKind.SIntToFloat oprSz (AST.num1 oprSz << fbits)
-  let value = AST.cast CastKind.FtoIFloor oprSz (AST.fmul src mulBits)
-  let result =
-    match round with
-    | FPRounding_TIEEVEN
-    | FPRounding_TIEAWAY -> AST.cast CastKind.FtoIRound oprSz
-    | FPRounding_Zero -> AST.cast CastKind.FtoITrunc oprSz
-    | FPRounding_POSINF -> AST.cast CastKind.FtoICeil oprSz
-    | FPRounding_NEGINF -> AST.cast CastKind.FtoIFloor oprSz
-  result value
-
 let getMaskForIR n oprSize = (AST.num1 oprSize << n) .- AST.num1 oprSize
 
 /// aarch64/instrs/integer/bitmasks/DecodeBitMasks
@@ -871,6 +857,29 @@ let signedSatQ i n ir =
 /// ======
 let satQ i n isUnsigned ir = (* FIMXE: return saturated (FPSR.QC = '1') *)
   if isUnsigned then unsignedSatQ i n ir else signedSatQ i n ir
+
+/// shared/functions/float/FPToFixed
+/// FPToFixed()
+/// ======
+let fpToFixed dstSz src fbits unsigned round =
+  let srcSz = src |> TypeCheck.typeOf
+  let convertBit =
+    if dstSz > srcSz then AST.xtlo srcSz fbits elif dstSz = srcSz then fbits
+    else AST.zext srcSz fbits
+  let mulBits =
+    AST.cast CastKind.UIntToFloat srcSz (numU64 0x1UL srcSz << convertBit)
+  let bigint = AST.fmul src mulBits
+  let round =
+    match round with
+    | FPRounding_TIEEVEN
+    | FPRounding_TIEAWAY -> AST.cast CastKind.FtoIRound srcSz
+    | FPRounding_Zero -> AST.cast CastKind.FtoITrunc srcSz
+    | FPRounding_POSINF -> AST.cast CastKind.FtoICeil srcSz
+    | FPRounding_NEGINF -> AST.cast CastKind.FtoIFloor srcSz
+  match dstSz, srcSz with
+  | d, s when d >=s -> round bigint
+  | _ -> round bigint |> AST.xtlo dstSz
+  |> if unsigned then AST.zext dstSz else AST.sext dstSz
 
 /// shared/functions/common/BitCount
 // BitCount()
