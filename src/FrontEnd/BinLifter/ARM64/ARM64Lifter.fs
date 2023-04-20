@@ -1038,6 +1038,73 @@ let fmul ins insLen ctxt addr =
   dstAssign oprSize dst (AST.fmul src1 src2) ir
   !>ir insLen
 
+let fneg ins insLen ctxt addr =
+  let ir = !*ctxt
+  !<ir insLen
+  match ins.Operands with
+  | TwoOperands (OprSIMD (SIMDFPScalarReg _) as dst, src) ->
+    let src = transOprToExpr ins ctxt addr src
+    dstAssignScalar ins ctxt addr dst (AST.fneg src) ins.OprSize ir
+  | TwoOperands (OprSIMD (SIMDVecReg _) as dst, src) ->
+    let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
+    let dstB, dstA = transOprToExpr128 ins ctxt addr dst
+    let src = transSIMDOprToExpr ctxt eSize dataSize elements src
+    let result = Array.map (AST.fneg) src
+    dstAssignForSIMD dstA dstB result dataSize elements ir
+  | _ -> raise InvalidOperandException
+  !>ir insLen
+
+let fnmsub ins insLen ctxt addr =
+  let ir = !*ctxt
+  !<ir insLen
+  let struct (dst, _, _, _) = getFourOprs ins
+  let _, src1, src2, src3 = transFourOprs ins ctxt addr
+  let result = AST.fadd (AST.fneg src3) (AST.fmul src1 src2)
+  dstAssignScalar ins ctxt addr dst result ins.OprSize ir
+  !>ir insLen
+
+let fnmul ins insLen ctxt addr =
+  let ir = !*ctxt
+  !<ir insLen
+  let struct (dst, _, _) = getThreeOprs ins
+  let _, src1, src2 = transThreeOprs ins ctxt addr
+  let result = AST.fneg (AST.fmul src1 src2)
+  dstAssignScalar ins ctxt addr dst result ins.OprSize ir
+  !>ir insLen
+
+let private fpRoundToInt ins insLen ctxt addr cast =
+  let ir = !*ctxt
+  !<ir insLen
+  match ins.Operands with
+  | TwoOperands (OprSIMD (SIMDFPScalarReg _) as dst, src) ->
+    let src = transOprToExpr ins ctxt addr src
+    let result = AST.cast cast ins.OprSize src
+    dstAssignScalar ins ctxt addr dst result ins.OprSize ir
+  | TwoOperands (OprSIMD (SIMDVecReg _ ) as dst, src) ->
+    let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
+    let dstB, dstA = transOprToExpr128 ins ctxt addr dst
+    let src = transSIMDOprToExpr ctxt eSize dataSize elements src
+    let result = Array.map (AST.cast cast eSize) src
+    dstAssignForSIMD dstA dstB result dataSize elements ir
+  | _ -> raise InvalidOperandException
+  !>ir insLen
+
+(* FIXME: CastKind *)
+let frinta ins insLen ctxt addr =
+  fpRoundToInt ins insLen ctxt addr CastKind.FtoIRound
+let frinti ins insLen ctxt addr =
+  fpRoundToInt ins insLen ctxt addr CastKind.FtoIRound
+let frintm ins insLen ctxt addr =
+  fpRoundToInt ins insLen ctxt addr CastKind.FtoIFloor
+let frintn ins insLen ctxt addr =
+  fpRoundToInt ins insLen ctxt addr CastKind.FtoIRound
+let frintp ins insLen ctxt addr =
+  fpRoundToInt ins insLen ctxt addr CastKind.FtoICeil
+let frintx ins insLen ctxt addr =
+  fpRoundToInt ins insLen ctxt addr CastKind.FtoIRound
+let frintz ins insLen ctxt addr =
+  fpRoundToInt ins insLen ctxt addr CastKind.FtoITrunc
+
 let fsub ins insLen ctxt addr =
   let ir = !*ctxt
   !<ir insLen
@@ -2795,12 +2862,16 @@ let translate ins insLen ctxt =
   | Opcode.FMOV -> fmov ins insLen ctxt addr
   | Opcode.FMSUB -> fmsub ins insLen ctxt addr
   | Opcode.FMUL -> fmul ins insLen ctxt addr
-  | Opcode.FNEG -> sideEffects insLen ctxt UnsupportedFP
-  | Opcode.FNMUL -> sideEffects insLen ctxt UnsupportedFP
-  | Opcode.FRINTA -> sideEffects insLen ctxt UnsupportedFP
-  | Opcode.FRINTM -> sideEffects insLen ctxt UnsupportedFP
-  | Opcode.FRINTP -> sideEffects insLen ctxt UnsupportedFP
-  | Opcode.FRINTZ -> sideEffects insLen ctxt UnsupportedFP
+  | Opcode.FNEG -> fneg ins insLen ctxt addr
+  | Opcode.FNMSUB -> fnmsub ins insLen ctxt addr
+  | Opcode.FNMUL -> fnmul ins insLen ctxt addr
+  | Opcode.FRINTA -> frinta ins insLen ctxt addr
+  | Opcode.FRINTM -> frintm ins insLen ctxt addr
+  | Opcode.FRINTP -> frintp ins insLen ctxt addr
+  | Opcode.FRINTI -> frinti ins insLen ctxt addr
+  | Opcode.FRINTN -> frintn ins insLen ctxt addr
+  | Opcode.FRINTX -> frintx ins insLen ctxt addr
+  | Opcode.FRINTZ -> frintz ins insLen ctxt addr
   | Opcode.FSQRT -> sideEffects insLen ctxt UnsupportedFP
   | Opcode.FSUB -> fsub ins insLen ctxt addr
   | Opcode.HINT -> nop insLen ctxt
