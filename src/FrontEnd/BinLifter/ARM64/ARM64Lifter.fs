@@ -1568,6 +1568,34 @@ let madd ins insLen ctxt addr =
     dstAssign ins.OprSize dst (src3 .+ (src1 .* src2)) ir
   !>ir insLen
 
+let mladdsub ins insLen ctxt addr opFn =
+  let ir = !*ctxt
+  !<ir insLen
+  match ins.Operands with
+  | ThreeOperands (_, _, OprSIMD (SIMDVecReg _)) ->
+    let struct (o1, o2, o3) = getThreeOprs ins
+    let struct (eSize, dataSize, elements) = getElemDataSzAndElems o2
+    let dst = transSIMDOprToExpr ctxt eSize dataSize elements o1
+    let src1 = transSIMDOprToExpr ctxt eSize dataSize elements o2
+    let src2 = transSIMDOprToExpr ctxt eSize dataSize elements o3
+    let prod = Array.map2 (.*) src1 src2
+    let dstTmp = Array.init elements (fun i -> !+ir eSize)
+    Array.iter2 (fun tmp d -> !!ir (tmp := d)) dstTmp dst
+    Array.iteri2 (fun i dt p -> !!ir (dst[i] := opFn dt p)) dstTmp prod
+    (* FIXME *)
+  | _ ->
+    let struct (o1, o2, o3) = getThreeOprs ins
+    let struct (eSize, dataSize, elements) = getElemDataSzAndElems o2
+    let dst = transSIMDOprToExpr ctxt eSize dataSize elements o1
+    let src1 = transSIMDOprToExpr ctxt eSize dataSize elements o2
+    let src2 = transOprToExpr ins ctxt addr o3
+    let prod = Array.map (fun s1 -> s1 .* src2) src1
+    let dstTmp = Array.init elements (fun i -> !+ir eSize)
+    Array.iter2 (fun tmp d -> !!ir (tmp := d)) dstTmp dst
+    Array.iteri2 (fun i dt p -> !!ir (dst[i] := opFn dt p)) dstTmp prod
+    (* FIXME *)
+  !>ir insLen
+
 let mov ins insLen ctxt addr =
   let ir = !*ctxt
   !<ir insLen
@@ -2907,7 +2935,8 @@ let translate ins insLen ctxt =
   | Opcode.LSL -> distLogicalLeftShift ins insLen ctxt addr
   | Opcode.LSR -> distLogicalRightShift ins insLen ctxt addr
   | Opcode.MADD -> madd ins insLen ctxt addr
-  | Opcode.MLA -> sideEffects insLen ctxt UnsupportedFP
+  | Opcode.MLA -> mladdsub ins insLen ctxt addr (.+)
+  | Opcode.MLS -> mladdsub ins insLen ctxt addr (.-)
   | Opcode.MNEG -> msub ins insLen ctxt addr
   | Opcode.MOV -> mov ins insLen ctxt addr
   | Opcode.MOVI -> movi ins insLen ctxt addr
