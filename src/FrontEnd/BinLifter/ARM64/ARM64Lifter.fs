@@ -1552,7 +1552,7 @@ let maxMinv ins insLen ctxt addr opFn =
   !!ir (minMax := src[0])
   Array.sub src 1 (elements - 1)
   |> Array.iter (fun e -> !!ir (minMax := AST.ite (opFn minMax e) minMax e))
-  dstAssign eSize dst minMax ir
+  dstAssignScalar ins ctxt addr o1 minMax eSize ir
   !>ir insLen
 
 let maxMinp ins insLen ctxt addr opFn =
@@ -1817,8 +1817,13 @@ let rev ins insLen ctxt addr =
   let t = !+ir ins.OprSize
   !<ir insLen
   match ins.Operands with
-  | TwoOperands (OprSIMD _, OprSIMD _) -> (* FIXME: SIMD Register *)
-    !!ir (AST.sideEffect UnsupportedFP)
+  | TwoOperands (OprSIMD (SIMDVecReg _ ) as dst, src) ->
+    let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
+    let dstB, dstA = transOprToExpr128 ins ctxt addr dst
+    let src = transSIMDOprToExpr ctxt eSize dataSize elements src
+    let revSize = 64 / int eSize
+    let result = Array.chunkBySize revSize src |> Array.collect (Array.rev)
+    dstAssignForSIMD dstA dstB result dataSize elements ir
   | _ ->
     let dst, src = transTwoOprs ins ctxt addr
     for i in 0 .. e do
@@ -1831,8 +1836,13 @@ let rev16 ins insLen ctxt addr =
   let tmp = !+ir ins.OprSize
   !<ir insLen
   match ins.Operands with
-  | TwoOperands (OprSIMD _, OprSIMD _) -> (* FIXME: SIMD Register *)
-    !!ir (AST.sideEffect UnsupportedFP)
+  | TwoOperands (OprSIMD (SIMDVecReg _ ) as dst, src) ->
+    let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
+    let dstB, dstA = transOprToExpr128 ins ctxt addr dst
+    let src = transSIMDOprToExpr ctxt eSize dataSize elements src
+    let revSize = 16 / int eSize
+    let result = Array.chunkBySize revSize src |> Array.collect (Array.rev)
+    dstAssignForSIMD dstA dstB result dataSize elements ir
   | _ ->
     let dst, src = transTwoOprs ins ctxt addr
     for i in 0 .. ((int ins.OprSize / 8) - 1) do
@@ -1848,8 +1858,13 @@ let rev32 ins insLen ctxt addr =
   let tmp = !+ir ins.OprSize
   !<ir insLen
   match ins.Operands with
-  | TwoOperands(OprSIMD _, OprSIMD _) -> (* FIXME: SIMD Register *)
-    !!ir (AST.sideEffect UnsupportedFP)
+  | TwoOperands (OprSIMD (SIMDVecReg _ ) as dst, src) ->
+    let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
+    let dstB, dstA = transOprToExpr128 ins ctxt addr dst
+    let src = transSIMDOprToExpr ctxt eSize dataSize elements src
+    let revSize = 32 / int eSize
+    let result = Array.chunkBySize revSize src |> Array.collect (Array.rev)
+    dstAssignForSIMD dstA dstB result dataSize elements ir
   | _ ->
     let dst, src = transTwoOprs ins ctxt addr
     for i in 0 .. ((int ins.OprSize / 8) - 1) do
