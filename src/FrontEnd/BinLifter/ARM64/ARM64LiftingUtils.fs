@@ -182,14 +182,6 @@ let rec getElemDataSzAndElems = function
   | OprSIMDList simds -> getElemDataSzAndElems (OprSIMD simds[0])
   | _ -> raise InvalidOperandException
 
-let rec getVectorIndex = function
-  | OprSIMD (SIMDFPScalarReg v) ->
-    struct (Register.toRegType v, Register.toRegType v, 1)
-  | OprSIMD (SIMDVecReg (_, v)) -> getElemDataSzAndElemsByVector v
-  | OprSIMD (SIMDVecRegWithIdx (_, v, _)) -> getElemDataSzAndElemsByVector v
-  | OprSIMDList simds -> getElemDataSzAndElems (OprSIMD simds[0])
-  | _ -> raise InvalidOperandException
-
 let vectorPart ctxt eSize src = (* FIXME *)
   let struct (_, part, elements) = getElemDataSzAndElems src
   let pos = int eSize
