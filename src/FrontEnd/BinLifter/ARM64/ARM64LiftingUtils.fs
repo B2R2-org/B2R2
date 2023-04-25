@@ -195,15 +195,16 @@ let vectorPart ctxt eSize src = (* FIXME *)
   | _ -> raise InvalidOperandException
 
 let transSIMDReg ctxt = function (* FIXME *)
-  | SIMDFPScalarReg reg -> [| getRegVar ctxt reg |]
   | SIMDVecRegWithIdx (reg, v, idx) ->
-    let struct (eSize, _, _) = getElemDataSzAndElemsByVector v
-    let index = int eSize * int idx
-    [| if index < 64 then AST.extract (getPseudoRegVar ctxt reg 1) eSize index
-       else AST.extract (getPseudoRegVar ctxt reg 2) eSize (index % 64) |]
+    let regB, regA = getPseudoRegVar128 ctxt reg
+    let struct (esize, _, _) = getElemDataSzAndElemsByVector v
+    let index = int idx * int esize
+    if index < 64 then [| AST.extract regA esize index |]
+    else [| AST.extract regB esize (index % 64) |]
   | SIMDVecReg (reg, v) ->
     let struct (eSize, dataSize, elements) = getElemDataSzAndElemsByVector v
     getPseudoRegVarToArr ctxt reg eSize dataSize elements
+  | _ (* SIMDFPScalarReg *) -> raise InvalidOperandException
 
 let transSIMDListToExpr ctxt = function (* FIXME *)
   | OprSIMDList simds -> Array.map (transSIMDReg ctxt) (List.toArray simds)

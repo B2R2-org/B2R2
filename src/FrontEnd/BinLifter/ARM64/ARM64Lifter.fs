@@ -1167,44 +1167,55 @@ let insv ins insLen ctxt addr =
   !!ir (dst := AST.xtlo eSize src)
   !>ir insLen
 
-let ld1 ins insLen ctxt addr = (* FIXME *)
+let private isVecIdxOrLD1 ins opr =
+  let isVecIdx =
+    match opr with
+    | OprSIMDList simd ->
+      match simd[0] with
+      | SIMDVecRegWithIdx _ -> true
+      | _ -> false
+    | _ -> false
+  isVecIdx || (ins.Opcode = Opcode.LD1)
+
+let private fillZeroHigh64 ins ctxt opr ir =
+    if ins.OprSize = 64<rt> then
+      match opr with
+      | OprSIMDList simds ->
+        List.iter (fun simd ->
+          match simd with
+          | SIMDVecReg (reg, _) ->
+            let regB = getPseudoRegVar ctxt reg 2
+            !!ir (regB := AST.num0 64<rt>)
+          | _ -> ()) simds
+      | _ -> ()
+    else ()
+
+let loadStoreList ins insLen ctxt addr isLoad =
   let ir = !*ctxt
-  let isWBack, isPostIndex = getIsWBackAndIsPostIndex ins.Operands
+  let isWBack, _ = getIsWBackAndIsPostIndex ins.Operands
   let struct (dst, src) = getTwoOprs ins
   let struct (eSize, _, elements) = getElemDataSzAndElems dst
   let dstArr = transSIMDListToExpr ctxt dst
-  let bReg, offset = transOprToExpr ins ctxt addr src |> separateMemExpr
-  let struct (address, offs, ebyte) = tmpVars3 ir 64<rt>
-  let loadValue = !+ir eSize
+  let bReg, mOffs = transOprToExpr ins ctxt addr src |> separateMemExpr
+  let struct (address, offs) = tmpVars2 ir 64<rt>
   !<ir insLen
-  !!ir (ebyte := numI32 (eSize / 8<rt>) 64<rt>)
-  !!ir (offs := AST.num0 64<rt>)
   !!ir (address := bReg)
-  !!ir (address := if isPostIndex then address else address .+ offset)
-  match ins.Operands with
-  | TwoOperands (OprSIMDList [SIMDVecRegWithIdx (reg, _, idx)], _) ->
-    let rSize = if (int eSize * int idx) <= 64 then 64<rt> else 128<rt>
-    let replicate = eSize = 64<rt> && rSize = 128<rt>
-    !!ir (loadValue := AST.loadLE eSize (address .+ offs))
-    if replicate then
-      let dstB, dstA = getPseudoRegVar128 ctxt reg
-      !!ir (dstB := loadValue)
-      !!ir (dstA := loadValue)
-    else
-      !!ir (dstArr[0][0] := loadValue)
-    !!ir (offs := offs .+ ebyte)
-    if isWBack then
-      if isRegOffset src then !!ir (offs := offset) else ()
-      !!ir (bReg := address .+ offs)
-    else ()
-  | _ ->
-    Array.iter (fun r -> Array.iter (fun e ->
-      !!ir (loadValue := AST.loadLE eSize (address .+ offs))
-      !!ir (dstArr[r][e] := loadValue)
-      !!ir (offs := offs .+ ebyte)) [| 0 .. elements - 1 |])
-        [| 0 .. Array.length dstArr - 1 |]
-    if isWBack && isPostIndex then !!ir (bReg := address .+ offset)
-    else if isRegOffset src then !!ir (offs := offset) else ()
+  !!ir (offs := AST.num0 64<rt>)
+  let eByte = eSize / 8<rt>
+  let regLen = Array.length dstArr * elements
+  let srcArr =
+    let mem idx = AST.loadLE eSize (address .+ (numI32 (eByte * idx) 64<rt>))
+    Array.init regLen mem
+  let dstArr =
+    if isVecIdxOrLD1 ins dst then dstArr else dstArr |> Array.transpose
+    |> Array.concat
+  Array.iter2 (fun dst src ->
+   if isLoad then !!ir (dst := src) else !!ir (src := dst)) dstArr srcArr
+  if isLoad then fillZeroHigh64 ins ctxt dst ir else ()
+  if isWBack then
+    !!ir (offs := numI32 (regLen * eByte) 64<rt>)
+    if isRegOffset src then !!ir (offs := mOffs) else ()
+    !!ir (bReg := address .+ offs)
   !>ir insLen
 
 let ldar ins insLen ctxt addr =
@@ -3141,14 +3152,9 @@ let translate ins insLen ctxt =
   | Opcode.FSUB -> fsub ins insLen ctxt addr
   | Opcode.HINT -> nop insLen ctxt
   | Opcode.INS -> insv ins insLen ctxt addr
-  | Opcode.LD1 -> ld1 ins insLen ctxt addr
-  | Opcode.LD1R -> sideEffects insLen ctxt UnsupportedFP
-  | Opcode.LD2 -> sideEffects insLen ctxt UnsupportedFP
-  | Opcode.LD2R -> sideEffects insLen ctxt UnsupportedFP
-  | Opcode.LD3 -> sideEffects insLen ctxt UnsupportedFP
-  | Opcode.LD3R -> sideEffects insLen ctxt UnsupportedFP
-  | Opcode.LD4 -> sideEffects insLen ctxt UnsupportedFP
-  | Opcode.LD4R -> sideEffects insLen ctxt UnsupportedFP
+  | Opcode.LD1 | Opcode.LD2 | Opcode.LD3 | Opcode.LD4
+  | Opcode.LD1R | Opcode.LD2R | Opcode.LD3R | Opcode.LD4R ->
+    loadStoreList ins insLen ctxt addr true
   | Opcode.LDAR -> ldar ins insLen ctxt addr
   | Opcode.LDARB -> ldarb ins insLen ctxt addr
   | Opcode.LDAXP | Opcode.LDXP -> ldaxp ins insLen ctxt addr
@@ -3230,9 +3236,8 @@ let translate ins insLen ctxt =
   | Opcode.SMINP -> maxMinp ins insLen ctxt addr (?<=)
   | Opcode.SMINV -> maxMinv ins insLen ctxt addr (?<=)
   | Opcode.SMLAL | Opcode.SMLAL2 -> smlal ins insLen ctxt addr
-  | Opcode.ST2 -> sideEffects insLen ctxt UnsupportedFP
-  | Opcode.ST3 -> sideEffects insLen ctxt UnsupportedFP
-  | Opcode.ST4 -> sideEffects insLen ctxt UnsupportedFP
+  | Opcode.ST1 | Opcode.ST2 | Opcode.ST3 | Opcode.ST4 ->
+    loadStoreList ins insLen ctxt addr false
   | Opcode.STLR -> stlr ins insLen ctxt addr
   | Opcode.STLRB -> stlrb ins insLen ctxt addr
   | Opcode.STLXP | Opcode.STXP -> stlxp ins insLen ctxt addr
