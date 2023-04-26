@@ -44,3 +44,31 @@ let inline tmpVars3 ir t =
 
 let inline tmpVars4 ir t =
   struct (!+ir t, !+ir t, !+ir t, !+ir t)
+
+module IEEE754Double =
+  open B2R2.BinIR.LowUIR.AST.InfixOp
+
+  let inline private hasFraction x =
+    (x .& numU64 0xfffff_ffffffffUL 64<rt>) != AST.num0 64<rt>
+
+  let isNaN x =
+    let exponent = (x >> numI32 52 64<rt>) .& numI32 0x7FF 64<rt>
+    let e = numI32 0x7ff 64<rt>
+    AST.xtlo 1<rt> ((exponent == e) .& hasFraction x)
+
+  let isSNaN x =
+    let nanChecker = isNaN x
+    let signalBit = numU64 (1uL <<< 51) 64<rt>
+    nanChecker .& ((x .& signalBit) == AST.num0 64<rt>)
+
+  let isQNaN x =
+    let nanChecker = isNaN x
+    let signalBit = numU64 (1uL <<< 51) 64<rt>
+    nanChecker .& ((x .& signalBit) != AST.num0 64<rt>)
+
+  let isInfinity x =
+    let exponent = (x >> numI32 52 64<rt>) .& numI32 0x7FF 64<rt>
+    let fraction = x .& numU64 0xfffff_ffffffffUL 64<rt>
+    let e = numI32 0x7ff 64<rt>
+    let zero = AST.num0 64<rt>
+    AST.xtlo 1<rt> ((exponent == e) .& (fraction == zero))

@@ -270,43 +270,9 @@ let setCR1Reg ctxt ir =
   !!ir (cr1VX := AST.extract fpscr 1<rt> 29)
   !!ir (cr1OX := AST.extract fpscr 1<rt> 28)
 
-let inline getFraction rtyp frx =
-  match rtyp with
-  | 32<rt> -> frx .& numU32 0x7fffffu 32<rt>
-  | 64<rt> -> frx .& numU64 0xfffff_ffffffffUL 64<rt>
-  | _ -> Utils.impossible ()
-
-let hasFraction rtyp frx =
-  getFraction rtyp frx != AST.num0 rtyp
-
-let hasNoFraction rtyp frx =
-  getFraction rtyp frx == AST.num0 rtyp
-
-let isNaN frx =
-  let exponent = (frx >> numI32 52 64<rt>) .& numI32 0x7FF 64<rt>
-  let e = numI32 0x7ff 64<rt>
-  AST.xtlo 1<rt> ((exponent == e) .& hasFraction 64<rt> frx)
-
-let isSNaN frx =
-  let nanChecker = isNaN frx
-  let signalBit = numU64 (1uL <<< 51) 64<rt>
-  nanChecker .& ((frx .& signalBit) == AST.num0 64<rt>)
-
-let isQNaN frx =
-  let nanChecker = isNaN frx
-  let signalBit = numU64 (1uL <<< 51) 64<rt>
-  nanChecker .& ((frx .& signalBit) != AST.num0 64<rt>)
-
-let isInfinity frx =
-  let exponent = (frx >> numI32 52 64<rt>) .& numI32 0x7FF 64<rt>
-  let fraction = frx .& numU64 0xffffffffffffUL 64<rt>
-  let e = numI32 0x7ff 64<rt>
-  let zero = AST.num0 64<rt>
-  AST.xtlo 1<rt> ((exponent == e) .& (fraction == zero))
-
 let isDenormailized frx =
   let exponent = (frx >> numI32 52 64<rt>) .& numI32 0x7FF 64<rt>
-  let fraction = frx .& numU64 0xffffffffffffUL 64<rt>
+  let fraction = frx .& numU64 0xfffff_ffffffffUL 64<rt>
   let zero = AST.num0 64<rt>
   AST.xtlo 1<rt> ((exponent == zero) .& (fraction != zero))
 
@@ -318,11 +284,13 @@ let setFPRF ctxt ir result =
   let fe = AST.extract fpscr 1<rt> 13
   let fu = AST.extract fpscr 1<rt> 12
   let nzero = numU64 0x8000000000000000UL 64<rt>
-  !!ir (c := isNaN result .| isDenormailized result .| AST.eq result nzero)
+  !!ir (c := IEEE754Double.isNaN result
+             .| isDenormailized result
+             .| AST.eq result nzero)
   !!ir (fl := AST.flt result (AST.num0 64<rt>))
   !!ir (fg := AST.fgt result (AST.num0 64<rt>))
   !!ir (fe := AST.eq (result << AST.num1 64<rt>) (AST.num0 64<rt>))
-  !!ir (fu := isNaN result .| isInfinity result)
+  !!ir (fu := IEEE754Double.isNaN result .| IEEE754Double.isInfinity result)
 
 let setCarryOut ctxt res ir =
   let xerCA = AST.extract (!.ctxt R.XER) 1<rt> 29
@@ -802,8 +770,8 @@ let fcmp ins insLen ctxt isOrdered =
   let ve = AST.extract fpscr 1<rt> 7
   let cond1 = AST.flt fra frb
   let cond2 = AST.fgt fra frb
-  let cond3 = (isSNaN fra) .| (isSNaN frb)
-  let cond4 = (isQNaN fra) .| (isQNaN frb)
+  let cond3 = (IEEE754Double.isSNaN fra) .| (IEEE754Double.isSNaN frb)
+  let cond4 = (IEEE754Double.isQNaN fra) .| (IEEE754Double.isQNaN frb)
   let ir = !*ctxt
   let nanFlag = !+ir 1<rt>
   let lblNan = !%ir "NaN"
@@ -813,7 +781,7 @@ let fcmp ins insLen ctxt isOrdered =
   !!ir (fl := cond1)
   !!ir (fg := cond2)
   !!ir (fe := AST.ite cond1 AST.b0 (AST.not cond2))
-  !!ir (nanFlag := (isNaN fra) .| (isNaN frb))
+  !!ir (nanFlag := (IEEE754Double.isNaN fra) .| (IEEE754Double.isNaN frb))
   !!ir (fu := nanFlag)
   !!ir (AST.cjmp nanFlag (AST.name lblNan) (AST.name lblRegular))
   !!ir (AST.lmark lblNan)
@@ -901,7 +869,7 @@ let fctiwz ins insLen updateCond ctxt =
   let struct (frd, frb) = transTwoOprs ins ctxt
   !<ir insLen
   !!ir (frd := AST.cast CastKind.FtoITrunc 64<rt> frb)
-  !!ir (frd := AST.ite (isNaN frb) intMin frd)
+  !!ir (frd := AST.ite (IEEE754Double.isNaN frb) intMin frd)
   !!ir (frd := AST.ite (AST.fle frb intMinInFloat) intMin frd)
   !!ir (frd := AST.ite (AST.fge frb intMaxInFloat) intMax frd)
   setFPRF ctxt ir frd
