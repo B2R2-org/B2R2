@@ -42,12 +42,14 @@ let getOptionOrimm bin = OneOperand (optionOrimm bin)
 (** Register - Register **)
 let getWdWn bin = TwoOperands (wd bin, wn bin)
 let getXdXn bin = TwoOperands (xd bin, xn bin)
+let getHdXn bin = TwoOperands (hd bin, xn bin)
 let getWdSn bin = TwoOperands (wd bin, sn bin)
 let getWdDn bin = TwoOperands (wd bin, dn bin)
 let getXdSn bin = TwoOperands (xd bin, sn bin)
 let getXdDn bin = TwoOperands (xd bin, dn bin)
 let getSdWn bin = TwoOperands (sd bin, wn bin)
 let getDdWn bin = TwoOperands (dd bin, wn bin)
+let getHdWn bin = TwoOperands (hd bin, wn bin)
 let getSdXn bin = TwoOperands (sd bin, xn bin)
 let getDdXn bin = TwoOperands (dd bin, xn bin)
 let getSdSn bin = TwoOperands (sd bin, sn bin)
@@ -297,10 +299,12 @@ let getVdVnShf2 bin r = r bin; ThreeOperands (vd5 bin, vn5 bin, lshfAmt bin)
 let getVbdVanShf bin r = r bin; ThreeOperands (vd5 bin, vn6 bin, rshfAmt bin)
 
 (** Register - Register - fbits **)
+let getHdWnFbits bin = ThreeOperands (hd bin, wn bin, fbits2 bin)
 let getSdWnFbits bin = ThreeOperands (sd bin, wn bin, fbits2 bin)
 let getWdSnFbits bin = ThreeOperands (wd bin, sn bin, fbits2 bin)
 let getDdWnFbits bin = ThreeOperands (dd bin, wn bin, fbits2 bin)
 let getWdDnFbits bin = ThreeOperands (wd bin, dn bin, fbits2 bin)
+let getHdXnFbits bin = ThreeOperands (hd bin, xn bin, fbits2 bin)
 let getSdXnFbits bin = ThreeOperands (sd bin, xn bin, fbits2 bin)
 let getXdSnFbits bin = ThreeOperands (xd bin, sn bin, fbits2 bin)
 let getDdXnFbits bin = ThreeOperands (dd bin, xn bin, fbits2 bin)
@@ -3023,6 +3027,7 @@ let parseConvBetwFPAndFixedPt bin =
   | 0b000100011u -> Op.UCVTF, getDdWnFbits bin, 64<rt>
   | 0b000111000u -> Op.FCVTZS, getWdDnFbits bin, 32<rt>
   | 0b000111001u -> Op.FCVTZU, getWdDnFbits bin, 32<rt>
+  | 0b001100010u -> Op.SCVTF, getHdWnFbits bin, 32<rt> (* FEAT_FP16 *)
   | 0b100000010u -> Op.SCVTF, getSdXnFbits bin, 32<rt>
   | 0b100000011u -> Op.UCVTF, getSdXnFbits bin, 32<rt>
   | 0b100011000u -> Op.FCVTZS, getXdSnFbits bin, 64<rt>
@@ -3031,6 +3036,7 @@ let parseConvBetwFPAndFixedPt bin =
   | 0b100100011u -> Op.UCVTF, getDdXnFbits bin, 64<rt>
   | 0b100111000u -> Op.FCVTZS, getXdDnFbits bin, 64<rt>
   | 0b100111001u -> Op.FCVTZU, getXdDnFbits bin, 64<rt>
+  | 0b101100010u -> Opcode.SCVTF, getHdXnFbits bin, 64<rt> (* FEAT_FP16 *)
   | _ -> raise InvalidOpcodeException
 
 /// Conversion between floating-point and integer on page C4-359.
@@ -3047,6 +3053,7 @@ let parseConvBetwFPAndInt bin =
   | c when c &&& 0b011100110u = 0b001000100u -> raise UnallocatedException
   | c when c &&& 0b010000000u = 0b010000000u -> raise UnallocatedException
   | c when c &&& 0b111101110u = 0b000001110u -> raise UnallocatedException
+
   | 0b000000000u -> Op.FCVTNS, getWdSn bin, 32<rt>
   | 0b000000001u -> Op.FCVTNU, getWdSn bin, 32<rt>
   | 0b000000010u -> Op.SCVTF, getSdWn bin, 32<rt>
@@ -3076,6 +3083,7 @@ let parseConvBetwFPAndInt bin =
   | 0b000111000u -> Op.FCVTZS, getWdDn bin, 32<rt>
   | 0b000111001u -> Op.FCVTZU, getWdDn bin, 32<rt>
   | c when c &&& 0b111100110u = 0b001000110u -> raise UnallocatedException
+  | 0b001100010u -> Opcode.SCVTF, getHdWn bin, 32<rt> (* FEAT_FP16 *)
   | c when c &&& 0b111100110u = 0b100000110u -> raise UnallocatedException
   | 0b100000000u -> Op.FCVTNS, getXdSn bin, 64<rt>
   | 0b100000001u -> Op.FCVTNU, getXdSn bin, 64<rt>
@@ -3109,6 +3117,7 @@ let parseConvBetwFPAndInt bin =
   | 0b101001110u -> Op.FMOV, getXdVnD1 bin, 64<rt>
   | 0b101001111u -> Op.FMOV, getVdD1Xn bin, 128<rt>
   | c when c &&& 0b111110110u = 0b101010110u -> raise UnallocatedException
+  | 0b101100010u -> Op.SCVTF, getHdXn bin, 64<rt> (* FEAT_FP16 *)
   | _ -> raise InvalidOpcodeException
 
 /// Floating-point data-processing (1 source) on page C4-362.

@@ -24,6 +24,7 @@
 
 module internal B2R2.FrontEnd.BinLifter.ARM64.LiftingUtils
 
+open System
 open B2R2
 open B2R2.BinIR
 open B2R2.BinIR.LowUIR
@@ -181,11 +182,29 @@ let rec getElemDataSzAndElems = function
   | OprSIMDList simds -> getElemDataSzAndElems (OprSIMD simds[0])
   | _ -> raise InvalidOperandException
 
+let vectorPart ctxt eSize src = (* FIXME *)
+  let struct (_, part, elements) = getElemDataSzAndElems src
+  let pos = int eSize
+  match src with
+  | OprSIMD (SIMDVecReg (reg, _)) ->
+    let regA = getPseudoRegVar ctxt reg 1
+    if part = 128<rt> then
+      let regB = getPseudoRegVar ctxt reg 2
+      Array.init (elements / 2) (fun i -> AST.extract regB eSize (i * pos))
+    else Array.init elements (fun i -> AST.extract regA eSize (i * pos))
+  | _ -> raise InvalidOperandException
+
 let transSIMDReg ctxt = function (* FIXME *)
-  | SIMDFPScalarReg _ | SIMDVecRegWithIdx _ -> raise InvalidOperandException
+  | SIMDVecRegWithIdx (reg, v, idx) ->
+    let regB, regA = getPseudoRegVar128 ctxt reg
+    let struct (esize, _, _) = getElemDataSzAndElemsByVector v
+    let index = int idx * int esize
+    if index < 64 then [| AST.extract regA esize index |]
+    else [| AST.extract regB esize (index % 64) |]
   | SIMDVecReg (reg, v) ->
     let struct (eSize, dataSize, elements) = getElemDataSzAndElemsByVector v
     getPseudoRegVarToArr ctxt reg eSize dataSize elements
+  | _ (* SIMDFPScalarReg *) -> raise InvalidOperandException
 
 let transSIMDListToExpr ctxt = function (* FIXME *)
   | OprSIMDList simds -> Array.map (transSIMDReg ctxt) (List.toArray simds)
@@ -240,7 +259,20 @@ let transOprToExpr ins ctxt addr = function
   | OprImm imm -> numI64 imm ins.OprSize
   | OprNZCV nzcv -> numI64 (int64 nzcv) ins.OprSize
   | OprLSB lsb -> numI64 (int64 lsb) ins.OprSize
+  | OprFbits fbits -> numI64 (int64 fbits) ins.OprSize
+  | OprFPImm float ->
+    if ins.OprSize = 64<rt> then
+      numI64 (BitConverter.DoubleToInt64Bits float) ins.OprSize
+    else numI64 (BitConverter.SingleToInt32Bits (float32 float)) ins.OprSize
   | _ -> raise <| NotImplementedIRException "transOprToExpr"
+
+let transOprToExprFPImm ins eSize src =
+  match eSize, src with
+  | 32<rt>, OprFPImm float ->
+    numI64 (BitConverter.SingleToInt32Bits (float32 float)) ins.OprSize
+  | 64<rt>, OprFPImm float ->
+    numI64 (BitConverter.DoubleToInt64Bits float) ins.OprSize
+  | _ -> raise InvalidOperandException
 
 let separateMemExpr expr =
   match expr.E with
@@ -316,28 +348,30 @@ let transSIMDOprToExpr ctxt eSize dataSize elements = function
     else [| getRegVar ctxt reg |]
   | OprSIMD (SIMDVecReg (reg, _)) ->
     getPseudoRegVarToArr ctxt reg eSize dataSize elements
-  | OprSIMD (SIMDVecRegWithIdx (reg, v, idx)) -> raise InvalidOperandException
+  | OprSIMD (SIMDVecRegWithIdx _) -> raise InvalidOperandException
   | _ -> raise InvalidOperandException
 
 (* Barrel shift *)
-let transBarrelShiftToExpr ins ctxt src shift =
+let transBarrelShiftToExpr oprSize ctxt src shift =
   match src, shift with
   | OprImm imm, OprShift (typ, Imm amt) ->
-    let imm = match typ with
-              | SRTypeLSL -> imm <<< int32 amt
-              | SRTypeLSR -> imm >>> int32 amt
-              | _ -> failwith "Not implement"
-    numI64 imm ins.OprSize
+    let imm =
+      match typ with
+      | SRTypeLSL -> imm <<< int32 amt
+      | SRTypeLSR -> imm >>> int32 amt
+      | SRTypeMSL -> (imm <<< int32 amt) + (1L <<< int32 amt) - 1L
+      | _ -> failwith "Not implement"
+    numI64 imm oprSize
   | OprRegister reg, OprShift (typ, amt) ->
     let reg = getRegVar ctxt reg
-    let amount = transShiftAmout ctxt ins.OprSize amt
-    shiftReg reg amount ins.OprSize typ
+    let amount = transShiftAmout ctxt oprSize amt
+    shiftReg reg amount oprSize typ
   | OprRegister reg, OprExtReg (Some (ShiftOffset (typ, amt))) ->
     let reg = getRegVar ctxt reg
-    let amount = transShiftAmout ctxt ins.OprSize amt
-    shiftReg reg amount ins.OprSize typ
+    let amount = transShiftAmout ctxt oprSize amt
+    shiftReg reg amount oprSize typ
   | OprRegister reg, OprExtReg (Some (ExtRegOffset (typ, shf))) ->
-    extendReg ctxt reg typ shf ins.OprSize
+    extendReg ctxt reg typ shf oprSize
   | OprRegister reg, OprExtReg None -> getRegVar ctxt reg
   | _ -> raise <| NotImplementedIRException "transBarrelShiftToExpr"
 
@@ -345,7 +379,7 @@ let transThreeOprsWithBarrelShift ins ctxt addr =
   match ins.Operands with
   | ThreeOperands (o1, o2, o3) ->
     transOprToExpr ins ctxt addr o1,
-    transBarrelShiftToExpr ins ctxt o2 o3
+    transBarrelShiftToExpr ins.OprSize ctxt o2 o3
   | _ -> raise InvalidOperandException
 
 let transFourOprsWithBarrelShift ins ctxt addr =
@@ -353,7 +387,7 @@ let transFourOprsWithBarrelShift ins ctxt addr =
   | FourOperands (o1, o2, o3, o4) ->
     transOprToExpr ins ctxt addr o1,
     transOprToExpr ins ctxt addr o2,
-    transBarrelShiftToExpr ins ctxt o3 o4
+    transBarrelShiftToExpr ins.OprSize ctxt o3 o4
   | _ -> raise InvalidOperandException
 
 let isRegOffset opr =
@@ -428,7 +462,7 @@ let transOprToExprOfCMP ins ctxt addr =
   match ins.Operands with
   | ThreeOperands (o1, o2, o3) ->
     transOprToExpr ins ctxt addr o1,
-    transBarrelShiftToExpr ins ctxt o2 o3
+    transBarrelShiftToExpr ins.OprSize ctxt o2 o3
   | _ -> raise InvalidOperandException
 
 let transOprToExprOfCSEL ins ctxt addr =
@@ -469,7 +503,6 @@ let transOprToExprOfCSINV ins ctxt addr =
   | ThreeOperands (o1, o2, o3) -> (* CINV *)
     let o2 = transOprToExpr ins ctxt addr o2
     transOprToExpr ins ctxt addr o1, o2, o2, o3 |> unwrapCond
-
   | FourOperands (o1, o2, o3, o4) -> (* CSINV *)
     transOprToExpr ins ctxt addr o1,
     transOprToExpr ins ctxt addr o2,
@@ -495,11 +528,11 @@ let transOprToExprOfEOR ins ctxt addr =
   | FourOperands (o1, o2, o3, o4) when ins.Opcode = Opcode.EOR ->
     transOprToExpr ins ctxt addr o1,
     transOprToExpr ins ctxt addr o2,
-    transBarrelShiftToExpr ins ctxt o3 o4
+    transBarrelShiftToExpr ins.OprSize ctxt o3 o4
   | FourOperands (o1, o2, o3, o4) when ins.Opcode = Opcode.EON ->
     transOprToExpr ins ctxt addr o1,
     transOprToExpr ins ctxt addr o2,
-    transBarrelShiftToExpr ins ctxt o3 o4 |> AST.not
+    transBarrelShiftToExpr ins.OprSize ctxt o3 o4 |> AST.not
   | _ -> raise InvalidOperandException
 
 let transOprToExprOfEXTR ins ctxt addr =
@@ -537,11 +570,11 @@ let transOprToExprOfORN ins ctxt addr =
   | ThreeOperands (o1, o2, o3) when ins.Opcode = Opcode.MVN -> (* MVN *)
     transOprToExpr ins ctxt addr o1,
     getRegVar ctxt (if ins.OprSize = 64<rt> then R.XZR else R.WZR),
-    transBarrelShiftToExpr ins ctxt o2 o3
+    transBarrelShiftToExpr ins.OprSize ctxt o2 o3
   | FourOperands (o1, o2, o3, o4) when ins.Opcode = Opcode.ORN -> (* ORN *)
     transOprToExpr ins ctxt addr o1,
     transOprToExpr ins ctxt addr o2,
-    transBarrelShiftToExpr ins ctxt o3 o4
+    transBarrelShiftToExpr ins.OprSize ctxt o3 o4
   | _ -> raise InvalidOperandException
 
 let transOprToExprOfORR ins ctxt addr =
@@ -550,7 +583,7 @@ let transOprToExprOfORR ins ctxt addr =
   | FourOperands (o1, o2, o3, o4) ->
     transOprToExpr ins ctxt addr o1,
     transOprToExpr ins ctxt addr o2,
-    transBarrelShiftToExpr ins ctxt o3 o4
+    transBarrelShiftToExpr ins.OprSize ctxt o3 o4
   | _ -> raise InvalidOperandException
 
 let unwrapReg e =
@@ -574,11 +607,11 @@ let transOprToExprOfSUB ins ctxt addr =
     when ins.Opcode = Opcode.NEG ->
     transOprToExpr ins ctxt addr o1,
     getRegVar ctxt (if ins.OprSize = 64<rt> then R.XZR else R.WZR),
-    transBarrelShiftToExpr ins ctxt o2 o3 |> AST.not
+    transBarrelShiftToExpr ins.OprSize ctxt o2 o3 |> AST.not
   | FourOperands (o1, o2, o3, o4) -> (* Arithmetic *)
     transOprToExpr ins ctxt addr o1,
     transOprToExpr ins ctxt addr o2,
-    transBarrelShiftToExpr ins ctxt o3 o4 |> AST.not
+    transBarrelShiftToExpr ins.OprSize ctxt o3 o4 |> AST.not
   | _ -> raise InvalidOperandException
 
 let transOprToExprOfMSUB ins ctxt addr =
@@ -607,11 +640,11 @@ let transOprToExprOfSUBS ins ctxt addr =
   | ThreeOperands (o1, o2, o3) ->
     transOprToExpr ins ctxt addr o1,
     getRegVar ctxt (if ins.OprSize = 64<rt> then R.XZR else R.WZR),
-    transBarrelShiftToExpr ins ctxt o2 o3 |> AST.not
+    transBarrelShiftToExpr ins.OprSize ctxt o2 o3 |> AST.not
   | FourOperands (o1, o2, o3, o4) ->
     transOprToExpr ins ctxt addr o1,
     transOprToExpr ins ctxt addr o2,
-    transBarrelShiftToExpr ins ctxt o3 o4 |> AST.not
+    transBarrelShiftToExpr ins.OprSize ctxt o3 o4 |> AST.not
   | _ -> raise InvalidOperandException
 
 let transOprToExprOfTST ins ctxt addr =
@@ -619,7 +652,8 @@ let transOprToExprOfTST ins ctxt addr =
   | TwoOperands (o1, o2) (* immediate *) ->
     transOprToExpr ins ctxt addr o1, transOprToExpr ins ctxt addr o2
   | ThreeOperands (o1, o2, o3) (* shfed *) ->
-    transOprToExpr ins ctxt addr o1, transBarrelShiftToExpr ins ctxt o2 o3
+    transOprToExpr ins ctxt addr o1,
+    transBarrelShiftToExpr ins.OprSize ctxt o2 o3
   | _ -> raise InvalidOperandException
 
 type BranchType =
@@ -723,6 +757,11 @@ let replicate x eSize dstSize =
   let rec loop x i = if i = 1 then x else loop (x <<< eSize ||| x) (i - 1)
   loop x (dstSize / eSize)
 
+let advSIMDExpandImm ir (eSize: int<rt>) src =
+  let src = AST.xtlo 64<rt> src
+  let splitCnt = numI32 (int32 eSize) 64<rt>
+  replicateForIR src splitCnt 64<rt> ir
+
 let getMaskForIR n oprSize = (AST.num1 oprSize << n) .- AST.num1 oprSize
 
 /// aarch64/instrs/integer/bitmasks/DecodeBitMasks
@@ -812,19 +851,69 @@ let signedSatQ i n ir =
 let satQ i n isUnsigned ir = (* FIMXE: return saturated (FPSR.QC = '1') *)
   if isUnsigned then unsignedSatQ i n ir else signedSatQ i n ir
 
+/// shared/functions/float/FPToFixed
+/// FPToFixed()
+/// ======
+let fpToFixed dstSz src fbits unsigned round =
+  let srcSz = src |> TypeCheck.typeOf
+  let convertBit =
+    if dstSz > srcSz then AST.xtlo srcSz fbits elif dstSz = srcSz then fbits
+    else AST.zext srcSz fbits
+  let mulBits =
+    AST.cast CastKind.UIntToFloat srcSz (numU64 0x1UL srcSz << convertBit)
+  let bigint = AST.fmul src mulBits
+  let round =
+    match round with
+    | FPRounding_TIEEVEN
+    | FPRounding_TIEAWAY -> AST.cast CastKind.FtoIRound srcSz
+    | FPRounding_Zero -> AST.cast CastKind.FtoITrunc srcSz
+    | FPRounding_POSINF -> AST.cast CastKind.FtoICeil srcSz
+    | FPRounding_NEGINF -> AST.cast CastKind.FtoIFloor srcSz
+  match dstSz, srcSz with
+  | d, s when d >=s -> round bigint
+  | _ -> round bigint |> AST.xtlo dstSz
+  |> if unsigned then AST.zext dstSz else AST.sext dstSz
+
+/// shared/functions/common/BitCount
+// BitCount()
+// ==========
+let bitCount bitSize x =
+  let size = int bitSize
+  Array.init size (fun i -> (x >> (numI32 i bitSize)) .& (AST.num1 bitSize))
+  |> Array.reduce (.+)
+
 /// 64-bit operands generate a 64-bit result in the destination general-purpose
 /// register. 32-bit operands generate a 32-bit result, zero-extended to a
 /// 64-bit result in the destination general-purpose register.
-let dstAssign oprSize dst src =
+let dstAssign oprSize dst src ir =
   let orgDst = AST.unwrap dst
   let orgDstSz = orgDst |> TypeCheck.typeOf
   match orgDst with
   | { E = Var (_, rid, _, _) } when rid = Register.toRegID R.XZR ->
-    orgDst := AST.num0 orgDstSz
+    !!ir (orgDst := AST.num0 orgDstSz)
   | _ ->
-    if orgDstSz > oprSize then orgDst := AST.zext orgDstSz src
-    elif orgDstSz = oprSize then orgDst := src
+    if orgDstSz > oprSize then !!ir (orgDst := AST.zext orgDstSz src)
+    elif orgDstSz = oprSize then !!ir (orgDst := src)
     else raise InvalidOperandSizeException
+
+/// The SIMDFP Scalar register needs a function to get the upper 64-bit.
+let dstAssignScalar ins ctxt addr dst src eSize ir =
+  match dst with
+  | OprSIMD (SIMDFPScalarReg reg) ->
+    let reg = OprSIMD (SIMDFPScalarReg (Register.getOrgSIMDReg reg))
+    let dstB, dstA = transOprToExpr128 ins ctxt addr reg
+    dstAssign eSize dstA src ir
+    !!ir (dstB := AST.num0 64<rt>)
+  | _ -> raise InvalidOperandException
+
+let dstAssign128 ins ctxt addr dst srcA srcB dataSize ir =
+  let dstB, dstA = transOprToExpr128 ins ctxt addr dst
+  if dataSize = 128<rt> then
+    !!ir (dstA := srcA)
+    !!ir (dstB := srcB)
+  else
+    !!ir (dstA := srcA)
+    !!ir (dstB := AST.num0 64<rt>)
 
 let dstAssignForSIMD dstA dstB result dataSize elements ir =
   if dataSize = 128<rt> then
