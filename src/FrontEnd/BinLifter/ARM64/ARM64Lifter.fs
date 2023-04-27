@@ -1100,21 +1100,20 @@ let private fpRoundToInt ins insLen ctxt addr cast =
   | _ -> raise InvalidOperandException
   !>ir insLen
 
-(* FIXME: CastKind *)
 let frinta ins insLen ctxt addr =
-  fpRoundToInt ins insLen ctxt addr CastKind.FtoIRound
+  fpRoundToInt ins insLen ctxt addr CastKind.FtoFRound
 let frinti ins insLen ctxt addr =
-  fpRoundToInt ins insLen ctxt addr CastKind.FtoIRound
+  fpRoundToInt ins insLen ctxt addr CastKind.FtoFRound
 let frintm ins insLen ctxt addr =
-  fpRoundToInt ins insLen ctxt addr CastKind.FtoIFloor
+  fpRoundToInt ins insLen ctxt addr CastKind.FtoFFloor
 let frintn ins insLen ctxt addr =
-  fpRoundToInt ins insLen ctxt addr CastKind.FtoIRound
+  fpRoundToInt ins insLen ctxt addr CastKind.FtoFRound
 let frintp ins insLen ctxt addr =
-  fpRoundToInt ins insLen ctxt addr CastKind.FtoICeil
+  fpRoundToInt ins insLen ctxt addr CastKind.FtoFCeil
 let frintx ins insLen ctxt addr =
-  fpRoundToInt ins insLen ctxt addr CastKind.FtoIRound
+  fpRoundToInt ins insLen ctxt addr CastKind.FtoFRound
 let frintz ins insLen ctxt addr =
-  fpRoundToInt ins insLen ctxt addr CastKind.FtoITrunc
+  fpRoundToInt ins insLen ctxt addr CastKind.FtoFTrunc
 
 let fsqrt ins insLen ctxt addr =
   let ir = !*ctxt
