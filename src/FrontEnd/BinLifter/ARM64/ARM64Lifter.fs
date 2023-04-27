@@ -2055,16 +2055,9 @@ let sdiv ins insLen ctxt addr =
   let dst, src1, src2 = transThreeOprs ins ctxt addr
   let num0 = AST.num0 ins.OprSize
   let cond1 = AST.eq src2 num0
-  let fSrc1 = AST.cast CastKind.SIntToFloat ins.OprSize src1
-  let fSrc2 = AST.cast CastKind.SIntToFloat ins.OprSize src2
-  let realSrc = AST.fdiv fSrc1 fSrc2
-  let cond2  = AST.eq realSrc num0
-  let cond3 = AST.fgt realSrc num0
+  let divSrc = src1 ?/ src2
   !<ir insLen
-  let roundDown = realSrc |> AST.cast CastKind.FtoITrunc ins.OprSize
-  let roundUp = realSrc |> AST.cast CastKind.FtoICeil ins.OprSize
-  let roundToZero = AST.ite cond2 num0 (AST.ite cond3 roundDown roundUp)
-  let result = AST.ite cond1 num0 roundToZero
+  let result = AST.ite cond1 num0 divSrc
   dstAssign ins.OprSize dst result ir
   !>ir insLen
 
@@ -2796,14 +2789,9 @@ let udiv ins insLen ctxt addr =
   let dst, src1, src2 = transThreeOprs ins ctxt addr
   let num0 = AST.num0 ins.OprSize
   let cond1 = AST.eq src2 num0
-  let fSrc1 = AST.cast CastKind.UIntToFloat ins.OprSize src1
-  let fSrc2 = AST.cast CastKind.UIntToFloat ins.OprSize src2
-  let realSrc = AST.fdiv fSrc1 fSrc2
-  let cond2 = AST.eq realSrc num0
+  let divSrc = src1 ./ src2
   !<ir insLen
-  let roundDown = realSrc |> AST.cast CastKind.FtoITrunc ins.OprSize
-  let roundToZero = AST.ite cond2 num0 roundDown
-  let result = AST.ite cond1 num0 roundToZero
+  let result = AST.ite cond1 num0 divSrc
   dstAssign ins.OprSize dst result ir
   !>ir insLen
 
