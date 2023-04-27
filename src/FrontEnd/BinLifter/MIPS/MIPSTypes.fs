@@ -772,6 +772,13 @@ and Base = Register
 and AccessLength = RegType
 and Label = string
 
+type RoundMode =
+  | FPRounding_TIEEVEN
+  | FPRounding_TIEAWAY
+  | FPRounding_Zero
+  | FPRounding_POSINF
+  | FPRounding_NEGINF
+
 type Operands =
   | NoOperand
   | OneOperand of Operand
