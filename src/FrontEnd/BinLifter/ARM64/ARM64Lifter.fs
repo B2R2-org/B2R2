@@ -957,6 +957,24 @@ let fcvtzs ins insLen ctxt addr =
 let fcvtzu ins insLen ctxt addr =
   fpConvert ins insLen ctxt addr true FPRounding_Zero
 
+let isInfinity sz x =
+  match sz with
+  | 32<rt> -> IEEE754Single.isInfinity x
+  | 64<rt> -> IEEE754Double.isInfinity x
+  | _ -> Utils.impossible ()
+
+let isZero sz x =
+  match sz with
+  | 32<rt> -> IEEE754Single.isZero x
+  | 64<rt> -> IEEE754Double.isZero x
+  | _ -> Utils.impossible ()
+
+let defaultNaN sz =
+  match sz with
+  | 32<rt> -> numU32 0x7fc00000u 32<rt>
+  | 64<rt> -> numU64 0x7ff8000000000000UL 64<rt>
+  | _ -> Utils.impossible ()
+
 let fdiv ins insLen ctxt addr =
   let ir = !*ctxt
   !<ir insLen
@@ -965,7 +983,21 @@ let fdiv ins insLen ctxt addr =
   match dst with
   | OprSIMD (SIMDFPScalarReg _) ->
     let _, src1, src2 = transThreeOprs ins ctxt addr
-    dstAssignScalar ins ctxt addr dst (AST.fdiv src1 src2) eSize ir
+    let inf = isInfinity eSize src1 .& isInfinity eSize src2
+    let zero = isZero eSize src1 .& isZero eSize src2
+    let invalidOp = inf .| zero
+    let lblInv = !%ir "Invalid"
+    let lblVal = !%ir "Valid"
+    let lblEnd = !%ir "End"
+    let tmpRes = !+ir eSize
+    !!ir (AST.cjmp invalidOp (AST.name lblInv) (AST.name lblVal))
+    !!ir (AST.lmark lblInv)
+    !!ir (tmpRes := defaultNaN eSize)
+    !!ir (AST.jmp (AST.name lblEnd))
+    !!ir (AST.lmark lblVal)
+    !!ir (tmpRes := AST.fdiv src1 src2)
+    !!ir (AST.lmark lblEnd)
+    dstAssignScalar ins ctxt addr dst tmpRes eSize ir
   | OprSIMD (SIMDVecReg _) ->
     let dstB, dstA = transOprToExpr128 ins ctxt addr dst
     let src1 = transSIMDOprToExpr ctxt eSize dataSize elements src1

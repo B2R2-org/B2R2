@@ -73,6 +73,10 @@ module IEEE754Single =
     let zero = AST.num0 32<rt>
     AST.xtlo 1<rt> ((exponent == e) .& (fraction == zero))
 
+  let isZero x =
+    let mask = numU32 0x7fffffffu 32<rt>
+    AST.eq (x .& mask) (AST.num0 32<rt>)
+
 module IEEE754Double =
   open B2R2.BinIR.LowUIR.AST.InfixOp
 
@@ -100,3 +104,7 @@ module IEEE754Double =
     let e = numI32 0x7ff 64<rt>
     let zero = AST.num0 64<rt>
     AST.xtlo 1<rt> ((exponent == e) .& (fraction == zero))
+
+  let isZero x =
+    let mask = numU64 0x7fffffff_ffffffffUL 64<rt>
+    AST.eq (x .& mask) (AST.num0 64<rt>)
