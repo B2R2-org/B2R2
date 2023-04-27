@@ -865,9 +865,6 @@ type internal RegExprs (wordSize) =
 #endif
       __.DIL
     | R.EIP ->
-#if DEBUG
-      assert32Bit wordSize
-#endif
       __.EIP
     | R.RIP ->
 #if DEBUG

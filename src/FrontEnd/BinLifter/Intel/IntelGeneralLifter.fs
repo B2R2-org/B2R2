@@ -1442,6 +1442,7 @@ let lea ins insLen ctxt =
        dstAssign oprSize dst (AST.xtlo 16<rt> src)
      | 32<rt>, 16<rt> -> dstAssign oprSize dst (AST.zext 32<rt> src)
      | 32<rt>, 64<rt> -> dstAssign oprSize dst (AST.xtlo 32<rt> src)
+     | 64<rt>, 32<rt> -> dstAssign oprSize dst (AST.zext 64<rt> src)
      | _ -> raise InvalidOperandSizeException)
   !>ir insLen
 
