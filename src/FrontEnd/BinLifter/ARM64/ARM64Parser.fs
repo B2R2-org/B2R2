@@ -1382,7 +1382,7 @@ let parseLoadStoreRegOffset bin =
   | 0b01010u -> Op.LDRSH, getXtBEXSnrmamt bin 1L, 64<rt>
   | 0b01011u -> Op.LDRSH, getWtBEXSnrmamt bin 1L, 32<rt>
   | 0b01100u -> Op.STR, getHtBEXSnrmamt bin, 16<rt>
-  | 0b11101u -> Op.LDR, getHtBEXSnrmamt bin, 16<rt>
+  | 0b01101u -> Op.LDR, getHtBEXSnrmamt bin, 16<rt>
   | c when c &&& 0b10111u = 0b10011u -> raise UnallocatedException
   | c when c &&& 0b10110u = 0b10110u -> raise UnallocatedException
   | 0b10000u -> Op.STR, getWtBEXSnrmamt bin 2L, 32<rt>
@@ -1394,7 +1394,7 @@ let parseLoadStoreRegOffset bin =
   | 0b11001u -> Op.LDR, getXtBEXSnrmamt bin 3L, 64<rt>
   | 0b11010u -> Op.PRFM, getPrfopimm5BEXSnrmamt bin, 64<rt>
   | 0b11100u -> Op.STR, getDtBEXSnrmamt bin, 64<rt>
-  | 0b01101u -> Op.LDR, getDtBEXSnrmamt bin, 64<rt>
+  | 0b11101u -> Op.LDR, getDtBEXSnrmamt bin, 64<rt>
   | _ -> raise InvalidOpcodeException
 
 let parseLoadStoreRegUnprivileged bin =
