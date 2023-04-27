@@ -168,6 +168,8 @@ type Register =
   /// Pseudo register for LLBit. This is used to store the actual LLBit value
   /// from the CPU after an exception.
   | LLBit = 0x104
+  /// Floating Point Control and Status Register.
+  | FCSR = 0x105
 
 /// Shortcut for Register type.
 type internal R = Register
@@ -255,6 +257,7 @@ module Register =
     | "lo" -> R.LO
     | "pc" -> R.PC
     | "llbit" -> R.LLBit
+    | "fcsr" -> R.FCSR
     | _ -> Utils.impossible ()
 
   let toString32 = function
@@ -326,6 +329,7 @@ module Register =
     | R.LO  -> "lo"
     | R.PC  -> "pc"
     | R.LLBit -> "LLBit"
+    | R.FCSR -> "fcsr"
     | _ -> Utils.impossible ()
 
   let toString64 = function
@@ -397,4 +401,5 @@ module Register =
     | R.LO  -> "lo"
     | R.PC  -> "pc"
     | R.LLBit -> "LLBit"
+    | R.FCSR -> "fcsr"
     | _ -> Utils.impossible ()
