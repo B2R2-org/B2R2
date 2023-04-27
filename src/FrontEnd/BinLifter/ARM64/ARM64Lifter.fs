@@ -778,32 +778,70 @@ let private fpCompare v1 v2 =
 
 let private getFlag flags pos = AST.extract flags 1<rt> pos
 
+let isNaN oprSize expr =
+  match oprSize with
+  | 32<rt> -> IEEE754Single.isNaN expr
+  | 64<rt> -> IEEE754Double.isNaN expr
+  | _ -> Utils.impossible ()
+
+let fcmp ins insLen ctxt addr =
+  let ir = !*ctxt
+  !<ir insLen
+  let src1, src2 = transTwoOprs ins ctxt addr
+  let isNanOp1OrOp2 = isNaN ins.OprSize src1 .| isNaN ins.OprSize src2
+  let lblNaN = !%ir "NaN"
+  let lblRegular = !%ir "Regular"
+  let lblEnd = !%ir "End"
+  let nzcv = !+ir 8<rt>
+  !!ir (AST.cjmp isNanOp1OrOp2 (AST.name lblNaN) (AST.name lblRegular))
+  !!ir (AST.lmark lblNaN)
+  !!ir (getRegVar ctxt R.N := AST.b0)
+  !!ir (getRegVar ctxt R.Z := AST.b0)
+  !!ir (getRegVar ctxt R.C := AST.b1)
+  !!ir (getRegVar ctxt R.V := AST.b1)
+  !!ir (AST.jmp (AST.name lblEnd))
+  !!ir (AST.lmark lblRegular)
+  !!ir (nzcv := fpCompare src1 src2)
+  !!ir (getRegVar ctxt R.N := AST.extract nzcv 1<rt> 3)
+  !!ir (getRegVar ctxt R.Z := AST.extract nzcv 1<rt> 2)
+  !!ir (getRegVar ctxt R.C := AST.extract nzcv 1<rt> 1)
+  !!ir (getRegVar ctxt R.V := AST.extract nzcv 1<rt> 0)
+  !!ir (AST.lmark lblEnd)
+  !>ir insLen
+
 let fccmp ins insLen ctxt addr =
   let ir = !*ctxt
   !<ir insLen
   let src1, src2, nzcv, cond = transOprToExprOfCCMP ins ctxt addr
-  let tCond = !+ir 1<rt>
+  let isNanOp1OrOp2 = isNaN ins.OprSize src1 .| isNaN ins.OprSize src2
   let flags = !+ir 8<rt>
-  !!ir (tCond := conditionHolds ctxt cond)
+  let lblT = !%ir "True"
+  let lblF = !%ir "False"
+  let lblNaN = !%ir "NaN"
+  let lblRegular = !%ir "Regular"
+  let lblEnd = !%ir "End"
+  !!ir (AST.cjmp (conditionHolds ctxt cond) (AST.name lblT) (AST.name lblF))
+  !!ir (AST.lmark lblT)
+  !!ir (AST.cjmp isNanOp1OrOp2 (AST.name lblNaN) (AST.name lblRegular))
+  !!ir (AST.lmark lblNaN)
+  !!ir (getRegVar ctxt R.N := AST.b0)
+  !!ir (getRegVar ctxt R.Z := AST.b0)
+  !!ir (getRegVar ctxt R.C := AST.b1)
+  !!ir (getRegVar ctxt R.V := AST.b1)
+  !!ir (AST.jmp (AST.name lblEnd))
+  !!ir (AST.lmark lblRegular)
   !!ir (flags := fpCompare src1 src2)
-  !!ir (getRegVar ctxt R.N := AST.ite tCond (getFlag flags 3) (getFlag nzcv 3))
-  !!ir (getRegVar ctxt R.Z := AST.ite tCond (getFlag flags 2) (getFlag nzcv 2))
-  !!ir (getRegVar ctxt R.C := AST.ite tCond (getFlag flags 1) (getFlag nzcv 1))
-  !!ir (getRegVar ctxt R.V := AST.ite tCond (getFlag flags 0) (getFlag nzcv 0))
-  !>ir insLen
-
-let fccmpe ins insLen ctxt addr =
-  let ir = !*ctxt
-  !<ir insLen
-  let src1, src2, nzcv, cond = transOprToExprOfCCMP ins ctxt addr
-  let tCond = !+ir 1<rt>
-  let flags = !+ir 8<rt>
-  !!ir (tCond := conditionHolds ctxt cond)
-  !!ir (flags := fpCompare src1 src2) (* FIXME: signal_nans *)
-  !!ir (getRegVar ctxt R.N := AST.ite tCond (getFlag flags 3) (getFlag nzcv 3))
-  !!ir (getRegVar ctxt R.Z := AST.ite tCond (getFlag flags 2) (getFlag nzcv 2))
-  !!ir (getRegVar ctxt R.C := AST.ite tCond (getFlag flags 1) (getFlag nzcv 1))
-  !!ir (getRegVar ctxt R.V := AST.ite tCond (getFlag flags 0) (getFlag nzcv 0))
+  !!ir (getRegVar ctxt R.N := AST.extract flags 1<rt> 3)
+  !!ir (getRegVar ctxt R.Z := AST.extract flags 1<rt> 2)
+  !!ir (getRegVar ctxt R.C := AST.extract flags 1<rt> 1)
+  !!ir (getRegVar ctxt R.V := AST.extract flags 1<rt> 0)
+  !!ir (AST.jmp (AST.name lblEnd))
+  !!ir (AST.lmark lblF)
+  !!ir (getRegVar ctxt R.N := AST.extract nzcv 1<rt> 3)
+  !!ir (getRegVar ctxt R.Z := AST.extract nzcv 1<rt> 2)
+  !!ir (getRegVar ctxt R.C := AST.extract nzcv 1<rt> 1)
+  !!ir (getRegVar ctxt R.V := AST.extract nzcv 1<rt> 0)
+  !!ir (AST.lmark lblEnd)
   !>ir insLen
 
 let fcmgt ins insLen ctxt addr =
@@ -834,57 +872,6 @@ let fcmgt ins insLen ctxt addr =
       Array.map2 (fun e1 e2 -> AST.ite (AST.fgt e1 e2) ones zeros) src1 src2
     dstAssignForSIMD dstA dstB result dataSize elements ir
   | _ -> raise InvalidOperandException
-  !>ir insLen
-
-let fcmp ins insLen ctxt addr =
-  let ir = !*ctxt
-  !<ir insLen
-  let src1, src2 = transTwoOprs ins ctxt addr
-  let nzcv = !+ir 8<rt>
-  !!ir (nzcv := fpCompare src1 src2)
-  !!ir (getRegVar ctxt R.N := AST.extract nzcv 1<rt> 3)
-  !!ir (getRegVar ctxt R.Z := AST.extract nzcv 1<rt> 2)
-  !!ir (getRegVar ctxt R.C := AST.extract nzcv 1<rt> 1)
-  !!ir (getRegVar ctxt R.V := AST.extract nzcv 1<rt> 0)
-  !>ir insLen
-
-let getExponent oprSize src =
-  match oprSize with
-  | 64<rt> ->
-    let numMantissa =  numI32 52 64<rt>
-    let mask = numI32 0x7FF 64<rt>
-    AST.xtlo 32<rt> ((src >> numMantissa) .& mask)
-  | _ ->
-    let numMantissa = numI32 23 32<rt>
-    let mask = numI32 0xff 32<rt>
-    (src >> numMantissa) .& mask
-
-let getMantissa oprSize src =
-  let mask =
-    if oprSize = 64<rt> then numU64 0xffffffffffffUL 64<rt>
-    else numU64 0x7fffffUL 32<rt>
-  src .& mask
-
-let isNan oprSize expr = (* FIXME *)
-  let exponent = getExponent oprSize expr
-  let mantissa = getMantissa oprSize expr
-  let e = if oprSize = 64<rt> then numI32 0x7ff 32<rt> else numI32 0xff 32<rt>
-  let zero = if oprSize = 64<rt> then AST.num0 64<rt> else AST.num0 32<rt>
-  (exponent == e) .& (mantissa != zero)
-
-let fcmpe ins insLen ctxt addr =
-  let ir = !*ctxt
-  !<ir insLen
-  let src1, src2 = transTwoOprs ins ctxt addr
-  let nzcv = !+ir 8<rt>
-  let condNan = !+ir 1<rt>
-  let isNanOp1OrOp2 = isNan ins.OprSize src1 .| isNan ins.OprSize src2
-  !!ir (condNan := isNanOp1OrOp2)
-  !!ir (nzcv := fpCompare src1 src2)
-  !!ir (getRegVar ctxt R.N := AST.ite condNan AST.b0 (getFlag nzcv 3))
-  !!ir (getRegVar ctxt R.Z := AST.ite condNan AST.b0 (getFlag nzcv 2))
-  !!ir (getRegVar ctxt R.C := AST.ite condNan AST.b1 (getFlag nzcv 1))
-  !!ir (getRegVar ctxt R.V := AST.ite condNan AST.b1 (getFlag nzcv 0))
   !>ir insLen
 
 let fcsel ins insLen ctxt addr =
@@ -3242,10 +3229,10 @@ let translate ins insLen ctxt =
   | Opcode.FADD -> fadd ins insLen ctxt addr
   | Opcode.FADDP -> faddp ins insLen ctxt addr
   | Opcode.FCCMP -> fccmp ins insLen ctxt addr
-  | Opcode.FCCMPE -> fccmpe ins insLen ctxt addr
+  | Opcode.FCCMPE -> fccmp ins insLen ctxt addr
   | Opcode.FCMGT -> fcmgt ins insLen ctxt addr
   | Opcode.FCMP -> fcmp ins insLen ctxt addr
-  | Opcode.FCMPE -> fcmpe ins insLen ctxt addr
+  | Opcode.FCMPE -> fcmp ins insLen ctxt addr
   | Opcode.FCSEL -> fcsel ins insLen ctxt addr
   | Opcode.FCVT -> fcvt ins insLen ctxt addr
   | Opcode.FCVTAS -> fcvtas ins insLen ctxt addr
