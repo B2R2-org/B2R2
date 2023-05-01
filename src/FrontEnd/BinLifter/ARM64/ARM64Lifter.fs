@@ -413,10 +413,47 @@ let ccmp ins insLen ctxt addr =
 
 let clz ins insLen ctxt addr =
   let ir = !*ctxt
+  let oprSize = ins.OprSize
   let dst, src = transTwoOprs ins ctxt addr
   !<ir insLen
-  let res = countLeadingZeroBitsForIR src ins.OprSize ir
-  !!ir (dst := oprSzToExpr ins.OprSize .- (res .+ AST.num1 ins.OprSize))
+  let x = !+ir oprSize
+  let n = AST.num0 oprSize
+  match oprSize with
+  | 32<rt> ->
+    let mask1 = numI32 0x55555555 32<rt>
+    let mask2 = numI32 0x33333333 32<rt>
+    let mask3 = numI32 0x0f0f0f0f 32<rt>
+    !!ir (x := src)
+    !!ir (x := x .| (x >> numI32 1 32<rt>))
+    !!ir (x := x .| (x >> numI32 2 32<rt>))
+    !!ir (x := x .| (x >> numI32 4 32<rt>))
+    !!ir (x := x .| (x >> numI32 8 32<rt>))
+    !!ir (x := x .| (x >> numI32 16 32<rt>))
+    !!ir (x := x .- ((x >> numI32 1 32<rt>) .& mask1))
+    !!ir (x := ((x >> numI32 2 32<rt>) .& mask2) .+ (x .& mask2))
+    !!ir (x := ((x >> numI32 4 32<rt>) .+ x) .& mask3)
+    !!ir (x := x .+ (x >> numI32 8 32<rt>))
+    !!ir (x := x .+ (x >> numI32 16 32<rt>))
+    !!ir (dst := (numI32 32 32<rt> .- (x .& numI32 63 32<rt>)))
+  | 64<rt> ->
+    let mask1 = numU64 0x5555555555555555UL 64<rt>
+    let mask2 = numU64 0x3333333333333333UL 64<rt>
+    let mask3 = numU64 0x0f0f0f0f0f0f0f0fUL 64<rt>
+    !!ir (x := src)
+    !!ir (x := x .| (x >> numI32 1 64<rt>))
+    !!ir (x := x .| (x >> numI32 2 64<rt>))
+    !!ir (x := x .| (x >> numI32 4 64<rt>))
+    !!ir (x := x .| (x >> numI32 8 64<rt>))
+    !!ir (x := x .| (x >> numI32 16 64<rt>))
+    !!ir (x := x .| (x >> numI32 32 64<rt>))
+    !!ir (x := x .- ((x >> numI32 1 64<rt>) .& mask1))
+    !!ir (x := ((x >> numI32 2 64<rt>) .& mask2) .+ (x .& mask2))
+    !!ir (x := ((x >> numI32 4 64<rt>) .+ x) .& mask3)
+    !!ir (x := x .+ (x >> numI32 8 64<rt>))
+    !!ir (x := x .+ (x >> numI32 16 64<rt>))
+    !!ir (x := x .+ (x >> numI32 32 64<rt>))
+    !!ir (dst := (numI32 64 64<rt> .- (x .& numI32 127 64<rt>)))
+  | _ -> raise InvalidOperandSizeException
   !>ir insLen
 
 let cmn ins insLen ctxt addr =
