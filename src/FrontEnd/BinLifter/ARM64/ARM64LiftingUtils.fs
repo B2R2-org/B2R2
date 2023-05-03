@@ -703,26 +703,16 @@ let conditionHolds ctxt = function
 /// shared/functions/common/HighestSetBit
 /// HighestSetBit()
 /// ===============
-let highestSetBitForIR src width oprSz (ir: IRBuilder) =
-  let lblLoop = !%ir "Loop"
-  let lblLoopCont = !%ir "LoopContinue"
-  let lblUpdateTmp = !%ir "UpdateTmp"
-  let lblEnd = !%ir "End"
-  let t = !+ir oprSz
-  let cond = !+ir 1<rt>
-  let width = numI32 (width - 1) oprSz
-  !!ir (t := width)
-  !!ir (AST.lmark lblLoop)
-  !!ir (cond := (src >> t) .& AST.num1 oprSz == AST.num1 oprSz)
-  !!ir (AST.cjmp cond (AST.name lblEnd) (AST.name lblLoopCont))
-  !!ir (AST.lmark lblLoopCont)
-  !!ir (cond := t == AST.num0 oprSz)
-  !!ir (AST.cjmp cond (AST.name lblEnd) (AST.name lblUpdateTmp))
-  !!ir (AST.lmark lblUpdateTmp)
-  !!ir (t := t .- AST.num1 oprSz)
-  !!ir (AST.jmp (AST.name lblLoop))
-  !!ir (AST.lmark lblEnd)
-  t
+let highestSetBitForIR expr width oprSz ir =
+  let struct (high, n1) = tmpVars2 ir oprSz
+  !!ir (high := numI32 -1 oprSz)
+  !!ir (n1 := AST.num1 oprSz)
+  let inline pos i =
+    let bit = AST.extract expr 1<rt> i |> AST.zext oprSz
+    (bit .* ((numI32 i oprSz) .+ n1)) .- n1
+  Array.init width pos
+  |> Array.iter (fun e -> !!ir (high := AST.ite (high ?<= e) e high))
+  high
 
 let highestSetBit x size =
   let rec loop i =
@@ -813,11 +803,37 @@ let decodeBitMasks immr imms dataSize =
   let tmask = replicate telem eSize dataSize
   struct (wmask, tmask)
 
+/// shared/functions/crc/BitReverse
+/// BitReverse()
+/// ============
+let bitReverse expr oprSz ir =
+  let tmp = !+ir oprSz
+  !!ir (tmp := AST.num0 oprSz)
+  let rev i =
+    let bit = AST.zext oprSz (AST.extract expr 1<rt> i)
+    bit << (numI32 (int oprSz - 1 - i) oprSz)
+  Array.init (int oprSz) rev |> Array.reduce (.+)
+
 /// shared/functions/common/CountLeadingZeroBits
 /// CountLeadingZeroBits()
 /// ======================
-let countLeadingZeroBitsForIR src oprSize ir =
-  highestSetBitForIR src (RegType.toBitWidth oprSize) oprSize ir
+let countLeadingZeroBitsForIR src bitSize oprSize ir =
+  let res = highestSetBitForIR src bitSize oprSize ir
+  (numI32 bitSize oprSize) .- (res .+ AST.num1 oprSize)
+
+/// shared/functions/common/CountLeadingSignBits
+/// CountLeadingSignBits()
+/// ======================
+let countLeadingSignBitsForIR expr oprSize ir =
+  let n1 = AST.num1 oprSize
+  let struct (expr1, expr2, xExpr) = tmpVars3 ir oprSize
+  !!ir (expr1 := expr >> n1)
+  !!ir (expr2 := (expr << n1) >> n1)
+  !!ir (xExpr := (expr1 <+> expr2))
+  /// This count does not include the most significant bit of the source
+  /// register.
+  let bitSize = int oprSize - 1
+  countLeadingZeroBitsForIR expr bitSize oprSize ir
 
 /// shared/functions/vector/UnsignedSatQ
 /// UnsignedSatQ()
