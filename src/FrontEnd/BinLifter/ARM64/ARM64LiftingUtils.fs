@@ -703,26 +703,16 @@ let conditionHolds ctxt = function
 /// shared/functions/common/HighestSetBit
 /// HighestSetBit()
 /// ===============
-let highestSetBitForIR src width oprSz (ir: IRBuilder) =
-  let lblLoop = !%ir "Loop"
-  let lblLoopCont = !%ir "LoopContinue"
-  let lblUpdateTmp = !%ir "UpdateTmp"
-  let lblEnd = !%ir "End"
-  let t = !+ir oprSz
-  let cond = !+ir 1<rt>
-  let width = numI32 (width - 1) oprSz
-  !!ir (t := width)
-  !!ir (AST.lmark lblLoop)
-  !!ir (cond := (src >> t) .& AST.num1 oprSz == AST.num1 oprSz)
-  !!ir (AST.cjmp cond (AST.name lblEnd) (AST.name lblLoopCont))
-  !!ir (AST.lmark lblLoopCont)
-  !!ir (cond := t == AST.num0 oprSz)
-  !!ir (AST.cjmp cond (AST.name lblEnd) (AST.name lblUpdateTmp))
-  !!ir (AST.lmark lblUpdateTmp)
-  !!ir (t := t .- AST.num1 oprSz)
-  !!ir (AST.jmp (AST.name lblLoop))
-  !!ir (AST.lmark lblEnd)
-  t
+let highestSetBitForIR expr width oprSz ir =
+  let struct (high, n1) = tmpVars2 ir oprSz
+  !!ir (high := numI32 -1 oprSz)
+  !!ir (n1 := AST.num1 oprSz)
+  let inline pos i =
+    let bit = AST.extract expr 1<rt> i |> AST.zext oprSz
+    (bit .* ((numI32 i oprSz) .+ n1)) .- n1
+  Array.init width pos
+  |> Array.iter (fun e -> !!ir (high := AST.ite (high ?<= e) e high))
+  high
 
 let highestSetBit x size =
   let rec loop i =
@@ -734,33 +724,20 @@ let highestSetBit x size =
 /// shared/functions/common/Replicate
 /// Replicate()
 /// ===========
-let replicateForIR value bits oprSize (ir: IRBuilder) =
-  let lblLoop = !%ir "Loop"
-  let lblEnd = !%ir "End"
-  let lblLoopContinue = !%ir "LoopContinue"
-  let struct (tVal, tAmt) = tmpVars2 ir oprSize
-  let oSz = oprSzToExpr oprSize
-  let num0 = AST.num0 oprSize
-  !!ir (tVal := value)
-  !!ir (tAmt := bits)
-  !!ir (AST.cjmp (value == num0) (AST.name lblEnd) (AST.name lblLoop))
-  !!ir (AST.lmark lblLoop)
-  !!ir (AST.cjmp (AST.ge tAmt oSz) (AST.name lblEnd) (AST.name lblLoopContinue))
-  !!ir (AST.lmark lblLoopContinue)
-  !!ir (tVal := tVal .| (value << tAmt))
-  !!ir (tAmt := tAmt .+ bits)
-  !!ir (AST.jmp (AST.name lblLoop))
-  !!ir (AST.lmark lblEnd)
-  tVal
+let replicateForIR expr exprSize repSize ir =
+  let repeat = repSize / exprSize
+  let repVal = !+ir repSize
+  !!ir (repVal := AST.zext repSize expr)
+  Array.init repeat (fun i -> repVal << numI32 (int exprSize * i) repSize)
+  |> Array.reduce (.|)
 
 let replicate x eSize dstSize =
   let rec loop x i = if i = 1 then x else loop (x <<< eSize ||| x) (i - 1)
   loop x (dstSize / eSize)
 
-let advSIMDExpandImm ir (eSize: int<rt>) src =
+let advSIMDExpandImm ir eSize src =
   let src = AST.xtlo 64<rt> src
-  let splitCnt = numI32 (int32 eSize) 64<rt>
-  replicateForIR src splitCnt 64<rt> ir
+  replicateForIR src eSize 64<rt> ir
 
 let getMaskForIR n oprSize = (AST.num1 oprSize << n) .- AST.num1 oprSize
 
@@ -769,29 +746,6 @@ let getMaskForIR n oprSize = (AST.num1 oprSize << n) .- AST.num1 oprSize
 /// ================
 /// Decode AArch64 bitfield and logical immediate masks which use a similar
 /// encoding structure
-let decodeBitMasksForIR wmask tmask immN imms immr oprSize ir =
-  let imms = AST.xtlo 8<rt> imms
-  let immr = AST.xtlo 8<rt> immr
-  let immN = immN << numI32 6 8<rt>
-  let struct (len, levels) = tmpVars2 ir 8<rt>
-  let struct (s, r) = tmpVars2 ir oprSize
-  let struct (diff, esize, d) = tmpVars3 ir oprSize
-  let struct (welem, telem) = tmpVars2 ir oprSize
-  let n1 = AST.num1 oprSize
-  let notImms = (AST.not imms) .& numI32 0x3F 8<rt>
-  !!ir (len := highestSetBitForIR (immN .| notImms) 7 8<rt> ir)
-  !!ir (levels := getMaskForIR len 8<rt>) (* ZeroExtend (Ones(len), 6) *)
-  !!ir (s := (imms .& levels) |> AST.zext oprSize)
-  !!ir (r := (immr .& levels) |> AST.zext oprSize)
-  !!ir (diff := s .- r)
-  !!ir (esize := AST.num1 oprSize << AST.zext oprSize len)
-  !!ir (d := diff .& getMaskForIR (AST.zext oprSize len) oprSize)
-  !!ir (welem := getMaskForIR (s .+ n1) oprSize)
-  !!ir (telem := getMaskForIR (d .+ n1) oprSize)
-  let welem = rorForIR welem r (oprSzToExpr oprSize)
-  !!ir (wmask := replicateForIR welem esize oprSize ir)
-  !!ir (tmask := replicateForIR telem esize oprSize ir)
-
 let decodeBitMasks immr imms dataSize =
   let immN = dataSize / 64
   let immr = getImmValue immr |> int
@@ -813,11 +767,35 @@ let decodeBitMasks immr imms dataSize =
   let tmask = replicate telem eSize dataSize
   struct (wmask, tmask)
 
+/// shared/functions/crc/BitReverse
+/// BitReverse()
+/// ============
+let bitReverse expr oprSz =
+  let rev i =
+    let bit = AST.zext oprSz (AST.extract expr 1<rt> i)
+    bit << (numI32 (int oprSz - 1 - i) oprSz)
+  Array.init (int oprSz) rev |> Array.reduce (.+)
+
 /// shared/functions/common/CountLeadingZeroBits
 /// CountLeadingZeroBits()
 /// ======================
-let countLeadingZeroBitsForIR src oprSize ir =
-  highestSetBitForIR src (RegType.toBitWidth oprSize) oprSize ir
+let countLeadingZeroBitsForIR src bitSize oprSize ir =
+  let res = highestSetBitForIR src bitSize oprSize ir
+  (numI32 bitSize oprSize) .- (res .+ AST.num1 oprSize)
+
+/// shared/functions/common/CountLeadingSignBits
+/// CountLeadingSignBits()
+/// ======================
+let countLeadingSignBitsForIR expr oprSize ir =
+  let n1 = AST.num1 oprSize
+  let struct (expr1, expr2, xExpr) = tmpVars3 ir oprSize
+  !!ir (expr1 := expr >> n1)
+  !!ir (expr2 := (expr << n1) >> n1)
+  !!ir (xExpr := (expr1 <+> expr2))
+  /// This count does not include the most significant bit of the source
+  /// register.
+  let bitSize = int oprSize - 1
+  countLeadingZeroBitsForIR expr bitSize oprSize ir
 
 /// shared/functions/vector/UnsignedSatQ
 /// UnsignedSatQ()

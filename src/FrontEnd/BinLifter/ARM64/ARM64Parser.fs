@@ -1651,6 +1651,8 @@ let parseDataProcessing2Src bin =
   | 0b10010111u -> Op.CRC32CX, getWdWnXm bin, 32<rt>
   | _ -> raise InvalidOpcodeException
 
+/// Data-processing (1 source) on page C4-312.
+/// Data-processing (1 source) on page 4554(ID121622).
 let parseDataProcessing1Src bin =
   let cond = concat (concat (pickBit bin 31u) (pickBit bin 29u) 1)
                     (extract bin 20u 10u) 11 (* sf:S:opcode2:opcode *)
@@ -1660,16 +1662,17 @@ let parseDataProcessing1Src bin =
   | c when c &&& 0b0000000010000u = 0b0000000010000u -> r UnallocatedException
   | c when c &&& 0b0000000100000u = 0b0000000100000u -> r UnallocatedException
   | c when c &&& 0b0000001000000u = 0b0000001000000u -> r UnallocatedException
-  | c when c &&& 0b0000010000000u = 0b0000010000000u -> r UnallocatedException
-  | c when c &&& 0b0000100000000u = 0b0000100000000u -> r UnallocatedException
-  | c when c &&& 0b0001000000000u = 0b0001000000000u -> r UnallocatedException
+  | 0b0000000001001u | 0b1000000001001u -> r UnallocatedException
+  | c when c &&& 0b0111111111110u = 0b0000000001010u -> r UnallocatedException
+  | c when c &&& 0b0111111111100u = 0b0000000001100u -> r UnallocatedException
+  | c when c &&& 0b0111111110000u = 0b0000000010000u -> r UnallocatedException
   | c when c &&& 0b0010000000000u = 0b0010000000000u -> r UnallocatedException
-  | c when c &&& 0b0111111111110u = 0b0000000000110u -> r UnallocatedException
   | c when c &&& 0b0100000000000u = 0b0100000000000u -> r UnallocatedException
+  | c when c &&& 0b1011111000000u = 0b0000001000000u -> r UnallocatedException
   | 0b0000000000000u -> Op.RBIT, getWdWn bin, 32<rt>
   | 0b0000000000001u -> Op.REV16, getWdWn bin, 32<rt>
   | 0b0000000000010u -> Op.REV, getWdWn bin, 32<rt>
-  | 0b0000000000011u -> raise UnallocatedException
+  | 0b0000000000110u -> Op.CTZ, getWdWn bin, 32<rt> (* FEAT_CSSC *)
   | 0b0000000000100u -> Op.CLZ, getWdWn bin, 32<rt>
   | 0b0000000000101u -> Op.CLS, getWdWn bin, 32<rt>
   | 0b1000000000000u -> Op.RBIT, getXdXn bin, 64<rt>
@@ -1678,6 +1681,7 @@ let parseDataProcessing1Src bin =
   | 0b1000000000011u -> Op.REV, getXdXn bin, 64<rt>
   | 0b1000000000100u -> Op.CLZ, getXdXn bin, 64<rt>
   | 0b1000000000101u -> Op.CLS, getXdXn bin, 64<rt>
+  | 0b1000000000110u -> Op.CTZ, getXdXn bin, 64<rt> (* FEAT_CSSC *)
   | _ -> raise InvalidOpcodeException
 
 let changeToAliasOfShiftReg bin instr =

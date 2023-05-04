@@ -411,12 +411,20 @@ let ccmp ins insLen ctxt addr =
   !!ir (getRegVar ctxt R.V := (AST.ite tCond v (AST.xtlo 1<rt> nzcv)))
   !>ir insLen
 
+let cls ins insLen ctxt addr =
+  let ir = !*ctxt
+  let dst, src = transTwoOprs ins ctxt addr
+  !<ir insLen
+  let res = countLeadingSignBitsForIR src ins.OprSize ir
+  dstAssign ins.OprSize dst res ir
+  !>ir insLen
+
 let clz ins insLen ctxt addr =
   let ir = !*ctxt
   let dst, src = transTwoOprs ins ctxt addr
   !<ir insLen
-  let res = countLeadingZeroBitsForIR src ins.OprSize ir
-  !!ir (dst := oprSzToExpr ins.OprSize .- (res .+ AST.num1 ins.OprSize))
+  let res = countLeadingZeroBitsForIR src (int ins.OprSize) ins.OprSize ir
+  dstAssign ins.OprSize dst res ir
   !>ir insLen
 
 let cmn ins insLen ctxt addr =
@@ -599,6 +607,16 @@ let csneg ins insLen ctxt addr =
   !<ir insLen
   let s2 = AST.not s2 .+ AST.num1 ins.OprSize
   dstAssign ins.OprSize dst (AST.ite (conditionHolds ctxt cond) s1 s2) ir
+  !>ir insLen
+
+let ctz ins insLen ctxt addr =
+  let ir = !*ctxt
+  let dst, src = transTwoOprs ins ctxt addr
+  !<ir insLen
+  let revSrc = !+ir ins.OprSize
+  !!ir (revSrc := bitReverse src ins.OprSize)
+  let res = countLeadingZeroBitsForIR revSrc (int ins.OprSize) ins.OprSize ir
+  dstAssign ins.OprSize dst res ir
   !>ir insLen
 
 let dczva ins insLen ctxt addr =
@@ -1989,11 +2007,12 @@ let sbfm ins insLen ctxt addr dst src immr imms =
   let struct (wmask, tmask) = decodeBitMasks immr imms (int oprSz)
   let immr = transOprToExpr ins ctxt addr immr
   let imms = transOprToExpr ins ctxt addr imms
+  let n0 = AST.num0 oprSz
   !<ir insLen
-  let struct (bot, top, tMask, srcS) = tmpVars4 ir oprSz
+  let struct (bot, srcS, top, tMask) = tmpVars4 ir oprSz
   !!ir (bot := rorForIR src immr width .& (numI64 wmask oprSz))
-  !!ir (srcS := (src >> (imms .- AST.num1 oprSz)) .& (numI32 1 oprSz))
-  !!ir (top := replicateForIR srcS (AST.num1 oprSz) oprSz ir)
+  !!ir (srcS := (src >> imms) .& (AST.num1 oprSz))
+  !!ir (top := AST.ite (srcS == n0) n0 (numI32 -1 oprSz))
   !!ir (tMask := numI64 tmask oprSz)
   dstAssign ins.OprSize dst ((top .& AST.not tMask) .| (bot .& tMask)) ir
   !>ir insLen
@@ -2002,8 +2021,7 @@ let sbfiz ins insLen ctxt addr =
   let struct (dst, src, lsb, width) = getFourOprs ins
   let dst = transOprToExpr ins ctxt addr dst
   let src = transOprToExpr ins ctxt addr src
-  let immr =
-    ((getImmValue lsb * -1L) &&& 0x3F) % (int64 ins.OprSize) |> OprImm
+  let immr = ((getImmValue lsb * -1L) &&& 0x3F) % (int64 ins.OprSize) |> OprImm
   let imms = getImmValue width - 1L |> OprImm
   sbfm ins insLen ctxt addr dst src immr imms
 
@@ -3234,6 +3252,7 @@ let translate ins insLen ctxt =
   | Opcode.CBZ -> cbz ins insLen ctxt addr
   | Opcode.CCMN -> ccmn ins insLen ctxt addr
   | Opcode.CCMP -> ccmp ins insLen ctxt addr
+  | Opcode.CLS -> cls ins insLen ctxt addr
   | Opcode.CLZ -> clz ins insLen ctxt addr
   | Opcode.CMEQ -> cmeq ins insLen ctxt addr
   | Opcode.CMGE -> cmge ins insLen ctxt addr
@@ -3249,6 +3268,7 @@ let translate ins insLen ctxt =
   | Opcode.CSEL -> csel ins insLen ctxt addr
   | Opcode.CSETM | Opcode.CINV | Opcode.CSINV -> csinv ins insLen ctxt addr
   | Opcode.CSINC | Opcode.CINC | Opcode.CSET -> csinc ins insLen ctxt addr
+  | Opcode.CTZ -> ctz ins insLen ctxt addr
   | Opcode.DCZVA -> dczva ins insLen ctxt addr
   | Opcode.DMB | Opcode.DSB | Opcode.ISB -> nop insLen ctxt
   | Opcode.DUP -> dup ins insLen ctxt addr
