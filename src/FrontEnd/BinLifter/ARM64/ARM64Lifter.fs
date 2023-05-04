@@ -614,7 +614,7 @@ let ctz ins insLen ctxt addr =
   let dst, src = transTwoOprs ins ctxt addr
   !<ir insLen
   let revSrc = !+ir ins.OprSize
-  !!ir (revSrc := bitReverse src ins.OprSize ir)
+  !!ir (revSrc := bitReverse src ins.OprSize)
   let res = countLeadingZeroBitsForIR revSrc (int ins.OprSize) ins.OprSize ir
   dstAssign ins.OprSize dst res ir
   !>ir insLen
@@ -2007,11 +2007,12 @@ let sbfm ins insLen ctxt addr dst src immr imms =
   let struct (wmask, tmask) = decodeBitMasks immr imms (int oprSz)
   let immr = transOprToExpr ins ctxt addr immr
   let imms = transOprToExpr ins ctxt addr imms
+  let n0 = AST.num0 oprSz
   !<ir insLen
-  let struct (bot, top, tMask, srcS) = tmpVars4 ir oprSz
+  let struct (bot, srcS, top, tMask) = tmpVars4 ir oprSz
   !!ir (bot := rorForIR src immr width .& (numI64 wmask oprSz))
-  !!ir (srcS := (src >> (imms .- AST.num1 oprSz)) .& (numI32 1 oprSz))
-  !!ir (top := replicateForIR srcS (AST.num1 oprSz) oprSz ir)
+  !!ir (srcS := (src >> imms) .& (AST.num1 oprSz))
+  !!ir (top := AST.ite (srcS == n0) n0 (numI32 -1 oprSz))
   !!ir (tMask := numI64 tmask oprSz)
   dstAssign ins.OprSize dst ((top .& AST.not tMask) .| (bot .& tMask)) ir
   !>ir insLen
@@ -2020,8 +2021,7 @@ let sbfiz ins insLen ctxt addr =
   let struct (dst, src, lsb, width) = getFourOprs ins
   let dst = transOprToExpr ins ctxt addr dst
   let src = transOprToExpr ins ctxt addr src
-  let immr =
-    ((getImmValue lsb * -1L) &&& 0x3F) % (int64 ins.OprSize) |> OprImm
+  let immr = ((getImmValue lsb * -1L) &&& 0x3F) % (int64 ins.OprSize) |> OprImm
   let imms = getImmValue width - 1L |> OprImm
   sbfm ins insLen ctxt addr dst src immr imms
 
