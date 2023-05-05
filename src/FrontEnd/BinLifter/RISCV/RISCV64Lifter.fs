@@ -520,10 +520,8 @@ let private mul64BitReg src1 src2 ir isSign =
 let add insInfo insLen ctxt =
   let ir = !*ctxt
   let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
-  let result = !+ir 64<rt>
   !<ir insLen
-  !!ir (result := rs1 .+ rs2)
-  !!ir (rd := result)
+  !!ir (rd := rs1 .+ rs2)
   !>ir insLen
 
 let addw insInfo insLen ctxt =
@@ -547,37 +545,29 @@ let subw insInfo insLen ctxt =
 let sub insInfo insLen ctxt =
   let ir = !*ctxt
   let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
-  let result = !+ir 64<rt>
   !<ir insLen
-  !!ir (result := rs1 .- rs2)
-  !!ir (rd := result)
+  !!ir (rd := rs1 .- rs2)
   !>ir insLen
 
 let ``and`` insInfo insLen ctxt =
   let ir = !*ctxt
   let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
-  let result = !+ir 64<rt>
   !<ir insLen
-  !!ir (result := rs1 .& rs2)
-  !!ir (rd := result)
+  !!ir (rd := rs1 .& rs2)
   !>ir insLen
 
 let ``or`` insInfo insLen ctxt =
   let ir = !*ctxt
   let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
-  let result = !+ir 64<rt>
   !<ir insLen
-  !!ir (result := rs1 .| rs2)
-  !!ir (rd := result)
+  !!ir (rd := rs1 .| rs2)
   !>ir insLen
 
 let xor insInfo insLen ctxt =
   let ir = !*ctxt
   let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
-  let result = !+ir 64<rt>
   !<ir insLen
-  !!ir (result := rs1 <+> rs2)
-  !!ir (rd := result)
+  !!ir (rd := rs1 <+> rs2)
   !>ir insLen
 
 let slt insInfo insLen ctxt =
@@ -853,42 +843,31 @@ let addiw insInfo insLen ctxt =
   let ir = !*ctxt
   let rd, rs1, imm = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   let lowBitsRs1 = AST.xtlo 32<rt> rs1
-  let retValue = !+ir 32<rt>
   !<ir insLen
-  !!ir (retValue := lowBitsRs1 .+ AST.xtlo 32<rt> imm)
-  !!ir (rd := AST.sext 64<rt> retValue)
+  !!ir (rd := AST.sext 64<rt> (lowBitsRs1 .+ AST.xtlo 32<rt> imm))
   !>ir insLen
 
 let slliw insInfo insLen ctxt =
   let ir = !*ctxt
   let rd, rs1, shamt = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   let lowBitsRs1 = AST.xtlo 32<rt> rs1
-  let retValue = !+ir 32<rt>
   !<ir insLen
-  !!ir (retValue := lowBitsRs1 << AST.xtlo 32<rt> shamt)
-  !!ir (rd := AST.sext 64<rt> retValue)
+  !!ir (rd := AST.sext 64<rt> (lowBitsRs1 << AST.xtlo 32<rt> shamt))
   !>ir insLen
-
 let srliw insInfo insLen ctxt =
   let ir = !*ctxt
   let rd, rs1, shamt = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   let lowBitsRs1 = AST.xtlo 32<rt> rs1
-  let retValue = !+ir 32<rt>
   !<ir insLen
-  !!ir (retValue := lowBitsRs1 >> AST.xtlo 32<rt> shamt)
-  !!ir (rd := AST.sext 64<rt> retValue)
+  !!ir (rd := AST.sext 64<rt> (lowBitsRs1 >> AST.xtlo 32<rt> shamt))
   !>ir insLen
-
 let sraiw insInfo insLen ctxt =
   let ir = !*ctxt
   let rd, rs1, shamt = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   let lowBitsRs1 = AST.xtlo 32<rt> rs1
-  let retValue = !+ir 32<rt>
   !<ir insLen
-  !!ir (retValue := lowBitsRs1 ?>> AST.xtlo 32<rt> shamt)
-  !!ir (rd := AST.sext 64<rt> retValue)
+  !!ir (rd := AST.sext 64<rt> (lowBitsRs1 ?>> AST.xtlo 32<rt> shamt))
   !>ir insLen
-
 let mul insInfo insLen ctxt isSign =
   let ir = !*ctxt
   let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
@@ -896,7 +875,6 @@ let mul insInfo insLen ctxt isSign =
   let struct (_, low) = mul64BitReg rs1 rs2 ir isSign
   !!ir (rd := low)
   !>ir insLen
-
 let mulhSignOrUnsign insInfo insLen ctxt isSign =
   let ir = !*ctxt
   let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
@@ -904,7 +882,6 @@ let mulhSignOrUnsign insInfo insLen ctxt isSign =
   let struct (high, _) = mul64BitReg rs1 rs2 ir isSign
   !!ir (rd := high)
   !>ir insLen
-
 let mulw insInfo insLen ctxt =
   let ir = !*ctxt
   let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
@@ -913,7 +890,6 @@ let mulw insInfo insLen ctxt =
   !<ir insLen
   !!ir (rd := AST.sext 64<rt> (lowBitsRs1 .* lowBitsRs2))
   !>ir insLen
-
 let div insInfo insLen ctxt =
   let ir = !*ctxt
   let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
