@@ -114,7 +114,8 @@ let getControlRegister = function (* 1:op0:op1:CRn:CRm:op2 *)
   | 0b1101101000100000u -> R.FPCR
   | 0b1101101000100001u -> R.FPSR
   | 0b1100000000000000u -> R.MIDREL1
-  | _ -> Utils.futureFeature () (* D7.2 General system control registers *)
+  | 0b1101101000010000u -> R.NZCV
+  | _ -> Utils.futureFeature () (* D13.2 General system control registers *)
 
 let getCoprocCRegister = function
   | 0x00uy -> R.C0

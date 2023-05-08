@@ -1792,16 +1792,36 @@ let movz ins insLen ctxt addr =
 
 let mrs ins insLen ctxt addr =
   let ir = !*ctxt
-  let dst, src = transTwoOprs ins ctxt addr
   !<ir insLen
+  let struct (dst, src) = getTwoOprs ins
+  let dst = transOprToExpr ins ctxt addr dst
+  let src =
+    match src with
+    | OprRegister R.NZCV ->
+      let n = (getRegVar ctxt R.N |> AST.zext 64<rt>) << numI32 31 64<rt>
+      let z = (getRegVar ctxt R.Z |> AST.zext 64<rt>) << numI32 30 64<rt>
+      let c = (getRegVar ctxt R.C |> AST.zext 64<rt>) << numI32 29 64<rt>
+      let v = (getRegVar ctxt R.V |> AST.zext 64<rt>) << numI32 28 64<rt>
+      n .| z .| c .| v
+    | _ -> transOprToExpr ins ctxt addr src
   !!ir (dst := src)
   !>ir insLen
 
 let msr ins insLen ctxt addr =
   let ir = !*ctxt
-  let dst, src = transTwoOprs ins ctxt addr
   !<ir insLen
-  !!ir (dst := src)
+  let struct (dst, src) = getTwoOprs ins
+  match dst with
+  | OprRegister R.NZCV ->
+    let src = transOprToExpr ins ctxt addr src
+    !!ir (getRegVar ctxt R.N := AST.extract src 1<rt> 31)
+    !!ir (getRegVar ctxt R.Z := AST.extract src 1<rt> 30)
+    !!ir (getRegVar ctxt R.C := AST.extract src 1<rt> 29)
+    !!ir (getRegVar ctxt R.V := AST.extract src 1<rt> 28)
+  | _ ->
+    let dst = transOprToExpr ins ctxt addr dst
+    let src = transOprToExpr ins ctxt addr src
+    !!ir (dst := src)
   !>ir insLen
 
 let msub ins insLen ctxt addr =
