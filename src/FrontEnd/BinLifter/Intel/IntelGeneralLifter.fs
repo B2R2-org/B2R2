@@ -1493,7 +1493,7 @@ let loop ins insLen ctxt =
     | _ -> raise InvalidOpcodeException
   let fallThrough = pc .+ numInsLen insLen ctxt
   let jumpTarget = if addrSize = 16<rt> then pc .& numI32 0xFFFF 32<rt>
-                   else pc .+ AST.sext addrSize dst
+                   else pc .+ AST.sext ctxt.WordBitSize dst
   !!ir (AST.intercjmp branchCond jumpTarget fallThrough)
   !>ir insLen
 
