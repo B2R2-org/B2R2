@@ -1103,20 +1103,19 @@ let pextrb ins insLen ctxt =
   let ir = !*ctxt
   !<ir insLen
   let struct (dst, src, count) = getThreeOprs ins
-  let dst = transOprToExpr ir false ins insLen ctxt dst
   let count = getImmValue count
-  let oprSize = getOperationSize ins
-  match src with
-  | OprReg reg ->
-    let srcB, srcA = getPseudoRegVar128 ctxt reg
-    let count = (count &&& 0b1111) (* COUNT[3:0] *) * 8L
-    let lAmt = numI64 (64L - (count % 64L)) 64<rt> (* Left Shift *)
-    let rAmt = numI64 (count % 64L) 64<rt> (* Right Shift *)
-    let result =
-      if count < 64 then
-        ((srcB << lAmt) .| (srcA >> rAmt)) .& numU32 0xFFu 64<rt>
-      else (srcB >> rAmt) .& numU32 0xFFu 64<rt>
-    !!ir (dstAssign oprSize dst (AST.xtlo oprSize result))
+  let dExpr = transOprToExpr ir false ins insLen ctxt dst
+  let srcB, srcA = transOprToExpr128 ir false ins insLen ctxt src
+  let count = (count &&& 0b1111) (* COUNT[3:0] *) * 8L
+  let lAmt = numI64 (64L - (count % 64L)) 64<rt> (* Left Shift *)
+  let rAmt = numI64 (count % 64L) 64<rt> (* Right Shift *)
+  let result =
+    if count < 64 then ((srcB << lAmt) .| (srcA >> rAmt)) .& numU32 0xFFu 64<rt>
+    else (srcB >> rAmt) .& numU32 0xFFu 64<rt>
+    |> AST.xtlo 8<rt>
+  match dst with
+  | OprReg _ -> !!ir (dstAssign 32<rt> dExpr (AST.zext 32<rt> result))
+  | OprMem _ -> !!ir (dExpr := result)
   | _ -> raise InvalidOperandException
   !>ir insLen
 
