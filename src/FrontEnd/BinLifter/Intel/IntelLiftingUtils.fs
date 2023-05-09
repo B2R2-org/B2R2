@@ -67,6 +67,11 @@ let inline getImmValue imm =
   | OprImm (imm, _) -> imm
   | _ -> raise InvalidOperandException
 
+let inline isConst (e: Expr) =
+  match e.E with
+  | Num _ -> true
+  | _ -> false
+
 let private getMemExpr128 expr =
   match expr.E with
   | Load (e, 128<rt>, expr, _) ->

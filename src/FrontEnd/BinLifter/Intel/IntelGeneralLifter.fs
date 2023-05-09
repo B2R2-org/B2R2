@@ -312,10 +312,13 @@ let add ins insLen ctxt =
     let struct (ofl, sf) = osfOnAdd t1 t1 t2 ir
     !?ir (enumEFLAGS ctxt t1 t1 t2 oprSize (cfOnAdd t1 t2) ofl sf)
   else
-    let struct (t1, t2, t3) = tmpVars3 ir oprSize
+    let isSrcConst = isConst src
+    let t1 = !+ir oprSize
+    let t2 = if isSrcConst then src else !+ir oprSize
+    let t3 = !+ir oprSize
     if hasLock ins.Prefixes then !!ir (AST.sideEffect Lock) else ()
     !!ir (t1 := dst)
-    !!ir (t2 := src)
+    if isSrcConst then () else !!ir (t2 := src)
     !!ir (t3 := t1 .+ t2)
     !!ir (dstAssign oprSize dst t3)
     let struct (ofl, sf) = osfOnAdd t1 t2 t3 ir
@@ -2145,6 +2148,7 @@ let shift ins insLen ctxt =
   let n1 = AST.num1 oprSize
   let countMask = if is64REXW ctxt ins then numU32 0x3Fu oprSize
                   else numU32 0x1Fu oprSize
+  let isCntConst = isConst src
   let cnt = (AST.zext oprSize src) .& countMask
   let cond1 = cnt == n1
   let cond2 = cnt == n0
@@ -2156,13 +2160,13 @@ let shift ins insLen ctxt =
   let aF = !.ctxt R.AF
 #endif
   let tDst = !+ir oprSize
-  let tCnt = !+ir oprSize
+  let tCnt = if isCntConst then cnt .- n1 else !+ir oprSize
   !!ir (tDst := dst)
   match ins.Opcode with
   | Opcode.SAR ->
-    let prevLBit = AST.xtlo 1<rt> (tDst ?>> tCnt)
     !!ir (dstAssign oprSize dst (tDst ?>> cnt))
-    !!ir (tCnt := cnt .- n1)
+    let prevLBit = AST.xtlo 1<rt> (tDst ?>> tCnt)
+    if isCntConst then () else !!ir (tCnt := cnt .- n1)
     !!ir (cF := AST.ite cond2 cF prevLBit)
 #if !EMULATION
     !!ir (oF := AST.ite cond1 AST.b0 (AST.ite cond2 oF undefOF))
@@ -2170,10 +2174,10 @@ let shift ins insLen ctxt =
     !!ir (oF := AST.ite cond1 AST.b0 oF)
 #endif
   | Opcode.SHL ->
-    let prevHBit = AST.xthi 1<rt> (tDst << tCnt)
     let of1 = AST.xthi 1<rt> dst <+> cF
     !!ir (dstAssign oprSize dst (tDst << cnt))
-    !!ir (tCnt := cnt .- n1)
+    if isCntConst then () else !!ir (tCnt := cnt .- n1)
+    let prevHBit = AST.xthi 1<rt> (tDst << tCnt)
     !!ir (cF := AST.ite cond2 cF prevHBit)
 #if !EMULATION
     !!ir (oF := AST.ite cond1 of1 (AST.ite cond2 oF undefOF))
@@ -2181,9 +2185,9 @@ let shift ins insLen ctxt =
     !!ir (oF := AST.ite cond1 of1 oF)
 #endif
   | Opcode.SHR ->
-    let prevLBit = AST.xtlo 1<rt> (tDst ?>> tCnt)
     !!ir (dstAssign oprSize dst (tDst >> cnt))
-    !!ir (tCnt := cnt .- n1)
+    if isCntConst then () else !!ir (tCnt := cnt .- n1)
+    let prevLBit = AST.xtlo 1<rt> (tDst ?>> tCnt)
     !!ir (cF := AST.ite cond2 cF prevLBit)
 #if !EMULATION
     !!ir
@@ -2369,11 +2373,14 @@ let sub ins insLen ctxt =
   !<ir insLen
   let struct (dst, src) = transTwoOprs ir true ins insLen ctxt
   let oprSize = getOperationSize ins
-  let struct (t1, t2, t3) = tmpVars3 ir oprSize
-  let sf = AST.xthi 1<rt> t3
+  let isSrcConst = isConst src
   if hasLock ins.Prefixes then !!ir (AST.sideEffect Lock) else ()
+  let t1 = !+ir oprSize
+  let t2 = if isSrcConst then src else !+ir oprSize
+  let t3 = !+ir oprSize
+  let sf = AST.xthi 1<rt> t3
   !!ir (t1 := dst)
-  !!ir (t2 := src)
+  if isSrcConst then () else !!ir (t2 := src)
   !!ir (t3 := t1 .- t2)
   !!ir (dstAssign oprSize dst t3)
   !?ir (enumEFLAGS ctxt t1 t2 t3 oprSize (cfOnSub t1 t2) (ofOnSub t1 t2 t3) sf)
