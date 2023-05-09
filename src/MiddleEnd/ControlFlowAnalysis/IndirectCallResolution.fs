@@ -40,9 +40,10 @@ module private IndirectCallResolution =
   let resolveCallTarget st = function
     | Var v ->
       match v.Kind with
-      | TempVar _ -> CPState.findReg st v
-      | _ -> Utils.futureFeature ()
-    | _ -> Utils.futureFeature ()
+      | TempVar _
+      | RegVar _ -> CPState.findReg st v
+      | _ -> NotAConst (* XXX: Just ignore other cases. *)
+    | _ -> NotAConst (* XXX: Just ignore other cases. *)
 
   let updateCallInfo (func: RegularFunction) callSiteAddr target =
 #if CFGDEBUG

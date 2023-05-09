@@ -122,12 +122,12 @@ let private getRegOfSize ctxt oprSize regGrp =
 let inline private getStackWidth wordSize oprSize =
   numI32 (RegType.toByteWidth oprSize) wordSize
 
+/// Push the given expression to the stack, assuming that the expression does
+/// not include stack pointer.
 let private auxPush oprSize ctxt expr ir =
-  let t = !+ir oprSize
   let sp = getStackPtr ctxt
-  !!ir (t := expr)
   !!ir (sp := sp .- (getStackWidth ctxt.WordBitSize oprSize))
-  !!ir (AST.loadLE oprSize sp := t)
+  !!ir (AST.loadLE oprSize sp := expr)
 
 let private computePopSize oprSize = function
   | Var (_, id, _, _) when isSegReg (Register.ofRegID id) -> 16<rt>
@@ -623,7 +623,7 @@ let call ins insLen ctxt =
   let pc = getInstrPtr ctxt
   let oprSize = getOperationSize ins
   let struct (target, ispcrel) = transJumpTargetOpr ir false ins pc insLen ctxt
-  if ispcrel then
+  if ispcrel || not (hasStackPtr ins) then
     !?ir (auxPush oprSize ctxt (pc .+ numInsLen insLen ctxt))
     !!ir (AST.interjmp target InterJmpKind.IsCall)
   else
@@ -1931,7 +1931,12 @@ let push ins insLen ctxt =
   !<ir insLen
   let src = transOneOpr ir false ins insLen ctxt
   let oprSize = getOperationSize ins
-  !?ir (auxPush oprSize ctxt (padPushExpr oprSize src))
+  if hasStackPtr ins then
+    let t = !+ir oprSize
+    !!ir (t := padPushExpr oprSize src)
+    !?ir (auxPush oprSize ctxt (padPushExpr oprSize t))
+  else
+    !?ir (auxPush oprSize ctxt (padPushExpr oprSize src))
   !>ir insLen
 
 let pusha ins insLen ctxt oprSize =

@@ -288,18 +288,6 @@ let transOprToExpr512 ir useTmpVar ins insLen ctxt opr =
     transMem ir useTmpVar ins insLen ctxt b index disp oprSize |> getMemExpr512
   | _ -> raise InvalidOperandException
 
-let transOprToFloat80 ir useTmpVar ins insLen ctxt opr =
-  match opr with
-  | OprReg r when Register.toRegType r = 80<rt> -> !.ctxt r
-  | OprReg r ->
-    !.ctxt r |> AST.cast CastKind.FloatCast 80<rt>
-  | OprMem (b, index, disp, 80<rt>) ->
-    transMem ir useTmpVar ins insLen ctxt b index disp 80<rt>
-  | OprMem (b, index, disp, len) ->
-    transMem ir useTmpVar ins insLen ctxt b index disp len
-    |> AST.cast CastKind.FloatCast 80<rt>
-  | _ -> raise InvalidOperandException
-
 /// Return a tuple (jump target expr, is pc-relative?)
 let transJumpTargetOpr ir useTmpVar ins pc insLen (ctxt: TranslationContext) =
   match (ins: InsInfo).Operands with
@@ -478,3 +466,13 @@ let sideEffects ctxt insLen name =
   !<ir insLen
   !!ir (AST.sideEffect name)
   !>ir insLen
+
+let hasStackPtr (ins: InsInfo) =
+  match ins.Operands with
+  | OneOperand (OprReg Register.ESP)
+  | OneOperand (OprReg Register.RSP)
+  | OneOperand (OprMem (Some Register.ESP, _, _, _))
+  | OneOperand (OprMem (Some Register.RSP, _, _, _))
+  | OneOperand (OprMem (_, Some (Register.ESP, _), _, _))
+  | OneOperand (OprMem (_, Some (Register.RSP, _), _, _)) -> true
+  | _ -> false
