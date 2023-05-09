@@ -1911,6 +1911,7 @@ let rbit ins insLen ctxt addr =
     let datasize = if ins.OprSize = 64<rt> then 64 else 32
     let tmp = !+ir ins.OprSize
     !<ir insLen
+    !!ir (tmp := numI32 0 ins.OprSize)
     for i in 0 .. (datasize - 1) do
       !!ir (AST.extract tmp 1<rt> (datasize - 1 - i) := AST.extract src 1<rt> i)
     dstAssign ins.OprSize dst tmp ir
@@ -1922,6 +1923,7 @@ let rbit ins insLen ctxt addr =
     let rev = !+ir eSize
     let result = Array.init elements (fun _ -> !+ir eSize)
     !<ir insLen
+    !!ir (rev := numI32 0 eSize)
     let reverse i e =
       let eSize = int eSize
       for i in 0 .. eSize - 1 do
@@ -1955,6 +1957,7 @@ let rev ins insLen ctxt addr =
     dstAssignForSIMD dstA dstB result dataSize elements ir
   | _ ->
     let dst, src = transTwoOprs ins ctxt addr
+    !!ir (t := numI32 0 ins.OprSize)
     for i in 0 .. e do
       !!ir (AST.extract t 8<rt> ((e - i) * 8) := AST.extract src 8<rt> (i * 8))
     dstAssign ins.OprSize dst t ir
@@ -1974,6 +1977,7 @@ let rev16 ins insLen ctxt addr =
     dstAssignForSIMD dstA dstB result dataSize elements ir
   | _ ->
     let dst, src = transTwoOprs ins ctxt addr
+    !!ir (tmp := numI32 0 ins.OprSize)
     for i in 0 .. ((int ins.OprSize / 8) - 1) do
       let idx = i * 8
       let revIdx = if i % 2 = 0 then idx + 8 else idx - 8
@@ -1996,6 +2000,7 @@ let rev32 ins insLen ctxt addr =
     dstAssignForSIMD dstA dstB result dataSize elements ir
   | _ ->
     let dst, src = transTwoOprs ins ctxt addr
+    !!ir (tmp := numI32 0 ins.OprSize)
     for i in 0 .. ((int ins.OprSize / 8) - 1) do
       let revIdx = (i ^^^ 0b11) * 8
       !!ir (AST.extract tmp 8<rt> revIdx := AST.extract src 8<rt> (i * 8))
