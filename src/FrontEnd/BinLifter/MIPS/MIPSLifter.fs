@@ -1185,6 +1185,7 @@ let wsbh insInfo insLen ctxt =
   let rd, rt = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
   let struct (t, eSize) = !+ir 32<rt>, int 8<rt>
   !<ir insLen
+  !!ir (t := numI32 0 32<rt>)
   for e in 0 .. 3 do
     !!ir (elem t e eSize := AST.extract rt 8<rt> (eSize * (1 ^^^ e)))
   done
