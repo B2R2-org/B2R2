@@ -175,7 +175,7 @@ let asrv ins insLen ctxt addr =
   let dst, src1, src2 = transThreeOprs ins ctxt addr
   let amount = src2 .% oprSzToExpr ins.OprSize
   !<ir insLen
-  !!ir (dst := shiftReg src1 amount ins.OprSize SRTypeASR)
+  dstAssign ins.OprSize dst (shiftReg src1 amount ins.OprSize SRTypeASR) ir
   !>ir insLen
 
 let ands ins insLen ctxt addr =
@@ -1719,29 +1719,22 @@ let madd ins insLen ctxt addr =
 let mladdsub ins insLen ctxt addr opFn =
   let ir = !*ctxt
   !<ir insLen
+  let struct (o1, o2, o3) = getThreeOprs ins
+  let dstB, dstA = transOprToExpr128 ins ctxt addr o1
+  let struct (eSize, dataSize, elements) = getElemDataSzAndElems o2
+  let dst = transSIMDOprToExpr ctxt eSize dataSize elements o1
+  let src1 = transSIMDOprToExpr ctxt eSize dataSize elements o2
   match ins.Operands with
   | ThreeOperands (_, _, OprSIMD (SIMDVecReg _)) ->
-    let struct (o1, o2, o3) = getThreeOprs ins
-    let struct (eSize, dataSize, elements) = getElemDataSzAndElems o2
-    let dst = transSIMDOprToExpr ctxt eSize dataSize elements o1
-    let src1 = transSIMDOprToExpr ctxt eSize dataSize elements o2
     let src2 = transSIMDOprToExpr ctxt eSize dataSize elements o3
     let prod = Array.map2 (.*) src1 src2
-    let dstTmp = Array.init elements (fun i -> !+ir eSize)
-    Array.iter2 (fun tmp d -> !!ir (tmp := d)) dstTmp dst
-    Array.iteri2 (fun i dt p -> !!ir (dst[i] := opFn dt p)) dstTmp prod
-    (* FIXME *)
+    let result = Array.map2 (opFn) dst prod
+    dstAssignForSIMD dstA dstB result dataSize elements ir
   | _ ->
-    let struct (o1, o2, o3) = getThreeOprs ins
-    let struct (eSize, dataSize, elements) = getElemDataSzAndElems o2
-    let dst = transSIMDOprToExpr ctxt eSize dataSize elements o1
-    let src1 = transSIMDOprToExpr ctxt eSize dataSize elements o2
     let src2 = transOprToExpr ins ctxt addr o3
     let prod = Array.map (fun s1 -> s1 .* src2) src1
-    let dstTmp = Array.init elements (fun i -> !+ir eSize)
-    Array.iter2 (fun tmp d -> !!ir (tmp := d)) dstTmp dst
-    Array.iteri2 (fun i dt p -> !!ir (dst[i] := opFn dt p)) dstTmp prod
-    (* FIXME *)
+    let result = Array.map2 (opFn) dst prod
+    dstAssignForSIMD dstA dstB result dataSize elements ir
   !>ir insLen
 
 let mov ins insLen ctxt addr =
