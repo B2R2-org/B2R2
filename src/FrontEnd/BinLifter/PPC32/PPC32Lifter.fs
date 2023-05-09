@@ -211,6 +211,7 @@ let transBranchThreeOprs (ins: InsInfo) ctxt =
   | _ -> raise InvalidOperandException
 
 let getCRRegValue ir cr ctxt =
+  !!ir (cr := numI32 0 32<rt>)
   for i in 0 .. 31 do
     let crbit = uint32 (31 - i) |> getCRbitRegister |> !.ctxt
     !!ir (AST.extract cr 1<rt> i := crbit)
