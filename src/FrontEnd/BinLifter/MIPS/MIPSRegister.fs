@@ -170,6 +170,8 @@ type Register =
   | LLBit = 0x104
   /// Floating Point Control and Status Register.
   | FCSR = 0x105
+  /// Floating Point Implementation Register.
+  | FIR = 0x106
 
 /// Shortcut for Register type.
 type internal R = Register
@@ -258,6 +260,7 @@ module Register =
     | "pc" -> R.PC
     | "llbit" -> R.LLBit
     | "fcsr" -> R.FCSR
+    | "fir" -> R.FIR
     | _ -> Utils.impossible ()
 
   let toString32 = function
@@ -330,6 +333,7 @@ module Register =
     | R.PC  -> "pc"
     | R.LLBit -> "LLBit"
     | R.FCSR -> "fcsr"
+    | R.FIR -> "fir"
     | _ -> Utils.impossible ()
 
   let toString64 = function
@@ -402,6 +406,7 @@ module Register =
     | R.PC  -> "pc"
     | R.LLBit -> "LLBit"
     | R.FCSR -> "fcsr"
+    | R.FIR -> "fir"
     | _ -> Utils.impossible ()
 
   let getFPPairReg = function

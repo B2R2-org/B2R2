@@ -107,6 +107,7 @@ type internal RegExprs (wordSize) =
   member val LLBit =
     var 1<rt> (Register.toRegID Register.LLBit) "LLBit" with get
   member val FCSR = var 32<rt> (Register.toRegID Register.FCSR) "FCSR" with get
+  member val FIR = var 32<rt> (Register.toRegID Register.FIR) "FIR" with get
 
   member __.GetRegVar (name) =
     match name with
@@ -180,6 +181,7 @@ type internal RegExprs (wordSize) =
     | R.F30 -> __.F30
     | R.F31 -> __.F31
     | R.FCSR -> __.FCSR
+    | R.FIR -> __.FIR
     | _ -> raise UnhandledRegExprException
 
 // vim: set tw=80 sts=2 sw=2:
