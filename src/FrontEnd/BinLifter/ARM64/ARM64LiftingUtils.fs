@@ -137,6 +137,7 @@ let extend reg oprSize isUnsigned =
 /// ===========
 /// Perform a register extension and shift
 let extendReg ctxt reg typ shift oprSize =
+  let regType = Register.toRegType reg
   let reg = getRegVar ctxt reg
   let shift =
     match shift with
@@ -153,8 +154,8 @@ let extendReg ctxt reg typ shift oprSize =
     | ExtUXTW -> true, 32
     | ExtUXTX -> true, 64
   let len = min len ((RegType.toBitWidth oprSize) - shift)
-  let rTyp = RegType.fromBitWidth len
-  extend ((AST.xtlo rTyp  reg) << numI32 shift rTyp) oprSize isUnsigned
+  let mask = numI64 (if len = 64 then -1L else (1L <<< len) - 1L) regType
+  extend ((reg .& mask) << numI32 shift regType) oprSize isUnsigned
 
 let getElemDataSzAndElemsByVector = function
   (* Vector register names with element index *)
