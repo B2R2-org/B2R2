@@ -104,13 +104,19 @@ let private cfOnSub e1 e2 = AST.lt e1 e2
 
 /// OF and SF on add.
 let private osfOnAdd e1 e2 r ir =
-  let struct (t1, t2) = tmpVars2 ir 1<rt>
-  let e1High = AST.xthi 1<rt> e1
-  let e2High = AST.xthi 1<rt> e2
-  let rHigh = AST.xthi 1<rt> r
-  !!ir (t1 := e1High)
-  !!ir (t2 := rHigh)
-  struct ((t1 == e2High) .& (t1 <+> t2), t2)
+  if e1 = e2 then
+    let rHigh = !+ir 1<rt>
+    let e1High = AST.xthi 1<rt> e1
+    !!ir (rHigh := AST.xthi 1<rt> r)
+    struct ((e1High <+> rHigh), rHigh)
+  else
+    let struct (t1, t2) = tmpVars2 ir 1<rt>
+    let e1High = AST.xthi 1<rt> e1
+    let e2High = AST.xthi 1<rt> e2
+    let rHigh = AST.xthi 1<rt> r
+    !!ir (t1 := e1High)
+    !!ir (t2 := rHigh)
+    struct ((t1 == e2High) .& (t1 <+> t2), t2)
 
 /// OF on sub.
 let private ofOnSub e1 e2 r =
@@ -1787,7 +1793,7 @@ let not ins insLen ctxt =
 let logOr ins insLen ctxt =
   let ir = !*ctxt
   !<ir insLen
-  let struct (dst, src) = transTwoOprs ir false ins insLen ctxt
+  let struct (dst, src) = transTwoOprs ir true ins insLen ctxt
   let oprSize = getOperationSize ins
   let t = !+ir oprSize
   let sf = AST.xthi 1<rt> t
