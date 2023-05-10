@@ -314,6 +314,57 @@ let transOprToArr ir useTmpVars ins insLen ctxt packSz packNum oprSize opr =
     | OprImm _ ->
       let opr = transOprToExpr ir false ins insLen ctxt opr
       Array.init (oprSize / packSz) (fun i -> AST.extract opr packSz (i * pos))
+    | OprMem _ ->
+      match oprSize with
+      | 64<rt> ->
+        let opr = transOprToExpr ir false ins insLen ctxt opr
+        let mem = !+ir 64<rt>
+        !!ir (mem := opr)
+        Array.init packNum (fun i -> AST.extract mem packSz (i * pos))
+      | 128<rt> ->
+        let oB, oA = transOprToExpr128 ir false ins insLen ctxt opr
+        let struct (mB, mA) = tmpVars2 ir 64<rt>
+        !!ir (mA := oA)
+        !!ir (mB := oB)
+        let oprA = Array.init packNum (fun i -> AST.extract mA packSz (i * pos))
+        let oprB = Array.init packNum (fun i -> AST.extract mB packSz (i * pos))
+        Array.append oprA oprB
+      | 256<rt> ->
+        let oD, oC, oB, oA =
+          transOprToExpr256 ir false ins insLen ctxt opr
+        let struct (mD, mC, mB, mA) = tmpVars4 ir 64<rt>
+        !!ir (mA := oA)
+        !!ir (mB := oB)
+        !!ir (mC := oC)
+        !!ir (mD := oD)
+        let oprA = Array.init packNum (fun i -> AST.extract mA packSz (i * pos))
+        let oprB = Array.init packNum (fun i -> AST.extract mB packSz (i * pos))
+        let oprC = Array.init packNum (fun i -> AST.extract mC packSz (i * pos))
+        let oprD = Array.init packNum (fun i -> AST.extract mD packSz (i * pos))
+        Array.concat [| oprA; oprB; oprC; oprD |]
+      | 512<rt> ->
+        let oH, oG, oF, oE, oD, oC, oB, oA =
+          transOprToExpr512 ir false ins insLen ctxt opr
+        let struct (mD, mC, mB, mA) = tmpVars4 ir 64<rt>
+        let struct (mH, mG, mF, mE) = tmpVars4 ir 64<rt>
+        !!ir (mA := oA)
+        !!ir (mB := oB)
+        !!ir (mC := oC)
+        !!ir (mD := oD)
+        !!ir (mE := oE)
+        !!ir (mF := oF)
+        !!ir (mG := oG)
+        !!ir (mH := oH)
+        let oprA = Array.init packNum (fun i -> AST.extract mA packSz (i * pos))
+        let oprB = Array.init packNum (fun i -> AST.extract mB packSz (i * pos))
+        let oprC = Array.init packNum (fun i -> AST.extract mC packSz (i * pos))
+        let oprD = Array.init packNum (fun i -> AST.extract mD packSz (i * pos))
+        let oprE = Array.init packNum (fun i -> AST.extract mE packSz (i * pos))
+        let oprF = Array.init packNum (fun i -> AST.extract mF packSz (i * pos))
+        let oprG = Array.init packNum (fun i -> AST.extract mG packSz (i * pos))
+        let oprH = Array.init packNum (fun i -> AST.extract mH packSz (i * pos))
+        Array.concat [| oprA; oprB; oprC; oprD; oprE; oprF; oprG; oprH |]
+      | _ -> raise InvalidOperandSizeException
     | _ ->
       match oprSize with
       | 64<rt> ->
