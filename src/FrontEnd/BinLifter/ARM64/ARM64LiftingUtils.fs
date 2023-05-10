@@ -475,6 +475,15 @@ let transOprToExprOfCSEL ins ctxt addr =
     o4 |> unwrapCond
   | _ -> raise InvalidOperandException
 
+let transOprToExprOfFCSEL ins ctxt addr =
+  match ins.Operands with
+  | FourOperands (o1, o2, o3, o4) ->
+    o1,
+    transOprToExpr ins ctxt addr o2,
+    transOprToExpr ins ctxt addr o3,
+    o4 |> unwrapCond
+  | _ -> raise InvalidOperandException
+
 let transOprToExprOfCSINC ins ctxt addr =
   match ins.Operands with
   | TwoOperands (o1, o2) -> (* CSET *)
@@ -833,6 +842,68 @@ let signedSatQ i n ir =
 let satQ i n isUnsigned ir = (* FIMXE: return saturated (FPSR.QC = '1') *)
   if isUnsigned then unsignedSatQ i n ir else signedSatQ i n ir
 
+/// Exception
+
+let isNaN oprSize expr =
+  match oprSize with
+  | 32<rt> -> IEEE754Single.isNaN expr
+  | 64<rt> -> IEEE754Double.isNaN expr
+  | _ -> Utils.impossible ()
+
+let isSNaN oprSize expr =
+  match oprSize with
+  | 32<rt> -> IEEE754Single.isSNaN expr
+  | 64<rt> -> IEEE754Double.isSNaN expr
+  | _ -> Utils.impossible ()
+
+let isQNaN oprSize expr =
+  match oprSize with
+  | 32<rt> -> IEEE754Single.isQNaN expr
+  | 64<rt> -> IEEE754Double.isQNaN expr
+  | _ -> Utils.impossible ()
+
+let isInfinity oprSize expr =
+  match oprSize with
+  | 32<rt> -> IEEE754Single.isInfinity expr
+  | 64<rt> -> IEEE754Double.isInfinity expr
+  | _ -> Utils.impossible ()
+
+let isZero oprSize expr =
+  match oprSize with
+  | 32<rt> -> IEEE754Single.isZero expr
+  | 64<rt> -> IEEE754Double.isZero expr
+  | _ -> Utils.impossible ()
+
+/// shared/functions/float/fproundingmode/FPRoundingMode
+/// FPRoundingMode()
+let fpRoundingMode src oprSz ctxt =
+  let fpcr = getRegVar ctxt R.FPCR |> AST.xtlo 32<rt>
+  let rm = AST.shr (AST.shl fpcr (numI32 8 32<rt>)) (numI32 0x1E 32<rt>)
+  AST.ite (rm == numI32 0 32<rt>)
+    (AST.cast CastKind.FtoFRound oprSz src) // 0 RN
+    (AST.ite (rm == numI32 1 32<rt>)
+      (AST.cast CastKind.FtoFCeil oprSz src) // 1 RZ
+      (AST.ite (rm == numI32 2 32<rt>)
+        (AST.cast CastKind.FtoFFloor oprSz src) // 2 RP
+        (AST.ite (rm == numI32 3 32<rt>)
+          (AST.cast CastKind.FtoFTrunc oprSz src) // 3 RM
+          (AST.cast CastKind.FtoIRound oprSz src))))
+
+/// shared/functions/float/fproundingmode/FPRoundingMode
+/// FtoI
+let fpRoundingToInt src oprSz ctxt =
+  let fpcr = getRegVar ctxt R.FPCR |> AST.xtlo 32<rt>
+  let rm = AST.shr (AST.shl fpcr (numI32 8 32<rt>)) (numI32 0x1E 32<rt>)
+  AST.ite (rm == numI32 0 32<rt>)
+    (AST.cast CastKind.FtoIRound oprSz src) // 0 RN
+    (AST.ite (rm == numI32 1 32<rt>)
+      (AST.cast CastKind.FtoICeil oprSz src) // 1 RP
+      (AST.ite (rm == numI32 2 32<rt>)
+        (AST.cast CastKind.FtoIFloor oprSz src) // 2 RMP
+        (AST.ite (rm == numI32 3 32<rt>)
+          (AST.cast CastKind.FtoITrunc oprSz src) // 3 RZ
+          (AST.cast CastKind.FtoIRound oprSz src))))
+
 /// shared/functions/float/FPToFixed
 /// FPToFixed()
 /// ======
@@ -852,7 +923,7 @@ let fpToFixed dstSz src fbits unsigned round =
     | FPRounding_POSINF -> AST.cast CastKind.FtoICeil srcSz
     | FPRounding_NEGINF -> AST.cast CastKind.FtoIFloor srcSz
   match dstSz, srcSz with
-  | d, s when d >=s -> round bigint
+  | d, s when d >= s -> round bigint
   | _ -> round bigint |> AST.xtlo dstSz
   |> if unsigned then AST.zext dstSz else AST.sext dstSz
 
