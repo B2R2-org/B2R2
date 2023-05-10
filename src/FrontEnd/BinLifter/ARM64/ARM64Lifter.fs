@@ -498,8 +498,8 @@ let private compare ins insLen ctxt addr cond =
   !>ir insLen
 
 let cmeq ins insLen ctxt addr = compare ins insLen ctxt addr (==)
-let cmgt ins insLen ctxt addr = compare ins insLen ctxt addr (.>)
-let cmge ins insLen ctxt addr = compare ins insLen ctxt addr (.>=)
+let cmgt ins insLen ctxt addr = compare ins insLen ctxt addr (?>)
+let cmge ins insLen ctxt addr = compare ins insLen ctxt addr (?>=)
 
 let private cmpHigher ins insLen ctxt addr cond =
   let ir = !*ctxt
@@ -537,12 +537,12 @@ let cmlt ins insLen ctxt addr =
   match dst with
   | OprSIMD (SIMDFPScalarReg _) ->
     let src1 = transOprToExpr ins ctxt addr src1
-    let result = AST.ite (src1 .> zeros) ones zeros
+    let result = AST.ite (src1 ?< zeros) ones zeros
     dstAssignScalar ins ctxt addr dst result eSize ir
   | _ ->
     let dstB, dstA = transOprToExpr128 ins ctxt addr dst
     let src1 = transSIMDOprToExpr ctxt eSize dataSize elements src1
-    let result = Array.map (fun e -> AST.ite (e .< zeros) ones zeros) src1
+    let result = Array.map (fun e -> AST.ite (e ?< zeros) ones zeros) src1
     dstAssignForSIMD dstA dstB result dataSize elements ir
   !>ir insLen
 
