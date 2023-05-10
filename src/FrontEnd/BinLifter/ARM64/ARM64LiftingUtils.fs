@@ -705,15 +705,18 @@ let conditionHolds ctxt = function
 /// HighestSetBit()
 /// ===============
 let highestSetBitForIR expr width oprSz ir =
-  let struct (high, n1) = tmpVars2 ir oprSz
-  !!ir (high := numI32 -1 oprSz)
+  let struct (highest, n1) = tmpVars2 ir oprSz
+  !!ir (highest := numI32 -1 oprSz)
   !!ir (n1 := AST.num1 oprSz)
   let inline pos i =
+    let elem = !+ir oprSz
     let bit = AST.extract expr 1<rt> i |> AST.zext oprSz
-    (bit .* ((numI32 i oprSz) .+ n1)) .- n1
+    !!ir (elem := (bit .* ((numI32 i oprSz) .+ n1)) .- n1)
+    elem
   Array.init width pos
-  |> Array.iter (fun e -> !!ir (high := AST.ite (high ?<= e) e high))
-  high
+  |> Array.iter (fun e -> !!ir (highest := AST.ite (highest ?<= e) e highest))
+
+  highest
 
 let highestSetBit x size =
   let rec loop i =
@@ -796,7 +799,7 @@ let countLeadingSignBitsForIR expr oprSize ir =
   /// This count does not include the most significant bit of the source
   /// register.
   let bitSize = int oprSize - 1
-  countLeadingZeroBitsForIR expr bitSize oprSize ir
+  countLeadingZeroBitsForIR xExpr bitSize oprSize ir
 
 /// shared/functions/vector/UnsignedSatQ
 /// UnsignedSatQ()
