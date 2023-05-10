@@ -2243,8 +2243,11 @@ let sshl ins insLen ctxt addr =
     let dstB, dstA = transOprToExpr128 ins ctxt addr dst
     let src1 = transSIMDOprToExpr ctxt eSize dataSize elements o1
     let src2 = transSIMDOprToExpr ctxt eSize dataSize elements o2
-               |> Array.map (AST.xtlo 8<rt>)
-    let result = Array.map2 (fun s1 s2 -> s1 << AST.sext eSize s2) src1 src2
+    let inline shiftLeft e1 e2 =
+      let shf = !+ir eSize
+      !!ir (shf := AST.xtlo 8<rt> e2 |> AST.sext eSize)
+      AST.ite (shf ?< AST.num0 eSize) (e1 ?>> AST.neg shf) (e1 << shf)
+    let result = Array.map2 shiftLeft src1 src2
     dstAssignForSIMD dstA dstB result dataSize elements ir
   !>ir insLen
 
@@ -3152,8 +3155,11 @@ let ushl ins insLen ctxt addr =
     let dstB, dstA = transOprToExpr128 ins ctxt addr dst
     let src1 = transSIMDOprToExpr ctxt eSize dataSize elements o1
     let src2 = transSIMDOprToExpr ctxt eSize dataSize elements o2
-               |> Array.map (AST.xtlo 8<rt>)
-    let result = Array.map2 (fun s1 s2 -> s1 << AST.zext eSize s2) src1 src2
+    let inline shiftLeft e1 e2 =
+      let shf = !+ir eSize
+      !!ir (shf := AST.xtlo 8<rt> e2 |> AST.sext eSize)
+      AST.ite (shf ?< AST.num0 eSize) (e1 >> AST.neg shf) (e1 << shf)
+    let result = Array.map2 shiftLeft src1 src2
     dstAssignForSIMD dstA dstB result dataSize elements ir
   !>ir insLen
 
