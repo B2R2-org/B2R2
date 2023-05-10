@@ -57,15 +57,24 @@ let private buildAF ctxt e1 e2 r size =
   let t4 = t2 .& t3
   !.ctxt R.AF := t4 == t3
 
+let private isExprZero e =
+  match e.E with
+  | Num bv when bv.IsZero () -> true
+  | _ -> false
+
 let private buildPF ctxt r size cond ir =
-  let struct (t1, t2) = tmpVars2 ir size
-  let s2 = r <+> (r >> (AST.zext size (numU32 4ul 8<rt>)))
-  let s4 = t1 <+> (t1 >> (AST.zext size (numU32 2ul 8<rt>)))
-  let s5 = t2 <+> (t2 >> (AST.zext size (AST.num1 8<rt>)))
   let pf = !.ctxt R.PF
-  let computedPF = AST.unop UnOpType.NOT (AST.xtlo 1<rt> s5)
-  !!ir (t1 := s2)
-  !!ir (t2 := s4)
+  let computedPF =
+    if isExprZero r then
+      AST.num1 1<rt>
+    else
+      let struct (t1, t2) = tmpVars2 ir size
+      let s2 = r <+> (r >> (AST.zext size (numU32 4ul 8<rt>)))
+      let s4 = t1 <+> (t1 >> (AST.zext size (numU32 2ul 8<rt>)))
+      let s5 = t2 <+> (t2 >> (AST.zext size (AST.num1 8<rt>)))
+      !!ir (t1 := s2)
+      !!ir (t2 := s4)
+      AST.unop UnOpType.NOT (AST.xtlo 1<rt> s5)
   !!ir (match cond with
         | None -> pf := computedPF
         | Some cond -> pf := AST.ite cond pf computedPF)
@@ -698,12 +707,15 @@ let cmovcc ins insLen ctxt =
 let cmp ins insLen ctxt =
   let ir = !*ctxt
   !<ir insLen
-  let oprSize = getOperationSize ins
   let struct (src1, src2) = transTwoOprs ir false ins insLen ctxt
-  let struct (t1, t2, t3) = tmpVars3 ir oprSize
+  let oprSize = getOperationSize ins
+  let isRhsConst = isConst src2
+  let t1 = !+ir oprSize
+  let t2 = if isRhsConst then AST.sext oprSize src2 else !+ir oprSize
+  let t3 = !+ir oprSize
   let sf = AST.xthi 1<rt> t3
   !!ir (t1 := src1)
-  !!ir (t2 := AST.sext oprSize src2)
+  if isRhsConst then () else !!ir (t2 := AST.sext oprSize src2)
   !!ir (t3 := t1 .- t2)
   !?ir (enumEFLAGS ctxt t1 t2 t3 oprSize (cfOnSub t1 t2) (ofOnSub t1 t2 t3) sf)
   !>ir insLen
@@ -2543,8 +2555,13 @@ let xor ins insLen ctxt =
   !<ir insLen
   let struct (dst, src) = transTwoOprs ir false ins insLen ctxt
   let oprSize = getOperationSize ins
-  let r = !+ir oprSize
-  !!ir (r := dst <+> AST.sext oprSize src)
+  let r =
+    if dst = src then
+      AST.num0 oprSize
+    else
+      let tmp = !+ir oprSize
+      !!ir (tmp := dst <+> AST.sext oprSize src)
+      tmp
   !!ir (dstAssign oprSize dst r)
   !!ir (!.ctxt R.OF := AST.b0)
   !!ir (!.ctxt R.CF := AST.b0)
