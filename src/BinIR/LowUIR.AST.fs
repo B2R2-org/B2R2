@@ -169,13 +169,9 @@ let name symb =
     e'
 #endif
 
-let inline private (===) e1 e2 =
-  LanguagePrimitives.PhysicalEquality e1.E e2.E
-
 let binopWithType op t e1 e2 =
-  match op, e1.E, e2.E with
-  | _, Num n1, Num n2 -> ValueOptimizer.binop n1 n2 op |> num
-  | BinOpType.XOR, _, _ when e1 === e2 -> BitVector.Zero t |> num
+  match e1.E, e2.E with
+  | Num n1, Num n2 -> ValueOptimizer.binop n1 n2 op |> num
 #if ! HASHCONS
   | _ ->
     BinOp (op, t, e1, e2, ASTHelper.mergeTwoExprInfo e1 e2)
