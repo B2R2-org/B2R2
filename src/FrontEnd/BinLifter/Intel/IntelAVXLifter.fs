@@ -1480,7 +1480,7 @@ let vpinsrw ins insLen ctxt =
     !!ir (mask := (numU64 0xffffUL 64<rt>) << pos)
     !!ir (dstA := (dstA .& (AST.not mask))
                         .| (AST.zext 64<rt> src2 << pos .& mask))
-  fillZeroFromVLToMaxVL ctxt dst (getOperationSize ins) 512 ir
+  fillZeroFromVLToMaxVL ctxt dst 128<rt> 512 ir
   !>ir insLen
 
 let vpmaxsd ins insLen ctxt =
