@@ -1685,11 +1685,11 @@ let maxMinp ins insLen ctxt addr opFn =
   let dstB, dstA = transOprToExpr128 ins ctxt addr dst
   let src1 = transSIMDOprToExpr ctxt eSize dataSize elements src1
   let src2 = transSIMDOprToExpr ctxt eSize dataSize elements src2
+  let tmp = Array.append src1 src2
   !<ir insLen
-  let result =
-    Array.append src2 src1 |> Array.chunkBySize 2
-    |> Array.map (fun e -> AST.ite (opFn e[0] e[1]) e[0] e[1])
-  dstAssignForSIMD dstB dstA result dataSize elements ir
+  let result = Array.init elements (fun i ->
+    AST.ite (opFn tmp.[2 * i] tmp.[2 * i + 1]) tmp.[2 * i] tmp.[2 * i + 1])
+  dstAssignForSIMD dstA dstB result dataSize elements ir
   !>ir insLen
 
 let madd ins insLen ctxt addr =
@@ -2167,9 +2167,11 @@ let smaddl ins insLen ctxt addr =
 
 let smov ins insLen ctxt addr =
   let ir = !*ctxt
+  let result = !+ir ins.OprSize
   !<ir insLen
   let dst, src = transTwoOprs ins ctxt addr
-  !!ir (dst := AST.sext ins.OprSize src)
+  !!ir (result := AST.sext ins.OprSize src)
+  dstAssign ins.OprSize dst result ir
   !>ir insLen
 
 let smsubl ins insLen ctxt addr =
