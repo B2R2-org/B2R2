@@ -74,6 +74,13 @@ let inline isConst (e: Expr) =
 
 let private getMemExpr128 expr =
   match expr.E with
+  | Load (e, 128<rt>, { E = BinOp (BinOpType.ADD, _, b, { E = Num n }, _) }, _)
+  | Load (e, 128<rt>, { E = BinOp (BinOpType.ADD, _, { E = Num n }, b, _) }, _)
+    ->
+    let off1 = AST.num n
+    let off2 = BitVector.Add (n, BitVector.OfInt32 8 n.Length) |> AST.num
+    AST.load e 64<rt> (b .+ off2),
+    AST.load e 64<rt> (b .+ off1)
   | Load (e, 128<rt>, expr, _) ->
     AST.load e 64<rt> (expr .+ numI32 8 (TypeCheck.typeOf expr)),
     AST.load e 64<rt> expr
@@ -81,6 +88,17 @@ let private getMemExpr128 expr =
 
 let private getMemExpr256 expr =
   match expr.E with
+  | Load (e, 256<rt>, { E = BinOp (BinOpType.ADD, _, b, { E = Num n }, _) }, _)
+  | Load (e, 256<rt>, { E = BinOp (BinOpType.ADD, _, { E = Num n }, b, _) }, _)
+    ->
+    let off1 = AST.num n
+    let off2 = BitVector.Add (n, BitVector.OfInt32 8 n.Length) |> AST.num
+    let off3 = BitVector.Add (n, BitVector.OfInt32 16 n.Length) |> AST.num
+    let off4 = BitVector.Add (n, BitVector.OfInt32 24 n.Length) |> AST.num
+    AST.load e 64<rt> (b .+ off4),
+    AST.load e 64<rt> (b .+ off3),
+    AST.load e 64<rt> (b .+ off2),
+    AST.load e 64<rt> (b .+ off1)
   | Load (e, 256<rt>, expr, _) ->
     AST.load e 64<rt> (expr .+ numI32 24 (TypeCheck.typeOf expr)),
     AST.load e 64<rt> (expr .+ numI32 16 (TypeCheck.typeOf expr)),
@@ -90,6 +108,25 @@ let private getMemExpr256 expr =
 
 let private getMemExpr512 expr =
   match expr.E with
+  | Load (e, 512<rt>, { E = BinOp (BinOpType.ADD, _, b, { E = Num n }, _) }, _)
+  | Load (e, 512<rt>, { E = BinOp (BinOpType.ADD, _, { E = Num n }, b, _) }, _)
+    ->
+    let off1 = AST.num n
+    let off2 = BitVector.Add (n, BitVector.OfInt32 8 n.Length) |> AST.num
+    let off3 = BitVector.Add (n, BitVector.OfInt32 16 n.Length) |> AST.num
+    let off4 = BitVector.Add (n, BitVector.OfInt32 24 n.Length) |> AST.num
+    let off5 = BitVector.Add (n, BitVector.OfInt32 32 n.Length) |> AST.num
+    let off6 = BitVector.Add (n, BitVector.OfInt32 40 n.Length) |> AST.num
+    let off7 = BitVector.Add (n, BitVector.OfInt32 48 n.Length) |> AST.num
+    let off8 = BitVector.Add (n, BitVector.OfInt32 56 n.Length) |> AST.num
+    AST.load e 64<rt> (b .+ off8),
+    AST.load e 64<rt> (b .+ off7),
+    AST.load e 64<rt> (b .+ off6),
+    AST.load e 64<rt> (b .+ off5),
+    AST.load e 64<rt> (b .+ off4),
+    AST.load e 64<rt> (b .+ off3),
+    AST.load e 64<rt> (b .+ off2),
+    AST.load e 64<rt> (b .+ off1)
   | Load (e, 512<rt>, expr, _) ->
     AST.load e 64<rt> (expr .+ numI32 56 (TypeCheck.typeOf expr)),
     AST.load e 64<rt> (expr .+ numI32 48 (TypeCheck.typeOf expr)),
