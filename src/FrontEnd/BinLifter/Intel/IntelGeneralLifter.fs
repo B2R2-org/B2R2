@@ -2175,10 +2175,6 @@ let shift ins insLen ctxt =
   let n1 = AST.num1 oprSize
   let countMask = if is64REXW ctxt ins then numU32 0x3Fu oprSize
                   else numU32 0x1Fu oprSize
-  let isCntConst = isConst src
-  let cnt = (AST.zext oprSize src) .& countMask
-  let cond1 = cnt == n1
-  let cond2 = cnt == n0
   let oF = !.ctxt R.OF
   let cF = !.ctxt R.CF
   let sF = !.ctxt R.SF
@@ -2187,34 +2183,52 @@ let shift ins insLen ctxt =
   let aF = !.ctxt R.AF
 #endif
   let tDst = !+ir oprSize
-  let tCnt = if isCntConst then cnt .- n1 else !+ir oprSize
   !!ir (tDst := dst)
+  let cnt, cntMinusOne, cond1, cond2 =
+    if isConst src then
+      let cnt = (AST.zext oprSize src) .& countMask
+      cnt, cnt .- n1, cnt == n1, cnt == n0
+    else
+      let t1, t2 = !+ir oprSize, !+ir oprSize
+      let cond2 = !+ir 1<rt>
+      !!ir (t1 := (AST.zext oprSize src) .& countMask)
+      !!ir (t2 := t1 .- n1)
+      !!ir (cond2 := t1 == n0)
+      t1, t2, t1 == n1, cond2
   match ins.Opcode with
   | Opcode.SAR ->
     !!ir (dstAssign oprSize dst (tDst ?>> cnt))
-    let prevLBit = AST.xtlo 1<rt> (tDst ?>> tCnt)
-    if isCntConst then () else !!ir (tCnt := cnt .- n1)
+    let prevLBit = AST.xtlo 1<rt> (tDst ?>> cntMinusOne)
     !!ir (cF := AST.ite cond2 cF prevLBit)
 #if !EMULATION
     !!ir (oF := AST.ite cond1 AST.b0 (AST.ite cond2 oF undefOF))
 #else
     !!ir (oF := AST.ite cond1 AST.b0 oF)
 #endif
+    !!ir (sF := AST.ite cond2 sF (AST.xthi 1<rt> dst))
   | Opcode.SHL ->
-    let of1 = AST.xthi 1<rt> dst <+> cF
     !!ir (dstAssign oprSize dst (tDst << cnt))
-    if isCntConst then () else !!ir (tCnt := cnt .- n1)
-    let prevHBit = AST.xthi 1<rt> (tDst << tCnt)
+    let prevHBit = AST.xthi 1<rt> (tDst << cntMinusOne)
     !!ir (cF := AST.ite cond2 cF prevHBit)
 #if !EMULATION
+    let of1 = AST.xthi 1<rt> dst <+> cF
     !!ir (oF := AST.ite cond1 of1 (AST.ite cond2 oF undefOF))
+    !!ir (sF := AST.ite cond2 sF (AST.xthi 1<rt> dst))
 #else
-    !!ir (oF := AST.ite cond1 of1 oF)
+    match cond1.E with
+    | Num bv ->
+      if bv.IsZero () then ()
+      else !!ir (oF := AST.xthi 1<rt> dst <+> cF)
+      !!ir (sF := AST.ite cond2 sF (AST.xthi 1<rt> dst))
+    | _ ->
+      let t = !+ir 1<rt>
+      !!ir (t := AST.xthi 1<rt> dst)
+      !!ir (oF := AST.ite cond1 (t <+> cF) oF)
+      !!ir (sF := AST.ite cond2 sF t)
 #endif
   | Opcode.SHR ->
     !!ir (dstAssign oprSize dst (tDst >> cnt))
-    if isCntConst then () else !!ir (tCnt := cnt .- n1)
-    let prevLBit = AST.xtlo 1<rt> (tDst ?>> tCnt)
+    let prevLBit = AST.xtlo 1<rt> (tDst ?>> cntMinusOne)
     !!ir (cF := AST.ite cond2 cF prevLBit)
 #if !EMULATION
     !!ir
@@ -2222,8 +2236,8 @@ let shift ins insLen ctxt =
 #else
     !!ir (oF := AST.ite cond1 (AST.xthi 1<rt> tDst) oF)
 #endif
+    !!ir (sF := AST.ite cond2 sF (AST.xthi 1<rt> dst))
   | _ -> raise InvalidOpcodeException
-  !!ir (sF := AST.ite cond2 sF (AST.xthi 1<rt> dst))
   let tDst = !+ir oprSize
   !!ir (tDst := dst)
   !?ir (buildPF ctxt tDst oprSize (Some cond2))
