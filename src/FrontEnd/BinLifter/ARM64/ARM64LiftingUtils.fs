@@ -517,7 +517,8 @@ let transOprToExprOfCSINV ins ctxt addr =
     o2 |> unwrapCond |> invertCond
   | ThreeOperands (o1, o2, o3) -> (* CINV *)
     let o2 = transOprToExpr ins ctxt addr o2
-    transOprToExpr ins ctxt addr o1, o2, o2, o3 |> unwrapCond
+    transOprToExpr ins ctxt addr o1, o2, o2,
+    o3 |> unwrapCond |> invertCond
   | FourOperands (o1, o2, o3, o4) -> (* CSINV *)
     transOprToExpr ins ctxt addr o1,
     transOprToExpr ins ctxt addr o2,

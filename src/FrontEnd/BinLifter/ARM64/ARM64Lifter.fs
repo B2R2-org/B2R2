@@ -2258,21 +2258,52 @@ let smsubl ins insLen ctxt addr =
   !!ir (dst := src3 .- (AST.sext 64<rt> src1 .* AST.sext 64<rt> src2))
   !>ir insLen
 
+let private checkOverflowOnDMul e1 e2 =
+  let mask64 = numI64 0xFFFFFFFFFFFFFFFFL 64<rt>
+  let bit32 = numI64 0x100000000L 64<rt>
+  let cond = mask64 .- e1 .< e2
+  AST.ite cond bit32 (AST.num0 64<rt>)
+
+let private mul64BitReg src1 src2 ir =
+  let struct (hiSrc1, loSrc1, hiSrc2, loSrc2) = tmpVars4 ir 64<rt>
+  let struct (tHigh, tLow) = tmpVars2 ir 64<rt>
+  let struct (tSrc1, tSrc2) = tmpVars2 ir 64<rt>
+  let struct (src1IsNeg, src2IsNeg, signBit) = tmpVars3 ir 1<rt>
+  let struct (pHigh, pMid, pLow) = tmpVars3 ir 64<rt>
+  let struct (pMid1, pMid2) = tmpVars2 ir 64<rt>
+  let struct (high, low) = tmpVars2 ir 64<rt>
+  let n32 = numI32 32 64<rt>
+  let mask32 = numI64 0xFFFFFFFFL 64<rt>
+  let zero = numI32 0 64<rt>
+  let one = numI32 1 64<rt>
+  !!ir (src1IsNeg := AST.xthi 1<rt> src1)
+  !!ir (src2IsNeg := AST.xthi 1<rt> src2)
+  !!ir (tSrc1 := AST.ite src1IsNeg (AST.neg src1) src1)
+  !!ir (tSrc2 := AST.ite src2IsNeg (AST.neg src2) src2)
+  !!ir (hiSrc1 := (tSrc1 >> n32) .& mask32) (* SRC1[63:32] *)
+  !!ir (loSrc1 := tSrc1 .& mask32) (* SRC1[31:0] *)
+  !!ir (hiSrc2 := (tSrc2 >> n32) .& mask32) (* SRC2[63:32] *)
+  !!ir (loSrc2 := tSrc2 .& mask32) (* SRC2[31:0] *)
+  !!ir (pHigh := hiSrc1 .* hiSrc2)
+  !!ir (pMid1 := hiSrc1 .* loSrc2)
+  !!ir (pMid2 := loSrc1 .* hiSrc2)
+  !!ir (pMid := pMid1 .+ pMid2)
+  !!ir (pLow := loSrc1 .* loSrc2)
+  let overFlowBit = checkOverflowOnDMul (hiSrc1 .* loSrc2) (loSrc1 .* hiSrc2)
+  !!ir (high := pHigh .+ ((pMid .+ (pLow >> n32)) >> n32) .+ overFlowBit)
+  !!ir (low := pLow .+ ((pMid .& mask32) << n32))
+  !!ir (signBit := src1IsNeg <+> src2IsNeg)
+  !!ir (tHigh := AST.ite signBit (AST.not high) high)
+  !!ir (tLow := AST.ite signBit (AST.neg low) low)
+  let carry = AST.ite (signBit .& (tLow == zero)) one zero
+  !!ir (tHigh := tHigh .+ carry)
+  tHigh
+
 let smulh ins insLen ctxt addr =
   let ir = !*ctxt
   let dst, src1, src2 = transThreeOprs ins ctxt addr
-  let struct (tSrc1B, tSrc1A, tSrc2B, tSrc2A) = tmpVars4 ir 64<rt>
-  let n32 = numI32 32 64<rt>
-  let mask = numI64 0xFFFFFFFFL 64<rt>
   !<ir insLen
-  !!ir (tSrc1B := (src1 >> n32) .& mask)
-  !!ir (tSrc1A := src1 .& mask)
-  !!ir (tSrc2B := (src2 >> n32) .& mask)
-  !!ir (tSrc2A := src2 .& mask)
-  let high = tSrc1B .* tSrc2B
-  let mid = (tSrc1A .* tSrc2B) .+ (tSrc1B .* tSrc2A)
-  let low = (tSrc1A .* tSrc2A) >> n32
-  !!ir (dst := high .+ ((mid .+ low) >> n32)) (* [127:64] *)
+  !!ir (dst := mul64BitReg src1 src2 ir)
   !>ir insLen
 
 let smull ins insLen ctxt addr =
