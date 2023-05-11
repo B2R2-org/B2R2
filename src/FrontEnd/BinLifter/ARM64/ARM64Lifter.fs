@@ -2293,22 +2293,26 @@ let smull ins insLen ctxt addr =
 
 let sshl ins insLen ctxt addr =
   let ir = !*ctxt
+  !<ir insLen
   let struct (dst, o1, o2) = getThreeOprs ins
   let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
-  !<ir insLen
+  let inline shiftLeft e1 e2 =
+    let shf = !+ir eSize
+    !!ir (shf := AST.xtlo 8<rt> e2 |> AST.sext eSize)
+    let isOver = AST.neg shf .> numI32 (int eSize) eSize
+    let n0 = AST.num0 eSize
+    AST.ite (shf ?< n0) (AST.ite isOver n0 (e1 ?>> AST.neg shf)) (e1 << shf)
   match ins.Operands with
   | ThreeOperands (OprSIMD (SIMDFPScalarReg _), _, _) ->
     let src1 = transOprToExpr ins ctxt addr o1
     let src2 = transOprToExpr ins ctxt addr o2
-    dstAssignScalar ins ctxt addr dst (src1 << src2) eSize ir
+    let shf = !+ir eSize
+    let result = shiftLeft src1 src2
+    dstAssignScalar ins ctxt addr dst result eSize ir
   | _ ->
     let dstB, dstA = transOprToExpr128 ins ctxt addr dst
     let src1 = transSIMDOprToExpr ctxt eSize dataSize elements o1
     let src2 = transSIMDOprToExpr ctxt eSize dataSize elements o2
-    let inline shiftLeft e1 e2 =
-      let shf = !+ir eSize
-      !!ir (shf := AST.xtlo 8<rt> e2 |> AST.sext eSize)
-      AST.ite (shf ?< AST.num0 eSize) (e1 ?>> AST.neg shf) (e1 << shf)
     let result = Array.map2 shiftLeft src1 src2
     dstAssignForSIMD dstA dstB result dataSize elements ir
   !>ir insLen
@@ -3130,34 +3134,28 @@ let shiftSLeftLong ins insLen ctxt addr =
 let urshl ins insLen ctxt addr =
   let ir = !*ctxt
   !<ir insLen
+  let struct (dst, src, shift) = getThreeOprs ins
+  let struct (eSize, dataSize, elements) = getElemDataSzAndElems src
+  let struct (n0, n1) = tmpVars2 ir eSize
+  !!ir (n0 := AST.num0 eSize)
+  !!ir (n1 := AST.num1 eSize)
+  let inline shiftRndLeft e1 e2 =
+    let struct (rndCst, shf) = tmpVars2 ir eSize
+    let cond = !+ir 1<rt>
+    !!ir (shf := AST.xtlo 8<rt> e2 |> AST.sext eSize)
+    !!ir (cond := shf ?< n0)
+    !!ir (rndCst := AST.ite cond (n1 << (AST.neg shf .- n1)) n0)
+    AST.ite cond ((e1 .+ rndCst) >> AST.neg shf) ((e1 .+ rndCst) << shf)
   match ins.Operands with
-  | ThreeOperands (OprSIMD (SIMDFPScalarReg _) as o1, _, _) ->
-    let struct (eSize, _, _) = getElemDataSzAndElems o1
-    let _, src, shiftReg = transThreeOprs ins ctxt addr
-    let struct (evalSrc, shift, n0) = tmpVars3 ir eSize
-    !!ir (n0 := AST.num0 eSize)
-    !!ir (shift := AST.xtlo 8<rt> shiftReg |> AST.sext eSize)
-    let cond = AST.sge shiftReg n0
-    let roundConst = AST.ite cond n0 (AST.num1 eSize << AST.neg shift)
-    !!ir (evalSrc := src .+ roundConst)
-    let round = AST.ite cond (evalSrc << shift) (evalSrc >> AST.neg shift)
-    dstAssignScalar ins ctxt addr o1 round eSize ir
+  | ThreeOperands (OprSIMD (SIMDFPScalarReg _), _, _) ->
+    let src = transOprToExpr ins ctxt addr src
+    let shift = transOprToExpr ins ctxt addr shift
+    let result = shiftRndLeft src shift
+    dstAssignScalar ins ctxt addr dst result eSize ir
   | _ ->
-    let struct (dst, src, shift) = getThreeOprs ins
-    let struct (eSize, dataSize, elements) = getElemDataSzAndElems src
     let dstB, dstA = transOprToExpr128 ins ctxt addr dst
     let src = transSIMDOprToExpr ctxt eSize dataSize elements src
     let shift = transSIMDOprToExpr ctxt eSize dataSize elements shift
-    let struct (n0, n1) = tmpVars2 ir eSize
-    !!ir (n0 := AST.num0 eSize)
-    !!ir (n1 := AST.num1 eSize)
-    let inline shiftRndLeft e1 e2 =
-      let struct (rndCst, shf) = tmpVars2 ir eSize
-      let cond = !+ir 1<rt>
-      !!ir (shf := AST.xtlo 8<rt> e2 |> AST.sext eSize)
-      !!ir (cond := shf ?< n0)
-      !!ir (rndCst := AST.ite cond (n1 << (AST.neg shf .- n1)) n0)
-      AST.ite cond ((e1 .+ rndCst) >> AST.neg shf) ((e1 .+ rndCst) << shf)
     let result = Array.map2 shiftRndLeft src shift
     dstAssignForSIMD dstA dstB result dataSize elements ir
   !>ir insLen
@@ -3165,36 +3163,30 @@ let urshl ins insLen ctxt addr =
 let srshl ins insLen ctxt addr =
   let ir = !*ctxt
   !<ir insLen
+  let struct (dst, src, shift) = getThreeOprs ins
+  let struct (eSize, dataSize, elements) = getElemDataSzAndElems src
+  let struct (n0, n1) = tmpVars2 ir eSize
+  !!ir (n0 := AST.num0 eSize)
+  !!ir (n1 := AST.num1 eSize)
+  let inline shiftRndLeft e1 e2 =
+    let struct (rndCst, shf, elem) = tmpVars3 ir eSize
+    let cond = !+ir 1<rt>
+    !!ir (shf := AST.xtlo 8<rt> e2 |> AST.sext eSize)
+    !!ir (cond := shf ?< n0)
+    !!ir (rndCst := AST.ite cond (n1 << (AST.neg shf .- n1)) n0)
+    !!ir (elem := e1 .+ rndCst)
+    let isOver = AST.neg shf .> numI32 (int eSize) eSize
+    AST.ite cond (AST.ite isOver n0 (elem ?>> AST.neg shf)) (elem << shf)
   match ins.Operands with
-  | ThreeOperands (OprSIMD (SIMDFPScalarReg _) as o1, _, _) ->
-    let struct (eSize, _, _) = getElemDataSzAndElems o1
-    let _, src, shiftReg = transThreeOprs ins ctxt addr
-    let struct (evalSrc, shift, n0) = tmpVars3 ir eSize
-    !!ir (n0 := AST.num0 eSize)
-    !!ir (shift := AST.xtlo 8<rt> shiftReg |> AST.sext eSize)
-    let cond = AST.sge shiftReg n0
-    let roundConst = AST.ite cond n0 (AST.num1 eSize << AST.neg shift)
-    !!ir (evalSrc := src .+ roundConst)
-    let round = AST.ite cond (evalSrc << shift) (evalSrc >> AST.neg shift)
-    dstAssignScalar ins ctxt addr o1 round eSize ir
+  | ThreeOperands (OprSIMD (SIMDFPScalarReg _), _, _) ->
+    let src = transOprToExpr ins ctxt addr src
+    let shift = transOprToExpr ins ctxt addr shift
+    let result = shiftRndLeft src shift
+    dstAssignScalar ins ctxt addr dst result eSize ir
   | _ ->
-    let struct (dst, src, shift) = getThreeOprs ins
-    let struct (eSize, dataSize, elements) = getElemDataSzAndElems src
     let dstB, dstA = transOprToExpr128 ins ctxt addr dst
     let src = transSIMDOprToExpr ctxt eSize dataSize elements src
     let shift = transSIMDOprToExpr ctxt eSize dataSize elements shift
-    let struct (n0, n1) = tmpVars2 ir eSize
-    !!ir (n0 := AST.num0 eSize)
-    !!ir (n1 := AST.num1 eSize)
-    let inline shiftRndLeft e1 e2 =
-      let struct (rndCst, shf, elem) = tmpVars3 ir eSize
-      let cond = !+ir 1<rt>
-      !!ir (shf := AST.xtlo 8<rt> e2 |> AST.sext eSize)
-      !!ir (cond := shf ?< n0)
-      !!ir (rndCst := AST.ite cond (n1 << (AST.neg shf .- n1)) n0)
-      !!ir (elem := e1 .+ rndCst)
-      let isOver = AST.neg shf .> numI32 (int eSize) eSize
-      AST.ite cond (AST.ite isOver n0 (elem ?>> AST.neg shf)) (elem << shf)
     let result = Array.map2 shiftRndLeft src shift
     dstAssignForSIMD dstA dstB result dataSize elements ir
   !>ir insLen
@@ -3264,19 +3256,20 @@ let ushl ins insLen ctxt addr =
   let struct (dst, o1, o2) = getThreeOprs ins
   let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
   !<ir insLen
+  let inline shiftLeft e1 e2 =
+    let shf = !+ir eSize
+    !!ir (shf := AST.xtlo 8<rt> e2 |> AST.sext eSize)
+    AST.ite (shf ?< AST.num0 eSize) (e1 >> AST.neg shf) (e1 << shf)
   match ins.Operands with
   | ThreeOperands (OprSIMD (SIMDFPScalarReg _), _, _) ->
     let src1 = transOprToExpr ins ctxt addr o1
     let src2 = transOprToExpr ins ctxt addr o2
-    dstAssignScalar ins ctxt addr dst (src1 << src2) eSize ir
+    let result = shiftLeft src1 src2
+    dstAssignScalar ins ctxt addr dst result eSize ir
   | _ ->
     let dstB, dstA = transOprToExpr128 ins ctxt addr dst
     let src1 = transSIMDOprToExpr ctxt eSize dataSize elements o1
     let src2 = transSIMDOprToExpr ctxt eSize dataSize elements o2
-    let inline shiftLeft e1 e2 =
-      let shf = !+ir eSize
-      !!ir (shf := AST.xtlo 8<rt> e2 |> AST.sext eSize)
-      AST.ite (shf ?< AST.num0 eSize) (e1 >> AST.neg shf) (e1 << shf)
     let result = Array.map2 shiftLeft src1 src2
     dstAssignForSIMD dstA dstB result dataSize elements ir
   !>ir insLen
