@@ -3257,18 +3257,22 @@ let shiftRight ins insLen ctxt addr shifter =
   dstAssignForSIMD dstA dstB result dataSize elements ir
   !>ir insLen
 
-let ssubl ins insLen ctxt addr =
+let ssubl ins insLen ctxt addr isPart1 =
   let ir = !*ctxt
+  let struct (dst, src1, src2) = getThreeOprs ins
+  let struct (eSize, dataSize, elems) = getElemDataSzAndElems dst
   !<ir insLen
-  let struct (o1, o2, o3) = getThreeOprs ins
-  let struct (eSize, _, _) = getElemDataSzAndElems o2
-  let elements = 64<rt> / eSize
-  let dstB, dstA = transOprToExpr128 ins ctxt addr o1
-  let src1 = vectorPart ctxt eSize o2
-  let src2 = vectorPart ctxt eSize o3
-  let result = Array.map2 (fun s1 s2 ->
-                 AST.sext (2 * eSize) s1 .- AST.sext (2 * eSize) s2) src1 src2
-  dstAssignForSIMD dstA dstB result 128<rt> elements ir
+  let dstB, dstA = transOprToExpr128 ins ctxt addr dst
+  let src1 = transSIMDOprToExpr ctxt (eSize / 2) dataSize (elems * 2) src1
+  let src2 = transSIMDOprToExpr ctxt (eSize / 2) dataSize (elems * 2) src2
+  let inline vPart expr =
+    if isPart1 then Array.sub expr 0 elems else Array.sub expr elems elems
+  let src1 = vPart src1
+  let src2 = vPart src2
+  let result = Array.init elems (fun _ -> !+ir eSize)
+  Array.map2 (fun e1 e2 -> AST.zext eSize e1 .- AST.zext eSize e2) src1 src2
+  |> Array.iter2 (fun e1 e2 -> !!ir (e1 := e2)) result
+  dstAssignForSIMD dstA dstB result dataSize elems ir
   !>ir insLen
 
 let ssubw ins insLen ctxt addr =
@@ -3352,11 +3356,12 @@ let uzp ins insLen ctxt addr op =
   let dstB, dstA = transOprToExpr128 ins ctxt addr dst
   let src1 = transSIMDOprToExpr ctxt eSize dataSize elements src1
   let srcH = transSIMDOprToExpr ctxt eSize dataSize elements srcH
-  let result =
-    Array.append src1 srcH
-    |> Array.mapi (fun i x -> (i, x))
-    |> Array.filter (fun (i, _) -> i % 2 = op)
-    |> Array.map snd
+  let result = Array.init elements (fun _ -> !+ir eSize)
+  Array.append src1 srcH
+  |> Array.mapi (fun i x -> (i, x))
+  |> Array.filter (fun (i, _) -> i % 2 = op)
+  |> Array.map snd
+  |> Array.iter2 (fun e1 e2 -> !!ir (e1 := e2)) result
   dstAssignForSIMD dstA dstB result dataSize elements ir
   !>ir insLen
 
@@ -3605,7 +3610,8 @@ let translate ins insLen ctxt =
     shiftSLeftLong ins insLen ctxt addr
   | Opcode.SSHR -> shift ins insLen ctxt addr (?>>)
   | Opcode.SSRA -> shiftRight ins insLen ctxt addr (?>>)
-  | Opcode.SSUBL | Opcode.SSUBL2 -> ssubl ins insLen ctxt addr
+  | Opcode.SSUBL -> ssubl ins insLen ctxt addr true
+  | Opcode.SSUBL2 -> ssubl ins insLen ctxt addr false
   | Opcode.SSUBW | Opcode.SSUBW2 -> ssubw ins insLen ctxt addr
   | Opcode.SMAX -> maxMin ins insLen ctxt addr (?>=)
   | Opcode.SMAXP -> maxMinp ins insLen ctxt addr (?>=)
