@@ -2963,36 +2963,26 @@ let umaddl ins insLen ctxt addr =
 
 let smlal ins insLen ctxt addr =
   let ir = !*ctxt
+  let struct (o1, src1, src2) = getThreeOprs ins
+  let struct (eSize, _, _) = getElemDataSzAndElems src1
+  let dataSize = 64<rt>
+  let elements = dataSize / eSize
+  let dst = transSIMDOprToExpr ctxt (2 * eSize) 128<rt> elements o1
+  let src1 = vectorPart ctxt eSize src1 |> Array.map (AST.sext (2 * eSize))
+  let accum = Array.init elements (fun _ -> !+ir (2 * eSize))
+  let dstB, dstA = transOprToExpr128 ins ctxt addr o1
   !<ir insLen
   match ins.Operands with
   | ThreeOperands (_, _, OprSIMD (SIMDVecReg _)) ->
-    let struct (dst, src1, src2) = getThreeOprs ins
-    let dstB, dstA = transOprToExpr128 ins ctxt addr dst
-    let struct (dstESz, dstDataSz, dstElems) = getElemDataSzAndElems dst
-    let struct (srcESz, srcDataSz, srcElems) = getElemDataSzAndElems src1
-    let dst = transSIMDOprToExpr ctxt dstESz dstDataSz dstElems dst
-    let src1 = transSIMDOprToExpr ctxt srcESz srcDataSz srcElems src1
-    let src2 = transSIMDOprToExpr ctxt srcESz srcDataSz srcElems src2
-    let srcElems = srcElems / 2
-    let src1 =
-      if ins.Opcode = Opcode.SMLAL then src1
-      else Array.sub src1 srcElems srcElems
-    let src2 =
-      if ins.Opcode = Opcode.SMLAL then src2
-      else Array.sub src2 srcElems srcElems
-    let inline mul e1 e2 = AST.sext dstESz e1 .* AST.sext dstESz e2
-    let result =
-      Array.map3 (fun e1 e2 prod -> mul e1 e2 .+ prod) src1 src2 dst
-    dstAssignForSIMD dstA dstB result dstDataSz dstElems ir
+    let src2 = vectorPart ctxt eSize src2 |> Array.map (AST.sext (2 * eSize))
+    let prod = Array.map2 (.*) src1 src2
+    Array.iteri2 (fun i acc prod -> !!ir (acc := dst[i] .+ prod)) accum prod
+    dstAssignForSIMD dstA dstB accum (2 * dataSize) elements ir
   | _ ->
-    let struct (o1, o2, o3) = getThreeOprs ins
-    let struct (eSize, _, _) = getElemDataSzAndElems o2
-    let elements = 64<rt> / eSize
-    let dst = transSIMDOprToExpr ctxt (2 * eSize) 128<rt> elements o1
-    let src1 = vectorPart ctxt eSize o2 |> Array.map (AST.sext (2 * eSize))
-    let src2 = transOprToExpr ins ctxt addr o3 |> AST.sext (2 * eSize)
+    let src2 = transOprToExpr ins ctxt addr src2 |> AST.sext (2 * eSize)
     let prod = Array.map (fun s1 -> s1 .* src2) src1
-    Array.iter2 (fun d p -> !!ir (d := d .+ p)) dst prod (* FIXME *)
+    Array.iteri2 (fun i acc prod -> !!ir (acc := dst[i] .+ prod)) accum prod
+    dstAssignForSIMD dstA dstB accum (2 * dataSize) elements ir
   !>ir insLen
 
 let umlal ins insLen ctxt addr =
