@@ -1071,14 +1071,14 @@ let haddps ins insLen ctxt =
 let ldmxcsr ins insLen ctxt =
   let ir = !*ctxt
   !<ir insLen
-  let src = transOneOpr ir false ins insLen ctxt
+  let src = transOneOpr ir ins insLen ctxt
   !!ir (!.ctxt R.MXCSR := src)
   !>ir insLen
 
 let stmxcsr ins insLen ctxt =
   let ir = !*ctxt
   !<ir insLen
-  let dst = transOneOpr ir false ins insLen ctxt
+  let dst = transOneOpr ir ins insLen ctxt
   !!ir (dst := !.ctxt R.MXCSR)
   !>ir insLen
 

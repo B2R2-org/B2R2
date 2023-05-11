@@ -482,16 +482,27 @@ let getFourOprs (ins: InsInfo) =
   | FourOperands (o1, o2, o3, o4) -> struct (o1, o2, o3, o4)
   | _ -> raise InvalidOperandException
 
-let transOneOpr ir useTmpVar (ins: InsInfo) insLen ctxt =
+let transOneOpr ir (ins: InsInfo) insLen ctxt =
   match ins.Operands with
-  | OneOperand opr -> transOprToExpr ir useTmpVar ins insLen ctxt opr
+  | OneOperand opr -> transOprToExpr ir true ins insLen ctxt opr
   | _ -> raise InvalidOperandException
+
+let transReg ir useTmpVar expr =
+  if useTmpVar then
+    match expr.E with
+    | Extract (_, rt, _, _) ->
+      let t = !+ir rt
+      !!ir (t := expr)
+      t
+    | _ -> expr
+  else expr
 
 let transTwoOprs ir useTmpVar (ins: InsInfo) insLen ctxt =
   match ins.Operands with
   | TwoOperands (o1, o2) ->
-    struct (transOprToExpr ir useTmpVar ins insLen ctxt o1,
-            transOprToExpr ir false ins insLen ctxt o2)
+    let o1 = transOprToExpr ir useTmpVar ins insLen ctxt o1
+    let o2 = transOprToExpr ir false ins insLen ctxt o2 |> transReg ir useTmpVar
+    struct (o1, o2)
   | _ -> raise InvalidOperandException
 
 let transThreeOprs ir useTmpVar (ins: InsInfo) insLen ctxt =
