@@ -3097,9 +3097,10 @@ let uqsub ins insLen ctxt addr =
         satQ diff eSize true ir) src1 src2
     dstAssignForSIMD dstA dstB result dataSize elements ir
   | ThreeOperands (OprSIMD (SIMDFPScalarReg _), _, _) ->
-    let dst, src1, src2 = transThreeOprs ins ctxt addr
+    let src1 = transOprToExpr ins ctxt addr o2
+    let src2 = transOprToExpr ins ctxt addr o3
     !!ir (diff := AST.zext 64<rt> src1 .- AST.zext 64<rt> src2)
-    dstAssign eSize dst (satQ diff eSize true ir) ir
+    dstAssignScalar ins ctxt addr o1 (satQ diff eSize true ir) eSize ir
   | _ -> raise InvalidOperandException
   !>ir insLen
 
