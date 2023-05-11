@@ -129,16 +129,22 @@ let transShiftAmout ctxt oprSize = function
 /// shared/functions/common/Extend
 /// Extend()
 /// ========
-let extend reg oprSize isUnsigned =
-  if isUnsigned then AST.zext oprSize reg else AST.sext oprSize reg
+let extend reg oprSz regSize isUnsigned =
+  if isUnsigned then AST.zext oprSz reg
+  else
+    let reg = AST.sext oprSz reg
+    if regSize = 64 then reg
+    else
+      let mBit = AST.extract reg 1<rt> (regSize - 1)
+      let sMask = ~~~ ((1L <<< regSize) - 1L)
+      let uMask = (1L <<< regSize) - 1L
+      AST.ite mBit (reg .| numI64 sMask oprSz) (reg .& numI64 uMask oprSz)
 
 /// aarch64/instrs/extendreg/ExtendReg
 /// ExtendReg()
 /// ===========
 /// Perform a register extension and shift
 let extendReg ctxt reg typ shift oprSize =
-  let regType = Register.toRegType reg
-  let reg = getRegVar ctxt reg
   let shift =
     match shift with
     | Some shf -> shf |> int
@@ -153,9 +159,12 @@ let extendReg ctxt reg typ shift oprSize =
     | ExtUXTH -> true, 16
     | ExtUXTW -> true, 32
     | ExtUXTX -> true, 64
+  let regType = Register.toRegType reg
+  let reg = getRegVar ctxt reg
   let len = min len ((RegType.toBitWidth oprSize) - shift)
   let mask = numI64 (if len = 64 then -1L else (1L <<< len) - 1L) regType
-  extend ((reg .& mask) << numI32 shift regType) oprSize isUnsigned
+  let regSize = len + shift
+  extend ((reg .& mask) << numI32 shift regType) oprSize regSize isUnsigned
 
 let getElemDataSzAndElemsByVector = function
   (* Vector register names with element index *)
