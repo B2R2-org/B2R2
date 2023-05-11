@@ -130,14 +130,14 @@ let transShiftAmout ctxt oprSize = function
 /// Extend()
 /// ========
 let extend reg oprSz regSize isUnsigned =
-  if isUnsigned then reg
+  let uMask = numI64 ((1L <<< regSize) - 1L) oprSz
+  if isUnsigned then reg .& uMask
   else
     if regSize = 64 then reg
     else
       let mBit = AST.extract reg 1<rt> (regSize - 1)
       let sMask = ~~~ ((1L <<< regSize) - 1L)
-      let uMask = (1L <<< regSize) - 1L
-      AST.ite mBit (reg .| numI64 sMask oprSz) (reg .& numI64 uMask oprSz)
+      AST.ite mBit (reg .| numI64 sMask oprSz) (reg .& uMask)
 
 /// aarch64/instrs/extendreg/ExtendReg
 /// ExtendReg()
