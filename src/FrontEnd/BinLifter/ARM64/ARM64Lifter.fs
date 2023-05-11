@@ -68,12 +68,12 @@ let adcs ins insLen ctxt addr =
   let dst, src1, src2 = transThreeOprs ins ctxt addr
   let c = AST.zext ins.OprSize (getRegVar ctxt R.C)
   !<ir insLen
-  let result, (n, z, c, v)= addWithCarry src1 src2 c ins.OprSize
+  let result, (n, z, c, v) = addWithCarry src1 src2 c ins.OprSize
+  dstAssign ins.OprSize dst result ir
   !!ir (getRegVar ctxt R.N := n)
   !!ir (getRegVar ctxt R.Z := z)
   !!ir (getRegVar ctxt R.C := c)
   !!ir (getRegVar ctxt R.V := v)
-  dstAssign ins.OprSize dst result ir
   !>ir insLen
 
 let add ins insLen ctxt addr =
@@ -166,7 +166,8 @@ let logAnd ins insLen ctxt addr = (* AND *)
     let src1B, src1A = transOprToExpr128 ins ctxt addr src1
     let src2B, src2A = transOprToExpr128 ins ctxt addr src2
     !!ir (dstA := src1A .& src2A)
-    !!ir (dstB := src1B .& src2B)
+    if ins.OprSize = 64<rt> then !!ir (dstB := AST.num0 ins.OprSize)
+    else !!ir (dstB := src1B .& src2B)
   | _ ->
     let dst, src1, src2 = transOprToExprOfAND ins ctxt addr
     dstAssign ins.OprSize dst (src1 .& src2) ir
@@ -698,7 +699,7 @@ let extr ins insLen ctxt addr =
   if oSz = 32<rt> then
     let con = !+ir 64<rt>
     !!ir (con := AST.concat src1 src2)
-    let mask = numI32 0xFFFFFFFF 64<rt>
+    let mask = numI64 0xFFFFFFFFL 64<rt>
     dstAssign ins.OprSize dst ((con >> (AST.zext 64<rt> lsb)) .& mask) ir
   elif oSz = 64<rt> then
     let lsb =
