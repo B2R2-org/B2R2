@@ -2299,14 +2299,11 @@ let sshl ins insLen ctxt addr =
   let inline shiftLeft e1 e2 =
     let shf = !+ir eSize
     !!ir (shf := AST.xtlo 8<rt> e2 |> AST.sext eSize)
-    let isOver = AST.neg shf .> numI32 (int eSize) eSize
-    let n0 = AST.num0 eSize
-    AST.ite (shf ?< n0) (AST.ite isOver n0 (e1 ?>> AST.neg shf)) (e1 << shf)
+    AST.ite (shf ?< AST.num0 eSize) (e1 ?>> AST.neg shf) (e1 << shf)
   match ins.Operands with
   | ThreeOperands (OprSIMD (SIMDFPScalarReg _), _, _) ->
     let src1 = transOprToExpr ins ctxt addr o1
     let src2 = transOprToExpr ins ctxt addr o2
-    let shf = !+ir eSize
     let result = shiftLeft src1 src2
     dstAssignScalar ins ctxt addr dst result eSize ir
   | _ ->
