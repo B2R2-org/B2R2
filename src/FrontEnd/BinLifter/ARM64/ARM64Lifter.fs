@@ -1410,9 +1410,8 @@ let ldp ins insLen ctxt addr =
   let address = !+ir 64<rt>
   let dByte = numI32 (RegType.toByteWidth ins.OprSize) 64<rt>
   !<ir insLen
-  match ins.OprSize with
-  | 128<rt> ->
-    let struct (src1, src2, src3) = getThreeOprs ins
+  match ins.Operands, ins.OprSize with
+  | ThreeOperands (OprSIMD _ as src1, src2, src3), 128<rt> ->
     let src1B, src1A = transOprToExpr128 ins ctxt addr src1
     let src2B, src2A = transOprToExpr128 ins ctxt addr src2
     let bReg, offset = transOprToExpr ins ctxt addr src3 |> separateMemExpr
@@ -1423,6 +1422,16 @@ let ldp ins insLen ctxt addr =
     !!ir (src1B := AST.loadLE 64<rt> (address .+ n8))
     !!ir (src2A := AST.loadLE 64<rt> (address .+ dByte))
     !!ir (src2B := AST.loadLE 64<rt> (address .+ dByte .+ n8))
+    if isWBack && isPostIndex then !!ir (bReg := address .+ offset)
+    else if isWBack then !!ir (bReg := address) else ()
+  | ThreeOperands (OprSIMD _ as src1, src2, src3), _ ->
+    let bReg, offset = transOprToExpr ins ctxt addr src3 |> separateMemExpr
+    let struct (eSize, _, _) = getElemDataSzAndElems src1
+    !!ir (address := bReg)
+    !!ir (address := if isPostIndex then address else address .+ offset)
+    let inline load addr = AST.loadLE ins.OprSize addr
+    dstAssignScalar ins ctxt addr src1 (load address) eSize ir
+    dstAssignScalar ins ctxt addr src2 (load (address .+ dByte)) eSize ir
     if isWBack && isPostIndex then !!ir (bReg := address .+ offset)
     else if isWBack then !!ir (bReg := address) else ()
   | _ ->
@@ -1965,6 +1974,12 @@ let orr ins insLen ctxt addr =
   let ir = !*ctxt
   !<ir insLen
   match ins.Operands with
+  | TwoOperands (OprSIMD _, OprImm _) ->
+    let struct (dst, imm) = getTwoOprs ins
+    let struct (eSize, dataSize, _) = getElemDataSzAndElems dst
+    let dstB, dstA = transOprToExpr128 ins ctxt addr dst
+    let src = transOprToExpr ins ctxt addr imm |> advSIMDExpandImm ir eSize
+    dstAssign128 ins ctxt addr dst (dstA .| src) (dstB .| src) dataSize ir
   | ThreeOperands (OprSIMD _, OprImm _, _) ->
     let struct (dst, imm, shf) = getThreeOprs ins
     let struct (eSize, dataSize, _) = getElemDataSzAndElems dst
@@ -2210,8 +2225,8 @@ let shl ins insLen ctxt addr =
   !<ir insLen
   match ins.Operands with
   | ThreeOperands (OprSIMD (SIMDFPScalarReg _), _, _) ->
-    let dst, src, amt = transThreeOprs ins ctxt addr
-    dstAssign ins.OprSize dst (src << amt) ir
+    let _, src, amt = transThreeOprs ins ctxt addr
+    dstAssignScalar ins ctxt addr dst (src << amt) eSize ir
   | _ ->
     let dstB, dstA = transOprToExpr128 ins ctxt addr dst
     let src = transSIMDOprToExpr ctxt eSize dataSize elements src
@@ -3338,7 +3353,7 @@ let xtn2 ins insLen ctxt addr =
   !!ir (dstB := AST.concatArr src)
   !>ir insLen
 
-let zip ins insLen ctxt addr isPart1=
+let zip ins insLen ctxt addr isPart1 =
   let ir = !*ctxt
   let struct (dst, src1, src2) = getThreeOprs ins
   let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
