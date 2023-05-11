@@ -479,7 +479,7 @@ let private checkOverflowOnDMul e1 e2 =
   let cond = mask64 .- e1 .< e2
   AST.ite cond bit32 (AST.num0 64<rt>)
 
-let private mul64BitReg src1 src2 ir isSign =
+let private mul64BitReg src1 src2 ir isSign isLow=
   let struct (hiSrc1, loSrc1, hiSrc2, loSrc2) = tmpVars4 ir 64<rt>
   let struct (tHigh, tLow) = tmpVars2 ir 64<rt>
   let struct (tSrc1, tSrc2) = tmpVars2 ir 64<rt>
@@ -503,24 +503,30 @@ let private mul64BitReg src1 src2 ir isSign =
   !!ir (loSrc1 := tSrc1 .& mask32) (* SRC1[31:0] *)
   !!ir (hiSrc2 := (tSrc2 >> n32) .& mask32) (* SRC2[63:32] *)
   !!ir (loSrc2 := tSrc2 .& mask32) (* SRC2[31:0] *)
-  !!ir (pHigh := hiSrc1 .* hiSrc2)
+  if not isLow then
+    !!ir (pHigh := hiSrc1 .* hiSrc2)
   !!ir (pMid1 := hiSrc1 .* loSrc2)
   !!ir (pMid2 := loSrc1 .* hiSrc2)
   !!ir (pMid := pMid1 .+ pMid2)
   !!ir (pLow := loSrc1 .* loSrc2)
-  let overFlowBit = checkOverflowOnDMul pMid1 pMid2
-  !!ir (high := pHigh .+ ((pMid .+ (pLow >> n32)) >> n32) .+ overFlowBit)
+  if not isLow then
+    let overFlowBit = checkOverflowOnDMul pMid1 pMid2
+    !! ir (high := pHigh .+ ((pMid .+ (pLow >> n32)) >> n32) .+ overFlowBit)
   !!ir (low := pLow .+ ((pMid .& mask32) << n32))
   if isSign then
     !!ir (signBit := src1IsNeg <+> src2IsNeg)
-    !!ir (tHigh := AST.ite signBit (AST.not high) high)
+    if not isLow then
+      !!ir (tHigh := AST.ite signBit (AST.not high) high)
     !!ir (tLow := AST.ite signBit (AST.neg low) low)
-    let carry = AST.ite (AST.``and`` signBit (tLow == zero)) one zero
-    !!ir (tHigh := tHigh .+ carry)
+    if not isLow then
+      let carry = AST.ite (AST.``and`` signBit (tLow == zero)) one zero
+      !!ir (tHigh := tHigh .+ carry)
   else
-    !!ir (tHigh := high)
+    if not isLow then
+      !!ir (tHigh := high)
     !!ir (tLow := low)
-  struct (tHigh, tLow)
+  if isLow then tLow
+  else tHigh
 
 let add insInfo insLen ctxt =
   let ir = !*ctxt
@@ -877,14 +883,14 @@ let mul insInfo insLen ctxt isSign =
   let ir = !*ctxt
   let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   !<ir insLen
-  let struct (_, low) = mul64BitReg rs1 rs2 ir isSign
+  let low = mul64BitReg rs1 rs2 ir isSign true
   !!ir (rd := low)
   !>ir insLen
 let mulhSignOrUnsign insInfo insLen ctxt isSign =
   let ir = !*ctxt
   let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   !<ir insLen
-  let struct (high, _) = mul64BitReg rs1 rs2 ir isSign
+  let high = mul64BitReg rs1 rs2 ir isSign false
   !!ir (rd := high)
   !>ir insLen
 let mulw insInfo insLen ctxt =
