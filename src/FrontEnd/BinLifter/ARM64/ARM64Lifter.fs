@@ -3145,10 +3145,11 @@ let shiftULeftLong ins insLen ctxt addr =
   let elements = 64<rt> / eSize
   !<ir insLen
   let dstB, dstA = transOprToExpr128 ins ctxt addr o1
-  let src = vectorPart ctxt eSize o2
-  let amt = transOprToExpr ins ctxt addr o3
-  let result = Array.map (fun s ->
-                 AST.zext (2 * eSize) s << (amt |> AST.xtlo (2 * eSize))) src
+  let src = vectorPart ctxt eSize o2 |> Array.map (AST.zext (2 * eSize))
+  let amt = transOprToExpr ins ctxt addr o3 |> AST.xtlo (2 * eSize)
+  let result = Array.init elements (fun _ -> !+ir (2 * eSize))
+  let accum = Array.map (fun s -> s << amt) src
+  Array.iter2 (fun r t -> !!ir (r := t)) result accum
   dstAssignForSIMD dstA dstB result 128<rt> elements ir
   !>ir insLen
 
@@ -3159,10 +3160,11 @@ let shiftSLeftLong ins insLen ctxt addr =
   let elements = 64<rt> / eSize
   !<ir insLen
   let dstB, dstA = transOprToExpr128 ins ctxt addr o1
-  let src = vectorPart ctxt eSize o2
-  let amt = transOprToExpr ins ctxt addr o3
-  let result = Array.map (fun s ->
-                 AST.sext (2 * eSize) s << (amt |> AST.xtlo (2 * eSize))) src
+  let src = vectorPart ctxt eSize o2 |> Array.map (AST.sext (2 * eSize))
+  let amt = transOprToExpr ins ctxt addr o3 |> AST.xtlo (2 * eSize)
+  let result = Array.init elements (fun _ -> !+ir (2 * eSize))
+  let accum = Array.map (fun s -> s << amt) src
+  Array.iter2 (fun r t -> !!ir (r := t)) result accum
   dstAssignForSIMD dstA dstB result 128<rt> elements ir
   !>ir insLen
 
