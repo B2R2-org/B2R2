@@ -2924,10 +2924,12 @@ let uaddw ins insLen ctxt addr =
   let elements = 64<rt> / eSize
   let dstB, dstA = transOprToExpr128 ins ctxt addr dst
   let src1 = transSIMDOprToExpr ctxt (2 * eSize) 128<rt> elements src1
-  let src2 = vectorPart ctxt eSize src2
+             |> Array.map (AST.zext (2 * eSize))
+  let src2 = vectorPart ctxt eSize src2 |> Array.map (AST.zext (2 * eSize))
   !<ir insLen
-  let result =
-    Array.map2 (fun e1 e2 -> e1 .+ (AST.zext (2 * eSize) e2)) src1 src2
+  let result = Array.init elements (fun _ -> !+ir (2 * eSize))
+  let sum = Array.map2 (.+) src1 src2
+  Array.iter2 (fun res s -> !!ir (res := s)) result sum
   dstAssignForSIMD dstA dstB result 128<rt> elements ir
   !>ir insLen
 
@@ -3256,22 +3258,20 @@ let shiftRight ins insLen ctxt addr shifter =
   dstAssignForSIMD dstA dstB result dataSize elements ir
   !>ir insLen
 
-let ssubl ins insLen ctxt addr isPart1 =
+let ssubl ins insLen ctxt addr =
   let ir = !*ctxt
   let struct (dst, src1, src2) = getThreeOprs ins
-  let struct (eSize, dataSize, elems) = getElemDataSzAndElems dst
+  let struct (eSize, _, _) = getElemDataSzAndElems src1
+  let dataSize = 64<rt>
+  let elements = dataSize / eSize
   !<ir insLen
   let dstB, dstA = transOprToExpr128 ins ctxt addr dst
-  let src1 = transSIMDOprToExpr ctxt (eSize / 2) dataSize (elems * 2) src1
-  let src2 = transSIMDOprToExpr ctxt (eSize / 2) dataSize (elems * 2) src2
-  let inline vPart expr =
-    if isPart1 then Array.sub expr 0 elems else Array.sub expr elems elems
-  let src1 = vPart src1
-  let src2 = vPart src2
-  let result = Array.init elems (fun _ -> !+ir eSize)
-  Array.map2 (fun e1 e2 -> AST.zext eSize e1 .- AST.zext eSize e2) src1 src2
-  |> Array.iter2 (fun e1 e2 -> !!ir (e1 := e2)) result
-  dstAssignForSIMD dstA dstB result dataSize elems ir
+  let src1 = vectorPart ctxt eSize src1 |> Array.map (AST.sext (2 * eSize))
+  let src2 = vectorPart ctxt eSize src2 |> Array.map (AST.sext (2 * eSize))
+  let result = Array.init elements (fun _ -> !+ir (2 * eSize))
+  let sub = Array.map2 (.-) src1 src2
+  Array.iter2 (fun res s -> !!ir (res := s)) result sub
+  dstAssignForSIMD dstA dstB result 128<rt> elements ir
   !>ir insLen
 
 let ssubw ins insLen ctxt addr =
@@ -3609,8 +3609,7 @@ let translate ins insLen ctxt =
     shiftSLeftLong ins insLen ctxt addr
   | Opcode.SSHR -> shift ins insLen ctxt addr (?>>)
   | Opcode.SSRA -> shiftRight ins insLen ctxt addr (?>>)
-  | Opcode.SSUBL -> ssubl ins insLen ctxt addr true
-  | Opcode.SSUBL2 -> ssubl ins insLen ctxt addr false
+  | Opcode.SSUBL | Opcode.SSUBL2 -> ssubl ins insLen ctxt addr
   | Opcode.SSUBW | Opcode.SSUBW2 -> ssubw ins insLen ctxt addr
   | Opcode.SMAX -> maxMin ins insLen ctxt addr (?>=)
   | Opcode.SMAXP -> maxMinp ins insLen ctxt addr (?>=)
