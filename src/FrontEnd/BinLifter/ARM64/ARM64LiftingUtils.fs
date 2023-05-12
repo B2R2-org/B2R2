@@ -129,15 +129,21 @@ let transShiftAmout ctxt oprSize = function
 /// shared/functions/common/Extend
 /// Extend()
 /// ========
-let extend reg oprSize isUnsigned =
-  if isUnsigned then AST.zext oprSize reg else AST.sext oprSize reg
+let extend reg oprSz regSize isUnsigned =
+  let uMask = numI64 ((1L <<< regSize) - 1L) oprSz
+  if isUnsigned then reg .& uMask
+  else
+    if regSize = 64 then reg
+    else
+      let mBit = AST.extract reg 1<rt> (regSize - 1)
+      let sMask = ~~~ ((1L <<< regSize) - 1L)
+      AST.ite mBit (reg .| numI64 sMask oprSz) (reg .& uMask)
 
 /// aarch64/instrs/extendreg/ExtendReg
 /// ExtendReg()
 /// ===========
 /// Perform a register extension and shift
 let extendReg ctxt reg typ shift oprSize =
-  let reg = getRegVar ctxt reg
   let shift =
     match shift with
     | Some shf -> shf |> int
@@ -152,9 +158,9 @@ let extendReg ctxt reg typ shift oprSize =
     | ExtUXTH -> true, 16
     | ExtUXTW -> true, 32
     | ExtUXTX -> true, 64
+  let reg = getRegVar ctxt reg |> AST.zext oprSize
   let len = min len ((RegType.toBitWidth oprSize) - shift)
-  let rTyp = RegType.fromBitWidth len
-  extend ((AST.xtlo rTyp  reg) << numI32 shift rTyp) oprSize isUnsigned
+  extend (reg << numI32 shift oprSize) oprSize (len + shift) isUnsigned
 
 let getElemDataSzAndElemsByVector = function
   (* Vector register names with element index *)
@@ -474,6 +480,15 @@ let transOprToExprOfCSEL ins ctxt addr =
     o4 |> unwrapCond
   | _ -> raise InvalidOperandException
 
+let transOprToExprOfFCSEL ins ctxt addr =
+  match ins.Operands with
+  | FourOperands (o1, o2, o3, o4) ->
+    o1,
+    transOprToExpr ins ctxt addr o2,
+    transOprToExpr ins ctxt addr o3,
+    o4 |> unwrapCond
+  | _ -> raise InvalidOperandException
+
 let transOprToExprOfCSINC ins ctxt addr =
   match ins.Operands with
   | TwoOperands (o1, o2) -> (* CSET *)
@@ -502,7 +517,8 @@ let transOprToExprOfCSINV ins ctxt addr =
     o2 |> unwrapCond |> invertCond
   | ThreeOperands (o1, o2, o3) -> (* CINV *)
     let o2 = transOprToExpr ins ctxt addr o2
-    transOprToExpr ins ctxt addr o1, o2, o2, o3 |> unwrapCond
+    transOprToExpr ins ctxt addr o1, o2, o2,
+    o3 |> unwrapCond |> invertCond
   | FourOperands (o1, o2, o3, o4) -> (* CSINV *)
     transOprToExpr ins ctxt addr o1,
     transOprToExpr ins ctxt addr o2,
@@ -704,15 +720,18 @@ let conditionHolds ctxt = function
 /// HighestSetBit()
 /// ===============
 let highestSetBitForIR expr width oprSz ir =
-  let struct (high, n1) = tmpVars2 ir oprSz
-  !!ir (high := numI32 -1 oprSz)
+  let struct (highest, n1) = tmpVars2 ir oprSz
+  !!ir (highest := numI32 -1 oprSz)
   !!ir (n1 := AST.num1 oprSz)
   let inline pos i =
+    let elem = !+ir oprSz
     let bit = AST.extract expr 1<rt> i |> AST.zext oprSz
-    (bit .* ((numI32 i oprSz) .+ n1)) .- n1
+    !!ir (elem := (bit .* ((numI32 i oprSz) .+ n1)) .- n1)
+    elem
   Array.init width pos
-  |> Array.iter (fun e -> !!ir (high := AST.ite (high ?<= e) e high))
-  high
+  |> Array.iter (fun e -> !!ir (highest := AST.ite (highest ?<= e) e highest))
+
+  highest
 
 let highestSetBit x size =
   let rec loop i =
@@ -795,7 +814,7 @@ let countLeadingSignBitsForIR expr oprSize ir =
   /// This count does not include the most significant bit of the source
   /// register.
   let bitSize = int oprSize - 1
-  countLeadingZeroBitsForIR expr bitSize oprSize ir
+  countLeadingZeroBitsForIR xExpr bitSize oprSize ir
 
 /// shared/functions/vector/UnsignedSatQ
 /// UnsignedSatQ()
@@ -829,6 +848,68 @@ let signedSatQ i n ir =
 let satQ i n isUnsigned ir = (* FIMXE: return saturated (FPSR.QC = '1') *)
   if isUnsigned then unsignedSatQ i n ir else signedSatQ i n ir
 
+/// Exception
+
+let isNaN oprSize expr =
+  match oprSize with
+  | 32<rt> -> IEEE754Single.isNaN expr
+  | 64<rt> -> IEEE754Double.isNaN expr
+  | _ -> Utils.impossible ()
+
+let isSNaN oprSize expr =
+  match oprSize with
+  | 32<rt> -> IEEE754Single.isSNaN expr
+  | 64<rt> -> IEEE754Double.isSNaN expr
+  | _ -> Utils.impossible ()
+
+let isQNaN oprSize expr =
+  match oprSize with
+  | 32<rt> -> IEEE754Single.isQNaN expr
+  | 64<rt> -> IEEE754Double.isQNaN expr
+  | _ -> Utils.impossible ()
+
+let isInfinity oprSize expr =
+  match oprSize with
+  | 32<rt> -> IEEE754Single.isInfinity expr
+  | 64<rt> -> IEEE754Double.isInfinity expr
+  | _ -> Utils.impossible ()
+
+let isZero oprSize expr =
+  match oprSize with
+  | 32<rt> -> IEEE754Single.isZero expr
+  | 64<rt> -> IEEE754Double.isZero expr
+  | _ -> Utils.impossible ()
+
+/// shared/functions/float/fproundingmode/FPRoundingMode
+/// FPRoundingMode()
+let fpRoundingMode src oprSz ctxt =
+  let fpcr = getRegVar ctxt R.FPCR |> AST.xtlo 32<rt>
+  let rm = AST.shr (AST.shl fpcr (numI32 8 32<rt>)) (numI32 0x1E 32<rt>)
+  AST.ite (rm == numI32 0 32<rt>)
+    (AST.cast CastKind.FtoFRound oprSz src) // 0 RN
+    (AST.ite (rm == numI32 1 32<rt>)
+      (AST.cast CastKind.FtoFCeil oprSz src) // 1 RZ
+      (AST.ite (rm == numI32 2 32<rt>)
+        (AST.cast CastKind.FtoFFloor oprSz src) // 2 RP
+        (AST.ite (rm == numI32 3 32<rt>)
+          (AST.cast CastKind.FtoFTrunc oprSz src) // 3 RM
+          (AST.cast CastKind.FtoIRound oprSz src))))
+
+/// shared/functions/float/fproundingmode/FPRoundingMode
+/// FtoI
+let fpRoundingToInt src oprSz ctxt =
+  let fpcr = getRegVar ctxt R.FPCR |> AST.xtlo 32<rt>
+  let rm = AST.shr (AST.shl fpcr (numI32 8 32<rt>)) (numI32 0x1E 32<rt>)
+  AST.ite (rm == numI32 0 32<rt>)
+    (AST.cast CastKind.FtoIRound oprSz src) // 0 RN
+    (AST.ite (rm == numI32 1 32<rt>)
+      (AST.cast CastKind.FtoICeil oprSz src) // 1 RP
+      (AST.ite (rm == numI32 2 32<rt>)
+        (AST.cast CastKind.FtoIFloor oprSz src) // 2 RMP
+        (AST.ite (rm == numI32 3 32<rt>)
+          (AST.cast CastKind.FtoITrunc oprSz src) // 3 RZ
+          (AST.cast CastKind.FtoIRound oprSz src))))
+
 /// shared/functions/float/FPToFixed
 /// FPToFixed()
 /// ======
@@ -848,7 +929,7 @@ let fpToFixed dstSz src fbits unsigned round =
     | FPRounding_POSINF -> AST.cast CastKind.FtoICeil srcSz
     | FPRounding_NEGINF -> AST.cast CastKind.FtoIFloor srcSz
   match dstSz, srcSz with
-  | d, s when d >=s -> round bigint
+  | d, s when d >= s -> round bigint
   | _ -> round bigint |> AST.xtlo dstSz
   |> if unsigned then AST.zext dstSz else AST.sext dstSz
 
