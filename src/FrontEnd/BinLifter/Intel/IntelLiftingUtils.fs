@@ -568,6 +568,12 @@ let getMask oprSize =
 let sideEffects ctxt insLen name =
   let ir = !*ctxt
   !<ir insLen
+#if EMULATION
+  if ctxt.ConditionCodeOp <> ConditionCodeOp.TraceStart then
+    !!ir (!.ctxt R.CCOP := numI32 (int ctxt.ConditionCodeOp) 8<rt>)
+  else ()
+  ctxt.ConditionCodeOp <- ConditionCodeOp.TraceStart
+#endif
   !!ir (AST.sideEffect name)
   !>ir insLen
 
@@ -580,3 +586,767 @@ let hasStackPtr (ins: InsInfo) =
   | OneOperand (OprMem (_, Some (Register.ESP, _), _, _))
   | OneOperand (OprMem (_, Some (Register.RSP, _), _, _)) -> true
   | _ -> false
+
+let buildAF ctxt e1 e2 r size =
+  let t1 = r <+> e1
+  let t2 = t1 <+> e2
+  let t3 = (AST.num1 size) << (numU32 4ul size)
+  let t4 = t2 .& t3
+  !.ctxt R.AF := t4 == t3
+
+let isExprZero e =
+  match e.E with
+  | Num bv when bv.IsZero () -> true
+  | _ -> false
+
+let buildPF ctxt r size cond ir =
+  let pf = !.ctxt R.PF
+  let computedPF =
+    if isExprZero r then
+      AST.num1 1<rt>
+    else
+      let struct (t1, t2) = tmpVars2 ir size
+      let s2 = r <+> (r >> (AST.zext size (numU32 4ul 8<rt>)))
+      let s4 = t1 <+> (t1 >> (AST.zext size (numU32 2ul 8<rt>)))
+      let s5 = t2 <+> (t2 >> (AST.zext size (AST.num1 8<rt>)))
+      !!ir (t1 := s2)
+      !!ir (t2 := s4)
+      AST.unop UnOpType.NOT (AST.xtlo 1<rt> s5)
+  !!ir (match cond with
+        | None -> pf := computedPF
+        | Some cond -> pf := AST.ite cond pf computedPF)
+
+let enumSZPFlags ctxt r size sf ir =
+  !!ir (!.ctxt R.SF := sf)
+  !!ir (!.ctxt R.ZF := r == (AST.num0 size))
+  !?ir (buildPF ctxt r size None)
+
+let enumASZPFlags ctxt e1 e2 r size sf ir =
+  !!ir (buildAF ctxt e1 e2 r size)
+  !?ir (enumSZPFlags ctxt r size sf)
+
+let enumEFLAGS ctxt e1 e2 e3 size cf ofl sf ir =
+  !!ir (!.ctxt R.CF := cf)
+  !!ir (!.ctxt R.OF := ofl)
+  !!ir (buildAF ctxt e1 e2 e3 size)
+  !!ir (!.ctxt R.SF := sf)
+  !!ir (!.ctxt R.ZF := e3 == (AST.num0 size))
+  !?ir (buildPF ctxt e3 size None)
+
+/// CF on add.
+let cfOnAdd e1 r = r .< e1
+
+/// CF on sub.
+let cfOnSub e1 e2 = e1 .< e2
+
+/// OF and SF on add.
+let osfOnAdd e1 e2 r ir =
+  if e1 = e2 then
+    let rHigh = !+ir 1<rt>
+    let e1High = AST.xthi 1<rt> e1
+    !!ir (rHigh := AST.xthi 1<rt> r)
+    struct ((e1High <+> rHigh), rHigh)
+  else
+    let struct (t1, t2) = tmpVars2 ir 1<rt>
+    let e1High = AST.xthi 1<rt> e1
+    let e2High = AST.xthi 1<rt> e2
+    let rHigh = AST.xthi 1<rt> r
+    !!ir (t1 := e1High)
+    !!ir (t2 := rHigh)
+    struct ((t1 == e2High) .& (t1 <+> t2), t2)
+
+/// OF on sub.
+let ofOnSub e1 e2 r =
+  AST.xthi 1<rt> ((e1 <+> e2) .& (e1 <+> r))
+
+#if EMULATION
+let getCCSrc1 (ctxt: TranslationContext) regType =
+  match regType with
+  | 8<rt> -> !.ctxt R.CCSRC1B
+  | 16<rt> -> !.ctxt R.CCSRC1W
+  | 32<rt> -> !.ctxt R.CCSRC1D
+  | 64<rt> -> !.ctxt R.CCSRC1
+  | _ -> Utils.impossible ()
+
+let getCCSrc2 (ctxt: TranslationContext) regType =
+  match regType with
+  | 8<rt> -> !.ctxt R.CCSRC2B
+  | 16<rt> -> !.ctxt R.CCSRC2W
+  | 32<rt> -> !.ctxt R.CCSRC2D
+  | 64<rt> -> !.ctxt R.CCSRC2
+  | _ -> Utils.impossible ()
+
+let getCCDst (ctxt: TranslationContext) regType =
+  match regType with
+  | 8<rt> -> !.ctxt R.CCDSTB
+  | 16<rt> -> !.ctxt R.CCDSTW
+  | 32<rt> -> !.ctxt R.CCDSTD
+  | 64<rt> -> !.ctxt R.CCDST
+  | _ -> Utils.impossible ()
+
+let setCCOperands2 (ctxt: TranslationContext) src1 dst ir =
+  let ccSrc1 = !.ctxt R.CCSRC1
+  let ccDst = !.ctxt R.CCDST
+  !!ir (ccSrc1 := AST.zext ctxt.WordBitSize src1)
+  !!ir (ccDst := AST.zext ctxt.WordBitSize dst)
+
+let setCCOperands3 (ctxt: TranslationContext) src1 src2 dst ir =
+  let ccSrc1 = !.ctxt R.CCSRC1
+  let ccSrc2 = !.ctxt R.CCSRC2
+  let ccDst = !.ctxt R.CCDST
+  !!ir (ccSrc1 := AST.zext ctxt.WordBitSize src1)
+  !!ir (ccSrc2 := AST.zext ctxt.WordBitSize src2)
+  !!ir (ccDst := AST.zext ctxt.WordBitSize dst)
+
+let setCCDst (ctxt: TranslationContext) dst ir =
+  let ccDst = !.ctxt R.CCDST
+  !!ir (ccDst := AST.zext ctxt.WordBitSize dst)
+
+let setCCOp (ctxt: TranslationContext) (ir: IRBuilder) =
+  if ctxt.ConditionCodeOp <> ConditionCodeOp.TraceStart then
+    !!ir (!.ctxt R.CCOP := numI32 (int ctxt.ConditionCodeOp) 8<rt>)
+  else ()
+
+let genDynamicFlagsUpdate (ctxt: TranslationContext) (ir: IRBuilder) =
+  !?ir (setCCOp ctxt)
+  !!ir (AST.sideEffect FlagsUpdate)
+  ctxt.ConditionCodeOp <- ConditionCodeOp.EFlags
+
+let getOFLazy (ctxt: TranslationContext) (ir: IRBuilder) =
+  let ccOp = ctxt.ConditionCodeOp
+  match ccOp with
+  | ConditionCodeOp.SUBB
+  | ConditionCodeOp.SUBW
+  | ConditionCodeOp.SUBD
+  | ConditionCodeOp.SUBQ ->
+    let size = 1 <<< ((int ccOp  - int ConditionCodeOp.SUBB) &&& 0b11)
+    let regType = RegType.fromByteWidth size
+    let struct (t1, t2, t3) = tmpVars3 ir regType
+    let src1 = getCCSrc1 ctxt regType
+    let dst = getCCDst ctxt regType
+    !!ir (t3 := dst)
+    !!ir (t2 := src1)
+    !!ir (t1 := t3 .+ t2)
+    let sf = t3 ?< AST.num0 regType
+    let cf = cfOnSub t1 t2
+    let ofl = ofOnSub t1 t2 t3
+    !?ir (enumEFLAGS ctxt t1 t2 t3 regType cf ofl sf)
+    ctxt.ConditionCodeOp <- ConditionCodeOp.EFlags
+    !.ctxt R.OF
+  | ConditionCodeOp.DECB
+  | ConditionCodeOp.DECW
+  | ConditionCodeOp.DECD
+  | ConditionCodeOp.DECQ ->
+    let size = 1 <<< ((int ccOp  - int ConditionCodeOp.SUBB) &&& 0b11)
+    let regType = RegType.fromByteWidth size
+    let struct (t1, t2, t3) = tmpVars3 ir regType
+    let src1 = getCCSrc1 ctxt regType
+    let dst = getCCDst ctxt regType
+    !!ir (t3 := dst)
+    !!ir (t2 := src1)
+    !!ir (t1 := t3 .+ t2)
+    let sf = t3 ?< AST.num0 regType
+    let cf = !.ctxt R.CF
+    let ofl = ofOnSub t1 t2 t3
+    !?ir (enumEFLAGS ctxt t1 t2 t3 regType cf ofl sf)
+    ctxt.ConditionCodeOp <- ConditionCodeOp.EFlags
+    !.ctxt R.OF
+  | ConditionCodeOp.ADDB
+  | ConditionCodeOp.ADDW
+  | ConditionCodeOp.ADDD
+  | ConditionCodeOp.ADDQ ->
+    let size = 1 <<< ((int ccOp  - int ConditionCodeOp.SUBB) &&& 0b11)
+    let regType = RegType.fromByteWidth size
+    let struct (t1, t2, t3) = tmpVars3 ir regType
+    let src1 = getCCSrc1 ctxt regType
+    let dst = getCCDst ctxt regType
+    !!ir (t3 := dst)
+    !!ir (t1 := src1)
+    !!ir (t2 := t3 .- t1)
+    let cf = cfOnAdd t1 t3
+    let struct (ofl, sf) = osfOnAdd t1 t2 t3 ir
+    !?ir (enumEFLAGS ctxt t1 t2 t3 regType cf ofl sf)
+    ctxt.ConditionCodeOp <- ConditionCodeOp.EFlags
+    !.ctxt R.OF
+  | ConditionCodeOp.INCB
+  | ConditionCodeOp.INCW
+  | ConditionCodeOp.INCD
+  | ConditionCodeOp.INCQ ->
+    let size = 1 <<< ((int ccOp  - int ConditionCodeOp.SUBB) &&& 0b11)
+    let regType = RegType.fromByteWidth size
+    let struct (t1, t2, t3) = tmpVars3 ir regType
+    let src1 = getCCSrc1 ctxt regType
+    let dst = getCCDst ctxt regType
+    !!ir (t3 := dst)
+    !!ir (t1 := src1)
+    !!ir (t2 := t3 .- t1)
+    let cf = !.ctxt R.CF
+    let struct (ofl, sf) = osfOnAdd t1 t2 t3 ir
+    !?ir (enumEFLAGS ctxt t1 t2 t3 regType cf ofl sf)
+    ctxt.ConditionCodeOp <- ConditionCodeOp.EFlags
+    !.ctxt R.OF
+  | ConditionCodeOp.SHLB
+  | ConditionCodeOp.SHLW
+  | ConditionCodeOp.SHLD
+  | ConditionCodeOp.SHLQ ->
+    let size = 1 <<< ((int ccOp  - int ConditionCodeOp.SUBB) &&& 0b11)
+    let regType = RegType.fromByteWidth size
+    let struct (t1, t2, t3) = tmpVars3 ir regType
+    let src1 = getCCSrc1 ctxt regType
+    let src2 = getCCSrc2 ctxt regType
+    let dst = getCCDst ctxt regType
+    let n0 = AST.num0 regType
+    let n1 = AST.num1 regType
+    let cond1 = src2 == n1
+    let cond2 = src2 == n0
+    let cf = !.ctxt R.CF
+    let sf = !.ctxt R.SF
+    let zf = !.ctxt R.ZF
+    let ofl = !.ctxt R.OF
+    let newOf = AST.xthi 1<rt> dst <+> cf
+    !!ir (t1 := src1)
+    !!ir (t2 := src2)
+    !!ir (t3 := dst)
+    !!ir (cf := AST.ite cond2 cf (AST.xthi 1<rt> (t1 << (t2 .- n1))))
+    !!ir (ofl := AST.ite cond1 newOf ofl)
+    !!ir (sf := AST.ite cond2 sf (AST.xthi 1<rt> t3))
+    !?ir (buildPF ctxt dst regType (Some cond2))
+    !!ir (zf := AST.ite cond2 zf (t3 == n0))
+    ctxt.ConditionCodeOp <- ConditionCodeOp.EFlags
+    !.ctxt R.OF
+  | ConditionCodeOp.SHRB
+  | ConditionCodeOp.SHRW
+  | ConditionCodeOp.SHRD
+  | ConditionCodeOp.SHRQ ->
+    let size = 1 <<< ((int ccOp  - int ConditionCodeOp.SUBB) &&& 0b11)
+    let regType = RegType.fromByteWidth size
+    let struct (t1, t2, t3) = tmpVars3 ir regType
+    let src1 = getCCSrc1 ctxt regType
+    let src2 = getCCSrc2 ctxt regType
+    let dst = getCCDst ctxt regType
+    let n0 = AST.num0 regType
+    let n1 = AST.num1 regType
+    let cond1 = src2 == n1
+    let cond2 = src2 == n0
+    let cf = !.ctxt R.CF
+    let sf = !.ctxt R.SF
+    let zf = !.ctxt R.ZF
+    let ofl = !.ctxt R.OF
+    !!ir (t1 := src1)
+    !!ir (t2 := src2)
+    !!ir (t3 := dst)
+    !!ir (cf := AST.ite cond2 cf (AST.xtlo 1<rt> (t1 ?>> (t2 .- n1))))
+    !!ir (ofl := AST.ite cond1 (AST.xthi 1<rt> t1) ofl)
+    !!ir (sf := AST.ite cond2 sf (AST.xthi 1<rt> t3))
+    !?ir (buildPF ctxt dst regType (Some cond2))
+    !!ir (zf := AST.ite cond2 zf (t3 == n0))
+    ctxt.ConditionCodeOp <- ConditionCodeOp.EFlags
+    !.ctxt R.OF
+  | ConditionCodeOp.SARB
+  | ConditionCodeOp.SARW
+  | ConditionCodeOp.SARD
+  | ConditionCodeOp.SARQ ->
+    let size = 1 <<< ((int ccOp  - int ConditionCodeOp.SUBB) &&& 0b11)
+    let regType = RegType.fromByteWidth size
+    let struct (t1, t2, t3) = tmpVars3 ir regType
+    let src1 = getCCSrc1 ctxt regType
+    let src2 = getCCSrc2 ctxt regType
+    let dst = getCCDst ctxt regType
+    let n0 = AST.num0 regType
+    let n1 = AST.num1 regType
+    let cond1 = src2 == n1
+    let cond2 = src2 == n0
+    let cf = !.ctxt R.CF
+    let sf = !.ctxt R.SF
+    let zf = !.ctxt R.ZF
+    let ofl = !.ctxt R.OF
+    !!ir (t1 := src1)
+    !!ir (t2 := src2)
+    !!ir (t3 := dst)
+    !!ir (cf := AST.ite cond2 cf (AST.xtlo 1<rt> (t1 ?>> (t2 .- n1))))
+    !!ir (ofl := AST.ite cond1 AST.b0 ofl)
+    !!ir (sf := AST.ite cond2 sf (AST.xthi 1<rt> t3))
+    !?ir (buildPF ctxt dst regType (Some cond2))
+    !!ir (zf := AST.ite cond2 zf (t3 == n0))
+    ctxt.ConditionCodeOp <- ConditionCodeOp.EFlags
+    !.ctxt R.OF
+  | ConditionCodeOp.LOGICB
+  | ConditionCodeOp.LOGICW
+  | ConditionCodeOp.LOGICD
+  | ConditionCodeOp.LOGICQ
+  | ConditionCodeOp.XORXX ->
+    AST.b0
+  | ConditionCodeOp.TraceStart ->
+    !?ir (genDynamicFlagsUpdate ctxt)
+    !.ctxt R.OF
+  | ConditionCodeOp.EFlags ->
+    !.ctxt R.OF
+  | _ -> Utils.futureFeature ()
+
+let getSFLazy (ctxt: TranslationContext) (ir: IRBuilder) =
+  let ccOp = ctxt.ConditionCodeOp
+  match ccOp with
+  | ConditionCodeOp.SUBB
+  | ConditionCodeOp.SUBW
+  | ConditionCodeOp.SUBD
+  | ConditionCodeOp.SUBQ
+  | ConditionCodeOp.LOGICB
+  | ConditionCodeOp.LOGICW
+  | ConditionCodeOp.LOGICD
+  | ConditionCodeOp.LOGICQ
+  | ConditionCodeOp.ADDB
+  | ConditionCodeOp.ADDW
+  | ConditionCodeOp.ADDD
+  | ConditionCodeOp.ADDQ
+  | ConditionCodeOp.INCB
+  | ConditionCodeOp.INCW
+  | ConditionCodeOp.INCD
+  | ConditionCodeOp.INCQ
+  | ConditionCodeOp.DECB
+  | ConditionCodeOp.DECW
+  | ConditionCodeOp.DECD
+  | ConditionCodeOp.DECQ ->
+    let size = 1 <<< ((int ccOp  - int ConditionCodeOp.SUBB) &&& 0b11)
+    let regType = RegType.fromByteWidth size
+    let t = getCCDst ctxt regType
+    t ?< AST.num0 regType
+  | ConditionCodeOp.SHLB
+  | ConditionCodeOp.SHLW
+  | ConditionCodeOp.SHLD
+  | ConditionCodeOp.SHLQ
+  | ConditionCodeOp.SHRB
+  | ConditionCodeOp.SHRW
+  | ConditionCodeOp.SHRD
+  | ConditionCodeOp.SHRQ
+  | ConditionCodeOp.SARB
+  | ConditionCodeOp.SARW
+  | ConditionCodeOp.SARD
+  | ConditionCodeOp.SARQ ->
+    let size = 1 <<< ((int ccOp  - int ConditionCodeOp.SUBB) &&& 0b11)
+    let regType = RegType.fromByteWidth size
+    let t = getCCDst ctxt regType
+    let cnt = getCCSrc2 ctxt regType
+    AST.ite (cnt == AST.num0 regType) (!.ctxt R.SF) (t ?< AST.num0 regType)
+  | ConditionCodeOp.XORXX ->
+    AST.b0
+  | ConditionCodeOp.TraceStart ->
+    !?ir (genDynamicFlagsUpdate ctxt)
+    !.ctxt R.SF
+  | ConditionCodeOp.EFlags ->
+    !.ctxt R.SF
+  | _ -> Utils.futureFeature ()
+
+let getZFLazy (ctxt: TranslationContext) (ir: IRBuilder) =
+  let ccOp = ctxt.ConditionCodeOp
+  match ccOp with
+  | ConditionCodeOp.SUBB
+  | ConditionCodeOp.SUBW
+  | ConditionCodeOp.SUBD
+  | ConditionCodeOp.SUBQ
+  | ConditionCodeOp.LOGICB
+  | ConditionCodeOp.LOGICW
+  | ConditionCodeOp.LOGICD
+  | ConditionCodeOp.LOGICQ
+  | ConditionCodeOp.ADDB
+  | ConditionCodeOp.ADDW
+  | ConditionCodeOp.ADDD
+  | ConditionCodeOp.ADDQ
+  | ConditionCodeOp.INCB
+  | ConditionCodeOp.INCW
+  | ConditionCodeOp.INCD
+  | ConditionCodeOp.INCQ
+  | ConditionCodeOp.DECB
+  | ConditionCodeOp.DECW
+  | ConditionCodeOp.DECD
+  | ConditionCodeOp.DECQ ->
+    let size = 1 <<< ((int ccOp  - int ConditionCodeOp.SUBB) &&& 0b11)
+    let regType = RegType.fromByteWidth size
+    let t = getCCDst ctxt regType
+    t == AST.num0 regType
+  | ConditionCodeOp.SHLB
+  | ConditionCodeOp.SHLW
+  | ConditionCodeOp.SHLD
+  | ConditionCodeOp.SHLQ
+  | ConditionCodeOp.SHRB
+  | ConditionCodeOp.SHRW
+  | ConditionCodeOp.SHRD
+  | ConditionCodeOp.SHRQ
+  | ConditionCodeOp.SARB
+  | ConditionCodeOp.SARW
+  | ConditionCodeOp.SARD
+  | ConditionCodeOp.SARQ ->
+    let size = 1 <<< ((int ccOp  - int ConditionCodeOp.SUBB) &&& 0b11)
+    let regType = RegType.fromByteWidth size
+    let t = getCCDst ctxt regType
+    let cnt = getCCSrc2 ctxt regType
+    AST.ite (cnt == AST.num0 regType) (!.ctxt R.ZF) (t == AST.num0 regType)
+  | ConditionCodeOp.XORXX ->
+    AST.b1
+  | ConditionCodeOp.TraceStart ->
+    !?ir (genDynamicFlagsUpdate ctxt)
+    !.ctxt R.ZF
+  | ConditionCodeOp.EFlags ->
+    !.ctxt R.ZF
+  | _ -> Utils.futureFeature ()
+
+let getAFLazy (ctxt: TranslationContext) (ir: IRBuilder) =
+  let ccOp = ctxt.ConditionCodeOp
+  match ccOp with
+  | ConditionCodeOp.SUBB
+  | ConditionCodeOp.SUBW
+  | ConditionCodeOp.SUBD
+  | ConditionCodeOp.SUBQ ->
+    let size = 1 <<< ((int ccOp  - int ConditionCodeOp.SUBB) &&& 0b11)
+    let regType = RegType.fromByteWidth size
+    let struct (t1, t2, t3) = tmpVars3 ir regType
+    let src1 = getCCSrc1 ctxt regType
+    let dst = getCCDst ctxt regType
+    !!ir (t3 := dst)
+    !!ir (t2 := src1)
+    !!ir (t1 := t3 .+ t2)
+    let sf = t3 ?< AST.num0 regType
+    let cf = cfOnSub t1 t2
+    let ofl = ofOnSub t1 t2 t3
+    !?ir (enumEFLAGS ctxt t1 t2 t3 regType cf ofl sf)
+    ctxt.ConditionCodeOp <- ConditionCodeOp.EFlags
+    !.ctxt R.AF
+  | ConditionCodeOp.DECB
+  | ConditionCodeOp.DECW
+  | ConditionCodeOp.DECD
+  | ConditionCodeOp.DECQ ->
+    let size = 1 <<< ((int ccOp  - int ConditionCodeOp.SUBB) &&& 0b11)
+    let regType = RegType.fromByteWidth size
+    let struct (t1, t2, t3) = tmpVars3 ir regType
+    let src1 = getCCSrc1 ctxt regType
+    let dst = getCCDst ctxt regType
+    !!ir (t3 := dst)
+    !!ir (t2 := src1)
+    !!ir (t1 := t3 .+ t2)
+    let sf = t3 ?< AST.num0 regType
+    let cf = !.ctxt R.CF
+    let ofl = ofOnSub t1 t2 t3
+    !?ir (enumEFLAGS ctxt t1 t2 t3 regType cf ofl sf)
+    ctxt.ConditionCodeOp <- ConditionCodeOp.EFlags
+    !.ctxt R.AF
+  | ConditionCodeOp.ADDB
+  | ConditionCodeOp.ADDW
+  | ConditionCodeOp.ADDD
+  | ConditionCodeOp.ADDQ ->
+    let size = 1 <<< ((int ccOp  - int ConditionCodeOp.SUBB) &&& 0b11)
+    let regType = RegType.fromByteWidth size
+    let struct (t1, t2, t3) = tmpVars3 ir regType
+    let src1 = getCCSrc1 ctxt regType
+    let dst = getCCDst ctxt regType
+    !!ir (t3 := dst)
+    !!ir (t1 := src1)
+    !!ir (t2 := t3 .- t1)
+    let cf = cfOnAdd t1 t3
+    let struct (ofl, sf) = osfOnAdd t1 t2 t3 ir
+    !?ir (enumEFLAGS ctxt t1 t2 t3 regType cf ofl sf)
+    ctxt.ConditionCodeOp <- ConditionCodeOp.EFlags
+    !.ctxt R.AF
+  | ConditionCodeOp.INCB
+  | ConditionCodeOp.INCW
+  | ConditionCodeOp.INCD
+  | ConditionCodeOp.INCQ ->
+    let size = 1 <<< ((int ccOp  - int ConditionCodeOp.SUBB) &&& 0b11)
+    let regType = RegType.fromByteWidth size
+    let struct (t1, t2, t3) = tmpVars3 ir regType
+    let src1 = getCCSrc1 ctxt regType
+    let dst = getCCDst ctxt regType
+    !!ir (t3 := dst)
+    !!ir (t1 := src1)
+    !!ir (t2 := t3 .- t1)
+    let cf = !.ctxt R.CF
+    let struct (ofl, sf) = osfOnAdd t1 t2 t3 ir
+    !?ir (enumEFLAGS ctxt t1 t2 t3 regType cf ofl sf)
+    ctxt.ConditionCodeOp <- ConditionCodeOp.EFlags
+    !.ctxt R.AF
+  | ConditionCodeOp.SHLB
+  | ConditionCodeOp.SHLW
+  | ConditionCodeOp.SHLD
+  | ConditionCodeOp.SHLQ
+  | ConditionCodeOp.SHRB
+  | ConditionCodeOp.SHRW
+  | ConditionCodeOp.SHRD
+  | ConditionCodeOp.SHRQ
+  | ConditionCodeOp.SARB
+  | ConditionCodeOp.SARW
+  | ConditionCodeOp.SARD
+  | ConditionCodeOp.SARQ
+  | ConditionCodeOp.LOGICB
+  | ConditionCodeOp.LOGICW
+  | ConditionCodeOp.LOGICD
+  | ConditionCodeOp.LOGICQ
+  | ConditionCodeOp.XORXX ->
+    !.ctxt R.AF
+  | ConditionCodeOp.TraceStart ->
+    !?ir (genDynamicFlagsUpdate ctxt)
+    !.ctxt R.AF
+  | ConditionCodeOp.EFlags ->
+    !.ctxt R.AF
+  | _ -> Utils.futureFeature ()
+
+let getPFLazy (ctxt: TranslationContext) (ir: IRBuilder) =
+  let ccOp = ctxt.ConditionCodeOp
+  match ccOp with
+  | ConditionCodeOp.SUBB
+  | ConditionCodeOp.SUBW
+  | ConditionCodeOp.SUBD
+  | ConditionCodeOp.SUBQ ->
+    let size = 1 <<< ((int ccOp  - int ConditionCodeOp.SUBB) &&& 0b11)
+    let regType = RegType.fromByteWidth size
+    let struct (t1, t2, t3) = tmpVars3 ir regType
+    let src1 = getCCSrc1 ctxt regType
+    let dst = getCCDst ctxt regType
+    !!ir (t3 := dst)
+    !!ir (t2 := src1)
+    !!ir (t1 := t3 .+ t2)
+    let sf = t3 ?< AST.num0 regType
+    let cf = cfOnSub t1 t2
+    let ofl = ofOnSub t1 t2 t3
+    !?ir (enumEFLAGS ctxt t1 t2 t3 regType cf ofl sf)
+    ctxt.ConditionCodeOp <- ConditionCodeOp.EFlags
+    !.ctxt R.PF
+  | ConditionCodeOp.DECB
+  | ConditionCodeOp.DECW
+  | ConditionCodeOp.DECD
+  | ConditionCodeOp.DECQ ->
+    let size = 1 <<< ((int ccOp  - int ConditionCodeOp.SUBB) &&& 0b11)
+    let regType = RegType.fromByteWidth size
+    let struct (t1, t2, t3) = tmpVars3 ir regType
+    let src1 = getCCSrc1 ctxt regType
+    let dst = getCCDst ctxt regType
+    !!ir (t3 := dst)
+    !!ir (t2 := src1)
+    !!ir (t1 := t3 .+ t2)
+    let sf = t3 ?< AST.num0 regType
+    let cf = !.ctxt R.CF
+    let ofl = ofOnSub t1 t2 t3
+    !?ir (enumEFLAGS ctxt t1 t2 t3 regType cf ofl sf)
+    ctxt.ConditionCodeOp <- ConditionCodeOp.EFlags
+    !.ctxt R.PF
+  | ConditionCodeOp.ADDB
+  | ConditionCodeOp.ADDW
+  | ConditionCodeOp.ADDD
+  | ConditionCodeOp.ADDQ ->
+    let size = 1 <<< ((int ccOp  - int ConditionCodeOp.SUBB) &&& 0b11)
+    let regType = RegType.fromByteWidth size
+    let struct (t1, t2, t3) = tmpVars3 ir regType
+    let src1 = getCCSrc1 ctxt regType
+    let dst = getCCDst ctxt regType
+    !!ir (t3 := dst)
+    !!ir (t1 := src1)
+    !!ir (t2 := t3 .- t1)
+    let cf = cfOnAdd t1 t3
+    let struct (ofl, sf) = osfOnAdd t1 t2 t3 ir
+    !?ir (enumEFLAGS ctxt t1 t2 t3 regType cf ofl sf)
+    ctxt.ConditionCodeOp <- ConditionCodeOp.EFlags
+    !.ctxt R.PF
+  | ConditionCodeOp.INCB
+  | ConditionCodeOp.INCW
+  | ConditionCodeOp.INCD
+  | ConditionCodeOp.INCQ ->
+    let size = 1 <<< ((int ccOp  - int ConditionCodeOp.SUBB) &&& 0b11)
+    let regType = RegType.fromByteWidth size
+    let struct (t1, t2, t3) = tmpVars3 ir regType
+    let src1 = getCCSrc1 ctxt regType
+    let dst = getCCDst ctxt regType
+    !!ir (t3 := dst)
+    !!ir (t1 := src1)
+    !!ir (t2 := t3 .- t1)
+    let cf = !.ctxt R.CF
+    let struct (ofl, sf) = osfOnAdd t1 t2 t3 ir
+    !?ir (enumEFLAGS ctxt t1 t2 t3 regType cf ofl sf)
+    ctxt.ConditionCodeOp <- ConditionCodeOp.EFlags
+    !.ctxt R.PF
+  | ConditionCodeOp.SHLB
+  | ConditionCodeOp.SHLW
+  | ConditionCodeOp.SHLD
+  | ConditionCodeOp.SHLQ ->
+    let size = 1 <<< ((int ccOp  - int ConditionCodeOp.SUBB) &&& 0b11)
+    let regType = RegType.fromByteWidth size
+    let struct (t1, t2, t3) = tmpVars3 ir regType
+    let src1 = getCCSrc1 ctxt regType
+    let src2 = getCCSrc2 ctxt regType
+    let dst = getCCDst ctxt regType
+    let n0 = AST.num0 regType
+    let n1 = AST.num1 regType
+    let cond1 = src2 == n1
+    let cond2 = src2 == n0
+    let cf = !.ctxt R.CF
+    let sf = !.ctxt R.SF
+    let zf = !.ctxt R.ZF
+    let ofl = !.ctxt R.OF
+    let newOf = AST.xthi 1<rt> dst <+> cf
+    !!ir (t1 := src1)
+    !!ir (t2 := src2)
+    !!ir (t3 := dst)
+    !!ir (cf := AST.ite cond2 cf (AST.xthi 1<rt> (t1 << (t2 .- n1))))
+    !!ir (ofl := AST.ite cond1 newOf ofl)
+    !!ir (sf := AST.ite cond2 sf (AST.xthi 1<rt> t3))
+    !?ir (buildPF ctxt dst regType (Some cond2))
+    !!ir (zf := AST.ite cond2 zf (t3 == n0))
+    ctxt.ConditionCodeOp <- ConditionCodeOp.EFlags
+    !.ctxt R.PF
+  | ConditionCodeOp.SHRB
+  | ConditionCodeOp.SHRW
+  | ConditionCodeOp.SHRD
+  | ConditionCodeOp.SHRQ ->
+    let size = 1 <<< ((int ccOp  - int ConditionCodeOp.SUBB) &&& 0b11)
+    let regType = RegType.fromByteWidth size
+    let struct (t1, t2, t3) = tmpVars3 ir regType
+    let src1 = getCCSrc1 ctxt regType
+    let src2 = getCCSrc2 ctxt regType
+    let dst = getCCDst ctxt regType
+    let n0 = AST.num0 regType
+    let n1 = AST.num1 regType
+    let cond1 = src2 == n1
+    let cond2 = src2 == n0
+    let cf = !.ctxt R.CF
+    let sf = !.ctxt R.SF
+    let zf = !.ctxt R.ZF
+    let ofl = !.ctxt R.OF
+    !!ir (t1 := src1)
+    !!ir (t2 := src2)
+    !!ir (t3 := dst)
+    !!ir (cf := AST.ite cond2 cf (AST.xtlo 1<rt> (t1 ?>> (t2 .- n1))))
+    !!ir (ofl := AST.ite cond1 (AST.xthi 1<rt> t1) ofl)
+    !!ir (sf := AST.ite cond2 sf (AST.xthi 1<rt> t3))
+    !?ir (buildPF ctxt dst regType (Some cond2))
+    !!ir (zf := AST.ite cond2 zf (t3 == n0))
+    ctxt.ConditionCodeOp <- ConditionCodeOp.EFlags
+    !.ctxt R.PF
+  | ConditionCodeOp.SARB
+  | ConditionCodeOp.SARW
+  | ConditionCodeOp.SARD
+  | ConditionCodeOp.SARQ ->
+    let size = 1 <<< ((int ccOp  - int ConditionCodeOp.SUBB) &&& 0b11)
+    let regType = RegType.fromByteWidth size
+    let struct (t1, t2, t3) = tmpVars3 ir regType
+    let src1 = getCCSrc1 ctxt regType
+    let src2 = getCCSrc2 ctxt regType
+    let dst = getCCDst ctxt regType
+    let n0 = AST.num0 regType
+    let n1 = AST.num1 regType
+    let cond1 = src2 == n1
+    let cond2 = src2 == n0
+    let cf = !.ctxt R.CF
+    let sf = !.ctxt R.SF
+    let zf = !.ctxt R.ZF
+    let ofl = !.ctxt R.OF
+    !!ir (t1 := src1)
+    !!ir (t2 := src2)
+    !!ir (t3 := dst)
+    !!ir (cf := AST.ite cond2 cf (AST.xtlo 1<rt> (t1 ?>> (t2 .- n1))))
+    !!ir (ofl := AST.ite cond1 AST.b0 ofl)
+    !!ir (sf := AST.ite cond2 sf (AST.xthi 1<rt> t3))
+    !?ir (buildPF ctxt dst regType (Some cond2))
+    !!ir (zf := AST.ite cond2 zf (t3 == n0))
+    ctxt.ConditionCodeOp <- ConditionCodeOp.EFlags
+    !.ctxt R.PF
+  | ConditionCodeOp.LOGICB
+  | ConditionCodeOp.LOGICW
+  | ConditionCodeOp.LOGICD
+  | ConditionCodeOp.LOGICQ ->
+    let size = 1 <<< ((int ccOp  - int ConditionCodeOp.SUBB) &&& 0b11)
+    let regType = RegType.fromByteWidth size
+    let t = getCCDst ctxt regType
+    !!ir (!.ctxt R.SF := AST.xthi 1<rt> t)
+    !!ir (!.ctxt R.ZF := t == (AST.num0 regType))
+    !?ir (buildPF ctxt t regType None)
+    !!ir (!.ctxt R.CF := AST.b0)
+    !!ir (!.ctxt R.OF := AST.b0)
+    ctxt.ConditionCodeOp <- ConditionCodeOp.EFlags
+    !.ctxt R.PF
+  | ConditionCodeOp.XORXX ->
+    AST.b1
+  | ConditionCodeOp.TraceStart ->
+    !?ir (genDynamicFlagsUpdate ctxt)
+    !.ctxt R.PF
+  | ConditionCodeOp.EFlags ->
+    !.ctxt R.PF
+  | _ -> Utils.futureFeature ()
+
+let getCFLazy (ctxt: TranslationContext) (ir: IRBuilder) =
+  let ccOp = ctxt.ConditionCodeOp
+  match ccOp with
+  | ConditionCodeOp.SUBB
+  | ConditionCodeOp.SUBW
+  | ConditionCodeOp.SUBD
+  | ConditionCodeOp.SUBQ ->
+    let size = 1 <<< ((int ccOp  - int ConditionCodeOp.SUBB) &&& 0b11)
+    let regType = RegType.fromByteWidth size
+    let src1 = getCCSrc1 ctxt regType
+    let dst = getCCDst ctxt regType
+    cfOnSub (dst .+ src1) src1
+  | ConditionCodeOp.ADDB
+  | ConditionCodeOp.ADDW
+  | ConditionCodeOp.ADDD
+  | ConditionCodeOp.ADDQ ->
+    let size = 1 <<< ((int ccOp  - int ConditionCodeOp.SUBB) &&& 0b11)
+    let regType = RegType.fromByteWidth size
+    let src1 = getCCSrc1 ctxt regType
+    let dst = getCCDst ctxt regType
+    cfOnAdd src1 dst
+  | ConditionCodeOp.INCB
+  | ConditionCodeOp.INCW
+  | ConditionCodeOp.INCD
+  | ConditionCodeOp.INCQ
+  | ConditionCodeOp.DECB
+  | ConditionCodeOp.DECW
+  | ConditionCodeOp.DECD
+  | ConditionCodeOp.DECQ ->
+    !.ctxt R.CF
+  | ConditionCodeOp.SHLB
+  | ConditionCodeOp.SHLW
+  | ConditionCodeOp.SHLD
+  | ConditionCodeOp.SHLQ ->
+    let size = 1 <<< ((int ccOp  - int ConditionCodeOp.SUBB) &&& 0b11)
+    let regType = RegType.fromByteWidth size
+    let src1 = getCCSrc1 ctxt regType
+    let src2 = getCCSrc2 ctxt regType
+    let n0 = AST.num0 regType
+    let n1 = AST.num1 regType
+    let cond2 = src2 == n0
+    let cf = !.ctxt R.CF
+    AST.ite cond2 cf (AST.xthi 1<rt> (src1 << (src2 .- n1)))
+  | ConditionCodeOp.SHRB
+  | ConditionCodeOp.SHRW
+  | ConditionCodeOp.SHRD
+  | ConditionCodeOp.SHRQ ->
+    let size = 1 <<< ((int ccOp  - int ConditionCodeOp.SUBB) &&& 0b11)
+    let regType = RegType.fromByteWidth size
+    let src1 = getCCSrc1 ctxt regType
+    let src2 = getCCSrc2 ctxt regType
+    let n0 = AST.num0 regType
+    let n1 = AST.num1 regType
+    let cond2 = src2 == n0
+    let cf = !.ctxt R.CF
+    AST.ite cond2 cf (AST.xtlo 1<rt> (src1 ?>> (src2 .- n1)))
+  | ConditionCodeOp.SARB
+  | ConditionCodeOp.SARW
+  | ConditionCodeOp.SARD
+  | ConditionCodeOp.SARQ ->
+    let size = 1 <<< ((int ccOp  - int ConditionCodeOp.SUBB) &&& 0b11)
+    let regType = RegType.fromByteWidth size
+    let src1 = getCCSrc1 ctxt regType
+    let src2 = getCCSrc2 ctxt regType
+    let n0 = AST.num0 regType
+    let n1 = AST.num1 regType
+    let cond2 = src2 == n0
+    let cf = !.ctxt R.CF
+    AST.ite cond2 cf (AST.xtlo 1<rt> (src1 ?>> (src2 .- n1)))
+  | ConditionCodeOp.LOGICB
+  | ConditionCodeOp.LOGICW
+  | ConditionCodeOp.LOGICD
+  | ConditionCodeOp.LOGICQ
+  | ConditionCodeOp.XORXX ->
+    AST.b0
+  | ConditionCodeOp.TraceStart ->
+    !?ir (genDynamicFlagsUpdate ctxt)
+    !.ctxt R.CF
+  | ConditionCodeOp.EFlags ->
+    !.ctxt R.CF
+  | _ -> Utils.futureFeature ()
+#endif

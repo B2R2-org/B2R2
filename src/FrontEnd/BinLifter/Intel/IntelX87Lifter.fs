@@ -481,9 +481,7 @@ let fxch (ins: InsInfo) insLen ctxt =
 #endif
   !>ir insLen
 
-let private fcmov (ins: InsInfo) insLen ctxt cond =
-  let ir = !*ctxt
-  !<ir insLen
+let private fcmov (ins: InsInfo) insLen ctxt ir cond =
   let srcReg =
     match ins.Operands with
     | TwoOperands (_, OprReg reg) -> reg
@@ -497,33 +495,90 @@ let private fcmov (ins: InsInfo) insLen ctxt cond =
   !!ir (!.ctxt R.FSWC2 := undefC2)
   !!ir (!.ctxt R.FSWC3 := undefC3)
 #endif
-  !>ir insLen
 
 let fcmove ins insLen ctxt =
-  !.ctxt R.ZF |> fcmov ins insLen ctxt
+  let ir = !*ctxt
+  !<ir insLen
+#if EMULATION
+  getZFLazy ctxt ir |> fcmov ins insLen ctxt ir
+#else
+  !.ctxt R.ZF |> fcmov ins insLen ctxt ir
+#endif
+  !>ir insLen
+
 
 let fcmovne ins insLen ctxt =
-  !.ctxt R.ZF |> AST.not |> fcmov ins insLen ctxt
+  let ir = !*ctxt
+  !<ir insLen
+#if EMULATION
+  getZFLazy ctxt ir |> AST.not |> fcmov ins insLen ctxt ir
+#else
+  !.ctxt R.ZF |> AST.not |> fcmov ins insLen ctxt ir
+#endif
+  !>ir insLen
 
 let fcmovb ins insLen ctxt =
-  !.ctxt R.CF |> fcmov ins insLen ctxt
+  let ir = !*ctxt
+  !<ir insLen
+#if EMULATION
+  getCFLazy ctxt ir |> fcmov ins insLen ctxt ir
+#else
+  !.ctxt R.CF |> fcmov ins insLen ctxt ir
+#endif
+  !>ir insLen
 
 let fcmovbe ins insLen ctxt =
-  (!.ctxt R.CF .| !.ctxt R.ZF) |> fcmov ins insLen ctxt
+  let ir = !*ctxt
+  !<ir insLen
+#if EMULATION
+  (getCFLazy ctxt ir .| getZFLazy ctxt ir) |> fcmov ins insLen ctxt ir
+#else
+  (!.ctxt R.CF .| !.ctxt R.ZF) |> fcmov ins insLen ctxt ir
+#endif
+  !>ir insLen
 
 let fcmovnb ins insLen ctxt =
-  !.ctxt R.CF |> AST.not |> fcmov ins insLen ctxt
+  let ir = !*ctxt
+  !<ir insLen
+#if EMULATION
+  getCFLazy ctxt ir |> AST.not |> fcmov ins insLen ctxt ir
+#else
+  !.ctxt R.CF |> AST.not |> fcmov ins insLen ctxt ir
+#endif
+  !>ir insLen
 
 let fcmovnbe ins insLen ctxt =
+  let ir = !*ctxt
+  !<ir insLen
+#if EMULATION
+  let cond1 = getCFLazy ctxt ir |> AST.not
+  let cond2 = getZFLazy ctxt ir |> AST.not
+#else
   let cond1 = !.ctxt R.CF |> AST.not
   let cond2 = !.ctxt R.ZF |> AST.not
-  cond1 .& cond2 |> fcmov ins insLen ctxt
+#endif
+  cond1 .& cond2 |> fcmov ins insLen ctxt ir
+  !>ir insLen
 
 let fcmovu ins insLen ctxt =
-  !.ctxt R.PF |> fcmov ins insLen ctxt
+  let ir = !*ctxt
+  !<ir insLen
+#if EMULATION
+  getPFLazy ctxt ir |> fcmov ins insLen ctxt ir
+#else
+  !.ctxt R.PF |> fcmov ins insLen ctxt ir
+#endif
+  !>ir insLen
 
 let fcmovnu ins insLen ctxt =
-  !.ctxt R.PF |> AST.not |> fcmov ins insLen ctxt
+  let ir = !*ctxt
+  !<ir insLen
+#if EMULATION
+  getPFLazy ctxt ir |> AST.not |> fcmov ins insLen ctxt ir
+#else
+  !.ctxt R.PF |> AST.not |> fcmov ins insLen ctxt ir
+#endif
+  !>ir insLen
 
 let private fpuFBinOp (ins: InsInfo) insLen ctxt binOp doPop leftToRight =
   let ir = !*ctxt
@@ -876,6 +931,9 @@ let fcomi ins insLen ctxt doPop =
   !!ir (zf := isNan .| (tmp0 == tmp1))
   !!ir (!.ctxt R.FSWC1 := AST.b0)
   if doPop then !?ir (popFPUStack ctxt) else ()
+#if EMULATION
+  ctxt.ConditionCodeOp <- ConditionCodeOp.EFlags
+#endif
   !>ir insLen
 
 let ftst _ins insLen ctxt =

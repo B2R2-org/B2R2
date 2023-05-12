@@ -1856,6 +1856,9 @@ let vptest ins insLen ctxt =
     !!ir (!.ctxt R.OF := AST.b0)
     !!ir (!.ctxt R.PF := AST.b0)
     !!ir (!.ctxt R.SF := AST.b0)
+#if EMULATION
+    ctxt.ConditionCodeOp <- ConditionCodeOp.EFlags
+#endif
     !>ir insLen
 
 let vpunpckhdq ins insLen ctxt =

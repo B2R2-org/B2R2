@@ -147,6 +147,32 @@ type internal RegExprs (wordSize) =
   let dr6 = var 32<rt> (Register.toRegID Register.DR6) "DR6"
   let dr7 = var 32<rt> (Register.toRegID Register.DR7) "DR7"
 
+#if EMULATION
+  let ccOp =
+    var 8<rt> (Register.toRegID Register.CCOP) "CCOP"
+  let ccDst =
+    var (toRegType wordSize) (Register.toRegID Register.CCDST) "CCDST"
+  let ccDstD =
+    if wordSize = Bit32 then ccDst
+    else AST.xtlo 32<rt> ccDst
+  let ccDstW = AST.xtlo 16<rt> ccDst
+  let ccDstB = AST.xtlo 8<rt> ccDst
+  let ccSrc1 =
+    var (toRegType wordSize) (Register.toRegID Register.CCSRC1) "CCSRC1"
+  let ccSrc1D =
+    if wordSize = Bit32 then ccSrc1
+    else AST.xtlo 32<rt> ccSrc1
+  let ccSrc1W = AST.xtlo 16<rt> ccSrc1
+  let ccSrc1B = AST.xtlo 8<rt> ccSrc1
+  let ccSrc2 =
+    var (toRegType wordSize) (Register.toRegID Register.CCSRC2) "CCSRC2"
+  let ccSrc2D =
+    if wordSize = Bit32 then ccSrc2
+    else AST.xtlo 32<rt> ccSrc2
+  let ccSrc2W = AST.xtlo 16<rt> ccSrc2
+  let ccSrc2B = AST.xtlo 8<rt> ccSrc2
+#endif
+
   (* QWORD regs *)
   member val RAX = rax with get
   member val RBX = rbx with get
@@ -618,6 +644,22 @@ type internal RegExprs (wordSize) =
   member val DR6 = dr6 with get
   member val DR7 = dr7 with get
 
+#if EMULATION
+  member val CCOP = ccOp with get
+  member val CCDST = ccDst with get
+  member val CCDSTD = ccDstD with get
+  member val CCDSTW = ccDstW with get
+  member val CCDSTB = ccDstB with get
+  member val CCSRC1 = ccSrc1 with get
+  member val CCSRC1D = ccSrc1D with get
+  member val CCSRC1W = ccSrc1W with get
+  member val CCSRC1B = ccSrc1B with get
+  member val CCSRC2 = ccSrc2 with get
+  member val CCSRC2D = ccSrc2D with get
+  member val CCSRC2W = ccSrc2W with get
+  member val CCSRC2B = ccSrc2B with get
+#endif
+
   member __.GetRegVar (name) =
     match name with
     | R.RAX ->
@@ -955,6 +997,21 @@ type internal RegExprs (wordSize) =
     | R.DR3 -> __.DR3
     | R.DR6 -> __.DR6
     | R.DR7 -> __.DR7
+#if EMULATION
+    | R.CCOP -> __.CCOP
+    | R.CCDST -> __.CCDST
+    | R.CCDSTD -> __.CCDSTD
+    | R.CCDSTW -> __.CCDSTW
+    | R.CCDSTB -> __.CCDSTB
+    | R.CCSRC1 -> __.CCSRC1
+    | R.CCSRC1D -> __.CCSRC1D
+    | R.CCSRC1W -> __.CCSRC1W
+    | R.CCSRC1B -> __.CCSRC1B
+    | R.CCSRC2 -> __.CCSRC2
+    | R.CCSRC2D -> __.CCSRC2D
+    | R.CCSRC2W -> __.CCSRC2W
+    | R.CCSRC2B -> __.CCSRC2B
+#endif
     | _ -> failwith "Unhandled register."
 
   member __.GetPseudoRegVar name pos =

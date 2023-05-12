@@ -50,78 +50,6 @@ let private undefZF = AST.undef 1<rt> "ZF is undefined."
 let private undefPF = AST.undef 1<rt> "PF is undefined."
 #endif
 
-let private buildAF ctxt e1 e2 r size =
-  let t1 = r <+> e1
-  let t2 = t1 <+> e2
-  let t3 = (AST.num1 size) << (numU32 4ul size)
-  let t4 = t2 .& t3
-  !.ctxt R.AF := t4 == t3
-
-let private isExprZero e =
-  match e.E with
-  | Num bv when bv.IsZero () -> true
-  | _ -> false
-
-let private buildPF ctxt r size cond ir =
-  let pf = !.ctxt R.PF
-  let computedPF =
-    if isExprZero r then
-      AST.num1 1<rt>
-    else
-      let struct (t1, t2) = tmpVars2 ir size
-      let s2 = r <+> (r >> (AST.zext size (numU32 4ul 8<rt>)))
-      let s4 = t1 <+> (t1 >> (AST.zext size (numU32 2ul 8<rt>)))
-      let s5 = t2 <+> (t2 >> (AST.zext size (AST.num1 8<rt>)))
-      !!ir (t1 := s2)
-      !!ir (t2 := s4)
-      AST.unop UnOpType.NOT (AST.xtlo 1<rt> s5)
-  !!ir (match cond with
-        | None -> pf := computedPF
-        | Some cond -> pf := AST.ite cond pf computedPF)
-
-let private enumSZPFlags ctxt r size sf ir =
-  !!ir (!.ctxt R.SF := sf)
-  !!ir (!.ctxt R.ZF := r == (AST.num0 size))
-  !?ir (buildPF ctxt r size None)
-
-let private enumASZPFlags ctxt e1 e2 r size sf ir =
-  !!ir (buildAF ctxt e1 e2 r size)
-  !?ir (enumSZPFlags ctxt r size sf)
-
-let private enumEFLAGS ctxt e1 e2 e3 size cf ofl sf ir =
-  !!ir (!.ctxt R.CF := cf)
-  !!ir (!.ctxt R.OF := ofl)
-  !!ir (buildAF ctxt e1 e2 e3 size)
-  !!ir (!.ctxt R.SF := sf)
-  !!ir (!.ctxt R.ZF := e3 == (AST.num0 size))
-  !?ir (buildPF ctxt e3 size None)
-
-/// CF on add.
-let private cfOnAdd e1 r = AST.lt r e1
-
-/// CF on sub.
-let private cfOnSub e1 e2 = AST.lt e1 e2
-
-/// OF and SF on add.
-let private osfOnAdd e1 e2 r ir =
-  if e1 = e2 then
-    let rHigh = !+ir 1<rt>
-    let e1High = AST.xthi 1<rt> e1
-    !!ir (rHigh := AST.xthi 1<rt> r)
-    struct ((e1High <+> rHigh), rHigh)
-  else
-    let struct (t1, t2) = tmpVars2 ir 1<rt>
-    let e1High = AST.xthi 1<rt> e1
-    let e2High = AST.xthi 1<rt> e2
-    let rHigh = AST.xthi 1<rt> r
-    !!ir (t1 := e1High)
-    !!ir (t2 := rHigh)
-    struct ((t1 == e2High) .& (t1 <+> t2), t2)
-
-/// OF on sub.
-let private ofOnSub e1 e2 r =
-  AST.xthi 1<rt> ((e1 <+> e2) .& (e1 <+> r))
-
 let private getInstrPtr ctxt =
   !.ctxt (if is64bit ctxt then R.RIP else R.EIP)
 
@@ -193,6 +121,10 @@ let private strRepeat ins insLen ctxt body cond (ir: IRBuilder) =
   !!ir (AST.lmark lblCont)
   !?ir (body ins ctxt)
   !!ir (cx := cx .- AST.num1 ctxt.WordBitSize)
+#if EMULATION
+  !?ir (setCCOp ctxt)
+  ctxt.ConditionCodeOp <- ConditionCodeOp.TraceStart
+#endif
   match cond with
   | None -> !!ir (AST.interjmp pc InterJmpKind.Base)
   | Some cond ->
@@ -216,10 +148,13 @@ let aaa insLen ctxt =
   let cf = !.ctxt R.CF
   let alAnd0f = al .& numI32 0x0f 8<rt>
   let cond1 = AST.gt alAnd0f (numI32 9 8<rt>)
-  let cond2 = af == AST.b1
   let cond = !+ir 1<rt>
   !<ir insLen
-  !!ir (cond := cond1 .| cond2)
+#if EMULATION
+  !!ir (cond := cond1 .| ((getAFLazy ctxt ir) == AST.b1))
+#else
+  !!ir (cond := cond1 .| (af == AST.b1))
+#endif
   !!ir (ax := AST.ite cond (ax .+ numI32 0x106 16<rt>) ax)
   !!ir (af := AST.ite cond AST.b1 AST.b0)
   !!ir (cf := AST.ite cond AST.b1 AST.b0)
@@ -229,6 +164,8 @@ let aaa insLen ctxt =
   !!ir (!.ctxt R.SF := undefSF)
   !!ir (!.ctxt R.ZF := undefZF)
   !!ir (!.ctxt R.PF := undefPF)
+#else
+  ctxt.ConditionCodeOp <- ConditionCodeOp.EFlags
 #endif
   !>ir insLen
 
@@ -249,6 +186,8 @@ let aad ins insLen ctxt =
   !!ir (!.ctxt R.OF := undefOF)
   !!ir (!.ctxt R.AF := undefAF)
   !!ir (!.ctxt R.CF := undefCF)
+#else
+  ctxt.ConditionCodeOp <- ConditionCodeOp.EFlags
 #endif
   !>ir insLen
 
@@ -269,6 +208,8 @@ let aam ins insLen ctxt =
   !!ir (!.ctxt R.OF := undefOF)
   !!ir (!.ctxt R.AF := undefAF)
   !!ir (!.ctxt R.CF := undefCF)
+#else
+  ctxt.ConditionCodeOp <- ConditionCodeOp.EFlags
 #endif
   !>ir insLen
 
@@ -283,16 +224,22 @@ let aas insLen ctxt =
   let ah = !.ctxt R.AH
   let alAnd0f = al .& numI32 0x0f 8<rt>
   let cond1 = AST.gt alAnd0f (numI32 9 8<rt>)
-  let cond2 = af == AST.b1
   let ir = !*ctxt
   let cond = !+ir 1<rt>
   !<ir insLen
-  !!ir (cond := cond1 .| cond2)
+#if EMULATION
+  !!ir (cond := cond1 .| ((getAFLazy ctxt ir) == AST.b1))
+#else
+  !!ir (cond := cond1 .| (af == AST.b1))
+#endif
   !!ir (ax := AST.ite cond (ax .- numI32 6 16<rt>) ax)
   !!ir (ah := AST.ite cond (ah .- AST.num1 8<rt>) ah)
   !!ir (af := AST.ite cond AST.b1 AST.b0)
   !!ir (cf := AST.ite cond AST.b1 AST.b0)
   !!ir (al := alAnd0f)
+#if EMULATION
+  ctxt.ConditionCodeOp <- ConditionCodeOp.EFlags
+#endif
   !>ir insLen
 
 let adc ins insLen ctxt =
@@ -304,13 +251,20 @@ let adc ins insLen ctxt =
   let struct (t1, t2, t3, t4) = tmpVars4 ir oprSize
   !!ir (t1 := dst)
   !!ir (t2 := AST.sext oprSize src)
+#if EMULATION
+  !!ir (t3 := t2 .+ AST.zext oprSize (getCFLazy ctxt ir))
+#else
   !!ir (t3 := t2 .+ AST.zext oprSize cf)
+#endif
   !!ir (t4 := t1 .+ t3)
   !!ir (dstAssign oprSize dst t4)
-  !!ir (cf := AST.lt t3 t2 .| AST.lt t4 t1)
+  !!ir (cf := (t3 .< t2) .| (t4 .< t1))
   let struct (ofl, sf) = osfOnAdd t1 t2 t4 ir
   !!ir (!.ctxt R.OF := ofl)
   !?ir (enumASZPFlags ctxt t1 t2 t4 oprSize sf)
+#if EMULATION
+  ctxt.ConditionCodeOp <- ConditionCodeOp.EFlags
+#endif
   !>ir insLen
 
 let add ins insLen ctxt =
@@ -320,27 +274,54 @@ let add ins insLen ctxt =
   match ins.Operands with
   | TwoOperands (o1, o2) when o1 = o2 ->
     let dst = transOprToExpr ir false ins insLen ctxt o1
-    let struct (t1, t2) = tmpVars2 ir oprSize
     if hasLock ins.Prefixes then !!ir (AST.sideEffect Lock) else ()
+#if !EMULATION
+    let struct (t1, t2) = tmpVars2 ir oprSize
     !!ir (t1 := dst)
     !!ir (t2 := t1 .+ t1)
     !!ir (dstAssign oprSize dst t2)
     let struct (ofl, sf) = osfOnAdd t1 t1 t2 ir
     !?ir (enumEFLAGS ctxt t1 t1 t2 oprSize (cfOnAdd t1 t2) ofl sf)
+#else
+    let t = !+ir oprSize
+    !!ir (t := dst)
+    !!ir (dstAssign oprSize dst (t .+ t))
+    !?ir (setCCOperands2 ctxt t dst)
+    match oprSize with
+    | 8<rt> -> ctxt.ConditionCodeOp <- ConditionCodeOp.ADDB
+    | 16<rt> -> ctxt.ConditionCodeOp <- ConditionCodeOp.ADDW
+    | 32<rt> -> ctxt.ConditionCodeOp <- ConditionCodeOp.ADDD
+    | 64<rt> -> ctxt.ConditionCodeOp <- ConditionCodeOp.ADDQ
+    | _ -> raise InvalidRegTypeException
+#endif
   | TwoOperands (o1, o2) ->
     let dst = transOprToExpr ir true ins insLen ctxt o1
     let src = transOprToExpr ir false ins insLen ctxt o2 |> transReg ir true
+    if hasLock ins.Prefixes then !!ir (AST.sideEffect Lock) else ()
+#if !EMULATION
     let isSrcConst = isConst src
     let t1 = !+ir oprSize
     let t2 = if isSrcConst then src else !+ir oprSize
     let t3 = !+ir oprSize
-    if hasLock ins.Prefixes then !!ir (AST.sideEffect Lock) else ()
     !!ir (t1 := dst)
     if isSrcConst then () else !!ir (t2 := src)
     !!ir (t3 := t1 .+ t2)
     !!ir (dstAssign oprSize dst t3)
+#else
+    !!ir (dstAssign oprSize dst (dst .+ src))
+#endif
+#if EMULATION
+    !?ir (setCCOperands2 ctxt src dst)
+    match oprSize with
+    | 8<rt> -> ctxt.ConditionCodeOp <- ConditionCodeOp.ADDB
+    | 16<rt> -> ctxt.ConditionCodeOp <- ConditionCodeOp.ADDW
+    | 32<rt> -> ctxt.ConditionCodeOp <- ConditionCodeOp.ADDD
+    | 64<rt> -> ctxt.ConditionCodeOp <- ConditionCodeOp.ADDQ
+    | _ -> raise InvalidRegTypeException
+#else
     let struct (ofl, sf) = osfOnAdd t1 t2 t3 ir
     !?ir (enumEFLAGS ctxt t1 t2 t3 oprSize (cfOnAdd t1 t3) ofl sf)
+#endif
   | _ -> raise InvalidOperandException
   if hasLock ins.Prefixes then !!ir (AST.sideEffect Unlock) else ()
   !>ir insLen
@@ -350,7 +331,11 @@ let adox ins insLen ctxt =
   !<ir insLen
   let struct (dst, src) = transTwoOprs ir true ins insLen ctxt
   let oprSize = getOperationSize ins
+#if EMULATION
+  let oF = getOFLazy ctxt ir
+#else
   let oF = !.ctxt R.OF
+#endif
   let struct (t1, t2, t3) = tmpVars3 ir oprSize
   !!ir (t1 := dst)
   !!ir (t2 := src)
@@ -364,16 +349,23 @@ let ``and`` ins insLen ctxt =
   let struct (dst, src) = transTwoOprs ir true ins insLen ctxt
   let oprSize = getOperationSize ins
   let t = !+ir oprSize
-  let sf = AST.xthi 1<rt> t
   if hasLock ins.Prefixes then !!ir (AST.sideEffect Lock) else ()
-  !!ir (t := dst .& AST.sext oprSize src)
-  !!ir (dstAssign oprSize dst t)
+  !!ir (dstAssign oprSize dst (dst .& AST.sext oprSize src))
+#if EMULATION
+  !?ir (setCCDst ctxt dst)
+  match oprSize with
+  | 8<rt> -> ctxt.ConditionCodeOp <- ConditionCodeOp.LOGICB
+  | 16<rt> -> ctxt.ConditionCodeOp <- ConditionCodeOp.LOGICW
+  | 32<rt> -> ctxt.ConditionCodeOp <- ConditionCodeOp.LOGICD
+  | 64<rt> -> ctxt.ConditionCodeOp <- ConditionCodeOp.LOGICQ
+  | _ -> raise InvalidRegTypeException
+#else
+  let sf = AST.xthi 1<rt> dst
   !!ir (!.ctxt R.OF := AST.b0)
   !!ir (!.ctxt R.CF := AST.b0)
-#if !EMULATION
+  !?ir (enumSZPFlags ctxt dst oprSize sf)
   !!ir (!.ctxt R.AF := undefAF)
 #endif
-  !?ir (enumSZPFlags ctxt t oprSize sf)
   if hasLock ins.Prefixes then !!ir (AST.sideEffect Unlock) else ()
   !>ir insLen
 
@@ -387,6 +379,9 @@ let andn ins insLen ctxt =
   !!ir (dstAssign oprSize dst t)
   !!ir (!.ctxt R.SF := AST.extract dst 1<rt> (int oprSize - 1))
   !!ir (!.ctxt R.ZF := AST.eq dst (AST.num0 oprSize))
+#if EMULATION
+  ctxt.ConditionCodeOp <- ConditionCodeOp.EFlags
+#endif
   !>ir insLen
 
 let arpl ins insLen ctxt =
@@ -401,8 +396,11 @@ let arpl ins insLen ctxt =
   let zF = !.ctxt R.ZF
   !!ir (t1 := dst .& numI32 0x3 16<rt>)
   !!ir (t2 := src .& numI32 0x3 16<rt>)
-  !!ir (dst := AST.ite (AST.lt t1 t2) ((dst .& mask) .| t2) dst)
-  !!ir (zF := AST.lt t1 t2)
+  !!ir (dst := AST.ite (t1 .< t2) ((dst .& mask) .| t2) dst)
+  !!ir (zF := t1 .< t2)
+#if EMULATION
+  ctxt.ConditionCodeOp <- ConditionCodeOp.EFlags
+#endif
   !>ir insLen
 
 let bextr ins insLen ctxt =
@@ -423,6 +421,8 @@ let bextr ins insLen ctxt =
   !!ir (!.ctxt R.AF := undefAF)
   !!ir (!.ctxt R.SF := undefSF)
   !!ir (!.ctxt R.PF := undefPF)
+#else
+  ctxt.ConditionCodeOp <- ConditionCodeOp.EFlags
 #endif
   !>ir insLen
 
@@ -474,6 +474,9 @@ let bsf ins insLen ctxt =
   let cond = src == AST.num0 oprSize
   let zf = !.ctxt R.ZF
   let t = !+ir oprSize
+#if EMULATION
+  !?ir (genDynamicFlagsUpdate ctxt)
+#endif
   !!ir (AST.cjmp cond (AST.name lblL0) (AST.name lblL1))
   !!ir (AST.lmark lblL0)
   !!ir (zf := AST.b1)
@@ -497,6 +500,8 @@ let bsf ins insLen ctxt =
   !!ir (!.ctxt R.AF := undefAF)
   !!ir (!.ctxt R.SF := undefSF)
   !!ir (!.ctxt R.PF := undefPF)
+#else
+  ctxt.ConditionCodeOp <- ConditionCodeOp.EFlags
 #endif
   !>ir insLen
 
@@ -514,6 +519,9 @@ let bsr ins insLen ctxt =
   let cond = src == AST.num0 oprSize
   let zf = !.ctxt R.ZF
   let t = !+ir oprSize
+#if EMULATION
+  !?ir (genDynamicFlagsUpdate ctxt)
+#endif
   !!ir (AST.cjmp cond (AST.name lblL0) (AST.name lblL1))
   !!ir (AST.lmark lblL0)
   !!ir (zf := AST.b1)
@@ -537,6 +545,8 @@ let bsr ins insLen ctxt =
   !!ir (!.ctxt R.AF := undefAF)
   !!ir (!.ctxt R.SF := undefSF)
   !!ir (!.ctxt R.PF := undefPF)
+#else
+  ctxt.ConditionCodeOp <- ConditionCodeOp.EFlags
 #endif
   !>ir insLen
 
@@ -571,12 +581,17 @@ let bt ins insLen ctxt =
   !<ir insLen
   let struct (bitBase, bitOffset) = transTwoOprs ir true ins insLen ctxt
   let oprSize = getOperationSize ins
+#if EMULATION
+  !!ir (!.ctxt R.ZF := getZFLazy ctxt ir)
+#endif
   !!ir (!.ctxt R.CF := bit ins bitBase bitOffset oprSize)
 #if !EMULATION
   !!ir (!.ctxt R.OF := undefOF)
   !!ir (!.ctxt R.SF := undefSF)
   !!ir (!.ctxt R.AF := undefAF)
   !!ir (!.ctxt R.PF := undefPF)
+#else
+  ctxt.ConditionCodeOp <- ConditionCodeOp.EFlags
 #endif
   !>ir insLen
 
@@ -605,6 +620,9 @@ let bitTest ins insLen ctxt setValue =
   let oprSize = getOperationSize ins
   let setValue = AST.zext oprSize setValue
   if hasLock ins.Prefixes then !!ir (AST.sideEffect Lock) else ()
+#if EMULATION
+  !!ir (!.ctxt R.ZF := getZFLazy ctxt ir)
+#endif
   !!ir (!.ctxt R.CF := bit ins bitBase bitOffset oprSize)
   !!ir (setBit ins bitBase bitOffset oprSize setValue)
 #if !EMULATION
@@ -612,12 +630,36 @@ let bitTest ins insLen ctxt setValue =
   !!ir (!.ctxt R.SF := undefSF)
   !!ir (!.ctxt R.AF := undefAF)
   !!ir (!.ctxt R.PF := undefPF)
+#else
+  ctxt.ConditionCodeOp <- ConditionCodeOp.EFlags
 #endif
   if hasLock ins.Prefixes then !!ir (AST.sideEffect Unlock) else ()
   !>ir insLen
 
 let btc ins insLen ctxt =
-  bitTest ins insLen ctxt (!.ctxt R.CF |> AST.not)
+  let ir = !*ctxt
+  !<ir insLen
+  let struct (bitBase, bitOffset) = transTwoOprs ir true ins insLen ctxt
+  let oprSize = getOperationSize ins
+  if hasLock ins.Prefixes then !!ir (AST.sideEffect Lock) else ()
+#if !EMULATION
+  let setValue = AST.zext oprSize (!.ctxt R.CF |> AST.not)
+#else
+  let setValue = AST.zext oprSize (getCFLazy ctxt ir |> AST.not)
+  !!ir (!.ctxt R.ZF := getZFLazy ctxt ir)
+#endif
+  !!ir (!.ctxt R.CF := bit ins bitBase bitOffset oprSize)
+  !!ir (setBit ins bitBase bitOffset oprSize setValue)
+#if !EMULATION
+  !!ir (!.ctxt R.OF := undefOF)
+  !!ir (!.ctxt R.SF := undefSF)
+  !!ir (!.ctxt R.AF := undefAF)
+  !!ir (!.ctxt R.PF := undefPF)
+#else
+  ctxt.ConditionCodeOp <- ConditionCodeOp.EFlags
+#endif
+  if hasLock ins.Prefixes then !!ir (AST.sideEffect Unlock) else ()
+  !>ir insLen
 
 let btr ins insLen ctxt =
   bitTest ins insLen ctxt AST.b0
@@ -637,6 +679,9 @@ let bzhi ins insLen ctxt =
   let cf = !.ctxt R.CF
   !!ir (dstAssign oprSize dst (AST.ite cond1 ((src1 << tmp) >> tmp) src1))
   !!ir (cf := AST.ite cond2 AST.b1 AST.b0)
+#if EMULATION
+  ctxt.ConditionCodeOp <- ConditionCodeOp.EFlags
+#endif
   !>ir insLen
 
 let call ins insLen ctxt =
@@ -645,6 +690,10 @@ let call ins insLen ctxt =
   let pc = getInstrPtr ctxt
   let oprSize = getOperationSize ins
   let struct (target, ispcrel) = transJumpTargetOpr ir false ins pc insLen ctxt
+#if EMULATION
+  !?ir (setCCOp ctxt)
+  ctxt.ConditionCodeOp <- ConditionCodeOp.TraceStart
+#endif
   if ispcrel || not (hasStackPtr ins) then
     !?ir (auxPush oprSize ctxt (pc .+ numInsLen insLen ctxt))
     !!ir (AST.interjmp target InterJmpKind.IsCall)
@@ -668,19 +717,28 @@ let clearFlag insLen ctxt flagReg =
   let ir = !*ctxt
   !<ir insLen
   !!ir (!.ctxt flagReg := AST.b0)
+#if EMULATION
+  ctxt.ConditionCodeOp <- ConditionCodeOp.EFlags
+#endif
   !>ir insLen
 
 let cmc ins insLen ctxt =
   let cf = !.ctxt R.CF
   let ir = !*ctxt
   !<ir insLen
+#if EMULATION
+  !!ir (cf := AST.not (getCFLazy ctxt ir))
+#else
   !!ir (cf := AST.not cf)
+#endif
 #if !EMULATION
   !!ir (!.ctxt R.OF := undefOF)
   !!ir (!.ctxt R.AF := undefAF)
   !!ir (!.ctxt R.SF := undefSF)
   !!ir (!.ctxt R.ZF := undefZF)
   !!ir (!.ctxt R.PF := undefPF)
+#else
+  ctxt.ConditionCodeOp <- ConditionCodeOp.EFlags
 #endif
   !>ir insLen
 
@@ -706,12 +764,75 @@ let private getCondOfCMov (ins: IntelInternalInstruction) ctxt =
                     (!.ctxt R.SF == !.ctxt R.OF)
   | _ -> raise InvalidOpcodeException
 
+#if EMULATION
+let private getCondOfCMovLazy (ins: IntelInternalInstruction) ctxt ir =
+  match ins.Opcode with
+  | Opcode.CMOVO -> getOFLazy ctxt ir
+  | Opcode.CMOVNO -> getOFLazy ctxt ir |> AST.not
+  | Opcode.CMOVB -> getCFLazy ctxt ir
+  | Opcode.CMOVAE -> getCFLazy ctxt ir |> AST.not
+  | Opcode.CMOVZ -> getZFLazy ctxt ir
+  | Opcode.CMOVNZ -> getZFLazy ctxt ir |> AST.not
+  | Opcode.CMOVBE ->
+    let ccOp = ctxt.ConditionCodeOp
+    match ccOp with
+    | ConditionCodeOp.SUBB
+    | ConditionCodeOp.SUBW
+    | ConditionCodeOp.SUBD
+    | ConditionCodeOp.SUBQ ->
+      let size = 1 <<< ((int ccOp  - int ConditionCodeOp.SUBB) &&& 0b11)
+      let regType = RegType.fromByteWidth size
+      let src2 = getCCSrc1 ctxt regType
+      let src1 = getCCDst ctxt regType .+ src2
+      src1 .<= src2
+    | _ -> (getCFLazy ctxt ir) .| (getZFLazy ctxt ir)
+  | Opcode.CMOVA -> (getCFLazy ctxt ir .| getZFLazy ctxt ir) |> AST.not
+  | Opcode.CMOVS -> getSFLazy ctxt ir
+  | Opcode.CMOVNS -> getSFLazy ctxt ir |> AST.not
+  | Opcode.CMOVP -> getPFLazy ctxt ir
+  | Opcode.CMOVNP -> getPFLazy ctxt ir |> AST.not
+  | Opcode.CMOVL ->
+    let ccOp = ctxt.ConditionCodeOp
+    match ccOp with
+    | ConditionCodeOp.SUBB
+    | ConditionCodeOp.SUBW
+    | ConditionCodeOp.SUBD
+    | ConditionCodeOp.SUBQ ->
+      let size = 1 <<< ((int ccOp  - int ConditionCodeOp.SUBB) &&& 0b11)
+      let regType = RegType.fromByteWidth size
+      let src2 = getCCSrc1 ctxt regType
+      let src1 = getCCDst ctxt regType .+ src2
+      src1 ?< src2
+    | _ -> getOFLazy ctxt ir != getSFLazy ctxt ir
+  | Opcode.CMOVGE -> getOFLazy ctxt ir == getSFLazy ctxt ir
+  | Opcode.CMOVLE ->
+    let ccOp = ctxt.ConditionCodeOp
+    match ccOp with
+    | ConditionCodeOp.SUBB
+    | ConditionCodeOp.SUBW
+    | ConditionCodeOp.SUBD
+    | ConditionCodeOp.SUBQ ->
+      let size = 1 <<< ((int ccOp  - int ConditionCodeOp.SUBB) &&& 0b11)
+      let regType = RegType.fromByteWidth size
+      let src2 = getCCSrc1 ctxt regType
+      let src1 = getCCDst ctxt regType .+ src2
+      src1 ?<= src2
+    | _ -> (getOFLazy ctxt ir != getSFLazy ctxt ir) .| (getZFLazy ctxt ir)
+  | Opcode.CMOVG ->
+    (getOFLazy ctxt ir == getSFLazy ctxt ir) .& (getZFLazy ctxt ir |> AST.not)
+  | _ -> raise InvalidOpcodeException
+#endif
+
 let cmovcc ins insLen ctxt =
   let ir = !*ctxt
   !<ir insLen
   let struct (dst, src) = transTwoOprs ir false ins insLen ctxt
   let oprSize = getOperationSize ins
+#if EMULATION
+  !!ir (dstAssign oprSize dst (AST.ite (getCondOfCMovLazy ins ctxt ir) src dst))
+#else
   !!ir (dstAssign oprSize dst (AST.ite (getCondOfCMov ins ctxt) src dst))
+#endif
   !>ir insLen
 
 let cmp ins insLen ctxt =
@@ -719,15 +840,25 @@ let cmp ins insLen ctxt =
   !<ir insLen
   let struct (src1, src2) = transTwoOprs ir false ins insLen ctxt
   let oprSize = getOperationSize ins
+#if EMULATION
+  !?ir (setCCOperands2 ctxt src2 (src1 .- src2))
+  match oprSize with
+  | 8<rt> -> ctxt.ConditionCodeOp <- ConditionCodeOp.SUBB
+  | 16<rt> -> ctxt.ConditionCodeOp <- ConditionCodeOp.SUBW
+  | 32<rt> -> ctxt.ConditionCodeOp <- ConditionCodeOp.SUBD
+  | 64<rt> -> ctxt.ConditionCodeOp <- ConditionCodeOp.SUBQ
+  | _ -> raise InvalidRegTypeException
+#else
   let isRhsConst = isConst src2
   let t1 = !+ir oprSize
   let t2 = if isRhsConst then AST.sext oprSize src2 else !+ir oprSize
   let t3 = !+ir oprSize
-  let sf = AST.xthi 1<rt> t3
   !!ir (t1 := src1)
   if isRhsConst then () else !!ir (t2 := AST.sext oprSize src2)
   !!ir (t3 := t1 .- t2)
+  let sf = AST.xthi 1<rt> t3
   !?ir (enumEFLAGS ctxt t1 t2 t3 oprSize (cfOnSub t1 t2) (ofOnSub t1 t2 t3) sf)
+#endif
   !>ir insLen
 
 let private cmpsBody ins ctxt ir =
@@ -757,6 +888,9 @@ let cmps (ins: InsInfo) insLen ctxt =
    elif hasREPNZ pref then
      strRepeat ins insLen ctxt cmpsBody (Some (zf)) ir
    else cmpsBody ins ctxt ir)
+#if EMULATION
+  ctxt.ConditionCodeOp <- ConditionCodeOp.EFlags
+#endif
   !>ir insLen
 
 let cmpxchg ins insLen ctxt =
@@ -790,8 +924,11 @@ let cmpxchg ins insLen ctxt =
   !!ir (!.ctxt R.SF := AST.xthi 1<rt> r)
   !!ir (buildAF ctxt tAcc t r oprSize)
   !?ir (buildPF ctxt r oprSize None)
-  !!ir (!.ctxt R.CF := AST.lt (tAcc .+ t) tAcc)
+  !!ir (!.ctxt R.CF := (tAcc .+ t) .< tAcc)
   if hasLock ins.Prefixes then !!ir (AST.sideEffect Unlock) else ()
+#if EMULATION
+  ctxt.ConditionCodeOp <- ConditionCodeOp.EFlags
+#endif
   !>ir insLen
 
 let compareExchangeBytes ins insLen ctxt =
@@ -871,7 +1008,6 @@ let daa insLen ctxt =
   let oldCf = !+ir 1<rt>
   let alAnd0f = al .& numI32 0x0f 8<rt>
   let subCond1 = AST.gt alAnd0f (numI32 9 8<rt>)
-  let subCond2 = af == AST.b1
   let cond1 = !+ir 1<rt>
   let subCond3 = AST.gt oldAl (numI32 0x99 8<rt>)
   let subCond4 = oldCf == AST.b1
@@ -879,9 +1015,17 @@ let daa insLen ctxt =
   let sf = AST.xthi 1<rt> al
   !<ir insLen
   !!ir (oldAl := al)
+#if EMULATION
+  !!ir (oldCf := getCFLazy ctxt ir)
+#else
   !!ir (oldCf := cf)
+#endif
   !!ir (cf := AST.b0)
-  !!ir (cond1 := subCond1 .| subCond2)
+#if EMULATION
+  !!ir (cond1 := subCond1 .| ((getAFLazy ctxt ir) == AST.b1))
+#else
+  !!ir (cond1 := subCond1 .| (af == AST.b1))
+#endif
   !!ir (al := AST.ite cond1 (al .+ numI32 6 8<rt>) al)
   !!ir (cf := AST.ite cond1 oldCf cf)
   !!ir (af := cond1)
@@ -891,6 +1035,8 @@ let daa insLen ctxt =
   !?ir (enumSZPFlags ctxt al 8<rt> sf)
 #if !EMULATION
   !!ir (!.ctxt R.OF := undefOF)
+#else
+  ctxt.ConditionCodeOp <- ConditionCodeOp.EFlags
 #endif
   !>ir insLen
 
@@ -914,9 +1060,17 @@ let das insLen ctxt =
   let sf = AST.xthi 1<rt> al
   !<ir insLen
   !!ir (oldAl := al)
+#if EMULATION
+  !!ir (oldCf := getCFLazy ctxt ir)
+#else
   !!ir (oldCf := cf)
+#endif
   !!ir (cf := AST.b0)
-  !!ir (cond1 := subCond1 .| subCond2)
+#if EMULATION
+  !!ir (cond1 := subCond1 .| ((getAFLazy ctxt ir) == AST.b1))
+#else
+  !!ir (cond1 := subCond1 .| (af == AST.b1))
+#endif
   !!ir (al := AST.ite cond1 (al .- numI32 6 8<rt>) al)
   !!ir (cf := AST.ite cond1 oldCf cf)
   !!ir (af := cond1)
@@ -926,6 +1080,8 @@ let das insLen ctxt =
   !?ir (enumSZPFlags ctxt al 8<rt> sf)
 #if !EMULATION
   !!ir (!.ctxt R.OF := undefOF)
+#else
+  ctxt.ConditionCodeOp <- ConditionCodeOp.EFlags
 #endif
   !>ir insLen
 
@@ -944,6 +1100,16 @@ let dec ins insLen ctxt =
   !!ir (!.ctxt R.OF := ofOnSub t1 t2 t3)
   !?ir (enumASZPFlags ctxt t1 t2 t3 oprSize sf)
   if hasLock ins.Prefixes then !!ir (AST.sideEffect Unlock) else ()
+#if EMULATION
+  !!ir (!.ctxt R.CF := getCFLazy ctxt ir)
+  !?ir (setCCOperands2 ctxt t2 t3)
+  match oprSize with
+  | 8<rt> -> ctxt.ConditionCodeOp <- ConditionCodeOp.DECB
+  | 16<rt> -> ctxt.ConditionCodeOp <- ConditionCodeOp.DECW
+  | 32<rt> -> ctxt.ConditionCodeOp <- ConditionCodeOp.DECD
+  | 64<rt> -> ctxt.ConditionCodeOp <- ConditionCodeOp.DECQ
+  | _ -> raise InvalidRegTypeException
+#endif
   !>ir insLen
 
 let private mul64Bit src1 src2 ir =
@@ -1111,8 +1277,8 @@ let private checkQuotientIDIV oprSize sz lblAssign lblErr q =
   let amount = numI32 (RegType.toBitWidth oprSize - 1) oprSize
   let mask = AST.num1 oprSize << amount
   let msb = AST.xthi 1<rt> q
-  let negRes = AST.lt q (AST.zext sz mask)
-  let posRes = AST.gt q (AST.zext sz (mask .- (AST.num1 oprSize)))
+  let negRes =  q .< (AST.zext sz mask)
+  let posRes = q .> (AST.zext sz (mask .- (AST.num1 oprSize)))
   let cond = AST.ite (msb == AST.b1) negRes posRes
   AST.cjmp cond (AST.name lblErr) (AST.name lblAssign)
 
@@ -1170,6 +1336,8 @@ let div ins insLen ctxt =
   !!ir (!.ctxt R.SF := undefSF)
   !!ir (!.ctxt R.ZF := undefZF)
   !!ir (!.ctxt R.PF := undefPF)
+#else
+  ctxt.ConditionCodeOp <- ConditionCodeOp.EFlags
 #endif
   !>ir insLen
 
@@ -1339,6 +1507,8 @@ let imul ins insLen ctxt =
   !!ir (!.ctxt R.ZF := undefZF)
   !!ir (!.ctxt R.AF := undefAF)
   !!ir (!.ctxt R.PF := undefPF)
+#else
+  ctxt.ConditionCodeOp <- ConditionCodeOp.EFlags
 #endif
   !>ir insLen
 
@@ -1357,6 +1527,16 @@ let inc ins insLen ctxt =
   !!ir (!.ctxt R.OF := ofl)
   !?ir (enumASZPFlags ctxt t1 t2 t3 oprSize sf)
   if hasLock ins.Prefixes then !!ir (AST.sideEffect Unlock) else ()
+#if EMULATION
+  !!ir (!.ctxt R.CF := getCFLazy ctxt ir)
+  !?ir (setCCOperands2 ctxt t1 t3)
+  match oprSize with
+  | 8<rt> -> ctxt.ConditionCodeOp <- ConditionCodeOp.INCB
+  | 16<rt> -> ctxt.ConditionCodeOp <- ConditionCodeOp.INCW
+  | 32<rt> -> ctxt.ConditionCodeOp <- ConditionCodeOp.INCD
+  | 64<rt> -> ctxt.ConditionCodeOp <- ConditionCodeOp.INCQ
+  | _ -> raise InvalidRegTypeException
+#endif
   !>ir insLen
 
 let private insBody ins ctxt ir =
@@ -1416,12 +1596,89 @@ let private getCondOfJcc (ins: IntelInternalInstruction)
   | Opcode.JRCXZ -> (!.ctxt R.RCX) == (AST.num0 ctxt.WordBitSize)
   | _ -> raise InvalidOpcodeException
 
+#if EMULATION
+let private getCondOfJccLazy (ins: IntelInternalInstruction)
+                             (ctxt: TranslationContext)
+                             (ir: IRBuilder) =
+#if DEBUG
+  if ctxt.WordBitSize = 64<rt> && (getOperationSize ins) = 16<rt> then
+    Utils.impossible ()
+  else ()
+#endif
+  match ins.Opcode with
+  | Opcode.JO -> getOFLazy ctxt ir
+  | Opcode.JNO -> getOFLazy ctxt ir |> AST.not
+  | Opcode.JB -> getCFLazy ctxt ir
+  | Opcode.JNB -> getCFLazy ctxt ir |> AST.not
+  | Opcode.JZ -> getZFLazy ctxt ir
+  | Opcode.JNZ -> getZFLazy ctxt ir |> AST.not
+  | Opcode.JBE ->
+    let ccOp = ctxt.ConditionCodeOp
+    match ccOp with
+    | ConditionCodeOp.SUBB
+    | ConditionCodeOp.SUBW
+    | ConditionCodeOp.SUBD
+    | ConditionCodeOp.SUBQ ->
+      let size = 1 <<< ((int ccOp  - int ConditionCodeOp.SUBB) &&& 0b11)
+      let regType = RegType.fromByteWidth size
+      let src2 = getCCSrc1 ctxt regType
+      let src1 = getCCDst ctxt regType .+ src2
+      src1 .<= src2
+    | _ -> (getCFLazy ctxt ir) .| (getZFLazy ctxt ir)
+  | Opcode.JA -> (getCFLazy ctxt ir .| getZFLazy ctxt ir) |> AST.not
+  | Opcode.JS -> getSFLazy ctxt ir
+  | Opcode.JNS -> getSFLazy ctxt ir |> AST.not
+  | Opcode.JP -> getPFLazy ctxt ir
+  | Opcode.JNP -> getPFLazy ctxt ir |> AST.not
+  | Opcode.JL ->
+    let ccOp = ctxt.ConditionCodeOp
+    match ccOp with
+    | ConditionCodeOp.SUBB
+    | ConditionCodeOp.SUBW
+    | ConditionCodeOp.SUBD
+    | ConditionCodeOp.SUBQ ->
+      let size = 1 <<< ((int ccOp  - int ConditionCodeOp.SUBB) &&& 0b11)
+      let regType = RegType.fromByteWidth size
+      let src2 = getCCSrc1 ctxt regType
+      let src1 = getCCDst ctxt regType .+ src2
+      src1 ?< src2
+    | _ -> getOFLazy ctxt ir != getSFLazy ctxt ir
+  | Opcode.JNL -> getOFLazy ctxt ir == getSFLazy ctxt ir
+  | Opcode.JLE ->
+    let ccOp = ctxt.ConditionCodeOp
+    match ccOp with
+    | ConditionCodeOp.SUBB
+    | ConditionCodeOp.SUBW
+    | ConditionCodeOp.SUBD
+    | ConditionCodeOp.SUBQ ->
+      let size = 1 <<< ((int ccOp  - int ConditionCodeOp.SUBB) &&& 0b11)
+      let regType = RegType.fromByteWidth size
+      let src2 = getCCSrc1 ctxt regType
+      let src1 = getCCDst ctxt regType .+ src2
+      src1 ?<= src2
+    | _ -> (getOFLazy ctxt ir != getSFLazy ctxt ir) .| (getZFLazy ctxt ir)
+  | Opcode.JG ->
+    (getOFLazy ctxt ir == getSFLazy ctxt ir) .& (getZFLazy ctxt ir |> AST.not)
+  | Opcode.JCXZ -> !.ctxt R.CX == AST.num0 ctxt.WordBitSize
+  | Opcode.JECXZ ->
+    let sz = ctxt.WordBitSize
+    (AST.cast CastKind.ZeroExt sz (!.ctxt R.ECX)) == (AST.num0 sz)
+  | Opcode.JRCXZ -> (!.ctxt R.RCX) == (AST.num0 ctxt.WordBitSize)
+  | _ -> raise InvalidOpcodeException
+#endif
+
 let jcc ins insLen ctxt =
   let ir = !*ctxt
   !<ir insLen
   let pc = getInstrPtr ctxt
   let jmpTarget = pc .+ transOneOpr ir ins insLen ctxt
+#if EMULATION
+  let cond = getCondOfJccLazy ins ctxt ir
+  !?ir (setCCOp ctxt)
+  ctxt.ConditionCodeOp <- ConditionCodeOp.TraceStart
+#else
   let cond = getCondOfJcc ins ctxt
+#endif
   let fallThrough = pc .+ numInsLen insLen ctxt
   !!ir (AST.intercjmp cond jmpTarget fallThrough)
   !>ir insLen
@@ -1429,6 +1686,10 @@ let jcc ins insLen ctxt =
 let jmp ins insLen ctxt =
   let ir = !*ctxt
   !<ir insLen
+#if EMULATION
+  !?ir (setCCOp ctxt)
+  ctxt.ConditionCodeOp <- ConditionCodeOp.TraceStart
+#endif
   let pc = getInstrPtr ctxt
   let struct (target, _) = transJumpTargetOpr ir false ins pc insLen ctxt
   !!ir (AST.interjmp target InterJmpKind.Base)
@@ -1443,6 +1704,19 @@ let lahf ins insLen ctxt =
   let t = !+ir 8<rt>
   !<ir insLen
   let ah = !.ctxt R.AH
+#if EMULATION
+  let cf = getCFLazy ctxt ir
+  let pf = getPFLazy ctxt ir
+  let af = getAFLazy ctxt ir
+  let zf = getZFLazy ctxt ir
+  let sf = getSFLazy ctxt ir
+#else
+  let cf = AST.zext 8<rt> (!.ctxt R.CF)
+  let pf = AST.zext 8<rt> (!.ctxt R.PF)
+  let af = AST.zext 8<rt> (!.ctxt R.AF)
+  let zf = AST.zext 8<rt> (!.ctxt R.ZF)
+  let sf = AST.zext 8<rt> (!.ctxt R.SF)
+#endif
   let cf = AST.zext 8<rt> (!.ctxt R.CF)
   let pf = AST.zext 8<rt> (!.ctxt R.PF)
   let af = AST.zext 8<rt> (!.ctxt R.AF)
@@ -1513,7 +1787,11 @@ let loop ins insLen ctxt =
     if addrSize = 32<rt> then !.ctxt R.ECX, 32<rt>
     elif addrSize = 64<rt> then !.ctxt R.RCX, 64<rt>
     else !.ctxt R.CX, 16<rt>
+#if EMULATION
+  let zf = getZFLazy ctxt ir
+#else
   let zf = !.ctxt R.ZF
+#endif
   !!ir (count := count .- AST.num1 cntSize)
   let branchCond =
     match ins.Opcode with
@@ -1592,6 +1870,8 @@ let lzcnt ins insLen ctxt =
   !!ir (!.ctxt R.SF := undefSF)
   !!ir (!.ctxt R.PF := undefPF)
   !!ir (!.ctxt R.AF := undefAF)
+#else
+  ctxt.ConditionCodeOp <- ConditionCodeOp.EFlags
 #endif
   !>ir insLen
 
@@ -1672,6 +1952,8 @@ let mul ins insLen ctxt =
     !!ir (!.ctxt R.ZF := undefZF)
     !!ir (!.ctxt R.AF := undefAF)
     !!ir (!.ctxt R.PF := undefPF)
+#else
+    ctxt.ConditionCodeOp <- ConditionCodeOp.EFlags
 #endif
   | 16<rt> | 32<rt> ->
     let dblWidth = RegType.double oprSize
@@ -1692,6 +1974,8 @@ let mul ins insLen ctxt =
     !!ir (!.ctxt R.ZF := undefZF)
     !!ir (!.ctxt R.AF := undefAF)
     !!ir (!.ctxt R.PF := undefPF)
+#else
+    ctxt.ConditionCodeOp <- ConditionCodeOp.EFlags
 #endif
   | 64<rt> ->
     let rax = getRegOfSize ctxt oprSize grpEAX
@@ -1726,6 +2010,8 @@ let mul ins insLen ctxt =
     !!ir (!.ctxt R.ZF := undefZF)
     !!ir (!.ctxt R.AF := undefAF)
     !!ir (!.ctxt R.PF := undefPF)
+#else
+    ctxt.ConditionCodeOp <- ConditionCodeOp.EFlags
 #endif
   | _ -> raise InvalidOperandSizeException
   !>ir insLen
@@ -1777,13 +2063,23 @@ let neg ins insLen ctxt =
   let dst = transOneOpr ir ins insLen ctxt
   let oprSize = getOperationSize ins
   let t = !+ir oprSize
-  let oFCond = t == (AST.num1 oprSize << (numU32 31u oprSize) )
-  let sf = AST.xthi 1<rt> dst
+  let zero = AST.num0 oprSize
   !!ir (t := dst)
   !!ir (dstAssign oprSize dst (AST.neg t))
-  !!ir (!.ctxt R.CF := t != AST.num0 oprSize)
-  !!ir (!.ctxt R.OF := oFCond)
-  !?ir (enumASZPFlags ctxt t (AST.num0 oprSize) dst oprSize sf)
+#if EMULATION
+  !?ir (setCCOperands2 ctxt t dst)
+  match oprSize with
+  | 8<rt> -> ctxt.ConditionCodeOp <- ConditionCodeOp.SUBB
+  | 16<rt> -> ctxt.ConditionCodeOp <- ConditionCodeOp.SUBW
+  | 32<rt> -> ctxt.ConditionCodeOp <- ConditionCodeOp.SUBD
+  | 64<rt> -> ctxt.ConditionCodeOp <- ConditionCodeOp.SUBQ
+  | _ -> raise InvalidRegTypeException
+#else
+  let sf = AST.xthi 1<rt> dst
+  let cf = cfOnSub zero t
+  let ofl = ofOnSub zero t dst
+  !?ir (enumEFLAGS ctxt zero t dst oprSize cf ofl sf)
+#endif
   !>ir insLen
 
 let nop insLen ctxt =
@@ -1804,17 +2100,23 @@ let logOr ins insLen ctxt =
   !<ir insLen
   let struct (dst, src) = transTwoOprs ir true ins insLen ctxt
   let oprSize = getOperationSize ins
-  let t = !+ir oprSize
-  let sf = AST.xthi 1<rt> t
   if hasLock ins.Prefixes then !!ir (AST.sideEffect Lock) else ()
-  !!ir (t := (dst .| AST.sext oprSize src))
-  !!ir (dstAssign oprSize dst t)
+  !!ir (dstAssign oprSize dst (dst .| src))
+#if EMULATION
+  !?ir (setCCDst ctxt dst)
+  match oprSize with
+  | 8<rt> -> ctxt.ConditionCodeOp <- ConditionCodeOp.LOGICB
+  | 16<rt> -> ctxt.ConditionCodeOp <- ConditionCodeOp.LOGICW
+  | 32<rt> -> ctxt.ConditionCodeOp <- ConditionCodeOp.LOGICD
+  | 64<rt> -> ctxt.ConditionCodeOp <- ConditionCodeOp.LOGICQ
+  | _ -> raise InvalidRegTypeException
+#else
+  let sf = AST.xthi 1<rt> dst
   !!ir (!.ctxt R.CF := AST.b0)
   !!ir (!.ctxt R.OF := AST.b0)
-#if !EMULATION
+  !?ir (enumSZPFlags ctxt dst oprSize sf)
   !!ir (!.ctxt R.AF := undefAF)
 #endif
-  !?ir (enumSZPFlags ctxt t oprSize sf)
   if hasLock ins.Prefixes then !!ir (AST.sideEffect Unlock) else ()
   !>ir insLen
 
@@ -1916,7 +2218,7 @@ let popcnt ins insLen ctxt =
   !!ir (i := AST.num0 oprSize)
   !!ir (count := AST.num0 oprSize)
   !!ir (AST.lmark lblLoopCond)
-  !!ir (AST.cjmp (AST.lt i max) (AST.name lblLoop) (AST.name lblExit))
+  !!ir (AST.cjmp (i .< max) (AST.name lblLoop) (AST.name lblExit))
   !!ir (AST.lmark lblLoop)
   let cond = (AST.xtlo 1<rt> (src >> i)) == AST.b1
   !!ir (count := AST.ite cond (count .+ AST.num1 oprSize) count)
@@ -1930,6 +2232,9 @@ let popcnt ins insLen ctxt =
   !!ir (!.ctxt R.AF := AST.b0)
   !!ir (!.ctxt R.CF := AST.b0)
   !!ir (!.ctxt R.PF := AST.b0)
+#if EMULATION
+  ctxt.ConditionCodeOp <- ConditionCodeOp.EFlags
+#endif
   !>ir insLen
 
 let popf ins insLen ctxt =
@@ -1947,6 +2252,9 @@ let popf ins insLen ctxt =
   !!ir (!.ctxt R.AF := AST.extract t 1<rt> 4)
   !!ir (!.ctxt R.PF := AST.extract t 1<rt> 2)
   !!ir (!.ctxt R.CF := AST.xtlo 1<rt> t)
+#if EMULATION
+  ctxt.ConditionCodeOp <- ConditionCodeOp.EFlags
+#endif
   !>ir insLen
 
 let inline private padPushExpr oprSize opr =
@@ -1993,9 +2301,22 @@ let pusha ins insLen ctxt oprSize =
   !>ir insLen
 
 let pushf ins insLen ctxt =
+  let ir = !*ctxt
   let oprSize = getOperationSize ins
   let e = AST.zext oprSize <| !.ctxt R.CF
   (* We only consider 9 flags (we ignore system flags). *)
+  !<ir insLen
+#if EMULATION
+  let e = e .| ((AST.zext oprSize (getPFLazy ctxt ir)) << numI32 2 oprSize)
+  let e = e .| ((AST.zext oprSize (getAFLazy ctxt ir)) << numI32 4 oprSize)
+  let e = e .| ((AST.zext oprSize (getZFLazy ctxt ir)) << numI32 6 oprSize)
+  let e = e .| ((AST.zext oprSize (getSFLazy ctxt ir)) << numI32 7 oprSize)
+  let e = e .| ((AST.zext oprSize (!.ctxt R.TF)) << numI32 8 oprSize)
+  let e = e .| ((AST.zext oprSize (!.ctxt R.IF)) << numI32 9 oprSize)
+  let e = e .| ((AST.zext oprSize (!.ctxt R.DF)) << numI32 10 oprSize)
+  let e = e .| ((AST.zext oprSize (getOFLazy ctxt ir)) << numI32 11 oprSize)
+#else
+#endif
   let e = e .| ((AST.zext oprSize (!.ctxt R.PF)) << numI32 2 oprSize)
   let e = e .| ((AST.zext oprSize (!.ctxt R.AF)) << numI32 4 oprSize)
   let e = e .| ((AST.zext oprSize (!.ctxt R.ZF)) << numI32 6 oprSize)
@@ -2009,8 +2330,6 @@ let pushf ins insLen ctxt =
           | 32<rt> -> e .& (numI32 0xfcffff 32<rt>)
           | 64<rt> -> e .& (numI32 0xfcffff 64<rt>)
           | _ -> raise InvalidOperandSizeException
-  let ir = !*ctxt
-  !<ir insLen
   !?ir (auxPush oprSize ctxt e)
   !>ir insLen
 
@@ -2021,7 +2340,6 @@ let rcl ins insLen ctxt =
   let oprSize = getOperationSize ins
   let cF = !.ctxt R.CF
   let oF = !.ctxt R.OF
-  let tmpCount = !+ir oprSize
   let size = numI32 (RegType.toBitWidth oprSize) oprSize
   let count = AST.zext oprSize count
   let cnt =
@@ -2032,13 +2350,18 @@ let rcl ins insLen ctxt =
     | 64<rt> -> count .& numI32 0x3f oprSize
     | _ -> raise InvalidOperandSizeException
   let cond = count == AST.num1 oprSize
-  !!ir (tmpCount := cnt)
-  !!ir (dst := (dst << tmpCount) .| (dst >> (size .- tmpCount)))
-  !!ir (cF := AST.xthi 1<rt> dst)
+  !!ir (dst := (dst << cnt) .| (dst >> (size .- cnt)))
 #if !EMULATION
+  !!ir (cF := AST.xthi 1<rt> dst)
   !!ir (oF := AST.ite cond (AST.xthi 1<rt> dst <+> cF) undefOF)
 #else
+  !!ir (!.ctxt R.PF := getPFLazy ctxt ir)
+  !!ir (!.ctxt R.AF := getAFLazy ctxt ir)
+  !!ir (!.ctxt R.ZF := getZFLazy ctxt ir)
+  !!ir (!.ctxt R.SF := getSFLazy ctxt ir)
+  !!ir (cF := AST.xthi 1<rt> dst)
   !!ir (oF := AST.ite cond (AST.xthi 1<rt> dst <+> cF) oF)
+  ctxt.ConditionCodeOp <- ConditionCodeOp.EFlags
 #endif
   !>ir insLen
 
@@ -2049,7 +2372,6 @@ let rcr ins insLen ctxt =
   let oprSize = getOperationSize ins
   let cF = !.ctxt R.CF
   let oF = !.ctxt R.OF
-  let tmpCount = !+ir oprSize
   let size = numI32 (RegType.toBitWidth oprSize) oprSize
   let count = AST.zext oprSize count
   let cnt =
@@ -2060,14 +2382,19 @@ let rcr ins insLen ctxt =
     | 64<rt> -> count .& numI32 0x3f oprSize
     | _ -> raise InvalidOperandSizeException
   let cond = count == AST.num1 oprSize
-  !!ir (tmpCount := cnt)
+  !!ir (dst := (dst >> cnt) .| (dst << (size .- cnt)))
 #if !EMULATION
+  !!ir (cF := AST.xthi 1<rt> dst)
   !!ir (oF := AST.ite cond (AST.xthi 1<rt> dst <+> cF) undefOF)
 #else
-  !!ir (oF := AST.ite cond (AST.xthi 1<rt> dst <+> cF) oF)
-#endif
-  !!ir (dst := (dst >> tmpCount) .| (dst << (size .- tmpCount)))
+  !!ir (!.ctxt R.PF := getPFLazy ctxt ir)
+  !!ir (!.ctxt R.AF := getAFLazy ctxt ir)
+  !!ir (!.ctxt R.ZF := getZFLazy ctxt ir)
+  !!ir (!.ctxt R.SF := getSFLazy ctxt ir)
   !!ir (cF := AST.xthi 1<rt> dst)
+  !!ir (oF := AST.ite cond (AST.xthi 1<rt> dst <+> cF) oF)
+  ctxt.ConditionCodeOp <- ConditionCodeOp.EFlags
+#endif
   !>ir insLen
 
 let rdpkru ins insLen ctxt =
@@ -2094,6 +2421,10 @@ let retWithImm ins insLen ctxt =
   let t = !+ir oprSize
   let sp = getStackPtr ctxt
   let src = transOneOpr ir ins insLen ctxt
+#if EMULATION
+  !?ir (setCCOp ctxt)
+  ctxt.ConditionCodeOp <- ConditionCodeOp.TraceStart
+#endif
   !?ir (auxPop oprSize ctxt t)
   !!ir (sp := sp .+ (AST.zext oprSize src))
   !!ir (AST.interjmp t InterJmpKind.IsRet)
@@ -2104,6 +2435,10 @@ let ret ins insLen ctxt =
   let oprSize = getOperationSize ins
   let t = !+ir oprSize
   !<ir insLen
+#if EMULATION
+  !?ir (setCCOp ctxt)
+  ctxt.ConditionCodeOp <- ConditionCodeOp.TraceStart
+#endif
   !?ir (auxPop oprSize ctxt t)
   !!ir (AST.interjmp t InterJmpKind.IsRet)
   !>ir insLen
@@ -2116,17 +2451,20 @@ let rotate ins insLen ctxt lfn hfn cfFn ofFn =
   let cF = !.ctxt R.CF
   let oF = !.ctxt R.OF
   let size = numI32 (RegType.toBitWidth oprSize) oprSize
-  let orgCount = !+ir oprSize
+  let orgCount = AST.zext oprSize count .% (numI32 (int oprSize) oprSize)
   let cond1 = orgCount == AST.num0 oprSize
   let cond2 = orgCount == AST.num1 oprSize
-  !!ir (orgCount := (AST.zext oprSize count .% (numI32 (int oprSize) oprSize)))
   let value = (lfn dst orgCount) .| (hfn dst (size .- orgCount))
   !!ir (dstAssign oprSize dst value)
+#if EMULATION
+  !?ir (genDynamicFlagsUpdate ctxt)
+#endif
   !!ir (cF := AST.ite cond1 cF (cfFn 1<rt> dst))
 #if !EMULATION
   !!ir (oF := AST.ite cond2 (ofFn dst cF) undefOF)
 #else
   !!ir (oF := AST.ite cond2 (ofFn dst cF) oF)
+  ctxt.ConditionCodeOp <- ConditionCodeOp.EFlags
 #endif
   !>ir insLen
 
@@ -2164,6 +2502,9 @@ let sahf ins insLen ctxt =
   !!ir (!.ctxt R.AF := AST.extract ah 1<rt> 4)
   !!ir (!.ctxt R.ZF := AST.extract ah 1<rt> 6)
   !!ir (!.ctxt R.SF := AST.extract ah 1<rt> 7)
+#if EMULATION
+  ctxt.ConditionCodeOp <- ConditionCodeOp.EFlags
+#endif
   !>ir insLen
 
 let shift ins insLen ctxt =
@@ -2171,81 +2512,83 @@ let shift ins insLen ctxt =
   !<ir insLen
   let struct (dst, src) = transTwoOprs ir true ins insLen ctxt
   let oprSize = getOperationSize ins
-  let n0 = AST.num0 oprSize
-  let n1 = AST.num1 oprSize
   let countMask = if is64REXW ctxt ins then numU32 0x3Fu oprSize
                   else numU32 0x1Fu oprSize
+  let cnt = (AST.zext oprSize src) .& countMask
+#if !EMULATION
+  let n0 = AST.num0 oprSize
+  let n1 = AST.num1 oprSize
+  let isCntConst = isConst src
+  let cond1 = cnt == n1
+  let cond2 = cnt == n0
   let oF = !.ctxt R.OF
   let cF = !.ctxt R.CF
   let sF = !.ctxt R.SF
   let zF = !.ctxt R.ZF
-#if !EMULATION
-  let aF = !.ctxt R.AF
-#endif
+  let tCnt = if isCntConst then cnt .- n1 else !+ir oprSize
   let tDst = !+ir oprSize
   !!ir (tDst := dst)
-  let cnt, cntMinusOne, cond1, cond2 =
-    if isConst src then
-      let cnt = (AST.zext oprSize src) .& countMask
-      cnt, cnt .- n1, cnt == n1, cnt == n0
-    else
-      let t1, t2 = !+ir oprSize, !+ir oprSize
-      let cond2 = !+ir 1<rt>
-      !!ir (t1 := (AST.zext oprSize src) .& countMask)
-      !!ir (t2 := t1 .- n1)
-      !!ir (cond2 := t1 == n0)
-      t1, t2, t1 == n1, cond2
-  match ins.Opcode with
-  | Opcode.SAR ->
-    !!ir (dstAssign oprSize dst (tDst ?>> cnt))
-    let prevLBit = AST.xtlo 1<rt> (tDst ?>> cntMinusOne)
-    !!ir (cF := AST.ite cond2 cF prevLBit)
-#if !EMULATION
-    !!ir (oF := AST.ite cond1 AST.b0 (AST.ite cond2 oF undefOF))
-#else
-    !!ir (oF := AST.ite cond1 AST.b0 oF)
 #endif
-    !!ir (sF := AST.ite cond2 sF (AST.xthi 1<rt> dst))
+  match ins.Opcode with
   | Opcode.SHL ->
+#if EMULATION
+    !?ir (setCCOperands3 ctxt dst cnt (dst << cnt))
+    !!ir (dstAssign oprSize dst (dst << cnt))
+    match oprSize with
+    | 8<rt> -> ctxt.ConditionCodeOp <- ConditionCodeOp.SHLB
+    | 16<rt> -> ctxt.ConditionCodeOp <- ConditionCodeOp.SHLW
+    | 32<rt> -> ctxt.ConditionCodeOp <- ConditionCodeOp.SHLD
+    | 64<rt> -> ctxt.ConditionCodeOp <- ConditionCodeOp.SHLQ
+    | _ -> raise InvalidRegTypeException
+#else
     !!ir (dstAssign oprSize dst (tDst << cnt))
-    let prevHBit = AST.xthi 1<rt> (tDst << cntMinusOne)
-    !!ir (cF := AST.ite cond2 cF prevHBit)
-#if !EMULATION
+    if isCntConst then () else !!ir (tCnt := cnt .- n1)
+    !!ir (cF := AST.ite cond2 cF (AST.xthi 1<rt> (tDst << tCnt)))
     let of1 = AST.xthi 1<rt> dst <+> cF
     !!ir (oF := AST.ite cond1 of1 (AST.ite cond2 oF undefOF))
-    !!ir (sF := AST.ite cond2 sF (AST.xthi 1<rt> dst))
-#else
-    match cond1.E with
-    | Num bv ->
-      if bv.IsZero () then ()
-      else !!ir (oF := AST.xthi 1<rt> dst <+> cF)
-      !!ir (sF := AST.ite cond2 sF (AST.xthi 1<rt> dst))
-    | _ ->
-      let t = !+ir 1<rt>
-      !!ir (t := AST.xthi 1<rt> dst)
-      !!ir (oF := AST.ite cond1 (t <+> cF) oF)
-      !!ir (sF := AST.ite cond2 sF t)
 #endif
   | Opcode.SHR ->
-    !!ir (dstAssign oprSize dst (tDst >> cnt))
-    let prevLBit = AST.xtlo 1<rt> (tDst ?>> cntMinusOne)
-    !!ir (cF := AST.ite cond2 cF prevLBit)
-#if !EMULATION
-    !!ir
-      (oF := AST.ite cond1 (AST.xthi 1<rt> tDst) (AST.ite cond2 oF undefOF))
+#if EMULATION
+    !?ir (setCCOperands3 ctxt dst cnt (dst >> cnt))
+    !!ir (dstAssign oprSize dst (dst >> cnt))
+    match oprSize with
+    | 8<rt> -> ctxt.ConditionCodeOp <- ConditionCodeOp.SHRB
+    | 16<rt> -> ctxt.ConditionCodeOp <- ConditionCodeOp.SHRW
+    | 32<rt> -> ctxt.ConditionCodeOp <- ConditionCodeOp.SHRD
+    | 64<rt> -> ctxt.ConditionCodeOp <- ConditionCodeOp.SHRQ
+    | _ -> raise InvalidRegTypeException
 #else
-    !!ir (oF := AST.ite cond1 (AST.xthi 1<rt> tDst) oF)
+    !!ir (dstAssign oprSize dst (tDst >> cnt))
+    if isCntConst then () else !!ir (tCnt := cnt .- n1)
+    !!ir (cF := AST.ite cond2 cF (AST.xtlo 1<rt> (tDst ?>> tCnt)))
+    !!ir (oF := AST.ite cond1 (AST.xthi 1<rt> tDst) (AST.ite cond2 oF undefOF))
 #endif
-    !!ir (sF := AST.ite cond2 sF (AST.xthi 1<rt> dst))
+  | Opcode.SAR ->
+#if EMULATION
+    !?ir (setCCOperands3 ctxt dst cnt (dst ?>> cnt))
+    !!ir (dstAssign oprSize dst (dst ?>> cnt))
+    match oprSize with
+    | 8<rt> -> ctxt.ConditionCodeOp <- ConditionCodeOp.SARB
+    | 16<rt> -> ctxt.ConditionCodeOp <- ConditionCodeOp.SARW
+    | 32<rt> -> ctxt.ConditionCodeOp <- ConditionCodeOp.SARD
+    | 64<rt> -> ctxt.ConditionCodeOp <- ConditionCodeOp.SARQ
+    | _ -> raise InvalidRegTypeException
+#else
+    !!ir (dstAssign oprSize dst (tDst ?>> cnt))
+    if isCntConst then () else !!ir (tCnt := cnt .- n1)
+    !!ir (cF := AST.ite cond2 cF (AST.xtlo 1<rt> (tDst ?>> tCnt)))
+    !!ir (oF := AST.ite cond1 AST.b0 (AST.ite cond2 oF undefOF))
+#endif
   | _ -> raise InvalidOpcodeException
-  let tDst = !+ir oprSize
-  !!ir (tDst := dst)
-  !?ir (buildPF ctxt tDst oprSize (Some cond2))
-  !!ir (zF := AST.ite cond2 zF (tDst == n0))
 #if !EMULATION
+  let aF = !.ctxt R.AF
   !!ir (aF := AST.ite cond2 aF undefAF)
+  !!ir (sF := AST.ite cond2 sF (AST.xthi 1<rt> dst))
+  !?ir (buildPF ctxt dst oprSize (Some cond2))
+  !!ir (zF := AST.ite cond2 zF (dst == n0))
 #endif
   !>ir insLen
+
 
 let sbb ins insLen ctxt =
   let ir = !*ctxt
@@ -2257,12 +2600,19 @@ let sbb ins insLen ctxt =
   let sf = AST.xthi 1<rt> t4
   !!ir (t1 := dst)
   !!ir (t2 := AST.sext oprSize src)
+#if EMULATION
+  !!ir (t3 := t2 .+ AST.zext oprSize (getCFLazy ctxt ir))
+#else
   !!ir (t3 := t2 .+ AST.zext oprSize cf)
+#endif
   !!ir (t4 := t1 .- t3)
   !!ir (dstAssign oprSize dst t4)
-  !!ir (cf := (AST.lt t1 t3) .| (AST.lt t3 t2))
+  !!ir (cf := (t1 .< t3) .| (t3 .< t2))
   !!ir (!.ctxt R.OF := ofOnSub t1 t2 t4)
   !?ir (enumASZPFlags ctxt t1 t2 t4 oprSize sf)
+#if EMULATION
+  ctxt.ConditionCodeOp <- ConditionCodeOp.EFlags
+#endif
   !>ir insLen
 
 let private scasBody ins ctxt ir =
@@ -2289,6 +2639,9 @@ let scas (ins: InsInfo) insLen ctxt =
   elif hasREPNZ pref then
     strRepeat ins insLen ctxt scasBody (zfCond AST.b1) ir
   else scasBody ins ctxt ir
+#if EMULATION
+  ctxt.ConditionCodeOp <- ConditionCodeOp.EFlags
+#endif
   !>ir insLen
 
 let private getCondOfSet (ins: IntelInternalInstruction) ctxt =
@@ -2313,12 +2666,40 @@ let private getCondOfSet (ins: IntelInternalInstruction) ctxt =
                      (!.ctxt R.SF == !.ctxt R.OF)
   | _ -> raise InvalidOpcodeException
 
+#if EMULATION
+let private getCondOfSetLazy (ins: IntelInternalInstruction) ctxt ir =
+  match ins.Opcode with
+  | Opcode.SETO -> getOFLazy ctxt ir
+  | Opcode.SETNO -> getOFLazy ctxt ir |> AST.not
+  | Opcode.SETB -> getCFLazy ctxt ir
+  | Opcode.SETNB -> getCFLazy ctxt ir |> AST.not
+  | Opcode.SETZ -> getZFLazy ctxt ir
+  | Opcode.SETNZ -> getZFLazy ctxt ir |> AST.not
+  | Opcode.SETBE -> (getCFLazy ctxt ir) .| (getZFLazy ctxt ir)
+  | Opcode.SETA -> (getCFLazy ctxt ir .| getZFLazy ctxt ir) |> AST.not
+  | Opcode.SETS -> getSFLazy ctxt ir
+  | Opcode.SETNS -> getSFLazy ctxt ir |> AST.not
+  | Opcode.SETP -> getPFLazy ctxt ir
+  | Opcode.SETNP -> getPFLazy ctxt ir |> AST.not
+  | Opcode.SETL -> getSFLazy ctxt ir != getOFLazy ctxt ir
+  | Opcode.SETNL -> getSFLazy ctxt ir == getOFLazy ctxt ir
+  | Opcode.SETLE -> (getZFLazy ctxt ir) .|
+                    (getSFLazy ctxt ir != getOFLazy ctxt ir)
+  | Opcode.SETG   -> (getZFLazy ctxt ir |> AST.not) .&
+                     (getSFLazy ctxt ir == getOFLazy ctxt ir)
+  | _ -> raise InvalidOpcodeException
+#endif
+
 let setcc ins insLen ctxt =
   let ir = !*ctxt
   !<ir insLen
   let dst = transOneOpr ir ins insLen ctxt
   let oprSize = getOperationSize ins
+#if EMULATION
+  let cond = getCondOfSetLazy ins ctxt ir |> AST.zext oprSize
+#else
   let cond = getCondOfSet ins ctxt |> AST.zext oprSize
+#endif
   !!ir (dstAssign oprSize dst cond)
   !>ir insLen
 
@@ -2353,6 +2734,7 @@ let inline shiftDblPrec ins insLen ctxt fnDst fnSrc isShl =
   !!ir (aF := AST.ite cond1 aF undefAF)
 #else
   !!ir (oF := AST.ite cond1 oF (AST.ite cond2 overflow AST.b0))
+  ctxt.ConditionCodeOp <- ConditionCodeOp.EFlags
 #endif
   !?ir (enumSZPFlags ctxt dst oprSz sf)
   !>ir insLen
@@ -2383,6 +2765,9 @@ let setFlag insLen ctxt flag =
   let ir = !*ctxt
   !<ir insLen
   !!ir (!.ctxt flag := AST.b1)
+#if EMULATION
+  ctxt.ConditionCodeOp <- ConditionCodeOp.EFlags
+#endif
   !>ir insLen
 
 let stc insLen ctxt = setFlag insLen ctxt R.CF
@@ -2414,17 +2799,31 @@ let sub ins insLen ctxt =
   !<ir insLen
   let struct (dst, src) = transTwoOprs ir true ins insLen ctxt
   let oprSize = getOperationSize ins
-  let isSrcConst = isConst src
   if hasLock ins.Prefixes then !!ir (AST.sideEffect Lock) else ()
+#if !EMULATION
+  let isSrcConst = isConst src
   let t1 = !+ir oprSize
   let t2 = if isSrcConst then src else !+ir oprSize
   let t3 = !+ir oprSize
-  let sf = AST.xthi 1<rt> t3
   !!ir (t1 := dst)
   if isSrcConst then () else !!ir (t2 := src)
   !!ir (t3 := t1 .- t2)
   !!ir (dstAssign oprSize dst t3)
+#else
+  !!ir (dstAssign oprSize dst (dst .- src))
+#endif
+#if EMULATION
+  !?ir (setCCOperands2 ctxt src dst)
+  match oprSize with
+  | 8<rt> -> ctxt.ConditionCodeOp <- ConditionCodeOp.SUBB
+  | 16<rt> -> ctxt.ConditionCodeOp <- ConditionCodeOp.SUBW
+  | 32<rt> -> ctxt.ConditionCodeOp <- ConditionCodeOp.SUBD
+  | 64<rt> -> ctxt.ConditionCodeOp <- ConditionCodeOp.SUBQ
+  | _ -> raise InvalidRegTypeException
+#else
+  let sf = AST.xthi 1<rt> t3
   !?ir (enumEFLAGS ctxt t1 t2 t3 oprSize (cfOnSub t1 t2) (ofOnSub t1 t2 t3) sf)
+#endif
   if hasLock ins.Prefixes then !!ir (AST.sideEffect Unlock) else ()
   !>ir insLen
 
@@ -2433,15 +2832,23 @@ let test ins insLen ctxt =
   !<ir insLen
   let struct (src1, src2) = transTwoOprs ir false ins insLen ctxt
   let oprSize = getOperationSize ins
+  let r = if src1 = src2 then src1 else src1 .& src2
+#if EMULATION
+  !?ir (setCCDst ctxt r)
+  match oprSize with
+  | 8<rt> -> ctxt.ConditionCodeOp <- ConditionCodeOp.LOGICB
+  | 16<rt> -> ctxt.ConditionCodeOp <- ConditionCodeOp.LOGICW
+  | 32<rt> -> ctxt.ConditionCodeOp <- ConditionCodeOp.LOGICD
+  | 64<rt> -> ctxt.ConditionCodeOp <- ConditionCodeOp.LOGICQ
+  | _ -> raise InvalidRegTypeException
+#else
   let t = !+ir oprSize
-  if src1 = src2 then !!ir (t := src1)
-  else !!ir (t := src1 .& src2)
+  !!ir (t := r)
   !!ir (!.ctxt R.SF := AST.xthi 1<rt> t)
   !!ir (!.ctxt R.ZF := t == (AST.num0 oprSize))
   !?ir (buildPF ctxt t oprSize None)
   !!ir (!.ctxt R.CF := AST.b0)
   !!ir (!.ctxt R.OF := AST.b0)
-#if !EMULATION
   !!ir (!.ctxt R.AF := undefAF)
 #endif
   !>ir insLen
@@ -2507,6 +2914,8 @@ let tzcnt ins insLen ctxt =
   !!ir (!.ctxt R.SF := undefSF)
   !!ir (!.ctxt R.PF := undefPF)
   !!ir (!.ctxt R.AF := undefAF)
+#else
+  ctxt.ConditionCodeOp <- ConditionCodeOp.EFlags
 #endif
   !>ir insLen
 
@@ -2546,13 +2955,22 @@ let xadd ins insLen ctxt =
   let struct (d, s) = transTwoOprs ir true ins insLen ctxt
   let oprSize = getOperationSize ins
   let t = !+ir oprSize
-  let sf = AST.xthi 1<rt> t
   if hasLock ins.Prefixes then !!ir (AST.sideEffect Lock) else ()
   !!ir (t := s .+ d)
   !!ir (dstAssign oprSize s d)
   !!ir (dstAssign oprSize d t)
+#if EMULATION
+  !?ir (setCCOperands2 ctxt s t)
+  match oprSize with
+  | 8<rt> -> ctxt.ConditionCodeOp <- ConditionCodeOp.ADDB
+  | 16<rt> -> ctxt.ConditionCodeOp <- ConditionCodeOp.ADDW
+  | 32<rt> -> ctxt.ConditionCodeOp <- ConditionCodeOp.ADDD
+  | 64<rt> -> ctxt.ConditionCodeOp <- ConditionCodeOp.ADDQ
+  | _ -> raise InvalidRegTypeException
+#else
   let struct (ofl, sf) = osfOnAdd d s t ir
   !?ir (enumEFLAGS ctxt d s t oprSize (cfOnSub d s) ofl sf)
+#endif
   if hasLock ins.Prefixes then !!ir (AST.sideEffect Unlock) else ()
   !>ir insLen
 
@@ -2588,22 +3006,35 @@ let xor ins insLen ctxt =
     let dst = transOprToExpr ir false ins insLen ctxt o1
     let r = AST.num0 oprSize
     !!ir (dstAssign oprSize dst r)
+#if EMULATION
+    !?ir (setCCDst ctxt r)
+    ctxt.ConditionCodeOp <- ConditionCodeOp.XORXX
+#else
     !!ir (!.ctxt R.OF := AST.b0)
     !!ir (!.ctxt R.CF := AST.b0)
     !!ir (!.ctxt R.SF := AST.b0)
     !!ir (!.ctxt R.ZF := AST.b1)
-    !?ir (buildPF ctxt r oprSize None)
+    !!ir (!.ctxt R.PF := AST.b1)
+#endif
   | TwoOperands (o1, o2) ->
-    let dst = transOprToExpr ir true ins insLen ctxt o1
+    let dst = transOprToExpr ir false ins insLen ctxt o1
     let src = transOprToExpr ir false ins insLen ctxt o2 |> transReg ir true
-    let r = !+ir oprSize
-    !!ir (r := dst <+> AST.sext oprSize src)
-    !!ir (dstAssign oprSize dst r)
+    !!ir (dstAssign oprSize dst (dst <+> src))
+#if EMULATION
+    !?ir (setCCDst ctxt dst)
+    match oprSize with
+    | 8<rt> -> ctxt.ConditionCodeOp <- ConditionCodeOp.LOGICB
+    | 16<rt> -> ctxt.ConditionCodeOp <- ConditionCodeOp.LOGICW
+    | 32<rt> -> ctxt.ConditionCodeOp <- ConditionCodeOp.LOGICD
+    | 64<rt> -> ctxt.ConditionCodeOp <- ConditionCodeOp.LOGICQ
+    | _ -> raise InvalidRegTypeException
+#else
     !!ir (!.ctxt R.OF := AST.b0)
     !!ir (!.ctxt R.CF := AST.b0)
-    !!ir (!.ctxt R.SF := AST.xthi 1<rt> r)
-    !!ir (!.ctxt R.ZF := r == (AST.num0 oprSize))
-    !?ir (buildPF ctxt r oprSize None)
+    !!ir (!.ctxt R.SF := AST.xthi 1<rt> dst)
+    !!ir (!.ctxt R.ZF := dst == (AST.num0 oprSize))
+    !?ir (buildPF ctxt dst oprSize None)
+#endif
   | _ -> raise InvalidOperandException
 #if !EMULATION
   !!ir (!.ctxt R.AF := undefAF)

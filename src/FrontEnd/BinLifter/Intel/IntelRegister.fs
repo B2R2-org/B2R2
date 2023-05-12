@@ -748,6 +748,25 @@ type Register =
   | K7 = 0x161
   /// Unknown Register.
   | UnknownReg = 0x162
+#if EMULATION
+  /// Opcode of the last instruction that modified EFlags
+  | CCOP = 0x163
+  /// Result value of the last instruction that modified EFlags
+  | CCDST = 0x164
+  | CCDSTD = 0x165
+  | CCDSTW = 0x166
+  | CCDSTB = 0x167
+  /// First source operand of the last instruction that modified EFlags
+  | CCSRC1 = 0x168
+  | CCSRC1D = 0x169
+  | CCSRC1W = 0x16a
+  | CCSRC1B = 0x16b
+  /// Second source operand of the last instruction that modified EFlags
+  | CCSRC2 = 0x16c
+  | CCSRC2D = 0x16d
+  | CCSRC2W = 0x16e
+  | CCSRC2B = 0x16f
+#endif
 
 /// Shortcut for Register type.
 type internal R = Register
@@ -1572,6 +1591,12 @@ module Register = begin
     | R.K6 -> "K6"
     | R.K7 -> "K7"
     | R.PKRU -> "PKRU"
+#if EMULATION
+    | R.CCOP -> "CCOP"
+    | R.CCDST -> "CCDST"
+    | R.CCSRC1 -> "CCSRC1"
+    | R.CCSRC2 -> "CCSRC2"
+#endif
 #if DEBUG
     | _ -> Utils.impossible ()
 #else
