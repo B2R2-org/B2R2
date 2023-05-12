@@ -3030,25 +3030,24 @@ let smlal ins insLen ctxt addr =
 
 let umlal ins insLen ctxt addr =
   let ir = !*ctxt
+  let struct (o1, src1, src2) = getThreeOprs ins
+  let struct (eSize, _, _) = getElemDataSzAndElems src1
+  let dataSize = 64<rt>
+  let elements = dataSize / eSize
+  let dst = transSIMDOprToExpr ctxt (2 * eSize) 128<rt> elements o1
+  let src1 = vectorPart ctxt eSize src1 |> Array.map (AST.zext (2 * eSize))
+  let dstB, dstA = transOprToExpr128 ins ctxt addr o1
   !<ir insLen
   match ins.Operands with
-  | ThreeOperands (OprSIMD (SIMDVecReg _) as o1, o2, o3) ->
-    let struct (eSize, _, _) = getElemDataSzAndElems o2
-    let elements = 64<rt> / eSize
-    let dst = transSIMDOprToExpr ctxt (2 * eSize) 128<rt> elements o1
-    let src1 = vectorPart ctxt eSize o2 |> Array.map (AST.zext (2 * eSize))
-    let src2 = vectorPart ctxt eSize o3 |> Array.map (AST.zext (2 * eSize))
-    let prod = Array.map2 (.*) src1 src2
-    Array.iteri2 (fun i d p -> !!ir (dst[i] := d .+ p)) dst prod
+  | ThreeOperands (_, _, OprSIMD (SIMDVecReg _)) ->
+    let src2 = vectorPart ctxt eSize src2 |> Array.map (AST.zext (2 * eSize))
+    let result = Array.map3 (fun e1 e2 e3 -> e1 .+ (e2 .* e3)) dst src1 src2
+    dstAssignForSIMD dstA dstB result (2 * dataSize) elements ir
   | _ ->
-    let struct (o1, o2, o3) = getThreeOprs ins
-    let struct (eSize, _, _) = getElemDataSzAndElems o2
-    let elements = 64<rt> / eSize
-    let dst = transSIMDOprToExpr ctxt (2 * eSize) 128<rt> elements o1
-    let src1 = vectorPart ctxt eSize o2 |> Array.map (AST.zext (2 * eSize))
-    let src2 = transOprToExpr ins ctxt addr o3
-    let prod = Array.map (fun s1 -> s1 .* AST.zext (2 * eSize) src2) src1
-    Array.iteri2 (fun i d p -> !!ir (dst[i] := d .+ p)) dst prod
+    let src2 = transOprToExpr ins ctxt addr src2 |> AST.zext (2 * eSize)
+    let prod = Array.map (fun s1 -> s1 .* src2) src1
+    let result = Array.map2 (.+) dst prod
+    dstAssignForSIMD dstA dstB result (2 * dataSize) elements ir
   !>ir insLen
 
 let umov ins insLen ctxt addr =
