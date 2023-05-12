@@ -560,18 +560,18 @@ let translate (ins: IntelInternalInstruction) insLen ctxt =
   | OP.VPMINSD -> AVXLifter.vpminsd ins insLen ctxt
   | OP.VPMINUB -> AVXLifter.vpminub ins insLen ctxt
   | OP.VPMINUD -> AVXLifter.vpminud ins insLen ctxt
-  | OP.VPMOVSXBW -> AVXLifter.vpmovbw ins insLen ctxt 8<rt> true (* AVX2 *)
-  | OP.VPMOVSXBD -> AVXLifter.vpmovbd ins insLen ctxt 8<rt> true (* AVX2 *)
-  | OP.VPMOVSXBQ -> AVXLifter.vpmovbq ins insLen ctxt 8<rt> true (* AVX2 *)
-  | OP.VPMOVSXWD -> AVXLifter.vpmovbw ins insLen ctxt 16<rt> true (* AVX2 *)
-  | OP.VPMOVSXWQ -> AVXLifter.vpmovbd ins insLen ctxt 16<rt> true (* AVX2 *)
-  | OP.VPMOVSXDQ -> AVXLifter.vpmovbw ins insLen ctxt 32<rt> true (* AVX2 *)
-  | OP.VPMOVZXBW -> AVXLifter.vpmovbw ins insLen ctxt 8<rt> false (* AVX2 *)
-  | OP.VPMOVZXBD -> AVXLifter.vpmovbd ins insLen ctxt 8<rt> false (* AVX2 *)
-  | OP.VPMOVZXBQ -> AVXLifter.vpmovbq ins insLen ctxt 8<rt> false (* AVX2 *)
-  | OP.VPMOVZXWD -> AVXLifter.vpmovbw ins insLen ctxt 16<rt> false (* AVX2 *)
-  | OP.VPMOVZXWQ -> AVXLifter.vpmovbd ins insLen ctxt 16<rt> false (* AVX2 *)
-  | OP.VPMOVZXDQ -> AVXLifter.vpmovbw ins insLen ctxt 32<rt> false (* AVX2 *)
+  | OP.VPMOVSXBW -> AVXLifter.vpmovx ins insLen ctxt 8<rt> 16<rt> true
+  | OP.VPMOVSXBD -> AVXLifter.vpmovx ins insLen ctxt 8<rt> 32<rt> true
+  | OP.VPMOVSXBQ -> AVXLifter.vpmovx ins insLen ctxt 8<rt> 64<rt> true
+  | OP.VPMOVSXWD -> AVXLifter.vpmovx ins insLen ctxt 16<rt> 32<rt> true
+  | OP.VPMOVSXWQ -> AVXLifter.vpmovx ins insLen ctxt 16<rt> 64<rt> true
+  | OP.VPMOVSXDQ -> AVXLifter.vpmovx ins insLen ctxt 32<rt> 64<rt> true
+  | OP.VPMOVZXBW -> AVXLifter.vpmovx ins insLen ctxt 8<rt> 16<rt> false
+  | OP.VPMOVZXBD -> AVXLifter.vpmovx ins insLen ctxt 8<rt> 32<rt> false
+  | OP.VPMOVZXBQ -> AVXLifter.vpmovx ins insLen ctxt 8<rt> 64<rt> false
+  | OP.VPMOVZXWD -> AVXLifter.vpmovx ins insLen ctxt 16<rt> 32<rt> false
+  | OP.VPMOVZXWQ -> AVXLifter.vpmovx ins insLen ctxt 16<rt> 64<rt> false
+  | OP.VPMOVZXDQ -> AVXLifter.vpmovx ins insLen ctxt 32<rt> 64<rt> false
   | OP.VPMOVD2M -> AVXLifter.vpmovd2m ins insLen ctxt
   | OP.VPMOVMSKB -> SSELifter.pmovmskb ins insLen ctxt
   | OP.VPMULLD -> AVXLifter.vpmulld ins insLen ctxt
