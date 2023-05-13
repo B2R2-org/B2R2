@@ -45,13 +45,26 @@ let abs ins insLen ctxt addr =
   let ir = !*ctxt
   !<ir insLen
   let struct (dst, src) = getTwoOprs ins
-  let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
-  let n0 = !+ir eSize
-  !!ir (n0 := AST.num0 eSize)
-  let dstB, dstA = transOprToExpr128 ins ctxt addr dst
-  let src = transSIMDOprToExpr ctxt eSize dataSize elements src
-  let result = Array.map (fun e -> AST.ite (e ?> n0) e (AST.neg e)) src
-  dstAssignForSIMD dstA dstB result dataSize elements ir
+  match ins.Operands with
+  | TwoOperands (OprSIMD (SIMDVecReg _) as o1, o2) ->
+    let dstB, dstA = transOprToExpr128 ins ctxt addr o1
+    let struct (eSize, dataSize, elements) = getElemDataSzAndElems o2
+    let n0 = AST.num0 eSize
+    let src = transSIMDOprToExpr ctxt eSize dataSize elements o2
+    let result = Array.map (fun e -> AST.ite (e ?> n0) e (AST.neg e)) src
+    dstAssignForSIMD dstA dstB result dataSize elements ir
+  | TwoOperands (OprSIMD (SIMDFPScalarReg _) as o1, o2) ->
+    let struct (eSize, _, _) = getElemDataSzAndElems o1
+    let src = transOprToExpr ins ctxt addr src
+    let n0 = AST.num0 eSize
+    let result = AST.ite (src ?> n0) src (AST.neg src)
+    dstAssignScalar ins ctxt addr o1 result eSize ir
+  | _ ->
+    let n0 = AST.num0 ins.OprSize
+    let dst = transOprToExpr ins ctxt addr dst
+    let src = transOprToExpr ins ctxt addr src
+    let result = AST.ite (src ?> n0) src (AST.neg src)
+    dstAssign ins.OprSize dst result ir
   !>ir insLen
 
 let adc ins insLen ctxt addr =
@@ -414,20 +427,110 @@ let ccmp ins insLen ctxt addr =
   !!ir (getRegVar ctxt R.V := (AST.ite tCond v (AST.xtlo 1<rt> nzcv)))
   !>ir insLen
 
+let private clzBits src bitSize oprSize ir =
+  let x = !+ir oprSize
+  match oprSize with
+  | 8<rt> ->
+    let mask1 = numI32 0x55 8<rt>
+    let mask2 = numI32 0x33 8<rt>
+    let mask3 = numI32 0x0f 8<rt>
+    !!ir (x := src)
+    !!ir (x := x .| (x >> numI32 1 8<rt>))
+    !!ir (x := x .| (x >> numI32 2 8<rt>))
+    !!ir (x := x .| (x >> numI32 4 8<rt>))
+    !!ir (x := x .- ((x >> numI32 1 8<rt>) .& mask1))
+    !!ir (x := ((x >> numI32 2 8<rt>) .& mask2) .+ (x .& mask2))
+    !!ir (x := ((x >> numI32 4 8<rt>) .+ x) .& mask3)
+    numI32 bitSize 8<rt> .- (x .& numI32 15 8<rt>)
+  | 16<rt> ->
+    let mask1 = numI32 0x5555 16<rt>
+    let mask2 = numI32 0x3333 16<rt>
+    let mask3 = numI32 0x0f0f 16<rt>
+    !!ir (x := src)
+    !!ir (x := x .| (x >> numI32 1 16<rt>))
+    !!ir (x := x .| (x >> numI32 2 16<rt>))
+    !!ir (x := x .| (x >> numI32 4 16<rt>))
+    !!ir (x := x .| (x >> numI32 8 16<rt>))
+    !!ir (x := x .- ((x >> numI32 1 16<rt>) .& mask1))
+    !!ir (x := ((x >> numI32 2 16<rt>) .& mask2) .+ (x .& mask2))
+    !!ir (x := ((x >> numI32 4 16<rt>) .+ x) .& mask3)
+    !!ir (x := x .+ (x >> numI32 8 16<rt>))
+    numI32 bitSize 16<rt> .- (x .& numI32 31 16<rt>)
+  | 32<rt> ->
+    let mask1 = numI32 0x55555555 32<rt>
+    let mask2 = numI32 0x33333333 32<rt>
+    let mask3 = numI32 0x0f0f0f0f 32<rt>
+    !!ir (x := src)
+    !!ir (x := x .| (x >> numI32 1 32<rt>))
+    !!ir (x := x .| (x >> numI32 2 32<rt>))
+    !!ir (x := x .| (x >> numI32 4 32<rt>))
+    !!ir (x := x .| (x >> numI32 8 32<rt>))
+    !!ir (x := x .| (x >> numI32 16 32<rt>))
+    !!ir (x := x .- ((x >> numI32 1 32<rt>) .& mask1))
+    !!ir (x := ((x >> numI32 2 32<rt>) .& mask2) .+ (x .& mask2))
+    !!ir (x := ((x >> numI32 4 32<rt>) .+ x) .& mask3)
+    !!ir (x := x .+ (x >> numI32 8 32<rt>))
+    !!ir (x := x .+ (x >> numI32 16 32<rt>))
+    numI32 bitSize 32<rt> .- (x .& numI32 63 32<rt>)
+  | 64<rt> ->
+    let mask1 = numU64 0x5555555555555555UL 64<rt>
+    let mask2 = numU64 0x3333333333333333UL 64<rt>
+    let mask3 = numU64 0x0f0f0f0f0f0f0f0fUL 64<rt>
+    !!ir (x := src)
+    !!ir (x := x .| (x >> numI32 1 64<rt>))
+    !!ir (x := x .| (x >> numI32 2 64<rt>))
+    !!ir (x := x .| (x >> numI32 4 64<rt>))
+    !!ir (x := x .| (x >> numI32 8 64<rt>))
+    !!ir (x := x .| (x >> numI32 16 64<rt>))
+    !!ir (x := x .| (x >> numI32 32 64<rt>))
+    !!ir (x := x .- ((x >> numI32 1 64<rt>) .& mask1))
+    !!ir (x := ((x >> numI32 2 64<rt>) .& mask2) .+ (x .& mask2))
+    !!ir (x := ((x >> numI32 4 64<rt>) .+ x) .& mask3)
+    !!ir (x := x .+ (x >> numI32 8 64<rt>))
+    !!ir (x := x .+ (x >> numI32 16 64<rt>))
+    !!ir (x := x .+ (x >> numI32 32 64<rt>))
+    numI32 bitSize 64<rt> .- (x .& numI32 127 64<rt>)
+  | _ -> raise InvalidOperandSizeException
+
+let private clsBits src oprSize ir =
+  let n1 = AST.num1 oprSize
+  let struct (expr1, expr2, xExpr) = tmpVars3 ir oprSize
+  !!ir (expr1 := src >> n1)
+  !!ir (expr2 := (src << n1) >> n1)
+  !!ir (xExpr := (expr1 <+> expr2))
+  let bitSize = int oprSize - 1
+  clzBits xExpr bitSize oprSize ir
+
 let cls ins insLen ctxt addr =
   let ir = !*ctxt
-  let dst, src = transTwoOprs ins ctxt addr
   !<ir insLen
-  let res = countLeadingSignBitsForIR src ins.OprSize ir
-  dstAssign ins.OprSize dst res ir
+  match ins.Operands with
+  | TwoOperands (OprSIMD (SIMDVecReg _) as o1, o2) ->
+    let dstB, dstA = transOprToExpr128 ins ctxt addr o1
+    let struct (eSize, dataSize, elements) = getElemDataSzAndElems o2
+    let src = transSIMDOprToExpr ctxt eSize dataSize elements o2
+    let result = Array.map (fun e -> clsBits e eSize ir ) src
+    dstAssignForSIMD dstA dstB result dataSize elements ir
+  | _ ->
+    let dst, src = transTwoOprs ins ctxt addr
+    let result = clsBits src ins.OprSize ir
+    dstAssign ins.OprSize dst result ir
   !>ir insLen
 
 let clz ins insLen ctxt addr =
   let ir = !*ctxt
-  let dst, src = transTwoOprs ins ctxt addr
   !<ir insLen
-  let res = countLeadingZeroBitsForIR src (int ins.OprSize) ins.OprSize ir
-  dstAssign ins.OprSize dst res ir
+  match ins.Operands with
+  | TwoOperands (OprSIMD (SIMDVecReg _) as o1, o2) ->
+    let dstB, dstA = transOprToExpr128 ins ctxt addr o1
+    let struct (eSize, dataSize, elements) = getElemDataSzAndElems o2
+    let src = transSIMDOprToExpr ctxt eSize dataSize elements o2
+    let result = Array.map (fun e -> clzBits e (int eSize) eSize ir ) src
+    dstAssignForSIMD dstA dstB result dataSize elements ir
+  | _ ->
+    let dst, src = transTwoOprs ins ctxt addr
+    let result = clzBits src (int ins.OprSize) ins.OprSize ir
+    dstAssign ins.OprSize dst result ir
   !>ir insLen
 
 let cmn ins insLen ctxt addr =
