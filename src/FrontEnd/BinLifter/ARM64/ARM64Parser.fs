@@ -2247,7 +2247,7 @@ let parseAdvSIMDThreeDiff bin =
   | 0b01011u -> getOpcodeByQ bin Op.SQDMLSL Op.SQDMLSL2,
                 getVdtaVntbVmtb bin size0011, 64<rt>
   | 0b01100u -> getOpcodeByQ bin Op.SMULL Op.SMULL2,
-                getVdtaVntbVmtb bin size0011, 64<rt>
+                getVdtaVntbVmtb bin size11, 64<rt>
   | 0b01101u -> getOpcodeByQ bin Op.SQDMULL Op.SQDMULL2,
                 getVdtaVntbVmtb bin size0011, 64<rt>
   | 0b01110u -> getOpcodeByQ bin Op.PMULL Op.PMULL2,
