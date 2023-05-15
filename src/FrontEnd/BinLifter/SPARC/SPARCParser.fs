@@ -172,6 +172,8 @@ let parseOneCCOneOpr b cc1 op1 = TwoOperands (cc1, op1 b)
 
 let parseOneCCTwoOpr b cc1 op1 op2 = ThreeOperands (cc1, op1 b, op2 b)
 
+let parseOneCCThrOpr b cc1 op1 op2 op3 = FourOperands (cc1, op1 b, op2 b, op3 b)
+
 let parseOneOprOneCC b op1 cc1 = TwoOperands (op1 b, cc1)
 
 let parseOneRegOneOpr b reg op1 = TwoOperands (reg, op1 b)
@@ -225,7 +227,9 @@ let getQPFloatRegRs1 b = getQPFloatReg b 18u 14u |> OprReg
 
 let getQPFloatRegRs2 b = getQPFloatReg b 4u 0u |> OprReg
 
-let getRegAsi b = getReg b 7u 0u |> OprReg
+let getRegAsi b = R.ASI |> OprReg
+
+let getRegFsr b = R.FSR |> OprReg
 
 let getConst22 b = extract b 21u 0u |> int32 |> OprImm
 
@@ -246,13 +250,14 @@ let getSimm11 b =
 let getSimm10 b =
   (extract b 9u 0u) <<< 22 |> int32 >>> 22 |> OprImm
 
+
 let getAbit b = pickBit b 29u |> int32 |> OprImm
 
 let getPbit b = pickBit b 19u |> int32 |> OprImm
 
-let getd16hi b = extract b 21u 20u
+let getd16hi b = extract b 21u 20u |> uint32
 
-let getd16lo b = extract b 13u 0u
+let getd16lo b = extract b 13u 0u |> uint32
 
 let getdisp30 b =
   let disp30 = extract b 29u 0u <<< 2 |> int32 >>> 2
@@ -260,11 +265,11 @@ let getdisp30 b =
 
 let getdisp22 b =
   let disp22 = extract b 21u 0u <<< 10 |> int32 >>> 10
-  4 * disp22 |> OprImm
+  4 * disp22 |> OprAddr
 
 let getdisp19 b =
   let disp19 = extract b 18u 0u <<< 13 |> int32 >>> 13
-  4 * disp19 |> OprImm
+  4 * disp19 |> OprAddr
 
 let get26cc1 b = pickBit b 26u
 
@@ -340,26 +345,35 @@ let getTwoCCFcc (cc1: uint32) (cc0: uint32) =
 let getTwod16 (hi: uint32) (lo: uint32) =
   (hi <<< 14 ||| lo) * 4u |> int32 |> OprImm
 
-let getPriReg b =
-  match b >>> 14 with
-  | 0u -> Register.TPC |> OprPriReg
-  | 1u -> Register.TNPC |> OprPriReg
-  | 2u -> Register.TSTATE |> OprPriReg
-  | 3u -> Register.TT |> OprPriReg
-  | 4u -> Register.TICK |> OprPriReg
-  | 5u -> Register.TBA |> OprPriReg
-  | 6u -> Register.PSTATE |> OprPriReg
-  | 7u -> Register.TL |> OprPriReg
-  | 8u -> Register.PIL |> OprPriReg
-  | 9u -> Register.CWP |> OprPriReg
-  | 10u -> Register.CANSAVE |> OprPriReg
-  | 11u -> Register.CANRESTORE |> OprPriReg
-  | 12u -> Register.CLEANWIN |> OprPriReg
-  | 13u -> Register.OTHERWIN |> OprPriReg
-  | 14u -> Register.WSTATE |> OprPriReg
-  | 15u -> Register.FQ |> OprPriReg
-  | 31u -> Register.VER |> OprPriReg
+let getd16 b =
+  let hi = extract b 21u 20u
+  let lo = extract b 13u 0u
+  (hi <<< 14 ||| lo) * 4u |> int32 |> OprAddr
+
+let getPriReg b32 s e =
+  match (extract b32 s e) |> byte with
+  | 0uy -> Register.TPC |> OprPriReg
+  | 1uy -> Register.TNPC |> OprPriReg
+  | 2uy -> Register.TSTATE |> OprPriReg
+  | 3uy -> Register.TT |> OprPriReg
+  | 4uy -> Register.TICK |> OprPriReg
+  | 5uy -> Register.TBA |> OprPriReg
+  | 6uy -> Register.PSTATE |> OprPriReg
+  | 7uy -> Register.TL |> OprPriReg
+  | 8uy -> Register.PIL |> OprPriReg
+  | 9uy -> Register.CWP |> OprPriReg
+  | 10uy -> Register.CANSAVE |> OprPriReg
+  | 11uy -> Register.CANRESTORE |> OprPriReg
+  | 12uy -> Register.CLEANWIN |> OprPriReg
+  | 13uy -> Register.OTHERWIN |> OprPriReg
+  | 14uy -> Register.WSTATE |> OprPriReg
+  | 15uy -> Register.FQ |> OprPriReg
+  | 31uy -> Register.VER |> OprPriReg
   | _ -> raise InvalidRegisterException
+
+let priregRDPR b32 = getPriReg b32 18u 14u
+
+let priregWRPR b32 = getPriReg b32 29u 25u
 
 (*
   00r_ __d1 1010 0---
@@ -1541,6 +1555,10 @@ let parse101000 b32 =
   | 12u
   | 13u
   | 14u -> struct (Opcode.RDASR, parseTwoOpr b32 getRegRs1 getRegRd)
+  | 15u ->
+    match pickBit b32 13u with
+    | 0b0u -> struct (Opcode.STBAR, NoOperand)
+    | _ -> struct (Opcode.MEMBAR, parseOneOpr b32 getMembarMask)
   | 16u
   | 17u
   | 18u
@@ -1567,9 +1585,12 @@ let parse110000 b32 =
   match pickBit b32 13u with
   | 0b0u ->
     match extract b32 29u 25u with
-    | 0u -> struct (Opcode.WRY, parseTwoOpr b32 getRegRs1 getRegRs2)
-    | 2u -> struct (Opcode.WRCCR, parseTwoOpr b32 getRegRs1 getRegRs2)
-    | 3u -> struct (Opcode.WRASI, parseTwoOpr b32 getRegRs1 getRegRs2)
+    | 0u -> struct (Opcode.WRY,
+              parseTwoOprOneReg b32 getRegRs1 getRegRs2 (setPriReg R.Y))
+    | 2u -> struct (Opcode.WRCCR,
+              parseTwoOprOneReg b32 getRegRs1 getRegRs2 (setPriReg R.CCR))
+    | 3u -> struct (Opcode.WRASI,
+              parseTwoOprOneReg b32 getRegRs1 getRegRs2 (setPriReg R.ASI))
     | 4u
     | 5u
     | 7u
@@ -1579,7 +1600,8 @@ let parse110000 b32 =
     | 12u
     | 13u
     | 14u -> struct (Opcode.WRASR, parseTwoOpr b32 getRegRs1 getRegRs2)
-    | 6u -> struct (Opcode.WRFPRS, parseTwoOpr b32 getRegRs1 getRegRs2)
+    | 6u -> struct (Opcode.WRFPRS,
+                  parseTwoOprOneReg b32 getRegRs1 getRegRs2 (setPriReg R.FPRS))
     | 15u -> struct (Opcode.SIR, NoOperand)
     | 16u
     | 17u
@@ -2357,13 +2379,15 @@ let parse10rd b32 =
       struct (Opcode.TSUBccTV, parseThrOpr b32 getRegRs1 getRegRs2 getRegRd)
     (* Write Privileged Register *)
     | 0b110010u ->
-      struct (Opcode.WRPR, parseThrOpr b32 getRegRs1 getRegRs2 getRegRd)
+      struct (Opcode.WRPR, parseThrOpr b32 getRegRs1 getRegRs2 priregWRPR)
     (* Move Floating-Point Register on Condition (FMOVcc) *)
     | 0b110101u -> parse110101 b32
     (* Floating-Point *)
     | 0b110100u -> parseFP b32
     (* Read State Register *)
     | 0b101000u -> parse101000 b32
+    (* Read Privileged State Register *)
+    | 0b101010u -> struct (Opcode.RDPR, parseTwoOpr b32 priregRDPR getRegRd)
     (* Write State Register *)
     | 0b110000u -> parse110000 b32
     (* Move Integer Register on Condition *)
@@ -2371,7 +2395,7 @@ let parse10rd b32 =
     (* Move Integer Register on Register Condition *)
     | 0b101111u -> parse101111 b32
     | _ -> Opcode.InvalidOp, NoOperand
-  | 0b01u ->
+  | 0b1u ->
     match extract b32 24u 19u with
     (* ADD *)
     | 0b000000u ->
@@ -2488,9 +2512,9 @@ let parse10rd b32 =
       struct (Opcode.TSUBccTV, parseThrOpr b32 getRegRs1 getSimm13 getRegRd)
     (* Write Privileged Register *)
     | 0b110010u ->
-      struct (Opcode.WRPR, parseThrOpr b32 getRegRs1 getSimm13 getRegRd)
+      struct (Opcode.WRPR, parseThrOpr b32 getRegRs1 getSimm13 priregWRPR)
     (* Read Privileged Register *)
-    | 0b101010u -> struct (Opcode.RDPR, parseTwoOpr b32 getPriReg getRegRd)
+    | 0b101010u -> struct (Opcode.RDPR, parseTwoOpr b32 priregRDPR getRegRd)
     (* Write State Register *)
     | 0b110000u -> parse110000 b32
     (* Move Integer Register on Condition *)
@@ -2508,8 +2532,12 @@ let parse11rd b32 =
   match pickBit b32 13u with
   | 0b0u ->
     match extract b32 24u 19u with
-    | 0b011111u -> struct (Opcode.SWAPA, parseTwoOpr b32 getImmAsi getRegRd)
-    | 0b001111u -> struct (Opcode.SWAP, parseTwoOpr b32 getAddrRs1 getRegRd)
+    | 0b011111u -> struct (Opcode.SWAPA, parseFourOpr b32 getAddrRs1
+        getAddrRs2 getImmAsi getRegRd)
+    | 0b001111u -> struct (
+        Opcode.SWAP,
+        parseThrOpr b32 getAddrRs1 getAddrRs2 getRegRd
+      )
     | 0b010101u ->
       struct (
         Opcode.STBA,
@@ -2591,12 +2619,12 @@ let parse11rd b32 =
     | 0b111100u ->
       struct (
         Opcode.CASA,
-        parseFourOpr b32 getRegRs1 getRegAsi getRegRs2 getRegRd
+        parseFourOpr b32 getRegRs1 getImmAsi getRegRs2 getRegRd
       )
     | 0b111110u ->
       struct (
         Opcode.CASXA,
-        parseFourOpr b32 getRegRs1 getRegAsi getRegRs2 getRegRd
+        parseFourOpr b32 getRegRs1 getImmAsi getRegRs2 getRegRd
       )
     | 0b100000u ->
       struct (
@@ -2660,79 +2688,88 @@ let parse11rd b32 =
     | 0b011001u ->
       struct (
         Opcode.LDSBA,
-        parseFourOpr b32 getAddrRs1 getAddrSimm13 getImmAsi getRegRd
+        parseFourOpr b32 getAddrRs1 getAddrRs2 getImmAsi getRegRd
       )
     | 0b011010u ->
       struct (
         Opcode.LDSHA,
-        parseFourOpr b32 getAddrRs1 getAddrSimm13 getImmAsi getRegRd
+        parseFourOpr b32 getAddrRs1 getAddrRs2 getImmAsi getRegRd
       )
     | 0b011000u ->
       struct (
         Opcode.LDSWA,
-        parseFourOpr b32 getAddrRs1 getAddrSimm13 getImmAsi getRegRd
+        parseFourOpr b32 getAddrRs1 getAddrRs2 getImmAsi getRegRd
       )
     | 0b010001u ->
       struct (
         Opcode.LDUBA,
-        parseFourOpr b32 getAddrRs1 getAddrSimm13 getImmAsi getRegRd
+        parseFourOpr b32 getAddrRs1 getAddrRs2 getImmAsi getRegRd
       )
     | 0b010010u ->
       struct (
         Opcode.LDUHA,
-        parseFourOpr b32 getAddrRs1 getAddrSimm13 getImmAsi getRegRd
+        parseFourOpr b32 getAddrRs1 getAddrRs2 getImmAsi getRegRd
+      )
+    | 0b010000u ->
+      struct (
+        Opcode.LDUWA,
+        parseFourOpr b32 getAddrRs1 getAddrRs2 getImmAsi getRegRd
       )
     | 0b011011u ->
       struct (
         Opcode.LDXA,
-        parseFourOpr b32 getAddrRs1 getAddrSimm13 getImmAsi getRegRd
+        parseFourOpr b32 getAddrRs1 getAddrRs2 getImmAsi getRegRd
       )
     | 0b010011u ->
       struct (
         Opcode.LDDA,
-        parseFourOpr b32 getAddrRs1 getAddrSimm13 getImmAsi getRegRd
+        parseFourOpr b32 getAddrRs1 getAddrRs2 getImmAsi getRegRd
       )
     | 0b001101u ->
       struct (Opcode.LDSTUB, parseThrOpr b32 getAddrRs1 getAddrRs2 getRegRd)
     | 0b011101u ->
       struct (
         Opcode.LDSTUBA,
-        parseFourOpr b32 getAddrRs1 getAddrSimm13 getImmAsi getRegRd
+        parseFourOpr b32 getAddrRs1 getAddrRs2 getImmAsi getRegRd
       )
     | _ -> struct (Opcode.InvalidOp, NoOperand)
   | 0b1u ->
     match extract b32 24u 19u with
-    | 0b011111u -> struct (Opcode.SWAPA, parseTwoOpr b32 getRegAsi getRegRd)
-    | 0b001111u -> struct (Opcode.SWAP, parseTwoOpr b32 getAddrRs1 getRegRd)
+    | 0b011111u -> struct (Opcode.SWAPA, parseFourOpr b32 getRegRs1
+        getSimm13 getRegAsi getRegRd)
+    | 0b001111u -> struct (
+        Opcode.SWAP,
+        parseThrOpr b32 getAddrRs1 getAddrRs2 getRegRd
+      )
     | 0b010101u ->
       struct (
         Opcode.STBA,
-        parseThrOprOneReg b32 getRegRd getAddrRs1 (setPriReg R.ASI)
-          getAddrSimm13
+        parseFourOpr b32 getRegRd getAddrRs1
+          getAddrSimm13 getRegAsi
       )
     | 0b010110u ->
       struct (
         Opcode.STHA,
-        parseThrOprOneReg b32 getRegRd getAddrRs1 (setPriReg R.ASI)
-          getAddrSimm13
+        parseFourOpr b32 getRegRd getAddrRs1
+          getAddrSimm13 getRegAsi
       )
     | 0b010100u ->
       struct (
         Opcode.STWA,
-        parseThrOprOneReg b32 getRegRd getAddrRs1 (setPriReg R.ASI)
-          getAddrSimm13
+        parseFourOpr b32 getRegRd getAddrRs1
+          getAddrSimm13 getRegAsi
       )
     | 0b011110u ->
       struct (
         Opcode.STXA,
-        parseThrOprOneReg b32 getRegRd getAddrRs1 (setPriReg R.ASI)
-          getAddrSimm13
+        parseFourOpr b32 getRegRd getAddrRs1
+          getAddrSimm13 getRegAsi
       )
     | 0b010111u ->
       struct (
         Opcode.STDA,
-        parseThrOprOneReg b32 getRegRd getAddrRs1 (setPriReg R.ASI)
-          getAddrSimm13
+        parseFourOpr b32 getRegRd getAddrRs1
+          getAddrSimm13 getRegAsi
       )
     | 0b000101u ->
       struct (Opcode.STB, parseThrOpr b32 getRegRd getAddrRs1 getAddrSimm13)
@@ -2830,14 +2867,14 @@ let parse11rd b32 =
     | 0b110000u ->
       struct (
         Opcode.LDFA,
-        parseThrOprOneReg b32 getAddrRs1 getAddrSimm13
-          (setPriReg R.ASI) getFloatRegRd
+        parseFourOpr b32 getAddrRs1 getAddrSimm13
+          getRegAsi getFloatRegRd
       )
     | 0b110011u ->
       struct (
         Opcode.LDDFA,
-        parseThrOprOneReg b32 getAddrRs1 getAddrSimm13
-          (setPriReg R.ASI) getDPFloatRegRd)
+        parseFourOpr b32 getAddrRs1 getAddrSimm13
+          getRegAsi getDPFloatRegRd)
     | 0b110010u ->
       struct (
         Opcode.LDQFA,
@@ -2864,52 +2901,58 @@ let parse11rd b32 =
     | 0b011001u ->
       struct (
         Opcode.LDSBA,
-        parseThrOprOneReg b32 getAddrRs1 getAddrRs2
-          (setPriReg R.ASI) getRegRd
+        parseFourOpr b32 getAddrRs1 getAddrSimm13
+          getRegAsi getRegRd
       )
     | 0b011010u ->
       struct (
         Opcode.LDSHA,
-        parseThrOprOneReg b32 getAddrRs1 getAddrRs2
-          (setPriReg R.ASI) getRegRd
+        parseFourOpr b32 getAddrRs1 getAddrSimm13
+          getRegAsi getRegRd
       )
     | 0b011000u ->
       struct (
         Opcode.LDSWA,
-        parseThrOprOneReg b32 getAddrRs1 getAddrRs2
-          (setPriReg R.ASI) getRegRd
+        parseFourOpr b32 getAddrRs1 getAddrSimm13
+          getRegAsi getRegRd
       )
     | 0b010001u ->
       struct (
         Opcode.LDUBA,
-        parseThrOprOneReg b32 getAddrRs1 getAddrRs2
-          (setPriReg R.ASI) getRegRd
+        parseFourOpr b32 getAddrRs1 getAddrSimm13
+          getRegAsi getRegRd
       )
     | 0b010010u ->
       struct (
         Opcode.LDUHA,
-        parseThrOprOneReg b32 getAddrRs1 getAddrRs2
-          (setPriReg R.ASI) getRegRd
+        parseFourOpr b32 getAddrRs1 getAddrSimm13
+          getRegAsi getRegRd
+      )
+    | 0b010000u ->
+      struct (
+        Opcode.LDUWA,
+        parseFourOpr b32 getAddrRs1 getAddrSimm13
+          getRegAsi getRegRd
       )
     | 0b011011u ->
       struct (
         Opcode.LDXA,
-        parseThrOprOneReg b32 getAddrRs1 getAddrRs2
-          (setPriReg R.ASI) getRegRd
+        parseFourOpr b32 getAddrRs1 getAddrSimm13
+          getRegAsi getRegRd
       )
     | 0b010011u ->
       struct (
         Opcode.LDDA,
-        parseThrOprOneReg b32 getAddrRs1 getAddrRs2
-          (setPriReg R.ASI) getRegRd
+        parseFourOpr b32 getAddrRs1 getAddrSimm13
+          getRegAsi getRegRd
       )
     | 0b001101u ->
       struct (Opcode.LDSTUB, parseThrOpr b32 getAddrRs1 getAddrSimm13 getRegRd)
     | 0b011101u ->
       struct (
         Opcode.LDSTUBA,
-        parseThrOprOneReg b32 getAddrRs1 getAddrRs2
-          (setPriReg R.ASI) getRegRd
+        parseFourOpr b32 getAddrRs1 getAddrSimm13
+          getRegAsi getRegRd
       )
     | _ -> struct (Opcode.InvalidOp, NoOperand)
   | _ -> struct (Opcode.InvalidOp, NoOperand)
@@ -2927,7 +2970,7 @@ let parse00 b32 =
     | _ -> struct (Opcode.SETHI, parseTwoOpr b32 getimm22 getRegRd)
   | 0b110u ->
     match extract b32 28u 25u with
-    | 0b1000u -> struct (Opcode.FBA, parseOneOpr b32 getdisp22)
+    | 0b1000u -> struct (Opcode.FBA, parseTwoOpr b32 getAbit getdisp22)
     | 0b0000u -> struct (Opcode.FBN, parseTwoOpr b32 getAbit getdisp22)
     | 0b0111u -> struct (Opcode.FBU, parseTwoOpr b32 getAbit getdisp22)
     | 0b0110u -> struct (Opcode.FBG, parseTwoOpr b32 getAbit getdisp22)
@@ -2949,130 +2992,162 @@ let parse00 b32 =
     | 0b1000u ->
       struct (
         Opcode.FBPA,
-        parseOneCCOneOpr
+        parseOneCCThrOpr
           b32
           (getTwoCCFcc (get21cc1 b32) (get20cc0 b32))
           getdisp19
+          getAbit
+          getPbit
       )
     | 0b0000u ->
       struct (
         Opcode.FBPN,
-        parseOneCCOneOpr
+        parseOneCCThrOpr
           b32
           (getTwoCCFcc (get21cc1 b32) (get20cc0 b32))
           getdisp19
+          getAbit
+          getPbit
       )
     | 0b0111u ->
       struct (
         Opcode.FBPU,
-        parseOneCCOneOpr
+        parseOneCCThrOpr
           b32
           (getTwoCCFcc (get21cc1 b32) (get20cc0 b32))
           getdisp19
+          getAbit
+          getPbit
       )
     | 0b0110u ->
       struct (
         Opcode.FBPG,
-        parseOneCCOneOpr
+        parseOneCCThrOpr
           b32
           (getTwoCCFcc (get21cc1 b32) (get20cc0 b32))
           getdisp19
+          getAbit
+          getPbit
       )
     | 0b0101u ->
       struct (
         Opcode.FBPUG,
-        parseOneCCOneOpr
+        parseOneCCThrOpr
           b32
           (getTwoCCFcc (get21cc1 b32) (get20cc0 b32))
           getdisp19
+          getAbit
+          getPbit
       )
     | 0b0100u ->
       struct (
         Opcode.FBPL,
-        parseOneCCOneOpr
+        parseOneCCThrOpr
           b32
           (getTwoCCFcc (get21cc1 b32) (get20cc0 b32))
           getdisp19
+          getAbit
+          getPbit
       )
     | 0b0011u ->
       struct (
         Opcode.FBPUL,
-        parseOneCCOneOpr
+        parseOneCCThrOpr
           b32
           (getTwoCCFcc (get21cc1 b32) (get20cc0 b32))
           getdisp19
+          getAbit
+          getPbit
           )
     | 0b0010u ->
       struct (
         Opcode.FBPLG,
-        parseOneCCOneOpr
+        parseOneCCThrOpr
           b32
           (getTwoCCFcc (get21cc1 b32) (get20cc0 b32))
           getdisp19
+          getAbit
+          getPbit
           )
     | 0b0001u ->
       struct (
         Opcode.FBPNE,
-        parseOneCCOneOpr
+        parseOneCCThrOpr
           b32
           (getTwoCCFcc (get21cc1 b32) (get20cc0 b32))
           getdisp19
+          getAbit
+          getPbit
       )
     | 0b1001u ->
       struct (
         Opcode.FBPE,
-        parseOneCCOneOpr
+        parseOneCCThrOpr
           b32
           (getTwoCCFcc (get21cc1 b32) (get20cc0 b32))
           getdisp19
+          getAbit
+          getPbit
       )
     | 0b1010u ->
       struct (
         Opcode.FBPUE,
-        parseOneCCOneOpr
+        parseOneCCThrOpr
           b32
           (getTwoCCFcc (get21cc1 b32) (get20cc0 b32))
           getdisp19
+          getAbit
+          getPbit
       )
     | 0b1011u ->
       struct (
         Opcode.FBPGE,
-        parseOneCCOneOpr
+        parseOneCCThrOpr
           b32
           (getTwoCCFcc (get21cc1 b32) (get20cc0 b32))
           getdisp19
+          getAbit
+          getPbit
       )
     | 0b1100u ->
       struct (
         Opcode.FBPUGE,
-        parseOneCCOneOpr
+        parseOneCCThrOpr
           b32
           (getTwoCCFcc (get21cc1 b32) (get20cc0 b32))
           getdisp19
+          getAbit
+          getPbit
       )
     | 0b1101u ->
       struct (
         Opcode.FBPLE,
-        parseOneCCOneOpr
+        parseOneCCThrOpr
           b32
           (getTwoCCFcc (get21cc1 b32) (get20cc0 b32))
           getdisp19
+          getAbit
+          getPbit
       )
     | 0b1110u ->
       struct (
         Opcode.FBPULE,
-        parseOneCCOneOpr
+        parseOneCCThrOpr
           b32
           (getTwoCCFcc (get21cc1 b32) (get20cc0 b32))
           getdisp19
+          getAbit
+          getPbit
       )
     | 0b1111u ->
       struct (
         Opcode.FBPO,
-        parseOneCCOneOpr
+        parseOneCCThrOpr
           b32
           (getTwoCCFcc (get21cc1 b32) (get20cc0 b32))
           getdisp19
+          getAbit
+          getPbit
       )
     | _ -> struct (Opcode.InvalidOp, NoOperand)
   | 0b010u ->
@@ -3099,130 +3174,162 @@ let parse00 b32 =
     | 0b1000u ->
       struct (
         Opcode.BPA,
-        parseOneCCOneOpr
+        parseOneCCThrOpr
           b32
           (getTwoCCix (get21cc1 b32) (get20cc0 b32))
           getdisp19
+          getAbit
+          getPbit
       )
     | 0b0000u ->
       struct (
         Opcode.BPN,
-        parseOneCCOneOpr
+        parseOneCCThrOpr
           b32
           (getTwoCCix (get21cc1 b32) (get20cc0 b32))
           getdisp19
+          getAbit
+          getPbit
       )
     | 0b1001u ->
       struct (
         Opcode.BPNE,
-        parseOneCCOneOpr
+        parseOneCCThrOpr
           b32
           (getTwoCCix (get21cc1 b32) (get20cc0 b32))
           getdisp19
+          getAbit
+          getPbit
       )
     | 0b0001u ->
       struct (
         Opcode.BPE,
-        parseOneCCOneOpr
+        parseOneCCThrOpr
           b32
           (getTwoCCix (get21cc1 b32) (get20cc0 b32))
           getdisp19
+          getAbit
+          getPbit
       )
     | 0b1010u ->
       struct (
         Opcode.BPG,
-        parseOneCCOneOpr
+        parseOneCCThrOpr
           b32
           (getTwoCCix (get21cc1 b32) (get20cc0 b32))
           getdisp19
+          getAbit
+          getPbit
       )
     | 0b0010u ->
       struct (
         Opcode.BPLE,
-        parseOneCCOneOpr
+        parseOneCCThrOpr
           b32
           (getTwoCCix (get21cc1 b32) (get20cc0 b32))
           getdisp19
+          getAbit
+          getPbit
       )
     | 0b1011u ->
       struct (
         Opcode.BPGE,
-        parseOneCCOneOpr
+        parseOneCCThrOpr
           b32
           (getTwoCCix (get21cc1 b32) (get20cc0 b32))
           getdisp19
+          getAbit
+          getPbit
       )
     | 0b0011u ->
       struct (
         Opcode.BPL,
-        parseOneCCOneOpr
+        parseOneCCThrOpr
           b32
           (getTwoCCix (get21cc1 b32) (get20cc0 b32))
           getdisp19
+          getAbit
+          getPbit
       )
     | 0b1100u ->
       struct (
         Opcode.BPGU,
-        parseOneCCOneOpr
+        parseOneCCThrOpr
           b32
           (getTwoCCix (get21cc1 b32) (get20cc0 b32))
           getdisp19
+          getAbit
+          getPbit
       )
     | 0b0100u ->
       struct (
         Opcode.BPLEU,
-        parseOneCCOneOpr
+        parseOneCCThrOpr
           b32
           (getTwoCCix (get21cc1 b32) (get20cc0 b32))
           getdisp19
+          getAbit
+          getPbit
       )
     | 0b1101u ->
       struct (
         Opcode.BPCC,
-        parseOneCCOneOpr
+        parseOneCCThrOpr
           b32
           (getTwoCCix (get21cc1 b32) (get20cc0 b32))
           getdisp19
+          getAbit
+          getPbit
       )
     | 0b0101u ->
       struct (
         Opcode.BPCS,
-        parseOneCCOneOpr
+        parseOneCCThrOpr
           b32
           (getTwoCCix (get21cc1 b32) (get20cc0 b32))
           getdisp19
+          getAbit
+          getPbit
       )
     | 0b1110u ->
       struct (
         Opcode.BPPOS,
-        parseOneCCOneOpr
+        parseOneCCThrOpr
           b32
           (getTwoCCix (get21cc1 b32) (get20cc0 b32))
           getdisp19
+          getAbit
+          getPbit
       )
     | 0b0110u ->
       struct (
         Opcode.BPNEG,
-        parseOneCCOneOpr
+        parseOneCCThrOpr
           b32
           (getTwoCCix (get21cc1 b32) (get20cc0 b32))
           getdisp19
+          getAbit
+          getPbit
       )
     | 0b1111u ->
       struct (
         Opcode.BPVC,
-        parseOneCCOneOpr
+        parseOneCCThrOpr
           b32
           (getTwoCCix (get21cc1 b32) (get20cc0 b32))
           getdisp19
+          getAbit
+          getPbit
       )
     | 0b0111u ->
       struct (
         Opcode.BPVS,
-        parseOneCCOneOpr
+        parseOneCCThrOpr
           b32
           (getTwoCCix (get21cc1 b32) (get20cc0 b32))
           getdisp19
+          getAbit
+          getPbit
       )
     | _ -> struct (Opcode.InvalidOp, NoOperand)
   | 0b011u ->
@@ -3230,50 +3337,62 @@ let parse00 b32 =
     | 0b001u ->
       struct (
         Opcode.BRZ,
-        parseOneOprOneCC
+        parseFourOpr
           b32
           getRegRs1
-          (getTwod16 (getd16hi b32) (getd16lo b32))
+          getd16
+          getAbit
+          getPbit
       )
     | 0b010u ->
       struct (
         Opcode.BRLEZ,
-        parseOneOprOneCC
+        parseFourOpr
           b32
           getRegRs1
-          (getTwod16 (getd16hi b32) (getd16lo b32))
+          getd16
+          getAbit
+          getPbit
       )
     | 0b011u ->
       struct (
         Opcode.BRLZ,
-        parseOneOprOneCC
+        parseFourOpr
           b32
           getRegRs1
-          (getTwod16 (getd16hi b32) (getd16lo b32))
+          getd16
+          getAbit
+          getPbit
       )
     | 0b101u ->
       struct (
         Opcode.BRNZ,
-        parseOneOprOneCC
+        parseFourOpr
           b32
           getRegRs1
-          (getTwod16 (getd16hi b32) (getd16lo b32))
+          getd16
+          getAbit
+          getPbit
       )
     | 0b110u ->
       struct (
         Opcode.BRGZ,
-        parseOneOprOneCC
+        parseFourOpr
           b32
           getRegRs1
-          (getTwod16 (getd16hi b32) (getd16lo b32))
+          getd16
+          getAbit
+          getPbit
       )
     | 0b111u ->
       struct (
         Opcode.BRGEZ,
-        parseOneOprOneCC
+        parseFourOpr
           b32
           getRegRs1
-          (getTwod16 (getd16hi b32) (getd16lo b32))
+          getd16
+          getAbit
+          getPbit
       )
     | _ -> struct (Opcode.InvalidOp, NoOperand)
   | _ -> struct (Opcode.InvalidOp, NoOperand)
@@ -3451,14 +3570,17 @@ let parse10 b32 =
       | _ -> struct (Opcode.InvalidOp, NoOperand)
     | _ -> struct (Opcode.InvalidOp, NoOperand)
   | 0b101000u ->
-    match pickBit b32 25u with
-    | 0u ->
-      match pickBit b32 13u with
-      | 0b0u -> struct (Opcode.STBAR, NoOperand)
-      | 0b1u -> struct (Opcode.MEMBAR, parseOneOpr b32 getMembarMask)
+    match pickBit b32 13u with
+    | 0b0u -> parse101000  b32
+    | _ ->
+      match pickBit b32 25u with
+      | 0u ->
+        match pickBit b32 13u with
+        | 0b0u -> struct (Opcode.STBAR, NoOperand)
+        | 0b1u -> struct (Opcode.MEMBAR, parseOneOpr b32 getMembarMask)
+        | _ -> struct (Opcode.InvalidOp, NoOperand)
       | _ -> struct (Opcode.InvalidOp, NoOperand)
-    | _ -> struct (Opcode.InvalidOp, NoOperand)
-  | 0b110000u -> struct (Opcode.SIR, parseOneOpr b32 getSimm13)
+  | 0b110000u -> parse110000 b32
   | 0b110001u ->
     match pickBit b32 25u with
     | 0u -> struct (Opcode.SAVED, NoOperand)
