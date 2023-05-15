@@ -2827,7 +2827,9 @@ let tbl ins insLen ctxt addr = (* FIMXE *)
                     (AST.ite (idx .< numI32 64 8<rt>) (limit i src[7] idx)
                       zeros)))))))
     else failwith "Invalid number of registers."
-  let result = Array.mapi getElem indices
+  let result = Array.init elements (fun _ -> !+ir eSize)
+  Array.mapi getElem indices
+  |> Array.iter2 (fun e1 e2 -> !!ir (e1 := e2)) result
   dstAssignForSIMD dstA dstB result dataSize elements ir
   !>ir insLen
 
@@ -2971,8 +2973,9 @@ let saddw ins insLen ctxt addr =
   let src1 = transSIMDOprToExpr ctxt (2 * eSize) 128<rt> elements src1
   let src2 = vectorPart ctxt eSize src2
   !<ir insLen
-  let result =
-    Array.map2 (fun e1 e2 -> e1 .+ (AST.sext (2 * eSize) e2)) src1 src2
+  let result = Array.init elements (fun _ -> !+ir (2 * eSize))
+  Array.map2 (fun e1 e2 -> e1 .+ (AST.sext (2 * eSize) e2)) src1 src2
+  |> Array.iter2 (fun e1 e2 -> !!ir (e1 := e2)) result
   dstAssignForSIMD dstA dstB result 128<rt> elements ir
   !>ir insLen
 
@@ -2982,10 +2985,10 @@ let saddlp ins insLen ctxt addr =
   let struct (eSize, dataSize, elements) = getElemDataSzAndElems src
   let sumArr = Array.init (elements / 2) (fun _ -> !+ir (2 * eSize))
   let dstB, dstA = transOprToExpr128 ins ctxt addr dst
-  let srcArr = transSIMDOprToExpr ctxt eSize dataSize elements src
-            |> Array.map (AST.sext (2 * eSize))
-            |> Array.chunkBySize 2
-            |> Array.map (fun e -> e[0] .+ e[1])
+  let srcArr =
+    transSIMDOprToExpr ctxt eSize dataSize elements src
+    |> Array.map (AST.sext (2 * eSize)) |> Array.chunkBySize 2
+    |> Array.map (fun e -> e[0] .+ e[1])
   !<ir insLen
   Array.iter2 (fun sum src -> !!ir (sum := src)) sumArr srcArr
   dstAssignForSIMD dstA dstB sumArr dataSize (elements / 2) ir
@@ -2995,8 +2998,9 @@ let saddlv ins insLen ctxt addr =
   let ir = !*ctxt
   let struct (dst, src) = getTwoOprs ins
   let struct (eSize, dataSize, elements) = getElemDataSzAndElems src
-  let src = transSIMDOprToExpr ctxt eSize dataSize elements src
-            |> Array.map (AST.sext (2 * eSize))
+  let src =
+    transSIMDOprToExpr ctxt eSize dataSize elements src
+    |> Array.map (AST.sext (2 * eSize))
   let sum = !+ir (2 * eSize)
   !<ir insLen
   !!ir (sum := src[0])
@@ -3146,12 +3150,16 @@ let umlal ins insLen ctxt addr =
   match ins.Operands with
   | ThreeOperands (_, _, OprSIMD (SIMDVecReg _)) ->
     let src2 = vectorPart ctxt eSize src2 |> Array.map (AST.zext (2 * eSize))
-    let result = Array.map3 (fun e1 e2 e3 -> e1 .+ (e2 .* e3)) dst src1 src2
+    let result = Array.init elements (fun _ -> !+ir (2 * eSize))
+    Array.map3 (fun e1 e2 e3 -> e1 .+ (e2 .* e3)) dst src1 src2
+    |> Array.iter2 (fun e1 e2 -> !!ir (e1 := e2)) result
     dstAssignForSIMD dstA dstB result (2 * dataSize) elements ir
   | _ ->
     let src2 = transOprToExpr ins ctxt addr src2 |> AST.zext (2 * eSize)
     let prod = Array.map (fun s1 -> s1 .* src2) src1
-    let result = Array.map2 (.+) dst prod
+    let result = Array.init elements (fun _ -> !+ir (2 * eSize))
+    Array.map2 (.+) dst prod
+    |> Array.iter2 (fun e1 e2 -> !!ir (e1 := e2)) result
     dstAssignForSIMD dstA dstB result (2 * dataSize) elements ir
   !>ir insLen
 
