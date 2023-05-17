@@ -641,6 +641,9 @@ let comiss ins insLen ctxt =
   !!ir (!.ctxt R.OF := AST.b0)
   !!ir (!.ctxt R.AF := AST.b0)
   !!ir (!.ctxt R.SF := AST.b0)
+#if EMULATION
+  ctxt.ConditionCodeOp <- ConditionCodeOp.EFlags
+#endif
   !>ir insLen
 
 let comisd ins insLen ctxt =
@@ -667,6 +670,9 @@ let comisd ins insLen ctxt =
   !!ir (!.ctxt R.OF := AST.b0)
   !!ir (!.ctxt R.AF := AST.b0)
   !!ir (!.ctxt R.SF := AST.b0)
+#if EMULATION
+  ctxt.ConditionCodeOp <- ConditionCodeOp.EFlags
+#endif
   !>ir insLen
 
 let ucomiss ins insLen ctxt =
@@ -693,6 +699,9 @@ let ucomiss ins insLen ctxt =
   !!ir (!.ctxt R.OF := AST.b0)
   !!ir (!.ctxt R.AF := AST.b0)
   !!ir (!.ctxt R.SF := AST.b0)
+#if EMULATION
+  ctxt.ConditionCodeOp <- ConditionCodeOp.EFlags
+#endif
   !>ir insLen
 
 let ucomisd ins insLen ctxt =
@@ -719,6 +728,9 @@ let ucomisd ins insLen ctxt =
   !!ir (!.ctxt R.OF := AST.b0)
   !!ir (!.ctxt R.AF := AST.b0)
   !!ir (!.ctxt R.SF := AST.b0)
+#if EMULATION
+  ctxt.ConditionCodeOp <- ConditionCodeOp.EFlags
+#endif
   !>ir insLen
 
 let andps ins insLen ctxt =
@@ -1833,6 +1845,9 @@ let ptest ins insLen ctxt =
   !!ir (!.ctxt R.OF := AST.b0)
   !!ir (!.ctxt R.PF := AST.b0)
   !!ir (!.ctxt R.SF := AST.b0)
+#if EMULATION
+  ctxt.ConditionCodeOp <- ConditionCodeOp.EFlags
+#endif
   !>ir insLen
 
 let opPcmpeqq _ = opPcmp 64<rt> (==)
@@ -2212,4 +2227,7 @@ let pcmpstr ins insLen ctxt =
   !!ir (!.ctxt R.OF := AST.xtlo 1<rt> intRes2)
   !!ir (!.ctxt R.AF := AST.b0)
   !!ir (!.ctxt R.PF := AST.b0)
+#if EMULATION
+  ctxt.ConditionCodeOp <- ConditionCodeOp.EFlags
+#endif
   !>ir insLen

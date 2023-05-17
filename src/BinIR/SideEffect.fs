@@ -60,6 +60,10 @@ type SideEffect =
   | UnsupportedFAR
   /// Unsupported processor extension.
   | UnsupportedExtension
+#if EMULATION
+  /// EFLAGS lazy evaluation
+  | FlagsUpdate
+#endif
 
 module SideEffect =
   let toString = function
@@ -79,3 +83,6 @@ module SideEffect =
     | UnsupportedPrivInstr -> "PrivInstr"
     | UnsupportedFAR -> "FAR"
     | UnsupportedExtension -> "CPU extension"
+#if EMULATION
+    | FlagsUpdate -> "FlagsUpdate"
+#endif
