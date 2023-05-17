@@ -501,6 +501,24 @@ let minss ins insLen ctxt =
 let minsd ins insLen ctxt =
   minMaxSD ins insLen ctxt AST.flt
 
+let private cmppCond ir ins insLen ctxt op3 isDbl c expr1 expr2 =
+  let imm =
+    transOprToExpr ir false ins insLen ctxt op3 |> AST.xtlo 8<rt>
+    .& numI32 0x7 8<rt>
+  match imm.E with
+  | Num bv ->
+    match bv.SmallValue () with
+    | 0UL -> !!ir (c := expr1 == expr2)
+    | 1UL -> !!ir (c := AST.flt expr1 expr2)
+    | 2UL -> !!ir (c := AST.fle expr1 expr2)
+    | 3UL -> !!ir (c := isNan isDbl expr1 .| isNan isDbl expr2)
+    | 4UL -> !!ir (c := expr1 != expr2)
+    | 5UL -> !!ir (c := AST.flt expr1 expr2 |> AST.not)
+    | 6UL -> !!ir (c := AST.fle expr1 expr2 |> AST.not)
+    | 7UL -> !!ir (c := (isNan isDbl expr1 .| isNan isDbl expr2) |> AST.not)
+    | _ -> !!ir (c := AST.b0)
+  | _ -> Utils.impossible ()
+
 let cmpps ins insLen ctxt =
   let ir = !*ctxt
   !<ir insLen
@@ -509,27 +527,11 @@ let cmpps ins insLen ctxt =
   let src1, src2 = transOprToExpr128 ir false ins insLen ctxt op2
   let dst1A, dst1B = AST.xtlo 32<rt> dst1, AST.xthi 32<rt> dst1
   let dst2A, dst2B = AST.xtlo 32<rt> dst2, AST.xthi 32<rt> dst2
-  let imm =
-    transOprToExpr ir false ins insLen ctxt op3 |> AST.xtlo 8<rt>
-    .& numI32 0x7 8<rt>
-  let n i = numI32 i 8<rt>
-  let cmpCond c expr1 expr2 =
-    !!ir (c := AST.b0)
-    !!ir (c := AST.ite (imm == n 0) (expr1 == expr2) c)
-    !!ir (c := AST.ite (imm == n 1) (AST.flt expr1  expr2) c)
-    !!ir (c := AST.ite (imm == n 2) (AST.fle expr1 expr2) c)
-    !!ir (c := AST.ite (imm == n 3) (isNan false expr1 .| isNan false expr2) c)
-    !!ir (c := AST.ite (imm == n 4) (expr1 != expr2) c)
-    !!ir (c := AST.ite (imm == n 5) (AST.flt expr1 expr2 |> AST.not) c)
-    !!ir (c := AST.ite (imm == n 6) (AST.fle expr1 expr2 |> AST.not) c)
-    !!ir (c :=
-      AST.ite
-        (imm == n 7) (isNan false expr1 .| isNan false expr2 |> AST.not) c)
   let struct (cond1, cond2, cond3, cond4) = tmpVars4 ir 1<rt>
-  cmpCond cond1 dst1A (AST.xtlo 32<rt> src1)
-  cmpCond cond2 dst1B (AST.xthi 32<rt> src1)
-  cmpCond cond3 dst2A (AST.xtlo 32<rt> src2)
-  cmpCond cond4 dst2B (AST.xthi 32<rt> src2)
+  cmppCond ir ins insLen ctxt op3 false cond1 dst1A (AST.xtlo 32<rt> src1)
+  cmppCond ir ins insLen ctxt op3 false cond2 dst1B (AST.xthi 32<rt> src1)
+  cmppCond ir ins insLen ctxt op3 false cond3 dst2A (AST.xtlo 32<rt> src2)
+  cmppCond ir ins insLen ctxt op3 false cond4 dst2B (AST.xthi 32<rt> src2)
   !!ir (dst1A := AST.ite cond1 (maxNum 32<rt>) (AST.num0 32<rt>))
   !!ir (dst1B := AST.ite cond2 (maxNum 32<rt>) (AST.num0 32<rt>))
   !!ir (dst2A := AST.ite cond3 (maxNum 32<rt>) (AST.num0 32<rt>))
@@ -542,24 +544,9 @@ let cmppd ins insLen ctxt =
   let struct (op1, op2, op3) = getThreeOprs ins
   let dst1, dst2 = transOprToExpr128 ir false ins insLen ctxt op1
   let src1, src2 = transOprToExpr128 ir false ins insLen ctxt op2
-  let imm =
-    transOprToExpr ir false ins insLen ctxt op3 |> AST.xtlo 8<rt>
-    .& numI32 0x7 8<rt>
-  let n i = numI32 i 8<rt>
-  let cmpCond c expr1 expr2 =
-    !!ir (c := AST.b0)
-    !!ir (c := AST.ite (imm == n 0) (expr1 == expr2) c)
-    !!ir (c := AST.ite (imm == n 1) (AST.flt expr1  expr2) c)
-    !!ir (c := AST.ite (imm == n 2) (AST.fle expr1 expr2) c)
-    !!ir (c := AST.ite (imm == n 3) (isNan true expr1 .| isNan true expr2) c)
-    !!ir (c := AST.ite (imm == n 4) (expr1 != expr2) c)
-    !!ir (c := AST.ite (imm == n 5) (AST.flt expr1 expr2 |> AST.not) c)
-    !!ir (c := AST.ite (imm == n 6) (AST.fle expr1 expr2 |> AST.not) c)
-    !!ir (c :=
-      AST.ite (imm == n 7) (isNan true expr1 .| isNan true expr2 |> AST.not) c)
   let struct (cond1, cond2) = tmpVars2 ir 1<rt>
-  cmpCond cond1 dst1 src1
-  cmpCond cond2 dst2 src2
+  cmppCond ir ins insLen ctxt op3 true cond1 dst1 src1
+  cmppCond ir ins insLen ctxt op3 true cond2 dst2 src2
   !!ir (dst1 := AST.ite cond1 (maxNum 64<rt>) (AST.num0 64<rt>))
   !!ir (dst2 := AST.ite cond2 (maxNum 64<rt>) (AST.num0 64<rt>))
   !>ir insLen
@@ -570,24 +557,9 @@ let cmpss ins insLen ctxt =
   let struct (dst, src, imm) = getThreeOprs ins
   let dst = transOprToExpr32 ir false ins insLen ctxt dst
   let src = transOprToExpr32 ir false ins insLen ctxt src
-  let imm =
-    transOprToExpr ir false ins insLen ctxt imm |> AST.xtlo 8<rt>
-    .& numI32 0x7 8<rt>
-  let n num = numI32 num 8<rt>
   let max32 = maxNum 32<rt>
   let cond = !+ir 1<rt>
-  !!ir (cond := AST.b0)
-  !!ir (cond := AST.ite (imm == n 0) (AST.eq dst src) cond)
-  !!ir (cond := AST.ite (imm == n 1) (AST.flt dst src) cond)
-  !!ir (cond := AST.ite (imm == n 2) (AST.fle dst src) cond)
-  !!ir (cond :=
-    AST.ite (imm == n 3) ((isNan false dst) .| (isNan false src)) cond)
-  !!ir (cond := AST.ite (imm == n 4) (dst != src) cond)
-  !!ir (cond := AST.ite (imm == n 5) (AST.flt dst src |> AST.not) cond)
-  !!ir (cond := AST.ite (imm == n 6) (AST.fle dst src |> AST.not) cond)
-  !!ir (cond :=
-    AST.ite
-      (imm == n 7) ((isNan false dst) .| (isNan false src) |> AST.not) cond)
+  cmppCond ir ins insLen ctxt imm false cond dst src
   !!ir (dst := AST.ite cond max32 (AST.num0 32<rt>))
   !>ir insLen
 
@@ -599,24 +571,9 @@ let cmpsd (ins: InsInfo) insLen ctxt =
     !<ir insLen
     let dst = transOprToExpr64 ir false ins insLen ctxt dst
     let src = transOprToExpr64 ir false ins insLen ctxt src
-    let imm =
-      transOprToExpr ir false ins insLen ctxt imm |> AST.xtlo 8<rt>
-      .& numI32 0x7 8<rt>
-    let n i = numI32 i 8<rt>
     let max64 = maxNum 64<rt>
     let cond = !+ir 1<rt>
-    !!ir (cond := AST.b0)
-    !!ir (cond := AST.ite (imm == n 0) (AST.eq dst src) cond)
-    !!ir (cond := AST.ite (imm == n 1) (AST.flt dst src) cond)
-    !!ir (cond := AST.ite (imm == n 2) (AST.fle dst src) cond)
-    !!ir (cond :=
-      AST.ite (imm == n 3) ((isNan true dst) .| (isNan true src)) cond)
-    !!ir (cond := AST.ite (imm == n 4) (dst != src) cond)
-    !!ir (cond := AST.ite (imm == n 5) (AST.flt dst src |> AST.not) cond)
-    !!ir (cond := AST.ite (imm == n 6) (AST.fle dst src |> AST.not) cond)
-    !!ir (cond :=
-      AST.ite
-        (imm == n 7) ((isNan true dst) .| (isNan true src) |> AST.not) cond)
+    cmppCond ir ins insLen ctxt imm true cond dst src
     !!ir (dst := AST.ite cond max64 (AST.num0 64<rt>))
     !>ir insLen
   | _ -> raise InvalidOperandException
