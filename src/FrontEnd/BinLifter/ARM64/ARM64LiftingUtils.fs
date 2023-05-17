@@ -103,8 +103,8 @@ let getImmValue imm =
 let addWithCarry opr1 opr2 carryIn oSz =
   let result = opr1 .+ opr2 .+ carryIn
   let n = AST.xthi 1<rt> result
-  let z = AST.relop RelOpType.EQ result (AST.num0 oSz)
-  let c = AST.ge opr1 result
+  let z = result == (AST.num0 oSz)
+  let c = AST.ge opr1 (AST.not opr2)
   let o1 = AST.xthi 1<rt> opr1
   let o2 = AST.xthi 1<rt> opr2
   let r = AST.xthi 1<rt> result
