@@ -2515,6 +2515,7 @@ let shift ins insLen ctxt =
   let countMask = if is64REXW ctxt ins then numU32 0x3Fu oprSize
                   else numU32 0x1Fu oprSize
   let cnt = (AST.zext oprSize src) .& countMask
+  let tDst = !+ir oprSize
 #if !EMULATION
   let n0 = AST.num0 oprSize
   let n1 = AST.num1 oprSize
@@ -2526,14 +2527,14 @@ let shift ins insLen ctxt =
   let sF = !.ctxt R.SF
   let zF = !.ctxt R.ZF
   let tCnt = if isCntConst then cnt .- n1 else !+ir oprSize
-  let tDst = !+ir oprSize
   !!ir (tDst := dst)
 #endif
   match ins.Opcode with
   | Opcode.SHL ->
 #if EMULATION
-    !?ir (setCCOperands3 ctxt dst cnt (dst << cnt))
-    !!ir (dstAssign oprSize dst (dst << cnt))
+    !!ir (tDst := dst << cnt)
+    !?ir (setCCOperands3 ctxt dst cnt tDst)
+    !!ir (dstAssign oprSize dst tDst)
     match oprSize with
     | 8<rt> -> ctxt.ConditionCodeOp <- ConditionCodeOp.SHLB
     | 16<rt> -> ctxt.ConditionCodeOp <- ConditionCodeOp.SHLW
@@ -2549,8 +2550,9 @@ let shift ins insLen ctxt =
 #endif
   | Opcode.SHR ->
 #if EMULATION
-    !?ir (setCCOperands3 ctxt dst cnt (dst >> cnt))
-    !!ir (dstAssign oprSize dst (dst >> cnt))
+    !!ir (tDst := dst >> cnt)
+    !?ir (setCCOperands3 ctxt dst cnt tDst)
+    !!ir (dstAssign oprSize dst tDst)
     match oprSize with
     | 8<rt> -> ctxt.ConditionCodeOp <- ConditionCodeOp.SHRB
     | 16<rt> -> ctxt.ConditionCodeOp <- ConditionCodeOp.SHRW
@@ -2565,8 +2567,9 @@ let shift ins insLen ctxt =
 #endif
   | Opcode.SAR ->
 #if EMULATION
-    !?ir (setCCOperands3 ctxt dst cnt (dst ?>> cnt))
-    !!ir (dstAssign oprSize dst (dst ?>> cnt))
+    !!ir (tDst := dst ?>> cnt)
+    !?ir (setCCOperands3 ctxt dst cnt tDst)
+    !!ir (dstAssign oprSize dst tDst)
     match oprSize with
     | 8<rt> -> ctxt.ConditionCodeOp <- ConditionCodeOp.SARB
     | 16<rt> -> ctxt.ConditionCodeOp <- ConditionCodeOp.SARW
