@@ -514,6 +514,7 @@ let cmpps ins insLen ctxt =
     .& numI32 0x7 8<rt>
   let n i = numI32 i 8<rt>
   let cmpCond c expr1 expr2 =
+    !!ir (c := AST.b0)
     !!ir (c := AST.ite (imm == n 0) (expr1 == expr2) c)
     !!ir (c := AST.ite (imm == n 1) (AST.flt expr1  expr2) c)
     !!ir (c := AST.ite (imm == n 2) (AST.fle expr1 expr2) c)
@@ -546,6 +547,7 @@ let cmppd ins insLen ctxt =
     .& numI32 0x7 8<rt>
   let n i = numI32 i 8<rt>
   let cmpCond c expr1 expr2 =
+    !!ir (c := AST.b0)
     !!ir (c := AST.ite (imm == n 0) (expr1 == expr2) c)
     !!ir (c := AST.ite (imm == n 1) (AST.flt expr1  expr2) c)
     !!ir (c := AST.ite (imm == n 2) (AST.fle expr1 expr2) c)
@@ -574,6 +576,7 @@ let cmpss ins insLen ctxt =
   let n num = numI32 num 8<rt>
   let max32 = maxNum 32<rt>
   let cond = !+ir 1<rt>
+  !!ir (cond := AST.b0)
   !!ir (cond := AST.ite (imm == n 0) (AST.eq dst src) cond)
   !!ir (cond := AST.ite (imm == n 1) (AST.flt dst src) cond)
   !!ir (cond := AST.ite (imm == n 2) (AST.fle dst src) cond)
@@ -602,6 +605,7 @@ let cmpsd (ins: InsInfo) insLen ctxt =
     let n i = numI32 i 8<rt>
     let max64 = maxNum 64<rt>
     let cond = !+ir 1<rt>
+    !!ir (cond := AST.b0)
     !!ir (cond := AST.ite (imm == n 0) (AST.eq dst src) cond)
     !!ir (cond := AST.ite (imm == n 1) (AST.flt dst src) cond)
     !!ir (cond := AST.ite (imm == n 2) (AST.fle dst src) cond)
