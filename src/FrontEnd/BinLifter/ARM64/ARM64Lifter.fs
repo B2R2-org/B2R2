@@ -1718,12 +1718,12 @@ let ldur ins insLen ctxt addr =
   let isWBack, isPostIndex = getIsWBackAndIsPostIndex ins.Operands
   let address = !+ir 64<rt>
   let data = !+ir ins.OprSize
+  let struct (o1, o2) = getTwoOprs ins
   !<ir insLen
   match ins.OprSize with
   | 128<rt> ->
-    let struct (dst, src) = getTwoOprs ins
-    let dstB, dstA = transOprToExpr128 ins ctxt addr dst
-    let bReg, offset = transOprToExpr ins ctxt addr src |> separateMemExpr
+    let dstB, dstA = transOprToExpr128 ins ctxt addr o1
+    let bReg, offset = transOprToExpr ins ctxt addr o2 |> separateMemExpr
     !!ir (address := bReg)
     !!ir (address := if isPostIndex then address else address .+ offset)
     !!ir (dstA := AST.loadLE 64<rt> address)
@@ -1731,11 +1731,15 @@ let ldur ins insLen ctxt addr =
     if isWBack && isPostIndex then !!ir (bReg := address .+ offset)
     else if isWBack then !!ir (bReg := address) else ()
   | _ ->
-    let dst, (bReg, offset) = transTwoOprsSepMem ins ctxt addr
+    let dst = transOprToExpr ins ctxt addr o1
+    let bReg, offset = transOprToExpr ins ctxt addr o2 |> separateMemExpr
     !!ir (address := bReg)
     !!ir (address := if isPostIndex then address else address .+ offset)
     !!ir (data := AST.loadLE ins.OprSize address)
-    dstAssign ins.OprSize dst data ir
+    match o1 with
+      | OprSIMD (SIMDFPScalarReg _) ->
+        dstAssignScalar ins ctxt addr o1 data ins.OprSize ir
+      | _ -> dstAssign ins.OprSize dst data ir
     if isWBack && isPostIndex then !!ir (bReg := address .+ offset)
     else if isWBack then !!ir (bReg := address) else ()
   !>ir insLen
@@ -1773,7 +1777,7 @@ let ldursb ins insLen ctxt addr =
   !<ir insLen
   !!ir (address := bReg.+ offset)
   !!ir (data := AST.loadLE 8<rt> address)
-  !!ir (dst := AST.sext ins.OprSize data)
+  dstAssign ins.OprSize dst (AST.sext ins.OprSize data) ir
   !>ir insLen
 
 let ldursh ins insLen ctxt addr =
