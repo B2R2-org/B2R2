@@ -1694,7 +1694,7 @@ let ldrsw ins insLen ctxt addr =
     let bReg, offset = transOprToExpr ins ctxt addr o2 |> separateMemExpr
     let isWBack, isPostIndex = getIsWBackAndIsPostIndex ins.Operands
     !!ir (address := bReg)
-    !!ir (address := address .+ offset)
+    !!ir (address := if isPostIndex then address else address .+ offset)
     !!ir (data := AST.loadLE 32<rt> address)
     !!ir (dst := AST.sext 64<rt> data)
     if isWBack && isPostIndex then !!ir (bReg := address .+ offset)
@@ -2295,11 +2295,12 @@ let icvtf ins insLen ctxt addr unsigned =
     let result =
       Array.map (fixedToFp eSize n0 unsigned FPRounding_TIEEVEN) src
     dstAssignForSIMD dstA dstB result dataSize elements ir
-  | TwoOperands (OprSIMD (SIMDFPScalarReg _), _) ->
-    let dst, src = transTwoOprs ins ctxt addr
+  | TwoOperands (OprSIMD (SIMDFPScalarReg _) as dst, _) ->
+    let struct (eSize, _, _) = getElemDataSzAndElems dst
+    let _, src = transTwoOprs ins ctxt addr
     let n0 = AST.num0 oprSize
     let result = fixedToFp oprSize n0 unsigned FPRounding_TIEEVEN src
-    dstAssign oprSize dst result ir
+    dstAssignScalar ins ctxt addr dst result eSize ir
   | ThreeOperands (OprSIMD (SIMDVecReg _), _, _) ->
     let struct (o1, o2, o3) = getThreeOprs ins
     let dstB, dstA = transOprToExpr128 ins ctxt addr o1
