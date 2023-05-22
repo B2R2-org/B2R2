@@ -307,10 +307,16 @@ let add ins insLen ctxt =
     if isSrcConst then () else !!ir (t2 := src)
     !!ir (t3 := t1 .+ t2)
     !!ir (dstAssign oprSize dst t3)
+    let struct (ofl, sf) = osfOnAdd t1 t2 t3 ir
+    !?ir (enumEFLAGS ctxt t1 t2 t3 oprSize (cfOnAdd t1 t3) ofl sf)
 #else
+    let src =
+      if isConst src then src
+      else
+        let t = !+ir oprSize
+        !!ir (t := src)
+        t
     !!ir (dstAssign oprSize dst (dst .+ src))
-#endif
-#if EMULATION
     !?ir (setCCOperands2 ctxt src dst)
     match oprSize with
     | 8<rt> -> ctxt.ConditionCodeOp <- ConditionCodeOp.ADDB
@@ -318,9 +324,6 @@ let add ins insLen ctxt =
     | 32<rt> -> ctxt.ConditionCodeOp <- ConditionCodeOp.ADDD
     | 64<rt> -> ctxt.ConditionCodeOp <- ConditionCodeOp.ADDQ
     | _ -> raise InvalidRegTypeException
-#else
-    let struct (ofl, sf) = osfOnAdd t1 t2 t3 ir
-    !?ir (enumEFLAGS ctxt t1 t2 t3 oprSize (cfOnAdd t1 t3) ofl sf)
 #endif
   | _ -> raise InvalidOperandException
   if hasLock ins.Prefixes then !!ir (AST.sideEffect Unlock) else ()
@@ -2812,10 +2815,16 @@ let sub ins insLen ctxt =
   if isSrcConst then () else !!ir (t2 := src)
   !!ir (t3 := t1 .- t2)
   !!ir (dstAssign oprSize dst t3)
+  let sf = AST.xthi 1<rt> t3
+  !?ir (enumEFLAGS ctxt t1 t2 t3 oprSize (cfOnSub t1 t2) (ofOnSub t1 t2 t3) sf)
 #else
+  let src =
+    if isConst src then src
+    else
+      let t = !+ir oprSize
+      !!ir (t := src)
+      t
   !!ir (dstAssign oprSize dst (dst .- src))
-#endif
-#if EMULATION
   !?ir (setCCOperands2 ctxt src dst)
   match oprSize with
   | 8<rt> -> ctxt.ConditionCodeOp <- ConditionCodeOp.SUBB
@@ -2823,9 +2832,6 @@ let sub ins insLen ctxt =
   | 32<rt> -> ctxt.ConditionCodeOp <- ConditionCodeOp.SUBD
   | 64<rt> -> ctxt.ConditionCodeOp <- ConditionCodeOp.SUBQ
   | _ -> raise InvalidRegTypeException
-#else
-  let sf = AST.xthi 1<rt> t3
-  !?ir (enumEFLAGS ctxt t1 t2 t3 oprSize (cfOnSub t1 t2) (ofOnSub t1 t2 t3) sf)
 #endif
   if hasLock ins.Prefixes then !!ir (AST.sideEffect Unlock) else ()
   !>ir insLen
