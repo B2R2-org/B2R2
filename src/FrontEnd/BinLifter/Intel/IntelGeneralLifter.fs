@@ -687,13 +687,15 @@ let bzhi ins insLen ctxt =
 let call ins insLen ctxt =
   let ir = !*ctxt
   !<ir insLen
-  let pc = getInstrPtr ctxt
   let oprSize = getOperationSize ins
-  let struct (target, ispcrel) = transJumpTargetOpr ir false ins pc insLen ctxt
 #if EMULATION
+  let pc = numU64 (ins: InsInfo).Address ctxt.WordBitSize
   !?ir (setCCOp ctxt)
   ctxt.ConditionCodeOp <- ConditionCodeOp.TraceStart
+#else
+  let pc = getInstrPtr ctxt
 #endif
+  let struct (target, ispcrel) = transJumpTargetOpr ir false ins pc insLen ctxt
   if ispcrel || not (hasStackPtr ins) then
     !?ir (auxPush oprSize ctxt (pc .+ numInsLen insLen ctxt))
     !!ir (AST.interjmp target InterJmpKind.IsCall)
@@ -1670,13 +1672,15 @@ let private getCondOfJccLazy (ins: IntelInternalInstruction)
 let jcc ins insLen ctxt =
   let ir = !*ctxt
   !<ir insLen
-  let pc = getInstrPtr ctxt
-  let jmpTarget = pc .+ transOneOpr ir ins insLen ctxt
 #if EMULATION
+  let pc = numU64 (ins: InsInfo).Address ctxt.WordBitSize
+  let jmpTarget = pc .+ transOneOpr ir ins insLen ctxt
   let cond = getCondOfJccLazy ins ctxt ir
   !?ir (setCCOp ctxt)
   ctxt.ConditionCodeOp <- ConditionCodeOp.TraceStart
 #else
+  let pc = getInstrPtr ctxt
+  let jmpTarget = pc .+ transOneOpr ir ins insLen ctxt
   let cond = getCondOfJcc ins ctxt
 #endif
   let fallThrough = pc .+ numInsLen insLen ctxt
@@ -1687,10 +1691,12 @@ let jmp ins insLen ctxt =
   let ir = !*ctxt
   !<ir insLen
 #if EMULATION
+  let pc = numU64 (ins: InsInfo).Address ctxt.WordBitSize
   !?ir (setCCOp ctxt)
   ctxt.ConditionCodeOp <- ConditionCodeOp.TraceStart
-#endif
+#else
   let pc = getInstrPtr ctxt
+#endif
   let struct (target, _) = transJumpTargetOpr ir false ins pc insLen ctxt
   !!ir (AST.interjmp target InterJmpKind.Base)
   !>ir insLen
@@ -1699,7 +1705,7 @@ let private convertSrc = function
   | Load (_, _, expr, _) -> expr
   | _ -> Utils.impossible ()
 
-let lahf ins insLen ctxt =
+let lahf _ insLen ctxt =
   let ir = !*ctxt
   let t = !+ir 8<rt>
   !<ir insLen
