@@ -219,7 +219,12 @@ let private numOfAddrSz (ins: InsInfo) (ctxt: TranslationContext) n =
   numI64 n sz
 
 let inline private sIdx ins ctxt (r, s: Scale) =
-  (!.ctxt r) .* (numOfAddrSz ins ctxt (int64 s))
+  match s with
+  | Scale.X1 -> !.ctxt r
+  | Scale.X2 -> !.ctxt r << numOfAddrSz ins ctxt 1
+  | Scale.X4 -> !.ctxt r << numOfAddrSz ins ctxt 2
+  | Scale.X8 -> !.ctxt r << numOfAddrSz ins ctxt 3
+  | _ -> Utils.impossible ()
 
 let private transMem ir useTmpVar ins insLen ctxt b index disp oprSize =
   let address =
@@ -236,7 +241,13 @@ let private transMem ir useTmpVar ins insLen ctxt b index disp oprSize =
     | Some b, None, None ->
       !.ctxt b
     | Some R.RIP, None, Some d -> (* RIP-relative addressing *)
-      let e = !.ctxt R.RIP .+ numOfAddrSz ins ctxt (d + int64 (insLen: uint32))
+      let pc =
+#if EMULATION
+        numOfAddrSz ins ctxt (int64 (ins: InsInfo).Address)
+#else
+        !.ctxt R.RIP
+#endif
+      let e = pc .+ numOfAddrSz ins ctxt (d + int64 (insLen: uint32))
       if not useTmpVar then e
       else
         let tAddress = !+ir (ctxt: TranslationContext).WordBitSize
