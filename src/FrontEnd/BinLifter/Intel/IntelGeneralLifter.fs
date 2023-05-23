@@ -690,13 +690,11 @@ let bzhi ins insLen ctxt =
 let call ins insLen ctxt =
   let ir = !*ctxt
   !<ir insLen
+  let pc = numU64 (ins: InsInfo).Address ctxt.WordBitSize
   let oprSize = getOperationSize ins
 #if EMULATION
-  let pc = numU64 (ins: InsInfo).Address ctxt.WordBitSize
   !?ir (setCCOp ctxt)
   ctxt.ConditionCodeOp <- ConditionCodeOp.TraceStart
-#else
-  let pc = getInstrPtr ctxt
 #endif
   let struct (target, ispcrel) = transJumpTargetOpr ir false ins pc insLen ctxt
   if ispcrel || not (hasStackPtr ins) then
@@ -1675,15 +1673,13 @@ let private getCondOfJccLazy (ins: IntelInternalInstruction)
 let jcc ins insLen ctxt =
   let ir = !*ctxt
   !<ir insLen
-#if EMULATION
   let pc = numU64 (ins: InsInfo).Address ctxt.WordBitSize
   let jmpTarget = pc .+ transOneOpr ir ins insLen ctxt
+#if EMULATION
   let cond = getCondOfJccLazy ins ctxt ir
   !?ir (setCCOp ctxt)
   ctxt.ConditionCodeOp <- ConditionCodeOp.TraceStart
 #else
-  let pc = getInstrPtr ctxt
-  let jmpTarget = pc .+ transOneOpr ir ins insLen ctxt
   let cond = getCondOfJcc ins ctxt
 #endif
   let fallThrough = pc .+ numInsLen insLen ctxt
@@ -1694,12 +1690,10 @@ let jmp ins insLen ctxt =
   let ir = !*ctxt
   !<ir insLen
 #if EMULATION
-  let pc = numU64 (ins: InsInfo).Address ctxt.WordBitSize
   !?ir (setCCOp ctxt)
   ctxt.ConditionCodeOp <- ConditionCodeOp.TraceStart
-#else
-  let pc = getInstrPtr ctxt
 #endif
+  let pc = numU64 (ins: InsInfo).Address ctxt.WordBitSize
   let struct (target, _) = transJumpTargetOpr ir false ins pc insLen ctxt
   !!ir (AST.interjmp target InterJmpKind.Base)
   !>ir insLen
