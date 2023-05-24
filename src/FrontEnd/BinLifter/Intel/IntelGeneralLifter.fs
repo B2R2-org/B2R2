@@ -1119,6 +1119,8 @@ let private mul64Bit src1 src2 ir =
   let struct (hiSrc1, loSrc1, hiSrc2, loSrc2) = tmpVars4 ir 64<rt>
   let struct (tSrc1, tSrc2) = tmpVars2 ir 64<rt>
   let struct (tHigh, tLow) = tmpVars2 ir 64<rt>
+  let struct (pMid, pLow) = tmpVars2 ir 64<rt>
+  let struct (hi1Lo2, lo1Hi2) = tmpVars2 ir 64<rt>
   let n32 = numI32 32 64<rt>
   let mask = numI64 0xFFFFFFFFL 64<rt>
   !!ir (tSrc1 := src1)
@@ -1128,12 +1130,13 @@ let private mul64Bit src1 src2 ir =
   !!ir (hiSrc2 := (tSrc2 >> n32) .& mask) (* SRC2[63:32] *)
   !!ir (loSrc2 := tSrc2 .& mask) (* SRC2[31:0] *)
   let pHigh = hiSrc1 .* hiSrc2
-  let pMid = (hiSrc1 .* loSrc2) .+ (loSrc1 .* hiSrc2)
-  let pLow = (loSrc1 .* loSrc2)
+  !!ir (hi1Lo2 := hiSrc1 .* loSrc2)
+  !!ir (lo1Hi2 := loSrc1 .* hiSrc2)
+  !!ir (pMid := hi1Lo2 .+ lo1Hi2)
+  !!ir (pLow := loSrc1 .* loSrc2)
   let high = pHigh .+ ((pMid .+ (pLow  >> n32)) >> n32)
   let low = pLow .+ ((pMid .& mask) << n32)
-  let isOverflow =
-    hiSrc1 .* loSrc2 .> numI64 0xffffffff_ffffffffL 64<rt> .- loSrc1 .* hiSrc2
+  let isOverflow = hi1Lo2 .> numI64 0xffffffff_ffffffffL 64<rt> .- lo1Hi2
   !!ir (tHigh :=
     high .+ AST.ite isOverflow (numI64 0x100000000L 64<rt>) (AST.num0 64<rt>))
   !!ir (tLow := low)
@@ -1167,7 +1170,8 @@ let divideWithoutConcat opcode oprSize divisor lblAssign lblErr ctxt ir =
   let zero = AST.num0 64<rt>
   let one = AST.num1 64<rt>
   let numF = numI64 0xffffffff oprSize
-  let condGE = (remHi >> n32) .>= (nrmDvsr >> n32)
+  let struct (nrmDvsrShl32, nrmDvsrShr32) = tmpVars2 ir oprSize
+  let condGE = (remHi >> n32) .>= nrmDvsrShr32
   let updateSign = !+ir 1<rt>
   let lblComputable = !%ir "Computable"
   let lblEasy = !%ir "Easy"
@@ -1202,44 +1206,53 @@ let divideWithoutConcat opcode oprSize divisor lblAssign lblErr ctxt ir =
   !!ir (AST.lmark lblHard)
   (* normalize divisor; adjust dividend
      accordingly (initial partial remainder) *)
+  let z = !+ir 1<rt>
   !!ir (lz := (numI64 64L oprSize))
   !!ir (t := tdivisor)
   !!ir (y := (t >> (numI64 32 oprSize)))
-  !!ir (lz := (AST.ite (y != zero) (lz .- numI64 32 oprSize) lz))
-  !!ir (t := (AST.ite (y != zero) y t))
+  !!ir (z := y != zero)
+  !!ir (lz := (AST.ite z (lz .- numI64 32 oprSize) lz))
+  !!ir (t := (AST.ite z y t))
   !!ir (y := (t >> (numI64 16 oprSize)))
-  !!ir (lz := (AST.ite (y != zero) (lz .- numI64 16 oprSize) lz))
-  !!ir (t := (AST.ite (y != zero) y t))
+  !!ir (z := y != zero)
+  !!ir (lz := (AST.ite z (lz .- numI64 16 oprSize) lz))
+  !!ir (t := (AST.ite z y t))
   !!ir (y := (t >> (numI64 8 oprSize)))
-  !!ir (lz := (AST.ite (y != zero) (lz .- numI64 8 oprSize) lz))
-  !!ir (t := (AST.ite (y != zero) y t))
+  !!ir (z := y != zero)
+  !!ir (lz := (AST.ite z (lz .- numI64 8 oprSize) lz))
+  !!ir (t := (AST.ite z y t))
   !!ir (y := (t >> (numI64 4 oprSize)))
-  !!ir (lz := (AST.ite (y != zero) (lz .- numI64 4 oprSize) lz))
-  !!ir (t := (AST.ite (y != zero) y t))
+  !!ir (z := y != zero)
+  !!ir (lz := (AST.ite z (lz .- numI64 4 oprSize) lz))
+  !!ir (t := (AST.ite z y t))
   !!ir (y := (t >> (numI64 2 oprSize)))
-  !!ir (lz := (AST.ite (y != zero) (lz .- numI64 2 oprSize) lz))
-  !!ir (t := (AST.ite (y != zero) y t))
+  !!ir (z := y != zero)
+  !!ir (lz := (AST.ite z (lz .- numI64 2 oprSize) lz))
+  !!ir (t := (AST.ite z y t))
   !!ir (y := (t >> (numI64 1 oprSize)))
-  !!ir (lz := (AST.ite (y != zero) (lz .- numI64 2 oprSize) (lz .- t)))
+  !!ir (z := y != zero)
+  !!ir (lz := (AST.ite z (lz .- numI64 2 oprSize) (lz .- t)))
   !!ir (nrmDvsr := tdivisor << lz)
+  !!ir (nrmDvsrShl32 := nrmDvsr << n32)
+  !!ir (nrmDvsrShr32 := nrmDvsr >> n32)
   !!ir (t := AST.ite (lz != zero) (trax >> ((numI64 64 oprSize) .- lz)) zero)
   !!ir (remHi := (trdx << lz) .| t)
   !!ir (remLo := trax << lz)
-  !!ir (qh := AST.ite condGE numF (remHi ./ (nrmDvsr >> n32)))
+  !!ir (qh := AST.ite condGE numF (remHi ./ nrmDvsrShr32))
   (* compute remainder; correct quotient "digit" if remainder negative *)
   let struct (prodHi, prodLo) = mul64Bit (qh << n32) nrmDvsr ir
   helperRemSub remHi remLo prodHi prodLo ir
   !!ir (remMsb := (AST.xthi 1<rt> remHi))
   !!ir (qh := (AST.ite remMsb (qh .- one) (qh)))
-  helperRemAdd remHi remLo (nrmDvsr >> n32) (nrmDvsr << n32) remMsb ir
+  helperRemAdd remHi remLo nrmDvsrShr32 (nrmDvsrShl32) remMsb ir
   !!ir (remMsb := (AST.xthi 1<rt> remHi))
   !!ir (qh := (AST.ite remMsb (qh .- one) (qh)))
-  helperRemAdd remHi remLo (nrmDvsr >> n32) (nrmDvsr << n32) remMsb ir
+  helperRemAdd remHi remLo nrmDvsrShr32 (nrmDvsrShl32) remMsb ir
   !!ir (remHi := (remHi << n32) .| (remLo >> n32))
   !!ir (remLo := (remLo << n32))
   (* compute least significant quotient "digit";
      TAOCP: may be off by 0, +1, +2 *)
-  !!ir (ql := AST.ite condGE numF (remHi ./ (nrmDvsr >> n32)))
+  !!ir (ql := AST.ite condGE numF (remHi ./ nrmDvsrShr32))
   !!ir (q := (qh << n32) .+ ql)
   (* compute remainder; correct quotient "digit" if remainder negative *)
   let struct (prodHi, prodLo) = mul64Bit q tdivisor ir
