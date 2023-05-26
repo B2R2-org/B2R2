@@ -643,7 +643,7 @@ let translate (ins: IntelInternalInstruction) insLen ctxt =
   | OP.FDIVP -> X87Lifter.fpudiv ins insLen ctxt true
   | OP.FIDIV -> X87Lifter.fidiv ins insLen ctxt
   | OP.FDIVR -> X87Lifter.fdivr ins insLen ctxt false
-  | OP.FDIVRP -> X87Lifter.fdivr  ins insLen ctxt true
+  | OP.FDIVRP -> X87Lifter.fdivr ins insLen ctxt true
   | OP.FIDIVR -> X87Lifter.fidivr ins insLen ctxt
   | OP.FPREM -> X87Lifter.fprem ins insLen ctxt false
   | OP.FPREM1 -> X87Lifter.fprem ins insLen ctxt true

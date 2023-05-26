@@ -115,7 +115,7 @@ type EditAction () =
       | "delete" :: soff :: eoff :: [] ->
         let soff = Convert.ToInt32 soff
         let eoff = parseEndOffset soff eoff
-        if eoff >= soff  then
+        if eoff >= soff then
           { Values = collection.Values |> Array.map (delete soff eoff) }
         else invalidArg (nameof args) "Invalid offsets."
       | "replace" :: soff :: eoff :: hexstr :: [] ->
