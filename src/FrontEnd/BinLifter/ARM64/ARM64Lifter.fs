@@ -79,14 +79,15 @@ let adc ins insLen ctxt addr =
 let adcs ins insLen ctxt addr =
   let ir = !*ctxt
   let dst, src1, src2 = transThreeOprs ins ctxt addr
-  let c = AST.zext ins.OprSize (getRegVar ctxt R.C)
   !<ir insLen
+  let c = !+ir ins.OprSize
+  !!ir (c := AST.zext ins.OprSize (getRegVar ctxt R.C))
   let result, (n, z, c, v) = addWithCarry src1 src2 c ins.OprSize
-  dstAssign ins.OprSize dst result ir
   !!ir (getRegVar ctxt R.N := n)
   !!ir (getRegVar ctxt R.Z := z)
   !!ir (getRegVar ctxt R.C := c)
   !!ir (getRegVar ctxt R.V := v)
+  dstAssign ins.OprSize dst result ir
   !>ir insLen
 
 let add ins insLen ctxt addr =
