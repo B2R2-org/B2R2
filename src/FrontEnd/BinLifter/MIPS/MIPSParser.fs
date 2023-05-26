@@ -174,7 +174,7 @@ let parseSPECIAL bin =
     if b15to6 = 0u then Op.DMULT, None, None, getRsRt bin
     else raise ParsingFailureException
   | 0b011101u ->
-    if b15to6 = 0u then  Op.DMULTU, None, None, getRsRt bin
+    if b15to6 = 0u then Op.DMULTU, None, None, getRsRt bin
     else raise ParsingFailureException
   | 0b011110u ->
     if b15to6 = 0u then Op.DDIV, None, None, getRsRt bin
@@ -234,10 +234,10 @@ let parseSPECIAL bin =
     else raise ParsingFailureException
   | 0b111110u ->
     if b25to21 = 0u then Op.DSRL32, None, None, getRdRtSa bin
-    elif b25to21 = 1u then  Op.DROTR32, None, None, getRdRtSa bin
+    elif b25to21 = 1u then Op.DROTR32, None, None, getRdRtSa bin
     else raise ParsingFailureException
   | 0b111111u ->
-    if b25to21 = 0u then  Op.DSRA32, None, None, getRdRtSa bin
+    if b25to21 = 0u then Op.DSRA32, None, None, getRdRtSa bin
     else raise ParsingFailureException
   | _ -> raise ParsingFailureException
 

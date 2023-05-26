@@ -1881,14 +1881,14 @@ let madd ins insLen ctxt addr =
     let src1 = transSIMDOprToExpr ctxt eSize dataSize elements o2
     let src2 = transSIMDOprToExpr ctxt eSize dataSize elements o3
     let result = Array.map2 (.*) src1 src2
-    dstAssignForSIMD dstA dstB  result dataSize elements ir
+    dstAssignForSIMD dstA dstB result dataSize elements ir
   | ThreeOperands (OprSIMD _ as o1, o2, o3) ->
     let struct (eSize, dataSize, elements) = getElemDataSzAndElems o1
     let dstB, dstA = transOprToExpr128 ins ctxt addr o1
     let src1 = transSIMDOprToExpr ctxt eSize dataSize elements o2
     let src2 = transOprToExpr ins ctxt addr o3
     let result = Array.map (fun s1 -> s1 .* src2) src1
-    dstAssignForSIMD dstA dstB  result dataSize elements ir
+    dstAssignForSIMD dstA dstB result dataSize elements ir
   | _ ->
     let dst, src1, src2, src3 = transOprToExprOfMADD ins ctxt addr
     dstAssign ins.OprSize dst (src3 .+ (src1 .* src2)) ir

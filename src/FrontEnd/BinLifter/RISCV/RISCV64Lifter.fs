@@ -731,7 +731,7 @@ let jal insInfo insLen ctxt =
   let r = bvOfBaseAddr ctxt insInfo.Address .+ bvOfInstrLen ctxt insInfo
   !<ir insLen
   !!ir (rd := r)
-  !!ir (AST.interjmp jumpTarget InterJmpKind.Base)
+  !!ir (AST.interjmp jumpTarget InterJmpKind.IsCall)
   !>ir insLen
 
 let jalr insInfo insLen ctxt =
@@ -743,7 +743,7 @@ let jalr insInfo insLen ctxt =
   !<ir insLen
   !!ir (target := jumpTarget)
   !!ir (rd := r)
-  !!ir (AST.interjmp actualTarget InterJmpKind.Base)
+  !!ir (AST.interjmp actualTarget InterJmpKind.IsRet)
   !>ir insLen
 
 let beq insInfo insLen ctxt =

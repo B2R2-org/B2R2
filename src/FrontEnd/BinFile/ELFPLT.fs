@@ -281,7 +281,7 @@ type X86PLTParser (secInfo, relocInfo, symbolInfo) =
       let isIBT = BytePattern.matchSpan nonPicIbtEntry (plt.Slice 16)
       let gotoff = if isIBT then 6UL else 2UL
       newPLT NonPIC LazyBinding isIBT 16UL gotoff 0UL
-    elif  BytePattern.matchSpan picNonLazyEntry plt then
+    elif BytePattern.matchSpan picNonLazyEntry plt then
       newPLT PIC EagerBinding false 8UL 2UL 0UL
     elif BytePattern.matchSpan picNonLazyIbtEntry plt then
       newPLT PIC EagerBinding true 8UL 6UL 0UL

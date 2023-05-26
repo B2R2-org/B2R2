@@ -128,7 +128,7 @@ let addFuncs secTxt starts symbols =
 
 let isStatic s =
   let isDebuggingInfo s = int s.SymType &&& 0xe0 <> 0
-  /// REFERENCED_DYNAMICALLY field  of n_desc is set. This means this symbol
+  /// REFERENCED_DYNAMICALLY field of n_desc is set. This means this symbol
   /// will not be stripped (thus, this symbol is dynamic).
   let isReferrencedDynamically s = s.SymDesc &&& 0x10s <> 0s
   isDebuggingInfo s
