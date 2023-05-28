@@ -943,16 +943,21 @@ let fnabs ins insLen updateCond ctxt =
 let fneg ins insLen updateCond ctxt =
   let struct (frd, frb) = transTwoOprs ins ctxt
   let ir = !*ctxt
+  let sign = ((AST.extract frb 1<rt> 63) <+> (AST.b1))
   !<ir insLen
-  !!ir (frd := AST.fneg frb)
+  !!ir (AST.extract frd 1<rt> 63 := sign)
+  !!ir (AST.extract frd 63<rt> 0 := AST.extract frb 63<rt> 0)
   if updateCond then setCR1Reg ctxt ir else ()
   !>ir insLen
 
 let fnmadd ins insLen updateCond ctxt =
   let struct (frd, fra, frc, frb) = transFourOprs ins ctxt
   let ir = !*ctxt
+  let res = (AST.fadd (AST.fmul fra frc) frb)
+  let sign = ((AST.extract res 1<rt> 63) <+> (AST.b1))
   !<ir insLen
-  !!ir (frd := AST.fneg (AST.fadd (AST.fmul fra frc) frb))
+  !!ir (AST.extract frd 1<rt> 63 := sign)
+  !!ir (AST.extract frd 63<rt> 0 := AST.extract res 63<rt> 0)
   if updateCond then setCR1Reg ctxt ir else ()
   !>ir insLen
 
@@ -963,8 +968,12 @@ let fnmadds ins insLen updateCond ctxt =
   let frc = AST.cast CastKind.FloatCast 32<rt> frc
   let frb = AST.cast CastKind.FloatCast 32<rt> frb
   !<ir insLen
-  let res = AST.fneg (AST.fadd (AST.fmul fra frc) frb)
-  !!ir (frd := AST.cast CastKind.FloatCast 64<rt> res)
+  let res = (AST.fadd (AST.fmul fra frc) frb)
+  let sign = ((AST.extract res 1<rt> 31) <+> (AST.b1))
+  let nres = !+ir 32<rt>
+  !!ir (AST.extract nres 1<rt> 31 := sign)
+  !!ir (AST.extract nres 31<rt> 0 := AST.extract res 31<rt> 0)
+  !!ir (frd := AST.cast CastKind.FloatCast 64<rt> nres)
   if updateCond then setCR1Reg ctxt ir else ()
   !>ir insLen
 
@@ -972,7 +981,10 @@ let fnmsub ins insLen updateCond ctxt =
   let struct (frd, fra, frc, frb) = transFourOprs ins ctxt
   let ir = !*ctxt
   !<ir insLen
-  !!ir (frd := AST.fneg (AST.fsub (AST.fmul fra frc) frb))
+  let res = (AST.fsub (AST.fmul fra frc) frb)
+  let sign = ((AST.extract res 1<rt> 63) <+> (AST.b1))
+  !!ir (AST.extract frd 1<rt> 63 := sign)
+  !!ir (AST.extract frd 63<rt> 0 := AST.extract res 63<rt> 0)
   if updateCond then setCR1Reg ctxt ir else ()
   !>ir insLen
 
@@ -983,8 +995,12 @@ let fnmsubs ins insLen updateCond ctxt =
   let frc = AST.cast CastKind.FloatCast 32<rt> frc
   let frb = AST.cast CastKind.FloatCast 32<rt> frb
   !<ir insLen
-  let res = AST.fneg (AST.fsub (AST.fmul fra frc) frb)
-  !!ir (frd := AST.cast CastKind.FloatCast 64<rt> res)
+  let res = (AST.fsub (AST.fmul fra frc) frb)
+  let nres = !+ir 32<rt>
+  let sign = ((AST.extract res 1<rt> 31) <+> (AST.b1))
+  !!ir (AST.extract nres 1<rt> 31 := sign)
+  !!ir (AST.extract nres 31<rt> 0 := AST.extract res 31<rt> 0)
+  !!ir (frd := AST.cast CastKind.FloatCast 64<rt> nres)
   if updateCond then setCR1Reg ctxt ir else ()
   !>ir insLen
 

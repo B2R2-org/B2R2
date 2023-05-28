@@ -819,10 +819,6 @@ let ftan e = unop UnOpType.FTAN e
 [<CompiledName("FATan")>]
 let fatan e = unop UnOpType.FATAN e
 
-/// Floating point negation.
-[<CompiledName("FNeg")>]
-let fneg e = unop UnOpType.FNEG e
-
 /// An ISMark statement.
 [<CompiledName("ISMark")>]
 let ismark nBytes =

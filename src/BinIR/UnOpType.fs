@@ -40,8 +40,6 @@ type UnOpType =
   | FTAN = 7
   /// Arc Tangent
   | FATAN = 8
-  /// Floating negation.
-  | FNEG = 9
 
 module UnOpType =
   let toString = function
@@ -52,7 +50,6 @@ module UnOpType =
     | UnOpType.FSIN -> "sin"
     | UnOpType.FTAN -> "tan"
     | UnOpType.FATAN -> "atan"
-    | UnOpType.FNEG -> "fneg"
     | _ -> raise IllegalASTTypeException
 
   let ofString = function
@@ -63,7 +60,6 @@ module UnOpType =
     | "sin" -> UnOpType.FSIN
     | "tan" -> UnOpType.FTAN
     | "atan" -> UnOpType.FATAN
-    | "fneg" -> UnOpType.FNEG
     | _ -> raise IllegalASTTypeException
 
 // vim: set tw=80 sts=2 sw=2:
