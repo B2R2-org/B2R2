@@ -184,11 +184,11 @@ module SPARC =
           (ThreeOperands (OprReg R.I7, OprImm 8, OprReg R.G0))
           [| 0x08uy; 0xe0uy; 0xc7uy; 0x81uy |]
 
-    // [<TestMethod>]
-    // member __.``[SPARC] Two Reg Operands BNE Parse Test`` () =
-    //   test Opcode.BNE
-    //       (TwoOperands (OprImm 0, OprImm 16))
-    //       [| 0x04uy; 0x00uy; 0x80uy; 0x12uy |]
+    [<TestMethod>]
+    member __.``[SPARC] Two Reg Operands BNE Parse Test`` () =
+      test Opcode.BNE
+          (TwoOperands (OprImm 0, OprAddr 16))
+          [| 0x04uy; 0x00uy; 0x80uy; 0x12uy |]
 
     [<TestMethod>]
     member __.``[SPARC] No Operands NOP Parse Test`` () =
