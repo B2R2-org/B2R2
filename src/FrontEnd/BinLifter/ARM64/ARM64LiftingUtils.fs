@@ -104,7 +104,20 @@ let addWithCarry opr1 opr2 carryIn oSz =
   let result = opr1 .+ opr2 .+ carryIn
   let n = AST.xthi 1<rt> result
   let z = result == (AST.num0 oSz)
-  let c = AST.ge opr1 (AST.not opr2)
+  let c =
+    let zext64 = AST.zext 64<rt>
+    let hi32 = AST.xthi 32<rt>
+    let lo32 = AST.xtlo 32<rt>
+    if oSz = 32<rt> then
+      let unsignedSum = zext64 opr1 .+ zext64 opr2 .+ zext64 carryIn
+      unsignedSum != (zext64 result)
+    else
+      let s1H, s1L = opr1 |> hi32 |> zext64, opr1 |> lo32 |> zext64
+      let s2H, s2L = opr2 |> hi32 |> zext64, opr2 |> lo32 |> zext64
+      let loRes = s1L .+ s2L .+ carryIn
+      let over = hi32 loRes |> zext64
+      let unsignedSumHigh = s1H .+ s2H .+ over
+      unsignedSumHigh != (unsignedSumHigh |> lo32 |> zext64)
   let o1 = AST.xthi 1<rt> opr1
   let o2 = AST.xthi 1<rt> opr2
   let r = AST.xthi 1<rt> result
