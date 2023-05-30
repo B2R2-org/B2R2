@@ -617,7 +617,7 @@ let private cmpHigher ins insLen ctxt addr cond =
   match dst with
   | OprSIMD (SIMDFPScalarReg _) ->
     let _, src1, src2 = transThreeOprs ins ctxt addr
-    let result = AST.ite (src1 .> src2) ones zeros
+    let result = AST.ite (cond src1 src2) ones zeros
     dstAssignScalar ins ctxt addr dst result eSize ir
   | _ ->
     let dstB, dstA = transOprToExpr128 ins ctxt addr dst
@@ -1195,6 +1195,11 @@ let fmov ins insLen ctxt addr =
         transOprToExprFPImm ins eSize src |> advSIMDExpandImm ir eSize
       else transOprToExprFPImm ins eSize src |> AST.xtlo 64<rt>
     dstAssign128 ins ctxt addr dst src src dataSize ir
+  | TwoOperands (OprSIMD (SIMDFPScalarReg _), _) ->
+    let struct (dst, src) = getTwoOprs ins
+    let struct (_, dataSize, _) = getElemDataSzAndElems dst
+    let src = transOprToExpr ins ctxt addr src
+    dstAssignScalar ins ctxt addr dst src dataSize ir
   | _ ->
     let dst, src = transTwoOprs ins ctxt addr
     dstAssign ins.OprSize dst src ir
