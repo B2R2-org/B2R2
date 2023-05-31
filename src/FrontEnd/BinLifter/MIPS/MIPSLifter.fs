@@ -43,33 +43,6 @@ let inline (:=) dst src =
   | _ ->
     dst := src
 
-let getFmtSz = function
-  | Some Fmt.D | Some Fmt.L | Some Fmt.PS -> 64<rt>
-  | _ -> 32<rt>
-
-let convertAndRound ctxt src oprSz =
-  let fcsr = getRegVar ctxt R.FCSR
-  let rm = fcsr .& (numI32 3 32<rt>)
-  AST.ite (rm == numI32 0 32<rt>)
-    (AST.cast CastKind.FtoFRound oprSz src) // 0 RN
-    (AST.ite (rm == numI32 1 32<rt>)
-      (AST.cast CastKind.FtoFTrunc oprSz src) // 1 RZ
-      (AST.ite (rm == numI32 2 32<rt>)
-        (AST.cast CastKind.FtoFCeil oprSz src) // 2 RP
-        (AST.ite (rm == numI32 3 32<rt>)
-        (AST.cast CastKind.FtoFFloor oprSz src) src))) // 3 RM
-
-let convertAndRoundToInt ctxt src oprSz =
-  let fcsr = getRegVar ctxt R.FCSR
-  let rm = fcsr .& (numI32 0b11 32<rt>)
-  AST.ite (rm == numI32 0 32<rt>)
-    (AST.cast CastKind.FtoIRound oprSz src) // 0 RN
-    (AST.ite (rm == numI32 1 32<rt>)
-      (AST.cast CastKind.FtoITrunc oprSz src) // 1 RZ
-      (AST.ite (rm == numI32 2 32<rt>)
-        (AST.cast CastKind.FtoICeil oprSz src) // 2 RP
-        (AST.cast CastKind.FtoIFloor oprSz src))) // 3 RM
-
 let transOprToExpr insInfo ctxt = function
   | OpReg reg -> getRegVar ctxt reg
   | OpImm imm
@@ -86,11 +59,11 @@ let transOprToExpr insInfo ctxt = function
     numI64 (int64 insInfo.Address + o) ctxt.WordBitSize
   | GoToLabel _ -> raise InvalidOperandException
 
-let transOprToFPPair ctxt = function
+let private transOprToFPPair ctxt = function
   | OpReg reg -> getRegVar ctxt (Register.getFPPairReg reg), getRegVar ctxt reg
   | _ -> raise InvalidOperandException
 
-let transOprToFPPairConcat ctxt = function
+let private transOprToFPPairConcat ctxt = function
   | OpReg reg ->
     AST.concat (getRegVar ctxt (Register.getFPPairReg reg)) (getRegVar ctxt reg)
   | _ -> raise InvalidOperandException
@@ -98,12 +71,17 @@ let transOprToFPPairConcat ctxt = function
 let dstAssignForFP dstB dstA result ir =
   let srcB = AST.xthi 32<rt> result
   let srcA = AST.xtlo 32<rt> result
-  !!ir (dstB := srcB)
   !!ir (dstA := srcA)
+  !!ir (dstB := srcB)
 
 let transOprToImm = function
   | OpImm imm
   | OpShiftAmount imm -> imm
+  | _ -> raise InvalidOperandException
+
+let transOprToImmToInt = function
+  | OpImm imm
+  | OpShiftAmount imm -> int imm
   | _ -> raise InvalidOperandException
 
 let transOprToBaseOffset ctxt = function
@@ -148,56 +126,96 @@ let transFourOprs insInfo ctxt (o1, o2, o3, o4) =
   transOprToExpr insInfo ctxt o3,
   transOprToExpr insInfo ctxt o4
 
-let transFPConcatOneOpr ctxt opr =
-  transOprToFPPairConcat ctxt opr
-
-let transFPConcatTwoOprs ctxt (o1, o2) =
+let private transFPConcatTwoOprs ctxt (o1, o2) =
   transOprToFPPairConcat ctxt o1, transOprToFPPairConcat ctxt o2
 
-let transFPConcatThreeOprs ctxt (o1, o2, o3) =
+let private transFPConcatThreeOprs ctxt (o1, o2, o3) =
   transOprToFPPairConcat ctxt o1,
   transOprToFPPairConcat ctxt o2,
   transOprToFPPairConcat ctxt o3
 
-let transFPConcatFourOprs ctxt (o1, o2, o3, o4) =
-  transOprToFPPairConcat ctxt o1,
-  transOprToFPPairConcat ctxt o2,
-  transOprToFPPairConcat ctxt o3,
-  transOprToFPPairConcat ctxt o4
+let private isNaN32 expr =
+  let exponent = (expr >> numI32 23 32<rt>) .& numI32 0xff 32<rt>
+  let e = numI32 0xff 32<rt>
+  AST.xtlo 1<rt>
+    ((exponent == e) .& ((expr .& numU32 0x7fffffu 32<rt>) != AST.num0 32<rt>))
 
-let transFPOneOpr ctxt opr =
-  transOprToFPPair ctxt opr
+let private isSNaN32 expr =
+  let nanChecker = isNaN32 expr
+  let signalBit = numU32 (1u <<< 22) 32<rt>
+  nanChecker .& ((expr .& signalBit) == AST.num0 32<rt>)
 
-let transFPTwoOprs ctxt (o1, o2) =
-  transOprToFPPair ctxt o1, transOprToFPPair ctxt o2
+let private isQNaN32 expr =
+  let nanChecker = isNaN32 expr
+  let signalBit = numU32 (1u <<< 22) 32<rt>
+  nanChecker .& ((expr .& signalBit) != AST.num0 32<rt>)
 
-let transFPThreeOprs ctxt (o1, o2, o3) =
-  transOprToFPPair ctxt o1,
-  transOprToFPPair ctxt o2,
-  transOprToFPPair ctxt o3
+let private isInfinity32 expr =
+  let exponent = (expr >> numI32 23 32<rt>) .& numI32 0xff 32<rt>
+  let fraction = expr .& numU32 0x7fffffu 32<rt>
+  let e = numI32 0xff 32<rt>
+  let zero = AST.num0 32<rt>
+  AST.xtlo 1<rt> ((exponent == e) .& (fraction == zero))
 
-let transFPFourOprs ctxt (o1, o2, o3, o4) =
-  transOprToFPPair ctxt o1,
-  transOprToFPPair ctxt o2,
-  transOprToFPPair ctxt o3,
-  transOprToFPPair ctxt o4
+let private isZero32 expr =
+  let mask = numU32 0x7fffffffu 32<rt>
+  AST.eq (expr .& mask) (AST.num0 32<rt>)
 
-let isNaN oprSize expr =
-  match oprSize with
-  | 32<rt> -> IEEE754Single.isNaN expr
-  | 64<rt> -> IEEE754Double.isNaN expr
+let private isNaN64 expr =
+  let exponent = (expr >> numI32 52 64<rt>) .& numI32 0x7ff 64<rt>
+  let e = numI32 0x7ff 64<rt>
+  AST.xtlo 1<rt> ((exponent == e) .&
+    ((expr .& numU64 0xfffff_ffffffffUL 64<rt>) != AST.num0 64<rt>))
+
+let private isSNaN64 expr =
+  let nanChecker = isNaN64 expr
+  let signalBit = numU64 (1UL <<< 51) 64<rt>
+  nanChecker .& ((expr .& signalBit) == AST.num0 64<rt>)
+
+let private isQNaN64 expr =
+  let nanChecker = isNaN64 expr
+  let signalBit = numU64 (1UL <<< 51) 64<rt>
+  nanChecker .& ((expr .& signalBit) != AST.num0 64<rt>)
+
+let private isInfinity64 expr =
+  let exponent = (expr >> numI32 52 64<rt>) .& numI32 0x7ff 64<rt>
+  let fraction = expr .& numU64 0xfffff_ffffffffUL 64<rt>
+  let e = numI32 0x7ff 64<rt>
+  let zero = AST.num0 64<rt>
+  AST.xtlo 1<rt> ((exponent == e) .& (fraction == zero))
+
+let private isZero64 expr =
+  let mask = numU64 0x7fffffff_ffffffffUL 64<rt>
+  AST.eq (expr .& mask) (AST.num0 64<rt>)
+
+let private isNaN oprSz expr =
+  match oprSz with
+  | 32<rt> -> isNaN32 expr
+  | 64<rt> -> isNaN64 expr
   | _ -> Utils.impossible ()
 
-let isInfinity sz x =
-  match sz with
-  | 32<rt> -> IEEE754Single.isInfinity x
-  | 64<rt> -> IEEE754Double.isInfinity x
+let private isSNaN oprSz expr =
+  match oprSz with
+  | 32<rt> -> isSNaN32 expr
+  | 64<rt> -> isSNaN64 expr
   | _ -> Utils.impossible ()
 
-let isZero sz x =
-  match sz with
-  | 32<rt> -> IEEE754Single.isZero x
-  | 64<rt> -> IEEE754Double.isZero x
+let private isQNaN oprSz expr =
+  match oprSz with
+  | 32<rt> -> isQNaN32 expr
+  | 64<rt> -> isQNaN64 expr
+  | _ -> Utils.impossible ()
+
+let private isInfinity oprSz expr =
+  match oprSz with
+  | 32<rt> -> isInfinity32 expr
+  | 64<rt> -> isInfinity64 expr
+  | _ -> Utils.impossible ()
+
+let private isZero oprSz expr =
+  match oprSz with
+  | 32<rt> -> isZero32 expr
+  | 64<rt> -> isZero64 expr
   | _ -> Utils.impossible ()
 
 let private transBigEndianCPU (ctxt: TranslationContext) opSz =
@@ -235,39 +253,80 @@ let private checkOverfolwOnDMul e1 e2 =
   let cond = mask64 .- e1 .< e2
   AST.ite cond bit32 (AST.num0 64<rt>)
 
-let isNan rt e =
-  match rt with
-  | 32<rt> ->
-    let fullExponent = numU32 0x7F800000u 32<rt>
-    let fullMantissa = numU32 0x7FFFFFu 32<rt>
-    ((e .& fullExponent) == fullExponent) .&
-    ((e .& fullMantissa) != AST.num0 32<rt>)
-  | 64<rt> ->
-    let fullExponent = numU64 0x7FF0000000000000uL 64<rt>
-    let fullMantissa = numU64 0xFFFFFFFFFFFFFuL 64<rt>
-    ((e .& fullExponent) == fullExponent) .&
-    ((e .& fullMantissa) != AST.num0 64<rt>)
-  | _ -> raise InvalidRegTypeException
+let private subNormal oprSz src1 src2 result ir =
+  let struct (qNaNBox, sNaNBox, nanBox) = tmpVars3 ir 1<rt>
+  !!ir (qNaNBox := isQNaN oprSz result)
+  !!ir (sNaNBox := isSNaN oprSz result)
+  !!ir (nanBox := qNaNBox .| sNaNBox)
+  !!ir (result :=
+    AST.ite nanBox (
+      let sign = AST.xthi 1<rt> result .&
+                   (AST.not (isInfinity oprSz src1 .| isInfinity oprSz src2))
+      let struct (sNanVal, msNanVal, qNanVal, mqNanVal) =
+        match oprSz with
+        | 32<rt> ->
+          struct (numU32 0x7fffffffu 32<rt>, numU32 0xffffffffu 32<rt>,
+                  numU32 0x7fbfffffu 32<rt>, numU32 0xffbfffffu 32<rt>)
+        | _ -> struct (numU64 0x7fffffffffffffffUL 64<rt>,
+                       numU64 0xffffffffffffffffUL 64<rt>,
+                       numU64 0x7ff7ffffffffffffUL 64<rt>,
+                       numU64 0xfff7ffffffffffffUL 64<rt>)
+      let qNanWithSign = AST.ite sign mqNanVal qNanVal
+      let sNanWithSign = AST.ite sign msNanVal sNanVal
+      AST.ite qNaNBox qNanWithSign (AST.ite sNaNBox sNanWithSign result))
+        result)
 
-let isSNan rt e =
-  match rt with
-  | 32<rt> ->
-    let signalBit = numU32 (1u <<< 22) 32<rt>
-    (isNaN rt e) .& ((e .& signalBit) == AST.num0 32<rt>)
-  | 64<rt> ->
-    let signalBit = numU64 (1uL <<< 51) 64<rt>
-    (isNaN rt e) .& ((e .& signalBit) == AST.num0 64<rt>)
-  | _ -> raise InvalidRegTypeException
+let divNormal oprSz src1 src2 result ir =
+  let sign = AST.xthi 1<rt> result
+  let src1Zero = src1 == AST.num0 oprSz
+  let src2Zero = src2 == AST.num0 oprSz
+  let qNan = isQNaN oprSz result
+  let sNan = isSNaN oprSz result
+  let struct (sNanVal, msNanVal, qNanVal, mqNanVal) =
+    match oprSz with
+    | 32<rt> ->
+      struct (numU32 0x7fffffffu 32<rt>, numU32 0xffffffffu 32<rt>,
+              numU32 0x7fbfffffu 32<rt>, numU32 0xffbfffffu 32<rt>)
+    | _ -> struct (numU64 0x7fffffffffffffffUL 64<rt>,
+                   numU64 0xffffffffffffffffUL 64<rt>,
+                   numU64 0x7ff7ffffffffffffUL 64<rt>,
+                   numU64 0xfff7ffffffffffffUL 64<rt>)
+  let qNanWithSign = AST.ite sign mqNanVal qNanVal
+  let sNanWithSign = AST.ite sign msNanVal sNanVal
+  !!ir (result := AST.ite (src1Zero .& src2Zero) qNanVal
+                    (AST.ite qNan qNanWithSign
+                      (AST.ite sNan sNanWithSign result)))
 
-let isQNan rt e =
-  match rt with
-  | 32<rt> ->
-    let signalBit = numU32 (1u <<< 22) 32<rt>
-    (isNan rt e) .& ((e .& signalBit) != AST.num0 32<rt>)
-  | 64<rt> ->
-    let signalBit = numU64 (1uL <<< 51) 64<rt>
-    (isNan rt e) .& ((e .& signalBit) != AST.num0 64<rt>)
-  | _ -> raise InvalidRegTypeException
+let private normalizeValue oprSz result ir =
+  let struct (qNaNBox, sNaNBox, infBox, condBox) = tmpVars4 ir 1<rt>
+  !!ir (qNaNBox := isQNaN oprSz result)
+  !!ir (sNaNBox := isSNaN oprSz result)
+  !!ir (infBox := isInfinity oprSz result)
+  !!ir (condBox := qNaNBox .| sNaNBox .| infBox)
+  !!ir (result :=
+    AST.ite condBox (
+      let sign = AST.xthi 1<rt> result
+      let struct (sNanVal, msNanVal, qNanVal, mqNanVal) =
+        match oprSz with
+        | 32<rt> ->
+          struct (numU32 0x7fffffffu 32<rt>, numU32 0xffffffffu 32<rt>,
+                  numU32 0x7fbfffffu 32<rt>, numU32 0xffbfffffu 32<rt>)
+        | _ -> struct (numU64 0x7fffffffffffffffUL 64<rt>,
+                       numU64 0xffffffffffffffffUL 64<rt>,
+                       numU64 0x7ff7ffffffffffffUL 64<rt>,
+                       numU64 0xfff7ffffffffffffUL 64<rt>)
+      let struct (pInf, mInf) =
+        match oprSz with
+        | 32<rt> ->
+          struct (numU32 0x7f800000u 32<rt>, numU32 0xff800000u 32<rt>)
+        | _ -> struct (numU64 0x7ff0000000000000UL 64<rt>,
+                       numU64 0xfff0000000000000UL 64<rt>)
+      let qNanWithSign = AST.ite sign mqNanVal qNanVal
+      let sNanWithSign = AST.ite sign msNanVal sNanVal
+      let infWithSign = AST.ite sign mInf pInf
+      AST.ite qNaNBox qNanWithSign (AST.ite sNaNBox sNanWithSign
+        (AST.ite infBox infWithSign result)))
+          result)
 
 let advancePC (ctxt: TranslationContext) ir =
   if ctxt.DelayedBranch = InterJmpKind.NotAJmp then
@@ -340,18 +399,11 @@ let private mul64BitReg src1 src2 ir isSign =
 let abs insInfo insLen ctxt =
   let ir = !*ctxt
   let fd, fs = getTwoOprs insInfo
-  let num0 = AST.num0 (getFmtSz insInfo.Fmt)
   !<ir insLen
   match insInfo.Fmt with
-  | Some Fmt.PS ->
-    let fd = transOprToFPPairConcat ctxt fd
-    let fs = transOprToFPPairConcat ctxt fs
-    !!ir (fd := AST.ite (AST.fge fs num0) fs (AST.fneg fs)) (* FIXME *)
-  | Some Fmt.D ->
+  | Some Fmt.D | Some Fmt.PS ->
     let fdB, fdA = transOprToFPPair ctxt fd
-    let fs =
-      transOprToExpr insInfo ctxt fs |> AST.cast CastKind.FloatCast 64<rt>
-      |> AST.fneg
+    let fs = transOprToFPPairConcat ctxt fs |> AST.fneg
     dstAssignForFP fdB fdA fs ir
   | _ ->
     let fd, fs = transTwoOprs insInfo ctxt (fd, fs)
@@ -359,124 +411,13 @@ let abs insInfo insLen ctxt =
   advancePC ctxt ir
   !>ir insLen
 
-let getExponent isDouble src =
-  if isDouble then
-    let numMantissa =  numI32 52 64<rt>
-    let mask = numI32 0x7FF 64<rt>
-    AST.xtlo 32<rt> ((src >> numMantissa) .& mask)
-  else
-    let numMantissa = numI32 23 32<rt>
-    let mask = numI32 0xff 32<rt>
-    (src >> numMantissa) .& mask
-
-let getHighMantissa isDouble src =
-  if isDouble then
-    src .& numU64 0x800000000000UL 64<rt> == numU64 0x800000000000UL 64<rt>
-  else src .& numU64 0x400000UL 32<rt> == numU64 0x400000UL 32<rt>
-
-let getMantissa isDouble src =
-  let mask =
-    if isDouble then numU64 0xffffffffffffUL 64<rt>
-    else numU64 0x7fffffUL 32<rt>
-  src .& mask
-
-let divNormal oprSz src1 src2 result ir =
-  let sign = AST.xthi 1<rt> result
-  let src1Zero = src1 == AST.num0 oprSz
-  let src2Zero = src2 == AST.num0 oprSz
-  let qNan = isQNan oprSz result
-  let sNan = isSNan oprSz result
-  let sNanVal = if oprSz = 32<rt> then numU32 0x7fffffffu 32<rt>
-                else numU64 0x7fffffffffffffffuL 64<rt>
-  let msNanVal = if oprSz = 32<rt> then numU32 0xffffffffu 32<rt>
-                 else numU64 0xffffffffffffffffuL 64<rt>
-  let qNanVal = if oprSz = 32<rt> then numU32 0x7fbfffffu 32<rt>
-                else numU64 0x7ff7ffffffffffffuL 64<rt>
-  let mqNanVal = if oprSz = 32<rt> then numU32 0xffbfffffu 32<rt>
-                 else numU64 0xfff7ffffffffffffuL 64<rt>
-  let qNanWithSign = AST.ite sign mqNanVal qNanVal
-  let sNanWithSign = AST.ite sign msNanVal sNanVal
-  !!ir (result :=
-    AST.ite (src1Zero .& src2Zero) qNanVal
-      (AST.ite qNan qNanWithSign
-        (AST.ite sNan sNanWithSign result)))
-
-let subNormal oprSz src1 src2 result ir =
-  let isDouble = oprSz = 64<rt>
-  let qNan = isQNan oprSz result
-  let sNan = isSNan oprSz result
-  let sign = AST.xthi 1<rt> result .&
-               (AST.not (isInfinity oprSz src1 .| isInfinity oprSz src2))
-  match oprSz with
-  | 32<rt> ->
-    let sNanVal = numU32 0x7fffffffu 32<rt>
-    let msNanVal = numU32 0xffffffffu 32<rt>
-    let qNanVal = numU32 0x7fbfffffu 32<rt>
-    let mqNanVal = numU32 0xffbfffffu 32<rt>
-    let qNanWithSign = AST.ite sign mqNanVal qNanVal
-    let sNanWithSign = AST.ite sign msNanVal sNanVal
-    !!ir (result :=
-      AST.ite qNan qNanWithSign (AST.ite sNan sNanWithSign result))
-  | _ ->
-    let sNanVal = numU64 0x7fffffffffffffffuL 64<rt>
-    let msNanVal = numU64 0xffffffffffffffffuL 64<rt>
-    let qNanVal = numU64 0x7ff7ffffffffffffuL 64<rt>
-    let mqNanVal = numU64 0xfff7ffffffffffffuL 64<rt>
-    let qNanWithSign = AST.ite sign mqNanVal qNanVal
-    let sNanWithSign = AST.ite sign msNanVal sNanVal
-    !!ir (result :=
-      AST.ite qNan qNanWithSign (AST.ite sNan sNanWithSign result))
-
-let normalizeValue oprSz result ir =
-  let isDouble = oprSz = 64<rt>
-  let fullexp = getExponent isDouble result
-  let mantissa = getMantissa isDouble result
-  let zero = (fullexp == AST.num0 32<rt>) .& (mantissa == AST.num0 oprSz)
-  let negZero = if isDouble then numU64 0x8000000000000000uL 64<rt>
-                else numU32 0x80000000u 32<rt>
-  let posZero = AST.num0 oprSz
-  let qNan = isQNan oprSz result
-  let sNan = isSNan oprSz result
-  let inf = isInfinity oprSz result
-  let sign = AST.xthi 1<rt> result
-  match oprSz with
-  | 32<rt> ->
-    let sNanVal = numU32 0x7fffffffu 32<rt>
-    let msNanVal = numU32 0xffffffffu 32<rt>
-    let qNanVal = numU32 0x7fbfffffu 32<rt>
-    let mqNanVal = numU32 0xffbfffffu 32<rt>
-    let inf32a = numU32 0xff800000u 32<rt>
-    let inf32b = numU32 0x7f800000u 32<rt>
-    let qNanWithSign = AST.ite sign mqNanVal qNanVal
-    let sNanWithSign = AST.ite sign msNanVal sNanVal
-    let infWithSign = AST.ite sign inf32a inf32b
-    let zeroWithSign = AST.ite sign negZero posZero
-    !!ir (result :=
-      AST.ite qNan qNanWithSign (AST.ite sNan sNanWithSign
-        (AST.ite inf infWithSign (AST.ite zero zeroWithSign result))))
-  | _ ->
-    let sNanVal = numU64 0x7fffffffffffffffuL 64<rt>
-    let msNanVal = numU64 0xffffffffffffffffuL 64<rt>
-    let qNanVal = numU64 0x7ff7ffffffffffffuL 64<rt>
-    let mqNanVal = numU64 0xfff7ffffffffffffuL 64<rt>
-    let inf64a = numU64 0xfff0000000000000uL 64<rt>
-    let inf64b = numU64 0x7ff0000000000000uL 64<rt>
-    let qNanWithSign = AST.ite sign mqNanVal qNanVal
-    let sNanWithSign = AST.ite sign msNanVal sNanVal
-    let infWithSign = AST.ite sign inf64a inf64b
-    let zeroWithSign = AST.ite sign negZero posZero
-    !!ir (result :=
-      AST.ite qNan qNanWithSign (AST.ite sNan sNanWithSign
-       (AST.ite inf infWithSign (AST.ite zero zeroWithSign result))))
-
 let add insInfo insLen ctxt =
   let ir = !*ctxt
+  let lblL0 = !%ir "L0"
+  let lblL1 = !%ir "L1"
+  let lblEnd = !%ir "End"
   !<ir insLen
-  match insInfo.Fmt.IsNone with
-  | true ->
-    let lblL0 = !%ir "L0"
-    let lblL1 = !%ir "L1"
-    let lblEnd = !%ir "End"
+  if insInfo.Fmt.IsNone then
     let rd, rs, rt = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
     let result = if is32Bit ctxt then rs .+ rt else signExtLo64 (rs .+ rt)
     let cond = checkOverfolwOnAdd rs rt result
@@ -487,7 +428,7 @@ let add insInfo insLen ctxt =
     !!ir (AST.lmark lblL1)
     !!ir (rd := result)
     !!ir (AST.lmark lblEnd)
-  | _ ->
+  else
     let fd, fs, ft = getThreeOprs insInfo
     match insInfo.Fmt with
     | Some Fmt.S ->
@@ -570,11 +511,13 @@ let bal insInfo insLen ctxt =
   !>ir insLen
 
 let fpConditionCode cc ctxt =
+  let ir = !*ctxt
   let fcsr = getRegVar ctxt R.FCSR
-  let andVal = numU32 0x1000000u 32<rt> << numI32 cc 32<rt>
-  let bit23 = fcsr .& numU32 0x800000u 32<rt> == numU32 0x800000u 32<rt>
-  let bit24Cc = (fcsr .& andVal) == andVal
-  if cc = 0 then bit23 else bit24Cc
+  if cc = 0 then (fcsr .& numU32 0x800000u 32<rt>) == numU32 0x800000u 32<rt>
+  else
+    let andVal = !+ir 32<rt>
+    !!ir (andVal := numU32 0x1000000u 32<rt> << numI32 cc 32<rt>)
+    (fcsr .& andVal) == andVal
 
 let bc1f insInfo insLen ctxt =
   let ir = !*ctxt
@@ -582,13 +525,13 @@ let bc1f insInfo insLen ctxt =
   match insInfo.Operands with
   | OneOperand off ->
     let offset = transOneOpr insInfo ctxt off
-    let cond = AST.eq (fpConditionCode 0 ctxt) AST.b0
+    let cond = AST.not (fpConditionCode 0 ctxt)
     updatePCCond ctxt offset cond InterJmpKind.Base ir
   | _ ->
     let cc, offset = getTwoOprs insInfo
     let offset = transOprToExpr insInfo ctxt offset
-    let cc = int (transOprToImm cc)
-    let cond = AST.eq (fpConditionCode cc ctxt) AST.b0
+    let cc = transOprToImmToInt cc
+    let cond = AST.not (fpConditionCode cc ctxt)
     updatePCCond ctxt offset cond InterJmpKind.Base ir
   !>ir insLen
 
@@ -598,13 +541,13 @@ let bc1t insInfo insLen ctxt =
   match insInfo.Operands with
   | OneOperand off ->
     let offset = transOneOpr insInfo ctxt off
-    let cond = AST.eq (fpConditionCode 0 ctxt) AST.b1
+    let cond = fpConditionCode 0 ctxt
     updatePCCond ctxt offset cond InterJmpKind.Base ir
   | _ ->
     let cc, offset = getTwoOprs insInfo
     let offset = transOprToExpr insInfo ctxt offset
-    let cc = int (transOprToImm cc)
-    let cond = AST.eq (fpConditionCode cc ctxt) AST.b1
+    let cc = transOprToImmToInt cc
+    let cond = fpConditionCode cc ctxt
     updatePCCond ctxt offset cond InterJmpKind.Base ir
   !>ir insLen
 
@@ -676,53 +619,21 @@ let bne insInfo insLen ctxt =
   updatePCCond ctxt offset cond InterJmpKind.Base ir
   !>ir insLen
 
-let extractCond insInfo =
-  match insInfo.Condition with
-  | Some opt -> opt
-  | _ -> raise InvalidOperandException
-
-let condition2 wordSz = function
-  | Condition.F | Condition.SF -> numU64 0b000uL wordSz
-  | Condition.UN | Condition.NGLE -> numU64 0b001uL wordSz
-  | Condition.EQ | Condition.SEQ -> numU64 0b010uL wordSz
-  | Condition.UEQ | Condition.NGL -> numU64 0b011uL wordSz
-  | Condition.OLT | Condition.LT -> numU64 0b100uL wordSz
-  | Condition.ULT | Condition.NGE -> numU64 0b101uL wordSz
-  | Condition.OLE | Condition.LE -> numU64 0b110uL wordSz
-  | Condition.ULE | Condition.NGT -> numU64 0b111uL wordSz
-  | _ -> raise InvalidOperandException
-
-let condition3 = function
-  | Condition.SF -> AST.b1
-  | Condition.NGLE -> AST.b1
-  | Condition.SEQ -> AST.b1
-  | Condition.NGL -> AST.b1
-  | Condition.LT -> AST.b1
-  | Condition.NGE -> AST.b1
-  | Condition.LE -> AST.b1
-  | Condition.NGT -> AST.b1
-  | _ -> AST.b0
-
 let setFPConditionCode ctxt cc tf ir =
-  let tf = AST.xtlo 32<rt> tf
-  let shf1 = numI32 23 32<rt>
-  let shf2 = numI32 (24 + cc) 32<rt>
+  let insertBit = AST.xtlo 32<rt> tf
   let fcsr = getRegVar ctxt R.FCSR
-  let value =
-    if cc = 0 then
-      let mask1 = numU32 0xFF000000u 32<rt>
-      let mask2 = numU32 0x7FFFFFu 32<rt>
-      let hi = mask1 .& fcsr
-      let low = fcsr .& mask2
-      hi .| (tf << shf1) .| low
-    else
-      let mask1 = numU32 0xFE000000u 32<rt> << numI32 cc 32<rt>
-      let mask2 =
-        (numU32 0xFFFFFFu 32<rt> << numI32 cc 32<rt>) .| numU32 0xFFu 32<rt>
-      let hi = fcsr .& mask1
-      let low = fcsr .& mask2
-      hi .| (tf << shf2) .| low
-  !!ir (fcsr := value)
+  if cc = 0 then
+    let shf1 = numI32 23 32<rt>
+    let mask1 = numU32 0xFF000000u 32<rt>
+    let mask2 = numU32 0x7FFFFFu 32<rt>
+    let insertBit = AST.xtlo 32<rt> tf
+    !!ir (fcsr := (fcsr .& mask1) .| (insertBit << shf1) .| (fcsr .& mask2))
+  else
+    let shf2 = numI32 (24 + cc) 32<rt>
+    let mask1 = numU32 0xFE000000u 32<rt> << numI32 cc 32<rt>
+    let mask2 =
+      (numU32 0xFFFFFFu 32<rt> << numI32 cc 32<rt>) .| numU32 0xFFu 32<rt>
+    !!ir (fcsr := (fcsr .& mask1) .| (insertBit << shf2) .| (fcsr .& mask2))
 
 let cCond insInfo insLen ctxt =
   let ir = !*ctxt
@@ -744,30 +655,54 @@ let cCond insInfo insLen ctxt =
     | ThreeOperands (cc, fs, ft) ->
       match insInfo.Fmt with
       | Some Fmt.PS | Some Fmt.D ->
-        let cc = int (transOprToImm cc)
+        let cc = transOprToImmToInt cc
         let fs, ft = transFPConcatTwoOprs ctxt (fs ,ft)
         64<rt>, cc, fs, ft
       | _ ->
-        let cc = int (transOprToImm cc)
+        let cc = transOprToImmToInt cc
         let fs, ft = transTwoOprs insInfo ctxt (fs, ft)
         32<rt>, cc, fs, ft
     | _ -> raise InvalidOperandException
   let num0 = AST.num0 wordSz
   let num1 = AST.num1 wordSz
   let zeroSameCondWithEqaul =
-    AST.ite (AST.eq fs ft) AST.b1 (AST.ite (isZero wordSz fs .& (ft == num0) .|
-      (isZero wordSz ft .& (fs == num0))) AST.b1 AST.b0)
+    let cond1 = AST.eq fs ft
+    let cond2 = isZero wordSz fs .& (ft == num0)
+    let cond3 = isZero wordSz ft .& (fs == num0)
+    cond1 .| cond2 .| cond3
   let struct (less, equal, unordered, condition) = tmpVars4 ir wordSz
-  let condField = extractCond insInfo
-  let cond3 = condition3 condField
-  let condZeroToTwo = condition2 wordSz condField
-  let cond0 = condZeroToTwo .& numU64 0b001uL wordSz
-  let cond1 = (condZeroToTwo .& numU64 0b010uL wordSz) >> numU64 1uL wordSz
-  let cond2 = (condZeroToTwo .& numU64 0b100uL wordSz) >> numU64 2uL wordSz
-  let is2SNan = isSNan wordSz fs .| isSNan wordSz ft
-  let is2QNan = isQNan wordSz fs .| isQNan wordSz ft
+  let condZeroToTwo = !+ir wordSz
+  let condBit3 =
+    match insInfo.Condition with
+    | Some Condition.SF -> AST.b1
+    | Some Condition.NGLE -> AST.b1
+    | Some Condition.SEQ -> AST.b1
+    | Some Condition.NGL -> AST.b1
+    | Some Condition.LT -> AST.b1
+    | Some Condition.NGE -> AST.b1
+    | Some Condition.LE -> AST.b1
+    | Some Condition.NGT -> AST.b1
+    | _ -> AST.b0
+  let inline conditionToSz wordSz =
+    match insInfo.Condition with
+    | Some Condition.F | Some Condition.SF -> numU64 0b000UL wordSz
+    | Some Condition.UN | Some Condition.NGLE -> numU64 0b001UL wordSz
+    | Some Condition.EQ | Some Condition.SEQ -> numU64 0b010UL wordSz
+    | Some Condition.UEQ | Some Condition.NGL -> numU64 0b011UL wordSz
+    | Some Condition.OLT | Some Condition.LT -> numU64 0b100UL wordSz
+    | Some Condition.ULT | Some Condition.NGE -> numU64 0b101UL wordSz
+    | Some Condition.OLE | Some Condition.LE -> numU64 0b110UL wordSz
+    | Some Condition.ULE | Some Condition.NGT -> numU64 0b111UL wordSz
+    | _ -> raise InvalidOperandException
+  !!ir (condZeroToTwo := conditionToSz wordSz)
+  let cond0 = condZeroToTwo .& numU64 0b001UL wordSz
+  let cond1 = (condZeroToTwo .& numU64 0b010UL wordSz) >> numU64 1UL wordSz
+  let cond2 = (condZeroToTwo .& numU64 0b100UL wordSz) >> numU64 2UL wordSz
+  let struct (is2SNan, is2QNan) = tmpVars2 ir 1<rt>
+  !!ir (is2SNan := isSNaN wordSz fs .| isSNaN wordSz ft)
+  !!ir (is2QNan := isQNaN wordSz fs .| isQNaN wordSz ft)
   let nanCond = is2SNan .| is2QNan
-  let fieldCond = is2SNan .| (cond3 .& is2QNan)
+  let fieldCond = is2SNan .| (condBit3 .& is2QNan)
   !!ir (AST.cjmp nanCond (AST.name lblL0) (AST.name lblL1))
   !!ir (AST.lmark lblL0)
   !!ir (less := num0)
@@ -1359,8 +1294,7 @@ let lui insInfo insLen ctxt =
 let madd insInfo insLen ctxt =
   let ir = !*ctxt
   !<ir insLen
-  match insInfo.Fmt.IsNone with
-  | true ->
+  if insInfo.Fmt.IsNone then
     let rs, rt = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
     let result = !+ir 64<rt>
     let hi = getRegVar ctxt R.HI
@@ -1376,7 +1310,7 @@ let madd insInfo insLen ctxt =
       !!ir (result := hilo .+ ((rs .& mask) .* (rt .& mask)))
       !!ir (hi := signExtHi64 result)
       !!ir (lo := signExtLo64 result)
-  | _ ->
+  else
     let fd, fr, fs, ft = getFourOprs insInfo
     match insInfo.Fmt with
     | Some Fmt.PS ->
@@ -1471,56 +1405,59 @@ let mov insInfo insLen ctxt =
   | Some Fmt.S ->
     let fd, fs = transTwoOprs insInfo ctxt (fd, fs)
     !!ir (fd := fs)
-  | _ ->
+  | Some Fmt.D ->
     let fdB, fdA = transOprToFPPair ctxt fd
     let fs = transOprToFPPairConcat ctxt fs
     dstAssignForFP fdB fdA fs ir
+  | _ -> raise InvalidOperandException
   advancePC ctxt ir
   !>ir insLen
 
 let movt insInfo insLen ctxt =
   let ir = !*ctxt
   let dst, src, cc = getThreeOprs insInfo
-  let cc = int (transOprToImm cc)
-  let cond = AST.eq (fpConditionCode cc ctxt) AST.b1
+  let cc = transOprToImmToInt cc
+  let cond = !+ir 1<rt>
+  !!ir (cond := fpConditionCode cc ctxt)
   !<ir insLen
-  match insInfo.Fmt.IsNone with
-  | true ->
+  if insInfo.Fmt.IsNone then
     let dst, src = transTwoOprs insInfo ctxt (dst, src)
     !!ir (dst := AST.ite cond src dst)
-  | _ ->
+  else
     match insInfo.Fmt with
     | Some Fmt.S ->
       let dst, src = transTwoOprs insInfo ctxt (dst, src)
       !!ir (dst := AST.ite cond src dst)
-    | _ ->
+    | Some Fmt.D ->
       let dstB, dstA = transOprToFPPair ctxt dst
       let srcB, srcA = transOprToFPPair ctxt src
       !!ir (dstB := AST.ite cond srcB dstB)
       !!ir (dstA := AST.ite cond srcA dstA)
+    | _ -> raise InvalidOperandException
   advancePC ctxt ir
   !>ir insLen
 
 let movf insInfo insLen ctxt =
   let ir = !*ctxt
   let dst, src, cc = getThreeOprs insInfo
-  let cc = int (transOprToImm cc)
-  let cond = AST.eq (fpConditionCode cc ctxt) AST.b0
+  let cc = transOprToImmToInt cc
+  let cond = !+ir 1<rt>
+  !!ir (cond := AST.not (fpConditionCode cc ctxt))
   !<ir insLen
-  match insInfo.Fmt.IsNone with
-  | true ->
+  if insInfo.Fmt.IsNone then
     let dst, src = transTwoOprs insInfo ctxt (dst, src)
     !!ir (dst := AST.ite cond src dst)
-  | _ ->
+  else
     match insInfo.Fmt with
     | Some Fmt.S ->
       let dst, src = transTwoOprs insInfo ctxt (dst, src)
       !!ir (dst := AST.ite cond src dst)
-    | _ ->
+    | Some Fmt.D ->
       let dstB, dstA = transOprToFPPair ctxt dst
       let srcB, srcA = transOprToFPPair ctxt src
       !!ir (dstB := AST.ite cond srcB dstB)
       !!ir (dstA := AST.ite cond srcA dstA)
+    | _ -> raise InvalidOperandException
   advancePC ctxt ir
   !>ir insLen
 
@@ -1528,22 +1465,23 @@ let movzOrn insInfo insLen ctxt opFn =
   let ir = !*ctxt
   let dst, src, compare = getThreeOprs insInfo
   let compare = transOprToExpr insInfo ctxt compare
-  let cond = opFn compare (AST.num0 ctxt.WordBitSize)
+  let cond = !+ir 1<rt>
+  !!ir (cond := opFn compare (AST.num0 ctxt.WordBitSize))
   !<ir insLen
-  match insInfo.Fmt.IsNone with
-  | true ->
+  if insInfo.Fmt.IsNone then
     let dst, src = transTwoOprs insInfo ctxt (dst, src)
     !!ir (dst := AST.ite cond src dst)
-  | _ ->
+  else
     match insInfo.Fmt with
     | Some Fmt.S ->
       let dst, src = transTwoOprs insInfo ctxt (dst, src)
       !!ir (dst := AST.ite cond src dst)
-    | _ ->
+    | Some Fmt.D ->
       let dstB, dstA = transOprToFPPair ctxt dst
       let src = transOprToFPPairConcat ctxt src
       !!ir (dstB := AST.ite cond (AST.xthi 32<rt> src) dstB)
       !!ir (dstA := AST.ite cond (AST.xtlo 32<rt> src) dstA)
+    | _ -> raise InvalidOperandException
   advancePC ctxt ir
   !>ir insLen
 
@@ -1558,8 +1496,7 @@ let mtc1 insInfo insLen ctxt =
 let mul insInfo insLen ctxt =
   let ir = !*ctxt
   !<ir insLen
-  match insInfo.Fmt.IsNone with
-  | true ->
+  if insInfo.Fmt.IsNone then
     let rd, rs, rt = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
     let hi = getRegVar ctxt R.HI
     let lo = getRegVar ctxt R.LO
@@ -1570,12 +1507,8 @@ let mul insInfo insLen ctxt =
     !!ir (rd := result)
     !!ir (hi := AST.undef ctxt.WordBitSize "UNPREDICTABLE")
     !!ir (lo := AST.undef ctxt.WordBitSize "UNPREDICTABLE")
-  | _ ->
+  else
     let fd, fs, ft = getThreeOprs insInfo
-    let max32 = numU32 0x7ff7ffffu 32<rt>
-    let min32 = numU32 0xfff7ffffu 32<rt>
-    let max64 = numU64 0x7ff7ffffffffffffuL 64<rt>
-    let min64 = numU64 0xfff7ffffffffffffuL 64<rt>
     match insInfo.Fmt with
     | Some Fmt.S ->
       let dst, src1, src2 = transThreeOprs insInfo ctxt (fd, fs, ft)
@@ -1583,13 +1516,14 @@ let mul insInfo insLen ctxt =
       !!ir (result := AST.fmul src1 src2)
       normalizeValue 32<rt> result ir
       !!ir (dst := result)
-    | _ ->
+    | Some Fmt.D ->
       let dstB, dstA = transOprToFPPair ctxt fd
       let src1, src2 = transFPConcatTwoOprs ctxt (fs, ft)
       let result = !+ir 64<rt>
       !!ir (result := AST.fmul src1 src2)
       normalizeValue 64<rt> result ir
       dstAssignForFP dstB dstA result ir
+    | _ -> raise InvalidOperandException
   advancePC ctxt ir
   !>ir insLen
 
@@ -1838,11 +1772,10 @@ let sub insInfo insLen ctxt =
   let ir = !*ctxt
   let dst, src1, src2 = getThreeOprs insInfo
   !<ir insLen
-  match insInfo.Fmt.IsNone with
-  | true ->
+  if insInfo.Fmt.IsNone then
     let dst, src1, src2 = transThreeOprs insInfo ctxt (dst, src1, src2)
     !!ir (dst := src1 .- src2)
-  | _ ->
+  else
     match insInfo.Fmt with
     | Some Fmt.S ->
       let dst, src1, src2 = transThreeOprs insInfo ctxt (dst, src1, src2)
@@ -1850,13 +1783,14 @@ let sub insInfo insLen ctxt =
       !!ir (result := AST.fsub src1 src2)
       subNormal 32<rt> src1 src2 result ir
       !!ir (dst := result)
-    | _ ->
+    | Some Fmt.D ->
       let dstB, dstA = transOprToFPPair ctxt dst
       let src1, src2 = transFPConcatTwoOprs ctxt (src1, src2)
       let result = !+ir 64<rt>
       !!ir (result := AST.fsub src1 src2)
       subNormal 64<rt> src1 src2 result ir
       dstAssignForFP dstB dstA result ir
+    | _ -> raise InvalidOperandException
   advancePC ctxt ir
   !>ir insLen
 
@@ -1895,6 +1829,7 @@ let teqi insInfo insLen ctxt =
   advancePC ctxt ir
   !>ir insLen
 
+(* FIXME *)
 let truncw insInfo insLen ctxt =
   let ir = !*ctxt
   let fd, fs = getTwoOprs insInfo
@@ -1905,8 +1840,8 @@ let truncw insInfo insLen ctxt =
   match insInfo.Fmt with
   | Some Fmt.S ->
     let dst, src = transTwoOprs insInfo ctxt (fd, fs)
-    let condInf = isInfinity 32<rt> src
-    let condNaN = isNan 32<rt> src
+    let condInf = isInfinity32 src
+    let condNaN = isNaN32 src
     let sign = AST.xthi 1<rt> src
     let eval = !+ir 32<rt>
     !!ir (eval := AST.cast CastKind.FtoFTrunc 32<rt> src)
@@ -1922,15 +1857,16 @@ let truncw insInfo insLen ctxt =
                     |> AST.cast CastKind.FtoITrunc 32<rt>)
     let outOfRange = AST.sgt dst intMax .| AST.slt dst intMin
     let sign = AST.xthi 1<rt> src
-    let condInf = (isInfinity 64<rt> src .& sign)
-                    .| (isInfinity 64<rt> src .& (AST.not sign))
-    let condNaN = isNan 64<rt> src
+    let condInf = (isInfinity64 src .& sign)
+                    .| (isInfinity64 src .& (AST.not sign))
+    let condNaN = isNaN64 src
     !!ir (dst := AST.ite outOfRange intMax dst)
     !!ir (dst := AST.ite condInf intMax dst)
     !!ir (dst := AST.ite condNaN intMax dst)
   advancePC ctxt ir
   !>ir insLen
 
+(* FIXME *)
 let truncl insInfo insLen ctxt =
   let ir = !*ctxt
   let fd, fs = getTwoOprs insInfo
@@ -1942,7 +1878,7 @@ let truncl insInfo insLen ctxt =
   | Some Fmt.S ->
     let fs = transOprToExpr insInfo ctxt fs
     let condInf = isInfinity 32<rt> fs
-    let condNaN = isNan 32<rt> fs
+    let condNaN = isNaN32 fs
     let sign = AST.xthi 1<rt> fs
     let t0 = !+ir 32<rt>
     let eval = !+ir 64<rt>
@@ -1959,7 +1895,7 @@ let truncl insInfo insLen ctxt =
     let llMax = numU64 0x7fffffffffffffffuL 64<rt>
     let llMin = numU64 0x8000000000000000uL 64<rt>
     let condInf = isInfinity 64<rt> fs
-    let condNaN = isNan 64<rt> fs
+    let condNaN = isNaN64 fs
     let sign = AST.xthi 1<rt> fs
     let eval = !+ir 64<rt>
     !!ir (eval := AST.cast CastKind.FtoFTrunc 64<rt> fs)
