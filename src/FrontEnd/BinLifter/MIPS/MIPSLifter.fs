@@ -68,11 +68,17 @@ let private transOprToFPPairConcat ctxt = function
     AST.concat (getRegVar ctxt (Register.getFPPairReg reg)) (getRegVar ctxt reg)
   | _ -> raise InvalidOperandException
 
-let dstAssignForFP dstB dstA result ir =
+let private dstAssignForFP dstB dstA result ir =
   let srcB = AST.xthi 32<rt> result
   let srcA = AST.xtlo 32<rt> result
   !!ir (dstA := srcA)
   !!ir (dstB := srcB)
+
+let private fpneg ir oprSz reg =
+  let mask =
+    if oprSz = 32<rt> then numU64 0x80000000UL oprSz
+    else numU64 0x8000000000000000UL oprSz
+  !!ir (reg := reg <+> mask)
 
 let transOprToImm = function
   | OpImm imm
@@ -403,22 +409,26 @@ let abs insInfo insLen ctxt =
   match insInfo.Fmt with
   | Some Fmt.D | Some Fmt.PS ->
     let fdB, fdA = transOprToFPPair ctxt fd
-    let fs = transOprToFPPairConcat ctxt fs |> AST.fneg
+    let fs = transOprToFPPairConcat ctxt fs
+    fpneg ir 64<rt> fs
     dstAssignForFP fdB fdA fs ir
   | _ ->
     let fd, fs = transTwoOprs insInfo ctxt (fd, fs)
-    !!ir (fd := AST.fneg fs)
+    fpneg ir 32<rt> fs
+    !!ir (fd := fs)
   advancePC ctxt ir
   !>ir insLen
 
 let add insInfo insLen ctxt =
   let ir = !*ctxt
-  let lblL0 = !%ir "L0"
-  let lblL1 = !%ir "L1"
-  let lblEnd = !%ir "End"
   !<ir insLen
-  if insInfo.Fmt.IsNone then
-    let rd, rs, rt = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
+  let dst, src1, src2 = getThreeOprs insInfo
+  match insInfo.Fmt with
+  | None ->
+    let lblL0 = !%ir "L0"
+    let lblL1 = !%ir "L1"
+    let lblEnd = !%ir "End"
+    let rd, rs, rt = transThreeOprs insInfo ctxt (dst, src1, src2)
     let result = if is32Bit ctxt then rs .+ rt else signExtLo64 (rs .+ rt)
     let cond = checkOverfolwOnAdd rs rt result
     !!ir (AST.cjmp cond (AST.name lblL0) (AST.name lblL1))
@@ -1565,6 +1575,22 @@ let multu insInfo insLen ctxt =
   advancePC ctxt ir
   !>ir insLen
 
+let neg insInfo insLen ctxt =
+  let ir = !*ctxt
+  let fd, fs = getTwoOprs insInfo
+  !<ir insLen
+  match insInfo.Fmt with
+  | Some Fmt.D | Some Fmt.PS ->
+    let fd, fs = transFPConcatTwoOprs ctxt (fd, fs)
+    fpneg ir 64<rt> fs
+    !!ir (fd := fs)
+  | _ ->
+    let fd, fs = transTwoOprs insInfo ctxt (fd, fs)
+    fpneg ir 32<rt> fs
+    !!ir (fd := fs)
+  advancePC ctxt ir
+  !>ir insLen
+
 let nop insLen ctxt =
   let ir = !*ctxt
   !<ir insLen
@@ -2060,10 +2086,13 @@ let translate insInfo insLen (ctxt: TranslationContext) =
   | Op.MOVF -> movf insInfo insLen ctxt
   | Op.MOVZ -> movzOrn insInfo insLen ctxt (==)
   | Op.MOVN -> movzOrn insInfo insLen ctxt (!=)
+  | Op.MSUB ->  mAddSub insInfo insLen ctxt false
+  | Op.MSUBU -> mAdduSubu insInfo insLen ctxt false
   | Op.MTC1 -> mtc1 insInfo insLen ctxt
   | Op.MUL -> mul insInfo insLen ctxt
   | Op.MULT -> mult insInfo insLen ctxt
   | Op.MULTU -> multu insInfo insLen ctxt
+  | Op.NEG -> neg insInfo insLen ctxt
   | Op.NOP -> nop insLen ctxt
   | Op.NOR -> nor insInfo insLen ctxt
   | Op.OR -> logOr insInfo insLen ctxt
@@ -2106,10 +2135,8 @@ let translate insInfo insLen (ctxt: TranslationContext) =
   | Op.XOR -> logXor insInfo insLen ctxt
   | Op.XORI -> xori insInfo insLen ctxt
   | Op.WSBH -> wsbh insInfo insLen ctxt
-  | Op.BC3F | Op.BC3FL | Op.BC3T | Op.BC3TL | Op.DDIV | Op.DIV
-  | Op.DROTR32 | Op.DROTRV | Op.DSBH | Op.DSHD | Op.J | Op.JAL | Op.LDXC1
-  | Op.LWXC1 | Op.MADDU | Op.MSUB
-  | Op.NEG | Op.ROTRV | Op.SDXC1 | Op.SQRT | Op.SWXC1 ->
+  | Op.BC3F | Op.BC3FL | Op.BC3T | Op.BC3TL | Op.DROTR32 | Op.DROTRV
+  | Op.DSBH | Op.DSHD | Op.LDXC1 | Op.LWXC1 | Op.SDXC1 | Op.SWXC1 ->
     sideEffects insLen ctxt UnsupportedExtension // XXX this is a temporary fix
   | o ->
 #if DEBUG
