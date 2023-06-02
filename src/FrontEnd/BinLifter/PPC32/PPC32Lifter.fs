@@ -232,6 +232,13 @@ let getSPRReg ctxt imm  =
   | 540u | 541u | 542u | 543u | 1013u -> raise UnhandledRegExprException
   | _ -> raise InvalidOperandException
 
+let floatingNeg ir dst src rt =
+  let sign = (AST.xthi 1<rt> src <+> (AST.b1))
+  let tmp = !+ir rt
+  !!ir (tmp := src)
+  !!ir (AST.xthi 1<rt> tmp := sign)
+  !!ir (dst := tmp)
+
 let roundingToCastInt ctxt ir frd frb =
   let fpscr = !.ctxt R.FPSCR
   let rnA = AST.extract fpscr 1<rt> 1
@@ -944,47 +951,47 @@ let fneg ins insLen updateCond ctxt =
   let struct (frd, frb) = transTwoOprs ins ctxt
   let ir = !*ctxt
   !<ir insLen
-  !!ir (frd := AST.fneg frb)
+  floatingNeg ir frd frb 64<rt>
   if updateCond then setCR1Reg ctxt ir else ()
   !>ir insLen
 
-let fnmadd ins insLen updateCond ctxt =
+let fnmadd ins insLen updateCond isDouble ctxt =
   let struct (frd, fra, frc, frb) = transFourOprs ins ctxt
   let ir = !*ctxt
   !<ir insLen
-  !!ir (frd := AST.fneg (AST.fadd (AST.fmul fra frc) frb))
+  if isDouble then
+    let res = !+ir 64<rt>
+    !!ir (res := (AST.fadd (AST.fmul fra frc) frb))
+    floatingNeg ir frd res 64<rt>
+  else
+    let res = !+ir 32<rt>
+    let nres = !+ir 32<rt>
+    let fraS = AST.cast CastKind.FloatCast 32<rt> fra
+    let frcS = AST.cast CastKind.FloatCast 32<rt> frc
+    let frbS = AST.cast CastKind.FloatCast 32<rt> frb
+    !!ir (res := (AST.fadd (AST.fmul fraS frcS) frbS))
+    floatingNeg ir nres res 32<rt>
+    !!ir (frd := AST.cast CastKind.FloatCast 64<rt> nres)
   if updateCond then setCR1Reg ctxt ir else ()
   !>ir insLen
 
-let fnmadds ins insLen updateCond ctxt =
-  let struct (frd, fra, frc, frb) = transFourOprs ins ctxt
-  let ir = !*ctxt
-  let fra = AST.cast CastKind.FloatCast 32<rt> fra
-  let frc = AST.cast CastKind.FloatCast 32<rt> frc
-  let frb = AST.cast CastKind.FloatCast 32<rt> frb
-  !<ir insLen
-  let res = AST.fneg (AST.fadd (AST.fmul fra frc) frb)
-  !!ir (frd := AST.cast CastKind.FloatCast 64<rt> res)
-  if updateCond then setCR1Reg ctxt ir else ()
-  !>ir insLen
-
-let fnmsub ins insLen updateCond ctxt =
+let fnmsub ins insLen updateCond isDouble ctxt =
   let struct (frd, fra, frc, frb) = transFourOprs ins ctxt
   let ir = !*ctxt
   !<ir insLen
-  !!ir (frd := AST.fneg (AST.fsub (AST.fmul fra frc) frb))
-  if updateCond then setCR1Reg ctxt ir else ()
-  !>ir insLen
-
-let fnmsubs ins insLen updateCond ctxt =
-  let struct (frd, fra, frc, frb) = transFourOprs ins ctxt
-  let ir = !*ctxt
-  let fra = AST.cast CastKind.FloatCast 32<rt> fra
-  let frc = AST.cast CastKind.FloatCast 32<rt> frc
-  let frb = AST.cast CastKind.FloatCast 32<rt> frb
-  !<ir insLen
-  let res = AST.fneg (AST.fsub (AST.fmul fra frc) frb)
-  !!ir (frd := AST.cast CastKind.FloatCast 64<rt> res)
+  if isDouble then
+    let res = !+ir 64<rt>
+    !!ir (res := (AST.fsub (AST.fmul fra frc) frb))
+    floatingNeg ir frd res 64<rt>
+  else
+    let res = !+ir 32<rt>
+    let nres = !+ir 32<rt>
+    let fraS = AST.cast CastKind.FloatCast 32<rt> fra
+    let frcS = AST.cast CastKind.FloatCast 32<rt> frc
+    let frbS = AST.cast CastKind.FloatCast 32<rt> frb
+    !!ir (res := (AST.fadd (AST.fmul fraS frcS) frbS))
+    floatingNeg ir nres res 32<rt>
+    !!ir (frd := AST.cast CastKind.FloatCast 64<rt> nres)
   if updateCond then setCR1Reg ctxt ir else ()
   !>ir insLen
 
@@ -2265,14 +2272,14 @@ let translate (ins: InsInfo) insLen (ctxt: TranslationContext) =
   | Op.FNABSdot -> fnabs ins insLen true ctxt
   | Op.FNEG -> fneg ins insLen false ctxt
   | Op.FNEGdot -> fneg ins insLen true ctxt
-  | Op.FNMADD -> fnmadd ins insLen false ctxt
-  | Op.FNMADDdot -> fnmadd ins insLen true ctxt
-  | Op.FNMADDS -> fnmadds ins insLen false ctxt
-  | Op.FNMADDSdot -> fnmadds ins insLen true ctxt
-  | Op.FNMSUB -> fnmsub ins insLen false ctxt
-  | Op.FNMSUBdot -> fnmsub ins insLen true ctxt
-  | Op.FNMSUBS -> fnmsubs ins insLen false ctxt
-  | Op.FNMSUBSdot -> fnmsubs ins insLen true ctxt
+  | Op.FNMADD -> fnmadd ins insLen false true ctxt
+  | Op.FNMADDdot -> fnmadd ins insLen true true ctxt
+  | Op.FNMADDS -> fnmadd ins insLen false false ctxt
+  | Op.FNMADDSdot -> fnmadd ins insLen true false ctxt
+  | Op.FNMSUB -> fnmsub ins insLen false true ctxt
+  | Op.FNMSUBdot -> fnmsub ins insLen true true ctxt
+  | Op.FNMSUBS -> fnmsub ins insLen false false ctxt
+  | Op.FNMSUBSdot -> fnmsub ins insLen true false ctxt
   | Op.FSEL -> fsel ins insLen false ctxt
   | Op.FSELdot -> fsel ins insLen true ctxt
   | Op.FSUB -> fsub ins insLen false true ctxt

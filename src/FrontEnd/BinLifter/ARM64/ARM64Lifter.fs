@@ -1241,18 +1241,31 @@ let fmul ins insLen ctxt addr =
     dstAssignForSIMD dstA dstB result dataSize elements ir
   !>ir insLen
 
+let fpneg reg eSize =
+  let mask =
+    match eSize with
+    | 16<rt> -> numU64 0x8000UL eSize (* ARMv8.2 *)
+    | 32<rt> -> numU64 0x80000000UL eSize
+    | 64<rt> -> numU64 0x8000000000000000UL eSize
+    | _ -> raise InvalidOperandSizeException
+  reg <+> mask
+
 let fneg ins insLen ctxt addr =
   let ir = !*ctxt
   !<ir insLen
   match ins.Operands with
   | TwoOperands (OprSIMD (SIMDFPScalarReg _) as dst, src) ->
+    let struct (eSize, _, _) = getElemDataSzAndElems src
     let src = transOprToExpr ins ctxt addr src
-    dstAssignScalar ins ctxt addr dst (AST.fneg src) ins.OprSize ir
+    let t = !+ir eSize
+    !!ir (t := fpneg src eSize)
+    dstAssignScalar ins ctxt addr dst t ins.OprSize ir
   | TwoOperands (OprSIMD (SIMDVecReg _) as dst, src) ->
     let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
     let dstB, dstA = transOprToExpr128 ins ctxt addr dst
     let src = transSIMDOprToExpr ctxt eSize dataSize elements src
-    let result = Array.map (AST.fneg) src
+    let result = Array.init elements (fun _ -> !+ir eSize)
+    Array.iter2 (fun dst src -> !!ir (dst := fpneg src eSize)) result src
     dstAssignForSIMD dstA dstB result dataSize elements ir
   | _ -> raise InvalidOperandException
   !>ir insLen
@@ -1260,18 +1273,24 @@ let fneg ins insLen ctxt addr =
 let fnmsub ins insLen ctxt addr =
   let ir = !*ctxt
   !<ir insLen
-  let struct (dst, _, _, _) = getFourOprs ins
+  let struct (dst, _, _, src) = getFourOprs ins
   let _, src1, src2, src3 = transFourOprs ins ctxt addr
-  let result = AST.fadd (AST.fneg src3) (AST.fmul src1 src2)
+  let struct (eSize, _, _) = getElemDataSzAndElems src
+  let t = !+ir eSize
+  !!ir (t := fpneg src3 eSize)
+  let result = AST.fadd t (AST.fmul src1 src2)
   dstAssignScalar ins ctxt addr dst result ins.OprSize ir
   !>ir insLen
 
 let fnmul ins insLen ctxt addr =
   let ir = !*ctxt
   !<ir insLen
-  let struct (dst, _, _) = getThreeOprs ins
+  let struct (dst, _, src) = getThreeOprs ins
   let _, src1, src2 = transThreeOprs ins ctxt addr
-  let result = AST.fneg (AST.fmul src1 src2)
+  let struct (eSize, _, _) = getElemDataSzAndElems src
+  let result = !+ir eSize
+  !!ir (result := AST.fmul src1 src2)
+  !!ir (result := fpneg result eSize)
   dstAssignScalar ins ctxt addr dst result ins.OprSize ir
   !>ir insLen
 
