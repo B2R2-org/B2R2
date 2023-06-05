@@ -164,10 +164,8 @@ let fd b = getFRegFrom106 b |> OpReg
 let fr b = getFRegFrom2521 b |> OpReg
 
 let cc10 b = extract b 10u 8u |> uint64 |> OpImm
-  // FIXME: Floating Point cond code CC.
 
 let cc20 b = extract b 20u 18u |> uint64 |> OpImm
-  // FIXME: Floating Point cond code CC.
 
 let sa b = extract b 10u 6u |> uint64 |> OpShiftAmount
 

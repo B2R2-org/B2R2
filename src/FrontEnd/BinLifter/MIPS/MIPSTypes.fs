@@ -773,11 +773,16 @@ and AccessLength = RegType
 and Label = string
 
 type RoundMode =
-  | FPRounding_TIEEVEN
-  | FPRounding_TIEAWAY
-  | FPRounding_Zero
-  | FPRounding_POSINF
-  | FPRounding_NEGINF
+  // Round to Nearest, ties to Even
+  | RNE
+  // Round towards Zero
+  | RTZ
+  // Round Down
+  | RDN
+  // Round Up
+  | RUP
+  // Round to Nearest, ties to Max Magnitude
+  | RMM
 
 type Operands =
   | NoOperand

@@ -896,11 +896,11 @@ let dclz insInfo insLen ctxt =
   !!ir (t := n63)
   !!ir (AST.lmark lblLoop)
   !!ir (AST.cjmp (rs >> t == AST.num1 wordSz)
-                       (AST.name lblEnd) (AST.name lblContinue))
+                   (AST.name lblEnd) (AST.name lblContinue))
   !!ir (AST.lmark lblContinue)
   !!ir (t := t .- AST.num1 wordSz)
   !!ir (AST.cjmp (t == numI64 -1 wordSz)
-                       (AST.name lblEnd) (AST.name lblLoop))
+                   (AST.name lblEnd) (AST.name lblLoop))
   !!ir (AST.lmark lblEnd)
   !!ir (rd := n63 .- t)
   advancePC ctxt ir
