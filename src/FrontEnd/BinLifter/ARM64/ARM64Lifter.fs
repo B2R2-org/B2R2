@@ -1091,24 +1091,6 @@ let fcvtzs ins insLen ctxt addr =
 let fcvtzu ins insLen ctxt addr =
   fpConvert ins insLen ctxt addr true FPRounding_Zero
 
-let isInfinity sz x =
-  match sz with
-  | 32<rt> -> IEEE754Single.isInfinity x
-  | 64<rt> -> IEEE754Double.isInfinity x
-  | _ -> Utils.impossible ()
-
-let isZero sz x =
-  match sz with
-  | 32<rt> -> IEEE754Single.isZero x
-  | 64<rt> -> IEEE754Double.isZero x
-  | _ -> Utils.impossible ()
-
-let defaultNaN sz =
-  match sz with
-  | 32<rt> -> numU32 0x7fc00000u 32<rt>
-  | 64<rt> -> numU64 0x7ff8000000000000UL 64<rt>
-  | _ -> Utils.impossible ()
-
 let fdiv ins insLen ctxt addr =
   let ir = !*ctxt
   !<ir insLen
@@ -1126,7 +1108,7 @@ let fdiv ins insLen ctxt addr =
     let tmpRes = !+ir eSize
     !!ir (AST.cjmp invalidOp (AST.name lblInv) (AST.name lblVal))
     !!ir (AST.lmark lblInv)
-    !!ir (tmpRes := defaultNaN eSize)
+    !!ir (tmpRes := fpDefaultNan eSize)
     !!ir (AST.jmp (AST.name lblEnd))
     !!ir (AST.lmark lblVal)
     !!ir (tmpRes := AST.fdiv src1 src2)
@@ -1312,19 +1294,29 @@ let getIntRoundMode src oprSz ctxt =
         (AST.cast CastKind.FtoIFloor oprSz src) // 2 RP
         (AST.cast CastKind.FtoITrunc oprSz src))) // 3 RM
 
+let private fpType ctxt cast eSize element =
+  AST.ite (isNaN eSize element)
+    (fpProcessNan ctxt eSize element)
+    (AST.ite (isInfinity eSize element)
+       (fpDefaultInfinity element eSize)
+       (AST.ite (isZero eSize element)
+          (fpZero element eSize)
+          (AST.cast cast eSize element)))
+
 let private fpRoundToInt ins insLen ctxt addr cast =
   let ir = !*ctxt
   !<ir insLen
   match ins.Operands with
   | TwoOperands (OprSIMD (SIMDFPScalarReg _) as dst, src) ->
+    let struct (eSize, _, _) = getElemDataSzAndElems dst
     let src = transOprToExpr ins ctxt addr src
-    let result = AST.cast cast ins.OprSize src
-    dstAssignScalar ins ctxt addr dst result ins.OprSize ir
+    let result = fpType ctxt cast eSize src
+    dstAssignScalar ins ctxt addr dst result eSize ir
   | TwoOperands (OprSIMD (SIMDVecReg _ ) as dst, src) ->
     let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
     let dstB, dstA = transOprToExpr128 ins ctxt addr dst
     let src = transSIMDOprToExpr ctxt eSize dataSize elements src
-    let result = Array.map (AST.cast cast eSize) src
+    let result = Array.map (fpType ctxt cast eSize) src
     dstAssignForSIMD dstA dstB result dataSize elements ir
   | _ -> raise InvalidOperandException
   !>ir insLen

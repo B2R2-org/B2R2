@@ -923,6 +923,53 @@ let fpRoundingToInt src oprSz ctxt =
           (AST.cast CastKind.FtoITrunc oprSz src) // 3 RZ
           (AST.cast CastKind.FtoIRound oprSz src))))
 
+/// shared/functions/float/fpdefaultnan/FPDefaultNan
+/// FPDefaultNan()
+let fpDefaultNan fbit =
+  match fbit with
+  | 64<rt> -> numU64 0x7ff8000000000000UL 64<rt>
+  | 32<rt> -> numU64 0x7fc00000UL 32<rt>
+  | 16<rt> -> numU64 0x7e00UL 16<rt>
+  | _ -> raise InvalidOperandException
+
+/// shared/functions/float/fpinfinity/FPInfinity
+/// FPInfinity()
+let fpDefaultInfinity src fbit =
+  match fbit with
+  | 64<rt> ->
+    let signbit = src .& numU64 0x8000000000000000UL 64<rt>
+    signbit .& (numU64 0x7ff0000000000000UL 64<rt>)
+  | 32<rt> ->
+    let signbit = src .& numU64 0x80000000UL 32<rt>
+    signbit .& numU64 0x7f800000UL 32<rt>
+  | 16<rt> ->
+    let signbit = src .& numU64 0x8000UL 16<rt>
+    signbit .& numU64 0x7c00UL 16<rt>
+  | _ -> raise InvalidOperandException
+
+/// shared/functions/float/fpzero/FPZero
+/// FPZero()
+let fpZero src fbit =
+  match fbit with
+  | 64<rt> -> src .& numU64 0x8000000000000000UL 64<rt>
+  | 32<rt> -> src .& numU64 0x80000000UL 32<rt>
+  | 16<rt> -> src .& numU64 0x8000UL 16<rt>
+  | _ -> raise InvalidOperandException
+
+///shared/functions/float/fpprocessnan/FPProcessNaN
+/// FPProcessNaN()
+let fpProcessNan ctxt eSize element =
+  let fpcr = getRegVar ctxt R.FPCR
+  let dnBit = AST.extract fpcr 1<rt> 25
+  let topfrac =
+    match eSize with
+    | 64<rt> -> numU64 0x8000000000000UL 64<rt>
+    | 32<rt> -> numU64 0x400000UL 32<rt>
+    | 16<rt> -> numU64 0x100UL 16<rt>
+    | _ -> raise InvalidOperandException
+  AST.ite dnBit (fpDefaultNan eSize)
+    (AST.ite (isSNaN eSize element) (element .| topfrac) element)
+
 /// shared/functions/float/FPToFixed
 /// FPToFixed()
 /// ======
