@@ -1013,9 +1013,16 @@ let fcsel ins insLen ctxt addr =
 let fcvt ins insLen ctxt addr =
   let ir = !*ctxt
   !<ir insLen
-  let dst, src = transTwoOprs ins ctxt addr
-  let oprSize = ins.OprSize
-  dstAssign oprSize dst (AST.cast CastKind.FloatCast oprSize src) ir
+  match ins.Operands with
+  | TwoOperands (OprSIMD (SIMDFPScalarReg _) as o1, o2) ->
+    let struct (eSize, _, _) = getElemDataSzAndElems o1
+    let src = transOprToExpr ins ctxt addr o2
+    let result = AST.cast CastKind.FloatCast eSize src
+    dstAssignScalar ins ctxt addr o1 result eSize ir
+  | _ ->
+    let dst, src = transTwoOprs ins ctxt addr
+    let oprSize = ins.OprSize
+    dstAssign oprSize dst (AST.cast CastKind.FloatCast oprSize src) ir
   !>ir insLen
 
 let private fpConvert ins insLen ctxt addr isUnsigned round =
