@@ -33,6 +33,7 @@ type internal RegExprs (wordSize) =
 
   (* Registers *)
   let regType = WordSize.toRegType wordSize
+  let regTypeFP = 32<rt>
 
   member val R0 = var regType (Register.toRegID Register.R0) "R0" with get
   member val R1 = var regType (Register.toRegID Register.R1) "R1" with get
@@ -67,38 +68,39 @@ type internal RegExprs (wordSize) =
   member val R30 = var regType (Register.toRegID Register.R30) "R30" with get
   member val R31 = var regType (Register.toRegID Register.R31) "R31" with get
 
-  member val F0 = var regType (Register.toRegID Register.F0) "F0" with get
-  member val F1 = var regType (Register.toRegID Register.F1) "F1" with get
-  member val F2 = var regType (Register.toRegID Register.F2) "F2" with get
-  member val F3 = var regType (Register.toRegID Register.F3) "F3" with get
-  member val F4 = var regType (Register.toRegID Register.F4) "F4" with get
-  member val F5 = var regType (Register.toRegID Register.F5) "F5" with get
-  member val F6 = var regType (Register.toRegID Register.F6) "F6" with get
-  member val F7 = var regType (Register.toRegID Register.F7) "F7" with get
-  member val F8 = var regType (Register.toRegID Register.F8) "F8" with get
-  member val F9 = var regType (Register.toRegID Register.F9) "F9" with get
-  member val F10 = var regType (Register.toRegID Register.F10) "F10" with get
-  member val F11 = var regType (Register.toRegID Register.F11) "F11" with get
-  member val F12 = var regType (Register.toRegID Register.F12) "F12" with get
-  member val F13 = var regType (Register.toRegID Register.F13) "F13" with get
-  member val F14 = var regType (Register.toRegID Register.F14) "F14" with get
-  member val F15 = var regType (Register.toRegID Register.F15) "F15" with get
-  member val F16 = var regType (Register.toRegID Register.F16) "F16" with get
-  member val F17 = var regType (Register.toRegID Register.F17) "F17" with get
-  member val F18 = var regType (Register.toRegID Register.F18) "F18" with get
-  member val F19 = var regType (Register.toRegID Register.F19) "F19" with get
-  member val F20 = var regType (Register.toRegID Register.F20) "F20" with get
-  member val F21 = var regType (Register.toRegID Register.F21) "F21" with get
-  member val F22 = var regType (Register.toRegID Register.F22) "F22" with get
-  member val F23 = var regType (Register.toRegID Register.F23) "F23" with get
-  member val F24 = var regType (Register.toRegID Register.F24) "F24" with get
-  member val F25 = var regType (Register.toRegID Register.F25) "F25" with get
-  member val F26 = var regType (Register.toRegID Register.F26) "F26" with get
-  member val F27 = var regType (Register.toRegID Register.F27) "F27" with get
-  member val F28 = var regType (Register.toRegID Register.F28) "F28" with get
-  member val F29 = var regType (Register.toRegID Register.F29) "F29" with get
-  member val F30 = var regType (Register.toRegID Register.F30) "F30" with get
-  member val F31 = var regType (Register.toRegID Register.F31) "F31" with get
+  member val F0 = var regTypeFP (Register.toRegID Register.F0) "F0" with get
+  member val F1 = var regTypeFP (Register.toRegID Register.F1) "F1" with get
+  member val F2 = var regTypeFP (Register.toRegID Register.F2) "F2" with get
+  member val F3 = var regTypeFP (Register.toRegID Register.F3) "F3" with get
+  member val F4 = var regTypeFP (Register.toRegID Register.F4) "F4" with get
+  member val F5 = var regTypeFP (Register.toRegID Register.F5) "F5" with get
+  member val F6 = var regTypeFP (Register.toRegID Register.F6) "F6" with get
+  member val F7 = var regTypeFP (Register.toRegID Register.F7) "F7" with get
+  member val F8 = var regTypeFP (Register.toRegID Register.F8) "F8" with get
+  member val F9 = var regTypeFP (Register.toRegID Register.F9) "F9" with get
+  member val F10 = var regTypeFP (Register.toRegID Register.F10) "F10" with get
+  member val F11 = var regTypeFP (Register.toRegID Register.F11) "F11" with get
+  member val F12 = var regTypeFP (Register.toRegID Register.F12) "F12" with get
+  member val F13 = var regTypeFP (Register.toRegID Register.F13) "F13" with get
+  member val F14 = var regTypeFP (Register.toRegID Register.F14) "F14" with get
+  member val F15 = var regTypeFP (Register.toRegID Register.F15) "F15" with get
+  member val F16 = var regTypeFP (Register.toRegID Register.F16) "F16" with get
+  member val F17 = var regTypeFP (Register.toRegID Register.F17) "F17" with get
+  member val F18 = var regTypeFP (Register.toRegID Register.F18) "F18" with get
+  member val F19 = var regTypeFP (Register.toRegID Register.F19) "F19" with get
+  member val F20 = var regTypeFP (Register.toRegID Register.F20) "F20" with get
+  member val F21 = var regTypeFP (Register.toRegID Register.F21) "F21" with get
+  member val F22 = var regTypeFP (Register.toRegID Register.F22) "F22" with get
+  member val F23 = var regTypeFP (Register.toRegID Register.F23) "F23" with get
+  member val F24 = var regTypeFP (Register.toRegID Register.F24) "F24" with get
+  member val F25 = var regTypeFP (Register.toRegID Register.F25) "F25" with get
+  member val F26 = var regTypeFP (Register.toRegID Register.F26) "F26" with get
+  member val F27 = var regTypeFP (Register.toRegID Register.F27) "F27" with get
+  member val F28 = var regTypeFP (Register.toRegID Register.F28) "F28" with get
+  member val F29 = var regTypeFP (Register.toRegID Register.F29) "F29" with get
+  member val F30 = var regTypeFP (Register.toRegID Register.F30) "F30" with get
+  member val F31 = var regTypeFP (Register.toRegID Register.F31) "F31" with get
+  member val F32 = var regTypeFP (Register.toRegID Register.F32) "F32" with get
 
   member val HI = var regType (Register.toRegID Register.HI) "HI" with get
   member val LO = var regType (Register.toRegID Register.LO) "LO" with get
@@ -180,6 +182,7 @@ type internal RegExprs (wordSize) =
     | R.F29 -> __.F29
     | R.F30 -> __.F30
     | R.F31 -> __.F31
+    | R.F32 -> __.F32
     | R.FCSR -> __.FCSR
     | R.FIR -> __.FIR
     | _ -> raise UnhandledRegExprException
