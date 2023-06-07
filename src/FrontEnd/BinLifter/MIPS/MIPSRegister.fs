@@ -157,6 +157,8 @@ type Register =
   | F30 = 0x3E
   /// Floating point Register.
   | F31 = 0x3F
+  /// Floating point Register (temp).
+  | F32 = 0x40
   /// Accumulator High (Acc 63:32)
   | HI = 0x100
   /// Accumulator Low (Acc 31:0)
@@ -168,6 +170,10 @@ type Register =
   /// Pseudo register for LLBit. This is used to store the actual LLBit value
   /// from the CPU after an exception.
   | LLBit = 0x104
+  /// Floating Point Control and Status Register.
+  | FCSR = 0x105
+  /// Floating Point Implementation Register.
+  | FIR = 0x106
 
 /// Shortcut for Register type.
 type internal R = Register
@@ -251,10 +257,13 @@ module Register =
     | "f29" -> R.F29
     | "f30" -> R.F30
     | "f31" -> R.F31
+    | "f32" -> R.F32
     | "hi" -> R.HI
     | "lo" -> R.LO
     | "pc" -> R.PC
     | "llbit" -> R.LLBit
+    | "fcsr" -> R.FCSR
+    | "fir" -> R.FIR
     | _ -> Utils.impossible ()
 
   let toString32 = function
@@ -322,10 +331,13 @@ module Register =
     | R.F29 -> "f29"
     | R.F30 -> "f30"
     | R.F31 -> "f31"
+    | R.F32 -> "f32"
     | R.HI  -> "hi"
     | R.LO  -> "lo"
     | R.PC  -> "pc"
     | R.LLBit -> "LLBit"
+    | R.FCSR -> "fcsr"
+    | R.FIR -> "fir"
     | _ -> Utils.impossible ()
 
   let toString64 = function
@@ -393,8 +405,46 @@ module Register =
     | R.F29 -> "f29"
     | R.F30 -> "f30"
     | R.F31 -> "f31"
+    | R.F32 -> "f32"
     | R.HI  -> "hi"
     | R.LO  -> "lo"
     | R.PC  -> "pc"
     | R.LLBit -> "LLBit"
+    | R.FCSR -> "fcsr"
+    | R.FIR -> "fir"
+    | _ -> Utils.impossible ()
+
+  let getFPPairReg = function
+    | R.F0 -> R.F1
+    | R.F1 -> R.F2
+    | R.F2 -> R.F3
+    | R.F3 -> R.F4
+    | R.F4 -> R.F5
+    | R.F5 -> R.F6
+    | R.F6 -> R.F7
+    | R.F7 -> R.F8
+    | R.F8 -> R.F9
+    | R.F9 -> R.F10
+    | R.F10 -> R.F11
+    | R.F11 -> R.F12
+    | R.F12 -> R.F13
+    | R.F13 -> R.F14
+    | R.F14 -> R.F15
+    | R.F15 -> R.F16
+    | R.F16 -> R.F17
+    | R.F17 -> R.F18
+    | R.F18 -> R.F19
+    | R.F19 -> R.F20
+    | R.F20 -> R.F21
+    | R.F21 -> R.F22
+    | R.F22 -> R.F23
+    | R.F23 -> R.F24
+    | R.F24 -> R.F25
+    | R.F25 -> R.F26
+    | R.F26 -> R.F27
+    | R.F27 -> R.F28
+    | R.F28 -> R.F29
+    | R.F29 -> R.F30
+    | R.F30 -> R.F31
+    | R.F31 -> R.F32
     | _ -> Utils.impossible ()

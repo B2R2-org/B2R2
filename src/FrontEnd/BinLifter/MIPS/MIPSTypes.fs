@@ -772,6 +772,18 @@ and Base = Register
 and AccessLength = RegType
 and Label = string
 
+type RoundMode =
+  // Round to Nearest, ties to Even
+  | RNE
+  // Round towards Zero
+  | RTZ
+  // Round Down
+  | RDN
+  // Round Up
+  | RUP
+  // Round to Nearest, ties to Max Magnitude
+  | RMM
+
 type Operands =
   | NoOperand
   | OneOperand of Operand
