@@ -59,20 +59,60 @@ let transOprToExpr insInfo ctxt = function
     numI64 (int64 insInfo.Address + o) ctxt.WordBitSize
   | GoToLabel _ -> raise InvalidOperandException
 
+let private is32Bit (ctxt: TranslationContext) = ctxt.WordBitSize = 32<rt>
+
+let private transOprToFPConvert (dstFmt: InsInfo) ctxt = function
+  | OpReg reg ->
+    if is32Bit ctxt then getRegVar ctxt reg
+    else
+      match dstFmt.Fmt with
+      | Some Fmt.S | Some Fmt.W -> getRegVar ctxt reg |> AST.xtlo 32<rt>
+      | Some Fmt.D | Some Fmt.L -> getRegVar ctxt reg
+      | _ -> raise InvalidOperandException
+  | _ -> raise InvalidOperandException
+
+let private transOprToFP ctxt = function
+  | OpReg reg ->
+    if is32Bit ctxt then getRegVar ctxt reg
+    else getRegVar ctxt reg |> AST.xtlo 32<rt>
+  | _ -> raise InvalidOperandException
+
+let private transTwoFP ctxt (o1, o2) =
+  transOprToFP ctxt o1, transOprToFP ctxt o2
+
+let private transThreeFP ctxt (o1, o2, o3) =
+  transOprToFP ctxt o1, transOprToFP ctxt o2, transOprToFP ctxt o3
+
+let private transFourFP ctxt (o1, o2, o3, o4) =
+  transOprToFP ctxt o1, transOprToFP ctxt o2, transOprToFP ctxt o3,
+  transOprToFP ctxt o4
+
+let transTwoOprFPConvert insInfo ctxt (o1, o2) =
+  transOprToFPConvert insInfo ctxt o1, transOprToFPConvert insInfo ctxt o2
+
 let private transOprToFPPair ctxt = function
-  | OpReg reg -> getRegVar ctxt (Register.getFPPairReg reg), getRegVar ctxt reg
+  | OpReg reg ->
+    if is32Bit ctxt then
+      getRegVar ctxt (Register.getFPPairReg reg), getRegVar ctxt reg
+    else AST.b0, getRegVar ctxt reg
   | _ -> raise InvalidOperandException
 
 let private transOprToFPPairConcat ctxt = function
   | OpReg reg ->
-    AST.concat (getRegVar ctxt (Register.getFPPairReg reg)) (getRegVar ctxt reg)
+    if is32Bit ctxt then
+      AST.concat (getRegVar ctxt (Register.getFPPairReg reg))
+        (getRegVar ctxt reg)
+    else getRegVar ctxt reg
   | _ -> raise InvalidOperandException
 
-let private dstAssignForFP dstB dstA result ir =
-  let srcB = AST.xthi 32<rt> result
-  let srcA = AST.xtlo 32<rt> result
-  !!ir (dstA := srcA)
-  !!ir (dstB := srcB)
+let private dstAssignForFP dstB dstA result ctxt ir =
+  if is32Bit ctxt then
+    let srcB = AST.xthi 32<rt> result
+    let srcA = AST.xtlo 32<rt> result
+    !!ir (dstA := srcA)
+    !!ir (dstB := srcB)
+  else
+    !!ir (dstA := result)
 
 let private fpneg ir oprSz reg =
   let mask =
@@ -249,9 +289,6 @@ let sideEffects insLen ctxt name =
   !!ir (AST.sideEffect name)
   !>ir insLen
 
-let private elem vector e size =
-  AST.extract vector (RegType.fromBitWidth size) (e * size)
-
 let checkOverfolwOnAdd e1 e2 r =
   let e1High = AST.extract e1 1<rt> 31
   let e2High = AST.extract e2 1<rt> 31
@@ -368,8 +405,6 @@ let updatePCCond ctxt offset cond kind ir =
   !!ir (nPC := pc .+ numI32 8 ctxt.WordBitSize)
   !!ir (AST.lmark lblEnd)
 
-let private is32Bit (ctxt: TranslationContext) = ctxt.WordBitSize = 32<rt>
-
 let private signExtLo64 expr = AST.xtlo 32<rt> expr |> AST.sext 64<rt>
 
 let private signExtHi64 expr = AST.xthi 32<rt> expr |> AST.sext 64<rt>
@@ -422,9 +457,9 @@ let abs insInfo insLen ctxt =
     let fdB, fdA = transOprToFPPair ctxt fd
     let fs = transOprToFPPairConcat ctxt fs
     fpneg ir 64<rt> fs
-    dstAssignForFP fdB fdA fs ir
+    dstAssignForFP fdB fdA fs ctxt ir
   | _ ->
-    let fd, fs = transTwoOprs insInfo ctxt (fd, fs)
+    let fd, fs = transTwoFP ctxt (fd, fs)
     fpneg ir 32<rt> fs
     !!ir (fd := fs)
   advancePC ctxt ir
@@ -450,7 +485,7 @@ let add insInfo insLen ctxt =
     !!ir (rd := result)
     !!ir (AST.lmark lblEnd)
   | Some Fmt.S ->
-    let fd, fs, ft = transThreeOprs insInfo ctxt (dst, src1, src2)
+    let fd, fs, ft = transThreeFP ctxt (dst, src1, src2)
     let result = !+ir 32<rt>
     !!ir (result := AST.fadd ft fs)
     normalizeValue 32<rt> result ir
@@ -461,7 +496,7 @@ let add insInfo insLen ctxt =
     let result = !+ir 64<rt>
     !!ir (result := AST.fadd fs ft)
     normalizeValue 64<rt> result ir
-    dstAssignForFP fdB fdA result ir
+    dstAssignForFP fdB fdA result ctxt ir
   advancePC ctxt ir
   !>ir insLen
 
@@ -661,7 +696,7 @@ let private getCCondOpr insInfo ctxt =
       let fs, ft = transFPConcatTwoOprs ctxt (fs, ft)
       64<rt>, 0, fs, ft
     | _ ->
-      let fs, ft = transTwoOprs insInfo ctxt (fs, ft)
+      let fs, ft = transTwoFP ctxt (fs, ft)
       32<rt>, 0, fs, ft
   | ThreeOperands (cc, fs, ft) ->
     match insInfo.Fmt with
@@ -671,7 +706,7 @@ let private getCCondOpr insInfo ctxt =
       64<rt>, cc, fs, ft
     | _ ->
       let cc = transOprToImmToInt cc
-      let fs, ft = transTwoOprs insInfo ctxt (fs, ft)
+      let fs, ft = transTwoFP ctxt (fs, ft)
       32<rt>, cc, fs, ft
   | _ -> raise InvalidOperandException
 
@@ -759,16 +794,16 @@ let cvtd insInfo insLen ctxt =
   !<ir insLen
   match insInfo.Fmt with
   | Some Fmt.W ->
-    let fs = transOprToExpr insInfo ctxt fs
+    let fs = transOprToFPConvert insInfo ctxt fs
     !!ir (result := AST.cast CastKind.SIntToFloat 64<rt> fs)
   | Some Fmt.S ->
-    let fs = transOprToExpr insInfo ctxt fs
+    let fs = transOprToFPConvert insInfo ctxt fs
     !!ir (result := AST.cast CastKind.FloatCast 64<rt> fs)
   | _ ->
     let fs = transOprToFPPairConcat ctxt fs
-    !!ir (result := fs)
+    !!ir (result := AST.cast CastKind.SIntToFloat 64<rt> fs)
   normalizeValue 64<rt> result ir
-  dstAssignForFP fdB fdA result ir
+  dstAssignForFP fdB fdA result ctxt ir
   advancePC ctxt ir
   !>ir insLen
 
@@ -781,12 +816,12 @@ let cvtw insInfo insLen ctxt =
     !<ir insLen
     match insInfo.Fmt with
     | Some Fmt.S ->
-      let dst, src = transTwoOprs insInfo ctxt (fd, fs)
+      let dst, src = transTwoOprFPConvert insInfo ctxt (fd, fs)
       let inf = isInfinity32 src
       let nan = isNaN32 src
       dst, src, inf, nan
     | _ ->
-      let dst = transOprToExpr insInfo ctxt fd
+      let dst = transOprToFPConvert insInfo ctxt fd
       let src = transOprToFPPairConcat ctxt fs
       let inf = isInfinity64 src
       let nan = isNaN64 src
@@ -808,7 +843,7 @@ let cvtl insInfo insLen ctxt =
   let struct (src, inf, nan) =
     match insInfo.Fmt with
     | Some Fmt.S ->
-      let src = transOprToExpr insInfo ctxt fs
+      let src = transOprToFPConvert insInfo ctxt fs
       let inf = isInfinity32 src
       let nan = isNaN32 src
       src, inf, nan
@@ -820,14 +855,15 @@ let cvtl insInfo insLen ctxt =
   !!ir (eval := roundToInt ctxt src 64<rt>)
   let outOfRange = AST.sgt eval intMax .| AST.slt eval intMin
   !!ir (eval := AST.ite (outOfRange .| inf .| nan) intMax eval)
-  dstAssignForFP fdB fdA eval ir
+  dstAssignForFP fdB fdA eval ctxt ir
   advancePC ctxt ir
   !>ir insLen
 
 let cvts insInfo insLen ctxt =
   let ir = !*ctxt
   let fd, fs = getTwoOprs insInfo
-  let fd = transOprToExpr insInfo ctxt fd
+  let fd = transOprToFPConvert insInfo ctxt fd
+  let dst = if is32Bit ctxt then fd else AST.xtlo 32<rt> fd
   let result = !+ir 32<rt>
   !<ir insLen
   match insInfo.Fmt with
@@ -838,10 +874,10 @@ let cvts insInfo insLen ctxt =
     let fs = transOprToFPPairConcat ctxt fs
     !!ir (result := AST.cast CastKind.FloatCast 32<rt> fs)
   | _ ->
-    let fs = transOprToExpr insInfo ctxt fs
+    let fs = transOprToFPConvert insInfo ctxt fs
     !!ir (result := AST.cast CastKind.SIntToFloat 32<rt> fs)
   normalizeValue 32<rt> result ir
-  !!ir (fd := result)
+  !!ir (dst := result)
   advancePC ctxt ir
   !>ir insLen
 
@@ -938,7 +974,7 @@ let dmtc1 insInfo insLen ctxt =
   let rt, fs = getTwoOprs insInfo
   let rt = transOprToExpr insInfo ctxt rt
   let fsB, fsA = transOprToFPPair ctxt fs
-  dstAssignForFP fsB fsA rt ir
+  dstAssignForFP fsB fsA rt ctxt ir
   advancePC ctxt ir
   !>ir insLen
 
@@ -1098,10 +1134,10 @@ let div insInfo insLen ctxt =
     let result = !+ir 64<rt>
     !!ir (result := AST.fdiv fs ft)
     divNormal 64<rt> fs ft result ir
-    dstAssignForFP fdB fdA result ir
+    dstAssignForFP fdB fdA result ctxt ir
   | _ ->
     let fd, fs, ft = getThreeOprs insInfo
-    let fd, fs, ft = transThreeOprs insInfo ctxt (fd, fs, ft)
+    let fd, fs, ft = transThreeFP ctxt (fd, fs, ft)
     let result = !+ir 32<rt>
     !!ir (result := AST.fdiv fs ft)
     divNormal 32<rt> fs ft result ir
@@ -1344,18 +1380,21 @@ let private transMem64 (ctxt: TranslationContext) = function
 let sldc1 insInfo insLen ctxt stORld =
   let ir = !*ctxt
   let ft, mem = getTwoOprs insInfo
+  let ftB, ftA = transOprToFPPair ctxt ft
   let mem = transMem64 ctxt mem (* FIXME *)
   !<ir insLen
-  let ftB, ftA = transOprToFPPair ctxt ft
-  if stORld then !!ir (mem := AST.concat ftB ftA)
-  else dstAssignForFP ftB ftA mem ir
+  if stORld then
+    !!ir (mem := if is32Bit ctxt then AST.concat ftB ftA else ftA)
+  else dstAssignForFP ftB ftA mem ctxt ir
   advancePC ctxt ir
   !>ir insLen
 
 let slwc1 insInfo insLen ctxt stORld =
   let ir = !*ctxt
   let ft, mem = getTwoOprs insInfo
-  let ft, mem = transTwoOprs insInfo ctxt (ft, mem)
+  let ft = transOprToFP ctxt ft
+  let mem = transOprToExpr insInfo ctxt mem
+  let ft = if is32Bit ctxt then ft else AST.xtlo 32<rt> ft
   !<ir insLen
   if stORld then !!ir (mem := ft) else !!ir (ft := mem)
   advancePC ctxt ir
@@ -1417,10 +1456,10 @@ let mAddSub insInfo insLen ctxt opFn =
     let fdB, fdA = transOprToFPPair ctxt fd
     let fr, fs, ft = transFPConcatThreeOprs ctxt (fr, fs, ft)
     let result = op (AST.fmul fs ft) fr
-    dstAssignForFP fdB fdA result ir
+    dstAssignForFP fdB fdA result ctxt ir
   | _ ->
     let op = if opFn then AST.fadd else AST.fsub
-    let fd, fr, fs, ft = getFourOprs insInfo |> transFourOprs insInfo ctxt
+    let fd, fr, fs, ft = getFourOprs insInfo |> transFourFP ctxt
     let result = op (AST.fmul fs ft) fr
     !!ir (fd := result)
   advancePC ctxt ir
@@ -1506,9 +1545,9 @@ let mfc1 insInfo insLen ctxt =
   let ir = !*ctxt
   let rt, fs = getTwoOprs insInfo
   let rt = transOprToExpr insInfo ctxt rt
-  let fs = transOprToExpr insInfo ctxt fs
+  let fs = transOprToFP ctxt fs
   !<ir insLen
-  !!ir (rt := fs)
+  !!ir (rt := AST.sext ctxt.WordBitSize fs)
   advancePC ctxt ir
   !>ir insLen
 
@@ -1518,12 +1557,12 @@ let mov insInfo insLen ctxt =
   let fd, fs = getTwoOprs insInfo
   match insInfo.Fmt with
   | Some Fmt.S ->
-    let fd, fs = transTwoOprs insInfo ctxt (fd, fs)
+    let fd, fs = transTwoFP ctxt (fd, fs)
     !!ir (fd := fs)
   | Some Fmt.D ->
     let fdB, fdA = transOprToFPPair ctxt fd
     let fs = transOprToFPPairConcat ctxt fs
-    dstAssignForFP fdB fdA fs ir
+    dstAssignForFP fdB fdA fs ctxt ir
   | _ -> raise InvalidOperandException
   advancePC ctxt ir
   !>ir insLen
@@ -1536,8 +1575,11 @@ let movt insInfo insLen ctxt =
   !!ir (cond := fpConditionCode cc ctxt)
   !<ir insLen
   match insInfo.Fmt with
-  | Some Fmt.S | None ->
+  | None ->
     let dst, src = transTwoOprs insInfo ctxt (dst, src)
+    !!ir (dst := AST.ite cond src dst)
+  | Some Fmt.S ->
+    let dst, src = transTwoFP ctxt (dst, src)
     !!ir (dst := AST.ite cond src dst)
   | Some Fmt.D ->
     let dstB, dstA = transOprToFPPair ctxt dst
@@ -1556,8 +1598,11 @@ let movf insInfo insLen ctxt =
   !!ir (cond := AST.not (fpConditionCode cc ctxt))
   !<ir insLen
   match insInfo.Fmt with
-  | Some Fmt.S | None ->
+  | None ->
     let dst, src = transTwoOprs insInfo ctxt (dst, src)
+    !!ir (dst := AST.ite cond src dst)
+  | Some Fmt.S ->
+    let dst, src = transTwoFP ctxt (dst, src)
     !!ir (dst := AST.ite cond src dst)
   | Some Fmt.D ->
     let dstB, dstA = transOprToFPPair ctxt dst
@@ -1576,8 +1621,11 @@ let movzOrn insInfo insLen ctxt opFn =
   !!ir (cond := opFn compare (AST.num0 ctxt.WordBitSize))
   !<ir insLen
   match insInfo.Fmt with
-  | Some Fmt.S | None ->
+  | None ->
     let dst, src = transTwoOprs insInfo ctxt (dst, src)
+    !!ir (dst := AST.ite cond src dst)
+  | Some Fmt.S ->
+    let dst, src = transTwoFP ctxt (dst, src)
     !!ir (dst := AST.ite cond src dst)
   | Some Fmt.D ->
     let dstB, dstA = transOprToFPPair ctxt dst
@@ -1590,7 +1638,9 @@ let movzOrn insInfo insLen ctxt opFn =
 
 let mtc1 insInfo insLen ctxt =
   let ir = !*ctxt
-  let rt, fs = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
+  let rt, fs = getTwoOprs insInfo
+  let rt = transOprToExpr insInfo ctxt rt
+  let fs = transOprToFP ctxt fs
   !<ir insLen
   !!ir (fs := AST.xtlo 32<rt> rt)
   advancePC ctxt ir
@@ -1613,7 +1663,7 @@ let mul insInfo insLen ctxt =
     !!ir (hi := AST.undef ctxt.WordBitSize "UNPREDICTABLE")
     !!ir (lo := AST.undef ctxt.WordBitSize "UNPREDICTABLE")
   | Some Fmt.S ->
-    let dst, src1, src2 = transThreeOprs insInfo ctxt (dst, src1, src2)
+    let dst, src1, src2 = transThreeFP ctxt (dst, src1, src2)
     let result = !+ir 32<rt>
     !!ir (result := AST.fmul src1 src2)
     normalizeValue 32<rt> result ir
@@ -1624,7 +1674,7 @@ let mul insInfo insLen ctxt =
     let result = !+ir 64<rt>
     !!ir (result := AST.fmul src1 src2)
     normalizeValue 64<rt> result ir
-    dstAssignForFP dstB dstA result ir
+    dstAssignForFP dstB dstA result ctxt ir
   | _ -> raise InvalidOperandException
   advancePC ctxt ir
   !>ir insLen
@@ -1677,7 +1727,7 @@ let neg insInfo insLen ctxt =
     fpneg ir 64<rt> fs
     !!ir (fd := fs)
   | _ ->
-    let fd, fs = transTwoOprs insInfo ctxt (fd, fs)
+    let fd, fs = transTwoFP ctxt (fd, fs)
     fpneg ir 32<rt> fs
     !!ir (fd := fs)
   advancePC ctxt ir
@@ -1770,7 +1820,7 @@ let sqrt insInfo insLen ctxt =
   !<ir insLen
   match insInfo.Fmt with
   | Some Fmt.S ->
-    let fd, fs = transTwoOprs insInfo ctxt (fd, fs)
+    let fd, fs = transTwoFP ctxt (fd, fs)
     let cond = fs == numU32 0x80000000u 32<rt>
     !!ir (fd := AST.ite cond (numU32 0x80000000u 32<rt>) (AST.fsqrt fs))
   | _ ->
@@ -1779,7 +1829,7 @@ let sqrt insInfo insLen ctxt =
     let cond = fs == numU64 0x8000000000000000UL 64<rt>
     let result =
       AST.ite cond (numU64 0x8000000000000000UL 64<rt>) (AST.fsqrt fs)
-    dstAssignForFP fdB fdA result ir
+    dstAssignForFP fdB fdA result ctxt ir
   advancePC ctxt ir
   !>ir insLen
 
@@ -1929,7 +1979,7 @@ let sub insInfo insLen ctxt =
     let dst, src1, src2 = transThreeOprs insInfo ctxt (dst, src1, src2)
     !!ir (dst := src1 .- src2)
   | Some Fmt.S ->
-    let dst, src1, src2 = transThreeOprs insInfo ctxt (dst, src1, src2)
+    let dst, src1, src2 = transThreeFP ctxt (dst, src1, src2)
     let result = !+ir 32<rt>
     !!ir (result := AST.fsub src1 src2)
     subNormal 32<rt> src1 src2 result ir
@@ -1940,7 +1990,7 @@ let sub insInfo insLen ctxt =
     let result = !+ir 64<rt>
     !!ir (result := AST.fsub src1 src2)
     subNormal 64<rt> src1 src2 result ir
-    dstAssignForFP dstB dstA result ir
+    dstAssignForFP dstB dstA result ctxt ir
   | _ -> raise InvalidOperandException
   advancePC ctxt ir
   !>ir insLen
@@ -1989,12 +2039,12 @@ let truncw insInfo insLen ctxt =
     !<ir insLen
     match insInfo.Fmt with
     | Some Fmt.S ->
-      let dst, src = transTwoOprs insInfo ctxt (fd, fs)
+      let dst, src = transTwoFP ctxt (fd, fs)
       let inf = isInfinity32 src
       let nan = isNaN32 src
       dst, src, inf, nan
     | _ ->
-      let dst = transOprToExpr insInfo ctxt fd
+      let dst = transOprToFP ctxt fd
       let src = transOprToFPPairConcat ctxt fs
       let inf = isInfinity64 src
       let nan = isNaN64 src
@@ -2016,7 +2066,7 @@ let truncl insInfo insLen ctxt =
   let struct (src, inf, nan) =
     match insInfo.Fmt with
     | Some Fmt.S ->
-      let src = transOprToExpr insInfo ctxt fs
+      let src = transOprToFP ctxt fs
       let inf = isInfinity32 src
       let nan = isNaN32 src
       src, inf, nan
@@ -2028,7 +2078,7 @@ let truncl insInfo insLen ctxt =
   !!ir (eval := AST.cast CastKind.FtoITrunc 64<rt> src)
   let outOfRange = AST.sgt eval intMax .| AST.slt eval intMin
   !!ir (eval := AST.ite (outOfRange .| inf .| nan) intMax eval)
-  dstAssignForFP fdB fdA eval ir
+  dstAssignForFP fdB fdA eval ctxt ir
   advancePC ctxt ir
   !>ir insLen
 
@@ -2120,7 +2170,7 @@ let rsqrt insInfo insLen ctxt =
   !<ir insLen
   match insInfo.Fmt with
   | Some Fmt.S ->
-    let fd, fs = transTwoOprs insInfo ctxt (fd, fs)
+    let fd, fs = transTwoFP ctxt (fd, fs)
     let fnum = AST.cast CastKind.SIntToFloat 32<rt> (AST.num1 32<rt>)
     !!ir (fd := AST.fdiv fnum (AST.fsqrt fs))
   | _ ->
@@ -2128,7 +2178,7 @@ let rsqrt insInfo insLen ctxt =
     let fs = transOprToFPPairConcat ctxt fs
     let fnum = AST.cast CastKind.SIntToFloat 64<rt> (AST.num1 64<rt>)
     let result = AST.fdiv fnum (AST.fsqrt fs)
-    dstAssignForFP fdB fdA result ir
+    dstAssignForFP fdB fdA result ctxt ir
   advancePC ctxt ir
   !>ir insLen
 
