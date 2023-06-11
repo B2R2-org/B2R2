@@ -233,14 +233,14 @@ type internal RegExprs (wordSize) =
   member val CH = regH8 wordSize ecx rcx with get
   member val DL = regL8 wordSize edx rdx with get
   member val DH = regH8 wordSize edx rdx with get
-  member val R8L = regL8ext wordSize "R8L" r8 with get
-  member val R9L = regL8ext wordSize "R9L" r9 with get
-  member val R10L = regL8ext wordSize "R10L" r10 with get
-  member val R11L = regL8ext wordSize "R11L" r11 with get
-  member val R12L = regL8ext wordSize "R12L" r12 with get
-  member val R13L = regL8ext wordSize "R13L" r13 with get
-  member val R14L = regL8ext wordSize "R14L" r14 with get
-  member val R15L = regL8ext wordSize "R15L" r15 with get
+  member val R8B = regL8ext wordSize "R8B" r8 with get
+  member val R9B = regL8ext wordSize "R9B" r9 with get
+  member val R10B = regL8ext wordSize "R10B" r10 with get
+  member val R11B = regL8ext wordSize "R11B" r11 with get
+  member val R12B = regL8ext wordSize "R12B" r12 with get
+  member val R13B = regL8ext wordSize "R13B" r13 with get
+  member val R14B = regL8ext wordSize "R14B" r14 with get
+  member val R15B = regL8ext wordSize "R15B" r15 with get
   member val SPL = regL8ext wordSize "SPL" rsp with get
   member val BPL = regL8ext wordSize "BPL" rbp with get
   member val SIL = regL8ext wordSize "SIL" rsi with get
@@ -846,46 +846,46 @@ type internal RegExprs (wordSize) =
       assert64Bit wordSize
 #endif
       __.R15W
-    | R.R8L ->
+    | R.R8B ->
 #if DEBUG
       assert64Bit wordSize
 #endif
-      __.R8L
-    | R.R9L ->
+      __.R8B
+    | R.R9B ->
 #if DEBUG
       assert64Bit wordSize
 #endif
-      __.R9L
-    | R.R10L ->
+      __.R9B
+    | R.R10B ->
 #if DEBUG
       assert64Bit wordSize
 #endif
-      __.R10L
-    | R.R11L ->
+      __.R10B
+    | R.R11B ->
 #if DEBUG
       assert64Bit wordSize
 #endif
-      __.R11L
-    | R.R12L ->
+      __.R11B
+    | R.R12B ->
 #if DEBUG
       assert64Bit wordSize
 #endif
-      __.R12L
-    | R.R13L ->
+      __.R12B
+    | R.R13B ->
 #if DEBUG
       assert64Bit wordSize
 #endif
-      __.R13L
-    | R.R14L ->
+      __.R13B
+    | R.R14B ->
 #if DEBUG
       assert64Bit wordSize
 #endif
-      __.R14L
-    | R.R15L ->
+      __.R14B
+    | R.R15B ->
 #if DEBUG
       assert64Bit wordSize
 #endif
-      __.R15L
+      __.R15B
     | R.SPL ->
 #if DEBUG
       assert64Bit wordSize

@@ -151,21 +151,21 @@ type Register =
   /// General-Purpose Registers (Higher 8bits BX).
   | BH = 0x37
   /// General-Purpose Registers for 64bit Mode (Byte Register).
-  | R8L = 0x38
+  | R8B = 0x38
   /// General-Purpose Registers for 64bit Mode (Byte Register).
-  | R9L = 0x39
+  | R9B = 0x39
   /// General-Purpose Registers for 64bit Mode (Byte Register).
-  | R10L = 0x3A
+  | R10B = 0x3A
   /// General-Purpose Registers for 64bit Mode (Byte Register).
-  | R11L = 0x3B
+  | R11B = 0x3B
   /// General-Purpose Registers for 64bit Mode (Byte Register).
-  | R12L = 0x3C
+  | R12B = 0x3C
   /// General-Purpose Registers for 64bit Mode (Byte Register).
-  | R13L = 0x3D
+  | R13B = 0x3D
   /// General-Purpose Registers for 64bit Mode (Byte Register).
-  | R14L = 0x3E
+  | R14B = 0x3E
   /// General-Purpose Registers for 64bit Mode (Byte Register).
-  | R15L = 0x3F
+  | R15B = 0x3F
   /// General-Purpose Registers for 64bit Mode (Byte Register).
   | SPL = 0x40
   /// General-Purpose Registers for 64bit Mode (Byte Register).
@@ -944,14 +944,14 @@ module Register = begin
     | "r13w" -> R.R13W
     | "r14w" -> R.R14W
     | "r15w" -> R.R15W
-    | "r8l" -> R.R8L
-    | "r9l" -> R.R9L
-    | "r10l" -> R.R10L
-    | "r11l" -> R.R11L
-    | "r12l" -> R.R12L
-    | "r13l" -> R.R13L
-    | "r14l" -> R.R14L
-    | "r15l" -> R.R15L
+    | "r8b" -> R.R8B
+    | "r9b" -> R.R9B
+    | "r10b" -> R.R10B
+    | "r11b" -> R.R11B
+    | "r12b" -> R.R12B
+    | "r13b" -> R.R13B
+    | "r14b" -> R.R14B
+    | "r15b" -> R.R15B
     | "spl" -> R.SPL
     | "bpl" -> R.BPL
     | "sil" -> R.SIL
@@ -1301,14 +1301,14 @@ module Register = begin
     | R.R13W -> "R13W"
     | R.R14W -> "R14W"
     | R.R15W -> "R15W"
-    | R.R8L -> "R8L"
-    | R.R9L -> "R9L"
-    | R.R10L -> "R10L"
-    | R.R11L -> "R11L"
-    | R.R12L -> "R12L"
-    | R.R13L -> "R13L"
-    | R.R14L -> "R14L"
-    | R.R15L -> "R15L"
+    | R.R8B -> "R8B"
+    | R.R9B -> "R9B"
+    | R.R10B -> "R10B"
+    | R.R11B -> "R11B"
+    | R.R12B -> "R12B"
+    | R.R13B -> "R13B"
+    | R.R14B -> "R14B"
+    | R.R15B -> "R15B"
     | R.SPL -> "SPL"
     | R.BPL -> "BPL"
     | R.SIL -> "SIL"
@@ -1653,8 +1653,8 @@ module Register = begin
     | R.AX | R.BX | R.CX | R.DX | R.SP | R.BP | R.SI | R.DI
     | R.FCW | R.FSW | R.FTW | R.FOP | R.FCS | R.FDS
     | R.K0 | R.K1 | R.K2 | R.K3 | R.K4 | R.K5 | R.K6 | R.K7 -> 16<rt>
-    | R.R8L | R.R9L | R.R10L | R.R11L
-    | R.R12L | R.R13L | R.R14L | R.R15L
+    | R.R8B | R.R9B | R.R10B | R.R11B
+    | R.R12B | R.R13B | R.R14B | R.R15B
     | R.SPL | R.BPL | R.SIL | R.DIL
     | R.AL | R.BL | R.CL | R.DL | R.AH | R.BH | R.CH | R.DH -> 8<rt>
     | R.XMM0 | R.XMM1 | R.XMM2 | R.XMM3
@@ -1715,14 +1715,14 @@ module Register = begin
     | R.RBP | R.EBP | R.BP | R.BPL -> R.RBP
     | R.RSI | R.ESI | R.SI | R.SIL -> R.RSI
     | R.RDI | R.EDI | R.DI | R.DIL-> R.RDI
-    | R.R8  | R.R8D | R.R8L | R.R8W -> R.R8
-    | R.R9  | R.R9D | R.R9L | R.R9W -> R.R9
-    | R.R10 | R.R10D | R.R10L | R.R10W -> R.R10
-    | R.R11 | R.R11D | R.R11L | R.R11W -> R.R11
-    | R.R12 | R.R12D | R.R12L | R.R12W -> R.R12
-    | R.R13 | R.R13D | R.R13L | R.R13W -> R.R13
-    | R.R14 | R.R14D | R.R14L | R.R14W -> R.R14
-    | R.R15 | R.R15D | R.R15L | R.R15W -> R.R15
+    | R.R8  | R.R8D | R.R8B | R.R8W -> R.R8
+    | R.R9  | R.R9D | R.R9B | R.R9W -> R.R9
+    | R.R10 | R.R10D | R.R10B | R.R10W -> R.R10
+    | R.R11 | R.R11D | R.R11B | R.R11W -> R.R11
+    | R.R12 | R.R12D | R.R12B | R.R12W -> R.R12
+    | R.R13 | R.R13D | R.R13B | R.R13W -> R.R13
+    | R.R14 | R.R14D | R.R14B | R.R14W -> R.R14
+    | R.R15 | R.R15D | R.R15B | R.R15W -> R.R15
     | R.XMM0 | R.YMM0 | R.ZMM0 -> R.YMM0
     | R.XMM1 | R.YMM1 | R.ZMM1 -> R.YMM1
     | R.XMM2 | R.YMM2 | R.ZMM2 -> R.YMM2
@@ -1759,14 +1759,14 @@ module Register = begin
     | R.RBP | R.EBP | R.BP | R.BPL -> [| R.RBP; R.EBP; R.BP; R.BPL |]
     | R.RSI | R.ESI | R.SI | R.SIL -> [| R.RSI; R.ESI; R.SI; R.SIL |]
     | R.RDI | R.EDI | R.DI | R.DIL -> [| R.RDI; R.EDI; R.DI; R.DIL |]
-    | R.R8  | R.R8D | R.R8L | R.R8W -> [| R.R8; R.R8D; R.R8L; R.R8W |]
-    | R.R9  | R.R9D | R.R9L | R.R9W -> [| R.R9; R.R9D; R.R9L; R.R9W |]
-    | R.R10  | R.R10D | R.R10L | R.R10W -> [| R.R10; R.R10D; R.R10L; R.R10W |]
-    | R.R11  | R.R11D | R.R11L | R.R11W -> [| R.R11; R.R11D; R.R11L; R.R11W |]
-    | R.R12  | R.R12D | R.R12L | R.R12W -> [| R.R12; R.R12D; R.R12L; R.R12W |]
-    | R.R13  | R.R13D | R.R13L | R.R13W -> [| R.R13; R.R13D; R.R13L; R.R13W |]
-    | R.R14  | R.R14D | R.R14L | R.R14W -> [| R.R14; R.R14D; R.R14L; R.R14W |]
-    | R.R15  | R.R15D | R.R15L | R.R15W -> [| R.R15; R.R15D; R.R15L; R.R15W |]
+    | R.R8  | R.R8D | R.R8B | R.R8W -> [| R.R8; R.R8D; R.R8B; R.R8W |]
+    | R.R9  | R.R9D | R.R9B | R.R9W -> [| R.R9; R.R9D; R.R9B; R.R9W |]
+    | R.R10  | R.R10D | R.R10B | R.R10W -> [| R.R10; R.R10D; R.R10B; R.R10W |]
+    | R.R11  | R.R11D | R.R11B | R.R11W -> [| R.R11; R.R11D; R.R11B; R.R11W |]
+    | R.R12  | R.R12D | R.R12B | R.R12W -> [| R.R12; R.R12D; R.R12B; R.R12W |]
+    | R.R13  | R.R13D | R.R13B | R.R13W -> [| R.R13; R.R13D; R.R13B; R.R13W |]
+    | R.R14  | R.R14D | R.R14B | R.R14W -> [| R.R14; R.R14D; R.R14B; R.R14W |]
+    | R.R15  | R.R15D | R.R15B | R.R15W -> [| R.R15; R.R15D; R.R15B; R.R15W |]
     | R.XMM0 | R.YMM0 | R.ZMM0 -> [| R.XMM0; R.YMM0; R.ZMM0 |]
     | R.XMM1 | R.YMM1 | R.ZMM1 -> [| R.XMM1; R.YMM1; R.ZMM1 |]
     | R.XMM2 | R.YMM2 | R.ZMM2 -> [| R.XMM2; R.YMM2; R.ZMM2 |]

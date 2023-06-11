@@ -160,14 +160,14 @@ type IntelRegisterBay internal (wordSize, r: RegExprs) =
     | "R13W" -> r.R13W
     | "R14W" -> r.R14W
     | "R15W" -> r.R15W
-    | "R8L" -> r.R8L
-    | "R9L" -> r.R9L
-    | "R10L" -> r.R10L
-    | "R11L" -> r.R11L
-    | "R12L" -> r.R12L
-    | "R13L" -> r.R13L
-    | "R14L" -> r.R14L
-    | "R15L" -> r.R15L
+    | "R8B" -> r.R8B
+    | "R9B" -> r.R9B
+    | "R10B" -> r.R10B
+    | "R11B" -> r.R11B
+    | "R12B" -> r.R12B
+    | "R13B" -> r.R13B
+    | "R14B" -> r.R14B
+    | "R15B" -> r.R15B
     | "SPL" -> r.SPL
     | "BPL" -> r.BPL
     | "SIL" -> r.SIL
