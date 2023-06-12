@@ -1338,8 +1338,59 @@ let private fpCurrentRoundToInt ins insLen ctxt addr =
   | _ -> raise InvalidOperandException
   !>ir insLen
 
+let private tieawayCast ctxt eSize ir src =
+   let sign = AST.xthi 1<rt> src
+   let trunc = AST.cast CastKind.FtoFTrunc eSize src
+   let t1 = !+ir eSize
+   let t2 = !+ir eSize
+   let res = !+ir eSize
+   let lblPos = !%ir "Positive"
+   let lblNeg = !%ir "Negative"
+   let lblEnd = !%ir "End"
+   !!ir (t1 := AST.fsub src trunc)
+   let comp1 =
+     match eSize with
+     | 32<rt> -> numI32 0x3F000000 eSize (* 0.5 *)
+     | 64<rt> -> numI64 0x3FE0000000000000L eSize (* 0.5 *)
+     | _ -> raise InvalidOperandSizeException
+   let comp2 =
+     match eSize with
+     | 32<rt> -> numI32 0xBF000000 eSize (* -0.5 *)
+     | 64<rt> -> numI64 0xBFE0000000000000L eSize (* -0.5 *)
+     | _ -> raise InvalidOperandSizeException
+   !!ir (AST.cjmp sign (AST.name lblNeg) (AST.name lblPos))
+   !!ir (AST.lmark lblPos)
+   !!ir (t2 := comp1)
+   !!ir (res := AST.ite (AST.fge t1 t2)
+     (fpType ctxt CastKind.FtoFCeil eSize src)
+     (fpType ctxt CastKind.FtoFFloor eSize src))
+   !!ir (AST.jmp (AST.name lblEnd))
+   !!ir (AST.lmark lblNeg)
+   !!ir (t2 := comp2)
+   !!ir (res := AST.ite (AST.fle t1 t2)
+     (fpType ctxt CastKind.FtoFFloor eSize src)
+     (fpType ctxt CastKind.FtoFCeil eSize src))
+   !!ir (AST.lmark lblEnd)
+   res
+
 let frinta ins insLen ctxt addr =
-  fpRoundToInt ins insLen ctxt addr CastKind.FtoFRound
+  let ir = !*ctxt
+  !<ir insLen
+  match ins.Operands with
+  | TwoOperands (OprSIMD (SIMDFPScalarReg _) as dst, src) ->
+    let struct (eSize, _, _) = getElemDataSzAndElems dst
+    let src = transOprToExpr ins ctxt addr src
+    let result = tieawayCast ctxt eSize ir src
+    dstAssignScalar ins ctxt addr dst result eSize ir
+  | TwoOperands (OprSIMD (SIMDVecReg _ ) as dst, src) ->
+    let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
+    let dstB, dstA = transOprToExpr128 ins ctxt addr dst
+    let src = transSIMDOprToExpr ctxt eSize dataSize elements src
+    let result = Array.map (tieawayCast ctxt eSize ir) src
+    dstAssignForSIMD dstA dstB result dataSize elements ir
+  | _ -> raise InvalidOperandException
+  !>ir insLen
+
 let frinti ins insLen ctxt addr =
   fpCurrentRoundToInt ins insLen ctxt addr
 let frintm ins insLen ctxt addr =
