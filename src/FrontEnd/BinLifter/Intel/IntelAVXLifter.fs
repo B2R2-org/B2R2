@@ -337,7 +337,7 @@ let private buildVectorMove ins insLen ctxt packSz =
     if isAVX512 then
       let eDst = transOprToArr ir false ins insLen ctxt packSz packNum oprSz dst
       let ePrx = getEVEXPrx ins.VEXInfo
-      let k = !.ctxt (ePrx.AAA |> Disasm.getOpmaskRegister)
+      let k = !.ctxt (ePrx.AAA |> int |> Register.opmask)
       makeAssignWithMask ir ePrx k oprSz packSz eDst src (isMemOpr dst)
     else src
   assignPackedInstr ir false ins insLen ctxt packNum oprSz dst result
@@ -354,7 +354,7 @@ let private buildVectorMoveAVX512 ins insLen ctxt packSz =
   let packNum = 64<rt> / packSz
   let struct (dst, src) = getTwoOprs ins
   let ePrx = getEVEXPrx ins.VEXInfo
-  let k = !.ctxt (ePrx.AAA |> Disasm.getOpmaskRegister)
+  let k = !.ctxt (ePrx.AAA |> int |> Register.opmask)
   let eDst = transOprToArr ir false ins insLen ctxt packSz packNum oprSize dst
   let src = transOprToArr ir false ins insLen ctxt packSz packNum oprSize src
   let result =
@@ -658,7 +658,7 @@ let vshufi32x4 ins insLen ctxt =
   let src2 = transOprToArr ir false ins insLen ctxt packSz packNum oprSize src2
   let imm8 = getImmValue imm
   let ePrx = getEVEXPrx ins.VEXInfo
-  let k = !.ctxt (ePrx.AAA |> Disasm.getOpmaskRegister)
+  let k = !.ctxt (ePrx.AAA |> int |> Register.opmask)
   let tmpSrc2 = Array.init (oprSize / packSz) (fun _ -> !+ir 32<rt>)
   if isSrc2Mem && ePrx.B = 1uy then
     let tSrc2 = !+ir 32<rt>
@@ -887,7 +887,7 @@ let vxorps ins insLen ctxt =
     if haveEVEXPrx ins.VEXInfo then
       let isSrc2Mem = isMemOpr src2
       let ePrx = getEVEXPrx ins.VEXInfo
-      let k = !.ctxt (ePrx.AAA |> Disasm.getOpmaskRegister)
+      let k = !.ctxt (ePrx.AAA |> int |> Register.opmask)
       makeAssignEVEX ir ePrx k oprSz packSz eDst tSrc1 tSrc2 (<+>) isSrc2Mem
     else Array.map2 (<+>) tSrc1 tSrc2
   assignPackedInstr ir false ins insLen ctxt packNum oprSz dst result
@@ -948,7 +948,7 @@ let vextracti32x8 ins insLen ctxt =
   let allPackNum = oprSize / packSz
   let struct (dst, src, imm) = getThreeOprs ins
   let ePrx = getEVEXPrx ins.VEXInfo
-  let k = !.ctxt (ePrx.AAA |> Disasm.getOpmaskRegister)
+  let k = !.ctxt (ePrx.AAA |> int |> Register.opmask)
   let eDst = transOprToArr ir false ins insLen ctxt packSz packNum oprSize dst
   let src =
     transOprToArr ir false ins insLen ctxt packSz packNum (oprSize * 2) src
@@ -979,7 +979,7 @@ let vextracti64x4 ins insLen ctxt =
   !<ir insLen
   let struct (dst, src, imm) = getThreeOprs ins
   let ePrx = getEVEXPrx ins.VEXInfo
-  let k = !.ctxt (ePrx.AAA |> Disasm.getOpmaskRegister)
+  let k = !.ctxt (ePrx.AAA |> int |> Register.opmask)
   let dstD, dstC, dstB, dstA = transOprToExpr256 ir false ins insLen ctxt dst
   let srcH, srcG, srcF, srcE, srcD, srcC, srcB, srcA =
     transOprToExpr512 ir false ins insLen ctxt src
@@ -1050,7 +1050,7 @@ let vpaddd ins insLen ctxt =
     if haveEVEXPrx ins.VEXInfo then
       let isSrc2Mem = isMemOpr src2
       let ePrx = getEVEXPrx ins.VEXInfo
-      let k = !.ctxt (ePrx.AAA |> Disasm.getOpmaskRegister)
+      let k = !.ctxt (ePrx.AAA |> int |> Register.opmask)
       makeAssignEVEX ir ePrx k oprSz packSz eDst tSrc1 tSrc2 (.+) isSrc2Mem
     else Array.map2 (.+) tSrc1 tSrc2
   assignPackedInstr ir false ins insLen ctxt packNum oprSz dst result
@@ -1283,7 +1283,7 @@ let vpbroadcast ins insLen ctxt packSz =
   let result =
     if haveEVEXPrx ins.VEXInfo then
       let ePrx = getEVEXPrx ins.VEXInfo
-      let k = !.ctxt (ePrx.AAA |> Disasm.getOpmaskRegister)
+      let k = !.ctxt (ePrx.AAA |> int |> Register.opmask)
       makeAssignWithMask ir ePrx k oprSize packSz eDst src (isMemOpr dst)
     else src
   assignPackedInstr ir false ins insLen ctxt packNum oprSize dst result
@@ -1603,7 +1603,7 @@ let vpshufb ins insLen ctxt =
     if haveEVEXPrx ins.VEXInfo then
       let eDst = transOprToArr ir false ins insLen ctxt packSz packNum oprSz dst
       let ePrx = getEVEXPrx ins.VEXInfo
-      let k = !.ctxt (ePrx.AAA |> Disasm.getOpmaskRegister)
+      let k = !.ctxt (ePrx.AAA |> int |> Register.opmask)
       Array.mapi2 (shuffleOfEVEX ePrx k) eDst src2
     else Array.mapi shuffle src2
   assignPackedInstr ir false ins insLen ctxt packNum oprSz dst result
@@ -1625,7 +1625,7 @@ let vpshufd ins insLen ctxt =
   let result =
     if haveEVEXPrx ins.VEXInfo then
       let ePrx = getEVEXPrx ins.VEXInfo
-      let k = !.ctxt (ePrx.AAA |> Disasm.getOpmaskRegister)
+      let k = !.ctxt (ePrx.AAA |> int |> Register.opmask)
       let src =
         if (isMemOpr src1) && ePrx.B (* B *) = 1uy then
           Array.init allPackNum (fun _ -> Array.head src)
@@ -1916,7 +1916,7 @@ let vpxord ins insLen ctxt =
     if haveEVEXPrx ins.VEXInfo then
       let isSrc2Mem = isMemOpr src2
       let ePrx = getEVEXPrx ins.VEXInfo
-      let k = !.ctxt (ePrx.AAA |> Disasm.getOpmaskRegister)
+      let k = !.ctxt (ePrx.AAA |> int |> Register.opmask)
       makeAssignEVEX ir ePrx k oprSz packSz tDst tSrc1 tSrc2 (<+>) isSrc2Mem
     else Array.map2 (<+>) tSrc1 tSrc2
   assignPackedInstr ir false ins insLen ctxt packNum oprSz dst result

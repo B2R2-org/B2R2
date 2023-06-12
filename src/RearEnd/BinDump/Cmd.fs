@@ -25,6 +25,7 @@
 namespace B2R2.RearEnd.BinDump
 
 open B2R2
+open B2R2.FrontEnd.BinLifter
 open B2R2.RearEnd
 open System
 
@@ -109,6 +110,14 @@ type BinDumpOpts () =
     CmdOpts.New (
       descr = "Always display disassembly for all sections.",
       callback = cb, long = "--only-disasm")
+
+  /// "--att" for using AT&T syntax.
+  static member OptATTSyntax () =
+    let cb opts _ =
+      Intel.Disasm.setDisassemblyFlavor ATTSyntax
+      opts
+    CmdOpts.New (descr = "Use AT&T syntax for disassembling Intel instructions",
+                 callback = cb, long = "--att")
 
   /// "-S" or "--section" for displaying contents of a specific section.
   static member OptDumpSection () =
@@ -214,6 +223,7 @@ module Cmd =
       CmdOpts.New (descr = "[Output Configuration]", dummy = true)
       CmdOpts.New (descr = "", dummy = true)
 
+      BinDumpOpts.OptATTSyntax ()
       BinDumpOpts.OptDumpSection ()
       BinDumpOpts.OptOnlyDisasm ()
       BinDumpOpts.OptShowAddr ()

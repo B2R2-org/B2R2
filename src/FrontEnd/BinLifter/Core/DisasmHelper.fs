@@ -36,10 +36,9 @@ type DisasmHelper (?fn: Addr -> Result<string, ErrorCase>) =
   member __.FindFunctionSymbol (addr: Addr) = helper addr
 
 [<AbstractClass>]
-type DisasmBuilder<'Result> (showAddr, resolveSymb, wordSz, addr, len) =
+type DisasmBuilder (showAddr, resolveSymb, wordSz, addr, len) =
   abstract member Accumulate: AsmWordKind -> string -> unit
   abstract member AccumulateAddr: unit -> unit
-  abstract member Finalize: unit -> 'Result
   member __.ShowAddr with get(): bool = showAddr
   member __.ResolveSymbol with get(): bool = resolveSymb
   member __.WordSize with get(): WordSize = wordSz
@@ -47,7 +46,7 @@ type DisasmBuilder<'Result> (showAddr, resolveSymb, wordSz, addr, len) =
   member __.InsLength with get(): uint32 = len
 
 type DisasmStringBuilder (showAddr, resolveSymb, wordSz, addr, len) =
-  inherit DisasmBuilder<string> (showAddr, resolveSymb, wordSz, addr, len)
+  inherit DisasmBuilder (showAddr, resolveSymb, wordSz, addr, len)
 
   let sb = StringBuilder ()
 
@@ -58,10 +57,10 @@ type DisasmStringBuilder (showAddr, resolveSymb, wordSz, addr, len) =
     sb.Append (Addr.toString wordSz addr) |> ignore
     sb.Append (": ") |> ignore
 
-  override __.Finalize () = sb.ToString ()
+  member __.Finalize () = sb.ToString ()
 
 type DisasmWordBuilder (showAddr, resolveSymb, wordSz, addr, len, n) =
-  inherit DisasmBuilder<AsmWord[]> (showAddr, resolveSymb, wordSz, addr, len)
+  inherit DisasmBuilder (showAddr, resolveSymb, wordSz, addr, len)
 
   let ab = AsmWordBuilder (n)
 
@@ -74,4 +73,4 @@ type DisasmWordBuilder (showAddr, resolveSymb, wordSz, addr, len, n) =
     ab.Append ({ AsmWordKind = AsmWordKind.String
                  AsmWordValue = ": " }) |> ignore
 
-  override __.Finalize () = ab.Finish ()
+  member __.Finalize () = ab.Finish ()

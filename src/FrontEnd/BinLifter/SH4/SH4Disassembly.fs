@@ -159,15 +159,15 @@ let opCodeToString = function
   | Opcode.InvalidOp -> "(invalid)"
   | _ -> Utils.impossible()
 
-let prepDelim delim (builder: DisasmBuilder<_>) =
+let prepDelim delim (builder: DisasmBuilder) =
   match delim with
   | None -> ()
   | Some delimiter -> builder.Accumulate AsmWordKind.String delimiter
 
-let immToStr imm (builder: DisasmBuilder<_>) =
+let immToStr imm (builder: DisasmBuilder) =
   builder.Accumulate AsmWordKind.Value (String.i32ToHex imm)
 
-let addrToStr shift addr (builder: DisasmBuilder<_>) =
+let addrToStr shift addr (builder: DisasmBuilder) =
   let relAddr = int(addr) + shift + 4
   if shift >= 0 then
     builder.Accumulate AsmWordKind.String ".+"
@@ -180,7 +180,7 @@ let addrToStr shift addr (builder: DisasmBuilder<_>) =
     builder.Accumulate AsmWordKind.String "     ; "
     builder.Accumulate AsmWordKind.Value (String.i32ToHex relAddr)
 
-let memToStr addrMode (builder: DisasmBuilder<_>) =
+let memToStr addrMode (builder: DisasmBuilder) =
   match addrMode with
   | Regdir reg ->
     let reg = Register.toString reg
@@ -248,7 +248,7 @@ let memToStr addrMode (builder: DisasmBuilder<_>) =
     builder.Accumulate AsmWordKind.Value (string imm)
   | _ -> raise InvalidOperandException
 
-let buildReg ins reg (builder: DisasmBuilder<_>) =
+let buildReg ins reg (builder: DisasmBuilder) =
   let reg = Register.toString reg
   builder.Accumulate AsmWordKind.Variable reg
 
@@ -277,7 +277,7 @@ let buildOp ins pc builder =
     opToStr ins pc opr2 (Some ",") builder
     opToStr ins pc opr3 (Some ",") builder
 
-let inline buildOpcode ins (builder: DisasmBuilder<_>) =
+let inline buildOpcode ins (builder: DisasmBuilder) =
   let str = opCodeToString ins.Opcode
   builder.Accumulate AsmWordKind.Mnemonic str
   if String.length str = 2 then builder.Accumulate AsmWordKind.String "      "
@@ -287,7 +287,7 @@ let inline buildOpcode ins (builder: DisasmBuilder<_>) =
   elif String.length str = 6 then builder.Accumulate AsmWordKind.String "  "
   else builder.Accumulate AsmWordKind.String ""
 
-let disas insInfo (builder: DisasmBuilder<_>) =
+let disas insInfo (builder: DisasmBuilder) =
   let pc = insInfo.Address
   if builder.ShowAddr then builder.AccumulateAddr () else ()
   buildOpcode insInfo builder

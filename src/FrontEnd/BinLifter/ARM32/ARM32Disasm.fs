@@ -599,7 +599,7 @@ let inline appendSIMDDataTypes (ins: InsInfo) (sb: StringBuilder) =
   | Some (TwoDT (dt1, dt2)) ->
     (sb.Append (SIMDTypToStr dt1)).Append (SIMDTypToStr dt2)
 
-let inline buildOpcode (ins: InsInfo) (builder: DisasmBuilder<_>) =
+let inline buildOpcode (ins: InsInfo) (builder: DisasmBuilder) =
   let sb = StringBuilder ()
   let sb = sb.Append (opCodeToString ins.Opcode)
   let sb = sb.Append (condToString ins.Condition)
@@ -616,7 +616,7 @@ let isRFEorSRS = function
   | Op.SRS | Op.SRSDA | Op.SRSDB | Op.SRSIA | Op.SRSIB -> true
   | _ -> false
 
-let buildReg (ins: InsInfo) isRegList reg (builder: DisasmBuilder<_>) =
+let buildReg (ins: InsInfo) isRegList reg (builder: DisasmBuilder) =
   let reg = Register.toString reg
   match ins.WriteBack with
   | true when existRegList ins.Operands && not isRegList ->
@@ -657,7 +657,7 @@ let specRegToString ins reg pFlag builder =
     buildReg ins false reg builder
     builder.Accumulate AsmWordKind.String (flagToString f)
 
-let regListToString ins list (builder: DisasmBuilder<_>) =
+let regListToString ins list (builder: DisasmBuilder) =
   builder.Accumulate AsmWordKind.String "{"
   let len = List.length list
   list
@@ -716,16 +716,16 @@ let signToString = function
   | Some Plus -> ""
   | Some Minus -> "-"
 
-let immToString imm sign (builder: DisasmBuilder<_>) =
+let immToString imm sign (builder: DisasmBuilder) =
   builder.Accumulate AsmWordKind.String "#"
   builder.Accumulate AsmWordKind.String (signToString sign)
   builder.Accumulate AsmWordKind.Value (String.i64ToHex imm)
 
-let fpImmToString (fp: float) (builder: DisasmBuilder<_>) =
+let fpImmToString (fp: float) (builder: DisasmBuilder) =
   builder.Accumulate AsmWordKind.String "#"
   builder.Accumulate AsmWordKind.Value (fp.ToString ("N8"))
 
-let optionToString (opt: int64) (builder: DisasmBuilder<_>) =
+let optionToString (opt: int64) (builder: DisasmBuilder) =
   builder.Accumulate AsmWordKind.Value (String.i64ToHex opt)
 
 let srTypeToString = function
@@ -735,7 +735,7 @@ let srTypeToString = function
   | SRTypeROR -> "ror"
   | SRTypeRRX -> "rrx"
 
-let prependDelimiter delimiter (builder: DisasmBuilder<_>) =
+let prependDelimiter delimiter (builder: DisasmBuilder) =
   match delimiter with
   | None -> ()
   | Some delim -> builder.Accumulate AsmWordKind.String delim
@@ -749,7 +749,7 @@ let shiftToString shift delim builder =
     builder.Accumulate AsmWordKind.String " "
     immToString (int64 i) None builder
 
-let regShiftToString ins shift reg (builder: DisasmBuilder<_>) =
+let regShiftToString ins shift reg (builder: DisasmBuilder) =
   builder.Accumulate AsmWordKind.String (srTypeToString shift)
   builder.Accumulate AsmWordKind.String " "
   buildReg ins false reg builder
@@ -823,7 +823,7 @@ let calculateRelativePC (ins: InsInfo) lbl addr =
   let addr = if ins.IsAdd then addr + uint64 lbl else addr - uint64 lbl
   addr |> uint32 |> uint64
 
-let commentWithSymbol helper addr addrStr (builder: DisasmBuilder<_>) =
+let commentWithSymbol helper addr addrStr (builder: DisasmBuilder) =
   if builder.ResolveSymbol then
     match (helper: DisasmHelper).FindFunctionSymbol (addr) with
     | Ok name when name.Length > 0 ->
@@ -833,7 +833,7 @@ let commentWithSymbol helper addr addrStr (builder: DisasmBuilder<_>) =
       builder.Accumulate AsmWordKind.Value addrStr
   else builder.Accumulate AsmWordKind.Value addrStr
 
-let memToString hlp ins addr addrMode (builder: DisasmBuilder<_>) =
+let memToString hlp ins addr addrMode (builder: DisasmBuilder) =
   match addrMode with
   | OffsetMode offset ->
     builder.Accumulate AsmWordKind.String "["
@@ -965,7 +965,7 @@ let buildOprs hlp (ins: InsInfo) pc builder =
     oprToString hlp ins pc opr5 (Some ", ") builder
     oprToString hlp ins pc opr6 (Some ", ") builder
 
-let disasm hlp (ins: InsInfo) (builder: DisasmBuilder<_>) =
+let disasm hlp (ins: InsInfo) (builder: DisasmBuilder) =
   let pc = ins.Address
   if builder.ShowAddr then builder.AccumulateAddr () else ()
   buildOpcode ins builder

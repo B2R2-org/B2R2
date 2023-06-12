@@ -251,15 +251,15 @@ let fenceMaskToString x =
   let w = if pickBit bin 0u = 1u then "w" else ""
   i + o + r + w
 
-let inline buildOpcode ins (builder: DisasmBuilder<_>) =
+let inline buildOpcode ins (builder: DisasmBuilder) =
   let str = opCodeToString ins.Opcode
   builder.Accumulate AsmWordKind.Mnemonic str
 
-let inline relToString pc offset (builder: DisasmBuilder<_>) =
+let inline relToString pc offset (builder: DisasmBuilder) =
   let targetAddr = pc + uint64 offset
   builder.Accumulate AsmWordKind.Value (String.u64ToHex targetAddr)
 
-let oprToString insInfo opr delim (builder: DisasmBuilder<_>) =
+let oprToString insInfo opr delim (builder: DisasmBuilder) =
   match opr with
   | OpReg reg ->
     builder.Accumulate AsmWordKind.String delim
@@ -329,7 +329,7 @@ let buildOprs insInfo builder =
     oprToString insInfo opr4 ", " builder
     oprToString insInfo opr5 ", " builder
 
-let disasm insInfo (builder: DisasmBuilder<_>) =
+let disasm insInfo (builder: DisasmBuilder) =
   if builder.ShowAddr then builder.AccumulateAddr () else ()
   buildOpcode insInfo builder
   buildOprs insInfo builder
