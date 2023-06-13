@@ -1628,14 +1628,6 @@ end
 
 module private ATTSyntax = begin
 
-  let buildOpSuffix (builder: DisasmBuilder) = function
-    | 8<rt> -> builder.Accumulate AsmWordKind.Mnemonic "b"
-    | 16<rt> -> builder.Accumulate AsmWordKind.Mnemonic "w"
-    | 32<rt> -> builder.Accumulate AsmWordKind.Mnemonic "l"
-    | 64<rt> -> builder.Accumulate AsmWordKind.Mnemonic "q"
-    | 80<rt> -> builder.Accumulate AsmWordKind.Mnemonic "t"
-    | _ -> ()
-
   let buildDisp disp showSign builder =
     match disp with
     | Some d -> buildDisplacement showSign d builder
@@ -1669,7 +1661,6 @@ module private ATTSyntax = begin
     if ins.IsBranch () then
       builder.Accumulate AsmWordKind.String " *"
     elif isFst then
-      buildOpSuffix builder oprSz
       builder.Accumulate AsmWordKind.String " "
     else
       builder.Accumulate AsmWordKind.String ", "
@@ -1719,6 +1710,28 @@ module private ATTSyntax = begin
       buildRelAddr offset hlp builder
     | Label _ -> Utils.impossible ()
 
+  let addOpSuffix (builder: DisasmBuilder) = function
+    | 8<rt> -> builder.Accumulate AsmWordKind.Mnemonic "b"
+    | 16<rt> -> builder.Accumulate AsmWordKind.Mnemonic "w"
+    | 32<rt> -> builder.Accumulate AsmWordKind.Mnemonic "l"
+    | 64<rt> -> builder.Accumulate AsmWordKind.Mnemonic "q"
+    | 80<rt> -> builder.Accumulate AsmWordKind.Mnemonic "t"
+    | _ -> ()
+
+  let buildOpSuffix operands builder =
+    match operands with
+    | OneOperand (OprMem (_, _, _, sz)) -> addOpSuffix builder sz
+    | TwoOperands (OprMem (_, _, _, sz), _)
+    | TwoOperands (_, OprMem (_, _, _, sz)) -> addOpSuffix builder sz
+    | ThreeOperands (OprMem (_, _, _, sz), _, _)
+    | ThreeOperands (_, OprMem (_, _, _, sz), _)
+    | ThreeOperands (_, _, OprMem (_, _, _, sz)) -> addOpSuffix builder sz
+    | FourOperands (OprMem (_, _, _, sz), _, _, _)
+    | FourOperands (_, OprMem (_, _, _, sz), _, _)
+    | FourOperands (_, _, OprMem (_, _, _, sz), _)
+    | FourOperands (_, _, _, OprMem (_, _, _, sz)) -> addOpSuffix builder sz
+    | _ -> ()
+
   let buildOprs (ins: InsInfo) hlp (builder: DisasmBuilder) =
     match ins.Operands with
     | NoOperand -> ()
@@ -1744,6 +1757,7 @@ module private ATTSyntax = begin
     if builder.ShowAddr then builder.AccumulateAddr () else ()
     buildPref (ins: InsInfo).Prefixes builder
     buildOpcode ins.Opcode builder
+    buildOpSuffix ins.Operands builder
     buildOprs ins hlp builder
 
 end
