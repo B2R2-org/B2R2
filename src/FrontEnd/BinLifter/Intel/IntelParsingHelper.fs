@@ -5546,13 +5546,14 @@ module internal ParsingHelper = begin
     | 1 -> DEC
     | _ -> raise ParsingFailureException
 
-  let grp5 = function
+  let grp5 b = function
     | 0 -> struct (INC, OD.Mem, SZ.Def, SzCond.Nor)
     | 1 -> struct (DEC, OD.Mem, SZ.Def, SzCond.Nor)
     | 2 -> struct (CALLNear, OD.Mem, SZ.Def, SzCond.F64)
     | 3 -> struct (CALLFar, OD.Mem, SZ.P, SzCond.Nor)
     | 4 -> struct (JMPNear, OD.Mem, SZ.Def, SzCond.F64)
-    | 5 -> struct (JMPFar, OD.Dir, SZ.P, SzCond.Nor)
+    | 5 -> if modIsMemory b then struct (JMPFar, OD.Mem, SZ.P, SzCond.Nor)
+           else raise ParsingFailureException
     | 6 -> struct (PUSH, OD.Mem, SZ.Def, SzCond.D64)
     | _ -> raise ParsingFailureException
 
@@ -5825,7 +5826,7 @@ module internal ParsingHelper = begin
     | OpGroup.G2 -> struct (grp2Op r, oidx, sidx, SzCond.Nor)
     | OpGroup.G3A | OpGroup.G3B -> getGrp3OpKind oidx sidx oprGrp r
     | OpGroup.G4 -> struct (grp4Op r, OD.Mem, SZ.Byte, SzCond.Nor)
-    | OpGroup.G5 -> grp5 r
+    | OpGroup.G5 -> grp5 b r
     | OpGroup.G6 -> getGrp6OpKind b r
     | OpGroup.G7 -> parseGrp7OpKind rhlp b r
     | OpGroup.G8 -> struct (grp8Op r, oidx, sidx, SzCond.Nor)
