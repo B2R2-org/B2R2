@@ -1572,7 +1572,7 @@ let simdVectorToString = function
   | TwoD -> "2d"
   | OneQ -> "1q"
 
-let simdFPRegToString simdOpr (builder: DisasmBuilder<_>) =
+let simdFPRegToString simdOpr (builder: DisasmBuilder) =
   match simdOpr with
   | SIMDFPScalarReg sReg ->
     builder.Accumulate AsmWordKind.Variable (Register.toString sReg)
@@ -1583,7 +1583,7 @@ let simdFPRegToString simdOpr (builder: DisasmBuilder<_>) =
     builder.Accumulate AsmWordKind.Variable (Register.toString reg)
     builder.Accumulate AsmWordKind.String ("." + simdVectorToString vec)
 
-let finalOprSIMD s (builder: DisasmBuilder<_>) =
+let finalOprSIMD s (builder: DisasmBuilder) =
   match s with
   | SIMDVecRegWithIdx (_, _, idx) ->
     builder.Accumulate AsmWordKind.String "["
@@ -1597,7 +1597,7 @@ let simdToString simd builder =
   finalOprSIMD simd builder
 
 (* SIMD vector register list or SIMD vector element list *)
-let simdListToString simd (builder: DisasmBuilder<_>) =
+let simdListToString simd (builder: DisasmBuilder) =
   match simd with
   | [ s ] ->
     builder.Accumulate AsmWordKind.String "{ "
@@ -1629,15 +1629,15 @@ let simdListToString simd (builder: DisasmBuilder<_>) =
     finalOprSIMD s1 builder
   | _ -> ()
 
-let immToString imm (builder: DisasmBuilder<_>) =
+let immToString imm (builder: DisasmBuilder) =
   builder.Accumulate AsmWordKind.String "#"
   builder.Accumulate AsmWordKind.String (String.i64ToHex imm)
 
-let fpImmToString (fp: float) (builder: DisasmBuilder<_>) =
+let fpImmToString (fp: float) (builder: DisasmBuilder) =
   builder.Accumulate AsmWordKind.String "#"
   builder.Accumulate AsmWordKind.String (fp.ToString ("N8"))
 
-let nzcvToString (imm: uint8) (builder: DisasmBuilder<_>) =
+let nzcvToString (imm: uint8) (builder: DisasmBuilder) =
   builder.Accumulate AsmWordKind.String "#"
   builder.Accumulate AsmWordKind.String ("0x" + imm.ToString "x")
 
@@ -1646,7 +1646,7 @@ let amountToString amount builder =
   | Imm i -> immToString i builder
   | Reg r -> builder.Accumulate AsmWordKind.Variable (Register.toString r)
 
-let prependDelimiter delimiter (builder: DisasmBuilder<_>) =
+let prependDelimiter delimiter (builder: DisasmBuilder) =
   match delimiter with
   | None -> ()
   | Some delim -> builder.Accumulate AsmWordKind.String delim
@@ -1696,7 +1696,7 @@ let processAddrExn64 ins addr =
   | Opcode.ADRP -> addr &&& 0xFFFFFFFFFFFFF000UL
   | _ -> addr
 
-let immOffsetToString i addr mode offset (builder: DisasmBuilder<_>) =
+let immOffsetToString i addr mode offset (builder: DisasmBuilder) =
   match offset with
   | BaseOffset (reg, None) | BaseOffset (reg, Some 0L) ->
     builder.Accumulate AsmWordKind.Variable (Register.toString reg)
@@ -1708,7 +1708,7 @@ let immOffsetToString i addr mode offset (builder: DisasmBuilder<_>) =
     let addr = processAddrExn64 i addr
     builder.Accumulate AsmWordKind.Value (String.i64ToHex (int64 addr + imm))
 
-let regOffsetToString mode offset (builder: DisasmBuilder<_>) =
+let regOffsetToString mode offset (builder: DisasmBuilder) =
   match offset with
   | r1, r2, Some regOff ->
     builder.Accumulate AsmWordKind.Variable (Register.toString r1)
@@ -1720,7 +1720,7 @@ let regOffsetToString mode offset (builder: DisasmBuilder<_>) =
     builder.Accumulate AsmWordKind.String (delimPostIdx mode)
     builder.Accumulate AsmWordKind.Variable (Register.toString r2)
 
-let postBracket mode (builder: DisasmBuilder<_>) =
+let postBracket mode (builder: DisasmBuilder) =
   match mode with
   | BaseMode _ -> builder.Accumulate AsmWordKind.String "]"
   | PreIdxMode _ -> builder.Accumulate AsmWordKind.String "]!"
@@ -1839,7 +1839,7 @@ let oprToString i addr opr delim builder =
     prependDelimiter delim builder
     builder.Accumulate AsmWordKind.Variable (lsbToString ui8)
 
-let inline buildOpcode ins (builder: DisasmBuilder<_>) =
+let inline buildOpcode ins (builder: DisasmBuilder) =
   let opcode = opCodeToString ins.Opcode + condToString ins.Condition
   builder.Accumulate AsmWordKind.Mnemonic opcode
 
@@ -1867,7 +1867,7 @@ let buildOprs insInfo pc builder =
     oprToString insInfo pc opr4 (Some ", ") builder
     oprToString insInfo pc opr5 (Some ", ") builder
 
-let disasm ins (builder: DisasmBuilder<_>) =
+let disasm ins (builder: DisasmBuilder) =
   let pc = ins.Address
   if builder.ShowAddr then builder.AccumulateAddr () else ()
   buildOpcode ins builder

@@ -172,7 +172,7 @@ let opcodeToStrings = function
   | INVALID -> struct("invalid", None)
   | SELFDESTRUCT -> struct("selfdestruct", None)
 
-let inline buildOpcode insInfo (builder: DisasmBuilder<_>) =
+let inline buildOpcode insInfo (builder: DisasmBuilder) =
   let struct (opcode, extra) = opcodeToStrings insInfo.Opcode
   match extra with
   | None -> builder.Accumulate AsmWordKind.Mnemonic opcode
@@ -181,7 +181,7 @@ let inline buildOpcode insInfo (builder: DisasmBuilder<_>) =
     builder.Accumulate AsmWordKind.String " "
     builder.Accumulate AsmWordKind.Value extra
 
-let disasm insInfo (builder: DisasmBuilder<_>) =
+let disasm insInfo (builder: DisasmBuilder) =
   if builder.ShowAddr then builder.AccumulateAddr () else ()
   buildOpcode insInfo builder
 

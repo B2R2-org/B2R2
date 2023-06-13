@@ -59,22 +59,21 @@ type SH4Instruction (addr, numBytes, insInfo) =
     Lifter.translate __.Info numBytes ctxt
 
   override __.Disasm (showAddr, _resolveSymbol, _fileInfo) =
-
     let builder =
       DisasmStringBuilder (showAddr, false, WordSize.Bit32, addr, numBytes)
-    Disassembly.disas __.Info builder
+    Disasm.disas __.Info builder
     builder.Finalize ()
 
   override __.Disasm () =
     let builder =
       DisasmStringBuilder (false, false, WordSize.Bit32, addr, numBytes)
-    Disassembly.disas __.Info builder
+    Disasm.disas __.Info builder
     builder.Finalize ()
 
   override __.Decompose (showAddr) =
     let builder =
       DisasmWordBuilder (showAddr, false, WordSize.Bit32, addr, numBytes, 8)
-    Disassembly.disas __.Info builder
+    Disasm.disas __.Info builder
     builder.Finalize ()
 
   override __.IsInlinedAssembly () = false

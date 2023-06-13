@@ -525,11 +525,11 @@ let opcodeToString = function
   | I64AtomicRmw16CmpxchgU -> "i64.atomic.rmw16.cmpxchg_u"
   | I64AtomicRmw32CmpxchgU -> "i64.atomic.rmw32.cmpxchg_u"
 
-let inline buildOpcode insInfo (builder: DisasmBuilder<_>) =
+let inline buildOpcode insInfo (builder: DisasmBuilder) =
   let opcode = opcodeToString insInfo.Opcode
   builder.Accumulate AsmWordKind.Mnemonic opcode
 
-let oprToString opr delim (builder: DisasmBuilder<_>) =
+let oprToString opr delim (builder: DisasmBuilder) =
   match opr with
   | Type t ->
     builder.Accumulate AsmWordKind.String delim
@@ -575,7 +575,7 @@ let oprToString opr delim (builder: DisasmBuilder<_>) =
     builder.Accumulate AsmWordKind.String delim
     builder.Accumulate AsmWordKind.Value (reftype |> string)
 
-let buildOperands insInfo (builder: DisasmBuilder<_>) =
+let buildOperands insInfo (builder: DisasmBuilder) =
   match insInfo.Operands with
   | NoOperand -> ()
   | OneOperand opr ->
@@ -595,7 +595,7 @@ let buildOperands insInfo (builder: DisasmBuilder<_>) =
         auxOprsToString (List.tail oprs) builder
     auxOprsToString oprs builder
 
-let disasm insInfo (builder: DisasmBuilder<_>) =
+let disasm insInfo (builder: DisasmBuilder) =
   if builder.ShowAddr then builder.AccumulateAddr () else ()
   buildOpcode insInfo builder
   buildOperands insInfo builder

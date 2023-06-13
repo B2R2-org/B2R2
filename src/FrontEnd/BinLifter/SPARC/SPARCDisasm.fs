@@ -484,26 +484,26 @@ let opCodeToString = function
   | Opcode.InvalidOp -> "(invalid)"
   | _ -> Utils.impossible ()
 
-let prependDelimiter delimiter (builder: DisasmBuilder<_>) =
+let prependDelimiter delimiter (builder: DisasmBuilder) =
   match delimiter with
   | None -> ()
   | Some delim -> builder.Accumulate AsmWordKind.String delim
 
-let immToString imm (builder: DisasmBuilder<_>) =
+let immToString imm (builder: DisasmBuilder) =
   builder.Accumulate AsmWordKind.Value (String.i32ToHex imm)
 
-let immToStringNoPrefix imm (builder: DisasmBuilder<_>) =
+let immToStringNoPrefix imm (builder: DisasmBuilder) =
   builder.Accumulate AsmWordKind.Value (String.i32ToHexNoPrefix imm)
 
-let ccToString cc (builder: DisasmBuilder<_>) =
+let ccToString cc (builder: DisasmBuilder) =
   let cc = ConditionCode.toString cc
   builder.Accumulate AsmWordKind.Variable cc
 
-let buildReg ins reg (builder: DisasmBuilder<_>) =
+let buildReg ins reg (builder: DisasmBuilder) =
   let reg = Register.toString reg
   builder.Accumulate AsmWordKind.Variable reg
 
-let memToString addrMode (builder: DisasmBuilder<_>) =
+let memToString addrMode (builder: DisasmBuilder) =
   match addrMode with
   | DispMode (reg,c) ->
     let reg = Register.toString reg
@@ -543,7 +543,7 @@ let oprToString ins addr operand delim builder =
     prependDelimiter delim builder
     memToString addrMode builder
 
-let buildComment2 opr1 opr2 (builder: DisasmBuilder<_>) =
+let buildComment2 opr1 opr2 (builder: DisasmBuilder) =
   match opr1, opr2 with
   | OprImm imm, _ | _, OprImm imm ->
     builder.Accumulate AsmWordKind.String "     ! "
@@ -556,7 +556,7 @@ let buildComment2 opr1 opr2 (builder: DisasmBuilder<_>) =
     | _ -> ()
   | _ -> ()
 
-let buildComment3 opr1 opr2 opr3 (builder: DisasmBuilder<_>) =
+let buildComment3 opr1 opr2 opr3 (builder: DisasmBuilder) =
   match opr1, opr2, opr3 with
   | OprImm imm, _, _ | _, OprImm imm, _ | _, _, OprImm imm ->
     builder.Accumulate AsmWordKind.String "     ! "
@@ -570,7 +570,7 @@ let buildComment3 opr1 opr2 opr3 (builder: DisasmBuilder<_>) =
     | _ -> ()
   | _ -> ()
 
-let buildComment3Bracket opr1 opr2 opr3 (builder: DisasmBuilder<_>) =
+let buildComment3Bracket opr1 opr2 opr3 (builder: DisasmBuilder) =
   match opr1, opr2, opr3 with
   | OprImm imm, _, _ | _, OprImm imm, _ | _, _, OprImm imm ->
     builder.Accumulate AsmWordKind.String "]     ! "
@@ -586,7 +586,7 @@ let buildComment3Bracket opr1 opr2 opr3 (builder: DisasmBuilder<_>) =
     builder.Accumulate AsmWordKind.String "]"
   | _ -> ()
 
-let buildComment4 opr1 opr2 opr3 opr4 (builder: DisasmBuilder<_>) =
+let buildComment4 opr1 opr2 opr3 opr4 (builder: DisasmBuilder) =
   match opr1, opr2, opr3, opr4 with
   | OprImm imm, _, _, _ | _, OprImm imm, _, _ | _, _, OprImm imm, _
   | _, _, _, OprImm imm ->
@@ -594,7 +594,7 @@ let buildComment4 opr1 opr2 opr3 opr4 (builder: DisasmBuilder<_>) =
     builder.Accumulate AsmWordKind.Value (string imm)
   | _ -> ()
 
-let buildComment5 opr1 opr2 opr3 opr4 opr5 (builder: DisasmBuilder<_>) =
+let buildComment5 opr1 opr2 opr3 opr4 opr5 (builder: DisasmBuilder) =
   match opr1, opr2, opr3, opr4, opr5 with
   | OprImm imm, _, _, _ ,_ | _, OprImm imm, _, _, _ | _, _, OprImm imm, _, _
   | _, _, _, OprImm imm, _ | _, _, _, _, OprImm imm ->
@@ -830,11 +830,11 @@ let buildOprs ins pc builder =
     oprToString ins pc opr5 (Some ", ") builder
     buildComment5 opr1 opr2 opr3 opr4 opr5 builder
 
-let inline buildOpcode ins (builder: DisasmBuilder<_>) =
+let inline buildOpcode ins (builder: DisasmBuilder) =
   let str = opCodeToString ins.Opcode
   builder.Accumulate AsmWordKind.Mnemonic str
 
-let disasm insInfo (builder: DisasmBuilder<_>) =
+let disasm insInfo (builder: DisasmBuilder) =
   let pc = insInfo.Address
   if builder.ShowAddr then builder.AccumulateAddr () else ()
   buildOpcode insInfo builder

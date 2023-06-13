@@ -492,11 +492,11 @@ let condToString = function
   | Condition.NU -> "nu"
   | _ -> raise ParsingFailureException
 
-let inline buildOpcode ins (builder: DisasmBuilder<_>) =
+let inline buildOpcode ins (builder: DisasmBuilder) =
   let str = opCodeToString ins.Opcode
   builder.Accumulate AsmWordKind.Mnemonic str
 
-let inline relToString pc offset (builder: DisasmBuilder<_>) =
+let inline relToString pc offset (builder: DisasmBuilder) =
   let targetAddr = pc + uint64 offset
   builder.Accumulate AsmWordKind.Value (String.u32ToHex (uint32 targetAddr))
 
@@ -507,7 +507,7 @@ let inline getCond bi =
   | 0b10u -> Condition.EQ
   | _ (* 11 *) -> Condition.SO
 
-let oprToString insInfo opr delim (builder: DisasmBuilder<_>) =
+let oprToString insInfo opr delim (builder: DisasmBuilder) =
   match opr with
   | OprReg reg ->
     builder.Accumulate AsmWordKind.String delim
@@ -557,7 +557,7 @@ let buildOprs insInfo builder =
     oprToString insInfo opr4 ", " builder
     oprToString insInfo opr5 ", " builder
 
-let buildSimpleMnemonic opcode bi addr insInfo (builder: DisasmBuilder<_>) =
+let buildSimpleMnemonic opcode bi addr insInfo (builder: DisasmBuilder) =
   let cr = extract bi 4u 2u |> getCondRegister
   builder.Accumulate AsmWordKind.Mnemonic (opCodeToString opcode)
   builder.Accumulate AsmWordKind.String " "
@@ -565,18 +565,18 @@ let buildSimpleMnemonic opcode bi addr insInfo (builder: DisasmBuilder<_>) =
   builder.Accumulate AsmWordKind.String ", "
   relToString insInfo.Address addr builder
 
-let buildCrMnemonic opcode bi (builder: DisasmBuilder<_>) =
+let buildCrMnemonic opcode bi (builder: DisasmBuilder) =
   let cr = extract bi 4u 2u |> getCondRegister
   builder.Accumulate AsmWordKind.Mnemonic (opCodeToString opcode)
   builder.Accumulate AsmWordKind.String " "
   builder.Accumulate AsmWordKind.Variable (Register.toString cr)
 
-let buildTargetMnemonic opcode addr insInfo (builder: DisasmBuilder<_>) =
+let buildTargetMnemonic opcode addr insInfo (builder: DisasmBuilder) =
   builder.Accumulate AsmWordKind.Mnemonic (opCodeToString opcode)
   builder.Accumulate AsmWordKind.String " "
   relToString insInfo.Address addr builder
 
-let buildRotateMnemonic opcode ra rs n (builder: DisasmBuilder<_>) =
+let buildRotateMnemonic opcode ra rs n (builder: DisasmBuilder) =
   builder.Accumulate AsmWordKind.Mnemonic (opCodeToString opcode)
   builder.Accumulate AsmWordKind.String " "
   builder.Accumulate AsmWordKind.Variable (Register.toString ra)
@@ -658,7 +658,7 @@ let buildBCLA insInfo builder =
       buildOprs insInfo builder
   | _ -> raise ParsingFailureException
 
-let buildBCLR insInfo (builder: DisasmBuilder<_>) =
+let buildBCLR insInfo (builder: DisasmBuilder) =
   match insInfo.Operands with
   | TwoOperands (OprImm bo , OprBI bi) ->
     let bibit = bi % 4u
@@ -678,7 +678,7 @@ let buildBCLR insInfo (builder: DisasmBuilder<_>) =
       buildOprs insInfo builder
   | _ -> raise ParsingFailureException
 
-let buildBCLRL insInfo (builder: DisasmBuilder<_>) =
+let buildBCLRL insInfo (builder: DisasmBuilder) =
   match insInfo.Operands with
   | TwoOperands (OprImm bo , OprBI bi) ->
     match bo, bi with
@@ -759,7 +759,7 @@ let buildRLWINM insInfo builder =
       buildOprs insInfo builder
   | _ -> raise ParsingFailureException
 
-let disasm insInfo (builder: DisasmBuilder<_>) =
+let disasm insInfo (builder: DisasmBuilder) =
   if builder.ShowAddr then builder.AccumulateAddr () else ()
   match insInfo.Opcode with
   | Op.BC -> buildBC insInfo builder
