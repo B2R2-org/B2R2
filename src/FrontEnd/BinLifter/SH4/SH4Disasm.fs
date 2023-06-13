@@ -22,7 +22,7 @@
   SOFTWARE.
 *)
 
-module B2R2.FrontEnd.BinLifter.SH4.Disassembly
+module B2R2.FrontEnd.BinLifter.SH4.Disasm
 
 open B2R2
 open B2R2.FrontEnd.BinLifter

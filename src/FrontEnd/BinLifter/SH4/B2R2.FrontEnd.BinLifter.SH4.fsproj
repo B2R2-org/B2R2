@@ -12,7 +12,7 @@
     <Compile Include="SH4RegisterSet.fs" />
     <Compile Include="SH4RegExprs.fs" />
     <Compile Include="SH4RegisterBay.fs" />
-    <Compile Include="SH4Disassembly.fs" />
+    <Compile Include="SH4Disasm.fs" />
     <Compile Include="SH4GeneralLifter.fs" />
     <Compile Include="SH4Lifter.fs" />
     <Compile Include="SH4Instruction.fs" />
