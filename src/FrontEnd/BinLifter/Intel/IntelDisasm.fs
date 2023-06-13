@@ -1732,6 +1732,19 @@ module private ATTSyntax = begin
     | FourOperands (_, _, _, OprMem (_, _, _, sz)) -> addOpSuffix builder sz
     | _ -> ()
 
+  let buildSrcSizeSuffix operands builder =
+    match operands with
+    | TwoOperands (_, OprMem (_, _, _, sz)) -> addOpSuffix builder sz
+    | TwoOperands (_, OprReg dst) ->
+      Register.toRegType dst |> addOpSuffix builder
+    | _ -> Utils.impossible ()
+
+  let buildDstSizeSuffix operands builder =
+    match operands with
+    | TwoOperands (OprReg dst, _) ->
+      Register.toRegType dst |> addOpSuffix builder
+    | _ -> Utils.impossible ()
+
   let buildOprs (ins: InsInfo) hlp (builder: DisasmBuilder) =
     match ins.Operands with
     | NoOperand -> ()
@@ -1756,8 +1769,20 @@ module private ATTSyntax = begin
   let disasm hlp (builder: DisasmBuilder) ins =
     if builder.ShowAddr then builder.AccumulateAddr () else ()
     buildPref (ins: InsInfo).Prefixes builder
-    buildOpcode ins.Opcode builder
-    buildOpSuffix ins.Operands builder
+    match ins.Opcode with
+    | Opcode.MOVSX ->
+      builder.Accumulate AsmWordKind.Mnemonic "movs"
+      buildSrcSizeSuffix ins.Operands builder
+      buildDstSizeSuffix ins.Operands builder
+    | Opcode.MOVZX ->
+      builder.Accumulate AsmWordKind.Mnemonic "movz"
+      buildSrcSizeSuffix ins.Operands builder
+      buildDstSizeSuffix ins.Operands builder
+    | Opcode.MOVSXD ->
+      builder.Accumulate AsmWordKind.Mnemonic "movslq"
+    | opcode ->
+      buildOpcode opcode builder
+      buildOpSuffix ins.Operands builder
     buildOprs ins hlp builder
 
 end
