@@ -40,7 +40,7 @@ type MIPSInstruction (addr, numBytes, insInfo, wordSize) =
     | Opcode.B | Opcode.BAL | Opcode.BEQ | Opcode.BGEZ | Opcode.BGEZAL
     | Opcode.BGTZ | Opcode.BLEZ | Opcode.BLTZ | Opcode.BNE
     | Opcode.JALR | Opcode.JALRHB | Opcode.JR | Opcode.JRHB
-    | Opcode.J | Opcode.JAL -> true
+    | Opcode.J | Opcode.JAL | Opcode.BC1F | Opcode.BC1T -> true
     | _ -> false
 
   override __.IsModeChanging () = false
@@ -62,13 +62,13 @@ type MIPSInstruction (addr, numBytes, insInfo, wordSize) =
   override __.IsCondBranch () =
     match __.Info.Opcode with
     | Opcode.BEQ | Opcode.BLTZ | Opcode.BLEZ | Opcode.BGTZ | Opcode.BGEZ
-    | Opcode.BGEZAL | Opcode.BNE -> true
+    | Opcode.BGEZAL | Opcode.BNE | Opcode.BC1F | Opcode.BC1T -> true
     | _ -> false
 
   override __.IsCJmpOnTrue () =
     match __.Info.Opcode with
     | Opcode.BEQ | Opcode.BLTZ | Opcode.BLEZ | Opcode.BGTZ | Opcode.BGEZ
-    | Opcode.BGEZAL -> true
+    | Opcode.BGEZAL | Opcode.BC1F | Opcode.BC1T -> true
     | _ -> false
 
   override __.IsCall () =
