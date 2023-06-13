@@ -1711,8 +1711,12 @@ module private ATTSyntax = begin
       if isFst then builder.Accumulate AsmWordKind.String " $"
       else builder.Accumulate AsmWordKind.String ", $"
       iToHexStr (imm &&& getMask ins.MainOperationSize) builder
-    | OprDirAddr (Absolute (sel, offset, _)) -> buildAbsAddr sel offset builder
-    | OprDirAddr (Relative (offset)) -> buildRelAddr offset hlp builder
+    | OprDirAddr (Absolute (sel, offset, _)) ->
+      builder.Accumulate AsmWordKind.String " "
+      buildAbsAddr sel offset builder
+    | OprDirAddr (Relative (offset)) ->
+      builder.Accumulate AsmWordKind.String " "
+      buildRelAddr offset hlp builder
     | Label _ -> Utils.impossible ()
 
   let buildOprs (ins: InsInfo) hlp (builder: DisasmBuilder) =
