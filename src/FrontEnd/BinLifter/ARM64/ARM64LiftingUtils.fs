@@ -988,10 +988,13 @@ let fpToFixed dstSz src fbits unsigned round =
     | FPRounding_Zero -> AST.cast CastKind.FtoITrunc srcSz
     | FPRounding_POSINF -> AST.cast CastKind.FtoICeil srcSz
     | FPRounding_NEGINF -> AST.cast CastKind.FtoIFloor srcSz
-  match dstSz, srcSz with
-  | d, s when d >= s -> round bigint
-  | _ -> round bigint |> AST.xtlo dstSz
-  |> if unsigned then AST.zext dstSz else AST.sext dstSz
+  let res =
+    match dstSz, srcSz with
+    | d, s when d >= s -> round bigint
+    | _ -> round bigint |> AST.xtlo dstSz
+    |> if unsigned then AST.zext dstSz else AST.sext dstSz
+  (* FIXME *)
+  AST.ite ((isQNaN srcSz src) .| (isSNaN srcSz src)) (AST.num0 dstSz) res
 
 /// shared/functions/common/BitCount
 // BitCount()
