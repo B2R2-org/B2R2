@@ -862,7 +862,6 @@ let satQ i n isUnsigned ir = (* FIMXE: return saturated (FPSR.QC = '1') *)
   if isUnsigned then unsignedSatQ i n ir else signedSatQ i n ir
 
 /// Exception
-
 let isNaN oprSize expr =
   match oprSize with
   | 32<rt> -> IEEE754Single.isNaN expr

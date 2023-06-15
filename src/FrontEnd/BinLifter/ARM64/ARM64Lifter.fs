@@ -897,9 +897,10 @@ let faddp ins insLen ctxt addr =
   | _ -> raise InvalidOperandException
   !>ir insLen
 
-let private fpCompare v1 v2 =
-  AST.ite (AST.eq v1 v2) (numI32 0b0110 8<rt>)
-    (AST.ite (AST.flt v1 v2) (numI32 0b1000 8<rt>) (numI32 0b0010 8<rt>))
+let private fpCompare oprSz v1 v2 =
+  AST.ite (isNaN oprSz v1 .| isNaN oprSz v2) (numI32 0b0011 8<rt>)
+    (AST.ite (AST.eq v1 v2) (numI32 0b0110 8<rt>)
+      (AST.ite (AST.flt v1 v2) (numI32 0b1000 8<rt>) (numI32 0b0010 8<rt>)))
 
 let private getFlag flags pos = AST.extract flags 1<rt> pos
 
@@ -913,60 +914,25 @@ let fcmp ins insLen ctxt addr =
   let ir = !*ctxt
   !<ir insLen
   let src1, src2 = transTwoOprs ins ctxt addr
-  let isNanOp1OrOp2 = isNaN ins.OprSize src1 .| isNaN ins.OprSize src2
-  let lblNaN = !%ir "NaN"
-  let lblRegular = !%ir "Regular"
-  let lblEnd = !%ir "End"
-  let nzcv = !+ir 8<rt>
-  !!ir (AST.cjmp isNanOp1OrOp2 (AST.name lblNaN) (AST.name lblRegular))
-  !!ir (AST.lmark lblNaN)
-  !!ir (getRegVar ctxt R.N := AST.b0)
-  !!ir (getRegVar ctxt R.Z := AST.b0)
-  !!ir (getRegVar ctxt R.C := AST.b1)
-  !!ir (getRegVar ctxt R.V := AST.b1)
-  !!ir (AST.jmp (AST.name lblEnd))
-  !!ir (AST.lmark lblRegular)
-  !!ir (nzcv := fpCompare src1 src2)
-  !!ir (getRegVar ctxt R.N := AST.extract nzcv 1<rt> 3)
-  !!ir (getRegVar ctxt R.Z := AST.extract nzcv 1<rt> 2)
-  !!ir (getRegVar ctxt R.C := AST.extract nzcv 1<rt> 1)
-  !!ir (getRegVar ctxt R.V := AST.extract nzcv 1<rt> 0)
-  !!ir (AST.lmark lblEnd)
+  let flags = !+ir 8<rt>
+  !!ir (flags := fpCompare ins.OprSize src1 src2)
+  !!ir (getRegVar ctxt R.N := AST.extract flags 1<rt> 3)
+  !!ir (getRegVar ctxt R.Z := AST.extract flags 1<rt> 2)
+  !!ir (getRegVar ctxt R.C := AST.extract flags 1<rt> 1)
+  !!ir (getRegVar ctxt R.V := AST.extract flags 1<rt> 0)
   !>ir insLen
 
 let fccmp ins insLen ctxt addr =
   let ir = !*ctxt
   !<ir insLen
   let src1, src2, nzcv, cond = transOprToExprOfCCMP ins ctxt addr
-  let isNanOp1OrOp2 = isNaN ins.OprSize src1 .| isNaN ins.OprSize src2
   let flags = !+ir 8<rt>
-  let lblT = !%ir "True"
-  let lblF = !%ir "False"
-  let lblNaN = !%ir "NaN"
-  let lblRegular = !%ir "Regular"
-  let lblEnd = !%ir "End"
-  !!ir (AST.cjmp (conditionHolds ctxt cond) (AST.name lblT) (AST.name lblF))
-  !!ir (AST.lmark lblT)
-  !!ir (AST.cjmp isNanOp1OrOp2 (AST.name lblNaN) (AST.name lblRegular))
-  !!ir (AST.lmark lblNaN)
-  !!ir (getRegVar ctxt R.N := AST.b0)
-  !!ir (getRegVar ctxt R.Z := AST.b0)
-  !!ir (getRegVar ctxt R.C := AST.b1)
-  !!ir (getRegVar ctxt R.V := AST.b1)
-  !!ir (AST.jmp (AST.name lblEnd))
-  !!ir (AST.lmark lblRegular)
-  !!ir (flags := fpCompare src1 src2)
+  let comp = fpCompare ins.OprSize src1 src2
+  !!ir (flags := AST.ite (conditionHolds ctxt cond) comp (AST.xtlo 8<rt> nzcv))
   !!ir (getRegVar ctxt R.N := AST.extract flags 1<rt> 3)
   !!ir (getRegVar ctxt R.Z := AST.extract flags 1<rt> 2)
   !!ir (getRegVar ctxt R.C := AST.extract flags 1<rt> 1)
   !!ir (getRegVar ctxt R.V := AST.extract flags 1<rt> 0)
-  !!ir (AST.jmp (AST.name lblEnd))
-  !!ir (AST.lmark lblF)
-  !!ir (getRegVar ctxt R.N := AST.extract nzcv 1<rt> 3)
-  !!ir (getRegVar ctxt R.Z := AST.extract nzcv 1<rt> 2)
-  !!ir (getRegVar ctxt R.C := AST.extract nzcv 1<rt> 1)
-  !!ir (getRegVar ctxt R.V := AST.extract nzcv 1<rt> 0)
-  !!ir (AST.lmark lblEnd)
   !>ir insLen
 
 let fcmgt ins insLen ctxt addr =
@@ -1339,39 +1305,26 @@ let private fpCurrentRoundToInt ins insLen ctxt addr =
   !>ir insLen
 
 let private tieawayCast ctxt eSize ir src =
-   let sign = AST.xthi 1<rt> src
-   let trunc = AST.cast CastKind.FtoFTrunc eSize src
-   let t1 = !+ir eSize
-   let t2 = !+ir eSize
-   let res = !+ir eSize
-   let lblPos = !%ir "Positive"
-   let lblNeg = !%ir "Negative"
-   let lblEnd = !%ir "End"
-   !!ir (t1 := AST.fsub src trunc)
-   let comp1 =
-     match eSize with
-     | 32<rt> -> numI32 0x3F000000 eSize (* 0.5 *)
-     | 64<rt> -> numI64 0x3FE0000000000000L eSize (* 0.5 *)
-     | _ -> raise InvalidOperandSizeException
-   let comp2 =
-     match eSize with
-     | 32<rt> -> numI32 0xBF000000 eSize (* -0.5 *)
-     | 64<rt> -> numI64 0xBFE0000000000000L eSize (* -0.5 *)
-     | _ -> raise InvalidOperandSizeException
-   !!ir (AST.cjmp sign (AST.name lblNeg) (AST.name lblPos))
-   !!ir (AST.lmark lblPos)
-   !!ir (t2 := comp1)
-   !!ir (res := AST.ite (AST.fge t1 t2)
-     (fpType ctxt CastKind.FtoFCeil eSize src)
-     (fpType ctxt CastKind.FtoFFloor eSize src))
-   !!ir (AST.jmp (AST.name lblEnd))
-   !!ir (AST.lmark lblNeg)
-   !!ir (t2 := comp2)
-   !!ir (res := AST.ite (AST.fle t1 t2)
-     (fpType ctxt CastKind.FtoFFloor eSize src)
-     (fpType ctxt CastKind.FtoFCeil eSize src))
-   !!ir (AST.lmark lblEnd)
-   res
+  let sign = AST.xthi 1<rt> src
+  let trunc = AST.cast CastKind.FtoFTrunc eSize src
+  let struct (t, res) = tmpVars2 ir eSize
+  !!ir (t := AST.fsub src trunc)
+  let comp1 =
+    match eSize with
+    | 32<rt> -> numI32 0x3F000000 eSize (* 0.5 *)
+    | 64<rt> -> numI64 0x3FE0000000000000L eSize (* 0.5 *)
+    | _ -> raise InvalidOperandSizeException
+  let comp2 =
+    match eSize with
+    | 32<rt> -> numI32 0xBF000000 eSize (* -0.5 *)
+    | 64<rt> -> numI64 0xBFE0000000000000L eSize (* -0.5 *)
+    | _ -> raise InvalidOperandSizeException
+  let ceil = fpType ctxt CastKind.FtoFCeil eSize src
+  let floor = fpType ctxt CastKind.FtoFFloor eSize src
+  let pRes = AST.ite (AST.fge t comp1) ceil floor
+  let nRes = AST.ite (AST.fle t comp2) floor ceil
+  !!ir (res := AST.ite sign nRes pRes)
+  res
 
 let frinta ins insLen ctxt addr =
   let ir = !*ctxt
