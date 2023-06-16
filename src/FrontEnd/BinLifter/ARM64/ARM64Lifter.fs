@@ -1040,7 +1040,8 @@ let private fpConvert ins insLen ctxt addr isUnsigned round =
     let dstB, dstA = transOprToExpr128 ins ctxt addr o1
     let src = transSIMDOprToExpr ctxt eSize dataSize elements o2
     let n0 = AST.num0 eSize
-    let result = Array.map (fun e -> fpToFixed eSize e n0 isUnsigned round) src
+    let result =
+      Array.map (fun e -> fpToFixed eSize e n0 isUnsigned round ir) src
     dstAssignForSIMD dstA dstB result dataSize elements ir
   (* vector #<fbits> *)
   | ThreeOperands (OprSIMD (SIMDVecReg _) as o1, o2, OprFbits fbits) ->
@@ -1049,29 +1050,29 @@ let private fpConvert ins insLen ctxt addr isUnsigned round =
     let src = transSIMDOprToExpr ctxt eSz dataSize elements o2
     let fbits = numI32 (int fbits) eSz
     let result =
-      Array.map (fun e -> fpToFixed eSz e fbits isUnsigned round) src
+      Array.map (fun e -> fpToFixed eSz e fbits isUnsigned round ir) src
     dstAssignForSIMD dstA dstB result dataSize elements ir
   (* scalar *)
   | TwoOperands (OprSIMD (SIMDFPScalarReg _) as o1, o2) ->
     let src = transOprToExpr ins ctxt addr o2
     let result =
-      fpToFixed ins.OprSize src (AST.num0 ins.OprSize) isUnsigned round
+      fpToFixed ins.OprSize src (AST.num0 ins.OprSize) isUnsigned round ir
     dstAssignScalar ins ctxt addr o1 result ins.OprSize ir
   (* scalar #<fbits> *)
   | ThreeOperands (OprSIMD (SIMDFPScalarReg _) as o1, _, OprFbits _) ->
     let _, src, fbits = transThreeOprs ins ctxt addr
-    let result = fpToFixed ins.OprSize src fbits isUnsigned round
+    let result = fpToFixed ins.OprSize src fbits isUnsigned round ir
     dstAssignScalar ins ctxt addr o1 result ins.OprSize ir
   (* float *)
   | TwoOperands (OprRegister _, _) ->
     let dst, src = transTwoOprs ins ctxt addr
     let result =
-      fpToFixed ins.OprSize src (AST.num0 ins.OprSize) isUnsigned round
+      fpToFixed ins.OprSize src (AST.num0 ins.OprSize) isUnsigned round ir
     dstAssign ins.OprSize dst result ir
   (* float #<fbits> *)
   | ThreeOperands (OprRegister _, _, OprFbits _) ->
     let dst, src, fbits = transThreeOprs ins ctxt addr
-    let result = fpToFixed ins.OprSize src fbits isUnsigned round
+    let result = fpToFixed ins.OprSize src fbits isUnsigned round ir
     dstAssign ins.OprSize dst result ir
   | _ -> raise InvalidOperandException
   !>ir insLen

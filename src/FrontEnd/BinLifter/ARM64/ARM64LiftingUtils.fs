@@ -969,6 +969,23 @@ let fpZero src fbit =
   | 16<rt> -> src .& numU64 0x8000UL 16<rt>
   | _ -> raise InvalidOperandException
 
+let fpMinMax src fbit =
+  let sign = AST.xthi 1<rt> src
+  match fbit with
+  | 64<rt> ->
+    let max = numU64 0x7fffffffffffffffUL 64<rt>
+    let min = numU64 0x8000000000000001UL 64<rt>
+    AST.ite sign min max
+  | 32<rt> ->
+    let max = numU64 0x7fffffffUL 32<rt>
+    let min = numU64 0x80000001UL 32<rt>
+    AST.ite sign min max
+  | 16<rt> ->
+    let max = numU64 0x7fffUL 16<rt>
+    let min = numU64 0x8001UL 16<rt>
+    AST.ite sign min max
+  | _ -> raise InvalidOperandException
+
 ///shared/functions/float/fpprocessnan/FPProcessNaN
 /// FPProcessNaN()
 let fpProcessNan ctxt eSize element =
@@ -986,28 +1003,47 @@ let fpProcessNan ctxt eSize element =
 /// shared/functions/float/FPToFixed
 /// FPToFixed()
 /// ======
-let fpToFixed dstSz src fbits unsigned round =
+let fpToFixed dstSz src fbits unsigned round ir =
   let srcSz = src |> TypeCheck.typeOf
+  let sign = AST.xthi 1<rt> src
+  let trunc = AST.cast CastKind.FtoFTrunc srcSz src
   let convertBit =
     if dstSz > srcSz then AST.xtlo srcSz fbits elif dstSz = srcSz then fbits
     else AST.zext srcSz fbits
   let mulBits =
     AST.cast CastKind.UIntToFloat srcSz (numU64 0x1UL srcSz << convertBit)
   let bigint = AST.fmul src mulBits
-  let round =
-    match round with
-    | FPRounding_TIEEVEN
-    | FPRounding_TIEAWAY -> AST.cast CastKind.FtoIRound srcSz
-    | FPRounding_Zero -> AST.cast CastKind.FtoITrunc srcSz
-    | FPRounding_POSINF -> AST.cast CastKind.FtoICeil srcSz
-    | FPRounding_NEGINF -> AST.cast CastKind.FtoIFloor srcSz
-  let res =
+  let res cast =
     match dstSz, srcSz with
-    | d, s when d >= s -> round bigint
-    | _ -> round bigint |> AST.xtlo dstSz
+    | d, s when d >= s -> cast bigint
+    | _ -> cast bigint |> AST.xtlo dstSz
     |> if unsigned then AST.zext dstSz else AST.sext dstSz
-  (* FIXME *)
-  AST.ite ((isQNaN srcSz src) .| (isSNaN srcSz src)) (AST.num0 dstSz) res
+  let fpcheck cast =
+    AST.ite (isNaN srcSz src) (AST.num0 dstSz)
+      (AST.ite (isInfinity srcSz src) (fpMinMax src dstSz) (res cast))
+  match round with
+  | FPRounding_TIEEVEN -> fpcheck (AST.cast CastKind.FtoIRound srcSz)
+  | FPRounding_TIEAWAY ->
+    let t = !+ir srcSz
+    let comp1 =
+      match srcSz with
+      | 32<rt> -> numI32 0x3F000000 srcSz (* 0.5 *)
+      | 64<rt> -> numI64 0x3FE0000000000000L srcSz (* 0.5 *)
+      | _ -> raise InvalidOperandSizeException
+    let comp2 =
+      match srcSz with
+      | 32<rt> -> numI32 0xBF000000 srcSz (* -0.5 *)
+      | 64<rt> -> numI64 0xBFE0000000000000L srcSz (* -0.5 *)
+      | _ -> raise InvalidOperandSizeException
+    !!ir (t := AST.fsub src trunc)
+    let ceil = fpcheck (AST.cast CastKind.FtoICeil srcSz)
+    let floor = fpcheck (AST.cast CastKind.FtoIFloor srcSz)
+    let pRes = AST.ite (AST.fge t comp1) ceil floor
+    let nRes = AST.ite (AST.fle t comp2) floor ceil
+    AST.ite sign nRes pRes
+  | FPRounding_Zero -> fpcheck (AST.cast CastKind.FtoITrunc srcSz)
+  | FPRounding_POSINF ->fpcheck (AST.cast CastKind.FtoICeil srcSz)
+  | FPRounding_NEGINF ->fpcheck (AST.cast CastKind.FtoIFloor srcSz)
 
 /// shared/functions/common/BitCount
 // BitCount()
