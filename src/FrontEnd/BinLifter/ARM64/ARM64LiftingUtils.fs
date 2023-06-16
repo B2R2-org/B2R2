@@ -937,13 +937,13 @@ let fpDefaultInfinity src fbit =
   match fbit with
   | 64<rt> ->
     let signbit = src .& numU64 0x8000000000000000UL 64<rt>
-    signbit .& (numU64 0x7ff0000000000000UL 64<rt>)
+    signbit .| (numU64 0x7ff0000000000000UL 64<rt>)
   | 32<rt> ->
     let signbit = src .& numU64 0x80000000UL 32<rt>
-    signbit .& numU64 0x7f800000UL 32<rt>
+    signbit .| numU64 0x7f800000UL 32<rt>
   | 16<rt> ->
     let signbit = src .& numU64 0x8000UL 16<rt>
-    signbit .& numU64 0x7c00UL 16<rt>
+    signbit .| numU64 0x7c00UL 16<rt>
   | _ -> raise InvalidOperandException
 
 /// shared/functions/float/fpzero/FPZero
