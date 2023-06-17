@@ -1780,6 +1780,12 @@ module private ATTSyntax = begin
       buildDstSizeSuffix ins.Operands builder
     | Opcode.MOVSXD ->
       builder.Accumulate AsmWordKind.Mnemonic "movslq"
+    (* Below are the list of opcodes that should not be used with a suffix. *)
+    | Opcode.VFMSUB213SD
+    | Opcode.VFMSUB213PD
+    | Opcode.VFNMSUB231SD
+    | Opcode.VFNMSUB231PD ->
+      buildOpcode ins.Opcode builder
     | opcode ->
       buildOpcode opcode builder
       buildOpSuffix ins.Operands builder
