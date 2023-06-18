@@ -825,7 +825,7 @@ let fabd ins insLen ctxt addr =
   let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
   let n1 = !+ir eSize
   !!ir (n1 := AST.num1 eSize)
-  let fpAbsDiff e1 e2 = ((AST.fsub e1 e2) << n1) >> n1
+  let fpAbsDiff e1 e2 = ((fpSub ctxt ir eSize e1 e2) << n1) >> n1
   match dst with
   | OprSIMD (SIMDFPScalarReg _) ->
     let _, src1, src2 = transThreeOprs ins ctxt addr
@@ -858,42 +858,6 @@ let fabs ins insLen ctxt addr =
   | _ -> raise InvalidOperandException
   !>ir insLen
 
-let private fpProcessNaNs ctxt isSNaN1 isSNaN2 isQNaN1 isQNaN2 dataSize e1 e2 =
-  let fpNaN expr = fpProcessNan ctxt dataSize expr
-  AST.ite isSNaN1 (fpNaN e1) (AST.ite isSNaN2 (fpNaN e2)
-    (AST.ite isQNaN1 (fpNaN e1) (AST.ite isQNaN2 (fpNaN e2)
-      (AST.num0 dataSize))))
-
-let private fpAdd ctxt ir dataSize src1 src2 =
-  let struct (isZero1, isInf1, isQNaN1, isSNaN1) = tmpVars4 ir 1<rt>
-  let struct (isZero2, isInf2, isQNaN2, isSNaN2) = tmpVars4 ir 1<rt>
-  let struct (sign1, sign2) = tmpVars2 ir 1<rt>
-  !!ir (sign1 := AST.xthi 1<rt> src1)
-  !!ir (sign2 := AST.xthi 1<rt> src2)
-  !!ir (isZero1 := isZero dataSize src1)
-  !!ir (isZero2 := isZero dataSize src2)
-  !!ir (isInf1 := isInfinity dataSize src1)
-  !!ir (isInf2 := isInfinity dataSize src2)
-  !!ir (isSNaN1 := isSNaN dataSize src1)
-  !!ir (isSNaN2 := isSNaN dataSize src2)
-  !!ir (isQNaN1 := isQNaN dataSize src1)
-  !!ir (isQNaN2 := isQNaN dataSize src2)
-  let isNan = isSNaN1 .| isSNaN2 .| isQNaN1 .| isQNaN2
-  let nanRes =
-    fpProcessNaNs ctxt isSNaN1 isSNaN2 isQNaN1 isQNaN2 dataSize src1 src2
-  let cond1 = isInf1 .& isInf2 .& (sign1 == AST.not sign2)
-  let cond2 = (isInf1 .& (AST.not sign1)) .| (isInf2 .& (AST.not sign2))
-  let cond3 = (isInf1 .& sign1) .| (isInf2 .& sign2)
-  let cond4 = isZero1 .& isZero2 .& (sign1 == sign2)
-  let res =
-    AST.ite cond1 (fpDefaultNan dataSize)
-      (AST.ite cond2 (fpInfinity AST.b0 dataSize)
-        (AST.ite cond3 (fpInfinity AST.b1 dataSize)
-          (AST.ite cond4 (fpZero src1 dataSize)
-            //(fpRoundingMode (AST.fadd src1 src2) dataSize ctxt))))
-            (AST.fadd src1 src2))))
-  AST.ite isNan nanRes res
-
 let fadd ins insLen ctxt addr =
   let ir = !*ctxt
   !<ir insLen
@@ -903,14 +867,12 @@ let fadd ins insLen ctxt addr =
   | OprSIMD (SIMDFPScalarReg _) ->
     let _, src1, src2 = transThreeOprs ins ctxt addr
     let result = fpAdd ctxt ir dataSize src1 src2
-    //let result = AST.fadd src1 src2
     dstAssignScalar ins ctxt addr dst result eSize ir
   | OprSIMD (SIMDVecReg _) ->
     let dstB, dstA = transOprToExpr128 ins ctxt addr dst
     let src1 = transSIMDOprToExpr ctxt eSize dataSize elements src1
     let src2 = transSIMDOprToExpr ctxt eSize dataSize elements src2
     let result = Array.map2 (fpAdd ctxt ir eSize) src1 src2
-    //let result = Array.map2 (AST.fadd) src1 src2
     dstAssignForSIMD dstA dstB result dataSize elements ir
   | _ -> raise InvalidOperandException
   !>ir insLen
@@ -922,7 +884,7 @@ let faddp ins insLen ctxt addr =
   | TwoOperands (dst, src) -> (* Scalar *)
     let struct (eSize, dataSize, elements) = getElemDataSzAndElems src
     let src = transSIMDOprToExpr ctxt eSize dataSize elements src
-    let result = Array.reduce (AST.fadd) src
+    let result = Array.reduce (fpAdd ctxt ir eSize) src
     dstAssignScalar ins ctxt addr dst result eSize ir
   | ThreeOperands (dst, src1, src2) -> (* Vector *)
     let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
@@ -931,7 +893,8 @@ let faddp ins insLen ctxt addr =
     let src2 = transSIMDOprToExpr ctxt eSize dataSize elements src2
     let concat = Array.append src1 src2
     let result =
-      Array.chunkBySize 2 concat |> Array.map (fun e -> AST.fadd e[0] e[1])
+      Array.chunkBySize 2 concat
+      |> Array.map (fun e -> fpAdd ctxt ir eSize e[0] e[1])
     dstAssignForSIMD dstA dstB result dataSize elements ir
   | _ -> raise InvalidOperandException
   !>ir insLen
@@ -942,12 +905,6 @@ let private fpCompare oprSz v1 v2 =
       (AST.ite (AST.flt v1 v2) (numI32 0b1000 8<rt>) (numI32 0b0010 8<rt>)))
 
 let private getFlag flags pos = AST.extract flags 1<rt> pos
-
-let isNaN oprSize expr =
-  match oprSize with
-  | 32<rt> -> IEEE754Single.isNaN expr
-  | 64<rt> -> IEEE754Double.isNaN expr
-  | _ -> Utils.impossible ()
 
 let fcmp ins insLen ctxt addr =
   let ir = !*ctxt
@@ -1105,26 +1062,13 @@ let fdiv ins insLen ctxt addr =
   match dst with
   | OprSIMD (SIMDFPScalarReg _) ->
     let _, src1, src2 = transThreeOprs ins ctxt addr
-    let inf = isInfinity eSize src1 .& isInfinity eSize src2
-    let zero = isZero eSize src1 .& isZero eSize src2
-    let invalidOp = inf .| zero
-    let lblInv = !%ir "Invalid"
-    let lblVal = !%ir "Valid"
-    let lblEnd = !%ir "End"
-    let tmpRes = !+ir eSize
-    !!ir (AST.cjmp invalidOp (AST.name lblInv) (AST.name lblVal))
-    !!ir (AST.lmark lblInv)
-    !!ir (tmpRes := fpDefaultNan eSize)
-    !!ir (AST.jmp (AST.name lblEnd))
-    !!ir (AST.lmark lblVal)
-    !!ir (tmpRes := AST.fdiv src1 src2)
-    !!ir (AST.lmark lblEnd)
-    dstAssignScalar ins ctxt addr dst tmpRes eSize ir
+    let result = fpDiv ctxt ir dataSize src1 src2
+    dstAssignScalar ins ctxt addr dst result eSize ir
   | OprSIMD (SIMDVecReg _) ->
     let dstB, dstA = transOprToExpr128 ins ctxt addr dst
     let src1 = transSIMDOprToExpr ctxt eSize dataSize elements src1
     let src2 = transSIMDOprToExpr ctxt eSize dataSize elements src2
-    let result = Array.map2 (AST.fdiv) src1 src2
+    let result = Array.map2 (fpDiv ctxt ir eSize) src1 src2
     dstAssignForSIMD dstA dstB result dataSize elements ir
   | _ -> raise InvalidOperandException
   !>ir insLen
@@ -1135,7 +1079,7 @@ let fmadd ins insLen ctxt addr =
   let struct (dst, _, _, _) = getFourOprs ins
   let struct (eSize, _, _) = getElemDataSzAndElems dst
   let _, src1, src2, src3 = transFourOprs ins ctxt addr
-  let result = (AST.fadd src3 (AST.fmul src1 src2))
+  let result = (fpAdd ctxt ir eSize src3 (fpMul ctxt ir eSize src1 src2))
   dstAssignScalar ins ctxt addr dst result eSize ir
   !>ir insLen
 
@@ -1206,7 +1150,7 @@ let fmsub ins insLen ctxt addr =
   let struct (dst, _, _, _) = getFourOprs ins
   let struct (eSize, _, _) = getElemDataSzAndElems dst
   let _, src1, src2, src3 = transFourOprs ins ctxt addr
-  let result = AST.fsub src3 (AST.fmul src1 src2)
+  let result = (fpSub ctxt ir eSize src3 (fpMul ctxt ir eSize src1 src2))
   dstAssignScalar ins ctxt addr dst result eSize ir
   !>ir insLen
 
@@ -1219,20 +1163,20 @@ let fmul ins insLen ctxt addr =
     let struct (eSize, _, _) = getElemDataSzAndElems o2
     let src1 = transOprToExpr ins ctxt addr o2
     let src2 = transOprToExpr ins ctxt addr o3
-    dstAssignScalar ins ctxt addr o1 (AST.fmul src1 src2) eSize ir
+    dstAssignScalar ins ctxt addr o1 (fpMul ctxt ir eSize src1 src2) eSize ir
   | ThreeOperands (OprSIMD (SIMDVecReg _), _, OprSIMD (SIMDVecReg _) ) ->
     let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
     let dstB, dstA = transOprToExpr128 ins ctxt addr dst
     let src1 = transSIMDOprToExpr ctxt eSize dataSize elements src1
     let src2 = transSIMDOprToExpr ctxt eSize dataSize elements src2
-    let result = Array.map2 (AST.fmul) src1 src2
+    let result = Array.map2 (fpMul ctxt ir eSize) src1 src2
     dstAssignForSIMD dstA dstB result dataSize elements ir
   | _ ->
     let struct (eSize, dataSize, elements) = getElemDataSzAndElems src1
     let dstB, dstA = transOprToExpr128 ins ctxt addr dst
     let src1 = transSIMDOprToExpr ctxt eSize dataSize elements src1
     let src2 = transOprToExpr ins ctxt addr src2
-    let result = Array.map (fun src -> AST.fmul src src2) src1
+    let result = Array.map (fun src -> fpMul ctxt ir eSize src src2) src1
     dstAssignForSIMD dstA dstB result dataSize elements ir
   !>ir insLen
 
@@ -1273,7 +1217,7 @@ let fnmsub ins insLen ctxt addr =
   let struct (eSize, _, _) = getElemDataSzAndElems src
   let t = !+ir eSize
   !!ir (t := fpneg src3 eSize)
-  let result = AST.fadd t (AST.fmul src1 src2)
+  let result = fpAdd ctxt ir eSize t (fpMul ctxt ir eSize src1 src2)
   dstAssignScalar ins ctxt addr dst result ins.OprSize ir
   !>ir insLen
 
@@ -1284,7 +1228,7 @@ let fnmul ins insLen ctxt addr =
   let _, src1, src2 = transThreeOprs ins ctxt addr
   let struct (eSize, _, _) = getElemDataSzAndElems src
   let result = !+ir eSize
-  !!ir (result := AST.fmul src1 src2)
+  !!ir (result := fpMul ctxt ir eSize src1 src2)
   !!ir (result := fpneg result eSize)
   dstAssignScalar ins ctxt addr dst result ins.OprSize ir
   !>ir insLen
@@ -1423,12 +1367,13 @@ let fsub ins insLen ctxt addr =
   | ThreeOperands (OprSIMD (SIMDFPScalarReg _), _, _) ->
     let src1 = transOprToExpr ins ctxt addr o1
     let src2 = transOprToExpr ins ctxt addr o2
-    dstAssignScalar ins ctxt addr dst (AST.fsub src1 src2) eSize ir
+    let result = fpSub ctxt ir dataSize src1 src2
+    dstAssignScalar ins ctxt addr dst result eSize ir
   | _ ->
     let dstB, dstA = transOprToExpr128 ins ctxt addr dst
     let src1 = transSIMDOprToExpr ctxt eSize dataSize elements o1
     let src2 = transSIMDOprToExpr ctxt eSize dataSize elements o2
-    let result = Array.map2 (AST.fsub) src1 src2
+    let result = Array.map2 (fpSub ctxt ir eSize) src1 src2
     dstAssignForSIMD dstA dstB result dataSize elements ir
   !>ir insLen
 
