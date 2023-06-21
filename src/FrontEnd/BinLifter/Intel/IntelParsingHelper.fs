@@ -102,7 +102,11 @@ module internal ParsingHelper = begin
 
   let getEVEXInfo (span: ByteSpan) (rex: byref<REXPrefix>) pos =
     let b1 = span[pos]
+    if ((b1 >>> 2) &&& 0b11uy) <> 0uy then raise ParsingFailureException
+    else ()
     let b2 = span[pos + 1]
+    if ((b2 >>> 2) &&& 0b1uy) <> 1uy then raise ParsingFailureException
+    else ()
     let l'l = span[pos + 2] >>> 5 &&& 0b011uy
     let vLen = getVLen l'l
     let aaa = span[pos + 2] &&& 0b111uy
