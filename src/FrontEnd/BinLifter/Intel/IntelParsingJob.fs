@@ -1896,6 +1896,7 @@ type internal OneOpE4 () =
 type internal OneOpE5 () =
   inherit ParsingJob ()
   override __.Run (span, rhlp) =
+    rhlp.REXPrefix <- REXPrefix.NOREX
     rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Nor
     let oprs = rhlp.OprParsers[int OD.RegImm8].Render (span, rhlp)
     newInsInfo rhlp Opcode.IN oprs
@@ -1910,6 +1911,7 @@ type internal OneOpE6 () =
 type internal OneOpE7 () =
   inherit ParsingJob ()
   override __.Run (span, rhlp) =
+    rhlp.REXPrefix <- REXPrefix.NOREX
     rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Nor
     let oprs = rhlp.OprParsers[int OD.Imm8Reg].Render (span, rhlp)
     newInsInfo rhlp Opcode.OUT oprs
