@@ -1585,14 +1585,18 @@ module private IntelSyntax = begin
       oprToString ins hlp opr true builder
     | TwoOperands (OprMem (Some R.RIP, None, Some disp, sz), opr) ->
       builder.Accumulate AsmWordKind.String " "
-      recomputeRIPRel disp sz builder
+      mToString ins builder (Some Register.RIP) None (Some disp) sz
       builder.Accumulate AsmWordKind.String ", "
       oprToString ins hlp opr false builder
+      buildComment hlp
+        (builder.Address + uint64 builder.InsLength + uint64 disp) builder
     | TwoOperands (opr, OprMem (Some R.RIP, None, Some disp, sz)) ->
       builder.Accumulate AsmWordKind.String " "
       oprToString ins hlp opr true builder
       builder.Accumulate AsmWordKind.String ", "
-      recomputeRIPRel disp sz builder
+      mToString ins builder (Some Register.RIP) None (Some disp) sz
+      buildComment hlp
+        (builder.Address + uint64 builder.InsLength + uint64 disp) builder
     | TwoOperands (opr1, opr2) ->
       builder.Accumulate AsmWordKind.String " "
       oprToString ins hlp opr1 true builder
