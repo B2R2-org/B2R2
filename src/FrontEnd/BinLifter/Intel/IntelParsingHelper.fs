@@ -132,6 +132,25 @@ module internal ParsingHelper = begin
     | Opcode.OUTSD -> rhlp.OperationSize <- 32<rt>
     | _ -> ()
 
+  /// If VMOVL/H is encoded with VEX.L or EVEX.L'L= 1, an attempt to execute
+  /// the instruction encoded with VEX.L or EVEX.L'L= 1 will cause an #UD
+  /// exception.
+  let exceptionUD opcode (rhlp: ReadHelper) =
+    let isVMOVLorH =
+      match opcode with
+      | Opcode.VMOVHLPS | Opcode.VMOVHPD | Opcode.VMOVHPS | Opcode.VMOVLHPS
+      | Opcode.VMOVLPD | Opcode.VMOVLPS -> true
+      | _ -> false
+    let isNotVLen128 =
+      match rhlp.VEXInfo with
+      | Some vex when vex.VectorLength <> 128<rt> -> true
+      | _ -> false
+    if isVMOVLorH && isNotVLen128 then raise ParsingFailureException else ()
+
+  let exceptionHandling opcode rhlp =
+    exceptionalOperationSize opcode rhlp
+    exceptionUD opcode rhlp
+
   let inline newInsInfo (rhlp: ReadHelper) opcode oprs =
     IntelInstruction (rhlp.InsAddr,
                       uint32 (rhlp.ParsedLen ()),
@@ -5881,7 +5900,7 @@ module internal ParsingHelper = begin
   /// The main instruction rendering function.
   let render span rhlp opcode szCond (oidx: OprDesc) (sidx: SizeKind) =
     (rhlp: ReadHelper).SzComputers[int sidx].Render rhlp szCond
-    exceptionalOperationSize opcode rhlp
+    exceptionHandling opcode rhlp
     let oprs = rhlp.OprParsers[int oidx].Render (span, rhlp)
     newInsInfo rhlp opcode oprs
 
