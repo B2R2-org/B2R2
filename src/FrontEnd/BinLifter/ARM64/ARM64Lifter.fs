@@ -2273,7 +2273,7 @@ let sbfx ins insLen ctxt addr =
   let imms = (getImmValue lsb) + (getImmValue width) - 1L |> OprImm
   sbfm ins insLen ctxt addr dst src lsb imms
 
-let private fixedToFp oprSz fbits unsigned round src =
+let private fixedToFp ctxt ir oprSz fbits unsigned src =
   let divBits =
     AST.cast CastKind.UIntToFloat oprSz (numU64 0x1uL oprSz << fbits)
   let intOperand, num0 =
@@ -2283,15 +2283,8 @@ let private fixedToFp oprSz fbits unsigned round src =
     else
       AST.cast CastKind.SIntToFloat oprSz src,
       AST.cast CastKind.SIntToFloat oprSz (AST.num0 oprSz)
-  let realOperand = AST.fdiv intOperand divBits
+  let realOperand = fpDiv ctxt ir oprSz intOperand divBits
   let cond = AST.eq realOperand num0
-  let result =
-    match round with
-    | FPRounding_TIEEVEN
-    | FPRounding_TIEAWAY -> AST.cast CastKind.FtoFRound oprSz
-    | FPRounding_Zero -> AST.cast CastKind.FtoFTrunc oprSz
-    | FPRounding_POSINF -> AST.cast CastKind.FtoFCeil oprSz
-    | FPRounding_NEGINF -> AST.cast CastKind.FtoFFloor oprSz
   AST.ite cond (AST.num0 oprSz) realOperand
 
 let icvtf ins insLen ctxt addr unsigned =
@@ -2306,25 +2299,32 @@ let icvtf ins insLen ctxt addr unsigned =
     let src = transSIMDOprToExpr ctxt eSize dataSize elements o2
     let n0 = AST.num0 eSize
     let result =
-      Array.map (fixedToFp eSize n0 unsigned FPRounding_TIEEVEN) src
+      Array.map (fixedToFp ctxt ir eSize n0 unsigned) src
     dstAssignForSIMD dstA dstB result dataSize elements ir
   | TwoOperands (OprSIMD (SIMDFPScalarReg _) as dst, _) ->
     let struct (eSize, _, _) = getElemDataSzAndElems dst
     let _, src = transTwoOprs ins ctxt addr
     let n0 = AST.num0 oprSize
-    let result = fixedToFp oprSize n0 unsigned FPRounding_TIEEVEN src
+    let result = fixedToFp ctxt ir oprSize n0 unsigned src
     dstAssignScalar ins ctxt addr dst result eSize ir
+  | ThreeOperands (OprSIMD (SIMDFPScalarReg _), _, _) ->
+    let struct (o1, o2, o3) = getThreeOprs ins
+    let struct (eSize, _, _) = getElemDataSzAndElems o1
+    let src = transOprToExpr ins ctxt addr o2
+    let fbits = transOprToExpr ins ctxt addr o3
+    let result = fixedToFp ctxt ir eSize fbits unsigned src
+    dstAssignScalar ins ctxt addr o1 result eSize ir
   | ThreeOperands (OprSIMD (SIMDVecReg _), _, _) ->
     let struct (o1, o2, o3) = getThreeOprs ins
     let dstB, dstA = transOprToExpr128 ins ctxt addr o1
     let struct (eSz, dataSize, elements) = getElemDataSzAndElems o2
     let src = transSIMDOprToExpr ctxt eSz dataSize elements o2
     let fbits = transOprToExpr ins ctxt addr o3 |> AST.xtlo eSz
-    let result = Array.map (fixedToFp eSz fbits unsigned FPRounding_TIEEVEN) src
+    let result = Array.map (fixedToFp ctxt ir eSz fbits unsigned) src
     dstAssignForSIMD dstA dstB result dataSize elements ir
   | _ ->
     let dst, src, fbits = transThreeOprs ins ctxt addr
-    let result = fixedToFp oprSize fbits unsigned FPRounding_TIEEVEN src
+    let result = fixedToFp ctxt ir oprSize fbits unsigned src
     dstAssign oprSize dst result ir
   !>ir insLen
 
