@@ -1237,21 +1237,18 @@ let getIntRoundMode src oprSz ctxt =
   let fpcr = getRegVar ctxt R.FPCR |> AST.xtlo 32<rt>
   let rm = AST.shr (AST.shl fpcr (numI32 8 32<rt>)) (numI32 0x1E 32<rt>)
   AST.ite (rm == numI32 0 32<rt>)
-    (AST.cast CastKind.FtoIRound oprSz src) // 0 RN
+    (AST.cast CastKind.FtoIRound oprSz src) (* 0, RN *)
     (AST.ite (rm == numI32 1 32<rt>)
-      (AST.cast CastKind.FtoICeil oprSz src) // 1 RZ
+      (AST.cast CastKind.FtoICeil oprSz src) (* 1, RZ *)
       (AST.ite (rm == numI32 2 32<rt>)
-        (AST.cast CastKind.FtoIFloor oprSz src) // 2 RP
-        (AST.cast CastKind.FtoITrunc oprSz src))) // 3 RM
+        (AST.cast CastKind.FtoIFloor oprSz src) (* 2, RP *)
+        (AST.cast CastKind.FtoITrunc oprSz src))) (* 3, RM *)
 
 let private fpType ctxt cast eSize element =
-  AST.ite (isNaN eSize element)
-    (fpProcessNan ctxt eSize element)
-    (AST.ite (isInfinity eSize element)
-       (fpDefaultInfinity element eSize)
-       (AST.ite (isZero eSize element)
-          (fpZero element eSize)
-          (AST.cast cast eSize element)))
+  AST.ite (isNaN eSize element) (fpProcessNan ctxt eSize element)
+    (AST.ite (isInfinity eSize element) (fpDefaultInfinity element eSize)
+      (AST.ite (isZero eSize element) (fpZero element eSize)
+        (AST.cast cast eSize element)))
 
 let private fpRoundToInt ins insLen ctxt addr cast =
   let ir = !*ctxt
