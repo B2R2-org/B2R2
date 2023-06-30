@@ -1002,16 +1002,18 @@ let fpProcessNan ctxt eSize element =
 
 let fpProcessNaNs ctxt ir dataSize e1 e2 =
   let struct (isSNaN1, isSNaN2, isQNaN1, isQNaN2) = tmpVars4 ir 1<rt>
+  let isNaN = !+ir 1<rt>
+  let resNaN = !+ir dataSize
   !!ir (isSNaN1 := isSNaN dataSize e1)
   !!ir (isSNaN2 := isSNaN dataSize e2)
   !!ir (isQNaN1 := isQNaN dataSize e1)
   !!ir (isQNaN2 := isQNaN dataSize e2)
-  let isNaN = isSNaN1 .| isSNaN2 .| isQNaN1 .| isQNaN2
+  !!ir (isNaN := isSNaN1 .| isSNaN2 .| isQNaN1 .| isQNaN2)
   let fpNaN expr = fpProcessNan ctxt dataSize expr
-  let resNaN =
+  !!ir (resNaN :=
     AST.ite isSNaN1 (fpNaN e1) (AST.ite isSNaN2 (fpNaN e2)
       (AST.ite isQNaN1 (fpNaN e1) (AST.ite isQNaN2 (fpNaN e2)
-        (AST.num0 dataSize))))
+        (AST.num0 dataSize)))))
   struct (isNaN, resNaN)
 
 let fpUnpackValue src =
@@ -1024,6 +1026,7 @@ let fpUnpackValue src =
 let fpAdd ctxt ir dataSize src1 src2 =
   let struct (isZero1, isInf1, isZero2, isInf2) = tmpVars4 ir 1<rt>
   let struct (sign1, sign2) = tmpVars2 ir 1<rt>
+  let res = !+ir dataSize
   !!ir (sign1 := AST.xthi 1<rt> src1)
   !!ir (sign2 := AST.xthi 1<rt> src2)
   !!ir (isZero1 := isZero dataSize src1)
@@ -1035,12 +1038,12 @@ let fpAdd ctxt ir dataSize src1 src2 =
   let cond2 = (isInf1 .& (AST.not sign1)) .| (isInf2 .& (AST.not sign2))
   let cond3 = (isInf1 .& sign1) .| (isInf2 .& sign2)
   let cond4 = isZero1 .& isZero2 .& (sign1 == sign2)
-  let res =
+  !!ir (res :=
     AST.ite cond1 (fpDefaultNan dataSize)
       (AST.ite cond2 (fpInfinity AST.b0 dataSize)
         (AST.ite cond3 (fpInfinity AST.b1 dataSize)
           (AST.ite cond4 (fpZero src1 dataSize)
-            (AST.fadd src1 src2))))
+            (AST.fadd src1 src2)))))
   AST.ite isNaN resNaN res
 
 /// shared/functions/float/fpadd/FPSub
@@ -1048,6 +1051,7 @@ let fpAdd ctxt ir dataSize src1 src2 =
 let fpSub ctxt ir dataSize src1 src2 =
   let struct (isZero1, isInf1, isZero2, isInf2) = tmpVars4 ir 1<rt>
   let struct (sign1, sign2) = tmpVars2 ir 1<rt>
+  let res = !+ir dataSize
   !!ir (sign1 := AST.xthi 1<rt> src1)
   !!ir (sign2 := AST.xthi 1<rt> src2)
   !!ir (isZero1 := isZero dataSize src1)
@@ -1059,12 +1063,12 @@ let fpSub ctxt ir dataSize src1 src2 =
   let cond2 = (isInf1 .& (AST.not sign1)) .| (isInf2 .& sign2)
   let cond3 = (isInf1 .& sign1) .| (isInf2 .& (AST.not sign2))
   let cond4 = isZero1 .& isZero2 .& (sign1 == (AST.not sign2))
-  let res =
+  !!ir (res :=
     AST.ite cond1 (fpDefaultNan dataSize)
       (AST.ite cond2 (fpInfinity AST.b0 dataSize)
         (AST.ite cond3 (fpInfinity AST.b1 dataSize)
           (AST.ite cond4 (fpZero src1 dataSize)
-            (AST.fsub src1 src2))))
+            (AST.fsub src1 src2)))))
   AST.ite isNaN resNaN res
 
 /// shared/functions/float/fpmul/FPMul
@@ -1072,6 +1076,7 @@ let fpSub ctxt ir dataSize src1 src2 =
 let fpMul ctxt ir dataSize src1 src2 =
   let struct (isZero1, isInf1, isZero2, isInf2) = tmpVars4 ir 1<rt>
   let struct (sign1, sign2) = tmpVars2 ir 1<rt>
+  let res = !+ir dataSize
   !!ir (sign1 := AST.xthi 1<rt> src1)
   !!ir (sign2 := AST.xthi 1<rt> src2)
   !!ir (isZero1 := isZero dataSize src1)
@@ -1082,11 +1087,11 @@ let fpMul ctxt ir dataSize src1 src2 =
   let cond1 = (isInf1 .& isZero2) .| (isZero1 .& isInf2)
   let cond2 = isInf1 .| isInf2
   let cond3 = isZero1 .| isZero2
-  let res =
+  !!ir (res :=
     AST.ite cond1 (fpDefaultNan dataSize)
       (AST.ite cond2 (fpInfinity (sign1 <+> sign2) dataSize)
         (AST.ite cond3 (fpZero (src1 <+> src2) dataSize)
-          (AST.fmul src1 src2)))
+          (AST.fmul src1 src2))))
   AST.ite isNaN resNaN res
 
 /// shared/functions/float/fpdiv/FPDiv
@@ -1094,6 +1099,7 @@ let fpMul ctxt ir dataSize src1 src2 =
 let fpDiv ctxt ir dataSize src1 src2 =
   let struct (isZero1, isInf1, isZero2, isInf2) = tmpVars4 ir 1<rt>
   let struct (sign1, sign2) = tmpVars2 ir 1<rt>
+  let res = !+ir dataSize
   !!ir (sign1 := AST.xthi 1<rt> src1)
   !!ir (sign2 := AST.xthi 1<rt> src2)
   !!ir (isZero1 := isZero dataSize src1)
@@ -1104,11 +1110,11 @@ let fpDiv ctxt ir dataSize src1 src2 =
   let cond1 = (isInf1 .& isInf2) .| (isZero1 .& isZero2)
   let cond2 = isInf1 .| isZero2
   let cond3 = isZero1 .| isInf2
-  let res =
+  !!ir (res :=
     AST.ite cond1 (fpDefaultNan dataSize)
       (AST.ite cond2 (fpInfinity (sign1 <+> sign2) dataSize)
         (AST.ite cond3 (fpZero (src1 <+> src2) dataSize)
-          (AST.fdiv src1 src2)))
+          (AST.fdiv src1 src2))))
   AST.ite isNaN resNaN res
 
 /// shared/functions/float/FPToFixed

@@ -899,19 +899,51 @@ let faddp ins insLen ctxt addr =
   | _ -> raise InvalidOperandException
   !>ir insLen
 
-let private fpCompare oprSz v1 v2 =
-  AST.ite (isNaN oprSz v1 .| isNaN oprSz v2) (numI32 0b0011 8<rt>)
-    (AST.ite (AST.eq v1 v2) (numI32 0b0110 8<rt>)
-      (AST.ite (AST.flt v1 v2) (numI32 0b1000 8<rt>) (numI32 0b0010 8<rt>)))
+let private fpneg reg eSize =
+  let mask =
+    match eSize with
+    | 16<rt> -> numU64 0x8000UL eSize (* ARMv8.2 *)
+    | 32<rt> -> numU64 0x80000000UL eSize
+    | 64<rt> -> numU64 0x8000000000000000UL eSize
+    | _ -> raise InvalidOperandSizeException
+  reg <+> mask
 
-let private getFlag flags pos = AST.extract flags 1<rt> pos
+let private checkZero ctxt ir dataSize fpVal =
+  let isFZ = (getRegVar ctxt R.FPCR >> numI32 24 64<rt>) |> AST.xtlo 1<rt>
+  let struct (n0, f0) = tmpVars2 ir dataSize
+  !!ir (n0 := AST.num0 dataSize)
+  !!ir (f0 := fpZero fpVal dataSize)
+  let inline isOnes exp =
+    match dataSize with
+    | 32<rt> -> exp == numI32 0xFF 32<rt>
+    | 64<rt> -> exp == numI32 0x7FF 64<rt>
+    | _ -> raise InvalidOperandSizeException
+  let exp, frac =
+    match dataSize with
+    | 32<rt> ->
+      (fpVal >> numI32 23 32<rt>) .& numI32 0xff 32<rt>,
+      fpVal .& numU32 0x7fffffu 32<rt>
+    | 64<rt> ->
+      (fpVal >> numI64 52 64<rt>) .& numI64 0x7ff 64<rt>,
+      fpVal .& numU64 0xfffffffffffffUL 64<rt>
+    | _ -> raise InvalidOperandSizeException
+  AST.ite ((exp == n0) .& (frac == n0 .| isFZ)) f0
+    (AST.ite ((isOnes exp) .& (frac != n0)) f0 fpVal)
+
+let private fpCompare ctxt ir oprSz src1 src2 =
+  let struct (v1, v2) = tmpVars2 ir oprSz
+  !!ir (v1 := checkZero ctxt ir oprSz src1)
+  !!ir (v2 := checkZero ctxt ir oprSz src2)
+  AST.ite (isNaN oprSz src1 .| isNaN oprSz src2) (numI32 0b0011 8<rt>)
+    (AST.ite (AST.feq v1 v2) (numI32 0b0110 8<rt>)
+      (AST.ite (AST.flt v1 v2) (numI32 0b1000 8<rt>) (numI32 0b0010 8<rt>)))
 
 let fcmp ins insLen ctxt addr =
   let ir = !*ctxt
   !<ir insLen
   let src1, src2 = transTwoOprs ins ctxt addr
   let flags = !+ir 8<rt>
-  !!ir (flags := fpCompare ins.OprSize src1 src2)
+  !!ir (flags := fpCompare ctxt ir ins.OprSize src1 src2)
   !!ir (getRegVar ctxt R.N := AST.extract flags 1<rt> 3)
   !!ir (getRegVar ctxt R.Z := AST.extract flags 1<rt> 2)
   !!ir (getRegVar ctxt R.C := AST.extract flags 1<rt> 1)
@@ -923,7 +955,7 @@ let fccmp ins insLen ctxt addr =
   !<ir insLen
   let src1, src2, nzcv, cond = transOprToExprOfCCMP ins ctxt addr
   let flags = !+ir 8<rt>
-  let comp = fpCompare ins.OprSize src1 src2
+  let comp = fpCompare ctxt ir ins.OprSize src1 src2
   !!ir (flags := AST.ite (conditionHolds ctxt cond) comp (AST.xtlo 8<rt> nzcv))
   !!ir (getRegVar ctxt R.N := AST.extract flags 1<rt> 3)
   !!ir (getRegVar ctxt R.Z := AST.extract flags 1<rt> 2)
@@ -1180,15 +1212,6 @@ let fmul ins insLen ctxt addr =
     dstAssignForSIMD dstA dstB result dataSize elements ir
   !>ir insLen
 
-let fpneg reg eSize =
-  let mask =
-    match eSize with
-    | 16<rt> -> numU64 0x8000UL eSize (* ARMv8.2 *)
-    | 32<rt> -> numU64 0x80000000UL eSize
-    | 64<rt> -> numU64 0x8000000000000000UL eSize
-    | _ -> raise InvalidOperandSizeException
-  reg <+> mask
-
 let fneg ins insLen ctxt addr =
   let ir = !*ctxt
   !<ir insLen
@@ -1337,7 +1360,6 @@ let frintx ins insLen ctxt addr =
   fpCurrentRoundToInt ins insLen ctxt addr
 let frintz ins insLen ctxt addr =
   fpRoundToInt ins insLen ctxt addr CastKind.FtoFTrunc
-
 
 let fsqrt ins insLen ctxt addr =
   let ir = !*ctxt
