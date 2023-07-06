@@ -862,7 +862,6 @@ let satQ i n isUnsigned ir = (* FIMXE: return saturated (FPSR.QC = '1') *)
   if isUnsigned then unsignedSatQ i n ir else signedSatQ i n ir
 
 /// Exception
-
 let isNaN oprSize expr =
   match oprSize with
   | 32<rt> -> IEEE754Single.isNaN expr
@@ -906,7 +905,7 @@ let fpRoundingMode src oprSz ctxt =
         (AST.cast CastKind.FtoFFloor oprSz src) // 2 RP
         (AST.ite (rm == numI32 3 32<rt>)
           (AST.cast CastKind.FtoFTrunc oprSz src) // 3 RM
-          (AST.cast CastKind.FtoIRound oprSz src))))
+          src)))
 
 /// shared/functions/float/fproundingmode/FPRoundingMode
 /// FtoI
@@ -921,30 +920,247 @@ let fpRoundingToInt src oprSz ctxt =
         (AST.cast CastKind.FtoIFloor oprSz src) // 2 RMP
         (AST.ite (rm == numI32 3 32<rt>)
           (AST.cast CastKind.FtoITrunc oprSz src) // 3 RZ
-          (AST.cast CastKind.FtoIRound oprSz src))))
+          src)))
+
+/// shared/functions/float/fpdefaultnan/FPDefaultNan
+/// FPDefaultNan()
+let fpDefaultNan fbit =
+  match fbit with
+  | 64<rt> -> numU64 0x7ff8000000000000UL 64<rt>
+  | 32<rt> -> numU64 0x7fc00000UL 32<rt>
+  | 16<rt> -> numU64 0x7e00UL 16<rt>
+  | _ -> raise InvalidOperandException
+
+/// shared/functions/float/fpinfinity/FPInfinity
+/// FPInfinity()
+let fpDefaultInfinity src fbit =
+  match fbit with
+  | 64<rt> ->
+    let signbit = src .& numU64 0x8000000000000000UL 64<rt>
+    signbit .| (numU64 0x7ff0000000000000UL 64<rt>)
+  | 32<rt> ->
+    let signbit = src .& numU64 0x80000000UL 32<rt>
+    signbit .| numU64 0x7f800000UL 32<rt>
+  | 16<rt> ->
+    let signbit = src .& numU64 0x8000UL 16<rt>
+    signbit .| numU64 0x7c00UL 16<rt>
+  | _ -> raise InvalidOperandException
+
+let fpInfinity sign dataSize =
+  match dataSize with
+  | 64<rt> ->
+    let signbit =
+      AST.ite sign (numU64 0x8000000000000000UL 64<rt>) (AST.num0 64<rt>)
+    signbit .| (numU64 0x7ff0000000000000UL 64<rt>)
+  | 32<rt> ->
+    let signbit = AST.ite sign (numU64 0x80000000UL 32<rt>) (AST.num0 32<rt>)
+    signbit .| numU64 0x7f800000UL 32<rt>
+  | 16<rt> ->
+    let signbit = AST.ite sign (numU64 0x8000UL 16<rt>) (AST.num0 16<rt>)
+    signbit .| numU64 0x7c00UL 16<rt>
+  | _ -> raise InvalidOperandException
+
+/// shared/functions/float/fpzero/FPZero
+/// FPZero()
+let fpZero src fbit =
+  match fbit with
+  | 64<rt> -> src .& numU64 0x8000000000000000UL 64<rt>
+  | 32<rt> -> src .& numU64 0x80000000UL 32<rt>
+  | 16<rt> -> src .& numU64 0x8000UL 16<rt>
+  | _ -> raise InvalidOperandException
+
+let fpMinMax src fbit =
+  let sign = AST.xthi 1<rt> src
+  match fbit with
+  | 64<rt> ->
+    let max = numU64 0x7fffffffffffffffUL 64<rt>
+    let min = numU64 0x8000000000000001UL 64<rt>
+    AST.ite sign min max
+  | 32<rt> ->
+    let max = numU64 0x7fffffffUL 32<rt>
+    let min = numU64 0x80000001UL 32<rt>
+    AST.ite sign min max
+  | 16<rt> ->
+    let max = numU64 0x7fffUL 16<rt>
+    let min = numU64 0x8001UL 16<rt>
+    AST.ite sign min max
+  | _ -> raise InvalidOperandException
+
+/// shared/functions/float/fpprocessnan/FPProcessNaN
+/// FPProcessNaN()
+let fpProcessNan ctxt eSize element =
+  let fpcr = getRegVar ctxt R.FPCR
+  let dnBit = AST.extract fpcr 1<rt> 25
+  let topfrac =
+    match eSize with
+    | 64<rt> -> numU64 0x8000000000000UL 64<rt>
+    | 32<rt> -> numU64 0x400000UL 32<rt>
+    | 16<rt> -> numU64 0x200UL 16<rt>
+    | _ -> raise InvalidOperandException
+  AST.ite dnBit (fpDefaultNan eSize)
+    (AST.ite (isSNaN eSize element) (element .| topfrac) element)
+
+let fpProcessNaNs ctxt ir dataSize e1 e2 =
+  let struct (isSNaN1, isSNaN2, isQNaN1, isQNaN2) = tmpVars4 ir 1<rt>
+  let isNaN = !+ir 1<rt>
+  let resNaN = !+ir dataSize
+  !!ir (isSNaN1 := isSNaN dataSize e1)
+  !!ir (isSNaN2 := isSNaN dataSize e2)
+  !!ir (isQNaN1 := isQNaN dataSize e1)
+  !!ir (isQNaN2 := isQNaN dataSize e2)
+  !!ir (isNaN := isSNaN1 .| isSNaN2 .| isQNaN1 .| isQNaN2)
+  let fpNaN expr = fpProcessNan ctxt dataSize expr
+  !!ir (resNaN :=
+    AST.ite isSNaN1 (fpNaN e1) (AST.ite isSNaN2 (fpNaN e2)
+      (AST.ite isQNaN1 (fpNaN e1) (AST.ite isQNaN2 (fpNaN e2)
+        (AST.num0 dataSize)))))
+  struct (isNaN, resNaN)
+
+let fpUnpackValue src =
+    let srcSz = src |> TypeCheck.typeOf
+    AST.ite (isNaN srcSz src) (AST.num0 srcSz)
+      (AST.ite (isInfinity srcSz src) (fpMinMax src srcSz) src)
+
+/// shared/functions/float/fpadd/FPAdd
+/// FPAdd()
+let fpAdd ctxt ir dataSize src1 src2 =
+  let struct (isZero1, isInf1, isZero2, isInf2) = tmpVars4 ir 1<rt>
+  let struct (sign1, sign2) = tmpVars2 ir 1<rt>
+  let res = !+ir dataSize
+  !!ir (sign1 := AST.xthi 1<rt> src1)
+  !!ir (sign2 := AST.xthi 1<rt> src2)
+  !!ir (isZero1 := isZero dataSize src1)
+  !!ir (isZero2 := isZero dataSize src2)
+  !!ir (isInf1 := isInfinity dataSize src1)
+  !!ir (isInf2 := isInfinity dataSize src2)
+  let struct (isNaN, resNaN) = fpProcessNaNs ctxt ir dataSize src1 src2
+  let cond1 = isInf1 .& isInf2 .& (sign1 == AST.not sign2)
+  let cond2 = (isInf1 .& (AST.not sign1)) .| (isInf2 .& (AST.not sign2))
+  let cond3 = (isInf1 .& sign1) .| (isInf2 .& sign2)
+  let cond4 = isZero1 .& isZero2 .& (sign1 == sign2)
+  !!ir (res :=
+    AST.ite cond1 (fpDefaultNan dataSize)
+      (AST.ite cond2 (fpInfinity AST.b0 dataSize)
+        (AST.ite cond3 (fpInfinity AST.b1 dataSize)
+          (AST.ite cond4 (fpZero src1 dataSize)
+            (AST.fadd src1 src2)))))
+  AST.ite isNaN resNaN res
+
+/// shared/functions/float/fpadd/FPSub
+/// FPSub()
+let fpSub ctxt ir dataSize src1 src2 =
+  let struct (isZero1, isInf1, isZero2, isInf2) = tmpVars4 ir 1<rt>
+  let struct (sign1, sign2) = tmpVars2 ir 1<rt>
+  let res = !+ir dataSize
+  !!ir (sign1 := AST.xthi 1<rt> src1)
+  !!ir (sign2 := AST.xthi 1<rt> src2)
+  !!ir (isZero1 := isZero dataSize src1)
+  !!ir (isZero2 := isZero dataSize src2)
+  !!ir (isInf1 := isInfinity dataSize src1)
+  !!ir (isInf2 := isInfinity dataSize src2)
+  let struct (isNaN, resNaN) = fpProcessNaNs ctxt ir dataSize src1 src2
+  let cond1 = isInf1 .& isInf2 .& (sign1 == sign2)
+  let cond2 = (isInf1 .& (AST.not sign1)) .| (isInf2 .& sign2)
+  let cond3 = (isInf1 .& sign1) .| (isInf2 .& (AST.not sign2))
+  let cond4 = isZero1 .& isZero2 .& (sign1 == (AST.not sign2))
+  !!ir (res :=
+    AST.ite cond1 (fpDefaultNan dataSize)
+      (AST.ite cond2 (fpInfinity AST.b0 dataSize)
+        (AST.ite cond3 (fpInfinity AST.b1 dataSize)
+          (AST.ite cond4 (fpZero src1 dataSize)
+            (AST.fsub src1 src2)))))
+  AST.ite isNaN resNaN res
+
+/// shared/functions/float/fpmul/FPMul
+/// FPMul()
+let fpMul ctxt ir dataSize src1 src2 =
+  let struct (isZero1, isInf1, isZero2, isInf2) = tmpVars4 ir 1<rt>
+  let struct (sign1, sign2) = tmpVars2 ir 1<rt>
+  let res = !+ir dataSize
+  !!ir (sign1 := AST.xthi 1<rt> src1)
+  !!ir (sign2 := AST.xthi 1<rt> src2)
+  !!ir (isZero1 := isZero dataSize src1)
+  !!ir (isZero2 := isZero dataSize src2)
+  !!ir (isInf1 := isInfinity dataSize src1)
+  !!ir (isInf2 := isInfinity dataSize src2)
+  let struct (isNaN, resNaN) = fpProcessNaNs ctxt ir dataSize src1 src2
+  let cond1 = (isInf1 .& isZero2) .| (isZero1 .& isInf2)
+  let cond2 = isInf1 .| isInf2
+  let cond3 = isZero1 .| isZero2
+  !!ir (res :=
+    AST.ite cond1 (fpDefaultNan dataSize)
+      (AST.ite cond2 (fpInfinity (sign1 <+> sign2) dataSize)
+        (AST.ite cond3 (fpZero (src1 <+> src2) dataSize)
+          (AST.fmul src1 src2))))
+  AST.ite isNaN resNaN res
+
+/// shared/functions/float/fpdiv/FPDiv
+/// FPDiv()
+let fpDiv ctxt ir dataSize src1 src2 =
+  let struct (isZero1, isInf1, isZero2, isInf2) = tmpVars4 ir 1<rt>
+  let struct (sign1, sign2) = tmpVars2 ir 1<rt>
+  let res = !+ir dataSize
+  !!ir (sign1 := AST.xthi 1<rt> src1)
+  !!ir (sign2 := AST.xthi 1<rt> src2)
+  !!ir (isZero1 := isZero dataSize src1)
+  !!ir (isZero2 := isZero dataSize src2)
+  !!ir (isInf1 := isInfinity dataSize src1)
+  !!ir (isInf2 := isInfinity dataSize src2)
+  let struct (isNaN, resNaN) = fpProcessNaNs ctxt ir dataSize src1 src2
+  let cond1 = (isInf1 .& isInf2) .| (isZero1 .& isZero2)
+  let cond2 = isInf1 .| isZero2
+  let cond3 = isZero1 .| isInf2
+  !!ir (res :=
+    AST.ite cond1 (fpDefaultNan dataSize)
+      (AST.ite cond2 (fpInfinity (sign1 <+> sign2) dataSize)
+        (AST.ite cond3 (fpZero (src1 <+> src2) dataSize)
+          (AST.fdiv src1 src2))))
+  AST.ite isNaN resNaN res
 
 /// shared/functions/float/FPToFixed
 /// FPToFixed()
 /// ======
-let fpToFixed dstSz src fbits unsigned round =
+let fpToFixed dstSz src fbits unsigned round ir =
   let srcSz = src |> TypeCheck.typeOf
+  let sign = AST.xthi 1<rt> src
+  let trunc = AST.cast CastKind.FtoFTrunc srcSz src
   let convertBit =
     if dstSz > srcSz then AST.xtlo srcSz fbits elif dstSz = srcSz then fbits
     else AST.zext srcSz fbits
   let mulBits =
     AST.cast CastKind.UIntToFloat srcSz (numU64 0x1UL srcSz << convertBit)
   let bigint = AST.fmul src mulBits
-  let round =
-    match round with
-    | FPRounding_TIEEVEN
-    | FPRounding_TIEAWAY -> AST.cast CastKind.FtoIRound srcSz
-    | FPRounding_Zero -> AST.cast CastKind.FtoITrunc srcSz
-    | FPRounding_POSINF -> AST.cast CastKind.FtoICeil srcSz
-    | FPRounding_NEGINF -> AST.cast CastKind.FtoIFloor srcSz
-  match dstSz, srcSz with
-  | d, s when d >= s -> round bigint
-  | _ -> round bigint |> AST.xtlo dstSz
-  |> if unsigned then AST.zext dstSz else AST.sext dstSz
+  let res cast =
+    match dstSz, srcSz with
+    | d, s when d >= s -> cast bigint
+    | _ -> cast bigint |> AST.xtlo dstSz
+    |> if unsigned then AST.zext dstSz else AST.sext dstSz
+  let fpcheck cast =
+    AST.ite (isNaN srcSz src) (AST.num0 dstSz)
+      (AST.ite (isInfinity srcSz src) (fpMinMax src dstSz) (res cast))
+  match round with
+  | FPRounding_TIEEVEN -> fpcheck (AST.cast CastKind.FtoIRound srcSz)
+  | FPRounding_TIEAWAY ->
+    let t = !+ir srcSz
+    let comp1 =
+      match srcSz with
+      | 32<rt> -> numI32 0x3F000000 srcSz (* 0.5 *)
+      | 64<rt> -> numI64 0x3FE0000000000000L srcSz (* 0.5 *)
+      | _ -> raise InvalidOperandSizeException
+    let comp2 =
+      match srcSz with
+      | 32<rt> -> numI32 0xBF000000 srcSz (* -0.5 *)
+      | 64<rt> -> numI64 0xBFE0000000000000L srcSz (* -0.5 *)
+      | _ -> raise InvalidOperandSizeException
+    !!ir (t := AST.fsub src trunc)
+    let ceil = fpcheck (AST.cast CastKind.FtoICeil srcSz)
+    let floor = fpcheck (AST.cast CastKind.FtoIFloor srcSz)
+    let pRes = AST.ite (AST.fge t comp1) ceil floor
+    let nRes = AST.ite (AST.fle t comp2) floor ceil
+    AST.ite sign nRes pRes
+  | FPRounding_Zero -> fpcheck (AST.cast CastKind.FtoITrunc srcSz)
+  | FPRounding_POSINF -> fpcheck (AST.cast CastKind.FtoICeil srcSz)
+  | FPRounding_NEGINF -> fpcheck (AST.cast CastKind.FtoIFloor srcSz)
 
 /// shared/functions/common/BitCount
 // BitCount()
