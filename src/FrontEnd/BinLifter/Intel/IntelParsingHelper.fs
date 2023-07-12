@@ -6315,7 +6315,9 @@ module internal ParsingHelper = begin
     printfn "OperationSize %A" rhlp.OperationSize
   *)
     match byte with
-    | 0x02uy -> render span rhlp LAR SzCond.Nor OD.GprRm SZ.WV
+    | 0x02uy ->
+      if rhlp.VEXInfo.IsSome then raise ParsingFailureException
+      else render span rhlp LAR SzCond.Nor OD.GprRm SZ.WV
     | 0x03uy -> render span rhlp LSL SzCond.Nor OD.GprRm SZ.WV
     | 0x05uy ->
 #if !EMULATION
