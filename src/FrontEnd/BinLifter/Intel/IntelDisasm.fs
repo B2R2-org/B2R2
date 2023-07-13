@@ -1514,7 +1514,7 @@ module private IntelSyntax = begin
     | 32<rt> -> if isFar then "word far ptr" else "dword ptr"
     | 48<rt> -> "dword far ptr"
     | 64<rt> -> "qword ptr"
-    | 80<rt> -> if isFar then "qword far ptr" else "tword ptr"
+    | 80<rt> -> if isFar then "qword far ptr" else "tbyte ptr"
     | 128<rt> -> "xmmword ptr"
     | 256<rt> -> "ymmword ptr"
     | 512<rt> -> "zmmword ptr"
