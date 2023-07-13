@@ -3006,13 +3006,13 @@ let saddw ins insLen ctxt addr =
   let struct (dst, src1, src2) = getThreeOprs ins
   let struct (eSize, _, _) = getElemDataSzAndElems src2
   let elements = 64<rt> / eSize
+  !<ir insLen
   let dstB, dstA = transOprToExpr128 ins ctxt addr dst
   let src1 = transSIMDOprToExpr ctxt (2 * eSize) 128<rt> elements src1
-  let src2 = vectorPart ctxt eSize src2
-  !<ir insLen
+  let src2 = vectorPart ctxt eSize src2 |> Array.map (AST.sext (2 * eSize))
   let result = Array.init elements (fun _ -> !+ir (2 * eSize))
-  Array.map2 (fun e1 e2 -> e1 .+ (AST.sext (2 * eSize) e2)) src1 src2
-  |> Array.iter2 (fun e1 e2 -> !!ir (e1 := e2)) result
+  let sum = Array.map2 (.+) src1 src2
+  Array.iter2 (fun res s -> !!ir (res := s)) result sum
   dstAssignForSIMD dstA dstB result 128<rt> elements ir
   !>ir insLen
 
@@ -3217,18 +3217,23 @@ let umsubl ins insLen ctxt addr =
 let umulh ins insLen ctxt addr =
   let ir = !*ctxt
   let dst, src1, src2 = transThreeOprs ins ctxt addr
-  let struct (tSrc1B, tSrc1A, tSrc2B, tSrc2A) = tmpVars4 ir 64<rt>
+  let struct (hiSrc1, loSrc1, hiSrc2, loSrc2) = tmpVars4 ir 64<rt>
+  let struct (pMid, pLow) = tmpVars2 ir 64<rt>
+  let struct (hi1Lo2, lo1Hi2) = tmpVars2 ir 64<rt>
   let n32 = numI32 32 64<rt>
   let mask = numI64 0xFFFFFFFFL 64<rt>
   !<ir insLen
-  !!ir (tSrc1B := (src1 >> n32) .& mask)
-  !!ir (tSrc1A := src1 .& mask)
-  !!ir (tSrc2B := (src2 >> n32) .& mask)
-  !!ir (tSrc2A := src2 .& mask)
-  let high = tSrc1B .* tSrc2B
-  let mid = (tSrc1A .* tSrc2B) .+ (tSrc1B .* tSrc2A)
-  let low = (tSrc1A .* tSrc2A) >> n32
-  !!ir (dst := high .+ ((mid .+ low) >> n32)) (* [127:64] *)
+  !!ir (hiSrc1 := (src1 >> n32) .& mask) (* SRC1[63:32] *)
+  !!ir (loSrc1 := src1 .& mask) (* SRC1[31:0] *)
+  !!ir (hiSrc2 := (src2 >> n32) .& mask) (* SRC2[63:32] *)
+  !!ir (loSrc2 := src2 .& mask) (* SRC2[31:0] *)
+  let pHigh = hiSrc1 .* hiSrc2
+  !!ir (hi1Lo2 := hiSrc1 .* loSrc2)
+  !!ir (lo1Hi2 := loSrc1 .* hiSrc2)
+  !!ir (pMid := hi1Lo2 .+ lo1Hi2)
+  !!ir (pLow := loSrc1 .* loSrc2)
+  let high = pHigh .+ ((pMid .+ (pLow  >> n32)) >> n32)
+  !!ir (dst := high .+ checkOverflowOnDMul hi1Lo2 lo1Hi2)
   !>ir insLen
 
 let umull ins insLen ctxt addr =
@@ -3432,9 +3437,10 @@ let ssubw ins insLen ctxt addr =
   let elements = 64<rt> / eSize
   let dstB, dstA = transOprToExpr128 ins ctxt addr o1
   let src1 = transSIMDOprToExpr ctxt (2 * eSize) 128<rt> elements o2
-  let src2 = vectorPart ctxt eSize o3
-  let result =
-    Array.map2 (fun s1 s2 -> s1 .- AST.sext (2 * eSize) s2) src1 src2
+  let src2 = vectorPart ctxt eSize o3 |> Array.map (AST.sext (2 * eSize))
+  let result = Array.init elements (fun _ -> !+ir (2 * eSize))
+  let sub = Array.map2 (.-) src1 src2
+  Array.iter2 (fun res s -> !!ir (res := s)) result sub
   dstAssignForSIMD dstA dstB result 128<rt> elements ir
   !>ir insLen
 
