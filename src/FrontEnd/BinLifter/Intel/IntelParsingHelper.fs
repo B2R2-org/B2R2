@@ -364,7 +364,9 @@ module internal ParsingHelper = begin
     | _ -> raise ParsingFailureException
 
   let getD8OverBF b =
-    getD8OpcodeOutside00toBF b, TwoOperands (OprReg R.ST0, getRM b |> getSTReg)
+    match getD8OpcodeOutside00toBF b with
+    | Opcode.FCOM | Opcode.FCOMP as op -> op, OneOperand (getRM b |> getSTReg)
+    | op -> op, TwoOperands (OprReg R.ST0, getRM b |> getSTReg)
 
   let getD9OverBF b =
     getD9OpcodeOutside00toBF b,
