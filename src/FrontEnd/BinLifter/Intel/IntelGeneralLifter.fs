@@ -880,6 +880,9 @@ let private cmpsBody ins ctxt ir =
   !!ir (si := AST.ite df (si .- amount) (si .+ amount))
   !!ir (di := AST.ite df (di .- amount) (di .+ amount))
   !?ir (enumEFLAGS ctxt t1 t2 t3 oprSize (cfOnSub t1 t2) (ofOnSub t1 t2 t3) sf)
+#if EMULATION
+  ctxt.ConditionCodeOp <- ConditionCodeOp.EFlags
+#endif
 
 let cmps (ins: InsInfo) insLen ctxt =
   let pref = ins.Prefixes
@@ -891,9 +894,6 @@ let cmps (ins: InsInfo) insLen ctxt =
    elif hasREPNZ pref then
      strRepeat ins insLen ctxt cmpsBody (Some (zf)) ir
    else cmpsBody ins ctxt ir)
-#if EMULATION
-  ctxt.ConditionCodeOp <- ConditionCodeOp.EFlags
-#endif
   !>ir insLen
 
 let cmpxchg ins insLen ctxt =
