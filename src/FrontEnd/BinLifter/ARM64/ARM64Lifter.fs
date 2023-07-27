@@ -1938,12 +1938,16 @@ let mladdsub ins insLen ctxt addr opFn =
   | ThreeOperands (_, _, OprSIMD (SIMDVecReg _)) ->
     let src2 = transSIMDOprToExpr ctxt eSize dataSize elements o3
     let prod = Array.map2 (.*) src1 src2
-    let result = Array.map2 (opFn) dst prod
+    let result = Array.init elements (fun _ -> !+ir eSize)
+    let cal = Array.map2 (opFn) dst prod
+    Array.iter2 (fun res s -> !!ir (res := s)) result cal
     dstAssignForSIMD dstA dstB result dataSize elements ir
   | _ ->
     let src2 = transOprToExpr ins ctxt addr o3
     let prod = Array.map (fun s1 -> s1 .* src2) src1
-    let result = Array.map2 (opFn) dst prod
+    let result = Array.init elements (fun _ -> !+ir eSize)
+    let cal = Array.map2 (opFn) dst prod
+    Array.iter2 (fun res s -> !!ir (res := s)) result cal
     dstAssignForSIMD dstA dstB result dataSize elements ir
   !>ir insLen
 
