@@ -3271,11 +3271,10 @@ let umull ins insLen ctxt addr =
     !!ir (dst := AST.zext 64<rt> src1 .* AST.zext 64<rt> src2)
   !>ir insLen
 
-let uqsub ins insLen ctxt addr =
+let uqAddSub ins insLen ctxt addr isAdd =
   let ir = !*ctxt
   let struct (o1, o2, o3) = getThreeOprs ins
   let struct (eSize, dataSize, elements) = getElemDataSzAndElems o1
-  let diff = !+ir 64<rt>
   !<ir insLen
   match ins.Operands with
   | ThreeOperands (OprSIMD (SIMDVecReg _), _, _) ->
@@ -3284,14 +3283,13 @@ let uqsub ins insLen ctxt addr =
     let src2 = transSIMDOprToExpr ctxt eSize dataSize elements o3
     let result =
       Array.map2 (fun e1 e2 ->
-        let diff = AST.zext 64<rt> e1 .- AST.zext 64<rt> e2
-        satQ diff eSize true ir) src1 src2
+                    satQAddSub ctxt e1 e2 isAdd eSize true ir) src1 src2
     dstAssignForSIMD dstA dstB result dataSize elements ir
   | ThreeOperands (OprSIMD (SIMDFPScalarReg _), _, _) ->
     let src1 = transOprToExpr ins ctxt addr o2
     let src2 = transOprToExpr ins ctxt addr o3
-    !!ir (diff := AST.zext 64<rt> src1 .- AST.zext 64<rt> src2)
-    dstAssignScalar ins ctxt addr o1 (satQ diff eSize true ir) eSize ir
+    dstAssignScalar ins ctxt addr o1
+      (satQAddSub ctxt src1 src2 isAdd eSize true ir) eSize ir
   | _ -> raise InvalidOperandException
   !>ir insLen
 
@@ -3828,7 +3826,8 @@ let translate ins insLen ctxt =
   | Opcode.UMSUBL | Opcode.UMNEGL -> umsubl ins insLen ctxt addr
   | Opcode.UMULH -> umulh ins insLen ctxt addr
   | Opcode.UMULL | Opcode.UMULL2 -> umull ins insLen ctxt addr
-  | Opcode.UQSUB -> uqsub ins insLen ctxt addr
+  | Opcode.UQADD -> uqAddSub ins insLen ctxt addr true
+  | Opcode.UQSUB -> uqAddSub ins insLen ctxt addr false
   | Opcode.URSHL -> urshl ins insLen ctxt addr
   | Opcode.SRSHL -> srshl ins insLen ctxt addr
   | Opcode.URHADD -> urhadd ins insLen ctxt addr
