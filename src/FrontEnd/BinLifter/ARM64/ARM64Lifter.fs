@@ -969,26 +969,32 @@ let fcmgt ins insLen ctxt addr =
   let struct (dst, src1, src2) = getThreeOprs ins
   let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
   let struct (ones, zeros) = tmpVars2 ir eSize
+  let chkNan e1 e2 = (isNaN eSize e1) .| (isNaN eSize e2)
+  let fpgt e1 e2 =
+    AST.fgt (checkZero ctxt ir eSize e1) (checkZero ctxt ir eSize e2)
   !!ir (ones := numI64 -1 eSize)
   !!ir (zeros := AST.num0 eSize)
   match dst, src2 with
   | OprSIMD (SIMDFPScalarReg _) as o1, _ ->
     let _, src1, src2 = transThreeOprs ins ctxt addr
-    let result = AST.ite (AST.fgt src1 src2) ones zeros
+    let result = AST.ite (chkNan src1 src2) zeros
+                   (AST.ite (fpgt src1 src2) ones zeros)
     dstAssignScalar ins ctxt addr o1 result eSize ir
   | OprSIMD (SIMDVecReg _), OprFPImm _ ->
     let dstB, dstA = transOprToExpr128 ins ctxt addr dst
     let src1 = transSIMDOprToExpr ctxt eSize dataSize elements src1
     let src2 = transOprToExpr ins ctxt addr src2 |> AST.xtlo eSize
     let result =
-      Array.map (fun e -> AST.ite (AST.fgt e src2) ones zeros) src1
+      Array.map (fun e -> AST.ite (chkNan e src2) zeros
+                            (AST.ite (fpgt e src2) ones zeros)) src1
     dstAssignForSIMD dstA dstB result dataSize elements ir
   | OprSIMD (SIMDVecReg _), _ ->
     let dstB, dstA = transOprToExpr128 ins ctxt addr dst
     let src1 = transSIMDOprToExpr ctxt eSize dataSize elements src1
     let src2 = transSIMDOprToExpr ctxt eSize dataSize elements src2
     let result =
-      Array.map2 (fun e1 e2 -> AST.ite (AST.fgt e1 e2) ones zeros) src1 src2
+      Array.map2 (fun e1 e2 -> AST.ite (chkNan e1 e2) zeros
+                                 (AST.ite (fpgt e1 e2) ones zeros)) src1 src2
     dstAssignForSIMD dstA dstB result dataSize elements ir
   | _ -> raise InvalidOperandException
   !>ir insLen
