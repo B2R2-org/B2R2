@@ -1639,23 +1639,34 @@ let vpshufd ins insLen ctxt =
   fillZeroFromVLToMaxVL ctxt dst oprSize 512 ir
   !>ir insLen
 
-let private opShiftVpackedDataLogical oprSize packSz shf src1 (src2: Expr []) =
-  let count = src2[0] |> AST.zext oprSize
-  let cond = AST.gt count (numI32 ((int packSz) - 1) oprSize)
-  let shifted expr = AST.extract (shf (AST.zext oprSize expr) count) packSz 0
+let private opShiftVpackedDataLogical packSz shf src1 src2 =
+  let count = src2 |> AST.zext 64<rt>
+  let cond = AST.gt count (numI32 ((int packSz) - 1) 64<rt>)
+  let shifted expr = AST.extract (shf (AST.zext 64<rt> expr) count) packSz 0
   Array.map (fun e -> AST.ite cond (AST.num0 packSz) (shifted e)) src1
 
-let private opVpslld oprSize = opShiftVpackedDataLogical oprSize 32<rt> (<<)
+let private vpsll ins insLen ctxt packSz =
+  let ir = !*ctxt
+  !<ir insLen
+  let oprSize = getOperationSize ins
+  let packNum = 64<rt> / packSz
+  let struct (dst, src1, src2) = getThreeOprs ins
+  let src1 = transOprToArr ir true ins insLen ctxt packSz packNum oprSize src1
+  let src2 =
+    match src2 with
+    | OprImm _ ->
+      transOprToExpr ir false ins insLen ctxt src2 |> AST.xtlo packSz
+    | _ -> transOprToExpr128 ir false ins insLen ctxt src2 |> snd
+  let result = opShiftVpackedDataLogical packSz (<<) src1 src2
+  assignPackedInstr ir false ins insLen ctxt packNum oprSize dst result
+  !>ir insLen
 
 let vpslld ins insLen ctxt =
   match getOperationSize ins with
   | 512<rt> -> GeneralLifter.nop insLen ctxt
-  | _ -> buildPackedInstr ins insLen ctxt true 32<rt> opVpslld
+  | _ -> vpsll ins insLen ctxt 32<rt>
 
-let private opVpsllq oprSize = opShiftVpackedDataLogical oprSize 64<rt> (<<)
-
-let vpsllq ins insLen ctxt =
-  buildPackedInstr ins insLen ctxt true 64<rt> opVpsllq
+let vpsllq ins insLen ctxt = vpsll ins insLen ctxt 64<rt>
 
 let vpslldq ins insLen ctxt =
   let ir = !*ctxt
@@ -1766,7 +1777,21 @@ let vpsravd ins insLen ctxt =
   !>ir insLen
 
 let vpsrlq ins insLen ctxt =
-  buildPackedInstr ins insLen ctxt true 64<rt> opVpsllq
+  let ir = !*ctxt
+  !<ir insLen
+  let oprSize = getOperationSize ins
+  let packSz = 64<rt>
+  let packNum = 64<rt> / packSz
+  let struct (dst, src1, src2) = getThreeOprs ins
+  let src1 = transOprToArr ir true ins insLen ctxt packSz packNum oprSize src1
+  let src2 =
+    match src2 with
+    | OprImm _ ->
+      transOprToExpr ir false ins insLen ctxt src2 |> AST.xtlo packSz
+    | _ -> transOprToExpr128 ir false ins insLen ctxt src2 |> snd
+  let result = opShiftVpackedDataLogical packSz (>>) src1 src2
+  assignPackedInstr ir false ins insLen ctxt packNum oprSize dst result
+  !>ir insLen
 
 let vpsrldq ins insLen ctxt =
   let ir = !*ctxt
