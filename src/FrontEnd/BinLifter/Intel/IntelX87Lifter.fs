@@ -884,9 +884,9 @@ let private prepareTwoOprsForComparison (ins: InsInfo) insLen ctxt ir =
     !?ir (castFrom80Bit tmp0 64<rt> st0b st0a)
     !?ir (castFrom80Bit tmp1 64<rt> st1b st1a)
   | _ -> raise InvalidOperandException
-  struct (tmp0, tmp1)
+  if ins.Opcode = Opcode.FUCOM then struct (tmp1, tmp0) else struct (tmp0, tmp1)
 
-let fcom (ins: InsInfo) insLen ctxt nPop unordered =
+let fcom ins insLen ctxt nPop unordered =
   let ir = !*ctxt
   let c0 = !.ctxt R.FSWC0
   let c2 = !.ctxt R.FSWC2
