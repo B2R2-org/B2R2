@@ -3328,16 +3328,29 @@ let urshl ins insLen ctxt addr =
   !<ir insLen
   let struct (dst, src, shift) = getThreeOprs ins
   let struct (eSize, dataSize, elements) = getElemDataSzAndElems src
-  let struct (n0, n1) = tmpVars2 ir eSize
-  !!ir (n0 := AST.num0 eSize)
-  !!ir (n1 := AST.num1 eSize)
+  let struct (n0, n1) = tmpVars2 ir 64<rt>
+  !!ir (n0 := AST.num0 64<rt>)
+  !!ir (n1 := AST.num1 64<rt>)
   let inline shiftRndLeft e1 e2 =
-    let struct (rndCst, shf) = tmpVars2 ir eSize
+    let struct (rndCst, shf, elem, res) = tmpVars4 ir 64<rt>
     let cond = !+ir 1<rt>
-    !!ir (shf := AST.xtlo 8<rt> e2 |> AST.sext eSize)
+    !!ir (shf := AST.xtlo 8<rt> e2 |> AST.sext 64<rt>)
     !!ir (cond := shf ?< n0)
     !!ir (rndCst := AST.ite cond (n1 << (AST.neg shf .- n1)) n0)
-    AST.ite cond ((e1 .+ rndCst) >> AST.neg shf) ((e1 .+ rndCst) << shf)
+    !!ir (elem := AST.zext 64<rt> e1 .+ rndCst)
+    let isOver = AST.neg shf .> numI32 (int eSize) 64<rt>
+    if eSize = 64<rt> then
+      let isCarry = e1 .> elem
+      let cElem = !+ir 64<rt>
+      !!ir (cElem := (elem >> n1) .| numU64 0x8000000000000000UL 64<rt>)
+      !!ir (res := AST.ite cond
+                     (AST.ite isOver n0
+                       (AST.ite isCarry (cElem >> (AST.neg shf .- n1))
+                         (elem >> AST.neg shf))) (elem << shf))
+    else
+      !!ir (res := AST.ite cond
+                     (AST.ite isOver n0 (elem >> AST.neg shf)) (elem << shf))
+    AST.xtlo eSize res
   match ins.Operands with
   | ThreeOperands (OprSIMD (SIMDFPScalarReg _), _, _) ->
     let src = transOprToExpr ins ctxt addr src
@@ -3362,13 +3375,15 @@ let srshl ins insLen ctxt addr =
   !!ir (n1 := AST.num1 eSize)
   let inline shiftRndLeft e1 e2 =
     let struct (rndCst, shf, elem) = tmpVars3 ir eSize
-    let cond = !+ir 1<rt>
+    let struct (cond, signBit) = tmpVars2 ir 1<rt>
     !!ir (shf := AST.xtlo 8<rt> e2 |> AST.sext eSize)
+    !!ir (signBit := AST.xthi 1<rt> e1)
     !!ir (cond := shf ?< n0)
     !!ir (rndCst := AST.ite cond (n1 << (AST.neg shf .- n1)) n0)
     !!ir (elem := e1 .+ rndCst)
     let isOver = AST.neg shf .> numI32 (int eSize) eSize
-    AST.ite cond (AST.ite isOver n0 (elem ?>> AST.neg shf)) (elem << shf)
+    AST.ite cond (AST.ite isOver n0 (AST.ite signBit
+                   (elem ?>> AST.neg shf) (elem >> AST.neg shf))) (elem << shf)
   match ins.Operands with
   | ThreeOperands (OprSIMD (SIMDFPScalarReg _), _, _) ->
     let src = transOprToExpr ins ctxt addr src
