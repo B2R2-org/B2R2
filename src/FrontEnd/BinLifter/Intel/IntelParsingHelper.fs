@@ -387,9 +387,7 @@ module internal ParsingHelper = begin
     getDCOpcodeOutside00toBF b, TwoOperands (getRM b |> getSTReg, OprReg R.ST0)
 
   let getDDOverBF b =
-    getDDOpcodeOutside00toBF b,
-    if b < 0xE0uy || b >= 0xE8uy then getRM b |> getSTReg |> OneOperand
-    else TwoOperands (getRM b |> getSTReg, OprReg R.ST0)
+    getDDOpcodeOutside00toBF b, getRM b |> getSTReg |> OneOperand
 
   let getDEOverBF b =
     getDEOpcodeOutside00toBF b,
