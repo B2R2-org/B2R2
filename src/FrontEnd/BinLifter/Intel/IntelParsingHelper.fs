@@ -5793,12 +5793,15 @@ module internal ParsingHelper = begin
   let parseGrp15OpKind (rhlp: ReadHelper) b regBits =
     match modIsMemory b, regBits, rhlp.Prefixes with
     | true, 0b000, Prefix.PrxNone ->
-      let op = if hasREXW rhlp.REXPrefix then FXSAVE64 else FXSAVE
-      struct (op, OD.Mem, SZ.Def, SzCond.Nor)
+      if rhlp.VEXInfo = None then
+        let op = if hasREXW rhlp.REXPrefix then FXSAVE64 else FXSAVE
+        struct (op, OD.Mem, SZ.Def, SzCond.Nor)
+      else raise ParsingFailureException
     | true, 0b001, Prefix.PrxNone ->
-      let op =
-        if hasREXW rhlp.REXPrefix then FXRSTOR64 else FXRSTOR
-      struct (op, OD.Mem, SZ.Def, SzCond.Nor)
+      if rhlp.VEXInfo = None then
+        let op = if hasREXW rhlp.REXPrefix then FXRSTOR64 else FXRSTOR
+        struct (op, OD.Mem, SZ.Def, SzCond.Nor)
+      else raise ParsingFailureException
     | true, 0b010, Prefix.PrxNone -> struct (LDMXCSR, OD.Mem, SZ.D, SzCond.Nor)
     | true, 0b011, Prefix.PrxNone -> struct (STMXCSR, OD.Mem, SZ.D, SzCond.Nor)
     | true, 0b100, Prefix.PrxNone -> struct (XSAVE, OD.Mem, SZ.Def, SzCond.Nor)
