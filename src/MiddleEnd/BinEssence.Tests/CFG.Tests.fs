@@ -417,6 +417,7 @@ type CFGTest2 () =
       |> Set.toArray
     CollectionAssert.AreEqual (expected, actual)
 
+#if !EMULATION
   [<TestMethod>]
   member __.``CFGInfo: Instruction BBLMap Test`` () =
     Assert.AreEqual (3, ess.CodeManager.BBLCount)
@@ -494,6 +495,7 @@ type CFGTest2 () =
           Set.add (pp.Address, pp.Position) acc) acc) Set.empty
       |> Set.toArray
     CollectionAssert.AreEqual (expected, actual)
+#endif
 
   [<TestMethod>]
   member __.``CFGInfo: BBLBounds Test`` () =
@@ -554,6 +556,7 @@ type CFGTest2 () =
     |> List.iter (fun addr ->
       CollectionAssert.AreEqual (Map.find addr expected, Map.find addr actual))
 
+#if !EMULATION
   [<TestMethod>]
   member __.``CFG Vertex Test: _start`` () =
     let cfg, _ = BinEssence.getFunctionCFG ess 0UL |> Result.get
@@ -608,6 +611,7 @@ type CFGTest2 () =
       [| CallFallThroughEdge; FallThroughEdge; IntraCJmpFalseEdge;
          IntraCJmpTrueEdge; InterJmpEdge; InterJmpEdge |]
     CollectionAssert.AreEqual (expected, actual)
+#endif
 
   [<TestMethod>]
   member __.``DisasmLens Test: _start`` () =

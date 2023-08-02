@@ -156,6 +156,7 @@ type PersistentDataFlowTests () =
         VarExpr = Regular (Intel.Register.toRegID Intel.Register.EDX) } |]
     CollectionAssert.AreEqual (solution, res)
 
+#if !EMULATION
   [<TestMethod>]
   member __.``Use-Def Test 3``() =
     let cfg, root = BinEssence.getFunctionCFG ess 0UL |> Result.get
@@ -170,3 +171,4 @@ type PersistentDataFlowTests () =
       { ProgramPoint = ProgramPoint (0x1AUL, 3)
         VarExpr = Regular (Intel.Register.toRegID Intel.Register.EDX) } |]
     CollectionAssert.AreEqual (solution, res)
+#endif
