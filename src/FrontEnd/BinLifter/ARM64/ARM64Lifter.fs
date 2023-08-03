@@ -1944,12 +1944,16 @@ let mladdsub ins insLen ctxt addr opFn =
   | ThreeOperands (_, _, OprSIMD (SIMDVecReg _)) ->
     let src2 = transSIMDOprToExpr ctxt eSize dataSize elements o3
     let prod = Array.map2 (.*) src1 src2
-    let result = Array.map2 (opFn) dst prod
+    let result = Array.init elements (fun _ -> !+ir eSize)
+    let cal = Array.map2 (opFn) dst prod
+    Array.iter2 (fun res s -> !!ir (res := s)) result cal
     dstAssignForSIMD dstA dstB result dataSize elements ir
   | _ ->
     let src2 = transOprToExpr ins ctxt addr o3
     let prod = Array.map (fun s1 -> s1 .* src2) src1
-    let result = Array.map2 (opFn) dst prod
+    let result = Array.init elements (fun _ -> !+ir eSize)
+    let cal = Array.map2 (opFn) dst prod
+    Array.iter2 (fun res s -> !!ir (res := s)) result cal
     dstAssignForSIMD dstA dstB result dataSize elements ir
   !>ir insLen
 
@@ -3273,11 +3277,10 @@ let umull ins insLen ctxt addr =
     !!ir (dst := AST.zext 64<rt> src1 .* AST.zext 64<rt> src2)
   !>ir insLen
 
-let uqsub ins insLen ctxt addr =
+let uqAddSub ins insLen ctxt addr isAdd =
   let ir = !*ctxt
   let struct (o1, o2, o3) = getThreeOprs ins
   let struct (eSize, dataSize, elements) = getElemDataSzAndElems o1
-  let diff = !+ir 64<rt>
   !<ir insLen
   match ins.Operands with
   | ThreeOperands (OprSIMD (SIMDVecReg _), _, _) ->
@@ -3286,14 +3289,13 @@ let uqsub ins insLen ctxt addr =
     let src2 = transSIMDOprToExpr ctxt eSize dataSize elements o3
     let result =
       Array.map2 (fun e1 e2 ->
-        let diff = AST.zext 64<rt> e1 .- AST.zext 64<rt> e2
-        satQ diff eSize true ir) src1 src2
+                    satQAddSub ctxt e1 e2 isAdd eSize true ir) src1 src2
     dstAssignForSIMD dstA dstB result dataSize elements ir
   | ThreeOperands (OprSIMD (SIMDFPScalarReg _), _, _) ->
     let src1 = transOprToExpr ins ctxt addr o2
     let src2 = transOprToExpr ins ctxt addr o3
-    !!ir (diff := AST.zext 64<rt> src1 .- AST.zext 64<rt> src2)
-    dstAssignScalar ins ctxt addr o1 (satQ diff eSize true ir) eSize ir
+    dstAssignScalar ins ctxt addr o1
+      (satQAddSub ctxt src1 src2 isAdd eSize true ir) eSize ir
   | _ -> raise InvalidOperandException
   !>ir insLen
 
@@ -3332,16 +3334,29 @@ let urshl ins insLen ctxt addr =
   !<ir insLen
   let struct (dst, src, shift) = getThreeOprs ins
   let struct (eSize, dataSize, elements) = getElemDataSzAndElems src
-  let struct (n0, n1) = tmpVars2 ir eSize
-  !!ir (n0 := AST.num0 eSize)
-  !!ir (n1 := AST.num1 eSize)
+  let struct (n0, n1) = tmpVars2 ir 64<rt>
+  !!ir (n0 := AST.num0 64<rt>)
+  !!ir (n1 := AST.num1 64<rt>)
   let inline shiftRndLeft e1 e2 =
-    let struct (rndCst, shf) = tmpVars2 ir eSize
+    let struct (rndCst, shf, elem, res) = tmpVars4 ir 64<rt>
     let cond = !+ir 1<rt>
-    !!ir (shf := AST.xtlo 8<rt> e2 |> AST.sext eSize)
+    !!ir (shf := AST.xtlo 8<rt> e2 |> AST.sext 64<rt>)
     !!ir (cond := shf ?< n0)
     !!ir (rndCst := AST.ite cond (n1 << (AST.neg shf .- n1)) n0)
-    AST.ite cond ((e1 .+ rndCst) >> AST.neg shf) ((e1 .+ rndCst) << shf)
+    !!ir (elem := AST.zext 64<rt> e1 .+ rndCst)
+    let isOver = AST.neg shf .> numI32 (int eSize) 64<rt>
+    if eSize = 64<rt> then
+      let isCarry = e1 .> elem
+      let cElem = !+ir 64<rt>
+      !!ir (cElem := (elem >> n1) .| numU64 0x8000000000000000UL 64<rt>)
+      !!ir (res := AST.ite cond
+                     (AST.ite isOver n0
+                       (AST.ite isCarry (cElem >> (AST.neg shf .- n1))
+                         (elem >> AST.neg shf))) (elem << shf))
+    else
+      !!ir (res := AST.ite cond
+                     (AST.ite isOver n0 (elem >> AST.neg shf)) (elem << shf))
+    AST.xtlo eSize res
   match ins.Operands with
   | ThreeOperands (OprSIMD (SIMDFPScalarReg _), _, _) ->
     let src = transOprToExpr ins ctxt addr src
@@ -3366,13 +3381,15 @@ let srshl ins insLen ctxt addr =
   !!ir (n1 := AST.num1 eSize)
   let inline shiftRndLeft e1 e2 =
     let struct (rndCst, shf, elem) = tmpVars3 ir eSize
-    let cond = !+ir 1<rt>
+    let struct (cond, signBit) = tmpVars2 ir 1<rt>
     !!ir (shf := AST.xtlo 8<rt> e2 |> AST.sext eSize)
+    !!ir (signBit := AST.xthi 1<rt> e1)
     !!ir (cond := shf ?< n0)
     !!ir (rndCst := AST.ite cond (n1 << (AST.neg shf .- n1)) n0)
     !!ir (elem := e1 .+ rndCst)
     let isOver = AST.neg shf .> numI32 (int eSize) eSize
-    AST.ite cond (AST.ite isOver n0 (elem ?>> AST.neg shf)) (elem << shf)
+    AST.ite cond (AST.ite isOver n0 (AST.ite signBit
+                   (elem ?>> AST.neg shf) (elem >> AST.neg shf))) (elem << shf)
   match ins.Operands with
   | ThreeOperands (OprSIMD (SIMDFPScalarReg _), _, _) ->
     let src = transOprToExpr ins ctxt addr src
@@ -3830,7 +3847,8 @@ let translate ins insLen ctxt =
   | Opcode.UMSUBL | Opcode.UMNEGL -> umsubl ins insLen ctxt addr
   | Opcode.UMULH -> umulh ins insLen ctxt addr
   | Opcode.UMULL | Opcode.UMULL2 -> umull ins insLen ctxt addr
-  | Opcode.UQSUB -> uqsub ins insLen ctxt addr
+  | Opcode.UQADD -> uqAddSub ins insLen ctxt addr true
+  | Opcode.UQSUB -> uqAddSub ins insLen ctxt addr false
   | Opcode.URSHL -> urshl ins insLen ctxt addr
   | Opcode.SRSHL -> srshl ins insLen ctxt addr
   | Opcode.URHADD -> urhadd ins insLen ctxt addr
