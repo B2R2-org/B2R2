@@ -415,7 +415,8 @@ module internal OperandParsingHelper =
     else raise ParsingFailureException
 
   let parseBoundRegister n =
-    Register.bound n |> OprReg
+    if n < 4 then Register.bound n |> OprReg
+    else raise ParsingFailureException
 
   let parseControlReg n =
     Register.control n |> OprReg
