@@ -790,8 +790,10 @@ let ext ins insLen ctxt addr =
   let dstB, dstA = transOprToExpr128 ins ctxt addr dst
   let src1 = transSIMDOprToExpr ctxt eSize dataSize elements src1
   let src2 = transSIMDOprToExpr ctxt eSize dataSize elements src2
+  let result = Array.init elements (fun _ -> !+ir eSize)
   let concat = Array.append src1 src2
-  let result = Array.sub concat pos (dataSize / eSize)
+  let res = Array.sub concat pos (dataSize / eSize)
+  Array.iter2 (fun res s -> !!ir (res := s)) result res
   dstAssignForSIMD dstA dstB result dataSize elements ir
   !>ir insLen
 
