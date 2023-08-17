@@ -35,7 +35,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="FSharp.Compiler.Service" Version="43.7.300" />
+    <PackageReference Include="FSharp.Compiler.Service" Version="42.7.101" />
     <PackageReference Include="System.IO.Hashing" Version="7.0.0" />
   </ItemGroup>
 
