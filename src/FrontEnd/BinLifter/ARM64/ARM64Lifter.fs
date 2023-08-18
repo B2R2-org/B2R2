@@ -886,7 +886,10 @@ let faddp ins insLen ctxt addr =
   | TwoOperands (dst, src) -> (* Scalar *)
     let struct (eSize, dataSize, elements) = getElemDataSzAndElems src
     let src = transSIMDOprToExpr ctxt eSize dataSize elements src
-    let result = Array.reduce (fpAdd ctxt ir eSize) src
+    let result =
+      Array.chunkBySize 2 src
+      |> Array.map (fun e -> fpAdd ctxt ir eSize e[0] e[1])
+      |> Array.reduce(.+)
     dstAssignScalar ins ctxt addr dst result eSize ir
   | ThreeOperands (dst, src1, src2) -> (* Vector *)
     let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
@@ -1901,12 +1904,14 @@ let maxMinp ins insLen ctxt addr opFn =
   let struct (dst, src1, src2) = getThreeOprs ins
   let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
   let dstB, dstA = transOprToExpr128 ins ctxt addr dst
+  let result = Array.init elements (fun _ -> !+ir eSize)
   let src1 = transSIMDOprToExpr ctxt eSize dataSize elements src1
   let src2 = transSIMDOprToExpr ctxt eSize dataSize elements src2
-  let tmp = Array.append src1 src2
+  let cal src = Array.chunkBySize 2 src
+                |> Array.map (fun e -> AST.ite (opFn e.[0] e.[1]) e.[0] e.[1])
+  let concat = Array.append (cal src1) (cal src2)
   !<ir insLen
-  let result = Array.init elements (fun i ->
-    AST.ite (opFn tmp.[2 * i] tmp.[2 * i + 1]) tmp.[2 * i] tmp.[2 * i + 1])
+  Array.iter2 (fun res s -> !!ir (res := s)) result concat
   dstAssignForSIMD dstA dstB result dataSize elements ir
   !>ir insLen
 
@@ -2969,11 +2974,13 @@ let uabdl ins insLen ctxt addr =
   let dstB, dstA = transOprToExpr128 ins ctxt addr dst
   let src1 = vectorPart ctxt eSize src1 |> Array.map (AST.zext (2 * eSize))
   let src2 = vectorPart ctxt eSize src2 |> Array.map (AST.zext (2 * eSize))
+  let result = Array.init elements (fun _ -> !+ir (2 * eSize))
   let cond = Array.map2 (fun s1 s2 -> AST.ge s2 s1) src1 src2
   let absDiff =
     Array.map3 (fun x s1 s2 ->
       AST.ite x (AST.neg (s1 .- s2)) (s1 .- s2)) cond src1 src2
-  dstAssignForSIMD dstA dstB absDiff 128<rt> elements ir
+  Array.iter2 (fun d r -> !!ir (d := r)) result absDiff
+  dstAssignForSIMD dstA dstB result 128<rt> elements ir
   !>ir insLen
 
 let uadalp ins insLen ctxt addr =
