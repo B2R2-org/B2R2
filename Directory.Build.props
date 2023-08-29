@@ -4,7 +4,7 @@
     <Product>B2R2</Product>
     <Authors>SoftSec Lab. @ KAIST</Authors>
     <Company>SoftSec Lab. @ KAIST</Company>
-    <VersionPrefix>0.6.0</VersionPrefix>
+    <VersionPrefix>0.6.1</VersionPrefix>
     <VersionSuffix></VersionSuffix>
     <Copyright>Copyright (c) SoftSec Lab. @ KAIST, since 2016</Copyright>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
