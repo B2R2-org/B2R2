@@ -1661,6 +1661,19 @@ module private ATTSyntax = begin
     buildScaledIndex si builder
     builder.Accumulate AsmWordKind.String ")"
 
+  let buildNobaseMemory (i, s) d builder =
+    buildDisp d true builder
+    match s with
+    | Scale.X1 ->
+      builder.Accumulate AsmWordKind.String "(%"
+      builder.Accumulate AsmWordKind.Variable (Register.toString i)
+    | _ ->
+      builder.Accumulate AsmWordKind.String "(, %"
+      builder.Accumulate AsmWordKind.Variable (Register.toString i)
+      builder.Accumulate AsmWordKind.String ", "
+      builder.Accumulate AsmWordKind.Value ((int s).ToString())
+    builder.Accumulate AsmWordKind.String ")"
+
   let buildMemOp (ins: InsInfo) (builder: DisasmBuilder) b si d oprSz isFst =
     if ins.IsBranch () then
       builder.Accumulate AsmWordKind.String " *"
@@ -1668,15 +1681,17 @@ module private ATTSyntax = begin
       builder.Accumulate AsmWordKind.String " "
     else
       builder.Accumulate AsmWordKind.String ", "
-    match Helper.getSegment ins.Prefixes, b with
-    | None, Some b ->
+    match Helper.getSegment ins.Prefixes, b, si with
+    | None, Some b, _ ->
       buildBasedMemory b si d builder
-    | None, None ->
+    | None, None, None ->
       buildDisp d false builder
-    | Some seg, Some b ->
+    | None, None, Some si ->
+      buildNobaseMemory si d builder
+    | Some seg, Some b, _ ->
       buildSeg seg builder
       buildBasedMemory b si d builder
-    | Some seg, None ->
+    | Some seg, None, _ ->
       buildSeg seg builder
       buildDisp d false builder
 
