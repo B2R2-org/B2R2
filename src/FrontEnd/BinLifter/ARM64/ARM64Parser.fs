@@ -641,8 +641,8 @@ let parseCondBranchImm bin =
     | 0b01u -> raise UnallocatedException
     | 0b10u | 0b11u -> raise UnallocatedException
     | _ -> raise InvalidOpcodeException
-  opCode, OneOperand (memLabel (signExtend 19 64 (valImm19 bin <<< 2 |> uint64)
-                               |> int64)), 64<rt>
+  let offs = memLabel (signExtend 21 64 (valImm19 bin <<< 2 |> uint64) |> int64)
+  opCode, OneOperand offs, 64<rt>
 
 /// Exception generation on page C4-272.
 let parseExcepGen bin =
@@ -770,8 +770,8 @@ let parseTestBranchImm bin =
 
 let parseUncondBranchImm bin =
   let opCode = if (pickBit bin 31u) = 0u then Op.B else Op.BL
-  let imm26 = signExtend 26 64 (extract bin 25u 0u <<< 2 |> uint64) |> int64
-  opCode, OneOperand (memLabel imm26), 64<rt>
+  let offset = signExtend 28 64 (extract bin 25u 0u <<< 2 |> uint64) |> int64
+  opCode, OneOperand (memLabel offset), 64<rt>
 
 let parseUncondBranchReg bin =
   let opc = extract bin 24u 21u
