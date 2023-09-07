@@ -790,8 +790,10 @@ let ext ins insLen ctxt addr =
   let dstB, dstA = transOprToExpr128 ins ctxt addr dst
   let src1 = transSIMDOprToExpr ctxt eSize dataSize elements src1
   let src2 = transSIMDOprToExpr ctxt eSize dataSize elements src2
+  let result = Array.init elements (fun _ -> !+ir eSize)
   let concat = Array.append src1 src2
-  let result = Array.sub concat pos (dataSize / eSize)
+  let res = Array.sub concat pos (dataSize / eSize)
+  Array.iter2 (fun res s -> !!ir (res := s)) result res
   dstAssignForSIMD dstA dstB result dataSize elements ir
   !>ir insLen
 
@@ -884,7 +886,10 @@ let faddp ins insLen ctxt addr =
   | TwoOperands (dst, src) -> (* Scalar *)
     let struct (eSize, dataSize, elements) = getElemDataSzAndElems src
     let src = transSIMDOprToExpr ctxt eSize dataSize elements src
-    let result = Array.reduce (fpAdd ctxt ir eSize) src
+    let result =
+      Array.chunkBySize 2 src
+      |> Array.map (fun e -> fpAdd ctxt ir eSize e[0] e[1])
+      |> Array.reduce(.+)
     dstAssignScalar ins ctxt addr dst result eSize ir
   | ThreeOperands (dst, src1, src2) -> (* Vector *)
     let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
@@ -1027,6 +1032,8 @@ let fcvt ins insLen ctxt addr =
 
 let private fpConvert ins insLen ctxt addr isUnsigned round =
   let ir = !*ctxt
+  let isNeg e = AST.xthi 1<rt> e == AST.b1
+  let n0 = AST.num0 ins.OprSize
   !<ir insLen
   match ins.Operands with
   (* vector *)
@@ -1034,40 +1041,45 @@ let private fpConvert ins insLen ctxt addr isUnsigned round =
     let struct (eSize, dataSize, elements) = getElemDataSzAndElems o1
     let dstB, dstA = transOprToExpr128 ins ctxt addr o1
     let src = transSIMDOprToExpr ctxt eSize dataSize elements o2
-    let n0 = AST.num0 eSize
-    let result =
-      Array.map (fun e -> fpToFixed eSize e n0 isUnsigned round ir) src
+    let fcvt e = fpToFixed eSize e (AST.num0 eSize) isUnsigned round ir
+    let result = Array.init elements (fun _ -> !+ir eSize)
+    Array.iter2 (fun res e -> if isUnsigned then !!ir (res := fcvt e)
+                              else !!ir (res := fcvt e)) result src
     dstAssignForSIMD dstA dstB result dataSize elements ir
   (* vector #<fbits> *)
   | ThreeOperands (OprSIMD (SIMDVecReg _) as o1, o2, OprFbits fbits) ->
-    let struct (eSz, dataSize, elements) = getElemDataSzAndElems o1
+    let struct (eSize, dataSize, elements) = getElemDataSzAndElems o1
     let dstB, dstA = transOprToExpr128 ins ctxt addr o1
-    let src = transSIMDOprToExpr ctxt eSz dataSize elements o2
-    let fbits = numI32 (int fbits) eSz
-    let result =
-      Array.map (fun e -> fpToFixed eSz e fbits isUnsigned round ir) src
+    let src = transSIMDOprToExpr ctxt eSize dataSize elements o2
+    let fbits = numI32 (int fbits) eSize
+    let fcvt e = fpToFixed eSize e fbits isUnsigned round ir
+    let result = Array.init elements (fun _ -> !+ir eSize)
+    Array.iter2 (fun res e -> if isUnsigned then !!ir (res := fcvt e)
+                              else !!ir (res := fcvt e)) result src
     dstAssignForSIMD dstA dstB result dataSize elements ir
   (* scalar *)
   | TwoOperands (OprSIMD (SIMDFPScalarReg _) as o1, o2) ->
     let src = transOprToExpr ins ctxt addr o2
-    let result =
-      fpToFixed ins.OprSize src (AST.num0 ins.OprSize) isUnsigned round ir
+    let fcvt = fpToFixed ins.OprSize src n0 isUnsigned round ir
+    let result = if isUnsigned then AST.ite (isNeg src) n0 fcvt else fcvt
     dstAssignScalar ins ctxt addr o1 result ins.OprSize ir
   (* scalar #<fbits> *)
   | ThreeOperands (OprSIMD (SIMDFPScalarReg _) as o1, _, OprFbits _) ->
     let _, src, fbits = transThreeOprs ins ctxt addr
-    let result = fpToFixed ins.OprSize src fbits isUnsigned round ir
+    let fcvt = fpToFixed ins.OprSize src fbits isUnsigned round ir
+    let result = if isUnsigned then AST.ite (isNeg src) n0 fcvt else fcvt
     dstAssignScalar ins ctxt addr o1 result ins.OprSize ir
   (* float *)
   | TwoOperands (OprRegister _, _) ->
     let dst, src = transTwoOprs ins ctxt addr
-    let result =
-      fpToFixed ins.OprSize src (AST.num0 ins.OprSize) isUnsigned round ir
+    let fcvt = fpToFixed ins.OprSize src n0 isUnsigned round ir
+    let result = if isUnsigned then AST.ite (isNeg src) n0 fcvt else fcvt
     dstAssign ins.OprSize dst result ir
   (* float #<fbits> *)
   | ThreeOperands (OprRegister _, _, OprFbits _) ->
     let dst, src, fbits = transThreeOprs ins ctxt addr
-    let result = fpToFixed ins.OprSize src fbits isUnsigned round ir
+    let fcvt = fpToFixed ins.OprSize src fbits isUnsigned round ir
+    let result = if isUnsigned then AST.ite (isNeg src) n0 fcvt else fcvt
     dstAssign ins.OprSize dst result ir
   | _ -> raise InvalidOperandException
   !>ir insLen
@@ -1899,12 +1911,14 @@ let maxMinp ins insLen ctxt addr opFn =
   let struct (dst, src1, src2) = getThreeOprs ins
   let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
   let dstB, dstA = transOprToExpr128 ins ctxt addr dst
+  let result = Array.init elements (fun _ -> !+ir eSize)
   let src1 = transSIMDOprToExpr ctxt eSize dataSize elements src1
   let src2 = transSIMDOprToExpr ctxt eSize dataSize elements src2
-  let tmp = Array.append src1 src2
+  let cal src = Array.chunkBySize 2 src
+                |> Array.map (fun e -> AST.ite (opFn e.[0] e.[1]) e.[0] e.[1])
+  let concat = Array.append (cal src1) (cal src2)
   !<ir insLen
-  let result = Array.init elements (fun i ->
-    AST.ite (opFn tmp.[2 * i] tmp.[2 * i + 1]) tmp.[2 * i] tmp.[2 * i + 1])
+  Array.iter2 (fun res s -> !!ir (res := s)) result concat
   dstAssignForSIMD dstA dstB result dataSize elements ir
   !>ir insLen
 
@@ -2967,11 +2981,13 @@ let uabdl ins insLen ctxt addr =
   let dstB, dstA = transOprToExpr128 ins ctxt addr dst
   let src1 = vectorPart ctxt eSize src1 |> Array.map (AST.zext (2 * eSize))
   let src2 = vectorPart ctxt eSize src2 |> Array.map (AST.zext (2 * eSize))
+  let result = Array.init elements (fun _ -> !+ir (2 * eSize))
   let cond = Array.map2 (fun s1 s2 -> AST.ge s2 s1) src1 src2
   let absDiff =
     Array.map3 (fun x s1 s2 ->
       AST.ite x (AST.neg (s1 .- s2)) (s1 .- s2)) cond src1 src2
-  dstAssignForSIMD dstA dstB absDiff 128<rt> elements ir
+  Array.iter2 (fun d r -> !!ir (d := r)) result absDiff
+  dstAssignForSIMD dstA dstB result 128<rt> elements ir
   !>ir insLen
 
 let uadalp ins insLen ctxt addr =
