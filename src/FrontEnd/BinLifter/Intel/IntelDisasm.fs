@@ -1805,6 +1805,13 @@ module private ATTSyntax = begin
     | Opcode.VFNMSUB231SD
     | Opcode.VFNMSUB231PD ->
       buildOpcode ins.Opcode builder
+    (* Far jmp/call *)
+    | Opcode.JMPFar ->
+      builder.Accumulate AsmWordKind.Mnemonic "ljmp"
+      buildOpSuffix ins.Operands builder
+    | Opcode.CALLFar ->
+      builder.Accumulate AsmWordKind.Mnemonic "lcall"
+      buildOpSuffix ins.Operands builder
     | opcode ->
       buildOpcode opcode builder
       buildOpSuffix ins.Operands builder
