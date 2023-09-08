@@ -27,9 +27,6 @@ module B2R2.RearEnd.Transformer.Program
 open System
 open System.IO
 open System.Reflection
-open System.Text
-open FSharp.Compiler.Interactive.Shell
-open FSharp.Compiler.Tokenization
 open B2R2
 open B2R2.RearEnd
 

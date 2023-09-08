@@ -18,7 +18,9 @@
     <Compile Include="GrepAction.fs" />
     <Compile Include="HexdumpAction.fs" />
     <Compile Include="JaccardAction.fs" />
+    <Compile Include="LiftAction.fs" />
     <Compile Include="ListAction.fs" />
+    <Compile Include="LLVMAction.fs" />
     <Compile Include="LoadAction.fs" />
     <Compile Include="PrintAction.fs" />
     <Compile Include="SliceAction.fs" />
@@ -32,6 +34,7 @@
     <ProjectReference Include="..\Core\B2R2.RearEnd.Core.fsproj" />
     <ProjectReference Include="..\..\FrontEnd\BinFile\B2R2.FrontEnd.BinFile.fsproj" />
     <ProjectReference Include="..\..\FrontEnd\BinInterface\B2R2.FrontEnd.BinInterface.fsproj" />
+    <ProjectReference Include="..\..\MiddleEnd\LLVM\B2R2.MiddleEnd.LLVM.fsproj" />
   </ItemGroup>
 
   <ItemGroup>
