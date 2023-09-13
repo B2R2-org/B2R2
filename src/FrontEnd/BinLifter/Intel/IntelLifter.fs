@@ -43,6 +43,7 @@ let translate (ins: IntelInternalInstruction) insLen ctxt =
   | OP.ANDN -> GeneralLifter.andn ins insLen ctxt
   | OP.ARPL -> GeneralLifter.arpl ins insLen ctxt
   | OP.BEXTR -> GeneralLifter.bextr ins insLen ctxt
+  | OP.BLSI -> GeneralLifter.blsi ins insLen ctxt
   | OP.BNDMOV -> GeneralLifter.bndmov ins insLen ctxt
   | OP.BOUND -> GeneralLifter.nop insLen ctxt
   | OP.BSF -> GeneralLifter.bsf ins insLen ctxt
