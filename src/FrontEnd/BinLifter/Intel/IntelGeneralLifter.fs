@@ -429,6 +429,25 @@ let bextr ins insLen ctxt =
 #endif
   !>ir insLen
 
+let blsi ins insLen ctxt =
+  let ir = !*ctxt
+  !<ir insLen
+  let oprSize = getOperationSize ins
+  let struct (dst, src) = transTwoOprs ir false ins insLen ctxt
+  let tmp = !+ir oprSize
+  !!ir (tmp := AST.neg src .& src)
+  !!ir (!.ctxt R.SF := AST.xthi 1<rt> tmp)
+  !!ir (!.ctxt R.ZF := tmp == AST.num0 oprSize)
+  !!ir (!.ctxt R.CF := src != AST.num0 oprSize)
+  !!ir (dstAssign oprSize dst tmp)
+#if !EMULATION
+  !!ir (!.ctxt R.AF := undefAF)
+  !!ir (!.ctxt R.PF := undefPF)
+#else
+  ctxt.ConditionCodeOp <- ConditionCodeOp.EFlags
+#endif
+  !>ir insLen
+
 let private bndmov64 ins insLen ctxt =
   let ir = !*ctxt
   !<ir insLen
