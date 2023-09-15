@@ -100,7 +100,7 @@ type InlinedAssembly (addr, len, wordSize, stmts) =
 
   override __.GetNextInstrAddrs () =
     let ftAddr = addr + uint64 len
-    Seq.singleton (ftAddr, ArchOperationMode.NoMode)
+    [| (ftAddr, ArchOperationMode.NoMode) |]
 
   override __.InterruptNum _ = false
 

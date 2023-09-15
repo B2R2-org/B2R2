@@ -200,13 +200,13 @@ type Instruction (addr, len, wordSize) =
   abstract member Immediate: [<Out>] v: byref<int64> -> bool
 
   /// <summary>
-  ///   Return a sequence of possible next instruction addresses along with
+  ///   Return an array of possible next instruction addresses along with
   ///   their ArchOperationMode. For branch instructions, the returned sequence
   ///   includes jump target(s). For regular instructions, the sequence is a
   ///   singleton of the fall-through address. This function does not resolve
   ///   indirect branch targets.
   /// </summary>
-  abstract member GetNextInstrAddrs: unit -> seq<Addr * ArchOperationMode>
+  abstract member GetNextInstrAddrs: unit -> (Addr * ArchOperationMode) array
 
   /// <summary>
   ///   Return the interrupt number if this is an interrupt instruction.

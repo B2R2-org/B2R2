@@ -171,15 +171,15 @@ type ARM32Instruction (addr, nb, cond, op, opr, its, wb, q, s, m, cf, oSz, a) =
     match __.DirectBranchTarget () |> Utils.tupleToOpt with
     | None -> addrs
     | Some target ->
-      Seq.singleton (target, __.GetNextMode ()) |> Seq.append addrs
+      [| (target, __.GetNextMode ()) |] |> Array.append addrs
 
   override __.GetNextInstrAddrs () =
-    let acc = Seq.singleton (__.Address + uint64 __.Length, m)
+    let acc = [| (__.Address + uint64 __.Length, m) |]
     if __.IsCall () then acc |> __.AddBranchTargetIfExist
     elif __.IsBranch () then
       if __.IsCondBranch () then acc |> __.AddBranchTargetIfExist
-      else __.AddBranchTargetIfExist Seq.empty
-    elif op = Opcode.HLT then Seq.empty
+      else __.AddBranchTargetIfExist [||]
+    elif op = Opcode.HLT then [||]
     else acc
 
   override __.InterruptNum (_num: byref<int64>) = Utils.futureFeature ()

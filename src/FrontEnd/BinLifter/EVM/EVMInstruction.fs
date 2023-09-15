@@ -96,8 +96,8 @@ type EVMInstruction (addr, numBytes, insInfo, wordSize) =
 
   override __.GetNextInstrAddrs () =
     let fallthrough = __.Address + uint64 __.Length
-    let acc = Seq.singleton (fallthrough, ArchOperationMode.NoMode)
-    if __.IsExit () then Seq.empty
+    let acc = [| (fallthrough, ArchOperationMode.NoMode) |]
+    if __.IsExit () then [||]
     else acc
 
   override __.InterruptNum (_num: byref<int64>) = Utils.futureFeature ()

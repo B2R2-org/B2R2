@@ -141,17 +141,16 @@ type IntelInstruction
     match __.DirectBranchTarget () |> Utils.tupleToOpt with
     | None -> addrs
     | Some target ->
-      Seq.singleton (target, ArchOperationMode.NoMode) |> Seq.append addrs
+      [| (target, ArchOperationMode.NoMode) |] |> Array.append addrs
 
   override __.GetNextInstrAddrs () =
-    let acc =
-      Seq.singleton (__.Address + uint64 __.Length, ArchOperationMode.NoMode)
+    let acc = [| (__.Address + uint64 __.Length, ArchOperationMode.NoMode) |]
     if __.IsCall () then acc |> __.AddBranchTargetIfExist
     elif __.IsDirectBranch () || __.IsIndirectBranch () then
       if __.IsCondBranch () then acc |> __.AddBranchTargetIfExist
-      else __.AddBranchTargetIfExist Seq.empty
-    elif opcode = Opcode.HLT then Seq.empty
-    elif opcode = Opcode.UD2 then Seq.empty
+      else __.AddBranchTargetIfExist [||]
+    elif opcode = Opcode.HLT then [||]
+    elif opcode = Opcode.UD2 then [||]
     else acc
 
   override __.InterruptNum (num: byref<int64>) =
