@@ -81,7 +81,7 @@ module BinEssence =
     |> Set.toList
     |> List.map (getFunctionOperationMode ess.BinHandle)
 
-  let private initialize hdl =
+  let empty hdl =
     { BinHandle = hdl
       CodeManager = CodeManager (hdl)
       DataManager = DataManager (hdl) }
@@ -99,7 +99,7 @@ module BinEssence =
       printfn "[*] %s failed." name
       Ok ess
     | PluggableAnalysisNewBinary hdl ->
-      let ess = initialize hdl
+      let ess = empty hdl
       let builder = CFGBuilder (hdl, ess.CodeManager, ess.DataManager)
       initialBuild ess builder
 
@@ -129,7 +129,7 @@ module BinEssence =
 #if DEBUG
     let startTime = System.DateTime.Now
 #endif
-    let ess = initialize hdl
+    let ess = empty hdl
     let builder = CFGBuilder (hdl, ess.CodeManager, ess.DataManager)
     match initialBuild ess builder with
     | Ok ess ->

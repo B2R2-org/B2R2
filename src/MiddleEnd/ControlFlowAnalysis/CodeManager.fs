@@ -56,25 +56,25 @@ type CodeManager (hdl) =
     | [] -> acc
 
   /// This function *NEVER* returns an empty list.
-  let rec parseBBL hdl mode acc pc =
+  let rec parseSingleBBL hdl mode acc pc =
     hdl.Parser.OperationMode <- mode
     match BinHandle.TryParseInstr (hdl, addr=pc) with
     | Ok ins ->
       let nextAddr = pc + uint64 ins.Length
       if ins.IsBBLEnd () || bblMap.ContainsKey nextAddr then
         Ok <| struct (ins :: acc, ins)
-      else parseBBL hdl mode (ins :: acc) nextAddr
+      else parseSingleBBL hdl mode (ins :: acc) nextAddr
     | Error _ -> Error pc
 
   /// Parse an instruction-level basic block starting from the given leader
   /// address. Return new CFG events to handle.
   member __.ParseBBL hdl mode leaderAddr func evts =
-    match parseBBL hdl mode [] leaderAddr with
+    match parseSingleBBL hdl mode [] leaderAddr with
     | Ok (instrs, lastIns) ->
-      let ins = postProcessInstrs hdl leaderAddr [] instrs
+      let inss = postProcessInstrs hdl leaderAddr [] instrs
       let nextAddr = lastIns.Address + uint64 lastIns.Length
       let struct (bbl, evts) =
-        BBLManager.parseBBLInfo hdl ins leaderAddr nextAddr func
+        BBLManager.parseBBLInfo hdl inss leaderAddr nextAddr func
                                 fnMaintainer excTbl evts
       bblMap[leaderAddr] <- bbl
       Ok evts
@@ -83,6 +83,67 @@ type CodeManager (hdl) =
       printfn "Parsing error detected at %x" addr
 #endif
       Error ErrorCase.ParsingFailure
+
+  member private __.ScanInstructionsAndLeaders hdl mode sAddr eAddr =
+    let leaders = SortedSet<Addr> ([| sAddr |])
+    hdl.Parser.OperationMode <- mode
+    let updateLeader (addr, _) =
+      if addr >= sAddr && addr <= eAddr then leaders.Add addr |> ignore
+      else ()
+    let rec linearSweep instrs currAddr =
+      if currAddr <= eAddr then
+        match BinHandle.TryParseInstr (hdl, addr=currAddr) with
+        | Ok ins ->
+          let nextAddr = currAddr + uint64 ins.Length
+          if not (ins.IsBBLEnd ()) then ()
+          else ins.GetNextInstrAddrs () |> Array.iter updateLeader
+          linearSweep (ins :: instrs) nextAddr
+        | Error _ ->
+#if DEBUG
+          printfn "Parsing error detected at %x" currAddr
+#endif
+          Error ErrorCase.ParsingFailure
+      else Ok (instrs, leaders)
+    linearSweep [] sAddr
+
+  member private __.AccumulateInstrs acc instrs lastAddr leaders revInstrs =
+    match revInstrs with
+    | (ins: Instruction) :: tl ->
+      if (leaders: SortedSet<Addr>).Contains ins.Address then
+        let acc = (ins.Address, lastAddr, ins :: instrs) :: acc
+        __.AccumulateInstrs acc [] ins.Address leaders tl
+      else __.AccumulateInstrs acc (ins :: instrs) lastAddr leaders tl
+    | [] -> acc
+
+  member private __.ConvertToInsInfos hdl leader instrs =
+    instrs
+    |> List.map (fun ins ->
+      let info = newInstructionInfo hdl ins leader
+      insMap[ins.Address] <- info
+      info)
+
+  member private __.PostProcess hdl instrs leaders fn evts =
+    let (lastIns: Instruction) = List.head instrs
+    let lastAddr = lastIns.Address + uint64 lastIns.Length
+    __.AccumulateInstrs [] [] lastAddr leaders instrs
+    |> List.fold (fun evts (leaderAddr, nextAddr, instrs) ->
+      let inss = __.ConvertToInsInfos hdl leaderAddr instrs
+      let struct (bbl, evts) =
+        BBLManager.parseBBLInfo hdl inss leaderAddr nextAddr fn
+                                fnMaintainer excTbl evts
+      bblMap[leaderAddr] <- bbl
+      evts
+    ) evts
+
+  /// Parse a sequence of instructions starting from the given start address
+  /// (sAddr) to the given end address (eAddr) assuming the sequence has no bad
+  /// instruction. Unlike `ParseBBL`, this function parses multiple
+  /// instruction-level basic blocks, and returns new CFG events to handle.
+  member __.ParseSequence hdl mode sAddr eAddr func evts =
+    match __.ScanInstructionsAndLeaders hdl mode sAddr eAddr with
+    | Ok (instrs, leaders) ->
+      __.PostProcess hdl instrs leaders func evts |> Ok
+    | Error e -> Error e
 
   /// Get the current instruction count.
   member __.InstructionCount with get() = insMap.Count
