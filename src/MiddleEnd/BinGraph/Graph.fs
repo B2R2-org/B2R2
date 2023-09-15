@@ -109,6 +109,9 @@ type Graph<'D, 'E, 'G
   /// Return a subgraph that contains only the set of vertices.
   abstract SubGraph: Set<Vertex<'D>> -> 'G
 
-  /// Return the DOT-representation of this graph.
+  /// Return the DOT-representation of this graph. The first argument specifies
+  /// the name of the graph. The second argument specifies the callback function
+  /// that returns the id and label of a vertex. The third argument specifies
+  /// the callback function that returns the label of an edge.
   abstract ToDOTStr:
-    string * (Vertex<'D> -> string) * (Edge<'E> -> string) -> string
+    string * (Vertex<'D> -> (string * string)) * (Edge<'E> -> string) -> string

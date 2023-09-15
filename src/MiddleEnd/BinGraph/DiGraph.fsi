@@ -59,7 +59,7 @@ type DiGraph<'D, 'E when 'D :> VertexData and 'D : equality> =
   override private Clone: unit -> DiGraph<'D, 'E>
   override private SubGraph: Set<Vertex<'D>> -> DiGraph<'D, 'E>
   override private ToDOTStr:
-    string * (Vertex<'D> -> string) * (Edge<'E> -> string) -> string
+    string * (Vertex<'D> -> (string * string)) * (Edge<'E> -> string) -> string
 
   /// Check if the graph is empty.
   static member IsEmpty: DiGraph<'D, 'E> -> bool
@@ -165,7 +165,7 @@ type DiGraph<'D, 'E when 'D :> VertexData and 'D : equality> =
   static member ToDOTStr:
       DiGraph<'D, 'E>
     * string
-    * (Vertex<'D> -> string)
+    * (Vertex<'D> -> string * string)
     * (Edge<'E> -> string)
     -> string
 

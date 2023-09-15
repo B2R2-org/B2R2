@@ -29,6 +29,9 @@ type DiGraph<'D, 'E when 'D :> VertexData and 'D : equality>
     (core: GraphCore<'D, 'E, DiGraph<'D, 'E>>) =
   inherit Graph<'D, 'E, DiGraph<'D, 'E>> ()
 
+  let (!!) (sb: System.Text.StringBuilder) (s: string) =
+    sb.Append s |> ignore
+
   override __.ImplementationType = core.ImplementationType
 
   override __.IsEmpty () = core.GetSize () = 0
@@ -118,17 +121,16 @@ type DiGraph<'D, 'E when 'D :> VertexData and 'D : equality>
       g.AddEdge (src, dst, e)) g es
 
   override __.ToDOTStr (name, vToStrFn, _eToStrFn) =
-    let inline strAppend (s: string) (sb: System.Text.StringBuilder) =
-      sb.Append(s)
-    let folder sb src dst _edata =
-      strAppend (vToStrFn src) sb
-      |> strAppend " -> "
-      |> strAppend (vToStrFn dst)
-      |> strAppend " [label=\""
-      |> strAppend "\"];\n"
     let sb = System.Text.StringBuilder ()
-    let sb = strAppend "digraph " sb |> strAppend name |> strAppend " {\n"
-    let sb = __.FoldEdge folder sb
+    let vertexToString v =
+      let id, lbl = vToStrFn v
+      !!sb ("  " + id + lbl + ";\n")
+    let edgeToString src dst _ =
+      !!sb $"  {vToStrFn src |> fst} -> {vToStrFn dst |> fst};\n"
+    !!sb $"digraph {name} {{\n"
+    !!sb $"  node[shape=box]\n"
+    __.IterVertex vertexToString
+    __.IterEdge edgeToString
     sb.Append("}\n").ToString()
 
   /// A list of unreachable nodes. We always add nodes into this list first, and
