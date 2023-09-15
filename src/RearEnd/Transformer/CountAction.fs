@@ -24,7 +24,6 @@
 
 namespace B2R2.RearEnd.Transformer
 
-open FSharp.Reflection
 open B2R2
 
 /// The `count` action.

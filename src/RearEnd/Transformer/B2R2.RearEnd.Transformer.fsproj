@@ -9,6 +9,7 @@
     <Compile Include="Utils.fs" />
     <Compile Include="Types.fs" />
     <Compile Include="IAction.fs" />
+    <Compile Include="CFGAction.fs" />
     <Compile Include="CountAction.fs" />
     <Compile Include="DbscanAction.fs" />
     <Compile Include="DetectAction.fs" />
@@ -34,6 +35,7 @@
     <ProjectReference Include="..\Core\B2R2.RearEnd.Core.fsproj" />
     <ProjectReference Include="..\..\FrontEnd\BinFile\B2R2.FrontEnd.BinFile.fsproj" />
     <ProjectReference Include="..\..\FrontEnd\BinInterface\B2R2.FrontEnd.BinInterface.fsproj" />
+    <ProjectReference Include="..\..\MiddleEnd\BinEssence\B2R2.MiddleEnd.BinEssence.fsproj" />
     <ProjectReference Include="..\..\MiddleEnd\LLVM\B2R2.MiddleEnd.LLVM.fsproj" />
   </ItemGroup>
 
