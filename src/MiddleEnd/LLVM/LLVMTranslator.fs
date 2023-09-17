@@ -33,7 +33,7 @@ open B2R2.BinIR.LowUIR
 let rec private translateExpr (builder: LLVMIRBuilder) tempMap expr =
   match expr.E with
   | Num bv ->
-    bv.SmallValue () |> string
+    bv.SmallValue () |> Number
   | Var (_, reg, _, _) ->
     builder.EmitRegLoad reg
   | PCVar _ ->
@@ -43,13 +43,29 @@ let rec private translateExpr (builder: LLVMIRBuilder) tempMap expr =
   | Load (_, typ, addr, _) ->
     let id = translateExpr builder tempMap addr
     builder.EmitMemLoad id typ
+  | UnOp (op, exp, _) ->
+    translateUnOp builder tempMap op exp
   | BinOp (op, typ, lhs, rhs, _) ->
     translateBinOp builder tempMap op typ lhs rhs
+  | RelOp (op, lhs, rhs, _) ->
+    let etyp = TypeCheck.typeOf lhs
+    translateRelOp builder tempMap op etyp lhs rhs
+  | Cast (kind, rt, e, _) ->
+    let etyp = TypeCheck.typeOf e
+    translateCast builder tempMap e kind etyp rt
   | Extract (e, len, pos, _) ->
     let etyp = TypeCheck.typeOf e
     let e = translateExpr builder tempMap e
     builder.EmitExtract e etyp len pos
-  | e -> printfn "%A" e; "%0"
+  | e -> printfn "%A" e; Utils.futureFeature ()
+
+and private translateUnOp builder tempMap op exp =
+  match op with
+  | UnOpType.NOT ->
+    let etyp = TypeCheck.typeOf exp
+    let exp = translateExpr builder tempMap exp
+    builder.EmitUnOp "not" exp etyp
+  | _ -> Utils.futureFeature ()
 
 and private translateBinOp builder tempMap op typ lhs rhs =
   match op with
@@ -123,10 +139,64 @@ and private translateBinOp builder tempMap op typ lhs rhs =
     builder.EmitBinOp "fdiv" typ lhs rhs
   | _ -> Utils.futureFeature ()
 
+and private translateRelOp builder tempMap op typ lhs rhs =
+  match op with
+  | RelOpType.EQ ->
+    let lhs = translateExpr builder tempMap lhs
+    let rhs = translateExpr builder tempMap rhs
+    builder.EmitRelOp "eq" typ lhs rhs
+  | RelOpType.NEQ ->
+    let lhs = translateExpr builder tempMap lhs
+    let rhs = translateExpr builder tempMap rhs
+    builder.EmitRelOp "ne" typ lhs rhs
+  | RelOpType.GT ->
+    let lhs = translateExpr builder tempMap lhs
+    let rhs = translateExpr builder tempMap rhs
+    builder.EmitRelOp "ugt" typ lhs rhs
+  | RelOpType.GE ->
+    let lhs = translateExpr builder tempMap lhs
+    let rhs = translateExpr builder tempMap rhs
+    builder.EmitRelOp "uge" typ lhs rhs
+  | RelOpType.LT ->
+    let lhs = translateExpr builder tempMap lhs
+    let rhs = translateExpr builder tempMap rhs
+    builder.EmitRelOp "ult" typ lhs rhs
+  | RelOpType.LE ->
+    let lhs = translateExpr builder tempMap lhs
+    let rhs = translateExpr builder tempMap rhs
+    builder.EmitRelOp "ule" typ lhs rhs
+  | RelOpType.SGT ->
+    let lhs = translateExpr builder tempMap lhs
+    let rhs = translateExpr builder tempMap rhs
+    builder.EmitRelOp "sgt" typ lhs rhs
+  | RelOpType.SGE ->
+    let lhs = translateExpr builder tempMap lhs
+    let rhs = translateExpr builder tempMap rhs
+    builder.EmitRelOp "uge" typ lhs rhs
+  | RelOpType.SLT ->
+    let lhs = translateExpr builder tempMap lhs
+    let rhs = translateExpr builder tempMap rhs
+    builder.EmitRelOp "slt" typ lhs rhs
+  | RelOpType.SLE ->
+    let lhs = translateExpr builder tempMap lhs
+    let rhs = translateExpr builder tempMap rhs
+    builder.EmitRelOp "sle" typ lhs rhs
+  | _ -> Utils.futureFeature ()
+
+and private translateCast builder tempMap e kind etyp rt =
+  match kind with
+  | CastKind.SignExt ->
+    let e = translateExpr builder tempMap e
+    builder.EmitCast e "sext" etyp rt
+  | CastKind.ZeroExt ->
+    let e = translateExpr builder tempMap e
+    builder.EmitCast e "zext" etyp rt
+  | _ -> Utils.futureFeature ()
+
 let private translateStmts (builder: LLVMIRBuilder) addr (stmts: Stmt[]) =
   let mutable lastAddr = addr
   let mutable lastLen = 0UL
-  let tempMap = Dictionary<int, string> ()
+  let tempMap = Dictionary<int, LLVMExpr> ()
   let translateStmt stmt =
     match stmt.S with
     | ISMark insLen ->
@@ -134,6 +204,7 @@ let private translateStmts (builder: LLVMIRBuilder) addr (stmts: Stmt[]) =
       lastLen <- uint64 insLen
       builder.EmitComment $"0x{lastAddr:x}"
     | IEMark _ -> ()
+    | Put (_, { E = Undefined _ }) -> ()
     | Put ({ E = Var (_, reg, _, _) }, rhs) ->
       let r = translateExpr builder tempMap rhs
       builder.EmitRegStore reg r
@@ -148,6 +219,12 @@ let private translateStmts (builder: LLVMIRBuilder) addr (stmts: Stmt[]) =
     | InterJmp (target, _) ->
       let target = translateExpr builder tempMap target
       builder.EmitPCStore target
+    | InterCJmp (c, t, f) ->
+      let typ = TypeCheck.typeOf t
+      let c = translateExpr builder tempMap c
+      let t = translateExpr builder tempMap t
+      let f = translateExpr builder tempMap f
+      builder.EmitCJmp typ c t f
     | s -> printfn "%A" s; Utils.futureFeature ()
   for stmt in stmts do
     translateStmt stmt
