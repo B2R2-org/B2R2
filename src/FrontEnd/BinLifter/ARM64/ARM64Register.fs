@@ -779,8 +779,11 @@ type Register =
   /// Pseudo register for passing a return value from an external call. This is
   /// used to handle instruction semantics for Exclusive Monitor (EM).
   | ERET = 0x176
-  /// Condition Flags
+  /// Condition Flags.
   | NZCV = 0x177
+  /// S<op0>_<op1>_<Cn>_<Cm>_<op2>.
+  | S3_5_C3_C2_0 = 0x178
+  | S3_7_C2_C2_7 = 0x179
 
 /// Shortcut for Register type.
 type internal R = Register
@@ -1172,6 +1175,8 @@ module Register =
     | "fpsr" -> R.FPSR
     | "eret" -> R.ERET
     | "nzcv" -> R.NZCV
+    | "s3_5_c3_c2_0" -> R.S3_5_C3_C2_0
+    | "s3_7_c2_c2_7" -> R.S3_7_C2_C2_7
     | _ -> Utils.impossible ()
 
   let toString = function
@@ -1551,6 +1556,8 @@ module Register =
     | R.FPSR -> "fpsr"
     | R.ERET -> "eret"
     | R.NZCV -> "nzcv"
+    | R.S3_5_C3_C2_0 -> "s3_5_c3_c2_0"
+    | R.S3_7_C2_C2_7 -> "s3_7_c2_c2_7"
     | _ -> Utils.impossible ()
 
   let toRegType = function

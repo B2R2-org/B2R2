@@ -663,6 +663,11 @@ type internal RegExprs () =
   /// EL0 Read/Write Software Thread ID Register.
   member val TPIDREL0 =
     var 64<rt> (Register.toRegID Register.TPIDREL0) "TPIDR_EL0"
+  /// S<op0>_<op1>_<Cn>_<Cm>_<op2>.
+  member val S3_5_C3_C2_0 =
+    var 64<rt> (Register.toRegID Register.S3_5_C3_C2_0) "S3_5_C3_C2_0"
+  member val S3_7_C2_C2_7 =
+    var 64<rt> (Register.toRegID Register.S3_7_C2_C2_7) "S3_7_C2_C2_7"
 
   (* Extra pseudo registers. *)
   /// Pseudo register for passing a return value from an external call.
@@ -874,6 +879,8 @@ type internal RegExprs () =
     | R.DCZIDEL0 -> __.DCZIDEL0
     | R.MIDREL1 -> __.MIDREL1
     | R.TPIDREL0 -> __.TPIDREL0
+    | R.S3_5_C3_C2_0 -> __.S3_5_C3_C2_0
+    | R.S3_7_C2_C2_7 -> __.S3_7_C2_C2_7
     | R.ERET -> __.ERET
     | _ -> raise UnhandledRegExprException
 
