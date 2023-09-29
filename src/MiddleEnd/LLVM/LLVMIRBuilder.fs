@@ -68,6 +68,9 @@ type LLVMIRBuilder (fname: string, hdl: BinHandle, ctxt: LLVMContext) =
     | 64<rt> -> "i64"
     | _ -> Utils.futureFeature ()
 
+  member __.Number (num: uint64) (len: RegType) =
+    Number (num, __.GetLLVMType len)
+
   member private __.LoadRegisterPtr reg =
     let elm, sz = __.GetRegisterInfo reg
     let ofs = elm.Offset
@@ -169,7 +172,7 @@ type LLVMIRBuilder (fname: string, hdl: BinHandle, ctxt: LLVMContext) =
     let extSz = __.GetLLVMType len
     let tmp = newID sz
     let finalVal = newID extSz
-    __.EmitStmt <| LLVMStmt.mkBinop tmp "lshr" sz e (Number (uint64 pos))
+    __.EmitStmt <| LLVMStmt.mkBinop tmp "lshr" sz e (Number (uint64 pos, sz))
     __.EmitStmt <| LLVMStmt.mkTrunc finalVal (mkTypedId tmp) extSz
     Ident finalVal
 
@@ -182,10 +185,16 @@ type LLVMIRBuilder (fname: string, hdl: BinHandle, ctxt: LLVMContext) =
       let id = __.ExprToString id
       let lbl = __.ExprToString lbl
       $"[ {id}, {lbl} ]"
-    | Number n -> n.ToString ()
+    | Number (n, _) -> n.ToString ()
     | ExprList exprs -> exprs |> List.map __.ExprToString |> String.concat ", "
     | Token s -> s
     | TypedExpr (typ, e) -> $"{typ} {__.ExprToString e}"
+
+  member private __.StoreStmtToString v addr align comment =
+    let addr = $"{addr.IDType} %%{addr.Num}"
+    let align = match align with Some a -> $", align {a}" | None -> ""
+    let comment = match comment with Some c -> $"; {c}" | None -> ""
+    sb <+ $"{Indent}store {v}, {addr}{align}{comment}"
 
   member private __.StmtsToString () =
     let mutable idCount = 1
@@ -195,12 +204,12 @@ type LLVMIRBuilder (fname: string, hdl: BinHandle, ctxt: LLVMContext) =
       | Def (lhs, rhs) ->
         let rhs = rhs |> Array.map __.ExprToString |> String.concat " "
         sb <+ $"{Indent}{renameID lhs &idCount} = {rhs}"
+      | Store (Number (v, t), Ident addr, align, comment) ->
+        let v = $"{t} {v}"
+        __.StoreStmtToString v addr align comment
       | Store (Ident v, Ident addr, align, comment) ->
         let v = $"{v.IDType} %%{v.Num}"
-        let addr = $"{addr.IDType} %%{addr.Num}"
-        let align = match align with Some a -> $", align {a}" | None -> ""
-        let comment = match comment with Some c -> $"; {c}" | None -> ""
-        sb <+ $"{Indent}store {v}, {addr}{align}{comment}"
+        __.StoreStmtToString v addr align comment
       | Comment s -> sb <+ s
       | _ -> printfn "%A" stmt; Utils.futureFeature ()
     done

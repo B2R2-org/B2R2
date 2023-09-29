@@ -33,7 +33,7 @@ open B2R2.BinIR.LowUIR
 let rec private translateExpr (builder: LLVMIRBuilder) tempMap expr =
   match expr.E with
   | Num bv ->
-    bv.SmallValue () |> Number
+    builder.Number (bv.SmallValue ()) bv.Length
   | Var (_, reg, _, _) ->
     builder.EmitRegLoad reg
   | PCVar _ ->
@@ -238,4 +238,3 @@ let toLLVMString (addr: Addr) (hdl: BinHandle) stmts =
   let builder = LLVMIRBuilder (fname, hdl, ctxt)
   translateStmts builder addr stmts
   builder.Finalize ()
-

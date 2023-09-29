@@ -40,8 +40,8 @@ type LLVMExpr =
   | Label of string
   /// Phi expression in square brackets, e.g., [ %1, %2 ].
   | PhiNode of id: LLVMExpr * lbl: LLVMExpr
-  /// Number without type prefix.
-  | Number of uint64
+  /// Number.
+  | Number of uint64 * typ: string
   /// Comma-separated list of expressions.
   | ExprList of LLVMExpr list
   /// All the rest become a string chunk to make things simple. This includes
