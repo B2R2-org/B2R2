@@ -99,6 +99,10 @@ let dumpExceptionTable hdl (opts: FileViewerOpts) (file: BinFile) =
     PEViewer.badAccess
     MachViewer.badAccess
 
+let dumpDynamicSection (opts: FileViewerOpts) (file: BinFile) =
+  dumpSpecific opts file "Dynamic Section Information"
+    ELFViewer.dumpDynamicSection PEViewer.badAccess MachViewer.badAccess
+
 let dumpSegments (opts: FileViewerOpts) (file: BinFile) =
   dumpSpecific opts file "Segment Information"
     ELFViewer.dumpSegments PEViewer.badAccess MachViewer.badAccess
@@ -174,6 +178,7 @@ let printAll opts hdl (file: BinFile) =
   dumpExceptionTable hdl opts file
   match file with
    | :? ELFBinFile as file ->
+     dumpDynamicSection opts file
      dumpSegments opts file
      dumpLinkageTable opts file
      dumpEHFrame hdl file

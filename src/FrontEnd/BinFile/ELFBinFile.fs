@@ -128,6 +128,8 @@ type ELFBinFile (bytes, path, baseAddr, regbay,
 
   member __.ELF with get() = elf
 
-  member __.RegisterBay = regbay
+  /// List of dynamic section entries.
+  member __.DynamicSectionEntries with get() =
+    Section.getDynamicSectionEntries __.Span elf.BinReader elf.SecInfo
 
 // vim: set tw=80 sts=2 sw=2:

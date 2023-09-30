@@ -27,6 +27,7 @@ module B2R2.RearEnd.FileViewer.ELFViewer
 open B2R2
 open B2R2.FrontEnd.BinInterface
 open B2R2.FrontEnd.BinFile
+open B2R2.FrontEnd.BinFile.ELF
 open B2R2.RearEnd.FileViewer.Helper
 open B2R2.MiddleEnd.ControlFlowAnalysis
 
@@ -36,7 +37,7 @@ let badAccess _ _ =
 let computeMagicBytes (file: ELFBinFile) =
   file.ELF.BinReader.ReadBytes (file.Span, 0, 16) |> ColoredSegment.colorBytes
 
-let computeEntryPoint (hdr: ELF.ELFHeader) =
+let computeEntryPoint (hdr: ELFHeader) =
   [ ColoredSegment.green <| String.u64ToHex hdr.EntryPoint ]
 
 let dumpFileHeader (_: FileViewerOpts) (file: ELFBinFile) =
@@ -113,10 +114,10 @@ let dumpSectionDetails (secname: string) (file: ELFBinFile) =
     out.PrintTwoCols "Alignment:" (String.u64ToHex section.SecAlignment)
   | None -> out.PrintLine "Not found."
 
-let printSymbolInfoVerbose (file: ELFBinFile) s (elfSymbol: ELF.ELFSymbol) cfg =
+let printSymbolInfoVerbose (file: ELFBinFile) s (elfSymbol: ELFSymbol) cfg =
   let sectionIndex =
     match elfSymbol.SecHeaderIndex with
-    | ELF.SectionHeaderIdx.SecIdx idx -> idx.ToString ()
+    | SecIdx idx -> idx.ToString ()
     | idx -> idx.ToString ()
   out.PrintRow (true, cfg,
     [ visibilityString s
@@ -196,7 +197,7 @@ let dumpRelocs (_opts: FileViewerOpts) (file: ELFBinFile) =
       | _ -> "(n/a)"
     out.PrintRow (true, cfg, [
       Addr.toString file.WordSize reloc.RelOffset
-      ELF.RelocationType.ToString reloc.RelType
+      RelocationType.ToString reloc.RelType
       reloc.RelAddend.ToString ("x")
       symbol
     ])
@@ -211,6 +212,46 @@ let dumpExceptionTable hdl (_opts: FileViewerOpts) (file: ELFBinFile) =
   exnTbl
   |> ARMap.iter (fun range catchBlkAddr ->
     out.PrintLine $"{range.Min:x}:{range.Max:x} -> {catchBlkAddr:x}")
+
+let makeStringTableReader (file: ELFBinFile) dynEntries =
+  dynEntries
+  |> List.fold (fun (off, len) (ent: DynamicSectionEntry) ->
+    match ent.DTag with
+    | DynamicTag.DT_STRTAB -> Some ent.DVal, len
+    | DynamicTag.DT_STRSZ -> off, Some ent.DVal
+    | _ -> off, len
+  ) (None, None)
+  ||> Option.map2 (fun off len ->
+    fun v ->
+      let strtab = file.Span.Slice (int off, int len)
+      let buf = strtab.Slice (int v)
+      ByteArray.extractCStringFromSpan buf 0)
+
+let dumpDynamicSection _ (file: ELFBinFile) =
+  let cfg = [ LeftAligned 20; LeftAligned 20 ]
+  out.PrintRow (true, cfg, [ "Tag"; "Name/Value" ])
+  out.PrintLine "  ---"
+  let dynEntries = file.DynamicSectionEntries
+  let strtabReader = makeStringTableReader file dynEntries
+  dynEntries
+  |> List.iter (fun ent ->
+    let tag = ent.DTag
+    match tag, strtabReader with
+    | DynamicTag.DT_NEEDED, Some reader ->
+      out.PrintRow (true, cfg, [ $"{tag}"
+                                 $"Shared library: [{reader ent.DVal}]" ])
+    | DynamicTag.DT_SONAME, Some reader ->
+      out.PrintRow (true, cfg, [ $"{tag}"
+                                 $"Library soname: [{reader ent.DVal}]" ])
+    | DynamicTag.DT_RPATH, Some reader ->
+      out.PrintRow (true, cfg, [ $"{tag}"
+                                 $"Library rpath: [{reader ent.DVal}]" ])
+    | DynamicTag.DT_RUNPATH, Some reader ->
+      out.PrintRow (true, cfg, [ $"{tag}"
+                                 $"Library runpath: [{reader ent.DVal}]" ])
+    | _ ->
+      out.PrintRow (true, cfg, [ $"{tag}"; "0x" + ent.DVal.ToString "x" ])
+  )
 
 let dumpSegments (opts: FileViewerOpts) (file: ELFBinFile) =
   let addrColumn = columnWidthOfAddr file |> LeftAligned
@@ -290,16 +331,16 @@ let dumpLinkageTable (opts: FileViewerOpts) (file: ELFBinFile) =
           (toLibString >> normalizeEmpty) e.LibraryName ]))
 
 let cfaToString (hdl: BinHandle) cfa =
-  ELF.CanonicalFrameAddress.toString hdl.RegisterBay cfa
+  CanonicalFrameAddress.toString hdl.RegisterBay cfa
 
-let ruleToString (hdl: BinHandle) (rule: ELF.Rule) =
+let ruleToString (hdl: BinHandle) (rule: Rule) =
   rule
   |> Map.fold (fun s k v ->
     match k with
-    | ELF.ReturnAddress -> s + "(ra:" + ELF.Action.toString v + ")"
-    | ELF.NormalReg rid ->
+    | ReturnAddress -> s + "(ra:" + Action.toString v + ")"
+    | NormalReg rid ->
       let reg = hdl.RegisterBay.RegIDToString rid
-      s + "(" + reg + ":" + ELF.Action.toString v + ")") ""
+      s + "(" + reg + ":" + Action.toString v + ")") ""
 
 let dumpEHFrame hdl (file: ELFBinFile) =
   let addrColumn = columnWidthOfAddr file |> LeftAligned
