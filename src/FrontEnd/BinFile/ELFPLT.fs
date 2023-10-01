@@ -506,11 +506,13 @@ let rec private parseMIPSStubEntries armap offset maxOffset tbl reader span =
     let fst = (reader: IBinReader).ReadInt32 (span = span, offset = int offset)
     let snd = reader.ReadInt32 (span, offset = int offset + 4)
     let thr = reader.ReadInt32 (span, offset = int offset + 8)
-    if fst = 0x8f998010 (* lw t9, -32752(gp) *)
+    if (fst = 0x8f998010 (* lw t9, -32752(gp) *)
+        || fst = 0xdf998010 (* ld t9, -32752(gp) *))
       && snd = 0x03e07825 (* move t7, ra *)
       && thr = 0x0320f809 (* jalr t9 *)
     then
       let insBytes = reader.ReadUInt32 (span, int offset + 12)
+      (* FIXME: we could just get the index from .dynamic DT_MIPS_GOTSYM *)
       let index = int (insBytes &&& 0xffffu)
       let symbol = (tbl: ELFSymbol[])[index]
       let entry =

@@ -67,7 +67,7 @@ module PE =
     let pdbBytes =
       if pdbFileName.Length = 0 then [||]
       else ZIPReader.readFileFromZipFile FileFormat.PEBinary zip pdbFileName
-    new PEBinFile (bytes, file, pdbBytes)
+    PEBinFile (bytes, file, pdbBytes)
 
   let checkSymbol (fileInfo : PEBinFile) addr symName =
     match fileInfo.TryFindFunctionSymbolName addr with
@@ -114,7 +114,7 @@ module Mach =
     let zip = fileName + ".zip"
     let bytes = ZIPReader.readFileFromZipFile FileFormat.MachBinary zip fileName
     let isa = ISA.Init arch Endian.Little
-    new MachBinFile (bytes, fileName, isa)
+    MachBinFile (bytes, fileName, isa)
 
   let checkSymbol (fileInfo : MachBinFile) addr symName =
     match fileInfo.TryFindFunctionSymbolName addr with
@@ -191,7 +191,7 @@ module ELF =
   let parseFile fileName =
     let zip = fileName + ".zip"
     let bytes = ZIPReader.readFileFromZipFile FileFormat.ELFBinary zip fileName
-    new ELFBinFile (bytes, fileName)
+    ELFBinFile (bytes, fileName)
 
   let checkSymbol (fileInfo : ELFBinFile) addr symName =
     match fileInfo.TryFindFunctionSymbolName addr with
@@ -396,16 +396,16 @@ module ELF =
     [<TestMethod>]
     member __.``[BinFile] ELF File Parse Test (mips64_Stripped)`` () =
       let file = parseFile mips64StrippedFileName
-      Assert.AreEqual (Some 0x0000ade0UL, file.EntryPoint)
-      Assert.AreEqual (file.FileType, FileType.LibFile)
-      Assert.AreEqual (file.IsStripped, true)
-      Assert.AreEqual (file.IsNXEnabled, false)
-      Assert.AreEqual (file.GetSections () |> Seq.length, 32)
-      Assert.AreEqual (file.GetStaticSymbols () |> Seq.length, 0)
-      Assert.AreEqual (file.GetDynamicSymbols () |> Seq.length, 232)
-      Assert.AreEqual (file.GetLinkageTableEntries () |> Seq.length, 0)
-      Assert.AreEqual (file.TextStartAddr, 0x00008f90UL)
-      Assert.AreEqual (file.WordSize, WordSize.Bit64)
+      Assert.AreEqual (file.EntryPoint, Some 0x0000ade0UL)
+      Assert.AreEqual (FileType.LibFile, file.FileType)
+      Assert.AreEqual (true, file.IsStripped)
+      Assert.AreEqual (false, file.IsNXEnabled)
+      Assert.AreEqual (32, file.GetSections () |> Seq.length)
+      Assert.AreEqual (0, file.GetStaticSymbols () |> Seq.length)
+      Assert.AreEqual (232, file.GetDynamicSymbols () |> Seq.length)
+      Assert.AreEqual (106, file.GetLinkageTableEntries () |> Seq.length)
+      Assert.AreEqual (0x00008f90UL, file.TextStartAddr)
+      Assert.AreEqual (WordSize.Bit64, file.WordSize)
       checkSymbol file 0x00022380UL "strcmp"
       checkSymbol file 0x00022320UL "unsetenv"
 
@@ -417,7 +417,7 @@ module Wasm =
     let file = fileName + ".wasm"
     let bytes =
       ZIPReader.readFileFromZipFile FileFormat.WasmBinary zip file
-    new WasmBinFile (bytes, "")
+    WasmBinFile (bytes, "")
 
   [<TestClass>]
   type TestClass () =
