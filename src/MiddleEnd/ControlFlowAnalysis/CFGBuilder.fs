@@ -53,7 +53,7 @@ module private CFGBuilder =
   let buildBBL hdl codeMgr func mode leaderAddr evts =
     match (codeMgr: CodeManager).ParseBBL hdl mode leaderAddr func evts with
     | Ok evts -> Ok evts
-    | Error ErrorCase.ParsingFailure -> Error ErrorParsing
+    | Error ErrorCase.ParsingFailure -> Error (ErrorParsing evts)
     | Error _ -> Utils.impossible ()
 
   let buildFunction hdl (codeMgr: CodeManager) _dataMgr entry mode evts =
@@ -205,7 +205,7 @@ module private CFGBuilder =
   let buildRegularEdge hdl (codeMgr: CodeManager) dataMgr fn src dst edge evts =
     let mode = ArchOperationMode.NoMode (* XXX: put mode in the event. *)
     if not (hdl.BinFile.IsExecutableAddr (fn: RegularFunction).EntryPoint) then
-      Error ErrorConnectingEdge (* Invalid bbl encountered. *)
+      Error (ErrorConnectingEdge evts) (* Invalid bbl encountered. *)
     elif codeMgr.HasBBL dst then
       let dstPp = ProgramPoint (dst, 0)
       let dstBlk = codeMgr.GetBBL dst
@@ -225,7 +225,7 @@ module private CFGBuilder =
     elif not (codeMgr.HasInstruction dst) (* Jump to the middle of an instr *)
       && fn.IsAddressCovered dst then
       match InlinedAssemblyPattern.checkInlinedAssemblyPattern hdl dst with
-      | NotInlinedAssembly -> Error ErrorConnectingEdge
+      | NotInlinedAssembly -> Error (ErrorConnectingEdge evts)
       | JumpAfterLock addrs ->
         let patternStart = List.head addrs
         let chunk = createJumpAfterLockChunk codeMgr patternStart addrs
@@ -508,7 +508,7 @@ type CFGBuilder (hdl, codeMgr: CodeManager, dataMgr: DataManager) as this =
         + " left)"
 #endif
 
-  let rec update evts =
+  let rec update ign evts =
     match evts with
     | Ok ({ BasicEvents = CFGFunc (entry, mode) :: tl } as evts) ->
 #if CFGDEBUG
@@ -516,7 +516,7 @@ type CFGBuilder (hdl, codeMgr: CodeManager, dataMgr: DataManager) as this =
         entry (nameof CFGFunc) (countEvts evts)
 #endif
       let evts = { evts with BasicEvents = tl }
-      update (buildFunction hdl codeMgr dataMgr entry mode evts)
+      update ign (buildFunction hdl codeMgr dataMgr entry mode evts)
     | Ok ({ BasicEvents = CFGEdge (fn, src, dst, edge) :: tl } as evts) ->
 #if CFGDEBUG
       dbglog (nameof CFGBuilder) "@%x %s (%x -> %x; %s) %s"
@@ -524,35 +524,35 @@ type CFGBuilder (hdl, codeMgr: CodeManager, dataMgr: DataManager) as this =
         src.Address dst (CFGEdgeKind.toString edge) (countEvts evts)
 #endif
       let evts = { evts with BasicEvents = tl }
-      update (buildRegularEdge hdl codeMgr dataMgr fn src dst edge evts)
+      update ign (buildRegularEdge hdl codeMgr dataMgr fn src dst edge evts)
     | Ok ({ BasicEvents = CFGCall (fn, csite, callee) :: tl } as evts) ->
 #if CFGDEBUG
       dbglog (nameof CFGBuilder) "@%x %s (%x -> %x) %s"
         fn.EntryPoint (nameof CFGCall) csite callee (countEvts evts)
 #endif
       let evts = { evts with BasicEvents = tl }
-      update (buildCall codeMgr dataMgr fn csite callee false evts)
+      update ign (buildCall codeMgr dataMgr fn csite callee false evts)
     | Ok ({ BasicEvents = CFGIndCall (fn, callSite) :: tl } as evts) ->
 #if CFGDEBUG
       dbglog (nameof CFGBuilder) "@%x %s (%x) %s"
         fn.EntryPoint (nameof CFGIndCall) callSite (countEvts evts)
 #endif
       let evts = { evts with BasicEvents = tl }
-      update (buildIndCall codeMgr fn callSite evts)
+      update ign (buildIndCall codeMgr fn callSite evts)
     | Ok ({ BasicEvents = CFGRet (fn, callee, ft, callSite) :: tl } as evts) ->
 #if CFGDEBUG
       dbglog (nameof CFGBuilder) "@%x %s (%x -> %x) (%x -> %x) %s"
         fn.EntryPoint (nameof CFGRet) callSite ft callee ft (countEvts evts)
 #endif
       let evts = { evts with BasicEvents = tl }
-      update (buildRet codeMgr fn callee ft callSite evts)
+      update ign (buildRet codeMgr fn callee ft callSite evts)
     | Ok ({ BasicEvents = CFGTailCall (fn, callSite, callee) :: tl } as evts) ->
 #if CFGDEBUG
       dbglog (nameof CFGBuilder) "@%x %s (%x -> %x) %s"
         fn.EntryPoint (nameof CFGTailCall) callSite callee (countEvts evts)
 #endif
       let evts = { evts with BasicEvents = tl }
-      update (buildTailCall codeMgr dataMgr fn callSite callee evts)
+      update ign (buildTailCall codeMgr dataMgr fn callSite callee evts)
     | Ok ({ BasicEvents = CFGIndTailCall (fn, callSite, callee) :: tl } as evts)
       ->
 #if CFGDEBUG
@@ -560,7 +560,7 @@ type CFGBuilder (hdl, codeMgr: CodeManager, dataMgr: DataManager) as this =
         fn.EntryPoint (nameof CFGIndTailCall) callSite (countEvts evts)
 #endif
       let evts = { evts with BasicEvents = tl }
-      update (buildIndTailCall codeMgr fn callSite (Some callee) evts)
+      update ign (buildIndTailCall codeMgr fn callSite (Some callee) evts)
     | Ok ({ BasicEvents = []
             FunctionAnalysisAddrs = fnAddr :: tl } as evts) ->
 #if CFGDEBUG
@@ -568,24 +568,29 @@ type CFGBuilder (hdl, codeMgr: CodeManager, dataMgr: DataManager) as this =
         fnAddr (countEvts evts)
 #endif
       let evts = { evts with FunctionAnalysisAddrs = tl }
-      update (runPerFuncAnalysis
+      update ign (runPerFuncAnalysis
         hdl codeMgr dataMgr fnAddr noret indcall indjmp evts)
     | Ok ({ BasicEvents = [] }) -> (* FunctionAnalysisAddrs is empty *)
 #if CFGDEBUG
       dbglog (nameof CFGBuilder) "Done %s" (nameof update)
 #endif
       codeMgr.FunctionMaintainer.UpdateCallerCrossReferences () |> Ok
+    | Error (ErrorParsing evts) when ign -> update ign (Ok evts)
+    | Error (ErrorConnectingEdge evts) when ign -> update ign (Ok evts)
     | Error err -> Error err
 
   interface ICFGBuildable with
-    member __.Update evts =
-      update (Ok evts)
+    member __.Update (evts, ignoreError) =
+      update ignoreError (Ok evts)
 
   /// Add new events to the event list (evts).
   member private __.AddNewFunction evts (entry, mode) =
-    if codeMgr.FunctionMaintainer.Contains (addr=entry) then Ok evts
-    elif not <| hdl.BinFile.IsExecutableAddr entry then Error ErrorParsing
-    else CFGEvents.addFuncEvt entry mode evts |> Ok
+    if codeMgr.FunctionMaintainer.Contains (addr=entry) then
+      Ok evts
+    elif not <| hdl.BinFile.IsExecutableAddr entry then
+      Error (ErrorParsing evts)
+    else
+      CFGEvents.addFuncEvt entry mode evts |> Ok
 
   /// This is the only function that is available to users, which takes in a
   /// list of known function entry infos and recover the whole CFGs, thereby

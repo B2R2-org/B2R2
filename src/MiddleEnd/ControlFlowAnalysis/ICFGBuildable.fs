@@ -24,9 +24,14 @@
 
 namespace B2R2.MiddleEnd.ControlFlowAnalysis
 
+open System.Runtime.InteropServices
+
 /// The main interface for building a CFG.
 type ICFGBuildable =
   /// Update CFGs based on the given CFGEvents. This function will run our CFG
   /// analysis by consuming the CFGEvents until there's no more event to
   /// consume. When everything is done well, this function returns "Ok ()".
-  abstract Update: CFGEvents -> Result<unit, CFGError>
+  abstract Update:
+        CFGEvents
+      * [<Optional; DefaultParameterValue(false)>] ignoreError: bool
+    -> Result<unit, CFGError>

@@ -36,10 +36,10 @@ type CFGError =
   /// late. So we rollback.
   | ErrorLateDetection
   /// This error occurs while parsing an invalid basic block.
-  | ErrorParsing
+  | ErrorParsing of CFGEvents
   /// This error occurs while connecting an invalid edge; src/dst node is
   /// invalid, e.g., when an edge is intruding an instruction boundary.
-  | ErrorConnectingEdge
+  | ErrorConnectingEdge of CFGEvents
 
 [<RequireQualifiedAccess>]
 module CFGError =
@@ -48,5 +48,5 @@ module CFGError =
       (nameof ErrorBranchRecovery)
       + "(" + fnAddr.ToString("x") + "," + brAddr.ToString("x") + ")"
     | ErrorLateDetection -> nameof ErrorLateDetection
-    | ErrorParsing -> nameof ErrorParsing
-    | ErrorConnectingEdge -> nameof ErrorConnectingEdge
+    | ErrorParsing _ -> nameof ErrorParsing
+    | ErrorConnectingEdge _ -> nameof ErrorConnectingEdge

@@ -289,7 +289,7 @@ module private RegularJmpResolution =
     | ErrorLateDetection ->
       dataMgr.JumpTables.UpdatePotentialEndPoint jt.JTStartAddr entryAddr
       finishIfEmpty codeMgr fnAddr brAddr evts
-    | ErrorConnectingEdge | ErrorParsing ->
+    | ErrorConnectingEdge _ | ErrorParsing _ ->
       dataMgr.JumpTables.UpdatePotentialEndPoint jt.JTStartAddr entryAddr
       finishIfEmpty codeMgr fnAddr brAddr evts
 

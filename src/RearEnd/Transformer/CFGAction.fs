@@ -60,7 +60,7 @@ type CFGAction () =
       let evts = CFGEvents.empty
       ess.CodeManager.ParseSequence hdl mode ep eAddr fn evts
       |> Result.bind (fun evts ->
-        (builder :> ICFGBuildable).Update evts
+        (builder :> ICFGBuildable).Update (evts, true)
         |> Result.mapError (fun _ -> ErrorCase.FailedToRecoverCFG))
       |> printOut hdl fn
     | _ -> invalidArg (nameof input) "Invalid argument."
