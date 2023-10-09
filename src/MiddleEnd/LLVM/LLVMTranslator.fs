@@ -193,7 +193,7 @@ and private translateCast builder tempMap e kind etyp rt =
     builder.EmitCast e "zext" etyp rt
   | _ -> Utils.futureFeature ()
 
-let private translateStmts (builder: LLVMIRBuilder) addr (stmts: Stmt[]) =
+let private translateStmts (builder: LLVMIRBuilder) addr succs (stmts: Stmt[]) =
   let mutable lastAddr = addr
   let mutable lastLen = 0UL
   let tempMap = Dictionary<int, LLVMExpr> ()
@@ -218,23 +218,23 @@ let private translateStmts (builder: LLVMIRBuilder) addr (stmts: Stmt[]) =
       builder.EmitMemStore addr t v
     | InterJmp (target, _) ->
       let target = translateExpr builder tempMap target
-      builder.EmitPCStore target
+      builder.EmitInterJmp target succs
     | InterCJmp (c, t, f) ->
       let typ = TypeCheck.typeOf t
       let c = translateExpr builder tempMap c
       let t = translateExpr builder tempMap t
       let f = translateExpr builder tempMap f
-      builder.EmitCJmp typ c t f
+      builder.EmitInterCJmp typ c t f succs
     | s -> printfn "%A" s; Utils.futureFeature ()
+  if builder.Address = addr then () else builder.EmitLabel addr
   for stmt in stmts do
     translateStmt stmt
   done
 
-/// Translate the given LowUIR stmts to a string representing LLVM IR stmts
-/// (i.e., an LLVM function).
-let toLLVMString (addr: Addr) (hdl: BinHandle) stmts =
+let createBuilder hdl (addr: Addr) =
   let fname = addr.ToString ("x16")
   let ctxt = LLVMIRHelper.initializeContext hdl.ISA
-  let builder = LLVMIRBuilder (fname, hdl, ctxt)
-  translateStmts builder addr stmts
-  builder.Finalize ()
+  LLVMIRBuilder (fname, addr, hdl, ctxt)
+
+let translate builder addr succs stmts =
+  translateStmts builder addr succs stmts

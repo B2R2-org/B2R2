@@ -32,9 +32,10 @@ open B2R2.MiddleEnd.LLVM.LLVMExpr
 
 /// LLVM IR builder, which takes in a series of LowUIR stmts and creates an LLVM
 /// function that corresponds to the LowUIR stmts.
-type LLVMIRBuilder (fname: string, hdl: BinHandle, ctxt: LLVMContext) =
+type LLVMIRBuilder (fname: string, addr, hdl: BinHandle, ctxt: LLVMContext) =
   let stmts = List<LLVMStmt> ()
   let sb = StringBuilder ()
+  let mutable hasJumpToFinal = false
   let [<Literal>] Indent = "  "
   let [<Literal>] ASpace = "addrspace(1)"
   let addrSize = hdl.ISA.WordSize |> WordSize.toRegType
@@ -43,6 +44,8 @@ type LLVMIRBuilder (fname: string, hdl: BinHandle, ctxt: LLVMContext) =
   let renameID id (cnt: byref<int>) = cnt <- cnt + 1; id.Num <- cnt; $"%%{cnt}"
   let ctxtParam = newID $"i8 {ASpace}*"
   let (<+) (sb: StringBuilder) (s: string) = sb.Append(s).Append("\n") |> ignore
+
+  member __.Address with get(): Addr = addr
 
   member __.EmitStmt (s: LLVMStmt) =
     stmts.Add s
@@ -67,6 +70,12 @@ type LLVMIRBuilder (fname: string, hdl: BinHandle, ctxt: LLVMContext) =
     | 32<rt> -> "i32"
     | 64<rt> -> "i64"
     | _ -> Utils.futureFeature ()
+
+  member private __.AddrToLabel (addr: Addr) =
+    $"bbl.{addr:x}"
+
+  member __.EmitLabel addr =
+    __.AddrToLabel addr |> LMark |> __.EmitStmt
 
   member __.Number (num: uint64) (len: RegType) =
     Number (num, __.GetLLVMType len)
@@ -112,16 +121,53 @@ type LLVMIRBuilder (fname: string, hdl: BinHandle, ctxt: LLVMContext) =
       __.EmitStmt <| LLVMStmt.mkZExt extendedReg rexp sz
       __.EmitStmt <| LLVMStmt.mkStore (Ident extendedReg) ptr None (Some rname)
 
+  member __.EmitBranchToFinal () =
+    hasJumpToFinal <- true
+    Branch (None, [| Label "final" |]) |> __.EmitStmt
+
   member __.EmitPCStore target =
     let pc = hdl.RegisterBay.ProgramCounter
     __.EmitRegStore pc target
+    __.EmitBranchToFinal ()
 
-  member __.EmitCJmp typ cond t f =
-    let pc = newID <| __.GetLLVMType typ
-    let addrType = __.GetLLVMType addrSize
-    __.EmitStmt <| LLVMStmt.mkSelect pc cond addrType t f
-    __.EmitPCStore (Ident pc)
-    (* FIXME: emit branch *)
+  member __.EmitBranch targets succs =
+    let targets = targets |> List.filter (fun t -> List.contains t succs)
+    if List.isEmpty targets then ()
+    else
+      let lbl = targets |> List.map (__.AddrToLabel >> Label) |> List.toArray
+      Branch (None, lbl) |> __.EmitStmt
+
+  member __.EmitInterJmp target succs =
+    match target with
+    | Number (addr, _) -> __.EmitBranch [ addr ] succs
+    | _ -> __.EmitPCStore target
+
+  member __.EmitCondBranch cond t f succs =
+    match List.contains t succs, List.contains f succs with
+    | true, true ->
+      let lbls = [| Label (__.AddrToLabel t); Label (__.AddrToLabel f) |]
+      Branch (Some cond, lbls) |> __.EmitStmt
+    | true, false ->
+      hasJumpToFinal <- true
+      let lbls = [| Label (__.AddrToLabel t); Label "final" |]
+      Branch (Some cond, lbls) |> __.EmitStmt
+    | false, true ->
+      hasJumpToFinal <- true
+      let lbls = [| Label "final"; Label (__.AddrToLabel f) |]
+      Branch (Some cond, lbls) |> __.EmitStmt
+    | _ ->
+      hasJumpToFinal <- true
+      let lbls = [| Label "final"; Label "final" |]
+      Branch (Some cond, lbls) |> __.EmitStmt
+
+  member __.EmitInterCJmp typ cond t f succs =
+    match t, f with
+    | Number (t, _), Number (f, _) -> __.EmitCondBranch cond t f succs
+    | _ ->
+      let pc = newID <| __.GetLLVMType typ
+      let addrType = __.GetLLVMType addrSize
+      __.EmitStmt <| LLVMStmt.mkSelect pc cond addrType t f
+      __.EmitPCStore (Ident pc)
 
   member __.EmitMemLoad mexpr mtyp =
     let intType = __.GetLLVMType addrSize
@@ -180,7 +226,7 @@ type LLVMIRBuilder (fname: string, hdl: BinHandle, ctxt: LLVMContext) =
     match expr with
     | Ident id -> $"%%{id.Num}"
     | Opcode op -> op
-    | Label lbl -> $"label {lbl}"
+    | Label lbl -> $"label %%{lbl}"
     | PhiNode (id, lbl) ->
       let id = __.ExprToString id
       let lbl = __.ExprToString lbl
@@ -201,6 +247,12 @@ type LLVMIRBuilder (fname: string, hdl: BinHandle, ctxt: LLVMContext) =
     for stmt in stmts do
       match stmt with
       | LMark lbl -> sb <+ $"{lbl}:"
+      | Branch (Some cond, lbls) ->
+        let lbls = lbls |> Array.map __.ExprToString |> String.concat ", "
+        sb <+ $"{Indent}br i1 {__.ExprToString cond}, {lbls}"
+      | Branch (None, lbls) ->
+        let lbls = lbls |> Array.map __.ExprToString |> String.concat ", "
+        sb <+ $"{Indent}br {lbls}"
       | Def (lhs, rhs) ->
         let rhs = rhs |> Array.map __.ExprToString |> String.concat " "
         sb <+ $"{Indent}{renameID lhs &idCount} = {rhs}"
@@ -219,6 +271,7 @@ type LLVMIRBuilder (fname: string, hdl: BinHandle, ctxt: LLVMContext) =
     sb <+ $"define void @F_{fname}(i8 {ASpace}* {attr} %%0) {{"
     __.StmtsToString ()
     sb <+ "  ret void"
+    if hasJumpToFinal then sb <+ "final:"; sb <+ "  ret void" else ()
     sb <+ "}"
     let s = sb.ToString ()
     sb.Clear () |> ignore

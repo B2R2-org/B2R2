@@ -63,7 +63,7 @@ type LLVMStmt =
   /// Memory store.
   | Store of LLVMExpr * LLVMExpr * align: string option * comment: string option
   /// Branch.
-  | Branch of LLVMExpr[]
+  | Branch of cond: LLVMExpr option * labels: LLVMExpr[]
   /// A comment line.
   | Comment of string
 

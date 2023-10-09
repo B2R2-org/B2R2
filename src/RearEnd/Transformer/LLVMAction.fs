@@ -24,31 +24,43 @@
 
 namespace B2R2.RearEnd.Transformer
 
-open B2R2.FrontEnd.BinFile
+open B2R2
 open B2R2.FrontEnd.BinInterface
+open B2R2.MiddleEnd.BinEssence
+open B2R2.MiddleEnd.ControlFlowAnalysis
 open B2R2.MiddleEnd.LLVM
 
 /// The `llvm` action.
 type LLVMAction () =
-  let rec lift acc hdl baddr bp =
-    if BinaryPointer.IsValid bp then
-      match BinHandle.TryParseInstr (hdl, bp) with
-      | Ok instr ->
-        let stmts = instr.Translate hdl.TranslationContext
-        let bp = BinaryPointer.Advance bp (int instr.Length)
-        lift (stmts :: acc) hdl baddr bp
-      | Error _ -> "Bad instruction found"
-    else
-      List.rev acc
-      |> Array.concat
-      |> LLVMTranslator.toLLVMString baddr hdl
+  let printOut hdl (fn: RegularFunction) = function
+    | Ok () ->
+      let builder = LLVMTranslator.createBuilder hdl fn.MinAddr
+      fn.IRCFG.IterVertex (fun bbl ->
+        let succs =
+          MiddleEnd.BinGraph.DiGraph.GetSuccs (fn.IRCFG, bbl)
+          |> List.map (fun s -> s.VData.PPoint.Address)
+        bbl.VData.IRStatements
+        |> Array.concat
+        |> LLVMTranslator.translate builder bbl.VData.PPoint.Address succs
+      )
+      builder.Finalize ()
+    | Error e -> e.ToString ()
 
   let translate (o: obj) =
     let bin = unbox<Binary> o
     let hdl = Binary.Handle bin
-    let baddr = hdl.BinFile.BaseAddress
-    let bp = BinaryPointer (baddr, 0, hdl.BinFile.Span.Length - 1)
-    lift [] hdl baddr bp |> box
+    let ess = BinEssence.empty hdl
+    let ep = hdl.BinFile.EntryPoint |> Option.defaultValue 0UL
+    let fn = ess.CodeManager.FunctionMaintainer.GetOrAddFunction ep
+    let eAddr = uint64 hdl.BinFile.Span.Length - 1UL
+    let mode = hdl.Parser.OperationMode
+    let builder = CFGBuilder (hdl, ess.CodeManager, ess.DataManager)
+    let evts = CFGEvents.empty
+    ess.CodeManager.ParseSequence hdl mode ep eAddr fn evts
+    |> Result.bind (fun evts ->
+      (builder :> ICFGBuildable).Update (evts, true)
+      |> Result.mapError (fun _ -> ErrorCase.FailedToRecoverCFG))
+    |> printOut hdl fn
 
   interface IAction with
     member __.ActionID with get() = "llvm"
@@ -59,6 +71,5 @@ type LLVMAction () =
 """
     member __.Transform args collection =
       match args with
-      | [] ->
-        { Values = collection.Values |> Array.map translate }
+      | [] -> { Values = [| collection.Values |> Array.map translate |] }
       | _ -> invalidArg (nameof args) "Invalid argument."
