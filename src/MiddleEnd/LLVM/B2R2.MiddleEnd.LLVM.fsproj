@@ -10,6 +10,7 @@
   <ItemGroup>
     <Compile Include="LLVMContext.fs" />
     <Compile Include="LLVMIRHelper.fs" />
+    <Compile Include="LLVMAST.fs" />
     <Compile Include="LLVMIRBuilder.fs" />
     <Compile Include="LLVMTranslator.fs" />
     <None Include="..\..\..\LICENSE.md" Pack="true" PackagePath="" />
