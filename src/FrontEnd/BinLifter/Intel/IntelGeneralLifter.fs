@@ -2993,12 +2993,13 @@ let wrpkru ins insLen ctxt =
 let xadd ins insLen ctxt =
   let ir = !*ctxt
   !<ir insLen
+  let struct (_, orgSrc) = transTwoOprs ir false ins insLen ctxt
   let struct (d, s) = transTwoOprs ir true ins insLen ctxt
   let oprSize = getOperationSize ins
   let t = !+ir oprSize
   if hasLock ins.Prefixes then !!ir (AST.sideEffect Lock) else ()
   !!ir (t := s .+ d)
-  !!ir (dstAssign oprSize s d)
+  !!ir (dstAssign oprSize orgSrc d)
   !!ir (dstAssign oprSize d t)
 #if EMULATION
   !?ir (setCCOperands2 ctxt s t)
