@@ -45,19 +45,16 @@ type EVMParser (isa: ISA) =
   inherit Parser ()
   let mutable codeOffset: Addr = 0UL
   let wordSize = isa.WordSize
-  let reader =
-    if isa.Endian = Endian.Little then BinReader.binReaderLE
-    else BinReader.binReaderBE
 
   member __.CodeOffset with get() = codeOffset and set(o) = codeOffset <- o
 
   override __.Parse (bs: byte[], addr) =
     let span = ReadOnlySpan (bs)
-    Parser.parse span reader codeOffset wordSize addr
+    Parser.parse span codeOffset wordSize addr
     :> Instruction
 
   override __.Parse (span: ByteSpan, addr) =
-    Parser.parse span reader codeOffset wordSize addr
+    Parser.parse span codeOffset wordSize addr
     :> Instruction
 
   override __.OperationMode with get() = ArchOperationMode.NoMode and set _ = ()

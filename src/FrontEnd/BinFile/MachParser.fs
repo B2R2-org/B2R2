@@ -110,7 +110,7 @@ let updateSpanForFat isa span reader =
 
 let parse baseAddr (bytes: byte[]) isa =
   let span = ReadOnlySpan bytes
-  let span = updateSpanForFat isa span BinReader.binReaderBE
+  let span = updateSpanForFat isa span (BinReader.Init Endian.Big)
   if Header.isMach span then ()
   else raise InvalidFileFormatException
   parseMach baseAddr span (Header.getMachBinReader span)

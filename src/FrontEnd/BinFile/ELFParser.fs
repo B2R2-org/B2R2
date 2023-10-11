@@ -187,7 +187,6 @@ let parse (bytes: byte[]) baseAddr rbay forEmu =
   let span = ReadOnlySpan bytes
   if Header.isELF span then ()
   else raise InvalidFileFormatException
-  match Header.peekEndianness span with
-  | Endian.Little -> parseELF baseAddr rbay span forEmu BinReader.binReaderLE
-  | Endian.Big -> parseELF baseAddr rbay span forEmu BinReader.binReaderBE
-  | _ -> Utils.impossible ()
+  let endian = Header.peekEndianness span
+  let reader = BinReader.Init endian
+  parseELF baseAddr rbay span forEmu reader

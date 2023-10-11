@@ -39,7 +39,7 @@ let inline ( !. ) (ctxt: TranslationContext) name =
   Register.toRegID name |> ctxt.GetRegVar
 
 let private test (bytes: byte[]) len (actStmts: Stmt[])  =
-  let reader = BinReader.binReaderLE
+  let reader = BinReader.Init Endian.Little
   let span = System.ReadOnlySpan bytes
   let ins = Parser.parse span reader 0UL
   let expStmts = (Lifter.translate ins.Info len ctxt).ToStmts ()

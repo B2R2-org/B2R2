@@ -40,7 +40,7 @@ type AVRTranslationContext internal (isa, regexprs) =
 /// instruction type (Instruction).
 type AVRParser () =
   inherit Parser ()
-  let reader = BinReader.binReaderLE
+  let reader = BinReader.Init Endian.Little
 
   override __.Parse (bs: byte[], addr) =
     let span = ReadOnlySpan bs

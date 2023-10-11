@@ -42,9 +42,7 @@ type MIPSParser (isa: ISA) =
   inherit Parser ()
   let wordSize = isa.WordSize
   let arch = isa.Arch
-  let reader =
-    if isa.Endian = Endian.Little then BinReader.binReaderLE
-    else BinReader.binReaderBE
+  let reader = BinReader.Init isa.Endian
 
   override __.Parse (bs: byte[], addr) =
     let span = ReadOnlySpan bs

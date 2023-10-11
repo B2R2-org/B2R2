@@ -33,9 +33,7 @@ let private identifyELF span =
   if ELF.Header.isELF span then
     let cls = ELF.Header.peekClass span
     let endian = ELF.Header.peekEndianness span
-    let reader =
-      if endian = Endian.Little then BinReader.binReaderLE
-      else BinReader.binReaderBE
+    let reader = BinReader.Init endian
     let arch = ELF.Header.peekArch span reader cls
     let isa = ISA.Init arch endian
     Some (FileFormat.ELFBinary, isa)
@@ -67,8 +65,8 @@ let private identifyMach span isa =
   else None
 
 let private identifyWASM span isa =
-  if Wasm.Header.isWasm span BinReader.binReaderLE then
-    Some (FileFormat.WasmBinary, isa)
+  let reader = BinReader.Init Endian.Little
+  if Wasm.Header.isWasm span reader then Some (FileFormat.WasmBinary, isa)
   else None
 
 /// <summary>

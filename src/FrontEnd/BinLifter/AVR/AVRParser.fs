@@ -24,7 +24,6 @@
 
 module B2R2.FrontEnd.BinLifter.AVR.Parser
 
-open System
 open B2R2
 open B2R2.FrontEnd.BinLifter.AVR.OperandHelper
 

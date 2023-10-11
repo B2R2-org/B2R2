@@ -40,10 +40,7 @@ type SH4TranslationContext internal (isa, regexprs) =
 
 type SH4Parser (isa: ISA) =
   inherit Parser ()
-
-  let reader =
-    if isa.Endian = Endian.Little then BinReader.binReaderLE
-    else BinReader.binReaderBE
+  let reader = BinReader.Init isa.Endian
 
   override __.Parse (span: ByteSpan, addr: Addr) =
     Parser.parse span reader addr :> Instruction

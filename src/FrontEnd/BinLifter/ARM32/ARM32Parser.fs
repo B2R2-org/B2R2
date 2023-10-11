@@ -367,9 +367,7 @@ type ARM32Parser (isa: ISA, mode, entryPoint: Addr option) =
       Parser.detectThumb entryPoint isa
     else mode
 
-  let reader =
-    if isa.Endian = Endian.Little then BinReader.binReaderLE
-    else BinReader.binReaderBE
+  let reader = BinReader.Init isa.Endian
 
   let phlp = ParsingHelper (isa.Arch, reader, oparsers)
 

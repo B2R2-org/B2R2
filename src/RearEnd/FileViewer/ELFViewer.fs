@@ -35,7 +35,8 @@ let badAccess _ _ =
   raise InvalidFileFormatException
 
 let computeMagicBytes (file: ELFBinFile) =
-  file.ELF.BinReader.ReadBytes (file.Span, 0, 16) |> ColoredSegment.colorBytes
+  let slice = file.Span.Slice (0, 16)
+  slice.ToArray () |> ColoredSegment.colorBytes
 
 let computeEntryPoint (hdr: ELFHeader) =
   [ ColoredSegment.green <| String.u64ToHex hdr.EntryPoint ]

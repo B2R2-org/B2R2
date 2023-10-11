@@ -40,10 +40,7 @@ type SPARCTranslationContext internal (isa, regexprs) =
 /// instruction type (Instruction).
 type SPARCParser (isa: ISA) =
   inherit Parser ()
-
-  let reader =
-    if isa.Endian = Endian.Little then BinReader.binReaderLE
-    else BinReader.binReaderBE
+  let reader = BinReader.Init isa.Endian
 
   override __.OperationMode with get() = ArchOperationMode.NoMode and set _ = ()
 

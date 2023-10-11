@@ -41,9 +41,7 @@ type RISCV64TranslationContext internal (isa, regexprs) =
 type RISCV64Parser (isa: ISA) =
   inherit Parser ()
   let wordSize = int isa.WordSize
-  let reader =
-    if isa.Endian = Endian.Little then BinReader.binReaderLE
-    else BinReader.binReaderBE
+  let reader = BinReader.Init isa.Endian
 
   override __.OperationMode with get() = ArchOperationMode.NoMode and set _ = ()
 

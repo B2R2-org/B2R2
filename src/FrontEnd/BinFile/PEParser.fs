@@ -352,7 +352,7 @@ let parsePE execpath baseAddr rawpdb bytes reader (peReader: PEReader) =
   else parseImage execpath rawpdb baseAddr bytes reader hdrs
 
 let parse (bytes: byte[]) execpath baseAddr rawpdb =
-  let reader = BinReader.binReaderLE
+  let reader = BinReader.Init Endian.Little
   use stream = new IO.MemoryStream (bytes)
   use peReader = new PEReader (stream, PEStreamOptions.Default)
   parsePE execpath baseAddr rawpdb bytes reader peReader

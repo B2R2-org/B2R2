@@ -33,11 +33,7 @@ module MIPS64 =
   open B2R2.FrontEnd.BinLifter.MIPS
 
   let private test arch endian opcode oprs (bytes: byte[]) =
-    let reader =
-      if endian = Endian.Little then
-        BinReader.binReaderLE
-      else
-        BinReader.binReaderBE
+    let reader = BinReader.Init endian
     let span = System.ReadOnlySpan bytes
     let ins = Parser.parse span reader arch WordSize.Bit64 0UL
     let opcode' = ins.Info.Opcode

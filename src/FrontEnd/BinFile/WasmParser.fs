@@ -328,11 +328,11 @@ let buildFuncIndexMap (wm: WasmModule) =
   other index maps maybe added in the future as needed.
 *)
 let buildModuleIndexMap wm =
-  { wm with
-      IndexMap = buildFuncIndexMap wm }
+  { wm with IndexMap = buildFuncIndexMap wm }
 
 let parse (bs: byte[]) =
-  if Header.isWasm (ReadOnlySpan bs) BinReader.binReaderLE then ()
+  let reader = BinReader.Init Endian.Little
+  if Header.isWasm (ReadOnlySpan bs) reader then ()
   else raise InvalidFileFormatException
-  parseWasmModule bs BinReader.binReaderLE 0
+  parseWasmModule bs reader 0
   |> buildModuleIndexMap

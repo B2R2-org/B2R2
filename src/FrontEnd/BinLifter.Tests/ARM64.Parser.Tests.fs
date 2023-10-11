@@ -26,7 +26,6 @@ namespace B2R2.FrontEnd.Tests
 
 open Microsoft.VisualStudio.TestTools.UnitTesting
 open B2R2
-open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinInterface
 
 module ARM64 =
@@ -34,11 +33,7 @@ module ARM64 =
   open B2R2.FrontEnd.BinLifter.ARM64.OperandHelper
 
   let private test endian opcode oprs (bytes: byte[]) =
-    let reader =
-      if endian = Endian.Little then
-        BinReader.binReaderLE
-      else
-        BinReader.binReaderBE
+    let reader = BinReader.Init endian
     let span = System.ReadOnlySpan bytes
     let ins = Parser.parse span reader 0UL
     let opcode' = ins.Info.Opcode

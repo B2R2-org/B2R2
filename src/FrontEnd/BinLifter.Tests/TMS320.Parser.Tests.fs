@@ -29,7 +29,7 @@ open B2R2
 open B2R2.FrontEnd.BinLifter.TMS320C6000
 
 let private test opcode unit oprs (bytes: byte[]) =
-  let reader = BinReader.binReaderLE
+  let reader = BinReader.Init Endian.Little
   let span = System.ReadOnlySpan bytes
   let mutable inpar = false
   let ins = Parser.parse span reader &inpar 0UL

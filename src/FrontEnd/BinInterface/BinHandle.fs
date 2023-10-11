@@ -53,9 +53,7 @@ with
       TranslationContext = ctxt
       Parser = parser
       RegisterBay = regbay
-      BinReader =
-        if isa.Endian = Endian.Little then BinReader.binReaderLE
-        else BinReader.binReaderBE
+      BinReader = BinReader.Init isa.Endian
       OS = os }
 
   static member Init (isa, archMode, autoDetect, baseAddr, bytes) =
@@ -103,10 +101,11 @@ with
   member __.ReadBytes (bp: BinaryPointer, nBytes) =
     BinHandle.ReadBytes (__, bp, nBytes)
 
-  static member TryReadBytes ({ BinFile = file; BinReader = r }, addr, nBytes) =
+  static member TryReadBytes ({ BinFile = file }, addr, nBytes) =
     let range = AddrRange (addr, addr + uint64 nBytes - 1UL)
     if file.IsInFileRange range then
-      r.ReadBytes (file.Span, file.TranslateAddress addr, nBytes) |> Ok
+      let slice = file.Span.Slice (file.TranslateAddress addr, nBytes)
+      slice.ToArray () |> Ok
     elif file.IsValidRange range then
       file.GetNotInFileIntervals range
       |> classifyRanges range
@@ -114,16 +113,17 @@ with
            let len = (range.Max - range.Min |> int) + 1
            if isInFile then
              let offset = file.TranslateAddress range.Min
-             r.ReadBytes (file.Span, offset, len)
-             |> Array.append bs
+             let slice = file.Span.Slice (offset, len)
+             Array.append bs (slice.ToArray ())
            else Array.create len 0uy |> Array.append bs
          ) [||]
       |> Ok
     else Error ErrorCase.InvalidMemoryRead
 
-  static member TryReadBytes ({ BinFile = file; BinReader = r }, bp, nBytes) =
+  static member TryReadBytes ({ BinFile = file }, bp, nBytes) =
     if BinaryPointer.IsValidAccess bp nBytes then
-      r.ReadBytes (file.Span, bp.Offset, nBytes) |> Ok
+      let slice = file.Span.Slice (bp.Offset, nBytes)
+      slice.ToArray () |> Ok
     else Error ErrorCase.InvalidMemoryRead
 
   static member ReadBytes (hdl, addr: Addr, nBytes) =

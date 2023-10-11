@@ -34,8 +34,8 @@ let readUIntOfType span reader bitType o =
   let inline sizeByCls bitType = if bitType = WordSize.Bit32 then 4 else 8
   struct (peekUIntOfType span reader bitType o, o + sizeByCls bitType)
 
-let peekHeaderB (span: ByteSpan) (reader: IBinReader) cls offset d32 d64 =
-  reader.ReadByte (span, offset + (if cls = WordSize.Bit32 then d32 else d64))
+let peekHeaderB (span: ByteSpan) cls offset d32 d64 =
+  span[offset + (if cls = WordSize.Bit32 then d32 else d64)]
 
 let peekHeaderU16 (span: ByteSpan) (reader: IBinReader) cls offset d32 d64 =
   reader.ReadUInt16 (span, offset + (if cls = WordSize.Bit32 then d32 else d64))

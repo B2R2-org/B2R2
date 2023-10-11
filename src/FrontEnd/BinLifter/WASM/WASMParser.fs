@@ -1,3 +1,27 @@
+(*
+  B2R2 - the Next-Generation Reversing Platform
+
+  Copyright (c) SoftSec Lab. @ KAIST, since 2016
+
+  Permission is hereby granted, free of charge, to any person obtaining a copy
+  of this software and associated documentation files (the "Software"), to deal
+  in the Software without restriction, including without limitation the rights
+  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+  copies of the Software, and to permit persons to whom the Software is
+  furnished to do so, subject to the following conditions:
+
+  The above copyright notice and this permission notice shall be included in all
+  copies or substantial portions of the Software.
+
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+  SOFTWARE.
+*)
+
 module B2R2.FrontEnd.BinLifter.WASM.Parser
 
 open B2R2
@@ -155,11 +179,9 @@ let private parseAtomicRmw span reader pos opcode =
   struct (opcode, TwoOperands (alignment, offset), uint32 nextPos)
 
 let private parseInstruction (span: ByteSpan) (reader: IBinReader) =
-  let bin = reader.ReadByte (span, 0)
-  match bin with
+  match span[0] with
   | 0xfcuy ->
-    let bin = reader.ReadByte (span, 1)
-    match bin with
+    match span[1] with
     | 0x00uy -> struct (I32TruncSatF32S, NoOperand, 2u)
     | 0x01uy -> struct (I32TruncSatF32U, NoOperand, 2u)
     | 0x02uy -> struct (I32TruncSatF64S, NoOperand, 2u)
@@ -192,8 +214,7 @@ let private parseInstruction (span: ByteSpan) (reader: IBinReader) =
     | 0x11uy -> parseIndex span reader 2 TableFill
     | _ -> raise ParsingFailureException
   | 0xfduy ->
-    let bin = reader.ReadByte (span, 1)
-    match bin with
+    match span[1] with
     | 0x00uy -> parseLoad span reader 2 V128Load
     | 0x01uy -> parseLoad span reader 2 V128Load8X8S
     | 0x02uy -> parseLoad span reader 2 V128Load8X8U
@@ -432,8 +453,7 @@ let private parseInstruction (span: ByteSpan) (reader: IBinReader) =
     | 0xffuy -> struct (F64X2ConvertLowI32X4U, NoOperand, 2u)
     | _ -> raise ParsingFailureException
   | 0xfeuy ->
-    let bin = reader.ReadByte (span, 1)
-    match bin with
+    match span[1] with
     | 0x00uy -> parseAtomicNotify span reader 2 MemoryAtomicNotify
     | 0x01uy -> parseAtomicWait span reader 2 MemoryAtomicWait32
     | 0x02uy -> parseAtomicWait span reader 2 MemoryAtomicWait64

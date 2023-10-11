@@ -84,11 +84,11 @@ let adjustSymAddr baseAddr addr =
 let parseNList baseAddr (span: ByteSpan) reader macHdr libs strtab offset =
   let strIdx = (reader: IBinReader).ReadInt32 (span, offset)
   let nDesc = reader.ReadInt16 (span, offset + 6)
-  let nType = reader.ReadByte (span, offset + 4) |> int
+  let nType = span[offset + 4] |> int
   { SymName = ByteArray.extractCStringFromSpan strtab strIdx
     SymType = nType |> LanguagePrimitives.EnumOfValue
     IsExternal = nType &&& 0x1 = 0x1
-    SecNum = reader.ReadByte (span, offset + 5) |> int
+    SecNum = span[offset + 5] |> int
     SymDesc = nDesc
     VerInfo = getLibraryVerInfo macHdr.Flags libs nDesc
     SymAddr = peekUIntOfType span reader macHdr.Class (offset + 8)
@@ -228,7 +228,7 @@ let rec parseExportTrie bAddr span reader trieOfs ofs str acc =
     parseChildren bAddr span reader trieOfs (ofs + 1 + len) nChilds str acc
   else
     let _, shift= reader.ReadUInt64LEB128 (span, ofs)
-    let _flag = reader.ReadByte (span, ofs + shift)
+    let _flag = span[ofs + shift]
     let symbOffset, _ = reader.ReadUInt64LEB128 (span, ofs + shift + 1)
     buildExportEntry str (symbOffset + bAddr) :: acc
 and parseChildren bAddr span reader trieOfs ofs nChilds str acc =

@@ -157,9 +157,9 @@ let getSymbols (span: ByteSpan) reader (coff: CoffHeader) =
       let v = (reader: IBinReader).ReadInt32 (span, offset + 8)
       let secnum = reader.ReadInt16 (span, offset + 12) |> int
       let typ = reader.ReadInt16 (span, offset + 14) |> parseSymType
-      let storage = reader.ReadByte (span, offset + 16) |> parseStorageClass
+      let storage = span[offset + 16] |> parseStorageClass
       symbs.Add (getCoffSymbol name v secnum typ storage)
-      auxcnt <- reader.ReadByte (span, offset + 17) |> int
+      auxcnt <- span[offset + 17] |> int
       cnt <- cnt + 1
   Seq.choose toPESymbol symbs
   |> fun lst ->

@@ -60,8 +60,8 @@ let readStream (span: ByteSpan) reader blockSize blockMapAddrs =
   let mutable idx = 0
   for blockMapAddr in blockMapAddrs do
     let offset = blockMapAddr * blockSize
-    let blk = (reader: IBinReader).ReadBytes (span, offset, blockSize)
-    Array.blit blk 0 buf (idx * blockSize) blockSize
+    let blk = span.Slice (offset, blockSize)
+    blk.CopyTo (buf.AsSpan (idx * blockSize))
     idx <- idx + 1
   buf
 

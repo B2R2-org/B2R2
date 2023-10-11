@@ -41,7 +41,7 @@ type TMS320C6000TranslationContext internal (isa, regexprs) =
 type TMS320C6000Parser () =
   inherit Parser ()
   let mutable inParallel = false
-  let reader = BinReader.binReaderLE
+  let reader = BinReader.Init Endian.Little
 
   override __.Parse (bs: byte[], addr) =
     let span = ReadOnlySpan bs

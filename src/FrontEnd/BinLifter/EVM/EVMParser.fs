@@ -28,13 +28,12 @@ open System
 open B2R2
 open B2R2.FrontEnd.BinLifter
 
-let private parsePush (span: ReadOnlySpan<byte>) reader opcode size =
-  let bytes = (reader: IBinReader).ReadBytes (span, 1, int size)
+let private parsePush (span: ReadOnlySpan<byte>) opcode size =
+  let bytes = span.Slice(1, int size).ToArray ()
   struct (opcode <| BitVector.OfArr (Array.rev bytes), 3, 1u + size)
 
-let private parseOpcode (span: ReadOnlySpan<byte>) (reader: IBinReader) =
-  let bin = reader.ReadByte (span, 0)
-  match bin with
+let private parseOpcode (span: ReadOnlySpan<byte>) =
+  match span[0] with
   | 0x00uy -> struct (STOP, 0, 1u)
   | 0x01uy -> struct (ADD, 3, 1u)
   | 0x02uy -> struct (MUL, 5, 1u)
@@ -99,38 +98,38 @@ let private parseOpcode (span: ReadOnlySpan<byte>) (reader: IBinReader) =
   | 0x59uy -> struct (MSIZE, 2, 1u)
   | 0x5auy -> struct (GAS, 2, 1u)
   | 0x5buy -> struct (JUMPDEST, 1, 1u)
-  | 0x60uy -> parsePush span reader PUSH1 1u
-  | 0x61uy -> parsePush span reader PUSH2 2u
-  | 0x62uy -> parsePush span reader PUSH3 3u
-  | 0x63uy -> parsePush span reader PUSH4 4u
-  | 0x64uy -> parsePush span reader PUSH5 5u
-  | 0x65uy -> parsePush span reader PUSH6 6u
-  | 0x66uy -> parsePush span reader PUSH7 7u
-  | 0x67uy -> parsePush span reader PUSH8 8u
-  | 0x68uy -> parsePush span reader PUSH9 9u
-  | 0x69uy -> parsePush span reader PUSH10 10u
-  | 0x6auy -> parsePush span reader PUSH11 11u
-  | 0x6buy -> parsePush span reader PUSH12 12u
-  | 0x6cuy -> parsePush span reader PUSH13 13u
-  | 0x6duy -> parsePush span reader PUSH14 14u
-  | 0x6euy -> parsePush span reader PUSH15 15u
-  | 0x6fuy -> parsePush span reader PUSH16 16u
-  | 0x70uy -> parsePush span reader PUSH17 17u
-  | 0x71uy -> parsePush span reader PUSH18 18u
-  | 0x72uy -> parsePush span reader PUSH19 19u
-  | 0x73uy -> parsePush span reader PUSH20 20u
-  | 0x74uy -> parsePush span reader PUSH21 21u
-  | 0x75uy -> parsePush span reader PUSH22 22u
-  | 0x76uy -> parsePush span reader PUSH23 23u
-  | 0x77uy -> parsePush span reader PUSH24 24u
-  | 0x78uy -> parsePush span reader PUSH25 25u
-  | 0x79uy -> parsePush span reader PUSH26 26u
-  | 0x7auy -> parsePush span reader PUSH27 27u
-  | 0x7buy -> parsePush span reader PUSH28 28u
-  | 0x7cuy -> parsePush span reader PUSH29 29u
-  | 0x7duy -> parsePush span reader PUSH30 30u
-  | 0x7euy -> parsePush span reader PUSH31 31u
-  | 0x7fuy -> parsePush span reader PUSH32 32u
+  | 0x60uy -> parsePush span PUSH1 1u
+  | 0x61uy -> parsePush span PUSH2 2u
+  | 0x62uy -> parsePush span PUSH3 3u
+  | 0x63uy -> parsePush span PUSH4 4u
+  | 0x64uy -> parsePush span PUSH5 5u
+  | 0x65uy -> parsePush span PUSH6 6u
+  | 0x66uy -> parsePush span PUSH7 7u
+  | 0x67uy -> parsePush span PUSH8 8u
+  | 0x68uy -> parsePush span PUSH9 9u
+  | 0x69uy -> parsePush span PUSH10 10u
+  | 0x6auy -> parsePush span PUSH11 11u
+  | 0x6buy -> parsePush span PUSH12 12u
+  | 0x6cuy -> parsePush span PUSH13 13u
+  | 0x6duy -> parsePush span PUSH14 14u
+  | 0x6euy -> parsePush span PUSH15 15u
+  | 0x6fuy -> parsePush span PUSH16 16u
+  | 0x70uy -> parsePush span PUSH17 17u
+  | 0x71uy -> parsePush span PUSH18 18u
+  | 0x72uy -> parsePush span PUSH19 19u
+  | 0x73uy -> parsePush span PUSH20 20u
+  | 0x74uy -> parsePush span PUSH21 21u
+  | 0x75uy -> parsePush span PUSH22 22u
+  | 0x76uy -> parsePush span PUSH23 23u
+  | 0x77uy -> parsePush span PUSH24 24u
+  | 0x78uy -> parsePush span PUSH25 25u
+  | 0x79uy -> parsePush span PUSH26 26u
+  | 0x7auy -> parsePush span PUSH27 27u
+  | 0x7buy -> parsePush span PUSH28 28u
+  | 0x7cuy -> parsePush span PUSH29 29u
+  | 0x7duy -> parsePush span PUSH30 30u
+  | 0x7euy -> parsePush span PUSH31 31u
+  | 0x7fuy -> parsePush span PUSH32 32u
   | 0x80uy -> struct (DUP1, 3, 1u)
   | 0x81uy -> struct (DUP2, 3, 1u)
   | 0x82uy -> struct (DUP3, 3, 1u)
@@ -180,8 +179,8 @@ let private parseOpcode (span: ReadOnlySpan<byte>) (reader: IBinReader) =
   | 0xffuy -> struct (SELFDESTRUCT, 5000, 1u)
   | _ -> raise ParsingFailureException
 
-let parse span reader offset wordSize addr =
-  let struct (opcode, gas, instrLen) = parseOpcode span reader
+let parse span offset wordSize addr =
+  let struct (opcode, gas, instrLen) = parseOpcode span
   let insInfo =
     { Address = addr
       NumBytes = instrLen

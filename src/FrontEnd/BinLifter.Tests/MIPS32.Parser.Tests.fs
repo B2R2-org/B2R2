@@ -26,18 +26,13 @@ namespace B2R2.FrontEnd.Tests
 
 open Microsoft.VisualStudio.TestTools.UnitTesting
 open B2R2
-open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinInterface
 
 module MIPS32 =
   open B2R2.FrontEnd.BinLifter.MIPS
 
   let private test arch endian opcode cond fmt oprs (bytes: byte[]) =
-    let reader =
-      if endian = Endian.Little then
-        BinReader.binReaderLE
-      else
-        BinReader.binReaderBE
+    let reader = BinReader.Init endian
     let span = System.ReadOnlySpan bytes
     let ins = Parser.parse span reader arch WordSize.Bit32 0UL
     let opcode' = ins.Info.Opcode

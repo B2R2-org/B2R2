@@ -40,7 +40,7 @@ and [<AbstractClass>] InsSizeComputer () =
   abstract Render: ReadHelper -> SzCond -> unit
 
 and ReadHelper (addr, cpos, pref, rex, vex, wordSz, ops, szs) =
-  let reader = BinReader.binReaderLE
+  let reader = BinReader.Init Endian.Little
   let mutable addr: Addr = addr
   let mutable cpos: int = cpos (* current position *)
   let mutable pref: Prefix = pref
@@ -120,13 +120,6 @@ and ReadHelper (addr, cpos, pref, rex, vex, wordSz, ops, szs) =
     v
 
   member inline __.ParsedLen () = cpos
-
-  member inline __.GetInsID (span: ByteSpan) =
-    let len = cpos
-    let bs = reader.ReadBytes (span, 0, len)
-    let chars: char [] = Array.zeroCreate (len * sizeof<char>)
-    Buffer.BlockCopy (bs, 0, chars, 0, bs.Length)
-    String chars
 
 let inline hasREXW rexPref = rexPref &&& REXPrefix.REXW = REXPrefix.REXW
 

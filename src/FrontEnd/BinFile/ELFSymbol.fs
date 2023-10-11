@@ -166,8 +166,8 @@ let getSymbol baseAddr secs strTab vtbl eHdr span reader txt symIdx pos =
   let cls = eHdr.Class
   let nameIdx = (reader: IBinReader).ReadUInt32 (span=span, offset=pos)
   let sname = ByteArray.extractCStringFromSpan strTab (Convert.ToInt32 nameIdx)
-  let info = peekHeaderB span reader cls pos 12 4
-  let other = peekHeaderB span reader cls pos 13 5
+  let info = peekHeaderB span cls pos 12 4
+  let other = peekHeaderB span cls pos 13 5
   let ndx =  peekHeaderU16 span reader cls pos 14 6 |> int
   let parent = Array.tryItem ndx secs.SecByNum
   let secIdx = SectionHeaderIdx.IndexFromInt ndx

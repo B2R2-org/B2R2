@@ -41,9 +41,7 @@ type ARM64TranslationContext internal (isa, regexprs) =
 /// instruction type (Instruction).
 type ARM64Parser (isa) =
   inherit Parser ()
-  let reader =
-    if isa.Endian = Endian.Little then BinReader.binReaderLE
-    else BinReader.binReaderBE
+  let reader = BinReader.Init isa.Endian
 
   override __.Parse (bs: byte[], addr) =
     let span = ReadOnlySpan bs

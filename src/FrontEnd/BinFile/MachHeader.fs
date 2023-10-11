@@ -39,7 +39,7 @@ let isFat span reader =
   | _ -> false
 
 let isMach span =
-  let reader = BinReader.binReaderLE
+  let reader = BinReader.Init Endian.Little
   match peekMagic span reader with
   | Magic.MHCigam | Magic.MHCigam64 | Magic.MHMagic | Magic.MHMagic64 -> true
   | _ -> isFat span reader
@@ -89,10 +89,9 @@ let internal peekEndianness span reader =
 
 /// Detect the endianness and return an appropriate IBinReader.
 let internal getMachBinReader span =
-  match peekEndianness span BinReader.binReaderLE with
-  | Endian.Little -> BinReader.binReaderLE
-  | Endian.Big -> BinReader.binReaderBE
-  | _ -> Utils.impossible ()
+  let reader = BinReader.Init Endian.Little
+  let endian = peekEndianness span reader
+  BinReader.Init endian
 
 let internal parse span reader =
   { Magic = peekMagic span reader
