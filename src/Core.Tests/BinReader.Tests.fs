@@ -31,6 +31,25 @@ open B2R2
 type BinReaderTests () =
 
   [<TestMethod>]
+  member __.``Little-endian vs. Big-endian Test`` () =
+    let sample = [| 0x11uy; 0x22uy; 0x33uy; 0x44uy |]
+    let lr = BinReader.Init Endian.Little
+    let v = lr.ReadInt32 (System.ReadOnlySpan sample, 0)
+    Assert.AreEqual (expected=0x44332211, actual=v)
+    let br = BinReader.Init Endian.Big
+    let v = br.ReadInt32 (System.ReadOnlySpan sample, 0)
+    Assert.AreEqual (expected=0x11223344, actual=v)
+
+  [<TestMethod>]
+  member __.``Read Overflow Test`` () =
+    let sample = [| 0x11uy; 0x22uy |]
+    let r = BinReader.Init Endian.Little
+    let v =
+      try r.ReadInt32 (System.ReadOnlySpan sample, 0)
+      with :? System.ArgumentOutOfRangeException -> 0
+    Assert.AreEqual (expected=0, actual=v)
+
+  [<TestMethod>]
   member __.``LEB128 to UInt64 Test`` () =
     let samples =
       [| (* (LEB encoded bytes, Decoded number) *)
