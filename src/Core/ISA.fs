@@ -27,9 +27,6 @@ namespace B2R2
 /// Raised when an invalid ISA is given as a parameter.
 exception InvalidISAException
 
-/// Raised when an invalid ArchOperationMode is given.
-exception InvalidTargetArchModeException
-
 /// Architecture types.
 type Architecture =
   /// x86 (i386).
@@ -74,34 +71,6 @@ type Architecture =
   | UnknownISA = 42
 
 type Arch = Architecture
-
-/// Some ISA, such as ARM, have their own operation mode, which can vary at
-/// runtime. For example, ARM architecture can switch between Thumb and ARM
-/// mode. ArchOperationMode decides which mode to consider at the time of
-/// parsing/lifting machine instructions.
-type ArchOperationMode =
-  /// ARM mode.
-  | ARMMode = 1
-  /// Thumb mode.
-  | ThumbMode = 2
-  /// No mode. This is used for architectures that do not have any operation
-  /// mode.
-  | NoMode = 3
-
-/// A helper module for ArchOperationMode.
-[<RequireQualifiedAccess>]
-module ArchOperationMode =
-  let ofString (s: string) =
-    match s.ToLowerInvariant () with
-    | "arm" -> ArchOperationMode.ARMMode
-    | "thumb" -> ArchOperationMode.ThumbMode
-    | _ -> ArchOperationMode.NoMode
-
-  let toString mode =
-    match mode with
-    | ArchOperationMode.ARMMode -> "arm"
-    | ArchOperationMode.ThumbMode -> "thumb"
-    | _ -> "nomode"
 
 /// Instruction Set Architecture (ISA).
 type ISA = {

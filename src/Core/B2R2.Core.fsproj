@@ -23,6 +23,7 @@
     <Compile Include="Endian.fs" />
     <Compile Include="OS.fs" />
     <Compile Include="ISA.fs" />
+    <Compile Include="ArchOperationMode.fs" />
     <Compile Include="FileFormat.fs" />
     <Compile Include="Syscalls.fs" />
     <Compile Include="Addr.fs" />
