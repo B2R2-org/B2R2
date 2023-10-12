@@ -234,7 +234,7 @@ type RegularFunction private (histMgr: HistoryManager, ep, name, thunkInfo) =
 
   /// Try to find an IRCFG vertex at the given program point.
   member __.TryFindVertex (pp) =
-    regularVertices.TryGetValue pp |> Utils.tupleToOpt
+    regularVertices.TryGetValue pp |> Utils.tupleResultToOpt
 
   /// Return the current number of regular vertices in this function's IRCFG.
   member __.CountRegularVertices with get() = regularVertices.Count

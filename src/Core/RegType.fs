@@ -24,6 +24,9 @@
 
 namespace B2R2
 
+/// This exception is raised when an invalid RegType is encountered.
+exception InvalidRegTypeException
+
 /// A unit for RegType.
 [<Measure>]
 type rt
@@ -32,14 +35,17 @@ type rt
 /// the register.
 type RegType = int<rt>
 
-/// This exception is raised when an invalid RegType is encountered.
-exception InvalidRegTypeException
-
 /// <summary>
 ///   A helper for <see cref="T:B2R2.RegType"/>.
 /// </summary>
 [<RequireQualifiedAccess>]
 module RegType =
+#if DEBUG
+  let checkIfValidRegType t =
+    if t > 0<rt> then ()
+    else raise InvalidRegTypeException
+#endif
+
   /// <summary>
   ///   Convert <see cref="T:B2R2.RegType"/> to string.
   /// </summary>
@@ -49,26 +55,10 @@ module RegType =
   ///   integer type.
   /// </returns>
   let toString (t: RegType) =
-    if t >= 0<rt> then "I" + t.ToString ()
-    else "F" + t.ToString ()
-
 #if DEBUG
-  let checkIfValidRegType t =
-    if t > 0<rt> then ()
-    elif t < 0<rt> && t >= -512<rt> then ()
-    else raise InvalidRegTypeException
+    checkIfValidRegType t
 #endif
-
-  /// <summary>
-  ///   Check if the given <see cref="T:B2R2.RegType"/> is a floating-point (FP)
-  ///   type.
-  /// </summary>
-  /// <param name="t">RegType.</param>
-  /// <returns>
-  ///   A Boolean value that is true if the given RegType is a floating-point
-  ///   type, false otherwise.
-  /// </returns>
-  let isFP (t: RegType) = t < 0<rt>
+    "I" + t.ToString ()
 
   /// <summary>
   ///   Convert a <see cref="T:B2R2.RegType"/> to an integer of bit width.
@@ -81,7 +71,7 @@ module RegType =
 #if DEBUG
     checkIfValidRegType t
 #endif
-    if t > 0<rt> then int t else int (-t)
+    int t
 
   /// <summary>
   ///   Get a byte width from a RegType.
@@ -93,11 +83,10 @@ module RegType =
   let toByteWidth t =
     let t = toBitWidth t
     if t % 8 = 0 then t / 8
-    else Utils.impossible ()
+    else raise InvalidRegTypeException
 
   /// <summary>
-  ///   Get the corresponding integer RegType from the given bit width. When a
-  ///   negative integer is given, it will return a floating point type.
+  ///   Get the corresponding integer RegType from the given bit width.
   /// </summary>
   /// <param name="n">Bit width in integer.</param>
   /// <returns>

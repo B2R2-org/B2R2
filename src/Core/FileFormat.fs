@@ -58,3 +58,9 @@ module FileFormat =
 
   /// Check whether the given format is ELF.
   let isELF fmt = fmt = FileFormat.ELFBinary
+
+  /// Check whether the given format is PE.
+  let isPE fmt = fmt = FileFormat.PEBinary
+
+  /// Check whether the given format is Mach-O.
+  let isMach fmt = fmt = FileFormat.MachBinary

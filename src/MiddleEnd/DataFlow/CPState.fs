@@ -156,7 +156,7 @@ module CPState =
     | false, _ -> st.CPCore.Bottom
 
   let inline tryGetMemState st id =
-    st.MemState.TryGetValue id |> Utils.tupleToOpt
+    st.MemState.TryGetValue id |> Utils.tupleResultToOpt
 
   let inline private initMemState st mid =
     if st.MemState.ContainsKey mid then ()

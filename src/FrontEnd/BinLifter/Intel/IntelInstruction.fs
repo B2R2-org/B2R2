@@ -138,7 +138,7 @@ type IntelInstruction
     | _ -> false
 
   member private __.AddBranchTargetIfExist addrs =
-    match __.DirectBranchTarget () |> Utils.tupleToOpt with
+    match __.DirectBranchTarget () |> Utils.tupleResultToOpt with
     | None -> addrs
     | Some target ->
       [| (target, ArchOperationMode.NoMode) |] |> Array.append addrs

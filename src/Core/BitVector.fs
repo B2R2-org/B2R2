@@ -26,14 +26,6 @@ namespace B2R2
 
 open System
 
-[<AutoOpen>]
-module BitVectorConstants =
-  /// BigInteger zero.
-  let bigZero = 0I
-
-  /// BigInteger one.
-  let bigOne = 1I
-
 /// A helper module for BitVector.
 [<AutoOpen>]
 module internal BitVectorHelper =
@@ -47,15 +39,15 @@ module internal BitVectorHelper =
     (UInt64.MaxValue >>> (64 - int len)) &&& n
 
   let inline adaptBig (len: RegType) (n: bigint) =
-    ((bigOne <<< int len) - bigOne) &&& n
+    ((1I <<< int len) - 1I) &&& n
 
   let inline isSmallPositive (len: RegType) (n: uint64) =
     (n >>> (int len - 1)) &&& 1UL = 0UL
 
   let inline isBigPositive (len: RegType) (n: bigint) =
-    (n >>> (int len - 1)) &&& bigOne = bigZero
+    (n >>> (int len - 1)) &&& 1I = 0I
 
-  let inline neg (len: RegType) (n: bigint) = (bigOne <<< int len) - n
+  let inline neg (len: RegType) (n: bigint) = (1I <<< int len) - n
 
   let inline toFloat32 (n: uint64) =
     n |> int32 |> BitConverter.Int32BitsToSingle
@@ -302,12 +294,12 @@ type BitVector internal (len) =
   /// Return zero (0) of the given bit length.
   static member Zero t =
     if t <= 64<rt> then BitVectorSmall (0UL, t) :> BitVector
-    else BitVectorBig (bigZero, t) :> BitVector
+    else BitVectorBig (0I, t) :> BitVector
 
   /// Return one (1) of the given bit length.
   static member One t =
     if t <= 64<rt> then BitVectorSmall (1UL, t) :> BitVector
-    else BitVectorBig (bigOne, t) :> BitVector
+    else BitVectorBig (1I, t) :> BitVector
 
   /// True value.
   static member T = BitVectorSmall (1UL, 1<rt>) :> BitVector
@@ -351,7 +343,7 @@ type BitVector internal (len) =
       BitVectorSmall (uint64 i &&& mask, typ) :> BitVector
     else
       if i < 0L then
-        BitVectorBig ((bigOne <<< int typ) - (- i |> bigint), typ) :> BitVector
+        BitVectorBig ((1I <<< int typ) - (- i |> bigint), typ) :> BitVector
       else BitVectorBig (bigint i, typ) :> BitVector
 
   /// Get a BitVector from an unsigned integer.
@@ -372,7 +364,7 @@ type BitVector internal (len) =
     if typ <= 64<rt> then BitVector.OfUInt64 (uint64 i) typ
     else
       if i.Sign < 0 then
-        BitVectorBig ((bigOne <<< int typ) + i, typ) :> BitVector
+        BitVectorBig ((1I <<< int typ) + i, typ) :> BitVector
       else BitVectorBig (i, typ) :> BitVector
 
   /// Get a BitVector from a byte array (in little endian).
@@ -478,7 +470,7 @@ type BitVector internal (len) =
 #endif
     if rt <= 64<rt> then
       BitVectorSmall (UInt64.MaxValue >>> (64 - int rt), rt) :> BitVector
-    else BitVectorBig ((bigOne <<< int rt) - bigOne, rt) :> BitVector
+    else BitVectorBig ((1I <<< int rt) - 1I, rt) :> BitVector
 
   /// BitVector representing a unsigned minimum integer for the given RegType.
   static member UnsignedMin rt =
@@ -486,7 +478,7 @@ type BitVector internal (len) =
     if rt <= 0<rt> then nSizeErr rt else ()
 #endif
     if rt <= 64<rt> then BitVectorSmall (0UL, rt) :> BitVector
-    else BitVectorBig (bigZero, rt) :> BitVector
+    else BitVectorBig (0I, rt) :> BitVector
 
   /// BitVector representing a signed maximum integer for the given RegType.
   static member SignedMax rt =
@@ -495,7 +487,7 @@ type BitVector internal (len) =
 #endif
     if rt <= 64<rt> then
       BitVectorSmall (UInt64.MaxValue >>> (65 - int rt), rt) :> BitVector
-    else BitVectorBig ((bigOne <<< (int rt - 1)) - bigOne, rt) :> BitVector
+    else BitVectorBig ((1I <<< (int rt - 1)) - 1I, rt) :> BitVector
 
   /// BitVector representing a signed minimum integer for the given RegType.
   static member SignedMin rt =
@@ -503,7 +495,7 @@ type BitVector internal (len) =
     if rt <= 0<rt> then nSizeErr rt else ()
 #endif
     if rt <= 64<rt> then BitVectorSmall (1UL <<< (int rt - 1), rt) :> BitVector
-    else BitVectorBig (bigOne <<< (int rt - 1), rt) :> BitVector
+    else BitVectorBig (1I <<< (int rt - 1), rt) :> BitVector
 
   /// Does the bitvector represent an unsigned max value?
   static member IsUnsignedMax (bv: BitVector) =
@@ -950,7 +942,7 @@ and BitVectorSmall (n, len) =
       let n' = adaptBig targetLen (__.BigValue ())
       if isSmallPositive len n then BitVectorBig (n', targetLen) :> BitVector
       else
-        let mask = (bigOne <<< int targetLen) - (bigOne <<< int len)
+        let mask = (1I <<< int targetLen) - (1I <<< int len)
         BitVectorBig (n' + mask, targetLen) :> BitVector
 
   override __.ZExt targetLen =
@@ -1331,7 +1323,7 @@ and BitVectorBig (n, len) =
   member __.Value with get(): bigint = n
 
   override __.ValToString () =
-    if n = bigZero then "0x0"
+    if n = 0I then "0x0"
     else "0x" + n.ToString("x").TrimStart('0')
 
   override __.Equals obj =
@@ -1472,14 +1464,14 @@ and BitVectorBig (n, len) =
       if isBigPositive len v1 then BitVectorBig (res, len) :> BitVector
       else
         let pad =
-          ((bigOne <<< int len) - bigOne) - ((bigOne <<< (int len - v2)))
+          ((1I <<< int len) - 1I) - ((1I <<< (int len - v2)))
         BitVectorBig (res ||| pad, len) :> BitVector
 
   override __.Not () =
-    BitVectorBig ((bigOne <<< (int len)) - bigOne - n, len) :> BitVector
+    BitVectorBig ((1I <<< (int len)) - 1I - n, len) :> BitVector
 
   override __.Neg () =
-    BitVectorBig (adaptBig len ((bigOne <<< (int len)) - n), len) :> BitVector
+    BitVectorBig (adaptBig len ((1I <<< (int len)) - n), len) :> BitVector
 
   override __.Cast targetLen =
     if targetLen <= 64<rt> then
@@ -1509,7 +1501,7 @@ and BitVectorBig (n, len) =
       if isBigPositive len n then
         BitVectorBig (n', targetLen) :> BitVector
       else
-        let mask = (bigOne <<< int targetLen) - (bigOne <<< int len)
+        let mask = (1I <<< int targetLen) - (1I <<< int len)
         BitVectorBig (n' + mask, targetLen) :> BitVector
 
   override __.ZExt targetLen =

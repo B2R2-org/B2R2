@@ -37,6 +37,9 @@ open B2R2.FrontEnd.BinLifter.ARM32.IRHelper
 
 let getPC ctxt = getRegVar ctxt R.PC
 
+/// Assert check condition. If not, raise an exception (exn).
+let assertByCond condition exn = if condition then () else raise exn
+
 let getRegNum = function
   | R.R0 -> 1u
   | R.R1 -> 2u
@@ -405,43 +408,43 @@ let shiftCForRegAmount value regType shiftType amount carryIn =
 /// Logical shift left of a bitstring, with carry output, on page A2-41.
 /// function : LSL_C()
 let shiftLSLC value regType amount =
-  Utils.assertByCond (amount > 0u) InvalidShiftAmountException
+  assertByCond (amount > 0u) InvalidShiftAmountException
   let amount = numU32 amount regType
   value << amount, value << (amount .- AST.num1 regType ) |> AST.xthi 1<rt>
 
 /// Logical shift left of a bitstring, on page A2-41. function : LSL()
 let shiftLSL value regType amount =
-  Utils.assertByCond (amount >= 0u) InvalidShiftAmountException
+  assertByCond (amount >= 0u) InvalidShiftAmountException
   if amount = 0u then value else shiftLSLC value regType amount |> fst
 
 /// Logical shift right of a bitstring, with carry output, on page A2-41.
 /// function : LSR_C()
 let shiftLSRC value regType amount =
-  Utils.assertByCond (amount > 0u) InvalidShiftAmountException
+  assertByCond (amount > 0u) InvalidShiftAmountException
   let amount' = numU32 amount regType
   value >> amount', AST.extract value 1<rt> (amount - 1u |> Convert.ToInt32)
 
 /// Logical shift right of a bitstring, on page A2-41. function : LSR()
 let shiftLSR value regType amount =
-  Utils.assertByCond (amount >= 0u) InvalidShiftAmountException
+  assertByCond (amount >= 0u) InvalidShiftAmountException
   if amount = 0u then value else shiftLSRC value regType amount |> fst
 
 /// Arithmetic shift right of a bitstring, with carry output, on page A2-41.
 /// function : ASR_C()
 let shiftASRC value regType amount =
-  Utils.assertByCond (amount > 0u) InvalidShiftAmountException
+  assertByCond (amount > 0u) InvalidShiftAmountException
   let amount = numU32 amount regType
   value ?>> amount, value ?>> (amount .- AST.num1 regType ) |> AST.xtlo 1<rt>
 
 /// Logical shift right of a bitstring, on page A2-41. function : ASR()
 let shiftASR value regType amount =
-  Utils.assertByCond (amount >= 0u) InvalidShiftAmountException
+  assertByCond (amount >= 0u) InvalidShiftAmountException
   if amount = 0u then value else shiftASRC value regType amount |> fst
 
 /// Rotate right of a bitstring, with carry output, on page A2-41.
 /// function : ROR_C()
 let shiftRORC value regType amount =
-  Utils.assertByCond (amount <> 0u) InvalidShiftAmountException
+  assertByCond (amount <> 0u) InvalidShiftAmountException
   let m = amount % uint32 (RegType.toBitWidth regType)
   let result = shiftLSR value regType m .| shiftLSL value regType (32u - m)
   result, AST.xthi 1<rt> result

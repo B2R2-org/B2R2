@@ -107,15 +107,6 @@ module Int64 =
     if (power = 0L) then 1L
     else loop value (power - 1L)
 
-/// Extended Option.
-[<RequireQualifiedAccess>]
-module Option =
-  /// Unwrap an option type. If the value is None, throw the exception (exn).
-  let getWithExn (value: 'a option) exn =
-    match value with
-    | Some v -> v
-    | None -> raise exn
-
 /// Extended Result.
 [<RequireQualifiedAccess>]
 module Result =
@@ -124,12 +115,6 @@ module Result =
     match res with
     | Ok (r) -> r
     | Error _ -> invalidOp "The Result type had an Error, but not handled."
-
-  /// Is the result Ok?
-  let inline isOk res =
-    match res with
-    | Ok _ -> true
-    | _ -> false
 
 [<RequireQualifiedAccess>]
 module SortedList =

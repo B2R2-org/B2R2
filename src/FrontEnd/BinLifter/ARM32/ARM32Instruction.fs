@@ -168,7 +168,7 @@ type ARM32Instruction (addr, nb, cond, op, opr, its, wb, q, s, m, cf, oSz, a) =
     | _ -> m
 
   member private __.AddBranchTargetIfExist addrs =
-    match __.DirectBranchTarget () |> Utils.tupleToOpt with
+    match __.DirectBranchTarget () |> Utils.tupleResultToOpt with
     | None -> addrs
     | Some target ->
       [| (target, __.GetNextMode ()) |] |> Array.append addrs

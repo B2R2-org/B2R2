@@ -24,8 +24,10 @@
 
 namespace B2R2
 
-/// B2R2 represents the word size of a CPU with WordSize, which can be either
-/// 32- or 64-bit.
+/// This exception is raised when an invalid WordSize is encountered.
+exception InvalidWordSizeException
+
+/// B2R2 represents the word size of a CPU with WordSize.
 type WordSize =
   | Bit8 = 8
   | Bit16 = 16
@@ -33,9 +35,6 @@ type WordSize =
   | Bit64 = 64
   | Bit128 = 128
   | Bit256 = 256
-
-/// This exception is raised when an invalid WordSize is encountered.
-exception InvalidWordSizeException
 
 /// A helper module for the WordSize type.
 module WordSize =

@@ -77,7 +77,7 @@ type FunctionMaintainer private (hdl, histMgr: HistoryManager) =
   member __.Contains (name) = nameMap.ContainsKey name
 
   /// Try to obtain a function by the given function entry point address.
-  member __.TryFind (addr) = addrMap.TryGetValue addr |> Utils.tupleToOpt
+  member __.TryFind (addr) = addrMap.TryGetValue addr |> Utils.tupleResultToOpt
 
   /// Try to obtain a function by the given function name.
   member __.TryFind (name) =
@@ -93,7 +93,7 @@ type FunctionMaintainer private (hdl, histMgr: HistoryManager) =
 
   /// Obtain a regular function by the given function entry point address.
   member __.TryFindRegular (addr) =
-    regularMap.TryGetValue addr |> Utils.tupleToOpt
+    regularMap.TryGetValue addr |> Utils.tupleResultToOpt
 
   /// Obtain a regular function by the given function entry point address.
   member __.FindRegular (addr) = regularMap[addr]
