@@ -33,14 +33,13 @@ type SliceAction () =
   let sliceByAddrRange bin a1 a2 =
     let hdl = Binary.Handle bin
     if a1 > a2 then invalidArg (nameof bin) "Invalid address range."
-    elif not (hdl.BinFile.IsInFileAddr a1)
-      || not (hdl.BinFile.IsInFileAddr a2) then
+    elif not (hdl.BinFile.Content.IsInFileAddr a1)
+      || not (hdl.BinFile.Content.IsInFileAddr a2) then
       invalidArg (nameof hdl) "Address out of range."
     else
-      let o1 = hdl.BinFile.TranslateAddress a1
-      let o2 = hdl.BinFile.TranslateAddress a2
-      let bs = hdl.BinFile.Span.Slice(o1, o2 - o1 + 1).ToArray ()
-      lazy BinHandle.Init (hdl.ISA, hdl.Parser.OperationMode, false, None, bs)
+      let bs = hdl.BinFile.Content.Slice(a1, int (a2 - a1 + 1UL)).ToArray ()
+      let isa = hdl.BinFile.ISA
+      lazy BinHandle.Init (isa, hdl.Parser.OperationMode, false, None, bs)
       |> Binary.Init (Binary.MakeAnnotation "Sliced from " bin)
 
   let sliceBySectionName bin secName =

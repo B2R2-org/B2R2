@@ -77,7 +77,7 @@ module private LibcAnalysisHelper =
   let retrieveLibcStartAddresses builder hdl codeMgr = function
     | None -> false
     | Some st ->
-      match hdl.ISA.Arch with
+      match hdl.BinFile.ISA.Arch with
       | Arch.IntelX86 -> retrieveAddrsForx86 builder codeMgr st
       | Arch.IntelX64 -> retrieveAddrsForx64 builder codeMgr st
       | _ -> false

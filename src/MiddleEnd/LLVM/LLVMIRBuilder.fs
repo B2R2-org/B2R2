@@ -38,7 +38,7 @@ type LLVMIRBuilder (fname: string, addr, hdl: BinHandle, ctxt: LLVMContext) =
   let mutable hasJumpToFinal = false
   let [<Literal>] Indent = "  "
   let [<Literal>] ASpace = "addrspace(1)"
-  let addrSize = hdl.ISA.WordSize |> WordSize.toRegType
+  let addrSize = hdl.BinFile.ISA.WordSize |> WordSize.toRegType
   let attr = $"noalias nocapture {ctxt.DereferenceableAttribute}"
   let newID typ = { Num = 0; IDType = typ }
   let renameID id (cnt: byref<int>) = cnt <- cnt + 1; id.Num <- cnt; $"%%{cnt}"

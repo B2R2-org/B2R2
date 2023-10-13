@@ -30,20 +30,20 @@ open B2R2.FrontEnd.BinInterface
 
 /// The `disasm` action.
 type DisasmAction () =
-  let rec disasm acc hdl bp =
-    if BinaryPointer.IsValid bp then
-      match BinHandle.TryParseInstr (hdl, bp) with
+  let rec disasm acc hdl ptr =
+    if BinFilePointer.IsValid ptr then
+      match BinHandle.TryParseInstr (hdl, ptr) with
       | Ok instr ->
         let insLen = int instr.Length
-        let insBytes = hdl.BinFile.Span.Slice(bp.Offset, insLen).ToArray()
-        let bp = BinaryPointer.Advance bp insLen
+        let insBytes = hdl.BinFile.Content.Slice(ptr.Addr, insLen).ToArray()
+        let ptr = BinFilePointer.Advance ptr insLen
         let acc = ValidInstruction (instr, insBytes) :: acc
-        disasm acc hdl bp
+        disasm acc hdl ptr
       | Error _ ->
-        let acc =
-          BadInstruction (bp.Addr, [| hdl.BinFile.Span[bp.Offset] |]) :: acc
-        let bp = BinaryPointer.Advance bp 1
-        disasm acc hdl bp
+        let badbyte = [| hdl.BinFile.Content.RawBytes[ptr.Offset] |]
+        let acc = BadInstruction (ptr.Addr, badbyte) :: acc
+        let ptr = BinFilePointer.Advance ptr 1
+        disasm acc hdl ptr
     else
       List.rev acc |> List.toArray
 
@@ -51,8 +51,8 @@ type DisasmAction () =
     let bin = unbox<Binary> o
     let hdl = Binary.Handle bin
     let baddr = hdl.BinFile.BaseAddress
-    let bp = BinaryPointer (baddr, 0, hdl.BinFile.Span.Length - 1)
-    disasm [] hdl bp
+    let ptr = BinFilePointer (baddr, 0, hdl.BinFile.Content.Length - 1)
+    disasm [] hdl ptr
     |> box
 
   interface IAction with

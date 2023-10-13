@@ -131,7 +131,7 @@ module private RegularFunction =
   /// __x86.get_pc_thunk- family only has 4 bytes for its function body and
   /// their values are fixed.
   let obtainGetPCThunkReg hdl (addr: Addr) =
-    match hdl.ISA.Arch with
+    match hdl.BinFile.ISA.Arch with
     | Arch.IntelX86 ->
       match BinHandle.ReadUInt (hdl, addr, 4) with
       | 0xc324048bUL -> YesGetPCThunk <| hdl.RegisterBay.RegIDFromString "EAX"

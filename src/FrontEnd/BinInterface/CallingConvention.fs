@@ -29,7 +29,7 @@ open B2R2.FrontEnd.BinLifter
 
 [<CompiledName("VolatileRegisters")>]
 let volatileRegisters hdl =
-  match hdl.ISA.Arch with
+  match hdl.BinFile.ISA.Arch with
   | Arch.IntelX86 ->
     [ Intel.Register.EAX; Intel.Register.ECX; Intel.Register.EDX ]
     |> List.map Intel.Register.toRegID
@@ -47,7 +47,7 @@ let volatileRegisters hdl =
 
 [<CompiledName("ReturnRegister")>]
 let returnRegister hdl =
-  match hdl.ISA.Arch with
+  match hdl.BinFile.ISA.Arch with
   | Architecture.IntelX86 -> Intel.Register.EAX |> Intel.Register.toRegID
   | Architecture.IntelX64 -> Intel.Register.RAX |> Intel.Register.toRegID
   | Architecture.ARMv7
@@ -59,7 +59,7 @@ let returnRegister hdl =
 
 [<CompiledName("SyscallNumRegister")>]
 let syscallNumRegister hdl =
-  match hdl.ISA.Arch with
+  match hdl.BinFile.ISA.Arch with
   | Architecture.IntelX86 -> Intel.Register.EAX |> Intel.Register.toRegID
   | Architecture.IntelX64 -> Intel.Register.RAX |> Intel.Register.toRegID
   | Architecture.ARMv7
@@ -71,7 +71,7 @@ let syscallNumRegister hdl =
 
 [<CompiledName("SyscallArgRegister")>]
 let syscallArgRegister hdl num =
-  match hdl.OS, hdl.ISA.Arch with
+  match hdl.OS, hdl.BinFile.ISA.Arch with
   | OS.Linux, Architecture.IntelX86 ->
     match num with
     | 1 -> Intel.Register.EBX |> Intel.Register.toRegID
@@ -122,7 +122,7 @@ let syscallArgRegister hdl num =
 
 [<CompiledName("FunctionArgRegister")>]
 let functionArgRegister hdl num =
-  match hdl.OS, hdl.ISA.Arch with
+  match hdl.OS, hdl.BinFile.ISA.Arch with
   | OS.Windows, Architecture.IntelX86 -> (* fast call *)
     match num with
     | 1 -> Intel.Register.ECX |> Intel.Register.toRegID
@@ -148,7 +148,7 @@ let functionArgRegister hdl num =
 
 [<CompiledName("IsNonVolatile")>]
 let isNonVolatile hdl rid =
-  match hdl.OS, hdl.ISA.Arch with
+  match hdl.OS, hdl.BinFile.ISA.Arch with
   | OS.Linux, Arch.IntelX86 -> (* CDECL *)
     rid = (Intel.Register.EBP |> Intel.Register.toRegID)
     || rid = (Intel.Register.EBX |> Intel.Register.toRegID)

@@ -102,7 +102,7 @@ type EVMTrampolineAnalysis (abiFile) =
     file.AddSymbol addr (__.MakeSymbol name addr)
 
   member private __.AnalyzeTrampoline hdl codeMgr =
-    let bytes = hdl.BinFile.Span.ToArray ()
+    let bytes = hdl.BinFile.Content.RawBytes
     let isa = hdl.BinFile.ISA
     let newHdl = BinHandle.Init (isa, bytes)
     let newFi = newHdl.BinFile

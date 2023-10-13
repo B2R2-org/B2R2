@@ -81,7 +81,7 @@ module BBLManager =
   /// Return the bitmask for the given BinHandle to correctly compute jump
   /// target addresses.
   let computeJumpTargetMask (hdl: BinHandle) =
-    let rt = hdl.ISA.WordSize |> WordSize.toRegType
+    let rt = hdl.BinFile.ISA.WordSize |> WordSize.toRegType
     (* It is reasonable enough to assume that jump target addresses will never
        overflow when rt is greater than 64<rt>. *)
     if rt > 64<rt> then 0xFFFFFFFFFFFFFFFFUL

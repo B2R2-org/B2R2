@@ -37,7 +37,7 @@ let toNBytes (v: uint64) =
   v.ToString () + " bytes"
 
 let columnWidthOfAddr (file: BinFile) =
-  WordSize.toByteWidth file.WordSize * 2
+  WordSize.toByteWidth file.ISA.WordSize * 2
 
 let visibilityString s =
   match s.Visibility with

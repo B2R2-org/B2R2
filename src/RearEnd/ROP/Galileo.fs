@@ -36,13 +36,13 @@ let filter = function
 let private toTail bytes = { Pattern = bytes }
 
 let private instrMaxLen hdl =
-  match hdl.ISA.Arch with
+  match hdl.BinFile.ISA.Arch with
   | Arch.IntelX86 | Arch.IntelX64 -> 15UL
   | Arch.AARCH32 | Arch.AARCH64 | Arch.ARMv7 -> 4UL
   | _ -> raise InvalidISAException
 
 let getTailPatterns hdl =
-  match hdl.ISA.Arch, hdl.ISA.Endian with
+  match hdl.BinFile.ISA.Arch, hdl.BinFile.ISA.Endian with
   | Arch.IntelX86, Endian.Little ->
     [ [| 0xC3uy |] (* RET *)
       [| 0xCDuy; 0x80uy |] (* INT 0x80 *)

@@ -30,81 +30,42 @@ open B2R2
 
 /// BinFile describes a binary file in a format-agnostic way.
 [<AbstractClass>]
-type BinFile () =
-  /// <summary>
-  ///   Raw byte values as a `ByteSpan`.
-  /// </summary>
-  abstract Span: ByteSpan
+type BinFile (path, fmt, isa, typ, content) =
+  /// The file path where this file is located.
+  member __.FilePath with get(): string = path
 
-  /// <summary>
-  ///   The format of this file: ELF, PE, Mach-O, or etc.
-  /// </summary>
-  abstract FileFormat: FileFormat
+  /// The format of this file: ELF, PE, Mach-O, or etc.
+  member __.FileFormat with get(): FileFormat = fmt
 
-  /// <summary>
-  ///   The ISA that this file expects to run on.
-  /// </summary>
-  abstract ISA: ISA
+  /// The ISA that this file expects to run on.
+  member __.ISA with get(): ISA = isa
 
-  /// <summary>
-  ///   What kind of binary is this?
-  /// </summary>
-  abstract FileType: FileType
+  /// What kind of binary is this?
+  member __.FileType with get(): FileType = typ
 
-  /// <summary>
-  ///   The file path where this file is located.
-  /// </summary>
-  abstract FilePath: string
+  /// Addressable content of this file.
+  member __.Content with get(): IContentAddressable = content
 
-  /// <summary>
-  ///   Word size of the CPU that this binary can run on.
-  /// </summary>
-  abstract WordSize: WordSize
+  /// The base address of the associated binary at which it is prefered to be
+  /// loaded in memory.
+  abstract member BaseAddress: Addr
 
-  /// <summary>
-  ///   Is this binary stripped?
-  /// </summary>
-  abstract IsStripped: bool
-
-  /// <summary>
-  ///   Is NX enabled for this binary? (DEP enabled or not)
-  /// </summary>
-  abstract IsNXEnabled: bool
-
-  /// <summary>
-  ///   Is this binary relocatable (position-independent)?
-  /// </summary>
-  abstract IsRelocatable: bool
-
-  /// <summary>
-  ///   The base address of this binary at which this binary is prefered to be
-  ///   loaded in memory.
-  /// </summary>
-  abstract BaseAddress: Addr
-
-  /// <summary>
-  ///   The entry point of this binary (the start address that this binary runs
-  ///   at). Note that some binaries (e.g., PE DLL files) do not have a specific
-  ///   entry point, and EntryPoint will return None in such a case.
-  /// </summary>
+  /// The entry point of this binary (the start address that this binary runs
+  /// at). Note that some binaries (e.g., PE DLL files) do not have a specific
+  /// entry point, and EntryPoint will return None in such a case.
   abstract EntryPoint: Addr option
 
-  /// <summary>
-  ///   The beginning of the text section of this binary.
-  /// </summary>
+  /// The beginning of the text section of this binary.
   abstract TextStartAddr: Addr
 
-  /// <summary>
-  ///   Translate a virtual address into a relative offset to this binary.
-  /// </summary>
-  /// <param name="addr">Virtual address.</param>
-  /// <returns>
-  ///   Returns an offset to this binary for a given virtual address.
-  /// </returns>
-  /// <exception cref="T:B2R2.FrontEnd.BinFile.InvalidAddrReadException">
-  ///   Thrown when the given address is out of a valid address range.
-  /// </exception>
-  abstract member TranslateAddress: addr: Addr -> int
+  /// Is this binary stripped?
+  abstract IsStripped: bool
+
+  /// Is NX enabled for this binary? (DEP enabled or not)
+  abstract IsNXEnabled: bool
+
+  /// Is this binary relocatable (i.e., position-independent)?
+  abstract IsRelocatable: bool
 
   /// <summary>
   ///   Return a relocated address of the given virtual address if there is a
@@ -117,13 +78,13 @@ type BinFile () =
   abstract member GetRelocatedAddr: relocAddr: Addr -> Result<Addr, ErrorCase>
 
   /// <summary>
-   ///   Add a symbol for the address. This function is useful when we can
-   ///   obtain extra symbol information from outside of B2R2.
-   /// </summary>
-   /// <returns>
-   ///   Does not return a value.
-   /// </returns>
-   abstract member AddSymbol: Addr -> Symbol -> unit
+  ///   Add a symbol for the address. This function is useful when we can
+  ///   obtain extra symbol information from outside of B2R2.
+  /// </summary>
+  /// <returns>
+  ///   Does not return a value.
+  /// </returns>
+  abstract member AddSymbol: Addr -> Symbol -> unit
 
   /// <summary>
   ///   Return a list of all the symbols from the binary.
@@ -269,85 +230,13 @@ type BinFile () =
   ///   Convert the section at the address (Addr) into a binary pointer, which
   ///   can exclusively point to binary contents of the section.
   /// </summary>
-  abstract member ToBinaryPointer: Addr -> BinaryPointer
+  abstract member ToBinFilePointer: Addr -> BinFilePointer
 
   /// <summary>
   ///   Convert the section of the name (string) into a binary pointer, which
   ///   can exclusively point to binary contents of the section.
   /// </summary>
-  abstract member ToBinaryPointer: string -> BinaryPointer
-
-  /// <summary>
-  ///   Check if the given address is valid for this binary. We say a given
-  ///   address is valid for the binary if the address is within the range of
-  ///   statically computable segment ranges.
-  /// </summary>
-  /// <returns>
-  ///   Returns true if the address is within a valid range, false otherwise.
-  /// </returns>
-  abstract member IsValidAddr: Addr -> bool
-
-  /// <summary>
-  ///   Check if the given address range is valid. This function returns true
-  ///   only if the whole range of the addressess are valid (for every address
-  ///   in the range, IsValidAddr should return true).
-  /// </summary>
-  /// <returns>
-  ///   Returns true if the whole range of addresses is within a valid range,
-  ///   false otherwise.
-  /// </returns>
-  abstract member IsValidRange: AddrRange -> bool
-
-  /// <summary>
-  ///   Check if the given address is valid and there is an actual mapping from
-  ///   the binary file to the corresponding memory. Unlike IsValidAddr, this
-  ///   function checks if we can decide the actual value of the given address
-  ///   from the binary. For example, a program header of an ELF file may
-  ///   contain 100 bytes in size, but when it is mapped to a segment in memory,
-  ///   the size of the segment can be larger than the size of the program
-  ///   header. This function checks if the given address is in the range of the
-  ///   segment that has a direct mapping to the file's program header.
-  /// </summary>
-  /// <returns>
-  ///   Returns true if the address is within a mapped address range, false
-  ///   otherwise.
-  /// </returns>
-  abstract member IsInFileAddr: Addr -> bool
-
-  /// <summary>
-  ///   Check if the given address range is valid and there exists a
-  ///   corresponding region in the actual binary file. This function returns
-  ///   true only if the whole range of the addressess are valid (for every
-  ///   address in the range, IsInFileAddr should return true).
-  /// </summary>
-  /// <returns>
-  ///   Returns true if the whole range of addresses is within a valid range,
-  ///   false otherwise.
-  /// </returns>
-  abstract member IsInFileRange: AddrRange -> bool
-
-  /// <summary>
-  ///   Check if the given address is executable address for this binary. We say
-  ///   a given address is executable if the address is within an executable
-  ///   segment. Note we consider the addresses of known read-only sections
-  ///   (such as .rodata) as non-executable, even though those sections are
-  ///   within an executable segment. For object files, we simply consider a
-  ///   .text section's address range as executable.
-  /// </summary>
-  /// <returns>
-  ///   Returns true if the address is executable, false otherwise.
-  /// </returns>
-  abstract member IsExecutableAddr: Addr -> bool
-
-  /// <summary>
-  ///   Given a range r, return a list of address ranges (intervals) that are
-  ///   within r, and that are not in-file.
-  /// </summary>
-  /// <returns>
-  ///   Returns an empty list when the given range r is valid, i.e.,
-  ///   `IsInFileRange r = true`.
-  /// </returns>
-  abstract member GetNotInFileIntervals: AddrRange -> seq<AddrRange>
+  abstract member ToBinFilePointer: string -> BinFilePointer
 
   /// <summary>
   ///   Returns a sequence of local function symbols (excluding external

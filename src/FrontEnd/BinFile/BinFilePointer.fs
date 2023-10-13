@@ -30,7 +30,7 @@ open System
 /// A pointer to binary, which is used to exclusively point to a portion of a
 /// binary, e.g., a section. It holds both the virtual address as well as the
 /// file offset. Both Offset and MaxOffset are inclusive.
-type BinaryPointer =
+type BinFilePointer =
   struct
     /// Virtual address.
     val Addr: Addr
@@ -43,29 +43,29 @@ type BinaryPointer =
     new (addr, offset, max) = { Addr = addr; Offset = offset; MaxOffset = max }
   end
 with
-  static member Null = BinaryPointer (0UL, 0, 0)
+  static member Null = BinFilePointer (0UL, 0, 0)
 
-  static member inline IsValid (bp: BinaryPointer) =
-    bp.Offset <= bp.MaxOffset
+  static member inline IsValid (ptr: BinFilePointer) =
+    ptr.Offset <= ptr.MaxOffset
 
-  static member inline IsValidAccess (bp: BinaryPointer) size =
-    (bp.Offset + size - 1) <= bp.MaxOffset
+  static member inline IsValidAccess (ptr: BinFilePointer) size =
+    (ptr.Offset + size - 1) <= ptr.MaxOffset
 
   static member OfSection (s: Section) =
-    BinaryPointer (s.Address,
+    BinFilePointer (s.Address,
       Convert.ToInt32 s.FileOffset,
       Convert.ToInt32 s.FileOffset + Convert.ToInt32 s.Size - 1)
 
   static member OfSectionOpt section =
     match section with
-    | Some s -> BinaryPointer.OfSection s
-    | None -> BinaryPointer.Null
+    | Some s -> BinFilePointer.OfSection s
+    | None -> BinFilePointer.Null
 
-  static member IsNull bp =
-    bp = BinaryPointer.Null
+  static member IsNull ptr =
+    ptr = BinFilePointer.Null
 
-  static member Advance (bp: BinaryPointer) amount =
-    BinaryPointer (bp.Addr + uint64 amount, bp.Offset + amount, bp.MaxOffset)
+  static member Advance (p: BinFilePointer) amount =
+    BinFilePointer (p.Addr + uint64 amount, p.Offset + amount, p.MaxOffset)
 
   override __.ToString () =
     String.u64ToHexNoPrefix __.Addr

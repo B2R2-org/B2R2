@@ -8,7 +8,8 @@
 
   <ItemGroup>
     <Compile Include="FileTypes.fs" />
-    <Compile Include="BinaryPointer.fs" />
+    <Compile Include="BinFilePointer.fs" />
+    <Compile Include="IContentAddressable.fs" />
     <Compile Include="BinFile.fs" />
     <Compile Include="FileHelper.fs" />
     <Compile Include="RawBinFile.fs" />

@@ -34,11 +34,11 @@ open B2R2.MiddleEnd.BinGraph
 [<AutoOpen>]
 module private SSABasicBlockHelper =
   let private buildRegVar hdl reg =
-    let wordSize = hdl.ISA.WordSize |> WordSize.toRegType
+    let wordSize = hdl.BinFile.ISA.WordSize |> WordSize.toRegType
     RegVar (wordSize, reg, hdl.RegisterBay.RegIDToString reg)
 
   let private addReturnValDef hdl defs =
-    match (hdl: BinHandle).ISA.Arch with
+    match hdl.BinFile.ISA.Arch with
     | Arch.EVM -> defs
     | _ ->
       let reg = CallingConvention.returnRegister hdl |> buildRegVar hdl
@@ -89,8 +89,8 @@ module private SSABasicBlockHelper =
 
   let private postprocessOthers stmt = stmt
 
-  let postprocessStmt hdl s =
-    match hdl.ISA.Arch with
+  let postprocessStmt arch s =
+    match arch with
     | Arch.EVM -> postprocessStmtForEVM s
     | _ -> postprocessOthers s
 
@@ -166,7 +166,8 @@ type RegularSSABasicBlock (hdl: BinHandle, pp, instrs) =
       let wordSize = i.Instruction.WordSize |> WordSize.toRegType
       let stmts = i.Stmts
       let address = i.Instruction.Address
-      AST.translateStmts wordSize address (postprocessStmt hdl) stmts)
+      let arch = hdl.BinFile.ISA.Arch
+      AST.translateStmts wordSize address (postprocessStmt arch) stmts)
     |> Array.map (fun s -> ProgramPoint.GetFake (), s)
 
   override __.SSAStmtInfos with get() = stmts and set(s) = stmts <- s
@@ -190,7 +191,7 @@ type FakeSSABasicBlock (hdl, pp, retPoint: ProgramPoint, fakeBlkInfo) =
         |> Array.map (fun dst ->
           let src = { Kind = dst.Kind; Identifier = -1 }
           Def (dst, ReturnVal (pp.Address, retPoint.Address, src)))
-      let wordSize = hdl.ISA.WordSize |> WordSize.toRegType
+      let wordSize = hdl.BinFile.ISA.WordSize |> WordSize.toRegType
       let fallThrough = BitVector.OfUInt64 retPoint.Address wordSize
       let jmpToFallThrough = Jmp (InterJmp (Num fallThrough))
       Array.append stmts [| jmpToFallThrough |]

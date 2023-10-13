@@ -41,7 +41,7 @@ type CountAction () =
   and countBinary (o: obj) =
     let bin = o :?> Binary
     let hdl = Binary.Handle bin
-    hdl.BinFile.Span.Length
+    hdl.BinFile.Content.Length
 
   interface IAction with
     member __.ActionID with get() = "count"

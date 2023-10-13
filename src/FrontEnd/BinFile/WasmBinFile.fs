@@ -29,31 +29,27 @@ open B2R2
 open B2R2.FrontEnd.BinFile.Wasm
 open B2R2.FrontEnd.BinFile.Wasm.Helper
 
-/// <summary>
-///   This class represents a Web Assembly
-///   (Wasm Module) binary file.
-/// </summary>
-type WasmBinFile (bytes, path, baseAddr) =
-  inherit BinFile ()
-  let wm = Parser.parse bytes
-  let baseAddr = defaultArg baseAddr 0UL
+/// This class represents a Web Assembly (Wasm Module) binary file.
+type WasmBinFile private (wm, path, isa, ftype, content, baseAddr) =
+  inherit BinFile (path, FileFormat.WasmBinary, isa, ftype, content)
 
   new (bytes, path) = WasmBinFile (bytes, path, None)
-  override __.Span = ReadOnlySpan bytes
-  override __.FileFormat = FileFormat.WasmBinary
-  override __.ISA = defaultISA
-  override __.FileType = fileTypeOf wm
-  override __.FilePath = path
-  override __.WordSize = WordSize.Bit32
+
+  new (bytes, path, baseAddrOpt) =
+    let wm = Parser.parse bytes
+    let ftype = fileTypeOf wm
+    let baseAddr = defaultArg baseAddrOpt 0UL
+    let content = WasmBinaryContent bytes
+    WasmBinFile (wm, path, defaultISA, ftype, content, baseAddr)
+
+  override __.BaseAddress with get() = baseAddr
   override __.IsStripped = List.isEmpty wm.CustomSections
   override __.IsNXEnabled = true
   override __.IsRelocatable = false
-  override __.BaseAddress = baseAddr
   override __.EntryPoint = entryPointOf wm
   override __.TextStartAddr = textStartAddrOf wm
-  override __.TranslateAddress addr = int addr
-  override __.GetRelocatedAddr relocAddr = Utils.futureFeature ()
-  override __.AddSymbol addr symbol = Utils.futureFeature ()
+  override __.GetRelocatedAddr _relocAddr = Utils.futureFeature ()
+  override __.AddSymbol _addr _symbol = Utils.futureFeature ()
   override __.GetSymbols () = getSymbols wm
   override __.GetStaticSymbols () = Seq.empty
   override __.GetDynamicSymbols (?exc) = getDynamicSymbols wm exc
@@ -61,24 +57,67 @@ type WasmBinFile (bytes, path, baseAddr) =
   override __.GetSections () = getSections wm
   override __.GetSections (addr) = getSectionsByAddr wm addr
   override __.GetSections (name) = getSectionsByName wm name
-  override __.GetTextSections () = Utils.futureFeature () // FIXME
+  override __.GetTextSections () = Utils.futureFeature ()
   override __.GetSegments (_isLoadable) = Seq.empty
   override __.GetLinkageTableEntries () = getImports wm
-  override __.IsLinkageTable _addr = Utils.futureFeature () // FIXME
+  override __.IsLinkageTable _addr = Utils.futureFeature ()
   override __.TryFindFunctionSymbolName (addr) = tryFindFunSymName wm addr
-  override __.ToBinaryPointer addr =
-    BinaryPointer.OfSectionOpt (getSectionsByAddr wm addr |> Seq.tryHead)
-  override __.ToBinaryPointer name =
-    BinaryPointer.OfSectionOpt (getSectionsByName wm name |> Seq.tryHead)
-  override __.IsValidAddr (addr) =
-    addr >= 0UL && addr < (uint64 bytes.LongLength)
-  override __.IsValidRange range =
-    __.IsValidAddr range.Min && __.IsValidAddr range.Max
-  override __.IsInFileAddr addr = __.IsValidAddr addr
-  override __.IsInFileRange range = __.IsValidRange range
-  override __.IsExecutableAddr _addr = Utils.futureFeature () // FIXME
-  override __.GetNotInFileIntervals range =
-    FileHelper.getNotInFileIntervals 0UL (uint64 bytes.LongLength) range
+  override __.ToBinFilePointer addr =
+    BinFilePointer.OfSectionOpt (getSectionsByAddr wm addr |> Seq.tryHead)
+  override __.ToBinFilePointer name =
+    BinFilePointer.OfSectionOpt (getSectionsByName wm name |> Seq.tryHead)
   override __.NewBinFile bs = WasmBinFile (bs, path, Some baseAddr)
   override __.NewBinFile (bs, baseAddr) = WasmBinFile (bs, path, Some baseAddr)
   member __.WASM with get() = wm
+
+and WasmBinaryContent (bytes) =
+  interface IContentAddressable with
+    member __.Length = bytes.Length
+
+    member __.RawBytes = bytes
+
+    member __.Span = ReadOnlySpan bytes
+
+    member __.GetOffset addr = int addr
+
+    member __.Slice (addr: Addr, size) =
+      let span = ReadOnlySpan bytes
+      span.Slice (int addr, size)
+
+    member __.Slice (addr: Addr) =
+      let span = ReadOnlySpan bytes
+      span.Slice (int addr)
+
+    member __.Slice (offset: int, size) =
+      let span = ReadOnlySpan bytes
+      span.Slice (offset, size)
+
+    member __.Slice (offset: int) =
+      let span = ReadOnlySpan bytes
+      span.Slice offset
+
+    member __.Slice (ptr: BinFilePointer, size) =
+      let span = ReadOnlySpan bytes
+      span.Slice (ptr.Offset, size)
+
+    member __.Slice (ptr: BinFilePointer) =
+      let span = ReadOnlySpan bytes
+      span.Slice ptr.Offset
+
+    member __.IsValidAddr (addr) =
+      addr >= 0UL && addr < (uint64 bytes.LongLength)
+
+    member __.IsValidRange range =
+      (__ :> IContentAddressable).IsValidAddr range.Min
+      && (__ :> IContentAddressable).IsValidAddr range.Max
+
+    member __.IsInFileAddr addr =
+      (__ :> IContentAddressable).IsValidAddr addr
+
+    member __.IsInFileRange range =
+      (__ :> IContentAddressable).IsValidRange range
+
+    member __.IsExecutableAddr _addr = Utils.futureFeature ()
+
+    member __.GetNotInFileIntervals range =
+      FileHelper.getNotInFileIntervals 0UL (uint64 bytes.LongLength) range

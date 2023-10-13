@@ -32,25 +32,25 @@ open B2R2.FrontEnd.BinFile.Mach.Helper
 /// <summary>
 ///   This class represents a Mach-O binary file.
 /// </summary>
-type MachBinFile (bytes, path, isa, baseAddr) =
-  inherit BinFile ()
-  let mach = Parser.parse baseAddr bytes isa
-  let isa = getISA mach
+type MachBinFile private (mach, path, isa, ftype, content, baseAddr) =
+  inherit BinFile (path, FileFormat.MachBinary, isa, ftype, content)
 
-  new (bytes, path, isa) = MachBinFile (bytes, path, isa, None)
-  override __.Span = ReadOnlySpan bytes
-  override __.FileFormat = FileFormat.MachBinary
-  override __.ISA = isa
-  override __.FileType = convFileType mach.MachHdr.FileType
-  override __.FilePath = path
-  override __.WordSize = mach.MachHdr.Class
+  new (bytes: byte[], path, isa: ISA) =
+    MachBinFile (bytes, path, isa, None)
+
+  new (bytes, path, isa, baseAddr) =
+    let mach = Parser.parse baseAddr bytes isa
+    let isa = getISA mach
+    let ftype = convFileType mach.MachHdr.FileType
+    let content = MachBinaryContent (mach, bytes)
+    MachBinFile (mach, path, isa, ftype, content, baseAddr)
+
+  override __.BaseAddress with get() = mach.BaseAddr
   override __.IsStripped = isStripped mach
   override __.IsNXEnabled = isNXEnabled mach
   override __.IsRelocatable = mach.MachHdr.Flags.HasFlag MachFlag.MHPIE
-  override __.BaseAddress = mach.BaseAddr
   override __.EntryPoint = mach.EntryPoint
   override __.TextStartAddr = getTextStartAddr mach
-  override __.TranslateAddress addr = translateAddr mach addr
   override __.GetRelocatedAddr relocAddr = Utils.futureFeature ()
   override __.AddSymbol addr symbol = Utils.futureFeature ()
   override __.GetSymbols () = getSymbols mach
@@ -65,19 +65,60 @@ type MachBinFile (bytes, path, isa, baseAddr) =
   override __.GetLinkageTableEntries () = getPLT mach
   override __.IsLinkageTable addr = isPLT mach addr
   override __.TryFindFunctionSymbolName (addr) = tryFindFuncSymb mach addr
-  override __.ToBinaryPointer addr =
-    BinaryPointer.OfSectionOpt (getSectionsByAddr mach addr |> Seq.tryHead)
-  override __.ToBinaryPointer name =
-    BinaryPointer.OfSectionOpt (getSectionsByName mach name |> Seq.tryHead)
-  override __.IsValidAddr addr = isValidAddr mach addr
-  override __.IsValidRange range = isValidRange mach range
-  override __.IsInFileAddr addr = isInFileAddr mach addr
-  override __.IsInFileRange range = isInFileRange mach range
-  override __.IsExecutableAddr addr = isExecutableAddr mach addr
-  override __.GetNotInFileIntervals range = getNotInFileIntervals mach range
+  override __.ToBinFilePointer addr =
+    BinFilePointer.OfSectionOpt (getSectionsByAddr mach addr |> Seq.tryHead)
+  override __.ToBinFilePointer name =
+    BinFilePointer.OfSectionOpt (getSectionsByName mach name |> Seq.tryHead)
   override __.NewBinFile bs = MachBinFile (bs, path, isa, baseAddr)
   override __.NewBinFile (bs, baseAddr) =
     MachBinFile (bs, path, isa, Some baseAddr)
   member __.Mach with get() = mach
 
-// vim: set tw=80 sts=2 sw=2:
+and MachBinaryContent (mach, bytes) =
+  interface IContentAddressable with
+    member __.Length = bytes.Length
+
+    member __.RawBytes = bytes
+
+    member __.Span = ReadOnlySpan bytes
+
+    member __.GetOffset addr = translateAddr mach addr
+
+    member __.Slice (addr, size) =
+      let offset = translateAddr mach addr |> Convert.ToInt32
+      let span = ReadOnlySpan bytes
+      span.Slice (offset, size)
+
+    member __.Slice (addr) =
+      let offset = translateAddr mach addr |> Convert.ToInt32
+      let span = ReadOnlySpan bytes
+      span.Slice offset
+
+    member __.Slice (offset: int, size) =
+      let span = ReadOnlySpan bytes
+      span.Slice (offset, size)
+
+    member __.Slice (offset: int) =
+      let span = ReadOnlySpan bytes
+      span.Slice offset
+
+    member __.Slice (ptr: BinFilePointer, size) =
+      let span = ReadOnlySpan bytes
+      span.Slice (ptr.Offset, size)
+
+    member __.Slice (ptr: BinFilePointer) =
+      let span = ReadOnlySpan bytes
+      span.Slice ptr.Offset
+
+    member __.IsValidAddr addr = isValidAddr mach addr
+
+    member __.IsValidRange range = isValidRange mach range
+
+    member __.IsInFileAddr addr = isInFileAddr mach addr
+
+    member __.IsInFileRange range = isInFileRange mach range
+
+    member __.IsExecutableAddr addr = isExecutableAddr mach addr
+
+    member __.GetNotInFileIntervals range = getNotInFileIntervals mach range
+

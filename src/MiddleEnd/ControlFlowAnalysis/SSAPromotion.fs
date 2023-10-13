@@ -58,7 +58,8 @@ let private updateStackFrameDistance hdl g (v: Vertex<SSABasicBlock>) spState =
   match hdl.RegisterBay.StackPointer with
   | Some rid ->
     let spName = hdl.RegisterBay.RegIDToString rid
-    let spRegKind = RegVar (hdl.ISA.WordSize |> WordSize.toRegType, rid, spName)
+    let rt = hdl.BinFile.ISA.WordSize |> WordSize.toRegType
+    let spRegKind = RegVar (rt, rid, spName)
     match findLastStackDef v spRegKind with
     | Some sp -> updateIfStackValueIsConstant v spState sp
     | None -> ()

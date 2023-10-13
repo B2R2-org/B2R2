@@ -184,7 +184,7 @@ module private RegularJmpResolution =
       None
     else
       let addr = readTable hdl jt.BranchBaseAddr entryAddr size
-      if hdl.BinFile.IsValidAddr addr then
+      if hdl.BinFile.Content.IsValidAddr addr then
         let nextAddr = entryAddr + uint64 size
         if Map.containsKey addr gaps then
           let confirmedEndPoint =
@@ -307,10 +307,10 @@ module private RegularJmpResolution =
     match CPState.findReg cpState pcVar with
     | Const bv ->
       let ptr = BitVector.ToUInt64 bv + BitVector.ToUInt64 offset
-      let size = hdl.ISA.WordSize |> WordSize.toByteWidth
       let file = hdl.BinFile
+      let size = file.ISA.WordSize |> WordSize.toByteWidth
       match BinHandle.TryReadUInt (hdl, ptr, size) with
-      | Ok target when target <> 0UL && file.IsExecutableAddr target ->
+      | Ok target when target <> 0UL && file.Content.IsExecutableAddr target ->
         ConstJmpPattern <| getRelocatedAddr file ptr target
       | _ -> UnknownPattern
     | _ -> UnknownPattern

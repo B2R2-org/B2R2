@@ -28,33 +28,31 @@ open System
 open B2R2
 open B2R2.FrontEnd.BinFile.PE.Helper
 
-/// <summary>
-///   This class represents a PE binary file.
-/// </summary>
-type PEBinFile (bytes, path, baseAddr, rawpdb) =
-  inherit BinFile ()
-  let pe = PE.Parser.parse bytes path baseAddr rawpdb
-  let isa = getISA pe
+/// This class represents a PE binary file.
+type PEBinFile private (pe, path, isa, ftype, content, baseAddr, rawpdb) =
+  inherit BinFile (path, FileFormat.PEBinary, isa, ftype, content)
 
   new (bytes, path) = PEBinFile (bytes, path, None, [||])
+
   new (bytes, path, baseAddr) = PEBinFile (bytes, path, baseAddr, [||])
+
   new (bytes, path, rawpdb) = PEBinFile (bytes, path, None, rawpdb)
 
-  override __.Span = ReadOnlySpan bytes
-  override __.FileFormat = FileFormat.PEBinary
-  override __.ISA = isa
-  override __.FileType = getFileType pe
-  override __.FilePath = path
-  override __.WordSize = getWordSize pe
+  new (bytes, path, baseAddr, rawpdb) =
+    let pe = PE.Parser.parse bytes path baseAddr rawpdb
+    let isa = getISA pe
+    let ftype = getFileType pe
+    let content = PEBinaryContent (pe, bytes)
+    PEBinFile (pe, path, isa, ftype, content, baseAddr, rawpdb)
+
+  override __.BaseAddress with get() = pe.BaseAddr
   override __.IsStripped = Array.isEmpty pe.SymbolInfo.SymbolArray
   override __.IsNXEnabled = isNXEnabled pe
   override __.IsRelocatable = isRelocatable pe
-  override __.BaseAddress = pe.BaseAddr
   override __.EntryPoint = getEntryPoint pe
   override __.TextStartAddr = getTextStartAddr pe
-  override __.TranslateAddress addr = translateAddr pe addr
-  override __.GetRelocatedAddr relocAddr = Utils.futureFeature ()
-  override __.AddSymbol addr symbol = Utils.futureFeature ()
+  override __.GetRelocatedAddr _relocAddr = Utils.futureFeature ()
+  override __.AddSymbol _addr _symbol = Utils.futureFeature ()
   override __.GetSymbols () = getSymbols pe
   override __.GetStaticSymbols () = getStaticSymbols pe
   override __.GetDynamicSymbols (?exc) = getDynamicSymbols pe exc
@@ -67,20 +65,61 @@ type PEBinFile (bytes, path, baseAddr, rawpdb) =
   override __.GetLinkageTableEntries () = getImportTable pe
   override __.IsLinkageTable addr = isImportTable pe addr
   override __.TryFindFunctionSymbolName (addr) = tryFindFuncSymb pe addr
-  override __.ToBinaryPointer addr =
-    BinaryPointer.OfSectionOpt (getSectionsByAddr pe addr |> Seq.tryHead)
-  override __.ToBinaryPointer name =
-    BinaryPointer.OfSectionOpt (getSectionsByName pe name |> Seq.tryHead)
-  override __.IsValidAddr addr = isValidAddr pe addr
-  override __.IsValidRange range = isValidRange pe range
-  override __.IsInFileAddr addr = isInFileAddr pe addr
-  override __.IsInFileRange range = isInFileRange pe range
-  override __.IsExecutableAddr addr = isExecutableAddr pe addr
-  override __.GetNotInFileIntervals range = getNotInFileIntervals pe range
+  override __.ToBinFilePointer addr =
+    BinFilePointer.OfSectionOpt (getSectionsByAddr pe addr |> Seq.tryHead)
+  override __.ToBinFilePointer name =
+    BinFilePointer.OfSectionOpt (getSectionsByName pe name |> Seq.tryHead)
   override __.NewBinFile bs = PEBinFile (bs, path, baseAddr, rawpdb)
   override __.NewBinFile (bs, baseAddr) =
     PEBinFile (bs, path, Some baseAddr, rawpdb)
   member __.PE with get() = pe
   member __.RawPDB = rawpdb
 
-// vim: set tw=80 sts=2 sw=2:
+and PEBinaryContent (pe, bytes) =
+  interface IContentAddressable with
+    member __.Length = bytes.Length
+
+    member __.RawBytes = bytes
+
+    member __.Span = ReadOnlySpan bytes
+
+    member __.GetOffset addr = translateAddr pe addr
+
+    member __.Slice (addr, size) =
+      let offset = translateAddr pe addr |> Convert.ToInt32
+      let span = ReadOnlySpan bytes
+      span.Slice (offset, size)
+
+    member __.Slice (addr) =
+      let offset = translateAddr pe addr |> Convert.ToInt32
+      let span = ReadOnlySpan bytes
+      span.Slice offset
+
+    member __.Slice (offset: int, size) =
+      let span = ReadOnlySpan bytes
+      span.Slice (offset, size)
+
+    member __.Slice (offset: int) =
+      let span = ReadOnlySpan bytes
+      span.Slice offset
+
+    member __.Slice (ptr: BinFilePointer, size) =
+      let span = ReadOnlySpan bytes
+      span.Slice (ptr.Offset, size)
+
+    member __.Slice (ptr: BinFilePointer) =
+      let span = ReadOnlySpan bytes
+      span.Slice ptr.Offset
+
+    member __.IsValidAddr addr = isValidAddr pe addr
+
+    member __.IsValidRange range = isValidRange pe range
+
+    member __.IsInFileAddr addr = isInFileAddr pe addr
+
+    member __.IsInFileRange range = isInFileRange pe range
+
+    member __.IsExecutableAddr addr = isExecutableAddr pe addr
+
+    member __.GetNotInFileIntervals range = getNotInFileIntervals pe range
+

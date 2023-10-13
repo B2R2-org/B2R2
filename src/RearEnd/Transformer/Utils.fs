@@ -30,10 +30,6 @@ open B2R2
 
 let [<Literal>] MaxByteShow = 14
 
-let makeByteArraySummary (bs: byte[]) =
-  let s = bs[..MaxByteShow] |> Array.map (sprintf "%02x") |> String.concat " "
-  if bs.Length > MaxByteShow then s + " ..." else s
-
 let byteArrayToHexStringArray (bs: byte[]) =
   bs |> Array.map (sprintf "%02x")
 
@@ -48,6 +44,9 @@ let makeSpanSummary (bs: ByteSpan) =
     bs.ToArray ()
     |> Array.map (sprintf "%02x")
     |> String.concat " "
+
+let makeByteArraySummary (bs: byte[]) =
+  makeSpanSummary (ReadOnlySpan bs)
 
 let rec buildNgram acc n (span: ByteSpan) idx =
   if idx <= span.Length - n then

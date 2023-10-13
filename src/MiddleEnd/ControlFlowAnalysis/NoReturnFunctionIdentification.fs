@@ -172,7 +172,7 @@ module private NoReturnFunctionIdentificationHelper =
       Some arg
 
   let confirmArg hdl fakeBlk uvState arg =
-    match hdl.ISA.Arch with
+    match hdl.BinFile.ISA.Arch with
     | Arch.IntelX86 -> confirmArgX86 fakeBlk uvState arg
     | Arch.IntelX64 -> confirmArgX64 hdl fakeBlk uvState arg
     | _ -> None
@@ -319,7 +319,7 @@ type NoReturnFunctionIdentification () =
   /// depending on the given argument value.
   member __.HasNonZeroArg hdl caller nth =
     let st = evalBlock hdl caller
-    match hdl.ISA.Arch with
+    match hdl.BinFile.ISA.Arch with
     | Arch.IntelX86 -> hasNonZeroOnX86 st nth
     | Arch.IntelX64 -> hasNonZeroOnX64 hdl st nth
     | _ -> Utils.futureFeature ()
@@ -329,7 +329,7 @@ type NoReturnFunctionIdentification () =
     let st = evalBlock hdl bbl
     match hdl.BinFile.FileFormat with
     | FileFormat.ELFBinary | FileFormat.RawBinary ->
-      let arch = hdl.ISA.Arch
+      let arch = hdl.BinFile.ISA.Arch
       let exitSyscall = LinuxSyscall.toNumber arch LinuxSyscall.Exit
       let exitGrpSyscall = LinuxSyscall.toNumber arch LinuxSyscall.ExitGroup
       let sigreturnSyscall = LinuxSyscall.toNumber arch LinuxSyscall.RtSigreturn

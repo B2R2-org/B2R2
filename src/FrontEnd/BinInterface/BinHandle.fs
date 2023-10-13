@@ -31,7 +31,6 @@ open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinInterface.Helper
 
 type BinHandle = {
-  ISA: ISA
   BinFile: BinFile
   DisasmHelper: DisasmHelper
   TranslationContext: TranslationContext
@@ -47,8 +46,7 @@ with
     let file = newFileInfo bs baseAddr path fmt isa regbay
     assert (isa = file.ISA)
     let parser = Parser.init isa mode file.EntryPoint
-    { ISA = isa
-      BinFile = file
+    { BinFile = file
       DisasmHelper = DisasmHelper (file.TryFindFunctionSymbolName)
       TranslationContext = ctxt
       Parser = parser
@@ -98,31 +96,30 @@ with
   member __.ReadBytes (addr: Addr, nBytes) =
     BinHandle.ReadBytes (__, addr, nBytes)
 
-  member __.ReadBytes (bp: BinaryPointer, nBytes) =
-    BinHandle.ReadBytes (__, bp, nBytes)
+  member __.ReadBytes (ptr: BinFilePointer, nBytes) =
+    BinHandle.ReadBytes (__, ptr, nBytes)
 
   static member TryReadBytes ({ BinFile = file }, addr, nBytes) =
     let range = AddrRange (addr, addr + uint64 nBytes - 1UL)
-    if file.IsInFileRange range then
-      let slice = file.Span.Slice (file.TranslateAddress addr, nBytes)
+    if file.Content.IsInFileRange range then
+      let slice = file.Content.Slice (addr, nBytes)
       slice.ToArray () |> Ok
-    elif file.IsValidRange range then
-      file.GetNotInFileIntervals range
+    elif file.Content.IsValidRange range then
+      file.Content.GetNotInFileIntervals range
       |> classifyRanges range
       |> List.fold (fun bs (range, isInFile) ->
            let len = (range.Max - range.Min |> int) + 1
            if isInFile then
-             let offset = file.TranslateAddress range.Min
-             let slice = file.Span.Slice (offset, len)
+             let slice = file.Content.Slice (range.Min, len)
              Array.append bs (slice.ToArray ())
            else Array.create len 0uy |> Array.append bs
          ) [||]
       |> Ok
     else Error ErrorCase.InvalidMemoryRead
 
-  static member TryReadBytes ({ BinFile = file }, bp, nBytes) =
-    if BinaryPointer.IsValidAccess bp nBytes then
-      let slice = file.Span.Slice (bp.Offset, nBytes)
+  static member TryReadBytes ({ BinFile = file }, ptr, nBytes) =
+    if BinFilePointer.IsValidAccess ptr nBytes then
+      let slice = file.Content.Slice (ptr, nBytes)
       slice.ToArray () |> Ok
     else Error ErrorCase.InvalidMemoryRead
 
@@ -131,26 +128,29 @@ with
     | Ok bs -> bs
     | Error e -> invalidArg (nameof addr) (ErrorCase.toString e)
 
-  static member ReadBytes (hdl, bp: BinaryPointer, nBytes) =
-    match BinHandle.TryReadBytes (hdl, bp, nBytes) with
+  static member ReadBytes (hdl, ptr: BinFilePointer, nBytes) =
+    match BinHandle.TryReadBytes (hdl, ptr, nBytes) with
     | Ok bs -> bs
-    | Error e -> invalidArg (nameof bp) (ErrorCase.toString e)
+    | Error e -> invalidArg (nameof ptr) (ErrorCase.toString e)
 
   member __.ReadInt (addr: Addr, size) =
     BinHandle.ReadInt (__, addr, size)
 
-  member __.ReadInt (bp: BinaryPointer, size) =
-    BinHandle.ReadInt (__, bp, size)
+  member __.ReadInt (ptr: BinFilePointer, size) =
+    BinHandle.ReadInt (__, ptr, size)
 
   static member TryReadInt ({ BinFile = file; BinReader = r }, addr, size) =
-    let pos = file.TranslateAddress addr
-    if (pos + size) > file.Span.Length || (pos < 0) then
+    let pos = file.Content.GetOffset addr
+    if (pos + size) > file.Content.Length || (pos < 0) then
       Error ErrorCase.InvalidMemoryRead
-    else readIntBySize r file pos size
+    else
+      let span = file.Content.Slice (offset=pos)
+      readIntBySize r span size
 
-  static member TryReadInt ({ BinFile = file; BinReader = r }, bp, size) =
-    if BinaryPointer.IsValidAccess bp size then
-      readIntBySize r file bp.Offset size
+  static member TryReadInt ({ BinFile = file; BinReader = r }, ptr, size) =
+    if BinFilePointer.IsValidAccess ptr size then
+      let span = file.Content.Slice (offset=ptr.Offset)
+      readIntBySize r span size
     else Error ErrorCase.InvalidMemoryRead
 
   static member ReadInt (hdl, addr: Addr, size) =
@@ -158,26 +158,29 @@ with
     | Ok i -> i
     | Error e -> invalidArg (nameof addr) (ErrorCase.toString e)
 
-  static member ReadInt (hdl, bp: BinaryPointer, size) =
-    match BinHandle.TryReadInt (hdl, bp, size) with
+  static member ReadInt (hdl, ptr: BinFilePointer, size) =
+    match BinHandle.TryReadInt (hdl, ptr, size) with
     | Ok i -> i
-    | Error e -> invalidArg (nameof bp) (ErrorCase.toString e)
+    | Error e -> invalidArg (nameof ptr) (ErrorCase.toString e)
 
   member __.ReadUInt (addr: Addr, size) =
     BinHandle.ReadUInt (__, addr, size)
 
-  member __.ReadUInt (bp: BinaryPointer, size) =
-    BinHandle.ReadUInt (__, bp, size)
+  member __.ReadUInt (ptr: BinFilePointer, size) =
+    BinHandle.ReadUInt (__, ptr, size)
 
   static member TryReadUInt ({ BinFile = file; BinReader = r }, addr, size) =
-    let pos = file.TranslateAddress addr
-    if (pos + size) > file.Span.Length || (pos < 0) then
+    let pos = file.Content.GetOffset addr
+    if (pos + size) > file.Content.Length || (pos < 0) then
       Error ErrorCase.InvalidMemoryRead
-    else readUIntBySize r file pos size
+    else
+      let span = file.Content.Slice (offset=pos)
+      readUIntBySize r span size
 
-  static member TryReadUInt ({ BinFile = file; BinReader = r }, bp, size) =
-    if BinaryPointer.IsValidAccess bp size then
-      readUIntBySize r file bp.Offset size
+  static member TryReadUInt ({ BinFile = file; BinReader = r }, ptr, size) =
+    if BinFilePointer.IsValidAccess ptr size then
+      let span = file.Content.Slice (offset=ptr.Offset)
+      readUIntBySize r span size
     else Error ErrorCase.InvalidMemoryRead
 
   static member ReadUInt (hdl, addr: Addr, size) =
@@ -185,42 +188,42 @@ with
     | Ok i -> i
     | Error e -> invalidArg (nameof addr) (ErrorCase.toString e)
 
-  static member ReadUInt (hdl, bp: BinaryPointer, size) =
-    match BinHandle.TryReadUInt (hdl, bp, size) with
+  static member ReadUInt (hdl, ptr: BinFilePointer, size) =
+    match BinHandle.TryReadUInt (hdl, ptr, size) with
     | Ok i -> i
-    | Error e -> invalidArg (nameof bp) (ErrorCase.toString e)
+    | Error e -> invalidArg (nameof ptr) (ErrorCase.toString e)
 
   member __.ReadASCII (addr: Addr) =
     BinHandle.ReadASCII (__, addr)
 
-  member __.ReadASCII (bp: BinaryPointer) =
-    BinHandle.ReadASCII (__, bp)
+  member __.ReadASCII (ptr: BinFilePointer) =
+    BinHandle.ReadASCII (__, ptr)
 
   static member ReadASCII ({ BinFile = file }, addr) =
-    let bs = file.TranslateAddress addr |> readASCII file
+    let bs = file.Content.GetOffset addr |> readASCII file
     ByteArray.extractCString bs 0
 
-  static member ReadASCII ({ BinFile = file }, bp: BinaryPointer) =
-    let bs = readASCII file bp.Offset
+  static member ReadASCII ({ BinFile = file }, ptr: BinFilePointer) =
+    let bs = readASCII file ptr.Offset
     ByteArray.extractCString bs 0
 
-  static member ParseInstr (hdl: BinHandle, addr) =
-    parseInstrFromAddr hdl.BinFile hdl.Parser addr
+  static member ParseInstr (hdl: BinHandle, addr: Addr) =
+    hdl.Parser.Parse (hdl.BinFile.Content.Slice addr, addr)
 
-  static member ParseInstr (hdl: BinHandle, bp: BinaryPointer) =
-    parseInstrFromBinPtr hdl.BinFile hdl.Parser bp
+  static member ParseInstr (hdl: BinHandle, ptr: BinFilePointer) =
+    parseInstrFromBinPtr hdl.BinFile hdl.Parser ptr
 
   static member TryParseInstr (hdl, addr) =
     tryParseInstrFromAddr hdl.BinFile hdl.Parser addr
 
-  static member TryParseInstr (hdl, bp: BinaryPointer) =
-    tryParseInstrFromBinPtr hdl.BinFile hdl.Parser bp
+  static member TryParseInstr (hdl, ptr: BinFilePointer) =
+    tryParseInstrFromBinPtr hdl.BinFile hdl.Parser ptr
 
   static member ParseBBlock (hdl, addr) =
     parseBBLFromAddr hdl.BinFile hdl.Parser addr
 
-  static member ParseBBlock (hdl, bp) =
-    parseBBLFromBinPtr hdl.BinFile hdl.Parser bp
+  static member ParseBBlock (hdl, ptr) =
+    parseBBLFromBinPtr hdl.BinFile hdl.Parser ptr
 
   static member inline LiftInstr (hdl: BinHandle) (ins: Instruction) =
     ins.Translate hdl.TranslationContext
@@ -231,8 +234,8 @@ with
   static member LiftBBlock (hdl: BinHandle, addr: Addr) =
     liftBBLFromAddr hdl.BinFile hdl.Parser hdl.TranslationContext addr
 
-  static member LiftBBlock (hdl: BinHandle, bp: BinaryPointer) =
-    liftBBLFromBinPtr hdl.BinFile hdl.Parser hdl.TranslationContext bp
+  static member LiftBBlock (hdl: BinHandle, ptr: BinFilePointer) =
+    liftBBLFromBinPtr hdl.BinFile hdl.Parser hdl.TranslationContext ptr
 
   static member inline DisasmInstr hdl showAddr resolveSymbol ins =
     (ins: Instruction).Disasm (showAddr, resolveSymbol, hdl.DisasmHelper)
@@ -244,9 +247,9 @@ with
     disasmBBLFromAddr
       hdl.BinFile hdl.Parser hdl.DisasmHelper showAddr resolveSymbol addr
 
-  static member DisasmBBlock (hdl, showAddr, resolveSymbol, bp) =
+  static member DisasmBBlock (hdl, showAddr, resolveSymbol, ptr) =
     disasmBBLFromBinPtr
-      hdl.BinFile hdl.Parser hdl.DisasmHelper showAddr resolveSymbol bp
+      hdl.BinFile hdl.Parser hdl.DisasmHelper showAddr resolveSymbol ptr
 
   static member Optimize stmts = LocalOptimizer.Optimize stmts
 

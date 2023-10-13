@@ -34,7 +34,7 @@ open B2R2.RearEnd.Transformer.Utils
 type GrepAction () =
   let grepFromBinary (pattern: string) bytesBefore bytesAfter bin =
     let hdl = Binary.Handle bin
-    let bs = hdl.BinFile.Span.ToArray ()
+    let bs = hdl.BinFile.Content.RawBytes
     let hs = byteArrayToHexStringArray bs |> String.concat ""
     let regex = Regex (pattern.ToLowerInvariant ())
     regex.Matches hs

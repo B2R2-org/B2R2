@@ -25,7 +25,6 @@
 namespace B2R2.FrontEnd.BinFile
 
 open System
-open System.Runtime.InteropServices
 open B2R2
 open B2R2.FrontEnd.BinFile.ELF
 open B2R2.FrontEnd.BinFile.ELF.Helper
@@ -33,39 +32,34 @@ open B2R2.FrontEnd.BinFile.ELF.Helper
 /// <summary>
 ///   This class represents an ELF binary file.
 /// </summary>
-type ELFBinFile (bytes, path, baseAddr, regbay,
-                 [<Optional; DefaultParameterValue(false)>] forEmu: bool) =
-  inherit BinFile ()
-  let elf = Parser.parse bytes baseAddr regbay forEmu
+type ELFBinFile
+  private (elf, path, isa, ftype, baseAddr, content, regbay, forEmu) =
+  inherit BinFile (path, FileFormat.ELFBinary, isa, ftype, content)
 
-  new (bytes, path) = ELFBinFile (bytes, path, None, None)
+  new (bytes, path) =
+    ELFBinFile (bytes, path, None, None, false)
 
-  override __.Span = ReadOnlySpan bytes
+  new (bytes, path, baseAddr, regbay) =
+    ELFBinFile (bytes, path, baseAddr, regbay, false)
 
-  override __.FileFormat = FileFormat.ELFBinary
+  new (bytes, path, baseAddr, regbay, forEmu) =
+    let elf = Parser.parse bytes baseAddr regbay forEmu
+    let isa = elf.ISA
+    let ftype = convFileType elf.ELFHdr.ELFFileType
+    let content = ELFBinaryContent (elf, bytes) :> IContentAddressable
+    ELFBinFile (elf, path, isa, ftype, baseAddr, content, regbay, forEmu)
 
-  override __.ISA = elf.ISA
-
-  override __.FileType = convFileType elf.ELFHdr.ELFFileType
-
-  override __.FilePath = path
-
-  override __.WordSize = elf.ELFHdr.Class
+  override __.BaseAddress with get() = elf.BaseAddr
 
   override __.IsStripped = not (Map.containsKey ".symtab" elf.SecInfo.SecByName)
 
   override __.IsNXEnabled = isNXEnabled elf
 
-  override __.IsRelocatable = isRelocatable (ReadOnlySpan bytes) elf
-
-  override __.BaseAddress = elf.BaseAddr
+  override __.IsRelocatable = isRelocatable content.Span elf
 
   override __.EntryPoint = Some elf.ELFHdr.EntryPoint
 
   override __.TextStartAddr = getTextStartAddr elf
-
-  override __.TranslateAddress addr =
-    translateAddrToOffset addr elf |> Convert.ToInt32
 
   override __.GetRelocatedAddr relocAddr = getRelocatedAddr elf relocAddr
 
@@ -95,33 +89,22 @@ type ELFBinFile (bytes, path, baseAddr, regbay,
 
   override __.TryFindFunctionSymbolName (addr) = tryFindFuncSymb elf addr
 
-  override __.ToBinaryPointer addr =
-    BinaryPointer.OfSectionOpt (getSectionsByAddr elf addr |> Seq.tryHead)
+  override __.ToBinFilePointer addr =
+    BinFilePointer.OfSectionOpt (getSectionsByAddr elf addr |> Seq.tryHead)
 
-  override __.ToBinaryPointer name =
-    BinaryPointer.OfSectionOpt (getSectionsByName elf name |> Seq.tryHead)
-
-  override __.IsValidAddr addr = isValidAddr elf addr
-
-  override __.IsValidRange range = isValidRange elf range
-
-  override __.IsInFileAddr addr = isInFileAddr elf addr
-
-  override __.IsInFileRange range = isInFileRange elf range
-
-  override __.IsExecutableAddr addr = isExecutableAddr elf addr
-
-  override __.GetNotInFileIntervals range = getNotInFileIntervals elf range
+  override __.ToBinFilePointer name =
+    BinFilePointer.OfSectionOpt (getSectionsByName elf name |> Seq.tryHead)
 
   override __.GetFunctionAddresses () =
     base.GetFunctionAddresses ()
-    |> addExtraFunctionAddrs (ReadOnlySpan bytes) elf false
+    |> addExtraFunctionAddrs content.Span elf false
 
   override __.GetFunctionAddresses (useExcInfo) =
     base.GetFunctionAddresses ()
-    |> addExtraFunctionAddrs (ReadOnlySpan bytes) elf useExcInfo
+    |> addExtraFunctionAddrs content.Span elf useExcInfo
 
-  override __.NewBinFile bs = ELFBinFile (bs, path, baseAddr, regbay, forEmu)
+  override __.NewBinFile bs =
+    ELFBinFile (bs, path, baseAddr, regbay, forEmu)
 
   override __.NewBinFile (bs, baseAddr) =
     ELFBinFile (bs, path, Some baseAddr, regbay, forEmu)
@@ -130,6 +113,54 @@ type ELFBinFile (bytes, path, baseAddr, regbay,
 
   /// List of dynamic section entries.
   member __.DynamicSectionEntries with get() =
-    Section.getDynamicSectionEntries __.Span elf.BinReader elf.SecInfo
+    Section.getDynamicSectionEntries content.Span elf.BinReader elf.SecInfo
 
-// vim: set tw=80 sts=2 sw=2:
+and ELFBinaryContent (elf, bytes) =
+  interface IContentAddressable with
+    member __.Length = bytes.Length
+
+    member __.RawBytes = bytes
+
+    member __.Span = ReadOnlySpan bytes
+
+    member __.GetOffset addr =
+      translateAddrToOffset addr elf |> Convert.ToInt32
+
+    member __.Slice (addr, size) =
+      let offset = translateAddrToOffset addr elf |> Convert.ToInt32
+      let span = ReadOnlySpan bytes
+      span.Slice (offset, size)
+
+    member __.Slice (addr) =
+      let offset = translateAddrToOffset addr elf |> Convert.ToInt32
+      let span = ReadOnlySpan bytes
+      span.Slice offset
+
+    member __.Slice (offset: int, size) =
+      let span = ReadOnlySpan bytes
+      span.Slice (offset, size)
+
+    member __.Slice (offset: int) =
+      let span = ReadOnlySpan bytes
+      span.Slice offset
+
+    member __.Slice (ptr: BinFilePointer, size) =
+      let span = ReadOnlySpan bytes
+      span.Slice (ptr.Offset, size)
+
+    member __.Slice (ptr: BinFilePointer) =
+      let span = ReadOnlySpan bytes
+      span.Slice ptr.Offset
+
+    member __.IsValidAddr addr = isValidAddr elf addr
+
+    member __.IsValidRange range = isValidRange elf range
+
+    member __.IsInFileAddr addr = isInFileAddr elf addr
+
+    member __.IsInFileRange range = isInFileRange elf range
+
+    member __.IsExecutableAddr addr = isExecutableAddr elf addr
+
+    member __.GetNotInFileIntervals range = getNotInFileIntervals elf range
+

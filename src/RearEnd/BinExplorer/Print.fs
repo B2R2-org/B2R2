@@ -93,7 +93,7 @@ type CmdPrint () =
     | UnknownSize -> Error ("[*] Invalid size letter given.")
     | sz -> Ok (sz, count, fmt)
 
-  let regexFormat = new Regex (@"(\d+)([duxs])([bhwg]?)")
+  let regexFormat = Regex (@"(\d+)([duxs])([bhwg]?)")
 
   let parseFormat fmt =
     let m = regexFormat.Match (fmt)
@@ -111,51 +111,51 @@ type CmdPrint () =
   let hexPrint sz (i: uint64) =
     i.ToString ("x" + (sz * 2).ToString ())
 
-  let print handler sz fmt addr =
+  let print hdl sz fmt addr =
     match fmt with
     | Hexadecimal ->
-      BinHandle.ReadUInt (handler, addr=addr, size=sz) |> hexPrint sz
+      BinHandle.ReadUInt (hdl, addr=addr, size=sz) |> hexPrint sz
     | UnsignedDecimal ->
-      BinHandle.ReadUInt(handler, addr=addr, size=sz).ToString ()
+      BinHandle.ReadUInt(hdl, addr=addr, size=sz).ToString ()
     | Decimal ->
-      BinHandle.ReadInt(handler, addr=addr, size=sz).ToString ()
+      BinHandle.ReadInt(hdl, addr=addr, size=sz).ToString ()
     | _ -> failwith "This is impossible"
 
-  let getAddressPrefix handler (addr: uint64) =
-    let hexWidth = WordSize.toByteWidth handler.ISA.WordSize * 2
+  let getAddressPrefix hdl (addr: uint64) =
+    let hexWidth = WordSize.toByteWidth hdl.BinFile.ISA.WordSize * 2
     addr.ToString ("x" + hexWidth.ToString ()) + ": "
 
-  let rec iter handler sz fmt addr endAddr acc =
+  let rec iter hdl sz fmt addr endAddr acc =
     if addr >= endAddr then List.rev acc |> List.toArray
     else
-      let addrstr = getAddressPrefix handler addr
+      let addrstr = getAddressPrefix hdl addr
       let acc =
-        try (addrstr + print handler sz fmt addr) :: acc
+        try (addrstr + print hdl sz fmt addr) :: acc
         with _ -> (addrstr + "(invalid)") :: acc
-      iter handler sz fmt (addr + uint64 sz) endAddr acc
+      iter hdl sz fmt (addr + uint64 sz) endAddr acc
 
-  let rec printStrings handler addr cnt acc =
+  let rec printStrings hdl addr cnt acc =
     if cnt <= 0 then List.rev acc |> List.toArray
     else
       let s =
-        try BinHandle.ReadASCII (handler, addr=addr) |> Some with _ -> None
+        try BinHandle.ReadASCII (hdl, addr=addr) |> Some with _ -> None
       match s with
-      | None -> printStrings handler addr 0 acc
+      | None -> printStrings hdl addr 0 acc
       | Some s ->
-        let addrstr = getAddressPrefix handler addr
+        let addrstr = getAddressPrefix hdl addr
         let len = String.length s |> uint64
-        printStrings handler (addr + len + 1UL) (cnt - 1) ((addrstr + s) :: acc)
+        printStrings hdl (addr + len + 1UL) (cnt - 1) ((addrstr + s) :: acc)
 
   let validateRequest (binEssence: BinEssence) = function
     | Ok (_, count, ASCII, addr) ->
-      let handler = binEssence.BinHandle
-      printStrings handler addr count []
+      let hdl = binEssence.BinHandle
+      printStrings hdl addr count []
     | Ok (sz, count, fmt, addr) ->
-      let handler = binEssence.BinHandle
+      let hdl = binEssence.BinHandle
       let sz = PrintSize.ToInt sz
       let endAddr = addr + uint64 (sz * count)
       if addr > endAddr then [| "[*] Invalid address range given."|]
-      else iter handler sz fmt addr endAddr []
+      else iter hdl sz fmt addr endAddr []
     | Error str -> [| str |]
 
   override __.CmdName = "print"

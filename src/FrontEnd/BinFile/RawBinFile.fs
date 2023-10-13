@@ -28,29 +28,21 @@ open System
 open System.Collections.Generic
 open B2R2
 
-/// <summary>
-///   This class represents a raw binary file (containing only binary code and
-///   data without file format)
-/// </summary>
-type RawBinFile (bytes: byte [], path, isa, baseOpt) =
-  inherit BinFile ()
-  let baseAddr = defaultArg baseOpt 0UL
+/// This class represents a raw binary file (containing only binary code and
+/// data without file format)
+type RawBinFile private (bytes: byte[], path, isa, ftype, content, baseAddr) =
+  inherit BinFile (path, FileFormat.RawBinary, isa, ftype, content)
   let size = bytes.Length
   let usize = uint64 size
-
   let symbolMap = Dictionary<Addr, Symbol> ()
 
-  override __.Span = ReadOnlySpan bytes
+  new (bytes, path, isa, baseOpt) =
+    let ftype = FileType.UnknownFile
+    let baseAddr = defaultArg baseOpt 0UL
+    let content = RawBinaryContent (bytes, baseAddr)
+    RawBinFile (bytes, path, isa, ftype, content, baseAddr)
 
-  override __.FileFormat = FileFormat.RawBinary
-
-  override __.ISA = isa
-
-  override __.FileType = FileType.UnknownFile
-
-  override __.FilePath = path
-
-  override __.WordSize = isa.WordSize
+  override __.BaseAddress with get() = baseAddr
 
   override __.IsStripped = false
 
@@ -58,15 +50,11 @@ type RawBinFile (bytes: byte [], path, isa, baseOpt) =
 
   override __.IsRelocatable = false
 
-  override __.BaseAddress = baseAddr
-
   override __.EntryPoint = Some baseAddr
 
   override __.TextStartAddr = baseAddr
 
-  override __.TranslateAddress addr = System.Convert.ToInt32 (addr - baseAddr)
-
-  override __.GetRelocatedAddr relocAddr = Utils.futureFeature ()
+  override __.GetRelocatedAddr _relocAddr = Utils.impossible ()
 
   override __.AddSymbol addr symbol =
     symbolMap[addr] <- symbol
@@ -112,26 +100,11 @@ type RawBinFile (bytes: byte [], path, isa, baseOpt) =
     if symbolMap.ContainsKey(_addr) then Ok symbolMap[_addr].Name
     else Error ErrorCase.SymbolNotFound
 
-  override __.ToBinaryPointer addr =
-    if addr = baseAddr then BinaryPointer (baseAddr, 0, size - 1)
-    else BinaryPointer.Null
+  override __.ToBinFilePointer addr =
+    if addr = baseAddr then BinFilePointer (baseAddr, 0, size - 1)
+    else BinFilePointer.Null
 
-  override __.ToBinaryPointer (_name: string) = BinaryPointer.Null
-
-  override __.IsValidAddr (addr) =
-    addr >= baseAddr && addr < (baseAddr + usize)
-
-  override __.IsValidRange (range) =
-    __.IsValidAddr range.Min && __.IsValidAddr range.Max
-
-  override __.IsInFileAddr (addr) = __.IsValidAddr (addr)
-
-  override __.IsInFileRange range = __.IsValidRange range
-
-  override __.IsExecutableAddr addr = __.IsValidAddr addr
-
-  override __.GetNotInFileIntervals range =
-    FileHelper.getNotInFileIntervals baseAddr usize range
+  override __.ToBinFilePointer (_name: string) = BinFilePointer.Null
 
   override __.NewBinFile bs =
     RawBinFile (bs, path, isa, Some baseAddr)
@@ -139,4 +112,58 @@ type RawBinFile (bytes: byte [], path, isa, baseOpt) =
   override __.NewBinFile (bs, baseAddr) =
     RawBinFile (bs, path, isa, Some baseAddr)
 
-// vim: set tw=80 sts=2 sw=2:
+and RawBinaryContent (bytes, baseAddr) =
+  let usize = uint64 bytes.Length
+  interface IContentAddressable with
+    member __.Length = bytes.Length
+
+    member __.RawBytes = bytes
+
+    member __.Span = ReadOnlySpan bytes
+
+    member __.GetOffset addr = Convert.ToInt32 (addr - baseAddr)
+
+    member __.Slice (addr, size) =
+      let offset = (__ :> IContentAddressable).GetOffset addr
+      let span = ReadOnlySpan bytes
+      span.Slice (offset, size)
+
+    member __.Slice (addr) =
+      let offset = (__ :> IContentAddressable).GetOffset addr
+      let span = ReadOnlySpan bytes
+      span.Slice offset
+
+    member __.Slice (offset: int, size) =
+      let span = ReadOnlySpan bytes
+      span.Slice (offset, size)
+
+    member __.Slice (offset: int) =
+      let span = ReadOnlySpan bytes
+      span.Slice offset
+
+    member __.Slice (ptr: BinFilePointer, size) =
+      let span = ReadOnlySpan bytes
+      span.Slice (ptr.Offset, size)
+
+    member __.Slice (ptr: BinFilePointer) =
+      let span = ReadOnlySpan bytes
+      span.Slice ptr.Offset
+
+    member __.IsValidAddr addr =
+      addr >= baseAddr && addr < (baseAddr + usize)
+
+    member __.IsValidRange range =
+      (__ :> IContentAddressable).IsValidAddr range.Min
+      && (__ :> IContentAddressable).IsValidAddr range.Max
+
+    member __.IsInFileAddr addr =
+      (__ :> IContentAddressable).IsValidAddr addr
+
+    member __.IsInFileRange range =
+      (__ :> IContentAddressable).IsValidRange range
+
+    member __.IsExecutableAddr addr =
+      (__ :> IContentAddressable).IsValidAddr addr
+
+    member __.GetNotInFileIntervals range =
+      FileHelper.getNotInFileIntervals baseAddr usize range

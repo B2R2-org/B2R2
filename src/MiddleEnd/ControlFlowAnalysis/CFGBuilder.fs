@@ -204,7 +204,8 @@ module private CFGBuilder =
   /// call, nor a ret edge.
   let buildRegularEdge hdl (codeMgr: CodeManager) dataMgr fn src dst edge evts =
     let mode = ArchOperationMode.NoMode (* XXX: put mode in the event. *)
-    if not (hdl.BinFile.IsExecutableAddr (fn: RegularFunction).EntryPoint) then
+    let entryPoint = (fn: RegularFunction).EntryPoint
+    if not (hdl.BinFile.Content.IsExecutableAddr entryPoint) then
       Error (ErrorConnectingEdge evts) (* Invalid bbl encountered. *)
     elif codeMgr.HasBBL dst then
       let dstPp = ProgramPoint (dst, 0)
@@ -233,7 +234,7 @@ module private CFGBuilder =
     elif dst = 0UL then
       Ok evts (* "jmp 0" case (as in "call 0"). *)
     elif hdl.BinFile.FileType = FileType.ObjFile
-      && not (hdl.BinFile.IsExecutableAddr dst) then
+      && not (hdl.BinFile.Content.IsExecutableAddr dst) then
       Ok evts (* call outside a section (occurs in an object file) *)
     else
       match buildBBL hdl codeMgr fn mode dst evts with
@@ -332,7 +333,7 @@ module private CFGBuilder =
     |> List.fold (fun evts ftInfo ->
       match ftInfo with
       | FTCall (caller, callSite, callee, ftAddr) ->
-        if not (hdl.BinFile.IsExecutableAddr ftAddr) then
+        if not (hdl.BinFile.Content.IsExecutableAddr ftAddr) then
           let calleeFn = (codeMgr: CodeManager).FunctionMaintainer.Find callee
           calleeFn.NoReturnProperty <- NoRet
           evts
@@ -486,7 +487,7 @@ module private CFGBuilder =
          analyzeIndirectBranchPattern in IndirectJumpResolution. It's for
          minimizing the overhead in calling CP, and we can get it back here when
          incremental CP is implemented. *)
-      if hdl.ISA.Arch = Arch.EVM then ()
+      if hdl.BinFile.ISA.Arch = Arch.EVM then ()
       else finalizeFunctionInfo fn
       updateCalleeInfo codeMgr fn
       noret.Run hdl codeMgr dataMgr fn evts
@@ -496,7 +497,7 @@ type CFGBuilder (hdl, codeMgr: CodeManager, dataMgr: DataManager) as this =
   let noret = NoReturnFunctionIdentification ()
   let indcall = IndirectCallResolution ()
   let indjmp =
-    match hdl.ISA.Arch with
+    match hdl.BinFile.ISA.Arch with
     | Arch.EVM -> EVMJmpResolution () :> PerFunctionAnalysis
     | _ -> RegularJmpResolution (this) :> PerFunctionAnalysis
 
@@ -587,7 +588,7 @@ type CFGBuilder (hdl, codeMgr: CodeManager, dataMgr: DataManager) as this =
   member private __.AddNewFunction evts (entry, mode) =
     if codeMgr.FunctionMaintainer.Contains (addr=entry) then
       Ok evts
-    elif not <| hdl.BinFile.IsExecutableAddr entry then
+    elif not <| hdl.BinFile.Content.IsExecutableAddr entry then
       Error (ErrorParsing evts)
     else
       CFGEvents.addFuncEvt entry mode evts |> Ok

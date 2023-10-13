@@ -57,14 +57,14 @@ with
     match __ with
     | Binary (hdl, annot) when hdl.Value.BinFile.FileFormat = RawBinary ->
       let hdl = hdl.Value
-      let s = Utils.makeSpanSummary hdl.BinFile.Span
+      let s = Utils.makeSpanSummary hdl.BinFile.Content.Span
       if String.IsNullOrEmpty annot then
         $"Binary(Raw) | 0x{hdl.BinFile.BaseAddress:x8} | {s}"
       else
         $"Binary(Raw) | 0x{hdl.BinFile.BaseAddress:x8} | {s} | {annot}"
     | Binary (hdl, annot) ->
       let hdl = hdl.Value
-      let s = Utils.makeSpanSummary hdl.BinFile.Span
+      let s = Utils.makeSpanSummary hdl.BinFile.Content.Span
       let fmt = FileFormat.toString hdl.BinFile.FileFormat
       let path = hdl.BinFile.FilePath
       let finfo = if String.IsNullOrEmpty path then "" else $", {path}"

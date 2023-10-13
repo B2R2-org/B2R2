@@ -40,15 +40,15 @@ let private printFileName (filepath: string) =
 let private getTableConfig hdl isLift =
   if isLift then [ LeftAligned 10 ]
   else
-    let addrWidth = WordSize.toByteWidth hdl.ISA.WordSize * 2
+    let addrWidth = WordSize.toByteWidth hdl.BinFile.ISA.WordSize * 2
     let binaryWidth =
-      match hdl.ISA.Arch with
+      match hdl.BinFile.ISA.Arch with
       | Arch.IntelX86 | Arch.IntelX64 -> 36
       | _ -> 16
     [ LeftAligned addrWidth; LeftAligned binaryWidth; LeftAligned 10 ]
 
 let private isARM32 hdl =
-  match hdl.ISA.Arch with
+  match hdl.BinFile.ISA.Arch with
   | Arch.ARMv7
   | Arch.AARCH32 -> true
   | _ -> false
@@ -80,16 +80,16 @@ let private makeTablePrinter hdl cfg (opts: BinDumpOpts) =
     else BinTableDisasmPrinter (hdl, cfg) :> BinPrinter
 
 let private dumpRawBinary (hdl: BinHandle) (opts: BinDumpOpts) cfg =
-  let bp = hdl.BinFile.ToBinaryPointer hdl.BinFile.BaseAddress
+  let ptr = hdl.BinFile.ToBinFilePointer hdl.BinFile.BaseAddress
   let prn = makeCodePrinter hdl cfg opts
-  prn.Print bp
+  prn.Print ptr
   out.PrintLine ()
 
 let printHexdump (opts: BinDumpOpts) sec hdl =
-  let bp = BinaryPointer.OfSection sec
-  let bytes = BinHandle.ReadBytes (hdl, bp=bp, nBytes=int sec.Size)
-  let chunkSize = if opts.ShowWide then 32 else 16
-  HexDumper.dump chunkSize hdl.BinFile.WordSize opts.ShowColor bp.Addr bytes
+  let ptr = BinFilePointer.OfSection sec
+  let bytes = BinHandle.ReadBytes (hdl, ptr=ptr, nBytes=int sec.Size)
+  let chunkSz = if opts.ShowWide then 32 else 16
+  HexDumper.dump chunkSz hdl.BinFile.ISA.WordSize opts.ShowColor ptr.Addr bytes
   |> Array.iter out.PrintLine
 
 let private hasNoContent (sec: Section) (file: BinFile) =
@@ -123,7 +123,7 @@ let private isRawBinary hdl =
   | _ -> true
 
 let private printCodeOrTable (printer: BinPrinter) sec =
-  printer.Print (BinaryPointer.OfSection sec)
+  printer.Print (BinFilePointer.OfSection sec)
   out.PrintLine ()
 
 let private printWasmCode (printer: BinPrinter) (code: Wasm.Code) =
@@ -131,12 +131,12 @@ let private printWasmCode (printer: BinPrinter) (code: Wasm.Code) =
   let localsSize = List.sumBy (fun (l: Wasm.LocalDecl) -> l.LocalDeclLen) locals
   let offset = code.Offset + code.LenFieldSize + localsSize + 1
   let maxOffset = code.Offset + code.LenFieldSize + int32 code.CodeSize - 1
-  let bp = BinaryPointer (uint64 offset, offset, maxOffset)
-  printer.Print bp
+  let ptr = BinFilePointer (uint64 offset, offset, maxOffset)
+  printer.Print ptr
   out.PrintLine ()
 
 let initHandleForTableOutput hdl =
-  match hdl.ISA.Arch with
+  match hdl.BinFile.ISA.Arch with
   (* For ARM PLTs, we just assume the ARM mode (if no symbol is given). *)
   | Arch.ARMv7
   | Arch.AARCH32 -> hdl.Parser.OperationMode <- ArchOperationMode.ARMMode
@@ -214,8 +214,8 @@ let dumpHexStringMode (opts: BinDumpOpts) =
   opts.ShowColor <- true
   let printer = makeCodePrinter hdl cfg opts
   let baseAddr = defaultArg opts.BaseAddress 0UL
-  let bp = BinaryPointer (baseAddr, 0, opts.InputHexStr.Length - 1)
-  printer.Print bp
+  let ptr = BinFilePointer (baseAddr, 0, opts.InputHexStr.Length - 1)
+  printer.Print ptr
   out.PrintLine ()
 
 let private dump files (opts: BinDumpOpts) =

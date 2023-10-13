@@ -34,7 +34,6 @@ open B2R2.FrontEnd.BinLifter
 /// BinHandle to parse/lift/disassemble instructions at a specific address or to
 /// access file-specific data.
 type BinHandle = {
-  ISA: ISA
   BinFile: BinFile
   DisasmHelper: DisasmHelper
   TranslationContext: TranslationContext
@@ -56,15 +55,15 @@ with
   member ReadBytes: addr: Addr * nBytes: int -> byte []
 
   /// <summary>
-  ///   Return the byte array of size (nBytes) pointed to by the binary pointer
-  ///   (bp).
+  ///   Return the byte array of size (nBytes) pointed to by the binary file
+  ///   pointer (ptr).
   /// </summary>
-  /// <param name="bp">BInaryPointer.</param>
+  /// <param name="ptr">BInaryPointer.</param>
   /// <param name="nBytes">The size of the byte array (in bytes).</param>
   /// <returns>
   ///   Return the byte array if succeed. Otherwise, raise an exception.
   /// </returns>
-  member ReadBytes: bp: BinaryPointer * nBytes: int -> byte []
+  member ReadBytes: ptr: BinFilePointer * nBytes: int -> byte []
 
   /// <summary>
   ///   Return the corresponding integer value at the addr of the size from the
@@ -80,15 +79,15 @@ with
 
   /// <summary>
   ///   Return the corresponding integer value of the size from the current
-  ///   binary, which is pointed to by the binary pointer (bp).
+  ///   binary, which is pointed to by the binary file pointer (ptr).
   /// </summary>
-  /// <param name="bp">The binary pointer.</param>
+  /// <param name="ptr">The binary pointer.</param>
   /// <param name="size">The size of the integer in bytes. Maximum 8 bytes is
   /// possible.</param>
   /// <returns>
   ///   Return the corresponding integer (int64).
   /// </returns>
-  member ReadInt: bp: BinaryPointer * size: int -> int64
+  member ReadInt: ptr: BinFilePointer * size: int -> int64
 
   /// <summary>
   ///   Return the corresponding unsigned integer value at the addr of the size
@@ -104,15 +103,15 @@ with
 
   /// <summary>
   ///   Return the corresponding unsigned integer value of the size from the
-  ///   binary, which is pointed to by the binary pointer (bp).
+  ///   binary, which is pointed to by the binary file pointer (ptr).
   /// </summary>
-  /// <param name="bp">BinaryPointer.</param>
+  /// <param name="ptr">BinFilePointer.</param>
   /// <param name="size">The size of the integer in bytes. Maximum 8 bytes is
   /// possible.</param>
   /// <returns>
   ///   Return the corresponding unsigned integer (uint64).
   /// </returns>
-  member ReadUInt: bp: BinaryPointer * size: int -> uint64
+  member ReadUInt: ptr: BinFilePointer * size: int -> uint64
 
   /// <summary>
   ///   Return the ASCII string at the addr from the given BinHandle.
@@ -124,14 +123,14 @@ with
   member ReadASCII: addr: Addr -> string
 
   /// <summary>
-  ///   Return the ASCII string pointed to by the binary pointer from the given
-  ///   BinHandle.
+  ///   Return the ASCII string pointed to by the binary file pointer from the
+  ///   given BinHandle.
   /// </summary>
-  /// <param name="bp">BinaryPointer.</param>
+  /// <param name="ptr">BinFilePointer.</param>
   /// <returns>
   ///   Return the corresponding ASCII string.
   /// </returns>
-  member ReadASCII: bp: BinaryPointer -> string
+  member ReadASCII: ptr: BinFilePointer -> string
 
   /// <summary>
   ///   Initialize a BInHnalder from a given binary byte sequence. This function
@@ -292,17 +291,17 @@ with
 
   /// <summary>
   ///   Return the byte array of size (nBytes) from the BinHandler (hdl), which
-  ///   is pointed to by the BinaryPointer (bp). The return value is an option
+  ///   is pointed to by the BinFilePointer (ptr). The return value is an option
   ///   type. When the given address is invalid, this function returns None.
   /// </summary>
   /// <param name="hdl">BinHandle.</param>
-  /// <param name="bp">BinaryPointer.</param>
+  /// <param name="ptr">BinFilePointer.</param>
   /// <param name="nBytes">The size of the byte array (in bytes).</param>
   /// <returns>
   ///   Return (byte []) if succeeded, (ErrorCase) otherwise.
   /// </returns>
   static member TryReadBytes:
-    hdl: BinHandle * bp: BinaryPointer * nBytes: int
+    hdl: BinHandle * ptr: BinFilePointer * nBytes: int
     -> Result<byte [], ErrorCase>
 
   /// <summary>
@@ -320,16 +319,16 @@ with
 
   /// <summary>
   ///   Return the byte array of size (nBytes) from the given BinHandle, which
-  ///   is pointed to by the BinaryPointer (bp).
+  ///   is pointed to by the BinFilePointer (ptr).
   /// </summary>
   /// <param name="hdl">BinHandle.</param>
-  /// <param name="bp">BinaryPointer.</param>
+  /// <param name="ptr">BinFilePointer.</param>
   /// <param name="nBytes">The size of the byte array (in bytes).</param>
   /// <returns>
   ///   Return the byte array if succeed. Otherwise, raise an exception.
   /// </returns>
   static member ReadBytes:
-    hdl: BinHandle * bp: BinaryPointer * nBytes: int -> byte []
+    hdl: BinHandle * ptr: BinFilePointer * nBytes: int -> byte []
 
   /// <summary>
   ///   Return the corresponding integer option value at the addr of the size
@@ -348,10 +347,10 @@ with
 
   /// <summary>
   ///   Return the corresponding integer option value of the size from the given
-  ///   BinHandle (hdl), which is pointed to by the binary pointer (bp).
+  ///   BinHandle (hdl), which is pointed to by the binary pointer (ptr).
   /// </summary>
   /// <param name="hdl">BinHandle.</param>
-  /// <param name="bp">BinaryPointer.</param>
+  /// <param name="ptr">BinFilePointer.</param>
   /// <param name="size">The size of the integer in bytes. Maximum 8 bytes is
   /// possible.</param>
   /// <returns>
@@ -359,7 +358,7 @@ with
   ///   valid. Otherwise ErrorCase.
   /// </returns>
   static member TryReadInt:
-    hdl: BinHandle * bp: BinaryPointer * size: int -> Result<int64, ErrorCase>
+    hdl: BinHandle * ptr: BinFilePointer * size: int -> Result<int64, ErrorCase>
 
   /// <summary>
   ///   Return the corresponding integer value at the addr of the size from the
@@ -377,17 +376,17 @@ with
 
   /// <summary>
   ///   Return the corresponding integer value of the size from the given
-  ///   BinHandle (hdl), which is pointed to by the binary pointer (bp).
+  ///   BinHandle (hdl), which is pointed to by the binary file pointer (ptr).
   /// </summary>
   /// <param name="hdl">BinHandle.</param>
-  /// <param name="bp">BinaryPointer.</param>
+  /// <param name="ptr">BinFilePointer.</param>
   /// <param name="size">The size of the integer in bytes. Maximum 8 bytes is
   /// possible.</param>
   /// <returns>
   ///   Return the corresponding integer (int64).
   /// </returns>
   static member ReadInt:
-    hdl: BinHandle * bp: BinaryPointer * size: int -> int64
+    hdl: BinHandle * ptr: BinFilePointer * size: int -> int64
 
   /// <summary>
   ///   Return the corresponding unsigned integer option value at the addr of
@@ -406,11 +405,11 @@ with
 
   /// <summary>
   ///   Return the corresponding unsigned integer option value of the size from
-  ///   the given BinHandle (hdl), which is pointed to by the binary pointer
-  ///   (bp).
+  ///   the given BinHandle (hdl), which is pointed to by the binary file
+  ///   pointer (ptr).
   /// </summary>
   /// <param name="hdl">BinHandle.</param>
-  /// <param name="bp">BinaryPointer.</param>
+  /// <param name="ptr">BinFilePointer.</param>
   /// <param name="size">The size of the integer in bytes. Maximum 8 bytes is
   /// possible.</param>
   /// <returns>
@@ -418,7 +417,7 @@ with
   ///   the size is valid. Otherwise, ErrorCase.
   /// </returns>
   static member TryReadUInt:
-    hdl: BinHandle * bp: BinaryPointer * size: int -> Result<uint64, ErrorCase>
+    hdl: BinHandle * ptr: BinFilePointer * size: int -> Result<uint64, ErrorCase>
 
   /// <summary>
   ///   Return the corresponding unsigned integer value at the addr of the size
@@ -436,17 +435,18 @@ with
 
   /// <summary>
   ///   Return the corresponding unsigned integer value of the size from the
-  ///   given BinHandle (hdl), which is pointed to by the binary pointer (bp).
+  ///   given BinHandle (hdl), which is pointed to by the binary file pointer
+  ///   (ptr).
   /// </summary>
   /// <param name="hdl">BinHandle.</param>
-  /// <param name="bp">BinaryPointer.</param>
+  /// <param name="ptr">BinFilePointer.</param>
   /// <param name="size">The size of the integer in bytes. Maximum 8 bytes is
   /// possible.</param>
   /// <returns>
   ///   Return the corresponding unsigned integer (uint64).
   /// </returns>
   static member ReadUInt:
-    hdl: BinHandle * bp: BinaryPointer * size: int -> uint64
+    hdl: BinHandle * ptr: BinFilePointer * size: int -> uint64
 
   /// <summary>
   ///   Return the ASCII string at the addr from the given BinHandle.
@@ -464,12 +464,12 @@ with
   ///   BinHandle.
   /// </summary>
   /// <param name="hdl">BinHandle.</param>
-  /// <param name="bp">BinaryPointer.</param>
+  /// <param name="ptr">BinFilePointer.</param>
   /// <returns>
   ///   Return the corresponding ASCII string.
   /// </returns>
   static member ReadASCII:
-    hdl: BinHandle * bp: BinaryPointer -> string
+    hdl: BinHandle * ptr: BinFilePointer -> string
 
   /// <summary>
   ///   Parse one instruction at the given address (addr) from the BinHandle,
@@ -485,17 +485,17 @@ with
     hdl: BinHandle * addr: Addr -> Instruction
 
   /// <summary>
-  ///   Parse one instruction pointed to by binary pointer (bp) from the
-  ///   BinHandle, and return the corresponding instruction. This function
+  ///   Parse one instruction pointed to by the binary file pointer (ptr) from
+  ///   the BinHandle, and return the corresponding instruction. This function
   ///   raises an exception if the parsing process failed.
   /// </summary>
   /// <param name="hdl">BinHandle.</param>
-  /// <param name="bp">BinaryPointer.</param>
+  /// <param name="ptr">BinFilePointer.</param>
   /// <returns>
   ///   Parsed instruction.
   /// </returns>
   static member ParseInstr:
-    hdl: BinHandle * bp: BinaryPointer -> Instruction
+    hdl: BinHandle * ptr: BinFilePointer -> Instruction
 
   /// <summary>
   ///   Parse one instruction at the given address (addr) from the BinHandle,
@@ -511,17 +511,17 @@ with
     hdl: BinHandle * addr: Addr -> Result<Instruction, ErrorCase>
 
   /// <summary>
-  ///   Parse one instruction pointed to by the binary pointer (bp) from the
-  ///   BinHandle, and return the corresponding instruction. This function does
-  ///   not raise an exception, but returns an option type.
+  ///   Parse one instruction pointed to by the binary file pointer (ptr) from
+  ///   the BinHandle, and return the corresponding instruction. This function
+  ///   does not raise an exception, but returns an option type.
   /// </summary>
   /// <param name="hdl">BinHandle.</param>
-  /// <param name="bp">BinaryPointer.</param>
+  /// <param name="ptr">BinFilePointer.</param>
   /// <returns>
   ///   Parsed instruction (option type).
   /// </returns>
   static member TryParseInstr:
-       hdl: BinHandle * bp: BinaryPointer -> Result<Instruction, ErrorCase>
+       hdl: BinHandle * ptr: BinFilePointer -> Result<Instruction, ErrorCase>
 
   /// Parse a basic block from the given address, and return the sequence of the
   /// instructions of the basic block. This function may return an incomplete
@@ -531,12 +531,13 @@ with
        BinHandle * addr: Addr
     -> Result<Instruction list, Instruction list>
 
-  /// Parse a basic block pointed to by the binary pointer (bp), and return the
-  /// sequence of the instructions of the basic block. This function may return
-  /// an incomplete basic block as an Error type. This function can be safely
-  /// used for any ISAs, and thus, this should be the main parsing function.
+  /// Parse a basic block pointed to by the binary file pointer (ptr), and
+  /// return the sequence of the instructions of the basic block. This function
+  /// may return an incomplete basic block as an Error type. This function can
+  /// be safely used for any ISAs, and thus, this should be the main parsing
+  /// function.
   static member ParseBBlock:
-       BinHandle * bp: BinaryPointer
+       BinHandle * ptr: BinFilePointer
     -> Result<Instruction list, Instruction list>
 
   /// Lift a parsed instruction (Instruction) to produce an array of IR
@@ -558,12 +559,12 @@ with
               (LowUIR.Stmt [] * Addr)>
 
   /// Return the lifted IR (an array of statements) of a basic block pointed to
-  /// by the binary pointer (bp). This function returns a partial bblock with
-  /// Error, if the parsing of the bblock was not successful.
+  /// by the binary file pointer (ptr). This function returns a partial bblock
+  /// with Error, if the parsing of the bblock was not successful.
   static member LiftBBlock:
-       hdl: BinHandle * bp: BinaryPointer
-    -> Result<(LowUIR.Stmt [] * BinaryPointer),
-              (LowUIR.Stmt [] * BinaryPointer)>
+       hdl: BinHandle * ptr: BinFilePointer
+    -> Result<(LowUIR.Stmt [] * BinFilePointer),
+              (LowUIR.Stmt [] * BinFilePointer)>
 
   /// <summary>
   ///   Return a disassembled string from the parsed instruction.
@@ -610,7 +611,7 @@ with
 
   /// <summary>
   ///   Return the disassembled string for a basic block starting at address
-  ///   pointed to by the binary pointer (bp) along with the fall-through
+  ///   pointed to by the binary pointer (ptr) along with the fall-through
   ///   address of the block. This function returns a partial disassembly if
   ///   parsing of the bblock was not successful.
   /// </summary>
@@ -618,9 +619,9 @@ with
     hdl: BinHandle
     * showAddr:bool
     * resolveSymbol: bool
-    * bp: BinaryPointer
-    -> Result<(string * BinaryPointer),
-              (string * BinaryPointer)>
+    * ptr: BinFilePointer
+    -> Result<(string * BinFilePointer),
+              (string * BinFilePointer)>
 
   /// <summary>
   /// Return optimized statements from the given statements.

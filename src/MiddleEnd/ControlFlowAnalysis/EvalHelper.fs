@@ -33,8 +33,8 @@ open B2R2.MiddleEnd.ConcEval
 
 let private memoryReader hdl _pc addr typ _e =
   let len = RegType.toByteWidth typ
-  let fileInfo = hdl.BinFile
-  if addr < System.UInt64.MaxValue && fileInfo.IsValidAddr addr then
+  let file = hdl.BinFile
+  if addr < System.UInt64.MaxValue && file.Content.IsValidAddr addr then
     match BinHandle.TryReadBytes (hdl, addr, len) with
     | Ok v -> Ok (BitVector.OfArr v)
     | Error e -> Error e
@@ -44,12 +44,14 @@ let private stackAddr t = BitVector.OfInt32 0x1000000 t
 
 let private obtainStackDef hdl =
   match hdl.RegisterBay.StackPointer with
-  | Some r -> Some (r, hdl.ISA.WordSize |> WordSize.toRegType |> stackAddr)
+  | Some r ->
+    Some (r, hdl.BinFile.ISA.WordSize |> WordSize.toRegType |> stackAddr)
   | None -> None
 
 let private obtainFramePointerDef hdl =
   match hdl.RegisterBay.FramePointer with
-  | Some r -> Some (r, hdl.ISA.WordSize |> WordSize.toRegType |> BitVector.Zero)
+  | Some r ->
+    Some (r, hdl.BinFile.ISA.WordSize |> WordSize.toRegType |> BitVector.Zero)
   | None -> None
 
 let private initState hdl pc =

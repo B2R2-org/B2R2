@@ -102,8 +102,8 @@ let dumpSectionHeaders (opts: FileViewerOpts) (file: MachBinFile) =
     |> Array.iteri (fun idx s ->
       out.PrintRow (true, cfg,
         [ String.wrapSqrdBracket (idx.ToString ())
-          (Addr.toString file.WordSize s.SecAddr)
-          (Addr.toString file.WordSize (s.SecAddr + s.SecSize - uint64 1))
+          (Addr.toString file.ISA.WordSize s.SecAddr)
+          (Addr.toString file.ISA.WordSize (s.SecAddr + s.SecSize - uint64 1))
           normalizeEmpty s.SecName
           normalizeEmpty s.SegName
           String.u64ToHex s.SecSize
@@ -128,8 +128,8 @@ let dumpSectionHeaders (opts: FileViewerOpts) (file: MachBinFile) =
     |> Seq.iteri (fun idx s ->
       out.PrintRow (true, cfg,
         [ String.wrapSqrdBracket (idx.ToString ())
-          (Addr.toString file.WordSize s.Address)
-          (Addr.toString file.WordSize (s.Address + s.Size - uint64 1))
+          (Addr.toString file.ISA.WordSize s.Address)
+          (Addr.toString file.ISA.WordSize (s.Address + s.Size - uint64 1))
           normalizeEmpty s.Name ]))
 
 let dumpSectionDetails (secname: string) (file: MachBinFile) =
@@ -192,7 +192,7 @@ let printSymbolInfoVerbose file s (machSymbol: Mach.MachSymbol) cfg =
     | None -> "(n/a)"
   out.PrintRow (true, cfg,
     [ visibilityString s
-      Addr.toString (file: MachBinFile).WordSize s.Address
+      Addr.toString (file: MachBinFile).ISA.WordSize s.Address
       normalizeEmpty s.Name
       (toLibString >> normalizeEmpty) s.LibraryName
       machSymbol.SymType.ToString ()
@@ -204,7 +204,7 @@ let printSymbolInfoVerbose file s (machSymbol: Mach.MachSymbol) cfg =
 let printSymbolInfoNone file s cfg =
   out.PrintRow (true, cfg,
     [ visibilityString s
-      Addr.toString (file: MachBinFile).WordSize s.Address
+      Addr.toString (file: MachBinFile).ISA.WordSize s.Address
       normalizeEmpty s.Name
       (toLibString >> normalizeEmpty) s.LibraryName
       "(n/a)"; "(n/a)"; "(n/a)"; "(n/a)"; "(n/a)" ])
@@ -240,7 +240,7 @@ let printSymbolInfo isVerbose (file: MachBinFile) (symbols: seq<Symbol>) =
       out.PrintRow (true, cfg,
         [ visibilityString s
           symbolKindString s
-          Addr.toString file.WordSize s.Address
+          Addr.toString file.ISA.WordSize s.Address
           normalizeEmpty s.Name
           (toLibString >> normalizeEmpty) s.LibraryName ]))
 
@@ -260,7 +260,7 @@ let dumpArchiveHeader (opts: FileViewerOpts) (file: MachBinFile) =
   Utils.futureFeature ()
 
 let dumpUniversalHeader (_opts: FileViewerOpts) (file: MachBinFile) =
-  let span = file.Span
+  let span = file.Content.Slice 0
   let reader = file.Mach.BinReader
   if Mach.Header.isFat span reader then
     Mach.Fat.loadFats span reader

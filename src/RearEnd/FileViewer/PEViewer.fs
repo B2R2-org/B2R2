@@ -109,8 +109,8 @@ let dumpSectionHeaders (opts: FileViewerOpts) (file: PEBinFile) =
       let characteristics = uint64 s.SectionCharacteristics
       out.PrintRow (true, cfg,
         [ String.wrapSqrdBracket (idx.ToString ())
-          (Addr.toString file.WordSize startAddr)
-          (Addr.toString file.WordSize (startAddr + size - uint64 1))
+          (Addr.toString file.ISA.WordSize startAddr)
+          (Addr.toString file.ISA.WordSize (startAddr + size - uint64 1))
           normalizeEmpty s.Name
           String.u64ToHex (uint64 s.VirtualSize)
           String.u64ToHex (uint64 s.VirtualAddress)
@@ -133,8 +133,8 @@ let dumpSectionHeaders (opts: FileViewerOpts) (file: PEBinFile) =
     |> Seq.iteri (fun idx s ->
       out.PrintRow (true, cfg,
         [ String.wrapSqrdBracket (idx.ToString ())
-          (Addr.toString file.WordSize s.Address)
-          (Addr.toString file.WordSize (s.Address + s.Size - uint64 1))
+          (Addr.toString file.ISA.WordSize s.Address)
+          (Addr.toString file.ISA.WordSize (s.Address + s.Size - uint64 1))
           normalizeEmpty s.Name ]))
 
 let dumpSectionDetails (secname: string) (file: PEBinFile) =
@@ -196,7 +196,7 @@ let printSymbolInfo (file: PEBinFile) (symbols: seq<Symbol>) =
     out.PrintRow (true, cfg,
       [ visibilityString s
         symbolKindString s
-        Addr.toString file.WordSize s.Address
+        Addr.toString file.ISA.WordSize s.Address
         normalizeEmpty s.Name
         (toLibString >> normalizeEmpty) s.LibraryName ]))
 

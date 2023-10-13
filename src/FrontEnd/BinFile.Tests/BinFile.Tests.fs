@@ -88,7 +88,7 @@ module PE =
       Assert.AreEqual (239, file.GetStaticSymbols () |> Seq.length)
       Assert.AreEqual (41, file.GetDynamicSymbols () |> Seq.length)
       Assert.AreEqual (0x00401000UL, file.TextStartAddr)
-      Assert.AreEqual (WordSize.Bit32, file.WordSize)
+      Assert.AreEqual (WordSize.Bit32, file.ISA.WordSize)
       checkSymbol file 0x00401090UL "_add"
       checkSymbol file 0x004010d0UL "_mul"
       checkSymbol file 0x004010e0UL "_main"
@@ -104,7 +104,7 @@ module PE =
       Assert.AreEqual (240, file.GetStaticSymbols () |> Seq.length)
       Assert.AreEqual (43, file.GetDynamicSymbols () |> Seq.length)
       Assert.AreEqual (0x140001000UL, file.TextStartAddr)
-      Assert.AreEqual (WordSize.Bit64, file.WordSize)
+      Assert.AreEqual (WordSize.Bit64, file.ISA.WordSize)
       checkSymbol file 0x1400010e0UL "add"
       checkSymbol file 0x140001110UL "mul"
       checkSymbol file 0x140001130UL "main"
@@ -136,7 +136,7 @@ module Mach =
       Assert.AreEqual (59, file.GetDynamicSymbols () |> Seq.length)
       Assert.AreEqual (45, file.GetLinkageTableEntries () |> Seq.length)
       Assert.AreEqual (0x00002050UL, file.TextStartAddr)
-      Assert.AreEqual (WordSize.Bit32, file.WordSize)
+      Assert.AreEqual (WordSize.Bit32, file.ISA.WordSize)
       checkSymbol file 0x00003b28UL "___error"
       checkSymbol file 0x00003b70UL "_fflush"
 
@@ -152,7 +152,7 @@ module Mach =
       Assert.AreEqual (190, file.GetDynamicSymbols () |> Seq.length)
       Assert.AreEqual (72, file.GetLinkageTableEntries () |> Seq.length)
       Assert.AreEqual (0x100000D30UL, file.TextStartAddr)
-      Assert.AreEqual (WordSize.Bit64, file.WordSize)
+      Assert.AreEqual (WordSize.Bit64, file.ISA.WordSize)
       checkSymbol file 0x100000D30UL "_usage"
       checkSymbol file 0x100005F90UL "_error"
 
@@ -168,7 +168,7 @@ module Mach =
       Assert.AreEqual (190, file.GetDynamicSymbols () |> Seq.length)
       Assert.AreEqual (72, file.GetLinkageTableEntries () |> Seq.length)
       Assert.AreEqual (0x100000D30UL, file.TextStartAddr)
-      Assert.AreEqual (WordSize.Bit64, file.WordSize)
+      Assert.AreEqual (WordSize.Bit64, file.ISA.WordSize)
       checkSymbol file 0x10000B076UL "___error"
       checkSymbol file 0x10000B0D0UL "_fflush"
 
@@ -213,7 +213,7 @@ module ELF =
       Assert.AreEqual (file.GetDynamicSymbols () |> Seq.length, 131)
       Assert.AreEqual (file.GetLinkageTableEntries () |> Seq.length, 114)
       Assert.AreEqual (file.TextStartAddr, 0x8049CD0UL)
-      Assert.AreEqual (file.WordSize, WordSize.Bit32)
+      Assert.AreEqual (file.ISA.WordSize, WordSize.Bit32)
       checkSymbol file 0x080495b0UL "unsetenv"
       checkSymbol file 0x08049cb0UL "putchar_unlocked"
 
@@ -229,7 +229,7 @@ module ELF =
       Assert.AreEqual (file.GetDynamicSymbols () |> Seq.length, 131)
       Assert.AreEqual (file.GetLinkageTableEntries () |> Seq.length, 114)
       Assert.AreEqual (file.TextStartAddr, 0x8049CD0UL)
-      Assert.AreEqual (file.WordSize, WordSize.Bit32)
+      Assert.AreEqual (file.ISA.WordSize, WordSize.Bit32)
       checkSymbol file 0x080495b0UL "unsetenv"
       checkSymbol file 0x08049cb0UL "putchar_unlocked"
 
@@ -245,7 +245,7 @@ module ELF =
       Assert.AreEqual (file.GetDynamicSymbols () |> Seq.length, 126)
       Assert.AreEqual (file.GetLinkageTableEntries () |> Seq.length, 110)
       Assert.AreEqual (file.TextStartAddr, 0x4027C0UL)
-      Assert.AreEqual (file.WordSize, WordSize.Bit64)
+      Assert.AreEqual (file.ISA.WordSize, WordSize.Bit64)
       checkSymbol file 0x004020e0UL "__ctype_toupper_loc"
       checkSymbol file 0x004027a0UL "__sprintf_chk"
 
@@ -261,7 +261,7 @@ module ELF =
       Assert.AreEqual (file.GetDynamicSymbols () |> Seq.length, 126)
       Assert.AreEqual (file.GetLinkageTableEntries () |> Seq.length, 110)
       Assert.AreEqual (file.TextStartAddr, 0x4027C0UL)
-      Assert.AreEqual (file.WordSize, WordSize.Bit64)
+      Assert.AreEqual (file.ISA.WordSize, WordSize.Bit64)
       checkSymbol file 0x004020e0UL "__ctype_toupper_loc"
       checkSymbol file 0x004027a0UL "__sprintf_chk"
 
@@ -277,7 +277,7 @@ module ELF =
       Assert.AreEqual (file.GetDynamicSymbols () |> Seq.length, 136)
       Assert.AreEqual (file.GetLinkageTableEntries () |> Seq.length, 121)
       Assert.AreEqual (file.TextStartAddr, 0x00011f98UL)
-      Assert.AreEqual (file.WordSize, WordSize.Bit32)
+      Assert.AreEqual (file.ISA.WordSize, WordSize.Bit32)
       checkSymbol file 0x000119ecUL "fdopen"
       checkSymbol file 0x00011f8cUL "__assert_fail"
 
@@ -293,7 +293,7 @@ module ELF =
       Assert.AreEqual (file.GetDynamicSymbols () |> Seq.length, 136)
       Assert.AreEqual (file.GetLinkageTableEntries () |> Seq.length, 121)
       Assert.AreEqual (file.TextStartAddr, 0x00011f98UL)
-      Assert.AreEqual (file.WordSize, WordSize.Bit32)
+      Assert.AreEqual (file.ISA.WordSize, WordSize.Bit32)
       checkSymbol file 0x000119ecUL "fdopen"
       checkSymbol file 0x00011f8cUL "__assert_fail"
 
@@ -309,7 +309,7 @@ module ELF =
       Assert.AreEqual (file.GetDynamicSymbols () |> Seq.length, 136)
       Assert.AreEqual (file.GetLinkageTableEntries () |> Seq.length, 121)
       Assert.AreEqual (file.TextStartAddr, 0x00011fe0UL)
-      Assert.AreEqual (file.WordSize, WordSize.Bit32)
+      Assert.AreEqual (file.ISA.WordSize, WordSize.Bit32)
       checkSymbol file 0x000119fcUL "fdopen"
       checkSymbol file 0x00011fd0UL "__assert_fail"
 
@@ -325,7 +325,7 @@ module ELF =
       Assert.AreEqual (file.GetDynamicSymbols () |> Seq.length, 136)
       Assert.AreEqual (file.GetLinkageTableEntries () |> Seq.length, 121)
       Assert.AreEqual (file.TextStartAddr, 0x00011fe0UL)
-      Assert.AreEqual (file.WordSize, WordSize.Bit32)
+      Assert.AreEqual (file.ISA.WordSize, WordSize.Bit32)
       checkSymbol file 0x000119fcUL "fdopen"
       checkSymbol file 0x00011fd0UL "__assert_fail"
 
@@ -341,7 +341,7 @@ module ELF =
       Assert.AreEqual (file.GetDynamicSymbols () |> Seq.length, 136)
       Assert.AreEqual (file.GetLinkageTableEntries () |> Seq.length, 121)
       Assert.AreEqual (file.TextStartAddr, 0x00402e60UL)
-      Assert.AreEqual (file.WordSize, WordSize.Bit64)
+      Assert.AreEqual (file.ISA.WordSize, WordSize.Bit64)
       checkSymbol file 0x004026d0UL "mbrtowc"
       checkSymbol file 0x00402e50UL "__fxstatat"
 
@@ -357,7 +357,7 @@ module ELF =
       Assert.AreEqual (file.GetDynamicSymbols () |> Seq.length, 136)
       Assert.AreEqual (file.GetLinkageTableEntries () |> Seq.length, 121)
       Assert.AreEqual (file.TextStartAddr, 0x00402e60UL)
-      Assert.AreEqual (file.WordSize, WordSize.Bit64)
+      Assert.AreEqual (file.ISA.WordSize, WordSize.Bit64)
       checkSymbol file 0x004026d0UL "mbrtowc"
       checkSymbol file 0x00402e50UL "__fxstatat"
 
@@ -373,7 +373,7 @@ module ELF =
       Assert.AreEqual (232, file.GetDynamicSymbols () |> Seq.length)
       Assert.AreEqual (106, file.GetLinkageTableEntries () |> Seq.length)
       Assert.AreEqual (0x00002c50UL, file.TextStartAddr)
-      Assert.AreEqual (WordSize.Bit32, file.WordSize)
+      Assert.AreEqual (WordSize.Bit32, file.ISA.WordSize)
       checkSymbol file 0x0001c280UL "strcmp"
       checkSymbol file 0x0001c240UL "getpwnam"
 
@@ -389,7 +389,7 @@ module ELF =
       Assert.AreEqual (232, file.GetDynamicSymbols () |> Seq.length)
       Assert.AreEqual (106, file.GetLinkageTableEntries () |> Seq.length)
       Assert.AreEqual (0x00002c50UL, file.TextStartAddr)
-      Assert.AreEqual (WordSize.Bit32, file.WordSize)
+      Assert.AreEqual (WordSize.Bit32, file.ISA.WordSize)
       checkSymbol file 0x0001c280UL "__snprintf_chk"
       checkSymbol file 0x0001c240UL "unsetenv"
 
@@ -405,7 +405,7 @@ module ELF =
       Assert.AreEqual (232, file.GetDynamicSymbols () |> Seq.length)
       Assert.AreEqual (106, file.GetLinkageTableEntries () |> Seq.length)
       Assert.AreEqual (0x00008f90UL, file.TextStartAddr)
-      Assert.AreEqual (WordSize.Bit64, file.WordSize)
+      Assert.AreEqual (WordSize.Bit64, file.ISA.WordSize)
       checkSymbol file 0x00022380UL "strcmp"
       checkSymbol file 0x00022320UL "unsetenv"
 

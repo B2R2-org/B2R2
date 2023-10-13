@@ -31,15 +31,15 @@ open B2R2.FrontEnd.BinInterface
 type AsmInterface (hdl: BinHandle, startAddress) =
 
   let asmParser =
-    match hdl.ISA.Arch with
+    match hdl.BinFile.ISA.Arch with
     | Architecture.IntelX64
     | Architecture.IntelX86 ->
-      Intel.IntelAsmParser (hdl.ISA, startAddress) :> AsmParser
+      Intel.IntelAsmParser (hdl.BinFile.ISA, startAddress) :> AsmParser
     | Architecture.MIPS32
     | Architecture.MIPS64
     | _ -> raise InvalidISAException
 
-  let uirParser = LowUIR.LowUIRParser (hdl.ISA, hdl.RegisterBay)
+  let uirParser = LowUIR.LowUIRParser (hdl.BinFile.ISA, hdl.RegisterBay)
 
   new (isa: ISA, startAddress) =
     AsmInterface (BinHandle.Init (isa), startAddress)

@@ -35,7 +35,7 @@ let badAccess _ _ =
   raise InvalidFileFormatException
 
 let computeMagicBytes (file: ELFBinFile) =
-  let slice = file.Span.Slice (0, 16)
+  let slice = file.Content.Slice (offset=0, size=16)
   slice.ToArray () |> ColoredSegment.colorBytes
 
 let computeEntryPoint (hdr: ELFHeader) =
@@ -76,8 +76,8 @@ let dumpSectionHeaders (opts: FileViewerOpts) (file: ELFBinFile) =
     |> Array.iteri (fun idx s ->
       out.PrintRow (true, cfg,
         [ String.wrapSqrdBracket (idx.ToString ())
-          (Addr.toString file.WordSize s.SecAddr)
-          (Addr.toString file.WordSize (s.SecAddr + s.SecSize - uint64 1))
+          (Addr.toString file.ISA.WordSize s.SecAddr)
+          (Addr.toString file.ISA.WordSize (s.SecAddr + s.SecSize - uint64 1))
           normalizeEmpty s.SecName
           s.SecType.ToString ()
           String.u64ToHex s.SecOffset
@@ -95,8 +95,8 @@ let dumpSectionHeaders (opts: FileViewerOpts) (file: ELFBinFile) =
     |> Seq.iteri (fun idx s ->
       out.PrintRow (true, cfg,
         [ String.wrapSqrdBracket (idx.ToString ())
-          (Addr.toString file.WordSize s.Address)
-          (Addr.toString file.WordSize (s.Address + s.Size - uint64 1))
+          (Addr.toString file.ISA.WordSize s.Address)
+          (Addr.toString file.ISA.WordSize (s.Address + s.Size - uint64 1))
           normalizeEmpty s.Name ]))
 
 let dumpSectionDetails (secname: string) (file: ELFBinFile) =
@@ -122,7 +122,7 @@ let printSymbolInfoVerbose (file: ELFBinFile) s (elfSymbol: ELFSymbol) cfg =
     | idx -> idx.ToString ()
   out.PrintRow (true, cfg,
     [ visibilityString s
-      Addr.toString file.WordSize s.Address
+      Addr.toString file.ISA.WordSize s.Address
       normalizeEmpty s.Name
       (toLibString >> normalizeEmpty) s.LibraryName
       String.u64ToHex elfSymbol.Size
@@ -134,7 +134,7 @@ let printSymbolInfoVerbose (file: ELFBinFile) s (elfSymbol: ELFSymbol) cfg =
 let printSymbolInfoNone (file: ELFBinFile) s cfg =
   out.PrintRow (true, cfg,
     [ visibilityString s
-      Addr.toString file.WordSize s.Address
+      Addr.toString file.ISA.WordSize s.Address
       normalizeEmpty s.Name
       (toLibString >> normalizeEmpty) s.LibraryName
       "(n/a)"; "(n/a)"; "(n/a)"; "(n/a)"; "(n/a)" ])
@@ -176,7 +176,7 @@ let printSymbolInfo isVerbose (file: ELFBinFile) (symbols: seq<Symbol>) =
       out.PrintRow (true, cfg,
         [ visibilityString s
           symbolKindString s
-          Addr.toString file.WordSize s.Address
+          Addr.toString file.ISA.WordSize s.Address
           normalizeEmpty s.Name
           (toLibString >> normalizeEmpty) s.LibraryName ]))
 
@@ -197,7 +197,7 @@ let dumpRelocs (_opts: FileViewerOpts) (file: ELFBinFile) =
       | Some s when s.SymName.Length > 0 -> s.SymName
       | _ -> "(n/a)"
     out.PrintRow (true, cfg, [
-      Addr.toString file.WordSize reloc.RelOffset
+      Addr.toString file.ISA.WordSize reloc.RelOffset
       RelocationType.ToString reloc.RelType
       reloc.RelAddend.ToString ("x")
       symbol
@@ -224,7 +224,7 @@ let makeStringTableReader (file: ELFBinFile) dynEntries =
   ) (None, None)
   ||> Option.map2 (fun off len ->
     fun v ->
-      let strtab = file.Span.Slice (int off, int len)
+      let strtab = file.Content.Slice (offset=int off, size=int len)
       let buf = strtab.Slice (int v)
       ByteArray.extractCStringFromSpan buf 0)
 
@@ -264,12 +264,13 @@ let dumpSegments (opts: FileViewerOpts) (file: ELFBinFile) =
                                "Type"; "Offset"; "VirtAddr"; "PhysAddr"
                                "FileSize"; "MemSize"; "Alignment" ])
     out.PrintLine "  ---"
+    let wordSize = file.ISA.WordSize
     file.ELF.ProgHeaders
     |> List.iteri (fun idx ph ->
       out.PrintRow (true, cfg,
         [ String.wrapSqrdBracket (idx.ToString ())
-          (Addr.toString file.WordSize ph.PHAddr)
-          (Addr.toString file.WordSize (ph.PHAddr + ph.PHMemSize - uint64 1))
+          (Addr.toString wordSize ph.PHAddr)
+          (Addr.toString wordSize (ph.PHAddr + ph.PHMemSize - uint64 1))
           (BinFile.PermissionToString ph.PHFlags)
           ph.PHType.ToString ()
           String.u64ToHex ph.PHOffset
@@ -286,8 +287,8 @@ let dumpSegments (opts: FileViewerOpts) (file: ELFBinFile) =
     |> Seq.iteri (fun idx s ->
       out.PrintRow (true, cfg,
         [ String.wrapSqrdBracket (idx.ToString ())
-          (Addr.toString file.WordSize s.Address)
-          (Addr.toString file.WordSize (s.Address + s.Size - uint64 1))
+          (Addr.toString file.ISA.WordSize s.Address)
+          (Addr.toString file.ISA.WordSize (s.Address + s.Size - uint64 1))
           (BinFile.PermissionToString s.Permission) ]))
 
 let dumpLinkageTable (opts: FileViewerOpts) (file: ELFBinFile) =
@@ -304,8 +305,8 @@ let dumpLinkageTable (opts: FileViewerOpts) (file: ELFBinFile) =
       match file.ELF.RelocInfo.RelocByAddr.TryGetValue e.TableAddress with
       | true, reloc ->
         out.PrintRow (true, cfg,
-          [ (Addr.toString file.WordSize e.TrampolineAddress)
-            (Addr.toString file.WordSize e.TableAddress)
+          [ (Addr.toString file.ISA.WordSize e.TrampolineAddress)
+            (Addr.toString file.ISA.WordSize e.TableAddress)
             normalizeEmpty e.FuncName
             (toLibString >> normalizeEmpty) e.LibraryName
             reloc.RelAddend.ToString ()
@@ -313,8 +314,8 @@ let dumpLinkageTable (opts: FileViewerOpts) (file: ELFBinFile) =
             reloc.RelType.ToString () ])
       | false, _ ->
         out.PrintRow (true, cfg,
-          [ (Addr.toString file.WordSize e.TrampolineAddress)
-            (Addr.toString file.WordSize e.TableAddress)
+          [ (Addr.toString file.ISA.WordSize e.TrampolineAddress)
+            (Addr.toString file.ISA.WordSize e.TableAddress)
             normalizeEmpty e.FuncName
             (toLibString >> normalizeEmpty) e.LibraryName
             "(n/a)"; "(n/a)"; "(n/a)" ]))
@@ -326,8 +327,8 @@ let dumpLinkageTable (opts: FileViewerOpts) (file: ELFBinFile) =
     file.GetLinkageTableEntries ()
     |> Seq.iter (fun e ->
       out.PrintRow (true, cfg,
-        [ (Addr.toString file.WordSize e.TrampolineAddress)
-          (Addr.toString file.WordSize e.TableAddress)
+        [ (Addr.toString file.ISA.WordSize e.TrampolineAddress)
+          (Addr.toString file.ISA.WordSize e.TableAddress)
           normalizeEmpty e.FuncName
           (toLibString >> normalizeEmpty) e.LibraryName ]))
 
@@ -380,10 +381,10 @@ let dumpGccExceptTable _hdl (file: ELFBinFile) =
   |> Map.iter (fun lsdaAddr lsda ->
     let ttbase = lsda.Header.TTBase |> Option.defaultValue 0UL
     out.PrintRow (true, cfg,
-      [ Addr.toString file.WordSize lsdaAddr
+      [ Addr.toString file.ISA.WordSize lsdaAddr
         lsda.Header.LPAppEncoding.ToString ()
         lsda.Header.LPValueEncoding.ToString ()
-        ttbase |> Addr.toString file.WordSize ])
+        ttbase |> Addr.toString file.ISA.WordSize ])
   )
 
 let dumpNotes _hdl (file: ELFBinFile) =

@@ -33,7 +33,7 @@ type CmdList () =
   inherit Cmd ()
 
   let createFuncString hdl (addr, name) =
-    Addr.toString hdl.ISA.WordSize addr + ": " + name
+    Addr.toString hdl.BinFile.ISA.WordSize addr + ": " + name
 
   let listFunctions ess =
     ess.CodeManager.FunctionMaintainer.RegularFunctions
@@ -42,31 +42,33 @@ type CmdList () =
     |> Seq.map (createFuncString ess.BinHandle)
     |> Seq.toArray
 
-  let createSegmentString handler (seg: Segment) =
+  let createSegmentString wordSize (seg: Segment) =
     "- "
-    + Addr.toString handler.ISA.WordSize seg.Address
+    + Addr.toString wordSize seg.Address
     + ":"
-    + Addr.toString handler.ISA.WordSize (seg.Address + seg.Size)
+    + Addr.toString wordSize (seg.Address + seg.Size)
     + " (" + seg.Size.ToString () + ") ("
     + BinFile.PermissionToString seg.Permission + ")"
 
-  let listSegments (handler: BinHandle) =
-    handler.BinFile.GetSegments ()
-    |> Seq.map (createSegmentString handler)
+  let listSegments (hdl: BinHandle) =
+    let wordSize = hdl.BinFile.ISA.WordSize
+    hdl.BinFile.GetSegments ()
+    |> Seq.map (createSegmentString wordSize)
     |> Seq.toArray
 
-  let createSectionString handler (idx: int) (sec: Section) =
+  let createSectionString wordSize (idx: int) (sec: Section) =
     idx.ToString ("D2")
     + ". "
-    + Addr.toString handler.ISA.WordSize sec.Address
+    + Addr.toString wordSize sec.Address
     + ":"
-    + Addr.toString handler.ISA.WordSize (sec.Address + sec.Size)
+    + Addr.toString wordSize (sec.Address + sec.Size)
     + " (" + sec.Size.ToString ("D6") + ")"
     + " [" + sec.Name + "] "
 
-  let listSections (handler: BinHandle) =
-    handler.BinFile.GetSections ()
-    |> Seq.mapi (createSectionString handler)
+  let listSections (hdl: BinHandle) =
+    let wordSize = hdl.BinFile.ISA.WordSize
+    hdl.BinFile.GetSections ()
+    |> Seq.mapi (createSectionString wordSize)
     |> Seq.toArray
 
   override __.CmdName = "list"

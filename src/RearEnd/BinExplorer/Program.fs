@@ -206,10 +206,10 @@ let spec =
                   long = "--batch" )
   ]
 
-let buildGraph (opts: BinExplorerOpts) handle =
-  let arch = handle.ISA.Arch
+let buildGraph (opts: BinExplorerOpts) hdl =
+  let arch = hdl.BinFile.ISA.Arch
   let preanalyses, iteranalyses, postanalyses = opts.GetAnalyses arch
-  BinEssence.init handle preanalyses iteranalyses postanalyses
+  BinEssence.init hdl preanalyses iteranalyses postanalyses
 
 let startGUI (opts: BinExplorerOpts) arbiter =
   HTTPServer.startServer arbiter opts.IP opts.Port opts.Verbose
