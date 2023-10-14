@@ -88,14 +88,14 @@ type Ordered<'A when 'A : comparison> (k) =
 /// A monoid that represents an interval (uint64 * uint64).
 type InterMonoid<'A when 'A : comparison> (o, p) =
   let v = o, p
-  new () = InterMonoid<'A> (new Ordered<'A>(), new Priority<'A>())
+  new () = InterMonoid<'A> (Ordered<'A>(), Priority<'A>())
   member inline __.Value: Ordered<'A> * Priority<'A> = v
   member __.GetMin () = o.Key
   member __.GetMax () = p.Value
   override __.ToString () = "(" + o.ToString () + "," + p.ToString () + ")"
   interface IMonoid<InterMonoid<'A>> with
     member __.Zero =
-      InterMonoid (new Ordered<'A>(), new Priority<'A>())
+      InterMonoid (Ordered<'A>(), Priority<'A>())
     member __.Assoc (rhs: InterMonoid<'A>) =
       let a1, b1 = __.Value
       let a2, b2 = rhs.Value
