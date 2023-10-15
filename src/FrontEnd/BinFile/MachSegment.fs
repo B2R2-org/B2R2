@@ -40,9 +40,9 @@ let buildMap (segs: SegCmd list) =
 
 let segCmdToSegment seg =
   { Address = seg.VMAddr
-    Offset = seg.FileOff
-    Size = seg.VMSize
-    SizeInFile = seg.FileSize
+    Offset = uint32 seg.FileOff
+    Size = uint32 seg.VMSize
+    SizeInFile = uint32 seg.FileSize
     Permission = seg.MaxProt |> LanguagePrimitives.EnumOfValue }
 
 let getSegments mach isLoadable =

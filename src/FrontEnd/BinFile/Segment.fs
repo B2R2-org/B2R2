@@ -32,12 +32,12 @@ type Segment = {
   /// Address of the segment.
   Address: Addr
   /// Offset in the file.
-  Offset: uint64
+  Offset: uint32
   /// Size of the segment.
-  Size: uint64
+  Size: uint32
   /// Size of the corresponding segment in file. This can be smaller than
   /// `Size` in which case the missing part is filled with zeros.
-  SizeInFile: uint64
+  SizeInFile: uint32
   /// Permission of the segment.
   Permission: Permission
 }

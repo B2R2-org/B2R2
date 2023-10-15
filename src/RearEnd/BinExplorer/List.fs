@@ -46,7 +46,7 @@ type CmdList () =
     "- "
     + Addr.toString wordSize seg.Address
     + ":"
-    + Addr.toString wordSize (seg.Address + seg.Size)
+    + Addr.toString wordSize (seg.Address + uint64 seg.Size)
     + " (" + seg.Size.ToString () + ") ("
     + Permission.toString seg.Permission + ")"
 

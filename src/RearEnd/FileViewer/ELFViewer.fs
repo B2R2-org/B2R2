@@ -290,7 +290,7 @@ let dumpSegments (opts: FileViewerOpts) (elf: ELFBinFile) =
       out.PrintRow (true, cfg,
         [ String.wrapSqrdBracket (idx.ToString ())
           (Addr.toString file.ISA.WordSize s.Address)
-          (Addr.toString file.ISA.WordSize (s.Address + s.Size - uint64 1))
+          (Addr.toString file.ISA.WordSize (s.Address + uint64 s.Size - 1UL))
           (Permission.toString s.Permission) ]))
 
 let dumpLinkageTable (opts: FileViewerOpts) (elf: ELFBinFile) =

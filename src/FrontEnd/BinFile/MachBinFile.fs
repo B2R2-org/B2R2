@@ -148,11 +148,11 @@ type MachBinFile (bytes, path, isa, baseAddr) =
     member __.GetSegments (addr) =
       (__ :> IBinFile).GetSegments ()
       |> Seq.filter (fun s -> (addr >= s.Address)
-                              && (addr < s.Address + s.Size))
+                              && (addr < s.Address + uint64 s.Size))
 
     member __.GetSegments (perm) =
       (__ :> IBinFile).GetSegments ()
-      |> Seq.filter (fun s -> (s.Permission &&& perm = perm) && s.Size > 0UL)
+      |> Seq.filter (fun s -> (s.Permission &&& perm = perm) && s.Size > 0u)
 
     member __.GetLinkageTableEntries () = getPLT mach
 

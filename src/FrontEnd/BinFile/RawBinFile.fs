@@ -32,7 +32,6 @@ open B2R2
 /// data without file format)
 type RawBinFile (bytes: byte[], path, isa, baseOpt) =
   let size = bytes.Length
-  let usize = uint64 size
   let baseAddr = defaultArg baseOpt 0UL
   let symbolMap = Dictionary<Addr, Symbol> ()
 
@@ -90,7 +89,7 @@ type RawBinFile (bytes: byte[], path, isa, baseOpt) =
       span.Slice ptr.Offset
 
     member __.IsValidAddr addr =
-      addr >= baseAddr && addr < (baseAddr + usize)
+      addr >= baseAddr && addr < (baseAddr + uint64 size)
 
     member __.IsValidRange range =
       (__ :> IContentAddressable).IsValidAddr range.Min
@@ -106,7 +105,7 @@ type RawBinFile (bytes: byte[], path, isa, baseOpt) =
       (__ :> IContentAddressable).IsValidAddr addr
 
     member __.GetNotInFileIntervals range =
-      FileHelper.getNotInFileIntervals baseAddr usize range
+      FileHelper.getNotInFileIntervals baseAddr (uint64 size) range
 
     member __.ToBinFilePointer addr =
       if addr = baseAddr then BinFilePointer (baseAddr, 0, size - 1)
@@ -137,11 +136,11 @@ type RawBinFile (bytes: byte[], path, isa, baseOpt) =
       Seq.singleton { Address = baseAddr
                       FileOffset = 0u
                       Kind = SectionKind.ExecutableSection
-                      Size = uint32 usize
+                      Size = uint32 size
                       Name = "" }
 
     member __.GetSections (addr: Addr) =
-      if addr >= baseAddr && addr < (baseAddr + usize) then
+      if addr >= baseAddr && addr < (baseAddr + uint64 size) then
         (__ :> IBinFile).GetSections ()
       else
         Seq.empty
@@ -152,20 +151,20 @@ type RawBinFile (bytes: byte[], path, isa, baseOpt) =
 
     member __.GetSegments (_isLoadable: bool) =
       Seq.singleton { Address = baseAddr
-                      Offset = 0UL
-                      Size = usize
-                      SizeInFile = usize
+                      Offset = 0u
+                      Size = uint32 size
+                      SizeInFile = uint32 size
                       Permission = Permission.Readable
                                    ||| Permission.Executable }
 
     member __.GetSegments (addr: Addr) =
       (__ :> IBinFile).GetSegments ()
       |> Seq.filter (fun s -> (addr >= s.Address)
-                              && (addr < s.Address + s.Size))
+                              && (addr < s.Address + uint64 s.Size))
 
     member __.GetSegments (perm: Permission) =
       (__ :> IBinFile).GetSegments ()
-      |> Seq.filter (fun s -> (s.Permission &&& perm = perm) && s.Size > 0UL)
+      |> Seq.filter (fun s -> (s.Permission &&& perm = perm) && s.Size > 0u)
 
     member __.GetLinkageTableEntries () = Seq.empty
 
