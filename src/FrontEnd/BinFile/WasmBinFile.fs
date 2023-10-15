@@ -30,48 +30,33 @@ open B2R2.FrontEnd.BinFile.Wasm
 open B2R2.FrontEnd.BinFile.Wasm.Helper
 
 /// This class represents a Web Assembly (Wasm Module) binary file.
-type WasmBinFile private (wm, path, isa, ftype, content, baseAddr) =
-  inherit BinFile (path, FileFormat.WasmBinary, isa, ftype, content)
+type WasmBinFile (bytes, path, baseAddrOpt) =
+  let wm = Parser.parse bytes
+  let baseAddr = defaultArg baseAddrOpt 0UL
 
   new (bytes, path) = WasmBinFile (bytes, path, None)
 
-  new (bytes, path, baseAddrOpt) =
-    let wm = Parser.parse bytes
-    let ftype = fileTypeOf wm
-    let baseAddr = defaultArg baseAddrOpt 0UL
-    let content = WasmBinaryContent bytes
-    WasmBinFile (wm, path, defaultISA, ftype, content, baseAddr)
-
-  override __.BaseAddress with get() = baseAddr
-  override __.IsStripped = List.isEmpty wm.CustomSections
-  override __.IsNXEnabled = true
-  override __.IsRelocatable = false
-  override __.EntryPoint = entryPointOf wm
-  override __.TextStartAddr = textStartAddrOf wm
-  override __.GetRelocatedAddr _relocAddr = Utils.futureFeature ()
-  override __.AddSymbol _addr _symbol = Utils.futureFeature ()
-  override __.GetSymbols () = getSymbols wm
-  override __.GetStaticSymbols () = Seq.empty
-  override __.GetDynamicSymbols (?exc) = getDynamicSymbols wm exc
-  override __.GetRelocationSymbols () = Seq.empty
-  override __.GetSections () = getSections wm
-  override __.GetSections (addr) = getSectionsByAddr wm addr
-  override __.GetSections (name) = getSectionsByName wm name
-  override __.GetTextSections () = Utils.futureFeature ()
-  override __.GetSegments (_isLoadable) = Seq.empty
-  override __.GetLinkageTableEntries () = getImports wm
-  override __.IsLinkageTable _addr = Utils.futureFeature ()
-  override __.TryFindFunctionSymbolName (addr) = tryFindFunSymName wm addr
-  override __.ToBinFilePointer addr =
-    BinFilePointer.OfSectionOpt (getSectionsByAddr wm addr |> Seq.tryHead)
-  override __.ToBinFilePointer name =
-    BinFilePointer.OfSectionOpt (getSectionsByName wm name |> Seq.tryHead)
-  override __.NewBinFile bs = WasmBinFile (bs, path, Some baseAddr)
-  override __.NewBinFile (bs, baseAddr) = WasmBinFile (bs, path, Some baseAddr)
   member __.WASM with get() = wm
 
-and WasmBinaryContent (bytes) =
-  interface IContentAddressable with
+  interface IBinFile with
+    member __.FilePath with get() = path
+
+    member __.FileFormat with get() = FileFormat.WasmBinary
+
+    member __.ISA with get() = defaultISA
+
+    member __.FileType with get() = fileTypeOf wm
+
+    member __.EntryPoint = entryPointOf wm
+
+    member __.BaseAddress with get() = baseAddr
+
+    member __.IsStripped = List.isEmpty wm.CustomSections
+
+    member __.IsNXEnabled = true
+
+    member __.IsRelocatable = false
+
     member __.Length = bytes.Length
 
     member __.RawBytes = bytes
@@ -121,3 +106,60 @@ and WasmBinaryContent (bytes) =
 
     member __.GetNotInFileIntervals range =
       FileHelper.getNotInFileIntervals 0UL (uint64 bytes.LongLength) range
+
+    member __.ToBinFilePointer addr =
+      BinFilePointer.OfSectionOpt (getSectionsByAddr wm addr |> Seq.tryHead)
+
+    member __.ToBinFilePointer name =
+      BinFilePointer.OfSectionOpt (getSectionsByName wm name |> Seq.tryHead)
+
+    member __.GetRelocatedAddr _relocAddr = Utils.futureFeature ()
+
+    member __.GetSymbols () = getSymbols wm
+
+    member __.GetStaticSymbols () = Seq.empty
+
+    member __.GetFunctionSymbols () = Utils.futureFeature ()
+
+    member __.GetDynamicSymbols (?exc) = getDynamicSymbols wm exc
+
+    member __.GetRelocationSymbols () = Seq.empty
+
+    member __.AddSymbol _addr _symbol = Utils.futureFeature ()
+
+    member __.TryFindFunctionSymbolName (addr) = tryFindFunSymName wm addr
+
+    member __.GetSections () = getSections wm
+
+    member __.GetSections (addr) = getSectionsByAddr wm addr
+
+    member __.GetSections (name) = getSectionsByName wm name
+
+    member __.GetTextSection () =
+      wm.CodeSection
+      |> Option.map (fun sec ->
+        { Address = uint64 sec.Offset
+          FileOffset = uint32 sec.Offset
+          Kind = sectionIdToKind SectionId.Code
+          Size = sec.Size
+          Name = "" })
+      |> function Some s -> s | None -> raise SectionNotFoundException
+
+    member __.GetSegments (_isLoadable: bool): seq<Segment> = Seq.empty
+
+    member __.GetSegments (_addr: Addr): seq<Segment> = Seq.empty
+
+    member __.GetSegments (_perm: Permission): seq<Segment> = Seq.empty
+
+    member __.GetLinkageTableEntries () = getImports wm
+
+    member __.IsLinkageTable _addr = Utils.futureFeature ()
+
+    member __.GetFunctionAddresses () = Utils.futureFeature ()
+
+    member __.GetFunctionAddresses (_) = Utils.futureFeature ()
+
+    member __.NewBinFile bs = WasmBinFile (bs, path, Some baseAddr)
+
+    member __.NewBinFile (bs, baseAddr) = WasmBinFile (bs, path, Some baseAddr)
+

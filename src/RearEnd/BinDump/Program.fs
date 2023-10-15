@@ -92,7 +92,7 @@ let printHexdump (opts: BinDumpOpts) sec hdl =
   HexDumper.dump chunkSz hdl.BinFile.ISA.WordSize opts.ShowColor ptr.Addr bytes
   |> Array.iter out.PrintLine
 
-let private hasNoContent (sec: Section) (file: BinFile) =
+let private hasNoContent (sec: Section) (file: IBinFile) =
   match file with
   | :? ELFBinFile as file ->
     match file.ELF.SecInfo.SecByName.TryFind sec.Name with
@@ -148,7 +148,7 @@ let private dumpSections hdl (opts: BinDumpOpts) (sections: seq<Section>) cfg =
   let tableprn = makeTablePrinter hdl cfg opts
   sections
   |> Seq.iter (fun s ->
-    if s.Size > 0UL then
+    if s.Size > 0u then
       out.PrintSectionTitle (String.wrapParen s.Name)
       match s.Kind with
       | SectionKind.ExecutableSection ->

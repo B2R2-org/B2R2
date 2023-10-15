@@ -47,9 +47,6 @@ let isRelocatable span elf =
   && Section.getDynamicSectionEntries span elf.BinReader elf.SecInfo
      |> List.exists pred
 
-let inline getTextStartAddr elf =
-  (Map.find Section.SecText elf.SecInfo.SecByName).SecAddr
-
 let inline private computeSubstitute offsetToAddr delta (ptr: Addr) =
   if offsetToAddr then ptr + delta
   else (* Addr to offset *) ptr - delta
@@ -145,9 +142,9 @@ let secFlagToSectionKind sec =
 
 let elfSectionToSection sec =
   { Address = sec.SecAddr
-    FileOffset = sec.SecOffset
+    FileOffset = uint32 sec.SecOffset
     Kind = secFlagToSectionKind sec
-    Size = sec.SecSize
+    Size = uint32 sec.SecSize
     Name = sec.SecName }
 
 let getSections elf =
@@ -165,13 +162,15 @@ let getSectionsByName elf name =
   | Some s -> elfSectionToSection s |> Seq.singleton
   | None -> Seq.empty
 
-let getTextSections elf =
+let getTextSection elf =
   elf.SecInfo.SecByNum
   |> Array.filter (fun sec ->
     (SectionFlag.SHFExecInstr &&& sec.SecFlags = SectionFlag.SHFExecInstr)
     && sec.SecName.StartsWith Section.SecText)
-  |> Array.map elfSectionToSection
-  |> Array.toSeq
+  |> Array.tryExactlyOne
+  |> function
+    | Some sec -> elfSectionToSection sec
+    | None -> raise SectionNotFoundException
 
 let getSegments elf isLoadable =
   if isLoadable then elf.LoadableSegments else elf.ProgHeaders

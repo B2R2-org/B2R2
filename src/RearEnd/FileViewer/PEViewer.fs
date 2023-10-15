@@ -88,8 +88,9 @@ let translateSectionChracteristics chars =
           loop acc chars t
     loop [] chars enumChars
 
-let dumpSectionHeaders (opts: FileViewerOpts) (file: PEBinFile) =
-  let addrColumn = columnWidthOfAddr file |> LeftAligned
+let dumpSectionHeaders (opts: FileViewerOpts) (pe: PEBinFile) =
+  let addrColumn = columnWidthOfAddr pe |> LeftAligned
+  let file = pe :> IBinFile
   if opts.Verbose then
     let cfg = [ LeftAligned 4; addrColumn; addrColumn; LeftAligned 24
                 LeftAligned 8; LeftAligned 8; LeftAligned 8; LeftAligned 8
@@ -101,9 +102,9 @@ let dumpSectionHeaders (opts: FileViewerOpts) (file: PEBinFile) =
         "RelocPtr"; "LineNPtr"; "RelocNum"; "LineNNum"
         "Characteristics" ])
     out.PrintLine "  ---"
-    file.PE.SectionHeaders
+    pe.PE.SectionHeaders
     |> Array.iteri (fun idx s ->
-      let startAddr = file.PE.BaseAddr + uint64 s.VirtualAddress
+      let startAddr = pe.PE.BaseAddr + uint64 s.VirtualAddress
       let size =
         uint64 (if s.VirtualSize = 0 then s.SizeOfRawData else s.VirtualSize)
       let characteristics = uint64 s.SectionCharacteristics
@@ -134,7 +135,7 @@ let dumpSectionHeaders (opts: FileViewerOpts) (file: PEBinFile) =
       out.PrintRow (true, cfg,
         [ String.wrapSqrdBracket (idx.ToString ())
           (Addr.toString file.ISA.WordSize s.Address)
-          (Addr.toString file.ISA.WordSize (s.Address + s.Size - uint64 1))
+          (Addr.toString file.ISA.WordSize (s.Address + uint64 s.Size - 1UL))
           normalizeEmpty s.Name ]))
 
 let dumpSectionDetails (secname: string) (file: PEBinFile) =
@@ -182,8 +183,8 @@ let dumpSectionDetails (secname: string) (file: PEBinFile) =
     |> List.iter (fun str -> out.PrintTwoCols "" str)
   | None -> out.PrintTwoCols "" "Not found."
 
-let printSymbolInfo (file: PEBinFile) (symbols: seq<Symbol>) =
-  let addrColumn = columnWidthOfAddr file |> LeftAligned
+let printSymbolInfo (pe: PEBinFile) (symbols: seq<Symbol>) =
+  let addrColumn = columnWidthOfAddr pe |> LeftAligned
   let cfg = [ LeftAligned 3; LeftAligned 10
               addrColumn; LeftAligned 50; LeftAligned 15 ]
   out.PrintRow (true, cfg, [ "S/D"; "Kind"; "Address"; "Name"; "Lib Name" ])
@@ -196,21 +197,21 @@ let printSymbolInfo (file: PEBinFile) (symbols: seq<Symbol>) =
     out.PrintRow (true, cfg,
       [ visibilityString s
         symbolKindString s
-        Addr.toString file.ISA.WordSize s.Address
+        Addr.toString (pe :> IBinFile).ISA.WordSize s.Address
         normalizeEmpty s.Name
         (toLibString >> normalizeEmpty) s.LibraryName ]))
 
-let dumpSymbols _ (file: PEBinFile) =
-   file.GetSymbols ()
-   |> printSymbolInfo file
+let dumpSymbols _ (pe: PEBinFile) =
+  (pe :> IBinFile).GetSymbols ()
+  |> printSymbolInfo pe
 
-let dumpRelocs _ (file: PEBinFile) =
-  file.GetRelocationSymbols ()
-  |> printSymbolInfo file
+let dumpRelocs _ (pe: PEBinFile) =
+  (pe :> IBinFile).GetRelocationSymbols ()
+  |> printSymbolInfo pe
 
-let dumpFunctions _ (file: PEBinFile) =
-  file.GetFunctionSymbols ()
-  |> printSymbolInfo file
+let dumpFunctions _ (pe: PEBinFile) =
+  (pe :> IBinFile).GetFunctionSymbols ()
+  |> printSymbolInfo pe
 
 let inline addrFromRVA baseAddr rva =
   uint64 rva + baseAddr
@@ -504,7 +505,7 @@ let dumpCLRHeader _ (file: PEBinFile) =
       (String.u64ToHex (uint64 managedNativeHdr.RelativeVirtualAddress)
       + String.wrapSqrdBracket (String.u64ToHex (uint64 managedNativeHdr.Size)))
 
-let dumpDependencies _ (file: PEBinFile) =
+let dumpDependencies _ (file: IBinFile) =
   file.GetLinkageTableEntries ()
   |> Seq.map (fun e -> e.LibraryName)
   |> Set.ofSeq

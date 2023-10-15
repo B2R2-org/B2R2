@@ -31,7 +31,7 @@ open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinInterface.Helper
 
 type BinHandle = {
-  BinFile: BinFile
+  BinFile: IBinFile
   DisasmHelper: DisasmHelper
   TranslationContext: TranslationContext
   Parser: Parser
@@ -101,16 +101,16 @@ with
 
   static member TryReadBytes ({ BinFile = file }, addr, nBytes) =
     let range = AddrRange (addr, addr + uint64 nBytes - 1UL)
-    if file.Content.IsInFileRange range then
-      let slice = file.Content.Slice (addr, nBytes)
+    if file.IsInFileRange range then
+      let slice = file.Slice (addr, nBytes)
       slice.ToArray () |> Ok
-    elif file.Content.IsValidRange range then
-      file.Content.GetNotInFileIntervals range
+    elif file.IsValidRange range then
+      file.GetNotInFileIntervals range
       |> classifyRanges range
       |> List.fold (fun bs (range, isInFile) ->
            let len = (range.Max - range.Min |> int) + 1
            if isInFile then
-             let slice = file.Content.Slice (range.Min, len)
+             let slice = file.Slice (range.Min, len)
              Array.append bs (slice.ToArray ())
            else Array.create len 0uy |> Array.append bs
          ) [||]
@@ -119,7 +119,7 @@ with
 
   static member TryReadBytes ({ BinFile = file }, ptr, nBytes) =
     if BinFilePointer.IsValidAccess ptr nBytes then
-      let slice = file.Content.Slice (ptr, nBytes)
+      let slice = file.Slice (ptr, nBytes)
       slice.ToArray () |> Ok
     else Error ErrorCase.InvalidMemoryRead
 
@@ -140,16 +140,16 @@ with
     BinHandle.ReadInt (__, ptr, size)
 
   static member TryReadInt ({ BinFile = file; BinReader = r }, addr, size) =
-    let pos = file.Content.GetOffset addr
-    if (pos + size) > file.Content.Length || (pos < 0) then
+    let pos = file.GetOffset addr
+    if (pos + size) > file.Length || (pos < 0) then
       Error ErrorCase.InvalidMemoryRead
     else
-      let span = file.Content.Slice (offset=pos)
+      let span = file.Slice (offset=pos)
       readIntBySize r span size
 
   static member TryReadInt ({ BinFile = file; BinReader = r }, ptr, size) =
     if BinFilePointer.IsValidAccess ptr size then
-      let span = file.Content.Slice (offset=ptr.Offset)
+      let span = file.Slice (offset=ptr.Offset)
       readIntBySize r span size
     else Error ErrorCase.InvalidMemoryRead
 
@@ -170,16 +170,16 @@ with
     BinHandle.ReadUInt (__, ptr, size)
 
   static member TryReadUInt ({ BinFile = file; BinReader = r }, addr, size) =
-    let pos = file.Content.GetOffset addr
-    if (pos + size) > file.Content.Length || (pos < 0) then
+    let pos = file.GetOffset addr
+    if (pos + size) > file.Length || (pos < 0) then
       Error ErrorCase.InvalidMemoryRead
     else
-      let span = file.Content.Slice (offset=pos)
+      let span = file.Slice (offset=pos)
       readUIntBySize r span size
 
   static member TryReadUInt ({ BinFile = file; BinReader = r }, ptr, size) =
     if BinFilePointer.IsValidAccess ptr size then
-      let span = file.Content.Slice (offset=ptr.Offset)
+      let span = file.Slice (offset=ptr.Offset)
       readUIntBySize r span size
     else Error ErrorCase.InvalidMemoryRead
 
@@ -200,7 +200,7 @@ with
     BinHandle.ReadASCII (__, ptr)
 
   static member ReadASCII ({ BinFile = file }, addr) =
-    let bs = file.Content.GetOffset addr |> readASCII file
+    let bs = file.GetOffset addr |> readASCII file
     ByteArray.extractCString bs 0
 
   static member ReadASCII ({ BinFile = file }, ptr: BinFilePointer) =
@@ -208,7 +208,7 @@ with
     ByteArray.extractCString bs 0
 
   static member ParseInstr (hdl: BinHandle, addr: Addr) =
-    hdl.Parser.Parse (hdl.BinFile.Content.Slice addr, addr)
+    hdl.Parser.Parse (hdl.BinFile.Slice addr, addr)
 
   static member ParseInstr (hdl: BinHandle, ptr: BinFilePointer) =
     parseInstrFromBinPtr hdl.BinFile hdl.Parser ptr

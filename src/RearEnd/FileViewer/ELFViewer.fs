@@ -34,8 +34,8 @@ open B2R2.MiddleEnd.ControlFlowAnalysis
 let badAccess _ _ =
   raise InvalidFileFormatException
 
-let computeMagicBytes (file: ELFBinFile) =
-  let slice = file.Content.Slice (offset=0, size=16)
+let computeMagicBytes (file: IBinFile) =
+  let slice = file.Slice (offset=0, size=16)
   slice.ToArray () |> ColoredSegment.colorBytes
 
 let computeEntryPoint (hdr: ELFHeader) =
@@ -62,8 +62,9 @@ let dumpFileHeader (_: FileViewerOpts) (file: ELFBinFile) =
   out.PrintTwoCols "SHdr Entry Num:" (hdr.SHdrNum.ToString ())
   out.PrintTwoCols "SHdr string index:" (hdr.SHdrStrIdx.ToString ())
 
-let dumpSectionHeaders (opts: FileViewerOpts) (file: ELFBinFile) =
-  let addrColumn = columnWidthOfAddr file |> LeftAligned
+let dumpSectionHeaders (opts: FileViewerOpts) (elf: ELFBinFile) =
+  let addrColumn = columnWidthOfAddr elf |> LeftAligned
+  let file = elf :> IBinFile
   if opts.Verbose then
     let cfg = [ LeftAligned 4; addrColumn; addrColumn; LeftAligned 24;
                 LeftAligned 14; LeftAligned 12; LeftAligned 8; LeftAligned 10;
@@ -72,7 +73,7 @@ let dumpSectionHeaders (opts: FileViewerOpts) (file: ELFBinFile) =
                                "Type"; "Offset"; "Size"; "EntrySize"
                                "Link"; "Info"; "Align"; "Flags" ])
     out.PrintLine "  ---"
-    file.ELF.SecInfo.SecByNum
+    elf.ELF.SecInfo.SecByNum
     |> Array.iteri (fun idx s ->
       out.PrintRow (true, cfg,
         [ String.wrapSqrdBracket (idx.ToString ())
@@ -96,7 +97,7 @@ let dumpSectionHeaders (opts: FileViewerOpts) (file: ELFBinFile) =
       out.PrintRow (true, cfg,
         [ String.wrapSqrdBracket (idx.ToString ())
           (Addr.toString file.ISA.WordSize s.Address)
-          (Addr.toString file.ISA.WordSize (s.Address + s.Size - uint64 1))
+          (Addr.toString file.ISA.WordSize (s.Address + uint64 s.Size - 1UL))
           normalizeEmpty s.Name ]))
 
 let dumpSectionDetails (secname: string) (file: ELFBinFile) =
@@ -115,7 +116,7 @@ let dumpSectionDetails (secname: string) (file: ELFBinFile) =
     out.PrintTwoCols "Alignment:" (String.u64ToHex section.SecAlignment)
   | None -> out.PrintLine "Not found."
 
-let printSymbolInfoVerbose (file: ELFBinFile) s (elfSymbol: ELFSymbol) cfg =
+let printSymbolInfoVerbose (file: IBinFile) s (elfSymbol: ELFSymbol) cfg =
   let sectionIndex =
     match elfSymbol.SecHeaderIndex with
     | SecIdx idx -> idx.ToString ()
@@ -131,7 +132,7 @@ let printSymbolInfoVerbose (file: ELFBinFile) s (elfSymbol: ELFSymbol) cfg =
       elfSymbol.Vis.ToString ()
       String.wrapSqrdBracket sectionIndex ])
 
-let printSymbolInfoNone (file: ELFBinFile) s cfg =
+let printSymbolInfoNone (file: IBinFile) s cfg =
   out.PrintRow (true, cfg,
     [ visibilityString s
       Addr.toString file.ISA.WordSize s.Address
@@ -139,8 +140,8 @@ let printSymbolInfoNone (file: ELFBinFile) s cfg =
       (toLibString >> normalizeEmpty) s.LibraryName
       "(n/a)"; "(n/a)"; "(n/a)"; "(n/a)"; "(n/a)" ])
 
-let printSymbolInfo isVerbose (file: ELFBinFile) (symbols: seq<Symbol>) =
-  let addrColumn = columnWidthOfAddr file |> LeftAligned
+let printSymbolInfo isVerbose (elf: ELFBinFile) (symbols: seq<Symbol>) =
+  let addrColumn = columnWidthOfAddr elf |> LeftAligned
   if isVerbose then
     let cfg = [ LeftAligned 4; addrColumn; LeftAligned 55; LeftAligned 15
                 LeftAligned 8; LeftAligned 12; LeftAligned 12; LeftAligned 12
@@ -154,15 +155,15 @@ let printSymbolInfo isVerbose (file: ELFBinFile) (symbols: seq<Symbol>) =
     |> Seq.sortBy (fun s -> s.Address)
     |> Seq.sortBy (fun s -> s.Visibility)
     |> Seq.iter (fun s ->
-      match file.ELF.SymInfo.AddrToSymbTable.TryGetValue s.Address with
-      | true, elfSymbol -> printSymbolInfoVerbose file s elfSymbol cfg
+      match elf.ELF.SymInfo.AddrToSymbTable.TryGetValue s.Address with
+      | true, elfSymbol -> printSymbolInfoVerbose elf s elfSymbol cfg
       | false, _ ->
-        match file.ELF.RelocInfo.RelocByName.TryGetValue s.Name with
+        match elf.ELF.RelocInfo.RelocByName.TryGetValue s.Name with
         | true, reloc ->
           match reloc.RelSymbol with
-          | Some elfSymbol -> printSymbolInfoVerbose file s elfSymbol cfg
-          | None -> printSymbolInfoNone file s cfg
-        | false, _ -> printSymbolInfoNone file s cfg)
+          | Some elfSymbol -> printSymbolInfoVerbose elf s elfSymbol cfg
+          | None -> printSymbolInfoNone elf s cfg
+        | false, _ -> printSymbolInfoNone elf s cfg)
   else
     let cfg = [ LeftAligned 3; LeftAligned 10
                 addrColumn; LeftAligned 75; LeftAligned 15 ]
@@ -176,20 +177,20 @@ let printSymbolInfo isVerbose (file: ELFBinFile) (symbols: seq<Symbol>) =
       out.PrintRow (true, cfg,
         [ visibilityString s
           symbolKindString s
-          Addr.toString file.ISA.WordSize s.Address
+          Addr.toString (elf :> IBinFile).ISA.WordSize s.Address
           normalizeEmpty s.Name
           (toLibString >> normalizeEmpty) s.LibraryName ]))
 
-let dumpSymbols (opts: FileViewerOpts) (file: ELFBinFile) =
-  file.GetSymbols ()
-  |> printSymbolInfo opts.Verbose file
+let dumpSymbols (opts: FileViewerOpts) (elf: ELFBinFile) =
+  (elf :> IBinFile).GetSymbols ()
+  |> printSymbolInfo opts.Verbose elf
 
-let dumpRelocs (_opts: FileViewerOpts) (file: ELFBinFile) =
-  let addrColumn = columnWidthOfAddr file |> LeftAligned
+let dumpRelocs (_opts: FileViewerOpts) (elf: ELFBinFile) =
+  let addrColumn = columnWidthOfAddr elf |> LeftAligned
   let cfg = [ addrColumn; LeftAligned 24; RightAligned 8; LeftAligned 12 ]
   out.PrintRow (true, cfg, [ "Address"; "Type"; "Addended"; "Symbol" ])
   out.PrintLine "  ---"
-  file.ELF.RelocInfo.RelocByAddr.Values
+  elf.ELF.RelocInfo.RelocByAddr.Values
   |> Seq.sortBy (fun reloc -> reloc.RelOffset)
   |> Seq.iter (fun reloc ->
     let symbol =
@@ -197,16 +198,16 @@ let dumpRelocs (_opts: FileViewerOpts) (file: ELFBinFile) =
       | Some s when s.SymName.Length > 0 -> s.SymName
       | _ -> "(n/a)"
     out.PrintRow (true, cfg, [
-      Addr.toString file.ISA.WordSize reloc.RelOffset
+      Addr.toString (elf :> IBinFile).ISA.WordSize reloc.RelOffset
       RelocationType.ToString reloc.RelType
       reloc.RelAddend.ToString ("x")
       symbol
     ])
   )
 
-let dumpFunctions (opts: FileViewerOpts) (file: ELFBinFile) =
-  file.GetFunctionSymbols ()
-  |> printSymbolInfo opts.Verbose file
+let dumpFunctions (opts: FileViewerOpts) (elf: ELFBinFile) =
+  (elf :> IBinFile).GetFunctionSymbols ()
+  |> printSymbolInfo opts.Verbose elf
 
 let dumpExceptionTable hdl (_opts: FileViewerOpts) (file: ELFBinFile) =
   let exnTbl, _ = ELFExceptionTable.build hdl file
@@ -214,7 +215,7 @@ let dumpExceptionTable hdl (_opts: FileViewerOpts) (file: ELFBinFile) =
   |> ARMap.iter (fun range catchBlkAddr ->
     out.PrintLine $"{range.Min:x}:{range.Max:x} -> {catchBlkAddr:x}")
 
-let makeStringTableReader (file: ELFBinFile) dynEntries =
+let makeStringTableReader (file: IBinFile) dynEntries =
   dynEntries
   |> List.fold (fun (off, len) (ent: DynamicSectionEntry) ->
     match ent.DTag with
@@ -224,7 +225,7 @@ let makeStringTableReader (file: ELFBinFile) dynEntries =
   ) (None, None)
   ||> Option.map2 (fun off len ->
     fun v ->
-      let strtab = file.Content.Slice (offset=int off, size=int len)
+      let strtab = file.Slice (offset=int off, size=int len)
       let buf = strtab.Slice (int v)
       ByteArray.extractCStringFromSpan buf 0)
 
@@ -254,8 +255,9 @@ let dumpDynamicSection _ (file: ELFBinFile) =
       out.PrintRow (true, cfg, [ $"{tag}"; "0x" + ent.DVal.ToString "x" ])
   )
 
-let dumpSegments (opts: FileViewerOpts) (file: ELFBinFile) =
-  let addrColumn = columnWidthOfAddr file |> LeftAligned
+let dumpSegments (opts: FileViewerOpts) (elf: ELFBinFile) =
+  let addrColumn = columnWidthOfAddr elf |> LeftAligned
+  let file = elf :> IBinFile
   if opts.Verbose then
     let cfg = [ LeftAligned 4; addrColumn; addrColumn; LeftAligned 10
                 LeftAligned 12; LeftAligned 8; addrColumn; addrColumn
@@ -265,13 +267,13 @@ let dumpSegments (opts: FileViewerOpts) (file: ELFBinFile) =
                                "FileSize"; "MemSize"; "Alignment" ])
     out.PrintLine "  ---"
     let wordSize = file.ISA.WordSize
-    file.ELF.ProgHeaders
+    elf.ELF.ProgHeaders
     |> List.iteri (fun idx ph ->
       out.PrintRow (true, cfg,
         [ String.wrapSqrdBracket (idx.ToString ())
           (Addr.toString wordSize ph.PHAddr)
           (Addr.toString wordSize (ph.PHAddr + ph.PHMemSize - uint64 1))
-          (BinFile.PermissionToString ph.PHFlags)
+          (Permission.toString ph.PHFlags)
           ph.PHType.ToString ()
           String.u64ToHex ph.PHOffset
           String.u64ToHex ph.PHAddr
@@ -289,10 +291,11 @@ let dumpSegments (opts: FileViewerOpts) (file: ELFBinFile) =
         [ String.wrapSqrdBracket (idx.ToString ())
           (Addr.toString file.ISA.WordSize s.Address)
           (Addr.toString file.ISA.WordSize (s.Address + s.Size - uint64 1))
-          (BinFile.PermissionToString s.Permission) ]))
+          (Permission.toString s.Permission) ]))
 
-let dumpLinkageTable (opts: FileViewerOpts) (file: ELFBinFile) =
-  let addrColumn = columnWidthOfAddr file |> LeftAligned
+let dumpLinkageTable (opts: FileViewerOpts) (elf: ELFBinFile) =
+  let addrColumn = columnWidthOfAddr elf |> LeftAligned
+  let file = elf :> IBinFile
   if opts.Verbose then
     let cfg = [ addrColumn; addrColumn; LeftAligned 40; LeftAligned 15
                 LeftAligned 8; LeftAligned 6; LeftAligned 4 ]
@@ -302,7 +305,7 @@ let dumpLinkageTable (opts: FileViewerOpts) (file: ELFBinFile) =
     out.PrintLine "  ---"
     file.GetLinkageTableEntries ()
     |> Seq.iter (fun e ->
-      match file.ELF.RelocInfo.RelocByAddr.TryGetValue e.TableAddress with
+      match elf.ELF.RelocInfo.RelocByAddr.TryGetValue e.TableAddress with
       | true, reloc ->
         out.PrintRow (true, cfg,
           [ (Addr.toString file.ISA.WordSize e.TrampolineAddress)
@@ -373,11 +376,12 @@ let dumpEHFrame hdl (file: ELFBinFile) =
     )
   )
 
-let dumpGccExceptTable _hdl (file: ELFBinFile) =
-  let addrColumn = columnWidthOfAddr file |> LeftAligned
+let dumpGccExceptTable _hdl (elf: ELFBinFile) =
+  let addrColumn = columnWidthOfAddr elf |> LeftAligned
+  let file = elf :> IBinFile
   let cfg = [ addrColumn; LeftAligned 15; LeftAligned 15; addrColumn ]
   out.PrintRow (true, cfg, [ "Address"; "LP App"; "LP Val"; "TT End" ])
-  file.ELF.LSDAs
+  elf.ELF.LSDAs
   |> Map.iter (fun lsdaAddr lsda ->
     let ttbase = lsda.Header.TTBase |> Option.defaultValue 0UL
     out.PrintRow (true, cfg,

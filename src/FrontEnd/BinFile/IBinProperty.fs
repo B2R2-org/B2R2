@@ -22,34 +22,15 @@
   SOFTWARE.
 *)
 
-namespace B2R2.RearEnd.Transformer
+namespace B2R2.FrontEnd.BinFile
 
-open B2R2
-open B2R2.RearEnd
+/// Basic properties of a binary file.
+type IBinProperty =
+  /// Is this binary stripped?
+  abstract IsStripped: bool
 
-/// The `hexdump` action.
-type HexdumpAction () =
-  let rec hexdump (o: obj) =
-    let typ = o.GetType ()
-    if typ = typeof<Binary> then hexdumpBinary o
-    else invalidArg (nameof o) "Invalid input type."
+  /// Is NX enabled for this binary? (DEP enabled or not)
+  abstract IsNXEnabled: bool
 
-  and hexdumpBinary o =
-    let bin = unbox<Binary> o
-    let hdl = Binary.Handle bin
-    let bs = hdl.BinFile.RawBytes
-    let baseAddr = hdl.BinFile.BaseAddress
-    HexDumper.dump 16 hdl.BinFile.ISA.WordSize true baseAddr bs
-    |> box
-
-  interface IAction with
-    member __.ActionID with get() = "hexdump"
-    member __.Signature with get() = "Binary -> string"
-    member __.Description with get() = """
-    Take in a binary and convert it to a hexdump string.
-"""
-    member __.Transform args collection =
-      match args with
-      | [] ->
-        { Values = collection.Values |> Array.map hexdump }
-      | _ -> invalidArg (nameof args) "Invalid argument given."
+  /// Is this binary relocatable (i.e., position-independent)?
+  abstract IsRelocatable: bool

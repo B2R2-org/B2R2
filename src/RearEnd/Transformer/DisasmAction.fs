@@ -35,12 +35,12 @@ type DisasmAction () =
       match BinHandle.TryParseInstr (hdl, ptr) with
       | Ok instr ->
         let insLen = int instr.Length
-        let insBytes = hdl.BinFile.Content.Slice(ptr.Addr, insLen).ToArray()
+        let insBytes = hdl.BinFile.Slice(ptr.Addr, insLen).ToArray()
         let ptr = BinFilePointer.Advance ptr insLen
         let acc = ValidInstruction (instr, insBytes) :: acc
         disasm acc hdl ptr
       | Error _ ->
-        let badbyte = [| hdl.BinFile.Content.RawBytes[ptr.Offset] |]
+        let badbyte = [| hdl.BinFile.RawBytes[ptr.Offset] |]
         let acc = BadInstruction (ptr.Addr, badbyte) :: acc
         let ptr = BinFilePointer.Advance ptr 1
         disasm acc hdl ptr
@@ -51,7 +51,7 @@ type DisasmAction () =
     let bin = unbox<Binary> o
     let hdl = Binary.Handle bin
     let baddr = hdl.BinFile.BaseAddress
-    let ptr = BinFilePointer (baddr, 0, hdl.BinFile.Content.Length - 1)
+    let ptr = BinFilePointer (baddr, 0, hdl.BinFile.Length - 1)
     disasm [] hdl ptr
     |> box
 

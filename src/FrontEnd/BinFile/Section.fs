@@ -22,34 +22,42 @@
   SOFTWARE.
 *)
 
-namespace B2R2.RearEnd.Transformer
+namespace B2R2.FrontEnd.BinFile
 
 open B2R2
-open B2R2.RearEnd
 
-/// The `hexdump` action.
-type HexdumpAction () =
-  let rec hexdump (o: obj) =
-    let typ = o.GetType ()
-    if typ = typeof<Binary> then hexdumpBinary o
-    else invalidArg (nameof o) "Invalid input type."
+/// Kinds of sections.
+type SectionKind =
+  /// Executable section.
+  | ExecutableSection = 1
+  /// Writable section.
+  | WritableSection = 2
+  /// Linkage table, such as PLT, section.
+  | LinkageTableSection = 3
+  /// Extra section.
+  | ExtraSection = 4
 
-  and hexdumpBinary o =
-    let bin = unbox<Binary> o
-    let hdl = Binary.Handle bin
-    let bs = hdl.BinFile.RawBytes
-    let baseAddr = hdl.BinFile.BaseAddress
-    HexDumper.dump 16 hdl.BinFile.ISA.WordSize true baseAddr bs
-    |> box
+/// A section object defined in a file-format-agnostic way. A Section in B2R2
+/// should be located inside a segment.
+type Section = {
+  /// Address of the section.
+  Address: Addr
+  /// File offset of the section.
+  FileOffset: uint32
+  /// Section kind.
+  Kind: SectionKind
+  /// Size of the section.
+  Size: uint32
+  /// Name of the section.
+  Name: string
+}
+with
+  /// Convert the section into an AddrRange based on its starting address and
+  /// the size.
+  member __.ToAddrRange () =
+    AddrRange (__.Address, __.Address + uint64 __.Size - 1UL)
 
-  interface IAction with
-    member __.ActionID with get() = "hexdump"
-    member __.Signature with get() = "Binary -> string"
-    member __.Description with get() = """
-    Take in a binary and convert it to a hexdump string.
-"""
-    member __.Transform args collection =
-      match args with
-      | [] ->
-        { Values = collection.Values |> Array.map hexdump }
-      | _ -> invalidArg (nameof args) "Invalid argument given."
+  override __.ToString () =
+    $"Section [{__.Name}] ({__.Kind}) \
+      @ {__.Address:x}-{(__.Address + uint64 __.Size):x} \
+      @ {__.FileOffset:x}"

@@ -98,11 +98,11 @@ type EVMTrampolineAnalysis (abiFile) =
       LibraryName = ""
       ArchOperationMode = ArchOperationMode.NoMode }
 
-  member private __.UpdateSymbols (file: BinFile) addr name =
+  member private __.UpdateSymbols (file: IBinFile) addr name =
     file.AddSymbol addr (__.MakeSymbol name addr)
 
   member private __.AnalyzeTrampoline hdl codeMgr =
-    let bytes = hdl.BinFile.Content.RawBytes
+    let bytes = hdl.BinFile.RawBytes
     let isa = hdl.BinFile.ISA
     let newHdl = BinHandle.Init (isa, bytes)
     let newFi = newHdl.BinFile

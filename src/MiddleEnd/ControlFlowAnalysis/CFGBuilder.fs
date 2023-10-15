@@ -205,7 +205,7 @@ module private CFGBuilder =
   let buildRegularEdge hdl (codeMgr: CodeManager) dataMgr fn src dst edge evts =
     let mode = ArchOperationMode.NoMode (* XXX: put mode in the event. *)
     let entryPoint = (fn: RegularFunction).EntryPoint
-    if not (hdl.BinFile.Content.IsExecutableAddr entryPoint) then
+    if not (hdl.BinFile.IsExecutableAddr entryPoint) then
       Error (ErrorConnectingEdge evts) (* Invalid bbl encountered. *)
     elif codeMgr.HasBBL dst then
       let dstPp = ProgramPoint (dst, 0)
@@ -234,7 +234,7 @@ module private CFGBuilder =
     elif dst = 0UL then
       Ok evts (* "jmp 0" case (as in "call 0"). *)
     elif hdl.BinFile.FileType = FileType.ObjFile
-      && not (hdl.BinFile.Content.IsExecutableAddr dst) then
+      && not (hdl.BinFile.IsExecutableAddr dst) then
       Ok evts (* call outside a section (occurs in an object file) *)
     else
       match buildBBL hdl codeMgr fn mode dst evts with
@@ -333,7 +333,7 @@ module private CFGBuilder =
     |> List.fold (fun evts ftInfo ->
       match ftInfo with
       | FTCall (caller, callSite, callee, ftAddr) ->
-        if not (hdl.BinFile.Content.IsExecutableAddr ftAddr) then
+        if not (hdl.BinFile.IsExecutableAddr ftAddr) then
           let calleeFn = (codeMgr: CodeManager).FunctionMaintainer.Find callee
           calleeFn.NoReturnProperty <- NoRet
           evts
@@ -588,7 +588,7 @@ type CFGBuilder (hdl, codeMgr: CodeManager, dataMgr: DataManager) as this =
   member private __.AddNewFunction evts (entry, mode) =
     if codeMgr.FunctionMaintainer.Contains (addr=entry) then
       Ok evts
-    elif not <| hdl.BinFile.Content.IsExecutableAddr entry then
+    elif not <| hdl.BinFile.IsExecutableAddr entry then
       Error (ErrorParsing evts)
     else
       CFGEvents.addFuncEvt entry mode evts |> Ok

@@ -86,8 +86,9 @@ let translateAttribs attribs =
         loop acc attribs tail
   loop [] attribs enumAttribs
 
-let dumpSectionHeaders (opts: FileViewerOpts) (file: MachBinFile) =
-  let addrColumn = columnWidthOfAddr file |> LeftAligned
+let dumpSectionHeaders (opts: FileViewerOpts) (mach: MachBinFile) =
+  let addrColumn = columnWidthOfAddr mach |> LeftAligned
+  let file = mach :> IBinFile
   if opts.Verbose then
     let cfg = [ LeftAligned 4; addrColumn; addrColumn; LeftAligned 16
                 LeftAligned 8; LeftAligned 8; LeftAligned 8; LeftAligned 8
@@ -98,7 +99,7 @@ let dumpSectionHeaders (opts: FileViewerOpts) (file: MachBinFile) =
                                "SecRelOff"; "#Reloc"; "Type"
                                "Res1"; "Res2"; "Attrib" ])
     out.PrintLine "  ---"
-    file.Mach.Sections.SecByNum
+    mach.Mach.Sections.SecByNum
     |> Array.iteri (fun idx s ->
       out.PrintRow (true, cfg,
         [ String.wrapSqrdBracket (idx.ToString ())
@@ -129,7 +130,7 @@ let dumpSectionHeaders (opts: FileViewerOpts) (file: MachBinFile) =
       out.PrintRow (true, cfg,
         [ String.wrapSqrdBracket (idx.ToString ())
           (Addr.toString file.ISA.WordSize s.Address)
-          (Addr.toString file.ISA.WordSize (s.Address + s.Size - uint64 1))
+          (Addr.toString file.ISA.WordSize (s.Address + uint64 s.Size - 1UL))
           normalizeEmpty s.Name ]))
 
 let dumpSectionDetails (secname: string) (file: MachBinFile) =
@@ -192,7 +193,7 @@ let printSymbolInfoVerbose file s (machSymbol: Mach.MachSymbol) cfg =
     | None -> "(n/a)"
   out.PrintRow (true, cfg,
     [ visibilityString s
-      Addr.toString (file: MachBinFile).ISA.WordSize s.Address
+      Addr.toString (file: IBinFile).ISA.WordSize s.Address
       normalizeEmpty s.Name
       (toLibString >> normalizeEmpty) s.LibraryName
       machSymbol.SymType.ToString ()
@@ -204,13 +205,13 @@ let printSymbolInfoVerbose file s (machSymbol: Mach.MachSymbol) cfg =
 let printSymbolInfoNone file s cfg =
   out.PrintRow (true, cfg,
     [ visibilityString s
-      Addr.toString (file: MachBinFile).ISA.WordSize s.Address
+      Addr.toString (file: IBinFile).ISA.WordSize s.Address
       normalizeEmpty s.Name
       (toLibString >> normalizeEmpty) s.LibraryName
       "(n/a)"; "(n/a)"; "(n/a)"; "(n/a)"; "(n/a)" ])
 
-let printSymbolInfo isVerbose (file: MachBinFile) (symbols: seq<Symbol>) =
-  let addrColumn = columnWidthOfAddr file |> LeftAligned
+let printSymbolInfo isVerbose (mach: MachBinFile) (symbols: seq<Symbol>) =
+  let addrColumn = columnWidthOfAddr mach |> LeftAligned
   if isVerbose then
     let cfg = [ LeftAligned 3; addrColumn; LeftAligned 40; LeftAligned 35
                 LeftAligned 8; LeftAligned 8; LeftAligned 8; LeftAligned 8
@@ -224,9 +225,9 @@ let printSymbolInfo isVerbose (file: MachBinFile) (symbols: seq<Symbol>) =
     |> Seq.sortBy (fun s -> s.Address)
     |> Seq.sortBy (fun s -> s.Visibility)
     |> Seq.iter (fun s ->
-      match file.Mach.SymInfo.SymbolMap.TryFind s.Address with
-      | Some machSymbol -> printSymbolInfoVerbose file s machSymbol cfg
-      | None -> printSymbolInfoNone file s cfg)
+      match mach.Mach.SymInfo.SymbolMap.TryFind s.Address with
+      | Some machSymbol -> printSymbolInfoVerbose mach s machSymbol cfg
+      | None -> printSymbolInfoNone mach s cfg)
   else
     let cfg = [ LeftAligned 3; LeftAligned 10
                 addrColumn; LeftAligned 55; LeftAligned 15 ]
@@ -240,28 +241,28 @@ let printSymbolInfo isVerbose (file: MachBinFile) (symbols: seq<Symbol>) =
       out.PrintRow (true, cfg,
         [ visibilityString s
           symbolKindString s
-          Addr.toString file.ISA.WordSize s.Address
+          Addr.toString (mach :> IBinFile).ISA.WordSize s.Address
           normalizeEmpty s.Name
           (toLibString >> normalizeEmpty) s.LibraryName ]))
 
-let dumpSymbols (opts: FileViewerOpts) (file: MachBinFile) =
-  file.GetSymbols ()
-  |> printSymbolInfo opts.Verbose file
+let dumpSymbols (opts: FileViewerOpts) (mach: MachBinFile) =
+  (mach :> IBinFile).GetSymbols ()
+  |> printSymbolInfo opts.Verbose mach
 
-let dumpRelocs (opts: FileViewerOpts) (file: MachBinFile) =
-  file.GetRelocationSymbols ()
-  |> printSymbolInfo opts.Verbose file
+let dumpRelocs (opts: FileViewerOpts) (mach: MachBinFile) =
+  (mach :> IBinFile).GetRelocationSymbols ()
+  |> printSymbolInfo opts.Verbose mach
 
-let dumpFunctions (opts: FileViewerOpts) (file: MachBinFile) =
-  file.GetFunctionSymbols ()
-  |> printSymbolInfo opts.Verbose file
+let dumpFunctions (opts: FileViewerOpts) (mach: MachBinFile) =
+  (mach :> IBinFile).GetFunctionSymbols ()
+  |> printSymbolInfo opts.Verbose mach
 
 let dumpArchiveHeader (opts: FileViewerOpts) (file: MachBinFile) =
   Utils.futureFeature ()
 
-let dumpUniversalHeader (_opts: FileViewerOpts) (file: MachBinFile) =
-  let span = file.Content.Slice 0
-  let reader = file.Mach.BinReader
+let dumpUniversalHeader (_opts: FileViewerOpts) (mach: MachBinFile) =
+  let span = (mach :> IBinFile).Slice 0
+  let reader = mach.Mach.BinReader
   if Mach.Header.isFat span reader then
     Mach.Fat.loadFats span reader
     |> List.iteri (fun idx fat ->

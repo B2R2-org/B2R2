@@ -34,7 +34,7 @@ open B2R2.FrontEnd.BinLifter
 /// BinHandle to parse/lift/disassemble instructions at a specific address or to
 /// access file-specific data.
 type BinHandle = {
-  BinFile: BinFile
+  BinFile: IBinFile
   DisasmHelper: DisasmHelper
   TranslationContext: TranslationContext
   Parser: Parser

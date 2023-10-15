@@ -47,8 +47,8 @@ type EVMCodeCopyAnalysis () =
 
   let rec pickValidCopyInfo hdl = function
     | (Some 0UL, Some src, Some len) :: restCopyInfos ->
-      let binLen = uint64 hdl.BinFile.Content.Length
-      let bin = hdl.BinFile.Content.Slice (offset=int src, size=int len)
+      let binLen = uint64 hdl.BinFile.Length
+      let bin = hdl.BinFile.Slice (offset=int src, size=int len)
       let srcEnd = src + len - 1UL
       if srcEnd < binLen then
         let newHdl = BinHandle.Init (hdl.BinFile.ISA, bin.ToArray ())

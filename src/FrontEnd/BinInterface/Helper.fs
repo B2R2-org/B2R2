@@ -45,14 +45,14 @@ let identifyFormatAndISAAndOS bytes isa os autoDetect =
 let newFileInfo bytes (baddr: Addr option) path fmt isa regbay =
   match fmt with
   | FileFormat.ELFBinary ->
-    ELFBinFile (bytes, path, baddr, Some regbay) :> BinFile
+    ELFBinFile (bytes, path, baddr, Some regbay) :> IBinFile
   | FileFormat.PEBinary ->
-    PEBinFile (bytes, path, baddr) :> BinFile
+    PEBinFile (bytes, path, baddr) :> IBinFile
   | FileFormat.MachBinary ->
-    MachBinFile (bytes, path, isa, baddr) :> BinFile
+    MachBinFile (bytes, path, isa, baddr) :> IBinFile
   | FileFormat.WasmBinary ->
-    WasmBinFile (bytes, path, baddr) :> BinFile
-  | _ -> RawBinFile (bytes, path, isa, baddr) :> BinFile
+    WasmBinFile (bytes, path, baddr) :> IBinFile
+  | _ -> RawBinFile (bytes, path, isa, baddr) :> IBinFile
 
 /// Classify ranges to be either in-file or not-in-file. The second parameter
 /// (notinfiles) is a sequence of (exclusive) ranges within the myrange, which
@@ -88,26 +88,26 @@ let inline readUIntBySize (r: IBinReader) (span: ByteSpan) size =
   | 8 -> r.ReadUInt64 (span, 0) |> Ok
   | _ -> Error ErrorCase.InvalidMemoryRead
 
-let inline readASCII (file: BinFile) pos =
+let inline readASCII (file: IBinFile) pos =
   let rec loop acc pos =
-    let b = file.Content.RawBytes[pos]
+    let b = file.RawBytes[pos]
     if b = 0uy then List.rev (b :: acc) |> List.toArray
     else loop (b :: acc) (pos + 1)
   loop [] pos
 
-let inline tryParseInstrFromAddr (file: BinFile) (parser: Parser) addr =
-  try parser.Parse (file.Content.Slice (addr=addr), addr) |> Ok
+let inline tryParseInstrFromAddr (file: IBinFile) (parser: Parser) addr =
+  try parser.Parse (file.Slice (addr=addr), addr) |> Ok
   with _ -> Error ErrorCase.ParsingFailure
 
 let inline tryParseInstrFromBinPtr file (p: Parser) (ptr: BinFilePointer) =
   try
-    let ins = p.Parse ((file: BinFile).Content.Slice ptr.Offset, ptr.Addr)
+    let ins = p.Parse ((file: IBinFile).Slice ptr.Offset, ptr.Addr)
     if BinFilePointer.IsValidAccess ptr (int ins.Length) then Ok ins
     else Error ErrorCase.ParsingFailure
   with _ ->
     Error ErrorCase.ParsingFailure
 
-let inline parseInstrFromBinPtr (file: BinFile) parser (ptr: BinFilePointer) =
+let inline parseInstrFromBinPtr (file: IBinFile) parser (ptr: BinFilePointer) =
   match tryParseInstrFromBinPtr file parser ptr with
   | Ok ins -> ins
   | Error _ -> raise ParsingFailureException
@@ -124,7 +124,7 @@ let rec parseLoopByAddr file parser addr acc =
       parseLoopByAddr file parser addr (ins :: acc)
   | Error _ -> Error <| List.rev acc
 
-let inline parseBBLFromAddr (file: BinFile) (parser: Parser) addr =
+let inline parseBBLFromAddr (file: IBinFile) (parser: Parser) addr =
   parseLoopByAddr file parser addr []
 
 let rec parseLoopByPtr file parser ptr acc =
@@ -136,7 +136,7 @@ let rec parseLoopByPtr file parser ptr acc =
       parseLoopByPtr file parser ptr (ins :: acc)
   | Error _ -> Error <| List.rev acc
 
-let inline parseBBLFromBinPtr (file: BinFile) (parser: Parser) ptr =
+let inline parseBBLFromBinPtr (file: IBinFile) (parser: Parser) ptr =
   parseLoopByPtr file parser ptr []
 
 let rec liftBBLAux acc advanceFn trctxt pos = function

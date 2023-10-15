@@ -32,9 +32,8 @@ open B2R2.FrontEnd.BinFile.ELF.Helper
 /// <summary>
 ///   This class represents an ELF binary file.
 /// </summary>
-type ELFBinFile
-  private (elf, path, isa, ftype, baseAddr, content, regbay, forEmu) =
-  inherit BinFile (path, FileFormat.ELFBinary, isa, ftype, content)
+type ELFBinFile (bytes, path, baseAddr, regbay, forEmu) =
+  let elf = Parser.parse bytes baseAddr regbay forEmu
 
   new (bytes, path) =
     ELFBinFile (bytes, path, None, None, false)
@@ -42,81 +41,32 @@ type ELFBinFile
   new (bytes, path, baseAddr, regbay) =
     ELFBinFile (bytes, path, baseAddr, regbay, false)
 
-  new (bytes, path, baseAddr, regbay, forEmu) =
-    let elf = Parser.parse bytes baseAddr regbay forEmu
-    let isa = elf.ISA
-    let ftype = convFileType elf.ELFHdr.ELFFileType
-    let content = ELFBinaryContent (elf, bytes) :> IContentAddressable
-    ELFBinFile (elf, path, isa, ftype, baseAddr, content, regbay, forEmu)
-
-  override __.BaseAddress with get() = elf.BaseAddr
-
-  override __.IsStripped = not (Map.containsKey ".symtab" elf.SecInfo.SecByName)
-
-  override __.IsNXEnabled = isNXEnabled elf
-
-  override __.IsRelocatable = isRelocatable content.Span elf
-
-  override __.EntryPoint = Some elf.ELFHdr.EntryPoint
-
-  override __.TextStartAddr = getTextStartAddr elf
-
-  override __.GetRelocatedAddr relocAddr = getRelocatedAddr elf relocAddr
-
-  override __.AddSymbol addr symbol = Utils.futureFeature ()
-
-  override __.GetSymbols () = getSymbols elf
-
-  override __.GetStaticSymbols () = getStaticSymbols elf
-
-  override __.GetDynamicSymbols (?exc) = getDynamicSymbols exc elf
-
-  override __.GetRelocationSymbols () = getRelocSymbols elf
-
-  override __.GetSections () = getSections elf
-
-  override __.GetSections (addr) = getSectionsByAddr elf addr
-
-  override __.GetSections (name) = getSectionsByName elf name
-
-  override __.GetTextSections () = getTextSections elf
-
-  override __.GetSegments (isLoadable) = getSegments elf isLoadable
-
-  override __.GetLinkageTableEntries () = getPLT elf
-
-  override __.IsLinkageTable addr = isInPLT elf addr
-
-  override __.TryFindFunctionSymbolName (addr) = tryFindFuncSymb elf addr
-
-  override __.ToBinFilePointer addr =
-    BinFilePointer.OfSectionOpt (getSectionsByAddr elf addr |> Seq.tryHead)
-
-  override __.ToBinFilePointer name =
-    BinFilePointer.OfSectionOpt (getSectionsByName elf name |> Seq.tryHead)
-
-  override __.GetFunctionAddresses () =
-    base.GetFunctionAddresses ()
-    |> addExtraFunctionAddrs content.Span elf false
-
-  override __.GetFunctionAddresses (useExcInfo) =
-    base.GetFunctionAddresses ()
-    |> addExtraFunctionAddrs content.Span elf useExcInfo
-
-  override __.NewBinFile bs =
-    ELFBinFile (bs, path, baseAddr, regbay, forEmu)
-
-  override __.NewBinFile (bs, baseAddr) =
-    ELFBinFile (bs, path, Some baseAddr, regbay, forEmu)
-
   member __.ELF with get() = elf
 
   /// List of dynamic section entries.
   member __.DynamicSectionEntries with get() =
-    Section.getDynamicSectionEntries content.Span elf.BinReader elf.SecInfo
+    let span = ReadOnlySpan bytes
+    Section.getDynamicSectionEntries span elf.BinReader elf.SecInfo
 
-and ELFBinaryContent (elf, bytes) =
-  interface IContentAddressable with
+  interface IBinFile with
+    member __.FilePath with get() = path
+
+    member __.FileFormat with get() = FileFormat.ELFBinary
+
+    member __.ISA with get() = elf.ISA
+
+    member __.FileType with get() = convFileType elf.ELFHdr.ELFFileType
+
+    member __.EntryPoint = Some elf.ELFHdr.EntryPoint
+
+    member __.BaseAddress with get() = elf.BaseAddr
+
+    member __.IsStripped = not (Map.containsKey ".symtab" elf.SecInfo.SecByName)
+
+    member __.IsNXEnabled = isNXEnabled elf
+
+    member __.IsRelocatable = isRelocatable (ReadOnlySpan bytes) elf
+
     member __.Length = bytes.Length
 
     member __.RawBytes = bytes
@@ -163,4 +113,79 @@ and ELFBinaryContent (elf, bytes) =
     member __.IsExecutableAddr addr = isExecutableAddr elf addr
 
     member __.GetNotInFileIntervals range = getNotInFileIntervals elf range
+
+    member __.ToBinFilePointer addr =
+      BinFilePointer.OfSectionOpt (getSectionsByAddr elf addr |> Seq.tryHead)
+
+    member __.ToBinFilePointer name =
+      BinFilePointer.OfSectionOpt (getSectionsByName elf name |> Seq.tryHead)
+
+    member __.GetRelocatedAddr relocAddr = getRelocatedAddr elf relocAddr
+
+    member __.GetSymbols () = getSymbols elf
+
+    member __.GetStaticSymbols () = getStaticSymbols elf
+
+    member __.GetFunctionSymbols () =
+      let dict = Collections.Generic.Dictionary<Addr, Symbol> ()
+      let self = __ :> IBinFile
+      self.GetStaticSymbols ()
+      |> Seq.iter (fun s ->
+        if s.Kind = SymFunctionType then dict[s.Address] <- s
+        elif s.Kind = SymNoType (* This is to handle ppc's PLT symbols. *)
+          && s.Address > 0UL && s.Name.Contains "pic32."
+        then dict[s.Address] <- s
+        else ())
+      self.GetDynamicSymbols (true) |> Seq.iter (fun s ->
+        if dict.ContainsKey s.Address then ()
+        elif s.Kind = SymFunctionType then dict[s.Address] <- s
+        else ())
+      dict.Values
+
+    member __.GetDynamicSymbols (?exc) = getDynamicSymbols exc elf
+
+    member __.GetRelocationSymbols () = getRelocSymbols elf
+
+    member __.AddSymbol addr symbol = Utils.futureFeature ()
+
+    member __.TryFindFunctionSymbolName (addr) = tryFindFuncSymb elf addr
+
+    member __.GetSections () = getSections elf
+
+    member __.GetSections (addr) = getSectionsByAddr elf addr
+
+    member __.GetSections (name) = getSectionsByName elf name
+
+    member __.GetTextSection () = getTextSection elf
+
+    member __.GetSegments (isLoadable) = getSegments elf isLoadable
+
+    member __.GetSegments (addr) =
+      (__ :> IBinFile).GetSegments ()
+      |> Seq.filter (fun s -> (addr >= s.Address)
+                              && (addr < s.Address + s.Size))
+
+    member __.GetSegments (perm) =
+      (__ :> IBinFile).GetSegments ()
+      |> Seq.filter (fun s -> (s.Permission &&& perm = perm) && s.Size > 0UL)
+
+    member __.GetLinkageTableEntries () = getPLT elf
+
+    member __.IsLinkageTable addr = isInPLT elf addr
+
+    member __.GetFunctionAddresses () =
+      (__ :> IBinFile).GetFunctionSymbols ()
+      |> Seq.map (fun s -> s.Address)
+      |> addExtraFunctionAddrs (ReadOnlySpan bytes) elf false
+
+    member __.GetFunctionAddresses (useExcInfo) =
+      (__ :> IBinFile).GetFunctionSymbols ()
+      |> Seq.map (fun s -> s.Address)
+      |> addExtraFunctionAddrs (ReadOnlySpan bytes) elf useExcInfo
+
+    member __.NewBinFile bs =
+      ELFBinFile (bs, path, baseAddr, regbay, forEmu)
+
+    member __.NewBinFile (bs, baseAddr) =
+      ELFBinFile (bs, path, Some baseAddr, regbay, forEmu)
 

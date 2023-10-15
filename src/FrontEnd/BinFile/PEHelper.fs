@@ -76,20 +76,15 @@ let getVirtualSectionSize (sec: SectionHeader) =
 
 let secHdrToSection pe (sec: SectionHeader) =
   { Address = addrFromRVA pe.BaseAddr sec.VirtualAddress
-    FileOffset = uint64 sec.PointerToRawData
+    FileOffset = uint32 sec.PointerToRawData
     Kind = secFlagToSectionKind sec.SectionCharacteristics
-    Size = uint64 sec.SizeOfRawData
+    Size = uint32 sec.SizeOfRawData
     Name = sec.Name }
 
 let getSectionsByName pe name =
   match pe.SectionHeaders |> Seq.tryFind (fun sec -> sec.Name = name) with
   | None -> Seq.empty
   | Some sec -> secHdrToSection pe sec |> Seq.singleton
-
-let getTextStartAddr pe =
-  match getSectionsByName pe SecText |> Seq.tryHead with
-  | None -> 0UL
-  | Some sec -> sec.Address
 
 let inline translateAddr pe addr =
   let rva = int (addr - pe.BaseAddr)
@@ -209,8 +204,10 @@ let getSectionsByAddr pe addr =
   | idx ->
     pe.SectionHeaders[idx] |> secHdrToSection pe |> Seq.singleton
 
-let getTextSections pe =
-  getSectionsByName pe SecText
+let getTextSection pe =
+  match pe.SectionHeaders |> Seq.tryFind (fun sec -> sec.Name = SecText) with
+  | Some sec -> secHdrToSection pe sec
+  | None -> raise SectionNotFoundException
 
 let getImportTable pe =
   pe.ImportMap

@@ -48,7 +48,7 @@ type CmdList () =
     + ":"
     + Addr.toString wordSize (seg.Address + seg.Size)
     + " (" + seg.Size.ToString () + ") ("
-    + BinFile.PermissionToString seg.Permission + ")"
+    + Permission.toString seg.Permission + ")"
 
   let listSegments (hdl: BinHandle) =
     let wordSize = hdl.BinFile.ISA.WordSize
@@ -61,7 +61,7 @@ type CmdList () =
     + ". "
     + Addr.toString wordSize sec.Address
     + ":"
-    + Addr.toString wordSize (sec.Address + sec.Size)
+    + Addr.toString wordSize (sec.Address + uint64 sec.Size)
     + " (" + sec.Size.ToString ("D6") + ")"
     + " [" + sec.Name + "] "
 

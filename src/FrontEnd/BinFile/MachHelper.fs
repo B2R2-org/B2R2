@@ -88,9 +88,6 @@ let isNXEnabled mach =
   not (mach.MachHdr.Flags.HasFlag MachFlag.MHAllowStackExecution)
   || mach.MachHdr.Flags.HasFlag MachFlag.MHNoHeapExecution
 
-let inline getTextStartAddr mach =
-  (Map.find "__text" mach.Sections.SecByName).SecAddr
-
 let inline translateAddr mach addr =
   match ARMap.tryFindByAddr addr mach.SegmentMap with
   | Some s -> Convert.ToInt32 (addr - s.VMAddr + s.FileOff)
@@ -122,9 +119,9 @@ let machSectionToSection segMap (sec: MachSection) =
   let perm: MachVMProt = seg.InitProt |> LanguagePrimitives.EnumOfValue
   let isExecutable = perm.HasFlag MachVMProt.Executable
   { Address = sec.SecAddr
-    FileOffset = uint64 sec.SecOffset
+    FileOffset = sec.SecOffset
     Kind = secFlagToSectionKind isExecutable sec.SecType
-    Size = sec.SecSize
+    Size = uint32 sec.SecSize
     Name = sec.SecName }
 
 let getSections mach =
@@ -142,10 +139,9 @@ let getSectionsByName mach name =
   | Some s -> Seq.singleton (machSectionToSection mach.SegmentMap s)
   | None -> Seq.empty
 
-let getTextSections mach =
+let getTextSection mach =
   mach.Sections.SecByNum[mach.SecText]
   |> machSectionToSection mach.SegmentMap
-  |> Seq.singleton
 
 let getPLT mach =
   mach.SymInfo.LinkageTable

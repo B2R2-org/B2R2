@@ -22,34 +22,26 @@
   SOFTWARE.
 *)
 
-namespace B2R2.RearEnd.Transformer
+namespace B2R2.FrontEnd.BinFile
 
-open B2R2
-open B2R2.RearEnd
+open System
 
-/// The `hexdump` action.
-type HexdumpAction () =
-  let rec hexdump (o: obj) =
-    let typ = o.GetType ()
-    if typ = typeof<Binary> then hexdumpBinary o
-    else invalidArg (nameof o) "Invalid input type."
+/// File permission. Each permission corresponds to a bit, and thus, multiple
+/// permissions can be OR-ed.
+[<Flags>]
+type Permission =
+  /// File is readable.
+  | Readable = 4
+  /// File is writable.
+  | Writable = 2
+  /// File is executable.
+  | Executable = 1
 
-  and hexdumpBinary o =
-    let bin = unbox<Binary> o
-    let hdl = Binary.Handle bin
-    let bs = hdl.BinFile.RawBytes
-    let baseAddr = hdl.BinFile.BaseAddress
-    HexDumper.dump 16 hdl.BinFile.ISA.WordSize true baseAddr bs
-    |> box
-
-  interface IAction with
-    member __.ActionID with get() = "hexdump"
-    member __.Signature with get() = "Binary -> string"
-    member __.Description with get() = """
-    Take in a binary and convert it to a hexdump string.
-"""
-    member __.Transform args collection =
-      match args with
-      | [] ->
-        { Values = collection.Values |> Array.map hexdump }
-      | _ -> invalidArg (nameof args) "Invalid argument given."
+module Permission =
+  /// Permission to string.
+  [<CompiledName ("ToString")>]
+  let toString (p: Permission) =
+    let r = if p.HasFlag Permission.Readable then "r" else "-"
+    let w = if p.HasFlag Permission.Writable then "w" else "-"
+    let x = if p.HasFlag Permission.Executable then "x" else "-"
+    r + w + x

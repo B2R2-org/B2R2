@@ -48,12 +48,12 @@ let load (binPath: string) (bytes: byte[]) isa baseAddr =
   let regbay = loadRegBay isa
   match fmt with
   | FileFormat.ELFBinary ->
-    ELFBinFile (bytes, binPath, baseAddr, Some regbay) :> BinFile
+    ELFBinFile (bytes, binPath, baseAddr, Some regbay) :> IBinFile
   | FileFormat.PEBinary ->
-    PEBinFile (bytes, binPath, baseAddr) :> BinFile
+    PEBinFile (bytes, binPath, baseAddr) :> IBinFile
   | FileFormat.MachBinary ->
-    MachBinFile (bytes, binPath, isa, baseAddr) :> BinFile
-  | _ -> RawBinFile (bytes, binPath, isa, baseAddr) :> BinFile
+    MachBinFile (bytes, binPath, isa, baseAddr) :> IBinFile
+  | _ -> RawBinFile (bytes, binPath, isa, baseAddr) :> IBinFile
 
 /// Load a given byte array (binary file) and return a `ELFBinFile`.
 [<CompiledName ("LoadELF")>]

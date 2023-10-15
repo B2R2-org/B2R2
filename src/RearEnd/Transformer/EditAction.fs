@@ -43,7 +43,7 @@ type EditAction () =
   let insert off (snip: byte[]) o =
     let bin = unbox<Binary> o
     let hdl = Binary.Handle bin
-    let bs = hdl.BinFile.Content.RawBytes
+    let bs = hdl.BinFile.RawBytes
     let newbs = Array.zeroCreate (bs.Length + snip.Length)
     if off > bs.Length then invalidArg (nameof off) "Offset is too large."
     elif off = 0 then
@@ -58,7 +58,7 @@ type EditAction () =
   let delete soff eoff o =
     let bin = unbox<Binary> o
     let hdl = Binary.Handle bin
-    let bs = hdl.BinFile.Content.RawBytes
+    let bs = hdl.BinFile.RawBytes
     let rmlen = eoff - soff + 1
     let newbs = Array.zeroCreate (bs.Length - rmlen)
     if rmlen > bs.Length || eoff >= bs.Length || soff >= bs.Length || soff < 0
@@ -73,7 +73,7 @@ type EditAction () =
   let replace soff eoff newbs o =
     let bin = unbox<Binary> o
     let hdl = Binary.Handle bin
-    let bs = hdl.BinFile.Content.RawBytes
+    let bs = hdl.BinFile.RawBytes
     Array.blit newbs 0 bs soff (eoff - soff + 1)
     makeBinary bin hdl newbs
 

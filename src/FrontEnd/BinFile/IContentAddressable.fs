@@ -30,13 +30,13 @@ open B2R2
 /// a file offset.
 type IContentAddressable =
   /// The size of the associated binary file.
-  abstract member Length: int
+  abstract Length: int
 
   /// The raw file content as a byte array.
-  abstract member RawBytes: byte[]
+  abstract RawBytes: byte[]
 
   /// The raw file content as a ByteSpan.
-  abstract member Span: ByteSpan
+  abstract Span: ByteSpan
 
   /// <summary>
   ///   Translate a virtual address into a relative offset to the binary file.
@@ -48,31 +48,31 @@ type IContentAddressable =
   /// <exception cref="T:B2R2.FrontEnd.BinFile.InvalidAddrReadException">
   ///   Thrown when the given address is out of a valid address range.
   /// </exception>
-  abstract member GetOffset: addr: Addr -> int
+  abstract GetOffset: addr: Addr -> int
 
   /// Slice a portion of the associated binary file based on the given virtual
   /// `addr` and its `size`.
-  abstract member Slice: addr: Addr * size: int -> ByteSpan
+  abstract Slice: addr: Addr * size: int -> ByteSpan
 
   /// Slice a maximum possible portion of the associated binary file based on
   /// the given virtual `addr`.
-  abstract member Slice: addr: Addr -> ByteSpan
+  abstract Slice: addr: Addr -> ByteSpan
 
   /// Slice a portion of the associated binary file based on the given file
   /// `offset` and its `size`.
-  abstract member Slice: offset: int * size: int -> ByteSpan
+  abstract Slice: offset: int * size: int -> ByteSpan
 
   /// Slice a maximum possible portion of the associated binary file based on
   /// the given file `offset`.
-  abstract member Slice: offset: int -> ByteSpan
+  abstract Slice: offset: int -> ByteSpan
 
   /// Slice a portion of the associated binary file based on the given pointer
   /// `ptr` and its `size`.
-  abstract member Slice: ptr: BinFilePointer * size: int -> ByteSpan
+  abstract Slice: ptr: BinFilePointer * size: int -> ByteSpan
 
   /// Slice a maximum possible portion of the associated binary file based on
   /// the given virtual `addr`.
-  abstract member Slice: ptr: BinFilePointer -> ByteSpan
+  abstract Slice: ptr: BinFilePointer -> ByteSpan
 
   /// <summary>
   ///   Check if the given address is valid for the associated binary. We say a
@@ -82,7 +82,7 @@ type IContentAddressable =
   /// <returns>
   ///   Returns true if the address is within a valid range, false otherwise.
   /// </returns>
-  abstract member IsValidAddr: Addr -> bool
+  abstract IsValidAddr: Addr -> bool
 
   /// <summary>
   ///   Check if the given address range is valid. This function returns true
@@ -93,7 +93,7 @@ type IContentAddressable =
   ///   Returns true if the whole range of addresses is within a valid range,
   ///   false otherwise.
   /// </returns>
-  abstract member IsValidRange: AddrRange -> bool
+  abstract IsValidRange: AddrRange -> bool
 
   /// <summary>
   ///   Check if the given address is valid and there is an actual mapping from
@@ -110,7 +110,7 @@ type IContentAddressable =
   ///   Returns true if the address is within a mapped address range, false
   ///   otherwise.
   /// </returns>
-  abstract member IsInFileAddr: Addr -> bool
+  abstract IsInFileAddr: Addr -> bool
 
   /// <summary>
   ///   Check if the given address range is valid and there exists a
@@ -122,7 +122,7 @@ type IContentAddressable =
   ///   Returns true if the whole range of addresses is within a valid range,
   ///   false otherwise.
   /// </returns>
-  abstract member IsInFileRange: AddrRange -> bool
+  abstract IsInFileRange: AddrRange -> bool
 
   /// <summary>
   ///   Check if the given address is executable address for this binary. We say
@@ -135,7 +135,7 @@ type IContentAddressable =
   /// <returns>
   ///   Returns true if the address is executable, false otherwise.
   /// </returns>
-  abstract member IsExecutableAddr: Addr -> bool
+  abstract IsExecutableAddr: Addr -> bool
 
   /// <summary>
   ///   Given a range r, return a list of address ranges (intervals) that are
@@ -145,5 +145,27 @@ type IContentAddressable =
   ///   Returns an empty list when the given range r is valid, i.e.,
   ///   `IsInFileRange r = true`.
   /// </returns>
-  abstract member GetNotInFileIntervals: AddrRange -> seq<AddrRange>
+  abstract GetNotInFileIntervals: AddrRange -> seq<AddrRange>
+
+  /// <summary>
+  ///   Convert the section at the address (Addr) into a binary pointer, which
+  ///   can exclusively point to binary contents of the section.
+  /// </summary>
+  abstract ToBinFilePointer: Addr -> BinFilePointer
+
+  /// <summary>
+  ///   Convert the section of the name (string) into a binary pointer, which
+  ///   can exclusively point to binary contents of the section.
+  /// </summary>
+  abstract ToBinFilePointer: string -> BinFilePointer
+
+  /// <summary>
+  ///   Return a relocation target address of the given virtual address if there
+  ///   is a corresponding relocation entry.
+  /// </summary>
+  /// <param name="addr">Virtual address be relocated.</param>
+  /// <returns>
+  ///   Returns a relocated address for a given virtual address.
+  /// </returns>
+  abstract GetRelocatedAddr: relocAddr: Addr -> Result<Addr, ErrorCase>
 

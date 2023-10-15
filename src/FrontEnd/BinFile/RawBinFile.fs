@@ -30,91 +30,31 @@ open B2R2
 
 /// This class represents a raw binary file (containing only binary code and
 /// data without file format)
-type RawBinFile private (bytes: byte[], path, isa, ftype, content, baseAddr) =
-  inherit BinFile (path, FileFormat.RawBinary, isa, ftype, content)
+type RawBinFile (bytes: byte[], path, isa, baseOpt) =
   let size = bytes.Length
   let usize = uint64 size
+  let baseAddr = defaultArg baseOpt 0UL
   let symbolMap = Dictionary<Addr, Symbol> ()
 
-  new (bytes, path, isa, baseOpt) =
-    let ftype = FileType.UnknownFile
-    let baseAddr = defaultArg baseOpt 0UL
-    let content = RawBinaryContent (bytes, baseAddr)
-    RawBinFile (bytes, path, isa, ftype, content, baseAddr)
+  interface IBinFile with
+    member __.FilePath with get() = path
 
-  override __.BaseAddress with get() = baseAddr
+    member __.FileFormat with get() = FileFormat.RawBinary
 
-  override __.IsStripped = false
+    member __.ISA with get() = isa
 
-  override __.IsNXEnabled = false
+    member __.FileType with get() = FileType.UnknownFile
 
-  override __.IsRelocatable = false
+    member __.EntryPoint = Some baseAddr
 
-  override __.EntryPoint = Some baseAddr
+    member __.BaseAddress with get() = baseAddr
 
-  override __.TextStartAddr = baseAddr
+    member __.IsStripped = false
 
-  override __.GetRelocatedAddr _relocAddr = Utils.impossible ()
+    member __.IsNXEnabled = false
 
-  override __.AddSymbol addr symbol =
-    symbolMap[addr] <- symbol
+    member __.IsRelocatable = false
 
-  override __.GetSymbols () =
-    Seq.map (fun (KeyValue(k, v)) -> v) symbolMap
-
-  override __.GetStaticSymbols () = __.GetSymbols ()
-
-  override __.GetDynamicSymbols (?_excludeImported) = Seq.empty
-
-  override __.GetRelocationSymbols () = Seq.empty
-
-  override __.GetSections () =
-    Seq.singleton { Address = baseAddr
-                    FileOffset = 0UL
-                    Kind = SectionKind.ExecutableSection
-                    Size = usize
-                    Name = "" }
-
-  override __.GetSections (addr: Addr) =
-    if addr >= baseAddr && addr < (baseAddr + usize) then
-      __.GetSections ()
-    else
-      Seq.empty
-
-  override __.GetSections (_: string): seq<Section> = Seq.empty
-
-  override __.GetTextSections () = Seq.empty
-
-  override __.GetSegments (_isLoadable) =
-    Seq.singleton { Address = baseAddr
-                    Offset = 0UL
-                    Size = usize
-                    SizeInFile = usize
-                    Permission = Permission.Readable ||| Permission.Executable }
-
-  override __.GetLinkageTableEntries () = Seq.empty
-
-  override __.IsLinkageTable _ = false
-
-  override __.TryFindFunctionSymbolName (_addr) =
-    if symbolMap.ContainsKey(_addr) then Ok symbolMap[_addr].Name
-    else Error ErrorCase.SymbolNotFound
-
-  override __.ToBinFilePointer addr =
-    if addr = baseAddr then BinFilePointer (baseAddr, 0, size - 1)
-    else BinFilePointer.Null
-
-  override __.ToBinFilePointer (_name: string) = BinFilePointer.Null
-
-  override __.NewBinFile bs =
-    RawBinFile (bs, path, isa, Some baseAddr)
-
-  override __.NewBinFile (bs, baseAddr) =
-    RawBinFile (bs, path, isa, Some baseAddr)
-
-and RawBinaryContent (bytes, baseAddr) =
-  let usize = uint64 bytes.Length
-  interface IContentAddressable with
     member __.Length = bytes.Length
 
     member __.RawBytes = bytes
@@ -167,3 +107,81 @@ and RawBinaryContent (bytes, baseAddr) =
 
     member __.GetNotInFileIntervals range =
       FileHelper.getNotInFileIntervals baseAddr usize range
+
+    member __.ToBinFilePointer addr =
+      if addr = baseAddr then BinFilePointer (baseAddr, 0, size - 1)
+      else BinFilePointer.Null
+
+    member __.ToBinFilePointer (_name: string) = BinFilePointer.Null
+
+    member __.GetRelocatedAddr _relocAddr = Utils.impossible ()
+
+    member __.GetSymbols () =
+      Seq.map (fun (KeyValue(k, v)) -> v) symbolMap
+
+    member __.GetStaticSymbols () = (__ :> IBinFile).GetSymbols ()
+
+    member __.GetFunctionSymbols () = (__ :> IBinFile).GetStaticSymbols ()
+
+    member __.GetDynamicSymbols (?_excludeImported) = Seq.empty
+
+    member __.GetRelocationSymbols () = Seq.empty
+
+    member __.AddSymbol addr symbol = symbolMap[addr] <- symbol
+
+    member __.TryFindFunctionSymbolName (_addr) =
+      if symbolMap.ContainsKey(_addr) then Ok symbolMap[_addr].Name
+      else Error ErrorCase.SymbolNotFound
+
+    member __.GetSections () =
+      Seq.singleton { Address = baseAddr
+                      FileOffset = 0u
+                      Kind = SectionKind.ExecutableSection
+                      Size = uint32 usize
+                      Name = "" }
+
+    member __.GetSections (addr: Addr) =
+      if addr >= baseAddr && addr < (baseAddr + usize) then
+        (__ :> IBinFile).GetSections ()
+      else
+        Seq.empty
+
+    member __.GetSections (_: string): seq<Section> = Seq.empty
+
+    member __.GetTextSection () = raise SectionNotFoundException
+
+    member __.GetSegments (_isLoadable: bool) =
+      Seq.singleton { Address = baseAddr
+                      Offset = 0UL
+                      Size = usize
+                      SizeInFile = usize
+                      Permission = Permission.Readable
+                                   ||| Permission.Executable }
+
+    member __.GetSegments (addr: Addr) =
+      (__ :> IBinFile).GetSegments ()
+      |> Seq.filter (fun s -> (addr >= s.Address)
+                              && (addr < s.Address + s.Size))
+
+    member __.GetSegments (perm: Permission) =
+      (__ :> IBinFile).GetSegments ()
+      |> Seq.filter (fun s -> (s.Permission &&& perm = perm) && s.Size > 0UL)
+
+    member __.GetLinkageTableEntries () = Seq.empty
+
+    member __.IsLinkageTable _ = false
+
+    member __.GetFunctionAddresses () =
+      (__ :> IBinFile).GetFunctionSymbols ()
+      |> Seq.filter (fun s -> s.Kind = SymFunctionType)
+      |> Seq.map (fun s -> s.Address)
+
+    member __.GetFunctionAddresses (_) =
+      (__ :> IBinFile).GetFunctionAddresses ()
+
+    member __.NewBinFile bs =
+      RawBinFile (bs, path, isa, Some baseAddr)
+
+    member __.NewBinFile (bs, baseAddr) =
+      RawBinFile (bs, path, isa, Some baseAddr)
+

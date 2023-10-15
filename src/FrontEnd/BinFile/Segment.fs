@@ -22,34 +22,22 @@
   SOFTWARE.
 *)
 
-namespace B2R2.RearEnd.Transformer
+namespace B2R2.FrontEnd.BinFile
 
 open B2R2
-open B2R2.RearEnd
 
-/// The `hexdump` action.
-type HexdumpAction () =
-  let rec hexdump (o: obj) =
-    let typ = o.GetType ()
-    if typ = typeof<Binary> then hexdumpBinary o
-    else invalidArg (nameof o) "Invalid input type."
-
-  and hexdumpBinary o =
-    let bin = unbox<Binary> o
-    let hdl = Binary.Handle bin
-    let bs = hdl.BinFile.RawBytes
-    let baseAddr = hdl.BinFile.BaseAddress
-    HexDumper.dump 16 hdl.BinFile.ISA.WordSize true baseAddr bs
-    |> box
-
-  interface IAction with
-    member __.ActionID with get() = "hexdump"
-    member __.Signature with get() = "Binary -> string"
-    member __.Description with get() = """
-    Take in a binary and convert it to a hexdump string.
-"""
-    member __.Transform args collection =
-      match args with
-      | [] ->
-        { Values = collection.Values |> Array.map hexdump }
-      | _ -> invalidArg (nameof args) "Invalid argument given."
+/// A segment is a block of code/data that is loaded in the real memory at
+/// runtime. A segment can contain multiple sections in it.
+type Segment = {
+  /// Address of the segment.
+  Address: Addr
+  /// Offset in the file.
+  Offset: uint64
+  /// Size of the segment.
+  Size: uint64
+  /// Size of the corresponding segment in file. This can be smaller than
+  /// `Size` in which case the missing part is filled with zeros.
+  SizeInFile: uint64
+  /// Permission of the segment.
+  Permission: Permission
+}

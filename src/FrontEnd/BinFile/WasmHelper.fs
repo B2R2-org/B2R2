@@ -51,12 +51,6 @@ let entryPointOf wm =
     | None -> None
   | None -> None
 
-let textStartAddrOf wm =
-  match wm.CodeSection with
-  | Some cs ->
-    uint64 cs.Offset
-  | None -> 0UL
-
 let importDescToSymKind desc =
   match desc with
   | ImpFunc _ -> SymExternFunctionType
@@ -120,9 +114,9 @@ let sectionIdToKind id =
 
 let secSummaryToGenericSection (secSumm: SectionSummary) =
   { Address = uint64 secSumm.Offset
-    FileOffset = uint64 secSumm.Offset
+    FileOffset = uint32 secSumm.Offset
     Kind = sectionIdToKind secSumm.Id
-    Size = uint64 (secSumm.HeaderSize + secSumm.ContentsSize)
+    Size = secSumm.HeaderSize + secSumm.ContentsSize
     Name = secSumm.Name }
 
 let getSections wm =

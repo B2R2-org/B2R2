@@ -47,7 +47,7 @@ type LiftAction () =
     let bin = unbox<Binary> o
     let hdl = Binary.Handle bin
     let baddr = hdl.BinFile.BaseAddress
-    let ptr = BinFilePointer (baddr, 0, hdl.BinFile.Content.Length - 1)
+    let ptr = BinFilePointer (baddr, 0, hdl.BinFile.Length - 1)
     let sb = StringBuilder ()
     lift sb hdl ptr
     |> box

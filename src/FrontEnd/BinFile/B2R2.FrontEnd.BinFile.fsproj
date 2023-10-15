@@ -7,10 +7,19 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="FileTypes.fs" />
+    <Compile Include="BinFileExceptions.fs" />
+    <Compile Include="Symbol.fs" />
+    <Compile Include="Section.fs" />
+    <Compile Include="Permission.fs" />
+    <Compile Include="Segment.fs" />
+    <Compile Include="LinkageTable.fs" />
     <Compile Include="BinFilePointer.fs" />
+    <Compile Include="IBinMetadata.fs" />
+    <Compile Include="IBinProperty.fs" />
     <Compile Include="IContentAddressable.fs" />
-    <Compile Include="BinFile.fs" />
+    <Compile Include="IBinSymbolTable.fs" />
+    <Compile Include="IBinOrganization.fs" />
+    <Compile Include="IBinFile.fs" />
     <Compile Include="FileHelper.fs" />
     <Compile Include="RawBinFile.fs" />
     <Compile Include="WasmTypes.fs" />

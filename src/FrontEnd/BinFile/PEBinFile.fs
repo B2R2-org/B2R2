@@ -29,8 +29,8 @@ open B2R2
 open B2R2.FrontEnd.BinFile.PE.Helper
 
 /// This class represents a PE binary file.
-type PEBinFile private (pe, path, isa, ftype, content, baseAddr, rawpdb) =
-  inherit BinFile (path, FileFormat.PEBinary, isa, ftype, content)
+type PEBinFile (bytes, path, baseAddr, rawpdb) =
+  let pe = PE.Parser.parse bytes path baseAddr rawpdb
 
   new (bytes, path) = PEBinFile (bytes, path, None, [||])
 
@@ -38,45 +38,29 @@ type PEBinFile private (pe, path, isa, ftype, content, baseAddr, rawpdb) =
 
   new (bytes, path, rawpdb) = PEBinFile (bytes, path, None, rawpdb)
 
-  new (bytes, path, baseAddr, rawpdb) =
-    let pe = PE.Parser.parse bytes path baseAddr rawpdb
-    let isa = getISA pe
-    let ftype = getFileType pe
-    let content = PEBinaryContent (pe, bytes)
-    PEBinFile (pe, path, isa, ftype, content, baseAddr, rawpdb)
-
-  override __.BaseAddress with get() = pe.BaseAddr
-  override __.IsStripped = Array.isEmpty pe.SymbolInfo.SymbolArray
-  override __.IsNXEnabled = isNXEnabled pe
-  override __.IsRelocatable = isRelocatable pe
-  override __.EntryPoint = getEntryPoint pe
-  override __.TextStartAddr = getTextStartAddr pe
-  override __.GetRelocatedAddr _relocAddr = Utils.futureFeature ()
-  override __.AddSymbol _addr _symbol = Utils.futureFeature ()
-  override __.GetSymbols () = getSymbols pe
-  override __.GetStaticSymbols () = getStaticSymbols pe
-  override __.GetDynamicSymbols (?exc) = getDynamicSymbols pe exc
-  override __.GetRelocationSymbols () = getRelocationSymbols pe
-  override __.GetSections () = getSections pe
-  override __.GetSections (addr) = getSectionsByAddr pe addr
-  override __.GetSections (name) = getSectionsByName pe name
-  override __.GetTextSections () = getTextSections pe
-  override __.GetSegments (_isLoadable) = getSegments pe
-  override __.GetLinkageTableEntries () = getImportTable pe
-  override __.IsLinkageTable addr = isImportTable pe addr
-  override __.TryFindFunctionSymbolName (addr) = tryFindFuncSymb pe addr
-  override __.ToBinFilePointer addr =
-    BinFilePointer.OfSectionOpt (getSectionsByAddr pe addr |> Seq.tryHead)
-  override __.ToBinFilePointer name =
-    BinFilePointer.OfSectionOpt (getSectionsByName pe name |> Seq.tryHead)
-  override __.NewBinFile bs = PEBinFile (bs, path, baseAddr, rawpdb)
-  override __.NewBinFile (bs, baseAddr) =
-    PEBinFile (bs, path, Some baseAddr, rawpdb)
   member __.PE with get() = pe
+
   member __.RawPDB = rawpdb
 
-and PEBinaryContent (pe, bytes) =
-  interface IContentAddressable with
+  interface IBinFile with
+    member __.FilePath with get() = path
+
+    member __.FileFormat with get() = FileFormat.PEBinary
+
+    member __.ISA with get() = getISA pe
+
+    member __.FileType with get() = getFileType pe
+
+    member __.EntryPoint = getEntryPoint pe
+
+    member __.BaseAddress with get() = pe.BaseAddr
+
+    member __.IsStripped = Array.isEmpty pe.SymbolInfo.SymbolArray
+
+    member __.IsNXEnabled = isNXEnabled pe
+
+    member __.IsRelocatable = isRelocatable pe
+
     member __.Length = bytes.Length
 
     member __.RawBytes = bytes
@@ -122,4 +106,69 @@ and PEBinaryContent (pe, bytes) =
     member __.IsExecutableAddr addr = isExecutableAddr pe addr
 
     member __.GetNotInFileIntervals range = getNotInFileIntervals pe range
+
+    member __.ToBinFilePointer addr =
+      BinFilePointer.OfSectionOpt (getSectionsByAddr pe addr |> Seq.tryHead)
+
+    member __.ToBinFilePointer name =
+      BinFilePointer.OfSectionOpt (getSectionsByName pe name |> Seq.tryHead)
+
+    member __.GetRelocatedAddr _relocAddr = Utils.futureFeature ()
+
+    member __.GetSymbols () = getSymbols pe
+
+    member __.GetStaticSymbols () = getStaticSymbols pe
+
+    member __.GetFunctionSymbols () =
+      let self = __ :> IBinFile
+      let staticSymbols =
+        self.GetStaticSymbols ()
+        |> Seq.filter (fun s -> s.Kind = SymFunctionType)
+      let dynamicSymbols =
+        self.GetDynamicSymbols (true)
+        |> Seq.filter (fun s -> s.Kind = SymFunctionType)
+      Seq.append staticSymbols dynamicSymbols
+
+    member __.GetDynamicSymbols (?exc) = getDynamicSymbols pe exc
+
+    member __.GetRelocationSymbols () = getRelocationSymbols pe
+
+    member __.AddSymbol _addr _symbol = Utils.futureFeature ()
+
+    member __.TryFindFunctionSymbolName (addr) = tryFindFuncSymb pe addr
+
+    member __.GetSections () = getSections pe
+
+    member __.GetSections (addr) = getSectionsByAddr pe addr
+
+    member __.GetSections (name) = getSectionsByName pe name
+
+    member __.GetTextSection () = getTextSection pe
+
+    member __.GetSegments (_isLoadable: bool) = getSegments pe
+
+    member __.GetSegments (addr) =
+      (__ :> IBinFile).GetSegments ()
+      |> Seq.filter (fun s -> (addr >= s.Address)
+                              && (addr < s.Address + s.Size))
+
+    member __.GetSegments (perm) =
+      (__ :> IBinFile).GetSegments ()
+      |> Seq.filter (fun s -> (s.Permission &&& perm = perm) && s.Size > 0UL)
+
+    member __.GetLinkageTableEntries () = getImportTable pe
+
+    member __.IsLinkageTable addr = isImportTable pe addr
+
+    member __.GetFunctionAddresses () =
+      (__ :> IBinFile).GetFunctionSymbols ()
+      |> Seq.map (fun s -> s.Address)
+
+    member __.GetFunctionAddresses (_) =
+      (__ :> IBinFile).GetFunctionAddresses ()
+
+    member __.NewBinFile bs = PEBinFile (bs, path, baseAddr, rawpdb)
+
+    member __.NewBinFile (bs, baseAddr) =
+      PEBinFile (bs, path, Some baseAddr, rawpdb)
 

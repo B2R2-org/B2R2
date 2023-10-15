@@ -36,7 +36,7 @@ let normalizeEmpty s =
 let toNBytes (v: uint64) =
   v.ToString () + " bytes"
 
-let columnWidthOfAddr (file: BinFile) =
+let columnWidthOfAddr (file: IBinFile) =
   WordSize.toByteWidth file.ISA.WordSize * 2
 
 let visibilityString s =

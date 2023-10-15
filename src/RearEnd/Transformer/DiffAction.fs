@@ -290,7 +290,7 @@ type DiffAction () =
 
   let diff bin1 bin2 =
     let hdl1, hdl2 = Binary.Handle bin1, Binary.Handle bin2
-    let bs1, bs2 = hdl1.BinFile.Content.RawBytes, hdl2.BinFile.Content.RawBytes
+    let bs1, bs2 = hdl1.BinFile.RawBytes, hdl2.BinFile.RawBytes
     let dd1, dd2 = prepareMyers bs1 bs2
     let res1, res2 = myersDiff dd1 dd2
     let res1, res2 = colorResult bs1 Red res1, colorResult bs2 Green res2

@@ -33,7 +33,6 @@ open System.IO.Compression
 exception TestFileNotFoundException
 
 module ZIPReader =
-
   let baseDir = System.AppDomain.CurrentDomain.BaseDirectory
   let zipFileSrcDir = baseDir + "../../../"
   let getFileDir = function
@@ -52,6 +51,17 @@ module ZIPReader =
     stream.CopyTo(ms)
     ms.ToArray()
 
+[<AutoOpen>]
+module TestHelper =
+  let checkSymbol (fileInfo: IBinFile) addr symName =
+    match fileInfo.TryFindFunctionSymbolName addr with
+    | Ok n -> Assert.AreEqual (n, symName)
+    | Error _ -> Assert.Fail ()
+
+  let getTextSectionAddr (fileInfo: IBinFile) =
+    let sec = fileInfo.GetTextSection ()
+    sec.Address
+
 module PE =
   let x64FileName = "pe_x64"
   let x86FileName = "pe_x86"
@@ -67,12 +77,7 @@ module PE =
     let pdbBytes =
       if pdbFileName.Length = 0 then [||]
       else ZIPReader.readFileFromZipFile FileFormat.PEBinary zip pdbFileName
-    PEBinFile (bytes, file, pdbBytes)
-
-  let checkSymbol (fileInfo : PEBinFile) addr symName =
-    match fileInfo.TryFindFunctionSymbolName addr with
-    | Ok n -> Assert.AreEqual (n, symName)
-    | Error _ -> Assert.Fail ()
+    PEBinFile (bytes, file, pdbBytes) :> IBinFile
 
   [<TestClass>]
   type TestClass () =
@@ -87,7 +92,7 @@ module PE =
       Assert.AreEqual (5, file.GetSections () |> Seq.length)
       Assert.AreEqual (239, file.GetStaticSymbols () |> Seq.length)
       Assert.AreEqual (41, file.GetDynamicSymbols () |> Seq.length)
-      Assert.AreEqual (0x00401000UL, file.TextStartAddr)
+      Assert.AreEqual (0x00401000UL, getTextSectionAddr file)
       Assert.AreEqual (WordSize.Bit32, file.ISA.WordSize)
       checkSymbol file 0x00401090UL "_add"
       checkSymbol file 0x004010d0UL "_mul"
@@ -103,7 +108,7 @@ module PE =
       Assert.AreEqual (6, file.GetSections () |> Seq.length)
       Assert.AreEqual (240, file.GetStaticSymbols () |> Seq.length)
       Assert.AreEqual (43, file.GetDynamicSymbols () |> Seq.length)
-      Assert.AreEqual (0x140001000UL, file.TextStartAddr)
+      Assert.AreEqual (0x140001000UL, getTextSectionAddr file)
       Assert.AreEqual (WordSize.Bit64, file.ISA.WordSize)
       checkSymbol file 0x1400010e0UL "add"
       checkSymbol file 0x140001110UL "mul"
@@ -114,12 +119,7 @@ module Mach =
     let zip = fileName + ".zip"
     let bytes = ZIPReader.readFileFromZipFile FileFormat.MachBinary zip fileName
     let isa = ISA.Init arch Endian.Little
-    MachBinFile (bytes, fileName, isa)
-
-  let checkSymbol (fileInfo : MachBinFile) addr symName =
-    match fileInfo.TryFindFunctionSymbolName addr with
-    | Ok n -> Assert.AreEqual (n, symName)
-    | Error _ -> Assert.Fail ()
+    MachBinFile (bytes, fileName, isa) :> IBinFile
 
   [<TestClass>]
   type TestClass () =
@@ -135,7 +135,7 @@ module Mach =
       Assert.AreEqual (0, file.GetStaticSymbols () |> Seq.length)
       Assert.AreEqual (59, file.GetDynamicSymbols () |> Seq.length)
       Assert.AreEqual (45, file.GetLinkageTableEntries () |> Seq.length)
-      Assert.AreEqual (0x00002050UL, file.TextStartAddr)
+      Assert.AreEqual (0x00002050UL, getTextSectionAddr file)
       Assert.AreEqual (WordSize.Bit32, file.ISA.WordSize)
       checkSymbol file 0x00003b28UL "___error"
       checkSymbol file 0x00003b70UL "_fflush"
@@ -151,7 +151,7 @@ module Mach =
       Assert.AreEqual (885, file.GetStaticSymbols () |> Seq.length)
       Assert.AreEqual (190, file.GetDynamicSymbols () |> Seq.length)
       Assert.AreEqual (72, file.GetLinkageTableEntries () |> Seq.length)
-      Assert.AreEqual (0x100000D30UL, file.TextStartAddr)
+      Assert.AreEqual (0x100000D30UL, getTextSectionAddr file)
       Assert.AreEqual (WordSize.Bit64, file.ISA.WordSize)
       checkSymbol file 0x100000D30UL "_usage"
       checkSymbol file 0x100005F90UL "_error"
@@ -167,7 +167,7 @@ module Mach =
       Assert.AreEqual (0, file.GetStaticSymbols () |> Seq.length)
       Assert.AreEqual (190, file.GetDynamicSymbols () |> Seq.length)
       Assert.AreEqual (72, file.GetLinkageTableEntries () |> Seq.length)
-      Assert.AreEqual (0x100000D30UL, file.TextStartAddr)
+      Assert.AreEqual (0x100000D30UL, getTextSectionAddr file)
       Assert.AreEqual (WordSize.Bit64, file.ISA.WordSize)
       checkSymbol file 0x10000B076UL "___error"
       checkSymbol file 0x10000B0D0UL "_fflush"
@@ -191,12 +191,7 @@ module ELF =
   let parseFile fileName =
     let zip = fileName + ".zip"
     let bytes = ZIPReader.readFileFromZipFile FileFormat.ELFBinary zip fileName
-    ELFBinFile (bytes, fileName)
-
-  let checkSymbol (fileInfo : ELFBinFile) addr symName =
-    match fileInfo.TryFindFunctionSymbolName addr with
-    | Ok n -> Assert.AreEqual (n, symName)
-    | Error _ -> Assert.Fail ()
+    ELFBinFile (bytes, fileName) :> IBinFile
 
   [<TestClass>]
   type TestClass () =
@@ -205,15 +200,15 @@ module ELF =
     member __.``[BinFile] ELF File Parse Test (X86)`` () =
       let file = parseFile x86FileName
       Assert.AreEqual (Some 0x8049CD0UL, file.EntryPoint)
-      Assert.AreEqual (file.FileType, FileType.ExecutableFile)
-      Assert.AreEqual (file.IsStripped, false)
-      Assert.AreEqual (file.IsNXEnabled, true)
-      Assert.AreEqual (file.GetSections () |> Seq.length, 31)
-      Assert.AreEqual (file.GetStaticSymbols () |> Seq.length, 793)
-      Assert.AreEqual (file.GetDynamicSymbols () |> Seq.length, 131)
-      Assert.AreEqual (file.GetLinkageTableEntries () |> Seq.length, 114)
-      Assert.AreEqual (file.TextStartAddr, 0x8049CD0UL)
-      Assert.AreEqual (file.ISA.WordSize, WordSize.Bit32)
+      Assert.AreEqual (FileType.ExecutableFile, file.FileType)
+      Assert.AreEqual (false, file.IsStripped)
+      Assert.AreEqual (true, file.IsNXEnabled)
+      Assert.AreEqual (31, file.GetSections () |> Seq.length)
+      Assert.AreEqual (793, file.GetStaticSymbols () |> Seq.length)
+      Assert.AreEqual (131, file.GetDynamicSymbols () |> Seq.length)
+      Assert.AreEqual (114, file.GetLinkageTableEntries () |> Seq.length)
+      Assert.AreEqual (0x8049CD0UL, getTextSectionAddr file)
+      Assert.AreEqual (WordSize.Bit32, file.ISA.WordSize)
       checkSymbol file 0x080495b0UL "unsetenv"
       checkSymbol file 0x08049cb0UL "putchar_unlocked"
 
@@ -221,15 +216,15 @@ module ELF =
     member __.``[BinFile] ELF File Parse Test (X86_Stripped)`` () =
       let file = parseFile x86StrippedFileName
       Assert.AreEqual (Some 0x8049CD0UL, file.EntryPoint)
-      Assert.AreEqual (file.FileType, FileType.ExecutableFile)
-      Assert.AreEqual (file.IsStripped, true)
-      Assert.AreEqual (file.IsNXEnabled, true)
-      Assert.AreEqual (file.GetSections () |> Seq.length, 29)
-      Assert.AreEqual (file.GetStaticSymbols () |> Seq.length, 0)
-      Assert.AreEqual (file.GetDynamicSymbols () |> Seq.length, 131)
-      Assert.AreEqual (file.GetLinkageTableEntries () |> Seq.length, 114)
-      Assert.AreEqual (file.TextStartAddr, 0x8049CD0UL)
-      Assert.AreEqual (file.ISA.WordSize, WordSize.Bit32)
+      Assert.AreEqual (FileType.ExecutableFile, file.FileType)
+      Assert.AreEqual (true, file.IsStripped)
+      Assert.AreEqual (true, file.IsNXEnabled)
+      Assert.AreEqual (29, file.GetSections () |> Seq.length)
+      Assert.AreEqual (0, file.GetStaticSymbols () |> Seq.length)
+      Assert.AreEqual (131, file.GetDynamicSymbols () |> Seq.length)
+      Assert.AreEqual (114, file.GetLinkageTableEntries () |> Seq.length)
+      Assert.AreEqual (0x8049CD0UL, getTextSectionAddr file)
+      Assert.AreEqual (WordSize.Bit32, file.ISA.WordSize)
       checkSymbol file 0x080495b0UL "unsetenv"
       checkSymbol file 0x08049cb0UL "putchar_unlocked"
 
@@ -237,15 +232,15 @@ module ELF =
     member __.``[BinFile] ELF File Parse Test (X64)`` () =
       let file = parseFile x64FileName
       Assert.AreEqual (Some 0x404050UL, file.EntryPoint)
-      Assert.AreEqual (file.FileType, FileType.ExecutableFile)
-      Assert.AreEqual (file.IsStripped, false)
-      Assert.AreEqual (file.IsNXEnabled, true)
-      Assert.AreEqual (file.GetSections () |> Seq.length, 38)
-      Assert.AreEqual (file.GetStaticSymbols () |> Seq.length, 635)
-      Assert.AreEqual (file.GetDynamicSymbols () |> Seq.length, 126)
-      Assert.AreEqual (file.GetLinkageTableEntries () |> Seq.length, 110)
-      Assert.AreEqual (file.TextStartAddr, 0x4027C0UL)
-      Assert.AreEqual (file.ISA.WordSize, WordSize.Bit64)
+      Assert.AreEqual (FileType.ExecutableFile, file.FileType)
+      Assert.AreEqual (false, file.IsStripped)
+      Assert.AreEqual (true, file.IsNXEnabled)
+      Assert.AreEqual (38, file.GetSections () |> Seq.length)
+      Assert.AreEqual (635, file.GetStaticSymbols () |> Seq.length)
+      Assert.AreEqual (126, file.GetDynamicSymbols () |> Seq.length)
+      Assert.AreEqual (110, file.GetLinkageTableEntries () |> Seq.length)
+      Assert.AreEqual (0x4027C0UL, getTextSectionAddr file)
+      Assert.AreEqual (WordSize.Bit64, file.ISA.WordSize)
       checkSymbol file 0x004020e0UL "__ctype_toupper_loc"
       checkSymbol file 0x004027a0UL "__sprintf_chk"
 
@@ -253,15 +248,15 @@ module ELF =
     member __.``[BinFile] ELF File Parse Test (X64_Stripped)`` () =
       let file = parseFile x64StrippedFileName
       Assert.AreEqual (Some 0x404050UL, file.EntryPoint)
-      Assert.AreEqual (file.FileType, FileType.ExecutableFile)
-      Assert.AreEqual (file.IsStripped, true)
-      Assert.AreEqual (file.IsNXEnabled, true)
-      Assert.AreEqual (file.GetSections () |> Seq.length, 29)
-      Assert.AreEqual (file.GetStaticSymbols () |> Seq.length, 0)
-      Assert.AreEqual (file.GetDynamicSymbols () |> Seq.length, 126)
-      Assert.AreEqual (file.GetLinkageTableEntries () |> Seq.length, 110)
-      Assert.AreEqual (file.TextStartAddr, 0x4027C0UL)
-      Assert.AreEqual (file.ISA.WordSize, WordSize.Bit64)
+      Assert.AreEqual (FileType.ExecutableFile, file.FileType)
+      Assert.AreEqual (true, file.IsStripped)
+      Assert.AreEqual (true, file.IsNXEnabled)
+      Assert.AreEqual (29, file.GetSections () |> Seq.length)
+      Assert.AreEqual (0, file.GetStaticSymbols () |> Seq.length)
+      Assert.AreEqual (126, file.GetDynamicSymbols () |> Seq.length)
+      Assert.AreEqual (110, file.GetLinkageTableEntries () |> Seq.length)
+      Assert.AreEqual (0x4027C0UL, getTextSectionAddr file)
+      Assert.AreEqual (WordSize.Bit64, file.ISA.WordSize)
       checkSymbol file 0x004020e0UL "__ctype_toupper_loc"
       checkSymbol file 0x004027a0UL "__sprintf_chk"
 
@@ -269,15 +264,15 @@ module ELF =
     member __.``[BinFile] ELF File Parse Test (arm32)`` () =
       let file = parseFile arm32FileName
       Assert.AreEqual (Some 0x00013d0cUL, file.EntryPoint)
-      Assert.AreEqual (file.FileType, FileType.ExecutableFile)
-      Assert.AreEqual (file.IsStripped, false)
-      Assert.AreEqual (file.IsNXEnabled, true)
-      Assert.AreEqual (file.GetSections () |> Seq.length, 38)
-      Assert.AreEqual (file.GetStaticSymbols () |> Seq.length, 1299)
-      Assert.AreEqual (file.GetDynamicSymbols () |> Seq.length, 136)
-      Assert.AreEqual (file.GetLinkageTableEntries () |> Seq.length, 121)
-      Assert.AreEqual (file.TextStartAddr, 0x00011f98UL)
-      Assert.AreEqual (file.ISA.WordSize, WordSize.Bit32)
+      Assert.AreEqual (FileType.ExecutableFile, file.FileType)
+      Assert.AreEqual (false, file.IsStripped)
+      Assert.AreEqual (true, file.IsNXEnabled)
+      Assert.AreEqual (38, file.GetSections () |> Seq.length)
+      Assert.AreEqual (1299, file.GetStaticSymbols () |> Seq.length)
+      Assert.AreEqual (136, file.GetDynamicSymbols () |> Seq.length)
+      Assert.AreEqual (121, file.GetLinkageTableEntries () |> Seq.length)
+      Assert.AreEqual (0x00011f98UL, getTextSectionAddr file)
+      Assert.AreEqual (WordSize.Bit32, file.ISA.WordSize)
       checkSymbol file 0x000119ecUL "fdopen"
       checkSymbol file 0x00011f8cUL "__assert_fail"
 
@@ -285,15 +280,15 @@ module ELF =
     member __.``[BinFile] ELF File Parse Test (arm32_Stripped)`` () =
       let file = parseFile arm32StrippedFileName
       Assert.AreEqual (Some 0x00013d0cUL, file.EntryPoint)
-      Assert.AreEqual (file.FileType, FileType.ExecutableFile)
-      Assert.AreEqual (file.IsStripped, true)
-      Assert.AreEqual (file.IsNXEnabled, true)
-      Assert.AreEqual (file.GetSections () |> Seq.length, 28)
-      Assert.AreEqual (file.GetStaticSymbols () |> Seq.length, 0)
-      Assert.AreEqual (file.GetDynamicSymbols () |> Seq.length, 136)
-      Assert.AreEqual (file.GetLinkageTableEntries () |> Seq.length, 121)
-      Assert.AreEqual (file.TextStartAddr, 0x00011f98UL)
-      Assert.AreEqual (file.ISA.WordSize, WordSize.Bit32)
+      Assert.AreEqual (FileType.ExecutableFile, file.FileType)
+      Assert.AreEqual (true, file.IsStripped)
+      Assert.AreEqual (true, file.IsNXEnabled)
+      Assert.AreEqual (28, file.GetSections () |> Seq.length)
+      Assert.AreEqual (0, file.GetStaticSymbols () |> Seq.length)
+      Assert.AreEqual (136, file.GetDynamicSymbols () |> Seq.length)
+      Assert.AreEqual (121, file.GetLinkageTableEntries () |> Seq.length)
+      Assert.AreEqual (0x00011f98UL, getTextSectionAddr file)
+      Assert.AreEqual (WordSize.Bit32, file.ISA.WordSize)
       checkSymbol file 0x000119ecUL "fdopen"
       checkSymbol file 0x00011f8cUL "__assert_fail"
 
@@ -301,15 +296,15 @@ module ELF =
     member __.``[BinFile] ELF File Parse Test (thumb)`` () =
       let file = parseFile thumbFileName
       Assert.AreEqual (Some 0x00013605UL, file.EntryPoint)
-      Assert.AreEqual (file.FileType, FileType.ExecutableFile)
-      Assert.AreEqual (file.IsStripped, false)
-      Assert.AreEqual (file.IsNXEnabled, true)
-      Assert.AreEqual (file.GetSections () |> Seq.length, 38)
-      Assert.AreEqual (file.GetStaticSymbols () |> Seq.length, 1088)
-      Assert.AreEqual (file.GetDynamicSymbols () |> Seq.length, 136)
-      Assert.AreEqual (file.GetLinkageTableEntries () |> Seq.length, 121)
-      Assert.AreEqual (file.TextStartAddr, 0x00011fe0UL)
-      Assert.AreEqual (file.ISA.WordSize, WordSize.Bit32)
+      Assert.AreEqual (FileType.ExecutableFile, file.FileType)
+      Assert.AreEqual (false, file.IsStripped)
+      Assert.AreEqual (true, file.IsNXEnabled)
+      Assert.AreEqual (38, file.GetSections () |> Seq.length)
+      Assert.AreEqual (1088, file.GetStaticSymbols () |> Seq.length)
+      Assert.AreEqual (136, file.GetDynamicSymbols () |> Seq.length)
+      Assert.AreEqual (121, file.GetLinkageTableEntries () |> Seq.length)
+      Assert.AreEqual (0x00011fe0UL, getTextSectionAddr file)
+      Assert.AreEqual (WordSize.Bit32, file.ISA.WordSize)
       checkSymbol file 0x000119fcUL "fdopen"
       checkSymbol file 0x00011fd0UL "__assert_fail"
 
@@ -317,15 +312,15 @@ module ELF =
     member __.``[BinFile] ELF File Parse Test (thumb_Stripped)`` () =
       let file = parseFile thumbStrippedFileName
       Assert.AreEqual (Some 0x00013605UL, file.EntryPoint)
-      Assert.AreEqual (file.FileType, FileType.ExecutableFile)
-      Assert.AreEqual (file.IsStripped, true)
-      Assert.AreEqual (file.IsNXEnabled, true)
-      Assert.AreEqual (file.GetSections () |> Seq.length, 28)
-      Assert.AreEqual (file.GetStaticSymbols () |> Seq.length, 0)
-      Assert.AreEqual (file.GetDynamicSymbols () |> Seq.length, 136)
-      Assert.AreEqual (file.GetLinkageTableEntries () |> Seq.length, 121)
-      Assert.AreEqual (file.TextStartAddr, 0x00011fe0UL)
-      Assert.AreEqual (file.ISA.WordSize, WordSize.Bit32)
+      Assert.AreEqual (FileType.ExecutableFile, file.FileType)
+      Assert.AreEqual (true, file.IsStripped)
+      Assert.AreEqual (true, file.IsNXEnabled)
+      Assert.AreEqual (28, file.GetSections () |> Seq.length)
+      Assert.AreEqual (0, file.GetStaticSymbols () |> Seq.length)
+      Assert.AreEqual (136, file.GetDynamicSymbols () |> Seq.length)
+      Assert.AreEqual (121, file.GetLinkageTableEntries () |> Seq.length)
+      Assert.AreEqual (0x00011fe0UL, getTextSectionAddr file)
+      Assert.AreEqual (WordSize.Bit32, file.ISA.WordSize)
       checkSymbol file 0x000119fcUL "fdopen"
       checkSymbol file 0x00011fd0UL "__assert_fail"
 
@@ -333,15 +328,15 @@ module ELF =
     member __.``[BinFile] ELF File Parse Test (aarch64)`` () =
       let file = parseFile aarch64FileName
       Assert.AreEqual (Some 0x00404788UL, file.EntryPoint)
-      Assert.AreEqual (file.FileType, FileType.ExecutableFile)
-      Assert.AreEqual (file.IsStripped, false)
-      Assert.AreEqual (file.IsNXEnabled, true)
-      Assert.AreEqual (file.GetSections () |> Seq.length, 37)
-      Assert.AreEqual (file.GetStaticSymbols () |> Seq.length, 935)
-      Assert.AreEqual (file.GetDynamicSymbols () |> Seq.length, 136)
-      Assert.AreEqual (file.GetLinkageTableEntries () |> Seq.length, 121)
-      Assert.AreEqual (file.TextStartAddr, 0x00402e60UL)
-      Assert.AreEqual (file.ISA.WordSize, WordSize.Bit64)
+      Assert.AreEqual (FileType.ExecutableFile, file.FileType)
+      Assert.AreEqual (false, file.IsStripped)
+      Assert.AreEqual (true, file.IsNXEnabled)
+      Assert.AreEqual (37, file.GetSections () |> Seq.length)
+      Assert.AreEqual (935, file.GetStaticSymbols () |> Seq.length)
+      Assert.AreEqual (136, file.GetDynamicSymbols () |> Seq.length)
+      Assert.AreEqual (121, file.GetLinkageTableEntries () |> Seq.length)
+      Assert.AreEqual (0x00402e60UL, getTextSectionAddr file)
+      Assert.AreEqual (WordSize.Bit64, file.ISA.WordSize)
       checkSymbol file 0x004026d0UL "mbrtowc"
       checkSymbol file 0x00402e50UL "__fxstatat"
 
@@ -349,15 +344,15 @@ module ELF =
     member __.``[BinFile] ELF File Parse Test (aarch64_Stripped)`` () =
       let file = parseFile aarch64StrippedFileName
       Assert.AreEqual (Some 0x00404788UL, file.EntryPoint)
-      Assert.AreEqual (file.FileType, FileType.ExecutableFile)
-      Assert.AreEqual (file.IsStripped, true)
-      Assert.AreEqual (file.IsNXEnabled, true)
-      Assert.AreEqual (file.GetSections () |> Seq.length, 27)
-      Assert.AreEqual (file.GetStaticSymbols () |> Seq.length, 0)
-      Assert.AreEqual (file.GetDynamicSymbols () |> Seq.length, 136)
-      Assert.AreEqual (file.GetLinkageTableEntries () |> Seq.length, 121)
-      Assert.AreEqual (file.TextStartAddr, 0x00402e60UL)
-      Assert.AreEqual (file.ISA.WordSize, WordSize.Bit64)
+      Assert.AreEqual (FileType.ExecutableFile, file.FileType)
+      Assert.AreEqual (true, file.IsStripped)
+      Assert.AreEqual (true, file.IsNXEnabled)
+      Assert.AreEqual (27, file.GetSections () |> Seq.length)
+      Assert.AreEqual (0, file.GetStaticSymbols () |> Seq.length)
+      Assert.AreEqual (136, file.GetDynamicSymbols () |> Seq.length)
+      Assert.AreEqual (121, file.GetLinkageTableEntries () |> Seq.length)
+      Assert.AreEqual (0x00402e60UL, getTextSectionAddr file)
+      Assert.AreEqual (WordSize.Bit64, file.ISA.WordSize)
       checkSymbol file 0x004026d0UL "mbrtowc"
       checkSymbol file 0x00402e50UL "__fxstatat"
 
@@ -372,7 +367,7 @@ module ELF =
       Assert.AreEqual (0, file.GetStaticSymbols () |> Seq.length)
       Assert.AreEqual (232, file.GetDynamicSymbols () |> Seq.length)
       Assert.AreEqual (106, file.GetLinkageTableEntries () |> Seq.length)
-      Assert.AreEqual (0x00002c50UL, file.TextStartAddr)
+      Assert.AreEqual (0x00002c50UL, getTextSectionAddr file)
       Assert.AreEqual (WordSize.Bit32, file.ISA.WordSize)
       checkSymbol file 0x0001c280UL "strcmp"
       checkSymbol file 0x0001c240UL "getpwnam"
@@ -388,7 +383,7 @@ module ELF =
       Assert.AreEqual (0, file.GetStaticSymbols () |> Seq.length)
       Assert.AreEqual (232, file.GetDynamicSymbols () |> Seq.length)
       Assert.AreEqual (106, file.GetLinkageTableEntries () |> Seq.length)
-      Assert.AreEqual (0x00002c50UL, file.TextStartAddr)
+      Assert.AreEqual (0x00002c50UL, getTextSectionAddr file)
       Assert.AreEqual (WordSize.Bit32, file.ISA.WordSize)
       checkSymbol file 0x0001c280UL "__snprintf_chk"
       checkSymbol file 0x0001c240UL "unsetenv"
@@ -404,7 +399,7 @@ module ELF =
       Assert.AreEqual (0, file.GetStaticSymbols () |> Seq.length)
       Assert.AreEqual (232, file.GetDynamicSymbols () |> Seq.length)
       Assert.AreEqual (106, file.GetLinkageTableEntries () |> Seq.length)
-      Assert.AreEqual (0x00008f90UL, file.TextStartAddr)
+      Assert.AreEqual (0x00008f90UL, getTextSectionAddr file)
       Assert.AreEqual (WordSize.Bit64, file.ISA.WordSize)
       checkSymbol file 0x00022380UL "strcmp"
       checkSymbol file 0x00022320UL "unsetenv"
@@ -417,7 +412,7 @@ module Wasm =
     let file = fileName + ".wasm"
     let bytes =
       ZIPReader.readFileFromZipFile FileFormat.WasmBinary zip file
-    WasmBinFile (bytes, "")
+    WasmBinFile (bytes, "") :> IBinFile
 
   [<TestClass>]
   type TestClass () =
@@ -427,7 +422,7 @@ module Wasm =
       Assert.AreEqual (FileType.ExecutableFile, file.FileType)
       Assert.IsFalse (file.IsStripped)
       Assert.AreEqual (Some 0x15AUL, file.EntryPoint)
-      Assert.AreEqual (0x154UL, file.TextStartAddr)
+      Assert.AreEqual (0x154UL, getTextSectionAddr file)
       Assert.AreEqual (9, file.GetSymbols () |> Seq.length)
       Assert.AreEqual (12, file.GetSections () |> Seq.length)
       Assert.AreEqual (4, file.GetLinkageTableEntries () |> Seq.length)

@@ -32,50 +32,33 @@ open B2R2.FrontEnd.BinFile.Mach.Helper
 /// <summary>
 ///   This class represents a Mach-O binary file.
 /// </summary>
-type MachBinFile private (mach, path, isa, ftype, content, baseAddr) =
-  inherit BinFile (path, FileFormat.MachBinary, isa, ftype, content)
+type MachBinFile (bytes, path, isa, baseAddr) =
+  let mach = Parser.parse baseAddr bytes isa
 
   new (bytes: byte[], path, isa: ISA) =
     MachBinFile (bytes, path, isa, None)
 
-  new (bytes, path, isa, baseAddr) =
-    let mach = Parser.parse baseAddr bytes isa
-    let isa = getISA mach
-    let ftype = convFileType mach.MachHdr.FileType
-    let content = MachBinaryContent (mach, bytes)
-    MachBinFile (mach, path, isa, ftype, content, baseAddr)
-
-  override __.BaseAddress with get() = mach.BaseAddr
-  override __.IsStripped = isStripped mach
-  override __.IsNXEnabled = isNXEnabled mach
-  override __.IsRelocatable = mach.MachHdr.Flags.HasFlag MachFlag.MHPIE
-  override __.EntryPoint = mach.EntryPoint
-  override __.TextStartAddr = getTextStartAddr mach
-  override __.GetRelocatedAddr relocAddr = Utils.futureFeature ()
-  override __.AddSymbol addr symbol = Utils.futureFeature ()
-  override __.GetSymbols () = getSymbols mach
-  override __.GetStaticSymbols () = getStaticSymbols mach |> Array.toSeq
-  override __.GetDynamicSymbols (?e) = getDynamicSymbols e mach |> Array.toSeq
-  override __.GetRelocationSymbols () = mach.Relocations |> Array.toSeq
-  override __.GetSections () = getSections mach
-  override __.GetSections (addr) = getSectionsByAddr mach addr
-  override __.GetSections (name) = getSectionsByName mach name
-  override __.GetTextSections () = getTextSections mach
-  override __.GetSegments (isLoadable) = Segment.getSegments mach isLoadable
-  override __.GetLinkageTableEntries () = getPLT mach
-  override __.IsLinkageTable addr = isPLT mach addr
-  override __.TryFindFunctionSymbolName (addr) = tryFindFuncSymb mach addr
-  override __.ToBinFilePointer addr =
-    BinFilePointer.OfSectionOpt (getSectionsByAddr mach addr |> Seq.tryHead)
-  override __.ToBinFilePointer name =
-    BinFilePointer.OfSectionOpt (getSectionsByName mach name |> Seq.tryHead)
-  override __.NewBinFile bs = MachBinFile (bs, path, isa, baseAddr)
-  override __.NewBinFile (bs, baseAddr) =
-    MachBinFile (bs, path, isa, Some baseAddr)
   member __.Mach with get() = mach
 
-and MachBinaryContent (mach, bytes) =
-  interface IContentAddressable with
+  interface IBinFile with
+    member __.FilePath with get() = path
+
+    member __.FileFormat with get() = FileFormat.MachBinary
+
+    member __.ISA with get() = getISA mach
+
+    member __.FileType with get() = convFileType mach.MachHdr.FileType
+
+    member __.EntryPoint = mach.EntryPoint
+
+    member __.BaseAddress with get() = mach.BaseAddr
+
+    member __.IsStripped = isStripped mach
+
+    member __.IsNXEnabled = isNXEnabled mach
+
+    member __.IsRelocatable = mach.MachHdr.Flags.HasFlag MachFlag.MHPIE
+
     member __.Length = bytes.Length
 
     member __.RawBytes = bytes
@@ -121,4 +104,69 @@ and MachBinaryContent (mach, bytes) =
     member __.IsExecutableAddr addr = isExecutableAddr mach addr
 
     member __.GetNotInFileIntervals range = getNotInFileIntervals mach range
+
+    member __.ToBinFilePointer addr =
+      BinFilePointer.OfSectionOpt (getSectionsByAddr mach addr |> Seq.tryHead)
+
+    member __.ToBinFilePointer name =
+      BinFilePointer.OfSectionOpt (getSectionsByName mach name |> Seq.tryHead)
+
+    member __.GetRelocatedAddr _relocAddr = Utils.futureFeature ()
+
+    member __.GetSymbols () = getSymbols mach
+
+    member __.GetStaticSymbols () = getStaticSymbols mach |> Array.toSeq
+
+    member __.GetFunctionSymbols () =
+      let self = __ :> IBinFile
+      let staticSymbols =
+        self.GetStaticSymbols ()
+        |> Seq.filter (fun s -> s.Kind = SymFunctionType)
+      let dynamicSymbols =
+        self.GetDynamicSymbols (true)
+        |> Seq.filter (fun s -> s.Kind = SymFunctionType)
+      Seq.append staticSymbols dynamicSymbols
+
+    member __.GetDynamicSymbols (?e) = getDynamicSymbols e mach |> Array.toSeq
+
+    member __.GetRelocationSymbols () = mach.Relocations |> Array.toSeq
+
+    member __.AddSymbol _addr _symbol = Utils.futureFeature ()
+
+    member __.TryFindFunctionSymbolName (addr) = tryFindFuncSymb mach addr
+
+    member __.GetSections () = getSections mach
+
+    member __.GetSections (addr) = getSectionsByAddr mach addr
+
+    member __.GetSections (name) = getSectionsByName mach name
+
+    member __.GetTextSection () = getTextSection mach
+
+    member __.GetSegments (isLoadable) = Segment.getSegments mach isLoadable
+
+    member __.GetSegments (addr) =
+      (__ :> IBinFile).GetSegments ()
+      |> Seq.filter (fun s -> (addr >= s.Address)
+                              && (addr < s.Address + s.Size))
+
+    member __.GetSegments (perm) =
+      (__ :> IBinFile).GetSegments ()
+      |> Seq.filter (fun s -> (s.Permission &&& perm = perm) && s.Size > 0UL)
+
+    member __.GetLinkageTableEntries () = getPLT mach
+
+    member __.IsLinkageTable addr = isPLT mach addr
+
+    member __.GetFunctionAddresses () =
+      (__ :> IBinFile).GetFunctionSymbols ()
+      |> Seq.map (fun s -> s.Address)
+
+    member __.GetFunctionAddresses (_) =
+      (__ :> IBinFile).GetFunctionAddresses ()
+
+    member __.NewBinFile bs = MachBinFile (bs, path, isa, baseAddr)
+
+    member __.NewBinFile (bs, baseAddr) =
+      MachBinFile (bs, path, isa, Some baseAddr)
 
