@@ -95,6 +95,14 @@ type PEBinFile (bytes, path, baseAddr, rawpdb) =
       let span = ReadOnlySpan bytes
       span.Slice ptr.Offset
 
+    member __.Read (_buffer, _offset, _size) = Utils.futureFeature ()
+
+    member __.ReadByte () = Utils.futureFeature ()
+
+    member __.Seek (_addr: Addr): unit = Utils.futureFeature ()
+
+    member __.Seek (_offset: int): unit = Utils.futureFeature ()
+
     member __.IsValidAddr addr = isValidAddr pe addr
 
     member __.IsValidRange range = isValidRange pe range

@@ -29,11 +29,16 @@ open System.Collections.Generic
 open B2R2
 
 /// This class represents a raw binary file (containing only binary code and
-/// data without file format)
-type RawBinFile (bytes: byte[], path, isa, baseOpt) =
+/// data without file format).
+type RawBinFile (bytes: byte[], path, isa, baseAddrOpt) =
   let size = bytes.Length
-  let baseAddr = defaultArg baseOpt 0UL
+  let baseAddr = defaultArg baseAddrOpt 0UL
   let symbolMap = Dictionary<Addr, Symbol> ()
+  let mutable position = 0
+
+  member inline private __.AdjustPosition () =
+    if position > bytes.Length then position <- bytes.Length
+    else ()
 
   interface IBinFile with
     member __.FilePath with get() = path
@@ -87,6 +92,25 @@ type RawBinFile (bytes: byte[], path, isa, baseOpt) =
     member __.Slice (ptr: BinFilePointer) =
       let span = ReadOnlySpan bytes
       span.Slice ptr.Offset
+
+    member __.Read (buffer, offset, size) =
+      Array.blit bytes position buffer offset size
+      position <- position + size
+      __.AdjustPosition ()
+
+    member __.ReadByte () =
+      let res = bytes[position]
+      position <- position + 1
+      __.AdjustPosition ()
+      res
+
+    member __.Seek (addr: Addr) =
+      position <- (__ :> IContentAddressable).GetOffset addr
+      __.AdjustPosition ()
+
+    member __.Seek (offset: int) =
+      position <- offset
+      __.AdjustPosition ()
 
     member __.IsValidAddr addr =
       addr >= baseAddr && addr < (baseAddr + uint64 size)

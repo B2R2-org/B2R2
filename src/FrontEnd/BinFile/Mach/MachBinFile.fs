@@ -93,6 +93,14 @@ type MachBinFile (bytes, path, isa, baseAddr) =
       let span = ReadOnlySpan bytes
       span.Slice ptr.Offset
 
+    member __.Read (_buffer, _offset, _size) = Utils.futureFeature ()
+
+    member __.ReadByte () = Utils.futureFeature ()
+
+    member __.Seek (_addr: Addr): unit = Utils.futureFeature ()
+
+    member __.Seek (_offset: int): unit = Utils.futureFeature ()
+
     member __.IsValidAddr addr = isValidAddr mach addr
 
     member __.IsValidRange range = isValidRange mach range

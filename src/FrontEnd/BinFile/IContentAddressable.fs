@@ -75,6 +75,29 @@ type IContentAddressable =
   abstract Slice: ptr: BinFilePointer -> ByteSpan
 
   /// <summary>
+  ///   Reads a block of bytes from the current file and writes the data to a
+  ///   given buffer. The buffer is filled from the given `offset` and the
+  ///   maximum number of bytes to read is specified by the `size` parameter.
+  /// </summary>
+  abstract Read: buffer: byte[] * offset: int * size: int -> unit
+
+  /// <summary>
+  ///   Reads a byte from the current file and advances the position within the
+  ///   file stream by one byte.
+  /// </summary>
+  abstract ReadByte: unit -> byte
+
+  /// <summary>
+  ///   Sets the position within the current file stream to the given address.
+  /// </summary>
+  abstract Seek: addr: Addr -> unit
+
+  /// <summary>
+  ///   Sets the position within the current file stream to the given offset.
+  /// </summary>
+  abstract Seek: offset: int -> unit
+
+  /// <summary>
   ///   Check if the given address is valid for the associated binary. We say a
   ///   given address is valid for the binary if the address is within the range
   ///   of statically computable segment ranges.

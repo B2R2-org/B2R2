@@ -89,6 +89,14 @@ type WasmBinFile (bytes, path, baseAddrOpt) =
       let span = ReadOnlySpan bytes
       span.Slice ptr.Offset
 
+    member __.Read (_buffer, _offset, _size) = Utils.futureFeature ()
+
+    member __.ReadByte () = Utils.futureFeature ()
+
+    member __.Seek (_addr: Addr): unit = Utils.futureFeature ()
+
+    member __.Seek (_offset: int): unit = Utils.futureFeature ()
+
     member __.IsValidAddr (addr) =
       addr >= 0UL && addr < (uint64 bytes.LongLength)
 
