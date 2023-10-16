@@ -95,13 +95,13 @@ let inline readASCII (file: IBinFile) pos =
     else loop (b :: acc) (pos + 1)
   loop [] pos
 
-let inline tryParseInstrFromAddr (file: IBinFile) (parser: Parser) addr =
-  try parser.Parse (file.Slice (addr=addr), addr) |> Ok
+let inline tryParseInstrFromAddr (file: IBinFile) parser addr =
+  try (parser: IInsParsable).Parse (file.Slice (addr=addr), addr) |> Ok
   with _ -> Error ErrorCase.ParsingFailure
 
-let inline tryParseInstrFromBinPtr file (p: Parser) (ptr: BinFilePointer) =
+let inline tryParseInstrFromBinPtr (file: IBinFile) p (ptr: BinFilePointer) =
   try
-    let ins = p.Parse ((file: IBinFile).Slice ptr.Offset, ptr.Addr)
+    let ins = (p :> IInsParsable).Parse (file.Slice ptr.Offset, ptr.Addr)
     if BinFilePointer.IsValidAccess ptr (int ins.Length) then Ok ins
     else Error ErrorCase.ParsingFailure
   with _ ->
@@ -124,7 +124,7 @@ let rec parseLoopByAddr file parser addr acc =
       parseLoopByAddr file parser addr (ins :: acc)
   | Error _ -> Error <| List.rev acc
 
-let inline parseBBLFromAddr (file: IBinFile) (parser: Parser) addr =
+let inline parseBBLFromAddr (file: IBinFile) parser addr =
   parseLoopByAddr file parser addr []
 
 let rec parseLoopByPtr file parser ptr acc =
@@ -136,7 +136,7 @@ let rec parseLoopByPtr file parser ptr acc =
       parseLoopByPtr file parser ptr (ins :: acc)
   | Error _ -> Error <| List.rev acc
 
-let inline parseBBLFromBinPtr (file: IBinFile) (parser: Parser) ptr =
+let inline parseBBLFromBinPtr (file: IBinFile) parser ptr =
   parseLoopByPtr file parser ptr []
 
 let rec liftBBLAux acc advanceFn trctxt pos = function

@@ -47,7 +47,7 @@ type DisasmAction () =
     else
       List.rev acc |> List.toArray
 
-  let disasmByteArray args (o: obj) =
+  let disasmByteArray _args (o: obj) =
     let bin = unbox<Binary> o
     let hdl = Binary.Handle bin
     let baddr = hdl.BinFile.BaseAddress

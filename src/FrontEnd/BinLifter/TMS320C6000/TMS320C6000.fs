@@ -39,18 +39,18 @@ type TMS320C6000TranslationContext internal (isa, regexprs) =
 /// Parser for TMS320C6000 instructions. Parser will return a platform-agnostic
 /// instruction type (Instruction).
 type TMS320C6000Parser () =
-  inherit Parser ()
   let mutable inParallel = false
   let reader = BinReader.Init Endian.Little
 
-  override __.Parse (bs: byte[], addr) =
-    let span = ReadOnlySpan bs
-    Parser.parse span reader &inParallel addr :> Instruction
+  interface IInsParsable with
+    member __.Parse (bs: byte[], addr) =
+      let span = ReadOnlySpan bs
+      Parser.parse span reader &inParallel addr :> Instruction
 
-  override __.Parse (span: ByteSpan, addr) =
-    Parser.parse span reader &inParallel addr :> Instruction
+    member __.Parse (span: ByteSpan, addr) =
+      Parser.parse span reader &inParallel addr :> Instruction
 
-  override __.OperationMode with get() = ArchOperationMode.NoMode and set _ = ()
+    member __.OperationMode with get() = ArchOperationMode.NoMode and set _ = ()
 
 module Basis =
   let init (isa: ISA) =

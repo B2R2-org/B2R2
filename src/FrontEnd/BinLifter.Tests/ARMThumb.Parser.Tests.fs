@@ -34,7 +34,7 @@ module ARMThumb =
 
   let private test arch e c op w q (s: SIMDDataTypes option) oprs (b: byte[]) =
     let mode = ArchOperationMode.ThumbMode
-    let parser = ARM32Parser (ISA.Init arch e, mode, None)
+    let parser = ARM32Parser (ISA.Init arch e, mode, None) :> IInsParsable
     let ins = parser.Parse (b, 0UL) :?> ARM32Instruction
     let cond' = ins.Condition
     let opcode' = ins.Opcode

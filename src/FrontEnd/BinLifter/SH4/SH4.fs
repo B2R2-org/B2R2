@@ -39,17 +39,17 @@ type SH4TranslationContext internal (isa, regexprs) =
   override __.GetPseudoRegVar _id _pos = Utils.impossible ()
 
 type SH4Parser (isa: ISA) =
-  inherit Parser ()
   let reader = BinReader.Init isa.Endian
 
-  override __.Parse (span: ByteSpan, addr: Addr) =
-    Parser.parse span reader addr :> Instruction
+  interface IInsParsable with
+    member __.Parse (bs: byte[], addr: Addr) =
+      let span = ReadOnlySpan bs
+      (__ :> IInsParsable).Parse (span, addr)
 
-  override __.Parse (bs: byte[], addr: Addr) =
-    let span = ReadOnlySpan bs
-    __.Parse (span, addr)
+    member __.Parse (span: ByteSpan, addr: Addr) =
+      Parser.parse span reader addr :> Instruction
 
-  override __.OperationMode with get() = ArchOperationMode.NoMode and set _ = ()
+    member __.OperationMode with get() = ArchOperationMode.NoMode and set _ = ()
 
 module Basis =
   let init isa =

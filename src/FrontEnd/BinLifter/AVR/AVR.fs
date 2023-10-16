@@ -39,17 +39,17 @@ type AVRTranslationContext internal (isa, regexprs) =
 /// Parser for AVR instructions. Parser will return a platform-agnostic
 /// instruction type (Instruction).
 type AVRParser () =
-  inherit Parser ()
   let reader = BinReader.Init Endian.Little
 
-  override __.Parse (bs: byte[], addr) =
-    let span = ReadOnlySpan bs
-    Parser.parse span reader addr :> Instruction
+  interface IInsParsable with
+    member __.Parse (bs: byte[], addr) =
+      let span = ReadOnlySpan bs
+      Parser.parse span reader addr :> Instruction
 
-  override __.Parse (span: ByteSpan, addr) =
-    Parser.parse span reader addr :> Instruction
+    member __.Parse (span: ByteSpan, addr) =
+      Parser.parse span reader addr :> Instruction
 
-  override __.OperationMode with get() = ArchOperationMode.NoMode and set _ = ()
+    member __.OperationMode with get() = ArchOperationMode.NoMode and set _ = ()
 
 module Basis =
   let init (isa: ISA) =

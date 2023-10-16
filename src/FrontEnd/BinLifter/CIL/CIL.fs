@@ -24,7 +24,6 @@
 
 namespace B2R2.FrontEnd.BinLifter.CIL
 
-open System
 open B2R2
 open B2R2.FrontEnd.BinLifter
 
@@ -39,14 +38,14 @@ type CILTranslationContext internal (isa, regexprs) =
   override __.GetPseudoRegVar _id _pos = Utils.impossible ()
 
 type CILParser () =
-  inherit Parser ()
-  override __.Parse (_: byte[], _: Addr): Instruction =
-    Utils.futureFeature ()
+  interface IInsParsable with
+    member __.Parse (_: byte[], _: Addr): Instruction =
+      Utils.futureFeature ()
 
-  override __.Parse (_: ByteSpan, _: Addr): Instruction =
-    Utils.futureFeature ()
+    member __.Parse (_: ByteSpan, _: Addr): Instruction =
+      Utils.futureFeature ()
 
-  override __.OperationMode with get() = ArchOperationMode.NoMode and set _ = ()
+    member __.OperationMode with get() = ArchOperationMode.NoMode and set _ = ()
 
 module Basis =
   let init isa =

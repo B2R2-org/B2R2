@@ -47,7 +47,6 @@ module private Parser =
 /// Parser for 32-bit ARM instructions. Parser will return a platform-agnostic
 /// instruction type (Instruction).
 type ARM32Parser (isa: ISA, mode, entryPoint: Addr option) =
-  inherit Parser ()
 
   let oparsers = [|
     OprNo () :> OperandParser
@@ -373,20 +372,21 @@ type ARM32Parser (isa: ISA, mode, entryPoint: Addr option) =
 
   let mutable itstate: byte list = []
 
-  override __.OperationMode with get() = mode and set(m) = mode <- m
+  interface IInsParsable with
+    member __.OperationMode with get() = mode and set(m) = mode <- m
 
-  override __.Parse (span: ByteSpan, addr) =
-    phlp.Mode <- mode
-    phlp.InsAddr <- addr
-    match mode with
-    | ArchOperationMode.ThumbMode ->
-      Parser.parseThumb span phlp &itstate :> Instruction
-    | ArchOperationMode.ARMMode ->
-      Parser.parseARM span phlp :> Instruction
-    | _-> raise InvalidTargetArchModeException
+    member __.Parse (span: ByteSpan, addr) =
+      phlp.Mode <- mode
+      phlp.InsAddr <- addr
+      match mode with
+      | ArchOperationMode.ThumbMode ->
+        Parser.parseThumb span phlp &itstate :> Instruction
+      | ArchOperationMode.ARMMode ->
+        Parser.parseARM span phlp :> Instruction
+      | _-> raise InvalidTargetArchModeException
 
-  override __.Parse (bs: byte[], addr) =
-    let span = ReadOnlySpan bs
-    __.Parse (span, addr)
+    member __.Parse (bs: byte[], addr) =
+      let span = ReadOnlySpan bs
+      (__ :> IInsParsable).Parse (span, addr)
 
 // vim: set tw=80 sts=2 sw=2:

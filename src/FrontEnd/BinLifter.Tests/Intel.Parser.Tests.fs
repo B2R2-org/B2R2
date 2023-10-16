@@ -33,7 +33,7 @@ module Intel =
   open B2R2.FrontEnd.BinLifter.Intel
 
   let private test prefs segment wordSize opcode oprs length (bytes: byte[]) =
-    let parser = IntelParser (wordSize)
+    let parser = IntelParser (wordSize) :> IInsParsable
     let ins = parser.Parse (bytes, 0UL) :?> IntelInternalInstruction
     Assert.AreEqual (ins.Prefixes, prefs)
     Assert.AreEqual (Helper.getSegment ins.Prefixes, segment)

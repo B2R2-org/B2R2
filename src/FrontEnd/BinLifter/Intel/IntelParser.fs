@@ -35,8 +35,6 @@ open type Prefix
 /// Parser for Intel (x86 or x86-64) instructions. Parser will return a
 /// platform-agnostic instruction type (Instruction).
 type IntelParser (wordSz) =
-  inherit Parser ()
-
   let oparsers =
     [| OpRmGpr () :> OperandParser
        OpRmSeg () :> OperandParser
@@ -543,22 +541,21 @@ type IntelParser (wordSz) =
         pos + 1
       else pos
 
-  override __.Parse (bs: byte[], addr) =
-    __.Parse (ReadOnlySpan bs, addr)
+  interface IInsParsable with
+    member __.Parse (bs: byte[], addr) =
+      (__ :> IInsParsable).Parse (ReadOnlySpan bs, addr)
 
-  override __.Parse (span: ByteSpan, addr) =
-    let mutable rex = REXPrefix.NOREX
-    let prefEndPos = __.ParsePrefix span
-    let nextPos = __.ParseREX (span, prefEndPos, &rex)
-    rhlp.VEXInfo <- None
-    rhlp.InsAddr <- addr
-    rhlp.REXPrefix <- rex
-    rhlp.CurrPos <- nextPos
+    member __.Parse (span: ByteSpan, addr) =
+      let mutable rex = REXPrefix.NOREX
+      let prefEndPos = __.ParsePrefix span
+      let nextPos = __.ParseREX (span, prefEndPos, &rex)
+      rhlp.VEXInfo <- None
+      rhlp.InsAddr <- addr
+      rhlp.REXPrefix <- rex
+      rhlp.CurrPos <- nextPos
 #if LCACHE
-    rhlp.MarkPrefixEnd (prefEndPos)
+      rhlp.MarkPrefixEnd (prefEndPos)
 #endif
-    oneByteParsers[int (rhlp.ReadByte span)].Run (span, rhlp) :> Instruction
+      oneByteParsers[int (rhlp.ReadByte span)].Run (span, rhlp) :> Instruction
 
-  override __.OperationMode with get() = ArchOperationMode.NoMode and set _ = ()
-
-// vim: set tw=80 sts=2 sw=2:
+    member __.OperationMode with get() = ArchOperationMode.NoMode and set _ = ()

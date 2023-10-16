@@ -40,17 +40,17 @@ type ARM64TranslationContext internal (isa, regexprs) =
 /// Parser for 64-bit ARM instructions. Parser will return a platform-agnostic
 /// instruction type (Instruction).
 type ARM64Parser (isa) =
-  inherit Parser ()
   let reader = BinReader.Init isa.Endian
 
-  override __.Parse (bs: byte[], addr) =
-    let span = ReadOnlySpan bs
-    Parser.parse span reader addr :> Instruction
+  interface IInsParsable with
+    member __.Parse (bs: byte[], addr) =
+      let span = ReadOnlySpan bs
+      Parser.parse span reader addr :> Instruction
 
-  override __.Parse (span: ByteSpan, addr) =
-    Parser.parse span reader addr :> Instruction
+    member __.Parse (span: ByteSpan, addr) =
+      Parser.parse span reader addr :> Instruction
 
-  override __.OperationMode with get() = ArchOperationMode.NoMode and set _ = ()
+    member __.OperationMode with get() = ArchOperationMode.NoMode and set _ = ()
 
 module Basis =
   let init isa =

@@ -34,7 +34,7 @@ module ARMv7 =
 
   let private test arch endian cond op w q simd oprs (bytes: byte[]) =
     let mode = ArchOperationMode.ARMMode
-    let parser = ARM32Parser (ISA.Init arch endian, mode, None)
+    let parser = ARM32Parser (ISA.Init arch endian, mode, None) :> IInsParsable
     let ins = parser.Parse (bytes, 0UL) :?> ARM32Instruction
     let cond' = ins.Condition
     let opcode' = ins.Opcode

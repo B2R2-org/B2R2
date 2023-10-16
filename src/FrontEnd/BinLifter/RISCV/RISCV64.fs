@@ -39,18 +39,18 @@ type RISCV64TranslationContext internal (isa, regexprs) =
 /// Parser for RISCV64 instructions. Parser will return a platform-agnostic
 /// instruction type (Instruction).
 type RISCV64Parser (isa: ISA) =
-  inherit Parser ()
   let wordSize = int isa.WordSize
   let reader = BinReader.Init isa.Endian
 
-  override __.OperationMode with get() = ArchOperationMode.NoMode and set _ = ()
+  interface IInsParsable with
+    member __.OperationMode with get() = ArchOperationMode.NoMode and set _ = ()
 
-  override __.Parse (span: ByteSpan, addr) =
-    Parser.parse span reader wordSize addr :> Instruction
+    member __.Parse (span: ByteSpan, addr) =
+      Parser.parse span reader wordSize addr :> Instruction
 
-  override __.Parse (bs: byte[], addr) =
-    let span = ReadOnlySpan bs
-    Parser.parse span reader wordSize addr :> Instruction
+    member __.Parse (bs: byte[], addr) =
+      let span = ReadOnlySpan bs
+      Parser.parse span reader wordSize addr :> Instruction
 
 module Basis =
   let init (isa: ISA) =

@@ -37,7 +37,7 @@ type BinHandle = {
   BinFile: IBinFile
   DisasmHelper: DisasmHelper
   TranslationContext: TranslationContext
-  Parser: Parser
+  Parser: IInsParsable
   RegisterBay: RegisterBay
   BinReader: IBinReader
   OS: OS

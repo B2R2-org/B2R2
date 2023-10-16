@@ -25,7 +25,6 @@
 /// ARMv8 instruction parser.
 module B2R2.FrontEnd.BinLifter.ARM64.Parser
 
-open System
 open B2R2
 
 /// Read in bytes and return a parsed instruction for ARMv8. This function

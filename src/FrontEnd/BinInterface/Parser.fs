@@ -34,17 +34,17 @@ open B2R2.FrontEnd.BinLifter
 let init (isa: ISA) mode (entryPoint: Addr option) =
   match isa.Arch with
   | Arch.IntelX64
-  | Arch.IntelX86 -> Intel.IntelParser (isa.WordSize) :> Parser
+  | Arch.IntelX86 -> Intel.IntelParser (isa.WordSize) :> IInsParsable
   | Arch.ARMv7 | Arch.AARCH32 ->
-    ARM32.ARM32Parser (isa, mode, entryPoint) :> Parser
-  | Arch.AARCH64 -> ARM64.ARM64Parser (isa) :> Parser
-  | Arch.MIPS32 | Arch.MIPS64 -> MIPS.MIPSParser (isa) :> Parser
-  | Arch.EVM -> EVM.EVMParser (isa) :> Parser
-  | Arch.TMS320C6000 -> TMS320C6000.TMS320C6000Parser () :> Parser
-  | Arch.CILOnly -> CIL.CILParser () :> Parser
-  | Arch.AVR -> AVR.AVRParser () :> Parser
-  | Arch.SH4 -> SH4.SH4Parser (isa) :> Parser
-  | Arch.PPC32 -> PPC32.PPC32Parser (isa) :> Parser
-  | Arch.RISCV64 -> RISCV.RISCV64Parser (isa) :> Parser
-  | Arch.SPARC -> SPARC.SPARCParser (isa) :> Parser
+    ARM32.ARM32Parser (isa, mode, entryPoint) :> IInsParsable
+  | Arch.AARCH64 -> ARM64.ARM64Parser (isa) :> IInsParsable
+  | Arch.MIPS32 | Arch.MIPS64 -> MIPS.MIPSParser (isa) :> IInsParsable
+  | Arch.EVM -> EVM.EVMParser (isa) :> IInsParsable
+  | Arch.TMS320C6000 -> TMS320C6000.TMS320C6000Parser () :> IInsParsable
+  | Arch.CILOnly -> CIL.CILParser () :> IInsParsable
+  | Arch.AVR -> AVR.AVRParser () :> IInsParsable
+  | Arch.SH4 -> SH4.SH4Parser (isa) :> IInsParsable
+  | Arch.PPC32 -> PPC32.PPC32Parser (isa) :> IInsParsable
+  | Arch.RISCV64 -> RISCV.RISCV64Parser (isa) :> IInsParsable
+  | Arch.SPARC -> SPARC.SPARCParser (isa) :> IInsParsable
   | _ -> Utils.futureFeature ()

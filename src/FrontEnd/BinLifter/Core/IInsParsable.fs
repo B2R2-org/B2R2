@@ -26,9 +26,8 @@ namespace B2R2.FrontEnd.BinLifter
 
 open B2R2
 
-/// A platform-independent instruction parser.
-[<AbstractClass>]
-type Parser () =
+/// A platform-independent binary instruction parser.
+type IInsParsable =
   /// Parse one instruction from the given byte array assuming that the address
   /// of the instruction is `addr`.
   abstract member Parse: bs: byte[] * addr: Addr -> Instruction

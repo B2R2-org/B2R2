@@ -42,22 +42,22 @@ type EVMTranslationContext internal (isa, regexprs) =
 /// Parser for EVM instructions. Parser will return a platform-agnostic
 /// instruction type (Instruction).
 type EVMParser (isa: ISA) =
-  inherit Parser ()
   let mutable codeOffset: Addr = 0UL
   let wordSize = isa.WordSize
 
   member __.CodeOffset with get() = codeOffset and set(o) = codeOffset <- o
 
-  override __.Parse (bs: byte[], addr) =
-    let span = ReadOnlySpan (bs)
-    Parser.parse span codeOffset wordSize addr
-    :> Instruction
+  interface IInsParsable with
+    member __.Parse (bs: byte[], addr) =
+      let span = ReadOnlySpan (bs)
+      Parser.parse span codeOffset wordSize addr
+      :> Instruction
 
-  override __.Parse (span: ByteSpan, addr) =
-    Parser.parse span codeOffset wordSize addr
-    :> Instruction
+    member __.Parse (span: ByteSpan, addr) =
+      Parser.parse span codeOffset wordSize addr
+      :> Instruction
 
-  override __.OperationMode with get() = ArchOperationMode.NoMode and set _ = ()
+    member __.OperationMode with get() = ArchOperationMode.NoMode and set _ = ()
 
 module Basis =
   let init isa =
