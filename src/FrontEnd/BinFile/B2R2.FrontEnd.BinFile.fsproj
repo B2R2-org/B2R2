@@ -22,44 +22,44 @@
     <Compile Include="IBinFile.fs" />
     <Compile Include="FileHelper.fs" />
     <Compile Include="RawBinFile.fs" />
-    <Compile Include="WasmTypes.fs" />
-    <Compile Include="WasmHeader.fs" />
-    <Compile Include="WasmExpression.fs" />
-    <Compile Include="WasmSection.fs" />
-    <Compile Include="WasmParser.fs" />
-    <Compile Include="WasmHelper.fs" />
-    <Compile Include="WasmBinFile.fs" />
-    <Compile Include="ELFDwarfTypes.fs" />
-    <Compile Include="ELFTypes.fs" />
-    <Compile Include="ELFHeader.fs" />
-    <Compile Include="ELFSection.fs" />
-    <Compile Include="ELFProgHeader.fs" />
-    <Compile Include="ELFSymbol.fs" />
-    <Compile Include="ELFRelocs.fs" />
-    <Compile Include="ELFPLT.fs" />
-    <Compile Include="ELFExceptionFrames.fs" />
-    <Compile Include="ELFGccExceptTable.fs" />
-    <Compile Include="ELFARMExceptionHandler.fs" />
-    <Compile Include="ELFHelper.fs" />
-    <Compile Include="ELFParser.fs" />
-    <Compile Include="ELFBinFile.fs" />
-    <Compile Include="MachTypes.fs" />
-    <Compile Include="MachLoadCommands.fs" />
-    <Compile Include="MachHeader.fs" />
-    <Compile Include="MachFat.fs" />
-    <Compile Include="MachSegment.fs" />
-    <Compile Include="MachSection.fs" />
-    <Compile Include="MachReloc.fs" />
-    <Compile Include="MachSymbol.fs" />
-    <Compile Include="MachHelper.fs" />
-    <Compile Include="MachParser.fs" />
-    <Compile Include="MachBinFile.fs" />
-    <Compile Include="PETypes.fs" />
-    <Compile Include="PEPDB.fs" />
-    <Compile Include="PEHelper.fs" />
-    <Compile Include="PECoff.fs" />
-    <Compile Include="PEParser.fs" />
-    <Compile Include="PEBinFile.fs" />
+    <Compile Include="Wasm\WasmTypes.fs" />
+    <Compile Include="Wasm\WasmHeader.fs" />
+    <Compile Include="Wasm\WasmExpression.fs" />
+    <Compile Include="Wasm\WasmSection.fs" />
+    <Compile Include="Wasm\WasmParser.fs" />
+    <Compile Include="Wasm\WasmHelper.fs" />
+    <Compile Include="Wasm\WasmBinFile.fs" />
+    <Compile Include="ELF\ELFDwarfTypes.fs" />
+    <Compile Include="ELF\ELFTypes.fs" />
+    <Compile Include="ELF\ELFHeader.fs" />
+    <Compile Include="ELF\ELFSection.fs" />
+    <Compile Include="ELF\ELFProgHeader.fs" />
+    <Compile Include="ELF\ELFSymbol.fs" />
+    <Compile Include="ELF\ELFRelocs.fs" />
+    <Compile Include="ELF\ELFPLT.fs" />
+    <Compile Include="ELF\ELFExceptionFrames.fs" />
+    <Compile Include="ELF\ELFGccExceptTable.fs" />
+    <Compile Include="ELF\ELFARMExceptionHandler.fs" />
+    <Compile Include="ELF\ELFHelper.fs" />
+    <Compile Include="ELF\ELFParser.fs" />
+    <Compile Include="ELF\ELFBinFile.fs" />
+    <Compile Include="Mach\MachTypes.fs" />
+    <Compile Include="Mach\MachLoadCommands.fs" />
+    <Compile Include="Mach\MachHeader.fs" />
+    <Compile Include="Mach\MachFat.fs" />
+    <Compile Include="Mach\MachSegment.fs" />
+    <Compile Include="Mach\MachSection.fs" />
+    <Compile Include="Mach\MachReloc.fs" />
+    <Compile Include="Mach\MachSymbol.fs" />
+    <Compile Include="Mach\MachHelper.fs" />
+    <Compile Include="Mach\MachParser.fs" />
+    <Compile Include="Mach\MachBinFile.fs" />
+    <Compile Include="PE\PETypes.fs" />
+    <Compile Include="PE\PEPDB.fs" />
+    <Compile Include="PE\PEHelper.fs" />
+    <Compile Include="PE\PECoff.fs" />
+    <Compile Include="PE\PEParser.fs" />
+    <Compile Include="PE\PEBinFile.fs" />
     <Compile Include="FormatDetector.fs" />
     <Compile Include="FileLoader.fs" />
     <None Include="..\..\..\LICENSE.md" Pack="true" PackagePath="" />
@@ -80,6 +80,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="System.Reflection.Metadata" Version="7.0.1" />
+    <PackageReference Include="System.Reflection.Metadata" Version="7.0.2" />
   </ItemGroup>
 </Project>
