@@ -24,40 +24,41 @@
 
 module internal B2R2.FrontEnd.BinFile.ELF.Helper
 
+open System
+open System.IO
 open System.Collections.Generic
 open B2R2
 open B2R2.FrontEnd.BinFile
 
-let convFileType = function
+let toFileType = function
   | ELFFileType.Executable -> FileType.ExecutableFile
   | ELFFileType.SharedObject -> FileType.LibFile
   | ELFFileType.Core -> FileType.CoreFile
   | ELFFileType.Relocatable -> FileType.ObjFile
   | _ -> FileType.UnknownFile
 
-let isNXEnabled elf =
+let isNXEnabled progHeaders =
   let predicate e = e.PHType = ProgramHeaderType.PTGNUStack
-  match List.tryFind predicate elf.ProgHeaders with
+  match Array.tryFind predicate progHeaders with
   | Some s -> s.PHFlags.HasFlag Permission.Executable |> not
   | _ -> false
 
-let isRelocatable span elf =
+let isRelocatable hdr stream reader secHeaders =
   let pred (e: DynamicSectionEntry) = e.DTag = DynamicTag.DT_DEBUG
-  elf.ELFHdr.ELFFileType = ELFFileType.SharedObject
-  && Section.getDynamicSectionEntries span elf.BinReader elf.SecInfo
-     |> List.exists pred
+  hdr.ELFFileType = ELFFileType.SharedObject
+  && Section.getDynamicSectionEntries hdr stream reader secHeaders
+     |> Array.exists pred
 
 let inline private computeSubstitute offsetToAddr delta (ptr: Addr) =
   if offsetToAddr then ptr + delta
   else (* Addr to offset *) ptr - delta
 
-let translateWithSecs offsetToAddr ptr secInfo =
-  let secs = secInfo.SecByNum
+let translateWithSecs offsetToAddr ptr sections =
   let txtOffset =
-    match Map.tryFind Section.SecText secInfo.SecByName with
+    match Array.tryFind (fun s -> s.SecName = Section.SecText) sections with
     | Some text -> text.SecOffset
     | None -> 0UL
-  secs
+  sections
   |> Array.tryFind (fun s ->
     let secBase =
       if offsetToAddr then s.SecOffset
@@ -69,66 +70,67 @@ let translateWithSecs offsetToAddr ptr secInfo =
     | None -> raise InvalidAddrReadException
     | Some s -> computeSubstitute offsetToAddr (s.SecAddr - txtOffset) ptr
 
-let rec translateWithSegs offsetToAddr ptr = function
-  | seg :: tl ->
+let translateWithSegs offsetToAddr ptr segments =
+  segments
+  |> Array.tryFind (fun seg ->
     let segBase, segSize =
       if offsetToAddr then seg.PHOffset, seg.PHFileSize
       else seg.PHAddr, seg.PHMemSize
-    if ptr >= segBase && ptr < segBase + segSize then
-      computeSubstitute offsetToAddr (seg.PHAddr - seg.PHOffset) ptr
-    else translateWithSegs offsetToAddr ptr tl
-  | [] -> raise InvalidAddrReadException
+    ptr >= segBase && ptr < segBase + segSize)
+  |> function
+    | Some seg -> computeSubstitute offsetToAddr (seg.PHAddr - seg.PHOffset) ptr
+    | None -> raise InvalidAddrReadException
 
-let translate offsetToAddr ptr elf =
-  match elf.LoadableSegments with
-  | [] -> translateWithSecs offsetToAddr ptr elf.SecInfo
-  | segs -> translateWithSegs offsetToAddr ptr segs
+let translate loadableSegments sections offsetToAddr ptr =
+  if Array.isEmpty loadableSegments then
+    translateWithSecs offsetToAddr ptr sections
+  else translateWithSegs offsetToAddr ptr loadableSegments
 
-let translateAddrToOffset addr elf =
-  translate false addr elf
+let translateAddrToOffset loadableSegs sections addr =
+  translate loadableSegs sections false addr
 
-let translateOffsetToAddr offset elf =
-  translate true offset elf
+let translateOffsetToAddr loadableSegs sections offset =
+  translate loadableSegs sections true offset
 
 let isFuncSymb s =
   s.SymType = SymbolType.STTFunc || s.SymType = SymbolType.STTGNUIFunc
 
-let inline tryFindFuncSymb elf addr =
-  match elf.SymInfo.AddrToSymbTable.TryGetValue addr with
+let inline tryFindFuncSymb symbolInfo addr =
+  match symbolInfo.AddrToSymbTable.TryGetValue addr with
   | true, s ->
     if isFuncSymb s then Ok s.SymName
     else Error ErrorCase.SymbolNotFound
   | false, _ -> Error ErrorCase.SymbolNotFound
 
-let getStaticSymbols elf =
-  Symbol.getStaticSymArray elf
+let getStaticSymbols shdrs symbols =
+  Symbol.getStaticSymArray shdrs symbols.SecNumToSymbTbls
   |> Array.map (Symbol.toB2R2Symbol SymbolVisibility.StaticSymbol)
   |> Array.toSeq
 
-let getDynamicSymbols excludeImported elf =
+let getDynamicSymbols excludeImported shdrs symbols =
   let excludeImported = defaultArg excludeImported false
   let alwaysTrue = fun _ -> true
   let filter =
     if excludeImported then (fun s -> s.SecHeaderIndex <> SHNUndef)
     else alwaysTrue
-  Symbol.getDynamicSymArray elf
+  Symbol.getDynamicSymArray shdrs symbols.SecNumToSymbTbls
   |> Array.filter filter
   |> Array.map (Symbol.toB2R2Symbol SymbolVisibility.DynamicSymbol)
   |> Array.toSeq
 
-let getSymbols elf =
-  let s = getStaticSymbols elf
-  let d = getDynamicSymbols None elf
+let getSymbols shdrs symbols =
+  let s = getStaticSymbols shdrs symbols
+  let d = getDynamicSymbols None shdrs symbols
   Seq.append s d
 
-let getRelocSymbols elf =
+let getRelocSymbols relocInfo =
   let translate reloc =
     reloc.RelSymbol
     |> Option.bind (fun s ->
          { s with Addr = reloc.RelOffset }
          |> Symbol.toB2R2Symbol SymbolVisibility.DynamicSymbol
          |> Some)
-  elf.RelocInfo.RelocByName.Values
+  relocInfo.RelocByName.Values
   |> Seq.choose translate
 
 let secFlagToSectionKind sec =
@@ -147,23 +149,28 @@ let elfSectionToSection sec =
     Size = uint32 sec.SecSize
     Name = sec.SecName }
 
-let getSections elf =
-  elf.SecInfo.SecByNum
+let getSections shdrs =
+  shdrs
   |> Array.map elfSectionToSection
   |> Array.toSeq
 
-let getSectionsByAddr elf addr =
-  match ARMap.tryFindByAddr addr elf.SecInfo.SecByAddr with
-  | Some s -> elfSectionToSection s |> Seq.singleton
-  | None -> Seq.empty
+let getSectionsByAddr shdrs addr =
+  shdrs
+  |> Array.tryFind (fun section ->
+    section.SecAddr <= addr && addr < section.SecAddr + section.SecSize)
+  |> function
+    | Some section -> elfSectionToSection section |> Seq.singleton
+    | None -> Seq.empty
 
-let getSectionsByName elf name =
-  match Map.tryFind name elf.SecInfo.SecByName with
-  | Some s -> elfSectionToSection s |> Seq.singleton
-  | None -> Seq.empty
+let getSectionsByName shdrs name =
+  shdrs
+  |> Array.tryFind (fun section -> section.SecName = name)
+  |> function
+    | Some section -> elfSectionToSection section |> Seq.singleton
+    | None -> Seq.empty
 
-let getTextSection elf =
-  elf.SecInfo.SecByNum
+let getTextSection shdrs =
+  shdrs
   |> Array.filter (fun sec ->
     (SectionFlag.SHFExecInstr &&& sec.SecFlags = SectionFlag.SHFExecInstr)
     && sec.SecName.StartsWith Section.SecText)
@@ -172,42 +179,13 @@ let getTextSection elf =
     | Some sec -> elfSectionToSection sec
     | None -> raise SectionNotFoundException
 
-let getSegments elf isLoadable =
-  if isLoadable then elf.LoadableSegments else elf.ProgHeaders
-  |> List.map ProgHeader.toSegment
-  |> List.toSeq
+let getSegments segments =
+  segments
+  |> Array.map ProgHeader.toSegment
+  |> Array.toSeq
 
-let getPLT elf =
-  elf.PLT
-  |> ARMap.fold (fun acc _ entry -> entry :: acc) []
-  |> List.sortBy (fun entry -> entry.TrampolineAddress)
-  |> List.toSeq
-
-let isInPLT elf addr =
-  ARMap.containsAddr addr elf.PLT
-
-let inline isValidAddr elf addr =
-  IntervalSet.containsAddr addr elf.InvalidAddrRanges |> not
-
-let inline isValidRange elf range =
-  IntervalSet.findAll range elf.InvalidAddrRanges |> List.isEmpty
-
-let inline isInFileAddr elf addr =
-  IntervalSet.containsAddr addr elf.NotInFileRanges |> not
-
-let inline isInFileRange elf range =
-  IntervalSet.findAll range elf.NotInFileRanges |> List.isEmpty
-
-let inline isExecutableAddr elf addr =
-  IntervalSet.containsAddr addr elf.ExecutableRanges
-
-let getNotInFileIntervals elf range =
-  IntervalSet.findAll range elf.NotInFileRanges
-  |> List.map (FileHelper.trimByRange range)
-  |> List.toSeq
-
-let getRelocatedAddr elf relocAddr =
-  match elf.RelocInfo.RelocByAddr.TryGetValue relocAddr with
+let getRelocatedAddr relocInfo relocAddr =
+  match relocInfo.RelocByAddr.TryGetValue relocAddr with
   | true, rel ->
     match rel.RelType with
     | RelocationX86 RelocationX86.R_386_32
@@ -226,53 +204,64 @@ let getRelocatedAddr elf relocAddr =
     | _ -> Error ErrorCase.ItemNotFound
   | _ -> Error ErrorCase.ItemNotFound
 
-let getFunctionAddrsFromLibcArray span elf s =
-  let offset = int s.SecOffset
-  let readType = elf.ELFHdr.Class
+let getFuncAddrsFromLibcArr span reader hdr loadables shdrs relocInfo section =
+  let readType = hdr.Class
   let entrySize = WordSize.toByteWidth readType
-  let size = int s.SecSize
+  let secSize = int section.SecSize
   let lst = List<Addr> ()
-  let addr = translateOffsetToAddr s.SecOffset elf
-  for o in [| offset .. entrySize .. offset + size - entrySize |] do
-    FileHelper.peekUIntOfType span elf.BinReader readType o
+  let addr = translateOffsetToAddr loadables shdrs section.SecOffset
+  for ofs in [| 0 .. entrySize .. secSize - entrySize |] do
+    FileHelper.peekUIntOfType span reader readType ofs
     |> (fun fnAddr ->
       if fnAddr = 0UL then
-        match getRelocatedAddr elf (addr + uint64 (o - offset)) with
+        match getRelocatedAddr relocInfo (addr + uint64 ofs) with
         | Ok relocatedAddr -> lst.Add relocatedAddr
         | Error _ -> ()
       else lst.Add fnAddr)
   lst |> seq
 
-let getAddrsFromInitArray span elf =
-  match Map.tryFind ".init_array" elf.SecInfo.SecByName with
-  | Some s -> getFunctionAddrsFromLibcArray span elf s
+let private readSection (stream: Stream) sec =
+  let buf = Array.zeroCreate (int sec.SecSize)
+  stream.Seek (int64 sec.SecOffset, SeekOrigin.Begin) |> ignore
+  FileHelper.readOrDie stream buf
+  buf
+
+let getAddrsFromInitArray stream reader hdr shdrs loadables relocInfo =
+  match Array.tryFind (fun s -> s.SecName = ".init_array") shdrs with
+  | Some s ->
+    let span = ReadOnlySpan (readSection stream s)
+    getFuncAddrsFromLibcArr span reader hdr loadables shdrs relocInfo s
   | None -> Seq.empty
 
-let getAddrsFromFiniArray span elf =
-  match Map.tryFind ".fini_array" elf.SecInfo.SecByName with
-  | Some s -> getFunctionAddrsFromLibcArray span elf s
+let getAddrsFromFiniArray stream reader hdr shdrs loadables relocInfo =
+  match Array.tryFind (fun s -> s.SecName = ".fini_array") shdrs with
+  | Some s ->
+    let span = ReadOnlySpan (readSection stream s)
+    getFuncAddrsFromLibcArr span reader hdr loadables shdrs relocInfo s
   | None -> Seq.empty
 
-let getAddrsFromSpecialSections elf =
+let getAddrsFromSpecialSections shdrs =
   [ ".init"; ".fini" ]
   |> Seq.choose (fun secName ->
-    match Map.tryFind secName elf.SecInfo.SecByName with
+    match Array.tryFind (fun s -> s.SecName = secName) shdrs with
     | Some sec -> Some sec.SecAddr
     | None -> None)
 
-let addExtraFunctionAddrs span elf useExceptionInfo addrs =
+let addExtraFunctionAddrs
+  stream reader hdr shdrs loadables relocInfo exnInfoOpt addrs =
   let addrSet =
     [ addrs
-      getAddrsFromInitArray span elf
-      getAddrsFromFiniArray span elf
-      getAddrsFromSpecialSections elf ]
+      getAddrsFromInitArray stream reader hdr shdrs loadables relocInfo
+      getAddrsFromFiniArray stream reader hdr shdrs loadables relocInfo
+      getAddrsFromSpecialSections shdrs ]
     |> Seq.concat
     |> Set.ofSeq
-  if useExceptionInfo then (* XXX *)
-    elf.ExceptionFrames
+  match exnInfoOpt with
+  | Some exnInfo ->
+    exnInfo.ExceptionFrames
     |> List.fold (fun set cfi ->
       cfi.FDERecord
       |> Array.fold (fun set fde -> Set.add fde.PCBegin set) set
     ) addrSet
     |> Set.toSeq
-  else addrSet |> Set.toSeq
+  | None -> addrSet |> Set.toSeq

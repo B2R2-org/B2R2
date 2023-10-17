@@ -28,20 +28,21 @@ open System.Collections.Generic
 open B2R2
 open B2R2.FrontEnd.BinFile.FileHelper
 
-let parseSection baseAddr span reader cls pos =
-  let secFlag = peekHeaderI32 span reader cls pos 56 64
-  { SecName = peekCString span pos
-    SegName = peekCString span (pos + 16)
-    SecAddr = peekUIntOfType span reader cls (pos + 32) + baseAddr
-    SecSize = peekHeaderNative span reader cls pos 36 40
-    SecOffset = peekHeaderU32 span reader cls pos 40 48
-    SecAlignment = peekHeaderU32 span reader cls pos 44 52
-    SecRelOff = peekHeaderU32 span reader cls pos 48 56
-    SecNumOfReloc = peekHeaderI32 span reader cls pos 52 60
+let parseSection baseAddr (span: ByteSpan) reader cls pos =
+  let span = span.Slice pos
+  let secFlag = peekHeaderI32 span reader cls 56 64
+  { SecName = peekCString span 0
+    SegName = peekCString span 16
+    SecAddr = peekUIntOfType span reader cls 32 + baseAddr
+    SecSize = peekHeaderNative span reader cls 36 40
+    SecOffset = peekHeaderU32 span reader cls 40 48
+    SecAlignment = peekHeaderU32 span reader cls 44 52
+    SecRelOff = peekHeaderU32 span reader cls 48 56
+    SecNumOfReloc = peekHeaderI32 span reader cls 52 60
     SecType = secFlag &&& 0xFF |> LanguagePrimitives.EnumOfValue
     SecAttrib = secFlag &&& 0xFFFFFF00 |> LanguagePrimitives.EnumOfValue
-    SecReserved1 = peekHeaderI32 span reader cls pos 60 68
-    SecReserved2 = peekHeaderI32 span reader cls pos 64 72 }
+    SecReserved1 = peekHeaderI32 span reader cls 60 68
+    SecReserved2 = peekHeaderI32 span reader cls 64 72 }
 
 let foldSecInfo acc sec =
   let secEnd = sec.SecAddr + sec.SecSize - 1UL

@@ -25,8 +25,10 @@
 module internal B2R2.FrontEnd.BinFile.ELF.Parser
 
 open System
+open System.IO
 open B2R2
 open B2R2.FrontEnd.BinFile
+open B2R2.FrontEnd.BinFile.FileHelper
 
 let private parseGlobalSymbols reloc =
   let folder map (KeyValue (addr, rel: RelocationEntry)) =
@@ -52,20 +54,26 @@ let private computeUnwindingTable exns =
         Map.add i.Location i tbl) tbl
       ) tbl) Map.empty
 
-let private invRanges wordSize segs getNextStartAddr =
-  segs
-  |> List.sortBy (fun seg -> seg.PHAddr)
-  |> List.fold (fun (set, saddr) seg ->
+let computeInvalidRanges wordSize phdrs getNextStartAddr =
+  phdrs
+  |> Array.sortBy (fun seg -> seg.PHAddr)
+  |> Array.fold (fun (set, saddr) seg ->
        let n = getNextStartAddr seg
-       FileHelper.addInvRange set saddr seg.PHAddr, n) (IntervalSet.empty, 0UL)
-  |> FileHelper.addLastInvRange wordSize
+       addInvRange set saddr seg.PHAddr, n) (IntervalSet.empty, 0UL)
+  |> addLastInvRange wordSize
 
-let private computeExecRangeFromSecs secs =
+let invalidRangesByVM wordSize (phdrs: Lazy<ProgramHeader[]>) =
+  computeInvalidRanges wordSize phdrs.Value (fun s -> s.PHAddr + s.PHMemSize)
+
+let invalidRangesByFileBounds wordSize (phdrs: Lazy<ProgramHeader[]>) =
+  computeInvalidRanges wordSize phdrs.Value (fun s -> s.PHAddr + s.PHFileSize)
+
+let private computeExecutableRangesFromSections shdrs =
   let txtOffset =
-    match Map.tryFind Section.SecText secs.SecByName with
+    match Array.tryFind (fun s -> s.SecName = Section.SecText) shdrs with
     | Some text -> text.SecOffset
     | None -> 0UL
-  secs.SecByNum
+  shdrs
   |> Array.fold (fun set sec ->
     if sec.SecType = SectionType.SHTProgBits
       && sec.SecFlags.HasFlag SectionFlag.SHFExecInstr
@@ -101,92 +109,46 @@ let private addExecutableInterval excludingSection s set =
   | None ->
     IntervalSet.add (AddrRange (s.PHAddr, s.PHAddr + s.PHMemSize - 1UL)) set
 
-let private execRanges secs segs =
+let executableRanges (shdrs: Lazy<_>) (loadables: Lazy<_>) =
+  let shdrs, loadables = shdrs.Value, loadables.Value
   (* Exclude .rodata even though it is included within an executable segment. *)
   let rodata =
-    match Map.tryFind Section.SecROData secs.SecByName with
+    match Array.tryFind (fun s -> s.SecName = Section.SecROData) shdrs with
     | Some rodata when rodata.SecAddr <> 0UL -> Some rodata
     | _ -> None
-  if List.isEmpty segs then computeExecRangeFromSecs secs
+  if Array.isEmpty loadables then computeExecutableRangesFromSections shdrs
   else
-    segs
-    |> List.filter (fun seg ->
+    loadables
+    |> Array.filter (fun seg ->
       seg.PHFlags &&& Permission.Executable = Permission.Executable)
-    |> List.fold (fun set seg ->
+    |> Array.fold (fun set seg ->
       addExecutableInterval rodata seg set) IntervalSet.empty
 
-let private parseExn span rdr cls secs isa rbay rel =
-  let exns = ExceptionFrames.parse span rdr cls secs isa rbay rel
-  let lsdas = ELFGccExceptTable.parse span rdr cls secs
+let parseException stream reader hdr (shdrs: Lazy<_>) rbay (reloc: Lazy<_>) =
+  let shdrs = shdrs.Value
+  let cls = hdr.Class
+  let isa = ISA.Init hdr.MachineType hdr.Endian
+  let relocInfo =
+    if hdr.ELFFileType = ELFFileType.Relocatable then Some reloc.Value
+    else None
+  let exns = ExceptionFrames.parse stream reader cls shdrs isa rbay relocInfo
+  let lsdas = ELFGccExceptTable.parse stream reader cls shdrs
   match exns with
   | [] when isa.Arch = Architecture.ARMv7 ->
-    ELFARMExceptionHandler.parse span rdr cls secs isa rbay rel
+    ELFARMExceptionHandler.parse stream reader cls shdrs
   | _ ->
     let unwinds = computeUnwindingTable exns
-    struct (exns, lsdas, unwinds)
+    { ExceptionFrames = exns; LSDAs = lsdas; UnwindingTbl = unwinds }
 
-let private parseELFForEmulation eHdr baseAddr rdr proghdrs segs =
-  let isa = ISA.Init eHdr.MachineType eHdr.Endian
-  { ELFHdr = eHdr
-    BaseAddr = baseAddr
-    ProgHeaders = proghdrs
-    LoadableSegments = segs
-    LoadableSecNums = Set.empty
-    SecInfo = Unchecked.defaultof<SectionInfo>
-    SymInfo = Unchecked.defaultof<ELFSymbolInfo>
-    RelocInfo = Unchecked.defaultof<RelocInfo>
-    PLT = ARMap.empty
-    Globals = Map.empty
-    ExceptionFrames = []
-    LSDAs = Map.empty
-    InvalidAddrRanges = IntervalSet.empty
-    NotInFileRanges = IntervalSet.empty
-    ExecutableRanges = IntervalSet.empty
-    ISA = isa
-    UnwindingTbl = Map.empty
-    BinReader = rdr }
-
-let private parseELFFull eHdr baseAddr rbay span rdr proghdrs segs =
-  let isa = ISA.Init eHdr.MachineType eHdr.Endian
-  let cls = eHdr.Class
-  let secs = Section.parse baseAddr eHdr span rdr
-  let loadableSecNums = ProgHeader.getLoadableSecNums secs segs
-  let symbs = Symbol.parse baseAddr eHdr secs span rdr
-  let reloc = Relocs.parse baseAddr eHdr secs symbs span rdr
-  let plt = PLT.parse eHdr.MachineType secs reloc symbs span rdr
-  let globals = parseGlobalSymbols reloc |> Symbol.updateGlobals symbs
-  let rel = if isRelocatableFile eHdr then Some reloc else None
-  let struct (exns, lsdas, unwinds) = parseExn span rdr cls secs isa rbay rel
-  { ELFHdr = eHdr
-    BaseAddr = baseAddr
-    ProgHeaders = proghdrs
-    LoadableSegments = segs
-    LoadableSecNums = loadableSecNums
-    SecInfo = secs
-    SymInfo = symbs
-    RelocInfo = reloc
-    PLT = plt
-    Globals = globals
-    ExceptionFrames = exns
-    LSDAs = lsdas
-    InvalidAddrRanges = invRanges cls segs (fun s -> s.PHAddr + s.PHMemSize)
-    NotInFileRanges = invRanges cls segs (fun s -> s.PHAddr + s.PHFileSize)
-    ExecutableRanges = execRanges secs segs
-    ISA = isa
-    UnwindingTbl = unwinds
-    BinReader = rdr }
-
-let private parseELF baseAddr rbay span forEmu (rdr: IBinReader) =
-  let eHdr, baseAddr = Header.parse span rdr baseAddr
-  let proghdrs = ProgHeader.parse baseAddr eHdr span rdr
-  let segs = ProgHeader.getLoadableProgHeaders proghdrs
-  if forEmu then parseELFForEmulation eHdr baseAddr rdr proghdrs segs
-  else parseELFFull eHdr baseAddr rbay span rdr proghdrs segs
-
-let parse (bytes: byte[]) baseAddr rbay forEmu =
-  let span = ReadOnlySpan bytes
-  if Header.isELF span then ()
-  else raise InvalidFileFormatException
-  let endian = Header.peekEndianness span
-  let reader = BinReader.Init endian
-  parseELF baseAddr rbay span forEmu reader
+/// Parse the ELF header and returns a triple: (header, preferred base address,
+/// and IBinReader).
+let parseHeader baseAddrOpt (s: Stream) =
+  let buf = Array.zeroCreate 64 (* ELF is maximum 64-byte long. *)
+  readOrDie s buf
+  let span = ReadOnlySpan buf
+  if not <| Header.isELF span then raise InvalidFileFormatException
+  else
+    let endian = Header.peekEndianness span
+    let reader = BinReader.Init endian
+    let struct (hdr, baseAddr) = Header.parse span reader baseAddrOpt
+    struct (reader, hdr, baseAddr)

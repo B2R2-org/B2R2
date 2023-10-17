@@ -26,7 +26,9 @@ SOFTWARE.
 module internal B2R2.FrontEnd.BinFile.ELF.ELFARMExceptionHandler
 
 open System
+open System.IO
 open B2R2
+open B2R2.FrontEnd.BinFile
 
 /// This is a value that the index table can have.
 type ExceptionIndexValue =
@@ -67,10 +69,14 @@ let rec private readIndexTableEntry acc reader (span: ByteSpan) sAddr offset =
     let acc = { FuncAddr = fnAddr; EntryValue = v } :: acc
     readIndexTableEntry acc reader span (sAddr + 8UL) (offset + 8)
 
-let private parseIndexTable reader (span: ByteSpan) indexTableSection =
-  let size = Convert.ToInt32 indexTableSection.SecSize
-  let offset = Convert.ToInt32 indexTableSection.SecOffset
-  let span = span.Slice (offset, size)
+let private readSection (stream: Stream) sec =
+  let buf = Array.zeroCreate (int sec.SecSize)
+  stream.Seek (int64 sec.SecOffset, SeekOrigin.Begin) |> ignore
+  FileHelper.readOrDie stream buf
+  buf
+
+let private parseIndexTable stream reader indexTableSection =
+  let span = ReadOnlySpan (readSection stream indexTableSection)
   readIndexTableEntry [] reader span indexTableSection.SecAddr 0
 
 let private computeLSDAOffset currentOffset (n: int) =
@@ -114,10 +120,8 @@ let rec private readExnTableEntry (fdes, lsdas) reader cls span sAddr = function
       readExnTableEntry (fdes, lsdas) reader cls span sAddr tl
   | [] -> (fdes, lsdas)
 
-let private parseExnTable reader cls (span: ByteSpan) exnTblSection entries =
-  let size = Convert.ToInt32 exnTblSection.SecSize
-  let offset = Convert.ToInt32 exnTblSection.SecOffset
-  let span = span.Slice (offset, size)
+let private parseExnTable stream reader cls exnTblSection entries =
+  let span = ReadOnlySpan (readSection stream exnTblSection)
   let secAddr = exnTblSection.SecAddr
   let cie = (* Create a dummy CIE. *)
     { Version = 0uy
@@ -135,11 +139,12 @@ let private parseExnTable reader cls (span: ByteSpan) exnTblSection entries =
 
 /// Parse ARM-specific exception handler. The specification is found @
 /// https://github.com/ARM-software/abi-aa/blob/main/ehabi32/ehabi32.rst
-let parse span rdr cls secs isa rbay rel =
-  let secByName = secs.SecByName
-  match Map.tryFind ARMIndexTable secByName, Map.tryFind ARMTable secByName with
+let parse stream reader cls shdrs =
+  match Array.tryFind (fun s -> s.SecName = ARMIndexTable) shdrs,
+        Array.tryFind (fun s -> s.SecName = ARMTable) shdrs with
   | Some indexTable, Some exnTable ->
-    let indexTable = parseIndexTable rdr span indexTable
-    let struct (cies, lsdas) = parseExnTable rdr cls span exnTable indexTable
-    struct (cies, lsdas, Map.empty)
-  | _ -> struct ([], Map.empty, Map.empty)
+    let indexTable = parseIndexTable stream reader indexTable
+    let struct (cies, lsdas) =
+      parseExnTable stream reader cls exnTable indexTable
+    { ExceptionFrames = cies; LSDAs = lsdas; UnwindingTbl = Map.empty }
+  | _ -> { ExceptionFrames = []; LSDAs = Map.empty; UnwindingTbl = Map.empty }

@@ -25,6 +25,7 @@
 namespace B2R2.FrontEnd.BinFile
 
 open System
+open System.IO
 open B2R2
 open B2R2.FrontEnd.BinFile.ELF
 open B2R2.FrontEnd.BinFile.ELF.Helper
@@ -32,75 +33,112 @@ open B2R2.FrontEnd.BinFile.ELF.Helper
 /// <summary>
 ///   This class represents an ELF binary file.
 /// </summary>
-type ELFBinFile (bytes, path, baseAddr, regbay, forEmu) =
-  let elf = Parser.parse bytes baseAddr regbay forEmu
+type ELFBinFile (path, stream: Stream, baseAddrOpt, regbay) =
+  let struct (reader, hdr, baseAddr) = Parser.parseHeader baseAddrOpt stream
+  let phdrs = lazy ProgHeader.parse stream reader hdr baseAddr
+  let shdrs = lazy Section.parse stream reader hdr baseAddr
+  let loadables = lazy ProgHeader.getLoadableProgHeaders phdrs
+  let symbInfo = lazy Symbol.parse stream reader hdr baseAddr shdrs
+  let relocs = lazy Relocs.parse stream reader hdr baseAddr shdrs symbInfo
+  let plt = lazy PLT.parse stream reader hdr shdrs symbInfo relocs
+  let exnInfo = lazy Parser.parseException stream reader hdr shdrs regbay relocs
+  let notInMemRanges = lazy Parser.invalidRangesByVM hdr.Class phdrs
+  let notInFileRanges = lazy Parser.invalidRangesByFileBounds hdr.Class phdrs
+  let executableRanges = lazy Parser.executableRanges shdrs loadables
 
-  new (bytes, path) =
-    ELFBinFile (bytes, path, None, None, false)
+  new (path: string) = ELFBinFile (path, None, None)
 
-  new (bytes, path, baseAddr, regbay) =
-    ELFBinFile (bytes, path, baseAddr, regbay, false)
+  new (path, baseAddrOpt, regbay) =
+    let fs =
+      new FileStream (path, FileMode.Open, FileAccess.Read, FileShare.Read)
+    ELFBinFile (path, fs, baseAddrOpt, regbay)
 
-  member __.ELF with get() = elf
+  /// ELF Header information.
+  member __.Header with get() = hdr
 
   /// List of dynamic section entries.
   member __.DynamicSectionEntries with get() =
-    let span = ReadOnlySpan bytes
-    Section.getDynamicSectionEntries span elf.BinReader elf.SecInfo
+    Section.getDynamicSectionEntries hdr stream reader shdrs.Value
+
+  /// Try to find a section by its name.
+  member __.TryFindSection (name: string) =
+    shdrs.Value |> Array.tryFind (fun s -> s.SecName = name)
+
+  /// Find a section by its index.
+  member __.FindSection (idx: int) =
+    shdrs.Value[idx]
+
+  /// ELF program headers.
+  member __.ProgramHeaders with get() = phdrs.Value
+
+  /// ELF section headers.
+  member __.SectionHeaders with get() = shdrs.Value
+
+  /// PLT.
+  member __.PLT with get() = plt.Value
+
+  /// Exception information.
+  member __.ExceptionInfo with get() = exnInfo.Value
+
+  /// ELF symbol information.
+  member __.SymbolInfo with get() = symbInfo.Value
+
+  /// Relocation information.
+  member __.RelocationInfo with get() = relocs.Value
 
   interface IBinFile with
     member __.FilePath with get() = path
 
     member __.FileFormat with get() = FileFormat.ELFBinary
 
-    member __.ISA with get() = elf.ISA
+    member __.ISA with get() = ISA.Init hdr.MachineType hdr.Endian
 
-    member __.FileType with get() = convFileType elf.ELFHdr.ELFFileType
+    member __.FileType with get() = toFileType hdr.ELFFileType
 
-    member __.EntryPoint = Some elf.ELFHdr.EntryPoint
+    member __.EntryPoint = Some hdr.EntryPoint
 
-    member __.BaseAddress with get() = elf.BaseAddr
+    member __.BaseAddress with get() = baseAddr
 
-    member __.IsStripped = not (Map.containsKey ".symtab" elf.SecInfo.SecByName)
+    member __.IsStripped =
+      shdrs.Value |> Array.exists (fun s -> s.SecName = ".symtab") |> not
 
-    member __.IsNXEnabled = isNXEnabled elf
+    member __.IsNXEnabled = isNXEnabled phdrs.Value
 
-    member __.IsRelocatable = isRelocatable (ReadOnlySpan bytes) elf
+    member __.IsRelocatable = isRelocatable hdr stream reader shdrs.Value
 
-    member __.Length = bytes.Length
+    member __.Length = int stream.Length
 
-    member __.RawBytes = bytes
+    member __.RawBytes = Utils.futureFeature () // XXX
 
-    member __.Span = ReadOnlySpan bytes
+    member __.Span = Utils.futureFeature (); ReadOnlySpan [||]
 
     member __.GetOffset addr =
-      translateAddrToOffset addr elf |> Convert.ToInt32
+      translateAddrToOffset loadables.Value shdrs.Value addr |> Convert.ToInt32
 
     member __.Slice (addr, size) =
-      let offset = translateAddrToOffset addr elf |> Convert.ToInt32
-      let span = ReadOnlySpan bytes
-      span.Slice (offset, size)
+      let offset = (__ :> IBinFile).GetOffset addr
+      (__ :> IBinFile).Slice (offset=offset, size=size)
 
     member __.Slice (addr) =
-      let offset = translateAddrToOffset addr elf |> Convert.ToInt32
-      let span = ReadOnlySpan bytes
-      span.Slice offset
+      let offset = (__ :> IBinFile).GetOffset addr
+      let size = int stream.Length - offset
+      (__ :> IBinFile).Slice (offset=offset, size=size)
 
     member __.Slice (offset: int, size) =
-      let span = ReadOnlySpan bytes
-      span.Slice (offset, size)
+      let buf = Array.zeroCreate size
+      stream.Seek (int64 offset, SeekOrigin.Begin) |> ignore
+      FileHelper.readOrDie stream buf
+      ReadOnlySpan buf
 
     member __.Slice (offset: int) =
-      let span = ReadOnlySpan bytes
-      span.Slice offset
+      let size = int stream.Length - offset
+      (__ :> IBinFile).Slice (offset=offset, size=size)
 
     member __.Slice (ptr: BinFilePointer, size) =
-      let span = ReadOnlySpan bytes
-      span.Slice (ptr.Offset, size)
+      (__ :> IBinFile).Slice (offset=ptr.Offset, size=size)
 
     member __.Slice (ptr: BinFilePointer) =
-      let span = ReadOnlySpan bytes
-      span.Slice ptr.Offset
+      (__ :> IBinFile).Slice (offset=ptr.Offset)
 
     member __.Read (_buffer, _offset, _size) = Utils.futureFeature ()
 
@@ -110,29 +148,42 @@ type ELFBinFile (bytes, path, baseAddr, regbay, forEmu) =
 
     member __.Seek (_offset: int): unit = Utils.futureFeature ()
 
-    member __.IsValidAddr addr = isValidAddr elf addr
+    member __.IsValidAddr addr =
+      IntervalSet.containsAddr addr notInMemRanges.Value |> not
 
-    member __.IsValidRange range = isValidRange elf range
+    member __.IsValidRange range =
+      IntervalSet.findAll range notInMemRanges.Value |> List.isEmpty
 
-    member __.IsInFileAddr addr = isInFileAddr elf addr
+    member __.IsInFileAddr addr =
+      IntervalSet.containsAddr addr notInFileRanges.Value |> not
 
-    member __.IsInFileRange range = isInFileRange elf range
+    member __.IsInFileRange range =
+      IntervalSet.findAll range notInFileRanges.Value |> List.isEmpty
 
-    member __.IsExecutableAddr addr = isExecutableAddr elf addr
+    member __.IsExecutableAddr addr =
+      IntervalSet.containsAddr addr executableRanges.Value
 
-    member __.GetNotInFileIntervals range = getNotInFileIntervals elf range
+    member __.GetNotInFileIntervals range =
+      IntervalSet.findAll range notInFileRanges.Value
+      |> List.map (FileHelper.trimByRange range)
+      |> List.toSeq
 
     member __.ToBinFilePointer addr =
-      BinFilePointer.OfSectionOpt (getSectionsByAddr elf addr |> Seq.tryHead)
+      getSectionsByAddr shdrs.Value addr
+      |> Seq.tryHead
+      |> BinFilePointer.OfSectionOpt
 
     member __.ToBinFilePointer name =
-      BinFilePointer.OfSectionOpt (getSectionsByName elf name |> Seq.tryHead)
+      getSectionsByName shdrs.Value name
+      |> Seq.tryHead
+      |> BinFilePointer.OfSectionOpt
 
-    member __.GetRelocatedAddr relocAddr = getRelocatedAddr elf relocAddr
+    member __.GetRelocatedAddr relocAddr =
+      getRelocatedAddr relocs.Value relocAddr
 
-    member __.GetSymbols () = getSymbols elf
+    member __.GetSymbols () = getSymbols shdrs.Value symbInfo.Value
 
-    member __.GetStaticSymbols () = getStaticSymbols elf
+    member __.GetStaticSymbols () = getStaticSymbols shdrs.Value symbInfo.Value
 
     member __.GetFunctionSymbols () =
       let dict = Collections.Generic.Dictionary<Addr, Symbol> ()
@@ -150,23 +201,27 @@ type ELFBinFile (bytes, path, baseAddr, regbay, forEmu) =
         else ())
       dict.Values
 
-    member __.GetDynamicSymbols (?exc) = getDynamicSymbols exc elf
+    member __.GetDynamicSymbols (?exc) =
+      getDynamicSymbols exc shdrs.Value symbInfo.Value
 
-    member __.GetRelocationSymbols () = getRelocSymbols elf
+    member __.GetRelocationSymbols () = getRelocSymbols relocs.Value
 
-    member __.AddSymbol addr symbol = Utils.futureFeature ()
+    member __.AddSymbol _addr _symbol = Utils.futureFeature ()
 
-    member __.TryFindFunctionSymbolName (addr) = tryFindFuncSymb elf addr
+    member __.TryFindFunctionSymbolName (addr) =
+      tryFindFuncSymb symbInfo.Value addr
 
-    member __.GetSections () = getSections elf
+    member __.GetSections () = getSections shdrs.Value
 
-    member __.GetSections (addr) = getSectionsByAddr elf addr
+    member __.GetSections (addr) = getSectionsByAddr shdrs.Value addr
 
-    member __.GetSections (name) = getSectionsByName elf name
+    member __.GetSections (name) = getSectionsByName shdrs.Value name
 
-    member __.GetTextSection () = getTextSection elf
+    member __.GetTextSection () = getTextSection shdrs.Value
 
-    member __.GetSegments (isLoadable) = getSegments elf isLoadable
+    member __.GetSegments (isLoadable) =
+      if isLoadable then getSegments loadables.Value
+      else getSegments phdrs.Value
 
     member __.GetSegments (addr) =
       (__ :> IBinFile).GetSegments ()
@@ -177,23 +232,28 @@ type ELFBinFile (bytes, path, baseAddr, regbay, forEmu) =
       (__ :> IBinFile).GetSegments ()
       |> Seq.filter (fun s -> (s.Permission &&& perm = perm) && s.Size > 0u)
 
-    member __.GetLinkageTableEntries () = getPLT elf
+    member __.GetLinkageTableEntries () =
+      plt.Value
+      |> ARMap.fold (fun acc _ entry -> entry :: acc) []
+      |> List.sortBy (fun entry -> entry.TrampolineAddress)
+      |> List.toSeq
 
-    member __.IsLinkageTable addr = isInPLT elf addr
+    member __.IsLinkageTable addr = ARMap.containsAddr addr plt.Value
 
     member __.GetFunctionAddresses () =
       (__ :> IBinFile).GetFunctionSymbols ()
       |> Seq.map (fun s -> s.Address)
-      |> addExtraFunctionAddrs (ReadOnlySpan bytes) elf false
+      |> addExtraFunctionAddrs stream reader hdr shdrs.Value loadables.Value
+                               relocs.Value None
 
     member __.GetFunctionAddresses (useExcInfo) =
+      let exnInfo = if useExcInfo then Some exnInfo.Value else None
       (__ :> IBinFile).GetFunctionSymbols ()
       |> Seq.map (fun s -> s.Address)
-      |> addExtraFunctionAddrs (ReadOnlySpan bytes) elf useExcInfo
+      |> addExtraFunctionAddrs stream reader hdr shdrs.Value loadables.Value
+                               relocs.Value exnInfo
 
-    member __.NewBinFile bs =
-      ELFBinFile (bs, path, baseAddr, regbay, forEmu)
+    member __.NewBinFile bs = Utils.futureFeature ()
 
-    member __.NewBinFile (bs, baseAddr) =
-      ELFBinFile (bs, path, Some baseAddr, regbay, forEmu)
+    member __.NewBinFile (bs, baseAddr) = Utils.futureFeature ()
 

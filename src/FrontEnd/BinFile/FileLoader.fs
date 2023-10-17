@@ -48,7 +48,7 @@ let load (binPath: string) (bytes: byte[]) isa baseAddr =
   let regbay = loadRegBay isa
   match fmt with
   | FileFormat.ELFBinary ->
-    ELFBinFile (bytes, binPath, baseAddr, Some regbay) :> IBinFile
+    ELFBinFile (binPath, baseAddr, Some regbay) :> IBinFile
   | FileFormat.PEBinary ->
     PEBinFile (bytes, binPath, baseAddr) :> IBinFile
   | FileFormat.MachBinary ->
@@ -61,7 +61,7 @@ let loadELF (binPath: string) (bytes: byte[]) isa baseAddr =
   let fmt, isa = FormatDetector.identify bytes isa
   let regbay = loadRegBay isa
   match fmt with
-  | FileFormat.ELFBinary -> ELFBinFile (bytes, binPath, baseAddr, Some regbay)
+  | FileFormat.ELFBinary -> ELFBinFile (binPath, baseAddr, Some regbay)
   | _ -> raise InvalidFileFormatException
 
 /// Load a given byte array (binary file) and return a `ELFBinFile` while
@@ -73,7 +73,7 @@ let loadELFForEmulation (binPath: string) (bytes: byte[]) isa baseAddr =
   let regbay = loadRegBay isa
   match fmt with
   | FileFormat.ELFBinary ->
-    ELFBinFile (bytes, binPath, baseAddr, Some regbay, true)
+    ELFBinFile (binPath, baseAddr, Some regbay)
   | _ -> raise InvalidFileFormatException
 
 /// Load a given byte array (binary file) and return a `PEBinFile`.

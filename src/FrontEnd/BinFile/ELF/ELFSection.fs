@@ -25,138 +25,119 @@
 module internal B2R2.FrontEnd.BinFile.ELF.Section
 
 open System
+open System.IO
 open B2R2
 open B2R2.FrontEnd.BinFile.FileHelper
 
 let [<Literal>] SecText = ".text"
 let [<Literal>] SecROData = ".rodata"
 
-/// Return the raw memory contents that represent the section names separated by
-/// null character.
-let parseSectionNameContents eHdr span reader =
-  let off = eHdr.SHdrTblOffset + uint64 (eHdr.SHdrStrIdx * eHdr.SHdrEntrySize)
-  let padding = (8 + (WordSize.toByteWidth eHdr.Class * 2))
-  let pos = Convert.ToInt32 off + padding
-  let struct (strOffset, nextOffset) = readUIntOfType span reader eHdr.Class pos
-  let size = peekUIntOfType span reader eHdr.Class nextOffset
-  span.Slice (Convert.ToInt32 strOffset, Convert.ToInt32 size)
+/// Section information.
+type SectionInfo = {
+  /// Section by address.
+  SecByAddr: ARMap<ELFSection>
+  /// Section by name.
+  SecByName: Map<string, ELFSection>
+  /// Section by its number.
+  SecByNum: ELFSection[]
+  /// Static symbol section numbers.
+  StaticSymSecNums: int list
+  /// Dynamic symbol section numbers.
+  DynSymSecNums: int list
+  /// GNU version symbol section.
+  VerSymSec: ELFSection option
+  /// GNU version need section.
+  VerNeedSec: ELFSection option
+  /// GNU version definition section.
+  VerDefSec: ELFSection option
+}
 
-let peekSecType (span: ByteSpan) (reader: IBinReader) offset =
-  reader.ReadUInt32 (span, offset + 4)
+let readNameTableRawData offset size (stream: Stream) =
+  let nameTable = Array.zeroCreate (int size)
+  stream.Seek (int64 offset, SeekOrigin.Begin) |> ignore
+  readOrDie stream nameTable
+  nameTable
+
+/// Return the section file offset and size, which represents the section names
+/// separated by null character.
+let parseSectionNameTableInfo hdr (reader: IBinReader) (stream: Stream) =
+  let secPtr = hdr.SHdrTblOffset + uint64 (hdr.SHdrStrIdx * hdr.SHdrEntrySize)
+  let ptrSize = WordSize.toByteWidth hdr.Class
+  let shAddrOffset = 8L + int64 (ptrSize * 2)
+  let shAddrPtr = int64 secPtr + shAddrOffset (* pointer to sh_offset *)
+  let buf = Array.zeroCreate (ptrSize * 2) (* sh_offset, sh_size *)
+  stream.Seek (shAddrPtr, SeekOrigin.Begin) |> ignore
+  readOrDie stream buf
+  let span = ReadOnlySpan buf
+  let struct (offset, next) = readUIntOfType span reader hdr.Class 0
+  let size = peekUIntOfType span reader hdr.Class next
+  readNameTableRawData offset size stream
+
+let peekSecType (span: ByteSpan) (reader: IBinReader) =
+  reader.ReadUInt32 (span, 4)
   |> LanguagePrimitives.EnumOfValue: SectionType
 
-let peekSecFlags span reader cls offset =
-  peekUIntOfType span reader cls (offset + 8)
+let peekSecFlags span reader cls =
+  peekUIntOfType span reader cls 8
   |> LanguagePrimitives.EnumOfValue: SectionFlag
 
-let parseSection baseAddr num names cls (span: ByteSpan) reader ofs =
-  let nameOffset = (reader: IBinReader).ReadInt32 (span, ofs)
+let parseSection baseAddr num nameTbl cls (span: ByteSpan) reader =
+  let nameOffset = (reader: IBinReader).ReadInt32 (span, 0)
   { SecNum = num
-    SecName = ByteArray.extractCStringFromSpan names nameOffset
-    SecType = peekSecType span reader ofs
-    SecFlags = peekSecFlags span reader cls ofs
-    SecAddr = peekHeaderNative span reader cls ofs 12 16 + baseAddr
-    SecOffset = peekHeaderNative span reader cls ofs 16 24
-    SecSize = peekHeaderNative span reader cls ofs 20 32
-    SecLink = peekHeaderU32 span reader cls ofs 24 40
-    SecInfo = peekHeaderU32 span reader cls ofs 28 44
-    SecAlignment = peekHeaderNative span reader cls ofs 32 48
-    SecEntrySize = peekHeaderNative span reader cls ofs 36 56 }
+    SecName = ByteArray.extractCString nameTbl nameOffset
+    SecType = peekSecType span reader
+    SecFlags = peekSecFlags span reader cls
+    SecAddr = peekHeaderNative span reader cls 12 16 + baseAddr
+    SecOffset = peekHeaderNative span reader cls 16 24
+    SecSize = peekHeaderNative span reader cls 20 32
+    SecLink = peekHeaderU32 span reader cls 24 40
+    SecInfo = peekHeaderU32 span reader cls 28 44
+    SecAlignment = peekHeaderNative span reader cls 32 48
+    SecEntrySize = peekHeaderNative span reader cls 36 56 }
 
-let inline hasSHFTLS flags =
-  flags &&& SectionFlag.SHFTLS = SectionFlag.SHFTLS
+let parse stream reader hdr baseAddr =
+  let nameTbl = parseSectionNameTableInfo hdr reader stream
+  let secHdrCount = int hdr.SHdrNum
+  let secHeaders = Array.zeroCreate secHdrCount
+  let cls = hdr.Class
+  let buf = Array.zeroCreate (int hdr.SHdrEntrySize)
+  let rec parseLoop count =
+    if count = secHdrCount then secHeaders
+    else
+      readOrDie stream buf
+      let span = ReadOnlySpan buf
+      let sec = parseSection baseAddr count nameTbl cls span reader
+      secHeaders[count] <- sec
+      parseLoop (count + 1)
+  stream.Seek (int64 hdr.SHdrTblOffset, SeekOrigin.Begin) |> ignore
+  parseLoop 0
 
-let inline hasSHFAlloc flags =
-  flags &&& SectionFlag.SHFAlloc = SectionFlag.SHFAlloc
 
-let nextSecOffset cls offset =
-  offset + (if cls = WordSize.Bit32 then 40 else 64)
+////
 
-let secHasValidAddr baseAddr sec =
-  (* .tbss has a meaningless virtual address as per
-     https://stackoverflow.com/questions/25501044/. *)
-  let secEndAddr = sec.SecAddr + sec.SecSize
-  sec.SecAddr <> baseAddr
-  && not <| hasSHFTLS sec.SecFlags
-  && secEndAddr > sec.SecAddr
+let private readDynamicEntry reader cls span =
+  let struct (dtag, next) = readUIntOfType span reader cls 0
+  let dval = peekUIntOfType span reader cls next
+  { DTag = LanguagePrimitives.EnumOfValue dtag; DVal = dval }
 
-let addSecToAddrMap baseAddr sec map =
-  if secHasValidAddr baseAddr sec then
-    let endAddr = sec.SecAddr + sec.SecSize - 1UL
-    ARMap.addRange sec.SecAddr endAddr sec map
-  else map
+let parseDynamicSection cls reader (stream: Stream) (sec: ELFSection) =
+  let numEntries = int sec.SecSize / int sec.SecEntrySize
+  let entries = Array.zeroCreate numEntries
+  let entryBuf = Array.zeroCreate (int sec.SecEntrySize)
+  let rec parseLoop n =
+    if n = numEntries then entries
+    else
+      readOrDie stream entryBuf
+      let entry = readDynamicEntry reader cls (ReadOnlySpan entryBuf)
+      entries[n] <- entry
+      if entry.DTag = DynamicTag.DT_NULL && entry.DVal = 0UL then entries[0..n]
+      else parseLoop (n + 1)
+  stream.Seek (int64 sec.SecOffset, SeekOrigin.Begin) |> ignore
+  parseLoop 0
 
-let accSymbTabNum lst predicate sec =
-  if predicate sec.SecType then sec.SecNum :: lst else lst
-
-let isStatic t = t = SectionType.SHTSymTab
-
-let isDynamic t = t = SectionType.SHTDynSym
-
-let updateVerSec predicate sec = function
-  | None -> if predicate sec.SecType then Some sec else None
-  | s -> s
-
-let isVerSym t = t = SectionType.SHTGNUVerSym
-
-let isVerNeed t = t = SectionType.SHTGNUVerNeed
-
-let isVerDef t = t = SectionType.SHTGNUVerDef
-
-let rec parseLoop baseAddr eHdr span reader names secByNum info sIdx offset =
-  if int eHdr.SHdrNum = sIdx then
-    { info with SecByNum = List.rev secByNum |> Array.ofList }
-  else
-    let sec = parseSection baseAddr sIdx names eHdr.Class span reader offset
-    let secByNum = sec :: secByNum
-    let offset' = nextSecOffset eHdr.Class offset
-    let info' =
-      { info with
-          SecByAddr = addSecToAddrMap baseAddr sec info.SecByAddr
-          SecByName = Map.add sec.SecName sec info.SecByName
-          StaticSymSecNums = accSymbTabNum info.StaticSymSecNums isStatic sec
-          DynSymSecNums = accSymbTabNum info.DynSymSecNums isDynamic sec
-          VerSymSec = updateVerSec isVerSym sec info.VerSymSec
-          VerNeedSec = updateVerSec isVerNeed sec info.VerNeedSec
-          VerDefSec = updateVerSec isVerDef sec info.VerDefSec }
-    parseLoop baseAddr eHdr span reader names secByNum info' (sIdx + 1) offset'
-
-let parse baseAddr eHdr span reader =
-  let nameContents = parseSectionNameContents eHdr span reader
-  let emptyInfo =
-    { SecByAddr = ARMap.empty
-      SecByName = Map.empty
-      SecByNum = [||]
-      StaticSymSecNums = []
-      DynSymSecNums = []
-      VerSymSec = None
-      VerNeedSec = None
-      VerDefSec = None }
-  let offset = Convert.ToInt32 eHdr.SHdrTblOffset
-  parseLoop baseAddr eHdr span reader nameContents [] emptyInfo 0 offset
-
-let rec private readDynSecLoop acc span reader secEnd readType readSize offset =
-  if offset >= secEnd then List.rev acc
-  else
-    let tag = peekUIntOfType span reader readType offset
-    let value = peekUIntOfType span reader readType (offset + readSize)
-    let ent = { DTag = LanguagePrimitives.EnumOfValue tag; DVal = value }
-    let nextOffset = offset + readSize + readSize
-    (* Ignore after null entry *)
-    let nextOffset = if value = 0UL && tag = 0UL then secEnd else nextOffset
-    readDynSecLoop (ent :: acc) span reader secEnd readType readSize nextOffset
-
-let parseDynamicSection span reader (sec: ELFSection) =
-  let secStart = int sec.SecOffset
-  let secEnd = secStart + int sec.SecSize
-  let readSize = int (sec.SecEntrySize / 2UL)
-  let readType: WordSize = LanguagePrimitives.EnumOfValue (readSize * 8)
-  readDynSecLoop [] span reader secEnd readType readSize secStart
-
-let getDynamicSectionEntries span reader secInfo =
-  let sec =
-    secInfo.SecByNum
-    |> Array.tryFind (fun s -> s.SecType = SectionType.SHTDynamic)
-  match sec with
-  | Some sec -> parseDynamicSection span reader sec
-  | None -> []
+let getDynamicSectionEntries hdr stream reader secHeaders =
+  let dynamicSection =
+    secHeaders |> Array.tryFind (fun s -> s.SecType = SectionType.SHTDynamic)
+  match dynamicSection with
+  | Some sec -> parseDynamicSection hdr.Class reader stream sec
+  | None -> [||]

@@ -25,17 +25,18 @@
 module internal B2R2.FrontEnd.BinFile.ELF.Relocs
 
 open System
+open System.IO
 open System.Collections.Generic
 open B2R2
 open B2R2.FrontEnd.BinFile.FileHelper
 
-let peekInfoWithArch span reader eHdr offset =
-  let info = peekHeaderNative span reader eHdr.Class offset 4 8
-  match eHdr.MachineType with
+let peekInfoWithArch reader hdr span =
+  let info = peekHeaderNative span reader hdr.Class 4 8
+  match hdr.MachineType with
   | Arch.MIPS64 ->
     (* MIPS64el has a a 32-bit LE symbol index followed by four individual byte
        fields. *)
-    if eHdr.Endian = Endian.Little then
+    if hdr.Endian = Endian.Little then
       (info &&& 0xffffffffUL) <<< 32
       ||| ((info >>> 56) &&& 0xffUL)
       ||| ((info >>> 40) &&& 0xff00UL)
@@ -44,17 +45,16 @@ let peekInfoWithArch span reader eHdr offset =
     else info
   | _ -> info
 
-let inline getRelocSIdx eHdr (i: uint64) =
-  if eHdr.Class = WordSize.Bit32 then i >>> 8 else i >>> 32
+let inline getRelocSIdx hdr (i: uint64) =
+  if hdr.Class = WordSize.Bit32 then i >>> 8 else i >>> 32
 
-let inline relocEntry baseAddr hasAdd eHdr typMask symTbl span reader pos sec =
-  let info = peekInfoWithArch span reader eHdr pos
-  let cls = eHdr.Class
-  { RelOffset = peekUIntOfType span reader cls pos + baseAddr
-    RelType = typMask &&& info |> RelocationType.FromNum eHdr.MachineType
-    RelSymbol = Array.tryItem (getRelocSIdx eHdr info |> Convert.ToInt32) symTbl
-    RelAddend =
-      if hasAdd then peekHeaderNative span reader cls pos 8 16 else 0UL
+let inline relocEntry reader hdr baseAddr hasAdd typMask symTbl span sec =
+  let info = peekInfoWithArch reader hdr span
+  let cls = hdr.Class
+  { RelOffset = peekUIntOfType span reader cls 0 + baseAddr
+    RelType = typMask &&& info |> RelocationType.FromNum hdr.MachineType
+    RelSymbol = Array.tryItem (getRelocSIdx hdr info |> Convert.ToInt32) symTbl
+    RelAddend = if hasAdd then peekHeaderNative span reader cls 8 16 else 0UL
     RelSecNumber = sec.SecNum }
 
 let nextRelOffset hasAdd cls offset =
@@ -73,27 +73,33 @@ let accumulateRelocInfo relInfo rel =
     relInfo.RelocByAddr[rel.RelOffset] <- rel
     relInfo.RelocByName[name.SymName] <- rel
 
-let parseRelocSection baseAddr eHdr span reader sec symbInfo relInfo =
+let parseRelocSection
+  reader hdr baseAddr sec (secBuf: byte[]) symbInfo relInfo =
   let hasAdd = sec.SecType = SectionType.SHTRela (* Has addend? *)
-  let typMask = if eHdr.Class = WordSize.Bit32 then 0xFFUL else 0xFFFFFFFFUL
+  let typMask = if hdr.Class = WordSize.Bit32 then 0xFFUL else 0xFFFFFFFFUL
   let entrySize =
-    if hasAdd then (uint64 <| WordSize.toByteWidth eHdr.Class * 3)
-    else (uint64 <| WordSize.toByteWidth eHdr.Class * 2)
+    if hasAdd then (uint64 <| WordSize.toByteWidth hdr.Class * 3)
+    else (uint64 <| WordSize.toByteWidth hdr.Class * 2)
   let numEntries = int (sec.SecSize / entrySize)
-  let mutable ofs = Convert.ToInt32 sec.SecOffset
+  let mutable ofs = 0
+  let span = ReadOnlySpan secBuf
   for _ = numEntries downto 1 do
     let symTbl = tryFindSymbTable (int sec.SecLink) symbInfo
-    relocEntry baseAddr hasAdd eHdr typMask symTbl span reader ofs sec
+    relocEntry reader hdr baseAddr hasAdd typMask symTbl (span.Slice ofs) sec
     |> accumulateRelocInfo relInfo
-    ofs <- nextRelOffset hasAdd eHdr.Class ofs
+    ofs <- nextRelOffset hasAdd hdr.Class ofs
 
-let parse baseAddr eHdr secInfo symbInfo span reader =
+let parse stream reader hdr baseAddr (shdrs: Lazy<_>) (symbInfo: Lazy<_>) =
   let relInfo = { RelocByAddr = Dictionary (); RelocByName = Dictionary () }
-  for sec in secInfo.SecByNum do
+  for sec in shdrs.Value do
     match sec.SecType with
     | SectionType.SHTRel
     | SectionType.SHTRela ->
       if sec.SecSize = 0UL then ()
-      else parseRelocSection baseAddr eHdr span reader sec symbInfo relInfo
+      else
+        let secBuf = Array.zeroCreate (int sec.SecSize)
+        (stream: Stream).Seek (int64 sec.SecOffset, SeekOrigin.Begin) |> ignore
+        readOrDie stream secBuf
+        parseRelocSection reader hdr baseAddr sec secBuf symbInfo.Value relInfo
     | _ -> ()
   relInfo

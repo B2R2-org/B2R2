@@ -24,6 +24,7 @@
 
 module internal B2R2.FrontEnd.BinFile.FileHelper
 
+open System.IO
 open B2R2
 
 let peekUIntOfType (span: ByteSpan) (reader: IBinReader) bitType o =
@@ -34,20 +35,20 @@ let readUIntOfType span reader bitType o =
   let inline sizeByCls bitType = if bitType = WordSize.Bit32 then 4 else 8
   struct (peekUIntOfType span reader bitType o, o + sizeByCls bitType)
 
-let peekHeaderB (span: ByteSpan) cls offset d32 d64 =
-  span[offset + (if cls = WordSize.Bit32 then d32 else d64)]
+let peekHeaderB (span: ByteSpan) cls d32 d64 =
+  span[(if cls = WordSize.Bit32 then d32 else d64)]
 
-let peekHeaderU16 (span: ByteSpan) (reader: IBinReader) cls offset d32 d64 =
-  reader.ReadUInt16 (span, offset + (if cls = WordSize.Bit32 then d32 else d64))
+let peekHeaderU16 (span: ByteSpan) (reader: IBinReader) cls d32 d64 =
+  reader.ReadUInt16 (span, if cls = WordSize.Bit32 then d32 else d64)
 
-let peekHeaderI32 (span: ByteSpan) (reader: IBinReader) cls offset d32 d64 =
-  reader.ReadInt32 (span, offset + (if cls = WordSize.Bit32 then d32 else d64))
+let peekHeaderI32 (span: ByteSpan) (reader: IBinReader) cls d32 d64 =
+  reader.ReadInt32 (span, if cls = WordSize.Bit32 then d32 else d64)
 
-let peekHeaderU32 (span: ByteSpan) (reader: IBinReader) cls offset d32 d64 =
-  reader.ReadUInt32 (span, offset + (if cls = WordSize.Bit32 then d32 else d64))
+let peekHeaderU32 (span: ByteSpan) (reader: IBinReader) cls d32 d64 =
+  reader.ReadUInt32 (span, if cls = WordSize.Bit32 then d32 else d64)
 
-let peekHeaderNative span reader cls offset d32 d64 =
-  let offset = offset + (if cls = WordSize.Bit32 then d32 else d64)
+let peekHeaderNative span reader cls d32 d64 =
+  let offset = if cls = WordSize.Bit32 then d32 else d64
   peekUIntOfType span reader cls offset
 
 let rec private cstrLoop (span: ByteSpan) acc pos =
@@ -88,3 +89,8 @@ let getNotInFileIntervals fileBase fileSize (range: AddrRange) =
     Seq.singleton (AddrRange (lastAddr + 1UL, range.Max))
   elif range.Max > lastAddr && range.Min > lastAddr then Seq.singleton range
   else Seq.empty
+
+let readOrDie (s: Stream) buf =
+  let count = s.Read (buf, 0, buf.Length)
+  if count = buf.Length then ()
+  else raise InvalidFileFormatException

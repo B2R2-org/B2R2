@@ -42,7 +42,7 @@ let computeEntryPoint (hdr: ELFHeader) =
   [ ColoredSegment.green <| String.u64ToHex hdr.EntryPoint ]
 
 let dumpFileHeader (_: FileViewerOpts) (file: ELFBinFile) =
-  let hdr = file.ELF.ELFHdr
+  let hdr = file.Header
   out.PrintTwoColsWithColorOnSnd "Magic:" (computeMagicBytes file)
   out.PrintTwoCols "Class:" ("ELF" + WordSize.toString hdr.Class)
   out.PrintTwoCols "Data:" (Endian.toString hdr.Endian + " endian")
@@ -73,7 +73,7 @@ let dumpSectionHeaders (opts: FileViewerOpts) (elf: ELFBinFile) =
                                "Type"; "Offset"; "Size"; "EntrySize"
                                "Link"; "Info"; "Align"; "Flags" ])
     out.PrintLine "  ---"
-    elf.ELF.SecInfo.SecByNum
+    elf.SectionHeaders
     |> Array.iteri (fun idx s ->
       out.PrintRow (true, cfg,
         [ String.wrapSqrdBracket (idx.ToString ())
@@ -101,7 +101,7 @@ let dumpSectionHeaders (opts: FileViewerOpts) (elf: ELFBinFile) =
           normalizeEmpty s.Name ]))
 
 let dumpSectionDetails (secname: string) (file: ELFBinFile) =
-  match file.ELF.SecInfo.SecByName.TryFind secname with
+  match file.TryFindSection secname with
   | Some section ->
     out.PrintTwoCols "Section number:" (section.SecNum.ToString ())
     out.PrintTwoCols "Section name:" section.SecName
@@ -155,10 +155,10 @@ let printSymbolInfo isVerbose (elf: ELFBinFile) (symbols: seq<Symbol>) =
     |> Seq.sortBy (fun s -> s.Address)
     |> Seq.sortBy (fun s -> s.Visibility)
     |> Seq.iter (fun s ->
-      match elf.ELF.SymInfo.AddrToSymbTable.TryGetValue s.Address with
+      match elf.SymbolInfo.AddrToSymbTable.TryGetValue s.Address with
       | true, elfSymbol -> printSymbolInfoVerbose elf s elfSymbol cfg
       | false, _ ->
-        match elf.ELF.RelocInfo.RelocByName.TryGetValue s.Name with
+        match elf.RelocationInfo.RelocByName.TryGetValue s.Name with
         | true, reloc ->
           match reloc.RelSymbol with
           | Some elfSymbol -> printSymbolInfoVerbose elf s elfSymbol cfg
@@ -190,7 +190,7 @@ let dumpRelocs (_opts: FileViewerOpts) (elf: ELFBinFile) =
   let cfg = [ addrColumn; LeftAligned 24; RightAligned 8; LeftAligned 12 ]
   out.PrintRow (true, cfg, [ "Address"; "Type"; "Addended"; "Symbol" ])
   out.PrintLine "  ---"
-  elf.ELF.RelocInfo.RelocByAddr.Values
+  elf.RelocationInfo.RelocByAddr.Values
   |> Seq.sortBy (fun reloc -> reloc.RelOffset)
   |> Seq.iter (fun reloc ->
     let symbol =
@@ -217,7 +217,7 @@ let dumpExceptionTable hdl (_opts: FileViewerOpts) (file: ELFBinFile) =
 
 let makeStringTableReader (file: IBinFile) dynEntries =
   dynEntries
-  |> List.fold (fun (off, len) (ent: DynamicSectionEntry) ->
+  |> Array.fold (fun (off, len) (ent: DynamicSectionEntry) ->
     match ent.DTag with
     | DynamicTag.DT_STRTAB -> Some ent.DVal, len
     | DynamicTag.DT_STRSZ -> off, Some ent.DVal
@@ -236,7 +236,7 @@ let dumpDynamicSection _ (file: ELFBinFile) =
   let dynEntries = file.DynamicSectionEntries
   let strtabReader = makeStringTableReader file dynEntries
   dynEntries
-  |> List.iter (fun ent ->
+  |> Array.iter (fun ent ->
     let tag = ent.DTag
     match tag, strtabReader with
     | DynamicTag.DT_NEEDED, Some reader ->
@@ -267,8 +267,8 @@ let dumpSegments (opts: FileViewerOpts) (elf: ELFBinFile) =
                                "FileSize"; "MemSize"; "Alignment" ])
     out.PrintLine "  ---"
     let wordSize = file.ISA.WordSize
-    elf.ELF.ProgHeaders
-    |> List.iteri (fun idx ph ->
+    elf.ProgramHeaders
+    |> Array.iteri (fun idx ph ->
       out.PrintRow (true, cfg,
         [ String.wrapSqrdBracket (idx.ToString ())
           (Addr.toString wordSize ph.PHAddr)
@@ -305,7 +305,7 @@ let dumpLinkageTable (opts: FileViewerOpts) (elf: ELFBinFile) =
     out.PrintLine "  ---"
     file.GetLinkageTableEntries ()
     |> Seq.iter (fun e ->
-      match elf.ELF.RelocInfo.RelocByAddr.TryGetValue e.TableAddress with
+      match elf.RelocationInfo.RelocByAddr.TryGetValue e.TableAddress with
       | true, reloc ->
         out.PrintRow (true, cfg,
           [ (Addr.toString file.ISA.WordSize e.TrampolineAddress)
@@ -350,7 +350,7 @@ let ruleToString (hdl: BinHandle) (rule: Rule) =
 let dumpEHFrame hdl (file: ELFBinFile) =
   let addrColumn = columnWidthOfAddr file |> LeftAligned
   let cfg = [ addrColumn; LeftAligned 10; LeftAligned 50 ]
-  file.ELF.ExceptionFrames
+  file.ExceptionInfo.ExceptionFrames
   |> List.iter (fun cfi ->
     out.PrintLine ("- CIE: \"{0}\" cf={1} df={2}",
       cfi.CIERecord.AugmentationString,
@@ -381,7 +381,7 @@ let dumpGccExceptTable _hdl (elf: ELFBinFile) =
   let file = elf :> IBinFile
   let cfg = [ addrColumn; LeftAligned 15; LeftAligned 15; addrColumn ]
   out.PrintRow (true, cfg, [ "Address"; "LP App"; "LP Val"; "TT End" ])
-  elf.ELF.LSDAs
+  elf.ExceptionInfo.LSDAs
   |> Map.iter (fun lsdaAddr lsda ->
     let ttbase = lsda.Header.TTBase |> Option.defaultValue 0UL
     out.PrintRow (true, cfg,

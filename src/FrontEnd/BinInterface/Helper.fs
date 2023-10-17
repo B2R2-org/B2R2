@@ -45,7 +45,7 @@ let identifyFormatAndISAAndOS bytes isa os autoDetect =
 let newFileInfo bytes (baddr: Addr option) path fmt isa regbay =
   match fmt with
   | FileFormat.ELFBinary ->
-    ELFBinFile (bytes, path, baddr, Some regbay) :> IBinFile
+    ELFBinFile (path, baddr, Some regbay) :> IBinFile
   | FileFormat.PEBinary ->
     PEBinFile (bytes, path, baddr) :> IBinFile
   | FileFormat.MachBinary ->

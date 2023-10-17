@@ -26,8 +26,10 @@ SOFTWARE.
 module internal B2R2.FrontEnd.BinFile.ELF.ELFGccExceptTable
 
 open System
+open System.IO
 open B2R2
 open B2R2.FrontEnd.BinFile.ELF.ExceptionHeaderEncoding
+open B2R2.FrontEnd.BinFile
 
 let [<Literal>] GccExceptTable = ".gcc_except_table"
 
@@ -163,11 +165,15 @@ let rec parseLSDASection cls (span: ByteSpan) reader sAddr offset lsdas =
     let lsdas = Map.add lsdaAddr lsda lsdas
     parseLSDASection cls span reader sAddr offset lsdas
 
-let parse (span: ByteSpan) reader cls (secs: SectionInfo) =
-  match Map.tryFind GccExceptTable secs.SecByName with
+let private readSection (stream: Stream) sec =
+  let buf = Array.zeroCreate (int sec.SecSize)
+  stream.Seek (int64 sec.SecOffset, SeekOrigin.Begin) |> ignore
+  FileHelper.readOrDie stream buf
+  buf
+
+let parse stream reader cls shdrs =
+  match Array.tryFind (fun s -> s.SecName = GccExceptTable) shdrs with
   | Some sec ->
-    let size = Convert.ToInt32 sec.SecSize
-    let offset = Convert.ToInt32 sec.SecOffset
-    let span = span.Slice (offset, size)
+    let span = ReadOnlySpan (readSection stream sec)
     parseLSDASection cls span reader sec.SecAddr 0 Map.empty
   | None -> Map.empty

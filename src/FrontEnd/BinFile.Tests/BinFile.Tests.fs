@@ -191,7 +191,8 @@ module ELF =
   let parseFile fileName =
     let zip = fileName + ".zip"
     let bytes = ZIPReader.readFileFromZipFile FileFormat.ELFBinary zip fileName
-    ELFBinFile (bytes, fileName) :> IBinFile
+    let stream = new MemoryStream (bytes)
+    ELFBinFile (fileName, stream, None, None) :> IBinFile
 
   [<TestClass>]
   type TestClass () =

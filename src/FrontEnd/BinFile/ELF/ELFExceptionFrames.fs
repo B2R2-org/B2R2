@@ -26,11 +26,13 @@
 module internal B2R2.FrontEnd.BinFile.ELF.ExceptionFrames
 
 open System
+open System.IO
 open System.Runtime.InteropServices
 open B2R2
 open B2R2.BinIR
 open B2R2.BinIR.LowUIR
 open B2R2.FrontEnd.BinFile.ELF.ExceptionHeaderEncoding
+open B2R2.FrontEnd.BinFile
 
 /// Raised when an unhandled eh_frame version is encountered.
 exception UnhandledEHFrameVersionException
@@ -741,12 +743,16 @@ let rec parseCFI cls isa rb span reader sAddr cie cies fdes offset cfis reloc =
         let fdes = fde :: fdes
         parseCFI cls isa rb span reader sAddr cie cies fdes nextOfs cfis reloc
 
-let parse span (reader: IBinReader) cls (secs: SectionInfo) isa regbay reloc =
-  match Map.tryFind Ehframe secs.SecByName with
+let private readSection (stream: Stream) sec =
+  let buf = Array.zeroCreate (int sec.SecSize)
+  stream.Seek (int64 sec.SecOffset, SeekOrigin.Begin) |> ignore
+  FileHelper.readOrDie stream buf
+  buf
+
+let parse stream reader cls shdrs isa regbay reloc =
+  match Array.tryFind (fun s -> s.SecName = Ehframe) shdrs with
   | Some sec when Option.isSome regbay ->
-    let size = Convert.ToInt32 sec.SecSize
-    let offset = Convert.ToInt32 sec.SecOffset
-    let span = (span: ByteSpan).Slice (offset, size)
+    let span = ReadOnlySpan (readSection stream sec)
     let regbay = Option.get regbay
     parseCFI cls isa regbay span reader sec.SecAddr None Map.empty [] 0 [] reloc
     |> List.rev

@@ -36,8 +36,8 @@ module private FunctionMaintainer =
   let knownNoPLTFuncs =
     [| "__libc_start_main"; "__gmon_start__" |]
 
-  let findInternalFuncReloc (elf: ELF) (entry: LinkageTableEntry) =
-    let reloc = elf.RelocInfo.RelocByAddr[entry.TableAddress]
+  let findInternalFuncReloc (elf: ELFBinFile) (entry: LinkageTableEntry) =
+    let reloc = elf.RelocationInfo.RelocByAddr[entry.TableAddress]
     match reloc.RelSymbol with
     | Some relSym ->
       if relSym.SymType = SymbolType.STTFunc then
@@ -165,7 +165,7 @@ type FunctionMaintainer private (hdl, histMgr: HistoryManager) =
     | false, _ -> addr
 
   static member private InitELFExterns hdl (fnMaintainer: FunctionMaintainer) =
-    let elf = (hdl.BinFile :?> ELFBinFile).ELF
+    let elf = (hdl.BinFile :?> ELFBinFile)
     elf.PLT
     |> ARMap.iter (fun range entry ->
       match findInternalFuncReloc elf entry with
@@ -174,11 +174,11 @@ type FunctionMaintainer private (hdl, histMgr: HistoryManager) =
         let func =
           ExternalFunction.Init entry.TableAddress entry.FuncName range.Min
         fnMaintainer.AddFunction func)
-    elf.RelocInfo.RelocByAddr.Values
+    elf.RelocationInfo.RelocByAddr.Values
     |> Seq.iter (fun reloc ->
       match reloc.RelSymbol with
       | Some symb ->
-        let sec = elf.SecInfo.SecByNum[reloc.RelSecNumber]
+        let sec = elf.FindSection reloc.RelSecNumber
         if (sec.SecName = ".rela.dyn" || sec.SecName = ".rel.dyn")
           && Array.contains symb.SymName knownNoPLTFuncs
         then

@@ -213,26 +213,6 @@ type ELFSection = {
   SecEntrySize: uint64
 }
 
-/// Section information.
-type SectionInfo = {
-  /// Section by address.
-  SecByAddr: ARMap<ELFSection>
-  /// Section by name.
-  SecByName: Map<string, ELFSection>
-  /// Section by its number.
-  SecByNum: ELFSection[]
-  /// Static symbol section numbers.
-  StaticSymSecNums: int list
-  /// Dynamic symbol section numbers.
-  DynSymSecNums: int list
-  /// GNU version symbol section.
-  VerSymSec: ELFSection option
-  /// GNU version need section.
-  VerNeedSec: ELFSection option
-  /// GNU version definition section.
-  VerDefSec: ELFSection option
-}
-
 /// ELF dynamic tags.
 type DynamicTag =
   | DT_NULL = 0UL
@@ -1309,42 +1289,13 @@ type CallFrameInformation = {
   FDERecord: FrameDescriptionEntry[]
 }
 
-/// Main ELF format representation.
-type ELF = {
-  /// ELF header.
-  ELFHdr: ELFHeader
-  /// Preferred base address.
-  BaseAddr: Addr
-  /// Segment information.
-  ProgHeaders: ProgramHeader list
-  /// Loadable segments.
-  LoadableSegments: ProgramHeader list
-  /// Loadable section numbers.
-  LoadableSecNums: Set<int>
-  /// Section information.
-  SecInfo: SectionInfo
-  /// Symbol information.
-  SymInfo: ELFSymbolInfo
-  /// Relocation information.
-  RelocInfo: RelocInfo
-  /// Procedure Linkage Table.
-  PLT: ARMap<LinkageTableEntry>
-  /// Global symbols (such as R_X86_64_GLOB_DAT).
-  Globals: Map<Addr, ELFSymbol>
+/// Exception information.
+type ExceptionInfo = {
   /// Exception frames.
   ExceptionFrames: CallFrameInformation list
   /// LSDAs (Language Specific Data Areas).
   LSDAs: Map<Addr, LanguageSpecificDataArea>
-  /// Invalid address ranges.
-  InvalidAddrRanges: IntervalSet
-  /// Not-in-file address ranges.
-  NotInFileRanges: IntervalSet
-  /// Executable address ranges.
-  ExecutableRanges: IntervalSet
-  /// ISA.
-  ISA: ISA
   /// Unwinding info table.
   UnwindingTbl: Map<Addr, UnwindingEntry>
-  /// IBinReader.
-  BinReader: IBinReader
 }
+

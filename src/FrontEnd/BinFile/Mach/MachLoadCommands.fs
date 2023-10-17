@@ -29,18 +29,19 @@ open B2R2
 open B2R2.FrontEnd.BinFile.FileHelper
 
 let parseSegCmd span (reader: IBinReader) baseAddr cls offset cmdType cmdSize =
+  let span = (span: ByteSpan).Slice offset
   { Cmd = cmdType
     CmdSize = cmdSize
     SecOff = offset + if cls = WordSize.Bit64 then 72 else 56
-    SegCmdName = peekCString span (offset + 8)
-    VMAddr = peekHeaderNative span reader cls offset 24 24 + baseAddr
-    VMSize = peekHeaderNative span reader cls offset 28 32
-    FileOff = peekHeaderNative span reader cls offset 32 40
-    FileSize = peekHeaderNative span reader cls offset 36 48
-    MaxProt = peekHeaderI32 span reader cls offset 40 56
-    InitProt = peekHeaderI32 span reader cls offset 44 60
-    NumSecs = peekHeaderU32 span reader cls offset 48 64
-    SegFlag = peekHeaderU32 span reader cls offset 52 68 }
+    SegCmdName = peekCString span 8
+    VMAddr = peekHeaderNative span reader cls 24 24 + baseAddr
+    VMSize = peekHeaderNative span reader cls 28 32
+    FileOff = peekHeaderNative span reader cls 32 40
+    FileSize = peekHeaderNative span reader cls 36 48
+    MaxProt = peekHeaderI32 span reader cls 40 56
+    InitProt = peekHeaderI32 span reader cls 44 60
+    NumSecs = peekHeaderU32 span reader cls 48 64
+    SegFlag = peekHeaderU32 span reader cls 52 68 }
 
 let parseSymCmd (span: ByteSpan) reader offset cmdType cmdSize =
   { Cmd = cmdType

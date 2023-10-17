@@ -95,7 +95,7 @@ let printHexdump (opts: BinDumpOpts) sec hdl =
 let private hasNoContent (sec: Section) (file: IBinFile) =
   match file with
   | :? ELFBinFile as file ->
-    match file.ELF.SecInfo.SecByName.TryFind sec.Name with
+    match file.TryFindSection sec.Name with
     | Some section -> section.SecType = ELF.SectionType.SHTNoBits
     | None -> true
   | _ -> false
