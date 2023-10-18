@@ -298,11 +298,11 @@ type X86PLTParser (shdrs, relocInfo, symbInfo) =
     elif BytePattern.matchSpan picNonLazyEntry plt then
       newPLT PIC EagerBinding false 8UL 2UL 0UL
     elif BytePattern.matchSpan picNonLazyIbtEntry plt then
-      newPLT PIC EagerBinding true 8UL 6UL 0UL
+      newPLT PIC EagerBinding true 16UL 6UL 0UL
     elif BytePattern.matchSpan nonPicNonLazyEntry plt then
       newPLT NonPIC EagerBinding false 8UL 2UL 0UL
     elif BytePattern.matchSpan nonPicNonLazyIbtEntry plt then
-      newPLT NonPIC EagerBinding true 8UL 6UL 0UL
+      newPLT NonPIC EagerBinding true 16UL 6UL 0UL
     else UnknownPLT
 
   member private __.ComputeRelocAddr (codeKind, baseAddr, relocV) =
