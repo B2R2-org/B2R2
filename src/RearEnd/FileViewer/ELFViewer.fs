@@ -217,15 +217,15 @@ let dumpExceptionTable hdl (_opts: FileViewerOpts) (file: ELFBinFile) =
 
 let makeStringTableReader (file: IBinFile) dynEntries =
   dynEntries
-  |> Array.fold (fun (off, len) (ent: DynamicSectionEntry) ->
+  |> Array.fold (fun (addr, len) (ent: DynamicSectionEntry) ->
     match ent.DTag with
     | DynamicTag.DT_STRTAB -> Some ent.DVal, len
-    | DynamicTag.DT_STRSZ -> off, Some ent.DVal
-    | _ -> off, len
+    | DynamicTag.DT_STRSZ -> addr, Some ent.DVal
+    | _ -> addr, len
   ) (None, None)
-  ||> Option.map2 (fun off len ->
+  ||> Option.map2 (fun addr len ->
     fun v ->
-      let strtab = file.Slice (offset=int off, size=int len)
+      let strtab = file.Slice (addr=addr, size=int len)
       let buf = strtab.Slice (int v)
       ByteArray.extractCStringFromSpan buf 0)
 
