@@ -211,7 +211,7 @@ let ands ins insLen ctxt addr =
 let b ins insLen ctxt addr =
   let ir = !*ctxt
   let label = transOneOpr ins ctxt addr
-  let pc = getPC ctxt
+  let pc = numU64 (ins:InsInfo).Address ctxt.WordBitSize
   !<ir insLen
   !!ir (AST.interjmp (pc .+ label) InterJmpKind.Base)
   !>ir insLen
@@ -219,7 +219,7 @@ let b ins insLen ctxt addr =
 let bCond ins insLen ctxt addr cond =
   let ir = !*ctxt
   let label = transOneOpr ins ctxt addr
-  let pc = getPC ctxt
+  let pc = numU64 (ins:InsInfo).Address ctxt.WordBitSize
   let fall = pc .+ numU32 insLen 64<rt>
   !<ir insLen
   !!ir (AST.intercjmp (conditionHolds ctxt cond) (pc .+ label) fall)
@@ -326,7 +326,7 @@ let bit ins insLen ctxt addr = bitInsert ins insLen ctxt addr true
 let bl ins insLen ctxt addr =
   let ir = !*ctxt
   let label = transOneOpr ins ctxt addr
-  let pc = getPC ctxt
+  let pc = numU64 (ins:InsInfo).Address ctxt.WordBitSize
   !<ir insLen
   !!ir (getRegVar ctxt R.X30 := pc .+ numI64 4L ins.OprSize)
   (* FIXME: BranchTo (BranchType_DIRCALL) *)
@@ -336,7 +336,7 @@ let bl ins insLen ctxt addr =
 let blr ins insLen ctxt addr =
   let ir = !*ctxt
   let src = transOneOpr ins ctxt addr
-  let pc = getPC ctxt
+  let pc = numU64 (ins:InsInfo).Address ctxt.WordBitSize
   !<ir insLen
   !!ir (getRegVar ctxt R.X30 := pc .+ numI64 4L ins.OprSize)
   (* FIXME: BranchTo (BranchType_INDCALL) *)
@@ -375,7 +375,7 @@ let bsl ins insLen ctxt addr =
 let inline private compareBranch ins insLen ctxt addr cmp =
   let ir = !*ctxt
   let test, label = transTwoOprs ins ctxt addr
-  let pc = getPC ctxt
+  let pc = numU64 (ins:InsInfo).Address ctxt.WordBitSize
   let fall = pc .+ numU32 insLen 64<rt>
   !<ir insLen
   !!ir (AST.intercjmp (cmp test (AST.num0 ins.OprSize)) (pc .+ label) fall)
@@ -2904,7 +2904,7 @@ let tbl ins insLen ctxt addr = (* FIMXE *)
 let tbnz ins insLen ctxt addr =
   let ir = !*ctxt
   let test, imm, label = transThreeOprs ins ctxt addr
-  let pc = getPC ctxt
+  let pc = numU64 (ins:InsInfo).Address ctxt.WordBitSize
   let fall = pc .+ numU32 insLen 64<rt>
   let cond = (test >> imm .& AST.num1 ins.OprSize) == AST.num1 ins.OprSize
   !<ir insLen
@@ -2914,7 +2914,7 @@ let tbnz ins insLen ctxt addr =
 let tbz ins insLen ctxt addr =
   let ir = !*ctxt
   let test, imm, label = transThreeOprs ins ctxt addr
-  let pc = getPC ctxt
+  let pc = numU64 (ins:InsInfo).Address ctxt.WordBitSize
   let fall = pc .+ numU32 insLen 64<rt>
   let cond = (test >> imm .& AST.num1 ins.OprSize) == AST.num0 ins.OprSize
   !<ir insLen
