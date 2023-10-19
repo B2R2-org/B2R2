@@ -27,6 +27,7 @@ module internal B2R2.FrontEnd.BinFile.Mach.Parser
 open System
 open B2R2
 open B2R2.FrontEnd.BinFile
+open B2R2.FrontEnd.BinFile.FileHelper
 
 let isMainCmd = function
   | Main _ -> true
@@ -54,8 +55,8 @@ let invRanges wordSize segs getNextStartAddr =
   |> List.sortBy (fun seg -> seg.VMAddr)
   |> List.fold (fun (set, saddr) seg ->
        let n = getNextStartAddr seg
-       FileHelper.addInvRange set saddr seg.VMAddr, n) (IntervalSet.empty, 0UL)
-  |> FileHelper.addLastInvRange wordSize
+       addInvalidRange set saddr seg.VMAddr, n) (IntervalSet.empty, 0UL)
+  |> addLastInvalidRange wordSize
 
 let execRanges segs =
   segs

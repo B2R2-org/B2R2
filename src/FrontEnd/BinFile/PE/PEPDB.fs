@@ -125,13 +125,13 @@ let rec parseSymbolRecord (bs: byte[]) reader offset modules streamMap =
     { Flags = flg
       Address = reader.ReadUInt32 (sp, offset + 8) |> uint64
       Segment = reader.ReadUInt16 (sp, offset + 12)
-      Name = peekCString sp (offset + 14) } |> Some
+      Name = readCString sp (offset + 14) } |> Some
   | SymType.SLPROC32
   | SymType.SGPROC32 -> (* PROCSYM32 *)
     { Flags = SymFlags.Function
       Address = reader.ReadUInt32 (sp, offset + 32) |> uint64
       Segment = reader.ReadUInt16 (sp, offset + 36)
-      Name = peekCString sp (offset + 39) } |> Some
+      Name = readCString sp (offset + 39) } |> Some
   | SymType.SPROCREF
   | SymType.SLPROCREF -> (* REFSYM2 *)
     let modnum = reader.ReadUInt16 (sp, offset + 12) |> int

@@ -30,14 +30,9 @@ open System
 open B2R2
 
 let private identifyELF span =
-  if ELF.Header.isELF span then
-    let cls = ELF.Header.peekClass span
-    let endian = ELF.Header.peekEndianness span
-    let reader = BinReader.Init endian
-    let arch = ELF.Header.peekArch span reader cls
-    let isa = ISA.Init arch endian
-    Some (FileFormat.ELFBinary, isa)
-  else None
+  match ELF.Header.getISA span with
+  | Ok isa -> Some (FileFormat.ELFBinary, isa)
+  | _ -> None
 
 let private identifyPE bytes =
   match PE.Helper.getPEArch bytes 0 with

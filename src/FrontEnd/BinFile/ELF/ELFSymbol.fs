@@ -22,7 +22,7 @@
   SOFTWARE.
 *)
 
-module internal B2R2.FrontEnd.BinFile.ELF.Symbol
+namespace B2R2.FrontEnd.BinFile.ELF
 
 open System
 open System.IO
@@ -32,285 +32,370 @@ open B2R2.Monads.Maybe
 open B2R2.FrontEnd.BinFile
 open B2R2.FrontEnd.BinFile.FileHelper
 
-let getSymbKind ndx = function
-  | SymbolType.STTObject -> SymObjectType
-  | SymbolType.STTGNUIFunc
-  | SymbolType.STTFunc ->
-    if ndx = SHNUndef then SymNoType
-    else SymFunctionType
-  | SymbolType.STTSection -> SymSectionType
-  | SymbolType.STTFile ->SymFileType
-  | _ -> SymNoType
+/// A symbol's binding determines the linkage visibility and behavior.
+type SymbolBind =
+  /// Local symbols are not visible outside. Local symbols of the same name may
+  /// exist in multiple files without interfering with each other.
+  | STB_LOCAL = 0uy
+  /// Global symbols are visible to all object files being combined.
+  | STB_GLOBAL = 1uy
+  /// Weak symbols resemble global symbols, but their definitions have lower
+  /// precedence.
+  | STB_WEAK = 2uy
+  /// The lower bound of OS-specific binding type.
+  | STB_LOOS = 10uy
+  /// The upper bound of OS-specific binding type.
+  | STB_HIOS = 12uy
+  /// The lower bound of processor-specific binding type.
+  | STB_LOPROC = 13uy
+  /// The upper bound of processor-specific binding type.
+  | STB_HIPROC = 15uy
 
-let versionToLibName version =
-  match version with
-  | Some version -> version.VerName
-  | None -> ""
+/// A symbol's type provides a general classification for the associated entity.
+type SymbolType =
+  /// Symbol's type is not specified.
+  | STT_NOTYPE = 0uy
+  /// This symbol is associated with a data object, such as variable and an
+  /// array.
+  | STT_OBJECT = 1uy
+  /// This symbol is associated with a function.
+  | STT_FUNC = 2uy
+  /// This symbol is associated with a section. Symbol table entries of this
+  /// type exist primarily for relocation and normally have STBLocal binding.
+  | STT_SECTION = 3uy
+  /// This symbol represents the name of the source file associated with the
+  /// object file.
+  | STT_FILE = 4uy
+  /// This symbol labels an uninitialized common block.
+  | STT_COMMON = 5uy
+  /// The symbol specifies a Thread-Local Storage entity.
+  | STT_TLS = 6uy
+  /// The lower bound of OS-specific symbol type.
+  | STT_LOOS = 10uy
+  /// A symbol with type STT_GNU_IFUNC is a function, but the symbol does not
+  /// provide the address of the function as usual. Instead, the symbol provides
+  /// the address of a function which returns a pointer to the actual function.
+  | STT_GNU_IFUNC = 10uy
+  /// The upper bound of OS-specific binding type.
+  | STT_HIOS = 12uy
+  /// The lower bound of processor-specific symbol type.
+  | STT_LOPROC = 13uy
+  /// The upper bound of processor-specific symbol type.
+  | STT_HIPROC = 15uy
 
-let toB2R2Symbol vis (symb: ELFSymbol) =
-  { Address = symb.Addr
-    Name = symb.SymName
-    Kind = getSymbKind symb.SecHeaderIndex symb.SymType
-    Visibility = vis
-    LibraryName = versionToLibName symb.VerInfo
-    ArchOperationMode = symb.ArchOperationMode }
+/// This member currently specifies a symbol's visibility
+type SymbolVisibility =
+  /// Use the visibility specified by the symbol's binding type (SymbolBind).
+  | STV_DEFAULT = 0x0uy
+  /// This visibility attribute is currently reserved.
+  | STV_INTERNAL = 0x01uy
+  /// A symbol defined in the current component is hidden if its name is not
+  /// visible to other components. Such a symbol is necessarily protected. This
+  /// attribute is used to control the external interface of a component. An
+  /// object named by such a symbol may still be referenced from another
+  /// component if its address is passed outside.
+  | STV_HIDDEN = 0x02uy
+  /// A symbol defined in the current component is protected if it is visible in
+  /// other components but cannot be preempted. Any reference to such a symbol
+  /// from within the defining component must be resolved to the definition in
+  /// that component, even if there is a definition in another component that
+  /// would interpose by the default rules.
+  | STV_PROTECTED = 0x03uy
 
-let verName (strTab: ByteSpan) vnaNameOffset =
-  if vnaNameOffset >= strTab.Length then ""
-  else ByteArray.extractCStringFromSpan strTab vnaNameOffset
+/// Symbol version information.
+type SymVerInfo = {
+  /// Is this a hidden symbol? This is a GNU-specific extension indicated as
+  /// VERSYM_HIDDEN.
+  IsHidden: bool
+  /// Version string.
+  VerName: string
+}
 
-let rec parseNeededVerFromSecAux span (reader: IBinReader) verTbl strTbl pos =
-  let idx = reader.ReadUInt16 (span=span, offset=pos + 6) (* vna_other *)
-  let nameOffset = reader.ReadInt32 (span, pos + 8)
-  (verTbl: Dictionary<_, _>)[idx] <- verName strTbl nameOffset
-  let next = reader.ReadInt32 (span, pos + 12)
-  if next = 0 then ()
-  else parseNeededVerFromSecAux span reader verTbl strTbl (pos + next)
+type ELFSymbol = {
+  /// Address of the symbol.
+  Addr: Addr
+  /// Symbol's name.
+  SymName: string
+  /// Size of the symbol (e.g., size of the data object).
+  Size: uint64
+  /// Symbol binding.
+  Bind: SymbolBind
+  /// Symbol type.
+  SymType: SymbolType
+  /// Symbol visibility.
+  Vis: SymbolVisibility
+  /// The index of the relevant section with regard to this symbol.
+  SecHeaderIndex: SectionHeaderIdx
+  /// Parent section of this section.
+  ParentSection: ELFSection option
+  /// Version information.
+  VerInfo: SymVerInfo option
+  /// ArchOperationMode.
+  ArchOperationMode: ArchOperationMode
+}
 
-let rec parseNeededVerFromSec span reader verTbl strTbl offset =
-  let auxOffset = (* vn_aux + current file offset *)
-    (reader: IBinReader).ReadInt32 (span=span, offset=offset + 8) + offset
-  parseNeededVerFromSecAux span reader verTbl strTbl auxOffset
-  let next = reader.ReadInt32 (span, offset + 12) (* vn_next *)
-  if next = 0 then ()
-  else parseNeededVerFromSec span reader verTbl strTbl (offset + next)
+/// Main data structure for storing symbol information.
+type ELFSymbolInfo = {
+  /// Linux-specific symbol version table containing versions required to link.
+  VersionTable: Dictionary<uint16, string>
+  /// A mapping from a section number to the corresponding symbol table.
+  SecNumToSymbTbls: Dictionary<int, ELFSymbol[]>
+  /// Address to symbol mapping.
+  AddrToSymbTable: Dictionary<Addr, ELFSymbol>
+}
 
-let parseNeededVersionTable (stream: Stream) reader verTbl strTbl = function
-  | None -> ()
-  | Some { SecOffset = offset; SecSize = size } ->
-    let buf = Array.zeroCreate (int size)
-    stream.Seek (int64 offset, SeekOrigin.Begin) |> ignore
-    readOrDie stream buf
-    let span = ReadOnlySpan buf
-    parseNeededVerFromSec span reader verTbl strTbl 0
+module internal Symbol =
+  let getSymbKind ndx = function
+    | SymbolType.STT_OBJECT -> SymObjectType
+    | SymbolType.STT_GNU_IFUNC
+    | SymbolType.STT_FUNC ->
+      if ndx = SHN_UNDEF then SymNoType
+      else SymFunctionType
+    | SymbolType.STT_SECTION -> SymSectionType
+    | SymbolType.STT_FILE ->SymFileType
+    | _ -> SymNoType
 
-let rec parseDefinedVerFromSec span (reader: IBinReader) verTbl strTbl offset =
-  let auxOffset = (* vd_aux + current file offset *)
-    reader.ReadInt32 (span=span, offset=offset + 12) + offset
-  let idx = reader.ReadUInt16 (span, offset + 4) (* vd_ndx *)
-  let nameOffset = reader.ReadInt32 (span, auxOffset) (* vda_name *)
-  (verTbl: Dictionary<_, _>)[idx] <- verName strTbl nameOffset
-  let next = reader.ReadInt32 (span, offset + 16) (* vd_next *)
-  if next = 0 then ()
-  else parseDefinedVerFromSec span reader verTbl strTbl (offset + next)
+  let versionToLibName version =
+    match version with
+    | Some version -> version.VerName
+    | None -> ""
 
-let parseDefinedVersionTable (stream: Stream) reader verTbl strTbl = function
-  | None -> ()
-  | Some { SecOffset = offset; SecSize = size } ->
-    let buf = Array.zeroCreate (int size)
-    stream.Seek (int64 offset, SeekOrigin.Begin) |> ignore
-    readOrDie stream buf
-    let span = ReadOnlySpan buf
-    parseDefinedVerFromSec span reader verTbl strTbl 0
+  let toB2R2Symbol vis (symb: ELFSymbol) =
+    { Address = symb.Addr
+      Name = symb.SymName
+      Kind = getSymbKind symb.SecHeaderIndex symb.SymType
+      Visibility = vis
+      LibraryName = versionToLibName symb.VerInfo
+      ArchOperationMode = symb.ArchOperationMode }
 
-let findVerNeedSection shdrs =
-  shdrs
-  |> Array.tryFind (fun s -> s.SecType = SectionType.SHTGNUVerNeed)
+  let verName (strTab: ByteSpan) vnaNameOffset =
+    if vnaNameOffset >= strTab.Length then ""
+    else ByteArray.extractCStringFromSpan strTab vnaNameOffset
 
-let findVerDefSection shdrs =
-  shdrs
-  |> Array.tryFind (fun s -> s.SecType = SectionType.SHTGNUVerDef)
+  let rec parseNeededVerFromSecAux span (reader: IBinReader) verTbl strTbl pos =
+    let idx = reader.ReadUInt16 (span=span, offset=pos + 6) (* vna_other *)
+    let nameOffset = reader.ReadInt32 (span, pos + 8)
+    (verTbl: Dictionary<_, _>)[idx] <- verName strTbl nameOffset
+    let next = reader.ReadInt32 (span, pos + 12)
+    if next = 0 then ()
+    else parseNeededVerFromSecAux span reader verTbl strTbl (pos + next)
 
-let getStaticSymbolSectionNumbers shdrs =
-  shdrs
-  |> Array.choose (fun s ->
-    if s.SecType = SectionType.SHTSymTab then Some s.SecNum else None)
+  let rec parseNeededVerFromSec span reader verTbl strTbl offset =
+    let auxOffset = (* vn_aux + current file offset *)
+      (reader: IBinReader).ReadInt32 (span=span, offset=offset + 8) + offset
+    parseNeededVerFromSecAux span reader verTbl strTbl auxOffset
+    let next = reader.ReadInt32 (span, offset + 12) (* vn_next *)
+    if next = 0 then ()
+    else parseNeededVerFromSec span reader verTbl strTbl (offset + next)
 
-let getDynamicSymbolSectionNumbers shdrs =
-  shdrs
-  |> Array.choose (fun s ->
-    if s.SecType = SectionType.SHTDynSym then Some s.SecNum else None)
+  let parseNeededVersionTable (stream: Stream) reader verTbl strTbl = function
+    | None -> ()
+    | Some { SecOffset = offset; SecSize = size } ->
+      let buf = readChunk stream offset (int size)
+      let span = ReadOnlySpan buf
+      parseNeededVerFromSec span reader verTbl strTbl 0
 
-let parseVersionTable (stream: Stream) reader shdrs =
-  let verTbl = Dictionary ()
-  let verNeedSec = findVerNeedSection shdrs
-  let verDefSec = findVerDefSection shdrs
-  for n in getDynamicSymbolSectionNumbers shdrs do
-    let symSection = shdrs[n]
-    let strSection = shdrs[Convert.ToInt32 symSection.SecLink]
-    let size = Convert.ToInt32 strSection.SecSize
-    let offset = Convert.ToInt32 strSection.SecOffset
-    let strBuf = Array.zeroCreate size
-    stream.Seek (int64 offset, SeekOrigin.Begin) |> ignore
-    readOrDie stream strBuf
-    let strTbl = ReadOnlySpan strBuf
-    parseNeededVersionTable stream reader verTbl strTbl verNeedSec
-    parseDefinedVersionTable stream reader verTbl strTbl verDefSec
-  verTbl
+  let rec parseDefinedVerFromSec span (reader: IBinReader) verTbl strTbl offset =
+    let auxOffset = (* vd_aux + current file offset *)
+      reader.ReadInt32 (span=span, offset=offset + 12) + offset
+    let idx = reader.ReadUInt16 (span, offset + 4) (* vd_ndx *)
+    let nameOffset = reader.ReadInt32 (span, auxOffset) (* vda_name *)
+    (verTbl: Dictionary<_, _>)[idx] <- verName strTbl nameOffset
+    let next = reader.ReadInt32 (span, offset + 16) (* vd_next *)
+    if next = 0 then ()
+    else parseDefinedVerFromSec span reader verTbl strTbl (offset + next)
 
-let retrieveVer (verTbl: Dictionary<_, _>) verData =
-  let t = if verData &&& 0x8000us = 0us then VerRegular else VerHidden
-  match verTbl.TryGetValue (verData &&& 0x7fffus) with
-  | true, verStr -> Some { VerType = t; VerName = verStr }
-  | false, _ -> None
+  let parseDefinedVersionTable (stream: Stream) reader verTbl strTbl = function
+    | None -> ()
+    | Some { SecOffset = offset; SecSize = size } ->
+      let buf = readChunk stream offset (int size)
+      let span = ReadOnlySpan buf
+      parseDefinedVerFromSec span reader verTbl strTbl 0
 
-let adjustSymAddr baseAddr addr =
-  if addr = 0UL then 0UL
-  else addr + baseAddr
+  let findVerNeedSection shdrs =
+    shdrs
+    |> Array.tryFind (fun s -> s.SecType = SectionType.SHT_GNU_verneed)
 
-let readSymAddr baseAddr span reader cls parent txtOffset =
-  let symAddrOffset = if cls = WordSize.Bit32 then 4 else 8
-  let symAddr = peekUIntOfType span reader cls symAddrOffset
-  match (parent: ELFSection option) with
-  | None -> symAddr
-  | Some sec ->
-    (* This is to give a meaningful address to static symbols in a relocatable
-       object. We let .text section's address to be zero, and assume that the
-       .text section always precedes the other sections. See
-       https://github.com/B2R2-org/B2R2/issues/25 for more details. *)
-    if sec.SecAddr = baseAddr && sec.SecOffset > txtOffset then
-      sec.SecOffset - txtOffset + symAddr
-    else symAddr
-  |> adjustSymAddr baseAddr
+  let findVerDefSection shdrs =
+    shdrs
+    |> Array.tryFind (fun s -> s.SecType = SectionType.SHT_GNU_verdef)
 
-let readSymSize span reader cls =
-  let symSizeOffset = if cls = WordSize.Bit32 then 8 else 16
-  peekUIntOfType span reader cls symSizeOffset
+  let getStaticSymbolSectionNumbers shdrs =
+    shdrs
+    |> Array.choose (fun s ->
+      if s.SecType = SectionType.SHT_SYMTAB then Some s.SecNum else None)
 
-let computeArchOpMode hdr symbolName =
-  if hdr.MachineType = Architecture.ARMv7
-    || hdr.MachineType = Architecture.AARCH32
-  then
-    if symbolName = "$a" then ArchOperationMode.ARMMode
-    elif symbolName = "$t" then ArchOperationMode.ThumbMode
-    else ArchOperationMode.NoMode
-  else ArchOperationMode.NoMode
+  let getDynamicSymbolSectionNumbers shdrs =
+    shdrs
+    |> Array.choose (fun s ->
+      if s.SecType = SectionType.SHT_DYNSYM then Some s.SecNum else None)
 
-let parseVersData (reader: IBinReader) symIdx verInfoTbl =
-  let pos = symIdx * 2
-  let versData = reader.ReadUInt16 (bs=verInfoTbl, offset=pos)
-  if versData > 1us then Some versData
-  else None
+  let parseVersionTable { Stream = stream; Reader = reader } shdrs =
+    let verTbl = Dictionary ()
+    let verNeedSec = findVerNeedSection shdrs
+    let verDefSec = findVerDefSection shdrs
+    for n in getDynamicSymbolSectionNumbers shdrs do
+      let symSection = shdrs[n]
+      let strSection = shdrs[Convert.ToInt32 symSection.SecLink]
+      let size = Convert.ToInt32 strSection.SecSize
+      let strTbl = ReadOnlySpan (readChunk stream strSection.SecOffset size)
+      parseNeededVersionTable stream reader verTbl strTbl verNeedSec
+      parseDefinedVersionTable stream reader verTbl strTbl verDefSec
+    verTbl
 
-let getVerInfo reader verTbl verInfoTblOpt symIdx =
-  match verInfoTblOpt with
-  | Some verInfoTbl ->
-    parseVersData reader symIdx verInfoTbl >>= retrieveVer verTbl
-  | None -> None
+  let retrieveVer (verTbl: Dictionary<_, _>) verData =
+    let isHidden = verData &&& 0x8000us <> 0us
+    match verTbl.TryGetValue (verData &&& 0x7fffus) with
+    | true, verStr -> Some { IsHidden = isHidden; VerName = verStr }
+    | false, _ -> None
 
-let getSymbol
-  reader hdr baseAddr shdrs strTbl verTbl symTbl verInfoTbl txt symIdx =
-  let cls = hdr.Class
-  let nameIdx = (reader: IBinReader).ReadUInt32 (span=symTbl, offset=0)
-  let sname = ByteArray.extractCStringFromSpan strTbl (Convert.ToInt32 nameIdx)
-  let info = peekHeaderB symTbl cls 12 4
-  let other = peekHeaderB symTbl cls 13 5
-  let ndx =  peekHeaderU16 symTbl reader cls 14 6 |> int
-  let parent = Array.tryItem ndx shdrs
-  let secIdx = SectionHeaderIdx.IndexFromInt ndx
-  let verInfo = getVerInfo reader verTbl verInfoTbl symIdx
-  { Addr = readSymAddr baseAddr symTbl reader cls parent txt
-    SymName = sname
-    Size = readSymSize symTbl reader cls
-    Bind = info >>> 4 |> LanguagePrimitives.EnumOfValue
-    SymType = info &&& 0xfuy |> LanguagePrimitives.EnumOfValue
-    Vis = other &&& 0x3uy |> LanguagePrimitives.EnumOfValue
-    SecHeaderIndex = secIdx
-    ParentSection = parent
-    VerInfo = verInfo
-    ArchOperationMode = computeArchOpMode hdr sname }
+  let adjustSymAddr baseAddr addr =
+    if addr = 0UL then 0UL
+    else addr + baseAddr
 
-let nextSymOffset cls offset =
-  offset + if cls = WordSize.Bit32 then 16 else 24
-
-let getTextSectionOffset shdrs =
-  match shdrs |> Array.tryFind (fun s -> s.SecName = Section.SecText) with
-  | None -> 0UL
-  | Some sec -> sec.SecOffset
-
-let private readSection (stream: Stream) offset size =
-  let buf = Array.zeroCreate size
-  (stream: Stream).Seek (int64 offset, SeekOrigin.Begin) |> ignore
-  readOrDie stream buf
-  buf
-
-let parseSymbols stream reader hdr baseAddr shdrs verTbl verInfoTbl symTblSec =
-  let cls = hdr.Class
-  let txt = getTextSectionOffset shdrs
-  let ssec = shdrs[Convert.ToInt32 symTblSec.SecLink] (* Get the string sec. *)
-  let offset = Convert.ToInt32 ssec.SecOffset
-  let size = Convert.ToInt32 ssec.SecSize
-  let stringBuf = readSection stream offset size
-  let offset = Convert.ToInt32 symTblSec.SecOffset
-  let size = Convert.ToInt32 symTblSec.SecSize
-  let verInfoTbl = (* symbol versioning is only valid for dynamic symbols. *)
-    if symTblSec.SecType = SectionType.SHTDynSym then verInfoTbl else None
-  let symTblBuf = readSection stream offset size
-  let numEntries =
-    int symTblSec.SecSize / (if cls = WordSize.Bit32 then 16 else 24)
-  let symbols = Array.zeroCreate numEntries
-  let rec parseLoop cnt ofs =
-    if cnt = numEntries then symbols
-    else
-      let strTbl = ReadOnlySpan stringBuf
-      let symTbl = (ReadOnlySpan symTblBuf).Slice ofs
-      let sym =
-        getSymbol
-          reader hdr baseAddr shdrs strTbl verTbl symTbl verInfoTbl txt cnt
-      symbols[cnt] <- sym
-      parseLoop (cnt + 1) (nextSymOffset cls ofs)
-  parseLoop 0 0
-
-let getVerInfoTable (stream: Stream) shdrs =
-  shdrs
-  |> Array.tryFind (fun s -> s.SecType = SectionType.SHTGNUVerSym)
-  |> function
+  let readSymAddr baseAddr span reader cls parent txtOffset =
+    let symAddr = readUIntOfType span reader cls (pickNum cls 4 8)
+    match (parent: ELFSection option) with
+    | None -> symAddr
     | Some sec ->
-      let buf = Array.zeroCreate (int sec.SecSize)
-      stream.Seek (int64 sec.SecOffset, SeekOrigin.Begin) |> ignore
-      readOrDie stream buf
-      Some buf
+      (* This is to give a meaningful address to static symbols in a relocatable
+         object. We let .text section's address to be zero, and assume that the
+         .text section always precedes the other sections. See
+         https://github.com/B2R2-org/B2R2/issues/25 for more details. *)
+      if sec.SecAddr = baseAddr && sec.SecOffset > txtOffset then
+        sec.SecOffset - txtOffset + symAddr
+      else symAddr
+    |> adjustSymAddr baseAddr
+
+  let computeArchOpMode hdr symbolName =
+    if hdr.MachineType = Architecture.ARMv7
+      || hdr.MachineType = Architecture.AARCH32
+    then
+      if symbolName = "$a" then ArchOperationMode.ARMMode
+      elif symbolName = "$t" then ArchOperationMode.ThumbMode
+      else ArchOperationMode.NoMode
+    else ArchOperationMode.NoMode
+
+  let parseVersData (reader: IBinReader) symIdx verInfoTbl =
+    let pos = symIdx * 2
+    let versData = reader.ReadUInt16 (bs=verInfoTbl, offset=pos)
+    if versData > 1us then Some versData
+    else None
+
+  let getVerInfo reader verTbl verInfoTblOpt symIdx =
+    match verInfoTblOpt with
+    | Some verInfoTbl ->
+      parseVersData reader symIdx verInfoTbl >>= retrieveVer verTbl
     | None -> None
 
-let parseSymTabs stream reader hdr baseAddr symTbl shdrs verTbl symSecs =
-  let verInfoTbl = getVerInfoTable stream shdrs
-  for (n, symTblSec) in symSecs do
-    let symbols =
-      parseSymbols stream reader hdr baseAddr shdrs verTbl verInfoTbl symTblSec
-    (symTbl: Dictionary<int, ELFSymbol[]>)[n] <- symbols
+  let getSymbol toolBox shdrs strTbl verTbl symTbl verInfoTbl txtOffset symIdx =
+    let cls = toolBox.Header.Class
+    let reader = toolBox.Reader
+    let nameIdx = reader.ReadUInt32 (span=symTbl, offset=0)
+    let sname = ByteArray.extractCStringFromSpan strTbl (int nameIdx)
+    let info = symTbl[pickNum cls 12 4]
+    let other = symTbl[pickNum cls 13 5]
+    let ndx =  reader.ReadUInt16 (symTbl, pickNum cls 14 6) |> int
+    let parent = Array.tryItem ndx shdrs
+    let secIdx = SectionHeaderIdx.IndexFromInt ndx
+    let verInfo = getVerInfo reader verTbl verInfoTbl symIdx
+    { Addr = readSymAddr toolBox.BaseAddress symTbl reader cls parent txtOffset
+      SymName = sname
+      Size = readUIntOfType symTbl reader cls (pickNum cls 8 16)
+      Bind = info >>> 4 |> LanguagePrimitives.EnumOfValue
+      SymType = info &&& 0xfuy |> LanguagePrimitives.EnumOfValue
+      Vis = other &&& 0x3uy |> LanguagePrimitives.EnumOfValue
+      SecHeaderIndex = secIdx
+      ParentSection = parent
+      VerInfo = verInfo
+      ArchOperationMode = computeArchOpMode toolBox.Header sname }
 
-let getSymbolSections shdrs =
-  shdrs
-  |> Array.choose (fun s ->
-    if s.SecType = SectionType.SHTSymTab || s.SecType = SectionType.SHTDynSym
-    then Some s.SecNum
-    else None)
-  |> Array.map (fun n -> n, shdrs[n])
+  let nextSymOffset cls offset =
+    offset + pickNum cls 16 24
 
-let getMergedSymbolTbl (symTbls: Dictionary<_, _>) numbers =
-  numbers
-  |> Array.fold (fun acc n -> Array.append (symTbls[n]) acc) [||]
+  let getTextSectionOffset shdrs =
+    match shdrs |> Array.tryFind (fun s -> s.SecName = Section.SecText) with
+    | None -> 0UL
+    | Some sec -> sec.SecOffset
 
-let getStaticSymArray shdrs symTbl =
-  getStaticSymbolSectionNumbers shdrs
-  |> getMergedSymbolTbl symTbl
+  let parseSymbols toolBox shdrs verTbl verInfoTbl symTblSec =
+    let cls = toolBox.Header.Class
+    let txt = getTextSectionOffset shdrs
+    let ssec = shdrs[Convert.ToInt32 symTblSec.SecLink] (* Get the string sec. *)
+    let offset = ssec.SecOffset
+    let size = Convert.ToInt32 ssec.SecSize
+    let stringBuf = readChunk toolBox.Stream offset size
+    let offset = symTblSec.SecOffset
+    let size = Convert.ToInt32 symTblSec.SecSize
+    let verInfoTbl = (* symbol versioning is only valid for dynamic symbols. *)
+      if symTblSec.SecType = SectionType.SHT_DYNSYM then verInfoTbl else None
+    let symTblBuf = readChunk toolBox.Stream offset size
+    let numEntries = int symTblSec.SecSize / (pickNum cls 16 24)
+    let symbols = Array.zeroCreate numEntries
+    let rec parseLoop i offset =
+      if i = numEntries then symbols
+      else
+        let strTbl = ReadOnlySpan stringBuf
+        let symTbl = (ReadOnlySpan symTblBuf).Slice offset
+        let sym = getSymbol toolBox shdrs strTbl verTbl symTbl verInfoTbl txt i
+        symbols[i] <- sym
+        parseLoop (i + 1) (nextSymOffset cls offset)
+    parseLoop 0 0
 
-let getDynamicSymArray shdrs symTbl =
-  getDynamicSymbolSectionNumbers shdrs
-  |> getMergedSymbolTbl symTbl
+  let getVerInfoTable (stream: Stream) shdrs =
+    shdrs
+    |> Array.tryFind (fun s -> s.SecType = SectionType.SHT_GNU_versym)
+    |> function
+      | Some sec ->
+        let buf = Array.zeroCreate (int sec.SecSize)
+        stream.Seek (int64 sec.SecOffset, SeekOrigin.Begin) |> ignore
+        readOrDie stream buf
+        Some buf
+      | None -> None
 
-let buildSymbolMap staticSymArr dynamicSymArr =
-  let map = Dictionary<Addr, ELFSymbol> ()
-  let iterator sym =
-    if sym.Addr > 0UL then map[sym.Addr] <- sym
-    else ()
-  staticSymArr |> Array.iter iterator
-  dynamicSymArr |> Array.iter iterator
-  map
+  let parseSymTabs toolBox symTbl shdrs verTbl symSecs =
+    let verInfoTbl = getVerInfoTable toolBox.Stream shdrs
+    for (n, symTblSec) in symSecs do
+      let symbols = parseSymbols toolBox shdrs verTbl verInfoTbl symTblSec
+      (symTbl: Dictionary<int, ELFSymbol[]>)[n] <- symbols
 
-let parse stream reader hdr baseAddr (shdrs: Lazy<_>) =
-  let shdrs = shdrs.Value
-  let verTbl = parseVersionTable stream reader shdrs
-  let symSecs = getSymbolSections shdrs
-  let symTbl = Dictionary ()
-  parseSymTabs stream reader hdr baseAddr symTbl shdrs verTbl symSecs
-  let staticSymArr = getStaticSymArray shdrs symTbl
-  let dynamicSymArr = getDynamicSymArray shdrs symTbl
-  { VersionTable = verTbl
-    SecNumToSymbTbls = symTbl
-    AddrToSymbTable = buildSymbolMap staticSymArr dynamicSymArr }
+  let getSymbolSections shdrs =
+    shdrs
+    |> Array.choose (fun s ->
+      if s.SecType = SectionType.SHT_SYMTAB
+        || s.SecType = SectionType.SHT_DYNSYM
+      then Some s.SecNum
+      else None)
+    |> Array.map (fun n -> n, shdrs[n])
 
-let updateGlobals symInfo (globals: Map<Addr, ELFSymbol>) =
-  let tbl = symInfo.AddrToSymbTable
-  globals |> Map.iter (fun a s -> tbl[a] <- s)
-  globals
+  let getMergedSymbolTbl (symTbls: Dictionary<_, _>) numbers =
+    numbers
+    |> Array.fold (fun acc n -> Array.append (symTbls[n]) acc) [||]
+
+  let getStaticSymArray shdrs symTbl =
+    getStaticSymbolSectionNumbers shdrs
+    |> getMergedSymbolTbl symTbl
+
+  let getDynamicSymArray shdrs symTbl =
+    getDynamicSymbolSectionNumbers shdrs
+    |> getMergedSymbolTbl symTbl
+
+  let buildSymbolMap staticSymArr dynamicSymArr =
+    let map = Dictionary<Addr, ELFSymbol> ()
+    let iterator sym =
+      if sym.Addr > 0UL then map[sym.Addr] <- sym
+      else ()
+    staticSymArr |> Array.iter iterator
+    dynamicSymArr |> Array.iter iterator
+    map
+
+  let parse toolBox shdrs =
+    let verTbl = parseVersionTable toolBox shdrs
+    let symSecs = getSymbolSections shdrs
+    let symTbl = Dictionary ()
+    parseSymTabs toolBox symTbl shdrs verTbl symSecs
+    let staticSymArr = getStaticSymArray shdrs symTbl
+    let dynamicSymArr = getDynamicSymArray shdrs symTbl
+    { VersionTable = verTbl
+      SecNumToSymbTbls = symTbl
+      AddrToSymbTable = buildSymbolMap staticSymArr dynamicSymArr }

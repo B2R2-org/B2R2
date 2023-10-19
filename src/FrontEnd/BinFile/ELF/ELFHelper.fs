@@ -25,29 +25,28 @@
 module internal B2R2.FrontEnd.BinFile.ELF.Helper
 
 open System
-open System.IO
 open System.Collections.Generic
 open B2R2
 open B2R2.FrontEnd.BinFile
+open B2R2.FrontEnd.BinFile.FileHelper
 
 let toFileType = function
-  | ELFFileType.Executable -> FileType.ExecutableFile
-  | ELFFileType.SharedObject -> FileType.LibFile
-  | ELFFileType.Core -> FileType.CoreFile
-  | ELFFileType.Relocatable -> FileType.ObjFile
+  | ELFFileType.ET_EXEC -> FileType.ExecutableFile
+  | ELFFileType.ET_DYN -> FileType.LibFile
+  | ELFFileType.ET_CORE -> FileType.CoreFile
+  | ELFFileType.ET_REL -> FileType.ObjFile
   | _ -> FileType.UnknownFile
 
 let isNXEnabled progHeaders =
-  let predicate e = e.PHType = ProgramHeaderType.PTGNUStack
+  let predicate e = e.PHType = ProgramHeaderType.PT_GNU_STACK
   match Array.tryFind predicate progHeaders with
   | Some s -> s.PHFlags.HasFlag Permission.Executable |> not
   | _ -> false
 
-let isRelocatable hdr stream reader secHeaders =
+let isRelocatable toolBox secHeaders =
   let pred (e: DynamicSectionEntry) = e.DTag = DynamicTag.DT_DEBUG
-  hdr.ELFFileType = ELFFileType.SharedObject
-  && Section.getDynamicSectionEntries hdr stream reader secHeaders
-     |> Array.exists pred
+  toolBox.Header.ELFFileType = ELFFileType.ET_DYN
+  && DynamicSection.readEntries toolBox secHeaders |> Array.exists pred
 
 let inline private computeSubstitute offsetToAddr delta (ptr: Addr) =
   if offsetToAddr then ptr + delta
@@ -63,8 +62,8 @@ let translateWithSecs offsetToAddr ptr sections =
     let secBase =
       if offsetToAddr then s.SecOffset
       else s.SecOffset - txtOffset + s.SecAddr
-    s.SecType = SectionType.SHTProgBits
-    && s.SecFlags.HasFlag SectionFlag.SHFExecInstr
+    s.SecType = SectionType.SHT_PROGBITS
+    && s.SecFlags.HasFlag SectionFlag.SHF_EXECINSTR
     && secBase <= ptr && (secBase + s.SecSize) > ptr)
   |> function
     | None -> raise InvalidAddrReadException
@@ -93,7 +92,7 @@ let translateOffsetToAddr loadableSegs sections offset =
   translate loadableSegs sections true offset
 
 let isFuncSymb s =
-  s.SymType = SymbolType.STTFunc || s.SymType = SymbolType.STTGNUIFunc
+  s.SymType = SymbolType.STT_FUNC || s.SymType = SymbolType.STT_GNU_IFUNC
 
 let inline tryFindFuncSymb symbolInfo addr =
   match symbolInfo.AddrToSymbTable.TryGetValue addr with
@@ -111,7 +110,7 @@ let getDynamicSymbols excludeImported shdrs symbols =
   let excludeImported = defaultArg excludeImported false
   let alwaysTrue = fun _ -> true
   let filter =
-    if excludeImported then (fun s -> s.SecHeaderIndex <> SHNUndef)
+    if excludeImported then (fun s -> s.SecHeaderIndex <> SHN_UNDEF)
     else alwaysTrue
   Symbol.getDynamicSymArray shdrs symbols.SecNumToSymbTbls
   |> Array.filter filter
@@ -134,10 +133,10 @@ let getRelocSymbols relocInfo =
   |> Seq.choose translate
 
 let secFlagToSectionKind sec =
-  if sec.SecFlags &&& SectionFlag.SHFExecInstr = SectionFlag.SHFExecInstr then
+  if sec.SecFlags &&& SectionFlag.SHF_EXECINSTR = SectionFlag.SHF_EXECINSTR then
     if PLT.isPLTSectionName sec.SecName then SectionKind.LinkageTableSection
     else SectionKind.ExecutableSection
-  elif sec.SecFlags &&& SectionFlag.SHFWrite = SectionFlag.SHFWrite then
+  elif sec.SecFlags &&& SectionFlag.SHF_WRITE = SectionFlag.SHF_WRITE then
     SectionKind.WritableSection
   else
     SectionKind.ExtraSection
@@ -172,7 +171,7 @@ let getSectionsByName shdrs name =
 let getTextSection shdrs =
   shdrs
   |> Array.filter (fun sec ->
-    (SectionFlag.SHFExecInstr &&& sec.SecFlags = SectionFlag.SHFExecInstr)
+    (SectionFlag.SHF_EXECINSTR &&& sec.SecFlags = SectionFlag.SHF_EXECINSTR)
     && sec.SecName.StartsWith Section.SecText)
   |> Array.tryExactlyOne
   |> function
@@ -181,7 +180,7 @@ let getTextSection shdrs =
 
 let getSegments segments =
   segments
-  |> Array.map ProgHeader.toSegment
+  |> Array.map ProgramHeader.toSegment
   |> Array.toSeq
 
 let getRelocatedAddr relocInfo relocAddr =
@@ -204,14 +203,14 @@ let getRelocatedAddr relocInfo relocAddr =
     | _ -> Error ErrorCase.ItemNotFound
   | _ -> Error ErrorCase.ItemNotFound
 
-let getFuncAddrsFromLibcArr span reader hdr loadables shdrs relocInfo section =
-  let readType = hdr.Class
+let getFuncAddrsFromLibcArr span toolBox loadables shdrs relocInfo section =
+  let readType = toolBox.Header.Class
   let entrySize = WordSize.toByteWidth readType
   let secSize = int section.SecSize
   let lst = List<Addr> ()
   let addr = translateOffsetToAddr loadables shdrs section.SecOffset
   for ofs in [| 0 .. entrySize .. secSize - entrySize |] do
-    FileHelper.peekUIntOfType span reader readType ofs
+    readUIntOfType span toolBox.Reader readType ofs
     |> (fun fnAddr ->
       if fnAddr = 0UL then
         match getRelocatedAddr relocInfo (addr + uint64 ofs) with
@@ -220,24 +219,20 @@ let getFuncAddrsFromLibcArr span reader hdr loadables shdrs relocInfo section =
       else lst.Add fnAddr)
   lst |> seq
 
-let private readSection (stream: Stream) sec =
-  let buf = Array.zeroCreate (int sec.SecSize)
-  stream.Seek (int64 sec.SecOffset, SeekOrigin.Begin) |> ignore
-  FileHelper.readOrDie stream buf
-  buf
-
-let getAddrsFromInitArray stream reader hdr shdrs loadables relocInfo =
+let getAddrsFromInitArray toolBox shdrs loadables relocInfo =
   match Array.tryFind (fun s -> s.SecName = ".init_array") shdrs with
   | Some s ->
-    let span = ReadOnlySpan (readSection stream s)
-    getFuncAddrsFromLibcArr span reader hdr loadables shdrs relocInfo s
+    let stream = toolBox.Stream
+    let span = ReadOnlySpan (readChunk stream s.SecOffset (int s.SecSize))
+    getFuncAddrsFromLibcArr span toolBox loadables shdrs relocInfo s
   | None -> Seq.empty
 
-let getAddrsFromFiniArray stream reader hdr shdrs loadables relocInfo =
+let getAddrsFromFiniArray toolBox shdrs loadables relocInfo =
   match Array.tryFind (fun s -> s.SecName = ".fini_array") shdrs with
   | Some s ->
-    let span = ReadOnlySpan (readSection stream s)
-    getFuncAddrsFromLibcArr span reader hdr loadables shdrs relocInfo s
+    let stream = toolBox.Stream
+    let span = ReadOnlySpan (readChunk stream s.SecOffset (int s.SecSize))
+    getFuncAddrsFromLibcArr span toolBox loadables shdrs relocInfo s
   | None -> Seq.empty
 
 let getAddrsFromSpecialSections shdrs =
@@ -247,12 +242,11 @@ let getAddrsFromSpecialSections shdrs =
     | Some sec -> Some sec.SecAddr
     | None -> None)
 
-let addExtraFunctionAddrs
-  stream reader hdr shdrs loadables relocInfo exnInfoOpt addrs =
+let addExtraFunctionAddrs toolBox shdrs loadables relocInfo exnInfoOpt addrs =
   let addrSet =
     [ addrs
-      getAddrsFromInitArray stream reader hdr shdrs loadables relocInfo
-      getAddrsFromFiniArray stream reader hdr shdrs loadables relocInfo
+      getAddrsFromInitArray toolBox shdrs loadables relocInfo
+      getAddrsFromFiniArray toolBox shdrs loadables relocInfo
       getAddrsFromSpecialSections shdrs ]
     |> Seq.concat
     |> Set.ofSeq
@@ -265,3 +259,72 @@ let addExtraFunctionAddrs
     ) addrSet
     |> Set.toSeq
   | None -> addrSet |> Set.toSeq
+
+let private computeInvalidRanges wordSize phdrs getNextStartAddr =
+  phdrs
+  |> Array.sortBy (fun seg -> seg.PHAddr)
+  |> Array.fold (fun (set, saddr) seg ->
+       let n = getNextStartAddr seg
+       addInvalidRange set saddr seg.PHAddr, n) (IntervalSet.empty, 0UL)
+  |> addLastInvalidRange wordSize
+
+let invalidRangesByVM hdr phdrs =
+  computeInvalidRanges hdr.Class phdrs (fun s -> s.PHAddr + s.PHMemSize)
+
+let invalidRangesByFileBounds hdr phdrs =
+  computeInvalidRanges hdr.Class phdrs (fun s -> s.PHAddr + s.PHFileSize)
+
+let private computeExecutableRangesFromSections shdrs =
+  let txtOffset =
+    match Array.tryFind (fun s -> s.SecName = Section.SecText) shdrs with
+    | Some text -> text.SecOffset
+    | None -> 0UL
+  shdrs
+  |> Array.fold (fun set sec ->
+    if sec.SecType = SectionType.SHT_PROGBITS
+      && sec.SecFlags.HasFlag SectionFlag.SHF_EXECINSTR
+    then
+      let offset = sec.SecOffset - txtOffset
+      let addr = sec.SecAddr + offset
+      let range = AddrRange (addr, addr + sec.SecSize - 1UL)
+      IntervalSet.add range set
+    else set
+  ) IntervalSet.empty
+
+let private addIntervalWithoutSection secS secE s e set =
+  let set =
+    if s < secS && secS < e then IntervalSet.add (AddrRange (s, secS - 1UL)) set
+    else set
+  let set =
+    if secE < e then IntervalSet.add (AddrRange (secE + 1UL, e)) set
+    else set
+  set
+
+let private addIntervalWithoutROSection rodata seg set =
+  let roS = rodata.SecAddr
+  let roE = roS + rodata.SecSize - 1UL
+  let segS = seg.PHAddr
+  let segE = segS + seg.PHMemSize - 1UL
+  if roE < segS || segE < roS then
+    IntervalSet.add (AddrRange (segS, segE)) set
+  else addIntervalWithoutSection roS roE segS segE set
+
+let private addExecutableInterval excludingSection s set =
+  match excludingSection with
+  | Some sec -> addIntervalWithoutROSection sec s set
+  | None ->
+    IntervalSet.add (AddrRange (s.PHAddr, s.PHAddr + s.PHMemSize - 1UL)) set
+
+let executableRanges shdrs loadables =
+  (* Exclude .rodata even though it is included within an executable segment. *)
+  let rodata =
+    match Array.tryFind (fun s -> s.SecName = Section.SecROData) shdrs with
+    | Some rodata when rodata.SecAddr <> 0UL -> Some rodata
+    | _ -> None
+  if Array.isEmpty loadables then computeExecutableRangesFromSections shdrs
+  else
+    loadables
+    |> Array.filter (fun seg ->
+      seg.PHFlags &&& Permission.Executable = Permission.Executable)
+    |> Array.fold (fun set seg ->
+      addExecutableInterval rodata seg set) IntervalSet.empty

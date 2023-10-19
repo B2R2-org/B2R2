@@ -34,17 +34,18 @@ open B2R2.FrontEnd.BinFile.ELF.Helper
 ///   This class represents an ELF binary file.
 /// </summary>
 type ELFBinFile (path, stream: Stream, baseAddrOpt, regbay) =
-  let struct (reader, hdr, baseAddr) = Parser.parseHeader baseAddrOpt stream
-  let phdrs = lazy ProgHeader.parse stream reader hdr baseAddr
-  let shdrs = lazy Section.parse stream reader hdr baseAddr
-  let loadables = lazy ProgHeader.getLoadableProgHeaders phdrs
-  let symbInfo = lazy Symbol.parse stream reader hdr baseAddr shdrs
-  let relocs = lazy Relocs.parse stream reader hdr baseAddr shdrs symbInfo
-  let plt = lazy PLT.parse stream reader hdr shdrs symbInfo relocs
-  let exnInfo = lazy Parser.parseException stream reader hdr shdrs regbay relocs
-  let notInMemRanges = lazy Parser.invalidRangesByVM hdr.Class phdrs
-  let notInFileRanges = lazy Parser.invalidRangesByFileBounds hdr.Class phdrs
-  let executableRanges = lazy Parser.executableRanges shdrs loadables
+  let toolBox = Header.parse baseAddrOpt stream
+  let hdr = toolBox.Header
+  let phdrs = lazy ProgramHeader.parse toolBox
+  let shdrs = lazy Section.parse toolBox
+  let loadables = lazy ProgramHeader.getLoadableProgHeaders phdrs.Value
+  let symbInfo = lazy Symbol.parse toolBox shdrs.Value
+  let relocs = lazy RelocationInfo.parse toolBox shdrs.Value symbInfo.Value
+  let plt = lazy PLT.parse toolBox shdrs.Value symbInfo.Value relocs.Value
+  let exnInfo = lazy ExceptionInfo.parse toolBox shdrs.Value regbay relocs.Value
+  let notInMemRanges = lazy invalidRangesByVM hdr phdrs.Value
+  let notInFileRanges = lazy invalidRangesByFileBounds hdr phdrs.Value
+  let executableRanges = lazy executableRanges shdrs.Value loadables.Value
 
   new (path: string) = ELFBinFile (path, None, None)
 
@@ -58,7 +59,7 @@ type ELFBinFile (path, stream: Stream, baseAddrOpt, regbay) =
 
   /// List of dynamic section entries.
   member __.DynamicSectionEntries with get() =
-    Section.getDynamicSectionEntries hdr stream reader shdrs.Value
+    DynamicSection.readEntries toolBox shdrs.Value
 
   /// Try to find a section by its name.
   member __.TryFindSection (name: string) =
@@ -97,14 +98,14 @@ type ELFBinFile (path, stream: Stream, baseAddrOpt, regbay) =
 
     member __.EntryPoint = Some hdr.EntryPoint
 
-    member __.BaseAddress with get() = baseAddr
+    member __.BaseAddress with get() = toolBox.BaseAddress
 
     member __.IsStripped =
       shdrs.Value |> Array.exists (fun s -> s.SecName = ".symtab") |> not
 
     member __.IsNXEnabled = isNXEnabled phdrs.Value
 
-    member __.IsRelocatable = isRelocatable hdr stream reader shdrs.Value
+    member __.IsRelocatable = isRelocatable toolBox shdrs.Value
 
     member __.Length = int stream.Length
 
@@ -125,9 +126,7 @@ type ELFBinFile (path, stream: Stream, baseAddrOpt, regbay) =
       (__ :> IBinFile).Slice (offset=offset, size=size)
 
     member __.Slice (offset: int, size) =
-      let buf = Array.zeroCreate size
-      stream.Seek (int64 offset, SeekOrigin.Begin) |> ignore
-      FileHelper.readOrDie stream buf
+      let buf = FileHelper.readChunk stream (uint64 offset) size
       ReadOnlySpan buf
 
     member __.Slice (offset: int) =
@@ -165,7 +164,7 @@ type ELFBinFile (path, stream: Stream, baseAddrOpt, regbay) =
 
     member __.GetNotInFileIntervals range =
       IntervalSet.findAll range notInFileRanges.Value
-      |> List.map (FileHelper.trimByRange range)
+      |> List.map range.Slice
       |> List.toSeq
 
     member __.ToBinFilePointer addr =
@@ -243,14 +242,14 @@ type ELFBinFile (path, stream: Stream, baseAddrOpt, regbay) =
     member __.GetFunctionAddresses () =
       (__ :> IBinFile).GetFunctionSymbols ()
       |> Seq.map (fun s -> s.Address)
-      |> addExtraFunctionAddrs stream reader hdr shdrs.Value loadables.Value
+      |> addExtraFunctionAddrs toolBox shdrs.Value loadables.Value
                                relocs.Value None
 
     member __.GetFunctionAddresses (useExcInfo) =
       let exnInfo = if useExcInfo then Some exnInfo.Value else None
       (__ :> IBinFile).GetFunctionSymbols ()
       |> Seq.map (fun s -> s.Address)
-      |> addExtraFunctionAddrs stream reader hdr shdrs.Value loadables.Value
+      |> addExtraFunctionAddrs toolBox shdrs.Value loadables.Value
                                relocs.Value exnInfo
 
     member __.NewBinFile bs = Utils.futureFeature ()

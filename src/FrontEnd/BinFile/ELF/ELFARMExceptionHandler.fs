@@ -26,9 +26,9 @@ SOFTWARE.
 module internal B2R2.FrontEnd.BinFile.ELF.ELFARMExceptionHandler
 
 open System
-open System.IO
 open B2R2
 open B2R2.FrontEnd.BinFile
+open B2R2.FrontEnd.BinFile.FileHelper
 
 /// This is a value that the index table can have.
 type ExceptionIndexValue =
@@ -69,15 +69,10 @@ let rec private readIndexTableEntry acc reader (span: ByteSpan) sAddr offset =
     let acc = { FuncAddr = fnAddr; EntryValue = v } :: acc
     readIndexTableEntry acc reader span (sAddr + 8UL) (offset + 8)
 
-let private readSection (stream: Stream) sec =
-  let buf = Array.zeroCreate (int sec.SecSize)
-  stream.Seek (int64 sec.SecOffset, SeekOrigin.Begin) |> ignore
-  FileHelper.readOrDie stream buf
-  buf
-
-let private parseIndexTable stream reader indexTableSection =
-  let span = ReadOnlySpan (readSection stream indexTableSection)
-  readIndexTableEntry [] reader span indexTableSection.SecAddr 0
+let private parseIndexTable toolBox indexTableSection =
+  let offset, size = indexTableSection.SecOffset, indexTableSection.SecSize
+  let span = ReadOnlySpan (readChunk toolBox.Stream offset (int size))
+  readIndexTableEntry [] toolBox.Reader span indexTableSection.SecAddr 0
 
 let private computeLSDAOffset currentOffset (n: int) =
   if (n &&& 0xF0000000) = 0x80000000 then (* Compact format *) currentOffset + 4
@@ -120,8 +115,9 @@ let rec private readExnTableEntry (fdes, lsdas) reader cls span sAddr = function
       readExnTableEntry (fdes, lsdas) reader cls span sAddr tl
   | [] -> (fdes, lsdas)
 
-let private parseExnTable stream reader cls exnTblSection entries =
-  let span = ReadOnlySpan (readSection stream exnTblSection)
+let private parseExnTable toolBox cls exnTblSection entries =
+  let offset, size = exnTblSection.SecOffset, exnTblSection.SecSize
+  let span = ReadOnlySpan (readChunk toolBox.Stream offset (int size))
   let secAddr = exnTblSection.SecAddr
   let cie = (* Create a dummy CIE. *)
     { Version = 0uy
@@ -134,17 +130,15 @@ let private parseExnTable stream reader cls exnTblSection entries =
       InitialCFA = UnknownCFA
       Augmentations = [] }
   let fdes, lsdas =
-    readExnTableEntry ([], Map.empty) reader cls span secAddr entries
+    readExnTableEntry ([], Map.empty) toolBox.Reader cls span secAddr entries
   struct ([ { CIERecord = cie; FDERecord = List.toArray fdes } ], lsdas )
 
 /// Parse ARM-specific exception handler. The specification is found @
 /// https://github.com/ARM-software/abi-aa/blob/main/ehabi32/ehabi32.rst
-let parse stream reader cls shdrs =
+let parse toolBox cls shdrs =
   match Array.tryFind (fun s -> s.SecName = ARMIndexTable) shdrs,
         Array.tryFind (fun s -> s.SecName = ARMTable) shdrs with
   | Some indexTable, Some exnTable ->
-    let indexTable = parseIndexTable stream reader indexTable
-    let struct (cies, lsdas) =
-      parseExnTable stream reader cls exnTable indexTable
-    { ExceptionFrames = cies; LSDAs = lsdas; UnwindingTbl = Map.empty }
-  | _ -> { ExceptionFrames = []; LSDAs = Map.empty; UnwindingTbl = Map.empty }
+    let indexTable = parseIndexTable toolBox indexTable
+    parseExnTable toolBox cls exnTable indexTable
+  | _ -> struct ([], Map.empty)

@@ -96,7 +96,7 @@ let private hasNoContent (sec: Section) (file: IBinFile) =
   match file with
   | :? ELFBinFile as file ->
     match file.TryFindSection sec.Name with
-    | Some section -> section.SecType = ELF.SectionType.SHTNoBits
+    | Some section -> section.SecType = ELF.SectionType.SHT_NOBITS
     | None -> true
   | _ -> false
 

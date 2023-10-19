@@ -47,9 +47,9 @@ let dumpFileHeader (_: FileViewerOpts) (file: ELFBinFile) =
   out.PrintTwoCols "Class:" ("ELF" + WordSize.toString hdr.Class)
   out.PrintTwoCols "Data:" (Endian.toString hdr.Endian + " endian")
   out.PrintTwoCols "Version:" (hdr.Version.ToString ())
-  out.PrintTwoCols "ABI:" (hdr.OSABI.ToString ())
+  out.PrintTwoCols "ABI:" (OSABI.toString hdr.OSABI)
   out.PrintTwoCols "ABI version:" (hdr.OSABIVersion.ToString ())
-  out.PrintTwoCols "Type:" (hdr.ELFFileType.ToString ())
+  out.PrintTwoCols "Type:" (ELFFileType.toString hdr.ELFFileType)
   out.PrintTwoCols "Machine:" (hdr.MachineType.ToString ())
   out.PrintTwoColsWithColorOnSnd "Entry point:" (computeEntryPoint hdr)
   out.PrintTwoCols "PHdr table offset:" (String.u64ToHex hdr.PHdrTblOffset)
@@ -119,7 +119,7 @@ let dumpSectionDetails (secname: string) (file: ELFBinFile) =
 let printSymbolInfoVerbose (file: IBinFile) s (elfSymbol: ELFSymbol) cfg =
   let sectionIndex =
     match elfSymbol.SecHeaderIndex with
-    | SecIdx idx -> idx.ToString ()
+    | SectionIndex idx -> idx.ToString ()
     | idx -> idx.ToString ()
   out.PrintRow (true, cfg,
     [ visibilityString s
@@ -383,11 +383,11 @@ let dumpGccExceptTable _hdl (elf: ELFBinFile) =
   out.PrintRow (true, cfg, [ "Address"; "LP App"; "LP Val"; "TT End" ])
   elf.ExceptionInfo.LSDAs
   |> Map.iter (fun lsdaAddr lsda ->
-    let ttbase = lsda.Header.TTBase |> Option.defaultValue 0UL
+    let ttbase = lsda.LSDAHeader.TTBase |> Option.defaultValue 0UL
     out.PrintRow (true, cfg,
       [ Addr.toString file.ISA.WordSize lsdaAddr
-        lsda.Header.LPAppEncoding.ToString ()
-        lsda.Header.LPValueEncoding.ToString ()
+        lsda.LSDAHeader.LPAppEncoding.ToString ()
+        lsda.LSDAHeader.LPValueEncoding.ToString ()
         ttbase |> Addr.toString file.ISA.WordSize ])
   )
 

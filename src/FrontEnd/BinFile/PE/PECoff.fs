@@ -24,7 +24,6 @@
 
 module internal B2R2.FrontEnd.BinFile.PE.Coff
 
-open System
 open System.Collections.Generic
 open System.Reflection.PortableExecutable
 open System.Runtime.InteropServices
@@ -99,7 +98,7 @@ let getWordSize = function
   | _ -> WordSize.Bit32
 
 let parseLongSymbolName (span: ByteSpan) stroff offset =
-  peekCString span (stroff + offset)
+  readCString span (stroff + offset)
 
 let parseSymbName (span: ByteSpan) offset stroff =
   let bs = span.Slice (offset, 8)

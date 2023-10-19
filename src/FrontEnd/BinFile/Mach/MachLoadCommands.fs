@@ -33,15 +33,15 @@ let parseSegCmd span (reader: IBinReader) baseAddr cls offset cmdType cmdSize =
   { Cmd = cmdType
     CmdSize = cmdSize
     SecOff = offset + if cls = WordSize.Bit64 then 72 else 56
-    SegCmdName = peekCString span 8
-    VMAddr = peekHeaderNative span reader cls 24 24 + baseAddr
-    VMSize = peekHeaderNative span reader cls 28 32
-    FileOff = peekHeaderNative span reader cls 32 40
-    FileSize = peekHeaderNative span reader cls 36 48
-    MaxProt = peekHeaderI32 span reader cls 40 56
-    InitProt = peekHeaderI32 span reader cls 44 60
-    NumSecs = peekHeaderU32 span reader cls 48 64
-    SegFlag = peekHeaderU32 span reader cls 52 68 }
+    SegCmdName = readCString span 8
+    VMAddr = readNative span reader cls 24 24 + baseAddr
+    VMSize = readNative span reader cls 28 32
+    FileOff = readNative span reader cls 32 40
+    FileSize = readNative span reader cls 36 48
+    MaxProt = reader.ReadInt32 (span, pickNum cls 40 56)
+    InitProt = reader.ReadInt32 (span, pickNum cls 44 60)
+    NumSecs = reader.ReadUInt32 (span, pickNum cls 48 64)
+    SegFlag = reader.ReadUInt32 (span, pickNum cls 52 68) }
 
 let parseSymCmd (span: ByteSpan) reader offset cmdType cmdSize =
   { Cmd = cmdType

@@ -39,7 +39,7 @@ module private DataManager =
       | RelocationX86 RelocationX86.R_386_PC32
       | RelocationX64 RelocationX64.R_X86_64_PLT32 ->
         match rel.RelSymbol with
-        | Some sym when sym.SymType = SymbolType.STTFunc ->
+        | Some sym when sym.SymType = SymbolType.STT_FUNC ->
           dict.Add (addr, sym)
         | _ -> ()
       | _ -> ()

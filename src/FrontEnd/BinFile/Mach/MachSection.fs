@@ -28,21 +28,21 @@ open System.Collections.Generic
 open B2R2
 open B2R2.FrontEnd.BinFile.FileHelper
 
-let parseSection baseAddr (span: ByteSpan) reader cls pos =
+let parseSection (span: ByteSpan) (reader: IBinReader) baseAddr cls pos =
   let span = span.Slice pos
-  let secFlag = peekHeaderI32 span reader cls 56 64
-  { SecName = peekCString span 0
-    SegName = peekCString span 16
-    SecAddr = peekUIntOfType span reader cls 32 + baseAddr
-    SecSize = peekHeaderNative span reader cls 36 40
-    SecOffset = peekHeaderU32 span reader cls 40 48
-    SecAlignment = peekHeaderU32 span reader cls 44 52
-    SecRelOff = peekHeaderU32 span reader cls 48 56
-    SecNumOfReloc = peekHeaderI32 span reader cls 52 60
+  let secFlag = reader.ReadInt32 (span, pickNum cls 56 64)
+  { SecName = readCString span 0
+    SegName = readCString span 16
+    SecAddr = readUIntOfType span reader cls 32 + baseAddr
+    SecSize = readNative span reader cls 36 40
+    SecOffset = reader.ReadUInt32 (span, pickNum cls 40 48)
+    SecAlignment = reader.ReadUInt32 (span, pickNum cls 44 52)
+    SecRelOff = reader.ReadUInt32 (span, pickNum cls 48 56)
+    SecNumOfReloc = reader.ReadInt32 (span, pickNum cls 52 60)
     SecType = secFlag &&& 0xFF |> LanguagePrimitives.EnumOfValue
     SecAttrib = secFlag &&& 0xFFFFFF00 |> LanguagePrimitives.EnumOfValue
-    SecReserved1 = peekHeaderI32 span reader cls 60 68
-    SecReserved2 = peekHeaderI32 span reader cls 64 72 }
+    SecReserved1 = reader.ReadInt32 (span, pickNum cls 60 68)
+    SecReserved2 = reader.ReadInt32 (span, pickNum cls 64 72) }
 
 let foldSecInfo acc sec =
   let secEnd = sec.SecAddr + sec.SecSize - 1UL
@@ -55,7 +55,7 @@ let parseSections baseAddr span reader cls segs =
   for seg in segs do
     let mutable pos = seg.SecOff
     for _ = 1 to int seg.NumSecs do
-      let sec = parseSection baseAddr span reader cls pos
+      let sec = parseSection span reader baseAddr cls pos
       sections.Add sec
       pos <- pos + if cls = WordSize.Bit64 then 80 else 68
   let acc = { SecByAddr = ARMap.empty; SecByName = Map.empty; SecByNum = [||] }

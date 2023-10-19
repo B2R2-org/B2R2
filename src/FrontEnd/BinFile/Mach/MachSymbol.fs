@@ -91,7 +91,7 @@ let parseNList baseAddr (span: ByteSpan) reader macHdr libs strtab offset =
     SecNum = span[offset + 5] |> int
     SymDesc = nDesc
     VerInfo = getLibraryVerInfo macHdr.Flags libs nDesc
-    SymAddr = peekUIntOfType span reader macHdr.Class (offset + 8)
+    SymAddr = readUIntOfType span reader macHdr.Class (offset + 8)
               |> adjustSymAddr baseAddr }
 
 /// Parse SymTab, which is essentially an array of n_list.

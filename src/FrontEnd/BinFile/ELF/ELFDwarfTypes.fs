@@ -79,7 +79,8 @@ module ExceptionHeaderEncoding =
   let computeValue cls span reader venc offset =
     match venc with
     | ExceptionHeaderValue.DW_EH_PE_absptr ->
-      FileHelper.readUIntOfType span reader cls offset
+      let cv = FileHelper.readUIntOfType span reader cls offset
+      struct (cv, if cls = WordSize.Bit32 then offset + 4 else offset + 8)
     | ExceptionHeaderValue.DW_EH_PE_uleb128 ->
       let cv, offset = parseULEB128 span offset
       struct (cv, offset)

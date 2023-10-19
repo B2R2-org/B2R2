@@ -40,7 +40,7 @@ module private FunctionMaintainer =
     let reloc = elf.RelocationInfo.RelocByAddr[entry.TableAddress]
     match reloc.RelSymbol with
     | Some relSym ->
-      if relSym.SymType = SymbolType.STTFunc then
+      if relSym.SymType = SymbolType.STT_FUNC then
         match relSym.ParentSection with
         | Some parent ->
           if parent.SecName = ".text" then Ok relSym.Addr

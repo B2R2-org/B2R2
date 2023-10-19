@@ -28,6 +28,7 @@ open System
 open System.Reflection.PortableExecutable
 open B2R2
 open B2R2.FrontEnd.BinFile
+open B2R2.FrontEnd.BinFile.FileHelper
 open B2R2.FrontEnd.BinFile.PE.Helper
 
 /// This is equivalent to GetContainingSectionIndex function except that we are
@@ -52,7 +53,7 @@ let getRawOffset secs rva =
 
 let readStr secs (bs: byte[]) rva =
   if rva = 0 then ""
-  else FileHelper.peekCString (ReadOnlySpan bs) (getRawOffset secs rva)
+  else readCString (ReadOnlySpan bs) (getRawOffset secs rva)
 
 let isNULLImportDir tbl =
   tbl.ImportLookupTableRVA = 0
@@ -115,7 +116,7 @@ let parseILT (bs: byte[]) reader secs wordSize map idt =
   let skip = if wordSize = WordSize.Bit32 then 4 else 8
   let mask = computeRVAMaskForILT wordSize
   let rec loop map rvaOffset pos =
-    let rva = FileHelper.peekUIntOfType (ReadOnlySpan bs) reader wordSize pos
+    let rva = readUIntOfType (ReadOnlySpan bs) reader wordSize pos
     if rva = 0UL then map
     else
       let entry = parseILTEntry bs reader secs idt mask rva
@@ -282,8 +283,8 @@ let invRanges wordSize baseAddr secs getNextStartAddr =
   |> Array.fold (fun (set, saddr) s ->
     let myaddr = uint64 s.VirtualAddress + baseAddr
     let n = getNextStartAddr myaddr s
-    FileHelper.addInvRange set saddr myaddr, n) (IntervalSet.empty, 0UL)
-  |> FileHelper.addLastInvRange wordSize
+    addInvalidRange set saddr myaddr, n) (IntervalSet.empty, 0UL)
+  |> addLastInvalidRange wordSize
 
 let computeInvalidAddrRanges wordSize baseAddr secs =
   invRanges wordSize baseAddr secs (fun a s ->

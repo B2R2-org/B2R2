@@ -174,7 +174,7 @@ let inline isExecutableAddr mach addr =
 
 let inline getNotInFileIntervals mach range =
   IntervalSet.findAll range mach.NotInFileRanges
-  |> List.map (FileHelper.trimByRange range)
+  |> List.map range.Slice
   |> List.toSeq
 
 // vim: set tw=80 sts=2 sw=2:

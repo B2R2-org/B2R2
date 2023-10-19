@@ -289,7 +289,7 @@ let inline isExecutableAddr pe addr =
 
 let inline getNotInFileIntervals pe range =
   IntervalSet.findAll range pe.NotInFileRanges
-  |> List.map (FileHelper.trimByRange range)
+  |> List.map range.Slice
   |> List.toSeq
 
 let machineToArch = function

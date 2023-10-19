@@ -162,7 +162,7 @@ type IContentAddressable =
 
   /// <summary>
   ///   Given a range r, return a list of address ranges (intervals) that are
-  ///   within r, and that are not in-file.
+  ///   within r and not in-file.
   /// </summary>
   /// <returns>
   ///   Returns an empty list when the given range r is valid, i.e.,
