@@ -44,9 +44,11 @@
     <Compile Include="ELF\ELFHelper.fs" />
     <Compile Include="ELF\ELFBinFile.fs" />
     <Compile Include="Mach\MachTypes.fs" />
-    <Compile Include="Mach\MachLoadCommands.fs" />
-    <Compile Include="Mach\MachHeader.fs" />
+    <Compile Include="Mach\MachMagic.fs" />
+    <Compile Include="Mach\MachCPUType.fs" />
     <Compile Include="Mach\MachFat.fs" />
+    <Compile Include="Mach\MachHeader.fs" />
+    <Compile Include="Mach\MachLoadCommands.fs" />
     <Compile Include="Mach\MachSegment.fs" />
     <Compile Include="Mach\MachSection.fs" />
     <Compile Include="Mach\MachReloc.fs" />

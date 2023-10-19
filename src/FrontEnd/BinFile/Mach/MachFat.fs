@@ -22,11 +22,14 @@
   SOFTWARE.
 *)
 
-module B2R2.FrontEnd.BinFile.Mach.Fat
+namespace B2R2.FrontEnd.BinFile.Mach
 
 open System
 open B2R2
+open B2R2.FrontEnd.BinFile.FileHelper
 
+/// Describes the location within the binary of an object file targeted at a
+/// single architecture (fat_arch).
 type FatArch = {
   CPUType: CPUType
   CPUSubType: CPUSubType
@@ -35,30 +38,32 @@ type FatArch = {
   Align: int
 }
 
-let private readFatArch (span: ByteSpan) (r: IBinReader) pos =
-  { CPUType = r.ReadInt32 (span, pos) |> LanguagePrimitives.EnumOfValue
-    CPUSubType = r.ReadInt32 (span, pos + 4) |> LanguagePrimitives.EnumOfValue
-    Offset = r.ReadInt32 (span, pos + 8)
-    Size = r.ReadInt32 (span, pos + 12)
-    Align = r.ReadInt32 (span, pos + 16) }
+module Fat =
+  let private readFatArch (span: ByteSpan) (reader: IBinReader) offset =
+    let cpuType = reader.ReadInt32 (span, offset)
+    let cpuSubType = reader.ReadInt32 (span, offset + 4)
+    { CPUType = cpuType |> LanguagePrimitives.EnumOfValue
+      CPUSubType = cpuSubType |> LanguagePrimitives.EnumOfValue
+      Offset = reader.ReadInt32 (span, offset + 8)
+      Size = reader.ReadInt32 (span, offset + 12)
+      Align = reader.ReadInt32 (span, offset + 16) }
 
-let rec private loadFatAux acc span reader pos cnt =
-  if cnt = 0 then acc
-  else
-    let arch = readFatArch span reader pos
-    loadFatAux (arch :: acc) span reader (pos + 20) (cnt - 1)
+  let loadFatArchs stream =
+    let reader = BinReader.Init Endian.Big
+    let header = readChunk stream 0UL 8
+    let magic = reader.ReadUInt32 (header, 0)
+    let nArch = reader.ReadInt32 (header, 4)
+    assert (LanguagePrimitives.EnumOfValue magic = Magic.FATMagic)
+    let span = ReadOnlySpan (readChunk stream 8UL (20 * nArch))
+    let archs = Array.zeroCreate nArch
+    for i = 0 to nArch - 1 do
+      archs[i] <- readFatArch span reader (i * 20)
+    archs
 
-let loadFats (span: ByteSpan) (reader: IBinReader) =
-  let nArch = reader.ReadInt32 (span, 4)
-  loadFatAux [] span reader 8 nArch
+  let private matchingISA isa fatArch =
+    isa.Arch = CPUType.toArch fatArch.CPUType fatArch.CPUSubType
 
-let private matchISA isa fatArch =
-  let arch = Header.cpuTypeToArch fatArch.CPUType fatArch.CPUSubType
-  isa.Arch = arch
-
-let rec findMatchingFatRecord isa fats =
-  match fats with
-  | fatArch :: tl ->
-    if matchISA isa fatArch then fatArch
-    else findMatchingFatRecord isa tl
-  | [] -> raise InvalidISAException
+  let loadArch stream isa =
+    loadFatArchs stream
+    |> Array.tryFind (matchingISA isa)
+    |> function Some arch -> arch | None -> raise InvalidISAException

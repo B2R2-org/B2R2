@@ -67,10 +67,6 @@ let execRanges segs =
     IntervalSet.add (AddrRange (s.VMAddr, s.VMAddr + s.VMSize - 1UL)) set
     ) IntervalSet.empty
 
-let computeBaseAddr machHdr baseAddr =
-  if machHdr.Flags.HasFlag MachFlag.MHPIE then defaultArg baseAddr 0UL
-  else 0UL
-
 let parseMach baseAddr span reader  =
   let machHdr = Header.parse span reader
   let baseAddr = computeBaseAddr machHdr baseAddr
@@ -98,20 +94,3 @@ let parseMach baseAddr span reader  =
     NotInFileRanges = invRanges cls segs (fun s -> s.VMAddr + s.FileSize)
     ExecutableRanges = execRanges segs
     BinReader = reader }
-
-let private computeOffsetAndSize span reader isa =
-  let fatArch = Fat.loadFats span reader |> Fat.findMatchingFatRecord isa
-  struct (fatArch.Offset, fatArch.Size)
-
-let updateSpanForFat isa span reader =
-  if Header.isFat span reader then
-    let struct (offset, size) = computeOffsetAndSize span reader isa
-    span.Slice (offset, size)
-  else span
-
-let parse baseAddr (bytes: byte[]) isa =
-  let span = ReadOnlySpan bytes
-  let span = updateSpanForFat isa span (BinReader.Init Endian.Big)
-  if Header.isMach span then ()
-  else raise InvalidFileFormatException
-  parseMach baseAddr span (Header.getMachBinReader span)

@@ -25,6 +25,7 @@
 namespace B2R2.FrontEnd.BinFile
 
 open System
+open System.IO
 open B2R2
 open B2R2.FrontEnd.BinFile.Mach
 open B2R2.FrontEnd.BinFile.Mach.Helper
@@ -32,13 +33,16 @@ open B2R2.FrontEnd.BinFile.Mach.Helper
 /// <summary>
 ///   This class represents a Mach-O binary file.
 /// </summary>
-type MachBinFile (bytes, path, isa, baseAddr) =
-  let mach = Parser.parse baseAddr bytes isa
+type MachBinFile (path, stream: Stream, isa, baseAddrOpt) =
+  let mach = Parser.parse baseAddrOpt bytes isa
 
-  new (bytes: byte[], path, isa: ISA) =
-    MachBinFile (bytes, path, isa, None)
+  new (path, isa: ISA) =
+    MachBinFile (path, isa, None)
 
-  member __.Mach with get() = mach
+  new (path: string, isa: ISA, baseAddrOpt) =
+    let fs =
+      new FileStream (path, FileMode.Open, FileAccess.Read, FileShare.Read)
+    MachBinFile (path, fs, isa, baseAddrOpt)
 
   interface IBinFile with
     member __.FilePath with get() = path
@@ -173,7 +177,7 @@ type MachBinFile (bytes, path, isa, baseAddr) =
     member __.GetFunctionAddresses (_) =
       (__ :> IBinFile).GetFunctionAddresses ()
 
-    member __.NewBinFile bs = MachBinFile (bs, path, isa, baseAddr)
+    member __.NewBinFile bs = MachBinFile (bs, path, isa, baseAddrOpt)
 
     member __.NewBinFile (bs, baseAddr) =
       MachBinFile (bs, path, isa, Some baseAddr)
