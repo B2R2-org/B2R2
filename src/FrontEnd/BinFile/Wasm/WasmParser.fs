@@ -24,10 +24,11 @@
 
 module internal B2R2.FrontEnd.BinFile.Wasm.Parser
 
+open System
+open System.IO
 open B2R2
 open B2R2.FrontEnd.BinFile
 open B2R2.FrontEnd.BinFile.Wasm.Section
-open System
 
 let sectionIdToName (secId: SectionId) (off: int) =
   match secId with
@@ -332,7 +333,8 @@ let buildModuleIndexMap wm =
 
 let parse (bs: byte[]) =
   let reader = BinReader.Init Endian.Little
-  if Header.isWasm (ReadOnlySpan bs) reader then ()
+  use stream = new MemoryStream (bs)
+  if Header.isWasm stream reader then ()
   else raise InvalidFileFormatException
   parseWasmModule bs reader 0
   |> buildModuleIndexMap

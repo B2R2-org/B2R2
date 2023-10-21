@@ -44,12 +44,12 @@ module ZIPReader =
 
   let readFileFromZipFile fmt zName fName =
     let zDir = zipFileSrcDir + getFileDir fmt
-    let archive = ZipFile.Open(zDir + zName, ZipArchiveMode.Read)
-    let entry = archive.GetEntry(fName)
+    let archive = ZipFile.Open (zDir + zName, ZipArchiveMode.Read)
+    let entry = archive.GetEntry (fName)
     let stream = entry.Open ()
-    use ms = new MemoryStream()
-    stream.CopyTo(ms)
-    ms.ToArray()
+    use ms = new MemoryStream ()
+    stream.CopyTo (ms)
+    ms.ToArray ()
 
 [<AutoOpen>]
 module TestHelper =
@@ -74,10 +74,11 @@ module PE =
     let zip = fileName + ".zip"
     let file = fileName + ".exe"
     let bytes = ZIPReader.readFileFromZipFile FileFormat.PEBinary zip file
+    let ms = new MemoryStream (bytes)
     let pdbBytes =
       if pdbFileName.Length = 0 then [||]
       else ZIPReader.readFileFromZipFile FileFormat.PEBinary zip pdbFileName
-    PEBinFile (bytes, file, pdbBytes) :> IBinFile
+    PEBinFile (file, ms, None, pdbBytes) :> IBinFile
 
   [<TestClass>]
   type TestClass () =
@@ -119,7 +120,8 @@ module Mach =
     let zip = fileName + ".zip"
     let bytes = ZIPReader.readFileFromZipFile FileFormat.MachBinary zip fileName
     let isa = ISA.Init arch Endian.Little
-    MachBinFile (bytes, fileName, isa) :> IBinFile
+    let stream = new MemoryStream (bytes)
+    MachBinFile (fileName, stream, isa, None) :> IBinFile
 
   [<TestClass>]
   type TestClass () =

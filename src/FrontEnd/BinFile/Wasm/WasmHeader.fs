@@ -25,11 +25,13 @@
 module internal B2R2.FrontEnd.BinFile.Wasm.Header
 
 open B2R2
+open B2R2.FrontEnd.BinFile.FileHelper
 
 let wasmMagic = 0x6D736100u
 
-let isWasm (span: ByteSpan) (reader: IBinReader) =
-  if span.Length >= 8 then reader.ReadUInt32 (span, 0) = wasmMagic
+let isWasm stream (reader: IBinReader) =
+  let buf = readChunk stream 0UL 8
+  if stream.Length >= 8 then reader.ReadUInt32 (buf, 0) = wasmMagic
   else false
 
 let peekFormatVersion (span: ByteSpan) (reader: IBinReader) offset =

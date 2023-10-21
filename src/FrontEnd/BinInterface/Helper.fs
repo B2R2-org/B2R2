@@ -29,20 +29,11 @@ open B2R2
 open B2R2.FrontEnd.BinFile
 open B2R2.FrontEnd.BinLifter
 
-let private appendOSInfo fmt isa =
-  match fmt with
-  | FileFormat.ELFBinary -> struct (fmt, isa, OS.Linux)
-  | FileFormat.PEBinary -> struct (fmt, isa, OS.Windows)
-  | FileFormat.MachBinary -> struct (fmt, isa, OS.MacOSX)
-  | FileFormat.WasmBinary -> struct (fmt, isa, OS.UnknownOS)
-  | FileFormat.RawBinary -> struct (fmt, isa, OS.UnknownOS)
-  | _ -> Utils.impossible ()
+let identifyFormatAndISA stream isa autoDetect =
+  if autoDetect then FormatDetector.identify stream isa
+  else struct (FileFormat.RawBinary, isa)
 
-let identifyFormatAndISAAndOS bytes isa os autoDetect =
-  if autoDetect then FormatDetector.identify bytes isa ||> appendOSInfo
-  else struct (FileFormat.RawBinary, isa, Option.defaultValue OS.UnknownOS os)
-
-let newFileInfo bytes (baddr: Addr option) path fmt isa regbay =
+let loadFile path stream (baddr: Addr option) fmt isa regbay =
   match fmt with
   | FileFormat.ELFBinary ->
     ELFBinFile (path, baddr, Some regbay) :> IBinFile

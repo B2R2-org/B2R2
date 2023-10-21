@@ -34,68 +34,66 @@ open B2R2.FrontEnd.BinFile.Mach.Helper
 ///   This class represents a Mach-O binary file.
 /// </summary>
 type MachBinFile (path, stream: Stream, isa, baseAddrOpt) =
-  let mach = Parser.parse baseAddrOpt bytes isa
-
-  new (path, isa: ISA) =
-    MachBinFile (path, isa, None)
-
-  new (path: string, isa: ISA, baseAddrOpt) =
-    let fs =
-      new FileStream (path, FileMode.Open, FileAccess.Read, FileShare.Read)
-    MachBinFile (path, fs, isa, baseAddrOpt)
+  let toolBox = Header.parse stream baseAddrOpt isa
+  let cmds = lazy LoadCommand.parse toolBox
+  let segCmds = lazy Segment.extract cmds.Value
+  let segMap = lazy Segment.buildMap segCmds.Value
+  let secs = lazy Section.parse toolBox segCmds.Value
+  let symInfo = lazy Symbol.parse toolBox cmds.Value secs.Value
+  let relocs = lazy Reloc.parse toolBox symInfo.Value secs.Value
+  let notInMemRanges = lazy invalidRangesByVM toolBox segCmds.Value
+  let notInFileRanges = lazy invalidRangesByFileBounds toolBox segCmds.Value
+  let executableRanges = lazy executableRanges segCmds.Value
 
   interface IBinFile with
     member __.FilePath with get() = path
 
     member __.FileFormat with get() = FileFormat.MachBinary
 
-    member __.ISA with get() = getISA mach
+    member __.ISA with get() = getISA toolBox.Header
 
-    member __.FileType with get() = convFileType mach.MachHdr.FileType
+    member __.FileType with get() = convFileType toolBox.Header.FileType
 
-    member __.EntryPoint = mach.EntryPoint
+    member __.EntryPoint = computeEntryPoint segCmds.Value cmds.Value
 
-    member __.BaseAddress with get() = mach.BaseAddr
+    member __.BaseAddress with get() = toolBox.BaseAddress
 
-    member __.IsStripped = isStripped mach
+    member __.IsStripped = isStripped secs.Value symInfo.Value
 
-    member __.IsNXEnabled = isNXEnabled mach
+    member __.IsNXEnabled = isNXEnabled toolBox.Header
 
-    member __.IsRelocatable = mach.MachHdr.Flags.HasFlag MachFlag.MHPIE
+    member __.IsRelocatable = toolBox.Header.Flags.HasFlag MachFlag.MHPIE
 
-    member __.Length = bytes.Length
+    member __.Length = int stream.Length
 
-    member __.RawBytes = bytes
+    member __.RawBytes = Utils.futureFeature () // XXX
 
-    member __.Span = ReadOnlySpan bytes
+    member __.Span = Utils.futureFeature (); ReadOnlySpan [||]
 
-    member __.GetOffset addr = translateAddr mach addr
+    member __.GetOffset addr = translateAddr segMap.Value addr
 
     member __.Slice (addr, size) =
-      let offset = translateAddr mach addr |> Convert.ToInt32
-      let span = ReadOnlySpan bytes
-      span.Slice (offset, size)
+      let offset = translateAddr segMap.Value addr |> Convert.ToInt32
+      (__ :> IBinFile).Slice (offset=offset, size=size)
 
     member __.Slice (addr) =
-      let offset = translateAddr mach addr |> Convert.ToInt32
-      let span = ReadOnlySpan bytes
-      span.Slice offset
+      let offset = translateAddr segMap.Value addr |> Convert.ToInt32
+      let size = int stream.Length - offset
+      (__ :> IBinFile).Slice (offset=offset, size=size)
 
     member __.Slice (offset: int, size) =
-      let span = ReadOnlySpan bytes
-      span.Slice (offset, size)
+      let buf = FileHelper.readChunk stream (uint64 offset) size
+      ReadOnlySpan buf
 
     member __.Slice (offset: int) =
-      let span = ReadOnlySpan bytes
-      span.Slice offset
+      let size = int stream.Length - offset
+      (__ :> IBinFile).Slice (offset=offset, size=size)
 
     member __.Slice (ptr: BinFilePointer, size) =
-      let span = ReadOnlySpan bytes
-      span.Slice (ptr.Offset, size)
+      (__ :> IBinFile).Slice (offset=ptr.Offset, size=size)
 
     member __.Slice (ptr: BinFilePointer) =
-      let span = ReadOnlySpan bytes
-      span.Slice ptr.Offset
+      (__ :> IBinFile).Slice (offset=ptr.Offset)
 
     member __.Read (_buffer, _offset, _size) = Utils.futureFeature ()
 
@@ -105,29 +103,42 @@ type MachBinFile (path, stream: Stream, isa, baseAddrOpt) =
 
     member __.Seek (_offset: int): unit = Utils.futureFeature ()
 
-    member __.IsValidAddr addr = isValidAddr mach addr
+    member __.IsValidAddr addr =
+      IntervalSet.containsAddr addr notInMemRanges.Value |> not
 
-    member __.IsValidRange range = isValidRange mach range
+    member __.IsValidRange range =
+      IntervalSet.findAll range notInMemRanges.Value |> List.isEmpty
 
-    member __.IsInFileAddr addr = isInFileAddr mach addr
+    member __.IsInFileAddr addr =
+      IntervalSet.containsAddr addr notInFileRanges.Value |> not
 
-    member __.IsInFileRange range = isInFileRange mach range
+    member __.IsInFileRange range =
+      IntervalSet.findAll range notInFileRanges.Value |> List.isEmpty
 
-    member __.IsExecutableAddr addr = isExecutableAddr mach addr
+    member __.IsExecutableAddr addr =
+      IntervalSet.containsAddr addr executableRanges.Value
 
-    member __.GetNotInFileIntervals range = getNotInFileIntervals mach range
+    member __.GetNotInFileIntervals range =
+      IntervalSet.findAll range notInFileRanges.Value
+      |> List.map range.Slice
+      |> List.toSeq
 
     member __.ToBinFilePointer addr =
-      BinFilePointer.OfSectionOpt (getSectionsByAddr mach addr |> Seq.tryHead)
+      getSectionsByAddr secs.Value segMap.Value addr
+      |> Seq.tryHead
+      |> BinFilePointer.OfSectionOpt
 
     member __.ToBinFilePointer name =
-      BinFilePointer.OfSectionOpt (getSectionsByName mach name |> Seq.tryHead)
+      getSectionsByName secs.Value segMap.Value name
+      |> Seq.tryHead
+      |> BinFilePointer.OfSectionOpt
 
     member __.GetRelocatedAddr _relocAddr = Utils.futureFeature ()
 
-    member __.GetSymbols () = getSymbols mach
+    member __.GetSymbols () = getSymbols secs.Value symInfo.Value
 
-    member __.GetStaticSymbols () = getStaticSymbols mach |> Array.toSeq
+    member __.GetStaticSymbols () =
+      getStaticSymbols secs.Value symInfo.Value |> Array.toSeq
 
     member __.GetFunctionSymbols () =
       let self = __ :> IBinFile
@@ -139,23 +150,27 @@ type MachBinFile (path, stream: Stream, isa, baseAddrOpt) =
         |> Seq.filter (fun s -> s.Kind = SymFunctionType)
       Seq.append staticSymbols dynamicSymbols
 
-    member __.GetDynamicSymbols (?e) = getDynamicSymbols e mach |> Array.toSeq
+    member __.GetDynamicSymbols (?e) =
+      getDynamicSymbols e secs.Value symInfo.Value |> Array.toSeq
 
-    member __.GetRelocationSymbols () = mach.Relocations |> Array.toSeq
+    member __.GetRelocationSymbols () = relocs.Value |> Array.toSeq
 
     member __.AddSymbol _addr _symbol = Utils.futureFeature ()
 
-    member __.TryFindFunctionSymbolName (addr) = tryFindFuncSymb mach addr
+    member __.TryFindFunctionSymbolName (addr) =
+      tryFindFuncSymb symInfo.Value addr
 
-    member __.GetSections () = getSections mach
+    member __.GetSections () = getSections secs.Value segMap.Value
 
-    member __.GetSections (addr) = getSectionsByAddr mach addr
+    member __.GetSections (addr) =
+      getSectionsByAddr secs.Value segMap.Value addr
 
-    member __.GetSections (name) = getSectionsByName mach name
+    member __.GetSections (name) =
+      getSectionsByName secs.Value segMap.Value name
 
-    member __.GetTextSection () = getTextSection mach
+    member __.GetTextSection () = getTextSection secs.Value segMap.Value
 
-    member __.GetSegments (isLoadable) = Segment.getSegments mach isLoadable
+    member __.GetSegments (isLoadable) = Segment.toSeq segCmds.Value isLoadable
 
     member __.GetSegments (addr) =
       (__ :> IBinFile).GetSegments ()
@@ -166,9 +181,9 @@ type MachBinFile (path, stream: Stream, isa, baseAddrOpt) =
       (__ :> IBinFile).GetSegments ()
       |> Seq.filter (fun s -> (s.Permission &&& perm = perm) && s.Size > 0u)
 
-    member __.GetLinkageTableEntries () = getPLT mach
+    member __.GetLinkageTableEntries () = getPLT symInfo.Value
 
-    member __.IsLinkageTable addr = isPLT mach addr
+    member __.IsLinkageTable addr = isPLT symInfo.Value addr
 
     member __.GetFunctionAddresses () =
       (__ :> IBinFile).GetFunctionSymbols ()
@@ -177,8 +192,7 @@ type MachBinFile (path, stream: Stream, isa, baseAddrOpt) =
     member __.GetFunctionAddresses (_) =
       (__ :> IBinFile).GetFunctionAddresses ()
 
-    member __.NewBinFile bs = MachBinFile (bs, path, isa, baseAddrOpt)
+    member __.NewBinFile bs = Utils.futureFeature ()
 
-    member __.NewBinFile (bs, baseAddr) =
-      MachBinFile (bs, path, isa, Some baseAddr)
+    member __.NewBinFile (bs, baseAddr) = Utils.futureFeature ()
 

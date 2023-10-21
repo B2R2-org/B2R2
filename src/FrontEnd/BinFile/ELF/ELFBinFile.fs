@@ -47,13 +47,6 @@ type ELFBinFile (path, stream: Stream, baseAddrOpt, regbay) =
   let notInFileRanges = lazy invalidRangesByFileBounds hdr phdrs.Value
   let executableRanges = lazy executableRanges shdrs.Value loadables.Value
 
-  new (path: string) = ELFBinFile (path, None, None)
-
-  new (path, baseAddrOpt, regbay) =
-    let fs =
-      new FileStream (path, FileMode.Open, FileAccess.Read, FileShare.Read)
-    ELFBinFile (path, fs, baseAddrOpt, regbay)
-
   /// ELF Header information.
   member __.Header with get() = hdr
 

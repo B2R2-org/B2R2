@@ -22,64 +22,86 @@
   SOFTWARE.
 *)
 
-module internal B2R2.FrontEnd.BinFile.Mach.Reloc
+namespace B2R2.FrontEnd.BinFile.Mach
 
 open System
-open System.Collections.Generic
 open B2R2
 open B2R2.FrontEnd.BinFile
+open B2R2.FrontEnd.BinFile.FileHelper
 
-let parseRelocSymbol data =
-  let n = data &&& 0xFFFFFF
-  if (data >>> 27) &&& 1 = 1 then SymIndex (n)
-  else SecOrdinal (n)
+type RelocSymbol =
+  | SymIndex of int (* Symbol table index *)
+  | SecOrdinal of int (* Section number *)
 
-let parseRelocLength data =
-  match (data >>> 25) &&& 3 with
-  | 0 -> 8<rt>
-  | 1 -> 16<rt>
-  | _ -> 32<rt>
+/// Reloc info.
+type RelocationInfo = {
+  /// Offset in the section to what is being relocated.
+  RelocAddr: int
+  /// RelocSymbol
+  RelocSymbol: RelocSymbol
+  /// Relocation length.
+  RelocLength: RegType
+  /// Parent section
+  RelocSection: MachSection
+  /// Is this address part of an instruction that uses PC-relative addressing?
+  IsPCRel: bool
+}
 
-let rec updateReloc relocs (span: ByteSpan) reader sec off endOffset =
-  if off >= endOffset then ()
-  else
-    let addr = (reader: IBinReader).ReadInt32 (span, off)
-    let data = reader.ReadInt32 (span, off + 4)
+module internal Reloc =
+  let private parseRelocSymbol data =
+    let n = data &&& 0xFFFFFF
+    if (data >>> 27) &&& 1 = 1 then SymIndex (n)
+    else SecOrdinal (n)
+
+  let private parseRelocLength data =
+    match (data >>> 25) &&& 3 with
+    | 0 -> 8<rt>
+    | 1 -> 16<rt>
+    | _ -> 32<rt>
+
+  let private countRelocs secs =
+    secs |> Array.fold (fun cnt sec -> cnt + sec.SecNumOfReloc) 0
+
+  let private parseReloc (span: ByteSpan) (reader: IBinReader) sec =
+    let addr = reader.ReadInt32 (span, 0)
+    let data = reader.ReadInt32 (span, 4)
     let sym = parseRelocSymbol data
     let len = parseRelocLength data
     let rel = (data >>> 24) &&& 1 = 1
-    let r =
-      { RelocAddr = addr
-        RelocSymbol = sym
-        RelocLength = len
-        RelocSection = sec
-        IsPCRel = rel }
-    (relocs: List<RelocationInfo>).Add r
-    updateReloc relocs span reader sec (off + 8) endOffset
+    { RelocAddr = addr
+      RelocSymbol = sym
+      RelocLength = len
+      RelocSection = sec
+      IsPCRel = rel }
 
-let translateRelocAddr reloc =
-  reloc.RelocSection.SecAddr + uint64 reloc.RelocAddr
+  let private translateRelocAddr reloc =
+    reloc.RelocSection.SecAddr + uint64 reloc.RelocAddr
 
-let translateRelocSymbol (symbols: MachSymbol []) (secs: MachSection []) reloc =
-  match reloc.RelocSymbol with
-  | SymIndex (n) -> symbols[n].SymName
-  | SecOrdinal (n) -> secs[n - 1].SecName
+  let private translateRelocSymbol (symbols: MachSymbol []) (secs: MachSection []) reloc =
+    match reloc.RelocSymbol with
+    | SymIndex (n) -> symbols[n].SymName
+    | SecOrdinal (n) -> secs[n - 1].SecName
 
-let toSymbol symbols secs reloc =
-  { Address = translateRelocAddr reloc
-    Name = translateRelocSymbol symbols secs reloc
-    Kind = SymNoType (* FIXME *)
-    Visibility = SymbolVisibility.DynamicSymbol
-    LibraryName = ""
-    ArchOperationMode = ArchOperationMode.NoMode }
+  let private toSymbol symbols secs reloc =
+    { Address = translateRelocAddr reloc
+      Name = translateRelocSymbol symbols secs reloc
+      Kind = SymNoType (* FIXME *)
+      Visibility = SymbolVisibility.DynamicSymbol
+      LibraryName = ""
+      ArchOperationMode = ArchOperationMode.NoMode }
 
-let parseRelocs span reader secs =
-  let relocs = List<RelocationInfo> ()
-  for sec in secs do
-    if sec.SecNumOfReloc = 0 then ()
-    else
-      let startOffset = sec.SecRelOff |> Convert.ToInt32
-      let endOffset = startOffset + (8 * int sec.SecNumOfReloc)
-      updateReloc relocs span reader sec startOffset endOffset
-  relocs
-  |> Seq.toArray
+  let parse { Stream = stream; Reader = reader } symInfo secs =
+    let numRelocs = countRelocs secs
+    let relocs = Array.zeroCreate numRelocs
+    let mutable i = 0
+    for sec in secs do
+      let relOffset = uint64 sec.SecRelOff
+      let relSize = int sec.SecNumOfReloc * 8
+      let relSpan = ReadOnlySpan (readChunk stream relOffset relSize)
+      for n = 0 to sec.SecNumOfReloc - 1 do
+        let offset = n * 8
+        relocs[i] <- parseReloc (relSpan.Slice offset) reader sec
+        i <- i + 1
+    relocs
+    |> Seq.toArray
+    |> Array.map (toSymbol symInfo.Symbols secs)

@@ -133,28 +133,6 @@ with
   member ReadASCII: ptr: BinFilePointer -> string
 
   /// <summary>
-  ///   Initialize a BInHnalder from a given binary byte sequence. This function
-  ///   will read the byte sequence and automatically detect its binary format
-  ///   if autoDetect is true. Otherwise, it will consider the given binary
-  ///   sequence as a raw binary (just a series of machine instructions without
-  ///   specific file format).
-  /// </summary>
-  /// <param name="isa">ISA.</param>
-  /// <param name="archMode">ArchOperationMode.</param>
-  /// <param name="autoDetect">Perform auto format detection or not.</param>
-  /// <param name="baseAddr">Base address for calculating instruction
-  /// addresses.</param>
-  /// <param name="bytes">Raw binary sequence.</param>
-  /// <returns>BinHandle.</returns>
-  static member Init:
-      isa: ISA
-    * archMode: ArchOperationMode
-    * autoDetect: bool
-    * baseAddr: Addr option
-    * bytes: byte []
-    -> BinHandle
-
-  /// <summary>
   ///   Initialize a BinHandle from a given binary file (fileName). This
   ///   function will read the file and parse it. It will automatically detect
   ///   the file format if autoDetect is true. Otherwise, it will cnosider the

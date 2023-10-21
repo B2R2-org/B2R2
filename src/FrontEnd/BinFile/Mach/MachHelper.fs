@@ -27,6 +27,7 @@ module internal B2R2.FrontEnd.BinFile.Mach.Helper
 open System
 open B2R2
 open B2R2.FrontEnd.BinFile
+open B2R2.FrontEnd.BinFile.FileHelper
 
 /// Mach-specific virtual memory permission (for maxprot and initprot). Note
 /// that these values are different than the B2R2.Permission type.
@@ -39,11 +40,11 @@ type MachVMProt =
   /// File is executable.
   | Executable = 4
 
-let getISA mach =
-  let cputype = mach.MachHdr.CPUType
-  let cpusubtype = mach.MachHdr.CPUSubType
-  let arch = Header.cpuTypeToArch cputype cpusubtype
-  let endian = Header.magicToEndian mach.MachHdr.Magic
+let getISA hdr =
+  let cputype = hdr.CPUType
+  let cpusubtype = hdr.CPUSubType
+  let arch = CPUType.toArch cputype cpusubtype
+  let endian = Header.magicToEndian hdr.Magic
   ISA.Init arch endian
 
 let convFileType = function
@@ -53,6 +54,26 @@ let convFileType = function
   | MachFileType.MHFvmlib -> FileType.LibFile
   | MachFileType.MHCore -> FileType.CoreFile
   | _ -> FileType.UnknownFile
+
+let isMainCmd = function
+  | Main _ -> true
+  | _ -> false
+
+let getMainOffset cmds =
+  match cmds |> Array.tryFind isMainCmd with
+  | Some (Main m) -> m.EntryOff
+  | _ -> 0UL
+
+let getTextSegOffset segs =
+  let isTextSegment s = s.SegCmdName = LoadCommand.TextSegName
+  match segs |> Array.tryFind isTextSegment with
+  | Some s -> s.VMAddr
+  | _ -> raise InvalidFileFormatException
+
+let computeEntryPoint segs cmds =
+  let mainOffset = getMainOffset cmds
+  if mainOffset = 0UL then None
+  else Some (mainOffset + getTextSegOffset segs)
 
 let machTypeToSymbKind sym secText =
   if (sym.SymType = SymbolType.NFun && sym.SymName.Length > 0)
@@ -74,37 +95,49 @@ let machSymbolToSymbol secText vis sym =
     LibraryName = Symbol.getSymbolLibName sym
     ArchOperationMode = ArchOperationMode.NoMode }
 
-let getStaticSymbols mach =
-  mach.SymInfo.Symbols
+let getStaticSymbols secs symInfo =
+  let secText = Section.getTextSectionIndex secs
+  symInfo.Symbols
   |> Array.filter Symbol.isStatic
-  |> Array.map (machSymbolToSymbol mach.SecText SymbolVisibility.StaticSymbol)
+  |> Array.map (machSymbolToSymbol secText SymbolVisibility.StaticSymbol)
 
-let isStripped mach =
-  getStaticSymbols mach
+let isStripped secs symInfo =
+  getStaticSymbols secs symInfo
   |> Array.exists (fun s -> s.Kind = SymFunctionType)
   |> not
 
-let isNXEnabled mach =
-  not (mach.MachHdr.Flags.HasFlag MachFlag.MHAllowStackExecution)
-  || mach.MachHdr.Flags.HasFlag MachFlag.MHNoHeapExecution
+let isNXEnabled hdr =
+  not (hdr.Flags.HasFlag MachFlag.MHAllowStackExecution)
+  || hdr.Flags.HasFlag MachFlag.MHNoHeapExecution
 
-let inline translateAddr mach addr =
-  match ARMap.tryFindByAddr addr mach.SegmentMap with
+let translateAddr segMap addr =
+  match ARMap.tryFindByAddr addr segMap with
   | Some s -> Convert.ToInt32 (addr - s.VMAddr + s.FileOff)
   | None -> raise InvalidAddrReadException
 
-let getDynamicSymbols excludeImported mach =
-  let excludeImported = defaultArg excludeImported false
-  let filter = Array.filter (fun (s: MachSymbol) -> s.SymAddr > 0UL)
-  mach.SymInfo.Symbols
-  |> Array.filter Symbol.isDynamic
-  |> fun arr -> if excludeImported then filter arr else arr
-  |> Array.map (machSymbolToSymbol mach.SecText SymbolVisibility.DynamicSymbol)
+let private computeInvalidRanges toolBox segCmds getNextStartAddr =
+  segCmds
+  |> Array.filter (fun seg -> seg.SegCmdName <> "__PAGEZERO")
+  |> Array.sortBy (fun seg -> seg.VMAddr)
+  |> Array.fold (fun (set, saddr) seg ->
+       let n = getNextStartAddr seg
+       addInvalidRange set saddr seg.VMAddr, n) (IntervalSet.empty, 0UL)
+  |> addLastInvalidRange toolBox.Header.Class
 
-let getSymbols mach =
-  let s = getStaticSymbols mach
-  let d = getDynamicSymbols None mach
-  Array.append s d |> Array.toSeq
+let invalidRangesByVM toolBox segCmds =
+  computeInvalidRanges toolBox segCmds (fun seg -> seg.VMAddr + seg.VMSize)
+
+let invalidRangesByFileBounds toolBox segCmds =
+  computeInvalidRanges toolBox segCmds (fun seg -> seg.VMAddr + seg.FileSize)
+
+let executableRanges segCmds =
+  segCmds
+  |> Array.filter (fun seg ->
+    let perm: Permission = seg.MaxProt |> LanguagePrimitives.EnumOfValue
+    perm &&& Permission.Executable = Permission.Executable)
+  |> Array.fold (fun set s ->
+    IntervalSet.add (AddrRange (s.VMAddr, s.VMAddr + s.VMSize - 1UL)) set
+    ) IntervalSet.empty
 
 let secFlagToSectionKind isExecutable = function
   | SectionType.NonLazySymbolPointers
@@ -124,57 +157,54 @@ let machSectionToSection segMap (sec: MachSection) =
     Size = uint32 sec.SecSize
     Name = sec.SecName }
 
-let getSections mach =
-  mach.Sections.SecByNum
-  |> Array.map (machSectionToSection mach.SegmentMap)
+let getSectionsByAddr secs segMap addr =
+  secs
+  |> Array.tryFind (fun s -> addr >= s.SecAddr && addr < s.SecAddr + s.SecSize)
+  |> function
+    | Some s -> Seq.singleton (machSectionToSection segMap s)
+    | None -> Seq.empty
+
+let getSectionsByName secs segMap name =
+  match secs |> Array.tryFind (fun s -> s.SecName = name) with
+  | Some s -> Seq.singleton (machSectionToSection segMap s)
+  | None -> Seq.empty
+
+let getSections secs segMap =
+  secs
+  |> Array.map (machSectionToSection segMap)
   |> Array.toSeq
 
-let getSectionsByAddr mach addr =
-  match ARMap.tryFindByAddr addr mach.Sections.SecByAddr with
-  | Some s -> Seq.singleton (machSectionToSection mach.SegmentMap s)
-  | None -> Seq.empty
+let getTextSection (secs: MachSection[]) segMap =
+  let secText = Section.getTextSectionIndex secs
+  secs[secText]
+  |> machSectionToSection segMap
 
-let getSectionsByName mach name =
-  match Map.tryFind name mach.Sections.SecByName with
-  | Some s -> Seq.singleton (machSectionToSection mach.SegmentMap s)
-  | None -> Seq.empty
-
-let getTextSection mach =
-  mach.Sections.SecByNum[mach.SecText]
-  |> machSectionToSection mach.SegmentMap
-
-let getPLT mach =
-  mach.SymInfo.LinkageTable
+let getPLT symInfo =
+  symInfo.LinkageTable
   |> List.sortBy (fun entry -> entry.TrampolineAddress)
   |> List.toSeq
 
-let isPLT mach addr =
-  mach.SymInfo.LinkageTable
+let isPLT symInfo addr =
+  symInfo.LinkageTable
   |> List.exists (fun entry -> entry.TrampolineAddress = addr)
 
-let inline tryFindFuncSymb mach addr =
-  match Map.tryFind addr mach.SymInfo.SymbolMap with
+let tryFindFuncSymb symInfo addr =
+  match Map.tryFind addr symInfo.SymbolMap with
   | Some s -> Ok s.SymName
   | None -> Error ErrorCase.SymbolNotFound
 
-let inline isValidAddr mach addr =
-  IntervalSet.containsAddr addr mach.InvalidAddrRanges |> not
+let getDynamicSymbols excludeImported secs symInfo =
+  let secText = Section.getTextSectionIndex secs
+  let excludeImported = defaultArg excludeImported false
+  let filter = Array.filter (fun (s: MachSymbol) -> s.SymAddr > 0UL)
+  symInfo.Symbols
+  |> Array.filter Symbol.isDynamic
+  |> fun arr -> if excludeImported then filter arr else arr
+  |> Array.map (machSymbolToSymbol secText SymbolVisibility.DynamicSymbol)
 
-let inline isValidRange mach range =
-  IntervalSet.findAll range mach.InvalidAddrRanges |> List.isEmpty
-
-let inline isInFileAddr mach addr =
-  IntervalSet.containsAddr addr mach.NotInFileRanges |> not
-
-let inline isInFileRange mach range =
-  IntervalSet.findAll range mach.NotInFileRanges |> List.isEmpty
-
-let inline isExecutableAddr mach addr =
-  IntervalSet.containsAddr addr mach.ExecutableRanges
-
-let inline getNotInFileIntervals mach range =
-  IntervalSet.findAll range mach.NotInFileRanges
-  |> List.map range.Slice
-  |> List.toSeq
+let getSymbols secs symInfo =
+  let s = getStaticSymbols secs symInfo
+  let d = getDynamicSymbols None secs symInfo
+  Array.append s d |> Array.toSeq
 
 // vim: set tw=80 sts=2 sw=2:

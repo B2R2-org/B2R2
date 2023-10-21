@@ -43,7 +43,6 @@
     <Compile Include="ELF\ELFExceptionInfo.fs" />
     <Compile Include="ELF\ELFHelper.fs" />
     <Compile Include="ELF\ELFBinFile.fs" />
-    <Compile Include="Mach\MachTypes.fs" />
     <Compile Include="Mach\MachMagic.fs" />
     <Compile Include="Mach\MachCPUType.fs" />
     <Compile Include="Mach\MachFat.fs" />
@@ -51,10 +50,9 @@
     <Compile Include="Mach\MachLoadCommands.fs" />
     <Compile Include="Mach\MachSegment.fs" />
     <Compile Include="Mach\MachSection.fs" />
-    <Compile Include="Mach\MachReloc.fs" />
     <Compile Include="Mach\MachSymbol.fs" />
+    <Compile Include="Mach\MachReloc.fs" />
     <Compile Include="Mach\MachHelper.fs" />
-    <Compile Include="Mach\MachParser.fs" />
     <Compile Include="Mach\MachBinFile.fs" />
     <Compile Include="PE\PETypes.fs" />
     <Compile Include="PE\PEPDB.fs" />
@@ -63,7 +61,7 @@
     <Compile Include="PE\PEParser.fs" />
     <Compile Include="PE\PEBinFile.fs" />
     <Compile Include="FormatDetector.fs" />
-    <Compile Include="FileLoader.fs" />
+    <Compile Include="FileHandle.fs" />
     <None Include="..\..\..\LICENSE.md" Pack="true" PackagePath="" />
     <None Include="..\..\..\assets\b2r2-240x240.png" Pack="true" PackagePath="" />
     <None Include="README.md" Pack="true" PackagePath="" />

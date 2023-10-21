@@ -51,9 +51,9 @@ let getRawOffset secs rva =
   let sHdr = secs[idx]
   rva + sHdr.PointerToRawData - sHdr.VirtualAddress
 
-let readStr secs (bs: byte[]) rva =
+let readStr secs stream rva =
   if rva = 0 then ""
-  else readCString (ReadOnlySpan bs) (getRawOffset secs rva)
+  else readCStringFromStream stream (getRawOffset secs rva)
 
 let isNULLImportDir tbl =
   tbl.ImportLookupTableRVA = 0
@@ -66,103 +66,40 @@ let decodeForwardInfo (str: string) =
   let dllName, funcName = strInfo[0], strInfo[1]
   (dllName, funcName)
 
-let readIDTEntry (bs: byte[]) (reader: IBinReader) secs pos =
-  { ImportLookupTableRVA = reader.ReadInt32 (bs, pos)
-    ForwarderChain = reader.ReadInt32 (bs, pos + 8)
-    ImportDLLName = reader.ReadInt32 (bs, pos + 12) |> readStr secs bs
-    ImportAddressTableRVA = reader.ReadInt32 (bs, pos + 16)
-    DelayLoad = false }
+let readExportDirectoryTableEntry stream (reader: IBinReader) tbl secs =
+  { ExportDLLName = readStr secs stream (reader.ReadInt32 (bs=tbl, offset=12))
+    OrdinalBase = reader.ReadInt32 (tbl, 16)
+    AddressTableEntries = reader.ReadInt32 (tbl, 20)
+    NumNamePointers = reader.ReadInt32 (tbl, 24)
+    ExportAddressTableRVA = reader.ReadInt32 (tbl, 28)
+    NamePointerRVA = reader.ReadInt32 (tbl, 32)
+    OrdinalTableRVA = reader.ReadInt32 (tbl, 36) }
 
-let readDelayIDTEntry (bs: byte[]) (reader: IBinReader) secs pos =
-  { ImportLookupTableRVA = reader.ReadInt32 (bs, pos + 16)
-    ForwarderChain = 0
-    ImportDLLName = reader.ReadInt32 (bs, pos + 4) |> readStr secs bs
-    ImportAddressTableRVA = reader.ReadInt32 (bs, pos + 12)
-    DelayLoad = true }
+let inline getEATEntry (lowerBound, upperBound) rva =
+  if rva < lowerBound || rva > upperBound then ExportRVA rva
+  else ForwarderRVA rva
 
-let parseImportDirectoryTableAux bytes reader secs readFn nextPos = function
-  | 0 -> [||]
-  | rva ->
-    let rec loop acc pos =
-      let tbl = readFn bytes reader secs pos
-      if isNULLImportDir tbl then acc else loop (tbl :: acc) (nextPos pos)
-    getRawOffset secs rva |> loop [] |> List.rev |> List.toArray
-
-let parseImportDirectoryTable bytes reader (headers: PEHeaders) secs =
-  let nextPos pos = pos + 20
-  headers.PEHeader.ImportTableDirectory.RelativeVirtualAddress
-  |> parseImportDirectoryTableAux bytes reader secs readIDTEntry nextPos
-
-let parseDelayImportDirectoryTable bytes reader (headers: PEHeaders) secs =
-  let nextPos pos = pos + 32
-  headers.PEHeader.DelayImportTableDirectory.RelativeVirtualAddress
-  |> parseImportDirectoryTableAux bytes reader secs readDelayIDTEntry nextPos
-
-let parseILTEntry (bs: byte[]) (reader: IBinReader) secs idt mask rva =
-  let dllname = idt.ImportDLLName
-  if rva &&& mask <> 0UL then
-    ImportByOrdinal (uint16 rva |> int16, dllname)
-  else
-    let rva = 0x7fffffffUL &&& rva |> int
-    let hint = reader.ReadInt16 (bs, getRawOffset secs rva)
-    let funname = readStr secs bs (rva + 2)
-    ImportByName (hint, funname, dllname)
-
-let computeRVAMaskForILT wordSize =
-  if wordSize = WordSize.Bit32 then 0x80000000UL
-  else 0x8000000000000000UL
-
-let parseILT (bs: byte[]) reader secs wordSize map idt =
-  let skip = if wordSize = WordSize.Bit32 then 4 else 8
-  let mask = computeRVAMaskForILT wordSize
-  let rec loop map rvaOffset pos =
-    let rva = readUIntOfType (ReadOnlySpan bs) reader wordSize pos
-    if rva = 0UL then map
-    else
-      let entry = parseILTEntry bs reader secs idt mask rva
-      let map = Map.add (idt.ImportAddressTableRVA + rvaOffset) entry map
-      loop map (rvaOffset + skip) (pos + skip)
-  if idt.ImportLookupTableRVA <> 0 then idt.ImportLookupTableRVA
-  else idt.ImportAddressTableRVA
-  |> getRawOffset secs
-  |> loop map 0
-
-let parseImports bs reader (headers: PEHeaders) secs wordSize =
-  let mainImportTable = parseImportDirectoryTable bs reader headers secs
-  let delayImportTable = parseDelayImportDirectoryTable bs reader headers secs
-  Array.append mainImportTable delayImportTable
-  |> Array.toList
-  |> List.fold (parseILT bs reader secs wordSize) Map.empty
-
-let readExportDirectoryTableEntry (bs: byte[]) (reader: IBinReader) secs pos =
-  { ExportDLLName = readStr secs bs (reader.ReadInt32 (bs, pos + 12))
-    OrdinalBase = reader.ReadInt32 (bs, pos + 16)
-    AddressTableEntries = reader.ReadInt32 (bs, pos + 20)
-    NumNamePointers = reader.ReadInt32 (bs, pos + 24)
-    ExportAddressTableRVA = reader.ReadInt32 (bs, pos + 28)
-    NamePointerRVA = reader.ReadInt32 (bs, pos + 32)
-    OrdinalTableRVA = reader.ReadInt32 (bs, pos + 36) }
-
-let parseEAT (bs: byte[]) (reader: IBinReader) secs range edt =
-  let lowerbound, upperbound = range
-  let getEntry rva =
-    if rva < lowerbound || rva > upperbound then ExportRVA rva
-    else ForwarderRVA rva
-  let rec loop acc cnt pos =
-    if cnt = 0 then List.rev acc |> List.toArray
-    else let rva = reader.ReadInt32 (bs, pos)
-         loop (getEntry rva :: acc) (cnt - 1) (pos + 4)
+let parseEAT stream (reader: IBinReader) secs range edt =
   match edt.ExportAddressTableRVA with
   | 0 -> [||]
-  | rva -> getRawOffset secs rva |> loop [] edt.AddressTableEntries
+  | rva ->
+    let offset = uint64 (getRawOffset secs rva)
+    let buf = readChunk stream offset (edt.AddressTableEntries * 4)
+    let addrTbl = Array.zeroCreate edt.AddressTableEntries
+    for i = 0 to edt.AddressTableEntries - 1 do
+      let rva = reader.ReadInt32 (buf, i * 4)
+      addrTbl[i] <- getEATEntry range rva
+    addrTbl
 
 /// Parse Export Name Pointer Table (ENPT).
-let parseENPT (bs: byte[]) (reader: IBinReader) secs edt =
+let parseENPT stream reader secs edt =
   let rec loop acc cnt pos1 pos2 =
     if cnt = 0 then acc
-    else let str = readStr secs bs (reader.ReadInt32 (bs, pos1))
-         let ord = reader.ReadInt16 (bs, pos2)
-         loop ((str, ord) :: acc) (cnt - 1) (pos1 + 4) (pos2 + 2)
+    else
+      let rva = readInt32 stream reader pos1
+      let str = readStr secs stream rva
+      let ord = readInt16 stream reader pos2
+      loop ((str, ord) :: acc) (cnt - 1) (pos1 + 4) (pos2 + 2)
   if edt.NamePointerRVA = 0 then []
   else
     let offset1 = edt.NamePointerRVA |> getRawOffset secs
@@ -177,9 +114,9 @@ let private decideNameWithTable nameTbl ordBase idx =
   | None -> sprintf "#%d" (int16 idx + ordBase) // Exported with an ordinal.
   | Some (name, _) -> name // ENTP has a corresponding name for this entry.
 
-let buildExportTable bs reader baseAddr secs range edt =
-  let addrTbl = parseEAT bs reader secs range edt
-  let nameTbl = parseENPT bs reader secs edt
+let buildExportTable stream reader baseAddr secs range edt =
+  let addrTbl = parseEAT stream reader secs range edt
+  let nameTbl = parseENPT stream reader secs edt
   let ordinalBase = int16 edt.OrdinalBase
   let folder (expMap, forwMap) idx = function
     | ExportRVA rva ->
@@ -191,38 +128,110 @@ let buildExportTable bs reader baseAddr secs range edt =
       expMap, forwMap
     | ForwarderRVA rva ->
       let name = decideNameWithTable nameTbl ordinalBase idx
-      let forwardStr = readStr secs bs rva
+      let forwardStr = readStr secs stream rva
       let forwardInfo = decodeForwardInfo forwardStr
       let forwMap = Map.add name forwardInfo forwMap
       expMap, forwMap
   Array.foldi folder (Map.empty, Map.empty) addrTbl |> fst
 
-let parseExports baseAddr bytes reader (headers: PEHeaders) secs =
+let parseExports baseAddr stream reader (headers: PEHeaders) secs =
   match headers.PEHeader.ExportTableDirectory.RelativeVirtualAddress with
   | 0 -> Map.empty, Map.empty
   | rva ->
     let size = headers.PEHeader.ExportTableDirectory.Size
     let range = (rva, rva + size)
-    getRawOffset secs rva
-    |> readExportDirectoryTableEntry bytes reader secs
-    |> buildExportTable bytes reader baseAddr secs range
+    let offset = getRawOffset secs rva
+    let tbl = readChunk stream (uint64 offset) size
+    readExportDirectoryTableEntry stream reader tbl secs
+    |> buildExportTable stream reader baseAddr secs range
 
-let buildRelocBlock (bs: byte[]) (reader: IBinReader) headerOffset =
-  let blockSize = reader.ReadInt32 (bs, headerOffset + 4)
+let readIDTEntry stream (bs: byte[]) (reader: IBinReader) secs pos =
+  { ImportLookupTableRVA = reader.ReadInt32 (bs, pos)
+    ForwarderChain = reader.ReadInt32 (bs, pos + 8)
+    ImportDLLName = reader.ReadInt32 (bs, pos + 12) |> readStr secs stream
+    ImportAddressTableRVA = reader.ReadInt32 (bs, pos + 16)
+    DelayLoad = false }
+
+let readDelayIDTEntry stream (bs: byte[]) (reader: IBinReader) secs pos =
+  { ImportLookupTableRVA = reader.ReadInt32 (bs, pos + 16)
+    ForwarderChain = 0
+    ImportDLLName = reader.ReadInt32 (bs, pos + 4) |> readStr secs stream
+    ImportAddressTableRVA = reader.ReadInt32 (bs, pos + 12)
+    DelayLoad = true }
+
+let parseImportDirectoryTblAux stream reader secs entrySize dirSize rva readFn =
+  if rva = 0 then [||]
+  else
+    let offset = getRawOffset secs rva
+    let buf = readChunk stream (uint64 offset) dirSize
+    let rec loop acc offset =
+      let tbl = readFn stream buf reader secs offset
+      if isNULLImportDir tbl then acc
+      else loop (tbl :: acc) (offset + entrySize)
+    loop [] 0 |> List.rev |> List.toArray
+
+let parseImportDirectoryTable stream reader (headers: PEHeaders) secs =
+  let size = headers.PEHeader.ImportTableDirectory.Size
+  let rva = headers.PEHeader.ImportTableDirectory.RelativeVirtualAddress
+  parseImportDirectoryTblAux stream reader secs 20 size rva readIDTEntry
+
+let parseDelayImportDirectoryTable stream reader (headers: PEHeaders) secs =
+  let size = headers.PEHeader.DelayImportTableDirectory.Size
+  let rva = headers.PEHeader.DelayImportTableDirectory.RelativeVirtualAddress
+  parseImportDirectoryTblAux stream reader secs 32 size rva readDelayIDTEntry
+
+let parseILTEntry stream (reader: IBinReader) secs idt mask rva =
+  let dllname = idt.ImportDLLName
+  if rva &&& mask <> 0UL then
+    ImportByOrdinal (uint16 rva |> int16, dllname)
+  else
+    let rva = 0x7fffffffUL &&& rva |> int
+    let hint = readInt16 stream reader (getRawOffset secs rva)
+    let funname = readStr secs stream (rva + 2)
+    ImportByName (hint, funname, dllname)
+
+let computeRVAMaskForILT wordSize =
+  if wordSize = WordSize.Bit32 then 0x80000000UL
+  else 0x8000000000000000UL
+
+let parseILT stream (reader: IBinReader) secs wordSize map idt =
+  let skip = if wordSize = WordSize.Bit32 then 4 else 8
+  let mask = computeRVAMaskForILT wordSize
+  let rec loop map rvaOffset pos =
+    let rva = readNativeFromStream stream reader wordSize pos
+    if rva = 0UL then map
+    else
+      let entry = parseILTEntry stream reader secs idt mask rva
+      let map = Map.add (idt.ImportAddressTableRVA + rvaOffset) entry map
+      loop map (rvaOffset + skip) (pos + skip)
+  if idt.ImportLookupTableRVA <> 0 then idt.ImportLookupTableRVA
+  else idt.ImportAddressTableRVA
+  |> getRawOffset secs
+  |> loop map 0
+
+let parseImports stream reader (headers: PEHeaders) secs wordSize =
+  let mainImportTbl = parseImportDirectoryTable stream reader headers secs
+  let delayImportTbl = parseDelayImportDirectoryTable stream reader headers secs
+  Array.append mainImportTbl delayImportTbl
+  |> Array.toList
+  |> List.fold (parseILT stream reader secs wordSize) Map.empty
+
+let buildRelocBlock stream reader headerOffset =
+  let blockSize = readInt32 stream reader (headerOffset + 4)
   let upperBound = headerOffset + blockSize
   let rec parseBlock offset entries =
     if offset < upperBound then
-      let buffer = reader.ReadUInt16(bs, offset)
+      let buffer = readInt16 stream reader offset |> uint16
       { Type = buffer >>> 12 |> int32 |> LanguagePrimitives.EnumOfValue;
         Offset = buffer &&& 0xFFFus }::entries
       |> parseBlock (offset + 2)
     else
       entries |> List.toArray
-  { PageRVA = reader.ReadUInt32 (bs, headerOffset)
+  { PageRVA = readUInt32 stream reader (uint64 headerOffset)
     BlockSize = blockSize
     Entries = parseBlock (headerOffset + 8) List.empty }
 
-let parseRelocation bs (reader: IBinReader) (headers: PEHeaders) secs =
+let parseRelocation stream (reader: IBinReader) (headers: PEHeaders) secs =
   let peHdr = headers.PEHeader
   match peHdr.BaseRelocationTableDirectory.RelativeVirtualAddress with
   | 0 -> List.empty
@@ -231,7 +240,7 @@ let parseRelocation bs (reader: IBinReader) (headers: PEHeaders) secs =
     let upperBound = hdrOffset + peHdr.BaseRelocationTableDirectory.Size
     let rec parseRelocDirectory offset blks =
       if offset < upperBound then
-        let relocBlk = buildRelocBlock bs reader offset
+        let relocBlk = buildRelocBlock stream reader offset
         parseRelocDirectory (offset + relocBlk.BlockSize) (relocBlk :: blks)
       else blks
     parseRelocDirectory hdrOffset List.empty
@@ -304,18 +313,18 @@ let execRanges baseAddr secs =
     IntervalSet.add (AddrRange (saddr, eaddr - 1UL)) set
     ) IntervalSet.empty
 
-let parseImage execpath rawpdb baseAddr bytes reader (hdrs: PEHeaders) =
+let parseImage execpath rawpdb baseAddr stream reader (hdrs: PEHeaders) =
   let wordSize = magicToWordSize hdrs.PEHeader.Magic
   let baseAddr = defaultArg baseAddr hdrs.PEHeader.ImageBase
   let secs = hdrs.SectionHeaders |> Seq.toArray
-  let exportMap, forwardMap = parseExports baseAddr bytes reader hdrs secs
+  let exportMap, forwardMap = parseExports baseAddr stream reader hdrs secs
   { PEHeaders = hdrs
     BaseAddr = baseAddr
     SectionHeaders = secs
-    ImportMap= parseImports bytes reader hdrs secs wordSize
+    ImportMap= parseImports stream reader hdrs secs wordSize
     ExportMap = exportMap
     ForwardMap = forwardMap
-    RelocBlocks = parseRelocation bytes reader hdrs secs
+    RelocBlocks = parseRelocation stream reader hdrs secs
     WordSize = wordSize
     SymbolInfo =
       getPDBSymbols reader execpath rawpdb |> buildPDBInfo baseAddr secs
@@ -325,9 +334,9 @@ let parseImage execpath rawpdb baseAddr bytes reader (hdrs: PEHeaders) =
     FindSectionIdxFromRVA = findSectionIndex hdrs secs
     BinReader = reader }
 
-let parseCoff baseAddr (bytes: byte[]) reader (hdrs: PEHeaders) =
+let parseCoff baseAddrOpt stream reader (hdrs: PEHeaders) =
   let coff = hdrs.CoffHeader
-  let baseAddr = defaultArg baseAddr 0UL
+  let baseAddr = defaultArg baseAddrOpt 0UL
   let wordSize = Coff.getWordSize coff.Machine
   let secs = hdrs.SectionHeaders |> Seq.toArray
   let idx = secs |> Array.findIndex (fun s -> s.Name.StartsWith ".text")
@@ -340,20 +349,19 @@ let parseCoff baseAddr (bytes: byte[]) reader (hdrs: PEHeaders) =
     ForwardMap = Map.empty
     RelocBlocks = []
     WordSize = wordSize
-    SymbolInfo = Coff.getSymbols (ReadOnlySpan bytes) reader coff
+    SymbolInfo = Coff.getSymbols stream reader coff
     InvalidAddrRanges = IntervalSet.empty
     NotInFileRanges = IntervalSet.empty
     ExecutableRanges = execRanges baseAddr secs
     FindSectionIdxFromRVA = findSectionIdxFromRVA
     BinReader = reader }
 
-let parsePE execpath baseAddr rawpdb bytes reader (peReader: PEReader) =
+let parsePE execpath baseAddrOpt rawpdb stream reader (peReader: PEReader) =
   let hdrs = peReader.PEHeaders
-  if hdrs.IsCoffOnly then parseCoff baseAddr bytes reader hdrs
-  else parseImage execpath rawpdb baseAddr bytes reader hdrs
+  if hdrs.IsCoffOnly then parseCoff baseAddrOpt stream reader hdrs
+  else parseImage execpath rawpdb baseAddrOpt stream reader hdrs
 
-let parse (bytes: byte[]) execpath baseAddr rawpdb =
+let parse execpath stream baseAddrOpt rawpdb =
   let reader = BinReader.Init Endian.Little
-  use stream = new IO.MemoryStream (bytes)
   use peReader = new PEReader (stream, PEStreamOptions.Default)
-  parsePE execpath baseAddr rawpdb bytes reader peReader
+  parsePE execpath baseAddrOpt rawpdb stream reader peReader

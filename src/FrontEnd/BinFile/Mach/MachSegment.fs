@@ -27,16 +27,12 @@ module internal B2R2.FrontEnd.BinFile.Mach.Segment
 open B2R2
 open B2R2.FrontEnd.BinFile
 
-let extract cmds =
-  let chooser = function
-    | Segment s -> Some s
-    | _ -> None
-  List.choose chooser cmds
+let private chooser = function
+  | Segment s -> Some s
+  | _ -> None
 
-let buildMap (segs: SegCmd list) =
-  segs
-  |> List.fold (fun map s ->
-       ARMap.addRange s.VMAddr (s.VMAddr + s.VMSize - 1UL) s map) ARMap.empty
+let extract cmds =
+  Array.choose chooser cmds
 
 let segCmdToSegment seg =
   { Address = seg.VMAddr
@@ -45,11 +41,15 @@ let segCmdToSegment seg =
     SizeInFile = uint32 seg.FileSize
     Permission = seg.MaxProt |> LanguagePrimitives.EnumOfValue }
 
-let getSegments mach isLoadable =
-  mach.Segments
-  |> fun segs ->
-    if isLoadable then segs |> List.filter (fun s -> s.FileSize > 0UL)
-    else segs
-  |> List.map segCmdToSegment
-  |> List.toSeq
+let toSeq segCmds isLoadable =
+  if isLoadable then segCmds |> Array.filter (fun s -> s.FileSize > 0UL)
+  else segCmds
+  |> Array.map segCmdToSegment
+  |> Array.toSeq
+
+let buildMap segs =
+  segs
+  |> Array.fold (fun map s ->
+       ARMap.addRange s.VMAddr (s.VMAddr + s.VMSize - 1UL) s map
+  ) ARMap.empty
 

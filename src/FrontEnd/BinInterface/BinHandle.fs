@@ -25,6 +25,7 @@
 namespace B2R2.FrontEnd.BinInterface
 
 open System
+open System.IO
 open B2R2
 open B2R2.FrontEnd.BinFile
 open B2R2.FrontEnd.BinLifter
@@ -37,13 +38,12 @@ type BinHandle = {
   Parser: IInsParsable
   RegisterBay: RegisterBay
   BinReader: IBinReader
-  OS: OS
 }
 with
-  static member private Init (isa, mode, autoDetect, baseAddr, bs, path, os) =
-    let struct (fmt, isa, os) = identifyFormatAndISAAndOS bs isa os autoDetect
+  static member private Init (isa, mode, autoDetect, baseAddr, path, stream) =
+    let struct (fmt, isa) = identifyFormatAndISA stream isa autoDetect
     let struct (ctxt, regbay) = Basis.init isa
-    let file = newFileInfo bs baseAddr path fmt isa regbay
+    let file = loadFile path stream baseAddr fmt isa regbay
     assert (isa = file.ISA)
     let parser = Parser.init isa mode file.EntryPoint
     { BinFile = file
@@ -51,20 +51,16 @@ with
       TranslationContext = ctxt
       Parser = parser
       RegisterBay = regbay
-      BinReader = BinReader.Init isa.Endian
-      OS = os }
-
-  static member Init (isa, archMode, autoDetect, baseAddr, bytes) =
-    BinHandle.Init (isa, archMode, autoDetect, baseAddr, bytes, "", None)
+      BinReader = BinReader.Init isa.Endian }
 
   static member Init (isa, archMode, autoDetect, baseAddr, fileName) =
-    let bytes = IO.File.ReadAllBytes fileName
-    let fileName = IO.Path.GetFullPath fileName
+    let bytes = File.ReadAllBytes fileName
+    let fileName = Path.GetFullPath fileName
     BinHandle.Init (isa, archMode, autoDetect, baseAddr, bytes, fileName, None)
 
   static member Init (isa, baseAddr, fileName) =
-    let bytes = IO.File.ReadAllBytes fileName
-    let fileName = IO.Path.GetFullPath fileName
+    let bytes = File.ReadAllBytes fileName
+    let fileName = Path.GetFullPath fileName
     let defaultMode = ArchOperationMode.NoMode
     BinHandle.Init (isa, defaultMode, true, baseAddr, bytes, fileName, None)
 

@@ -313,10 +313,8 @@ let peHeadersToArch (peHeaders: PEHeaders) =
 
 /// Return Architecture from the PE header. If the given binary is invalid,
 /// return an Error.
-let getPEArch bytes offset =
+let getPEArch stream =
   try
-    let bs = Array.sub bytes offset (Array.length bytes - offset)
-    use stream = new IO.MemoryStream (bs)
     use reader = new PEReader (stream, PEStreamOptions.Default)
     peHeadersToArch reader.PEHeaders |> Ok
   with _ ->

@@ -26,56 +26,46 @@
 [<RequireQualifiedAccess>]
 module B2R2.FrontEnd.BinFile.FormatDetector
 
-open System
+open System.IO
 open B2R2
 
-let private identifyELF span =
-  match ELF.Header.getISA span with
-  | Ok isa -> Some (FileFormat.ELFBinary, isa)
+let private identifyELF stream =
+  match ELF.Header.getISA stream with
+  | Ok isa -> Some struct (FileFormat.ELFBinary, isa)
   | _ -> None
 
-let private identifyPE bytes =
-  match PE.Helper.getPEArch bytes 0 with
+let private identifyPE stream =
+  match PE.Helper.getPEArch stream with
   | Ok arch ->
     let isa = ISA.Init arch Endian.Little
-    Some (FileFormat.PEBinary, isa)
+    Some struct (FileFormat.PEBinary, isa)
   | Error _ -> None
 
-let private identifyMach span isa =
-  if Mach.Header.isMach span then
-    let reader = Mach.Header.getMachBinReader span
-    if Mach.Header.isFat span reader then
-      let fat =
-        Mach.Fat.loadFats span reader
-        |> Mach.Fat.findMatchingFatRecord isa
-      let arch = Mach.Header.cpuTypeToArch fat.CPUType fat.CPUSubType
-      let endian = Mach.Header.peekEndianness (span.Slice fat.Offset) reader
-      let isa = ISA.Init arch endian
-      Some (FileFormat.MachBinary, isa)
-    else
-      let arch = Mach.Header.peekArch span reader
-      let endian = Mach.Header.peekEndianness span reader
-      let isa = ISA.Init arch endian
-      Some (FileFormat.MachBinary, isa)
+let private identifyMach stream isa =
+  if Mach.Header.isMach stream 0UL then
+    let toolBox = Mach.Header.parse stream None isa
+    let isa = Mach.Helper.getISA toolBox.Header
+    Some struct (FileFormat.MachBinary, isa)
   else None
 
-let private identifyWASM span isa =
+let private identifyWASM stream isa =
   let reader = BinReader.Init Endian.Little
-  if Wasm.Header.isWasm span reader then Some (FileFormat.WasmBinary, isa)
+  if Wasm.Header.isWasm stream reader then
+    Some struct (FileFormat.WasmBinary, isa)
   else None
 
 /// <summary>
-///   Given a binary (byte array), identify its binary file format
-///   (B2R2.FileFormat) and its underlying ISA (B2R2.ISA). For FAT binaries,
-///   this function will select an ISA only when there is a match with the given
-///   input ISA. Otherwise, this function will raise InvalidISAException.
+///   Given a binary stream, identify its binary file format (B2R2.FileFormat)
+///   and its underlying ISA (B2R2.ISA). For FAT binaries, this function will
+///   select an ISA only when there is a match with the given input ISA.
+///   Otherwise, this function will raise InvalidISAException.
 /// </summary>
 [<CompiledName("Identify")>]
-let identify (bytes: byte[]) isa =
+let identify (stream: Stream) isa =
   Monads.OrElse.orElse {
-    yield! identifyELF (ReadOnlySpan bytes)
-    yield! identifyPE bytes
-    yield! identifyMach (ReadOnlySpan bytes) isa
-    yield! identifyWASM (ReadOnlySpan bytes) isa
+    yield! identifyELF stream
+    yield! identifyPE stream
+    yield! identifyMach stream isa
+    yield! identifyWASM stream isa
     yield! Some (FileFormat.RawBinary, isa)
   } |> Option.get

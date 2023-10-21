@@ -149,6 +149,15 @@ type MachHeader = {
   /// A set of bit flags indicating the state of certain optional features of
   /// the Mach-O file format.
   Flags: MachFlag
+}
+
+/// This is a basic toolbox for parsing Mach-O binaries, which is returned from
+/// parsing a Mach-O header.
+type MachToolbox = {
+  Stream: Stream
+  Reader: IBinReader
+  BaseAddress: Addr
+  Header: MachHeader
   /// Offset from the start of the file to the Mach-O file format header. This
   /// is only meaningful for universal binaries.
   MachOffset: uint64
@@ -189,12 +198,12 @@ module internal Header =
     | Magic.MHMagic64 | Magic.MHCigam64 -> WordSize.Bit64
     | _ -> raise InvalidFileFormatException
 
-  let private magicToEndian = function
+  let magicToEndian = function
     | Magic.MHMagic | Magic.MHMagic64 | Magic.FATMagic -> Endian.Little
     | Magic.MHCigam | Magic.MHCigam64 | Magic.FATCigam -> Endian.Big
     | _ -> raise InvalidFileFormatException
 
-  let private readEndianness bytes reader =
+  let readEndianness bytes reader =
     Magic.read bytes reader
     |> magicToEndian
 
@@ -215,8 +224,7 @@ module internal Header =
       FileType = readFileType headerSpan reader
       NumCmds = reader.ReadUInt32 (headerSpan, 16)
       SizeOfCmds = reader.ReadUInt32 (headerSpan, 20)
-      Flags = readFlags headerSpan reader
-      MachOffset = offset }
+      Flags = readFlags headerSpan reader }
 
   let private computeMachOffset stream isa =
     if isFat stream then
@@ -229,10 +237,15 @@ module internal Header =
     if machHdr.Flags.HasFlag MachFlag.MHPIE then defaultArg baseAddr 0UL
     else 0UL
 
+  /// Parse the Mach-O file format header, and return a MachToolbox.
   let parse stream baseAddrOpt isa =
     let offset = computeMachOffset stream isa
     if isMach stream offset then
       let hdr = parseHeader stream offset
       let baseAddr = computeBaseAddr hdr baseAddrOpt
-      struct (hdr, baseAddr)
+      { Stream = stream
+        Reader = BinReader.Init (magicToEndian hdr.Magic)
+        BaseAddress = baseAddr
+        Header = hdr
+        MachOffset = offset }
     else raise InvalidFileFormatException

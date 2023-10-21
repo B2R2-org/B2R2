@@ -249,7 +249,9 @@ module internal Header =
         Header = hdr }
 
   /// Check if the file has a valid ELF header, and return an ISA.
-  let getISA (span: ByteSpan) =
+  let getISA (stream: Stream) =
+    let buf = readChunk stream 0UL 64 (* ELF header is maximum 64-byte long. *)
+    let span = ReadOnlySpan buf
     if isELF span then
       let endian = getEndianness span
       let reader = BinReader.Init endian

@@ -24,7 +24,8 @@
 
 module internal B2R2.FrontEnd.BinFile.PE.Coff
 
-open System.Collections.Generic
+open System
+open System.IO
 open System.Reflection.PortableExecutable
 open System.Runtime.InteropServices
 open B2R2
@@ -139,25 +140,27 @@ let buildSymbolMaps arr =
     Map.add symb.Name symb byName
   ) (Map.empty, Map.empty)
 
-let getSymbols (span: ByteSpan) reader (coff: CoffHeader) =
+let getSymbols (stream: Stream) reader (coff: CoffHeader) =
   let maxCnt = coff.NumberOfSymbols - 1
-  let tbloff = coff.PointerToSymbolTable
-  let stroff = tbloff + coff.NumberOfSymbols * 18
-  let symbs = List<CoffSymbol> ()
+  let tblOff = coff.PointerToSymbolTable
+  let strOff = tblOff + coff.NumberOfSymbols * 18
+  let symbs = Array.zeroCreate coff.NumberOfSymbols
+  let buf = readChunk stream (uint64 tblOff) (coff.NumberOfSymbols * 18)
+  let span = ReadOnlySpan buf
   let mutable auxcnt = 0
-  let mutable cnt = if tbloff = 0 then maxCnt else 0
+  let mutable cnt = if tblOff = 0 then maxCnt else 0
   while cnt < maxCnt do
     if auxcnt > 0 then (* TODO *)
       auxcnt <- auxcnt - 1
       cnt <- cnt + 1
     else
-      let offset = tbloff + cnt * 18
-      let name = parseSymbName span offset stroff
+      let offset = tblOff + cnt * 18
+      let name = parseSymbName span offset strOff
       let v = (reader: IBinReader).ReadInt32 (span, offset + 8)
       let secnum = reader.ReadInt16 (span, offset + 12) |> int
       let typ = reader.ReadInt16 (span, offset + 14) |> parseSymType
       let storage = span[offset + 16] |> parseStorageClass
-      symbs.Add (getCoffSymbol name v secnum typ storage)
+      symbs[cnt] <- getCoffSymbol name v secnum typ storage
       auxcnt <- span[offset + 17] |> int
       cnt <- cnt + 1
   Seq.choose toPESymbol symbs

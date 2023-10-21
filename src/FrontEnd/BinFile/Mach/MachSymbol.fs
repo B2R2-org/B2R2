@@ -22,7 +22,7 @@
   SOFTWARE.
 *)
 
-module internal B2R2.FrontEnd.BinFile.Mach.Symbol
+namespace B2R2.FrontEnd.BinFile.Mach
 
 open System
 open System.Collections.Generic
@@ -30,249 +30,379 @@ open B2R2
 open B2R2.FrontEnd.BinFile
 open B2R2.FrontEnd.BinFile.FileHelper
 
-let [<Literal>] IndirectSymbolLocal = 0x80000000
-let [<Literal>] IndirectSymbolABS = 0x40000000
+/// Symbol type (N_TYPE).
+type SymbolType =
+  /// The symbol is undefined.
+  | NUndef = 0x0
+  /// The symbol is absolute. The linker does not update the value of an
+  /// absolute symbol.
+  | NAbs = 0x2
+  /// The symbol is defined in the section number given in n_sect.
+  | NSect = 0xe
+  /// The symbol is undefined and the image is using a prebound value for the
+  /// symbol.
+  | NPreBnd = 0xc
+  /// The symbol is defined to be the same as another symbol.
+  | NIndirect = 0xa
+  /// Global symbol.
+  | NGSym = 0x20
+  /// Procedure name (f77 kludge).
+  | NFName = 0x22
+  /// Procedure.
+  | NFun = 0x24
+  /// Static symbol.
+  | NStSym = 0x26
+  /// .lcomm symbol.
+  | NLCSym = 0x28
+  /// Begin nsect sym.
+  | NBnSym = 0x2e
+  /// AST file path.
+  | NAST = 0x32
+  /// Emitted with gcc2_compiled and in gcc source.
+  | NOpt = 0x3c
+  /// Register sym.
+  | NRSym = 0x40
+  /// Source line.
+  | NSLine = 0x44
+  /// End nsect sym.
+  | NEnSym = 0x4e
+  /// Structure element.
+  | NSSym = 0x60
+  /// Source file name.
+  | NSO = 0x64
+  /// Object file name.
+  | NOSO = 0x66
+  /// Local symbol.
+  | NLSym = 0x80
+  /// Include file beginning.
+  | NBIncl = 0x82
+  /// "#included" file name: name,,n_sect,0,address.
+  | NSOL = 0x84
+  /// Compiler parameters.
+  | NParams = 0x86
+  /// Compiler version.
+  | NVersion = 0x88
+  /// Compiler optimization level.
+  | NOLevel = 0x8a
+  /// Parameter.
+  | NPSym = 0xa0
+  /// Include file end.
+  | NEIncl = 0xa2
+  /// Alternate entry.
+  | NEntry = 0xa4
+  /// Left bracket.
+  | NLBrac = 0xc0
+  /// Deleted include file.
+  | NExcl = 0xc2
+  /// Right bracket.
+  | NRBrac = 0xe0
+  /// Begin common.
+  | NBComm = 0xe2
+  /// End common.
+  | NEComm = 0xe4
+  /// End common (local name).
+  | NEComL = 0xe8
+  /// Second stab entry with length information.
+  | NLeng = 0xfe
+  /// Global pascal symbol.
+  | NPC = 0x30
 
-let chooseDyLib = function
-  | DyLib c -> Some c
-  | _ -> None
+/// Mach-O symbol.
+type MachSymbol = {
+  /// Symbol name.
+  SymName: string
+  /// Symbol type (N_TYPE field of n_type).
+  SymType: SymbolType
+  /// Is this an external symbol?
+  IsExternal: bool
+  /// The number of the section that this symbol can be found.
+  SecNum: int
+  /// Providing additional information about the nature of this symbol for
+  /// non-stab symbols.
+  SymDesc: int16
+  /// External library version info.
+  VerInfo: DyLibCmd option
+  /// Address of the symbol.
+  SymAddr: Addr
+}
 
-let chooseSymTab = function
-  | SymTab c -> Some c
-  | _ -> None
+/// Export info.
+type ExportInfo = {
+  /// Symbol name.
+  ExportSymName: string
+  /// Exported symbol address.
+  ExportAddr: Addr
+}
 
-let chooseDynSymTab = function
-  | DySymTab c -> Some c
-  | _ -> None
+/// Symbol info
+type SymInfo = {
+  /// All symbols.
+  Symbols: MachSymbol[]
+  /// Address to symbol mapping.
+  SymbolMap: Map<Addr, MachSymbol>
+  /// Linkage table.
+  LinkageTable: LinkageTableEntry list
+  /// Export info.
+  Exports: ExportInfo[]
+}
 
-let chooseDyLdInfo = function
-  | DyLdInfo c -> Some c
-  | _ -> None
+module internal Symbol =
+  let [<Literal>] private IndirectSymbolLocal = 0x80000000
 
-let chooseFuncStarts = function
-  | FuncStarts c -> Some c
-  | _ -> None
+  let [<Literal>] private IndirectSymbolABS = 0x40000000
 
-let parseFuncStarts baseAddr (span: ByteSpan) reader cmds =
-  let set = HashSet<Addr> ()
-  for cmd in cmds do
-    let offset = cmd.DataOffset
-    let saddr, count = (reader: IBinReader).ReadUInt64LEB128 (span, offset)
-    let saddr = saddr + baseAddr
-    set.Add saddr |> ignore
-    let lastOffset = offset + int cmd.DataSize
-    let mutable offset = offset + count
-    let mutable fnAddr = saddr
-    while offset < lastOffset do
-      let data, count = (reader: IBinReader).ReadUInt64LEB128 (span, offset)
-      fnAddr <- fnAddr + data
-      set.Add fnAddr |> ignore
-      offset <- offset + count
-  set |> Set
+  let private chooseDyLib = function
+    | DyLib c -> Some c
+    | _ -> None
 
-let getLibraryVerInfo (flags: MachFlag) libs nDesc =
-  if flags.HasFlag (MachFlag.MHTwoLevel) then
-    let ord = nDesc >>> 8 &&& 0xffs |> int
-    if ord = 0 || ord = 254 then None
-    else Some <| Array.get libs (ord - 1)
-  else None
+  let private chooseSymTab = function
+    | SymTab c -> Some c
+    | _ -> None
 
-let adjustSymAddr baseAddr addr =
-  if addr = 0UL then 0UL
-  else baseAddr + addr
+  let private chooseDynSymTab = function
+    | DySymTab c -> Some c
+    | _ -> None
 
-let parseNList baseAddr (span: ByteSpan) reader macHdr libs strtab offset =
-  let strIdx = (reader: IBinReader).ReadInt32 (span, offset)
-  let nDesc = reader.ReadInt16 (span, offset + 6)
-  let nType = span[offset + 4] |> int
-  { SymName = ByteArray.extractCStringFromSpan strtab strIdx
-    SymType = nType |> LanguagePrimitives.EnumOfValue
-    IsExternal = nType &&& 0x1 = 0x1
-    SecNum = span[offset + 5] |> int
-    SymDesc = nDesc
-    VerInfo = getLibraryVerInfo macHdr.Flags libs nDesc
-    SymAddr = readUIntOfType span reader macHdr.Class (offset + 8)
-              |> adjustSymAddr baseAddr }
+  let private chooseDyLdInfo = function
+    | DyLdInfo c -> Some c
+    | _ -> None
 
-/// Parse SymTab, which is essentially an array of n_list.
-let rec symTab lst baseAddr span reader macHdr libs strtab offset numSymbs =
-  if numSymbs = 0u then ()
-  else
-    let symb = parseNList baseAddr span reader macHdr libs strtab offset
-    (lst: List<MachSymbol>).Add symb
-    let offset' = offset + 8 + WordSize.toByteWidth macHdr.Class
-    symTab lst baseAddr span reader macHdr libs strtab offset' (numSymbs - 1u)
+  let private chooseFuncStarts = function
+    | FuncStarts c -> Some c
+    | _ -> None
 
-let parseSymTable baseAddr (span: ByteSpan) reader macHdr libs symtabs =
-  let lst = List<MachSymbol> ()
-  for symtab in symtabs do
-    let strtabSize = Convert.ToInt32 symtab.StrSize
-    let strtab = span.Slice (symtab.StrOff, strtabSize)
-    symTab lst baseAddr span reader macHdr libs strtab
-           symtab.SymOff symtab.NumOfSym
-  lst |> Seq.toArray
+  let private parseFuncStarts toolBox cmds =
+    let stream, reader = toolBox.Stream, toolBox.Reader
+    let addrSet = HashSet<Addr> ()
+    for cmd in cmds do
+      let dataBuf = readChunk stream (uint64 cmd.DataOffset) (int cmd.DataSize)
+      let dataSpan = ReadOnlySpan dataBuf
+      let saddr, count = reader.ReadUInt64LEB128 (dataSpan, 0)
+      let saddr = saddr + toolBox.BaseAddress
+      addrSet.Add saddr |> ignore
+      let mutable offset = count
+      let mutable fnAddr = saddr
+      while offset < int cmd.DataSize do
+        let data, count = reader.ReadUInt64LEB128 (dataSpan, offset)
+        fnAddr <- fnAddr + data
+        addrSet.Add fnAddr |> ignore
+        offset <- offset + count
+    addrSet
 
-let addFuncs secTxt starts symbols =
-  let symbolAddrs = symbols |> Array.map (fun s -> s.SymAddr) |> Set.ofArray
-  Set.difference starts symbolAddrs
-  |> Set.toArray
-  |> Array.map (fun addr ->
-    { SymName = Addr.toFuncName addr
-      SymType = SymbolType.NSect
-      IsExternal = false
-      SecNum = secTxt + 1
-      SymDesc = -1s (* To indicate this is B2R2-created symbols. *)
-      VerInfo = None
-      SymAddr = addr })
-  |> Array.append symbols
+  let private countSymbols symtabs =
+    symtabs |> Array.fold (fun cnt symtab -> int symtab.NumOfSym + cnt) 0
 
-let isStatic s =
-  let isDebuggingInfo s = int s.SymType &&& 0xe0 <> 0
-  /// REFERENCED_DYNAMICALLY field of n_desc is set. This means this symbol
-  /// will not be stripped (thus, this symbol is dynamic).
-  let isReferrencedDynamically s = s.SymDesc &&& 0x10s <> 0s
-  isDebuggingInfo s
-  || (s.SecNum > 0 && s.SymAddr > 0UL && s.VerInfo = None
-     && (isReferrencedDynamically s |> not))
+  let private getLibraryVerInfo (flags: MachFlag) libs nDesc =
+    if flags.HasFlag (MachFlag.MHTwoLevel) then
+      let ord = nDesc >>> 8 &&& 0xffs |> int
+      if ord = 0 || ord = 254 then None
+      else Some <| Array.get libs (ord - 1)
+    else None
 
-let isDynamic s = isStatic s |> not
+  let private adjustSymVal toolBox addr = (* TODO: needs to consider n_type *)
+    if addr = 0UL then 0UL
+    else toolBox.BaseAddress + uint64 addr
 
-let obtainStaticSymbols symbols =
-  symbols |> Array.filter isStatic
+  let private parseNList toolBox libs strtab (symtab: ByteSpan) offset =
+    let reader = toolBox.Reader
+    let strIdx = reader.ReadInt32 (symtab, offset) (* n_strx *)
+    let nDesc = reader.ReadInt16 (symtab, offset + 6) (* n_desc *)
+    let nType = symtab[offset + 4] |> int (* n_type *)
+    { SymName = ByteArray.extractCString strtab strIdx
+      SymType = nType |> LanguagePrimitives.EnumOfValue
+      IsExternal = nType &&& 0x1 = 0x1
+      SecNum = symtab[offset + 5] |> int (* n_sect *)
+      SymDesc = nDesc
+      VerInfo = getLibraryVerInfo toolBox.Header.Flags libs nDesc
+      SymAddr = readUIntOfType symtab reader toolBox.Header.Class (offset + 8)
+                |> adjustSymVal toolBox }
 
-let rec parseDynTab lst (span: ByteSpan) reader offset numSymbs =
-  if numSymbs = 0u then ()
-  else
-    let idx = (reader: IBinReader).ReadInt32 (span, offset)
-    (lst: List<int>).Add idx
-    parseDynTab lst span reader (offset + 4) (numSymbs- 1u)
+  let private parseSymTable toolBox libs symtabs =
+    let numSymbols = countSymbols symtabs
+    let symbols = Array.zeroCreate numSymbols
+    let mutable idx = 0
+    for symtab in symtabs do
+      let strOff, strSize = uint64 symtab.StrOff, int symtab.StrSize
+      let strtab = readChunk toolBox.Stream strOff strSize
+      let entrySize = 8 + WordSize.toByteWidth toolBox.Header.Class
+      let symOff = uint64 symtab.SymOff
+      let symTabSize = int symtab.NumOfSym * entrySize
+      let symtabSpan = ReadOnlySpan (readChunk toolBox.Stream symOff symTabSize)
+      for n = 0 to int symtab.NumOfSym - 1 do
+        let offset = n * entrySize
+        let symb = parseNList toolBox libs strtab symtabSpan offset
+        symbols[idx] <- symb
+        idx <- idx + 1
+    symbols
 
-/// DynSym table contains indices to the symbol table.
-let parseDynSymTable span reader dyntabs =
-  let lst = List<int> ()
-  for dyntab in dyntabs do
-    let tabOffset = Convert.ToInt32 dyntab.IndirectSymOff
-    parseDynTab lst span reader tabOffset dyntab.NumIndirectSym
-  lst |> Seq.toArray
+  let private addFuncs secText (starts: HashSet<Addr>) symbols =
+    let symbolAddrs = symbols |> Array.map (fun s -> s.SymAddr) |> HashSet
+    starts.ExceptWith symbolAddrs
+    starts
+    |> Seq.toArray
+    |> Array.map (fun addr ->
+      { SymName = Addr.toFuncName addr
+        SymType = SymbolType.NSect
+        IsExternal = false
+        SecNum = secText + 1
+        SymDesc = -1s (* To indicate this is B2R2-created symbols. *)
+        VerInfo = None
+        SymAddr = addr })
+    |> Array.append symbols
 
-let isUndefinedEntry entry =
-   entry = IndirectSymbolLocal || entry = IndirectSymbolABS
+  let isStatic s =
+    let isDebuggingInfo s = int s.SymType &&& 0xe0 <> 0
+    (* REFERENCED_DYNAMICALLY field of n_desc is set. This means this symbol
+       will not be stripped (thus, this symbol is dynamic). *)
+    let isReferrencedDynamically s = s.SymDesc &&& 0x10s <> 0s
+    isDebuggingInfo s
+    || (s.SecNum > 0 && s.SymAddr > 0UL && s.VerInfo = None
+       && (isReferrencedDynamically s |> not))
 
-let rec parseSymbStub map symbols dynsymtbl sec idx len cnt =
-  if cnt = 0UL then map
-  else
-    let entry = Array.get dynsymtbl (sec.SecReserved1 + idx)
-    if isUndefinedEntry entry then
-      parseSymbStub map symbols dynsymtbl sec (idx + 1) len (cnt - 1UL)
+  let isDynamic s = isStatic s |> not
+
+  let private obtainStaticSymbols symbols =
+    symbols |> Array.filter isStatic
+
+  let private countDynSymbs dyntabs =
+    dyntabs
+    |> Array.fold (fun cnt dyntab -> int dyntab.NumIndirectSym + cnt) 0
+
+  /// DynSym table contains indices to the symbol table.
+  let private parseDynSymTable toolBox dyntabs =
+    let reader = toolBox.Reader
+    let numSymbs = countDynSymbs dyntabs
+    let indices = Array.zeroCreate numSymbs
+    let mutable i = 0
+    for dyntab in dyntabs do
+      let tabOffset = uint64 dyntab.IndirectSymOff
+      let tabSize = int dyntab.NumIndirectSym * 4
+      let tabBuf = readChunk toolBox.Stream tabOffset tabSize
+      for n = 0 to int dyntab.NumIndirectSym - 1 do
+        let offset = n * 4
+        let symidx = reader.ReadInt32 (tabBuf, offset)
+        indices[i] <- symidx
+        i <- i + 1
+    indices
+
+  let private isUndefinedEntry entry =
+     entry = IndirectSymbolLocal || entry = IndirectSymbolABS
+
+  let rec private parseSymbStub map symbols dynsymtbl sec idx len cnt =
+    if cnt = 0UL then map
     else
-      let symbol = Array.get symbols entry
-      let map' = Map.add (sec.SecAddr + uint64 (idx * len)) symbol map
-      parseSymbStub map' symbols dynsymtbl sec (idx + 1) len (cnt - 1UL)
+      let entry = Array.get dynsymtbl (sec.SecReserved1 + idx)
+      if isUndefinedEntry entry then
+        parseSymbStub map symbols dynsymtbl sec (idx + 1) len (cnt - 1UL)
+      else
+        let symbol = Array.get symbols entry
+        let map' = Map.add (sec.SecAddr + uint64 (idx * len)) symbol map
+        parseSymbStub map' symbols dynsymtbl sec (idx + 1) len (cnt - 1UL)
 
-/// __stubs section is similar to PLT in ELF.
-let parseSymbolStubs secs symbols dynsymtbl =
-  let folder acc sec =
-    match sec.SecType with
-    | SectionType.SymbolStubs ->
-      let entryLen = sec.SecReserved2
-      let entryCnt = sec.SecSize / uint64 entryLen
-      parseSymbStub acc symbols dynsymtbl sec 0 entryLen entryCnt
-    | _ -> acc
-  secs.SecByNum |> Array.fold folder Map.empty
+  /// __stubs section is similar to PLT in ELF.
+  let private parseSymbolStubs secs symbols dynsymtbl =
+    let folder acc sec =
+      match sec.SecType with
+      | SectionType.SymbolStubs ->
+        let entryLen = sec.SecReserved2
+        let entryCnt = sec.SecSize / uint64 entryLen
+        parseSymbStub acc symbols dynsymtbl sec 0 entryLen entryCnt
+      | _ -> acc
+    secs |> Array.fold folder Map.empty
 
-/// Symbol pointer tables are similar to GOT in ELF.
-let parseSymbolPtrs macHdr secs symbols dynsymtbl =
-  let folder acc sec =
-    match sec.SecType with
-    | SectionType.LazySymbolPointers
-    | SectionType.NonLazySymbolPointers ->
-      let entryLen = WordSize.toByteWidth macHdr.Class
-      let entryCnt = sec.SecSize / uint64 entryLen
-      parseSymbStub acc symbols dynsymtbl sec 0 entryLen entryCnt
-    | _ -> acc
-  secs.SecByNum |> Array.fold folder Map.empty
+  /// Symbol pointer tables are similar to GOT in ELF.
+  let private parseSymbolPtrs macHdr secs symbols dynsymtbl =
+    let folder acc sec =
+      match sec.SecType with
+      | SectionType.LazySymbolPointers
+      | SectionType.NonLazySymbolPointers ->
+        let entryLen = WordSize.toByteWidth macHdr.Class
+        let entryCnt = sec.SecSize / uint64 entryLen
+        parseSymbStub acc symbols dynsymtbl sec 0 entryLen entryCnt
+      | _ -> acc
+    secs |> Array.fold folder Map.empty
 
-let getSymbolLibName symbol =
-  match symbol.VerInfo with
-  | None -> ""
-  | Some v -> v.DyLibName
+  let getSymbolLibName symbol =
+    match symbol.VerInfo with
+    | None -> ""
+    | Some v -> v.DyLibName
 
-let accumulateLinkageInfo nameMap lst addr symbol =
-  match Map.tryFind symbol.SymName nameMap with
-  | None -> lst
-  | Some stubAddr ->
-    let lib = getSymbolLibName symbol
-    { FuncName = symbol.SymName
-      LibraryName = lib
-      TrampolineAddress = stubAddr
-      TableAddress = addr } :: lst
+  let private accumulateLinkageInfo nameMap lst addr symbol =
+    match Map.tryFind symbol.SymName nameMap with
+    | None -> lst
+    | Some stubAddr ->
+      let lib = getSymbolLibName symbol
+      { FuncName = symbol.SymName
+        LibraryName = lib
+        TrampolineAddress = stubAddr
+        TableAddress = addr } :: lst
 
-let createLinkageTable stubs ptrtbls =
-  let nameMap = Map.fold (fun m a s -> Map.add s.SymName a m) Map.empty stubs
-  ptrtbls |> Map.fold (accumulateLinkageInfo nameMap) []
+  let private createLinkageTable stubs ptrtbls =
+    let nameMap = Map.fold (fun m a s -> Map.add s.SymName a m) Map.empty stubs
+    ptrtbls |> Map.fold (accumulateLinkageInfo nameMap) []
 
-let rec readStr (span: ByteSpan) pos acc =
-  match span[pos] with
-  | 0uy ->
-    List.rev acc |> List.toArray |> Text.Encoding.ASCII.GetString, pos + 1
-  | b -> readStr span (pos + 1) (b :: acc)
+  let rec readStr (span: ByteSpan) pos acc =
+    match span[pos] with
+    | 0uy ->
+      List.rev acc |> List.toArray |> Text.Encoding.ASCII.GetString, pos + 1
+    | b -> readStr span (pos + 1) (b :: acc)
 
-let buildExportEntry name addr =
-  { ExportSymName = name; ExportAddr = addr }
+  let buildExportEntry name addr =
+    { ExportSymName = name; ExportAddr = addr }
 
-let rec parseExportTrie bAddr span reader trieOfs ofs str acc =
-  let b = (span: ByteSpan)[ofs]
-  if b = 0uy then (* non-terminal *)
-    let nChilds, len =
-      (reader: IBinReader).ReadUInt64LEB128 (span, ofs + 1)
-    parseChildren bAddr span reader trieOfs (ofs + 1 + len) nChilds str acc
-  else
-    let _, shift= reader.ReadUInt64LEB128 (span, ofs)
-    let _flag = span[ofs + shift]
-    let symbOffset, _ = reader.ReadUInt64LEB128 (span, ofs + shift + 1)
-    buildExportEntry str (symbOffset + bAddr) :: acc
-and parseChildren bAddr span reader trieOfs ofs nChilds str acc =
-  if nChilds = 0UL then acc
-  else
-    let pref, nextOffset = readStr span ofs []
-    let nextNode, len = reader.ReadUInt64LEB128 (span, nextOffset)
-    let acc =
-      parseExportTrie bAddr span reader trieOfs
-                      (int nextNode + trieOfs) (str + pref) acc
-    parseChildren bAddr span reader trieOfs
-                  (nextOffset + len) (nChilds - 1UL) str acc
+  let rec private parseTrie toolBox (span: ByteSpan) offset str acc =
+    let reader = toolBox.Reader
+    if span[offset] = 0uy then (* non-terminal *)
+      let nChilds, len = reader.ReadUInt64LEB128 (span, offset + 1)
+      parseChildren toolBox span (offset + 1 + len) nChilds str acc
+    else
+      let _, shift = reader.ReadUInt64LEB128 (span, offset)
+      let flagOffset = offset + shift
+      let _flag = span[flagOffset]
+      let symbOffset, _ = reader.ReadUInt64LEB128 (span, flagOffset + 1)
+      buildExportEntry str (symbOffset + toolBox.BaseAddress) :: acc
+  and private parseChildren toolBox span offset nChilds str acc =
+    if nChilds = 0UL then acc
+    else
+      let pref, nextOffset = readStr span offset []
+      let reader = toolBox.Reader
+      let nextNode, len = reader.ReadUInt64LEB128 (span, nextOffset)
+      let acc = parseTrie toolBox span (int nextNode) (str + pref) acc
+      parseChildren toolBox span (nextOffset + len) (nChilds - 1UL) str acc
 
-/// The symbols exported by a dylib are encoded in a trie.
-let parseExportTrieHead baseAddr span reader trieOffset =
-  parseExportTrie baseAddr span reader trieOffset trieOffset "" []
+  /// The symbols exported by a dylib are encoded in a trie.
+  let private parseExportTrieHead toolBox exportSpan =
+    parseTrie toolBox exportSpan 0 "" []
 
-let parseExports baseAddr span reader dyldinfo =
-  match List.tryHead dyldinfo with
-  | None -> []
-  | Some info ->
-    parseExportTrieHead baseAddr span reader info.ExportOff
+  let private parseExports toolBox dyldinfo =
+    match Array.tryHead dyldinfo with
+    | None -> [||]
+    | Some info ->
+      let exportOff = uint64 info.ExportOff
+      let exportSize = int info.ExportSize
+      let exportBuf = readChunk toolBox.Stream exportOff exportSize
+      parseExportTrieHead toolBox (ReadOnlySpan exportBuf)
+      |> List.toArray
 
-let buildSymbolMap stubs ptrtbls staticsymbs =
-  let map = Map.fold (fun map k v -> Map.add k v map) stubs ptrtbls
-  Array.fold (fun map s -> Map.add s.SymAddr s map) map staticsymbs
+  let private buildSymbolMap stubs ptrtbls staticsymbs =
+    let map = Map.fold (fun map k v -> Map.add k v map) stubs ptrtbls
+    Array.fold (fun map s -> Map.add s.SymAddr s map) map staticsymbs
 
-let parse baseAddr span reader macHdr cmds secs secTxt =
-  let libs = List.choose chooseDyLib cmds |> List.toArray
-  let symtabs = List.choose chooseSymTab cmds
-  let dyntabs = List.choose chooseDynSymTab cmds
-  let dyldinfo = List.choose chooseDyLdInfo cmds
-  let fnStarts =
-    parseFuncStarts baseAddr span reader (List.choose chooseFuncStarts cmds)
-  let symbs =
-    parseSymTable baseAddr span reader macHdr libs symtabs
-    |> addFuncs secTxt fnStarts
-  let staticsymbs = obtainStaticSymbols symbs
-  let dynsymIndices = parseDynSymTable span reader dyntabs
-  let stubs = parseSymbolStubs secs symbs dynsymIndices
-  let ptrtbls = parseSymbolPtrs macHdr secs symbs dynsymIndices
-  let linkage = createLinkageTable stubs ptrtbls
-  let exports = parseExports baseAddr span reader dyldinfo
-  { Symbols = symbs |> Array.filter (fun s -> s.SymType <> SymbolType.NOpt)
-    SymbolMap = buildSymbolMap stubs ptrtbls staticsymbs
-    LinkageTable = linkage
-    Exports = exports }
+  let parse toolBox cmds secs =
+    let secText = Section.getTextSectionIndex secs
+    let libs = Array.choose chooseDyLib cmds
+    let symtabs = Array.choose chooseSymTab cmds
+    let dyntabs = Array.choose chooseDynSymTab cmds
+    let dyldinfo = Array.choose chooseDyLdInfo cmds
+    let fnStarts = parseFuncStarts toolBox (Array.choose chooseFuncStarts cmds)
+    let symbs = parseSymTable toolBox libs symtabs |> addFuncs secText fnStarts
+    let staticsymbs = obtainStaticSymbols symbs
+    let dynsymIndices = parseDynSymTable toolBox dyntabs
+    let stubs = parseSymbolStubs secs symbs dynsymIndices
+    let ptrtbls = parseSymbolPtrs toolBox.Header secs symbs dynsymIndices
+    let linkage = createLinkageTable stubs ptrtbls
+    let exports = parseExports toolBox dyldinfo
+    { Symbols = symbs |> Array.filter (fun s -> s.SymType <> SymbolType.NOpt)
+      SymbolMap = buildSymbolMap stubs ptrtbls staticsymbs
+      LinkageTable = linkage
+      Exports = exports }
