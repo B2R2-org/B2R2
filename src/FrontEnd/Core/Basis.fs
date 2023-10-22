@@ -1,4 +1,4 @@
-(*
+﻿(*
   B2R2 - the Next-Generation Reversing Platform
 
   Copyright (c) SoftSec Lab. @ KAIST, since 2016
@@ -22,20 +22,28 @@
   SOFTWARE.
 *)
 
-namespace B2R2.FrontEnd.BinLifter
+[<RequireQualifiedAccess>]
+module B2R2.FrontEnd.Basis
 
 open B2R2
+open B2R2.FrontEnd.BinLifter
 
-/// A platform-independent binary instruction parser.
-type IInsParsable =
-  /// Parse one instruction from the given byte array assuming that the address
-  /// of the instruction is `addr`.
-  abstract member Parse: bs: byte[] * addr: Addr -> Instruction
-
-  /// Parse one instruction from the given byte span assuming that the address
-  /// of the instruction is `addr`.
-  abstract member Parse: span: ByteSpan * addr: Addr -> Instruction
-
-  /// The current operation mode of the Parser. This is only useful for ARMv7
-  /// parsers.
-  abstract member OperationMode: ArchOperationMode with get, set
+/// Establish the basis for lifting. This function returns a pair of
+/// TranslationContext and RegisterBay.
+[<CompiledName ("Init")>]
+let init isa =
+  match isa.Arch with
+  | Arch.IntelX64
+  | Arch.IntelX86 -> Intel.Basis.init isa
+  | Arch.ARMv7 | Arch.AARCH32 -> ARM32.Basis.init isa
+  | Arch.AARCH64 -> ARM64.Basis.init isa
+  | Arch.MIPS32 | Arch.MIPS64 -> MIPS.Basis.init isa
+  | Arch.EVM -> EVM.Basis.init isa
+  | Arch.TMS320C6000 -> TMS320C6000.Basis.init isa
+  | Arch.CILOnly -> CIL.Basis.init isa
+  | Arch.AVR -> AVR.Basis.init isa
+  | Arch.SH4 -> SH4.Basis.init isa
+  | Arch.PPC32 -> PPC32.Basis.init isa
+  | Arch.RISCV64 -> RISCV.Basis.init isa
+  | Arch.SPARC -> SPARC.Basis.init isa
+  | _ -> Utils.futureFeature ()

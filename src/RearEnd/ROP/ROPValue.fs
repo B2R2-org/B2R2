@@ -26,7 +26,8 @@ namespace B2R2.RearEnd.ROP
 
 open System
 open B2R2
-open B2R2.FrontEnd.BinInterface
+open B2R2.FrontEnd
+open B2R2.FrontEnd.BinLifter
 
 type ROPExpr =
   | Var of string
@@ -72,13 +73,13 @@ module ROPValue =
 
   let dummy32 = ofUInt32 0xdeadbeefu
 
-  let strFolder hdl acc ins =
-    let acc = acc + "  " + BinHandle.DisasmInstr hdl true false ins
+  let strFolder (hdl: BinHandle) acc (ins: Instruction) =
+    let acc = acc + "  " + hdl.DisasmInstr (ins, true, false)
     acc + Environment.NewLine
 
   let toString hdl binBase = function
-    | ROPValue.Expr expr -> ROPExpr.toString expr
-    | ROPValue.Gadget gadget ->
+    | Expr expr -> ROPExpr.toString expr
+    | Gadget gadget ->
       let s = sprintf "[ %08X ]" ((uint32 gadget.Offset) + binBase)
       let s = s + Environment.NewLine
       gadget.Instrs |> List.fold (strFolder hdl) s

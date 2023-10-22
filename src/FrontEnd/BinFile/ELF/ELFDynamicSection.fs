@@ -25,7 +25,6 @@
 namespace B2R2.FrontEnd.BinFile.ELF
 
 open System
-open System.IO
 open B2R2
 open B2R2.FrontEnd.BinFile.FileHelper
 
@@ -163,23 +162,20 @@ module internal DynamicSection =
     let dval = readUIntOfType span reader cls (pickNum cls 4 8)
     { DTag = LanguagePrimitives.EnumOfValue dtag; DVal = dval }
 
-  let private parseDynamicSection toolBox (sec: ELFSection) =
-    let stream = toolBox.Stream
+  let private parseDynamicSection ({ Bytes = bytes } as toolBox) sec =
     let reader = toolBox.Reader
     let cls = toolBox.Header.Class
     let numEntries = int sec.SecSize / int sec.SecEntrySize
     let entries = Array.zeroCreate numEntries
-    let entryBuf = Array.zeroCreate (int sec.SecEntrySize)
-    let rec parseLoop n =
+    let rec parseLoop n offset =
       if n = numEntries then entries
       else
-        readOrDie stream entryBuf
-        let e = readDynamicEntry reader cls (ReadOnlySpan entryBuf)
-        entries[n] <- e
-        if e.DTag = DynamicTag.DT_NULL && e.DVal = 0UL then entries[0..n]
-        else parseLoop (n + 1)
-    stream.Seek (int64 sec.SecOffset, SeekOrigin.Begin) |> ignore
-    parseLoop 0
+        let span = ReadOnlySpan (bytes, offset, int sec.SecEntrySize)
+        let ent = readDynamicEntry reader cls span
+        entries[n] <- ent
+        if ent.DTag = DynamicTag.DT_NULL && ent.DVal = 0UL then entries[0..n]
+        else parseLoop (n + 1) (offset + int sec.SecEntrySize)
+    parseLoop 0 (int sec.SecOffset)
 
   let readEntries toolBox secHeaders =
     let dynamicSection =

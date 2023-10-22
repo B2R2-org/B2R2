@@ -26,8 +26,8 @@ namespace B2R2.MiddleEnd.ControlFlowAnalysis
 
 open System.Collections.Generic
 open B2R2
+open B2R2.FrontEnd
 open B2R2.FrontEnd.BinFile
-open B2R2.FrontEnd.BinInterface
 open B2R2.FrontEnd.BinFile.ELF
 
 [<AutoOpen>]
@@ -165,7 +165,7 @@ type FunctionMaintainer private (hdl, histMgr: HistoryManager) =
     | false, _ -> addr
 
   static member private InitELFExterns hdl (fnMaintainer: FunctionMaintainer) =
-    let elf = (hdl.BinFile :?> ELFBinFile)
+    let elf = ((hdl: BinHandle).File :?> ELFBinFile)
     elf.PLT
     |> ARMap.iter (fun range entry ->
       match findInternalFuncReloc elf entry with
@@ -189,7 +189,7 @@ type FunctionMaintainer private (hdl, histMgr: HistoryManager) =
 
   static member Init hdl histMgr =
     let fnMaintainer = FunctionMaintainer (hdl, histMgr)
-    match hdl.BinFile.FileFormat with
+    match hdl.File.Format with
     | FileFormat.ELFBinary -> FunctionMaintainer.InitELFExterns hdl fnMaintainer
     | _ -> ()
     fnMaintainer

@@ -25,7 +25,6 @@
 module internal B2R2.FrontEnd.BinFile.ELF.PLT
 
 open System
-open System.IO
 open B2R2
 open B2R2.FrontEnd.BinFile
 open B2R2.FrontEnd.BinFile.FileHelper
@@ -222,9 +221,9 @@ type GeneralPLTParser (shdrs, relocInfo, symbInfo, pltHdrSize, relType) =
     match __.FindGeneralPLTType sec with
     | PLT desc ->
       let sAddr, eAddr = desc.ExtraOffset, sec.SecAddr + sec.SecSize
-      let stream = toolBox.Stream
+      let bytes = toolBox.Bytes
       let reader = toolBox.Reader
-      let span = ReadOnlySpan (readChunk stream sec.SecOffset (int sec.SecSize))
+      let span = ReadOnlySpan (bytes, int sec.SecOffset, int sec.SecSize)
       parseEntries __ sec span reader desc symbInfo relocInfo map eAddr sAddr
     | UnknownPLT -> map
 
@@ -311,8 +310,8 @@ type X86PLTParser (shdrs, relocInfo, symbInfo) =
     { EntryRelocAddr = relocAddr; NextEntryAddr = addr + desc.EntrySize }
 
   override __.ParseSection (toolBox, sec, map) =
-    let stream = toolBox.Stream
-    let span = ReadOnlySpan (readChunk stream sec.SecOffset (int sec.SecSize))
+    let bytes = toolBox.Bytes
+    let span = ReadOnlySpan (bytes, int sec.SecOffset, int sec.SecSize)
     match findX86PLTType span with
     | PLT desc ->
       (* This section is an IBT PLT section and it uses lazy binding. This
@@ -390,8 +389,8 @@ type X64PLTParser (shdrs, relocInfo, symbInfo) =
       NextEntryAddr = addr + desc.EntrySize }
 
   override __.ParseSection (toolBox, sec, map) =
-    let stream = toolBox.Stream
-    let span = ReadOnlySpan (readChunk stream sec.SecOffset (int sec.SecSize))
+    let bytes = toolBox.Bytes
+    let span = ReadOnlySpan (bytes, int sec.SecOffset, int sec.SecSize)
     match findX64PLTType span with
     | PLT desc ->
       (* This section is an IBT PLT section and it uses lazy binding. This
@@ -464,8 +463,8 @@ type ARMv7PLTParser (shdrs, relocInfo, symbInfo) =
       { EntryRelocAddr = 0UL; NextEntryAddr = addr + 16UL }
 
   override __.ParseSection (toolBox, sec, map) =
-    let stream = toolBox.Stream
-    let span = ReadOnlySpan (readChunk stream sec.SecOffset (int sec.SecSize))
+    let bytes = toolBox.Bytes
+    let span = ReadOnlySpan (bytes, int sec.SecOffset, int sec.SecSize)
     match findARMv7PLTType span toolBox.Reader sec with
     | PLT desc ->
       let sAddr, eAddr = desc.ExtraOffset, sec.SecAddr + sec.SecSize
@@ -494,8 +493,8 @@ type AARCH64PLTParser (shdrs, relocInfo, symbInfo) =
     let startAddr = sec.SecAddr + 32UL
     let desc = newDesc DontCare AnyBinding false 16UL 0UL startAddr
     let sAddr, eAddr = desc.ExtraOffset, sec.SecAddr + sec.SecSize
-    let stream, reader = toolBox.Stream, toolBox.Reader
-    let span = ReadOnlySpan (readChunk stream sec.SecOffset (int sec.SecSize))
+    let bytes, reader = toolBox.Bytes, toolBox.Reader
+    let span = ReadOnlySpan (bytes, int sec.SecOffset, int sec.SecSize)
     parseEntries __ sec span reader desc symbInfo relocInfo map eAddr sAddr
 
   override __.Parse toolBox =
@@ -548,11 +547,11 @@ type MIPSPLTParser (hdr, shdrs, relocInfo, symbInfo) =
   member __.ParseMIPSStubs toolBox =
     match Array.tryFind (fun s -> s.SecName = SecMIPSStubs) shdrs with
     | Some sec ->
-      let stream, reader = toolBox.Stream, toolBox.Reader
+      let bytes, reader = toolBox.Bytes, toolBox.Reader
       let entries = DynamicSection.readEntries toolBox shdrs
       let offset = 0
       let maxOffset = int sec.SecSize
-      let span = ReadOnlySpan (readChunk stream sec.SecOffset (int sec.SecSize))
+      let span = ReadOnlySpan (bytes, int sec.SecOffset, int sec.SecSize)
       match Array.tryFind isMIPSGOTSym entries with
       | Some tag ->
         let n = Symbol.getDynamicSymbolSectionNumbers shdrs|> Array.head
@@ -587,8 +586,8 @@ type MIPSPLTParser (hdr, shdrs, relocInfo, symbInfo) =
       { EntryRelocAddr = uint64 entryAddr; NextEntryAddr = addr + 16UL }
 
   override __.ParseSection (toolBox, sec, map) =
-    let stream, reader = toolBox.Stream, toolBox.Reader
-    let span = ReadOnlySpan (readChunk stream sec.SecOffset (int sec.SecSize))
+    let bytes, reader = toolBox.Bytes, toolBox.Reader
+    let span = ReadOnlySpan (bytes, int sec.SecOffset, int sec.SecSize)
     let headerSize = computeMIPSPLTHeaderSize span reader
     let startAddr = sec.SecAddr + headerSize
     let desc = newDesc DontCare AnyBinding false 16UL 0UL startAddr
@@ -630,10 +629,10 @@ type PPCPLTParser (hdr, shdrs, relocInfo, symbInfo) =
       let gotAddr = tag.DVal
       match Array.tryFind (fun s -> s.SecName = SecGOT) shdrs with
       | Some gotSection ->
-        let stream, reader = toolBox.Stream, toolBox.Reader
+        let bytes, reader = toolBox.Bytes, toolBox.Reader
         let gotElemOneOffset = (* The second elem of GOT, i.e., GOT[1] *)
           gotAddr - gotSection.SecAddr + 4UL + gotSection.SecOffset
-        let gotElemOne = readUInt32 stream reader gotElemOneOffset
+        let gotElemOne = reader.ReadUInt32 (bytes, int gotElemOneOffset)
         if gotElemOne = 0u then None else Some (uint64 gotElemOne)
       | None -> None
     | None -> None
@@ -641,8 +640,8 @@ type PPCPLTParser (hdr, shdrs, relocInfo, symbInfo) =
   member private __.ComputeGLinkAddrWithPLT toolBox =
     match Array.tryFind (fun s -> s.SecName = SecPLT) shdrs with
     | Some sec -> (* Get the glink address from the first entry of PLT *)
-      let stream, reader = toolBox.Stream, toolBox.Reader
-      let glinkVMA = readUInt32 stream reader sec.SecOffset
+      let bytes, reader = toolBox.Bytes, toolBox.Reader
+      let glinkVMA = reader.ReadUInt32 (bytes, int sec.SecOffset)
       if glinkVMA = 0u then None else Some (uint64 glinkVMA)
     | None -> None
 
@@ -691,10 +690,10 @@ type PPCPLTParser (hdr, shdrs, relocInfo, symbInfo) =
                               && glinkAddr < s.SecAddr + s.SecSize) shdrs
     match glinkSecOpt, relaPltSecOpt with
     | Some glinkSec, Some relaSec ->
-      let stream, reader = toolBox.Stream, toolBox.Reader
+      let bytes, reader = toolBox.Bytes, toolBox.Reader
       let glinkSecAddr = glinkSec.SecAddr
-      let glinkOffset, glinkSize = glinkSec.SecOffset, int glinkSec.SecSize
-      let glinkSec = ReadOnlySpan (readChunk stream glinkOffset glinkSize)
+      let glinkOffset, glinkSize = int glinkSec.SecOffset, int glinkSec.SecSize
+      let glinkSec = ReadOnlySpan (bytes, glinkOffset, glinkSize)
       let stubOff = glinkAddr - glinkSecAddr |> int
       let count = relaSec.SecSize / 12UL |> int (* Each entry has 12 bytes. *)
       match __.ComputePLTEntryDelta (glinkSec, reader, stubOff, 16) with

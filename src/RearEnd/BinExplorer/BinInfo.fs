@@ -47,19 +47,18 @@ type CmdBinInfo () =
   override __.SubCommands = []
 
   override __.CallBack _ ess _args =
-    let file = ess.BinHandle.BinFile
-    let path = ess.BinHandle.BinFile.FilePath
-    let isa = ess.BinHandle.BinFile.ISA
+    let file = ess.BinHandle.File
+    let isa = ess.BinHandle.File.ISA
     let machine = isa.Arch |> ISA.ArchToString
-    let fmt = ess.BinHandle.BinFile.FileFormat |> FileFormat.toString
+    let fmt = ess.BinHandle.File.Format |> FileFormat.toString
     let entry = file.EntryPoint |> entryPointToString
     let secNum = file.GetSections () |> Seq.length
     let staticSymNum = file.GetStaticSymbols () |> Seq.length
     let dynamicSymNum = file.GetDynamicSymbols () |> Seq.length
-    let fileType = file.FileType |> FileType.toString
+    let fileType = file.Type |> FileType.toString
     let nx = if file.IsNXEnabled then "Enabled" else "Disabled"
     [| "[*] Binary information:\n"
-       sprintf "- Executable Path: %s" path
+       sprintf "- Executable Path: %s" file.Path
        sprintf "- Machine: %s" machine
        sprintf "- File Format: %s" fmt
        sprintf "- File Type: %s" fileType

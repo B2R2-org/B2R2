@@ -23,27 +23,40 @@
 *)
 
 [<RequireQualifiedAccess>]
-module B2R2.FrontEnd.BinInterface.Basis
+module B2R2.FrontEnd.Parser
 
 open B2R2
 open B2R2.FrontEnd.BinLifter
 
-/// Establish the basis for lifting. This function returns a pair of
-/// TranslationContext and RegisterBay.
+/// Initialize a `Parser` from a given ISA, ArchOperationMode, and (optional)
+/// entrypoint address.
 [<CompiledName ("Init")>]
-let init isa =
+let init (isa: ISA) mode (entryPoint: Addr option) =
   match isa.Arch with
   | Arch.IntelX64
-  | Arch.IntelX86 -> Intel.Basis.init isa
-  | Arch.ARMv7 | Arch.AARCH32 -> ARM32.Basis.init isa
-  | Arch.AARCH64 -> ARM64.Basis.init isa
-  | Arch.MIPS32 | Arch.MIPS64 -> MIPS.Basis.init isa
-  | Arch.EVM -> EVM.Basis.init isa
-  | Arch.TMS320C6000 -> TMS320C6000.Basis.init isa
-  | Arch.CILOnly -> CIL.Basis.init isa
-  | Arch.AVR -> AVR.Basis.init isa
-  | Arch.SH4 -> SH4.Basis.init isa
-  | Arch.PPC32 -> PPC32.Basis.init isa
-  | Arch.RISCV64 -> RISCV.Basis.init isa
-  | Arch.SPARC -> SPARC.Basis.init isa
-  | _ -> Utils.futureFeature ()
+  | Arch.IntelX86 ->
+    Intel.IntelParser (isa.WordSize) :> IInstructionParsable
+  | Arch.ARMv7 | Arch.AARCH32 ->
+    ARM32.ARM32Parser (isa, mode, entryPoint) :> IInstructionParsable
+  | Arch.AARCH64 ->
+    ARM64.ARM64Parser (isa) :> IInstructionParsable
+  | Arch.MIPS32 | Arch.MIPS64 ->
+    MIPS.MIPSParser (isa) :> IInstructionParsable
+  | Arch.EVM ->
+    EVM.EVMParser (isa) :> IInstructionParsable
+  | Arch.TMS320C6000 ->
+    TMS320C6000.TMS320C6000Parser () :> IInstructionParsable
+  | Arch.CILOnly ->
+    CIL.CILParser () :> IInstructionParsable
+  | Arch.AVR ->
+    AVR.AVRParser () :> IInstructionParsable
+  | Arch.SH4 ->
+    SH4.SH4Parser (isa) :> IInstructionParsable
+  | Arch.PPC32 ->
+    PPC32.PPC32Parser (isa) :> IInstructionParsable
+  | Arch.RISCV64 ->
+    RISCV.RISCV64Parser (isa) :> IInstructionParsable
+  | Arch.SPARC ->
+    SPARC.SPARCParser (isa) :> IInstructionParsable
+  | _ ->
+    Utils.futureFeature ()

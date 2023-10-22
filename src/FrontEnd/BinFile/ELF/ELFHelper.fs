@@ -222,16 +222,14 @@ let getFuncAddrsFromLibcArr span toolBox loadables shdrs relocInfo section =
 let getAddrsFromInitArray toolBox shdrs loadables relocInfo =
   match Array.tryFind (fun s -> s.SecName = ".init_array") shdrs with
   | Some s ->
-    let stream = toolBox.Stream
-    let span = ReadOnlySpan (readChunk stream s.SecOffset (int s.SecSize))
+    let span = ReadOnlySpan (toolBox.Bytes, int s.SecOffset, int s.SecSize)
     getFuncAddrsFromLibcArr span toolBox loadables shdrs relocInfo s
   | None -> Seq.empty
 
 let getAddrsFromFiniArray toolBox shdrs loadables relocInfo =
   match Array.tryFind (fun s -> s.SecName = ".fini_array") shdrs with
   | Some s ->
-    let stream = toolBox.Stream
-    let span = ReadOnlySpan (readChunk stream s.SecOffset (int s.SecSize))
+    let span = ReadOnlySpan (toolBox.Bytes, int s.SecOffset, int s.SecSize)
     getFuncAddrsFromLibcArr span toolBox loadables shdrs relocInfo s
   | None -> Seq.empty
 

@@ -26,32 +26,32 @@ module B2R2.MiddleEnd.ControlFlowAnalysis.EvalHelper
 
 open System.Collections.Generic
 open B2R2
-open B2R2.FrontEnd.BinInterface
+open B2R2.FrontEnd
 open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.MiddleEnd.ConcEval
 
-let private memoryReader hdl _pc addr typ _e =
+let private memoryReader (hdl: BinHandle) _pc addr typ _e =
   let len = RegType.toByteWidth typ
-  let file = hdl.BinFile
+  let file = hdl.File
   if addr < System.UInt64.MaxValue && file.IsValidAddr addr then
-    match BinHandle.TryReadBytes (hdl, addr, len) with
+    match hdl.TryReadBytes (addr, len) with
     | Ok v -> Ok (BitVector.OfArr v)
     | Error e -> Error e
   else Error ErrorCase.InvalidMemoryRead
 
 let private stackAddr t = BitVector.OfInt32 0x1000000 t
 
-let private obtainStackDef hdl =
+let private obtainStackDef (hdl: BinHandle) =
   match hdl.RegisterBay.StackPointer with
   | Some r ->
-    Some (r, hdl.BinFile.ISA.WordSize |> WordSize.toRegType |> stackAddr)
+    Some (r, hdl.File.ISA.WordSize |> WordSize.toRegType |> stackAddr)
   | None -> None
 
-let private obtainFramePointerDef hdl =
+let private obtainFramePointerDef (hdl: BinHandle) =
   match hdl.RegisterBay.FramePointer with
   | Some r ->
-    Some (r, hdl.BinFile.ISA.WordSize |> WordSize.toRegType |> BitVector.Zero)
+    Some (r, hdl.File.ISA.WordSize |> WordSize.toRegType |> BitVector.Zero)
   | None -> None
 
 let private initState hdl pc =

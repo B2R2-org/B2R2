@@ -26,46 +26,45 @@
 [<RequireQualifiedAccess>]
 module B2R2.FrontEnd.BinFile.FormatDetector
 
-open System.IO
 open B2R2
 
-let private identifyELF stream =
-  match ELF.Header.getISA stream with
+let private identifyELF bytes =
+  match ELF.Header.getISA bytes with
   | Ok isa -> Some struct (FileFormat.ELFBinary, isa)
   | _ -> None
 
-let private identifyPE stream =
-  match PE.Helper.getPEArch stream with
+let private identifyPE bytes =
+  match PE.Helper.getPEArch bytes with
   | Ok arch ->
     let isa = ISA.Init arch Endian.Little
     Some struct (FileFormat.PEBinary, isa)
   | Error _ -> None
 
-let private identifyMach stream isa =
-  if Mach.Header.isMach stream 0UL then
-    let toolBox = Mach.Header.parse stream None isa
+let private identifyMach bytes isa =
+  if Mach.Header.isMach bytes 0UL then
+    let toolBox = Mach.Header.parse bytes None isa
     let isa = Mach.Helper.getISA toolBox.Header
     Some struct (FileFormat.MachBinary, isa)
   else None
 
-let private identifyWASM stream isa =
+let private identifyWASM bytes isa =
   let reader = BinReader.Init Endian.Little
-  if Wasm.Header.isWasm stream reader then
+  if Wasm.Header.isWasm bytes reader then
     Some struct (FileFormat.WasmBinary, isa)
   else None
 
 /// <summary>
-///   Given a binary stream, identify its binary file format (B2R2.FileFormat)
+///   Given a binary bytes, identify its binary file format (B2R2.FileFormat)
 ///   and its underlying ISA (B2R2.ISA). For FAT binaries, this function will
 ///   select an ISA only when there is a match with the given input ISA.
 ///   Otherwise, this function will raise InvalidISAException.
 /// </summary>
 [<CompiledName("Identify")>]
-let identify (stream: Stream) isa =
+let identify bytes isa =
   Monads.OrElse.orElse {
-    yield! identifyELF stream
-    yield! identifyPE stream
-    yield! identifyMach stream isa
-    yield! identifyWASM stream isa
+    yield! identifyELF bytes
+    yield! identifyPE bytes
+    yield! identifyMach bytes isa
+    yield! identifyWASM bytes isa
     yield! Some (FileFormat.RawBinary, isa)
   } |> Option.get

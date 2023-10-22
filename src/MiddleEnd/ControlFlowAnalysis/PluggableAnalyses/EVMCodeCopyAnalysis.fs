@@ -27,7 +27,7 @@ namespace B2R2.MiddleEnd.ControlFlowAnalysis
 open B2R2
 open B2R2.BinIR
 open B2R2.BinIR.SSA
-open B2R2.FrontEnd.BinInterface
+open B2R2.FrontEnd
 open B2R2.MiddleEnd.ControlFlowAnalysis
 open B2R2.MiddleEnd.DataFlow
 
@@ -45,13 +45,13 @@ type EVMCodeCopyAnalysis () =
       (dst, src, len) :: acc
     | _ -> acc
 
-  let rec pickValidCopyInfo hdl = function
+  let rec pickValidCopyInfo (hdl: BinHandle) = function
     | (Some 0UL, Some src, Some len) :: restCopyInfos ->
-      let binLen = uint64 hdl.BinFile.Length
-      let bin = hdl.BinFile.Slice (offset=int src, size=int len)
+      let binLen = uint64 hdl.File.Length
+      let bin = hdl.File.Slice (offset=int src, size=int len)
       let srcEnd = src + len - 1UL
       if srcEnd < binLen then
-        let newHdl = BinHandle.Init (hdl.BinFile.ISA, bin.ToArray ())
+        let newHdl = BinHandle (bin.ToArray (), hdl.File.ISA, None, false)
         PluggableAnalysisNewBinary newHdl
       else pickValidCopyInfo hdl restCopyInfos
     | _ :: restCopyInfos -> pickValidCopyInfo hdl restCopyInfos
@@ -73,7 +73,7 @@ type EVMCodeCopyAnalysis () =
 
     member __.Name = "EVM Code Copy Analysis"
 
-    member __.Run _builder hdl codeMgr _dataMgr =
-      match hdl.BinFile.ISA.Arch with
+    member __.Run _builder (hdl: BinHandle) codeMgr _dataMgr =
+      match hdl.File.ISA.Arch with
       | Architecture.EVM -> recoverCopiedCode hdl codeMgr
       | _ -> PluggableAnalysisOk

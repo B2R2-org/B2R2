@@ -25,6 +25,7 @@
 module internal B2R2.FrontEnd.BinFile.PE.Helper
 
 open System
+open System.IO
 open B2R2
 open B2R2.Monads
 open B2R2.FrontEnd.BinFile
@@ -313,8 +314,9 @@ let peHeadersToArch (peHeaders: PEHeaders) =
 
 /// Return Architecture from the PE header. If the given binary is invalid,
 /// return an Error.
-let getPEArch stream =
+let getPEArch (bytes: byte[]) =
   try
+    use stream = new MemoryStream (bytes)
     use reader = new PEReader (stream, PEStreamOptions.Default)
     peHeadersToArch reader.PEHeaders |> Ok
   with _ ->

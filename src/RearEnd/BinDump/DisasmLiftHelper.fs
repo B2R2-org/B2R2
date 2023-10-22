@@ -27,9 +27,9 @@ module internal B2R2.RearEnd.BinDump.DisasmLiftHelper
 open System.Collections.Generic
 open B2R2
 open B2R2.BinIR
+open B2R2.FrontEnd
 open B2R2.FrontEnd.BinFile
 open B2R2.FrontEnd.BinLifter
-open B2R2.FrontEnd.BinInterface
 
 /// The monotonic console printer.
 let internal out = ConsoleCachedPrinter () :> Printer
@@ -42,36 +42,36 @@ let [<Literal>] IllegalStr = "(illegal)"
 let getOptimizer (opts: BinDumpOpts) =
   match opts.DoOptimization with
   | NoOptimize -> id
-  | Optimize -> BinHandle.Optimize
+  | Optimize -> LocalOptimizer.Optimize
 
-let makeFuncSymbolDic hdl =
+let makeFuncSymbolDic (hdl: BinHandle) =
   let funcs = Dictionary ()
-  hdl.BinFile.GetFunctionSymbols ()
+  hdl.File.GetFunctionSymbols ()
   |> Seq.iter (fun s -> funcs.Add (s.Address, s.Name) |> ignore)
-  hdl.BinFile.GetFunctionAddresses ()
+  hdl.File.GetFunctionAddresses ()
   |> Seq.iter (fun a ->
     if funcs.ContainsKey a then ()
     else funcs[a] <- Addr.toFuncName a)
-  hdl.BinFile.GetLinkageTableEntries ()
+  hdl.File.GetLinkageTableEntries ()
   |> Seq.iter (fun e ->
     if e.TrampolineAddress = 0UL then ()
     else funcs.TryAdd (e.TrampolineAddress, e.FuncName) |> ignore)
   funcs
 
-let makeLinkageTblSymbolDic hdl =
+let makeLinkageTblSymbolDic (hdl: BinHandle) =
   let funcs = Dictionary ()
-  hdl.BinFile.GetLinkageTableEntries ()
+  hdl.File.GetLinkageTableEntries ()
   |> Seq.iter (fun e ->
     if e.TrampolineAddress = 0UL then ()
     else funcs.TryAdd (e.TrampolineAddress, e.FuncName) |> ignore)
   funcs
 
-let makeArchModeDic hdl =
+let makeArchModeDic (hdl: BinHandle) =
   let modes = Dictionary ()
-  match hdl.BinFile.FileFormat, hdl.BinFile.ISA.Arch with
+  match hdl.File.Format, hdl.File.ISA.Arch with
   | FileFormat.ELFBinary, Arch.ARMv7
   | FileFormat.ELFBinary, Arch.AARCH32 ->
-    hdl.BinFile.GetSymbols ()
+    hdl.File.GetSymbols ()
     |> Seq.iter (fun s ->
       if s.ArchOperationMode <> ArchOperationMode.NoMode then
         modes[s.Address] <- s.ArchOperationMode
@@ -79,11 +79,11 @@ let makeArchModeDic hdl =
   | _ -> ()
   modes
 
-let getInstructionAlignment hdl =
-  match hdl.BinFile.ISA.Arch with
+let getInstructionAlignment (isa: ISA) mode =
+  match isa.Arch with
   | Arch.IntelX86 | Arch.IntelX64 -> 1
   | Arch.ARMv7 | Arch.AARCH32 ->
-    match hdl.Parser.OperationMode with
+    match mode with
     | ArchOperationMode.ThumbMode -> 2
     | _ -> 4
   | Arch.AARCH64 -> 4
@@ -113,15 +113,15 @@ let printRegularDisasm disasmStr wordSize addr bytes cfg =
   let addrStr = Addr.toString wordSize addr + ":"
   out.PrintRow (false, cfg, [ addrStr; hexStr; disasmStr ])
 
-let regularDisPrinter (hdl: BinHandle) wordSize showSymbs ptr ins cfg =
-  let disasmStr = BinHandle.DisasmInstr hdl false showSymbs ins
-  let bytes = BinHandle.ReadBytes (hdl, ptr=ptr, nBytes=int ins.Length)
+let regularDisPrinter hdl wordSize showSymbs ptr (ins: Instruction) cfg =
+  let disasmStr = (hdl: BinHandle).DisasmInstr (ins, false, showSymbs)
+  let bytes = hdl.ReadBytes (ptr=ptr, nBytes=int ins.Length)
   printRegularDisasm disasmStr wordSize ptr.Addr bytes cfg
 
 let regularIRPrinter (hdl: BinHandle) optimizer ptr ins cfg =
-  let stmts = optimizer (BinHandle.LiftInstr hdl ins)
+  let stmts = optimizer (hdl.LiftInstr (ins=ins))
   let lowUIRStr = LowUIR.Pp.stmtsToString stmts
-  let bytes = BinHandle.ReadBytes (hdl, ptr=ptr, nBytes=int ins.Length)
+  let bytes = hdl.ReadBytes (ptr=ptr, nBytes=int ins.Length)
   printLowUIR lowUIRStr bytes cfg
 
 let convertToDisasmStr (words: AsmWord []) =
@@ -145,13 +145,13 @@ let printColorDisasm words wordSize addr bytes cfg =
 
 let colorDisPrinter (hdl: BinHandle) wordSize _ ptr (ins: Instruction) cfg =
   let words = ins.Decompose (false)
-  let bytes = BinHandle.ReadBytes (hdl, ptr=ptr, nBytes=int ins.Length)
+  let bytes = hdl.ReadBytes (ptr=ptr, nBytes=int ins.Length)
   printColorDisasm words wordSize ptr.Addr bytes cfg
 
 let handleInvalidIns (hdl: BinHandle) ptr isLift cfg =
-  let wordSize = hdl.BinFile.ISA.WordSize
-  let align = getInstructionAlignment hdl
-  let bytes = BinHandle.ReadBytes (hdl, ptr=ptr, nBytes=align)
+  let wordSize = hdl.File.ISA.WordSize
+  let align = getInstructionAlignment hdl.File.ISA hdl.Parser.OperationMode
+  let bytes = hdl.ReadBytes (ptr=ptr, nBytes=align)
   if isLift then printLowUIR IllegalStr bytes cfg
   else printRegularDisasm IllegalStr wordSize ptr.Addr bytes cfg
   BinFilePointer.Advance ptr align
@@ -163,7 +163,7 @@ let printFuncSymbol (dict: Dictionary<Addr, string>) addr =
     out.PrintLine (String.wrapAngleBracket name)
   | false, _ -> ()
 
-let updateMode dict hdl addr =
+let updateMode dict (hdl: BinHandle) addr =
   match (dict: Dictionary<Addr, ArchOperationMode>).TryGetValue addr with
   | true, mode -> hdl.Parser.OperationMode <- mode
   | false, _ -> ()
@@ -184,7 +184,7 @@ type BinPrinter (hdl, cfg, isLift) =
     if BinFilePointer.IsValid ptr then
       __.PrintFuncSymbol ptr.Addr
       __.UpdateMode hdl ptr.Addr
-      match BinHandle.TryParseInstr (hdl, ptr=ptr) with
+      match hdl.TryParseInstr (ptr=ptr) with
       | Ok (ins) ->
         __.PrintInstr hdl ptr ins
         let ptr' = BinFilePointer.Advance ptr (int ins.Length)
@@ -207,7 +207,7 @@ type BinTablePrinter (hdl, cfg, isLift) =
 
 type BinCodeDisasmPrinter (hdl, cfg, showSym, showColor) =
   inherit BinFuncPrinter (hdl, cfg, false)
-  let wordSize = hdl.BinFile.ISA.WordSize
+  let wordSize = hdl.File.ISA.WordSize
   let disPrinter = if showColor then colorDisPrinter else regularDisPrinter
   override _.PrintInstr hdl ptr ins =
     disPrinter hdl wordSize showSym ptr ins cfg
@@ -220,7 +220,7 @@ type BinCodeIRPrinter (hdl, cfg, optimizer) =
 
 type BinTableDisasmPrinter (hdl, cfg) =
   inherit BinTablePrinter (hdl, cfg, false)
-  let wordSize = hdl.BinFile.ISA.WordSize
+  let wordSize = hdl.File.ISA.WordSize
   override _.PrintInstr hdl ptr ins =
     regularDisPrinter hdl wordSize true ptr ins cfg
   override _.UpdateMode _ _ = ()
@@ -232,7 +232,7 @@ type BinTableIRPrinter (hdl, cfg, optimizer) =
 
 type ContextSensitiveCodeDisasmPrinter (hdl, cfg, showSym, showColor) =
   inherit BinFuncPrinter (hdl, cfg, false)
-  let wordSize = hdl.BinFile.ISA.WordSize
+  let wordSize = hdl.File.ISA.WordSize
   let disPrinter = if showColor then colorDisPrinter else regularDisPrinter
   let archmodes = makeArchModeDic hdl
   override _.PrintInstr hdl ptr ins =
@@ -248,7 +248,7 @@ type ContextSensitiveCodeIRPrinter (hdl, cfg, optimizer) =
 type ContextSensitiveTableDisasmPrinter (hdl, cfg) =
   inherit BinTablePrinter (hdl, cfg, false)
   let archmodes = makeArchModeDic hdl
-  let wordSize = hdl.BinFile.ISA.WordSize
+  let wordSize = hdl.File.ISA.WordSize
   override _.PrintInstr hdl ptr ins =
     regularDisPrinter hdl wordSize true ptr ins cfg
   override _.UpdateMode hdl addr = updateMode archmodes hdl addr

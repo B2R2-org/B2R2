@@ -140,13 +140,12 @@ let buildSymbolMaps arr =
     Map.add symb.Name symb byName
   ) (Map.empty, Map.empty)
 
-let getSymbols (stream: Stream) reader (coff: CoffHeader) =
+let getSymbols bytes reader (coff: CoffHeader) =
   let maxCnt = coff.NumberOfSymbols - 1
   let tblOff = coff.PointerToSymbolTable
   let strOff = tblOff + coff.NumberOfSymbols * 18
   let symbs = Array.zeroCreate coff.NumberOfSymbols
-  let buf = readChunk stream (uint64 tblOff) (coff.NumberOfSymbols * 18)
-  let span = ReadOnlySpan buf
+  let span = ReadOnlySpan (bytes, tblOff, coff.NumberOfSymbols * 18)
   let mutable auxcnt = 0
   let mutable cnt = if tblOff = 0 then maxCnt else 0
   while cnt < maxCnt do

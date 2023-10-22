@@ -26,7 +26,7 @@ module B2R2.MiddleEnd.LLVM.LLVMTranslator
 
 open System.Collections.Generic
 open B2R2
-open B2R2.FrontEnd.BinInterface
+open B2R2.FrontEnd
 open B2R2.BinIR
 open B2R2.BinIR.LowUIR
 
@@ -231,9 +231,9 @@ let private translateStmts (builder: LLVMIRBuilder) addr succs (stmts: Stmt[]) =
     translateStmt stmt
   done
 
-let createBuilder hdl (addr: Addr) =
+let createBuilder (hdl: BinHandle) (addr: Addr) =
   let fname = addr.ToString ("x16")
-  let ctxt = LLVMIRHelper.initializeContext hdl.BinFile.ISA
+  let ctxt = LLVMIRHelper.initializeContext hdl.File.ISA
   LLVMIRBuilder (fname, addr, hdl, ctxt)
 
 let translate builder addr succs stmts =

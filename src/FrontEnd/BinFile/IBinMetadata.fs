@@ -59,16 +59,16 @@ module FileType =
 /// Basic metadata of a binary file.
 type IBinMetadata =
   /// The file path where this file is located.
-  abstract FilePath: string
+  abstract Path: string
 
   /// The format of this file: ELF, PE, Mach-O, or etc.
-  abstract FileFormat: FileFormat
+  abstract Format: FileFormat
 
   /// The ISA that this file expects to run on.
   abstract ISA: ISA
 
   /// What kind of binary is this?
-  abstract FileType: FileType
+  abstract Type: FileType
 
   /// The entry point of this binary (the start address that this binary runs
   /// at). Note that some binaries (e.g., PE DLL files) do not have a specific

@@ -26,7 +26,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\BinInterface\B2R2.FrontEnd.BinInterface.fsproj" />
+    <ProjectReference Include="..\Core\B2R2.FrontEnd.Core.fsproj" />
   </ItemGroup>
 
 </Project>

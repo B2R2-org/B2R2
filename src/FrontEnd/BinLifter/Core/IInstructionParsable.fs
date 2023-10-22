@@ -22,29 +22,23 @@
   SOFTWARE.
 *)
 
-namespace B2R2.Peripheral.Assembly
+namespace B2R2.FrontEnd.BinLifter
 
-open B2R2.FrontEnd
+open B2R2
 
-/// Assembly code parser interface.
-[<AbstractClass>]
-type AsmParser (isa, mode) =
-  let parser = Parser.init isa mode None
+/// A platform-independent binary instruction parser.
+type IInstructionParsable =
+  /// Parse one instruction from the given byte array assuming that the address
+  /// of the instruction is `addr`.
+  abstract member Parse: bs: byte[] * addr: Addr -> Instruction
 
-  /// Run parsing from a given assembly string, and assemble binary code.
-  abstract Assemble: string -> Result<byte [] list, string>
+  /// Parse one instruction from the given byte span assuming that the address
+  /// of the instruction is `addr`.
+  abstract member Parse: span: ByteSpan * addr: Addr -> Instruction
 
-  member __.Parser with get() = parser
+  /// Return the maximum possible size of an instruction.
+  abstract member MaxInstructionSize: int
 
-  /// Run parsing from a given assembly string, and lift it to LowUIR code.
-  member __.Lift ctxt asm addr =
-    __.Assemble asm
-    |> Result.bind (fun bins ->
-      bins
-      |> List.fold (fun acc bs ->
-        let ins = parser.Parse (bs, addr)
-        ins.Translate ctxt :: acc
-      ) []
-      |> List.rev
-      |> Array.concat
-      |> Ok)
+  /// The current operation mode of the Parser. This is only useful for ARMv7
+  /// parsers.
+  abstract member OperationMode: ArchOperationMode with get, set

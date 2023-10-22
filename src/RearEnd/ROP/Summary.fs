@@ -27,7 +27,7 @@ namespace B2R2.RearEnd.ROP
 open B2R2
 open B2R2.BinIR
 open B2R2.BinIR.LowUIR
-open B2R2.FrontEnd.BinInterface
+open B2R2.FrontEnd
 open B2R2.FrontEnd.BinLifter.Intel
 
 type Summary = {
@@ -295,9 +295,9 @@ module Summary =
              s.OutMems
     printfn "-----------------------------------"
 
-  let summary hdl gadget =
+  let summary (hdl: BinHandle) gadget =
     gadget.Instrs
-    |> List.map (BinHandle.LiftInstr hdl)
+    |> List.map hdl.LiftInstr
     |> Array.concat
     |> Array.fold (State.evalStmt) State.initState
     |> getSummary

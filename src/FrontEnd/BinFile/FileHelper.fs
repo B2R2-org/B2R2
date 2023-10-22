@@ -48,15 +48,6 @@ let readCString (span: ByteSpan) offset =
   let bs = cstrLoop span [] offset
   ByteArray.extractCString bs 0
 
-let readCStringFromStream (stream: Stream) offset =
-  stream.Seek (int64 offset, SeekOrigin.Begin) |> ignore
-  let rec loop acc =
-    let b = stream.ReadByte ()
-    if b = 0 then List.rev (char 0 :: acc) |> List.toArray
-    elif b < 0 then raise InvalidFileFormatException
-    else loop (char b :: acc)
-  loop [] |> String
-
 let addInvalidRange set saddr eaddr =
   if saddr = eaddr then set
   else IntervalSet.add (AddrRange (saddr, eaddr - 1UL)) set
@@ -80,38 +71,3 @@ let getNotInFileIntervals fileBase fileSize (range: AddrRange) =
   elif range.Max > lastAddr && range.Min > lastAddr then Seq.singleton range
   else Seq.empty
 
-let readOrDie (s: Stream) buf =
-  let count = s.Read (buf, 0, buf.Length)
-  if count = buf.Length then ()
-  else raise InvalidFileFormatException
-
-let readChunk (stream: Stream) (offset: uint64) size =
-  let buf = Array.zeroCreate size
-  (stream: Stream).Seek (int64 offset, SeekOrigin.Begin) |> ignore
-  readOrDie stream buf
-  buf
-
-let readUInt32 (stream: Stream) (reader: IBinReader) (offset: uint64) =
-  let buf = Array.zeroCreate 4
-  stream.Seek (int64 offset, SeekOrigin.Begin) |> ignore
-  readOrDie stream buf
-  reader.ReadUInt32 (buf, 0)
-
-let readInt32 (stream: Stream) (reader: IBinReader) (offset: int) =
-  let buf = Array.zeroCreate 4
-  stream.Seek (int64 offset, SeekOrigin.Begin) |> ignore
-  readOrDie stream buf
-  reader.ReadInt32 (buf, 0)
-
-let readInt16 (stream: Stream) (reader: IBinReader) (offset: int) =
-  let buf = Array.zeroCreate 4
-  stream.Seek (int64 offset, SeekOrigin.Begin) |> ignore
-  readOrDie stream buf
-  reader.ReadInt16 (buf, 0)
-
-let readNativeFromStream (stream: Stream) (reader: IBinReader) cls offset =
-  let buf = Array.zeroCreate <| WordSize.toByteWidth cls
-  stream.Seek (int64 offset, SeekOrigin.Begin) |> ignore
-  readOrDie stream buf
-  if cls = WordSize.Bit32 then reader.ReadUInt32 (buf, 0) |> uint64
-  else reader.ReadUInt64 (buf, 0)

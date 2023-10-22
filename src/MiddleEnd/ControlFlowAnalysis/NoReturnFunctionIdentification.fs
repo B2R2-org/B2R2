@@ -26,8 +26,8 @@ namespace B2R2.MiddleEnd.ControlFlowAnalysis
 
 open B2R2
 open B2R2.BinIR
+open B2R2.FrontEnd
 open B2R2.FrontEnd.BinLifter
-open B2R2.FrontEnd.BinInterface
 open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.MiddleEnd.DataFlow
@@ -148,17 +148,18 @@ module private NoReturnFunctionIdentificationHelper =
   let ssaRegToArgX64 hdl (r: SSA.Variable) =
     match r.Kind with
     | SSA.RegVar (_, rid, _) ->
-      if rid = CallingConvention.functionArgRegister hdl 1 then Some 1
-      elif rid = CallingConvention.functionArgRegister hdl 2 then Some 2
-      elif rid = CallingConvention.functionArgRegister hdl 3 then Some 3
-      elif rid = CallingConvention.functionArgRegister hdl 4 then Some 4
-      elif rid = CallingConvention.functionArgRegister hdl 5 then Some 5
-      elif rid = CallingConvention.functionArgRegister hdl 6 then Some 6
+      let os = OS.Linux
+      if rid = CallingConvention.functionArgRegister hdl os 1 then Some 1
+      elif rid = CallingConvention.functionArgRegister hdl os 2 then Some 2
+      elif rid = CallingConvention.functionArgRegister hdl os 3 then Some 3
+      elif rid = CallingConvention.functionArgRegister hdl os 4 then Some 4
+      elif rid = CallingConvention.functionArgRegister hdl os 5 then Some 5
+      elif rid = CallingConvention.functionArgRegister hdl os 6 then Some 6
       else None
     | _ -> None
 
   let confirmArgX64 hdl fakeBlk uvState arg =
-    let rid = CallingConvention.functionArgRegister hdl arg
+    let rid = CallingConvention.functionArgRegister hdl OS.Linux arg
     let name = hdl.RegisterBay.RegIDToString rid
     let varKind = SSA.RegVar (64<rt>, rid, name)
     match SSACFG.findReachingDef fakeBlk varKind with
@@ -171,8 +172,8 @@ module private NoReturnFunctionIdentificationHelper =
          untouched, thus, conditional no return. *)
       Some arg
 
-  let confirmArg hdl fakeBlk uvState arg =
-    match hdl.BinFile.ISA.Arch with
+  let confirmArg (hdl: BinHandle) fakeBlk uvState arg =
+    match hdl.File.ISA.Arch with
     | Arch.IntelX86 -> confirmArgX86 fakeBlk uvState arg
     | Arch.IntelX64 -> confirmArgX64 hdl fakeBlk uvState arg
     | _ -> None
@@ -286,7 +287,7 @@ module private NoReturnFunctionIdentificationHelper =
     | None -> false
 
   let hasNonZeroOnX64 hdl st arg =
-    let reg = CallingConvention.functionArgRegister hdl arg
+    let reg = CallingConvention.functionArgRegister hdl OS.Linux arg
     match readReg st reg with
     | Some bv -> BitVector.ToUInt64 bv <> 0UL
     | None -> false
@@ -319,7 +320,7 @@ type NoReturnFunctionIdentification () =
   /// depending on the given argument value.
   member __.HasNonZeroArg hdl caller nth =
     let st = evalBlock hdl caller
-    match hdl.BinFile.ISA.Arch with
+    match hdl.File.ISA.Arch with
     | Arch.IntelX86 -> hasNonZeroOnX86 st nth
     | Arch.IntelX64 -> hasNonZeroOnX64 hdl st nth
     | _ -> Utils.futureFeature ()
@@ -327,9 +328,9 @@ type NoReturnFunctionIdentification () =
   /// Check whether the given bbl has a no-return syscall (e.g., exit).
   member __.IsNoRetSyscallBlk hdl bbl =
     let st = evalBlock hdl bbl
-    match hdl.BinFile.FileFormat with
+    match hdl.File.Format with
     | FileFormat.ELFBinary | FileFormat.RawBinary ->
-      let arch = hdl.BinFile.ISA.Arch
+      let arch = hdl.File.ISA.Arch
       let exitSyscall = LinuxSyscall.toNumber arch LinuxSyscall.Exit
       let exitGrpSyscall = LinuxSyscall.toNumber arch LinuxSyscall.ExitGroup
       let sigreturnSyscall = LinuxSyscall.toNumber arch LinuxSyscall.RtSigreturn

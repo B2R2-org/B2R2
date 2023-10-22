@@ -372,9 +372,7 @@ type ARM32Parser (isa: ISA, mode, entryPoint: Addr option) =
 
   let mutable itstate: byte list = []
 
-  interface IInsParsable with
-    member __.OperationMode with get() = mode and set(m) = mode <- m
-
+  interface IInstructionParsable with
     member __.Parse (span: ByteSpan, addr) =
       phlp.Mode <- mode
       phlp.InsAddr <- addr
@@ -387,6 +385,10 @@ type ARM32Parser (isa: ISA, mode, entryPoint: Addr option) =
 
     member __.Parse (bs: byte[], addr) =
       let span = ReadOnlySpan bs
-      (__ :> IInsParsable).Parse (span, addr)
+      (__ :> IInstructionParsable).Parse (span, addr)
+
+    member __.MaxInstructionSize = 4
+
+    member __.OperationMode with get() = mode and set(m) = mode <- m
 
 // vim: set tw=80 sts=2 sw=2:

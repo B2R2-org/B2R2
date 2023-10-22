@@ -154,7 +154,7 @@ type MachHeader = {
 /// This is a basic toolbox for parsing Mach-O binaries, which is returned from
 /// parsing a Mach-O header.
 type MachToolbox = {
-  Stream: Stream
+  Bytes: byte[]
   Reader: IBinReader
   BaseAddress: Addr
   Header: MachHeader
@@ -163,20 +163,19 @@ type MachToolbox = {
   MachOffset: uint64
 }
 
-module internal Header =
-  let isMach (stream: Stream) offset =
-    let magicBytes = readChunk stream offset 4
+module Header =
+  let isMach (bytes: byte[]) offset =
+    let span = ReadOnlySpan (bytes, int offset, 4)
     let reader = BinReader.Init Endian.Little
-    match Magic.read magicBytes reader with
+    match Magic.read span reader with
     | Magic.MHCigam | Magic.MHCigam64
     | Magic.MHMagic | Magic.MHMagic64
     | Magic.FATCigam | Magic.FATMagic -> true
     | _ -> false
 
-  let isFat (stream: Stream) =
-    let magicBytes = readChunk stream 0UL 4
+  let isFat (bytes: byte[]) =
     let reader = BinReader.Init Endian.Little
-    match Magic.read magicBytes reader with
+    match Magic.read (ReadOnlySpan bytes) reader with
     | Magic.FATCigam | Magic.FATMagic -> true
     | _ -> false
 
@@ -192,8 +191,8 @@ module internal Header =
   let inline private readFlags (span: ByteSpan) (reader: IBinReader) =
     reader.ReadInt32 (span, 24) |> LanguagePrimitives.EnumOfValue
 
-  let private readClass bytes reader =
-    match Magic.read bytes reader with
+  let private readClass span reader =
+    match Magic.read span reader with
     | Magic.MHMagic | Magic.MHCigam -> WordSize.Bit32
     | Magic.MHMagic64 | Magic.MHCigam64 -> WordSize.Bit64
     | _ -> raise InvalidFileFormatException
@@ -203,22 +202,21 @@ module internal Header =
     | Magic.MHCigam | Magic.MHCigam64 | Magic.FATCigam -> Endian.Big
     | _ -> raise InvalidFileFormatException
 
-  let readEndianness bytes reader =
-    Magic.read bytes reader
+  let readEndianness span reader =
+    Magic.read span reader
     |> magicToEndian
 
   /// Detect the endianness and return an appropriate IBinReader.
-  let private getMachBinReader bytes =
+  let private getMachBinReader span =
     let reader = BinReader.Init Endian.Little
-    let endian = readEndianness bytes reader
+    let endian = readEndianness span reader
     BinReader.Init endian
 
-  let private parseHeader stream offset =
-    let headerBytes = readChunk stream offset 28
-    let headerSpan = ReadOnlySpan headerBytes
-    let reader = getMachBinReader headerBytes
-    { Magic = Magic.read headerBytes reader
-      Class = readClass headerBytes reader
+  let private parseHeader bytes offset =
+    let headerSpan = ReadOnlySpan (bytes, int offset, 28)
+    let reader = getMachBinReader headerSpan
+    { Magic = Magic.read headerSpan reader
+      Class = readClass headerSpan reader
       CPUType = readCPUType headerSpan reader
       CPUSubType = readCPUSubType headerSpan reader
       FileType = readFileType headerSpan reader
@@ -226,10 +224,9 @@ module internal Header =
       SizeOfCmds = reader.ReadUInt32 (headerSpan, 20)
       Flags = readFlags headerSpan reader }
 
-  let private computeMachOffset stream isa =
-    if isFat stream then
-      let fatArch = Fat.loadArch stream isa
-      stream.Seek (int64 fatArch.Offset, SeekOrigin.Begin) |> ignore
+  let private computeMachOffset bytes isa =
+    if isFat bytes then
+      let fatArch = Fat.loadArch bytes isa
       uint64 fatArch.Offset
     else 0UL
 
@@ -238,12 +235,12 @@ module internal Header =
     else 0UL
 
   /// Parse the Mach-O file format header, and return a MachToolbox.
-  let parse stream baseAddrOpt isa =
-    let offset = computeMachOffset stream isa
-    if isMach stream offset then
-      let hdr = parseHeader stream offset
+  let parse bytes baseAddrOpt isa =
+    let offset = computeMachOffset bytes isa
+    if isMach bytes offset then
+      let hdr = parseHeader bytes offset
       let baseAddr = computeBaseAddr hdr baseAddrOpt
-      { Stream = stream
+      { Bytes = bytes
         Reader = BinReader.Init (magicToEndian hdr.Magic)
         BaseAddress = baseAddr
         Header = hdr

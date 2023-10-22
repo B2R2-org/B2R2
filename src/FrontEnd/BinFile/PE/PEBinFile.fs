@@ -25,30 +25,30 @@
 namespace B2R2.FrontEnd.BinFile
 
 open System
-open System.IO
 open B2R2
+open B2R2.FrontEnd.BinFile.PE
 open B2R2.FrontEnd.BinFile.PE.Helper
 
 /// This class represents a PE binary file.
-type PEBinFile (path, stream: Stream, baseAddrOpt, rawpdb) =
-  let pe = PE.Parser.parse path stream baseAddrOpt rawpdb
+type PEBinFile (path, bytes: byte[], baseAddrOpt, rawpdb) =
+  let pe = Parser.parse path bytes baseAddrOpt rawpdb
 
-  new (path, stream) = PEBinFile (path, stream, None, [||])
+  new (path, bytes) = PEBinFile (path, bytes, None, [||])
 
-  new (path, stream, rawpdb) = PEBinFile (path, stream, None, rawpdb)
+  new (path, bytes, rawpdb) = PEBinFile (path, bytes, None, rawpdb)
 
   member __.PE with get() = pe
 
   member __.RawPDB = rawpdb
 
   interface IBinFile with
-    member __.FilePath with get() = path
+    member __.Path with get() = path
 
-    member __.FileFormat with get() = FileFormat.PEBinary
+    member __.Format with get() = FileFormat.PEBinary
 
     member __.ISA with get() = getISA pe
 
-    member __.FileType with get() = getFileType pe
+    member __.Type with get() = getFileType pe
 
     member __.EntryPoint = getEntryPoint pe
 
@@ -60,12 +60,6 @@ type PEBinFile (path, stream: Stream, baseAddrOpt, rawpdb) =
 
     member __.IsRelocatable = isRelocatable pe
 
-    member __.Length = int stream.Length
-
-    member __.RawBytes = Utils.futureFeature () // XXX
-
-    member __.Span = Utils.futureFeature (); ReadOnlySpan [||]
-
     member __.GetOffset addr = translateAddr pe addr
 
     member __.Slice (addr, size) =
@@ -74,30 +68,29 @@ type PEBinFile (path, stream: Stream, baseAddrOpt, rawpdb) =
 
     member __.Slice (addr) =
       let offset = translateAddr pe addr |> Convert.ToInt32
-      let size = int stream.Length - offset
-      (__ :> IBinFile).Slice (offset=offset, size=size)
+      (__ :> IBinFile).Slice (offset=offset)
 
     member __.Slice (offset: int, size) =
-      let buf = FileHelper.readChunk stream (uint64 offset) size
-      ReadOnlySpan buf
+      ReadOnlySpan (bytes, offset, size)
 
     member __.Slice (offset: int) =
-      let size = int stream.Length - offset
-      (__ :> IBinFile).Slice (offset=offset, size=size)
+      ReadOnlySpan(bytes).Slice offset
 
     member __.Slice (ptr: BinFilePointer, size) =
-      (__ :> IBinFile).Slice (offset=ptr.Offset, size=size)
+      ReadOnlySpan (bytes, ptr.Offset, size)
 
     member __.Slice (ptr: BinFilePointer) =
-      (__ :> IBinFile).Slice (offset=ptr.Offset)
+      ReadOnlySpan(bytes).Slice ptr.Offset
 
-    member __.Read (_buffer, _offset, _size) = Utils.futureFeature ()
+    member __.ReadByte (addr: Addr) =
+      let offset = translateAddr pe addr |> Convert.ToInt32
+      bytes[offset]
 
-    member __.ReadByte () = Utils.futureFeature ()
+    member __.ReadByte (offset: int) =
+      bytes[offset]
 
-    member __.Seek (_addr: Addr): unit = Utils.futureFeature ()
-
-    member __.Seek (_offset: int): unit = Utils.futureFeature ()
+    member __.ReadByte (ptr: BinFilePointer) =
+      bytes[ptr.Offset]
 
     member __.IsValidAddr addr = isValidAddr pe addr
 
@@ -171,6 +164,8 @@ type PEBinFile (path, stream: Stream, baseAddrOpt, rawpdb) =
     member __.GetFunctionAddresses (_) =
       (__ :> IBinFile).GetFunctionAddresses ()
 
-    member __.NewBinFile bs = Utils.futureFeature ()
+    member __.Reader with get() = pe.BinReader
 
-    member __.NewBinFile (bs, baseAddr) = Utils.futureFeature ()
+    member __.RawBytes = bytes
+
+    member __.Length = bytes.Length

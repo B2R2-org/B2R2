@@ -25,8 +25,8 @@
 module B2R2.RearEnd.FileViewer.Program
 
 open B2R2
+open B2R2.FrontEnd
 open B2R2.FrontEnd.BinFile
-open B2R2.FrontEnd.BinInterface
 open B2R2.RearEnd
 open B2R2.RearEnd.FileViewer.Helper
 
@@ -34,11 +34,11 @@ let dumpBasic (file: IBinFile) =
   let entry =
     StringUtils.entryPointToString file.EntryPoint |> ColoredSegment.green
   out.PrintSectionTitle "Basic Information"
-  out.PrintTwoCols "File format:" (FileFormat.toString file.FileFormat)
+  out.PrintTwoCols "File format:" (FileFormat.toString file.Format)
   out.PrintTwoCols "Architecture:" (ISA.ArchToString file.ISA.Arch)
   out.PrintTwoCols "Endianness:" (Endian.toString file.ISA.Endian)
   out.PrintTwoCols "Word size:" (WordSize.toString file.ISA.WordSize + " bit")
-  out.PrintTwoCols "File type:" (FileType.toString file.FileType)
+  out.PrintTwoCols "File type:" (FileType.toString file.Type)
   out.PrintTwoColsWithColorOnSnd "Entry point:" [ entry ]
   out.PrintLine ()
 
@@ -219,10 +219,10 @@ let printSelectively hdl opts file = function
   | DisplayMachSpecific MachDisplayLoadCommands -> dumpLoadCommands opts file
   | DisplayMachSpecific MachDisplaySharedLibs -> dumpSharedLibs opts file
 
-let dumpFile (opts: FileViewerOpts) (filepath: string) =
-  let hdl = BinHandle.Init (opts.ISA, opts.BaseAddress, filepath)
-  let file = hdl.BinFile
-  printFileName file.FilePath
+let dumpFile (opts: FileViewerOpts) (filePath: string) =
+  let hdl = BinHandle (filePath, opts.ISA, opts.BaseAddress)
+  let file = hdl.File
+  printFileName file.Path
   if opts.DisplayItems.Count = 0 then printBasic file
   elif opts.DisplayItems.Contains DisplayAll then printAll opts hdl file
   else opts.DisplayItems |> Seq.iter (printSelectively hdl opts file)

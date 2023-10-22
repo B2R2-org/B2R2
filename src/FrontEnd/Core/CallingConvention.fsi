@@ -22,7 +22,7 @@
   SOFTWARE.
 *)
 
-module B2R2.FrontEnd.BinInterface.CallingConvention
+module B2R2.FrontEnd.CallingConvention
 
 open B2R2
 
@@ -40,17 +40,17 @@ val syscallNumRegister: BinHandle -> RegisterID
 
 /// Obtain the register ID used for the nth syscall parameter.
 [<CompiledName("SyscallArgRegister")>]
-val syscallArgRegister: BinHandle -> int -> RegisterID
+val syscallArgRegister: BinHandle -> OS -> int -> RegisterID
 
 /// Obtain the register ID used for the nth function call parameter. Since
 /// actual calling convention may vary depending on the binaries, this function
 /// only returns a generally used register for the given architecture and the
 /// file format.
 [<CompiledName("FunctionArgRegister")>]
-val functionArgRegister: BinHandle -> int -> RegisterID
+val functionArgRegister: BinHandle -> OS -> int -> RegisterID
 
 /// Check if the given register is non-volatile register in the given binary.
 /// Non-volatile registers are preserved by callee, i.e., callee-saved
 /// registers.
 [<CompiledName("IsNonVolatile")>]
-val isNonVolatile: BinHandle -> RegisterID -> bool
+val isNonVolatile: BinHandle -> OS -> RegisterID -> bool

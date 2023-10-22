@@ -26,7 +26,7 @@ namespace B2R2.MiddleEnd.Tests
 
 open B2R2
 open B2R2.BinIR.LowUIR
-open B2R2.FrontEnd.BinInterface
+open B2R2.FrontEnd
 open B2R2.MiddleEnd
 open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.ControlFlowGraph
@@ -99,7 +99,7 @@ type CFGTest1 () =
         0x00uy; 0x0fuy; 0x05uy; 0x90uy; 0x5duy; 0xc3uy; |]
 
   let isa = ISA.Init Architecture.IntelX64 Endian.Little
-  let hdl = BinHandle.Init (isa, binary)
+  let hdl = BinHandle (binary, isa, None, false)
   let ess = BinEssence.init hdl [] [] []
 
   [<TestMethod>]
@@ -399,7 +399,7 @@ type CFGTest2 () =
         0x8buy; 0x04uy; 0x24uy; 0xc3uy; |]
 
   let isa = ISA.Init Architecture.IntelX86 Endian.Little
-  let hdl = BinHandle.Init (isa, binary)
+  let hdl = BinHandle (binary, isa, None, false)
   let ess = BinEssence.init hdl [] [] []
 
   [<TestMethod>]

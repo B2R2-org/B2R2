@@ -24,14 +24,14 @@
 
 namespace B2R2.RearEnd.Transformer
 
-open B2R2.FrontEnd.BinInterface
+open B2R2.FrontEnd
 
 /// The `list` action.
 type ListAction () =
   let listSections (input: obj) =
     let bin = unbox<Binary> input
     let hdl = Binary.Handle bin
-    hdl.BinFile.GetSections ()
+    hdl.File.GetSections ()
     |> Seq.toArray
     |> box
 

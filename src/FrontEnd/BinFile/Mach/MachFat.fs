@@ -48,13 +48,12 @@ module Fat =
       Size = reader.ReadInt32 (span, offset + 12)
       Align = reader.ReadInt32 (span, offset + 16) }
 
-  let loadFatArchs stream =
+  let loadFatArchs (bytes: byte[]) =
     let reader = BinReader.Init Endian.Big
-    let header = readChunk stream 0UL 8
-    let magic = reader.ReadUInt32 (header, 0)
-    let nArch = reader.ReadInt32 (header, 4)
+    let magic = reader.ReadUInt32 (bytes, 0)
+    let nArch = reader.ReadInt32 (bytes, 4)
     assert (LanguagePrimitives.EnumOfValue magic = Magic.FATMagic)
-    let span = ReadOnlySpan (readChunk stream 8UL (20 * nArch))
+    let span = ReadOnlySpan (bytes, 8, 20 * nArch)
     let archs = Array.zeroCreate nArch
     for i = 0 to nArch - 1 do
       archs[i] <- readFatArch span reader (i * 20)
@@ -63,7 +62,7 @@ module Fat =
   let private matchingISA isa fatArch =
     isa.Arch = CPUType.toArch fatArch.CPUType fatArch.CPUSubType
 
-  let loadArch stream isa =
-    loadFatArchs stream
+  let loadArch bytes isa =
+    loadFatArchs bytes
     |> Array.tryFind (matchingISA isa)
     |> function Some arch -> arch | None -> raise InvalidISAException

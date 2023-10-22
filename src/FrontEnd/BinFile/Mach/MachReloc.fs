@@ -90,14 +90,13 @@ module internal Reloc =
       LibraryName = ""
       ArchOperationMode = ArchOperationMode.NoMode }
 
-  let parse { Stream = stream; Reader = reader } symInfo secs =
+  let parse { Bytes = bytes; Reader = reader } symInfo secs =
     let numRelocs = countRelocs secs
     let relocs = Array.zeroCreate numRelocs
     let mutable i = 0
     for sec in secs do
-      let relOffset = uint64 sec.SecRelOff
-      let relSize = int sec.SecNumOfReloc * 8
-      let relSpan = ReadOnlySpan (readChunk stream relOffset relSize)
+      let relOffset, relSize = int sec.SecRelOff, int sec.SecNumOfReloc * 8
+      let relSpan = ReadOnlySpan (bytes, relOffset, relSize)
       for n = 0 to sec.SecNumOfReloc - 1 do
         let offset = n * 8
         relocs[i] <- parseReloc (relSpan.Slice offset) reader sec

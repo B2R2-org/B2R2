@@ -16,7 +16,7 @@
     <Compile Include="DisasmHelper.fs" />
     <Compile Include="DisasmSyntax.fs" />
     <Compile Include="Instruction.fs" />
-    <Compile Include="IInsParsable.fs" />
+    <Compile Include="IInstructionParsable.fs" />
     <Compile Include="ParseUtils.fs" />
     <Compile Include="LiftingOperators.fs" />
     <Compile Include="LiftingUtils.fs" />

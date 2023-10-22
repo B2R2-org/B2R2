@@ -27,7 +27,7 @@ namespace B2R2.MiddleEnd.ControlFlowAnalysis
 open B2R2
 open B2R2.BinIR
 open B2R2.BinIR.LowUIR
-open B2R2.FrontEnd.BinInterface
+open B2R2.FrontEnd
 open B2R2.MiddleEnd.ControlFlowGraph
 
 /// Temporary information obtained by parsing a block (bbl) of instructions,
@@ -81,7 +81,7 @@ module BBLManager =
   /// Return the bitmask for the given BinHandle to correctly compute jump
   /// target addresses.
   let computeJumpTargetMask (hdl: BinHandle) =
-    let rt = hdl.BinFile.ISA.WordSize |> WordSize.toRegType
+    let rt = hdl.File.ISA.WordSize |> WordSize.toRegType
     (* It is reasonable enough to assume that jump target addresses will never
        overflow when rt is greater than 64<rt>. *)
     if rt > 64<rt> then 0xFFFFFFFFFFFFFFFFUL

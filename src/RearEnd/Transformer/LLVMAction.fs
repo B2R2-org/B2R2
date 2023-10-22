@@ -25,7 +25,7 @@
 namespace B2R2.RearEnd.Transformer
 
 open B2R2
-open B2R2.FrontEnd.BinInterface
+open B2R2.FrontEnd
 open B2R2.MiddleEnd.BinEssence
 open B2R2.MiddleEnd.ControlFlowAnalysis
 open B2R2.MiddleEnd.LLVM
@@ -50,9 +50,9 @@ type LLVMAction () =
     let bin = unbox<Binary> o
     let hdl = Binary.Handle bin
     let ess = BinEssence.empty hdl
-    let ep = hdl.BinFile.EntryPoint |> Option.defaultValue 0UL
+    let ep = hdl.File.EntryPoint |> Option.defaultValue 0UL
     let fn = ess.CodeManager.FunctionMaintainer.GetOrAddFunction ep
-    let eAddr = uint64 hdl.BinFile.Length - 1UL
+    let eAddr = uint64 hdl.File.Length - 1UL
     let mode = hdl.Parser.OperationMode
     let builder = CFGBuilder (hdl, ess.CodeManager, ess.DataManager)
     let evts = CFGEvents.empty

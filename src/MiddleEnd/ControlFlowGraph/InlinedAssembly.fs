@@ -25,8 +25,8 @@
 namespace B2R2.MiddleEnd.ControlFlowGraph
 
 open B2R2
+open B2R2.FrontEnd
 open B2R2.FrontEnd.BinLifter
-open B2R2.FrontEnd.BinInterface
 
 /// Sometimes, inlined assembly creates branches that jump into the middle of an
 /// instruction. For example, the following pattern is commonly found in Libc.
@@ -44,7 +44,7 @@ type InlinedAssemblyTypes =
 
 module InlinedAssemblyPattern =
 
-  let private computeJumpAfterLockAddrs hdl targetBlkAddr =
+  let private computeJumpAfterLockAddrs (hdl: BinHandle) targetBlkAddr =
     [ ([| 0x64uy; 0x83uy; 0x3cuy; 0x25uy; 0x18uy;
           0x00uy; 0x00uy; 0x00uy; 0x00uy; 0x74uy; 0x01uy; 0xf0uy |], 9UL, 2UL)
       ([| 0x65uy; 0x83uy; 0x3Duy; 0x0Cuy;
@@ -55,7 +55,7 @@ module InlinedAssemblyPattern =
         let ins1Addr = targetBlkAddr - len
         let ins2Addr = ins1Addr + cmpLen
         let ins3Addr = ins2Addr + jeLen
-        let bs = BinHandle.ReadBytes (hdl, targetBlkAddr - len, pattern.Length)
+        let bs = hdl.ReadBytes (targetBlkAddr - len, pattern.Length)
         if bs = pattern then Some [ ins1Addr; ins2Addr; ins3Addr ]
         else None
       else None)

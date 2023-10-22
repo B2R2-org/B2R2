@@ -26,7 +26,7 @@ namespace B2R2.FrontEnd.Tests
 
 open Microsoft.VisualStudio.TestTools.UnitTesting
 open B2R2
-open B2R2.FrontEnd.BinInterface
+open B2R2.FrontEnd
 
 module MIPS64 =
   open B2R2.FrontEnd.BinLifter.MIPS

@@ -210,8 +210,7 @@ module ELFGccExceptTable =
   let parse toolBox cls shdrs =
     match Array.tryFind (fun s -> s.SecName = GccExceptTable) shdrs with
     | Some sec ->
-      let offset, size = sec.SecOffset, sec.SecSize
-      let stream = toolBox.Stream
-      let span = ReadOnlySpan (FileHelper.readChunk stream offset (int size))
+      let offset, size = int sec.SecOffset, int sec.SecSize
+      let span = ReadOnlySpan (toolBox.Bytes, offset, size)
       parseLSDASection cls span toolBox.Reader sec.SecAddr 0 Map.empty
     | None -> Map.empty

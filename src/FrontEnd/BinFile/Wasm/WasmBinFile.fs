@@ -33,19 +33,20 @@ open B2R2.FrontEnd.BinFile.Wasm.Helper
 type WasmBinFile (bytes, path, baseAddrOpt) =
   let wm = Parser.parse bytes
   let baseAddr = defaultArg baseAddrOpt 0UL
+  let reader = BinReader.Init Endian.Little
 
   new (bytes, path) = WasmBinFile (bytes, path, None)
 
   member __.WASM with get() = wm
 
   interface IBinFile with
-    member __.FilePath with get() = path
+    member __.Path with get() = path
 
-    member __.FileFormat with get() = FileFormat.WasmBinary
+    member __.Format with get() = FileFormat.WasmBinary
 
     member __.ISA with get() = defaultISA
 
-    member __.FileType with get() = fileTypeOf wm
+    member __.Type with get() = fileTypeOf wm
 
     member __.EntryPoint = entryPointOf wm
 
@@ -56,12 +57,6 @@ type WasmBinFile (bytes, path, baseAddrOpt) =
     member __.IsNXEnabled = true
 
     member __.IsRelocatable = false
-
-    member __.Length = bytes.Length
-
-    member __.RawBytes = bytes
-
-    member __.Span = ReadOnlySpan bytes
 
     member __.GetOffset addr = int addr
 
@@ -89,13 +84,15 @@ type WasmBinFile (bytes, path, baseAddrOpt) =
       let span = ReadOnlySpan bytes
       span.Slice ptr.Offset
 
-    member __.Read (_buffer, _offset, _size) = Utils.futureFeature ()
+    member __.ReadByte (addr: Addr) =
+      let offset = (__ :> IContentAddressable).GetOffset addr
+      bytes[offset]
 
-    member __.ReadByte () = Utils.futureFeature ()
+    member __.ReadByte (offset: int) =
+      bytes[offset]
 
-    member __.Seek (_addr: Addr): unit = Utils.futureFeature ()
-
-    member __.Seek (_offset: int): unit = Utils.futureFeature ()
+    member __.ReadByte (ptr: BinFilePointer) =
+      bytes[ptr.Offset]
 
     member __.IsValidAddr (addr) =
       addr >= 0UL && addr < (uint64 bytes.LongLength)
@@ -167,7 +164,8 @@ type WasmBinFile (bytes, path, baseAddrOpt) =
 
     member __.GetFunctionAddresses (_) = Utils.futureFeature ()
 
-    member __.NewBinFile bs = WasmBinFile (bs, path, Some baseAddr)
+    member __.Reader with get() = reader
 
-    member __.NewBinFile (bs, baseAddr) = WasmBinFile (bs, path, Some baseAddr)
+    member __.RawBytes = bytes
 
+    member __.Length = bytes.Length

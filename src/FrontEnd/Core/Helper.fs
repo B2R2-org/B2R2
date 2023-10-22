@@ -22,28 +22,12 @@
   SOFTWARE.
 *)
 
-module internal B2R2.FrontEnd.BinInterface.Helper
+module internal B2R2.FrontEnd.Helper
 
 open System.Text
 open B2R2
 open B2R2.FrontEnd.BinFile
 open B2R2.FrontEnd.BinLifter
-
-let identifyFormatAndISA stream isa autoDetect =
-  if autoDetect then FormatDetector.identify stream isa
-  else struct (FileFormat.RawBinary, isa)
-
-let loadFile path stream (baddr: Addr option) fmt isa regbay =
-  match fmt with
-  | FileFormat.ELFBinary ->
-    ELFBinFile (path, baddr, Some regbay) :> IBinFile
-  | FileFormat.PEBinary ->
-    PEBinFile (bytes, path, baddr) :> IBinFile
-  | FileFormat.MachBinary ->
-    MachBinFile (bytes, path, isa, baddr) :> IBinFile
-  | FileFormat.WasmBinary ->
-    WasmBinFile (bytes, path, baddr) :> IBinFile
-  | _ -> RawBinFile (bytes, path, isa, baddr) :> IBinFile
 
 /// Classify ranges to be either in-file or not-in-file. The second parameter
 /// (notinfiles) is a sequence of (exclusive) ranges within the myrange, which
@@ -79,20 +63,20 @@ let inline readUIntBySize (r: IBinReader) (span: ByteSpan) size =
   | 8 -> r.ReadUInt64 (span, 0) |> Ok
   | _ -> Error ErrorCase.InvalidMemoryRead
 
-let inline readASCII (file: IBinFile) pos =
-  let rec loop acc pos =
-    let b = file.RawBytes[pos]
+let inline readASCII (file: IBinFile) offset =
+  let rec loop acc offset =
+    let b = file.ReadByte (offset=offset)
     if b = 0uy then List.rev (b :: acc) |> List.toArray
-    else loop (b :: acc) (pos + 1)
-  loop [] pos
+    else loop (b :: acc) (offset + 1)
+  loop [] offset
 
 let inline tryParseInstrFromAddr (file: IBinFile) parser addr =
-  try (parser: IInsParsable).Parse (file.Slice (addr=addr), addr) |> Ok
+  try (parser: IInstructionParsable).Parse (file.Slice (addr=addr), addr) |> Ok
   with _ -> Error ErrorCase.ParsingFailure
 
 let inline tryParseInstrFromBinPtr (file: IBinFile) p (ptr: BinFilePointer) =
   try
-    let ins = (p :> IInsParsable).Parse (file.Slice ptr.Offset, ptr.Addr)
+    let ins = (p :> IInstructionParsable).Parse (file.Slice ptr.Offset, ptr.Addr)
     if BinFilePointer.IsValidAccess ptr (int ins.Length) then Ok ins
     else Error ErrorCase.ParsingFailure
   with _ ->
@@ -130,11 +114,11 @@ let rec parseLoopByPtr file parser ptr acc =
 let inline parseBBLFromBinPtr (file: IBinFile) parser ptr =
   parseLoopByPtr file parser ptr []
 
-let rec liftBBLAux acc advanceFn trctxt pos = function
+let rec liftBBLAux acc advanceFn trctxt addr = function
   | (ins: Instruction) :: rest ->
-    let pos = advanceFn pos (int ins.Length)
-    liftBBLAux (ins.Translate trctxt :: acc) advanceFn trctxt pos rest
-  | [] -> struct (List.rev acc |> Array.concat, pos)
+    let addr = advanceFn addr (int ins.Length)
+    liftBBLAux (ins.Translate trctxt :: acc) advanceFn trctxt addr rest
+  | [] -> struct (List.rev acc |> Array.concat, addr)
 
 let inline liftBBLFromAddr file parser trctxt addr =
   match parseBBLFromAddr file parser addr with
@@ -156,15 +140,15 @@ let inline liftBBLFromBinPtr file parser trctxt ptr =
       liftBBLAux [] BinFilePointer.Advance trctxt ptr bbl
     Error (stmts, ptr)
 
-let rec disasmBBLAux sb advanceFn showAddr resolve hlp pos = function
+let rec disasmBBLAux sb advanceFn showAddr resolve hlp addr = function
   | (ins: Instruction) :: rest ->
     let s = ins.Disasm (showAddr, resolve, hlp)
     let s =
       if (sb: StringBuilder).Length = 0 then s
       else System.Environment.NewLine + s
-    let pos = advanceFn pos (int ins.Length)
-    disasmBBLAux (sb.Append (s)) advanceFn showAddr resolve hlp pos rest
-  | [] -> struct (sb.ToString (), pos)
+    let addr = advanceFn addr (int ins.Length)
+    disasmBBLAux (sb.Append (s)) advanceFn showAddr resolve hlp addr rest
+  | [] -> struct (sb.ToString (), addr)
 
 let disasmBBLFromAddr file parser hlp showAddr resolve addr =
   match parseBBLFromAddr file parser addr with

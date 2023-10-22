@@ -37,9 +37,9 @@ type HexdumpAction () =
   and hexdumpBinary o =
     let bin = unbox<Binary> o
     let hdl = Binary.Handle bin
-    let bs = hdl.BinFile.RawBytes
-    let baseAddr = hdl.BinFile.BaseAddress
-    HexDumper.dump 16 hdl.BinFile.ISA.WordSize true baseAddr bs
+    let bs = hdl.File.RawBytes
+    let baseAddr = hdl.File.BaseAddress
+    HexDumper.dump 16 hdl.File.ISA.WordSize true baseAddr bs
     |> box
 
   interface IAction with

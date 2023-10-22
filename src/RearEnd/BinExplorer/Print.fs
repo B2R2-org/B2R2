@@ -27,7 +27,7 @@ namespace B2R2.RearEnd.BinExplorer
 open System
 open System.Text.RegularExpressions
 open B2R2
-open B2R2.FrontEnd.BinInterface
+open B2R2.FrontEnd
 open B2R2.MiddleEnd.BinEssence
 open B2R2.RearEnd
 
@@ -111,18 +111,18 @@ type CmdPrint () =
   let hexPrint sz (i: uint64) =
     i.ToString ("x" + (sz * 2).ToString ())
 
-  let print hdl sz fmt addr =
+  let print (hdl: BinHandle) sz fmt addr =
     match fmt with
     | Hexadecimal ->
-      BinHandle.ReadUInt (hdl, addr=addr, size=sz) |> hexPrint sz
+      hdl.ReadUInt (addr=addr, size=sz) |> hexPrint sz
     | UnsignedDecimal ->
-      BinHandle.ReadUInt(hdl, addr=addr, size=sz).ToString ()
+      hdl.ReadUInt(addr=addr, size=sz).ToString ()
     | Decimal ->
-      BinHandle.ReadInt(hdl, addr=addr, size=sz).ToString ()
+      hdl.ReadInt(addr=addr, size=sz).ToString ()
     | _ -> failwith "This is impossible"
 
-  let getAddressPrefix hdl (addr: uint64) =
-    let hexWidth = WordSize.toByteWidth hdl.BinFile.ISA.WordSize * 2
+  let getAddressPrefix (hdl: BinHandle) (addr: uint64) =
+    let hexWidth = WordSize.toByteWidth hdl.File.ISA.WordSize * 2
     addr.ToString ("x" + hexWidth.ToString ()) + ": "
 
   let rec iter hdl sz fmt addr endAddr acc =
@@ -134,11 +134,11 @@ type CmdPrint () =
         with _ -> (addrstr + "(invalid)") :: acc
       iter hdl sz fmt (addr + uint64 sz) endAddr acc
 
-  let rec printStrings hdl addr cnt acc =
+  let rec printStrings (hdl: BinHandle) addr cnt acc =
     if cnt <= 0 then List.rev acc |> List.toArray
     else
       let s =
-        try BinHandle.ReadASCII (hdl, addr=addr) |> Some with _ -> None
+        try hdl.ReadASCII (addr=addr) |> Some with _ -> None
       match s with
       | None -> printStrings hdl addr 0 acc
       | Some s ->

@@ -25,8 +25,8 @@
 namespace B2R2.MiddleEnd.ControlFlowAnalysis
 
 open B2R2
+open B2R2.FrontEnd
 open B2R2.FrontEnd.BinLifter
-open B2R2.FrontEnd.BinInterface
 open B2R2.MiddleEnd.ConcEval
 open B2R2.MiddleEnd.ControlFlowAnalysis.EvalHelper
 
@@ -74,10 +74,10 @@ module private LibcAnalysisHelper =
         | Ok () -> true
         | _ -> Utils.impossible ()
 
-  let retrieveLibcStartAddresses builder hdl codeMgr = function
+  let retrieveLibcStartAddresses builder (hdl: BinHandle) codeMgr = function
     | None -> false
     | Some st ->
-      match hdl.BinFile.ISA.Arch with
+      match hdl.File.ISA.Arch with
       | Arch.IntelX86 -> retrieveAddrsForx86 builder codeMgr st
       | Arch.IntelX64 -> retrieveAddrsForx64 builder codeMgr st
       | _ -> false
@@ -121,8 +121,8 @@ module private LibcAnalysisHelper =
     | true -> PluggableAnalysisOk
     | false -> PluggableAnalysisError
 
-  let recoverLibcEntries builder hdl codeMgr =
-    match hdl.BinFile.FileFormat with
+  let recoverLibcEntries builder (hdl: BinHandle) codeMgr =
+    match hdl.File.Format with
     | FileFormat.ELFBinary ->
       recoverAddrsFromLibcStartMain builder hdl codeMgr
     | _ -> PluggableAnalysisError

@@ -28,8 +28,8 @@ open FSharp.Data
 open FSharp.Data.JsonExtensions
 open B2R2
 open B2R2.BinIR
+open B2R2.FrontEnd
 open B2R2.FrontEnd.BinFile
-open B2R2.FrontEnd.BinInterface
 
 [<AutoOpen>]
 module private EVMTrampolineAnalysis =
@@ -101,25 +101,22 @@ type EVMTrampolineAnalysis (abiFile) =
   member private __.UpdateSymbols (file: IBinFile) addr name =
     file.AddSymbol addr (__.MakeSymbol name addr)
 
-  member private __.AnalyzeTrampoline hdl codeMgr =
-    let bytes = hdl.BinFile.RawBytes
-    let isa = hdl.BinFile.ISA
-    let newHdl = BinHandle.Init (isa, bytes)
-    let newFi = newHdl.BinFile
+  member private __.AnalyzeTrampoline (hdl: BinHandle) codeMgr =
+    let isa = hdl.File.ISA
     let sigToName = if abiFile <> "" then parseABI abiFile else Map.empty
     let fn sign addr =
       let name =
         match Map.tryFind sign sigToName with
         | Some name -> name
         | _ -> sprintf "func_%x" addr
-      __.UpdateSymbols newFi addr name
+      __.UpdateSymbols hdl.File addr name
     iterateTrampoline hdl codeMgr fn
-    PluggableAnalysisNewBinary newHdl
+    PluggableAnalysisOk
 
   interface IPluggableAnalysis with
     member __.Name = "EVM Trampoline Analysis"
 
-    member __.Run _builder hdl codeMgr _dataMgr =
-      match hdl.BinFile.ISA.Arch with
+    member __.Run _builder (hdl: BinHandle) codeMgr _dataMgr =
+      match hdl.File.ISA.Arch with
       | Architecture.EVM -> __.AnalyzeTrampoline hdl codeMgr
       | _ -> PluggableAnalysisOk

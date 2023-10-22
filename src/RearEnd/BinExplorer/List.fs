@@ -25,15 +25,15 @@
 namespace B2R2.RearEnd.BinExplorer
 
 open B2R2
+open B2R2.FrontEnd
 open B2R2.FrontEnd.BinFile
-open B2R2.FrontEnd.BinInterface
 open B2R2.MiddleEnd.BinEssence
 
 type CmdList () =
   inherit Cmd ()
 
-  let createFuncString hdl (addr, name) =
-    Addr.toString hdl.BinFile.ISA.WordSize addr + ": " + name
+  let createFuncString (hdl: BinHandle) (addr, name) =
+    Addr.toString hdl.File.ISA.WordSize addr + ": " + name
 
   let listFunctions ess =
     ess.CodeManager.FunctionMaintainer.RegularFunctions
@@ -51,8 +51,8 @@ type CmdList () =
     + Permission.toString seg.Permission + ")"
 
   let listSegments (hdl: BinHandle) =
-    let wordSize = hdl.BinFile.ISA.WordSize
-    hdl.BinFile.GetSegments ()
+    let wordSize = hdl.File.ISA.WordSize
+    hdl.File.GetSegments ()
     |> Seq.map (createSegmentString wordSize)
     |> Seq.toArray
 
@@ -66,8 +66,8 @@ type CmdList () =
     + " [" + sec.Name + "] "
 
   let listSections (hdl: BinHandle) =
-    let wordSize = hdl.BinFile.ISA.WordSize
-    hdl.BinFile.GetSections ()
+    let wordSize = hdl.File.ISA.WordSize
+    hdl.File.GetSections ()
     |> Seq.mapi (createSectionString wordSize)
     |> Seq.toArray
 

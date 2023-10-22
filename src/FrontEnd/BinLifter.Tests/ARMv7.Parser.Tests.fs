@@ -27,14 +27,14 @@ namespace B2R2.FrontEnd.Tests
 open Microsoft.VisualStudio.TestTools.UnitTesting
 open B2R2
 open B2R2.FrontEnd.BinLifter
-open B2R2.FrontEnd.BinInterface
 
 module ARMv7 =
   open B2R2.FrontEnd.BinLifter.ARM32
 
   let private test arch endian cond op w q simd oprs (bytes: byte[]) =
     let mode = ArchOperationMode.ARMMode
-    let parser = ARM32Parser (ISA.Init arch endian, mode, None) :> IInsParsable
+    let parser =
+      ARM32Parser (ISA.Init arch endian, mode, None) :> IInstructionParsable
     let ins = parser.Parse (bytes, 0UL) :?> ARM32Instruction
     let cond' = ins.Condition
     let opcode' = ins.Opcode

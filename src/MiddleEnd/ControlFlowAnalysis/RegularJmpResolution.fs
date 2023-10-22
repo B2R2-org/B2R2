@@ -27,9 +27,9 @@ namespace B2R2.MiddleEnd.ControlFlowAnalysis
 open B2R2
 open B2R2.BinIR
 open B2R2.BinIR.SSA
+open B2R2.FrontEnd
 open B2R2.FrontEnd.BinFile
 open B2R2.FrontEnd.BinLifter
-open B2R2.FrontEnd.BinInterface
 open B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.MiddleEnd.ControlFlowAnalysis.IRHelper
 open B2R2.MiddleEnd.DataFlow
@@ -71,8 +71,8 @@ module private RegularJmpResolution =
     else BitVector.UnsignedMax rt |> BitVector.ToUInt64
 
   /// Read a table entry and compute jump target
-  let readTable hdl bAddr (entryAddr: Addr) size =
-    let addr = bAddr + BinHandle.ReadUInt (hdl, entryAddr, size)
+  let readTable (hdl: BinHandle) bAddr (entryAddr: Addr) size =
+    let addr = bAddr + hdl.ReadUInt (entryAddr, size)
     addr &&& computeMask size
 
   let recoverIndirectEdge bld fn src dst =
@@ -135,16 +135,16 @@ module private RegularJmpResolution =
       else getInitialRecoveryTarget dataMgr tl
     | [] -> None
 
-  let isSemanticallyNop hdl (ins: Instruction) =
+  let isSemanticallyNop (hdl: BinHandle) (ins: Instruction) =
     if ins.IsNop () then true
     else
-      match BinHandle.LiftOptimizedInstr hdl ins with
+      match hdl.LiftOptimizedInstr ins with
       | [| { LowUIR.S = LowUIR.ISMark (_) }
            { LowUIR.S = LowUIR.IEMark (_) } |] -> true
       | _ -> false
 
-  let rec findNextNonNopAddr hdl addr =
-    match BinHandle.TryParseInstr (hdl, addr=addr) with
+  let rec findNextNonNopAddr (hdl: BinHandle) addr =
+    match hdl.TryParseInstr (addr=addr) with
     | Ok ins ->
       if isSemanticallyNop hdl ins then
         findNextNonNopAddr hdl (addr + uint64 ins.Length)
@@ -184,7 +184,7 @@ module private RegularJmpResolution =
       None
     else
       let addr = readTable hdl jt.BranchBaseAddr entryAddr size
-      if hdl.BinFile.IsValidAddr addr then
+      if hdl.File.IsValidAddr addr then
         let nextAddr = entryAddr + uint64 size
         if Map.containsKey addr gaps then
           let confirmedEndPoint =
@@ -303,13 +303,13 @@ module private RegularJmpResolution =
     | Ok addr -> addr
     | Error _ -> defaultAddr
 
-  let classifyPCRelative hdl cpState pcVar offset =
+  let classifyPCRelative (hdl: BinHandle) cpState pcVar offset =
     match CPState.findReg cpState pcVar with
     | Const bv ->
       let ptr = BitVector.ToUInt64 bv + BitVector.ToUInt64 offset
-      let file = hdl.BinFile
+      let file = hdl.File
       let size = file.ISA.WordSize |> WordSize.toByteWidth
-      match BinHandle.TryReadUInt (hdl, ptr, size) with
+      match hdl.TryReadUInt (ptr, size) with
       | Ok target when target <> 0UL && file.IsExecutableAddr target ->
         ConstJmpPattern <| getRelocatedAddr file ptr target
       | _ -> UnknownPattern

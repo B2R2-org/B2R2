@@ -38,11 +38,14 @@ type CILTranslationContext internal (isa, regexprs) =
   override __.GetPseudoRegVar _id _pos = Utils.impossible ()
 
 type CILParser () =
-  interface IInsParsable with
+  interface IInstructionParsable with
     member __.Parse (_: byte[], _: Addr): Instruction =
       Utils.futureFeature ()
 
     member __.Parse (_: ByteSpan, _: Addr): Instruction =
+      Utils.futureFeature ()
+
+    member __.MaxInstructionSize =
       Utils.futureFeature ()
 
     member __.OperationMode with get() = ArchOperationMode.NoMode and set _ = ()

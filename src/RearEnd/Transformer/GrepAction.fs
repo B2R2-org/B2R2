@@ -27,14 +27,14 @@ namespace B2R2.RearEnd.Transformer
 open System
 open System.Text.RegularExpressions
 open B2R2
-open B2R2.FrontEnd.BinInterface
+open B2R2.FrontEnd
 open B2R2.RearEnd.Transformer.Utils
 
 /// The `grep` action.
 type GrepAction () =
   let grepFromBinary (pattern: string) bytesBefore bytesAfter bin =
     let hdl = Binary.Handle bin
-    let bs = hdl.BinFile.RawBytes
+    let bs = hdl.File.RawBytes
     let hs = byteArrayToHexStringArray bs |> String.concat ""
     let regex = Regex (pattern.ToLowerInvariant ())
     regex.Matches hs
@@ -47,8 +47,7 @@ type GrepAction () =
       let eoff = i + len - 1
       let eoff = if (eoff + bytesAfter) >= bs.Length then bs.Length - 1
                  else eoff + bytesAfter
-      lazy BinHandle.Init (hdl.BinFile.ISA, hdl.Parser.OperationMode,
-                           false, Some (uint64 soff), bs[soff .. eoff])
+      lazy BinHandle (bs[soff .. eoff], hdl.File.ISA, Some (uint64 soff), false)
       |> Binary.Init (Binary.MakeAnnotation "Greped from " bin))
     |> box
 

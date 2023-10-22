@@ -25,8 +25,8 @@
 namespace B2R2.MiddleEnd.ControlFlowAnalysis
 
 open B2R2
+open B2R2.FrontEnd
 open B2R2.FrontEnd.BinFile
-open B2R2.FrontEnd.BinInterface
 
 module ELFExceptionTable =
 
@@ -38,8 +38,8 @@ module ELFExceptionTable =
 
   /// If a landing pad has a direct branch to another function, then we consider
   /// the frame containing the lading pad as a non-function FDE.
-  let private checkFDEIsFunction hdl fde landingPad =
-    match BinHandle.ParseBBlock (hdl, addr=landingPad) with
+  let private checkFDEIsFunction (hdl: BinHandle) fde landingPad =
+    match hdl.ParseBBlock (addr=landingPad) with
     | Ok (blk) ->
       let last = List.last blk
       if last.IsCall () |> not then
@@ -89,11 +89,11 @@ module ELFExceptionTable =
 
 /// ExceptionTable holds parsed exception information of a binary code (given by
 /// the BinHandle).
-type ExceptionTable (hdl) =
+type ExceptionTable (hdl: BinHandle) =
   let exnTbl, funcEntryPoints =
-    match hdl.BinFile.FileFormat with
+    match hdl.File.Format with
     | FileFormat.ELFBinary ->
-      ELFExceptionTable.build hdl (hdl.BinFile :?> ELFBinFile)
+      ELFExceptionTable.build hdl (hdl.File :?> ELFBinFile)
     | _ -> ARMap.empty, Set.empty
 
   /// For a given instruction address, find the landing pad (exception target)

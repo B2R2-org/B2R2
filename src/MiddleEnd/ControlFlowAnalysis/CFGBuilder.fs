@@ -27,9 +27,9 @@ namespace B2R2.MiddleEnd.ControlFlowAnalysis
 open System.Collections.Generic
 open B2R2
 open B2R2.BinIR
+open B2R2.FrontEnd
 open B2R2.FrontEnd.BinFile
 open B2R2.FrontEnd.BinFile.ELF
-open B2R2.FrontEnd.BinInterface
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinLifter.Intel
 open B2R2.MiddleEnd.BinGraph
@@ -205,7 +205,7 @@ module private CFGBuilder =
   let buildRegularEdge hdl (codeMgr: CodeManager) dataMgr fn src dst edge evts =
     let mode = ArchOperationMode.NoMode (* XXX: put mode in the event. *)
     let entryPoint = (fn: RegularFunction).EntryPoint
-    if not (hdl.BinFile.IsExecutableAddr entryPoint) then
+    if not ((hdl: BinHandle).File.IsExecutableAddr entryPoint) then
       Error (ErrorConnectingEdge evts) (* Invalid bbl encountered. *)
     elif codeMgr.HasBBL dst then
       let dstPp = ProgramPoint (dst, 0)
@@ -233,8 +233,8 @@ module private CFGBuilder =
         codeMgr.ReplaceInlinedAssemblyChunk addrs chunk evts |> Ok
     elif dst = 0UL then
       Ok evts (* "jmp 0" case (as in "call 0"). *)
-    elif hdl.BinFile.FileType = FileType.ObjFile
-      && not (hdl.BinFile.IsExecutableAddr dst) then
+    elif hdl.File.Type = FileType.ObjFile
+      && not (hdl.File.IsExecutableAddr dst) then
       Ok evts (* call outside a section (occurs in an object file) *)
     else
       match buildBBL hdl codeMgr fn mode dst evts with
@@ -274,7 +274,7 @@ module private CFGBuilder =
   /// call dword ptr [gs:0x10] is a system call in x86/x64 Linux environment.
   /// We pattern-match the instruction.
   let isIndirectSyscall hdl (fn: RegularFunction) (v: Vertex<IRBasicBlock>) =
-    match hdl.BinFile.FileFormat, hdl.BinFile.ISA.Arch with
+    match (hdl: BinHandle).File.Format, hdl.File.ISA.Arch with
     | FileFormat.ELFBinary, Architecture.IntelX86 ->
       let caller = DiGraph.GetPreds (fn.IRCFG, v) |> List.head
       let callIns = caller.VData.LastInstruction :?> IntelInstruction
@@ -333,7 +333,7 @@ module private CFGBuilder =
     |> List.fold (fun evts ftInfo ->
       match ftInfo with
       | FTCall (caller, callSite, callee, ftAddr) ->
-        if not (hdl.BinFile.IsExecutableAddr ftAddr) then
+        if not (hdl.File.IsExecutableAddr ftAddr) then
           let calleeFn = (codeMgr: CodeManager).FunctionMaintainer.Find callee
           calleeFn.NoReturnProperty <- NoRet
           evts
@@ -487,7 +487,7 @@ module private CFGBuilder =
          analyzeIndirectBranchPattern in IndirectJumpResolution. It's for
          minimizing the overhead in calling CP, and we can get it back here when
          incremental CP is implemented. *)
-      if hdl.BinFile.ISA.Arch = Arch.EVM then ()
+      if hdl.File.ISA.Arch = Arch.EVM then ()
       else finalizeFunctionInfo fn
       updateCalleeInfo codeMgr fn
       noret.Run hdl codeMgr dataMgr fn evts
@@ -497,7 +497,7 @@ type CFGBuilder (hdl, codeMgr: CodeManager, dataMgr: DataManager) as this =
   let noret = NoReturnFunctionIdentification ()
   let indcall = IndirectCallResolution ()
   let indjmp =
-    match hdl.BinFile.ISA.Arch with
+    match (hdl: BinHandle).File.ISA.Arch with
     | Arch.EVM -> EVMJmpResolution () :> PerFunctionAnalysis
     | _ -> RegularJmpResolution (this) :> PerFunctionAnalysis
 
@@ -588,7 +588,7 @@ type CFGBuilder (hdl, codeMgr: CodeManager, dataMgr: DataManager) as this =
   member private __.AddNewFunction evts (entry, mode) =
     if codeMgr.FunctionMaintainer.Contains (addr=entry) then
       Ok evts
-    elif not <| hdl.BinFile.IsExecutableAddr entry then
+    elif not <| hdl.File.IsExecutableAddr entry then
       Error (ErrorParsing evts)
     else
       CFGEvents.addFuncEvt entry mode evts |> Ok
@@ -600,7 +600,7 @@ type CFGBuilder (hdl, codeMgr: CodeManager, dataMgr: DataManager) as this =
   member __.AddNewFunctions entries =
 #if CFGDEBUG
     dbglog (nameof CFGBuilder) "Start by adding %d function(s) for %s"
-      (List.length entries) (hdl.BinFile.FilePath)
+      (List.length entries) (hdl.File.FilePath)
 #endif
     (* List.foldBack is used here to preserve the order of input entries *)
     List.foldBack (fun elm evts ->

@@ -228,16 +228,16 @@ module internal Section =
 
   /// Return the section file offset and size, which represents the section
   /// names separated by null character.
-  let parseSectionNameTableInfo hdr (reader: IBinReader) (stream: Stream) =
+  let parseSectionNameTableInfo hdr ({ Reader = reader } as toolBox) =
     let secPtr = hdr.SHdrTblOffset + uint64 (hdr.SHdrStrIdx * hdr.SHdrEntrySize)
     let ptrSize = WordSize.toByteWidth hdr.Class
     let shAddrOffset = 8UL + uint64 (ptrSize * 2)
     let shAddrPtr = secPtr + shAddrOffset (* pointer to sh_offset *)
-    let buf = readChunk stream shAddrPtr (ptrSize * 2) (* sh_offset, sh_size *)
-    let span = ReadOnlySpan buf
+    let shAddrSize = ptrSize * 2 (* sh_offset, sh_size *)
+    let span = ReadOnlySpan (toolBox.Bytes, int shAddrPtr, shAddrSize)
     let offset = readUIntOfType span reader hdr.Class 0
     let size = readUIntOfType span reader hdr.Class (pickNum hdr.Class 4 8)
-    readChunk stream offset (int size)
+    ReadOnlySpan (toolBox.Bytes, int offset, int size)
 
   let peekSecType (span: ByteSpan) (reader: IBinReader) =
     reader.ReadUInt32 (span, 4)
@@ -247,35 +247,32 @@ module internal Section =
     readUIntOfType span reader cls 8
     |> LanguagePrimitives.EnumOfValue: SectionFlag
 
-  let parseSection toolBox num nameTbl (span: ByteSpan) =
+  let parseSectionHdr toolBox num nameTbl (secHdr: ByteSpan) =
     let reader = toolBox.Reader
-    let nameOffset = reader.ReadInt32 (span, 0)
+    let nameOffset = reader.ReadInt32 (secHdr, 0)
     let cls = toolBox.Header.Class
     { SecNum = num
-      SecName = ByteArray.extractCString nameTbl nameOffset
-      SecType = peekSecType span reader
-      SecFlags = peekSecFlags span reader cls
-      SecAddr = readNative span reader cls 12 16 + toolBox.BaseAddress
-      SecOffset = readNative span reader cls 16 24
-      SecSize = readNative span reader cls 20 32
-      SecLink = reader.ReadUInt32 (span, pickNum cls 24 40)
-      SecInfo = reader.ReadUInt32 (span, pickNum cls 28 44)
-      SecAlignment = readNative span reader cls 32 48
-      SecEntrySize = readNative span reader cls 36 56 }
+      SecName = ByteArray.extractCStringFromSpan nameTbl nameOffset
+      SecType = peekSecType secHdr reader
+      SecFlags = peekSecFlags secHdr reader cls
+      SecAddr = readNative secHdr reader cls 12 16 + toolBox.BaseAddress
+      SecOffset = readNative secHdr reader cls 16 24
+      SecSize = readNative secHdr reader cls 20 32
+      SecLink = reader.ReadUInt32 (secHdr, pickNum cls 24 40)
+      SecInfo = reader.ReadUInt32 (secHdr, pickNum cls 28 44)
+      SecAlignment = readNative secHdr reader cls 32 48
+      SecEntrySize = readNative secHdr reader cls 36 56 }
 
-  let parse toolBox =
-    let stream = toolBox.Stream
+  let parse ({ Bytes = bytes } as toolBox) =
     let hdr = toolBox.Header
-    let nameTbl = parseSectionNameTableInfo hdr toolBox.Reader stream
+    let nameTbl = parseSectionNameTableInfo hdr toolBox
+    let secHdrEntrySize = int hdr.SHdrEntrySize
     let secHdrCount = int hdr.SHdrNum
     let secHeaders = Array.zeroCreate secHdrCount
-    let buf = Array.zeroCreate (int hdr.SHdrEntrySize)
-    let rec parseLoop count =
-      if count = secHdrCount then secHeaders
-      else
-        readOrDie stream buf
-        let span = ReadOnlySpan buf
-        secHeaders[count] <- parseSection toolBox count nameTbl span
-        parseLoop (count + 1)
-    stream.Seek (int64 hdr.SHdrTblOffset, SeekOrigin.Begin) |> ignore
-    parseLoop 0
+    let mutable offset = int hdr.SHdrTblOffset
+    for i = 0 to secHdrCount - 1 do
+      let span = ReadOnlySpan (bytes, offset, secHdrEntrySize)
+      let hdr = parseSectionHdr toolBox i nameTbl span
+      secHeaders[i] <- hdr
+      offset <- offset + secHdrEntrySize
+    secHeaders

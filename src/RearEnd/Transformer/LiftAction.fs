@@ -27,14 +27,14 @@ namespace B2R2.RearEnd.Transformer
 open System.Text
 open B2R2
 open B2R2.BinIR.LowUIR
+open B2R2.FrontEnd
 open B2R2.FrontEnd.BinFile
-open B2R2.FrontEnd.BinInterface
 
 /// The `lift` action.
 type LiftAction () =
-  let rec lift (sb: StringBuilder) hdl ptr =
+  let rec lift (sb: StringBuilder) (hdl: BinHandle) ptr =
     if BinFilePointer.IsValid ptr then
-      match BinHandle.TryParseInstr (hdl, ptr) with
+      match hdl.TryParseInstr (ptr) with
       | Ok instr ->
         let s = instr.Translate hdl.TranslationContext |> Pp.stmtsToString
         let ptr = BinFilePointer.Advance ptr (int instr.Length)
@@ -46,8 +46,8 @@ type LiftAction () =
   let liftByteArray (o: obj) =
     let bin = unbox<Binary> o
     let hdl = Binary.Handle bin
-    let baddr = hdl.BinFile.BaseAddress
-    let ptr = BinFilePointer (baddr, 0, hdl.BinFile.Length - 1)
+    let baddr = hdl.File.BaseAddress
+    let ptr = BinFilePointer (baddr, 0, hdl.File.Length - 1)
     let sb = StringBuilder ()
     lift sb hdl ptr
     |> box

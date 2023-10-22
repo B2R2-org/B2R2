@@ -24,7 +24,6 @@
 
 namespace B2R2.FrontEnd.BinLifter.ARM32
 
-open B2R2
 open B2R2.FrontEnd.BinLifter
 
 /// Translation context for 32-bit ARM instructions (ARMv7 and ARMv8 AARCH32).

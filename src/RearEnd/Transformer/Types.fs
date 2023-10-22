@@ -27,7 +27,7 @@ namespace B2R2.RearEnd.Transformer
 open System
 open System.Text
 open B2R2
-open B2R2.FrontEnd.BinInterface
+open B2R2.FrontEnd
 open type FileFormat
 
 /// Binary is the main data object representing a byte sequence tagged with
@@ -49,29 +49,30 @@ with
   static member MakeAnnotation prefix bin =
     match bin with
     | Binary (hdl, annot) ->
-      let path = hdl.Value.BinFile.FilePath
+      let path = hdl.Value.File.Path
       if String.IsNullOrEmpty path then annot
       else $"{prefix}{path}"
 
   override __.ToString () =
     match __ with
-    | Binary (hdl, annot) when hdl.Value.BinFile.FileFormat = RawBinary ->
+    | Binary (hdl, annot) when hdl.Value.File.Format = RawBinary ->
       let hdl = hdl.Value
-      let s = Utils.makeSpanSummary hdl.BinFile.Span
+      let s = Utils.makeByteArraySummary hdl.File.RawBytes
       if String.IsNullOrEmpty annot then
-        $"Binary(Raw) | 0x{hdl.BinFile.BaseAddress:x8} | {s}"
+        $"Binary(Raw) | 0x{hdl.File.BaseAddress:x8} | {s}"
       else
-        $"Binary(Raw) | 0x{hdl.BinFile.BaseAddress:x8} | {s} | {annot}"
+        $"Binary(Raw) | 0x{hdl.File.BaseAddress:x8} | {s} | {annot}"
     | Binary (hdl, annot) ->
       let hdl = hdl.Value
-      let s = Utils.makeSpanSummary hdl.BinFile.Span
-      let fmt = FileFormat.toString hdl.BinFile.FileFormat
-      let path = hdl.BinFile.FilePath
+      let file = hdl.File
+      let s = Utils.makeByteArraySummary file.RawBytes
+      let fmt = FileFormat.toString hdl.File.Format
+      let path = file.Path
       let finfo = if String.IsNullOrEmpty path then "" else $", {path}"
       if String.IsNullOrEmpty annot then
-        $"Binary({fmt}{finfo}) | 0x{hdl.BinFile.BaseAddress:x8} | {s}"
+        $"Binary({fmt}{finfo}) | 0x{file.BaseAddress:x8} | {s}"
       else
-        $"Binary({fmt}{finfo}) | 0x{hdl.BinFile.BaseAddress:x8} | {s} | {annot}"
+        $"Binary({fmt}{finfo}) | 0x{file.BaseAddress:x8} | {s} | {annot}"
 
 /// Instruction tagged with its corresponding bytes.
 type Instruction =

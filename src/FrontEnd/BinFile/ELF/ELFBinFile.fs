@@ -25,7 +25,6 @@
 namespace B2R2.FrontEnd.BinFile
 
 open System
-open System.IO
 open B2R2
 open B2R2.FrontEnd.BinFile.ELF
 open B2R2.FrontEnd.BinFile.ELF.Helper
@@ -33,8 +32,8 @@ open B2R2.FrontEnd.BinFile.ELF.Helper
 /// <summary>
 ///   This class represents an ELF binary file.
 /// </summary>
-type ELFBinFile (path, stream: Stream, baseAddrOpt, regbay) =
-  let toolBox = Header.parse baseAddrOpt stream
+type ELFBinFile (path, bytes: byte[], baseAddrOpt, regbay) =
+  let toolBox = Header.parse baseAddrOpt bytes
   let hdr = toolBox.Header
   let phdrs = lazy ProgramHeader.parse toolBox
   let shdrs = lazy Section.parse toolBox
@@ -81,13 +80,13 @@ type ELFBinFile (path, stream: Stream, baseAddrOpt, regbay) =
   member __.RelocationInfo with get() = relocs.Value
 
   interface IBinFile with
-    member __.FilePath with get() = path
+    member __.Path with get() = path
 
-    member __.FileFormat with get() = FileFormat.ELFBinary
+    member __.Format with get() = FileFormat.ELFBinary
 
     member __.ISA with get() = ISA.Init hdr.MachineType hdr.Endian
 
-    member __.FileType with get() = toFileType hdr.ELFFileType
+    member __.Type with get() = toFileType hdr.ELFFileType
 
     member __.EntryPoint = Some hdr.EntryPoint
 
@@ -100,45 +99,38 @@ type ELFBinFile (path, stream: Stream, baseAddrOpt, regbay) =
 
     member __.IsRelocatable = isRelocatable toolBox shdrs.Value
 
-    member __.Length = int stream.Length
-
-    member __.RawBytes = Utils.futureFeature () // XXX
-
-    member __.Span = Utils.futureFeature (); ReadOnlySpan [||]
-
     member __.GetOffset addr =
       translateAddrToOffset loadables.Value shdrs.Value addr |> Convert.ToInt32
 
     member __.Slice (addr, size) =
-      let offset = (__ :> IBinFile).GetOffset addr
-      (__ :> IBinFile).Slice (offset=offset, size=size)
+      let offset = (__ :> IContentAddressable).GetOffset addr
+      (__ :> IContentAddressable).Slice (offset=offset, size=size)
 
     member __.Slice (addr) =
-      let offset = (__ :> IBinFile).GetOffset addr
-      let size = int stream.Length - offset
-      (__ :> IBinFile).Slice (offset=offset, size=size)
+      let offset = (__ :> IContentAddressable).GetOffset addr
+      (__ :> IContentAddressable).Slice (offset=offset)
 
     member __.Slice (offset: int, size) =
-      let buf = FileHelper.readChunk stream (uint64 offset) size
-      ReadOnlySpan buf
+      ReadOnlySpan (bytes, offset, size)
 
     member __.Slice (offset: int) =
-      let size = int stream.Length - offset
-      (__ :> IBinFile).Slice (offset=offset, size=size)
+      ReadOnlySpan(bytes).Slice offset
 
     member __.Slice (ptr: BinFilePointer, size) =
-      (__ :> IBinFile).Slice (offset=ptr.Offset, size=size)
+      ReadOnlySpan (bytes, ptr.Offset, size)
 
     member __.Slice (ptr: BinFilePointer) =
-      (__ :> IBinFile).Slice (offset=ptr.Offset)
+      ReadOnlySpan(bytes).Slice ptr.Offset
 
-    member __.Read (_buffer, _offset, _size) = Utils.futureFeature ()
+    member __.ReadByte (addr: Addr) =
+      let offset = (__ :> IContentAddressable).GetOffset addr
+      bytes[offset]
 
-    member __.ReadByte () = Utils.futureFeature ()
+    member __.ReadByte (offset: int) =
+      bytes[offset]
 
-    member __.Seek (_addr: Addr): unit = Utils.futureFeature ()
-
-    member __.Seek (_offset: int): unit = Utils.futureFeature ()
+    member __.ReadByte (ptr: BinFilePointer) =
+      bytes[ptr.Offset]
 
     member __.IsValidAddr addr =
       IntervalSet.containsAddr addr notInMemRanges.Value |> not
@@ -245,7 +237,8 @@ type ELFBinFile (path, stream: Stream, baseAddrOpt, regbay) =
       |> addExtraFunctionAddrs toolBox shdrs.Value loadables.Value
                                relocs.Value exnInfo
 
-    member __.NewBinFile bs = Utils.futureFeature ()
+    member __.Reader with get() = toolBox.Reader
 
-    member __.NewBinFile (bs, baseAddr) = Utils.futureFeature ()
+    member __.RawBytes = bytes
 
+    member __.Length = bytes.Length

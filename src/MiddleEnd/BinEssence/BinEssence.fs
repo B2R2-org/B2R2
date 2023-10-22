@@ -25,8 +25,8 @@
 namespace B2R2.MiddleEnd.BinEssence
 
 open B2R2
+open B2R2.FrontEnd
 open B2R2.FrontEnd.BinFile
-open B2R2.FrontEnd.BinInterface
 open B2R2.MiddleEnd.ControlFlowAnalysis
 
 /// <summary>
@@ -56,8 +56,8 @@ module BinEssence =
       Ok (func.IRCFG, root)
     | None -> Error ()
 
-  let private getFunctionOperationMode hdl entry =
-    match hdl.BinFile.ISA.Arch with
+  let private getFunctionOperationMode (hdl: BinHandle) entry =
+    match hdl.File.ISA.Arch with
     | Arch.ARMv7 ->
       if entry &&& 1UL = 1UL then
         entry - 1UL, ArchOperationMode.ThumbMode
@@ -69,14 +69,14 @@ module BinEssence =
   /// binary is stripped, the returned sequence will be incomplete, and we need
   /// to expand it during the other analyses.
   let private getInitialEntryPoints ess =
-    let file = ess.BinHandle.BinFile
+    let file = ess.BinHandle.File
     let entries =
       file.GetFunctionAddresses ()
       |> Set.ofSeq
       |> Set.union (ess.CodeManager.ExceptionTable.GetFunctionEntryPoints ())
     file.EntryPoint
     |> Option.fold (fun acc addr ->
-      if file.FileType = FileType.LibFile && addr = 0UL then acc
+      if file.Type = FileType.LibFile && addr = 0UL then acc
       else Set.add addr acc) entries
     |> Set.toList
     |> List.map (getFunctionOperationMode ess.BinHandle)

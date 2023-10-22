@@ -26,7 +26,7 @@ namespace B2R2.MiddleEnd.ControlFlowAnalysis
 
 open B2R2
 open B2R2.BinIR.SSA
-open B2R2.FrontEnd.BinInterface
+open B2R2.FrontEnd
 open B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.MiddleEnd.DataFlow
 open B2R2.MiddleEnd.ControlFlowAnalysis
@@ -56,7 +56,7 @@ module private IndirectCallResolution =
     updateCallInfo func callSiteAddr target
     evts
 
-  let handleUndiscoveredTarget hdl codeMgr func callSiteAddr target evts =
+  let handleUndiscoveredTarget codeMgr func callSiteAddr target evts =
     updateCallInfo func callSiteAddr target
     (codeMgr: CodeManager).FunctionMaintainer.GetOrAddFunction target
     |> ignore
@@ -97,15 +97,15 @@ module private IndirectCallResolution =
       | Some target ->
         if codeMgr.FunctionMaintainer.Contains (addr=target) then
           handleDiscoveredTarget func callSiteAddr target evts
-        else handleUndiscoveredTarget hdl codeMgr func callSiteAddr target evts
+        else handleUndiscoveredTarget codeMgr func callSiteAddr target evts
       | None -> handleUnresolvedCase func codeMgr callSiteAddr evts) evts
 
-  let reader hdl (codeMgr: CodeManager) addr rt =
-    if hdl.BinFile.IsValidAddr addr then
-      match hdl.BinFile.GetSections addr |> Seq.tryHead with
+  let reader (hdl: BinHandle) (codeMgr: CodeManager) addr rt =
+    if hdl.File.IsValidAddr addr then
+      match hdl.File.GetSections addr |> Seq.tryHead with
       | Some sec ->
         if sec.Name = ".rodata" || sec.Name = ".data" then
-          let v = BinHandle.ReadUInt (hdl, addr, RegType.toByteWidth rt)
+          let v = hdl.ReadUInt (addr, RegType.toByteWidth rt)
           Some <| BitVector.OfUInt64 v rt
         elif sec.Name = ".got" then
           if codeMgr.FunctionMaintainer.Contains (addr=addr) then

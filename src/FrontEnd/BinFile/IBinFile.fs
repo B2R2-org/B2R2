@@ -35,25 +35,12 @@ type IBinFile =
   inherit IBinOrganization
 
   /// <summary>
-  ///   Return a new BinFile by replacing the content with the given byte array,
-  ///   assuming the file format, ISA, and its file path do not change. The new
-  ///   byte array is placed at the same base address as the original one. This
-  ///   function does not directly affect the corresponding file in the file
-  ///   system, though.
+  ///   Return a reader for this binary file.
   /// </summary>
-  /// <return>
-  ///   A newly generated BinFile.
-  /// </return>
-  abstract NewBinFile: byte[] -> IBinFile
+  abstract Reader: IBinReader
 
-  /// <summary>
-  ///   Return a new BinFile by replacing the content with the given byte array,
-  ///   assuming the file format, ISA, and its file path do not change. The new
-  ///   byte array is placed at the given base address (baseAddr). This function
-  ///   does not directly affect the corresponding file in the file system,
-  ///   though.
-  /// </summary>
-  /// <return>
-  ///   A newly generated BinFile.
-  /// </return>
-  abstract NewBinFile: byte[] * baseAddr: Addr -> IBinFile
+  /// The raw file content as a byte array.
+  abstract RawBytes: byte[]
+
+  /// The size of the associated binary file.
+  abstract Length: int

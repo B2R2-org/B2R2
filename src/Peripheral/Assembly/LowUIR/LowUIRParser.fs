@@ -38,7 +38,6 @@ open B2R2.Peripheral.Assembly.LowUIR.Helper
 type Parser<'T> = Parser<'T, RegType>
 
 type LowUIRParser (isa, regbay: RegisterBay) =
-
   let isAllowedFirstCharForID c = isAsciiLetter c
 
   let isAllowedCharForID c = isAsciiLetter c || isDigit c

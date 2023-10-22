@@ -541,9 +541,9 @@ type IntelParser (wordSz) =
         pos + 1
       else pos
 
-  interface IInsParsable with
+  interface IInstructionParsable with
     member __.Parse (bs: byte[], addr) =
-      (__ :> IInsParsable).Parse (ReadOnlySpan bs, addr)
+      (__ :> IInstructionParsable).Parse (ReadOnlySpan bs, addr)
 
     member __.Parse (span: ByteSpan, addr) =
       let mutable rex = REXPrefix.NOREX
@@ -557,5 +557,7 @@ type IntelParser (wordSz) =
       rhlp.MarkPrefixEnd (prefEndPos)
 #endif
       oneByteParsers[int (rhlp.ReadByte span)].Run (span, rhlp) :> Instruction
+
+    member __.MaxInstructionSize = 15
 
     member __.OperationMode with get() = ArchOperationMode.NoMode and set _ = ()

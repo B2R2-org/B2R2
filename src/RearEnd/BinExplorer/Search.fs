@@ -26,18 +26,18 @@ namespace B2R2.RearEnd.BinExplorer
 
 open System
 open B2R2
+open B2R2.FrontEnd
 open B2R2.FrontEnd.BinFile
-open B2R2.FrontEnd.BinInterface
 
 type CmdSearch () =
   inherit Cmd ()
 
   let toResult idx = "Found @ " + String.u64ToHexNoPrefix idx
 
-  let search hdl pattern =
-    hdl.BinFile.GetSegments (Permission.Readable)
+  let search (hdl: BinHandle) pattern =
+    hdl.File.GetSegments (Permission.Readable)
     |> Seq.collect (fun s ->
-      BinHandle.ReadBytes (hdl, s.Address, int s.Size)
+      hdl.ReadBytes (s.Address, int s.Size)
       |> ByteArray.findIdxs 0UL pattern
       |> List.map (fun idx -> idx + s.Address))
     |> Seq.map toResult

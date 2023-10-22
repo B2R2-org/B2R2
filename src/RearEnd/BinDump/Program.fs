@@ -25,8 +25,8 @@
 module B2R2.RearEnd.BinDump.Program
 
 open B2R2
+open B2R2.FrontEnd
 open B2R2.FrontEnd.BinFile
-open B2R2.FrontEnd.BinInterface
 open B2R2.RearEnd
 open B2R2.RearEnd.BinDump.DisasmLiftHelper
 
@@ -37,18 +37,18 @@ let private printFileName (filepath: string) =
   out.PrintLine (String.wrapSqrdBracket filepath)
   out.PrintLine ()
 
-let private getTableConfig hdl isLift =
+let private getTableConfig (isa: ISA) isLift =
   if isLift then [ LeftAligned 10 ]
   else
-    let addrWidth = WordSize.toByteWidth hdl.BinFile.ISA.WordSize * 2
+    let addrWidth = WordSize.toByteWidth isa.WordSize * 2
     let binaryWidth =
-      match hdl.BinFile.ISA.Arch with
+      match isa.Arch with
       | Arch.IntelX86 | Arch.IntelX64 -> 36
       | _ -> 16
     [ LeftAligned addrWidth; LeftAligned binaryWidth; LeftAligned 10 ]
 
-let private isARM32 hdl =
-  match hdl.BinFile.ISA.Arch with
+let private isARM32 (hdl: BinHandle) =
+  match hdl.File.ISA.Arch with
   | Arch.ARMv7
   | Arch.AARCH32 -> true
   | _ -> false
@@ -80,16 +80,16 @@ let private makeTablePrinter hdl cfg (opts: BinDumpOpts) =
     else BinTableDisasmPrinter (hdl, cfg) :> BinPrinter
 
 let private dumpRawBinary (hdl: BinHandle) (opts: BinDumpOpts) cfg =
-  let ptr = hdl.BinFile.ToBinFilePointer hdl.BinFile.BaseAddress
+  let ptr = hdl.File.ToBinFilePointer hdl.File.BaseAddress
   let prn = makeCodePrinter hdl cfg opts
   prn.Print ptr
   out.PrintLine ()
 
-let printHexdump (opts: BinDumpOpts) sec hdl =
+let printHexdump (opts: BinDumpOpts) sec (hdl: BinHandle) =
   let ptr = BinFilePointer.OfSection sec
-  let bytes = BinHandle.ReadBytes (hdl, ptr=ptr, nBytes=int sec.Size)
+  let bytes = hdl.ReadBytes (ptr=ptr, nBytes=int sec.Size)
   let chunkSz = if opts.ShowWide then 32 else 16
-  HexDumper.dump chunkSz hdl.BinFile.ISA.WordSize opts.ShowColor ptr.Addr bytes
+  HexDumper.dump chunkSz hdl.File.ISA.WordSize opts.ShowColor ptr.Addr bytes
   |> Array.iter out.PrintLine
 
 let private hasNoContent (sec: Section) (file: IBinFile) =
@@ -100,22 +100,17 @@ let private hasNoContent (sec: Section) (file: IBinFile) =
     | None -> true
   | _ -> false
 
-let dumpHex (opts: BinDumpOpts) (sec: Section) hdl =
-  if hasNoContent sec hdl.BinFile then
+let dumpHex (opts: BinDumpOpts) (sec: Section) (hdl: BinHandle) =
+  if hasNoContent sec hdl.File then
     out.PrintTwoCols "" "NOBITS section."
   else printHexdump opts sec hdl
   out.PrintLine ()
 
-let private createBinHandleFromPath (opts: BinDumpOpts) filepath =
-  BinHandle.Init (
-    opts.ISA,
-    opts.ArchOperationMode,
-    opts.AutoDetect,
-    opts.BaseAddress,
-    fileName=filepath)
+let private createBinHandleFromPath (opts: BinDumpOpts) filePath =
+  BinHandle (filePath, opts.ISA, opts.BaseAddress, opts.ArchOperationMode)
 
-let private isRawBinary hdl =
-  match hdl.BinFile.FileFormat with
+let private isRawBinary (hdl: BinHandle) =
+  match hdl.File.Format with
   | FileFormat.ELFBinary
   | FileFormat.MachBinary
   | FileFormat.PEBinary
@@ -135,15 +130,15 @@ let private printWasmCode (printer: BinPrinter) (code: Wasm.Code) =
   printer.Print ptr
   out.PrintLine ()
 
-let initHandleForTableOutput hdl =
-  match hdl.BinFile.ISA.Arch with
+let initHandleForTableOutput (hdl: BinHandle) =
+  match hdl.File.ISA.Arch with
   (* For ARM PLTs, we just assume the ARM mode (if no symbol is given). *)
   | Arch.ARMv7
   | Arch.AARCH32 -> hdl.Parser.OperationMode <- ArchOperationMode.ARMMode
   | _ -> ()
 
 let private dumpSections hdl (opts: BinDumpOpts) (sections: seq<Section>) cfg =
-  let mymode = hdl.Parser.OperationMode
+  let mymode = (hdl: BinHandle).Parser.OperationMode
   let codeprn = makeCodePrinter hdl cfg opts
   let tableprn = makeTablePrinter hdl cfg opts
   sections
@@ -153,7 +148,7 @@ let private dumpSections hdl (opts: BinDumpOpts) (sections: seq<Section>) cfg =
       match s.Kind with
       | SectionKind.ExecutableSection ->
         hdl.Parser.OperationMode <- mymode
-        match hdl.BinFile with
+        match hdl.File with
         | :? WasmBinFile as file ->
           match file.WASM.CodeSection with
           | Some sec ->
@@ -170,19 +165,19 @@ let private dumpSections hdl (opts: BinDumpOpts) (sections: seq<Section>) cfg =
         else dumpHex opts s hdl
     else ())
 
-let private dumpRegularFile hdl (opts: BinDumpOpts) cfg =
+let private dumpRegularFile (hdl: BinHandle) (opts: BinDumpOpts) cfg =
   opts.ShowSymbols <- true
   match opts.InputSecName with
   | Some secname ->
-    dumpSections hdl opts (hdl.BinFile.GetSections (secname)) cfg
+    dumpSections hdl opts (hdl.File.GetSections (secname)) cfg
   | None ->
-    dumpSections hdl opts (hdl.BinFile.GetSections ()) cfg
+    dumpSections hdl opts (hdl.File.GetSections ()) cfg
 
 let dumpFile (opts: BinDumpOpts) filepath =
   opts.ShowAddress <- true
   let hdl = createBinHandleFromPath opts filepath
-  let cfg = getTableConfig hdl opts.ShowLowUIR
-  printFileName hdl.BinFile.FilePath
+  let cfg = getTableConfig hdl.File.ISA opts.ShowLowUIR
+  printFileName hdl.File.Path
   if isRawBinary hdl then dumpRawBinary hdl opts cfg
   else dumpRegularFile hdl opts cfg
 
@@ -195,8 +190,8 @@ let dumpFileMode files (opts: BinDumpOpts) =
   | _, errs ->
     Printer.PrintErrorToConsole ("File(s) " + errs.ToString() + " not found!")
 
-let private assertBinaryLength hdl hexstr =
-  let multiplier = getInstructionAlignment hdl
+let private assertBinaryLength isa mode hexstr =
+  let multiplier = getInstructionAlignment isa mode
   if (Array.length hexstr) % multiplier = 0 then ()
   else
     Printer.PrintErrorToConsole <|
@@ -204,13 +199,9 @@ let private assertBinaryLength hdl hexstr =
     exit 1
 
 let dumpHexStringMode (opts: BinDumpOpts) =
-  let hdl = BinHandle.Init (opts.ISA,
-                            opts.ArchOperationMode,
-                            false,
-                            opts.BaseAddress,
-                            opts.InputHexStr)
-  let cfg = getTableConfig hdl opts.ShowLowUIR
-  assertBinaryLength hdl opts.InputHexStr
+  let hdl = BinHandle (opts.InputHexStr, opts.ISA, opts.BaseAddress, false)
+  let cfg = getTableConfig hdl.File.ISA opts.ShowLowUIR
+  assertBinaryLength opts.ISA opts.ArchOperationMode opts.InputHexStr
   opts.ShowColor <- true
   let printer = makeCodePrinter hdl cfg opts
   let baseAddr = defaultArg opts.BaseAddress 0UL

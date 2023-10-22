@@ -71,7 +71,7 @@ let rec private readIndexTableEntry acc reader (span: ByteSpan) sAddr offset =
 
 let private parseIndexTable toolBox indexTableSection =
   let offset, size = indexTableSection.SecOffset, indexTableSection.SecSize
-  let span = ReadOnlySpan (readChunk toolBox.Stream offset (int size))
+  let span = ReadOnlySpan (toolBox.Bytes, int offset, int size)
   readIndexTableEntry [] toolBox.Reader span indexTableSection.SecAddr 0
 
 let private computeLSDAOffset currentOffset (n: int) =
@@ -116,8 +116,8 @@ let rec private readExnTableEntry (fdes, lsdas) reader cls span sAddr = function
   | [] -> (fdes, lsdas)
 
 let private parseExnTable toolBox cls exnTblSection entries =
-  let offset, size = exnTblSection.SecOffset, exnTblSection.SecSize
-  let span = ReadOnlySpan (readChunk toolBox.Stream offset (int size))
+  let offset, size = int exnTblSection.SecOffset, int exnTblSection.SecSize
+  let span = ReadOnlySpan (toolBox.Bytes, offset, size)
   let secAddr = exnTblSection.SecAddr
   let cie = (* Create a dummy CIE. *)
     { Version = 0uy

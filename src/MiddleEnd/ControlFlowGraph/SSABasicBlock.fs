@@ -27,25 +27,25 @@ namespace B2R2.MiddleEnd.ControlFlowGraph
 open B2R2
 open B2R2.BinIR
 open B2R2.BinIR.SSA
+open B2R2.FrontEnd
 open B2R2.FrontEnd.BinLifter
-open B2R2.FrontEnd.BinInterface
 open B2R2.MiddleEnd.BinGraph
 
 [<AutoOpen>]
 module private SSABasicBlockHelper =
-  let private buildRegVar hdl reg =
-    let wordSize = hdl.BinFile.ISA.WordSize |> WordSize.toRegType
+  let private buildRegVar (hdl: BinHandle) reg =
+    let wordSize = hdl.File.ISA.WordSize |> WordSize.toRegType
     RegVar (wordSize, reg, hdl.RegisterBay.RegIDToString reg)
 
-  let private addReturnValDef hdl defs =
-    match hdl.BinFile.ISA.Arch with
+  let private addReturnValDef (hdl: BinHandle) defs =
+    match hdl.File.ISA.Arch with
     | Arch.EVM -> defs
     | _ ->
       let reg = CallingConvention.returnRegister hdl |> buildRegVar hdl
       let def = { Kind = reg; Identifier = -1 }
       Set.add def defs
 
-  let private addStackDef hdl defs =
+  let private addStackDef (hdl: BinHandle) defs =
     match hdl.RegisterBay.StackPointer with
     | Some sp ->
       let def = { Kind = buildRegVar hdl sp; Identifier = -1 }
@@ -166,7 +166,7 @@ type RegularSSABasicBlock (hdl: BinHandle, pp, instrs) =
       let wordSize = i.Instruction.WordSize |> WordSize.toRegType
       let stmts = i.Stmts
       let address = i.Instruction.Address
-      let arch = hdl.BinFile.ISA.Arch
+      let arch = hdl.File.ISA.Arch
       AST.translateStmts wordSize address (postprocessStmt arch) stmts)
     |> Array.map (fun s -> ProgramPoint.GetFake (), s)
 
@@ -191,7 +191,7 @@ type FakeSSABasicBlock (hdl, pp, retPoint: ProgramPoint, fakeBlkInfo) =
         |> Array.map (fun dst ->
           let src = { Kind = dst.Kind; Identifier = -1 }
           Def (dst, ReturnVal (pp.Address, retPoint.Address, src)))
-      let wordSize = hdl.BinFile.ISA.WordSize |> WordSize.toRegType
+      let wordSize = hdl.File.ISA.WordSize |> WordSize.toRegType
       let fallThrough = BitVector.OfUInt64 retPoint.Address wordSize
       let jmpToFallThrough = Jmp (InterJmp (Num fallThrough))
       Array.append stmts [| jmpToFallThrough |]

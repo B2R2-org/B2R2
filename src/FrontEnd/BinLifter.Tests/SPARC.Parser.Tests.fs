@@ -28,8 +28,8 @@ module SPARC =
 
   open Microsoft.VisualStudio.TestTools.UnitTesting
   open B2R2
+  open B2R2.FrontEnd
   open B2R2.FrontEnd.BinLifter.SPARC
-  open B2R2.FrontEnd.BinInterface
 
   let private test opcode oprs (bytes: byte[]) =
     let reader = BinReader.Init Endian.Little

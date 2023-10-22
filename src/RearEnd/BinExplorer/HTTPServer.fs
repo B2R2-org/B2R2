@@ -29,7 +29,7 @@ open System.Net
 open System.Runtime.Serialization
 open System.Runtime.Serialization.Json
 open B2R2
-open B2R2.FrontEnd.BinInterface
+open B2R2.FrontEnd
 open B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.MiddleEnd.ControlFlowAnalysis
 open B2R2.MiddleEnd.BinEssence
@@ -133,7 +133,7 @@ let answer (req: HttpListenerRequest) (resp: HttpListenerResponse) = function
 
 let handleBinInfo req resp arbiter =
   let ess = Protocol.getBinEssence arbiter
-  let txt = ess.BinHandle.BinFile.FilePath
+  let txt = ess.BinHandle.File.Path
   let txt = "\"" + txt.Replace(@"\", @"\\") + "\""
   Some (defaultEnc.GetBytes (txt)) |> answer req resp
 
@@ -194,9 +194,9 @@ let handleFunctions req resp arbiter =
 
 let handleHexview req resp arbiter =
   let ess = Protocol.getBinEssence arbiter
-  ess.BinHandle.BinFile.GetSegments ()
+  ess.BinHandle.File.GetSegments ()
   |> Seq.map (fun seg ->
-    let bs = BinHandle.ReadBytes (ess.BinHandle, seg.Address, int (seg.Size))
+    let bs = ess.BinHandle.ReadBytes (seg.Address, int (seg.Size))
     let coloredHex = bs |> Array.map ColoredSegment.byteToHex
     let coloredAscii = bs |> Array.map ColoredSegment.byteToAscii
     let cha = (* DataColoredHexAscii *)
@@ -230,10 +230,10 @@ let computeConnectedVars chain v =
       | None -> s
       | Some us -> Set.union us s) ds
 
-let getVarNames handler = function
+let getVarNames (hdl: BinHandle) = function
   | Regular v ->
-    handler.RegisterBay.GetRegisterAliases v
-    |> Array.map (handler.RegisterBay.RegIDToString)
+    hdl.RegisterBay.GetRegisterAliases v
+    |> Array.map (hdl.RegisterBay.RegIDToString)
   | _ -> [||]
 
 let handleDataflow req resp arbiter (args: string) =
@@ -291,9 +291,9 @@ let handle (req: HttpListenerRequest) (resp: HttpListenerResponse) arbiter m =
 let startServer arbiter ip port verbose =
   let host = "http://" + ip + ":" + port.ToString () + "/"
   let cmdMap = CmdSpec.speclist |> CmdMap.build
-  let handler (req: HttpListenerRequest) (resp: HttpListenerResponse) =
+  let hdl (req: HttpListenerRequest) (resp: HttpListenerResponse) =
     try handle req resp arbiter cmdMap
     with e -> if verbose then eprintfn "%A" e else ()
-  listener host handler
+  listener host hdl
 
 // vim: set tw=80 sts=2 sw=2:

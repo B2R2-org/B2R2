@@ -72,7 +72,7 @@ type CmdROP () =
 
   override __.CallBack _ ess args =
     let hdl = ess.BinHandle
-    match hdl.BinFile.ISA.Arch with
+    match hdl.File.ISA.Arch with
     | Architecture.IntelX86 ->
       let rop = ROPHandle.init hdl 0UL
       __.HandleSubCmd hdl rop args

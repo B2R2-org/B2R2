@@ -27,13 +27,12 @@ namespace B2R2.MiddleEnd.DataFlow
 open System.Collections.Generic
 open B2R2
 open B2R2.BinIR.SSA
-open B2R2.FrontEnd.BinInterface
+open B2R2.FrontEnd
 open B2R2.MiddleEnd.DataFlow.Utils
 
 [<AutoOpen>]
 module private SparseConstantPropagation =
-
-  let initRegister hdl =
+  let initRegister (hdl: BinHandle) =
     let dict = Dictionary ()
     match hdl.RegisterBay.StackPointer with
     | Some sp ->

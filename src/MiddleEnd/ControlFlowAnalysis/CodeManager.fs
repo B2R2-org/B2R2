@@ -26,8 +26,8 @@ namespace B2R2.MiddleEnd.ControlFlowAnalysis
 
 open System.Collections.Generic
 open B2R2
+open B2R2.FrontEnd
 open B2R2.FrontEnd.BinLifter
-open B2R2.FrontEnd.BinInterface
 open B2R2.MiddleEnd.ControlFlowGraph
 
 /// CodeManager manages all the processed information about the binary code
@@ -40,8 +40,8 @@ type CodeManager (hdl) =
   let history = HistoryManager ()
   let fnMaintainer = FunctionMaintainer.Init hdl history
 
-  let newInstructionInfo hdl (ins: Instruction) bblAddr =
-    let stmts = BinHandle.LiftOptimizedInstr hdl ins
+  let newInstructionInfo (hdl: BinHandle) (ins: Instruction) bblAddr =
+    let stmts = hdl.LiftOptimizedInstr ins
     { Instruction = ins
       Stmts = stmts
       BBLAddr = bblAddr }
@@ -56,9 +56,9 @@ type CodeManager (hdl) =
     | [] -> acc
 
   /// This function *NEVER* returns an empty list.
-  let rec parseSingleBBL hdl mode acc pc =
+  let rec parseSingleBBL (hdl: BinHandle) mode acc pc =
     hdl.Parser.OperationMode <- mode
-    match BinHandle.TryParseInstr (hdl, addr=pc) with
+    match hdl.TryParseInstr (addr=pc) with
     | Ok ins ->
       let nextAddr = pc + uint64 ins.Length
       if ins.IsBBLEnd () || bblMap.ContainsKey nextAddr then
@@ -86,13 +86,13 @@ type CodeManager (hdl) =
 
   member private __.ScanInstructionsAndLeaders hdl mode sAddr eAddr =
     let leaders = SortedSet<Addr> ([| sAddr |])
-    hdl.Parser.OperationMode <- mode
+    (hdl: BinHandle).Parser.OperationMode <- mode
     let updateLeader (addr, _) =
       if addr >= sAddr && addr <= eAddr then leaders.Add addr |> ignore
       else ()
     let rec linearSweep instrs currAddr =
       if currAddr <= eAddr then
-        match BinHandle.TryParseInstr (hdl, addr=currAddr) with
+        match hdl.TryParseInstr (addr=currAddr) with
         | Ok ins ->
           let nextAddr = currAddr + uint64 ins.Length
           if not (ins.IsBBLEnd ()) then ()

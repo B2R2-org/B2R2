@@ -25,7 +25,6 @@
 namespace B2R2.FrontEnd.BinFile
 
 open System
-open System.IO
 open B2R2
 open B2R2.FrontEnd.BinFile.Mach
 open B2R2.FrontEnd.BinFile.Mach.Helper
@@ -33,8 +32,8 @@ open B2R2.FrontEnd.BinFile.Mach.Helper
 /// <summary>
 ///   This class represents a Mach-O binary file.
 /// </summary>
-type MachBinFile (path, stream: Stream, isa, baseAddrOpt) =
-  let toolBox = Header.parse stream baseAddrOpt isa
+type MachBinFile (path, bytes: byte[], isa, baseAddrOpt) =
+  let toolBox = Header.parse bytes baseAddrOpt isa
   let cmds = lazy LoadCommand.parse toolBox
   let segCmds = lazy Segment.extract cmds.Value
   let segMap = lazy Segment.buildMap segCmds.Value
@@ -45,14 +44,22 @@ type MachBinFile (path, stream: Stream, isa, baseAddrOpt) =
   let notInFileRanges = lazy invalidRangesByFileBounds toolBox segCmds.Value
   let executableRanges = lazy executableRanges segCmds.Value
 
-  interface IBinFile with
-    member __.FilePath with get() = path
+  member __.Header with get() = toolBox.Header
 
-    member __.FileFormat with get() = FileFormat.MachBinary
+  member __.Commands with get() = cmds.Value
+
+  member __.Sections with get() = secs.Value
+
+  member __.SymbolInfo with get() = symInfo.Value
+
+  interface IBinFile with
+    member __.Path with get() = path
+
+    member __.Format with get() = FileFormat.MachBinary
 
     member __.ISA with get() = getISA toolBox.Header
 
-    member __.FileType with get() = convFileType toolBox.Header.FileType
+    member __.Type with get() = convFileType toolBox.Header.FileType
 
     member __.EntryPoint = computeEntryPoint segCmds.Value cmds.Value
 
@@ -64,12 +71,6 @@ type MachBinFile (path, stream: Stream, isa, baseAddrOpt) =
 
     member __.IsRelocatable = toolBox.Header.Flags.HasFlag MachFlag.MHPIE
 
-    member __.Length = int stream.Length
-
-    member __.RawBytes = Utils.futureFeature () // XXX
-
-    member __.Span = Utils.futureFeature (); ReadOnlySpan [||]
-
     member __.GetOffset addr = translateAddr segMap.Value addr
 
     member __.Slice (addr, size) =
@@ -78,30 +79,29 @@ type MachBinFile (path, stream: Stream, isa, baseAddrOpt) =
 
     member __.Slice (addr) =
       let offset = translateAddr segMap.Value addr |> Convert.ToInt32
-      let size = int stream.Length - offset
-      (__ :> IBinFile).Slice (offset=offset, size=size)
+      (__ :> IBinFile).Slice (offset=offset)
 
     member __.Slice (offset: int, size) =
-      let buf = FileHelper.readChunk stream (uint64 offset) size
-      ReadOnlySpan buf
+      ReadOnlySpan (bytes, offset, size)
 
     member __.Slice (offset: int) =
-      let size = int stream.Length - offset
-      (__ :> IBinFile).Slice (offset=offset, size=size)
+      ReadOnlySpan(bytes).Slice offset
 
     member __.Slice (ptr: BinFilePointer, size) =
-      (__ :> IBinFile).Slice (offset=ptr.Offset, size=size)
+      ReadOnlySpan (bytes, ptr.Offset, size)
 
     member __.Slice (ptr: BinFilePointer) =
-      (__ :> IBinFile).Slice (offset=ptr.Offset)
+      ReadOnlySpan(bytes).Slice ptr.Offset
 
-    member __.Read (_buffer, _offset, _size) = Utils.futureFeature ()
+    member __.ReadByte (addr: Addr) =
+      let offset = translateAddr segMap.Value addr |> Convert.ToInt32
+      bytes[offset]
 
-    member __.ReadByte () = Utils.futureFeature ()
+    member __.ReadByte (offset: int) =
+      bytes[offset]
 
-    member __.Seek (_addr: Addr): unit = Utils.futureFeature ()
-
-    member __.Seek (_offset: int): unit = Utils.futureFeature ()
+    member __.ReadByte (ptr: BinFilePointer) =
+      bytes[ptr.Offset]
 
     member __.IsValidAddr addr =
       IntervalSet.containsAddr addr notInMemRanges.Value |> not
@@ -192,7 +192,8 @@ type MachBinFile (path, stream: Stream, isa, baseAddrOpt) =
     member __.GetFunctionAddresses (_) =
       (__ :> IBinFile).GetFunctionAddresses ()
 
-    member __.NewBinFile bs = Utils.futureFeature ()
+    member __.Reader with get() = toolBox.Reader
 
-    member __.NewBinFile (bs, baseAddr) = Utils.futureFeature ()
+    member __.RawBytes = bytes
 
+    member __.Length = bytes.Length

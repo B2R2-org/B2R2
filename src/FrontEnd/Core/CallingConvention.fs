@@ -22,14 +22,14 @@
   SOFTWARE.
 *)
 
-module B2R2.FrontEnd.BinInterface.CallingConvention
+module B2R2.FrontEnd.CallingConvention
 
 open B2R2
 open B2R2.FrontEnd.BinLifter
 
 [<CompiledName("VolatileRegisters")>]
-let volatileRegisters hdl =
-  match hdl.BinFile.ISA.Arch with
+let volatileRegisters (hdl: BinHandle) =
+  match hdl.File.ISA.Arch with
   | Arch.IntelX86 ->
     [ Intel.Register.EAX; Intel.Register.ECX; Intel.Register.EDX ]
     |> List.map Intel.Register.toRegID
@@ -46,8 +46,8 @@ let volatileRegisters hdl =
   | _ -> Utils.futureFeature ()
 
 [<CompiledName("ReturnRegister")>]
-let returnRegister hdl =
-  match hdl.BinFile.ISA.Arch with
+let returnRegister (hdl: BinHandle) =
+  match hdl.File.ISA.Arch with
   | Architecture.IntelX86 -> Intel.Register.EAX |> Intel.Register.toRegID
   | Architecture.IntelX64 -> Intel.Register.RAX |> Intel.Register.toRegID
   | Architecture.ARMv7
@@ -58,8 +58,8 @@ let returnRegister hdl =
   | _ -> Utils.futureFeature ()
 
 [<CompiledName("SyscallNumRegister")>]
-let syscallNumRegister hdl =
-  match hdl.BinFile.ISA.Arch with
+let syscallNumRegister (hdl: BinHandle) =
+  match hdl.File.ISA.Arch with
   | Architecture.IntelX86 -> Intel.Register.EAX |> Intel.Register.toRegID
   | Architecture.IntelX64 -> Intel.Register.RAX |> Intel.Register.toRegID
   | Architecture.ARMv7
@@ -70,8 +70,8 @@ let syscallNumRegister hdl =
   | _ -> Utils.futureFeature ()
 
 [<CompiledName("SyscallArgRegister")>]
-let syscallArgRegister hdl num =
-  match hdl.OS, hdl.BinFile.ISA.Arch with
+let syscallArgRegister (hdl: BinHandle) os num =
+  match os, hdl.File.ISA.Arch with
   | OS.Linux, Architecture.IntelX86 ->
     match num with
     | 1 -> Intel.Register.EBX |> Intel.Register.toRegID
@@ -121,8 +121,8 @@ let syscallArgRegister hdl num =
   | _ -> Utils.futureFeature ()
 
 [<CompiledName("FunctionArgRegister")>]
-let functionArgRegister hdl num =
-  match hdl.OS, hdl.BinFile.ISA.Arch with
+let functionArgRegister (hdl: BinHandle) os num =
+  match os, hdl.File.ISA.Arch with
   | OS.Windows, Architecture.IntelX86 -> (* fast call *)
     match num with
     | 1 -> Intel.Register.ECX |> Intel.Register.toRegID
@@ -147,8 +147,8 @@ let functionArgRegister hdl num =
   | _ -> Utils.futureFeature ()
 
 [<CompiledName("IsNonVolatile")>]
-let isNonVolatile hdl rid =
-  match hdl.OS, hdl.BinFile.ISA.Arch with
+let isNonVolatile (hdl: BinHandle) os rid =
+  match os, hdl.File.ISA.Arch with
   | OS.Linux, Arch.IntelX86 -> (* CDECL *)
     rid = (Intel.Register.EBP |> Intel.Register.toRegID)
     || rid = (Intel.Register.EBX |> Intel.Register.toRegID)

@@ -26,25 +26,25 @@ namespace B2R2.RearEnd.Transformer
 
 open System
 open B2R2
-open B2R2.FrontEnd.BinInterface
+open B2R2.FrontEnd
 
 /// The `slice` action.
 type SliceAction () =
   let sliceByAddrRange bin a1 a2 =
     let hdl = Binary.Handle bin
     if a1 > a2 then invalidArg (nameof bin) "Invalid address range."
-    elif not (hdl.BinFile.IsInFileAddr a1)
-      || not (hdl.BinFile.IsInFileAddr a2) then
+    elif not (hdl.File.IsInFileAddr a1)
+      || not (hdl.File.IsInFileAddr a2) then
       invalidArg (nameof hdl) "Address out of range."
     else
-      let bs = hdl.BinFile.Slice(a1, int (a2 - a1 + 1UL)).ToArray ()
-      let isa = hdl.BinFile.ISA
-      lazy BinHandle.Init (isa, hdl.Parser.OperationMode, false, None, bs)
+      let bs = hdl.File.Slice(a1, int (a2 - a1 + 1UL)).ToArray ()
+      let isa = hdl.File.ISA
+      lazy BinHandle (bs, isa, None, false)
       |> Binary.Init (Binary.MakeAnnotation "Sliced from " bin)
 
   let sliceBySectionName bin secName =
     let hdl = Binary.Handle bin
-    let sec = hdl.BinFile.GetSections (name=secName) |> Seq.exactlyOne
+    let sec = hdl.File.GetSections (name=secName) |> Seq.exactlyOne
     let a1 = sec.Address
     let a2 = a1 + uint64 sec.Size - 1UL
     sliceByAddrRange bin a1 a2

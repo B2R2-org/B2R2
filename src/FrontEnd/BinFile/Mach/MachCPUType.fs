@@ -59,7 +59,7 @@ type CPUSubType =
   | MIPSR2800 = 3
   | MIPSR2000A = 4
 
-module internal CPUType =
+module CPUType =
   let private toMIPSArch = function
     | CPUSubType.MIPSAll
     | CPUSubType.MIPSR2300

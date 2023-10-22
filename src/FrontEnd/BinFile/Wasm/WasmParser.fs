@@ -333,8 +333,7 @@ let buildModuleIndexMap wm =
 
 let parse (bs: byte[]) =
   let reader = BinReader.Init Endian.Little
-  use stream = new MemoryStream (bs)
-  if Header.isWasm stream reader then ()
+  if Header.isWasm bs reader then ()
   else raise InvalidFileFormatException
   parseWasmModule bs reader 0
   |> buildModuleIndexMap

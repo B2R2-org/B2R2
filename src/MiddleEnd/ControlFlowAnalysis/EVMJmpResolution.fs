@@ -28,7 +28,7 @@ open System.Collections.Generic
 open B2R2
 open B2R2.BinIR
 open B2R2.BinIR.SSA
-open B2R2.FrontEnd.BinInterface
+open B2R2.FrontEnd
 open B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.MiddleEnd.ControlFlowAnalysis.IRHelper
 open B2R2.MiddleEnd.DataFlow
@@ -36,7 +36,7 @@ open B2R2.MiddleEnd.DataFlow
 [<AutoOpen>]
 module private EVMJmpResolution =
 
-  let tryGetStackPointerValue hdl srcV cpState =
+  let tryGetStackPointerValue (hdl: BinHandle) srcV cpState =
     match hdl.RegisterBay.StackPointer with
     | Some sp ->
       let t = hdl.RegisterBay.RegIDToRegType sp

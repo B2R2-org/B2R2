@@ -405,12 +405,12 @@ module internal LoadCommand =
       DataOffset = reader.ReadInt32 (span, 8)
       DataSize = reader.ReadUInt32 (span, 12) }
 
-  let parseCmd ({ Stream = stream; Reader = reader } as toolBox) offset =
-    let cmdHdr = readChunk stream offset 8
+  let parseCmd ({ Bytes = bytes; Reader = reader } as toolBox) offset =
+    let cmdHdr = ReadOnlySpan (bytes, int offset, 8)
     let cmdType = reader.ReadInt32 (cmdHdr, 0) |> LanguagePrimitives.EnumOfValue
     let cmdSize = reader.ReadInt32 (cmdHdr, 4)
     let cmdOffset = int (offset - toolBox.MachOffset)
-    let span = ReadOnlySpan (readChunk stream offset cmdSize)
+    let span = ReadOnlySpan (bytes, int offset, cmdSize)
     let command =
       match cmdType with
       | LoadCmdType.LCSegment

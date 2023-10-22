@@ -42,15 +42,17 @@ type RISCV64Parser (isa: ISA) =
   let wordSize = int isa.WordSize
   let reader = BinReader.Init isa.Endian
 
-  interface IInsParsable with
-    member __.OperationMode with get() = ArchOperationMode.NoMode and set _ = ()
-
+  interface IInstructionParsable with
     member __.Parse (span: ByteSpan, addr) =
       Parser.parse span reader wordSize addr :> Instruction
 
     member __.Parse (bs: byte[], addr) =
       let span = ReadOnlySpan bs
       Parser.parse span reader wordSize addr :> Instruction
+
+    member __.MaxInstructionSize = 4
+
+    member __.OperationMode with get() = ArchOperationMode.NoMode and set _ = ()
 
 module Basis =
   let init (isa: ISA) =

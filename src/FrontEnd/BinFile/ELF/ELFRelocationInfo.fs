@@ -700,7 +700,7 @@ module internal RelocationInfo =
       relInfo.RelocByAddr[rel.RelOffset] <- rel
       relInfo.RelocByName[name.SymName] <- rel
 
-  let private parseRelocSection toolBox symbInfo relInfo sec (secBuf: byte[]) =
+  let private parseRelocSection toolBox symbInfo relInfo sec (span: ByteSpan) =
     let hdr = toolBox.Header
     let hasAddend = sec.SecType = SectionType.SHT_RELA
     let typMask = pickNum hdr.Class 0xFFUL 0xFFFFFFFFUL
@@ -708,7 +708,6 @@ module internal RelocationInfo =
       if hasAddend then (uint64 <| WordSize.toByteWidth hdr.Class * 3)
       else (uint64 <| WordSize.toByteWidth hdr.Class * 2)
     let numEntries = int (sec.SecSize / entrySize)
-    let span = ReadOnlySpan secBuf
     for i = 0 to (numEntries - 1) do
       let symTbl = tryFindSymbTable (int sec.SecLink) symbInfo
       let offset = i * int entrySize
@@ -717,14 +716,14 @@ module internal RelocationInfo =
 
   let parse toolBox shdrs symbInfo =
     let relInfo = { RelocByAddr = Dictionary (); RelocByName = Dictionary () }
-    let stream = toolBox.Stream
     for sec in shdrs do
       match sec.SecType with
       | SectionType.SHT_REL
       | SectionType.SHT_RELA ->
         if sec.SecSize = 0UL then ()
         else
-          readChunk stream sec.SecOffset (int sec.SecSize)
-          |> parseRelocSection toolBox symbInfo relInfo sec
+          let offset, size = int sec.SecOffset, int sec.SecSize
+          let span = ReadOnlySpan (toolBox.Bytes, offset, size)
+          parseRelocSection toolBox symbInfo relInfo sec span
       | _ -> ()
     relInfo

@@ -26,21 +26,21 @@ namespace B2R2.RearEnd.ROP
 
 open System.Collections
 open B2R2
+open B2R2.FrontEnd
 open B2R2.FrontEnd.BinFile
-open B2R2.FrontEnd.BinInterface
 
 type ROPHandle = {
-  BinBase   : Addr
-  BinHdl    : BinHandle
-  Gadgets   : GadgetArr
-  Summaries : Concurrent.ConcurrentDictionary<uint64, Summary>
+  BinBase: Addr
+  BinHdl: BinHandle
+  Gadgets: GadgetArr
+  Summaries: Concurrent.ConcurrentDictionary<uint64, Summary>
 }
 
 module ROPHandle =
-  let inline getFileInfo hdl = hdl.BinHdl.BinFile
+  let inline getFileInfo hdl = hdl.BinHdl.File
 
   let inline tryFindPlt hdl name =
-    hdl.BinHdl.BinFile.GetLinkageTableEntries ()
+    hdl.BinHdl.File.GetLinkageTableEntries ()
     |> Seq.tryFind (fun entry -> entry.FuncName = name)
 
   let inline getKeys map = Map.fold (fun acc k _ -> Set.add k acc) Set.empty map
@@ -181,7 +181,7 @@ module ROPHandle =
   let private findBytes hdl bytes =
     let chooser (seg: Segment) =
       let min = seg.Address
-      BinHandle.ReadBytes (hdl.BinHdl, min, int seg.Size)
+      hdl.BinHdl.ReadBytes (min, int seg.Size)
       |> ByteArray.tryFindIdx min bytes
     (getFileInfo hdl).GetSegments Permission.Readable
     |> Seq.tryPick chooser

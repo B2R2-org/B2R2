@@ -27,7 +27,7 @@ module B2R2.MiddleEnd.DataFlow.SCPTransfer
 open B2R2
 open B2R2.BinIR
 open B2R2.BinIR.SSA
-open B2R2.FrontEnd.BinInterface
+open B2R2.FrontEnd
 open B2R2.MiddleEnd.ControlFlowGraph
 
 let private updateReadOnlyMem st mDst rt addr c =
@@ -108,7 +108,7 @@ let evalReturn st (blk: SSAVertex) ret var =
       evalBinOp BinOpType.ADD value shiftAmount
     elif GetPCThunkInfo.isGetPCThunk blk.VData.FakeBlockInfo.GetPCThunkInfo then
       Thunk (BitVector.OfUInt64 ret rt)
-    elif CallingConvention.isNonVolatile hdl rid then
+    elif CallingConvention.isNonVolatile hdl OS.Linux rid then
       CPState.findReg st var
     else NotAConst
   | _ -> Utils.impossible ()

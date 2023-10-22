@@ -48,6 +48,6 @@ type Magic =
   | FATCigam = 0xBEBAFECAu
 
 module internal Magic =
-  let read (bytes: byte[]) (reader: IBinReader) =
-    if bytes.Length >= 4 then reader.ReadUInt32 (bytes, 0) else 0ul
+  let read (span: ByteSpan) (reader: IBinReader) =
+    if span.Length >= 4 then reader.ReadUInt32 (span, 0) else 0ul
     |> LanguagePrimitives.EnumOfValue: Magic

@@ -26,7 +26,7 @@ module B2R2.MiddleEnd.DataFlow.SPTransfer
 
 open B2R2
 open B2R2.BinIR
-open B2R2.FrontEnd.BinInterface
+open B2R2.FrontEnd
 open B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.BinIR.SSA
 

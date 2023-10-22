@@ -172,11 +172,10 @@ module internal Symbol =
     | _ -> None
 
   let private parseFuncStarts toolBox cmds =
-    let stream, reader = toolBox.Stream, toolBox.Reader
+    let bytes, reader = toolBox.Bytes, toolBox.Reader
     let addrSet = HashSet<Addr> ()
     for cmd in cmds do
-      let dataBuf = readChunk stream (uint64 cmd.DataOffset) (int cmd.DataSize)
-      let dataSpan = ReadOnlySpan dataBuf
+      let dataSpan = ReadOnlySpan (bytes, cmd.DataOffset, int cmd.DataSize)
       let saddr, count = reader.ReadUInt64LEB128 (dataSpan, 0)
       let saddr = saddr + toolBox.BaseAddress
       addrSet.Add saddr |> ignore
@@ -203,35 +202,33 @@ module internal Symbol =
     if addr = 0UL then 0UL
     else toolBox.BaseAddress + uint64 addr
 
-  let private parseNList toolBox libs strtab (symtab: ByteSpan) offset =
+  let private parseNList toolBox libs strTab symTab offset =
     let reader = toolBox.Reader
-    let strIdx = reader.ReadInt32 (symtab, offset) (* n_strx *)
-    let nDesc = reader.ReadInt16 (symtab, offset + 6) (* n_desc *)
-    let nType = symtab[offset + 4] |> int (* n_type *)
-    { SymName = ByteArray.extractCString strtab strIdx
+    let strIdx = reader.ReadInt32 (span=symTab, offset=offset) (* n_strx *)
+    let nDesc = reader.ReadInt16 (symTab, offset + 6) (* n_desc *)
+    let nType = symTab[offset + 4] |> int (* n_type *)
+    { SymName = ByteArray.extractCStringFromSpan strTab strIdx
       SymType = nType |> LanguagePrimitives.EnumOfValue
       IsExternal = nType &&& 0x1 = 0x1
-      SecNum = symtab[offset + 5] |> int (* n_sect *)
+      SecNum = symTab[offset + 5] |> int (* n_sect *)
       SymDesc = nDesc
       VerInfo = getLibraryVerInfo toolBox.Header.Flags libs nDesc
-      SymAddr = readUIntOfType symtab reader toolBox.Header.Class (offset + 8)
+      SymAddr = readUIntOfType symTab reader toolBox.Header.Class (offset + 8)
                 |> adjustSymVal toolBox }
 
-  let private parseSymTable toolBox libs symtabs =
-    let numSymbols = countSymbols symtabs
+  let private parseSymTable ({ Bytes = bytes } as toolBox) libs symTabCmds =
+    let numSymbols = countSymbols symTabCmds
     let symbols = Array.zeroCreate numSymbols
     let mutable idx = 0
-    for symtab in symtabs do
-      let strOff, strSize = uint64 symtab.StrOff, int symtab.StrSize
-      let strtab = readChunk toolBox.Stream strOff strSize
+    for symTabCmd in symTabCmds do
+      let strOff, strSize = symTabCmd.StrOff, int symTabCmd.StrSize
+      let strTab = ReadOnlySpan (bytes, strOff, strSize)
       let entrySize = 8 + WordSize.toByteWidth toolBox.Header.Class
-      let symOff = uint64 symtab.SymOff
-      let symTabSize = int symtab.NumOfSym * entrySize
-      let symtabSpan = ReadOnlySpan (readChunk toolBox.Stream symOff symTabSize)
-      for n = 0 to int symtab.NumOfSym - 1 do
+      let symTabSize = int symTabCmd.NumOfSym * entrySize
+      let symTab = ReadOnlySpan (bytes, symTabCmd.SymOff, symTabSize)
+      for n = 0 to int symTabCmd.NumOfSym - 1 do
         let offset = n * entrySize
-        let symb = parseNList toolBox libs strtab symtabSpan offset
-        symbols[idx] <- symb
+        symbols[idx] <- parseNList toolBox libs strTab symTab offset
         idx <- idx + 1
     symbols
 
@@ -275,9 +272,9 @@ module internal Symbol =
     let indices = Array.zeroCreate numSymbs
     let mutable i = 0
     for dyntab in dyntabs do
-      let tabOffset = uint64 dyntab.IndirectSymOff
+      let tabOffset = int dyntab.IndirectSymOff
       let tabSize = int dyntab.NumIndirectSym * 4
-      let tabBuf = readChunk toolBox.Stream tabOffset tabSize
+      let tabBuf = ReadOnlySpan (toolBox.Bytes, tabOffset, tabSize)
       for n = 0 to int dyntab.NumIndirectSym - 1 do
         let offset = n * 4
         let symidx = reader.ReadInt32 (tabBuf, offset)
@@ -378,10 +375,9 @@ module internal Symbol =
     match Array.tryHead dyldinfo with
     | None -> [||]
     | Some info ->
-      let exportOff = uint64 info.ExportOff
       let exportSize = int info.ExportSize
-      let exportBuf = readChunk toolBox.Stream exportOff exportSize
-      parseExportTrieHead toolBox (ReadOnlySpan exportBuf)
+      let exportSpan = ReadOnlySpan (toolBox.Bytes, info.ExportOff, exportSize)
+      parseExportTrieHead toolBox exportSpan
       |> List.toArray
 
   let private buildSymbolMap stubs ptrtbls staticsymbs =

@@ -27,8 +27,8 @@ namespace B2R2.MiddleEnd.DataFlow.Tests
 open Microsoft.VisualStudio.TestTools.UnitTesting
 
 open B2R2
+open B2R2.FrontEnd
 open B2R2.FrontEnd.BinLifter
-open B2R2.FrontEnd.BinInterface
 open B2R2.MiddleEnd.BinEssence
 open B2R2.MiddleEnd.DataFlow
 
@@ -80,7 +80,7 @@ type PersistentDataFlowTests () =
        0xEAuy; 0x01uy; 0x75uy; 0xF4uy; 0x5Euy; 0xC3uy |]
 
   let isa = ISA.Init Architecture.IntelX86 Endian.Little
-  let hdl = BinHandle.Init (isa, binary)
+  let hdl = BinHandle (binary, isa, None, false)
   let ess = BinEssence.init hdl [] [] []
 
 #if !EMULATION

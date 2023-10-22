@@ -25,9 +25,9 @@
 namespace B2R2.MiddleEnd.ControlFlowAnalysis
 
 open System.Collections.Generic
+open B2R2.FrontEnd
 open B2R2.FrontEnd.BinFile
 open B2R2.FrontEnd.BinFile.ELF
-open B2R2.FrontEnd.BinInterface
 
 [<AutoOpen>]
 module private DataManager =
@@ -47,7 +47,7 @@ module private DataManager =
     dict
 
   let parseRelocatableFuncs (hdl: BinHandle) =
-    match hdl.BinFile with
+    match hdl.File with
     | :? ELFBinFile as elf -> parseRelocatableFunctionSymbols elf.RelocationInfo
     | _ -> Dictionary ()
 

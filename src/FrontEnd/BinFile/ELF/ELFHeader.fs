@@ -143,7 +143,7 @@ type ELFHeader = {
 /// This is a basic toolbox for parsing ELF, which is returned from parsing an
 /// ELF header.
 type ELFToolbox = {
-  Stream: Stream
+  Bytes: byte[]
   Reader: IBinReader
   BaseAddress: Addr
   Header: ELFHeader
@@ -235,23 +235,21 @@ module internal Header =
 
   /// Parse the ELF header and return a toolbox, which includes ELF header,
   /// preferred base address, and IBinReader.
-  let parse baseAddrOpt (stream: Stream) =
-    let buf = readChunk stream 0UL 64 (* ELF header is maximum 64-byte long. *)
-    let span = ReadOnlySpan buf
+  let parse baseAddrOpt (bytes: byte[]) =
+    let span = ReadOnlySpan bytes
     if not <| isELF span then raise InvalidFileFormatException
     else
       let endian = getEndianness span
       let reader = BinReader.Init endian
       let struct (hdr, baseAddr) = parseFromSpan span reader endian baseAddrOpt
-      { Stream = stream
+      { Bytes = bytes
         Reader = reader
         BaseAddress = baseAddr
         Header = hdr }
 
   /// Check if the file has a valid ELF header, and return an ISA.
-  let getISA (stream: Stream) =
-    let buf = readChunk stream 0UL 64 (* ELF header is maximum 64-byte long. *)
-    let span = ReadOnlySpan buf
+  let getISA (bytes: byte[]) =
+    let span = ReadOnlySpan bytes
     if isELF span then
       let endian = getEndianness span
       let reader = BinReader.Init endian

@@ -34,20 +34,16 @@ type RawBinFile (bytes: byte[], path, isa, baseAddrOpt) =
   let size = bytes.Length
   let baseAddr = defaultArg baseAddrOpt 0UL
   let symbolMap = Dictionary<Addr, Symbol> ()
-  let mutable position = 0
-
-  member inline private __.AdjustPosition () =
-    if position > bytes.Length then position <- bytes.Length
-    else ()
+  let reader = BinReader.Init isa.Endian
 
   interface IBinFile with
-    member __.FilePath with get() = path
+    member __.Path with get() = path
 
-    member __.FileFormat with get() = FileFormat.RawBinary
+    member __.Format with get() = FileFormat.RawBinary
 
     member __.ISA with get() = isa
 
-    member __.FileType with get() = FileType.UnknownFile
+    member __.Type with get() = FileType.UnknownFile
 
     member __.EntryPoint = Some baseAddr
 
@@ -58,12 +54,6 @@ type RawBinFile (bytes: byte[], path, isa, baseAddrOpt) =
     member __.IsNXEnabled = false
 
     member __.IsRelocatable = false
-
-    member __.Length = bytes.Length
-
-    member __.RawBytes = bytes
-
-    member __.Span = ReadOnlySpan bytes
 
     member __.GetOffset addr = Convert.ToInt32 (addr - baseAddr)
 
@@ -93,24 +83,15 @@ type RawBinFile (bytes: byte[], path, isa, baseAddrOpt) =
       let span = ReadOnlySpan bytes
       span.Slice ptr.Offset
 
-    member __.Read (buffer, offset, size) =
-      Array.blit bytes position buffer offset size
-      position <- position + size
-      __.AdjustPosition ()
+    member __.ReadByte (addr: Addr) =
+      let offset = (__ :> IContentAddressable).GetOffset addr
+      bytes[offset]
 
-    member __.ReadByte () =
-      let res = bytes[position]
-      position <- position + 1
-      __.AdjustPosition ()
-      res
+    member __.ReadByte (offset: int) =
+      bytes[offset]
 
-    member __.Seek (addr: Addr) =
-      position <- (__ :> IContentAddressable).GetOffset addr
-      __.AdjustPosition ()
-
-    member __.Seek (offset: int) =
-      position <- offset
-      __.AdjustPosition ()
+    member __.ReadByte (ptr: BinFilePointer) =
+      bytes[ptr.Offset]
 
     member __.IsValidAddr addr =
       addr >= baseAddr && addr < (baseAddr + uint64 size)
@@ -202,9 +183,8 @@ type RawBinFile (bytes: byte[], path, isa, baseAddrOpt) =
     member __.GetFunctionAddresses (_) =
       (__ :> IBinFile).GetFunctionAddresses ()
 
-    member __.NewBinFile bs =
-      RawBinFile (bs, path, isa, Some baseAddr)
+    member __.Reader with get() = reader
 
-    member __.NewBinFile (bs, baseAddr) =
-      RawBinFile (bs, path, isa, Some baseAddr)
+    member __.RawBytes = bytes
 
+    member __.Length = bytes.Length

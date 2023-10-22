@@ -84,17 +84,17 @@ type CallFrameInformation = {
 module internal ExceptionFrames =
   let [<Literal>] Ehframe = ".eh_frame"
 
-  let computeNextOffset (bs: byte[]) (reader: IBinReader) offset len =
+  let computeNextOffset (span: ByteSpan) (reader: IBinReader) offset len =
     if len = -1 then
-      let len = reader.ReadUInt64 (bs, offset)
+      let len = reader.ReadUInt64 (span, offset)
       let offset = offset + 8
       int len + offset, offset
     else len + offset, offset
 
-  let parseReturnRegister toolBox (bs: byte[]) version offset =
-    if version = 1uy then bs[offset], offset + 1
+  let parseReturnRegister toolBox (span: ByteSpan) version offset =
+    if version = 1uy then span[offset], offset + 1
     else
-      let r, cnt = toolBox.Reader.ReadUInt64LEB128 (bs, offset)
+      let r, cnt = toolBox.Reader.ReadUInt64LEB128 (span, offset)
       byte r, offset + cnt
 
   let personalityRoutinePointerSize addrSize = function
@@ -127,11 +127,11 @@ module internal ExceptionFrames =
     | 'S' -> data, offset (* This is a signal frame. *)
     | _ -> raise UnhandledAugStringException
 
-  let parseAugmentationData toolBox (bs: byte[]) offset addrSize augstr =
+  let parseAugmentationData toolBox (span: ByteSpan) offset addrSize augstr =
     if (augstr: string).StartsWith ('z') then
-      let len, cnt = toolBox.Reader.ReadUInt64LEB128 (bs, offset)
+      let len, cnt = toolBox.Reader.ReadUInt64LEB128 (span, offset)
       let offset = offset + cnt
-      let span = (ReadOnlySpan bs).Slice (offset, int len)
+      let span = span.Slice (offset, int len)
       let arr = span.ToArray ()
       augstr[ 1.. ]
       |> Seq.fold (fun (data, idx) ch ->
@@ -653,11 +653,11 @@ module internal ExceptionFrames =
     | [ row ] -> row.Rule
     | _ -> Map.empty
 
-  let parseCIE toolBox (secChunk: byte[]) cls isa rbay offset nextOffset =
+  let parseCIE toolBox (secChunk: ByteSpan) cls isa rbay offset nextOffset =
     let version = secChunk[offset]
     let offset = offset + 1
     if version = 1uy || version = 3uy then
-      let augstr = ByteArray.extractCString secChunk offset
+      let augstr = ByteArray.extractCStringFromSpan secChunk offset
       let addrSize = WordSize.toByteWidth cls
       let offset = offset + augstr.Length + 1
       let offset = if augstr.Contains "eh" then offset + addrSize else offset
@@ -669,7 +669,7 @@ module internal ExceptionFrames =
       let augs, offset = parseAugmentationData toolBox secChunk offset addrSize augstr
       let instrLen = nextOffset - offset
       if instrLen > 0 then
-        let span = (ReadOnlySpan secChunk).Slice (offset, instrLen)
+        let span = secChunk.Slice (offset, instrLen)
         let rule = Map.empty
         getUnwind [] UnknownCFA rule [] rule isa rbay rr cf df rr span 0 0UL
       else [], UnknownCFA, rr
@@ -730,8 +730,7 @@ module internal ExceptionFrames =
       let info, _, _ = getUnwind [] cfa r [] r isa regbay ir cf df rr span 0 loc
       info
 
-  let parseFDE cls isa regbay bs reader sAddr offset nextOffset reloc cie =
-    let span = ReadOnlySpan (bs: byte[])
+  let parseFDE cls isa regbay span reader sAddr offset nextOffset reloc cie =
     match cie with
     | Some cie ->
       let venc, aenc =
@@ -760,10 +759,10 @@ module internal ExceptionFrames =
     | None -> cfis
 
   let private parseCFI toolBox cls isa reloc regbay sec =
-    let secAddr = sec.SecAddr
-    let secChunk = readChunk toolBox.Stream sec.SecOffset (int sec.SecSize)
+    let secAddr, secOffset, secSize = sec.SecAddr, sec.SecOffset, sec.SecSize
     let reader = toolBox.Reader
     let rec parseLoop cie cies fdes offset cfis =
+      let secChunk = ReadOnlySpan (toolBox.Bytes, int secOffset, int secSize)
       if offset >= secChunk.Length then
         accumulateCFIs cfis cie fdes
       else

@@ -25,7 +25,7 @@
 namespace B2R2.MiddleEnd.DataFlow
 
 open B2R2
-open B2R2.FrontEnd.BinInterface
+open B2R2.FrontEnd
 open B2R2.BinIR.SSA
 open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.ControlFlowGraph
@@ -96,7 +96,7 @@ module CPState =
       MemState = initMems
       ExecutableEdges = HashSet ()
       ExecutedEdges = HashSet ()
-      DefaultWordSize = hdl.BinFile.ISA.WordSize |> WordSize.toRegType
+      DefaultWordSize = hdl.File.ISA.WordSize |> WordSize.toRegType
       FlowWorkList = Queue ()
       SSAWorkList = Stack ()
       UninitializedMemAddrs = HashSet ()

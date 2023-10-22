@@ -25,7 +25,6 @@
 namespace B2R2.FrontEnd.BinFile.ELF
 
 open System
-open System.IO
 open System.Collections.Generic
 open B2R2
 open B2R2.Monads.Maybe
@@ -188,12 +187,11 @@ module internal Symbol =
     if next = 0 then ()
     else parseNeededVerFromSec span reader verTbl strTbl (offset + next)
 
-  let parseNeededVersionTable (stream: Stream) reader verTbl strTbl = function
+  let parseNeededVersionTable toolBox verTbl strTbl = function
     | None -> ()
     | Some { SecOffset = offset; SecSize = size } ->
-      let buf = readChunk stream offset (int size)
-      let span = ReadOnlySpan buf
-      parseNeededVerFromSec span reader verTbl strTbl 0
+      let span = ReadOnlySpan (toolBox.Bytes, int offset, int size)
+      parseNeededVerFromSec span toolBox.Reader verTbl strTbl 0
 
   let rec parseDefinedVerFromSec span (reader: IBinReader) verTbl strTbl offset =
     let auxOffset = (* vd_aux + current file offset *)
@@ -205,12 +203,11 @@ module internal Symbol =
     if next = 0 then ()
     else parseDefinedVerFromSec span reader verTbl strTbl (offset + next)
 
-  let parseDefinedVersionTable (stream: Stream) reader verTbl strTbl = function
+  let parseDefinedVersionTable toolBox verTbl strTbl = function
     | None -> ()
     | Some { SecOffset = offset; SecSize = size } ->
-      let buf = readChunk stream offset (int size)
-      let span = ReadOnlySpan buf
-      parseDefinedVerFromSec span reader verTbl strTbl 0
+      let span = ReadOnlySpan (toolBox.Bytes, int offset, int size)
+      parseDefinedVerFromSec span toolBox.Reader verTbl strTbl 0
 
   let findVerNeedSection shdrs =
     shdrs
@@ -230,7 +227,7 @@ module internal Symbol =
     |> Array.choose (fun s ->
       if s.SecType = SectionType.SHT_DYNSYM then Some s.SecNum else None)
 
-  let parseVersionTable { Stream = stream; Reader = reader } shdrs =
+  let parseVersionTable ({ Bytes = bytes; Reader = reader } as toolBox) shdrs =
     let verTbl = Dictionary ()
     let verNeedSec = findVerNeedSection shdrs
     let verDefSec = findVerDefSection shdrs
@@ -238,9 +235,9 @@ module internal Symbol =
       let symSection = shdrs[n]
       let strSection = shdrs[Convert.ToInt32 symSection.SecLink]
       let size = Convert.ToInt32 strSection.SecSize
-      let strTbl = ReadOnlySpan (readChunk stream strSection.SecOffset size)
-      parseNeededVersionTable stream reader verTbl strTbl verNeedSec
-      parseDefinedVersionTable stream reader verTbl strTbl verDefSec
+      let strTbl = ReadOnlySpan (bytes, int strSection.SecOffset, size)
+      parseNeededVersionTable toolBox verTbl strTbl verNeedSec
+      parseDefinedVersionTable toolBox verTbl strTbl verDefSec
     verTbl
 
   let retrieveVer (verTbl: Dictionary<_, _>) verData =
@@ -278,30 +275,32 @@ module internal Symbol =
 
   let parseVersData (reader: IBinReader) symIdx verInfoTbl =
     let pos = symIdx * 2
-    let versData = reader.ReadUInt16 (bs=verInfoTbl, offset=pos)
+    let versData = reader.ReadUInt16 (span=verInfoTbl, offset=pos)
     if versData > 1us then Some versData
     else None
 
-  let getVerInfo reader verTbl verInfoTblOpt symIdx =
+  let getVerInfo toolBox verTbl verInfoTblOpt symIdx =
     match verInfoTblOpt with
     | Some verInfoTbl ->
-      parseVersData reader symIdx verInfoTbl >>= retrieveVer verTbl
+      let offset, size = int verInfoTbl.SecOffset, int verInfoTbl.SecSize
+      let span = ReadOnlySpan (toolBox.Bytes, offset, size)
+      parseVersData toolBox.Reader symIdx span >>= retrieveVer verTbl
     | None -> None
 
-  let getSymbol toolBox shdrs strTbl verTbl symTbl verInfoTbl txtOffset symIdx =
+  let getSymbol toolBox shdrs strTbl verTbl symbol verInfoTbl txtOffset symIdx =
     let cls = toolBox.Header.Class
     let reader = toolBox.Reader
-    let nameIdx = reader.ReadUInt32 (span=symTbl, offset=0)
+    let nameIdx = reader.ReadUInt32 (span=symbol, offset=0)
     let sname = ByteArray.extractCStringFromSpan strTbl (int nameIdx)
-    let info = symTbl[pickNum cls 12 4]
-    let other = symTbl[pickNum cls 13 5]
-    let ndx =  reader.ReadUInt16 (symTbl, pickNum cls 14 6) |> int
+    let info = symbol[pickNum cls 12 4]
+    let other = symbol[pickNum cls 13 5]
+    let ndx =  reader.ReadUInt16 (symbol, pickNum cls 14 6) |> int
     let parent = Array.tryItem ndx shdrs
     let secIdx = SectionHeaderIdx.IndexFromInt ndx
-    let verInfo = getVerInfo reader verTbl verInfoTbl symIdx
-    { Addr = readSymAddr toolBox.BaseAddress symTbl reader cls parent txtOffset
+    let verInfo = getVerInfo toolBox verTbl verInfoTbl symIdx
+    { Addr = readSymAddr toolBox.BaseAddress symbol reader cls parent txtOffset
       SymName = sname
-      Size = readUIntOfType symTbl reader cls (pickNum cls 8 16)
+      Size = readUIntOfType symbol reader cls (pickNum cls 8 16)
       Bind = info >>> 4 |> LanguagePrimitives.EnumOfValue
       SymType = info &&& 0xfuy |> LanguagePrimitives.EnumOfValue
       Vis = other &&& 0x3uy |> LanguagePrimitives.EnumOfValue
@@ -322,39 +321,29 @@ module internal Symbol =
     let cls = toolBox.Header.Class
     let txt = getTextSectionOffset shdrs
     let ssec = shdrs[Convert.ToInt32 symTblSec.SecLink] (* Get the string sec. *)
-    let offset = ssec.SecOffset
+    let offset = int ssec.SecOffset
     let size = Convert.ToInt32 ssec.SecSize
-    let stringBuf = readChunk toolBox.Stream offset size
-    let offset = symTblSec.SecOffset
+    let strTbl = ReadOnlySpan (toolBox.Bytes, offset, size)
+    let offset = int symTblSec.SecOffset
     let size = Convert.ToInt32 symTblSec.SecSize
     let verInfoTbl = (* symbol versioning is only valid for dynamic symbols. *)
       if symTblSec.SecType = SectionType.SHT_DYNSYM then verInfoTbl else None
-    let symTblBuf = readChunk toolBox.Stream offset size
+    let symTbl = ReadOnlySpan (toolBox.Bytes, offset, size)
     let numEntries = int symTblSec.SecSize / (pickNum cls 16 24)
     let symbols = Array.zeroCreate numEntries
-    let rec parseLoop i offset =
-      if i = numEntries then symbols
-      else
-        let strTbl = ReadOnlySpan stringBuf
-        let symTbl = (ReadOnlySpan symTblBuf).Slice offset
-        let sym = getSymbol toolBox shdrs strTbl verTbl symTbl verInfoTbl txt i
-        symbols[i] <- sym
-        parseLoop (i + 1) (nextSymOffset cls offset)
-    parseLoop 0 0
+    for i = 0 to numEntries - 1 do
+      let offset = i * (pickNum cls 16 24)
+      let entry = symTbl.Slice offset
+      let sym = getSymbol toolBox shdrs strTbl verTbl entry verInfoTbl txt i
+      symbols[i] <- sym
+    symbols
 
-  let getVerInfoTable (stream: Stream) shdrs =
+  let getVerInfoTable shdrs =
     shdrs
     |> Array.tryFind (fun s -> s.SecType = SectionType.SHT_GNU_versym)
-    |> function
-      | Some sec ->
-        let buf = Array.zeroCreate (int sec.SecSize)
-        stream.Seek (int64 sec.SecOffset, SeekOrigin.Begin) |> ignore
-        readOrDie stream buf
-        Some buf
-      | None -> None
 
   let parseSymTabs toolBox symTbl shdrs verTbl symSecs =
-    let verInfoTbl = getVerInfoTable toolBox.Stream shdrs
+    let verInfoTbl = getVerInfoTable shdrs
     for (n, symTblSec) in symSecs do
       let symbols = parseSymbols toolBox shdrs verTbl verInfoTbl symTblSec
       (symTbl: Dictionary<int, ELFSymbol[]>)[n] <- symbols

@@ -42,13 +42,15 @@ type ARM64TranslationContext internal (isa, regexprs) =
 type ARM64Parser (isa) =
   let reader = BinReader.Init isa.Endian
 
-  interface IInsParsable with
+  interface IInstructionParsable with
     member __.Parse (bs: byte[], addr) =
       let span = ReadOnlySpan bs
       Parser.parse span reader addr :> Instruction
 
     member __.Parse (span: ByteSpan, addr) =
       Parser.parse span reader addr :> Instruction
+
+    member __.MaxInstructionSize = 4
 
     member __.OperationMode with get() = ArchOperationMode.NoMode and set _ = ()
 

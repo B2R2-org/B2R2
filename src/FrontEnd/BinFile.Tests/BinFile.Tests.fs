@@ -74,11 +74,10 @@ module PE =
     let zip = fileName + ".zip"
     let file = fileName + ".exe"
     let bytes = ZIPReader.readFileFromZipFile FileFormat.PEBinary zip file
-    let ms = new MemoryStream (bytes)
     let pdbBytes =
       if pdbFileName.Length = 0 then [||]
       else ZIPReader.readFileFromZipFile FileFormat.PEBinary zip pdbFileName
-    PEBinFile (file, ms, None, pdbBytes) :> IBinFile
+    PEBinFile (file, bytes, None, pdbBytes) :> IBinFile
 
   [<TestClass>]
   type TestClass () =
@@ -87,7 +86,7 @@ module PE =
     member __.``[BinFile] PE File Parse Test (X86)`` () =
       let file = parseFile x86FileName x86PDBFileName
       Assert.AreEqual (Some 0x0040140cUL, file.EntryPoint)
-      Assert.AreEqual (FileType.ExecutableFile, file.FileType)
+      Assert.AreEqual (FileType.ExecutableFile, file.Type)
       Assert.AreEqual (false, file.IsStripped)
       Assert.AreEqual (true, file.IsNXEnabled)
       Assert.AreEqual (5, file.GetSections () |> Seq.length)
@@ -103,7 +102,7 @@ module PE =
     member __.``[BinFile] PE File Parse Test (X64)`` () =
       let file = parseFile x64FileName x64PDBFileName
       Assert.AreEqual (Some 0x1400014b4UL, file.EntryPoint)
-      Assert.AreEqual (FileType.ExecutableFile, file.FileType)
+      Assert.AreEqual (FileType.ExecutableFile, file.Type)
       Assert.AreEqual (false, file.IsStripped)
       Assert.AreEqual (true, file.IsNXEnabled)
       Assert.AreEqual (6, file.GetSections () |> Seq.length)
@@ -120,8 +119,7 @@ module Mach =
     let zip = fileName + ".zip"
     let bytes = ZIPReader.readFileFromZipFile FileFormat.MachBinary zip fileName
     let isa = ISA.Init arch Endian.Little
-    let stream = new MemoryStream (bytes)
-    MachBinFile (fileName, stream, isa, None) :> IBinFile
+    MachBinFile (fileName, bytes, isa, None) :> IBinFile
 
   [<TestClass>]
   type TestClass () =
@@ -130,7 +128,7 @@ module Mach =
     member __.``[BinFile] Mach File Parse Test (X86_Stripped)`` () =
       let file = parseFile "mach_x86_rm_stripped" Architecture.IntelX86
       Assert.AreEqual (Some 0x00002050UL, file.EntryPoint)
-      Assert.AreEqual (FileType.ExecutableFile, file.FileType)
+      Assert.AreEqual (FileType.ExecutableFile, file.Type)
       Assert.AreEqual (true, file.IsStripped)
       Assert.AreEqual (true, file.IsNXEnabled)
       Assert.AreEqual (9, file.GetSections () |> Seq.length)
@@ -146,7 +144,7 @@ module Mach =
     member __.``[BinFile] Mach File Parse Test (X64)`` () =
       let file = parseFile "mach_x64_wc" Architecture.IntelX64
       Assert.AreEqual (Some 0x100000E90UL, file.EntryPoint)
-      Assert.AreEqual (FileType.ExecutableFile, file.FileType)
+      Assert.AreEqual (FileType.ExecutableFile, file.Type)
       Assert.AreEqual (false, file.IsStripped)
       Assert.AreEqual (true, file.IsNXEnabled)
       Assert.AreEqual (13, file.GetSections () |> Seq.length)
@@ -162,7 +160,7 @@ module Mach =
     member __.``[BinFile] Mach File Parse Test (X64_Stripped)`` () =
       let file = parseFile "mach_x64_wc_stripped" Architecture.IntelX64
       Assert.AreEqual (Some 0x100000E90UL, file.EntryPoint)
-      Assert.AreEqual (FileType.ExecutableFile, file.FileType)
+      Assert.AreEqual (FileType.ExecutableFile, file.Type)
       Assert.AreEqual (true, file.IsStripped)
       Assert.AreEqual (true, file.IsNXEnabled)
       Assert.AreEqual (13, file.GetSections () |> Seq.length)
@@ -193,8 +191,7 @@ module ELF =
   let parseFile fileName =
     let zip = fileName + ".zip"
     let bytes = ZIPReader.readFileFromZipFile FileFormat.ELFBinary zip fileName
-    let stream = new MemoryStream (bytes)
-    ELFBinFile (fileName, stream, None, None) :> IBinFile
+    ELFBinFile (fileName, bytes, None, None) :> IBinFile
 
   [<TestClass>]
   type TestClass () =
@@ -203,7 +200,7 @@ module ELF =
     member __.``[BinFile] ELF File Parse Test (X86)`` () =
       let file = parseFile x86FileName
       Assert.AreEqual (Some 0x8049CD0UL, file.EntryPoint)
-      Assert.AreEqual (FileType.ExecutableFile, file.FileType)
+      Assert.AreEqual (FileType.ExecutableFile, file.Type)
       Assert.AreEqual (false, file.IsStripped)
       Assert.AreEqual (true, file.IsNXEnabled)
       Assert.AreEqual (31, file.GetSections () |> Seq.length)
@@ -219,7 +216,7 @@ module ELF =
     member __.``[BinFile] ELF File Parse Test (X86_Stripped)`` () =
       let file = parseFile x86StrippedFileName
       Assert.AreEqual (Some 0x8049CD0UL, file.EntryPoint)
-      Assert.AreEqual (FileType.ExecutableFile, file.FileType)
+      Assert.AreEqual (FileType.ExecutableFile, file.Type)
       Assert.AreEqual (true, file.IsStripped)
       Assert.AreEqual (true, file.IsNXEnabled)
       Assert.AreEqual (29, file.GetSections () |> Seq.length)
@@ -235,7 +232,7 @@ module ELF =
     member __.``[BinFile] ELF File Parse Test (X64)`` () =
       let file = parseFile x64FileName
       Assert.AreEqual (Some 0x404050UL, file.EntryPoint)
-      Assert.AreEqual (FileType.ExecutableFile, file.FileType)
+      Assert.AreEqual (FileType.ExecutableFile, file.Type)
       Assert.AreEqual (false, file.IsStripped)
       Assert.AreEqual (true, file.IsNXEnabled)
       Assert.AreEqual (38, file.GetSections () |> Seq.length)
@@ -251,7 +248,7 @@ module ELF =
     member __.``[BinFile] ELF File Parse Test (X64_Stripped)`` () =
       let file = parseFile x64StrippedFileName
       Assert.AreEqual (Some 0x404050UL, file.EntryPoint)
-      Assert.AreEqual (FileType.ExecutableFile, file.FileType)
+      Assert.AreEqual (FileType.ExecutableFile, file.Type)
       Assert.AreEqual (true, file.IsStripped)
       Assert.AreEqual (true, file.IsNXEnabled)
       Assert.AreEqual (29, file.GetSections () |> Seq.length)
@@ -267,7 +264,7 @@ module ELF =
     member __.``[BinFile] ELF File Parse Test (arm32)`` () =
       let file = parseFile arm32FileName
       Assert.AreEqual (Some 0x00013d0cUL, file.EntryPoint)
-      Assert.AreEqual (FileType.ExecutableFile, file.FileType)
+      Assert.AreEqual (FileType.ExecutableFile, file.Type)
       Assert.AreEqual (false, file.IsStripped)
       Assert.AreEqual (true, file.IsNXEnabled)
       Assert.AreEqual (38, file.GetSections () |> Seq.length)
@@ -283,7 +280,7 @@ module ELF =
     member __.``[BinFile] ELF File Parse Test (arm32_Stripped)`` () =
       let file = parseFile arm32StrippedFileName
       Assert.AreEqual (Some 0x00013d0cUL, file.EntryPoint)
-      Assert.AreEqual (FileType.ExecutableFile, file.FileType)
+      Assert.AreEqual (FileType.ExecutableFile, file.Type)
       Assert.AreEqual (true, file.IsStripped)
       Assert.AreEqual (true, file.IsNXEnabled)
       Assert.AreEqual (28, file.GetSections () |> Seq.length)
@@ -299,7 +296,7 @@ module ELF =
     member __.``[BinFile] ELF File Parse Test (thumb)`` () =
       let file = parseFile thumbFileName
       Assert.AreEqual (Some 0x00013605UL, file.EntryPoint)
-      Assert.AreEqual (FileType.ExecutableFile, file.FileType)
+      Assert.AreEqual (FileType.ExecutableFile, file.Type)
       Assert.AreEqual (false, file.IsStripped)
       Assert.AreEqual (true, file.IsNXEnabled)
       Assert.AreEqual (38, file.GetSections () |> Seq.length)
@@ -315,7 +312,7 @@ module ELF =
     member __.``[BinFile] ELF File Parse Test (thumb_Stripped)`` () =
       let file = parseFile thumbStrippedFileName
       Assert.AreEqual (Some 0x00013605UL, file.EntryPoint)
-      Assert.AreEqual (FileType.ExecutableFile, file.FileType)
+      Assert.AreEqual (FileType.ExecutableFile, file.Type)
       Assert.AreEqual (true, file.IsStripped)
       Assert.AreEqual (true, file.IsNXEnabled)
       Assert.AreEqual (28, file.GetSections () |> Seq.length)
@@ -331,7 +328,7 @@ module ELF =
     member __.``[BinFile] ELF File Parse Test (aarch64)`` () =
       let file = parseFile aarch64FileName
       Assert.AreEqual (Some 0x00404788UL, file.EntryPoint)
-      Assert.AreEqual (FileType.ExecutableFile, file.FileType)
+      Assert.AreEqual (FileType.ExecutableFile, file.Type)
       Assert.AreEqual (false, file.IsStripped)
       Assert.AreEqual (true, file.IsNXEnabled)
       Assert.AreEqual (37, file.GetSections () |> Seq.length)
@@ -347,7 +344,7 @@ module ELF =
     member __.``[BinFile] ELF File Parse Test (aarch64_Stripped)`` () =
       let file = parseFile aarch64StrippedFileName
       Assert.AreEqual (Some 0x00404788UL, file.EntryPoint)
-      Assert.AreEqual (FileType.ExecutableFile, file.FileType)
+      Assert.AreEqual (FileType.ExecutableFile, file.Type)
       Assert.AreEqual (true, file.IsStripped)
       Assert.AreEqual (true, file.IsNXEnabled)
       Assert.AreEqual (27, file.GetSections () |> Seq.length)
@@ -363,7 +360,7 @@ module ELF =
     member __.``[BinFile] ELF File Parse Test (mips32_Stripped)`` () =
       let file = parseFile mips32StrippedFileName
       Assert.AreEqual (Some 0x00004c80UL, file.EntryPoint)
-      Assert.AreEqual (FileType.LibFile, file.FileType)
+      Assert.AreEqual (FileType.LibFile, file.Type)
       Assert.AreEqual (true, file.IsStripped)
       Assert.AreEqual (false, file.IsNXEnabled)
       Assert.AreEqual (34, file.GetSections () |> Seq.length)
@@ -379,7 +376,7 @@ module ELF =
     member __.``[BinFile] ELF File Parse Test (mips32_Stripped_le)`` () =
       let file = parseFile mips32LEStrippedFileName
       Assert.AreEqual (Some 0x00004c80UL, file.EntryPoint)
-      Assert.AreEqual (FileType.LibFile, file.FileType)
+      Assert.AreEqual (FileType.LibFile, file.Type)
       Assert.AreEqual (true, file.IsStripped)
       Assert.AreEqual (false, file.IsNXEnabled)
       Assert.AreEqual (34, file.GetSections () |> Seq.length)
@@ -395,7 +392,7 @@ module ELF =
     member __.``[BinFile] ELF File Parse Test (mips64_Stripped)`` () =
       let file = parseFile mips64StrippedFileName
       Assert.AreEqual (file.EntryPoint, Some 0x0000ade0UL)
-      Assert.AreEqual (FileType.LibFile, file.FileType)
+      Assert.AreEqual (FileType.LibFile, file.Type)
       Assert.AreEqual (true, file.IsStripped)
       Assert.AreEqual (false, file.IsNXEnabled)
       Assert.AreEqual (32, file.GetSections () |> Seq.length)
@@ -422,7 +419,7 @@ module Wasm =
     [<TestMethod>]
     member __.``[BinFile] Wasm Module Parse Test`` () =
       let file = parseFile wasmBasicFileName
-      Assert.AreEqual (FileType.ExecutableFile, file.FileType)
+      Assert.AreEqual (FileType.ExecutableFile, file.Type)
       Assert.IsFalse (file.IsStripped)
       Assert.AreEqual (Some 0x15AUL, file.EntryPoint)
       Assert.AreEqual (0x154UL, getTextSectionAddr file)

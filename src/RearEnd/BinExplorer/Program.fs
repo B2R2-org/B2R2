@@ -25,7 +25,7 @@
 module B2R2.RearEnd.BinExplorer.Program
 
 open B2R2
-open B2R2.FrontEnd.BinInterface
+open B2R2.FrontEnd
 open B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.MiddleEnd
 open B2R2.MiddleEnd.BinEssence
@@ -206,8 +206,8 @@ let spec =
                   long = "--batch" )
   ]
 
-let buildGraph (opts: BinExplorerOpts) hdl =
-  let arch = hdl.BinFile.ISA.Arch
+let buildGraph (opts: BinExplorerOpts) (hdl: BinHandle) =
+  let arch = hdl.File.ISA.Arch
   let preanalyses, iteranalyses, postanalyses = opts.GetAnalyses arch
   BinEssence.init hdl preanalyses iteranalyses postanalyses
 
@@ -231,7 +231,7 @@ let dumpJsonFiles jsonDir ess =
 
 let initBinHdl isa (name: string) =
   let autoDetect = (isa.Arch <> Architecture.EVM)
-  BinHandle.Init (isa, ArchOperationMode.NoMode, autoDetect, None, name)
+  BinHandle (name, isa, None, ArchOperationMode.NoMode)
 
 let interactiveMain files (opts: BinExplorerOpts) =
   if List.isEmpty files then

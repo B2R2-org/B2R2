@@ -26,14 +26,14 @@ namespace B2R2.FrontEnd.Tests
 
 open Microsoft.VisualStudio.TestTools.UnitTesting
 open B2R2
+open B2R2.FrontEnd
 open B2R2.FrontEnd.BinLifter
-open B2R2.FrontEnd.BinInterface
 
 module Intel =
   open B2R2.FrontEnd.BinLifter.Intel
 
   let private test prefs segment wordSize opcode oprs length (bytes: byte[]) =
-    let parser = IntelParser (wordSize) :> IInsParsable
+    let parser = IntelParser (wordSize) :> IInstructionParsable
     let ins = parser.Parse (bytes, 0UL) :?> IntelInternalInstruction
     Assert.AreEqual (ins.Prefixes, prefs)
     Assert.AreEqual (Helper.getSegment ins.Prefixes, segment)
@@ -2177,6 +2177,6 @@ module Intel =
     [<TestMethod>]
     member __.``Intel IL Test`` () =
       let isa = ISA.Init Arch.IntelX86 Endian.Little
-      let hdl = BinHandle.Init (isa)
-      Assert.AreEqual (0, hdl.BinFile.Length)
+      let hdl = BinHandle (isa)
+      Assert.AreEqual (0, hdl.File.Length)
 #endif

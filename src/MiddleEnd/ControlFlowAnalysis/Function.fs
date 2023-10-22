@@ -27,7 +27,7 @@ namespace B2R2.MiddleEnd.ControlFlowAnalysis
 open System.Collections.Generic
 open System.Runtime.InteropServices
 open B2R2
-open B2R2.FrontEnd.BinInterface
+open B2R2.FrontEnd
 open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.ControlFlowGraph
 
@@ -130,10 +130,10 @@ module private RegularFunction =
   /// We directly compare first 4 bytes of byte code. Because
   /// __x86.get_pc_thunk- family only has 4 bytes for its function body and
   /// their values are fixed.
-  let obtainGetPCThunkReg hdl (addr: Addr) =
-    match hdl.BinFile.ISA.Arch with
+  let obtainGetPCThunkReg (hdl: BinHandle) (addr: Addr) =
+    match hdl.File.ISA.Arch with
     | Arch.IntelX86 ->
-      match BinHandle.ReadUInt (hdl, addr, 4) with
+      match hdl.ReadUInt (addr, 4) with
       | 0xc324048bUL -> YesGetPCThunk <| hdl.RegisterBay.RegIDFromString "EAX"
       | 0xc3241c8bUL -> YesGetPCThunk <| hdl.RegisterBay.RegIDFromString "EBX"
       | 0xc3240c8bUL -> YesGetPCThunk <| hdl.RegisterBay.RegIDFromString "ECX"
@@ -165,9 +165,9 @@ type RegularFunction private (histMgr: HistoryManager, ep, name, thunkInfo) =
   let mutable maxAddr = ep
 
   /// Create a new RegularFunction.
-  new (histMgr, hdl, ep) =
+  new (histMgr, hdl: BinHandle, ep) =
     let name =
-      match hdl.BinFile.TryFindFunctionSymbolName ep with
+      match hdl.File.TryFindFunctionSymbolName ep with
       | Error _ -> Addr.toFuncName ep
       | Ok name -> name
     let thunkInfo = RegularFunction.obtainGetPCThunkReg hdl ep

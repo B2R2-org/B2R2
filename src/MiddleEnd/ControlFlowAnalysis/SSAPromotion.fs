@@ -27,7 +27,7 @@ module B2R2.MiddleEnd.ControlFlowAnalysis.SSAPromotion
 
 open System.Collections.Generic
 open B2R2
-open B2R2.FrontEnd.BinInterface
+open B2R2.FrontEnd
 open B2R2.BinIR.SSA
 open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.ControlFlowGraph
@@ -55,10 +55,10 @@ let private updateIfStackValueIsConstant (v: Vertex<SSABasicBlock>) spState sp =
 /// if the function's stack frame (activation record) is located at a constant
 /// stack offset. If so, we remember the offset.
 let private updateStackFrameDistance hdl g (v: Vertex<SSABasicBlock>) spState =
-  match hdl.RegisterBay.StackPointer with
+  match (hdl: BinHandle).RegisterBay.StackPointer with
   | Some rid ->
     let spName = hdl.RegisterBay.RegIDToString rid
-    let rt = hdl.BinFile.ISA.WordSize |> WordSize.toRegType
+    let rt = hdl.File.ISA.WordSize |> WordSize.toRegType
     let spRegKind = RegVar (rt, rid, spName)
     match findLastStackDef v spRegKind with
     | Some sp -> updateIfStackValueIsConstant v spState sp

@@ -47,7 +47,7 @@ type EVMParser (isa: ISA) =
 
   member __.CodeOffset with get() = codeOffset and set(o) = codeOffset <- o
 
-  interface IInsParsable with
+  interface IInstructionParsable with
     member __.Parse (bs: byte[], addr) =
       let span = ReadOnlySpan (bs)
       Parser.parse span codeOffset wordSize addr
@@ -56,6 +56,8 @@ type EVMParser (isa: ISA) =
     member __.Parse (span: ByteSpan, addr) =
       Parser.parse span codeOffset wordSize addr
       :> Instruction
+
+    member __.MaxInstructionSize = 33
 
     member __.OperationMode with get() = ArchOperationMode.NoMode and set _ = ()
 

@@ -152,15 +152,14 @@ module internal Section =
     segCmds
     |> Array.fold (fun cnt seg -> cnt + int seg.NumSecs) 0
 
-  let parse ({ Stream = stream; Header = hdr } as toolBox) segCmds =
+  let parse ({ Bytes = bytes; Header = hdr } as toolBox) segCmds =
     let numSections = countSections segCmds
     let sections = Array.zeroCreate numSections
     let mutable idx = 0
     for seg in segCmds do
       let entrySize = pickNum hdr.Class 68 80
       let sectionSize = entrySize * int seg.NumSecs
-      let sectionBuf = readChunk stream (uint64 seg.SecOff) sectionSize
-      let sectionSpan = ReadOnlySpan sectionBuf
+      let sectionSpan = ReadOnlySpan (bytes, seg.SecOff, sectionSize)
       for i = 0 to int seg.NumSecs - 1 do
         let offset = i * entrySize
         sections[idx] <- parseSection toolBox sectionSpan offset

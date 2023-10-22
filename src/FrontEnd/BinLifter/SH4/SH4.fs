@@ -41,13 +41,15 @@ type SH4TranslationContext internal (isa, regexprs) =
 type SH4Parser (isa: ISA) =
   let reader = BinReader.Init isa.Endian
 
-  interface IInsParsable with
+  interface IInstructionParsable with
     member __.Parse (bs: byte[], addr: Addr) =
       let span = ReadOnlySpan bs
-      (__ :> IInsParsable).Parse (span, addr)
+      (__ :> IInstructionParsable).Parse (span, addr)
 
     member __.Parse (span: ByteSpan, addr: Addr) =
       Parser.parse span reader addr :> Instruction
+
+    member __.MaxInstructionSize = 2
 
     member __.OperationMode with get() = ArchOperationMode.NoMode and set _ = ()
 

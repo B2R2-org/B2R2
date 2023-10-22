@@ -27,7 +27,7 @@ namespace B2R2.MiddleEnd.LLVM
 open System.Text
 open System.Collections.Generic
 open B2R2
-open B2R2.FrontEnd.BinInterface
+open B2R2.FrontEnd
 open B2R2.MiddleEnd.LLVM.LLVMExpr
 
 /// LLVM IR builder, which takes in a series of LowUIR stmts and creates an LLVM
@@ -38,7 +38,7 @@ type LLVMIRBuilder (fname: string, addr, hdl: BinHandle, ctxt: LLVMContext) =
   let mutable hasJumpToFinal = false
   let [<Literal>] Indent = "  "
   let [<Literal>] ASpace = "addrspace(1)"
-  let addrSize = hdl.BinFile.ISA.WordSize |> WordSize.toRegType
+  let addrSize = hdl.File.ISA.WordSize |> WordSize.toRegType
   let attr = $"noalias nocapture {ctxt.DereferenceableAttribute}"
   let newID typ = { Num = 0; IDType = typ }
   let renameID id (cnt: byref<int>) = cnt <- cnt + 1; id.Num <- cnt; $"%%{cnt}"

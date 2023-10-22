@@ -22,29 +22,35 @@
   SOFTWARE.
 *)
 
-[<RequireQualifiedAccess>]
-module B2R2.FrontEnd.BinInterface.Parser
+namespace B2R2.FrontEnd.BinFile
 
 open B2R2
 open B2R2.FrontEnd.BinLifter
 
-/// Initialize a `Parser` from a given ISA, ArchOperationMode, and (optional)
-/// entrypoint address.
-[<CompiledName ("Init")>]
-let init (isa: ISA) mode (entryPoint: Addr option) =
-  match isa.Arch with
-  | Arch.IntelX64
-  | Arch.IntelX86 -> Intel.IntelParser (isa.WordSize) :> IInsParsable
-  | Arch.ARMv7 | Arch.AARCH32 ->
-    ARM32.ARM32Parser (isa, mode, entryPoint) :> IInsParsable
-  | Arch.AARCH64 -> ARM64.ARM64Parser (isa) :> IInsParsable
-  | Arch.MIPS32 | Arch.MIPS64 -> MIPS.MIPSParser (isa) :> IInsParsable
-  | Arch.EVM -> EVM.EVMParser (isa) :> IInsParsable
-  | Arch.TMS320C6000 -> TMS320C6000.TMS320C6000Parser () :> IInsParsable
-  | Arch.CILOnly -> CIL.CILParser () :> IInsParsable
-  | Arch.AVR -> AVR.AVRParser () :> IInsParsable
-  | Arch.SH4 -> SH4.SH4Parser (isa) :> IInsParsable
-  | Arch.PPC32 -> PPC32.PPC32Parser (isa) :> IInsParsable
-  | Arch.RISCV64 -> RISCV.RISCV64Parser (isa) :> IInsParsable
-  | Arch.SPARC -> SPARC.SPARCParser (isa) :> IInsParsable
-  | _ -> Utils.futureFeature ()
+[<RequireQualifiedAccess>]
+module FileFactory =
+  let private loadRegBay isa =
+    match isa.Arch with
+    | Arch.IntelX64
+    | Arch.IntelX86 -> Intel.Basis.initRegBay isa.WordSize
+    | Arch.ARMv7 | Arch.AARCH32 -> ARM32.Basis.initRegBay ()
+    | Arch.AARCH64 -> ARM64.Basis.initRegBay ()
+    | Arch.MIPS32 | Arch.MIPS64 -> MIPS.Basis.initRegBay isa
+    | Arch.PPC32 -> PPC32.Basis.initRegBay isa
+    | Arch.RISCV64 -> RISCV.Basis.initRegBay isa
+    | Arch.SH4 -> SH4.Basis.initRegBay isa
+    | _ -> Utils.futureFeature ()
+
+  let load path bytes fmt isa baseAddrOpt =
+    let regbay = loadRegBay isa
+    match fmt with
+    | FileFormat.ELFBinary ->
+      ELFBinFile (path, bytes, baseAddrOpt, Some regbay) :> IBinFile
+    | FileFormat.PEBinary ->
+      PEBinFile (path, bytes, baseAddrOpt, [||]) :> IBinFile
+    | FileFormat.MachBinary ->
+      MachBinFile (path, bytes, isa, baseAddrOpt) :> IBinFile
+    | FileFormat.WasmBinary ->
+      WasmBinFile (bytes, path) :> IBinFile
+    | _ ->
+      RawBinFile (bytes, path, isa, baseAddrOpt) :> IBinFile

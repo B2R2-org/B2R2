@@ -25,7 +25,6 @@
 namespace B2R2.FrontEnd.BinFile.ELF
 
 open System
-open System.IO
 open B2R2
 open B2R2.FrontEnd.BinFile
 open B2R2.FrontEnd.BinFile.FileHelper
@@ -130,21 +129,15 @@ module ProgramHeader =
       PHAlignment = readNative span reader cls 28 48 }
 
   /// Parse program headers and returns them as an array.
-  let parse toolBox =
-    let stream = toolBox.Stream
-    let hdr = toolBox.Header
-    let buf = Array.zeroCreate (pickNum hdr.Class 32 56)
+  let parse ({ Bytes = bytes; Header = hdr } as toolBox) =
+    let entrySize = pickNum hdr.Class 32 56
     let numEntries = int hdr.PHdrNum
     let progHeaders = Array.zeroCreate numEntries
-    stream.Seek (int64 hdr.PHdrTblOffset, SeekOrigin.Begin) |> ignore
-    let rec parseLoop count =
-      if count = numEntries then progHeaders
-      else
-        readOrDie stream buf
-        let phdr = parseProgHeader toolBox (ReadOnlySpan buf)
-        progHeaders[count] <- phdr
-        parseLoop (count + 1)
-    parseLoop 0
+    for i = 0 to numEntries - 1 do
+      let offset = int hdr.PHdrTblOffset + i * entrySize
+      let span = ReadOnlySpan (bytes, offset, entrySize)
+      progHeaders[i] <- parseProgHeader toolBox span
+    progHeaders
 
   let getLoadableProgHeaders (progHeaders: ProgramHeader[]) =
     progHeaders

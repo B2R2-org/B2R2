@@ -51,7 +51,7 @@ Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "B2R2.FrontEnd.BinFile", "sr
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "B2R2.FrontEnd.BinFile.Tests", "src\FrontEnd\BinFile.Tests\B2R2.FrontEnd.BinFile.Tests.fsproj", "{80DB4163-821F-4C85-80AB-B6E5E946C4F9}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "B2R2.FrontEnd.BinInterface", "src\FrontEnd\BinInterface\B2R2.FrontEnd.BinInterface.fsproj", "{C07D0F30-B3EC-430B-9F4C-4A74E15CE7F0}"
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "B2R2.FrontEnd.Core", "src\FrontEnd\Core\B2R2.FrontEnd.Core.fsproj", "{C07D0F30-B3EC-430B-9F4C-4A74E15CE7F0}"
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "B2R2.FrontEnd.NameMangling", "src\FrontEnd\NameMangling\B2R2.FrontEnd.NameMangling.fsproj", "{ADB65D83-B476-4F0B-8B9F-8719A8AB7624}"
 EndProject
