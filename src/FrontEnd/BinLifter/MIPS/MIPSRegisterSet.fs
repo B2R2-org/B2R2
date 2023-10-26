@@ -40,7 +40,7 @@ type MIPSRegisterSet (bitArray: uint64 [], s: Set<RegisterID>) =
 
   override __.ArrSize = ArrLen
 
-  override __.New arr s = new MIPSRegisterSet (arr, s) :> RegisterSet
+  override __.New arr s = MIPSRegisterSet (arr, s) :> RegisterSet
 
   override __.RegIDToIndex rid =
     match Register.ofRegID rid with

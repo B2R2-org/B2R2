@@ -35,7 +35,7 @@ type SH4RegisterSet (bitArray: uint64 [], s: Set<RegisterID>) =
 
   override __.ArrSize = 3
 
-  override __.New arr s = new SH4RegisterSet (arr, s) :> RegisterSet
+  override __.New arr s = SH4RegisterSet (arr, s) :> RegisterSet
 
   override __.RegIDToIndex rid =
     match Register.ofRegID rid with

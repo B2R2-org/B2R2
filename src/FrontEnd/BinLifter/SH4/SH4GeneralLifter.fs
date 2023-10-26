@@ -34,7 +34,7 @@ open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinLifter.LiftingOperators
 open B2R2.FrontEnd.BinLifter.SH4
 
-let delaySlot = new List<IRBuilder>()
+let delaySlot = List<IRBuilder>()
 
 let numI32 n = BitVector.OfInt32 n 32<rt> |> AST.num
 

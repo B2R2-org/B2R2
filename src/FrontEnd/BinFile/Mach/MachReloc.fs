@@ -77,7 +77,7 @@ module internal Reloc =
   let private translateRelocAddr reloc =
     reloc.RelocSection.SecAddr + uint64 reloc.RelocAddr
 
-  let private translateRelocSymbol (symbols: MachSymbol []) (secs: MachSection []) reloc =
+  let private translateRelocSymbol (symbols: _[]) (secs: MachSection[]) reloc =
     match reloc.RelocSymbol with
     | SymIndex (n) -> symbols[n].SymName
     | SecOrdinal (n) -> secs[n - 1].SecName

@@ -39,8 +39,8 @@ type LoadCmdType =
   /// The gdb symbol table info (obsolete).
   | LC_SYMSEG = 0x03
   /// This command defines the initial thread state of the main thread of the
-  /// process. LC_THREAD is similar to LC_UNIXTHREAD but does not cause the kernel
-  /// to allocate a stack.
+  /// process. LC_THREAD is similar to LC_UNIXTHREAD but does not cause the
+  /// kernel to allocate a stack.
   | LC_THREAD = 0x04
   /// This command defines the initial thread state of the main thread of the
   /// process.

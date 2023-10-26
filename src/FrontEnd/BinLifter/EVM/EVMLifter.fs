@@ -48,13 +48,13 @@ let inline private updateGas ctxt gas builder =
   builder <! (gasReg := gasReg .+ numI32 gas 64<rt>)
 
 let sideEffects insInfo name =
-  let builder = new IRBuilder (4)
+  let builder = IRBuilder (4)
   startMark insInfo builder
   builder <! AST.sideEffect name
   endMark insInfo builder
 
 let nop insInfo =
-  let builder = new IRBuilder (4)
+  let builder = IRBuilder (4)
   startMark insInfo builder
   endMark insInfo builder
 
@@ -96,7 +96,7 @@ let private swapStack (ctxt: TranslationContext) pos (builder: IRBuilder) =
   builder <! (AST.store Endian.Big spReg tmp2)
 
 let startBasicOperation insInfo =
-  let builder = new IRBuilder (12)
+  let builder = IRBuilder (12)
   startMark insInfo builder
   builder
 
@@ -137,7 +137,7 @@ let shr insInfo ctxt = shiftOperation insInfo ctxt (>>)
 let sar insInfo ctxt = shiftOperation insInfo ctxt (?>>)
 
 let addmod insInfo ctxt =
-  let builder = new IRBuilder (12)
+  let builder = IRBuilder (12)
   startMark insInfo builder
   let src1 = popFromStack ctxt builder
   let src2 = popFromStack ctxt builder
@@ -148,7 +148,7 @@ let addmod insInfo ctxt =
   endMark insInfo builder
 
 let mulmod insInfo ctxt =
-  let builder = new IRBuilder (12)
+  let builder = IRBuilder (12)
   startMark insInfo builder
   let src1 = popFromStack ctxt builder
   let src2 = popFromStack ctxt builder
@@ -161,7 +161,7 @@ let mulmod insInfo ctxt =
 let private makeNum i = numI32 i OperationSize.regType
 
 let signextend insInfo ctxt =
-  let builder = new IRBuilder (12)
+  let builder = IRBuilder (12)
   startMark insInfo builder
   let b = popFromStack ctxt builder
   let x = popFromStack ctxt builder
@@ -172,7 +172,7 @@ let signextend insInfo ctxt =
   endMark insInfo builder
 
 let iszero insInfo ctxt =
-  let builder = new IRBuilder (8)
+  let builder = IRBuilder (8)
   startMark insInfo builder
   let cond = popFromStack ctxt builder
   let rt = OperationSize.regType
@@ -182,7 +182,7 @@ let iszero insInfo ctxt =
   endMark insInfo builder
 
 let not insInfo ctxt =
-  let builder = new IRBuilder (8)
+  let builder = IRBuilder (8)
   startMark insInfo builder
   let e = popFromStack ctxt builder
   let expr = AST.zext OperationSize.regType (AST.not e)
@@ -191,7 +191,7 @@ let not insInfo ctxt =
   endMark insInfo builder
 
 let byte insInfo ctxt =
-  let builder = new IRBuilder (12)
+  let builder = IRBuilder (12)
   startMark insInfo builder
   let n = popFromStack ctxt builder
   let x = popFromStack ctxt builder
@@ -201,14 +201,14 @@ let byte insInfo ctxt =
   endMark insInfo builder
 
 let pop insInfo ctxt =
-  let builder = new IRBuilder (8)
+  let builder = IRBuilder (8)
   startMark insInfo builder
   popFromStack ctxt builder |> ignore
   updateGas ctxt insInfo.GAS builder
   endMark insInfo builder
 
 let mload insInfo ctxt =
-  let builder = new IRBuilder (8)
+  let builder = IRBuilder (8)
   startMark insInfo builder
   let addr = popFromStack ctxt builder
   let expr = AST.loadBE OperationSize.regType addr
@@ -217,7 +217,7 @@ let mload insInfo ctxt =
   endMark insInfo builder
 
 let mstore insInfo ctxt =
-  let builder = new IRBuilder (8)
+  let builder = IRBuilder (8)
   startMark insInfo builder
   let addr = popFromStack ctxt builder
   let value = popFromStack ctxt builder
@@ -226,7 +226,7 @@ let mstore insInfo ctxt =
   endMark insInfo builder
 
 let mstore8 insInfo ctxt =
-  let builder = new IRBuilder (8)
+  let builder = IRBuilder (8)
   startMark insInfo builder
   let addr = popFromStack ctxt builder
   let value = popFromStack ctxt builder
@@ -236,7 +236,7 @@ let mstore8 insInfo ctxt =
   endMark insInfo builder
 
 let jump insInfo ctxt =
-  let builder = new IRBuilder (8)
+  let builder = IRBuilder (8)
   try
     startMark insInfo builder
     let dst = popFromStack ctxt builder
@@ -249,7 +249,7 @@ let jump insInfo ctxt =
       sideEffects insInfo Terminate
 
 let jumpi insInfo ctxt =
-  let builder = new IRBuilder (12)
+  let builder = IRBuilder (12)
   startMark insInfo builder
   let dst = popFromStack ctxt builder
   let dstAddr = dst .+ (numU64 insInfo.Offset 256<rt>)
@@ -260,7 +260,7 @@ let jumpi insInfo ctxt =
   endMark insInfo builder
 
 let getpc insInfo ctxt =
-  let builder = new IRBuilder (8)
+  let builder = IRBuilder (8)
   startMark insInfo builder
   let expr = getRegVar ctxt R.PC |> AST.zext OperationSize.regType
   pushToStack ctxt expr builder
@@ -268,7 +268,7 @@ let getpc insInfo ctxt =
   endMark insInfo builder
 
 let gas insInfo ctxt =
-  let builder = new IRBuilder (8)
+  let builder = IRBuilder (8)
   startMark insInfo builder
   let expr = AST.zext OperationSize.regType (getRegVar ctxt R.GAS)
   pushToStack ctxt expr builder
@@ -276,7 +276,7 @@ let gas insInfo ctxt =
   endMark insInfo builder
 
 let push insInfo ctxt imm =
-  let builder = new IRBuilder (8)
+  let builder = IRBuilder (8)
   startMark insInfo builder
   let expr = BitVector.Cast (imm, 256<rt>) |> AST.num
   pushToStack ctxt expr builder
@@ -284,7 +284,7 @@ let push insInfo ctxt imm =
   endMark insInfo builder
 
 let dup insInfo ctxt pos =
-  let builder = new IRBuilder (8)
+  let builder = IRBuilder (8)
   startMark insInfo builder
   let src = peekStack ctxt pos builder
   pushToStack ctxt src builder
@@ -292,14 +292,14 @@ let dup insInfo ctxt pos =
   endMark insInfo builder
 
 let swap insInfo ctxt pos =
-  let builder = new IRBuilder (12)
+  let builder = IRBuilder (12)
   startMark insInfo builder
   swapStack ctxt pos builder
   updateGas ctxt insInfo.GAS builder
   endMark insInfo builder
 
 let callExternFunc insInfo ctxt name argCount doesRet =
-  let builder = new IRBuilder (15)
+  let builder = IRBuilder (15)
   startMark insInfo builder
   let args = List.init argCount (fun _ -> popFromStack ctxt builder)
   let expr = AST.app name args OperationSize.regType
@@ -309,7 +309,7 @@ let callExternFunc insInfo ctxt name argCount doesRet =
   endMark insInfo builder
 
 let call insInfo ctxt fname =
-  let builder = new IRBuilder (20)
+  let builder = IRBuilder (20)
   startMark insInfo builder
   let gas = popFromStack ctxt builder
   let addr = popFromStack ctxt builder
@@ -325,13 +325,13 @@ let call insInfo ctxt fname =
   endMark insInfo builder
 
 let ret insInfo ctxt =
-  let builder = new IRBuilder (8)
+  let builder = IRBuilder (8)
   popFromStack ctxt builder |> ignore
   popFromStack ctxt builder |> ignore
   sideEffects insInfo Terminate
 
 let selfdestruct insInfo ctxt =
-  let builder = new IRBuilder (8)
+  let builder = IRBuilder (8)
   popFromStack ctxt builder |> ignore
   sideEffects insInfo Terminate
 

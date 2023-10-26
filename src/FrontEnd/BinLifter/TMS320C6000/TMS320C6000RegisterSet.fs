@@ -41,7 +41,7 @@ type TMS320C6000RegisterSet (bitArray: uint64 [], s: Set<RegisterID>) =
 
   override __.ArrSize = ArrLen
 
-  override __.New arr s = new TMS320C6000RegisterSet (arr, s) :> RegisterSet
+  override __.New arr s = TMS320C6000RegisterSet (arr, s) :> RegisterSet
 
   override __.RegIDToIndex rid =
     match Register.ofRegID rid with

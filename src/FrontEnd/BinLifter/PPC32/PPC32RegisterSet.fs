@@ -41,7 +41,7 @@ type PPC32RegisterSet (bitArray: uint64 [], s: Set<RegisterID>) =
 
   override __.ArrSize = ArrLen
 
-  override __.New arr s = new PPC32RegisterSet (arr, s) :> RegisterSet
+  override __.New arr s = PPC32RegisterSet (arr, s) :> RegisterSet
 
   override __.RegIDToIndex rid =
     match Register.ofRegID rid with

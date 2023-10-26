@@ -35,7 +35,7 @@ type CILRegisterSet (bitArray: uint64 [], s: Set<RegisterID>) =
 
   override __.ArrSize = 2
 
-  override __.New arr s = new CILRegisterSet (arr, s) :> RegisterSet
+  override __.New arr s = CILRegisterSet (arr, s) :> RegisterSet
 
   override __.RegIDToIndex rid =
     Register.ofRegID rid |> int

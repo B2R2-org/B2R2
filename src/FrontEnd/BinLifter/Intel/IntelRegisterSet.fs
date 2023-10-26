@@ -40,7 +40,7 @@ type IntelRegisterSet (bitArray: uint64 [], s: Set<RegisterID>) =
 
   override __.ArrSize = ArrLen
 
-  override __.New arr s = new IntelRegisterSet (arr, s) :> RegisterSet
+  override __.New arr s = IntelRegisterSet (arr, s) :> RegisterSet
 
   override __.RegIDToIndex rid =
     match Register.ofRegID rid with
