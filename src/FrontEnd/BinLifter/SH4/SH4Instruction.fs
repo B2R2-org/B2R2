@@ -62,19 +62,19 @@ type SH4Instruction (addr, numBytes, insInfo) =
     let builder =
       DisasmStringBuilder (showAddr, false, WordSize.Bit32, addr, numBytes)
     Disasm.disas __.Info builder
-    builder.Finalize ()
+    builder.ToString ()
 
   override __.Disasm () =
     let builder =
       DisasmStringBuilder (false, false, WordSize.Bit32, addr, numBytes)
     Disasm.disas __.Info builder
-    builder.Finalize ()
+    builder.ToString ()
 
   override __.Decompose (showAddr) =
     let builder =
       DisasmWordBuilder (showAddr, false, WordSize.Bit32, addr, numBytes, 8)
     Disasm.disas __.Info builder
-    builder.Finalize ()
+    builder.ToArray ()
 
   override __.IsInlinedAssembly () = false
 

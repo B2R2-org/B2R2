@@ -153,19 +153,19 @@ type MIPSInstruction (addr, numBytes, insInfo, wordSize) =
     let builder =
       DisasmStringBuilder (showAddr, false, wordSize, addr, numBytes)
     Disasm.disasm wordSize __.Info builder
-    builder.Finalize ()
+    builder.ToString ()
 
   override __.Disasm () =
     let builder =
       DisasmStringBuilder (false, false, wordSize, addr, numBytes)
     Disasm.disasm wordSize __.Info builder
-    builder.Finalize ()
+    builder.ToString ()
 
   override __.Decompose (showAddr) =
     let builder =
       DisasmWordBuilder (showAddr, false, wordSize, addr, numBytes, 8)
     Disasm.disasm wordSize __.Info builder
-    builder.Finalize ()
+    builder.ToArray ()
 
   override __.IsInlinedAssembly () = false
 

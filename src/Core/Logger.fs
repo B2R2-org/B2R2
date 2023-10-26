@@ -24,6 +24,7 @@
 
 namespace B2R2
 
+open System
 open System.IO
 
 /// How verbose do we want to log messages?
@@ -75,8 +76,8 @@ type FileLogger(filepath, ?level: LogLevel) =
   let fs = File.CreateText (filepath, AutoFlush = true)
   let llev = defaultArg level LogLevel.L2
 
-  override __.Finalize () =
-    try fs.Close () with _ -> ()
+  interface IDisposable with
+    member __.Dispose () = fs.Dispose ()
 
   interface ILogger with
     member __.Log (str, ?lvl) =

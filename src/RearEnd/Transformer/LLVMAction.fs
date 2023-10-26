@@ -43,7 +43,7 @@ type LLVMAction () =
         |> Array.concat
         |> LLVMTranslator.translate builder bbl.VData.PPoint.Address succs
       )
-      builder.Finalize ()
+      builder.ToString ()
     | Error e -> e.ToString ()
 
   let translate (o: obj) =

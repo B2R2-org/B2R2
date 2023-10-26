@@ -267,7 +267,7 @@ type LLVMIRBuilder (fname: string, addr, hdl: BinHandle, ctxt: LLVMContext) =
     done
 
   /// Emit the LLVM IR string and destroy the builder.
-  member __.Finalize () =
+  override __.ToString () =
     sb <+ $"define void @F_{fname}(i8 {ASpace}* {attr} %%0) {{"
     __.StmtsToString ()
     sb <+ "  ret void"

@@ -197,19 +197,19 @@ type ARM32Instruction (addr, nb, cond, op, opr, its, wb, q, s, m, cf, oSz, a) =
     let builder =
       DisasmStringBuilder (showAddr, resolveSym, WordSize.Bit32, addr, nb)
     Disasm.disasm disasmHelper __ builder
-    builder.Finalize ()
+    builder.ToString ()
 
   override __.Disasm () =
     let builder =
       DisasmStringBuilder (false, false, WordSize.Bit32, addr, nb)
     Disasm.disasm dummyHelper __ builder
-    builder.Finalize ()
+    builder.ToString ()
 
   override __.Decompose (showAddr) =
     let builder =
       DisasmWordBuilder (showAddr, false, WordSize.Bit32, addr, nb, 8)
     Disasm.disasm dummyHelper __ builder
-    builder.Finalize ()
+    builder.ToArray ()
 
   override __.IsInlinedAssembly () = false
 

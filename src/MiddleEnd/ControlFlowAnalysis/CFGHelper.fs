@@ -35,7 +35,7 @@ open System.IO
 module internal Dbg =
   let logger =
     let path = Path.Combine (Directory.GetCurrentDirectory (), "cfg.log")
-    FileLogger (path) :> ILogger
+    new FileLogger (path) :> ILogger
 
   let inline dbglog (locationName: string) fmt =
     let after str = logger.LogLine (locationName.PadRight 20 + "| " + str)

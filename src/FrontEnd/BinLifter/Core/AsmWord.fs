@@ -72,11 +72,3 @@ type AsmWordBuilder =
   /// </summary>
   /// <param name="stmt">AsmWord to add.</param>
   member __.Append stmt = __.Add (stmt); __
-
-  /// <summary>
-  ///   Create an array of AsmWords from the buffer.
-  /// </summary>
-  /// <returns>
-  ///   Returns an array of AsmWords.
-  /// </returns>
-  member __.Finish () = __.ToArray ()

@@ -174,17 +174,17 @@ type IntelInstruction
   override __.Disasm (showAddr, resolveSymb, disasmHelper) =
     let builder = DisasmStringBuilder (showAddr, resolveSymb, wordSz, addr, len)
     Disasm.disasm.Invoke (disasmHelper, builder, __)
-    builder.Finalize ()
+    builder.ToString ()
 
   override __.Disasm () =
     let builder = DisasmStringBuilder (false, false, wordSz, addr, len)
     Disasm.disasm.Invoke (Dummy.helper, builder, __)
-    builder.Finalize ()
+    builder.ToString ()
 
   override __.Decompose (showAddr) =
     let builder = DisasmWordBuilder (showAddr, false, wordSz, addr, len, 8)
     Disasm.disasm.Invoke (Dummy.helper, builder, __)
-    builder.Finalize ()
+    builder.ToArray ()
 
   override __.IsInlinedAssembly () = false
 

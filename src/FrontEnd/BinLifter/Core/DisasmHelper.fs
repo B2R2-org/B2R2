@@ -57,7 +57,7 @@ type DisasmStringBuilder (showAddr, resolveSymb, wordSz, addr, len) =
     sb.Append (Addr.toString wordSz addr) |> ignore
     sb.Append (": ") |> ignore
 
-  member __.Finalize () = sb.ToString ()
+  override __.ToString () = sb.ToString ()
 
 type DisasmWordBuilder (showAddr, resolveSymb, wordSz, addr, len, n) =
   inherit DisasmBuilder (showAddr, resolveSymb, wordSz, addr, len)
@@ -73,4 +73,4 @@ type DisasmWordBuilder (showAddr, resolveSymb, wordSz, addr, len, n) =
     ab.Append ({ AsmWordKind = AsmWordKind.String
                  AsmWordValue = ": " }) |> ignore
 
-  member __.Finalize () = ab.Finish ()
+  member __.ToArray () = ab.ToArray ()

@@ -114,19 +114,19 @@ type EVMInstruction (addr, numBytes, insInfo, wordSize) =
     let builder =
       DisasmStringBuilder (showAddr, false, WordSize.Bit256, addr, numBytes)
     Disasm.disasm __.Info builder
-    builder.Finalize ()
+    builder.ToString ()
 
   override __.Disasm () =
     let builder =
       DisasmStringBuilder (false, false, WordSize.Bit256, addr, numBytes)
     Disasm.disasm __.Info builder
-    builder.Finalize ()
+    builder.ToString ()
 
   override __.Decompose (showAddr) =
     let builder =
       DisasmWordBuilder (showAddr, false, WordSize.Bit256, addr, numBytes, 8)
     Disasm.disasm __.Info builder
-    builder.Finalize ()
+    builder.ToArray ()
 
   override __.IsInlinedAssembly () = false
 
