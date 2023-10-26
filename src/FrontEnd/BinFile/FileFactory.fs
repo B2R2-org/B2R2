@@ -54,3 +54,7 @@ module FileFactory =
       WasmBinFile (bytes, path) :> IBinFile
     | _ ->
       RawBinFile (bytes, path, isa, baseAddrOpt) :> IBinFile
+
+  let loadELF path bytes isa baseAddrOpt =
+    let regbay = loadRegBay isa
+    ELFBinFile (path, bytes, baseAddrOpt, Some regbay)
