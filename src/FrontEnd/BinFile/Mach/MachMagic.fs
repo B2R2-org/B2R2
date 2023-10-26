@@ -30,22 +30,22 @@ open B2R2
 type Magic =
   /// The file is intended for use on a CPU with the same endianness as the
   /// computer on which the compiler is running (32-bit CPU).
-  | MHMagic = 0xFEEDFACEu
+  | MH_MAGIC = 0xFEEDFACEu
   /// The byte ordering scheme of the target machine is the reverse of the host
   /// CPU (32-bit CPU).
-  | MHCigam = 0xCEFAEDFEu
+  | MH_CIGAM = 0xCEFAEDFEu
   /// The file is intended for use on a CPU with the same endianness as the
   /// computer on which the compiler is running (64-bit CPU).
-  | MHMagic64 = 0xFEEDFACFu
+  | MH_MAGIC_64 = 0xFEEDFACFu
   /// The byte ordering scheme of the target machine is the reverse of the host
   /// CPU (64-bit CPU).
-  | MHCigam64 = 0xCFFAEDFEu
+  | MH_CIGAM_64 = 0xCFFAEDFEu
   /// The file is intended for use on multiple architectures (FAT binary). This
   /// value is used on a big-endian host.
-  | FATMagic = 0xCAFEBABEu
+  | FAT_MAGIC = 0xCAFEBABEu
   /// The file is intended for use on multiple architectures (FAT binary). This
   /// value is used on a little-endian host.
-  | FATCigam = 0xBEBAFECAu
+  | FAT_CIGAM = 0xBEBAFECAu
 
 module internal Magic =
   let read (span: ByteSpan) (reader: IBinReader) =

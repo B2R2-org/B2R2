@@ -31,73 +31,73 @@ open B2R2.FrontEnd.BinFile.FileHelper
 /// Section type.
 type SectionType =
   /// Regular section.
-  | Regular = 0x0
+  | S_REGULAR = 0x0
   /// Zero fill on demand section.
-  | ZeroFill = 0x1
+  | S_ZEROFILL = 0x1
   /// Section with only literal C strings.
-  | CStringLiterals = 0x2
+  | S_CSTRING_LITERALS = 0x2
   /// Section with only 4 byte literals.
-  | FourByteLiterals = 0x3
+  | S_4BYTE_LITERALS = 0x3
   /// Section with only 8 byte literals.
-  | EightByteLiterals = 0x4
+  | S_8BYTE_LITERALS = 0x4
   /// section with only pointers to literals.
-  | LiteralPointers = 0x5
+  | S_LITERAL_POINTERS = 0x5
   /// Section with only non-lazy symbol pointers .
-  | NonLazySymbolPointers = 0x6
+  | S_NON_LAZY_SYMBOL_POINTERS = 0x6
   /// Section with only lazy symbol pointers.
-  | LazySymbolPointers = 0x7
+  | S_LAZY_SYMBOL_POINTERS = 0x7
   /// Section with only symbol stubs, byte size of stub in the reserved2 field.
-  | SymbolStubs = 0x8
+  | S_SYMBOL_STUBS = 0x8
   /// Section with only function pointers for initialization.
-  | ModInitFuncPointers = 0x9
+  | S_MOD_INIT_FUNC_POINTERS = 0x9
   /// Section with only function pointers for termination.
-  | ModTermFuncPointers = 0xa
+  | S_MOD_TERM_FUNC_POINTERS = 0xa
   /// Section contains symbols that are to be coalesced.
-  | Coalesced = 0xb
+  | S_COALESCED = 0xb
   /// Zero fill on demand section (this can be larger than 4 gigabytes).
-  | GBZeroFill = 0xc
+  | S_GB_ZEROFILL = 0xc
   /// Section with only pairs of function pointers for interposing.
-  | Interposing = 0xd
+  | S_INTERPOSING = 0xd
   /// Section with only 16 byte literals.
-  | SixteenByteLiterals = 0xe
+  | S_16BYTE_LITERALS = 0xe
   /// Section contains DTrace Object Format.
-  | DTraceDOF = 0xf
+  | S_DTRACE_DOF = 0xf
   /// Section with only lazy symbol pointers to lazy loaded dylibs.
-  | LazyDyLibSymbolPointers = 0x10
+  | S_LAZY_DYLIB_SYMBOL_POINTERS = 0x10
   /// Template of initial values for TLVs.
-  | ThreadLocalRegular = 0x11
+  | S_THREAD_LOCAL_REGULAR = 0x11
   /// Template of initial values for TLVs.
-  | ThreadLocalZeroFill = 0x12
+  | S_THREAD_LOCAL_ZEROFILL = 0x12
   /// TLV descriptors.
-  | ThreadLocalVariables = 0x13
+  | S_THREAD_LOCAL_VARIABLES = 0x13
   /// Pointers to TLV descriptors.
-  | ThreadLocalVariablePointers = 0x14
+  | S_THREAD_LOCAL_VARIABLE_POINTERS = 0x14
   /// Functions to call to initialize TLV values .
-  | ThreadLocalInitFunctionPointers = 0x15
+  | S_THREAD_LOCAL_INIT_FUNCTION_POINTERS = 0x15
 
 /// Section attribute.
 [<FlagsAttribute>]
 type SectionAttribute =
   /// Section contains only true machine instructions.
-  | AttrPureInstructions = 0x80000000
+  | S_ATTR_PURE_INSTRUCTIONS = 0x80000000
   /// Section contains coalesced symbols that are not to be in a ranlib table of
   /// contents.
-  | AttrNoTOC = 0x40000000
+  | S_ATTR_NO_TOC = 0x40000000
   /// OK to strip static symbols in this section in files with the MH_DYLDLINK
   /// flag.
-  | AttrStripStaticSyms = 0x20000000
+  | S_ATTR_STRIP_STATIC_SYMS = 0x20000000
   /// No dead stripping.
-  | AttrNoDeadStrip = 0x10000000
+  | S_ATTR_NO_DEAD_STRIP = 0x10000000
   /// Blocks are live if they reference live blocks.
-  | AttrLiveSupport = 0x08000000
+  | S_ATTR_LIVE_SUPPORT = 0x08000000
   /// Used with i386 code stubs written on by dyld.
-  | AttrSelfModifyingCode = 0x04000000
+  | S_ATTR_SELF_MODIFYING_CODE = 0x04000000
   /// Debug section.
-  | AttrDebug = 0x02000000
+  | S_ATTR_DEBUG = 0x02000000
   /// Section has external relocation entries.
-  | AttrExtReloc = 0x00000200
+  | S_ATTR_EXT_RELOC = 0x00000200
   /// Section has local relocation entries.
-  | AttrLocReloc = 0x00000100
+  | S_ATTR_LOC_RELOC = 0x00000100
 
 /// Mach-O section.
 type MachSection = {

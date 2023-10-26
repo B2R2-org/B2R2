@@ -33,104 +33,106 @@ type LoadCmdType =
   /// Defines a segment of this file to be mapped into the address space of the
   /// process that loads this file. It also includes all the sections contained
   /// by the segment.
-  | LCSegment = 0x01
+  | LC_SEGMENT = 0x01
   /// The symbol table for this file.
-  | LCSymTab = 0x02
+  | LC_SYMTAB = 0x02
   /// The gdb symbol table info (obsolete).
-  | LCSymSeg = 0x03
+  | LC_SYMSEG = 0x03
   /// This command defines the initial thread state of the main thread of the
-  /// process. LCThread is similar to LCUnixThread but does not cause the kernel
+  /// process. LC_THREAD is similar to LC_UNIXTHREAD but does not cause the kernel
   /// to allocate a stack.
-  | LCThread = 0x04
+  | LC_THREAD = 0x04
   /// This command defines the initial thread state of the main thread of the
   /// process.
-  | LCUnixThread = 0x05
+  | LC_UNIXTHREAD = 0x05
   /// Load a specified fixed VM shared library.
-  | LCLoadFVMLib = 0x06
+  | LC_LOADFVMLIB = 0x06
   /// Fixed VM shared library identification.
-  | LCIDFVMLib = 0x07
+  | LC_IDFVMLIB = 0x07
   /// Object identification info (obsolete).
-  | LCIdent = 0x08
+  | LC_IDENT = 0x08
   /// Fixed VM file inclusion (internal use).
-  | LCFVMFile = 0x09
+  | LC_FVMFILE = 0x09
   /// Prepage command (internal use).
-  | LCPrepage = 0x0A
+  | LC_PREPAGE = 0x0A
   /// Dynamic link-edit symbol table info.
-  | LCDySymTab = 0x0B
+  | LC_DYSYMTAB = 0x0B
   /// Load a dynamically linked shared library.
-  | LCLoadDyLib = 0x0C
+  | LC_LOAD_DYLIB = 0x0C
   /// This command Specifies the install name of a dynamic shared library.
-  | LCIDDyLib = 0x0D
+  | LC_ID_DYLIB = 0x0D
   /// Load a dynamic linker.
-  | LCLoadDyLink = 0x0E
+  | LC_LOAD_DYLINKER = 0x0E
   /// Dynamic linker identification.
-  | LCIDDyLink = 0x0F
+  | LC_ID_DYLINKER = 0x0F
   /// Modules prebound for a dynamically linked shared library.
-  | LCPreboundDyLib = 0x10
+  | LC_PREBOUND_DYLIB = 0x10
   /// Image routines.
-  | LCRoutines = 0x11
+  | LC_ROUTINES = 0x11
   /// Sub framework.
-  | LCSubFramework = 0x12
+  | LC_SUB_FRAMEWORK = 0x12
   /// Sub umbrella.
-  | LCSubUmbrella = 0x13
+  | LC_SUB_UMBRELLA = 0x13
   /// Sub client.
-  | LCSubClient = 0x14
+  | LC_SUB_CLIENT = 0x14
   /// Sub library.
-  | LCSubLib = 0x15
+  | LC_SUB_LIBRARY = 0x15
   /// Two-level namespace lookup hints
-  | LCTwoLevelHints = 0x16
+  | LC_TWOLEVEL_HINTS = 0x16
   /// Prebind checksum.
-  | LCPrebindCksum = 0x17
+  | LC_PREBIND_CKSUM = 0x17
   /// Load a dynamically linked shared library that is allowed to be missing.
-  | LCLoadWeakDyLib = 0x80000018
+  | LC_LOAD_WEAK_DYLIB = 0x80000018
   /// 64-bit segment of this file to be mapped.
-  | LCSegment64 = 0x19
+  | LC_SEGMENT64 = 0x19
   /// 64-bit image routines.
-  | LCRoutines64 = 0x1A
+  | LC_ROUTINES64 = 0x1A
   /// The uuid.
-  | LCUUID = 0x1B
+  | LC_UUID = 0x1B
   /// Runpath additions.
-  | LCRunPath = 0x8000001C
+  | LC_RPATH = 0x8000001C
   /// Local of code signature.
-  | LCCodeSign = 0x1D
+  | LC_CODE_SIGNATURE = 0x1D
   /// Local of info to split segments
-  | LCSegSplitInfo = 0x1E
+  | LC_SEGMENT_SPLIT_INFO = 0x1E
   /// Load and re-export dylib.
-  | LCReExportDyLib = 0x1F
+  | LC_REEXPORT_DYLIB = 0x8000001F
   /// Delay load of dylib until first use.
-  | LCLazyLoadDyLib = 0x20
+  | LC_LAZY_LOAD_DYLIB = 0x20
   /// Encrypted segment information.
-  | LCEncSegInfo = 0x21
+  | LC_ENCRYPTION_INFO = 0x21
   /// Compressed dyld information.
-  | LCDyLDInfo = 0x22
+  | LC_DYLD_INFO = 0x22
   /// Compressed dyld information only.
-  | LCDyLDInfoOnly = 0x80000022
+  | LC_DYLD_INFO_ONLY = 0x80000022
   /// Load upward dylib.
-  | LCLoadUpwardDyLib = 0x80000023
+  | LC_LOAD_UPWARD_DYLIB = 0x80000023
   /// Build for MacOSX min OS version.
-  | LCVerMinMacOSX = 0x24
+  | LC_VERSION_MIN_MACOSX = 0x24
   /// Build for iPhoneOS min OS version.
-  | LCVerMinIphoneOS = 0x25
+  | LC_VERSION_MIN_IPHONEOS = 0x25
   /// Compressed table of function start addresses.
-  | LCFunStarts = 0x26
+  | LC_FUNCTION_STARTS = 0x26
   /// String for dyld to treat like environment variable.
-  | LCDyLDEnv = 0x27
+  | LC_DYLD_ENVIRONMENT = 0x27
   /// Replacement for LC_UNIXTHREAD.
-  | LCMain = 0x80000028
+  | LC_MAIN = 0x80000028
   /// Table of non-instructions in __text.
-  | LCDataInCode = 0x29
+  | LC_DATA_IN_CODE = 0x29
   /// Source version used to build binary.
-  | LCSourceVer = 0x2A
+  | LC_SOURCE_VERSION = 0x2A
   /// Code signing DRs copied from linked dylibs.
-  | LCDyLibCodeSigDRS = 0x2B
+  | LC_DYLIB_CODE_SIGN_DRS = 0x2B
   /// 64-bit encrypted segment information.
-  | LCEncInfo64 = 0x2C
+  | LC_ENCRYPTION_INFO_64 = 0x2C
   /// Linker options in MH_OBJECT files.
-  | LCLinkOpt = 0x2D
+  | LC_LINKER_OPTION = 0x2D
   /// Optimization hints in MH_OBJECT files.
-  | LCLinkOptimizeHint = 0x2E
+  | LC_LINKER_OPTIMIZATION_HINT = 0x2E
+  /// Build for AppleTV min OS version.
+  | LC_VERSION_MIN_TVOS = 0x2F
   /// Build for Watch min OS version
-  | LCVerMinWatchOS = 0x30
+  | LC_VERSION_MIN_WATCHOS = 0x30
 
 /// The load command structures are located directly after the header of the
 /// object file, and they specify both the logical structure of the file and the
@@ -413,21 +415,21 @@ module internal LoadCommand =
     let span = ReadOnlySpan (bytes, int offset, cmdSize)
     let command =
       match cmdType with
-      | LoadCmdType.LCSegment
-      | LoadCmdType.LCSegment64 ->
+      | LoadCmdType.LC_SEGMENT
+      | LoadCmdType.LC_SEGMENT64 ->
         Segment (parseSegCmd toolBox cmdOffset cmdType cmdSize span)
-      | LoadCmdType.LCSymTab ->
+      | LoadCmdType.LC_SYMTAB ->
         SymTab (parseSymCmd toolBox cmdType cmdSize span)
-      | LoadCmdType.LCDySymTab ->
+      | LoadCmdType.LC_DYSYMTAB ->
         DySymTab (parseDySymCmd toolBox cmdType cmdSize span)
-      | LoadCmdType.LCMain ->
+      | LoadCmdType.LC_MAIN ->
         Main (parseMainCmd toolBox cmdType cmdSize span)
-      | LoadCmdType.LCLoadDyLib ->
+      | LoadCmdType.LC_LOAD_DYLIB ->
         DyLib (parseDyLibCmd toolBox cmdType cmdSize span)
-      | LoadCmdType.LCDyLDInfo
-      | LoadCmdType.LCDyLDInfoOnly ->
+      | LoadCmdType.LC_DYLD_INFO
+      | LoadCmdType.LC_DYLD_INFO_ONLY ->
         DyLdInfo (parseDyLdInfo toolBox cmdType cmdSize span)
-      | LoadCmdType.LCFunStarts ->
+      | LoadCmdType.LC_FUNCTION_STARTS ->
         FuncStarts (parseFuncStarts toolBox cmdType cmdSize span)
       | _ ->
         Unhandled { Cmd = cmdType; CmdSize = uint32 cmdSize }

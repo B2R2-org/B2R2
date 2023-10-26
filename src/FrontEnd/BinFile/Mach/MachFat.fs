@@ -26,7 +26,6 @@ namespace B2R2.FrontEnd.BinFile.Mach
 
 open System
 open B2R2
-open B2R2.FrontEnd.BinFile.FileHelper
 
 /// Describes the location within the binary of an object file targeted at a
 /// single architecture (fat_arch).
@@ -52,7 +51,7 @@ module Fat =
     let reader = BinReader.Init Endian.Big
     let magic = reader.ReadUInt32 (bytes, 0)
     let nArch = reader.ReadInt32 (bytes, 4)
-    assert (LanguagePrimitives.EnumOfValue magic = Magic.FATMagic)
+    assert (LanguagePrimitives.EnumOfValue magic = Magic.FAT_MAGIC)
     let span = ReadOnlySpan (bytes, 8, 20 * nArch)
     let archs = Array.zeroCreate nArch
     for i = 0 to nArch - 1 do

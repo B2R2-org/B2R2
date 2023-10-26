@@ -69,7 +69,7 @@ type MachBinFile (path, bytes: byte[], isa, baseAddrOpt) =
 
     member __.IsNXEnabled = isNXEnabled toolBox.Header
 
-    member __.IsRelocatable = toolBox.Header.Flags.HasFlag MachFlag.MHPIE
+    member __.IsRelocatable = toolBox.Header.Flags.HasFlag MachFlag.MH_PIE
 
     member __.GetOffset addr = translateAddr segMap.Value addr
 

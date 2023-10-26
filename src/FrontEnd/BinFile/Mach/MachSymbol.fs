@@ -33,79 +33,79 @@ open B2R2.FrontEnd.BinFile.FileHelper
 /// Symbol type (N_TYPE).
 type SymbolType =
   /// The symbol is undefined.
-  | NUndef = 0x0
+  | N_UNDF = 0x0
   /// The symbol is absolute. The linker does not update the value of an
   /// absolute symbol.
-  | NAbs = 0x2
+  | N_ABS = 0x2
   /// The symbol is defined in the section number given in n_sect.
-  | NSect = 0xe
+  | N_SECT = 0xe
   /// The symbol is undefined and the image is using a prebound value for the
   /// symbol.
-  | NPreBnd = 0xc
+  | N_PBUD = 0xc
   /// The symbol is defined to be the same as another symbol.
-  | NIndirect = 0xa
+  | N_INDR = 0xa
   /// Global symbol.
-  | NGSym = 0x20
+  | N_GSYM = 0x20
   /// Procedure name (f77 kludge).
-  | NFName = 0x22
+  | N_FNAME = 0x22
   /// Procedure.
-  | NFun = 0x24
+  | N_FUN = 0x24
   /// Static symbol.
-  | NStSym = 0x26
+  | N_STSYM = 0x26
   /// .lcomm symbol.
-  | NLCSym = 0x28
+  | N_LCSYM = 0x28
   /// Begin nsect sym.
-  | NBnSym = 0x2e
+  | N_BNSYM = 0x2e
   /// AST file path.
-  | NAST = 0x32
+  | N_AST = 0x32
   /// Emitted with gcc2_compiled and in gcc source.
-  | NOpt = 0x3c
+  | N_OPT = 0x3c
   /// Register sym.
-  | NRSym = 0x40
+  | N_RSYM = 0x40
   /// Source line.
-  | NSLine = 0x44
+  | N_SLINE = 0x44
   /// End nsect sym.
-  | NEnSym = 0x4e
+  | N_ENSYM = 0x4e
   /// Structure element.
-  | NSSym = 0x60
+  | N_SSYM = 0x60
   /// Source file name.
-  | NSO = 0x64
+  | N_SO = 0x64
   /// Object file name.
-  | NOSO = 0x66
+  | N_OSO = 0x66
   /// Local symbol.
-  | NLSym = 0x80
+  | N_LSYM = 0x80
   /// Include file beginning.
-  | NBIncl = 0x82
+  | N_BINCL = 0x82
   /// "#included" file name: name,,n_sect,0,address.
-  | NSOL = 0x84
+  | N_SOL = 0x84
   /// Compiler parameters.
-  | NParams = 0x86
+  | N_PARAMS = 0x86
   /// Compiler version.
-  | NVersion = 0x88
+  | N_VERSION= 0x88
   /// Compiler optimization level.
-  | NOLevel = 0x8a
+  | N_OLEVEL = 0x8a
   /// Parameter.
-  | NPSym = 0xa0
+  | N_PSYM = 0xa0
   /// Include file end.
-  | NEIncl = 0xa2
+  | N_EINCL = 0xa2
   /// Alternate entry.
-  | NEntry = 0xa4
+  | N_ENTRY = 0xa4
   /// Left bracket.
-  | NLBrac = 0xc0
+  | N_LBRAC = 0xc0
   /// Deleted include file.
-  | NExcl = 0xc2
+  | N_EXCL = 0xc2
   /// Right bracket.
-  | NRBrac = 0xe0
+  | N_RBRAC = 0xe0
   /// Begin common.
-  | NBComm = 0xe2
+  | N_BCOMM = 0xe2
   /// End common.
-  | NEComm = 0xe4
+  | N_ECOMM = 0xe4
   /// End common (local name).
-  | NEComL = 0xe8
+  | N_ECOML = 0xe8
   /// Second stab entry with length information.
-  | NLeng = 0xfe
+  | N_LENG = 0xfe
   /// Global pascal symbol.
-  | NPC = 0x30
+  | N_PC = 0x30
 
 /// Mach-O symbol.
 type MachSymbol = {
@@ -192,7 +192,7 @@ module internal Symbol =
     symtabs |> Array.fold (fun cnt symtab -> int symtab.NumOfSym + cnt) 0
 
   let private getLibraryVerInfo (flags: MachFlag) libs nDesc =
-    if flags.HasFlag (MachFlag.MHTwoLevel) then
+    if flags.HasFlag (MachFlag.MH_TWOLEVEL) then
       let ord = nDesc >>> 8 &&& 0xffs |> int
       if ord = 0 || ord = 254 then None
       else Some <| Array.get libs (ord - 1)
@@ -239,7 +239,7 @@ module internal Symbol =
     |> Seq.toArray
     |> Array.map (fun addr ->
       { SymName = Addr.toFuncName addr
-        SymType = SymbolType.NSect
+        SymType = SymbolType.N_SECT
         IsExternal = false
         SecNum = secText + 1
         SymDesc = -1s (* To indicate this is B2R2-created symbols. *)
@@ -300,7 +300,7 @@ module internal Symbol =
   let private parseSymbolStubs secs symbols dynsymtbl =
     let folder acc sec =
       match sec.SecType with
-      | SectionType.SymbolStubs ->
+      | SectionType.S_SYMBOL_STUBS ->
         let entryLen = sec.SecReserved2
         let entryCnt = sec.SecSize / uint64 entryLen
         parseSymbStub acc symbols dynsymtbl sec 0 entryLen entryCnt
@@ -311,8 +311,8 @@ module internal Symbol =
   let private parseSymbolPtrs macHdr secs symbols dynsymtbl =
     let folder acc sec =
       match sec.SecType with
-      | SectionType.LazySymbolPointers
-      | SectionType.NonLazySymbolPointers ->
+      | SectionType.S_LAZY_SYMBOL_POINTERS
+      | SectionType.S_NON_LAZY_SYMBOL_POINTERS ->
         let entryLen = WordSize.toByteWidth macHdr.Class
         let entryCnt = sec.SecSize / uint64 entryLen
         parseSymbStub acc symbols dynsymtbl sec 0 entryLen entryCnt
@@ -398,7 +398,7 @@ module internal Symbol =
     let ptrtbls = parseSymbolPtrs toolBox.Header secs symbs dynsymIndices
     let linkage = createLinkageTable stubs ptrtbls
     let exports = parseExports toolBox dyldinfo
-    { Symbols = symbs |> Array.filter (fun s -> s.SymType <> SymbolType.NOpt)
+    { Symbols = symbs |> Array.filter (fun s -> s.SymType <> SymbolType.N_OPT)
       SymbolMap = buildSymbolMap stubs ptrtbls staticsymbs
       LinkageTable = linkage
       Exports = exports }

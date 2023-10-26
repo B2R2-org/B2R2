@@ -48,11 +48,11 @@ let getISA hdr =
   ISA.Init arch endian
 
 let convFileType = function
-  | MachFileType.MHExecute -> FileType.ExecutableFile
-  | MachFileType.MHObject -> FileType.ObjFile
-  | MachFileType.MHDylib
-  | MachFileType.MHFvmlib -> FileType.LibFile
-  | MachFileType.MHCore -> FileType.CoreFile
+  | MachFileType.MH_EXECUTE -> FileType.ExecutableFile
+  | MachFileType.MH_OBJECT -> FileType.ObjFile
+  | MachFileType.MH_DYLIB
+  | MachFileType.MH_FVMLIB -> FileType.LibFile
+  | MachFileType.MH_CORE -> FileType.CoreFile
   | _ -> FileType.UnknownFile
 
 let isMainCmd = function
@@ -76,13 +76,13 @@ let computeEntryPoint segs cmds =
   else Some (mainOffset + getTextSegOffset segs)
 
 let machTypeToSymbKind sym secText =
-  if (sym.SymType = SymbolType.NFun && sym.SymName.Length > 0)
-    || (sym.SymType.HasFlag SymbolType.NSect
+  if (sym.SymType = SymbolType.N_FUN && sym.SymName.Length > 0)
+    || (sym.SymType.HasFlag SymbolType.N_SECT
       && sym.SecNum = (secText + 1)
       && sym.SymDesc = 0s) then
     SymFunctionType
-  elif sym.SymType = SymbolType.NSO
-    || sym.SymType = SymbolType.NOSO then
+  elif sym.SymType = SymbolType.N_SO
+    || sym.SymType = SymbolType.N_OSO then
     SymFileType
   else
     SymNoType
@@ -107,8 +107,8 @@ let isStripped secs symInfo =
   |> not
 
 let isNXEnabled hdr =
-  not (hdr.Flags.HasFlag MachFlag.MHAllowStackExecution)
-  || hdr.Flags.HasFlag MachFlag.MHNoHeapExecution
+  not (hdr.Flags.HasFlag MachFlag.MH_ALLOW_STACK_EXECUTION)
+  || hdr.Flags.HasFlag MachFlag.MH_NO_HEAP_EXECUTION
 
 let translateAddr segMap addr =
   match ARMap.tryFindByAddr addr segMap with
@@ -140,9 +140,9 @@ let executableRanges segCmds =
     ) IntervalSet.empty
 
 let secFlagToSectionKind isExecutable = function
-  | SectionType.NonLazySymbolPointers
-  | SectionType.LazySymbolPointers
-  | SectionType.SymbolStubs -> SectionKind.LinkageTableSection
+  | SectionType.S_NON_LAZY_SYMBOL_POINTERS
+  | SectionType.S_LAZY_SYMBOL_POINTERS
+  | SectionType.S_SYMBOL_STUBS -> SectionKind.LinkageTableSection
   | _ ->
     if isExecutable then SectionKind.ExecutableSection
     else SectionKind.ExtraSection
