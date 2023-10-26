@@ -108,7 +108,7 @@ let private sortLayers vLayout =
   vLayout |> Array.map (fun layer ->
     Array.sortBy (fun v -> (VisGraph.getXPos v)) layer)
 
-let private countDegree edges (getter: 'a -> Vertex<VisBBlock>) v =
+let private countDegree edges (getter: _ -> Vertex<VisBBlock>) v =
   edges
   |> List.fold (fun cnt e -> if getter e = v then cnt + 1 else cnt) 0
 

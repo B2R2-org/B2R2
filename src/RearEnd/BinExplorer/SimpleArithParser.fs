@@ -134,8 +134,7 @@ module SimpleArithParser =
 
   let strWs s = pstring s >>. spaces
 
-  let opp =
-    new OperatorPrecedenceParser<Number, Position, unit>()
+  let opp = OperatorPrecedenceParser<Number, Position, unit>()
 
   let expr = opp.ExpressionParser
 

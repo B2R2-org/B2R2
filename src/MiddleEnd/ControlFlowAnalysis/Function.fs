@@ -167,7 +167,7 @@ type RegularFunction private (histMgr: HistoryManager, ep, name, thunkInfo) =
   /// Create a new RegularFunction.
   new (histMgr, hdl: BinHandle, ep) =
     let name =
-      match hdl.File.TryFindFunctionSymbolName ep with
+      match hdl.File.TryFindFunctionName ep with
       | Error _ -> Addr.toFuncName ep
       | Ok name -> name
     let thunkInfo = RegularFunction.obtainGetPCThunkReg hdl ep

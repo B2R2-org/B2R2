@@ -108,7 +108,7 @@ type InlinedAssembly (addr, len, wordSize, stmts) =
 
   override __.TranslateToList _ = System.Collections.Generic.List stmts
 
-  override __.Disasm (_, _, _) = Utils.futureFeature ()
+  override __.Disasm (_, _) = Utils.futureFeature ()
 
   override __.Disasm () = Utils.futureFeature ()
 

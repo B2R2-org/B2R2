@@ -120,6 +120,8 @@ type WasmBinFile (bytes, path, baseAddrOpt) =
 
     member __.GetRelocatedAddr _relocAddr = Utils.futureFeature ()
 
+    member __.TryFindFunctionName (addr) = tryFindFunSymName wm addr
+
     member __.GetSymbols () = getSymbols wm
 
     member __.GetStaticSymbols () = Seq.empty
@@ -131,8 +133,6 @@ type WasmBinFile (bytes, path, baseAddrOpt) =
     member __.GetRelocationSymbols () = Seq.empty
 
     member __.AddSymbol _addr _symbol = Utils.futureFeature ()
-
-    member __.TryFindFunctionSymbolName (addr) = tryFindFunSymName wm addr
 
     member __.GetSections () = getSections wm
 

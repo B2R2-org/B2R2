@@ -27,7 +27,7 @@ module B2R2.FrontEnd.BinLifter.Intel.Disasm
 open B2R2
 open B2R2.FrontEnd.BinLifter
 
-type Disasm = delegate of DisasmHelper * DisasmBuilder * InsInfo -> unit
+type Disasm = delegate of INameReadable * DisasmBuilder * InsInfo -> unit
 
 let opCodeToString = function
   | Opcode.AAA -> "aaa"
@@ -421,7 +421,7 @@ let opCodeToString = function
   | Opcode.MOVDQ2Q -> "movdq2q"
   | Opcode.MOVDQA -> "movdqa"
   | Opcode.MOVDQU -> "movdqu"
-  | Opcode.MOVHLPS -> "movhlps"
+  | Opcode.MOVHLPS -> "movreaders"
   | Opcode.MOVHPD -> "movhpd"
   | Opcode.MOVHPS -> "movhps"
   | Opcode.MOVLHPS -> "movlhps"
@@ -973,7 +973,7 @@ let opCodeToString = function
   | Opcode.VMOVDQU32 -> "vmovdqu32"
   | Opcode.VMOVDQU64 -> "vmovdqu64"
   | Opcode.VMOVDQU8 -> "vmovdqu8"
-  | Opcode.VMOVHLPS -> "vmovhlps"
+  | Opcode.VMOVHLPS -> "vmovreaders"
   | Opcode.VMOVHPD -> "vmovhpd"
   | Opcode.VMOVHPS -> "vmovhps"
   | Opcode.VMOVLHPS -> "vmovlhps"
@@ -1450,9 +1450,9 @@ let inline private buildAbsAddr selector (offset: Addr) builder =
   builder.Accumulate AsmWordKind.String ":"
   uToHexStr offset builder
 
-let private buildComment (helper: DisasmHelper) targetAddr builder =
+let private buildComment (reader: INameReadable) targetAddr builder =
   if (builder: DisasmBuilder).ResolveSymbol then
-    match helper.FindFunctionSymbol (targetAddr) with
+    match reader.TryFindFunctionName targetAddr with
     | Error _ ->
       (builder: DisasmBuilder).Accumulate AsmWordKind.String " ; "
       uToHexStr targetAddr builder
@@ -1463,11 +1463,11 @@ let private buildComment (helper: DisasmHelper) targetAddr builder =
       builder.Accumulate AsmWordKind.String ">"
   else ()
 
-let inline private buildRelAddr offset hlp (builder: DisasmBuilder) =
+let inline private buildRelAddr offset reader (builder: DisasmBuilder) =
   if offset < 0L then builder.Accumulate AsmWordKind.String "-"
   else builder.Accumulate AsmWordKind.String "+"
   iToHexStr (abs offset) builder
-  buildComment hlp (builder.Address + uint64 offset) builder
+  buildComment reader (builder.Address + uint64 offset) builder
 
 /// Zeroing/Merging (EVEX.z)
 let inline buildEVEXZ ev (builder: DisasmBuilder) =
@@ -1553,7 +1553,7 @@ module private IntelSyntax = begin
       buildEVEXZ ePrx builder
     | _ -> ()
 
-  let oprToString ins hlp opr isFst (builder: DisasmBuilder) =
+  let oprToString ins reader opr (builder: DisasmBuilder) =
     match opr with
     | OprReg reg ->
       builder.Accumulate AsmWordKind.Variable (Register.toString reg)
@@ -1562,71 +1562,64 @@ module private IntelSyntax = begin
     | OprImm (imm, _) ->
       iToHexStr (imm &&& getMask ins.MainOperationSize) builder
     | OprDirAddr (Absolute (sel, offset, _)) -> buildAbsAddr sel offset builder
-    | OprDirAddr (Relative (offset)) -> buildRelAddr offset hlp builder
+    | OprDirAddr (Relative (offset)) -> buildRelAddr offset reader builder
     | Label _ -> Utils.impossible ()
 
-  let recomputeRIPRel disp oprSize builder =
-    let dir = ptrDirectiveString false oprSize
-    (builder: DisasmBuilder).Accumulate AsmWordKind.String dir
-    builder.Accumulate AsmWordKind.String " ["
-    uToHexStr (builder.Address + uint64 disp + uint64 builder.InsLength) builder
-    builder.Accumulate AsmWordKind.String "]"
-
-  let buildOprs (ins: InsInfo) hlp (builder: DisasmBuilder) =
+  let buildOprs (ins: InsInfo) reader (builder: DisasmBuilder) =
     match ins.Operands with
     | NoOperand -> ()
     | OneOperand (OprMem (Some Register.RIP, None, Some off, 64<rt>)) ->
       builder.Accumulate AsmWordKind.String (" ")
       mToString ins builder (Some Register.RIP) None (Some off) 64<rt>
-      buildComment hlp
+      buildComment reader
         (builder.Address + uint64 builder.InsLength + uint64 off) builder
     | OneOperand opr ->
       builder.Accumulate AsmWordKind.String " "
-      oprToString ins hlp opr true builder
+      oprToString ins reader opr builder
     | TwoOperands (OprMem (Some R.RIP, None, Some disp, sz), opr) ->
       builder.Accumulate AsmWordKind.String " "
       mToString ins builder (Some Register.RIP) None (Some disp) sz
       builder.Accumulate AsmWordKind.String ", "
-      oprToString ins hlp opr false builder
-      buildComment hlp
+      oprToString ins reader opr builder
+      buildComment reader
         (builder.Address + uint64 builder.InsLength + uint64 disp) builder
     | TwoOperands (opr, OprMem (Some R.RIP, None, Some disp, sz)) ->
       builder.Accumulate AsmWordKind.String " "
-      oprToString ins hlp opr true builder
+      oprToString ins reader opr builder
       builder.Accumulate AsmWordKind.String ", "
       mToString ins builder (Some Register.RIP) None (Some disp) sz
-      buildComment hlp
+      buildComment reader
         (builder.Address + uint64 builder.InsLength + uint64 disp) builder
     | TwoOperands (opr1, opr2) ->
       builder.Accumulate AsmWordKind.String " "
-      oprToString ins hlp opr1 true builder
+      oprToString ins reader opr1 builder
       buildMask ins builder
       builder.Accumulate AsmWordKind.String ", "
-      oprToString ins hlp opr2 false builder
+      oprToString ins reader opr2 builder
     | ThreeOperands (opr1, opr2, opr3) ->
       builder.Accumulate AsmWordKind.String " "
-      oprToString ins hlp opr1 true builder
+      oprToString ins reader opr1 builder
       buildMask ins builder
       builder.Accumulate AsmWordKind.String ", "
-      oprToString ins hlp opr2 false builder
+      oprToString ins reader opr2 builder
       builder.Accumulate AsmWordKind.String ", "
-      oprToString ins hlp opr3 false builder
+      oprToString ins reader opr3 builder
     | FourOperands (opr1, opr2, opr3, opr4) ->
       builder.Accumulate AsmWordKind.String " "
-      oprToString ins hlp opr1 true builder
+      oprToString ins reader opr1 builder
       buildMask ins builder
       builder.Accumulate AsmWordKind.String ", "
-      oprToString ins hlp opr2 false builder
+      oprToString ins reader opr2 builder
       builder.Accumulate AsmWordKind.String ", "
-      oprToString ins hlp opr3 false builder
+      oprToString ins reader opr3 builder
       builder.Accumulate AsmWordKind.String ", "
-      oprToString ins hlp opr4 false builder
+      oprToString ins reader opr4 builder
 
-  let disasm hlp (builder: DisasmBuilder) ins =
+  let disasm reader (builder: DisasmBuilder) ins =
     if builder.ShowAddr then builder.AccumulateAddr () else ()
     buildPref (ins: InsInfo).Prefixes builder
     buildOpcode ins.Opcode builder
-    buildOprs ins hlp builder
+    buildOprs ins reader builder
 
 end
 
@@ -1707,7 +1700,7 @@ module private ATTSyntax = begin
       buildEVEXZ ePrx builder
     | _ -> ()
 
-  let buildOpr (ins: InsInfo) hlp isFst (builder: DisasmBuilder) opr =
+  let buildOpr (ins: InsInfo) reader isFst (builder: DisasmBuilder) opr =
     match opr with
     | OprReg reg ->
       if isFst then
@@ -1726,7 +1719,7 @@ module private ATTSyntax = begin
       buildAbsAddr sel offset builder
     | OprDirAddr (Relative (offset)) ->
       builder.Accumulate AsmWordKind.String " "
-      buildRelAddr offset hlp builder
+      buildRelAddr offset reader builder
     | Label _ -> Utils.impossible ()
 
   let addOpSuffix (builder: DisasmBuilder) = function
@@ -1764,28 +1757,28 @@ module private ATTSyntax = begin
       Register.toRegType dst |> addOpSuffix builder
     | _ -> Utils.impossible ()
 
-  let buildOprs (ins: InsInfo) hlp (builder: DisasmBuilder) =
+  let buildOprs (ins: InsInfo) reader (builder: DisasmBuilder) =
     match ins.Operands with
     | NoOperand -> ()
     | OneOperand opr ->
-      buildOpr ins hlp true builder opr
+      buildOpr ins reader true builder opr
     | TwoOperands (opr1, opr2) ->
-      buildOpr ins hlp true builder opr2
-      buildOpr ins hlp false builder opr1
+      buildOpr ins reader true builder opr2
+      buildOpr ins reader false builder opr1
       buildMask ins builder
     | ThreeOperands (opr1, opr2, opr3) ->
-      buildOpr ins hlp true builder opr3
-      buildOpr ins hlp false builder opr2
-      buildOpr ins hlp false builder opr1
+      buildOpr ins reader true builder opr3
+      buildOpr ins reader false builder opr2
+      buildOpr ins reader false builder opr1
       buildMask ins builder
     | FourOperands (opr1, opr2, opr3, opr4) ->
-      buildOpr ins hlp true builder opr4
-      buildOpr ins hlp false builder opr3
-      buildOpr ins hlp false builder opr2
-      buildOpr ins hlp false builder opr1
+      buildOpr ins reader true builder opr4
+      buildOpr ins reader false builder opr3
+      buildOpr ins reader false builder opr2
+      buildOpr ins reader false builder opr1
       buildMask ins builder
 
-  let disasm hlp (builder: DisasmBuilder) ins =
+  let disasm reader (builder: DisasmBuilder) ins =
     if builder.ShowAddr then builder.AccumulateAddr () else ()
     buildPref (ins: InsInfo).Prefixes builder
     match ins.Opcode with
@@ -1897,7 +1890,7 @@ module private ATTSyntax = begin
     | opcode ->
       buildOpcode opcode builder
       buildOpSuffix ins.Operands builder
-    buildOprs ins hlp builder
+    buildOprs ins reader builder
 
 end
 

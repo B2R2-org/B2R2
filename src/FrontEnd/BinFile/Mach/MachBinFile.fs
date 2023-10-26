@@ -135,6 +135,9 @@ type MachBinFile (path, bytes: byte[], isa, baseAddrOpt) =
 
     member __.GetRelocatedAddr _relocAddr = Utils.futureFeature ()
 
+    member __.TryFindFunctionName (addr) =
+      tryFindFuncSymb symInfo.Value addr
+
     member __.GetSymbols () = getSymbols secs.Value symInfo.Value
 
     member __.GetStaticSymbols () =
@@ -156,9 +159,6 @@ type MachBinFile (path, bytes: byte[], isa, baseAddrOpt) =
     member __.GetRelocationSymbols () = relocs.Value |> Array.toSeq
 
     member __.AddSymbol _addr _symbol = Utils.futureFeature ()
-
-    member __.TryFindFunctionSymbolName (addr) =
-      tryFindFuncSymb symInfo.Value addr
 
     member __.GetSections () = getSections secs.Value segMap.Value
 

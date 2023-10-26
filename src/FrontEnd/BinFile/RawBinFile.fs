@@ -120,6 +120,10 @@ type RawBinFile (bytes: byte[], path, isa, baseAddrOpt) =
 
     member __.GetRelocatedAddr _relocAddr = Utils.impossible ()
 
+    member __.TryFindFunctionName (_addr) =
+      if symbolMap.ContainsKey(_addr) then Ok symbolMap[_addr].Name
+      else Error ErrorCase.SymbolNotFound
+
     member __.GetSymbols () =
       Seq.map (fun (KeyValue(k, v)) -> v) symbolMap
 
@@ -132,10 +136,6 @@ type RawBinFile (bytes: byte[], path, isa, baseAddrOpt) =
     member __.GetRelocationSymbols () = Seq.empty
 
     member __.AddSymbol addr symbol = symbolMap[addr] <- symbol
-
-    member __.TryFindFunctionSymbolName (_addr) =
-      if symbolMap.ContainsKey(_addr) then Ok symbolMap[_addr].Name
-      else Error ErrorCase.SymbolNotFound
 
     member __.GetSections () =
       Seq.singleton { Address = baseAddr

@@ -666,7 +666,8 @@ module internal ExceptionFrames =
       let df, cnt = toolBox.Reader.ReadInt64LEB128 (secChunk, offset)
       let offset = offset + cnt
       let rr, offset = parseReturnRegister toolBox secChunk version offset
-      let augs, offset = parseAugmentationData toolBox secChunk offset addrSize augstr
+      let augs, offset =
+        parseAugmentationData toolBox secChunk offset addrSize augstr
       let instrLen = nextOffset - offset
       if instrLen > 0 then
         let span = secChunk.Slice (offset, instrLen)

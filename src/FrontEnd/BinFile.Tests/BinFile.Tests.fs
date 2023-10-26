@@ -54,7 +54,7 @@ module ZIPReader =
 [<AutoOpen>]
 module TestHelper =
   let checkSymbol (fileInfo: IBinFile) addr symName =
-    match fileInfo.TryFindFunctionSymbolName addr with
+    match fileInfo.TryFindFunctionName addr with
     | Ok n -> Assert.AreEqual (n, symName)
     | Error _ -> Assert.Fail ()
 

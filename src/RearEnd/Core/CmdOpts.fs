@@ -36,9 +36,9 @@ type CmdOpts () =
   member val Verbose = false with get, set
 
   /// Just a wrapper function that instantiate an OptParse.Option object.
-  static member New<'a> (descr, ?callback, ?required, ?extra, ?help,
+  static member New<'T> (descr, ?callback, ?required, ?extra, ?help,
                                 ?short, ?long, ?dummy, ?descrColor) =
-    Option<'a> (descr,
+    Option<'T> (descr,
                 ?callback=callback,
                 ?required=required,
                 ?extra=extra, ?help=help,

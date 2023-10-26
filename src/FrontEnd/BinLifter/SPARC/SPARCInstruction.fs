@@ -81,7 +81,7 @@ type SPARCInstruction (addr, numBytes, insInfo) =
 
   override __.TranslateToList _ctxt = Utils.futureFeature ()
 
-  override __.Disasm (showAddr, _resolveSymbol, _fileInfo) =
+  override __.Disasm (showAddr, _) =
     let builder =
       DisasmStringBuilder (showAddr, false, WordSize.Bit32, addr, numBytes)
     Disasm.disasm __.Info builder

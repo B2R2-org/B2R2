@@ -25,9 +25,12 @@
 namespace B2R2.FrontEnd.BinFile
 
 open B2R2
+open B2R2.FrontEnd.BinLifter
 
 /// Symbol table of a binary file.
 type IBinSymbolTable =
+  inherit INameReadable
+
   /// Return a list of all the symbols from the binary.
   abstract GetSymbols: unit -> seq<Symbol>
 
@@ -57,13 +60,3 @@ type IBinSymbolTable =
   /// Add a symbol for the address. This function is useful when we can obtain
   /// extra symbol information from outside of B2R2.
   abstract AddSymbol: Addr -> Symbol -> unit
-
-  /// <summary>
-  ///   Find the symbol name for a given address.
-  /// </summary>
-  /// <returns>
-  ///   Returns a symbol as an Ok value if a symbol exists, otherwise returns
-  ///   an Error value.
-  /// </returns>
-  abstract TryFindFunctionSymbolName: Addr -> Result<string, ErrorCase>
-

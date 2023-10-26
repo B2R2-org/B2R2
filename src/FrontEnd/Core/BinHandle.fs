@@ -34,7 +34,6 @@ open type B2R2.ArchOperationMode
 
 type BinHandle private (path, bytes, fmt, isa, baseAddrOpt, mode) =
   let binFile = FileFactory.load path bytes fmt isa baseAddrOpt
-  let disasmHelper = DisasmHelper (binFile.TryFindFunctionSymbolName)
   let struct (ctxt, regbay) = Basis.init binFile.ISA
   let parser = Parser.init binFile.ISA mode binFile.EntryPoint
 
@@ -64,8 +63,6 @@ type BinHandle private (path, bytes, fmt, isa, baseAddrOpt, mode) =
 
   /// ISA that this binary file is compiled for.
   member __.ISA with get() = binFile.ISA
-
-  member __.DisasmHelper with get(): DisasmHelper = disasmHelper
 
   member __.TranslationContext with get(): TranslationContext = ctxt
 
@@ -209,14 +206,17 @@ type BinHandle private (path, bytes, fmt, isa, baseAddrOpt, mode) =
 
   member __.DisasmInstr (addr: Addr, showAddr, resolveSymbol) =
     let ins = parser.Parse (binFile.Slice addr, addr)
-    ins.Disasm (showAddr, resolveSymbol, disasmHelper)
+    let reader = if resolveSymbol then binFile :> INameReadable else null
+    ins.Disasm (showAddr, reader)
 
   member __.DisasmInstr (ptr: BinFilePointer, showAddr, resolveSymbol) =
     let ins = parseInstrFromBinPtr binFile parser ptr
-    ins.Disasm (showAddr, resolveSymbol, disasmHelper)
+    let reader = if resolveSymbol then binFile :> INameReadable else null
+    ins.Disasm (showAddr, reader)
 
   member __.DisasmInstr (ins: Instruction, showAddr, resolveSymbol) =
-    ins.Disasm (showAddr, resolveSymbol, disasmHelper)
+    let reader = if resolveSymbol then binFile :> INameReadable else null
+    ins.Disasm (showAddr, reader)
 
   member __.DisasmInstr (addr: Addr) =
     let ins = parser.Parse (binFile.Slice addr, addr)
@@ -230,9 +230,9 @@ type BinHandle private (path, bytes, fmt, isa, baseAddrOpt, mode) =
     ins.Disasm ()
 
   member __.DisasmBBlock (addr, showAddr, resolveSymbol) =
-    disasmBBLFromAddr binFile parser disasmHelper showAddr resolveSymbol addr
+    disasmBBLFromAddr binFile parser showAddr resolveSymbol addr
 
   member __.DisasmBBlock (ptr, showAddr, resolveSymbol) =
-    disasmBBLFromBinPtr binFile parser disasmHelper showAddr resolveSymbol ptr
+    disasmBBLFromBinPtr binFile parser showAddr resolveSymbol ptr
 
 // vim: set tw=80 sts=2 sw=2:

@@ -140,36 +140,38 @@ let inline liftBBLFromBinPtr file parser trctxt ptr =
       liftBBLAux [] BinFilePointer.Advance trctxt ptr bbl
     Error (stmts, ptr)
 
-let rec disasmBBLAux sb advanceFn showAddr resolve hlp addr = function
+let rec disasmBBLAux sb advanceFn showAddr reader addr = function
   | (ins: Instruction) :: rest ->
-    let s = ins.Disasm (showAddr, resolve, hlp)
+    let s = ins.Disasm (showAddr, reader)
     let s =
       if (sb: StringBuilder).Length = 0 then s
       else System.Environment.NewLine + s
     let addr = advanceFn addr (int ins.Length)
-    disasmBBLAux (sb.Append (s)) advanceFn showAddr resolve hlp addr rest
+    disasmBBLAux (sb.Append (s)) advanceFn showAddr reader addr rest
   | [] -> struct (sb.ToString (), addr)
 
-let disasmBBLFromAddr file parser hlp showAddr resolve addr =
+let disasmBBLFromAddr file parser showAddr resolve addr =
+  let reader = if resolve then file :> INameReadable else null
   match parseBBLFromAddr file parser addr with
   | Ok bbl ->
     let struct (str, addr) =
-      disasmBBLAux (StringBuilder ()) advanceAddr showAddr resolve hlp addr bbl
+      disasmBBLAux (StringBuilder ()) advanceAddr showAddr reader addr bbl
     Ok (str, addr)
   | Error bbl ->
     let struct (str, addr) =
-      disasmBBLAux (StringBuilder ()) advanceAddr showAddr resolve hlp addr bbl
+      disasmBBLAux (StringBuilder ()) advanceAddr showAddr reader addr bbl
     Error (str, addr)
 
-let disasmBBLFromBinPtr file parser hlp showAddr resolve ptr =
+let disasmBBLFromBinPtr file parser showAddr resolve ptr =
+  let reader = if resolve then file :> INameReadable else null
   match parseBBLFromBinPtr file parser ptr with
   | Ok bbl ->
     let struct (str, addr) =
       disasmBBLAux (StringBuilder ())
-        BinFilePointer.Advance showAddr resolve hlp ptr bbl
+        BinFilePointer.Advance showAddr reader ptr bbl
     Ok (str, addr)
   | Error bbl ->
     let struct (str, addr) =
       disasmBBLAux (StringBuilder ())
-        BinFilePointer.Advance showAddr resolve hlp ptr bbl
+        BinFilePointer.Advance showAddr reader ptr bbl
     Error (str, addr)

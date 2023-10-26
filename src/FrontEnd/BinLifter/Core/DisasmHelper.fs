@@ -27,14 +27,6 @@ namespace B2R2.FrontEnd.BinLifter
 open System.Text
 open B2R2
 
-type DisasmHelper (?fn: Addr -> Result<string, ErrorCase>) =
-  let helper =
-    match fn with
-    | Some fn -> fn
-    | None -> fun _ -> Error ErrorCase.SymbolNotFound
-
-  member __.FindFunctionSymbol (addr: Addr) = helper addr
-
 [<AbstractClass>]
 type DisasmBuilder (showAddr, resolveSymb, wordSz, addr, len) =
   abstract member Accumulate: AsmWordKind -> string -> unit

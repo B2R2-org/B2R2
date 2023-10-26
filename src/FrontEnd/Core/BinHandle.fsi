@@ -64,9 +64,6 @@ type BinHandle =
   /// File handle.
   member File: IBinFile
 
-  /// Disassembly helper.
-  member DisasmHelper: DisasmHelper
-
   /// Translation context.
   member TranslationContext: TranslationContext
 

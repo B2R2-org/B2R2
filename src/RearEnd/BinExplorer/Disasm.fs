@@ -45,7 +45,7 @@ type CmdDisasm () =
     else
       match hdl.TryParseInstr (addr=addr) with
       | Ok ins ->
-        let d = ins.Disasm (true, true, hdl.DisasmHelper)
+        let d = ins.Disasm (true, hdl.File)
         disasmLoop (d :: acc) hdl (addr + uint64 ins.Length) (count - 1)
       | Error _ ->
         disasmLoop ("(invalid)" :: acc) hdl (addr + 1UL) (count - 1)

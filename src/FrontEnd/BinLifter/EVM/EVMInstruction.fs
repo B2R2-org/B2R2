@@ -110,7 +110,7 @@ type EVMInstruction (addr, numBytes, insInfo, wordSize) =
   override __.TranslateToList ctxt =
     Lifter.translate __.Info ctxt
 
-  override __.Disasm (showAddr, _resolveSymbol, _fileInfo) =
+  override __.Disasm (showAddr, _) =
     let builder =
       DisasmStringBuilder (showAddr, false, WordSize.Bit256, addr, numBytes)
     Disasm.disasm __.Info builder

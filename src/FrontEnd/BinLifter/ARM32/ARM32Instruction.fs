@@ -33,8 +33,6 @@ type ARM32Instruction (addr, nb, cond, op, opr, its, wb, q, s, m, cf, oSz, a) =
   inherit ARM32InternalInstruction (addr, nb, cond, op, opr,
                                     its, wb, q, s, m, cf, oSz, a)
 
-  let dummyHelper = DisasmHelper ()
-
   override __.IsBranch () =
     match op with
     | Op.B | Op.BL | Op.BLX | Op.BX | Op.BXJ
@@ -193,22 +191,23 @@ type ARM32Instruction (addr, nb, cond, op, opr, its, wb, q, s, m, cf, oSz, a) =
   override __.TranslateToList ctxt =
     Lifter.translate __ nb ctxt
 
-  override __.Disasm (showAddr, resolveSym, disasmHelper) =
+  override __.Disasm (showAddr, nameReader) =
+    let resolveSymb = not (isNull nameReader)
     let builder =
-      DisasmStringBuilder (showAddr, resolveSym, WordSize.Bit32, addr, nb)
-    Disasm.disasm disasmHelper __ builder
+      DisasmStringBuilder (showAddr, resolveSymb, WordSize.Bit32, addr, nb)
+    Disasm.disasm nameReader __ builder
     builder.ToString ()
 
   override __.Disasm () =
     let builder =
       DisasmStringBuilder (false, false, WordSize.Bit32, addr, nb)
-    Disasm.disasm dummyHelper __ builder
+    Disasm.disasm null __ builder
     builder.ToString ()
 
   override __.Decompose (showAddr) =
     let builder =
       DisasmWordBuilder (showAddr, false, WordSize.Bit32, addr, nb, 8)
-    Disasm.disasm dummyHelper __ builder
+    Disasm.disasm null __ builder
     builder.ToArray ()
 
   override __.IsInlinedAssembly () = false

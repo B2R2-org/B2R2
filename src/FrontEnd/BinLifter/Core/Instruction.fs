@@ -239,23 +239,17 @@ type Instruction (addr, len, wordSize) =
   /// <param name="showAddr">
   ///   Whether to show the instruction address in the resulting disassembly.
   /// </param>
-  /// <param name="resolveSymbol">
-  ///   Whether to resolve symbols while disassembling the instruction. For
-  ///   example, when there is a call target, we the disassembled string will
-  ///   show the target function name if this parameter is true, and the symbol
-  ///   information exists.
-  /// </param>
-  /// <param name="disasmHelper">
-  ///   The helper allows our disassembler to resolve symbols.
+  /// <param name="nameReader">
+  ///   When this parameter is given, we disassemble the instruction with the
+  ///   given name reader to resolve symbols in the instruction. For example,
+  ///   when there is a call target, the disassembled string will show the
+  ///   target function name if this parameter is given and the corresponding
+  ///   symbol information exists. This parameter can be null.
   /// </param>
   /// <returns>
   ///   Returns a disassembled string.
   /// </returns>
-  abstract member Disasm:
-    showAddr: bool
-    * resolveSymbol: bool
-    * disasmHelper: DisasmHelper
-    -> string
+  abstract member Disasm: showAddr: bool * nameReader: INameReadable -> string
 
   /// <summary>
   ///   Disassemble this instruction without resolving symbols.

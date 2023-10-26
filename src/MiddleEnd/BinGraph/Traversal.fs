@@ -58,7 +58,7 @@ and consume visited g fn acc = function
 /// Fold vertices of the graph in a depth-first manner with the preorder
 /// traversal.
 let foldPreorder g roots fn acc =
-  let visited = new HashSet<int> ()
+  let visited = HashSet<int> ()
   foldPreorderLoop visited g fn acc roots
 
 /// Fold vertices, except them in the second list, of the graph in a
@@ -83,7 +83,7 @@ let iterPreorderExcept g roots excepts fn =
 /// Fold vertices of the graph in a depth-first manner with the postorder
 /// traversal. The traversal starts from each vertex in roots.
 let foldPostorder g roots fn acc =
-  let visited = new HashSet<int> ()
+  let visited = HashSet<int> ()
   foldPostorderLoop visited g fn acc [] roots
 
 /// Iterate vertices of the graph in a depth-first manner with the postorder
@@ -111,7 +111,7 @@ let iterRevPostorder g roots fn =
 /// providing root vertices in case there is no unreachable node, e.g., when
 /// there is a loop to the root node.
 let foldTopologically g roots fn acc =
-  let visited = new HashSet<int> ()
+  let visited = HashSet<int> ()
   let roots =
     DiGraph.GetUnreachables g
     |> Set.ofSeq

@@ -33,18 +33,18 @@ open B2R2.MiddleEnd.ControlFlowAnalysis
 
 /// The `cfg` action.
 type CFGAction () =
-  let vToStr (hdl: BinHandle) (v: Vertex<IRBasicBlock>) =
+  let vToStr (v: Vertex<IRBasicBlock>) =
     let id = v.VData.FirstInsInfo.BBLAddr.ToString "x"
     let instrs =
       v.VData.Instructions
-      |> Array.map (fun ins -> ins.Disasm (true, false, hdl.DisasmHelper))
+      |> Array.map (fun ins -> ins.Disasm (true, null))
       |> String.concat "\\l"
     $"n_{id}", $"[label=\"{instrs}\\l\"]"
 
   let printOut hdl (fn: RegularFunction) = function
     | Ok () ->
       let addr = fn.MinAddr
-      fn.IRCFG.ToDOTStr ($"func_{addr:x}", vToStr hdl, (fun _ -> "e"))
+      fn.IRCFG.ToDOTStr ($"func_{addr:x}", vToStr, (fun _ -> "e"))
     | Error e -> e.ToString ()
 
   let getCFG (input: obj) =

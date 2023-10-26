@@ -112,6 +112,8 @@ type PEBinFile (path, bytes: byte[], baseAddrOpt, rawpdb) =
 
     member __.GetRelocatedAddr _relocAddr = Utils.futureFeature ()
 
+    member __.TryFindFunctionName (addr) = tryFindFuncSymb pe addr
+
     member __.GetSymbols () = getSymbols pe
 
     member __.GetStaticSymbols () = getStaticSymbols pe
@@ -131,8 +133,6 @@ type PEBinFile (path, bytes: byte[], baseAddrOpt, rawpdb) =
     member __.GetRelocationSymbols () = getRelocationSymbols pe
 
     member __.AddSymbol _addr _symbol = Utils.futureFeature ()
-
-    member __.TryFindFunctionSymbolName (addr) = tryFindFuncSymb pe addr
 
     member __.GetSections () = getSections pe
 

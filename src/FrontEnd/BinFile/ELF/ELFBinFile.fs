@@ -165,6 +165,9 @@ type ELFBinFile (path, bytes: byte[], baseAddrOpt, regbay) =
     member __.GetRelocatedAddr relocAddr =
       getRelocatedAddr relocs.Value relocAddr
 
+    member __.TryFindFunctionName (addr) =
+      tryFindFuncSymb symbInfo.Value addr
+
     member __.GetSymbols () = getSymbols shdrs.Value symbInfo.Value
 
     member __.GetStaticSymbols () = getStaticSymbols shdrs.Value symbInfo.Value
@@ -191,9 +194,6 @@ type ELFBinFile (path, bytes: byte[], baseAddrOpt, regbay) =
     member __.GetRelocationSymbols () = getRelocSymbols relocs.Value
 
     member __.AddSymbol _addr _symbol = Utils.futureFeature ()
-
-    member __.TryFindFunctionSymbolName (addr) =
-      tryFindFuncSymb symbInfo.Value addr
 
     member __.GetSections () = getSections shdrs.Value
 

@@ -53,7 +53,7 @@ module ROPHandle =
     BinBase   = binBase
     BinHdl    = binHdl
     Gadgets   = Galileo.findGadgets binHdl |> Map.toArray |> GadgetArr.sort
-    Summaries = new Concurrent.ConcurrentDictionary<uint64, Summary> ()
+    Summaries = Concurrent.ConcurrentDictionary<uint64, Summary> ()
   }
 
   let private getSummary (hdl: ROPHandle) (gadget: Gadget) =

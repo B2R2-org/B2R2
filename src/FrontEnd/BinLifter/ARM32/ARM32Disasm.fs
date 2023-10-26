@@ -823,9 +823,9 @@ let calculateRelativePC (ins: InsInfo) lbl addr =
   let addr = if ins.IsAdd then addr + uint64 lbl else addr - uint64 lbl
   addr |> uint32 |> uint64
 
-let commentWithSymbol helper addr addrStr (builder: DisasmBuilder) =
+let commentWithSymbol reader addr addrStr (builder: DisasmBuilder) =
   if builder.ResolveSymbol then
-    match (helper: DisasmHelper).FindFunctionSymbol (addr) with
+    match (reader: INameReadable).TryFindFunctionName addr with
     | Ok name when name.Length > 0 ->
       builder.Accumulate AsmWordKind.Value addrStr
       builder.Accumulate AsmWordKind.String (" ; <" + name + ">")
@@ -833,7 +833,7 @@ let commentWithSymbol helper addr addrStr (builder: DisasmBuilder) =
       builder.Accumulate AsmWordKind.Value addrStr
   else builder.Accumulate AsmWordKind.Value addrStr
 
-let memToString hlp ins addr addrMode (builder: DisasmBuilder) =
+let memToString reader ins addr addrMode (builder: DisasmBuilder) =
   match addrMode with
   | OffsetMode offset ->
     builder.Accumulate AsmWordKind.String "["
@@ -856,7 +856,7 @@ let memToString hlp ins addr addrMode (builder: DisasmBuilder) =
     let addr = processAddrExn32 ins addr |> calculateRelativePC ins lbl
     let addrStr = "0x" + addr.ToString ("x")
     if ins.IsBranch () then
-      commentWithSymbol hlp addr addrStr builder
+      commentWithSymbol reader addr addrStr builder
     else
       builder.Accumulate AsmWordKind.String "["
       builder.Accumulate AsmWordKind.Value addrStr
@@ -892,7 +892,7 @@ let endToString endian =
   | Endian.Big -> "be"
   | _ -> invalidArg (nameof endian) "Invalid endian is given."
 
-let oprToString hlp ins addr operand delim builder =
+let oprToString reader ins addr operand delim builder =
   match operand with
   | OprReg reg ->
     prependDelimiter delim builder
@@ -919,7 +919,7 @@ let oprToString hlp ins addr operand delim builder =
     regShiftToString ins s r builder
   | OprMemory addrMode ->
     prependDelimiter delim builder
-    memToString hlp ins addr addrMode builder
+    memToString reader ins addr addrMode builder
   | OprOption opt ->
     prependDelimiter delim builder
     builder.Accumulate AsmWordKind.String (optToString opt)
@@ -934,39 +934,39 @@ let oprToString hlp ins addr operand delim builder =
     builder.Accumulate AsmWordKind.String (condToString c)
   | GoToLabel _ -> ()
 
-let buildOprs hlp (ins: InsInfo) pc builder =
+let buildOprs reader (ins: InsInfo) pc builder =
   match ins.Operands with
   | NoOperand -> ()
   | OneOperand opr ->
-    oprToString hlp ins pc opr (Some " ") builder
+    oprToString reader ins pc opr (Some " ") builder
   | TwoOperands (opr1, opr2) ->
-    oprToString hlp ins pc opr1 (Some " ") builder
-    oprToString hlp ins pc opr2 (Some ", ") builder
+    oprToString reader ins pc opr1 (Some " ") builder
+    oprToString reader ins pc opr2 (Some ", ") builder
   | ThreeOperands (opr1, opr2, opr3) ->
-    oprToString hlp ins pc opr1 (Some " ") builder
-    oprToString hlp ins pc opr2 (Some ", ") builder
-    oprToString hlp ins pc opr3 (Some ", ") builder
+    oprToString reader ins pc opr1 (Some " ") builder
+    oprToString reader ins pc opr2 (Some ", ") builder
+    oprToString reader ins pc opr3 (Some ", ") builder
   | FourOperands (opr1, opr2, opr3, opr4) ->
-    oprToString hlp ins pc opr1 (Some " ") builder
-    oprToString hlp ins pc opr2 (Some ", ") builder
-    oprToString hlp ins pc opr3 (Some ", ") builder
-    oprToString hlp ins pc opr4 (Some ", ") builder
+    oprToString reader ins pc opr1 (Some " ") builder
+    oprToString reader ins pc opr2 (Some ", ") builder
+    oprToString reader ins pc opr3 (Some ", ") builder
+    oprToString reader ins pc opr4 (Some ", ") builder
   | FiveOperands (opr1, opr2, opr3, opr4, opr5) ->
-    oprToString hlp ins pc opr1 (Some " ") builder
-    oprToString hlp ins pc opr2 (Some ", ") builder
-    oprToString hlp ins pc opr3 (Some ", ") builder
-    oprToString hlp ins pc opr4 (Some ", ") builder
-    oprToString hlp ins pc opr5 (Some ", ") builder
+    oprToString reader ins pc opr1 (Some " ") builder
+    oprToString reader ins pc opr2 (Some ", ") builder
+    oprToString reader ins pc opr3 (Some ", ") builder
+    oprToString reader ins pc opr4 (Some ", ") builder
+    oprToString reader ins pc opr5 (Some ", ") builder
   | SixOperands (opr1, opr2, opr3, opr4, opr5, opr6) ->
-    oprToString hlp ins pc opr1 (Some " ") builder
-    oprToString hlp ins pc opr2 (Some ", ") builder
-    oprToString hlp ins pc opr3 (Some ", ") builder
-    oprToString hlp ins pc opr4 (Some ", ") builder
-    oprToString hlp ins pc opr5 (Some ", ") builder
-    oprToString hlp ins pc opr6 (Some ", ") builder
+    oprToString reader ins pc opr1 (Some " ") builder
+    oprToString reader ins pc opr2 (Some ", ") builder
+    oprToString reader ins pc opr3 (Some ", ") builder
+    oprToString reader ins pc opr4 (Some ", ") builder
+    oprToString reader ins pc opr5 (Some ", ") builder
+    oprToString reader ins pc opr6 (Some ", ") builder
 
-let disasm hlp (ins: InsInfo) (builder: DisasmBuilder) =
+let disasm reader (ins: InsInfo) (builder: DisasmBuilder) =
   let pc = ins.Address
   if builder.ShowAddr then builder.AccumulateAddr () else ()
   buildOpcode ins builder
-  buildOprs hlp ins pc builder
+  buildOprs reader ins pc builder

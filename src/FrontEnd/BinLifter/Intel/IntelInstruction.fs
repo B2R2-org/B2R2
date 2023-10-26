@@ -27,9 +27,6 @@ namespace B2R2.FrontEnd.BinLifter.Intel
 open B2R2
 open B2R2.FrontEnd.BinLifter
 
-module private Dummy =
-  let helper = DisasmHelper ()
-
 /// The internal representation for an Intel instruction used by our
 /// disassembler and lifter.
 type IntelInstruction
@@ -171,19 +168,20 @@ type IntelInstruction
   override __.TranslateToList ctxt =
     Lifter.translate __ len ctxt
 
-  override __.Disasm (showAddr, resolveSymb, disasmHelper) =
+  override __.Disasm (showAddr, nameReader) =
+    let resolveSymb = not (isNull nameReader)
     let builder = DisasmStringBuilder (showAddr, resolveSymb, wordSz, addr, len)
-    Disasm.disasm.Invoke (disasmHelper, builder, __)
+    Disasm.disasm.Invoke (nameReader, builder, __)
     builder.ToString ()
 
   override __.Disasm () =
     let builder = DisasmStringBuilder (false, false, wordSz, addr, len)
-    Disasm.disasm.Invoke (Dummy.helper, builder, __)
+    Disasm.disasm.Invoke (null, builder, __)
     builder.ToString ()
 
   override __.Decompose (showAddr) =
     let builder = DisasmWordBuilder (showAddr, false, wordSz, addr, len, 8)
-    Disasm.disasm.Invoke (Dummy.helper, builder, __)
+    Disasm.disasm.Invoke (null, builder, __)
     builder.ToArray ()
 
   override __.IsInlinedAssembly () = false

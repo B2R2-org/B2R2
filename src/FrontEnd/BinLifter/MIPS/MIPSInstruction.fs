@@ -149,7 +149,7 @@ type MIPSInstruction (addr, numBytes, insInfo, wordSize) =
   override __.TranslateToList ctxt =
     Lifter.translate __.Info numBytes ctxt
 
-  override __.Disasm (showAddr, _resolveSymbol, _fileInfo) =
+  override __.Disasm (showAddr, _) =
     let builder =
       DisasmStringBuilder (showAddr, false, wordSize, addr, numBytes)
     Disasm.disasm wordSize __.Info builder

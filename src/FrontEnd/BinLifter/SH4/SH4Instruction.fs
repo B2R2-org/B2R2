@@ -58,7 +58,7 @@ type SH4Instruction (addr, numBytes, insInfo) =
   override __.TranslateToList ctxt =
     Lifter.translate __.Info numBytes ctxt
 
-  override __.Disasm (showAddr, _resolveSymbol, _fileInfo) =
+  override __.Disasm (showAddr, _) =
     let builder =
       DisasmStringBuilder (showAddr, false, WordSize.Bit32, addr, numBytes)
     Disasm.disas __.Info builder

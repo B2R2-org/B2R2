@@ -193,15 +193,15 @@ module internal Symbol =
       let span = ReadOnlySpan (toolBox.Bytes, int offset, int size)
       parseNeededVerFromSec span toolBox.Reader verTbl strTbl 0
 
-  let rec parseDefinedVerFromSec span (reader: IBinReader) verTbl strTbl offset =
+  let rec parseDefinedVerFromSec span (reader: IBinReader) verTbl strTbl ofs =
     let auxOffset = (* vd_aux + current file offset *)
-      reader.ReadInt32 (span=span, offset=offset + 12) + offset
-    let idx = reader.ReadUInt16 (span, offset + 4) (* vd_ndx *)
+      reader.ReadInt32 (span=span, offset=ofs + 12) + ofs
+    let idx = reader.ReadUInt16 (span, ofs + 4) (* vd_ndx *)
     let nameOffset = reader.ReadInt32 (span, auxOffset) (* vda_name *)
     (verTbl: Dictionary<_, _>)[idx] <- verName strTbl nameOffset
-    let next = reader.ReadInt32 (span, offset + 16) (* vd_next *)
+    let next = reader.ReadInt32 (span, ofs + 16) (* vd_next *)
     if next = 0 then ()
-    else parseDefinedVerFromSec span reader verTbl strTbl (offset + next)
+    else parseDefinedVerFromSec span reader verTbl strTbl (ofs + next)
 
   let parseDefinedVersionTable toolBox verTbl strTbl = function
     | None -> ()
@@ -320,7 +320,7 @@ module internal Symbol =
   let parseSymbols toolBox shdrs verTbl verInfoTbl symTblSec =
     let cls = toolBox.Header.Class
     let txt = getTextSectionOffset shdrs
-    let ssec = shdrs[Convert.ToInt32 symTblSec.SecLink] (* Get the string sec. *)
+    let ssec = shdrs[Convert.ToInt32 symTblSec.SecLink] (* Get string sect. *)
     let offset = int ssec.SecOffset
     let size = Convert.ToInt32 ssec.SecSize
     let strTbl = ReadOnlySpan (toolBox.Bytes, offset, size)
