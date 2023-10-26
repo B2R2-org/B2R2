@@ -42,8 +42,8 @@ type ELFBinFile (path, bytes: byte[], baseAddrOpt, regbay) =
   let relocs = lazy RelocationInfo.parse toolBox shdrs.Value symbInfo.Value
   let plt = lazy PLT.parse toolBox shdrs.Value symbInfo.Value relocs.Value
   let exnInfo = lazy ExceptionInfo.parse toolBox shdrs.Value regbay relocs.Value
-  let notInMemRanges = lazy invalidRangesByVM hdr phdrs.Value
-  let notInFileRanges = lazy invalidRangesByFileBounds hdr phdrs.Value
+  let notInMemRanges = lazy invalidRangesByVM hdr loadables.Value
+  let notInFileRanges = lazy invalidRangesByFileBounds hdr loadables.Value
   let executableRanges = lazy executableRanges shdrs.Value loadables.Value
 
   /// ELF Header information.
