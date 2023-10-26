@@ -59,6 +59,8 @@ module LogLevel =
 
 /// Basic logging facility.
 type ILogger =
+  inherit IDisposable
+
   /// Write a log message (without newline). If the given verbosity level (lvl)
   /// is lower than it of the logger's, this will print out the given message.
   /// If the logger's verbosity level is L4, then this function will always
@@ -76,10 +78,9 @@ type FileLogger(filepath, ?level: LogLevel) =
   let fs = File.CreateText (filepath, AutoFlush = true)
   let llev = defaultArg level LogLevel.L2
 
-  interface IDisposable with
+  interface ILogger with
     member __.Dispose () = fs.Dispose ()
 
-  interface ILogger with
     member __.Log (str, ?lvl) =
       let lvl = defaultArg lvl LogLevel.L2
       if lvl <= llev then fs.Write str else ()
