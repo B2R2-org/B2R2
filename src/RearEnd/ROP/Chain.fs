@@ -97,7 +97,7 @@ module ROPHandle =
     getSubset 1 (Set.toList set)
 
   let private getRegsSetters hdl setterMap regs =
-    let cache = new Concurrent.ConcurrentDictionary<Set<string>, Option<_>> ()
+    let cache = Concurrent.ConcurrentDictionary<Set<string>, Option<_>> ()
     let getSetter todoSet doneSet =
       cache.GetOrAdd (todoSet, (fun k -> findSetter setterMap todoSet doneSet))
     let rec finder todoSet doneSet =

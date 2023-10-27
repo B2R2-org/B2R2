@@ -40,7 +40,7 @@ type EVMRegisterSet (bitArray: uint64 [], s: Set<RegisterID>) =
 
   override __.ArrSize = ArrLen
 
-  override __.New arr s = new EVMRegisterSet (arr, s) :> RegisterSet
+  override __.New arr s = EVMRegisterSet (arr, s) :> RegisterSet
 
   override __.RegIDToIndex rid =
     match Register.ofRegID rid with

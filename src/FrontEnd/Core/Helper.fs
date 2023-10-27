@@ -76,7 +76,8 @@ let inline tryParseInstrFromAddr (file: IBinFile) parser addr =
 
 let inline tryParseInstrFromBinPtr (file: IBinFile) p (ptr: BinFilePointer) =
   try
-    let ins = (p :> IInstructionParsable).Parse (file.Slice ptr.Offset, ptr.Addr)
+    let span = file.Slice ptr.Offset
+    let ins = (p :> IInstructionParsable).Parse (span, ptr.Addr)
     if BinFilePointer.IsValidAccess ptr (int ins.Length) then Ok ins
     else Error ErrorCase.ParsingFailure
   with _ ->
