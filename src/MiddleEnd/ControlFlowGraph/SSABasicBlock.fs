@@ -103,8 +103,8 @@ type SSAStmtInfo = ProgramPoint * Stmt
 type SSABasicBlock (pp, instrs: InstructionInfo []) =
   inherit BasicBlock (pp)
 
-  let mutable idom: Vertex<SSABasicBlock> option = None
-  let mutable frontier: Vertex<SSABasicBlock> list = []
+  let mutable idom: IVertex<SSABasicBlock> option = None
+  let mutable frontier: IVertex<SSABasicBlock> list = []
 
   override __.Range =
     if Array.isEmpty instrs then Utils.impossible () else ()
@@ -208,7 +208,7 @@ type FakeSSABasicBlock (hdl, pp, retPoint: ProgramPoint, fakeBlkInfo) =
     "SSABBLK(Dummy;" + pp.ToString () + ";" + retPoint.ToString () + ")"
 
 /// SSACFG's vertex.
-type SSAVertex = Vertex<SSABasicBlock>
+type SSAVertex = IVertex<SSABasicBlock>
 
 [<RequireQualifiedAccess>]
 module SSABasicBlock =

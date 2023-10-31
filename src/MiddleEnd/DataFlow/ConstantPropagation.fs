@@ -32,18 +32,18 @@ open B2R2.MiddleEnd.ControlFlowGraph
 /// The constant propagation framework, which is a modified version of sparse
 /// conditional constant propagation of Wegman et al.
 [<AbstractClass>]
-type ConstantPropagation<'L when 'L: equality> (ssaCFG) =
+type ConstantPropagation<'L when 'L: equality> (ssaCFG: SSACFG) =
   inherit DataFlowAnalysis<'L, SSABasicBlock> ()
 
   /// Constant propagation state.
   abstract State: CPState<'L>
 
   member private __.GetNumIncomingExecutedEdges st (blk: SSAVertex) =
-    let myid = blk.GetID ()
-    DiGraph.GetPreds (ssaCFG, blk)
-    |> List.map (fun p -> p.GetID (), myid)
-    |> List.filter (fun (src, dst) -> CPState.isExecuted st src dst)
-    |> List.length
+    let mutable count = 0
+    for pred in ssaCFG.GetPreds blk do
+      if CPState.isExecuted st pred.ID blk.ID then count <- count + 1
+      else ()
+    count
 
   member private __.ProcessSSA st =
     while st.SSAWorkList.Count > 0 do
@@ -52,7 +52,7 @@ type ConstantPropagation<'L when 'L: equality> (ssaCFG) =
       | Some uses ->
         uses
         |> Set.iter (fun (vid, idx) ->
-          let v = DiGraph.FindVertexByID (ssaCFG, vid)
+          let v = ssaCFG.FindVertexByID vid
           if __.GetNumIncomingExecutedEdges st v > 0 then
             let ppoint, stmt = v.VData.SSAStmtInfos[idx]
             st.CPCore.Transfer st ssaCFG v ppoint stmt
@@ -63,7 +63,7 @@ type ConstantPropagation<'L when 'L: equality> (ssaCFG) =
     if st.FlowWorkList.Count > 0 then
       let parentid, myid = st.FlowWorkList.Dequeue ()
       st.ExecutedEdges.Add (parentid, myid) |> ignore
-      let blk = DiGraph.FindVertexByID (ssaCFG, myid)
+      let blk = ssaCFG.FindVertexByID myid
       blk.VData.SSAStmtInfos
       |> Array.iter (fun (ppoint, stmt) ->
         st.CPCore.Transfer st ssaCFG blk ppoint stmt)
@@ -72,14 +72,12 @@ type ConstantPropagation<'L when 'L: equality> (ssaCFG) =
         match blk.VData.GetLastStmt () with
         | Jmp _ -> ()
         | _ -> (* Fall-through cases. *)
-          DiGraph.GetSuccs (ssaCFG, blk)
-          |> List.iter (fun succ ->
-            let succid = succ.GetID ()
-            CPState.markExecutable st myid succid)
+          ssaCFG.GetSuccs blk
+          |> Seq.iter (fun succ -> CPState.markExecutable st myid succ.ID)
     else ()
 
-  member __.Compute (root: Vertex<_>) =
-    __.State.FlowWorkList.Enqueue (0, root.GetID ())
+  member __.Compute (root: IVertex<_>) =
+    __.State.FlowWorkList.Enqueue (0, root.ID)
     while __.State.FlowWorkList.Count > 0 || __.State.SSAWorkList.Count > 0 do
       __.ProcessFlow __.State
       __.ProcessSSA __.State

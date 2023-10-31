@@ -26,26 +26,19 @@ namespace B2R2.MiddleEnd.ControlFlowGraph
 
 open B2R2.MiddleEnd.BinGraph
 
-type IRVertex = Vertex<IRBasicBlock>
+type IRVertex = IVertex<IRBasicBlock>
 
-type IRCFG = ControlFlowGraph<IRBasicBlock, CFGEdgeKind>
+type IRCFG = IGraph<IRBasicBlock, CFGEdgeKind>
 
 [<RequireQualifiedAccess>]
 module IRCFG =
-  let private initializer core =
-    IRCFG (core) :> DiGraph<IRBasicBlock, CFGEdgeKind>
-
   let private initImperative () =
-    ImperativeCore<IRBasicBlock, CFGEdgeKind> (initializer, UnknownEdge)
-    |> IRCFG
-    :> DiGraph<IRBasicBlock, CFGEdgeKind>
+    ImperativeDiGraph<IRBasicBlock, CFGEdgeKind> () :> IRCFG
 
   let private initPersistent () =
-    PersistentCore<IRBasicBlock, CFGEdgeKind> (initializer, UnknownEdge)
-    |> IRCFG
-    :> DiGraph<IRBasicBlock, CFGEdgeKind>
+    PersistentDiGraph<IRBasicBlock, CFGEdgeKind> () :> IRCFG
 
   /// Initialize IRCFG based on the implementation type.
   let init = function
-    | ImperativeGraph -> initImperative ()
-    | PersistentGraph -> initPersistent ()
+    | Imperative -> initImperative ()
+    | Persistent -> initPersistent ()

@@ -34,7 +34,7 @@ open B2R2.MiddleEnd.ControlFlowGraph
 type ReachingDefinitions<'Expr, 'BBL when 'Expr: comparison
                                       and 'BBL: equality
                                       and 'BBL :> BasicBlock>
-                        (_cfg: DiGraph<'BBL, CFGEdgeKind>) =
+                        (_cfg: IGraph<'BBL, CFGEdgeKind>) =
   inherit TopologicalDataFlowAnalysis<Set<VarPoint<'Expr>>, 'BBL> (Forward)
 
   let gens = Dictionary<VertexID, Set<VarPoint<'Expr>>> ()
@@ -49,7 +49,7 @@ type ReachingDefinitions<'Expr, 'BBL when 'Expr: comparison
   override __.Top = Set.empty
 
   override __.Transfer i v =
-    let vid = v.GetID ()
+    let vid = v.ID
     Set.union gens[vid] (Set.difference i kills[vid])
 
 /// Reaching definition analysis with a LowUIR-based CFG.
@@ -58,7 +58,7 @@ type LowUIRReachingDefinitions (cfg) as this =
 
   do this.Initialize this.Gens this.Kills
 
-  member private __.FindDefs (v: Vertex<IRBasicBlock>) =
+  member private __.FindDefs (v: IVertex<IRBasicBlock>) =
     v.VData.InsInfos
     |> Array.fold (fun list info ->
       info.Stmts
@@ -77,8 +77,8 @@ type LowUIRReachingDefinitions (cfg) as this =
     (gens: Dictionary<_, _>) (kills: Dictionary<_, _>) =
     let vpPerVar = Dictionary<VarExpr, Set<VarPoint<VarExpr>>> ()
     let vpPerVertex = Dictionary<VertexID, VarPoint<VarExpr> list> ()
-    (cfg: DiGraph<_, _>).IterVertex (fun v ->
-      let vid = v.GetID ()
+    (cfg: IGraph<_, _>).IterVertex (fun v ->
+      let vid = v.ID
       let defs = __.FindDefs v
       gens[vid] <- defs |> Set.ofList
       vpPerVertex[vid] <- defs
@@ -88,7 +88,7 @@ type LowUIRReachingDefinitions (cfg) as this =
       )
     )
     cfg.IterVertex (fun v ->
-      let vid = v.GetID ()
+      let vid = v.ID
       let defVarPoints = vpPerVertex[vid]
       let vars = defVarPoints |> List.map (fun vp -> vp.VarExpr)
       let vps = defVarPoints |> Set.ofList

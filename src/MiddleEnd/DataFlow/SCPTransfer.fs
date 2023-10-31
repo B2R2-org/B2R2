@@ -102,11 +102,12 @@ let evalReturn st (blk: SSAVertex) ret var =
   match var.Kind with
   | RegVar (rt, rid, _) ->
     let hdl = st.BinHandle
+    let fakeBlockInfo = blk.VData.FakeBlockInfo
     if hdl.RegisterBay.IsStackPointer rid then
       let value = CPState.findReg st var
       let shiftAmount = Const (Utils.computeStackShift rt blk)
       evalBinOp BinOpType.ADD value shiftAmount
-    elif GetPCThunkInfo.isGetPCThunk blk.VData.FakeBlockInfo.GetPCThunkInfo then
+    elif GetPCThunkInfo.isGetPCThunk fakeBlockInfo.GetPCThunkInfo then
       Thunk (BitVector.OfUInt64 ret rt)
     elif CallingConvention.isNonVolatile hdl OS.Linux rid then
       CPState.findReg st var

@@ -152,13 +152,13 @@ type RegularFunction private (histMgr: HistoryManager, ep, name, thunkInfo) =
   let callEdges = SortedList<Addr, CalleeKind> ()
   let syscallSites = SortedSet<Addr> ()
   let indirectJumps = Dictionary<Addr, IndirectJumpKind> ()
-  let regularVertices = Dictionary<ProgramPoint, Vertex<IRBasicBlock>> ()
-  let fakeVertices = Dictionary<FakeEdge, Vertex<IRBasicBlock>> ()
+  let regularVertices = Dictionary<ProgramPoint, IRVertex> ()
+  let fakeVertices = Dictionary<FakeEdge, IRVertex> ()
   let coverage = CoverageMaintainer ()
   let mutable callEdgeChanged = false
   let mutable needRecalcSSA = true
-  let mutable ircfg = IRCFG.init PersistentGraph
-  let mutable ssacfg = SSACFG.init PersistentGraph
+  let mutable ircfg = IRCFG.init Persistent
+  let mutable ssacfg = SSACFG.init Persistent
   let mutable amountUnwinding = 0L
   let mutable getPCThunkInfo = thunkInfo
   let mutable minAddr = ep
@@ -292,7 +292,7 @@ type RegularFunction private (histMgr: HistoryManager, ep, name, thunkInfo) =
     callEdges[callSite] <-
       if callee = 0UL then NullCallee else RegularCallee callee
     callEdgeChanged <- true
-    __.IRCFG <- DiGraph.AddEdge (__.IRCFG, src, dst, CallEdge)
+    __.IRCFG <- __.IRCFG.AddEdge (src, dst, EdgeLabel CallEdge)
 
   /// Add/replace an indirect call edge to this function.
   member __.AddEdge (callerBlk, callSite, knownCallee, isTailCall) =
@@ -302,13 +302,13 @@ type RegularFunction private (histMgr: HistoryManager, ep, name, thunkInfo) =
     | Some callee -> callEdges[callSite] <- callee
     | None -> callEdges[callSite] <- UnresolvedIndirectCallees
     callEdgeChanged <- true
-    __.IRCFG <- DiGraph.AddEdge (__.IRCFG, src, dst, IndirectCallEdge)
+    __.IRCFG <- __.IRCFG.AddEdge (src, dst, EdgeLabel IndirectCallEdge)
 
   /// Add/replace a ret edge to this function.
   member __.AddEdge (callSite, callee, ftAddr) =
     let src = __.GetOrAddFakeVertex (callSite, callee, false)
     let dst = regularVertices[(ProgramPoint (ftAddr, 0))]
-    __.IRCFG <- DiGraph.AddEdge (__.IRCFG, src, dst, RetEdge)
+    __.IRCFG <- __.IRCFG.AddEdge (src, dst, EdgeLabel RetEdge)
 
   /// Update the call edge info.
   member __.UpdateCallEdgeInfo (callSiteAddr, callee) =
@@ -316,8 +316,8 @@ type RegularFunction private (histMgr: HistoryManager, ep, name, thunkInfo) =
     callEdgeChanged <- true
 
   /// Remove the basic block at the given program point from this function.
-  member private __.RemoveVertex (v: Vertex<IRBasicBlock>) =
-    __.IRCFG <- DiGraph.RemoveVertex (__.IRCFG, v)
+  member private __.RemoveVertex (v: IRVertex) =
+    __.IRCFG <- __.IRCFG.RemoveVertex v
     if v.VData.IsFakeBlock () then
       let callSite = v.VData.FakeBlockInfo.CallSite
       let edgeKey = callSite, v.VData.PPoint.Address
@@ -335,22 +335,23 @@ type RegularFunction private (histMgr: HistoryManager, ep, name, thunkInfo) =
   /// Remove the fake block from this function.
   member __.RemoveFakeVertex ((callSite, _) as fakeEdgeKey) =
     let v = fakeVertices[fakeEdgeKey]
-    __.IRCFG <- DiGraph.RemoveVertex (__.IRCFG, v)
+    __.IRCFG <- __.IRCFG.RemoveVertex v
     fakeVertices.Remove (fakeEdgeKey) |> ignore
     callEdges.Remove callSite |> ignore
 
   /// Remove the given edge.
   member __.RemoveEdge (src, dst) =
-    __.IRCFG <- DiGraph.RemoveEdge (__.IRCFG, src, dst)
+    __.IRCFG <- __.IRCFG.RemoveEdge (src, dst)
 
   /// Remove the given edge.
   member __.RemoveEdge (src, dst, _kind) =
-    __.IRCFG <- DiGraph.RemoveEdge (__.IRCFG, src, dst)
+    __.IRCFG <- __.IRCFG.RemoveEdge (src, dst)
 
   static member AddEdgeByType (fn: RegularFunction)
-                              (src: Vertex<IRBasicBlock>)
-                              (dst: Vertex<IRBasicBlock>) e =
-    match e with
+                              (src: IRVertex)
+                              (dst: IRVertex)
+                              (e: EdgeLabel<_>) =
+    match e.Value with
     | CallEdge ->
       let callSite = dst.VData.FakeBlockInfo.CallSite
       let callee = dst.VData.PPoint.Address
@@ -370,7 +371,7 @@ type RegularFunction private (histMgr: HistoryManager, ep, name, thunkInfo) =
   /// Split the given IR-level vertex (v) at the given point (splitPoint), and
   /// add the resulting vertices to the graph.
   member private __.AddByDividingVertex v (splitPoint: ProgramPoint) =
-    let insInfos = (v: Vertex<IRBasicBlock>).VData.InsInfos
+    let insInfos = (v: IRVertex).VData.InsInfos
     let srcInfos, dstInfos =
       insInfos
       |> Array.partition (fun insInfo ->
@@ -383,7 +384,9 @@ type RegularFunction private (histMgr: HistoryManager, ep, name, thunkInfo) =
     let dstBlk = IRBasicBlock.initRegular dstInfos splitPoint
     let src = __.AddVertex srcBlk
     let dst = __.AddVertex dstBlk
-    __.AddEdge (src.VData.PPoint, dst.VData.PPoint, FallThroughEdge)
+    __.AddEdge (src.VData.PPoint,
+                dst.VData.PPoint,
+                EdgeLabel FallThroughEdge)
     struct (src, dst)
 
   /// Split the BBL at bblPoint into two at the splitPoint. This function
@@ -450,13 +453,16 @@ type RegularFunction private (histMgr: HistoryManager, ep, name, thunkInfo) =
     ins |> List.iter (fun (p, e) ->
       (* When the incoming edge is from the merged vertex. This logic also
          assumes the assumption described in the above. *)
-      if p.VData.PPoint = lastLeader then RegularFunction.AddEdgeByType __ v v e
-      else RegularFunction.AddEdgeByType __ p v e)
+      if p.VData.PPoint = lastLeader then
+        RegularFunction.AddEdgeByType __ v v e
+      else
+        RegularFunction.AddEdgeByType __ p v e)
     outs |> List.iter (fun (s, e) ->
       (* When the outgoing edge is to the merged vertex. What we should be aware
          of is when the successor is a fake-block. *)
-      if s.VData.PPoint = srcPp && not <| s.VData.IsFakeBlock () then
-        RegularFunction.AddEdgeByType __ v v e
+      if s.VData.PPoint = srcPp
+        && not <| s.VData.IsFakeBlock ()
+      then RegularFunction.AddEdgeByType __ v v e
       else RegularFunction.AddEdgeByType __ v s e)
     regularVertices[v.VData.PPoint] <- v
 
@@ -472,7 +478,7 @@ type RegularFunction private (histMgr: HistoryManager, ep, name, thunkInfo) =
   member private __.RemoveIndirectJump insAddr =
     indirectJumps.Remove insAddr |> ignore
 
-  member private __.MoveBlockInfo fn (v: Vertex<IRBasicBlock>) =
+  member private __.MoveBlockInfo fn (v: IRVertex) =
     let lastAddr = v.VData.LastInstruction.Address
     if v.VData.Range.Max > (fn: RegularFunction).MaxAddr then
       fn.MaxAddr <- v.VData.Range.Max
@@ -504,8 +510,8 @@ type RegularFunction private (histMgr: HistoryManager, ep, name, thunkInfo) =
     (* Transplant CFG first *)
     let reachableNodes, reachableEdges = getReachables __.IRCFG entryBlk
     let callerBlk: IRVertex option =
-      DiGraph.GetPreds (__.IRCFG, entryBlk)
-      |> List.filter (fun v ->
+      __.IRCFG.GetPreds entryBlk
+      |> Seq.filter (fun v ->
         (* Caller should not be reachable by new entry *)
         not <| Set.contains v reachableNodes
           (* Caller should not be a fake block *)
@@ -514,16 +520,17 @@ type RegularFunction private (histMgr: HistoryManager, ep, name, thunkInfo) =
              function splitting should not happen after a call instruction, but
              this is to handle some exceptional cases (Issue #515). *)
           && not (v.VData.LastInstruction.IsCall ()))
-      |> List.tryHead
+      |> Seq.tryHead
     reachableNodes
     |> Set.iter (fun v ->
       if v.VData.IsFakeBlock () then
-        let edgeKey = v.VData.FakeBlockInfo.CallSite, v.VData.PPoint.Address
+        let edgeKey =
+          (v.VData.FakeBlockInfo.CallSite, v.VData.PPoint.Address)
         newFn.AddFakeVertex edgeKey v.VData |> ignore
       else
         newFn.AddVertex v.VData |> ignore)
     reachableEdges
-    |> Set.iter (fun (src, dst, e) ->
+    |> List.iter (fun (src, dst, e) ->
       RegularFunction.AddEdgeByType newFn src dst e)
     (* Replace newFn to FakeBlock *)
     match callerBlk with

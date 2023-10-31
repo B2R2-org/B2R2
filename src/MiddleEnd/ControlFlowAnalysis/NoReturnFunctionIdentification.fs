@@ -57,11 +57,12 @@ module private NoReturnFunctionIdentificationHelper =
       let bbl = codeMgr.GetBBL callSiteAddr
       let caller = Set.maxElement bbl.IRLeaders
       let v = (fn: RegularFunction).FindVertex caller
-      DiGraph.GetSuccs ((fn: RegularFunction).IRCFG, v)
-      |> List.exists (fun w ->
+      fn.IRCFG.GetSuccs v
+      |> Seq.exists (fun w ->
         (* Since the fall-through edge exists, block-level constant propagation
            were not able to remove the edge. So this is a non-trivial case. *)
-        fn.IRCFG.FindEdgeData (v, w) = CallFallThroughEdge)
+        let e = fn.IRCFG.FindEdge (v, w)
+        e.Label.Value = CallFallThroughEdge)
     | _ -> false
 
   let isPotentiallyNonTrivialConditionalNoRet codeMgr (fn: RegularFunction) =
@@ -76,13 +77,14 @@ module private NoReturnFunctionIdentificationHelper =
       | UnresolvedIndirectCallees _ | NullCallee -> false)
 
   /// We disregard jump trampolines and consider them as NotNoRet.
-  let checkTrampoline (vertices: IRVertex list) =
-    match vertices with
-    | [ v ] when not (v.VData.IsFakeBlock ()) -> (* Only single exit node. *)
+  let checkTrampoline (exitVertices: IRVertex[]) =
+    match exitVertices with
+    | [| v |] when not (v.VData.IsFakeBlock ()) ->
+      (* Only single exit node. *)
       let ins = v.VData.LastInstruction
       if ins.IsIndirectBranch () then (* This is really a trampoline. *) []
-      else vertices
-    | _ -> vertices
+      else [ v ]
+    | _ -> exitVertices |> Array.toList
 
   let inline private getCallTargetsOfBlk (fn: RegularFunction) (v: IRVertex) =
     fn.CallTargets v.VData.FakeBlockInfo.CallSite
@@ -120,7 +122,7 @@ module private NoReturnFunctionIdentificationHelper =
   /// instruction), we consider it as a returning function.
   let performBasicNoRetAnalysis codeMgr (func: RegularFunction) =
     let decision =
-      DiGraph.GetExits func.IRCFG
+      func.IRCFG.Exits
       |> checkTrampoline
       |> analyzeExits codeMgr func IsUndecidable
     match decision with
@@ -195,8 +197,8 @@ module private NoReturnFunctionIdentificationHelper =
         | ConditionalNoRet arg ->
           let caller = SSACFG.findVertexByAddr ssaCFG callSiteAddr
           let fake =
-            DiGraph.GetSuccs (ssaCFG, caller)
-            |> List.find (fun w -> w.VData.IsFakeBlock ())
+            ssaCFG.GetSuccs caller
+            |> Seq.find (fun w -> w.VData.IsFakeBlock ())
           match confirmArg hdl fake uvState arg with
           | Some arg -> Set.add (caller, arg) acc
           | None -> acc
@@ -209,10 +211,11 @@ module private NoReturnFunctionIdentificationHelper =
   /// are either NoRet or ConditionalNoRet, then we can say that this function
   /// is a conditionally no-returning function.
   let isConditionalNoret (codeMgr: CodeManager) ssaCFG =
-    DiGraph.GetExits ssaCFG
-    |> List.forall (fun (v: SSAVertex) ->
-      if v.VData.IsFakeBlock () then
-        match codeMgr.FunctionMaintainer.TryFind v.VData.PPoint.Address with
+    (ssaCFG: IGraph<_, _>).Exits
+    |> Array.forall (fun (v: SSAVertex) ->
+      let bbl = v.VData
+      if bbl.IsFakeBlock () then
+        match codeMgr.FunctionMaintainer.TryFind bbl.PPoint.Address with
         | Some callee ->
           match callee.NoReturnProperty with
           | NoRet | ConditionalNoRet _ -> true
@@ -222,23 +225,25 @@ module private NoReturnFunctionIdentificationHelper =
 
   let removeFallThroughAndRetFromConfirmedBlocks ssaCFG norets =
     norets
-    |> Set.fold (fun ssaCFG (caller, _) ->
+    |> Set.fold (fun (ssaCFG: IGraph<_, _>) (caller, _) ->
       let ftNode =
-        DiGraph.GetSuccs (ssaCFG, caller)
-        |> List.find (fun w ->
-          DiGraph.FindEdgeData (ssaCFG, caller, w) = CallFallThroughEdge)
+        ssaCFG.GetSuccs caller
+        |> Seq.find (fun w ->
+          let edge = ssaCFG.FindEdge (caller, w)
+          edge.Label.Value = CallFallThroughEdge)
       let fakeNode =
-        DiGraph.GetSuccs (ssaCFG, caller)
-        |> List.find (fun w ->
-          DiGraph.FindEdgeData (ssaCFG, caller, w) = CallEdge)
-      DiGraph.GetPreds (ssaCFG, ftNode)
-      |> List.fold (fun acc u ->
-        match DiGraph.FindEdgeData (ssaCFG, u, ftNode) with
+        ssaCFG.GetSuccs caller
+        |> Seq.find (fun w ->
+          let edge = ssaCFG.FindEdge (caller, w)
+          edge.Label.Value = CallEdge)
+      ssaCFG.GetPreds ftNode
+      |> Seq.fold (fun acc u ->
+        match ssaCFG.FindEdge(u, ftNode).Label.Value with
         | CallFallThroughEdge when u = caller -> (u, ftNode) :: acc
         | RetEdge when u = fakeNode -> (u, ftNode) :: acc
         | _ -> acc) []
-      |> List.fold (fun ssaCFG (v, w) ->
-        DiGraph.RemoveEdge (ssaCFG, v, w)) ssaCFG
+      |> List.fold (fun (ssaCFG: IGraph<_, _>) (v, w) ->
+        ssaCFG.RemoveEdge (v, w)) ssaCFG
     ) ssaCFG
 
   let trimSSACFG ssaCFG ssaRoot norets =
@@ -246,9 +251,9 @@ module private NoReturnFunctionIdentificationHelper =
     let reachables =
       Set.empty
       |> Traversal.foldPostorder ssaCFG [ssaRoot] (fun acc v -> Set.add v acc)
-    let allVertices = DiGraph.GetVertices ssaCFG
+    let allVertices = ssaCFG.Vertices |> Set
     Set.difference allVertices reachables
-    |> Set.fold (fun ssaCFG v -> DiGraph.RemoveVertex (ssaCFG, v)) ssaCFG
+    |> Set.fold (fun (ssaCFG: IGraph<_, _>) v -> ssaCFG.RemoveVertex v) ssaCFG
 
   let updateProperty codeMgr (func: RegularFunction) norets =
     let cond =

@@ -25,7 +25,6 @@
 [<AutoOpen>]
 module internal B2R2.MiddleEnd.ControlFlowAnalysis.CFGHelper
 
-open B2R2
 open B2R2.MiddleEnd.BinGraph
 
 #if CFGDEBUG
@@ -45,19 +44,18 @@ module internal Dbg =
 /// Categorize neighboring edges of a given vertex (v) in the graph (g). This
 /// function returns three different groups of edges: (1) incoming edges, (2)
 /// outgoing edges, and (3) self-cycle edge.
-let categorizeNeighboringEdges g v =
+let categorizeNeighboringEdges (g: IGraph<_, _>) v =
   let incomings, cycle =
-    DiGraph.GetPreds (g, v)
-    |> List.fold (fun (incomings, cycle) p ->
-      let e = DiGraph.FindEdgeData (g, p, v)
-      if p.GetID () = v.GetID () then incomings, Some e
-      else (p, e) :: incomings, cycle) ([], None)
+    g.GetPreds v
+    |> Seq.fold (fun (incomings, cycle) p ->
+      let e = g.FindEdge (p, v)
+      if p.ID = v.ID then incomings, Some e.Label
+      else (p, e.Label) :: incomings, cycle) ([], None)
   let outgoings =
-    DiGraph.GetSuccs (g, v)
-    |> List.fold (fun outgoings s ->
-      let e = DiGraph.FindEdgeData (g, v, s)
-      if s.GetID () = v.GetID () then outgoings
-      else (s, e) :: outgoings) []
+    g.GetSuccs v
+    |> Seq.fold (fun outgoings s ->
+      let e = g.FindEdge (v, s)
+      if s.ID = v.ID then outgoings else (s, e.Label) :: outgoings) []
   incomings, outgoings, cycle
 
 /// Get reachable vertices and edges from v in g.
@@ -65,9 +63,10 @@ let getReachables g v =
   let reachables =
     Set.empty |> Traversal.foldPostorder g [v] (fun acc v -> Set.add v acc)
   let edges = (* Collect corresponding edges. *)
-    g.FoldEdge (fun acc src dst e ->
+    g.FoldEdge (fun acc e ->
+      let src, dst = e.First, e.Second
       (* Collect only when both src and dst belong to vertices. *)
       if Set.contains src reachables && Set.contains dst reachables then
-        Set.add (src, dst, e) acc
-      else acc) Set.empty
+        (src, dst, e.Label) :: acc
+      else acc) []
   reachables, edges

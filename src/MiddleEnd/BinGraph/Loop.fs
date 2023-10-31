@@ -34,19 +34,20 @@ let private getBackEdges g root =
       (v, Dominator.doms ctx v) :: acc)
     |> Map.ofList
   []
-  |> g.FoldEdge (fun acc s d e ->
-    match doms[s] with
-    | l when l |> List.exists (fun v -> v = d) -> (s, d) :: acc
+  |> g.FoldEdge (fun acc edge ->
+    match doms[edge.First] with
+    | l when l |> List.exists (fun v -> v = edge.Second) -> edge :: acc
     | _ -> acc)
 
-let private findIn g v = DiGraph<_, _>.FindVertexByID (g, Vertex<_>.GetID v)
+let private findIn (g: IGraph<_, _>) (v: IVertex<_>) =
+  g.FindVertexByID v.ID
 
-let getNaturalLoops g root =
-  let rev = DiGraph.Reverse g
+let getNaturalLoops (g: IGraph<_, _>) root =
+  let rev = g.Reverse ()
   getBackEdges g root
-  |> List.fold (fun acc (s, d) ->
-    let s = findIn rev s
-    let d = findIn rev d
+  |> List.fold (fun acc edge ->
+    let s = findIn rev edge.First
+    let d = findIn rev edge.Second
     let vertices =
       [ d ]
       |> Traversal.foldPreorderExcept rev [ s ] [ d ] (fun acc v ->

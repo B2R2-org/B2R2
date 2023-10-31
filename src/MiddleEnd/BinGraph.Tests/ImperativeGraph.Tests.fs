@@ -30,115 +30,101 @@ open Microsoft.VisualStudio.TestTools.UnitTesting
 
 [<TestClass>]
 type BasicImperativeGraphTest () =
-  let v1 = V (1, (AddrRange (1UL)))
-  let v2 = V (2, (AddrRange (2UL)))
-  let v3 = V (3, (AddrRange (3UL)))
-  let v4 = V (4, (AddrRange (4UL)))
-  let v5 = V (5, (AddrRange (5UL)))
-  let v6 = V (6, (AddrRange (6UL)))
-  let v7 = V (7, (AddrRange (7UL)))
-  let v8 = V (8, (AddrRange (8UL)))
-  let v9 = V (9, (AddrRange (9UL)))
-  let v10 = V (10, (AddrRange (10UL)))
-  let v11 = V (11, (AddrRange (11UL)))
-  let v12 = V (12, (AddrRange (12UL)))
-  let v13 = V (13, (AddrRange (13UL)))
-
   (* Graph example from Wikipedia. *)
-  let g1 = RangedDiGraph.init -1 ImperativeGraph
-  let n1, g1 = DiGraph.AddVertex (g1, v1) // Node 1
-  let n2, g1 = DiGraph.AddVertex (g1, v2) // Node 2
-  let n3, g1 = DiGraph.AddVertex (g1, v3) // Node 3
-  let n4, g1 = DiGraph.AddVertex (g1, v4) // Node 4
-  let n5, g1 = DiGraph.AddVertex (g1, v5) // Node 5
-  let n6, g1 = DiGraph.AddVertex (g1, v6) // Node 6
-  let g1 = DiGraph.AddEdge (g1, n1, n2, 1)
-  let g1 = DiGraph.AddEdge (g1, n2, n3, 2)
-  let g1 = DiGraph.AddEdge (g1, n2, n4, 3)
-  let g1 = DiGraph.AddEdge (g1, n2, n6, 4)
-  let g1 = DiGraph.AddEdge (g1, n3, n5, 5)
-  let g1 = DiGraph.AddEdge (g1, n4, n5, 6)
-  let g1 = DiGraph.AddEdge (g1, n5, n2, 7)
+  let g1 = ImperativeDiGraph<int, int> () :> IGraph<_, _>
+  let n1, g1 = g1.AddVertex 1 // Node 1
+  let n2, g1 = g1.AddVertex 2 // Node 2
+  let n3, g1 = g1.AddVertex 3 // Node 3
+  let n4, g1 = g1.AddVertex 4 // Node 4
+  let n5, g1 = g1.AddVertex 5 // Node 5
+  let n6, g1 = g1.AddVertex 6 // Node 6
+  let g1 = g1.AddEdge (n1, n2, EdgeLabel 1)
+  let g1 = g1.AddEdge (n2, n3, EdgeLabel 2)
+  let g1 = g1.AddEdge (n2, n4, EdgeLabel 3)
+  let g1 = g1.AddEdge (n2, n6, EdgeLabel 4)
+  let g1 = g1.AddEdge (n3, n5, EdgeLabel 5)
+  let g1 = g1.AddEdge (n4, n5, EdgeLabel 6)
+  let g1 = g1.AddEdge (n5, n2, EdgeLabel 7)
   let g1root = n1
   let ctxt1 = Dominator.initDominatorContext g1 g1root
 
   (* Graph example from Tiger book. *)
-  let g2 = RangedDiGraph.init -1 ImperativeGraph
-  let n1, g2 = DiGraph.AddVertex (g2, v1) // Node 1
-  let n2, g2 = DiGraph.AddVertex (g2, v2) // Node 2
-  let n3, g2 = DiGraph.AddVertex (g2, v3) // Node 3
-  let n4, g2 = DiGraph.AddVertex (g2, v4) // Node 4
-  let n5, g2 = DiGraph.AddVertex (g2, v5) // Node 5
-  let n6, g2 = DiGraph.AddVertex (g2, v6) // Node 6
-  let g2 = DiGraph.AddEdge (g2, n1, n2, 1)
-  let g2 = DiGraph.AddEdge (g2, n1, n3, 2)
-  let g2 = DiGraph.AddEdge (g2, n3, n4, 3)
-  let g2 = DiGraph.AddEdge (g2, n4, n5, 4)
-  let g2 = DiGraph.AddEdge (g2, n4, n6, 5)
-  let g2 = DiGraph.AddEdge (g2, n6, n4, 6)
+  let g2 = ImperativeDiGraph<int, int> () :> IGraph<_, _>
+  let n1, g2 = g2.AddVertex 1 // Node 1
+  let n2, g2 = g2.AddVertex 2 // Node 2
+  let n3, g2 = g2.AddVertex 3 // Node 3
+  let n4, g2 = g2.AddVertex 4 // Node 4
+  let n5, g2 = g2.AddVertex 5 // Node 5
+  let n6, g2 = g2.AddVertex 6 // Node 6
+  let g2 = g2.AddEdge (n1, n2, EdgeLabel 1)
+  let g2 = g2.AddEdge (n1, n3, EdgeLabel 2)
+  let g2 = g2.AddEdge (n3, n4, EdgeLabel 3)
+  let g2 = g2.AddEdge (n4, n5, EdgeLabel 4)
+  let g2 = g2.AddEdge (n4, n6, EdgeLabel 5)
+  let g2 = g2.AddEdge (n6, n4, EdgeLabel 6)
   let g2root = n1
   let ctxt2 = Dominator.initDominatorContext g2 g2root
 
   (* Arbitrary graph example *)
-  let g3 = RangedDiGraph.init -1 ImperativeGraph
-  let n1, g3 = DiGraph.AddVertex (g3, v1) // Node 1
-  let n2, g3 = DiGraph.AddVertex (g3, v2) // Node 2
-  let n3, g3 = DiGraph.AddVertex (g3, v3) // Node 3
-  let n4, g3 = DiGraph.AddVertex (g3, v4) // Node 4
-  let n5, g3 = DiGraph.AddVertex (g3, v5) // Node 5
-  let g3 = DiGraph.AddEdge (g3, n1, n2, 1)
-  let g3 = DiGraph.AddEdge (g3, n1, n3, 2)
-  let g3 = DiGraph.AddEdge (g3, n2, n4, 3)
-  let g3 = DiGraph.AddEdge (g3, n3, n4, 4)
-  let g3 = DiGraph.AddEdge (g3, n3, n5, 5)
+  let g3 = ImperativeDiGraph<int, int> () :> IGraph<_, _>
+  let n1, g3 = g3.AddVertex 1 // Node 1
+  let n2, g3 = g3.AddVertex 2 // Node 2
+  let n3, g3 = g3.AddVertex 3 // Node 3
+  let n4, g3 = g3.AddVertex 4 // Node 4
+  let n5, g3 = g3.AddVertex 5 // Node 5
+  let g3 = g3.AddEdge (n1, n2, EdgeLabel 1)
+  let g3 = g3.AddEdge (n1, n3, EdgeLabel 2)
+  let g3 = g3.AddEdge (n2, n4, EdgeLabel 3)
+  let g3 = g3.AddEdge (n3, n4, EdgeLabel 4)
+  let g3 = g3.AddEdge (n3, n5, EdgeLabel 5)
   let g3root = n1
   let ctxt3 = Dominator.initDominatorContext g3 g3root
 
   (* Graph example from Tiger book (Fig. 19.5) *)
-  let g4 = RangedDiGraph.init -1 ImperativeGraph
-  let n1, g4 = DiGraph.AddVertex (g4, v1)
-  let n2, g4 = DiGraph.AddVertex (g4, v2)
-  let n3, g4 = DiGraph.AddVertex (g4, v3)
-  let n4, g4 = DiGraph.AddVertex (g4, v4)
-  let n5, g4 = DiGraph.AddVertex (g4, v5)
-  let n6, g4 = DiGraph.AddVertex (g4, v6)
-  let n7, g4 = DiGraph.AddVertex (g4, v7)
-  let n8, g4 = DiGraph.AddVertex (g4, v8)
-  let n9, g4 = DiGraph.AddVertex (g4, v9)
-  let n10, g4 = DiGraph.AddVertex (g4, v10)
-  let n11, g4 = DiGraph.AddVertex (g4, v11)
-  let n12, g4 = DiGraph.AddVertex (g4, v12)
-  let n13, g4 = DiGraph.AddVertex (g4, v13)
-  let g4 = DiGraph.AddEdge (g4, n1, n2, 1)
-  let g4 = DiGraph.AddEdge (g4, n1, n5, 2)
-  let g4 = DiGraph.AddEdge (g4, n1, n9, 3)
-  let g4 = DiGraph.AddEdge (g4, n2, n3, 4)
-  let g4 = DiGraph.AddEdge (g4, n3, n3, 5)
-  let g4 = DiGraph.AddEdge (g4, n3, n4, 6)
-  let g4 = DiGraph.AddEdge (g4, n4, n13, 7)
-  let g4 = DiGraph.AddEdge (g4, n5, n6, 8)
-  let g4 = DiGraph.AddEdge (g4, n5, n7, 9)
-  let g4 = DiGraph.AddEdge (g4, n6, n4, 10)
-  let g4 = DiGraph.AddEdge (g4, n6, n8, 11)
-  let g4 = DiGraph.AddEdge (g4, n7, n8, 12)
-  let g4 = DiGraph.AddEdge (g4, n7, n12, 13)
-  let g4 = DiGraph.AddEdge (g4, n8, n5, 14)
-  let g4 = DiGraph.AddEdge (g4, n8, n13, 15)
-  let g4 = DiGraph.AddEdge (g4, n9, n10, 16)
-  let g4 = DiGraph.AddEdge (g4, n9, n11, 17)
-  let g4 = DiGraph.AddEdge (g4, n10, n12, 18)
-  let g4 = DiGraph.AddEdge (g4, n11, n12, 19)
-  let g4 = DiGraph.AddEdge (g4, n12, n13, 20)
+  let g4 = ImperativeDiGraph<int, int> () :> IGraph<_, _>
+  let n1, g4 = g4.AddVertex 1
+  let n2, g4 = g4.AddVertex 2
+  let n3, g4 = g4.AddVertex 3
+  let n4, g4 = g4.AddVertex 4
+  let n5, g4 = g4.AddVertex 5
+  let n6, g4 = g4.AddVertex 6
+  let n7, g4 = g4.AddVertex 7
+  let n8, g4 = g4.AddVertex 8
+  let n9, g4 = g4.AddVertex 9
+  let n10, g4 = g4.AddVertex 10
+  let n11, g4 = g4.AddVertex 11
+  let n12, g4 = g4.AddVertex 12
+  let n13, g4 = g4.AddVertex 13
+  let g4 = g4.AddEdge (n1, n2, EdgeLabel 1)
+  let g4 = g4.AddEdge (n1, n5, EdgeLabel 2)
+  let g4 = g4.AddEdge (n1, n9, EdgeLabel 3)
+  let g4 = g4.AddEdge (n2, n3, EdgeLabel 4)
+  let g4 = g4.AddEdge (n3, n3, EdgeLabel 5)
+  let g4 = g4.AddEdge (n3, n4, EdgeLabel 6)
+  let g4 = g4.AddEdge (n4, n13, EdgeLabel 7)
+  let g4 = g4.AddEdge (n5, n6, EdgeLabel 8)
+  let g4 = g4.AddEdge (n5, n7, EdgeLabel 9)
+  let g4 = g4.AddEdge (n6, n4, EdgeLabel 10)
+  let g4 = g4.AddEdge (n6, n8, EdgeLabel 11)
+  let g4 = g4.AddEdge (n7, n8, EdgeLabel 12)
+  let g4 = g4.AddEdge (n7, n12, EdgeLabel 13)
+  let g4 = g4.AddEdge (n8, n5, EdgeLabel 14)
+  let g4 = g4.AddEdge (n8, n13, EdgeLabel 15)
+  let g4 = g4.AddEdge (n9, n10, EdgeLabel 16)
+  let g4 = g4.AddEdge (n9, n11, EdgeLabel 17)
+  let g4 = g4.AddEdge (n10, n12, EdgeLabel 18)
+  let g4 = g4.AddEdge (n11, n12, EdgeLabel 19)
+  let g4 = g4.AddEdge (n12, n13, EdgeLabel 20)
   let g4root = n1
   let ctxt4 = Dominator.initDominatorContext g4 g4root
 
-  let getVertexVal (v: Vertex<V> option) = (Option.get v).VData.Val
+  let getVertexVal (v: IVertex<_> option) = (Option.get v).VData
 
-  let sum acc (v: Vertex<V>) = v.VData.Val + acc
-  let inc acc _v1 _v2 e = acc + e
+  let sum acc (v: IVertex<_>) = v.VData + acc
+  let inc acc (edge: Edge<_, _>) = acc + edge.Label.Value
 
   [<TestMethod>]
-  member __.``RangedDiGraph Traversal Test 1``() =
+  member __.``DiGraph Traversal Test 1``() =
     let s1 = Traversal.foldPostorder g1 [g1root] sum 0
     let s2 = Traversal.foldRevPostorder g1 [g1root] sum 0
     let s3 = Traversal.foldPreorder g1 [g1root] sum 0
@@ -151,18 +137,18 @@ type BasicImperativeGraphTest () =
     Assert.AreEqual (28, s5)
 
   [<TestMethod>]
-  member __.``RangedDiGraph Traversal Test 2``() =
+  member __.``DiGraph Traversal Test 2``() =
     let s1 =
-      Traversal.foldPostorder g1 [g1root] (fun acc v -> v.VData.Val :: acc) []
+      Traversal.foldPostorder g1 [g1root] (fun acc v -> v.VData :: acc) []
       |> List.rev |> List.toArray
     let s2 =
-      Traversal.foldPreorder g1 [g1root] (fun acc v -> v.VData.Val :: acc) []
+      Traversal.foldPreorder g1 [g1root] (fun acc v -> v.VData :: acc) []
       |> List.rev |> List.toArray
     let s3 =
-      Traversal.foldPostorder g3 [g3root] (fun acc v -> v.VData.Val :: acc) []
+      Traversal.foldPostorder g3 [g3root] (fun acc v -> v.VData :: acc) []
       |> List.rev |> List.toArray
     let s4 =
-      Traversal.foldPreorder g3 [g3root] (fun acc v -> v.VData.Val :: acc) []
+      Traversal.foldPreorder g3 [g3root] (fun acc v -> v.VData :: acc) []
       |> List.rev |> List.toArray
     CollectionAssert.AreEqual ([| 5; 3; 4; 6; 2; 1 |], s1)
     CollectionAssert.AreEqual ([| 1; 2; 3; 5; 4; 6 |], s2)
@@ -170,304 +156,269 @@ type BasicImperativeGraphTest () =
     CollectionAssert.AreEqual ([| 1; 2; 4; 3; 5 |], s4)
 
   [<TestMethod>]
-  member __.``RangedDiGraph Removal Test``() =
+  member __.``DiGraph Removal Test``() =
     let g2 = g1.Clone ()
-    let g2root = DiGraph.FindVertexByData (g2, g1root.VData)
-    let g2 =
-      (g2 :?> RangedDiGraph<_, _>).FindVertexByRange (AddrRange (3UL))
-      |> g2.RemoveVertex
+    let g2root = g2.FindVertexByData g1root.VData
+    let g2 = g2.FindVertexByData 3 |> g2.RemoveVertex
     let s1 = Traversal.foldPreorder g1 [g1root] sum 0
     let s2 = Traversal.foldPreorder g2 [g2root] sum 0
-    Assert.AreEqual (6, DiGraph.GetSize g1)
-    Assert.AreEqual (5, DiGraph.GetSize g2)
+    Assert.AreEqual (6, g1.Size)
+    Assert.AreEqual (5, g2.Size)
     Assert.AreEqual (21, s1)
     Assert.AreEqual (18, s2)
 
   [<TestMethod>]
   member __.``Graph Transposition Test``() =
-    let g2 = DiGraph.Reverse g1
-    let g2root = DiGraph.FindVertexByData (g2, v6)
+    let g2 = g1.Reverse ()
+    let g2root = g2.FindVertexByData 6
     let s1 = Traversal.foldPreorder g1 [g1root] sum 0
     let s2 = Traversal.foldPreorder g2 [g2root] sum 0
     let lst =
-      g2.FoldEdge (fun acc s d _ -> (s.VData.Val, d.VData.Val) :: acc) []
+      g2.FoldEdge (fun acc e -> (e.First.VData, e.Second.VData) :: acc) []
     let edges = List.sort lst |> List.toArray
     let solution = [| (2, 1); (2, 5); (3, 2); (4, 2); (5, 3); (5, 4); (6, 2) |]
-    Assert.AreEqual (6, DiGraph.GetSize g1)
-    Assert.AreEqual (6, DiGraph.GetSize g2)
+    Assert.AreEqual (6, g1.Size)
+    Assert.AreEqual (6, g2.Size)
     Assert.AreEqual (21, s1)
     Assert.AreEqual (21, s2)
     CollectionAssert.AreEqual (edges, solution)
 
   [<TestMethod>]
   member __.``Dominator Test 1``() =
-    let v = Dominator.idom ctxt1 <| g1.FindVertexByData v1
+    let v = Dominator.idom ctxt1 <| g1.FindVertexByData 1
     Assert.IsTrue (v.IsNone)
-    let v = Dominator.idom ctxt1 <| g1.FindVertexByData v2
+    let v = Dominator.idom ctxt1 <| g1.FindVertexByData 2
     Assert.AreEqual (1, getVertexVal v)
-    let v = Dominator.idom ctxt1 <| g1.FindVertexByData v3
+    let v = Dominator.idom ctxt1 <| g1.FindVertexByData 3
     Assert.AreEqual (2, getVertexVal v)
-    let v = Dominator.idom ctxt1 <| g1.FindVertexByData v4
+    let v = Dominator.idom ctxt1 <| g1.FindVertexByData 4
     Assert.AreEqual (2, getVertexVal v)
-    let v = Dominator.idom ctxt1 <| g1.FindVertexByData v5
+    let v = Dominator.idom ctxt1 <| g1.FindVertexByData 5
     Assert.AreEqual (2, getVertexVal v)
-    let v = Dominator.idom ctxt1 <| g1.FindVertexByData v6
+    let v = Dominator.idom ctxt1 <| g1.FindVertexByData 6
     Assert.AreEqual (2, getVertexVal v)
 
   [<TestMethod>]
   member __.``Dominator Test 2``() =
-    let v = Dominator.idom ctxt2 <| g2.FindVertexByData v1
+    let v = Dominator.idom ctxt2 <| g2.FindVertexByData 1
     Assert.IsTrue (v.IsNone)
-    let v = Dominator.idom ctxt2 <| g2.FindVertexByData v2
+    let v = Dominator.idom ctxt2 <| g2.FindVertexByData 2
     Assert.AreEqual (1, getVertexVal v)
-    let v = Dominator.idom ctxt2 <| g2.FindVertexByData v3
+    let v = Dominator.idom ctxt2 <| g2.FindVertexByData 3
     Assert.AreEqual (1, getVertexVal v)
-    let v = Dominator.idom ctxt2 <| g2.FindVertexByData v4
+    let v = Dominator.idom ctxt2 <| g2.FindVertexByData 4
     Assert.AreEqual (3, getVertexVal v)
-    let v = Dominator.idom ctxt2 <| g2.FindVertexByData v5
+    let v = Dominator.idom ctxt2 <| g2.FindVertexByData 5
     Assert.AreEqual (4, getVertexVal v)
-    let v = Dominator.idom ctxt2 <| g2.FindVertexByData v6
+    let v = Dominator.idom ctxt2 <| g2.FindVertexByData 6
     Assert.AreEqual (4, getVertexVal v)
 
   [<TestMethod>]
   member __.``Post-Dominator Test``() =
-    let v = Dominator.ipdom ctxt1 <| g1.FindVertexByData v1
+    let v = Dominator.ipdom ctxt1 <| g1.FindVertexByData 1
     Assert.AreEqual (2, getVertexVal v)
-    let v = Dominator.ipdom ctxt1 <| g1.FindVertexByData v2
+    let v = Dominator.ipdom ctxt1 <| g1.FindVertexByData 2
     Assert.AreEqual (6, getVertexVal v)
-    let v = Dominator.ipdom ctxt1 <| g1.FindVertexByData v3
+    let v = Dominator.ipdom ctxt1 <| g1.FindVertexByData 3
     Assert.AreEqual (5, getVertexVal v)
-    let v = Dominator.ipdom ctxt1 <| g1.FindVertexByData v4
+    let v = Dominator.ipdom ctxt1 <| g1.FindVertexByData 4
     Assert.AreEqual (5, getVertexVal v)
-    let v = Dominator.ipdom ctxt1 <| g1.FindVertexByData v5
+    let v = Dominator.ipdom ctxt1 <| g1.FindVertexByData 5
     Assert.AreEqual (2, getVertexVal v)
-    let v = Dominator.ipdom ctxt1 <| g1.FindVertexByData v6
+    let v = Dominator.ipdom ctxt1 <| g1.FindVertexByData 6
     Assert.IsTrue (v.IsNone)
 
   [<TestMethod>]
   member __.``Post-Dominator Test 2``() =
-    let v = Dominator.ipdom ctxt3 <| g3.FindVertexByData v1
+    let v = Dominator.ipdom ctxt3 <| g3.FindVertexByData 1
     Assert.IsTrue (v.IsNone)
-    let v = Dominator.ipdom ctxt3 <| g3.FindVertexByData v2
+    let v = Dominator.ipdom ctxt3 <| g3.FindVertexByData 2
     Assert.AreEqual (4, getVertexVal v)
-    let v = Dominator.ipdom ctxt3 <| g3.FindVertexByData v3
+    let v = Dominator.ipdom ctxt3 <| g3.FindVertexByData 3
     Assert.IsTrue (v.IsNone)
-    let v = Dominator.ipdom ctxt3 <| g3.FindVertexByData v4
+    let v = Dominator.ipdom ctxt3 <| g3.FindVertexByData 4
     Assert.IsTrue (v.IsNone)
-    let v = Dominator.ipdom ctxt3 <| g3.FindVertexByData v5
+    let v = Dominator.ipdom ctxt3 <| g3.FindVertexByData 5
     Assert.IsTrue (v.IsNone)
 
   [<TestMethod>]
   member __.``Dominance Frontier Test``() =
     let df =
-      Dominator.frontier ctxt4 <| g4.FindVertexByData v5 |> List.toArray
-    let df = df |> Array.map (fun v -> v.VData.Val) |> Array.sort
+      Dominator.frontier ctxt4 <| g4.FindVertexByData 5 |> List.toArray
+    let df = df |> Array.map (fun v -> v.VData) |> Array.sort
     CollectionAssert.AreEqual (df, [|4; 5; 12; 13|])
     let df =
-      Dominator.frontier ctxt4 <| g4.FindVertexByData v9 |> List.toArray
-    let df = df |> Array.map (fun v -> v.VData.Val) |> Array.sort
+      Dominator.frontier ctxt4 <| g4.FindVertexByData 9 |> List.toArray
+    let df = df |> Array.map (fun v -> v.VData) |> Array.sort
     CollectionAssert.AreEqual (df, [|12|])
 
   [<TestMethod>]
   member __.``Root Node Loop Test``() =
-    let g = RangedDiGraph.init -1 ImperativeGraph
-    let n1, g = DiGraph.AddVertex (g, v1) // Node 1
-    let n2, g = DiGraph.AddVertex (g, v2) // Node 2
-    let n3, g = DiGraph.AddVertex (g, v3) // Node 3
-    let n4, g = DiGraph.AddVertex (g, v4) // Node 4
-    let n5, g = DiGraph.AddVertex (g, v5) // Node 5
-    let n6, g = DiGraph.AddVertex (g, v6) // Node 6
-    let g = DiGraph.AddEdge (g, n1, n2, 1)
-    let g = DiGraph.AddEdge (g, n1, n3, 2)
-    let g = DiGraph.AddEdge (g, n2, n4, 3)
-    let g = DiGraph.AddEdge (g, n3, n4, 4)
-    let g = DiGraph.AddEdge (g, n3, n5, 5)
-    let g = DiGraph.AddEdge (g, n4, n6, 6)
-    let g = DiGraph.AddEdge (g, n5, n6, 7)
-    let g = DiGraph.AddEdge (g, n6, n1, 8) // Back edge to the root node.
+    let g = ImperativeDiGraph () :> IGraph<_, _>
+    let n1, g = g.AddVertex 1 // Node 1
+    let n2, g = g.AddVertex 2 // Node 2
+    let n3, g = g.AddVertex 3 // Node 3
+    let n4, g = g.AddVertex 4 // Node 4
+    let n5, g = g.AddVertex 5 // Node 5
+    let n6, g = g.AddVertex 6 // Node 6
+    let g = g.AddEdge (n1, n2, EdgeLabel 1)
+    let g = g.AddEdge (n1, n3, EdgeLabel 2)
+    let g = g.AddEdge (n2, n4, EdgeLabel 3)
+    let g = g.AddEdge (n3, n4, EdgeLabel 4)
+    let g = g.AddEdge (n3, n5, EdgeLabel 5)
+    let g = g.AddEdge (n4, n6, EdgeLabel 6)
+    let g = g.AddEdge (n5, n6, EdgeLabel 7)
+    let g = g.AddEdge (n6, n1, EdgeLabel 8) (* Back edge to the root node. *)
     let ctxt = Dominator.initDominatorContext g n1
-    let v = Dominator.idom ctxt <| g.FindVertexByData v1
+    let v = Dominator.idom ctxt <| g.FindVertexByData 1
     Assert.IsTrue (v.IsNone)
-    let v = Dominator.idom ctxt <| g.FindVertexByData v2
+    let v = Dominator.idom ctxt <| g.FindVertexByData 2
     Assert.AreEqual (1, getVertexVal v)
-    let v = Dominator.idom ctxt <| g.FindVertexByData v3
+    let v = Dominator.idom ctxt <| g.FindVertexByData 3
     Assert.AreEqual (1, getVertexVal v)
-    let v = Dominator.idom ctxt <| g.FindVertexByData v4
+    let v = Dominator.idom ctxt <| g.FindVertexByData 4
     Assert.AreEqual (1, getVertexVal v)
-    let v = Dominator.idom ctxt <| g.FindVertexByData v5
+    let v = Dominator.idom ctxt <| g.FindVertexByData 5
     Assert.AreEqual (3, getVertexVal v)
-    let v = Dominator.idom ctxt <| g.FindVertexByData v6
+    let v = Dominator.idom ctxt <| g.FindVertexByData 6
     Assert.AreEqual (1, getVertexVal v)
 
   [<TestMethod>]
   member __.``Basic SCC Test``() =
-    let v = g3.FindVertexByData v1
+    let v = g3.FindVertexByData 1
     let sccs = SCC.compute g3 v
     Assert.AreEqual (5, Set.count sccs)
 
 [<TestClass>]
 type ExtraImperativeDomTest () =
-  let v1 = V (1, (AddrRange (1UL)))
-  let v2 = V (2, (AddrRange (2UL)))
-  let v3 = V (3, (AddrRange (3UL)))
-  let v4 = V (4, (AddrRange (4UL)))
-  let v5 = V (5, (AddrRange (5UL)))
-  let v6 = V (6, (AddrRange (6UL)))
-  let v7 = V (7, (AddrRange (7UL)))
-  let v8 = V (8, (AddrRange (8UL)))
-  let v9 = V (9, (AddrRange (9UL)))
-  let v10 = V (10, (AddrRange (10UL)))
-  let v11 = V (11, (AddrRange (11UL)))
-  let v12 = V (12, (AddrRange (12UL)))
-  let v13 = V (13, (AddrRange (13UL)))
-  let v14 = V (14, (AddrRange (14UL)))
-  let v15 = V (15, (AddrRange (15UL)))
-  let v16 = V (16, (AddrRange (16UL)))
-  let v17 = V (17, (AddrRange (17UL)))
-  let v18 = V (18, (AddrRange (18UL)))
-  let v19 = V (19, (AddrRange (19UL)))
-  let v20 = V (20, (AddrRange (20UL)))
-  let v21 = V (21, (AddrRange (21UL)))
-  let v22 = V (22, (AddrRange (22UL)))
-  let v23 = V (23, (AddrRange (23UL)))
-
-  let g1 = RangedDiGraph.init -1 ImperativeGraph
-  let n1, g1 = DiGraph.AddVertex (g1, v1)
-  let n2, g1 = DiGraph.AddVertex (g1, v2)
-  let n3, g1 = DiGraph.AddVertex (g1, v3)
-  let n4, g1 = DiGraph.AddVertex (g1, v4)
-  let n5, g1 = DiGraph.AddVertex (g1, v5)
-  let n6, g1 = DiGraph.AddVertex (g1, v6)
-  let n7, g1 = DiGraph.AddVertex (g1, v7)
-  let n8, g1 = DiGraph.AddVertex (g1, v8)
-  let n9, g1 = DiGraph.AddVertex (g1, v9)
-  let n10, g1 = DiGraph.AddVertex (g1, v10)
-  let n11, g1 = DiGraph.AddVertex (g1, v11)
-  let n12, g1 = DiGraph.AddVertex (g1, v12)
-  let n13, g1 = DiGraph.AddVertex (g1, v13)
-  let n14, g1 = DiGraph.AddVertex (g1, v14)
-  let n15, g1 = DiGraph.AddVertex (g1, v15)
-  let n16, g1 = DiGraph.AddVertex (g1, v16)
-  let n17, g1 = DiGraph.AddVertex (g1, v17)
-  let n18, g1 = DiGraph.AddVertex (g1, v18)
-  let n19, g1 = DiGraph.AddVertex (g1, v19)
-  let n20, g1 = DiGraph.AddVertex (g1, v20)
-  let n21, g1 = DiGraph.AddVertex (g1, v21)
-  let n22, g1 = DiGraph.AddVertex (g1, v22)
-  let n23, g1 = DiGraph.AddVertex (g1, v23)
-  let g1 = DiGraph.AddEdge (g1, n1, n2, 1)
-  let g1 = DiGraph.AddEdge (g1, n1, n3, 2)
-  let g1 = DiGraph.AddEdge (g1, n2, n4, 3)
-  let g1 = DiGraph.AddEdge (g1, n2, n7, 4)
-  let g1 = DiGraph.AddEdge (g1, n3, n5, 5)
-  let g1 = DiGraph.AddEdge (g1, n3, n6, 6)
-  let g1 = DiGraph.AddEdge (g1, n4, n7, 7)
-  let g1 = DiGraph.AddEdge (g1, n5, n8, 8)
-  let g1 = DiGraph.AddEdge (g1, n5, n10, 9)
-  let g1 = DiGraph.AddEdge (g1, n7, n9, 10)
-  let g1 = DiGraph.AddEdge (g1, n7, n11, 11)
-  let g1 = DiGraph.AddEdge (g1, n8, n10, 12)
-  let g1 = DiGraph.AddEdge (g1, n9, n12, 13)
-  let g1 = DiGraph.AddEdge (g1, n9, n13, 14)
-  let g1 = DiGraph.AddEdge (g1, n10, n19, 15)
-  let g1 = DiGraph.AddEdge (g1, n11, n22, 16)
-  let g1 = DiGraph.AddEdge (g1, n12, n13, 17)
-  let g1 = DiGraph.AddEdge (g1, n13, n14, 18)
-  let g1 = DiGraph.AddEdge (g1, n13, n15, 19)
-  let g1 = DiGraph.AddEdge (g1, n14, n16, 20)
-  let g1 = DiGraph.AddEdge (g1, n15, n16, 21)
-  let g1 = DiGraph.AddEdge (g1, n16, n17, 22)
-  let g1 = DiGraph.AddEdge (g1, n16, n18, 23)
-  let g1 = DiGraph.AddEdge (g1, n17, n18, 24)
-  let g1 = DiGraph.AddEdge (g1, n18, n19, 25)
-  let g1 = DiGraph.AddEdge (g1, n18, n20, 26)
-  let g1 = DiGraph.AddEdge (g1, n19, n21, 27)
-  let g1 = DiGraph.AddEdge (g1, n19, n23, 28)
-  let g1 = DiGraph.AddEdge (g1, n20, n22, 29)
-  let g1 = DiGraph.AddEdge (g1, n21, n22, 30)
+  let g1 = ImperativeDiGraph () :> IGraph<_, _>
+  let n1, g1 = g1.AddVertex 1
+  let n2, g1 = g1.AddVertex 2
+  let n3, g1 = g1.AddVertex 3
+  let n4, g1 = g1.AddVertex 4
+  let n5, g1 = g1.AddVertex 5
+  let n6, g1 = g1.AddVertex 6
+  let n7, g1 = g1.AddVertex 7
+  let n8, g1 = g1.AddVertex 8
+  let n9, g1 = g1.AddVertex 9
+  let n10, g1 = g1.AddVertex 10
+  let n11, g1 = g1.AddVertex 11
+  let n12, g1 = g1.AddVertex 12
+  let n13, g1 = g1.AddVertex 13
+  let n14, g1 = g1.AddVertex 14
+  let n15, g1 = g1.AddVertex 15
+  let n16, g1 = g1.AddVertex 16
+  let n17, g1 = g1.AddVertex 17
+  let n18, g1 = g1.AddVertex 18
+  let n19, g1 = g1.AddVertex 19
+  let n20, g1 = g1.AddVertex 20
+  let n21, g1 = g1.AddVertex 21
+  let n22, g1 = g1.AddVertex 22
+  let n23, g1 = g1.AddVertex 23
+  let g1 = g1.AddEdge (n1, n2, EdgeLabel 1)
+  let g1 = g1.AddEdge (n1, n3, EdgeLabel 2)
+  let g1 = g1.AddEdge (n2, n4, EdgeLabel 3)
+  let g1 = g1.AddEdge (n2, n7, EdgeLabel 4)
+  let g1 = g1.AddEdge (n3, n5, EdgeLabel 5)
+  let g1 = g1.AddEdge (n3, n6, EdgeLabel 6)
+  let g1 = g1.AddEdge (n4, n7, EdgeLabel 7)
+  let g1 = g1.AddEdge (n5, n8, EdgeLabel 8)
+  let g1 = g1.AddEdge (n5, n10, EdgeLabel 9)
+  let g1 = g1.AddEdge (n7, n9, EdgeLabel 10)
+  let g1 = g1.AddEdge (n7, n11, EdgeLabel 11)
+  let g1 = g1.AddEdge (n8, n10, EdgeLabel 12)
+  let g1 = g1.AddEdge (n9, n12, EdgeLabel 13)
+  let g1 = g1.AddEdge (n9, n13, EdgeLabel 14)
+  let g1 = g1.AddEdge (n10, n19, EdgeLabel 15)
+  let g1 = g1.AddEdge (n11, n22, EdgeLabel 16)
+  let g1 = g1.AddEdge (n12, n13, EdgeLabel 17)
+  let g1 = g1.AddEdge (n13, n14, EdgeLabel 18)
+  let g1 = g1.AddEdge (n13, n15, EdgeLabel 19)
+  let g1 = g1.AddEdge (n14, n16, EdgeLabel 20)
+  let g1 = g1.AddEdge (n15, n16, EdgeLabel 21)
+  let g1 = g1.AddEdge (n16, n17, EdgeLabel 22)
+  let g1 = g1.AddEdge (n16, n18, EdgeLabel 23)
+  let g1 = g1.AddEdge (n17, n18, EdgeLabel 24)
+  let g1 = g1.AddEdge (n18, n19, EdgeLabel 25)
+  let g1 = g1.AddEdge (n18, n20, EdgeLabel 26)
+  let g1 = g1.AddEdge (n19, n21, EdgeLabel 27)
+  let g1 = g1.AddEdge (n19, n23, EdgeLabel 28)
+  let g1 = g1.AddEdge (n20, n22, EdgeLabel 29)
+  let g1 = g1.AddEdge (n21, n22, EdgeLabel 30)
   let g1root = n1
   let ctxt1 = Dominator.initDominatorContext g1 g1root
 
-  let getVertexVal (v: Vertex<V> option) = (Option.get v).VData.Val
+  let getVertexVal (v: IVertex<_> option) = (Option.get v).VData
 
   [<TestMethod>]
   member __.``Dominator Test``() =
-    let v = Dominator.idom ctxt1 <| g1.FindVertexByData v19
+    let v = Dominator.idom ctxt1 <| g1.FindVertexByData 19
     Assert.IsTrue (18 <> getVertexVal v)
 
 [<TestClass>]
 type ImperativeSCCTest () =
-  let v1 = V (1, (AddrRange (1UL)))
-  let v2 = V (2, (AddrRange (2UL)))
-  let v3 = V (3, (AddrRange (3UL)))
-  let v4 = V (4, (AddrRange (4UL)))
-  let v5 = V (5, (AddrRange (5UL)))
-  let v6 = V (6, (AddrRange (6UL)))
-  let v7 = V (7, (AddrRange (7UL)))
-  let v8 = V (8, (AddrRange (8UL)))
-
   (* Example from article about Bourdoncle Components by Matt Elder *)
   [<TestMethod>]
   member __.``Strongly Connected Component Test1`` () =
-    let g = RangedDiGraph.init -1 ImperativeGraph
-    let n1, g = DiGraph.AddVertex (g, v1)
-    let n2, g = DiGraph.AddVertex (g, v2)
-    let n3, g = DiGraph.AddVertex (g, v3)
-    let n4, g = DiGraph.AddVertex (g, v4)
-    let n5, g = DiGraph.AddVertex (g, v5)
-    let n6, g = DiGraph.AddVertex (g, v6)
-    let n7, g = DiGraph.AddVertex (g, v7)
-    let n8, g = DiGraph.AddVertex (g, v8)
-    let g = DiGraph.AddEdge (g, n1, n2, 1)
-    let g = DiGraph.AddEdge (g, n2, n3, 2)
-    let g = DiGraph.AddEdge (g, n3, n4, 3)
-    let g = DiGraph.AddEdge (g, n4, n5, 4)
-    let g = DiGraph.AddEdge (g, n5, n2, 5)
-    let g = DiGraph.AddEdge (g, n5, n6, 6)
-    let g = DiGraph.AddEdge (g, n6, n3, 7)
-    let g = DiGraph.AddEdge (g, n6, n7, 8)
-    let g = DiGraph.AddEdge (g, n7, n2, 9)
-    let g = DiGraph.AddEdge (g, n7, n8, 10)
+    let g = ImperativeDiGraph () :> IGraph<_, _>
+    let n1, g = g.AddVertex 1
+    let n2, g = g.AddVertex 2
+    let n3, g = g.AddVertex 3
+    let n4, g = g.AddVertex 4
+    let n5, g = g.AddVertex 5
+    let n6, g = g.AddVertex 6
+    let n7, g = g.AddVertex 7
+    let n8, g = g.AddVertex 8
+    let g = g.AddEdge (n1, n2, EdgeLabel 1)
+    let g = g.AddEdge (n2, n3, EdgeLabel 2)
+    let g = g.AddEdge (n3, n4, EdgeLabel 3)
+    let g = g.AddEdge (n4, n5, EdgeLabel 4)
+    let g = g.AddEdge (n5, n2, EdgeLabel 5)
+    let g = g.AddEdge (n5, n6, EdgeLabel 6)
+    let g = g.AddEdge (n6, n3, EdgeLabel 7)
+    let g = g.AddEdge (n6, n7, EdgeLabel 8)
+    let g = g.AddEdge (n7, n2, EdgeLabel 9)
+    let g = g.AddEdge (n7, n8, EdgeLabel 10)
     let sccs = SCC.compute g n1
     Assert.AreEqual (3, Set.count sccs)
     let scc1 = Set.singleton n1
     Assert.IsTrue (Set.contains scc1 sccs)
     let scc2 = Set.singleton n8
     Assert.IsTrue (Set.contains scc2 sccs)
-    let scc3 = Set.ofList [ n2 ; n3 ; n4 ; n5 ; n6 ; n7 ]
+    let scc3 = Set.ofList [ n2; n3; n4; n5; n6; n7 ]
     Assert.IsTrue (Set.contains scc3 sccs)
 
   (* Example from Wikipedia *)
   [<TestMethod>]
   member __.``Strongly Connected Component Test2`` () =
-    let g = RangedDiGraph.init -1 ImperativeGraph
-    let na, g = DiGraph.AddVertex (g, v1)
-    let nb, g = DiGraph.AddVertex (g, v2)
-    let nc, g = DiGraph.AddVertex (g, v3)
-    let nd, g = DiGraph.AddVertex (g, v4)
-    let ne, g = DiGraph.AddVertex (g, v5)
-    let nf, g = DiGraph.AddVertex (g, v6)
-    let ng, g = DiGraph.AddVertex (g, v7)
-    let nh, g = DiGraph.AddVertex (g, v8)
-    let g = DiGraph.AddEdge (g, na, nb, 1)
-    let g = DiGraph.AddEdge (g, nb, nc, 2)
-    let g = DiGraph.AddEdge (g, nb, ne, 3)
-    let g = DiGraph.AddEdge (g, nb, nf, 4)
-    let g = DiGraph.AddEdge (g, nc, nd, 5)
-    let g = DiGraph.AddEdge (g, nc, ng, 6)
-    let g = DiGraph.AddEdge (g, nd, nc, 7)
-    let g = DiGraph.AddEdge (g, nd, nh, 8)
-    let g = DiGraph.AddEdge (g, ne, na, 9)
-    let g = DiGraph.AddEdge (g, ne, nf, 10)
-    let g = DiGraph.AddEdge (g, nf, ng, 11)
-    let g = DiGraph.AddEdge (g, ng, nf, 12)
-    let g = DiGraph.AddEdge (g, nh, nd, 13)
-    let g = DiGraph.AddEdge (g, nh, ng, 14)
+    let g = ImperativeDiGraph () :> IGraph<_, _>
+    let na, g = g.AddVertex 1
+    let nb, g = g.AddVertex 2
+    let nc, g = g.AddVertex 3
+    let nd, g = g.AddVertex 4
+    let ne, g = g.AddVertex 5
+    let nf, g = g.AddVertex 6
+    let ng, g = g.AddVertex 7
+    let nh, g = g.AddVertex 8
+    let g = g.AddEdge (na, nb, EdgeLabel 1)
+    let g = g.AddEdge (nb, nc, EdgeLabel 2)
+    let g = g.AddEdge (nb, ne, EdgeLabel 3)
+    let g = g.AddEdge (nb, nf, EdgeLabel 4)
+    let g = g.AddEdge (nc, nd, EdgeLabel 5)
+    let g = g.AddEdge (nc, ng, EdgeLabel 6)
+    let g = g.AddEdge (nd, nc, EdgeLabel 7)
+    let g = g.AddEdge (nd, nh, EdgeLabel 8)
+    let g = g.AddEdge (ne, na, EdgeLabel 9)
+    let g = g.AddEdge (ne, nf, EdgeLabel 10)
+    let g = g.AddEdge (nf, ng, EdgeLabel 11)
+    let g = g.AddEdge (ng, nf, EdgeLabel 12)
+    let g = g.AddEdge (nh, nd, EdgeLabel 13)
+    let g = g.AddEdge (nh, ng, EdgeLabel 14)
     let sccs = SCC.compute g na
     Assert.AreEqual (3, Set.count sccs)
-    let scc1 = Set.ofList [ na ; nb ; ne ]
+    let scc1 = Set.ofList [ na; nb; ne ]
     Assert.IsTrue (Set.contains scc1 sccs)
-    let scc2 = Set.ofList [ nc ; nd ; nh ]
+    let scc2 = Set.ofList [ nc; nd; nh ]
     Assert.IsTrue (Set.contains scc2 sccs)
-    let scc3 = Set.ofList [ nf ; ng ]
+    let scc3 = Set.ofList [ nf; ng ]
     Assert.IsTrue (Set.contains scc3 sccs)

@@ -77,8 +77,8 @@ and IConstantPropagationCore<'L when 'L: equality> =
   /// The transfer function.
   abstract Transfer:
     CPState<'L>
-    -> DiGraph<SSABasicBlock, CFGEdgeKind>
-    -> Vertex<SSABasicBlock>
+    -> IGraph<SSABasicBlock, CFGEdgeKind>
+    -> IVertex<SSABasicBlock>
     -> ProgramPoint
     -> Stmt
     -> unit
@@ -109,28 +109,27 @@ module CPState =
   let isExecuted st src dst =
     st.ExecutedEdges.Contains (src, dst)
 
-  let markAllSuccessors st cfg (blk: SSAVertex) =
-    let myid = blk.GetID ()
-    DiGraph.GetSuccs (cfg, blk)
-    |> List.iter (fun succ ->
-      let succid = succ.GetID ()
+  let markAllSuccessors st (cfg: IGraph<_, _>) (blk: SSAVertex) =
+    let myid = blk.ID
+    cfg.GetSuccs blk
+    |> Seq.iter (fun succ ->
+      let succid = succ.ID
       markExecutable st myid succid)
 
-  let markExceptCallFallThrough st cfg (blk: SSAVertex) =
-    let myid = blk.GetID ()
-    DiGraph.GetSuccs (cfg, blk)
-    |> List.iter (fun succ ->
-      if cfg.FindEdgeData (blk, succ) <> CallFallThroughEdge then
-        let succid = succ.GetID ()
-        markExecutable st myid succid
+  let markExceptCallFallThrough st (cfg: IGraph<_, _>) (blk: SSAVertex) =
+    let myid = blk.ID
+    cfg.GetSuccs blk
+    |> Seq.iter (fun succ ->
+      let e = cfg.FindEdge (blk, succ)
+      if e.Label.Value <> CallFallThroughEdge then
+        markExecutable st myid succ.ID
       else ())
 
-  let getExecutableSources st cfg (blk: Vertex<_>) srcIDs =
-    let preds = DiGraph.GetPreds (cfg, blk) |> List.toArray
+  let getExecutableSources st (cfg: IGraph<_, _>) (blk: IVertex<_>) srcIDs =
+    let preds = cfg.GetPreds blk |> Seq.toArray
     srcIDs
     |> Array.mapi (fun i srcID ->
-      if isExecuted st (preds[i].GetID ()) (blk.GetID ()) then Some srcID
-      else None)
+      if isExecuted st preds[i].ID blk.ID then Some srcID else None)
     |> Array.choose id
 
   let inline updateConst st r v =

@@ -32,7 +32,7 @@ let computeDominatorInfo g root =
   let domCtxt = Dominator.initDominatorContext g root
   let frontiers = Dominator.frontiers domCtxt
   g.IterVertex (fun (v: SSAVertex) ->
-    let dfnum = domCtxt.ForwardDomInfo.DFNumMap[v.GetID ()]
+    let dfnum = domCtxt.ForwardDomInfo.DFNumMap[v.ID]
     v.VData.ImmDominator <- Dominator.idom domCtxt v
     v.VData.DomFrontier <- frontiers[dfnum])
   domCtxt
@@ -53,9 +53,8 @@ let findPhiSites g defsPerNode variable (phiSites, workList) v =
       phiSites, workList
     | _ ->
       (* Insert Phi for v *)
-      DiGraph.GetPreds (g, v)
-      |> List.length
-      |> v.VData.PrependPhi variable
+      let preds = (g: IGraph<_, _>).GetPreds v
+      v.VData.PrependPhi variable preds.Count
       let phiSites = Set.add v phiSites
       let defs = (defsPerNode: DefsPerNode)[v]
       if not <| Set.contains variable defs then phiSites, v :: workList
@@ -164,14 +163,14 @@ let renamePhiAux (stack: IDStack) preds (parent: SSAVertex) (_, stmt) =
   match stmt with
   | SSA.Phi (def, nums) ->
     let idx =
-      List.findIndex (fun (v: SSAVertex) ->
+      Seq.findIndex (fun (v: SSAVertex) ->
         v.VData = parent.VData) preds
     nums[idx] <- List.head stack[def.Kind]
   | _ -> ()
 
-let renamePhi g stack parent (succ: SSAVertex) =
+let renamePhi (g: IGraph<_, _>) stack parent (succ: SSAVertex) =
   succ.VData.SSAStmtInfos
-  |> Array.iter (renamePhiAux stack (DiGraph.GetPreds (g, succ)) parent)
+  |> Array.iter (renamePhiAux stack (g.GetPreds succ) parent)
 
 let popStack (stack: IDStack) (_, stmt) =
   match stmt with
@@ -179,9 +178,9 @@ let popStack (stack: IDStack) (_, stmt) =
   | SSA.Phi (def, _) -> stack[def.Kind] <- List.tail stack[def.Kind]
   | _ -> ()
 
-let rec rename g domTree count stack (v: SSAVertex) =
+let rec rename (g: IGraph<_, _>) domTree count stack (v: SSAVertex) =
   v.VData.SSAStmtInfos |> Array.iter (renameStmt count stack)
-  DiGraph.GetSuccs (g, v) |> List.iter (renamePhi g stack v)
+  g.GetSuccs v |> Seq.iter (renamePhi g stack v)
   traverseChildren g domTree count stack (Map.find v domTree)
   v.VData.SSAStmtInfos |> Array.iter (popStack stack)
 

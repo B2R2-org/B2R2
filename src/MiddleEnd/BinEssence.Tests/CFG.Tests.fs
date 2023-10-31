@@ -35,16 +35,18 @@ open B2R2.MiddleEnd.BinEssence
 open Microsoft.VisualStudio.TestTools.UnitTesting
 
 module Utils =
-  type IRNode = Vertex<IRBasicBlock>
+  type IRNode = IVertex<IRBasicBlock>
 
   let foldVertexNoFake m (v: IRNode) =
     if v.VData.IsFakeBlock () then m
     else Map.add v.VData.PPoint v m
 
-  let foldEdge m (v1: IRNode) (v2: IRNode) e =
+  let foldEdge m (e: Edge<IRBasicBlock, _>) =
+    let v1, v2 = e.First, e.Second
     Map.add (v1.VData.PPoint, v2.VData.PPoint) e m
 
-  let foldEdgeNoFake m (v1: IRNode) (v2: IRNode) e =
+  let foldEdgeNoFake m (e: Edge<IRBasicBlock, _>) =
+    let v1, v2 = e.First, e.Second
     if v1.VData.IsFakeBlock () || v2.VData.IsFakeBlock () then m
     else Map.add (v1.VData.PPoint, v2.VData.PPoint) e m
 
@@ -283,14 +285,15 @@ type CFGTest1 () =
   [<TestMethod>]
   member __.``CFG Vertex Test: _start`` () =
     let cfg, _ = BinEssence.getFunctionCFG ess 0UL |> Result.get
-    Assert.AreEqual (9, DiGraph.GetSize cfg)
+    Assert.AreEqual (9, cfg.Size)
     let vMap = cfg.FoldVertex Utils.foldVertexNoFake Map.empty
     Assert.AreEqual (6, vMap.Count)
     let leaders =
       [| ProgramPoint (0x00UL, 0); ProgramPoint (0x19UL, 0);
          ProgramPoint (0x3FUL, 0); ProgramPoint (0x48UL, 0);
          ProgramPoint (0x52UL, 0); ProgramPoint (0x55UL, 0); |]
-    let actual = leaders |> Array.map (fun l -> (Map.find l vMap).VData.Range)
+    let actual =
+      leaders |> Array.map (fun l -> (Map.find l vMap).VData.Range)
     let expected =
       [| AddrRange (0x00UL, 0x18UL); AddrRange (0x19UL, 0x3EUL);
          AddrRange (0x3FUL, 0x47UL); AddrRange (0x48UL, 0x51UL);
@@ -318,12 +321,12 @@ type CFGTest1 () =
       ProgramPoint (0x52UL, 0), ProgramPoint (0x55UL, 0); ]
     |> List.iter (fun x -> Assert.IsTrue <| Map.containsKey x eMap)
     let actual =
-      [| cfg.FindEdgeData (vertices[0], vertices[1])
-         cfg.FindEdgeData (vertices[1], vertices[2])
-         cfg.FindEdgeData (vertices[1], vertices[3])
-         cfg.FindEdgeData (vertices[2], vertices[5])
-         cfg.FindEdgeData (vertices[3], vertices[4])
-         cfg.FindEdgeData (vertices[4], vertices[5]) |]
+      [| cfg.FindEdge(vertices[0], vertices[1]).Label.Value
+         cfg.FindEdge(vertices[1], vertices[2]).Label.Value
+         cfg.FindEdge(vertices[1], vertices[3]).Label.Value
+         cfg.FindEdge(vertices[2], vertices[5]).Label.Value
+         cfg.FindEdge(vertices[3], vertices[4]).Label.Value
+         cfg.FindEdge(vertices[4], vertices[5]).Label.Value |]
     let expected =
       [| CallFallThroughEdge; InterCJmpFalseEdge; InterCJmpTrueEdge;
          InterJmpEdge; CallFallThroughEdge; FallThroughEdge; |]
@@ -332,10 +335,11 @@ type CFGTest1 () =
   [<TestMethod>]
   member __.``CFG Vertex Test: foo`` () =
     let cfg, _ = BinEssence.getFunctionCFG ess 0x62UL |> Result.get
-    Assert.AreEqual (1, DiGraph.GetSize cfg)
+    Assert.AreEqual (1, cfg.Size)
     let vMap = cfg.FoldVertex Utils.foldVertexNoFake Map.empty
     let leaders = [| ProgramPoint (0x62UL, 0) |]
-    let actual = leaders |> Array.map (fun l -> (Map.find l vMap).VData.Range)
+    let actual =
+      leaders |> Array.map (fun l -> (Map.find l vMap).VData.Range)
     let expected = [| AddrRange (0x62UL, 0x70UL) |]
     CollectionAssert.AreEqual (expected, actual)
 
@@ -348,10 +352,11 @@ type CFGTest1 () =
   [<TestMethod>]
   member __.``CFG Vertex Test: bar`` () =
     let cfg, _ = BinEssence.getFunctionCFG ess 0x71UL |> Result.get
-    Assert.AreEqual (1, DiGraph.GetSize cfg)
+    Assert.AreEqual (1, cfg.Size)
     let vMap = cfg.FoldVertex Utils.foldVertexNoFake Map.empty
     let leaders = [| ProgramPoint (0x71UL, 0) |]
-    let actual = leaders |> Array.map (fun l -> (Map.find l vMap).VData.Range)
+    let actual =
+      leaders |> Array.map (fun l -> (Map.find l vMap).VData.Range)
     let expected = [| AddrRange (0x71UL, 0x80UL) |]
     CollectionAssert.AreEqual (expected, actual)
 
@@ -365,7 +370,7 @@ type CFGTest1 () =
   member __.``CFG SSAGraph Vertex Test: _start`` () =
     let cfg, root = BinEssence.getFunctionCFG ess 0UL |> Result.get
     let struct (ssacfg, _) = SSACFG.ofIRCFG hdl cfg root
-    Assert.AreEqual (9, DiGraph.GetSize ssacfg)
+    Assert.AreEqual (9, ssacfg.Size)
 
 [<TestClass>]
 type CFGTest2 () =
@@ -560,7 +565,7 @@ type CFGTest2 () =
   [<TestMethod>]
   member __.``CFG Vertex Test: _start`` () =
     let cfg, _ = BinEssence.getFunctionCFG ess 0UL |> Result.get
-    Assert.AreEqual (7, DiGraph.GetSize cfg)
+    Assert.AreEqual (7, cfg.Size)
     let vMap = cfg.FoldVertex Utils.foldVertexNoFake Map.empty
     let leaders =
       [| ProgramPoint (0x00UL, 0); ProgramPoint (0x0CUL, 0);
@@ -601,12 +606,12 @@ type CFGTest2 () =
       (ProgramPoint (0x1CUL, 8), ProgramPoint (0x1EUL, 0)); ]
     |> List.iter (fun x -> Assert.IsTrue <| Map.containsKey x eMap)
     let actual =
-      [| cfg.FindEdgeData (vertices[0], vertices[1])
-         cfg.FindEdgeData (vertices[1], vertices[2])
-         cfg.FindEdgeData (vertices[2], vertices[3])
-         cfg.FindEdgeData (vertices[2], vertices[4])
-         cfg.FindEdgeData (vertices[3], vertices[2])
-         cfg.FindEdgeData (vertices[4], vertices[5]) |]
+      [| cfg.FindEdge(vertices[0], vertices[1]).Label.Value
+         cfg.FindEdge(vertices[1], vertices[2]).Label.Value
+         cfg.FindEdge(vertices[2], vertices[3]).Label.Value
+         cfg.FindEdge(vertices[2], vertices[4]).Label.Value
+         cfg.FindEdge(vertices[3], vertices[2]).Label.Value
+         cfg.FindEdge(vertices[4], vertices[5]).Label.Value |]
     let expected =
       [| CallFallThroughEdge; FallThroughEdge; IntraCJmpFalseEdge;
          IntraCJmpTrueEdge; InterJmpEdge; InterJmpEdge |]
@@ -617,7 +622,7 @@ type CFGTest2 () =
   member __.``DisasmLens Test: _start`` () =
     let cfg, root = BinEssence.getFunctionCFG ess 0UL |> Result.get
     let cfg, _ = DisasmLens.filter ess.CodeManager cfg root
-    Assert.AreEqual (1, DiGraph.GetSize cfg)
+    Assert.AreEqual (1, cfg.Size)
     let vMap = cfg.FoldVertex (fun m v ->
       Map.add v.VData.PPoint.Address v m) Map.empty
     let leaders = [| 0x00UL |]
@@ -626,7 +631,8 @@ type CFGTest2 () =
     Array.zip vertices disasmLens
     |> Array.iter (fun (v, len) ->
       Assert.AreEqual (len, v.VData.Disassemblies.Length))
-    let eMap = cfg.FoldEdge (fun m v1 v2 e ->
+    let eMap = cfg.FoldEdge (fun m e ->
+      let v1, v2 = e.First, e.Second
       let key = v1.VData.PPoint.Address, v2.VData.PPoint.Address
       Map.add key e m) Map.empty
     Assert.AreEqual (0, eMap.Count)
@@ -635,4 +641,4 @@ type CFGTest2 () =
   member __.``SSAGraph Vertex Test: _start`` () =
     let cfg, root = BinEssence.getFunctionCFG ess 0UL |> Result.get
     let struct (ssacfg, _) = SSACFG.ofIRCFG hdl cfg root
-    Assert.AreEqual (7, DiGraph.GetSize ssacfg)
+    Assert.AreEqual (7, ssacfg.Size)

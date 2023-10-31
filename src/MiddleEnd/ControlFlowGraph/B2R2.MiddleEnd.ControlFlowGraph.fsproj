@@ -11,7 +11,6 @@
     <Compile Include="CFGEdgeKind.fs" />
     <Compile Include="VisualBlock.fs" />
     <Compile Include="BasicBlock.fs" />
-    <Compile Include="ControlFlowGraph.fs" />
     <Compile Include="CFGExport.fs" />
     <Compile Include="InlinedAssembly.fs" />
     <Compile Include="InstructionInfo.fs" />

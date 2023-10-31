@@ -22,11 +22,38 @@
   SOFTWARE.
 *)
 
-namespace B2R2.MiddleEnd.BinGraph.Tests
+namespace B2R2.MiddleEnd.BinGraph
 
-open B2R2.MiddleEnd.BinGraph
+/// Missing vertex.
+exception VertexNotFoundException
 
-type V (v, range) =
-  inherit RangedVertexData (range)
-  member __.Val : int = v
-  override __.ToString () = v.ToString ()
+/// Trying to access dummy data
+exception DummyDataAccessException
+
+/// A unique ID for a vertex.
+type VertexID = int
+
+/// A vertex of a graph.
+type IVertex<'V when 'V: equality> =
+  inherit System.IComparable
+
+  /// Unique ID of the vertex.
+  abstract ID: VertexID
+
+  /// Data attached to the vertex. This can raise `DummyDataAccessException`
+  /// when the vertex has no data.
+  abstract VData: 'V
+
+  /// Check if the vertex has data. When this is true, `VData` should not raise
+  /// an exception.
+  abstract HasData: bool
+
+/// This is an internal data type used by a vertex implementation in order to
+/// represent nullable data.
+[<AllowNullLiteral>]
+type internal VertexData<'V when 'V: equality> (v) =
+  member __.Value: 'V = v
+
+  interface System.IEquatable<VertexData<'V>> with
+    member __.Equals (other: VertexData<'V>) =
+      __.Value = other.Value

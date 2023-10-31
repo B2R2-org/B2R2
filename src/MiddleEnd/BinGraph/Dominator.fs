@@ -27,11 +27,11 @@ module B2R2.MiddleEnd.BinGraph.Dominator
 open B2R2.Utils
 open System.Collections.Generic
 
-type DomInfo<'D when 'D :> VertexData> = {
+type DomInfo<'V when 'V: equality> = {
   /// Vertex ID -> DFNum
   DFNumMap: Dictionary<VertexID, int>
   /// DFNum -> Vertex
-  Vertex: Vertex<'D> []
+  Vertex: IVertex<'V> []
   /// DFNum -> DFNum in the ancestor chain s.t. DFNum of its Semi is minimal.
   Label: int []
   /// DFNum -> DFNum of the parent node (zero if not exists).
@@ -54,18 +54,18 @@ type DomInfo<'D when 'D :> VertexData> = {
 
 /// Storing DomInfo of a graph. We use this to repeatedly compute doms/pdoms of
 /// the same graph.
-type DominatorContext<'D, 'E when 'D :> VertexData and 'D : equality> = {
-  ForwardGraph: DiGraph<'D, 'E>
-  ForwardRoot: Vertex<'D>
-  ForwardDomInfo: DomInfo<'D>
-  BackwardGraph: DiGraph<'D, 'E>
-  BackwardRoot: Vertex<'D>
-  BackwardDomInfo: DomInfo<'D>
+type DominatorContext<'V, 'E when 'V: equality and 'E: equality> = {
+  ForwardGraph: IGraph<'V, 'E>
+  ForwardRoot: IVertex<'V>
+  ForwardDomInfo: DomInfo<'V>
+  BackwardGraph: IGraph<'V, 'E>
+  BackwardRoot: IVertex<'V>
+  BackwardDomInfo: DomInfo<'V>
 }
 
-let initDomInfo g =
+let private initDomInfo (g: IGraph<_, _>) =
   (* To reserve a room for entry (dummy) node. *)
-  let len = DiGraph.GetSize g + 1
+  let len = g.Size + 1
   { DFNumMap = Dictionary<VertexID, int> ()
     Vertex = Array.zeroCreate len
     Label = Array.create len 0
@@ -78,24 +78,24 @@ let initDomInfo g =
     IDom = Array.create len 0
     MaxLength = len }
 
-let inline dfnum (info: DomInfo<'D>) (v: Vertex<_>) =
-  info.DFNumMap[v.GetID ()]
+let inline private dfnum (info: DomInfo<'V>) (v: IVertex<_>) =
+  info.DFNumMap[v.ID]
 
-let rec assignDFNum g (info: DomInfo<'D>) n = function
-  | (p, v : Vertex<_>) :: stack
-      when not <| info.DFNumMap.ContainsKey (v.GetID ()) ->
-    info.DFNumMap.Add (v.GetID (), n)
+let rec private assignDFNum (g: IGraph<_, _>) (info: DomInfo<'V>) n = function
+  | (p, v : IVertex<_>) :: stack
+      when not <| info.DFNumMap.ContainsKey v.ID ->
+    info.DFNumMap.Add (v.ID, n)
     info.Semi[n] <- n
     info.Vertex[n] <- v
     info.Label[n] <- n
     info.Parent[n] <- p
-    DiGraph.GetSuccs (g, v)
-    |> List.fold (fun acc s -> (n, s) :: acc) stack
+    g.GetSuccs v
+    |> Seq.fold (fun acc s -> (n, s) :: acc) stack
     |> assignDFNum g info (n+1)
   | _ :: stack -> assignDFNum g info n stack
   | [] -> n - 1
 
-let rec compress info v =
+let rec private compress info v =
   let a = info.Ancestor[v]
   if info.Ancestor[a] <> 0 then
     compress info a
@@ -104,7 +104,7 @@ let rec compress info v =
     else ()
     info.Ancestor[v] <- info.Ancestor[a]
 
-let eval info v =
+let private eval info v =
   if info.Ancestor[v] = 0 then info.Label[v]
   else
     compress info v
@@ -113,14 +113,14 @@ let eval info v =
     else info.Label[info.Ancestor[v]]
 
 /// Compute semidominator of v.
-let rec computeSemiDom info v = function
+let rec private computeSemiDom info v = function
   | pred :: preds ->
     let u = eval info pred
     if info.Semi[u] < info.Semi[v] then info.Semi[v] <- info.Semi[u]
     computeSemiDom info v preds
   | [] -> ()
 
-let link info v w =
+let private link info v w =
   let mutable s = w
   while info.Semi[info.Label[w]] < info.Semi[info.Label[info.Child[s]]] do
     if info.Size[s] + info.Size[info.Child[info.Child[s]]]
@@ -142,25 +142,32 @@ let link info v w =
     s <- info.Child[s]
   done
 
-let computeDom info p =
+let private computeDom info p =
   Set.iter (fun v ->
     let u = eval info v
     if info.Semi[u] < info.Semi[v] then info.IDom[v] <- u
     else info.IDom[v] <- p) info.Bucket[p]
   info.Bucket[p] <- Set.empty
 
-let rec computeDomOrDelay info parent =
+let rec private computeDomOrDelay info parent =
   if info.Bucket[parent].IsEmpty then ()
   else computeDom info parent
 
-let initDominator g root =
+let private connectDummy (g: IGraph<_, _>) (root: IVertex<_>) =
+  if not root.HasData then root, g
+  else
+    let dummyEntry, g = g.AddVertex ()
+    let g = g.AddEdge (dummyEntry, root)
+    dummyEntry, g
+
+let private initDominator g root =
   let info = initDomInfo g
-  let dummyEntry, g = DummyEntry.Connect g root
+  let dummyEntry, g = connectDummy g root
   let n = assignDFNum g info 0 [(0, dummyEntry)]
   for i = n downto 1 do
     let v = info.Vertex[i]
     let p = info.Parent[i]
-    DiGraph.GetPreds (g, v) |> List.map (dfnum info) |> computeSemiDom info i
+    g.GetPreds v |> Seq.toList |> List.map (dfnum info) |> computeSemiDom info i
     info.Bucket[info.Semi[i]] <- Set.add i info.Bucket[info.Semi[i]]
     link info p i (* Link the parent (p) to the forest. *)
     computeDomOrDelay info p
@@ -170,66 +177,70 @@ let initDominator g root =
       info.IDom[i] <- info.IDom[info.IDom[i]]
     else ()
   done
-  DiGraph.RemoveVertex (g, dummyEntry) |> ignore
+  g.RemoveVertex dummyEntry |> ignore
   info
 
-let updateReachMap g exits reachMap =
+let private updateReachMap (g: IGraph<_, _>) exits reachMap =
   let rec loop reachMap = function
     | [] -> reachMap
-    | (v: Vertex<_>) :: vs ->
-      let reachMap = Map.add (v.GetID ()) true reachMap
+    | (v: IVertex<_>) :: vs ->
+      let reachMap = Map.add v.ID true reachMap
       let vs =
-        DiGraph.GetSuccs (g, v)
-        |> List.fold (fun acc (w: Vertex<_>) ->
-          if Map.find (w.GetID ()) reachMap then acc else w :: acc) vs
+        g.GetSuccs v
+        |> Seq.fold (fun acc (w: IVertex<_>) ->
+          if Map.find w.ID reachMap then acc else w :: acc) vs
       loop reachMap vs
-  List.filter (fun (v: Vertex<_>) ->
-    not (Map.find (v.GetID ()) reachMap)) exits
+  List.filter (fun (v: IVertex<_>) ->
+    not (Map.find v.ID reachMap)) exits
   |> loop reachMap
 
-let rec calculateExits (fg: DiGraph<_, _>) bg reachMap exits =
+let rec private calculateExits (fg: IGraph<_, _>) bg reachMap exits =
   if Map.forall (fun _ b -> b) reachMap then exits
   else
     let reachMap = updateReachMap bg exits reachMap
     let exits =
-      fg.FoldVertex (fun acc (v: Vertex<_>) ->
-        let isExit = DiGraph.GetSuccs (fg, v) |> List.isEmpty
-        if isExit && not <| Map.find (v.GetID ()) reachMap then
-          DiGraph.FindVertexByID (bg, v.GetID ()) :: acc
+      fg.FoldVertex (fun acc (v: IVertex<_>) ->
+        let isExit = fg.GetSuccs v |> Seq.isEmpty
+        if isExit && not <| Map.find v.ID reachMap then
+          bg.FindVertexByID v.ID :: acc
         else acc) exits
     calculateExits fg bg reachMap exits
 
-let preparePostDomAnalysis fg root (bg: DiGraph<_, _>) =
+let private preparePostDomAnalysis (fg: IGraph<_, _>) root (bg: IGraph<_, _>) =
   let _, orderMap =
     Traversal.foldTopologically fg [root] (fun (cnt, map) v ->
       cnt + 1, Map.add v cnt map) (0, Map.empty)
   let fg, backEdges =
-    fg.FoldEdge (fun (fg, acc) (src: Vertex<_>) (dst: Vertex<_>) edge ->
-      if src.GetID () = dst.GetID () then
-        DiGraph.RemoveEdge (fg, src, dst), (src, dst, edge) :: acc
+    fg.FoldEdge (fun (fg: IGraph<_, _>, acc) edge ->
+      if edge.First.ID = edge.Second.ID then
+        fg.RemoveEdge (edge), edge :: acc
       else fg, acc) (fg, [])
   let fg, backEdges =
-    fg.FoldEdge (fun (fg, acc) (src: Vertex<_>) (dst: Vertex<_>) edge ->
-      if Map.find src orderMap > Map.find dst orderMap then
-        DiGraph.RemoveEdge (fg, src, dst), (src, dst, edge) :: acc
+    fg.FoldEdge (fun (fg: IGraph<_, _>, acc) edge ->
+      if Map.find edge.First orderMap > Map.find edge.Second orderMap then
+        fg.RemoveEdge edge, edge :: acc
       else fg, acc) (fg, backEdges)
   let reachMap =
-    bg.FoldVertex (fun acc (v: Vertex<_>) ->
-      Map.add (v.GetID ()) false acc) Map.empty
+    bg.FoldVertex (fun acc (v: IVertex<_>) ->
+      Map.add v.ID false acc) Map.empty
   let exits =
-    DiGraph.GetUnreachables bg |> Seq.toList |> calculateExits fg bg reachMap
+    bg.Unreachables
+    |> Seq.toList
+    |> calculateExits fg bg reachMap
   (* Restore backedges. This is needed for imperative graphs. *)
   backEdges
-  |> List.fold (fun fg (src, dst, e) -> DiGraph.AddEdge (fg, src, dst, e)) fg
+  |> List.fold (fun (fg: IGraph<_, _>) (edge: Edge<_, _>) ->
+    fg.AddEdge (edge.First, edge.Second, edge.Label)) fg
   |> ignore
-  let dummy, bg = DiGraph.AddDummyVertex bg
+  let dummy, bg = bg.AddVertex ()
   let bg =
-    exits |> List.fold (fun bg v -> DiGraph.AddDummyEdge (bg, dummy, v)) bg
+    exits
+    |> List.fold (fun (bg: IGraph<_, _>) v -> bg.AddEdge (dummy, v)) bg
   bg, dummy
 
-let initDominatorContext g root =
+let initDominatorContext (g: IGraph<'V, _>) (root: IVertex<'V>) =
   let forward = initDominator g root
-  let g', root' = DiGraph.Reverse g |> preparePostDomAnalysis g root
+  let g', root' = g.Reverse () |> preparePostDomAnalysis g root
   let backward = initDominator g' root'
   { ForwardGraph = g
     ForwardRoot = root
@@ -238,8 +249,8 @@ let initDominatorContext g root =
     BackwardRoot = root'
     BackwardDomInfo = backward }
 
-let checkVertexInGraph g (v: Vertex<_>) =
-  let v' = DiGraph.FindVertexByData (g, v.VData)
+let private checkVertexInGraph (g: IGraph<_, _>) (v: IVertex<_>) =
+  let v' = g.FindVertexByData v.VData
   if v === v' then ()
   else raise VertexNotFoundException
 
@@ -252,12 +263,12 @@ let idom ctxt v =
   checkVertexInGraph g v
   idomAux ctxt.ForwardDomInfo v
 
-let ipdom ctxt (v: Vertex<_>) =
+let ipdom ctxt (v: IVertex<_>) =
   let g' = ctxt.BackwardGraph
-  let v = DiGraph.FindVertexByData (g', v.VData)
+  let v = g'.FindVertexByData v.VData
   idomAux ctxt.BackwardDomInfo v
 
-let rec domsAux acc v info =
+let rec private domsAux acc v info =
   let id = info.IDom[dfnum info v]
   if id > 0 then domsAux (info.Vertex[id] :: acc) info.Vertex[id] info
   else List.rev acc
@@ -270,34 +281,34 @@ let doms ctxt v =
 let pdoms ctxt v =
   domsAux [] v ctxt.BackwardDomInfo
 
-let computeDomTree (g: DiGraph<_, _>) info =
+let private computeDomTree (g: IGraph<_, _>) info =
   let domTree = Array.create info.MaxLength []
   g.IterVertex (fun v ->
     let idom = info.IDom[dfnum info v]
     domTree[idom] <- v :: domTree[idom])
   domTree
 
-let rec computeFrontierLocal s ctxt (parent: Vertex<_>) = function
+let rec private computeFrontierLocal s ctxt (parent: IVertex<_>) = function
   | succ :: rest ->
     let succID = dfnum ctxt succ
     let d = ctxt.Vertex[ctxt.IDom[succID]]
-    let s = if d.GetID () = parent.GetID () then s else Set.add succID s
+    let s = if d.ID = parent.ID then s else Set.add succID s
     computeFrontierLocal s ctxt parent rest
   | [] -> s
 
-let rec computeDF domTree (frontiers: Vertex<_> list []) g ctxt r =
+let rec private computeDF domTree (frontiers: IVertex<_> list []) g ctxt r =
   let mutable s = Set.empty
-  for succ in DiGraph.GetSuccs (g, r) do
+  for succ in (g: IGraph<_, _>).GetSuccs r do
     let succID = dfnum ctxt succ
     let domID = ctxt.IDom[succID]
     let d = ctxt.Vertex[ctxt.IDom[succID]]
-    if domID <> 0 && d.GetID () <> r.GetID () then s <- Set.add succID s
+    if domID <> 0 && d.ID <> r.ID then s <- Set.add succID s
   done
-  for child in (domTree: Vertex<_> list [])[dfnum ctxt r] do
+  for child in (domTree: IVertex<_> list [])[dfnum ctxt r] do
     computeDF domTree frontiers g ctxt child
     for node in frontiers[dfnum ctxt child] do
       let doms = domsAux [] node ctxt
-      let dominate = doms |> List.exists (fun d -> d.GetID () = r.GetID ())
+      let dominate = doms |> List.exists (fun d -> d.ID = r.ID)
       if not dominate then s <- Set.add (dfnum ctxt node) s
     done
   done
@@ -333,5 +344,3 @@ let dominatorTree ctxt =
     |> Array.fold (fun tree (dfNum, vs) ->
         Map.add info.Vertex[dfNum + 1] vs tree) Map.empty
   tree, root
-
-// vim: set tw=80 sts=2 sw=2:

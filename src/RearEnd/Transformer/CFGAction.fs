@@ -25,7 +25,6 @@
 namespace B2R2.RearEnd.Transformer
 
 open B2R2
-open B2R2.FrontEnd
 open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.BinEssence
 open B2R2.MiddleEnd.ControlFlowGraph
@@ -33,7 +32,7 @@ open B2R2.MiddleEnd.ControlFlowAnalysis
 
 /// The `cfg` action.
 type CFGAction () =
-  let vToStr (v: Vertex<IRBasicBlock>) =
+  let vToStr (v: IVertex<IRBasicBlock>) =
     let id = v.VData.FirstInsInfo.BBLAddr.ToString "x"
     let instrs =
       v.VData.Instructions

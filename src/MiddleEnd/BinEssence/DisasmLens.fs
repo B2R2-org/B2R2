@@ -40,13 +40,13 @@ module DisasmLens =
     Map.findKey (fun _ (range: AddrRange, _) ->
       range.Min <= addr && addr <= range.Max) blockInfos
 
-  let canBeMerged ircfg v =
-    DiGraph.GetSuccs (ircfg, v)
-    |> List.exists (fun w ->
-      DiGraph.FindEdgeData (ircfg, v, w) = CallFallThroughEdge &&
-        DiGraph.GetPreds (ircfg, w) |> List.length = 2)
+  let canBeMerged (ircfg: IGraph<_, _>) v =
+    ircfg.GetSuccs v
+    |> Seq.exists (fun w ->
+      let edge = ircfg.FindEdge (v, w)
+      edge.Label.Value = CallFallThroughEdge && (ircfg.GetPreds w).Count = 2)
 
-  let getMergeMap blockInfos (ircfg: DiGraph<IRBasicBlock, _>) =
+  let getMergeMap blockInfos (ircfg: IGraph<IRBasicBlock, _>) =
     ircfg.FoldVertex (fun mergeMap v ->
       if v.VData.IsFakeBlock () then mergeMap
       elif canBeMerged ircfg v then
@@ -55,21 +55,23 @@ module DisasmLens =
         Map.add bblAddr (range.Max + 1UL) mergeMap
       else mergeMap) Map.empty
 
-  let getEdgeInfos blockInfos (ircfg: DiGraph<IRBasicBlock, _>) =
-    ircfg.FoldEdge (fun edges src dst e ->
-      if src.VData.IsFakeBlock () || dst.VData.IsFakeBlock () then edges
+  let getEdgeInfos blockInfos (ircfg: IGraph<IRBasicBlock, _>) =
+    ircfg.FoldEdge (fun edges e ->
+      let src, dst = e.First.VData, e.Second.VData
+      let edgeLabel = e.Label.Value
+      if src.IsFakeBlock () || dst.IsFakeBlock () then edges
       else
-        let srcBBLAddr = findBlockStart blockInfos src.VData.PPoint.Address
-        let dstBBLAddr = findBlockStart blockInfos dst.VData.PPoint.Address
-        if e = IntraCJmpFalseEdge
-          || e = IntraCJmpTrueEdge
-          || e = IntraJmpEdge
+        let srcBBLAddr = findBlockStart blockInfos src.PPoint.Address
+        let dstBBLAddr = findBlockStart blockInfos dst.PPoint.Address
+        if edgeLabel = IntraCJmpFalseEdge
+          || edgeLabel = IntraCJmpTrueEdge
+          || edgeLabel = IntraJmpEdge
         then
           edges
         elif srcBBLAddr <> dstBBLAddr then
-          Map.add (srcBBLAddr, dstBBLAddr) e edges
-        elif dstBBLAddr = dst.VData.PPoint.Address then
-          Map.add (srcBBLAddr, dstBBLAddr) e edges
+          Map.add (srcBBLAddr, dstBBLAddr) edgeLabel edges
+        elif dstBBLAddr = dst.PPoint.Address then
+          Map.add (srcBBLAddr, dstBBLAddr) edgeLabel edges
         else edges) Map.empty
 
   let rec resolveMerge codeMgr blockInfo vInfo edges mergeMap addr next addrs =
@@ -118,16 +120,16 @@ module DisasmLens =
     let addrs = Map.toList blockInfos |> List.map fst
     mergeInfosLoop codeMgr blockInfos Map.empty edges mergeMap addrs
 
-  let addVertex (g, vMap: DisasmVMap) addr instrs =
+  let addVertex (g: IGraph<_, _>, vMap: DisasmVMap) addr instrs =
     let blk = DisasmBasicBlock (instrs, ProgramPoint (addr, 0))
-    let v, g = DiGraph.AddVertex (g, blk)
+    let v, g = g.AddVertex blk
     vMap.Add (addr, v)
     g, vMap
 
-  let addEdge (vMap: DisasmVMap) g (src, dst) e =
+  let addEdge (vMap: DisasmVMap) (g: IGraph<_, _>) (src, dst) e =
     let src = vMap[src]
     let dst = vMap[dst]
-    DiGraph.AddEdge (g, src, dst, e)
+    g.AddEdge (src, dst, EdgeLabel e)
 
   let private buildCFG codeMgr blockInfos ircfg vMap dcfg =
     let mergeMap = getMergeMap blockInfos ircfg
@@ -137,7 +139,7 @@ module DisasmLens =
     let dcfg = Map.fold (addEdge vMap) dcfg edges
     dcfg
 
-  let filter codeMgr (g: DiGraph<_, _>) (root: IRVertex) =
+  let filter codeMgr (g: IGraph<_, _>) (root: IRVertex) =
     let blockInfos =
       (codeMgr: CodeManager).FoldBBLs (fun acc (KeyValue (addr, bblInfo)) ->
         if bblInfo.FunctionEntry = root.VData.PPoint.Address then

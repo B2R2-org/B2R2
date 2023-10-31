@@ -29,54 +29,51 @@ open B2R2.MiddleEnd.ControlFlowGraph
 open System.Collections.Generic
 
 /// The main graph type for visualization.
-type VisGraph = ControlFlowGraph<VisBBlock, VisEdge>
+type VisGraph = IGraph<VisBBlock, VisEdge>
 
 module VisGraph =
-  let private initializer core = VisGraph (core) :> DiGraph<VisBBlock, VisEdge>
-
   let init () =
-    ImperativeCore<VisBBlock, VisEdge> (initializer, VisEdge UnknownEdge)
-    |> VisGraph
+    ImperativeDiGraph<VisBBlock, VisEdge> ()
+    :> VisGraph
 
   let ofCFG g roots =
     let newGraph = init ()
-    let visited = Dictionary<VertexID, Vertex<VisBBlock>> ()
-    let getVisBBlock (oldV: Vertex<#BasicBlock>) =
-      match visited.TryGetValue (oldV.GetID ()) with
+    let visited = Dictionary<VertexID, IVertex<VisBBlock>> ()
+    let getVisBBlock (oldV: IVertex<#BasicBlock>) =
+      match visited.TryGetValue oldV.ID with
       | false, _ ->
         let blk = VisBBlock (oldV.VData :> BasicBlock, false)
         let v, _ = newGraph.AddVertex blk
-        visited[oldV.GetID ()] <- v
+        visited[oldV.ID] <- v
         v
       | true, v -> v
     (* In case there is no edge in the graph. *)
     let roots = roots |> List.map (getVisBBlock)
-    (g: DiGraph<_, _>).IterEdge (fun src dst e ->
-      let srcV = getVisBBlock src
-      let dstV = getVisBBlock dst
-      let edge = VisEdge (e)
-      newGraph.AddEdge (srcV, dstV, edge) |> ignore)
+    (g: IGraph<_, _>).IterEdge (fun e ->
+      let srcV = getVisBBlock e.First
+      let dstV = getVisBBlock e.Second
+      let edge = VisEdge e.Label.Value
+      newGraph.AddEdge (srcV, dstV, EdgeLabel edge) |> ignore)
     newGraph, roots
 
-  let getID v = Vertex<VisBBlock>.GetID v
+  let getID (v: IVertex<_>) = v.ID
 
-  let getPreds vGraph (v: Vertex<VisBBlock>) = DiGraph.GetPreds (vGraph, v)
+  let getPreds (vGraph: IGraph<_, _>) (v: IVertex<_>) = vGraph.GetPreds v
 
-  let getSuccs vGraph (v: Vertex<VisBBlock>) = DiGraph.GetSuccs (vGraph, v)
+  let getSuccs (vGraph: IGraph<_, _>) (v: IVertex<_>) = vGraph.GetSuccs v
 
-  let getVData (v: Vertex<VisBBlock>) = v.VData
+  let getVData (v: IVertex<_>) = v.VData
 
-  let getIndex (v: Vertex<VisBBlock>) = v.VData.Index
+  let getIndex (v: IVertex<VisBBlock>) = v.VData.Index
 
-  let getLayer (v: Vertex<VisBBlock>) = v.VData.Layer
+  let getLayer (v: IVertex<VisBBlock>) = v.VData.Layer
 
-  let setLayer (v: Vertex<VisBBlock>) layer = v.VData.Layer <- layer
+  let setLayer (v: IVertex<VisBBlock>) layer = v.VData.Layer <- layer
 
-  let getWidth (v: Vertex<VisBBlock>) = v.VData.Width
+  let getWidth (v: IVertex<VisBBlock>) = v.VData.Width
 
-  let getHeight (v: Vertex<VisBBlock>) = v.VData.Height
+  let getHeight (v: IVertex<VisBBlock>) = v.VData.Height
 
-  let getXPos (v: Vertex<VisBBlock>) = v.VData.Coordinate.X
+  let getXPos (v: IVertex<VisBBlock>) = v.VData.Coordinate.X
 
-  let getYPos (v: Vertex<VisBBlock>) = v.VData.Coordinate.Y
-
+  let getYPos (v: IVertex<VisBBlock>) = v.VData.Coordinate.Y

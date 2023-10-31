@@ -24,15 +24,10 @@
 
 namespace B2R2.MiddleEnd.BinGraph
 
-/// Missing edge.
-exception EdgeNotFoundException
-
-/// Edge ID is a tuple of two node IDs (source node ID, destination node ID).
-type EdgeID = VertexID * VertexID
-
-/// An edge in a directed graph.
-type Edge<'E> = Edge of 'E
-
-type E<'E> = Edge<'E>
-
-// vim: set tw=80 sts=2 sw=2:
+/// Graph implementation type.
+[<Struct>]
+type ImplementationType =
+  /// Imperative graph.
+  | Imperative
+  /// Persistent graph.
+  | Persistent

@@ -24,51 +24,39 @@
 
 namespace B2R2.MiddleEnd.BinGraph.Tests
 
-open B2R2
 open B2R2.MiddleEnd.BinGraph
 open Microsoft.VisualStudio.TestTools.UnitTesting
 
 [<TestClass>]
 type LoopTest () =
-  let v1 = V (1, (AddrRange (1UL)))
-  let v2 = V (2, (AddrRange (2UL)))
-  let v3 = V (3, (AddrRange (3UL)))
-  let v4 = V (4, (AddrRange (4UL)))
-  let v5 = V (5, (AddrRange (5UL)))
-  let v6 = V (6, (AddrRange (6UL)))
-  let v7 = V (7, (AddrRange (7UL)))
-  let v8 = V (8, (AddrRange (8UL)))
-  let v9 = V (9, (AddrRange (9UL)))
-  let v10 = V (10, (AddrRange (10UL)))
-
   (* Graph example from Dragon Book (Fig. 9.38) *)
-  let g1 = RangedDiGraph.init -1 ImperativeGraph
-  let n1, g1 = DiGraph.AddVertex (g1, v1)   (* Node 1 *)
-  let n2, g1 = DiGraph.AddVertex (g1, v2)   (* Node 2 *)
-  let n3, g1 = DiGraph.AddVertex (g1, v3)   (* Node 3 *)
-  let n4, g1 = DiGraph.AddVertex (g1, v4)   (* Node 4 *)
-  let n5, g1 = DiGraph.AddVertex (g1, v5)   (* Node 5 *)
-  let n6, g1 = DiGraph.AddVertex (g1, v6)   (* Node 6 *)
-  let n7, g1 = DiGraph.AddVertex (g1, v7)   (* Node 7 *)
-  let n8, g1 = DiGraph.AddVertex (g1, v8)   (* Node 8 *)
-  let n9, g1 = DiGraph.AddVertex (g1, v9)   (* Node 9 *)
-  let n10, g1 = DiGraph.AddVertex (g1, v10) (* Node 10 *)
-  let g1 = DiGraph.AddEdge (g1, n1, n2, 1)
-  let g1 = DiGraph.AddEdge (g1, n1, n3, 2)
-  let g1 = DiGraph.AddEdge (g1, n2, n3, 3)
-  let g1 = DiGraph.AddEdge (g1, n3, n4, 4)
-  let g1 = DiGraph.AddEdge (g1, n4, n3, 5)
-  let g1 = DiGraph.AddEdge (g1, n4, n5, 6)
-  let g1 = DiGraph.AddEdge (g1, n4, n6, 7)
-  let g1 = DiGraph.AddEdge (g1, n5, n7, 8)
-  let g1 = DiGraph.AddEdge (g1, n6, n7, 9)
-  let g1 = DiGraph.AddEdge (g1, n7, n4, 10)
-  let g1 = DiGraph.AddEdge (g1, n7, n8, 11)
-  let g1 = DiGraph.AddEdge (g1, n8, n3, 12)
-  let g1 = DiGraph.AddEdge (g1, n8, n9, 13)
-  let g1 = DiGraph.AddEdge (g1, n8, n10, 14)
-  let g1 = DiGraph.AddEdge (g1, n9, n1, 15)
-  let g1 = DiGraph.AddEdge (g1, n10, n7, 16)
+  let g1 = ImperativeDiGraph () :> IGraph<_, _>
+  let n1, g1 = g1.AddVertex 1   (* Node 1 *)
+  let n2, g1 = g1.AddVertex 2   (* Node 2 *)
+  let n3, g1 = g1.AddVertex 3   (* Node 3 *)
+  let n4, g1 = g1.AddVertex 4   (* Node 4 *)
+  let n5, g1 = g1.AddVertex 5   (* Node 5 *)
+  let n6, g1 = g1.AddVertex 6   (* Node 6 *)
+  let n7, g1 = g1.AddVertex 7   (* Node 7 *)
+  let n8, g1 = g1.AddVertex 8   (* Node 8 *)
+  let n9, g1 = g1.AddVertex 9   (* Node 9 *)
+  let n10, g1 = g1.AddVertex 10 (* Node 10 *)
+  let g1 = g1.AddEdge (n1, n2, EdgeLabel 1)
+  let g1 = g1.AddEdge (n1, n3, EdgeLabel 2)
+  let g1 = g1.AddEdge (n2, n3, EdgeLabel 3)
+  let g1 = g1.AddEdge (n3, n4, EdgeLabel 4)
+  let g1 = g1.AddEdge (n4, n3, EdgeLabel 5)
+  let g1 = g1.AddEdge (n4, n5, EdgeLabel 6)
+  let g1 = g1.AddEdge (n4, n6, EdgeLabel 7)
+  let g1 = g1.AddEdge (n5, n7, EdgeLabel 8)
+  let g1 = g1.AddEdge (n6, n7, EdgeLabel 9)
+  let g1 = g1.AddEdge (n7, n4, EdgeLabel 10)
+  let g1 = g1.AddEdge (n7, n8, EdgeLabel 11)
+  let g1 = g1.AddEdge (n8, n3, EdgeLabel 12)
+  let g1 = g1.AddEdge (n8, n9, EdgeLabel 13)
+  let g1 = g1.AddEdge (n8, n10, EdgeLabel 14)
+  let g1 = g1.AddEdge (n9, n1, EdgeLabel 15)
+  let g1 = g1.AddEdge (n10, n7, EdgeLabel 16)
   let g1root = n1
 
   [<TestMethod>]
@@ -76,10 +64,9 @@ type LoopTest () =
     let s =
       Loop.getNaturalLoops g1 g1root
       |> Seq.toArray
-
     Assert.AreEqual (5, s.Length)
-    Assert.IsFalse  (s[0].Contains n9)
-    Assert.IsTrue   (s[1].Contains n10)
-    Assert.IsFalse  (s[2].Contains n1)
-    Assert.IsTrue   (s[3].Contains n7)
-    Assert.IsTrue   (s[4].Contains n8)
+    Assert.IsFalse (s[0].Contains n9)
+    Assert.IsTrue (s[1].Contains n10)
+    Assert.IsFalse (s[2].Contains n1)
+    Assert.IsTrue (s[3].Contains n7)
+    Assert.IsTrue (s[4].Contains n8)

@@ -89,8 +89,9 @@ type PersistentDataFlowTests () =
     let cfg, root = BinEssence.getFunctionCFG ess 0UL |> Result.get
     let rd = LowUIRReachingDefinitions (cfg)
     let ins, _outs = rd.Compute cfg root
-    let v = cfg.FindVertexBy (fun b -> b.VData.PPoint.Address = 0xEUL) (* 2nd *)
-    let result = ins[v.GetID ()] |> Set.filter (fun v ->
+    let v = cfg.FindVertexBy (fun b ->
+      b.VData.PPoint.Address = 0xEUL) (* 2nd *)
+    let result = ins[v.ID] |> Set.filter (fun v ->
       match v.VarExpr with
       | Regular _ -> true
       | _ -> false)

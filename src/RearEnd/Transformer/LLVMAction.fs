@@ -25,7 +25,6 @@
 namespace B2R2.RearEnd.Transformer
 
 open B2R2
-open B2R2.FrontEnd
 open B2R2.MiddleEnd.BinEssence
 open B2R2.MiddleEnd.ControlFlowAnalysis
 open B2R2.MiddleEnd.LLVM
@@ -37,11 +36,13 @@ type LLVMAction () =
       let builder = LLVMTranslator.createBuilder hdl fn.MinAddr
       fn.IRCFG.IterVertex (fun bbl ->
         let succs =
-          MiddleEnd.BinGraph.DiGraph.GetSuccs (fn.IRCFG, bbl)
+          fn.IRCFG.GetSuccs bbl
+          |> Seq.toList
           |> List.map (fun s -> s.VData.PPoint.Address)
+        let bblAddr = bbl.VData.PPoint.Address
         bbl.VData.IRStatements
         |> Array.concat
-        |> LLVMTranslator.translate builder bbl.VData.PPoint.Address succs
+        |> LLVMTranslator.translate builder bblAddr succs
       )
       builder.ToString ()
     | Error e -> e.ToString ()

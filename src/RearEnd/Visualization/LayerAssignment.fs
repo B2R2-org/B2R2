@@ -29,11 +29,10 @@ open B2R2.MiddleEnd.BinGraph
 let assignLayerFromPred (vGraph: VisGraph) vData =
   let v = vGraph.FindVertexByData vData
   let preds = VisGraph.getPreds vGraph v
-  match preds with
-  | [] -> VisGraph.setLayer v 0
-  | preds ->
-    let predLayers = List.map VisGraph.getLayer preds
-    VisGraph.setLayer v <| List.max predLayers + 1
+  if preds.Count = 0 then VisGraph.setLayer v 0
+  else
+    let maxLayer = (Seq.maxBy VisGraph.getLayer preds).VData.Layer
+    VisGraph.setLayer v <| maxLayer + 1
 
 let kahnAssignLayers (vGraph: VisGraph) =
   Traversal.foldTopologically vGraph [] (fun acc v -> v.VData :: acc) []
@@ -44,30 +43,33 @@ let rec addDummy (g: VisGraph) (backEdges, dummies) k src dst (e: VisEdge) cnt =
   if cnt = 0 then
     let edge = VisEdge (e.Type)
     edge.IsBackEdge <- e.IsBackEdge
-    g.AddEdge (src, dst, edge) |> ignore
+    g.AddEdge (src, dst, EdgeLabel edge) |> ignore
     let backEdges =
-      if edge.IsBackEdge then (dst, src, edge) :: backEdges else backEdges
+      if edge.IsBackEdge then (dst, src, edge) :: backEdges
+      else backEdges
     backEdges, dummies
   else
     let vNode = VisBBlock (src.VData, true)
-    let dummy, _ = g.AddVertex (vNode)
+    let dummy, _ = g.AddVertex vNode
     VisGraph.setLayer dummy <| VisGraph.getLayer src + 1
     let edge = VisEdge (e.Type)
     edge.IsBackEdge <- e.IsBackEdge
-    g.AddEdge (src, dummy, edge) |> ignore
+    g.AddEdge (src, dummy, EdgeLabel edge) |> ignore
     let backEdges =
-      if edge.IsBackEdge then (dummy, src, edge) :: backEdges else backEdges
+      if edge.IsBackEdge then (dummy, src, edge) :: backEdges
+      else backEdges
     let eData, vertices = Map.find k dummies
     let dummies = Map.add k (eData, dummy :: vertices) dummies
     addDummy g (backEdges, dummies) k dummy dst e (cnt - 1)
 
-let siftBackEdgesAndPickLongEdges (backEdges, longEdges) src dst edge =
+let siftBackEdgesAndPickLongEdges (backEdges, longEdges) edge =
+  let src, dst = (edge: Edge<_, VisEdge>).First, edge.Second
   let delta = VisGraph.getLayer dst - VisGraph.getLayer src
   if delta > 1 then
     (* Backedge in forward direction = Extra edge added in the cycle removal. *)
     let backEdges =
-      if (edge: VisEdge).IsBackEdge then
-        List.filter (fun (_, _, e) -> e <> edge) backEdges
+      if edge.Label.Value.IsBackEdge then
+        List.filter (fun (_, _, e) -> e <> edge.Label.Value) backEdges
       else backEdges
     let longEdges = (src, dst, edge, delta) :: longEdges
     backEdges, longEdges
@@ -75,12 +77,14 @@ let siftBackEdgesAndPickLongEdges (backEdges, longEdges) src dst edge =
 
 let addDummyNodes vGraph (backEdges, dummies) (src, dst, edge, delta) =
   (vGraph: VisGraph).RemoveEdge (src, dst) |> ignore
-  let k = if (edge: VisEdge).IsBackEdge then dst, src else src, dst
-  let dummies = Map.add k (edge, []) dummies
+  let k =
+    if (edge: Edge<_, VisEdge>).Label.Value.IsBackEdge then dst, src
+    else src, dst
+  let dummies = Map.add k (edge.Label.Value, []) dummies
   let backEdges, dummies =
-    addDummy vGraph (backEdges, dummies) k src dst edge (delta - 1)
+    addDummy vGraph (backEdges, dummies) k src dst edge.Label.Value (delta - 1)
   let dummies =
-    if not edge.IsBackEdge then
+    if not edge.Label.Value.IsBackEdge then
       let eData, vertices = Map.find k dummies
       Map.add k (eData, List.rev vertices) dummies
     else dummies

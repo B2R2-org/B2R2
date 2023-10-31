@@ -26,23 +26,29 @@ module B2R2.MiddleEnd.BinGraph.Traversal
 
 open System.Collections.Generic
 
-let inline private prependSuccessors g lst v =
-  DiGraph.GetSuccs (g, v) |> List.fold (fun lst s -> s :: lst) lst
+let rec private prependReverseTo acc (enumerator: IEnumerator<_>) =
+  if enumerator.MoveNext () then
+    enumerator.Current :: prependReverseTo acc enumerator
+  else acc
+
+let private prependSuccessors (g: IGraph<_, _>) lst v =
+  let succs = g.GetSuccs v
+  prependReverseTo lst <| succs.GetEnumerator ()
 
 let rec private foldPreorderLoop visited g fn acc = function
   | [] -> acc
-  | v: Vertex<_> :: tovisit when v.GetID () |> (visited: HashSet<_>).Contains ->
+  | v: IVertex<_> :: tovisit when (visited: HashSet<_>).Contains v.ID ->
     foldPreorderLoop visited g fn acc tovisit
   | v :: tovisit ->
-    v.GetID () |> visited.Add |> ignore
+    visited.Add v.ID |> ignore
     foldPreorderLoop visited g fn (fn acc v) (prependSuccessors g tovisit v)
 
 let rec private foldPostorderLoop visited g fn acc vstack = function
   | [] -> acc
-  | v: Vertex<_> :: tovisit when v.GetID () |> (visited: HashSet<_>).Contains ->
+  | v: IVertex<_> :: tovisit when (visited: HashSet<_>).Contains v.ID ->
     foldPostorderLoop visited g fn acc vstack tovisit
   | v :: tovisit ->
-    v.GetID () |> visited.Add |> ignore
+    visited.Add v.ID |> ignore
     let struct (acc, vstack) = consume visited g fn acc (v :: vstack)
     foldPostorderLoop visited g fn acc vstack (prependSuccessors g tovisit v)
 
@@ -50,8 +56,8 @@ and consume visited g fn acc = function
   | [] -> struct (acc, [])
   | v :: rest ->
     let allSuccsVisited =
-      DiGraph.GetSuccs (g, v)
-      |> List.forall (fun s -> s.GetID () |> visited.Contains)
+      g.GetSuccs v
+      |> Seq.forall (fun s -> visited.Contains s.ID)
     if allSuccsVisited then consume visited g fn (fn acc v) rest
     else struct (acc, v :: rest)
 
@@ -66,7 +72,7 @@ let foldPreorder g roots fn acc =
 let foldPreorderExcept g roots excepts fn acc =
   let visited =
     excepts
-    |> List.map (fun v -> Vertex<_>.GetID v)
+    |> List.map (fun (v: IVertex<_>) -> v.ID)
     |> HashSet
   foldPreorderLoop visited g fn acc roots
 
@@ -110,17 +116,17 @@ let iterRevPostorder g roots fn =
 /// We then simply fold the accumulated list. The second parameter (root) is for
 /// providing root vertices in case there is no unreachable node, e.g., when
 /// there is a loop to the root node.
-let foldTopologically g roots fn acc =
+let foldTopologically (g: IGraph<_, _>) roots fn acc =
   let visited = HashSet<int> ()
   let roots =
-    DiGraph.GetUnreachables g
+    g.Unreachables
     |> Set.ofSeq
     |> List.foldBack Set.add roots
     |> Set.toList
     |> foldPostorderLoop visited g (fun acc v -> v :: acc) [] []
   (* Consider unreachable loop components. For those vertices, the order is
      random *)
-  DiGraph.GetVertices g
-  |> Set.toList
+  g.Vertices
+  |> Array.toList
   |> foldPostorderLoop visited g (fun acc v -> v :: acc) roots []
   |> List.fold fn acc

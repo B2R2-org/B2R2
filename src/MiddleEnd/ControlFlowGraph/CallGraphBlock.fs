@@ -26,7 +26,6 @@ namespace B2R2.MiddleEnd.ControlFlowGraph
 
 open B2R2
 open B2R2.FrontEnd.BinLifter
-open B2R2.MiddleEnd.BinGraph
 
 /// Basic block type for a call graph (CallCFG).
 type CallGraphBlock (addr, id, name, isFake, isExternal) =
@@ -49,5 +48,3 @@ type CallGraphBlock (addr, id, name, isFake, isExternal) =
             AsmWordValue = ": " }
           { AsmWordKind = AsmWordKind.Value
             AsmWordValue = id } |] |]
-
-type CGVertex = Vertex<CallGraphBlock>

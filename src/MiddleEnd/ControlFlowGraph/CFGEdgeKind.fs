@@ -24,7 +24,6 @@
 
 namespace B2R2.MiddleEnd.ControlFlowGraph
 
-/// TODO: Make DU types for Call, Jmp, FallThrough edges
 /// We distinguish edges of a CFG by classifying them into several kinds.
 type CFGEdgeKind =
   /// An edge of a direct jump, e.g., JMP +0x42.

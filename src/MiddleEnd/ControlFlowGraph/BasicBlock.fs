@@ -25,13 +25,10 @@
 namespace B2R2.MiddleEnd.ControlFlowGraph
 
 open B2R2
-open B2R2.MiddleEnd.BinGraph
 
 /// The base type for basic block.
 [<AbstractClass>]
 type BasicBlock (pp: ProgramPoint) =
-  inherit VertexData (VertexData.genID ())
-
   /// The start position (ProgramPoint) of the basic block.
   member __.PPoint with get() = pp
 

@@ -137,7 +137,7 @@ module CFGEvents =
     { evts with BasicEvents = basicEvents }
 
   let private hasRegularVertexContainingAddr cfg addr =
-    (cfg: DiGraph<_, _>).FoldVertex (fun acc (v: Vertex<IRBasicBlock>) ->
+    (cfg: IGraph<_, _>).FoldVertex (fun acc (v: IRVertex) ->
       if v.VData.IsFakeBlock () then acc
       else
         let range = v.VData.Range

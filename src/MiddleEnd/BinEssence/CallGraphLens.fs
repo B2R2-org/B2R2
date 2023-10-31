@@ -36,15 +36,14 @@ type CallVMap = Dictionary<Addr, CGVertex>
 /// A graph lens for obtaining CallGraph.
 module CallGraphLens =
 
-  let private getVertex ess vMap entry g =
+  let private getVertex ess vMap entry (g: IGraph<_, _>) =
     match (vMap: CallVMap).TryGetValue entry with
     | false, _ ->
       let func = ess.CodeManager.FunctionMaintainer.Find entry
       let id = func.FunctionID
       let name = func.FunctionName
       let ext = func.FunctionKind <> FunctionKind.Regular
-      let v, g =
-        DiGraph.AddVertex (g, CallGraphBlock (entry, id, name, false, ext))
+      let v, g = g.AddVertex (CallGraphBlock (entry, id, name, false, ext))
       vMap.Add (entry, v)
       v, g
     | true, v -> v, g
@@ -52,7 +51,7 @@ module CallGraphLens =
   let private addEdge ess vMap entry target callCFG =
     let src, callCFG = getVertex ess vMap entry callCFG
     let dst, callCFG = getVertex ess vMap target callCFG
-    DiGraph.AddEdge (callCFG, src, dst, CallEdge)
+    callCFG.AddEdge (src, dst, EdgeLabel CallEdge)
 
   let private buildCG callCFG vMap ess =
     ess.CodeManager.FunctionMaintainer.RegularFunctions
@@ -63,7 +62,7 @@ module CallGraphLens =
         | RegularCallee target ->
           addEdge ess vMap func.EntryPoint target callCFG
         | IndirectCallees targets ->
-          targets
+            targets
           |> Set.fold (fun callCFG target ->
             addEdge ess vMap func.EntryPoint target callCFG) callCFG
         | UnresolvedIndirectCallees (_) | NullCallee -> callCFG
@@ -71,5 +70,5 @@ module CallGraphLens =
 
   let build ess =
     let vMap = CallVMap ()
-    let callCFG = buildCG (CallCFG.init PersistentGraph) vMap ess
-    callCFG, DiGraph.GetUnreachables callCFG |> Seq.toList
+    let callCFG = buildCG (CallCFG.init Persistent) vMap ess
+    callCFG, callCFG.Unreachables |> Array.toList

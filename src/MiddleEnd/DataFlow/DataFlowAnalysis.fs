@@ -48,29 +48,30 @@ type DataFlowDirection =
 [<AbstractClass>]
 type DataFlowHelper () =
   /// Obtain the neighboring vertices.
-  abstract Neighbor: DiGraph<'V, 'E> -> Vertex<'V> -> Vertex<'V> list
+  abstract Neighbor:
+    IGraph<'V, 'E> -> IVertex<'V> -> IReadOnlyCollection<IVertex<'V>>
 
   /// Add next vertices to the worklist queue.
   abstract AddToWorkList:
-    DiGraph<'V, 'E> -> Vertex<'V> -> Queue<Vertex<'V>> -> unit
+    IGraph<'V, 'E> -> IVertex<'V> -> Queue<IVertex<'V>> -> unit
 
 type private ForwardDataFlowHelper () =
   inherit DataFlowHelper ()
-  override __.Neighbor g v = DiGraph.GetPreds (g, v)
-  override __.AddToWorkList g v worklist =
-    DiGraph.GetSuccs (g, v) |> List.iter worklist.Enqueue
+  override __.Neighbor (g: IGraph<_, _>) v = g.GetPreds v
+  override __.AddToWorkList (g: IGraph<_, _>) v worklist =
+    g.GetSuccs v |> Seq.iter worklist.Enqueue
 
 type BackwardDataFlowHelper () =
   inherit DataFlowHelper ()
-  override __.Neighbor g v = DiGraph.GetSuccs (g, v)
-  override __.AddToWorkList g v worklist =
-    DiGraph.GetPreds (g, v) |> List.iter worklist.Enqueue
+  override __.Neighbor (g: IGraph<_, _>) v = g.GetSuccs v
+  override __.AddToWorkList (g: IGraph<_, _>) v worklist =
+    g.GetPreds v |> Seq.iter worklist.Enqueue
 
 /// Data-flow analysis framework. 'L is a lattice, 'V is a vertex data type of a
 /// graph.
 [<AbstractClass>]
 type DataFlowAnalysis<'L, 'V when 'L: equality
-                              and 'V :> VertexData> () =
+                              and 'V: equality> () =
   /// The top of the lattice. A data-flow analysis solution is computed by
   /// iterating down from top to bottom.
   abstract Top: 'L
@@ -78,10 +79,8 @@ type DataFlowAnalysis<'L, 'V when 'L: equality
 /// Classic data-flow analysis with topological worklist algorithm.
 [<AbstractClass>]
 type TopologicalDataFlowAnalysis<'L, 'V
-    when 'L: equality
-     and 'V :> VertexData and 'V : equality> (direction) =
+    when 'L: equality and 'V: equality> (direction) =
   inherit DataFlowAnalysis<'L, 'V> ()
-
   /// Exit lattice per vertex.
   let outs = Dictionary<VertexID, 'L> ()
 
@@ -97,8 +96,8 @@ type TopologicalDataFlowAnalysis<'L, 'V
 
   /// Initialize worklist queue. This should be a topologically sorted list to
   /// be efficient.
-  let initWorklist g (root: Vertex<'V>) =
-    let q = Queue<Vertex<'V>> ()
+  let initWorklist g (root: IVertex<'V>) =
+    let q = Queue<IVertex<'V>> ()
     Traversal.iterRevPostorder g [root] q.Enqueue
     q
 
@@ -107,25 +106,25 @@ type TopologicalDataFlowAnalysis<'L, 'V
 
   /// The transfer function from an input lattice to an output lattice. The
   /// second parameter is to specify the current block of interest.
-  abstract Transfer: 'L -> Vertex<'V> -> 'L
+  abstract Transfer: 'L -> IVertex<'V> -> 'L
 
   /// Initialize ints and outs.
-  member private __.InitInsOuts g (root: Vertex<'V>) =
+  member private __.InitInsOuts g (root: IVertex<'V>) =
     Traversal.iterPreorder g [root] (fun v ->
-      let blkid = v.GetID ()
+      let blkid = v.ID
       outs[blkid] <- __.Top
       ins[blkid] <- __.Top)
 
   /// Compute data-flow with the iterative worklist algorithm.
-  member __.Compute g (root: Vertex<'V>) =
+  member __.Compute g (root: IVertex<'V>) =
     __.InitInsOuts g root
     let worklist = initWorklist g root
     while worklist.Count <> 0 do
       let blk = worklist.Dequeue ()
-      let blkid = blk.GetID ()
+      let blkid = blk.ID
       ins[blkid] <-
         helper.Neighbor g blk
-        |> List.fold (fun eff v -> __.Meet eff outs[v.GetID()]) __.Top
+        |> Seq.fold (fun eff v -> __.Meet eff outs[v.ID]) __.Top
       let outeffect = __.Transfer ins[blkid] blk
       if outs[blkid] <> outeffect then
         outs[blkid] <- outeffect

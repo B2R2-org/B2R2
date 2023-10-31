@@ -62,7 +62,7 @@ let private initState hdl pc =
   |> st.InitializeContext pc
   st
 
-let evalBlock hdl (blk: Vertex<IRBasicBlock>) =
+let evalBlock hdl (blk: IRVertex) =
   let pc = blk.VData.PPoint.Address
   let st = initState hdl pc
   st.SideEffectEventHandler <- fun _ st -> st.AbortInstr ()
@@ -72,7 +72,7 @@ let evalBlock hdl (blk: Vertex<IRBasicBlock>) =
 
 let evalFunctionUntilStopFn hdl (fn: RegularFunction) stopFn =
   let visited = HashSet<ProgramPoint> ()
-  let rec evalLoop (blk: Vertex<IRBasicBlock>) st stopFn =
+  let rec evalLoop (blk: IRVertex) st stopFn =
     let pp = blk.VData.PPoint
     if visited.Contains pp then None
     else

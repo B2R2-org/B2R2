@@ -42,7 +42,7 @@ let private findLastStackDef v targetVarKind =
   SSACFG.findReachingDef v targetVarKind
   |> Option.map extractStackVar
 
-let private updateIfStackValueIsConstant (v: Vertex<SSABasicBlock>) spState sp =
+let private updateIfStackValueIsConstant (v: SSAVertex) spState sp =
   match CPState.findReg spState sp with
   | SPValue.Const bv ->
     let spValue = BitVector.ToUInt64 bv
@@ -54,7 +54,7 @@ let private updateIfStackValueIsConstant (v: Vertex<SSABasicBlock>) spState sp =
 /// If the vertex is fake, it means the vertex represents a function. We check
 /// if the function's stack frame (activation record) is located at a constant
 /// stack offset. If so, we remember the offset.
-let private updateStackFrameDistance hdl g (v: Vertex<SSABasicBlock>) spState =
+let private updateStackFrameDistance hdl (v: SSAVertex) spState =
   match (hdl: BinHandle).RegisterBay.StackPointer with
   | Some rid ->
     let spName = hdl.RegisterBay.RegIDToString rid
@@ -109,9 +109,9 @@ let private stmtChooser spState v ((pp, stmt) as stmtInfo) =
   | _ -> Some stmtInfo
 
 /// The basic preparation step: remove Phis and replace stack variables.
-let prepare hdl ssaCFG spState vertices (v: Vertex<SSABasicBlock>) =
+let prepare hdl spState vertices (v: SSAVertex) =
   (vertices: List<SSAVertex>).Add v
-  if v.VData.IsFakeBlock () then updateStackFrameDistance hdl ssaCFG v spState
+  if v.VData.IsFakeBlock () then updateStackFrameDistance hdl v spState
   else ()
   v.VData.SSAStmtInfos
   |> Array.choose (stmtChooser spState v)
@@ -119,10 +119,10 @@ let prepare hdl ssaCFG spState vertices (v: Vertex<SSABasicBlock>) =
 
 /// Promote the given SSA CFG into another SSA CFG that contains resolved
 /// stack/global variables.
-let promote hdl (ssaCFG: DiGraph<SSABasicBlock, CFGEdgeKind>) ssaRoot =
+let promote hdl (ssaCFG: IGraph<SSABasicBlock, CFGEdgeKind>) ssaRoot =
   let spp = StackPointerPropagation (hdl, ssaCFG)
   let spState = spp.Compute ssaRoot
   let vertices = List<SSAVertex> ()
-  ssaCFG.IterVertex (prepare hdl ssaCFG spState vertices)
+  ssaCFG.IterVertex (prepare hdl spState vertices)
   SSACFG.installPhis vertices ssaCFG ssaRoot
   struct (ssaCFG, ssaRoot)

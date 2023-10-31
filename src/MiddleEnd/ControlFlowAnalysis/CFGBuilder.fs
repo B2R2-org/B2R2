@@ -98,10 +98,10 @@ module private CFGBuilder =
            if c has a branch to b, then we split the block into (a) and (b, c),
            and the second block will have a self-loop. *)
         let src = if src = front then ProgramPoint (dst, 0) else src
-        fn.AddEdge (src, ProgramPoint (dst, 0), edge)
+        fn.AddEdge (src, ProgramPoint (dst, 0), EdgeLabel edge)
         Ok evts
       | _, evts ->
-        fn.AddEdge (src, ProgramPoint (dst, 0), edge)
+        fn.AddEdge (src, ProgramPoint (dst, 0), EdgeLabel edge)
         Ok evts
 
   let getCallee (codeMgr: CodeManager) callee evts =
@@ -177,8 +177,8 @@ module private CFGBuilder =
 #endif
     let srcPp = ProgramPoint (callBlk.BlkRange.Min, 0)
     let src = (fn: RegularFunction).FindVertex srcPp
-    DiGraph.GetSuccs (fn.IRCFG, src)
-    |> List.iter (fun dst ->
+    fn.IRCFG.GetSuccs src
+    |> Seq.iter (fun dst ->
       (* Do not remove fake block *)
       if not <| dst.VData.IsFakeBlock () then fn.RemoveEdge (src, dst))
     callee.NoReturnProperty <- NoRet
@@ -211,7 +211,7 @@ module private CFGBuilder =
       let dstPp = ProgramPoint (dst, 0)
       let dstBlk = codeMgr.GetBBL dst
       if fn.HasVertex dstPp then
-        fn.AddEdge (src, ProgramPoint (dst, 0), edge)
+        fn.AddEdge (src, ProgramPoint (dst, 0), EdgeLabel edge)
         Ok evts
       elif (edge = CallFallThroughEdge || edge = ExceptionFallThroughEdge)
            && dstBlk.FunctionEntry = dst then
@@ -238,18 +238,20 @@ module private CFGBuilder =
       Ok evts (* call outside a section (occurs in an object file) *)
     else
       match buildBBL hdl codeMgr fn mode dst evts with
-      | Ok evts -> fn.AddEdge (src, ProgramPoint (dst, 0), edge); Ok evts
+      | Ok evts ->
+        fn.AddEdge (src, ProgramPoint (dst, 0), EdgeLabel edge)
+        Ok evts
       | Error e -> Error e
 
   let checkIfIndCallAnalysisRequired (fn: RegularFunction) exitNodes =
     exitNodes
-    |> List.exists (fun (v: Vertex<IRBasicBlock>) ->
+    |> Array.exists (fun (v: IRVertex) ->
       v.VData.IsFakeBlock ()
       && fn.IsUnresolvedIndirectCall v.VData.FakeBlockInfo.CallSite)
 
   /// Does the vertex (v) end with a regular (returning) syscall?
   let inline isReturningSyscall hdl (noret: NoReturnFunctionIdentification) v =
-    match (v: Vertex<IRBasicBlock>).VData.SyscallTail with
+    match (v: IRVertex).VData.SyscallTail with
     | UnknownSyscallTail ->
       if noret.IsNoRetSyscallBlk hdl v then
         v.VData.SyscallTail <- ExitSyscallTail; false
@@ -273,10 +275,10 @@ module private CFGBuilder =
   /// Check if a call instruction is indeed a system call. In particular,
   /// call dword ptr [gs:0x10] is a system call in x86/x64 Linux environment.
   /// We pattern-match the instruction.
-  let isIndirectSyscall hdl (fn: RegularFunction) (v: Vertex<IRBasicBlock>) =
+  let isIndirectSyscall hdl (fn: RegularFunction) (v: IRVertex) =
     match (hdl: BinHandle).File.Format, hdl.File.ISA.Arch with
     | FileFormat.ELFBinary, Architecture.IntelX86 ->
-      let caller = DiGraph.GetPreds (fn.IRCFG, v) |> List.head
+      let caller = fn.IRCFG.GetPreds v |> Seq.head
       let callIns = caller.VData.LastInstruction :?> IntelInstruction
       match callIns.Prefixes, callIns.Operands with
       | Prefix.PrxGS, OneOperand (OprMem (None, None, Some 16L, _)) -> true
@@ -289,36 +291,37 @@ module private CFGBuilder =
   /// call recovery is performed on the given function (fn).
   let scanCandidates hdl codeMgr noret fn exitNodes =
     exitNodes
-    |> List.fold (fun (infos, toAnalyze) (v: Vertex<IRBasicBlock>) ->
-      if not (v.VData.IsFakeBlock ()) then
+    |> Array.fold (fun (infos, toAnalyze) (v: IRVertex) ->
+      let bbl = v.VData
+      if not (bbl.IsFakeBlock ()) then
         if isReturningSyscall hdl noret v then
-          let last = v.VData.LastInstruction
+          let last = bbl.LastInstruction
           let ftAddr = last.Address + uint64 last.Length
-          FTNonCall (v.VData.PPoint, ftAddr) :: infos, toAnalyze
+          FTNonCall (bbl.PPoint, ftAddr) :: infos, toAnalyze
         else infos, toAnalyze
       elif isIndirectSyscall hdl fn v then
         (* First mark it as resolved indirect call so that indirect call
            analyzer will not analyze this again. *)
-        let callsite = v.VData.FakeBlockInfo.CallSite
+        let callsite = bbl.FakeBlockInfo.CallSite
         fn.UpdateCallEdgeInfo (callsite, IndirectCallees Set.empty)
-        v.VData.FakeBlockInfo <- { v.VData.FakeBlockInfo with IsSysCall = true }
-        let caller = DiGraph.GetPreds (fn.IRCFG, v) |> List.head
+        bbl.FakeBlockInfo <- { bbl.FakeBlockInfo with IsSysCall = true }
+        let caller = fn.IRCFG.GetPreds v |> Seq.head
         if noret.IsNoRetSyscallBlk hdl caller then infos, toAnalyze
         else accFTInfoFromFake codeMgr fn v infos, toAnalyze
       else
-        let callSite = v.VData.FakeBlockInfo.CallSite
+        let callSite = bbl.FakeBlockInfo.CallSite
         (fn: RegularFunction).CallTargets callSite
         |> Set.fold (fun (infos, toAnalyze) calleeAddr ->
           let callee = (codeMgr: CodeManager).FunctionMaintainer.Find calleeAddr
           match callee.NoReturnProperty with
           | NotNoRetConfirmed | NotNoRet ->
-            if v.VData.FakeBlockInfo.IsTailCall then infos, toAnalyze
+            if bbl.FakeBlockInfo.IsTailCall then infos, toAnalyze
             else accFTInfoFromFake codeMgr fn v infos, toAnalyze
           | ConditionalNoRet arg ->
             let callerPp = Set.maxElement (codeMgr.GetBBL callSite).IRLeaders
             let callerV = fn.FindVertex callerPp
             if noret.HasNonZeroArg hdl callerV arg then infos, toAnalyze
-            elif v.VData.FakeBlockInfo.IsTailCall then infos, toAnalyze
+            elif bbl.FakeBlockInfo.IsTailCall then infos, toAnalyze
             else accFTInfoFromFake codeMgr fn v infos, toAnalyze
           | UnknownNoRet ->
             if callee.EntryPoint = fn.EntryPoint then (* Rec *) infos, toAnalyze
@@ -347,16 +350,16 @@ module private CFGBuilder =
 
   let updateCalleeInfo (codeMgr: CodeManager) (func: RegularFunction) =
     func.IRCFG.IterVertex (fun v ->
-      if v.VData.IsFakeBlock () && v.VData.PPoint.Address <> 0UL then
-        let calleeFunc = codeMgr.FunctionMaintainer.Find v.VData.PPoint.Address
+      let bbl = v.VData
+      if bbl.IsFakeBlock () && bbl.PPoint.Address <> 0UL then
+        let calleeFunc = codeMgr.FunctionMaintainer.Find bbl.PPoint.Address
         if calleeFunc.FunctionKind = FunctionKind.Regular then
           let calleeFunc = calleeFunc :?> RegularFunction
-          v.VData.FakeBlockInfo <-
-            { v.VData.FakeBlockInfo with
+          bbl.FakeBlockInfo <-
+            { bbl.FakeBlockInfo with
                 UnwindingBytes = calleeFunc.AmountUnwinding
                 GetPCThunkInfo = calleeFunc.GetPCThunkInfo }
-        else
-          v.VData.FakeBlockInfo <- { v.VData.FakeBlockInfo with IsPLT = true }
+        else bbl.FakeBlockInfo <- { bbl.FakeBlockInfo with IsPLT = true }
       else ())
 
   let runIndirectCallRecovery hdl codeMgr dataMgr entry indcall fn evts =
@@ -448,9 +451,9 @@ module private CFGBuilder =
   /// unwinding is happening for the given function.
   ///
   /// TODO: We can extend this analysis further to make it more precise.
-  let computeStackUnwindingAmount cfg =
-    DiGraph.GetExits cfg
-    |> List.fold (fun acc (v: Vertex<IRBasicBlock>) ->
+  let computeStackUnwindingAmount (cfg: IGraph<_, _>) =
+    cfg.Exits
+    |> Array.fold (fun acc (v: IRVertex) ->
       if Option.isSome acc || v.VData.IsFakeBlock () then acc
       else
         let ins = v.VData.LastInstruction
@@ -469,7 +472,7 @@ module private CFGBuilder =
 
   let runPerFuncAnalysis hdl codeMgr dataMgr entry noret indcall indjmp evts =
     let fn = (codeMgr: CodeManager).FunctionMaintainer.FindRegular (addr=entry)
-    let exits = DiGraph.GetExits (fn: RegularFunction).IRCFG
+    let exits = (fn: RegularFunction).IRCFG.Exits
     let ftInfos, toAnalyze = scanCandidates hdl codeMgr noret fn exits
     if not (List.isEmpty ftInfos) then
       addFallThroughEvts hdl codeMgr fn ftInfos evts |> Ok

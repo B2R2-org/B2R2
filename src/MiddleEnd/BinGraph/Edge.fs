@@ -24,13 +24,25 @@
 
 namespace B2R2.MiddleEnd.BinGraph
 
-type DummyEntry =
-  /// Temporarily connect entry dummy node with the given root node. We do not
-  /// touch the Graph, but simply connect two vertices temporarily for the
-  /// convenience of analysis.
-  static member Connect g (root: Vertex<_>) =
-    if root.IsDummy () then root, g
-    else
-      let dummyEntry, g = DiGraph.AddDummyVertex g
-      let g = DiGraph.AddDummyEdge (g, dummyEntry, root)
-      dummyEntry, g
+/// Missing edge.
+exception EdgeNotFoundException
+
+/// Edge of a graph.
+type Edge<'V, 'E when 'V: equality and 'E: equality> (fst, snd, label) =
+  /// Source vertex of the edge. For undirected graphs, this is the first vertex
+  /// that was added to the edge.
+  member __.First with get(): IVertex<'V> = fst
+
+  /// Target vertex of the edge. For undirected graphs, this is the second vertex
+  /// that was added to the edge.
+  member __.Second with get(): IVertex<'V> = snd
+
+  /// Label of the edge.
+  member __.Label with get(): EdgeLabel<'E> = label
+
+and [<AllowNullLiteral>] EdgeLabel<'E when 'E: equality> (value: 'E) =
+  member __.Value = value
+
+  interface System.IEquatable<EdgeLabel<'E>> with
+    member __.Equals (other: EdgeLabel<'E>) =
+      __.Value = other.Value

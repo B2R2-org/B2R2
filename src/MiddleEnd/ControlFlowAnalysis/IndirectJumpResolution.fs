@@ -108,8 +108,8 @@ type IndirectJumpResolution () =
       | Jmp (InterCJmp _ as jk) -> jk
       | _ ->
         let vs =
-          DiGraph.GetSuccs (ssaCFG, v)
-          |> List.fold (fun acc succ ->
+          (ssaCFG: IGraph<_, _>).GetSuccs v
+          |> Seq.fold (fun acc succ ->
             if succ <> fstV then succ :: acc else acc) rest
         __.FindIndJmpKind ssaCFG srcBlkAddr fstV vs
     | [] -> Utils.impossible ()
@@ -119,7 +119,7 @@ type IndirectJumpResolution () =
   /// jump target is in the form of loading a jump table.
   member private __.AnalyzeBranchPattern hdl ssaCFG cpState blkAddr =
     let srcV = (* may not contain Jmp: get the right one @ FindIndJmpKind. *)
-      DiGraph.FindVertexBy (ssaCFG, fun (v: SSAVertex) ->
+      (ssaCFG: IGraph<_, _>).FindVertexBy (fun (v: SSAVertex) ->
         v.VData.PPoint.Address = blkAddr)
     let srcBlkAddr = (srcV: SSAVertex).VData.PPoint.Address
     __.FindIndJmpKind ssaCFG srcBlkAddr srcV [ srcV ]

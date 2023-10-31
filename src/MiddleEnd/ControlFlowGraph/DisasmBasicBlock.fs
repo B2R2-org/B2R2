@@ -26,24 +26,12 @@ namespace B2R2.MiddleEnd.ControlFlowGraph
 
 open B2R2
 open B2R2.FrontEnd.BinLifter
-open B2R2.MiddleEnd.BinGraph
 
 /// Basic block type for a disassembly-based CFG (DisasmCFG).
 type DisasmBasicBlock (instrs: Instruction [], pp(*, ?funcID*)) =
   inherit BasicBlock (pp)
 
   let mutable instructions = instrs
-
-  /// Temporarily disable this
-  (*
-  let symbolize (words: AsmWord []) =
-    match funcID with
-    | Some funcID ->
-      words[words.Length - 1] <-
-        { AsmWordKind = AsmWordKind.Value; AsmWordValue = funcID }
-    | None -> ()
-    words
-  *)
 
   override __.Range =
     let last = instructions[instructions.Length - 1]
@@ -55,7 +43,7 @@ type DisasmBasicBlock (instrs: Instruction [], pp(*, ?funcID*)) =
     instructions
     |> Array.mapi (fun idx i ->
       if idx = Array.length instructions - 1 then
-        i.Decompose (true)(* |> symbolize *)
+        i.Decompose (true)
       else i.Decompose (true))
 
   member __.Instructions
@@ -69,5 +57,3 @@ type DisasmBasicBlock (instrs: Instruction [], pp(*, ?funcID*)) =
   override __.ToString () =
     if instrs.Length = 0 then "DisasmBBLK(Dummy)"
     else "DisasmBBLK(" + String.u64ToHexNoPrefix __.PPoint.Address + ")"
-
-type DisasmVertex = Vertex<DisasmBasicBlock>

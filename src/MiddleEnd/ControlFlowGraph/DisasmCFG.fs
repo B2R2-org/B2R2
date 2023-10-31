@@ -27,25 +27,22 @@ namespace B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.ControlFlowGraph
 
+type DisasmVertex = IVertex<DisasmBasicBlock>
+
 /// Disassembly-based CFG, where each node contains disassembly code.
-type DisasmCFG = ControlFlowGraph<DisasmBasicBlock, CFGEdgeKind>
+type DisasmCFG = IGraph<DisasmBasicBlock, CFGEdgeKind>
 
 [<RequireQualifiedAccess>]
 module DisasmCFG =
-  let private initializer core =
-    DisasmCFG (core) :> DiGraph<DisasmBasicBlock, CFGEdgeKind>
-
   let private initImperative () =
-    ImperativeCore<DisasmBasicBlock, CFGEdgeKind> (initializer, UnknownEdge)
-    |> DisasmCFG
-    :> DiGraph<DisasmBasicBlock, CFGEdgeKind>
+    ImperativeDiGraph<DisasmBasicBlock, CFGEdgeKind> ()
+    :> DisasmCFG
 
   let private initPersistent () =
-    PersistentCore<DisasmBasicBlock, CFGEdgeKind> (initializer, UnknownEdge)
-    |> DisasmCFG
-    :> DiGraph<DisasmBasicBlock, CFGEdgeKind>
+    PersistentDiGraph<DisasmBasicBlock, CFGEdgeKind> ()
+    :> DisasmCFG
 
-  /// Initialize IRCFG based on the implementation type.
+  /// Initialize DisasmCFG based on the implementation type.
   let init = function
-    | ImperativeGraph -> initImperative ()
-    | PersistentGraph -> initPersistent ()
+    | Imperative -> initImperative ()
+    | Persistent -> initPersistent ()

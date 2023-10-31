@@ -22,222 +22,50 @@
   SOFTWARE.
 *)
 
-namespace B2R2.MiddleEnd.BinGraph
+/// Several useful functions for directed graphs.
+module internal B2R2.MiddleEnd.BinGraph.DiGraph
 
-[<AbstractClass>]
-type DiGraph<'D, 'E when 'D :> VertexData and 'D : equality>
-    (core: GraphCore<'D, 'E, DiGraph<'D, 'E>>) =
-  inherit Graph<'D, 'E, DiGraph<'D, 'E>> ()
+open System.Text
 
-  let (!!) (sb: System.Text.StringBuilder) (s: string) =
-    sb.Append s |> ignore
+/// Compute a subgraph of the given graph (inGraph), build on top of the given
+/// empty graph (emptyGraph).
+let subGraph inGraph emptyGraph vs =
+  (* Add vertices to new graph *)
+  let g =
+    vs |> Set.fold (fun (g: IGraph<'V, 'E>) (v: IVertex<'V>) ->
+      g.AddVertex v.VData |> snd) emptyGraph
+  (* Collect edges where both ends are in vs *)
+  let es =
+    (inGraph :> IGraph<_, _>).FoldEdge (fun acc e ->
+      if Set.contains e.First vs && Set.contains e.Second vs then e :: acc
+      else acc) []
+  (* Add the collected edges to new graph *)
+  es
+  |> List.fold (fun (g: IGraph<'V, 'E>) edge ->
+    let src = g.FindVertexByID <| edge.First.ID
+    let dst = g.FindVertexByID <| edge.Second.ID
+    (g :> IGraph<'V, _>).AddEdge (src, dst, edge.Label)) g
 
-  override __.ImplementationType = core.ImplementationType
+let reverse (srcGraph: IGraph<_, _>) emptyGraph =
+  emptyGraph
+  |> srcGraph.FoldVertex (fun (g: IGraph<_, _>) v ->
+    g.AddVertex v.VData |> snd)
+  |> srcGraph.FoldEdge (fun (g: IGraph<_, _>) edge ->
+    let src = g.FindVertexByID edge.First.ID
+    let dst = g.FindVertexByID edge.Second.ID
+    g.AddEdge (dst, src, edge.Label))
 
-  override __.IsEmpty () = core.GetSize () = 0
+let private (!!) (sb: StringBuilder) (s: string) = sb.Append s |> ignore
 
-  override __.GetSize () = core.GetSize ()
-
-  override __.AddVertex data =
-    let v, g = core.AddVertex __ data
-    v, g
-
-  override __.RemoveVertex vid =
-    core.RemoveVertex __ vid
-
-  override __.GetVertices () =
-    core.Vertices
-
-  override __.ExistsVertex vid =
-    match core.TryFindVertexBy (fun v -> v.GetID () = vid) with
-    | Some _ -> true
-    | None -> false
-
-  override __.FindVertexByID vid =
-    core.FindVertexBy (fun v -> v.GetID () = vid)
-
-  override __.TryFindVertexByID vid =
-    core.TryFindVertexBy (fun v -> v.GetID () = vid)
-    |> Option.bind (fun v -> v |> Some)
-
-  override __.FindVertexByData data =
-    core.FindVertexBy (fun v ->
-      if v.IsDummy () then false else v.VData = data)
-
-  override __.TryFindVertexByData data =
-    core.TryFindVertexBy (fun v ->
-      if v.IsDummy () then false else v.VData = data)
-    |> Option.bind (fun v -> v  |> Some)
-
-  override __.FindVertexBy fn =
-    core.FindVertexBy fn
-
-  override __.TryFindVertexBy fn =
-    core.TryFindVertexBy fn |> Option.bind (fun v -> v |> Some)
-
-  override __.AddEdge (srcid, dstid, e) =
-    core.AddEdge __ srcid dstid e
-
-  override __.RemoveEdge (srcid, dstid) =
-    core.RemoveEdge __ srcid dstid
-
-  override __.FindEdgeData (src, dst) =
-    core.FindEdge src dst
-
-  override __.TryFindEdgeData (src, dst) =
-    core.TryFindEdge src dst
-
-  override __.FoldVertex fn acc =
-    core.FoldVertex fn acc
-
-  override __.IterVertex fn =
-    core.IterVertex fn
-
-  override __.FoldEdge fn acc =
-    core.FoldEdge fn acc
-
-  override __.IterEdge fn =
-    core.IterEdge fn
-
-  override __.Clone () =
-    core.InitGraph (Some core)
-
-  override __.SubGraph vs =
-    let g = core.InitGraph None
-    (* Add vertices to new graph *)
-    let g =
-      vs |> Set.fold (fun (g: DiGraph<'D, 'E>) (v: Vertex<'D>) ->
-        g.AddVertex v.VData |> snd) g
-    (* Collect edges both ends are in vids *)
-    let es =
-      [] |> __.FoldEdge (fun acc src dst e ->
-        if Set.contains src vs && Set.contains dst vs then
-          (src, dst, e) :: acc
-        else acc)
-    (* Add edges to new graph *)
-    List.fold (fun g (src: Vertex<_>, dst: Vertex<_>, e) ->
-      let src = g.FindVertexByID <| src.GetID ()
-      let dst = g.FindVertexByID <| dst.GetID ()
-      g.AddEdge (src, dst, e)) g es
-
-  override __.ToDOTStr (name, vToStrFn, _eToStrFn) =
-    let sb = System.Text.StringBuilder ()
-    let vertexToString v =
-      let id, lbl = vToStrFn v
-      !!sb ("  " + id + lbl + ";\n")
-    let edgeToString src dst _ =
-      !!sb $"  {vToStrFn src |> fst} -> {vToStrFn dst |> fst};\n"
-    !!sb $"digraph {name} {{\n"
-    !!sb $"  node[shape=box]\n"
-    __.IterVertex vertexToString
-    __.IterEdge edgeToString
-    sb.Append("}\n").ToString()
-
-  /// A list of unreachable nodes. We always add nodes into this list first, and
-  /// then later remove it from the list when adding edges.
-  member __.Unreachables = core.Unreachables
-
-  /// A list of exit nodes, which do not have any successors.
-  member __.Exits = core.Exits
-
-  member __.GetPreds vid = core.GetPreds vid
-
-  member __.GetSuccs vid = core.GetSuccs vid
-
-  member __.AddDummyVertex () =
-    let v, g = core.AddDummyVertex __
-    v, g
-
-  member __.AddDummyEdge (srcid, dstid) =
-    core.AddDummyEdge __ srcid dstid
-
-  /// Return a new transposed (i.e., reversed) graph.
-  member __.Reverse () =
-    core.InitGraph None
-    |> __.FoldVertex (fun g v ->
-      if v.IsDummy () then g.AddDummyVertex () |> snd
-      else g.AddVertex v.VData |> snd)
-    |> __.FoldEdge (fun g src dst e ->
-      let src = g.FindVertexByID <| src.GetID ()
-      let dst = g.FindVertexByID <| dst.GetID ()
-      g.AddEdge (dst, src, e))
-
-  static member IsEmpty (g: DiGraph<'D, 'E>) =
-    g.IsEmpty ()
-
-  static member GetSize (g: DiGraph<'D, 'E>) =
-    g.GetSize ()
-
-  static member AddDummyVertex (g: DiGraph<'D, 'E>) =
-    g.AddDummyVertex ()
-
-  static member AddVertex (g: DiGraph<'D, 'E>, data) =
-    g.AddVertex data
-
-  static member RemoveVertex (g: DiGraph<'D, 'E>, v: Vertex<'D>)=
-    g.RemoveVertex v
-
-  static member GetPreds (g: DiGraph<'D, 'E>, v: Vertex<'D>) =
-    g.GetPreds v
-
-  static member GetSuccs (g: DiGraph<'D, 'E>, v: Vertex<'D>) =
-    g.GetSuccs v
-
-  static member GetUnreachables (g: DiGraph<'D, 'E>) =
-    g.Unreachables
-
-  static member GetExits (g: DiGraph<'D, 'E>) =
-    g.Exits
-
-  static member GetVertices (g: DiGraph<'D, 'E>) =
-    g.GetVertices ()
-
-  static member ExistsVertex (g: DiGraph<'D, 'E>, vid) =
-    g.ExistsVertex vid
-
-  static member FindVertexByID (g: DiGraph<'D, 'E>, vid) =
-    g.FindVertexByID vid
-
-  static member TryFindVertexByID (g: DiGraph<'D, 'E>, vid) =
-    g.TryFindVertexByID vid
-
-  static member FindVertexByData (g: DiGraph<'D, 'E>, data) =
-    g.FindVertexByData data
-
-  static member TryFindVertexByData (g: DiGraph<'D, 'E>, data) =
-    g.TryFindVertexByData data
-
-  static member FindVertexBy (g: DiGraph<'D, 'E>, fn) =
-    g.FindVertexBy fn
-
-  static member TryFindVertexBy (g: DiGraph<'D, 'E>, fn) =
-    g.TryFindVertexBy fn
-
-  static member AddDummyEdge (g: DiGraph<'D, 'E>, src, dst) =
-    g.AddDummyEdge (src, dst)
-
-  static member AddEdge (g: DiGraph<'D, 'E>, src, dst, e) =
-    g.AddEdge (src, dst, e)
-
-  static member RemoveEdge (g: DiGraph<'D, 'E>, src, dst) =
-    g.RemoveEdge (src, dst)
-
-  static member FindEdgeData (g: DiGraph<'D, 'E>, src, dst) =
-    g.FindEdgeData (src, dst)
-
-  static member TryFindEdgeData (g: DiGraph<'D, 'E>, src, dst) =
-    g.TryFindEdgeData (src, dst)
-
-  static member Clone (g: DiGraph<'D, 'E>) =
-    g.Clone ()
-
-  static member Reverse (g: DiGraph<'D, 'E>) =
-    g.Reverse ()
-
-  static member SubGraph (g: DiGraph<'D, 'E>, vs) =
-    g.SubGraph vs
-
-  static member ToDOTStr (g: DiGraph<'D, 'E>, name, vToStrfn, eToStrFn) =
-    g.ToDOTStr (name, vToStrfn, eToStrFn)
-
-// vim: set tw=80 sts=2 sw=2:
+let toDOTString (g: IGraph<_, _>) name vToStrFn _eToStrFn =
+  let sb = StringBuilder ()
+  let vertexToString v =
+    let id, lbl = vToStrFn v
+    !!sb ("  " + id + lbl + ";\n")
+  let edgeToString (e: Edge<_, _>) =
+    !!sb $"  {vToStrFn e.First |> fst} -> {vToStrFn e.Second |> fst};\n"
+  !!sb $"digraph {name} {{\n"
+  !!sb $"  node[shape=box]\n"
+  g.IterVertex vertexToString
+  g.IterEdge edgeToString
+  sb.Append("}\n").ToString()

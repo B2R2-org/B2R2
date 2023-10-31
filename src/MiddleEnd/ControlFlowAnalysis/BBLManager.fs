@@ -28,6 +28,7 @@ open B2R2
 open B2R2.BinIR
 open B2R2.BinIR.LowUIR
 open B2R2.FrontEnd
+open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.ControlFlowGraph
 
 /// Temporary information obtained by parsing a block (bbl) of instructions,
@@ -42,9 +43,9 @@ type TempInfo = {
   /// All leaders in this block.
   Leaders: Set<ProgramPoint>
   /// Intra-Instruction edges in this block.
-  IntraEdges: (ProgramPoint * ProgramPoint * CFGEdgeKind) list
+  IntraEdges: (ProgramPoint * ProgramPoint * EdgeLabel<CFGEdgeKind>) list
   /// Inter-Instruction edges related to this block.
-  InterEdges: (ProgramPoint * ProgramPoint * CFGEdgeKind) list
+  InterEdges: (ProgramPoint * ProgramPoint * EdgeLabel<CFGEdgeKind>) list
   /// Flag indicating that IEMark statement follows a terminatinig statment,
   /// such as SideEffect. Although our IR optimizer will remove such IEMarks in
   /// most cases, there is one exception, though. If there is a SideEffect
@@ -202,12 +203,12 @@ module BBLManager =
 
   let private addIntraEdge src insAddr symb edge tmp =
     let dst = Map.find (insAddr, symb) tmp.LabelPPoints
-    let intraEdges = (src, dst, edge) :: tmp.IntraEdges
+    let intraEdges = (src, dst, EdgeLabel edge) :: tmp.IntraEdges
     { tmp with IntraEdges = intraEdges }
 
   let private addInterEdge src dstAddr edge tmp =
     let dst = ProgramPoint (dstAddr, 0)
-    { tmp with InterEdges = (src, dst, edge) :: tmp.InterEdges }
+    { tmp with InterEdges = (src, dst, EdgeLabel edge) :: tmp.InterEdges }
 
   let private addExceptionEdgeEvents callSite excTbl fn caller tmp =
     match (excTbl: ExceptionTable).TryFindExceptionTarget callSite with
@@ -374,7 +375,8 @@ module BBLManager =
   let private addFallThrough src dst tmp =
     if Set.contains dst tmp.Leaders
       && not (isKnownEdge src dst tmp) then
-      { tmp with InterEdges = (src, dst, FallThroughEdge) :: tmp.InterEdges }
+      { tmp with
+          InterEdges = (src, dst, EdgeLabel FallThroughEdge) :: tmp.InterEdges }
     else tmp
 
   let rec private includeEdges hdl fm excTbl leader instrs fn tmp =
