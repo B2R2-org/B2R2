@@ -98,8 +98,7 @@ type PersistentDiGraph<'V, 'E when 'V: equality
     member __.Edges with get() =
       succs
       |> Map.toSeq
-      |> Seq.map snd
-      |> Seq.concat
+      |> Seq.collect snd
       |> Seq.toArray
 
     member __.Unreachables with get() =

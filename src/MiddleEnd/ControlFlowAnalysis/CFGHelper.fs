@@ -29,6 +29,7 @@ open B2R2.MiddleEnd.BinGraph
 
 #if CFGDEBUG
 open System.IO
+open B2R2
 
 [<AutoOpen>]
 module internal Dbg =
