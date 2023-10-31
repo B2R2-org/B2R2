@@ -33,8 +33,8 @@ type Edge<'V, 'E when 'V: equality and 'E: equality> (fst, snd, label) =
   /// that was added to the edge.
   member __.First with get(): IVertex<'V> = fst
 
-  /// Target vertex of the edge. For undirected graphs, this is the second vertex
-  /// that was added to the edge.
+  /// Target vertex of the edge. For undirected graphs, this is the second
+  /// vertex that was added to the edge.
   member __.Second with get(): IVertex<'V> = snd
 
   /// Label of the edge.
