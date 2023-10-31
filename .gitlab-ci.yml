@@ -15,13 +15,22 @@ lint:
     tags:
         - b2r2
 
-build:
+build-debug:
     image: mcr.microsoft.com/dotnet/sdk:7.0
     stage: build
     script:
         - dotnet restore
         - dotnet tool restore
         - dotnet test
+    tags:
+        - b2r2
+
+build-release:
+    image: mcr.microsoft.com/dotnet/sdk:7.0
+    stage: build
+    script:
+        - dotnet restore
+        - dotnet tool restore
         - dotnet test -c Release
         - dotnet pack -p:PackageVersion=0.0.0-test -c Release -o `pwd`/build/
     tags:
@@ -33,7 +42,5 @@ extra:
     script:
         - git clone https://gitlab-ci-token:${CI_JOB_TOKEN}@softsec.kaist.ac.kr:8000/B2R2/ci-runner
         - dotnet run --project ci-runner/CIStarter -- $CI_URL $CI_COMMIT_SHA $CI_COMMIT_REF_NAME "$GITLAB_USER_NAME"
-    dependencies:
-        - build
     tags:
         - b2r2
