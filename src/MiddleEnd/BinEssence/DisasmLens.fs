@@ -44,7 +44,7 @@ module DisasmLens =
     ircfg.GetSuccs v
     |> Seq.exists (fun w ->
       let edge = ircfg.FindEdge (v, w)
-      edge.Label.Value = CallFallThroughEdge && (ircfg.GetPreds w).Count = 2)
+      edge.Label = CallFallThroughEdge && (ircfg.GetPreds w).Count = 2)
 
   let getMergeMap blockInfos (ircfg: IGraph<IRBasicBlock, _>) =
     ircfg.FoldVertex (fun mergeMap v ->
@@ -58,7 +58,7 @@ module DisasmLens =
   let getEdgeInfos blockInfos (ircfg: IGraph<IRBasicBlock, _>) =
     ircfg.FoldEdge (fun edges e ->
       let src, dst = e.First.VData, e.Second.VData
-      let edgeLabel = e.Label.Value
+      let edgeLabel = e.Label
       if src.IsFakeBlock () || dst.IsFakeBlock () then edges
       else
         let srcBBLAddr = findBlockStart blockInfos src.PPoint.Address
@@ -129,7 +129,7 @@ module DisasmLens =
   let addEdge (vMap: DisasmVMap) (g: IGraph<_, _>) (src, dst) e =
     let src = vMap[src]
     let dst = vMap[dst]
-    g.AddEdge (src, dst, EdgeLabel e)
+    g.AddEdge (src, dst, e)
 
   let private buildCFG codeMgr blockInfos ircfg vMap dcfg =
     let mergeMap = getMergeMap blockInfos ircfg

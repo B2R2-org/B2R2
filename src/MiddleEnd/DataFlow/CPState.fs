@@ -121,8 +121,7 @@ module CPState =
     cfg.GetSuccs blk
     |> Seq.iter (fun succ ->
       let e = cfg.FindEdge (blk, succ)
-      if e.Label.Value <> CallFallThroughEdge then
-        markExecutable st myid succ.ID
+      if e.Label <> CallFallThroughEdge then markExecutable st myid succ.ID
       else ())
 
   let getExecutableSources st (cfg: IGraph<_, _>) (blk: IVertex<_>) srcIDs =

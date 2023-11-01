@@ -52,8 +52,8 @@ module VisGraph =
     (g: IGraph<_, _>).IterEdge (fun e ->
       let srcV = getVisBBlock e.First
       let dstV = getVisBBlock e.Second
-      let edge = VisEdge e.Label.Value
-      newGraph.AddEdge (srcV, dstV, EdgeLabel edge) |> ignore)
+      let edge = VisEdge e.Label
+      newGraph.AddEdge (srcV, dstV, edge) |> ignore)
     newGraph, roots
 
   let getID (v: IVertex<_>) = v.ID

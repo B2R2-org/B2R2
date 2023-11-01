@@ -52,7 +52,7 @@ type IGraph<'V, 'E when 'V: equality and 'E: equality> =
 
   /// Add a vertex to the graph using a data value, and return a reference to
   /// the added vertex.
-  abstract AddVertex: vData: 'V -> IVertex<'V> * IGraph<'V, 'E>
+  abstract AddVertex: data: 'V -> IVertex<'V> * IGraph<'V, 'E>
 
   /// Add a vertex to the grpah without any data attached to it.
   abstract AddVertex: unit -> IVertex<'V> * IGraph<'V, 'E>
@@ -95,7 +95,7 @@ type IGraph<'V, 'E when 'V: equality and 'E: equality> =
   /// Add an edge from src to dst with the given label. If this is a directed
   /// graph, add an edge from src to dst.
   abstract AddEdge:
-    src: IVertex<'V> * dst: IVertex<'V> * label: EdgeLabel<'E> -> IGraph<'V, 'E>
+    src: IVertex<'V> * dst: IVertex<'V> * label: 'E -> IGraph<'V, 'E>
 
   /// Remove the edge that spans between src and dst. If this is a directed
   /// graph, remove the edge from src to dst.

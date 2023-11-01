@@ -83,6 +83,22 @@ type ImperativeDiGraph<'V, 'E when 'V: equality and 'E: equality> () =
     exits.Add v |> ignore
     (v :> IVertex<'V>), (__ :> IGraph<'V, 'E>)
 
+  member private __.AddEdge (src: IVertex<'V>, dst: IVertex<'V>, label) =
+    let src = src :?> ImperativeVertex<'V>
+    let dst = dst :?> ImperativeVertex<'V>
+    __.CheckVertexExistence src
+    __.CheckVertexExistence dst
+    let srcID = (src :> IVertex<_>).ID
+    let dstID = (dst :> IVertex<_>).ID
+    if edges.ContainsKey (srcID, dstID) then ()
+    else
+      edges[(srcID, dstID)] <- Edge (src, dst, label)
+      src.Succs.Add dst
+      dst.Preds.Add src
+      unreachables.Remove dst |> ignore
+      exits.Remove src |> ignore
+    __ :> IGraph<'V, 'E>
+
   interface IGraph<'V, 'E> with
     member __.IsEmpty () = vertices.Count = 0
 
@@ -161,23 +177,10 @@ type ImperativeDiGraph<'V, 'E when 'V: equality and 'E: equality> () =
       |> Option.map (fun v -> v :> IVertex<'V>)
 
     member __.AddEdge (src: IVertex<'V>, dst: IVertex<'V>, label) =
-      let src = src :?> ImperativeVertex<'V>
-      let dst = dst :?> ImperativeVertex<'V>
-      __.CheckVertexExistence src
-      __.CheckVertexExistence dst
-      let srcID = (src :> IVertex<_>).ID
-      let dstID = (dst :> IVertex<_>).ID
-      if edges.ContainsKey (srcID, dstID) then ()
-      else
-        edges[(srcID, dstID)] <- Edge (src, dst, label)
-        src.Succs.Add dst
-        dst.Preds.Add src
-        unreachables.Remove dst |> ignore
-        exits.Remove src |> ignore
-      __ :> IGraph<'V, 'E>
+      __.AddEdge (src, dst, EdgeLabel label)
 
     member __.AddEdge (src: IVertex<'V>, dst: IVertex<'V>) =
-      (__ :> IGraph<_, _>).AddEdge (src, dst, null)
+      __.AddEdge (src, dst, null)
 
     member __.RemoveEdge (src: IVertex<'V>, dst: IVertex<'V>) =
       let src = src :?> ImperativeVertex<'V>

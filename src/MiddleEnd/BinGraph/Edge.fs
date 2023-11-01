@@ -28,7 +28,8 @@ namespace B2R2.MiddleEnd.BinGraph
 exception EdgeNotFoundException
 
 /// Edge of a graph.
-type Edge<'V, 'E when 'V: equality and 'E: equality> (fst, snd, label) =
+type Edge<'V, 'E when 'V: equality
+                  and 'E: equality> internal (fst, snd, label: EdgeLabel<'E>) =
   /// Source vertex of the edge. For undirected graphs, this is the first vertex
   /// that was added to the edge.
   member __.First with get(): IVertex<'V> = fst
@@ -37,10 +38,16 @@ type Edge<'V, 'E when 'V: equality and 'E: equality> (fst, snd, label) =
   /// vertex that was added to the edge.
   member __.Second with get(): IVertex<'V> = snd
 
-  /// Label of the edge.
-  member __.Label with get(): EdgeLabel<'E> = label
+  /// Label of the edge. This can raise `DummyDataAccessException` when the
+  /// edge has no label.
+  member __.Label with get(): 'E =
+    if isNull label then raise DummyDataAccessException
+    else label.Value
 
-and [<AllowNullLiteral>] EdgeLabel<'E when 'E: equality> (value: 'E) =
+  /// Check if the edge has a label.
+  member __.HasLabel with get() = not (isNull label)
+
+and [<AllowNullLiteral>] internal EdgeLabel<'E when 'E: equality> (value: 'E) =
   member __.Value = value
 
   interface System.IEquatable<EdgeLabel<'E>> with

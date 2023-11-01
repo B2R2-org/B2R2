@@ -87,6 +87,14 @@ type PersistentDiGraph<'V, 'E when 'V: equality
     let g = PersistentDiGraph (vertices, preds, succs, vid)
     (v :> IVertex<'V>), (g :> IGraph<'V, 'E>)
 
+  member private __.AddEdge (src: IVertex<'V>, dst: IVertex<'V>, label) =
+    let srcid = src.ID
+    let dstid = dst.ID
+    let edge = Edge (src, dst, label)
+    let preds = Map.add dstid (edge :: Map.find dstid preds) preds
+    let succs = Map.add srcid (edge :: Map.find srcid succs) succs
+    PersistentDiGraph (vertices, preds, succs, id)
+
   interface IGraph<'V, 'E> with
     member __.IsEmpty () = vertices.Count = 0
 
@@ -167,15 +175,10 @@ type PersistentDiGraph<'V, 'E when 'V: equality
         if fn v then Some v else None)
 
     member __.AddEdge (src: IVertex<'V>, dst: IVertex<'V>, label) =
-      let srcid = src.ID
-      let dstid = dst.ID
-      let edge = Edge (src, dst, label)
-      let preds = Map.add dstid (edge :: Map.find dstid preds) preds
-      let succs = Map.add srcid (edge :: Map.find srcid succs) succs
-      PersistentDiGraph (vertices, preds, succs, id)
+      __.AddEdge (src, dst, EdgeLabel label)
 
     member __.AddEdge (src: IVertex<'V>, dst: IVertex<'V>) =
-      (__ :> IGraph<_, _>).AddEdge (src, dst, null)
+      __.AddEdge (src, dst, null)
 
     member __.RemoveEdge (src: IVertex<'V>, dst: IVertex<'V>) =
       let edge = Edge (src, dst, null)

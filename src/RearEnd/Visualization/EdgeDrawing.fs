@@ -85,9 +85,9 @@ let inline private isDummy (v: IVertex<VisBBlock>) = v.VData.IsDummy
 
 let private restoreBackEdge (g: VisGraph) (src, dst, edge: VisEdge) =
   match g.TryFindEdge (dst, src) with
-  | Some e when e.Label.Value.IsBackEdge -> g.RemoveEdge (dst, src) |> ignore
+  | Some e when e.Label.IsBackEdge -> g.RemoveEdge (dst, src) |> ignore
   | _ -> ()
-  g.AddEdge (src, dst, EdgeLabel edge) |> ignore
+  g.AddEdge (src, dst, edge) |> ignore
 
 let private restoreBackEdges g backEdgeList =
   List.iter (restoreBackEdge g) backEdgeList
@@ -103,8 +103,8 @@ let rec private getOriginalDst (g: IGraph<_, _>) (v: IVertex<VisBBlock>) =
 let private accOriginalEdge g acc (edge: Edge<_, VisEdge>) =
   let src, dst = edge.First, edge.Second
   if isDummy src then acc
-  elif isDummy dst then (src, getOriginalDst g dst, edge.Label.Value) :: acc
-  else (src, dst, edge.Label.Value) :: acc
+  elif isDummy dst then (src, getOriginalDst g dst, edge.Label) :: acc
+  else (src, dst, edge.Label) :: acc
 
 /// Sort vertices by the x-coordinates.
 let private sortLayers vLayout =
@@ -412,8 +412,8 @@ let private drawRegular g vLayout boxes dummyMap (q, r, edge: VisEdge) =
     let newEdge = VisEdge (edge.Type)
     newEdge.IsBackEdge <- isBackEdge
     newEdge.Points <- points
-    g.AddEdge (q, r, EdgeLabel newEdge) |> ignore
-  | Some e -> e.Label.Value.Points <- points
+    g.AddEdge (q, r, newEdge) |> ignore
+  | Some e -> e.Label.Points <- points
 
 let private drawSelfLoop g (v: IVertex<VisBBlock>) =
   let nodeWidth = VisGraph.getWidth v
@@ -424,7 +424,7 @@ let private drawSelfLoop g (v: IVertex<VisBBlock>) =
   let p3 = (fst p2), (snd endP) - LastSegLen
   let p4 = (fst endP), snd p3
   let points = [ startP;  p1;  p2;  p3; p4; endP ] |> List.map makeVisPos
-  e.Label.Value.Points <- points
+  e.Label.Points <- points
 
 let private drawBoxes g vLayout boxes dummyMap (src, dst, edge) =
   if isDummy src || isDummy dst then ()
@@ -435,11 +435,11 @@ let rec private removeDummyLoop (g: VisGraph) src dst points = function
   | dummy :: rest ->
     let e = g.FindEdge (src, dummy)
     g.RemoveEdge (src, dummy) |> ignore
-    removeDummyLoop g dummy dst (points @ e.Label.Value.Points) rest
+    removeDummyLoop g dummy dst (points @ e.Label.Points) rest
   | [] ->
     let e = g.FindEdge (src, dst)
     g.RemoveEdge (src, dst) |> ignore
-    points @ e.Label.Value.Points
+    points @ e.Label.Points
 
 let private makeSmooth isBack points =
   let rec loop acc prev = function
@@ -461,11 +461,11 @@ let private removeDummy g (src, dst) ((edge: VisEdge), dummies) =
   let newEdge = VisEdge (edge.Type)
   newEdge.IsBackEdge <- edge.IsBackEdge
   newEdge.Points <- pts
-  g.AddEdge (src, dst, EdgeLabel newEdge) |> ignore
+  g.AddEdge (src, dst, newEdge) |> ignore
   dummies |> List.iter (g.RemoveVertex >> ignore)
 
 let private categorizeEdge isHeadPort acc (q, r, edge: Edge<_, VisEdge>) =
-  let edge = edge.Label.Value
+  let edge = edge.Label
   let points = edge.Points |> Array.ofList
   let n = Array.length points
   if n < 4 then acc

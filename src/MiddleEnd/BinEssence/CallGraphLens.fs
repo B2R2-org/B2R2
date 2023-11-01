@@ -51,7 +51,7 @@ module CallGraphLens =
   let private addEdge ess vMap entry target callCFG =
     let src, callCFG = getVertex ess vMap entry callCFG
     let dst, callCFG = getVertex ess vMap target callCFG
-    callCFG.AddEdge (src, dst, EdgeLabel CallEdge)
+    callCFG.AddEdge (src, dst, CallEdge)
 
   let private buildCG callCFG vMap ess =
     ess.CodeManager.FunctionMaintainer.RegularFunctions

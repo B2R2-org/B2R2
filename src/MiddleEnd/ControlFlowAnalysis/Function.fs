@@ -292,7 +292,7 @@ type RegularFunction private (histMgr: HistoryManager, ep, name, thunkInfo) =
     callEdges[callSite] <-
       if callee = 0UL then NullCallee else RegularCallee callee
     callEdgeChanged <- true
-    __.IRCFG <- __.IRCFG.AddEdge (src, dst, EdgeLabel CallEdge)
+    __.IRCFG <- __.IRCFG.AddEdge (src, dst, CallEdge)
 
   /// Add/replace an indirect call edge to this function.
   member __.AddEdge (callerBlk, callSite, knownCallee, isTailCall) =
@@ -302,13 +302,13 @@ type RegularFunction private (histMgr: HistoryManager, ep, name, thunkInfo) =
     | Some callee -> callEdges[callSite] <- callee
     | None -> callEdges[callSite] <- UnresolvedIndirectCallees
     callEdgeChanged <- true
-    __.IRCFG <- __.IRCFG.AddEdge (src, dst, EdgeLabel IndirectCallEdge)
+    __.IRCFG <- __.IRCFG.AddEdge (src, dst, IndirectCallEdge)
 
   /// Add/replace a ret edge to this function.
   member __.AddEdge (callSite, callee, ftAddr) =
     let src = __.GetOrAddFakeVertex (callSite, callee, false)
     let dst = regularVertices[(ProgramPoint (ftAddr, 0))]
-    __.IRCFG <- __.IRCFG.AddEdge (src, dst, EdgeLabel RetEdge)
+    __.IRCFG <- __.IRCFG.AddEdge (src, dst, RetEdge)
 
   /// Update the call edge info.
   member __.UpdateCallEdgeInfo (callSiteAddr, callee) =
@@ -350,8 +350,8 @@ type RegularFunction private (histMgr: HistoryManager, ep, name, thunkInfo) =
   static member AddEdgeByType (fn: RegularFunction)
                               (src: IRVertex)
                               (dst: IRVertex)
-                              (e: EdgeLabel<_>) =
-    match e.Value with
+                              e =
+    match e with
     | CallEdge ->
       let callSite = dst.VData.FakeBlockInfo.CallSite
       let callee = dst.VData.PPoint.Address
@@ -384,9 +384,7 @@ type RegularFunction private (histMgr: HistoryManager, ep, name, thunkInfo) =
     let dstBlk = IRBasicBlock.initRegular dstInfos splitPoint
     let src = __.AddVertex srcBlk
     let dst = __.AddVertex dstBlk
-    __.AddEdge (src.VData.PPoint,
-                dst.VData.PPoint,
-                EdgeLabel FallThroughEdge)
+    __.AddEdge (src.VData.PPoint, dst.VData.PPoint, FallThroughEdge)
     struct (src, dst)
 
   /// Split the BBL at bblPoint into two at the splitPoint. This function

@@ -29,7 +29,7 @@ open B2R2.MiddleEnd.BinGraph
 let private collectBackEdge vGraph order backEdgeList (edge: Edge<_, VisEdge>) =
   let src, dst = edge.First, edge.Second
   if Map.find src order > Map.find dst order then (* BackEdge *)
-    edge.Label.Value.IsBackEdge <- true
+    edge.Label.IsBackEdge <- true
     match (vGraph: VisGraph).TryFindEdge (dst, src) with
     | Some _ -> (src, dst, edge, false) :: backEdgeList
     | None -> (src, dst, edge, true) :: backEdgeList
@@ -44,7 +44,7 @@ let private dfsCollectBackEdges vGraph roots backEdgeList =
 let private collectSelfCycle backEdgeList (edge: Edge<_, VisEdge>) =
   let src, dst = edge.First, edge.Second
   if VisGraph.getID src = VisGraph.getID dst then (* Definition of self cycle *)
-    edge.Label.Value.IsBackEdge <- true
+    edge.Label.IsBackEdge <- true
     (src, dst, edge, false) :: backEdgeList
   else backEdgeList
 
@@ -57,4 +57,4 @@ let removeCycles (vGraph: VisGraph) roots =
   |> dfsCollectBackEdges vGraph roots
   |> List.map (fun (src, dst, edge, needToAddReverse) ->
     removeBackEdge vGraph src dst edge.Label needToAddReverse
-    (src, dst, edge.Label.Value))
+    (src, dst, edge.Label))

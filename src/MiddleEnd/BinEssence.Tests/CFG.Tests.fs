@@ -321,12 +321,12 @@ type CFGTest1 () =
       ProgramPoint (0x52UL, 0), ProgramPoint (0x55UL, 0); ]
     |> List.iter (fun x -> Assert.IsTrue <| Map.containsKey x eMap)
     let actual =
-      [| cfg.FindEdge(vertices[0], vertices[1]).Label.Value
-         cfg.FindEdge(vertices[1], vertices[2]).Label.Value
-         cfg.FindEdge(vertices[1], vertices[3]).Label.Value
-         cfg.FindEdge(vertices[2], vertices[5]).Label.Value
-         cfg.FindEdge(vertices[3], vertices[4]).Label.Value
-         cfg.FindEdge(vertices[4], vertices[5]).Label.Value |]
+      [| cfg.FindEdge(vertices[0], vertices[1]).Label
+         cfg.FindEdge(vertices[1], vertices[2]).Label
+         cfg.FindEdge(vertices[1], vertices[3]).Label
+         cfg.FindEdge(vertices[2], vertices[5]).Label
+         cfg.FindEdge(vertices[3], vertices[4]).Label
+         cfg.FindEdge(vertices[4], vertices[5]).Label |]
     let expected =
       [| CallFallThroughEdge; InterCJmpFalseEdge; InterCJmpTrueEdge;
          InterJmpEdge; CallFallThroughEdge; FallThroughEdge; |]
@@ -606,12 +606,12 @@ type CFGTest2 () =
       (ProgramPoint (0x1CUL, 8), ProgramPoint (0x1EUL, 0)); ]
     |> List.iter (fun x -> Assert.IsTrue <| Map.containsKey x eMap)
     let actual =
-      [| cfg.FindEdge(vertices[0], vertices[1]).Label.Value
-         cfg.FindEdge(vertices[1], vertices[2]).Label.Value
-         cfg.FindEdge(vertices[2], vertices[3]).Label.Value
-         cfg.FindEdge(vertices[2], vertices[4]).Label.Value
-         cfg.FindEdge(vertices[3], vertices[2]).Label.Value
-         cfg.FindEdge(vertices[4], vertices[5]).Label.Value |]
+      [| cfg.FindEdge(vertices[0], vertices[1]).Label
+         cfg.FindEdge(vertices[1], vertices[2]).Label
+         cfg.FindEdge(vertices[2], vertices[3]).Label
+         cfg.FindEdge(vertices[2], vertices[4]).Label
+         cfg.FindEdge(vertices[3], vertices[2]).Label
+         cfg.FindEdge(vertices[4], vertices[5]).Label |]
     let expected =
       [| CallFallThroughEdge; FallThroughEdge; IntraCJmpFalseEdge;
          IntraCJmpTrueEdge; InterJmpEdge; InterJmpEdge |]

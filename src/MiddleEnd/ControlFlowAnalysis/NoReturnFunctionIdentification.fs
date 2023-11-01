@@ -62,7 +62,7 @@ module private NoReturnFunctionIdentificationHelper =
         (* Since the fall-through edge exists, block-level constant propagation
            were not able to remove the edge. So this is a non-trivial case. *)
         let e = fn.IRCFG.FindEdge (v, w)
-        e.Label.Value = CallFallThroughEdge)
+        e.Label = CallFallThroughEdge)
     | _ -> false
 
   let isPotentiallyNonTrivialConditionalNoRet codeMgr (fn: RegularFunction) =
@@ -230,15 +230,15 @@ module private NoReturnFunctionIdentificationHelper =
         ssaCFG.GetSuccs caller
         |> Seq.find (fun w ->
           let edge = ssaCFG.FindEdge (caller, w)
-          edge.Label.Value = CallFallThroughEdge)
+          edge.Label = CallFallThroughEdge)
       let fakeNode =
         ssaCFG.GetSuccs caller
         |> Seq.find (fun w ->
           let edge = ssaCFG.FindEdge (caller, w)
-          edge.Label.Value = CallEdge)
+          edge.Label = CallEdge)
       ssaCFG.GetPreds ftNode
       |> Seq.fold (fun acc u ->
-        match ssaCFG.FindEdge(u, ftNode).Label.Value with
+        match ssaCFG.FindEdge(u, ftNode).Label with
         | CallFallThroughEdge when u = caller -> (u, ftNode) :: acc
         | RetEdge when u = fakeNode -> (u, ftNode) :: acc
         | _ -> acc) []

@@ -72,7 +72,7 @@ module JSONExport =
                          Y = v.VData.Coordinate.Y } } :: acc) []
     let edges =
       g.FoldEdge (fun acc e ->
-        let e = e.Label.Value
+        let e = e.Label
         { Type = e.Type
           Points = e.Points |> List.map (fun p -> { X = p.X; Y = p.Y })
           IsBackEdge = e.IsBackEdge } :: acc) []

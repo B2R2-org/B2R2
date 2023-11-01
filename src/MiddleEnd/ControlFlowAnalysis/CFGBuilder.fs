@@ -98,10 +98,10 @@ module private CFGBuilder =
            if c has a branch to b, then we split the block into (a) and (b, c),
            and the second block will have a self-loop. *)
         let src = if src = front then ProgramPoint (dst, 0) else src
-        fn.AddEdge (src, ProgramPoint (dst, 0), EdgeLabel edge)
+        fn.AddEdge (src, ProgramPoint (dst, 0), edge)
         Ok evts
       | _, evts ->
-        fn.AddEdge (src, ProgramPoint (dst, 0), EdgeLabel edge)
+        fn.AddEdge (src, ProgramPoint (dst, 0), edge)
         Ok evts
 
   let getCallee (codeMgr: CodeManager) callee evts =
@@ -211,7 +211,7 @@ module private CFGBuilder =
       let dstPp = ProgramPoint (dst, 0)
       let dstBlk = codeMgr.GetBBL dst
       if fn.HasVertex dstPp then
-        fn.AddEdge (src, ProgramPoint (dst, 0), EdgeLabel edge)
+        fn.AddEdge (src, ProgramPoint (dst, 0), edge)
         Ok evts
       elif (edge = CallFallThroughEdge || edge = ExceptionFallThroughEdge)
            && dstBlk.FunctionEntry = dst then
@@ -239,7 +239,7 @@ module private CFGBuilder =
     else
       match buildBBL hdl codeMgr fn mode dst evts with
       | Ok evts ->
-        fn.AddEdge (src, ProgramPoint (dst, 0), EdgeLabel edge)
+        fn.AddEdge (src, ProgramPoint (dst, 0), edge)
         Ok evts
       | Error e -> Error e
 

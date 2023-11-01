@@ -43,7 +43,7 @@ let rec addDummy (g: VisGraph) (backEdges, dummies) k src dst (e: VisEdge) cnt =
   if cnt = 0 then
     let edge = VisEdge (e.Type)
     edge.IsBackEdge <- e.IsBackEdge
-    g.AddEdge (src, dst, EdgeLabel edge) |> ignore
+    g.AddEdge (src, dst, edge) |> ignore
     let backEdges =
       if edge.IsBackEdge then (dst, src, edge) :: backEdges
       else backEdges
@@ -54,7 +54,7 @@ let rec addDummy (g: VisGraph) (backEdges, dummies) k src dst (e: VisEdge) cnt =
     VisGraph.setLayer dummy <| VisGraph.getLayer src + 1
     let edge = VisEdge (e.Type)
     edge.IsBackEdge <- e.IsBackEdge
-    g.AddEdge (src, dummy, EdgeLabel edge) |> ignore
+    g.AddEdge (src, dummy, edge) |> ignore
     let backEdges =
       if edge.IsBackEdge then (dummy, src, edge) :: backEdges
       else backEdges
@@ -68,8 +68,8 @@ let siftBackEdgesAndPickLongEdges (backEdges, longEdges) edge =
   if delta > 1 then
     (* Backedge in forward direction = Extra edge added in the cycle removal. *)
     let backEdges =
-      if edge.Label.Value.IsBackEdge then
-        List.filter (fun (_, _, e) -> e <> edge.Label.Value) backEdges
+      if edge.Label.IsBackEdge then
+        List.filter (fun (_, _, e) -> e <> edge.Label) backEdges
       else backEdges
     let longEdges = (src, dst, edge, delta) :: longEdges
     backEdges, longEdges
@@ -78,13 +78,13 @@ let siftBackEdgesAndPickLongEdges (backEdges, longEdges) edge =
 let addDummyNodes vGraph (backEdges, dummies) (src, dst, edge, delta) =
   (vGraph: VisGraph).RemoveEdge (src, dst) |> ignore
   let k =
-    if (edge: Edge<_, VisEdge>).Label.Value.IsBackEdge then dst, src
+    if (edge: Edge<_, VisEdge>).Label.IsBackEdge then dst, src
     else src, dst
-  let dummies = Map.add k (edge.Label.Value, []) dummies
+  let dummies = Map.add k (edge.Label, []) dummies
   let backEdges, dummies =
-    addDummy vGraph (backEdges, dummies) k src dst edge.Label.Value (delta - 1)
+    addDummy vGraph (backEdges, dummies) k src dst edge.Label (delta - 1)
   let dummies =
-    if not edge.Label.Value.IsBackEdge then
+    if not edge.Label.IsBackEdge then
       let eData, vertices = Map.find k dummies
       Map.add k (eData, List.rev vertices) dummies
     else dummies
