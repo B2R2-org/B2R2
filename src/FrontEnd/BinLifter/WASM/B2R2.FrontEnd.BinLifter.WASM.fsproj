@@ -9,7 +9,6 @@
 
   <ItemGroup>
     <Compile Include="WASMTypes.fs" />
-    <Compile Include="WASMRegisterSet.fs" />
     <Compile Include="WASMRegExprs.fs" />
     <Compile Include="WASMRegisterBay.fs" />
     <Compile Include="WASMDisasm.fs" />

@@ -46,7 +46,7 @@ module Summary =
 
   let private esp =
     let regID = Register.toRegID Register.ESP
-    AST.var 32<rt> regID "ESP" (IntelRegisterSet.singleton regID)
+    AST.var 32<rt> regID "ESP"
 
   let private regs =
     [| "EIP"; "ESP"; "EBP"; "EAX"; "EBX"; "ECX"; "EDX"; "ESI"; "EDI" |]
@@ -57,17 +57,17 @@ module Summary =
   let getInput (state: State) e =
     let rec getInput e =
       match e.E with
-      | Var (_, _, n, _) -> (Set.empty.Add (n), Set.empty)
+      | Var (_, _, n) -> (Set.empty.Add (n), Set.empty)
       | TempVar (_, n) -> getInput <| (Map.find n state.TempRegs).GetExpr ()
-      | UnOp (_, expr, _) -> getInput expr
-      | BinOp (_, _, lExpr, rExpr, _) | RelOp (_, lExpr, rExpr, _) ->
+      | UnOp (_, expr) -> getInput expr
+      | BinOp (_, _, lExpr, rExpr) | RelOp (_, lExpr, rExpr) ->
         mergeInput (getInput lExpr) (getInput rExpr)
-      | Load (_, _, expr, _) ->
+      | Load (_, _, expr) ->
         mergeInput (getInput expr) (Set.empty, Set.empty.Add (Value expr))
-      | Ite (cExpr, tExpr, fExpr, _) ->
+      | Ite (cExpr, tExpr, fExpr) ->
         mergeInput (getInput cExpr) (getInput tExpr)
         |> mergeInput (getInput fExpr)
-      | Cast (_, _, expr, _) | Extract (expr, _, _, _) -> getInput expr
+      | Cast (_, _, expr) | Extract (expr, _, _) -> getInput expr
       | _ -> emptyInput // Num, Name, PCVar
     getInput e
 
@@ -94,16 +94,16 @@ module Summary =
   let private getEspOff e =
     match e.E with
     | _ when e = esp -> Some 0
-    | BinOp (BinOpType.ADD, 32<rt>, var, { E = Num (n) }, _)
-    | BinOp (BinOpType.ADD, 32<rt>, { E = Num (n) }, var, _) when var = esp ->
+    | BinOp (BinOpType.ADD, 32<rt>, var, { E = Num (n) })
+    | BinOp (BinOpType.ADD, 32<rt>, { E = Num (n) }, var) when var = esp ->
       calcOffset (BitVector.ToInt32 n)
-    | BinOp (BinOpType.SUB, 32<rt>, var, { E = Num (n) }, _) when var = esp ->
+    | BinOp (BinOpType.SUB, 32<rt>, var, { E = Num (n) }) when var = esp ->
       calcOffset (- (BitVector.ToInt32 n))
     | _ -> None
 
   let private getStackOff (v: Value) =
     match v.GetExpr().E with
-    | Load (_, 32<rt>, expr, _) -> getEspOff expr
+    | Load (_, 32<rt>, expr) -> getEspOff expr
     | _ -> None
 
   let private getRegStackOff reg regs =
@@ -127,16 +127,16 @@ module Summary =
 
   let private isLinearExpr e =
     match e.E with
-    | Var (32<rt>, _, reg, _) -> Some (reg, 0u)
+    | Var (32<rt>, _, reg) -> Some (reg, 0u)
     | BinOp (BinOpType.ADD, _,
-             { E = Var (32<rt>, _, reg, _) }, { E = Num n }, _)
+             { E = Var (32<rt>, _, reg) }, { E = Num n })
     | BinOp (BinOpType.ADD, _,
-             { E = Num n }, { E = Var (32<rt>, _, reg, _) }, _) ->
+             { E = Num n }, { E = Var (32<rt>, _, reg) }) ->
       Some (reg, BitVector.ToUInt32 n)
     | BinOp (BinOpType.SUB, _,
-             { E = Var (32<rt>, _, reg, _) }, { E = Num n }, _)
+             { E = Var (32<rt>, _, reg) }, { E = Num n })
     | BinOp (BinOpType.SUB, _,
-             { E = Num n }, { E = Var (32<rt>, _, reg, _) }, _) ->
+             { E = Num n }, { E = Var (32<rt>, _, reg) }) ->
       Some (reg, BitVector.Neg n |> BitVector.ToUInt32)
     | _ -> None
 
@@ -192,7 +192,7 @@ module Summary =
     match Map.tryFind reg sum.OutRegs with
     | Some value ->
       match value.GetExpr().E with
-      | Load (_, _, addr, _) -> isLinearExpr addr
+      | Load (_, _, addr) -> isLinearExpr addr
       | _ -> None
     | _ -> None
 

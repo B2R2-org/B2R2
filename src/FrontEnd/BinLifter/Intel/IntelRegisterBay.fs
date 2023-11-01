@@ -93,7 +93,7 @@ type IntelRegisterBay internal (wordSize, r: RegExprs) =
 
   override __.RegIDFromRegExpr (e) =
     match e.E with
-    | Var (_,id, _,_) -> id
+    | Var (_,id, _) -> id
     | PCVar (regT, _) ->
       if regT = 32<rt> then Register.toRegID Register.EIP
       else Register.toRegID Register.RIP

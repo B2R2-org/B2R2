@@ -67,12 +67,12 @@ let inline addNum n1 n2 = BitVector.Add (n1, n2) |> AST.num
 
 let rec simplify expr =
   match expr.E with
-  | UnOp (op, e1, _) -> AST.unop op <| simplify e1
-  | BinOp (op, ty, e1, e2, _) -> simplifyBinOp op ty e1 e2
-  | RelOp (op, e1, e2, _) -> AST.relop op (simplify e1) (simplify e2)
-  | Load (endian, ty, e1, _) -> AST.load endian ty <| simplify e1
-  | Ite (e1, e2, e3, _) -> AST.ite (simplify e1) (simplify e2) (simplify e3)
-  | Cast (kind, ty, e1, _) -> simplifyCast kind ty e1
+  | UnOp (op, e1) -> AST.unop op <| simplify e1
+  | BinOp (op, ty, e1, e2) -> simplifyBinOp op ty e1 e2
+  | RelOp (op, e1, e2) -> AST.relop op (simplify e1) (simplify e2)
+  | Load (endian, ty, e1) -> AST.load endian ty <| simplify e1
+  | Ite (e1, e2, e3) -> AST.ite (simplify e1) (simplify e2) (simplify e3)
+  | Cast (kind, ty, e1) -> simplifyCast kind ty e1
   | _ -> expr (* Var, TempVar, Num, Name, PCVar *)
 
 and simplifyBinOp op ty e1 e2  =
@@ -101,126 +101,126 @@ and simplifyBinOp op ty e1 e2  =
   | BinOpType.SUB, Num (n1), _ when isFlippable n1 ->
     simplify (binSUB e2 (negNum n1))
   (* ADD + ADD *)
-  | BinOpType.ADD, BinOp (BinOpType.ADD, _, { E = Num (n1) }, e2, _),
-                   BinOp (BinOpType.ADD, _, { E = Num (n3) }, e4, _)
-  | BinOpType.ADD, BinOp (BinOpType.ADD, _, { E = Num (n1) }, e2, _),
-                   BinOp (BinOpType.ADD, _, e4, { E = Num (n3) }, _)
-  | BinOpType.ADD, BinOp (BinOpType.ADD, _, e2, { E = Num (n1) }, _),
-                   BinOp (BinOpType.ADD, _, { E = Num (n3) }, e4, _)
-  | BinOpType.ADD, BinOp (BinOpType.ADD, _, e2, { E = Num (n1) }, _),
-                   BinOp (BinOpType.ADD, _, e4, { E = Num (n3) }, _) ->
+  | BinOpType.ADD, BinOp (BinOpType.ADD, _, { E = Num (n1) }, e2),
+                   BinOp (BinOpType.ADD, _, { E = Num (n3) }, e4)
+  | BinOpType.ADD, BinOp (BinOpType.ADD, _, { E = Num (n1) }, e2),
+                   BinOp (BinOpType.ADD, _, e4, { E = Num (n3) })
+  | BinOpType.ADD, BinOp (BinOpType.ADD, _, e2, { E = Num (n1) }),
+                   BinOp (BinOpType.ADD, _, { E = Num (n3) }, e4)
+  | BinOpType.ADD, BinOp (BinOpType.ADD, _, e2, { E = Num (n1) }),
+                   BinOp (BinOpType.ADD, _, e4, { E = Num (n3) }) ->
     simplify (binADD (binADD e2 e4) (addNum n1 n3))
   (* SUB + SUB *)
-  | BinOpType.ADD, BinOp (BinOpType.SUB, _, { E = Num (n1) }, e2, _),
-                   BinOp (BinOpType.SUB, _, { E = Num (n3) }, e4, _) ->
+  | BinOpType.ADD, BinOp (BinOpType.SUB, _, { E = Num (n1) }, e2),
+                   BinOp (BinOpType.SUB, _, { E = Num (n3) }, e4) ->
     simplify (binSUB (addNum n1 n3) (binADD e2 e4))
-  | BinOpType.ADD, BinOp (BinOpType.SUB, _, { E = Num (n1) }, e2, _),
-                   BinOp (BinOpType.SUB, _, e3, { E = Num (n4) }, _) ->
+  | BinOpType.ADD, BinOp (BinOpType.SUB, _, { E = Num (n1) }, e2),
+                   BinOp (BinOpType.SUB, _, e3, { E = Num (n4) }) ->
     simplify (binADD (subNum n1 n4) (binSUB e3 e2))
-  | BinOpType.ADD, BinOp (BinOpType.SUB, _, e2, { E = Num (n1) }, _),
-                   BinOp (BinOpType.SUB, _, { E = Num (n3) }, e4, _) ->
+  | BinOpType.ADD, BinOp (BinOpType.SUB, _, e2, { E = Num (n1) }),
+                   BinOp (BinOpType.SUB, _, { E = Num (n3) }, e4) ->
     simplify (binADD (subNum n3 n1) (binSUB e2 e4))
-  | BinOpType.ADD, BinOp (BinOpType.SUB, _, e2, { E = Num (n1) }, _),
-                   BinOp (BinOpType.SUB, _, e4, { E = Num (n3) }, _) ->
+  | BinOpType.ADD, BinOp (BinOpType.SUB, _, e2, { E = Num (n1) }),
+                   BinOp (BinOpType.SUB, _, e4, { E = Num (n3) }) ->
     simplify (binSUB (binADD e2 e4) (addNum n1 n3))
   (* Num + Num *)
   | BinOpType.ADD, Num (n1), Num (n2) -> addNum n1 n2
   (* ADD + Num, Num + ADD *)
-  | BinOpType.ADD, Num (n1), BinOp (BinOpType.ADD, _, { E = Num (n2) }, e3, _)
-  | BinOpType.ADD, Num (n1), BinOp (BinOpType.ADD, _, e3, { E = Num (n2) }, _)
-  | BinOpType.ADD, BinOp (BinOpType.ADD, _, { E = Num (n2) }, e3, _), Num (n1)
-  | BinOpType.ADD, BinOp (BinOpType.ADD, _, e3, { E = Num (n2) }, _), Num (n1)
+  | BinOpType.ADD, Num (n1), BinOp (BinOpType.ADD, _, { E = Num (n2) }, e3)
+  | BinOpType.ADD, Num (n1), BinOp (BinOpType.ADD, _, e3, { E = Num (n2) })
+  | BinOpType.ADD, BinOp (BinOpType.ADD, _, { E = Num (n2) }, e3), Num (n1)
+  | BinOpType.ADD, BinOp (BinOpType.ADD, _, e3, { E = Num (n2) }), Num (n1)
     ->
     simplify (binADD e3 (addNum n1 n2))
   (* Num + SUB, SUB + Num *)
-  | BinOpType.ADD, Num (n1), BinOp (BinOpType.SUB, _, { E = Num (n2) }, e3, _)
-  | BinOpType.ADD, BinOp (BinOpType.SUB, _, { E = Num (n2) }, e3, _), Num (n1)
+  | BinOpType.ADD, Num (n1), BinOp (BinOpType.SUB, _, { E = Num (n2) }, e3)
+  | BinOpType.ADD, BinOp (BinOpType.SUB, _, { E = Num (n2) }, e3), Num (n1)
     ->
     simplify (binSUB (addNum n1 n2) e3)
-  | BinOpType.ADD, Num (n1), BinOp (BinOpType.SUB, _, e2, { E = Num (n3) }, _)
-  | BinOpType.ADD, BinOp (BinOpType.SUB, _, e2, { E = Num (n3) }, _), Num (n1)
+  | BinOpType.ADD, Num (n1), BinOp (BinOpType.SUB, _, e2, { E = Num (n3) })
+  | BinOpType.ADD, BinOp (BinOpType.SUB, _, e2, { E = Num (n3) }), Num (n1)
     ->
     simplify (binADD e2 (subNum n1 n3))
   (* SUB + ADD, ADD + SUB *)
-  | BinOpType.ADD, BinOp (BinOpType.SUB, _, { E = Num (n1) }, e2, _),
-                   BinOp (BinOpType.ADD, _, { E = Num (n3) }, e4, _)
-  | BinOpType.ADD, BinOp (BinOpType.ADD, _, { E = Num (n3) }, e4, _),
-                   BinOp (BinOpType.SUB, _, { E = Num (n1) }, e2, _)
-  | BinOpType.ADD, BinOp (BinOpType.SUB, _, { E = Num (n1) }, e2, _),
-                   BinOp (BinOpType.ADD, _, e4, { E = Num (n3) }, _)
-  | BinOpType.ADD, BinOp (BinOpType.ADD, _, e4, { E = Num (n3) }, _),
-                   BinOp (BinOpType.SUB, _, { E = Num (n1) }, e2, _) ->
+  | BinOpType.ADD, BinOp (BinOpType.SUB, _, { E = Num (n1) }, e2),
+                   BinOp (BinOpType.ADD, _, { E = Num (n3) }, e4)
+  | BinOpType.ADD, BinOp (BinOpType.ADD, _, { E = Num (n3) }, e4),
+                   BinOp (BinOpType.SUB, _, { E = Num (n1) }, e2)
+  | BinOpType.ADD, BinOp (BinOpType.SUB, _, { E = Num (n1) }, e2),
+                   BinOp (BinOpType.ADD, _, e4, { E = Num (n3) })
+  | BinOpType.ADD, BinOp (BinOpType.ADD, _, e4, { E = Num (n3) }),
+                   BinOp (BinOpType.SUB, _, { E = Num (n1) }, e2) ->
     simplify (binADD (addNum n1 n3) (binSUB e4 e2))
-  | BinOpType.ADD, BinOp (BinOpType.SUB, _, e1, { E = Num (n2) }, _),
-                   BinOp (BinOpType.ADD, _, { E = Num (n3) }, e4, _)
-  | BinOpType.ADD, BinOp (BinOpType.ADD, _, { E = Num (n3) }, e4, _),
-                   BinOp (BinOpType.SUB, _, e1, { E = Num (n2) }, _)
-  | BinOpType.ADD, BinOp (BinOpType.ADD, _, e4, { E = Num (n3) }, _),
-                   BinOp (BinOpType.SUB, _, e1, { E = Num (n2) }, _)
-  | BinOpType.ADD, BinOp (BinOpType.SUB, _, e1, { E = Num (n2) }, _),
-                   BinOp (BinOpType.ADD, _, e4, { E = Num (n3) }, _) ->
+  | BinOpType.ADD, BinOp (BinOpType.SUB, _, e1, { E = Num (n2) }),
+                   BinOp (BinOpType.ADD, _, { E = Num (n3) }, e4)
+  | BinOpType.ADD, BinOp (BinOpType.ADD, _, { E = Num (n3) }, e4),
+                   BinOp (BinOpType.SUB, _, e1, { E = Num (n2) })
+  | BinOpType.ADD, BinOp (BinOpType.ADD, _, e4, { E = Num (n3) }),
+                   BinOp (BinOpType.SUB, _, e1, { E = Num (n2) })
+  | BinOpType.ADD, BinOp (BinOpType.SUB, _, e1, { E = Num (n2) }),
+                   BinOp (BinOpType.ADD, _, e4, { E = Num (n3) }) ->
     simplify (binADD (subNum n3 n2) (binADD e1 e4))
   (* ADD - ADD *)
-  | BinOpType.SUB, BinOp (BinOpType.ADD, _, { E = Num (n1) }, e2, _),
-                   BinOp (BinOpType.ADD, _, { E = Num (n3) }, e4, _)
-  | BinOpType.SUB, BinOp (BinOpType.ADD, _, { E = Num (n1) }, e2, _),
-                   BinOp (BinOpType.ADD, _, e4, { E = Num (n3) }, _)
-  | BinOpType.SUB, BinOp (BinOpType.ADD, _, e2, { E = Num (n1) }, _),
-                   BinOp (BinOpType.ADD, _, { E = Num (n3) }, e4, _)
-  | BinOpType.SUB, BinOp (BinOpType.ADD, _, e2, { E = Num (n1) }, _),
-                   BinOp (BinOpType.ADD, _, e4, { E = Num (n3) }, _) ->
+  | BinOpType.SUB, BinOp (BinOpType.ADD, _, { E = Num (n1) }, e2),
+                   BinOp (BinOpType.ADD, _, { E = Num (n3) }, e4)
+  | BinOpType.SUB, BinOp (BinOpType.ADD, _, { E = Num (n1) }, e2),
+                   BinOp (BinOpType.ADD, _, e4, { E = Num (n3) })
+  | BinOpType.SUB, BinOp (BinOpType.ADD, _, e2, { E = Num (n1) }),
+                   BinOp (BinOpType.ADD, _, { E = Num (n3) }, e4)
+  | BinOpType.SUB, BinOp (BinOpType.ADD, _, e2, { E = Num (n1) }),
+                   BinOp (BinOpType.ADD, _, e4, { E = Num (n3) }) ->
     simplify (binADD (binSUB e2 e4) (subNum n1 n3))
   (* SUB - SUB *)
-  | BinOpType.SUB, BinOp (BinOpType.SUB, _, { E = Num (n1) }, e2, _),
-                   BinOp (BinOpType.SUB, _, { E = Num (n3) }, e4, _) ->
+  | BinOpType.SUB, BinOp (BinOpType.SUB, _, { E = Num (n1) }, e2),
+                   BinOp (BinOpType.SUB, _, { E = Num (n3) }, e4) ->
     simplify (binSUB (subNum n1 n3) (binSUB e2 e4))
-  | BinOpType.SUB, BinOp (BinOpType.SUB, _, { E = Num (n1) }, e2, _),
-                   BinOp (BinOpType.SUB, _, e3, { E = Num (n4) }, _) ->
+  | BinOpType.SUB, BinOp (BinOpType.SUB, _, { E = Num (n1) }, e2),
+                   BinOp (BinOpType.SUB, _, e3, { E = Num (n4) }) ->
     simplify (binSUB (addNum n1 n4) (binADD e2 e3))
-  | BinOpType.SUB, BinOp (BinOpType.SUB, _, e2, { E = Num (n1) }, _),
-                   BinOp (BinOpType.SUB, _, { E = Num (n3) }, e4, _) ->
+  | BinOpType.SUB, BinOp (BinOpType.SUB, _, e2, { E = Num (n1) }),
+                   BinOp (BinOpType.SUB, _, { E = Num (n3) }, e4) ->
     simplify (binSUB (binADD e2 e4) (addNum n1 n3))
-  | BinOpType.SUB, BinOp (BinOpType.SUB, _, e2, { E = Num (n1) }, _),
-                   BinOp (BinOpType.SUB, _, e4, { E = Num (n3) }, _) ->
+  | BinOpType.SUB, BinOp (BinOpType.SUB, _, e2, { E = Num (n1) }),
+                   BinOp (BinOpType.SUB, _, e4, { E = Num (n3) }) ->
     simplify (binSUB (binSUB e2 e4) (subNum n1 n3))
   (* Num - Num *)
   | BinOpType.SUB, Num (n1), Num (n2) -> subNum n1 n2
   (* ADD - Num, Num - ADD *)
-  | BinOpType.SUB, BinOp (BinOpType.ADD, _, { E = Num (n1) }, e2, _), Num (n3)
-  | BinOpType.SUB, BinOp (BinOpType.ADD, _, e2, { E = Num (n1) }, _), Num (n3)
+  | BinOpType.SUB, BinOp (BinOpType.ADD, _, { E = Num (n1) }, e2), Num (n3)
+  | BinOpType.SUB, BinOp (BinOpType.ADD, _, e2, { E = Num (n1) }), Num (n3)
     -> simplify (binADD (subNum n1 n3) e2)
-  | BinOpType.SUB, Num (n1), BinOp (BinOpType.ADD, _, { E = Num (n2) }, e3, _)
-  | BinOpType.SUB, Num (n1), BinOp (BinOpType.ADD, _, e3, { E = Num (n2) }, _)
+  | BinOpType.SUB, Num (n1), BinOp (BinOpType.ADD, _, { E = Num (n2) }, e3)
+  | BinOpType.SUB, Num (n1), BinOp (BinOpType.ADD, _, e3, { E = Num (n2) })
     -> simplify (binSUB (subNum n1 n2) e3)
   (* SUB - Num, Num - SUB *)
-  | BinOpType.SUB, BinOp (BinOpType.SUB, _, { E = Num (n1) }, e2, _), Num (n3)
+  | BinOpType.SUB, BinOp (BinOpType.SUB, _, { E = Num (n1) }, e2), Num (n3)
     -> simplify (binSUB (subNum n1 n3) e2)
-  | BinOpType.SUB, BinOp (BinOpType.SUB, _, e1, { E = Num (n2) }, _), Num (n3)
+  | BinOpType.SUB, BinOp (BinOpType.SUB, _, e1, { E = Num (n2) }), Num (n3)
     -> simplify (binSUB e1 (addNum n2 n3))
-  | BinOpType.SUB, Num (n1), BinOp (BinOpType.SUB, _, { E = Num (n2) }, e3, _)
+  | BinOpType.SUB, Num (n1), BinOp (BinOpType.SUB, _, { E = Num (n2) }, e3)
     -> simplify (binADD e3 (subNum n1 n2))
-  | BinOpType.SUB, Num (n1), BinOp (BinOpType.SUB, _, e2, { E = Num (n3) }, _)
+  | BinOpType.SUB, Num (n1), BinOp (BinOpType.SUB, _, e2, { E = Num (n3) })
     -> simplify (binSUB (addNum n1 n3) e2)
   (* ADD - SUB, SUB - ADD *)
-  | BinOpType.SUB, BinOp (BinOpType.ADD, _, { E = Num (n1) }, e2, _),
-                   BinOp (BinOpType.SUB, _, { E = Num (n3) }, e4, _)
-  | BinOpType.SUB, BinOp (BinOpType.ADD, _, e2, { E = Num (n1) }, _),
-                   BinOp (BinOpType.SUB, _, { E = Num (n3) }, e4, _) ->
+  | BinOpType.SUB, BinOp (BinOpType.ADD, _, { E = Num (n1) }, e2),
+                   BinOp (BinOpType.SUB, _, { E = Num (n3) }, e4)
+  | BinOpType.SUB, BinOp (BinOpType.ADD, _, e2, { E = Num (n1) }),
+                   BinOp (BinOpType.SUB, _, { E = Num (n3) }, e4) ->
     simplify (binADD (subNum n1 n3) (binSUB e2 e4))
-  | BinOpType.SUB, BinOp (BinOpType.ADD, _, { E = Num (n1) }, e2, _),
-                   BinOp (BinOpType.SUB, _, e3, { E = Num (n4) }, _)
-  | BinOpType.SUB, BinOp (BinOpType.ADD, _, e2, { E = Num (n1) }, _),
-                   BinOp (BinOpType.SUB, _, e3, { E = Num (n4) }, _) ->
+  | BinOpType.SUB, BinOp (BinOpType.ADD, _, { E = Num (n1) }, e2),
+                   BinOp (BinOpType.SUB, _, e3, { E = Num (n4) })
+  | BinOpType.SUB, BinOp (BinOpType.ADD, _, e2, { E = Num (n1) }),
+                   BinOp (BinOpType.SUB, _, e3, { E = Num (n4) }) ->
     simplify (binADD (addNum n1 n4) (binSUB e2 e3))
-  | BinOpType.SUB, BinOp (BinOpType.SUB, _, e1, { E = Num (n2) }, _),
-                   BinOp (BinOpType.ADD, _, { E = Num (n3) }, e4, _)
-  | BinOpType.SUB, BinOp (BinOpType.SUB, _, e1, { E = Num (n2) }, _),
-                   BinOp (BinOpType.ADD, _, e4, { E = Num (n3) }, _) ->
+  | BinOpType.SUB, BinOp (BinOpType.SUB, _, e1, { E = Num (n2) }),
+                   BinOp (BinOpType.ADD, _, { E = Num (n3) }, e4)
+  | BinOpType.SUB, BinOp (BinOpType.SUB, _, e1, { E = Num (n2) }),
+                   BinOp (BinOpType.ADD, _, e4, { E = Num (n3) }) ->
     simplify (binSUB (binSUB e1 e4) (addNum n2 n3))
-  | BinOpType.SUB, BinOp (BinOpType.SUB, _, { E = Num (n1) }, e2, _),
-                   BinOp (BinOpType.ADD, _, { E = Num (n3) }, e4, _)
-  | BinOpType.SUB, BinOp (BinOpType.SUB, _, { E = Num (n1) }, e2, _),
-                   BinOp (BinOpType.ADD, _, e4, { E = Num (n3) }, _) ->
+  | BinOpType.SUB, BinOp (BinOpType.SUB, _, { E = Num (n1) }, e2),
+                   BinOp (BinOpType.ADD, _, { E = Num (n3) }, e4)
+  | BinOpType.SUB, BinOp (BinOpType.SUB, _, { E = Num (n1) }, e2),
+                   BinOp (BinOpType.ADD, _, e4, { E = Num (n3) }) ->
     simplify (binSUB (subNum n1 n3) (binADD e2 e4))
   | BinOpType.SUB, _, _ when e1 = e2 -> zeroNum ty
   | BinOpType.MUL, _, _ when isOne e1 -> simplify e2

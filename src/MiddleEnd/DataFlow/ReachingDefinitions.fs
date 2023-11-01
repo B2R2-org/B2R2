@@ -67,7 +67,7 @@ type LowUIRReachingDefinitions (cfg) as this =
         | LowUIR.Put ({ LowUIR.E = LowUIR.TempVar (_, n) }, _) ->
           let pp = ProgramPoint (info.Instruction.Address, idx)
           { ProgramPoint = pp; VarExpr = Temporary n } :: list
-        | LowUIR.Put ({ LowUIR.E = LowUIR.Var (_, id, _, _) }, _) ->
+        | LowUIR.Put ({ LowUIR.E = LowUIR.Var (_, id, _) }, _) ->
           let pp = ProgramPoint (info.Instruction.Address, idx)
           { ProgramPoint = pp; VarExpr = Regular id } :: list
         | _ -> list) list

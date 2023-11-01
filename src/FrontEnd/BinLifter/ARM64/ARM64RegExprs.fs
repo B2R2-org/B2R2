@@ -29,7 +29,7 @@ open B2R2.FrontEnd.BinLifter
 open B2R2.BinIR.LowUIR
 
 type internal RegExprs () =
-  let var sz t name = AST.var sz t name (ARM64RegisterSet.singleton t)
+  let var sz t name = AST.var sz t name
 
   (* Registers *)
   let r0  = var 64<rt> (Register.toRegID Register.X0) "X0"

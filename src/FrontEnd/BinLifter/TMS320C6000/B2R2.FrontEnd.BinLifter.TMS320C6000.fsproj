@@ -9,7 +9,6 @@
 
   <ItemGroup>
     <Compile Include="TMS320C6000Register.fs" />
-    <Compile Include="TMS320C6000RegisterSet.fs" />
     <Compile Include="TMS320C6000RegExprs.fs" />
     <Compile Include="TMS320C6000RegisterBay.fs" />
     <Compile Include="TMS320C6000Types.fs" />

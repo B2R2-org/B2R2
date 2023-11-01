@@ -34,26 +34,26 @@ let rec private translateExpr (builder: LLVMIRBuilder) tempMap expr =
   match expr.E with
   | Num bv ->
     builder.Number (bv.SmallValue ()) bv.Length
-  | Var (_, reg, _, _) ->
+  | Var (_, reg, _) ->
     builder.EmitRegLoad reg
   | PCVar _ ->
     builder.EmitPCLoad ()
   | TempVar (_, n) ->
     (tempMap: Dictionary<_, _>)[n]
-  | Load (_, typ, addr, _) ->
+  | Load (_, typ, addr) ->
     let id = translateExpr builder tempMap addr
     builder.EmitMemLoad id typ
-  | UnOp (op, exp, _) ->
+  | UnOp (op, exp) ->
     translateUnOp builder tempMap op exp
-  | BinOp (op, typ, lhs, rhs, _) ->
+  | BinOp (op, typ, lhs, rhs) ->
     translateBinOp builder tempMap op typ lhs rhs
-  | RelOp (op, lhs, rhs, _) ->
+  | RelOp (op, lhs, rhs) ->
     let etyp = TypeCheck.typeOf lhs
     translateRelOp builder tempMap op etyp lhs rhs
-  | Cast (kind, rt, e, _) ->
+  | Cast (kind, rt, e) ->
     let etyp = TypeCheck.typeOf e
     translateCast builder tempMap e kind etyp rt
-  | Extract (e, len, pos, _) ->
+  | Extract (e, len, pos) ->
     let etyp = TypeCheck.typeOf e
     let e = translateExpr builder tempMap e
     builder.EmitExtract e etyp len pos
@@ -205,7 +205,7 @@ let private translateStmts (builder: LLVMIRBuilder) addr succs (stmts: Stmt[]) =
       builder.EmitComment $"0x{lastAddr:x}"
     | IEMark _ -> ()
     | Put (_, { E = Undefined _ }) -> ()
-    | Put ({ E = Var (_, reg, _, _) }, rhs) ->
+    | Put ({ E = Var (_, reg, _) }, rhs) ->
       let r = translateExpr builder tempMap rhs
       builder.EmitRegStore reg r
     | Put ({ E = TempVar (_, n) }, rhs) ->

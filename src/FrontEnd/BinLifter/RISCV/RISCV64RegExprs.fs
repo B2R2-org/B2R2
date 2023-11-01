@@ -31,7 +31,7 @@ open B2R2.BinIR.LowUIR
 open B2R2.BinIR.LowUIR.AST.InfixOp
 
 type internal RegExprs (wordSize) =
-  let var sz t name = AST.var sz t name (RISCV64RegisterSet.singleton t)
+  let var sz t name = AST.var sz t name
 
   (* Registers *)
   let regType = WordSize.toRegType wordSize

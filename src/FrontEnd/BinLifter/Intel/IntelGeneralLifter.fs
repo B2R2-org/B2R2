@@ -73,7 +73,7 @@ let private auxPush oprSize ctxt expr ir =
   !!ir (AST.loadLE oprSize sp := expr)
 
 let private computePopSize oprSize = function
-  | Var (_, id, _, _) when isSegReg (Register.ofRegID id) -> 16<rt>
+  | Var (_, id, _) when isSegReg (Register.ofRegID id) -> 16<rt>
   | _ -> oprSize
 
 let private auxPop oprSize ctxt dst ir =
@@ -91,7 +91,7 @@ let private maskOffset offset oprSize =
 
 let rec private isVar = function
   | Var _ | TempVar _ -> true
-  | Extract (e, _, _, _) -> isVar e.E
+  | Extract (e, _, _) -> isVar e.E
   | _ -> false
 
 let private calculateOffset offset oprSize =
@@ -589,7 +589,7 @@ let bswap ins insLen ctxt =
 
 let private bit ins bitBase bitOffset oprSize =
   match bitBase.E with
-  | Load (e, t, expr, _) ->
+  | Load (e, t, expr) ->
     let effAddrSz = getEffAddrSz ins
     let addrOffset, bitOffset = calculateOffset bitOffset oprSize
     let addrOffset = AST.zext effAddrSz addrOffset
@@ -619,7 +619,7 @@ let bt ins insLen ctxt =
 
 let private setBit ins bitBase bitOffset oprSize setValue =
   match bitBase.E with
-  | Load (e, t, expr, _) ->
+  | Load (e, t, expr) ->
     let effAddrSz = getEffAddrSz ins
     let addrOffset, bitOffset = calculateOffset bitOffset oprSize
     let addrOffset = AST.zext effAddrSz addrOffset
@@ -1731,7 +1731,7 @@ let jmp ins insLen ctxt =
   !>ir insLen
 
 let private convertSrc = function
-  | Load (_, _, expr, _) -> expr
+  | Load (_, _, expr) -> expr
   | _ -> Utils.impossible ()
 
 let lahf _ insLen ctxt =
@@ -2294,7 +2294,7 @@ let popf ins insLen ctxt =
 
 let inline private padPushExpr oprSize opr =
   match opr.E with
-  | Var (_, s, _, _) ->
+  | Var (_, s, _) ->
     if isSegReg <| Register.ofRegID s then AST.zext oprSize opr else opr
   | Num (_) -> AST.sext oprSize opr
   | _ -> opr

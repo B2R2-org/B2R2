@@ -9,7 +9,6 @@
     <Compile Include="SH4Opcodes.fs" />
     <Compile Include="SH4Types.fs" />
     <Compile Include="SH4OperandHelper.fs" />
-    <Compile Include="SH4RegisterSet.fs" />
     <Compile Include="SH4RegExprs.fs" />
     <Compile Include="SH4RegisterBay.fs" />
     <Compile Include="SH4Disasm.fs" />

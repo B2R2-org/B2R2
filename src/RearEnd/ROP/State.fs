@@ -49,16 +49,16 @@ type Value (expr) =
 module Value =
   let toLinear (value: Value) =
     match value.GetExpr().E with
-    | Var (32<rt>, _, reg, _) -> Some (reg, 0u)
+    | Var (32<rt>, _, reg) -> Some (reg, 0u)
     | BinOp (BinOpType.ADD, _,
-             { E = Var (32<rt>, _, reg, _) }, { E = Num n }, _)
+             { E = Var (32<rt>, _, reg) }, { E = Num n })
     | BinOp (BinOpType.ADD, _,
-             { E = Num n }, { E = Var (32<rt>, _, reg, _) }, _) ->
+             { E = Num n }, { E = Var (32<rt>, _, reg) }) ->
       Some (reg, BitVector.ToUInt32 n)
     | BinOp (BinOpType.SUB, _,
-             { E = Var (32<rt>, _, reg, _) }, { E = Num n }, _)
+             { E = Var (32<rt>, _, reg) }, { E = Num n })
     | BinOp (BinOpType.SUB, _,
-             { E = Num n }, { E = Var (32<rt>, _, reg, _) }, _) ->
+             { E = Num n }, { E = Var (32<rt>, _, reg) }) ->
       Some (reg, BitVector.Neg n |> BitVector.ToUInt32)
     | _ -> None
 
@@ -96,18 +96,18 @@ module State =
 
   let rec evalExpr state e =
     match e.E with
-    | Var (_, _, name, _) -> getReg state name e
+    | Var (_, _, name) -> getReg state name e
     | TempVar (_, name) -> getTempReg state name
-    | UnOp (op, expr, _) -> AST.unop op (getEvalExpr state expr) |> Value
-    | BinOp (op, ty, lExpr, rExpr, _) ->
+    | UnOp (op, expr) -> AST.unop op (getEvalExpr state expr) |> Value
+    | BinOp (op, ty, lExpr, rExpr) ->
       AST.binop op (getEvalExpr state lExpr) (getEvalExpr state rExpr) |> Value
-    | RelOp (op, lExpr, rExpr, _) ->
+    | RelOp (op, lExpr, rExpr) ->
       AST.relop op (getEvalExpr state lExpr) (getEvalExpr state rExpr) |> Value
-    | Load (endian, ty, expr, _) -> evalLoad state endian ty expr
-    | Ite (cExpr, tExpr, fExpr, _) ->
+    | Load (endian, ty, expr) -> evalLoad state endian ty expr
+    | Ite (cExpr, tExpr, fExpr) ->
       AST.ite (getEvalExpr state cExpr) (getEvalExpr state tExpr)
               (getEvalExpr state fExpr) |> Value
-    | Cast (kind, ty, expr, _) ->
+    | Cast (kind, ty, expr) ->
       AST.cast kind ty <| getEvalExpr state expr |> Value
     | _ -> Value e // Num, Name, PCVar
 
@@ -162,7 +162,7 @@ module State =
   let evalStmt state stmt  =
     match stmt.S with
     | ISMark _ | IEMark _ | LMark _ -> state
-    | Put ({ E = Var (_, _, reg, _) }, value) -> evalPutVar state reg value
+    | Put ({ E = Var (_, _, reg) }, value) -> evalPutVar state reg value
     | Put ({ E = TempVar (_, reg) }, value) -> evalPutTemp state reg value
     | Store (endian, addr, value) -> evalStore state endian addr value
     | CJmp (condE, trueE, falseE) -> evalCJmp state condE trueE falseE

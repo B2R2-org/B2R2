@@ -9,7 +9,6 @@
 
   <ItemGroup>
     <Compile Include="AVRRegister.fs" />
-    <Compile Include="AVRRegisterSet.fs" />
     <Compile Include="AVRRegExprs.fs" />
     <Compile Include="AVRRegisterBay.fs" />
     <Compile Include="AVRTypes.fs" />

@@ -41,8 +41,7 @@ type LowUIRTests () =
   member __.``[IntelAssemblerLowUIR] Test Register Assignment ``() =
     let result = p.Parse "RAX := 0x1:I64" |> Result.get |> Array.head
     let regID = Intel.Register.toRegID (Intel.Register.RAX)
-    let regSet = Intel.IntelRegisterSet.singleton regID
-    let answer = AST.put (AST.var 64<rt> regID "RAX" regSet) (AST.num size64Num)
+    let answer = AST.put (AST.var 64<rt> regID "RAX") (AST.num size64Num)
     Assert.AreEqual (answer, result)
 
   [<TestMethod>]
@@ -62,8 +61,7 @@ type LowUIRTests () =
     let result =
       p.Parse "RAX := (0x1:I64 - 0x1:I64)" |> Result.get |> Array.head
     let regID = Intel.Register.toRegID (Intel.Register.RAX)
-    let regSet = Intel.IntelRegisterSet.singleton regID
     let answer =
-      AST.put (AST.var 64<rt> regID "RAX" regSet)
+      AST.put (AST.var 64<rt> regID "RAX")
               (AST.num (BitVector.Cast (BitVector.F, 64<rt>)))
     Assert.AreEqual (answer, result)

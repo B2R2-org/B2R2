@@ -9,7 +9,6 @@
 
   <ItemGroup>
     <Compile Include="IntelRegister.fs" />
-    <Compile Include="IntelRegisterSet.fs" />
     <Compile Include="IntelOpcodes.fs" />
     <Compile Include="IntelTypes.fs" />
     <Compile Include="IntelRegExprs.fs" />

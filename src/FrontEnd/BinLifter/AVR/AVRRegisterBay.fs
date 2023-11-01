@@ -38,7 +38,7 @@ type AVRRegisterBay () =
 
   override __.RegIDFromRegExpr (e) =
     match e.E with
-    | Var (_, id, _ ,_) -> id (* TODO *)
+    | Var (_, id, _) -> id (* TODO *)
     | _ -> raise InvalidRegisterException
 
   override __.RegIDToRegExpr (id) = Utils.futureFeature ()

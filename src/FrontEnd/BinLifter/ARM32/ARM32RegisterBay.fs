@@ -55,7 +55,7 @@ type ARM32RegisterBay internal (r: RegExprs) =
 
   override __.RegIDFromRegExpr (e) =
     match e.E with
-    | Var (_, id, _, _) -> id
+    | Var (_, id, _) -> id
     | PCVar _ -> Register.toRegID Register.PC
     | _ -> raise InvalidRegisterException
 

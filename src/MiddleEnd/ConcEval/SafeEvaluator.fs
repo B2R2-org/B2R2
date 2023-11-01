@@ -47,16 +47,16 @@ let private unwrap = function
 let rec evalConcrete (st: EvalState) e =
   match e.E with
   | Num n -> Def n |> Ok
-  | Var (_, n, _, _) -> st.TryGetReg n |> Ok
+  | Var (_, n, _) -> st.TryGetReg n |> Ok
   | PCVar (t, _) -> BitVector.OfUInt64 st.PC t |> Def |> Ok
   | TempVar (_, n) -> st.TryGetTmp n |> Ok
-  | UnOp (t, e, _) -> evalUnOp st e t
-  | BinOp (t, _, e1, e2, _) -> evalBinOp st e1 e2 t
-  | RelOp (t, e1, e2, _) -> evalRelOp st e1 e2 t
-  | Load (endian, t, addr, _) -> evalLoad st endian t addr
-  | Ite (cond, e1, e2, _) -> evalIte st cond e1 e2
-  | Cast (kind, t, e, _) -> evalCast st t e kind
-  | Extract (e, t, p, _) -> evalConcrete st e |> map2 BitVector.Extract t p
+  | UnOp (t, e) -> evalUnOp st e t
+  | BinOp (t, _, e1, e2) -> evalBinOp st e1 e2 t
+  | RelOp (t, e1, e2) -> evalRelOp st e1 e2 t
+  | Load (endian, t, addr) -> evalLoad st endian t addr
+  | Ite (cond, e1, e2) -> evalIte st cond e1 e2
+  | Cast (kind, t, e) -> evalCast st t e kind
+  | Extract (e, t, p) -> evalConcrete st e |> map2 BitVector.Extract t p
   | Undefined (_) -> Ok Undef
   | _ -> Error ErrorCase.InvalidExprEvaluation
 
@@ -150,7 +150,7 @@ and private evalRelOp st e1 e2 = function
 
 let private markUndefAfterFailure (st: EvalState) lhs =
   match lhs with
-  | Var (_, n, _, _) -> st.UnsetReg n
+  | Var (_, n, _) -> st.UnsetReg n
   | TempVar (_, n) -> st.UnsetTmp n
   | _ -> ()
 
@@ -165,7 +165,7 @@ let private evalPut st lhs rhs =
   match evalConcrete st rhs with
   | Ok (Def v) ->
     match lhs.E with
-    | Var (_, n, _, _) -> st.SetReg n v |> Ok
+    | Var (_, n, _) -> st.SetReg n v |> Ok
     | TempVar (_, n) -> st.SetTmp n v |> Ok
     | PCVar (_) -> st.PC <- BitVector.ToUInt64 v; Ok ()
     | _ -> Error ErrorCase.InvalidExprEvaluation
@@ -207,7 +207,7 @@ let rec concretizeArgs st acc = function
 
 let private evalArgs st args =
   match args with
-  | { E = BinOp (BinOpType.APP, _, _, args, _) } ->
+  | { E = BinOp (BinOpType.APP, _, _, args) } ->
     uncurryArgs [] args |> concretizeArgs st []
   | _ -> Utils.impossible ()
 

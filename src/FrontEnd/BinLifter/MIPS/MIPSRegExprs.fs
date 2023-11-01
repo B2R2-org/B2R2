@@ -29,7 +29,7 @@ open B2R2.BinIR.LowUIR
 open B2R2.FrontEnd.BinLifter
 
 type internal RegExprs (wordSize) =
-  let var sz t name = AST.var sz t name (MIPSRegisterSet.singleton t)
+  let var sz t name = AST.var sz t name
 
   (* Registers *)
   let regType = WordSize.toRegType wordSize

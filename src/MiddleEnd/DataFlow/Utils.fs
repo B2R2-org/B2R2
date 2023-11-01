@@ -34,16 +34,16 @@ let [<Literal>] InitialStackPointer = 0x80000000UL
 
 let rec private extractUseFromExpr e =
   match e.E with
-  | Var (_, id, _, _) -> [ Regular id ]
+  | Var (_, id, _) -> [ Regular id ]
   | TempVar (_, n) -> [ Temporary n ]
-  | UnOp (_, e, _) -> extractUseFromExpr e
-  | BinOp (_, _, e1, e2, _) -> extractUseFromExpr e1 @ extractUseFromExpr e2
-  | RelOp (_, e1, e2, _) -> extractUseFromExpr e1 @ extractUseFromExpr e2
-  | Load (_, _, e, _) -> extractUseFromExpr e
-  | Ite (c, e1, e2, _) ->
+  | UnOp (_, e) -> extractUseFromExpr e
+  | BinOp (_, _, e1, e2) -> extractUseFromExpr e1 @ extractUseFromExpr e2
+  | RelOp (_, e1, e2) -> extractUseFromExpr e1 @ extractUseFromExpr e2
+  | Load (_, _, e) -> extractUseFromExpr e
+  | Ite (c, e1, e2) ->
     extractUseFromExpr c @ extractUseFromExpr e1 @ extractUseFromExpr e2
-  | Cast (_, _, e, _) -> extractUseFromExpr e
-  | Extract (e, _, _, _) -> extractUseFromExpr e
+  | Cast (_, _, e) -> extractUseFromExpr e
+  | Extract (e, _, _) -> extractUseFromExpr e
   | _ -> []
 
 let private extractUseFromStmt s =

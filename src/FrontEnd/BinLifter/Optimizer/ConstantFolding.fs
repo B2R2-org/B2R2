@@ -103,7 +103,7 @@ let private concretizeCast castType rt bv =
 
 let rec replace ctxt expr =
   match expr.E with
-  | Var (_, name, _, _) ->
+  | Var (_, name, _) ->
     match ctxt.VarMap.TryGetValue name with
     | true, e -> struct (true, e)
     | _  -> struct (false, expr)
@@ -111,24 +111,24 @@ let rec replace ctxt expr =
     match ctxt.TempVarMap.TryGetValue name with
     | (true, e) -> struct (true, e)
     | _  -> struct (false, expr)
-  | UnOp (t, e, _) ->
+  | UnOp (t, e) ->
     let struct (changed, e) = replace ctxt e
     if changed then
       match e.E with
       | Num bv -> struct (true, AST.num <| concretizeUnOp t bv)
       | _ -> struct (true, AST.unop t e)
     else struct (false, expr)
-  | BinOp (BinOpType.ADD, _, e, { E = Num bv }, _)
-  | BinOp (BinOpType.ADD, _, { E = Num bv }, e, _)
+  | BinOp (BinOpType.ADD, _, e, { E = Num bv })
+  | BinOp (BinOpType.ADD, _, { E = Num bv }, e)
     when BitVector.IsZero bv ->
     let struct (changed, e') = replace ctxt e
     if changed then struct (true, e') else struct (true, e)
-  | BinOp (BinOpType.MUL, _, e, { E = Num bv }, _)
-  | BinOp (BinOpType.MUL, _, { E = Num bv }, e, _)
+  | BinOp (BinOpType.MUL, _, e, { E = Num bv })
+  | BinOp (BinOpType.MUL, _, { E = Num bv }, e)
     when BitVector.IsOne bv ->
     let struct (changed, e') = replace ctxt e
     if changed then struct (true, e') else struct (true, e)
-  | BinOp (t, _, e1, e2, _) ->
+  | BinOp (t, _, e1, e2) ->
     let struct (changed1, e1) = replace ctxt e1
     let struct (changed2, e2) = replace ctxt e2
     match e1.E, e2.E with
@@ -136,7 +136,7 @@ let rec replace ctxt expr =
     | _ ->
       if changed1 || changed2 then struct (true, AST.binop t e1 e2)
       else struct (false, expr)
-  | RelOp (t, e1, e2, _) ->
+  | RelOp (t, e1, e2) ->
     let struct (changed1, e1) = replace ctxt e1
     let struct (changed2, e2) = replace ctxt e2
     match e1.E, e2.E with
@@ -144,11 +144,11 @@ let rec replace ctxt expr =
     | _ ->
       if changed1 || changed2 then struct (true, AST.relop t e1 e2)
       else struct (false, expr)
-  | Load (endian, rt, e, _) ->
+  | Load (endian, rt, e) ->
     let struct (changed, e') = replace ctxt e
     if changed then struct (true, AST.load endian rt e')
     else struct (false, expr)
-  | Ite (cond, e1, e2, _) ->
+  | Ite (cond, e1, e2) ->
     let struct (changed0, cond) = replace ctxt cond
     let struct (changed1, e1) = replace ctxt e1
     let struct (changed2, e2) = replace ctxt e2
@@ -159,14 +159,14 @@ let rec replace ctxt expr =
         else struct (false, e2)
       | _ -> struct (true, AST.ite cond e1 e2)
     else struct (false, expr)
-  | Cast (kind, rt, e, _) ->
+  | Cast (kind, rt, e) ->
     let struct (changed, e) = replace ctxt e
     if changed then
       match e.E with
       | Num bv -> struct (true, AST.num <| concretizeCast kind rt bv)
       | _ -> struct (true, AST.cast kind rt e)
     else struct (false, expr)
-  | Extract (e, rt, pos, _) ->
+  | Extract (e, rt, pos) ->
     let struct (changed, e) = replace ctxt e
     if changed then
       match e.E with
@@ -177,8 +177,8 @@ let rec replace ctxt expr =
 
 let updateContextAtDef ctxt dst src =
   match dst.E, src.E with
-  | Var (_, r, _, _), Num _ -> ctxt.VarMap.TryAdd (r, src) |> ignore
-  | Var (_, r, _, _), _ -> ctxt.VarMap.Remove (r) |> ignore
+  | Var (_, r, _), Num _ -> ctxt.VarMap.TryAdd (r, src) |> ignore
+  | Var (_, r, _), _ -> ctxt.VarMap.Remove (r) |> ignore
   | TempVar (_, n), Num _ -> ctxt.TempVarMap.TryAdd (n, src) |> ignore
   | TempVar (_, n), _ -> ctxt.TempVarMap.Remove (n) |> ignore
   | _ -> ()

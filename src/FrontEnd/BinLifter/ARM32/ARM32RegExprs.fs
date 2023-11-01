@@ -29,7 +29,7 @@ open B2R2.FrontEnd.BinLifter
 open B2R2.BinIR.LowUIR
 
 type internal RegExprs () =
-  let var sz t name = AST.var sz t name (ARM32RegisterSet.singleton t)
+  let var sz t name = AST.var sz t name
 
   let q0a = var 64<rt> (Register.toRegID Register.Q0A) "Q0A"
   let q0b = var 64<rt> (Register.toRegID Register.Q0B) "Q0B"
@@ -392,6 +392,5 @@ type internal RegExprs () =
     | R.Q15, 1 -> __.Q15A
     | R.Q15, 2 -> __.Q15B
     | _ -> raise UnhandledRegExprException
-
 
 // vim: set tw=80 sts=2 sw=2:

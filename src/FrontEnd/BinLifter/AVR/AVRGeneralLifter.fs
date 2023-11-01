@@ -764,13 +764,13 @@ let ld ins len ctxt =
   | 1 ->
     !!ir (dst := AST.loadLE 8<rt> src)
     match src.E with
-    | BinOp (BinOpType.CONCAT, _, exp1, exp2, _) ->
+    | BinOp (BinOpType.CONCAT, _, exp1, exp2) ->
       !!ir (exp1 := AST.extract (src .+ numI32PC 1) 8<rt> 8)
       !!ir (exp2 := AST.extract (src .+ numI32PC 1) 8<rt> 0)
     | _ -> Utils.impossible ()
   | -1 ->
     match src.E with
-    | BinOp (BinOpType.CONCAT, _, exp1, exp2, _) ->
+    | BinOp (BinOpType.CONCAT, _, exp1, exp2) ->
       !!ir (exp1 := AST.extract (src .- numI32PC 1) 8<rt> 8)
       !!ir (exp2 := AST.extract (src .- numI32PC 1) 8<rt> 0)
     | _ -> Utils.impossible ()
@@ -891,13 +891,13 @@ let st ins len ctxt =
   | 1 ->
     !!ir (AST.loadLE 8<rt> dst :=  src)
     match dst.E with
-    | BinOp (BinOpType.CONCAT, _, exp1, exp2, _) ->
+    | BinOp (BinOpType.CONCAT, _, exp1, exp2) ->
       !!ir (exp1 := AST.extract (dst .+ numI32PC 1) 8<rt> 8)
       !!ir (exp2 := AST.extract (dst .+ numI32PC 1) 8<rt> 0)
     | _ -> Utils.impossible ()
   | -1 ->
     match dst.E with
-    | BinOp (BinOpType.CONCAT, _, exp1, exp2, _) ->
+    | BinOp (BinOpType.CONCAT, _, exp1, exp2) ->
       !!ir (exp1 := AST.extract (dst .- numI32PC 1) 8<rt> 8)
       !!ir (exp2 := AST.extract (dst .- numI32PC 1) 8<rt> 0)
     | _ -> Utils.impossible ()

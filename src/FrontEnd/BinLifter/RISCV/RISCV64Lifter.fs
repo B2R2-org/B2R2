@@ -38,7 +38,7 @@ let inline getRegVar (ctxt: TranslationContext) name =
 
 let inline (:=) dst src =
   match dst with
-  | { E = Var (_, rid, _, _) } when rid = Register.toRegID Register.X0 ->
+  | { E = Var (_, rid, _) } when rid = Register.toRegID Register.X0 ->
     dst := dst (* Prevent setting x0. Our optimizer will remove this anyways. *)
   | _ ->
     dst := src
@@ -386,7 +386,7 @@ let transFourOprs insInfo ctxt (o1, o2, o3, o4) =
 
 let getAddrFromMem x =
   match x.E with
-  | Load (_, _, addr, _) -> addr
+  | Load (_, _, addr) -> addr
   | _ -> raise InvalidExprException
 
 let isAligned rt expr =

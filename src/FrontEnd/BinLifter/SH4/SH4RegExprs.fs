@@ -32,7 +32,7 @@ module R = Register
 
 type internal RegExprs (wordSize) =
 
-  let var sz t name = AST.var sz t name (SH4RegisterSet.singleton t)
+  let var sz t name = AST.var sz t name
 
   let regType = WordSize.toRegType wordSize
 

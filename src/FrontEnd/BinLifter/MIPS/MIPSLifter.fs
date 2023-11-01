@@ -38,7 +38,7 @@ let inline getRegVar (ctxt: TranslationContext) name =
 
 let inline (:=) dst src =
   match dst with
-  | { E = Var (_, rid, _, _) } when rid = Register.toRegID Register.R0 ->
+  | { E = Var (_, rid, _) } when rid = Register.toRegID Register.R0 ->
     dst := dst (* Prevent setting r0. Our optimizer will remove this anyways. *)
   | _ ->
     dst := src

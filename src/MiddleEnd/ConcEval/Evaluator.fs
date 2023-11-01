@@ -33,18 +33,18 @@ open B2R2.MiddleEnd.ConcEval.EvalUtils
 let rec evalConcrete (st: EvalState) e =
   match e.E with
   | Num n -> n
-  | Var (_, n, _, _) -> st.GetReg n
+  | Var (_, n, _) -> st.GetReg n
   | PCVar (t, _) -> BitVector.OfUInt64 st.PC t
   | TempVar (_, n) -> st.GetTmp n
-  | UnOp (t, e, _) -> evalUnOp st e t
-  | BinOp (t, _, e1, e2, _) -> evalBinOp st e1 e2 t
-  | RelOp (t, e1, e2, _) -> evalRelOp st e1 e2 t
-  | Load (endian, t, addr, _) -> evalLoad st endian t addr
-  | Ite (cond, e1, e2, _) ->
+  | UnOp (t, e) -> evalUnOp st e t
+  | BinOp (t, _, e1, e2) -> evalBinOp st e1 e2 t
+  | RelOp (t, e1, e2) -> evalRelOp st e1 e2 t
+  | Load (endian, t, addr) -> evalLoad st endian t addr
+  | Ite (cond, e1, e2) ->
     let cond = evalConcrete st cond
     if cond = tr then evalConcrete st e1 else evalConcrete st e2
-  | Cast (kind, t, e, _) -> evalCast st t e kind
-  | Extract (e, t, p, _) -> BitVector.Extract (evalConcrete st e, t, p)
+  | Cast (kind, t, e) -> evalCast st t e kind
+  | Extract (e, t, p) -> BitVector.Extract (evalConcrete st e, t, p)
   | Undefined (_) -> raise UndefExpException
   | _ -> raise InvalidExprException
 
@@ -135,7 +135,7 @@ let private evalPut st lhs rhs =
   try
     let v = evalConcrete st rhs
     match lhs.E with
-    | Var (_, n, _, _) -> st.SetReg n v
+    | Var (_, n, _) -> st.SetReg n v
     | TempVar (_, n) -> st.SetTmp n v
     | PCVar (_) -> st.PC <- BitVector.ToUInt64 v
     | _ -> raise InvalidExprException
@@ -169,7 +169,7 @@ let rec concretizeArgs st acc = function
 
 let private evalArgs st args =
   match args with
-  | { E = BinOp (BinOpType.APP, _, _, args, _) } ->
+  | { E = BinOp (BinOpType.APP, _, _, args) } ->
     uncurryArgs [] args |> concretizeArgs st []
   | _ -> Utils.impossible ()
 

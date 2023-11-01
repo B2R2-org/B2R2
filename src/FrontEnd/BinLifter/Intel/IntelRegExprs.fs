@@ -37,7 +37,7 @@ open type WordSize
 exception internal InvalidRegAccessException
 
 type internal RegExprs (wordSize) =
-  let var sz t name = AST.var sz t name (IntelRegisterSet.singleton t)
+  let var sz t name = AST.var sz t name
 
   let reg64 wordSize t name =
     if wordSize = Bit32 then AST.undef 64<rt> name

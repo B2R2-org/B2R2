@@ -94,9 +94,9 @@ module internal ValueOptimizer =
 
   let inline extract e t pos = BitVector.Extract (e, t, pos)
 
+#if ! HASHCONS
 [<RequireQualifiedAccess>]
 module internal ASTHelper =
-#if ! HASHCONS
   let inline buildExpr e =
     { E = e }
 
@@ -104,45 +104,3 @@ module internal ASTHelper =
     { S = s }
 #endif
 
-  let emptyExprInfo =
-    { HasLoad = false
-      VarsUsed = RegisterSet.empty
-      TempVarsUsed = Set.empty }
-
-  let getExprInfo e =
-    match e.E with
-    | Num _ | PCVar _ | Nil | Name _ | FuncName _ | Undefined _ -> emptyExprInfo
-    | Var (_, _, _, rset) ->
-      { HasLoad = false; VarsUsed = rset; TempVarsUsed = Set.empty }
-    | TempVar (_, name) ->
-      { HasLoad = false
-        VarsUsed = RegisterSet.empty
-        TempVarsUsed = Set.singleton name }
-    | UnOp (_, _, ei)
-    | BinOp (_, _, _, _, ei)
-    | RelOp (_, _, _, ei)
-    | Load (_, _, _, ei)
-    | Ite (_, _, _, ei)
-    | Cast (_, _, _, ei)
-    | Extract (_, _, _, ei) -> ei
-
-  let mergeTwoExprInfo e1 e2 =
-    let ei1 = getExprInfo e1
-    let ei2 = getExprInfo e2
-    { HasLoad = ei1.HasLoad || ei2.HasLoad
-      VarsUsed = RegisterSet.union ei1.VarsUsed ei2.VarsUsed
-      TempVarsUsed = Set.union ei1.TempVarsUsed ei2.TempVarsUsed }
-
-  let mergeThreeExprInfo e1 e2 e3 =
-    let ei1 = getExprInfo e1
-    let ei2 = getExprInfo e2
-    let ei3 = getExprInfo e3
-    let vars =
-      RegisterSet.union ei1.VarsUsed ei2.VarsUsed
-      |> RegisterSet.union ei3.VarsUsed
-    let tmps =
-      Set.union ei1.TempVarsUsed ei2.TempVarsUsed
-      |> Set.union ei3.TempVarsUsed
-    { HasLoad = ei1.HasLoad || ei2.HasLoad || ei3.HasLoad
-      VarsUsed = vars
-      TempVarsUsed = tmps }

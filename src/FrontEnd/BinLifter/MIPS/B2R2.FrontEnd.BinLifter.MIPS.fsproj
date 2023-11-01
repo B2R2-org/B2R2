@@ -9,7 +9,6 @@
 
   <ItemGroup>
     <Compile Include="MIPSRegister.fs" />
-    <Compile Include="MIPSRegisterSet.fs" />
     <Compile Include="MIPSRegExprs.fs" />
     <Compile Include="MIPSRegisterBay.fs" />
     <Compile Include="MIPSTypes.fs" />

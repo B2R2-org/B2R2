@@ -9,7 +9,6 @@
 
   <ItemGroup>
     <Compile Include="PPC32Register.fs" />
-    <Compile Include="PPC32RegisterSet.fs" />
     <Compile Include="PPC32RegExprs.fs" />
     <Compile Include="PPC32RegisterBay.fs" />
     <Compile Include="PPC32Types.fs" />

@@ -7,7 +7,6 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="RISCV64Register.fs" />
-    <Compile Include="RISCV64RegisterSet.fs" />
     <Compile Include="RISCV64RegExprs.fs" />
     <Compile Include="RISCV64RegisterBay.fs" />
     <Compile Include="RISCV64Types.fs" />
