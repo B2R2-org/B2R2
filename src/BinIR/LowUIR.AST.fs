@@ -1022,7 +1022,7 @@ let sideEffect eff =
 #endif
 
 /// Record the use of vars and tempvars from the given expression.
-let rec updateVarUses (rset: RegisterSet) (tset: HashSet<int>) { E = e } =
+let rec updateAllVarsUses (rset: RegisterSet) (tset: HashSet<int>) { E = e } =
   match e with
   | Num _ | Nil | PCVar _ | Name _ | FuncName _ | Undefined _ ->
     ()
@@ -1031,23 +1031,75 @@ let rec updateVarUses (rset: RegisterSet) (tset: HashSet<int>) { E = e } =
   | TempVar (_, n) ->
     tset.Add n |> ignore
   | UnOp (_, e) ->
-    updateVarUses rset tset e
+    updateAllVarsUses rset tset e
   | BinOp (_, _, lhs, rhs) ->
-    updateVarUses rset tset lhs
-    updateVarUses rset tset rhs
+    updateAllVarsUses rset tset lhs
+    updateAllVarsUses rset tset rhs
   | RelOp (_, lhs, rhs) ->
-    updateVarUses rset tset lhs
-    updateVarUses rset tset rhs
+    updateAllVarsUses rset tset lhs
+    updateAllVarsUses rset tset rhs
   | Load (_, _, e) ->
-    updateVarUses rset tset e
+    updateAllVarsUses rset tset e
   | Ite (cond, e1, e2) ->
-    updateVarUses rset tset cond
-    updateVarUses rset tset e1
-    updateVarUses rset tset e2
+    updateAllVarsUses rset tset cond
+    updateAllVarsUses rset tset e1
+    updateAllVarsUses rset tset e2
   | Cast (_, _, e) ->
-    updateVarUses rset tset e
+    updateAllVarsUses rset tset e
   | Extract (e, _, _) ->
-    updateVarUses rset tset e
+    updateAllVarsUses rset tset e
+
+/// Record the use of vars (registers) from the given expression.
+let rec updateRegsUses (rset: RegisterSet) { E = e } =
+  match e with
+  | Num _ | Nil | PCVar _ | Name _ | FuncName _ | Undefined _ | TempVar _ ->
+    ()
+  | Var (_, rid, _) ->
+    rset.Add (int rid)
+  | UnOp (_, e) ->
+    updateRegsUses rset e
+  | BinOp (_, _, lhs, rhs) ->
+    updateRegsUses rset lhs
+    updateRegsUses rset rhs
+  | RelOp (_, lhs, rhs) ->
+    updateRegsUses rset lhs
+    updateRegsUses rset rhs
+  | Load (_, _, e) ->
+    updateRegsUses rset e
+  | Ite (cond, e1, e2) ->
+    updateRegsUses rset cond
+    updateRegsUses rset e1
+    updateRegsUses rset e2
+  | Cast (_, _, e) ->
+    updateRegsUses rset e
+  | Extract (e, _, _) ->
+    updateRegsUses rset e
+
+/// Record the use of tempvars from the given expression.
+let rec updateTempsUses (tset: HashSet<int>) { E = e } =
+  match e with
+  | Num _ | Nil | PCVar _ | Name _ | FuncName _ | Undefined _ | Var _ ->
+    ()
+  | TempVar (_, n) ->
+    tset.Add n |> ignore
+  | UnOp (_, e) ->
+    updateTempsUses tset e
+  | BinOp (_, _, lhs, rhs) ->
+    updateTempsUses tset lhs
+    updateTempsUses tset rhs
+  | RelOp (_, lhs, rhs) ->
+    updateTempsUses tset lhs
+    updateTempsUses tset rhs
+  | Load (_, _, e) ->
+    updateTempsUses tset e
+  | Ite (cond, e1, e2) ->
+    updateTempsUses tset cond
+    updateTempsUses tset e1
+    updateTempsUses tset e2
+  | Cast (_, _, e) ->
+    updateTempsUses tset e
+  | Extract (e, _, _) ->
+    updateTempsUses tset e
 
 module InfixOp =
   /// Assignment.

@@ -5,6 +5,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="RegisterSet.Tests.fs" />
     <Compile Include="AddrRange.Tests.fs" />
     <Compile Include="LRUCache.Tests.fs" />
     <Compile Include="IntervalTree.Tests.fs" />

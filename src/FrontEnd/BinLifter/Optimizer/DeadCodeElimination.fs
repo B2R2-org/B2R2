@@ -52,24 +52,24 @@ let rec optimizeLoop (stmts: Stmt[]) (used: bool[]) idx len ctxt =
   if idx >= 0 then
     match stmts[idx].S with
     | Store (_, e1, e2) ->
-      AST.updateVarUses ctxt.UseRegisters ctxt.UseTempVar e1
-      AST.updateVarUses ctxt.UseRegisters ctxt.UseTempVar e2
+      AST.updateAllVarsUses ctxt.UseRegisters ctxt.UseTempVar e1
+      AST.updateAllVarsUses ctxt.UseRegisters ctxt.UseTempVar e2
       optimizeLoop stmts used (idx - 1) len ctxt
     | InterJmp (e, _) ->
-      AST.updateVarUses ctxt.UseRegisters ctxt.UseTempVar e
+      AST.updateAllVarsUses ctxt.UseRegisters ctxt.UseTempVar e
       optimizeLoop stmts used (idx - 1) len ctxt
     | InterCJmp (e, e1, e2) ->
-      AST.updateVarUses ctxt.UseRegisters ctxt.UseTempVar e
-      AST.updateVarUses ctxt.UseRegisters ctxt.UseTempVar e1
-      AST.updateVarUses ctxt.UseRegisters ctxt.UseTempVar e2
+      AST.updateAllVarsUses ctxt.UseRegisters ctxt.UseTempVar e
+      AST.updateAllVarsUses ctxt.UseRegisters ctxt.UseTempVar e1
+      AST.updateAllVarsUses ctxt.UseRegisters ctxt.UseTempVar e2
       optimizeLoop stmts used (idx - 1) len ctxt
     | Jmp e ->
-      AST.updateVarUses ctxt.UseRegisters ctxt.UseTempVar e
+      AST.updateAllVarsUses ctxt.UseRegisters ctxt.UseTempVar e
       optimizeLoop stmts used (idx - 1) len ctxt
     | CJmp (e, e1, e2) ->
-      AST.updateVarUses ctxt.UseRegisters ctxt.UseTempVar e
-      AST.updateVarUses ctxt.UseRegisters ctxt.UseTempVar e1
-      AST.updateVarUses ctxt.UseRegisters ctxt.UseTempVar e2
+      AST.updateAllVarsUses ctxt.UseRegisters ctxt.UseTempVar e
+      AST.updateAllVarsUses ctxt.UseRegisters ctxt.UseTempVar e1
+      AST.updateAllVarsUses ctxt.UseRegisters ctxt.UseTempVar e2
       optimizeLoop stmts used (idx - 1) len ctxt
     | Put (v, e) when v = e ->
       used[idx] <- false
@@ -82,7 +82,7 @@ let rec optimizeLoop (stmts: Stmt[]) (used: bool[]) idx len ctxt =
         optimizeLoop stmts used (idx - 1) (len - 1) ctxt
       else
         ctxt.OutRegisters.Add (int rid)
-        AST.updateVarUses ctxt.UseRegisters ctxt.UseTempVar rhs
+        AST.updateAllVarsUses ctxt.UseRegisters ctxt.UseTempVar rhs
         optimizeLoop stmts used (idx - 1) len ctxt
     | Put ({ E = TempVar (_, n) }, rhs) ->
       let isUsed = ctxt.UseTempVar.Contains n
@@ -92,10 +92,10 @@ let rec optimizeLoop (stmts: Stmt[]) (used: bool[]) idx len ctxt =
         optimizeLoop stmts used (idx - 1) (len - 1) ctxt
       else
         ctxt.OutTempVar.Add n |> ignore
-        AST.updateVarUses ctxt.UseRegisters ctxt.UseTempVar rhs
+        AST.updateAllVarsUses ctxt.UseRegisters ctxt.UseTempVar rhs
         optimizeLoop stmts used (idx - 1) len ctxt
     | ExternalCall (e) ->
-      AST.updateVarUses ctxt.UseRegisters ctxt.UseTempVar e
+      AST.updateAllVarsUses ctxt.UseRegisters ctxt.UseTempVar e
       optimizeLoop stmts used (idx - 1) len ctxt
     | LMark _ ->
       ctxt.IsLastBlock <- false

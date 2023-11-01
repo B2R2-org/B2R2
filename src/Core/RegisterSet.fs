@@ -24,11 +24,14 @@
 
 namespace B2R2
 
+open System
+open System.Numerics
+
 /// RegisterSet is an efficient set data structure for managing a set of
 /// registers. Since RegisterID always starts from 0, we can use it directly as
 /// an index to the bit array.
 type RegisterSet (maxNumElems: int) =
-  let arr: uint64[] = Array.zeroCreate ((maxNumElems + 63) / 64)
+  let arr: int64[] = Array.zeroCreate ((maxNumElems + 63) / 64)
 
   new () = RegisterSet (378) (* Number of registers for AARCH64 = 378 *)
 
@@ -44,13 +47,15 @@ type RegisterSet (maxNumElems: int) =
 
   /// Add a register to the set by marking the corresponding bit.
   member __.Add (idx: int) =
+    if idx >= __.MaxNumElems then raise (IndexOutOfRangeException ()) else ()
     let struct (bucket, offset) = __.GetBucketAndOffset idx
-    arr[bucket] <- arr[bucket] ||| (1UL <<< offset)
+    arr[bucket] <- arr[bucket] ||| (1L <<< offset)
 
   /// Remove a register from the set by unmarking the corresponding bit.
   member __.Remove (idx: int) =
+    if idx >= __.MaxNumElems then raise (IndexOutOfRangeException ()) else ()
     let struct (bucket, offset) = __.GetBucketAndOffset idx
-    arr[bucket] <- arr[bucket] &&& ~~~(1UL <<< offset)
+    arr[bucket] <- arr[bucket] &&& ~~~(1L <<< offset)
 
   /// Update the current register set by making a union with the given set.
   member __.Union (other: RegisterSet) =
@@ -70,13 +75,22 @@ type RegisterSet (maxNumElems: int) =
   /// Check if the set contains the given register indexed by `idx`.
   member __.Contains (idx: int) =
     let struct (bucket, offset) = __.GetBucketAndOffset idx
-    (arr[bucket] &&& (1UL <<< offset)) <> 0UL
+    (arr[bucket] &&& (1L <<< offset)) <> 0L
 
   /// Check if the set is empty.
   member __.IsEmpty () =
-    arr |> Array.forall (fun x -> x = 0UL)
+    arr |> Array.forall (fun x -> x = 0L)
 
   /// Clear the set.
   member __.Clear () =
     for i = 0 to arr.Length - 1 do
-      arr.[i] <- 0UL
+      arr.[i] <- 0L
+
+  /// Iterate over the set and apply the given function to each element.
+  member inline __.Iterate ([<InlineIfLambda>] fn) =
+    for i = 0 to __.BitArray.Length - 1 do
+      let mutable bucket = __.BitArray[i]
+      while bucket <> 0L do
+        let offset = BitOperations.TrailingZeroCount bucket
+        fn (i * 64 + offset)
+        bucket <- bucket ^^^ (bucket &&& (- bucket))
