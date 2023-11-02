@@ -29,6 +29,7 @@ open System.Collections.Generic
 /// Extended Array.
 [<RequireQualifiedAccess>]
 module Array =
+  /// Applies a function to each element of the array with its index.
   let inline foldi ([<InlineIfLambda>] folder) acc arr =
     Array.fold (fun (acc, idx) elt ->
       (folder acc idx elt, idx + 1)) (acc, 0) arr

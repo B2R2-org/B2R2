@@ -141,9 +141,9 @@ let rec private adjustLayers isIncoming layerNum vLayout = function
 /// edges.
 let private adjustLayerYPositions edges vLayout =
   let maxIncomingDegrees =
-    vLayout |> Array.map (getMaxDegree edges Utils.tripleSnd) |> Array.toList
+    vLayout |> Array.map (getMaxDegree edges Utils.sndOfTriple) |> Array.toList
   let maxOutgoingDegrees =
-    vLayout |> Array.map (getMaxDegree edges Utils.tripleFst) |> Array.toList
+    vLayout |> Array.map (getMaxDegree edges Utils.fstOfTriple) |> Array.toList
   adjustLayers true 0 vLayout maxIncomingDegrees
   adjustLayers false 0 vLayout maxOutgoingDegrees
 

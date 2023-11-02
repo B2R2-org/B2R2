@@ -60,7 +60,10 @@ type ErrorCase =
   /// Encountered fatal error while recovering CFG.
   | FailedToRecoverCFG = 15
 
+[<RequireQualifiedAccess>]
 module ErrorCase =
+  /// Convert an error case type to a string.
+  [<CompiledName "ToString">]
   let toString errCase =
     match errCase with
     | ErrorCase.ParsingFailure -> "Failed to parse."

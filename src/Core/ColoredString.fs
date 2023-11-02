@@ -26,29 +26,6 @@ namespace B2R2
 
 open System
 
-type Color =
-  | Red
-  | Green
-  | Yellow
-  | Blue
-  | DarkCyan
-  | DarkYellow
-  | NoColor
-  | RedHighlight
-  | GreenHighlight
-
-module Color =
-  let toString = function
-    | NoColor -> "nocolor"
-    | Red -> "red"
-    | Green -> "green"
-    | Yellow -> "yellow"
-    | Blue -> "blue"
-    | DarkCyan -> "darkcyan"
-    | DarkYellow -> "darkyellow"
-    | RedHighlight -> "redhighlight"
-    | GreenHighlight -> "greenhighlight"
-
 type ColoredSegment = Color * string
 
 [<RequireQualifiedAccess>]

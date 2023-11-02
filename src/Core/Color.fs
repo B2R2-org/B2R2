@@ -22,27 +22,31 @@
   SOFTWARE.
 *)
 
-/// A set of convenient misc. functions.
-module B2R2.Utils
+namespace B2R2
 
-/// Not implemented features encountered, so raise an exception and die.
-val futureFeature: unit -> 'a
+/// Color type used to represent colors to print out in the console.
+type Color =
+  | Red
+  | Green
+  | Yellow
+  | Blue
+  | DarkCyan
+  | DarkYellow
+  | NoColor
+  | RedHighlight
+  | GreenHighlight
 
-/// Fatal error. This should never happen.
-val impossible: unit -> 'a
-
-/// Physical equality.
-val inline (===) : 'a -> 'a -> bool when 'a : not struct
-
-/// Convert a tuple result to an option type. The tuple result is obtained from
-/// TryGetValue methods, e.g., from IDictionary.
-val inline tupleResultToOpt: bool * 'a -> 'a option
-
-/// Return the first item of a triple.
-val inline fstOfTriple: ('a * 'b * 'c) -> 'a
-
-/// Return the second item of a triple.
-val inline sndOfTriple: ('a * 'b * 'c) -> 'b
-
-/// Return the third item of a triple.
-val inline thdOfTriple: ('a * 'b * 'c) -> 'c
+[<RequireQualifiedAccess>]
+module Color =
+  /// Returns a string representation of a color.
+  [<CompiledName "ToString">]
+  let toString = function
+    | NoColor -> "nocolor"
+    | Red -> "red"
+    | Green -> "green"
+    | Yellow -> "yellow"
+    | Blue -> "blue"
+    | DarkCyan -> "darkcyan"
+    | DarkYellow -> "darkyellow"
+    | RedHighlight -> "redhighlight"
+    | GreenHighlight -> "greenhighlight"
