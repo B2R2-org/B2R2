@@ -11,7 +11,7 @@ lint:
     script:
         - dotnet tool install --global dotnet-fsharplint --version 0.21.3
         - echo $CHANGES
-        - for f in $CHANGES; do echo $; /root/.dotnet/tools/dotnet-fsharplint lint $f; done
+        - for f in $CHANGES; do echo $f; /root/.dotnet/tools/dotnet-fsharplint lint $f; done
     tags:
         - b2r2
 
