@@ -58,7 +58,7 @@ module BinEssence =
 
   let private getFunctionOperationMode (hdl: BinHandle) entry =
     match hdl.File.ISA.Arch with
-    | Arch.ARMv7 ->
+    | Architecture.ARMv7 ->
       if entry &&& 1UL = 1UL then
         entry - 1UL, ArchOperationMode.ThumbMode
       else entry, ArchOperationMode.ARMMode

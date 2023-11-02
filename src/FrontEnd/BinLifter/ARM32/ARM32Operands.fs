@@ -947,7 +947,7 @@ type [<AbstractClass>] OperandParser () =
     struct (Operands * bool * bool option * RegType)
 
 and ParsingHelper (arch, mode, rd, addr, oprs, len, cond, isAdd) =
-  let isARMv7 = (arch = Arch.ARMv7)
+  let isARMv7 = (arch = Architecture.ARMv7)
   let mutable mode: ArchOperationMode = mode
   let mutable addr: Addr = addr
   let mutable len: uint32 = len
@@ -956,7 +956,7 @@ and ParsingHelper (arch, mode, rd, addr, oprs, len, cond, isAdd) =
   new (arch, reader, oparsers) =
     ParsingHelper (arch, ArchOperationMode.ARMMode,
                    reader, 0UL, oparsers, 0u, Condition.UN, true)
-  member __.Arch with get(): Arch = arch
+  member __.Arch with get(): Architecture = arch
   member __.Mode with get() = mode and set (m) = mode <- m
   member __.BinReader with get(): IBinReader = rd
   member __.InsAddr with get() = addr and set(a) = addr <- a

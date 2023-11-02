@@ -812,7 +812,7 @@ type InsInfo = {
   /// Operation Size.
   OperationSize: RegType
   /// Mips architecture.
-  Arch: Arch
+  Arch: Architecture
 }
 with
   override __.GetHashCode () =

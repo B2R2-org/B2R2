@@ -34,7 +34,7 @@ open B2R2
 val parse:
   ByteSpan
   -> IBinReader
-  -> Arch
+  -> Architecture
   -> WordSize
   -> Addr
   -> MIPSInstruction

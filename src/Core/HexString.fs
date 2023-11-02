@@ -22,17 +22,37 @@
   SOFTWARE.
 *)
 
-module B2R2.MiddleEnd.LLVM.LLVMIRHelper
+namespace B2R2
 
-open B2R2
+/// Useful functions in handling hexademical strings.
+[<RequireQualifiedAccess>]
+module HexString =
+  /// Convert an int16 value to a hex string.
+  [<CompiledName "OfInt16">]
+  let inline ofInt16 (v: int16) =
+    $"0x{v:x}"
 
-/// Initialize the context for the given ISA.
-let initializeContext isa =
-  match isa.Arch with
-  | Architecture.IntelX64 -> X64Context.init ()
-  | Architecture.IntelX86 -> X86Context.init ()
-  | Architecture.ARMv7 | Architecture.AARCH32 -> ARM32Context.init ()
-  | Architecture.AARCH64 -> ARM64Context.init ()
-  | Architecture.MIPS32 -> MIPS32Context.init ()
-  | Architecture.MIPS64 -> MIPS64Context.init ()
-  | _ -> Utils.futureFeature ()
+  /// Convert a uint16 value to a hex string.
+  [<CompiledName "OfUInt16">]
+  let inline ofUInt16 (v: uint16) =
+    $"0x{v:x}"
+
+  /// Convert an int32 value to a hex string.
+  [<CompiledName "OfInt32">]
+  let inline ofInt32 (v: int) =
+    $"0x{v:x}"
+
+  /// Convert a uint32 value to a hex string.
+  [<CompiledName "OfUInt32">]
+  let inline ofUInt32 (v: uint32) =
+    $"0x{v:x}"
+
+  /// Convert an int64 value to a hex string.
+  [<CompiledName "OfInt64">]
+  let inline ofInt64 (v: int64) =
+    $"0x{v:x}"
+
+  /// Convert a uint64 value to a hex string.
+  [<CompiledName "OfUInt64">]
+  let inline ofUInt64 (v: uint64) =
+    $"0x{v:x}"

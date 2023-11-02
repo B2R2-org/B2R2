@@ -189,25 +189,25 @@ module internal Header =
     | 0x40000000u
     | 0x50000000u
     | 0x70000000u
-    | 0x90000000u -> Arch.MIPS32
+    | 0x90000000u -> Architecture.MIPS32
     | 0x60000000u
     | 0x80000000u
-    | 0xa0000000u -> Arch.MIPS64
+    | 0xa0000000u -> Architecture.MIPS64
     | c -> failwithf "invalid MIPS arch (%02x)" c
 
   let private getArch (span: ByteSpan) (reader: IBinReader) cls =
     match reader.ReadInt16 (span, 18) with
-    | 0x03s -> Arch.IntelX86
-    | 0x3es -> Arch.IntelX64
-    | 0x28s -> Arch.ARMv7
-    | 0xb7s -> Arch.AARCH64
+    | 0x03s -> Architecture.IntelX86
+    | 0x3es -> Architecture.IntelX64
+    | 0x28s -> Architecture.ARMv7
+    | 0xb7s -> Architecture.AARCH64
     | 0x08s | 0x0as -> getMIPSArch span reader cls
-    | 0x53s -> Arch.AVR
-    | 0x2as -> Arch.SH4
-    | 0x14s -> Arch.PPC32
-    | 0x2bs -> Arch.SPARC
-    | 0xf3s -> Arch.RISCV64 (* FIXME: RISCV *)
-    | _ -> Arch.UnknownISA
+    | 0x53s -> Architecture.AVR
+    | 0x2as -> Architecture.SH4
+    | 0x14s -> Architecture.PPC32
+    | 0x2bs -> Architecture.SPARC
+    | 0xf3s -> Architecture.RISCV64 (* FIXME: RISCV *)
+    | _ -> Architecture.UnknownISA
 
   let parseFromSpan span (reader: IBinReader) endian baseAddrOpt =
     let cls = getClass span

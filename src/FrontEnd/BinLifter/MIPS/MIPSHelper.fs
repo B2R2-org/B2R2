@@ -28,8 +28,8 @@ open B2R2
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinLifter.MIPS.Utils
 
-let isMIPS32 arch = arch = Arch.MIPS32
-let isMIPS64 arch = arch = Arch.MIPS64
+let isMIPS32 arch = arch = Architecture.MIPS32
+let isMIPS64 arch = arch = Architecture.MIPS64
 
 let getRegister = function
   | 0x0uy -> R.R0
@@ -121,8 +121,8 @@ let getCondition = function
   | _ -> raise InvalidConditionException
 
 let gprLen = function
-  | Arch.MIPS32 -> 32
-  | Arch.MIPS64 -> 64
+  | Architecture.MIPS32 -> 32
+  | Architecture.MIPS64 -> 64
   | _ -> Utils.impossible ()
 
 let num9 b = extract b 15u 7u

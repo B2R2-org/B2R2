@@ -33,17 +33,17 @@ open B2R2.FrontEnd.BinLifter
 [<CompiledName ("Init")>]
 let init isa =
   match isa.Arch with
-  | Arch.IntelX64
-  | Arch.IntelX86 -> Intel.Basis.init isa
-  | Arch.ARMv7 | Arch.AARCH32 -> ARM32.Basis.init isa
-  | Arch.AARCH64 -> ARM64.Basis.init isa
-  | Arch.MIPS32 | Arch.MIPS64 -> MIPS.Basis.init isa
-  | Arch.EVM -> EVM.Basis.init isa
-  | Arch.TMS320C6000 -> TMS320C6000.Basis.init isa
-  | Arch.CILOnly -> CIL.Basis.init isa
-  | Arch.AVR -> AVR.Basis.init isa
-  | Arch.SH4 -> SH4.Basis.init isa
-  | Arch.PPC32 -> PPC32.Basis.init isa
-  | Arch.RISCV64 -> RISCV.Basis.init isa
-  | Arch.SPARC -> SPARC.Basis.init isa
+  | Architecture.IntelX64
+  | Architecture.IntelX86 -> Intel.Basis.init isa
+  | Architecture.ARMv7 | Architecture.AARCH32 -> ARM32.Basis.init isa
+  | Architecture.AARCH64 -> ARM64.Basis.init isa
+  | Architecture.MIPS32 | Architecture.MIPS64 -> MIPS.Basis.init isa
+  | Architecture.EVM -> EVM.Basis.init isa
+  | Architecture.TMS320C6000 -> TMS320C6000.Basis.init isa
+  | Architecture.CILOnly -> CIL.Basis.init isa
+  | Architecture.AVR -> AVR.Basis.init isa
+  | Architecture.SH4 -> SH4.Basis.init isa
+  | Architecture.PPC32 -> PPC32.Basis.init isa
+  | Architecture.RISCV64 -> RISCV.Basis.init isa
+  | Architecture.SPARC -> SPARC.Basis.init isa
   | _ -> Utils.futureFeature ()

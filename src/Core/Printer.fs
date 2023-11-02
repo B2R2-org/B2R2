@@ -40,8 +40,6 @@ with
 /// Define a output configuration of a table.
 type TableConfig = TableColumn list
 
-module CS = ColoredSegment
-
 module private PrinterConst =
   let [<Literal>] ColWidth = 24
   let [<Literal>] CacheLimit = 16777216
@@ -131,7 +129,8 @@ type Printer () =
     Console.WriteLine ()
 
   static member PrintErrorToConsole str =
-    [ CS.nocolor "[*] Error: "; CS.red str ] |> Printer.PrintToConsoleLine
+    [ ColoredSegment (NoColor, "[*] Error: ")
+      ColoredSegment (Red, str) ] |> Printer.PrintToConsoleLine
     Printer.PrintToConsoleLine ()
 
 /// ConsolePrinter simply prints out strings to console whenever a print method
@@ -200,7 +199,8 @@ type ConsolePrinter () =
     lastLineWasEmpty <- false
 
   override __.PrintSectionTitle title =
-    [ CS.red "# "; CS.nocolor title ]
+    [ ColoredSegment (Red, "# ")
+      ColoredSegment (NoColor, title) ]
     |> __.PrintLine
     __.PrintLine ()
     lastLineWasEmpty <- true

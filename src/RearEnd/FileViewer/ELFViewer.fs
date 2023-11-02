@@ -36,10 +36,10 @@ let badAccess _ _ =
 
 let computeMagicBytes (file: IBinFile) =
   let slice = file.Slice (offset=0, size=16)
-  slice.ToArray () |> ColoredSegment.colorBytes
+  slice.ToArray () |> ColoredString.ofBytes
 
 let computeEntryPoint (hdr: ELFHeader) =
-  [ ColoredSegment.green <| String.u64ToHex hdr.EntryPoint ]
+  [ ColoredSegment (Green, HexString.ofUInt64 hdr.EntryPoint) ]
 
 let dumpFileHeader (_: FileViewerOpts) (file: ELFBinFile) =
   let hdr = file.Header
@@ -52,9 +52,9 @@ let dumpFileHeader (_: FileViewerOpts) (file: ELFBinFile) =
   out.PrintTwoCols "Type:" (ELFFileType.toString hdr.ELFFileType)
   out.PrintTwoCols "Machine:" (hdr.MachineType.ToString ())
   out.PrintTwoColsWithColorOnSnd "Entry point:" (computeEntryPoint hdr)
-  out.PrintTwoCols "PHdr table offset:" (String.u64ToHex hdr.PHdrTblOffset)
-  out.PrintTwoCols "SHdr table offset:" (String.u64ToHex hdr.SHdrTblOffset)
-  out.PrintTwoCols "Flags:" (String.u64ToHex (uint64 hdr.ELFFlags))
+  out.PrintTwoCols "PHdr table offset:" (HexString.ofUInt64 hdr.PHdrTblOffset)
+  out.PrintTwoCols "SHdr table offset:" (HexString.ofUInt64 hdr.SHdrTblOffset)
+  out.PrintTwoCols "Flags:" (HexString.ofUInt64 (uint64 hdr.ELFFlags))
   out.PrintTwoCols "Header size:" (toNBytes (uint64 hdr.HeaderSize))
   out.PrintTwoCols "PHdr Entry Size:" (toNBytes (uint64 hdr.PHdrEntrySize))
   out.PrintTwoCols "PHdr Entry Num:" (hdr.PHdrNum.ToString ())
@@ -81,12 +81,12 @@ let dumpSectionHeaders (opts: FileViewerOpts) (elf: ELFBinFile) =
           (Addr.toString file.ISA.WordSize (s.SecAddr + s.SecSize - uint64 1))
           normalizeEmpty s.SecName
           s.SecType.ToString ()
-          String.u64ToHex s.SecOffset
-          String.u64ToHex s.SecSize
-          String.u64ToHex s.SecEntrySize
+          HexString.ofUInt64 s.SecOffset
+          HexString.ofUInt64 s.SecSize
+          HexString.ofUInt64 s.SecEntrySize
           s.SecLink.ToString ()
           s.SecInfo.ToString ()
-          String.u64ToHex s.SecAlignment
+          HexString.ofUInt64 s.SecAlignment
           s.SecFlags.ToString () ]))
   else
     let cfg = [ LeftAligned 4; addrColumn; addrColumn; LeftAligned 24 ]
@@ -106,14 +106,14 @@ let dumpSectionDetails (secname: string) (file: ELFBinFile) =
     out.PrintTwoCols "Section number:" (section.SecNum.ToString ())
     out.PrintTwoCols "Section name:" section.SecName
     out.PrintTwoCols "Type:" (section.SecType.ToString ())
-    out.PrintTwoCols "Address:" (String.u64ToHex section.SecAddr)
-    out.PrintTwoCols "Offset:" (String.u64ToHex section.SecOffset)
-    out.PrintTwoCols "Size:" (String.u64ToHex section.SecSize)
-    out.PrintTwoCols "Entry Size:" (String.u64ToHex section.SecEntrySize)
+    out.PrintTwoCols "Address:" (HexString.ofUInt64 section.SecAddr)
+    out.PrintTwoCols "Offset:" (HexString.ofUInt64 section.SecOffset)
+    out.PrintTwoCols "Size:" (HexString.ofUInt64 section.SecSize)
+    out.PrintTwoCols "Entry Size:" (HexString.ofUInt64 section.SecEntrySize)
     out.PrintTwoCols "Flag:" (section.SecFlags.ToString ())
     out.PrintTwoCols "Link:" (section.SecLink.ToString ())
     out.PrintTwoCols "Info:" (section.SecInfo.ToString ())
-    out.PrintTwoCols "Alignment:" (String.u64ToHex section.SecAlignment)
+    out.PrintTwoCols "Alignment:" (HexString.ofUInt64 section.SecAlignment)
   | None -> out.PrintLine "Not found."
 
 let printSymbolInfoVerbose (file: IBinFile) s (elfSymbol: ELFSymbol) cfg =
@@ -126,7 +126,7 @@ let printSymbolInfoVerbose (file: IBinFile) s (elfSymbol: ELFSymbol) cfg =
       Addr.toString file.ISA.WordSize s.Address
       normalizeEmpty s.Name
       (toLibString >> normalizeEmpty) s.LibraryName
-      String.u64ToHex elfSymbol.Size
+      HexString.ofUInt64 elfSymbol.Size
       elfSymbol.SymType.ToString ()
       elfSymbol.Bind.ToString ()
       elfSymbol.Vis.ToString ()
@@ -275,12 +275,12 @@ let dumpSegments (opts: FileViewerOpts) (elf: ELFBinFile) =
           (Addr.toString wordSize (ph.PHAddr + ph.PHMemSize - uint64 1))
           (Permission.toString ph.PHFlags)
           ph.PHType.ToString ()
-          String.u64ToHex ph.PHOffset
-          String.u64ToHex ph.PHAddr
-          String.u64ToHex ph.PHPhyAddr
-          String.u64ToHex ph.PHFileSize
-          String.u64ToHex ph.PHMemSize
-          String.u64ToHex ph.PHAlignment ]))
+          HexString.ofUInt64 ph.PHOffset
+          HexString.ofUInt64 ph.PHAddr
+          HexString.ofUInt64 ph.PHPhyAddr
+          HexString.ofUInt64 ph.PHFileSize
+          HexString.ofUInt64 ph.PHMemSize
+          HexString.ofUInt64 ph.PHAlignment ]))
   else
     let cfg = [ LeftAligned 4; addrColumn; addrColumn; LeftAligned 10 ]
     out.PrintRow (true, cfg, [ "Num"; "Start"; "End"; "Permission" ])
@@ -360,8 +360,8 @@ let dumpEHFrame hdl (file: ELFBinFile) =
     cfi.FDERecord
     |> Array.iter (fun fde ->
       out.PrintLine ("  FDE pc={0}..{1}",
-        String.u64ToHex fde.PCBegin,
-        String.u64ToHex fde.PCEnd)
+        HexString.ofUInt64 fde.PCBegin,
+        HexString.ofUInt64 fde.PCEnd)
       if fde.UnwindingInfo.IsEmpty then ()
       else
         out.PrintLine "  ---"
@@ -369,7 +369,7 @@ let dumpEHFrame hdl (file: ELFBinFile) =
       fde.UnwindingInfo
       |> List.iter (fun i ->
         out.PrintRow (true, cfg,
-          [ String.u64ToHex i.Location
+          [ HexString.ofUInt64 i.Location
             cfaToString hdl i.CanonicalFrameAddress
             ruleToString hdl i.Rule ]))
       out.PrintLine ()

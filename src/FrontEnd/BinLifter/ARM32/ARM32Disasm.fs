@@ -719,14 +719,14 @@ let signToString = function
 let immToString imm sign (builder: DisasmBuilder) =
   builder.Accumulate AsmWordKind.String "#"
   builder.Accumulate AsmWordKind.String (signToString sign)
-  builder.Accumulate AsmWordKind.Value (String.i64ToHex imm)
+  builder.Accumulate AsmWordKind.Value (HexString.ofInt64 imm)
 
 let fpImmToString (fp: float) (builder: DisasmBuilder) =
   builder.Accumulate AsmWordKind.String "#"
-  builder.Accumulate AsmWordKind.Value (fp.ToString ("N8"))
+  builder.Accumulate AsmWordKind.Value (fp.ToString "N8")
 
-let optionToString (opt: int64) (builder: DisasmBuilder) =
-  builder.Accumulate AsmWordKind.Value (String.i64ToHex opt)
+let optionToString opt (builder: DisasmBuilder) =
+  builder.Accumulate AsmWordKind.Value (HexString.ofInt64 opt)
 
 let srTypeToString = function
   | SRTypeLSL -> "lsl"

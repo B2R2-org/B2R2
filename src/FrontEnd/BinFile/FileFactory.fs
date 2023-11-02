@@ -31,14 +31,21 @@ open B2R2.FrontEnd.BinLifter
 module FileFactory =
   let private loadRegBay isa =
     match isa.Arch with
-    | Arch.IntelX64
-    | Arch.IntelX86 -> Intel.Basis.initRegBay isa.WordSize
-    | Arch.ARMv7 | Arch.AARCH32 -> ARM32.Basis.initRegBay ()
-    | Arch.AARCH64 -> ARM64.Basis.initRegBay ()
-    | Arch.MIPS32 | Arch.MIPS64 -> MIPS.Basis.initRegBay isa
-    | Arch.PPC32 -> PPC32.Basis.initRegBay isa
-    | Arch.RISCV64 -> RISCV.Basis.initRegBay isa
-    | Arch.SH4 -> SH4.Basis.initRegBay isa
+    | Architecture.IntelX64
+    | Architecture.IntelX86 ->
+      Intel.Basis.initRegBay isa.WordSize
+    | Architecture.ARMv7 | Architecture.AARCH32 ->
+      ARM32.Basis.initRegBay ()
+    | Architecture.AARCH64 ->
+      ARM64.Basis.initRegBay ()
+    | Architecture.MIPS32 | Architecture.MIPS64 ->
+      MIPS.Basis.initRegBay isa
+    | Architecture.PPC32 ->
+      PPC32.Basis.initRegBay isa
+    | Architecture.RISCV64 ->
+      RISCV.Basis.initRegBay isa
+    | Architecture.SH4 ->
+      SH4.Basis.initRegBay isa
     | _ -> Utils.futureFeature ()
 
   let load path bytes fmt isa baseAddrOpt =

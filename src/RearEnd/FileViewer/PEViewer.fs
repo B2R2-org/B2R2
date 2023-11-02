@@ -50,7 +50,7 @@ let dumpFileHeader _ (file: PEBinFile) =
   let hdr = file.PE.PEHeaders.CoffHeader
   out.PrintTwoCols
     "Machine:"
-    (String.u64ToHex (uint64 hdr.Machine)
+    (HexString.ofUInt64 (uint64 hdr.Machine)
     + String.wrapParen (hdr.Machine.ToString ()))
   out.PrintTwoCols
     "Number of sections:"
@@ -60,13 +60,13 @@ let dumpFileHeader _ (file: PEBinFile) =
     (hdr.TimeDateStamp.ToString ())
   out.PrintTwoCols
     "Pointer to symbol table:"
-    (String.u64ToHex (uint64 hdr.PointerToSymbolTable))
+    (HexString.ofUInt64 (uint64 hdr.PointerToSymbolTable))
   out.PrintTwoCols
     "Size of optional header:"
-    (String.u64ToHex (uint64 hdr.SizeOfOptionalHeader))
+    (HexString.ofUInt64 (uint64 hdr.SizeOfOptionalHeader))
   out.PrintTwoCols
     "Characteristics:"
-    (String.u64ToHex (uint64 hdr.Characteristics))
+    (HexString.ofUInt64 (uint64 hdr.Characteristics))
   translateChracteristics (uint64 hdr.Characteristics)
   |> List.iter (fun str -> out.PrintTwoCols "" str)
 
@@ -113,15 +113,15 @@ let dumpSectionHeaders (opts: FileViewerOpts) (pe: PEBinFile) =
           (Addr.toString file.ISA.WordSize startAddr)
           (Addr.toString file.ISA.WordSize (startAddr + size - uint64 1))
           normalizeEmpty s.Name
-          String.u64ToHex (uint64 s.VirtualSize)
-          String.u64ToHex (uint64 s.VirtualAddress)
-          String.u64ToHex (uint64 s.SizeOfRawData)
-          String.u64ToHex (uint64 s.PointerToRawData)
-          String.u64ToHex (uint64 s.PointerToRelocations)
-          String.u64ToHex (uint64 s.PointerToLineNumbers)
+          HexString.ofUInt64 (uint64 s.VirtualSize)
+          HexString.ofUInt64 (uint64 s.VirtualAddress)
+          HexString.ofUInt64 (uint64 s.SizeOfRawData)
+          HexString.ofUInt64 (uint64 s.PointerToRawData)
+          HexString.ofUInt64 (uint64 s.PointerToRelocations)
+          HexString.ofUInt64 (uint64 s.PointerToLineNumbers)
           s.NumberOfRelocations.ToString ()
           s.NumberOfLineNumbers.ToString ()
-          String.u64ToHex characteristics ])
+          HexString.ofUInt64 characteristics ])
       translateSectionChracteristics characteristics
       |> List.iter (fun str ->
         out.PrintRow (true, cfg, [ ""; ""; ""; ""; ""; ""; ""
@@ -154,22 +154,22 @@ let dumpSectionDetails (secname: string) (file: PEBinFile) =
       section.Name
     out.PrintTwoCols
       "Virtual size:"
-      (String.u64ToHex (uint64 section.VirtualSize))
+      (HexString.ofUInt64 (uint64 section.VirtualSize))
     out.PrintTwoCols
       "Virtual address:"
-      (String.u64ToHex (uint64 section.VirtualAddress))
+      (HexString.ofUInt64 (uint64 section.VirtualAddress))
     out.PrintTwoCols
       "Size of raw data:"
-      (String.u64ToHex (uint64 section.SizeOfRawData))
+      (HexString.ofUInt64 (uint64 section.SizeOfRawData))
     out.PrintTwoCols
       "Pointer to raw data:"
-      (String.u64ToHex (uint64 section.PointerToRawData))
+      (HexString.ofUInt64 (uint64 section.PointerToRawData))
     out.PrintTwoCols
       "Pointer to relocations:"
-      (String.u64ToHex (uint64 section.PointerToRelocations))
+      (HexString.ofUInt64 (uint64 section.PointerToRelocations))
     out.PrintTwoCols
       "Pointer to line numbers:"
-      (String.u64ToHex (uint64 section.PointerToLineNumbers))
+      (HexString.ofUInt64 (uint64 section.PointerToLineNumbers))
     out.PrintTwoCols
       "Number of relocations:"
       (section.NumberOfRelocations.ToString ())
@@ -178,7 +178,7 @@ let dumpSectionDetails (secname: string) (file: PEBinFile) =
       (section.NumberOfLineNumbers.ToString ())
     out.PrintTwoCols
       "Characteristics:"
-      (String.u64ToHex characteristics)
+      (HexString.ofUInt64 characteristics)
     translateSectionChracteristics characteristics
     |> List.iter (fun str -> out.PrintTwoCols "" str)
   | None -> out.PrintTwoCols "" "Not found."
@@ -228,12 +228,12 @@ let dumpImports _ (file: PEBinFile) =
       out.PrintRow (true, cfg,
         [ "#" + ordinal.ToString ()
           dllname
-          String.u64ToHex (addrFromRVA file.PE.BaseAddr addr) ])
+          HexString.ofUInt64 (addrFromRVA file.PE.BaseAddr addr) ])
     | PE.ImportInfo.ImportByName (_, fname, dllname) ->
       out.PrintRow (true, cfg,
         [ fname
           dllname
-          String.u64ToHex (addrFromRVA file.PE.BaseAddr addr) ]))
+          HexString.ofUInt64 (addrFromRVA file.PE.BaseAddr addr) ]))
 
 let dumpExports _ (file: PEBinFile) =
   let cfg = [ LeftAligned 45; LeftAligned 20 ]
@@ -247,7 +247,7 @@ let dumpExports _ (file: PEBinFile) =
     | idx ->
       names
       |> List.iter (fun name ->
-        out.PrintRow (true, cfg, [ name; String.u64ToHex addr ])))
+        out.PrintRow (true, cfg, [ name; HexString.ofUInt64 addr ])))
   out.PrintLine ""
   out.PrintRow (true, cfg, [ "FunctionName"; "ForwardName" ])
   out.PrintLine "  ---"
@@ -277,9 +277,10 @@ let dumpOptionalHeader _ (file: PEBinFile) =
   let hdr = file.PE.PEHeaders.PEHeader
   let imageBase = hdr.ImageBase
   let sizeOfImage = uint64 hdr.SizeOfImage
-  let entryPoint = String.u64ToHex (imageBase + uint64 hdr.AddressOfEntryPoint)
-  let startImage = String.u64ToHex imageBase
-  let endImage = String.u64ToHex (imageBase + sizeOfImage - uint64 1)
+  let entryPoint =
+    HexString.ofUInt64 (imageBase + uint64 hdr.AddressOfEntryPoint)
+  let startImage = HexString.ofUInt64 imageBase
+  let endImage = HexString.ofUInt64 (imageBase + sizeOfImage - uint64 1)
   let exportDir = hdr.ExportTableDirectory
   let importDir = hdr.ImportTableDirectory
   let resourceDir = hdr.ResourceTableDirectory
@@ -297,7 +298,7 @@ let dumpOptionalHeader _ (file: PEBinFile) =
   let comDescDir = hdr.CorHeaderTableDirectory
   out.PrintTwoCols
     "Magic:"
-    (String.u64ToHex (uint64 hdr.Magic)
+    (HexString.ofUInt64 (uint64 hdr.Magic)
     + String.wrapParen (hdr.Magic.ToString ()))
   out.PrintTwoCols
     "Linker version:"
@@ -305,29 +306,29 @@ let dumpOptionalHeader _ (file: PEBinFile) =
     + "." + hdr.MinorLinkerVersion.ToString ())
   out.PrintTwoCols
     "Size of code:"
-    (String.u64ToHex (uint64 hdr.SizeOfCode))
+    (HexString.ofUInt64 (uint64 hdr.SizeOfCode))
   out.PrintTwoCols
     "Size of initialized data:"
-    (String.u64ToHex (uint64 hdr.SizeOfInitializedData))
+    (HexString.ofUInt64 (uint64 hdr.SizeOfInitializedData))
   out.PrintTwoCols
     "Size of uninitialized data:"
-    (String.u64ToHex (uint64 hdr.SizeOfUninitializedData))
+    (HexString.ofUInt64 (uint64 hdr.SizeOfUninitializedData))
   out.PrintTwoCols
     "Entry point:"
     entryPoint
   out.PrintTwoCols
     "Base of code:"
-    (String.u64ToHex (uint64 hdr.BaseOfCode))
+    (HexString.ofUInt64 (uint64 hdr.BaseOfCode))
   out.PrintTwoCols
     "Image base:"
-    (String.u64ToHex imageBase
+    (HexString.ofUInt64 imageBase
     + String.wrapParen (startImage + " to " + endImage))
   out.PrintTwoCols
     "Section alignment:"
-    (String.u64ToHex (uint64 hdr.SectionAlignment))
+    (HexString.ofUInt64 (uint64 hdr.SectionAlignment))
   out.PrintTwoCols
     "File Alignment:"
-    (String.u64ToHex (uint64 hdr.FileAlignment))
+    (HexString.ofUInt64 (uint64 hdr.FileAlignment))
   out.PrintTwoCols
     "Operating system version:"
     (hdr.MajorOperatingSystemVersion.ToString ()
@@ -342,34 +343,34 @@ let dumpOptionalHeader _ (file: PEBinFile) =
      + "." + hdr.MinorSubsystemVersion.ToString ())
   out.PrintTwoCols
     "Size of image:"
-    (String.u64ToHex sizeOfImage)
+    (HexString.ofUInt64 sizeOfImage)
   out.PrintTwoCols
     "Size of headers:"
-    (String.u64ToHex (uint64 hdr.SizeOfHeaders))
+    (HexString.ofUInt64 (uint64 hdr.SizeOfHeaders))
   out.PrintTwoCols
     "Checksum:"
-    (String.u64ToHex (uint64 hdr.CheckSum))
+    (HexString.ofUInt64 (uint64 hdr.CheckSum))
   out.PrintTwoCols
     "Subsystem:"
-    (String.u64ToHex (uint64 hdr.Subsystem)
+    (HexString.ofUInt64 (uint64 hdr.Subsystem)
     + String.wrapParen (hdr.Subsystem.ToString ()))
   out.PrintTwoCols
     "DLL characteristics:"
-    (String.u64ToHex (uint64 hdr.DllCharacteristics))
+    (HexString.ofUInt64 (uint64 hdr.DllCharacteristics))
   translateDllChracteristcs (uint64 hdr.DllCharacteristics)
   |> List.iter (fun str -> out.PrintTwoCols "" str)
   out.PrintTwoCols
     "Size of stack reserve:"
-    (String.u64ToHex (uint64 hdr.SizeOfStackReserve))
+    (HexString.ofUInt64 (uint64 hdr.SizeOfStackReserve))
   out.PrintTwoCols
     "Size of stack commit:"
-    (String.u64ToHex (uint64 hdr.SizeOfStackCommit))
+    (HexString.ofUInt64 (uint64 hdr.SizeOfStackCommit))
   out.PrintTwoCols
     "Size of heap reserve:"
-    (String.u64ToHex (uint64 hdr.SizeOfHeapReserve))
+    (HexString.ofUInt64 (uint64 hdr.SizeOfHeapReserve))
   out.PrintTwoCols
     "Size of heap commit:"
-    (String.u64ToHex (uint64 hdr.SizeOfHeapCommit))
+    (HexString.ofUInt64 (uint64 hdr.SizeOfHeapCommit))
   out.PrintTwoCols
     "Loader flags (reserved):"
     "0x0"
@@ -378,64 +379,64 @@ let dumpOptionalHeader _ (file: PEBinFile) =
     (hdr.NumberOfRvaAndSizes.ToString ())
   out.PrintTwoCols
     "RVA[size] of Export Table Directory:"
-    (String.u64ToHex (uint64 exportDir.RelativeVirtualAddress)
-    + String.wrapSqrdBracket (String.u64ToHex (uint64 exportDir.Size)))
+    (HexString.ofUInt64 (uint64 exportDir.RelativeVirtualAddress)
+    + String.wrapSqrdBracket (HexString.ofUInt64 (uint64 exportDir.Size)))
   out.PrintTwoCols
     "RVA[size] of Import Table Directory:"
-    (String.u64ToHex (uint64 importDir.RelativeVirtualAddress)
-    + String.wrapSqrdBracket (String.u64ToHex (uint64 importDir.Size)))
+    (HexString.ofUInt64 (uint64 importDir.RelativeVirtualAddress)
+    + String.wrapSqrdBracket (HexString.ofUInt64 (uint64 importDir.Size)))
   out.PrintTwoCols
     "RVA[size] of Resource Table Directory:"
-    (String.u64ToHex (uint64 resourceDir.RelativeVirtualAddress)
-    + String.wrapSqrdBracket (String.u64ToHex (uint64 resourceDir.Size)))
+    (HexString.ofUInt64 (uint64 resourceDir.RelativeVirtualAddress)
+    + String.wrapSqrdBracket (HexString.ofUInt64 (uint64 resourceDir.Size)))
   out.PrintTwoCols
     "RVA[size] of Exception Table Directory:"
-    (String.u64ToHex (uint64 exceptionDir.RelativeVirtualAddress)
-    + String.wrapSqrdBracket (String.u64ToHex (uint64 exceptionDir.Size)))
+    (HexString.ofUInt64 (uint64 exceptionDir.RelativeVirtualAddress)
+    + String.wrapSqrdBracket (HexString.ofUInt64 (uint64 exceptionDir.Size)))
   out.PrintTwoCols
     "RVA[size] of Certificate Table Directory:"
-    (String.u64ToHex (uint64 certificateDir.RelativeVirtualAddress)
-    + String.wrapSqrdBracket (String.u64ToHex (uint64 certificateDir.Size)))
+    (HexString.ofUInt64 (uint64 certificateDir.RelativeVirtualAddress)
+    + String.wrapSqrdBracket (HexString.ofUInt64 (uint64 certificateDir.Size)))
   out.PrintTwoCols
     "RVA[size] of Base Relocation Table Directory:"
-    (String.u64ToHex (uint64 baseRelocDir.RelativeVirtualAddress)
-    + String.wrapSqrdBracket (String.u64ToHex (uint64 baseRelocDir.Size)))
+    (HexString.ofUInt64 (uint64 baseRelocDir.RelativeVirtualAddress)
+    + String.wrapSqrdBracket (HexString.ofUInt64 (uint64 baseRelocDir.Size)))
   out.PrintTwoCols
     "RVA[size] of Debug Table Directory:"
-    (String.u64ToHex (uint64 debugDir.RelativeVirtualAddress)
-    + String.wrapSqrdBracket (String.u64ToHex (uint64 debugDir.Size)))
+    (HexString.ofUInt64 (uint64 debugDir.RelativeVirtualAddress)
+    + String.wrapSqrdBracket (HexString.ofUInt64 (uint64 debugDir.Size)))
   out.PrintTwoCols
     "RVA[size] of Architecture Table Directory:"
-    (String.u64ToHex (uint64 architectureDir.RelativeVirtualAddress)
-    + String.wrapSqrdBracket (String.u64ToHex (uint64 architectureDir.Size)))
+    (HexString.ofUInt64 (uint64 architectureDir.RelativeVirtualAddress)
+    + String.wrapSqrdBracket (HexString.ofUInt64 (uint64 architectureDir.Size)))
   out.PrintTwoCols
     "RVA[size] of Global Pointer Table Directory:"
-    (String.u64ToHex (uint64 globalPtrDir.RelativeVirtualAddress)
-    + String.wrapSqrdBracket (String.u64ToHex (uint64 globalPtrDir.Size)))
+    (HexString.ofUInt64 (uint64 globalPtrDir.RelativeVirtualAddress)
+    + String.wrapSqrdBracket (HexString.ofUInt64 (uint64 globalPtrDir.Size)))
   out.PrintTwoCols
     "RVA[size] of Thread Storage Table Directory:"
-    (String.u64ToHex (uint64 threadLoStorDir.RelativeVirtualAddress)
-    + String.wrapSqrdBracket (String.u64ToHex (uint64 threadLoStorDir.Size)))
+    (HexString.ofUInt64 (uint64 threadLoStorDir.RelativeVirtualAddress)
+    + String.wrapSqrdBracket (HexString.ofUInt64 (uint64 threadLoStorDir.Size)))
   out.PrintTwoCols
     "RVA[size] of Load Configuration Table Directory:"
-    (String.u64ToHex (uint64 loadConfigDir.RelativeVirtualAddress)
-    + String.wrapSqrdBracket (String.u64ToHex (uint64 loadConfigDir.Size)))
+    (HexString.ofUInt64 (uint64 loadConfigDir.RelativeVirtualAddress)
+    + String.wrapSqrdBracket (HexString.ofUInt64 (uint64 loadConfigDir.Size)))
   out.PrintTwoCols
     "RVA[size] of Bound Import Table Directory:"
-    (String.u64ToHex (uint64 boundImpDir.RelativeVirtualAddress)
-    + String.wrapSqrdBracket (String.u64ToHex (uint64 boundImpDir.Size)))
+    (HexString.ofUInt64 (uint64 boundImpDir.RelativeVirtualAddress)
+    + String.wrapSqrdBracket (HexString.ofUInt64 (uint64 boundImpDir.Size)))
   out.PrintTwoCols
     "RVA[size] of Import Address Table Directory:"
-    (String.u64ToHex (uint64 importAddrDir.RelativeVirtualAddress)
-    + String.wrapSqrdBracket (String.u64ToHex (uint64 importAddrDir.Size)))
+    (HexString.ofUInt64 (uint64 importAddrDir.RelativeVirtualAddress)
+    + String.wrapSqrdBracket (HexString.ofUInt64 (uint64 importAddrDir.Size)))
   out.PrintTwoCols
     "RVA[size] of Delay Import Table Directory:"
-    (String.u64ToHex (uint64 delayImpDir.RelativeVirtualAddress)
-    + String.wrapSqrdBracket (String.u64ToHex (uint64 delayImpDir.Size)))
+    (HexString.ofUInt64 (uint64 delayImpDir.RelativeVirtualAddress)
+    + String.wrapSqrdBracket (HexString.ofUInt64 (uint64 delayImpDir.Size)))
   out.PrintTwoCols
     "RVA[size] of COM Descriptor Table Directory:"
-    (String.u64ToHex (uint64 comDescDir.RelativeVirtualAddress)
-    + String.wrapSqrdBracket (String.u64ToHex (uint64 comDescDir.Size)))
+    (HexString.ofUInt64 (uint64 comDescDir.RelativeVirtualAddress)
+    + String.wrapSqrdBracket (HexString.ofUInt64 (uint64 comDescDir.Size)))
   out.PrintTwoCols
     "RVA[size] of Reserved Directory:"
     "0x0[0x0]"
@@ -472,38 +473,38 @@ let dumpCLRHeader _ (file: PEBinFile) =
       + "." + hdr.MinorRuntimeVersion.ToString ())
     out.PrintTwoCols
       "RVA[size] of Meta Data Directory:"
-      (String.u64ToHex (uint64 metaDataDir.RelativeVirtualAddress)
-      + String.wrapSqrdBracket (String.u64ToHex (uint64 metaDataDir.Size)))
+      (HexString.ofUInt64 (uint64 metaDataDir.RelativeVirtualAddress)
+      + String.wrapSqrdBracket (HexString.ofUInt64 (uint64 metaDataDir.Size)))
     out.PrintTwoCols
       "Flags:"
-      (String.u64ToHex (uint64 hdr.Flags))
+      (HexString.ofUInt64 (uint64 hdr.Flags))
     translateCorFlags (uint64 hdr.Flags)
     |> List.iter (fun str -> out.PrintTwoCols "" str)
     out.PrintTwoCols
       "RVA[size] of Resources Directory:"
-      (String.u64ToHex (uint64 resourcesDir.RelativeVirtualAddress)
-      + String.wrapSqrdBracket (String.u64ToHex (uint64 resourcesDir.Size)))
+      (HexString.ofUInt64 (uint64 resourcesDir.RelativeVirtualAddress)
+      + String.wrapSqrdBracket (HexString.ofUInt64 (uint64 resourcesDir.Size)))
     out.PrintTwoCols
       "RVA[size] of Strong Name Signature Directory:"
-      (String.u64ToHex (uint64 strongNameSigDir.RelativeVirtualAddress)
-      + String.wrapSqrdBracket (String.u64ToHex (uint64 strongNameSigDir.Size)))
+      (HexString.ofUInt64 (uint64 strongNameSigDir.RelativeVirtualAddress)
+      + String.wrapSqrdBracket (HexString.ofInt32 strongNameSigDir.Size))
     out.PrintTwoCols
       "RVA[size] of Code Manager Table Directory:"
-      (String.u64ToHex (uint64 codeMgrTblDir.RelativeVirtualAddress)
-      + String.wrapSqrdBracket (String.u64ToHex (uint64 codeMgrTblDir.Size)))
+      (HexString.ofUInt64 (uint64 codeMgrTblDir.RelativeVirtualAddress)
+      + String.wrapSqrdBracket (HexString.ofUInt64 (uint64 codeMgrTblDir.Size)))
     out.PrintTwoCols
       "RVA[size] of VTable Fixups Directory:"
-      (String.u64ToHex (uint64 vTableFixups.RelativeVirtualAddress)
-      + String.wrapSqrdBracket (String.u64ToHex (uint64 vTableFixups.Size)))
+      (HexString.ofUInt64 (uint64 vTableFixups.RelativeVirtualAddress)
+      + String.wrapSqrdBracket (HexString.ofUInt64 (uint64 vTableFixups.Size)))
     out.PrintTwoCols
       "RVA[size] of Export Address Table Jumps Directory:"
-      (String.u64ToHex (uint64 exportAddrTblJmps.RelativeVirtualAddress)
+      (HexString.ofUInt64 (uint64 exportAddrTblJmps.RelativeVirtualAddress)
       + String.wrapSqrdBracket
-          (String.u64ToHex (uint64 exportAddrTblJmps.Size)))
+          (HexString.ofUInt64 (uint64 exportAddrTblJmps.Size)))
     out.PrintTwoCols
       "RVA[size] of Managed Native Header Directory:"
-      (String.u64ToHex (uint64 managedNativeHdr.RelativeVirtualAddress)
-      + String.wrapSqrdBracket (String.u64ToHex (uint64 managedNativeHdr.Size)))
+      (HexString.ofUInt64 (uint64 managedNativeHdr.RelativeVirtualAddress)
+      + String.wrapSqrdBracket (HexString.ofInt32 managedNativeHdr.Size))
 
 let dumpDependencies _ (file: IBinFile) =
   file.GetLinkageTableEntries ()

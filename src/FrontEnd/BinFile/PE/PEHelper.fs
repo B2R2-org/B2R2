@@ -294,10 +294,10 @@ let inline getNotInFileIntervals pe range =
   |> List.toSeq
 
 let machineToArch = function
-  | Machine.I386 -> Arch.IntelX86
-  | Machine.Amd64 | Machine.IA64 -> Arch.IntelX64
-  | Machine.Arm -> Arch.ARMv7
-  | Machine.Arm64 -> Arch.AARCH64
+  | Machine.I386 -> Architecture.IntelX86
+  | Machine.Amd64 | Machine.IA64 -> Architecture.IntelX64
+  | Machine.Arm -> Architecture.ARMv7
+  | Machine.Arm64 -> Architecture.AARCH64
   | _ -> raise InvalidISAException
 
 let peHeadersToArch (peHeaders: PEHeaders) =
@@ -305,11 +305,11 @@ let peHeadersToArch (peHeaders: PEHeaders) =
   if isNull corHeader then
     peHeaders.CoffHeader.Machine |> machineToArch
   else
-    if corHeader.Flags = CorFlags.ILOnly then Arch.CILOnly
+    if corHeader.Flags = CorFlags.ILOnly then Architecture.CILOnly
     else
       match peHeaders.CoffHeader.Machine with
-      | Machine.I386 -> Arch.CILIntel32
-      | Machine.Amd64 | Machine.IA64 -> Arch.CILIntel64
+      | Machine.I386 -> Architecture.CILIntel32
+      | Machine.Amd64 | Machine.IA64 -> Architecture.CILIntel64
       | _ -> raise InvalidISAException
 
 /// Return Architecture from the PE header. If the given binary is invalid,

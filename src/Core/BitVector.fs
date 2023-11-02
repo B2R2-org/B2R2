@@ -751,7 +751,7 @@ and BitVectorSmall (n, len) =
 
   member __.Value with get(): uint64 = n
 
-  override __.ValToString () = String.u64ToHex n
+  override __.ValToString () = HexString.ofUInt64 n
 
   override __.Equals obj =
     match obj with

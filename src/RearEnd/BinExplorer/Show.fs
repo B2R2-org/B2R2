@@ -49,7 +49,7 @@ type CmdShow () =
   override __.SubCommands = []
 
   member private __.CallerToString (sb: StringBuilder) (addr: Addr) =
-    sb.Append ("  - referenced by " + String.u64ToHexNoPrefix addr + "\n")
+    sb.Append $"  - referenced by {addr:x}\n"
 
   member private __.CalleeToSimpleString prefix (sb: StringBuilder) callee =
     let noret =
@@ -62,8 +62,7 @@ type CmdShow () =
       sb.Append (prefix + callee.FunctionName + noret + "\n")
     else
       sb.Append (prefix + callee.FunctionName
-               + noret + " @ "
-               + String.u64ToHexNoPrefix callee.EntryPoint + "\n")
+               + noret + $" @ {callee.EntryPoint:x}\n")
 
   member private __.CalleeToString ess (sb: StringBuilder) callee =
     __.CalleeToSimpleString "" sb callee

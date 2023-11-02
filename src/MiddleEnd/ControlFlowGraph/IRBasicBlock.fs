@@ -118,7 +118,7 @@ type RegularIRBasicBlock (instrs, ppoint) =
   override __.IsFakeBlock () = false
 
   override __.ToString () =
-    "IRBBLK(" + String.u64ToHexNoPrefix __.PPoint.Address + ")"
+    $"IRBBLK({__.PPoint.Address:x})"
 
   override __.FakeBlockInfo
     with get() = Utils.impossible () and set(_) = Utils.impossible ()

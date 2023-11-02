@@ -29,9 +29,9 @@ namespace B2R2
 /// (Address of the instruction, Index of the IR stmt for the instruction).
 type ProgramPoint (addr, pos) =
   /// Address of the instruction.
-  member val Address: Addr = addr
+  member __.Address with get(): Addr = addr
   /// Index of the IR statement within the instruction.
-  member val Position: int = pos
+  member __.Position with get(): int = pos
 
   override __.Equals (o) =
     match o with
@@ -40,7 +40,8 @@ type ProgramPoint (addr, pos) =
 
   override __.GetHashCode () = hash (__.Address, __.Position)
 
-  override __.ToString () = String.u64ToHexNoPrefix addr + ":" + pos.ToString ()
+  override __.ToString () =
+    $"{addr:x}:{pos}"
 
   /// Get a fake program point to represent a fake vertex, which does not exist
   /// in a CFG. Fake vertices are useful for representing external function

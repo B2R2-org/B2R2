@@ -70,8 +70,6 @@ type Architecture =
   /// Unknown ISA.
   | UnknownISA = 42
 
-type Arch = Architecture
-
 /// Instruction Set Architecture (ISA).
 type ISA = {
   Arch: Architecture
@@ -80,85 +78,109 @@ type ISA = {
 }
 with
   static member DefaultISA =
-    { Arch = Arch.IntelX64; Endian = Endian.Little; WordSize = WordSize.Bit64 }
+    { Arch = Architecture.IntelX64
+      Endian = Endian.Little
+      WordSize = WordSize.Bit64 }
 
   static member Init arch endian =
     match arch with
-    | Arch.IntelX86 ->
+    | Architecture.IntelX86 ->
       { Arch = arch; Endian = Endian.Little; WordSize = WordSize.Bit32 }
-    | Arch.IntelX64 -> ISA.DefaultISA
-    | Arch.ARMv7
-    | Arch.AARCH32
-    | Arch.MIPS32 ->
+    | Architecture.IntelX64 -> ISA.DefaultISA
+    | Architecture.ARMv7
+    | Architecture.AARCH32
+    | Architecture.MIPS32 ->
       { Arch = arch; Endian = endian; WordSize = WordSize.Bit32 }
-    | Arch.AARCH64
-    | Arch.MIPS64 ->
+    | Architecture.AARCH64
+    | Architecture.MIPS64 ->
       { Arch = arch; Endian = endian; WordSize = WordSize.Bit64 }
-    | Arch.EVM ->
+    | Architecture.EVM ->
       { Arch = arch; Endian = endian; WordSize = WordSize.Bit256 }
-    | Arch.TMS320C6000 ->
+    | Architecture.TMS320C6000 ->
       { Arch = arch; Endian = endian; WordSize = WordSize.Bit32 }
-    | Arch.CILOnly ->
+    | Architecture.CILOnly ->
       { Arch = arch; Endian = endian; WordSize = WordSize.Bit64 }
-    | Arch.AVR ->
+    | Architecture.AVR ->
       { Arch = arch; Endian = endian; WordSize = WordSize.Bit8 }
-    | Arch.SH4 ->
+    | Architecture.SH4 ->
       { Arch = arch; Endian = endian; WordSize = WordSize.Bit32 }
-    | Arch.PPC32 ->
+    | Architecture.PPC32 ->
       { Arch = arch; Endian = endian; WordSize = WordSize.Bit32 }
-    | Arch.SPARC ->
+    | Architecture.SPARC ->
       { Arch = arch; Endian = endian; WordSize = WordSize.Bit64 }
-    | Arch.RISCV64 ->
+    | Architecture.RISCV64 ->
       { Arch = arch; Endian = endian; WordSize = WordSize.Bit64 }
-    | Arch.WASM ->
+    | Architecture.WASM ->
       { Arch = arch; Endian = endian; WordSize = WordSize.Bit32 }
     | _ -> raise InvalidISAException
 
   static member OfString (s: string) =
     match s.ToLowerInvariant () with
-    | "x86" | "i386" -> ISA.Init Arch.IntelX86 Endian.Little
-    | "x64" | "x86-64" | "amd64" -> ISA.DefaultISA
-    | "armv7" | "armv7le"
-    | "armel" | "armhf" -> ISA.Init Arch.ARMv7 Endian.Little
-    | "armv7be" -> ISA.Init Arch.ARMv7 Endian.Big
-    | "armv8a32" | "aarch32" -> ISA.Init Arch.AARCH32 Endian.Little
-    | "armv8a32be" | "aarch32be" -> ISA.Init Arch.AARCH32 Endian.Big
-    | "armv8a64" | "aarch64"-> ISA.Init Arch.AARCH64 Endian.Little
-    | "armv8a64be" | "aarch64be" -> ISA.Init Arch.AARCH64 Endian.Big
-    | "mipsel" | "mips32" | "mips32le" -> ISA.Init Arch.MIPS32 Endian.Little
-    | "mips32be" -> ISA.Init Arch.MIPS32 Endian.Big
-    | "mips64el" | "mips64" | "mips64le" -> ISA.Init Arch.MIPS64 Endian.Little
-    | "mips64be" -> ISA.Init Arch.MIPS64 Endian.Big
-    | "evm" -> ISA.Init Arch.EVM Endian.Big
-    | "tms320c6000" -> ISA.Init Arch.TMS320C6000 Endian.Little
-    | "cil" -> ISA.Init Arch.CILOnly Endian.Little
-    | "avr" | "avr8" -> ISA.Init Arch.AVR Endian.Little
-    | "sh4" | "sh-4" -> ISA.Init Arch.SH4 Endian.Little
-    | "sh4be" | "sh-4be" -> ISA.Init Arch.SH4 Endian.Big
-    | "ppc32" | "ppc32le" -> ISA.Init Arch.PPC32 Endian.Little
-    | "ppc32be" -> ISA.Init Arch.PPC32 Endian.Big
-    | "sparc" | "sparc64" -> ISA.Init Arch.SPARC Endian.Big
-    | "riscv64" -> ISA.Init Arch.RISCV64 Endian.Little
-    | "wasm" -> ISA.Init Arch.WASM Endian.Little
+    | "x86" | "i386" ->
+      ISA.Init Architecture.IntelX86 Endian.Little
+    | "x64" | "x86-64" | "amd64" ->
+      ISA.DefaultISA
+    | "armv7" | "armv7le" | "armel" | "armhf" ->
+      ISA.Init Architecture.ARMv7 Endian.Little
+    | "armv7be" ->
+      ISA.Init Architecture.ARMv7 Endian.Big
+    | "armv8a32" | "aarch32" ->
+      ISA.Init Architecture.AARCH32 Endian.Little
+    | "armv8a32be" | "aarch32be" ->
+      ISA.Init Architecture.AARCH32 Endian.Big
+    | "armv8a64" | "aarch64"->
+      ISA.Init Architecture.AARCH64 Endian.Little
+    | "armv8a64be" | "aarch64be" ->
+      ISA.Init Architecture.AARCH64 Endian.Big
+    | "mipsel" | "mips32" | "mips32le" ->
+      ISA.Init Architecture.MIPS32 Endian.Little
+    | "mips32be" ->
+      ISA.Init Architecture.MIPS32 Endian.Big
+    | "mips64el" | "mips64" | "mips64le" ->
+      ISA.Init Architecture.MIPS64 Endian.Little
+    | "mips64be" ->
+      ISA.Init Architecture.MIPS64 Endian.Big
+    | "evm" ->
+      ISA.Init Architecture.EVM Endian.Big
+    | "tms320c6000" ->
+      ISA.Init Architecture.TMS320C6000 Endian.Little
+    | "cil" ->
+      ISA.Init Architecture.CILOnly Endian.Little
+    | "avr" | "avr8" ->
+      ISA.Init Architecture.AVR Endian.Little
+    | "sh4" | "sh-4" ->
+      ISA.Init Architecture.SH4 Endian.Little
+    | "sh4be" | "sh-4be" ->
+      ISA.Init Architecture.SH4 Endian.Big
+    | "ppc32" | "ppc32le" ->
+      ISA.Init Architecture.PPC32 Endian.Little
+    | "ppc32be" ->
+      ISA.Init Architecture.PPC32 Endian.Big
+    | "sparc" | "sparc64" ->
+      ISA.Init Architecture.SPARC Endian.Big
+    | "riscv64" ->
+      ISA.Init Architecture.RISCV64 Endian.Little
+    | "wasm" ->
+      ISA.Init Architecture.WASM Endian.Little
     | _ -> raise InvalidISAException
 
   static member ArchToString arch =
     match arch with
-    | Arch.IntelX86 -> "x86"
-    | Arch.IntelX64 -> "x86-64"
-    | Arch.ARMv7 -> "ARMv7"
-    | Arch.AARCH32 -> "AARCH32"
-    | Arch.AARCH64 -> "AARCH64"
-    | Arch.MIPS32 -> "MIPS32"
-    | Arch.MIPS64 -> "MIPS64"
-    | Arch.EVM -> "EVM"
-    | Arch.TMS320C6000 -> "TMS320C6000"
-    | Arch.CILOnly -> "CIL"
-    | Arch.AVR -> "AVR"
-    | Arch.SH4 -> "SH4"
-    | Arch.PPC32 -> "PPC32"
-    | Arch.SPARC -> "SPARC64"
-    | Arch.RISCV64 -> "RISCV64"
-    | Arch.WASM -> "WASM"
-    | Arch.UnknownISA -> "Unknown"
+    | Architecture.IntelX86 -> "x86"
+    | Architecture.IntelX64 -> "x86-64"
+    | Architecture.ARMv7 -> "ARMv7"
+    | Architecture.AARCH32 -> "AARCH32"
+    | Architecture.AARCH64 -> "AARCH64"
+    | Architecture.MIPS32 -> "MIPS32"
+    | Architecture.MIPS64 -> "MIPS64"
+    | Architecture.EVM -> "EVM"
+    | Architecture.TMS320C6000 -> "TMS320C6000"
+    | Architecture.CILOnly -> "CIL"
+    | Architecture.AVR -> "AVR"
+    | Architecture.SH4 -> "SH4"
+    | Architecture.PPC32 -> "PPC32"
+    | Architecture.SPARC -> "SPARC64"
+    | Architecture.RISCV64 -> "RISCV64"
+    | Architecture.WASM -> "WASM"
+    | Architecture.UnknownISA -> "Unknown"
     | _ -> "Not supported ISA"

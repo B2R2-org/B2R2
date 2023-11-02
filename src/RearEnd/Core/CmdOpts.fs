@@ -28,8 +28,6 @@ open B2R2
 open B2R2.FsOptParse
 open System
 
-module CS = ColoredSegment
-
 /// A common set of command-line options used in analyzing binaries.
 type CmdOpts () =
   /// Verbosity
@@ -60,7 +58,10 @@ type CmdOpts () =
   /// Write B2R2 logo to console. We can selectively append a new line at the
   /// end.
   static member WriteB2R2 newLine =
-    [ CS.dcyan "B"; CS.dyellow "2"; CS.dcyan "R"; CS.dyellow "2" ]
+    [ ColoredSegment (DarkCyan, "B")
+      ColoredSegment (DarkYellow, "2")
+      ColoredSegment (DarkCyan, "R")
+      ColoredSegment (DarkYellow, "2") ]
     |> Printer.PrintToConsole
     if newLine then Printer.PrintToConsoleLine () else ()
 

@@ -32,7 +32,7 @@ open B2R2.RearEnd.FileViewer.Helper
 
 let dumpBasic (file: IBinFile) =
   let entry =
-    StringUtils.entryPointToString file.EntryPoint |> ColoredSegment.green
+    ColoredSegment (Green, StringUtils.entryPointToString file.EntryPoint)
   out.PrintSectionTitle "Basic Information"
   out.PrintTwoCols "File format:" (FileFormat.toString file.Format)
   out.PrintTwoCols "Architecture:" (ISA.ArchToString file.ISA.Arch)

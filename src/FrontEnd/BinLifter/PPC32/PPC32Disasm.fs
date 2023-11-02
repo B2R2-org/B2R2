@@ -498,7 +498,7 @@ let inline buildOpcode ins (builder: DisasmBuilder) =
 
 let inline relToString pc offset (builder: DisasmBuilder) =
   let targetAddr = pc + uint64 offset
-  builder.Accumulate AsmWordKind.Value (String.u32ToHex (uint32 targetAddr))
+  builder.Accumulate AsmWordKind.Value (HexString.ofUInt64 targetAddr)
 
 let inline getCond bi =
   match extract bi 1u 0u with
@@ -514,20 +514,20 @@ let oprToString insInfo opr delim (builder: DisasmBuilder) =
     builder.Accumulate AsmWordKind.Variable (Register.toString reg)
   | OprMem (imm, reg) ->
     builder.Accumulate AsmWordKind.String delim
-    builder.Accumulate AsmWordKind.Value (String.i32ToHex imm)
+    builder.Accumulate AsmWordKind.Value (HexString.ofInt32 imm)
     builder.Accumulate AsmWordKind.String "("
     builder.Accumulate AsmWordKind.Variable (Register.toString reg)
     builder.Accumulate AsmWordKind.String ")"
   | OprImm imm ->
     builder.Accumulate AsmWordKind.String delim
-    builder.Accumulate AsmWordKind.Value (String.u64ToHex imm)
+    builder.Accumulate AsmWordKind.Value (HexString.ofUInt64 imm)
   | OprAddr addr ->
     builder.Accumulate AsmWordKind.String delim
     relToString insInfo.Address addr builder
   | OprBI imm ->
     let cr = extract imm 4u 2u |> getCondRegister
     builder.Accumulate AsmWordKind.String delim
-    builder.Accumulate AsmWordKind.Value (String.u32ToHex 4u)
+    builder.Accumulate AsmWordKind.Value (HexString.ofUInt32 4u)
     builder.Accumulate AsmWordKind.String " * "
     builder.Accumulate AsmWordKind.Variable (Register.toString cr)
     builder.Accumulate AsmWordKind.String " + "
@@ -583,7 +583,7 @@ let buildRotateMnemonic opcode ra rs n (builder: DisasmBuilder) =
   builder.Accumulate AsmWordKind.String ", "
   builder.Accumulate AsmWordKind.Variable (Register.toString rs)
   builder.Accumulate AsmWordKind.String ", "
-  builder.Accumulate AsmWordKind.Value (String.u64ToHex n)
+  builder.Accumulate AsmWordKind.Value (HexString.ofUInt64 n)
 
 let buildBC insInfo builder =
   match insInfo.Operands with

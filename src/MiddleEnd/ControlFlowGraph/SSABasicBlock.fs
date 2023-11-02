@@ -39,7 +39,7 @@ module private SSABasicBlockHelper =
 
   let private addReturnValDef (hdl: BinHandle) defs =
     match hdl.File.ISA.Arch with
-    | Arch.EVM -> defs
+    | Architecture.EVM -> defs
     | _ ->
       let reg = CallingConvention.returnRegister hdl |> buildRegVar hdl
       let def = { Kind = reg; Identifier = -1 }
@@ -91,7 +91,7 @@ module private SSABasicBlockHelper =
 
   let postprocessStmt arch s =
     match arch with
-    | Arch.EVM -> postprocessStmtForEVM s
+    | Architecture.EVM -> postprocessStmtForEVM s
     | _ -> postprocessOthers s
 
 /// SSA statement information.
@@ -176,7 +176,7 @@ type RegularSSABasicBlock (hdl: BinHandle, pp, instrs) =
     with get() = Utils.impossible () and set(_) = Utils.impossible ()
 
   override __.ToString () =
-    "SSABBLK(" + String.u64ToHexNoPrefix __.PPoint.Address + ")"
+    $"SSABBLK({__.PPoint.Address:x})"
 
 /// Fake SSABasicBlock, which may or may not hold a function summary with
 /// ReturnVal expressions.

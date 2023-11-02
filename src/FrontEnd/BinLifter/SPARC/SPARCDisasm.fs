@@ -490,10 +490,10 @@ let prependDelimiter delimiter (builder: DisasmBuilder) =
   | Some delim -> builder.Accumulate AsmWordKind.String delim
 
 let immToString imm (builder: DisasmBuilder) =
-  builder.Accumulate AsmWordKind.Value (String.i32ToHex imm)
+  builder.Accumulate AsmWordKind.Value (HexString.ofInt32 imm)
 
 let immToStringNoPrefix imm (builder: DisasmBuilder) =
-  builder.Accumulate AsmWordKind.Value (String.i32ToHexNoPrefix imm)
+  builder.Accumulate AsmWordKind.Value $"{imm:x}"
 
 let ccToString cc (builder: DisasmBuilder) =
   let cc = ConditionCode.toString cc
@@ -552,7 +552,7 @@ let buildComment2 opr1 opr2 (builder: DisasmBuilder) =
     match addrMode with
     | DispMode (reg, c) ->
       builder.Accumulate AsmWordKind.String "     ! "
-      builder.Accumulate AsmWordKind.Value (String.i32ToHex c)
+      builder.Accumulate AsmWordKind.Value (HexString.ofInt32 c)
     | _ -> ()
   | _ -> ()
 
@@ -566,7 +566,7 @@ let buildComment3 opr1 opr2 opr3 (builder: DisasmBuilder) =
     match addrMode with
     | DispMode (reg, c) ->
       builder.Accumulate AsmWordKind.String "     ! "
-      builder.Accumulate AsmWordKind.Value (String.i32ToHex c)
+      builder.Accumulate AsmWordKind.Value (HexString.ofInt32 c)
     | _ -> ()
   | _ -> ()
 
@@ -580,7 +580,7 @@ let buildComment3Bracket opr1 opr2 opr3 (builder: DisasmBuilder) =
     match addrMode with
     | DispMode (reg, c) ->
       builder.Accumulate AsmWordKind.String "]     ! "
-      builder.Accumulate AsmWordKind.Value (String.i32ToHex c)
+      builder.Accumulate AsmWordKind.Value (HexString.ofInt32 c)
     | _ -> ()
   | OprReg _, OprReg _, OprReg _ ->
     builder.Accumulate AsmWordKind.String "]"
@@ -606,7 +606,7 @@ let buildComment5 opr1 opr2 opr3 opr4 opr5 (builder: DisasmBuilder) =
     match addrMode with
     | DispMode (reg, c) ->
       builder.Accumulate AsmWordKind.String "     ! "
-      builder.Accumulate AsmWordKind.Value (String.i32ToHex c)
+      builder.Accumulate AsmWordKind.Value (HexString.ofInt32 c)
     | _ -> ()
   | _ -> ()
 

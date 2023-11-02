@@ -40,8 +40,8 @@ let isFPUReg reg = Register.Kind.FPU = Register.getKind reg
 
 let private isAddrSz arch reg =
   match arch, Register.toRegType reg with
-  | Arch.IntelX64, 32<rt> -> true
-  | Arch.IntelX86, 16<rt> -> true
+  | Architecture.IntelX64, 32<rt> -> true
+  | Architecture.IntelX86, 16<rt> -> true
   | _ -> false
 
 let private isAddrSize isa = function
@@ -123,11 +123,11 @@ let encodeRexB reg = if isExtendReg reg then 0x41uy else 0x0uy
 let convVEXRexByte rexByte = (~~~ rexByte) &&& 0b111uy
 
 let encodeVEXRexRB arch r1 r2 =
-  if arch = Arch.IntelX86 then 0b101uy
+  if arch = Architecture.IntelX86 then 0b101uy
   else convVEXRexByte (encodeRexR r1 ||| encodeRexB r2)
 
 let encodeVEXRexRXB arch reg rmOrSBase sIdx =
-  if arch = Arch.IntelX86 then 0b111uy
+  if arch = Architecture.IntelX86 then 0b111uy
   else
     match rmOrSBase, sIdx with
     | Some r1, Some (r2, _) ->
@@ -189,7 +189,7 @@ let encodeRexRXB isMR = function
   | o -> printfn "Inavlid Operand (%A)" o; Utils.futureFeature ()
 
 let encodeREXPref ins arch (rexPrx: EncREXPrefix) =
-  if arch = Arch.IntelX86 then [||]
+  if arch = Architecture.IntelX86 then [||]
   else (* Arch.IntelX64 *)
     let rexW = if rexPrx.RexW then 0x48uy else 0uy
     let rxb = encodeRexRXB rexPrx.IsMemReg ins.Operands

@@ -68,6 +68,4 @@ with
     BinFilePointer (p.Addr + uint64 amount, p.Offset + amount, p.MaxOffset)
 
   override __.ToString () =
-    String.u64ToHexNoPrefix __.Addr
-    + " (" + String.i32ToHexNoPrefix __.Offset
-    + " of " + String.i32ToHexNoPrefix __.MaxOffset + ")"
+    $"{__.Addr:x} ({__.Offset:x} of {__.MaxOffset:x})"

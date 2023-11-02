@@ -40,7 +40,7 @@ module MIPS64 =
     Assert.AreEqual (opcode', opcode)
     Assert.AreEqual (oprs', oprs)
 
-  let private test64R2 = test Arch.MIPS64 Endian.Big
+  let private test64R2 = test Architecture.MIPS64 Endian.Big
 
   /// Arithmetic operations
   [<TestClass>]

@@ -1631,7 +1631,7 @@ let simdListToString simd (builder: DisasmBuilder) =
 
 let immToString imm (builder: DisasmBuilder) =
   builder.Accumulate AsmWordKind.String "#"
-  builder.Accumulate AsmWordKind.String (String.i64ToHex imm)
+  builder.Accumulate AsmWordKind.String (HexString.ofInt64 imm)
 
 let fpImmToString (fp: float) (builder: DisasmBuilder) =
   builder.Accumulate AsmWordKind.String "#"
@@ -1706,7 +1706,7 @@ let immOffsetToString i addr mode offset (builder: DisasmBuilder) =
     immToString imm builder
   | Lbl imm ->
     let addr = processAddrExn64 i addr
-    builder.Accumulate AsmWordKind.Value (String.i64ToHex (int64 addr + imm))
+    builder.Accumulate AsmWordKind.Value (HexString.ofInt64 (int64 addr + imm))
 
 let regOffsetToString mode offset (builder: DisasmBuilder) =
   match offset with

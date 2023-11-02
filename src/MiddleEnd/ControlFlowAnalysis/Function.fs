@@ -132,7 +132,7 @@ module private RegularFunction =
   /// their values are fixed.
   let obtainGetPCThunkReg (hdl: BinHandle) (addr: Addr) =
     match hdl.File.ISA.Arch with
-    | Arch.IntelX86 ->
+    | Architecture.IntelX86 ->
       match hdl.ReadUInt (addr, 4) with
       | 0xc324048bUL -> YesGetPCThunk <| hdl.RegisterBay.RegIDFromString "EAX"
       | 0xc3241c8bUL -> YesGetPCThunk <| hdl.RegisterBay.RegIDFromString "EBX"

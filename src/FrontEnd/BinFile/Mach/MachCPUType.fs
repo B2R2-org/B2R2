@@ -65,14 +65,14 @@ module CPUType =
     | CPUSubType.MIPSR2300
     | CPUSubType.MIPSR2600
     | CPUSubType.MIPSR2800
-    | CPUSubType.MIPSR2000A -> Arch.MIPS32 (* MIPS32R2 *)
+    | CPUSubType.MIPSR2000A -> Architecture.MIPS32 (* MIPS32R2 *)
     | _ -> raise InvalidISAException
 
   let toArch cputype subtype =
     match cputype with
-    | CPUType.I386 -> Arch.IntelX86
-    | CPUType.X64 -> Arch.IntelX64
-    | CPUType.ARM -> Arch.ARMv7
-    | CPUType.ARM64 -> Arch.AARCH64
+    | CPUType.I386 -> Architecture.IntelX86
+    | CPUType.X64 -> Architecture.IntelX64
+    | CPUType.ARM -> Architecture.ARMv7
+    | CPUType.ARM64 -> Architecture.AARCH64
     | CPUType.MIPS -> toMIPSArch subtype
-    | _ -> Arch.UnknownISA
+    | _ -> Architecture.UnknownISA

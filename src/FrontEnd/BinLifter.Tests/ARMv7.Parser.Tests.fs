@@ -60,7 +60,7 @@ module ARMv7 =
     Assert.AreEqual (simd', simd)
     Assert.AreEqual (oprs', oprs)
 
-  let private test32 = test Arch.ARMv7 Endian.Big
+  let private test32 = test Architecture.ARMv7 Endian.Big
 
   /// A4.3 Branch instructions
   [<TestClass>]

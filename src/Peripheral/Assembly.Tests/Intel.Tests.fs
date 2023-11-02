@@ -30,7 +30,7 @@ open B2R2.Peripheral.Assembly.Intel
 
 [<TestClass>]
 type X86Tests () =
-  let isa = ISA.Init Arch.IntelX86 Endian.Little
+  let isa = ISA.Init Architecture.IntelX86 Endian.Little
   let asm = IntelAsmParser (isa, 0UL)
 
   [<TestMethod>]

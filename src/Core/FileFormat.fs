@@ -38,7 +38,10 @@ type FileFormat =
   | WasmBinary = 5
 
 /// A helper module for FileFormat type.
+[<RequireQualifiedAccess>]
 module FileFormat =
+  /// Transform a string into a FileFormat.
+  [<CompiledName "OfString">]
   let ofString (str: string) =
     match str.ToLowerInvariant () with
     | "elf" -> FileFormat.ELFBinary
@@ -47,6 +50,8 @@ module FileFormat =
     | "wasm" -> FileFormat.WasmBinary
     | _ -> FileFormat.RawBinary
 
+  /// Transform a FileFormat into a string.
+  [<CompiledName "ToString">]
   let toString fmt =
     match fmt with
     | FileFormat.RawBinary -> "Raw"
@@ -57,10 +62,13 @@ module FileFormat =
     | _ -> invalidArg (nameof fmt) "Unknown FileFormat used."
 
   /// Check whether the given format is ELF.
+  [<CompiledName "IsELF">]
   let isELF fmt = fmt = FileFormat.ELFBinary
 
   /// Check whether the given format is PE.
+  [<CompiledName "IsPE">]
   let isPE fmt = fmt = FileFormat.PEBinary
 
   /// Check whether the given format is Mach-O.
+  [<CompiledName "IsMach">]
   let isMach fmt = fmt = FileFormat.MachBinary

@@ -78,8 +78,8 @@ module private LibcAnalysisHelper =
     | None -> false
     | Some st ->
       match hdl.File.ISA.Arch with
-      | Arch.IntelX86 -> retrieveAddrsForx86 builder codeMgr st
-      | Arch.IntelX64 -> retrieveAddrsForx64 builder codeMgr st
+      | Architecture.IntelX86 -> retrieveAddrsForx86 builder codeMgr st
+      | Architecture.IntelX64 -> retrieveAddrsForx64 builder codeMgr st
       | _ -> false
 
   let tryFindFunction (codeMgr: CodeManager) entry =

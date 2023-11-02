@@ -37,9 +37,11 @@ type WordSize =
   | Bit256 = 256
 
 /// A helper module for the WordSize type.
+[<RequireQualifiedAccess>]
 module WordSize =
-
-  let bitTypeOfString = function
+  /// Transform a string into a word size.
+  [<CompiledName "OfString">]
+  let ofString = function
     | "8"  -> WordSize.Bit8
     | "16"  -> WordSize.Bit16
     | "32"  -> WordSize.Bit32
@@ -49,9 +51,11 @@ module WordSize =
     | _ -> raise InvalidWordSizeException
 
   /// Transform a word size into a byte length.
+  [<CompiledName "ToByteWidth">]
   let toByteWidth (wordSize: WordSize) = int32 wordSize / 8
 
   /// Transform a word size into a RegType.
+  [<CompiledName "ToRegType">]
   let toRegType = function
     | WordSize.Bit8 -> 8<rt>
     | WordSize.Bit16 -> 16<rt>
@@ -62,16 +66,21 @@ module WordSize =
     | _ -> raise InvalidWordSizeException
 
   /// Transform a word size into a string.
+  [<CompiledName "ToString">]
   let toString wordSz = (toRegType wordSz).ToString ()
 
   /// Is the given word size 32 bit?
+  [<CompiledName "Is32">]
   let is32 wordSz = wordSz = WordSize.Bit32
 
   /// Is the given word size 64 bit?
+  [<CompiledName "Is64">]
   let is64 wordSz = wordSz = WordSize.Bit64
 
   /// Is the given word size 128 bit?
+  [<CompiledName "Is128">]
   let is128 wordSz = wordSz = WordSize.Bit128
 
   /// Is the given word size 256 bit?
+  [<CompiledName "Is256">]
   let is256 wordSz = wordSz = WordSize.Bit256

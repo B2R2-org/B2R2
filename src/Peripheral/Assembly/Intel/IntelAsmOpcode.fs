@@ -31,10 +31,10 @@ open B2R2.Peripheral.Assembly.Intel.AsmPrefix
 open B2R2.Peripheral.Assembly.Intel.AsmOperands
 
 let no32Arch arch =
-  if arch = Arch.IntelX86 then raise InvalidISAException else ()
+  if arch = Architecture.IntelX86 then raise InvalidISAException else ()
 
 let no64Arch arch =
-  if arch = Arch.IntelX64 then raise InvalidISAException else ()
+  if arch = Architecture.IntelX64 then raise InvalidISAException else ()
 
 let isInt8 i = 0xFFFFFFFFFFFFFF80L <= i && i <= 0x7FL
 let isInt16 i = 0xFFFFFFFFFFFF8000L <= i && i <= 0x7FFFL
@@ -723,7 +723,7 @@ let bt (ctxt: EncContext) ins =
 let call (ctxt: EncContext) ins =
   match ins.Operands with
   | OneOperand (OprDirAddr (Relative rel))
-    when isInt16 rel && ctxt.Arch = Arch.IntelX86 ->
+    when isInt16 rel && ctxt.Arch = Architecture.IntelX86 ->
     encD ins ctxt.Arch
       ctxt.Pref66 ctxt.RexNormal [| 0xE8uy |] rel 16<rt>
   | OneOperand (OprDirAddr (Relative rel))
@@ -1070,13 +1070,13 @@ let dec (ctxt: EncContext) ins =
   | OneOperand (OprMem (b, s, d, 8<rt>)) ->
     encM ins ctxt.Arch ctxt.PrefNormal ctxt.RexNormal [| 0xFEuy |] b s d 1uy
   | OneOperand (OprReg r) when isReg16 r ->
-    if isClassicGPReg r && ctxt.Arch = Arch.IntelX86 then
+    if isClassicGPReg r && ctxt.Arch = Architecture.IntelX86 then
       encClassicR true 0x48uy (regTo3Bit r)
     else encR ins ctxt.Arch ctxt.Pref66 ctxt.RexNormal [| 0xFFuy |] r 1uy
   | OneOperand (OprMem (b, s, d, 16<rt>)) ->
     encM ins ctxt.Arch ctxt.Pref66 ctxt.RexNormal [| 0xFFuy |] b s d 1uy
   | OneOperand (OprReg r) when isReg32 r ->
-    if isClassicGPReg r && ctxt.Arch = Arch.IntelX86 then
+    if isClassicGPReg r && ctxt.Arch = Architecture.IntelX86 then
       encClassicR false 0x48uy (regTo3Bit r)
     else encR ins ctxt.Arch ctxt.PrefNormal ctxt.RexNormal [| 0xFFuy |] r 1uy
   | OneOperand (OprMem (b, s, d, 32<rt>)) ->
@@ -1471,13 +1471,13 @@ let inc (ctxt: EncContext) ins =
   | OneOperand (OprMem (b, s, d, 8<rt>)) ->
     encM ins ctxt.Arch ctxt.PrefNormal ctxt.RexNormal [| 0xFEuy |] b s d 0uy
   | OneOperand (OprReg r) when isReg16 r ->
-    if isClassicGPReg r && ctxt.Arch = Arch.IntelX86 then
+    if isClassicGPReg r && ctxt.Arch = Architecture.IntelX86 then
       encClassicR true 0x40uy (regTo3Bit r)
     else encR ins ctxt.Arch ctxt.Pref66 ctxt.RexNormal [| 0xFFuy |] r 0uy
   | OneOperand (OprMem (b, s, d, 16<rt>)) ->
     encM ins ctxt.Arch ctxt.Pref66 ctxt.RexNormal [| 0xFFuy |] b s d 0uy
   | OneOperand (OprReg r) when isReg32 r ->
-    if isClassicGPReg r && ctxt.Arch = Arch.IntelX86 then
+    if isClassicGPReg r && ctxt.Arch = Architecture.IntelX86 then
       encClassicR false 0x40uy (regTo3Bit r)
     else encR ins ctxt.Arch ctxt.PrefNormal ctxt.RexNormal [| 0xFFuy |] r 0uy
   | OneOperand (OprMem (b, s, d, 32<rt>)) ->
@@ -1506,7 +1506,7 @@ let jcc (ctxt: EncContext) ins op8Byte opByte op =
     encD ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexNormal [| op8Byte |] rel 8<rt>
   | OneOperand (OprDirAddr (Relative rel))
-    when isInt16 rel && ctxt.Arch = Arch.IntelX86 ->
+    when isInt16 rel && ctxt.Arch = Architecture.IntelX86 ->
     encD ins ctxt.Arch
       ctxt.Pref66 ctxt.RexNormal opByte rel 16<rt>
   | OneOperand (OprDirAddr (Relative rel)) when isInt32 rel ->

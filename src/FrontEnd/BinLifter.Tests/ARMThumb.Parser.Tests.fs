@@ -26,7 +26,6 @@ namespace B2R2.FrontEnd.Tests
 
 open Microsoft.VisualStudio.TestTools.UnitTesting
 open B2R2
-open B2R2.FrontEnd
 open B2R2.FrontEnd.BinLifter
 
 module ARMThumb =
@@ -56,7 +55,7 @@ module ARMThumb =
     Assert.AreEqual (simd', s)
     Assert.AreEqual (oprs', oprs)
 
-  let private testThumb = test Arch.ARMv7 Endian.Big
+  let private testThumb = test Architecture.ARMv7 Endian.Big
 
   /// A4.3 Branch instructions
   [<TestClass>]

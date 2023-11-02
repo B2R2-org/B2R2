@@ -39,11 +39,13 @@ type OS =
   | UnknownOS = 4
 
 /// A helper module for OS type.
+[<RequireQualifiedAccess>]
 module OS =
   open System.IO
 
   /// Test if the given program name is runnable in the current environment
   /// by analyzing the PATH environment variable.
+  [<CompiledName "IsRunnable">]
   let isRunnable progName =
     let testPath path =
       let fullPath = Path.Combine (path, progName)
@@ -54,6 +56,7 @@ module OS =
          vars.Split (Path.PathSeparator) |> Array.exists testPath
 
   /// Obtain an OS type from the given string.
+  [<CompiledName "OfString">]
   let ofString (s: string) =
     match s.ToLowerInvariant () with
     | "windows" | "win" -> OS.Windows
@@ -63,6 +66,7 @@ module OS =
     | _ -> invalidArg (nameof s) "Unknown OS string"
 
   /// Return a string representation from the given OS type.
+  [<CompiledName "ToString">]
   let toString os =
     match os with
     | OS.Windows -> "Windows"

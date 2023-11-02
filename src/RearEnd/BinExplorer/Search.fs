@@ -32,7 +32,7 @@ open B2R2.FrontEnd.BinFile
 type CmdSearch () =
   inherit Cmd ()
 
-  let toResult idx = "Found @ " + String.u64ToHexNoPrefix idx
+  let toResult (idx: uint64) = $"Found @ {idx:x}"
 
   let search (hdl: BinHandle) pattern =
     hdl.File.GetSegments (Permission.Readable)

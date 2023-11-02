@@ -24,38 +24,31 @@
 
 namespace B2R2
 
-/// Raised when an invalid ArchOperationMode is given.
-exception InvalidTargetArchModeException
+/// String segment with color. Multiple segments can be concatenated to form a
+/// colored string.
+type ColoredSegment = Color * string
 
-/// Some ISA, such as ARM, have their own operation mode, which can vary at
-/// runtime. For example, ARM architecture can switch between Thumb and ARM
-/// mode. In such architectures, the parsing/lifting logic will vary depending
-/// on the ArchOperationMode. For most other architectures, it will always be
-/// NoMode.
-type ArchOperationMode =
-  /// ARM mode.
-  | ARMMode = 1
-  /// Thumb mode.
-  | ThumbMode = 2
-  /// No mode. This is used for architectures that do not have any operation
-  /// mode.
-  | NoMode = 3
-
-/// A helper module for ArchOperationMode.
 [<RequireQualifiedAccess>]
-module ArchOperationMode =
-  /// Transform a string into an ArchOperationMode.
-  [<CompiledName "OfString">]
-  let ofString (s: string) =
-    match s.ToLowerInvariant () with
-    | "arm" -> ArchOperationMode.ARMMode
-    | "thumb" -> ArchOperationMode.ThumbMode
-    | _ -> ArchOperationMode.NoMode
+module ColoredSegment =
+  let private getColor b =
+    if Byte.isNull b then NoColor
+    elif Byte.isPrintable b then Green
+    elif Byte.isWhitespace b then Blue
+    elif Byte.isControl b then Red
+    else Yellow
 
-  /// Transform an ArchOperationMode into a string.
-  [<CompiledName "ToString">]
-  let toString mode =
-    match mode with
-    | ArchOperationMode.ARMMode -> "arm"
-    | ArchOperationMode.ThumbMode -> "thumb"
-    | _ -> "nomode"
+  /// Return a colored hexadeciaml representation of a byte.
+  [<CompiledName "HexOfByte">]
+  let hexOfByte b =
+    getColor b, b.ToString ("X2")
+
+  /// Return a colored ASCII representation of a byte.
+  [<CompiledName "AsciiOfByte">]
+  let asciiOfByte b =
+    getColor b, Byte.getRepresentation b
+
+  /// Append a string (of the same color) to a colored segment.
+  [<CompiledName "AppendString">]
+  let appendString tail (segment: ColoredSegment) =
+    let color, string = segment
+    ColoredSegment (color, string + tail)

@@ -33,30 +33,30 @@ open B2R2.FrontEnd.BinLifter
 [<CompiledName ("Init")>]
 let init (isa: ISA) mode (entryPoint: Addr option) =
   match isa.Arch with
-  | Arch.IntelX64
-  | Arch.IntelX86 ->
+  | Architecture.IntelX64
+  | Architecture.IntelX86 ->
     Intel.IntelParser (isa.WordSize) :> IInstructionParsable
-  | Arch.ARMv7 | Arch.AARCH32 ->
+  | Architecture.ARMv7 | Architecture.AARCH32 ->
     ARM32.ARM32Parser (isa, mode, entryPoint) :> IInstructionParsable
-  | Arch.AARCH64 ->
+  | Architecture.AARCH64 ->
     ARM64.ARM64Parser (isa) :> IInstructionParsable
-  | Arch.MIPS32 | Arch.MIPS64 ->
+  | Architecture.MIPS32 | Architecture.MIPS64 ->
     MIPS.MIPSParser (isa) :> IInstructionParsable
-  | Arch.EVM ->
+  | Architecture.EVM ->
     EVM.EVMParser (isa) :> IInstructionParsable
-  | Arch.TMS320C6000 ->
+  | Architecture.TMS320C6000 ->
     TMS320C6000.TMS320C6000Parser () :> IInstructionParsable
-  | Arch.CILOnly ->
+  | Architecture.CILOnly ->
     CIL.CILParser () :> IInstructionParsable
-  | Arch.AVR ->
+  | Architecture.AVR ->
     AVR.AVRParser () :> IInstructionParsable
-  | Arch.SH4 ->
+  | Architecture.SH4 ->
     SH4.SH4Parser (isa) :> IInstructionParsable
-  | Arch.PPC32 ->
+  | Architecture.PPC32 ->
     PPC32.PPC32Parser (isa) :> IInstructionParsable
-  | Arch.RISCV64 ->
+  | Architecture.RISCV64 ->
     RISCV.RISCV64Parser (isa) :> IInstructionParsable
-  | Arch.SPARC ->
+  | Architecture.SPARC ->
     SPARC.SPARCParser (isa) :> IInstructionParsable
   | _ ->
     Utils.futureFeature ()

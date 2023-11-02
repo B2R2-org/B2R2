@@ -56,4 +56,4 @@ type DisasmBasicBlock (instrs: Instruction [], pp(*, ?funcID*)) =
 
   override __.ToString () =
     if instrs.Length = 0 then "DisasmBBLK(Dummy)"
-    else "DisasmBBLK(" + String.u64ToHexNoPrefix __.PPoint.Address + ")"
+    else $"DisasmBBLK({__.PPoint.Address:x})"

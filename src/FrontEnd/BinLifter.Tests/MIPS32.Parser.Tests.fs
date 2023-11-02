@@ -44,7 +44,7 @@ module MIPS32 =
     Assert.AreEqual (fmt', fmt)
     Assert.AreEqual (oprs', oprs)
 
-  let private test32R2 = test Arch.MIPS32 Endian.Big
+  let private test32R2 = test Architecture.MIPS32 Endian.Big
 
   /// Arithmetic Operations
   [<TestClass>]

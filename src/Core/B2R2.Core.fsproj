@@ -13,7 +13,9 @@
     <Compile Include="Errors.fs" />
     <Compile Include="Utils.fsi" />
     <Compile Include="Utils.fs" />
+    <Compile Include="HexString.fs" />
     <Compile Include="Color.fs" />
+    <Compile Include="ColoredSegment.fs" />
     <Compile Include="ColoredString.fs" />
     <Compile Include="OutString.fs" />
     <Compile Include="Printer.fs" />

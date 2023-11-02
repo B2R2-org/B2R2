@@ -329,7 +329,7 @@ let finalize arch parserState realLenArr baseAddr myIdx comp =
        IncompLabel sz |] ->
     let labelIdx = Map.find lbl parserState.LabelMap
     let addr =
-      if arch = Arch.IntelX86 then computeAddr labelIdx realLenArr
+      if arch = Architecture.IntelX86 then computeAddr labelIdx realLenArr
       else computeDistance myIdx labelIdx realLenArr
     [| yield! bs; yield! concretizeLabel sz (addr  + int64 baseAddr)
        yield! getImm imm |]

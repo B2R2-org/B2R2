@@ -37,17 +37,17 @@ let private toTail bytes = { Pattern = bytes }
 
 let private instrMaxLen (hdl: BinHandle) =
   match hdl.File.ISA.Arch with
-  | Arch.IntelX86 | Arch.IntelX64 -> 15UL
-  | Arch.AARCH32 | Arch.AARCH64 | Arch.ARMv7 -> 4UL
+  | Architecture.IntelX86 | Architecture.IntelX64 -> 15UL
+  | Architecture.AARCH32 | Architecture.AARCH64 | Architecture.ARMv7 -> 4UL
   | _ -> raise InvalidISAException
 
 let getTailPatterns (hdl: BinHandle) =
   match hdl.File.ISA.Arch, hdl.File.ISA.Endian with
-  | Arch.IntelX86, Endian.Little ->
+  | Architecture.IntelX86, Endian.Little ->
     [ [| 0xC3uy |] (* RET *)
       [| 0xCDuy; 0x80uy |] (* INT 0x80 *)
       [| 0xCDuy; 0x80uy; 0xC3uy |] (* INT 0x80; RET *) ]
-  | Arch.IntelX64, Endian.Little ->
+  | Architecture.IntelX64, Endian.Little ->
     [ [| 0xC3uy |] (* RET *)
       [| 0x0Fuy; 0x05uy |] (* SYSCALL *)
       [| 0x0Fuy; 0x05uy; 0xC3uy |] (* SYSCALL; RET *) ]

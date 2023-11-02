@@ -156,7 +156,7 @@ let prependDelimiter delimiter (builder: DisasmBuilder) =
   | Some delim -> builder.Accumulate AsmWordKind.String delim
 
 let immToString imm  (builder: DisasmBuilder) =
-  builder.Accumulate AsmWordKind.Value (String.i32ToHex imm)
+  builder.Accumulate AsmWordKind.Value (HexString.ofInt32 imm)
 
 let addrToString shift addr (builder: DisasmBuilder) =
   let relAddr = int(addr) + shift + 2
@@ -164,12 +164,12 @@ let addrToString shift addr (builder: DisasmBuilder) =
     builder.Accumulate AsmWordKind.String ".+"
     builder.Accumulate AsmWordKind.Value (string shift)
     builder.Accumulate AsmWordKind.String "     ; "
-    builder.Accumulate AsmWordKind.Value (String.i32ToHex relAddr)
+    builder.Accumulate AsmWordKind.Value (HexString.ofInt32 relAddr)
     else
       builder.Accumulate AsmWordKind.String "."
       builder.Accumulate AsmWordKind.Value (string shift)
       builder.Accumulate AsmWordKind.String "     ; "
-      builder.Accumulate AsmWordKind.Value (String.i32ToHex relAddr)
+      builder.Accumulate AsmWordKind.Value (HexString.ofInt32 relAddr)
 
 let memToString addrMode (builder: DisasmBuilder) =
   match addrMode with
@@ -218,7 +218,7 @@ let buildComment opr1 opr2 (builder: DisasmBuilder) =
     match addrMode with
     | DispMode (reg, c) ->
       builder.Accumulate AsmWordKind.String "     ; "
-      builder.Accumulate AsmWordKind.Value (String.i32ToHex c)
+      builder.Accumulate AsmWordKind.Value (HexString.ofInt32 c)
     | _ -> ()
   | _ -> ()
 
@@ -241,4 +241,3 @@ let disasm insInfo (builder: DisasmBuilder) =
   if builder.ShowAddr then builder.AccumulateAddr () else ()
   buildOpcode insInfo builder
   buildOprs insInfo pc builder
-// vim: set tw=80 sts=2 sw=2:

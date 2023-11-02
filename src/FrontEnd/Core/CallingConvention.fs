@@ -30,16 +30,16 @@ open B2R2.FrontEnd.BinLifter
 [<CompiledName("VolatileRegisters")>]
 let volatileRegisters (hdl: BinHandle) =
   match hdl.File.ISA.Arch with
-  | Arch.IntelX86 ->
+  | Architecture.IntelX86 ->
     [ Intel.Register.EAX; Intel.Register.ECX; Intel.Register.EDX ]
     |> List.map Intel.Register.toRegID
-  | Arch.IntelX64 ->
+  | Architecture.IntelX64 ->
     [ Intel.Register.RAX; Intel.Register.RCX; Intel.Register.RDX;
       Intel.Register.R8; Intel.Register.R9; Intel.Register.R10;
       Intel.Register.R11 ]
     |> List.map Intel.Register.toRegID
-  | Arch.ARMv7
-  | Arch.AARCH32 ->
+  | Architecture.ARMv7
+  | Architecture.AARCH32 ->
     [ ARM32.Register.R0; ARM32.Register.R1; ARM32.Register.R2;
       ARM32.Register.R3 ]
     |> List.map ARM32.Register.toRegID
@@ -149,12 +149,12 @@ let functionArgRegister (hdl: BinHandle) os num =
 [<CompiledName("IsNonVolatile")>]
 let isNonVolatile (hdl: BinHandle) os rid =
   match os, hdl.File.ISA.Arch with
-  | OS.Linux, Arch.IntelX86 -> (* CDECL *)
+  | OS.Linux, Architecture.IntelX86 -> (* CDECL *)
     rid = (Intel.Register.EBP |> Intel.Register.toRegID)
     || rid = (Intel.Register.EBX |> Intel.Register.toRegID)
     || rid = (Intel.Register.ESI |> Intel.Register.toRegID)
     || rid = (Intel.Register.EDI |> Intel.Register.toRegID)
-  | OS.Linux, Arch.IntelX64 -> (* CDECL *)
+  | OS.Linux, Architecture.IntelX64 -> (* CDECL *)
     rid = (Intel.Register.RBX |> Intel.Register.toRegID)
     || rid = (Intel.Register.RSP |> Intel.Register.toRegID)
     || rid = (Intel.Register.RBP |> Intel.Register.toRegID)
@@ -162,7 +162,7 @@ let isNonVolatile (hdl: BinHandle) os rid =
     || rid = (Intel.Register.R13 |> Intel.Register.toRegID)
     || rid = (Intel.Register.R14 |> Intel.Register.toRegID)
     || rid = (Intel.Register.R15 |> Intel.Register.toRegID)
-  | OS.Linux, Arch.ARMv7 -> (* EABI *)
+  | OS.Linux, Architecture.ARMv7 -> (* EABI *)
     rid = (ARM32.Register.R4 |> ARM32.Register.toRegID)
     || rid = (ARM32.Register.R5 |> ARM32.Register.toRegID)
     || rid = (ARM32.Register.R6 |> ARM32.Register.toRegID)
@@ -170,7 +170,7 @@ let isNonVolatile (hdl: BinHandle) os rid =
     || rid = (ARM32.Register.R8 |> ARM32.Register.toRegID)
     || rid = (ARM32.Register.SL |> ARM32.Register.toRegID)
     || rid = (ARM32.Register.FP |> ARM32.Register.toRegID)
-  | OS.Linux, Arch.AARCH64 -> (* EABI *)
+  | OS.Linux, Architecture.AARCH64 -> (* EABI *)
     rid = (ARM64.Register.X19 |> ARM64.Register.toRegID)
     || rid = (ARM64.Register.X20 |> ARM64.Register.toRegID)
     || rid = (ARM64.Register.X21 |> ARM64.Register.toRegID)
@@ -182,7 +182,7 @@ let isNonVolatile (hdl: BinHandle) os rid =
     || rid = (ARM64.Register.X27 |> ARM64.Register.toRegID)
     || rid = (ARM64.Register.X28 |> ARM64.Register.toRegID)
     || rid = (ARM64.Register.X29 |> ARM64.Register.toRegID)
-  | OS.Linux, Arch.MIPS32 | OS.Linux, Arch.MIPS64 ->
+  | OS.Linux, Architecture.MIPS32 | OS.Linux, Architecture.MIPS64 ->
     rid = (MIPS.Register.R16 |> MIPS.Register.toRegID)
     || rid = (MIPS.Register.R17 |> MIPS.Register.toRegID)
     || rid = (MIPS.Register.R18 |> MIPS.Register.toRegID)
@@ -192,7 +192,7 @@ let isNonVolatile (hdl: BinHandle) os rid =
     || rid = (MIPS.Register.R22 |> MIPS.Register.toRegID)
     || rid = (MIPS.Register.R23 |> MIPS.Register.toRegID)
     || rid = (MIPS.Register.R30 |> MIPS.Register.toRegID)
-  | OS.Windows, Arch.IntelX64 -> (* Microsoft x64 *)
+  | OS.Windows, Architecture.IntelX64 -> (* Microsoft x64 *)
     rid = (Intel.Register.RBX |> Intel.Register.toRegID)
     || rid = (Intel.Register.RSP |> Intel.Register.toRegID)
     || rid = (Intel.Register.RBP |> Intel.Register.toRegID)

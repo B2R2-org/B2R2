@@ -490,7 +490,7 @@ module private CFGBuilder =
          analyzeIndirectBranchPattern in IndirectJumpResolution. It's for
          minimizing the overhead in calling CP, and we can get it back here when
          incremental CP is implemented. *)
-      if hdl.File.ISA.Arch = Arch.EVM then ()
+      if hdl.File.ISA.Arch = Architecture.EVM then ()
       else finalizeFunctionInfo fn
       updateCalleeInfo codeMgr fn
       noret.Run hdl codeMgr dataMgr fn evts
@@ -501,7 +501,7 @@ type CFGBuilder (hdl, codeMgr: CodeManager, dataMgr: DataManager) as this =
   let indcall = IndirectCallResolution ()
   let indjmp =
     match (hdl: BinHandle).File.ISA.Arch with
-    | Arch.EVM -> EVMJmpResolution () :> PerFunctionAnalysis
+    | Architecture.EVM -> EVMJmpResolution () :> PerFunctionAnalysis
     | _ -> RegularJmpResolution (this) :> PerFunctionAnalysis
 
 #if CFGDEBUG

@@ -42,6 +42,7 @@ type LogLevel =
 [<RequireQualifiedAccess>]
 module LogLevel =
   /// Get LogLevel from a given string.
+  [<CompiledName "OfString">]
   let ofString (str: string) =
     match str.ToLowerInvariant () with
     | "1" | "l1" | "quiet" | "q" -> LogLevel.L1
@@ -50,6 +51,7 @@ module LogLevel =
     | _ -> LogLevel.L2
 
   /// Return a string representing the given LogLevel.
+  [<CompiledName "ToString">]
   let toString = function
     | LogLevel.L1 -> "L1"
     | LogLevel.L2 -> "L2"

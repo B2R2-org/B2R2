@@ -257,7 +257,7 @@ let inline buildOpcode ins (builder: DisasmBuilder) =
 
 let inline relToString pc offset (builder: DisasmBuilder) =
   let targetAddr = pc + uint64 offset
-  builder.Accumulate AsmWordKind.Value (String.u64ToHex targetAddr)
+  builder.Accumulate AsmWordKind.Value (HexString.ofUInt64 targetAddr)
 
 let oprToString insInfo opr delim (builder: DisasmBuilder) =
   match opr with
@@ -267,7 +267,7 @@ let oprToString insInfo opr delim (builder: DisasmBuilder) =
   | OpImm imm
   | OpShiftAmount imm ->
     builder.Accumulate AsmWordKind.String delim
-    builder.Accumulate AsmWordKind.Value (String.u64ToHex imm)
+    builder.Accumulate AsmWordKind.Value (HexString.ofUInt64 imm)
   | OpMem (b, None, _) ->
     builder.Accumulate AsmWordKind.String delim
     builder.Accumulate AsmWordKind.String "("
@@ -303,7 +303,7 @@ let oprToString insInfo opr delim (builder: DisasmBuilder) =
     else ()
   | OpCSR (csr) ->
     builder.Accumulate AsmWordKind.String delim
-    builder.Accumulate AsmWordKind.Value (String.u64ToHex (csr |> uint64))
+    builder.Accumulate AsmWordKind.Value (HexString.ofUInt16 csr)
 
 let buildOprs insInfo builder =
   match insInfo.Operands with

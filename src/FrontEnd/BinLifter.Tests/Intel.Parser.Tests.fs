@@ -2176,7 +2176,7 @@ module Intel =
   type TestClass () =
     [<TestMethod>]
     member __.``Intel IL Test`` () =
-      let isa = ISA.Init Arch.IntelX86 Endian.Little
+      let isa = ISA.Init Architecture.IntelX86 Endian.Little
       let hdl = BinHandle (isa)
       Assert.AreEqual (0, hdl.File.Length)
 #endif

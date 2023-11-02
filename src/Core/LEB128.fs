@@ -30,6 +30,7 @@ open System
 /// incorrect encoding.
 exception LEB128DecodeException
 
+[<AutoOpen>]
 module private LEB128Helper =
   let rec decodeLoop acc (bs: ReadOnlySpan<byte>) offset b len =
     let offset' = offset + 1
@@ -56,8 +57,6 @@ module private LEB128Helper =
       bitmask <<< (7 * (shiftOffset)) ||| currentValue
     else
       currentValue
-
-open LEB128Helper
 
 type LEB128 =
   static member Max32 = 5

@@ -77,7 +77,7 @@ type BinExplorerOpts (isa) =
   /// List of analyses to perform.
   member __.GetAnalyses arch =
     let preanalyses =
-      [ if arch = Arch.EVM then
+      [ if arch = Architecture.EVM then
           if __.EnableEVMAnalysis then
             EVMCodeCopyAnalysis () :> IPluggableAnalysis
             EVMTrampolineAnalysis (__.EVMAbiFile) :> IPluggableAnalysis

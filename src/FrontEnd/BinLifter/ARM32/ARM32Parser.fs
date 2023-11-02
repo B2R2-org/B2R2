@@ -40,7 +40,8 @@ module private Parser =
 
   let detectThumb entryPoint (isa: ISA) =
     match entryPoint, isa.Arch with
-    | Some entry, Arch.ARMv7 when entry % 2UL <> 0UL -> (* XXX: LIbraries? *)
+    | Some entry, Architecture.ARMv7 when entry % 2UL <> 0UL ->
+      (* XXX: LIbraries? *)
       ArchOperationMode.ThumbMode
     | _ -> ArchOperationMode.ARMMode
 

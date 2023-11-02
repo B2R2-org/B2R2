@@ -26,14 +26,14 @@ namespace B2R2
 
 open System
 
-type ByteValue =
+/// Represents a byte pattern.
+type BytePattern = ByteValue[]
+
+and ByteValue =
   /// This matches any byte, i.e., it is like a kleene star.
   | AnyByte
   /// This matches only one single byte value.
   | OneByte of byte
-
-/// Represents a byte pattern.
-type BytePattern = ByteValue []
 
 module BytePattern =
   let private isEqual bv v =
@@ -43,6 +43,7 @@ module BytePattern =
 
   /// Check if the given byte array (bs) matches the pattern. The comparison
   /// starts at the very first byte of the arrays.
+  [<CompiledName "Match">]
   let ``match`` (pattern: BytePattern) (bs: byte []) =
     let patternLen = Array.length pattern
     if patternLen > bs.Length then false
@@ -52,6 +53,7 @@ module BytePattern =
 
   /// Check if the given span matches the pattern. The comparison starts at the
   /// offset zero.
+  [<CompiledName "MatchSpan">]
   let matchSpan pattern (span: ReadOnlySpan<byte>) =
     let mutable matched = true
     let patternLen = Array.length pattern

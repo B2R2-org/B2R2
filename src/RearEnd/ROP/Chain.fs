@@ -24,6 +24,7 @@
 
 namespace B2R2.RearEnd.ROP
 
+open System
 open System.Collections
 open B2R2
 open B2R2.FrontEnd
@@ -193,13 +194,22 @@ module ROPHandle =
       |> Seq.maxBy (fun seg -> seg.Size)
     seg.Address + hdl.BinBase
 
+  let private toUInt32Arr (src: byte[]) =
+    let srcLen = Array.length src
+    let dstLen =
+      if srcLen % 4 = 0 then srcLen/4
+      else (srcLen / 4) + 1
+    let dst = Array.init dstLen (fun _ -> 0u)
+    Buffer.BlockCopy (src, 0, dst, 0, srcLen)
+    dst
+
   let private getOrWriteStr hdl str =
     let bytes = String.toBytes str
     match findBytes hdl bytes with
     | None ->
       let addr = getWritableAddr hdl
       let payload =
-        ByteArray.toUInt32Arr bytes
+        toUInt32Arr bytes
         |> Array.map ROPExpr.ofUInt32
         |> write32s hdl (ROPExpr.ofUInt32 addr)
       if Option.isSome payload then Some (payload, addr)

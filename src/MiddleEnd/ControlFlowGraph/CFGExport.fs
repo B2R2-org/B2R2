@@ -57,15 +57,15 @@ let toJson (cfg: IGraph<_, _>) jsonPath =
   let nodes =
     []
     |> cfg.FoldVertex (fun acc (v: IVertex<#BasicBlock>) ->
-      String.u64ToHexNoPrefix v.VData.PPoint.Address :: acc)
+      $"{v.VData.PPoint.Address:x}" :: acc)
     |> List.rev
     |> List.toArray
   let edges =
     []
     |> cfg.FoldEdge (fun acc e ->
       let src, dst = e.First, e.Second
-      { From = String.u64ToHexNoPrefix src.VData.PPoint.Address
-        To = String.u64ToHexNoPrefix dst.VData.PPoint.Address
+      { From = $"{src.VData.PPoint.Address:x}"
+        To = $"{dst.VData.PPoint.Address:x}"
         Type = e.ToString () } :: acc)
     |> List.rev
     |> List.toArray

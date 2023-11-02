@@ -27,12 +27,17 @@ namespace B2R2
 /// Addresses are represented with a 64-bit integer in B2R2.
 type Addr = uint64
 
+[<RequireQualifiedAccess>]
 module Addr =
   let [<Literal>] private FunctionPrefix = "func_"
 
+  /// Convert an address of a given word size to a string.
+  [<CompiledName "ToString">]
   let toString wordSize (addr: Addr) =
     if wordSize = WordSize.Bit32 then (uint32 addr).ToString ("x8")
     else addr.ToString ("x16")
 
+  /// Convert an address to a function name used in B2R2.
+  [<CompiledName "ToFuncName">]
   let toFuncName (addr: Addr) =
     FunctionPrefix + addr.ToString ("x")

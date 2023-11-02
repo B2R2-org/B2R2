@@ -29,27 +29,27 @@ module B2R2.ByteArray
 open System
 
 /// Convert a hex string to a byte array.
+[<CompiledName "OfHexString">]
 val ofHexString: string -> byte[]
 
-/// Convert a byte array into a read-only span.
-val toReadOnlySpan: byte[] -> ReadOnlySpan<byte>
-
 /// Read int32 from the given byte array at the given offset.
+[<CompiledName "ReadInt32">]
 val readInt32: byte[] -> offset: int -> Result<int, ErrorCase>
 
 /// Extract a C-string (string that ends with a NULL char) from a byte array.
+[<CompiledName "ExtractCString">]
 val extractCString: byte[] -> int -> string
 
 /// Extract a C-string (string that ends with a NULL char) from a byte array.
+[<CompiledName "ExtractCStringFromSpan">]
 val extractCStringFromSpan: ReadOnlySpan<byte> -> int -> string
 
 /// Find and return the offsets of all the matching byte positions. The final
 /// byte positions are adjusted by the given offset.
+[<CompiledName "FindIdxs">]
 val findIdxs: offset: uint64 -> pattern: byte[] -> buf: byte[] -> uint64 list
 
 /// Find a matching byte position. If there is no match, this function will
 /// return None.
+[<CompiledName "TryFindIdx">]
 val tryFindIdx: uint64 -> byte[] -> byte[] -> uint64 option
-
-/// Convert a byte array into a uint32 array.
-val toUInt32Arr: byte[] -> uint32[]

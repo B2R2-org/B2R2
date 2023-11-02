@@ -46,6 +46,6 @@ module VisualBlock =
   let empty (addr: Addr): VisualBlock =
     [|
       [| { AsmWordKind = AsmWordKind.String
-           AsmWordValue = "# fake block @ " + (String.u64ToHexNoPrefix addr) }
+           AsmWordValue = $"# fake block @ {addr:x}" }
       |]
     |]

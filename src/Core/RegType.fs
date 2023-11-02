@@ -54,6 +54,7 @@ module RegType =
   ///   A string representation for RegType. For example, I32 means a 32-bit
   ///   integer type.
   /// </returns>
+  [<CompiledName "ToString">]
   let toString (t: RegType) =
 #if DEBUG
     checkIfValidRegType t
@@ -67,6 +68,7 @@ module RegType =
   /// <returns>
   ///   A bit width in integer of the given RegType.
   /// </returns>
+  [<CompiledName "ToBitWidth">]
   let toBitWidth (t: RegType) =
 #if DEBUG
     checkIfValidRegType t
@@ -80,6 +82,7 @@ module RegType =
   /// <returns>
   ///   A byte width in integer of the given RegType.
   /// </returns>
+  [<CompiledName "ToByteWidth">]
   let toByteWidth t =
     let t = toBitWidth t
     if t % 8 = 0 then t / 8
@@ -92,6 +95,7 @@ module RegType =
   /// <returns>
   ///   A <see cref="T:B2R2.RegType"/>.
   /// </returns>
+  [<CompiledName "FromBitWidth">]
   let inline fromBitWidth n =
     let t = LanguagePrimitives.Int32WithMeasure n
 #if DEBUG
@@ -106,16 +110,8 @@ module RegType =
   /// <returns>
   ///   A <see cref="T:B2R2.RegType"/>.
   /// </returns>
+  [<CompiledName "FromByteWidth">]
   let fromByteWidth n = fromBitWidth (n * 8)
-
-  /// <summary>
-  ///   Get a double-sized RegType from a given RegType.
-  /// </summary>
-  /// <param name="t">RegType.</param>
-  /// <returns>
-  ///   A <see cref="T:B2R2.RegType"/>.
-  /// </returns>
-  let double (t: RegType) =  2 * t
 
   /// <summary>
   ///   Get a bitmask (in integer) from the given RegType.
@@ -123,6 +119,7 @@ module RegType =
   /// <returns>
   ///   A bit mask in big integer.
   /// </returns>
+  [<CompiledName "GetMask">]
   let getMask t =
     if t <= 64<rt> then System.UInt64.MaxValue >>> (64 - int t) |> bigint
     else (bigint.One <<< (int t)) - bigint.One

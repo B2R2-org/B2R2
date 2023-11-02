@@ -338,7 +338,7 @@ let oprToString opr delim (builder: DisasmBuilder) =
     memToString builder baseR modification offset
   | Immediate imm ->
     builder.Accumulate AsmWordKind.String delim
-    builder.Accumulate AsmWordKind.Value (String.u64ToHex imm)
+    builder.Accumulate AsmWordKind.Value (HexString.ofUInt64 imm)
 
 let buildOprs insInfo builder =
   match insInfo.Operands with

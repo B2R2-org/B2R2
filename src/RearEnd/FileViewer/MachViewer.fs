@@ -49,14 +49,14 @@ let dumpFileHeader _ (file: MachBinFile) =
   let hdr = file.Header
   out.PrintTwoCols
     "Magic:"
-    (String.u64ToHex (uint64 hdr.Magic)
+    (HexString.ofUInt64 (uint64 hdr.Magic)
     + String.wrapParen (hdr.Magic.ToString ()))
   out.PrintTwoCols
     "Cpu type:"
     (hdr.CPUType.ToString ())
   out.PrintTwoCols
     "Cpu subtype:"
-    (String.u32ToHex (uint32 hdr.CPUSubType))
+    (HexString.ofInt32 (int hdr.CPUSubType))
   out.PrintTwoCols
     "File type:"
     (hdr.FileType.ToString ())
@@ -68,7 +68,7 @@ let dumpFileHeader _ (file: MachBinFile) =
     (hdr.SizeOfCmds.ToString ())
   out.PrintTwoCols
     "Flags:"
-    (String.u64ToHex (uint64 hdr.Flags))
+    (HexString.ofUInt64 (uint64 hdr.Flags))
   translateFlags (uint64 hdr.Flags)
   |> List.iter (fun str -> out.PrintTwoCols "" str)
 
@@ -107,15 +107,15 @@ let dumpSectionHeaders (opts: FileViewerOpts) (mach: MachBinFile) =
           (Addr.toString file.ISA.WordSize (s.SecAddr + s.SecSize - uint64 1))
           normalizeEmpty s.SecName
           normalizeEmpty s.SegName
-          String.u64ToHex s.SecSize
-          String.u64ToHex (uint64 s.SecOffset)
-          String.u64ToHex (uint64 s.SecAlignment)
+          HexString.ofUInt64 s.SecSize
+          HexString.ofUInt64 (uint64 s.SecOffset)
+          HexString.ofUInt64 (uint64 s.SecAlignment)
           s.SecRelOff.ToString ()
           s.SecNumOfReloc.ToString ()
           s.SecType.ToString ()
           s.SecReserved1.ToString ()
           s.SecReserved2.ToString ()
-          String.u32ToHex (uint32 s.SecAttrib) ])
+          HexString.ofUInt32 (uint32 s.SecAttrib) ])
       translateAttribs (uint64 s.SecAttrib)
       |> List.iter (fun str ->
         out.PrintRow (true, cfg, [ ""; ""; ""; ""; ""; ""; ""; ""; ""
@@ -144,19 +144,19 @@ let dumpSectionDetails (secName: string) (file: MachBinFile) =
       section.SegName
     out.PrintTwoCols
       "SecAddr:"
-      (String.u64ToHex section.SecAddr)
+      (HexString.ofUInt64 section.SecAddr)
     out.PrintTwoCols
       "SecSize:"
-      (String.u64ToHex section.SecSize)
+      (HexString.ofUInt64 section.SecSize)
     out.PrintTwoCols
       "SecOffset:"
-      (String.u64ToHex (uint64 section.SecOffset))
+      (HexString.ofUInt64 (uint64 section.SecOffset))
     out.PrintTwoCols
       "SecAlignment:"
-      (String.u64ToHex (uint64 section.SecAlignment))
+      (HexString.ofUInt64 (uint64 section.SecAlignment))
     out.PrintTwoCols
       "SecRelOff:"
-      (String.u64ToHex (uint64 section.SecRelOff))
+      (HexString.ofUInt64 (uint64 section.SecRelOff))
     out.PrintTwoCols
       "SecNumOfReloc:"
       (section.SecNumOfReloc.ToString ())
@@ -165,7 +165,7 @@ let dumpSectionDetails (secName: string) (file: MachBinFile) =
       (section.SecType.ToString ())
     out.PrintTwoCols
       "SecAttrib:"
-      (String.u32ToHex (uint32 section.SecAttrib))
+      (HexString.ofInt32 (int section.SecAttrib))
     translateAttribs (uint64 section.SecAttrib)
     |> List.iter (fun str -> out.PrintTwoCols "" str )
     out.PrintTwoCols
@@ -282,22 +282,22 @@ let printSegCmd (segCmd: Mach.SegCmd) idx =
   out.PrintTwoCols "Cmd:" (segCmd.Cmd.ToString ())
   out.PrintTwoCols "CmdSize:" (segCmd.CmdSize.ToString ())
   out.PrintTwoCols "SegCmdName:" segCmd.SegCmdName
-  out.PrintTwoCols "VMAddr:" (String.u64ToHex segCmd.VMAddr)
-  out.PrintTwoCols "VMSize:" (String.u64ToHex segCmd.VMSize)
+  out.PrintTwoCols "VMAddr:" (HexString.ofUInt64 segCmd.VMAddr)
+  out.PrintTwoCols "VMSize:" (HexString.ofUInt64 segCmd.VMSize)
   out.PrintTwoCols "FileOff:" (segCmd.FileOff.ToString ())
   out.PrintTwoCols "FileSize:" (segCmd.FileSize.ToString ())
-  out.PrintTwoCols "MaxProt:" (String.u64ToHex (uint64 segCmd.MaxProt))
-  out.PrintTwoCols "InitProt:" (String.u64ToHex (uint64 segCmd.InitProt))
+  out.PrintTwoCols "MaxProt:" (HexString.ofUInt64 (uint64 segCmd.MaxProt))
+  out.PrintTwoCols "InitProt:" (HexString.ofUInt64 (uint64 segCmd.InitProt))
   out.PrintTwoCols "NumSecs:" (segCmd.NumSecs.ToString ())
-  out.PrintTwoCols "SegFlag:" (String.u64ToHex (uint64 segCmd.SegFlag))
+  out.PrintTwoCols "SegFlag:" (HexString.ofUInt64 (uint64 segCmd.SegFlag))
 
 let printSymTabCmd (symTabCmd: Mach.SymTabCmd) idx =
   out.PrintSubsectionTitle ("Load command " + idx.ToString ())
   out.PrintTwoCols "Cmd:" (symTabCmd.Cmd.ToString ())
   out.PrintTwoCols "CmdSize:" (symTabCmd.CmdSize.ToString ())
-  out.PrintTwoCols "SymOff:" (String.u64ToHex (uint64 symTabCmd.SymOff))
+  out.PrintTwoCols "SymOff:" (HexString.ofUInt64 (uint64 symTabCmd.SymOff))
   out.PrintTwoCols "NumOfSym:" (symTabCmd.NumOfSym.ToString ())
-  out.PrintTwoCols "StrOff:" (String.u64ToHex (uint64 symTabCmd.StrOff))
+  out.PrintTwoCols "StrOff:" (HexString.ofUInt64 (uint64 symTabCmd.StrOff))
   out.PrintTwoCols "StrSize:" (toNBytes (uint64 symTabCmd.StrSize))
 
 let printDySymTabCmd (dySymTabCmd: Mach.DySymTabCmd) idx =

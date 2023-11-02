@@ -43,43 +43,27 @@ module String =
     explode str |> List.fold folder acc
 
   /// Convert a string to a byte array.
+  [<CompiledName "ToBytes">]
   let toBytes (str: string) = str.ToCharArray () |> Array.map byte
 
   /// Convert a byte array to a string.
+  [<CompiledName "FromBytes">]
   let fromBytes (bs: byte []) = Array.map char bs |> System.String
 
+  /// Wrap a string with a pair of parentheses.
+  [<CompiledName "WrapParen">]
   let wrapParen s =
     "(" + s + ")"
 
+  /// Wrap a string with a pair of square brackets.
+  [<CompiledName "WrapSqrdBracket">]
   let wrapSqrdBracket s =
     "[" + s + "]"
 
+  /// Wrap a string with a pair of curly brackets.
+  [<CompiledName "WrapCurlyBracket">]
   let wrapAngleBracket s =
     "<" + s + ">"
-
-  let i32ToHex (v: int32) =
-    "0x" + v.ToString ("x")
-
-  let u32ToHex (v: uint32) =
-    "0x" + v.ToString ("x")
-
-  let u64ToHex (v: uint64) =
-    "0x" + v.ToString ("x")
-
-  let i64ToHex (v: int64) =
-    "0x" + v.ToString ("x")
-
-  let inline i32ToHexNoPrefix (v: int32) =
-    v.ToString ("x")
-
-  let inline u32ToHexNoPrefix (v: uint32) =
-    v.ToString ("x")
-
-  let inline u64ToHexNoPrefix (v: uint64) =
-    v.ToString ("x")
-
-  let inline i64ToHexNoPrefix (v: int64) =
-    v.ToString ("x")
 
 /// Extended BigInteger.
 [<RequireQualifiedAccess>]
@@ -95,6 +79,37 @@ module BigInteger =
 
   /// Get a bitmask of size n.
   let getMask n = bigint.Pow (2I, n) - 1I
+
+[<RequireQualifiedAccess>]
+module Byte =
+  /// Check if a byte is null.
+  [<CompiledName "IsNull">]
+  let isNull b = b = 0uy
+
+  /// Check if a byte is printable.
+  [<CompiledName "IsPrintable">]
+  let isPrintable b = b >= 33uy && b <= 126uy
+
+  /// Check if a byte is a whitespace.
+  [<CompiledName "IsWhitespace">]
+  let isWhitespace b = b = 32uy || (b >= 9uy && b <= 13uy)
+
+  /// Check if a byte is a control character.
+  [<CompiledName "IsControl">]
+  let isControl b =
+    b = 127uy || (b >= 1uy && b <= 8uy) || (b >= 14uy && b <= 31uy)
+
+  /// Get a string representation of a byte used in B2R2. A null byte is
+  /// represented as a dot, a printable byte is represented as an ASCII
+  /// character, a whitespace is represented as an underscore, and a control
+  /// character is represented as an asterisk.
+  [<CompiledName "GetRepresentation">]
+  let getRepresentation (b: byte) =
+    if isNull b then "."
+    elif isPrintable b then (char b).ToString ()
+    elif isWhitespace b then "_"
+    elif isControl b then "*"
+    else "."
 
 /// Extended Int64.
 [<RequireQualifiedAccess>]

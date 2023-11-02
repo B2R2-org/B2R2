@@ -176,8 +176,8 @@ module private NoReturnFunctionIdentificationHelper =
 
   let confirmArg (hdl: BinHandle) fakeBlk uvState arg =
     match hdl.File.ISA.Arch with
-    | Arch.IntelX86 -> confirmArgX86 fakeBlk uvState arg
-    | Arch.IntelX64 -> confirmArgX64 hdl fakeBlk uvState arg
+    | Architecture.IntelX86 -> confirmArgX86 fakeBlk uvState arg
+    | Architecture.IntelX64 -> confirmArgX64 hdl fakeBlk uvState arg
     | _ -> None
 
   /// For every conditionally no-returning function callee, check if the `func`
@@ -326,8 +326,8 @@ type NoReturnFunctionIdentification () =
   member __.HasNonZeroArg hdl caller nth =
     let st = evalBlock hdl caller
     match hdl.File.ISA.Arch with
-    | Arch.IntelX86 -> hasNonZeroOnX86 st nth
-    | Arch.IntelX64 -> hasNonZeroOnX64 hdl st nth
+    | Architecture.IntelX86 -> hasNonZeroOnX86 st nth
+    | Architecture.IntelX64 -> hasNonZeroOnX64 hdl st nth
     | _ -> Utils.futureFeature ()
 
   /// Check whether the given bbl has a no-return syscall (e.g., exit).

@@ -165,7 +165,7 @@ let prepDelim delim (builder: DisasmBuilder) =
   | Some delimiter -> builder.Accumulate AsmWordKind.String delimiter
 
 let immToStr imm (builder: DisasmBuilder) =
-  builder.Accumulate AsmWordKind.Value (String.i32ToHex imm)
+  builder.Accumulate AsmWordKind.Value (HexString.ofInt32 imm)
 
 let addrToStr shift addr (builder: DisasmBuilder) =
   let relAddr = int(addr) + shift + 4
@@ -173,12 +173,12 @@ let addrToStr shift addr (builder: DisasmBuilder) =
     builder.Accumulate AsmWordKind.String ".+"
     builder.Accumulate AsmWordKind.Value (string shift)
     builder.Accumulate AsmWordKind.String "     ; "
-    builder.Accumulate AsmWordKind.Value (String.i32ToHex relAddr)
+    builder.Accumulate AsmWordKind.Value (HexString.ofInt32 relAddr)
   else
     builder.Accumulate AsmWordKind.String "."
     builder.Accumulate AsmWordKind.Value (string shift)
     builder.Accumulate AsmWordKind.String "     ; "
-    builder.Accumulate AsmWordKind.Value (String.i32ToHex relAddr)
+    builder.Accumulate AsmWordKind.Value (HexString.ofInt32 relAddr)
 
 let memToStr addrMode (builder: DisasmBuilder) =
   match addrMode with

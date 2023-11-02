@@ -662,7 +662,7 @@ module internal RelocationInfo =
   let private readInfoWithArch { Reader = reader; Header = hdr } span =
     let info = readNative span reader hdr.Class 4 8
     match hdr.MachineType with
-    | Arch.MIPS64 ->
+    | Architecture.MIPS64 ->
       (* MIPS64el has a a 32-bit LE symbol index followed by four individual
          byte fields. *)
       if hdr.Endian = Endian.Little then

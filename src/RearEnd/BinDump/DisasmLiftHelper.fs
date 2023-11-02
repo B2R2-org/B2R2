@@ -69,8 +69,8 @@ let makeLinkageTblSymbolDic (hdl: BinHandle) =
 let makeArchModeDic (hdl: BinHandle) =
   let modes = Dictionary ()
   match hdl.File.Format, hdl.File.ISA.Arch with
-  | FileFormat.ELFBinary, Arch.ARMv7
-  | FileFormat.ELFBinary, Arch.AARCH32 ->
+  | FileFormat.ELFBinary, Architecture.ARMv7
+  | FileFormat.ELFBinary, Architecture.AARCH32 ->
     hdl.File.GetSymbols ()
     |> Seq.iter (fun s ->
       if s.ArchOperationMode <> ArchOperationMode.NoMode then
@@ -81,20 +81,20 @@ let makeArchModeDic (hdl: BinHandle) =
 
 let getInstructionAlignment (isa: ISA) mode =
   match isa.Arch with
-  | Arch.IntelX86 | Arch.IntelX64 -> 1
-  | Arch.ARMv7 | Arch.AARCH32 ->
+  | Architecture.IntelX86 | Architecture.IntelX64 -> 1
+  | Architecture.ARMv7 | Architecture.AARCH32 ->
     match mode with
     | ArchOperationMode.ThumbMode -> 2
     | _ -> 4
-  | Arch.AARCH64 -> 4
-  | Arch.MIPS32 | Arch.MIPS64 -> 4
-  | Arch.EVM -> 1
-  | Arch.AVR -> 2
-  | Arch.SH4 -> 2
-  | Arch.PPC32 -> 4
-  | Arch.RISCV64 -> 2
-  | Arch.WASM -> 1
-  | Arch.SPARC -> 2
+  | Architecture.AARCH64 -> 4
+  | Architecture.MIPS32 | Architecture.MIPS64 -> 4
+  | Architecture.EVM -> 1
+  | Architecture.AVR -> 2
+  | Architecture.SH4 -> 2
+  | Architecture.PPC32 -> 4
+  | Architecture.RISCV64 -> 2
+  | Architecture.WASM -> 1
+  | Architecture.SPARC -> 2
   | _ -> Utils.futureFeature ()
 
 let convertToHexStr bytes =

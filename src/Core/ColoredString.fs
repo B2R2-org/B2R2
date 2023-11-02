@@ -26,78 +26,37 @@ namespace B2R2
 
 open System
 
-type ColoredSegment = Color * string
-
-[<RequireQualifiedAccess>]
-module ColoredSegment =
-  let private isNull b = b = 0uy
-
-  let private isPrintable b = b >= 33uy && b <= 126uy
-
-  let private isWhitespace b = b = 32uy || (b >= 9uy && b <= 13uy)
-
-  let private isControl b =
-    b = 127uy || (b >= 1uy && b <= 8uy) || (b >= 14uy && b <= 31uy)
-
-  let private getColor b =
-    if isNull b then NoColor
-    elif isPrintable b then Green
-    elif isWhitespace b then Blue
-    elif isControl b then Red
-    else Yellow
-
-  let getRepresentation b =
-    if isNull b then "."
-    elif isPrintable b then (char b).ToString ()
-    elif isWhitespace b then "_"
-    elif isControl b then "*"
-    else "."
-
-  let byteToHex b =
-    getColor b, b.ToString ("X2")
-
-  let byteToHexWithTail b tail =
-    getColor b, (b.ToString ("X2") + tail)
-
-  let byteToAscii b =
-    getColor b, getRepresentation b
-
-  let colorBytes (bs: byte []) =
-    let lastIdx = bs.Length - 1
-    bs
-    |> Array.mapi (fun i b ->
-      if i = lastIdx then byteToHex b
-      else byteToHexWithTail b " ")
-    |> Array.toList
-
-  let inline nocolor str: ColoredSegment = NoColor, str
-  let inline red str: ColoredSegment = Red, str
-  let inline green str: ColoredSegment = Green, str
-  let inline yellow str: ColoredSegment = Yellow, str
-  let inline blue str: ColoredSegment = Blue, str
-  let inline dcyan str: ColoredSegment = DarkCyan, str
-  let inline dyellow str: ColoredSegment = DarkYellow, str
-  let inline redhighlight str: ColoredSegment = RedHighlight, str
-  let inline greenhighlight str: ColoredSegment = GreenHighlight, str
-
+/// String that can be printed out in the console with colors. A colored string
+/// is a list of colored segments, each of which represents a string with a
+/// specific color.
 type ColoredString = ColoredSegment list
 
 [<RequireQualifiedAccess>]
 module ColoredString =
   /// Set the color.
   let private setColor = function
-    | NoColor -> Console.ResetColor ()
-    | Red -> Console.ForegroundColor <- ConsoleColor.Red
-    | Green -> Console.ForegroundColor <- ConsoleColor.Green
-    | Yellow -> Console.ForegroundColor <- ConsoleColor.Yellow
-    | Blue -> Console.ForegroundColor <- ConsoleColor.Blue
-    | DarkCyan -> Console.ForegroundColor <- ConsoleColor.DarkCyan
-    | DarkYellow -> Console.ForegroundColor <- ConsoleColor.DarkYellow
-    | RedHighlight -> Console.ForegroundColor <- ConsoleColor.Red
-                      Console.BackgroundColor <- ConsoleColor.Red
-    | GreenHighlight -> Console.ForegroundColor <- ConsoleColor.Green
-                        Console.BackgroundColor <- ConsoleColor.Green
+    | NoColor ->
+      Console.ResetColor ()
+    | Red ->
+      Console.ForegroundColor <- ConsoleColor.Red
+    | Green ->
+      Console.ForegroundColor <- ConsoleColor.Green
+    | Yellow ->
+      Console.ForegroundColor <- ConsoleColor.Yellow
+    | Blue ->
+      Console.ForegroundColor <- ConsoleColor.Blue
+    | DarkCyan ->
+      Console.ForegroundColor <- ConsoleColor.DarkCyan
+    | DarkYellow ->
+      Console.ForegroundColor <- ConsoleColor.DarkYellow
+    | RedHighlight ->
+      Console.ForegroundColor <- ConsoleColor.Red
+      Console.BackgroundColor <- ConsoleColor.Red
+    | GreenHighlight ->
+      Console.ForegroundColor <- ConsoleColor.Green
+      Console.BackgroundColor <- ConsoleColor.Green
 
+  /// Compile the given colored string into a concise form.
   let compile (s: ColoredString): ColoredString =
     let rec loop prev acc = function
       | [] -> prev :: acc |> List.rev |> List.choose id
@@ -120,5 +79,18 @@ module ColoredString =
     toConsole s
     Console.WriteLine ()
 
+  /// Colored string to a normal string.
+  [<CompiledName "ToString">]
   let toString (s: ColoredString) =
     s |> List.map snd |> String.concat ""
+
+  /// Construct a colored string from a byte array.
+  [<CompiledName "OfBytes">]
+  let ofBytes (bs: byte[]) =
+    let lastIdx = bs.Length - 1
+    bs
+    |> Array.mapi (fun i b ->
+      if i = lastIdx then ColoredSegment.hexOfByte b
+      else ColoredSegment.hexOfByte b |> ColoredSegment.appendString " ")
+    |> Array.toList
+

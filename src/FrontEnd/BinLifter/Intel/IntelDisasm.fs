@@ -1407,10 +1407,10 @@ let opCodeToString = function
   | _ -> raise InvalidOpcodeException
 
 let inline private iToHexStr (i: int64) (builder: DisasmBuilder) =
-  builder.Accumulate AsmWordKind.Value (String.i64ToHex i)
+  builder.Accumulate AsmWordKind.Value (HexString.ofInt64 i)
 
 let inline private uToHexStr (i: uint64) (builder: DisasmBuilder) =
-  builder.Accumulate AsmWordKind.Value (String.u64ToHex i)
+  builder.Accumulate AsmWordKind.Value (HexString.ofUInt64 i)
 
 let inline private getMask sz =
   match sz with

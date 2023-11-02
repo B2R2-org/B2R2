@@ -1459,7 +1459,7 @@ let private oneOperandImul ctxt oprSize src ir =
   let shiftNum = RegType.toBitWidth oprSize
   match oprSize with
   | 8<rt> ->
-    let mulSize = RegType.double oprSize
+    let mulSize = oprSize * 2
     let t = !+ir mulSize
     let cond = AST.sext mulSize (AST.xtlo oprSize t) == t
     !!ir (t := AST.sext mulSize (!.ctxt R.AL) .* AST.sext mulSize src)
@@ -1468,7 +1468,7 @@ let private oneOperandImul ctxt oprSize src ir =
     !!ir (!.ctxt R.CF := cond == AST.b0)
     !!ir (!.ctxt R.OF := cond == AST.b0)
   | 16<rt> | 32<rt> ->
-    let mulSize = RegType.double oprSize
+    let mulSize = oprSize * 2
     let t = !+ir mulSize
     let cond = AST.sext mulSize (AST.xtlo oprSize t) == t
     let r1 = getRegOfSize ctxt oprSize grpEDX
@@ -1497,7 +1497,7 @@ let private oneOperandImul ctxt oprSize src ir =
 let private operandsImul ctxt oprSize dst src1 src2 ir =
   match oprSize with
   | 8<rt> | 16<rt> | 32<rt> ->
-    let doubleWidth = RegType.double oprSize
+    let doubleWidth = oprSize * 2
     let t = !+ir doubleWidth
     let cond = (AST.sext doubleWidth dst) != t
     !!ir (t := AST.sext doubleWidth src1 .* AST.sext doubleWidth src2)
@@ -1972,7 +1972,7 @@ let mul ins insLen ctxt =
   !<ir insLen
   match oprSize with
   | 8<rt> ->
-    let dblWidth = RegType.double oprSize
+    let dblWidth = oprSize * 2
     let src1 = AST.zext dblWidth (getRegOfSize ctxt oprSize grpEAX)
     let src2 = AST.zext dblWidth (transOneOpr ir ins insLen ctxt)
     let t = !+ir dblWidth
@@ -1991,7 +1991,7 @@ let mul ins insLen ctxt =
     ctxt.ConditionCodeOp <- ConditionCodeOp.EFlags
 #endif
   | 16<rt> | 32<rt> ->
-    let dblWidth = RegType.double oprSize
+    let dblWidth = oprSize * 2
     let edx = getRegOfSize ctxt oprSize grpEDX
     let eax = getRegOfSize ctxt oprSize grpEAX
     let src1 = AST.zext dblWidth eax
@@ -2058,7 +2058,7 @@ let mulx ins insLen ctxt =
   match oprSize with
   | 32<rt> ->
     let struct (dst1, dst2, src) = transThreeOprs ir false ins insLen ctxt
-    let dblWidth = RegType.double oprSize
+    let dblWidth = oprSize * 2
     let src1 = AST.zext dblWidth (getRegOfSize ctxt oprSize grpEDX)
     let src2 = AST.zext dblWidth src
     let t = !+ir dblWidth

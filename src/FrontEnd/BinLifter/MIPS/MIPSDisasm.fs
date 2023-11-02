@@ -247,7 +247,7 @@ let inline buildOpcode ins (builder: DisasmBuilder) =
 
 let inline relToString pc offset (builder: DisasmBuilder) =
   let targetAddr = pc + uint64 offset
-  builder.Accumulate AsmWordKind.Value (String.u64ToHex targetAddr)
+  builder.Accumulate AsmWordKind.Value (HexString.ofUInt64 targetAddr)
 
 let inline regToString ins =
   match ins.OperationSize with
@@ -262,7 +262,7 @@ let oprToString insInfo opr delim (builder: DisasmBuilder) =
   | OpImm imm
   | OpShiftAmount imm ->
     builder.Accumulate AsmWordKind.String delim
-    builder.Accumulate AsmWordKind.Value (String.u64ToHex imm)
+    builder.Accumulate AsmWordKind.Value (HexString.ofUInt64 imm)
   | OpMem (b, Imm off, _) ->
     builder.Accumulate AsmWordKind.String delim
     builder.Accumulate AsmWordKind.Value (off.ToString ("D"))

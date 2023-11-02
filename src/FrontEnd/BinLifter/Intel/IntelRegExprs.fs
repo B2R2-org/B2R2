@@ -29,7 +29,7 @@ open B2R2.BinIR.LowUIR
 open B2R2.BinIR.LowUIR.AST.InfixOp
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinLifter.LiftingUtils
-open B2R2.WordSize
+open type Register
 open type WordSize
 
 /// This is a fatal error that happens when B2R2 tries to access non-existing
@@ -77,95 +77,95 @@ type internal RegExprs (wordSize) =
 #endif
 
   (* Registers *)
-  let rax  = reg64 wordSize (Register.toRegID Register.RAX) "RAX"
-  let rbx  = reg64 wordSize (Register.toRegID Register.RBX) "RBX"
-  let rcx  = reg64 wordSize (Register.toRegID Register.RCX) "RCX"
-  let rdx  = reg64 wordSize (Register.toRegID Register.RDX) "RDX"
-  let rsi  = reg64 wordSize (Register.toRegID Register.RSI) "RSI"
-  let rdi  = reg64 wordSize (Register.toRegID Register.RDI) "RDI"
-  let rsp  = reg64 wordSize (Register.toRegID Register.RSP) "RSP"
-  let rbp  = reg64 wordSize (Register.toRegID Register.RBP) "RBP"
-  let r8   = reg64 wordSize (Register.toRegID Register.R8) "R8"
-  let r9   = reg64 wordSize (Register.toRegID Register.R9) "R9"
-  let r10  = reg64 wordSize (Register.toRegID Register.R10) "R10"
-  let r11  = reg64 wordSize (Register.toRegID Register.R11) "R11"
-  let r12  = reg64 wordSize (Register.toRegID Register.R12) "R12"
-  let r13  = reg64 wordSize (Register.toRegID Register.R13) "R13"
-  let r14  = reg64 wordSize (Register.toRegID Register.R14) "R14"
-  let r15  = reg64 wordSize (Register.toRegID Register.R15) "R15"
-  let eax  = reg32 wordSize (Register.toRegID Register.EAX) "EAX" rax
-  let ebx  = reg32 wordSize (Register.toRegID Register.EBX) "EBX" rbx
-  let ecx  = reg32 wordSize (Register.toRegID Register.ECX) "ECX" rcx
-  let edx  = reg32 wordSize (Register.toRegID Register.EDX) "EDX" rdx
-  let esi  = reg32 wordSize (Register.toRegID Register.ESI) "ESI" rsi
-  let edi  = reg32 wordSize (Register.toRegID Register.EDI) "EDI" rdi
-  let esp  = reg32 wordSize (Register.toRegID Register.ESP) "ESP" rsp
-  let ebp  = reg32 wordSize (Register.toRegID Register.EBP) "EBP" rbp
+  let rax  = reg64 wordSize (Register.toRegID RAX) "RAX"
+  let rbx  = reg64 wordSize (Register.toRegID RBX) "RBX"
+  let rcx  = reg64 wordSize (Register.toRegID RCX) "RCX"
+  let rdx  = reg64 wordSize (Register.toRegID RDX) "RDX"
+  let rsi  = reg64 wordSize (Register.toRegID RSI) "RSI"
+  let rdi  = reg64 wordSize (Register.toRegID RDI) "RDI"
+  let rsp  = reg64 wordSize (Register.toRegID RSP) "RSP"
+  let rbp  = reg64 wordSize (Register.toRegID RBP) "RBP"
+  let r8   = reg64 wordSize (Register.toRegID R8) "R8"
+  let r9   = reg64 wordSize (Register.toRegID R9) "R9"
+  let r10  = reg64 wordSize (Register.toRegID R10) "R10"
+  let r11  = reg64 wordSize (Register.toRegID R11) "R11"
+  let r12  = reg64 wordSize (Register.toRegID R12) "R12"
+  let r13  = reg64 wordSize (Register.toRegID R13) "R13"
+  let r14  = reg64 wordSize (Register.toRegID R14) "R14"
+  let r15  = reg64 wordSize (Register.toRegID R15) "R15"
+  let eax  = reg32 wordSize (Register.toRegID EAX) "EAX" rax
+  let ebx  = reg32 wordSize (Register.toRegID EBX) "EBX" rbx
+  let ecx  = reg32 wordSize (Register.toRegID ECX) "ECX" rcx
+  let edx  = reg32 wordSize (Register.toRegID EDX) "EDX" rdx
+  let esi  = reg32 wordSize (Register.toRegID ESI) "ESI" rsi
+  let edi  = reg32 wordSize (Register.toRegID EDI) "EDI" rdi
+  let esp  = reg32 wordSize (Register.toRegID ESP) "ESP" rsp
+  let ebp  = reg32 wordSize (Register.toRegID EBP) "EBP" rbp
   let ax   = reg16 wordSize eax rax
   let bx   = reg16 wordSize ebx rbx
   let cx   = reg16 wordSize ecx rcx
   let dx   = reg16 wordSize edx rdx
-  let fcw = var 16<rt> (Register.toRegID Register.FCW) "FCW"
-  let fsw = var 16<rt> (Register.toRegID Register.FSW) "FSW"
-  let ftw = var 16<rt> (Register.toRegID Register.FTW) "FTW"
-  let fop = var 16<rt> (Register.toRegID Register.FOP) "FOP"
-  let fip = var 64<rt> (Register.toRegID Register.FIP) "FIP"
-  let fcs = var 16<rt> (Register.toRegID Register.FCS) "FCS"
-  let fdp = var 64<rt> (Register.toRegID Register.FDP) "FDP"
-  let fds = var 16<rt> (Register.toRegID Register.FDS) "FDS"
-  let st0a = var 64<rt> (Register.toRegID Register.ST0A) "ST0A"
-  let st0b = var 16<rt> (Register.toRegID Register.ST0B) "ST0B"
-  let st1a = var 64<rt> (Register.toRegID Register.ST1A) "ST1A"
-  let st1b = var 16<rt> (Register.toRegID Register.ST1B) "ST1B"
-  let st2a = var 64<rt> (Register.toRegID Register.ST2A) "ST2A"
-  let st2b = var 16<rt> (Register.toRegID Register.ST2B) "ST2B"
-  let st3a = var 64<rt> (Register.toRegID Register.ST3A) "ST3A"
-  let st3b = var 16<rt> (Register.toRegID Register.ST3B) "ST3B"
-  let st4a = var 64<rt> (Register.toRegID Register.ST4A) "ST4A"
-  let st4b = var 16<rt> (Register.toRegID Register.ST4B) "ST4B"
-  let st5a = var 64<rt> (Register.toRegID Register.ST5A) "ST5A"
-  let st5b = var 16<rt> (Register.toRegID Register.ST5B) "ST5B"
-  let st6a = var 64<rt> (Register.toRegID Register.ST6A) "ST6A"
-  let st6b = var 16<rt> (Register.toRegID Register.ST6B) "ST6B"
-  let st7a = var 64<rt> (Register.toRegID Register.ST7A) "ST7A"
-  let st7b = var 16<rt> (Register.toRegID Register.ST7B) "ST7B"
-  let mxcsr = var 32<rt> (Register.toRegID Register.MXCSR) "MXCSR"
-  let mxcsrmask = var 32<rt> (Register.toRegID Register.MXCSRMASK) "MXCSR_MASK"
-  let pkru = var 32<rt> (Register.toRegID Register.PKRU) "PKRU"
-  let k0 = var 64<rt> (Register.toRegID Register.K0) "K0"
-  let k1 = var 64<rt> (Register.toRegID Register.K1) "K1"
-  let k2 = var 64<rt> (Register.toRegID Register.K2) "K2"
-  let k3 = var 64<rt> (Register.toRegID Register.K3) "K3"
-  let k4 = var 64<rt> (Register.toRegID Register.K4) "K4"
-  let k5 = var 64<rt> (Register.toRegID Register.K5) "K5"
-  let k6 = var 64<rt> (Register.toRegID Register.K6) "K6"
-  let k7 = var 64<rt> (Register.toRegID Register.K7) "K7"
-  let dr0 = var 32<rt> (Register.toRegID Register.DR0) "DR0"
-  let dr1 = var 32<rt> (Register.toRegID Register.DR1) "DR1"
-  let dr2 = var 32<rt> (Register.toRegID Register.DR2) "DR2"
-  let dr3 = var 32<rt> (Register.toRegID Register.DR3) "DR3"
-  let dr6 = var 32<rt> (Register.toRegID Register.DR6) "DR6"
-  let dr7 = var 32<rt> (Register.toRegID Register.DR7) "DR7"
+  let fcw = var 16<rt> (Register.toRegID FCW) "FCW"
+  let fsw = var 16<rt> (Register.toRegID FSW) "FSW"
+  let ftw = var 16<rt> (Register.toRegID FTW) "FTW"
+  let fop = var 16<rt> (Register.toRegID FOP) "FOP"
+  let fip = var 64<rt> (Register.toRegID FIP) "FIP"
+  let fcs = var 16<rt> (Register.toRegID FCS) "FCS"
+  let fdp = var 64<rt> (Register.toRegID FDP) "FDP"
+  let fds = var 16<rt> (Register.toRegID FDS) "FDS"
+  let st0a = var 64<rt> (Register.toRegID ST0A) "ST0A"
+  let st0b = var 16<rt> (Register.toRegID ST0B) "ST0B"
+  let st1a = var 64<rt> (Register.toRegID ST1A) "ST1A"
+  let st1b = var 16<rt> (Register.toRegID ST1B) "ST1B"
+  let st2a = var 64<rt> (Register.toRegID ST2A) "ST2A"
+  let st2b = var 16<rt> (Register.toRegID ST2B) "ST2B"
+  let st3a = var 64<rt> (Register.toRegID ST3A) "ST3A"
+  let st3b = var 16<rt> (Register.toRegID ST3B) "ST3B"
+  let st4a = var 64<rt> (Register.toRegID ST4A) "ST4A"
+  let st4b = var 16<rt> (Register.toRegID ST4B) "ST4B"
+  let st5a = var 64<rt> (Register.toRegID ST5A) "ST5A"
+  let st5b = var 16<rt> (Register.toRegID ST5B) "ST5B"
+  let st6a = var 64<rt> (Register.toRegID ST6A) "ST6A"
+  let st6b = var 16<rt> (Register.toRegID ST6B) "ST6B"
+  let st7a = var 64<rt> (Register.toRegID ST7A) "ST7A"
+  let st7b = var 16<rt> (Register.toRegID ST7B) "ST7B"
+  let mxcsr = var 32<rt> (Register.toRegID MXCSR) "MXCSR"
+  let mxcsrmask = var 32<rt> (Register.toRegID MXCSRMASK) "MXCSR_MASK"
+  let pkru = var 32<rt> (Register.toRegID PKRU) "PKRU"
+  let k0 = var 64<rt> (Register.toRegID K0) "K0"
+  let k1 = var 64<rt> (Register.toRegID K1) "K1"
+  let k2 = var 64<rt> (Register.toRegID K2) "K2"
+  let k3 = var 64<rt> (Register.toRegID K3) "K3"
+  let k4 = var 64<rt> (Register.toRegID K4) "K4"
+  let k5 = var 64<rt> (Register.toRegID K5) "K5"
+  let k6 = var 64<rt> (Register.toRegID K6) "K6"
+  let k7 = var 64<rt> (Register.toRegID K7) "K7"
+  let dr0 = var 32<rt> (Register.toRegID DR0) "DR0"
+  let dr1 = var 32<rt> (Register.toRegID DR1) "DR1"
+  let dr2 = var 32<rt> (Register.toRegID DR2) "DR2"
+  let dr3 = var 32<rt> (Register.toRegID DR3) "DR3"
+  let dr6 = var 32<rt> (Register.toRegID DR6) "DR6"
+  let dr7 = var 32<rt> (Register.toRegID DR7) "DR7"
 
 #if EMULATION
   let ccOp =
-    var 8<rt> (Register.toRegID Register.CCOP) "CCOP"
+    var 8<rt> (Register.toRegID CCOP) "CCOP"
   let ccDst =
-    var (toRegType wordSize) (Register.toRegID Register.CCDST) "CCDST"
+    var (WordSize.toRegType wordSize) (Register.toRegID CCDST) "CCDST"
   let ccDstD =
     if wordSize = Bit32 then ccDst
     else AST.xtlo 32<rt> ccDst
   let ccDstW = AST.xtlo 16<rt> ccDst
   let ccDstB = AST.xtlo 8<rt> ccDst
   let ccSrc1 =
-    var (toRegType wordSize) (Register.toRegID Register.CCSRC1) "CCSRC1"
+    var (WordSize.toRegType wordSize) (Register.toRegID CCSRC1) "CCSRC1"
   let ccSrc1D =
     if wordSize = Bit32 then ccSrc1
     else AST.xtlo 32<rt> ccSrc1
   let ccSrc1W = AST.xtlo 16<rt> ccSrc1
   let ccSrc1B = AST.xtlo 8<rt> ccSrc1
   let ccSrc2 =
-    var (toRegType wordSize) (Register.toRegID Register.CCSRC2) "CCSRC2"
+    var (WordSize.toRegType wordSize) (Register.toRegID CCSRC2) "CCSRC2"
   let ccSrc2D =
     if wordSize = Bit32 then ccSrc2
     else AST.xtlo 32<rt> ccSrc2
@@ -249,46 +249,46 @@ type internal RegExprs (wordSize) =
   member val EIP = AST.pcvar 32<rt> "EIP"
   member val RIP = AST.pcvar 64<rt> "RIP"
   (* Segment selector *)
-  member val CS = var 16<rt> (Register.toRegID Register.CS) "CS"
-  member val DS = var 16<rt> (Register.toRegID Register.DS) "DS"
-  member val ES = var 16<rt> (Register.toRegID Register.ES) "ES"
-  member val FS = var 16<rt> (Register.toRegID Register.FS) "FS"
-  member val GS = var 16<rt> (Register.toRegID Register.GS) "GS"
-  member val SS = var 16<rt> (Register.toRegID Register.SS) "SS"
+  member val CS = var 16<rt> (Register.toRegID CS) "CS"
+  member val DS = var 16<rt> (Register.toRegID DS) "DS"
+  member val ES = var 16<rt> (Register.toRegID ES) "ES"
+  member val FS = var 16<rt> (Register.toRegID FS) "FS"
+  member val GS = var 16<rt> (Register.toRegID GS) "GS"
+  member val SS = var 16<rt> (Register.toRegID SS) "SS"
   (* Segment base regs *)
   member val CSBase =
-    var (toRegType wordSize) (Register.toRegID Register.CSBase) "CSBase"
+    var (WordSize.toRegType wordSize) (Register.toRegID CSBase) "CSBase"
   member val DSBase =
-    var (toRegType wordSize) (Register.toRegID Register.DSBase) "DSBase"
+    var (WordSize.toRegType wordSize) (Register.toRegID DSBase) "DSBase"
   member val ESBase =
-    var (toRegType wordSize) (Register.toRegID Register.ESBase) "ESBase"
+    var (WordSize.toRegType wordSize) (Register.toRegID ESBase) "ESBase"
   member val FSBase =
-    var (toRegType wordSize) (Register.toRegID Register.FSBase) "FSBase"
+    var (WordSize.toRegType wordSize) (Register.toRegID FSBase) "FSBase"
   member val GSBase =
-    var (toRegType wordSize) (Register.toRegID Register.GSBase) "GSBase"
+    var (WordSize.toRegType wordSize) (Register.toRegID GSBase) "GSBase"
   member val SSBase =
-    var (toRegType wordSize) (Register.toRegID Register.SSBase) "SSBase"
+    var (WordSize.toRegType wordSize) (Register.toRegID SSBase) "SSBase"
   (* Control regs *)
   member val CR0 =
-    var (toRegType wordSize) (Register.toRegID Register.CR0) "CR0"
+    var (WordSize.toRegType wordSize) (Register.toRegID CR0) "CR0"
   member val CR2 =
-    var (toRegType wordSize) (Register.toRegID Register.CR2) "CR2"
+    var (WordSize.toRegType wordSize) (Register.toRegID CR2) "CR2"
   member val CR3 =
-    var (toRegType wordSize) (Register.toRegID Register.CR3) "CR3"
+    var (WordSize.toRegType wordSize) (Register.toRegID CR3) "CR3"
   member val CR4 =
-    var (toRegType wordSize) (Register.toRegID Register.CR4) "CR4"
+    var (WordSize.toRegType wordSize) (Register.toRegID CR4) "CR4"
   member val CR8 =
-    var (toRegType wordSize) (Register.toRegID Register.CR8) "CR8"
+    var (WordSize.toRegType wordSize) (Register.toRegID CR8) "CR8"
   (* EFLAGS *)
-  member val OF = var 1<rt> (Register.toRegID Register.OF) "OF" with get
-  member val DF = var 1<rt> (Register.toRegID Register.DF) "DF" with get
-  member val IF = var 1<rt> (Register.toRegID Register.IF) "IF" with get
-  member val TF = var 1<rt> (Register.toRegID Register.TF) "TF" with get
-  member val SF = var 1<rt> (Register.toRegID Register.SF) "SF" with get
-  member val ZF = var 1<rt> (Register.toRegID Register.ZF) "ZF" with get
-  member val AF = var 1<rt> (Register.toRegID Register.AF) "AF" with get
-  member val PF = var 1<rt> (Register.toRegID Register.PF) "PF" with get
-  member val CF = var 1<rt> (Register.toRegID Register.CF) "CF" with get
+  member val OF = var 1<rt> (Register.toRegID OF) "OF" with get
+  member val DF = var 1<rt> (Register.toRegID DF) "DF" with get
+  member val IF = var 1<rt> (Register.toRegID IF) "IF" with get
+  member val TF = var 1<rt> (Register.toRegID TF) "TF" with get
+  member val SF = var 1<rt> (Register.toRegID SF) "SF" with get
+  member val ZF = var 1<rt> (Register.toRegID ZF) "ZF" with get
+  member val AF = var 1<rt> (Register.toRegID AF) "AF" with get
+  member val PF = var 1<rt> (Register.toRegID PF) "PF" with get
+  member val CF = var 1<rt> (Register.toRegID CF) "CF" with get
   (* MMX Registers *)
   member val MM0 = st0a
   member val MM1 = st1a
@@ -300,279 +300,271 @@ type internal RegExprs (wordSize) =
   member val MM7 = st7a
   (* SSE Registers *)
   member val ZMM0A =
-    var 64<rt> (Register.toRegID Register.ZMM0A) "ZMM0A" with get
+    var 64<rt> (Register.toRegID ZMM0A) "ZMM0A" with get
   member val ZMM0B =
-    var 64<rt> (Register.toRegID Register.ZMM0B) "ZMM0B" with get
+    var 64<rt> (Register.toRegID ZMM0B) "ZMM0B" with get
   member val ZMM0C =
-    var 64<rt> (Register.toRegID Register.ZMM0C) "ZMM0C" with get
+    var 64<rt> (Register.toRegID ZMM0C) "ZMM0C" with get
   member val ZMM0D =
-    var 64<rt> (Register.toRegID Register.ZMM0D) "ZMM0D" with get
+    var 64<rt> (Register.toRegID ZMM0D) "ZMM0D" with get
   member val ZMM0E =
-    var 64<rt> (Register.toRegID Register.ZMM0E) "ZMM0E" with get
+    var 64<rt> (Register.toRegID ZMM0E) "ZMM0E" with get
   member val ZMM0F =
-    var 64<rt> (Register.toRegID Register.ZMM0F) "ZMM0F" with get
+    var 64<rt> (Register.toRegID ZMM0F) "ZMM0F" with get
   member val ZMM0G =
-    var 64<rt> (Register.toRegID Register.ZMM0G) "ZMM0G" with get
+    var 64<rt> (Register.toRegID ZMM0G) "ZMM0G" with get
   member val ZMM0H =
-    var 64<rt> (Register.toRegID Register.ZMM0H) "ZMM0H" with get
+    var 64<rt> (Register.toRegID ZMM0H) "ZMM0H" with get
   member val ZMM1A =
-    var 64<rt> (Register.toRegID Register.ZMM1A) "ZMM1A" with get
+    var 64<rt> (Register.toRegID ZMM1A) "ZMM1A" with get
   member val ZMM1B =
-    var 64<rt> (Register.toRegID Register.ZMM1B) "ZMM1B" with get
+    var 64<rt> (Register.toRegID ZMM1B) "ZMM1B" with get
   member val ZMM1C =
-    var 64<rt> (Register.toRegID Register.ZMM1C) "ZMM1C" with get
+    var 64<rt> (Register.toRegID ZMM1C) "ZMM1C" with get
   member val ZMM1D =
-    var 64<rt> (Register.toRegID Register.ZMM1D) "ZMM1D" with get
+    var 64<rt> (Register.toRegID ZMM1D) "ZMM1D" with get
   member val ZMM1E =
-    var 64<rt> (Register.toRegID Register.ZMM1E) "ZMM1E" with get
+    var 64<rt> (Register.toRegID ZMM1E) "ZMM1E" with get
   member val ZMM1F =
-    var 64<rt> (Register.toRegID Register.ZMM1F) "ZMM1F" with get
+    var 64<rt> (Register.toRegID ZMM1F) "ZMM1F" with get
   member val ZMM1G =
-    var 64<rt> (Register.toRegID Register.ZMM1G) "ZMM1G" with get
+    var 64<rt> (Register.toRegID ZMM1G) "ZMM1G" with get
   member val ZMM1H =
-    var 64<rt> (Register.toRegID Register.ZMM1H) "ZMM1H" with get
+    var 64<rt> (Register.toRegID ZMM1H) "ZMM1H" with get
   member val ZMM2A =
-    var 64<rt> (Register.toRegID Register.ZMM2A) "ZMM2A" with get
+    var 64<rt> (Register.toRegID ZMM2A) "ZMM2A" with get
   member val ZMM2B =
-    var 64<rt> (Register.toRegID Register.ZMM2B) "ZMM2B" with get
+    var 64<rt> (Register.toRegID ZMM2B) "ZMM2B" with get
   member val ZMM2C =
-    var 64<rt> (Register.toRegID Register.ZMM2C) "ZMM2C" with get
+    var 64<rt> (Register.toRegID ZMM2C) "ZMM2C" with get
   member val ZMM2D =
-    var 64<rt> (Register.toRegID Register.ZMM2D) "ZMM2D" with get
+    var 64<rt> (Register.toRegID ZMM2D) "ZMM2D" with get
   member val ZMM2E =
-    var 64<rt> (Register.toRegID Register.ZMM2E) "ZMM2E" with get
+    var 64<rt> (Register.toRegID ZMM2E) "ZMM2E" with get
   member val ZMM2F =
-    var 64<rt> (Register.toRegID Register.ZMM2F) "ZMM2F" with get
+    var 64<rt> (Register.toRegID ZMM2F) "ZMM2F" with get
   member val ZMM2G =
-    var 64<rt> (Register.toRegID Register.ZMM2G) "ZMM2G" with get
+    var 64<rt> (Register.toRegID ZMM2G) "ZMM2G" with get
   member val ZMM2H =
-    var 64<rt> (Register.toRegID Register.ZMM2H) "ZMM2H" with get
+    var 64<rt> (Register.toRegID ZMM2H) "ZMM2H" with get
   member val ZMM3A =
-    var 64<rt> (Register.toRegID Register.ZMM3A) "ZMM3A" with get
+    var 64<rt> (Register.toRegID ZMM3A) "ZMM3A" with get
   member val ZMM3B =
-    var 64<rt> (Register.toRegID Register.ZMM3B) "ZMM3B" with get
+    var 64<rt> (Register.toRegID ZMM3B) "ZMM3B" with get
   member val ZMM3C =
-    var 64<rt> (Register.toRegID Register.ZMM3C) "ZMM3C" with get
+    var 64<rt> (Register.toRegID ZMM3C) "ZMM3C" with get
   member val ZMM3D =
-    var 64<rt> (Register.toRegID Register.ZMM3D) "ZMM3D" with get
+    var 64<rt> (Register.toRegID ZMM3D) "ZMM3D" with get
   member val ZMM3E =
-    var 64<rt> (Register.toRegID Register.ZMM3E) "ZMM3E" with get
+    var 64<rt> (Register.toRegID ZMM3E) "ZMM3E" with get
   member val ZMM3F =
-    var 64<rt> (Register.toRegID Register.ZMM3F) "ZMM3F" with get
+    var 64<rt> (Register.toRegID ZMM3F) "ZMM3F" with get
   member val ZMM3G =
-    var 64<rt> (Register.toRegID Register.ZMM3G) "ZMM3G" with get
+    var 64<rt> (Register.toRegID ZMM3G) "ZMM3G" with get
   member val ZMM3H =
-    var 64<rt> (Register.toRegID Register.ZMM3H) "ZMM3H" with get
+    var 64<rt> (Register.toRegID ZMM3H) "ZMM3H" with get
   member val ZMM4A =
-    var 64<rt> (Register.toRegID Register.ZMM4A) "ZMM4A" with get
+    var 64<rt> (Register.toRegID ZMM4A) "ZMM4A" with get
   member val ZMM4B =
-    var 64<rt> (Register.toRegID Register.ZMM4B) "ZMM4B" with get
+    var 64<rt> (Register.toRegID ZMM4B) "ZMM4B" with get
   member val ZMM4C =
-    var 64<rt> (Register.toRegID Register.ZMM4C) "ZMM4C" with get
+    var 64<rt> (Register.toRegID ZMM4C) "ZMM4C" with get
   member val ZMM4D =
-    var 64<rt> (Register.toRegID Register.ZMM4D) "ZMM4D" with get
+    var 64<rt> (Register.toRegID ZMM4D) "ZMM4D" with get
   member val ZMM4E =
-    var 64<rt> (Register.toRegID Register.ZMM4E) "ZMM4E" with get
+    var 64<rt> (Register.toRegID ZMM4E) "ZMM4E" with get
   member val ZMM4F =
-    var 64<rt> (Register.toRegID Register.ZMM4F) "ZMM4F" with get
+    var 64<rt> (Register.toRegID ZMM4F) "ZMM4F" with get
   member val ZMM4G =
-    var 64<rt> (Register.toRegID Register.ZMM4G) "ZMM4G" with get
+    var 64<rt> (Register.toRegID ZMM4G) "ZMM4G" with get
   member val ZMM4H =
-    var 64<rt> (Register.toRegID Register.ZMM4H) "ZMM4H" with get
+    var 64<rt> (Register.toRegID ZMM4H) "ZMM4H" with get
   member val ZMM5A =
-    var 64<rt> (Register.toRegID Register.ZMM5A) "ZMM5A" with get
+    var 64<rt> (Register.toRegID ZMM5A) "ZMM5A" with get
   member val ZMM5B =
-    var 64<rt> (Register.toRegID Register.ZMM5B) "ZMM5B" with get
+    var 64<rt> (Register.toRegID ZMM5B) "ZMM5B" with get
   member val ZMM5C =
-    var 64<rt> (Register.toRegID Register.ZMM5C) "ZMM5C" with get
+    var 64<rt> (Register.toRegID ZMM5C) "ZMM5C" with get
   member val ZMM5D =
-    var 64<rt> (Register.toRegID Register.ZMM5D) "ZMM5D" with get
+    var 64<rt> (Register.toRegID ZMM5D) "ZMM5D" with get
   member val ZMM5E =
-    var 64<rt> (Register.toRegID Register.ZMM5E) "ZMM5E" with get
+    var 64<rt> (Register.toRegID ZMM5E) "ZMM5E" with get
   member val ZMM5F =
-    var 64<rt> (Register.toRegID Register.ZMM5F) "ZMM5F" with get
+    var 64<rt> (Register.toRegID ZMM5F) "ZMM5F" with get
   member val ZMM5G =
-    var 64<rt> (Register.toRegID Register.ZMM5G) "ZMM5G" with get
+    var 64<rt> (Register.toRegID ZMM5G) "ZMM5G" with get
   member val ZMM5H =
-    var 64<rt> (Register.toRegID Register.ZMM5H) "ZMM5H" with get
+    var 64<rt> (Register.toRegID ZMM5H) "ZMM5H" with get
   member val ZMM6A =
-    var 64<rt> (Register.toRegID Register.ZMM6A) "ZMM6A" with get
+    var 64<rt> (Register.toRegID ZMM6A) "ZMM6A" with get
   member val ZMM6B =
-    var 64<rt> (Register.toRegID Register.ZMM6B) "ZMM6B" with get
+    var 64<rt> (Register.toRegID ZMM6B) "ZMM6B" with get
   member val ZMM6C =
-    var 64<rt> (Register.toRegID Register.ZMM6C) "ZMM6C" with get
+    var 64<rt> (Register.toRegID ZMM6C) "ZMM6C" with get
   member val ZMM6D =
-    var 64<rt> (Register.toRegID Register.ZMM6D) "ZMM6D" with get
+    var 64<rt> (Register.toRegID ZMM6D) "ZMM6D" with get
   member val ZMM6E =
-    var 64<rt> (Register.toRegID Register.ZMM6E) "ZMM6E" with get
+    var 64<rt> (Register.toRegID ZMM6E) "ZMM6E" with get
   member val ZMM6F =
-    var 64<rt> (Register.toRegID Register.ZMM6F) "ZMM6F" with get
+    var 64<rt> (Register.toRegID ZMM6F) "ZMM6F" with get
   member val ZMM6G =
-    var 64<rt> (Register.toRegID Register.ZMM6G) "ZMM6G" with get
+    var 64<rt> (Register.toRegID ZMM6G) "ZMM6G" with get
   member val ZMM6H =
-    var 64<rt> (Register.toRegID Register.ZMM6H) "ZMM6H" with get
+    var 64<rt> (Register.toRegID ZMM6H) "ZMM6H" with get
   member val ZMM7A =
-    var 64<rt> (Register.toRegID Register.ZMM7A) "ZMM7A" with get
+    var 64<rt> (Register.toRegID ZMM7A) "ZMM7A" with get
   member val ZMM7B =
-    var 64<rt> (Register.toRegID Register.ZMM7B) "ZMM7B" with get
+    var 64<rt> (Register.toRegID ZMM7B) "ZMM7B" with get
   member val ZMM7C =
-    var 64<rt> (Register.toRegID Register.ZMM7C) "ZMM7C" with get
+    var 64<rt> (Register.toRegID ZMM7C) "ZMM7C" with get
   member val ZMM7D =
-    var 64<rt> (Register.toRegID Register.ZMM7D) "ZMM7D" with get
+    var 64<rt> (Register.toRegID ZMM7D) "ZMM7D" with get
   member val ZMM7E =
-    var 64<rt> (Register.toRegID Register.ZMM7E) "ZMM7E" with get
+    var 64<rt> (Register.toRegID ZMM7E) "ZMM7E" with get
   member val ZMM7F =
-    var 64<rt> (Register.toRegID Register.ZMM7F) "ZMM7F" with get
+    var 64<rt> (Register.toRegID ZMM7F) "ZMM7F" with get
   member val ZMM7G =
-    var 64<rt> (Register.toRegID Register.ZMM7G) "ZMM7G" with get
+    var 64<rt> (Register.toRegID ZMM7G) "ZMM7G" with get
   member val ZMM7H =
-    var 64<rt> (Register.toRegID Register.ZMM7H) "ZMM7H" with get
+    var 64<rt> (Register.toRegID ZMM7H) "ZMM7H" with get
   member val ZMM8A =
-    var 64<rt> (Register.toRegID Register.ZMM8A) "ZMM8A" with get
+    var 64<rt> (Register.toRegID ZMM8A) "ZMM8A" with get
   member val ZMM8B =
-    var 64<rt> (Register.toRegID Register.ZMM8B) "ZMM8B" with get
+    var 64<rt> (Register.toRegID ZMM8B) "ZMM8B" with get
   member val ZMM8C =
-    var 64<rt> (Register.toRegID Register.ZMM8C) "ZMM8C" with get
+    var 64<rt> (Register.toRegID ZMM8C) "ZMM8C" with get
   member val ZMM8D =
-    var 64<rt> (Register.toRegID Register.ZMM8D) "ZMM8D" with get
+    var 64<rt> (Register.toRegID ZMM8D) "ZMM8D" with get
   member val ZMM8E =
-    var 64<rt> (Register.toRegID Register.ZMM8E) "ZMM8E" with get
+    var 64<rt> (Register.toRegID ZMM8E) "ZMM8E" with get
   member val ZMM8F =
-    var 64<rt> (Register.toRegID Register.ZMM8F) "ZMM8F" with get
+    var 64<rt> (Register.toRegID ZMM8F) "ZMM8F" with get
   member val ZMM8G =
-    var 64<rt> (Register.toRegID Register.ZMM8G) "ZMM8G" with get
+    var 64<rt> (Register.toRegID ZMM8G) "ZMM8G" with get
   member val ZMM8H =
-    var 64<rt> (Register.toRegID Register.ZMM8H) "ZMM8H" with get
+    var 64<rt> (Register.toRegID ZMM8H) "ZMM8H" with get
   member val ZMM9A =
-    var 64<rt> (Register.toRegID Register.ZMM9A) "ZMM9A" with get
+    var 64<rt> (Register.toRegID ZMM9A) "ZMM9A" with get
   member val ZMM9B =
-    var 64<rt> (Register.toRegID Register.ZMM9B) "ZMM9B" with get
+    var 64<rt> (Register.toRegID ZMM9B) "ZMM9B" with get
   member val ZMM9C =
-    var 64<rt> (Register.toRegID Register.ZMM9C) "ZMM9C" with get
+    var 64<rt> (Register.toRegID ZMM9C) "ZMM9C" with get
   member val ZMM9D =
-    var 64<rt> (Register.toRegID Register.ZMM9D) "ZMM9D" with get
+    var 64<rt> (Register.toRegID ZMM9D) "ZMM9D" with get
   member val ZMM9E =
-    var 64<rt> (Register.toRegID Register.ZMM9E) "ZMM9E" with get
+    var 64<rt> (Register.toRegID ZMM9E) "ZMM9E" with get
   member val ZMM9F =
-    var 64<rt> (Register.toRegID Register.ZMM9F) "ZMM9F" with get
+    var 64<rt> (Register.toRegID ZMM9F) "ZMM9F" with get
   member val ZMM9G =
-    var 64<rt> (Register.toRegID Register.ZMM9G) "ZMM9G" with get
+    var 64<rt> (Register.toRegID ZMM9G) "ZMM9G" with get
   member val ZMM9H =
-    var 64<rt> (Register.toRegID Register.ZMM9H) "ZMM9H" with get
+    var 64<rt> (Register.toRegID ZMM9H) "ZMM9H" with get
   member val ZMM10A =
-    var 64<rt> (Register.toRegID Register.ZMM10A) "ZMM10A" with get
+    var 64<rt> (Register.toRegID ZMM10A) "ZMM10A" with get
   member val ZMM10B =
-    var 64<rt> (Register.toRegID Register.ZMM10B) "ZMM10B" with get
+    var 64<rt> (Register.toRegID ZMM10B) "ZMM10B" with get
   member val ZMM10C =
-    var 64<rt> (Register.toRegID Register.ZMM10C) "ZMM10C" with get
+    var 64<rt> (Register.toRegID ZMM10C) "ZMM10C" with get
   member val ZMM10D =
-    var 64<rt> (Register.toRegID Register.ZMM10D) "ZMM10D" with get
+    var 64<rt> (Register.toRegID ZMM10D) "ZMM10D" with get
   member val ZMM10E =
-    var 64<rt> (Register.toRegID Register.ZMM10E) "ZMM10E" with get
+    var 64<rt> (Register.toRegID ZMM10E) "ZMM10E" with get
   member val ZMM10F =
-    var 64<rt> (Register.toRegID Register.ZMM10F) "ZMM10F" with get
+    var 64<rt> (Register.toRegID ZMM10F) "ZMM10F" with get
   member val ZMM10G =
-    var 64<rt> (Register.toRegID Register.ZMM10G) "ZMM10G" with get
+    var 64<rt> (Register.toRegID ZMM10G) "ZMM10G" with get
   member val ZMM10H =
-    var 64<rt> (Register.toRegID Register.ZMM10H) "ZMM10H" with get
+    var 64<rt> (Register.toRegID ZMM10H) "ZMM10H" with get
   member val ZMM11A =
-    var 64<rt> (Register.toRegID Register.ZMM11A) "ZMM11A" with get
+    var 64<rt> (Register.toRegID ZMM11A) "ZMM11A" with get
   member val ZMM11B =
-    var 64<rt> (Register.toRegID Register.ZMM11B) "ZMM11B" with get
+    var 64<rt> (Register.toRegID ZMM11B) "ZMM11B" with get
   member val ZMM11C =
-    var 64<rt> (Register.toRegID Register.ZMM11C) "ZMM11C" with get
+    var 64<rt> (Register.toRegID ZMM11C) "ZMM11C" with get
   member val ZMM11D =
-    var 64<rt> (Register.toRegID Register.ZMM11D) "ZMM11D" with get
+    var 64<rt> (Register.toRegID ZMM11D) "ZMM11D" with get
   member val ZMM11E =
-    var 64<rt> (Register.toRegID Register.ZMM11E) "ZMM11E" with get
+    var 64<rt> (Register.toRegID ZMM11E) "ZMM11E" with get
   member val ZMM11F =
-    var 64<rt> (Register.toRegID Register.ZMM11F) "ZMM11F" with get
+    var 64<rt> (Register.toRegID ZMM11F) "ZMM11F" with get
   member val ZMM11G =
-    var 64<rt> (Register.toRegID Register.ZMM11G) "ZMM11G" with get
+    var 64<rt> (Register.toRegID ZMM11G) "ZMM11G" with get
   member val ZMM11H =
-    var 64<rt> (Register.toRegID Register.ZMM11H) "ZMM11H" with get
+    var 64<rt> (Register.toRegID ZMM11H) "ZMM11H" with get
   member val ZMM12A =
-    var 64<rt> (Register.toRegID Register.ZMM12A) "ZMM12A" with get
+    var 64<rt> (Register.toRegID ZMM12A) "ZMM12A" with get
   member val ZMM12B =
-    var 64<rt> (Register.toRegID Register.ZMM12B) "ZMM12B" with get
+    var 64<rt> (Register.toRegID ZMM12B) "ZMM12B" with get
   member val ZMM12C =
-    var 64<rt> (Register.toRegID Register.ZMM12C) "ZMM12C" with get
+    var 64<rt> (Register.toRegID ZMM12C) "ZMM12C" with get
   member val ZMM12D =
-    var 64<rt> (Register.toRegID Register.ZMM12D) "ZMM12D" with get
+    var 64<rt> (Register.toRegID ZMM12D) "ZMM12D" with get
   member val ZMM12E =
-    var 64<rt> (Register.toRegID Register.ZMM12E) "ZMM12E" with get
+    var 64<rt> (Register.toRegID ZMM12E) "ZMM12E" with get
   member val ZMM12F =
-    var 64<rt> (Register.toRegID Register.ZMM12F) "ZMM12F" with get
+    var 64<rt> (Register.toRegID ZMM12F) "ZMM12F" with get
   member val ZMM12G =
-    var 64<rt> (Register.toRegID Register.ZMM12G) "ZMM12G" with get
+    var 64<rt> (Register.toRegID ZMM12G) "ZMM12G" with get
   member val ZMM12H =
-    var 64<rt> (Register.toRegID Register.ZMM12H) "ZMM12H" with get
+    var 64<rt> (Register.toRegID ZMM12H) "ZMM12H" with get
   member val ZMM13A =
-    var 64<rt> (Register.toRegID Register.ZMM13A) "ZMM13A" with get
+    var 64<rt> (Register.toRegID ZMM13A) "ZMM13A" with get
   member val ZMM13B =
-    var 64<rt> (Register.toRegID Register.ZMM13B) "ZMM13B" with get
+    var 64<rt> (Register.toRegID ZMM13B) "ZMM13B" with get
   member val ZMM13C =
-    var 64<rt> (Register.toRegID Register.ZMM13C) "ZMM13C" with get
+    var 64<rt> (Register.toRegID ZMM13C) "ZMM13C" with get
   member val ZMM13D =
-    var 64<rt> (Register.toRegID Register.ZMM13D) "ZMM13D" with get
+    var 64<rt> (Register.toRegID ZMM13D) "ZMM13D" with get
   member val ZMM13E =
-    var 64<rt> (Register.toRegID Register.ZMM13E) "ZMM13E" with get
+    var 64<rt> (Register.toRegID ZMM13E) "ZMM13E" with get
   member val ZMM13F =
-    var 64<rt> (Register.toRegID Register.ZMM13F) "ZMM13F" with get
+    var 64<rt> (Register.toRegID ZMM13F) "ZMM13F" with get
   member val ZMM13G =
-    var 64<rt> (Register.toRegID Register.ZMM13G) "ZMM13G" with get
+    var 64<rt> (Register.toRegID ZMM13G) "ZMM13G" with get
   member val ZMM13H =
-    var 64<rt> (Register.toRegID Register.ZMM13H) "ZMM13H" with get
+    var 64<rt> (Register.toRegID ZMM13H) "ZMM13H" with get
   member val ZMM14A =
-    var 64<rt> (Register.toRegID Register.ZMM14A) "ZMM14A" with get
+    var 64<rt> (Register.toRegID ZMM14A) "ZMM14A" with get
   member val ZMM14B =
-    var 64<rt> (Register.toRegID Register.ZMM14B) "ZMM14B" with get
+    var 64<rt> (Register.toRegID ZMM14B) "ZMM14B" with get
   member val ZMM14C =
-    var 64<rt> (Register.toRegID Register.ZMM14C) "ZMM14C" with get
+    var 64<rt> (Register.toRegID ZMM14C) "ZMM14C" with get
   member val ZMM14D =
-    var 64<rt> (Register.toRegID Register.ZMM14D) "ZMM14D" with get
+    var 64<rt> (Register.toRegID ZMM14D) "ZMM14D" with get
   member val ZMM14E =
-    var 64<rt> (Register.toRegID Register.ZMM14E) "ZMM14E" with get
+    var 64<rt> (Register.toRegID ZMM14E) "ZMM14E" with get
   member val ZMM14F =
-    var 64<rt> (Register.toRegID Register.ZMM14F) "ZMM14F" with get
+    var 64<rt> (Register.toRegID ZMM14F) "ZMM14F" with get
   member val ZMM14G =
-    var 64<rt> (Register.toRegID Register.ZMM14G) "ZMM14G" with get
+    var 64<rt> (Register.toRegID ZMM14G) "ZMM14G" with get
   member val ZMM14H =
-    var 64<rt> (Register.toRegID Register.ZMM14H) "ZMM14H" with get
+    var 64<rt> (Register.toRegID ZMM14H) "ZMM14H" with get
   member val ZMM15A =
-    var 64<rt> (Register.toRegID Register.ZMM15A) "ZMM15A" with get
+    var 64<rt> (Register.toRegID ZMM15A) "ZMM15A" with get
   member val ZMM15B =
-    var 64<rt> (Register.toRegID Register.ZMM15B) "ZMM15B" with get
+    var 64<rt> (Register.toRegID ZMM15B) "ZMM15B" with get
   member val ZMM15C =
-    var 64<rt> (Register.toRegID Register.ZMM15C) "ZMM15C" with get
+    var 64<rt> (Register.toRegID ZMM15C) "ZMM15C" with get
   member val ZMM15D =
-    var 64<rt> (Register.toRegID Register.ZMM15D) "ZMM15D" with get
+    var 64<rt> (Register.toRegID ZMM15D) "ZMM15D" with get
   member val ZMM15E =
-    var 64<rt> (Register.toRegID Register.ZMM15E) "ZMM15E" with get
+    var 64<rt> (Register.toRegID ZMM15E) "ZMM15E" with get
   member val ZMM15F =
-    var 64<rt> (Register.toRegID Register.ZMM15F) "ZMM15F" with get
+    var 64<rt> (Register.toRegID ZMM15F) "ZMM15F" with get
   member val ZMM15G =
-    var 64<rt> (Register.toRegID Register.ZMM15G) "ZMM15G" with get
+    var 64<rt> (Register.toRegID ZMM15G) "ZMM15G" with get
   member val ZMM15H =
-    var 64<rt> (Register.toRegID Register.ZMM15H) "ZMM15H" with get
+    var 64<rt> (Register.toRegID ZMM15H) "ZMM15H" with get
 
   (* MPX Registers *)
-  member val BND0A =
-    var 64<rt> (Register.toRegID Register.BND0A) "BND0A" with get
-  member val BND0B =
-    var 64<rt> (Register.toRegID Register.BND0B) "BND0B" with get
-  member val BND1A =
-    var 64<rt> (Register.toRegID Register.BND1A) "BND1A" with get
-  member val BND1B =
-    var 64<rt> (Register.toRegID Register.BND1B) "BND1B" with get
-  member val BND2A =
-    var 64<rt> (Register.toRegID Register.BND2A) "BND2A" with get
-  member val BND2B =
-    var 64<rt> (Register.toRegID Register.BND2B) "BND2B" with get
-  member val BND3A =
-    var 64<rt> (Register.toRegID Register.BND3A) "BND3A" with get
-  member val BND3B =
-    var 64<rt> (Register.toRegID Register.BND3B) "BND3B" with get
+  member val BND0A = var 64<rt> (Register.toRegID BND0A) "BND0A" with get
+  member val BND0B = var 64<rt> (Register.toRegID BND0B) "BND0B" with get
+  member val BND1A = var 64<rt> (Register.toRegID BND1A) "BND1A" with get
+  member val BND1B = var 64<rt> (Register.toRegID BND1B) "BND1B" with get
+  member val BND2A = var 64<rt> (Register.toRegID BND2A) "BND2A" with get
+  member val BND2B = var 64<rt> (Register.toRegID BND2B) "BND2B" with get
+  member val BND3A = var 64<rt> (Register.toRegID BND3A) "BND3A" with get
+  member val BND3B = var 64<rt> (Register.toRegID BND3B) "BND3B" with get
   (* x87 FPU registers *)
   member val FCW = fcw with get
   member val FSW = fsw with get

@@ -1617,7 +1617,7 @@ module LinuxSyscall =
     | LinuxSyscall.GetTLS -> 0x0f0006 (* __ARM_NR_get_tls *)
     | _ -> raise UnhandledSyscallException
 
-  let getAARCH64Number = function
+  let private getAARCH64Number = function
     | LinuxSyscall.IoSetup -> 0
     | LinuxSyscall.IoDestroy -> 1
     | LinuxSyscall.IoSubmit -> 2
@@ -1933,7 +1933,7 @@ module LinuxSyscall =
     | LinuxSyscall.PidfdGetfd -> 438
     | _ -> raise UnhandledSyscallException
 
-  let getMIPSO32Number = function
+  let private getMIPSO32Number = function
     | LinuxSyscall.Exit -> 4001
     | LinuxSyscall.Fork -> 4002
     | LinuxSyscall.Read -> 4003
@@ -2324,7 +2324,7 @@ module LinuxSyscall =
     | LinuxSyscall.PidfdGetfd -> 4438
     | _ -> raise UnhandledSyscallException
 
-  let getMIPSN64Number = function
+  let private getMIPSN64Number = function
     | LinuxSyscall.Read -> 5000
     | LinuxSyscall.Write -> 5001
     | LinuxSyscall.Open -> 5002
@@ -2665,7 +2665,7 @@ module LinuxSyscall =
     | LinuxSyscall.PidfdGetfd -> 5438
     | _ -> raise UnhandledSyscallException
 
-  let getPPC32Number = function
+  let private getPPC32Number = function
     | LinuxSyscall.RestartSyscall -> 0
     | LinuxSyscall.Exit -> 1
     | LinuxSyscall.Fork -> 2
@@ -3010,7 +3010,7 @@ module LinuxSyscall =
     | LinuxSyscall.MemfdCreate -> 360
     | _ -> raise UnhandledSyscallException
 
-  let getRISCV64Number = function
+  let private getRISCV64Number = function
     | LinuxSyscall.IoSetup -> 0
     | LinuxSyscall.IoDestroy -> 1
     | LinuxSyscall.IoSubmit -> 2
@@ -3328,16 +3328,18 @@ module LinuxSyscall =
     | LinuxSyscall.Faccessat2 -> 439
     | _ -> raise UnhandledSyscallException
 
+  /// Gets the syscall number for the given syscall at the given architecture.
+  [<CompiledName "ToNumber">]
   let toNumber arch syscall =
     match arch with
-    | Arch.IntelX86 -> getX86Number syscall
-    | Arch.IntelX64 -> getX64Number syscall
-    | Arch.ARMv7 | Arch.AARCH32-> getARMEABINumber syscall
-    | Arch.AARCH64 -> getAARCH64Number syscall
-    | Arch.MIPS32 -> getMIPSO32Number syscall
-    | Arch.MIPS64 -> getMIPSN64Number syscall
-    | Arch.PPC32 -> getPPC32Number syscall
-    | Arch.RISCV64 -> getRISCV64Number syscall
+    | Architecture.IntelX86 -> getX86Number syscall
+    | Architecture.IntelX64 -> getX64Number syscall
+    | Architecture.ARMv7 | Architecture.AARCH32-> getARMEABINumber syscall
+    | Architecture.AARCH64 -> getAARCH64Number syscall
+    | Architecture.MIPS32 -> getMIPSO32Number syscall
+    | Architecture.MIPS64 -> getMIPSN64Number syscall
+    | Architecture.PPC32 -> getPPC32Number syscall
+    | Architecture.RISCV64 -> getRISCV64Number syscall
     | _ -> raise UnhandledSyscallException
 
   let private getX86Syscall = function
@@ -4800,7 +4802,7 @@ module LinuxSyscall =
     | 439 -> LinuxSyscall.Faccessat
     | _ -> raise UnhandledSyscallException
 
-  let getMIPSO32Syscall = function
+  let private getMIPSO32Syscall = function
     | 4001 -> LinuxSyscall.Exit
     | 4002 -> LinuxSyscall.Fork
     | 4003 -> LinuxSyscall.Read
@@ -5191,7 +5193,7 @@ module LinuxSyscall =
     | 4438 -> LinuxSyscall.PidfdGetfd
     | _ -> raise UnhandledSyscallException
 
-  let getMIPSN64Syscall = function
+  let private getMIPSN64Syscall = function
     | 5000 -> LinuxSyscall.Read
     | 5001 -> LinuxSyscall.Write
     | 5002 -> LinuxSyscall.Open
@@ -5532,7 +5534,7 @@ module LinuxSyscall =
     | 5438 -> LinuxSyscall.PidfdGetfd
     | _ -> raise UnhandledSyscallException
 
-  let getPPC32Syscall = function
+  let private getPPC32Syscall = function
     | 0 -> LinuxSyscall.RestartSyscall
     | 1 -> LinuxSyscall.Exit
     | 2 -> LinuxSyscall.Fork
@@ -5877,7 +5879,7 @@ module LinuxSyscall =
     | 360 -> LinuxSyscall.MemfdCreate
     | _ -> raise UnhandledSyscallException
 
-  let getRISCV64Syscall = function
+  let private getRISCV64Syscall = function
     | 0 -> LinuxSyscall.IoSetup
     | 1 -> LinuxSyscall.IoDestroy
     | 2 -> LinuxSyscall.IoSubmit
@@ -6196,18 +6198,22 @@ module LinuxSyscall =
     | 441 -> LinuxSyscall.EpollPwait
     | _ -> raise UnhandledSyscallException
 
+  /// Return a LinuxSyscall from a given number and architecture.
+  [<CompiledName "OfNumber">]
   let ofNumber arch num =
     match arch with
-    | Arch.IntelX86 -> getX86Syscall num
-    | Arch.IntelX64 -> getX64Syscall num
-    | Arch.ARMv7 | Arch.AARCH32 -> getARMEABISyscall num
-    | Arch.AARCH64 -> getAARCH64Syscall num
-    | Arch.MIPS32 -> getMIPSO32Syscall num
-    | Arch.MIPS64 -> getMIPSN64Syscall num
-    | Arch.PPC32 -> getPPC32Syscall num
-    | Arch.RISCV64 -> getRISCV64Syscall num
+    | Architecture.IntelX86 -> getX86Syscall num
+    | Architecture.IntelX64 -> getX64Syscall num
+    | Architecture.ARMv7 | Architecture.AARCH32 -> getARMEABISyscall num
+    | Architecture.AARCH64 -> getAARCH64Syscall num
+    | Architecture.MIPS32 -> getMIPSO32Syscall num
+    | Architecture.MIPS64 -> getMIPSN64Syscall num
+    | Architecture.PPC32 -> getPPC32Syscall num
+    | Architecture.RISCV64 -> getRISCV64Syscall num
     | _ -> raise UnhandledSyscallException
 
+  /// Transform a LinuxSyscall to a string.
+  [<CompiledName "ToString">]
   let toString = function
     | LinuxSyscall.Accept -> "accept"
     | LinuxSyscall.Accept4 -> "accept4"
@@ -6706,6 +6712,8 @@ module LinuxSyscall =
     | LinuxSyscall.Xtensa -> "xtensa"
     | _ -> raise UnhandledSyscallException
 
+  /// Convert a string to a LinuxSyscall.
+  [<CompiledName "OfString">]
   let ofString = function
     | "accept" -> LinuxSyscall.Accept
     | "accept4" -> LinuxSyscall.Accept4
