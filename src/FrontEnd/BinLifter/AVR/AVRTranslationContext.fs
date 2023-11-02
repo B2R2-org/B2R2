@@ -22,13 +22,21 @@
   SOFTWARE.
 *)
 
-/// ARMv8 instruction parser.
-module B2R2.FrontEnd.BinLifter.ARM64.Parser
+namespace B2R2.FrontEnd.BinLifter.AVR
 
 open B2R2
+open B2R2.FrontEnd.BinLifter
 
-/// Read in bytes and return a parsed instruction for ARMv8. This function
-/// returns ARM64Instruction, which is a specialized type for 64-bit ARM. If you
-/// want to handle instructions in a platform-agnostic manner, you'd better use
-/// the ARM64Parser class.
-val parse: ByteSpan -> IBinReader -> Addr -> ARM64Instruction
+/// Translation context for AVR instructions.
+type AVRTranslationContext (isa) =
+  inherit TranslationContext (isa)
+
+  let regExprs = RegExprs (isa.WordSize)
+
+  member __.RegExprs with get() = regExprs
+
+  override __.GetRegVar id =
+    Register.ofRegID id |> regExprs.GetRegVar
+
+  override __.GetPseudoRegVar _id _pos =
+    Utils.impossible ()

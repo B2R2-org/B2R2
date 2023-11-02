@@ -12,6 +12,7 @@
     <Compile Include="CILRegExprs.fs" />
     <Compile Include="CILRegisterFactory.fs" />
     <Compile Include="CILInstruction.fs" />
+    <Compile Include="CILParser.fs" />
     <Compile Include="CIL.fs" />
     <None Include="..\..\..\..\LICENSE.md" Pack="true" PackagePath="" />
     <None Include="..\..\..\..\assets\b2r2-240x240.png" Pack="true" PackagePath="" />

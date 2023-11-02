@@ -24,44 +24,19 @@
 
 namespace B2R2.FrontEnd.BinLifter.RISCV
 
-open System
 open B2R2
 open B2R2.FrontEnd.BinLifter
 
 /// Translation context for RISCV instructions.
-type RISCV64TranslationContext internal (isa, regexprs) =
+type RISCV64TranslationContext (isa) =
   inherit TranslationContext (isa)
-  /// Register expressions.
-  member val private RegExprs: RegExprs = regexprs
-  override __.GetRegVar id = Register.ofRegID id |> __.RegExprs.GetRegVar
-  override __.GetPseudoRegVar _id _pos = failwith "Implement"
 
-/// Parser for RISCV64 instructions. Parser will return a platform-agnostic
-/// instruction type (Instruction).
-type RISCV64Parser (isa: ISA) =
-  let wordSize = int isa.WordSize
-  let reader = BinReader.Init isa.Endian
+  let regExprs = RegExprs isa.WordSize
 
-  interface IInstructionParsable with
-    member __.Parse (span: ByteSpan, addr) =
-      Parser.parse span reader wordSize addr :> Instruction
+  member __.RegExprs with get() = regExprs
 
-    member __.Parse (bs: byte[], addr) =
-      let span = ReadOnlySpan bs
-      Parser.parse span reader wordSize addr :> Instruction
+  override __.GetRegVar id =
+    Register.ofRegID id |> regExprs.GetRegVar
 
-    member __.MaxInstructionSize = 4
-
-    member __.OperationMode with get() = ArchOperationMode.NoMode and set _ = ()
-
-module Basis =
-  let init (isa: ISA) =
-    let regexprs = RegExprs (isa.WordSize)
-    struct (
-      RISCV64TranslationContext (isa, regexprs) :> TranslationContext,
-      RISCV64RegisterFactory (isa.WordSize, regexprs) :> RegisterFactory
-    )
-
-  let initRegFactory isa =
-    let regexprs = RegExprs (isa.WordSize)
-    RISCV64RegisterFactory (isa.WordSize, regexprs) :> RegisterFactory
+  override __.GetPseudoRegVar _id _pos =
+    Utils.impossible ()

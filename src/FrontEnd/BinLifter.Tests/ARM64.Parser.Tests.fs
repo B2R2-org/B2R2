@@ -35,7 +35,7 @@ module ARM64 =
   let private test endian opcode oprs (bytes: byte[]) =
     let reader = BinReader.Init endian
     let span = System.ReadOnlySpan bytes
-    let ins = Parser.parse span reader 0UL
+    let ins = ParsingMain.parse span reader 0UL
     let opcode' = ins.Info.Opcode
     let oprs' = ins.Info.Operands
     Assert.AreEqual (opcode', opcode)

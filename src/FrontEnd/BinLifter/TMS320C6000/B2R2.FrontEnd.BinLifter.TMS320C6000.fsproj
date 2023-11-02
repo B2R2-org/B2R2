@@ -15,8 +15,9 @@
     <Compile Include="TMS320C6000Utils.fs" />
     <Compile Include="TMS320C6000Disasm.fs" />
     <Compile Include="TMS320C6000Instruction.fs" />
+    <Compile Include="TMS320C6000ParsingMain.fs" />
     <Compile Include="TMS320C6000Parser.fs" />
-    <Compile Include="TMS320C6000.fs" />
+    <Compile Include="TMS320C6000TranslationContext.fs" />
     <None Include="..\..\..\..\LICENSE.md" Pack="true" PackagePath="" />
     <None Include="..\..\..\..\assets\b2r2-240x240.png" Pack="true" PackagePath="" />
     <None Include="README.md" Pack="true" PackagePath="" />

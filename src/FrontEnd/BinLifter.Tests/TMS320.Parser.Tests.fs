@@ -32,7 +32,7 @@ let private test opcode unit oprs (bytes: byte[]) =
   let reader = BinReader.Init Endian.Little
   let span = System.ReadOnlySpan bytes
   let mutable inpar = false
-  let ins = Parser.parse span reader &inpar 0UL
+  let ins = ParsingMain.parse span reader &inpar 0UL
   Assert.AreEqual (ins.Info.Opcode, opcode)
   Assert.AreEqual (ins.Info.FunctionalUnit, unit)
   Assert.AreEqual (ins.Info.Operands, oprs)

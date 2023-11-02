@@ -15,8 +15,9 @@
     <Compile Include="SH4GeneralLifter.fs" />
     <Compile Include="SH4Lifter.fs" />
     <Compile Include="SH4Instruction.fs" />
+    <Compile Include="SH4ParsingMain.fs" />
     <Compile Include="SH4Parser.fs" />
-    <Compile Include="SH4.fs" />
+    <Compile Include="SH4TranslationContext.fs" />
     <None Include="..\..\..\..\LICENSE.md" Pack="true" PackagePath="" />
     <None Include="..\..\..\..\assets\b2r2-240x240.png" Pack="true" PackagePath="" />
     <None Include="README.md" Pack="true" PackagePath="" />

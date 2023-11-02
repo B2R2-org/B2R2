@@ -33,7 +33,7 @@ open B2R2.BinIR.LowUIR.AST.InfixOp
 
 let isa = ISA.Init Architecture.AVR Endian.Little
 
-let struct (ctxt, _) = AVR.Basis.init isa
+let ctxt = AVRTranslationContext isa
 
 let inline ( !. ) (ctxt: TranslationContext) name =
   Register.toRegID name |> ctxt.GetRegVar
@@ -41,7 +41,7 @@ let inline ( !. ) (ctxt: TranslationContext) name =
 let private test (bytes: byte[]) len (actStmts: Stmt[])  =
   let reader = BinReader.Init Endian.Little
   let span = System.ReadOnlySpan bytes
-  let ins = Parser.parse span reader 0UL
+  let ins = ParsingMain.parse span reader 0UL
   let expStmts = (Lifter.translate ins.Info len ctxt).ToStmts ()
   Assert.AreEqual (Array.toList expStmts, Array.toList actStmts)
 

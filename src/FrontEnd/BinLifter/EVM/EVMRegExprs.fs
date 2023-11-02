@@ -28,7 +28,7 @@ open B2R2
 open B2R2.FrontEnd.BinLifter
 open B2R2.BinIR.LowUIR
 
-type internal RegExprs () =
+type RegExprs () =
   let var sz t name = AST.var sz t name
 
   member val PC = var 256<rt> (Register.toRegID Register.PC) "PC" with get

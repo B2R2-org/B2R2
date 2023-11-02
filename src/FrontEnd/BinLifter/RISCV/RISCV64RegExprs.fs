@@ -30,7 +30,7 @@ open B2R2.FrontEnd.BinLifter.LiftingUtils
 open B2R2.BinIR.LowUIR
 open B2R2.BinIR.LowUIR.AST.InfixOp
 
-type internal RegExprs (wordSize) =
+type RegExprs (wordSize) =
   let var sz t name = AST.var sz t name
 
   (* Registers *)

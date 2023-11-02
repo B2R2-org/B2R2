@@ -22,45 +22,21 @@
   SOFTWARE.
 *)
 
-namespace B2R2.FrontEnd.BinLifter.SH4
+namespace B2R2.FrontEnd.BinLifter.Intel
 
-open System
 open B2R2
 open B2R2.FrontEnd.BinLifter
 
-type SH4TranslationContext internal (isa, regexprs) =
+/// Translation context for Intel (x86 or x86-64) instructions.
+type IntelTranslationContext (isa) =
   inherit TranslationContext (isa)
 
-  /// Register expressions.
-  member val private RegExprs: RegExprs = regexprs
+  let regExprs = RegExprs isa.WordSize
 
-  override __.GetRegVar id = Register.ofRegID id |> __.RegExprs.GetRegVar
+  member __.RegExprs with get() = regExprs
 
-  override __.GetPseudoRegVar _id _pos = Utils.impossible ()
+  override __.GetRegVar id =
+    Register.ofRegID id |> regExprs.GetRegVar
 
-type SH4Parser (isa: ISA) =
-  let reader = BinReader.Init isa.Endian
-
-  interface IInstructionParsable with
-    member __.Parse (bs: byte[], addr: Addr) =
-      let span = ReadOnlySpan bs
-      (__ :> IInstructionParsable).Parse (span, addr)
-
-    member __.Parse (span: ByteSpan, addr: Addr) =
-      Parser.parse span reader addr :> Instruction
-
-    member __.MaxInstructionSize = 2
-
-    member __.OperationMode with get() = ArchOperationMode.NoMode and set _ = ()
-
-module Basis =
-  let init isa =
-    let regexprs = RegExprs (isa.WordSize)
-    struct (
-      SH4TranslationContext (isa, regexprs) :> TranslationContext,
-      SH4RegisterFactory (regexprs) :> RegisterFactory
-    )
-
-  let initRegFactory isa =
-    let regexprs = RegExprs (isa.WordSize)
-    SH4RegisterFactory (regexprs) :> RegisterFactory
+  override __.GetPseudoRegVar id pos =
+    regExprs.GetPseudoRegVar (Register.ofRegID id ) pos

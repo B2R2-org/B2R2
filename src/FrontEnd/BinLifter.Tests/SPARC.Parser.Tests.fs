@@ -28,13 +28,12 @@ module SPARC =
 
   open Microsoft.VisualStudio.TestTools.UnitTesting
   open B2R2
-  open B2R2.FrontEnd
   open B2R2.FrontEnd.BinLifter.SPARC
 
   let private test opcode oprs (bytes: byte[]) =
     let reader = BinReader.Init Endian.Little
     let span = System.ReadOnlySpan bytes
-    let ins = Parser.parse span reader 0UL
+    let ins = ParsingMain.parse span reader 0UL
     Assert.AreEqual (ins.Info.Opcode, opcode)
     Assert.AreEqual (ins.Info.Operands, oprs)
 

@@ -16,8 +16,9 @@
     <Compile Include="PPC32Disasm.fs" />
     <Compile Include="PPC32Lifter.fs" />
     <Compile Include="PPC32Instruction.fs" />
+    <Compile Include="PPC32ParsingMain.fs" />
     <Compile Include="PPC32Parser.fs" />
-    <Compile Include="PPC32.fs" />
+    <Compile Include="PPC32TranslationContext.fs" />
     <None Include="..\..\..\..\LICENSE.md" Pack="true" PackagePath="" />
     <None Include="..\..\..\..\assets\b2r2-240x240.png" Pack="true" PackagePath="" />
     <None Include="README.md" Pack="true" PackagePath="" />

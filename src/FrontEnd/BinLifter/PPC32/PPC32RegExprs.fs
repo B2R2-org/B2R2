@@ -28,7 +28,7 @@ open B2R2
 open B2R2.FrontEnd.BinLifter
 open B2R2.BinIR.LowUIR
 
-type internal RegExprs (wordSize) =
+type RegExprs (wordSize) =
   let var sz t name = AST.var sz t name
 
   (* Registers *)

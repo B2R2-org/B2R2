@@ -36,7 +36,7 @@ open type WordSize
 /// register symbol. This exception should not happen in general.
 exception internal InvalidRegAccessException
 
-type internal RegExprs (wordSize) =
+type RegExprs (wordSize) =
   let var sz t name = AST.var sz t name
 
   let reg64 wordSize t name =

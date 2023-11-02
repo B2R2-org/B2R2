@@ -22,41 +22,21 @@
   SOFTWARE.
 *)
 
-namespace B2R2.FrontEnd.BinLifter.WASM
+namespace B2R2.FrontEnd.BinLifter.SH4
 
-open System
 open B2R2
 open B2R2.FrontEnd.BinLifter
 
-/// Translation context for WASM instructions.
-type WASMTranslationContext internal (isa, regexprs) =
+type SH4TranslationContext (isa) =
   inherit TranslationContext (isa)
+
+  let regExprs = RegExprs isa.WordSize
+
   /// Register expressions.
-  member val private RegExprs: RegExprs = regexprs
-  override __.GetRegVar id = Register.ofRegID id |> __.RegExprs.GetRegVar
-  override __.GetPseudoRegVar _id _pos = failwith "Implement"
+  member __.RegExprs with get() = regExprs
 
-/// Parser for WASM instructions. Parser will return a platform-agnostic
-/// instruction type (Instruction).
-type WASMParser (_wordSize) =
-  let reader = BinReader.Init Endian.Little
+  override __.GetRegVar id =
+    Register.ofRegID id |> regExprs.GetRegVar
 
-  interface IInstructionParsable with
-    member __.Parse (bs: byte[], addr) =
-      let span = ReadOnlySpan bs
-      Parser.parse span reader addr :> Instruction
-
-    member __.Parse (span: ByteSpan, addr) =
-      Parser.parse span reader addr :> Instruction
-
-    member __.MaxInstructionSize = 9
-
-    member __.OperationMode with get() = ArchOperationMode.NoMode and set _ = ()
-
-module Basis =
-  let init (isa: ISA) =
-    let regexprs = RegExprs ()
-    struct (
-      WASMTranslationContext (isa, regexprs) :> TranslationContext,
-      WASMRegisterFactory () :> RegisterFactory
-    )
+  override __.GetPseudoRegVar _id _pos =
+    Utils.impossible ()

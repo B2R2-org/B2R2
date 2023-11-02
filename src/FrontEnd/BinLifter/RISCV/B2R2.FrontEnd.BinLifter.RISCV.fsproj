@@ -14,8 +14,9 @@
     <Compile Include="RISCV64Disasm.fs" />
     <Compile Include="RISCV64Lifter.fs" />
     <Compile Include="RISCV64Instruction.fs" />
+    <Compile Include="RISCV64ParsingMain.fs" />
     <Compile Include="RISCV64Parser.fs" />
-    <Compile Include="RISCV64.fs" />
+    <Compile Include="RISCV64TranslationContext.fs" />
     <None Include="..\..\..\..\LICENSE.md" Pack="true" PackagePath="" />
     <None Include="..\..\..\..\assets\b2r2-240x240.png" Pack="true" PackagePath="" />
     <None Include="README.md" Pack="true" PackagePath="" />

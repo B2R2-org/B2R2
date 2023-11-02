@@ -24,43 +24,19 @@
 
 namespace B2R2.FrontEnd.BinLifter.PPC32
 
-open System
 open B2R2
 open B2R2.FrontEnd.BinLifter
 
 /// Translation context for PPC32 instructions.
-type PPC32TranslationContext internal (isa, regexprs) =
+type PPC32TranslationContext (isa) =
   inherit TranslationContext (isa)
-  /// Register expressions.
-  member val private RegExprs: RegExprs = regexprs
-  override __.GetRegVar id = Register.ofRegID id |> __.RegExprs.GetRegVar
-  override __.GetPseudoRegVar _id _pos = failwith "Implement"
 
-/// Parser for PPC32 instructions. Parser will return a platform-agnostic
-/// instruction type (Instruction).
-type PPC32Parser (isa: ISA) =
-  let reader = BinReader.Init isa.Endian
+  let regExprs = RegExprs isa.WordSize
 
-  interface IInstructionParsable with
-    member __.Parse (span: ByteSpan, addr) =
-      Parser.parse span reader addr :> Instruction
+  member __.RegExprs with get() = regExprs
 
-    member __.Parse (bs: byte[], addr) =
-      let span = ReadOnlySpan bs
-      Parser.parse span reader addr :> Instruction
+  override __.GetRegVar id =
+    Register.ofRegID id |> regExprs.GetRegVar
 
-    member __.MaxInstructionSize = 4
-
-    member __.OperationMode with get() = ArchOperationMode.NoMode and set _ = ()
-
-module Basis =
-  let init (isa: ISA) =
-    let regexprs = RegExprs (isa.WordSize)
-    struct (
-      PPC32TranslationContext (isa, regexprs) :> TranslationContext,
-      PPC32RegisterFactory (isa.WordSize, regexprs) :> RegisterFactory
-    )
-
-  let initRegFactory isa =
-    let regexprs = RegExprs (isa.WordSize)
-    PPC32RegisterFactory (isa.WordSize, regexprs) :> RegisterFactory
+  override __.GetPseudoRegVar _id _pos =
+    Utils.impossible ()

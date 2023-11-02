@@ -22,28 +22,21 @@
   SOFTWARE.
 *)
 
-namespace B2R2.FrontEnd.BinLifter.Intel
+namespace B2R2.FrontEnd.BinLifter.ARM32
 
-open B2R2
 open B2R2.FrontEnd.BinLifter
 
-/// Translation context for Intel (x86 or x86-64) instructions.
-type IntelTranslationContext internal (isa, regexprs) =
+/// Translation context for 32-bit ARM instructions (ARMv7 and ARMv8 AARCH32).
+type ARM32TranslationContext (isa) =
   inherit TranslationContext (isa)
-  /// Register expressions.
-  member val private RegExprs: RegExprs = regexprs
-  override __.GetRegVar id = Register.ofRegID id |> __.RegExprs.GetRegVar
+
+  let regExprs = RegExprs ()
+
+  /// ARM32 register expressions.
+  member __.RegExprs with get() = regExprs
+
+  override __.GetRegVar id =
+    Register.ofRegID id |> regExprs.GetRegVar
+
   override __.GetPseudoRegVar id pos =
-    __.RegExprs.GetPseudoRegVar (Register.ofRegID id ) pos
-
-module Basis =
-  let init (isa: ISA) =
-    let regexprs = RegExprs (isa.WordSize)
-    struct (
-      IntelTranslationContext (isa, regexprs) :> TranslationContext,
-      IntelRegisterFactory (isa.WordSize, regexprs) :> RegisterFactory
-    )
-
-  let initRegFactory wordSize =
-    let regexprs = RegExprs (wordSize)
-    IntelRegisterFactory (wordSize, regexprs) :> RegisterFactory
+    regExprs.GetPseudoRegVar (Register.ofRegID id) pos

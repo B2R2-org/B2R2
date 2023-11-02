@@ -17,8 +17,9 @@
     <Compile Include="AVRGeneralLifter.fs" />
     <Compile Include="AVRLifter.fs" />
     <Compile Include="AVRInstruction.fs" />
+    <Compile Include="AVRParsingMain.fs" />
     <Compile Include="AVRParser.fs" />
-    <Compile Include="AVR.fs" />
+    <Compile Include="AVRTranslationContext.fs" />
     <None Include="..\..\..\..\LICENSE.md" Pack="true" PackagePath="" />
     <None Include="..\..\..\..\assets\b2r2-240x240.png" Pack="true" PackagePath="" />
     <None Include="README.md" Pack="true" PackagePath="" />

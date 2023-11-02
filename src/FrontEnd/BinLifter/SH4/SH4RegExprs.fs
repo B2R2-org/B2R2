@@ -30,7 +30,7 @@ open B2R2.BinIR.LowUIR
 
 module R = Register
 
-type internal RegExprs (wordSize) =
+type RegExprs (wordSize) =
 
   let var sz t name = AST.var sz t name
 

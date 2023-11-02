@@ -22,49 +22,20 @@
   SOFTWARE.
 *)
 
-namespace B2R2.FrontEnd.BinLifter.EVM
+namespace B2R2.FrontEnd.BinLifter.CIL
 
-open System
 open B2R2
 open B2R2.FrontEnd.BinLifter
 
-/// Translation context for Ethereum Virtual Machine (EVM) instructions.
-type EVMTranslationContext internal (isa, regexprs) =
-  inherit TranslationContext (isa)
-
-  /// Register expressions.
-  member val private RegExprs: RegExprs = regexprs
-
-  override __.GetRegVar id = Register.ofRegID id |> __.RegExprs.GetRegVar
-
-  override __.GetPseudoRegVar _id _pos = failwith "Implement"
-
-/// Parser for EVM instructions. Parser will return a platform-agnostic
-/// instruction type (Instruction).
-type EVMParser (isa: ISA) =
-  let mutable codeOffset: Addr = 0UL
-  let wordSize = isa.WordSize
-
-  member __.CodeOffset with get() = codeOffset and set(o) = codeOffset <- o
-
+type CILParser () =
   interface IInstructionParsable with
-    member __.Parse (bs: byte[], addr) =
-      let span = ReadOnlySpan (bs)
-      Parser.parse span codeOffset wordSize addr
-      :> Instruction
+    member __.Parse (_: byte[], _: Addr): Instruction =
+      Utils.futureFeature ()
 
-    member __.Parse (span: ByteSpan, addr) =
-      Parser.parse span codeOffset wordSize addr
-      :> Instruction
+    member __.Parse (_: ByteSpan, _: Addr): Instruction =
+      Utils.futureFeature ()
 
-    member __.MaxInstructionSize = 33
+    member __.MaxInstructionSize =
+      Utils.futureFeature ()
 
     member __.OperationMode with get() = ArchOperationMode.NoMode and set _ = ()
-
-module Basis =
-  let init isa =
-    let regexprs = RegExprs ()
-    struct (
-      EVMTranslationContext (isa, regexprs) :> TranslationContext,
-      EVMRegisterFactory () :> RegisterFactory
-    )

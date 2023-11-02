@@ -412,7 +412,7 @@ module Wasm =
     let file = fileName + ".wasm"
     let bytes =
       ZIPReader.readFileFromZipFile FileFormat.WasmBinary zip file
-    WasmBinFile (bytes, "") :> IBinFile
+    WasmBinFile ("", bytes) :> IBinFile
 
   [<TestClass>]
   type TestClass () =

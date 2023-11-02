@@ -32,7 +32,8 @@ open B2R2.Peripheral.Assembly.LowUIR
 
 [<TestClass>]
 type LowUIRTests () =
-  let regFactory = Intel.Basis.initRegFactory (WordSize.Bit64)
+  let wsz = WordSize.Bit64
+  let regFactory = Intel.IntelRegisterFactory (wsz, Intel.RegExprs wsz)
   let p = LowUIRParser (ISA.DefaultISA, regFactory)
   let size1Num = BitVector.T
   let size64Num = BitVector.Cast (size1Num, 64<rt>)

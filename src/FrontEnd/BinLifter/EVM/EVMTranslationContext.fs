@@ -22,19 +22,22 @@
   SOFTWARE.
 *)
 
-/// MIPS instruction parser.
-module B2R2.FrontEnd.BinLifter.MIPS.Parser
+namespace B2R2.FrontEnd.BinLifter.EVM
 
 open B2R2
+open B2R2.FrontEnd.BinLifter
 
-/// Read in bytes and return a parsed instruction for MIPS. This function
-/// returns MIPSInstruction, which is a specialized type for MIPS. If you want
-/// to handle instructions in a platform-agnostic manner, you'd better use the
-/// MIPS class.
-val parse:
-  ByteSpan
-  -> IBinReader
-  -> Architecture
-  -> WordSize
-  -> Addr
-  -> MIPSInstruction
+/// Translation context for Ethereum Virtual Machine (EVM) instructions.
+type EVMTranslationContext (isa) =
+  inherit TranslationContext (isa)
+
+  let regExprs = RegExprs ()
+
+  /// Register expressions.
+  member __.RegExprs with get() = regExprs
+
+  override __.GetRegVar id =
+    Register.ofRegID id |> regExprs.GetRegVar
+
+  override __.GetPseudoRegVar _id _pos =
+    Utils.impossible ()

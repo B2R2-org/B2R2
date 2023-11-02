@@ -22,26 +22,21 @@
   SOFTWARE.
 *)
 
-namespace B2R2.FrontEnd.BinLifter.ARM32
+namespace B2R2.FrontEnd.BinLifter.TMS320C6000
 
+open B2R2
 open B2R2.FrontEnd.BinLifter
 
-/// Translation context for 32-bit ARM instructions (ARMv7 and ARMv8 AARCH32).
-type ARM32TranslationContext internal (isa, regexprs) =
+/// Translation context for TMS320C6000 instructions.
+type TMS320C6000TranslationContext (isa) =
   inherit TranslationContext (isa)
-  member val private RegExprs: RegExprs = regexprs
-  override __.GetRegVar id = Register.ofRegID id |> __.RegExprs.GetRegVar
-  override __.GetPseudoRegVar id pos = __.RegExprs.GetPseudoRegVar
-                                        (Register.ofRegID id) pos
 
-module Basis =
-  let init isa =
-    let regexprs = RegExprs ()
-    struct (
-      ARM32TranslationContext (isa, regexprs) :> TranslationContext,
-      ARM32RegisterFactory (regexprs) :> RegisterFactory
-    )
+  let regExprs = RegExprs isa.WordSize
 
-  let initRegFactory () =
-    let regexprs = RegExprs ()
-    ARM32RegisterFactory (regexprs) :> RegisterFactory
+  member __.RegExprs with get() = regExprs
+
+  override __.GetRegVar id =
+    Register.ofRegID id |> regExprs.GetRegVar
+
+  override __.GetPseudoRegVar _id _pos =
+    Utils.impossible ()

@@ -24,44 +24,18 @@
 
 namespace B2R2.FrontEnd.BinLifter.ARM64
 
-open System
-open B2R2
 open B2R2.FrontEnd.BinLifter
 
 /// Translation context for 64-bit ARM instructions.
-type ARM64TranslationContext internal (isa, regexprs) =
+type ARM64TranslationContext (isa) =
   inherit TranslationContext (isa)
-  /// Register expressions.
-  member val private RegExprs: RegExprs = regexprs
-  override __.GetRegVar id = Register.ofRegID id |> __.RegExprs.GetRegVar
+
+  let regExprs = RegExprs ()
+
+  member __.RegExprs with get() = regExprs
+
+  override __.GetRegVar id =
+    Register.ofRegID id |> regExprs.GetRegVar
+
   override __.GetPseudoRegVar id pos =
-    __.RegExprs.GetPseudoRegVar (Register.ofRegID id) pos
-
-/// Parser for 64-bit ARM instructions. Parser will return a platform-agnostic
-/// instruction type (Instruction).
-type ARM64Parser (isa) =
-  let reader = BinReader.Init isa.Endian
-
-  interface IInstructionParsable with
-    member __.Parse (bs: byte[], addr) =
-      let span = ReadOnlySpan bs
-      Parser.parse span reader addr :> Instruction
-
-    member __.Parse (span: ByteSpan, addr) =
-      Parser.parse span reader addr :> Instruction
-
-    member __.MaxInstructionSize = 4
-
-    member __.OperationMode with get() = ArchOperationMode.NoMode and set _ = ()
-
-module Basis =
-  let init isa =
-    let regexprs = RegExprs ()
-    struct (
-      ARM64TranslationContext (isa, regexprs) :> TranslationContext,
-      ARM64RegisterFactory (regexprs) :> RegisterFactory
-    )
-
-  let initRegFactory () =
-    let regexprs = RegExprs ()
-    ARM64RegisterFactory (regexprs) :> RegisterFactory
+    regExprs.GetPseudoRegVar (Register.ofRegID id) pos

@@ -30,12 +30,12 @@ open B2R2.FrontEnd.BinFile.Wasm
 open B2R2.FrontEnd.BinFile.Wasm.Helper
 
 /// This class represents a Web Assembly (Wasm Module) binary file.
-type WasmBinFile (bytes, path, baseAddrOpt) =
+type WasmBinFile (path, bytes, baseAddrOpt) =
   let wm = Parser.parse bytes
   let baseAddr = defaultArg baseAddrOpt 0UL
   let reader = BinReader.Init Endian.Little
 
-  new (bytes, path) = WasmBinFile (bytes, path, None)
+  new (path, bytes) = WasmBinFile (path, bytes, None)
 
   member __.WASM with get() = wm
 

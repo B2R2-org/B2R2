@@ -34,7 +34,7 @@ module MIPS64 =
   let private test arch endian opcode oprs (bytes: byte[]) =
     let reader = BinReader.Init endian
     let span = System.ReadOnlySpan bytes
-    let ins = Parser.parse span reader arch WordSize.Bit64 0UL
+    let ins = ParsingMain.parse span reader arch WordSize.Bit64 0UL
     let opcode' = ins.Info.Opcode
     let oprs' = ins.Info.Operands
     Assert.AreEqual (opcode', opcode)

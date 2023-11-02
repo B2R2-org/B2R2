@@ -19,9 +19,9 @@
     <Compile Include="ARM64LiftingUtils.fs" />
     <Compile Include="ARM64Lifter.fs" />
     <Compile Include="ARM64Instruction.fs" />
-    <Compile Include="ARM64Parser.fsi" />
+    <Compile Include="ARM64ParsingMain.fs" />
     <Compile Include="ARM64Parser.fs" />
-    <Compile Include="ARM64.fs" />
+    <Compile Include="ARM64TranslationContext.fs" />
     <None Include="..\..\..\..\LICENSE.md" Pack="true" PackagePath="" />
     <None Include="..\..\..\..\assets\b2r2-240x240.png" Pack="true" PackagePath="" />
     <None Include="README.md" Pack="true" PackagePath="" />

@@ -26,7 +26,6 @@ namespace B2R2.FrontEnd.Tests
 
 open Microsoft.VisualStudio.TestTools.UnitTesting
 open B2R2
-open B2R2.FrontEnd
 
 module EVM =
   open B2R2.FrontEnd.BinLifter.EVM
@@ -34,7 +33,7 @@ module EVM =
   let private test opcode (bytes: byte[]) =
     let reader = BinReader.Init Endian.Little
     let span = System.ReadOnlySpan bytes
-    let ins = Parser.parse span 0UL WordSize.Bit64 0UL
+    let ins = ParsingMain.parse span 0UL WordSize.Bit64 0UL
     let opcode' = ins.Info.Opcode
     Assert.AreEqual (opcode', opcode)
 

@@ -27,7 +27,7 @@ namespace B2R2.FrontEnd.BinLifter.ARM64
 open B2R2.FrontEnd.BinLifter
 open B2R2.BinIR.LowUIR
 
-type ARM64RegisterFactory internal (r: RegExprs) =
+type ARM64RegisterFactory (r: RegExprs) =
   inherit RegisterFactory ()
 
   override __.GetAllRegExprs () =

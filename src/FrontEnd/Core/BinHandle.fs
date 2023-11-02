@@ -29,12 +29,12 @@ open B2R2
 open B2R2.FrontEnd.BinFile
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.Helper
-open type B2R2.FileFormat
-open type B2R2.ArchOperationMode
+open type FileFormat
+open type ArchOperationMode
 
 type BinHandle private (path, bytes, fmt, isa, baseAddrOpt, mode) =
-  let binFile = FileFactory.load path bytes fmt isa baseAddrOpt
-  let struct (ctxt, regFactory) = Basis.init binFile.ISA
+  let struct (ctxt, regFactory) = Basis.load isa
+  let binFile = FileFactory.load path bytes fmt isa regFactory baseAddrOpt
   let parser = Parser.init binFile.ISA mode binFile.EntryPoint
 
   new (path, isa, baseAddrOpt, mode) =

@@ -30,7 +30,7 @@ open B2R2
 
 /// This class represents a raw binary file (containing only binary code and
 /// data without file format).
-type RawBinFile (bytes: byte[], path, isa, baseAddrOpt) =
+type RawBinFile (path, bytes: byte[], isa, baseAddrOpt) =
   let size = bytes.Length
   let baseAddr = defaultArg baseAddrOpt 0UL
   let symbolMap = Dictionary<Addr, Symbol> ()

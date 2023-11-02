@@ -22,41 +22,21 @@
   SOFTWARE.
 *)
 
-namespace B2R2.FrontEnd.BinLifter.AVR
+namespace B2R2.FrontEnd.BinLifter.SPARC
 
-open System
 open B2R2
 open B2R2.FrontEnd.BinLifter
 
-/// Translation context for AVR instructions.
-type AVRTranslationContext internal (isa, regexprs) =
+/// Translation context for SPARC instructions.
+type SPARCTranslationContext (isa) =
   inherit TranslationContext (isa)
-  /// Register expressions.
-  member val private RegExprs: RegExprs = regexprs
-  override __.GetRegVar id = Register.ofRegID id |> __.RegExprs.GetRegVar
-  override __.GetPseudoRegVar _id _pos = failwith "Implement"
 
-/// Parser for AVR instructions. Parser will return a platform-agnostic
-/// instruction type (Instruction).
-type AVRParser () =
-  let reader = BinReader.Init Endian.Little
+  let regExprs = RegExprs isa.WordSize
 
-  interface IInstructionParsable with
-    member __.Parse (bs: byte[], addr) =
-      let span = ReadOnlySpan bs
-      Parser.parse span reader addr :> Instruction
+  member __.RegExprs with get() = regExprs
 
-    member __.Parse (span: ByteSpan, addr) =
-      Parser.parse span reader addr :> Instruction
+  override __.GetRegVar id =
+    Register.ofRegID id |> regExprs.GetRegVar
 
-    member __.MaxInstructionSize = 4
-
-    member __.OperationMode with get() = ArchOperationMode.NoMode and set _ = ()
-
-module Basis =
-  let init (isa: ISA) =
-    let regexprs = RegExprs (isa.WordSize)
-    struct (
-      AVRTranslationContext (isa, regexprs) :> TranslationContext,
-      AVRRegisterFactory () :> RegisterFactory
-    )
+  override __.GetPseudoRegVar _id _pos =
+    Utils.impossible ()

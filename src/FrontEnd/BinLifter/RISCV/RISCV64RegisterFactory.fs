@@ -28,7 +28,7 @@ open B2R2
 open B2R2.FrontEnd.BinLifter
 open B2R2.BinIR.LowUIR
 
-type RISCV64RegisterFactory internal (wordSize, r: RegExprs) =
+type RISCV64RegisterFactory (wordSize, r: RegExprs) =
   inherit RegisterFactory ()
 
   override __.GetAllRegExprs () =

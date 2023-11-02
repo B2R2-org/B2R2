@@ -24,7 +24,7 @@
     <Compile Include="ARM32ARMParser.fs" />
     <Compile Include="ARM32ThumbParser.fs" />
     <Compile Include="ARM32Parser.fs" />
-    <Compile Include="ARM32.fs" />
+    <Compile Include="ARM32TranslationContext.fs" />
     <None Include="..\..\..\..\LICENSE.md" Pack="true" PackagePath="" />
     <None Include="..\..\..\..\assets\b2r2-240x240.png" Pack="true" PackagePath="" />
     <None Include="README.md" Pack="true" PackagePath="" />

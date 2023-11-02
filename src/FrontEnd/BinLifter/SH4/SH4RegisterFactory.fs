@@ -28,7 +28,7 @@ open B2R2
 open B2R2.FrontEnd.BinLifter
 open B2R2.BinIR.LowUIR
 
-type SH4RegisterFactory internal (r: RegExprs) =
+type SH4RegisterFactory (r: RegExprs) =
   inherit RegisterFactory ()
 
   override __.GetAllRegExprs () =
