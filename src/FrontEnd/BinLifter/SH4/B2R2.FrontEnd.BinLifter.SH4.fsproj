@@ -10,7 +10,7 @@
     <Compile Include="SH4Types.fs" />
     <Compile Include="SH4OperandHelper.fs" />
     <Compile Include="SH4RegExprs.fs" />
-    <Compile Include="SH4RegisterBay.fs" />
+    <Compile Include="SH4RegisterFactory.fs" />
     <Compile Include="SH4Disasm.fs" />
     <Compile Include="SH4GeneralLifter.fs" />
     <Compile Include="SH4Lifter.fs" />

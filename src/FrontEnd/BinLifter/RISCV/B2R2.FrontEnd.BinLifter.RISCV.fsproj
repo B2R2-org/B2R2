@@ -8,7 +8,7 @@
   <ItemGroup>
     <Compile Include="RISCV64Register.fs" />
     <Compile Include="RISCV64RegExprs.fs" />
-    <Compile Include="RISCV64RegisterBay.fs" />
+    <Compile Include="RISCV64RegisterFactory.fs" />
     <Compile Include="RISCV64Types.fs" />
     <Compile Include="RISCV64Helper.fs" />
     <Compile Include="RISCV64Disasm.fs" />

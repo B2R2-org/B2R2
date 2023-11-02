@@ -162,7 +162,7 @@ module private NoReturnFunctionIdentificationHelper =
 
   let confirmArgX64 hdl fakeBlk uvState arg =
     let rid = CallingConvention.functionArgRegister hdl OS.Linux arg
-    let name = hdl.RegisterBay.RegIDToString rid
+    let name = hdl.RegisterFactory.RegIDToString rid
     let varKind = SSA.RegVar (64<rt>, rid, name)
     match SSACFG.findReachingDef fakeBlk varKind with
     | Some (SSA.Def (v, _)) ->

@@ -59,11 +59,9 @@ module Basis =
     let regexprs = RegExprs ()
     struct (
       ARM64TranslationContext (isa, regexprs) :> TranslationContext,
-      ARM64RegisterBay (regexprs) :> RegisterBay
+      ARM64RegisterFactory (regexprs) :> RegisterFactory
     )
 
-  let initRegBay () =
+  let initRegFactory () =
     let regexprs = RegExprs ()
-    ARM64RegisterBay (regexprs) :> RegisterBay
-
-// vim: set tw=80 sts=2 sw=2:
+    ARM64RegisterFactory (regexprs) :> RegisterFactory

@@ -22,39 +22,37 @@
   SOFTWARE.
 *)
 
-namespace B2R2.FrontEnd.BinLifter.PPC32
+namespace B2R2.FrontEnd.BinLifter.RISCV
 
 open B2R2
 open B2R2.FrontEnd.BinLifter
 open B2R2.BinIR.LowUIR
 
-type PPC32RegisterBay internal (wordSize, r: RegExprs) =
-  inherit RegisterBay ()
+type RISCV64RegisterFactory internal (wordSize, r: RegExprs) =
+  inherit RegisterFactory ()
 
   override __.GetAllRegExprs () =
-    [ r.R0; r.R1; r.R2; r.R3; r.R4; r.R5; r.R6; r.R7; r.R8; r.R9; r.R10; r.R11
-      r.R12; r.R13; r.R14; r.R15; r.R16; r.R17; r.R18; r.R19; r.R20; r.R21
-      r.R22; r.R23; r.R24; r.R25; r.R26; r.R27; r.R28; r.R29; r.R30; r.R31
+    [ r.X0; r.X1; r.X2; r.X3; r.X4; r.X5; r.X6; r.X7; r.X8; r.X9; r.X10; r.X11
+      r.X12; r.X13; r.X14; r.X15; r.X16; r.X17; r.X18; r.X19; r.X20; r.X21
+      r.X22; r.X23; r.X24; r.X25; r.X26; r.X27; r.X28; r.X29; r.X30; r.X31
       r.F0; r.F1; r.F2; r.F3; r.F4; r.F5; r.F6; r.F7; r.F8; r.F9; r.F10; r.F11
       r.F12; r.F13; r.F14; r.F15; r.F16; r.F17; r.F18; r.F19; r.F20; r.F21
       r.F22; r.F23; r.F24; r.F25; r.F26; r.F27; r.F28; r.F29; r.F30; r.F31
-      r.CR0_0; r.CR0_1; r.CR0_2; r.CR0_3; r.CR1_0; r.CR1_1; r.CR1_2; r.CR1_3;
-      r.CR2_0; r.CR2_1; r.CR2_2; r.CR2_3; r.CR3_0; r.CR3_2; r.CR3_2; r.CR3_3;
-      r.CR4_0; r.CR4_1; r.CR4_2; r.CR4_3; r.CR5_0; r.CR5_1; r.CR5_2; r.CR5_3;
-      r.CR6_0; r.CR6_1; r.CR6_2; r.CR6_3; r.CR7_0; r.CR7_1; r.CR7_2; r.CR7_3; ]
+      r.PC; r.FCSR ]
 
   override __.GetAllRegNames () =
     __.GetAllRegExprs ()
     |> List.map (__.RegIDFromRegExpr >> __.RegIDToString)
 
   override __.GetGeneralRegExprs () =
-    [ r.R0; r.R1; r.R2; r.R3; r.R4; r.R5; r.R6; r.R7; r.R8; r.R9; r.R10; r.R11
-      r.R12; r.R13; r.R14; r.R15; r.R16; r.R17; r.R18; r.R19; r.R20; r.R21
-      r.R22; r.R23; r.R24; r.R25; r.R26; r.R27; r.R28; r.R29; r.R30; r.R31 ]
+    [ r.X0; r.X1; r.X2; r.X3; r.X4; r.X5; r.X6; r.X7; r.X8; r.X9; r.X10; r.X11
+      r.X12; r.X13; r.X14; r.X15; r.X16; r.X17; r.X18; r.X19; r.X20; r.X21
+      r.X22; r.X23; r.X24; r.X25; r.X26; r.X27; r.X28; r.X29; r.X30; r.X31 ]
 
   override __.RegIDFromRegExpr (e) =
     match e.E with
     | Var (_, id, _) -> id
+    | PCVar (_) -> Register.toRegID Register.PC
     | _ -> raise InvalidRegisterException
 
   override __.RegIDToRegExpr (id) =
@@ -62,38 +60,38 @@ type PPC32RegisterBay internal (wordSize, r: RegExprs) =
 
   override __.StrToRegExpr s =
     match s.ToLowerInvariant () with
-    | "r0" -> r.R0
-    | "r1" -> r.R1
-    | "r2" -> r.R2
-    | "r3" -> r.R3
-    | "r4" -> r.R4
-    | "r5" -> r.R5
-    | "r6" -> r.R6
-    | "r7" -> r.R7
-    | "r8" -> r.R8
-    | "r9" -> r.R9
-    | "r10" -> r.R10
-    | "r11" -> r.R11
-    | "r12" -> r.R12
-    | "r13" -> r.R13
-    | "r14" -> r.R14
-    | "r15" -> r.R15
-    | "r16" -> r.R16
-    | "r17" -> r.R17
-    | "r18" -> r.R18
-    | "r19" -> r.R19
-    | "r20" -> r.R20
-    | "r21" -> r.R21
-    | "r22" -> r.R22
-    | "r23" -> r.R23
-    | "r24" -> r.R24
-    | "r25" -> r.R25
-    | "r26" -> r.R26
-    | "r27" -> r.R27
-    | "r28" -> r.R28
-    | "r29" -> r.R29
-    | "r30" -> r.R30
-    | "r31" -> r.R31
+    | "x0" -> r.X0
+    | "x1" -> r.X1
+    | "x2" -> r.X2
+    | "x3" -> r.X3
+    | "x4" -> r.X4
+    | "x5" -> r.X5
+    | "x6" -> r.X6
+    | "x7" -> r.X7
+    | "x8" -> r.X8
+    | "x9" -> r.X9
+    | "x10" -> r.X10
+    | "x11" -> r.X11
+    | "x12" -> r.X12
+    | "x13" -> r.X13
+    | "x14" -> r.X14
+    | "x15" -> r.X15
+    | "x16" -> r.X16
+    | "x17" -> r.X17
+    | "x18" -> r.X18
+    | "x19" -> r.X19
+    | "x20" -> r.X20
+    | "x21" -> r.X21
+    | "x22" -> r.X22
+    | "x23" -> r.X23
+    | "x24" -> r.X24
+    | "x25" -> r.X25
+    | "x26" -> r.X26
+    | "x27" -> r.X27
+    | "x28" -> r.X28
+    | "x29" -> r.X29
+    | "x30" -> r.X30
+    | "x31" -> r.X31
     | "f0" -> r.F0
     | "f1" -> r.F1
     | "f2" -> r.F2
@@ -126,38 +124,8 @@ type PPC32RegisterBay internal (wordSize, r: RegExprs) =
     | "f29" -> r.F29
     | "f30" -> r.F30
     | "f31" -> r.F31
-    | "cr0_0" -> r.CR0_0
-    | "cr0_1" -> r.CR0_1
-    | "cr0_2" -> r.CR0_2
-    | "cr0_3" -> r.CR0_3
-    | "cr1_0" -> r.CR1_0
-    | "cr1_1" -> r.CR1_1
-    | "cr1_2" -> r.CR1_2
-    | "cr1_3" -> r.CR1_3
-    | "cr2_0" -> r.CR2_0
-    | "cr2_1" -> r.CR2_1
-    | "cr2_2" -> r.CR2_2
-    | "cr2_3" -> r.CR2_3
-    | "cr3_0" -> r.CR3_0
-    | "cr3_1" -> r.CR3_1
-    | "cr3_2" -> r.CR3_2
-    | "cr3_3" -> r.CR3_3
-    | "cr4_0" -> r.CR4_0
-    | "cr4_1" -> r.CR4_1
-    | "cr4_2" -> r.CR4_2
-    | "cr4_3" -> r.CR4_3
-    | "cr5_0" -> r.CR5_0
-    | "cr5_1" -> r.CR5_1
-    | "cr5_2" -> r.CR5_2
-    | "cr5_3" -> r.CR5_3
-    | "cr6_0" -> r.CR6_0
-    | "cr6_1" -> r.CR6_1
-    | "cr6_2" -> r.CR6_2
-    | "cr6_3" -> r.CR6_3
-    | "cr7_0" -> r.CR7_0
-    | "cr7_1" -> r.CR7_1
-    | "cr7_2" -> r.CR7_2
-    | "cr7_3" -> r.CR7_3
+    | "pc" -> r.PC
+    | "fcsr" -> r.FCSR
     | _ -> raise UnhandledRegExprException
 
   override __.RegIDFromString str =
@@ -167,22 +135,25 @@ type PPC32RegisterBay internal (wordSize, r: RegExprs) =
     Register.ofRegID rid |> Register.toString
 
   override __.RegIDToRegType rid =
-    if rid < 0x40<RegisterID.T> then WordSize.toRegType wordSize
-    else 4<rt>
+    Register.ofRegID rid |> Register.toRegType wordSize
 
-  override __.GetRegisterAliases rid =
-    [| rid |]
+  override __.GetRegisterAliases _rid =
+    Utils.futureFeature ()
 
-  override __.ProgramCounter = Utils.futureFeature ()
+  override __.ProgramCounter =
+    Register.PC |> Register.toRegID
 
   override __.StackPointer =
-    Register.R1 |> Register.toRegID |> Some
+    Register.X30 |> Register.toRegID |> Some
 
-  override __.FramePointer = None
+  override __.FramePointer =
+    Register.X29 |> Register.toRegID |> Some
 
-  override __.IsProgramCounter _ = false
+  override __.IsProgramCounter rid =
+    __.ProgramCounter = rid
 
   override __.IsStackPointer rid =
     (__.StackPointer |> Option.get) = rid
 
-  override __.IsFramePointer _ = false
+  override __.IsFramePointer rid =
+    (__.FramePointer |> Option.get) = rid

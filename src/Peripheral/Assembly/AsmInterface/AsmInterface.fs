@@ -37,8 +37,8 @@ type AsmInterface (isa: ISA, startAddress) =
     | Architecture.MIPS32
     | Architecture.MIPS64
     | _ -> raise InvalidISAException
-  let struct (ctxt, regbay) = Basis.init isa
-  let uirParser = LowUIR.LowUIRParser (isa, regbay)
+  let struct (ctxt, regFactory) = Basis.init isa
+  let uirParser = LowUIR.LowUIRParser (isa, regFactory)
 
   /// Parse the given assembly input, and assemble a list of byte arrays, where
   /// each array corresponds to a binary instruction.

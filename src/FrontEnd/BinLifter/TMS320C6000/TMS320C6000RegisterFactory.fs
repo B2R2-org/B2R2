@@ -22,15 +22,14 @@
   SOFTWARE.
 *)
 
-namespace B2R2.FrontEnd.BinLifter.SPARC
+namespace B2R2.FrontEnd.BinLifter.TMS320C6000
 
 open B2R2
 open B2R2.FrontEnd.BinLifter
 open B2R2.BinIR.LowUIR
 
-type SPARCRegisterBay () =
-
-  inherit RegisterBay ()
+type TMS320C6000RegisterFactory () =
+  inherit RegisterFactory ()
 
   override __.GetAllRegExprs () = Utils.futureFeature ()
 
@@ -41,7 +40,7 @@ type SPARCRegisterBay () =
   override __.RegIDFromRegExpr (e) =
     match e.E with
     | Var (_, id, _) -> id
-    | PCVar _ -> Register.toRegID Register.PC
+    | PCVar _ -> Register.toRegID Register.PCE1
     | _ -> raise InvalidRegisterException
 
   override __.RegIDToRegExpr (id) = Utils.futureFeature ()
@@ -50,9 +49,9 @@ type SPARCRegisterBay () =
   override __.RegIDToString _ = Utils.futureFeature ()
   override __.RegIDToRegType _ = Utils.futureFeature ()
   override __.GetRegisterAliases _ = Utils.futureFeature ()
-  override __.ProgramCounter = Register.PC |> Register.toRegID
-  override __.StackPointer = Register.O6 |> Register.toRegID |> Some
-  override __.FramePointer = Register.I6 |> Register.toRegID |> Some
-  override __.IsProgramCounter regid = __.ProgramCounter = regid
+  override __.ProgramCounter = Utils.futureFeature ()
+  override __.StackPointer = Utils.futureFeature ()
+  override __.FramePointer = Utils.futureFeature ()
+  override __.IsProgramCounter _ = Utils.futureFeature ()
   override __.IsStackPointer _ = Utils.futureFeature ()
   override __.IsFramePointer _ = Utils.futureFeature ()

@@ -58,11 +58,9 @@ module Basis =
     let regexprs = RegExprs (isa.WordSize)
     struct (
       PPC32TranslationContext (isa, regexprs) :> TranslationContext,
-      PPC32RegisterBay (isa.WordSize, regexprs) :> RegisterBay
+      PPC32RegisterFactory (isa.WordSize, regexprs) :> RegisterFactory
     )
 
-  let initRegBay isa =
+  let initRegFactory isa =
     let regexprs = RegExprs (isa.WordSize)
-    PPC32RegisterBay (isa.WordSize, regexprs) :> RegisterBay
-
-// vim: set tw=80 sts=2 sw=2:
+    PPC32RegisterFactory (isa.WordSize, regexprs) :> RegisterFactory

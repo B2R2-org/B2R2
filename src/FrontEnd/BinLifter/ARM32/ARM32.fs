@@ -39,11 +39,9 @@ module Basis =
     let regexprs = RegExprs ()
     struct (
       ARM32TranslationContext (isa, regexprs) :> TranslationContext,
-      ARM32RegisterBay (regexprs) :> RegisterBay
+      ARM32RegisterFactory (regexprs) :> RegisterFactory
     )
 
-  let initRegBay () =
+  let initRegFactory () =
     let regexprs = RegExprs ()
-    ARM32RegisterBay (regexprs) :> RegisterBay
-
-// vim: set tw=80 sts=2 sw=2:
+    ARM32RegisterFactory (regexprs) :> RegisterFactory

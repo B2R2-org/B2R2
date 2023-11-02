@@ -58,9 +58,9 @@ module Basis =
     let regexprs = RegExprs (isa.WordSize)
     struct (
       SH4TranslationContext (isa, regexprs) :> TranslationContext,
-      SH4RegisterBay (regexprs) :> RegisterBay
+      SH4RegisterFactory (regexprs) :> RegisterFactory
     )
 
-  let initRegBay isa =
+  let initRegFactory isa =
     let regexprs = RegExprs (isa.WordSize)
-    SH4RegisterBay (regexprs) :> RegisterBay
+    SH4RegisterFactory (regexprs) :> RegisterFactory

@@ -10,7 +10,7 @@
   <ItemGroup>
     <Compile Include="SPARCRegister.fs" />
     <Compile Include="SPARCRegExprs.fs" />
-    <Compile Include="SPARCRegisterBay.fs" />
+    <Compile Include="SPARCRegisterFactory.fs" />
     <Compile Include="SPARCTypes.fs" />
     <Compile Include="SPARCDisasm.fs" />
     <Compile Include="SPARCGeneralLifter.fs" />

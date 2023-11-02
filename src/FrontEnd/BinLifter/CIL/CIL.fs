@@ -55,5 +55,5 @@ module Basis =
     let regexprs = RegExprs ()
     struct (
       CILTranslationContext (isa, regexprs) :> TranslationContext,
-      CILRegisterBay () :> RegisterBay
+      CILRegisterFactory () :> RegisterFactory
     )

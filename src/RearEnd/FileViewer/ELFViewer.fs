@@ -336,7 +336,7 @@ let dumpLinkageTable (opts: FileViewerOpts) (elf: ELFBinFile) =
           (toLibString >> normalizeEmpty) e.LibraryName ]))
 
 let cfaToString (hdl: BinHandle) cfa =
-  CanonicalFrameAddress.toString hdl.RegisterBay cfa
+  CanonicalFrameAddress.toString hdl.RegisterFactory cfa
 
 let ruleToString (hdl: BinHandle) (rule: Rule) =
   rule
@@ -344,7 +344,7 @@ let ruleToString (hdl: BinHandle) (rule: Rule) =
     match k with
     | ReturnAddress -> s + "(ra:" + Action.toString v + ")"
     | NormalReg rid ->
-      let reg = hdl.RegisterBay.RegIDToString rid
+      let reg = hdl.RegisterFactory.RegIDToString rid
       s + "(" + reg + ":" + Action.toString v + ")") ""
 
 let dumpEHFrame hdl (file: ELFBinFile) =

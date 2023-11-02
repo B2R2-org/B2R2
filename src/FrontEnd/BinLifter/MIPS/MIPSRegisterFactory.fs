@@ -28,8 +28,8 @@ open B2R2
 open B2R2.FrontEnd.BinLifter
 open B2R2.BinIR.LowUIR
 
-type MIPSRegisterBay internal (wordSize, r: RegExprs) =
-  inherit RegisterBay ()
+type MIPSRegisterFactory internal (wordSize, r: RegExprs) =
+  inherit RegisterFactory ()
 
   override __.GetAllRegExprs () =
     [ r.HI; r.LO; r.PC; r.R0; r.R1; r.R2; r.R3; r.R4; r.R5; r.R6; r.R7; r.R8;

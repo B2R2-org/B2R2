@@ -66,7 +66,5 @@ module Basis =
     let regexprs = RegExprs ()
     struct (
       EVMTranslationContext (isa, regexprs) :> TranslationContext,
-      EVMRegisterBay () :> RegisterBay
+      EVMRegisterFactory () :> RegisterFactory
     )
-
-// vim: set tw=80 sts=2 sw=2:

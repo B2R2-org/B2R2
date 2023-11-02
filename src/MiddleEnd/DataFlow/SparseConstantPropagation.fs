@@ -34,10 +34,10 @@ open B2R2.MiddleEnd.DataFlow.Utils
 module private SparseConstantPropagation =
   let initRegister (hdl: BinHandle) =
     let dict = Dictionary ()
-    match hdl.RegisterBay.StackPointer with
+    match hdl.RegisterFactory.StackPointer with
     | Some sp ->
-      let rt = hdl.RegisterBay.RegIDToRegType sp
-      let str = hdl.RegisterBay.RegIDToString sp
+      let rt = hdl.RegisterFactory.RegIDToRegType sp
+      let str = hdl.RegisterFactory.RegIDToString sp
       let var = { Kind = RegVar (rt, sp, str); Identifier = 0 }
       dict[var] <- Const (BitVector.OfUInt64 InitialStackPointer rt)
       dict
@@ -48,7 +48,6 @@ module private SparseConstantPropagation =
 /// from external sections, e.g., rodata. If the reader is not given, we simply
 /// ignore such global data.
 type SparseConstantPropagation (hdl, ssaCFG, ?reader) as this =
-
   inherit ConstantPropagation<SCPValue> (ssaCFG)
 
   let reader = defaultArg reader (fun _ _ -> None)

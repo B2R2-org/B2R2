@@ -33,10 +33,10 @@ open B2R2.FrontEnd
 module private StackPointerPropagation =
   let initRegister (hdl: BinHandle) =
     let dict = Dictionary ()
-    match hdl.RegisterBay.StackPointer with
+    match hdl.RegisterFactory.StackPointer with
     | Some sp ->
-      let rt = hdl.RegisterBay.RegIDToRegType sp
-      let str = hdl.RegisterBay.RegIDToString sp
+      let rt = hdl.RegisterFactory.RegIDToRegType sp
+      let str = hdl.RegisterFactory.RegIDToString sp
       let var = { Kind = RegVar (rt, sp, str); Identifier = 0 }
       dict[var] <- Const (BitVector.OfUInt64 Utils.InitialStackPointer rt)
       dict

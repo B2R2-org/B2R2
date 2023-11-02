@@ -27,10 +27,11 @@ namespace B2R2.FrontEnd.BinLifter
 open B2R2
 open B2R2.BinIR.LowUIR
 
-/// RegisterBay provides a useful interface for accessing register information
-/// in a platform-agnostic manner.
+/// RegisterFactory provides a useful interface for accessing register related
+/// information such as register names, register expressions, register types,
+/// and their IDs, in a platform-agnostic manner.
 [<AbstractClass>]
-type RegisterBay () =
+type RegisterFactory () =
   /// Return all register expressions.
   abstract member GetAllRegExprs: unit -> Expr list
 

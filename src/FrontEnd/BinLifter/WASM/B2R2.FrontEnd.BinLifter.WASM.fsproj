@@ -10,7 +10,7 @@
   <ItemGroup>
     <Compile Include="WASMTypes.fs" />
     <Compile Include="WASMRegExprs.fs" />
-    <Compile Include="WASMRegisterBay.fs" />
+    <Compile Include="WASMRegisterFactory.fs" />
     <Compile Include="WASMDisasm.fs" />
     <Compile Include="WASMInstruction.fs" />
     <Compile Include="WASMParser.fs" />

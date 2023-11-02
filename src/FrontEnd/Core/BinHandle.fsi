@@ -70,8 +70,8 @@ type BinHandle =
   /// Parser.
   member Parser: IInstructionParsable
 
-  /// Register bay.
-  member RegisterBay: RegisterBay
+  /// Register factory.
+  member RegisterFactory: RegisterFactory
 
   /// <summary>
   ///   Return the byte array of size (nBytes) located at the address (addr).

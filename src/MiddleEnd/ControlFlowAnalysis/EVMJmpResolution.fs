@@ -37,10 +37,10 @@ open B2R2.MiddleEnd.DataFlow
 module private EVMJmpResolution =
 
   let tryGetStackPointerValue (hdl: BinHandle) srcV cpState =
-    match hdl.RegisterBay.StackPointer with
+    match hdl.RegisterFactory.StackPointer with
     | Some sp ->
-      let t = hdl.RegisterBay.RegIDToRegType sp
-      let str = hdl.RegisterBay.RegIDToString sp
+      let t = hdl.RegisterFactory.RegIDToRegType sp
+      let str = hdl.RegisterFactory.RegIDToString sp
       let k = RegVar (t, sp, str)
       match SSACFG.findDef srcV k with
       | Some (Def (_, e)) ->

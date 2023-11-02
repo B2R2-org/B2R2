@@ -32,7 +32,7 @@ open B2R2.FrontEnd.BinFile.ELF.Helper
 /// <summary>
 ///   This class represents an ELF binary file.
 /// </summary>
-type ELFBinFile (path, bytes: byte[], baseAddrOpt, regbay) =
+type ELFBinFile (path, bytes: byte[], baseAddrOpt, rfOpt) =
   let toolBox = Header.parse baseAddrOpt bytes
   let hdr = toolBox.Header
   let phdrs = lazy ProgramHeader.parse toolBox
@@ -41,7 +41,7 @@ type ELFBinFile (path, bytes: byte[], baseAddrOpt, regbay) =
   let symbInfo = lazy Symbol.parse toolBox shdrs.Value
   let relocs = lazy RelocationInfo.parse toolBox shdrs.Value symbInfo.Value
   let plt = lazy PLT.parse toolBox shdrs.Value symbInfo.Value relocs.Value
-  let exnInfo = lazy ExceptionInfo.parse toolBox shdrs.Value regbay relocs.Value
+  let exnInfo = lazy ExceptionInfo.parse toolBox shdrs.Value rfOpt relocs.Value
   let notInMemRanges = lazy invalidRangesByVM hdr loadables.Value
   let notInFileRanges = lazy invalidRangesByFileBounds hdr loadables.Value
   let executableRanges = lazy executableRanges shdrs.Value loadables.Value

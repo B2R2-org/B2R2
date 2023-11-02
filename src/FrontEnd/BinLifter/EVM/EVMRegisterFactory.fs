@@ -22,13 +22,14 @@
   SOFTWARE.
 *)
 
-namespace B2R2.FrontEnd.BinLifter.WASM
+namespace B2R2.FrontEnd.BinLifter.EVM
 
 open B2R2
 open B2R2.FrontEnd.BinLifter
+open B2R2.BinIR.LowUIR
 
-type WASMRegisterBay () =
-  inherit RegisterBay ()
+type EVMRegisterFactory () =
+  inherit RegisterFactory ()
 
   override __.GetAllRegExprs () = Utils.futureFeature ()
 
@@ -36,9 +37,13 @@ type WASMRegisterBay () =
 
   override __.GetGeneralRegExprs () = Utils.futureFeature ()
 
-  override __.RegIDFromRegExpr (_e) = Utils.futureFeature ()
+  override __.RegIDFromRegExpr (e) =
+    match e.E with
+    | Var (_, id, _) -> id
+    | PCVar _ -> Register.toRegID Register.PC
+    | _ -> raise InvalidRegisterException
 
-  override __.RegIDToRegExpr (_id) = Utils.impossible ()
+  override __.RegIDToRegExpr (id) = Utils.impossible ()
 
   override __.StrToRegExpr _s = Utils.impossible ()
 
@@ -53,16 +58,18 @@ type WASMRegisterBay () =
 
   override __.GetRegisterAliases _ = Utils.futureFeature ()
 
-  override __.ProgramCounter = Utils.impossible()
+  override __.ProgramCounter =
+    Register.PC |> Register.toRegID
 
-  override __.StackPointer = Utils.futureFeature ()
+  override __.StackPointer =
+    Register.SP |> Register.toRegID |> Some
 
-  override __.FramePointer = Utils.impossible ()
+  override __.FramePointer = Utils.futureFeature ()
 
-  override __.IsProgramCounter regid = Utils.futureFeature ()
+  override __.IsProgramCounter regid =
+    __.ProgramCounter = regid
 
-  override __.IsStackPointer regid = Utils.futureFeature ()
+  override __.IsStackPointer regid =
+    (__.StackPointer |> Option.get) = regid
 
-  override __.IsFramePointer _ = Utils.impossible ()
-
-// vim: set tw=80 sts=2 sw=2:
+  override __.IsFramePointer _ = false

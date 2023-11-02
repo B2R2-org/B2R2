@@ -35,7 +35,7 @@ open B2R2.MiddleEnd.BinGraph
 module private SSABasicBlockHelper =
   let private buildRegVar (hdl: BinHandle) reg =
     let wordSize = hdl.File.ISA.WordSize |> WordSize.toRegType
-    RegVar (wordSize, reg, hdl.RegisterBay.RegIDToString reg)
+    RegVar (wordSize, reg, hdl.RegisterFactory.RegIDToString reg)
 
   let private addReturnValDef (hdl: BinHandle) defs =
     match hdl.File.ISA.Arch with
@@ -46,7 +46,7 @@ module private SSABasicBlockHelper =
       Set.add def defs
 
   let private addStackDef (hdl: BinHandle) defs =
-    match hdl.RegisterBay.StackPointer with
+    match hdl.RegisterFactory.StackPointer with
     | Some sp ->
       let def = { Kind = buildRegVar hdl sp; Identifier = -1 }
       Set.add def defs

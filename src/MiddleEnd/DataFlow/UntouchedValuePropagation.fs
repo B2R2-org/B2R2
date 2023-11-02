@@ -33,18 +33,18 @@ open B2R2.MiddleEnd.DataFlow.Utils
 module private UntouchedValuePropagation =
   let initRegister (hdl: BinHandle) =
     let dict = Dictionary ()
-    hdl.RegisterBay.GetGeneralRegExprs ()
+    hdl.RegisterFactory.GetGeneralRegExprs ()
     |> List.iter (fun regExpr ->
-      let rid = hdl.RegisterBay.RegIDFromRegExpr regExpr
-      let rt = hdl.RegisterBay.RegIDToRegType rid
-      let str = hdl.RegisterBay.RegIDToString rid
+      let rid = hdl.RegisterFactory.RegIDFromRegExpr regExpr
+      let rt = hdl.RegisterFactory.RegIDToRegType rid
+      let str = hdl.RegisterFactory.RegIDToString rid
       let var = { Kind = RegVar (rt, rid, str); Identifier = 0 }
       dict[var] <- Untouched (RegisterTag var)
     )
-    match hdl.RegisterBay.StackPointer with
+    match hdl.RegisterFactory.StackPointer with
     | Some sp ->
-      let rt = hdl.RegisterBay.RegIDToRegType sp
-      let str = hdl.RegisterBay.RegIDToString sp
+      let rt = hdl.RegisterFactory.RegIDToRegType sp
+      let str = hdl.RegisterFactory.RegIDToString sp
       let var = { Kind = RegVar (rt, sp, str); Identifier = 0 }
       dict[var] <- Touched
       dict

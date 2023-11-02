@@ -27,7 +27,6 @@ module B2R2.MiddleEnd.ControlFlowAnalysis.EvalHelper
 open System.Collections.Generic
 open B2R2
 open B2R2.FrontEnd
-open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.MiddleEnd.ConcEval
 
@@ -43,13 +42,13 @@ let private memoryReader (hdl: BinHandle) _pc addr typ _e =
 let private stackAddr t = BitVector.OfInt32 0x1000000 t
 
 let private obtainStackDef (hdl: BinHandle) =
-  match hdl.RegisterBay.StackPointer with
+  match hdl.RegisterFactory.StackPointer with
   | Some r ->
     Some (r, hdl.File.ISA.WordSize |> WordSize.toRegType |> stackAddr)
   | None -> None
 
 let private obtainFramePointerDef (hdl: BinHandle) =
-  match hdl.RegisterBay.FramePointer with
+  match hdl.RegisterFactory.FramePointer with
   | Some r ->
     Some (r, hdl.File.ISA.WordSize |> WordSize.toRegType |> BitVector.Zero)
   | None -> None

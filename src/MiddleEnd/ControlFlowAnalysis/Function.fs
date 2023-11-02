@@ -134,13 +134,20 @@ module private RegularFunction =
     match hdl.File.ISA.Arch with
     | Architecture.IntelX86 ->
       match hdl.ReadUInt (addr, 4) with
-      | 0xc324048bUL -> YesGetPCThunk <| hdl.RegisterBay.RegIDFromString "EAX"
-      | 0xc3241c8bUL -> YesGetPCThunk <| hdl.RegisterBay.RegIDFromString "EBX"
-      | 0xc3240c8bUL -> YesGetPCThunk <| hdl.RegisterBay.RegIDFromString "ECX"
-      | 0xc324148bUL -> YesGetPCThunk <| hdl.RegisterBay.RegIDFromString "EDX"
-      | 0xc324348bUL -> YesGetPCThunk <| hdl.RegisterBay.RegIDFromString "ESI"
-      | 0xc3243c8bUL -> YesGetPCThunk <| hdl.RegisterBay.RegIDFromString "EDI"
-      | 0xc3242c8bUL -> YesGetPCThunk <| hdl.RegisterBay.RegIDFromString "EBP"
+      | 0xc324048bUL ->
+        YesGetPCThunk <| hdl.RegisterFactory.RegIDFromString "EAX"
+      | 0xc3241c8bUL ->
+        YesGetPCThunk <| hdl.RegisterFactory.RegIDFromString "EBX"
+      | 0xc3240c8bUL ->
+        YesGetPCThunk <| hdl.RegisterFactory.RegIDFromString "ECX"
+      | 0xc324148bUL ->
+        YesGetPCThunk <| hdl.RegisterFactory.RegIDFromString "EDX"
+      | 0xc324348bUL ->
+        YesGetPCThunk <| hdl.RegisterFactory.RegIDFromString "ESI"
+      | 0xc3243c8bUL ->
+        YesGetPCThunk <| hdl.RegisterFactory.RegIDFromString "EDI"
+      | 0xc3242c8bUL ->
+        YesGetPCThunk <| hdl.RegisterFactory.RegIDFromString "EBP"
       | _ -> NoGetPCThunk
     | _ -> NoGetPCThunk
 

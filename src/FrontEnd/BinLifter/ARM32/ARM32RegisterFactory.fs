@@ -27,9 +27,8 @@ namespace B2R2.FrontEnd.BinLifter.ARM32
 open B2R2.FrontEnd.BinLifter
 open B2R2.BinIR.LowUIR
 
-type ARM32RegisterBay internal (r: RegExprs) =
-
-  inherit RegisterBay ()
+type ARM32RegisterFactory internal (r: RegExprs) =
+  inherit RegisterFactory ()
 
   override __.GetAllRegExprs () =
     [ r.R0; r.R1; r.R2 ; r.R3; r.R4; r.R5; r.R6; r.R7; r.R8; r.SB; r.SL; r.FP;

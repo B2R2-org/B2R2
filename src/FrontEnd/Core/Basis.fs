@@ -29,7 +29,7 @@ open B2R2
 open B2R2.FrontEnd.BinLifter
 
 /// Establish the basis for lifting. This function returns a pair of
-/// TranslationContext and RegisterBay.
+/// TranslationContext and RegisterFactory.
 [<CompiledName ("Init")>]
 let init isa =
   match isa.Arch with

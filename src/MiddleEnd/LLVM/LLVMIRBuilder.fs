@@ -91,7 +91,7 @@ type LLVMIRBuilder (fname: string, addr, hdl: BinHandle, ctxt: LLVMContext) =
 
   member __.EmitRegLoad reg =
     let struct (ptr, elm, sz) = __.LoadRegisterPtr reg
-    let rname = hdl.RegisterBay.RegIDToString reg
+    let rname = hdl.RegisterFactory.RegIDToString reg
     let rvar = newID sz
     __.EmitStmt <| LLVMStmt.mkLoad rvar ptr (Some $"; {rname}")
     if RegType.toBitWidth elm.RType = elm.Size * 8 then
@@ -103,12 +103,12 @@ type LLVMIRBuilder (fname: string, addr, hdl: BinHandle, ctxt: LLVMContext) =
       Ident rvar'
 
   member __.EmitPCLoad () =
-    let pc = hdl.RegisterBay.ProgramCounter
+    let pc = hdl.RegisterFactory.ProgramCounter
     __.EmitRegLoad pc
 
   member __.EmitRegStore lreg rexp =
     let struct (ptr, elm, sz) = __.LoadRegisterPtr lreg
-    let rname = hdl.RegisterBay.RegIDToString lreg
+    let rname = hdl.RegisterFactory.RegIDToString lreg
     if RegType.toBitWidth elm.RType = elm.Size * 8 then (* normal case *)
       __.EmitStmt <| LLVMStmt.mkStore rexp ptr None (Some rname)
     else
@@ -126,7 +126,7 @@ type LLVMIRBuilder (fname: string, addr, hdl: BinHandle, ctxt: LLVMContext) =
     Branch (None, [| Label "final" |]) |> __.EmitStmt
 
   member __.EmitPCStore target =
-    let pc = hdl.RegisterBay.ProgramCounter
+    let pc = hdl.RegisterFactory.ProgramCounter
     __.EmitRegStore pc target
     __.EmitBranchToFinal ()
 

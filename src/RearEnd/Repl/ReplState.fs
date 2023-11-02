@@ -33,24 +33,24 @@ type ParserState =
   | LowUIRParser
   | BinParser of Architecture
 
-type ReplState (isa: ISA, regbay: RegisterBay, doFiltering) =
+type ReplState (isa: ISA, regFactory: RegisterFactory, doFiltering) =
   let rstate = EvalState ()
   let mutable parser = BinParser isa.Arch
   do
     rstate.SideEffectEventHandler <-
       (fun e st -> printfn $"[*] Unhandled side-effect ({e}) encountered"
                    st.IsInstrTerminated <- true)
-    regbay.GetAllRegExprs ()
+    regFactory.GetAllRegExprs ()
     |> List.map (fun r ->
-      (regbay.RegIDFromRegExpr r, BitVector.OfInt32 0 (TypeCheck.typeOf r)))
+      (regFactory.RegIDFromRegExpr r, BitVector.OfInt32 0 (TypeCheck.typeOf r)))
     |> rstate.InitializeContext 0UL
   let mutable prevReg =
     rstate.Registers.ToArray ()
     |> Array.map (fun (i, v) -> RegisterID.create i, v)
   let mutable prevTmp = rstate.Temporaries.ToArray ()
   let generalRegs =
-    regbay.GetGeneralRegExprs ()
-    |> List.map regbay.RegIDFromRegExpr
+    regFactory.GetGeneralRegExprs ()
+    |> List.map regFactory.RegIDFromRegExpr
     |> Set.ofList
 
   member private __.EvaluateStmts (stmts: Stmt []) =
@@ -88,7 +88,7 @@ type ReplState (isa: ISA, regbay: RegisterBay, doFiltering) =
     |> Seq.toList
     |> __.Filter
     |> List.map (fun (r, v) ->
-      let regStr = regbay.RegIDToString r
+      let regStr = regFactory.RegIDToString r
       let regVal = v.ToString ()
       regStr + ": " + regVal, Set.contains r set)
 

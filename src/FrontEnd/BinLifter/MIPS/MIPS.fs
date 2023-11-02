@@ -60,11 +60,9 @@ module Basis =
     let regexprs = RegExprs (isa.WordSize)
     struct (
       MIPSTranslationContext (isa, regexprs) :> TranslationContext,
-      MIPSRegisterBay (isa.WordSize, regexprs) :> RegisterBay
+      MIPSRegisterFactory (isa.WordSize, regexprs) :> RegisterFactory
     )
 
-  let initRegBay isa =
+  let initRegFactory isa =
     let regexprs = RegExprs (isa.WordSize)
-    MIPSRegisterBay (isa.WordSize, regexprs) :> RegisterBay
-
-// vim: set tw=80 sts=2 sw=2:
+    MIPSRegisterFactory (isa.WordSize, regexprs) :> RegisterFactory

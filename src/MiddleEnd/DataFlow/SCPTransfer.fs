@@ -103,7 +103,7 @@ let evalReturn st (blk: SSAVertex) ret var =
   | RegVar (rt, rid, _) ->
     let hdl = st.BinHandle
     let fakeBlockInfo = blk.VData.FakeBlockInfo
-    if hdl.RegisterBay.IsStackPointer rid then
+    if hdl.RegisterFactory.IsStackPointer rid then
       let value = CPState.findReg st var
       let shiftAmount = Const (Utils.computeStackShift rt blk)
       evalBinOp BinOpType.ADD value shiftAmount

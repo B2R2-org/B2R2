@@ -58,7 +58,5 @@ module Basis =
     let regexprs = RegExprs (isa.WordSize)
     struct (
       SPARCTranslationContext (isa, regexprs) :> TranslationContext,
-      SPARCRegisterBay () :> RegisterBay
+      SPARCRegisterFactory () :> RegisterFactory
     )
-
-// vim: set tw=80 sts=2 sw=2:

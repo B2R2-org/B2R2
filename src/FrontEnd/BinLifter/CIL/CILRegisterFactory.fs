@@ -22,37 +22,54 @@
   SOFTWARE.
 *)
 
-namespace B2R2.FrontEnd.BinLifter.TMS320C6000
+namespace B2R2.FrontEnd.BinLifter.CIL
 
 open B2R2
 open B2R2.FrontEnd.BinLifter
 open B2R2.BinIR.LowUIR
 
-type TMS320C6000RegisterBay () =
-
-  inherit RegisterBay ()
+type CILRegisterFactory () =
+  inherit RegisterFactory ()
 
   override __.GetAllRegExprs () = Utils.futureFeature ()
 
-  override __.GetAllRegNames () = Utils.futureFeature ()
+  override __.GetAllRegNames () = []
 
   override __.GetGeneralRegExprs () = Utils.futureFeature ()
 
   override __.RegIDFromRegExpr (e) =
     match e.E with
     | Var (_, id, _) -> id
-    | PCVar _ -> Register.toRegID Register.PCE1
+    | PCVar _ -> Register.toRegID Register.PC
     | _ -> raise InvalidRegisterException
 
-  override __.RegIDToRegExpr (id) = Utils.futureFeature ()
-  override __.StrToRegExpr _s = Utils.futureFeature ()
-  override __.RegIDFromString _s = Utils.futureFeature ()
-  override __.RegIDToString _ = Utils.futureFeature ()
-  override __.RegIDToRegType _ = Utils.futureFeature ()
+  override __.RegIDToRegExpr (_id) = Utils.impossible ()
+
+  override __.StrToRegExpr _s = Utils.impossible ()
+
+  override __.RegIDFromString str =
+    Register.ofString str |> Register.toRegID
+
+  override __.RegIDToString rid =
+    Register.ofRegID rid |> Register.toString
+
+  override __.RegIDToRegType rid =
+    Register.ofRegID rid |> Register.toRegType
+
   override __.GetRegisterAliases _ = Utils.futureFeature ()
-  override __.ProgramCounter = Utils.futureFeature ()
-  override __.StackPointer = Utils.futureFeature ()
+
+  override __.ProgramCounter =
+    Register.PC |> Register.toRegID
+
+  override __.StackPointer =
+    Register.SP |> Register.toRegID |> Some
+
   override __.FramePointer = Utils.futureFeature ()
-  override __.IsProgramCounter _ = Utils.futureFeature ()
-  override __.IsStackPointer _ = Utils.futureFeature ()
-  override __.IsFramePointer _ = Utils.futureFeature ()
+
+  override __.IsProgramCounter regid =
+    __.ProgramCounter = regid
+
+  override __.IsStackPointer regid =
+    (__.StackPointer |> Option.get) = regid
+
+  override __.IsFramePointer _ = false

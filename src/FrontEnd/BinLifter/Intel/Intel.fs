@@ -41,11 +41,9 @@ module Basis =
     let regexprs = RegExprs (isa.WordSize)
     struct (
       IntelTranslationContext (isa, regexprs) :> TranslationContext,
-      IntelRegisterBay (isa.WordSize, regexprs) :> RegisterBay
+      IntelRegisterFactory (isa.WordSize, regexprs) :> RegisterFactory
     )
 
-  let initRegBay wordSize =
+  let initRegFactory wordSize =
     let regexprs = RegExprs (wordSize)
-    IntelRegisterBay (wordSize, regexprs) :> RegisterBay
-
-// vim: set tw=80 sts=2 sw=2:
+    IntelRegisterFactory (wordSize, regexprs) :> RegisterFactory

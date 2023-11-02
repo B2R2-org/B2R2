@@ -55,9 +55,9 @@ let private updateIfStackValueIsConstant (v: SSAVertex) spState sp =
 /// if the function's stack frame (activation record) is located at a constant
 /// stack offset. If so, we remember the offset.
 let private updateStackFrameDistance hdl (v: SSAVertex) spState =
-  match (hdl: BinHandle).RegisterBay.StackPointer with
+  match (hdl: BinHandle).RegisterFactory.StackPointer with
   | Some rid ->
-    let spName = hdl.RegisterBay.RegIDToString rid
+    let spName = hdl.RegisterFactory.RegIDToString rid
     let rt = hdl.File.ISA.WordSize |> WordSize.toRegType
     let spRegKind = RegVar (rt, rid, spName)
     match findLastStackDef v spRegKind with

@@ -12,7 +12,7 @@
     <Compile Include="IntelOpcodes.fs" />
     <Compile Include="IntelTypes.fs" />
     <Compile Include="IntelRegExprs.fs" />
-    <Compile Include="IntelRegisterBay.fs" />
+    <Compile Include="IntelRegisterFactory.fs" />
     <Compile Include="IntelHelper.fs" />
     <Compile Include="IntelOperands.fs" />
     <Compile Include="IntelDisasm.fs" />

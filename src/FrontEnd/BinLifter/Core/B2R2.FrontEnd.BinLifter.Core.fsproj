@@ -12,7 +12,7 @@
     <Compile Include="IRBuilder.fs" />
     <Compile Include="TranslationContext.fs" />
     <Compile Include="AsmWord.fs" />
-    <Compile Include="RegisterBay.fs" />
+    <Compile Include="RegisterFactory.fs" />
     <Compile Include="INameReadable.fs" />
     <Compile Include="DisasmHelper.fs" />
     <Compile Include="DisasmSyntax.fs" />

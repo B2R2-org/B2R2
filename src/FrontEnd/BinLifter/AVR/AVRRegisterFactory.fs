@@ -28,9 +28,8 @@ open B2R2
 open B2R2.FrontEnd.BinLifter
 open B2R2.BinIR.LowUIR
 
-type AVRRegisterBay () =
-
-  inherit RegisterBay ()
+type AVRRegisterFactory () =
+  inherit RegisterFactory ()
 
   override __.GetAllRegExprs () = Utils.futureFeature ()
   override __.GetAllRegNames () = Utils.futureFeature ()

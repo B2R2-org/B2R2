@@ -37,7 +37,7 @@ open B2R2.Peripheral.Assembly.LowUIR.Helper
 
 type Parser<'T> = Parser<'T, RegType>
 
-type LowUIRParser (isa, regbay: RegisterBay) =
+type LowUIRParser (isa, regFactory: RegisterFactory) =
   let isAllowedFirstCharForID c = isAsciiLetter c
 
   let isAllowedCharForID c = isAsciiLetter c || isDigit c
@@ -91,13 +91,13 @@ type LowUIRParser (isa, regbay: RegisterBay) =
 
   let pNum = pBitVector |>> AST.num
 
-  let regnames = regbay.GetAllRegNames ()
+  let regnames = regFactory.GetAllRegNames ()
 
   let pVar =
     regnames
     |> List.map (pstringCI >> attempt)
     |> choice
-    |>> regbay.StrToRegExpr
+    |>> regFactory.StrToRegExpr
 
   let pTempVar =
     pstring "T_" >>. pint32 .>> ws

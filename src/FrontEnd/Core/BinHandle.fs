@@ -34,7 +34,7 @@ open type B2R2.ArchOperationMode
 
 type BinHandle private (path, bytes, fmt, isa, baseAddrOpt, mode) =
   let binFile = FileFactory.load path bytes fmt isa baseAddrOpt
-  let struct (ctxt, regbay) = Basis.init binFile.ISA
+  let struct (ctxt, regFactory) = Basis.init binFile.ISA
   let parser = Parser.init binFile.ISA mode binFile.EntryPoint
 
   new (path, isa, baseAddrOpt, mode) =
@@ -68,7 +68,7 @@ type BinHandle private (path, bytes, fmt, isa, baseAddrOpt, mode) =
 
   member __.Parser with get(): IInstructionParsable = parser
 
-  member __.RegisterBay with get(): RegisterBay = regbay
+  member __.RegisterFactory with get(): RegisterFactory = regFactory
 
   member __.TryReadBytes (addr: Addr, nBytes) =
     let range = AddrRange (addr, addr + uint64 nBytes - 1UL)

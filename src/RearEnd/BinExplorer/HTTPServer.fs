@@ -232,8 +232,8 @@ let computeConnectedVars chain v =
 
 let getVarNames (hdl: BinHandle) = function
   | Regular v ->
-    hdl.RegisterBay.GetRegisterAliases v
-    |> Array.map (hdl.RegisterBay.RegIDToString)
+    hdl.RegisterFactory.GetRegisterAliases v
+    |> Array.map (hdl.RegisterFactory.RegIDToString)
   | _ -> [||]
 
 let handleDataflow req resp arbiter (args: string) =
@@ -244,7 +244,7 @@ let handleDataflow req resp arbiter (args: string) =
   let tag = args[2] (* either variable or value. *)
   match tag with
   | "variable" ->
-    let var = args[3] |> ess.BinHandle.RegisterBay.RegIDFromString
+    let var = args[3] |> ess.BinHandle.RegisterFactory.RegIDFromString
     try
       let cfg, root = BinEssence.getFunctionCFG ess entry |> Result.get
       let chain = DataFlowChain.init cfg root true

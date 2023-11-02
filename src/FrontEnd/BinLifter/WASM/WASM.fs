@@ -58,7 +58,5 @@ module Basis =
     let regexprs = RegExprs ()
     struct (
       WASMTranslationContext (isa, regexprs) :> TranslationContext,
-      WASMRegisterBay () :> RegisterBay
+      WASMRegisterFactory () :> RegisterFactory
     )
-
-// vim: set tw=80 sts=2 sw=2:
