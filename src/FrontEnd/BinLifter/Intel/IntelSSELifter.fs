@@ -1958,8 +1958,7 @@ let private getPcmpstrInfo opCode (imm: Expr) =
             | v when v = 2I -> PosMasked
             | v when v = 3I -> NegMasked
             | _ -> Utils.impossible ()
-  let size, nElem =
-    if immByte &&& 1I = 0I then 8<rt>, 16u else 16<rt>, 8u
+  let size, nElem = if immByte &&& 1I = 0I then 8<rt>, 16u else 16<rt>, 8u
   let len, ret =
     match opCode with
     | Opcode.PCMPISTRI | Opcode.VPCMPISTRI -> Implicit, Index
@@ -1976,32 +1975,21 @@ let private getPcmpstrInfo opCode (imm: Expr) =
     Len = len
     Ret = ret }
 
-let private getZSFForPCMPSTR ins insLen ctrl ctxt src1 src2 ir =
-  let src1B, src1A = transOprToExpr128 ir false ins insLen ctxt src1
-  let src2B, src2A = transOprToExpr128 ir false ins insLen ctxt src2
-  let getExZSFlag r =
-    let reg = !.ctxt r
-    AST.lt (AST.ite (AST.xthi 1<rt> reg) (AST.neg reg) reg)
-       (numU32 ctrl.NumElems 32<rt>)
-  let rec getImZSFlag acc srcB srcA idx =
-    let packSz = ctrl.PackSize
-    let packWidth = RegType.toBitWidth packSz
-    let half = ctrl.NumElems / 2u |> int
-    let e, amount = if idx < half then srcA, idx else srcB, idx - half
-    let v e = e >> numI32 (amount * packWidth) 64<rt>
-    let next, cond = idx - 1, idx = 0
-    if cond then AST.ite (AST.xtlo packSz (v e) == AST.num0 packSz) AST.b1 acc
-    else let acc = AST.ite (AST.xtlo packSz (v e) == AST.num0 packSz) AST.b1 acc
-         getImZSFlag acc srcB srcA next
+let private setZFSFOfPCMPSTR ctxt ir ctrl src1 src2  =
+  let inline checkIfElemIsNull exps =
+    Array.map (fun e -> (e == AST.num0 ctrl.PackSize)) exps |> Array.reduce (.|)
+  let inline checkIndexOutOfBounds reg =
+    let abs = !+ir 32<rt>
+    let reg = !.ctxt reg
+    !!ir (abs := AST.ite (AST.xthi 1<rt> reg) (AST.neg reg) reg)
+    abs .< numU32 ctrl.NumElems 32<rt>
   match ctrl.Len with
   | Implicit ->
-    !!ir (!.ctxt R.ZF :=
-      getImZSFlag AST.b0 src2B src2A (ctrl.NumElems - 1u |> int))
-    !!ir (!.ctxt R.SF :=
-      getImZSFlag AST.b0 src1B src1A (ctrl.NumElems - 1u |> int))
+    !!ir (!.ctxt R.ZF := checkIfElemIsNull src2)
+    !!ir (!.ctxt R.SF := checkIfElemIsNull src1)
   | Explicit ->
-    !!ir (!.ctxt R.ZF := getExZSFlag R.EDX)
-    !!ir (!.ctxt R.SF := getExZSFlag R.EAX)
+    !!ir (!.ctxt R.ZF := checkIndexOutOfBounds R.EDX)
+    !!ir (!.ctxt R.SF := checkIndexOutOfBounds R.EAX)
 
 let private combineBits outSz bitArr =
   Array.mapi (fun i b -> AST.zext outSz b << (numI32 i outSz)) bitArr
@@ -2078,8 +2066,7 @@ let pcmpstr ins insLen ctxt =
   let boolRes = Array2D.init nElem nElem (fun _ _ -> !+ir 1<rt>)
   let n0 = AST.num0 packSize
   let regSize, ax, dx =
-    if hasREXW ins.REXPrefix
-    then 64<rt>, !.ctxt R.RAX, !.ctxt R.RDX
+    if hasREXW ins.REXPrefix then 64<rt>, !.ctxt R.RAX, !.ctxt R.RDX
     else 32<rt>, !.ctxt R.EAX, !.ctxt R.EDX
 
   let struct (aInval, bInval) = tmpVars2 ir 1<rt>
@@ -2105,10 +2092,6 @@ let pcmpstr ins insLen ctxt =
       | Explicit -> !!ir (bInval := bInval .| (numI32 j regSize == dx))
       overrideIfDataInvalid ir ctrl aInval bInval boolRes[i, j]
     done
-  done
-
-  for i in 0 .. upperBound do
-    !!ir (!.ctxt R.R8 := combineBits 64<rt> boolRes[*, i]) // Debug
   done
 
   let inline initIntRes initVal = Array.iter (fun r -> !!ir (r := initVal))
@@ -2147,28 +2130,21 @@ let pcmpstr ins insLen ctxt =
       done
     done
 
-  !!ir (!.ctxt R.R14 := combineBits 64<rt> intRes1) // Debug
-
   /// optionally negate results.
   initIntRes AST.b0 intRes2
   for i in 0 .. upperBound do
     match ctrl.Polarity with
-    | PosPolarity (* 0b00 *) | PosMasked (* 0b10 *) ->
-      !!ir (intRes2[i] := intRes1[i])
-    | NegPolarity (* 0b01 *) ->
-      !!ir (intRes2[i] := AST.not intRes1[i])
+    | PosPolarity | PosMasked -> !!ir (intRes2[i] := intRes1[i])
+    | NegPolarity (* 0b01 *) -> !!ir (intRes2[i] := AST.not intRes1[i])
     | NegMasked (* 0b11 *) ->
       match ctrl.Len with
       | Implicit ->
-        !!ir (bInval := AST.b0)
-        !!ir (bInval := AST.ite (src2[i] == n0) AST.b1 bInval)
+        !!ir (bInval := src2[i] == n0)
         !!ir (intRes2[i] := AST.ite bInval intRes1[i] (AST.not intRes1[i]))
       | Explicit ->
         let not = AST.not intRes1[i]
         !!ir (intRes2[i] := AST.ite (numI32 i regSize .>= dx) intRes1[i] not)
   done
-
-  !!ir (!.ctxt R.R15 := combineBits 64<rt> intRes2) // Debug
 
   /// output.
   let iRes2 = !+ir elemSz
@@ -2203,8 +2179,8 @@ let pcmpstr ins insLen ctxt =
     let idx = AST.ite (iRes2 == n0) (numI32 nElem 32<rt>) idx
     !!ir (dstAssign outSz cx idx)
   !!ir (!.ctxt R.CF := iRes2 != AST.num0 elemSz)
-  getZSFForPCMPSTR ins insLen ctrl ctxt s1 s2 ir
-  !!ir (!.ctxt R.OF := AST.xtlo 1<rt> iRes2)
+  setZFSFOfPCMPSTR ctxt ir ctrl src1 src2
+  !!ir (!.ctxt R.OF := intRes2[0])
   !!ir (!.ctxt R.AF := AST.b0)
   !!ir (!.ctxt R.PF := AST.b0)
 #if EMULATION
