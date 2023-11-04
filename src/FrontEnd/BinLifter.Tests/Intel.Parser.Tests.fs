@@ -22,2161 +22,1882 @@
   THE SOFTWARE.
 *)
 
-namespace B2R2.FrontEnd.Tests
+module B2R2.FrontEnd.Tests.Intel
 
 open Microsoft.VisualStudio.TestTools.UnitTesting
 open B2R2
-open B2R2.FrontEnd
 open B2R2.FrontEnd.BinLifter
-
-module Intel =
-  open B2R2.FrontEnd.BinLifter.Intel
-
-  let private test prefs segment wordSize opcode oprs length (bytes: byte[]) =
-    let parser = IntelParser (wordSize) :> IInstructionParsable
-    let ins = parser.Parse (bytes, 0UL) :?> IntelInternalInstruction
-    Assert.AreEqual (ins.Prefixes, prefs)
-    Assert.AreEqual (Helper.getSegment ins.Prefixes, segment)
-    Assert.AreEqual (ins.Opcode, opcode)
-    Assert.AreEqual (ins.Operands, oprs)
-    Assert.AreEqual (ins.Length, length)
-
-  let private test32 = test Prefix.PrxNone None WordSize.Bit32
-  let private test32WithPrx prefix = test prefix None WordSize.Bit32
-  let private test64 = test Prefix.PrxNone None WordSize.Bit64
-
-  /// 5.1 GENERAL-PURPOSE INSTRUCTIONS
-  [<TestClass>]
-  type GeneralPurposeClass () =
-    /// 5.1.1 Data Transfer Instruction
-    [<TestMethod>]
-    member __.``Intel Data Transfer Parse Test`` () =
-      test32
-        Opcode.MOV
-        (TwoOperands (
-          OprMem (None, None, Some 2210584L, 32<rt>),
-          OprImm (2L, 32<rt>)
-        ))
-        10ul
-        [| 0xc7uy
-           0x05uy
-           0x18uy
-           0xbbuy
-           0x21uy
-           0x00uy
-           0x02uy
-           0x00uy
-           0x00uy
-           0x00uy |]
-
-      test64
-        Opcode.PUSH
-        (OneOperand (OprImm (0x44332211L, 32<rt>)))
-        5ul
-        [| 0x68uy; 0x11uy; 0x22uy; 0x33uy; 0x44uy |]
-
-      test32
-        Opcode.MOVSX
-        (TwoOperands (OprReg R.EDI, OprMem (Some R.EDI, None, Some -1L, 8<rt>)))
-        4ul
-        [| 0x0fuy; 0xbeuy; 0x7fuy; 0xffuy |]
-
-      test64
-        Opcode.MOVSXD
-        (TwoOperands (OprReg R.RCX, OprReg R.EAX))
-        3ul
-        [| 0x48uy; 0x63uy; 0xc8uy |]
-
-    /// 5.1.2 Binary Arithmetic Instructions
-    [<TestMethod>]
-    member __.``Intel Binary Arithmetic Parse Test`` () =
-      test64
-        Opcode.ADD
-        (TwoOperands (OprReg R.RCX, OprReg R.RAX))
-        3ul
-        [| 0x48uy; 0x03uy; 0xc8uy |]
-
-      test32
-        Opcode.IMUL
-        (ThreeOperands (OprReg R.EDI, OprReg R.EDX, OprImm (10L, 8<rt>)))
-        3ul
-        [| 0x6buy; 0xfauy; 0x0auy |]
-
-      test32
-        Opcode.MUL
-        (OneOperand (OprMem (Some R.EAX, None, None, 32<rt>)))
-        2ul
-        [| 0xf7uy; 0x20uy |]
-
-      test32 Opcode.DIV (OneOperand (OprReg R.ECX)) 2ul [| 0xf7uy; 0xf1uy |]
-
-    /// 5.1.3 Decimal Arithmetic Instructions
-    [<TestMethod>]
-    member __.``Decimal Arithmetic Parse Test`` () =
-      test32 Opcode.AAA NoOperand 1ul [| 0x37uy |]
-
-      test32 Opcode.AAS NoOperand 1ul [| 0x3Fuy |]
-
-    /// 5.1.4 Logical Instructions
-    [<TestMethod>]
-    member __.``Intel Logical Parse Test`` () =
-      test32
-        Opcode.AND
-        (TwoOperands (
-          OprMem (Some R.ESP, Some (R.EDX, Scale.X1), None, 32<rt>),
-          OprReg R.ESP
-        ))
-        3ul
-        [| 0x21uy; 0x24uy; 0x14uy |]
-
-      test32
-        Opcode.AND
-        (TwoOperands (
-          OprMem (None, None, Some 1111638594L, 32<rt>),
-          OprReg R.ESP
-        ))
-        6ul
-        [| 0x21uy; 0x25uy; 0x42uy; 0x42uy; 0x42uy; 0x42uy |]
-
-    /// 5.1.5 Shift and Rotate Instructions
-    [<TestMethod>]
-    member __.``Intel Shift And Rotate Parse Test`` () =
-      test32
-        Opcode.ROL
-        (TwoOperands (
-          OprMem (Some R.EAX, None, None, 32<rt>),
-          OprImm (10L, 8<rt>)
-        ))
-        3ul
-        [| 0xc1uy; 0x00uy; 0x0auy |]
-
-      test32
-        Opcode.ROL
-        (TwoOperands (
-          OprMem (Some R.EAX, None, None, 8<rt>),
-          OprImm (10L, 8<rt>)
-        ))
-        3ul
-        [| 0xc0uy; 0x00uy; 0x0auy |]
-
-    /// 5.1.6 Bit and Byte Instructions
-    [<TestMethod>]
-    member __.``Intel Bit And Byte Parse Test`` () =
-      test32
-        Opcode.TEST
-        (TwoOperands (
-          OprMem (Some R.EAX, None, None, 8<rt>),
-          OprImm (10L, 8<rt>)
-        ))
-        3ul
-        [| 0xf6uy; 0x00uy; 0x0auy |]
-
-    /// 5.1.7 Control Transfer Instructions
-    [<TestMethod>]
-    member __.``Intel Control Transfer Parse Test`` () =
-      test32
-        Opcode.JMPNear
-        (OneOperand (OprReg R.ESP))
-        2ul
-        [| 0xffuy; 0xe4uy |]
-
-      test32
-        Opcode.JMPFar
-        (OneOperand (OprDirAddr (Absolute (0x90s, 0x78563412UL, 32<rt>))))
-        7ul
-        [| 0xeauy; 0x12uy; 0x34uy; 0x56uy; 0x78uy; 0x90uy; 0x00uy |]
-
-      test
-        Prefix.PrxGS
-        (Some R.GS)
-        WordSize.Bit32
-        Opcode.CALLNear
-        (OneOperand (OprMem (None, None, Some 16L, 32<rt>)))
-        7ul
-        [| 0x65uy; 0xffuy; 0x15uy; 0x10uy; 0x00uy; 0x00uy; 0x00uy |]
-
-      test32
-        Opcode.CALLFar
-        (OneOperand (OprDirAddr (Absolute (0x10s, 0x32547698UL, 32<rt>))))
-        7ul
-        [| 0x9auy; 0x98uy; 0x76uy; 0x54uy; 0x32uy; 0x10uy; 0x00uy |]
-
-      test32
-        Opcode.INT
-        (OneOperand (OprImm (1L, 8<rt>)))
-        2ul
-        [| 0xcduy; 0x01uy |]
-
-    /// 5.1.9 I/O Instructions
-    [<TestMethod>]
-    member __.``I/O Instructions Parse Test`` () =
-      test32
-        Opcode.IN
-        (TwoOperands (OprReg R.EAX, OprReg R.DX))
-        1ul
-        [| 0xEDuy |]
-
-      test32
-        Opcode.OUT
-        (TwoOperands (OprReg R.DX, OprReg R.AL))
-        1ul
-        [| 0xEEuy |]
-
-      test32WithPrx
-        Prefix.PrxOPSIZE
-        Opcode.OUT
-        (TwoOperands (OprReg R.DX, OprReg R.AX))
-        2ul
-        [| 0x66uy; 0xEFuy |]
-
-      test32
-        Opcode.OUT
-        (TwoOperands (OprReg R.DX, OprReg R.EAX))
-        1ul
-        [| 0xEFuy |]
-
-    /// 5.1.12 Segment Register Instructions
-    [<TestMethod>]
-    member __.``Segment Register Parse Test`` () =
-      test32
-        Opcode.LES
-        (TwoOperands (OprReg R.ECX, OprMem (Some R.EDI, None, None, 48<rt>)))
-        2ul
-        [| 0xc4uy; 0x0fuy |]
-
-      test32
-        Opcode.LDS
-        (TwoOperands (OprReg R.EDX, OprMem (Some R.ECX, None, None, 48<rt>)))
-        2ul
-        [| 0xc5uy; 0x11uy |]
-
-  /// 5.2 X87 FPU INSTRUCTIONS
-  [<TestClass>]
-  type X87FPUClass () =
-    /// 5.2.1 x87 FPU Data Transfer Instructions
-    [<TestMethod>]
-    member __.``Intel FPU Data Transfer Parse Test`` () =
-      test32
-        Opcode.FILD
-        (OneOperand (
-          OprMem (Some R.EDX, Some (R.ECX, Scale.X8), Some 67305985L, 16<rt>)
-        ))
-        7ul
-        [| 0xdfuy; 0x84uy; 0xcauy; 0x01uy; 0x02uy; 0x03uy; 0x04uy |]
-
-      test32
-        Opcode.FBLD
-        (OneOperand (OprMem (Some R.EAX, None, None, 80<rt>)))
-        2ul
-        [| 0xdfuy; 0x20uy |]
-
-    /// 5.2.3 x87 FPU Comparison Instructions
-    [<TestMethod>]
-    member __.``Intel FPU Comparision Parse Test`` () =
-      test32
-        Opcode.FCOMIP
-        (TwoOperands (OprReg R.ST0, OprReg R.ST1))
-        2ul
-        [| 0xdfuy; 0xf1uy |]
-
-      test32
-        Opcode.FUCOMIP
-        (TwoOperands (OprReg R.ST0, OprReg R.ST1))
-        2ul
-        [| 0xdfuy; 0xe9uy |]
-
-  /// 5.4 MMX INSTRUCTIONS
-  [<TestClass>]
-  type MMXClass () =
-    /// 5.4.1 MMX Conversion Instructions
-    [<TestMethod>]
-    member __.``Intel MMX Conversion Parse Test`` () =
-      test64
-        Opcode.VMOVQ
-        (TwoOperands (
-          OprMem (Some R.RAX, None, Some 67305985L, 64<rt>),
-          OprReg (R.XMM2)
-        ))
-        9ul
-        [| 0xc4uy
-           0xe1uy
-           0xf9uy
-           0xd6uy
-           0x90uy
-           0x01uy
-           0x02uy
-           0x03uy
-           0x04uy |]
-
-      test64
-        Opcode.VMOVQ
-        (TwoOperands (OprReg (R.XMM0), OprReg (R.XMM2)))
-        5ul
-        [| 0xc4uy; 0xe1uy; 0xf9uy; 0xd6uy; 0xd0uy |]
-
-    /// 5.4.4 MMX Comparison Instructions
-    [<TestMethod>]
-    member __.``Intel MMX Comparison Parse Test`` () =
-      test64
-        Opcode.PCMPEQW
-        (TwoOperands (OprReg R.MM0, OprMem (Some R.RCX, None, None, 64<rt>)))
-        3u
-        [| 0x0Fuy; 0x75uy; 0x01uy |]
-
-      test64
-        Opcode.PCMPEQW
-        (TwoOperands (OprReg R.MM0, OprReg R.MM1))
-        3u
-        [| 0x0Fuy; 0x75uy; 0xc1uy |]
-
-      test64
-        Opcode.PCMPEQW
-        (TwoOperands (OprReg R.XMM0, OprMem (Some R.RCX, None, None, 128<rt>)))
-        4u
-        [| 0x66uy; 0x0Fuy; 0x75uy; 0x01uy |]
-
-      test64
-        Opcode.PCMPEQW
-        (TwoOperands (OprReg R.XMM0, OprReg R.XMM1))
-        4u
-        [| 0x66uy; 0x0Fuy; 0x75uy; 0xc1uy |]
-
-  /// 5.5 SSE INSTRUCTIONS
-  [<TestClass>]
-  type SSEClass () =
-    /// 5.5.1 SSE SIMD Single-Precision Floating-Point Instructions
-    /// 5.5.1.6 SSE Conversion Instructions
-    [<TestMethod>]
-    member __.``Intel SSE Conversion Parse Test`` () =
-      test64
-        Opcode.VCVTSS2SI
-        (TwoOperands (
-          OprReg R.RDX,
-          OprMem (Some R.RAX, None, Some 67305985L, 32<rt>)
-        ))
-        9ul
-        [| 0xc4uy
-           0xe1uy
-           0xfauy
-           0x2duy
-           0x90uy
-           0x01uy
-           0x02uy
-           0x03uy
-           0x04uy |]
-
-      test64
-        Opcode.VCVTSD2SI
-        (TwoOperands (
-          OprReg R.EDX,
-          OprMem (Some R.RAX, None, Some 67305985L, 64<rt>)
-        ))
-        9ul
-        [| 0xc4uy
-           0xe1uy
-           0x7buy
-           0x2duy
-           0x90uy
-           0x01uy
-           0x02uy
-           0x03uy
-           0x04uy |]
-
-  /// 5.6 SSE2 INSTRUCTIONS
-  [<TestClass>]
-  type SSE2Class () =
-    /// 5.6.3 SSE2 128-Bits SIMD Integer Instructions
-    [<TestMethod>]
-    member __.``Intel SSE 128-Bits SIMD Interger Parse Test`` () =
-      test64
-        Opcode.VMOVDQA64
-        (TwoOperands (
-          OprReg R.ZMM1,
-          OprMem (Some R.RSP, None, Some 64L, 512<rt>)
-        ))
-        8ul
-        [| 0x62uy; 0xf1uy; 0xfduy; 0x48uy; 0x6fuy; 0x4cuy; 0x24uy; 0x01uy |]
-
-  /// 5.8 SUPPLEMENTAL STREAMING SIMD EXTENSIONS 3 (SSSE3) INSTRUCTIONS
-  [<TestClass>]
-  type SSSE3Class () =
-    /// 5.8.1 Horizontal Addition/Subtraction
-    [<TestMethod>]
-    member __.``Intel Horizontal Addition/Subtraction Parse Test`` () =
-      test64
-        Opcode.PHADDW
-        (TwoOperands (OprReg R.MM0, OprMem (Some R.RCX, None, None, 64<rt>)))
-        4u
-        [| 0x0Fuy; 0x38uy; 0x01uy; 0x01uy |]
-
-      test64
-        Opcode.PHADDW
-        (TwoOperands (OprReg R.MM0, OprReg R.MM1))
-        4u
-        [| 0x0Fuy; 0x38uy; 0x01uy; 0xc1uy |]
-
-      test64
-        Opcode.PHADDW
-        (TwoOperands (OprReg R.XMM0, OprMem (Some R.RCX, None, None, 128<rt>)))
-        5u
-        [| 0x66uy; 0x0Fuy; 0x38uy; 0x01uy; 0x01uy |]
-
-      test64
-        Opcode.PHADDW
-        (TwoOperands (OprReg R.XMM0, OprReg R.XMM1))
-        5u
-        [| 0x66uy; 0x0Fuy; 0x38uy; 0x01uy; 0xc1uy |]
-
-      test64
-        Opcode.PHADDSW
-        (TwoOperands (OprReg R.MM0, OprMem (Some R.RCX, None, None, 64<rt>)))
-        4u
-        [| 0x0Fuy; 0x38uy; 0x03uy; 0x01uy |]
-
-      test64
-        Opcode.PHADDSW
-        (TwoOperands (OprReg R.MM0, OprReg R.MM1))
-        4u
-        [| 0x0Fuy; 0x38uy; 0x03uy; 0xc1uy |]
-
-      test64
-        Opcode.PHADDSW
-        (TwoOperands (OprReg R.XMM0, OprMem (Some R.RCX, None, None, 128<rt>)))
-        5u
-        [| 0x66uy; 0x0Fuy; 0x38uy; 0x03uy; 0x01uy |]
-
-      test64
-        Opcode.PHADDSW
-        (TwoOperands (OprReg R.XMM0, OprReg R.XMM1))
-        5u
-        [| 0x66uy; 0x0Fuy; 0x38uy; 0x03uy; 0xc1uy |]
-
-      test64
-        Opcode.PHADDD
-        (TwoOperands (OprReg R.MM0, OprMem (Some R.RCX, None, None, 64<rt>)))
-        4u
-        [| 0x0Fuy; 0x38uy; 0x02uy; 0x01uy |]
-
-      test64
-        Opcode.PHADDD
-        (TwoOperands (OprReg R.MM0, OprReg R.MM1))
-        4u
-        [| 0x0Fuy; 0x38uy; 0x02uy; 0xc1uy |]
-
-      test64
-        Opcode.PHADDD
-        (TwoOperands (OprReg R.XMM0, OprMem (Some R.RCX, None, None, 128<rt>)))
-        5u
-        [| 0x66uy; 0x0Fuy; 0x38uy; 0x02uy; 0x01uy |]
-
-      test64
-        Opcode.PHADDD
-        (TwoOperands (OprReg R.XMM0, OprReg R.XMM1))
-        5u
-        [| 0x66uy; 0x0Fuy; 0x38uy; 0x02uy; 0xc1uy |]
-
-      test64
-        Opcode.PHSUBW
-        (TwoOperands (OprReg R.MM0, OprMem (Some R.RCX, None, None, 64<rt>)))
-        4u
-        [| 0x0Fuy; 0x38uy; 0x05uy; 0x01uy |]
-
-      test64
-        Opcode.PHSUBW
-        (TwoOperands (OprReg R.MM0, OprReg R.MM1))
-        4u
-        [| 0x0Fuy; 0x38uy; 0x05uy; 0xc1uy |]
-
-      test64
-        Opcode.PHSUBW
-        (TwoOperands (OprReg R.XMM0, OprMem (Some R.RCX, None, None, 128<rt>)))
-        5u
-        [| 0x66uy; 0x0Fuy; 0x38uy; 0x05uy; 0x01uy |]
-
-      test64
-        Opcode.PHSUBW
-        (TwoOperands (OprReg R.XMM0, OprReg R.XMM1))
-        5u
-        [| 0x66uy; 0x0Fuy; 0x38uy; 0x05uy; 0xc1uy |]
-
-      test64
-        Opcode.PHSUBSW
-        (TwoOperands (OprReg R.MM0, OprMem (Some R.RCX, None, None, 64<rt>)))
-        4u
-        [| 0x0Fuy; 0x38uy; 0x07uy; 0x01uy |]
-
-      test64
-        Opcode.PHSUBSW
-        (TwoOperands (OprReg R.MM0, OprReg R.MM1))
-        4u
-        [| 0x0Fuy; 0x38uy; 0x07uy; 0xc1uy |]
-
-      test64
-        Opcode.PHSUBSW
-        (TwoOperands (OprReg R.XMM0, OprMem (Some R.RCX, None, None, 128<rt>)))
-        5u
-        [| 0x66uy; 0x0Fuy; 0x38uy; 0x07uy; 0x01uy |]
-
-      test64
-        Opcode.PHSUBSW
-        (TwoOperands (OprReg R.XMM0, OprReg R.XMM1))
-        5u
-        [| 0x66uy; 0x0Fuy; 0x38uy; 0x07uy; 0xc1uy |]
-
-      test64
-        Opcode.PHSUBD
-        (TwoOperands (OprReg R.MM0, OprMem (Some R.RCX, None, None, 64<rt>)))
-        4u
-        [| 0x0Fuy; 0x38uy; 0x06uy; 0x01uy |]
-
-      test64
-        Opcode.PHSUBD
-        (TwoOperands (OprReg R.MM0, OprReg R.MM1))
-        4u
-        [| 0x0Fuy; 0x38uy; 0x06uy; 0xc1uy |]
-
-      test64
-        Opcode.PHSUBD
-        (TwoOperands (OprReg R.XMM0, OprMem (Some R.RCX, None, None, 128<rt>)))
-        5u
-        [| 0x66uy; 0x0Fuy; 0x38uy; 0x06uy; 0x01uy |]
-
-      test64
-        Opcode.PHSUBD
-        (TwoOperands (OprReg R.XMM0, OprReg R.XMM1))
-        5u
-        [| 0x66uy; 0x0Fuy; 0x38uy; 0x06uy; 0xc1uy |]
-
-    /// 5.8.2 Packed Absolute Values
-    [<TestMethod>]
-    member __.``Intel Packed Absolute Values Parse Test`` () =
-      test64
-        Opcode.PABSB
-        (TwoOperands (OprReg R.MM0, OprMem (Some R.RCX, None, None, 64<rt>)))
-        4u
-        [| 0x0Fuy; 0x38uy; 0x1Cuy; 0x01uy |]
-
-      test64
-        Opcode.PABSB
-        (TwoOperands (OprReg R.MM0, OprReg R.MM1))
-        4u
-        [| 0x0Fuy; 0x38uy; 0x1Cuy; 0xc1uy |]
-
-      test64
-        Opcode.PABSB
-        (TwoOperands (OprReg R.XMM0, OprMem (Some R.RCX, None, None, 128<rt>)))
-        5u
-        [| 0x66uy; 0x0Fuy; 0x38uy; 0x1Cuy; 0x01uy |]
-
-      test64
-        Opcode.PABSB
-        (TwoOperands (OprReg R.XMM0, OprReg R.XMM1))
-        5u
-        [| 0x66uy; 0x0Fuy; 0x38uy; 0x1Cuy; 0xc1uy |]
-
-      test64
-        Opcode.PABSD
-        (TwoOperands (OprReg R.MM0, OprMem (Some R.RCX, None, None, 64<rt>)))
-        4u
-        [| 0x0Fuy; 0x38uy; 0x1Euy; 0x01uy |]
-
-      test64
-        Opcode.PABSD
-        (TwoOperands (OprReg R.MM0, OprReg R.MM1))
-        4u
-        [| 0x0Fuy; 0x38uy; 0x1Euy; 0xc1uy |]
-
-      test64
-        Opcode.PABSD
-        (TwoOperands (OprReg R.XMM0, OprMem (Some R.RCX, None, None, 128<rt>)))
-        5u
-        [| 0x66uy; 0x0Fuy; 0x38uy; 0x1Euy; 0x01uy |]
-
-      test64
-        Opcode.PABSD
-        (TwoOperands (OprReg R.XMM0, OprReg R.XMM1))
-        5u
-        [| 0x66uy; 0x0Fuy; 0x38uy; 0x1Euy; 0xc1uy |]
-
-      test64
-        Opcode.PABSW
-        (TwoOperands (OprReg R.MM0, OprMem (Some R.RCX, None, None, 64<rt>)))
-        4u
-        [| 0x0Fuy; 0x38uy; 0x1Duy; 0x01uy |]
-
-      test64
-        Opcode.PABSW
-        (TwoOperands (OprReg R.MM0, OprReg R.MM1))
-        4u
-        [| 0x0Fuy; 0x38uy; 0x1Duy; 0xc1uy |]
-
-      test64
-        Opcode.PABSW
-        (TwoOperands (OprReg R.XMM0, OprMem (Some R.RCX, None, None, 128<rt>)))
-        5u
-        [| 0x66uy; 0x0Fuy; 0x38uy; 0x1Duy; 0x01uy |]
-
-      test64
-        Opcode.PABSW
-        (TwoOperands (OprReg R.XMM0, OprReg R.XMM1))
-        5u
-        [| 0x66uy; 0x0Fuy; 0x38uy; 0x1Duy; 0xc1uy |]
-
-    /// 5.8.4 Packed Multiply High with Round and Scale
-    [<TestMethod>]
-    member __.``Intel Packed Mul High with Round and Scale Parse Test`` () =
-      test64
-        Opcode.PMULHRSW
-        (TwoOperands (OprReg R.MM0, OprMem (Some R.RCX, None, None, 64<rt>)))
-        4u
-        [| 0x0Fuy; 0x38uy; 0x0Buy; 0x01uy |]
-
-      test64
-        Opcode.PMULHRSW
-        (TwoOperands (OprReg R.MM0, OprReg R.MM1))
-        4u
-        [| 0x0Fuy; 0x38uy; 0x0Buy; 0xc1uy |]
-
-      test64
-        Opcode.PMULHRSW
-        (TwoOperands (OprReg R.XMM0, OprMem (Some R.RCX, None, None, 128<rt>)))
-        5u
-        [| 0x66uy; 0x0Fuy; 0x38uy; 0x0Buy; 0x01uy |]
-
-      test64
-        Opcode.PMULHRSW
-        (TwoOperands (OprReg R.XMM0, OprReg R.XMM1))
-        5u
-        [| 0x66uy; 0x0Fuy; 0x38uy; 0x0Buy; 0xc1uy |]
-
-    /// 5.8.6 Packed Sign
-    [<TestMethod>]
-    member __.``Intel Packed Sign Parse Test`` () =
-      test64
-        Opcode.PSIGNB
-        (TwoOperands (OprReg R.MM0, OprMem (Some R.RCX, None, None, 64<rt>)))
-        4u
-        [| 0x0Fuy; 0x38uy; 0x08uy; 0x01uy |]
-
-      test64
-        Opcode.PSIGNB
-        (TwoOperands (OprReg R.MM0, OprReg R.MM1))
-        4u
-        [| 0x0Fuy; 0x38uy; 0x08uy; 0xc1uy |]
-
-      test64
-        Opcode.PSIGNB
-        (TwoOperands (OprReg R.XMM0, OprMem (Some R.RCX, None, None, 128<rt>)))
-        5u
-        [| 0x66uy; 0x0Fuy; 0x38uy; 0x08uy; 0x01uy |]
-
-      test64
-        Opcode.PSIGNB
-        (TwoOperands (OprReg R.XMM0, OprReg R.XMM1))
-        5u
-        [| 0x66uy; 0x0Fuy; 0x38uy; 0x08uy; 0xc1uy |]
-
-      test64
-        Opcode.PSIGNW
-        (TwoOperands (OprReg R.MM0, OprMem (Some R.RCX, None, None, 64<rt>)))
-        4u
-        [| 0x0Fuy; 0x38uy; 0x09uy; 0x01uy |]
-
-      test64
-        Opcode.PSIGNW
-        (TwoOperands (OprReg R.MM0, OprReg R.MM1))
-        4u
-        [| 0x0Fuy; 0x38uy; 0x09uy; 0xc1uy |]
-
-      test64
-        Opcode.PSIGNW
-        (TwoOperands (OprReg R.XMM0, OprMem (Some R.RCX, None, None, 128<rt>)))
-        5u
-        [| 0x66uy; 0x0Fuy; 0x38uy; 0x09uy; 0x01uy |]
-
-      test64
-        Opcode.PSIGNW
-        (TwoOperands (OprReg R.XMM0, OprReg R.XMM1))
-        5u
-        [| 0x66uy; 0x0Fuy; 0x38uy; 0x09uy; 0xc1uy |]
-
-      test64
-        Opcode.PSIGND
-        (TwoOperands (OprReg R.MM0, OprMem (Some R.RCX, None, None, 64<rt>)))
-        4u
-        [| 0x0Fuy; 0x38uy; 0x0Auy; 0x01uy |]
-
-      test64
-        Opcode.PSIGND
-        (TwoOperands (OprReg R.MM0, OprReg R.MM1))
-        4u
-        [| 0x0Fuy; 0x38uy; 0x0Auy; 0xc1uy |]
-
-      test64
-        Opcode.PSIGND
-        (TwoOperands (OprReg R.XMM0, OprMem (Some R.RCX, None, None, 128<rt>)))
-        5u
-        [| 0x66uy; 0x0Fuy; 0x38uy; 0x0Auy; 0x01uy |]
-
-      test64
-        Opcode.PSIGND
-        (TwoOperands (OprReg R.XMM0, OprReg R.XMM1))
-        5u
-        [| 0x66uy; 0x0Fuy; 0x38uy; 0x0Auy; 0xc1uy |]
-
-    /// 5.8.7 Packed Align Right
-    [<TestMethod>]
-    member __.``Intel Packed Align Right Parse Test`` () =
-      test64
-        Opcode.PALIGNR
-        (ThreeOperands (OprReg R.XMM2, OprReg R.XMM1, OprImm (1L, 8<rt>)))
-        6ul
-        [| 0x66uy; 0x0fuy; 0x3auy; 0x0fuy; 0xd1uy; 0x01uy |]
-
-  /// 5.10 SSE4.1 INSTRUCTIONS
-  [<TestClass>]
-  type SSSE41Class () =
-    /// 5.10.1 Dword Multiply Instructions
-    [<TestMethod>]
-    member __.``Intel Dword Multiply Parse Test`` () =
-      test64
-        Opcode.PMULLD
-        (TwoOperands (OprReg R.XMM0, OprMem (Some R.RDX, None, None, 128<rt>)))
-        5u
-        [| 0x66uy; 0x0Fuy; 0x38uy; 0x40uy; 0x02uy |]
-
-      test64
-        Opcode.PMULLD
-        (TwoOperands (OprReg R.XMM0, OprReg R.XMM2))
-        5u
-        [| 0x66uy; 0x0Fuy; 0x38uy; 0x40uy; 0xc2uy |]
-
-      test64
-        Opcode.PMULDQ
-        (TwoOperands (OprReg R.XMM0, OprMem (Some R.RDX, None, None, 128<rt>)))
-        5u
-        [| 0x66uy; 0x0Fuy; 0x38uy; 0x28uy; 0x02uy |]
-
-      test64
-        Opcode.PMULDQ
-        (TwoOperands (OprReg R.XMM0, OprReg R.XMM2))
-        5u
-        [| 0x66uy; 0x0Fuy; 0x38uy; 0x28uy; 0xc2uy |]
-
-    /// 5.10.5 Packed Integer MIN/MAX Instructions
-    [<TestMethod>]
-    member __.``Intel Packed Integer MIN/MAX Parse Test`` () =
-      test64
-        Opcode.PMINUW
-        (TwoOperands (OprReg R.XMM0, OprMem (Some R.RDX, None, None, 128<rt>)))
-        5u
-        [| 0x66uy; 0x0Fuy; 0x38uy; 0x3Auy; 0x02uy |]
-
-      test64
-        Opcode.PMINUW
-        (TwoOperands (OprReg R.XMM0, OprReg R.XMM2))
-        5u
-        [| 0x66uy; 0x0Fuy; 0x38uy; 0x3Auy; 0xc2uy |]
-
-      test64
-        Opcode.PMINSD
-        (TwoOperands (OprReg R.XMM0, OprMem (Some R.RDX, None, None, 128<rt>)))
-        5u
-        [| 0x66uy; 0x0Fuy; 0x38uy; 0x39uy; 0x02uy |]
-
-      test64
-        Opcode.PMINSD
-        (TwoOperands (OprReg R.XMM0, OprReg R.XMM2))
-        5u
-        [| 0x66uy; 0x0Fuy; 0x38uy; 0x39uy; 0xc2uy |]
-
-      test64
-        Opcode.PMAXUW
-        (TwoOperands (OprReg R.XMM0, OprMem (Some R.RDX, None, None, 128<rt>)))
-        5u
-        [| 0x66uy; 0x0Fuy; 0x38uy; 0x3Euy; 0x02uy |]
-
-      test64
-        Opcode.PMAXUW
-        (TwoOperands (OprReg R.XMM0, OprReg R.XMM2))
-        5u
-        [| 0x66uy; 0x0Fuy; 0x38uy; 0x3Euy; 0xc2uy |]
-
-      test64
-        Opcode.PMAXUD
-        (TwoOperands (OprReg R.XMM0, OprMem (Some R.RDX, None, None, 128<rt>)))
-        5u
-        [| 0x66uy; 0x0Fuy; 0x38uy; 0x3Fuy; 0x02uy |]
-
-      test64
-        Opcode.PMAXUD
-        (TwoOperands (OprReg R.XMM0, OprReg R.XMM2))
-        5u
-        [| 0x66uy; 0x0Fuy; 0x38uy; 0x3Fuy; 0xc2uy |]
-
-      test64
-        Opcode.PMAXSB
-        (TwoOperands (OprReg R.XMM0, OprMem (Some R.RDX, None, None, 128<rt>)))
-        5u
-        [| 0x66uy; 0x0Fuy; 0x38uy; 0x3Cuy; 0x02uy |]
-
-      test64
-        Opcode.PMAXSB
-        (TwoOperands (OprReg R.XMM0, OprReg R.XMM2))
-        5u
-        [| 0x66uy; 0x0Fuy; 0x38uy; 0x3Cuy; 0xc2uy |]
-
-      test64
-        Opcode.PMAXSD
-        (TwoOperands (OprReg R.XMM0, OprMem (Some R.RDX, None, None, 128<rt>)))
-        5u
-        [| 0x66uy; 0x0Fuy; 0x38uy; 0x3Duy; 0x02uy |]
-
-      test64
-        Opcode.PMAXSD
-        (TwoOperands (OprReg R.XMM0, OprReg R.XMM2))
-        5u
-        [| 0x66uy; 0x0Fuy; 0x38uy; 0x3Duy; 0xc2uy |]
-
-    /// 5.10.8 Packed Integer Format Conversions
-    [<TestMethod>]
-    member __.``Intel Packed Integer Format Conversions Parse Test`` () =
-      test64
-        Opcode.PMOVSXBD
-        (TwoOperands (OprReg R.XMM0, OprMem (Some R.RDX, None, None, 32<rt>)))
-        5u
-        [| 0x66uy; 0x0fuy; 0x38uy; 0x21uy; 0x02uy |]
-
-      test64
-        Opcode.PMOVSXBD
-        (TwoOperands (OprReg R.XMM0, OprReg R.XMM2))
-        5u
-        [| 0x66uy; 0x0fuy; 0x38uy; 0x21uy; 0xc2uy |]
-
-      test64
-        Opcode.PMOVSXBQ
-        (TwoOperands (OprReg R.XMM0, OprMem (Some R.RDX, None, None, 16<rt>)))
-        5u
-        [| 0x66uy; 0x0fuy; 0x38uy; 0x22uy; 0x02uy |]
-
-      test64
-        Opcode.PMOVSXBQ
-        (TwoOperands (OprReg R.XMM0, OprReg R.XMM2))
-        5u
-        [| 0x66uy; 0x0fuy; 0x38uy; 0x22uy; 0xc2uy |]
-
-      test64
-        Opcode.PMOVSXBW
-        (TwoOperands (OprReg R.XMM0, OprMem (Some R.RDX, None, None, 64<rt>)))
-        5u
-        [| 0x66uy; 0x0fuy; 0x38uy; 0x20uy; 0x02uy |]
-
-      test64
-        Opcode.PMOVSXBW
-        (TwoOperands (OprReg R.XMM0, OprReg R.XMM2))
-        5u
-        [| 0x66uy; 0x0fuy; 0x38uy; 0x20uy; 0xc2uy |]
-
-      test64
-        Opcode.PMOVSXDQ
-        (TwoOperands (OprReg R.XMM0, OprMem (Some R.RDX, None, None, 64<rt>)))
-        5u
-        [| 0x66uy; 0x0fuy; 0x38uy; 0x25uy; 0x02uy |]
-
-      test64
-        Opcode.PMOVSXDQ
-        (TwoOperands (OprReg R.XMM0, OprReg R.XMM2))
-        5u
-        [| 0x66uy; 0x0fuy; 0x38uy; 0x25uy; 0xc2uy |]
-
-      test64
-        Opcode.PMOVSXWD
-        (TwoOperands (OprReg R.XMM0, OprMem (Some R.RDX, None, None, 64<rt>)))
-        5u
-        [| 0x66uy; 0x0fuy; 0x38uy; 0x23uy; 0x02uy |]
-
-      test64
-        Opcode.PMOVSXWD
-        (TwoOperands (OprReg R.XMM0, OprReg R.XMM2))
-        5u
-        [| 0x66uy; 0x0fuy; 0x38uy; 0x23uy; 0xc2uy |]
-
-      test64
-        Opcode.PMOVSXWQ
-        (TwoOperands (OprReg R.XMM0, OprMem (Some R.RDX, None, None, 32<rt>)))
-        5u
-        [| 0x66uy; 0x0fuy; 0x38uy; 0x24uy; 0x02uy |]
-
-      test64
-        Opcode.PMOVSXWQ
-        (TwoOperands (OprReg R.XMM0, OprReg R.XMM2))
-        5u
-        [| 0x66uy; 0x0fuy; 0x38uy; 0x24uy; 0xc2uy |]
-
-      test64
-        Opcode.PMOVZXBD
-        (TwoOperands (OprReg R.XMM0, OprMem (Some R.RDX, None, None, 32<rt>)))
-        5u
-        [| 0x66uy; 0x0fuy; 0x38uy; 0x31uy; 0x02uy |]
-
-      test64
-        Opcode.PMOVZXBD
-        (TwoOperands (OprReg R.XMM0, OprReg R.XMM2))
-        5u
-        [| 0x66uy; 0x0fuy; 0x38uy; 0x31uy; 0xc2uy |]
-
-      test64
-        Opcode.PMOVZXBQ
-        (TwoOperands (OprReg R.XMM0, OprMem (Some R.RDX, None, None, 16<rt>)))
-        5u
-        [| 0x66uy; 0x0fuy; 0x38uy; 0x32uy; 0x02uy |]
-
-      test64
-        Opcode.PMOVZXBQ
-        (TwoOperands (OprReg R.XMM0, OprReg R.XMM2))
-        5u
-        [| 0x66uy; 0x0fuy; 0x38uy; 0x32uy; 0xc2uy |]
-
-      test64
-        Opcode.PMOVZXBW
-        (TwoOperands (OprReg R.XMM0, OprMem (Some R.RDX, None, None, 64<rt>)))
-        5u
-        [| 0x66uy; 0x0fuy; 0x38uy; 0x30uy; 0x02uy |]
-
-      test64
-        Opcode.PMOVZXBW
-        (TwoOperands (OprReg R.XMM0, OprReg R.XMM2))
-        5u
-        [| 0x66uy; 0x0fuy; 0x38uy; 0x30uy; 0xc2uy |]
-
-      test64
-        Opcode.PMOVZXDQ
-        (TwoOperands (OprReg R.XMM0, OprMem (Some R.RDX, None, None, 64<rt>)))
-        5u
-        [| 0x66uy; 0x0fuy; 0x38uy; 0x35uy; 0x02uy |]
-
-      test64
-        Opcode.PMOVZXDQ
-        (TwoOperands (OprReg R.XMM0, OprReg R.XMM2))
-        5u
-        [| 0x66uy; 0x0fuy; 0x38uy; 0x35uy; 0xc2uy |]
-
-      test64
-        Opcode.PMOVZXWD
-        (TwoOperands (OprReg R.XMM0, OprMem (Some R.RDX, None, None, 64<rt>)))
-        5u
-        [| 0x66uy; 0x0fuy; 0x38uy; 0x33uy; 0x02uy |]
-
-      test64
-        Opcode.PMOVZXWD
-        (TwoOperands (OprReg R.XMM0, OprReg R.XMM2))
-        5u
-        [| 0x66uy; 0x0fuy; 0x38uy; 0x33uy; 0xc2uy |]
-
-      test64
-        Opcode.PMOVZXWQ
-        (TwoOperands (OprReg R.XMM0, OprMem (Some R.RDX, None, None, 32<rt>)))
-        5u
-        [| 0x66uy; 0x0fuy; 0x38uy; 0x34uy; 0x02uy |]
-
-      test64
-        Opcode.PMOVZXWQ
-        (TwoOperands (OprReg R.XMM0, OprReg R.XMM2))
-        5u
-        [| 0x66uy; 0x0fuy; 0x38uy; 0x34uy; 0xc2uy |]
-
-    /// 5.10.10 Horizontal Search
-    [<TestMethod>]
-    member __.``Intel Horizontal Search Parse Test`` () =
-      test64
-        Opcode.PHMINPOSUW
-        (TwoOperands (OprReg R.XMM0, OprMem (Some R.RDX, None, None, 128<rt>)))
-        5u
-        [| 0x66uy; 0x0Fuy; 0x38uy; 0x41uy; 0x02uy |]
-
-      test64
-        Opcode.PHMINPOSUW
-        (TwoOperands (OprReg R.XMM0, OprReg R.XMM2))
-        5u
-        [| 0x66uy; 0x0Fuy; 0x38uy; 0x41uy; 0xc2uy |]
-
-    /// 5.10.13 Dword Packing With Unsigned Saturation
-    [<TestMethod>]
-    member __.``Intel Dword Packing With Unsigned Saturation Parse Test`` () =
-      test64
-        Opcode.PACKUSDW
-        (TwoOperands (OprReg R.XMM0, OprMem (Some R.RDX, None, None, 128<rt>)))
-        5u
-        [| 0x66uy; 0x0Fuy; 0x38uy; 0x2Buy; 0x02uy |]
-
-      test64
-        Opcode.PACKUSDW
-        (TwoOperands (OprReg R.XMM0, OprReg R.XMM2))
-        5u
-        [| 0x66uy; 0x0Fuy; 0x38uy; 0x2Buy; 0xc2uy |]
-
-  /// 5.11 SSE4.2 INSTRUCTION SET
-  [<TestClass>]
-  type SSSE42Class () =
-    /// 5.11.2 Packed Comparison SIMD integer Instruction
-    [<TestMethod>]
-    member __.``Intel Packed Comparison SIMD integer Parse Test`` () =
-      test64
-        Opcode.PCMPGTQ
-        (TwoOperands (OprReg R.XMM0, OprMem (Some R.RDX, None, None, 128<rt>)))
-        5u
-        [| 0x66uy; 0x0Fuy; 0x38uy; 0x37uy; 0x02uy |]
-
-      test64
-        Opcode.PCMPGTQ
-        (TwoOperands (OprReg R.XMM0, OprReg R.XMM2))
-        5u
-        [| 0x66uy; 0x0Fuy; 0x38uy; 0x37uy; 0xc2uy |]
-
-  /// 5.22 INTEL MEMORY PROTECTION EXTENSIONS
-  [<TestClass>]
-  type IntelMemoryProtectionClass () =
-    [<TestMethod>]
-    member __.``Intel Memory Protection Extensions Parse Test`` () =
-      test64
-        Opcode.BNDMOV
-        (TwoOperands (
-          OprMem (Some R.RSP, None, Some 512L, 128<rt>),
-          OprReg R.BND0
-        ))
-        9ul
-        [| 0x66uy
-           0x0fuy
-           0x1buy
-           0x84uy
-           0x24uy
-           0x00uy
-           0x02uy
-           0x00uy
-           0x00uy |]
-
-  /// INTEL ADVANCED VECTOR EXTENSIONS
-  [<TestClass>]
-  type AVXClass () =
-    [<TestMethod>]
-    member __.``Intel AVX Parse Test`` () =
-      test64
-        Opcode.VPCMPEQW
-        (ThreeOperands (
-          OprReg R.XMM0,
-          OprReg R.XMM10,
-          OprMem (Some R.RBX, None, None, 128<rt>)
-        ))
-        5u
-        [| 0xC4uy; 0xE1uy; 0x29uy; 0x75uy; 0x03uy |]
-
-      test64
-        Opcode.VPCMPEQW
-        (ThreeOperands (OprReg R.XMM0, OprReg R.XMM10, OprReg R.XMM3))
-        5u
-        [| 0xC4uy; 0xE1uy; 0x29uy; 0x75uy; 0xc3uy |]
-
-      test64
-        Opcode.VPCMPEQW
-        (ThreeOperands (
-          OprReg R.YMM0,
-          OprReg R.YMM10,
-          OprMem (Some R.RBX, None, None, 256<rt>)
-        ))
-        5u
-        [| 0xC4uy; 0xE1uy; 0x2Duy; 0x75uy; 0x03uy |]
-
-      test64
-        Opcode.VPCMPEQW
-        (ThreeOperands (OprReg R.YMM0, OprReg R.YMM10, OprReg R.YMM3))
-        5u
-        [| 0xC4uy; 0xE1uy; 0x2Duy; 0x75uy; 0xc3uy |]
-
-      test64
-        Opcode.VPABSB
-        (TwoOperands (OprReg R.XMM0, OprMem (Some R.RBX, None, None, 128<rt>)))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x61uy; 0x1Cuy; 0x03uy |]
-
-      test64
-        Opcode.VPABSB
-        (TwoOperands (OprReg R.XMM0, OprReg R.XMM3))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x61uy; 0x1Cuy; 0xc3uy |]
-
-      test64
-        Opcode.VPABSB
-        (TwoOperands (OprReg R.YMM0, OprMem (Some R.RBX, None, None, 256<rt>)))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x65uy; 0x1Cuy; 0x03uy |]
-
-      test64
-        Opcode.VPABSB
-        (TwoOperands (OprReg R.YMM0, OprReg R.YMM3))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x65uy; 0x1Cuy; 0xc3uy |]
-
-      test64
-        Opcode.VPABSD
-        (TwoOperands (OprReg R.XMM0, OprMem (Some R.RBX, None, None, 128<rt>)))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x61uy; 0x1Euy; 0x03uy |]
-
-      test64
-        Opcode.VPABSD
-        (TwoOperands (OprReg R.XMM0, OprReg R.XMM3))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x61uy; 0x1Euy; 0xc3uy |]
-
-      test64
-        Opcode.VPABSD
-        (TwoOperands (OprReg R.YMM0, OprMem (Some R.RBX, None, None, 256<rt>)))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x65uy; 0x1Euy; 0x03uy |]
-
-      test64
-        Opcode.VPABSD
-        (TwoOperands (OprReg R.YMM0, OprReg R.YMM3))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x65uy; 0x1Euy; 0xc3uy |]
-
-      test64
-        Opcode.VPABSW
-        (TwoOperands (OprReg R.XMM0, OprMem (Some R.RBX, None, None, 128<rt>)))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x61uy; 0x1Duy; 0x03uy |]
-
-      test64
-        Opcode.VPABSW
-        (TwoOperands (OprReg R.XMM0, OprReg R.XMM3))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x61uy; 0x1Duy; 0xc3uy |]
-
-      test64
-        Opcode.VPABSW
-        (TwoOperands (OprReg R.YMM0, OprMem (Some R.RBX, None, None, 256<rt>)))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x65uy; 0x1Duy; 0x03uy |]
-
-      test64
-        Opcode.VPABSW
-        (TwoOperands (OprReg R.YMM0, OprReg R.YMM3))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x65uy; 0x1Duy; 0xc3uy |]
-
-      test64
-        Opcode.VPHADDD
-        (ThreeOperands (
-          OprReg R.XMM0,
-          OprReg R.XMM3,
-          OprMem (Some R.RBX, None, None, 128<rt>)
-        ))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x61uy; 0x02uy; 0x03uy |]
-
-      test64
-        Opcode.VPHADDD
-        (ThreeOperands (OprReg R.XMM0, OprReg R.XMM3, OprReg R.XMM3))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x61uy; 0x02uy; 0xc3uy |]
-
-      test64
-        Opcode.VPHADDD
-        (ThreeOperands (
-          OprReg R.YMM0,
-          OprReg R.YMM3,
-          OprMem (Some R.RBX, None, None, 256<rt>)
-        ))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x65uy; 0x02uy; 0x03uy |]
-
-      test64
-        Opcode.VPHADDD
-        (ThreeOperands (OprReg R.YMM0, OprReg R.YMM3, OprReg R.YMM3))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x65uy; 0x02uy; 0xc3uy |]
-
-      test64
-        Opcode.VPHADDSW
-        (ThreeOperands (
-          OprReg R.XMM0,
-          OprReg R.XMM3,
-          OprMem (Some R.RBX, None, None, 128<rt>)
-        ))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x61uy; 0x03uy; 0x03uy |]
-
-      test64
-        Opcode.VPHADDSW
-        (ThreeOperands (OprReg R.XMM0, OprReg R.XMM3, OprReg R.XMM3))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x61uy; 0x03uy; 0xc3uy |]
-
-      test64
-        Opcode.VPHADDSW
-        (ThreeOperands (
-          OprReg R.YMM0,
-          OprReg R.YMM3,
-          OprMem (Some R.RBX, None, None, 256<rt>)
-        ))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x65uy; 0x03uy; 0x03uy |]
-
-      test64
-        Opcode.VPHADDSW
-        (ThreeOperands (OprReg R.YMM0, OprReg R.YMM3, OprReg R.YMM3))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x65uy; 0x03uy; 0xc3uy |]
-
-      test64
-        Opcode.VPHADDW
-        (ThreeOperands (
-          OprReg R.XMM0,
-          OprReg R.XMM3,
-          OprMem (Some R.RBX, None, None, 128<rt>)
-        ))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x61uy; 0x01uy; 0x03uy |]
-
-      test64
-        Opcode.VPHADDW
-        (ThreeOperands (OprReg R.XMM0, OprReg R.XMM3, OprReg R.XMM3))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x61uy; 0x01uy; 0xc3uy |]
-
-      test64
-        Opcode.VPHADDW
-        (ThreeOperands (
-          OprReg R.YMM0,
-          OprReg R.YMM3,
-          OprMem (Some R.RBX, None, None, 256<rt>)
-        ))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x65uy; 0x01uy; 0x03uy |]
-
-      test64
-        Opcode.VPHADDW
-        (ThreeOperands (OprReg R.YMM0, OprReg R.YMM3, OprReg R.YMM3))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x65uy; 0x01uy; 0xc3uy |]
-
-      test64
-        Opcode.VPHSUBD
-        (ThreeOperands (
-          OprReg R.XMM0,
-          OprReg R.XMM3,
-          OprMem (Some R.RBX, None, None, 128<rt>)
-        ))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x61uy; 0x06uy; 0x03uy |]
-
-      test64
-        Opcode.VPHSUBD
-        (ThreeOperands (OprReg R.XMM0, OprReg R.XMM3, OprReg R.XMM3))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x61uy; 0x06uy; 0xc3uy |]
-
-      test64
-        Opcode.VPHSUBD
-        (ThreeOperands (
-          OprReg R.YMM0,
-          OprReg R.YMM3,
-          OprMem (Some R.RBX, None, None, 256<rt>)
-        ))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x65uy; 0x06uy; 0x03uy |]
-
-      test64
-        Opcode.VPHSUBD
-        (ThreeOperands (OprReg R.YMM0, OprReg R.YMM3, OprReg R.YMM3))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x65uy; 0x06uy; 0xc3uy |]
-
-      test64
-        Opcode.VPHSUBSW
-        (ThreeOperands (
-          OprReg R.XMM0,
-          OprReg R.XMM3,
-          OprMem (Some R.RBX, None, None, 128<rt>)
-        ))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x61uy; 0x07uy; 0x03uy |]
-
-      test64
-        Opcode.VPHSUBSW
-        (ThreeOperands (OprReg R.XMM0, OprReg R.XMM3, OprReg R.XMM3))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x61uy; 0x07uy; 0xc3uy |]
-
-      test64
-        Opcode.VPHSUBSW
-        (ThreeOperands (
-          OprReg R.YMM0,
-          OprReg R.YMM3,
-          OprMem (Some R.RBX, None, None, 256<rt>)
-        ))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x65uy; 0x07uy; 0x03uy |]
-
-      test64
-        Opcode.VPHSUBSW
-        (ThreeOperands (OprReg R.YMM0, OprReg R.YMM3, OprReg R.YMM3))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x65uy; 0x07uy; 0xc3uy |]
-
-      test64
-        Opcode.VPHSUBW
-        (ThreeOperands (
-          OprReg R.XMM0,
-          OprReg R.XMM3,
-          OprMem (Some R.RBX, None, None, 128<rt>)
-        ))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x61uy; 0x05uy; 0x03uy |]
-
-      test64
-        Opcode.VPHSUBW
-        (ThreeOperands (OprReg R.XMM0, OprReg R.XMM3, OprReg R.XMM3))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x61uy; 0x05uy; 0xc3uy |]
-
-      test64
-        Opcode.VPHSUBW
-        (ThreeOperands (
-          OprReg R.YMM0,
-          OprReg R.YMM3,
-          OprMem (Some R.RBX, None, None, 256<rt>)
-        ))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x65uy; 0x05uy; 0x03uy |]
-
-      test64
-        Opcode.VPHSUBW
-        (ThreeOperands (OprReg R.YMM0, OprReg R.YMM3, OprReg R.YMM3))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x65uy; 0x05uy; 0xc3uy |]
-
-      test64
-        Opcode.VPMULHRSW
-        (ThreeOperands (
-          OprReg R.XMM0,
-          OprReg R.XMM3,
-          OprMem (Some R.RBX, None, None, 128<rt>)
-        ))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x61uy; 0x0Buy; 0x03uy |]
-
-      test64
-        Opcode.VPMULHRSW
-        (ThreeOperands (OprReg R.XMM0, OprReg R.XMM3, OprReg R.XMM3))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x61uy; 0x0Buy; 0xc3uy |]
-
-      test64
-        Opcode.VPMULHRSW
-        (ThreeOperands (
-          OprReg R.YMM0,
-          OprReg R.YMM3,
-          OprMem (Some R.RBX, None, None, 256<rt>)
-        ))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x65uy; 0x0Buy; 0x03uy |]
-
-      test64
-        Opcode.VPMULHRSW
-        (ThreeOperands (OprReg R.YMM0, OprReg R.YMM3, OprReg R.YMM3))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x65uy; 0x0Buy; 0xc3uy |]
-
-      test64
-        Opcode.VPSIGNB
-        (ThreeOperands (
-          OprReg R.XMM0,
-          OprReg R.XMM3,
-          OprMem (Some R.RBX, None, None, 128<rt>)
-        ))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x61uy; 0x08uy; 0x03uy |]
-
-      test64
-        Opcode.VPSIGNB
-        (ThreeOperands (OprReg R.XMM0, OprReg R.XMM3, OprReg R.XMM3))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x61uy; 0x08uy; 0xc3uy |]
-
-      test64
-        Opcode.VPSIGNB
-        (ThreeOperands (
-          OprReg R.YMM0,
-          OprReg R.YMM3,
-          OprMem (Some R.RBX, None, None, 256<rt>)
-        ))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x65uy; 0x08uy; 0x03uy |]
-
-      test64
-        Opcode.VPSIGNB
-        (ThreeOperands (OprReg R.YMM0, OprReg R.YMM3, OprReg R.YMM3))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x65uy; 0x08uy; 0xc3uy |]
-
-      test64
-        Opcode.VPSIGND
-        (ThreeOperands (
-          OprReg R.XMM0,
-          OprReg R.XMM3,
-          OprMem (Some R.RBX, None, None, 128<rt>)
-        ))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x61uy; 0x0Auy; 0x03uy |]
-
-      test64
-        Opcode.VPSIGND
-        (ThreeOperands (OprReg R.XMM0, OprReg R.XMM3, OprReg R.XMM3))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x61uy; 0x0Auy; 0xc3uy |]
-
-      test64
-        Opcode.VPSIGND
-        (ThreeOperands (
-          OprReg R.YMM0,
-          OprReg R.YMM3,
-          OprMem (Some R.RBX, None, None, 256<rt>)
-        ))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x65uy; 0x0Auy; 0x03uy |]
-
-      test64
-        Opcode.VPSIGND
-        (ThreeOperands (OprReg R.YMM0, OprReg R.YMM3, OprReg R.YMM3))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x65uy; 0x0Auy; 0xc3uy |]
-
-      test64
-        Opcode.VPSIGNW
-        (ThreeOperands (
-          OprReg R.XMM0,
-          OprReg R.XMM3,
-          OprMem (Some R.RBX, None, None, 128<rt>)
-        ))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x61uy; 0x09uy; 0x03uy |]
-
-      test64
-        Opcode.VPSIGNW
-        (ThreeOperands (OprReg R.XMM0, OprReg R.XMM3, OprReg R.XMM3))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x61uy; 0x09uy; 0xc3uy |]
-
-      test64
-        Opcode.VPSIGNW
-        (ThreeOperands (
-          OprReg R.YMM0,
-          OprReg R.YMM3,
-          OprMem (Some R.RBX, None, None, 256<rt>)
-        ))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x65uy; 0x09uy; 0x03uy |]
-
-      test64
-        Opcode.VPSIGNW
-        (ThreeOperands (OprReg R.YMM0, OprReg R.YMM3, OprReg R.YMM3))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x65uy; 0x09uy; 0xc3uy |]
-
-      test64
-        Opcode.VPACKUSDW
-        (ThreeOperands (
-          OprReg R.XMM0,
-          OprReg R.XMM3,
-          OprMem (Some R.RBX, None, None, 128<rt>)
-        ))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x61uy; 0x2Buy; 0x03uy |]
-
-      test64
-        Opcode.VPACKUSDW
-        (ThreeOperands (OprReg R.XMM0, OprReg R.XMM3, OprReg R.XMM3))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x61uy; 0x2Buy; 0xc3uy |]
-
-      test64
-        Opcode.VPACKUSDW
-        (ThreeOperands (
-          OprReg R.YMM0,
-          OprReg R.YMM3,
-          OprMem (Some R.RBX, None, None, 256<rt>)
-        ))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x65uy; 0x2Buy; 0x03uy |]
-
-      test64
-        Opcode.VPACKUSDW
-        (ThreeOperands (OprReg R.YMM0, OprReg R.YMM3, OprReg R.YMM3))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x65uy; 0x2Buy; 0xc3uy |]
-
-      test64
-        Opcode.VPCMPGTQ
-        (ThreeOperands (
-          OprReg R.XMM0,
-          OprReg R.XMM3,
-          OprMem (Some R.RBX, None, None, 128<rt>)
-        ))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x61uy; 0x37uy; 0x03uy |]
-
-      test64
-        Opcode.VPCMPGTQ
-        (ThreeOperands (OprReg R.XMM0, OprReg R.XMM3, OprReg R.XMM3))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x61uy; 0x37uy; 0xc3uy |]
-
-      test64
-        Opcode.VPCMPGTQ
-        (ThreeOperands (
-          OprReg R.YMM0,
-          OprReg R.YMM3,
-          OprMem (Some R.RBX, None, None, 256<rt>)
-        ))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x65uy; 0x37uy; 0x03uy |]
-
-      test64
-        Opcode.VPCMPGTQ
-        (ThreeOperands (OprReg R.YMM0, OprReg R.YMM3, OprReg R.YMM3))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x65uy; 0x37uy; 0xc3uy |]
-
-      test64
-        Opcode.VPHMINPOSUW
-        (TwoOperands (OprReg R.XMM0, OprMem (Some R.RBX, None, None, 128<rt>)))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x61uy; 0x41uy; 0x03uy |]
-
-      test64
-        Opcode.VPHMINPOSUW
-        (TwoOperands (OprReg R.XMM0, OprReg R.XMM3))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x61uy; 0x41uy; 0xc3uy |]
-
-      test64
-        Opcode.VPMAXSB
-        (ThreeOperands (
-          OprReg R.XMM0,
-          OprReg R.XMM3,
-          OprMem (Some R.RBX, None, None, 128<rt>)
-        ))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x61uy; 0x3Cuy; 0x03uy |]
-
-      test64
-        Opcode.VPMAXSB
-        (ThreeOperands (OprReg R.XMM0, OprReg R.XMM3, OprReg R.XMM3))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x61uy; 0x3Cuy; 0xc3uy |]
-
-      test64
-        Opcode.VPMAXSB
-        (ThreeOperands (
-          OprReg R.YMM0,
-          OprReg R.YMM3,
-          OprMem (Some R.RBX, None, None, 256<rt>)
-        ))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x65uy; 0x3Cuy; 0x03uy |]
-
-      test64
-        Opcode.VPMAXSB
-        (ThreeOperands (OprReg R.YMM0, OprReg R.YMM3, OprReg R.YMM3))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x65uy; 0x3Cuy; 0xc3uy |]
-
-      test64
-        Opcode.VPMAXSD
-        (ThreeOperands (
-          OprReg R.XMM0,
-          OprReg R.XMM3,
-          OprMem (Some R.RBX, None, None, 128<rt>)
-        ))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x61uy; 0x3Duy; 0x03uy |]
-
-      test64
-        Opcode.VPMAXSD
-        (ThreeOperands (OprReg R.XMM0, OprReg R.XMM3, OprReg R.XMM3))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x61uy; 0x3Duy; 0xc3uy |]
-
-      test64
-        Opcode.VPMAXSD
-        (ThreeOperands (
-          OprReg R.YMM0,
-          OprReg R.YMM3,
-          OprMem (Some R.RBX, None, None, 256<rt>)
-        ))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x65uy; 0x3Duy; 0x03uy |]
-
-      test64
-        Opcode.VPMAXSD
-        (ThreeOperands (OprReg R.YMM0, OprReg R.YMM3, OprReg R.YMM3))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x65uy; 0x3Duy; 0xc3uy |]
-
-      test64
-        Opcode.VPMAXUD
-        (ThreeOperands (
-          OprReg R.XMM0,
-          OprReg R.XMM3,
-          OprMem (Some R.RBX, None, None, 128<rt>)
-        ))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x61uy; 0x3Fuy; 0x03uy |]
-
-      test64
-        Opcode.VPMAXUD
-        (ThreeOperands (OprReg R.XMM0, OprReg R.XMM3, OprReg R.XMM3))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x61uy; 0x3Fuy; 0xc3uy |]
-
-      test64
-        Opcode.VPMAXUD
-        (ThreeOperands (
-          OprReg R.YMM0,
-          OprReg R.YMM3,
-          OprMem (Some R.RBX, None, None, 256<rt>)
-        ))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x65uy; 0x3Fuy; 0x03uy |]
-
-      test64
-        Opcode.VPMAXUD
-        (ThreeOperands (OprReg R.YMM0, OprReg R.YMM3, OprReg R.YMM3))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x65uy; 0x3Fuy; 0xc3uy |]
-
-      test64
-        Opcode.VPMAXUW
-        (ThreeOperands (
-          OprReg R.XMM0,
-          OprReg R.XMM3,
-          OprMem (Some R.RBX, None, None, 128<rt>)
-        ))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x61uy; 0x3Euy; 0x03uy |]
-
-      test64
-        Opcode.VPMAXUW
-        (ThreeOperands (OprReg R.XMM0, OprReg R.XMM3, OprReg R.XMM3))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x61uy; 0x3Euy; 0xc3uy |]
-
-      test64
-        Opcode.VPMAXUW
-        (ThreeOperands (
-          OprReg R.YMM0,
-          OprReg R.YMM3,
-          OprMem (Some R.RBX, None, None, 256<rt>)
-        ))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x65uy; 0x3Euy; 0x03uy |]
-
-      test64
-        Opcode.VPMAXUW
-        (ThreeOperands (OprReg R.YMM0, OprReg R.YMM3, OprReg R.YMM3))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x65uy; 0x3Euy; 0xc3uy |]
-
-      test64
-        Opcode.VPMINSB
-        (ThreeOperands (
-          OprReg R.XMM0,
-          OprReg R.XMM3,
-          OprMem (Some R.RBX, None, None, 128<rt>)
-        ))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x61uy; 0x38uy; 0x03uy |]
-
-      test64
-        Opcode.VPMINSB
-        (ThreeOperands (OprReg R.XMM0, OprReg R.XMM3, OprReg R.XMM3))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x61uy; 0x38uy; 0xc3uy |]
-
-      test64
-        Opcode.VPMINSB
-        (ThreeOperands (
-          OprReg R.YMM0,
-          OprReg R.YMM3,
-          OprMem (Some R.RBX, None, None, 256<rt>)
-        ))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x65uy; 0x38uy; 0x03uy |]
-
-      test64
-        Opcode.VPMINSB
-        (ThreeOperands (OprReg R.YMM0, OprReg R.YMM3, OprReg R.YMM3))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x65uy; 0x38uy; 0xc3uy |]
-
-      test64
-        Opcode.VPMINSD
-        (ThreeOperands (
-          OprReg R.XMM0,
-          OprReg R.XMM3,
-          OprMem (Some R.RBX, None, None, 128<rt>)
-        ))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x61uy; 0x39uy; 0x03uy |]
-
-      test64
-        Opcode.VPMINSD
-        (ThreeOperands (OprReg R.XMM0, OprReg R.XMM3, OprReg R.XMM3))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x61uy; 0x39uy; 0xc3uy |]
-
-      test64
-        Opcode.VPMINSD
-        (ThreeOperands (
-          OprReg R.YMM0,
-          OprReg R.YMM3,
-          OprMem (Some R.RBX, None, None, 256<rt>)
-        ))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x65uy; 0x39uy; 0x03uy |]
-
-      test64
-        Opcode.VPMINSD
-        (ThreeOperands (OprReg R.YMM0, OprReg R.YMM3, OprReg R.YMM3))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x65uy; 0x39uy; 0xc3uy |]
-
-      test64
-        Opcode.VPMINUW
-        (ThreeOperands (
-          OprReg R.XMM0,
-          OprReg R.XMM3,
-          OprMem (Some R.RBX, None, None, 128<rt>)
-        ))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x61uy; 0x3Auy; 0x03uy |]
-
-      test64
-        Opcode.VPMINUW
-        (ThreeOperands (OprReg R.XMM0, OprReg R.XMM3, OprReg R.XMM3))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x61uy; 0x3Auy; 0xc3uy |]
-
-      test64
-        Opcode.VPMINUW
-        (ThreeOperands (
-          OprReg R.YMM0,
-          OprReg R.YMM3,
-          OprMem (Some R.RBX, None, None, 256<rt>)
-        ))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x65uy; 0x3Auy; 0x03uy |]
-
-      test64
-        Opcode.VPMINUW
-        (ThreeOperands (OprReg R.YMM0, OprReg R.YMM3, OprReg R.YMM3))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x65uy; 0x3Auy; 0xc3uy |]
-
-      test64
-        Opcode.VPMOVSXBD
-        (TwoOperands (OprReg R.XMM0, OprMem (Some R.RBX, None, None, 32<rt>)))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x61uy; 0x21uy; 0x03uy |]
-
-      test64
-        Opcode.VPMOVSXBD
-        (TwoOperands (OprReg R.XMM0, OprReg R.XMM3))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x61uy; 0x21uy; 0xc3uy |]
-
-      test64
-        Opcode.VPMOVSXBD
-        (TwoOperands (OprReg R.YMM0, OprMem (Some R.RBX, None, None, 64<rt>)))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x65uy; 0x21uy; 0x03uy |]
-
-      test64
-        Opcode.VPMOVSXBD
-        (TwoOperands (OprReg R.YMM0, OprReg R.XMM3))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x65uy; 0x21uy; 0xc3uy |]
-
-      test64
-        Opcode.VPMOVSXBQ
-        (TwoOperands (OprReg R.XMM0, OprMem (Some R.RBX, None, None, 16<rt>)))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x61uy; 0x22uy; 0x03uy |]
-
-      test64
-        Opcode.VPMOVSXBQ
-        (TwoOperands (OprReg R.XMM0, OprReg R.XMM3))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x61uy; 0x22uy; 0xc3uy |]
-
-      test64
-        Opcode.VPMOVSXBQ
-        (TwoOperands (OprReg R.YMM0, OprMem (Some R.RBX, None, None, 32<rt>)))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x65uy; 0x22uy; 0x03uy |]
-
-      test64
-        Opcode.VPMOVSXBQ
-        (TwoOperands (OprReg R.YMM0, OprReg R.XMM3))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x65uy; 0x22uy; 0xc3uy |]
-
-      test64
-        Opcode.VPMOVSXBW
-        (TwoOperands (OprReg R.XMM0, OprMem (Some R.RBX, None, None, 64<rt>)))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x61uy; 0x20uy; 0x03uy |]
-
-      test64
-        Opcode.VPMOVSXBW
-        (TwoOperands (OprReg R.XMM0, OprReg R.XMM3))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x61uy; 0x20uy; 0xc3uy |]
-
-      test64
-        Opcode.VPMOVSXBW
-        (TwoOperands (OprReg R.YMM0, OprMem (Some R.RBX, None, None, 128<rt>)))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x65uy; 0x20uy; 0x03uy |]
-
-      test64
-        Opcode.VPMOVSXBW
-        (TwoOperands (OprReg R.YMM0, OprReg R.XMM3))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x65uy; 0x20uy; 0xc3uy |]
-
-      test64
-        Opcode.VPMOVSXDQ
-        (TwoOperands (OprReg R.XMM0, OprMem (Some R.RBX, None, None, 64<rt>)))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x61uy; 0x25uy; 0x03uy |]
-
-      test64
-        Opcode.VPMOVSXDQ
-        (TwoOperands (OprReg R.XMM0, OprReg R.XMM3))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x61uy; 0x25uy; 0xc3uy |]
-
-      test64
-        Opcode.VPMOVSXDQ
-        (TwoOperands (OprReg R.YMM0, OprMem (Some R.RBX, None, None, 128<rt>)))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x65uy; 0x25uy; 0x03uy |]
-
-      test64
-        Opcode.VPMOVSXDQ
-        (TwoOperands (OprReg R.YMM0, OprReg R.XMM3))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x65uy; 0x25uy; 0xc3uy |]
-
-      test64
-        Opcode.VPMOVSXWD
-        (TwoOperands (OprReg R.XMM0, OprMem (Some R.RBX, None, None, 64<rt>)))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x61uy; 0x23uy; 0x03uy |]
-
-      test64
-        Opcode.VPMOVSXWD
-        (TwoOperands (OprReg R.XMM0, OprReg R.XMM3))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x61uy; 0x23uy; 0xc3uy |]
-
-      test64
-        Opcode.VPMOVSXWD
-        (TwoOperands (OprReg R.YMM0, OprMem (Some R.RBX, None, None, 128<rt>)))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x65uy; 0x23uy; 0x03uy |]
-
-      test64
-        Opcode.VPMOVSXWD
-        (TwoOperands (OprReg R.YMM0, OprReg R.XMM3))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x65uy; 0x23uy; 0xc3uy |]
-
-      test64
-        Opcode.VPMOVSXWQ
-        (TwoOperands (OprReg R.XMM0, OprMem (Some R.RBX, None, None, 32<rt>)))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x61uy; 0x24uy; 0x03uy |]
-
-      test64
-        Opcode.VPMOVSXWQ
-        (TwoOperands (OprReg R.XMM0, OprReg R.XMM3))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x61uy; 0x24uy; 0xc3uy |]
-
-      test64
-        Opcode.VPMOVSXWQ
-        (TwoOperands (OprReg R.YMM0, OprMem (Some R.RBX, None, None, 64<rt>)))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x65uy; 0x24uy; 0x03uy |]
-
-      test64
-        Opcode.VPMOVSXWQ
-        (TwoOperands (OprReg R.YMM0, OprReg R.XMM3))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x65uy; 0x24uy; 0xc3uy |]
-
-      test64
-        Opcode.VPMOVZXBD
-        (TwoOperands (OprReg R.XMM0, OprMem (Some R.RBX, None, None, 32<rt>)))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x61uy; 0x31uy; 0x03uy |]
-
-      test64
-        Opcode.VPMOVZXBD
-        (TwoOperands (OprReg R.XMM0, OprReg R.XMM3))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x61uy; 0x31uy; 0xc3uy |]
-
-      test64
-        Opcode.VPMOVZXBD
-        (TwoOperands (OprReg R.YMM0, OprMem (Some R.RBX, None, None, 64<rt>)))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x65uy; 0x31uy; 0x03uy |]
-
-      test64
-        Opcode.VPMOVZXBD
-        (TwoOperands (OprReg R.YMM0, OprReg R.XMM3))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x65uy; 0x31uy; 0xc3uy |]
-
-      test64
-        Opcode.VPMOVZXBQ
-        (TwoOperands (OprReg R.XMM0, OprMem (Some R.RBX, None, None, 16<rt>)))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x61uy; 0x32uy; 0x03uy |]
-
-      test64
-        Opcode.VPMOVZXBQ
-        (TwoOperands (OprReg R.XMM0, OprReg R.XMM3))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x61uy; 0x32uy; 0xc3uy |]
-
-      test64
-        Opcode.VPMOVZXBQ
-        (TwoOperands (OprReg R.YMM0, OprMem (Some R.RBX, None, None, 32<rt>)))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x65uy; 0x32uy; 0x03uy |]
-
-      test64
-        Opcode.VPMOVZXBQ
-        (TwoOperands (OprReg R.YMM0, OprReg R.XMM3))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x65uy; 0x32uy; 0xc3uy |]
-
-      test64
-        Opcode.VPMOVZXBW
-        (TwoOperands (OprReg R.XMM0, OprMem (Some R.RBX, None, None, 64<rt>)))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x61uy; 0x30uy; 0x03uy |]
-
-      test64
-        Opcode.VPMOVZXBW
-        (TwoOperands (OprReg R.XMM0, OprReg R.XMM3))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x61uy; 0x30uy; 0xc3uy |]
-
-      test64
-        Opcode.VPMOVZXBW
-        (TwoOperands (OprReg R.YMM0, OprMem (Some R.RBX, None, None, 128<rt>)))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x65uy; 0x30uy; 0x03uy |]
-
-      test64
-        Opcode.VPMOVZXBW
-        (TwoOperands (OprReg R.YMM0, OprReg R.XMM3))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x65uy; 0x30uy; 0xc3uy |]
-
-      test64
-        Opcode.VPMOVZXDQ
-        (TwoOperands (OprReg R.XMM0, OprMem (Some R.RBX, None, None, 64<rt>)))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x61uy; 0x35uy; 0x03uy |]
-
-      test64
-        Opcode.VPMOVZXDQ
-        (TwoOperands (OprReg R.XMM0, OprReg R.XMM3))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x61uy; 0x35uy; 0xc3uy |]
-
-      test64
-        Opcode.VPMOVZXDQ
-        (TwoOperands (OprReg R.YMM0, OprMem (Some R.RBX, None, None, 128<rt>)))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x65uy; 0x35uy; 0x03uy |]
-
-      test64
-        Opcode.VPMOVZXDQ
-        (TwoOperands (OprReg R.YMM0, OprReg R.XMM3))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x65uy; 0x35uy; 0xc3uy |]
-
-      test64
-        Opcode.VPMOVZXWD
-        (TwoOperands (OprReg R.XMM0, OprMem (Some R.RBX, None, None, 64<rt>)))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x61uy; 0x33uy; 0x03uy |]
-
-      test64
-        Opcode.VPMOVZXWD
-        (TwoOperands (OprReg R.XMM0, OprReg R.XMM3))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x61uy; 0x33uy; 0xc3uy |]
-
-      test64
-        Opcode.VPMOVZXWD
-        (TwoOperands (OprReg R.YMM0, OprMem (Some R.RBX, None, None, 128<rt>)))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x65uy; 0x33uy; 0x03uy |]
-
-      test64
-        Opcode.VPMOVZXWD
-        (TwoOperands (OprReg R.YMM0, OprReg R.XMM3))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x65uy; 0x33uy; 0xc3uy |]
-
-      test64
-        Opcode.VPMOVZXWQ
-        (TwoOperands (OprReg R.XMM0, OprMem (Some R.RBX, None, None, 32<rt>)))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x61uy; 0x34uy; 0x03uy |]
-
-      test64
-        Opcode.VPMOVZXWQ
-        (TwoOperands (OprReg R.XMM0, OprReg R.XMM3))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x61uy; 0x34uy; 0xc3uy |]
-
-      test64
-        Opcode.VPMOVZXWQ
-        (TwoOperands (OprReg R.YMM0, OprMem (Some R.RBX, None, None, 64<rt>)))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x65uy; 0x34uy; 0x03uy |]
-
-      test64
-        Opcode.VPMOVZXWQ
-        (TwoOperands (OprReg R.YMM0, OprReg R.XMM3))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x65uy; 0x34uy; 0xc3uy |]
-
-      test64
-        Opcode.VPMULDQ
-        (ThreeOperands (
-          OprReg R.XMM0,
-          OprReg R.XMM3,
-          OprMem (Some R.RBX, None, None, 128<rt>)
-        ))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x61uy; 0x28uy; 0x03uy |]
-
-      test64
-        Opcode.VPMULDQ
-        (ThreeOperands (OprReg R.XMM0, OprReg R.XMM3, OprReg R.XMM3))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x61uy; 0x28uy; 0xc3uy |]
-
-      test64
-        Opcode.VPMULDQ
-        (ThreeOperands (
-          OprReg R.YMM0,
-          OprReg R.YMM3,
-          OprMem (Some R.RBX, None, None, 256<rt>)
-        ))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x65uy; 0x28uy; 0x03uy |]
-
-      test64
-        Opcode.VPMULDQ
-        (ThreeOperands (OprReg R.YMM0, OprReg R.YMM3, OprReg R.YMM3))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x65uy; 0x28uy; 0xc3uy |]
-
-      test64
-        Opcode.VPMULLD
-        (ThreeOperands (
-          OprReg R.XMM0,
-          OprReg R.XMM3,
-          OprMem (Some R.RBX, None, None, 128<rt>)
-        ))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x61uy; 0x40uy; 0x03uy |]
-
-      test64
-        Opcode.VPMULLD
-        (ThreeOperands (OprReg R.XMM0, OprReg R.XMM3, OprReg R.XMM3))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x61uy; 0x40uy; 0xc3uy |]
-
-      test64
-        Opcode.VPMULLD
-        (ThreeOperands (
-          OprReg R.YMM0,
-          OprReg R.YMM3,
-          OprMem (Some R.RBX, None, None, 256<rt>)
-        ))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x65uy; 0x40uy; 0x03uy |]
-
-      test64
-        Opcode.VPMULLD
-        (ThreeOperands (OprReg R.YMM0, OprReg R.YMM3, OprReg R.YMM3))
-        5u
-        [| 0xC4uy; 0xE2uy; 0x65uy; 0x40uy; 0xc3uy |]
+open B2R2.FrontEnd.BinLifter.Intel
+open type Opcode
+
+/// Shortcut for creating operands.
+type O =
+  static member Reg (r) =
+    OprReg r
+
+  static member Mem (bReg, rt) =
+    OprMem (Some bReg, None, None, rt)
+
+  static member Mem (bReg, disp: Disp, rt) =
+    OprMem (Some bReg, None, Some disp, rt)
+
+  static member Mem (bReg, idx, scale, rt) =
+    OprMem (Some bReg, Some (idx, scale), None, rt)
+
+  static member Mem (bReg, idx, scale, disp, rt) =
+    OprMem (Some bReg, Some (idx, scale), Some disp, rt)
+
+  static member Mem (disp: Disp, rt) =
+    OprMem (None, None, Some disp, rt)
+
+  static member Imm (v, rt) =
+    OprImm (v, rt)
+
+  static member Addr (selector, addr, rt) =
+    OprDirAddr (Absolute (selector, addr, rt))
+
+let private test prefs segment wordSize opcode oprs (bytes: byte[]) =
+  let parser = IntelParser (wordSize) :> IInstructionParsable
+  let ins = parser.Parse (bytes, 0UL) :?> IntelInternalInstruction
+  Assert.AreEqual (ins.Prefixes, prefs)
+  Assert.AreEqual (Helper.getSegment ins.Prefixes, segment)
+  Assert.AreEqual (ins.Opcode, opcode)
+  Assert.AreEqual (ins.Operands, oprs)
+  Assert.AreEqual (ins.Length, uint32 bytes.Length)
+
+let private testX86NoPrefixNoSeg (bytes: byte[]) (opcode, operands) =
+  test Prefix.PrxNone None WordSize.Bit32 opcode operands bytes
+
+let private testX86Prefix pref (bytes: byte[]) (opcode, operands) =
+  test pref None WordSize.Bit32 opcode operands bytes
+
+let private testX86 pref seg (bytes: byte[]) (opcode, operands) =
+  test pref (Some seg) WordSize.Bit32 opcode operands bytes
+
+let private testX64NoPrefixNoSeg (bytes: byte[]) (opcode, operands) =
+  test Prefix.PrxNone None WordSize.Bit64 opcode operands bytes
+
+let private operandsFromArray oprList =
+  let oprArray = Array.ofList oprList
+  match oprArray.Length with
+  | 0 -> NoOperand
+  | 1 -> OneOperand oprArray[0]
+  | 2 -> TwoOperands (oprArray[0], oprArray[1])
+  | 3 -> ThreeOperands (oprArray[0], oprArray[1], oprArray[2])
+  | 4 -> FourOperands (oprArray[0], oprArray[1], oprArray[2], oprArray[3])
+  | _ -> Utils.impossible ()
+
+let private ( ** ) opcode oprList = (opcode, operandsFromArray oprList)
+
+let private ( ++ ) byteString pair = (ByteArray.ofHexString byteString, pair)
+
+/// 5.1 GENERAL-PURPOSE INSTRUCTIONS
+[<TestClass>]
+type GeneralPurposeClass () =
+  [<TestMethod>]
+  member __.``5.1.1 Data Transfer Instructions (1)`` () =
+    "c70518bb210002000000"
+    ++ MOV ** [ O.Mem (2210584L, 32<rt>); O.Imm (2L, 32<rt>) ]
+    ||> testX86NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``5.1.1 Data Transfer Instructions (2)`` () =
+    "6811223344"
+    ++ PUSH ** [ O.Imm (0x44332211L, 32<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``5.1.1 Data Transfer Instructions (3)`` () =
+    "0fbe7fff"
+    ++ MOVSX ** [ O.Reg R.EDI; O.Mem (R.EDI, -1L, 8<rt>) ]
+    ||> testX86NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``5.1.1 Data Transfer Instructions (4)`` () =
+    "4863c8"
+    ++ MOVSXD ** [ O.Reg R.RCX; O.Reg R.EAX ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``5.1.2 Binary Arithmetic Instructions (1)`` () =
+    "4803c8"
+    ++ ADD ** [ O.Reg R.RCX; O.Reg R.RAX ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``5.1.2 Binary Arithmetic Instructions (2)`` () =
+    "6bfa0a"
+    ++ IMUL ** [ O.Reg R.EDI; O.Reg R.EDX; O.Imm (10L, 8<rt>) ]
+    ||> testX86NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``5.1.2 Binary Arithmetic Instructions (3)`` () =
+    "f720"
+    ++ MUL ** [ O.Mem (R.EAX, 32<rt>) ]
+    ||> testX86NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``5.1.2 Binary Arithmetic Instructions (4)`` () =
+    "f7f1"
+    ++ DIV ** [ O.Reg R.ECX ]
+    ||> testX86NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``5.1.3 Decimal Arithmetic Instructions (1)`` () =
+    "37"
+    ++ AAA ** []
+    ||> testX86NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``5.1.3 Decimal Arithmetic Instructions (2)`` () =
+    "3F"
+    ++ AAS ** []
+    ||> testX86NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``5.1.4 Logical Instructions (1)`` () =
+    "212414"
+    ++ AND ** [ O.Mem (R.ESP, R.EDX, Scale.X1, 32<rt>); O.Reg R.ESP ]
+    ||> testX86NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``5.1.4 Logical Instructions (2)`` () =
+    "212542424242"
+    ++ AND ** [ O.Mem (1111638594L, 32<rt>); O.Reg R.ESP ]
+    ||> testX86NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``5.1.5 Shift and Rotate Instructions (1)`` () =
+    "c1000a"
+    ++ ROL ** [ O.Mem (R.EAX, 32<rt>); O.Imm (10L, 8<rt>) ]
+    ||> testX86NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``5.1.5 Shift and Rotate Instructions (2)`` () =
+    "c0000a"
+    ++ ROL ** [ O.Mem (R.EAX, 8<rt>); O.Imm (10L, 8<rt>) ]
+    ||> testX86NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``5.1.6 Bit and Byte Instructions (1)`` () =
+    "f6000a"
+    ++ TEST ** [ O.Mem (R.EAX, 8<rt>); O.Imm (10L, 8<rt>) ]
+    ||> testX86NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``5.1.7 Control Transfer Instructions (1)`` () =
+    "ffe4"
+    ++ JMPNear ** [ O.Reg R.ESP ]
+    ||> testX86NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``5.1.7 Control Transfer Instructions (2)`` () =
+    "ea123456789000"
+    ++ JMPFar ** [ O.Addr (0x90s, 0x78563412UL, 32<rt>) ]
+    ||> testX86NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``5.1.7 Control Transfer Instructions (3)`` () =
+    "65ff1510000000"
+    ++ CALLNear ** [ O.Mem (16L, 32<rt>) ]
+    ||> testX86 (Prefix.PrxGS) R.GS
+
+  [<TestMethod>]
+  member __.``5.1.7 Control Transfer Instructions (4)`` () =
+    "9a987654321000"
+    ++ CALLFar ** [ O.Addr (0x10s, 0x32547698UL, 32<rt>) ]
+    ||> testX86NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``5.1.7 Control Transfer Instructions (5)`` () =
+    "cd01"
+    ++ INT ** [ O.Imm (1L, 8<rt>) ]
+    ||> testX86NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``5.1.9 I/O Instructions (1)`` () =
+    "ed"
+    ++ IN ** [ O.Reg R.EAX; O.Reg R.DX ]
+    ||> testX86NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``5.1.9 I/O Instructions (2)`` () =
+    "ee"
+    ++ OUT ** [ O.Reg R.DX; O.Reg R.AL ]
+    ||> testX86NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``5.1.9 I/O Instructions (3)`` () =
+    "66ef"
+    ++ OUT ** [ O.Reg R.DX; O.Reg R.AX ]
+    ||> testX86Prefix Prefix.PrxOPSIZE
+
+  [<TestMethod>]
+  member __.``5.1.9 I/O Instructions (4)`` () =
+    "ef"
+    ++ OUT ** [ O.Reg R.DX; O.Reg R.EAX ]
+    ||> testX86NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``5.1.12 Segment Register Instructions (1)`` () =
+    "c40f"
+    ++ LES ** [ O.Reg R.ECX; O.Mem (R.EDI, 48<rt>) ]
+    ||> testX86NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``5.1.12 Segment Register Instructions (2)`` () =
+    "c511"
+    ++ LDS ** [ O.Reg R.EDX; O.Mem (R.ECX, 48<rt>) ]
+    ||> testX86NoPrefixNoSeg
+
+/// 5.2 X87 FPU INSTRUCTIONS
+[<TestClass>]
+type X87FPUClass () =
+  [<TestMethod>]
+  member __.``5.2.1 x87 FPU Data Transfer Instructions (1)`` () =
+    "df84ca01020304"
+    ++ FILD ** [ O.Mem (R.EDX, R.ECX, Scale.X8, 67305985L, 16<rt>) ]
+    ||> testX86NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``5.2.1 x87 FPU Data Transfer Instructions (2)`` () =
+    "df20"
+    ++ FBLD ** [ O.Mem (R.EAX, 80<rt>) ]
+    ||> testX86NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``5.2.3 x87 FPU Comparison Instructions (1)`` () =
+    "dff1"
+    ++ FCOMIP ** [ O.Reg R.ST0; O.Reg R.ST1 ]
+    ||> testX86NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``5.2.3 x87 FPU Comparison Instructions (2)`` () =
+    "dfe9"
+    ++ FUCOMIP ** [ O.Reg R.ST0; O.Reg R.ST1 ]
+    ||> testX86NoPrefixNoSeg
+
+/// 5.4 MMX INSTRUCTIONS
+[<TestClass>]
+type MMXClass () =
+  [<TestMethod>]
+  member __.``5.4.1 MMX Conversion Instructions (1)`` () =
+    "c4e1f9d69001020304;"
+    ++ VMOVQ ** [ O.Mem (R.RAX, 67305985L, 64<rt>); O.Reg R.XMM2 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``5.4.1 MMX Conversion Instructions (2)`` () =
+    "c4e1f9d6d0"
+    ++ VMOVQ ** [ O.Reg R.XMM0; O.Reg R.XMM2 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``5.4.4 MMX Comparison Instructions (1)`` () =
+    "0f7501"
+    ++ PCMPEQW ** [ O.Reg R.MM0; O.Mem (R.RCX, 64<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``5.4.4 MMX Comparison Instructions (2)`` () =
+    "0f75c1"
+    ++ PCMPEQW ** [ O.Reg R.MM0; O.Reg R.MM1 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``5.4.4 MMX Comparison Instructions (3)`` () =
+    "660f7501"
+    ++ PCMPEQW ** [ O.Reg R.XMM0; O.Mem (R.RCX, 128<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``5.4.4 MMX Comparison Instructions (4)`` () =
+    "660f75c1"
+    ++ PCMPEQW ** [ O.Reg R.XMM0; O.Reg R.XMM1 ]
+    ||> testX64NoPrefixNoSeg
+
+/// 5.5 SSE INSTRUCTIONS
+[<TestClass>]
+type SSEClass () =
+  [<TestMethod>]
+  member __.``5.5.1.6 SSE Conversion Instructions (1)`` () =
+    "c4e1fa2d9001020304;"
+    ++ VCVTSS2SI ** [ O.Reg R.RDX; O.Mem (R.RAX, 67305985L, 32<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``5.5.1.6 SSE Conversion Instructions (2)`` () =
+    "c4e17b2d9001020304;"
+    ++ VCVTSD2SI ** [ O.Reg R.EDX; O.Mem (R.RAX, 67305985L, 64<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+/// 5.6 SSE2 INSTRUCTIONS
+[<TestClass>]
+type SSE2Class () =
+  [<TestMethod>]
+  member __.``Intel SSE 128-Bits SIMD Interger Instructions (1)`` () =
+    "62f1fd486f4c2401"
+    ++ VMOVDQA64 ** [ O.Reg R.ZMM1; O.Mem (R.RSP, 64L, 512<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+/// 5.8 SUPPLEMENTAL STREAMING SIMD EXTENSIONS 3 (SSSE3) INSTRUCTIONS
+[<TestClass>]
+type SSSE3Class () =
+  [<TestMethod>]
+  member __.``5.8.1 Horizontal Addition/Subtraction (1)`` () =
+    "0f380101"
+    ++ PHADDW ** [ O.Reg R.MM0; O.Mem (R.RCX, 64<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``5.8.1 Horizontal Addition/Subtraction (2)`` () =
+    "0f3801c1"
+    ++ PHADDW ** [ O.Reg R.MM0; O.Reg R.MM1 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``5.8.1 Horizontal Addition/Subtraction (3)`` () =
+    "660f380101"
+    ++ PHADDW ** [ O.Reg R.XMM0; O.Mem (R.RCX, 128<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``5.8.1 Horizontal Addition/Subtraction (4)`` () =
+    "660f3801c1"
+    ++ PHADDW ** [ O.Reg R.XMM0; O.Reg R.XMM1 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``5.8.1 Horizontal Addition/Subtraction (5)`` () =
+    "0f380301"
+    ++ PHADDSW ** [ O.Reg R.MM0; O.Mem (R.RCX, 64<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``5.8.1 Horizontal Addition/Subtraction (6)`` () =
+    "0f3803c1"
+    ++ PHADDSW ** [ O.Reg R.MM0; O.Reg R.MM1 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``5.8.1 Horizontal Addition/Subtraction (7)`` () =
+    "660f380301"
+    ++ PHADDSW ** [ O.Reg R.XMM0; O.Mem (R.RCX, 128<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``5.8.1 Horizontal Addition/Subtraction (8)`` () =
+    "660f3803c1"
+    ++ PHADDSW ** [ O.Reg R.XMM0; O.Reg R.XMM1 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``5.8.1 Horizontal Addition/Subtraction (9)`` () =
+    "0f380201"
+    ++ PHADDD ** [ O.Reg R.MM0; O.Mem (R.RCX, 64<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``5.8.1 Horizontal Addition/Subtraction (10)`` () =
+    "0f3802c1"
+    ++ PHADDD ** [ O.Reg R.MM0; O.Reg R.MM1 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``5.8.1 Horizontal Addition/Subtraction (11)`` () =
+    "660f380201"
+    ++ PHADDD ** [ O.Reg R.XMM0; O.Mem (R.RCX, 128<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``5.8.1 Horizontal Addition/Subtraction (12)`` () =
+    "660f3802c1"
+    ++ PHADDD ** [ O.Reg R.XMM0; O.Reg R.XMM1 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``5.8.1 Horizontal Addition/Subtraction (13)`` () =
+    "0f380501"
+    ++ PHSUBW ** [ O.Reg R.MM0; O.Mem (R.RCX, 64<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``5.8.1 Horizontal Addition/Subtraction (14)`` () =
+    "0f3805c1"
+    ++ PHSUBW ** [ O.Reg R.MM0; O.Reg R.MM1 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``5.8.1 Horizontal Addition/Subtraction (15)`` () =
+    "660f380501"
+    ++ PHSUBW ** [ O.Reg R.XMM0; O.Mem (R.RCX, 128<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``5.8.1 Horizontal Addition/Subtraction (16)`` () =
+    "660f3805c1"
+    ++ PHSUBW ** [ O.Reg R.XMM0; O.Reg R.XMM1 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``5.8.1 Horizontal Addition/Subtraction (17)`` () =
+    "0f380701"
+    ++ PHSUBSW ** [ O.Reg R.MM0; O.Mem (R.RCX, 64<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``5.8.1 Horizontal Addition/Subtraction (18)`` () =
+    "0f3807c1"
+    ++ PHSUBSW ** [ O.Reg R.MM0; O.Reg R.MM1 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``5.8.1 Horizontal Addition/Subtraction (19)`` () =
+    "660f380701"
+    ++ PHSUBSW ** [ O.Reg R.XMM0; O.Mem (R.RCX, 128<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``5.8.1 Horizontal Addition/Subtraction (20)`` () =
+    "660f3807c1"
+    ++ PHSUBSW ** [ O.Reg R.XMM0; O.Reg R.XMM1 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``5.8.1 Horizontal Addition/Subtraction (21)`` () =
+    "0f380601"
+    ++ PHSUBD ** [ O.Reg R.MM0; O.Mem (R.RCX, 64<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``5.8.1 Horizontal Addition/Subtraction (22)`` () =
+    "0f3806c1"
+    ++ PHSUBD ** [ O.Reg R.MM0; O.Reg R.MM1 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``5.8.1 Horizontal Addition/Subtraction (23)`` () =
+    "660f380601"
+    ++ PHSUBD ** [ O.Reg R.XMM0; O.Mem (R.RCX, 128<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``5.8.1 Horizontal Addition/Subtraction (24)`` () =
+    "660f3806c1"
+    ++ PHSUBD ** [ O.Reg R.XMM0; O.Reg R.XMM1 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``5.8.2. Packed Absolute Values (1)`` () =
+    "0f381c01"
+    ++ PABSB ** [ O.Reg R.MM0; O.Mem (R.RCX, 64<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``5.8.2. Packed Absolute Values (2)`` () =
+    "0f381cc1"
+    ++ PABSB ** [ O.Reg R.MM0; O.Reg R.MM1 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``5.8.2. Packed Absolute Values (3)`` () =
+    "660f381c01"
+    ++ PABSB ** [ O.Reg R.XMM0; O.Mem (R.RCX, 128<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``5.8.2. Packed Absolute Values (4)`` () =
+    "660f381cc1"
+    ++ PABSB ** [ O.Reg R.XMM0; O.Reg R.XMM1 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``5.8.2. Packed Absolute Values (5)`` () =
+    "0f381e01"
+    ++ PABSD ** [ O.Reg R.MM0; O.Mem (R.RCX, 64<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``5.8.2. Packed Absolute Values (6)`` () =
+    "0f381ec1"
+    ++ PABSD ** [ O.Reg R.MM0; O.Reg R.MM1 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``5.8.2. Packed Absolute Values (7)`` () =
+    "660f381e01"
+    ++ PABSD ** [ O.Reg R.XMM0; O.Mem (R.RCX, 128<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``5.8.2. Packed Absolute Values (8)`` () =
+    "660f381ec1"
+    ++ PABSD ** [ O.Reg R.XMM0; O.Reg R.XMM1 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``5.8.2. Packed Absolute Values (9)`` () =
+    "0f381d01"
+    ++ PABSW ** [ O.Reg R.MM0; O.Mem (R.RCX, 64<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``5.8.2. Packed Absolute Values (10)`` () =
+    "0f381dc1"
+    ++ PABSW ** [ O.Reg R.MM0; O.Reg R.MM1 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``5.8.2. Packed Absolute Values (11)`` () =
+    "660f381d01"
+    ++ PABSW ** [ O.Reg R.XMM0; O.Mem (R.RCX, 128<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``5.8.2. Packed Absolute Values (12)`` () =
+    "660f381dc1"
+    ++ PABSW ** [ O.Reg R.XMM0; O.Reg R.XMM1 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``5.8.4 Packed Multiply High with Round and Scale (1)`` () =
+    "0f380b01"
+    ++ PMULHRSW ** [ O.Reg R.MM0; O.Mem (R.RCX, 64<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``5.8.4 Packed Multiply High with Round and Scale (2)`` () =
+    "0f380bc1"
+    ++ PMULHRSW ** [ O.Reg R.MM0; O.Reg R.MM1 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``5.8.4 Packed Multiply High with Round and Scale (3)`` () =
+    "660f380b01"
+    ++ PMULHRSW ** [ O.Reg R.XMM0; O.Mem (R.RCX, 128<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``5.8.4 Packed Multiply High with Round and Scale (4)`` () =
+    "660f380bc1"
+    ++ PMULHRSW ** [ O.Reg R.XMM0; O.Reg R.XMM1 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``5.8.6 Packed Sign (1)`` () =
+    "0f380801"
+    ++ PSIGNB ** [ O.Reg R.MM0; O.Mem (R.RCX, 64<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``5.8.6 Packed Sign (2)`` () =
+    "0f3808c1"
+    ++ PSIGNB ** [ O.Reg R.MM0; O.Reg R.MM1 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``5.8.6 Packed Sign (3)`` () =
+    "660f380801"
+    ++ PSIGNB ** [ O.Reg R.XMM0; O.Mem (R.RCX, 128<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``5.8.6 Packed Sign (4)`` () =
+    "660f3808c1"
+    ++ PSIGNB ** [ O.Reg R.XMM0; O.Reg R.XMM1 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``5.8.6 Packed Sign (5)`` () =
+    "0f380901"
+    ++ PSIGNW ** [ O.Reg R.MM0; O.Mem (R.RCX, 64<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``5.8.6 Packed Sign (6)`` () =
+    "0f3809c1"
+    ++ PSIGNW ** [ O.Reg R.MM0; O.Reg R.MM1 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``5.8.6 Packed Sign (7)`` () =
+    "660f380901"
+    ++ PSIGNW ** [ O.Reg R.XMM0; O.Mem (R.RCX, 128<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``5.8.6 Packed Sign (8)`` () =
+    "660f3809c1"
+    ++ PSIGNW ** [ O.Reg R.XMM0; O.Reg R.XMM1 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``5.8.6 Packed Sign (9)`` () =
+    "0f380a01"
+    ++ PSIGND ** [ O.Reg R.MM0; O.Mem (R.RCX, 64<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``5.8.6 Packed Sign (10)`` () =
+    "0f380ac1"
+    ++ PSIGND ** [ O.Reg R.MM0; O.Reg R.MM1 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``5.8.6 Packed Sign (11)`` () =
+    "660f380a01"
+    ++ PSIGND ** [ O.Reg R.XMM0; O.Mem (R.RCX, 128<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``5.8.6 Packed Sign (12)`` () =
+    "660f380ac1"
+    ++ PSIGND ** [ O.Reg R.XMM0; O.Reg R.XMM1 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``5.8.7 Packed Align Right (1)`` () =
+    "660f3a0fd101"
+    ++ PALIGNR ** [ O.Reg R.XMM2; O.Reg R.XMM1; O.Imm (1L, 8<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+/// 5.10 SSE4.1 INSTRUCTIONS
+[<TestClass>]
+type SSSE41Class () =
+  [<TestMethod>]
+  member __.``5.10.1 Dword Multiply Instructions (1)`` () =
+    "660f384002"
+    ++ PMULLD ** [ O.Reg R.XMM0; O.Mem (R.RDX, 128<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``5.10.1 Dword Multiply Instructions (2)`` () =
+    "660f3840c2"
+    ++ PMULLD ** [ O.Reg R.XMM0; O.Reg R.XMM2 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``5.10.1 Dword Multiply Instructions (3)`` () =
+    "660f382802"
+    ++ PMULDQ ** [ O.Reg R.XMM0; O.Mem (R.RDX, 128<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``5.10.1 Dword Multiply Instructions (4)`` () =
+    "660f3828c2"
+    ++ PMULDQ ** [ O.Reg R.XMM0; O.Reg R.XMM2 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``5.10.5 Packed Integer MIN/MAX Instructions (1)`` () =
+    "660f383a02"
+    ++ PMINUW ** [ O.Reg R.XMM0; O.Mem (R.RDX, 128<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``5.10.5 Packed Integer MIN/MAX Instructions (2)`` () =
+    "660f383ac2"
+    ++ PMINUW ** [ O.Reg R.XMM0; O.Reg R.XMM2 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``5.10.5 Packed Integer MIN/MAX Instructions (3)`` () =
+    "660f383902"
+    ++ PMINSD ** [ O.Reg R.XMM0; O.Mem (R.RDX, 128<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``5.10.5 Packed Integer MIN/MAX Instructions (4)`` () =
+    "660f3839c2"
+    ++ PMINSD ** [ O.Reg R.XMM0; O.Reg R.XMM2 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``5.10.5 Packed Integer MIN/MAX Instructions (5)`` () =
+    "660f383e02"
+    ++ PMAXUW ** [ O.Reg R.XMM0; O.Mem (R.RDX, 128<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``5.10.5 Packed Integer MIN/MAX Instructions (6)`` () =
+    "660f383ec2"
+    ++ PMAXUW ** [ O.Reg R.XMM0; O.Reg R.XMM2 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``5.10.5 Packed Integer MIN/MAX Instructions (7)`` () =
+    "660f383f02"
+    ++ PMAXUD ** [ O.Reg R.XMM0; O.Mem (R.RDX, 128<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``5.10.5 Packed Integer MIN/MAX Instructions (8)`` () =
+    "660f383fc2"
+    ++ PMAXUD ** [ O.Reg R.XMM0; O.Reg R.XMM2 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``5.10.5 Packed Integer MIN/MAX Instructions (9)`` () =
+    "660f383c02"
+    ++ PMAXSB ** [ O.Reg R.XMM0; O.Mem (R.RDX, 128<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``5.10.5 Packed Integer MIN/MAX Instructions (10)`` () =
+    "660f383cc2"
+    ++ PMAXSB ** [ O.Reg R.XMM0; O.Reg R.XMM2 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``5.10.5 Packed Integer MIN/MAX Instructions (11)`` () =
+    "660f383d02"
+    ++ PMAXSD ** [ O.Reg R.XMM0; O.Mem (R.RDX, 128<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``5.10.5 Packed Integer MIN/MAX Instructions (12)`` () =
+    "660f383dc2"
+    ++ PMAXSD ** [ O.Reg R.XMM0; O.Reg R.XMM2 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``5.10.8 Packed Integer Format Conversions (1)`` () =
+    "660f382102"
+    ++ PMOVSXBD ** [ O.Reg R.XMM0; O.Mem (R.RDX, 32<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``5.10.8 Packed Integer Format Conversions (2)`` () =
+    "660f3821c2"
+    ++ PMOVSXBD ** [ O.Reg R.XMM0; O.Reg R.XMM2 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``5.10.8 Packed Integer Format Conversions (3)`` () =
+    "660f382202"
+    ++ PMOVSXBQ ** [ O.Reg R.XMM0; O.Mem (R.RDX, 16<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``5.10.8 Packed Integer Format Conversions (4)`` () =
+    "660f3822c2"
+    ++ PMOVSXBQ ** [ O.Reg R.XMM0; O.Reg R.XMM2 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``5.10.8 Packed Integer Format Conversions (5)`` () =
+    "660f382002"
+    ++ PMOVSXBW ** [ O.Reg R.XMM0; O.Mem (R.RDX, 64<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``5.10.8 Packed Integer Format Conversions (6)`` () =
+    "660f3820c2"
+    ++ PMOVSXBW ** [ O.Reg R.XMM0; O.Reg R.XMM2 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``5.10.8 Packed Integer Format Conversions (7)`` () =
+    "660f382502"
+    ++ PMOVSXDQ ** [ O.Reg R.XMM0; O.Mem (R.RDX, 64<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``5.10.8 Packed Integer Format Conversions (8)`` () =
+    "660f3825c2"
+    ++ PMOVSXDQ ** [ O.Reg R.XMM0; O.Reg R.XMM2 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``5.10.8 Packed Integer Format Conversions (9)`` () =
+    "660f382302"
+    ++ PMOVSXWD ** [ O.Reg R.XMM0; O.Mem (R.RDX, 64<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``5.10.8 Packed Integer Format Conversions (10)`` () =
+    "660f3823c2"
+    ++ PMOVSXWD ** [ O.Reg R.XMM0; O.Reg R.XMM2 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``5.10.8 Packed Integer Format Conversions (11)`` () =
+    "660f382402"
+    ++ PMOVSXWQ ** [ O.Reg R.XMM0; O.Mem (R.RDX, 32<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``5.10.8 Packed Integer Format Conversions (12)`` () =
+    "660f3824c2"
+    ++ PMOVSXWQ ** [ O.Reg R.XMM0; O.Reg R.XMM2 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``5.10.8 Packed Integer Format Conversions (13)`` () =
+    "660f383102"
+    ++ PMOVZXBD ** [ O.Reg R.XMM0; O.Mem (R.RDX, 32<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``5.10.8 Packed Integer Format Conversions (14)`` () =
+    "660f3831c2"
+    ++ PMOVZXBD ** [ O.Reg R.XMM0; O.Reg R.XMM2 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``5.10.8 Packed Integer Format Conversions (15)`` () =
+    "660f383202"
+    ++ PMOVZXBQ ** [ O.Reg R.XMM0; O.Mem (R.RDX, 16<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``5.10.8 Packed Integer Format Conversions (16)`` () =
+    "660f3832c2"
+    ++ PMOVZXBQ ** [ O.Reg R.XMM0; O.Reg R.XMM2 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``5.10.8 Packed Integer Format Conversions (17)`` () =
+    "660f383002"
+    ++ PMOVZXBW ** [ O.Reg R.XMM0; O.Mem (R.RDX, 64<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``5.10.8 Packed Integer Format Conversions (18)`` () =
+    "660f3830c2"
+    ++ PMOVZXBW ** [ O.Reg R.XMM0; O.Reg R.XMM2 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``5.10.8 Packed Integer Format Conversions (19)`` () =
+    "660f383502"
+    ++ PMOVZXDQ ** [ O.Reg R.XMM0; O.Mem (R.RDX, 64<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``5.10.8 Packed Integer Format Conversions (20)`` () =
+    "660f3835c2"
+    ++ PMOVZXDQ ** [ O.Reg R.XMM0; O.Reg R.XMM2 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``5.10.8 Packed Integer Format Conversions (21)`` () =
+    "660f383302"
+    ++ PMOVZXWD ** [ O.Reg R.XMM0; O.Mem (R.RDX, 64<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``5.10.8 Packed Integer Format Conversions (22)`` () =
+    "660f3833c2"
+    ++ PMOVZXWD ** [ O.Reg R.XMM0; O.Reg R.XMM2 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``5.10.8 Packed Integer Format Conversions (23)`` () =
+    "660f383402"
+    ++ PMOVZXWQ ** [ O.Reg R.XMM0; O.Mem (R.RDX, 32<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``5.10.8 Packed Integer Format Conversions (24)`` () =
+    "660f3834c2"
+    ++ PMOVZXWQ ** [ O.Reg R.XMM0; O.Reg R.XMM2 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``5.10.10 Horizontal Search (1)`` () =
+    "660f384102"
+    ++ PHMINPOSUW ** [ O.Reg R.XMM0; O.Mem (R.RDX, 128<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``5.10.10 Horizontal Search (2)`` () =
+    "660f3841c2"
+    ++ PHMINPOSUW ** [ O.Reg R.XMM0; O.Reg R.XMM2 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``5.10.13 Dword Packing With Unsigned Saturation (1)`` () =
+    "660f382b02"
+    ++ PACKUSDW ** [ O.Reg R.XMM0; O.Mem (R.RDX, 128<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``5.10.13 Dword Packing With Unsigned Saturation (2)`` () =
+    "660f382bc2"
+    ++ PACKUSDW ** [ O.Reg R.XMM0; O.Reg R.XMM2 ]
+    ||> testX64NoPrefixNoSeg
+
+/// 5.11 SSE4.2 INSTRUCTION SET
+[<TestClass>]
+type SSSE42Class () =
+  [<TestMethod>]
+  member __.``5.11.2 Packed Comparison SIMD integer Instruction (1)`` () =
+    "660f383702"
+    ++ PCMPGTQ ** [ O.Reg R.XMM0; O.Mem (R.RDX, 128<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``5.11.2 Packed Comparison SIMD integer Instruction (2)`` () =
+    "660f3837c2"
+    ++ PCMPGTQ ** [ O.Reg R.XMM0; O.Reg R.XMM2 ]
+    ||> testX64NoPrefixNoSeg
+
+/// 5.22 INTEL MEMORY PROTECTION EXTENSIONS
+[<TestClass>]
+type IntelMemoryProtectionClass () =
+  [<TestMethod>]
+  member __.``Intel Memory Protection Extension Instruction (1)`` () =
+    "660f1b842400020000"
+    ++ BNDMOV ** [ O.Mem (R.RSP, 512L, 128<rt>); O.Reg R.BND0 ]
+    ||> testX64NoPrefixNoSeg
+
+/// INTEL ADVANCED VECTOR EXTENSIONS
+[<TestClass>]
+type AVXClass () =
+  [<TestMethod>]
+  member __.``AVX (1)`` () =
+    "c4e1297503"
+    ++ VPCMPEQW ** [ O.Reg R.XMM0; O.Reg R.XMM10; O.Mem (R.RBX, 128<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (2)`` () =
+    "c4e12975c3"
+    ++ VPCMPEQW ** [ O.Reg R.XMM0; O.Reg R.XMM10; O.Reg R.XMM3 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (3)`` () =
+    "c4e12d7503"
+    ++ VPCMPEQW ** [ O.Reg R.YMM0; O.Reg R.YMM10; O.Mem (R.RBX, 256<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (4)`` () =
+    "c4e12d75c3"
+    ++ VPCMPEQW ** [ O.Reg R.YMM0; O.Reg R.YMM10; O.Reg R.YMM3 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (5)`` () =
+    "c4e2611c03"
+    ++ VPABSB ** [ O.Reg R.XMM0; O.Mem (R.RBX, 128<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (6)`` () =
+    "c4e2611cc3"
+    ++ VPABSB ** [ O.Reg R.XMM0; O.Reg R.XMM3 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (7)`` () =
+    "c4e2651c03"
+    ++ VPABSB ** [ O.Reg R.YMM0; O.Mem (R.RBX, 256<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (8)`` () =
+    "c4e2651cc3"
+    ++ VPABSB ** [ O.Reg R.YMM0; O.Reg R.YMM3 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (9)`` () =
+    "c4e2611e03"
+    ++ VPABSD ** [ O.Reg R.XMM0; O.Mem (R.RBX, 128<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (10)`` () =
+    "c4e2611ec3"
+    ++ VPABSD ** [ O.Reg R.XMM0; O.Reg R.XMM3 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (11)`` () =
+    "c4e2651e03"
+    ++ VPABSD ** [ O.Reg R.YMM0; O.Mem (R.RBX, 256<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (12)`` () =
+    "c4e2651ec3"
+    ++ VPABSD ** [ O.Reg R.YMM0; O.Reg R.YMM3 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (13)`` () =
+    "c4e2611d03"
+    ++ VPABSW ** [ O.Reg R.XMM0; O.Mem (R.RBX, 128<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (14)`` () =
+    "c4e2611dc3"
+    ++ VPABSW ** [ O.Reg R.XMM0; O.Reg R.XMM3 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (15)`` () =
+    "c4e2651d03"
+    ++ VPABSW ** [ O.Reg R.YMM0; O.Mem (R.RBX, 256<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (16)`` () =
+    "c4e2651dc3"
+    ++ VPABSW ** [ O.Reg R.YMM0; O.Reg R.YMM3 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (17)`` () =
+    "c4e2610203"
+    ++ VPHADDD ** [ O.Reg R.XMM0; O.Reg R.XMM3; O.Mem (R.RBX, 128<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (18)`` () =
+    "c4e26102c3"
+    ++ VPHADDD ** [ O.Reg R.XMM0; O.Reg R.XMM3; O.Reg R.XMM3 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (19)`` () =
+    "c4e2650203"
+    ++ VPHADDD ** [ O.Reg R.YMM0; O.Reg R.YMM3; O.Mem (R.RBX, 256<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (20)`` () =
+    "c4e26502c3"
+    ++ VPHADDD ** [ O.Reg R.YMM0; O.Reg R.YMM3; O.Reg R.YMM3 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (21)`` () =
+    "c4e2610303"
+    ++ VPHADDSW ** [ O.Reg R.XMM0; O.Reg R.XMM3; O.Mem (R.RBX, 128<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (22)`` () =
+    "c4e26103c3"
+    ++ VPHADDSW ** [ O.Reg R.XMM0; O.Reg R.XMM3; O.Reg R.XMM3 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (23)`` () =
+    "c4e2650303"
+    ++ VPHADDSW ** [ O.Reg R.YMM0; O.Reg R.YMM3; O.Mem (R.RBX, 256<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (24)`` () =
+    "c4e26503c3"
+    ++ VPHADDSW ** [ O.Reg R.YMM0; O.Reg R.YMM3; O.Reg R.YMM3 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (25)`` () =
+    "c4e2610103"
+    ++ VPHADDW ** [ O.Reg R.XMM0; O.Reg R.XMM3; O.Mem (R.RBX, 128<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (26)`` () =
+    "c4e26101c3"
+    ++ VPHADDW ** [ O.Reg R.XMM0; O.Reg R.XMM3; O.Reg R.XMM3 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (27)`` () =
+    "c4e2650103"
+    ++ VPHADDW ** [ O.Reg R.YMM0; O.Reg R.YMM3; O.Mem (R.RBX, 256<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (28)`` () =
+    "c4e26501c3"
+    ++ VPHADDW ** [ O.Reg R.YMM0; O.Reg R.YMM3; O.Reg R.YMM3 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (29)`` () =
+    "c4e2610603"
+    ++ VPHSUBD ** [ O.Reg R.XMM0; O.Reg R.XMM3; O.Mem (R.RBX, 128<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (30)`` () =
+    "c4e26106c3"
+    ++ VPHSUBD ** [ O.Reg R.XMM0; O.Reg R.XMM3; O.Reg R.XMM3 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (31)`` () =
+    "c4e2650603"
+    ++ VPHSUBD ** [ O.Reg R.YMM0; O.Reg R.YMM3; O.Mem (R.RBX, 256<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (32)`` () =
+    "c4e26506c3"
+    ++ VPHSUBD ** [ O.Reg R.YMM0; O.Reg R.YMM3; O.Reg R.YMM3 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (33)`` () =
+    "c4e2610703"
+    ++ VPHSUBSW ** [ O.Reg R.XMM0; O.Reg R.XMM3; O.Mem (R.RBX, 128<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (34)`` () =
+    "c4e26107c3"
+    ++ VPHSUBSW ** [ O.Reg R.XMM0; O.Reg R.XMM3; O.Reg R.XMM3 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (35)`` () =
+    "c4e2650703"
+    ++ VPHSUBSW ** [ O.Reg R.YMM0; O.Reg R.YMM3; O.Mem (R.RBX, 256<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (36)`` () =
+    "c4e26507c3"
+    ++ VPHSUBSW ** [ O.Reg R.YMM0; O.Reg R.YMM3; O.Reg R.YMM3 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (37)`` () =
+    "c4e2610503"
+    ++ VPHSUBW ** [ O.Reg R.XMM0; O.Reg R.XMM3; O.Mem (R.RBX, 128<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (38)`` () =
+    "c4e26105c3"
+    ++ VPHSUBW ** [ O.Reg R.XMM0; O.Reg R.XMM3; O.Reg R.XMM3 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (39)`` () =
+    "c4e2650503"
+    ++ VPHSUBW ** [ O.Reg R.YMM0; O.Reg R.YMM3; O.Mem (R.RBX, 256<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (40)`` () =
+    "c4e26505c3"
+    ++ VPHSUBW ** [ O.Reg R.YMM0; O.Reg R.YMM3; O.Reg R.YMM3 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (41)`` () =
+    "c4e2610b03"
+    ++ VPMULHRSW ** [ O.Reg R.XMM0; O.Reg R.XMM3; O.Mem (R.RBX, 128<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (42)`` () =
+    "c4e2610bc3"
+    ++ VPMULHRSW ** [ O.Reg R.XMM0; O.Reg R.XMM3; O.Reg R.XMM3 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (43)`` () =
+    "c4e2650b03"
+    ++ VPMULHRSW ** [ O.Reg R.YMM0; O.Reg R.YMM3; O.Mem (R.RBX, 256<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (44)`` () =
+    "c4e2650bc3"
+    ++ VPMULHRSW ** [ O.Reg R.YMM0; O.Reg R.YMM3; O.Reg R.YMM3 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (45)`` () =
+    "c4e2610803"
+    ++ VPSIGNB ** [ O.Reg R.XMM0; O.Reg R.XMM3; O.Mem (R.RBX, 128<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (46)`` () =
+    "c4e26108c3"
+    ++ VPSIGNB ** [ O.Reg R.XMM0; O.Reg R.XMM3; O.Reg R.XMM3 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (47)`` () =
+    "c4e2650803"
+    ++ VPSIGNB ** [ O.Reg R.YMM0; O.Reg R.YMM3; O.Mem (R.RBX, 256<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (48)`` () =
+    "c4e26508c3"
+    ++ VPSIGNB ** [ O.Reg R.YMM0; O.Reg R.YMM3; O.Reg R.YMM3 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (49)`` () =
+    "c4e2610a03"
+    ++ VPSIGND ** [ O.Reg R.XMM0; O.Reg R.XMM3; O.Mem (R.RBX, 128<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (50)`` () =
+    "c4e2610ac3"
+    ++ VPSIGND ** [ O.Reg R.XMM0; O.Reg R.XMM3; O.Reg R.XMM3 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (51)`` () =
+    "c4e2650a03"
+    ++ VPSIGND ** [ O.Reg R.YMM0; O.Reg R.YMM3; O.Mem (R.RBX, 256<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (52)`` () =
+    "c4e2650ac3"
+    ++ VPSIGND ** [ O.Reg R.YMM0; O.Reg R.YMM3; O.Reg R.YMM3 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (53)`` () =
+    "c4e2610903"
+    ++ VPSIGNW ** [ O.Reg R.XMM0; O.Reg R.XMM3; O.Mem (R.RBX, 128<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (54)`` () =
+    "c4e26109c3"
+    ++ VPSIGNW ** [ O.Reg R.XMM0; O.Reg R.XMM3; O.Reg R.XMM3 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (55)`` () =
+    "c4e2650903"
+    ++ VPSIGNW ** [ O.Reg R.YMM0; O.Reg R.YMM3; O.Mem (R.RBX, 256<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (56)`` () =
+    "c4e26509c3"
+    ++ VPSIGNW ** [ O.Reg R.YMM0; O.Reg R.YMM3; O.Reg R.YMM3 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (57)`` () =
+    "c4e2612b03"
+    ++ VPACKUSDW ** [ O.Reg R.XMM0; O.Reg R.XMM3; O.Mem (R.RBX, 128<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (58)`` () =
+    "c4e2612bc3"
+    ++ VPACKUSDW ** [ O.Reg R.XMM0; O.Reg R.XMM3; O.Reg R.XMM3 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (59)`` () =
+    "c4e2652b03"
+    ++ VPACKUSDW ** [ O.Reg R.YMM0; O.Reg R.YMM3; O.Mem (R.RBX, 256<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (60)`` () =
+    "c4e2652bc3"
+    ++ VPACKUSDW ** [ O.Reg R.YMM0; O.Reg R.YMM3; O.Reg R.YMM3 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (61)`` () =
+    "c4e2613703"
+    ++ VPCMPGTQ ** [ O.Reg R.XMM0; O.Reg R.XMM3; O.Mem (R.RBX, 128<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (62)`` () =
+    "c4e26137c3"
+    ++ VPCMPGTQ ** [ O.Reg R.XMM0; O.Reg R.XMM3; O.Reg R.XMM3 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (63)`` () =
+    "c4e2653703"
+    ++ VPCMPGTQ ** [ O.Reg R.YMM0; O.Reg R.YMM3; O.Mem (R.RBX, 256<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (64)`` () =
+    "c4e26537c3"
+    ++ VPCMPGTQ ** [ O.Reg R.YMM0; O.Reg R.YMM3; O.Reg R.YMM3 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (65)`` () =
+    "c4e2614103"
+    ++ VPHMINPOSUW ** [ O.Reg R.XMM0; O.Mem (R.RBX, 128<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (66)`` () =
+    "c4e26141c3"
+    ++ VPHMINPOSUW ** [ O.Reg R.XMM0; O.Reg R.XMM3 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (67)`` () =
+    "c4e2613c03"
+    ++ VPMAXSB ** [ O.Reg R.XMM0; O.Reg R.XMM3; O.Mem (R.RBX, 128<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (68)`` () =
+    "c4e2613cc3"
+    ++ VPMAXSB ** [ O.Reg R.XMM0; O.Reg R.XMM3; O.Reg R.XMM3 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (69)`` () =
+    "c4e2653c03"
+    ++ VPMAXSB ** [ O.Reg R.YMM0; O.Reg R.YMM3; O.Mem (R.RBX, 256<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (70)`` () =
+    "c4e2653cc3"
+    ++ VPMAXSB ** [ O.Reg R.YMM0; O.Reg R.YMM3; O.Reg R.YMM3 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (71)`` () =
+    "c4e2613d03"
+    ++ VPMAXSD ** [ O.Reg R.XMM0; O.Reg R.XMM3; O.Mem (R.RBX, 128<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (72)`` () =
+    "c4e2613dc3"
+    ++ VPMAXSD ** [ O.Reg R.XMM0; O.Reg R.XMM3; O.Reg R.XMM3 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (73)`` () =
+    "c4e2653d03"
+    ++ VPMAXSD ** [ O.Reg R.YMM0; O.Reg R.YMM3; O.Mem (R.RBX, 256<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (74)`` () =
+    "c4e2653dc3"
+    ++ VPMAXSD ** [ O.Reg R.YMM0; O.Reg R.YMM3; O.Reg R.YMM3 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (75)`` () =
+    "c4e2613f03"
+    ++ VPMAXUD ** [ O.Reg R.XMM0; O.Reg R.XMM3; O.Mem (R.RBX, 128<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (76)`` () =
+    "c4e2613fc3"
+    ++ VPMAXUD ** [ O.Reg R.XMM0; O.Reg R.XMM3; O.Reg R.XMM3 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (77)`` () =
+    "c4e2653f03"
+    ++ VPMAXUD ** [ O.Reg R.YMM0; O.Reg R.YMM3; O.Mem (R.RBX, 256<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (78)`` () =
+    "c4e2653fc3"
+    ++ VPMAXUD ** [ O.Reg R.YMM0; O.Reg R.YMM3; O.Reg R.YMM3 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (79)`` () =
+    "c4e2613e03"
+    ++ VPMAXUW ** [ O.Reg R.XMM0; O.Reg R.XMM3; O.Mem (R.RBX, 128<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (80)`` () =
+    "c4e2613ec3"
+    ++ VPMAXUW ** [ O.Reg R.XMM0; O.Reg R.XMM3; O.Reg R.XMM3 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (81)`` () =
+    "c4e2653e03"
+    ++ VPMAXUW ** [ O.Reg R.YMM0; O.Reg R.YMM3; O.Mem (R.RBX, 256<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (82)`` () =
+    "c4e2653ec3"
+    ++ VPMAXUW ** [ O.Reg R.YMM0; O.Reg R.YMM3; O.Reg R.YMM3 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (83)`` () =
+    "c4e2613803"
+    ++ VPMINSB ** [ O.Reg R.XMM0; O.Reg R.XMM3; O.Mem (R.RBX, 128<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (84)`` () =
+    "c4e26138c3"
+    ++ VPMINSB ** [ O.Reg R.XMM0; O.Reg R.XMM3; O.Reg R.XMM3 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (85)`` () =
+    "c4e2653803"
+    ++ VPMINSB ** [ O.Reg R.YMM0; O.Reg R.YMM3; O.Mem (R.RBX, 256<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (86)`` () =
+    "c4e26538c3"
+    ++ VPMINSB ** [ O.Reg R.YMM0; O.Reg R.YMM3; O.Reg R.YMM3 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (87)`` () =
+    "c4e2613903"
+    ++ VPMINSD ** [ O.Reg R.XMM0; O.Reg R.XMM3; O.Mem (R.RBX, 128<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (88)`` () =
+    "c4e26139c3"
+    ++ VPMINSD ** [ O.Reg R.XMM0; O.Reg R.XMM3; O.Reg R.XMM3 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (89)`` () =
+    "c4e2653903"
+    ++ VPMINSD ** [ O.Reg R.YMM0; O.Reg R.YMM3; O.Mem (R.RBX, 256<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (90)`` () =
+    "c4e26539c3"
+    ++ VPMINSD ** [ O.Reg R.YMM0; O.Reg R.YMM3; O.Reg R.YMM3 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (91)`` () =
+    "c4e2613a03"
+    ++ VPMINUW ** [ O.Reg R.XMM0; O.Reg R.XMM3; O.Mem (R.RBX, 128<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (92)`` () =
+    "c4e2613ac3"
+    ++ VPMINUW ** [ O.Reg R.XMM0; O.Reg R.XMM3; O.Reg R.XMM3 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (93)`` () =
+    "c4e2653a03"
+    ++ VPMINUW ** [ O.Reg R.YMM0; O.Reg R.YMM3; O.Mem (R.RBX, 256<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (94)`` () =
+    "c4e2653ac3"
+    ++ VPMINUW ** [ O.Reg R.YMM0; O.Reg R.YMM3; O.Reg R.YMM3 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (95)`` () =
+    "c4e2612103"
+    ++ VPMOVSXBD ** [ O.Reg R.XMM0; O.Mem (R.RBX, 32<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (96)`` () =
+    "c4e26121c3"
+    ++ VPMOVSXBD ** [ O.Reg R.XMM0; O.Reg R.XMM3 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (97)`` () =
+    "c4e2652103"
+    ++ VPMOVSXBD ** [ O.Reg R.YMM0; O.Mem (R.RBX, 64<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (98)`` () =
+    "c4e26521c3"
+    ++ VPMOVSXBD ** [ O.Reg R.YMM0; O.Reg R.XMM3 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (99)`` () =
+    "c4e2612203"
+    ++ VPMOVSXBQ ** [ O.Reg R.XMM0; O.Mem (R.RBX, 16<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (100)`` () =
+    "c4e26122c3"
+    ++ VPMOVSXBQ ** [ O.Reg R.XMM0; O.Reg R.XMM3 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (101)`` () =
+    "c4e2652203"
+    ++ VPMOVSXBQ ** [ O.Reg R.YMM0; O.Mem (R.RBX, 32<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (102)`` () =
+    "c4e26522c3"
+    ++ VPMOVSXBQ ** [ O.Reg R.YMM0; O.Reg R.XMM3 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (103)`` () =
+    "c4e2612003"
+    ++ VPMOVSXBW ** [ O.Reg R.XMM0; O.Mem (R.RBX, 64<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (104)`` () =
+    "c4e26120c3"
+    ++ VPMOVSXBW ** [ O.Reg R.XMM0; O.Reg R.XMM3 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (105)`` () =
+    "c4e2652003"
+    ++ VPMOVSXBW ** [ O.Reg R.YMM0; O.Mem (R.RBX, 128<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (106)`` () =
+    "c4e26520c3"
+    ++ VPMOVSXBW ** [ O.Reg R.YMM0; O.Reg R.XMM3 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (107)`` () =
+    "c4e2612503"
+    ++ VPMOVSXDQ ** [ O.Reg R.XMM0; O.Mem (R.RBX, 64<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (108)`` () =
+    "c4e26125c3"
+    ++ VPMOVSXDQ ** [ O.Reg R.XMM0; O.Reg R.XMM3 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (109)`` () =
+    "c4e2652503"
+    ++ VPMOVSXDQ ** [ O.Reg R.YMM0; O.Mem (R.RBX, 128<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (110)`` () =
+    "c4e26525c3"
+    ++ VPMOVSXDQ ** [ O.Reg R.YMM0; O.Reg R.XMM3 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (111)`` () =
+    "c4e2612303"
+    ++ VPMOVSXWD ** [ O.Reg R.XMM0; O.Mem (R.RBX, 64<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (112)`` () =
+    "c4e26123c3"
+    ++ VPMOVSXWD ** [ O.Reg R.XMM0; O.Reg R.XMM3 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (113)`` () =
+    "c4e2652303"
+    ++ VPMOVSXWD ** [ O.Reg R.YMM0; O.Mem (R.RBX, 128<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (114)`` () =
+    "c4e26523c3"
+    ++ VPMOVSXWD ** [ O.Reg R.YMM0; O.Reg R.XMM3 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (115)`` () =
+    "c4e2612403"
+    ++ VPMOVSXWQ ** [ O.Reg R.XMM0; O.Mem (R.RBX, 32<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (116)`` () =
+    "c4e26124c3"
+    ++ VPMOVSXWQ ** [ O.Reg R.XMM0; O.Reg R.XMM3 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (117)`` () =
+    "c4e2652403"
+    ++ VPMOVSXWQ ** [ O.Reg R.YMM0; O.Mem (R.RBX, 64<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (118)`` () =
+    "c4e26524c3"
+    ++ VPMOVSXWQ ** [ O.Reg R.YMM0; O.Reg R.XMM3 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (119)`` () =
+    "c4e2613103"
+    ++ VPMOVZXBD ** [ O.Reg R.XMM0; O.Mem (R.RBX, 32<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (120)`` () =
+    "c4e26131c3"
+    ++ VPMOVZXBD ** [ O.Reg R.XMM0; O.Reg R.XMM3 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (121)`` () =
+    "c4e2653103"
+    ++ VPMOVZXBD ** [ O.Reg R.YMM0; O.Mem (R.RBX, 64<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (122)`` () =
+    "c4e26531c3"
+    ++ VPMOVZXBD ** [ O.Reg R.YMM0; O.Reg R.XMM3 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (123)`` () =
+    "c4e2613203"
+    ++ VPMOVZXBQ ** [ O.Reg R.XMM0; O.Mem (R.RBX, 16<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (124)`` () =
+    "c4e26132c3"
+    ++ VPMOVZXBQ ** [ O.Reg R.XMM0; O.Reg R.XMM3 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (125)`` () =
+    "c4e2653203"
+    ++ VPMOVZXBQ ** [ O.Reg R.YMM0; O.Mem (R.RBX, 32<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (126)`` () =
+    "c4e26532c3"
+    ++ VPMOVZXBQ ** [ O.Reg R.YMM0; O.Reg R.XMM3 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (127)`` () =
+    "c4e2613003"
+    ++ VPMOVZXBW ** [ O.Reg R.XMM0; O.Mem (R.RBX, 64<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (128)`` () =
+    "c4e26130c3"
+    ++ VPMOVZXBW ** [ O.Reg R.XMM0; O.Reg R.XMM3 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (129)`` () =
+    "c4e2653003"
+    ++ VPMOVZXBW ** [ O.Reg R.YMM0; O.Mem (R.RBX, 128<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (130)`` () =
+    "c4e26530c3"
+    ++ VPMOVZXBW ** [ O.Reg R.YMM0; O.Reg R.XMM3 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (131)`` () =
+    "c4e2613503"
+    ++ VPMOVZXDQ ** [ O.Reg R.XMM0; O.Mem (R.RBX, 64<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (132)`` () =
+    "c4e26135c3"
+    ++ VPMOVZXDQ ** [ O.Reg R.XMM0; O.Reg R.XMM3 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (133)`` () =
+    "c4e2653503"
+    ++ VPMOVZXDQ ** [ O.Reg R.YMM0; O.Mem (R.RBX, 128<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (134)`` () =
+    "c4e26535c3"
+    ++ VPMOVZXDQ ** [ O.Reg R.YMM0; O.Reg R.XMM3 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (135)`` () =
+    "c4e2613303"
+    ++ VPMOVZXWD ** [ O.Reg R.XMM0; O.Mem (R.RBX, 64<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (136)`` () =
+    "c4e26133c3"
+    ++ VPMOVZXWD ** [ O.Reg R.XMM0; O.Reg R.XMM3 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (137)`` () =
+    "c4e2653303"
+    ++ VPMOVZXWD ** [ O.Reg R.YMM0; O.Mem (R.RBX, 128<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (138)`` () =
+    "c4e26533c3"
+    ++ VPMOVZXWD ** [ O.Reg R.YMM0; O.Reg R.XMM3 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (139)`` () =
+    "c4e2613403"
+    ++ VPMOVZXWQ ** [ O.Reg R.XMM0; O.Mem (R.RBX, 32<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (140)`` () =
+    "c4e26134c3"
+    ++ VPMOVZXWQ ** [ O.Reg R.XMM0; O.Reg R.XMM3 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (141)`` () =
+    "c4e2653403"
+    ++ VPMOVZXWQ ** [ O.Reg R.YMM0; O.Mem (R.RBX, 64<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (142)`` () =
+    "c4e26534c3"
+    ++ VPMOVZXWQ ** [ O.Reg R.YMM0; O.Reg R.XMM3 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (143)`` () =
+    "c4e2612803"
+    ++ VPMULDQ ** [ O.Reg R.XMM0; O.Reg R.XMM3; O.Mem (R.RBX, 128<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (144)`` () =
+    "c4e26128c3"
+    ++ VPMULDQ ** [ O.Reg R.XMM0; O.Reg R.XMM3; O.Reg R.XMM3 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (145)`` () =
+    "c4e2652803"
+    ++ VPMULDQ ** [ O.Reg R.YMM0; O.Reg R.YMM3; O.Mem (R.RBX, 256<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (146)`` () =
+    "c4e26528c3"
+    ++ VPMULDQ ** [ O.Reg R.YMM0; O.Reg R.YMM3; O.Reg R.YMM3 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (147)`` () =
+    "c4e2614003"
+    ++ VPMULLD ** [ O.Reg R.XMM0; O.Reg R.XMM3; O.Mem (R.RBX, 128<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (148)`` () =
+    "c4e26140c3"
+    ++ VPMULLD ** [ O.Reg R.XMM0; O.Reg R.XMM3; O.Reg R.XMM3 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (149)`` () =
+    "c4e2654003"
+    ++ VPMULLD ** [ O.Reg R.YMM0; O.Reg R.YMM3; O.Mem (R.RBX, 256<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member __.``AVX (150)`` () =
+    "c4e26540c3"
+    ++ VPMULLD ** [ O.Reg R.YMM0; O.Reg R.YMM3; O.Reg R.YMM3 ]
+    ||> testX64NoPrefixNoSeg
 
 #if !EMULATION
-  /// Exception Test
-  [<TestClass>]
-  type ExceptionTestClass () =
-    [<TestMethod>]
-    [<ExpectedException(typedefof<ParsingFailureException>)>]
-    member __.``Size cond ParsingFailure Test`` () =
-      test64 Opcode.AAA NoOperand 1ul [| 0x37uy |]
+/// Exception Test
+[<TestClass>]
+type ExceptionTestClass () =
+  [<TestMethod>]
+  [<ExpectedException(typedefof<ParsingFailureException>)>]
+  member __.``Size cond ParsingFailure Test (1)`` () =
+    "37"
+    ++ AAA ** []
+    ||> testX64NoPrefixNoSeg
 
-      test64 Opcode.AAS NoOperand 1ul [| 0x3Fuy |]
+  [<TestMethod>]
+  [<ExpectedException(typedefof<ParsingFailureException>)>]
+  member __.``Size cond ParsingFailure Test (2)`` () =
+    "3F"
+    ++ AAS ** []
+    ||> testX64NoPrefixNoSeg
 
-      test64
-        Opcode.JMPFar
-        (OneOperand (OprDirAddr (Absolute (0x90s, 0x78563412UL, 32<rt>))))
-        7ul
-        [| 0xeauy; 0x12uy; 0x34uy; 0x56uy; 0x78uy; 0x90uy; 0x00uy |]
+  [<TestMethod>]
+  [<ExpectedException(typedefof<ParsingFailureException>)>]
+  member __.``Size cond ParsingFailure Test (3)`` () =
+    "ea123456789000"
+    ++ JMPFar ** [ O.Addr (0x90s, 0x78563412UL, 32<rt>) ]
+    ||> testX64NoPrefixNoSeg
 
-      test64
-        Opcode.CALLFar
-        (OneOperand (OprDirAddr (Absolute (0x10s, 0x32547698UL, 32<rt>))))
-        7ul
-        [| 0x9auy; 0x98uy; 0x76uy; 0x54uy; 0x32uy; 0x10uy; 0x00uy |]
+  [<TestMethod>]
+  [<ExpectedException(typedefof<ParsingFailureException>)>]
+  member __.``Size cond ParsingFailure Test (4)`` () =
+    "9a987654321000"
+    ++ CALLFar ** [ O.Addr (0x10s, 0x32547698UL, 32<rt>) ]
+    ||> testX64NoPrefixNoSeg
 
-      test64
-        Opcode.LES
-        (TwoOperands (OprReg R.ECX, OprMem (Some R.EDI, None, None, 48<rt>)))
-        2ul
-        [| 0xc4uy; 0x0fuy |]
+  [<TestMethod>]
+  [<ExpectedException(typedefof<System.IndexOutOfRangeException>)>]
+  member __.``Size cond ParsingFailure Test (5)`` () =
+    "c40f"
+    ++ LES ** [ O.Reg R.ECX; O.Mem (R.EDI, 48<rt>) ]
+    ||> testX64NoPrefixNoSeg
 
-      test64
-        Opcode.LDS
-        (TwoOperands (OprReg R.EDX, OprMem (Some R.ECX, None, None, 48<rt>)))
-        2ul
-        [| 0xc5uy; 0x11uy |]
-
-  /// IR Test
-  [<TestClass>]
-  type TestClass () =
-    [<TestMethod>]
-    member __.``Intel IL Test`` () =
-      let isa = ISA.Init Architecture.IntelX86 Endian.Little
-      let hdl = BinHandle (isa)
-      Assert.AreEqual (0, hdl.File.Length)
+  [<TestMethod>]
+  [<ExpectedException(typedefof<System.IndexOutOfRangeException>)>]
+  member __.``Size cond ParsingFailure Test (6)`` () =
+    "c511"
+    ++ LDS ** [ O.Reg R.EDX; O.Mem (R.ECX, 48<rt>) ]
+    ||> testX64NoPrefixNoSeg
 #endif
