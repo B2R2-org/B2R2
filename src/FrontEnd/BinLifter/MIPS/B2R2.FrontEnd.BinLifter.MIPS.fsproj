@@ -12,7 +12,6 @@
     <Compile Include="MIPSRegExprs.fs" />
     <Compile Include="MIPSRegisterFactory.fs" />
     <Compile Include="MIPSTypes.fs" />
-    <Compile Include="MIPSUtils.fs" />
     <Compile Include="MIPSHelper.fs" />
     <Compile Include="MIPSDisasm.fs" />
     <Compile Include="MIPSLifter.fs" />

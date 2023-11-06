@@ -27,6 +27,7 @@ namespace B2R2.FrontEnd.BinLifter
 open System.Text
 open B2R2
 
+/// Builder for disassembled strings.
 [<AbstractClass>]
 type DisasmBuilder (showAddr, resolveSymb, wordSz, addr, len) =
   abstract member Accumulate: AsmWordKind -> string -> unit

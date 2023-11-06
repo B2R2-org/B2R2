@@ -22,27 +22,37 @@
   SOFTWARE.
 *)
 
-module internal B2R2.FrontEnd.BinLifter.MIPS.Utils
+/// This module provides several useful functions to access a 32-bit bit vector,
+/// represented as either a uint32 or a uint64.
+module B2R2.FrontEnd.BinLifter.BitData
 
-open B2R2
+open System
 
-let extract binary n1 n2 =
-  let m, n = if max n1 n2 = n1 then n1, n2 else n2, n1
+/// Extract bit values located in between the given two offsets. The order of
+/// the offsets does not matter.
+let extract (binary: uint32) ofs1 ofs2 =
+  let m, n = if max ofs1 ofs2 = ofs1 then ofs1, ofs2 else ofs2, ofs1
   let range = m - n + 1u
-  if range > 31u then failwith "invaild range" else ()
+  if range > 31u then invalidOp "Invalid range of offsets given." else ()
   let mask = pown 2 (int range) - 1 |> uint32
   binary >>> int n &&& mask
 
-let pickBit binary (pos: uint32) = binary >>> int pos &&& 0b1u
+/// Pick a bit value at the given offset.
+let pickBit (binary: uint32) (pos: uint32) =
+  binary >>> int pos &&& 0b1u
 
-let concat (n1: uint32) (n2: uint32) shift = (n1 <<< shift) + n2
+/// Concatenate n1 and n2 by shifting n1 to the left by the given shift amount.
+let concat (n1: uint32) (n2: uint32) shiftAmount =
+  (n1 <<< shiftAmount) + n2
 
-let halve bin = bin &&& 0x0000ffffu, bin >>> 16
+/// Get a bit mask (in uint64) of the given size.
+let getBitMask64 size =
+  assert (size <= 64)
+  UInt64.MaxValue >>> (64 - size)
 
-let signExtend bitSize extSize (imm: uint64) =
-  assert (bitSize <= extSize)
-  if imm >>> (bitSize - 1) = 0b0UL then imm
-  else BigInteger.getMask extSize - BigInteger.getMask bitSize ||| (bigint imm)
-       |> uint64
-
-// vim: set tw=80 sts=2 sw=2:
+/// Sign-extend the given bit vector `v` of the size `originalSize` to the
+/// target size `targetSize`.
+let signExtend originalSize targetSize (v: uint64) =
+  assert (originalSize <= targetSize)
+  if v >>> (originalSize - 1) = 0b0UL then v
+  else (getBitMask64 targetSize - getBitMask64 originalSize) ||| v

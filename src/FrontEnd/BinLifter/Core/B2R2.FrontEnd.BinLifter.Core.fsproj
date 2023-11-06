@@ -12,13 +12,14 @@
     <Compile Include="IRBuilder.fs" />
     <Compile Include="TranslationContext.fs" />
     <Compile Include="AsmWord.fs" />
+    <Compile Include="AsmWordBuilder.fs" />
     <Compile Include="RegisterFactory.fs" />
     <Compile Include="INameReadable.fs" />
-    <Compile Include="DisasmHelper.fs" />
     <Compile Include="DisasmSyntax.fs" />
+    <Compile Include="DisasmBuilder.fs" />
     <Compile Include="Instruction.fs" />
     <Compile Include="IInstructionParsable.fs" />
-    <Compile Include="ParseUtils.fs" />
+    <Compile Include="BitData.fs" />
     <Compile Include="LiftingOperators.fs" />
     <Compile Include="LiftingUtils.fs" />
     <None Include="..\..\..\..\LICENSE.md" Pack="true" PackagePath="" />

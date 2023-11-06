@@ -26,7 +26,7 @@ module internal B2R2.FrontEnd.BinLifter.MIPS.Helper
 
 open B2R2
 open B2R2.FrontEnd.BinLifter
-open B2R2.FrontEnd.BinLifter.MIPS.Utils
+open B2R2.FrontEnd.BinLifter.BitData
 
 let isMIPS32 arch = arch = Architecture.MIPS32
 let isMIPS64 arch = arch = Architecture.MIPS64

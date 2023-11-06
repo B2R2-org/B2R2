@@ -24,27 +24,20 @@
 
 namespace B2R2.FrontEnd.BinLifter
 
-open B2R2
+open System.Collections
 
-/// 32-bit binary representation.
-type BitData32 = uint32
+/// Builder for an array of AsmWords.
+type AsmWordBuilder =
+  inherit Generic.List<AsmWord>
 
-module BitData =
+  /// <summary>
+  ///   Initialize an IR statement builder of internal buffer size n.
+  /// </summary>
+  /// <param name="n">The size of the internal buffer.</param>
+  new (n: int) = { inherit Generic.List<AsmWord>(n) }
 
-  let extract binary n1 n2 =
-    let m, n = if max n1 n2 = n1 then n1, n2 else n2, n1
-    let range = m - n + 1u
-    if range > 31u then failwith "invaild range" else ()
-    let mask = pown 2 (int range) - 1 |> uint32
-    binary >>> int n &&& mask
-
-  let pickBit binary (pos: uint32) = binary >>> int pos &&& 0b1u
-
-  let concat (n1: uint32) (n2: uint32) shift = (n1 <<< shift) + n2
-
-  let signExtend bitSize extSize (imm: uint64) =
-    assert (bitSize <= extSize)
-    if imm >>> (bitSize - 1) = 0b0UL then imm
-    else
-      BigInteger.getMask extSize - BigInteger.getMask bitSize ||| (bigint imm)
-      |> uint64
+  /// <summary>
+  ///   Append a new AsmWord to the builder.
+  /// </summary>
+  /// <param name="stmt">AsmWord to add.</param>
+  member __.Append stmt = __.Add (stmt); __

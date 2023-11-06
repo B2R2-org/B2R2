@@ -27,8 +27,8 @@ module internal B2R2.FrontEnd.BinLifter.MIPS.ParsingMain
 open System
 open B2R2
 open B2R2.FrontEnd.BinLifter
+open B2R2.FrontEnd.BinLifter.BitData
 open B2R2.FrontEnd.BinLifter.MIPS.Helper
-open B2R2.FrontEnd.BinLifter.MIPS.Utils
 
 let parseNOP binary =
   match extract binary 10u 6u with
