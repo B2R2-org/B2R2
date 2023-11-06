@@ -430,7 +430,7 @@ let private computeARMPLTEntrySize reader (span: ByteSpan) hdrSize delta =
     if (hdrSize = 16UL && ins = 0xe28fc600) || ins = 0xe28fc200 then
       Ok (uint64 (size + 16))
     elif ins = 0xe28fc600 then Ok (uint64 (size + 12))
-    else Error ErrorCase.InvalidFileFormat
+    else Error ErrorCase.InvalidFormat
 
 /// ARMv7 PLT parser.
 type ARMv7PLTParser (shdrs, relocInfo, symbInfo) =

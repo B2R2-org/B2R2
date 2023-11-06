@@ -256,4 +256,4 @@ module internal Header =
       let cls = getClass span
       let arch = getArch span reader cls
       Ok (ISA.Init arch endian)
-    else Error ErrorCase.InvalidFileFormat
+    else Error ErrorCase.InvalidFormat

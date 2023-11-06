@@ -26,10 +26,10 @@ namespace B2R2.FrontEnd.NameMangling
 
 open System
 open FParsec
+open B2R2
 open B2R2.FrontEnd.NameMangling.MSUtils
 
 type MSDemangler () =
-  inherit Demangler ()
   (* Helper functions for updating the UserState. *)
   let addToNameList c =
     updateUserState ( fun us -> { us with NameList = c :: us.NameList })
@@ -495,28 +495,28 @@ type MSDemangler () =
 
   (* -------------Tying the knot for the references created-----------------*)
   do
-    nameFragmentRef :=
+    nameFragmentRef.Value <-
        nameBackRef <|> pnameAndAt <|> attempt pTemplate
        <|> attempt nestedFunc <|> attempt pRTTICode <|> attempt numName
        <|> pSpecialName <|> attempt constructedName
 
-    fullNameRef :=
+    fullNameRef.Value <-
       smartParseName .>>. many (pAnonymousNameSpace <|> smartParseName )
       |>> (fun (fst, rst) -> FullName (fst :: rst))
 
-    possibleTypeRef :=
+    possibleTypeRef.Value <-
       attempt allFuncPointers <|> attempt arrayPtr <|> attempt complexType
       <|> enumType <|> attempt arrayType <|> normalBuiltInType
       <|> extendedBuiltInType
       <|> basicPointerTypes <|> typeBackRef
 
-    pFuncRef :=
+    pFuncRef.Value <-
       functionFullName .>> pchar '@' .>>. fInfo
       |>> (fun (name, (scope, modifier, callT, tList, rtMod)) ->
             (scope, modifier, callT, name, tList.Head, tList.Tail, rtMod)
             |> FunctionT)
 
-    pTemplateRef :=
+    pTemplateRef.Value <-
       saveScopeAndReturn (
         clearUserState >>.pstring "?$"
         >>. (pnameAndAt >>= addToNameList <|> pSpecialName )
@@ -524,7 +524,7 @@ type MSDemangler () =
         .>> pchar '@'
         |>> Template
       )
-    returnTypeOperatorRef :=
+    returnTypeOperatorRef.Value <-
       fullName .>> pchar '@' .>>. fInfo |>>
       (fun (name, (scope, mods, callT, tList, rtMod)) ->
         let newName = FullName [ConcatT [Name "operator "; tList.Head]; name]
@@ -533,19 +533,21 @@ type MSDemangler () =
       )
 
   (* ---------------All Expressions from a mangled string------------------ *)
-  let allExpressions =
+  let allExprs =
     attempt pFunc <|> attempt nonFunctionString <|> attempt allThunkFunc
     <|> attempt pTemplate <|> fullName
-
-  override __.Run str =
-    match runParserOnString allExpressions MSUserState.Default "" str[1..] with
-    | Success (result, _, _) ->
-      let result = MSInterpreter.interpret result
-      Result.Ok <| result.Trim ()
-    | Failure _ ->
-      Result.Error ParsingFailure
 
   /// Check if the given string is a well-formed mangled string.
   static member IsWellFormed (str: string) =
     let str = str.Trim ()
     str.Length <> 0 && str.StartsWith "?" && str.Contains "@"
+
+  interface IDemanglable with
+    member __.Demangle str =
+      match runParserOnString allExprs MSUserState.Default "" str[1..] with
+      | Success (result, _, _) ->
+        let result = MSInterpreter.interpret result
+        Result.Ok <| result.Trim ()
+      | Failure _ ->
+        Result.Error ErrorCase.ParsingFailure
+

@@ -320,7 +320,7 @@ let getPEArch (bytes: byte[]) =
     use reader = new PEReader (stream, PEStreamOptions.Default)
     peHeadersToArch reader.PEHeaders |> Ok
   with _ ->
-    Error ErrorCase.InvalidFileFormat
+    Error ErrorCase.InvalidFormat
 
 let getISA pe =
   let arch = peHeadersToArch pe.PEHeaders

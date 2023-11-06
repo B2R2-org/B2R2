@@ -24,27 +24,9 @@
 
 namespace B2R2.FrontEnd.NameMangling
 
-/// Name mangling schemes.
-type ManglingScheme =
-  /// Microsoft Visual C++ name mangling.
-  | MSMangler
-  /// Itanium CXX name mangling scheme used by GCC 3.x and higher, Clang 1.x and
-  /// higher.
-  | ItaniumMangler
-  /// Unknown mangling scheme.
-  | UnknownMangler
-
-/// Demangler error types.
-type DemanglerError =
-  /// Unknown demangled string format encountered.
-  | InvalidFormat
-  /// Parsing failed in the middle.
-  | ParsingFailure
-  /// Parsing didn't consume all the string; there is/are trailing char(s).
-  | TrailingChars
+open B2R2
 
 /// The main demangler interface.
-[<AbstractClass>]
-type Demangler () =
+type IDemanglable =
   /// Take a string as input and return a demangled string as output.
-  abstract Run: string -> Result<string, DemanglerError>
+  abstract Demangle: string -> Result<string, ErrorCase>

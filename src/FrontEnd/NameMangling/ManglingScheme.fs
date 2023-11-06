@@ -22,34 +22,14 @@
   SOFTWARE.
 *)
 
-namespace B2R2.RearEnd.BinExplorer
+namespace B2R2.FrontEnd.NameMangling
 
-open B2R2
-open B2R2.FrontEnd.NameMangling
-open B2R2.RearEnd
-
-type CmdDemangle () =
-  inherit Cmd ()
-
-  override __.CmdName = "demangle"
-
-  override __.CmdAlias = [ "undecorate" ]
-
-  override __.CmdDescr = "Demangle the given mangled string."
-
-  override __.CmdHelp = "Usage: demangle <string>"
-
-  override __.SubCommands = []
-
-  member private __.MapResult = function
-    | Ok s -> [| OutputNormal s |]
-    | Error _ -> [| OutputNormal "[*] Invalid input." |]
-
-  override __.CallBack _ _ args =
-    let mangled = String.concat " " args
-    match Demangler.detect mangled with
-    | MSMangler ->
-      (MSDemangler () :> IDemanglable).Demangle mangled |> __.MapResult
-    | ItaniumMangler ->
-      (ItaniumDemangler () :> IDemanglable).Demangle mangled |> __.MapResult
-    | UnknownMangler -> [| OutputNormal "[*] Unknown mangling scheme." |]
+/// Name mangling schemes.
+type ManglingScheme =
+  /// Microsoft Visual C++ name mangling.
+  | MSMangler
+  /// Itanium CXX name mangling scheme used by GCC 3.x and higher, Clang 1.x and
+  /// higher.
+  | ItaniumMangler
+  /// Unknown mangling scheme.
+  | UnknownMangler

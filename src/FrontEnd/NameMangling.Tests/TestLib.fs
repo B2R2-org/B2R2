@@ -27,7 +27,15 @@ module B2R2.FrontEnd.NameMangling.Tests.TestLib
 open B2R2.FrontEnd.NameMangling
 open Microsoft.VisualStudio.TestTools.UnitTesting
 
-let test mangled demangled =
-  match Demangler.demangle mangled with
+let private testResult mangled demangled (demangler: IDemanglable) =
+  match demangler.Demangle mangled with
   | Ok result -> Assert.AreEqual (demangled, result)
-  | Error _ -> failwith "Demangling failure."
+  | Error _ -> invalidOp "Demangling failure."
+
+let testMS mangled demangled =
+  MSDemangler () :> IDemanglable
+  |> testResult mangled demangled
+
+let testItanium mangled demangled =
+  ItaniumDemangler () :> IDemanglable
+  |> testResult mangled demangled
