@@ -161,18 +161,17 @@ let getSectionsByAddr secs segMap addr =
   secs
   |> Array.tryFind (fun s -> addr >= s.SecAddr && addr < s.SecAddr + s.SecSize)
   |> function
-    | Some s -> Seq.singleton (machSectionToSection segMap s)
-    | None -> Seq.empty
+    | Some s -> [| machSectionToSection segMap s |]
+    | None -> [||]
 
 let getSectionsByName secs segMap name =
   match secs |> Array.tryFind (fun s -> s.SecName = name) with
-  | Some s -> Seq.singleton (machSectionToSection segMap s)
-  | None -> Seq.empty
+  | Some s -> [| machSectionToSection segMap s |]
+  | None -> [||]
 
 let getSections secs segMap =
   secs
   |> Array.map (machSectionToSection segMap)
-  |> Array.toSeq
 
 let getTextSection (secs: MachSection[]) segMap =
   let secText = Section.getTextSectionIndex secs
@@ -182,7 +181,7 @@ let getTextSection (secs: MachSection[]) segMap =
 let getPLT symInfo =
   symInfo.LinkageTable
   |> List.sortBy (fun entry -> entry.TrampolineAddress)
-  |> List.toSeq
+  |> List.toArray
 
 let isPLT symInfo addr =
   symInfo.LinkageTable
@@ -205,6 +204,6 @@ let getDynamicSymbols excludeImported secs symInfo =
 let getSymbols secs symInfo =
   let s = getStaticSymbols secs symInfo
   let d = getDynamicSymbols None secs symInfo
-  Array.append s d |> Array.toSeq
+  Array.append s d
 
 // vim: set tw=80 sts=2 sw=2:

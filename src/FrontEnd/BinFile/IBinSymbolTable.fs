@@ -31,18 +31,18 @@ open B2R2.FrontEnd.BinLifter
 type IBinSymbolTable =
   inherit INameReadable
 
-  /// Return a list of all the symbols from the binary.
-  abstract GetSymbols: unit -> seq<Symbol>
+  /// Return an array of all the symbols from the binary.
+  abstract GetSymbols: unit -> Symbol[]
 
   /// Return a list of all the static symbols from the binary. Static symbols
   /// can be removed when we strip the binary. Unlike dynamic symbols, static
   /// symbols are not required to run the binary, thus they can be safely
   /// removed before releasing it.
-  abstract GetStaticSymbols: unit -> seq<Symbol>
+  abstract GetStaticSymbols: unit -> Symbol[]
 
   /// Returns a sequence of local function symbols (excluding external
   /// functions) from a given binary.
-  abstract GetFunctionSymbols: unit -> seq<Symbol>
+  abstract GetFunctionSymbols: unit -> Symbol[]
 
   /// Return a list of all the dynamic symbols from the binary. Dynamic symbols
   /// are the ones that are required to run the binary. The "excludeImported"
@@ -52,10 +52,10 @@ type IBinSymbolTable =
   /// in an external file (cf. SymbolKind.ForwardType). When "excludeImported"
   /// argument is not given, this function will simply return all possible
   /// dynamic symbols.
-  abstract GetDynamicSymbols: ?excludeImported: bool -> seq<Symbol>
+  abstract GetDynamicSymbols: ?excludeImported: bool -> Symbol[]
 
   /// Return a list of all symbols for relocatable entries in the binary.
-  abstract GetRelocationSymbols: unit -> seq<Symbol>
+  abstract GetRelocationSymbols: unit -> Symbol[]
 
   /// Add a symbol for the address. This function is useful when we can obtain
   /// extra symbol information from outside of B2R2.

@@ -99,7 +99,7 @@ let getDynamicSymbols wm excludeImported =
       | Some ev -> ev.Elements |> Array.map exportEntryToSymbol
       | None -> [||]
     | None -> [||]
-  Seq.append imports exports
+  Array.append imports exports
 
 let getSymbols wm =
   getDynamicSymbols wm None
@@ -122,17 +122,16 @@ let secSummaryToGenericSection (secSumm: SectionSummary) =
 let getSections wm =
   wm.SectionsInfo.SecArray
   |> Array.map secSummaryToGenericSection
-  |> Array.toSeq
 
 let getSectionsByAddr wm addr =
   match ARMap.tryFindByAddr addr wm.SectionsInfo.SecByAddr with
-  | Some s -> secSummaryToGenericSection s |> Seq.singleton
-  | None -> Seq.empty
+  | Some s -> [| secSummaryToGenericSection s |]
+  | None -> [||]
 
 let getSectionsByName wm name =
   match Map.tryFind name wm.SectionsInfo.SecByName with
-  | Some s -> secSummaryToGenericSection s |> Seq.singleton
-  | None -> Seq.empty
+  | Some s -> [| secSummaryToGenericSection s |]
+  | None -> [||]
 
 let importToLinkageTableEntry (entry: Import) =
   { FuncName = entry.Name
@@ -151,9 +150,8 @@ let getImports wm =
           | ImpFunc _ -> true
           | _ -> false)
       |> Array.map importToLinkageTableEntry
-      |> Seq.ofArray
-    | None -> Seq.empty
-  | None -> Seq.empty
+    | None -> [||]
+  | None -> [||]
 
 let tryFindFunSymName wm addr =
   let sym =

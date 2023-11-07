@@ -41,11 +41,10 @@ let segCmdToSegment seg =
     SizeInFile = uint32 seg.FileSize
     Permission = seg.MaxProt |> LanguagePrimitives.EnumOfValue }
 
-let toSeq segCmds isLoadable =
+let toArray segCmds isLoadable =
   if isLoadable then segCmds |> Array.filter (fun s -> s.FileSize > 0UL)
   else segCmds
   |> Array.map segCmdToSegment
-  |> Array.toSeq
 
 let buildMap segs =
   segs

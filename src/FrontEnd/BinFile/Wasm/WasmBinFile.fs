@@ -124,13 +124,13 @@ type WasmBinFile (path, bytes, baseAddrOpt) =
 
     member __.GetSymbols () = getSymbols wm
 
-    member __.GetStaticSymbols () = Seq.empty
+    member __.GetStaticSymbols () = [||]
 
     member __.GetFunctionSymbols () = Utils.futureFeature ()
 
     member __.GetDynamicSymbols (?exc) = getDynamicSymbols wm exc
 
-    member __.GetRelocationSymbols () = Seq.empty
+    member __.GetRelocationSymbols () = [||]
 
     member __.AddSymbol _addr _symbol = Utils.futureFeature ()
 
@@ -150,11 +150,11 @@ type WasmBinFile (path, bytes, baseAddrOpt) =
           Name = "" })
       |> function Some s -> s | None -> raise SectionNotFoundException
 
-    member __.GetSegments (_isLoadable: bool): seq<Segment> = Seq.empty
+    member __.GetSegments (_isLoadable: bool): Segment[] = [||]
 
-    member __.GetSegments (_addr: Addr): seq<Segment> = Seq.empty
+    member __.GetSegments (_addr: Addr): Segment[] = [||]
 
-    member __.GetSegments (_perm: Permission): seq<Segment> = Seq.empty
+    member __.GetSegments (_perm: Permission): Segment[] = [||]
 
     member __.GetLinkageTableEntries () = getImports wm
 

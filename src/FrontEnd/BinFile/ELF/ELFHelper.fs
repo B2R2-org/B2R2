@@ -104,7 +104,6 @@ let inline tryFindFuncSymb symbolInfo addr =
 let getStaticSymbols shdrs symbols =
   Symbol.getStaticSymArray shdrs symbols.SecNumToSymbTbls
   |> Array.map (Symbol.toB2R2Symbol SymbolVisibility.StaticSymbol)
-  |> Array.toSeq
 
 let getDynamicSymbols excludeImported shdrs symbols =
   let excludeImported = defaultArg excludeImported false
@@ -115,12 +114,11 @@ let getDynamicSymbols excludeImported shdrs symbols =
   Symbol.getDynamicSymArray shdrs symbols.SecNumToSymbTbls
   |> Array.filter filter
   |> Array.map (Symbol.toB2R2Symbol SymbolVisibility.DynamicSymbol)
-  |> Array.toSeq
 
 let getSymbols shdrs symbols =
   let s = getStaticSymbols shdrs symbols
   let d = getDynamicSymbols None shdrs symbols
-  Seq.append s d
+  Array.append s d
 
 let getRelocSymbols relocInfo =
   let translate reloc =
@@ -131,6 +129,7 @@ let getRelocSymbols relocInfo =
          |> Some)
   relocInfo.RelocByName.Values
   |> Seq.choose translate
+  |> Seq.toArray
 
 let secFlagToSectionKind sec =
   if sec.SecFlags &&& SectionFlag.SHF_EXECINSTR = SectionFlag.SHF_EXECINSTR then
@@ -151,22 +150,21 @@ let elfSectionToSection sec =
 let getSections shdrs =
   shdrs
   |> Array.map elfSectionToSection
-  |> Array.toSeq
 
 let getSectionsByAddr shdrs addr =
   shdrs
   |> Array.tryFind (fun section ->
     section.SecAddr <= addr && addr < section.SecAddr + section.SecSize)
   |> function
-    | Some section -> elfSectionToSection section |> Seq.singleton
-    | None -> Seq.empty
+    | Some section -> [| elfSectionToSection section |]
+    | None -> [||]
 
 let getSectionsByName shdrs name =
   shdrs
   |> Array.tryFind (fun section -> section.SecName = name)
   |> function
-    | Some section -> elfSectionToSection section |> Seq.singleton
-    | None -> Seq.empty
+    | Some section -> [| elfSectionToSection section |]
+    | None -> [||]
 
 let getTextSection shdrs =
   shdrs
@@ -181,7 +179,6 @@ let getTextSection shdrs =
 let getSegments segments =
   segments
   |> Array.map ProgramHeader.toSegment
-  |> Array.toSeq
 
 let getRelocatedAddr relocInfo relocAddr =
   match relocInfo.RelocByAddr.TryGetValue relocAddr with
@@ -255,8 +252,8 @@ let addExtraFunctionAddrs toolBox shdrs loadables relocInfo exnInfoOpt addrs =
       cfi.FDERecord
       |> Array.fold (fun set fde -> Set.add fde.PCBegin set) set
     ) addrSet
-    |> Set.toSeq
-  | None -> addrSet |> Set.toSeq
+    |> Set.toArray
+  | None -> addrSet |> Set.toArray
 
 let private computeInvalidRanges wordSize phdrs getNextStartAddr =
   phdrs

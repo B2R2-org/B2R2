@@ -120,8 +120,8 @@ type MachBinFile (path, bytes: byte[], isa, baseAddrOpt) =
 
     member __.GetNotInFileIntervals range =
       IntervalSet.findAll range notInFileRanges.Value
-      |> List.map range.Slice
-      |> List.toSeq
+      |> List.toArray
+      |> Array.map range.Slice
 
     member __.ToBinFilePointer addr =
       getSectionsByAddr secs.Value segMap.Value addr
@@ -141,22 +141,22 @@ type MachBinFile (path, bytes: byte[], isa, baseAddrOpt) =
     member __.GetSymbols () = getSymbols secs.Value symInfo.Value
 
     member __.GetStaticSymbols () =
-      getStaticSymbols secs.Value symInfo.Value |> Array.toSeq
+      getStaticSymbols secs.Value symInfo.Value
 
     member __.GetFunctionSymbols () =
       let self = __ :> IBinFile
       let staticSymbols =
         self.GetStaticSymbols ()
-        |> Seq.filter (fun s -> s.Kind = SymFunctionType)
+        |> Array.filter (fun s -> s.Kind = SymFunctionType)
       let dynamicSymbols =
         self.GetDynamicSymbols (true)
-        |> Seq.filter (fun s -> s.Kind = SymFunctionType)
-      Seq.append staticSymbols dynamicSymbols
+        |> Array.filter (fun s -> s.Kind = SymFunctionType)
+      Array.append staticSymbols dynamicSymbols
 
     member __.GetDynamicSymbols (?e) =
-      getDynamicSymbols e secs.Value symInfo.Value |> Array.toSeq
+      getDynamicSymbols e secs.Value symInfo.Value
 
-    member __.GetRelocationSymbols () = relocs.Value |> Array.toSeq
+    member __.GetRelocationSymbols () = relocs.Value
 
     member __.AddSymbol _addr _symbol = Utils.futureFeature ()
 
@@ -170,16 +170,17 @@ type MachBinFile (path, bytes: byte[], isa, baseAddrOpt) =
 
     member __.GetTextSection () = getTextSection secs.Value segMap.Value
 
-    member __.GetSegments (isLoadable) = Segment.toSeq segCmds.Value isLoadable
+    member __.GetSegments (isLoadable) =
+      Segment.toArray segCmds.Value isLoadable
 
     member __.GetSegments (addr) =
       (__ :> IBinFile).GetSegments ()
-      |> Seq.filter (fun s -> (addr >= s.Address)
-                              && (addr < s.Address + uint64 s.Size))
+      |> Array.filter (fun s -> (addr >= s.Address)
+                             && (addr < s.Address + uint64 s.Size))
 
     member __.GetSegments (perm) =
       (__ :> IBinFile).GetSegments ()
-      |> Seq.filter (fun s -> (s.Permission &&& perm = perm) && s.Size > 0u)
+      |> Array.filter (fun s -> (s.Permission &&& perm = perm) && s.Size > 0u)
 
     member __.GetLinkageTableEntries () = getPLT symInfo.Value
 
@@ -187,7 +188,7 @@ type MachBinFile (path, bytes: byte[], isa, baseAddrOpt) =
 
     member __.GetFunctionAddresses () =
       (__ :> IBinFile).GetFunctionSymbols ()
-      |> Seq.map (fun s -> s.Address)
+      |> Array.map (fun s -> s.Address)
 
     member __.GetFunctionAddresses (_) =
       (__ :> IBinFile).GetFunctionAddresses ()

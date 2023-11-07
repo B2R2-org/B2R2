@@ -125,60 +125,58 @@ type RawBinFile (path, bytes: byte[], isa, baseAddrOpt) =
       else Error ErrorCase.SymbolNotFound
 
     member __.GetSymbols () =
-      Seq.map (fun (KeyValue(k, v)) -> v) symbolMap
+      Seq.map (fun (KeyValue(k, v)) -> v) symbolMap |> Seq.toArray
 
     member __.GetStaticSymbols () = (__ :> IBinFile).GetSymbols ()
 
     member __.GetFunctionSymbols () = (__ :> IBinFile).GetStaticSymbols ()
 
-    member __.GetDynamicSymbols (?_excludeImported) = Seq.empty
+    member __.GetDynamicSymbols (?_excludeImported) = [||]
 
-    member __.GetRelocationSymbols () = Seq.empty
+    member __.GetRelocationSymbols () = [||]
 
     member __.AddSymbol addr symbol = symbolMap[addr] <- symbol
 
     member __.GetSections () =
-      Seq.singleton { Address = baseAddr
-                      FileOffset = 0u
-                      Kind = SectionKind.ExecutableSection
-                      Size = uint32 size
-                      Name = "" }
+      [| { Address = baseAddr
+           FileOffset = 0u
+           Kind = SectionKind.ExecutableSection
+           Size = uint32 size
+           Name = "" } |]
 
     member __.GetSections (addr: Addr) =
       if addr >= baseAddr && addr < (baseAddr + uint64 size) then
         (__ :> IBinFile).GetSections ()
-      else
-        Seq.empty
+      else [||]
 
-    member __.GetSections (_: string): seq<Section> = Seq.empty
+    member __.GetSections (_: string): Section[] = [||]
 
     member __.GetTextSection () = raise SectionNotFoundException
 
     member __.GetSegments (_isLoadable: bool) =
-      Seq.singleton { Address = baseAddr
-                      Offset = 0u
-                      Size = uint32 size
-                      SizeInFile = uint32 size
-                      Permission = Permission.Readable
-                                   ||| Permission.Executable }
+      [| { Address = baseAddr
+           Offset = 0u
+           Size = uint32 size
+           SizeInFile = uint32 size
+           Permission = Permission.Readable ||| Permission.Executable } |]
 
     member __.GetSegments (addr: Addr) =
       (__ :> IBinFile).GetSegments ()
-      |> Seq.filter (fun s -> (addr >= s.Address)
-                              && (addr < s.Address + uint64 s.Size))
+      |> Array.filter (fun s -> (addr >= s.Address)
+                             && (addr < s.Address + uint64 s.Size))
 
     member __.GetSegments (perm: Permission) =
       (__ :> IBinFile).GetSegments ()
-      |> Seq.filter (fun s -> (s.Permission &&& perm = perm) && s.Size > 0u)
+      |> Array.filter (fun s -> (s.Permission &&& perm = perm) && s.Size > 0u)
 
-    member __.GetLinkageTableEntries () = Seq.empty
+    member __.GetLinkageTableEntries () = [||]
 
     member __.IsLinkageTable _ = false
 
     member __.GetFunctionAddresses () =
       (__ :> IBinFile).GetFunctionSymbols ()
-      |> Seq.filter (fun s -> s.Kind = SymFunctionType)
-      |> Seq.map (fun s -> s.Address)
+      |> Array.filter (fun s -> s.Kind = SymFunctionType)
+      |> Array.map (fun s -> s.Address)
 
     member __.GetFunctionAddresses (_) =
       (__ :> IBinFile).GetFunctionAddresses ()

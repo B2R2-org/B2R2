@@ -122,11 +122,11 @@ type PEBinFile (path, bytes: byte[], baseAddrOpt, rawpdb) =
       let self = __ :> IBinFile
       let staticSymbols =
         self.GetStaticSymbols ()
-        |> Seq.filter (fun s -> s.Kind = SymFunctionType)
+        |> Array.filter (fun s -> s.Kind = SymFunctionType)
       let dynamicSymbols =
         self.GetDynamicSymbols (true)
-        |> Seq.filter (fun s -> s.Kind = SymFunctionType)
-      Seq.append staticSymbols dynamicSymbols
+        |> Array.filter (fun s -> s.Kind = SymFunctionType)
+      Array.append staticSymbols dynamicSymbols
 
     member __.GetDynamicSymbols (?exc) = getDynamicSymbols pe exc
 
@@ -146,12 +146,12 @@ type PEBinFile (path, bytes: byte[], baseAddrOpt, rawpdb) =
 
     member __.GetSegments (addr) =
       (__ :> IBinFile).GetSegments ()
-      |> Seq.filter (fun s -> (addr >= s.Address)
-                              && (addr < s.Address + uint64 s.Size))
+      |> Array.filter (fun s -> (addr >= s.Address)
+                             && (addr < s.Address + uint64 s.Size))
 
     member __.GetSegments (perm) =
       (__ :> IBinFile).GetSegments ()
-      |> Seq.filter (fun s -> (s.Permission &&& perm = perm) && s.Size > 0u)
+      |> Array.filter (fun s -> (s.Permission &&& perm = perm) && s.Size > 0u)
 
     member __.GetLinkageTableEntries () = getImportTable pe
 
@@ -159,7 +159,7 @@ type PEBinFile (path, bytes: byte[], baseAddrOpt, rawpdb) =
 
     member __.GetFunctionAddresses () =
       (__ :> IBinFile).GetFunctionSymbols ()
-      |> Seq.map (fun s -> s.Address)
+      |> Array.map (fun s -> s.Address)
 
     member __.GetFunctionAddresses (_) =
       (__ :> IBinFile).GetFunctionAddresses ()

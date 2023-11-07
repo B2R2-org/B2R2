@@ -5,6 +5,7 @@
     <PackageIcon>b2r2-240x240.png</PackageIcon>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <Description>B2R2 frontend main interface.</Description>
+    <OtherFlags>$(OtherFlags)--warnon:3390</OtherFlags>
   </PropertyGroup>
 
   <ItemGroup>

@@ -149,8 +149,8 @@ type ELFBinFile (path, bytes: byte[], baseAddrOpt, rfOpt) =
 
     member __.GetNotInFileIntervals range =
       IntervalSet.findAll range notInFileRanges.Value
-      |> List.map range.Slice
-      |> List.toSeq
+      |> List.toArray
+      |> Array.map range.Slice
 
     member __.ToBinFilePointer addr =
       getSectionsByAddr shdrs.Value addr
@@ -186,7 +186,7 @@ type ELFBinFile (path, bytes: byte[], baseAddrOpt, rfOpt) =
         if dict.ContainsKey s.Address then ()
         elif s.Kind = SymFunctionType then dict[s.Address] <- s
         else ())
-      dict.Values
+      dict.Values |> Seq.toArray
 
     member __.GetDynamicSymbols (?exc) =
       getDynamicSymbols exc shdrs.Value symbInfo.Value
@@ -209,18 +209,18 @@ type ELFBinFile (path, bytes: byte[], baseAddrOpt, rfOpt) =
 
     member __.GetSegments (addr) =
       (__ :> IBinFile).GetSegments ()
-      |> Seq.filter (fun s -> (addr >= s.Address)
-                              && (addr < s.Address + uint64 s.Size))
+      |> Array.filter (fun s -> (addr >= s.Address)
+                             && (addr < s.Address + uint64 s.Size))
 
     member __.GetSegments (perm) =
       (__ :> IBinFile).GetSegments ()
-      |> Seq.filter (fun s -> (s.Permission &&& perm = perm) && s.Size > 0u)
+      |> Array.filter (fun s -> (s.Permission &&& perm = perm) && s.Size > 0u)
 
     member __.GetLinkageTableEntries () =
       plt.Value
       |> ARMap.fold (fun acc _ entry -> entry :: acc) []
       |> List.sortBy (fun entry -> entry.TrampolineAddress)
-      |> List.toSeq
+      |> List.toArray
 
     member __.IsLinkageTable addr = ARMap.containsAddr addr plt.Value
 

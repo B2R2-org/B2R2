@@ -2,9 +2,9 @@
   <PropertyGroup>
     <PackageLicenseFile>LICENSE.md</PackageLicenseFile>
     <PackageIcon>b2r2-240x240.png</PackageIcon>
-    <OtherFlags>$(OtherFlags)--warnon:3390</OtherFlags>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <Description>B2R2 core library.</Description>
+    <OtherFlags>$(OtherFlags)--warnon:3390</OtherFlags>
   </PropertyGroup>
 
   <ItemGroup>

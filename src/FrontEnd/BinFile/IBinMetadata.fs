@@ -49,7 +49,8 @@ module FileType =
   ///   A converted string.
   /// </returns>
   [<CompiledName ("ToString")>]
-  let toString = function
+  let toString ty =
+    match ty with
     | FileType.ExecutableFile -> "Executable"
     | FileType.CoreFile -> "Core dump"
     | FileType.LibFile -> "Library"

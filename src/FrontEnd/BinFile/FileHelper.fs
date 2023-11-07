@@ -24,8 +24,6 @@
 
 module internal B2R2.FrontEnd.BinFile.FileHelper
 
-open System
-open System.IO
 open B2R2
 
 /// Pick a number based on the word size.
@@ -59,15 +57,14 @@ let addLastInvalidRange wordSize (set, saddr) =
 
 let getNotInFileIntervals fileBase fileSize (range: AddrRange) =
   let lastAddr = fileBase + fileSize - 1UL
-  if range.Max < fileBase then Seq.singleton range
+  if range.Max < fileBase then [| range |]
   elif range.Max <= lastAddr && range.Min < fileBase then
-    Seq.singleton (AddrRange (range.Min, fileBase - 1UL))
+    [| AddrRange (range.Min, fileBase - 1UL) |]
   elif range.Max > lastAddr && range.Min < fileBase then
-    [ AddrRange (range.Min, fileBase - 1UL)
-      AddrRange (lastAddr + 1UL, range.Max) ]
-    |> List.toSeq
+    [| AddrRange (range.Min, fileBase - 1UL)
+       AddrRange (lastAddr + 1UL, range.Max) |]
   elif range.Max > lastAddr && range.Min <= lastAddr then
-    Seq.singleton (AddrRange (lastAddr + 1UL, range.Max))
-  elif range.Max > lastAddr && range.Min > lastAddr then Seq.singleton range
-  else Seq.empty
+    [| AddrRange (lastAddr + 1UL, range.Max) |]
+  elif range.Max > lastAddr && range.Min > lastAddr then [| range |]
+  else [||]
 

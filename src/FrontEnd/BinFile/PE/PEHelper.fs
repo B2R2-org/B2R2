@@ -84,8 +84,8 @@ let secHdrToSection pe (sec: SectionHeader) =
 
 let getSectionsByName pe name =
   match pe.SectionHeaders |> Seq.tryFind (fun sec -> sec.Name = name) with
-  | None -> Seq.empty
-  | Some sec -> secHdrToSection pe sec |> Seq.singleton
+  | None -> [||]
+  | Some sec -> [| secHdrToSection pe sec |]
 
 let inline translateAddr pe addr =
   let rva = int (addr - pe.BaseAddr)
@@ -110,7 +110,6 @@ let pdbSymbolToSymbol (sym: PESymbol) =
 let inline getStaticSymbols pe =
   pe.SymbolInfo.SymbolArray
   |> Array.map pdbSymbolToSymbol
-  |> Array.toSeq
 
 let getSymbolKindBySectionIndex pe idx =
   let ch = pe.SectionHeaders[idx].SectionCharacteristics
@@ -165,26 +164,28 @@ let getExportSymbols pe =
     makeForwardedExportSymbol name (fwdBin, fwdFunc) :: accSymbols
   Map.fold localExportFolder [] pe.ExportMap
   |> Map.fold forwardedExportFolder <| pe.ForwardMap
+  |> List.toArray
 
 let getAllDynamicSymbols pe =
   let isym = getImportSymbols pe
   let esym = getExportSymbols pe
-  List.append isym esym
+  Seq.append isym esym
+  |> Seq.toArray
 
 let getDynamicSymbols pe excludeImported =
   let excludeImported = defaultArg excludeImported false
-  if excludeImported then getExportSymbols pe else getAllDynamicSymbols pe
-  |> List.toSeq
+  if excludeImported then getExportSymbols pe
+  else getAllDynamicSymbols pe
 
 let getSymbols pe =
   let s = getStaticSymbols pe
   let d = getAllDynamicSymbols pe
-  Seq.append s d
+  Array.append s d
 
 let getRelocationSymbols pe =
   pe.RelocBlocks
   |> Seq.collect (fun block ->
-    block.Entries |> Seq.map(fun entry -> (block, entry)))
+    block.Entries |> Seq.map (fun entry -> (block, entry)))
   |> Seq.map (fun (block, entry) -> {
     Address = uint64 (block.PageRVA + uint32 entry.Offset)
     Name = String.Empty
@@ -192,18 +193,18 @@ let getRelocationSymbols pe =
     Visibility = SymbolVisibility.DynamicSymbol
     LibraryName = String.Empty
     ArchOperationMode = ArchOperationMode.NoMode })
+  |> Seq.toArray
 
 let getSections pe =
   pe.SectionHeaders
   |> Array.map (secHdrToSection pe)
-  |> Array.toSeq
 
 let getSectionsByAddr pe addr =
   let rva = int (addr - pe.BaseAddr)
   match pe.FindSectionIdxFromRVA rva with
-  | -1 -> Seq.empty
+  | -1 -> [||]
   | idx ->
-    pe.SectionHeaders[idx] |> secHdrToSection pe |> Seq.singleton
+    [| pe.SectionHeaders[idx] |> secHdrToSection pe |]
 
 let getTextSection pe =
   match pe.SectionHeaders |> Seq.tryFind (fun sec -> sec.Name = SecText) with
@@ -225,7 +226,7 @@ let getImportTable pe =
            TrampolineAddress = 0UL
            TableAddress = addrFromRVA pe.BaseAddr addr } :: acc) []
   |> List.sortBy (fun entry -> entry.TableAddress)
-  |> List.toSeq
+  |> List.toArray
 
 let isImportTable pe addr =
   let rva = int (addr - pe.BaseAddr)
@@ -245,7 +246,7 @@ let getSegments pe =
       SizeInFile = uint32 sec.SizeOfRawData
       Permission = getSecPermission sec.SectionCharacteristics }
   pe.SectionHeaders
-  |> Seq.map secToSegment
+  |> Array.map secToSegment
 
 let private findSymFromIAT addr pe =
   let rva = int (addr - pe.BaseAddr)
@@ -290,8 +291,8 @@ let inline isExecutableAddr pe addr =
 
 let inline getNotInFileIntervals pe range =
   IntervalSet.findAll range pe.NotInFileRanges
-  |> List.map range.Slice
-  |> List.toSeq
+  |> List.toArray
+  |> Array.map range.Slice
 
 let machineToArch = function
   | Machine.I386 -> Architecture.IntelX86

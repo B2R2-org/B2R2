@@ -245,7 +245,7 @@ type PE = {
   /// Image base address.
   BaseAddr: Addr
   /// Section headers.
-  SectionHeaders: SectionHeader []
+  SectionHeaders: SectionHeader[]
   /// RVA to import information.
   ImportMap: Map<int, ImportInfo>
   /// Address (VA) to exported function name.

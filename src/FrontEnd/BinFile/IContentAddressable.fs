@@ -145,7 +145,7 @@ type IContentAddressable =
   ///   Returns an empty list when the given range r is valid, i.e.,
   ///   `IsInFileRange r = true`.
   /// </returns>
-  abstract GetNotInFileIntervals: AddrRange -> seq<AddrRange>
+  abstract GetNotInFileIntervals: AddrRange -> AddrRange[]
 
   /// <summary>
   ///   Convert the section at the address (Addr) into a binary pointer, which
@@ -163,7 +163,7 @@ type IContentAddressable =
   ///   Return a relocation target address of the given virtual address if there
   ///   is a corresponding relocation entry.
   /// </summary>
-  /// <param name="addr">Virtual address be relocated.</param>
+  /// <param name="relocAddr">Virtual address be relocated.</param>
   /// <returns>
   ///   Returns a relocated address for a given virtual address.
   /// </returns>

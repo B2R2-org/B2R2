@@ -36,7 +36,7 @@ type IBinOrganization =
   /// <returns>
   ///   A sequence of sections.
   /// </returns>
-  abstract GetSections: unit -> seq<Section>
+  abstract GetSections: unit -> Section[]
 
   /// <summary>
   ///   Return a section that contains the given address.
@@ -46,7 +46,7 @@ type IBinOrganization =
   ///   A sequence of sections. This function returns a singleton if there
   ///   exists a corresponding section. Otherwise, it returns an empty sequence.
   /// </returns>
-  abstract GetSections: addr: Addr -> seq<Section>
+  abstract GetSections: addr: Addr -> Section[]
 
   /// <summary>
   ///   Return a section that has the specified name.
@@ -56,7 +56,7 @@ type IBinOrganization =
   ///   A sequence of sections that have the specified name. This function
   ///   returns an empty sequence if there is no section of the given name.
   /// </returns>
-  abstract GetSections: name: string -> seq<Section>
+  abstract GetSections: name: string -> Section[]
 
   /// <summary>
   ///   Return a text section from the binary. If there's no text section, this
@@ -78,7 +78,7 @@ type IBinOrganization =
   /// </returns>
   abstract GetSegments:
     [<Optional; DefaultParameterValue(true)>] isLoadable:bool
-    -> seq<Segment>
+    -> Segment[]
 
   /// <summary>
   ///   Return a list of the segments from the binary, which contain the given
@@ -88,7 +88,7 @@ type IBinOrganization =
   /// <returns>
   ///   A sequence of segments.
   /// </returns>
-  abstract GetSegments: Addr -> seq<Segment>
+  abstract GetSegments: addr: Addr -> Segment[]
 
   /// <summary>
   ///   For a given permission, return a list of segments that satisfy the
@@ -98,7 +98,7 @@ type IBinOrganization =
   /// <returns>
   ///   A sequence of segments.
   /// </returns>
-  abstract GetSegments: Permission -> seq<Segment>
+  abstract GetSegments: Permission -> Segment[]
 
   /// <summary>
   ///   Return a list of all the linkage table entries from the binary.
@@ -106,7 +106,7 @@ type IBinOrganization =
   /// <returns>
   ///   A sequence of linkage table entries, e.g., PLT entries for ELF files.
   /// </returns>
-  abstract GetLinkageTableEntries: unit -> seq<LinkageTableEntry>
+  abstract GetLinkageTableEntries: unit -> LinkageTableEntry[]
 
   /// <summary>
   ///   Return if a given address is an address of a linkage table entry.
@@ -124,7 +124,7 @@ type IBinOrganization =
   /// <returns>
   ///   A sequence of function addresses.
   /// </returns>
-  abstract GetFunctionAddresses: unit -> seq<Addr>
+  abstract GetFunctionAddresses: unit -> Addr[]
 
   /// <summary>
   ///   Returns a sequence of local function addresses (excluding external
@@ -137,5 +137,5 @@ type IBinOrganization =
   /// <returns>
   ///   A sequence of function addresses.
   /// </returns>
-  abstract GetFunctionAddresses: bool -> seq<Addr>
+  abstract GetFunctionAddresses: bool -> Addr[]
 
