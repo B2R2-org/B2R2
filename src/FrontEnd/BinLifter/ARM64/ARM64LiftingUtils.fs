@@ -934,18 +934,26 @@ let isZero oprSize expr =
 
 /// shared/functions/float/fproundingmode/FPRoundingMode
 /// FPRoundingMode()
-let fpRoundingMode src oprSz ctxt =
+let fpRoundingMode src oprSz ctxt ir =
   let fpcr = getRegVar ctxt R.FPCR |> AST.xtlo 32<rt>
-  let rm = AST.shr (AST.shl fpcr (numI32 8 32<rt>)) (numI32 0x1E 32<rt>)
-  AST.ite (rm == numI32 0 32<rt>)
-    (AST.cast CastKind.FtoFRound oprSz src) // 0 RN
-    (AST.ite (rm == numI32 1 32<rt>)
-      (AST.cast CastKind.FtoFCeil oprSz src) // 1 RZ
-      (AST.ite (rm == numI32 2 32<rt>)
-        (AST.cast CastKind.FtoFFloor oprSz src) // 2 RP
-        (AST.ite (rm == numI32 3 32<rt>)
-          (AST.cast CastKind.FtoFTrunc oprSz src) // 3 RM
-          src)))
+  let rm = !+ir 32<rt>
+  let struct (rm1, rm0) = tmpVars2 ir 1<rt>
+  let res = !+ir oprSz
+  !!ir (rm := (fpcr >> (numI32 22 32<rt>)) .& (numI32 0b11 32<rt>))
+  !!ir (rm0 := AST.xtlo 1<rt> rm) (* rm[0] *)
+  !!ir (rm1 := rm >> (AST.num1 32<rt>) |> AST.xtlo 1<rt>) (* rm[1] *)
+  let cast kind = AST.cast kind oprSz src
+  let lblRNRP = !%ir "RNorRP"
+  let lblRMRZ = !%ir "RMorRZ"
+  let lblEnd = !%ir "End"
+  !!ir (AST.cjmp rm1 (AST.name lblRMRZ) (AST.name lblRNRP))
+  !!ir (AST.lmark lblRMRZ)
+  !!ir (res := AST.ite rm0 (cast CastKind.FtoFTrunc) (cast CastKind.FtoFFloor))
+  !!ir (AST.jmp (AST.name lblEnd))
+  !!ir (AST.lmark lblRNRP)
+  !!ir (res := AST.ite rm0 (cast CastKind.FtoFCeil) (cast CastKind.FtoFRound))
+  !!ir (AST.lmark lblEnd)
+  res
 
 /// shared/functions/float/fproundingmode/FPRoundingMode
 /// FtoI
@@ -1028,7 +1036,8 @@ let fpMinMax src fbit =
 
 /// shared/functions/float/fpprocessnan/FPProcessNaN
 /// FPProcessNaN()
-let fpProcessNan ctxt eSize element =
+let fpProcessNan ctxt ir eSize element =
+  let struct (res, tf) = tmpVars2 ir eSize
   let fpcr = getRegVar ctxt R.FPCR
   let dnBit = AST.extract fpcr 1<rt> 25
   let topfrac =
@@ -1037,8 +1046,9 @@ let fpProcessNan ctxt eSize element =
     | 32<rt> -> numU64 0x400000UL 32<rt>
     | 16<rt> -> numU64 0x200UL 16<rt>
     | _ -> raise InvalidOperandException
-  AST.ite dnBit (fpDefaultNan eSize)
-    (AST.ite (isSNaN eSize element) (element .| topfrac) element)
+  !!ir (tf := AST.ite (isSNaN eSize element) (element .| topfrac) element)
+  !!ir (res := AST.ite dnBit (fpDefaultNan eSize) tf)
+  res
 
 let fpProcessNaNs ctxt ir dataSize e1 e2 =
   let struct (isSNaN1, isSNaN2, isQNaN1, isQNaN2) = tmpVars4 ir 1<rt>
@@ -1049,67 +1059,120 @@ let fpProcessNaNs ctxt ir dataSize e1 e2 =
   !!ir (isQNaN1 := isQNaN dataSize e1)
   !!ir (isQNaN2 := isQNaN dataSize e2)
   !!ir (isNaN := isSNaN1 .| isSNaN2 .| isQNaN1 .| isQNaN2)
-  let fpNaN expr = fpProcessNan ctxt dataSize expr
-  !!ir (resNaN :=
-    AST.ite isSNaN1 (fpNaN e1) (AST.ite isSNaN2 (fpNaN e2)
-      (AST.ite isQNaN1 (fpNaN e1) (AST.ite isQNaN2 (fpNaN e2)
-        (AST.num0 dataSize)))))
+  let fpNaN expr = fpProcessNan ctxt ir dataSize expr
+  let lblSFT = !%ir "isSFT" (* SNaN1 Fall Through *)
+  let lblQNaN = !%ir "isQNaN"
+  let lblSNaN1 = !%ir "isSNaN1"
+  let lblSNaN2 = !%ir "isSNaN2"
+  let lblQNaN1 = !%ir "isQNaN1"
+  let lblQNaN2 = !%ir "isQNaN2"
+  let lblEnd = !%ir "End"
+  !!ir (AST.cjmp isSNaN1 (AST.name lblSNaN1) (AST.name lblSFT))
+  !!ir (AST.lmark lblSNaN1)
+  !!ir (resNaN := fpNaN e1)
+  !!ir (AST.jmp (AST.name lblEnd))
+  !!ir (AST.lmark lblSFT)
+  !!ir (AST.cjmp isSNaN2 (AST.name lblSNaN2) (AST.name lblQNaN))
+  !!ir (AST.lmark lblSNaN2)
+  !!ir (resNaN := fpNaN e2)
+  !!ir (AST.jmp (AST.name lblEnd))
+  !!ir (AST.lmark lblQNaN)
+  !!ir (AST.cjmp isQNaN1 (AST.name lblQNaN1) (AST.name lblQNaN2))
+  !!ir (AST.lmark lblQNaN1)
+  !!ir (resNaN := fpNaN e1)
+  !!ir (AST.jmp (AST.name lblEnd))
+  !!ir (AST.lmark lblQNaN2)
+  !!ir (resNaN := AST.ite isQNaN2 (fpNaN e2) (AST.num0 dataSize))
+  !!ir (AST.lmark lblEnd)
   struct (isNaN, resNaN)
-
-let fpUnpackValue src =
-    let srcSz = src |> TypeCheck.typeOf
-    AST.ite (isNaN srcSz src) (AST.num0 srcSz)
-      (AST.ite (isInfinity srcSz src) (fpMinMax src srcSz) src)
 
 /// shared/functions/float/fpadd/FPAdd
 /// FPAdd()
-let fpAdd ctxt ir dataSize src1 src2 =
+let fpAdd ctxt ir dSz src1 src2 =
   let struct (isZero1, isInf1, isZero2, isInf2) = tmpVars4 ir 1<rt>
   let struct (sign1, sign2) = tmpVars2 ir 1<rt>
-  let res = !+ir dataSize
-  !!ir (sign1 := AST.xthi 1<rt> src1)
-  !!ir (sign2 := AST.xthi 1<rt> src2)
-  !!ir (isZero1 := isZero dataSize src1)
-  !!ir (isZero2 := isZero dataSize src2)
-  !!ir (isInf1 := isInfinity dataSize src1)
-  !!ir (isInf2 := isInfinity dataSize src2)
-  let struct (isNaN, resNaN) = fpProcessNaNs ctxt ir dataSize src1 src2
+  let res = !+ir dSz
+  let lblNan = !%ir "NaN"
+  let lblCond = !%ir "Cond"
+  let lblInvalid = !%ir "Invalidop"
+  let lblInf = !%ir "Inf"
+  let lblChkInf = !%ir "CheckInf"
+  let lblChkZero = !%ir "CheckZero"
+  let lblEnd = !%ir "End"
   let cond1 = isInf1 .& isInf2 .& (sign1 == AST.not sign2)
   let cond2 = (isInf1 .& (AST.not sign1)) .| (isInf2 .& (AST.not sign2))
   let cond3 = (isInf1 .& sign1) .| (isInf2 .& sign2)
   let cond4 = isZero1 .& isZero2 .& (sign1 == sign2)
-  !!ir (res :=
-    AST.ite cond1 (fpDefaultNan dataSize)
-      (AST.ite cond2 (fpInfinity AST.b0 dataSize)
-        (AST.ite cond3 (fpInfinity AST.b1 dataSize)
-          (AST.ite cond4 (fpZero src1 dataSize)
-            (AST.fadd src1 src2)))))
-  AST.ite isNaN resNaN res
+  let struct (isNaN, resNaN) = fpProcessNaNs ctxt ir dSz src1 src2
+  !!ir (AST.cjmp (isNaN) (AST.name lblNan) (AST.name lblCond))
+  !!ir (AST.lmark lblNan)
+  !!ir (res := resNaN)
+  !!ir (AST.jmp (AST.name lblEnd))
+  !!ir (AST.lmark lblCond)
+  !!ir (sign1 := AST.xthi 1<rt> src1)
+  !!ir (sign2 := AST.xthi 1<rt> src2)
+  !!ir (isZero1 := isZero dSz src1)
+  !!ir (isZero2 := isZero dSz src2)
+  !!ir (isInf1 := isInfinity dSz src1)
+  !!ir (isInf2 := isInfinity dSz src2)
+  !!ir (AST.cjmp cond1 (AST.name lblInvalid) (AST.name lblChkInf))
+  !!ir (AST.lmark lblInvalid)
+  !!ir (res := fpDefaultNan dSz)
+  !!ir (AST.jmp (AST.name lblEnd))
+  !!ir (AST.lmark lblChkInf)
+  !!ir (AST.cjmp (cond2 .| cond3) (AST.name lblInf) (AST.name lblChkZero))
+  !!ir (AST.lmark lblInf)
+  !!ir (res := AST.ite cond2 (fpInfinity AST.b0 dSz) (fpInfinity AST.b1 dSz))
+  !!ir (AST.jmp (AST.name lblEnd))
+  !!ir (AST.lmark lblChkZero)
+  !!ir (res := AST.ite cond4 (fpZero src1 dSz) (AST.fadd src1 src2))
+  !!ir (AST.jmp (AST.name lblEnd))
+  !!ir (AST.lmark lblEnd)
+  res
 
 /// shared/functions/float/fpadd/FPSub
 /// FPSub()
-let fpSub ctxt ir dataSize src1 src2 =
+let fpSub ctxt ir dSz src1 src2 =
   let struct (isZero1, isInf1, isZero2, isInf2) = tmpVars4 ir 1<rt>
   let struct (sign1, sign2) = tmpVars2 ir 1<rt>
-  let res = !+ir dataSize
-  !!ir (sign1 := AST.xthi 1<rt> src1)
-  !!ir (sign2 := AST.xthi 1<rt> src2)
-  !!ir (isZero1 := isZero dataSize src1)
-  !!ir (isZero2 := isZero dataSize src2)
-  !!ir (isInf1 := isInfinity dataSize src1)
-  !!ir (isInf2 := isInfinity dataSize src2)
-  let struct (isNaN, resNaN) = fpProcessNaNs ctxt ir dataSize src1 src2
+  let res = !+ir dSz
+  let lblNan = !%ir "NaN"
+  let lblCond = !%ir "Cond"
+  let lblInvalid = !%ir "Invalidop"
+  let lblInf = !%ir "Inf"
+  let lblChkInf = !%ir "CheckInf"
+  let lblChkZero = !%ir "CheckZero"
+  let lblEnd = !%ir "End"
   let cond1 = isInf1 .& isInf2 .& (sign1 == sign2)
   let cond2 = (isInf1 .& (AST.not sign1)) .| (isInf2 .& sign2)
   let cond3 = (isInf1 .& sign1) .| (isInf2 .& (AST.not sign2))
   let cond4 = isZero1 .& isZero2 .& (sign1 == (AST.not sign2))
-  !!ir (res :=
-    AST.ite cond1 (fpDefaultNan dataSize)
-      (AST.ite cond2 (fpInfinity AST.b0 dataSize)
-        (AST.ite cond3 (fpInfinity AST.b1 dataSize)
-          (AST.ite cond4 (fpZero src1 dataSize)
-            (AST.fsub src1 src2)))))
-  AST.ite isNaN resNaN res
+  let struct (isNaN, resNaN) = fpProcessNaNs ctxt ir dSz src1 src2
+  !!ir (AST.cjmp (isNaN) (AST.name lblNan) (AST.name lblCond))
+  !!ir (AST.lmark lblNan)
+  !!ir (res := resNaN)
+  !!ir (AST.jmp (AST.name lblEnd))
+  !!ir (AST.lmark lblCond)
+  !!ir (sign1 := AST.xthi 1<rt> src1)
+  !!ir (sign2 := AST.xthi 1<rt> src2)
+  !!ir (isZero1 := isZero dSz src1)
+  !!ir (isZero2 := isZero dSz src2)
+  !!ir (isInf1 := isInfinity dSz src1)
+  !!ir (isInf2 := isInfinity dSz src2)
+  !!ir (AST.cjmp cond1 (AST.name lblInvalid) (AST.name lblChkInf))
+  !!ir (AST.lmark lblInvalid)
+  !!ir (res := fpDefaultNan dSz)
+  !!ir (AST.jmp (AST.name lblEnd))
+  !!ir (AST.lmark lblChkInf)
+  !!ir (AST.cjmp (cond2 .| cond3) (AST.name lblInf) (AST.name lblChkZero))
+  !!ir (AST.lmark lblInf)
+  !!ir (res := AST.ite cond2 (fpInfinity AST.b0 dSz) (fpInfinity AST.b1 dSz))
+  !!ir (AST.jmp (AST.name lblEnd))
+  !!ir (AST.lmark lblChkZero)
+  !!ir (res := AST.ite cond4 (fpZero src1 dSz) (AST.fsub src1 src2))
+  !!ir (AST.jmp (AST.name lblEnd))
+  !!ir (AST.lmark lblEnd)
+  res
 
 /// shared/functions/float/fpmul/FPMul
 /// FPMul()
@@ -1117,22 +1180,43 @@ let fpMul ctxt ir dataSize src1 src2 =
   let struct (isZero1, isInf1, isZero2, isInf2) = tmpVars4 ir 1<rt>
   let struct (sign1, sign2) = tmpVars2 ir 1<rt>
   let res = !+ir dataSize
+  let lblNan = !%ir "NaN"
+  let lblCond = !%ir "Cond"
+  let lblInvalid = !%ir "Invalidop"
+  let lblInf = !%ir "Inf"
+  let lblMul = !%ir "Mul"
+  let lblChkInf = !%ir "CheckInf"
+  let lblEnd = !%ir "End"
+  let cond1 = (isInf1 .& isZero2) .| (isZero1 .& isInf2)
+  let cond2 = isInf1 .| isInf2
+  let cond3 = isZero1 .| isZero2
+  let struct (isNaN, resNaN) = fpProcessNaNs ctxt ir dataSize src1 src2
+  !!ir (AST.cjmp (isNaN) (AST.name lblNan) (AST.name lblCond))
+  !!ir (AST.lmark lblNan)
+  !!ir (res := resNaN)
+  !!ir (AST.jmp (AST.name lblEnd))
+  !!ir (AST.lmark lblCond)
   !!ir (sign1 := AST.xthi 1<rt> src1)
   !!ir (sign2 := AST.xthi 1<rt> src2)
   !!ir (isZero1 := isZero dataSize src1)
   !!ir (isZero2 := isZero dataSize src2)
   !!ir (isInf1 := isInfinity dataSize src1)
   !!ir (isInf2 := isInfinity dataSize src2)
-  let struct (isNaN, resNaN) = fpProcessNaNs ctxt ir dataSize src1 src2
-  let cond1 = (isInf1 .& isZero2) .| (isZero1 .& isInf2)
-  let cond2 = isInf1 .| isInf2
-  let cond3 = isZero1 .| isZero2
-  !!ir (res :=
-    AST.ite cond1 (fpDefaultNan dataSize)
-      (AST.ite cond2 (fpInfinity (sign1 <+> sign2) dataSize)
-        (AST.ite cond3 (fpZero (src1 <+> src2) dataSize)
-          (AST.fmul src1 src2))))
-  AST.ite isNaN resNaN res
+  !!ir (AST.cjmp cond1 (AST.name lblInvalid) (AST.name lblChkInf))
+  !!ir (AST.lmark lblInvalid)
+  !!ir (res := fpDefaultNan dataSize)
+  !!ir (AST.jmp (AST.name lblEnd))
+  !!ir (AST.lmark lblChkInf)
+  !!ir (AST.cjmp (cond2 .| cond3) (AST.name lblInf)(AST.name lblMul))
+  !!ir (AST.lmark lblInf)
+  !!ir (res := AST.ite cond2 (fpInfinity (sign1 <+> sign2) dataSize)
+                               (fpZero (src1 <+> src2) dataSize))
+  !!ir (AST.jmp (AST.name lblEnd))
+  !!ir (AST.lmark lblMul)
+  !!ir (res := AST.fmul src1 src2)
+  !!ir (AST.jmp (AST.name lblEnd))
+  !!ir (AST.lmark lblEnd)
+  res
 
 /// shared/functions/float/fpdiv/FPDiv
 /// FPDiv()
@@ -1140,22 +1224,43 @@ let fpDiv ctxt ir dataSize src1 src2 =
   let struct (isZero1, isInf1, isZero2, isInf2) = tmpVars4 ir 1<rt>
   let struct (sign1, sign2) = tmpVars2 ir 1<rt>
   let res = !+ir dataSize
+  let lblNan = !%ir "NaN"
+  let lblCond = !%ir "Cond"
+  let lblInvalid = !%ir "Invalidop"
+  let lblInf = !%ir "Inf"
+  let lblDiv = !%ir "Div"
+  let lblChkInf = !%ir "CheckInf"
+  let lblEnd = !%ir "End"
+  let cond1 = (isInf1 .& isInf2) .| (isZero1 .& isZero2)
+  let cond2 = isInf1 .| isZero2
+  let cond3 = isZero1 .| isInf2
+  let struct (isNaN, resNaN) = fpProcessNaNs ctxt ir dataSize src1 src2
+  !!ir (AST.cjmp (isNaN) (AST.name lblNan) (AST.name lblCond))
+  !!ir (AST.lmark lblNan)
+  !!ir (res := resNaN)
+  !!ir (AST.jmp (AST.name lblEnd))
+  !!ir (AST.lmark lblCond)
   !!ir (sign1 := AST.xthi 1<rt> src1)
   !!ir (sign2 := AST.xthi 1<rt> src2)
   !!ir (isZero1 := isZero dataSize src1)
   !!ir (isZero2 := isZero dataSize src2)
   !!ir (isInf1 := isInfinity dataSize src1)
   !!ir (isInf2 := isInfinity dataSize src2)
-  let struct (isNaN, resNaN) = fpProcessNaNs ctxt ir dataSize src1 src2
-  let cond1 = (isInf1 .& isInf2) .| (isZero1 .& isZero2)
-  let cond2 = isInf1 .| isZero2
-  let cond3 = isZero1 .| isInf2
-  !!ir (res :=
-    AST.ite cond1 (fpDefaultNan dataSize)
-      (AST.ite cond2 (fpInfinity (sign1 <+> sign2) dataSize)
-        (AST.ite cond3 (fpZero (src1 <+> src2) dataSize)
-          (AST.fdiv src1 src2))))
-  AST.ite isNaN resNaN res
+  !!ir (AST.cjmp cond1 (AST.name lblInvalid) (AST.name lblChkInf))
+  !!ir (AST.lmark lblInvalid)
+  !!ir (res := fpDefaultNan dataSize)
+  !!ir (AST.jmp (AST.name lblEnd))
+  !!ir (AST.lmark lblChkInf)
+  !!ir (AST.cjmp (cond2 .| cond3) (AST.name lblInf)(AST.name lblDiv))
+  !!ir (AST.lmark lblInf)
+  !!ir (res := AST.ite cond2 (fpInfinity (sign1 <+> sign2) dataSize)
+                               (fpZero (src1 <+> src2) dataSize))
+  !!ir (AST.jmp (AST.name lblEnd))
+  !!ir (AST.lmark lblDiv)
+  !!ir (res := AST.fdiv src1 src2)
+  !!ir (AST.jmp (AST.name lblEnd))
+  !!ir (AST.lmark lblEnd)
+  res
 
 /// shared/functions/float/FPToFixed
 /// FPToFixed()
@@ -1170,14 +1275,28 @@ let fpToFixed dstSz src fbits unsigned round ir =
   let mulBits =
     AST.cast CastKind.UIntToFloat srcSz (numU64 0x1UL srcSz << convertBit)
   let bigint = AST.fmul src mulBits
-  let res cast =
+  let fpFix cast =
     match dstSz, srcSz with
     | d, s when d >= s -> cast bigint
     | _ -> cast bigint |> AST.xtlo dstSz
     |> if unsigned then AST.zext dstSz else AST.sext dstSz
   let fpcheck cast =
-    AST.ite (isNaN srcSz src) (AST.num0 dstSz)
-      (AST.ite (isInfinity srcSz src) (fpMinMax src dstSz) (res cast))
+    let res = !+ir dstSz
+    let struct (checkNan, checkInf, checkfbit) = tmpVars3 ir 1<rt>
+    let lblNan = !%ir "NaN"
+    let lblCon = !%ir "Continue"
+    let lblEnd = !%ir "End"
+    !!ir (checkNan := isNaN srcSz src)
+    !!ir (checkInf := isInfinity srcSz src)
+    !!ir (checkfbit := fbits == AST.num0 srcSz)
+    !!ir (AST.cjmp (checkNan .| checkInf) (AST.name lblNan) (AST.name lblCon))
+    !!ir (AST.lmark lblNan)
+    !!ir (res := AST.ite checkNan (AST.num0 dstSz) (fpMinMax src dstSz))
+    !!ir (AST.jmp (AST.name lblEnd))
+    !!ir (AST.lmark lblCon)
+    !!ir (res := fpFix cast)
+    !!ir (AST.lmark lblEnd)
+    res
   match round with
   | FPRounding_TIEEVEN -> fpcheck (AST.cast CastKind.FtoIRound srcSz)
   | FPRounding_TIEAWAY ->
@@ -1201,6 +1320,7 @@ let fpToFixed dstSz src fbits unsigned round ir =
   | FPRounding_Zero -> fpcheck (AST.cast CastKind.FtoITrunc srcSz)
   | FPRounding_POSINF -> fpcheck (AST.cast CastKind.FtoICeil srcSz)
   | FPRounding_NEGINF -> fpcheck (AST.cast CastKind.FtoIFloor srcSz)
+
 
 /// shared/functions/common/BitCount
 // BitCount()

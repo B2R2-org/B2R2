@@ -211,7 +211,7 @@ let ands ins insLen ctxt addr =
 let b ins insLen ctxt addr =
   let ir = !*ctxt
   let label = transOneOpr ins ctxt addr
-  let pc = getPC ctxt
+  let pc = numU64 (ins:InsInfo).Address ctxt.WordBitSize
   !<ir insLen
   !!ir (AST.interjmp (pc .+ label) InterJmpKind.Base)
   !>ir insLen
@@ -219,7 +219,7 @@ let b ins insLen ctxt addr =
 let bCond ins insLen ctxt addr cond =
   let ir = !*ctxt
   let label = transOneOpr ins ctxt addr
-  let pc = getPC ctxt
+  let pc = numU64 (ins:InsInfo).Address ctxt.WordBitSize
   let fall = pc .+ numU32 insLen 64<rt>
   !<ir insLen
   !!ir (AST.intercjmp (conditionHolds ctxt cond) (pc .+ label) fall)
@@ -326,7 +326,7 @@ let bit ins insLen ctxt addr = bitInsert ins insLen ctxt addr true
 let bl ins insLen ctxt addr =
   let ir = !*ctxt
   let label = transOneOpr ins ctxt addr
-  let pc = getPC ctxt
+  let pc = numU64 (ins:InsInfo).Address ctxt.WordBitSize
   !<ir insLen
   !!ir (getRegVar ctxt R.X30 := pc .+ numI64 4L ins.OprSize)
   (* FIXME: BranchTo (BranchType_DIRCALL) *)
@@ -336,7 +336,7 @@ let bl ins insLen ctxt addr =
 let blr ins insLen ctxt addr =
   let ir = !*ctxt
   let src = transOneOpr ins ctxt addr
-  let pc = getPC ctxt
+  let pc = numU64 (ins:InsInfo).Address ctxt.WordBitSize
   !<ir insLen
   !!ir (getRegVar ctxt R.X30 := pc .+ numI64 4L ins.OprSize)
   (* FIXME: BranchTo (BranchType_INDCALL) *)
@@ -375,7 +375,7 @@ let bsl ins insLen ctxt addr =
 let inline private compareBranch ins insLen ctxt addr cmp =
   let ir = !*ctxt
   let test, label = transTwoOprs ins ctxt addr
-  let pc = getPC ctxt
+  let pc = numU64 (ins:InsInfo).Address ctxt.WordBitSize
   let fall = pc .+ numU32 insLen 64<rt>
   !<ir insLen
   !!ir (AST.intercjmp (cmp test (AST.num0 ins.OprSize)) (pc .+ label) fall)
@@ -923,25 +923,44 @@ let private checkZero ctxt ir dataSize fpVal =
     | 32<rt> -> exp == numI32 0xFF 32<rt>
     | 64<rt> -> exp == numI32 0x7FF 64<rt>
     | _ -> raise InvalidOperandSizeException
-  let exp, frac =
-    match dataSize with
-    | 32<rt> ->
-      (fpVal >> numI32 23 32<rt>) .& numI32 0xff 32<rt>,
-      fpVal .& numU32 0x7fffffu 32<rt>
-    | 64<rt> ->
-      (fpVal >> numI64 52 64<rt>) .& numI64 0x7ff 64<rt>,
-      fpVal .& numU64 0xfffffffffffffUL 64<rt>
-    | _ -> raise InvalidOperandSizeException
+  let struct (exp, frac) = tmpVars2 ir dataSize
+  match dataSize with
+  | 32<rt> ->
+    !!ir (exp := (fpVal >> numI32 23 32<rt>) .& numI32 0xff 32<rt>)
+    !!ir (frac := fpVal .& numU32 0x7fffffu 32<rt>)
+  | 64<rt> ->
+    !!ir (exp := (fpVal >> numI64 52 64<rt>) .& numI64 0x7ff 64<rt>)
+    !!ir (frac := fpVal .& numU64 0xfffffffffffffUL 64<rt>)
+  | _ -> raise InvalidOperandSizeException
   AST.ite ((exp == n0) .& (frac == n0 .| isFZ)) f0
     (AST.ite ((isOnes exp) .& (frac != n0)) f0 fpVal)
 
 let private fpCompare ctxt ir oprSz src1 src2 =
   let struct (v1, v2) = tmpVars2 ir oprSz
+  let isOpNaN = !+ir 1<rt>
+  let result = !+ir 8<rt>
   !!ir (v1 := checkZero ctxt ir oprSz src1)
   !!ir (v2 := checkZero ctxt ir oprSz src2)
-  AST.ite (isNaN oprSz src1 .| isNaN oprSz src2) (numI32 0b0011 8<rt>)
-    (AST.ite (AST.feq v1 v2) (numI32 0b0110 8<rt>)
-      (AST.ite (AST.flt v1 v2) (numI32 0b1000 8<rt>) (numI32 0b0010 8<rt>)))
+  let lblOpNaN = !%ir "OpNaN"
+  let lblCmp = !%ir "Cmp"
+  let lblEq = !%ir "Eq"
+  let lblNeq = !%ir "Neq"
+  let lblEnd = !%ir "End"
+  !!ir (isOpNaN := isNaN oprSz src1 .| isNaN oprSz src2)
+  !!ir (AST.cjmp isOpNaN (AST.name lblOpNaN) (AST.name lblCmp))
+  !!ir (AST.lmark lblOpNaN)
+  !!ir (result := numI32 0b0011 8<rt>)
+  !!ir (AST.jmp (AST.name lblEnd))
+  !!ir (AST.lmark lblCmp)
+  !!ir (AST.cjmp (AST.feq v1 v2) (AST.name lblEq) (AST.name lblNeq))
+  !!ir (AST.lmark lblEq)
+  !!ir (result := numI32 0b110 8<rt>)
+  !!ir (AST.jmp (AST.name lblEnd))
+  !!ir (AST.lmark lblNeq)
+  let cond = AST.flt v1 v2
+  !!ir (result := AST.ite cond (numI32 0b1000 8<rt>) (numI32 0b0010 8<rt>))
+  !!ir (AST.lmark lblEnd)
+  result
 
 let fcmp ins insLen ctxt addr =
   let ir = !*ctxt
@@ -982,24 +1001,24 @@ let fcmgt ins insLen ctxt addr =
   match dst, src2 with
   | OprSIMD (SIMDFPScalarReg _) as o1, _ ->
     let _, src1, src2 = transThreeOprs ins ctxt addr
-    let result = AST.ite (chkNan src1 src2) zeros
-                   (AST.ite (fpgt src1 src2) ones zeros)
+    let cond = chkNan src1 src2
+    let result = AST.ite cond zeros (AST.ite (fpgt src1 src2) ones zeros)
     dstAssignScalar ins ctxt addr o1 result eSize ir
   | OprSIMD (SIMDVecReg _), OprFPImm _ ->
     let dstB, dstA = transOprToExpr128 ins ctxt addr dst
     let src1 = transSIMDOprToExpr ctxt eSize dataSize elements src1
     let src2 = transOprToExpr ins ctxt addr src2 |> AST.xtlo eSize
     let result =
-      Array.map (fun e -> AST.ite (chkNan e src2) zeros
-                            (AST.ite (fpgt e src2) ones zeros)) src1
+      Array.map (fun e ->
+        AST.ite (chkNan e src2) zeros (AST.ite (fpgt e src2) ones zeros)) src1
     dstAssignForSIMD dstA dstB result dataSize elements ir
   | OprSIMD (SIMDVecReg _), _ ->
     let dstB, dstA = transOprToExpr128 ins ctxt addr dst
-    let src1 = transSIMDOprToExpr ctxt eSize dataSize elements src1
-    let src2 = transSIMDOprToExpr ctxt eSize dataSize elements src2
+    let s1 = transSIMDOprToExpr ctxt eSize dataSize elements src1
+    let s2 = transSIMDOprToExpr ctxt eSize dataSize elements src2
     let result =
-      Array.map2 (fun e1 e2 -> AST.ite (chkNan e1 e2) zeros
-                                 (AST.ite (fpgt e1 e2) ones zeros)) src1 src2
+      Array.map2 (fun e1 e2 ->
+        AST.ite (chkNan e1 e2) zeros (AST.ite (fpgt e1 e2) ones zeros)) s1 s2
     dstAssignForSIMD dstA dstB result dataSize elements ir
   | _ -> raise InvalidOperandException
   !>ir insLen
@@ -1033,7 +1052,6 @@ let fcvt ins insLen ctxt addr =
 let private fpConvert ins insLen ctxt addr isUnsigned round =
   let ir = !*ctxt
   let isNeg e = AST.xthi 1<rt> e == AST.b1
-  let n0 = AST.num0 ins.OprSize
   !<ir insLen
   match ins.Operands with
   (* vector *)
@@ -1041,9 +1059,11 @@ let private fpConvert ins insLen ctxt addr isUnsigned round =
     let struct (eSize, dataSize, elements) = getElemDataSzAndElems o1
     let dstB, dstA = transOprToExpr128 ins ctxt addr o1
     let src = transSIMDOprToExpr ctxt eSize dataSize elements o2
+    let n0 = AST.num0 eSize
     let fcvt e = fpToFixed eSize e (AST.num0 eSize) isUnsigned round ir
     let result = Array.init elements (fun _ -> !+ir eSize)
-    Array.iter2 (fun res e -> if isUnsigned then !!ir (res := fcvt e)
+    Array.iter2 (fun res e -> if isUnsigned then
+                                !!ir (res := AST.ite (isNeg e) n0 (fcvt e))
                               else !!ir (res := fcvt e)) result src
     dstAssignForSIMD dstA dstB result dataSize elements ir
   (* vector #<fbits> *)
@@ -1051,33 +1071,39 @@ let private fpConvert ins insLen ctxt addr isUnsigned round =
     let struct (eSize, dataSize, elements) = getElemDataSzAndElems o1
     let dstB, dstA = transOprToExpr128 ins ctxt addr o1
     let src = transSIMDOprToExpr ctxt eSize dataSize elements o2
+    let n0 = AST.num0 eSize
     let fbits = numI32 (int fbits) eSize
     let fcvt e = fpToFixed eSize e fbits isUnsigned round ir
     let result = Array.init elements (fun _ -> !+ir eSize)
-    Array.iter2 (fun res e -> if isUnsigned then !!ir (res := fcvt e)
+    Array.iter2 (fun res e -> if isUnsigned then
+                                !!ir (res := AST.ite (isNeg e) n0 (fcvt e))
                               else !!ir (res := fcvt e)) result src
     dstAssignForSIMD dstA dstB result dataSize elements ir
   (* scalar *)
   | TwoOperands (OprSIMD (SIMDFPScalarReg _) as o1, o2) ->
     let src = transOprToExpr ins ctxt addr o2
+    let n0 = AST.num0 ins.OprSize
     let fcvt = fpToFixed ins.OprSize src n0 isUnsigned round ir
     let result = if isUnsigned then AST.ite (isNeg src) n0 fcvt else fcvt
     dstAssignScalar ins ctxt addr o1 result ins.OprSize ir
   (* scalar #<fbits> *)
   | ThreeOperands (OprSIMD (SIMDFPScalarReg _) as o1, _, OprFbits _) ->
     let _, src, fbits = transThreeOprs ins ctxt addr
+    let n0 = AST.num0 ins.OprSize
     let fcvt = fpToFixed ins.OprSize src fbits isUnsigned round ir
     let result = if isUnsigned then AST.ite (isNeg src) n0 fcvt else fcvt
     dstAssignScalar ins ctxt addr o1 result ins.OprSize ir
   (* float *)
   | TwoOperands (OprRegister _, _) ->
     let dst, src = transTwoOprs ins ctxt addr
+    let n0 = AST.num0 ins.OprSize
     let fcvt = fpToFixed ins.OprSize src n0 isUnsigned round ir
     let result = if isUnsigned then AST.ite (isNeg src) n0 fcvt else fcvt
     dstAssign ins.OprSize dst result ir
   (* float #<fbits> *)
   | ThreeOperands (OprRegister _, _, OprFbits _) ->
     let dst, src, fbits = transThreeOprs ins ctxt addr
+    let n0 = AST.num0 ins.OprSize
     let fcvt = fpToFixed ins.OprSize src fbits isUnsigned round ir
     let result = if isUnsigned then AST.ite (isNeg src) n0 fcvt else fcvt
     dstAssign ins.OprSize dst result ir
@@ -1285,11 +1311,24 @@ let getIntRoundMode src oprSz ctxt =
         (AST.cast CastKind.FtoIFloor oprSz src) (* 2, RP *)
         (AST.cast CastKind.FtoITrunc oprSz src))) (* 3, RM *)
 
-let private fpType ctxt cast eSize element =
-  AST.ite (isNaN eSize element) (fpProcessNan ctxt eSize element)
-    (AST.ite (isInfinity eSize element) (fpDefaultInfinity element eSize)
-      (AST.ite (isZero eSize element) (fpZero element eSize)
-        (AST.cast cast eSize element)))
+let private fpType ctxt cast ir eSize element =
+  let res = !+ir eSize
+  let struct (checkNan, checkInf) = tmpVars2 ir 1<rt>
+  let lblNan = !%ir "NaN"
+  let lblCon = !%ir "Continue"
+  let lblEnd = !%ir "End"
+  !!ir (checkNan := isNaN eSize element)
+  !!ir (checkInf := isInfinity eSize element)
+  !!ir (AST.cjmp (checkNan .| checkInf) (AST.name lblNan) (AST.name lblCon))
+  !!ir (AST.lmark lblNan)
+  let fpNaN = fpProcessNan ctxt ir eSize element
+  !!ir (res := AST.ite checkNan fpNaN (fpDefaultInfinity element eSize))
+  !!ir (AST.jmp (AST.name lblEnd))
+  !!ir (AST.lmark lblCon)
+  let castElem = AST.cast cast eSize element
+  !!ir (res := AST.ite (isZero eSize element) (fpZero element eSize) castElem)
+  !!ir (AST.lmark lblEnd)
+  res
 
 let private fpRoundToInt ins insLen ctxt addr cast =
   let ir = !*ctxt
@@ -1298,13 +1337,13 @@ let private fpRoundToInt ins insLen ctxt addr cast =
   | TwoOperands (OprSIMD (SIMDFPScalarReg _) as dst, src) ->
     let struct (eSize, _, _) = getElemDataSzAndElems dst
     let src = transOprToExpr ins ctxt addr src
-    let result = fpType ctxt cast eSize src
+    let result = fpType ctxt cast ir eSize src
     dstAssignScalar ins ctxt addr dst result eSize ir
   | TwoOperands (OprSIMD (SIMDVecReg _ ) as dst, src) ->
     let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
     let dstB, dstA = transOprToExpr128 ins ctxt addr dst
     let src = transSIMDOprToExpr ctxt eSize dataSize elements src
-    let result = Array.map (fpType ctxt cast eSize) src
+    let result = Array.map (fpType ctxt cast ir eSize) src
     dstAssignForSIMD dstA dstB result dataSize elements ir
   | _ -> raise InvalidOperandException
   !>ir insLen
@@ -1315,13 +1354,13 @@ let private fpCurrentRoundToInt ins insLen ctxt addr =
   match ins.Operands with
   | TwoOperands (OprSIMD (SIMDFPScalarReg _) as dst, src) ->
     let src = transOprToExpr ins ctxt addr src
-    let result = fpRoundingMode src ins.OprSize ctxt
+    let result = fpRoundingMode src ins.OprSize ctxt ir
     dstAssignScalar ins ctxt addr dst result ins.OprSize ir
   | TwoOperands (OprSIMD (SIMDVecReg _ ) as dst, src) ->
     let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
     let dstB, dstA = transOprToExpr128 ins ctxt addr dst
     let src = transSIMDOprToExpr ctxt eSize dataSize elements src
-    let result = Array.map (fun s -> fpRoundingMode s eSize ctxt) src
+    let result = Array.map (fun s -> fpRoundingMode s eSize ctxt ir) src
     dstAssignForSIMD dstA dstB result dataSize elements ir
   | _ -> raise InvalidOperandException
   !>ir insLen
@@ -1341,8 +1380,8 @@ let private tieawayCast ctxt eSize ir src =
     | 32<rt> -> numI32 0xBF000000 eSize (* -0.5 *)
     | 64<rt> -> numI64 0xBFE0000000000000L eSize (* -0.5 *)
     | _ -> raise InvalidOperandSizeException
-  let ceil = fpType ctxt CastKind.FtoFCeil eSize src
-  let floor = fpType ctxt CastKind.FtoFFloor eSize src
+  let ceil = fpType ctxt CastKind.FtoFCeil ir eSize src
+  let floor = fpType ctxt CastKind.FtoFFloor ir eSize src
   let pRes = AST.ite (AST.fge t comp1) ceil floor
   let nRes = AST.ite (AST.fle t comp2) floor ceil
   !!ir (res := AST.ite sign nRes pRes)
@@ -2897,7 +2936,7 @@ let tbl ins insLen ctxt addr = (* FIMXE *)
 let tbnz ins insLen ctxt addr =
   let ir = !*ctxt
   let test, imm, label = transThreeOprs ins ctxt addr
-  let pc = getPC ctxt
+  let pc = numU64 (ins:InsInfo).Address ctxt.WordBitSize
   let fall = pc .+ numU32 insLen 64<rt>
   let cond = (test >> imm .& AST.num1 ins.OprSize) == AST.num1 ins.OprSize
   !<ir insLen
@@ -2907,7 +2946,7 @@ let tbnz ins insLen ctxt addr =
 let tbz ins insLen ctxt addr =
   let ir = !*ctxt
   let test, imm, label = transThreeOprs ins ctxt addr
-  let pc = getPC ctxt
+  let pc = numU64 (ins:InsInfo).Address ctxt.WordBitSize
   let fall = pc .+ numU32 insLen 64<rt>
   let cond = (test >> imm .& AST.num1 ins.OprSize) == AST.num0 ins.OprSize
   !<ir insLen
