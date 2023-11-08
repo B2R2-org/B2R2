@@ -366,8 +366,8 @@ let transOprToArr ir useTmpVars ins insLen ctxt packSz packNum oprSize opr =
       match oprSize with
       | 64<rt> ->
         let opr = transOprToExpr ir false ins insLen ctxt opr
-        let mem = !+ir 64<rt>
-        !!ir (mem := opr)
+        let mem = !+ir oprSize
+        !!ir (mem := AST.zext oprSize opr)
         Array.init packNum (fun i -> AST.extract mem packSz (i * pos))
       | 128<rt> ->
         let oB, oA = transOprToExpr128 ir false ins insLen ctxt opr
