@@ -132,7 +132,7 @@ let movhpd ins insLen ctxt =
     !!ir (getPseudoRegVar ctxt r 2 := src)
   | OprMem _, OprReg r ->
     let dst = transOprToExpr ir false ins insLen ctxt dst
-    !!ir (dst := getPseudoRegVar ctxt r 1)
+    !!ir (dst := getPseudoRegVar ctxt r 2)
   | _ -> raise InvalidOperandException
   !>ir insLen
 
