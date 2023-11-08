@@ -1011,22 +1011,12 @@ let cvtsd2si ins insLen ctxt rounded =
 let extractps ins insLen ctxt =
   let ir = !*ctxt
   !<ir insLen
-  let struct (dst, src, count) = getThreeOprs ins
-  let dst = transOprToExpr ir false ins insLen ctxt dst
-  let count = getImmValue count
   let oprSize = getOperationSize ins
-  let srtOff = (count &&& 0b11) (* COUNT[1:0] *) * 32L
-  match src with
-  | OprReg reg ->
-    let srcB, srcA = getPseudoRegVar128 ctxt reg
-    let lAmt = numI64 (64L - (count % 64L)) 64<rt> (* Left Shift *)
-    let rAmt = numI64 (count % 64L) 64<rt> (* Right Shift *)
-    let result =
-      if count < 64 then
-        ((srcB << lAmt) .| (srcA >> rAmt)) .& numU32 0xFFFFFFFFu 64<rt>
-      else (srcB >> rAmt) .& numU32 0xFFFFFFFFu 64<rt>
-    !!ir (dstAssign oprSize dst (AST.xtlo oprSize result))
-  | _ -> raise InvalidOperandException
+  let struct (dst, src, imm8) = getThreeOprs ins
+  let dst = transOprToExpr ir false ins insLen ctxt dst
+  let src = transOprToArr ir false ins insLen ctxt 32<rt> 2 128<rt> src
+  let idx = getImmValue imm8 &&& 0b11L |> int
+  !!ir (dstAssign oprSize dst src[idx])
   !>ir insLen
 
 let hsubpd ins insLen ctxt =
