@@ -32,7 +32,7 @@ open B2R2.RearEnd
 
 let [<Literal>] private Usage = """[Usage]
 
-b2r2 transformer [-f file|-d file] [action] (-- [action] ...)
+b2r2 transformer [-d file] [action] (-- [action] ...)
 
 Transformer runs a chain of transforming actions (IAction). An action takes in a
 collection of objects as input and returns another collection of objects as
@@ -42,7 +42,6 @@ interface.
 
 [Options]
 
--f <fs file>   : Load a custom F# file (.fs or .fsx) to define custom actions.
 -d <dll file>  : Load a dll file defining custom actions.
 
 [Actions]
@@ -86,15 +85,6 @@ let private loadUserDLL dllPath =
     |> filterIActionType
     |> accumulateActions Map.empty
   else invalidOp $"File not found: {dllPath}"
-
-let private compileUserActions filePath =
-  if File.Exists filePath then
-    let filePath = Path.GetFullPath filePath
-    let t = Compiler.compile filePath
-    Array.singleton t
-    |> accumulateActions Map.empty
-  else
-    invalidOp $"File not found: {filePath}"
 
 let private retrieveActionMap map =
   let actionType = typeof<IAction>
@@ -194,11 +184,6 @@ let main argv =
   | [] ->
     retrieveActionMap Map.empty
     |> parseActions [ "help" ]
-    |> ignore
-  | "-f" :: file :: args ->
-    compileUserActions file
-    |> retrieveActionMap
-    |> parseActions args
     |> ignore
   | "-d" :: file :: args ->
     loadUserDLL file
