@@ -54,6 +54,7 @@ type IntelParser (wordSz) =
        OpDbgGpr () :> OperandParser
        OpMmxRm () :> OperandParser
        OpMmxMm () :> OperandParser
+       OpMxMx () :> OperandParser
        OpGprRMm () :> OperandParser
        OpRegImm8 () :> OperandParser
        OpImm8Reg () :> OperandParser

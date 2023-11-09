@@ -161,6 +161,8 @@ let inline isReg101 span (rhlp: ReadHelper) = getReg (rhlp.PeekByte span) = 5
 
 let inline isReg110 span (rhlp: ReadHelper) = getReg (rhlp.PeekByte span) = 6
 
+let inline isReg111 span (rhlp: ReadHelper) = getReg (rhlp.PeekByte span) = 7
+
 /// Filter out segment-related prefixes.
 let [<Literal>] ClearSegMask: Prefix = EnumOfValue 0xFC0F
 
