@@ -25,26 +25,17 @@
 namespace B2R2.RearEnd.Transformer
 
 open B2R2
-open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.BinEssence
-open B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.MiddleEnd.ControlFlowAnalysis
 
 /// The `cfg` action.
 type CFGAction () =
-  let vToStr (v: IVertex<IRBasicBlock>) =
-    let id = v.VData.FirstInsInfo.BBLAddr.ToString "x"
-    let instrs =
-      v.VData.Instructions
-      |> Array.map (fun ins -> ins.Disasm (true, null))
-      |> String.concat "\\l"
-    $"n_{id}", $"[label=\"{instrs}\\l\"]"
-
-  let printOut hdl (fn: RegularFunction) = function
+  let output (fn: RegularFunction) = function
     | Ok () ->
-      let addr = fn.MinAddr
-      fn.IRCFG.ToDOTStr ($"func_{addr:x}", vToStr, (fun _ -> "e"))
-    | Error e -> e.ToString ()
+      CFG.Init fn.MinAddr fn.IRCFG |> box
+    | Error e ->
+      ConsolePrinter.PrintErrorToConsole $"Failed to recover CFG: {e}"
+      NoCFG <| e.ToString () |> box
 
   let getCFG (input: obj) =
     match input with
@@ -61,18 +52,18 @@ type CFGAction () =
       |> Result.bind (fun evts ->
         (builder :> ICFGBuildable).Update (evts, true)
         |> Result.mapError (fun _ -> ErrorCase.FailedToRecoverCFG))
-      |> printOut hdl fn
+      |> output fn
     | _ -> invalidArg (nameof input) "Invalid argument."
 
   interface IAction with
     member __.ActionID with get() = "cfg"
     member __.Signature with get() = "Binary -> CFG"
     member __.Description with get() = """
-    Take in a Binary as input and returns a control flow graph as output (in the
-    DOT format). This action assumes that the given binary is well-formed,
-    meaning that it has no bad instructions, and the control does not flow in
-    the middle of an instruction. Any indirect branches will be simply ignored,
-    i.e., it does not perform heavy analyses in our middle-end.
+    Take in a Binary as input and returns an IR-level Control Flow Graph (CFG)
+    as output. This action assumes that the given binary is well-formed, meaning
+    that it has no bad instructions, and the control does not flow in the middle
+    of an instruction. Any indirect branches will be simply ignored, i.e., it
+    does not perform any of the heavy analyses in our middle-end.
 """
     member __.Transform _args collection =
-      { Values = [| collection.Values |> Array.map getCFG |] }
+      { Values = collection.Values |> Array.map getCFG }

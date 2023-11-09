@@ -28,6 +28,7 @@ open System
 open System.Text
 open B2R2
 open B2R2.FrontEnd
+open B2R2.MiddleEnd.ControlFlowGraph
 open type FileFormat
 
 /// Binary is the main data object representing a byte sequence tagged with
@@ -103,6 +104,13 @@ with
     |> List.iter (fun (b, p) ->
       sb.Append $"{b:x2}@{p}{Environment.NewLine}" |> ignore)
     sb.ToString ()
+
+/// CFG of a function.
+type CFG =
+  | CFG of addr: Addr * ir: IRCFG
+  | NoCFG of err: string (* Error message describing the reason for failure. *)
+with
+  static member Init addr ir = CFG (addr, ir)
 
 /// Collection of objects.
 type ObjCollection = {
