@@ -370,24 +370,26 @@ let opUnpackHighData oprSize src1 src2 =
     Array.fold2 (fun acc e1 e2 -> e2 :: e1 :: acc) [] src1 src2
     |> List.rev |> List.toArray
   let resultA, resultB = Array.splitAt (Array.length result / 2) result
-  if oprSize = 128<rt> then resultB
-  elif oprSize = 256<rt> then
+  match oprSize with
+  | 64<rt> | 128<rt> -> resultB
+  | 256<rt> ->
     let _, resAHigh = Array.splitAt (Array.length resultA / 2) resultA
     let _, resBHigh = Array.splitAt (Array.length resultB / 2) resultB
     Array.append resAHigh resBHigh
-  else raise InvalidOperandSizeException
+  | _ -> raise InvalidOperandSizeException
 
 let opUnpackLowData oprSize src1 src2 =
   let result =
     Array.fold2 (fun acc e1 e2 -> e2 :: e1 :: acc) [] src1 src2
     |> List.rev |> List.toArray
   let resultA, resultB = Array.splitAt (Array.length result / 2) result
-  if oprSize = 128<rt> then resultA
-  elif oprSize = 256<rt> then
+  match oprSize with
+  | 64<rt> | 128<rt> -> resultA
+  | 256<rt> ->
     let resALow, _ = Array.splitAt (Array.length resultA / 2) resultA
     let resBLow, _ = Array.splitAt (Array.length resultB / 2) resultB
     Array.append resALow resBLow
-  else raise InvalidOperandSizeException
+  | _ -> raise InvalidOperandSizeException
 
 let punpckhbw ins insLen ctxt =
   buildPackedInstr ins insLen ctxt false 8<rt> opUnpackHighData

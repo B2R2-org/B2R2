@@ -1985,7 +1985,10 @@ type internal OneOpF0 () =
 
 type internal OneOpF1 () =
   inherit ParsingJob ()
-  override __.Run (_, _) = raise ParsingFailureException
+  override __.Run (span, rhlp) =
+    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Nor
+    let oprs = rhlp.OprParsers[int OD.No].Render (span, rhlp)
+    newInsInfo rhlp Opcode.INT1 oprs
 
 type internal OneOpF2 () =
   inherit ParsingJob ()

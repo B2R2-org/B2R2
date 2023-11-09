@@ -1126,33 +1126,24 @@ let pextrq ins insLen ctxt =
 
 let pextrw ins insLen ctxt =
   let ir = !*ctxt
-  !<ir insLen
-  let struct (dst, src, count) = getThreeOprs ins
-  let dst = transOprToExpr ir false ins insLen ctxt dst
-  let count = getImmValue count
   let oprSize = getOperationSize ins
-  match src with
-  | OprReg reg ->
-    match Register.getKind reg with
-    | Register.Kind.MMX ->
-      let src = transOprToExpr ir false ins insLen ctxt src
-      let count = count &&& 0b11 (* COUNT[1:0] *)
-      let sel = !+ir 64<rt>
-      !!ir (sel := numI64 count 64<rt>)
-      let t = (src >> (sel .* numU32 16u 64<rt>)) .& numU32 0xFFFFu 64<rt>
-      !!ir (dstAssign oprSize dst (AST.xtlo oprSize t))
-    | Register.Kind.XMM ->
-      let srcB, srcA = getPseudoRegVar128 ctxt reg
-      let count = (count &&& 0b111) (* COUNT[2:0] *) * 16L
-      let lAmt = numI64 (64L - (count % 64L)) 64<rt> (* Left Shift *)
-      let rAmt = numI64 (count % 64L) 64<rt> (* Right Shift *)
-      let result =
-        if count < 64 then
-          ((srcB << lAmt) .| (srcA >> rAmt)) .& numU32 0xFFFFu 64<rt>
-        else (srcB >> rAmt) .& numU32 0xFFFFu 64<rt>
-      !!ir (dstAssign oprSize dst (AST.xtlo 16<rt> result))
-    | _ -> raise InvalidRegisterException
-  | _ -> raise InvalidOperandException
+  !<ir insLen
+  let struct (dst, src, imm8) = getThreeOprs ins
+  let packNum = 64<rt> / 16<rt>
+  let srcSz =
+    match src with
+    | OprReg reg -> Register.toRegType reg
+    | _ -> raise InvalidOperandException
+  let d = transOprToExpr ir false ins insLen ctxt dst
+  let src = transOprToArr ir false ins insLen ctxt 16<rt> packNum srcSz src
+  let idx = getImmValue imm8 |> int
+  match dst with
+  | OprMem (_, _, _, 16<rt>) ->
+    let idx = idx &&& 0b111
+    !!ir (d := src[idx])
+  | _ ->
+    let idx = idx &&& (Array.length src - 1)
+    !!ir (dstAssign oprSize d src[idx])
   !>ir insLen
 
 let pinsrw ins insLen ctxt =
