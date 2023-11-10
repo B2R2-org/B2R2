@@ -159,7 +159,8 @@ module internal Section =
     for seg in segCmds do
       let entrySize = pickNum hdr.Class 68 80
       let sectionSize = entrySize * int seg.NumSecs
-      let sectionSpan = ReadOnlySpan (bytes, seg.SecOff, sectionSize)
+      let sectionOffset = int toolBox.MachOffset + seg.SecOff
+      let sectionSpan = ReadOnlySpan (bytes, sectionOffset, sectionSize)
       for i = 0 to int seg.NumSecs - 1 do
         let offset = i * entrySize
         sections[idx] <- parseSection toolBox sectionSpan offset
