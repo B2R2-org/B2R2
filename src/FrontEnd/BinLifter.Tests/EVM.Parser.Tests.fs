@@ -22,36 +22,25 @@
   THE SOFTWARE.
 *)
 
-namespace B2R2.FrontEnd.Tests
+module B2R2.FrontEnd.Tests.EVM
 
 open Microsoft.VisualStudio.TestTools.UnitTesting
 open B2R2
+open B2R2.FrontEnd.BinLifter.EVM
+open type BitVector
 
-module EVM =
-  open B2R2.FrontEnd.BinLifter.EVM
+let private test (bytes: byte[]) opcode =
+  let span = System.ReadOnlySpan bytes
+  let ins = ParsingMain.parse span 0UL WordSize.Bit64 0UL
+  let opcode' = ins.Info.Opcode
+  Assert.AreEqual (opcode', opcode)
 
-  let private test opcode (bytes: byte[]) =
-    let reader = BinReader.Init Endian.Little
-    let span = System.ReadOnlySpan bytes
-    let ins = ParsingMain.parse span 0UL WordSize.Bit64 0UL
-    let opcode' = ins.Info.Opcode
-    Assert.AreEqual (opcode', opcode)
+let private ( ++ ) byteString op = (ByteArray.ofHexString byteString, op)
 
-  /// 60s & 70s: Push Operations
-  [<TestClass>]
-  type PUSHClass () =
-    [<TestMethod>]
-    member __.``[EVM] Push Parse Test`` () =
-      test
-        (Opcode.PUSH10 <| (BitVector.OfBInt 316059037807746189465I 80<rt>))
-        [| 0x69uy
-           0x00uy
-           0x11uy
-           0x22uy
-           0x33uy
-           0x44uy
-           0x55uy
-           0x66uy
-           0x77uy
-           0x88uy
-           0x99uy |]
+/// 60s & 70s: Push Operations
+[<TestClass>]
+type PUSHClass () =
+  [<TestMethod>]
+  member __.``[EVM] Push Parse Test (1)`` () =
+    "6900112233445566778899"
+    ++ (PUSH10 <| (OfBInt 316059037807746189465I 80<rt>)) ||> test
