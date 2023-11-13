@@ -22,538 +22,491 @@
   THE SOFTWARE.
 *)
 
-namespace B2R2.FrontEnd.Tests
+module B2R2.FrontEnd.Tests.MIPS32
 
 open Microsoft.VisualStudio.TestTools.UnitTesting
 open B2R2
-open B2R2.FrontEnd
-
-module MIPS32 =
-  open B2R2.FrontEnd.BinLifter.MIPS
-
-  let private test arch endian opcode cond fmt oprs (bytes: byte[]) =
-    let reader = BinReader.Init endian
-    let span = System.ReadOnlySpan bytes
-    let ins = ParsingMain.parse span reader arch WordSize.Bit32 0UL
-    let opcode' = ins.Info.Opcode
-    let cond' = ins.Info.Condition
-    let fmt' = ins.Info.Fmt
-    let oprs' = ins.Info.Operands
-    Assert.AreEqual (opcode', opcode)
-    Assert.AreEqual (cond', cond)
-    Assert.AreEqual (fmt', fmt)
-    Assert.AreEqual (oprs', oprs)
-
-  let private test32R2 = test Architecture.MIPS32 Endian.Big
-
-  /// Arithmetic Operations
-  [<TestClass>]
-  type ArithmeticClass () =
-    [<TestMethod>]
-    member __.``[MIPS32] Arithmetic Operations Parse Test`` () =
-      test32R2
-        Op.ADDIU
-        None
-        None
-        (ThreeOperands (OpReg R.R28, OpReg R.R28, OpImm 0xffffffffffff85bcUL))
-        [| 0x27uy; 0x9cuy; 0x85uy; 0xbcuy |]
-
-      test32R2
-        Op.CLZ
-        None
-        None
-        (TwoOperands (OpReg R.R2, OpReg R.R7))
-        [| 0x70uy; 0xe2uy; 0x10uy; 0x20uy |]
-
-      test32R2
-        Op.LUI
-        None
-        None
-        (TwoOperands (OpReg R.R28, OpImm 4UL))
-        [| 0x3cuy; 0x1cuy; 0x00uy; 0x04uy |]
-
-      test32R2
-        Op.SEB
-        None
-        None
-        (TwoOperands (OpReg R.R10, OpReg R.R10))
-        [| 0x7cuy; 0x0auy; 0x54uy; 0x20uy |]
-
-      test32R2
-        Op.SUBU
-        None
-        None
-        (ThreeOperands (OpReg R.R2, OpReg R.R16, OpReg R.R19))
-        [| 0x02uy; 0x13uy; 0x10uy; 0x23uy |]
-
-  /// Shift And Rotate Operations
-  [<TestClass>]
-  type ShiftAndRotateClass () =
-    [<TestMethod>]
-    member __.``[MIPS32] Shift And Rotate Operations Parse Test`` () =
-      test32R2
-        Op.ROTR
-        None
-        None
-        (ThreeOperands (OpReg R.R2, OpReg R.R4, OpShiftAmount 3UL))
-        [| 0x00uy; 0x24uy; 0x10uy; 0xc2uy |]
-
-      test32R2
-        Op.SLL
-        None
-        None
-        (ThreeOperands (OpReg R.R2, OpReg R.R2, OpShiftAmount 2UL))
-        [| 0x00uy; 0x02uy; 0x10uy; 0x80uy |]
-
-      test32R2
-        Op.SRA
-        None
-        None
-        (ThreeOperands (OpReg R.R5, OpReg R.R5, OpShiftAmount 2UL))
-        [| 0x00uy; 0x05uy; 0x28uy; 0x83uy |]
-
-      test32R2
-        Op.SRL
-        None
-        None
-        (ThreeOperands (OpReg R.R2, OpReg R.R5, OpShiftAmount 31UL))
-        [| 0x00uy; 0x05uy; 0x17uy; 0xc2uy |]
-
-  /// Logical And Bit-Field Operations
-  [<TestClass>]
-  type LogicalAndBitFieldClass () =
-    [<TestMethod>]
-    member __.``[MIPS32] Logical And Bit-Field operations Parse Test`` () =
-      test32R2
-        Op.AND
-        None
-        None
-        (ThreeOperands (OpReg R.R2, OpReg R.R19, OpReg R.R2))
-        [| 0x02uy; 0x62uy; 0x10uy; 0x24uy |]
-
-      test32R2
-        Op.ANDI
-        None
-        None
-        (ThreeOperands (OpReg R.R2, OpReg R.R2, OpImm 1UL))
-        [| 0x30uy; 0x42uy; 0x00uy; 0x01uy |]
-
-      test32R2
-        Op.EXT
-        None
-        None
-        (FourOperands (OpReg R.R2, OpReg R.R2, OpImm 6UL, OpImm 1UL))
-        [| 0x7cuy; 0x42uy; 0x01uy; 0x80uy |]
-
-      test32R2
-        Op.INS
-        None
-        None
-        (FourOperands (OpReg R.R3, OpReg R.R6, OpImm 6UL, OpImm 1UL))
-        [| 0x7cuy; 0xc3uy; 0x31uy; 0x84uy |]
-
-      test32R2
-        Op.NOR
-        None
-        None
-        (ThreeOperands (OpReg R.R6, OpReg R.R0, OpReg R.R6))
-        [| 0x00uy; 0x06uy; 0x30uy; 0x27uy |]
-
-      test32R2
-        Op.OR
-        None
-        None
-        (ThreeOperands (OpReg R.R19, OpReg R.R3, OpReg R.R0))
-        [| 0x00uy; 0x60uy; 0x98uy; 0x25uy |]
-
-      test32R2
-        Op.ORI
-        None
-        None
-        (ThreeOperands (OpReg R.R19, OpReg R.R19, OpImm 65535UL))
-        [| 0x36uy; 0x73uy; 0xffuy; 0xffuy |]
-
-      test32R2
-        Op.XOR
-        None
-        None
-        (ThreeOperands (OpReg R.R2, OpReg R.R2, OpReg R.R6))
-        [| 0x00uy; 0x46uy; 0x10uy; 0x26uy |]
-
-      test32R2
-        Op.XORI
-        None
-        None
-        (ThreeOperands (OpReg R.R2, OpReg R.R19, OpImm 6UL))
-        [| 0x3auy; 0x62uy; 0x00uy; 0x06uy |]
-
-  /// Condition Testing And Conditional Move Operations
-  [<TestClass>]
-  type CondTestAndCondMoveClass () =
-    [<TestMethod>]
-    member __.``[MIPS32] Condition Testing And .. Operations Parse Test`` () =
-      test32R2
-        Op.MOVN
-        None
-        None
-        (ThreeOperands (OpReg R.R3, OpReg R.R4, OpReg R.R2))
-        [| 0x00uy; 0x82uy; 0x18uy; 0x0buy |]
-
-      test32R2
-        Op.MOVZ
-        None
-        None
-        (ThreeOperands (OpReg R.R2, OpReg R.R0, OpReg R.R5))
-        [| 0x00uy; 0x05uy; 0x10uy; 0x0auy |]
-
-      test32R2
-        Op.SLT
-        None
-        None
-        (ThreeOperands (OpReg R.R2, OpReg R.R19, OpReg R.R16))
-        [| 0x02uy; 0x70uy; 0x10uy; 0x2auy |]
-
-      test32R2
-        Op.SLTI
-        None
-        None
-        (ThreeOperands (OpReg R.R23, OpReg R.R2, OpImm 2UL))
-        [| 0x28uy; 0x57uy; 0x00uy; 0x02uy |]
-
-      test32R2
-        Op.SLTIU
-        None
-        None
-        (ThreeOperands (OpReg R.R3, OpReg R.R2, OpImm 275UL))
-        [| 0x2cuy; 0x43uy; 0x01uy; 0x13uy |]
-
-      test32R2
-        Op.SLTU
-        None
-        None
-        (ThreeOperands (OpReg R.R2, OpReg R.R0, OpReg R.R2))
-        [| 0x00uy; 0x02uy; 0x10uy; 0x2buy |]
-
-  /// Multiply and Divide operations
-  [<TestClass>]
-  type MultiplyAndDivideClass () =
-    [<TestMethod>]
-    member __.``[MIPS32] Multiply and Divide operations Parse Test`` () =
-      test32R2
-        Op.DIVU
-        None
-        None
-        (TwoOperands (OpReg R.R3, OpReg R.R2))
-        [| 0x00uy; 0x62uy; 0x00uy; 0x1buy |]
-
-      test32R2
-        Op.MUL
-        None
-        None
-        (ThreeOperands (OpReg R.R3, OpReg R.R4, OpReg R.R8))
-        [| 0x70uy; 0x88uy; 0x18uy; 0x02uy |]
-
-      test32R2
-        Op.MULTU
-        None
-        None
-        (TwoOperands (OpReg R.R23, OpReg R.R5))
-        [| 0x02uy; 0xe5uy; 0x00uy; 0x19uy |]
-
-  /// Accumulator Access operations
-  [<TestClass>]
-  type AccumulatorAccessClass () =
-    [<TestMethod>]
-    member __.``[MIPS32] Accumulator Access operations Parse Test`` () =
-      test32R2
-        Op.MFHI
-        None
-        None
-        (OneOperand (OpReg R.R2))
-        [| 0x00uy; 0x00uy; 0x10uy; 0x10uy |]
-
-      test32R2
-        Op.MFLO
-        None
-        None
-        (OneOperand (OpReg R.R3))
-        [| 0x00uy; 0x00uy; 0x18uy; 0x12uy |]
-
-  /// Jumps And Branches Operations
-  [<TestClass>]
-  type JumpAndBranchesClass () =
-    [<TestMethod>]
-    member __.``[MIPS32] Jump And Branches operations Parse Test`` () =
-      test32R2
-        Op.BNE
-        None
-        None
-        (ThreeOperands (OpReg R.R2, OpReg R.R0, OpAddr (Relative 4100L)))
-        [| 0x14uy; 0x40uy; 0x04uy; 0x00uy |]
-
-      test32R2
-        Op.BLEZ
-        None
-        None
-        (TwoOperands (OpReg R.R23, OpAddr (Relative 4444L)))
-        [| 0x1auy; 0xe0uy; 0x04uy; 0x56uy |]
-
-      test32R2
-        Op.BGTZ
-        None
-        None
-        (TwoOperands (OpReg R.R2, OpAddr (Relative -48L)))
-        [| 0x1cuy; 0x40uy; 0xffuy; 0xf3uy |]
-
-      test32R2
-        Op.JR
-        None
-        None
-        (OneOperand (OpReg R.R31))
-        [| 0x03uy; 0xe0uy; 0x00uy; 0x08uy |]
-
-      test32R2
-        Op.JALR
-        None
-        None
-        (OneOperand (OpReg R.R25))
-        [| 0x03uy; 0x20uy; 0xf8uy; 0x09uy |]
-
-      test32R2
-        Op.BAL
-        None
-        None
-        (OneOperand (OpAddr (Relative 63608L)))
-        [| 0x04uy; 0x11uy; 0x3euy; 0x1duy |]
-
-      test32R2
-        Op.BLTZ
-        None
-        None
-        (TwoOperands (OpReg R.R2, OpAddr (Relative 424L)))
-        [| 0x04uy; 0x40uy; 0x00uy; 0x69uy |]
-
-      test32R2
-        Op.BGEZ
-        None
-        None
-        (TwoOperands (OpReg R.R22, OpAddr (Relative 1404L)))
-        [| 0x06uy; 0xc1uy; 0x01uy; 0x5euy |]
-
-  /// Load And Store operations
-  [<TestClass>]
-  type LoadAndStoreClass () =
-    [<TestMethod>]
-    member __.``[MIPS32] Load And Store operations Parse Test`` () =
-      test32R2
-        Op.LB
-        None
-        None
-        (TwoOperands (OpReg R.R2, OpMem (R.R2, Imm 0L, 8<rt>)))
-        [| 0x80uy; 0x42uy; 0x00uy; 0x00uy |]
-
-      test32R2
-        Op.LBU
-        None
-        None
-        (TwoOperands (OpReg R.R2, OpMem (R.R19, Imm 17432L, 8<rt>)))
-        [| 0x92uy; 0x62uy; 0x44uy; 0x18uy |]
-
-      test32R2
-        Op.LHU
-        None
-        None
-        (TwoOperands (OpReg R.R2, OpMem (R.R29, Imm 170L, 16<rt>)))
-        [| 0x97uy; 0xa2uy; 0x00uy; 0xaauy |]
-
-      test32R2
-        Op.LW
-        None
-        None
-        (TwoOperands (OpReg R.R2, OpMem (R.R28, Imm -032060L, 32<rt>)))
-        [| 0x8fuy; 0x82uy; 0x82uy; 0xc4uy |]
-
-      test32R2
-        Op.SB
-        None
-        None
-        (TwoOperands (OpReg R.R4, OpMem (R.R22, Imm 17372L, 8<rt>)))
-        [| 0xa2uy; 0xc4uy; 0x43uy; 0xdcuy |]
-
-      test32R2
-        Op.SH
-        None
-        None
-        (TwoOperands (OpReg R.R2, OpMem (R.R29, Imm 184L, 16<rt>)))
-        [| 0xa7uy; 0xa2uy; 0x00uy; 0xb8uy |]
-
-      test32R2
-        Op.SW
-        None
-        None
-        (TwoOperands (OpReg R.R28, OpMem (R.R29, Imm 16L, 32<rt>)))
-        [| 0xafuy; 0xbcuy; 0x00uy; 0x10uy |]
-
-      test32R2
-        Op.SWL
-        None
-        None
-        (TwoOperands (OpReg R.R4, OpMem (R.R2, Imm 0L, 32<rt>)))
-        [| 0xa8uy; 0x44uy; 0x00uy; 0x00uy |]
-
-      test32R2
-        Op.SWR
-        None
-        None
-        (TwoOperands (OpReg R.R4, OpMem (R.R2, Imm 3L, 32<rt>)))
-        [| 0xb8uy; 0x44uy; 0x00uy; 0x03uy |]
-
-  /// Floating Point operations
-  [<TestClass>]
-  type FloatingPointClass () =
-    [<TestMethod>]
-    member __.``[MIPS32] Floating Point operations Parse Test`` () =
-      test32R2
-        Op.ADD
-        None
-        (Some Fmt.S)
-        (ThreeOperands (OpReg R.F2, OpReg R.F4, OpReg R.F2))
-        [| 0x46uy; 0x02uy; 0x20uy; 0x80uy |]
-
-      test32R2
-        Op.ADD
-        None
-        (Some Fmt.D)
-        (ThreeOperands (OpReg R.F0, OpReg R.F0, OpReg R.F2))
-        [| 0x46uy; 0x22uy; 0x00uy; 0x00uy |]
-
-      test32R2
-        Op.SUB
-        None
-        (Some Fmt.D)
-        (ThreeOperands (OpReg R.F12, OpReg R.F12, OpReg R.F0))
-        [| 0x46uy; 0x20uy; 0x63uy; 0x01uy |]
-
-      test32R2
-        Op.DIV
-        None
-        (Some Fmt.D)
-        (ThreeOperands (OpReg R.F0, OpReg R.F0, OpReg R.F2))
-        [| 0x46uy; 0x22uy; 0x00uy; 0x03uy |]
-
-      test32R2
-        Op.DIV
-        None
-        (Some Fmt.S)
-        (ThreeOperands (OpReg R.F0, OpReg R.F0, OpReg R.F2))
-        [| 0x46uy; 0x02uy; 0x00uy; 0x03uy |]
-
-      test32R2
-        Op.MOV
-        None
-        (Some Fmt.D)
-        (TwoOperands (OpReg R.F20, OpReg R.F0))
-        [| 0x46uy; 0x20uy; 0x05uy; 0x06uy |]
-
-      test32R2
-        Op.MFC1
-        None
-        None
-        (TwoOperands (OpReg R.R20, OpReg R.F0))
-        [| 0x44uy; 0x14uy; 0x00uy; 0x00uy |]
-
-      test32R2
-        Op.MTC1
-        None
-        None
-        (TwoOperands (OpReg R.R0, OpReg R.F6))
-        [| 0x44uy; 0x80uy; 0x30uy; 0x00uy |]
-
-      test32R2
-        Op.LDC1
-        None
-        None
-        (TwoOperands (OpReg R.F4, OpMem (R.R2, Imm 2632L, 32<rt>)))
-        [| 0xd4uy; 0x44uy; 0x0auy; 0x48uy |]
-
-      test32R2
-        Op.LWC1
-        None
-        None
-        (TwoOperands (OpReg R.F0, OpMem (R.R3, Imm 8L, 32<rt>)))
-        [| 0xc4uy; 0x60uy; 0x00uy; 0x08uy |]
-
-      test32R2
-        Op.SDC1
-        None
-        None
-        (TwoOperands (OpReg R.F0, OpMem (R.R29, Imm 16L, 32<rt>)))
-        [| 0xf7uy; 0xa0uy; 0x00uy; 0x10uy |]
-
-      test32R2
-        Op.SWC1
-        None
-        None
-        (TwoOperands (OpReg R.F0, OpMem (R.R4, Imm 4L, 32<rt>)))
-        [| 0xe4uy; 0x80uy; 0x00uy; 0x04uy |]
-
-      test32R2
-        Op.C
-        (Some Condition.LT)
-        (Some Fmt.S)
-        (TwoOperands (OpReg R.F2, OpReg R.F0))
-        [| 0x46uy; 0x00uy; 0x10uy; 0x3cuy |]
-
-      test32R2
-        Op.CVTD
-        None
-        (Some Fmt.W)
-        (TwoOperands (OpReg R.F0, OpReg R.F0))
-        [| 0x46uy; 0x80uy; 0x00uy; 0x21uy |]
-
-      test32R2
-        Op.CVTS
-        None
-        (Some Fmt.D)
-        (TwoOperands (OpReg R.F0, OpReg R.F0))
-        [| 0x46uy; 0x20uy; 0x00uy; 0x20uy |]
-
-      test32R2
-        Op.TRUNCW
-        None
-        (Some Fmt.D)
-        (TwoOperands (OpReg R.F0, OpReg R.F0))
-        [| 0x46uy; 0x20uy; 0x00uy; 0x0duy |]
-
-      test32R2
-        Op.TRUNCW
-        None
-        (Some Fmt.S)
-        (TwoOperands (OpReg R.F0, OpReg R.F0))
-        [| 0x46uy; 0x00uy; 0x00uy; 0x0duy |]
-
-  /// ETC Operations
-  [<TestClass>]
-  type ETCClass () =
-    [<TestMethod>]
-    member __.``[MIPS32] ETC Operations Parse Test`` () =
-      test32R2
-        Op.TEQ
-        None
-        None
-        (TwoOperands (OpReg R.R2, OpReg R.R0))
-        [| 0x00uy; 0x40uy; 0x01uy; 0xf4uy |]
-
-      test32R2
-        Op.BC1T
-        None
-        None
-        (TwoOperands (OpImm 6UL, OpAddr (Relative 20L)))
-        [| 0x45uy; 0x19uy; 0x00uy; 0x04uy |]
-
-      test32R2
-        Op.BC1F
-        None
-        None
-        (OneOperand (OpAddr (Relative 108L)))
-        [| 0x45uy; 0x00uy; 0x00uy; 0x1auy |]
+open B2R2.FrontEnd.BinLifter.MIPS
+open type Opcode
+open type Register
+
+type O =
+  static member Reg (r) =
+    OpReg r
+
+  static member Imm (v) =
+    OpImm v
+
+  static member Mem (r, o: int64, rt) =
+    OpMem (r, Imm o, rt)
+
+  static member Mem (r, o: Register, rt) =
+    OpMem (r, Reg o, rt)
+
+  static member Addr (t) =
+    OpAddr t
+
+  static member Shift (s)  =
+    OpShiftAmount s
+
+let private test arch endian opcode cond fmt oprs (bytes: byte[]) =
+  let reader = BinReader.Init endian
+  let span = System.ReadOnlySpan bytes
+  let ins = ParsingMain.parse span reader arch WordSize.Bit32 0UL
+  let opcode' = ins.Info.Opcode
+  let cond' = ins.Info.Condition
+  let fmt' = ins.Info.Fmt
+  let oprs' = ins.Info.Operands
+  Assert.AreEqual (opcode', opcode)
+  Assert.AreEqual (cond', cond)
+  Assert.AreEqual (fmt', fmt)
+  Assert.AreEqual (oprs', oprs)
+
+let private test32R2 cond fmt (bs: byte[]) (opcode, operands) =
+  test Architecture.MIPS32 Endian.Big opcode (Some cond) (Some fmt) operands bs
+
+let private test32R2NoCond fmt (bytes: byte[]) (opcode, operands) =
+  test Architecture.MIPS32 Endian.Big opcode None (Some fmt) operands bytes
+
+let private test32R2NoCondNofmt (bytes: byte[]) (opcode, operands) =
+  test Architecture.MIPS32 Endian.Big  opcode None None operands bytes
+
+let private operandsFromArray oprList =
+  let oprArray = Array.ofList oprList
+  match oprArray.Length with
+  | 0 -> NoOperand
+  | 1 -> OneOperand oprArray[0]
+  | 2 -> TwoOperands (oprArray[0], oprArray[1])
+  | 3 -> ThreeOperands (oprArray[0], oprArray[1], oprArray[2])
+  | 4 -> FourOperands (oprArray[0], oprArray[1], oprArray[2], oprArray[3])
+  | _ -> Utils.impossible ()
+
+let private ( ** ) opcode oprList = (opcode, operandsFromArray oprList)
+
+let private ( ++ ) byteString pair = (ByteArray.ofHexString byteString, pair)
+
+/// Arithmetic Operations
+[<TestClass>]
+type ArithmeticClass () =
+  [<TestMethod>]
+  member __.``[MIPS32] Arithmetic Operations Parse Test (1)`` () =
+    "279c85bc"
+    ++ ADDIU ** [ O.Reg R28; O.Reg R28; O.Imm 0xffffffffffff85bcUL ]
+    ||> test32R2NoCondNofmt
+
+  [<TestMethod>]
+  member __.``[MIPS32] Arithmetic Operations Parse Test (2)`` () =
+    "70e21020"
+    ++ CLZ ** [ O.Reg R2; O.Reg R7 ]
+    ||> test32R2NoCondNofmt
+
+  [<TestMethod>]
+  member __.``[MIPS32] Arithmetic Operations Parse Test (3)`` () =
+    "3c1c0004"
+    ++ LUI ** [ O.Reg R28; O.Imm 4UL ]
+    ||> test32R2NoCondNofmt
+
+  [<TestMethod>]
+  member __.``[MIPS32] Arithmetic Operations Parse Test (4)`` () =
+    "7c0a5420"
+    ++ SEB ** [ O.Reg R10; O.Reg R10 ]
+    ||> test32R2NoCondNofmt
+
+  [<TestMethod>]
+  member __.``[MIPS32] Arithmetic Operations Parse Test (5)`` () =
+    "02131023"
+    ++ SUBU ** [ O.Reg R2; O.Reg R16; O.Reg R19 ]
+    ||> test32R2NoCondNofmt
+
+/// Shift And Rotate Operations
+[<TestClass>]
+type ShiftAndRotateClass () =
+  [<TestMethod>]
+  member __.``[MIPS32] Shift And Rotate Operations Parse Test (1)`` () =
+    "002410c2"
+    ++ ROTR ** [ O.Reg R2; O.Reg R4; O.Shift 3UL ]
+    ||> test32R2NoCondNofmt
+
+  [<TestMethod>]
+  member __.``[MIPS32] Shift And Rotate Operations Parse Test (2)`` () =
+    "00021080"
+    ++ SLL ** [ O.Reg R2; O.Reg R2; O.Shift 2UL ]
+    ||> test32R2NoCondNofmt
+
+  [<TestMethod>]
+  member __.``[MIPS32] Shift And Rotate Operations Parse Test (3)`` () =
+    "00052883"
+    ++ SRA ** [ O.Reg R5; O.Reg R5; O.Shift 2UL ]
+    ||> test32R2NoCondNofmt
+
+  [<TestMethod>]
+  member __.``[MIPS32] Shift And Rotate Operations Parse Test (4)`` () =
+    "000517c2"
+    ++ SRL ** [ O.Reg R2; O.Reg R5; O.Shift 31UL ]
+    ||> test32R2NoCondNofmt
+
+/// Logical And Bit-Field Operations
+[<TestClass>]
+type LogicalAndBitFieldClass () =
+  [<TestMethod>]
+  member __.``[MIPS32] Logical And Bit-Field operations Parse Test (1)`` () =
+    "02621024"
+    ++ AND ** [ O.Reg R2; O.Reg R19; O.Reg R2 ]
+    ||> test32R2NoCondNofmt
+
+  [<TestMethod>]
+  member __.``[MIPS32] Logical And Bit-Field operations Parse Test (2)`` () =
+    "30420001"
+    ++ ANDI ** [ O.Reg R2; O.Reg R2; O.Imm 1UL ]
+    ||> test32R2NoCondNofmt
+
+  [<TestMethod>]
+  member __.``[MIPS32] Logical And Bit-Field operations Parse Test (3)`` () =
+    "7c420180"
+    ++ EXT ** [ O.Reg R2; O.Reg R2; O.Imm 6UL; O.Imm 1UL ]
+    ||> test32R2NoCondNofmt
+
+  [<TestMethod>]
+  member __.``[MIPS32] Logical And Bit-Field operations Parse Test (4)`` () =
+    "7cc33184"
+    ++ INS ** [ O.Reg R3; O.Reg R6; O.Imm 6UL; O.Imm 1UL ]
+    ||> test32R2NoCondNofmt
+
+  [<TestMethod>]
+  member __.``[MIPS32] Logical And Bit-Field operations Parse Test (5)`` () =
+    "00063027"
+    ++ NOR ** [ O.Reg R6; O.Reg R0; O.Reg R6 ]
+    ||> test32R2NoCondNofmt
+
+  [<TestMethod>]
+  member __.``[MIPS32] Logical And Bit-Field operations Parse Test (6)`` () =
+    "00609825"
+    ++ OR ** [ O.Reg R19; O.Reg R3; O.Reg R0 ]
+    ||> test32R2NoCondNofmt
+
+  [<TestMethod>]
+  member __.``[MIPS32] Logical And Bit-Field operations Parse Test (7)`` () =
+    "3673ffff"
+    ++ ORI ** [ O.Reg R19; O.Reg R19; O.Imm 65535UL ]
+    ||> test32R2NoCondNofmt
+
+  [<TestMethod>]
+  member __.``[MIPS32] Logical And Bit-Field operations Parse Test (8)`` () =
+    "00461026"
+    ++ XOR ** [ O.Reg R2; O.Reg R2; O.Reg R6 ]
+    ||> test32R2NoCondNofmt
+
+  [<TestMethod>]
+  member __.``[MIPS32] Logical And Bit-Field operations Parse Test (9)`` () =
+    "3a620006"
+    ++ XORI ** [ O.Reg R2; O.Reg R19; O.Imm 6UL ]
+    ||> test32R2NoCondNofmt
+
+/// Condition Testing And Conditional Move Operations
+[<TestClass>]
+type CondTestAndCondMoveClass () =
+  [<TestMethod>]
+  member __.``[MIPS32] Condition Testing And .. Operations Parse Test (1)`` () =
+    "0082180b"
+    ++ MOVN ** [ O.Reg R3; O.Reg R4; O.Reg R2 ]
+    ||> test32R2NoCondNofmt
+
+  [<TestMethod>]
+  member __.``[MIPS32] Condition Testing And .. Operations Parse Test (2)`` () =
+    "0005100a"
+    ++ MOVZ ** [ O.Reg R2; O.Reg R0; O.Reg R5 ]
+    ||> test32R2NoCondNofmt
+
+  [<TestMethod>]
+  member __.``[MIPS32] Condition Testing And .. Operations Parse Test (3)`` () =
+    "0270102a"
+    ++ SLT ** [ O.Reg R2; O.Reg R19; O.Reg R16 ]
+    ||> test32R2NoCondNofmt
+
+  [<TestMethod>]
+  member __.``[MIPS32] Condition Testing And .. Operations Parse Test (4)`` () =
+    "28570002"
+    ++ SLTI ** [ O.Reg R23; O.Reg R2; O.Imm 2UL ]
+    ||> test32R2NoCondNofmt
+
+  [<TestMethod>]
+  member __.``[MIPS32] Condition Testing And .. Operations Parse Test (5)`` () =
+    "2c430113"
+    ++ SLTIU ** [ O.Reg R3; O.Reg R2; O.Imm 275UL ]
+    ||> test32R2NoCondNofmt
+
+  [<TestMethod>]
+  member __.``[MIPS32] Condition Testing And .. Operations Parse Test (6)`` () =
+    "0002102b"
+    ++ SLTU ** [ O.Reg R2; O.Reg R0; O.Reg R2 ]
+    ||> test32R2NoCondNofmt
+
+/// Multiply and Divide operations
+[<TestClass>]
+type MultiplyAndDivideClass () =
+  [<TestMethod>]
+  member __.``[MIPS32] Multiply and Divide operations Parse Test (1)`` () =
+    "0062001b"
+    ++ DIVU ** [ O.Reg R3; O.Reg R2 ]
+    ||> test32R2NoCondNofmt
+
+  [<TestMethod>]
+  member __.``[MIPS32] Multiply and Divide operations Parse Test (2)`` () =
+    "70881802"
+    ++ MUL ** [ O.Reg R3; O.Reg R4; O.Reg R8 ]
+    ||> test32R2NoCondNofmt
+
+  [<TestMethod>]
+  member __.``[MIPS32] Multiply and Divide operations Parse Test (3)`` () =
+    "02e50019"
+    ++ MULTU ** [ O.Reg R23; O.Reg R5 ]
+    ||> test32R2NoCondNofmt
+
+/// Accumulator Access operations
+[<TestClass>]
+type AccumulatorAccessClass () =
+  [<TestMethod>]
+  member __.``[MIPS32] Accumulator Access operations Parse Test (1)`` () =
+    "00001010"
+    ++ MFHI ** [ O.Reg R2 ]
+    ||> test32R2NoCondNofmt
+
+  [<TestMethod>]
+  member __.``[MIPS32] Accumulator Access operations Parse Test (2)`` () =
+    "00001812"
+    ++ MFLO ** [ O.Reg R3 ]
+    ||> test32R2NoCondNofmt
+
+/// Jumps And Branches Operations
+[<TestClass>]
+type JumpAndBranchesClass () =
+  [<TestMethod>]
+  member __.``[MIPS32] Jump And Branches operations Parse Test (1)`` () =
+    "14400400"
+    ++ BNE ** [ O.Reg R2; O.Reg R0; O.Addr (Relative 4100L) ]
+    ||> test32R2NoCondNofmt
+
+  [<TestMethod>]
+  member __.``[MIPS32] Jump And Branches operations Parse Test (2)`` () =
+    "1ae00456"
+    ++ BLEZ ** [ O.Reg R23; O.Addr (Relative 4444L) ]
+    ||> test32R2NoCondNofmt
+
+  [<TestMethod>]
+  member __.``[MIPS32] Jump And Branches operations Parse Test (3)`` () =
+    "1c40fff3"
+    ++ BGTZ ** [ O.Reg R2; O.Addr (Relative -48L) ]
+    ||> test32R2NoCondNofmt
+
+  [<TestMethod>]
+  member __.``[MIPS32] Jump And Branches operations Parse Test (4)`` () =
+    "03e00008"
+    ++ JR ** [ O.Reg R31 ]
+    ||> test32R2NoCondNofmt
+
+  [<TestMethod>]
+  member __.``[MIPS32] Jump And Branches operations Parse Test (5)`` () =
+    "0320f809"
+    ++ JALR ** [ O.Reg R25 ]
+    ||> test32R2NoCondNofmt
+
+  [<TestMethod>]
+  member __.``[MIPS32] Jump And Branches operations Parse Test (6)`` () =
+    "04113e1d"
+    ++ BAL ** [ O.Addr (Relative 63608L) ]
+    ||> test32R2NoCondNofmt
+
+  [<TestMethod>]
+  member __.``[MIPS32] Jump And Branches operations Parse Test (7)`` () =
+    "04400069"
+    ++ BLTZ ** [ O.Reg R2; O.Addr (Relative 424L) ]
+    ||> test32R2NoCondNofmt
+
+  [<TestMethod>]
+  member __.``[MIPS32] Jump And Branches operations Parse Test (8)`` () =
+    "06c1015e"
+    ++ BGEZ ** [ O.Reg R22; O.Addr (Relative 1404L) ]
+    ||> test32R2NoCondNofmt
+
+/// Load And Store operations
+[<TestClass>]
+type LoadAndStoreClass () =
+  [<TestMethod>]
+  member __.``[MIPS32] Load And Store operations Parse Test (1)`` () =
+    "80420000"
+    ++ LB ** [ O.Reg R2; O.Mem (R.R2, 0L, 8<rt>) ]
+    ||> test32R2NoCondNofmt
+
+  [<TestMethod>]
+  member __.``[MIPS32] Load And Store operations Parse Test (2)`` () =
+    "92624418"
+    ++ LBU ** [ O.Reg R2; O.Mem (R.R19, 17432L, 8<rt>) ]
+    ||> test32R2NoCondNofmt
+
+  [<TestMethod>]
+  member __.``[MIPS32] Load And Store operations Parse Test (3)`` () =
+    "97a200aa"
+    ++ LHU ** [ O.Reg R2; O.Mem (R.R29, 170L, 16<rt>) ]
+    ||> test32R2NoCondNofmt
+
+  [<TestMethod>]
+  member __.``[MIPS32] Load And Store operations Parse Test (4)`` () =
+    "8f8282c4"
+    ++ LW ** [ O.Reg R2; O.Mem (R.R28, -032060L, 32<rt>) ]
+    ||> test32R2NoCondNofmt
+
+  [<TestMethod>]
+  member __.``[MIPS32] Load And Store operations Parse Test (5)`` () =
+    "a2c443dc"
+    ++ SB ** [ O.Reg R4; O.Mem (R.R22, 17372L, 8<rt>) ]
+    ||> test32R2NoCondNofmt
+
+  [<TestMethod>]
+  member __.``[MIPS32] Load And Store operations Parse Test (6)`` () =
+    "a7a200b8"
+    ++ SH ** [ O.Reg R2; O.Mem (R.R29, 184L, 16<rt>) ]
+    ||> test32R2NoCondNofmt
+
+  [<TestMethod>]
+  member __.``[MIPS32] Load And Store operations Parse Test (7)`` () =
+    "afbc0010"
+    ++ SW ** [ O.Reg R28; O.Mem (R.R29, 16L, 32<rt>) ]
+    ||> test32R2NoCondNofmt
+
+  [<TestMethod>]
+  member __.``[MIPS32] Load And Store operations Parse Test (8)`` () =
+    "a8440000"
+    ++ SWL ** [ O.Reg R4; O.Mem (R.R2, 0L, 32<rt>) ]
+    ||> test32R2NoCondNofmt
+
+  [<TestMethod>]
+  member __.``[MIPS32] Load And Store operations Parse Test (9)`` () =
+    "b8440003"
+    ++ SWR ** [ O.Reg R4; O.Mem (R.R2, 3L, 32<rt>) ]
+    ||> test32R2NoCondNofmt
+
+/// Floating Point operations
+[<TestClass>]
+type FloatingPointClass () =
+  [<TestMethod>]
+  member __.``[MIPS32] Floating Point operations Parse Test (1)`` () =
+    "46022080"
+    ++ ADD ** [ O.Reg F2; O.Reg F4; O.Reg F2 ]
+    ||> test32R2NoCond Fmt.S
+
+  [<TestMethod>]
+  member __.``[MIPS32] Floating Point operations Parse Test (2)`` () =
+    "46220000"
+    ++ ADD ** [ O.Reg F0; O.Reg F0; O.Reg F2 ]
+    ||> test32R2NoCond Fmt.D
+
+  [<TestMethod>]
+  member __.``[MIPS32] Floating Point operations Parse Test (3)`` () =
+    "46206301"
+    ++ SUB ** [ O.Reg F12; O.Reg F12; O.Reg F0 ]
+    ||> test32R2NoCond Fmt.D
+
+  [<TestMethod>]
+  member __.``[MIPS32] Floating Point operations Parse Test (4)`` () =
+    "46220003"
+    ++ DIV ** [ O.Reg F0; O.Reg F0; O.Reg F2 ]
+    ||> test32R2NoCond Fmt.D
+
+  [<TestMethod>]
+  member __.``[MIPS32] Floating Point operations Parse Test (5)`` () =
+    "46020003"
+    ++ DIV ** [ O.Reg F0; O.Reg F0; O.Reg F2 ]
+    ||> test32R2NoCond Fmt.S
+
+  [<TestMethod>]
+  member __.``[MIPS32] Floating Point operations Parse Test (6)`` () =
+    "46200506"
+    ++ MOV ** [ O.Reg F20; O.Reg F0 ]
+    ||> test32R2NoCond Fmt.D
+
+  [<TestMethod>]
+  member __.``[MIPS32] Floating Point operations Parse Test (7)`` () =
+    "44140000"
+    ++ MFC1 ** [ O.Reg R20; O.Reg F0 ]
+    ||> test32R2NoCondNofmt
+
+  [<TestMethod>]
+  member __.``[MIPS32] Floating Point operations Parse Test (8)`` () =
+    "44803000"
+    ++ MTC1 ** [ O.Reg R0; O.Reg F6 ]
+    ||> test32R2NoCondNofmt
+
+  [<TestMethod>]
+  member __.``[MIPS32] Floating Point operations Parse Test (9)`` () =
+    "d4440a48"
+    ++ LDC1 ** [ O.Reg F4; O.Mem (R.R2, 2632L, 32<rt>) ]
+    ||> test32R2NoCondNofmt
+
+  [<TestMethod>]
+  member __.``[MIPS32] Floating Point operations Parse Test (10)`` () =
+    "c4600008"
+    ++ LWC1 ** [ O.Reg F0; O.Mem (R.R3, 8L, 32<rt>) ]
+    ||> test32R2NoCondNofmt
+
+  [<TestMethod>]
+  member __.``[MIPS32] Floating Point operations Parse Test (11)`` () =
+    "f7a00010"
+    ++ SDC1 ** [ O.Reg F0; O.Mem (R.R29, 16L, 32<rt>) ]
+    ||> test32R2NoCondNofmt
+
+  [<TestMethod>]
+  member __.``[MIPS32] Floating Point operations Parse Test (12)`` () =
+    "e4800004"
+    ++ SWC1 ** [ O.Reg F0; O.Mem (R.R4, 4L, 32<rt>) ]
+    ||> test32R2NoCondNofmt
+
+  [<TestMethod>]
+  member __.``[MIPS32] Floating Point operations Parse Test (13)`` () =
+    "4600103c"
+    ++ C ** [ O.Reg F2; O.Reg F0 ]
+    ||> test32R2 Condition.LT Fmt.S
+
+  [<TestMethod>]
+  member __.``[MIPS32] Floating Point operations Parse Test (14)`` () =
+    "46800021"
+    ++ CVTD ** [ O.Reg F0; O.Reg F0 ]
+    ||> test32R2NoCond Fmt.W
+
+  [<TestMethod>]
+  member __.``[MIPS32] Floating Point operations Parse Test (15)`` () =
+    "46200020"
+    ++ CVTS ** [ O.Reg F0; O.Reg F0 ]
+    ||> test32R2NoCond Fmt.D
+
+  [<TestMethod>]
+  member __.``[MIPS32] Floating Point operations Parse Test (16)`` () =
+    "4620000d"
+    ++ TRUNCW ** [ O.Reg F0; O.Reg F0 ]
+    ||> test32R2NoCond Fmt.D
+
+  [<TestMethod>]
+  member __.``[MIPS32] Floating Point operations Parse Test (17)`` () =
+    "4600000d"
+    ++ TRUNCW ** [ O.Reg F0; O.Reg F0 ]
+    ||> test32R2NoCond Fmt.S
+
+/// ETC Operations
+[<TestClass>]
+type ETCClass () =
+  [<TestMethod>]
+  member __.``[MIPS32] ETC Operations Parse Test (1)`` () =
+    "004001f4"
+    ++ TEQ ** [ O.Reg R2; O.Reg R0 ]
+    ||> test32R2NoCondNofmt
+
+  [<TestMethod>]
+  member __.``[MIPS32] ETC Operations Parse Test (2)`` () =
+    "45190004"
+    ++ BC1T ** [ O.Imm 6UL; O.Addr (Relative 20L) ]
+    ||> test32R2NoCondNofmt
+
+  [<TestMethod>]
+  member __.``[MIPS32] ETC Operations Parse Test (3)`` () =
+    "4500001a"
+    ++ BC1F ** [ O.Addr (Relative 108L) ]
+    ||> test32R2NoCondNofmt
