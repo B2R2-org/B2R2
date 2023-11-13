@@ -1063,71 +1063,36 @@ let vpaddq ins insLen ctxt =
 let vpalignr ins insLen ctxt =
   let ir = !*ctxt
   !<ir insLen
+  let oprSz = getOperationSize ins
+  let packSz = 8<rt>
+  let packNum = 64<rt> / packSz
   let struct (dst, src1, src2, imm) = getFourOprs ins
-  let oprSize = getOperationSize ins
-  let imm = getImmValue imm
-  let amount = imm * 8L
-  let rAmt = numI64 (amount % 64L) 64<rt> (* Right Shift *)
-  let lAmt = numI64 (64L - (amount % 64L)) 64<rt> (* Left Shift *)
-  if oprSize = 128<rt> then
-    let dstB, dstA = transOprToExpr128 ir false ins insLen ctxt dst
-    let src1B, src1A = transOprToExpr128 ir false ins insLen ctxt src1
-    let src2B, src2A = transOprToExpr128 ir false ins insLen ctxt src2
-    let struct (tSrc1A, tSrc1B, tSrc2A, tSrc2B) = tmpVars4 ir 64<rt>
-    !!ir (tSrc1A := src1A)
-    !!ir (tSrc1B := src1B)
-    !!ir (tSrc2A := src2A)
-    !!ir (tSrc2B := src2B)
-    if amount < 64 then
-      !!ir (dstA := (tSrc2B << lAmt) .| (tSrc2A >> rAmt))
-      !!ir (dstB := (tSrc1A << lAmt) .| (tSrc2B >> rAmt))
-    elif amount < 128 then
-      !!ir (dstA := (tSrc1A << lAmt) .| (tSrc2B >> rAmt))
-      !!ir (dstB := (tSrc1B << lAmt) .| (tSrc1A >> rAmt))
-    elif amount < 192 then
-      !!ir (dstA := (tSrc1B << lAmt) .| (tSrc1A >> rAmt))
-      !!ir (dstB := tSrc1B >> rAmt)
+  let src1 = transOprToArr ir false ins insLen ctxt packSz packNum oprSz src1
+  let src2 = transOprToArr ir false ins insLen ctxt packSz packNum oprSz src2
+  let imm = getImmValue imm |> int
+  let initRes = Array.init 16 (fun _ -> !+ir 8<rt>)
+  Array.iter (fun e -> !!ir (e := AST.num0 8<rt>)) initRes
+  let result =
+    if imm >= 32 then
+      match oprSz with
+      | 128<rt> -> initRes
+      | 256<rt> -> Array.append initRes initRes
+      | _ -> raise InvalidOperandSizeException
     else
-      !!ir (dstA := tSrc1B >> rAmt)
-      !!ir (dstB := AST.num0 64<rt>)
-    fillZeroHigh128 ctxt dst ir
-  elif oprSize = 256<rt> then
-    let dstD, dstC, dstB, dstA = transOprToExpr256 ir false ins insLen ctxt dst
-    let src1D, src1C, src1B, src1A =
-      transOprToExpr256 ir false ins insLen ctxt src1
-    let src2D, src2C, src2B, src2A =
-      transOprToExpr256 ir false ins insLen ctxt src2
-    let struct (tSrc1A, tSrc1B, tSrc1C, tSrc1D) = tmpVars4 ir 64<rt>
-    let struct (tSrc2A, tSrc2B, tSrc2C, tSrc2D) = tmpVars4 ir 64<rt>
-    !!ir (tSrc1A := src1A)
-    !!ir (tSrc1B := src1B)
-    !!ir (tSrc1C := src1C)
-    !!ir (tSrc1D := src1D)
-    !!ir (tSrc2A := src2A)
-    !!ir (tSrc2B := src2B)
-    !!ir (tSrc2C := src2C)
-    !!ir (tSrc2D := src2D)
-    if amount < 64 then
-      !!ir (dstA := (tSrc2B << lAmt) .| (tSrc2A >> rAmt))
-      !!ir (dstB := (tSrc1A << lAmt) .| (tSrc2B >> rAmt))
-      !!ir (dstC := (tSrc2D << lAmt) .| (tSrc2C >> rAmt))
-      !!ir (dstD := (tSrc1C << lAmt) .| (tSrc2D >> rAmt))
-    elif amount < 128 then
-      !!ir (dstA := (tSrc1A << lAmt) .| (tSrc2B >> rAmt))
-      !!ir (dstB := (tSrc1B << lAmt) .| (tSrc1A >> rAmt))
-      !!ir (dstC := (tSrc1C << lAmt) .| (tSrc2D >> rAmt))
-      !!ir (dstD := (tSrc1D << lAmt) .| (tSrc1C >> rAmt))
-    elif amount < 192 then
-      !!ir (dstA := (tSrc1B << lAmt) .| (tSrc1A >> rAmt))
-      !!ir (dstB := tSrc1B >> rAmt)
-      !!ir (dstC := (tSrc1D << lAmt) .| (tSrc1C >> rAmt))
-      !!ir (dstD := tSrc1D >> rAmt)
-    else
-      !!ir (dstA := tSrc1B >> rAmt)
-      !!ir (dstB := AST.num0 64<rt>)
-      !!ir (dstC := tSrc1D >> rAmt)
-      !!ir (dstD := AST.num0 64<rt>)
-  else raise InvalidOperandSizeException
+      let cnt = if imm < 16 then 16 else 32 - imm
+      let zeroPad = Array.sub initRes 0 (16 - cnt)
+      match oprSz with
+      | 128<rt> ->
+        Array.append (Array.sub (Array.append src2 src1) imm cnt) zeroPad
+      | 256<rt> ->
+        let src1L, src1H = Array.splitAt 16 src1
+        let src2L, src2H = Array.splitAt 16 src2
+        let srcL = Array.sub (Array.append src2L src1L) imm cnt
+        let srcH = Array.sub (Array.append src2H src1H) imm cnt
+        Array.concat [| srcL; zeroPad; srcH; zeroPad |]
+      | _ -> raise InvalidOperandSizeException
+  assignPackedInstr ir false ins insLen ctxt packNum oprSz dst result
+  fillZeroFromVLToMaxVL ctxt dst oprSz 512 ir
   !>ir insLen
 
 let vpand ins insLen ctxt =
