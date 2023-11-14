@@ -1460,26 +1460,16 @@ let vpinsrq ins insLen ctxt =
 let vpinsrw ins insLen ctxt =
   let ir = !*ctxt
   !<ir insLen
-  let struct (dst, src1, src2, count) = getFourOprs ins
-  let dstB, dstA = transOprToExpr128 ir false ins insLen ctxt dst
-  let src1B, src1A = transOprToExpr128 ir false ins insLen ctxt src1
-  let src2 = transOprToExpr ir false ins insLen ctxt src2
-  let sel = !+ir 64<rt>
-  let mask = !+ir 64<rt>
-  let count = getImmValue count
-  !!ir (sel := numI64 count 64<rt> .| numI64 7L 64<rt>)
-  !!ir (dstB := src1B)
-  !!ir (dstA := src1A)
-  if count > 3L then
-    let pos = (sel .- numI32 4 64<rt>) .* numI32 16 64<rt>
-    !!ir (mask := (numU64 0xffffUL 64<rt>) << pos)
-    !!ir (dstB := (dstB .& (AST.not mask))
-                        .| (AST.zext 64<rt> src2 << pos .& mask))
-  else
-    let pos = sel .* numI32 16 64<rt>
-    !!ir (mask := (numU64 0xffffUL 64<rt>) << pos)
-    !!ir (dstA := (dstA .& (AST.not mask))
-                        .| (AST.zext 64<rt> src2 << pos .& mask))
+  let packSz = 16<rt>
+  let packNum = 64<rt> / packSz
+  let struct (dst, src1, src2, imm8) = getFourOprs ins
+  let src1 = transOprToArr ir true ins insLen ctxt packSz packNum 128<rt> src1
+  let src2 = transOprToExpr ir false ins insLen ctxt src2 |> AST.xtlo packSz
+  let tmps = Array.init 8 (fun _ -> !+ir packSz)
+  let index = (getImmValue imm8 &&& 0b111) |> int
+  Array.iter2 (fun t e -> !!ir (t := e)) tmps src1
+  !!ir (tmps[index] := src2)
+  assignPackedInstr ir false ins insLen ctxt packNum 128<rt> dst tmps
   fillZeroFromVLToMaxVL ctxt dst 128<rt> 512 ir
   !>ir insLen
 
