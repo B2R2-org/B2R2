@@ -22,142 +22,184 @@
   THE SOFTWARE.
 *)
 
-namespace B2R2.FrontEnd.Tests
+module B2R2.FrontEnd.Tests.MIPS64
 
 open Microsoft.VisualStudio.TestTools.UnitTesting
 open B2R2
-open B2R2.FrontEnd
+open B2R2.FrontEnd.BinLifter.MIPS
+open type Opcode
+open type Register
 
-module MIPS64 =
-  open B2R2.FrontEnd.BinLifter.MIPS
+type O =
+  static member Reg (r) =
+    OpReg r
 
-  let private test arch endian opcode oprs (bytes: byte[]) =
-    let reader = BinReader.Init endian
-    let span = System.ReadOnlySpan bytes
-    let ins = ParsingMain.parse span reader arch WordSize.Bit64 0UL
-    let opcode' = ins.Info.Opcode
-    let oprs' = ins.Info.Operands
-    Assert.AreEqual (opcode', opcode)
-    Assert.AreEqual (oprs', oprs)
+  static member Imm (v) =
+    OpImm v
 
-  let private test64R2 = test Architecture.MIPS64 Endian.Big
+  static member Mem (r, o: int64, rt) =
+    OpMem (r, Imm o, rt)
 
-  /// Arithmetic operations
-  [<TestClass>]
-  type ArithmeticClass () =
-    [<TestMethod>]
-    member __.``[MIPS64] Arithmetic operations Parse Test`` () =
-      test64R2
-        Op.DADDU
-        (ThreeOperands (OpReg R.R15, OpReg R.R21, OpReg R.R29))
-        [| 0x02uy; 0xbduy; 0x78uy; 0x2duy |]
+  static member Mem (r, o: Register, rt) =
+    OpMem (r, Reg o, rt)
 
-      test64R2
-        Op.DADDIU
-        (ThreeOperands (OpReg R.R13, OpReg R.R6, OpImm 0xffffffffffffccd5UL))
-        [| 0x64uy; 0xcduy; 0xccuy; 0xd5uy |]
+  static member Addr (t) =
+    OpAddr t
 
-      test64R2
-        Op.DSUBU
-        (ThreeOperands (OpReg R.R26, OpReg R.R17, OpReg R.R9))
-        [| 0x02uy; 0x29uy; 0xd0uy; 0x2fuy |]
+  static member Shift (s)  =
+    OpShiftAmount s
 
-  /// Shift And Rotate operations
-  [<TestClass>]
-  type ShiftAndRotateClass () =
-    [<TestMethod>]
-    member __.``[MIPS64] Shift And Rotate operations Parse Test`` () =
-      test64R2
-        Op.DROTR
-        (ThreeOperands (OpReg R.R30, OpReg R.R13, OpShiftAmount 0x1aUL))
-        [| 0x00uy; 0x2duy; 0xf6uy; 0xbauy |]
+let private test arch endian opcode oprs (bytes: byte[]) =
+  let reader = BinReader.Init endian
+  let span = System.ReadOnlySpan bytes
+  let ins = ParsingMain.parse span reader arch WordSize.Bit64 0UL
+  let opcode' = ins.Info.Opcode
+  let oprs' = ins.Info.Operands
+  Assert.AreEqual (opcode', opcode)
+  Assert.AreEqual (oprs', oprs)
 
-      test64R2
-        Op.DSLL
-        (ThreeOperands (OpReg R.R29, OpReg R.R14, OpShiftAmount 0x1bUL))
-        [| 0x00uy; 0x0euy; 0xeeuy; 0xf8uy |]
+let private test64R2 (bytes: byte[]) (opcode, operands) =
+  test Architecture.MIPS64 Endian.Big opcode operands bytes
 
-      test64R2
-        Op.DSLL32
-        (ThreeOperands (OpReg R.R28, OpReg R.R17, OpShiftAmount 0x15UL))
-        [| 0x00uy; 0x11uy; 0xe5uy; 0x7cuy |]
+let private operandsFromArray oprList =
+  let oprArray = Array.ofList oprList
+  match oprArray.Length with
+  | 0 -> NoOperand
+  | 1 -> OneOperand oprArray[0]
+  | 2 -> TwoOperands (oprArray[0], oprArray[1])
+  | 3 -> ThreeOperands (oprArray[0], oprArray[1], oprArray[2])
+  | 4 -> FourOperands (oprArray[0], oprArray[1], oprArray[2], oprArray[3])
+  | _ -> Utils.impossible ()
 
-      test64R2
-        Op.DSLLV
-        (ThreeOperands (OpReg R.R30, OpReg R.R26, OpReg R.R21))
-        [| 0x02uy; 0xbauy; 0xf0uy; 0x14uy |]
+let private ( ** ) opcode oprList = (opcode, operandsFromArray oprList)
 
-      test64R2
-        Op.DSRA
-        (ThreeOperands (OpReg R.R30, OpReg R.R14, OpShiftAmount 0x1fUL))
-        [| 0x00uy; 0x0euy; 0xf7uy; 0xfbuy |]
+let private ( ++ ) byteString pair = (ByteArray.ofHexString byteString, pair)
 
-      test64R2
-        Op.DSRA32
-        (ThreeOperands (OpReg R.R26, OpReg R.R15, OpShiftAmount 0x7UL))
-        [| 0x00uy; 0x0fuy; 0xd1uy; 0xffuy |]
+/// Arithmetic operations
+[<TestClass>]
+type ArithmeticClass () =
+  [<TestMethod>]
+  member __.``[MIPS64] Arithmetic operations Parse Test (1)`` () =
+    "02bd782d"
+    ++ DADDU ** [ O.Reg R15; O.Reg R21; O.Reg R29 ]
+    ||> test64R2
 
-  /// Logical and Bit-Field Operations
-  [<TestClass>]
-  type LogicalAndBitFieldClass () =
-    [<TestMethod>]
-    member __.``[MIPS64] Logical and Bit-Field operations Parse Test`` () =
-      test64R2
-        Op.DEXT
-        (FourOperands (OpReg R.R29, OpReg R.R10, OpImm 0x2UL, OpImm 0xeUL))
-        [| 0x7duy; 0x5duy; 0x68uy; 0x83uy |]
+  [<TestMethod>]
+  member __.``[MIPS64] Arithmetic operations Parse Test (2)`` () =
+    "64cdccd5"
+      ++ DADDIU ** [ O.Reg R13; O.Reg R6; O.Imm 0xffffffffffffccd5UL ]
+      ||> test64R2
 
-      test64R2
-        Op.DINS
-        (FourOperands (OpReg R.R21, OpReg R.R15, OpImm 0x9UL, OpImm 0x11UL))
-        [| 0x7duy; 0xf5uy; 0xcauy; 0x47uy |]
+  [<TestMethod>]
+  member __.``[MIPS64] Arithmetic operations Parse Test (3)`` () =
+      "0229d02f"
+      ++ DSUBU ** [ O.Reg R26; O.Reg R17; O.Reg R9 ]
+      ||> test64R2
 
-  /// Multiply and Divide operations
-  [<TestClass>]
-  type MultiplyAndDivideClass () =
-    [<TestMethod>]
-    member __.``[MIPS64] Multiply and Divide operations Parse Test`` () =
-      test64R2
-        Op.DDIVU
-        (TwoOperands (OpReg R.R30, OpReg R.R3))
-        [| 0x03uy; 0xc3uy; 0x00uy; 0x1fuy |]
+/// Shift And Rotate operations
+[<TestClass>]
+type ShiftAndRotateClass () =
+  [<TestMethod>]
+  member __.``[MIPS64] Shift And Rotate operations Parse Test (1)`` () =
+      "002df6ba"
+      ++ DROTR ** [ O.Reg R30; O.Reg R13; O.Shift 0x1aUL ]
+      ||> test64R2
 
-      test64R2
-        Op.DMULT
-        (TwoOperands (OpReg R.R24, OpReg R.R14))
-        [| 0x03uy; 0x0euy; 0x00uy; 0x1cuy |]
+  [<TestMethod>]
+  member __.``[MIPS64] Shift And Rotate operations Parse Test (2)`` () =
+      "000eeef8"
+      ++ DSLL ** [ O.Reg R29; O.Reg R14; O.Shift 0x1bUL ]
+      ||> test64R2
 
-      test64R2
-        Op.DMULTU
-        (TwoOperands (OpReg R.R17, OpReg R.R18))
-        [| 0x02uy; 0x32uy; 0x00uy; 0x1duy |]
+  [<TestMethod>]
+  member __.``[MIPS64] Shift And Rotate operations Parse Test (3)`` () =
+      "0011e57c"
+      ++ DSLL32 ** [ O.Reg R28; O.Reg R17; O.Shift 0x15UL ]
+      ||> test64R2
 
-  /// Load and Store operations
-  [<TestClass>]
-  type LoadAndStoreClass () =
-    [<TestMethod>]
-    member __.``[MIPS64] Load and Store operations Parse Test`` () =
-      test64R2
-        Op.LD
-        (TwoOperands (OpReg R.R29, OpMem (R.R26, Imm 0x2afdL, 64<rt>)))
-        [| 0xdfuy; 0x5duy; 0x2auy; 0xfduy |]
+  [<TestMethod>]
+  member __.``[MIPS64] Shift And Rotate operations Parse Test (4)`` () =
+      "02baf014"
+      ++ DSLLV ** [ O.Reg R30; O.Reg R26; O.Reg R21 ]
+      ||> test64R2
 
-      test64R2
-        Op.LWU
-        (TwoOperands (OpReg R.R17, OpMem (R.R24, Imm -0x52ffL, 32<rt>)))
-        [| 0x9fuy; 0x11uy; 0xaduy; 0x01uy |]
+  [<TestMethod>]
+  member __.``[MIPS64] Shift And Rotate operations Parse Test (5)`` () =
+      "000ef7fb"
+      ++ DSRA ** [ O.Reg R30; O.Reg R14; O.Shift 0x1fUL ]
+      ||> test64R2
 
-      test64R2
-        Op.SD
-        (TwoOperands (OpReg R.R5, OpMem (R.R17, Imm 0x380aL, 64<rt>)))
-        [| 0xfeuy; 0x25uy; 0x38uy; 0x0auy |]
+  [<TestMethod>]
+  member __.``[MIPS64] Shift And Rotate operations Parse Test (6)`` () =
+      "000fd1ff"
+      ++ DSRA32 ** [ O.Reg R26; O.Reg R15; O.Shift 0x7UL ]
+      ||> test64R2
 
-      test64R2
-        Op.SDL
-        (TwoOperands (OpReg R.R12, OpMem (R.R26, Imm 0x3f02L, 64<rt>)))
-        [| 0xb3uy; 0x4cuy; 0x3fuy; 0x02uy |]
+/// Logical and Bit-Field Operations
+[<TestClass>]
+type LogicalAndBitFieldClass () =
+  [<TestMethod>]
+  member __.``[MIPS64] Logical and Bit-Field operations Parse Test (1)`` () =
+    "7d5d6883"
+      ++ DEXT ** [ O.Reg R29; O.Reg R10; O.Imm 0x2UL; O.Imm 0xeUL ]
+      ||> test64R2
 
-      test64R2
-        Op.SDR
-        (TwoOperands (OpReg R.R11, OpMem (R.R6, Imm -0x78ebL, 64<rt>)))
-        [| 0xb4uy; 0xcbuy; 0x87uy; 0x15uy |]
+  [<TestMethod>]
+  member __.``[MIPS64] Logical and Bit-Field operations Parse Test (2)`` () =
+    "7df5ca47"
+      ++ DINS ** [ O.Reg R21; O.Reg R15; O.Imm 0x9UL; O.Imm 0x11UL ]
+      ||> test64R2
+
+/// Multiply and Divide operations
+[<TestClass>]
+type MultiplyAndDivideClass () =
+  [<TestMethod>]
+  member __.``[MIPS64] Multiply and Divide operations Parse Test (1)`` () =
+    "03c3001f"
+      ++ DDIVU ** [ O.Reg R30; O.Reg R3 ]
+      ||> test64R2
+
+  [<TestMethod>]
+  member __.``[MIPS64] Multiply and Divide operations Parse Test (2)`` () =
+    "030e001c"
+      ++ DMULT ** [ O.Reg R24; O.Reg R14 ]
+      ||> test64R2
+
+  [<TestMethod>]
+  member __.``[MIPS64] Multiply and Divide operations Parse Test (3)`` () =
+    "0232001d"
+      ++ DMULTU ** [ O.Reg R17; O.Reg R18 ]
+      ||> test64R2
+
+/// Load and Store operations
+[<TestClass>]
+type LoadAndStoreClass () =
+  [<TestMethod>]
+  member __.``[MIPS64] Load and Store operations Parse Test (1)`` () =
+   "df5d2afd"
+     ++ LD ** [ O.Reg R29; O.Mem (R26, 0x2afdL, 64<rt>) ]
+     ||> test64R2
+
+  [<TestMethod>]
+  member __.``[MIPS64] Load and Store operations Parse Test (2)`` () =
+    "9f11ad01"
+      ++ LWU ** [ O.Reg R17; O.Mem (R24, -0x52ffL, 32<rt>) ]
+      ||> test64R2
+
+  [<TestMethod>]
+  member __.``[MIPS64] Load and Store operations Parse Test (3)`` () =
+    "fe25380a"
+      ++ SD ** [ O.Reg R5; O.Mem (R.R17, 0x380aL, 64<rt>) ]
+      ||> test64R2
+
+  [<TestMethod>]
+  member __.``[MIPS64] Load and Store operations Parse Test (4)`` () =
+    "b34c3f02"
+      ++ SDL ** [ O.Reg R12; O.Mem (R26, 0x3f02L, 64<rt>) ]
+      ||> test64R2
+
+  [<TestMethod>]
+  member __.``[MIPS64] Load and Store operations Parse Test (5)`` () =
+    "b4cb8715"
+      ++ SDR ** [ O.Reg R11; O.Mem (R6, -0x78ebL, 64<rt>) ]
+      ||> test64R2

@@ -22,1564 +22,966 @@
   THE SOFTWARE.
 *)
 
-namespace B2R2.FrontEnd.Tests
+module B2R2.FrontEnd.Tests.ARMThumb
 
 open Microsoft.VisualStudio.TestTools.UnitTesting
 open B2R2
 open B2R2.FrontEnd.BinLifter
-
-module ARMThumb =
-  open B2R2.FrontEnd.BinLifter.ARM32
-
-  let private test arch e c op w q (s: SIMDDataTypes option) oprs (b: byte[]) =
-    let mode = ArchOperationMode.ThumbMode
-    let parser =
-      ARM32Parser (ISA.Init arch e, mode, None) :> IInstructionParsable
-    let ins = parser.Parse (b, 0UL) :?> ARM32Instruction
-    let cond' = ins.Condition
-    let opcode' = ins.Opcode
-    let wback' = ins.WriteBack
-    let q' = ins.Qualifier
-    let simd' = ins.SIMDTyp
-    let oprs' = ins.Operands
-
-    let w =
-      match w with
-      | Some true -> true
-      | _ -> false // XXX
-
-    Assert.AreEqual (cond', c)
-    Assert.AreEqual (opcode', op)
-    Assert.AreEqual (wback', w)
-    Assert.AreEqual (q', q)
-    Assert.AreEqual (simd', s)
-    Assert.AreEqual (oprs', oprs)
-
-  let private testThumb = test Architecture.ARMv7 Endian.Big
-
-  /// A4.3 Branch instructions
-  [<TestClass>]
-  type BranchClass () =
-    [<TestMethod>]
-    member __.``[Thumb] Branch Parse Test`` () =
-      testThumb
-        (Condition.HI)
-        Op.B
-        None
-        N
-        None
-        (OneOperand (OprMemory (LiteralMode 76L)))
-        [| 0xd8uy; 0x26uy |]
-
-      testThumb
-        (Condition.AL)
-        Op.B
-        None
-        N
-        None
-        (OneOperand (OprMemory (LiteralMode 776L)))
-        [| 0xe1uy; 0x84uy |]
-
-      testThumb
-        (Condition.LS)
-        Op.B
-        None
-        W
-        None
-        (OneOperand (OprMemory (LiteralMode 4294652108L)))
-        [| 0xf6uy; 0x73uy; 0x88uy; 0x66uy |]
-
-      testThumb
-        (Condition.AL)
-        Op.B
-        None
-        W
-        None
-        (OneOperand (OprMemory (LiteralMode 12780328L)))
-        [| 0xf0uy; 0x30uy; 0x91uy; 0x94uy |]
-
-      testThumb
-        Condition.UN
-        Op.CBNZ
-        None
-        N
-        None
-        (TwoOperands (OprReg R.R2, OprMemory (LiteralMode 6L)))
-        [| 0xb9uy; 0x1auy |]
-
-      testThumb
-        (Condition.AL)
-        Op.BLX
-        None
-        N
-        None
-        (OneOperand (OprReg R.SB))
-        [| 0x47uy; 0xc8uy |]
-
-      testThumb
-        (Condition.AL)
-        Op.BLX
-        None
-        N
-        None
-        (OneOperand (OprMemory (LiteralMode 4286800648L)))
-        [| 0xf4uy; 0x36uy; 0xe1uy; 0x84uy |]
-
-      testThumb
-        (Condition.AL)
-        Op.BX
-        None
-        N
-        None
-        (OneOperand (OprReg R.R3))
-        [| 0x47uy; 0x18uy |]
-
-      testThumb
-        (Condition.AL)
-        Op.BXJ
-        None
-        N
-        None
-        (OneOperand (OprReg R.R5))
-        [| 0xf3uy; 0xc5uy; 0x8fuy; 0x00uy |]
-
-      testThumb
-        (Condition.AL)
-        Op.TBH
-        None
-        N
-        None
-        (OneOperand (
-          OprMemory (
-            OffsetMode (RegOffset (R.LR, None, R.R7, Some (SRTypeLSL, Imm 1u)))
-          )
-        ))
-        [| 0xe8uy; 0xdeuy; 0xf0uy; 0x17uy |]
-
-  /// A4.4 Data-processing instructions
-  [<TestClass>]
-  type DataProcessingClass () =
-    /// A4.4.1 Standard data-processing instructions
-    [<TestMethod>]
-    member __.``[Thumb] Standard data-processing Parse Test`` () =
-      testThumb
-        (Condition.AL)
-        Op.ADCS
-        None
-        N
-        None
-        (ThreeOperands (OprReg R.R3, OprReg R.R2, OprImm 159383552L))
-        [| 0xf1uy; 0x52uy; 0x63uy; 0x18uy |]
-
-      testThumb
-        (Condition.AL)
-        Op.ADD
-        None
-        N
-        None
-        (ThreeOperands (OprReg R.IP, OprReg R.SP, OprReg R.IP))
-        [| 0x44uy; 0xecuy |]
-
-      testThumb
-        (Condition.AL)
-        Op.ADD
-        None
-        N
-        None
-        (ThreeOperands (OprReg R.SP, OprReg R.SP, OprReg R.SL))
-        [| 0x44uy; 0xd5uy |]
-
-      testThumb
-        (Condition.AL)
-        Op.ADD
-        None
-        N
-        None
-        (TwoOperands (OprReg R.FP, OprReg R.R1))
-        [| 0x44uy; 0x8buy |]
-
-      testThumb
-        (Condition.AL)
-        Op.ADD
-        None
-        N
-        None
-        (ThreeOperands (OprReg R.SP, OprReg R.SP, OprImm 408L))
-        [| 0xb0uy; 0x66uy |]
-
-      testThumb
-        (Condition.AL)
-        Op.ADD
-        None
-        N
-        None
-        (ThreeOperands (OprReg R.R4, OprReg R.SP, OprImm 160L))
-        [| 0xacuy; 0x28uy |]
-
-      testThumb
-        (Condition.AL)
-        Op.ADD
-        None
-        N
-        None
-        (ThreeOperands (OprReg R.LR, OprReg R.R4, OprImm 1L))
-        [| 0xf1uy; 0x04uy; 0x0euy; 0x01uy |]
-
-      testThumb
-        Condition.UN
-        Op.ADDS
-        None
-        N
-        None
-        (ThreeOperands (OprReg R.R4, OprReg R.R1, OprReg R.R0))
-        [| 0x18uy; 0x0cuy |]
-
-      testThumb
-        Condition.UN
-        Op.ADDS
-        None
-        N
-        None
-        (ThreeOperands (OprReg R.R7, OprReg R.R6, OprImm 1L))
-        [| 0x1cuy; 0x77uy |]
-
-      testThumb
-        (Condition.AL)
-        Op.ADDW
-        None
-        N
-        None
-        (ThreeOperands (OprReg R.R0, OprReg R.FP, OprImm 1L))
-        [| 0xf2uy; 0x0buy; 0x00uy; 0x01uy |]
-
-      testThumb
-        (Condition.AL)
-        Op.ADR
-        None
-        W
-        None
-        (TwoOperands (OprReg R.R0, OprMemory (LiteralMode 1L)))
-        [| 0xf2uy; 0x0fuy; 0x00uy; 0x01uy |]
-
-      testThumb
-        (Condition.AL)
-        Op.ADR
-        None
-        N
-        None
-        (TwoOperands (OprReg R.R2, OprMemory (LiteralMode 60L)))
-        [| 0xa2uy; 0x0fuy |]
-
-      testThumb
-        Condition.UN
-        Op.ANDS
-        None
-        N
-        None
-        (ThreeOperands (OprReg R.R6, OprReg R.R6, OprReg R.R7))
-        [| 0x40uy; 0x3euy |]
-
-      testThumb
-        (Condition.AL)
-        Op.BICS
-        None
-        N
-        None
-        (FourOperands (
-          OprReg R.R6,
-          OprReg R.IP,
-          OprReg R.R5,
-          OprShift (SRTypeLSL, Imm 28u)
-        ))
-        [| 0xeauy; 0x3cuy; 0x76uy; 0x05uy |]
-
-      testThumb
-        (Condition.AL)
-        Op.CMP
-        None
-        N
-        None
-        (TwoOperands (OprReg R.R5, OprImm 243L))
-        [| 0x2duy; 0xf3uy |]
-
-      testThumb
-        (Condition.AL)
-        Op.CMP
-        None
-        N
-        None
-        (TwoOperands (OprReg R.R8, OprReg R.SB))
-        [| 0x45uy; 0xc8uy |]
-
-      testThumb
-        (Condition.AL)
-        Op.CMP
-        None
-        N
-        None
-        (TwoOperands (OprReg R.R4, OprReg R.R8))
-        [| 0x45uy; 0x44uy |]
-
-      testThumb
-        (Condition.AL)
-        Op.MOV
-        None
-        N
-        None
-        (TwoOperands (OprReg R.R7, OprImm 524296L))
-        [| 0xf0uy; 0x4fuy; 0x17uy; 0x08uy |]
-
-      testThumb
-        Condition.UN
-        Op.MOVS
-        None
-        N
-        None
-        (ThreeOperands (OprReg R.R6, OprReg R.R1, OprShift (SRTypeLSL, Imm 0u)))
-        [| 0x00uy; 0x0euy |]
-
-      testThumb
-        (Condition.AL)
-        Op.MOVW
-        None
-        N
-        None
-        (TwoOperands (OprReg R.FP, OprImm 10242L))
-        [| 0xf6uy; 0x42uy; 0x0buy; 0x02uy |]
-
-      testThumb
-        (Condition.AL)
-        Op.MVN
-        None
-        N
-        None
-        (ThreeOperands (
-          OprReg R.R4,
-          OprReg R.LR,
-          OprShift (SRTypeLSR, Imm 30u)
-        ))
-        [| 0xeauy; 0x6fuy; 0xf4uy; 0x9euy |]
-
-      testThumb
-        (Condition.AL)
-        Op.RSBS
-        None
-        N
-        None
-        (ThreeOperands (OprReg R.R3, OprReg R.SB, OprImm 8912896L))
-        [| 0xf5uy; 0xd9uy; 0x03uy; 0x08uy |]
-
-      testThumb
-        Condition.UN
-        Op.RSBS
-        None
-        N
-        None
-        (ThreeOperands (OprReg R.R3, OprReg R.R1, OprImm 0L))
-        [| 0x42uy; 0x4buy |]
-
-      testThumb
-        (Condition.AL)
-        Op.TEQ
-        None
-        N
-        None
-        (TwoOperands (OprReg R.R1, OprImm 17408L))
-        [| 0xf4uy; 0x91uy; 0x4fuy; 0x88uy |]
-
-      testThumb
-        (Condition.AL)
-        Op.TST
-        None
-        N
-        None
-        (ThreeOperands (
-          OprReg R.R2,
-          OprReg R.FP,
-          OprShift (SRTypeASR, Imm 21u)
-        ))
-        [| 0xeauy; 0x12uy; 0x5fuy; 0x6buy |]
-
-    /// A4.4.2 Shift instructions
-    [<TestMethod>]
-    member __.``[Thumb] Shift Parse Test`` () =
-      testThumb
-        (Condition.AL)
-        Op.ASRS
-        None
-        W
-        None
-        (ThreeOperands (OprReg R.FP, OprReg R.SL, OprReg R.R7))
-        [| 0xfauy; 0x5auy; 0xfbuy; 0x07uy |]
-
-      testThumb
-        (Condition.AL)
-        Op.LSLS
-        None
-        N
-        None
-        (ThreeOperands (OprReg R.R1, OprReg R.R6, OprImm 16L))
-        [| 0x04uy; 0x31uy |]
-
-      testThumb
-        (Condition.AL)
-        Op.LSRS
-        None
-        N
-        None
-        (ThreeOperands (OprReg R.R2, OprReg R.R1, OprImm 32L))
-        [| 0x08uy; 0x0auy |]
-
-      testThumb
-        (Condition.AL)
-        Op.LSRS
-        None
-        W
-        None
-        (ThreeOperands (OprReg R.IP, OprReg R.SL, OprImm 3L))
-        [| 0xeauy; 0x5fuy; 0x0cuy; 0xdauy |]
-
-      testThumb
-        (Condition.AL)
-        Op.RRXS
-        None
-        N
-        None
-        (TwoOperands (OprReg R.R0, OprReg R.SB))
-        [| 0xeauy; 0x5fuy; 0x00uy; 0x39uy |]
-
-    /// A4.4.3 Multiply instructions
-    member __.``[Thumb] Multiply Parse Test`` () =
-      testThumb
-        (Condition.AL)
-        Op.MLA
-        None
-        N
-        None
-        (FourOperands (OprReg R.SB, OprReg R.R0, OprReg R.R1, OprReg R.IP))
-        [| 0xfbuy; 0x00uy; 0xc9uy; 0x01uy |]
-
-      testThumb
-        (Condition.AL)
-        Op.MUL
-        None
-        N
-        None
-        (ThreeOperands (OprReg R.IP, OprReg R.R3, OprReg R.FP))
-        [| 0xfbuy; 0x03uy; 0xfcuy; 0x0buy |]
-
-      testThumb
-        Condition.UN
-        Op.MULS
-        None
-        N
-        None
-        (ThreeOperands (OprReg R.R6, OprReg R.R4, OprReg R.R6))
-        [| 0x43uy; 0x66uy |]
-
-      testThumb
-        (Condition.AL)
-        Op.SMLADX
-        None
-        N
-        None
-        (FourOperands (OprReg R.IP, OprReg R.SL, OprReg R.R4, OprReg R.R5))
-        [| 0xfbuy; 0x2auy; 0x5cuy; 0x14uy |]
-
-      testThumb
-        (Condition.AL)
-        Op.SMLATB
-        None
-        N
-        None
-        (FourOperands (OprReg R.IP, OprReg R.LR, OprReg R.R1, OprReg R.R5))
-        [| 0xfbuy; 0x1euy; 0x5cuy; 0x21uy |]
-
-      testThumb
-        (Condition.AL)
-        Op.SMLALTB
-        None
-        N
-        None
-        (FourOperands (OprReg R.R8, OprReg R.SL, OprReg R.R1, OprReg R.R3))
-        [| 0xfbuy; 0xc1uy; 0x8auy; 0xa3uy |]
-
-      testThumb
-        (Condition.AL)
-        Op.SMLSLDX
-        None
-        N
-        None
-        (FourOperands (OprReg R.IP, OprReg R.LR, OprReg R.R0, OprReg R.R5))
-        [| 0xfbuy; 0xd0uy; 0xceuy; 0xd5uy |]
-
-      testThumb
-        (Condition.AL)
-        Op.SMMULR
-        None
-        N
-        None
-        (ThreeOperands (OprReg R.R0, OprReg R.R8, OprReg R.SB))
-        [| 0xfbuy; 0x58uy; 0xf0uy; 0x19uy |]
-
-      testThumb
-        (Condition.AL)
-        Op.SMULTT
-        None
-        N
-        None
-        (ThreeOperands (OprReg R.R8, OprReg R.FP, OprReg R.R7))
-        [| 0xfbuy; 0x1buy; 0xf8uy; 0x37uy |]
-
-      testThumb
-        (Condition.AL)
-        Op.SMULL
-        None
-        N
-        None
-        (FourOperands (OprReg R.SL, OprReg R.SB, OprReg R.R3, OprReg R.R4))
-        [| 0xfbuy; 0x83uy; 0xa9uy; 0x04uy |]
-
-    /// A4.4.4 Saturating instructions
-    [<TestMethod>]
-    member __.``[Thumb] Saturating Parse Test`` () =
-      testThumb
-        (Condition.AL)
-        Op.SSAT16
-        None
-        N
-        None
-        (ThreeOperands (OprReg R.IP, OprImm 6L, OprReg R.R8))
-        [| 0xf3uy; 0x28uy; 0x0cuy; 0x05uy |]
-
-      testThumb
-        (Condition.AL)
-        Op.USAT
-        None
-        N
-        None
-        (FourOperands (
-          OprReg R.R7,
-          OprImm 17L,
-          OprReg R.R3,
-          OprShift (SRTypeASR, Imm 6u)
-        ))
-        [| 0xf3uy; 0xa3uy; 0x17uy; 0x91uy |]
-
-    /// A4.4.5 Saturating addition and subtraction instructions
-    [<TestMethod>]
-    member __.``[Thumb] Saturating addition and subtraction Parse Test`` () =
-      testThumb
-        (Condition.AL)
-        Op.QDADD
-        None
-        N
-        None
-        (ThreeOperands (OprReg R.IP, OprReg R.LR, OprReg R.R6))
-        [| 0xfauy; 0x86uy; 0xfcuy; 0x9euy |]
-
-    /// A4.4.6 Packing and unpacking instructions
-    [<TestMethod>]
-    member __.``[Thumb] Packing and unpacking Parse Test`` () =
-      testThumb
-        (Condition.AL)
-        Op.PKHBT
-        None
-        N
-        None
-        (FourOperands (
-          OprReg R.R0,
-          OprReg R.IP,
-          OprReg R.SL,
-          OprShift (SRTypeLSL, Imm 17u)
-        ))
-        [| 0xeauy; 0xccuy; 0x40uy; 0x4auy |]
-
-      testThumb
-        (Condition.AL)
-        Op.SXTAH
-        None
-        N
-        None
-        (FourOperands (
-          OprReg R.R4,
-          OprReg R.R0,
-          OprReg R.R6,
-          OprShift (SRTypeROR, Imm 24u)
-        ))
-        [| 0xfauy; 0x00uy; 0xf4uy; 0xb6uy |]
-
-      testThumb
-        (Condition.AL)
-        Op.SXTB16
-        None
-        N
-        None
-        (ThreeOperands (OprReg R.SB, OprReg R.R6, OprShift (SRTypeROR, Imm 8u)))
-        [| 0xfauy; 0x2fuy; 0xf9uy; 0x96uy |]
-
-      testThumb
-        (Condition.AL)
-        Op.UXTH
-        None
-        N
-        None
-        (TwoOperands (OprReg R.R7, OprReg R.R0))
-        [| 0xb2uy; 0x87uy |]
-
-      testThumb
-        (Condition.AL)
-        Op.UXTH
-        None
-        W
-        None
-        (TwoOperands (OprReg R.R2, OprReg R.IP))
-        [| 0xfauy; 0x1fuy; 0xf2uy; 0x8cuy |]
-
-    /// A4.4.7 Parallel addition and subtraction instructions
-    [<TestMethod>]
-    member __.``[Thumb] Parallel addition and subtraction Parse Test`` () =
-      // Signed
-      testThumb
-        (Condition.AL)
-        Op.SADD16
-        None
-        N
-        None
-        (ThreeOperands (OprReg R.FP, OprReg R.IP, OprReg R.R0))
-        [| 0xfauy; 0x9cuy; 0xfbuy; 0x00uy |]
-
-      // Saturating
-      testThumb
-        (Condition.AL)
-        Op.QSAX
-        None
-        N
-        None
-        (ThreeOperands (OprReg R.LR, OprReg R.R8, OprReg R.SB))
-        [| 0xfauy; 0xe8uy; 0xfeuy; 0x19uy |]
-
-      // Signed halving
-      testThumb
-        (Condition.AL)
-        Op.SHSUB8
-        None
-        N
-        None
-        (ThreeOperands (OprReg R.IP, OprReg R.R0, OprReg R.R7))
-        [| 0xfauy; 0xc0uy; 0xfcuy; 0x27uy |]
-
-      // Unsigned
-      testThumb
-        (Condition.AL)
-        Op.UASX
-        None
-        N
-        None
-        (ThreeOperands (OprReg R.R1, OprReg R.R0, OprReg R.R6))
-        [| 0xfauy; 0xa0uy; 0xf1uy; 0x46uy |]
-
-      // Unsigned saturating
-      testThumb
-        (Condition.AL)
-        Op.UQADD8
-        None
-        N
-        None
-        (ThreeOperands (OprReg R.SB, OprReg R.LR, OprReg R.R3))
-        [| 0xfauy; 0x8euy; 0xf9uy; 0x53uy |]
-
-      // Unsigned halving
-      testThumb
-        (Condition.AL)
-        Op.UHASX
-        None
-        N
-        None
-        (ThreeOperands (OprReg R.R8, OprReg R.R0, OprReg R.SL))
-        [| 0xfauy; 0xa0uy; 0xf8uy; 0x6auy |]
-
-    //// A4.4.8 Divide instructions
-    [<TestMethod>]
-    member __.``[Thumb] Divide Parse Test`` () =
-      testThumb
-        (Condition.AL)
-        Op.UDIV
-        None
-        N
-        None
-        (ThreeOperands (OprReg R.IP, OprReg R.R0, OprReg R.LR))
-        [| 0xfbuy; 0xb0uy; 0xfcuy; 0xfeuy |]
-
-    /// A4.4.9 Miscellaneous data-processing instructions
-    [<TestMethod>]
-    member __.``[Thumb] Miscellaneous data-processing Parse Test`` () =
-      testThumb
-        (Condition.AL)
-        Op.BFC
-        None
-        N
-        None
-        (ThreeOperands (OprReg R.IP, OprImm 4L, OprImm 15L))
-        [| 0xf3uy; 0x6fuy; 0x1cuy; 0x12uy |]
-
-      testThumb
-        (Condition.AL)
-        Op.BFI
-        None
-        N
-        None
-        (FourOperands (OprReg R.SL, OprReg R.R1, OprImm 11L, OprImm 7L))
-        [| 0xf3uy; 0x61uy; 0x2auy; 0xd1uy |]
-
-      testThumb
-        (Condition.AL)
-        Op.RBIT
-        None
-        N
-        None
-        (TwoOperands (OprReg R.IP, OprReg R.R4))
-        [| 0xfauy; 0x94uy; 0xfcuy; 0xa4uy |]
-
-      testThumb
-        (Condition.AL)
-        Op.SBFX
-        None
-        N
-        None
-        (FourOperands (OprReg R.SB, OprReg R.LR, OprImm 0L, OprImm 25L))
-        [| 0xf3uy; 0x4euy; 0x09uy; 0x18uy |]
-
-  /// A4.5 Status register access instructions
-  [<TestClass>]
-  type StatusOprRegAccessClass () =
-    [<TestMethod>]
-    member __.``[Thumb] Status register access Parse Test`` () =
-      testThumb
-        (Condition.AL)
-        Op.MRS
-        None
-        N
-        None
-        (TwoOperands (OprReg R.R5, OprReg R.APSR))
-        [| 0xf3uy; 0xefuy; 0x85uy; 0x00uy |]
-
-      testThumb
-        (Condition.AL)
-        Op.MRS
-        None
-        N
-        None
-        (TwoOperands (OprReg R.IP, OprReg R.SPSR))
-        [| 0xf3uy; 0xffuy; 0x8cuy; 0x00uy |]
-
-      testThumb
-        (Condition.AL)
-        Op.MSR
-        None
-        N
-        None
-        (TwoOperands (OprSpecReg (R.CPSR, Some PSRs), OprReg R.FP))
-        [| 0xf3uy; 0x8buy; 0x84uy; 0x00uy |]
-
-      testThumb
-        (Condition.AL)
-        Op.MSR
-        None
-        N
-        None
-        (TwoOperands (OprSpecReg (R.CPSR, Some PSRsc), OprReg R.IP))
-        [| 0xf3uy; 0x8cuy; 0x85uy; 0x00uy |]
-
-      testThumb
-        Condition.UN
-        Op.CPSID
-        None
-        N (* W *)
-        None
-        (TwoOperands (OprIflag IF, OprImm 4L))
-        [| 0xf3uy; 0xafuy; 0x87uy; 0x64uy |]
-
-      testThumb
-        Condition.UN
-        Op.CPSIE
-        None
-        N
-        None
-        (OneOperand (OprIflag AF))
-        [| 0xb6uy; 0x65uy |]
-
-    /// A4.5.1 Banked register access instructions
-    [<TestMethod>]
-    member __.``[Thumb] Banked register access Parse Test`` () =
-      testThumb
-        (Condition.AL)
-        Op.MRS
-        None
-        N
-        None
-        (TwoOperands (OprReg R.R0, OprReg R.LRusr))
-        [| 0xf3uy; 0xe6uy; 0x80uy; 0x20uy |]
-
-      testThumb
-        (Condition.AL)
-        Op.MSR
-        None
-        N
-        None
-        (TwoOperands (OprReg R.SPSRabt, OprReg R.R1))
-        [| 0xf3uy; 0x91uy; 0x84uy; 0x30uy |]
-
-  /// A4.6 Load/store instructions
-  [<TestClass>]
-  type LoadStoreClass () =
-    [<TestMethod>]
-    member __.``[Thumb] Load/store (Lord) Parse Test`` () =
-      testThumb
-        (Condition.AL)
-        Op.LDR
-        (Some false)
-        N
-        None
-        (TwoOperands (
-          OprReg R.R1,
-          OprMemory (OffsetMode (ImmOffset (R.SP, Some Plus, Some 60L)))
-        ))
-        [| 0x99uy; 0x0fuy |]
-
-      testThumb
-        (Condition.AL)
-        Op.LDR
-        None
-        N
-        None
-        (TwoOperands (OprReg R.R4, OprMemory (LiteralMode 220L)))
-        [| 0x4cuy; 0x37uy |]
-
-      testThumb
-        (Condition.AL)
-        Op.LDR
-        (Some false)
-        W
-        None
-        (TwoOperands (OprReg R.R0, OprMemory (LiteralMode 135L)))
-        [| 0xf8uy; 0xdfuy; 0x00uy; 0x87uy |]
-
-      testThumb
-        (Condition.AL)
-        Op.LDR
-        None
-        N
-        None
-        (TwoOperands (
-          OprReg R.IP,
-          OprMemory (
-            OffsetMode (
-              RegOffset (R.SB, Some Plus, R.R8, Some (SRTypeLSL, Imm 3u))
-            )
-          )
-        ))
-        [| 0xf8uy; 0x59uy; 0xc0uy; 0x38uy |]
-
-      testThumb
-        (Condition.AL)
-        Op.LDR
-        (Some true)
-        N
-        None
-        (TwoOperands (
-          OprReg R.R2,
-          OprMemory (PreIdxMode (ImmOffset (R.R1, Some Plus, Some 51L)))
-        ))
-        [| 0xf8uy; 0x51uy; 0x2fuy; 0x33uy |]
-
-      testThumb
-        (Condition.AL)
-        Op.LDR
-        (Some false)
-        W
-        None
-        (TwoOperands (
-          OprReg R.IP,
-          OprMemory (OffsetMode (ImmOffset (R.LR, Some Plus, Some 128L)))
-        ))
-        [| 0xf8uy; 0xdeuy; 0xc0uy; 0x80uy |]
-
-      testThumb
-        (Condition.AL)
-        Op.LDRH
-        (Some false)
-        N
-        None
-        (TwoOperands (
-          OprReg R.FP,
-          OprMemory (OffsetMode (ImmOffset (R.SB, Some Minus, Some 130L)))
-        ))
-        [| 0xf8uy; 0x39uy; 0xbcuy; 0x82uy |]
-
-      testThumb
-        (Condition.AL)
-        Op.LDRSH
-        None
-        N
-        None
-        (TwoOperands (OprReg R.R6, OprMemory (LiteralMode -587L)))
-        [| 0xf9uy; 0x3fuy; 0x62uy; 0x4buy |]
-
-      testThumb
-        (Condition.AL)
-        Op.LDRSH
-        (Some false)
-        N
-        None
-        (TwoOperands (
-          OprReg R.FP,
-          OprMemory (OffsetMode (ImmOffset (R.R3, Some Plus, Some 11L)))
-        ))
-        [| 0xf9uy; 0xb3uy; 0xb0uy; 0x0buy |]
-
-      testThumb
-        (Condition.AL)
-        Op.LDRB
-        (Some false)
-        N
-        None
-        (TwoOperands (
-          OprReg R.R6,
-          OprMemory (OffsetMode (ImmOffset (R.R4, Some Plus, Some 6L)))
-        ))
-        [| 0x79uy; 0xa6uy |]
-
-      testThumb
-        (Condition.AL)
-        Op.LDRB
-        (Some false)
-        N (* W *)
-        None
-        (TwoOperands (
-          OprReg R.SL,
-          OprMemory (
-            OffsetMode (
-              RegOffset (R.R2, Some Plus, R.R6, Some (SRTypeLSL, Imm 3u))
-            )
-          )
-        ))
-        [| 0xf8uy; 0x12uy; 0xa0uy; 0x36uy |]
-
-      testThumb
-        (Condition.AL)
-        Op.LDRB
-        (Some true)
-        N
-        None
-        (TwoOperands (
-          OprReg R.R8,
-          OprMemory (PostIdxMode (ImmOffset (R.R4, Some Minus, Some 12L)))
-        ))
-        [| 0xf8uy; 0x14uy; 0x89uy; 0x0cuy |]
-
-      testThumb
-        (Condition.AL)
-        Op.LDRB
-        None
-        N (* W *)
-        None
-        (TwoOperands (OprReg R.R3, OprMemory (LiteralMode 240L)))
-        [| 0xf8uy; 0x9fuy; 0x30uy; 0xf0uy |]
-
-      testThumb
-        (Condition.AL)
-        Op.LDRSB
-        (Some false)
-        N
-        None
-        (TwoOperands (
-          OprReg R.R1,
-          OprMemory (OffsetMode (ImmOffset (R.R8, Some Plus, Some 3122L)))
-        ))
-        [| 0xf9uy; 0x98uy; 0x1cuy; 0x32uy |]
-
-      testThumb
-        (Condition.AL)
-        Op.LDRSB
-        (Some false)
-        N (* W *)
-        None
-        (TwoOperands (
-          OprReg R.SB,
-          OprMemory (
-            OffsetMode (
-              RegOffset (R.LR, Some Plus, R.R0, Some (SRTypeLSL, Imm 2u))
-            )
-          )
-        ))
-        [| 0xf9uy; 0x1euy; 0x90uy; 0x20uy |]
-
-      testThumb
-        (Condition.AL)
-        Op.LDRD
-        (Some false)
-        N
-        None
-        (ThreeOperands (
-          OprReg R.IP,
-          OprReg R.R6,
-          OprMemory (LiteralMode -264L)
-        ))
-        [| 0xe9uy; 0x5fuy; 0xc6uy; 0x42uy |]
-
-    [<TestMethod>]
-    member __.``[Thumb] Load/store (Store) Parse Test`` () =
-      testThumb
-        (Condition.AL)
-        Op.STR
-        (Some false)
-        N
-        None
-        (TwoOperands (
-          OprReg R.R7,
-          OprMemory (OffsetMode (ImmOffset (R.R6, Some Plus, Some 96L)))
-        ))
-        [| 0x66uy; 0x37uy |]
-
-      testThumb
-        (Condition.AL)
-        Op.STRH
-        (Some false)
-        N
-        None
-        (TwoOperands (
-          OprReg R.R7,
-          OprMemory (OffsetMode (ImmOffset (R.R2, Some Plus, Some 34L)))
-        ))
-        [| 0x84uy; 0x57uy |]
-
-      testThumb
-        (Condition.AL)
-        Op.STRB
-        (Some false)
-        N
-        None
-        (TwoOperands (
-          OprReg R.R4,
-          OprMemory (OffsetMode (RegOffset (R.R3, Some Plus, R.R2, None)))
-        ))
-        [| 0x54uy; 0x9cuy |]
-
-      testThumb
-        (Condition.AL)
-        Op.STRB
-        (Some true)
-        N
-        None
-        (TwoOperands (
-          OprReg R.LR,
-          OprMemory (PostIdxMode (ImmOffset (R.SB, Some Minus, Some 130L)))
-        ))
-        [| 0xf8uy; 0x09uy; 0xe9uy; 0x82uy |]
-
-      testThumb
-        (Condition.AL)
-        Op.STRB
-        (Some false)
-        W
-        None
-        (TwoOperands (
-          OprReg R.IP,
-          OprMemory (OffsetMode (ImmOffset (R.R6, Some Plus, Some 2060L)))
-        ))
-        [| 0xf8uy; 0x86uy; 0xc8uy; 0x0cuy |]
-
-      testThumb
-        (Condition.AL)
-        Op.STRB
-        (Some false)
-        N (* W *)
-        None
-        (TwoOperands (
-          OprReg R.R0,
-          OprMemory (
-            OffsetMode (
-              RegOffset (R.SL, Some Plus, R.IP, Some (SRTypeLSL, Imm 2u))
-            )
-          )
-        ))
-        [| 0xf8uy; 0x0auy; 0x00uy; 0x2cuy |]
-
-      testThumb
-        (Condition.AL)
-        Op.STRD
-        (Some true)
-        N
-        None
-        (ThreeOperands (
-          OprReg R.R3,
-          OprReg R.SB,
-          OprMemory (PreIdxMode (ImmOffset (R.SL, Some Minus, Some 240L)))
-        ))
-        [| 0xe9uy; 0x6auy; 0x39uy; 0x3cuy |]
-
-    [<TestMethod>]
-    member __.``[Thumb] Load/store (Load unprivileged) Parse Test`` () =
-      testThumb
-        (Condition.AL)
-        Op.LDRT
-        None
-        N
-        None
-        (TwoOperands (
-          OprReg R.R1,
-          OprMemory (OffsetMode (ImmOffset (R.R0, None, Some 4L)))
-        ))
-        [| 0xf8uy; 0x50uy; 0x1euy; 0x04uy |]
-
-      testThumb
-        (Condition.AL)
-        Op.LDRHT
-        None
-        N
-        None
-        (TwoOperands (
-          OprReg R.IP,
-          OprMemory (OffsetMode (ImmOffset (R.R4, None, Some 1L)))
-        ))
-        [| 0xf8uy; 0x34uy; 0xceuy; 0x01uy |]
-
-      testThumb
-        (Condition.AL)
-        Op.LDRSBT
-        None
-        N
-        None
-        (TwoOperands (
-          OprReg R.SB,
-          OprMemory (OffsetMode (ImmOffset (R.IP, None, Some 9L)))
-        ))
-        [| 0xf9uy; 0x1cuy; 0x9euy; 0x09uy |]
-
-    [<TestMethod>]
-    member __.``[Thumb] Load/store (Store unprivileged) Parse Test`` () =
-      testThumb
-        (Condition.AL)
-        Op.STRHT
-        None
-        N
-        None
-        (TwoOperands (
-          OprReg R.FP,
-          OprMemory (OffsetMode (ImmOffset (R.R7, None, Some 83L)))
-        ))
-        [| 0xf8uy; 0x27uy; 0xbeuy; 0x53uy |]
-
-    [<TestMethod>]
-    member __.``[Thumb] Load/store (Load-Exclusive) Parse Test`` () =
-      testThumb
-        (Condition.AL)
-        Op.LDREX
-        None
-        N
-        None
-        (TwoOperands (
-          OprReg R.FP,
-          OprMemory (OffsetMode (ImmOffset (R.SB, None, Some 56L)))
-        ))
-        [| 0xe8uy; 0x59uy; 0xbfuy; 0x0euy |]
-
-      testThumb
-        (Condition.AL)
-        Op.LDREXB
-        None
-        N
-        None
-        (TwoOperands (
-          OprReg R.R0,
-          OprMemory (OffsetMode (ImmOffset (R.SB, None, None)))
-        ))
-        [| 0xe8uy; 0xd9uy; 0x0fuy; 0x4fuy |]
-
-      testThumb
-        (Condition.AL)
-        Op.LDREXD
-        None
-        N
-        None
-        (ThreeOperands (
-          OprReg R.SL,
-          OprReg R.IP,
-          OprMemory (OffsetMode (ImmOffset (R.LR, None, None)))
-        ))
-        [| 0xe8uy; 0xdeuy; 0xacuy; 0x7fuy |]
-
-    [<TestMethod>]
-    member __.``[Thumb] Load/store (Store-Exclusive) Parse Test`` () =
-      testThumb
-        (Condition.AL)
-        Op.STREX
-        None
-        N
-        None
-        (ThreeOperands (
-          OprReg R.SL,
-          OprReg R.LR,
-          OprMemory (OffsetMode (ImmOffset (R.R1, None, Some 48L)))
-        ))
-        [| 0xe8uy; 0x41uy; 0xeauy; 0x0cuy |]
-
-      testThumb
-        (Condition.AL)
-        Op.STREXH
-        None
-        N
-        None
-        (ThreeOperands (
-          OprReg R.R6,
-          OprReg R.SL,
-          OprMemory (OffsetMode (ImmOffset (R.R8, None, None)))
-        ))
-        [| 0xe8uy; 0xc8uy; 0xafuy; 0x56uy |]
-
-      testThumb
-        (Condition.AL)
-        Op.STREXD
-        None
-        N
-        None
-        (FourOperands (
-          OprReg R.R4,
-          OprReg R.IP,
-          OprReg R.FP,
-          OprMemory (OffsetMode (ImmOffset (R.R0, None, None)))
-        ))
-        [| 0xe8uy; 0xc0uy; 0xcbuy; 0x74uy |]
-
-  /// A4.7 Load/store multiple instructions
-  [<TestClass>]
-  type LoadStoreMultipleClass () =
-    [<TestMethod>]
-    member __.``[Thumb] Load/store multiple Parse Test`` () =
-      testThumb
-        (Condition.AL)
-        Op.LDM
-        (Some true)
-        N
-        None
-        (TwoOperands (OprReg R.R3, OprRegList [ R.R0; R.R6; R.R7 ]))
-        [| 0xcbuy; 0xc1uy |]
-
-      testThumb
-        (Condition.AL)
-        Op.LDM
-        (Some false)
-        W
-        None
-        (TwoOperands (OprReg R.R8, OprRegList [ R.R2; R.R7; R.R8; R.IP; R.LR ]))
-        [| 0xe8uy; 0x98uy; 0x51uy; 0x84uy |]
-
-      testThumb
-        (Condition.AL)
-        Op.POP
-        None
-        W
-        None
-        (OneOperand (OprRegList [ R.R0; R.R4; R.SB; R.SL; R.PC ]))
-        [| 0xe8uy; 0xbduy; 0x86uy; 0x11uy |]
-
-      testThumb
-        (Condition.AL)
-        Op.POP
-        None
-        W
-        None
-        (OneOperand (OprRegList [ R.R3 ]))
-        [| 0xf8uy; 0x5duy; 0x3buy; 0x04uy |]
-
-      testThumb
-        (Condition.AL)
-        Op.PUSH
-        None
-        N
-        None
-        (OneOperand (OprRegList [ R.R0; R.R1; R.R4; R.R5; R.LR ]))
-        [| 0xb5uy; 0x33uy |]
-
-      testThumb
-        (Condition.AL)
-        Op.PUSH
-        None
-        W
-        None
-        (OneOperand (OprRegList [ R.R2; R.R7; R.R8 ]))
-        [| 0xe9uy; 0x2duy; 0x01uy; 0x84uy |]
-
-      testThumb
-        (Condition.AL)
-        Op.PUSH
-        None
-        W
-        None
-        (OneOperand (OprRegList [ R.R1 ]))
-        [| 0xf8uy; 0x4duy; 0x1duy; 0x04uy |]
-
-      testThumb
-        (Condition.AL)
-        Op.STM
-        (Some true)
-        N
-        None
-        (TwoOperands (OprReg R.R5, OprRegList [ R.R0; R.R1; R.R5; R.R7 ]))
-        [| 0xc5uy; 0xa3uy |]
-
-      testThumb
-        (Condition.AL)
-        Op.STM
-        (Some false)
-        W
-        None
-        (TwoOperands (
-          OprReg R.R2,
-          OprRegList [ R.R4; R.R7; R.R8; R.FP; R.IP; R.LR ]
-        ))
-        [| 0xe8uy; 0x82uy; 0x59uy; 0x90uy |]
-
-  /// A4.8 Miscellaneous instructions
-  [<TestClass>]
-  type MiscellaneousClass () =
-    [<TestMethod>]
-    member __.``[Thumb] Miscellaneous Parse Test`` () =
-      testThumb
-        (Condition.AL)
-        Op.DBG
-        None
-        N
-        None
-        (OneOperand (OprImm 11L))
-        [| 0xf3uy; 0xafuy; 0x80uy; 0xfbuy |]
-
-      testThumb
-        (Condition.AL)
-        Op.DMB
-        None
-        N
-        None
-        (OneOperand (OprOption BarrierOption.NSH))
-        [| 0xf3uy; 0xbfuy; 0x8fuy; 0x57uy |]
-
-      testThumb
-        Condition.UN
-        Op.ITE
-        None
-        N
-        None
-        (OneOperand (OprCond Condition.VS))
-        [| 0xbfuy; 0x6cuy |]
-
-      testThumb
-        (Condition.AL)
-        Op.NOP
-        None
-        W
-        None
-        NoOperand
-        [| 0xf3uy; 0xafuy; 0x80uy; 0x00uy |]
-
-      testThumb
-        (Condition.AL)
-        Op.PLD
-        None
-        N
-        None
-        (OneOperand (
-          OprMemory (
-            OffsetMode (RegOffset (R.IP, None, R.FP, Some (SRTypeLSL, Imm 1u)))
-          )
-        ))
-        [| 0xf8uy; 0x1cuy; 0xf0uy; 0x1buy |]
-
-      testThumb
-        (Condition.AL)
-        Op.PLD
-        None
-        N
-        None
-        (OneOperand (
-          OprMemory (OffsetMode (ImmOffset (R.R0, Some Minus, Some 32L)))
-        ))
-        [| 0xf8uy; 0x10uy; 0xfcuy; 0x20uy |]
-
-      testThumb
-        (Condition.AL)
-        Op.PLD
-        None
-        N
-        None
-        (OneOperand (OprMemory (LiteralMode -142L)))
-        [| 0xf8uy; 0x1fuy; 0xf0uy; 0x8euy |]
-
-      testThumb
-        (Condition.AL)
-        Op.PLD
-        None
-        N
-        None
-        (OneOperand (OprMemory (LiteralMode 15L)))
-        [| 0xf8uy; 0x9fuy; 0xf0uy; 0x0fuy |]
-
-      testThumb
-        (Condition.AL)
-        Op.PLDW
-        None
-        N
-        None
-        (OneOperand (
-          OprMemory (
-            OffsetMode (RegOffset (R.R7, None, R.FP, Some (SRTypeLSL, Imm 1u)))
-          )
-        ))
-        [| 0xf8uy; 0x37uy; 0xf0uy; 0x1buy |]
-
-      testThumb
-        (Condition.AL)
-        Op.PLDW
-        None
-        N
-        None
-        (OneOperand (
-          OprMemory (OffsetMode (ImmOffset (R.R2, Some Minus, Some 49L)))
-        ))
-        [| 0xf8uy; 0x32uy; 0xfcuy; 0x31uy |]
-
-      testThumb
-        (Condition.AL)
-        Op.PLDW
-        None
-        N
-        None
-        (OneOperand (
-          OprMemory (OffsetMode (ImmOffset (R.IP, Some Plus, Some 195L)))
-        ))
-        [| 0xf8uy; 0xbcuy; 0xf0uy; 0xc3uy |]
-
-      testThumb
-        (Condition.AL)
-        Op.PLI
-        None
-        N
-        None
-        (OneOperand (
-          OprMemory (OffsetMode (ImmOffset (R.SL, Some Plus, Some 3L)))
-        ))
-        [| 0xf9uy; 0x9auy; 0xf0uy; 0x03uy |]
-
-      testThumb
-        Condition.UN
-        Op.SETEND
-        None
-        N
-        None
-        (OneOperand (OprEndian Endian.Big))
-        [| 0xb6uy; 0x58uy |]
-
-  /// A4.9 Exception-generating and exception-handling instructions
-  [<TestClass>]
-  type ExcepGenAndExcepHandClass () =
-    [<TestMethod>]
-    member __.``[Thumb] Exception-gen and exception-handling Parse Test`` () =
-      testThumb
-        Condition.UN
-        Op.BKPT
-        None
-        N
-        None
-        (OneOperand (OprImm 48L))
-        [| 0xbeuy; 0x30uy |]
-
-      testThumb
-        (Condition.AL)
-        Op.SMC
-        None
-        N
-        None
-        (OneOperand (OprImm 8L))
-        [| 0xf7uy; 0xf8uy; 0x80uy; 0x00uy |]
-
-      testThumb
-        (Condition.AL)
-        Op.RFEIA
-        (Some true)
-        N
-        None
-        (OneOperand (OprReg R.SL))
-        [| 0xe9uy; 0xbauy; 0xc0uy; 0x00uy |]
-
-      testThumb
-        (Condition.AL)
-        Op.SUBS
-        None
-        N
-        None
-        (ThreeOperands (OprReg R.PC, OprReg R.LR, OprImm 8L))
-        [| 0xf3uy; 0xdeuy; 0x8fuy; 0x08uy |]
-
-      testThumb
-        Condition.UN
-        Op.HVC
-        None
-        N
-        None
-        (OneOperand (OprImm 4108L))
-        [| 0xf7uy; 0xe1uy; 0x80uy; 0x0cuy |]
-
-      testThumb
-        (Condition.AL)
-        Op.ERET
-        None
-        N
-        None
-        NoOperand
-        [| 0xf3uy; 0xdeuy; 0x8fuy; 0x00uy |]
-
-      testThumb
-        (Condition.AL)
-        Op.ERET
-        None
-        N
-        None
-        NoOperand
-        [| 0xf3uy; 0xdeuy; 0x8fuy; 0x00uy |]
-
-      testThumb
-        (Condition.AL)
-        Op.SRSDB
-        (Some true)
-        N
-        None
-        (TwoOperands ((OprReg R.SP), OprImm 19L))
-        [| 0xe8uy; 0x2duy; 0xc0uy; 0x13uy |]
-
-  /// A5.4 Media instructions
-  [<TestClass>]
-  type MediaClass () =
-    [<TestMethod>]
-    member __.``[Thumb] Media Parse Test`` () =
-      testThumb
-        (Condition.AL)
-        Op.UDF
-        None
-        N
-        None
-        (OneOperand (OprImm 15L))
-        [| 0xdeuy; 0x0fuy |]
-
-  /// A6.3.4 Branches and miscellaneous control
-  [<TestClass>]
-  type MiscellaneousControlClass () =
-    [<TestMethod>]
-    member __.``[Thumb] Miscellaneous control Parse Test`` () =
-      testThumb
-        (Condition.AL)
-        Op.CLREX
-        None
-        N
-        None
-        NoOperand
-        [| 0xf3uy; 0xbfuy; 0x8fuy; 0x2fuy |]
+open B2R2.FrontEnd.BinLifter.ARM32
+open B2R2.FrontEnd.Tests.ARM32
+open type Opcode
+open type Register
+
+let private test arch e c op w q (s: SIMDDataTypes option) oprs (b: byte[]) =
+  let mode = ArchOperationMode.ThumbMode
+  let parser =
+    ARM32Parser (ISA.Init arch e, mode, None) :> IInstructionParsable
+  let ins = parser.Parse (b, 0UL) :?> ARM32Instruction
+  let cond' = ins.Condition
+  let opcode' = ins.Opcode
+  let wback' = ins.WriteBack
+  let q' = ins.Qualifier
+  let simd' = ins.SIMDTyp
+  let oprs' = ins.Operands
+
+  let w =
+    match w with
+    | Some true -> true
+    | _ -> false // XXX
+
+  let q =
+    match q with
+    | Some W -> W
+    | _ -> N // XXX
+
+  Assert.AreEqual (cond', c)
+  Assert.AreEqual (opcode', op)
+  Assert.AreEqual (wback', w)
+  Assert.AreEqual (q', q)
+  Assert.AreEqual (simd', s)
+  Assert.AreEqual (oprs', oprs)
+
+let private testThumb = test Architecture.ARMv7 Endian.Big
+
+let private testNoWbackNoQNoSimd pref (bytes: byte[]) (opcode, operands) =
+  testThumb pref opcode None None None operands bytes
+
+let private testNoWbackNoSimd pref q (bytes: byte[]) (opcode, operands) =
+  testThumb pref opcode None q None operands bytes
+
+let private testNoQNoSimd pref wback (bytes: byte[]) (opcode, operands) =
+  testThumb pref opcode wback None None operands bytes
+
+let private testNoSimd pref wback q (bytes: byte[]) (opcode, operands) =
+  testThumb pref opcode wback q None operands bytes
+
+let private operandsFromArray oprList =
+  let oprs = Array.ofList oprList
+  match oprs.Length with
+  | 0 -> NoOperand
+  | 1 -> OneOperand oprs[0]
+  | 2 -> TwoOperands (oprs[0], oprs[1])
+  | 3 -> ThreeOperands (oprs[0], oprs[1], oprs[2])
+  | 4 -> FourOperands (oprs[0], oprs[1], oprs[2], oprs[3])
+  | _ -> Utils.impossible ()
+
+let private ( ** ) opcode oprList = (opcode, operandsFromArray oprList)
+
+let private ( ++ ) byteString pair = (ByteArray.ofHexString byteString, pair)
+
+/// A4.3 Branch instructions
+[<TestClass>]
+type BranchClass () =
+  [<TestMethod>]
+  member __.``[Thumb] Branch Parse test (1)`` () =
+    "d826"
+    ++ B ** [ O.MemLabel 76L ]
+    ||> testNoWbackNoQNoSimd Condition.HI
+
+  [<TestMethod>]
+  member __.``[Thumb] Branch Parse test (2)`` () =
+    "e184"
+    ++ B ** [ O.MemLabel 776L ]
+    ||> testNoWbackNoQNoSimd Condition.AL
+
+  [<TestMethod>]
+  member __.``[Thumb] Branch Parse test (3)`` () =
+    "f6738866"
+    ++ B ** [ O.MemLabel 4294652108L ]
+    ||> testNoWbackNoSimd Condition.LS (Some W)
+
+  [<TestMethod>]
+  member __.``[Thumb] Branch Parse test (4)`` () =
+    "f0309194"
+    ++ B ** [ O.MemLabel 12780328L ]
+    ||> testNoWbackNoSimd Condition.AL (Some W)
+
+  [<TestMethod>]
+  member __.``[Thumb] Branch Parse test (5)`` () =
+    "b91a"
+    ++ CBNZ ** [ O.Reg R2; O.MemLabel 6L ]
+    ||> testNoWbackNoQNoSimd Condition.UN
+
+  [<TestMethod>]
+  member __.``[Thumb] Branch Parse test (6)`` () =
+    "47c8"
+    ++ BLX ** [ O.Reg SB ]
+    ||> testNoWbackNoQNoSimd Condition.AL
+
+  [<TestMethod>]
+  member __.``[Thumb] Branch Parse test (7)`` () =
+    "f436e184"
+    ++ BLX ** [ O.MemLabel 4286800648L ]
+    ||> testNoWbackNoQNoSimd Condition.AL
+
+  [<TestMethod>]
+  member __.``[Thumb] Branch Parse test (8)`` () =
+    "4718"
+    ++ BX ** [ O.Reg R3 ]
+    ||> testNoWbackNoQNoSimd Condition.AL
+
+  [<TestMethod>]
+  member __.``[Thumb] Branch Parse test (9)`` () =
+    "f3c58f00"
+    ++ BXJ ** [ O.Reg R5 ]
+    ||> testNoWbackNoQNoSimd Condition.AL
+
+  [<TestMethod>]
+  member __.``[Thumb] Branch Parse test (10)`` () =
+    "e8def017"
+    ++ TBH ** [ O.MemOffsetReg (LR, None, R7, SRTypeLSL, 1u) ]
+    ||> testNoWbackNoQNoSimd Condition.AL
+
+/// A4.4 Data-processing instructions
+[<TestClass>]
+type DataProcessingClass () =
+  /// A4.4.1 Standard data-processing instructions
+  [<TestMethod>]
+  member __.``[Thumb] Standard data-processing Parse test (1)`` () =
+    "f1526318"
+    ++ ADCS ** [ O.Reg R3; O.Reg R2; O.Imm 159383552L ]
+    ||> testNoWbackNoQNoSimd Condition.AL
+
+  [<TestMethod>]
+  member __.``[Thumb] Standard data-processing Parse test (2)`` () =
+    "44ec"
+    ++ ADD ** [ O.Reg IP; O.Reg SP; O.Reg IP ]
+    ||> testNoWbackNoQNoSimd Condition.AL
+
+  [<TestMethod>]
+  member __.``[Thumb] Standard data-processing Parse test (3)`` () =
+    "44d5"
+    ++ ADD ** [ O.Reg SP; O.Reg SP; O.Reg SL ]
+    ||> testNoWbackNoQNoSimd Condition.AL
+
+  [<TestMethod>]
+  member __.``[Thumb] Standard data-processing Parse test (4)`` () =
+    "448b"
+    ++ ADD ** [ O.Reg FP; O.Reg R1 ]
+    ||> testNoWbackNoQNoSimd Condition.AL
+
+  [<TestMethod>]
+  member __.``[Thumb] Standard data-processing Parse test (5)`` () =
+    "b066"
+    ++ ADD ** [ O.Reg SP; O.Reg SP; O.Imm 408L ]
+    ||> testNoWbackNoQNoSimd Condition.AL
+
+  [<TestMethod>]
+  member __.``[Thumb] Standard data-processing Parse test (6)`` () =
+    "ac28"
+    ++ ADD ** [ O.Reg R4; O.Reg SP; O.Imm 160L ]
+    ||> testNoWbackNoQNoSimd Condition.AL
+
+  [<TestMethod>]
+  member __.``[Thumb] Standard data-processing Parse test (7)`` () =
+    "f1040e01"
+    ++ ADD ** [ O.Reg LR; O.Reg R4; O.Imm 1L ]
+    ||> testNoWbackNoQNoSimd Condition.AL
+
+  [<TestMethod>]
+  member __.``[Thumb] Standard data-processing Parse test (8)`` () =
+    "180c"
+    ++ ADDS ** [ O.Reg R4; O.Reg R1; O.Reg R0 ]
+    ||> testNoWbackNoQNoSimd Condition.UN
+
+  [<TestMethod>]
+  member __.``[Thumb] Standard data-processing Parse test (9)`` () =
+    "1c77"
+    ++ ADDS ** [ O.Reg R7; O.Reg R6; O.Imm 1L ]
+    ||> testNoWbackNoQNoSimd Condition.UN
+
+  [<TestMethod>]
+  member __.``[Thumb] Standard data-processing Parse test (10)`` () =
+    "f20b0001"
+    ++ ADDW ** [ O.Reg R0; O.Reg FP; O.Imm 1L ]
+    ||> testNoWbackNoQNoSimd Condition.AL
+
+  [<TestMethod>]
+  member __.``[Thumb] Standard data-processing Parse test (11)`` () =
+    "f20f0001"
+    ++ ADR ** [ O.Reg R0; O.MemLabel 1L ]
+    ||> testNoWbackNoSimd Condition.AL (Some W)
+
+  [<TestMethod>]
+  member __.``[Thumb] Standard data-processing Parse test (12)`` () =
+    "a20f"
+    ++ ADR ** [ O.Reg R2; O.MemLabel 60L ]
+    ||> testNoWbackNoQNoSimd Condition.AL
+
+  [<TestMethod>]
+  member __.``[Thumb] Standard data-processing Parse test (13)`` () =
+    "403e"
+    ++ ANDS ** [ O.Reg R6; O.Reg R6; O.Reg R7 ]
+    ||> testNoWbackNoQNoSimd Condition.UN
+
+  [<TestMethod>]
+  member __.``[Thumb] Standard data-processing Parse test (14)`` () =
+    "ea3c7605"
+    ++ BICS ** [ O.Reg R6; O.Reg IP; O.Reg R5; O.Shift (SRTypeLSL, 28u) ]
+    ||> testNoWbackNoQNoSimd Condition.AL
+
+  [<TestMethod>]
+  member __.``[Thumb] Standard data-processing Parse test (15)`` () =
+    "2df3"
+    ++ CMP ** [ O.Reg R5; O.Imm 243L ]
+    ||> testNoWbackNoQNoSimd Condition.AL
+
+  [<TestMethod>]
+  member __.``[Thumb] Standard data-processing Parse test (16)`` () =
+    "45c8"
+    ++ CMP ** [ O.Reg R8; O.Reg SB ]
+    ||> testNoWbackNoQNoSimd Condition.AL
+
+  [<TestMethod>]
+  member __.``[Thumb] Standard data-processing Parse test (17)`` () =
+    "4544"
+    ++ CMP ** [ O.Reg R4; O.Reg R8 ]
+    ||> testNoWbackNoQNoSimd Condition.AL
+
+  [<TestMethod>]
+  member __.``[Thumb] Standard data-processing Parse test (18)`` () =
+    "f04f1708"
+    ++ MOV ** [ O.Reg R7; O.Imm 524296L ]
+    ||> testNoWbackNoQNoSimd Condition.AL
+
+  [<TestMethod>]
+  member __.``[Thumb] Standard data-processing Parse test (19)`` () =
+    "000e"
+    ++ MOVS ** [ O.Reg R6; O.Reg R1; O.Shift (SRTypeLSL, 0u) ]
+    ||> testNoWbackNoQNoSimd Condition.UN
+
+  [<TestMethod>]
+  member __.``[Thumb] Standard data-processing Parse test (20)`` () =
+    "f6420b02"
+    ++ MOVW ** [ O.Reg FP; O.Imm 10242L ]
+    ||> testNoWbackNoQNoSimd Condition.AL
+
+  [<TestMethod>]
+  member __.``[Thumb] Standard data-processing Parse test (21)`` () =
+    "ea6ff49e"
+    ++ MVN ** [ O.Reg R4; O.Reg LR; O.Shift (SRTypeLSR, 30u) ]
+    ||> testNoWbackNoQNoSimd Condition.AL
+
+  [<TestMethod>]
+  member __.``[Thumb] Standard data-processing Parse test (22)`` () =
+    "f5d90308"
+    ++ RSBS ** [ O.Reg R3; O.Reg SB; O.Imm 8912896L ]
+    ||> testNoWbackNoQNoSimd Condition.AL
+
+  [<TestMethod>]
+  member __.``[Thumb] Standard data-processing Parse test (23)`` () =
+    "424b"
+    ++ RSBS ** [ O.Reg R3; O.Reg R1; O.Imm 0L ]
+    ||> testNoWbackNoQNoSimd Condition.UN
+
+  [<TestMethod>]
+  member __.``[Thumb] Standard data-processing Parse test (24)`` () =
+    "f4914f88"
+    ++ TEQ ** [ O.Reg R1; O.Imm 17408L ]
+    ||> testNoWbackNoQNoSimd Condition.AL
+
+  [<TestMethod>]
+  member __.``[Thumb] Standard data-processing Parse test (25)`` () =
+    "ea125f6b"
+    ++ TST ** [ O.Reg R2; O.Reg FP; O.Shift (SRTypeASR, 21u) ]
+    ||> testNoWbackNoQNoSimd Condition.AL
+
+  /// A4.4.2 Shift instructions
+  [<TestMethod>]
+  member __.``[Thumb] Shift Parse test (1)`` () =
+    "fa5afb07"
+    ++ ASRS ** [ O.Reg FP; O.Reg SL; O.Reg R7 ]
+    ||> testNoWbackNoSimd Condition.AL (Some W)
+
+  [<TestMethod>]
+  member __.``[Thumb] Shift Parse test (2)`` () =
+    "0431"
+    ++ LSLS ** [ O.Reg R1; O.Reg R6; O.Imm 16L ]
+    ||> testNoWbackNoQNoSimd Condition.AL
+
+  [<TestMethod>]
+  member __.``[Thumb] Shift Parse test (3)`` () =
+    "080a"
+    ++ LSRS ** [ O.Reg R2; O.Reg R1; O.Imm 32L ]
+    ||> testNoWbackNoQNoSimd Condition.AL
+
+  [<TestMethod>]
+  member __.``[Thumb] Shift Parse test (4)`` () =
+    "ea5f0cda"
+    ++ LSRS ** [ O.Reg IP; O.Reg SL; O.Imm 3L ]
+    ||> testNoWbackNoSimd Condition.AL (Some W)
+
+  [<TestMethod>]
+  member __.``[Thumb] Shift Parse test (5)`` () =
+    "ea5f0039"
+    ++ RRXS ** [ O.Reg R0; O.Reg SB ]
+    ||> testNoWbackNoQNoSimd Condition.AL
+
+  /// A4.4.3 Multiply instructions
+  [<TestMethod>]
+  member __.``[Thumb] Multiply Parse test (1)`` () =
+    "fb00c901"
+    ++ MLA ** [ O.Reg SB; O.Reg R0; O.Reg R1; O.Reg IP ]
+    ||> testNoWbackNoQNoSimd Condition.AL
+
+  [<TestMethod>]
+  member __.``[Thumb] Multiply Parse test (2)`` () =
+    "fb03fc0b"
+    ++ MUL ** [ O.Reg IP; O.Reg R3; O.Reg FP ]
+    ||> testNoWbackNoQNoSimd Condition.AL
+
+  [<TestMethod>]
+  member __.``[Thumb] Multiply Parse test (3)`` () =
+    "4366"
+    ++ MULS ** [ O.Reg R6; O.Reg R4; O.Reg R6 ]
+    ||> testNoWbackNoQNoSimd Condition.UN
+
+  [<TestMethod>]
+  member __.``[Thumb] Multiply Parse test (4)`` () =
+    "fb2a5c14"
+    ++ SMLADX ** [ O.Reg IP; O.Reg SL; O.Reg R4; O.Reg R5 ]
+    ||> testNoWbackNoQNoSimd Condition.AL
+
+  [<TestMethod>]
+  member __.``[Thumb] Multiply Parse test (5)`` () =
+    "fb1e5c21"
+    ++ SMLATB ** [ O.Reg IP; O.Reg LR; O.Reg R1; O.Reg R5 ]
+    ||> testNoWbackNoQNoSimd Condition.AL
+
+  [<TestMethod>]
+  member __.``[Thumb] Multiply Parse test (6)`` () =
+    "fbc18aa3"
+    ++ SMLALTB ** [ O.Reg R8; O.Reg SL; O.Reg R1; O.Reg R3 ]
+    ||> testNoWbackNoQNoSimd Condition.AL
+
+  [<TestMethod>]
+  member __.``[Thumb] Multiply Parse test (7)`` () =
+    "fbd0ced5"
+    ++ SMLSLDX ** [ O.Reg IP; O.Reg LR; O.Reg R0; O.Reg R5 ]
+    ||> testNoWbackNoQNoSimd Condition.AL
+
+  [<TestMethod>]
+  member __.``[Thumb] Multiply Parse test (8)`` () =
+    "fb58f019"
+    ++ SMMULR ** [ O.Reg R0; O.Reg R8; O.Reg SB ]
+    ||> testNoWbackNoQNoSimd Condition.AL
+
+  [<TestMethod>]
+  member __.``[Thumb] Multiply Parse test (9)`` () =
+    "fb1bf837"
+    ++ SMULTT ** [ O.Reg R8; O.Reg FP; O.Reg R7 ]
+    ||> testNoWbackNoQNoSimd Condition.AL
+
+  [<TestMethod>]
+  member __.``[Thumb] Multiply Parse test (10)`` () =
+    "fb83a904"
+    ++ SMULL ** [ O.Reg SL; O.Reg SB; O.Reg R3; O.Reg R4 ]
+    ||> testNoWbackNoQNoSimd Condition.AL
+
+  /// A4.4.4 Saturating instructions
+  [<TestMethod>]
+  member __.``[Thumb] Saturating Parse test (1)`` () =
+    "f3280c05"
+    ++ SSAT16 ** [ O.Reg IP; O.Imm 6L; O.Reg R8 ]
+    ||> testNoWbackNoQNoSimd Condition.AL
+
+  [<TestMethod>]
+  member __.``[Thumb] Saturating Parse test (2)`` () =
+    "f3a31791"
+    ++ USAT ** [ O.Reg R7; O.Imm 17L; O.Reg R3; O.Shift (SRTypeASR, 6u) ]
+    ||> testNoWbackNoQNoSimd Condition.AL
+
+  /// A4.4.5 Saturating addition and subtraction instructions
+  [<TestMethod>]
+  member __.``[Thumb] Saturating addition and subtraction Parse test (1)`` () =
+    "fa86fc9e"
+    ++ QDADD ** [ O.Reg IP; O.Reg LR; O.Reg R6 ]
+    ||> testNoWbackNoQNoSimd Condition.AL
+
+  /// A4.4.6 Packing and unpacking instructions
+  [<TestMethod>]
+  member __.``[Thumb] Packing and unpacking Parse test (1)`` () =
+    "eacc404a"
+    ++ PKHBT ** [ O.Reg R0; O.Reg IP; O.Reg SL; O.Shift (SRTypeLSL, 17u) ]
+    ||> testNoWbackNoQNoSimd Condition.AL
+
+  [<TestMethod>]
+  member __.``[Thumb] Packing and unpacking Parse test (2)`` () =
+    "fa00f4b6"
+    ++ SXTAH ** [ O.Reg R4; O.Reg R0; O.Reg R6; O.Shift (SRTypeROR, 24u) ]
+    ||> testNoWbackNoQNoSimd Condition.AL
+
+  [<TestMethod>]
+  member __.``[Thumb] Packing and unpacking Parse test (3)`` () =
+    "fa2ff996"
+    ++ SXTB16 ** [ O.Reg SB; O.Reg R6; O.Shift (SRTypeROR, 8u) ]
+    ||> testNoWbackNoQNoSimd Condition.AL
+
+  [<TestMethod>]
+  member __.``[Thumb] Packing and unpacking Parse test (4)`` () =
+    "b287"
+    ++ UXTH ** [ O.Reg R7; O.Reg R0 ]
+    ||> testNoWbackNoQNoSimd Condition.AL
+
+  [<TestMethod>]
+  member __.``[Thumb] Packing and unpacking Parse test (5)`` () =
+    "fa1ff28c"
+    ++ UXTH ** [ O.Reg R2; O.Reg IP ]
+    ||> testNoWbackNoSimd Condition.AL (Some W)
+
+  /// A4.4.7 Parallel addition and subtraction instructions
+  [<TestMethod>]
+  member __.``[Thumb] Parallel addition and subtraction Parse test (1)`` () =
+    // Signed
+    "fa9cfb00"
+    ++ SADD16 ** [ O.Reg FP; O.Reg IP; O.Reg R0 ]
+    ||> testNoWbackNoQNoSimd Condition.AL
+
+  [<TestMethod>]
+  member __.``[Thumb] Parallel addition and subtraction Parse test (2)`` () =
+    // Saturating
+    "fae8fe19"
+    ++ QSAX ** [ O.Reg LR; O.Reg R8; O.Reg SB ]
+    ||> testNoWbackNoQNoSimd Condition.AL
+
+  [<TestMethod>]
+  member __.``[Thumb] Parallel addition and subtraction Parse test (3)`` () =
+    // Signed halving
+    "fac0fc27"
+    ++ SHSUB8 ** [ O.Reg IP; O.Reg R0; O.Reg R7 ]
+    ||> testNoWbackNoQNoSimd Condition.AL
+
+  [<TestMethod>]
+  member __.``[Thumb] Parallel addition and subtraction Parse test (4)`` () =
+    // Unsigned
+    "faa0f146"
+    ++ UASX ** [ O.Reg R1; O.Reg R0; O.Reg R6 ]
+    ||> testNoWbackNoQNoSimd Condition.AL
+
+  [<TestMethod>]
+  member __.``[Thumb] Parallel addition and subtraction Parse test (5)`` () =
+    // Unsigned saturating
+    "fa8ef953"
+    ++ UQADD8 ** [ O.Reg SB; O.Reg LR; O.Reg R3 ]
+    ||> testNoWbackNoQNoSimd Condition.AL
+
+  [<TestMethod>]
+  member __.``[Thumb] Parallel addition and subtraction Parse test (6)`` () =
+    // Unsigned halving
+    "faa0f86a"
+    ++ UHASX ** [ O.Reg R8; O.Reg R0; O.Reg SL ]
+    ||> testNoWbackNoQNoSimd Condition.AL
+
+  //// A4.4.8 Divide instructions
+  [<TestMethod>]
+  member __.``[Thumb] Divide Parse test (1)`` () =
+    "fbb0fcfe"
+    ++ UDIV ** [ O.Reg IP; O.Reg R0; O.Reg LR ]
+    ||> testNoWbackNoQNoSimd Condition.AL
+
+  /// A4.4.9 Miscellaneous data-processing instructions
+  [<TestMethod>]
+  member __.``[Thumb] Miscellaneous data-processing Parse test (1)`` () =
+    "f36f1c12"
+    ++ BFC ** [ O.Reg IP; O.Imm 4L; O.Imm 15L ]
+    ||> testNoWbackNoQNoSimd Condition.AL
+
+  [<TestMethod>]
+  member __.``[Thumb] Miscellaneous data-processing Parse test (2)`` () =
+    "f3612ad1"
+    ++ BFI ** [ O.Reg SL; O.Reg R1; O.Imm 11L; O.Imm 7L ]
+    ||> testNoWbackNoQNoSimd Condition.AL
+
+  [<TestMethod>]
+  member __.``[Thumb] Miscellaneous data-processing Parse test (3)`` () =
+    "fa94fca4"
+    ++ RBIT ** [ O.Reg IP; O.Reg R4 ]
+    ||> testNoWbackNoQNoSimd Condition.AL
+
+  [<TestMethod>]
+  member __.``[Thumb] Miscellaneous data-processing Parse test (4)`` () =
+    "f34e0918"
+    ++ SBFX ** [ O.Reg SB; O.Reg LR; O.Imm 0L; O.Imm 25L ]
+    ||> testNoWbackNoQNoSimd Condition.AL
+
+/// A4.5 Status register access instructions
+[<TestClass>]
+type StatusOprRegAccessClass () =
+  [<TestMethod>]
+  member __.``[Thumb] Status register access Parse test (1)`` () =
+    "f3ef8500"
+    ++ MRS ** [ O.Reg R5; O.Reg APSR ]
+    ||> testNoWbackNoQNoSimd Condition.AL
+
+  [<TestMethod>]
+  member __.``[Thumb] Status register access Parse test (2)`` () =
+    "f3ff8c00"
+    ++ MRS ** [ O.Reg IP; O.Reg SPSR ]
+    ||> testNoWbackNoQNoSimd Condition.AL
+
+  [<TestMethod>]
+  member __.``[Thumb] Status register access Parse test (3)`` () =
+    "f38b8400"
+    ++ MSR ** [ O.SpecReg (CPSR, PSRs); O.Reg FP ]
+    ||> testNoWbackNoQNoSimd Condition.AL
+
+  [<TestMethod>]
+  member __.``[Thumb] Status register access Parse test (4)`` () =
+    "f38c8500"
+    ++ MSR ** [ O.SpecReg (CPSR, PSRsc); O.Reg IP ]
+    ||> testNoWbackNoQNoSimd Condition.AL
+
+  [<TestMethod>]
+  member __.``[Thumb] Status register access Parse test (5)`` () =
+    "f3af8764"
+    ++ CPSID ** [ O.Iflag IF; O.Imm 4L ]
+    ||> testNoWbackNoQNoSimd Condition.UN (* W *)
+
+  [<TestMethod>]
+  member __.``[Thumb] Status register access Parse test (6)`` () =
+    "b665"
+    ++ CPSIE ** [ O.Iflag AF ]
+    ||> testNoWbackNoQNoSimd Condition.UN
+
+  /// A4.5.1 Banked register access instructions
+  [<TestMethod>]
+  member __.``[Thumb] Banked register access Parse test (1)`` () =
+    "f3e68020"
+    ++ MRS ** [ O.Reg R0; O.Reg LRusr ]
+    ||> testNoWbackNoQNoSimd Condition.AL
+
+  [<TestMethod>]
+  member __.``[Thumb] Banked register access Parse test (2)`` () =
+    "f3918430"
+    ++ MSR ** [ O.Reg SPSRabt; O.Reg R1 ]
+    ||> testNoWbackNoQNoSimd Condition.AL
+
+/// A4.6 Load/store instructions
+[<TestClass>]
+type LoadStoreClass () =
+  [<TestMethod>]
+  member __.``[Thumb] Load/store (Lord) Parse test (1)`` () =
+    "990f"
+    ++ LDR ** [ O.Reg R1; O.MemOffsetImm (SP, Some Plus, Some 60L) ]
+    ||> testNoQNoSimd Condition.AL (Some false)
+
+  [<TestMethod>]
+  member __.``[Thumb] Load/store (Lord) Parse test (2)`` () =
+    "4c37"
+    ++ LDR ** [ O.Reg R4; O.MemLabel 220L ]
+    ||> testNoWbackNoQNoSimd Condition.AL
+
+  [<TestMethod>]
+  member __.``[Thumb] Load/store (Lord) Parse test (3)`` () =
+    "f8df0087"
+    ++ LDR ** [ O.Reg R0; O.MemLabel 135L ]
+    ||> testNoSimd Condition.AL (Some false) (Some W)
+
+  [<TestMethod>]
+  member __.``[Thumb] Load/store (Lord) Parse test (4)`` () =
+    "f859c038"
+    ++ LDR ** [ O.Reg IP; O.MemOffsetReg (SB, Some Plus, R8, SRTypeLSL, 3u) ]
+    ||> testNoWbackNoQNoSimd Condition.AL
+
+  [<TestMethod>]
+  member __.``[Thumb] Load/store (Lord) Parse test (5)`` () =
+    "f8512f33"
+    ++ LDR ** [ O.Reg R2; O.MemPreIdxImm (R1, Some Plus, Some 51L) ]
+    ||> testNoQNoSimd Condition.AL (Some true)
+
+  [<TestMethod>]
+  member __.``[Thumb] Load/store (Lord) Parse test (6)`` () =
+    "f8dec080"
+    ++ LDR ** [ O.Reg IP; O.MemOffsetImm (LR, Some Plus, Some 128L) ]
+    ||> testNoSimd Condition.AL (Some false) (Some W)
+
+  [<TestMethod>]
+  member __.``[Thumb] Load/store (Lord) Parse test (7)`` () =
+    "f839bc82"
+    ++ LDRH ** [ O.Reg FP; O.MemOffsetImm (SB, Some Minus, Some 130L) ]
+    ||> testNoQNoSimd Condition.AL (Some false)
+
+  [<TestMethod>]
+  member __.``[Thumb] Load/store (Lord) Parse test (8)`` () =
+    "f93f624b"
+    ++ LDRSH ** [ O.Reg R6; O.MemLabel -587L ]
+    ||> testNoWbackNoQNoSimd Condition.AL
+
+  [<TestMethod>]
+  member __.``[Thumb] Load/store (Lord) Parse test (9)`` () =
+    "f9b3b00b"
+    ++ LDRSH ** [ O.Reg FP; O.MemOffsetImm (R3, Some Plus, Some 11L) ]
+    ||> testNoQNoSimd Condition.AL (Some false)
+
+  [<TestMethod>]
+  member __.``[Thumb] Load/store (Lord) Parse test (10)`` () =
+    "79a6"
+    ++ LDRB ** [ O.Reg R6; O.MemOffsetImm (R4, Some Plus, Some 6L) ]
+    ||> testNoQNoSimd Condition.AL (Some false)
+
+  [<TestMethod>]
+  member __.``[Thumb] Load/store (Lord) Parse test (11)`` () =
+    "f812a036"
+    ++ LDRB ** [ O.Reg SL; O.MemOffsetReg (R2, Some Plus, R6, SRTypeLSL, 3u) ]
+    ||> testNoQNoSimd Condition.AL (Some false) (* W *)
+
+  [<TestMethod>]
+  member __.``[Thumb] Load/store (Lord) Parse test (12)`` () =
+    "f814890c"
+    ++ LDRB ** [ O.Reg R8; O.MemPostIdxImm (R4, Some Minus, Some 12L) ]
+    ||> testNoQNoSimd Condition.AL (Some true)
+
+  [<TestMethod>]
+  member __.``[Thumb] Load/store (Lord) Parse test (13)`` () =
+    "f89f30f0"
+    ++ LDRB ** [ O.Reg R3; O.MemLabel 240L ]
+    ||> testNoWbackNoQNoSimd Condition.AL (* W *)
+
+  [<TestMethod>]
+  member __.``[Thumb] Load/store (Lord) Parse test (14)`` () =
+    "f9981c32"
+    ++ LDRSB ** [ O.Reg R1; O.MemOffsetImm (R8, Some Plus, Some 3122L) ]
+    ||> testNoQNoSimd Condition.AL (Some false)
+
+  [<TestMethod>]
+  member __.``[Thumb] Load/store (Lord) Parse test (15)`` () =
+    "f91e9020"
+    ++ LDRSB ** [ O.Reg SB; O.MemOffsetReg (LR, Some Plus, R0, SRTypeLSL, 2u) ]
+    ||> testNoQNoSimd Condition.AL (Some false) (* W *)
+
+  [<TestMethod>]
+  member __.``[Thumb] Load/store (Lord) Parse test (16)`` () =
+    "e95fc642"
+    ++ LDRD ** [ O.Reg IP; O.Reg R6; O.MemLabel -264L ]
+    ||> testNoQNoSimd Condition.AL (Some false)
+
+  [<TestMethod>]
+  member __.``[Thumb] Load/store (Store) Parse test (1)`` () =
+    "6637"
+    ++ STR ** [ O.Reg R7; O.MemOffsetImm (R6, Some Plus, Some 96L) ]
+    ||> testNoQNoSimd Condition.AL (Some false)
+
+  [<TestMethod>]
+  member __.``[Thumb] Load/store (Store) Parse test (2)`` () =
+    "8457"
+    ++ STRH ** [ O.Reg R7; O.MemOffsetImm (R2, Some Plus, Some 34L) ]
+    ||> testNoQNoSimd Condition.AL (Some false)
+
+  [<TestMethod>]
+  member __.``[Thumb] Load/store (Store) Parse test (3)`` () =
+    "549c"
+    ++ STRB ** [ O.Reg R4; O.MemOffsetReg (R3, Some Plus, R2) ]
+    ||> testNoQNoSimd Condition.AL (Some false)
+
+  [<TestMethod>]
+  member __.``[Thumb] Load/store (Store) Parse test (4)`` () =
+    "f809e982"
+    ++ STRB ** [ O.Reg LR; O.MemPostIdxImm (SB, Some Minus, Some 130L) ]
+    ||> testNoQNoSimd Condition.AL (Some true)
+
+  [<TestMethod>]
+  member __.``[Thumb] Load/store (Store) Parse test (5)`` () =
+    "f886c80c"
+    ++ STRB ** [ O.Reg IP; O.MemOffsetImm (R6, Some Plus, Some 2060L) ]
+    ||> testNoSimd Condition.AL (Some false) (Some W)
+
+  [<TestMethod>]
+  member __.``[Thumb] Load/store (Store) Parse test (6)`` () =
+    "f80a002c"
+    ++ STRB ** [ O.Reg R0; O.MemOffsetReg (SL, Some Plus, IP, SRTypeLSL, 2u) ]
+    ||> testNoQNoSimd Condition.AL (Some false) (* W *)
+
+  [<TestMethod>]
+  member __.``[Thumb] Load/store (Store) Parse test (7)`` () =
+    "e96a393c"
+    ++ STRD ** [ O.Reg R3; O.Reg SB;
+                 O.MemPreIdxImm (SL, Some Minus, Some 240L) ]
+    ||> testNoQNoSimd Condition.AL (Some true)
+
+  [<TestMethod>]
+  member __.``[Thumb] Load/store (Load unprivileged) Parse test (1)`` () =
+    "f8501e04"
+    ++ LDRT ** [ O.Reg R1; O.MemOffsetImm (R0, None, Some 4L) ]
+    ||> testNoWbackNoQNoSimd Condition.AL
+
+  [<TestMethod>]
+  member __.``[Thumb] Load/store (Load unprivileged) Parse test (2)`` () =
+    "f834ce01"
+    ++ LDRHT ** [ O.Reg IP; O.MemOffsetImm (R4, None, Some 1L) ]
+    ||> testNoWbackNoQNoSimd Condition.AL
+
+  [<TestMethod>]
+  member __.``[Thumb] Load/store (Load unprivileged) Parse test (3)`` () =
+    "f91c9e09"
+    ++ LDRSBT ** [ O.Reg SB; O.MemOffsetImm (IP, None, Some 9L) ]
+    ||> testNoWbackNoQNoSimd Condition.AL
+
+  [<TestMethod>]
+  member __.``[Thumb] Load/store (Store unprivileged) Parse test (1)`` () =
+    "f827be53"
+    ++ STRHT ** [ O.Reg FP; O.MemOffsetImm (R7, None, Some 83L) ]
+    ||> testNoWbackNoQNoSimd Condition.AL
+
+  [<TestMethod>]
+  member __.``[Thumb] Load/store (Load-Exclusive) Parse test (1)`` () =
+    "e859bf0e"
+    ++ LDREX ** [ O.Reg FP; O.MemOffsetImm (SB, None, Some 56L) ]
+    ||> testNoWbackNoQNoSimd Condition.AL
+
+  [<TestMethod>]
+  member __.``[Thumb] Load/store (Load-Exclusive) Parse test (2)`` () =
+    "e8d90f4f"
+    ++ LDREXB ** [ O.Reg R0; O.MemOffsetImm (SB, None, None) ]
+    ||> testNoWbackNoQNoSimd Condition.AL
+
+  [<TestMethod>]
+  member __.``[Thumb] Load/store (Load-Exclusive) Parse test (3)`` () =
+    "e8deac7f"
+    ++ LDREXD ** [ O.Reg SL; O.Reg IP; O.MemOffsetImm (LR, None, None) ]
+    ||> testNoWbackNoQNoSimd Condition.AL
+
+  [<TestMethod>]
+  member __.``[Thumb] Load/store (Store-Exclusive) Parse test (1)`` () =
+    "e841ea0c"
+    ++ STREX ** [ O.Reg SL; O.Reg LR; O.MemOffsetImm (R1, None, Some 48L) ]
+    ||> testNoWbackNoQNoSimd Condition.AL
+
+  [<TestMethod>]
+  member __.``[Thumb] Load/store (Store-Exclusive) Parse test (2)`` () =
+    "e8c8af56"
+    ++ STREXH ** [ O.Reg R6; O.Reg SL; O.MemOffsetImm (R8, None, None) ]
+    ||> testNoWbackNoQNoSimd Condition.AL
+
+  [<TestMethod>]
+  member __.``[Thumb] Load/store (Store-Exclusive) Parse test (3)`` () =
+    "e8c0cb74"
+    ++ STREXD ** [ O.Reg R4; O.Reg IP; O.Reg FP;
+                   O.MemOffsetImm (R0, None, None) ]
+    ||> testNoWbackNoQNoSimd Condition.AL
+
+/// A4.7 Load/store multiple instructions
+[<TestClass>]
+type LoadStoreMultipleClass () =
+  [<TestMethod>]
+  member __.``[Thumb] Load/store multiple Parse test (1)`` () =
+    "cbc1"
+    ++ LDM ** [ O.Reg R3; O.RegList [ R0; R6; R7 ] ]
+    ||> testNoQNoSimd Condition.AL (Some true)
+
+  [<TestMethod>]
+  member __.``[Thumb] Load/store multiple Parse test (2)`` () =
+    "e8985184"
+    ++ LDM ** [ O.Reg R8; O.RegList [ R2; R7; R8; IP; LR ] ]
+    ||> testNoSimd Condition.AL (Some false) (Some W)
+
+  [<TestMethod>]
+  member __.``[Thumb] Load/store multiple Parse test (3)`` () =
+    "e8bd8611"
+    ++ POP ** [ O.RegList [ R0; R4; SB; SL; PC ] ]
+    ||> testNoWbackNoSimd Condition.AL (Some W)
+
+  [<TestMethod>]
+  member __.``[Thumb] Load/store multiple Parse test (4)`` () =
+    "f85d3b04"
+    ++ POP ** [ O.RegList [ R3 ] ]
+    ||> testNoWbackNoSimd Condition.AL (Some W)
+
+  [<TestMethod>]
+  member __.``[Thumb] Load/store multiple Parse test (5)`` () =
+    "b533"
+    ++ PUSH ** [ O.RegList [ R0; R1; R4; R5; LR ] ]
+    ||> testNoWbackNoQNoSimd Condition.AL
+
+  [<TestMethod>]
+  member __.``[Thumb] Load/store multiple Parse test (6)`` () =
+    "e92d0184"
+    ++ PUSH ** [ O.RegList [ R2; R7; R8 ] ]
+    ||> testNoWbackNoSimd Condition.AL (Some W)
+
+  [<TestMethod>]
+  member __.``[Thumb] Load/store multiple Parse test (7)`` () =
+    "f84d1d04"
+    ++ PUSH ** [ O.RegList [ R1 ] ]
+    ||> testNoWbackNoSimd Condition.AL (Some W)
+
+  [<TestMethod>]
+  member __.``[Thumb] Load/store multiple Parse test (8)`` () =
+    "c5a3"
+    ++ STM ** [ O.Reg R5; O.RegList [ R0; R1; R5; R7 ] ]
+    ||> testNoQNoSimd Condition.AL (Some true)
+
+  [<TestMethod>]
+  member __.``[Thumb] Load/store multiple Parse test (9)`` () =
+    "e8825990"
+    ++ STM ** [ O.Reg R2; O.RegList [ R4; R7; R8; FP; IP; LR ] ]
+    ||> testNoSimd Condition.AL (Some false) (Some W)
+
+/// A4.8 Miscellaneous instructions
+[<TestClass>]
+type MiscellaneousClass () =
+  [<TestMethod>]
+  member __.``[Thumb] Miscellaneous Parse test (1)`` () =
+    "f3af80fb"
+    ++ DBG ** [ O.Imm 11L ]
+    ||> testNoWbackNoQNoSimd Condition.AL
+
+  [<TestMethod>]
+  member __.``[Thumb] Miscellaneous Parse test (2)`` () =
+    "f3bf8f57"
+    ++ DMB ** [ O.Option BarrierOption.NSH ]
+    ||> testNoWbackNoQNoSimd Condition.AL
+
+  [<TestMethod>]
+  member __.``[Thumb] Miscellaneous Parse test (3)`` () =
+    "bf6c"
+    ++ ITE ** [ O.Cond Condition.VS ]
+    ||> testNoWbackNoQNoSimd Condition.UN
+
+  [<TestMethod>]
+  member __.``[Thumb] Miscellaneous Parse test (4)`` () =
+    "f3af8000"
+    ++ NOP ** [ ]
+    ||> testNoWbackNoSimd Condition.AL (Some W)
+
+  [<TestMethod>]
+  member __.``[Thumb] Miscellaneous Parse test (5)`` () =
+    "f81cf01b"
+    ++ PLD ** [ O.MemOffsetReg (IP, None, FP, SRTypeLSL, 1u) ]
+    ||> testNoWbackNoQNoSimd Condition.AL
+
+  [<TestMethod>]
+  member __.``[Thumb] Miscellaneous Parse test (6)`` () =
+    "f810fc20"
+    ++ PLD ** [ O.MemOffsetImm (R0, Some Minus, Some 32L) ]
+    ||> testNoWbackNoQNoSimd Condition.AL
+
+  [<TestMethod>]
+  member __.``[Thumb] Miscellaneous Parse test (7)`` () =
+    "f81ff08e"
+    ++ PLD ** [ O.MemLabel -142L ]
+    ||> testNoWbackNoQNoSimd Condition.AL
+
+  [<TestMethod>]
+  member __.``[Thumb] Miscellaneous Parse test (8)`` () =
+    "f89ff00f"
+    ++ PLD ** [ O.MemLabel 15L ]
+    ||> testNoWbackNoQNoSimd Condition.AL
+
+  [<TestMethod>]
+  member __.``[Thumb] Miscellaneous Parse test (9)`` () =
+    "f837f01b"
+    ++ PLDW ** [ O.MemOffsetReg (R7, None, FP, SRTypeLSL, 1u) ]
+    ||> testNoWbackNoQNoSimd Condition.AL
+
+  [<TestMethod>]
+  member __.``[Thumb] Miscellaneous Parse test (10)`` () =
+    "f832fc31"
+    ++ PLDW ** [ O.MemOffsetImm (R2, Some Minus, Some 49L) ]
+    ||> testNoWbackNoQNoSimd Condition.AL
+
+  [<TestMethod>]
+  member __.``[Thumb] Miscellaneous Parse test (11)`` () =
+    "f8bcf0c3"
+    ++ PLDW ** [ O.MemOffsetImm (IP, Some Plus, Some 195L) ]
+    ||> testNoWbackNoQNoSimd Condition.AL
+
+  [<TestMethod>]
+  member __.``[Thumb] Miscellaneous Parse test (12)`` () =
+    "f99af003"
+    ++ PLI ** [ O.MemOffsetImm (SL, Some Plus, Some 3L) ]
+    ||> testNoWbackNoQNoSimd Condition.AL
+
+  [<TestMethod>]
+  member __.``[Thumb] Miscellaneous Parse test (13)`` () =
+    "b658"
+    ++ SETEND ** [ O.Endian Endian.Big ]
+    ||> testNoWbackNoQNoSimd Condition.UN
+
+/// A4.9 Exception-generating and exception-handling instructions
+[<TestClass>]
+type ExcepGenAndExcepHandClass () =
+  [<TestMethod>]
+  member __.``[Thumb] Exception-gen and exception-handling Parse test (1)`` () =
+    "be30"
+    ++ BKPT ** [ O.Imm 48L ]
+    ||> testNoWbackNoQNoSimd Condition.UN
+
+  [<TestMethod>]
+  member __.``[Thumb] Exception-gen and exception-handling Parse test (2)`` () =
+    "f7f88000"
+    ++ SMC ** [ O.Imm 8L ]
+    ||> testNoWbackNoQNoSimd Condition.AL
+
+  [<TestMethod>]
+  member __.``[Thumb] Exception-gen and exception-handling Parse test (3)`` () =
+    "e9bac000"
+    ++ RFEIA ** [ O.Reg SL ]
+    ||> testNoQNoSimd Condition.AL (Some true)
+
+  [<TestMethod>]
+  member __.``[Thumb] Exception-gen and exception-handling Parse test (4)`` () =
+    "f3de8f08"
+    ++ SUBS ** [ O.Reg PC; O.Reg LR; O.Imm 8L ]
+    ||> testNoWbackNoQNoSimd Condition.AL
+
+  [<TestMethod>]
+  member __.``[Thumb] Exception-gen and exception-handling Parse test (5)`` () =
+    "f7e1800c"
+    ++ HVC ** [ O.Imm 4108L ]
+    ||> testNoWbackNoQNoSimd Condition.UN
+
+  [<TestMethod>]
+  member __.``[Thumb] Exception-gen and exception-handling Parse test (6)`` () =
+    "f3de8f00"
+    ++ ERET ** [ ]
+    ||> testNoWbackNoQNoSimd Condition.AL
+
+  [<TestMethod>]
+  member __.``[Thumb] Exception-gen and exception-handling Parse test (7)`` () =
+    "f3de8f00"
+    ++ ERET ** [ ]
+    ||> testNoWbackNoQNoSimd Condition.AL
+
+  [<TestMethod>]
+  member __.``[Thumb] Exception-gen and exception-handling Parse test (8)`` () =
+    "e82dc013"
+    ++ SRSDB ** [ O.Reg SP; O.Imm 19L ]
+    ||> testNoQNoSimd Condition.AL (Some true)
+
+/// A5.4 Media instructions
+[<TestClass>]
+type MediaClass () =
+  [<TestMethod>]
+  member __.``[Thumb] Media Parse test (1)`` () =
+    "de0f"
+    ++ UDF ** [ O.Imm 15L ]
+    ||> testNoWbackNoQNoSimd Condition.AL
+
+/// A6.3.4 Branches and miscellaneous control
+[<TestClass>]
+type MiscellaneousControlClass () =
+  [<TestMethod>]
+  member __.``[Thumb] Miscellaneous control Parse test (1)`` () =
+    "f3bf8f2f"
+    ++ CLREX ** [ ]
+    ||> testNoWbackNoQNoSimd Condition.AL

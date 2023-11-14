@@ -8,7 +8,7 @@
     <Compile Include="Lifter.Tests.fs" />
     <Compile Include="Intel.Parser.Tests.fs" />
     <Compile Include="ARM64.Parser.Tests.fs" />
-    <Compile Include="ARMv7.Parser.Tests.fs" />
+    <Compile Include="ARM32.Parser.Tests.fs" />
     <Compile Include="ARMThumb.Parser.Tests.fs" />
     <Compile Include="MIPS64.Parser.Tests.fs" />
     <Compile Include="MIPS32.Parser.Tests.fs" />
