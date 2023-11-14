@@ -2375,7 +2375,8 @@ let rcl ins insLen ctxt =
   let oprSize = getOperationSize ins
   let cF = !.ctxt R.CF
   let oF = !.ctxt R.OF
-  let size = numI32 (RegType.toBitWidth oprSize) oprSize
+  let tmpcF = !+ir 1<rt>
+  let tmpcnt = !+ir oprSize
   let count = AST.zext oprSize count
   let cnt =
     match oprSize with
@@ -2385,7 +2386,19 @@ let rcl ins insLen ctxt =
     | 64<rt> -> count .& numI32 0x3f oprSize
     | _ -> raise InvalidOperandSizeException
   let cond = count == AST.num1 oprSize
-  !!ir (dst := (dst << cnt) .| (dst >> (size .- cnt)))
+  let cond2 = tmpcnt == AST.num0 oprSize
+  let lblRcl = !%ir "Rotate"
+  let lblExit = !%ir "Exit"
+  !!ir (tmpcnt := cnt)
+  !!ir (AST.cjmp cond2 (AST.name lblExit) (AST.name lblRcl))
+  !!ir (AST.lmark lblRcl)
+  !!ir (tmpcF := AST.xthi 1<rt> dst)
+  !!ir (dst := dst << AST.num1 oprSize)
+  !!ir (AST.xtlo 1<rt> dst := cF)
+  !!ir (cF := tmpcF)
+  !!ir (tmpcnt := tmpcnt .- AST.num1 oprSize)
+  !!ir (AST.cjmp cond2 (AST.name lblExit) (AST.name lblRcl))
+  !!ir (AST.lmark lblExit)
 #if !EMULATION
   !!ir (cF := AST.xthi 1<rt> dst)
   !!ir (oF := AST.ite cond (AST.xthi 1<rt> dst <+> cF) undefOF)
@@ -2407,7 +2420,8 @@ let rcr ins insLen ctxt =
   let oprSize = getOperationSize ins
   let cF = !.ctxt R.CF
   let oF = !.ctxt R.OF
-  let size = numI32 (RegType.toBitWidth oprSize) oprSize
+  let tmpcF = !+ir 1<rt>
+  let tmpcnt = !+ir oprSize
   let count = AST.zext oprSize count
   let cnt =
     match oprSize with
@@ -2417,7 +2431,19 @@ let rcr ins insLen ctxt =
     | 64<rt> -> count .& numI32 0x3f oprSize
     | _ -> raise InvalidOperandSizeException
   let cond = count == AST.num1 oprSize
-  !!ir (dst := (dst >> cnt) .| (dst << (size .- cnt)))
+  let cond2 = tmpcnt == AST.num0 oprSize
+  let lblRcl = !%ir "Rotate"
+  let lblExit = !%ir "Exit"
+  !!ir (tmpcnt := cnt)
+  !!ir (AST.cjmp cond2 (AST.name lblExit) (AST.name lblRcl))
+  !!ir (AST.lmark lblRcl)
+  !!ir (tmpcF := AST.xtlo 1<rt> dst)
+  !!ir (dst := dst >> AST.num1 oprSize)
+  !!ir (AST.xthi 1<rt> dst := cF)
+  !!ir (cF := tmpcF)
+  !!ir (tmpcnt := tmpcnt .- AST.num1 oprSize)
+  !!ir (AST.cjmp cond2 (AST.name lblExit) (AST.name lblRcl))
+  !!ir (AST.lmark lblExit)
 #if !EMULATION
   !!ir (cF := AST.xthi 1<rt> dst)
   !!ir (oF := AST.ite cond (AST.xthi 1<rt> dst <+> cF) undefOF)
