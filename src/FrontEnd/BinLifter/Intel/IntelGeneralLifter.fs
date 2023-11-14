@@ -2218,13 +2218,17 @@ let pext ins insLen ctxt =
   !<ir insLen
   let struct (dst, src, mask) = transThreeOprs ir false ins insLen ctxt
   let oSz = getOperationSize ins
-  let tmp = !+ir oSz
+  let struct (t, k) = tmpVars2 ir oSz
+  let cond = !+ir 1<rt>
+  !!ir (t := AST.num0 oSz)
+  !!ir (k := AST.num0 oSz)
   for i in 0 .. (int oSz) - 1 do
-    let t = (tmp << AST.num1 oSz) .| (AST.zext oSz (AST.extract src 1<rt> i))
-    let cond = AST.extract mask 1<rt> i
-    !!ir (tmp := AST.ite cond tmp t)
+    !!ir (cond := AST.extract mask 1<rt> i)
+    let extSrc = AST.zext oSz (AST.extract src 1<rt> i)
+    !!ir (t := t .| (AST.ite cond (extSrc << k) t))
+    !!ir (k := k .+ (AST.zext oSz cond))
   done
-  !!ir (dstAssign oSz dst tmp)
+  !!ir (dstAssign oSz dst t)
   !>ir insLen
 
 let pop ins insLen ctxt =
