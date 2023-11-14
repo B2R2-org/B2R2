@@ -339,11 +339,28 @@ let adox ins insLen ctxt =
 #else
   let oF = !.ctxt R.OF
 #endif
-  let struct (t1, t2, t3) = tmpVars3 ir oprSize
-  !!ir (t1 := dst)
-  !!ir (t2 := src)
-  !!ir (t3 := t1 .+ t2 .+ AST.zext oprSize oF)
-  !!ir (dstAssign oprSize dst t3)
+  match oprSize with
+  | 32<rt> ->
+    let struct (t1, t2, t3) = tmpVars3 ir 64<rt>
+    !!ir (t1 := AST.zext 64<rt> dst)
+    !!ir (t2 := AST.zext 64<rt> src)
+    !!ir (t3 := t1 .+ t2 .+ AST.zext 64<rt> oF)
+    !!ir (dstAssign oprSize dst (AST.xtlo oprSize t3))
+    !!ir (oF := AST.extract t3 1<rt> 32)
+  | 64<rt> ->
+    let struct (t1a, t2a, t3a) = tmpVars3 ir 64<rt>
+    let struct (t1b, t2b, t3b) = tmpVars3 ir 64<rt>
+    let mask = !+ir 64<rt>
+    !!ir (mask := numU64 0xFFFFFFFFUL 64<rt>)
+    !!ir (t1a := dst .& mask)
+    !!ir (t1b := (dst >> (numI32 32 64<rt>)) .& mask)
+    !!ir (t2a := src .& mask)
+    !!ir (t2b := (src >> (numI32 32 64<rt>)) .& mask)
+    !!ir (t3a := t1a .+ t2a .+ AST.zext 64<rt> oF)
+    !!ir (t3b := t1b .+ t2b .+ (t3a >> (numI32 32 64<rt>)))
+    !!ir (dstAssign oprSize dst (dst .+ src .+ (AST.zext 64<rt> oF)))
+    !!ir (oF := AST.extract t3b 1<rt> 32)
+  | _ -> raise InvalidOperandSizeException
   !>ir insLen
 
 let ``and`` ins insLen ctxt =
