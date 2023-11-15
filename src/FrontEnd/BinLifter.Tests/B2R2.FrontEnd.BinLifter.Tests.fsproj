@@ -17,6 +17,7 @@
     <Compile Include="AVR.Lifter.Tests.fs" />
     <Compile Include="TMS320.Parser.Tests.fs" />
     <Compile Include="SPARC.Parser.Tests.fs" />
+    <Compile Include="Intel.Disassembler.Tests.fs" />
   </ItemGroup>
 
   <ItemGroup>
