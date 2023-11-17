@@ -1149,38 +1149,23 @@ let pextrw ins insLen ctxt =
 let pinsrw ins insLen ctxt =
   let ir = !*ctxt
   !<ir insLen
-  let struct (dst, src, count) = getThreeOprs ins
-  let src = transOprToExpr ir false ins insLen ctxt src
-  let sel = !+ir 64<rt>
+  let packSz = 16<rt>
+  let pNum = 64<rt> / packSz
+  let struct (dst, src, imm8) = getThreeOprs ins
+  let src = transOprToExpr ir false ins insLen ctxt src |> AST.xtlo packSz
   match dst with
   | OprReg reg ->
     match Register.getKind reg with
     | Register.Kind.MMX ->
-      let dst = transOprToExpr ir false ins insLen ctxt dst
-      let count = getImmValue count
-      let mask = !+ir 64<rt>
-      !!ir (sel := numI64 (count &&& 0b11) 64<rt>)
-      let pos = sel .* numU64 0x10UL 64<rt>
-      !!ir (mask := (numU64 0xffffUL 64<rt>) << pos)
-      !!ir
-        (dst := (dst .& (AST.not mask)) .| (AST.zext 64<rt> src << pos .& mask))
+      let index = getImmValue imm8 &&& 0b11 |> int
+      let dst = transOprToArr ir false ins insLen ctxt packSz pNum 64<rt> dst
+      !!ir (dst[index] := src)
     | Register.Kind.XMM ->
-      let dst1, dst2 = transOprToExpr128 ir false ins insLen ctxt dst
-      let mask = !+ir 64<rt>
-      let count = getImmValue count &&& 0b111
-      !!ir (sel := numI64 count 64<rt>)
-      if count > 3L then
-        let pos = (sel .- numI32 4 64<rt>) .* numI32 16 64<rt>
-        !!ir (mask := (numU64 0xffffUL 64<rt>) << pos)
-        !!ir (dst1 := (dst1 .& (AST.not mask))
-                            .| (AST.zext 64<rt> src << pos .& mask))
-      else
-        let pos = sel .* numI32 16 64<rt>
-        !!ir (mask := (numU64 0xffffUL 64<rt>) << pos)
-        !!ir (dst2 := (dst2 .& (AST.not mask))
-                            .| (AST.zext 64<rt> src << pos .& mask))
-    | _ -> raise InvalidOperandSizeException
-  | _ -> raise InvalidOperandException
+      let index = getImmValue imm8 &&& 0b111 |> int
+      let dst = transOprToArr ir false ins insLen ctxt packSz pNum 128<rt> dst
+      !!ir (dst[index] := src)
+    | _ -> raise InvalidOperandException
+  | _ -> raise InvalidOperandSizeException
   !>ir insLen
 
 let private opMaxMinPacked cmp =
