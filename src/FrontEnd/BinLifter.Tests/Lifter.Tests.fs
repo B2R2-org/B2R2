@@ -31,24 +31,91 @@ module Lifter =
   open B2R2.BinIR
   open B2R2.BinIR.LowUIR
 
+  let assertEqualOfStrAndStmt actual stmt =
+    (actual, Pp.stmtToString stmt)
+    |> Assert.AreEqual
+
+  let assertEqualOfStrAndExpr actual expr =
+    (actual, Pp.expToString expr)
+    |> Assert.AreEqual
+
+  let tmpvarNum0 = AST.tmpvar 32<rt> 0
+
+  let tmpvarNum1 = AST.tmpvar 32<rt> 1
+
   [<TestClass>]
   type TestClass () =
+    [<TestMethod>]
+    member __.``PP bitVector from uint32 test`` () =
+      let e = BitVector.OfUInt32 42ul 32<rt> |> AST.num
+      assertEqualOfStrAndExpr "0x2a:I32" e
 
     [<TestMethod>]
-    member __.``PP Test`` () =
-      let e = BitVector.OfUInt32 42ul 32<rt> |> AST.num
-      Assert.AreEqual (Pp.expToString e, "0x2a:I32")
-      let e0 = AST.tmpvar 32<rt> 0
-      Assert.AreEqual (Pp.expToString e0, "T_0:I32")
-      let e1 = AST.tmpvar 32<rt> 1
-      Assert.AreEqual (Pp.expToString e1, "T_1:I32")
-      let e = AST.unop UnOpType.NEG e1
-      Assert.AreEqual (Pp.expToString e, "(- T_1:I32)")
-      let e = AST.unop UnOpType.NOT (AST.binop BinOpType.ADD e0 e1)
-      Assert.AreEqual (Pp.expToString e, "(~ (T_0:I32 + T_1:I32))")
-      let e = AST.load Endian.Little 32<rt> e0
-      Assert.AreEqual (Pp.expToString e, "[T_0:I32]:I32")
-      let e = AST.ite (AST.tmpvar 1<rt> 2) e0 e1
-      Assert.AreEqual (Pp.expToString e, "((T_2:I1) ? (T_0:I32) : (T_1:I32))")
+    member __.``PP construct tempVar test (1)`` () =
+      assertEqualOfStrAndExpr "T_0:I32" tmpvarNum0
+
+    [<TestMethod>]
+    member __.``PP construct tempVar test (2)`` () =
+      assertEqualOfStrAndExpr "T_1:I32" tmpvarNum1
+
+    [<TestMethod>]
+    member __.``PP binary operator test (1)`` () =
+      let e = AST.binop BinOpType.ADD tmpvarNum0 tmpvarNum1
+      assertEqualOfStrAndExpr "(T_0:I32 + T_1:I32)" e
+
+    [<TestMethod>]
+    member __.``PP binary operator test (2)`` () =
+      let e = AST.binop BinOpType.AND tmpvarNum0 tmpvarNum1
+      assertEqualOfStrAndExpr "(T_0:I32 & T_1:I32)" e
+
+    [<TestMethod>]
+    member __.``PP binary operator test (3)`` () =
+      let e = AST.binop BinOpType.DIV tmpvarNum0 tmpvarNum1
+      assertEqualOfStrAndExpr "(T_0:I32 / T_1:I32)" e
+
+    [<TestMethod>]
+    member __.``PP unary operator test (1)`` () =
+      assertEqualOfStrAndExpr "(- T_1:I32)" (AST.unop UnOpType.NEG tmpvarNum1)
+
+    [<TestMethod>]
+    member __.``PP unary operator test (2)`` () =
+      let binop = AST.binop BinOpType.ADD tmpvarNum0 tmpvarNum1
+      let e = AST.unop UnOpType.NOT binop
+      assertEqualOfStrAndExpr "(~ (T_0:I32 + T_1:I32))" e
+
+    [<TestMethod>]
+    member __.``PP construct load test (1)`` () =
+      let e = AST.load Endian.Little 32<rt> tmpvarNum0
+      assertEqualOfStrAndExpr "[T_0:I32]:I32" e
+
+    [<TestMethod>]
+    member __.``PP construct load test (2)`` () =
+      let e = AST.load Endian.Big 64<rt> tmpvarNum0
+      assertEqualOfStrAndExpr "[T_0:I32]:I64" e
+
+    [<TestMethod>]
+    member __.``PP construct ite test`` () =
+      let e = AST.ite (AST.tmpvar 1<rt> 2) tmpvarNum0 tmpvarNum1
+      assertEqualOfStrAndExpr "((T_2:I1) ? (T_0:I32) : (T_1:I32))" e
+
+    [<TestMethod>]
+    member __.``PP relative operator test`` () =
+      let e = AST.relop RelOpType.EQ tmpvarNum0 tmpvarNum1
+      assertEqualOfStrAndExpr "(T_0:I32 = T_1:I32)" e
+
+    [<TestMethod>]
+    member __.``PP conditional jump test`` () =
+      let e = AST.cjmp tmpvarNum0 tmpvarNum0 tmpvarNum1
+      assertEqualOfStrAndStmt "if T_0:I32 then jmp T_0:I32 else jmp T_1:I32" e
+
+    [<TestMethod>]
+    member __.``PP interConditional jump test`` () =
+      let e = AST.intercjmp tmpvarNum0 tmpvarNum0 tmpvarNum1
+      assertEqualOfStrAndStmt "if T_0:I32 then ijmp T_0:I32 else ijmp T_1:I32" e
+
+    [<TestMethod>]
+    member __.``PP assignment statement test`` () =
+      let e = AST.assign tmpvarNum0 tmpvarNum1
+      assertEqualOfStrAndStmt "T_0:I32 := T_1:I32" e
 
 // vim: set tw=80 sts=2 sw=2:
