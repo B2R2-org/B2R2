@@ -2597,7 +2597,7 @@ let shift ins insLen ctxt =
 #else
     !!ir (dstAssign oprSize dst (tDst >> cnt))
     if isCntConst then () else !!ir (tCnt := cnt .- n1)
-    !!ir (cF := AST.ite cond2 cF (AST.xtlo 1<rt> (tDst ?>> tCnt)))
+    !!ir (cF := AST.ite cond2 cF (AST.xtlo 1<rt> (tDst >> tCnt)))
     !!ir (oF := AST.ite cond1 (AST.xthi 1<rt> tDst) (AST.ite cond2 oF undefOF))
 #endif
   | Opcode.SAR ->
