@@ -47,7 +47,7 @@ let getOptimizer (opts: BinDumpOpts) =
 let makeFuncSymbolDic (hdl: BinHandle) =
   let funcs = Dictionary ()
   hdl.File.GetFunctionSymbols ()
-  |> Seq.iter (fun s -> funcs.Add (s.Address, s.Name) |> ignore)
+  |> Seq.iter (fun s -> funcs.TryAdd (s.Address, s.Name) |> ignore)
   hdl.File.GetFunctionAddresses ()
   |> Seq.iter (fun a ->
     if funcs.ContainsKey a then ()
