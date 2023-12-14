@@ -30,53 +30,39 @@ open B2R2.BinIR
 open B2R2.MiddleEnd.BinGraph
 
 /// A basic block that consists of IR (LowUIR) statements. It contains all the
-/// InstructionInfo of the basic block. We say an IRBasicBlock is a fake block
+/// LiftedInstruction of the basic block. We say an IRBasicBlock is a fake block
 /// if it contains no instruction, i.e., when the instrs is [||].
 [<AbstractClass>]
-type IRBasicBlock (instrs: InstructionInfo [], ppoint: ProgramPoint) =
+type IRBasicBlock (instrs: LiftedInstruction[], ppoint: ProgramPoint) =
   inherit BasicBlock (ppoint)
 
-  /// The first instruction of the basic block.
-  member __.FirstInstruction with get() =
-    if Array.isEmpty instrs then raise DummyDataAccessException
-    else instrs[0].Instruction
-
-  /// The first InstructionInfo of the basic block.
-  member __.FirstInsInfo with get() =
+  /// The first LiftedInstruction of the basic block.
+  member __.FirstLifted with get() =
     if Array.isEmpty instrs then raise DummyDataAccessException
     else instrs[0]
 
-  /// The last instruction of the basic block.
-  member __.LastInstruction with get() =
-    if Array.isEmpty instrs then raise DummyDataAccessException
-    else instrs[Array.length instrs - 1].Instruction
-
-  /// The last InstructionInfo of the basic block.
-  member __.LastInsInfo with get() =
+  /// The last LiftedInstruction of the basic block.
+  member __.LastLifted with get() =
     if Array.isEmpty instrs then raise DummyDataAccessException
     else instrs[Array.length instrs - 1]
 
   /// Get an array of IR statements of a basic block.
   member __.IRStatements with get() = instrs |> Array.map (fun i -> i.Stmts)
 
+  /// Get the array of LiftedInstruction of the basic block.
+  member __.LiftedInstructions with get() = instrs
+
   /// Get an array of instructions that corresponds to each statement in the
   /// IRStatements.
-  member __.Instructions
-    with get() = instrs |> Array.map (fun i -> i.Instruction)
-
-  /// Get the array of InstructionInfo of the basic block.
-  member __.InsInfos with get() = instrs
-
-  /// Get the last IR statement of the bblock.
-  member __.LastStmt with get() =
-    let stmts = instrs[instrs.Length - 1].Stmts
-    stmts[stmts.Length - 1]
+  member __.ToArray () =
+    instrs |> Array.map (fun i -> i.Instruction)
 
   /// The address range of the basic block. Even if the block contains a partial
   /// IR statements of an instruction, we include the instruction to compute the
   /// range.
-  override __.Range =
-    let lastAddr = __.LastInstruction.Address + uint64 __.LastInstruction.Length
+  override __.Range with get() =
+    let lastIns = __.LastLifted.Instruction
+    let lastAddr = lastIns.Address + uint64 lastIns.Length
     AddrRange (__.PPoint.Address, lastAddr - 1UL)
 
   override __.ToVisualBlock () =
@@ -155,16 +141,3 @@ type FakeIRBasicBlock (ppoint, callSiteAddr, ?isTailCall, ?isIndCall) =
 
   override __.SyscallTail
     with get() = Utils.impossible () and set(_) = Utils.impossible ()
-
-[<RequireQualifiedAccess>]
-module IRBasicBlock =
-  let initRegular instrs ppoint =
-    RegularIRBasicBlock (instrs, ppoint) :> IRBasicBlock
-
-  let initCallBlock callee callSiteAddr isTailCall =
-    FakeIRBasicBlock (ProgramPoint (callee, 0), callSiteAddr, isTailCall)
-    :> IRBasicBlock
-
-  let initIndirectCallBlock callSiteAddr isTailCall =
-    FakeIRBasicBlock (ProgramPoint.GetFake (), callSiteAddr, isTailCall, true)
-    :> IRBasicBlock

@@ -10,4 +10,4 @@ platform or OS that .NET runs on.
 
 `B2R2.MiddleEnd.ControlFlowGraph` defines CFG-related types and functions. While
 `B2R2.MiddleEnd.BinGraph` defines low-level graph data structures and functions,
-this package provides more specific implementation.
+this package provides CFG-specific implementation.

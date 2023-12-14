@@ -51,7 +51,7 @@ module SSACFG =
     let pos = bbl.PPoint
     match vMap.TryGetValue pos with
     | false, _ ->
-      let instrs = bbl.InsInfos
+      let instrs = bbl.LiftedInstructions
       let blk = SSABasicBlock.initRegular hdl pos instrs
       let v, g = g.AddVertex blk
       vMap.Add (pos, v)
@@ -78,7 +78,7 @@ module SSACFG =
         let src, dst = e.First, e.Second
         (* If a node is fake, it is a call target. *)
         if (dst: IRVertex).VData.IsFakeBlock () then
-          let last = src.VData.LastInstruction
+          let last = src.VData.LastLifted.Instruction
           let fall = ProgramPoint (last.Address + uint64 last.Length, 0)
           let srcV, ssaCFG = getVertex hdl ssaCFG vMap src
           let dstV, ssaCFG = getFakeVertex hdl ssaCFG fMap dst fall
@@ -126,7 +126,7 @@ module SSACFG =
   /// until we find a definition.
   let rec findDef (v: SSAVertex) targetVarKind =
     let stmtInfo =
-      v.VData.SSAStmtInfos
+      v.VData.LiftedSSAStmts
       |> Array.tryFindBack (fun (_, stmt) ->
         match stmt with
         | Def ({ Kind = k }, _) when k = targetVarKind -> true

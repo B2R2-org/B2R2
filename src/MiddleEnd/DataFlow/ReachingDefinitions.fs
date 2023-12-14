@@ -56,28 +56,28 @@ type ReachingDefinitions<'Expr, 'BBL when 'Expr: comparison
 type LowUIRReachingDefinitions (cfg) as this =
   inherit ReachingDefinitions<VarExpr, IRBasicBlock> (cfg)
 
-  do this.Initialize this.Gens this.Kills
+  do this.Initialize ()
 
   member private __.FindDefs (v: IVertex<IRBasicBlock>) =
-    v.VData.InsInfos
-    |> Array.fold (fun list info ->
-      info.Stmts
+    v.VData.LiftedInstructions
+    |> Array.fold (fun list lifted ->
+      lifted.Stmts
       |> Array.foldi (fun list idx stmt ->
         match stmt.S with
         | LowUIR.Put ({ LowUIR.E = LowUIR.TempVar (_, n) }, _) ->
-          let pp = ProgramPoint (info.Instruction.Address, idx)
+          let pp = ProgramPoint (lifted.Instruction.Address, idx)
           { ProgramPoint = pp; VarExpr = Temporary n } :: list
         | LowUIR.Put ({ LowUIR.E = LowUIR.Var (_, id, _) }, _) ->
-          let pp = ProgramPoint (info.Instruction.Address, idx)
+          let pp = ProgramPoint (lifted.Instruction.Address, idx)
           { ProgramPoint = pp; VarExpr = Regular id } :: list
         | _ -> list) list
       |> fst) []
 
-  member private __.Initialize
-    (gens: Dictionary<_, _>) (kills: Dictionary<_, _>) =
+  member private __.Initialize () =
+    let gens, kills = __.Gens, __.Kills
     let vpPerVar = Dictionary<VarExpr, Set<VarPoint<VarExpr>>> ()
     let vpPerVertex = Dictionary<VertexID, VarPoint<VarExpr> list> ()
-    (cfg: IGraph<_, _>).IterVertex (fun v ->
+    cfg.IterVertex (fun v ->
       let vid = v.ID
       let defs = __.FindDefs v
       gens[vid] <- defs |> Set.ofList

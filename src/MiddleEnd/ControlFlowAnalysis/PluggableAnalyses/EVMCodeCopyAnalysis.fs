@@ -62,7 +62,7 @@ type EVMCodeCopyAnalysis () =
     |> Seq.fold (fun acc fn ->
       let struct (cpState, ssaCFG) = PerFunctionAnalysis.runCP hdl fn None
       ssaCFG.FoldVertex (fun acc v ->
-        v.VData.SSAStmtInfos
+        v.VData.LiftedSSAStmts
         |> Array.fold (fun acc (_, stmt) ->
           accumulateCodeCopyInfo cpState stmt acc
         ) acc

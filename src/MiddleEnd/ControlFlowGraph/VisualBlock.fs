@@ -28,24 +28,21 @@ open B2R2
 open B2R2.FrontEnd.BinLifter
 
 /// A visual line of a basic block.
-type VisualLine = AsmWord []
+type VisualLine = AsmWord[]
 
 module VisualLine =
   [<CompiledName("LineWidth")>]
-  let lineWidth terms =
-    terms |> Array.fold (fun width term -> width + AsmWord.Width term) 0
+  let lineWidth visualLine =
+    visualLine |> Array.fold (fun width term -> width + AsmWord.Width term) 0
 
   [<CompiledName("ToString")>]
-  let toString terms =
-    terms |> Array.map AsmWord.ToString |> String.concat " "
+  let toString visualLine =
+    visualLine |> Array.map AsmWord.ToString |> String.concat " "
 
 /// A visual representation of a basic block.
-type VisualBlock = VisualLine []
+type VisualBlock = VisualLine[]
 
 module VisualBlock =
   let empty (addr: Addr): VisualBlock =
-    [|
-      [| { AsmWordKind = AsmWordKind.String
-           AsmWordValue = $"# fake block @ {addr:x}" }
-      |]
-    |]
+    [| [| { AsmWordKind = AsmWordKind.String
+            AsmWordValue = $"# fake block @ {addr:x}" } |] |]

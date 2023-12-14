@@ -35,8 +35,8 @@ type BasicBlock (pp: ProgramPoint) =
   /// The instruction address range of the basic block.
   abstract Range: AddrRange with get
 
-  /// Check if this is a fake basic block inserted by our analysis. We create a
-  /// fake block to represent call target vertices in a function-level CFG.
+  /// Check if this is a fake basic block inserted by our analysis. For example,
+  /// we create a fake block to represent a call target in a function-level CFG.
   abstract IsFakeBlock: unit -> bool
 
   /// Convert this basic block to a visual representation.

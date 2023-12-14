@@ -28,13 +28,12 @@ open B2R2
 open B2R2.BinIR.LowUIR
 open B2R2.FrontEnd.BinLifter
 
-/// Abstract information about the instruction and its corresponding IR
-/// statements.
-type InstructionInfo = {
+/// A lifted instruction.
+type LiftedInstruction = {
   /// Instruction.
   Instruction: Instruction
-  /// IR.
-  Stmts: Stmt []
+  /// IR statements.
+  Stmts: Stmt[]
   /// Corresponding BBL's address.
   BBLAddr: Addr
 }

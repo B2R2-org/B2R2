@@ -75,7 +75,7 @@ let compute (ssaCFG: IGraph<SSABasicBlock, _>) =
   emptyInfo
   |> ssaCFG.FoldVertex (fun acc (v: SSAVertex) ->
     let vid = v.ID
-    v.VData.SSAStmtInfos
+    v.VData.LiftedSSAStmts
     |> Array.foldi (fun acc idx (_, stmt) ->
       match stmt with
       | SSA.LMark _ -> acc

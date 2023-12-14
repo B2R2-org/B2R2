@@ -57,7 +57,7 @@ type SparseConstantPropagation (hdl, ssaCFG, ?reader) as this =
 
   override __.Top = Undef
 
-  interface IConstantPropagationCore<SCPValue> with
+  interface IConstantPropagation<SCPValue> with
     member __.Bottom = NotAConst
     member __.GoingUp a b = SCPValue.goingUp a b
     member __.Meet a b = SCPValue.meet a b

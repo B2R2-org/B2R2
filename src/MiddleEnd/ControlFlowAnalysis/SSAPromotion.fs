@@ -113,9 +113,9 @@ let prepare hdl spState vertices (v: SSAVertex) =
   (vertices: List<SSAVertex>).Add v
   if v.VData.IsFakeBlock () then updateStackFrameDistance hdl v spState
   else ()
-  v.VData.SSAStmtInfos
+  v.VData.LiftedSSAStmts
   |> Array.choose (stmtChooser spState v)
-  |> fun stmts -> v.VData.SSAStmtInfos <- stmts
+  |> fun stmts -> v.VData.LiftedSSAStmts <- stmts
 
 /// Promote the given SSA CFG into another SSA CFG that contains resolved
 /// stack/global variables.

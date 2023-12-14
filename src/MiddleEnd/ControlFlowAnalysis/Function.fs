@@ -264,7 +264,7 @@ type RegularFunction private (histMgr: HistoryManager, ep, name, thunkInfo) =
   /// Add a parsed regular basic block (given as an array of instructions along
   /// with its leader address) to this function.
   member __.AddVertex (instrs, leader) =
-    let blk = IRBasicBlock.initRegular instrs leader
+    let blk = RegularIRBasicBlock (instrs, leader)
     __.AddVertex blk
 
   /// Add/replace a regular edge to this function.
@@ -288,8 +288,9 @@ type RegularFunction private (histMgr: HistoryManager, ep, name, thunkInfo) =
     | _ ->
       let bbl = (* When callee = 0UL, then it means an indirect call. *)
         if callee = 0UL then
-          IRBasicBlock.initIndirectCallBlock callSite isTailCall
-        else IRBasicBlock.initCallBlock callee callSite isTailCall
+          FakeIRBasicBlock (ProgramPoint.GetFake (), callSite, isTailCall, true)
+        else
+          FakeIRBasicBlock (ProgramPoint (callee, 0), callSite, isTailCall)
       __.AddFakeVertex edgeKey bbl
 
   /// Add/replace a direct call edge to this function.
@@ -378,7 +379,7 @@ type RegularFunction private (histMgr: HistoryManager, ep, name, thunkInfo) =
   /// Split the given IR-level vertex (v) at the given point (splitPoint), and
   /// add the resulting vertices to the graph.
   member private __.AddByDividingVertex v (splitPoint: ProgramPoint) =
-    let insInfos = (v: IRVertex).VData.InsInfos
+    let insInfos = (v: IRVertex).VData.LiftedInstructions
     let srcInfos, dstInfos =
       insInfos
       |> Array.partition (fun insInfo ->
@@ -387,8 +388,8 @@ type RegularFunction private (histMgr: HistoryManager, ep, name, thunkInfo) =
       dstInfos
       |> Array.map (fun insInfo ->
         { insInfo with BBLAddr = splitPoint.Address })
-    let srcBlk = IRBasicBlock.initRegular srcInfos v.VData.PPoint
-    let dstBlk = IRBasicBlock.initRegular dstInfos splitPoint
+    let srcBlk = RegularIRBasicBlock (srcInfos, v.VData.PPoint)
+    let dstBlk = RegularIRBasicBlock (dstInfos, splitPoint)
     let src = __.AddVertex srcBlk
     let dst = __.AddVertex dstBlk
     __.AddEdge (src.VData.PPoint, dst.VData.PPoint, FallThroughEdge)
@@ -411,8 +412,8 @@ type RegularFunction private (histMgr: HistoryManager, ep, name, thunkInfo) =
     dst
 
   member private __.GetMergedVertex srcV dstV insAddrs chunk =
-    let src = (srcV: IRVertex).VData.InsInfos
-    let dst = (dstV: IRVertex).VData.InsInfos
+    let src = (srcV: IRVertex).VData.LiftedInstructions
+    let dst = (dstV: IRVertex).VData.LiftedInstructions
     let fstAddr = List.head insAddrs
     let lastAddr = List.last insAddrs
     let chunkIdx =
@@ -427,7 +428,7 @@ type RegularFunction private (histMgr: HistoryManager, ep, name, thunkInfo) =
            Stmts = lastInsInfo.Stmts;
            BBLAddr = src[0].BBLAddr } |]
     let insInfos = Array.concat [ front; chunkInfo; back ]
-    IRBasicBlock.initRegular insInfos srcV.VData.PPoint
+    RegularIRBasicBlock (insInfos, srcV.VData.PPoint)
     |> __.AddVertex
 
   /// Merge two vertices connected with an inlined assembly chunk, where there
@@ -484,7 +485,7 @@ type RegularFunction private (histMgr: HistoryManager, ep, name, thunkInfo) =
     indirectJumps.Remove insAddr |> ignore
 
   member private __.MoveBlockInfo fn (v: IRVertex) =
-    let lastAddr = v.VData.LastInstruction.Address
+    let lastAddr = v.VData.LastLifted.Instruction.Address
     if v.VData.Range.Max > (fn: RegularFunction).MaxAddr then
       fn.MaxAddr <- v.VData.Range.Max
     else ()
@@ -503,7 +504,7 @@ type RegularFunction private (histMgr: HistoryManager, ep, name, thunkInfo) =
       __.RemoveIndirectJump lastAddr
       fn.AddIndirectJump lastAddr jmpKind
     (* NoReturnProperty *)
-    elif v.VData.LastInstruction.IsRET () then
+    elif v.VData.LastLifted.Instruction.IsRET () then
       fn.NoReturnProperty <- NotNoRet
     else ()
 
@@ -524,7 +525,7 @@ type RegularFunction private (histMgr: HistoryManager, ep, name, thunkInfo) =
           (* Caller should have a tail-call jmp edge, not a call edge. Normally,
              function splitting should not happen after a call instruction, but
              this is to handle some exceptional cases (Issue #515). *)
-          && not (v.VData.LastInstruction.IsCall ()))
+          && not (v.VData.LastLifted.Instruction.IsCall ()))
       |> Seq.tryHead
     reachableNodes
     |> Set.iter (fun v ->
@@ -541,7 +542,7 @@ type RegularFunction private (histMgr: HistoryManager, ep, name, thunkInfo) =
     match callerBlk with
     | Some callerBlk ->
       let callerPoint = callerBlk.VData.PPoint
-      let callSite = callerBlk.VData.LastInstruction.Address
+      let callSite = callerBlk.VData.LastLifted.Instruction.Address
       __.AddEdge (callerPoint, callSite, newEntry, true)
     | None -> ()
     (* Move necessary information *)

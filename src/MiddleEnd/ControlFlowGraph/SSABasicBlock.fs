@@ -95,12 +95,12 @@ module private SSABasicBlockHelper =
     | _ -> postprocessOthers s
 
 /// SSA statement information.
-type SSAStmtInfo = ProgramPoint * Stmt
+type LiftedSSAStmt = ProgramPoint * Stmt
 
 /// Basic block type for an SSA-based CFG (SSACFG). It holds an array of
-/// SSAStmtInfos (ProgramPoint * Stmt).
+/// LiftedSSAStmts (ProgramPoint * Stmt).
 [<AbstractClass>]
-type SSABasicBlock (pp, instrs: InstructionInfo []) =
+type SSABasicBlock (pp, instrs: LiftedInstruction []) =
   inherit BasicBlock (pp)
 
   let mutable idom: IVertex<SSABasicBlock> option = None
@@ -114,17 +114,17 @@ type SSABasicBlock (pp, instrs: InstructionInfo []) =
   override __.IsFakeBlock () = Array.isEmpty instrs
 
   override __.ToVisualBlock () =
-    __.SSAStmtInfos
+    __.LiftedSSAStmts
     |> Array.map (fun (_, stmt) ->
       [| { AsmWordKind = AsmWordKind.String
            AsmWordValue = Pp.stmtToString stmt } |])
 
-  /// Return the corresponding InstructionInfo array.
-  member __.InsInfos with get () = instrs
+  /// Return the corresponding LiftedInstruction array.
+  member __.LiftedInstructions with get () = instrs
 
   /// Get the last SSA statement of the bblock.
   member __.GetLastStmt () =
-    snd __.SSAStmtInfos[__.SSAStmtInfos.Length - 1]
+    snd __.LiftedSSAStmts[__.LiftedSSAStmts.Length - 1]
 
   /// Immediate dominator of this block.
   member __.ImmDominator with get() = idom and set(d) = idom <- d
@@ -136,21 +136,21 @@ type SSABasicBlock (pp, instrs: InstructionInfo []) =
   member __.PrependPhi varKind count =
     let var = { Kind = varKind; Identifier = -1 }
     let ppoint = ProgramPoint.GetFake ()
-    __.SSAStmtInfos <-
+    __.LiftedSSAStmts <-
       Array.append [| ppoint, Phi (var, Array.zeroCreate count) |]
-                   __.SSAStmtInfos
+                   __.LiftedSSAStmts
 
   /// Update program points. This must be called after updating SSA stmts.
   member __.UpdatePPoints () =
-    __.SSAStmtInfos
+    __.LiftedSSAStmts
     |> Array.foldi (fun ppoint idx (_, stmt) ->
       let ppoint' = computeNextPPoint ppoint stmt
-      __.SSAStmtInfos[idx] <- (ppoint', stmt)
+      __.LiftedSSAStmts[idx] <- (ppoint', stmt)
       ppoint') pp
     |> ignore
 
-  /// Return the array of SSAStmtInfos.
-  abstract SSAStmtInfos: SSAStmtInfo [] with get, set
+  /// Return the array of LiftedSSAStmts.
+  abstract LiftedSSAStmts: LiftedSSAStmt[] with get, set
 
   /// Return the corresponding fake block information. This is only valid for a
   /// fake SSABasicBlock.
@@ -160,8 +160,8 @@ type SSABasicBlock (pp, instrs: InstructionInfo []) =
 type RegularSSABasicBlock (hdl: BinHandle, pp, instrs) =
   inherit SSABasicBlock (pp, instrs)
 
-  let mutable stmts: SSAStmtInfo[] =
-    (instrs: InstructionInfo[])
+  let mutable stmts: LiftedSSAStmt[] =
+    (instrs: LiftedInstruction[])
     |> Array.collect (fun i ->
       let wordSize = i.Instruction.WordSize |> WordSize.toRegType
       let stmts = i.Stmts
@@ -170,7 +170,7 @@ type RegularSSABasicBlock (hdl: BinHandle, pp, instrs) =
       AST.translateStmts wordSize address (postprocessStmt arch) stmts)
     |> Array.map (fun s -> ProgramPoint.GetFake (), s)
 
-  override __.SSAStmtInfos with get() = stmts and set(s) = stmts <- s
+  override __.LiftedSSAStmts with get() = stmts and set(s) = stmts <- s
 
   override __.FakeBlockInfo
     with get() = Utils.impossible () and set(_) = Utils.impossible ()
@@ -183,7 +183,7 @@ type RegularSSABasicBlock (hdl: BinHandle, pp, instrs) =
 type FakeSSABasicBlock (hdl, pp, retPoint: ProgramPoint, fakeBlkInfo) =
   inherit SSABasicBlock (pp, [||])
 
-  let mutable stmts: SSAStmtInfo [] =
+  let mutable stmts: LiftedSSAStmt [] =
     if fakeBlkInfo.IsTailCall then [||]
     else
       let stmts = (* For a fake block, we check which var can be modified. *)
@@ -199,7 +199,7 @@ type FakeSSABasicBlock (hdl, pp, retPoint: ProgramPoint, fakeBlkInfo) =
 
   let mutable fakeBlkInfo = fakeBlkInfo
 
-  override __.SSAStmtInfos with get() = stmts and set(s) = stmts <- s
+  override __.LiftedSSAStmts with get() = stmts and set(s) = stmts <- s
 
   override __.FakeBlockInfo
     with get() = fakeBlkInfo and set(f) = fakeBlkInfo <- f

@@ -86,7 +86,7 @@ module private EVMTrampolineAnalysis =
           Array.iter (fun (_, stmt) ->
             match tryGetTrampolineInfo cpState stmt with
             | Some (sign, addr) -> fn sign addr
-            | _ -> ()) v.VData.SSAStmtInfos)
+            | _ -> ()) v.VData.LiftedSSAStmts)
       | _ -> failwith "Could not find its entry function at 0x0"
 
 type EVMTrampolineAnalysis (abiFile) =

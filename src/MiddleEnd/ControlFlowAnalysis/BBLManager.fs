@@ -193,7 +193,7 @@ module BBLManager =
 
   let rec private prepareLeaders hdl fm instrs fn tmp =
     match instrs with
-    | (insInfo: InstructionInfo) :: tl ->
+    | (insInfo: LiftedInstruction) :: tl ->
       let isLastIns = List.isEmpty tl
       let addr = insInfo.Instruction.Address
       let stmts = insInfo.Stmts
@@ -381,7 +381,7 @@ module BBLManager =
 
   let rec private includeEdges hdl fm excTbl leader instrs fn tmp =
     match instrs with
-    | (insInfo: InstructionInfo) :: ((nextInsInfo :: _) as tl) ->
+    | (insInfo: LiftedInstruction) :: ((nextInsInfo :: _) as tl) ->
       let addr = insInfo.Instruction.Address
       let pp = ProgramPoint (addr, 0)
       let nextPp = ProgramPoint (nextInsInfo.Instruction.Address, 0)
@@ -406,13 +406,13 @@ module BBLManager =
 
   let rec private findInsInfo (ppoint: ProgramPoint) instrs =
     match instrs with
-    | (info: InstructionInfo) :: tl ->
+    | (info: LiftedInstruction) :: tl ->
       if info.Instruction.Address = ppoint.Address then
         struct (info, instrs)
       else findInsInfo ppoint tl
     | [] -> Utils.impossible ()
 
-  /// Extract ir-bbl part of InstructionInfo from a single instruction from
+  /// Extract ir-bbl part of LiftedInstruction from a single instruction from
   /// given ppoint.
   let private extractInsInfo i (ppoint: ProgramPoint) nextLeader =
     (* If addresses are different, we take everything from ppoint *)
@@ -429,7 +429,7 @@ module BBLManager =
       let i' = { i with Stmts = Array.sub i.Stmts ppoint.Position delta }
       i', nextLeader
 
-  /// This function returns an array of InstructionInfo for ir-level bbl
+  /// This function returns an array of LiftedInstruction for ir-level bbl
   let rec private gatherInsInfos acc instrs ppoint nextLeader =
     if ppoint < nextLeader then
       let struct (info, instrs) = findInsInfo ppoint instrs
@@ -456,7 +456,7 @@ module BBLManager =
     else ()
 
   let private markNoReturn (fn: RegularFunction) instrs =
-    let insInfo: InstructionInfo = instrs |> List.last
+    let insInfo: LiftedInstruction = instrs |> List.last
     if insInfo.Instruction.IsRET () then fn.NoReturnProperty <- NotNoRet
     else ()
 

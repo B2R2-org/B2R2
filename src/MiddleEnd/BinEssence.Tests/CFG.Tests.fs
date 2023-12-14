@@ -573,8 +573,10 @@ type CFGTest2 () =
          ProgramPoint (0x1CUL, 8); ProgramPoint (0x1EUL, 0) |]
     let actual =
       leaders
-      |> Array.map (fun l ->
-        match (Map.find l vMap).VData.LastStmt.S with
+      |> Array.map (fun leader ->
+        let bbl = Map.find leader vMap
+        let lastStmts = bbl.VData.LastLifted.Stmts
+        match lastStmts[lastStmts.Length - 1].S with
         | IEMark _ -> 0
         | InterJmp _ -> 1
         | InterCJmp _ -> 2

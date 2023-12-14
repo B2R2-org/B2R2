@@ -41,17 +41,17 @@ type CPState<'L when 'L: equality> = {
   /// SSA edges
   SSAEdges: SSAEdges.EdgeInfo
   /// SSA var values.
-  RegState : Dictionary<Variable, 'L>
+  RegState: Dictionary<Variable, 'L>
   /// SSA mem values. Only store values of constant addresses. The second set
   /// contains addresses changed throughout the analysis (after initialization).
-  MemState : Dictionary<SSAMemID, Map<Addr, 'L> * Set<Addr>>
+  MemState: Dictionary<SSAMemID, Map<Addr, 'L> * Set<Addr>>
   /// Executable edges from vid to vid. If there's no element for an edge, that
   /// means the edge is not executable.
   ExecutableEdges: HashSet<VertexID * VertexID>
   /// Executed edges from vid to vid.
   ExecutedEdges: HashSet<VertexID * VertexID>
   /// Default word size of the current analysis.
-  DefaultWordSize : RegType
+  DefaultWordSize: RegType
   /// Worklist for blocks.
   FlowWorkList: Queue<VertexID * VertexID>
   /// Worklist for SSA stmt, this stack stores a list of def variables, and we
@@ -60,11 +60,11 @@ type CPState<'L when 'L: equality> = {
   /// Uninitialized memory addresses found during CP.
   UninitializedMemAddrs: HashSet<Addr>
   /// CP core interface.
-  CPCore: IConstantPropagationCore<'L>
+  CPCore: IConstantPropagation<'L>
 }
 
 /// The core interface of a Constant Propagation (CP) algorithm.
-and IConstantPropagationCore<'L when 'L: equality> =
+and IConstantPropagation<'L when 'L: equality> =
   /// Bottom of the lattice.
   abstract Bottom: 'L
 

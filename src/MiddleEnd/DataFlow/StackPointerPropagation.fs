@@ -56,7 +56,7 @@ type StackPointerPropagation (hdl, ssaCFG) as this =
 
   override __.Top = Undef
 
-  interface IConstantPropagationCore<SPValue> with
+  interface IConstantPropagation<SPValue> with
     member __.Bottom = NotAConst
     member __.GoingUp a b = SPValue.goingUp a b
     member __.Meet a b = SPValue.meet a b

@@ -29,7 +29,7 @@ open B2R2.FrontEnd
 open B2R2.FrontEnd.BinLifter
 
 /// Sometimes, inlined assembly creates branches that jump into the middle of an
-/// instruction. For example, the following pattern is commonly found in Libc.
+/// instruction. For example, the following pattern is commonly found in LibC.
 ///
 /// 41af15: 64 83 3c 25 18 00 00 00 00    cmpl  $0x0,%fs:0x18
 /// 41af1e: 74 01                         je    41af21 <arena_get2.part.0+0x4a1>
@@ -43,7 +43,6 @@ type InlinedAssemblyTypes =
   | NotInlinedAssembly
 
 module InlinedAssemblyPattern =
-
   let private computeJumpAfterLockAddrs (hdl: BinHandle) targetBlkAddr =
     [ ([| 0x64uy; 0x83uy; 0x3cuy; 0x25uy; 0x18uy;
           0x00uy; 0x00uy; 0x00uy; 0x00uy; 0x74uy; 0x01uy; 0xf0uy |], 9UL, 2UL)

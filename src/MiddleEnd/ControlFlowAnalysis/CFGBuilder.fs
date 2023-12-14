@@ -138,7 +138,7 @@ module private CFGBuilder =
         tryGetRelocatableFunction codeMgr dataMgr relocSite
       else Some callee
     let callerV = (fn: RegularFunction).FindVertex callerPp
-    let last = callerV.VData.LastInstruction
+    let last = callerV.VData.LastLifted.Instruction
     let ftAddr = last.Address + uint64 last.Length
     match callee with
     | Some 0UL -> Ok evts (* Ignore the callee for "call 0" cases. *)
@@ -268,7 +268,7 @@ module private CFGBuilder =
     let callerPp = Set.maxElement (codeMgr.GetBBL callSite).IRLeaders
     let calleeAddr = v.VData.PPoint.Address
     let callerV = (fn: RegularFunction).FindVertex callerPp
-    let last = callerV.VData.LastInstruction
+    let last = callerV.VData.LastLifted.Instruction
     let ftAddr = last.Address + uint64 last.Length
     FTCall (callerPp, callSite, calleeAddr, ftAddr) :: infos
 
@@ -279,7 +279,7 @@ module private CFGBuilder =
     match (hdl: BinHandle).File.Format, hdl.File.ISA.Arch with
     | FileFormat.ELFBinary, Architecture.IntelX86 ->
       let caller = fn.IRCFG.GetPreds v |> Seq.head
-      let callIns = caller.VData.LastInstruction :?> IntelInstruction
+      let callIns = caller.VData.LastLifted.Instruction :?> IntelInstruction
       match callIns.Prefixes, callIns.Operands with
       | Prefix.PrxGS, OneOperand (OprMem (None, None, Some 16L, _)) -> true
       | _ -> false
@@ -295,7 +295,7 @@ module private CFGBuilder =
       let bbl = v.VData
       if not (bbl.IsFakeBlock ()) then
         if isReturningSyscall hdl noret v then
-          let last = bbl.LastInstruction
+          let last = bbl.LastLifted.Instruction
           let ftAddr = last.Address + uint64 last.Length
           FTNonCall (bbl.PPoint, ftAddr) :: infos, toAnalyze
         else infos, toAnalyze
@@ -456,7 +456,7 @@ module private CFGBuilder =
     |> Array.fold (fun acc (v: IRVertex) ->
       if Option.isSome acc || v.VData.IsFakeBlock () then acc
       else
-        let ins = v.VData.LastInstruction
+        let ins = v.VData.LastLifted.Instruction
         if ins.IsRET () then retrieveStackAdjustment ins |> Some
         else acc) None
     |> function

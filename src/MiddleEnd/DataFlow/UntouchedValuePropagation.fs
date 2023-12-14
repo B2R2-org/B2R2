@@ -62,7 +62,7 @@ type UntouchedValuePropagation (hdl, ssaCFG) as this =
 
   override __.Top = Undef
 
-  interface IConstantPropagationCore<UVValue> with
+  interface IConstantPropagation<UVValue> with
     member __.Bottom = Touched
     member __.GoingUp a b = UVValue.goingUp a b
     member __.Meet a b = UVValue.meet a b

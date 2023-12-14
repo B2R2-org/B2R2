@@ -81,7 +81,7 @@ module private NoReturnFunctionIdentificationHelper =
     match exitVertices with
     | [| v |] when not (v.VData.IsFakeBlock ()) ->
       (* Only single exit node. *)
-      let ins = v.VData.LastInstruction
+      let ins = v.VData.LastLifted.Instruction
       if ins.IsIndirectBranch () then (* This is really a trampoline. *) []
       else [ v ]
     | _ -> exitVertices |> Array.toList

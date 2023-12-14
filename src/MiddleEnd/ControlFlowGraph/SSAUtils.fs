@@ -72,7 +72,7 @@ let placePhis g vertices (defSites: DefSites) domCtxt =
   let defsPerNode = DefsPerNode ()
   vertices
   |> Seq.iter (fun (v: SSAVertex) ->
-    let defs = v.VData.SSAStmtInfos |> Array.fold collectDefVars Set.empty
+    let defs = v.VData.LiftedSSAStmts |> Array.fold collectDefVars Set.empty
     defsPerNode[v] <- defs
     defs |> Set.iter (fun d ->
       if defSites.ContainsKey d then defSites[d] <- Set.add v defSites[d]
@@ -169,7 +169,7 @@ let renamePhiAux (stack: IDStack) preds (parent: SSAVertex) (_, stmt) =
   | _ -> ()
 
 let renamePhi (g: IGraph<_, _>) stack parent (succ: SSAVertex) =
-  succ.VData.SSAStmtInfos
+  succ.VData.LiftedSSAStmts
   |> Array.iter (renamePhiAux stack (g.GetPreds succ) parent)
 
 let popStack (stack: IDStack) (_, stmt) =
@@ -179,10 +179,10 @@ let popStack (stack: IDStack) (_, stmt) =
   | _ -> ()
 
 let rec rename (g: IGraph<_, _>) domTree count stack (v: SSAVertex) =
-  v.VData.SSAStmtInfos |> Array.iter (renameStmt count stack)
+  v.VData.LiftedSSAStmts |> Array.iter (renameStmt count stack)
   g.GetSuccs v |> Seq.iter (renamePhi g stack v)
   traverseChildren g domTree count stack (Map.find v domTree)
-  v.VData.SSAStmtInfos |> Array.iter (popStack stack)
+  v.VData.LiftedSSAStmts |> Array.iter (popStack stack)
 
 and traverseChildren g domTree count stack = function
   | child :: rest ->

@@ -54,7 +54,7 @@ module private EVMJmpResolution =
   /// calculated in first. Note that we handle EVM's SP in the ascending-order.
   let rec getStackVarExprsUntil v sp (ret: Dictionary<VariableKind, Expr>) =
     let offLB = - int (sp - Utils.InitialStackPointer)
-    let stmtInfos = (v: SSAVertex).VData.SSAStmtInfos
+    let stmts = (v: SSAVertex).VData.LiftedSSAStmts
     None
     |> Array.foldBack (fun (_, stmt) _ ->
       match stmt with
@@ -62,7 +62,7 @@ module private EVMJmpResolution =
         if ret.ContainsKey k then ()
         else ret.Add (k, e) |> ignore
         None
-      | _ -> None) stmtInfos |> ignore
+      | _ -> None) stmts |> ignore
     match v.VData.ImmDominator with
     | Some idom -> getStackVarExprsUntil idom sp ret
     | None -> ret
@@ -98,7 +98,7 @@ module private EVMJmpResolution =
     | Num addr ->
       match tryConvertBVToUInt64 addr with
       | Some addr ->
-        let insInfos = srcV.VData.InsInfos
+        let insInfos = srcV.VData.LiftedInstructions
         let lastInsInfo = Array.last insInfos
         let lastInsAddr = lastInsInfo.Instruction.Address
         let lastInsLength = uint64 lastInsInfo.Instruction.Length

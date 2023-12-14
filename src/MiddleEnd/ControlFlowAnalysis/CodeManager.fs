@@ -34,7 +34,7 @@ open B2R2.MiddleEnd.ControlFlowGraph
 /// including *parsed* instructions, their basic blocks, functions, as well as
 /// exception handling routines.
 type CodeManager (hdl) =
-  let insMap = Dictionary<Addr, InstructionInfo> ()
+  let insMap = Dictionary<Addr, LiftedInstruction> ()
   let bblMap = Dictionary<Addr, BBLInfo> ()
   let excTbl = ExceptionTable (hdl)
   let history = HistoryManager ()
@@ -148,8 +148,8 @@ type CodeManager (hdl) =
   /// Get the current instruction count.
   member __.InstructionCount with get() = insMap.Count
 
-  /// Check if the manager contains parsed InstructionInfo located at the given
-  /// address.
+  /// Check if the manager contains parsed LiftedInstruction located at the
+  /// given address.
   member __.HasInstruction addr = insMap.ContainsKey addr
 
   /// Access instruction at the given address.

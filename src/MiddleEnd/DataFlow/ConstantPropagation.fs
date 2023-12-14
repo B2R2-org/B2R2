@@ -54,7 +54,7 @@ type ConstantPropagation<'L when 'L: equality> (ssaCFG: SSACFG) =
         |> Set.iter (fun (vid, idx) ->
           let v = ssaCFG.FindVertexByID vid
           if __.GetNumIncomingExecutedEdges st v > 0 then
-            let ppoint, stmt = v.VData.SSAStmtInfos[idx]
+            let ppoint, stmt = v.VData.LiftedSSAStmts[idx]
             st.CPCore.Transfer st ssaCFG v ppoint stmt
           else ())
       | None -> ()
@@ -64,7 +64,7 @@ type ConstantPropagation<'L when 'L: equality> (ssaCFG: SSACFG) =
       let parentid, myid = st.FlowWorkList.Dequeue ()
       st.ExecutedEdges.Add (parentid, myid) |> ignore
       let blk = ssaCFG.FindVertexByID myid
-      blk.VData.SSAStmtInfos
+      blk.VData.LiftedSSAStmts
       |> Array.iter (fun (ppoint, stmt) ->
         st.CPCore.Transfer st ssaCFG blk ppoint stmt)
       if blk.VData.IsFakeBlock () then ()

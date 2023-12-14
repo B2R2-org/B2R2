@@ -28,31 +28,28 @@ open B2R2
 open B2R2.FrontEnd.BinLifter
 
 /// Basic block type for a disassembly-based CFG (DisasmCFG).
-type DisasmBasicBlock (instrs: Instruction [], pp(*, ?funcID*)) =
+type DisasmBasicBlock (instrs: Instruction[], pp) =
   inherit BasicBlock (pp)
 
-  let mutable instructions = instrs
-
   override __.Range =
-    let last = instructions[instructions.Length - 1]
+    let last = instrs[instrs.Length - 1]
     AddrRange (pp.Address, last.Address + uint64 last.Length - 1UL)
 
-  override __.IsFakeBlock () = Array.isEmpty instructions
+  override __.IsFakeBlock () = Array.isEmpty instrs
 
   override __.ToVisualBlock () =
-    instructions
+    instrs
     |> Array.mapi (fun idx i ->
-      if idx = Array.length instructions - 1 then
+      if idx = Array.length instrs - 1 then
         i.Decompose (true)
       else i.Decompose (true))
 
   member __.Instructions
-    with get () = instructions
-    and set (i) = instructions <- i
+    with get () = instrs
 
   member __.Disassemblies
     with get () =
-      instructions |> Array.map (fun i -> i.Disasm ())
+      instrs |> Array.map (fun i -> i.Disasm ())
 
   override __.ToString () =
     if instrs.Length = 0 then "DisasmBBLK(Dummy)"

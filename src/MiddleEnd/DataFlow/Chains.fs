@@ -65,11 +65,11 @@ module DataFlowChain =
   let private initUDChain cfg (ins: Dictionary<_,_>) (outs: Dictionary<_, _>) =
     Map.empty
     |> (cfg: IGraph<_, _>).FoldVertex (fun map (v: IRVertex) ->
-      v.VData.InsInfos
-      |> Array.fold (fun map info ->
-        info.Stmts
+      v.VData.LiftedInstructions
+      |> Array.fold (fun map lifted ->
+        lifted.Stmts
         |> Array.foldi (fun map idx stmt ->
-          let pp = ProgramPoint (info.Instruction.Address, idx)
+          let pp = ProgramPoint (lifted.Instruction.Address, idx)
           let inset = ins[v.ID]
           let outset = outs[v.ID]
           let uses = Utils.extractUses stmt
