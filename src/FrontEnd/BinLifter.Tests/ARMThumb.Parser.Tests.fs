@@ -32,28 +32,18 @@ open B2R2.FrontEnd.Tests.ARM32
 open type Opcode
 open type Register
 
-let private test arch e c op w q (s: SIMDDataTypes option) oprs (b: byte[]) =
+let private test c op w q (s: SIMDDataTypes option) oprs (b: byte[]) =
   let mode = ArchOperationMode.ThumbMode
-  let parser =
-    ARM32Parser (ISA.Init arch e, mode, None) :> IInstructionParsable
+  let isa = ISA.Init Architecture.ARMv7 Endian.Big
+  let parser = ARM32Parser (isa, mode, None) :> IInstructionParsable
   let ins = parser.Parse (b, 0UL) :?> ARM32Instruction
   let cond' = ins.Condition
   let opcode' = ins.Opcode
   let wback' = ins.WriteBack
   let q' = ins.Qualifier
+  let q = if Option.isSome q then W else N
   let simd' = ins.SIMDTyp
   let oprs' = ins.Operands
-
-  let w =
-    match w with
-    | Some true -> true
-    | _ -> false // XXX
-
-  let q =
-    match q with
-    | Some W -> W
-    | _ -> N // XXX
-
   Assert.AreEqual (cond', c)
   Assert.AreEqual (opcode', op)
   Assert.AreEqual (wback', w)
@@ -61,19 +51,17 @@ let private test arch e c op w q (s: SIMDDataTypes option) oprs (b: byte[]) =
   Assert.AreEqual (simd', s)
   Assert.AreEqual (oprs', oprs)
 
-let private testThumb = test Architecture.ARMv7 Endian.Big
-
 let private testNoWbackNoQNoSimd pref (bytes: byte[]) (opcode, operands) =
-  testThumb pref opcode None None None operands bytes
+  test pref opcode false None None operands bytes
 
 let private testNoWbackNoSimd pref q (bytes: byte[]) (opcode, operands) =
-  testThumb pref opcode None q None operands bytes
+  test pref opcode false q None operands bytes
 
 let private testNoQNoSimd pref wback (bytes: byte[]) (opcode, operands) =
-  testThumb pref opcode wback None None operands bytes
+  test pref opcode wback None None operands bytes
 
 let private testNoSimd pref wback q (bytes: byte[]) (opcode, operands) =
-  testThumb pref opcode wback q None operands bytes
+  test pref opcode wback q None operands bytes
 
 let private operandsFromArray oprList =
   let oprs = Array.ofList oprList
@@ -583,7 +571,7 @@ type LoadStoreClass () =
   member __.``[Thumb] Load/store (Lord) Parse test (1)`` () =
     "990f"
     ++ LDR ** [ O.Reg R1; O.MemOffsetImm (SP, Some Plus, Some 60L) ]
-    ||> testNoQNoSimd Condition.AL (Some false)
+    ||> testNoQNoSimd Condition.AL false
 
   [<TestMethod>]
   member __.``[Thumb] Load/store (Lord) Parse test (2)`` () =
@@ -595,7 +583,7 @@ type LoadStoreClass () =
   member __.``[Thumb] Load/store (Lord) Parse test (3)`` () =
     "f8df0087"
     ++ LDR ** [ O.Reg R0; O.MemLabel 135L ]
-    ||> testNoSimd Condition.AL (Some false) (Some W)
+    ||> testNoSimd Condition.AL false (Some W)
 
   [<TestMethod>]
   member __.``[Thumb] Load/store (Lord) Parse test (4)`` () =
@@ -607,19 +595,19 @@ type LoadStoreClass () =
   member __.``[Thumb] Load/store (Lord) Parse test (5)`` () =
     "f8512f33"
     ++ LDR ** [ O.Reg R2; O.MemPreIdxImm (R1, Some Plus, Some 51L) ]
-    ||> testNoQNoSimd Condition.AL (Some true)
+    ||> testNoQNoSimd Condition.AL true
 
   [<TestMethod>]
   member __.``[Thumb] Load/store (Lord) Parse test (6)`` () =
     "f8dec080"
     ++ LDR ** [ O.Reg IP; O.MemOffsetImm (LR, Some Plus, Some 128L) ]
-    ||> testNoSimd Condition.AL (Some false) (Some W)
+    ||> testNoSimd Condition.AL false (Some W)
 
   [<TestMethod>]
   member __.``[Thumb] Load/store (Lord) Parse test (7)`` () =
     "f839bc82"
     ++ LDRH ** [ O.Reg FP; O.MemOffsetImm (SB, Some Minus, Some 130L) ]
-    ||> testNoQNoSimd Condition.AL (Some false)
+    ||> testNoQNoSimd Condition.AL false
 
   [<TestMethod>]
   member __.``[Thumb] Load/store (Lord) Parse test (8)`` () =
@@ -631,25 +619,25 @@ type LoadStoreClass () =
   member __.``[Thumb] Load/store (Lord) Parse test (9)`` () =
     "f9b3b00b"
     ++ LDRSH ** [ O.Reg FP; O.MemOffsetImm (R3, Some Plus, Some 11L) ]
-    ||> testNoQNoSimd Condition.AL (Some false)
+    ||> testNoQNoSimd Condition.AL false
 
   [<TestMethod>]
   member __.``[Thumb] Load/store (Lord) Parse test (10)`` () =
     "79a6"
     ++ LDRB ** [ O.Reg R6; O.MemOffsetImm (R4, Some Plus, Some 6L) ]
-    ||> testNoQNoSimd Condition.AL (Some false)
+    ||> testNoQNoSimd Condition.AL false
 
   [<TestMethod>]
   member __.``[Thumb] Load/store (Lord) Parse test (11)`` () =
     "f812a036"
     ++ LDRB ** [ O.Reg SL; O.MemOffsetReg (R2, Some Plus, R6, SRTypeLSL, 3u) ]
-    ||> testNoQNoSimd Condition.AL (Some false) (* W *)
+    ||> testNoQNoSimd Condition.AL false (* W *)
 
   [<TestMethod>]
   member __.``[Thumb] Load/store (Lord) Parse test (12)`` () =
     "f814890c"
     ++ LDRB ** [ O.Reg R8; O.MemPostIdxImm (R4, Some Minus, Some 12L) ]
-    ||> testNoQNoSimd Condition.AL (Some true)
+    ||> testNoQNoSimd Condition.AL true
 
   [<TestMethod>]
   member __.``[Thumb] Load/store (Lord) Parse test (13)`` () =
@@ -661,62 +649,62 @@ type LoadStoreClass () =
   member __.``[Thumb] Load/store (Lord) Parse test (14)`` () =
     "f9981c32"
     ++ LDRSB ** [ O.Reg R1; O.MemOffsetImm (R8, Some Plus, Some 3122L) ]
-    ||> testNoQNoSimd Condition.AL (Some false)
+    ||> testNoQNoSimd Condition.AL false
 
   [<TestMethod>]
   member __.``[Thumb] Load/store (Lord) Parse test (15)`` () =
     "f91e9020"
     ++ LDRSB ** [ O.Reg SB; O.MemOffsetReg (LR, Some Plus, R0, SRTypeLSL, 2u) ]
-    ||> testNoQNoSimd Condition.AL (Some false) (* W *)
+    ||> testNoQNoSimd Condition.AL false (* W *)
 
   [<TestMethod>]
   member __.``[Thumb] Load/store (Lord) Parse test (16)`` () =
     "e95fc642"
     ++ LDRD ** [ O.Reg IP; O.Reg R6; O.MemLabel -264L ]
-    ||> testNoQNoSimd Condition.AL (Some false)
+    ||> testNoQNoSimd Condition.AL false
 
   [<TestMethod>]
   member __.``[Thumb] Load/store (Store) Parse test (1)`` () =
     "6637"
     ++ STR ** [ O.Reg R7; O.MemOffsetImm (R6, Some Plus, Some 96L) ]
-    ||> testNoQNoSimd Condition.AL (Some false)
+    ||> testNoQNoSimd Condition.AL false
 
   [<TestMethod>]
   member __.``[Thumb] Load/store (Store) Parse test (2)`` () =
     "8457"
     ++ STRH ** [ O.Reg R7; O.MemOffsetImm (R2, Some Plus, Some 34L) ]
-    ||> testNoQNoSimd Condition.AL (Some false)
+    ||> testNoQNoSimd Condition.AL false
 
   [<TestMethod>]
   member __.``[Thumb] Load/store (Store) Parse test (3)`` () =
     "549c"
     ++ STRB ** [ O.Reg R4; O.MemOffsetReg (R3, Some Plus, R2) ]
-    ||> testNoQNoSimd Condition.AL (Some false)
+    ||> testNoQNoSimd Condition.AL false
 
   [<TestMethod>]
   member __.``[Thumb] Load/store (Store) Parse test (4)`` () =
     "f809e982"
     ++ STRB ** [ O.Reg LR; O.MemPostIdxImm (SB, Some Minus, Some 130L) ]
-    ||> testNoQNoSimd Condition.AL (Some true)
+    ||> testNoQNoSimd Condition.AL true
 
   [<TestMethod>]
   member __.``[Thumb] Load/store (Store) Parse test (5)`` () =
     "f886c80c"
     ++ STRB ** [ O.Reg IP; O.MemOffsetImm (R6, Some Plus, Some 2060L) ]
-    ||> testNoSimd Condition.AL (Some false) (Some W)
+    ||> testNoSimd Condition.AL false (Some W)
 
   [<TestMethod>]
   member __.``[Thumb] Load/store (Store) Parse test (6)`` () =
     "f80a002c"
     ++ STRB ** [ O.Reg R0; O.MemOffsetReg (SL, Some Plus, IP, SRTypeLSL, 2u) ]
-    ||> testNoQNoSimd Condition.AL (Some false) (* W *)
+    ||> testNoQNoSimd Condition.AL false (* W *)
 
   [<TestMethod>]
   member __.``[Thumb] Load/store (Store) Parse test (7)`` () =
     "e96a393c"
     ++ STRD ** [ O.Reg R3; O.Reg SB;
                  O.MemPreIdxImm (SL, Some Minus, Some 240L) ]
-    ||> testNoQNoSimd Condition.AL (Some true)
+    ||> testNoQNoSimd Condition.AL true
 
   [<TestMethod>]
   member __.``[Thumb] Load/store (Load unprivileged) Parse test (1)`` () =
@@ -786,13 +774,13 @@ type LoadStoreMultipleClass () =
   member __.``[Thumb] Load/store multiple Parse test (1)`` () =
     "cbc1"
     ++ LDM ** [ O.Reg R3; O.RegList [ R0; R6; R7 ] ]
-    ||> testNoQNoSimd Condition.AL (Some true)
+    ||> testNoQNoSimd Condition.AL true
 
   [<TestMethod>]
   member __.``[Thumb] Load/store multiple Parse test (2)`` () =
     "e8985184"
     ++ LDM ** [ O.Reg R8; O.RegList [ R2; R7; R8; IP; LR ] ]
-    ||> testNoSimd Condition.AL (Some false) (Some W)
+    ||> testNoSimd Condition.AL false (Some W)
 
   [<TestMethod>]
   member __.``[Thumb] Load/store multiple Parse test (3)`` () =
@@ -828,13 +816,13 @@ type LoadStoreMultipleClass () =
   member __.``[Thumb] Load/store multiple Parse test (8)`` () =
     "c5a3"
     ++ STM ** [ O.Reg R5; O.RegList [ R0; R1; R5; R7 ] ]
-    ||> testNoQNoSimd Condition.AL (Some true)
+    ||> testNoQNoSimd Condition.AL true
 
   [<TestMethod>]
   member __.``[Thumb] Load/store multiple Parse test (9)`` () =
     "e8825990"
     ++ STM ** [ O.Reg R2; O.RegList [ R4; R7; R8; FP; IP; LR ] ]
-    ||> testNoSimd Condition.AL (Some false) (Some W)
+    ||> testNoSimd Condition.AL false (Some W)
 
 /// A4.8 Miscellaneous instructions
 [<TestClass>]
@@ -936,7 +924,7 @@ type ExcepGenAndExcepHandClass () =
   member __.``[Thumb] Exception-gen and exception-handling Parse test (3)`` () =
     "e9bac000"
     ++ RFEIA ** [ O.Reg SL ]
-    ||> testNoQNoSimd Condition.AL (Some true)
+    ||> testNoQNoSimd Condition.AL true
 
   [<TestMethod>]
   member __.``[Thumb] Exception-gen and exception-handling Parse test (4)`` () =
@@ -966,7 +954,7 @@ type ExcepGenAndExcepHandClass () =
   member __.``[Thumb] Exception-gen and exception-handling Parse test (8)`` () =
     "e82dc013"
     ++ SRSDB ** [ O.Reg SP; O.Imm 19L ]
-    ||> testNoQNoSimd Condition.AL (Some true)
+    ||> testNoQNoSimd Condition.AL true
 
 /// A5.4 Media instructions
 [<TestClass>]

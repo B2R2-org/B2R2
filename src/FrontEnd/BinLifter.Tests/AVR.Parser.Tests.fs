@@ -22,7 +22,7 @@
   SOFTWARE.
 *)
 
-module B2R2.FrontEnd.Tests.AVRParser
+module B2R2.FrontEnd.Tests.AVR
 
 open Microsoft.VisualStudio.TestTools.UnitTesting
 open B2R2

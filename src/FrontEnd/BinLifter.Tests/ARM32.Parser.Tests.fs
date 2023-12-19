@@ -117,48 +117,33 @@ type O =
   static member SimdVectorRegs (regList) =
     getSIMDVector regList
 
-let private test arch endian cond op w q simd oprs (bytes: byte[]) =
+let private test cond op w simd oprs (bytes: byte[]) =
   let mode = ArchOperationMode.ARMMode
-  let parser =
-    ARM32Parser (ISA.Init arch endian, mode, None) :> IInstructionParsable
+  let isa = ISA.Init Architecture.ARMv7 Endian.Big
+  let parser = ARM32Parser (isa, mode, None) :> IInstructionParsable
   let ins = parser.Parse (bytes, 0UL) :?> ARM32Instruction
   let cond' = ins.Condition
   let opcode' = ins.Opcode
   let wback' = ins.WriteBack
-  let q' = ins.Qualifier
   let simd' = ins.SIMDTyp
   let oprs' = ins.Operands
-
-  let w =
-    match w with
-    | Some true -> true
-    | _ -> false // XXX
-
-  let q =
-    match q with
-    | Some W -> W
-    | _ -> N // XXX
-
   Assert.AreEqual (cond', cond)
   Assert.AreEqual (opcode', op)
   Assert.AreEqual (wback', w)
-  Assert.AreEqual (q', q)
   Assert.AreEqual (simd', simd)
   Assert.AreEqual (oprs', oprs)
 
-let private test32 = test Architecture.ARMv7 Endian.Big
-
 let private testNoWbackNoQNoSimd pref (bytes: byte[]) (opcode, operands) =
-  test32 pref opcode None None None operands bytes
+  test pref opcode false None operands bytes
 
 let private testNoWbackNoQ pref simd (bytes: byte[]) (opcode, operands) =
-  test32 pref opcode None None simd operands bytes
+  test pref opcode false simd operands bytes
 
 let private testNoQNoSimd pref wback (bytes: byte[]) (opcode, operands) =
-  test32 pref opcode wback None None operands bytes
+  test pref opcode wback None operands bytes
 
 let private testNoQ pref wback simd (bytes: byte[]) (opcode, operands) =
-  test32 pref opcode wback None simd operands bytes
+  test pref opcode wback simd operands bytes
 
 let private operandsFromArray oprList =
   let oprs = Array.ofList oprList
@@ -404,37 +389,37 @@ type LoadStoreClass () =
   member __.``[ARMv7] Load/store (Lord) Parse test (2)`` () =
     "e09010bc"
     ++ LDRH ** [ O.Reg R1; O.MemPostIdxReg (R0, Some Plus, IP) ]
-    ||> testNoQNoSimd Condition.AL (Some true)
+    ||> testNoQNoSimd Condition.AL true
 
   [<TestMethod>]
   member __.``[ARMv7] Load/store (Lord) Parse test (3)`` () =
     "e75010c2"
     ++ LDRB ** [ O.Reg R1; O.MemOffsetReg (R0, Some Minus, R2, SRTypeASR, 1u) ]
-    ||> testNoQNoSimd Condition.AL (Some false)
+    ||> testNoQNoSimd Condition.AL false
 
   [<TestMethod>]
   member __.``[ARMv7] Load/store (Lord) Parse test (4)`` () =
     "e1701cd3"
     ++ LDRSB ** [ O.Reg R1; O.MemPreIdxImm (R0, Some Minus, Some 195L) ]
-    ||> testNoQNoSimd Condition.AL (Some true)
+    ||> testNoQNoSimd Condition.AL true
 
   [<TestMethod>]
   member __.``[ARMv7] Load/store (Store) Parse test (1)`` () =
     "e50010f3"
     ++ STR ** [ O.Reg R1; O.MemOffsetImm (R0, Some Minus, Some 243L) ]
-    ||> testNoQNoSimd Condition.AL (Some false)
+    ||> testNoQNoSimd Condition.AL false
 
   [<TestMethod>]
   member __.``[ARMv7] Load/store (Store) Parse test (2)`` () =
     "e640122c"
     ++ STRB ** [ O.Reg R1; O.MemPostIdxReg (R0, Some Minus, IP, SRTypeLSR, 4u) ]
-    ||> testNoQNoSimd Condition.AL (Some true)
+    ||> testNoQNoSimd Condition.AL true
 
   [<TestMethod>]
   member __.``[ARMv7] Load/store (Store) Parse test (3)`` () =
     "e1a0c0f8"
     ++ STRD ** [ O.Reg IP; O.Reg SP; O.MemPreIdxReg (R0, Some Plus, R8) ]
-    ||> testNoQNoSimd Condition.AL (Some true)
+    ||> testNoQNoSimd Condition.AL true
 
   [<TestMethod>]
   member __.``[ARMv7] Load/store (Load unprivileged) Parse test (1)`` () =
@@ -474,13 +459,13 @@ type LoadStoreMultipleClass () =
   member __.``[ARMv7] Load/store multiple Parse Test (1)`` () =
     "e8100f0c"
     ++ LDMDA ** [ O.Reg R0; O.RegList [ R2; R3; R8; SB; SL; FP ] ]
-    ||> testNoQNoSimd Condition.AL (Some false)
+    ||> testNoQNoSimd Condition.AL false
 
   [<TestMethod>]
   member __.``[ARMv7] Load/store multiple Parse Test (2)`` () =
     "e8300f0c"
     ++ LDMDA ** [ O.Reg R0; O.RegList [ R2; R3; R8; SB; SL; FP ] ]
-    ||> testNoQNoSimd Condition.AL (Some true)
+    ||> testNoQNoSimd Condition.AL true
 
   [<TestMethod>]
   member __.``[ARMv7] Load/store multiple Parse Test (3)`` () =
@@ -498,7 +483,7 @@ type LoadStoreMultipleClass () =
   member __.``[ARMv7] Load/store multiple Parse Test (4)`` () =
     "e52d0004"
     ++ PUSH ** [ O.RegList [ R0 ] ]
-    ||> testNoQNoSimd Condition.AL (Some true)
+    ||> testNoQNoSimd Condition.AL true
 
   [<TestMethod>]
   member __.``[ARMv7] Load/store multiple Parse Test (5)`` () =
@@ -576,13 +561,13 @@ type ExcepGenAndExcepHandlClass () =
   member __.``[ARMv7] Exception-gen and exception-handling Parse Test (3)`` () =
     "f9bc0a00"
     ++ RFEIB ** [ O.Reg IP ]
-    ||> testNoQNoSimd Condition.UN (Some true)
+    ||> testNoQNoSimd Condition.UN true
 
   [<TestMethod>]
   member __.``[ARMv7] Exception-gen and exception-handling Parse Test (4)`` () =
     "f96d0504"
     ++ SRSDB ** [ O.Reg SP; O.Imm 4L ]
-    ||> testNoQNoSimd Condition.UN (Some true)
+    ||> testNoQNoSimd Condition.UN true
 
 /// A4.10 Co-processor instructions
 [<TestClass>]
@@ -610,7 +595,7 @@ type CoprocessorClass () =
   member __.``[ARMv7] Co-processor Parse test (4)`` () =
     "ed9f5e30"
     ++ LDC ** [ O.Reg P14; O.Reg C5; O.MemLabel 192L ]
-    ||> testNoQNoSimd Condition.AL (Some false)
+    ||> testNoQNoSimd Condition.AL false
 
   [<TestMethod>]
   member __.``[ARMv7] Co-processor Parse test (5)`` () =
@@ -627,21 +612,21 @@ type AdvSIMDAndFPLoadStoreClass () =
     "f4e02f70"
     ++ VLD4 ** [ O.SimdScalarRegs ([ D18; D20; D22; D24 ], None);
                  O.MemPostIdxAlign (R0, Some 64L, Some R0) ]
-    ||> testNoQ Condition.UN (Some true) (Some (OneDT SIMDTyp16))
+    ||> testNoQ Condition.UN true (Some (OneDT SIMDTyp16))
 
   [<TestMethod>]
   member __.``[ARMv7] Element and structure load/store Parse test (2)`` () =
     "f402c690"
     ++ VST1 ** [ O.SimdVectorRegs ([ D12; D13; D14 ]);
                  O.MemPostIdxAlign (R2, Some 64L, Some R0) ]
-    ||> testNoQ Condition.UN (Some true) (Some (OneDT SIMDTyp32))
+    ||> testNoQ Condition.UN true (Some (OneDT SIMDTyp32))
 
   [<TestMethod>]
   member __.``[ARMv7] Element and structure load/store Parse test (3)`` () =
     "f48eeac3"
     ++ VST3 ** [ O.SimdScalarRegs ([ D14; D16; D18 ], Some 1uy);
                  O.MemPostIdxReg (LR, None, R3) ]
-    ||> testNoQ Condition.UN (Some true) (Some (OneDT SIMDTyp32))
+    ||> testNoQ Condition.UN true (Some (OneDT SIMDTyp32))
 
 /// A4.12 Advanced SIMD and Floating-point register transfer instructions
 [<TestClass>]
