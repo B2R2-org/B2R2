@@ -32,18 +32,18 @@ open B2R2.MiddleEnd.ControlFlowGraph
 /// We use this constant for our data-flow analyses.
 let [<Literal>] InitialStackPointer = 0x80000000UL
 
-let rec private extractUseFromExpr e =
+let rec private extractUseFromExpr e acc =
   match e.E with
-  | Var (_, id, _) -> [ Regular id ]
-  | TempVar (_, n) -> [ Temporary n ]
-  | UnOp (_, e) -> extractUseFromExpr e
-  | BinOp (_, _, e1, e2) -> extractUseFromExpr e1 @ extractUseFromExpr e2
-  | RelOp (_, e1, e2) -> extractUseFromExpr e1 @ extractUseFromExpr e2
-  | Load (_, _, e) -> extractUseFromExpr e
+  | Var (_, id, _) -> Regular id :: acc
+  | TempVar (_, n) -> Temporary n :: acc
+  | UnOp (_, e) -> extractUseFromExpr e acc
+  | BinOp (_, _, e1, e2) -> extractUseFromExpr e1 (extractUseFromExpr e2 acc)
+  | RelOp (_, e1, e2) -> extractUseFromExpr e1 (extractUseFromExpr e2 acc)
+  | Load (_, _, e) -> extractUseFromExpr e acc
   | Ite (c, e1, e2) ->
-    extractUseFromExpr c @ extractUseFromExpr e1 @ extractUseFromExpr e2
-  | Cast (_, _, e) -> extractUseFromExpr e
-  | Extract (e, _, _) -> extractUseFromExpr e
+    extractUseFromExpr c (extractUseFromExpr e1 (extractUseFromExpr e2 acc))
+  | Cast (_, _, e) -> extractUseFromExpr e acc
+  | Extract (e, _, _) -> extractUseFromExpr e acc
   | _ -> []
 
 let private extractUseFromStmt s =
@@ -52,9 +52,9 @@ let private extractUseFromStmt s =
   | Store (_, _, e)
   | Jmp (e)
   | CJmp (e, _, _)
-  | InterJmp (e, _) -> extractUseFromExpr e
+  | InterJmp (e, _) -> extractUseFromExpr e []
   | InterCJmp (c, e1, e2) ->
-    extractUseFromExpr c @ extractUseFromExpr e1 @ extractUseFromExpr e2
+    extractUseFromExpr c (extractUseFromExpr e1 (extractUseFromExpr e2 []))
   | _ -> []
 
 let extractUses stmt =
