@@ -44,7 +44,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="B2R2.FsReadLine" Version="0.1.5" />
+    <PackageReference Include="B2R2.FsReadLine" Version="0.2.0" />
     <PackageReference Include="FParsec" Version="1.1.1" />
   </ItemGroup>
 
