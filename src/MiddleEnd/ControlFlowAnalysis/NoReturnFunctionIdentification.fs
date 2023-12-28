@@ -305,7 +305,7 @@ type NoReturnFunctionIdentification () =
 
   override __.Name = "NoReturnFunctionIdentification"
 
-  override __.Run hdl codeMgr _dataMgr func evts =
+  override __.Run hdl codeMgr _jmpTbls func evts =
 #if CFGDEBUG
     dbglog "NoRetAnalysis" "@%x before: %A"
       func.EntryPoint func.NoReturnProperty

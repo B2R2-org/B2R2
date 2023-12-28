@@ -55,7 +55,7 @@ type LLVMAction () =
     let fn = ess.CodeManager.FunctionMaintainer.GetOrAddFunction ep
     let eAddr = uint64 hdl.File.Length - 1UL
     let mode = hdl.Parser.OperationMode
-    let builder = CFGBuilder (hdl, ess.CodeManager, ess.DataManager)
+    let builder = CFGBuilder (hdl, ess.CodeManager, ess.JumpTables)
     let evts = CFGEvents.empty
     ess.CodeManager.ParseSequence hdl mode ep eAddr fn evts
     |> Result.bind (fun evts ->

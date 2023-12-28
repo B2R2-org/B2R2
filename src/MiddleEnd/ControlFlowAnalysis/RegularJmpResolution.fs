@@ -82,7 +82,8 @@ module private RegularJmpResolution =
       |> CFGEvents.addEdgeEvt fn src dst IndirectJmpEdge
     (bld: ICFGBuildable).Update evts
 
-  let recoverOneEntry bld hdl codeMgr (dataMgr: DataManager) fn jt entryAddr =
+  let recoverOneEntry
+    bld hdl codeMgr (jmpTbls: JumpTableCollection) fn jt entryAddr =
     let dst = readTable hdl jt.BranchBaseAddr entryAddr jt.JTEntrySize
     let brAddr = jt.InstructionAddr
     let bblInfo = (codeMgr: CodeManager).GetBBL brAddr
@@ -98,7 +99,7 @@ module private RegularJmpResolution =
          Thus, the potential end-point address has been updated during the
          Update process, and we found out late that our attempt with entryAddr
          was wrong. *)
-      let ep = dataMgr.JumpTables.FindPotentialEndPoint jt.JTStartAddr
+      let ep = jmpTbls.FindPotentialEndPoint jt.JTStartAddr
       if entryAddr >= ep then Error ErrorLateDetection
       else Ok dst)
     |> function
@@ -108,10 +109,10 @@ module private RegularJmpResolution =
           recoveredAddr entryAddr jt.JTStartAddr
 #endif
         let ep = entryAddr + uint64 jt.JTEntrySize
-        dataMgr.JumpTables.UpdateConfirmedEndPoint jt.JTStartAddr ep |> Ok
+        jmpTbls.UpdateConfirmedEndPoint jt.JTStartAddr ep |> Ok
       | Error e -> Error e
 
-  let getJumpTables (fn: RegularFunction) =
+  let getJumpTableAddrs (fn: RegularFunction) =
     fn.IndirectJumps.Values
     |> Seq.fold (fun acc jmpKind ->
       match jmpKind with
@@ -121,18 +122,17 @@ module private RegularJmpResolution =
     |> List.rev
 
   /// Analyze less explored jump tables first.
-  let sortJumpTablesByProgress (dataMgr: DataManager) jmpTbls =
-    jmpTbls
-    |> List.sortBy (fun addr ->
-      (dataMgr.JumpTables.FindConfirmedEndPoint addr) - addr)
+  let sortJumpTablesByProgress (jmpTbls: JumpTableCollection) jmpTblAddrs =
+    jmpTblAddrs
+    |> List.sortBy (fun addr -> (jmpTbls.FindConfirmedEndPoint addr) - addr)
 
   /// We first recover the very first entry, since we are 100% sure about it.
-  let rec getInitialRecoveryTarget (dataMgr: DataManager) = function
+  let rec getInitialRecoveryTarget (jmpTbls: JumpTableCollection) = function
     | tAddr :: tl ->
-      let endPoint = dataMgr.JumpTables.FindConfirmedEndPoint tAddr
+      let endPoint = jmpTbls.FindConfirmedEndPoint tAddr
       if tAddr = endPoint then (* First entry *)
-        Some (dataMgr.JumpTables[tAddr], tAddr)
-      else getInitialRecoveryTarget dataMgr tl
+        Some (jmpTbls.[tAddr], tAddr)
+      else getInitialRecoveryTarget jmpTbls tl
     | [] -> None
 
   let isSemanticallyNop (hdl: BinHandle) (ins: Instruction) =
@@ -173,13 +173,14 @@ module private RegularJmpResolution =
 
   /// Incrementally search for a jump table entry pointing to the current gap.
   /// The search continues until we find an invalid address in the table.
-  let rec findGapPointingAddr hdl (dataMgr: DataManager) jt entryAddr gaps =
+  let rec findGapPointingAddr
+    hdl (jmpTbls: JumpTableCollection) jt entryAddr gaps =
     let size = jt.JTEntrySize
-    if dataMgr.JumpTables.FindPotentialEndPoint jt.JTStartAddr <= entryAddr then
+    if jmpTbls.FindPotentialEndPoint jt.JTStartAddr <= entryAddr then
 #if CFGDEBUG
       dbglog "IndJmpRecovery" "Nothing from gap (tbl %x) (potential = %x)"
         jt.JTStartAddr
-        (dataMgr.JumpTables.FindPotentialEndPoint jt.JTStartAddr)
+        (jmpTbls.FindPotentialEndPoint jt.JTStartAddr)
 #endif
       None
     else
@@ -188,14 +189,14 @@ module private RegularJmpResolution =
         let nextAddr = entryAddr + uint64 size
         if Map.containsKey addr gaps then
           let confirmedEndPoint =
-            dataMgr.JumpTables.FindConfirmedEndPoint jt.JTStartAddr
+            jmpTbls.FindConfirmedEndPoint jt.JTStartAddr
           let entryAddr = min confirmedEndPoint entryAddr
 #if CFGDEBUG
           dbglog "IndJmpRecovery" "Found entry %x (for tbl %x) from gap"
            entryAddr jt.JTStartAddr
 #endif
           Some (jt, entryAddr)
-        else findGapPointingAddr hdl dataMgr jt nextAddr gaps
+        else findGapPointingAddr hdl jmpTbls jt nextAddr gaps
       else
 #if CFGDEBUG
         dbglog "IndJmpRecovery" "Invalid gap pointing addr %x => %x (tbl %x)"
@@ -204,13 +205,13 @@ module private RegularJmpResolution =
         None
 
   /// Find a recovery end-point address that can fill in the gap.
-  let rec getRecoveryTargetFromGap hdl (dataMgr: DataManager) gaps = function
+  let rec getRecoveryTargetFromGap hdl jmpTbls gaps = function
     | tAddr :: tl ->
-      let jt = dataMgr.JumpTables[tAddr]
-      let entryAddr = dataMgr.JumpTables.FindConfirmedEndPoint tAddr
-      match findGapPointingAddr hdl dataMgr jt entryAddr gaps with
+      let jt = (jmpTbls: JumpTableCollection)[tAddr]
+      let entryAddr = jmpTbls.FindConfirmedEndPoint tAddr
+      match findGapPointingAddr hdl jmpTbls jt entryAddr gaps with
       | Some _ as target -> target
-      | None -> getRecoveryTargetFromGap hdl dataMgr gaps tl
+      | None -> getRecoveryTargetFromGap hdl jmpTbls gaps tl
     | [] -> None
 
   /// Increment the current entry address of a jump table only if it can point
@@ -225,11 +226,11 @@ module private RegularJmpResolution =
 
   /// This is a less safer path than the gap-oriented search. We compute the
   /// next recovery end-point address by simply pointing to the next entry.
-  let rec getNextRecoveryTargetFromTable hdl codeMgr dataMgr fn gaps = function
+  let rec getNextRecoveryTargetFromTable hdl codeMgr jmpTbls fn gaps = function
     | tAddr :: tl ->
-      let jt = (dataMgr: DataManager).JumpTables[tAddr]
-      let deadEnd = dataMgr.JumpTables.FindPotentialEndPoint tAddr
-      let entryAddr = dataMgr.JumpTables.FindConfirmedEndPoint tAddr
+      let jt = (jmpTbls: JumpTableCollection)[tAddr]
+      let deadEnd = jmpTbls.FindPotentialEndPoint tAddr
+      let entryAddr = jmpTbls.FindConfirmedEndPoint tAddr
 #if CFGDEBUG
       dbglog "IndJmpRecovery" "Last resort (tbl %x) %x < %x"
         tAddr entryAddr deadEnd
@@ -244,20 +245,20 @@ module private RegularJmpResolution =
             entry jt.JTStartAddr
 #endif
           Some (jt, entry)
-        | None -> getNextRecoveryTargetFromTable hdl codeMgr dataMgr fn gaps tl
-      else getNextRecoveryTargetFromTable hdl codeMgr dataMgr fn gaps tl
+        | None -> getNextRecoveryTargetFromTable hdl codeMgr jmpTbls fn gaps tl
+      else getNextRecoveryTargetFromTable hdl codeMgr jmpTbls fn gaps tl
     | [] -> None
 
   /// Get the next analysis target information, such as end-point addresses
   /// where we should stop our recovery process, for recovering jump tables.
-  let getNextAnalysisTarget hdl codeMgr (dataMgr: DataManager) func =
-    let jmpTbls =
-      getJumpTables func
-      |> sortJumpTablesByProgress dataMgr
+  let getNextAnalysisTarget hdl codeMgr (jmpTbls: JumpTableCollection) func =
+    let jmpTblAddrs =
+      getJumpTableAddrs func
+      |> sortJumpTablesByProgress jmpTbls
 #if CFGDEBUG
-    dbglog "IndJmpRecovery" "%d table(s) at hand" (List.length jmpTbls)
+    dbglog "IndJmpRecovery" "%d table(s) at hand" (List.length jmpTblAddrs)
 #endif
-    match getInitialRecoveryTarget dataMgr jmpTbls with
+    match getInitialRecoveryTarget jmpTbls jmpTblAddrs with
     | Some (jt, _) as target ->
 #if CFGDEBUG
       dbglog "IndJmpRecovery" "Found the first entry from table (%x)"
@@ -266,20 +267,21 @@ module private RegularJmpResolution =
       target
     | None ->
       let gaps = (func: RegularFunction).GapAddresses |> rearrangeGapsByNoOp hdl
-      match getRecoveryTargetFromGap hdl dataMgr gaps jmpTbls with
+      match getRecoveryTargetFromGap hdl jmpTbls gaps jmpTblAddrs with
       | Some _ as target -> target
       | None ->
-        getNextRecoveryTargetFromTable hdl codeMgr dataMgr func gaps jmpTbls
+        getNextRecoveryTargetFromTable hdl codeMgr jmpTbls func gaps jmpTblAddrs
 
   let rec rollback
-    (codeMgr: CodeManager) (dataMgr: DataManager) fn evts jt entryAddr e =
+    (codeMgr: CodeManager)
+    (jmpTbls: JumpTableCollection) fn evts jt entryAddr e =
     let fnAddr = (fn: RegularFunction).EntryPoint
     let brAddr = jt.InstructionAddr
 #if CFGDEBUG
     dbglog "IndJmpRecovery" "@%x Failed to recover %x (tbl %x), so rollback %s"
       fnAddr entryAddr jt.JTStartAddr (CFGError.toString e)
 #endif
-    dataMgr.JumpTables.UpdateConfirmedEndPoint jt.JTStartAddr jt.JTStartAddr
+    jmpTbls.UpdateConfirmedEndPoint jt.JTStartAddr jt.JTStartAddr
     match e with
     | ErrorBranchRecovery (errFnAddr, errBrAddr, rollbackFuncs) ->
       let rollbackFuncs = Set.add fnAddr rollbackFuncs
@@ -287,10 +289,10 @@ module private RegularJmpResolution =
         Error <| ErrorBranchRecovery (errFnAddr, errBrAddr, rollbackFuncs)
       else codeMgr.RollBack (evts, Set.toList rollbackFuncs) |> Ok
     | ErrorLateDetection ->
-      dataMgr.JumpTables.UpdatePotentialEndPoint jt.JTStartAddr entryAddr
+      jmpTbls.UpdatePotentialEndPoint jt.JTStartAddr entryAddr
       finishIfEmpty codeMgr fnAddr brAddr evts
     | ErrorConnectingEdge _ | ErrorParsing _ ->
-      dataMgr.JumpTables.UpdatePotentialEndPoint jt.JTStartAddr entryAddr
+      jmpTbls.UpdatePotentialEndPoint jt.JTStartAddr entryAddr
       finishIfEmpty codeMgr fnAddr brAddr evts
 
   and finishIfEmpty codeMgr fnAddr brAddr evts =
@@ -384,14 +386,13 @@ type RegularJmpResolution (bld) =
       classifyJmpExpr hdl cpState symbExpr
     | _ -> Utils.impossible ()
 
-  override __.MarkIndJmpAsTarget codeMgr dataMgr fn insAddr _ evts pattern =
+  override __.MarkIndJmpAsTarget codeMgr jmpTbls fn insAddr _ evts pattern =
     match pattern with
     | JmpTablePattern (bAddr, tAddr, rt) ->
 #if CFGDEBUG
       dbglog "IndJmpRecovery" "Found known pattern %x, %x" bAddr tAddr
 #endif
-      let tbls = dataMgr.JumpTables
-      match tbls.Register fn.EntryPoint insAddr bAddr tAddr rt with
+      match jmpTbls.Register fn.EntryPoint insAddr bAddr tAddr rt with
       | Ok () ->
         fn.MarkIndJumpAsJumpTbl insAddr tAddr
         Ok (true, evts)
@@ -417,17 +418,17 @@ type RegularJmpResolution (bld) =
       fn.MarkIndJumpAsUnknown insAddr
       Ok (false, evts)
 
-  override __.RecoverTarget hdl codeMgr dataMgr fn evts =
-    match getNextAnalysisTarget hdl codeMgr dataMgr fn with
+  override __.RecoverTarget hdl codeMgr jmpTbls fn evts =
+    match getNextAnalysisTarget hdl codeMgr jmpTbls fn with
     | Some (jt, entryAddr) ->
-      match recoverOneEntry bld hdl codeMgr dataMgr fn jt entryAddr with
+      match recoverOneEntry bld hdl codeMgr jmpTbls fn jt entryAddr with
       | Ok () -> RecoverContinue
       | Error e ->
-        let res = rollback codeMgr dataMgr fn evts jt entryAddr e
+        let res = rollback codeMgr jmpTbls fn evts jt entryAddr e
         RecoverDone res
     | None -> RecoverDone <| Ok evts
 
-  override __.OnError codeMgr dataMgr fn evts errInfo =
+  override __.OnError codeMgr jmpTbls fn evts errInfo =
     match errInfo with
     | oldJT, newTblAddr ->
       let oldBrAddr = oldJT.InstructionAddr
@@ -437,8 +438,8 @@ type RegularJmpResolution (bld) =
       dbglog "IndJmpRecovery" "@%x Failed to make jmptbl due to overlap: %x@%x"
         fn.EntryPoint oldBrAddr oldFnAddr
 #endif
-      dataMgr.JumpTables.UpdatePotentialEndPoint oldTblAddr newTblAddr
+      jmpTbls.UpdatePotentialEndPoint oldTblAddr newTblAddr
       let fnToRollback = codeMgr.FunctionMaintainer.FindRegular oldFnAddr
       fnToRollback.JumpTableAddrs |> List.iter (fun tAddr ->
-        dataMgr.JumpTables.UpdateConfirmedEndPoint tAddr tAddr)
+        jmpTbls.UpdateConfirmedEndPoint tAddr tAddr)
       finishIfEmpty codeMgr oldFnAddr oldBrAddr evts

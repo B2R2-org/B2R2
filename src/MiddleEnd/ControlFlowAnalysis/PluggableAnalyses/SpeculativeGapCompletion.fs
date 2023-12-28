@@ -102,13 +102,12 @@ module private SpeculativeGapCompletionHelper =
     |> List.concat
     |> recoverGaps branchRecovery ess
   *)
-  let run hdl codeMgr dataMgr = false
+  let run hdl codeMgr _jmpTbls = false
 
 type SpeculativeGapCompletion () =
   interface IPluggableAnalysis with
 
     member __.Name = "Speculative Gap Completion"
 
-    member __.Run _builder hdl codeMgr dataMgr =
-      // SpeculativeGapCompletionHelper.run hdl codeMgr dataMgr
+    member __.Run _builder hdl codeMgr _jmpTbls =
       PluggableAnalysisOk

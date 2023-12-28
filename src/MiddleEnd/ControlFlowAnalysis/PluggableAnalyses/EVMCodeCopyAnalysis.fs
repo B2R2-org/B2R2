@@ -73,7 +73,7 @@ type EVMCodeCopyAnalysis () =
 
     member __.Name = "EVM Code Copy Analysis"
 
-    member __.Run _builder (hdl: BinHandle) codeMgr _dataMgr =
+    member __.Run _builder (hdl: BinHandle) codeMgr _jmpTbls =
       match hdl.File.ISA.Arch with
       | Architecture.EVM -> recoverCopiedCode hdl codeMgr
       | _ -> PluggableAnalysisOk

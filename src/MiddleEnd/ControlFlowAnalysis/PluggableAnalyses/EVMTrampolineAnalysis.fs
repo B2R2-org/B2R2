@@ -116,7 +116,7 @@ type EVMTrampolineAnalysis (abiFile) =
   interface IPluggableAnalysis with
     member __.Name = "EVM Trampoline Analysis"
 
-    member __.Run _builder (hdl: BinHandle) codeMgr _dataMgr =
+    member __.Run _builder (hdl: BinHandle) codeMgr _jmpTbls =
       match hdl.File.ISA.Arch with
       | Architecture.EVM -> __.AnalyzeTrampoline hdl codeMgr
       | _ -> PluggableAnalysisOk

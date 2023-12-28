@@ -41,8 +41,8 @@ type BinEssence = {
   /// Higher-level access to the code. It handles parsed instructions, lifted
   /// IRs, basic blocks, functions, exception handlers, etc.
   CodeManager: CodeManager
-  /// Higher-level access to the data.
-  DataManager: DataManager
+  /// Jump table.
+  JumpTables: JumpTableCollection
 }
 
 [<RequireQualifiedAccess>]
@@ -84,7 +84,7 @@ module BinEssence =
   let empty hdl =
     { BinHandle = hdl
       CodeManager = CodeManager (hdl)
-      DataManager = DataManager (hdl) }
+      JumpTables = JumpTableCollection () }
 
   let private initialBuild ess (builder: CFGBuilder) =
     let entries = getInitialEntryPoints ess
@@ -100,7 +100,7 @@ module BinEssence =
       Ok ess
     | PluggableAnalysisNewBinary hdl ->
       let ess = empty hdl
-      let builder = CFGBuilder (hdl, ess.CodeManager, ess.DataManager)
+      let builder = CFGBuilder (hdl, ess.CodeManager, ess.JumpTables)
       initialBuild ess builder
 
   let private runAnalyses builder analyses (ess: BinEssence) =
@@ -110,7 +110,7 @@ module BinEssence =
       printfn "[*] %s started." analysis.Name
   #endif
       let ess =
-        analysis.Run builder ess.BinHandle ess.CodeManager ess.DataManager
+        analysis.Run builder ess.BinHandle ess.CodeManager ess.JumpTables
         |> handlePluggableAnalysisResult ess analysis.Name
       match ess with
       | Ok ess -> ess
@@ -130,7 +130,7 @@ module BinEssence =
     let startTime = System.DateTime.Now
 #endif
     let ess = empty hdl
-    let builder = CFGBuilder (hdl, ess.CodeManager, ess.DataManager)
+    let builder = CFGBuilder (hdl, ess.CodeManager, ess.JumpTables)
     match initialBuild ess builder with
     | Ok ess ->
       let ess = ess |> analyzeAll preAnalyses mainAnalyses postAnalyses builder

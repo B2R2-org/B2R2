@@ -43,7 +43,7 @@ type PerFunctionAnalysis () =
   abstract Run:
        BinHandle
     -> CodeManager
-    -> DataManager
+    -> JumpTableCollection
     -> RegularFunction
     -> CFGEvents
     -> Result<CFGEvents, CFGError>

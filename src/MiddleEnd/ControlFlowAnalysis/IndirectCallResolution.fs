@@ -123,7 +123,7 @@ type IndirectCallResolution () =
 
   override __.Name = Myname
 
-  override __.Run hdl codeMgr _dataMgr func evts =
+  override __.Run hdl codeMgr _jmpTbls func evts =
     let reader = reader hdl codeMgr |> Some
     let struct (cpState, ssaCFG) = PerFunctionAnalysis.runCP hdl func reader
     func.UnresolvedIndirectCallEdges

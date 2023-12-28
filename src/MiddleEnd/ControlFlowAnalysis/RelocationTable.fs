@@ -1,4 +1,4 @@
-(*
+﻿(*
   B2R2 - the Next-Generation Reversing Platform
 
   Copyright (c) SoftSec Lab. @ KAIST, since 2016
@@ -24,40 +24,32 @@
 
 namespace B2R2.MiddleEnd.ControlFlowAnalysis
 
-open System.Collections.Generic
+open B2R2
 open B2R2.FrontEnd
 open B2R2.FrontEnd.BinFile
-open B2R2.FrontEnd.BinFile.ELF
 
-[<AutoOpen>]
-module private DataManager =
-  let parseRelocatableFunctionSymbols reloc =
-    let dict = Dictionary ()
-    let iter (KeyValue (addr, rel: RelocationEntry)) =
-      match rel.RelType with
-      | RelocationX86 RelocationX86.R_386_32
-      | RelocationX86 RelocationX86.R_386_PC32
-      | RelocationX64 RelocationX64.R_X86_64_PLT32 ->
-        match rel.RelSymbol with
-        | Some sym when sym.SymType = SymbolType.STT_FUNC ->
-          dict.Add (addr, sym)
-        | _ -> ()
-      | _ -> ()
-    reloc.RelocByAddr |> Seq.iter iter
-    dict
+type RelocationTable (hdl: BinHandle) =
+  let offset =
+    match hdl.File.ISA.Arch with
+    | Architecture.IntelX86
+    | Architecture.IntelX64 -> 1UL
+    | _ -> Utils.futureFeature ()
 
-  let parseRelocatableFuncs (hdl: BinHandle) =
+  let lookup addr =
     match hdl.File with
-    | :? ELFBinFile as elf -> parseRelocatableFunctionSymbols elf.RelocationInfo
-    | _ -> Dictionary ()
+    | :? ELFBinFile as elf ->
+      match elf.RelocationInfo.RelocByAddr.TryGetValue addr with
+      | true, rel ->
+        rel.RelSymbol
+        |> Option.bind (fun sym ->
+          if sym.SymType = ELF.SymbolType.STT_FUNC then Some sym.SymName
+          else None)
+      | false, _ -> None
+    | :? RawBinFile -> None
+    | _ -> Utils.futureFeature ()
 
-type DataManager (hdl) =
-  let jmpTables = JumpTableMaintainer ()
-  let relocatableFuncs = parseRelocatableFuncs hdl
-
-  /// Return the JumpTableMaintainer.
-  member __.JumpTables with get() = jmpTables
-
-  /// Return a map from a relocatable offset to its corresponding symbol. This
-  /// map considers relocatable functions only.
-  member __.RelocatableFuncs with get() = relocatableFuncs
+  /// Check if the given call instruction has a relocatable target, and if so,
+  /// return the function symbol name.
+  member __.CallTargetFunctionName (callAddr: Addr) =
+    let targetAddr = callAddr + offset
+    lookup targetAddr

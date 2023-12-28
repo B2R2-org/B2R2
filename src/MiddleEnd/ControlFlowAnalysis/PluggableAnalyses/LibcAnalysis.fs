@@ -132,5 +132,5 @@ type LibcAnalysis () =
 
     member __.Name = "LibC Analysis"
 
-    member __.Run builder hdl codeMgr _dataMgr =
+    member __.Run builder hdl codeMgr _jmpTbls =
       LibcAnalysisHelper.recoverLibcEntries builder hdl codeMgr

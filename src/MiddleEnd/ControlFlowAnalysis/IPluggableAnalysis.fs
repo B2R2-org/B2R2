@@ -48,5 +48,5 @@ type IPluggableAnalysis =
        CFGBuilder
     -> BinHandle
     -> CodeManager
-    -> DataManager
+    -> JumpTableCollection
     -> PluggableAnalysisReturnType

@@ -48,7 +48,8 @@ with
       JTStartAddr = tAddr
       JTEntrySize = RegType.toByteWidth rt }
 
-type JumpTableMaintainer () =
+/// Collection of jump tables.
+type JumpTableCollection () =
   let jumpTables = SortedList<Addr, JumpTable> ()
   let potentialEndPoints = Dictionary<Addr, Addr> ()
   let confirmedEndPoints = Dictionary<Addr, Addr> ()

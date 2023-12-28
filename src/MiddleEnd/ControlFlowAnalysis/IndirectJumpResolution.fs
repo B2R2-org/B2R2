@@ -74,7 +74,7 @@ type IndirectJumpResolution () =
   /// target.
   abstract member MarkIndJmpAsTarget:
     CodeManager
-    -> DataManager
+    -> JumpTableCollection
     -> RegularFunction
     -> Addr
     -> ProgramPoint
@@ -86,7 +86,7 @@ type IndirectJumpResolution () =
   abstract member RecoverTarget:
     BinHandle
     -> CodeManager
-    -> DataManager
+    -> JumpTableCollection
     -> RegularFunction
     -> CFGEvents
     -> RecoveryStatus
@@ -94,7 +94,7 @@ type IndirectJumpResolution () =
   /// Process recovery error(s).
   abstract member OnError:
     CodeManager
-    -> DataManager
+    -> JumpTableCollection
     -> RegularFunction
     -> CFGEvents
     -> (JumpTable * Addr)
@@ -126,7 +126,7 @@ type IndirectJumpResolution () =
     |> __.Classify hdl srcV cpState
 
   member private __.Analyze
-    hdl codeMgr dataMgr fn cpSt ssaCFG addrs needRecovery evts =
+    hdl codeMgr jmpTbls fn cpSt ssaCFG addrs needRecovery evts =
     match addrs with
     | iAddr :: rest ->
 #if CFGDEBUG
@@ -137,37 +137,37 @@ type IndirectJumpResolution () =
       let blkAddr = Set.minElement bblInfo.InstrAddrs
       let src = Set.maxElement bblInfo.IRLeaders
       __.AnalyzeBranchPattern hdl ssaCFG cpSt blkAddr
-      |> __.MarkIndJmpAsTarget codeMgr dataMgr fn iAddr src evts
+      |> __.MarkIndJmpAsTarget codeMgr jmpTbls fn iAddr src evts
       |> function
         | Ok (true, evts) ->
-          __.Analyze hdl codeMgr dataMgr fn cpSt ssaCFG rest true evts
+          __.Analyze hdl codeMgr jmpTbls fn cpSt ssaCFG rest true evts
         | Ok (false, evts) ->
-          __.Analyze hdl codeMgr dataMgr fn cpSt ssaCFG rest needRecovery evts
+          __.Analyze hdl codeMgr jmpTbls fn cpSt ssaCFG rest needRecovery evts
         | Error err -> Error err
     | [] -> Ok (needRecovery, evts)
 
-  member private __.AnalyzeIndJmps hdl codeMgr dataMgr fn evts =
+  member private __.AnalyzeIndJmps hdl codeMgr jmpTbls fn evts =
     let addrs = (fn: RegularFunction).YetAnalyzedIndirectJumpAddrs
     if List.isEmpty addrs then Ok (true, evts)
     else
       let struct (cpState, ssaCFG) = PerFunctionAnalysis.runCP hdl fn None
-      __.Analyze hdl codeMgr dataMgr fn cpState ssaCFG addrs false evts
+      __.Analyze hdl codeMgr jmpTbls fn cpState ssaCFG addrs false evts
 
-  member private __.Resolve hdl codeMgr dataMgr fn evts =
-    match __.AnalyzeIndJmps hdl codeMgr dataMgr fn evts with
+  member private __.Resolve hdl codeMgr jmpTbls fn evts =
+    match __.AnalyzeIndJmps hdl codeMgr jmpTbls fn evts with
     | Ok (true, evts) ->
-      match __.RecoverTarget hdl codeMgr dataMgr fn evts with
+      match __.RecoverTarget hdl codeMgr jmpTbls fn evts with
       | RecoverDone res -> res
-      | RecoverContinue -> __.Resolve hdl codeMgr dataMgr fn evts
+      | RecoverContinue -> __.Resolve hdl codeMgr jmpTbls fn evts
     | Ok (false, evts) ->
       (* We are in a nested update call, and found nothing to resolve. So, just
          return to the caller, and keep resolving the rest entries. *)
       Ok evts
     | Error err ->
-      __.OnError codeMgr dataMgr fn evts err
+      __.OnError codeMgr jmpTbls fn evts err
 
-  override __.Run hdl codeMgr dataMgr fn evts =
+  override __.Run hdl codeMgr jmpTbls fn evts =
     codeMgr.HistoryManager.StartRecordingFunctionHistory fn.EntryPoint
-    let res = __.Resolve hdl codeMgr dataMgr fn evts
+    let res = __.Resolve hdl codeMgr jmpTbls fn evts
     codeMgr.HistoryManager.StopRecordingFunctionHistory fn.EntryPoint
     res

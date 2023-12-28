@@ -61,9 +61,6 @@ type BinHandle private (path, bytes, fmt, isa, baseAddrOpt, mode) =
   /// Return the `IBinFile` object.
   member __.File with get(): IBinFile = binFile
 
-  /// ISA that this binary file is compiled for.
-  member __.ISA with get() = binFile.ISA
-
   member __.TranslationContext with get(): TranslationContext = ctxt
 
   member __.Parser with get(): IInstructionParsable = parser

@@ -56,7 +56,7 @@ module private CFGBuilder =
     | Error ErrorCase.ParsingFailure -> Error (ErrorParsing evts)
     | Error _ -> Utils.impossible ()
 
-  let buildFunction hdl (codeMgr: CodeManager) _dataMgr entry mode evts =
+  let buildFunction hdl (codeMgr: CodeManager) entry mode evts =
     match codeMgr.TryGetBBL entry with
     | Some bbl when bbl.FunctionEntry <> entry -> (* Need to split *)
       codeMgr.HistoryManager.Record <| CreatedFunction entry
@@ -121,22 +121,18 @@ module private CFGBuilder =
     then myfn.NoReturnProperty <- NotNoRet
     else ()
 
-  let tryGetRelocatableFunction (codeMgr: CodeManager) dataMgr relocSite =
-    let sym = (dataMgr: DataManager).RelocatableFuncs[relocSite]
-    let funcName = sym.SymName
-    match codeMgr.FunctionMaintainer.TryFind funcName with
-    | Some calleeFn -> Some calleeFn.EntryPoint
-    | _ -> None
+  let computeCalleeAddr (codeMgr: CodeManager) relocTable callee callSite =
+    match (relocTable: RelocationTable).CallTargetFunctionName callSite with
+    | Some funcName ->
+      match codeMgr.FunctionMaintainer.TryFind funcName with
+      | Some calleeFn -> Some calleeFn.EntryPoint
+      | _ -> None
+    | None -> Some callee
 
-  let buildCall codeMgr dataMgr fn callSite callee isTailCall evts =
+  let buildCall codeMgr relocTable fn callSite callee isTailCall evts =
     let callerBBL = (codeMgr: CodeManager).GetBBL callSite
     let callerPp = Set.maxElement callerBBL.IRLeaders
-    let relocFuncs = (dataMgr: DataManager).RelocatableFuncs
-    let relocSite = callSite + 1UL
-    let callee =
-      if relocFuncs.ContainsKey relocSite then
-        tryGetRelocatableFunction codeMgr dataMgr relocSite
-      else Some callee
+    let callee = computeCalleeAddr codeMgr relocTable callee callSite
     let callerV = (fn: RegularFunction).FindVertex callerPp
     let last = callerV.VData.LastLifted.Instruction
     let ftAddr = last.Address + uint64 last.Length
@@ -164,8 +160,8 @@ module private CFGBuilder =
     (fn: RegularFunction).AddEdge (callerPp, callSite, calleeKind, true)
     Ok evts
 
-  let buildTailCall codeMgr dataMgr fn caller calleeAddr evts =
-    buildCall codeMgr dataMgr fn caller calleeAddr true evts
+  let buildTailCall codeMgr relocTable fn caller calleeAddr evts =
+    buildCall codeMgr relocTable fn caller calleeAddr true evts
 
   let makeCalleeNoReturn (codeMgr: CodeManager) fn callee callSite =
     let callee = codeMgr.FunctionMaintainer.Find (addr=callee)
@@ -202,12 +198,12 @@ module private CFGBuilder =
 
   /// Build a regular edge, which is any edge that is not a call, an indirect
   /// call, nor a ret edge.
-  let buildRegularEdge hdl (codeMgr: CodeManager) dataMgr fn src dst edge evts =
+  let buildRegularEdge hdl codeMgr relocTable fn src dst edge evts =
     let mode = ArchOperationMode.NoMode (* XXX: put mode in the event. *)
     let entryPoint = (fn: RegularFunction).EntryPoint
     if not ((hdl: BinHandle).File.IsExecutableAddr entryPoint) then
       Error (ErrorConnectingEdge evts) (* Invalid bbl encountered. *)
-    elif codeMgr.HasBBL dst then
+    elif (codeMgr: CodeManager).HasBBL dst then
       let dstPp = ProgramPoint (dst, 0)
       let dstBlk = codeMgr.GetBBL dst
       if fn.HasVertex dstPp then
@@ -219,8 +215,8 @@ module private CFGBuilder =
       else (* Tail-call. *)
         let srcBlk = codeMgr.GetBBL src.Address
         let callSite = srcBlk.InstrAddrs |> Set.maxElement
-        buildFunction hdl codeMgr dataMgr dst mode evts
-        |> Result.bind (buildCall codeMgr dataMgr fn callSite dst true)
+        buildFunction hdl codeMgr dst mode evts
+        |> Result.bind (buildCall codeMgr relocTable fn callSite dst true)
     elif isIntrudingBlk codeMgr dst then
       splitAndConnectEdge hdl codeMgr fn src dst edge evts
     elif not (codeMgr.HasInstruction dst) (* Jump to the middle of an instr *)
@@ -362,21 +358,21 @@ module private CFGBuilder =
         else bbl.FakeBlockInfo <- { bbl.FakeBlockInfo with IsPLT = true }
       else ())
 
-  let runIndirectCallRecovery hdl codeMgr dataMgr entry indcall fn evts =
+  let runIndirectCallRecovery hdl codeMgr jmpTbls entry indcall fn evts =
 #if CFGDEBUG
     dbglog "CFGBuilder" "@%x Started indcall analysis" entry
 #endif
     updateCalleeInfo codeMgr fn
     CFGEvents.addPerFuncAnalysisEvt fn.EntryPoint evts
-    |> (indcall: PerFunctionAnalysis).Run hdl codeMgr dataMgr fn
+    |> (indcall: PerFunctionAnalysis).Run hdl codeMgr jmpTbls fn
 
-  let runIndirectJmpRecovery hdl codeMgr dataMgr entry indjmp fn evts =
+  let runIndirectJmpRecovery hdl codeMgr jmpTbls entry indjmp fn evts =
 #if CFGDEBUG
     dbglog "CFGBuilder" "@%x Started indjmp analysis" entry
 #endif
     updateCalleeInfo codeMgr fn
     CFGEvents.addPerFuncAnalysisEvt fn.EntryPoint evts
-    |> (indjmp: PerFunctionAnalysis).Run hdl codeMgr dataMgr fn
+    |> (indjmp: PerFunctionAnalysis).Run hdl codeMgr jmpTbls fn
 
   let private hasPath src dst evts =
     let map = evts.CalleeAnalysisEdges
@@ -470,16 +466,16 @@ module private CFGBuilder =
     if amountUnwinding <> 0L then func.AmountUnwinding <- amountUnwinding
     else ()
 
-  let runPerFuncAnalysis hdl codeMgr dataMgr entry noret indcall indjmp evts =
+  let runPerFuncAnalysis hdl codeMgr jmpTbls entry noret indcall indjmp evts =
     let fn = (codeMgr: CodeManager).FunctionMaintainer.FindRegular (addr=entry)
     let exits = (fn: RegularFunction).IRCFG.Exits
     let ftInfos, toAnalyze = scanCandidates hdl codeMgr noret fn exits
     if not (List.isEmpty ftInfos) then
       addFallThroughEvts hdl codeMgr fn ftInfos evts |> Ok
     elif not (fn.YetAnalyzedIndirectJumpAddrs |> Seq.isEmpty) then
-      runIndirectJmpRecovery hdl codeMgr dataMgr entry indjmp fn evts
+      runIndirectJmpRecovery hdl codeMgr jmpTbls entry indjmp fn evts
     elif checkIfIndCallAnalysisRequired fn exits then
-      runIndirectCallRecovery hdl codeMgr dataMgr entry indcall fn evts
+      runIndirectCallRecovery hdl codeMgr jmpTbls entry indcall fn evts
     elif Set.isEmpty toAnalyze |> not then
       analyzeCalleesFirst codeMgr fn toAnalyze evts
     else
@@ -493,16 +489,17 @@ module private CFGBuilder =
       if hdl.File.ISA.Arch = Architecture.EVM then ()
       else finalizeFunctionInfo fn
       updateCalleeInfo codeMgr fn
-      noret.Run hdl codeMgr dataMgr fn evts
+      noret.Run hdl codeMgr jmpTbls fn evts
 
 /// This is the main class for building a CFG from a given binary.
-type CFGBuilder (hdl, codeMgr: CodeManager, dataMgr: DataManager) as this =
+type CFGBuilder (hdl, codeMgr: CodeManager, jmpTbls) as this =
   let noret = NoReturnFunctionIdentification ()
   let indcall = IndirectCallResolution ()
   let indjmp =
     match (hdl: BinHandle).File.ISA.Arch with
     | Architecture.EVM -> EVMJmpResolution () :> PerFunctionAnalysis
     | _ -> RegularJmpResolution (this) :> PerFunctionAnalysis
+  let relocTable = RelocationTable hdl
 
 #if CFGDEBUG
   let countEvts evts =
@@ -520,7 +517,7 @@ type CFGBuilder (hdl, codeMgr: CodeManager, dataMgr: DataManager) as this =
         entry (nameof CFGFunc) (countEvts evts)
 #endif
       let evts = { evts with BasicEvents = tl }
-      update ign (buildFunction hdl codeMgr dataMgr entry mode evts)
+      update ign (buildFunction hdl codeMgr entry mode evts)
     | Ok ({ BasicEvents = CFGEdge (fn, src, dst, edge) :: tl } as evts) ->
 #if CFGDEBUG
       dbglog (nameof CFGBuilder) "@%x %s (%x -> %x; %s) %s"
@@ -528,14 +525,14 @@ type CFGBuilder (hdl, codeMgr: CodeManager, dataMgr: DataManager) as this =
         src.Address dst (CFGEdgeKind.toString edge) (countEvts evts)
 #endif
       let evts = { evts with BasicEvents = tl }
-      update ign (buildRegularEdge hdl codeMgr dataMgr fn src dst edge evts)
+      update ign (buildRegularEdge hdl codeMgr relocTable fn src dst edge evts)
     | Ok ({ BasicEvents = CFGCall (fn, csite, callee) :: tl } as evts) ->
 #if CFGDEBUG
       dbglog (nameof CFGBuilder) "@%x %s (%x -> %x) %s"
         fn.EntryPoint (nameof CFGCall) csite callee (countEvts evts)
 #endif
       let evts = { evts with BasicEvents = tl }
-      update ign (buildCall codeMgr dataMgr fn csite callee false evts)
+      update ign (buildCall codeMgr relocTable fn csite callee false evts)
     | Ok ({ BasicEvents = CFGIndCall (fn, callSite) :: tl } as evts) ->
 #if CFGDEBUG
       dbglog (nameof CFGBuilder) "@%x %s (%x) %s"
@@ -556,7 +553,7 @@ type CFGBuilder (hdl, codeMgr: CodeManager, dataMgr: DataManager) as this =
         fn.EntryPoint (nameof CFGTailCall) callSite callee (countEvts evts)
 #endif
       let evts = { evts with BasicEvents = tl }
-      update ign (buildTailCall codeMgr dataMgr fn callSite callee evts)
+      update ign (buildTailCall codeMgr relocTable fn callSite callee evts)
     | Ok ({ BasicEvents = CFGIndTailCall (fn, callSite, callee) :: tl } as evts)
       ->
 #if CFGDEBUG
@@ -573,7 +570,7 @@ type CFGBuilder (hdl, codeMgr: CodeManager, dataMgr: DataManager) as this =
 #endif
       let evts = { evts with FunctionAnalysisAddrs = tl }
       update ign (runPerFuncAnalysis
-        hdl codeMgr dataMgr fnAddr noret indcall indjmp evts)
+        hdl codeMgr jmpTbls fnAddr noret indcall indjmp evts)
     | Ok ({ BasicEvents = [] }) -> (* FunctionAnalysisAddrs is empty *)
 #if CFGDEBUG
       dbglog (nameof CFGBuilder) "Done %s" (nameof update)
