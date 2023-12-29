@@ -1,5 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
-
+<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <IsPackable>false</IsPackable>
   </PropertyGroup>
@@ -18,6 +17,7 @@
     <Compile Include="TMS320.Parser.Tests.fs" />
     <Compile Include="SPARC.Parser.Tests.fs" />
     <Compile Include="Intel.Disassembler.Tests.fs" />
+    <Compile Include="Optimizer.Tests.fs" />
   </ItemGroup>
 
   <ItemGroup>
@@ -29,5 +29,4 @@
   <ItemGroup>
     <ProjectReference Include="..\Core\B2R2.FrontEnd.Core.fsproj" />
   </ItemGroup>
-
 </Project>
