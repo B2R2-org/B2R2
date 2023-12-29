@@ -38,6 +38,7 @@ a list of the contributors in alphabetic order.
 - Minsu Lee
 - Sihoon Lee
 - DongYeop Oh
+- Geonwoo Park
 - Ali Ahmed Sheikh
 - MyeongGeun Shin
 - Michael Tegegn
