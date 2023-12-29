@@ -59,12 +59,22 @@ type Architecture =
   | AVR = 23
   /// SuperH (SH-4).
   | SH4 = 24
+  /// PA-RISC.
+  | PARISC = 25
+  /// PA-RISC 64-bit.
+  | PARISC64 = 26
   /// PowerPC 32-bit.
-  | PPC32 = 25
+  | PPC32 = 27
+  /// Python bytecode.
+  | Python = 28
+  /// IBM System/390
+  | S390 = 29
+  /// IBM System/390 (64-bit)
+  | S390X = 30
   /// Sparc 64-bit.
-  | SPARC = 26
+  | SPARC = 31
   /// RISCV 64-bit
-  | RISCV64 = 27
+  | RISCV64 = 32
   /// WASM
   | WASM = 40
   /// Unknown ISA.
@@ -104,8 +114,18 @@ with
       { Arch = arch; Endian = endian; WordSize = WordSize.Bit8 }
     | Architecture.SH4 ->
       { Arch = arch; Endian = endian; WordSize = WordSize.Bit32 }
+    | Architecture.PARISC ->
+      { Arch = arch; Endian = endian; WordSize = WordSize.Bit32 }
+    | Architecture.PARISC64 ->
+      { Arch = arch; Endian = endian; WordSize = WordSize.Bit64 }
     | Architecture.PPC32 ->
       { Arch = arch; Endian = endian; WordSize = WordSize.Bit32 }
+    | Architecture.Python ->
+      { Arch = arch; Endian = endian; WordSize = WordSize.Bit32 }
+    | Architecture.S390 ->
+      { Arch = arch; Endian = endian; WordSize = WordSize.Bit32 }
+    | Architecture.S390X ->
+      { Arch = arch; Endian = endian; WordSize = WordSize.Bit64 }
     | Architecture.SPARC ->
       { Arch = arch; Endian = endian; WordSize = WordSize.Bit64 }
     | Architecture.RISCV64 ->
@@ -152,10 +172,20 @@ with
       ISA.Init Architecture.SH4 Endian.Little
     | "sh4be" | "sh-4be" ->
       ISA.Init Architecture.SH4 Endian.Big
+    | "parisc" | "hppa" ->
+      ISA.Init Architecture.PARISC Endian.Big
+    | "parisc64" | "hppa64" ->
+      ISA.Init Architecture.PARISC64 Endian.Big
     | "ppc32" | "ppc32le" ->
       ISA.Init Architecture.PPC32 Endian.Little
     | "ppc32be" ->
       ISA.Init Architecture.PPC32 Endian.Big
+    | "python" ->
+      ISA.Init Architecture.Python Endian.Little
+    | "s390" ->
+      ISA.Init Architecture.S390 Endian.Big
+    | "s390x" ->
+      ISA.Init Architecture.S390X Endian.Big
     | "sparc" | "sparc64" ->
       ISA.Init Architecture.SPARC Endian.Big
     | "riscv64" ->
@@ -178,7 +208,12 @@ with
     | Architecture.CILOnly -> "CIL"
     | Architecture.AVR -> "AVR"
     | Architecture.SH4 -> "SH4"
+    | Architecture.PARISC -> "PARISC"
+    | Architecture.PARISC64 -> "PARISC64"
     | Architecture.PPC32 -> "PPC32"
+    | Architecture.Python -> "Python"
+    | Architecture.S390 -> "S390"
+    | Architecture.S390X -> "S390X"
     | Architecture.SPARC -> "SPARC64"
     | Architecture.RISCV64 -> "RISCV64"
     | Architecture.WASM -> "WASM"
