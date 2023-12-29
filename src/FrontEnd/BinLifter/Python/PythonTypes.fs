@@ -22,7 +22,7 @@
   SOFTWARE.
 *)
 
-namespace B2R2.FrontEnd.BinLifter.S390
+namespace B2R2.FrontEnd.BinLifter.Python
 
 open B2R2
 open System.Runtime.CompilerServices
@@ -31,8 +31,8 @@ open System.Runtime.CompilerServices
 do ()
 
 /// <summary>
-///   S390 opcodes. This type should be generated using
-///   <c>scripts/genOpcode.fsx</c> from the `S39064SupportedOpcode.txt`
+///   Python opcodes. This type should be generated using
+///   <c>scripts/genOpcode.fsx</c> from the `Python64SupportedOpcode.txt`
 ///   file.
 /// </summary>
 type Opcode =
@@ -48,7 +48,7 @@ type Operands =
   | OneOperand of Operand
   | TwoOperands of Operand * Operand
 
-/// Basic information obtained by parsing a S390 instruction.
+/// Basic information obtained by parsing a Python instruction.
 [<NoComparison; CustomEquality>]
 type InsInfo = {
   /// Address.
