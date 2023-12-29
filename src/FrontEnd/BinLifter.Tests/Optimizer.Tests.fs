@@ -27,152 +27,107 @@ module B2R2.FrontEnd.Tests.Optimizer
 open Microsoft.VisualStudio.TestTools.UnitTesting
 open B2R2
 open B2R2.FrontEnd.BinLifter
-open B2R2.FrontEnd.BinLifter.Intel
 open B2R2.FrontEnd.BinLifter.LiftingOperators
 open B2R2.BinIR.LowUIR
 open B2R2.BinIR.LowUIR.AST.InfixOp
-open type Register
-
-[<AutoOpen>]
-type Expr =
-  static member Num (integer: uint32) =
-    BitVector.OfUInt32 integer 32<rt> |> AST.num
-
-  static member T32 (id: int) =
-    AST.tmpvar 32<rt> id
-
-[<AutoOpen>]
-type Optimization =
-  static member DeadCodeElimination =
-    DeadCodeElimination.optimize
-
-  static member ConstantFolding =
-    ConstantFolding.optimize
 
 [<AutoOpen>]
 module TestHelper =
-  let isa = ISA.Init Architecture.IntelX86 Endian.Little
+  let num v = BitVector.OfUInt32 v 32<rt> |> AST.num
 
-  let ctxt = IntelTranslationContext isa
+  let t32 id = AST.tmpvar 32<rt> id
 
-  let appendImarkToStmts stmts =
-    stmts
-    |> List.insertAt 0 (AST.ismark 1u)
-    |> List.insertAt (stmts.Length + 1) (AST.iemark 1u)
+  let ismark = AST.ismark 1u
 
-  let inline ( ++ ) (optStmts: list<Stmt>) baseStmts =
-    appendImarkToStmts optStmts, Array.ofList <| appendImarkToStmts baseStmts
+  let iemark = AST.iemark 1u
 
-  let inline ( !. ) name = Register.toRegID name |> ctxt.GetRegVar
+  let varA = AST.var 32<rt> (RegisterID.create 0) "A"
 
-  let rec breakByMark acc (stmts: Stmt []) idx =
-    if idx < stmts.Length then
-      match stmts[idx].S with
-      | ISMark (_)
-      | LMark (_) ->
-        let left, right = Array.splitAt idx stmts
-        breakByMark (left :: acc) right 1
-      | _ ->
-        breakByMark acc stmts (idx + 1)
-    else List.rev (stmts :: acc) |> List.toArray
+  let varB = AST.var 32<rt> (RegisterID.create 1) "B"
 
-  let breakIntoBlocks (stmts: Stmt []) =
-    if Array.isEmpty stmts then [| stmts |]
-    else breakByMark [] stmts 1
+  let varC = AST.var 32<rt> (RegisterID.create 2) "C"
 
-  let trimIEMark (stmts: Stmt []) =
-    let last = stmts[stmts.Length - 1].S
-    let secondLast = stmts[stmts.Length - 2].S
-    match secondLast, last with
-    | InterJmp _, IEMark _
-    | InterCJmp _, IEMark _ ->
-      Array.sub stmts 0 (stmts.Length - 1)
-    | _ -> stmts
+  let wrapStmts stmts = [| ismark; yield! stmts; iemark |]
 
-  let test optimizeKind (expectedStmts, actualStmts: Stmt[]) =
-    let optimizedStmts =
-      actualStmts
-      |> trimIEMark
-      |> breakIntoBlocks
-      |> Array.collect (optimizeKind)
-      |> List.ofArray
-    Assert.AreEqual (expectedStmts, optimizedStmts)
+  let test optimizeFn (expectedStmts, givenStmts) =
+    let optimizedStmts = optimizeFn <| wrapStmts givenStmts
+    CollectionAssert.AreEqual (wrapStmts expectedStmts, optimizedStmts)
 
 [<TestClass>]
 type ConstantFoldingTest () =
   [<TestMethod>]
-  member __.``[ConstantFolding] Binary operator replace test`` () =
-    [ !.EAX := Num 0x1eu
-      !.EBX := Num 0x3u
-      !.ECX := Num 0xcu ]
-    ++ [ !.EAX := Num 0x1eu
-         !.EBX := Num 0x9u .- (!.EAX ./ Num 0x5u)
-         !.ECX := !.EBX .* Num 0x4u ]
-    |> test ConstantFolding
+  member __.``[ConstantFolding] Binary operator replacement test`` () =
+    ([ varA := num 30u
+       varB := num 3u
+       varC := num 12u ],
+     [ varA := num 30u
+       varB := num 9u .- (varA ./ num 5u)
+       varC := varB .* num 4u ])
+    |> test ConstantFolding.optimize
 
   [<TestMethod>]
-  member __.``[ConstantFolding] ite replace test`` () =
-    [ !.ECX := Num 0xcu
-      !.ECX := Num 0x2u ]
-    ++ [ !.ECX := Num 0xcu
-         !.ECX := AST.ite (!.ECX .> Num 0xau) (!.ECX .- Num 0xau) !.ECX ]
-    |> test ConstantFolding
+  member __.``[ConstantFolding] ite replacement test`` () =
+    ([ varC := num 12u
+       varC := num 2u ],
+     [ varC := num 12u
+       varC := AST.ite (varC .> num 10u) (varC .- num 10u) varC ])
+    |> test ConstantFolding.optimize
 
   [<TestMethod>]
-  member __.``[ConstantFolding] Tempvar replace test`` () =
-    [ T32 1 := Num 0x6u
-      !.ESP := !.ESP .- Num 0x4u
-      AST.loadLE 32<rt> !.ESP := !.EBP
-      AST.loadLE 32<rt> !.ESP := !.EBP
-      !.ESP := !.ESP .- Num 0x6u ]
-    ++ [ T32 1 := Num 0x6u
-         !.ESP := !.ESP .- Num 0x4u
-         AST.loadLE 32<rt> !.ESP := !.EBP
-         AST.loadLE 32<rt> !.ESP := !.EBP
-         !.ESP := !.ESP .- T32 1 ]
-    |> test ConstantFolding
+  member __.``[ConstantFolding] Tempvar replacement test`` () =
+    ([ t32 1 := num 6u
+       varA := varA .- num 4u
+       AST.loadLE 32<rt> varA := varB
+       AST.loadLE 32<rt> varA := varB
+       varA := varA .- num 0x6u ],
+     [ t32 1 := num 6u
+       varA := varA .- num 4u
+       AST.loadLE 32<rt> varA := varB
+       AST.loadLE 32<rt> varA := varB
+       varA := varA .- t32 1 ])
+    |> test ConstantFolding.optimize
 
   [<TestMethod>]
-  member __.``[ConstantFolding] Condition jump replace test`` () =
-    let ir = !*ctxt
+  member __.``[ConstantFolding] Condition jump replacement test`` () =
+    let ir = IRBuilder 42
     let lblTarget = !%ir "Target"
     let lblImpossible = !%ir "Impossible"
     let lblEnd = !%ir "End"
-    [ !.EAX := Num 0x1u
-      AST.jmp (AST.name lblTarget)
-      AST.lmark lblImpossible
-      !.EBX := Num 0x0u
-      AST.lmark lblTarget
-      !.EBX := Num 0x1u
-      AST.lmark lblEnd ]
-    ++ [ !.EAX := Num 0x1u
-         AST.cjmp (!.EAX == !.EAX) (AST.name lblTarget) (AST.name lblImpossible)
-         AST.lmark lblImpossible
-         !.EBX := Num 0x0u
-         AST.lmark lblTarget
-         !.EBX := Num 0x1u
-         AST.lmark lblEnd ]
-    |> test ConstantFolding
+    ([ varA := num 1u
+       AST.jmp (AST.name lblTarget)
+       AST.lmark lblImpossible
+       varB := num 0u
+       AST.lmark lblTarget
+       varB := num 1u
+       AST.lmark lblEnd ],
+     [ varA := num 1u
+       AST.cjmp (varA == varA) (AST.name lblTarget) (AST.name lblImpossible)
+       AST.lmark lblImpossible
+       varB := num 0u
+       AST.lmark lblTarget
+       varB := num 1u
+       AST.lmark lblEnd ])
+    |> test ConstantFolding.optimize
 
 [<TestClass>]
 type DeadCodeEliminationTest () =
   [<TestMethod>]
-  member __.``[DeadCodeElimination] Dead code remove test (1)`` () =
-    [ T32 1 := Num 0x1u
-      T32 2 := Num 0x2u
-      !.EAX := T32 1 .+ T32 2 ]
-    ++ [ T32 1 := Num 0x1u
-         T32 2 := Num 0x2u
-         T32 3 := Num 0x3u
-         !.EAX := T32 1 .+ T32 2 ]
-    |> test DeadCodeElimination
+  member __.``[DeadCodeElimination] Dead code removal test (1)`` () =
+    ([ t32 1 := num 1u
+       t32 2 := num 2u
+       varA := t32 1 .+ t32 2 ],
+     [ t32 1 := num 1u
+       t32 2 := num 2u
+       t32 3 := num 3u
+       varA := t32 1 .+ t32 2 ])
+    |> test DeadCodeElimination.optimize
 
   [<TestMethod>]
-  member __.``[DeadCodeElimination] Dead code remove test (2)`` () =
-    [ !.EBX := Num 0x3u
-      !.EAX := T32 1 .+ T32 2 ]
-    ++ [ !.EBX := Num 0x1u
-         !.EBX := Num 0x2u
-         !.EBX := Num 0x3u
-         !.EAX := T32 1 .+ T32 2 ]
-    |> test DeadCodeElimination
+  member __.``[DeadCodeElimination] Dead code removal test (2)`` () =
+    ([ varB := num 3u
+       varA := t32 1 .+ t32 2 ],
+     [ varB := num 1u
+       varB := num 2u
+       varB := num 3u
+       varA := t32 1 .+ t32 2 ])
+    |> test DeadCodeElimination.optimize
