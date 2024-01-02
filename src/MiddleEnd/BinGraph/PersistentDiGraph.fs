@@ -228,7 +228,7 @@ type PersistentDiGraph<'V, 'E when 'V: equality
       DiGraph.subGraph __ (PersistentDiGraph ()) vs
 
     member __.Reverse () =
-      DiGraph.reverse __ (ImperativeDiGraph ())
+      DiGraph.reverse __ (PersistentDiGraph ())
 
     member __.Clone () =
       __ :> IGraph<'V, 'E>
