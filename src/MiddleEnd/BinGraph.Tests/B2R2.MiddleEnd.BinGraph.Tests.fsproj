@@ -5,6 +5,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="SCC.Tests.fs" />
     <Compile Include="ImperativeGraph.Tests.fs" />
     <Compile Include="PersistentGraph.Tests.fs" />
     <Compile Include="Loop.Tests.fs" />

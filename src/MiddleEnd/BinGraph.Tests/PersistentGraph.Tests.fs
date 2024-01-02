@@ -283,12 +283,6 @@ type BasicPersistentGraphTest () =
     let v = Dominator.idom ctxt <| g.FindVertexByData 6
     Assert.AreEqual (1, getVertexVal v)
 
-  [<TestMethod>]
-  member __.``Basic SCC Test``() =
-    let v = g3.FindVertexByData 1
-    let sccs = SCC.compute g3 v
-    Assert.AreEqual (5, Set.count sccs)
-
 [<TestClass>]
 type ExtraPersistentDomTest () =
   let g1 = PersistentDiGraph () :> IGraph<_, _>
@@ -354,71 +348,3 @@ type ExtraPersistentDomTest () =
   member __.``Dominator Test``() =
     let v = Dominator.idom ctxt1 <| g1.FindVertexByData 19
     Assert.IsTrue (18 <> getVertexVal v)
-
-[<TestClass>]
-type PersistentSCCTest () =
-  (* Example from article about Bourdoncle Components by Matt Elder *)
-  [<TestMethod>]
-  member __.``Strongly Connected Component Test1`` () =
-    let g = PersistentDiGraph () :> IGraph<_, _>
-    let n1, g = g.AddVertex 1
-    let n2, g = g.AddVertex 2
-    let n3, g = g.AddVertex 3
-    let n4, g = g.AddVertex 4
-    let n5, g = g.AddVertex 5
-    let n6, g = g.AddVertex 6
-    let n7, g = g.AddVertex 7
-    let n8, g = g.AddVertex 8
-    let g = g.AddEdge (n1, n2, 1)
-    let g = g.AddEdge (n2, n3, 2)
-    let g = g.AddEdge (n3, n4, 3)
-    let g = g.AddEdge (n4, n5, 4)
-    let g = g.AddEdge (n5, n2, 5)
-    let g = g.AddEdge (n5, n6, 6)
-    let g = g.AddEdge (n6, n3, 7)
-    let g = g.AddEdge (n6, n7, 8)
-    let g = g.AddEdge (n7, n2, 9)
-    let g = g.AddEdge (n7, n8, 10)
-    let sccs = SCC.compute g n1
-    Assert.AreEqual (3, Set.count sccs)
-    let scc1 = Set.singleton n1
-    Assert.IsTrue (Set.contains scc1 sccs)
-    let scc2 = Set.singleton n8
-    Assert.IsTrue (Set.contains scc2 sccs)
-    let scc3 = Set.ofList [ n2; n3; n4; n5; n6; n7 ]
-    Assert.IsTrue (Set.contains scc3 sccs)
-
-  (* Example from Wikipedia *)
-  [<TestMethod>]
-  member __.``Strongly Connected Component Test2`` () =
-    let g = PersistentDiGraph () :> IGraph<_, _>
-    let na, g = g.AddVertex 1
-    let nb, g = g.AddVertex 2
-    let nc, g = g.AddVertex 3
-    let nd, g = g.AddVertex 4
-    let ne, g = g.AddVertex 5
-    let nf, g = g.AddVertex 6
-    let ng, g = g.AddVertex 7
-    let nh, g = g.AddVertex 8
-    let g = g.AddEdge (na, nb, 1)
-    let g = g.AddEdge (nb, nc, 2)
-    let g = g.AddEdge (nb, ne, 3)
-    let g = g.AddEdge (nb, nf, 4)
-    let g = g.AddEdge (nc, nd, 5)
-    let g = g.AddEdge (nc, ng, 6)
-    let g = g.AddEdge (nd, nc, 7)
-    let g = g.AddEdge (nd, nh, 8)
-    let g = g.AddEdge (ne, na, 9)
-    let g = g.AddEdge (ne, nf, 10)
-    let g = g.AddEdge (nf, ng, 11)
-    let g = g.AddEdge (ng, nf, 12)
-    let g = g.AddEdge (nh, nd, 13)
-    let g = g.AddEdge (nh, ng, 14)
-    let sccs = SCC.compute g na
-    Assert.AreEqual (3, Set.count sccs)
-    let scc1 = Set.ofList [ na; nb; ne ]
-    Assert.IsTrue (Set.contains scc1 sccs)
-    let scc2 = Set.ofList [ nc; nd; nh ]
-    Assert.IsTrue (Set.contains scc2 sccs)
-    let scc3 = Set.ofList [ nf; ng ]
-    Assert.IsTrue (Set.contains scc3 sccs)
