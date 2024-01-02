@@ -28,8 +28,8 @@ open B2R2.MiddleEnd.BinGraph
 open Microsoft.VisualStudio.TestTools.UnitTesting
 
 [<AutoOpen>]
-type SCCTestsGraphs () =
-  member __.Graph1 (g: IGraph<_, _>) =
+module GraphExample =
+  let example1 (g: IGraph<_, _>) =
     let n1, g = g.AddVertex 1
     let n2, g = g.AddVertex 2
     let n3, g = g.AddVertex 3
@@ -42,7 +42,7 @@ type SCCTestsGraphs () =
     let g = g.AddEdge (n3, n5, 5)
     (g, n1)
 
-  member __.Graph2 (g: IGraph<_, _>) =
+  let example2 (g: IGraph<_, _>) =
     let n1, g = g.AddVertex 1
     let n2, g = g.AddVertex 2
     let n3, g = g.AddVertex 3
@@ -63,7 +63,7 @@ type SCCTestsGraphs () =
     let g = g.AddEdge (n7, n8, 10)
     (g, n1, n8, [ n2; n3; n4; n5; n6; n7 ])
 
-  member __.Graph3 (g: IGraph<_, _>) =
+  let example3 (g: IGraph<_, _>) =
     let na, g = g.AddVertex 1
     let nb, g = g.AddVertex 2
     let nc, g = g.AddVertex 3
@@ -94,7 +94,7 @@ type ImperativeSCCTest() =
   [<TestMethod>]
   member __.``SCC Test1``() =
     let g = ImperativeDiGraph () :> IGraph<_, _>
-    let g, n1 = SCCTestsGraphs().Graph1 g
+    let g, n1 = example1 g
     let sccs = SCC.compute g n1
     Assert.AreEqual (5, Set.count sccs)
 
@@ -102,7 +102,7 @@ type ImperativeSCCTest() =
   [<TestMethod>]
   member __.``SCC Test2`` () =
     let g = ImperativeDiGraph () :> IGraph<_, _>
-    let g, n1, n8, s = SCCTestsGraphs().Graph2 g
+    let g, n1, n8, s = example2 g
     let sccs = SCC.compute g n1
     Assert.AreEqual (3, Set.count sccs)
     let scc1 = Set.singleton n1
@@ -116,7 +116,7 @@ type ImperativeSCCTest() =
   [<TestMethod>]
   member __.``SCC Test3`` () =
     let g = ImperativeDiGraph () :> IGraph<_, _>
-    let g, na, s1, s2, s3 = SCCTestsGraphs().Graph3 g
+    let g, na, s1, s2, s3 = example3 g
     let sccs = SCC.compute g na
     Assert.AreEqual (3, Set.count sccs)
     let scc1 = Set.ofList s1
@@ -126,14 +126,13 @@ type ImperativeSCCTest() =
     let scc3 = Set.ofList s3
     Assert.IsTrue (Set.contains scc3 sccs)
 
-
 [<TestClass>]
 type PersistentSCCTest () =
   (* Arbitrary graph example *)
   [<TestMethod>]
   member __.``SCC Test1``() =
     let g = PersistentDiGraph () :> IGraph<_, _>
-    let g, n1 = SCCTestsGraphs().Graph1 g
+    let g, n1 = example1 g
     let sccs = SCC.compute g n1
     Assert.AreEqual (5, Set.count sccs)
 
@@ -141,7 +140,7 @@ type PersistentSCCTest () =
   [<TestMethod>]
   member __.``SCC Test2`` () =
     let g = PersistentDiGraph () :> IGraph<_, _>
-    let g, n1, n8, s = SCCTestsGraphs().Graph2 g
+    let g, n1, n8, s = example2 g
     let sccs = SCC.compute g n1
     Assert.AreEqual (3, Set.count sccs)
     let scc1 = Set.singleton n1
@@ -155,7 +154,7 @@ type PersistentSCCTest () =
   [<TestMethod>]
   member __.``SCC Test3`` () =
     let g = PersistentDiGraph () :> IGraph<_, _>
-    let g, na, s1, s2, s3 = SCCTestsGraphs().Graph3 g
+    let g, na, s1, s2, s3 = example3 g
     let sccs = SCC.compute g na
     Assert.AreEqual (3, Set.count sccs)
     let scc1 = Set.ofList s1
