@@ -25,19 +25,52 @@
 namespace B2R2.MiddleEnd.ControlFlowGraph
 
 open B2R2
+open B2R2.BinIR
+open B2R2.FrontEnd
 
-/// Is this a get-pc-thunk function?
-type GetPCThunkInfo =
-  /// It is not a get-pc-thunk.
-  | NoGetPCThunk
-  /// It is a get-pc-thunk, and the register wlil be assigned after this
-  /// function.
-  | YesGetPCThunk of RegisterID
+/// A mapping from the return value type to the return value expression.
+type OutVariableInfo = Map<SSA.VariableKind, SSA.Expr>
 
-module GetPCThunkInfo =
-  let isGetPCThunk = function
-    | YesGetPCThunk _ -> true
-    | _ -> false
+module OutVariableInfo =
+
+  /// Translate the given expression into another one w.r.t caller's context.
+  /// Its translation is done by replacing the stack variable with the
+  /// corresponding load expression. Note that our current impl of SSA
+  /// construction does not rename stack variables in fake blocks due to the
+  /// order of steps.
+  let rec private translateExprForCallerContext hdl = function
+    | SSA.Var { Kind = SSA.StackVar (rt, off) } -> (* convert into Load(...) *)
+      let memVar: SSA.Variable = { Kind = SSA.MemVar; Identifier = -1 }
+      let spRid = (hdl: BinHandle).RegisterFactory.StackPointer |> Option.get
+      let spRegStr = hdl.RegisterFactory.RegIDToString spRid
+      let spVar: SSA.Variable =
+        { Kind = SSA.RegVar (rt, spRid, spRegStr); Identifier = -1 }
+      let sp = SSA.Var spVar
+      let amount = SSA.Num <| BitVector.OfInt32 off rt
+      let shiftedAddr = SSA.BinOp (BinOpType.SUB, rt, sp, amount)
+      SSA.Load (memVar, rt, shiftedAddr)
+    | SSA.Var var -> SSA.Var { var with Identifier = -1 }
+    | SSA.BinOp (op, rt, e1, e2) ->
+      let e1 = translateExprForCallerContext hdl e1
+      let e2 = translateExprForCallerContext hdl e2
+      SSA.BinOp (op, rt, e1, e2)
+    | SSA.UnOp (op, rt, e) ->
+      SSA.UnOp (op, rt, translateExprForCallerContext hdl e)
+    | SSA.Load (v, rt, e) ->
+      SSA.Load (v, rt, translateExprForCallerContext hdl e)
+    | SSA.Cast (kind, rt, e) ->
+      SSA.Cast (kind, rt, translateExprForCallerContext hdl e)
+    | SSA.RelOp (op, rt, e1, e2) ->
+      let e1 = translateExprForCallerContext hdl e1
+      let e2 = translateExprForCallerContext hdl e2
+      SSA.RelOp (op, rt, e1, e2)
+    | SSA.Extract (e, rt, pos) ->
+      SSA.Extract (translateExprForCallerContext hdl e, rt, pos)
+    | e -> e
+
+  let add hdl var e i =
+    let e = translateExprForCallerContext hdl e
+    Map.add var e i
 
 /// IRBasicBlock can be either a fake block or a regular block. FakeBlockInfo
 /// exists only for fake blocks.
@@ -50,9 +83,8 @@ type FakeBlockInfo = {
   /// and the callee's stack frame? If the distance is always constant, we
   /// remember the value here.
   FrameDistance: int option
-  /// If this fake block represents a "get_pc" thunk, then return the register
-  /// ID holding the current PC value after this function returns.
-  GetPCThunkInfo: GetPCThunkInfo
+  ///
+  OutVariableInfo: OutVariableInfo
   /// Is this fake block points to a PLT entry?
   IsPLT: bool
   /// Is this fake block represents a tail call? So, this fake block is

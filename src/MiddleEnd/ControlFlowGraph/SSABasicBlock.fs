@@ -37,36 +37,37 @@ module private SSABasicBlockHelper =
     let wordSize = hdl.File.ISA.WordSize |> WordSize.toRegType
     RegVar (wordSize, reg, hdl.RegisterFactory.RegIDToString reg)
 
-  let private addReturnValDef (hdl: BinHandle) defs =
+  let private addReturnValDef (hdl: BinHandle) i =
     match hdl.File.ISA.Arch with
-    | Architecture.EVM -> defs
+    | Architecture.EVM -> i
     | _ ->
-      let reg = CallingConvention.returnRegister hdl |> buildRegVar hdl
-      let def = { Kind = reg; Identifier = -1 }
-      Set.add def defs
+      let var = CallingConvention.returnRegister hdl |> buildRegVar hdl
+      let rt = hdl.File.ISA.WordSize |> WordSize.toRegType
+      let e = Undefined (rt, "ret")
+      OutVariableInfo.add hdl var e i
 
-  let private addStackDef (hdl: BinHandle) defs =
+  let private addStackDef (hdl: BinHandle) fakeBlkInfo i =
     match hdl.RegisterFactory.StackPointer with
     | Some sp ->
-      let def = { Kind = buildRegVar hdl sp; Identifier = -1 }
-      Set.add def defs
-    | None -> defs
+      let rt = hdl.RegisterFactory.RegIDToRegType sp
+      let var = buildRegVar hdl sp
+      let retAddrSize = RegType.toByteWidth rt |> int64
+      let adj = fakeBlkInfo.UnwindingBytes
+      let shiftAmount = BitVector.OfInt64 (retAddrSize + adj) rt
+      let v1 = Var { Kind = var; Identifier = -1 }
+      let v2 = Num shiftAmount
+      let e = BinOp (BinOpType.ADD, rt, v1, v2)
+      OutVariableInfo.add hdl var e i
+    | None -> i
 
-  let private addMemDef defs =
-    let def = { Kind = MemVar; Identifier = - 1 }
-    Set.add def defs
+  let private addMemDef hdl i =
+    let e = Var { Kind = MemVar; Identifier = - 1 }
+    OutVariableInfo.add hdl MemVar e i
 
-  let computeDefinedVars hdl getPCThunkInfo isPLT =
-    let defs = addStackDef hdl Set.empty
-    if isPLT then defs |> addReturnValDef hdl |> addMemDef |> Set.toArray
-    else
-      match getPCThunkInfo with
-      | YesGetPCThunk rid ->
-        let def = { Kind = buildRegVar hdl rid; Identifier = -1 }
-        Set.singleton def |> addStackDef hdl |> addMemDef |> Set.toArray
-      | _ ->
-        Set.empty
-        |> addStackDef hdl |> addReturnValDef hdl |> addMemDef |> Set.toArray
+  let computeDefinedVars hdl fakeBlkInfo =
+    (if fakeBlkInfo.IsPLT then Map.empty |> addReturnValDef hdl
+    else fakeBlkInfo.OutVariableInfo)
+    |> addMemDef hdl |> addStackDef hdl fakeBlkInfo
 
   let computeNextPPoint (ppoint: ProgramPoint) = function
     | Def (v, Num bv) ->
@@ -187,10 +188,12 @@ type FakeSSABasicBlock (hdl, pp, retPoint: ProgramPoint, fakeBlkInfo) =
     if fakeBlkInfo.IsTailCall then [||]
     else
       let stmts = (* For a fake block, we check which var can be modified. *)
-        computeDefinedVars hdl fakeBlkInfo.GetPCThunkInfo fakeBlkInfo.IsPLT
-        |> Array.map (fun dst ->
-          let src = { Kind = dst.Kind; Identifier = -1 }
+        computeDefinedVars hdl fakeBlkInfo
+        |> Seq.map (fun (KeyValue (kind, e)) ->
+          let dst = { Kind = kind; Identifier = -1 }
+          let src = e
           Def (dst, ReturnVal (pp.Address, retPoint.Address, src)))
+        |> Seq.toArray
       let wordSize = hdl.File.ISA.WordSize |> WordSize.toRegType
       let fallThrough = BitVector.OfUInt64 retPoint.Address wordSize
       let jmpToFallThrough = Jmp (InterJmp (Num fallThrough))

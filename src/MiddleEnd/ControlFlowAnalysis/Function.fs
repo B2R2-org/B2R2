@@ -125,35 +125,9 @@ type Function (entryPoint, name) =
 /// reason why we use FakeEdge to distinguish them.
 type FakeEdge = Addr * Addr
 
-module private RegularFunction =
-  /// This is a heuristic to discover __x86.get_pc_thunk- family functions.
-  /// We directly compare first 4 bytes of byte code. Because
-  /// __x86.get_pc_thunk- family only has 4 bytes for its function body and
-  /// their values are fixed.
-  let obtainGetPCThunkReg (hdl: BinHandle) (addr: Addr) =
-    match hdl.File.ISA.Arch with
-    | Architecture.IntelX86 ->
-      match hdl.ReadUInt (addr, 4) with
-      | 0xc324048bUL ->
-        YesGetPCThunk <| hdl.RegisterFactory.RegIDFromString "EAX"
-      | 0xc3241c8bUL ->
-        YesGetPCThunk <| hdl.RegisterFactory.RegIDFromString "EBX"
-      | 0xc3240c8bUL ->
-        YesGetPCThunk <| hdl.RegisterFactory.RegIDFromString "ECX"
-      | 0xc324148bUL ->
-        YesGetPCThunk <| hdl.RegisterFactory.RegIDFromString "EDX"
-      | 0xc324348bUL ->
-        YesGetPCThunk <| hdl.RegisterFactory.RegIDFromString "ESI"
-      | 0xc3243c8bUL ->
-        YesGetPCThunk <| hdl.RegisterFactory.RegIDFromString "EDI"
-      | 0xc3242c8bUL ->
-        YesGetPCThunk <| hdl.RegisterFactory.RegIDFromString "EBP"
-      | _ -> NoGetPCThunk
-    | _ -> NoGetPCThunk
-
 /// Regular function is a function that has its own body in the target binary.
 /// Therefore, regular functions have their own IR-level CFG.
-type RegularFunction private (histMgr: HistoryManager, ep, name, thunkInfo) =
+type RegularFunction private (histMgr: HistoryManager, ep, name, outVarInfo) =
   inherit Function (ep, name)
 
   let callEdges = SortedList<Addr, CalleeKind> ()
@@ -167,7 +141,7 @@ type RegularFunction private (histMgr: HistoryManager, ep, name, thunkInfo) =
   let mutable ircfg = IRCFG.init Persistent
   let mutable ssacfg = SSACFG.init Persistent
   let mutable amountUnwinding = 0L
-  let mutable getPCThunkInfo = thunkInfo
+  let mutable outVariableInfo: OutVariableInfo = outVarInfo
   let mutable minAddr = ep
   let mutable maxAddr = ep
 
@@ -177,8 +151,7 @@ type RegularFunction private (histMgr: HistoryManager, ep, name, thunkInfo) =
       match hdl.File.TryFindFunctionName ep with
       | Error _ -> Addr.toFuncName ep
       | Ok name -> name
-    let thunkInfo = RegularFunction.obtainGetPCThunkReg hdl ep
-    RegularFunction (histMgr, ep, name, thunkInfo)
+    RegularFunction (histMgr, ep, name, Map.empty)
 
   override __.FunctionKind with get() = FunctionKind.Regular
 
@@ -573,11 +546,9 @@ type RegularFunction private (histMgr: HistoryManager, ep, name, thunkInfo) =
   member __.AmountUnwinding
     with get() = amountUnwinding and set(n) = amountUnwinding <- n
 
-  /// This field is to remember a register ID that holds a PC value. When this
-  /// function is deemed as a special thunk (e.g., *_get_pc_thunk), the register
-  /// will hold a PC value after this function returns.
-  member __.GetPCThunkInfo
-    with get() = getPCThunkInfo and set(i) = getPCThunkInfo <- i
+  ///
+  member __.OutVariableInfo
+    with get() = outVariableInfo and set(i) = outVariableInfo <- i
 
   /// Return a Dictionary that maps an indirect jump address to its jump kinds.
   member __.IndirectJumps with get() = indirectJumps

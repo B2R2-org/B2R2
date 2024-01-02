@@ -41,19 +41,6 @@ let isStackRelatedRegister (st: CPState<SPValue>) regid =
   st.BinHandle.RegisterFactory.IsStackPointer regid
   || st.BinHandle.RegisterFactory.IsFramePointer regid
 
-let evalReturn (st: CPState<SPValue>) (blk: SSAVertex) var =
-  match var.Kind with
-  | RegVar (rt, rid, _) ->
-    let hdl = st.BinHandle
-    if isStackRelatedRegister st rid then
-      if hdl.RegisterFactory.IsStackPointer rid then
-        let value = CPState.findReg st var
-        let shiftAmount = Const (Utils.computeStackShift rt blk)
-        evalBinOp BinOpType.ADD value shiftAmount
-      else CPState.findReg st var
-    else NotAConst
-  | _ -> Utils.impossible ()
-
 let rec evalExpr st blk = function
   | Num bv -> Const bv
   | Var v -> CPState.findReg st v
@@ -70,7 +57,7 @@ let rec evalExpr st blk = function
   | Cast _ -> NotAConst
   | Extract _ -> NotAConst
   | Undefined _ -> NotAConst
-  | ReturnVal (addr, _, v) -> evalReturn st blk v
+  | ReturnVal (addr, _, e) -> evalExpr st blk e
   | _ -> Utils.impossible ()
 
 let evalDef (st: CPState<SPValue>) blk v e =
