@@ -26,9 +26,7 @@ namespace B2R2.MiddleEnd.DataFlow
 
 open B2R2
 
-/// PC and Pointer are the only special kind of SCPValue, which should not
-/// be invalidated across function calls. This is to correctly track GOT
-/// pointers.
+/// Constant or not.
 type SCPValue =
   | NotAConst
   | Const of BitVector

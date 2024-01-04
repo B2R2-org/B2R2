@@ -37,16 +37,16 @@ module private SSABasicBlockHelper =
     let wordSize = hdl.File.ISA.WordSize |> WordSize.toRegType
     RegVar (wordSize, reg, hdl.RegisterFactory.RegIDToString reg)
 
-  let private addReturnValDef (hdl: BinHandle) i =
+  let private addReturnValDef (hdl: BinHandle) defs =
     match hdl.File.ISA.Arch with
-    | Architecture.EVM -> i
+    | Architecture.EVM -> defs
     | _ ->
       let var = CallingConvention.returnRegister hdl |> buildRegVar hdl
       let rt = hdl.File.ISA.WordSize |> WordSize.toRegType
       let e = Undefined (rt, "ret")
-      OutVariableInfo.add hdl var e i
+      OutVariableInfo.add hdl var e defs
 
-  let private addStackDef (hdl: BinHandle) fakeBlkInfo i =
+  let private addStackDef (hdl: BinHandle) fakeBlkInfo defs =
     match hdl.RegisterFactory.StackPointer with
     | Some sp ->
       let rt = hdl.RegisterFactory.RegIDToRegType sp
@@ -57,17 +57,18 @@ module private SSABasicBlockHelper =
       let v1 = Var { Kind = var; Identifier = -1 }
       let v2 = Num shiftAmount
       let e = BinOp (BinOpType.ADD, rt, v1, v2)
-      OutVariableInfo.add hdl var e i
-    | None -> i
+      OutVariableInfo.add hdl var e defs
+    | None -> defs
 
-  let private addMemDef hdl i =
+  let private addMemDef hdl defs =
     let e = Var { Kind = MemVar; Identifier = - 1 }
-    OutVariableInfo.add hdl MemVar e i
+    OutVariableInfo.add hdl MemVar e defs
 
   let computeDefinedVars hdl fakeBlkInfo =
-    (if fakeBlkInfo.IsPLT then Map.empty |> addReturnValDef hdl
-    else fakeBlkInfo.OutVariableInfo)
-    |> addMemDef hdl |> addStackDef hdl fakeBlkInfo
+    if fakeBlkInfo.IsPLT then Map.empty |> addReturnValDef hdl
+    else fakeBlkInfo.OutVariableInfo
+    |> addMemDef hdl
+    |> addStackDef hdl fakeBlkInfo
 
   let computeNextPPoint (ppoint: ProgramPoint) = function
     | Def (v, Num bv) ->
@@ -187,7 +188,7 @@ type FakeSSABasicBlock (hdl, pp, retPoint: ProgramPoint, fakeBlkInfo) =
   let mutable stmts: LiftedSSAStmt [] =
     if fakeBlkInfo.IsTailCall then [||]
     else
-      let stmts = (* For a fake block, we check which var can be modified. *)
+      let stmts = (* For a fake block, we check which var can be defined. *)
         computeDefinedVars hdl fakeBlkInfo
         |> Seq.map (fun (KeyValue (kind, e)) ->
           let dst = { Kind = kind; Identifier = -1 }

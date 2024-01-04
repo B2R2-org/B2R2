@@ -119,13 +119,12 @@ type Expr =
   /// case).
   | Undefined of RegType * string
 
-  /// Value returned from a function located at the address (fnAddr). The second
-  /// argument indicates the return address (the fall-through address of the
-  /// call instruction), and the third argument indicates the actual expression
-  /// from the callee's last assignment. Note that Expr should include only of
-  /// variables other than inner definitions from the callee's intra context.
-  /// A fake bbl will contain this expression.
-  | ReturnVal of fnAddr: Addr * retAddr: Addr * Expr
+  /// Value returned (i.e. defined) from a function located at the address
+  /// (fnAddr). The second argument indicates the return address (the
+  /// fall-through address of the call instruction), and the third argument
+  /// indicates the live value expression defined from the callee. A fake bbl
+  /// will contain this expression.
+  | ReturnVal of fnAddr: Addr * retAddr: Addr * value: Expr
 
 /// IR Label. Since we don't distinguish instruction boundary in SSA level, we
 /// want to specify where the label comes from.

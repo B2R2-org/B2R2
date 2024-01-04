@@ -28,11 +28,10 @@ open B2R2
 open B2R2.BinIR
 open B2R2.FrontEnd
 
-/// A mapping from the return value type to the return value expression.
+/// A mapping from a defined SSA variable to the corresponding value expression.
 type OutVariableInfo = Map<SSA.VariableKind, SSA.Expr>
 
 module OutVariableInfo =
-
   /// Translate the given expression into another one w.r.t caller's context.
   /// Its translation is done by replacing the stack variable with the
   /// corresponding load expression. Note that our current impl of SSA

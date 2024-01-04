@@ -490,14 +490,13 @@ module private CFGBuilder =
   let finalizeOutVariableInfo hdl (func: RegularFunction) =
     match (hdl: BinHandle).File.ISA.Arch with
     | Architecture.IntelX86 ->
-      tryParsePCThunkHeader hdl func.EntryPoint
-      |> function
-        | None -> ()
-        | Some regStr ->
-          let var = genRegVarFromString hdl regStr
-          let e = genFreshStackVarExpr hdl 0
-          func.OutVariableInfo <-
-            func.OutVariableInfo |> OutVariableInfo.add hdl var e
+      match tryParsePCThunkHeader hdl func.EntryPoint with
+      | Some regStr ->
+        let var = genRegVarFromString hdl regStr
+        let e = genFreshStackVarExpr hdl 0
+        func.OutVariableInfo <-
+          func.OutVariableInfo |> OutVariableInfo.add hdl var e
+      | None -> ()
     | _ -> ()
 
   /// Update extra function information as we have finished all the per-function
