@@ -354,7 +354,7 @@ module private CFGBuilder =
           bbl.FakeBlockInfo <-
             { bbl.FakeBlockInfo with
                 UnwindingBytes = calleeFunc.AmountUnwinding
-                GetPCThunkInfo = calleeFunc.GetPCThunkInfo }
+                OutVariableInfo = calleeFunc.OutVariableInfo }
         else bbl.FakeBlockInfo <- { bbl.FakeBlockInfo with IsPLT = true }
       else ())
 
@@ -459,12 +459,51 @@ module private CFGBuilder =
        | None -> 0L
        | Some n -> n
 
-  /// Update extra function information as we have finished all the per-function
-  /// analyses.
-  let finalizeFunctionInfo (func: RegularFunction) =
+  let finalizeStackUnwindingAmount (func: RegularFunction) =
     let amountUnwinding = computeStackUnwindingAmount func.IRCFG
     if amountUnwinding <> 0L then func.AmountUnwinding <- amountUnwinding
     else ()
+
+  let genRegVarFromString hdl regStr =
+    let rt = (hdl: BinHandle).File.ISA.WordSize |> WordSize.toRegType
+    let rid = regStr |> hdl.RegisterFactory.RegIDFromString
+    SSA.RegVar (rt, rid, regStr)
+
+  let genStackVar hdl off =
+    let rt = (hdl: BinHandle).File.ISA.WordSize |> WordSize.toRegType
+    SSA.StackVar (rt, off)
+
+  let genFreshStackVarExpr hdl off =
+    SSA.Var { Kind = genStackVar hdl off; Identifier = -1 }
+
+  let tryParsePCThunkHeader hdl (addr: Addr) =
+    match (hdl: BinHandle).ReadUInt (addr, 4) with
+    | 0xc324048bUL -> Some "EAX"
+    | 0xc3241c8bUL -> Some "EBX"
+    | 0xc3240c8bUL -> Some "ECX"
+    | 0xc324148bUL -> Some "EDX"
+    | 0xc324348bUL -> Some "ESI"
+    | 0xc3243c8bUL -> Some "EDI"
+    | 0xc3242c8bUL -> Some "EBP"
+    | _ -> None
+
+  let finalizeOutVariableInfo hdl (func: RegularFunction) =
+    match (hdl: BinHandle).File.ISA.Arch with
+    | Architecture.IntelX86 ->
+      match tryParsePCThunkHeader hdl func.EntryPoint with
+      | Some regStr ->
+        let var = genRegVarFromString hdl regStr
+        let e = genFreshStackVarExpr hdl 0
+        func.OutVariableInfo <-
+          func.OutVariableInfo |> OutVariableInfo.add hdl var e
+      | None -> ()
+    | _ -> ()
+
+  /// Update extra function information as we have finished all the per-function
+  /// analyses.
+  let finalizeFunctionInfo hdl (func: RegularFunction) =
+    finalizeStackUnwindingAmount func
+    finalizeOutVariableInfo hdl func
 
   let runPerFuncAnalysis hdl codeMgr jmpTbls entry noret indcall indjmp evts =
     let fn = (codeMgr: CodeManager).FunctionMaintainer.FindRegular (addr=entry)
@@ -487,7 +526,7 @@ module private CFGBuilder =
          minimizing the overhead in calling CP, and we can get it back here when
          incremental CP is implemented. *)
       if hdl.File.ISA.Arch = Architecture.EVM then ()
-      else finalizeFunctionInfo fn
+      else finalizeFunctionInfo hdl fn
       updateCalleeInfo codeMgr fn
       noret.Run hdl codeMgr jmpTbls fn evts
 

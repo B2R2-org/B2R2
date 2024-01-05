@@ -32,7 +32,7 @@ open B2R2.MiddleEnd.DataFlow
 let private varToBV cpState var id =
   let v = { var with Identifier = id }
   match CPState.findReg cpState v with
-  | Const bv | Thunk bv | Pointer bv -> Some bv
+  | Const bv -> Some bv
   | _ -> None
 
 let private expandPhi cpState var ids e =
@@ -116,7 +116,7 @@ let rec simplify = function
 let rec foldWithConstant cpState = function
   | Var v as e ->
     match CPState.findReg cpState v with
-    | Const bv | Thunk bv | Pointer bv -> Num bv
+    | Const bv -> Num bv
     | _ ->
       match Map.tryFind v cpState.SSAEdges.Defs with
       | Some (Def (_, e)) -> foldWithConstant cpState e
@@ -126,7 +126,7 @@ let rec foldWithConstant cpState = function
     | Num addr ->
       let addr = BitVector.ToUInt64 addr
       match CPState.tryFindMem cpState m rt addr with
-      | Some (Const bv) | Some (Thunk bv) | Some (Pointer bv) -> Num bv
+      | Some (Const bv) -> Num bv
       | _ -> e
     | _ -> e
   | UnOp (op, rt, e) -> UnOp (op, rt, foldWithConstant cpState e)

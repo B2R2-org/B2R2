@@ -97,7 +97,7 @@ let rec renameExpr stack = function
   | SSA.Undefined (_)
   | SSA.FuncName (_)
   | SSA.Nil -> ()
-  | SSA.ReturnVal (_, _, v) -> renameVar stack v
+  | SSA.ReturnVal (_, _, e) -> renameExpr stack e
   | SSA.Var v -> renameVar stack v
   | SSA.Load (v, _, expr) ->
     renameVar stack v

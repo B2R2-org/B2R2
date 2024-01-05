@@ -27,8 +27,6 @@ module B2R2.MiddleEnd.DataFlow.SCPTransfer
 open B2R2
 open B2R2.BinIR
 open B2R2.BinIR.SSA
-open B2R2.FrontEnd
-open B2R2.MiddleEnd.ControlFlowGraph
 
 let private updateReadOnlyMem st mDst rt addr c =
   let align = RegType.toByteWidth rt |> uint64
@@ -98,22 +96,6 @@ let evalCast op rt c =
   | CastKind.ZeroExt -> SCPValue.zeroExt rt c
   | _ -> NotAConst
 
-let evalReturn st (blk: SSAVertex) ret var =
-  match var.Kind with
-  | RegVar (rt, rid, _) ->
-    let hdl = st.BinHandle
-    let fakeBlockInfo = blk.VData.FakeBlockInfo
-    if hdl.RegisterFactory.IsStackPointer rid then
-      let value = CPState.findReg st var
-      let shiftAmount = Const (Utils.computeStackShift rt blk)
-      evalBinOp BinOpType.ADD value shiftAmount
-    elif GetPCThunkInfo.isGetPCThunk fakeBlockInfo.GetPCThunkInfo then
-      Thunk (BitVector.OfUInt64 ret rt)
-    elif CallingConvention.isNonVolatile hdl OS.Linux rid then
-      CPState.findReg st var
-    else NotAConst
-  | _ -> Utils.impossible ()
-
 let rec evalExpr st blk = function
   | Num bv -> Const bv
   | Var v -> CPState.findReg st v
@@ -138,8 +120,7 @@ let rec evalExpr st blk = function
   | Extract (e, rt, pos) ->
     let c = evalExpr st blk e
     SCPValue.extract c rt pos
-  | ReturnVal (_addr, ret, v) ->
-    evalReturn st blk ret v
+  | ReturnVal (_addr, _ret, e) -> evalExpr st blk e
   | FuncName _
   | Nil
   | Undefined _ -> NotAConst

@@ -94,6 +94,9 @@ let rec private replaceLoad spState v e =
   | Extract (e, rt, sPos) ->
     replaceLoad spState v e
     |> Option.map (fun e -> Extract (e, rt, sPos))
+  | ReturnVal (addr, rt, e) ->
+    replaceLoad spState v e
+    |> Option.map (fun e -> ReturnVal (addr, rt, e))
   | _ -> None
 
 let private stmtChooser spState v ((pp, stmt) as stmtInfo) =
