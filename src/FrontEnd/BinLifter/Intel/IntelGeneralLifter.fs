@@ -2396,9 +2396,9 @@ let rcl ins insLen ctxt =
   let oprSize = getOperationSize ins
   let cF = !.ctxt R.CF
   let oF = !.ctxt R.OF
-  let tmpcF = !+ir 1<rt>
-  let tmpcnt = !+ir oprSize
+  let tmpCF = !+ir 1<rt>
   let count = AST.zext oprSize count
+  let tmpCnt = !+ir oprSize
   let cnt =
     match oprSize with
     | 8<rt> -> (count .& numI32 0x1f oprSize) .% numI32 9 oprSize
@@ -2406,30 +2406,28 @@ let rcl ins insLen ctxt =
     | 32<rt> -> count .& numI32 0x1f oprSize
     | 64<rt> -> count .& numI32 0x3f oprSize
     | _ -> raise InvalidOperandSizeException
-  let cond = count == AST.num1 oprSize
-  let cond2 = tmpcnt == AST.num0 oprSize
-  let lblRcl = !%ir "Rotate"
+  !!ir (tmpCnt := cnt)
+  let cond1 = tmpCnt != AST.num0 oprSize
+  let cntMask = numI32 (if oprSize = 64<rt> then 0x3F else 0x1F) oprSize
+  let cond2 = (count .& cntMask) == AST.num1 oprSize
+#if EMULATION
+  !!ir (cF := getCFLazy ctxt ir)
+#endif
+  let lblRotate = !%ir "Rotate"
   let lblExit = !%ir "Exit"
-  !!ir (tmpcnt := cnt)
-  !!ir (AST.cjmp cond2 (AST.name lblExit) (AST.name lblRcl))
-  !!ir (AST.lmark lblRcl)
-  !!ir (tmpcF := AST.xthi 1<rt> dst)
-  !!ir (dst := dst << AST.num1 oprSize)
-  !!ir (AST.xtlo 1<rt> dst := cF)
-  !!ir (cF := tmpcF)
-  !!ir (tmpcnt := tmpcnt .- AST.num1 oprSize)
-  !!ir (AST.cjmp cond2 (AST.name lblExit) (AST.name lblRcl))
+  !!ir (AST.cjmp cond1 (AST.name lblRotate) (AST.name lblExit))
+  !!ir (AST.lmark lblRotate)
+  !!ir (tmpCF := AST.xthi 1<rt> dst)
+  let r = (dst << AST.num1 oprSize) .+ (AST.zext oprSize cF)
+  !!ir (dstAssign oprSize dst r)
+  !!ir (cF := tmpCF)
+  !!ir (tmpCnt := tmpCnt .- AST.num1 oprSize)
+  !!ir (AST.cjmp cond1 (AST.name lblRotate) (AST.name lblExit))
   !!ir (AST.lmark lblExit)
 #if !EMULATION
-  !!ir (cF := AST.xthi 1<rt> dst)
-  !!ir (oF := AST.ite cond (AST.xthi 1<rt> dst <+> cF) undefOF)
+  !!ir (oF := AST.ite cond2 (AST.xthi 1<rt> dst <+> cF) undefOF)
 #else
-  !!ir (!.ctxt R.PF := getPFLazy ctxt ir)
-  !!ir (!.ctxt R.AF := getAFLazy ctxt ir)
-  !!ir (!.ctxt R.ZF := getZFLazy ctxt ir)
-  !!ir (!.ctxt R.SF := getSFLazy ctxt ir)
-  !!ir (cF := AST.xthi 1<rt> dst)
-  !!ir (oF := AST.ite cond (AST.xthi 1<rt> dst <+> cF) oF)
+  !!ir (oF := AST.ite cond2 (AST.xthi 1<rt> dst <+> cF) (getOFLazy ctxt ir))
   ctxt.ConditionCodeOp <- ConditionCodeOp.EFlags
 #endif
   !>ir insLen
@@ -2441,9 +2439,9 @@ let rcr ins insLen ctxt =
   let oprSize = getOperationSize ins
   let cF = !.ctxt R.CF
   let oF = !.ctxt R.OF
-  let tmpcF = !+ir 1<rt>
-  let tmpcnt = !+ir oprSize
+  let struct (tmpCF, tmpOF) = tmpVars2 ir 1<rt>
   let count = AST.zext oprSize count
+  let tmpCnt = !+ir oprSize
   let cnt =
     match oprSize with
     | 8<rt> -> (count .& numI32 0x1f oprSize) .% numI32 9 oprSize
@@ -2451,30 +2449,29 @@ let rcr ins insLen ctxt =
     | 32<rt> -> count .& numI32 0x1f oprSize
     | 64<rt> -> count .& numI32 0x3f oprSize
     | _ -> raise InvalidOperandSizeException
-  let cond = count == AST.num1 oprSize
-  let cond2 = tmpcnt == AST.num0 oprSize
-  let lblRcl = !%ir "Rotate"
+  !!ir (tmpCnt := cnt)
+  let cond1 = tmpCnt != AST.num0 oprSize
+  let cntMask = numI32 (if oprSize = 64<rt> then 0x3F else 0x1F) oprSize
+  let cond2 = (count .& cntMask) == AST.num1 oprSize
+#if EMULATION
+  !!ir (cF := getCFLazy ctxt ir)
+#endif
+  !!ir (tmpOF := AST.xthi 1<rt> dst <+> cF)
+  let lblRotate = !%ir "Rotate"
   let lblExit = !%ir "Exit"
-  !!ir (tmpcnt := cnt)
-  !!ir (AST.cjmp cond2 (AST.name lblExit) (AST.name lblRcl))
-  !!ir (AST.lmark lblRcl)
-  !!ir (tmpcF := AST.xtlo 1<rt> dst)
-  !!ir (dst := dst >> AST.num1 oprSize)
-  !!ir (AST.xthi 1<rt> dst := cF)
-  !!ir (cF := tmpcF)
-  !!ir (tmpcnt := tmpcnt .- AST.num1 oprSize)
-  !!ir (AST.cjmp cond2 (AST.name lblExit) (AST.name lblRcl))
+  !!ir (AST.cjmp cond1 (AST.name lblRotate) (AST.name lblExit))
+  !!ir (AST.lmark lblRotate)
+  !!ir (tmpCF := AST.xtlo 1<rt> dst)
+  let extCF = (AST.zext oprSize cF) << (numI32 (int oprSize - 1) oprSize)
+  !!ir (dstAssign oprSize dst ((dst >> AST.num1 oprSize) .+ extCF))
+  !!ir (cF := tmpCF)
+  !!ir (tmpCnt := tmpCnt .- AST.num1 oprSize)
+  !!ir (AST.cjmp cond1 (AST.name lblRotate) (AST.name lblExit))
   !!ir (AST.lmark lblExit)
 #if !EMULATION
-  !!ir (cF := AST.xthi 1<rt> dst)
-  !!ir (oF := AST.ite cond (AST.xthi 1<rt> dst <+> cF) undefOF)
+  !!ir (oF := AST.ite cond2 tmpOF undefOF)
 #else
-  !!ir (!.ctxt R.PF := getPFLazy ctxt ir)
-  !!ir (!.ctxt R.AF := getAFLazy ctxt ir)
-  !!ir (!.ctxt R.ZF := getZFLazy ctxt ir)
-  !!ir (!.ctxt R.SF := getSFLazy ctxt ir)
-  !!ir (cF := AST.xthi 1<rt> dst)
-  !!ir (oF := AST.ite cond (AST.xthi 1<rt> dst <+> cF) oF)
+  !!ir (oF := AST.ite cond2 tmpOF (getOFLazy ctxt ir))
   ctxt.ConditionCodeOp <- ConditionCodeOp.EFlags
 #endif
   !>ir insLen
