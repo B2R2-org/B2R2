@@ -2082,6 +2082,19 @@ let smulhalf ins insLen ctxt s1top s2top =
   putEndLabel ctxt lblIgnore ir
   !>ir insLen
 
+let smmul ins insLen ctxt isRound =
+  let ir = !*ctxt
+  !<ir insLen
+  let struct (dst, src1, src2) = transThreeOprs ins ctxt
+  let result = !+ir 64<rt>
+  let isUnconditional = ParseUtils.isUnconditional ins.Condition
+  let lblIgnore = checkCondition ins ctxt isUnconditional ir
+  !!ir (result := AST.sext 64<rt> src1 .* AST.sext 64<rt> src2)
+  if isRound then !!ir (result := result .+ numU32 0x80000000u 64<rt>)
+  !!ir (dst := AST.xthi 32<rt> result)
+  putEndLabel ctxt lblIgnore ir
+  !>ir insLen
+
 /// SMULL, SMLAL, etc.
 let smulandacc isSetFlags doAcc ins insLen ctxt =
   let ir = !*ctxt
@@ -5312,6 +5325,8 @@ let translate (ins: ARM32InternalInstruction) insLen ctxt =
   | Op.SMLALDX -> smulacclongdual ins insLen ctxt true
   | Op.SMLAWB -> smulaccwordbyhalf ins insLen ctxt false
   | Op.SMLAWT -> smulaccwordbyhalf ins insLen ctxt true
+  | Op.SMMUL -> smmul ins insLen ctxt false
+  | Op.SMMULR -> smmul ins insLen ctxt true
   | Op.SMULBB -> smulhalf ins insLen ctxt false false
   | Op.SMULBT -> smulhalf ins insLen ctxt false true
   | Op.SMULL -> smulandacc false false ins insLen ctxt
