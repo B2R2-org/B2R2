@@ -2246,6 +2246,30 @@ let movt ins insLen ctxt =
   putEndLabel ctxt lblIgnore ir
   !>ir insLen
 
+let transFourOprsWithBarrelShift (ins: InsInfo) ctxt =
+  match ins.Operands with
+  | FourOperands (opr1, opr2, opr3, OprShift (typ, Imm imm)) ->
+    let carryIn = getCarryFlag ctxt
+    let dst = transOprToExpr ins ctxt opr1
+    let src1 = transOprToExpr ins ctxt opr2
+    let src2 = transOprToExpr ins ctxt opr3
+    let shifted = shift src2 32<rt> typ imm carryIn
+    struct (dst, src1, shifted)
+  | _ -> raise InvalidOperandException
+
+let pkh ins insLen ctxt isTbform =
+  let ir = !*ctxt
+  !<ir insLen
+  let struct (dst, src1, src2) = transFourOprsWithBarrelShift ins ctxt
+  let isUnconditional = ParseUtils.isUnconditional ins.Condition
+  let lblIgnore = checkCondition ins ctxt isUnconditional ir
+  let src1H, src1L = AST.xthi 16<rt> src1, AST.xtlo 16<rt> src1
+  let src2H, src2L = AST.xthi 16<rt> src2, AST.xtlo 16<rt> src2
+  let res = if isTbform then AST.concat src1H src2L else AST.concat src2H src1L
+  !!ir (dst := res)
+  putEndLabel ctxt lblIgnore ir
+  !>ir insLen
+
 let popLoop ctxt numOfReg addr (ir: IRBuilder) =
   let loop addr count =
     if (numOfReg >>> count) &&& 1u = 1u then
@@ -5306,6 +5330,8 @@ let translate (ins: ARM32InternalInstruction) insLen ctxt =
   | Op.ORNS -> orns true ins insLen ctxt
   | Op.ORR -> orr false ins insLen ctxt
   | Op.ORRS -> orrs true ins insLen ctxt
+  | Op.PKHBT -> pkh ins insLen ctxt false
+  | Op.PKHTB -> pkh ins insLen ctxt true
   | Op.POP -> pop ins insLen ctxt
   | Op.PUSH -> push ins insLen ctxt
   | Op.QDADD -> qdadd ins insLen ctxt
