@@ -1937,6 +1937,20 @@ let cmp ins insLen ctxt =
   putEndLabel ctxt lblIgnore ir
   !>ir insLen
 
+let umaal ins insLen ctxt =
+  let ir = !*ctxt
+  !<ir insLen
+  let struct (rdLo, rdHi, rn, rm) = transFourOprs ins ctxt
+  let isUnconditional = ParseUtils.isUnconditional ins.Condition
+  let lblIgnore = checkCondition ins ctxt isUnconditional ir
+  let res = !+ir 64<rt>
+  let mul = AST.zext 64<rt> rn .* AST.zext 64<rt> rm
+  !!ir (res := mul .+ AST.zext 64<rt> rdHi .+ AST.zext 64<rt> rdLo)
+  !!ir (rdHi := AST.xthi 32<rt> res)
+  !!ir (rdLo := AST.xtlo 32<rt> res)
+  putEndLabel ctxt lblIgnore ir
+  !>ir insLen
+
 let umlal isSetFlags ins insLen ctxt =
   let ir = !*ctxt
   let struct (rdLo, rdHi, rn, rm) = transFourOprs ins ctxt
@@ -5402,6 +5416,7 @@ let translate (ins: ARM32InternalInstruction) insLen ctxt =
   | Op.UBFX -> bfx ins insLen ctxt false
   | Op.UDF -> udf ins insLen ctxt
   | Op.UHSUB16 -> uhsub16 ins insLen ctxt
+  | Op.UMAAL -> umaal ins insLen ctxt
   | Op.UMLAL -> umlal false ins insLen ctxt
   | Op.UMLALS -> umlal true ins insLen ctxt
   | Op.UMULL -> umull false ins insLen ctxt
