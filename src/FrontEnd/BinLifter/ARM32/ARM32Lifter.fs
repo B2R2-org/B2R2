@@ -2940,6 +2940,19 @@ let extend (ins: InsInfo) insLen ctxt extractfn amount =
   putEndLabel ctxt lblIgnore ir
   !>ir insLen
 
+let uxtb16 ins insLen ctxt =
+  let ir = !*ctxt
+  let rd, rm, rotation = parseOprOfExtend ins insLen ctxt
+  let isUnconditional = ParseUtils.isUnconditional ins.Condition
+  !<ir insLen
+  let lblIgnore = checkCondition ins ctxt isUnconditional ir
+  let rotated = shiftROR rm 32<rt> rotation
+  let r1 = AST.xtlo 8<rt> rotated |> AST.zext 32<rt>
+  let r2 = (AST.extract rotated 8<rt> 16 |> AST.zext 32<rt>) << numI32 16 32<rt>
+  !!ir (rd := r2 .| r1)
+  putEndLabel ctxt lblIgnore ir
+  !>ir insLen
+
 let parseOprOfXTA (ins: InsInfo) insLen ctxt =
   match ins.Operands with
   | FourOperands (OprReg rd, OprReg rn, OprReg rm, OprShift (_, Imm i)) ->
@@ -5458,6 +5471,7 @@ let translate (ins: ARM32InternalInstruction) insLen ctxt =
   | Op.UXTAB -> extendAndAdd ins insLen ctxt 8<rt>
   | Op.UXTAH -> extendAndAdd ins insLen ctxt 16<rt>
   | Op.UXTB -> extend ins insLen ctxt AST.zext 8<rt>
+  | Op.UXTB16 -> uxtb16 ins insLen ctxt
   | Op.UXTH -> extend ins insLen ctxt AST.zext 16<rt>
   | Op.VABS when isF16orF32orF64 ins.SIMDTyp ->
     sideEffects insLen ctxt UnsupportedFP
