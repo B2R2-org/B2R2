@@ -2576,6 +2576,32 @@ let rev ins insLen ctxt =
   putEndLabel ctxt lblIgnore ir
   !>ir insLen
 
+let rev16 ins insLen ctxt =
+  let ir = !*ctxt
+  let struct (rd, rm) = transTwoOprs ins ctxt
+  let isUnconditional = ParseUtils.isUnconditional ins.Condition
+  !<ir insLen
+  let lblIgnore = checkCondition ins ctxt isUnconditional ir
+  let r1 = AST.extract rm 8<rt> 16
+  let r2 = AST.extract rm 8<rt> 24
+  let r3 = AST.extract rm 8<rt> 0
+  let r4 = AST.extract rm 8<rt> 8
+  !!ir (rd := AST.concatArr [| r4; r3; r2; r1 |])
+  putEndLabel ctxt lblIgnore ir
+  !>ir insLen
+
+let revsh ins insLen ctxt =
+  let ir = !*ctxt
+  let struct (rd, rm) = transTwoOprs ins ctxt
+  let isUnconditional = ParseUtils.isUnconditional ins.Condition
+  !<ir insLen
+  let lblIgnore = checkCondition ins ctxt isUnconditional ir
+  let r1 = (AST.xtlo 8<rt> rm |> AST.sext 32<rt>) << numI32 8 32<rt>
+  let r2 = AST.extract rm 8<rt> 8 |> AST.zext 32<rt>
+  !!ir (rd := r1 .| r2)
+  putEndLabel ctxt lblIgnore ir
+  !>ir insLen
+
 let rfedb (ins: InsInfo) insLen ctxt =
   let ir = !*ctxt
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
@@ -5354,6 +5380,8 @@ let translate (ins: ARM32InternalInstruction) insLen ctxt =
   | Op.QSUB16 -> qsub16 ins insLen ctxt
   | Op.RBIT -> rbit ins insLen ctxt
   | Op.REV -> rev ins insLen ctxt
+  | Op.REV16 -> rev16 ins insLen ctxt
+  | Op.REVSH -> revsh ins insLen ctxt
   | Op.RFEDB -> rfedb ins insLen ctxt
   | Op.ROR -> shiftInstr false ins insLen SRTypeROR ctxt
   | Op.RORS -> rors true ins insLen ctxt
