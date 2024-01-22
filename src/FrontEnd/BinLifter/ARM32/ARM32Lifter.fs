@@ -5374,6 +5374,7 @@ let translate (ins: ARM32InternalInstruction) insLen ctxt =
   | Op.MOV | Op.MOVW -> mov false ins insLen ctxt
   | Op.MOVS -> movs true ins insLen ctxt
   | Op.MOVT -> movt ins insLen ctxt
+  | Op.MSR | Op.MRS -> sideEffects insLen ctxt UndefinedInstr
   | Op.MUL -> mul false ins insLen ctxt
   | Op.MULS -> mul true ins insLen ctxt
   | Op.MVN -> mvn false ins insLen ctxt
