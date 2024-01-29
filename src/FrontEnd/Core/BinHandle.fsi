@@ -38,8 +38,8 @@ type BinHandle =
   /// automatically detected.
   new: path: string
      * isa: ISA
-     * baseAddrOpt: Addr option
      * mode: ArchOperationMode
+     * baseAddrOpt: Addr option
     -> BinHandle
 
   /// Construct a BinHandle from a given file path, ISA, and optional base
@@ -54,6 +54,7 @@ type BinHandle =
   /// performed only if detectFormat is set to true.
   new: bytes: byte[]
      * isa: ISA
+     * mode: ArchOperationMode
      * baseAddrOpt: Addr option
      * detectFormat: bool
     -> BinHandle

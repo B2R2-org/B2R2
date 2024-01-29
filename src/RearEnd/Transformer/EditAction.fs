@@ -31,7 +31,8 @@ open B2R2.FrontEnd
 /// The `edit` action.
 type EditAction () =
   let makeBinary bin (hdl: BinHandle) newbs =
-    let hdl' = lazy BinHandle (newbs, hdl.File.ISA, None, false)
+    let mode = hdl.Parser.OperationMode
+    let hdl' = lazy BinHandle (newbs, hdl.File.ISA, mode, None, false)
     let annot = Binary.MakeAnnotation "Editted from " bin
     Binary.Init annot hdl'
     |> box

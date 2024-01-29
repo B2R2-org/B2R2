@@ -101,7 +101,7 @@ type CFGTest1 () =
         0x00uy; 0x0fuy; 0x05uy; 0x90uy; 0x5duy; 0xc3uy; |]
 
   let isa = ISA.Init Architecture.IntelX64 Endian.Little
-  let hdl = BinHandle (binary, isa, None, false)
+  let hdl = BinHandle (binary, isa, ArchOperationMode.NoMode, None, false)
   let ess = BinEssence.init hdl [] [] []
 
   [<TestMethod>]
@@ -404,7 +404,7 @@ type CFGTest2 () =
         0x8buy; 0x04uy; 0x24uy; 0xc3uy; |]
 
   let isa = ISA.Init Architecture.IntelX86 Endian.Little
-  let hdl = BinHandle (binary, isa, None, false)
+  let hdl = BinHandle (binary, isa, ArchOperationMode.NoMode, None, false)
   let ess = BinEssence.init hdl [] [] []
 
   [<TestMethod>]
