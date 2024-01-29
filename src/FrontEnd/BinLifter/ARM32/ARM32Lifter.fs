@@ -1937,6 +1937,20 @@ let cmp ins insLen ctxt =
   putEndLabel ctxt lblIgnore ir
   !>ir insLen
 
+let umaal ins insLen ctxt =
+  let ir = !*ctxt
+  !<ir insLen
+  let struct (rdLo, rdHi, rn, rm) = transFourOprs ins ctxt
+  let isUnconditional = ParseUtils.isUnconditional ins.Condition
+  let lblIgnore = checkCondition ins ctxt isUnconditional ir
+  let res = !+ir 64<rt>
+  let mul = AST.zext 64<rt> rn .* AST.zext 64<rt> rm
+  !!ir (res := mul .+ AST.zext 64<rt> rdHi .+ AST.zext 64<rt> rdLo)
+  !!ir (rdHi := AST.xthi 32<rt> res)
+  !!ir (rdLo := AST.xtlo 32<rt> res)
+  putEndLabel ctxt lblIgnore ir
+  !>ir insLen
+
 let umlal isSetFlags ins insLen ctxt =
   let ir = !*ctxt
   let struct (rdLo, rdHi, rn, rm) = transFourOprs ins ctxt
@@ -2082,6 +2096,33 @@ let smulhalf ins insLen ctxt s1top s2top =
   putEndLabel ctxt lblIgnore ir
   !>ir insLen
 
+let smmla ins insLen ctxt isRound =
+  let ir = !*ctxt
+  !<ir insLen
+  let struct (dst, src1, src2, src3) = transFourOprs ins ctxt
+  let result = !+ir 64<rt>
+  let isUnconditional = ParseUtils.isUnconditional ins.Condition
+  let lblIgnore = checkCondition ins ctxt isUnconditional ir
+  let ra = (AST.sext 64<rt> src3) << numI32 32 64<rt>
+  !!ir (result := ra .+ AST.sext 64<rt> src1 .* AST.sext 64<rt> src2)
+  if isRound then !!ir (result := result .+ numU32 0x80000000u 64<rt>)
+  !!ir (dst := AST.xthi 32<rt> result)
+  putEndLabel ctxt lblIgnore ir
+  !>ir insLen
+
+let smmul ins insLen ctxt isRound =
+  let ir = !*ctxt
+  !<ir insLen
+  let struct (dst, src1, src2) = transThreeOprs ins ctxt
+  let result = !+ir 64<rt>
+  let isUnconditional = ParseUtils.isUnconditional ins.Condition
+  let lblIgnore = checkCondition ins ctxt isUnconditional ir
+  !!ir (result := AST.sext 64<rt> src1 .* AST.sext 64<rt> src2)
+  if isRound then !!ir (result := result .+ numU32 0x80000000u 64<rt>)
+  !!ir (dst := AST.xthi 32<rt> result)
+  putEndLabel ctxt lblIgnore ir
+  !>ir insLen
+
 /// SMULL, SMLAL, etc.
 let smulandacc isSetFlags doAcc ins insLen ctxt =
   let ir = !*ctxt
@@ -2216,6 +2257,30 @@ let movt ins insLen ctxt =
   !<ir insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   !!ir (movtAssign dst res)
+  putEndLabel ctxt lblIgnore ir
+  !>ir insLen
+
+let transFourOprsWithBarrelShift (ins: InsInfo) ctxt =
+  match ins.Operands with
+  | FourOperands (opr1, opr2, opr3, OprShift (typ, Imm imm)) ->
+    let carryIn = getCarryFlag ctxt
+    let dst = transOprToExpr ins ctxt opr1
+    let src1 = transOprToExpr ins ctxt opr2
+    let src2 = transOprToExpr ins ctxt opr3
+    let shifted = shift src2 32<rt> typ imm carryIn
+    struct (dst, src1, shifted)
+  | _ -> raise InvalidOperandException
+
+let pkh ins insLen ctxt isTbform =
+  let ir = !*ctxt
+  !<ir insLen
+  let struct (dst, src1, src2) = transFourOprsWithBarrelShift ins ctxt
+  let isUnconditional = ParseUtils.isUnconditional ins.Condition
+  let lblIgnore = checkCondition ins ctxt isUnconditional ir
+  let src1H, src1L = AST.xthi 16<rt> src1, AST.xtlo 16<rt> src1
+  let src2H, src2L = AST.xthi 16<rt> src2, AST.xtlo 16<rt> src2
+  let res = if isTbform then AST.concat src1H src2L else AST.concat src2H src1L
+  !!ir (dst := res)
   putEndLabel ctxt lblIgnore ir
   !>ir insLen
 
@@ -2508,6 +2573,32 @@ let rev ins insLen ctxt =
   !!ir (t3 := sel8Bits rm 16)
   !!ir (t4 := sel8Bits rm 24)
   !!ir (rd := combine8bitResults t4 t3 t2 t1)
+  putEndLabel ctxt lblIgnore ir
+  !>ir insLen
+
+let rev16 ins insLen ctxt =
+  let ir = !*ctxt
+  let struct (rd, rm) = transTwoOprs ins ctxt
+  let isUnconditional = ParseUtils.isUnconditional ins.Condition
+  !<ir insLen
+  let lblIgnore = checkCondition ins ctxt isUnconditional ir
+  let r1 = AST.extract rm 8<rt> 16
+  let r2 = AST.extract rm 8<rt> 24
+  let r3 = AST.extract rm 8<rt> 0
+  let r4 = AST.extract rm 8<rt> 8
+  !!ir (rd := AST.concatArr [| r4; r3; r2; r1 |])
+  putEndLabel ctxt lblIgnore ir
+  !>ir insLen
+
+let revsh ins insLen ctxt =
+  let ir = !*ctxt
+  let struct (rd, rm) = transTwoOprs ins ctxt
+  let isUnconditional = ParseUtils.isUnconditional ins.Condition
+  !<ir insLen
+  let lblIgnore = checkCondition ins ctxt isUnconditional ir
+  let r1 = (AST.xtlo 8<rt> rm |> AST.sext 32<rt>) << numI32 8 32<rt>
+  let r2 = AST.extract rm 8<rt> 8 |> AST.zext 32<rt>
+  !!ir (rd := r1 .| r2)
   putEndLabel ctxt lblIgnore ir
   !>ir insLen
 
@@ -2846,6 +2937,19 @@ let extend (ins: InsInfo) insLen ctxt extractfn amount =
   !<ir insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   !!ir (rd := extractfn 32<rt> (AST.xtlo amount rotated))
+  putEndLabel ctxt lblIgnore ir
+  !>ir insLen
+
+let uxtb16 ins insLen ctxt =
+  let ir = !*ctxt
+  let rd, rm, rotation = parseOprOfExtend ins insLen ctxt
+  let isUnconditional = ParseUtils.isUnconditional ins.Condition
+  !<ir insLen
+  let lblIgnore = checkCondition ins ctxt isUnconditional ir
+  let rotated = shiftROR rm 32<rt> rotation
+  let r1 = AST.xtlo 8<rt> rotated |> AST.zext 32<rt>
+  let r2 = (AST.extract rotated 8<rt> 16 |> AST.zext 32<rt>) << numI32 16 32<rt>
+  !!ir (rd := r2 .| r1)
   putEndLabel ctxt lblIgnore ir
   !>ir insLen
 
@@ -5270,6 +5374,7 @@ let translate (ins: ARM32InternalInstruction) insLen ctxt =
   | Op.MOV | Op.MOVW -> mov false ins insLen ctxt
   | Op.MOVS -> movs true ins insLen ctxt
   | Op.MOVT -> movt ins insLen ctxt
+  | Op.MSR | Op.MRS -> sideEffects insLen ctxt UndefinedInstr
   | Op.MUL -> mul false ins insLen ctxt
   | Op.MULS -> mul true ins insLen ctxt
   | Op.MVN -> mvn false ins insLen ctxt
@@ -5279,6 +5384,8 @@ let translate (ins: ARM32InternalInstruction) insLen ctxt =
   | Op.ORNS -> orns true ins insLen ctxt
   | Op.ORR -> orr false ins insLen ctxt
   | Op.ORRS -> orrs true ins insLen ctxt
+  | Op.PKHBT -> pkh ins insLen ctxt false
+  | Op.PKHTB -> pkh ins insLen ctxt true
   | Op.POP -> pop ins insLen ctxt
   | Op.PUSH -> push ins insLen ctxt
   | Op.QDADD -> qdadd ins insLen ctxt
@@ -5287,6 +5394,8 @@ let translate (ins: ARM32InternalInstruction) insLen ctxt =
   | Op.QSUB16 -> qsub16 ins insLen ctxt
   | Op.RBIT -> rbit ins insLen ctxt
   | Op.REV -> rev ins insLen ctxt
+  | Op.REV16 -> rev16 ins insLen ctxt
+  | Op.REVSH -> revsh ins insLen ctxt
   | Op.RFEDB -> rfedb ins insLen ctxt
   | Op.ROR -> shiftInstr false ins insLen SRTypeROR ctxt
   | Op.RORS -> rors true ins insLen ctxt
@@ -5312,6 +5421,10 @@ let translate (ins: ARM32InternalInstruction) insLen ctxt =
   | Op.SMLALDX -> smulacclongdual ins insLen ctxt true
   | Op.SMLAWB -> smulaccwordbyhalf ins insLen ctxt false
   | Op.SMLAWT -> smulaccwordbyhalf ins insLen ctxt true
+  | Op.SMMLA -> smmla ins insLen ctxt false
+  | Op.SMMLAR -> smmla ins insLen ctxt true
+  | Op.SMMUL -> smmul ins insLen ctxt false
+  | Op.SMMULR -> smmul ins insLen ctxt true
   | Op.SMULBB -> smulhalf ins insLen ctxt false false
   | Op.SMULBT -> smulhalf ins insLen ctxt false true
   | Op.SMULL -> smulandacc false false ins insLen ctxt
@@ -5345,6 +5458,7 @@ let translate (ins: ARM32InternalInstruction) insLen ctxt =
   | Op.UBFX -> bfx ins insLen ctxt false
   | Op.UDF -> udf ins insLen ctxt
   | Op.UHSUB16 -> uhsub16 ins insLen ctxt
+  | Op.UMAAL -> umaal ins insLen ctxt
   | Op.UMLAL -> umlal false ins insLen ctxt
   | Op.UMLALS -> umlal true ins insLen ctxt
   | Op.UMULL -> umull false ins insLen ctxt
@@ -5358,6 +5472,7 @@ let translate (ins: ARM32InternalInstruction) insLen ctxt =
   | Op.UXTAB -> extendAndAdd ins insLen ctxt 8<rt>
   | Op.UXTAH -> extendAndAdd ins insLen ctxt 16<rt>
   | Op.UXTB -> extend ins insLen ctxt AST.zext 8<rt>
+  | Op.UXTB16 -> uxtb16 ins insLen ctxt
   | Op.UXTH -> extend ins insLen ctxt AST.zext 16<rt>
   | Op.VABS when isF16orF32orF64 ins.SIMDTyp ->
     sideEffects insLen ctxt UnsupportedFP
