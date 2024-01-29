@@ -1628,11 +1628,11 @@ let vpslldq ins insLen ctxt =
   !<ir insLen
   let struct (dst, src, cnt) = getThreeOprs ins
   let cnt = getImmValue cnt
+  let cnt = if cnt > 15L then 16L else cnt
   let amount = cnt * 8L
   let rightAmt = numI64 (64L - (amount % 64L)) 64<rt>
   let leftAmt = numI64 (amount % 64L) 64<rt>
   let oprSize = getOperationSize ins
-  let cnt = if cnt > 15L then 16L else cnt
   match oprSize with
   | 128<rt> ->
     let dstB, dstA = transOprToExpr128 ir false ins insLen ctxt dst
@@ -1661,23 +1661,13 @@ let vpslldq ins insLen ctxt =
     if amount < 64 then
       !!ir (dstA := tSrcA << leftAmt)
       !!ir (dstB := (tSrcB << leftAmt) .| (tSrcA >> rightAmt))
-      !!ir (dstC := (tSrcC << leftAmt) .| (tSrcB >> rightAmt))
+      !!ir (dstC := tSrcC << leftAmt)
       !!ir (dstD := (tSrcD << leftAmt) .| (tSrcC >> rightAmt))
     elif amount < 128 then
       !!ir (dstA := AST.num0 64<rt>)
       !!ir (dstB := tSrcA << leftAmt)
-      !!ir (dstC := (tSrcB << leftAmt) .| (tSrcA >> rightAmt))
-      !!ir (dstD := (tSrcC << leftAmt) .| (tSrcB >> rightAmt))
-    elif amount < 192 then
-      !!ir (dstA := AST.num0 64<rt>)
-      !!ir (dstB := AST.num0 64<rt>)
-      !!ir (dstC := tSrcA << leftAmt)
-      !!ir (dstD := (tSrcB << leftAmt) .| (tSrcA >> rightAmt))
-    elif amount < 256 then
-      !!ir (dstA := AST.num0 64<rt>)
-      !!ir (dstB := AST.num0 64<rt>)
       !!ir (dstC := AST.num0 64<rt>)
-      !!ir (dstD := tSrcA << leftAmt)
+      !!ir (dstD := tSrcC << leftAmt)
     else
       !!ir (dstA := AST.num0 64<rt>)
       !!ir (dstB := AST.num0 64<rt>)
@@ -1780,21 +1770,16 @@ let vpsrldq ins insLen ctxt =
     !!ir (tSrcD := srcD)
     if amount < 64 then
       !!ir (dstA := (tSrcB << leftAmt) .| (tSrcA >> rightAmt))
-      !!ir (dstB := (tSrcC << leftAmt) .| (tSrcB >> rightAmt))
+      !!ir (dstB := tSrcB >> rightAmt)
       !!ir (dstC := (tSrcD << leftAmt) .| (tSrcC >> rightAmt))
       !!ir (dstD := tSrcD >> rightAmt)
     elif amount < 128 then
-      !!ir (dstA := (tSrcC << leftAmt) .| (tSrcB >> rightAmt))
-      !!ir (dstB := (tSrcD << leftAmt) .| (tSrcC >> rightAmt))
+      !!ir (dstA := (tSrcB >> rightAmt))
+      !!ir (dstB := AST.num0 64<rt>)
       !!ir (dstC := tSrcD >> rightAmt)
       !!ir (dstD := AST.num0 64<rt>)
-    elif amount < 192 then
-      !!ir (dstA := (tSrcD << leftAmt) .| (tSrcC >> rightAmt))
-      !!ir (dstB := tSrcD >> rightAmt)
-      !!ir (dstC := AST.num0 64<rt>)
-      !!ir (dstD := AST.num0 64<rt>)
     else
-      !!ir (dstA := tSrcD >> rightAmt)
+      !!ir (dstA := AST.num0 64<rt>)
       !!ir (dstB := AST.num0 64<rt>)
       !!ir (dstC := AST.num0 64<rt>)
       !!ir (dstD := AST.num0 64<rt>)
