@@ -38,8 +38,8 @@ type SliceAction () =
       invalidArg (nameof hdl) "Address out of range."
     else
       let bs = hdl.File.Slice(a1, int (a2 - a1 + 1UL)).ToArray ()
-      let isa = hdl.File.ISA
-      lazy BinHandle (bs, isa, None, false)
+      let isa, mode = hdl.File.ISA, hdl.Parser.OperationMode
+      lazy BinHandle (bs, isa, mode, None, false)
       |> Binary.Init (Binary.MakeAnnotation "Sliced from " bin)
 
   let sliceBySectionName bin secName =

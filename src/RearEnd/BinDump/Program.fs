@@ -107,7 +107,7 @@ let dumpHex (opts: BinDumpOpts) (sec: Section) (hdl: BinHandle) =
   out.PrintLine ()
 
 let private createBinHandleFromPath (opts: BinDumpOpts) filePath =
-  BinHandle (filePath, opts.ISA, opts.BaseAddress, opts.ArchOperationMode)
+  BinHandle (filePath, opts.ISA, opts.ArchOperationMode, opts.BaseAddress)
 
 let private isRawBinary (hdl: BinHandle) =
   match hdl.File.Format with
@@ -200,9 +200,10 @@ let private assertBinaryLength isa mode hexstr =
     exit 1
 
 let dumpHexStringMode (opts: BinDumpOpts) =
-  let hdl = BinHandle (opts.InputHexStr, opts.ISA, opts.BaseAddress, false)
+  let isa, mode = opts.ISA, opts.ArchOperationMode
+  let hdl = BinHandle (opts.InputHexStr, isa, mode, opts.BaseAddress, false)
   let cfg = getTableConfig hdl.File.ISA opts.ShowLowUIR
-  assertBinaryLength opts.ISA opts.ArchOperationMode opts.InputHexStr
+  assertBinaryLength isa mode opts.InputHexStr
   opts.ShowColor <- true
   let printer = makeCodePrinter hdl cfg opts
   let baseAddr = defaultArg opts.BaseAddress 0UL

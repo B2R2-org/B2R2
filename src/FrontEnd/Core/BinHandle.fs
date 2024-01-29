@@ -32,31 +32,31 @@ open B2R2.FrontEnd.Helper
 open type FileFormat
 open type ArchOperationMode
 
-type BinHandle private (path, bytes, fmt, isa, baseAddrOpt, mode) =
+type BinHandle private (path, bytes, fmt, isa, mode, baseAddrOpt) =
   let struct (ctxt, regFactory) = Basis.load isa
   let binFile = FileFactory.load path bytes fmt isa regFactory baseAddrOpt
   let parser = Parser.init binFile.ISA mode binFile.EntryPoint
 
-  new (path, isa, baseAddrOpt, mode) =
+  new (path, isa, mode, baseAddrOpt) =
     let bytes = File.ReadAllBytes path
     let struct (fmt, isa) = FormatDetector.identify bytes isa
-    BinHandle (path, bytes, fmt, isa, baseAddrOpt, mode)
+    BinHandle (path, bytes, fmt, isa, mode, baseAddrOpt)
 
   new (path, isa, baseAddrOpt) =
-    BinHandle (path=path, isa=isa, baseAddrOpt=baseAddrOpt, mode=NoMode)
+    BinHandle (path=path, isa=isa, mode=NoMode, baseAddrOpt=baseAddrOpt)
 
   new (path, isa) =
-    BinHandle (path=path, isa=isa, baseAddrOpt=None, mode=NoMode)
+    BinHandle (path=path, isa=isa, mode=NoMode, baseAddrOpt=None)
 
-  new (bytes, isa, baseAddrOpt, detectFormat) =
+  new (bytes, isa, mode, baseAddrOpt, detectFormat) =
     if detectFormat then
       let struct (fmt, isa) = FormatDetector.identify bytes isa
-      BinHandle ("", bytes, fmt, isa, baseAddrOpt, NoMode)
+      BinHandle ("", bytes, fmt, isa, mode, baseAddrOpt)
     else
-      BinHandle ("", bytes, RawBinary, isa, baseAddrOpt, NoMode)
+      BinHandle ("", bytes, RawBinary, isa, mode, baseAddrOpt)
 
   new (isa) =
-    BinHandle ([||], isa, None, false)
+    BinHandle ([||], isa, NoMode, None, false)
 
   /// Return the `IBinFile` object.
   member __.File with get(): IBinFile = binFile

@@ -80,7 +80,7 @@ type PersistentDataFlowTests () =
        0xEAuy; 0x01uy; 0x75uy; 0xF4uy; 0x5Euy; 0xC3uy |]
 
   let isa = ISA.Init Architecture.IntelX86 Endian.Little
-  let hdl = BinHandle (binary, isa, None, false)
+  let hdl = BinHandle (binary, isa, ArchOperationMode.NoMode, None, false)
   let ess = BinEssence.init hdl [] [] []
 
 #if !EMULATION

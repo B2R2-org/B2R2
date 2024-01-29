@@ -51,7 +51,8 @@ type EVMCodeCopyAnalysis () =
       let bin = hdl.File.Slice (offset=int src, size=int len)
       let srcEnd = src + len - 1UL
       if srcEnd < binLen then
-        let newHdl = BinHandle (bin.ToArray (), hdl.File.ISA, None, false)
+        let mode = ArchOperationMode.NoMode
+        let newHdl = BinHandle (bin.ToArray (), hdl.File.ISA, mode, None, false)
         PluggableAnalysisNewBinary newHdl
       else pickValidCopyInfo hdl restCopyInfos
     | _ :: restCopyInfos -> pickValidCopyInfo hdl restCopyInfos

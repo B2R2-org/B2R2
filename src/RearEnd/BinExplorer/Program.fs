@@ -231,7 +231,7 @@ let dumpJsonFiles jsonDir ess =
 
 let initBinHdl isa (name: string) =
   let autoDetect = (isa.Arch <> Architecture.EVM)
-  BinHandle (name, isa, None, ArchOperationMode.NoMode)
+  BinHandle (name, isa, ArchOperationMode.NoMode, None)
 
 let interactiveMain files (opts: BinExplorerOpts) =
   if List.isEmpty files then
