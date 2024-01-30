@@ -89,6 +89,7 @@ let getInstructionAlignment (isa: ISA) mode =
   | Architecture.AARCH64 -> 4
   | Architecture.MIPS32 | Architecture.MIPS64 -> 4
   | Architecture.EVM -> 1
+  | Architecture.TMS320C6000 -> 4
   | Architecture.AVR -> 2
   | Architecture.SH4 -> 2
   | Architecture.PPC32 -> 4
