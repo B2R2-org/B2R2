@@ -749,11 +749,9 @@ let parseSystem bin =
     Op.SYS, getOp1cncmop2Xt bin, 0<rt>
   | c when c &&& 0b1100000000000u = 0b0100000000000u ->
     Op.MSR, getSysregOrctrlXt bin, 0<rt>
-  | c when c &&& 0b1110000000000u = 0b1000000000000u ->
-    raise UnallocatedException
   | c when c &&& 0b1110000000000u = 0b1010000000000u ->
     Op.SYSL, getXtOp1cncmop2 bin, 0<rt>
-  | c when c &&& 0b1100000000000u = 0b1100000000000u ->
+  | c when c &&& 0b1000000000000u = 0b1000000000000u ->
     Op.MRS, getXtSysregOrctrl bin, 0<rt>
   | _ -> raise InvalidOperandException
   |> changeToAliasOfSystem bin
