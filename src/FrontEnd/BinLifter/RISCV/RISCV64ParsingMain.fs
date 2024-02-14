@@ -268,7 +268,7 @@ let parseAtomic bin =
   if extract bin 14u 12u = 0b010u then
     match extract bin 31u 27u with
     | 0b00010u -> struct (Op.LRdotW, getRdRs1AqRlAcc bin 32<rt>)
-    | 0b00011u -> struct (Op.SCdotW, getRdRs1Rs2AqRlAcc bin 32<rt>)
+    | 0b00011u -> struct (Op.SCdotW, getRdRs2Rs1AqRlAcc bin 32<rt>)
     | 0b00001u -> struct (Op.AMOSWAPdotW, getRdRs2Rs1AqRlAcc bin 32<rt>)
     | 0b00000u -> struct (Op.AMOADDdotW, getRdRs2Rs1AqRlAcc bin 32<rt>)
     | 0b00100u -> struct (Op.AMOXORdotW, getRdRs2Rs1AqRlAcc bin 32<rt>)
@@ -282,7 +282,7 @@ let parseAtomic bin =
   elif extract bin 14u 12u = 0b011u then
     match extract bin 31u 27u with
     | 0b00010u -> struct (Op.LRdotD, getRdRs1AqRlAcc bin 64<rt>)
-    | 0b00011u -> struct (Op.SCdotD, getRdRs1Rs2AqRlAcc bin 64<rt>)
+    | 0b00011u -> struct (Op.SCdotD, getRdRs2Rs1AqRlAcc bin 64<rt>)
     | 0b00001u -> struct (Op.AMOSWAPdotD, getRdRs2Rs1AqRlAcc bin 64<rt>)
     | 0b00000u -> struct (Op.AMOADDdotD, getRdRs2Rs1AqRlAcc bin 64<rt>)
     | 0b00100u -> struct (Op.AMOXORdotD, getRdRs2Rs1AqRlAcc bin 64<rt>)

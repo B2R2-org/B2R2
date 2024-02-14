@@ -2302,7 +2302,7 @@ let lr insInfo insLen ctxt =
 (* TODO: Add reservation check *)
 let sc insInfo insLen ctxt oprSz =
   let ir = !*ctxt
-  let rd, mem, rs2, _ = getFourOprs insInfo |> transFourOprs insInfo ctxt
+  let rd, rs2, mem, _ = getFourOprs insInfo |> transFourOprs insInfo ctxt
   !<ir insLen
   !!ir (mem := AST.xtlo oprSz rs2)
   !!ir (rd := numI32 0 ctxt.WordBitSize)
