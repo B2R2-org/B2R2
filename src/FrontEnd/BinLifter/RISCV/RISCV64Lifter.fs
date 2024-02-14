@@ -2241,16 +2241,14 @@ let fcvtdotsdotlu insInfo insLen ctxt =
 
 let fcvtdotddotw insInfo insLen ctxt =
   let ir = !*ctxt
-  let rd, rs1, _ = getThreeOprs insInfo
-  let rd, rs1 = (rd, rs1) |> transTwoOprs insInfo ctxt
+  let rd, rs1 = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
   !<ir insLen
   !!ir (rd := AST.cast CastKind.SIntToFloat 64<rt> (AST.xtlo 32<rt> rs1))
   !>ir insLen
 
 let fcvtdotddotwu insInfo insLen ctxt =
   let ir = !*ctxt
-  let rd, rs1, _ = getThreeOprs insInfo
-  let rd, rs1 = (rd, rs1) |> transTwoOprs insInfo ctxt
+  let rd, rs1 = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
   !<ir insLen
   !!ir (rd := AST.cast CastKind.UIntToFloat 64<rt> (AST.xtlo 32<rt> rs1))
   !>ir insLen
