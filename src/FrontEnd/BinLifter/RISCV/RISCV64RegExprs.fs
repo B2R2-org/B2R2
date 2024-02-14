@@ -139,6 +139,10 @@ type RegExprs (wordSize) =
     var regType (Register.toRegID Register.CSR0842) "CSR0842" with get
   member val CSR0843 =
     var regType (Register.toRegID Register.CSR0843) "CSR0843" with get
+  member val CSR3114 =
+    var regType (Register.toRegID Register.CSR3114) "CSR3114" with get
+  member val CSR3787 =
+    var regType (Register.toRegID Register.CSR3787) "CSR3787" with get
   member val CSR3857 =
     var regType (Register.toRegID Register.CSR3857) "CSR3857" with get
   member val CSR3858 =
@@ -291,6 +295,10 @@ type RegExprs (wordSize) =
     var regType (Register.toRegID Register.CSR1006) "CSR1006" with get
   member val CSR1007 =
     var regType (Register.toRegID Register.CSR1007) "CSR1007" with get
+  member val CSR2145 =
+    var regType (Register.toRegID Register.CSR2145) "CSR2145" with get
+  member val CSR2617 =
+    var regType (Register.toRegID Register.CSR2617) "CSR2617" with get
   member val CSR2816 =
     var regType (Register.toRegID Register.CSR2816) "CSR2816" with get
   member val CSR2818 =
@@ -353,6 +361,8 @@ type RegExprs (wordSize) =
     var regType (Register.toRegID Register.CSR2846) "CSR2846" with get
   member val CSR2847 =
     var regType (Register.toRegID Register.CSR2847) "CSR2847" with get
+  member val CSR2945 =
+    var regType (Register.toRegID Register.CSR2945) "CSR2945" with get
   member val CSR0800 =
     var regType (Register.toRegID Register.CSR0800) "CSR0800" with get
   member val CSR0803 =
@@ -514,6 +524,8 @@ type RegExprs (wordSize) =
     | R.CSR0836 -> __.CSR0836
     | R.CSR0842 -> __.CSR0842
     | R.CSR0843 -> __.CSR0843
+    | R.CSR3114 -> __.CSR3114
+    | R.CSR3787 -> __.CSR3787
     | R.CSR3857 -> __.CSR3857
     | R.CSR3858 -> __.CSR3858
     | R.CSR3859 -> __.CSR3859
@@ -590,6 +602,8 @@ type RegExprs (wordSize) =
     | R.CSR1005 -> __.CSR1005
     | R.CSR1006 -> __.CSR1006
     | R.CSR1007 -> __.CSR1007
+    | R.CSR2145 -> __.CSR2145
+    | R.CSR2617 -> __.CSR2617
     | R.CSR2816 -> __.CSR2816
     | R.CSR2818 -> __.CSR2818
     | R.CSR2819 -> __.CSR2819
@@ -621,6 +635,7 @@ type RegExprs (wordSize) =
     | R.CSR2845 -> __.CSR2845
     | R.CSR2846 -> __.CSR2846
     | R.CSR2847 -> __.CSR2847
+    | R.CSR2945 -> __.CSR2945
     | R.CSR0800 -> __.CSR0800
     | R.CSR0803 -> __.CSR0803
     | R.CSR0804 -> __.CSR0804

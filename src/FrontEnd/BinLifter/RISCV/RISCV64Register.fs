@@ -320,8 +320,13 @@ type Register =
   | CSR1969 = 0x13F
   | CSR1970 = 0x140
   | CSR1971 = 0x141
+  | CSR3787 = 0x142
+  | CSR2617 = 0x143
+  | CSR3114 = 0x144
+  | CSR2145 = 0X145
+  | CSR2945 = 0x146
   /// Floating-Point Dynamic Rounding Mode.
-  | FRM = 0x142
+  | FRM = 0x147
 
 /// Shortcut for Register type.
 type internal R = Register
@@ -404,6 +409,8 @@ module Register =
     | "f31" -> R.F31
     | "pc" -> R.PC
     | "fcsr" -> R.FCSR
+    | "fflags" -> R.FFLAGS
+    | "frm" -> R.FRM
     | _ -> Utils.impossible ()
 
   let toString = function
@@ -471,6 +478,9 @@ module Register =
     | R.F29 -> "ft9"
     | R.F30 -> "ft10"
     | R.F31 -> "ft11"
+    | R.FCSR -> "fcsr"
+    | R.FFLAGS -> "fflags"
+    | R.FRM -> "frm"
     | _ -> Utils.impossible ()
 
   let toRegType wordSize = function
@@ -482,5 +492,5 @@ module Register =
     | R.F10 | R.F11 | R.F12 | R.F13 | R.F14 | R.F15 | R.F16 | R.F17 | R.F18
     | R.F19 | R.F20 | R.F21 | R.F22 | R.F23 | R.F24 | R.F25 | R.F26 | R.F27
     | R.F28 | R.F29 | R.F30 | R.F31 -> 64<rt>
-    | R.FCSR -> 32<rt>
+    | R.FCSR | R.FFLAGS | R.FRM -> 32<rt>
     | _ -> Utils.impossible ()

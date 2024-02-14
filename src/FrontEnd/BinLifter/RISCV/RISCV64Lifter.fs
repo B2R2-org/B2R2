@@ -63,6 +63,8 @@ let inline getCSRReg (ctxt: TranslationContext) csr =
     | 0836us -> Register.CSR0836
     | 0842us -> Register.CSR0842
     | 0843us -> Register.CSR0843
+    | 3114us -> Register.CSR3114
+    | 3787us -> Register.CSR3787
     | 3857us -> Register.CSR3857
     | 3858us -> Register.CSR3858
     | 3859us -> Register.CSR3859
@@ -139,6 +141,8 @@ let inline getCSRReg (ctxt: TranslationContext) csr =
     | 1005us -> Register.CSR1005
     | 1006us -> Register.CSR1006
     | 1007us -> Register.CSR1007
+    | 2145us -> Register.CSR2145
+    | 2617us -> Register.CSR2617
     | 2816us -> Register.CSR2816
     | 2818us -> Register.CSR2818
     | 2819us -> Register.CSR2819
@@ -170,6 +174,7 @@ let inline getCSRReg (ctxt: TranslationContext) csr =
     | 2845us -> Register.CSR2845
     | 2846us -> Register.CSR2846
     | 2847us -> Register.CSR2847
+    | 2945us -> Register.CSR2945
     | 0800us -> Register.CSR0800
     | 0803us -> Register.CSR0803
     | 0804us -> Register.CSR0804
@@ -263,6 +268,24 @@ let transOprToExpr insInfo ctxt = function
   | OpAtomMemOper (_) -> numU32 0u 32<rt> // FIXME:
   | OpCSR (csr) -> getCSRReg ctxt csr
   | _ -> raise InvalidOperandException
+
+let private maskForFCSR csr (opr1, opr2) =
+  let lowSrc = AST.xtlo 32<rt> opr2
+  let mask =
+    match csr with
+    | OpCSR csr when csr = 0001us -> lowSrc .& numU32 0b11111u 32<rt>
+    | OpCSR csr when csr = 0002us -> lowSrc .& numU32 0b111u 32<rt>
+    | _ -> opr2
+  opr1, mask
+
+let private assignFCSR dst src ctxt ir =
+  match dst with
+  | { E = BinOp _ } ->
+    let lowSrc = AST.xtlo 32<rt> src
+    !!ir (getRegVar ctxt R.FRM :=
+      (lowSrc .& numU32 0b11100000u 32<rt>) >> numI32 5 32<rt>)
+    !!ir (getRegVar ctxt R.FFLAGS := lowSrc .& numU32 0b11111u 32<rt>)
+  | _ -> !!ir (dst := src)
 
 let roundingToCastFloat x =
   match x with
@@ -1742,79 +1765,58 @@ let fmvdotddotx insInfo insLen ctxt =
   !!ir (rd := rs1)
   !>ir insLen
 
-(* TODO: x0 and 0 change write csr *)
 let csrrw insInfo insLen ctxt =
   let ir = !*ctxt
-  let rd, csr, rs1 = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
-  let tmpVar = !+ir 32<rt>
-  let r = AST.xtlo 32<rt> rs1
+  let rd, csr, src = getThreeOprs insInfo
+  let csr, src = transTwoOprs insInfo ctxt (csr, src) |> maskForFCSR csr
   !<ir insLen
   !!ir (AST.sideEffect Lock)
-  !!ir (tmpVar := csr)
-  !!ir (csr := r)
-  !!ir (rd := AST.zext 64<rt> tmpVar)
-  !!ir (AST.sideEffect Unlock)
-  !>ir insLen
-
-let csrrwi insInfo insLen ctxt =
-  let ir = !*ctxt
-  let rd, csr, imm = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
-  let tmpVar = !+ir 32<rt>
-  !<ir insLen
-  !!ir (AST.sideEffect Lock)
-  !!ir (tmpVar := csr)
-  !!ir (csr := AST.zext 32<rt> imm)
-  !!ir (rd := AST.zext 64<rt> tmpVar)
+  match rd with
+  | OpReg Register.X0 -> assignFCSR csr src ctxt ir
+  | _ ->
+    let rd = transOneOpr insInfo ctxt rd
+    let tmpVar = !+ir 64<rt>
+    !!ir (tmpVar := AST.zext 64<rt> csr)
+    assignFCSR csr src ctxt ir
+    !!ir (rd := tmpVar)
   !!ir (AST.sideEffect Unlock)
   !>ir insLen
 
 let csrrs insInfo insLen ctxt =
   let ir = !*ctxt
-  let rd, csr, rs1 = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
-  let tmpVar = !+ir 32<rt>
-  let r = AST.xtlo 32<rt> rs1
+  let rd, csr, src = getThreeOprs insInfo
+  let rd = transOprToExpr insInfo ctxt rd
   !<ir insLen
   !!ir (AST.sideEffect Lock)
-  !!ir (tmpVar := csr)
-  !!ir (csr := tmpVar .| r)
-  !!ir (rd := AST.zext 64<rt> tmpVar)
-  !!ir (AST.sideEffect Unlock)
-  !>ir insLen
-
-let csrrsi insInfo insLen ctxt =
-  let ir = !*ctxt
-  let rd, csr, imm = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
-  let tmpVar = !+ir 32<rt>
-  !<ir insLen
-  !!ir (AST.sideEffect Lock)
-  !!ir (tmpVar := csr)
-  !!ir (csr := tmpVar .| (AST.zext 32<rt> imm))
-  !!ir (rd := AST.zext 64<rt> tmpVar)
+  match src with
+  | OpReg Register.X0 ->
+    let csr = transOprToExpr insInfo ctxt csr
+    !!ir (rd := AST.zext 64<rt> csr)
+  | _ ->
+    let csr, src = transTwoOprs insInfo ctxt (csr, src) |> maskForFCSR csr
+    let tmpVar = !+ir 64<rt>
+    !!ir (tmpVar := AST.zext 64<rt> csr)
+    assignFCSR csr (csr .| src) ctxt ir
+    !!ir (rd := tmpVar)
   !!ir (AST.sideEffect Unlock)
   !>ir insLen
 
 let csrrc insInfo insLen ctxt =
   let ir = !*ctxt
-  let rd, csr, rs1 = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
-  let tmpVar = !+ir 32<rt>
-  let r = AST.xtlo 32<rt> rs1
+  let rd, csr, src = getThreeOprs insInfo
+  let rd = transOprToExpr insInfo ctxt rd
   !<ir insLen
   !!ir (AST.sideEffect Lock)
-  !!ir (tmpVar := csr)
-  !!ir (csr := tmpVar .& (AST.neg r))
-  !!ir (rd := AST.zext 64<rt> tmpVar)
-  !!ir (AST.sideEffect Unlock)
-  !>ir insLen
-
-let csrrci insInfo insLen ctxt =
-  let ir = !*ctxt
-  let rd, csr, imm = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
-  let tmpVar = !+ir 32<rt>
-  !<ir insLen
-  !!ir (AST.sideEffect Lock)
-  !!ir (tmpVar := csr)
-  !!ir (csr := tmpVar .& (AST.neg (AST.zext 32<rt> imm)))
-  !!ir (rd := tmpVar)
+  match src with
+  | OpReg Register.X0 ->
+    let csr = transOprToExpr insInfo ctxt csr
+    !!ir (rd := AST.zext 64<rt> csr)
+  | _ ->
+    let csr, src = transTwoOprs insInfo ctxt (csr, src) |> maskForFCSR csr
+    let tmpVar = !+ir 64<rt>
+    !!ir (tmpVar := AST.zext 64<rt> csr)
+    assignFCSR csr (csr .& AST.neg src) ctxt ir
+    !!ir (rd := tmpVar)
   !!ir (AST.sideEffect Unlock)
   !>ir insLen
 
@@ -2494,12 +2496,12 @@ let translate insInfo insLen (ctxt: TranslationContext) =
   | Op.LRdotD -> lr insInfo insLen ctxt
   | Op.SCdotW -> sc insInfo insLen ctxt 32<rt>
   | Op.SCdotD -> sc insInfo insLen ctxt 64<rt>
-  | Op.CSRRW -> csrrw insInfo insLen ctxt
-  | Op.CSRRWI -> csrrwi insInfo insLen ctxt
-  | Op.CSRRS -> csrrs insInfo insLen ctxt
-  | Op.CSRRSI -> csrrsi insInfo insLen ctxt
-  | Op.CSRRC -> csrrc insInfo insLen ctxt
-  | Op.CSRRCI -> csrrci insInfo insLen ctxt
+  | Op.CSRRW
+  | Op.CSRRWI -> csrrw insInfo insLen ctxt
+  | Op.CSRRS
+  | Op.CSRRSI -> csrrs insInfo insLen ctxt
+  | Op.CSRRC
+  | Op.CSRRCI -> csrrc insInfo insLen ctxt
   | Op.FCVTdotSdotW -> fcvtdotsdotw insInfo insLen ctxt
   | Op.FCVTdotSdotL -> fcvtdotsdotl insInfo insLen ctxt
   | Op.FCVTdotSdotD -> fcvtdotsdotd insInfo insLen ctxt
