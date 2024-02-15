@@ -1472,8 +1472,6 @@ let private imul64Bit src1 src2 ir =
   struct (tHigh, tLow)
 
 let private oneOperandImul ctxt oprSize src ir =
-  let sF = !.ctxt R.SF
-  let shiftNum = RegType.toBitWidth oprSize
   match oprSize with
   | 8<rt> ->
     let mulSize = oprSize * 2
@@ -1481,7 +1479,6 @@ let private oneOperandImul ctxt oprSize src ir =
     let cond = AST.sext mulSize (AST.xtlo oprSize t) == t
     !!ir (t := AST.sext mulSize (!.ctxt R.AL) .* AST.sext mulSize src)
     !!ir (dstAssign oprSize (!.ctxt R.AX) t)
-    !!ir (sF := AST.extract t 1<rt> (shiftNum - 1))
     !!ir (!.ctxt R.CF := cond == AST.b0)
     !!ir (!.ctxt R.OF := cond == AST.b0)
   | 16<rt> | 32<rt> ->
@@ -1493,7 +1490,6 @@ let private oneOperandImul ctxt oprSize src ir =
     !!ir (t := AST.sext mulSize r2 .* AST.sext mulSize src)
     !!ir (dstAssign oprSize r1 (AST.xthi oprSize t))
     !!ir (dstAssign oprSize r2 (AST.xtlo oprSize t))
-    !!ir (sF := AST.extract t 1<rt> (shiftNum - 1))
     !!ir (!.ctxt R.CF := cond == AST.b0)
     !!ir (!.ctxt R.OF := cond == AST.b0)
   | 64<rt> ->
@@ -1506,7 +1502,6 @@ let private oneOperandImul ctxt oprSize src ir =
     let numF = numI64 0xFFFFFFFFFFFFFFFFL 64<rt>
     let cond = !+ir 1<rt>
     !!ir (cond := AST.ite (AST.xthi 1<rt> low) (high == numF) (high == num0))
-    !!ir (sF := AST.extract high 1<rt> (shiftNum - 1))
     !!ir (!.ctxt R.CF := cond == AST.b0)
     !!ir (!.ctxt R.OF := cond == AST.b0)
   | _ -> raise InvalidOperandSizeException
@@ -1519,7 +1514,6 @@ let private operandsImul ctxt oprSize dst src1 src2 ir =
     let cond = (AST.sext doubleWidth dst) != t
     !!ir (t := AST.sext doubleWidth src1 .* AST.sext doubleWidth src2)
     !!ir (dstAssign oprSize dst (AST.xtlo oprSize t))
-    !!ir (!.ctxt R.SF := AST.xthi 1<rt> dst)
     !!ir (!.ctxt R.CF := cond)
     !!ir (!.ctxt R.OF := cond)
   | 64<rt> ->
@@ -1529,7 +1523,6 @@ let private operandsImul ctxt oprSize dst src1 src2 ir =
     let numF = numI64 0xFFFFFFFFFFFFFFFFL 64<rt>
     let cond = !+ir 1<rt>
     !!ir (cond := AST.ite (AST.xthi 1<rt> low) (high != numF) (high != num0))
-    !!ir (!.ctxt R.SF := AST.xthi 1<rt> dst)
     !!ir (!.ctxt R.CF := cond)
     !!ir (!.ctxt R.OF := cond)
   | _ -> raise InvalidOperandSizeException
@@ -1556,6 +1549,7 @@ let imul ins insLen ctxt =
   !<ir insLen
   !?ir (buildMulBody ins insLen ctxt)
 #if !EMULATION
+  !!ir (!.ctxt R.SF := undefSF)
   !!ir (!.ctxt R.ZF := undefZF)
   !!ir (!.ctxt R.AF := undefAF)
   !!ir (!.ctxt R.PF := undefPF)
