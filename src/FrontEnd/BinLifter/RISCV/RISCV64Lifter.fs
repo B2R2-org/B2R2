@@ -479,48 +479,50 @@ let private checkOverflowOnDMul e1 e2 =
   let cond = mask64 .- e1 .< e2
   AST.ite cond bit32 (AST.num0 64<rt>)
 
-let private mul64BitReg src1 src2 ir isSign isLow=
-  let struct (hiSrc1, loSrc1, hiSrc2, loSrc2) = tmpVars4 ir 64<rt>
-  let struct (tHigh, tLow) = tmpVars2 ir 64<rt>
-  let struct (tSrc1, tSrc2) = tmpVars2 ir 64<rt>
-  let struct (src1IsNeg, src2IsNeg, signBit) = tmpVars3 ir 1<rt>
-  let struct (pHigh, pMid, pLow) = tmpVars3 ir 64<rt>
-  let struct (pMid1, pMid2) = tmpVars2 ir 64<rt>
-  let struct (high, low) = tmpVars2 ir 64<rt>
+let private mulWithOverflow src1 src2 ir (isSign, isUnsign) isLow =
+  let src1IsNeg = !+ir 1<rt>
+  let struct (tSrc1, tSrc2, hiSrc1, loSrc1) = tmpVars4 ir 64<rt>
+  let struct (hiSrc2, loSrc2, pMid1, pMid2) = tmpVars4 ir 64<rt>
+  let struct (pMid, pLow) = tmpVars2 ir 64<rt>
+  let struct (low, high) = tmpVars2 ir 64<rt>
+  let struct (src2IsNeg, signBit) = tmpVars2 ir 1<rt>
+  let struct (tLow, tHigh) = tmpVars2 ir 64<rt>
   let n32 = numI32 32 64<rt>
   let mask32 = numI64 0xFFFFFFFFL 64<rt>
   let zero = numI32 0 64<rt>
   let one = numI32 1 64<rt>
-  if isSign then
+  match isSign, isUnsign with
+  | true, true ->
     !!ir (src1IsNeg := AST.xthi 1<rt> src1)
     !!ir (src2IsNeg := AST.xthi 1<rt> src2)
     !!ir (tSrc1 := AST.ite src1IsNeg (AST.neg src1) src1)
     !!ir (tSrc2 := AST.ite src2IsNeg (AST.neg src2) src2)
-  else
+  | true, false ->
+    !!ir (src1IsNeg := AST.xthi 1<rt> src1)
+    !!ir (tSrc1 := AST.ite src1IsNeg (AST.neg src1) src1)
+    !!ir (tSrc2 := src2)
+  | _ ->
     !!ir (tSrc1 := src1)
     !!ir (tSrc2 := src2)
   !!ir (hiSrc1 := (tSrc1 >> n32) .& mask32) (* SRC1[63:32] *)
   !!ir (loSrc1 := tSrc1 .& mask32) (* SRC1[31:0] *)
   !!ir (hiSrc2 := (tSrc2 >> n32) .& mask32) (* SRC2[63:32] *)
   !!ir (loSrc2 := tSrc2 .& mask32) (* SRC2[31:0] *)
-  if not isLow then
-    !!ir (pHigh := hiSrc1 .* hiSrc2)
   !!ir (pMid1 := hiSrc1 .* loSrc2)
   !!ir (pMid2 := loSrc1 .* hiSrc2)
   !!ir (pMid := pMid1 .+ pMid2)
   !!ir (pLow := loSrc1 .* loSrc2)
+  !!ir (low := pLow .+ ((pMid .& mask32) << n32))
   if not isLow then
     let overFlowBit = checkOverflowOnDMul pMid1 pMid2
-    !! ir (high := pHigh .+ ((pMid .+ (pLow >> n32)) >> n32) .+ overFlowBit)
-  !!ir (low := pLow .+ ((pMid .& mask32) << n32))
+    !! ir (high :=
+      hiSrc1 .* hiSrc2 .+ ((pMid .+ (pLow >> n32)) >> n32) .+ overFlowBit)
   if isSign then
     !!ir (signBit := src1IsNeg <+> src2IsNeg)
-    if not isLow then
-      !!ir (tHigh := AST.ite signBit (AST.not high) high)
     !!ir (tLow := AST.ite signBit (AST.neg low) low)
     if not isLow then
       let carry = AST.ite (AST.``and`` signBit (tLow == zero)) one zero
-      !!ir (tHigh := tHigh .+ carry)
+      !!ir (tHigh := AST.ite signBit (AST.not high) high .+ carry)
   else
     if not isLow then
       !!ir (tHigh := high)
@@ -865,6 +867,7 @@ let slliw insInfo insLen ctxt =
   !<ir insLen
   !!ir (rd := AST.sext 64<rt> (lowBitsRs1 << AST.xtlo 32<rt> shamt))
   !>ir insLen
+
 let srliw insInfo insLen ctxt =
   let ir = !*ctxt
   let rd, rs1, shamt = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
@@ -872,6 +875,7 @@ let srliw insInfo insLen ctxt =
   !<ir insLen
   !!ir (rd := AST.sext 64<rt> (lowBitsRs1 >> AST.xtlo 32<rt> shamt))
   !>ir insLen
+
 let sraiw insInfo insLen ctxt =
   let ir = !*ctxt
   let rd, rs1, shamt = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
@@ -879,20 +883,23 @@ let sraiw insInfo insLen ctxt =
   !<ir insLen
   !!ir (rd := AST.sext 64<rt> (lowBitsRs1 ?>> AST.xtlo 32<rt> shamt))
   !>ir insLen
-let mul insInfo insLen ctxt isSign =
+
+let mul insInfo insLen ctxt (isSign, isUnsign) =
   let ir = !*ctxt
   let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   !<ir insLen
-  let low = mul64BitReg rs1 rs2 ir isSign true
+  let low = mulWithOverflow rs1 rs2 ir (isSign, isUnsign) true
   !!ir (rd := low)
   !>ir insLen
-let mulhSignOrUnsign insInfo insLen ctxt isSign =
+
+let mulhSignOrUnsign insInfo insLen ctxt (isSign, isUnsign) =
   let ir = !*ctxt
   let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   !<ir insLen
-  let high = mul64BitReg rs1 rs2 ir isSign false
+  let high = mulWithOverflow rs1 rs2 ir (isSign, isUnsign) false
   !!ir (rd := high)
   !>ir insLen
+
 let mulw insInfo insLen ctxt =
   let ir = !*ctxt
   let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
@@ -901,6 +908,7 @@ let mulw insInfo insLen ctxt =
   !<ir insLen
   !!ir (rd := AST.sext 64<rt> (lowBitsRs1 .* lowBitsRs2))
   !>ir insLen
+
 let div insInfo insLen ctxt =
   let ir = !*ctxt
   let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
@@ -2391,10 +2399,10 @@ let translate insInfo insLen (ctxt: TranslationContext) =
   | Op.SLLIW -> slliw insInfo insLen ctxt
   | Op.SRLIW -> srliw insInfo insLen ctxt
   | Op.SRAIW -> sraiw insInfo insLen ctxt
-  | Op.MUL -> mul insInfo insLen ctxt true
-  | Op.MULH -> mulhSignOrUnsign insInfo insLen ctxt true
-  | Op.MULHU -> mulhSignOrUnsign insInfo insLen ctxt false
-  | Op.MULHSU -> mulhSignOrUnsign insInfo insLen ctxt true
+  | Op.MUL -> mul insInfo insLen ctxt (true, true)
+  | Op.MULH -> mulhSignOrUnsign insInfo insLen ctxt (true, true)
+  | Op.MULHU -> mulhSignOrUnsign insInfo insLen ctxt (false, true)
+  | Op.MULHSU -> mulhSignOrUnsign insInfo insLen ctxt (true, false)
   | Op.MULW -> mulw insInfo insLen ctxt
   | Op.CdotNOP -> nop insLen ctxt
   | Op.CdotFLD
