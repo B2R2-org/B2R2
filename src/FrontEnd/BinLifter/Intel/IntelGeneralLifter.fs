@@ -2552,8 +2552,9 @@ let rol ins insLen ctxt =
   rotate ins insLen ctxt (<<) (>>) AST.xtlo ofFn
 
 let ror ins insLen ctxt =
+  let oprSize = getOperationSize ins
   let ofFn dst _cF =
-    AST.xthi 1<rt> dst <+> AST.extract dst 1<rt> 1
+    AST.xthi 1<rt> dst <+> AST.extract dst 1<rt> ((int oprSize - 1) - 1)
   rotate ins insLen ctxt (>>) (<<) AST.xthi ofFn
 
 let rorx ins insLen ctxt =
