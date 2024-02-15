@@ -3046,16 +3046,17 @@ let wrpkru ins insLen ctxt =
 let xadd ins insLen ctxt =
   let ir = !*ctxt
   !<ir insLen
-  let struct (_, orgSrc) = transTwoOprs ir false ins insLen ctxt
-  let struct (d, s) = transTwoOprs ir true ins insLen ctxt
+  let struct (dst, src) = transTwoOprs ir false ins insLen ctxt
   let oprSize = getOperationSize ins
-  let t = !+ir oprSize
+  let struct (t1, t2, t3) = tmpVars3 ir oprSize
   if hasLock ins.Prefixes then !!ir (AST.sideEffect Lock) else ()
-  !!ir (t := s .+ d)
-  !!ir (dstAssign oprSize orgSrc d)
-  !!ir (dstAssign oprSize d t)
+  !!ir (t1 := dst)
+  !!ir (t2 := src)
+  !!ir (t3 := t1 .+ t2)
+  !!ir (dstAssign oprSize src dst)
+  !!ir (dstAssign oprSize dst t3)
 #if EMULATION
-  !?ir (setCCOperands2 ctxt s t)
+  !?ir (setCCOperands2 ctxt t2 t3)
   match oprSize with
   | 8<rt> -> ctxt.ConditionCodeOp <- ConditionCodeOp.ADDB
   | 16<rt> -> ctxt.ConditionCodeOp <- ConditionCodeOp.ADDW
@@ -3063,8 +3064,8 @@ let xadd ins insLen ctxt =
   | 64<rt> -> ctxt.ConditionCodeOp <- ConditionCodeOp.ADDQ
   | _ -> raise InvalidRegTypeException
 #else
-  let struct (ofl, sf) = osfOnAdd d s t ir
-  !?ir (enumEFLAGS ctxt d s t oprSize (cfOnSub d s) ofl sf)
+  let struct (ofl, sf) = osfOnAdd t1 t2 t3 ir
+  !?ir (enumEFLAGS ctxt t1 t2 t3 oprSize (cfOnAdd t1 t3) ofl sf)
 #endif
   if hasLock ins.Prefixes then !!ir (AST.sideEffect Unlock) else ()
   !>ir insLen
