@@ -2801,8 +2801,8 @@ let inline shiftDblPrec ins insLen ctxt fnDst fnSrc isShl =
   let org = !+ir oprSz
   let cF = !.ctxt R.CF
   let oF = !.ctxt R.OF
-  let aF = !.ctxt R.AF
-  let sf = AST.xthi 1<rt> dst
+  let sf = !.ctxt R.SF
+  let zf = !.ctxt R.ZF
   let cond1 = count == AST.num0 oprSz
   let cond2 = count == AST.num1 oprSz
   !!ir (org := dst)
@@ -2818,13 +2818,16 @@ let inline shiftDblPrec ins insLen ctxt fnDst fnSrc isShl =
   !!ir (cF := AST.ite cond1 cF (AST.xtlo 1<rt> (org >> amount)))
   let overflow = AST.xthi 1<rt> (org <+> dst)
 #if !EMULATION
+  let aF = !.ctxt R.AF
   !!ir (oF := AST.ite cond1 oF (AST.ite cond2 overflow undefOF))
   !!ir (aF := AST.ite cond1 aF undefAF)
 #else
-  !!ir (oF := AST.ite cond1 oF (AST.ite cond2 overflow AST.b0))
+  !!ir (oF := AST.ite cond1 oF (AST.ite cond2 overflow oF))
   ctxt.ConditionCodeOp <- ConditionCodeOp.EFlags
 #endif
-  !?ir (enumSZPFlags ctxt dst oprSz sf)
+  !!ir (sf := AST.ite cond1 sf (AST.xthi 1<rt> dst))
+  !!ir (zf := AST.ite cond1 zf (dst == (AST.num0 oprSz)))
+  !?ir (buildPF ctxt dst oprSz (Some cond1))
   !>ir insLen
 
 let shld ins insLen ctxt =
