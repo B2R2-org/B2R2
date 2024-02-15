@@ -2414,8 +2414,9 @@ let rcl ins insLen ctxt =
   !!ir (cF := getCFLazy ctxt ir)
 #endif
   let lblRotate = !%ir "Rotate"
+  let lblZero = !%ir "Zero"
   let lblExit = !%ir "Exit"
-  !!ir (AST.cjmp cond1 (AST.name lblRotate) (AST.name lblExit))
+  !!ir (AST.cjmp cond1 (AST.name lblRotate) (AST.name lblZero))
   !!ir (AST.lmark lblRotate)
   !!ir (tmpCF := AST.xthi 1<rt> dst)
   let r = (dst << AST.num1 oprSize) .+ (AST.zext oprSize cF)
@@ -2423,6 +2424,8 @@ let rcl ins insLen ctxt =
   !!ir (cF := tmpCF)
   !!ir (tmpCnt := tmpCnt .- AST.num1 oprSize)
   !!ir (AST.cjmp cond1 (AST.name lblRotate) (AST.name lblExit))
+  !!ir (AST.lmark lblZero)
+  !!ir (dstAssign oprSize dst dst)
   !!ir (AST.lmark lblExit)
 #if !EMULATION
   !!ir (oF := AST.ite cond2 (AST.xthi 1<rt> dst <+> cF) undefOF)
@@ -2458,8 +2461,9 @@ let rcr ins insLen ctxt =
 #endif
   !!ir (tmpOF := AST.xthi 1<rt> dst <+> cF)
   let lblRotate = !%ir "Rotate"
+  let lblZero = !%ir "Zero"
   let lblExit = !%ir "Exit"
-  !!ir (AST.cjmp cond1 (AST.name lblRotate) (AST.name lblExit))
+  !!ir (AST.cjmp cond1 (AST.name lblRotate) (AST.name lblZero))
   !!ir (AST.lmark lblRotate)
   !!ir (tmpCF := AST.xtlo 1<rt> dst)
   let extCF = (AST.zext oprSize cF) << (numI32 (int oprSize - 1) oprSize)
@@ -2467,6 +2471,8 @@ let rcr ins insLen ctxt =
   !!ir (cF := tmpCF)
   !!ir (tmpCnt := tmpCnt .- AST.num1 oprSize)
   !!ir (AST.cjmp cond1 (AST.name lblRotate) (AST.name lblExit))
+  !!ir (AST.lmark lblZero)
+  !!ir (dstAssign oprSize dst dst)
   !!ir (AST.lmark lblExit)
 #if !EMULATION
   !!ir (oF := AST.ite cond2 tmpOF undefOF)
