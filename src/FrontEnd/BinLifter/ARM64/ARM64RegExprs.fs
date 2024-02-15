@@ -668,6 +668,10 @@ type RegExprs () =
     var 64<rt> (Register.toRegID Register.S3_5_C3_C2_0) "S3_5_C3_C2_0"
   member val S3_7_C2_C2_7 =
     var 64<rt> (Register.toRegID Register.S3_7_C2_C2_7) "S3_7_C2_C2_7"
+  member val S0_0_C2_C9_3 =
+    var 64<rt> (Register.toRegID Register.S0_0_C2_C9_3) "S0_0_C2_C9_3"
+  member val S2_7_C12_C7_6 =
+    var 64<rt> (Register.toRegID Register.S2_7_C12_C7_6) "S2_7_C12_C7_6"
 
   (* Extra pseudo registers. *)
   /// Pseudo register for passing a return value from an external call.
@@ -881,6 +885,8 @@ type RegExprs () =
     | R.TPIDREL0 -> __.TPIDREL0
     | R.S3_5_C3_C2_0 -> __.S3_5_C3_C2_0
     | R.S3_7_C2_C2_7 -> __.S3_7_C2_C2_7
+    | R.S0_0_C2_C9_3 -> __.S0_0_C2_C9_3
+    | R.S2_7_C12_C7_6 -> __.S2_7_C12_C7_6
     | R.ERET -> __.ERET
     | _ -> raise UnhandledRegExprException
 

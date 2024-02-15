@@ -784,6 +784,8 @@ type Register =
   /// S<op0>_<op1>_<Cn>_<Cm>_<op2>.
   | S3_5_C3_C2_0 = 0x178
   | S3_7_C2_C2_7 = 0x179
+  | S0_0_C2_C9_3 = 0x180
+  | S2_7_C12_C7_6 = 0x181
 
 /// Shortcut for Register type.
 type internal R = Register
@@ -1177,6 +1179,8 @@ module Register =
     | "nzcv" -> R.NZCV
     | "s3_5_c3_c2_0" -> R.S3_5_C3_C2_0
     | "s3_7_c2_c2_7" -> R.S3_7_C2_C2_7
+    | "s0_0_c2_c9_3" -> R.S0_0_C2_C9_3
+    | "s2_7_c12_c7_6" -> R.S2_7_C12_C7_6
     | _ -> Utils.impossible ()
 
   let toString = function
@@ -1558,6 +1562,8 @@ module Register =
     | R.NZCV -> "nzcv"
     | R.S3_5_C3_C2_0 -> "s3_5_c3_c2_0"
     | R.S3_7_C2_C2_7 -> "s3_7_c2_c2_7"
+    | R.S0_0_C2_C9_3 -> "s0_0_c2_c9_3"
+    | R.S2_7_C12_C7_6 -> "s2_7_c12_c7_6"
     | _ -> Utils.impossible ()
 
   let toRegType = function
