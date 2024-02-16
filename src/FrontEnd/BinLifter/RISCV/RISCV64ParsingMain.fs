@@ -252,8 +252,8 @@ let parseFloatArith bin =
     | _ -> raise ParsingFailureException
   | 0b1101001u ->
     match getRs2 bin with
-    | 0b00000u -> struct (Op.FCVTdotDdotW, getFRdRs1Rm bin)
-    | 0b00001u -> struct (Op.FCVTdotDdotWU, getFRdRs1Rm bin)
+    | 0b00000u -> struct (Op.FCVTdotDdotW, getFRdRs1 bin)
+    | 0b00001u -> struct (Op.FCVTdotDdotWU, getFRdRs1 bin)
     | 0b00010u -> struct (Op.FCVTdotDdotL, getFRdRs1Rm bin)
     | 0b00011u -> struct (Op.FCVTdotDdotLU, getFRdRs1Rm bin)
     | _ -> raise ParsingFailureException
