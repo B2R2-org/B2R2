@@ -963,7 +963,7 @@ let cmpxchg ins insLen ctxt =
   !!ir (!.ctxt R.SF := AST.xthi 1<rt> r)
   !!ir (buildAF ctxt tAcc t r oprSize)
   !?ir (buildPF ctxt r oprSize None)
-  !!ir (!.ctxt R.CF := (tAcc .+ t) .< tAcc)
+  !!ir (!.ctxt R.CF := cfOnSub tAcc t)
   if hasLock ins.Prefixes then !!ir (AST.sideEffect Unlock) else ()
 #if EMULATION
   ctxt.ConditionCodeOp <- ConditionCodeOp.EFlags
