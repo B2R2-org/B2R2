@@ -48,7 +48,7 @@ let getExponent isDouble src =
 
 let getMantissa isDouble src =
   let mask =
-    if isDouble then numU64 0xffffffffffffUL 64<rt>
+    if isDouble then numU64 0xfffffffffffffUL 64<rt>
     else numU64 0x7fffffUL 32<rt>
   src .& mask
 
