@@ -2196,15 +2196,22 @@ let outs (ins: InsInfo) insLen ctxt =
 let pdep ins insLen ctxt =
   let ir = !*ctxt
   !<ir insLen
-  let struct (dst, src, mask) = transThreeOprs ir false ins insLen ctxt
+  let struct (dst, src1, src2) = transThreeOprs ir false ins insLen ctxt
   let oprSize = getOperationSize ins
-  let tmp = !+ir oprSize
+  let struct (temp, mask, dest) = tmpVars3 ir oprSize
+  let cond = !+ir 1<rt>
+  let k = !+ir oprSize
+  !!ir (temp := src1)
+  !!ir (mask := src2)
+  !!ir (dest := AST.num0 oprSize)
+  !!ir (k := AST.num0 oprSize)
   for i in 0 .. (int oprSize) - 1 do
-    let t = AST.extract src 1<rt> i
-    let cond = AST.extract mask 1<rt> i
-    !!ir (AST.extract tmp 1<rt> i := AST.ite cond (AST.b0) t)
+    !!ir (cond := AST.extract mask 1<rt> i)
+    let tempk = (temp >> k) |> AST.xtlo 1<rt>
+    !!ir (AST.extract dest 1<rt> i := AST.ite cond tempk AST.b0)
+    !!ir (k := AST.ite cond (k .+ AST.num1 oprSize) k)
   done
-  !!ir (dstAssign oprSize dst tmp)
+  !!ir (dstAssign oprSize dst dest)
   !>ir insLen
 
 let pext ins insLen ctxt =
