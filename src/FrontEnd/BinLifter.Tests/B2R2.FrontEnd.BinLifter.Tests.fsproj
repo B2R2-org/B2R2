@@ -1,4 +1,5 @@
 <Project Sdk="Microsoft.NET.Sdk">
+
   <PropertyGroup>
     <IsPackable>false</IsPackable>
   </PropertyGroup>
@@ -6,16 +7,22 @@
   <ItemGroup>
     <Compile Include="Lifter.Tests.fs" />
     <Compile Include="Intel.Parser.Tests.fs" />
+    <Compile Include="Intel.Lifter.Tests.fs" />
     <Compile Include="ARM64.Parser.Tests.fs" />
+    <Compile Include="ARM64.Lifter.Tests.fs" />
     <Compile Include="ARM32.Parser.Tests.fs" />
     <Compile Include="ARMThumb.Parser.Tests.fs" />
+    <Compile Include="ARM32.Lifter.Tests.fs" />
     <Compile Include="MIPS64.Parser.Tests.fs" />
     <Compile Include="MIPS32.Parser.Tests.fs" />
+    <Compile Include="MIPS.Lifter.Tests.fs" />
     <Compile Include="EVM.Parser.Tests.fs" />
+    <Compile Include="EVM.Lifter.Tests.fs" />
     <Compile Include="AVR.Parser.Tests.fs" />
     <Compile Include="AVR.Lifter.Tests.fs" />
     <Compile Include="TMS320.Parser.Tests.fs" />
     <Compile Include="SPARC.Parser.Tests.fs" />
+    <Compile Include="SPARC.Lifter.Tests.fs" />
     <Compile Include="Intel.Disassembler.Tests.fs" />
     <Compile Include="Optimizer.Tests.fs" />
   </ItemGroup>
@@ -29,4 +36,5 @@
   <ItemGroup>
     <ProjectReference Include="..\Core\B2R2.FrontEnd.Core.fsproj" />
   </ItemGroup>
+
 </Project>
