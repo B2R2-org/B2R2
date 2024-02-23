@@ -105,6 +105,7 @@ type RegExprs (wordSize) =
   member val F31 = var regType (Register.toRegID Register.F31) "F31" with get
 
   member val PC = AST.pcvar regType "PC" with get
+  member val RC = var 1<rt> (Register.toRegID Register.RC) "RC" with get
   member val FFLAGS = fflags with get
   member val FRM = frm with get
   member val FCSR =
@@ -443,6 +444,7 @@ type RegExprs (wordSize) =
   member __.GetRegVar (name) =
     match name with
     | R.PC  -> __.PC
+    | R.RC -> __.RC
     | R.X0 -> __.X0
     | R.X1 -> __.X1
     | R.X2 -> __.X2
