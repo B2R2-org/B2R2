@@ -1159,7 +1159,7 @@ let fmadd ins insLen ctxt addr =
   dstAssignScalar ins ctxt addr dst result eSize ir
   !>ir insLen
 
-let fmax ins insLen ctxt addr =
+let fmaxmin ins insLen ctxt addr fop =
   let ir = !*ctxt
   !<ir insLen
   match ins.Operands with
@@ -1167,7 +1167,7 @@ let fmax ins insLen ctxt addr =
     let struct (eSize, _, _) = getElemDataSzAndElems o1
     let src1 = transOprToExpr ins ctxt addr o2
     let src2 = transOprToExpr ins ctxt addr o3
-    let cond = AST.fgt src1 src2
+    let cond = fop src1 src2
     let result = AST.ite cond src1 src2
     dstAssignScalar ins ctxt addr o1 result eSize ir
   | _ ->
@@ -1176,14 +1176,12 @@ let fmax ins insLen ctxt addr =
     let dstB, dstA = transOprToExpr128 ins ctxt addr o1
     let src1 = transSIMDOprToExpr ctxt eSize dataSize elements o2
     let src2 = transSIMDOprToExpr ctxt eSize dataSize elements o3
-    let concat =
-      Array.map2 (fun e1 e2 -> [| e2, e1 |]) src1 src2 |> Array.concat
     let result = Array.init elements (fun _ -> !+ir eSize)
     let inline cond e1 e2 =
       let src1 = AST.cast CastKind.FloatCast eSize e1
       let src2 = AST.cast CastKind.FloatCast eSize e2
-      AST.ite (AST.fgt src1 src2) src1 src2
-    Array.iter2 (fun (t1, t2) res -> !!ir (res := cond t1 t2)) concat result
+      AST.ite (fop src1 src2) src1 src2
+    Array.iteri2 (fun i e1 e2 -> !!ir (result[i] := cond e1 e2)) src1 src2
     dstAssignForSIMD dstA dstB result dataSize elements ir
   !>ir insLen
 
@@ -3747,8 +3745,9 @@ let translate ins insLen ctxt =
   | Opcode.FCVTZU -> fcvtzu ins insLen ctxt addr
   | Opcode.FDIV -> fdiv ins insLen ctxt addr
   | Opcode.FMADD -> fmadd ins insLen ctxt addr
-  | Opcode.FMAX -> fmax ins insLen ctxt addr
+  | Opcode.FMAX -> fmaxmin ins insLen ctxt addr AST.fgt
   | Opcode.FMAXNM -> sideEffects insLen ctxt UnsupportedFP
+  | Opcode.FMIN -> fmaxmin ins insLen ctxt addr AST.flt
   | Opcode.FMOV -> fmov ins insLen ctxt addr
   | Opcode.FMSUB -> fmsub ins insLen ctxt addr
   | Opcode.FMUL -> fmul ins insLen ctxt addr
