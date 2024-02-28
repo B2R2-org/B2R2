@@ -2096,7 +2096,6 @@ let mulx ins insLen ctxt =
       hiSrc1 .* loSrc .> numI64 0xffffffff_ffffffffL 64<rt> .- loSrc1 .* hiSrc
     !!ir (tHigh :=
       high .+ AST.ite isOverflow (numI64 0x100000000L 64<rt>) (AST.num0 64<rt>))
-    !!ir (tHigh := high)
     !!ir (tLow := low)
     !!ir (dstAssign oprSize dst1 tHigh)
     !!ir (dstAssign oprSize dst2 tLow)
