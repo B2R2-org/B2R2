@@ -1185,6 +1185,45 @@ let fmaxmin ins insLen ctxt addr fop =
     dstAssignForSIMD dstA dstB result dataSize elements ir
   !>ir insLen
 
+let fmls ins insLen ctxt addr =
+  let ir = !*ctxt
+  !<ir insLen
+  match ins.Operands with
+  | ThreeOperands (OprSIMD (SIMDFPScalarReg _) as o1, o2, o3) ->
+    let struct (eSize, _, _) = getElemDataSzAndElems o1
+    let dst = transOprToExpr ins ctxt addr o1
+    let src1 = transOprToExpr ins ctxt addr o2
+    let src2 = transOprToExpr ins ctxt addr o3
+    let element1 = fpneg src1 eSize
+    let result = fpAdd ctxt ir eSize dst (fpMul ctxt ir eSize element1 src2)
+    dstAssignScalar ins ctxt addr o1 result eSize ir
+  | ThreeOperands (o1, o2, (OprSIMD (SIMDVecRegWithIdx _) as o3)) ->
+    let struct (eSize, dataSize, elements) = getElemDataSzAndElems o1
+    let dstB, dstA = transOprToExpr128 ins ctxt addr o1
+    let src1 = transSIMDOprToExpr ctxt eSize dataSize elements o2
+    let src2 = transOprToExpr ins ctxt addr o3
+    let src3 = transSIMDOprToExpr ctxt eSize dataSize elements o1
+    let result = Array.init elements (fun _ -> !+ir eSize)
+    Array.iteri2 (fun i e1 e3 ->
+      let e1 = fpneg e1 eSize
+      let res = fpAdd ctxt ir eSize e3 (fpMul ctxt ir eSize e1 src2)
+      !!ir (result[i] := res)) src1 src3
+    dstAssignForSIMD dstA dstB result dataSize elements ir
+  | _ ->
+    let struct (o1, o2, o3) = getThreeOprs ins
+    let struct (eSize, dataSize, elements) = getElemDataSzAndElems o1
+    let dstB, dstA = transOprToExpr128 ins ctxt addr o1
+    let src1 = transSIMDOprToExpr ctxt eSize dataSize elements o2
+    let src2 = transSIMDOprToExpr ctxt eSize dataSize elements o3
+    let src3 = transSIMDOprToExpr ctxt eSize dataSize elements o1
+    let result = Array.init elements (fun _ -> !+ir eSize)
+    Array.map3 (fun e1 e2 e3 ->
+      let e1 = fpneg e1 eSize
+      fpAdd ctxt ir eSize e3 (fpMul ctxt ir eSize e1 e2)) src1 src2 src3
+    |> Array.iter2 (fun r e -> !!ir (r := e)) result
+    dstAssignForSIMD dstA dstB result dataSize elements ir
+  !>ir insLen
+
 let fmov ins insLen ctxt addr =
   let ir = !*ctxt
   !<ir insLen
@@ -3748,6 +3787,7 @@ let translate ins insLen ctxt =
   | Opcode.FMAX -> fmaxmin ins insLen ctxt addr AST.fgt
   | Opcode.FMAXNM -> sideEffects insLen ctxt UnsupportedFP
   | Opcode.FMIN -> fmaxmin ins insLen ctxt addr AST.flt
+  | Opcode.FMLS -> fmls ins insLen ctxt addr
   | Opcode.FMOV -> fmov ins insLen ctxt addr
   | Opcode.FMSUB -> fmsub ins insLen ctxt addr
   | Opcode.FMUL -> fmul ins insLen ctxt addr
