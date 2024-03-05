@@ -1633,6 +1633,40 @@ let ldaxp ins insLen ctxt addr =
     !!ir (dst2 := (AST.loadLE 64<rt> (address .+ numI32 8 64<rt>)))
   !>ir insLen
 
+let ldnp ins insLen ctxt addr =
+  let ir = !*ctxt
+  let address = !+ir 64<rt>
+  let dByte = numI32 (RegType.toByteWidth ins.OprSize) 64<rt>
+  !<ir insLen
+  match ins.Operands, ins.OprSize with
+  | ThreeOperands (OprSIMD _ as src1, src2, src3), 128<rt> ->
+    let src1B, src1A = transOprToExpr128 ins ctxt addr src1
+    let src2B, src2A = transOprToExpr128 ins ctxt addr src2
+    let bReg, offset = transOprToExpr ins ctxt addr src3 |> separateMemExpr
+    let n8 = numI32 8 64<rt>
+    !!ir (address := bReg)
+    !!ir (address := address .+ offset)
+    !!ir (src1A := AST.loadLE 64<rt> address)
+    !!ir (src1B := AST.loadLE 64<rt> (address .+ n8))
+    !!ir (src2A := AST.loadLE 64<rt> (address .+ dByte))
+    !!ir (src2B := AST.loadLE 64<rt> (address .+ dByte .+ n8))
+  | ThreeOperands (OprSIMD _ as src1, src2, src3), _ ->
+    let bReg, offset = transOprToExpr ins ctxt addr src3 |> separateMemExpr
+    let struct (eSize, _, _) = getElemDataSzAndElems src1
+    !!ir (address := bReg)
+    !!ir (address := address .+ offset)
+    let inline load addr = AST.loadLE ins.OprSize addr
+    dstAssignScalar ins ctxt addr src1 (load address) eSize ir
+    dstAssignScalar ins ctxt addr src2 (load (address .+ dByte)) eSize ir
+  | _ ->
+    let src1, src2, (bReg, offset) = transThreeOprsSepMem ins ctxt addr
+    let oprSize = ins.OprSize
+    !!ir (address := bReg)
+    !!ir (address := address .+ offset)
+    dstAssign oprSize src1 (AST.loadLE oprSize address) ir
+    dstAssign oprSize src2 (AST.loadLE oprSize (address .+ dByte)) ir
+  !>ir insLen
+
 let ldp ins insLen ctxt addr =
   let ir = !*ctxt
   let isWBack, isPostIndex = getIsWBackAndIsPostIndex ins.Operands
@@ -3815,6 +3849,7 @@ let translate ins insLen ctxt =
   | Opcode.LDAXR | Opcode.LDXR -> ldaxr ins insLen ctxt addr
   | Opcode.LDAXRB | Opcode.LDXRB -> ldax ins insLen ctxt addr 8<rt>
   | Opcode.LDAXRH | Opcode.LDXRH -> ldax ins insLen ctxt addr 16<rt>
+  | Opcode.LDNP -> ldnp ins insLen ctxt addr
   | Opcode.LDP -> ldp ins insLen ctxt addr
   | Opcode.LDPSW -> ldpsw ins insLen ctxt addr
   | Opcode.LDR -> ldr ins insLen ctxt addr
