@@ -1288,7 +1288,7 @@ let fpToFixed dstSz src fbits unsigned round ir =
     let lblEnd = !%ir "End"
     !!ir (checkNan := isNaN srcSz src)
     !!ir (checkInf := isInfinity srcSz src)
-    !!ir (checkfbit := fbits == AST.num0 srcSz)
+    !!ir (checkfbit := AST.zext srcSz fbits == AST.num0 srcSz)
     !!ir (AST.cjmp (checkNan .| checkInf) (AST.name lblNan) (AST.name lblCon))
     !!ir (AST.lmark lblNan)
     !!ir (res := AST.ite checkNan (AST.num0 dstSz) (fpMinMax src dstSz))
