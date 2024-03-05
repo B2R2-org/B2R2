@@ -470,6 +470,24 @@ let isQNan rt e =
     (isNan rt e) .& ((e .& signalBit) != AST.num0 64<rt>)
   | _ -> raise InvalidRegTypeException
 
+let isZero rt e =
+  match rt with
+  | 32<rt> ->
+    let mask = numU32 0x7fffffffu 32<rt>
+    AST.eq (e .& mask) (AST.num0 32<rt>)
+  | 64<rt> ->
+    let mask = numU64 0x7fffffff_ffffffffUL 64<rt>
+    AST.eq (e .& mask) (AST.num0 64<rt>)
+  | _ -> Utils.impossible ()
+
+let fpNeg rt expr =
+  let mask =
+    match rt with
+    | 32<rt> -> numU64 0x80000000UL rt
+    | 64<rt> -> numU64 0x8000000000000000UL rt
+    | _ -> raise InvalidOperandSizeException
+  expr <+> mask
+
 let getSignFloat rt e =
   match rt with
   | 32<rt> -> e .& (numU32 0x80000000u 32<rt>)
@@ -1587,9 +1605,8 @@ let fnmsubdots insInfo insLen ctxt =
   let rs1 = getFloat32FromReg rs1
   let rs2 = getFloat32FromReg rs2
   let rs3 = getFloat32FromReg rs3
-  let res = AST.fsub rs3 (AST.fmul rs1 rs2)
   !<ir insLen
-  let rtVal = res
+  let rtVal = AST.fadd (fpNeg 32<rt> <| AST.fmul rs1 rs2) rs3
   !!ir (rd := getNanBoxed rtVal)
   !>ir insLen
 
@@ -1597,33 +1614,54 @@ let fnmsubdotd insInfo insLen ctxt =
   let ir = !*ctxt
   let rd, rs1, rs2, rs3, _ = getFiveOprs insInfo
   let rd, rs1, rs2, rs3 = (rd, rs1, rs2, rs3) |> transFourOprs insInfo ctxt
-  let res = AST.fsub rs3 (AST.fmul rs1 rs2)
   !<ir insLen
-  let rtVal = res
-  !!ir (rd := rtVal)
+  !!ir (rd := AST.fadd (fpNeg 64<rt> <| AST.fmul rs1 rs2) rs3)
   !>ir insLen
 
 let fnmadddots insInfo insLen ctxt =
   let ir = !*ctxt
   let rd, rs1, rs2, rs3, _ = getFiveOprs insInfo
   let rd, rs1, rs2, rs3 = (rd, rs1, rs2, rs3) |> transFourOprs insInfo ctxt
+  let lblValid = !%ir "Valid"
+  let lblInvalid = !%ir "Invalid operation"
+  let lblEnd = !%ir "End"
   let rs1 = getFloat32FromReg rs1
   let rs2 = getFloat32FromReg rs2
   let rs3 = getFloat32FromReg rs3
-  let res = AST.fsub rs3 (AST.fmul rs1 rs2)
+  let condOfNV1 = isInf 32<rt> rs1 .| isZero 32<rt> rs2
+  let condOfNV2 = isZero 32<rt> rs1 .| isInf 32<rt> rs2
+  let setNV = (condOfNV1 .| condOfNV2) .& isQNan 32<rt> rs3
+  let fflags = getRegVar ctxt R.FFLAGS
   !<ir insLen
-  let rtVal = res
+  let rtVal = AST.fsub (fpNeg 32<rt> <| AST.fmul rs1 rs2) rs3
   !!ir (rd := getNanBoxed rtVal)
+  !!ir (AST.cjmp setNV (AST.name lblInvalid) (AST.name lblValid))
+  !!ir (AST.lmark lblValid)
+  !!ir (AST.jmp (AST.name lblEnd))
+  !!ir (AST.lmark lblInvalid)
+  !!ir (fflags := fflags .| numU32 16u 32<rt>)
+  !!ir (AST.lmark lblEnd)
   !>ir insLen
 
 let fnmadddotd insInfo insLen ctxt =
   let ir = !*ctxt
   let rd, rs1, rs2, rs3, _ = getFiveOprs insInfo
   let rd, rs1, rs2, rs3 = (rd, rs1, rs2, rs3) |> transFourOprs insInfo ctxt
-  let res = AST.fsub rs3 (AST.fmul rs1 rs2)
+  let lblValid = !%ir "Valid"
+  let lblInvalid = !%ir "Invalid operation"
+  let lblEnd = !%ir "End"
+  let condOfNV1 = isInf 64<rt> rs1 .| isZero 64<rt> rs2
+  let condOfNV2 = isZero 64<rt> rs1 .| isInf 64<rt> rs2
+  let setNV = (condOfNV1 .| condOfNV2) .& isQNan 64<rt> rs3
+  let fflags = getRegVar ctxt R.FFLAGS
   !<ir insLen
-  let rtVal = res
-  !!ir (rd := rtVal)
+  !!ir (rd := AST.fsub (fpNeg 64<rt> <| AST.fmul rs1 rs2) rs3)
+  !!ir (AST.cjmp setNV (AST.name lblInvalid) (AST.name lblValid))
+  !!ir (AST.lmark lblValid)
+  !!ir (AST.jmp (AST.name lblEnd))
+  !!ir (AST.lmark lblInvalid)
+  !!ir (fflags := fflags .| numU32 16u 32<rt>)
+  !!ir (AST.lmark lblEnd)
   !>ir insLen
 
 let fsgnjdots insInfo insLen ctxt =
