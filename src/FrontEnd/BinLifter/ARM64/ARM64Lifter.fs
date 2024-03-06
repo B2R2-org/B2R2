@@ -2712,6 +2712,34 @@ let stlxp ins insLen ctxt addr =
     dstAssign 32<rt> src1 status ir
   !>ir insLen
 
+let stnp ins insLen ctxt addr =
+  let ir = !*ctxt
+  !<ir insLen
+  let address = !+ir 64<rt>
+  let dByte = numI32 (RegType.toByteWidth ins.OprSize) 64<rt>
+  match ins.OprSize with
+  | 128<rt> ->
+    let struct (src1, src2, src3) = getThreeOprs ins
+    let src1B, src1A = transOprToExpr128 ins ctxt addr src1
+    let src2B, src2A = transOprToExpr128 ins ctxt addr src2
+    let bReg, offset = transOprToExpr ins ctxt addr src3 |> separateMemExpr
+    let n8 = numI32 8 64<rt>
+    !!ir (address := bReg)
+    !!ir (address := address .+ offset)
+    unmark ctxt address (memSizeToExpr ins.OprSize) ir
+    !!ir (AST.loadLE 64<rt> address := src1A)
+    !!ir (AST.loadLE 64<rt> (address .+ n8) := src1B)
+    !!ir (AST.loadLE 64<rt> (address .+ dByte) := src2A)
+    !!ir (AST.loadLE 64<rt> (address .+ dByte .+ n8) := src2B)
+  | _ ->
+    let src1, src2, (bReg, offset) = transThreeOprsSepMem ins ctxt addr
+    !!ir (address := bReg)
+    !!ir (address := address .+ offset)
+    unmark ctxt address (memSizeToExpr ins.OprSize) ir
+    !!ir (AST.loadLE ins.OprSize address := src1)
+    !!ir (AST.loadLE ins.OprSize (address .+ dByte) := src2)
+  !>ir insLen
+
 let stp ins insLen ctxt addr =
   let ir = !*ctxt
   let isWBack, isPostIndex = getIsWBackAndIsPostIndex ins.Operands
@@ -3934,6 +3962,7 @@ let translate ins insLen ctxt =
   | Opcode.STLXR | Opcode.STXR -> stlxr ins insLen ctxt addr
   | Opcode.STLXRB | Opcode.STXRB -> stlx ins insLen ctxt addr 8<rt>
   | Opcode.STLXRH | Opcode.STXRH -> stlx ins insLen ctxt addr 16<rt>
+  | Opcode.STNP -> stnp ins insLen ctxt addr
   | Opcode.STP -> stp ins insLen ctxt addr
   | Opcode.STR -> str ins insLen ctxt addr
   | Opcode.STRB -> strb ins insLen ctxt addr
