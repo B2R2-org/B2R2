@@ -2835,6 +2835,19 @@ let strh ins insLen ctxt addr =
   else if isWBack then !!ir (bReg := address) else ()
   !>ir insLen
 
+let sttrb ins insLen ctxt addr =
+  let ir = !*ctxt
+  let src, (bReg, offset) = transTwoOprsSepMem ins ctxt addr
+  let address = !+ir 64<rt>
+  let data = !+ir 8<rt>
+  !<ir insLen
+  !!ir (address := bReg)
+  !!ir (address := address .+ offset)
+  !!ir (data := AST.xtlo 8<rt> src)
+  unmark ctxt address (memSizeToExpr ins.OprSize) ir
+  !!ir (AST.loadLE 8<rt> address := data)
+  !>ir insLen
+
 let stur ins insLen ctxt addr =
   let ir = !*ctxt
   let isWBack, isPostIndex = getIsWBackAndIsPostIndex ins.Operands
@@ -3967,6 +3980,7 @@ let translate ins insLen ctxt =
   | Opcode.STR -> str ins insLen ctxt addr
   | Opcode.STRB -> strb ins insLen ctxt addr
   | Opcode.STRH -> strh ins insLen ctxt addr
+  | Opcode.STTRB -> sttrb ins insLen ctxt addr
   | Opcode.STUR -> stur ins insLen ctxt addr
   | Opcode.STURB -> sturb ins insLen ctxt addr
   | Opcode.STURH -> sturh ins insLen ctxt addr
