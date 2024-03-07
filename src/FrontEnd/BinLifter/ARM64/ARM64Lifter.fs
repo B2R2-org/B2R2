@@ -3377,6 +3377,40 @@ let umlal ins insLen ctxt addr =
     dstAssignForSIMD dstA dstB result (2 * dataSize) elements ir
   !>ir insLen
 
+let umlsl ins insLen ctxt addr isLow =
+  let ir = !*ctxt
+  !<ir insLen
+  let struct (dst, src1, src2) = getThreeOprs ins
+  let struct (eSize, _, _) = getElemDataSzAndElems src1
+  let dataSize = 64<rt>
+  let elements = dataSize / eSize
+  let dblESize = eSize * 2
+  let dblElems = elements * 2
+  let dblDSize = dataSize * 2
+  let start = if isLow then 0 else elements
+  let dstB, dstA = transOprToExpr128 ins ctxt addr dst
+  let opr1 = transSIMDOprToExpr ctxt eSize 128<rt> dblElems src1
+  let opr3 = transSIMDOprToExpr ctxt dblESize 128<rt> elements dst
+  let opr1 = Array.sub opr1 start elements
+  let result = Array.init elements (fun _ -> !+ir dblESize)
+  match ins.Operands with
+  | ThreeOperands (_, _, OprSIMD (SIMDVecReg _)) ->
+    let opr2 = transSIMDOprToExpr ctxt eSize 128<rt> dblElems src2
+    let opr2 = Array.sub opr2 start elements
+    Array.map3 (fun e1 e2 e3 ->
+      let product = AST.zext dblESize e1 .* AST.zext dblESize e2
+      e3 .- product) opr1 opr2 opr3
+    |> Array.iter2 (fun r e -> !!ir (r := e)) result
+    dstAssignForSIMD dstA dstB result dblDSize elements ir
+  | _ ->
+    let opr2 = transOprToExpr ins ctxt addr src2
+    Array.map2 (fun e1 e3 ->
+      let product = AST.zext dblESize e1 .* AST.zext dblESize opr2
+      AST.zext dblESize e3 .- product) opr1 opr3
+    |> Array.iter2 (fun r e -> !!ir (r := e)) result
+    dstAssignForSIMD dstA dstB result dblDSize elements ir
+  !>ir insLen
+
 let umov ins insLen ctxt addr =
   let ir = !*ctxt
   !<ir insLen
@@ -4015,6 +4049,8 @@ let translate ins insLen ctxt =
   | Opcode.UMINP -> maxMinp ins insLen ctxt addr (.<=)
   | Opcode.UMINV -> maxMinv ins insLen ctxt addr (.<=)
   | Opcode.UMLAL | Opcode.UMLAL2 -> umlal ins insLen ctxt addr
+  | Opcode.UMLSL -> umlsl ins insLen ctxt addr true
+  | Opcode.UMLSL2 -> umlsl ins insLen ctxt addr false
   | Opcode.UMOV -> umov ins insLen ctxt addr
   | Opcode.UMSUBL | Opcode.UMNEGL -> umsubl ins insLen ctxt addr
   | Opcode.UMULH -> umulh ins insLen ctxt addr
