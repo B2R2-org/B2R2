@@ -201,16 +201,16 @@ let rec getElemDataSzAndElems = function
   | OprSIMDList simds -> getElemDataSzAndElems (OprSIMD simds[0])
   | _ -> raise InvalidOperandException
 
-let vectorPart ctxt eSize src = (* FIXME *)
-  let struct (_, part, elements) = getElemDataSzAndElems src
-  let pos = int eSize
-  match src with
+let transSIMDOprVPart ctxt eSize part = function
   | OprSIMD (SIMDVecReg (reg, _)) ->
-    let regA = getPseudoRegVar ctxt reg 1
+    let pos = int eSize
+    let elems = 64<rt> / eSize
     if part = 128<rt> then
       let regB = getPseudoRegVar ctxt reg 2
-      Array.init (elements / 2) (fun i -> AST.extract regB eSize (i * pos))
-    else Array.init elements (fun i -> AST.extract regA eSize (i * pos))
+      Array.init elems (fun i -> AST.extract regB eSize (i * pos))
+    else
+      let regA = getPseudoRegVar ctxt reg 1
+      Array.init elems (fun i -> AST.extract regA eSize (i * pos))
   | _ -> raise InvalidOperandException
 
 let transSIMDReg ctxt = function (* FIXME *)
