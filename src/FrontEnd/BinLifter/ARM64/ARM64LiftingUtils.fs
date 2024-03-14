@@ -771,7 +771,11 @@ let advSIMDExpandImm ir eSize src =
   let src = AST.xtlo 64<rt> src
   replicateForIR src eSize 64<rt> ir
 
-let getMaskForIR n oprSize = (AST.num1 oprSize << n) .- AST.num1 oprSize
+let getMaxBit eSize isUnsigned =
+  let shfAmt = int eSize - 1
+  let signBit = AST.num1 eSize << numI64 shfAmt eSize
+  let maskBit = signBit .- AST.num1 eSize
+  if isUnsigned then signBit .| maskBit else maskBit
 
 /// aarch64/instrs/integer/bitmasks/DecodeBitMasks
 /// DecodeBitMasks()
@@ -832,74 +836,36 @@ let countLeadingSignBitsForIR expr oprSize ir =
 /// shared/functions/vector/UnsignedSatQ
 /// UnsignedSatQ()
 /// ==============
-let unsignedSatQAddSub ctxt src1 src2 isAdd (n: RegType) ir =
-  let struct (max, n0) = tmpVars2 ir n
-  let struct (cond1, cond2) = tmpVars2 ir 1<rt>
+let unsignedSatQ ctxt i n ir =
+  let struct (max, min) = tmpVars2 ir n
+  let struct (overflow, underflow) = tmpVars2 ir 1<rt>
   let bitQC = AST.extract (getRegVar ctxt R.FPSR) 1<rt> 27
-  !!ir (max := getMaskForIR (numI64 (int n) n) n)
-  !!ir (n0 := AST.num0 n)
-  match n with
-  | 8<rt> ->
-    let struct (e1, e2, diff) = tmpVars3 ir 16<rt>
-    !!ir (e1 := AST.zext 16<rt> src1)
-    !!ir (e2 := AST.zext 16<rt> src2)
-    if isAdd then !!ir (diff := e1 .+ e2) else !!ir (diff := e1 .- e2)
-    !!ir (cond1 := diff ?> AST.zext 16<rt> max)
-    !!ir (cond2 := diff ?< AST.zext 16<rt> n0)
-    !!ir (bitQC := bitQC .| cond1 .| cond2)
-    AST.ite cond1 max (AST.ite cond2 n0 (AST.xtlo n diff))
-  | 16<rt> ->
-    let struct (e1, e2, diff) = tmpVars3 ir 32<rt>
-    !!ir (e1 := AST.zext 32<rt> src1)
-    !!ir (e2 := AST.zext 32<rt> src2)
-    if isAdd then !!ir (diff := e1 .+ e2) else !!ir (diff := e1 .- e2)
-    !!ir (cond1 := diff ?> AST.zext 32<rt> max)
-    !!ir (cond2 := diff ?< AST.zext 32<rt> n0)
-    !!ir (bitQC := bitQC .| cond1 .| cond2)
-    AST.ite cond1 max (AST.ite cond2 n0 (AST.xtlo n diff))
-  | 32<rt> ->
-    let struct (e1, e2, diff) = tmpVars3 ir 64<rt>
-    !!ir (e1 := AST.zext 64<rt> src1)
-    !!ir (e2 := AST.zext 64<rt> src2)
-    if isAdd then !!ir (diff := e1 .+ e2) else !!ir (diff := e1 .- e2)
-    !!ir (cond1 := diff ?> AST.zext 64<rt> max)
-    !!ir (cond2 := diff ?< AST.zext 64<rt> n0)
-    !!ir (bitQC := bitQC .| cond1 .| cond2)
-    AST.ite cond1 max (AST.ite cond2 n0 (AST.xtlo n diff))
-  | 64<rt> ->
-    let struct (e1, e2, diff) = tmpVars3 ir 64<rt>
-    !!ir (e1 := AST.zext 64<rt> src1)
-    !!ir (e2 := AST.zext 64<rt> src2)
-    if isAdd then !!ir (diff := e1 .+ e2) else !!ir (diff := e1 .- e2)
-    !!ir (cond1 := src1 .> diff)
-    !!ir (cond2 := src1 .< src2)
-    !!ir (bitQC := bitQC .| cond1 .| cond2)
-    if isAdd then (AST.ite cond1 max diff) else (AST.ite cond2 n0 diff)
-  | _ -> raise InvalidOperandException
-
+  !!ir (max := getMaxBit n true)
+  !!ir (min := AST.num0 n)
+  !!ir (overflow := i ?> AST.zext (2 * n) max)
+  !!ir (underflow := i ?< AST.zext (2 * n) min)
+  !!ir (bitQC := bitQC .| overflow .| underflow)
+  AST.ite overflow max (AST.ite underflow min (AST.xtlo n i))
 
 /// shared/functions/vector/SignedSatQ
 /// SignedSatQ()
 /// ============
-let signedSatQAddSub ctxt src1 src2 isAdd (n: RegType) ir =
+let signedSatQ ctxt i n ir =
+  let struct (max, min) = tmpVars2 ir n
+  let struct (overflow, underflow) = tmpVars2 ir 1<rt>
   let bitQC = AST.extract (getRegVar ctxt R.FPSR) 1<rt> 27
-  let struct (max, negRes) = tmpVars2 ir n
-  let struct (cond1, cond2) = tmpVars2 ir 1<rt>
-  let res = !+ir 64<rt>
-  if isAdd then !!ir (res := src1 .+ src2) else !!ir (res := src1 .- src2)
-  !!ir (max := getMaskForIR (numI64 (int n) n) n)
-  !!ir (negRes := AST.neg max)
-  !!ir (cond1 := res ?> AST.zext 64<rt> max)
-  !!ir (cond2 := res ?< AST.zext 64<rt> negRes)
-  !!ir (bitQC := bitQC .| cond1 .| cond2)
-  AST.ite cond1 max (AST.ite cond2 negRes (AST.xtlo n res))
+  !!ir (max := getMaxBit n false)
+  !!ir (min := AST.neg max)
+  !!ir (overflow := i ?> AST.sext (2 * n) max)
+  !!ir (underflow := i ?< AST.sext (2 * n) min)
+  !!ir (bitQC := bitQC .| overflow .| underflow)
+  AST.ite overflow max (AST.ite underflow min (AST.xtlo n i))
 
 /// shared/functions/vector/SatQ
 /// SatQ()
 /// ======
-let satQAddSub ctxt src1 src2 isAdd n isUnsigned ir =
-  if isUnsigned then unsignedSatQAddSub ctxt src1 src2 isAdd n ir
-  else signedSatQAddSub ctxt src1 src2 isAdd n ir
+let satQ ctxt i n isUnsigned ir =
+  if isUnsigned then unsignedSatQ ctxt i n ir else signedSatQ ctxt i n ir
 
 /// Exception
 let isNaN oprSize expr =
