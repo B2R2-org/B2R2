@@ -3555,6 +3555,46 @@ let uqadd ins insLen ctxt addr =
   | _ -> raise InvalidOperandException
   !>ir insLen
 
+let private usatQShl ctxt expr amt eSize ir =
+  let bitQC = AST.extract (getRegVar ctxt R.FPSR) 1<rt> 27
+  let hBit = highestSetBitForIR expr (int eSize) eSize ir
+  let max = numU64 0xFFFFFFFFFFFFFFFFUL eSize
+  let min = AST.num0 eSize
+  let struct (isNeg, isSat) = tmpVars2 ir 1<rt>
+  let eESz = numI32 (int eSize - 1) eSize
+  !!ir (isNeg := amt ?< AST.num0 eSize)
+  !!ir (isSat := AST.ite isNeg (hBit .< AST.neg amt) (eESz .< (hBit .+ amt)))
+  !!ir (bitQC := bitQC .| isSat)
+  let sat = AST.ite isNeg min max
+  AST.ite isSat sat (AST.ite isNeg (expr >> AST.neg amt) (expr << amt))
+
+let uqrshl ins insLen ctxt addr =
+  let ir = !*ctxt
+  !<ir insLen
+  let struct (o1, o2, o3) = getThreeOprs ins
+  let struct (eSize, dataSize, elements) = getElemDataSzAndElems o1
+  match ins.Operands with
+  | ThreeOperands (OprSIMD (SIMDVecReg _), _, _) ->
+    let dstB, dstA = transOprToExpr128 ins ctxt addr o1
+    let src1 = transSIMDOprToExpr ctxt eSize dataSize elements o2
+    let src2 = transSIMDOprToExpr ctxt eSize dataSize elements o3
+    let result = Array.init elements (fun _ -> !+ir eSize)
+    Array.map2 (fun e shf ->
+      let shf = shf |> AST.xtlo 8<rt> |> AST.sext eSize
+      let rConst = AST.num1 eSize << (AST.neg shf .- AST.num1 eSize)
+      usatQShl ctxt (e .+ rConst) shf eSize ir) src1 src2
+    |> Array.iter2 (fun r e -> !!ir (r := e)) result
+    dstAssignForSIMD dstA dstB result dataSize elements ir
+  | ThreeOperands (OprSIMD (SIMDFPScalarReg _), _, _) ->
+    let src1 = transOprToExpr ins ctxt addr o2
+    let shift =
+      transOprToExpr ins ctxt addr o3 |> AST.xtlo 8<rt> |> AST.sext eSize
+    let rConst = AST.num1 eSize << (AST.neg shift .- AST.num1 eSize)
+    let result = usatQShl ctxt (src1 .+ rConst) shift eSize ir
+    dstAssignScalar ins ctxt addr o1 result eSize ir
+  | _ -> raise InvalidOperandException
+  !>ir insLen
+
 let uqsub ins insLen ctxt addr =
   let ir = !*ctxt
   !<ir insLen
@@ -3589,6 +3629,40 @@ let uqsub ins insLen ctxt addr =
       else
         let input = AST.zext (2 * eSize) src1 .- AST.zext (2 * eSize) src2
         satQ ctxt input eSize true ir
+    dstAssignScalar ins ctxt addr o1 result eSize ir
+  | _ -> raise InvalidOperandException
+  !>ir insLen
+
+let uqshl ins insLen ctxt addr =
+  let ir = !*ctxt
+  !<ir insLen
+  let struct (o1, o2, o3) = getThreeOprs ins
+  let struct (eSize, dataSize, elements) = getElemDataSzAndElems o1
+  match ins.Operands with
+  | ThreeOperands (OprSIMD (SIMDVecReg _), _, OprImm _) ->
+    let dstB, dstA = transOprToExpr128 ins ctxt addr o1
+    let src1 = transSIMDOprToExpr ctxt eSize dataSize elements o2
+    let shift = transOprToExpr ins ctxt addr o3 |> AST.xtlo 8<rt>
+    let result = Array.init elements (fun _ -> !+ir eSize)
+    let shf = !+ir eSize
+    !!ir (shf := shift |> AST.sext eSize)
+    Array.map (fun e -> usatQShl ctxt e shf eSize ir) src1
+    |> Array.iter2 (fun r e -> !!ir (r := e)) result
+    dstAssignForSIMD dstA dstB result dataSize elements ir
+  | ThreeOperands (OprSIMD (SIMDVecReg _), _, _) ->
+    let dstB, dstA = transOprToExpr128 ins ctxt addr o1
+    let src1 = transSIMDOprToExpr ctxt eSize dataSize elements o2
+    let src2 = transSIMDOprToExpr ctxt eSize dataSize elements o3
+    let result = Array.init elements (fun _ -> !+ir eSize)
+    Array.map2 (fun e shf ->
+      let shf = shf |> AST.xtlo 8<rt> |> AST.sext eSize
+      usatQShl ctxt e shf eSize ir) src1 src2
+    |> Array.iter2 (fun r e -> !!ir (r := e)) result
+    dstAssignForSIMD dstA dstB result dataSize elements ir
+  | ThreeOperands (OprSIMD (SIMDFPScalarReg _), _, _) ->
+    let src1 = transOprToExpr ins ctxt addr o2
+    let shift = transOprToExpr ins ctxt addr o3 |> AST.xtlo 8<rt>
+    let result = usatQShl ctxt src1 (AST.sext eSize shift) eSize ir
     dstAssignScalar ins ctxt addr o1 result eSize ir
   | _ -> raise InvalidOperandException
   !>ir insLen
@@ -4159,6 +4233,8 @@ let translate ins insLen ctxt =
   | Opcode.UMULH -> umulh ins insLen ctxt addr
   | Opcode.UMULL | Opcode.UMULL2 -> umull ins insLen ctxt addr
   | Opcode.UQADD -> uqadd ins insLen ctxt addr
+  | Opcode.UQRSHL -> uqrshl ins insLen ctxt addr
+  | Opcode.UQSHL -> uqshl ins insLen ctxt addr
   | Opcode.UQSUB -> uqsub ins insLen ctxt addr
   | Opcode.URSHL -> urshl ins insLen ctxt addr
   | Opcode.SRSHL -> srshl ins insLen ctxt addr

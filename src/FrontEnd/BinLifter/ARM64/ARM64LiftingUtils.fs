@@ -743,7 +743,6 @@ let highestSetBitForIR expr width oprSz ir =
     elem
   Array.init width pos
   |> Array.iter (fun e -> !!ir (highest := AST.ite (highest ?<= e) e highest))
-
   highest
 
 let highestSetBit x size =
@@ -855,7 +854,7 @@ let signedSatQ ctxt i n ir =
   let struct (overflow, underflow) = tmpVars2 ir 1<rt>
   let bitQC = AST.extract (getRegVar ctxt R.FPSR) 1<rt> 27
   !!ir (max := getMaxBit n false)
-  !!ir (min := AST.neg max)
+  !!ir (min := AST.not max)
   !!ir (overflow := i ?> AST.sext (2 * n) max)
   !!ir (underflow := i ?< AST.sext (2 * n) min)
   !!ir (bitQC := bitQC .| overflow .| underflow)
