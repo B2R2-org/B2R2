@@ -81,6 +81,7 @@ module TestHelper =
       !.PF := AST.not <| AST.xtlo 1<rt> (t32 (tmpvarId + 4)
         <+> (t32 (tmpvarId + 4) >> AST.num1 32<rt>)) ]
 
+#if !EMULATION
 [<TestClass>]
 type IntelX86UnitTest () =
   let isa = ISA.Init Architecture.IntelX86 Endian.Little
@@ -134,3 +135,4 @@ type IntelX64UnitTest () =
          AST.loadLE 32<rt> <| t64 1 := t32 3 ]
     ** eflagsOnAdd (t32 2) (t32 3) (0xau) (!.)
     |> testX64 ctxt
+#endif
