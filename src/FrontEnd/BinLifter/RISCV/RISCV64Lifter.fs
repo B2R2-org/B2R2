@@ -429,6 +429,11 @@ let getAddrFromMem x =
   | Load (_, _, addr) -> addr
   | _ -> raise InvalidExprException
 
+let getAddrFromMemAndSize x =
+  match x.E with
+  | Load (_, rt, addr) -> addr, numI32 (RegType.toByteWidth rt) 64<rt>
+  | _ -> raise InvalidExprException
+
 let isAligned rt expr =
   match rt with
   | 32<rt> -> ((expr .& (numU32 0x3u 64<rt>)) == AST.num0 64<rt>)
@@ -2272,21 +2277,31 @@ let fcvtdotddots insInfo insLen ctxt =
   !!ir (rd := AST.cast CastKind.FloatCast 64<rt> rs1)
   !>ir insLen
 
-(* TODO: Add reservation check *)
 let lr insInfo insLen ctxt =
   let ir = !*ctxt
   let rd, mem, _ = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
+  let addr, size = getAddrFromMemAndSize mem
   !<ir insLen
-  !!ir (rd := AST.sext ctxt.WordBitSize mem)
+  !!ir (AST.extCall <| AST.app "Acquire" [addr; size] 64<rt>)
+  !!ir (rd := AST.sext 64<rt> mem)
   !>ir insLen
 
-(* TODO: Add reservation check *)
 let sc insInfo insLen ctxt oprSz =
   let ir = !*ctxt
   let rd, rs2, mem, _ = getFourOprs insInfo |> transFourOprs insInfo ctxt
+  let addr, size = getAddrFromMemAndSize mem
+  let rc = getRegVar ctxt R.RC
+  let lblRelease = !%ir "Release"
+  let lblEnd = !%ir "End"
   !<ir insLen
+  !!ir (rd := AST.num1 64<rt>)
+  !!ir (AST.extCall <| AST.app "IsAcquired" [addr; size] 64<rt>)
+  !!ir (AST.cjmp rc (AST.name lblRelease) (AST.name lblEnd))
+  !!ir (AST.lmark lblRelease)
+  !!ir (AST.extCall <| AST.app "Release" [addr; size] 64<rt>)
   !!ir (mem := AST.xtlo oprSz rs2)
-  !!ir (rd := numI32 0 ctxt.WordBitSize)
+  !!ir (rd := AST.num0 64<rt>)
+  !!ir (AST.lmark lblEnd)
   !>ir insLen
 
 let translate insInfo insLen (ctxt: TranslationContext) =

@@ -327,6 +327,8 @@ type Register =
   | CSR2945 = 0x146
   /// Floating-Point Dynamic Rounding Mode.
   | FRM = 0x147
+  /// Pseudo register for reservation check and follows the same format as ARM.
+  | RC = 0x148
 
 /// Shortcut for Register type.
 type internal R = Register
@@ -411,6 +413,7 @@ module Register =
     | "fcsr" -> R.FCSR
     | "fflags" -> R.FFLAGS
     | "frm" -> R.FRM
+    | "rc" -> R.RC
     | _ -> Utils.impossible ()
 
   let toString = function
@@ -481,6 +484,7 @@ module Register =
     | R.FCSR -> "fcsr"
     | R.FFLAGS -> "fflags"
     | R.FRM -> "frm"
+    | R.RC -> "rc"
     | _ -> Utils.impossible ()
 
   let toRegType wordSize = function
