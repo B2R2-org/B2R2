@@ -2247,7 +2247,7 @@ let parseAdvSIMDThreeDiff bin =
   | 0b01100u -> getOpcodeByQ bin Op.SMULL Op.SMULL2,
                 getVdtaVntbVmtb bin size11, 64<rt>
   | 0b01101u -> getOpcodeByQ bin Op.SQDMULL Op.SQDMULL2,
-                getVdtaVntbVmtb bin size0011, 64<rt>
+                getVdtaVntbVmtb bin szQ0011x, 64<rt>
   | 0b01110u -> getOpcodeByQ bin Op.PMULL Op.PMULL2,
                 getVdtaVntbVmtb bin size0110, 64<rt>
   | 0b10000u -> getOpcodeByQ bin Op.UADDL Op.UADDL2,
@@ -2328,7 +2328,7 @@ let parseAdvSIMDThreeSame b =
   | c when c &&& 0b10011111u = 0b00010101u ->
     Op.SMINP, getVdtVntVmt1 b size11
   | c when c &&& 0b10011111u = 0b00010110u ->
-    Op.SQDMULH, getVdtVntVmt1 b szQ10
+    Op.SQDMULH, getVdtVntVmt1 b szQ0011x
   | c when c &&& 0b10011111u = 0b00010111u ->
     Op.ADDP, getVdtVntVmt1 b sizeQ110
   | c when c &&& 0b11011111u = 0b00011000u ->
