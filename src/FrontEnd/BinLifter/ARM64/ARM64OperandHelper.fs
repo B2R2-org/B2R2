@@ -1393,10 +1393,6 @@ let szQ0x bin = chkReserved [ 0b00u; 0b01u ] (conSzQ bin)
 (* sz:Q = 0bx0, 0b11 *)
 let szQx011 bin = chkReserved [ 0b00u; 0b10u; 0b11u ] (conSzQ bin)
 
-(* sz:Q = 0b00x, 0b11x *)
-let szQ0011x bin =
-  chkReserved [ 0b000u; 0b001u; 0b110u; 0b111u ] (conSizeQ1 bin)
-
 (* sz:L = 0b11 *)
 let szL11 bin = chkReserved [ 0b11u ] (conSzL bin)
 

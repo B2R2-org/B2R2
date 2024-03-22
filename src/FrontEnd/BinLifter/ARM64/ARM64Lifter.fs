@@ -3444,7 +3444,7 @@ let private ssatQMulL ctxt e1 e2 (eSize: int<rt>) ir =
   let underflow =
     let srcIsNotZero = (AST.num0 eSize != e1) .& (AST.num0 eSize != e2)
     srcIsNotZero .& (sign1 != sign2) .& (AST.not <| AST.xthi 1<rt> product)
-  let max = getMaxBit dblESz false
+  let max = getIntMax dblESz false
   let min = AST.not max
   !!ir (bitQC := bitQC .| overflow .| underflow)
   AST.ite overflow max (AST.ite underflow min product)
@@ -3454,12 +3454,12 @@ let sqdmull ins insLen ctxt addr =
   !<ir insLen
   let struct (o1, o2, o3) = getThreeOprs ins
   let struct (eSize, part, _) = getElemDataSzAndElems o2
-  let elements = 64<rt> / eSize
   match ins.Operands with
   | ThreeOperands (OprSIMD (SIMDVecReg _), _, OprSIMD (SIMDVecRegWithIdx _)) ->
     let dstB, dstA = transOprToExpr128 ins ctxt addr o1
     let src1 = transSIMDOprVPart ctxt eSize part o2
     let src2 = transOprToExpr ins ctxt addr o3
+    let elements = 64<rt> / eSize
     let result = Array.init elements (fun _ -> !+ir (2 * eSize))
     Array.map (fun e1 -> ssatQMulL ctxt e1 src2 eSize ir) src1
     |> Array.iter2 (fun res prod -> !!ir (res := prod)) result
@@ -3468,6 +3468,7 @@ let sqdmull ins insLen ctxt addr =
     let dstB, dstA = transOprToExpr128 ins ctxt addr o1
     let src1 = transSIMDOprVPart ctxt eSize part o2
     let src2 = transSIMDOprVPart ctxt eSize part o3
+    let elements = 64<rt> / eSize
     let result = Array.init elements (fun _ -> !+ir (2 * eSize))
     Array.map2 (fun e1 e2 -> ssatQMulL ctxt e1 e2 eSize ir) src1 src2
     |> Array.iter2 (fun res prod -> !!ir (res := prod)) result
@@ -3476,6 +3477,58 @@ let sqdmull ins insLen ctxt addr =
     let src1 = transOprToExpr ins ctxt addr o2
     let src2 = transOprToExpr ins ctxt addr o3
     let result = ssatQMulL ctxt src1 src2 eSize ir
+    dstAssignScalar ins ctxt addr o1 result eSize ir
+  | _ -> raise InvalidOperandException
+  !>ir insLen
+
+let private ssatQMAdd ctxt src1 src2 dstElm eSize ir =
+  let bitQC = AST.extract (getRegVar ctxt R.FPSR) 1<rt> 27
+  let max = getIntMax (2 * eSize) false
+  let min = AST.not max
+  let product = ssatQMulL ctxt src1 src2 eSize ir
+  let accum = dstElm .+ product
+  let o1 = AST.xthi 1<rt> dstElm
+  let o2 = AST.xthi 1<rt> product
+  let r = AST.xthi 1<rt> accum
+  let outOfRange = (o1 == o2) .& (o1 <+> r)
+  let overflow = (o1 == AST.b0) .& outOfRange
+  let underflow = (o1 == AST.b1) .& outOfRange
+  !!ir (bitQC := bitQC .| overflow .| underflow)
+  AST.ite overflow max (AST.ite underflow min accum)
+
+let sqdmlal ins insLen ctxt addr =
+  let ir = !*ctxt
+  !<ir insLen
+  let struct (o1, o2, o3) = getThreeOprs ins
+  let struct (eSize, part, _) = getElemDataSzAndElems o2
+  match ins.Operands with
+  | ThreeOperands (OprSIMD (SIMDVecReg _), _, OprSIMD (SIMDVecRegWithIdx _)) ->
+    let dstB, dstA = transOprToExpr128 ins ctxt addr o1
+    let elements = 64<rt> / eSize
+    let dblESz = 2 * eSize
+    let dst = transSIMDOprToExpr ctxt dblESz 128<rt> elements o1
+    let src1 = transSIMDOprVPart ctxt eSize part o2
+    let src2 = transOprToExpr ins ctxt addr o3
+    let result = Array.init elements (fun _ -> !+ir dblESz)
+    Array.map2 (fun e1 e2 -> ssatQMAdd ctxt e1 src2 e2 eSize ir) src1 dst
+    |> Array.iter2 (fun res accum -> !!ir (res := accum)) result
+    dstAssignForSIMD dstA dstB result 128<rt> elements ir
+  | ThreeOperands (OprSIMD (SIMDVecReg _), _, _) ->
+    let dstB, dstA = transOprToExpr128 ins ctxt addr o1
+    let elements = 64<rt> / eSize
+    let dblESz = 2 * eSize
+    let dst = transSIMDOprToExpr ctxt dblESz 128<rt> elements o1
+    let src1 = transSIMDOprVPart ctxt eSize part o2
+    let src2 = transSIMDOprVPart ctxt eSize part o3
+    let result = Array.init elements (fun _ -> !+ir dblESz)
+    Array.map3 (fun e1 e2 e3 -> ssatQMAdd ctxt e1 e2 e3 eSize ir) src1 src2 dst
+    |> Array.iter2 (fun res accum -> !!ir (res := accum)) result
+    dstAssignForSIMD dstA dstB result 128<rt> elements ir
+  | ThreeOperands (OprSIMD (SIMDFPScalarReg _), _, _) ->
+    let dst = transOprToExpr ins ctxt addr o1
+    let src1 = transOprToExpr ins ctxt addr o2
+    let src2 = transOprToExpr ins ctxt addr o3
+    let result = ssatQMAdd ctxt src1 src2 dst eSize ir
     dstAssignScalar ins ctxt addr o1 result eSize ir
   | _ -> raise InvalidOperandException
   !>ir insLen
@@ -4270,6 +4323,7 @@ let translate ins insLen ctxt =
   | Opcode.SMLSL | Opcode.SMLSL2 -> smlsl ins insLen ctxt addr
   | Opcode.SQDMULH -> sqdmulh ins insLen ctxt addr
   | Opcode.SQDMULL | Opcode.SQDMULL2 -> sqdmull ins insLen ctxt addr
+  | Opcode.SQDMLAL | Opcode.SQDMLAL2 -> sqdmlal ins insLen ctxt addr
   | Opcode.ST1 | Opcode.ST2 | Opcode.ST3 | Opcode.ST4 ->
     loadStoreList ins insLen ctxt addr false
   | Opcode.STLR -> stlr ins insLen ctxt addr

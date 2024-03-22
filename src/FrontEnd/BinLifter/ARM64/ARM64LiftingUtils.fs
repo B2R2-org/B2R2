@@ -770,7 +770,7 @@ let advSIMDExpandImm ir eSize src =
   let src = AST.xtlo 64<rt> src
   replicateForIR src eSize 64<rt> ir
 
-let getMaxBit eSize isUnsigned =
+let getIntMax eSize isUnsigned =
   let shfAmt = int eSize - 1
   let signBit = AST.num1 eSize << numI64 shfAmt eSize
   let maskBit = signBit .- AST.num1 eSize
@@ -839,7 +839,7 @@ let unsignedSatQ ctxt i n ir =
   let struct (max, min) = tmpVars2 ir n
   let struct (overflow, underflow) = tmpVars2 ir 1<rt>
   let bitQC = AST.extract (getRegVar ctxt R.FPSR) 1<rt> 27
-  !!ir (max := getMaxBit n true)
+  !!ir (max := getIntMax n true)
   !!ir (min := AST.num0 n)
   !!ir (overflow := i ?> AST.zext (2 * n) max)
   !!ir (underflow := i ?< AST.zext (2 * n) min)
@@ -853,7 +853,7 @@ let signedSatQ ctxt i n ir =
   let struct (max, min) = tmpVars2 ir n
   let struct (overflow, underflow) = tmpVars2 ir 1<rt>
   let bitQC = AST.extract (getRegVar ctxt R.FPSR) 1<rt> 27
-  !!ir (max := getMaxBit n false)
+  !!ir (max := getIntMax n false)
   !!ir (min := AST.not max)
   !!ir (overflow := i ?> AST.sext (2 * n) max)
   !!ir (underflow := i ?< AST.sext (2 * n) min)
