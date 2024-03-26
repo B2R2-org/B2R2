@@ -21,6 +21,7 @@
     <Compile Include="JumpTableCollection.fs" />
     <Compile Include="CFGError.fs" />
     <Compile Include="RelocationTable.fs" />
+    <Compile Include="InlinedAssembly.fs" />
     <Compile Include="CodeManager.fs" />
     <Compile Include="ICFGBuildable.fs" />
     <Compile Include="EvalHelper.fs" />

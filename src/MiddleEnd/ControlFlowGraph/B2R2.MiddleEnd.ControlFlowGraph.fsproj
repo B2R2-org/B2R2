@@ -12,7 +12,6 @@
     <Compile Include="VisualBlock.fs" />
     <Compile Include="BasicBlock.fs" />
     <Compile Include="CFGExport.fs" />
-    <Compile Include="InlinedAssembly.fs" />
     <Compile Include="LiftedInstruction.fs" />
     <Compile Include="FakeBlockInfo.fs" />
     <Compile Include="SyscallTailInfo.fs" />

@@ -623,7 +623,7 @@ type CFGTest2 () =
   [<TestMethod>]
   member __.``DisasmLens Test: _start`` () =
     let cfg, root = BinEssence.getFunctionCFG ess 0UL |> Result.get
-    let cfg, _ = DisasmLens.filter ess.CodeManager cfg root
+    let cfg, _ = DisasmLens.convert ess.CodeManager cfg root
     Assert.AreEqual (1, cfg.Size)
     let vMap = cfg.FoldVertex (fun m v ->
       Map.add v.VData.PPoint.Address v m) Map.empty

@@ -226,7 +226,7 @@ let dumpJsonFiles jsonDir ess =
     let ep = func.EntryPoint
     let disasmJsonPath = Printf.sprintf "%s/%s.disasmCFG" jsonDir id
     let cfg, root = BinEssence.getFunctionCFG ess ep |> Result.get
-    let disasmcfg, _ = DisasmLens.filter ess.CodeManager cfg root
+    let disasmcfg, _ = DisasmLens.convert ess.CodeManager cfg root
     CFGExport.toJson disasmcfg disasmJsonPath)
 
 let initBinHdl isa (name: string) =

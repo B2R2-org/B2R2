@@ -82,7 +82,7 @@ type FakeBlockInfo = {
   /// and the callee's stack frame? If the distance is always constant, we
   /// remember the value here.
   FrameDistance: int option
-  ///
+  /// Defined SSA variables and their values.
   OutVariableInfo: OutVariableInfo
   /// Is this fake block points to a PLT entry?
   IsPLT: bool

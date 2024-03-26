@@ -142,7 +142,7 @@ let cfgToJSON cfgType (ess: BinEssence) g root =
   | IRCFG ->
     Visualizer.getJSONFromGraph g [root]
   | DisasmCFG ->
-    let g, root = DisasmLens.filter ess.CodeManager g root
+    let g, root = DisasmLens.convert ess.CodeManager g root
     Visualizer.getJSONFromGraph g [root]
   | SSACFG ->
     let struct (g, root) = SSACFG.ofIRCFG ess.BinHandle g root

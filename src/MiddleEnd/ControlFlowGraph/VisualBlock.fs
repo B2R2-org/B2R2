@@ -30,6 +30,7 @@ open B2R2.FrontEnd.BinLifter
 /// A visual line of a basic block.
 type VisualLine = AsmWord[]
 
+[<RequireQualifiedAccess>]
 module VisualLine =
   [<CompiledName("LineWidth")>]
   let lineWidth visualLine =
@@ -42,6 +43,7 @@ module VisualLine =
 /// A visual representation of a basic block.
 type VisualBlock = VisualLine[]
 
+[<RequireQualifiedAccess>]
 module VisualBlock =
   let empty (addr: Addr): VisualBlock =
     [| [| { AsmWordKind = AsmWordKind.String

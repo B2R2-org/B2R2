@@ -24,7 +24,8 @@
 
 namespace B2R2.MiddleEnd.ControlFlowGraph
 
-/// We distinguish edges of a CFG by classifying them into several kinds.
+/// CFG edge types. We distinguish CFG edges by classifying them into several
+/// different kinds.
 type CFGEdgeKind =
   /// An edge of a direct jump, e.g., JMP +0x42.
   | InterJmpEdge
@@ -64,13 +65,13 @@ type CFGEdgeKind =
   /// a caller block to its fall-through block as there is no direct control
   /// flow between them.
   | CallFallThroughEdge
-  /// A fall-through after a no return call instruction. This edge will never be
+  /// A fall-through after a no-return call instruction. This edge will never be
   /// executed. We have this edge to include all "codes" compiler emitted. If we
   /// do not consider such "unreachable" codes from CFG building, we'll never
   /// see this edge in the result CFG.
   | NoReturnFallThroughEdge
   /// A fall-through representing C++ exception flows. If there is a function
-  /// call which causes raising exceptions, then this edge will be used.
+  /// call which can raise an exception, then this edge will be used.
   | ExceptionFallThroughEdge
   /// An implicit edge that is not explicitly visible from the current CALL
   /// instruction, but visible within the function. If there is a path in the

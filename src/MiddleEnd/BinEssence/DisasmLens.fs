@@ -139,7 +139,8 @@ module DisasmLens =
     let dcfg = Map.fold (addEdge vMap) dcfg edges
     dcfg
 
-  let filter codeMgr (g: IGraph<_, _>) (root: IRVertex) =
+  /// Convert an IR CFG to a Disasm CFG.
+  let convert codeMgr (g: IGraph<_, _>) (root: IRVertex) =
     let blockInfos =
       (codeMgr: CodeManager).FoldBBLs (fun acc (KeyValue (addr, bblInfo)) ->
         if bblInfo.FunctionEntry = root.VData.PPoint.Address then
