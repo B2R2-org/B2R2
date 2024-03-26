@@ -1,5 +1,28 @@
 # B2R2 Change Log
 
+## 0.7.0 (2024-03-26)
+
+### Added
+
+- More instruction supports for Intel, AArch64, PPC, and RISCV.
+- Support Intel's AT&T syntax.
+- Support lazy loading of ELF metadata.
+- Handle dwarf action `DW_CFA_same_value`
+- Add a new rear-end module, Transformer, which allows users to transform
+  binary code into another form.
+- Add initial SPARC support.
+- Add initial SH4 support.
+
+### Changed
+
+- Use .NET 8 (and F# 8): Our framework is not compatible with prior
+  versions of .NET.
+- Fix many lifting/parsing bugs for Intel, PPC, AArch64, and RISCV.
+- Refactored many modules. Quite many modules/classes have been renamed.
+- Improve XML documentation.
+- Fix many bugs in the ELF parser.
+- Add more unit tests.
+
 ## 0.6.0 (2022-06-29)
 
 ### Added
