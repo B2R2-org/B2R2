@@ -2328,7 +2328,7 @@ let parseAdvSIMDThreeSame b =
   | c when c &&& 0b10011111u = 0b00010101u ->
     Op.SMINP, getVdtVntVmt1 b size11
   | c when c &&& 0b10011111u = 0b00010110u ->
-    Op.SQDMULH, getVdtVntVmt1 b szQ10
+    Op.SQDMULH, getVdtVntVmt1 b size0011
   | c when c &&& 0b10011111u = 0b00010111u ->
     Op.ADDP, getVdtVntVmt1 b sizeQ110
   | c when c &&& 0b11011111u = 0b00011000u ->
