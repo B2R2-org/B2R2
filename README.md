@@ -33,7 +33,7 @@ B2R2?
 
 1. B2R2 is *easy* to play with: there is absolutely no dependency hell for B2R2
    because it is a fully-managed library.  All you need to do is to install
-   [.NET Core SDK](https://dotnet.microsoft.com/download), and you are ready to
+   [.NET SDK](https://dotnet.microsoft.com/download), and you are ready to
    go! Native
    [IntelliSense](https://docs.microsoft.com/en-us/visualstudio/ide/using-intellisense)
    support is another plus!
@@ -137,7 +137,7 @@ Let's try to use B2R2 APIs.
 Build
 -----
 
-Building B2R2 is fun and easy. All you need to do is to install .NET 7 SDK or
+Building B2R2 is fun and easy. All you need to do is to install .NET 8 SDK or
 above. Yea, that's it!
 
 - To build B2R2 in release mode, type ```make release``` or ```dotnet build -c
@@ -176,6 +176,7 @@ Publications
 
 Here are papers using our work. Please create a PR if you want to add yours.
 
-- How'd Security Benefit Reverse Engineers? The Implication of Intel CET on Function Identification, In Proceedings of the International Conference on Dependable Systems Networks, 2022 [(PDF)](https://softsec.kaist.ac.kr/~sangkilc/papers/kim-dsn2022.pdf)
-- Smartian: Enhancing Smart Contract Fuzzing with Static and Dynamic Data-Flow Analyses, In Proceedings of the IEEE/ACM International Conference on Automated Software Engineering, 2021 [(PDF)](https://softsec.kaist.ac.kr/~jschoi/data/ase2021.pdf)
-- NTFuzz: Enabling Type-Aware Kernel Fuzzing on Windows with Static Binary Analysis, In Proceedings of the IEEE Symposium on Security and Privacy, 2021 [(PDF)](https://softsec.kaist.ac.kr/~jschoi/data/oakland2021.pdf)
+- FunProbe: Probing Functions from Binary Code through Probabilistic Analysis, FSE 2023
+- How'd Security Benefit Reverse Engineers? The Implication of Intel CET on Function Identification, DSN 2022 [(PDF)](https://softsec.kaist.ac.kr/~sangkilc/papers/kim-dsn2022.pdf)
+- Smartian: Enhancing Smart Contract Fuzzing with Static and Dynamic Data-Flow Analyses, ASE 2021 [(PDF)](https://softsec.kaist.ac.kr/~jschoi/data/ase2021.pdf)
+- NTFuzz: Enabling Type-Aware Kernel Fuzzing on Windows with Static Binary Analysis, Oakland 2021 [(PDF)](https://softsec.kaist.ac.kr/~jschoi/data/oakland2021.pdf)
