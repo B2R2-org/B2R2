@@ -3697,18 +3697,37 @@ let uqadd ins insLen ctxt addr =
   | _ -> raise InvalidOperandException
   !>ir insLen
 
-let private usatQShl ctxt expr amt eSize ir =
+let private getRndConst amt eSize =
+  let n1 = AST.num1 eSize
+  let amt = AST.neg amt .- n1
+  let isNeg = amt ?< AST.num0 eSize
+  AST.ite isNeg (n1 >> AST.neg amt) (n1 << amt)
+
+let private usatQRShl ctxt expr amt eSize ir =
   let bitQC = AST.extract (getRegVar ctxt R.FPSR) 1<rt> 27
-  let hBit = highestSetBitForIR expr (int eSize) eSize ir
   let max = numU64 0xFFFFFFFFFFFFFFFFUL eSize
   let min = AST.num0 eSize
-  let struct (isNeg, isSat) = tmpVars2 ir 1<rt>
+  let msb = numU64 (1UL <<< (int eSize - 1)) eSize
   let eESz = numI32 (int eSize - 1) eSize
+  let n0 = AST.num0 eSize
+  let n1 = AST.num1 eSize
+  let nAmt = AST.neg amt
+  let struct (isNeg, isOver, isSat) = tmpVars3 ir 1<rt>
+  let struct (hBit, rExpr, rConst) = tmpVars3 ir eSize
   !!ir (isNeg := amt ?< AST.num0 eSize)
-  !!ir (isSat := AST.ite isNeg (hBit .< AST.neg amt) (eESz .< (hBit .+ amt)))
+  !!ir (rConst := getRndConst amt eSize)
+  !!ir (isOver := expr .> (max .- rConst))
+  !!ir (rExpr := expr .+ rConst)
+  let h = highestSetBitForIR rExpr (int eSize) eSize ir
+  !!ir (hBit := AST.ite isOver (eESz .+ n1) h)
+  !!ir (isSat := AST.ite isNeg (hBit .< nAmt) (eESz .< (hBit .+ amt)))
   !!ir (bitQC := bitQC .| isSat)
-  let sat = AST.ite isNeg min max
-  AST.ite isSat sat (AST.ite isNeg (expr >> AST.neg amt) (expr << amt))
+  let rShf = rExpr >> nAmt
+  let lShf = rExpr << amt
+  let shf =
+    AST.ite isNeg (AST.ite isOver (rShf .+ (msb >> (nAmt .- n1))) rShf) lShf
+  let isZero = (AST.not isOver) .& ((rExpr == n0) .| (amt == n0))
+  AST.ite isZero rExpr (AST.ite isSat (AST.ite isNeg min max) shf)
 
 let uqrshl ins insLen ctxt addr =
   let ir = !*ctxt
@@ -3723,16 +3742,14 @@ let uqrshl ins insLen ctxt addr =
     let result = Array.init elements (fun _ -> !+ir eSize)
     Array.map2 (fun e shf ->
       let shf = shf |> AST.xtlo 8<rt> |> AST.sext eSize
-      let rConst = AST.num1 eSize << (AST.neg shf .- AST.num1 eSize)
-      usatQShl ctxt (e .+ rConst) shf eSize ir) src1 src2
+      usatQRShl ctxt e shf eSize ir) src1 src2
     |> Array.iter2 (fun r e -> !!ir (r := e)) result
     dstAssignForSIMD dstA dstB result dataSize elements ir
   | ThreeOperands (OprSIMD (SIMDFPScalarReg _), _, _) ->
     let src1 = transOprToExpr ins ctxt addr o2
     let shift =
       transOprToExpr ins ctxt addr o3 |> AST.xtlo 8<rt> |> AST.sext eSize
-    let rConst = AST.num1 eSize << (AST.neg shift .- AST.num1 eSize)
-    let result = usatQShl ctxt (src1 .+ rConst) shift eSize ir
+    let result = usatQRShl ctxt src1 shift eSize ir
     dstAssignScalar ins ctxt addr o1 result eSize ir
   | _ -> raise InvalidOperandException
   !>ir insLen
@@ -3774,6 +3791,21 @@ let uqsub ins insLen ctxt addr =
     dstAssignScalar ins ctxt addr o1 result eSize ir
   | _ -> raise InvalidOperandException
   !>ir insLen
+
+let private usatQShl ctxt expr amt eSize ir =
+  let bitQC = AST.extract (getRegVar ctxt R.FPSR) 1<rt> 27
+  let hBit = highestSetBitForIR expr (int eSize) eSize ir
+  let max = numU64 0xFFFFFFFFFFFFFFFFUL eSize
+  let min = AST.num0 eSize
+  let struct (isNeg, isSat) = tmpVars2 ir 1<rt>
+  let eESz = numI32 (int eSize - 1) eSize
+  !!ir (isNeg := amt ?< AST.num0 eSize)
+  !!ir (isSat := AST.ite isNeg (hBit .< AST.neg amt) (eESz .< (hBit .+ amt)))
+  !!ir (bitQC := bitQC .| isSat)
+  let sat = AST.ite isNeg min max
+  let r = AST.ite isSat sat (AST.ite isNeg (expr >> AST.neg amt) (expr << amt))
+  let isZero = (expr == AST.num0 eSize) .| (amt == AST.num0 eSize)
+  AST.ite isZero expr r
 
 let uqshl ins insLen ctxt addr =
   let ir = !*ctxt
