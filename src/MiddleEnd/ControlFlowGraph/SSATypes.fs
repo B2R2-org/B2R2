@@ -24,9 +24,13 @@
 
 namespace B2R2.MiddleEnd.ControlFlowGraph
 
+open System.Collections.Generic
 open B2R2
 open B2R2.BinIR
-open System.Collections.Generic
+open B2R2.MiddleEnd.BinGraph
+
+/// SSACFG's vertex.
+type SSAVertex = IVertex<SSABasicBlock>
 
 /// A mapping from an address to a SSACFG vertex.
 type SSAVMap = Dictionary<ProgramPoint, SSAVertex>

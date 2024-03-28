@@ -28,29 +28,25 @@ open B2R2
 open B2R2.FrontEnd.BinLifter
 
 /// Basic block type for a disassembly-based CFG (DisasmCFG).
-type DisasmBasicBlock (instrs: Instruction[], pp) =
-  inherit BasicBlock (pp)
+type DisasmBasicBlock private (ppoint, instrs) =
+  inherit BasicBlock (ppoint)
 
-  override __.Range =
+  /// Instructions.
+  member __.Instructions with get(): Instruction[] = instrs
+
+  /// Disassembled instructions.
+  member __.Disassemblies with get () =
+    instrs |> Array.map (fun i -> i.Disasm ())
+
+  override __.Range with get() =
     let last = instrs[instrs.Length - 1]
-    AddrRange (pp.Address, last.Address + uint64 last.Length - 1UL)
-
-  override __.IsFakeBlock () = Array.isEmpty instrs
+    AddrRange (ppoint.Address, last.Address + uint64 last.Length - 1UL)
 
   override __.ToVisualBlock () =
     instrs
-    |> Array.mapi (fun idx i ->
-      if idx = Array.length instrs - 1 then
-        i.Decompose (true)
-      else i.Decompose (true))
+    |> Array.mapi (fun idx ins ->
+      if idx = Array.length instrs - 1 then ins.Decompose (true)
+      else ins.Decompose (true))
 
-  member __.Instructions
-    with get () = instrs
-
-  member __.Disassemblies
-    with get () =
-      instrs |> Array.map (fun i -> i.Disasm ())
-
-  override __.ToString () =
-    if instrs.Length = 0 then "DisasmBBLK(Dummy)"
-    else $"DisasmBBLK({__.PPoint.Address:x})"
+  static member CreateRegular (instrs, ppoint) =
+    DisasmBasicBlock (ppoint, instrs)

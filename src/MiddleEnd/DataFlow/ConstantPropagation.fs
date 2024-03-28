@@ -67,9 +67,9 @@ type ConstantPropagation<'L when 'L: equality> (ssaCFG: SSACFG) =
       blk.VData.LiftedSSAStmts
       |> Array.iter (fun (ppoint, stmt) ->
         st.CPCore.Transfer st ssaCFG blk ppoint stmt)
-      if blk.VData.IsFakeBlock () then ()
+      if blk.VData.IsFake then ()
       else
-        match blk.VData.GetLastStmt () with
+        match blk.VData.LastStmt with
         | Jmp _ -> ()
         | _ -> (* Fall-through cases. *)
           ssaCFG.GetSuccs blk

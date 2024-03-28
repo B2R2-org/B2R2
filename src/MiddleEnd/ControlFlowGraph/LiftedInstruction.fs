@@ -30,8 +30,8 @@ open B2R2.FrontEnd.BinLifter
 
 /// A lifted instruction.
 type LiftedInstruction = {
-  /// Instruction.
-  Instruction: Instruction
+  /// Original assembly instruction.
+  Original: Instruction
   /// IR statements.
   Stmts: Stmt[]
   /// Corresponding BBL's address.

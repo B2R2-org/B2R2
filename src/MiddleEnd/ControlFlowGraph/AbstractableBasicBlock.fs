@@ -24,18 +24,25 @@
 
 namespace B2R2.MiddleEnd.ControlFlowGraph
 
-open B2R2
+/// This exception is thrown when an abstracted basic block is accessed as if it
+/// is a regular block.
+exception AbstractBlockAccessException
 
-/// The base type for basic block.
+/// Basic block that can have an abstracted form. For example, we create an
+/// abstracted basic block for a function while building an intra-procedural
+/// CFG.
 [<AbstractClass>]
-type BasicBlock (pp) =
-  /// The start position (ProgramPoint) of the basic block.
-  member __.PPoint with get(): ProgramPoint = pp
+type AbstractableBasicBlock<'Abs> (ppoint, absContent: 'Abs option) =
+  inherit BasicBlock (ppoint)
 
-  /// The instruction address range of the basic block. Even if the block
-  /// contains a partial IR statements of an instruction, we include the
-  /// instruction to compute the range.
-  abstract Range: AddrRange with get
+  /// Return if this is an abstracted basic block inserted by our analysis. For
+  /// example, we create an abstracted block to represent a function in a
+  /// function-level CFG.
+  member __.IsFake with get () = Option.isSome absContent
 
-  /// Convert this basic block to a visual representation.
-  abstract ToVisualBlock: unit -> VisualBlock
+  /// The abstracted content of the basic block. If the block is not an
+  /// abstracted one, this property raises an exception.
+  member __.AbstractedContent with get() =
+    match absContent with
+    | Some content -> content
+    | None -> raise AbstractBlockAccessException

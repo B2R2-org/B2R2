@@ -52,7 +52,7 @@ module SSACFG =
     match vMap.TryGetValue pos with
     | false, _ ->
       let instrs = bbl.LiftedInstructions
-      let blk = SSABasicBlock.initRegular hdl pos instrs
+      let blk = SSABasicBlock.CreateRegular (hdl, pos, instrs)
       let v, g = g.AddVertex blk
       vMap.Add (pos, v)
       v, g
@@ -64,7 +64,8 @@ module SSACFG =
     let pos = (srcPos, ftPos)
     match fMap.TryGetValue pos with
     | false, _ ->
-      let blk = SSABasicBlock.initFake hdl srcPos ftPos srcBbl.FakeBlockInfo
+      let funcAbs = srcBbl.AbstractedContent
+      let blk = SSABasicBlock.CreateAbstract (hdl, srcPos, funcAbs)
       let v, g = g.AddVertex blk
       fMap.Add (pos, v)
       v, g
@@ -76,14 +77,14 @@ module SSACFG =
       ssaCFG
       |> (irCFG: IGraph<_, _>).FoldEdge (fun ssaCFG e ->
         let src, dst = e.First, e.Second
-        (* If a node is fake, it is a call target. *)
-        if (dst: IRVertex).VData.IsFakeBlock () then
-          let last = src.VData.LastLifted.Instruction
+        (* If the node is an abstracted one, it is a call target. *)
+        if (dst: IRVertex).VData.IsFake then
+          let last = src.VData.LastInstruction
           let fall = ProgramPoint (last.Address + uint64 last.Length, 0)
           let srcV, ssaCFG = getVertex hdl ssaCFG vMap src
           let dstV, ssaCFG = getFakeVertex hdl ssaCFG fMap dst fall
           ssaCFG.AddEdge (srcV, dstV, e.Label)
-        elif src.VData.IsFakeBlock () then
+        elif src.VData.IsFake then
           let dstPPoint = dst.VData.PPoint
           let srcV, ssaCFG = getFakeVertex hdl ssaCFG fMap src dstPPoint
           let dstV, ssaCFG = getVertex hdl ssaCFG vMap dst
@@ -109,8 +110,7 @@ module SSACFG =
     let ssaCFG, root = convertToSSA hdl g ssaCFG vMap fMap root
     let vertices = Seq.append vMap.Values fMap.Values
     ssaCFG.FindVertexBy (fun v ->
-      v.VData.PPoint = root.VData.PPoint
-      && not <| v.VData.IsFakeBlock ())
+      v.VData.PPoint = root.VData.PPoint && not v.VData.IsFake)
     |> installPhis vertices ssaCFG
     ssaCFG.IterVertex (fun v -> v.VData.UpdatePPoints ())
     struct (ssaCFG, root)
@@ -118,7 +118,7 @@ module SSACFG =
   /// Find SSAVertex that includes the given instruction address.
   let findVertexByAddr (ssaCFG: IGraph<_, _>) addr =
     ssaCFG.FindVertexBy (fun (v: SSAVertex) ->
-      if v.VData.IsFakeBlock () then false
+      if v.VData.IsFake then false
       else v.VData.Range.IsIncluding addr)
 
   /// Find the definition of the given variable kind (targetVarKind) at the

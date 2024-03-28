@@ -65,10 +65,10 @@ type LowUIRReachingDefinitions (cfg) as this =
       |> Array.foldi (fun list idx stmt ->
         match stmt.S with
         | LowUIR.Put ({ LowUIR.E = LowUIR.TempVar (_, n) }, _) ->
-          let pp = ProgramPoint (lifted.Instruction.Address, idx)
+          let pp = ProgramPoint (lifted.Original.Address, idx)
           { ProgramPoint = pp; VarExpr = Temporary n } :: list
         | LowUIR.Put ({ LowUIR.E = LowUIR.Var (_, id, _) }, _) ->
-          let pp = ProgramPoint (lifted.Instruction.Address, idx)
+          let pp = ProgramPoint (lifted.Original.Address, idx)
           { ProgramPoint = pp; VarExpr = Regular id } :: list
         | _ -> list) list
       |> fst) []

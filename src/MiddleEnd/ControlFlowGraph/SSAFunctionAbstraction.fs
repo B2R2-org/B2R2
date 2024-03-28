@@ -24,15 +24,10 @@
 
 namespace B2R2.MiddleEnd.ControlFlowGraph
 
-/// A basic block may end with a syscall instruction, and the syscall may
-/// terminate the program or not. We store such information for each basic
-/// block to easily track them.
-type SyscallTailInfo =
-  /// The basic block has no syscall.
-  | NoSyscallTail
-  /// The basic block has a syscall, but we didn't yet analyzed its type.
-  | UnknownSyscallTail
-  /// The basic block has a regular (non-exit) syscall.
-  | RegularSyscallTail
-  /// The basic block has an exit syscall.
-  | ExitSyscallTail
+/// Information stored for an abstracted basic block in SSACFG.
+type SSAFunctionAbstraction (funcAbs: FunctionAbstraction) =
+  inherit FunctionAbstraction (funcAbs)
+  let mutable varInfo: SSAOutVariableInfo = Map.empty
+
+  /// SSA variables that are defined in this function.
+  member __.OutVariableInfo with get() = varInfo

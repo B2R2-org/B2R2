@@ -28,7 +28,7 @@ open B2R2
 open B2R2.FrontEnd.BinLifter
 
 /// Basic block type for a call graph (CallCFG).
-type CallGraphBlock (addr, id, name, isFake, isExternal) =
+type CallGraphBlock (addr, id, name, isExternal) =
   inherit BasicBlock (ProgramPoint (addr, 0))
 
   member __.ID with get () = id
@@ -38,8 +38,6 @@ type CallGraphBlock (addr, id, name, isFake, isExternal) =
   member __.IsExternal with get () = isExternal
 
   override __.Range = AddrRange (addr)
-
-  override __.IsFakeBlock () = isFake
 
   override __.ToVisualBlock () =
     [| [| { AsmWordKind = AsmWordKind.Address

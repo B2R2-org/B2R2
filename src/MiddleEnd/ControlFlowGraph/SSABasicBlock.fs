@@ -44,31 +44,31 @@ module private SSABasicBlockHelper =
       let var = CallingConvention.returnRegister hdl |> buildRegVar hdl
       let rt = hdl.File.ISA.WordSize |> WordSize.toRegType
       let e = Undefined (rt, "ret")
-      OutVariableInfo.add hdl var e defs
+      SSAOutVariableInfo.add hdl var e defs
 
-  let private addStackDef (hdl: BinHandle) fakeBlkInfo defs =
+  let private addStackPointerDef (hdl: BinHandle) funcAbs defs =
     match hdl.RegisterFactory.StackPointer with
     | Some sp ->
       let rt = hdl.RegisterFactory.RegIDToRegType sp
       let var = buildRegVar hdl sp
       let retAddrSize = RegType.toByteWidth rt |> int64
-      let adj = fakeBlkInfo.UnwindingBytes
+      let adj = (funcAbs: SSAFunctionAbstraction).UnwindingBytes
       let shiftAmount = BitVector.OfInt64 (retAddrSize + adj) rt
       let v1 = Var { Kind = var; Identifier = -1 }
       let v2 = Num shiftAmount
       let e = BinOp (BinOpType.ADD, rt, v1, v2)
-      OutVariableInfo.add hdl var e defs
+      SSAOutVariableInfo.add hdl var e defs
     | None -> defs
 
   let private addMemDef hdl defs =
     let e = Var { Kind = MemVar; Identifier = - 1 }
-    OutVariableInfo.add hdl MemVar e defs
+    SSAOutVariableInfo.add hdl MemVar e defs
 
-  let computeDefinedVars hdl fakeBlkInfo =
-    if fakeBlkInfo.IsPLT then Map.empty |> addReturnValDef hdl
-    else fakeBlkInfo.OutVariableInfo
-    |> addMemDef hdl
-    |> addStackDef hdl fakeBlkInfo
+  let computeDefinedVars hdl (funcAbs: SSAFunctionAbstraction) =
+    if funcAbs.IsPLT then Map.empty |> addReturnValDef hdl
+    else funcAbs.OutVariableInfo
+    |> addMemDef hdl (* over-approximation *)
+    |> addStackPointerDef hdl funcAbs
 
   let computeNextPPoint (ppoint: ProgramPoint) = function
     | Def (v, Num bv) ->
@@ -96,37 +96,51 @@ module private SSABasicBlockHelper =
     | Architecture.EVM -> postprocessStmtForEVM s
     | _ -> postprocessOthers s
 
-/// SSA statement information.
-type LiftedSSAStmt = ProgramPoint * Stmt
+  let toSSA (hdl: BinHandle) (ppoint: ProgramPoint) funcAbs liftedInstrs =
+    match funcAbs with
+    | Some (funcAbs: SSAFunctionAbstraction) ->
+      if funcAbs.IsFromTailCall then [||]
+      else
+        let returnAddress = funcAbs.ReturnPoint.Address
+        let stmts = (* For abstraction, we check which var can be defined. *)
+          computeDefinedVars hdl funcAbs
+          |> Seq.map (fun (KeyValue (kind, e)) ->
+            let dst = { Kind = kind; Identifier = -1 }
+            let src = e
+            Def (dst, ReturnVal (ppoint.Address, returnAddress, src)))
+          |> Seq.toArray
+        let wordSize = hdl.File.ISA.WordSize |> WordSize.toRegType
+        let fallThrough = BitVector.OfUInt64 returnAddress wordSize
+        let jmpToFallThrough = Jmp (InterJmp (Num fallThrough))
+        Array.append stmts [| jmpToFallThrough |]
+        |> Array.map (fun s -> ProgramPoint.GetFake (), s)
+    | None ->
+      liftedInstrs
+      |> Array.collect (fun liftedIns ->
+        let wordSize = liftedIns.Original.WordSize |> WordSize.toRegType
+        let stmts = liftedIns.Stmts
+        let address = liftedIns.Original.Address
+        let arch = hdl.File.ISA.Arch
+        AST.translateStmts wordSize address (postprocessStmt arch) stmts)
+      |> Array.map (fun s -> ProgramPoint.GetFake (), s)
 
 /// Basic block type for an SSA-based CFG (SSACFG). It holds an array of
 /// LiftedSSAStmts (ProgramPoint * Stmt).
-[<AbstractClass>]
-type SSABasicBlock (pp, instrs: LiftedInstruction []) =
-  inherit BasicBlock (pp)
+type SSABasicBlock private (hdl: BinHandle, ppoint, funcAbs, liftedInstrs) =
+  inherit AbstractableBasicBlock<SSAFunctionAbstraction> (ppoint, funcAbs)
 
   let mutable idom: IVertex<SSABasicBlock> option = None
   let mutable frontier: IVertex<SSABasicBlock> list = []
+  let mutable stmts = toSSA hdl ppoint funcAbs liftedInstrs
 
-  override __.Range =
-    if Array.isEmpty instrs then Utils.impossible () else ()
-    let last = instrs[instrs.Length - 1].Instruction
-    AddrRange (pp.Address, last.Address + uint64 last.Length - 1UL)
+  /// Return the LiftedInstruction array.
+  member __.LiftedInstructions with get(): LiftedInstruction[] = liftedInstrs
 
-  override __.IsFakeBlock () = Array.isEmpty instrs
-
-  override __.ToVisualBlock () =
-    __.LiftedSSAStmts
-    |> Array.map (fun (_, stmt) ->
-      [| { AsmWordKind = AsmWordKind.String
-           AsmWordValue = Pp.stmtToString stmt } |])
-
-  /// Return the corresponding LiftedInstruction array.
-  member __.LiftedInstructions with get () = instrs
+  /// Return the SSA statements.
+  member __.LiftedSSAStmts with get() = stmts
 
   /// Get the last SSA statement of the bblock.
-  member __.GetLastStmt () =
-    snd __.LiftedSSAStmts[__.LiftedSSAStmts.Length - 1]
+  member __.LastStmt with get() = snd stmts[stmts.Length - 1]
 
   /// Immediate dominator of this block.
   member __.ImmDominator with get() = idom and set(d) = idom <- d
@@ -138,86 +152,38 @@ type SSABasicBlock (pp, instrs: LiftedInstruction []) =
   member __.PrependPhi varKind count =
     let var = { Kind = varKind; Identifier = -1 }
     let ppoint = ProgramPoint.GetFake ()
-    __.LiftedSSAStmts <-
-      Array.append [| ppoint, Phi (var, Array.zeroCreate count) |]
-                   __.LiftedSSAStmts
+    stmts <- Array.append [| ppoint, Phi (var, Array.zeroCreate count) |] stmts
 
   /// Update program points. This must be called after updating SSA stmts.
   member __.UpdatePPoints () =
-    __.LiftedSSAStmts
+    stmts
     |> Array.foldi (fun ppoint idx (_, stmt) ->
       let ppoint' = computeNextPPoint ppoint stmt
       __.LiftedSSAStmts[idx] <- (ppoint', stmt)
-      ppoint') pp
+      ppoint') ppoint
     |> ignore
 
-  /// Return the array of LiftedSSAStmts.
-  abstract LiftedSSAStmts: LiftedSSAStmt[] with get, set
+  override __.Range with get() =
+    match funcAbs with
+    | Some _ -> raise AbstractBlockAccessException
+    | None ->
+      let lastIns = liftedInstrs[liftedInstrs.Length - 1].Original
+      let lastAddr = lastIns.Address + uint64 lastIns.Length
+      AddrRange (ppoint.Address, lastAddr - 1UL)
 
-  /// Return the corresponding fake block information. This is only valid for a
-  /// fake SSABasicBlock.
-  abstract FakeBlockInfo: FakeBlockInfo with get, set
+  override __.ToVisualBlock () =
+    match funcAbs with
+    | Some _ -> [||]
+    | None ->
+      stmts
+      |> Array.map (fun (_, stmt) ->
+        [| { AsmWordKind = AsmWordKind.String
+             AsmWordValue = Pp.stmtToString stmt } |])
 
-/// Regular SSABasicBlock with regular instructions.
-type RegularSSABasicBlock (hdl: BinHandle, pp, instrs) =
-  inherit SSABasicBlock (pp, instrs)
+  static member CreateRegular (hdl, ppoint, liftedInstrs) =
+    SSABasicBlock (hdl, ppoint, None, liftedInstrs)
 
-  let mutable stmts: LiftedSSAStmt[] =
-    (instrs: LiftedInstruction[])
-    |> Array.collect (fun i ->
-      let wordSize = i.Instruction.WordSize |> WordSize.toRegType
-      let stmts = i.Stmts
-      let address = i.Instruction.Address
-      let arch = hdl.File.ISA.Arch
-      AST.translateStmts wordSize address (postprocessStmt arch) stmts)
-    |> Array.map (fun s -> ProgramPoint.GetFake (), s)
-
-  override __.LiftedSSAStmts with get() = stmts and set(s) = stmts <- s
-
-  override __.FakeBlockInfo
-    with get() = Utils.impossible () and set(_) = Utils.impossible ()
-
-  override __.ToString () =
-    $"SSABBLK({__.PPoint.Address:x})"
-
-/// Fake SSABasicBlock, which may or may not hold a function summary with
-/// ReturnVal expressions.
-type FakeSSABasicBlock (hdl, pp, retPoint: ProgramPoint, fakeBlkInfo) =
-  inherit SSABasicBlock (pp, [||])
-
-  let mutable stmts: LiftedSSAStmt [] =
-    if fakeBlkInfo.IsTailCall then [||]
-    else
-      let stmts = (* For a fake block, we check which var can be defined. *)
-        computeDefinedVars hdl fakeBlkInfo
-        |> Seq.map (fun (KeyValue (kind, e)) ->
-          let dst = { Kind = kind; Identifier = -1 }
-          let src = e
-          Def (dst, ReturnVal (pp.Address, retPoint.Address, src)))
-        |> Seq.toArray
-      let wordSize = hdl.File.ISA.WordSize |> WordSize.toRegType
-      let fallThrough = BitVector.OfUInt64 retPoint.Address wordSize
-      let jmpToFallThrough = Jmp (InterJmp (Num fallThrough))
-      Array.append stmts [| jmpToFallThrough |]
-      |> Array.map (fun s -> ProgramPoint.GetFake (), s)
-
-  let mutable fakeBlkInfo = fakeBlkInfo
-
-  override __.LiftedSSAStmts with get() = stmts and set(s) = stmts <- s
-
-  override __.FakeBlockInfo
-    with get() = fakeBlkInfo and set(f) = fakeBlkInfo <- f
-
-  override __.ToString () =
-    "SSABBLK(Dummy;" + pp.ToString () + ";" + retPoint.ToString () + ")"
-
-/// SSACFG's vertex.
-type SSAVertex = IVertex<SSABasicBlock>
-
-[<RequireQualifiedAccess>]
-module SSABasicBlock =
-  let initRegular hdl pp instrs =
-    RegularSSABasicBlock (hdl, pp, instrs) :> SSABasicBlock
-
-  let initFake hdl pp retPoint fakeBlkInfo =
-    FakeSSABasicBlock (hdl, pp, retPoint, fakeBlkInfo) :> SSABasicBlock
+  /// Create an abstracted basic block located at `ppoint`.
+  static member CreateAbstract (hdl, ppoint, funcAbs: FunctionAbstraction) =
+    let info = SSAFunctionAbstraction (funcAbs)
+    SSABasicBlock (hdl, ppoint, Some info, [||])

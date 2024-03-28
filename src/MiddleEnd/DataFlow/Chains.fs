@@ -69,7 +69,7 @@ module DataFlowChain =
       |> Array.fold (fun map lifted ->
         lifted.Stmts
         |> Array.foldi (fun map idx stmt ->
-          let pp = ProgramPoint (lifted.Instruction.Address, idx)
+          let pp = ProgramPoint (lifted.Original.Address, idx)
           let inset = ins[v.ID]
           let outset = outs[v.ID]
           let uses = Utils.extractUses stmt

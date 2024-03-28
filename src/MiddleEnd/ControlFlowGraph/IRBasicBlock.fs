@@ -27,117 +27,41 @@ namespace B2R2.MiddleEnd.ControlFlowGraph
 open B2R2
 open B2R2.FrontEnd.BinLifter
 open B2R2.BinIR
-open B2R2.MiddleEnd.BinGraph
 
-/// A basic block that consists of IR (LowUIR) statements. It contains all the
-/// LiftedInstruction of the basic block. We say an IRBasicBlock is a fake block
-/// if it contains no instruction, i.e., when the instrs is [||].
-[<AbstractClass>]
-type IRBasicBlock (instrs: LiftedInstruction[], ppoint: ProgramPoint) =
-  inherit BasicBlock (ppoint)
+type IRBasicBlock private (ppoint, funcAbs, liftedInstrs) =
+  inherit AbstractableBasicBlock<FunctionAbstraction> (ppoint, funcAbs)
 
-  /// The first LiftedInstruction of the basic block.
-  member __.FirstLifted with get() =
-    if Array.isEmpty instrs then raise DummyDataAccessException
-    else instrs[0]
+  member __.LiftedInstructions with get(): LiftedInstruction[] = liftedInstrs
 
-  /// The last LiftedInstruction of the basic block.
-  member __.LastLifted with get() =
-    if Array.isEmpty instrs then raise DummyDataAccessException
-    else instrs[Array.length instrs - 1]
+  member __.LastInstruction with get() =
+    if Array.isEmpty liftedInstrs then Utils.impossible ()
+    else liftedInstrs[liftedInstrs.Length - 1].Original
 
-  /// Get an array of IR statements of a basic block.
-  member __.IRStatements with get() = instrs |> Array.map (fun i -> i.Stmts)
-
-  /// Get the array of LiftedInstruction of the basic block.
-  member __.LiftedInstructions with get() = instrs
-
-  /// Get an array of instructions that corresponds to each statement in the
-  /// IRStatements.
-  member __.ToArray () =
-    instrs |> Array.map (fun i -> i.Instruction)
-
-  /// The address range of the basic block. Even if the block contains a partial
-  /// IR statements of an instruction, we include the instruction to compute the
-  /// range.
   override __.Range with get() =
-    let lastIns = __.LastLifted.Instruction
-    let lastAddr = lastIns.Address + uint64 lastIns.Length
-    AddrRange (__.PPoint.Address, lastAddr - 1UL)
+    match funcAbs with
+    | Some _ -> raise AbstractBlockAccessException
+    | None ->
+      let lastIns = liftedInstrs[liftedInstrs.Length - 1].Original
+      let lastAddr = lastIns.Address + uint64 lastIns.Length
+      AddrRange (ppoint.Address, lastAddr - 1UL)
 
   override __.ToVisualBlock () =
-    __.IRStatements
-    |> Array.concat
-    |> Array.map (fun stmt ->
-      [| { AsmWordKind = AsmWordKind.String
-           AsmWordValue = LowUIR.Pp.stmtToString stmt } |])
+    match funcAbs with
+    | Some _ -> [||]
+    | None ->
+      liftedInstrs
+      |> Array.collect (fun liftedIns -> liftedIns.Stmts)
+      |> Array.map (fun stmt ->
+        [| { AsmWordKind = AsmWordKind.String
+             AsmWordValue = LowUIR.Pp.stmtToString stmt } |])
 
-  /// Fake block info, which exists only for a fake block.
-  abstract FakeBlockInfo: FakeBlockInfo with get, set
+  static member CreateRegular (liftedInstrs, ppoint) =
+    IRBasicBlock (ppoint, None, liftedInstrs)
 
-  /// Unique identifier for IRBasicBlocks, which is a tuple of bbl's address and
-  /// caller's address. Note the bbl's address many not exist for fake blocks,
-  /// and the caller's address only exists for fake blocks. So we use dummy
-  /// values in such cases, but the uniqueness is still guaranteed.
-  abstract UniqueID: Addr * Addr
+  static member CreateAbstract (ppoint, callSiteAddr, retPoint,
+                                ?fromTail, ?fromInd) =
+    let fromTail = defaultArg fromTail false
+    let fromInd = defaultArg fromInd false
+    let info = FunctionAbstraction (callSiteAddr, retPoint, fromTail, fromInd)
+    IRBasicBlock (ppoint, Some info, [||])
 
-  /// Return the system call (at the end) instruction information if exists. If
-  /// the block does not ends with a syscall this will return NoSyscallTail.
-  abstract SyscallTail: SyscallTailInfo with get, set
-
-/// Regular IRBasicBlock; a basic block with IR statements.
-type RegularIRBasicBlock (instrs, ppoint) =
-  inherit IRBasicBlock (instrs, ppoint)
-
-  let mutable syscallTail = NoSyscallTail
-
-  do assert (not (Array.isEmpty instrs))
-     let stmts = instrs[instrs.Length - 1].Stmts
-     let len = stmts.Length
-     if len >= 2 then
-       match stmts[len - 2] with
-       | { S = LowUIR.SideEffect SysCall } ->
-         syscallTail <- UnknownSyscallTail
-       | _ -> ()
-     else ()
-
-  override __.IsFakeBlock () = false
-
-  override __.ToString () =
-    $"IRBBLK({__.PPoint.Address:x})"
-
-  override __.FakeBlockInfo
-    with get() = Utils.impossible () and set(_) = Utils.impossible ()
-
-  override __.UniqueID with get() = (ppoint.Address, 0UL)
-
-  override __.SyscallTail
-    with get() = syscallTail and set(v) = syscallTail <- v
-
-/// Fake IRBasicBlock. We create a fake block when there is a function call, and
-/// thus, a fake block represents a function. Note, fake blocks do not uniquely
-/// represent a function. That is, when there are multiple function calls to the
-/// same function, we create a fake block for each of the call sites.
-type FakeIRBasicBlock (ppoint, callSiteAddr, ?isTailCall, ?isIndCall) =
-  inherit IRBasicBlock ([||], ppoint)
-
-  let mutable info =
-    { CallSite = callSiteAddr
-      UnwindingBytes = 0L
-      FrameDistance = None
-      OutVariableInfo = Map.empty
-      IsPLT = false
-      IsTailCall = defaultArg isTailCall false
-      IsIndirectCall = defaultArg isIndCall false
-      IsSysCall = false }
-
-  override __.IsFakeBlock () = true
-
-  override __.FakeBlockInfo with get() = info and set(i) = info <- i
-
-  override __.ToString () = "IRBBLK(Dummy)"
-
-  override __.UniqueID with get() = (ppoint.Address, callSiteAddr)
-
-  override __.SyscallTail
-    with get() = Utils.impossible () and set(_) = Utils.impossible ()

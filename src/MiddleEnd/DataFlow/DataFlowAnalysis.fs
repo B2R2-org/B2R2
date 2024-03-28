@@ -46,7 +46,7 @@ type DataFlowDirection =
   | Backward
 
 [<AbstractClass>]
-type DataFlowHelper () =
+type private DataFlowHelper () =
   /// Obtain the neighboring vertices.
   abstract Neighbor:
     IGraph<'V, 'E> -> IVertex<'V> -> IReadOnlyCollection<IVertex<'V>>
@@ -61,7 +61,7 @@ type private ForwardDataFlowHelper () =
   override __.AddToWorkList (g: IGraph<_, _>) v worklist =
     g.GetSuccs v |> Seq.iter worklist.Enqueue
 
-type BackwardDataFlowHelper () =
+type private BackwardDataFlowHelper () =
   inherit DataFlowHelper ()
   override __.Neighbor (g: IGraph<_, _>) v = g.GetSuccs v
   override __.AddToWorkList (g: IGraph<_, _>) v worklist =
