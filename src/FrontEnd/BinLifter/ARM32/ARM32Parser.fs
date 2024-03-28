@@ -40,14 +40,14 @@ module private Parser =
 
   let detectThumb entryPoint (isa: ISA) =
     match entryPoint, isa.Arch with
-    | Some entry, Arch.ARMv7 when entry % 2UL <> 0UL -> (* XXX: LIbraries? *)
+    | Some entry, Architecture.ARMv7 when entry % 2UL <> 0UL ->
+      (* XXX: LIbraries? *)
       ArchOperationMode.ThumbMode
     | _ -> ArchOperationMode.ARMMode
 
 /// Parser for 32-bit ARM instructions. Parser will return a platform-agnostic
 /// instruction type (Instruction).
 type ARM32Parser (isa: ISA, mode, entryPoint: Addr option) =
-  inherit Parser ()
 
   let oparsers = [|
     OprNo () :> OperandParser
@@ -367,28 +367,29 @@ type ARM32Parser (isa: ISA, mode, entryPoint: Addr option) =
       Parser.detectThumb entryPoint isa
     else mode
 
-  let reader =
-    if isa.Endian = Endian.Little then BinReader.binReaderLE
-    else BinReader.binReaderBE
+  let reader = BinReader.Init isa.Endian
 
   let phlp = ParsingHelper (isa.Arch, reader, oparsers)
 
   let mutable itstate: byte list = []
 
-  override __.OperationMode with get() = mode and set(m) = mode <- m
+  interface IInstructionParsable with
+    member __.Parse (span: ByteSpan, addr) =
+      phlp.Mode <- mode
+      phlp.InsAddr <- addr
+      match mode with
+      | ArchOperationMode.ThumbMode ->
+        Parser.parseThumb span phlp &itstate :> Instruction
+      | ArchOperationMode.ARMMode ->
+        Parser.parseARM span phlp :> Instruction
+      | _-> raise InvalidTargetArchModeException
 
-  override __.Parse (span: ByteSpan, addr) =
-    phlp.Mode <- mode
-    phlp.InsAddr <- addr
-    match mode with
-    | ArchOperationMode.ThumbMode ->
-      Parser.parseThumb span phlp &itstate :> Instruction
-    | ArchOperationMode.ARMMode ->
-      Parser.parseARM span phlp :> Instruction
-    | _-> raise InvalidTargetArchModeException
+    member __.Parse (bs: byte[], addr) =
+      let span = ReadOnlySpan bs
+      (__ :> IInstructionParsable).Parse (span, addr)
 
-  override __.Parse (bs: byte[], addr) =
-    let span = ReadOnlySpan bs
-    __.Parse (span, addr)
+    member __.MaxInstructionSize = 4
+
+    member __.OperationMode with get() = mode and set(m) = mode <- m
 
 // vim: set tw=80 sts=2 sw=2:

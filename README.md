@@ -33,7 +33,7 @@ B2R2?
 
 1. B2R2 is *easy* to play with: there is absolutely no dependency hell for B2R2
    because it is a fully-managed library.  All you need to do is to install
-   [.NET Core SDK](https://dotnet.microsoft.com/download), and you are ready to
+   [.NET SDK](https://dotnet.microsoft.com/download), and you are ready to
    go! Native
    [IntelliSense](https://docs.microsoft.com/en-us/visualstudio/ide/using-intellisense)
    support is another plus!
@@ -59,17 +59,17 @@ progress, but we look forward to your contributions! Feel free to write a PR
 (Pull Request) while making sure that you have read our [contribution
 guideline](CONTRIBUTING.md).
 
-| Feature               | x86         | x86-64      | ARMv7                | ARMv8                | MIPS32               | MIPS64               | EVM         | TMS320C600  | AVR         | PPC         | SPARC64    | SH4         | RISC-V     |
-|-----------------------|:-----------:|:-----------:|:--------------------:|:--------------------:|:--------------------:|:--------------------:|:-----------:|:-----------:|:-----------:|:-----------:|:----------:|:-----------:|:----------:|
-| Instruction Parsing   | :full_moon: | :full_moon: | :full_moon:          | :full_moon:          | :full_moon:          | :full_moon:          | :full_moon: | :full_moon: | :full_moon: | :full_moon: | :new_moon: | :full_moon: | :new_moon: |
-| Disassembly           | :full_moon: | :full_moon: | :full_moon:          | :full_moon:          | :full_moon:          | :full_moon:          | :full_moon: | :full_moon: | :full_moon: | :full_moon: | :new_moon: | :full_moon: | :new_moon: |
-| Lifting               | :full_moon: | :full_moon: | :full_moon:          | :full_moon:          | :full_moon:          | :full_moon:          | :full_moon: | :new_moon:  | :full_moon: | :new_moon:  | :new_moon: | :new_moon:  | :new_moon: |
-| CFG Recovery          | :full_moon: | :full_moon: | :first_quarter_moon: | :first_quarter_moon: | :first_quarter_moon: | :first_quarter_moon: | :full_moon: | :new_moon:  | :new_moon:  | :new_moon:  | :new_moon: | :new_moon:  | :new_moon: |
-| Data-Flow             | :full_moon: | :full_moon: | :full_moon:          | :full_moon:          | :full_moon:          | :full_moon:          | :full_moon: | :new_moon:  | :new_moon:  | :new_moon:  | :new_moon: | :new_moon:  | :new_moon: |
-| Instruction Emulation | :full_moon: | :full_moon: | :full_moon:          | :full_moon:          | :full_moon:          | :full_moon:          | :new_moon:  | :new_moon:  | :new_moon:  | :new_moon:  | :new_moon: | :new_moon:  | :new_moon: |
-| Assembly              | :full_moon: | :full_moon: | :new_moon:           | :new_moon:           | :new_moon:           | :new_moon:           | :new_moon:  | :new_moon:  | :new_moon:  | :new_moon:  | :new_moon: | :new_moon:  | :new_moon: |
-| REPL                  | :full_moon: | :full_moon: | :new_moon:           | :new_moon:           | :new_moon:           | :new_moon:           | :new_moon:  | :new_moon:  | :new_moon:  | :new_moon:  | :new_moon: | :new_moon:  | :new_moon: |
-| ROP Compilation       | :full_moon: | :new_moon:  | :new_moon:           | :new_moon:           | :new_moon:           | :new_moon:           | :new_moon:  | :new_moon:  | :new_moon:  | :new_moon:  | :new_moon: | :new_moon:  | :new_moon: |
+| Feature               | x86         | x86-64      | ARMv7                | ARMv8                | MIPS32               | MIPS64               | EVM         | TMS320C600  | AVR         | PPC         | SPARC       | SH4                   | RISC-V      |
+|-----------------------|:-----------:|:-----------:|:--------------------:|:--------------------:|:--------------------:|:--------------------:|:-----------:|:-----------:|:-----------:|:-----------:|:-----------:|:---------------------:|:-----------:|
+| Instruction Parsing   | :full_moon: | :full_moon: | :full_moon:          | :full_moon:          | :full_moon:          | :full_moon:          | :full_moon: | :full_moon: | :full_moon: | :full_moon: | :full_moon: | :waxing_gibbous_moon: | :full_moon: |
+| Disassembly           | :full_moon: | :full_moon: | :full_moon:          | :full_moon:          | :full_moon:          | :full_moon:          | :full_moon: | :full_moon: | :full_moon: | :full_moon: | :full_moon: | :waxing_gibbous_moon: | :full_moon: |
+| Lifting               | :full_moon: | :full_moon: | :full_moon:          | :full_moon:          | :full_moon:          | :full_moon:          | :full_moon: | :new_moon:  | :full_moon: | :new_moon:  | :full_moon: | :new_moon:            | :full_moon: |
+| CFG Recovery          | :full_moon: | :full_moon: | :first_quarter_moon: | :first_quarter_moon: | :first_quarter_moon: | :first_quarter_moon: | :full_moon: | :new_moon:  | :new_moon:  | :new_moon:  | :new_moon:  | :new_moon:            | :new_moon:  |
+| Data-Flow             | :full_moon: | :full_moon: | :full_moon:          | :full_moon:          | :full_moon:          | :full_moon:          | :full_moon: | :new_moon:  | :new_moon:  | :new_moon:  | :new_moon:  | :new_moon:            | :new_moon:  |
+| Instruction Emulation | :full_moon: | :full_moon: | :full_moon:          | :full_moon:          | :full_moon:          | :full_moon:          | :new_moon:  | :new_moon:  | :new_moon:  | :new_moon:  | :new_moon:  | :new_moon:            | :new_moon:  |
+| Assembly              | :full_moon: | :full_moon: | :new_moon:           | :new_moon:           | :new_moon:           | :new_moon:           | :new_moon:  | :new_moon:  | :new_moon:  | :new_moon:  | :new_moon:  | :new_moon:            | :new_moon:  |
+| REPL                  | :full_moon: | :full_moon: | :new_moon:           | :new_moon:           | :new_moon:           | :new_moon:           | :new_moon:  | :new_moon:  | :new_moon:  | :new_moon:  | :new_moon:  | :new_moon:            | :new_moon:  |
+| ROP Compilation       | :full_moon: | :new_moon:  | :new_moon:           | :new_moon:           | :new_moon:           | :new_moon:           | :new_moon:  | :new_moon:  | :new_moon:  | :new_moon:  | :new_moon:  | :new_moon:            | :new_moon:  |
 
 Dependencies?
 -------------
@@ -78,8 +78,10 @@ B2R2 relies on a tiny set of external .NET libraries, and our design principle
 is to use a minimum number of libraries. Below is a list of libraries that we
 leverage.
 
-- [System.Reflection.Metadata](https://www.nuget.org/packages/System.Reflection.Metadata/)
-- [Microsoft.FSharpLu.Json](https://www.nuget.org/packages/Microsoft.FSharpLu.Json/)
+- [System.Reflection.Metadata](https://www.nuget.org/packages/System.Reflection.Metadata)
+- [System.IO.Hashing](https://www.nuget.org/packages/System.IO.Hashing)
+- [Microsoft.FSharpLu.Json](https://www.nuget.org/packages/Microsoft.FSharpLu.Json)
+- [FSharp.Compiler.Service](https://www.nuget.org/packages/FSharp.Compiler.Service)
 - [FParsec](https://www.nuget.org/packages/FParsec)
 
 API Documentation
@@ -116,14 +118,14 @@ Let's try to use B2R2 APIs.
 
     ```fsharp
     open B2R2
-    open B2R2.FrontEnd
+    open B2R2.FrontEnd.BinInterface
 
     [<EntryPoint>]
     let main argv =
       let isa = ISA.OfString "amd64"
       let bytes = [| 0x65uy; 0xffuy; 0x15uy; 0x10uy; 0x00uy; 0x00uy; 0x00uy |]
       let hdl = BinHandle.Init (isa, bytes)
-      let ins = BinHandle.ParseInstr hdl 0UL
+      let ins = BinHandle.ParseInstr (hdl, 0UL)
       ins.Translate hdl.TranslationContext |> printfn "%A"
       0
     ```
@@ -135,7 +137,7 @@ Let's try to use B2R2 APIs.
 Build
 -----
 
-Building B2R2 is fun and easy. All you need to do is to install .NET 6 SDK or
+Building B2R2 is fun and easy. All you need to do is to install .NET 8 SDK or
 above. Yea, that's it!
 
 - To build B2R2 in release mode, type ```make release``` or ```dotnet build -c
@@ -174,6 +176,7 @@ Publications
 
 Here are papers using our work. Please create a PR if you want to add yours.
 
-- How'd Security Benefit Reverse Engineers? The Implication of Intel CET on Function Identification, In Proceedings of the International Conference on Dependable Systems Networks, 2022 [(PDF)](https://softsec.kaist.ac.kr/~sangkilc/papers/kim-dsn2022.pdf)
-- Smartian: Enhancing Smart Contract Fuzzing with Static and Dynamic Data-Flow Analyses, In Proceedings of the IEEE/ACM International Conference on Automated Software Engineering, 2021 [(PDF)](https://softsec.kaist.ac.kr/~jschoi/data/ase2021.pdf)
-- NTFuzz: Enabling Type-Aware Kernel Fuzzing on Windows with Static Binary Analysis, In Proceedings of the IEEE Symposium on Security and Privacy, 2021 [(PDF)](https://softsec.kaist.ac.kr/~jschoi/data/oakland2021.pdf)
+- FunProbe: Probing Functions from Binary Code through Probabilistic Analysis, FSE 2023
+- How'd Security Benefit Reverse Engineers? The Implication of Intel CET on Function Identification, DSN 2022 [(PDF)](https://softsec.kaist.ac.kr/~sangkilc/papers/kim-dsn2022.pdf)
+- Smartian: Enhancing Smart Contract Fuzzing with Static and Dynamic Data-Flow Analyses, ASE 2021 [(PDF)](https://softsec.kaist.ac.kr/~jschoi/data/ase2021.pdf)
+- NTFuzz: Enabling Type-Aware Kernel Fuzzing on Windows with Static Binary Analysis, Oakland 2021 [(PDF)](https://softsec.kaist.ac.kr/~jschoi/data/oakland2021.pdf)

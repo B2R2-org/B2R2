@@ -29,7 +29,7 @@ open B2R2
 open B2R2.RearEnd
 
 let showUsage () =
-  Printer.printToConsole """
+  Printer.PrintToConsole """
          ''''''''''
       .;'          ';.
      ;' o      o     ';           888888b.           8888888b.
@@ -96,10 +96,10 @@ let printMyVersion () =
   let asm = Assembly.GetEntryAssembly ()
   let attr = asm.GetCustomAttribute<AssemblyInformationalVersionAttribute> ()
   attr.InformationalVersion.ToString ()
-  |> Printer.printToConsole
+  |> Printer.PrintToConsole
 
 let handleCommands (cmd: string) (rest: string []) =
-  match cmd.ToLower () with
+  match cmd.ToLowerInvariant () with
   | "help" | "--help" | "-h" -> showUsage (); 0
   | "fileviewer" | "file" | "fileview" | "peek" -> FileViewer.Program.main rest
   | "bindump" | "disasm" | "dump" | "disas" | "dis" -> BinDump.Program.main rest

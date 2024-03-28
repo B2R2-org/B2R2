@@ -30,7 +30,7 @@ open B2R2.FrontEnd.BinFile
 open B2R2.RearEnd.FileViewer.Helper
 
 let badAccess _ _ =
-  raise InvalidFileTypeException
+  raise InvalidFileFormatException
 
 let translateFlags flags =
   let enumFlags =
@@ -45,18 +45,18 @@ let translateFlags flags =
         loop acc flags tail
   loop [] flags enumFlags
 
-let dumpFileHeader _ (fi: MachFileInfo) =
-  let hdr = fi.Mach.MachHdr
+let dumpFileHeader _ (file: MachBinFile) =
+  let hdr = file.Header
   out.PrintTwoCols
     "Magic:"
-    (String.u64ToHex (uint64 hdr.Magic)
+    (HexString.ofUInt64 (uint64 hdr.Magic)
     + String.wrapParen (hdr.Magic.ToString ()))
   out.PrintTwoCols
     "Cpu type:"
     (hdr.CPUType.ToString ())
   out.PrintTwoCols
     "Cpu subtype:"
-    (String.u32ToHex (uint32 hdr.CPUSubType))
+    (HexString.ofInt32 (int hdr.CPUSubType))
   out.PrintTwoCols
     "File type:"
     (hdr.FileType.ToString ())
@@ -68,7 +68,7 @@ let dumpFileHeader _ (fi: MachFileInfo) =
     (hdr.SizeOfCmds.ToString ())
   out.PrintTwoCols
     "Flags:"
-    (String.u64ToHex (uint64 hdr.Flags))
+    (HexString.ofUInt64 (uint64 hdr.Flags))
   translateFlags (uint64 hdr.Flags)
   |> List.iter (fun str -> out.PrintTwoCols "" str)
 
@@ -86,8 +86,9 @@ let translateAttribs attribs =
         loop acc attribs tail
   loop [] attribs enumAttribs
 
-let dumpSectionHeaders (opts: FileViewerOpts) (fi: MachFileInfo) =
-  let addrColumn = columnWidthOfAddr fi |> LeftAligned
+let dumpSectionHeaders (opts: FileViewerOpts) (mach: MachBinFile) =
+  let addrColumn = columnWidthOfAddr mach |> LeftAligned
+  let file = mach :> IBinFile
   if opts.Verbose then
     let cfg = [ LeftAligned 4; addrColumn; addrColumn; LeftAligned 16
                 LeftAligned 8; LeftAligned 8; LeftAligned 8; LeftAligned 8
@@ -98,23 +99,23 @@ let dumpSectionHeaders (opts: FileViewerOpts) (fi: MachFileInfo) =
                                "SecRelOff"; "#Reloc"; "Type"
                                "Res1"; "Res2"; "Attrib" ])
     out.PrintLine "  ---"
-    fi.Mach.Sections.SecByNum
+    mach.Sections
     |> Array.iteri (fun idx s ->
       out.PrintRow (true, cfg,
         [ String.wrapSqrdBracket (idx.ToString ())
-          (Addr.toString fi.WordSize s.SecAddr)
-          (Addr.toString fi.WordSize (s.SecAddr + s.SecSize - uint64 1))
+          (Addr.toString file.ISA.WordSize s.SecAddr)
+          (Addr.toString file.ISA.WordSize (s.SecAddr + s.SecSize - uint64 1))
           normalizeEmpty s.SecName
           normalizeEmpty s.SegName
-          String.u64ToHex s.SecSize
-          String.u64ToHex (uint64 s.SecOffset)
-          String.u64ToHex (uint64 s.SecAlignment)
+          HexString.ofUInt64 s.SecSize
+          HexString.ofUInt64 (uint64 s.SecOffset)
+          HexString.ofUInt64 (uint64 s.SecAlignment)
           s.SecRelOff.ToString ()
           s.SecNumOfReloc.ToString ()
           s.SecType.ToString ()
           s.SecReserved1.ToString ()
           s.SecReserved2.ToString ()
-          String.u32ToHex (uint32 s.SecAttrib) ])
+          HexString.ofUInt32 (uint32 s.SecAttrib) ])
       translateAttribs (uint64 s.SecAttrib)
       |> List.iter (fun str ->
         out.PrintRow (true, cfg, [ ""; ""; ""; ""; ""; ""; ""; ""; ""
@@ -124,16 +125,16 @@ let dumpSectionHeaders (opts: FileViewerOpts) (fi: MachFileInfo) =
     let cfg = [ LeftAligned 4; addrColumn; addrColumn; LeftAligned 24 ]
     out.PrintRow (true, cfg, [ "Num"; "Start"; "End"; "Name" ])
     out.PrintLine "  ---"
-    fi.GetSections ()
+    file.GetSections ()
     |> Seq.iteri (fun idx s ->
       out.PrintRow (true, cfg,
         [ String.wrapSqrdBracket (idx.ToString ())
-          (Addr.toString fi.WordSize s.Address)
-          (Addr.toString fi.WordSize (s.Address + s.Size - uint64 1))
+          (Addr.toString file.ISA.WordSize s.Address)
+          (Addr.toString file.ISA.WordSize (s.Address + uint64 s.Size - 1UL))
           normalizeEmpty s.Name ]))
 
-let dumpSectionDetails (secname: string) (fi: MachFileInfo) =
-  match fi.Mach.Sections.SecByName.TryFind secname with
+let dumpSectionDetails (secName: string) (file: MachBinFile) =
+  match file.Sections |> Array.tryFind (fun s -> s.SecName = secName) with
   | Some section ->
     out.PrintTwoCols
       "SecName:"
@@ -143,19 +144,19 @@ let dumpSectionDetails (secname: string) (fi: MachFileInfo) =
       section.SegName
     out.PrintTwoCols
       "SecAddr:"
-      (String.u64ToHex section.SecAddr)
+      (HexString.ofUInt64 section.SecAddr)
     out.PrintTwoCols
       "SecSize:"
-      (String.u64ToHex section.SecSize)
+      (HexString.ofUInt64 section.SecSize)
     out.PrintTwoCols
       "SecOffset:"
-      (String.u64ToHex (uint64 section.SecOffset))
+      (HexString.ofUInt64 (uint64 section.SecOffset))
     out.PrintTwoCols
       "SecAlignment:"
-      (String.u64ToHex (uint64 section.SecAlignment))
+      (HexString.ofUInt64 (uint64 section.SecAlignment))
     out.PrintTwoCols
       "SecRelOff:"
-      (String.u64ToHex (uint64 section.SecRelOff))
+      (HexString.ofUInt64 (uint64 section.SecRelOff))
     out.PrintTwoCols
       "SecNumOfReloc:"
       (section.SecNumOfReloc.ToString ())
@@ -164,7 +165,7 @@ let dumpSectionDetails (secname: string) (fi: MachFileInfo) =
       (section.SecType.ToString ())
     out.PrintTwoCols
       "SecAttrib:"
-      (String.u32ToHex (uint32 section.SecAttrib))
+      (HexString.ofInt32 (int section.SecAttrib))
     translateAttribs (uint64 section.SecAttrib)
     |> List.iter (fun str -> out.PrintTwoCols "" str )
     out.PrintTwoCols
@@ -181,7 +182,7 @@ let toVersionString (v: uint32) =
   let minor2 = v &&& uint32 0x000000FF
   major.ToString () + "." + minor1.ToString () + "." + minor2.ToString ()
 
-let printSymbolInfoVerbose fi s (machSymbol: Mach.MachSymbol) cfg =
+let printSymbolInfoVerbose file s (machSymbol: Mach.MachSymbol) cfg =
   let externLibVerinfo =
     match machSymbol.VerInfo with
     | Some info ->
@@ -191,8 +192,8 @@ let printSymbolInfoVerbose fi s (machSymbol: Mach.MachSymbol) cfg =
         + "current version" + toVersionString info.DyLibCurVer
     | None -> "(n/a)"
   out.PrintRow (true, cfg,
-    [ targetString s
-      Addr.toString (fi: MachFileInfo).WordSize s.Address
+    [ visibilityString s
+      Addr.toString (file: IBinFile).ISA.WordSize s.Address
       normalizeEmpty s.Name
       (toLibString >> normalizeEmpty) s.LibraryName
       machSymbol.SymType.ToString ()
@@ -201,71 +202,72 @@ let printSymbolInfoVerbose fi s (machSymbol: Mach.MachSymbol) cfg =
       externLibVerinfo
       String.wrapSqrdBracket (machSymbol.SecNum.ToString ()); ""; ""; "" ])
 
-let printSymbolInfoNone fi s cfg =
+let printSymbolInfoNone file s cfg =
   out.PrintRow (true, cfg,
-    [ targetString s
-      Addr.toString (fi: MachFileInfo).WordSize s.Address
+    [ visibilityString s
+      Addr.toString (file: IBinFile).ISA.WordSize s.Address
       normalizeEmpty s.Name
       (toLibString >> normalizeEmpty) s.LibraryName
       "(n/a)"; "(n/a)"; "(n/a)"; "(n/a)"; "(n/a)" ])
 
-let printSymbolInfo isVerbose (fi: MachFileInfo) (symbols: seq<Symbol>) =
-  let addrColumn = columnWidthOfAddr fi |> LeftAligned
+let printSymbolInfo isVerbose (mach: MachBinFile) (symbols: seq<Symbol>) =
+  let addrColumn = columnWidthOfAddr mach |> LeftAligned
   if isVerbose then
-    let cfg = [ LeftAligned 10; addrColumn; LeftAligned 40; LeftAligned 35
+    let cfg = [ LeftAligned 3; addrColumn; LeftAligned 40; LeftAligned 35
                 LeftAligned 8; LeftAligned 8; LeftAligned 8; LeftAligned 8
                 LeftAligned 8 ]
-    out.PrintRow (true, cfg, [ "Kind"; "Address"; "Name"; "LibraryName"
+    out.PrintRow (true, cfg, [ "S/D"; "Address"; "Name"; "Lib Name"
                                "Type"; "Description"; "External"; "Version"
                                "SectionIndex" ])
     out.PrintLine "  ---"
     symbols
     |> Seq.sortBy (fun s -> s.Name)
     |> Seq.sortBy (fun s -> s.Address)
-    |> Seq.sortBy (fun s -> s.Target)
+    |> Seq.sortBy (fun s -> s.Visibility)
     |> Seq.iter (fun s ->
-      match fi.Mach.SymInfo.SymbolMap.TryFind s.Address with
-      | Some machSymbol -> printSymbolInfoVerbose fi s machSymbol cfg
-      | None -> printSymbolInfoNone fi s cfg)
+      match mach.SymbolInfo.SymbolMap.TryFind s.Address with
+      | Some machSymbol -> printSymbolInfoVerbose mach s machSymbol cfg
+      | None -> printSymbolInfoNone mach s cfg)
   else
-    let cfg = [ LeftAligned 10; addrColumn; LeftAligned 55; LeftAligned 15 ]
-    out.PrintRow (true, cfg, [ "Kind"; "Address"; "Name"; "LibraryName" ])
+    let cfg = [ LeftAligned 3; LeftAligned 10
+                addrColumn; LeftAligned 55; LeftAligned 15 ]
+    out.PrintRow (true, cfg, [ "S/D"; "Kind"; "Address"; "Name"; "Lib Name" ])
     out.PrintLine "  ---"
     symbols
     |> Seq.sortBy (fun s -> s.Name)
     |> Seq.sortBy (fun s -> s.Address)
-    |> Seq.sortBy (fun s -> s.Target)
+    |> Seq.sortBy (fun s -> s.Visibility)
     |> Seq.iter (fun s ->
       out.PrintRow (true, cfg,
-        [ targetString s
-          Addr.toString fi.WordSize s.Address
+        [ visibilityString s
+          symbolKindString s
+          Addr.toString (mach :> IBinFile).ISA.WordSize s.Address
           normalizeEmpty s.Name
           (toLibString >> normalizeEmpty) s.LibraryName ]))
 
-let dumpSymbols (opts: FileViewerOpts) (fi: MachFileInfo) =
-  fi.GetSymbols ()
-  |> printSymbolInfo opts.Verbose fi
+let dumpSymbols (opts: FileViewerOpts) (mach: MachBinFile) =
+  (mach :> IBinFile).GetSymbols ()
+  |> printSymbolInfo opts.Verbose mach
 
-let dumpRelocs (opts: FileViewerOpts) (fi: MachFileInfo) =
-  fi.GetRelocationSymbols ()
-  |> printSymbolInfo opts.Verbose fi
+let dumpRelocs (opts: FileViewerOpts) (mach: MachBinFile) =
+  (mach :> IBinFile).GetRelocationSymbols ()
+  |> printSymbolInfo opts.Verbose mach
 
-let dumpFunctions (opts: FileViewerOpts) (fi: MachFileInfo) =
-  fi.GetFunctionSymbols ()
-  |> printSymbolInfo opts.Verbose fi
+let dumpFunctions (opts: FileViewerOpts) (mach: MachBinFile) =
+  (mach :> IBinFile).GetFunctionSymbols ()
+  |> printSymbolInfo opts.Verbose mach
 
-let dumpArchiveHeader (opts: FileViewerOpts) (fi: MachFileInfo) =
+let dumpArchiveHeader (opts: FileViewerOpts) (file: MachBinFile) =
   Utils.futureFeature ()
 
-let dumpUniversalHeader (_opts: FileViewerOpts) (fi: MachFileInfo) =
-  let span = fi.Span
-  let reader = fi.Mach.BinReader
-  if Mach.Header.isFat span reader then
-    Mach.Fat.loadFats span reader
-    |> List.iteri (fun idx fat ->
+let dumpUniversalHeader (_opts: FileViewerOpts) (mach: MachBinFile) =
+  let bytes = (mach :> IBinFile).Slice(0, 4).ToArray()
+  if Mach.Header.isFat bytes then
+    Mach.Fat.loadFatArchs bytes
+    |> Array.iteri (fun idx fat ->
       let cpu = fat.CPUType
       let cpusub = fat.CPUSubType
-      let arch = Mach.Header.cpuTypeToArch cpu cpusub
+      let arch = Mach.CPUType.toArch cpu cpusub
       out.PrintSubsectionTitle ("Architecture #" + idx.ToString ())
       out.PrintTwoCols "CPU Type:" (cpu.ToString ())
       out.PrintTwoCols "CPU Subtype:" ("0x" + (uint32 cpusub).ToString ("x"))
@@ -280,22 +282,22 @@ let printSegCmd (segCmd: Mach.SegCmd) idx =
   out.PrintTwoCols "Cmd:" (segCmd.Cmd.ToString ())
   out.PrintTwoCols "CmdSize:" (segCmd.CmdSize.ToString ())
   out.PrintTwoCols "SegCmdName:" segCmd.SegCmdName
-  out.PrintTwoCols "VMAddr:" (String.u64ToHex segCmd.VMAddr)
-  out.PrintTwoCols "VMSize:" (String.u64ToHex segCmd.VMSize)
+  out.PrintTwoCols "VMAddr:" (HexString.ofUInt64 segCmd.VMAddr)
+  out.PrintTwoCols "VMSize:" (HexString.ofUInt64 segCmd.VMSize)
   out.PrintTwoCols "FileOff:" (segCmd.FileOff.ToString ())
   out.PrintTwoCols "FileSize:" (segCmd.FileSize.ToString ())
-  out.PrintTwoCols "MaxProt:" (String.u64ToHex (uint64 segCmd.MaxProt))
-  out.PrintTwoCols "InitProt:" (String.u64ToHex (uint64 segCmd.InitProt))
+  out.PrintTwoCols "MaxProt:" (HexString.ofUInt64 (uint64 segCmd.MaxProt))
+  out.PrintTwoCols "InitProt:" (HexString.ofUInt64 (uint64 segCmd.InitProt))
   out.PrintTwoCols "NumSecs:" (segCmd.NumSecs.ToString ())
-  out.PrintTwoCols "SegFlag:" (String.u64ToHex (uint64 segCmd.SegFlag))
+  out.PrintTwoCols "SegFlag:" (HexString.ofUInt64 (uint64 segCmd.SegFlag))
 
 let printSymTabCmd (symTabCmd: Mach.SymTabCmd) idx =
   out.PrintSubsectionTitle ("Load command " + idx.ToString ())
   out.PrintTwoCols "Cmd:" (symTabCmd.Cmd.ToString ())
   out.PrintTwoCols "CmdSize:" (symTabCmd.CmdSize.ToString ())
-  out.PrintTwoCols "SymOff:" (String.u64ToHex (uint64 symTabCmd.SymOff))
+  out.PrintTwoCols "SymOff:" (HexString.ofUInt64 (uint64 symTabCmd.SymOff))
   out.PrintTwoCols "NumOfSym:" (symTabCmd.NumOfSym.ToString ())
-  out.PrintTwoCols "StrOff:" (String.u64ToHex (uint64 symTabCmd.StrOff))
+  out.PrintTwoCols "StrOff:" (HexString.ofUInt64 (uint64 symTabCmd.StrOff))
   out.PrintTwoCols "StrSize:" (toNBytes (uint64 symTabCmd.StrSize))
 
 let printDySymTabCmd (dySymTabCmd: Mach.DySymTabCmd) idx =
@@ -366,18 +368,18 @@ let printUnhandledCmd (unhandledCmd: Mach.UnhandledCommand) idx =
   out.PrintTwoCols "Cmd:" (unhandledCmd.Cmd.ToString ())
   out.PrintTwoCols "CmdSize:" (unhandledCmd.CmdSize.ToString ())
 
-let dumpLoadCommands _ (fi: MachFileInfo) =
-  fi.Mach.Cmds
-  |> List.iteri (fun idx cmd ->
+let dumpLoadCommands _ (file: MachBinFile) =
+  file.Commands
+  |> Array.iteri (fun idx cmd ->
     match cmd with
     | Mach.Segment segCmd ->
       printSegCmd segCmd idx
-      fi.Mach.Sections.SecByNum
+      file.Sections
       |> Array.iter (fun s ->
         if s.SegName = segCmd.SegCmdName then
           out.PrintLine ()
           out.PrintSubsubsectionTitle (String.wrapSqrdBracket "Section")
-          dumpSectionDetails s.SecName fi)
+          dumpSectionDetails s.SecName file)
     | Mach.SymTab symTabCmd -> printSymTabCmd symTabCmd idx
     | Mach.DySymTab dySymTabCmd -> printDySymTabCmd dySymTabCmd idx
     | Mach.DyLib dyLibCmd -> printDyLibCmd dyLibCmd idx
@@ -387,11 +389,11 @@ let dumpLoadCommands _ (fi: MachFileInfo) =
     | Mach.Unhandled unhandledCmd -> printUnhandledCmd unhandledCmd idx
     out.PrintLine ())
 
-let dumpSharedLibs _ (fi: MachFileInfo) =
+let dumpSharedLibs _ (file: MachBinFile) =
   let cfg = [ LeftAligned 35; LeftAligned 15; LeftAligned 15 ]
-  out.PrintRow (true, cfg, [ "LibraryName"; "CurVersion"; "CompatVersion" ])
-  fi.Mach.Cmds
-  |> List.iter (fun cmd ->
+  out.PrintRow (true, cfg, [ "Lib Name"; "CurVersion"; "CompatVersion" ])
+  file.Commands
+  |> Array.iter (fun cmd ->
     match cmd with
     | Mach.DyLib dyLibCmd ->
       out.PrintRow (true, cfg,

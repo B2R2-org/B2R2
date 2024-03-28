@@ -1,0 +1,46 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="Utils.fs" />
+    <Compile Include="Types.fs" />
+    <Compile Include="IAction.fs" />
+    <Compile Include="CFGAction.fs" />
+    <Compile Include="CountAction.fs" />
+    <Compile Include="DbscanAction.fs" />
+    <Compile Include="DetectAction.fs" />
+    <Compile Include="DiffAction.fs" />
+    <Compile Include="DisasmAction.fs" />
+    <Compile Include="DotAction.fs" />
+    <Compile Include="EditAction.fs" />
+    <Compile Include="GrepAction.fs" />
+    <Compile Include="HexdumpAction.fs" />
+    <Compile Include="JaccardAction.fs" />
+    <Compile Include="LiftAction.fs" />
+    <Compile Include="ListAction.fs" />
+    <Compile Include="LLVMAction.fs" />
+    <Compile Include="LoadAction.fs" />
+    <Compile Include="PrintAction.fs" />
+    <Compile Include="SliceAction.fs" />
+    <Compile Include="WinnowingAction.fs" />
+    <Compile Include="WriteAction.fs" />
+    <Compile Include="Program.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Core\B2R2.RearEnd.Core.fsproj" />
+    <ProjectReference Include="..\..\FrontEnd\BinFile\B2R2.FrontEnd.BinFile.fsproj" />
+    <ProjectReference Include="..\..\FrontEnd\Core\B2R2.FrontEnd.Core.fsproj" />
+    <PackageReference Include="B2R2.MiddleEnd.BinEssence" Version="0.7.0" />
+    <PackageReference Include="B2R2.MiddleEnd.LLVM" Version="0.7.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="System.IO.Hashing" Version="8.0.0" />
+  </ItemGroup>
+
+</Project>

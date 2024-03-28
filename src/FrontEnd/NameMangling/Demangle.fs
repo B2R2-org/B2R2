@@ -24,17 +24,9 @@ SOFTWARE.
 
 namespace B2R2.FrontEnd.NameMangling
 
-[<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module Demangler =
   [<CompiledName ("Detect")>]
   let detect str =
     if MSDemangler.IsWellFormed str then MSMangler
     elif ItaniumDemangler.IsWellFormed str then ItaniumMangler
     else UnknownMangler
-
-  [<CompiledName ("Demangle")>]
-  let demangle str =
-    match detect str with
-    | MSMangler -> MSDemangler().Run str
-    | ItaniumMangler -> ItaniumDemangler().Run str
-    | UnknownMangler-> Error InvalidFormat

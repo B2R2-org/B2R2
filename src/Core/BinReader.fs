@@ -26,28 +26,18 @@ namespace B2R2
 
 open System
 open System.Buffers.Binary
+open System.Runtime.InteropServices
 
 /// This is a type alias for `ReadOnlySpan<byte>`. We define this alias because
 /// B2R2 uses this type quite frequently.
 type ByteSpan = ReadOnlySpan<byte>
 
-/// IBinReader provides an interface for reading byte sequences from a byte array
-/// (or a Span). The way of reading can change depending on the endianness used
-/// by the target binary.
+/// IBinReader provides an interface for reading byte sequences from a byte
+/// array (or a ByteSpan). The endianness is determined by the implementation
+/// of the interface.
 type IBinReader =
-  /// Get a read-only span of bytes (ByteSpan) from the given byte
-  /// array.
-  abstract GetReadOnlySpan:
-    bs: byte[] * offset: int * size: int -> ByteSpan
-
   /// The endianness of this reader.
   abstract Endianness: Endian
-
-  /// Read a single byte from the given byte array.
-  abstract ReadByte: bs: byte[] * offset: int -> byte
-
-  /// Read a single byte from the given byte span.
-  abstract ReadByte: span: ByteSpan * offset: int -> byte
 
   /// Read a single byte as an int8 from the given byte array.
   abstract ReadInt8: bs: byte[] * offset: int -> int8
@@ -96,13 +86,6 @@ type IBinReader =
 
   /// Read a uint64 value from the given byte span.
   abstract ReadUInt64: span: ByteSpan * offset: int -> uint64
-
-  /// Read a byte array of `size` from the given byte array.
-  abstract ReadBytes: bs: byte[] * offset: int * size: int -> byte[]
-
-  /// Read a byte array of `size` from the given byte span.
-  abstract ReadBytes:
-    span: ByteSpan * offset: int * size: int -> byte[]
 
   /// Read a character array of size n from the given byte array.
   abstract ReadChars: bs: byte[] * offset: int * size: int -> char[]
@@ -158,17 +141,7 @@ type IBinReader =
 /// Little-endian binary reader.
 type BinReaderLE () =
   interface IBinReader with
-    member __.GetReadOnlySpan (bs, offset, size) =
-      let span = ReadOnlySpan (bs)
-      span.Slice (offset, size)
-
     member __.Endianness with get() = Endian.Little
-
-    member __.ReadByte (bs: byte[], offset) =
-      bs[offset]
-
-    member __.ReadByte (span: ByteSpan, offset) =
-      span[offset]
 
     member __.ReadInt8 (bs: byte[], offset) =
       bs[offset] |> int8
@@ -224,12 +197,6 @@ type BinReaderLE () =
     member __.ReadUInt64 (span: ByteSpan, offset) =
       BinaryPrimitives.ReadUInt64LittleEndian (span.Slice offset)
 
-    member __.ReadBytes (bs: byte[], offset, size) =
-      Array.sub bs offset size
-
-    member __.ReadBytes (span: ByteSpan, offset, size) =
-      span.Slice(offset, size).ToArray()
-
     member __.ReadChars (bs: byte[], offset, size) =
       Array.sub bs offset size
       |> Array.map char
@@ -238,28 +205,28 @@ type BinReaderLE () =
       span.Slice(offset, size).ToArray()
       |> Array.map char
 
-    member __.ReadInt64LEB128 (bs, offset) =
+    member __.ReadInt64LEB128 (bs: byte[], offset) =
       let span = ReadOnlySpan (bs)
       LEB128.DecodeSInt64 (span.Slice offset)
 
     member __.ReadInt64LEB128 (span: ByteSpan, offset) =
       LEB128.DecodeSInt64 (span.Slice offset)
 
-    member __.ReadUInt64LEB128 (bs, offset) =
+    member __.ReadUInt64LEB128 (bs: byte[], offset) =
       let span = ReadOnlySpan (bs)
       LEB128.DecodeUInt64 (span.Slice offset)
 
     member __.ReadUInt64LEB128 (span: ByteSpan, offset) =
       LEB128.DecodeUInt64 (span.Slice offset)
 
-    member __.ReadInt32LEB128 (bs, offset) =
+    member __.ReadInt32LEB128 (bs: byte[], offset) =
       let span = ReadOnlySpan (bs)
       LEB128.DecodeSInt32 (span.Slice offset)
 
     member __.ReadInt32LEB128 (span: ByteSpan, offset) =
       LEB128.DecodeSInt32 (span.Slice offset)
 
-    member __.ReadUInt32LEB128 (bs, offset) =
+    member __.ReadUInt32LEB128 (bs: byte[], offset) =
       let span = ReadOnlySpan (bs)
       LEB128.DecodeUInt32 (span.Slice offset)
 
@@ -269,17 +236,7 @@ type BinReaderLE () =
 /// Big-endian binary reader.
 type BinReaderBE () =
   interface IBinReader with
-    member __.GetReadOnlySpan (bs, offset, size) =
-      let span = ReadOnlySpan (bs)
-      span.Slice (offset, size)
-
     member __.Endianness with get() = Endian.Big
-
-    member __.ReadByte (bs: byte[], offset) =
-      bs[offset]
-
-    member __.ReadByte (span: ByteSpan, offset) =
-      span[offset]
 
     member __.ReadInt8 (bs: byte[], offset) =
       bs[offset] |> int8
@@ -335,12 +292,6 @@ type BinReaderBE () =
     member __.ReadUInt64 (span: ByteSpan, offset) =
       BinaryPrimitives.ReadUInt64BigEndian (span.Slice offset)
 
-    member __.ReadBytes (bs: byte[], offset, size) =
-      Array.sub bs offset size
-
-    member __.ReadBytes (span: ByteSpan, offset, size) =
-      span.Slice(offset, size).ToArray()
-
     member __.ReadChars (bs: byte[], offset, size) =
       Array.sub bs offset size
       |> Array.map char
@@ -349,38 +300,40 @@ type BinReaderBE () =
       span.Slice(offset, size).ToArray()
       |> Array.map char
 
-    member __.ReadInt64LEB128 (bs, offset) =
+    member __.ReadInt64LEB128 (bs: byte[], offset) =
       let span = ReadOnlySpan (bs)
       LEB128.DecodeSInt64 (span.Slice offset)
 
     member __.ReadInt64LEB128 (span: ByteSpan, offset) =
       LEB128.DecodeSInt64 (span.Slice offset)
 
-    member __.ReadUInt64LEB128 (bs, offset) =
+    member __.ReadUInt64LEB128 (bs: byte[], offset) =
       let span = ReadOnlySpan (bs)
       LEB128.DecodeUInt64 (span.Slice offset)
 
     member __.ReadUInt64LEB128 (span: ByteSpan, offset) =
       LEB128.DecodeUInt64 (span.Slice offset)
 
-    member __.ReadInt32LEB128 (bs, offset) =
+    member __.ReadInt32LEB128 (bs: byte[], offset) =
       let span = ReadOnlySpan (bs)
       LEB128.DecodeSInt32 (span.Slice offset)
 
     member __.ReadInt32LEB128 (span: ByteSpan, offset) =
       LEB128.DecodeSInt32 (span.Slice offset)
 
-    member __.ReadUInt32LEB128 (bs, offset) =
+    member __.ReadUInt32LEB128 (bs: byte[], offset) =
       let span = ReadOnlySpan (bs)
       LEB128.DecodeUInt32 (span.Slice offset)
 
     member __.ReadUInt32LEB128 (span: ByteSpan, offset) =
       LEB128.DecodeUInt32 (span.Slice offset)
 
-[<RequireQualifiedAccess>]
-module BinReader =
-  [<CompiledName ("BinReaderLE")>]
-  let binReaderLE = BinReaderLE () :> IBinReader
-
-  [<CompiledName ("BinReaderBE")>]
-  let binReaderBE = BinReaderBE () :> IBinReader
+/// A factory for creating a binary reader.
+type BinReader =
+  /// Create a binary reader with the given endianness. The default endianness
+  /// is little-endian.
+  static member Init ([<Optional;
+                        DefaultParameterValue(Endian.Little)>] endian) =
+    match endian with
+    | Endian.Little -> BinReaderLE () :> IBinReader
+    | _ -> BinReaderBE () :> IBinReader

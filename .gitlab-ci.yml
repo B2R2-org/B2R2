@@ -1,29 +1,46 @@
-image: mcr.microsoft.com/dotnet/sdk:6.0
-
 stages:
     - build
     - extra
 
-build:
+lint:
+    image: mcr.microsoft.com/dotnet/sdk:5.0.408-focal
+    stage: build
+    before_script:
+        - LATEST_COMMIT=$(git ls-remote https://gitlab-ci-token:${CI_JOB_TOKEN}@softsec.kaist.ac.kr:8000/B2R2/B2R2.git HEAD | awk '{print $1}')
+        - CHANGES=$(if [ "$LATEST_COMMIT" == "$CI_COMMIT_SHA" ]; then git diff-tree --diff-filter=ACM --no-commit-id --name-only -r $LATEST_COMMIT; else git diff-tree --diff-filter=ACM --no-commit-id --name-only -r $LATEST_COMMIT -r $CI_COMMIT_SHA; fi | sed '/.fs$/!d' | sed '/CFG.Tests.fs/d')
+    script:
+        - dotnet tool install --global dotnet-fsharplint --version 0.21.3
+        - echo $CHANGES
+        - for f in $CHANGES; do echo $f; /root/.dotnet/tools/dotnet-fsharplint lint $f; done
+    tags:
+        - b2r2
+
+build-debug:
+    image: mcr.microsoft.com/dotnet/sdk:8.0
     stage: build
     script:
         - dotnet restore
+        - dotnet tool restore
         - dotnet test
+    tags:
+        - b2r2
+
+build-release:
+    image: mcr.microsoft.com/dotnet/sdk:8.0
+    stage: build
+    script:
+        - dotnet restore
+        - dotnet tool restore
         - dotnet test -c Release
         - dotnet pack -p:PackageVersion=0.0.0-test -c Release -o `pwd`/build/
-    artifacts:
-        paths:
-            - build/
-        expire_in: 3 hrs
     tags:
         - b2r2
 
 extra:
+    image: mcr.microsoft.com/dotnet/sdk:8.0
     stage: extra
     script:
         - git clone https://gitlab-ci-token:${CI_JOB_TOKEN}@softsec.kaist.ac.kr:8000/B2R2/ci-runner
         - dotnet run --project ci-runner/CIStarter -- $CI_URL $CI_COMMIT_SHA $CI_COMMIT_REF_NAME "$GITLAB_USER_NAME"
-    dependencies:
-        - build
     tags:
         - b2r2

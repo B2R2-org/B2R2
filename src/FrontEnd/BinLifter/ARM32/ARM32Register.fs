@@ -370,6 +370,70 @@ type Register =
   | NSACR = 0xA9
   /// FPSCR, Floating-point Status and Control Register, VMSA.
   | FPSCR = 0xAA
+  /// Q0A is the 1st 64-bit chunk of Q0A.
+  | Q0A = 0xAB
+  /// Q0B is the 2nd 64-bit chunk of Q0B.
+  | Q0B = 0xAC
+  /// Q1A is the 1st 64-bit chunk of Q1A.
+  | Q1A = 0xAD
+  /// Q1B is the 2nd 64-bit chunk of Q1B.
+  | Q1B = 0xAE
+  /// Q2A is the 1st 64-bit chunk of Q2A.
+  | Q2A = 0xAF
+  /// Q2B is the 2nd 64-bit chunk of Q2B.
+  | Q2B = 0xB0
+  /// Q3A is the 1st 64-bit chunk of Q3A.
+  | Q3A = 0xB1
+  /// Q3B is the 2nd 64-bit chunk of Q3B.
+  | Q3B = 0xB2
+  /// Q4A is the 1st 64-bit chunk of Q4A.
+  | Q4A = 0xB3
+  /// Q4B is the 2nd 64-bit chunk of Q4B.
+  | Q4B = 0xB4
+  /// Q5A is the 1st 64-bit chunk of Q5A.
+  | Q5A = 0xB5
+  /// Q5B is the 2nd 64-bit chunk of Q5B.
+  | Q5B = 0xB6
+  /// Q6A is the 1st 64-bit chunk of Q6A.
+  | Q6A = 0xB7
+  /// Q6B is the 2nd 64-bit chunk of Q6B.
+  | Q6B = 0xB8
+  /// Q7A is the 1st 64-bit chunk of Q7A.
+  | Q7A = 0xB9
+  /// Q7B is the 2nd 64-bit chunk of Q7B.
+  | Q7B = 0xBA
+  /// Q8A is the 1st 64-bit chunk of Q8A.
+  | Q8A = 0xBB
+  /// Q8B is the 2nd 64-bit chunk of Q8B.
+  | Q8B = 0xBC
+  /// Q9A is the 1st 64-bit chunk of Q9A.
+  | Q9A = 0xBD
+  /// Q9B is the 2nd 64-bit chunk of Q9B.
+  | Q9B = 0xBE
+  /// Q10A is the 1st 64-bit chunk of Q10A.
+  | Q10A = 0xBF
+  /// Q10B is the 2nd 64-bit chunk of Q10B.
+  | Q10B = 0xC0
+  /// Q11A is the 1st 64-bit chunk of Q11A.
+  | Q11A = 0xC1
+  /// Q11B is the 2nd 64-bit chunk of Q11B.
+  | Q11B = 0xC2
+  /// Q12A is the 1st 64-bit chunk of Q12A.
+  | Q12A = 0xC3
+  /// Q12B is the 2nd 64-bit chunk of Q12B.
+  | Q12B = 0xC4
+  /// Q13A is the 1st 64-bit chunk of Q13A.
+  | Q13A = 0xC5
+  /// Q13B is the 2nd 64-bit chunk of Q13B.
+  | Q13B = 0xC6
+  /// Q14A is the 1st 64-bit chunk of Q14A.
+  | Q14A = 0xC7
+  /// Q14B is the 2nd 64-bit chunk of Q14B.
+  | Q14B = 0xC8
+  /// Q15A is the 1st 64-bit chunk of Q15A.
+  | Q15A = 0xC9
+  /// Q15B is the 2nd 64-bit chunk of Q15B.
+  | Q15B = 0xCA
 
 /// Shortcut for Register type.
 type internal R = Register
@@ -384,7 +448,7 @@ module Register =
     LanguagePrimitives.EnumToValue (reg) |> RegisterID.create
 
   let ofString (str: string) =
-    match str.ToLower () with
+    match str.ToLowerInvariant () with
     | "r0" -> R.R0
     | "r1" -> R.R1
     | "r2" -> R.R2
@@ -484,6 +548,38 @@ module Register =
     | "q13" -> R.Q13
     | "q14" -> R.Q14
     | "q15" -> R.Q15
+    | "q0a" -> R.Q0A
+    | "q0b" -> R.Q0B
+    | "q1a" -> R.Q1A
+    | "q1b" -> R.Q1B
+    | "q2a" -> R.Q2A
+    | "q2b" -> R.Q2B
+    | "q3a" -> R.Q3A
+    | "q3b" -> R.Q3B
+    | "q4a" -> R.Q4A
+    | "q4b" -> R.Q4B
+    | "q5a" -> R.Q5A
+    | "q5b" -> R.Q5B
+    | "q6a" -> R.Q6A
+    | "q6b" -> R.Q6B
+    | "q7a" -> R.Q7A
+    | "q7b" -> R.Q7B
+    | "q8a" -> R.Q8A
+    | "q8b" -> R.Q8B
+    | "q9a" -> R.Q9A
+    | "q9b" -> R.Q9B
+    | "q10a" -> R.Q10A
+    | "q10b" -> R.Q10B
+    | "q11a" -> R.Q11A
+    | "q11b" -> R.Q11B
+    | "q12a" -> R.Q12A
+    | "q12b" -> R.Q12B
+    | "q13a" -> R.Q13A
+    | "q13b" -> R.Q13B
+    | "q14a" -> R.Q14A
+    | "q14b" -> R.Q14B
+    | "q15a" -> R.Q15A
+    | "q15b" -> R.Q15B
     | "c0" -> R.C0
     | "c1" -> R.C1
     | "c2" -> R.C2
@@ -658,6 +754,38 @@ module Register =
     | R.Q13 -> "q13"
     | R.Q14 -> "q14"
     | R.Q15 -> "q15"
+    | R.Q0A -> "q0a"
+    | R.Q0B -> "q0b"
+    | R.Q1A -> "q1a"
+    | R.Q1B -> "q1b"
+    | R.Q2A -> "q2a"
+    | R.Q2B -> "q2b"
+    | R.Q3A -> "q3a"
+    | R.Q3B -> "q3b"
+    | R.Q4A -> "q4a"
+    | R.Q4B -> "q4b"
+    | R.Q5A -> "q5a"
+    | R.Q5B -> "q5b"
+    | R.Q6A -> "q6a"
+    | R.Q6B -> "q6b"
+    | R.Q7A -> "q7a"
+    | R.Q7B -> "q7b"
+    | R.Q8A -> "q8a"
+    | R.Q8B -> "q8b"
+    | R.Q9A -> "q9a"
+    | R.Q9B -> "q9b"
+    | R.Q10A -> "q10a"
+    | R.Q10B -> "q10b"
+    | R.Q11A -> "q11a"
+    | R.Q11B -> "q11b"
+    | R.Q12A -> "q12a"
+    | R.Q12B -> "q12b"
+    | R.Q13A -> "q13a"
+    | R.Q13B -> "q13b"
+    | R.Q14A -> "q14a"
+    | R.Q14B -> "q14b"
+    | R.Q15A -> "q15a"
+    | R.Q15B -> "q15b"
     | R.C0 -> "c0"
     | R.C1 -> "c1"
     | R.C2 -> "c2"
@@ -743,7 +871,11 @@ module Register =
     | R.D0 | R.D1 | R.D2 | R.D3 | R.D4 | R.D5 | R.D6 | R.D7 | R.D8 | R.D9
     | R.D10 | R.D11 | R.D12 | R.D13 | R.D14 | R.D15 | R.D16 | R.D17
     | R.D18 | R.D19 | R.D20 | R.D21 | R.D22 | R.D23 | R.D24 | R.D25
-    | R.D26 | R.D27 | R.D28 | R.D29 | R.D30 | R.D31 -> 64<rt>
+    | R.D26 | R.D27 | R.D28 | R.D29 | R.D30 | R.D31 | R.Q0A | R.Q0B
+    | R.Q1A | R.Q1B | R.Q2A | R.Q2B | R.Q3A | R.Q3B | R.Q4A | R.Q4B
+    | R.Q5A | R.Q5B | R.Q6A | R.Q6B | R.Q7A | R.Q7B | R.Q8A | R.Q8B
+    | R.Q9A | R.Q9B | R.Q10A | R.Q10B | R.Q11A | R.Q11B | R.Q12A | R.Q12B
+    | R.Q13A | R.Q13B | R.Q14A | R.Q14B | R.Q15A | R.Q15B -> 64<rt>
     | R.Q0 | R.Q1 | R.Q2 | R.Q3 | R.Q4 | R.Q5 | R.Q6 | R.Q7 | R.Q8 | R.Q9
     | R.Q10 | R.Q11 | R.Q12 | R.Q13 | R.Q14 | R.Q15 -> 128<rt>
     | _ -> Utils.impossible ()

@@ -14,14 +14,14 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="B2R2.FsReadLine" Version="0.1.5" />
+    <PackageReference Include="B2R2.FsReadLine" Version="0.2.0" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\..\Peripheral\Assembly\AsmInterface\B2R2.Peripheral.Assembly.AsmInterface.fsproj" />
-    <ProjectReference Include="..\..\FrontEnd\BinInterface\B2R2.FrontEnd.BinInterface.fsproj" />
-    <ProjectReference Include="..\..\MiddleEnd\ConcEval\B2R2.MiddleEnd.ConcEval.fsproj" />
+    <ProjectReference Include="..\..\FrontEnd\Core\B2R2.FrontEnd.Core.fsproj" />
     <ProjectReference Include="..\Core\B2R2.RearEnd.Core.fsproj" />
+    <PackageReference Include="B2R2.MiddleEnd.ConcEval" Version="0.7.0" />
   </ItemGroup>
 
 </Project>

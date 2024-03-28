@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <PackageLicenseFile>LICENSE.md</PackageLicenseFile>
@@ -8,7 +8,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="DemangleTypes.fs" />
+    <Compile Include="ManglingScheme.fs" />
+    <Compile Include="IDemanglable.fs" />
     <Compile Include="MSTypes.fs" />
     <Compile Include="MSUtils.fs" />
     <Compile Include="MSInterpreter.fs" />
@@ -23,6 +24,10 @@
     <None Include="..\..\..\LICENSE.md" Pack="true" PackagePath="" />
     <None Include="..\..\..\assets\b2r2-240x240.png" Pack="true" PackagePath="" />
     <None Include="README.md" Pack="true" PackagePath="" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Core\B2R2.Core.fsproj" />
   </ItemGroup>
 
   <ItemGroup>

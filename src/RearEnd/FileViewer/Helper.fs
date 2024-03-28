@@ -36,14 +36,25 @@ let normalizeEmpty s =
 let toNBytes (v: uint64) =
   v.ToString () + " bytes"
 
-let columnWidthOfAddr (fi: FileInfo) =
-  WordSize.toByteWidth fi.WordSize * 2
+let columnWidthOfAddr (file: IBinFile) =
+  WordSize.toByteWidth file.ISA.WordSize * 2
 
-let targetString s =
-  match s.Target with
-  | TargetKind.StaticSymbol -> "(s)"
-  | TargetKind.DynamicSymbol -> "(d)"
+let visibilityString s =
+  match s.Visibility with
+  | SymbolVisibility.StaticSymbol -> "(s)"
+  | SymbolVisibility.DynamicSymbol -> "(d)"
   | _ -> Utils.impossible ()
+
+let symbolKindString (s: Symbol) =
+  match s.Kind with
+  | SymNoType -> "unknown"
+  | SymObjectType -> "object"
+  | SymFunctionType -> "function"
+  | SymExternFunctionType -> "extfunc"
+  | SymTrampolineType -> "trampoline"
+  | SymSectionType -> "section"
+  | SymFileType -> "file"
+  | SymForwardType (bin, func) -> $"{func}@{bin}"
 
 let toLibString s =
   if System.String.IsNullOrEmpty s then s else "@" + s

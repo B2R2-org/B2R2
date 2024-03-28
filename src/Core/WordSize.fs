@@ -24,8 +24,10 @@
 
 namespace B2R2
 
-/// B2R2 represents the word size of a CPU with WordSize, which can be either
-/// 32- or 64-bit.
+/// This exception is raised when an invalid WordSize is encountered.
+exception InvalidWordSizeException
+
+/// B2R2 represents the word size of a CPU with WordSize.
 type WordSize =
   | Bit8 = 8
   | Bit16 = 16
@@ -34,25 +36,26 @@ type WordSize =
   | Bit128 = 128
   | Bit256 = 256
 
-/// This exception is raised when an invalid WordSize is encountered.
-exception InvalidWordSizeException
-
 /// A helper module for the WordSize type.
+[<RequireQualifiedAccess>]
 module WordSize =
-
-  let bitTypeOfString = function
+  /// Transform a string into a word size.
+  [<CompiledName "OfString">]
+  let ofString = function
     | "8"  -> WordSize.Bit8
     | "16"  -> WordSize.Bit16
     | "32"  -> WordSize.Bit32
     | "64"  -> WordSize.Bit64
     | "128" -> WordSize.Bit128
     | "256" -> WordSize.Bit256
-    | _ -> failwith "Unknown WordSize."
+    | _ -> raise InvalidWordSizeException
 
   /// Transform a word size into a byte length.
+  [<CompiledName "ToByteWidth">]
   let toByteWidth (wordSize: WordSize) = int32 wordSize / 8
 
   /// Transform a word size into a RegType.
+  [<CompiledName "ToRegType">]
   let toRegType = function
     | WordSize.Bit8 -> 8<rt>
     | WordSize.Bit16 -> 16<rt>
@@ -60,19 +63,24 @@ module WordSize =
     | WordSize.Bit64  -> 64<rt>
     | WordSize.Bit128 -> 128<rt>
     | WordSize.Bit256 -> 256<rt>
-    | _ -> failwith "Unknown WordSize."
+    | _ -> raise InvalidWordSizeException
 
   /// Transform a word size into a string.
+  [<CompiledName "ToString">]
   let toString wordSz = (toRegType wordSz).ToString ()
 
   /// Is the given word size 32 bit?
+  [<CompiledName "Is32">]
   let is32 wordSz = wordSz = WordSize.Bit32
 
   /// Is the given word size 64 bit?
+  [<CompiledName "Is64">]
   let is64 wordSz = wordSz = WordSize.Bit64
 
   /// Is the given word size 128 bit?
+  [<CompiledName "Is128">]
   let is128 wordSz = wordSz = WordSize.Bit128
 
   /// Is the given word size 256 bit?
+  [<CompiledName "Is256">]
   let is256 wordSz = wordSz = WordSize.Bit256

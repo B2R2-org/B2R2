@@ -25,7 +25,7 @@
 module B2R2.RearEnd.BinExplorer.Program
 
 open B2R2
-open B2R2.FrontEnd.BinInterface
+open B2R2.FrontEnd
 open B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.MiddleEnd
 open B2R2.MiddleEnd.BinEssence
@@ -77,7 +77,7 @@ type BinExplorerOpts (isa) =
   /// List of analyses to perform.
   member __.GetAnalyses arch =
     let preanalyses =
-      [ if arch = Arch.EVM then
+      [ if arch = Architecture.EVM then
           if __.EnableEVMAnalysis then
             EVMCodeCopyAnalysis () :> IPluggableAnalysis
             EVMTrampolineAnalysis (__.EVMAbiFile) :> IPluggableAnalysis
@@ -206,10 +206,10 @@ let spec =
                   long = "--batch" )
   ]
 
-let buildGraph (opts: BinExplorerOpts) handle =
-  let arch = handle.ISA.Arch
+let buildGraph (opts: BinExplorerOpts) (hdl: BinHandle) =
+  let arch = hdl.File.ISA.Arch
   let preanalyses, iteranalyses, postanalyses = opts.GetAnalyses arch
-  BinEssence.init handle preanalyses iteranalyses postanalyses
+  BinEssence.init hdl preanalyses iteranalyses postanalyses
 
 let startGUI (opts: BinExplorerOpts) arbiter =
   HTTPServer.startServer arbiter opts.IP opts.Port opts.Verbose
@@ -223,18 +223,18 @@ let dumpJsonFiles jsonDir ess =
   ess.CodeManager.FunctionMaintainer.RegularFunctions
   |> Seq.iter (fun func ->
     let id = func.FunctionID
-    let entry = func.Entry
+    let ep = func.EntryPoint
     let disasmJsonPath = Printf.sprintf "%s/%s.disasmCFG" jsonDir id
-    let cfg, root = BinEssence.getFunctionCFG ess entry |> Result.get
-    let disasmcfg, _ = DisasmLens.filter ess.CodeManager cfg root
+    let cfg, root = BinEssence.getFunctionCFG ess ep |> Result.get
+    let disasmcfg, _ = DisasmLens.convert ess.CodeManager cfg root
     CFGExport.toJson disasmcfg disasmJsonPath)
 
 let initBinHdl isa (name: string) =
-  let autoDetect = not (isa.Arch = Architecture.EVM)
-  BinHandle.Init (isa, ArchOperationMode.NoMode, autoDetect, None, name)
+  let autoDetect = (isa.Arch <> Architecture.EVM)
+  BinHandle (name, isa, ArchOperationMode.NoMode, None)
 
 let interactiveMain files (opts: BinExplorerOpts) =
-  if List.length files = 0 then
+  if List.isEmpty files then
     eprintfn "A file should be given as input.\n\n\
               Type --help or --batch to see more info."; exit 1
   else

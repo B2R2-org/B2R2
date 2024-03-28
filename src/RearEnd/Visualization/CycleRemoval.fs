@@ -26,23 +26,14 @@ module internal B2R2.RearEnd.Visualization.CycleRemoval
 
 open B2R2.MiddleEnd.BinGraph
 
-let private collectSelfCycle backEdgeList src dst edge =
-  if VisGraph.getID src = VisGraph.getID dst then (* Definition of self cycle *)
-    (edge: VisEdge).IsBackEdge <- true
-    (src, dst, edge, false) :: backEdgeList
-  else backEdgeList
-
-let private collectBackEdge (vGraph: VisGraph) order backEdgeList src dst edge =
+let private collectBackEdge vGraph order backEdgeList (edge: Edge<_, VisEdge>) =
+  let src, dst = edge.First, edge.Second
   if Map.find src order > Map.find dst order then (* BackEdge *)
-    (edge: VisEdge).IsBackEdge <- true
-    match vGraph.TryFindEdgeData dst src with
+    edge.Label.IsBackEdge <- true
+    match (vGraph: VisGraph).TryFindEdge (dst, src) with
     | Some _ -> (src, dst, edge, false) :: backEdgeList
     | None -> (src, dst, edge, true) :: backEdgeList
   else backEdgeList
-
-let removeBackEdge (vGraph: VisGraph) src dst edge needToAddReverse =
-  vGraph.RemoveEdge src dst |> ignore
-  if needToAddReverse then vGraph.AddEdge dst src edge |> ignore
 
 let private dfsCollectBackEdges vGraph roots backEdgeList =
   let _, orderMap =
@@ -50,9 +41,20 @@ let private dfsCollectBackEdges vGraph roots backEdgeList =
       cnt + 1, Map.add v cnt map) (0, Map.empty)
   vGraph.FoldEdge (collectBackEdge vGraph orderMap) backEdgeList
 
+let private collectSelfCycle backEdgeList (edge: Edge<_, VisEdge>) =
+  let src, dst = edge.First, edge.Second
+  if VisGraph.getID src = VisGraph.getID dst then (* Definition of self cycle *)
+    edge.Label.IsBackEdge <- true
+    (src, dst, edge, false) :: backEdgeList
+  else backEdgeList
+
+let removeBackEdge (vGraph: VisGraph) src dst edge needToAddReverse =
+  vGraph.RemoveEdge (src, dst) |> ignore
+  if needToAddReverse then vGraph.AddEdge (dst, src, edge) |> ignore
+
 let removeCycles (vGraph: VisGraph) roots =
   vGraph.FoldEdge collectSelfCycle []
   |> dfsCollectBackEdges vGraph roots
   |> List.map (fun (src, dst, edge, needToAddReverse) ->
-    removeBackEdge vGraph src dst edge needToAddReverse
-    (src, dst, edge))
+    removeBackEdge vGraph src dst edge.Label needToAddReverse
+    (src, dst, edge.Label))

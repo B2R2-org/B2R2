@@ -45,8 +45,7 @@ type VariableKind =
   /// Global variables. This variable is available only after the SSA promotion.
   | GlobalVar of RegType * Addr
 with
-  [<CompiledName("ToString")>]
-  static member toString = function
+  static member ToString = function
     | RegVar (_, _, n) -> n
     | PCVar (_) -> "PC"
     | TempVar (_, n) -> "T_" + n.ToString()
@@ -60,12 +59,10 @@ type Variable = {
   mutable Identifier: int
 }
 with
-  [<CompiledName("ToString")>]
-  static member toString ({ Kind = k; Identifier = i }) =
-    VariableKind.toString k + "_" + i.ToString ()
+  static member ToString ({ Kind = k; Identifier = i }) =
+    VariableKind.ToString k + "_" + i.ToString ()
 
-  [<CompiledName("IsPC")>]
-  static member isPC ({ Kind = k }) =
+  static member IsPC ({ Kind = k }) =
     match k with
     | PCVar (_) -> true
     | _ -> false
@@ -122,11 +119,12 @@ type Expr =
   /// case).
   | Undefined of RegType * string
 
-  /// Value returned from a function located at the address (fnAddr). The second
-  /// argument indicates the return address (the fall-through address of the
-  /// call instruction), and the third argument indicates the live definition of
-  /// previously defined variable. A fake bbl will contain this expression.
-  | ReturnVal of fnAddr: Addr * retAddr: Addr * Variable
+  /// Value returned (i.e. defined) from a function located at the address
+  /// (fnAddr). The second argument indicates the return address (the
+  /// fall-through address of the call instruction), and the third argument
+  /// indicates the live value expression defined from the callee. A fake bbl
+  /// will contain this expression.
+  | ReturnVal of fnAddr: Addr * retAddr: Addr * value: Expr
 
 /// IR Label. Since we don't distinguish instruction boundary in SSA level, we
 /// want to specify where the label comes from.
@@ -143,62 +141,6 @@ type JmpType =
   /// third Expr refer to true and false branch addresses, respectively.
   | InterCJmp of Expr * Expr * Expr
 
-type SideEffect =
-  /// Software breakpoint.
-  | Breakpoint
-  /// CPU clock access, e.g., RDTSC on x86.
-  | ClockCounter
-  /// Memory fence operations, e.g., LFENCE/MFENCE/SFENCE on x86.
-  | Fence
-  /// Delay the execution for a while, e.g. HLT, PAUSE on x86.
-  | Delay
-  /// Terminate the execution.
-  | Terminate
-  /// Asynchronous event triggered by software (e.g. INT on x86) or hardware.
-  | Interrupt of int
-  /// Synchronous event generated when the execution encounters error condition.
-  | Exception of string
-  /// Acquire the instruction evaluation lock.
-  | Lock
-  /// Release the instruction evaluation lock.
-  | Unlock
-  /// Access CPU details, e.g., CPUID on x86.
-  | ProcessorID
-  /// System call.
-  | SysCall
-  /// Explicitly undefined instruction, e.g., UD2 on x86.
-  | UndefinedInstr
-  /// Unsupported floating point operations.
-  | UnsupportedFP
-  /// Unsupported privileged instructions.
-  | UnsupportedPrivInstr
-  /// Unsupported FAR branching.
-  | UnsupportedFAR
-  /// Unsupported processor extension.
-  | UnsupportedExtension
-  /// External function call.
-  | ExternalCall of Expr
-with
-  [<CompiledName("ToString")>]
-  static member toString = function
-    | Breakpoint -> "Breakpoint"
-    | ClockCounter -> "ClockCounter"
-    | Fence -> "Fence"
-    | Delay -> "Delay"
-    | Terminate -> "Terminate"
-    | Interrupt (v) -> "Interrupt " + v.ToString ()
-    | Exception (v) -> "Exception " + v
-    | Lock -> "Lock"
-    | Unlock -> "Unlock"
-    | ProcessorID -> "ProcessorID"
-    | SysCall -> "SysCall"
-    | UndefinedInstr -> "UndefinedInstr"
-    | UnsupportedFP -> "UnsupportedFP"
-    | UnsupportedPrivInstr -> "UnsupportedPrivInstr"
-    | UnsupportedFAR -> "UnsupportedFAR"
-    | UnsupportedExtension -> "UnsupportedExtension"
-    | ExternalCall (expr) -> "ExternalCall " + expr.ToString ()
-
 /// IR Statements.
 type Stmt =
   /// A label (as in an assembly language). LMark is only valid within a
@@ -214,8 +156,11 @@ type Stmt =
   /// Branch statement.
   | Jmp of JmpType
 
+  /// External call.
+  | ExternalCall of Expr * inVars: Variable list * outVars: Variable list
+
   /// This represents an instruction with side effects such as a system call.
-  | SideEffect of SideEffect * inVars: Variable list * outVars: Variable list
+  | SideEffect of SideEffect
 
 /// A program is a list of statements.
 type Prog = Stmt list list

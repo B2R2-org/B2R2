@@ -319,6 +319,11 @@ let chkPCRnWback bin = checkUnpred ((extract bin 19 16 = 15u) && (wbackW bin))
 (* if t == 15 then UNPREDICTABLE *)
 let chkPCRt bin = checkUnpred (extract bin 15 12 = 15u)
 
+(* if t == 15 && reg != '0001' then UNPREDICTABLE *)
+let chkPCRtR1 bin =
+  let reg = extract bin 19 16
+  checkUnpred (extract bin 15 12 = 15u && reg <> 0b0001u)
+
 (* if cond != '1110' then UNPREDICTABLE
    if t == 15 then UNPREDICTABLE *)
 let chkCondPCRt bin cond =
@@ -407,9 +412,9 @@ let chkAlignPCRnD2regs bin =
 (* if Q == '1' && (Vd<0> == '1' || Vn<0> == '1' || Vm<0> == '1') then UNDEFINED
    if Q == '0' && imm4<3> == '1' then UNDEFINED *)
 let chkQVdImm bin =
-  let Q = pickBit bin 6 (* Q *)
-  ((Q = 1u && (pickBit bin 12 = 1u || pickBit bin 16 = 1u ||
-     pickBit bin 0 = 1u)) || (Q = 0u && pickBit bin 11 = 1u)) |> checkUndef
+  let q = pickBit bin 6 (* Q *)
+  ((q = 1u && (pickBit bin 12 = 1u || pickBit bin 16 = 1u ||
+     pickBit bin 0 = 1u)) || (q = 0u && pickBit bin 11 = 1u)) |> checkUndef
 
 (* if n+length > 32 then UNPREDICTABLE *)
 let chkPCRnLen bin =
@@ -573,7 +578,7 @@ let chkVd bin = pickBit bin 12 (* Vd<0> *) = 1u |> checkUndef
 (* if U == '0' && op == '0' then UNDEFINED
    if Q == '1' && (Vd<0> == '1' || Vm<0> == '1') then UNDEFINED *)
 let chkUOpQVdVm bin =
-  (((pickBit bin 24 (* U *)  = 0u) && (pickBit bin 8 (* op *) = 0u)) ||
+  (((pickBit bin 24 (* U *) = 0u) && (pickBit bin 8 (* op *) = 0u)) ||
    (pickBit bin 6 (* Q *) = 1u) &&
     ((pickBit bin 12 (* Vd<0> *) = 1u) || (pickBit bin 0 (* Vm<0> *) = 1u)))
     |> checkUndef
@@ -745,7 +750,7 @@ let chkRegsIT bin itstate =
    if sz == '1' && InITBlock() then UNPREDICTABLE *)
 let chkQVdVnVmSzIT bin itstate =
   ((pickBit bin 6 = 1u) &&
-   (pickBit bin 12 = 1u  || pickBit bin 16 = 1u || pickBit bin 0 = 1u))
+   (pickBit bin 12 = 1u || pickBit bin 16 = 1u || pickBit bin 0 = 1u))
    |> checkUndef
   (pickBit bin 20 = 1u && inITBlock itstate) |> checkUnpred
 
@@ -957,7 +962,8 @@ let chkPCRdSRm bin =
 (* setflags = (S == '1')
    if (d == 15 && !setflags) || n == 15 then UNPREDICTABLE *)
 let chkPCRdSRn bin =
-  ((extract bin 11 8 = 15u && pickBit bin 20 <> 1u) || (extract bin 19 16 = 15u))
+  ((extract bin 11 8 = 15u && pickBit bin 20 <> 1u)
+    || (extract bin 19 16 = 15u))
   |> checkUnpred
 
 (* setflags = (S == '1')

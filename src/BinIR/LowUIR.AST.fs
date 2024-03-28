@@ -25,6 +25,7 @@
 /// LowUIR AST construction must be done through this module.
 module B2R2.BinIR.LowUIR.AST
 
+open System.Collections.Generic
 open B2R2
 open B2R2.BinIR
 
@@ -61,10 +62,6 @@ let inline private tryGetStmt (k: S) =
   | _ -> Error false
 #endif
 
-/// Get the expression info from the given expression (Expr).
-[<CompiledName("GetExprInfo")>]
-let getExprInfo e = ASTHelper.getExprInfo e
-
 /// Construct a number (Num).
 [<CompiledName("Num")>]
 let num bv =
@@ -83,11 +80,11 @@ let num bv =
 
 /// Construct a variable (Var).
 [<CompiledName("Var")>]
-let var t id name rs =
+let var t id name =
 #if ! HASHCONS
-  Var (t, id, name, rs) |> ASTHelper.buildExpr
+  Var (t, id, name) |> ASTHelper.buildExpr
 #else
-  let k = Var (t, id, name, rs)
+  let k = Var (t, id, name)
   match tryGetExpr k with
   | Ok e -> e
   | Error isReclaimed ->
@@ -140,10 +137,10 @@ let unop op e =
   match e.E with
   | Num n -> ValueOptimizer.unop n op |> num
 #if ! HASHCONS
-  | _ -> UnOp (op, e, getExprInfo e) |> ASTHelper.buildExpr
+  | _ -> UnOp (op, e) |> ASTHelper.buildExpr
 #else
   | _ ->
-    let k = UnOp (op, e, getExprInfo e)
+    let k = UnOp (op, e)
     match tryGetExpr k with
     | Ok e -> e
     | Error isReclaimed ->
@@ -169,20 +166,15 @@ let name symb =
     e'
 #endif
 
-let inline private (===) e1 e2 =
-  LanguagePrimitives.PhysicalEquality e1.E e2.E
-
 let binopWithType op t e1 e2 =
-  match op, e1.E, e2.E with
-  | _, Num n1, Num n2 -> ValueOptimizer.binop n1 n2 op |> num
-  | BinOpType.XOR, _, _ when e1 === e2 -> BitVector.zero t |> num
+  match e1.E, e2.E with
+  | Num n1, Num n2 -> ValueOptimizer.binop n1 n2 op |> num
 #if ! HASHCONS
   | _ ->
-    BinOp (op, t, e1, e2, ASTHelper.mergeTwoExprInfo e1 e2)
-    |> ASTHelper.buildExpr
+    BinOp (op, t, e1, e2) |> ASTHelper.buildExpr
 #else
   | _ ->
-    let k = BinOp (op, t, e1, e2, ASTHelper.mergeTwoExprInfo e1 e2)
+    let k = BinOp (op, t, e1, e2)
     match tryGetExpr k with
     | Ok e -> e
     | Error isReclaimed ->
@@ -209,14 +201,13 @@ let binop op e1 e2 =
 /// Consing two expr.
 [<CompiledName("Cons")>]
 let cons a b =
+  let t = TypeCheck.typeOf a
   match b.E with
   | Nil ->
-    let t = TypeCheck.typeOf a
 #if ! HASHCONS
-    BinOp (BinOpType.CONS, t, a, b, ASTHelper.getExprInfo a)
-    |> ASTHelper.buildExpr
+    BinOp (BinOpType.CONS, t, a, b) |> ASTHelper.buildExpr
 #else
-    let k = BinOp (BinOpType.CONS, t, a, b, ASTHelper.getExprInfo a)
+    let k = BinOp (BinOpType.CONS, t, a, b)
     match tryGetExpr k with
     | Ok e -> e
     | Error isReclaimed ->
@@ -226,7 +217,7 @@ let cons a b =
       else exprs[k] <- WeakReference<Expr> e'
       e'
 #endif
-  | _ -> binop BinOpType.CONS a b
+  | _ -> binopWithType BinOpType.CONS t a b
 
 /// Nil.
 [<CompiledName("Nil")>]
@@ -260,11 +251,11 @@ let app name args retType =
   List.reduceBack cons (args @ [ nil ])
 #if ! HASHCONS
   |> fun cons ->
-    BinOp (BinOpType.APP, retType, funName, cons, getExprInfo cons)
+    BinOp (BinOpType.APP, retType, funName, cons)
     |> ASTHelper.buildExpr
 #else
   |> fun cons ->
-    let k = BinOp (BinOpType.APP, retType, funName, cons, getExprInfo cons)
+    let k = BinOp (BinOpType.APP, retType, funName, cons)
     match tryGetExpr k with
     | Ok e -> e
     | Error isReclaimed ->
@@ -285,10 +276,10 @@ let relop op e1 e2 =
   | Num n1, Num n2 -> ValueOptimizer.relop n1 n2 op |> num
 #if ! HASHCONS
   | _ ->
-    RelOp (op, e1, e2, ASTHelper.mergeTwoExprInfo e1 e2)|> ASTHelper.buildExpr
+    RelOp (op, e1, e2) |> ASTHelper.buildExpr
 #else
   | _ ->
-    let k = RelOp (op, e1, e2, ASTHelper.mergeTwoExprInfo e1 e2)
+    let k = RelOp (op, e1, e2)
     match tryGetExpr k with
     | Ok e -> e
     | Error isReclaimed ->
@@ -307,10 +298,10 @@ let load endian rt addr =
   | _ ->
 #endif
 #if ! HASHCONS
-    Load (endian, rt, addr, { getExprInfo addr with HasLoad = true })
+    Load (endian, rt, addr)
     |> ASTHelper.buildExpr
 #else
-    let k = Load (endian, rt, addr, { getExprInfo addr with HasLoad = true })
+    let k = Load (endian, rt, addr)
     match tryGetExpr k with
     | Ok e -> e
     | Error isReclaimed ->
@@ -336,13 +327,12 @@ let ite cond e1 e2 =
   TypeCheck.checkEquivalence (TypeCheck.typeOf e1) (TypeCheck.typeOf e2)
 #endif
   match cond.E with
-  | Num (n) -> if BitVector.isOne n then e1 else e2 (* Assume valid cond *)
+  | Num (n) -> if BitVector.IsOne n then e1 else e2 (* Assume valid cond *)
   | _ ->
 #if ! HASHCONS
-    Ite (cond, e1, e2, ASTHelper.mergeThreeExprInfo cond e1 e2)
-    |> ASTHelper.buildExpr
+    Ite (cond, e1, e2) |> ASTHelper.buildExpr
 #else
-    let k = Ite (cond, e1, e2, ASTHelper.mergeThreeExprInfo cond e1 e2)
+    let k = Ite (cond, e1, e2)
     match tryGetExpr k with
     | Ok e -> e
     | Error isReclaimed ->
@@ -361,9 +351,9 @@ let cast kind rt e =
   | _ ->
     if TypeCheck.canCast kind rt e then
 #if ! HASHCONS
-      Cast (kind, rt, e, getExprInfo e) |> ASTHelper.buildExpr
+      Cast (kind, rt, e) |> ASTHelper.buildExpr
 #else
-      let k = Cast (kind, rt, e, getExprInfo e)
+      let k = Cast (kind, rt, e)
       match tryGetExpr k with
       | Ok e -> e
       | Error isReclaimed ->
@@ -380,12 +370,12 @@ let extract expr rt pos =
   TypeCheck.extract rt pos (TypeCheck.typeOf expr)
   match expr.E with
   | Num n -> ValueOptimizer.extract n rt pos |> num
-  | Extract (e, _, p, ei) ->
+  | Extract (e, _, p) ->
     let pos = p + pos
 #if ! HASHCONS
-    Extract (e, rt, pos, ei) |> ASTHelper.buildExpr
+    Extract (e, rt, pos) |> ASTHelper.buildExpr
 #else
-    let k = Extract (e, rt, pos, ei)
+    let k = Extract (e, rt, pos)
     match tryGetExpr k with
     | Ok e -> e
     | Error isReclaimed ->
@@ -396,9 +386,9 @@ let extract expr rt pos =
 #endif
   | _ ->
 #if ! HASHCONS
-    Extract (expr, rt, pos, getExprInfo expr) |> ASTHelper.buildExpr
+    Extract (expr, rt, pos) |> ASTHelper.buildExpr
 #else
-    let k = Extract (expr, rt, pos, getExprInfo expr)
+    let k = Extract (expr, rt, pos)
     match tryGetExpr k with
     | Ok e -> e
     | Error isReclaimed ->
@@ -426,19 +416,19 @@ let undef rt s =
 
 /// Construct a (Num 0) of size t.
 [<CompiledName("Num0")>]
-let num0 rt = num (BitVector.zero rt)
+let num0 rt = num (BitVector.Zero rt)
 
 /// Construct a (Num 1) of size t.
 [<CompiledName("Num1")>]
-let num1 rt = num (BitVector.one rt)
+let num1 rt = num (BitVector.One rt)
 
 /// Num expression for a one-bit number zero.
 [<CompiledName("B0")>]
-let b0 = num (BitVector.zero 1<rt>)
+let b0 = num (BitVector.Zero 1<rt>)
 
 /// Num expression for a one-bit number one.
 [<CompiledName("B1")>]
-let b1 = num (BitVector.one 1<rt>)
+let b1 = num (BitVector.One 1<rt>)
 
 /// Concatenation.
 [<CompiledName("Concat")>]
@@ -462,8 +452,8 @@ let concatArr (arr: Expr[]) =
 [<CompiledName("Unwrap")>]
 let rec unwrap e =
   match e.E with
-  | Cast (_, _, e, _)
-  | Extract (e, _, _, _) -> unwrap e
+  | Cast (_, _, e)
+  | Extract (e, _, _) -> unwrap e
   | _ -> e
 
 /// Zero-extend an expression.
@@ -717,7 +707,7 @@ let fadd e1 e2 =
     TypeCheck.typeOf e1
 #endif
 #if ! HASHCONS
-  binopWithType BinOpType.FADD t e2 e1
+  binopWithType BinOpType.FADD t e1 e2
 #else
   if e1 < e2 then binopWithType BinOpType.FADD t e1 e2
   else binopWithType BinOpType.FADD t e2 e1
@@ -744,7 +734,7 @@ let fmul e1 e2 =
     TypeCheck.typeOf e1
 #endif
 #if ! HASHCONS
-  binopWithType BinOpType.FMUL t e2 e1
+  binopWithType BinOpType.FMUL t e1 e2
 #else
   if e1 < e2 then binopWithType BinOpType.FMUL t e1 e2
   else binopWithType BinOpType.FMUL t e2 e1
@@ -760,6 +750,10 @@ let fdiv e1 e2 =
     TypeCheck.typeOf e1
 #endif
   binopWithType BinOpType.FDIV t e1 e2
+
+/// Floating point equal.
+[<CompiledName("FEq")>]
+let feq e1 e2 = relop RelOpType.FEQ e1 e2
 
 /// Floating point greater than.
 [<CompiledName("FGt")>]
@@ -885,19 +879,19 @@ let put dst src =
 
 let assignForExtractDst e1 e2 =
   match e1.E with
-  | Extract ({ E = Var (t, _, _, _) } as e1, eTyp, 0, _)
-  | Extract ({ E = TempVar (t, _) } as e1, eTyp, 0, _) ->
+  | Extract ({ E = Var (t, _, _) } as e1, eTyp, 0)
+  | Extract ({ E = TempVar (t, _) } as e1, eTyp, 0) ->
     let nMask = RegType.getMask t - RegType.getMask eTyp
-    let mask = BitVector.ofBInt nMask t |> num
+    let mask = BitVector.OfBInt nMask t |> num
     let src = cast CastKind.ZeroExt t e2
     put e1 (binopWithType BinOpType.OR t
               (binopWithType BinOpType.AND t e1 mask) src)
-  | Extract ({ E = Var (t, _, _, _) } as e1, eTyp, pos, _)
-  | Extract ({ E = TempVar (t, _) } as e1, eTyp, pos, _) ->
+  | Extract ({ E = Var (t, _, _) } as e1, eTyp, pos)
+  | Extract ({ E = TempVar (t, _) } as e1, eTyp, pos) ->
     let nMask = RegType.getMask t - (RegType.getMask eTyp <<< pos)
-    let mask = BitVector.ofBInt nMask t |> num
+    let mask = BitVector.OfBInt nMask t |> num
     let src = cast CastKind.ZeroExt t e2
-    let shift = BitVector.ofInt32 pos t |> num
+    let shift = BitVector.OfInt32 pos t |> num
     let src = binopWithType BinOpType.SHL t src shift
     put e1 (binopWithType BinOpType.OR t
               (binopWithType BinOpType.AND t e1 mask) src)
@@ -927,7 +921,7 @@ let assign dst src =
 #endif
   match dst.E with
   | Var _ | TempVar _ | PCVar _ -> put dst src
-  | Load (_, _, e, _) -> store Endian.Little e src
+  | Load (endian, _, e) -> store endian e src
   | Extract (_) -> assignForExtractDst dst src
   | _ -> raise InvalidAssignmentException
 
@@ -995,6 +989,22 @@ let intercjmp cond d1 d2 =
     s'
 #endif
 
+/// An external call statement.
+[<CompiledName("ExtCall")>]
+let extCall appExpr =
+#if ! HASHCONS
+  ExternalCall (appExpr) |> ASTHelper.buildStmt
+#else
+  let k = ExternalCall appExpr
+  match tryGetStmt k with
+  | Ok s -> s
+  | Error isReclaimed ->
+    let s' = { S = k; Tag = newSTag (); HashKey = S.HashExtCall appExpr }
+    if isReclaimed then stmts[k].SetTarget s'
+    else stmts[k] <- WeakReference<Stmt> s'
+    s'
+#endif
+
 /// A SideEffect statement.
 [<CompiledName("SideEffect")>]
 let sideEffect eff =
@@ -1010,6 +1020,86 @@ let sideEffect eff =
     else stmts[k] <- WeakReference<Stmt> s'
     s'
 #endif
+
+/// Record the use of vars and tempvars from the given expression.
+let rec updateAllVarsUses (rset: RegisterSet) (tset: HashSet<int>) { E = e } =
+  match e with
+  | Num _ | Nil | PCVar _ | Name _ | FuncName _ | Undefined _ ->
+    ()
+  | Var (_, rid, _) ->
+    rset.Add (int rid)
+  | TempVar (_, n) ->
+    tset.Add n |> ignore
+  | UnOp (_, e) ->
+    updateAllVarsUses rset tset e
+  | BinOp (_, _, lhs, rhs) ->
+    updateAllVarsUses rset tset lhs
+    updateAllVarsUses rset tset rhs
+  | RelOp (_, lhs, rhs) ->
+    updateAllVarsUses rset tset lhs
+    updateAllVarsUses rset tset rhs
+  | Load (_, _, e) ->
+    updateAllVarsUses rset tset e
+  | Ite (cond, e1, e2) ->
+    updateAllVarsUses rset tset cond
+    updateAllVarsUses rset tset e1
+    updateAllVarsUses rset tset e2
+  | Cast (_, _, e) ->
+    updateAllVarsUses rset tset e
+  | Extract (e, _, _) ->
+    updateAllVarsUses rset tset e
+
+/// Record the use of vars (registers) from the given expression.
+let rec updateRegsUses (rset: RegisterSet) { E = e } =
+  match e with
+  | Num _ | Nil | PCVar _ | Name _ | FuncName _ | Undefined _ | TempVar _ ->
+    ()
+  | Var (_, rid, _) ->
+    rset.Add (int rid)
+  | UnOp (_, e) ->
+    updateRegsUses rset e
+  | BinOp (_, _, lhs, rhs) ->
+    updateRegsUses rset lhs
+    updateRegsUses rset rhs
+  | RelOp (_, lhs, rhs) ->
+    updateRegsUses rset lhs
+    updateRegsUses rset rhs
+  | Load (_, _, e) ->
+    updateRegsUses rset e
+  | Ite (cond, e1, e2) ->
+    updateRegsUses rset cond
+    updateRegsUses rset e1
+    updateRegsUses rset e2
+  | Cast (_, _, e) ->
+    updateRegsUses rset e
+  | Extract (e, _, _) ->
+    updateRegsUses rset e
+
+/// Record the use of tempvars from the given expression.
+let rec updateTempsUses (tset: HashSet<int>) { E = e } =
+  match e with
+  | Num _ | Nil | PCVar _ | Name _ | FuncName _ | Undefined _ | Var _ ->
+    ()
+  | TempVar (_, n) ->
+    tset.Add n |> ignore
+  | UnOp (_, e) ->
+    updateTempsUses tset e
+  | BinOp (_, _, lhs, rhs) ->
+    updateTempsUses tset lhs
+    updateTempsUses tset rhs
+  | RelOp (_, lhs, rhs) ->
+    updateTempsUses tset lhs
+    updateTempsUses tset rhs
+  | Load (_, _, e) ->
+    updateTempsUses tset e
+  | Ite (cond, e1, e2) ->
+    updateTempsUses tset cond
+    updateTempsUses tset e1
+    updateTempsUses tset e2
+  | Cast (_, _, e) ->
+    updateTempsUses tset e
+  | Extract (e, _, _) ->
+    updateTempsUses tset e
 
 module InfixOp =
   /// Assignment.
@@ -1054,10 +1144,10 @@ module InfixOp =
   /// Signed greater than or equal.
   let inline (?>=) e1 e2 = sge e1 e2
 
-  /// Signed less than.
+  /// Unsigned less than.
   let inline (.<) e1 e2 = lt e1 e2
 
-  /// Signed less than or equal.
+  /// Unsigned less than or equal.
   let inline (.<=) e1 e2 = le e1 e2
 
   /// Signed less than.

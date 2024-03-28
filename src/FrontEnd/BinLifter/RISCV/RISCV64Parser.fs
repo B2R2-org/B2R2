@@ -22,28 +22,26 @@
   SOFTWARE.
 *)
 
-module B2R2.FrontEnd.BinLifter.RISCV.Parser
+namespace B2R2.FrontEnd.BinLifter.RISCV
 
+open System
 open B2R2
 open B2R2.FrontEnd.BinLifter
-open B2R2.FrontEnd.BinLifter.BitData
 
-let getRegister = function
-  | _ -> raise ParsingFailureException
+/// Parser for RISCV64 instructions. Parser will return a platform-agnostic
+/// instruction type (Instruction).
+type RISCV64Parser (isa: ISA) =
+  let wordSize = int isa.WordSize
+  let reader = BinReader.Init isa.Endian
 
-let private parseInstruction bin =
-  match bin with
-  | _ -> raise ParsingFailureException
+  interface IInstructionParsable with
+    member __.Parse (span: ByteSpan, addr) =
+      ParsingMain.parse span reader wordSize addr :> Instruction
 
-let parse (span: ByteSpan) (reader: IBinReader) addr =
-  let bin = reader.ReadUInt32 (span, 0)
-  let struct (opcode, operands) = parseInstruction bin
-  let insInfo =
-    { Address = addr
-      NumBytes = 4u
-      Opcode = opcode
-      Operands = operands
-      OperationSize = 32<rt> }
-  RISCV64Instruction (addr, 4u, insInfo)
+    member __.Parse (bs: byte[], addr) =
+      let span = ReadOnlySpan bs
+      ParsingMain.parse span reader wordSize addr :> Instruction
 
-// vim: set tw=80 sts=2 sw=2:
+    member __.MaxInstructionSize = 4
+
+    member __.OperationMode with get() = ArchOperationMode.NoMode and set _ = ()

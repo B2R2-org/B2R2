@@ -1,4 +1,4 @@
-﻿(*
+(*
   B2R2 - the Next-Generation Reversing Platform
 
   Copyright (c) SoftSec Lab. @ KAIST, since 2016
@@ -27,61 +27,69 @@ module B2R2.FrontEnd.Tests.AVRLifter
 open Microsoft.VisualStudio.TestTools.UnitTesting
 open B2R2
 open B2R2.BinIR.LowUIR
-open B2R2.FrontEnd.BinLifter.AVR
 open B2R2.FrontEnd.BinLifter
+open B2R2.FrontEnd.BinLifter.AVR
 open B2R2.BinIR.LowUIR.AST.InfixOp
+open type Register
 
-let isa = ISA.Init Architecture.AVR Endian.Little
+[<AutoOpen>]
+module TestHelper =
+  let isa = ISA.Init Architecture.AVR Endian.Little
 
-let struct (ctxt, _) = AVR.Basis.init isa
+  let ctxt = AVRTranslationContext isa
 
-let inline ( !. ) (ctxt: TranslationContext) name =
-  Register.toRegID name |> ctxt.GetRegVar
+  let unwrapStmts stmts = Array.sub stmts 1 (Array.length stmts - 2)
 
-let private test bytes len (actStmts : Stmt [])  =
-  let reader = BinReader.binReaderLE
-  let span = System.ReadOnlySpan bytes
-  let ins = Parser.parse span reader 0UL
-  let expStmts = (Lifter.translate ins.Info len ctxt).ToStmts ()
-  Assert.AreEqual (Array.toList expStmts, Array.toList actStmts)
+  let inline ( ++ ) (byteStr: string) givenStmts =
+    ByteArray.ofHexString byteStr, givenStmts
+
+  let inline ( !. ) name = Register.toRegID name |> ctxt.GetRegVar
+
+  let test (bytes: byte[], givenStmts: Stmt[])  =
+    let parser = AVRParser () :> IInstructionParsable
+    let ins = parser.Parse (bytes, 0UL)
+    CollectionAssert.AreEqual (givenStmts, unwrapStmts <| ins.Translate ctxt)
 
 [<TestClass>]
 type AVRUnitTest () =
   [<TestMethod>]
   member __.``[AVR] Instructions with start and end statements lift Test`` () =
-    test [| 0x00uy; 0x00uy |] 2u [| AST.ismark 2u; AST.iemark 2u |]
+    "0000"
+    ++ [| |]
+    |> test
 
   [<TestMethod>]
-  member __.``[AVR] Instructions with Put statements lift Test`` () =
-    test [| 0x4cuy; 0x2fuy |] 2u
-         [| AST.ismark 2u
-            (!.ctxt R.R20 := !.ctxt R.R28)
-            AST.iemark 2u |]
-    test [| 0x54uy; 0x01uy |] 2u
-         [| AST.ismark 2u
-            (!.ctxt R.R10 := !.ctxt R.R8)
-            (!.ctxt R.R11 := !.ctxt R.R9)
-            AST.iemark 2u |]
+  member __.``[AVR] Instructions with Put statements lift Test (1)`` () =
+    "4c2f"
+    ++ [| !.R20 := !.R28 |]
+    |> test
 
   [<TestMethod>]
-  member __.``[AVR] Put statements for flag registers lift Test`` () =
-    test [| 0xf8uy; 0x94uy |] 2u
-         [| AST.ismark 2u
-            (!.ctxt R.IF := AST.b0)
-            AST.iemark 2u |]
-    test [| 0x11uy; 0x24uy |] 2u
-         [| AST.ismark 2u
-            (!.ctxt R.R1 := !.ctxt R.R1 <+> !.ctxt R.R1)
-            (!.ctxt R.VF := AST.b0)
-            (!.ctxt R.NF := AST.xthi 1<rt> (!.ctxt R.R1))
-            (!.ctxt R.ZF := !. ctxt R.R1 == AST.num0 8<rt>)
-            (!.ctxt R.SF := !.ctxt R.NF <+> !.ctxt R.VF)
-            AST.iemark 2u |]
+  member __.``[AVR] Instructions with Put statements lift Test (2)`` () =
+    "5401"
+    ++ [| !.R10 := !.R8
+          !.R11 := !.R9 |]
+    |> test
+
+  [<TestMethod>]
+  member __.``[AVR] Put statements for flag registers lift Test (1)`` () =
+    "f894"
+    ++ [| !.IF := AST.b0 |]
+    |> test
+
+  [<TestMethod>]
+  member __.``[AVR] Put statements for flag registers lift Test (2)`` () =
+    "1124"
+    ++ [| !.R1 := !.R1 <+> !.R1
+          !.VF := AST.b0
+          !.NF := AST.xthi 1<rt> !.R1
+          !.ZF := !.R1 == AST.num0 8<rt>
+          !.SF := !.NF <+> !.VF |]
+    |> test
 
   [<TestMethod>]
   member __.``[AVR] Load statements lift Test`` () =
-    test [| 0x6fuy; 0x92uy |] 2u
-         [| AST.ismark 2u
-            (AST.loadLE 8<rt> (!.ctxt R.SP) := !.ctxt R.R6)
-            (!.ctxt R.SP := !.ctxt R.SP .- AST.num1 16<rt>)
-            AST.iemark 2u |]
+    "6f92"
+    ++ [| AST.loadLE 8<rt> !.SP := !.R6
+          !.SP := !.SP .- AST.num1 16<rt> |]
+    |> test

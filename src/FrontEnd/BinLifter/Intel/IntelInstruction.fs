@@ -27,9 +27,6 @@ namespace B2R2.FrontEnd.BinLifter.Intel
 open B2R2
 open B2R2.FrontEnd.BinLifter
 
-module private Dummy =
-  let helper = DisasmHelper ()
-
 /// The internal representation for an Intel instruction used by our
 /// disassembler and lifter.
 type IntelInstruction
@@ -63,13 +60,12 @@ type IntelInstruction
     | _ -> false
 
   override __.IsCJmpOnTrue () =
-    __.IsCondBranch ()
-    && match opcode with
-       | Opcode.JA | Opcode.JB | Opcode.JBE | Opcode.JCXZ | Opcode.JECXZ
-       | Opcode.JG | Opcode.JL | Opcode.JLE | Opcode.JO | Opcode.JP
-       | Opcode.JRCXZ | Opcode.JS | Opcode.JZ | Opcode.LOOP | Opcode.LOOPE ->
-         true
-       | _ -> false
+    match opcode with
+    | Opcode.JA | Opcode.JB | Opcode.JBE | Opcode.JCXZ | Opcode.JECXZ
+    | Opcode.JG | Opcode.JL | Opcode.JLE | Opcode.JO | Opcode.JP
+    | Opcode.JRCXZ | Opcode.JS | Opcode.JZ | Opcode.LOOP | Opcode.LOOPE ->
+      true
+    | _ -> false
 
   override __.IsCall () =
     match opcode with
@@ -139,20 +135,19 @@ type IntelInstruction
     | _ -> false
 
   member private __.AddBranchTargetIfExist addrs =
-    match __.DirectBranchTarget () |> Utils.tupleToOpt with
+    match __.DirectBranchTarget () |> Utils.tupleResultToOpt with
     | None -> addrs
     | Some target ->
-      Seq.singleton (target, ArchOperationMode.NoMode) |> Seq.append addrs
+      [| (target, ArchOperationMode.NoMode) |] |> Array.append addrs
 
   override __.GetNextInstrAddrs () =
-    let acc =
-      Seq.singleton (__.Address + uint64 __.Length, ArchOperationMode.NoMode)
+    let acc = [| (__.Address + uint64 __.Length, ArchOperationMode.NoMode) |]
     if __.IsCall () then acc |> __.AddBranchTargetIfExist
     elif __.IsDirectBranch () || __.IsIndirectBranch () then
       if __.IsCondBranch () then acc |> __.AddBranchTargetIfExist
-      else __.AddBranchTargetIfExist Seq.empty
-    elif opcode = Opcode.HLT then Seq.empty
-    elif opcode = Opcode.UD2 then Seq.empty
+      else __.AddBranchTargetIfExist [||]
+    elif opcode = Opcode.HLT then [||]
+    elif opcode = Opcode.UD2 then [||]
     else acc
 
   override __.InterruptNum (num: byref<int64>) =
@@ -173,20 +168,21 @@ type IntelInstruction
   override __.TranslateToList ctxt =
     Lifter.translate __ len ctxt
 
-  override __.Disasm (showAddr, resolveSymb, disasmHelper) =
+  override __.Disasm (showAddr, nameReader) =
+    let resolveSymb = not (isNull nameReader)
     let builder = DisasmStringBuilder (showAddr, resolveSymb, wordSz, addr, len)
-    Disasm.disasm disasmHelper __ builder
-    builder.Finalize ()
+    Disasm.disasm.Invoke (nameReader, builder, __)
+    builder.ToString ()
 
   override __.Disasm () =
     let builder = DisasmStringBuilder (false, false, wordSz, addr, len)
-    Disasm.disasm Dummy.helper __ builder
-    builder.Finalize ()
+    Disasm.disasm.Invoke (null, builder, __)
+    builder.ToString ()
 
   override __.Decompose (showAddr) =
     let builder = DisasmWordBuilder (showAddr, false, wordSz, addr, len, 8)
-    Disasm.disasm Dummy.helper __ builder
-    builder.Finalize ()
+    Disasm.disasm.Invoke (null, builder, __)
+    builder.ToArray ()
 
   override __.IsInlinedAssembly () = false
 

@@ -65,7 +65,8 @@ type CmdHexDump () =
         |> Result.bind (readBytes binEssence)
       match result with
       | Ok (addr, bytes: byte []) ->
-        HexDumper.dump 16 binEssence.BinHandle.ISA.WordSize true addr bytes
+        let wordSize = binEssence.BinHandle.File.ISA.WordSize
+        HexDumper.dump 16 wordSize true addr bytes
       | Error e -> [| OutputColored [ ColoredSegment (NoColor, e) ] |]
     | _ -> [| __.CmdHelp |] |> Array.map OutputNormal
 

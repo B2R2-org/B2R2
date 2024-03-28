@@ -7,6 +7,12 @@
       "commands": [
         "fsdocs"
       ]
+    },
+    "dotnet-fsharplint": {
+      "version": "0.21.3",
+      "commands": [
+        "dotnet-fsharplint"
+      ]
     }
   }
 }

@@ -26,6 +26,8 @@ module B2R2.FrontEnd.BinLifter.PPC32.Disasm
 
 open B2R2
 open B2R2.FrontEnd.BinLifter
+open B2R2.FrontEnd.BinLifter.BitData
+open B2R2.FrontEnd.BinLifter.PPC32.OperandHelper
 
 let opCodeToString = function
   | Op.ADD -> "add"
@@ -262,18 +264,24 @@ let opCodeToString = function
   | Op.FNMADDS -> "fnmadds"
   | Op.FNMADDSdot -> "fnmadds."
   | Op.TWLGT -> "twlgt"
+  | Op.TWLLE -> "twlle"
+  | Op.TWGE -> "twge"
+  | Op.TWGT -> "twgt"
+  | Op.TWLE -> "twle"
+  | Op.TWLT -> "twlt"
   | Op.TWLLT -> "twllt"
   | Op.TWLNL -> "twlnl"
-  | Op.TWGT -> "twgt"
-  | Op.TWLT -> "twlt"
   | Op.TWNE -> "twne"
   | Op.TWI -> "twi"
   | Op.TWLGTI -> "twlgti"
+  | Op.TWLLEI -> "twllei"
   | Op.TWLLTI -> "twllti"
   | Op.TWEQI -> "tweqi"
   | Op.TWLNLI -> "twlnli"
+  | Op.TWGEI -> "twgei"
   | Op.TWGTI -> "twgti"
   | Op.TWLTI -> "twlti"
+  | Op.TWLEI -> "twlei"
   | Op.TWNEI -> "twnei"
   | Op.MULLI -> "mulli"
   | Op.SUBFIC -> "subfic"
@@ -318,7 +326,7 @@ let opCodeToString = function
   | Op.STFDU -> "stfdu"
   | Op.ORI -> "ori"
   | Op.NOP -> "nop"
-  | Op.ORIS -> "opis"
+  | Op.ORIS -> "oris"
   | Op.XORI -> "xori"
   | Op.XORIS -> "xoris"
   | Op.ANDIdot -> "andi."
@@ -462,55 +470,307 @@ let opCodeToString = function
   | Op.BCTR -> "bctr"
   | Op.BCTRL -> "bctrl"
   | Op.MR -> "mr"
+  | Op.BTLRL -> "btlrl"
+  | Op.BFLRL -> "bflrl"
+  | Op.BTCTRL -> "btctrl"
+  | Op.CLRRWI -> "clrrwi"
+  | Op.LWSYNC -> "lwsync"
   | _ -> Utils.impossible ()
 
-let inline buildOpcode ins (builder: DisasmBuilder<_>) =
+let condToString = function
+  | Condition.LT -> "lt"
+  | Condition.LE -> "le"
+  | Condition.EQ -> "eq"
+  | Condition.GE -> "ge"
+  | Condition.GT -> "gt"
+  | Condition.NL -> "nl"
+  | Condition.NE -> "ne"
+  | Condition.NG -> "ng"
+  | Condition.SO -> "so"
+  | Condition.NS -> "ns"
+  | Condition.UN -> "un"
+  | Condition.NU -> "nu"
+  | _ -> raise ParsingFailureException
+
+let inline buildOpcode ins (builder: DisasmBuilder) =
   let str = opCodeToString ins.Opcode
   builder.Accumulate AsmWordKind.Mnemonic str
 
-let oprToString opr delim (builder: DisasmBuilder<_>) =
+let inline relToString pc offset (builder: DisasmBuilder) =
+  let targetAddr = pc + uint64 offset
+  builder.Accumulate AsmWordKind.Value (HexString.ofUInt64 targetAddr)
+
+let inline getCond bi =
+  match extract bi 1u 0u with
+  | 0b00u -> Condition.LT
+  | 0b01u -> Condition.GT
+  | 0b10u -> Condition.EQ
+  | _ (* 11 *) -> Condition.SO
+
+let oprToString insInfo opr delim (builder: DisasmBuilder) =
   match opr with
-  | OpReg reg ->
+  | OprReg reg ->
     builder.Accumulate AsmWordKind.String delim
     builder.Accumulate AsmWordKind.Variable (Register.toString reg)
-  | Immediate imm ->
+  | OprMem (imm, reg) ->
     builder.Accumulate AsmWordKind.String delim
-    builder.Accumulate AsmWordKind.Value (String.u64ToHex imm)
-  | Branch bi ->
-    builder.Accumulate AsmWordKind.String delim
-    builder.Accumulate AsmWordKind.Value (String.u64ToHex bi)
-  | ImmOp (imm, reg) ->
-    builder.Accumulate AsmWordKind.String delim
-    builder.Accumulate AsmWordKind.Value (String.u64ToHex imm)
+    builder.Accumulate AsmWordKind.Value (HexString.ofInt32 imm)
     builder.Accumulate AsmWordKind.String "("
     builder.Accumulate AsmWordKind.Variable (Register.toString reg)
     builder.Accumulate AsmWordKind.String ")"
+  | OprImm imm ->
+    builder.Accumulate AsmWordKind.String delim
+    builder.Accumulate AsmWordKind.Value (HexString.ofUInt64 imm)
+  | OprAddr addr ->
+    builder.Accumulate AsmWordKind.String delim
+    relToString insInfo.Address addr builder
+  | OprBI imm ->
+    let cr = extract imm 4u 2u |> getCondRegister
+    builder.Accumulate AsmWordKind.String delim
+    builder.Accumulate AsmWordKind.Value (HexString.ofUInt32 4u)
+    builder.Accumulate AsmWordKind.String " * "
+    builder.Accumulate AsmWordKind.Variable (Register.toString cr)
+    builder.Accumulate AsmWordKind.String " + "
+    builder.Accumulate AsmWordKind.String (condToString (getCond imm))
 
 let buildOprs insInfo builder =
   match insInfo.Operands with
   | NoOperand -> ()
   | OneOperand opr ->
-    oprToString opr " " builder
+    oprToString insInfo opr " " builder
   | TwoOperands (opr1, opr2) ->
-    oprToString opr1 " " builder
-    oprToString opr2 ", " builder
+    oprToString insInfo opr1 " " builder
+    oprToString insInfo opr2 ", " builder
   | ThreeOperands (opr1, opr2, opr3) ->
-    oprToString opr1 " " builder
-    oprToString opr2 ", " builder
-    oprToString opr3 ", " builder
+    oprToString insInfo opr1 " " builder
+    oprToString insInfo opr2 ", " builder
+    oprToString insInfo opr3 ", " builder
   | FourOperands (opr1, opr2, opr3, opr4) ->
-    oprToString opr1 " " builder
-    oprToString opr2 ", " builder
-    oprToString opr3 ", " builder
-    oprToString opr4 ", " builder
+    oprToString insInfo opr1 " " builder
+    oprToString insInfo opr2 ", " builder
+    oprToString insInfo opr3 ", " builder
+    oprToString insInfo opr4 ", " builder
   | FiveOperands (opr1, opr2, opr3, opr4, opr5) ->
-    oprToString opr1 " " builder
-    oprToString opr2 ", " builder
-    oprToString opr3 ", " builder
-    oprToString opr4 ", " builder
-    oprToString opr5 ", " builder
+    oprToString insInfo opr1 " " builder
+    oprToString insInfo opr2 ", " builder
+    oprToString insInfo opr3 ", " builder
+    oprToString insInfo opr4 ", " builder
+    oprToString insInfo opr5 ", " builder
 
-let disasm insInfo (builder: DisasmBuilder<_>) =
+let buildSimpleMnemonic opcode bi addr insInfo (builder: DisasmBuilder) =
+  let cr = extract bi 4u 2u |> getCondRegister
+  builder.Accumulate AsmWordKind.Mnemonic (opCodeToString opcode)
+  builder.Accumulate AsmWordKind.String " "
+  builder.Accumulate AsmWordKind.Variable (Register.toString cr)
+  builder.Accumulate AsmWordKind.String ", "
+  relToString insInfo.Address addr builder
+
+let buildCrMnemonic opcode bi (builder: DisasmBuilder) =
+  let cr = extract bi 4u 2u |> getCondRegister
+  builder.Accumulate AsmWordKind.Mnemonic (opCodeToString opcode)
+  builder.Accumulate AsmWordKind.String " "
+  builder.Accumulate AsmWordKind.Variable (Register.toString cr)
+
+let buildTargetMnemonic opcode addr insInfo (builder: DisasmBuilder) =
+  builder.Accumulate AsmWordKind.Mnemonic (opCodeToString opcode)
+  builder.Accumulate AsmWordKind.String " "
+  relToString insInfo.Address addr builder
+
+let buildRotateMnemonic opcode ra rs n (builder: DisasmBuilder) =
+  builder.Accumulate AsmWordKind.Mnemonic (opCodeToString opcode)
+  builder.Accumulate AsmWordKind.String " "
+  builder.Accumulate AsmWordKind.Variable (Register.toString ra)
+  builder.Accumulate AsmWordKind.String ", "
+  builder.Accumulate AsmWordKind.Variable (Register.toString rs)
+  builder.Accumulate AsmWordKind.String ", "
+  builder.Accumulate AsmWordKind.Value (HexString.ofUInt64 n)
+
+let buildBC insInfo builder =
+  match insInfo.Operands with
+  | ThreeOperands (OprImm bo , OprBI bi, OprAddr addr) ->
+    let bibit = bi % 4u
+    match bo, bi, bibit with
+    | 16UL, 0u, _ -> buildTargetMnemonic Op.BDNZ addr insInfo builder
+    | 12UL, _ , 0u -> buildTargetMnemonic Op.BLT addr insInfo builder
+    | 12UL, _ , 1u -> buildSimpleMnemonic Op.BGT bi addr insInfo builder
+    | 12UL, _ , 2u -> buildSimpleMnemonic Op.BEQ bi addr insInfo builder
+    | 12UL, _ , 3u -> buildSimpleMnemonic Op.BSO bi addr insInfo builder
+    | 4UL, _ , 0u -> buildSimpleMnemonic Op.BGE bi addr insInfo builder
+    | 4UL, _ , 1u -> buildSimpleMnemonic Op.BLE bi addr insInfo builder
+    | 4UL, _ , 2u -> buildSimpleMnemonic Op.BNE bi addr insInfo builder
+    | 4UL, _, 3u -> buildSimpleMnemonic Op.BNS bi addr insInfo builder
+    | _ ->
+      buildOpcode insInfo builder
+      buildOprs insInfo builder
+  | _ -> raise ParsingFailureException
+
+let buildBCA insInfo builder =
+  match insInfo.Operands with
+  | ThreeOperands (OprImm bo , OprBI bi, OprAddr addr) ->
+    let bibit = bi % 4u
+    match bo, bibit with
+    | 12UL, 0u -> buildSimpleMnemonic Op.BLTA bi addr insInfo builder
+    | 12UL, 1u -> buildSimpleMnemonic Op.BGTA bi addr insInfo builder
+    | 12UL, 2u -> buildSimpleMnemonic Op.BEQA bi addr insInfo builder
+    | 12UL, 3u -> buildSimpleMnemonic Op.BSOA bi addr insInfo builder
+    | 4UL, 0u -> buildSimpleMnemonic Op.BGEA bi addr insInfo builder
+    | 4UL, 1u -> buildSimpleMnemonic Op.BLEA bi addr insInfo builder
+    | 4UL, 2u -> buildSimpleMnemonic Op.BNEA bi addr insInfo builder
+    | 4UL, 3u -> buildSimpleMnemonic Op.BNSA bi addr insInfo builder
+    | _ ->
+      buildOpcode insInfo builder
+      buildOprs insInfo builder
+  | _ -> raise ParsingFailureException
+
+let buildBCL insInfo builder =
+  match insInfo.Operands with
+  | ThreeOperands (OprImm bo , OprBI bi, OprAddr addr) ->
+    let bibit = bi % 4u
+    match bo, bibit with
+    | 12UL, 0u -> buildSimpleMnemonic Op.BLTA bi addr insInfo builder
+    | 12UL, 1u -> buildSimpleMnemonic Op.BGTA bi addr insInfo builder
+    | 12UL, 2u -> buildSimpleMnemonic Op.BEQA bi addr insInfo builder
+    | 12UL, 3u -> buildSimpleMnemonic Op.BSOA bi addr insInfo builder
+    | 4UL, 0u -> buildSimpleMnemonic Op.BGEA bi addr insInfo builder
+    | 4UL, 1u -> buildSimpleMnemonic Op.BLEA bi addr insInfo builder
+    | 4UL, 2u -> buildSimpleMnemonic Op.BNEA bi addr insInfo builder
+    | 4UL, 3u -> buildSimpleMnemonic Op.BNSA bi addr insInfo builder
+    | _ ->
+      buildOpcode insInfo builder
+      buildOprs insInfo builder
+  | _ -> raise ParsingFailureException
+
+let buildBCLA insInfo builder =
+  match insInfo.Operands with
+  | ThreeOperands (OprImm bo , OprBI bi, OprAddr addr) ->
+    let bibit = bi % 4u
+    match bo, bibit with
+    | 12uL, 0u -> buildSimpleMnemonic Op.BLTLA bi addr insInfo builder
+    | 12UL, 1u -> buildSimpleMnemonic Op.BGTLA bi addr insInfo builder
+    | 12UL, 2u -> buildSimpleMnemonic Op.BEQLA bi addr insInfo builder
+    | 12UL, 3u -> buildSimpleMnemonic Op.BSOLA bi addr insInfo builder
+    | 4UL, 0u -> buildSimpleMnemonic Op.BGELA bi addr insInfo builder
+    | 4UL, 1u -> buildSimpleMnemonic Op.BLELA bi addr insInfo builder
+    | 4UL, 2u -> buildSimpleMnemonic Op.BNELA bi addr insInfo builder
+    | 4UL, 3u -> buildSimpleMnemonic Op.BNSLA bi addr insInfo builder
+    | _ ->
+      buildOpcode insInfo builder
+      buildOprs insInfo builder
+  | _ -> raise ParsingFailureException
+
+let buildBCLR insInfo (builder: DisasmBuilder) =
+  match insInfo.Operands with
+  | TwoOperands (OprImm bo , OprBI bi) ->
+    let bibit = bi % 4u
+    match bo, bibit with
+    | 20uL, 0u ->
+      builder.Accumulate AsmWordKind.Mnemonic (opCodeToString Op.BLR)
+    | 12UL, 0u -> buildCrMnemonic Op.BLTLR bi builder
+    | 12UL, 1u -> buildCrMnemonic Op.BGTLR bi builder
+    | 12UL, 2u -> buildCrMnemonic Op.BEQLR bi builder
+    | 12UL, 3u -> buildCrMnemonic Op.BSOLR bi builder
+    | 4UL, 0u -> buildCrMnemonic Op.BGELR bi builder
+    | 4UL, 1u -> buildCrMnemonic Op.BLELR bi builder
+    | 4UL, 2u -> buildCrMnemonic Op.BNELR bi builder
+    | 4UL, 3u -> buildCrMnemonic Op.BNSLR bi builder
+    | _ ->
+      buildOpcode insInfo builder
+      buildOprs insInfo builder
+  | _ -> raise ParsingFailureException
+
+let buildBCLRL insInfo (builder: DisasmBuilder) =
+  match insInfo.Operands with
+  | TwoOperands (OprImm bo , OprBI bi) ->
+    match bo, bi with
+    | 12UL, 0u -> buildCrMnemonic Op.BLTLRL bi builder
+    | 12UL, 1u -> buildCrMnemonic Op.BGTLRL bi builder
+    | 12UL, 2u -> buildCrMnemonic Op.BEQLRL bi builder
+    | 12UL, 3u -> buildCrMnemonic Op.BSOLRL bi builder
+    | 4UL, 0u -> buildCrMnemonic Op.BGELRL bi builder
+    | 4UL, 1u -> buildCrMnemonic Op.BLELRL bi builder
+    | 4UL, 2u -> buildCrMnemonic Op.BNELRL bi builder
+    | 4UL, 3u -> buildCrMnemonic Op.BNSLRL bi builder
+    | 20UL, 0u ->
+      builder.Accumulate AsmWordKind.Mnemonic (opCodeToString Op.BLRL)
+    | 16UL, 0u ->
+      builder.Accumulate AsmWordKind.Mnemonic (opCodeToString Op.BDNZLRL)
+    | 18UL, 0u ->
+      builder.Accumulate AsmWordKind.Mnemonic (opCodeToString Op.BDZLRL)
+    | 8UL, _ -> buildCrMnemonic Op.BDNZTLRL bi builder
+    | 0UL, _ -> buildCrMnemonic Op.BDNZFLRL bi builder
+    | 10UL, _ -> buildCrMnemonic Op.BDZTLRL bi builder
+    | 2UL, _ -> buildCrMnemonic Op.BDZFLRL bi builder
+    | _ ->
+      buildOpcode insInfo builder
+      buildOprs insInfo builder
+  | _ -> raise ParsingFailureException
+
+let buildBCCTR insInfo builder =
+  match insInfo.Operands with
+  | TwoOperands (OprImm bo , OprBI bi) ->
+    let bibit = bi % 4u
+    match bo, bibit with
+    | 12UL, 0u -> buildCrMnemonic Op.BLTCTR bi builder
+    | 12UL, 1u -> buildCrMnemonic Op.BGTCTR bi builder
+    | 12UL, 2u -> buildCrMnemonic Op.BEQCTR bi builder
+    | 12UL, 3u -> buildCrMnemonic Op.BSOCTR bi builder
+    | 4UL, 0u -> buildCrMnemonic Op.BGECTR bi builder
+    | 4UL, 1u -> buildCrMnemonic Op.BLECTR bi builder
+    | 4UL, 2u -> buildCrMnemonic Op.BNECTR bi builder
+    | 4UL, 3u -> buildCrMnemonic Op.BNSCTR bi builder
+    | _ ->
+      buildOpcode insInfo builder
+      buildOprs insInfo builder
+  | _ -> raise ParsingFailureException
+
+let buildBCCTRL insInfo builder =
+  match insInfo.Operands with
+  | TwoOperands (OprImm bo , OprBI bi) ->
+    let bibit = bi % 4u
+    match bo, bibit with
+    | 12UL, 0u -> buildCrMnemonic Op.BLTCTRL bi builder
+    | 12UL, 1u -> buildCrMnemonic Op.BGTCTRL bi builder
+    | 12UL, 2u -> buildCrMnemonic Op.BEQCTRL bi builder
+    | 12UL, 3u -> buildCrMnemonic Op.BSOCTRL bi builder
+    | 4UL, 0u -> buildCrMnemonic Op.BGECTRL bi builder
+    | 4UL, 1u -> buildCrMnemonic Op.BLECTRL bi builder
+    | 4UL, 2u -> buildCrMnemonic Op.BNECTRL bi builder
+    | 4UL, 3u -> buildCrMnemonic Op.BNSCTRL bi builder
+    | 20UL, 0u ->
+      builder.Accumulate AsmWordKind.Mnemonic (opCodeToString Op.BCTRL)
+    | _ ->
+      buildOpcode insInfo builder
+      buildOprs insInfo builder
+  | _ -> raise ParsingFailureException
+
+let buildRLWINM insInfo builder =
+  match insInfo.Operands with
+  | FiveOperands (OprReg ra, OprReg rs, OprImm sh, OprImm mb, OprImm me) ->
+    match sh, mb, me with
+    | _ , 0UL, 31UL -> buildRotateMnemonic Op.ROTLWI ra rs sh builder
+    | n1, 0UL, n2 when n2 = (31UL - n1) ->
+      buildRotateMnemonic Op.SLWI ra rs sh builder
+    | n1, n2, 31UL when n1 = (32UL - n2) ->
+      buildRotateMnemonic Op.SRWI ra rs mb builder
+    | 0UL, _ , 31UL -> buildRotateMnemonic Op.CLRLWI ra rs mb builder
+    | 0UL, 0UL, n -> buildRotateMnemonic Op.CLRRWI ra rs (31UL - me) builder
+    | _ ->
+      buildOpcode insInfo builder
+      buildOprs insInfo builder
+  | _ -> raise ParsingFailureException
+
+let disasm insInfo (builder: DisasmBuilder) =
   if builder.ShowAddr then builder.AccumulateAddr () else ()
-  buildOpcode insInfo builder
-  buildOprs insInfo builder
+  match insInfo.Opcode with
+  | Op.BC -> buildBC insInfo builder
+  | Op.BCA -> buildBCA insInfo builder
+  | Op.BCL -> buildBCL insInfo builder
+  | Op.BCLA -> buildBCLA insInfo builder
+  | Op.BCLR -> buildBCLR insInfo builder
+  | Op.BCLRL -> buildBCLRL insInfo builder
+  | Op.BCCTR -> buildBCCTR insInfo builder
+  | Op.BCCTRL -> buildBCCTRL insInfo builder
+  | Op.RLWINM -> buildRLWINM insInfo builder
+  | _ ->
+    buildOpcode insInfo builder
+    buildOprs insInfo builder

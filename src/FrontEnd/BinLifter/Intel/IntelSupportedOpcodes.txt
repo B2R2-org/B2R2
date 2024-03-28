@@ -522,6 +522,8 @@ INSERTQ
 INSW
 /// Call to Interrupt (Interrupt vector specified by immediate byte).
 INT
+/// Call to Interrupt Procedure (Debug trap).
+INT1
 /// Call to Interrupt (Interrupt 3-trap to debugger).
 INT3
 /// Call to Interrupt (InteInterrupt 4-if overflow flag is 1).
@@ -1398,8 +1400,10 @@ TZCNT
 UCOMISD
 /// Unordered Compare Scalar Single-Precision FPValues and Set EFLAGS.
 UCOMISS
-/// Undefined instruction.
-UD
+/// Undefined instruction (Raise invalid opcode exception).
+UD0
+/// Undefined Instruction (Raise invalid opcode exception).
+UD1
 /// Undefined Instruction (Raise invalid opcode exception).
 UD2
 /// Unpack and Interleave High Packed Double-Precision Floating-Point Values.
@@ -1516,6 +1520,8 @@ VCVTPD2UDQ
 VCVTPD2UQQ
 /// Convert 16-bit FP values to Single-Precision FP values.
 VCVTPH2PS
+/// Conv Packed Single-Precision FP Values to Packed Signed DWord Int Values.
+VCVTPS2DQ
 /// Conv Packed Single-Precision FP Values to Packed Dbl-Precision FP Values.
 VCVTPS2PD
 /// Convert Single-Precision FP value to 16-bit FP value.
@@ -1598,6 +1604,10 @@ VDIVSD
 VDIVSS
 /// Dot Product of BF16 Pairs Accumulated into Packed Single Precision.
 VDPBF16PS
+/// Packed Double-Precision Dot Products.
+VDPPD
+/// Packed Single-Precision Dot Products.
+VDPPS
 /// Verify a Segment for Reading.
 VERR
 /// Verify a Segment for Writing.
@@ -1668,6 +1678,14 @@ VFMADD231PS
 VFMADD231SD
 /// Fused Multiply-Add of Scalar Single-Precision Floating-Point Values.
 VFMADD231SS
+/// Multiply and Add Packed Double-Precision Floating-Point(Only AMD).
+VFMADDPD
+/// Multiply and Add Packed Single-Precision Floating-Point(Only AMD).
+VFMADDPS
+/// Multiply and Add Scalar Double-Precision Floating-Point(Only AMD).
+VFMADDSD
+/// Multiply and Add Scalar Single-Precision Floating-Point(Only AMD).
+VFMADDSS
 /// Fused Multiply-Alternating Add/Sub of Packed Double-Precision FP Values.
 VFMADDSUB132PD
 /// Fused Multiply-Alternating Add/Sub of Packed Single-Precision FP Values.
@@ -1846,6 +1864,8 @@ VINSERTI64X4
 VINSERTPS
 /// Load Unaligned Integer 128 Bits.
 VLDDQU
+/// Store Selected Bytes of Double Quadword.
+VMASKMOVDQU
 /// Conditional SIMD Packed Loads and Stores.
 VMASKMOVPD
 /// Conditional SIMD Packed Loads and Stores.
@@ -1916,6 +1936,8 @@ VMOVMSKPD
 VMOVMSKPS
 /// Load Double Quadword Non-Temporal Aligned Hint.
 VMOVNTDQ
+/// Load Double Quadword Non-temporal Aligned.
+VMOVNTDQA
 /// Store Packed Double-Precision FP Values Using Non-Temporal Hint.
 VMOVNTPD
 /// Store Packed Single-Precision FP Values Using Non-Temporal Hint.
@@ -1934,6 +1956,8 @@ VMOVSS
 VMOVUPD
 /// Move Unaligned Packed Single-Precision Floating-Point Values.
 VMOVUPS
+/// Compute Multiple Packed Sums of Absolute Difference.
+VMPSADBW
 /// Load Pointer to Virtual-Machine Control Structure.
 VMPTRLD
 /// Store Pointer to Virtual-Machine Control Structure.
@@ -2162,8 +2186,10 @@ VPEXPANDQ
 VPEXPANDW
 /// Extract Byte.
 VPEXTRB
-/// Extract DWord.
+/// Extract Dword.
 VPEXTRD
+/// Extract Qword.
+VPEXTRQ
 /// Extract Word.
 VPEXTRW
 /// Gather packed dword values using signed Dword/Qword indices.
@@ -2204,6 +2230,8 @@ VPLZCNTQ
 VPMADD52HUQ
 /// Packed Multiply of Unsigned 52-bit and Add Low 52-bit Products.
 VPMADD52LUQ
+/// Multiply and Add Packed Signed and Unsigned Bytes.
+VPMADDUBSW
 /// Multiply and Add Packed Integers.
 VPMADDWD
 /// Conditional SIMD Integer Packed Loads and Stores.
@@ -2672,6 +2700,10 @@ VSUBPS
 VSUBSD
 /// Subtract Scalar Single-Precision Floating-Point Values.
 VSUBSS
+/// Packed Bit Test.
+VTESTPD
+/// Packed Bit Test.
+VTESTPS
 /// Unordered Compare Scalar Double-Precision FP Values and Set EFLAGS.
 VUCOMISD
 /// Unordered Compare Scalar Single-Precision FPValues and Set EFLAGS.

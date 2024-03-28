@@ -27,7 +27,6 @@ namespace B2R2.FrontEnd.BinLifter.SH4
 open B2R2
 
 type Register =
-  // General Registers (32-bit)
   | R0 = 0x0
   | R1 = 0x1
   | R2 = 0x2
@@ -52,7 +51,6 @@ type Register =
   | R5_BANK = 0x15
   | R6_BANK = 0x16
   | R7_BANK = 0x17
-  // Control Registers (32-bit)
   | SR = 0x18
   | GBR = 0x19
   | SSR = 0x1A
@@ -60,14 +58,12 @@ type Register =
   | SGR = 0x1C
   | DBR = 0x1D
   | VBR = 0x1E
-  // System Registers (32-bit)
   | MACH = 0x1F
   | MACL = 0x20
   | PR = 0x21
   | FPUL = 0x22
   | PC = 0x23
   | FPSCR = 0x24
-  // Single-Precision Floating-point Registers (32-bit)
   | FPR0 = 0x25
   | FPR1 = 0x26
   | FPR2 = 0x27
@@ -84,7 +80,6 @@ type Register =
   | FPR13 = 0X32
   | FPR14 = 0x33
   | FPR15 = 0x34
-  // Floating-Point Registers (32-bit)
   | FR0 = 0x35
   | FR1 = 0x36
   | FR2 = 0x37
@@ -101,7 +96,6 @@ type Register =
   | FR13 = 0x42
   | FR14 = 0x43
   | FR15 = 0x44
-  // Single-Precision Floating-Point Extended Registers (32-bit)
   | XF0 = 0x45
   | XF1 = 0x46
   | XF2 = 0x47
@@ -118,9 +112,7 @@ type Register =
   | XF13 = 0x52
   | XF14 = 0x53
   | XF15 = 0x54
-  // Single-precision floating-point extended register matrix. (512-bit)
   | XMTRX = 0x55
-  // Double-Precision Floating-point Registers (64-bit)
   | DR0 = 0x56
   | DR2 = 0x57
   | DR4 = 0x58
@@ -129,7 +121,6 @@ type Register =
   | DR10 = 0x5B
   | DR12 = 0x5C
   | DR14 = 0x5D
-  // Single-Precision Floatig-Point Extended Register Pairs (64-bit)
   | XD0 = 0x5E
   | XD2 = 0x5F
   | XD4 = 0x60
@@ -138,27 +129,22 @@ type Register =
   | XD10 = 0x63
   | XD12 = 0x64
   | XD14 = 0x65
-  // Single-Precison Floating-point Vector Registers (128-bit)
   | FV0 = 0x66
   | FV4 = 0x67
   | FV8 = 0x68
   | FV12 = 0x69
-  // MMU-Related Registers (32-bit)
   | PTEH = 0x6A
   | PTEL = 0x6B
   | PTEA = 0x6C
   | TTB = 0x6D
   | TEA = 0x6E
   | MMUCR = 0x6F
-  // Cache and Store Queue Control Registers (32-bit)
   | CCR = 0x70
   | QACR0 = 0x71
   | QACR1 = 0x72
-  // Exception-Related Registers (32-bit)
   | TRA = 0x73
   | EXPEVT = 0x74
   | INTEVT = 0x75
-  // Flags in the SR (Status Register) (1-bit)
   | MD = 0x76
   | RB = 0x77
   | BL = 0x78
@@ -168,7 +154,6 @@ type Register =
   | IMASK = 0x7C
   | S = 0x7D
   | T = 0x7E
-  // Flags in the FPSCR (Floating-point Status Control Register) (1-bit)
   | FPSCR_RM = 0X7F
   | FPSCR_FLAG = 0x80
   | FPSCR_ENABLE = 0x81
@@ -191,7 +176,7 @@ module Register =
     LanguagePrimitives.EnumToValue (reg) |> RegisterID.create
 
   let ofString (str: string) =
-    match str.ToLower () with
+    match str.ToLowerInvariant () with
     | "r0" -> R.R0
     | "r1" -> R.R1
     | "r2" -> R.R2

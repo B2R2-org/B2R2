@@ -38,7 +38,10 @@ open B2R2.BinIR.LowUIR
 let inline ( !! ) (ir: IRBuilder) (s) = ir.Append s
 
 /// The special operator for creating a temporary variable.
-let inline ( !* ) (ir: IRBuilder) rt = ir.NewTempVar rt
+let inline ( !+ ) (ir: IRBuilder) rt = ir.NewTempVar rt
+
+/// The special operator for creating a symbol.
+let inline ( !% ) (ir: IRBuilder) label = ir.NewSymbol label
 
 /// The special operator for starting an instruction (ISMark).
 let inline ( !< ) (ir: IRBuilder) insLen =
@@ -52,3 +55,7 @@ let inline ( !> ) (ir: IRBuilder) (insLen: uint32) =
 /// The special operator for applying a function with a IRBuilder as input.
 let inline ( !? ) (ir: IRBuilder) fn =
   fn ir
+
+/// Fetch IRBuilder from the given translation context.
+let inline ( !* ) (ctxt: TranslationContext) =
+  ctxt.IRBuilder

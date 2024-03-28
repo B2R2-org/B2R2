@@ -53,7 +53,12 @@ type ARM64Instruction (addr, numBytes, insInfo, wordSize) =
 
   member __.HasConcJmpTarget () =
     match __.Info.Operands with
-    | OneOperand (Memory (LiteralMode _)) -> true
+    (* All other instructions *)
+    | OneOperand (OprMemory (LiteralMode _)) -> true
+    (* CBNZ and CBZ *)
+    | TwoOperands (_, OprMemory (LiteralMode _)) -> true
+    (* TBNZ and TBZ *)
+    | ThreeOperands (_, _, OprMemory (LiteralMode _)) -> true
     | _ -> false
 
   override __.IsDirectBranch () =
@@ -90,49 +95,53 @@ type ARM64Instruction (addr, numBytes, insInfo, wordSize) =
     | Opcode.SVC | Opcode.HVC | Opcode.SMC -> true
     | _ -> false
 
-  override __.IsExit () = Utils.futureFeature ()
+  override __.IsExit () =
+    match __.Info.Opcode with
+    | Opcode.HLT
+    | Opcode.ERET -> true
+    | _ -> false
 
-  override __.IsBBLEnd () = // FIXME
-    __.IsDirectBranch () ||
-    __.IsIndirectBranch () ||
-    __.IsInterrupt ()
+  override __.IsBBLEnd () =
+       __.IsBranch ()
+    || __.IsInterrupt ()
+    || __.IsExit ()
 
   override __.DirectBranchTarget (addr: byref<Addr>) =
     if __.IsBranch () then
       match __.Info.Operands with
-      | OneOperand (Memory (LiteralMode (ImmOffset (Lbl offset)))) ->
+      | OneOperand (OprMemory (LiteralMode (ImmOffset (Lbl offset)))) ->
         addr <- (__.Address + uint64 offset)
         true
-      | TwoOperands (_, Memory (LiteralMode (ImmOffset (Lbl offset)))) ->
+      | TwoOperands (_, OprMemory (LiteralMode (ImmOffset (Lbl offset)))) ->
         addr <- (__.Address + uint64 offset)
         true
-      | ThreeOperands (_, _, Memory (LiteralMode (ImmOffset (Lbl offset)))) ->
-        addr <- (__.Address + uint64 offset)
+      | ThreeOperands (_, _, OprMemory (LiteralMode (ImmOffset (Lbl offs)))) ->
+        addr <- (__.Address + uint64 offs)
         true
       | _ -> false
     else false
 
   override __.IndirectTrampolineAddr (_addr: byref<Addr>) =
-    if __.IsBranch () then Utils.futureFeature ()
+    if __.IsIndirectBranch () then Utils.futureFeature ()
     else false
 
   override __.Immediate (v: byref<int64>) =
     match __.Info.Operands with
-    | OneOperand (Immediate c)
-    | TwoOperands (Immediate c, _)
-    | TwoOperands (_, Immediate c)
-    | ThreeOperands (Immediate c, _, _)
-    | ThreeOperands (_, Immediate c, _)
-    | ThreeOperands (_, _, Immediate c)
-    | FourOperands (Immediate c, _, _, _)
-    | FourOperands (_, Immediate c, _, _)
-    | FourOperands (_, _, Immediate c, _)
-    | FourOperands (_, _, _, Immediate c)
-    | FiveOperands (Immediate c, _, _, _, _)
-    | FiveOperands (_, Immediate c, _, _, _)
-    | FiveOperands (_, _, Immediate c, _, _)
-    | FiveOperands (_, _, _, Immediate c, _)
-    | FiveOperands (_, _, _, _, Immediate c) -> v <- c; true
+    | OneOperand (OprImm c)
+    | TwoOperands (OprImm c, _)
+    | TwoOperands (_, OprImm c)
+    | ThreeOperands (OprImm c, _, _)
+    | ThreeOperands (_, OprImm c, _)
+    | ThreeOperands (_, _, OprImm c)
+    | FourOperands (OprImm c, _, _, _)
+    | FourOperands (_, OprImm c, _, _)
+    | FourOperands (_, _, OprImm c, _)
+    | FourOperands (_, _, _, OprImm c)
+    | FiveOperands (OprImm c, _, _, _, _)
+    | FiveOperands (_, OprImm c, _, _, _)
+    | FiveOperands (_, _, OprImm c, _, _)
+    | FiveOperands (_, _, _, OprImm c, _)
+    | FiveOperands (_, _, _, _, OprImm c) -> v <- c; true
     | _ -> false
 
   override __.GetNextInstrAddrs () = Utils.futureFeature ()
@@ -143,28 +152,28 @@ type ARM64Instruction (addr, numBytes, insInfo, wordSize) =
     __.Info.Opcode = Opcode.NOP
 
   override __.Translate ctxt =
-    (Lifter.translate __.Info ctxt).ToStmts ()
+    (Lifter.translate __.Info numBytes ctxt).ToStmts ()
 
   override __.TranslateToList ctxt =
-    Lifter.translate __.Info ctxt
+    Lifter.translate __.Info numBytes ctxt
 
-  override __.Disasm (showAddr, _resolveSymbol, _fileInfo) =
+  override __.Disasm (showAddr, _) =
     let builder =
       DisasmStringBuilder (showAddr, false, WordSize.Bit64, addr, numBytes)
     Disasm.disasm __.Info builder
-    builder.Finalize ()
+    builder.ToString ()
 
   override __.Disasm () =
     let builder =
       DisasmStringBuilder (false, false, WordSize.Bit64, addr, numBytes)
     Disasm.disasm __.Info builder
-    builder.Finalize ()
+    builder.ToString ()
 
   override __.Decompose (showAddr) =
     let builder =
       DisasmWordBuilder (showAddr, false, WordSize.Bit64, addr, numBytes, 8)
     Disasm.disasm __.Info builder
-    builder.Finalize ()
+    builder.ToArray ()
 
   override __.IsInlinedAssembly () = false
 

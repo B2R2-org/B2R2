@@ -49,103 +49,108 @@ type OprDesc =
   | DbgGpr = 15
   | MmxRm = 16
   | MmxMm = 17
-  | GprRMm = 18
-  | RegImm8 = 19
-  | Imm8Reg = 20
-  | Imm8 = 21
-  | Imm16 = 22
-  | RegImm = 23
-  | SImm8 = 24
-  | Imm = 25
-  | Es = 26
-  | Cs = 27
-  | Ss = 28
-  | Ds = 29
-  | Fs = 30
-  | Gs = 31
-  | ALDx = 32
-  | EaxDx = 33
-  | DxEax = 34
-  | DxAL = 35
-  | No = 36
-  | Eax = 37
-  | Ecx = 38
-  | Edx = 39
-  | Ebx = 40
-  | Esp = 41
-  | Ebp = 42
-  | Esi = 43
-  | Edi = 44
-  | Rax = 45
-  | Rcx = 46
-  | Rdx = 47
-  | Rbx = 48
-  | Rsp = 49
-  | Rbp = 50
-  | Rsi = 51
-  | Rdi = 52
-  | RaxRax = 53
-  | RaxRcx = 54
-  | RaxRdx = 55
-  | RaxRbx = 56
-  | RaxRsp = 57
-  | RaxRbp = 58
-  | RaxRsi = 59
-  | RaxRdi = 60
-  | GprRmImm8 = 61
-  | GprRmImm = 62
-  | Rel8 = 63
-  | Rel = 64
-  | Dir = 65
-  | RaxFar = 66
-  | FarRax = 67
-  | ALImm8 = 68
-  | CLImm8 = 69
-  | DLImm8 = 70
-  | BLImm8 = 71
-  | AhImm8 = 72
-  | ChImm8 = 73
-  | DhImm8 = 74
-  | BhImm8 = 75
-  | RaxImm = 76
-  | RcxImm = 77
-  | RdxImm = 78
-  | RbxImm = 79
-  | RspImm = 80
-  | RbpImm = 81
-  | RsiImm = 82
-  | RdiImm = 83
-  | ImmImm = 84
-  | RmImm = 85
-  | RmImm8 = 86
-  | MmxImm8 = 87
-  | Mem = 88
-  | M1 = 89
-  | RmCL = 90
-  | XmmVvXm = 91
-  | GprVvRm = 92
-  | XmVvXmm = 93
-  | Gpr = 94
-  | RmXmmImm8 = 95
-  | XmmRmImm8 = 96
-  | MmxMmImm8 = 97
-  | MmxRmImm8 = 98
-  | GprMmxImm8 = 99
-  | XmmVvXmImm8 = 100
-  | XmmVvXmXmm = 101
-  | XmRegImm8 = 102
-  | GprRmVv = 103
-  | VvRmImm8 = 104
-  | RmGprCL = 105
-  | XmmXmXmm0 = 106
-  | XmmXmVv = 107
-  | VvRm = 108
-  | GprRmImm8Imm8 = 109
-  | RmImm8Imm8 = 110
-  | KnVvXm = 111
-  | GprKn = 112
-  | KnVvXmImm8 = 113
-  | KnGpr = 114
+  | MxMx = 18
+  | GprRMm = 19
+  | RegImm8 = 20
+  | Imm8Reg = 21
+  | Imm8 = 22
+  | Imm16 = 23
+  | RegImm = 24
+  | SImm8 = 25
+  | Imm = 26
+  | Es = 27
+  | Cs = 28
+  | Ss = 29
+  | Ds = 30
+  | Fs = 31
+  | Gs = 32
+  | ALDx = 33
+  | EaxDx = 34
+  | DxEax = 35
+  | DxAL = 36
+  | No = 37
+  | Eax = 38
+  | Ecx = 39
+  | Edx = 40
+  | Ebx = 41
+  | Esp = 42
+  | Ebp = 43
+  | Esi = 44
+  | Edi = 45
+  | Rax = 46
+  | Rcx = 47
+  | Rdx = 48
+  | Rbx = 49
+  | Rsp = 50
+  | Rbp = 51
+  | Rsi = 52
+  | Rdi = 53
+  | RaxRax = 54
+  | RaxRcx = 55
+  | RaxRdx = 56
+  | RaxRbx = 57
+  | RaxRsp = 58
+  | RaxRbp = 59
+  | RaxRsi = 60
+  | RaxRdi = 61
+  | GprRmImm8 = 62
+  | GprRmImm = 63
+  | Rel8 = 64
+  | Rel = 65
+  | Dir = 66
+  | RaxFar = 67
+  | FarRax = 68
+  | ALImm8 = 69
+  | CLImm8 = 70
+  | DLImm8 = 71
+  | BLImm8 = 72
+  | AhImm8 = 73
+  | ChImm8 = 74
+  | DhImm8 = 75
+  | BhImm8 = 76
+  | RaxImm = 77
+  | RcxImm = 78
+  | RdxImm = 79
+  | RbxImm = 80
+  | RspImm = 81
+  | RbpImm = 82
+  | RsiImm = 83
+  | RdiImm = 84
+  | ImmImm = 85
+  | RmImm = 86
+  | RmImm8 = 87
+  | RmSImm8 = 88
+  | MmxImm8 = 89
+  | Mem = 90
+  | M1 = 91
+  | RmCL = 92
+  | XmmVvXm = 93
+  | GprVvRm = 94
+  | XmVvXmm = 95
+  | Gpr = 96
+  | RmXmmImm8 = 97
+  | XmmRmImm8 = 98
+  | MmxMmImm8 = 99
+  | MmxRmImm8 = 100
+  | GprMmxImm8 = 101
+  | XmmVvXmImm8 = 102
+  | XmmVvXmXmm = 103
+  | XmRegImm8 = 104
+  | GprRmVv = 105
+  | VvRmImm8 = 106
+  | RmGprCL = 107
+  | XmmXmXmm0 = 108
+  | XmmXmVv = 109
+  | VvRm = 110
+  | GprRmImm8Imm8 = 111
+  | RmImm8Imm8 = 112
+  | KnVvXm = 113
+  | GprKn = 114
+  | KnVvXmImm8 = 115
+  | KnGpr = 116
+  | XmmVvXmmXm = 117
+  | KnKm = 118
+  | MKn = 119
 
 module internal OperandParsingHelper =
   /// Find a specific reg. The bitmask will be used to extract a specific REX
@@ -336,12 +341,12 @@ module internal OperandParsingHelper =
 
   open type RegGrp
 
-  /// The first 24 rows of Table 2-2. of the manual Vol. 2A.
-  /// The index of this tbl is a number that is a concatenation of (mod) and
-  /// (r/m) field of the ModR/M byte. Each element is a tuple of (MemLookupType,
-  /// and the size of the displacement). If the first value of the tuple (register
-  /// group) is None, it means we need to look up the SIB tbl (Table 2-3). If
-  /// not, then it represents the reg group of the base reigster.
+  /// The first 24 rows of Table 2-2. of the manual Vol. 2A. The index of this
+  /// tbl is a number that is a concatenation of (mod) and (r/m) field of the
+  /// ModR/M byte. Each element is a tuple of (MemLookupType, and the size of
+  /// the displacement). If the first value of the tuple (register group) is
+  /// None, it means we need to look up the SIB tbl (Table 2-3). If not, then it
+  /// represents the reg group of the base reigster.
   let parseMEM32 span rhlp modRM =
     let modVal = modRM &&& 0b11000000uy
     match modVal >>> 3 ||| (modRM &&& 0b00000111uy) with
@@ -398,7 +403,7 @@ module internal OperandParsingHelper =
     match rhlp.VEXInfo with
     | None -> raise ParsingFailureException
     | Some vInfo ->
-      let grp = (int vInfo.VVVV) &&& 0b111
+      let grp = (int vInfo.VVVV) &&& 0b1111
       int (grpEAX rhlp.RegSize) + grp
       |> LanguagePrimitives.EnumOfValue<int, Register>
       |> OprReg
@@ -411,7 +416,8 @@ module internal OperandParsingHelper =
     else raise ParsingFailureException
 
   let parseBoundRegister n =
-    Register.bound n |> OprReg
+    if n < 4 then Register.bound n |> OprReg
+    else raise ParsingFailureException
 
   let parseControlReg n =
     Register.control n |> OprReg
@@ -612,6 +618,16 @@ type internal OpMmxMm () =
     let modRM = rhlp.ReadByte span
     let opr1 = parseMMXReg (getReg modRM)
     let opr2 = parseMemOrReg modRM span rhlp
+    TwoOperands (opr1, opr2)
+
+type internal OpMxMx () =
+  inherit OperandParser ()
+  override __.Render (span, rhlp) =
+    let modRM = rhlp.ReadByte span
+    let opr1 = parseMMXReg (getReg modRM)
+    let opr2 =
+      if modIsMemory modRM then raise ParsingFailureException
+      else parseMMXReg (getRM modRM)
     TwoOperands (opr1, opr2)
 
 type internal OpGprRMm () =
@@ -1063,6 +1079,14 @@ type internal OpRmImm8 () =
   override __.Render (span, rhlp) =
     let modRM = rhlp.ReadByte span
     let opr1 = parseMemOrReg modRM span rhlp
+    let opr2 = parseOprImm span rhlp 8<rt>
+    TwoOperands (opr1, opr2)
+
+type internal OpRmSImm8 () =
+  inherit OperandParser ()
+  override __.Render (span, rhlp) =
+    let modRM = rhlp.ReadByte span
+    let opr1 = parseMemOrReg modRM span rhlp
     let opr2 = parseOprSImm span rhlp 8<rt>
     TwoOperands (opr1, opr2)
 
@@ -1088,7 +1112,7 @@ type internal OpM1 () =
   override __.Render (span, rhlp) =
     let modRM = rhlp.ReadByte span
     let opr = parseMemOrReg modRM span rhlp
-    TwoOperands (opr, OprImm (1L, 0<rt>))
+    TwoOperands (opr, OprImm (1L, rhlp.OperationSize))
 
 type internal OpRmCL () =
   inherit OperandParser ()
@@ -1320,5 +1344,36 @@ type internal OpKnGpr () =
   override __.Render (span, rhlp) =
     let modRM = rhlp.ReadByte span
     let opr1 = parseOpMaskReg (getReg modRM)
-    let opr2 = findRegRBits rhlp.RegSize rhlp.REXPrefix (getRM modRM) |> OprReg
+    let opr2 =
+      findRegRmAndSIBBase rhlp.RegSize rhlp.REXPrefix (getRM modRM) |> OprReg
+    TwoOperands (opr1, opr2)
+
+type internal OpXmmVvXmmXm () =
+  inherit OperandParser ()
+  override __.Render (span, rhlp) =
+    let modRM = rhlp.ReadByte span
+    let opr1 = findRegRBits rhlp.RegSize rhlp.REXPrefix (getReg modRM) |> OprReg
+    let opr2 = parseVVVVReg rhlp
+    let mask = if rhlp.WordSize = WordSize.Bit32 then 0b0111uy else 0b1111uy
+    let opr4 = parseMemOrReg modRM span rhlp
+    let imm8 = (rhlp.ReadUInt8 (span) >>> 4) &&& mask |> int (* imm8[7:4] *)
+    let opr3 = findRegNoREX rhlp.RegSize rhlp.REXPrefix imm8 |> OprReg
+    FourOperands (opr1, opr2, opr3, opr4)
+
+type internal OpKnKm () =
+  inherit OperandParser ()
+  override __.Render (span, rhlp) =
+    let modRM = rhlp.ReadByte span
+    let opr1 = parseOpMaskReg (getReg modRM)
+    let opr2 = if modIsMemory modRM then parseMemory modRM span rhlp
+               else parseOpMaskReg (getRM modRM)
+    TwoOperands (opr1, opr2)
+
+type internal OpMKn () =
+  inherit OperandParser ()
+  override __.Render (span, rhlp) =
+    let modRM = rhlp.ReadByte span
+    let opr1 = if modIsMemory modRM then parseMemory modRM span rhlp
+               else raise ParsingFailureException
+    let opr2 = parseOpMaskReg (getReg modRM)
     TwoOperands (opr1, opr2)

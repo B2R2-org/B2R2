@@ -137,7 +137,7 @@ let addTemplate expr =
   updateUserState
     (fun us ->
       match expr with
-      | Template (_, _) -> { us with Namelist = expr :: us.Namelist }
+      | Template _ -> { us with Namelist = expr :: us.Namelist }
       | _ -> us
   )
   >>. preturn expr
@@ -208,8 +208,8 @@ let addOnCondition expr =
      | RefArg (a, Arguments b) | RefArg (a, TemplateSub (Arguments b, _)) ->
        if b <> [] then
          let add = RefArg (a, b[b.Length - 1])
-         let new_add = Arguments (addtoList a b [])
-         { us with Namelist = new_add :: add :: us.Namelist }
+         let newAdd = Arguments (addtoList a b [])
+         { us with Namelist = newAdd :: add :: us.Namelist }
        else
          { us with Namelist = Arguments b :: Name "" :: us.Namelist }
      | _ -> us
@@ -270,8 +270,7 @@ let expandCL expr =
   | CallExpr a ->
     match a[0] with
     | Arguments arglist ->
-      let CLlist = Arguments (createCLexprs a.Tail arglist [])
-      preturn CLlist
+      Arguments (createCLexprs a.Tail arglist []) |> preturn
     | _ -> preturn expr
   | _ -> preturn expr
 
@@ -287,7 +286,6 @@ let expandDT expr =
   | DotExpr (a, b) ->
     match a with
     | Arguments arglist ->
-      let DTlist = Arguments (createDTexprs b arglist [])
-      preturn DTlist
+      Arguments (createDTexprs b arglist []) |> preturn
     | _ -> preturn expr
   | _ -> preturn expr

@@ -75,6 +75,14 @@ type AddrRange =
     member ToTuple: unit -> Addr * Addr
 
     /// <summary>
+    /// Slice the given AddrRange (target) based on my range, in such a way that
+    /// the resulting range is always included in my range.
+    /// </summary>
+    /// <returns>
+    /// </returns>
+    member Slice: target: AddrRange -> AddrRange
+
+    /// <summary>
     /// Check if the address range is including the given address.
     /// </summary>
     /// <returns>

@@ -25,39 +25,24 @@
 /// A set of convenient misc. functions.
 module B2R2.Utils
 
-/// Assert two values are equal. If not, raise an exception (exn).
-val assertEqual<'a when 'a : equality> : 'a -> 'a -> exn -> unit
-
-/// Assert check condition. If not, raise an exception (exn).
-val assertByCond: condition: bool -> exn -> unit
-
 /// Not implemented features encountered, so raise an exception and die.
 val futureFeature: unit -> 'a
 
 /// Fatal error. This should never happen.
 val impossible: unit -> 'a
 
-/// Apply a procedure in the middle of function pipes.
-val inline tap : ('a -> unit) -> 'a -> 'a
-
-/// Curry a pair of arguments.
-val inline curry : ('a * 'b -> 'c) -> 'a -> 'b -> 'c
-
-/// Uncurry a pair of arguments.
-val inline uncurry : ('a -> 'b -> 'c) -> 'a * 'b -> 'c
-
 /// Physical equality.
 val inline (===) : 'a -> 'a -> bool when 'a : not struct
 
 /// Convert a tuple result to an option type. The tuple result is obtained from
-/// the TryGetValue pattern, e.g., IDictionary.
-val inline tupleToOpt: bool * 'a -> 'a option
+/// TryGetValue methods, e.g., from IDictionary.
+val inline tupleResultToOpt: bool * 'a -> 'a option
 
 /// Return the first item of a triple.
-val inline tripleFst: ('a * 'b * 'c) -> 'a
+val inline fstOfTriple: ('a * 'b * 'c) -> 'a
 
 /// Return the second item of a triple.
-val inline tripleSnd: ('a * 'b * 'c) -> 'b
+val inline sndOfTriple: ('a * 'b * 'c) -> 'b
 
 /// Return the third item of a triple.
-val inline tripleThd: ('a * 'b * 'c) -> 'c
+val inline thdOfTriple: ('a * 'b * 'c) -> 'c

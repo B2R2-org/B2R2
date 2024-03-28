@@ -26,16 +26,10 @@ module internal B2R2.FrontEnd.BinLifter.MIPS.Helper
 
 open B2R2
 open B2R2.FrontEnd.BinLifter
-open B2R2.FrontEnd.BinLifter.MIPS.Utils
+open B2R2.FrontEnd.BinLifter.BitData
 
-let isRel2 arch = arch = Arch.MIPS32R2 || arch = Arch.MIPS64R2
-let isRel6 arch = arch = Arch.MIPS32R6 || arch = Arch.MIPS64R6
-let isMIPS32 arch = arch = Arch.MIPS32R2 || arch = Arch.MIPS32R6
-let isMIPS64 arch = arch = Arch.MIPS64R2 || arch = Arch.MIPS64R6
-let isMIPS32R2 arch = arch = Arch.MIPS32R2
-let isMIPS64R2 arch = arch = Arch.MIPS64R2
-let isMIPS32R6 arch = arch = Arch.MIPS32R6
-let isMIPS64R6 arch = arch = Arch.MIPS64R6
+let isMIPS32 arch = arch = Architecture.MIPS32
+let isMIPS64 arch = arch = Architecture.MIPS64
 
 let getRegister = function
   | 0x0uy -> R.R0
@@ -127,52 +121,80 @@ let getCondition = function
   | _ -> raise InvalidConditionException
 
 let gprLen = function
-  | Arch.MIPS32R2 | Arch.MIPS32R6 -> 32
-  | Arch.MIPS64R2 | Arch.MIPS64R6 -> 64
-  | _ -> failwith "Not Implemented."
+  | Architecture.MIPS32 -> 32
+  | Architecture.MIPS64 -> 64
+  | _ -> Utils.impossible ()
 
 let num9 b = extract b 15u 7u
+
 let num16 b = extract b 15u 0u
+
 let num26 b = extract b 25u 0u
+
 let getRegFrom2521 b = getRegister (extract b 25u 21u |> byte)
+
 let getRegFrom2016 b = getRegister (extract b 20u 16u |> byte)
+
 let getRegFrom1511 b = getRegister (extract b 15u 11u |> byte)
+
 let getFRegFrom2521 b = getFRegister (extract b 25u 21u |> byte)
+
 let getFRegFrom2016 b = getFRegister (extract b 20u 16u |> byte)
+
 let getFRegFrom2018 b = getFRegister (extract b 20u 18u |> byte)
+
 let getFRegFrom1511 b = getFRegister (extract b 15u 11u |> byte)
+
 let getFRegFrom106 b = getFRegister (extract b 10u 6u |> byte)
+
 let getFRegFrom108 b = getFRegister (extract b 10u 8u |> byte)
 
 let rs b = getRegFrom2521 b |> OpReg
+
 let rt b = getRegFrom2016 b |> OpReg
+
 let rd b = getRegFrom1511 b |> OpReg
 
 let fs b = getFRegFrom1511 b |> OpReg
+
 let ft b = getFRegFrom2016 b |> OpReg
+
 let fd b = getFRegFrom106 b |> OpReg
+
 let fr b = getFRegFrom2521 b |> OpReg
-let cc10 b = getFRegFrom108 b |> OpReg // FIXME: Floating Point cond code CC.
-let cc20 b = getFRegFrom2018 b |> OpReg // FIXME: Floating Point cond code CC.
+
+let cc10 b = extract b 10u 8u |> uint64 |> OpImm
+
+let cc20 b = extract b 20u 18u |> uint64 |> OpImm
 
 let sa b = extract b 10u 6u |> uint64 |> OpShiftAmount
+
 let bp b = extract b 7u 6u |> uint64 |> OpImm
 
+let bp64 b = extract b 8u 6u |> uint64 |> OpImm
+
 let hint b = extract b 20u 16u |> uint64 |> OpImm (* FIMXE: hint on page 420 *)
+
 let sel b = extract b 8u 6u |> uint64 |> OpImm (* FIXME: sel on page 432 *)
 
 let rel16 b =
   let off = num16 b |> uint64 <<< 2 |> signExtend 18 64 |> int64
   off + 4L |> Relative |> OpAddr
+
 let region b =
   num26 b <<< 2 |> uint64 |> OpImm (* FIXME: PC-region on page 268 *)
+
 let stype b =
   extract b 10u 6u |> uint64 |> OpImm (* FIXME: SType Field on page 533 *)
+
 let imm16 b = num16 b |> uint64 |> OpImm
+
 let imm16SignExt b = num16 b |> uint64 |> signExtend 16 64 |> OpImm
+
 let memBaseOff b num accLength =
   let offset = num b |> uint64 |> signExtend 16 64 |> int64
   OpMem (getRegFrom2521 b, Imm offset, accLength)
+
 let memBaseIdx b accLength =
   OpMem (getRegFrom2521 b, Reg (getRegFrom2016 b), accLength)
 
@@ -180,72 +202,122 @@ let posSize b =
   let msb = extract b 15u 11u
   let lsb = extract b 10u 6u
   lsb |> uint64 |> OpImm, msb + 1u - lsb |> uint64 |> OpImm
+
 let posSize2 b =
   let msbd = extract b 15u 11u
   let lsb = extract b 10u 6u
   lsb |> uint64 |> OpImm, msbd + 1u |> uint64 |> OpImm
+
 let posSize3 b =
   let msbminus32 = extract b 15u 11u
   let lsb = extract b 10u 6u
   lsb |> uint64 |> OpImm, msbminus32 + 33u - lsb |> uint64 |> OpImm
+
 let posSize4 b =
   let msbminus32 = extract b 15u 11u
   let lsbminus32 = extract b 10u 6u
   let pos = lsbminus32 + 32u
   pos |> uint64 |> OpImm, msbminus32 + 33u - pos |> uint64 |> OpImm
+
 let posSize5 b =
   let msbdminus32 = extract b 15u 11u
   let lsb = extract b 10u 6u
   lsb |> uint64 |> OpImm, msbdminus32 + 33u |> uint64 |> OpImm
+
 let posSize6 b =
   let msbd = extract b 15u 11u
   let lsbminus32 = extract b 10u 6u
   lsbminus32 + 32u |> uint64 |> OpImm, msbd + 1u |> uint64 |> OpImm
 
 let getRel16 b = OneOperand (rel16 b)
+
 let getRs b = OneOperand (rs b)
+
 let getRd b = OneOperand (rd b)
+
 let getTarget b = OneOperand (region b)
+
 let getStype b = OneOperand (stype b)
+
 let getRdRs b = TwoOperands (rd b, rs b)
+
 let getRdRtRs b = ThreeOperands (rd b, rt b, rs b)
+
 let getRdRsRt b = ThreeOperands (rd b, rs b, rt b)
+
 let getRsRt b = TwoOperands (rs b, rt b)
+
 let getRdRt b = TwoOperands (rd b, rt b)
+
 let getRtRdSel b = ThreeOperands (rt b, rd b, sel b)
-let getRsRtRel16 b = ThreeOperands (rs b, rt b, rel16 b)
+
+let getRsRtRel16 b = ThreeOperands (rs b, rt b, rel16 b) (* rs, rt, offset *)
+
 let getRsRel16 b = TwoOperands (rs b, rel16 b)
+
+let getRsImm16s b = TwoOperands (rs b, imm16SignExt b)
+
 let getRtImm16 b = TwoOperands (rt b, imm16 b)
+
 let getRtRsImm16s b = ThreeOperands (rt b, rs b, imm16SignExt b)
+
 let getRtRsImm16 b = ThreeOperands (rt b, rs b, imm16 b)
+
 let getRtMemBaseOff b accLen = TwoOperands (rt b, memBaseOff b num16 accLen)
+
 let getRtMemBaseOff9 b accLen = TwoOperands (rt b, memBaseOff b num9 accLen)
+
 let getFtMemBaseOff b accLen = TwoOperands (ft b, memBaseOff b num16 accLen)
+
 let getHintMemBaseOff b accLen = TwoOperands (hint b, memBaseOff b num16 accLen)
+
 let getHintMemBaseOff9 b accLen = TwoOperands (hint b, memBaseOff b num9 accLen)
+
 let getFdMemBaseIdx b accLen = TwoOperands (fd b, memBaseIdx b accLen)
+
 let getFsMemBaseIdx b accLen = TwoOperands (fs b, memBaseIdx b accLen)
+
 let getHintMemBaseIdx b accLen = TwoOperands (hint b, memBaseIdx b accLen)
+
 let getRdRtSa b = ThreeOperands (rd b, rt b, sa b)
+
 let getRdRsCc b = ThreeOperands (rd b, rs b, cc20 b)
+
 let getRdRsRtBp b = FourOperands (rd b, rs b, rt b, bp b)
+
+let getRdRsRtBp64 b = FourOperands (rd b, rs b, rt b, bp64 b)
+
 let getRtRsPosSize b = let p, s = posSize b in FourOperands (rt b, rs b, p, s)
+
 let getRtRsPosSize2 b = let p, s = posSize2 b in FourOperands (rt b, rs b, p, s)
+
 let getRtRsPosSize3 b = let p, s = posSize3 b in FourOperands (rt b, rs b, p, s)
+
 let getRtRsPosSize4 b = let p, s = posSize4 b in FourOperands (rt b, rs b, p, s)
+
 let getRtRsPosSize5 b = let p, s = posSize5 b in FourOperands (rt b, rs b, p, s)
+
 let getRtRsPosSize6 b = let p, s = posSize6 b in FourOperands (rt b, rs b, p, s)
+
 let getRtFs b = TwoOperands (rt b, fs b)
+
 let getCcOff b =
   match extract b 20u 18u with
   | 0u -> OneOperand (rel16 b)
   | a -> TwoOperands (a |> uint64 |> OpImm, rel16 b)
+
 let getFsFt b = TwoOperands (fs b, ft b)
+
 let getFdFs b = TwoOperands (fd b, fs b)
+
 let getFdFsRt b = ThreeOperands (fd b, fs b, rt b)
+
 let getFdFsCc b = ThreeOperands (fd b, fs b, cc20 b)
+
 let getCcFsFt b = ThreeOperands (cc10 b, fs b, ft b)
+
 let getFdFsFt b = ThreeOperands (fd b, fs b, ft b)
+
 let getFdFrFsFt b = FourOperands (fd b, fr b, fs b, ft b)
 
 // vim: set tw=80 sts=2 sw=2:

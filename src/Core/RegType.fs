@@ -24,6 +24,9 @@
 
 namespace B2R2
 
+/// This exception is raised when an invalid RegType is encountered.
+exception InvalidRegTypeException
+
 /// A unit for RegType.
 [<Measure>]
 type rt
@@ -32,14 +35,17 @@ type rt
 /// the register.
 type RegType = int<rt>
 
-/// This exception is raised when an invalid RegType is encountered.
-exception InvalidRegTypeException
-
 /// <summary>
 ///   A helper for <see cref="T:B2R2.RegType"/>.
 /// </summary>
 [<RequireQualifiedAccess>]
 module RegType =
+#if DEBUG
+  let checkIfValidRegType t =
+    if t > 0<rt> then ()
+    else raise InvalidRegTypeException
+#endif
+
   /// <summary>
   ///   Convert <see cref="T:B2R2.RegType"/> to string.
   /// </summary>
@@ -48,27 +54,12 @@ module RegType =
   ///   A string representation for RegType. For example, I32 means a 32-bit
   ///   integer type.
   /// </returns>
+  [<CompiledName "ToString">]
   let toString (t: RegType) =
-    if t >= 0<rt> then "I" + t.ToString ()
-    else "F" + t.ToString ()
-
 #if DEBUG
-  let checkIfValidRegType t =
-    if t > 0<rt> then ()
-    elif t < 0<rt> && t >= -512<rt> then ()
-    else raise InvalidRegTypeException
+    checkIfValidRegType t
 #endif
-
-  /// <summary>
-  ///   Check if the given <see cref="T:B2R2.RegType"/> is a floating-point (FP)
-  ///   type.
-  /// </summary>
-  /// <param name="t">RegType.</param>
-  /// <returns>
-  ///   A Boolean value that is true if the given RegType is a floating-point
-  ///   type, false otherwise.
-  /// </returns>
-  let isFP (t: RegType) = t < 0<rt>
+    "I" + t.ToString ()
 
   /// <summary>
   ///   Convert a <see cref="T:B2R2.RegType"/> to an integer of bit width.
@@ -77,11 +68,12 @@ module RegType =
   /// <returns>
   ///   A bit width in integer of the given RegType.
   /// </returns>
+  [<CompiledName "ToBitWidth">]
   let toBitWidth (t: RegType) =
 #if DEBUG
     checkIfValidRegType t
 #endif
-    if t > 0<rt> then int t else int (-t)
+    int t
 
   /// <summary>
   ///   Get a byte width from a RegType.
@@ -90,19 +82,20 @@ module RegType =
   /// <returns>
   ///   A byte width in integer of the given RegType.
   /// </returns>
+  [<CompiledName "ToByteWidth">]
   let toByteWidth t =
     let t = toBitWidth t
     if t % 8 = 0 then t / 8
-    else Utils.impossible ()
+    else raise InvalidRegTypeException
 
   /// <summary>
-  ///   Get the corresponding integer RegType from the given bit width. When a
-  ///   negative integer is given, it will return a floating point type.
+  ///   Get the corresponding integer RegType from the given bit width.
   /// </summary>
   /// <param name="n">Bit width in integer.</param>
   /// <returns>
   ///   A <see cref="T:B2R2.RegType"/>.
   /// </returns>
+  [<CompiledName "FromBitWidth">]
   let inline fromBitWidth n =
     let t = LanguagePrimitives.Int32WithMeasure n
 #if DEBUG
@@ -117,16 +110,8 @@ module RegType =
   /// <returns>
   ///   A <see cref="T:B2R2.RegType"/>.
   /// </returns>
+  [<CompiledName "FromByteWidth">]
   let fromByteWidth n = fromBitWidth (n * 8)
-
-  /// <summary>
-  ///   Get a double-sized RegType from a given RegType.
-  /// </summary>
-  /// <param name="t">RegType.</param>
-  /// <returns>
-  ///   A <see cref="T:B2R2.RegType"/>.
-  /// </returns>
-  let double (t: RegType) =  2 * t
 
   /// <summary>
   ///   Get a bitmask (in integer) from the given RegType.
@@ -134,6 +119,7 @@ module RegType =
   /// <returns>
   ///   A bit mask in big integer.
   /// </returns>
+  [<CompiledName "GetMask">]
   let getMask t =
     if t <= 64<rt> then System.UInt64.MaxValue >>> (64 - int t) |> bigint
     else (bigint.One <<< (int t)) - bigint.One

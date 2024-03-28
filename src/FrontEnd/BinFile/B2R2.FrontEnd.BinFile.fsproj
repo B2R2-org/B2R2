@@ -4,53 +4,65 @@
     <PackageIcon>b2r2-240x240.png</PackageIcon>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <Description>B2R2 file parsing engine.</Description>
+    <OtherFlags>$(OtherFlags)--warnon:3390</OtherFlags>
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="FileTypes.fs" />
-    <Compile Include="BinaryPointer.fs" />
-    <Compile Include="FileInfo.fs" />
+    <Compile Include="BinFileExceptions.fs" />
+    <Compile Include="Symbol.fs" />
+    <Compile Include="Section.fs" />
+    <Compile Include="Permission.fs" />
+    <Compile Include="Segment.fs" />
+    <Compile Include="LinkageTable.fs" />
+    <Compile Include="BinFilePointer.fs" />
+    <Compile Include="IBinMetadata.fs" />
+    <Compile Include="IBinProperty.fs" />
+    <Compile Include="IContentAddressable.fs" />
+    <Compile Include="IBinSymbolTable.fs" />
+    <Compile Include="IBinOrganization.fs" />
+    <Compile Include="IBinFile.fs" />
     <Compile Include="FileHelper.fs" />
-    <Compile Include="RawBinary.fs" />
-    <Compile Include="WasmTypes.fs" />
-    <Compile Include="WasmHeader.fs" />
-    <Compile Include="WasmExpression.fs" />
-    <Compile Include="WasmSection.fs" />
-    <Compile Include="WasmParser.fs" />
-    <Compile Include="WasmHelper.fs" />
-    <Compile Include="Wasm.fs" />
-    <Compile Include="ELFDwarfTypes.fs" />
-    <Compile Include="ELFTypes.fs" />
-    <Compile Include="ELFHeader.fs" />
-    <Compile Include="ELFSection.fs" />
-    <Compile Include="ELFProgHeader.fs" />
-    <Compile Include="ELFSymbol.fs" />
-    <Compile Include="ELFRelocs.fs" />
-    <Compile Include="ELFPLT.fs" />
-    <Compile Include="ELFExceptionFrames.fs" />
-    <Compile Include="ELFGccExceptTable.fs" />
-    <Compile Include="ELFHelper.fs" />
-    <Compile Include="ELFParser.fs" />
-    <Compile Include="ELF.fs" />
-    <Compile Include="MachTypes.fs" />
-    <Compile Include="MachLoadCommands.fs" />
-    <Compile Include="MachHeader.fs" />
-    <Compile Include="MachFat.fs" />
-    <Compile Include="MachSegment.fs" />
-    <Compile Include="MachSection.fs" />
-    <Compile Include="MachReloc.fs" />
-    <Compile Include="MachSymbol.fs" />
-    <Compile Include="MachHelper.fs" />
-    <Compile Include="MachParser.fs" />
-    <Compile Include="Mach.fs" />
-    <Compile Include="PETypes.fs" />
-    <Compile Include="PEPDB.fs" />
-    <Compile Include="PEHelper.fs" />
-    <Compile Include="PECoff.fs" />
-    <Compile Include="PEParser.fs" />
-    <Compile Include="PE.fs" />
+    <Compile Include="RawBinFile.fs" />
+    <Compile Include="Wasm\WasmTypes.fs" />
+    <Compile Include="Wasm\WasmHeader.fs" />
+    <Compile Include="Wasm\WasmExpression.fs" />
+    <Compile Include="Wasm\WasmSection.fs" />
+    <Compile Include="Wasm\WasmParser.fs" />
+    <Compile Include="Wasm\WasmHelper.fs" />
+    <Compile Include="Wasm\WasmBinFile.fs" />
+    <Compile Include="ELF\ELFHeader.fs" />
+    <Compile Include="ELF\ELFSection.fs" />
+    <Compile Include="ELF\ELFDynamicSection.fs" />
+    <Compile Include="ELF\ELFProgramHeader.fs" />
+    <Compile Include="ELF\ELFSymbol.fs" />
+    <Compile Include="ELF\ELFRelocationInfo.fs" />
+    <Compile Include="ELF\ELFPLT.fs" />
+    <Compile Include="ELF\ELFDwarfTypes.fs" />
+    <Compile Include="ELF\ELFExceptionFrames.fs" />
+    <Compile Include="ELF\ELFGccExceptTable.fs" />
+    <Compile Include="ELF\ELFARMExceptionHandler.fs" />
+    <Compile Include="ELF\ELFExceptionInfo.fs" />
+    <Compile Include="ELF\ELFHelper.fs" />
+    <Compile Include="ELF\ELFBinFile.fs" />
+    <Compile Include="Mach\MachMagic.fs" />
+    <Compile Include="Mach\MachCPUType.fs" />
+    <Compile Include="Mach\MachFat.fs" />
+    <Compile Include="Mach\MachHeader.fs" />
+    <Compile Include="Mach\MachLoadCommands.fs" />
+    <Compile Include="Mach\MachSegment.fs" />
+    <Compile Include="Mach\MachSection.fs" />
+    <Compile Include="Mach\MachSymbol.fs" />
+    <Compile Include="Mach\MachReloc.fs" />
+    <Compile Include="Mach\MachHelper.fs" />
+    <Compile Include="Mach\MachBinFile.fs" />
+    <Compile Include="PE\PETypes.fs" />
+    <Compile Include="PE\PEPDB.fs" />
+    <Compile Include="PE\PEHelper.fs" />
+    <Compile Include="PE\PECoff.fs" />
+    <Compile Include="PE\PEParser.fs" />
+    <Compile Include="PE\PEBinFile.fs" />
     <Compile Include="FormatDetector.fs" />
-    <Compile Include="FileLoader.fs" />
+    <Compile Include="FileFactory.fs" />
     <None Include="..\..\..\LICENSE.md" Pack="true" PackagePath="" />
     <None Include="..\..\..\assets\b2r2-240x240.png" Pack="true" PackagePath="" />
     <None Include="README.md" Pack="true" PackagePath="" />
@@ -63,9 +75,12 @@
     <ProjectReference Include="..\BinLifter\ARM32\B2R2.FrontEnd.BinLifter.ARM32.fsproj" />
     <ProjectReference Include="..\BinLifter\ARM64\B2R2.FrontEnd.BinLifter.ARM64.fsproj" />
     <ProjectReference Include="..\BinLifter\MIPS\B2R2.FrontEnd.BinLifter.MIPS.fsproj" />
+    <ProjectReference Include="..\BinLifter\PPC32\B2R2.FrontEnd.BinLifter.PPC32.fsproj" />
+    <ProjectReference Include="..\BinLifter\RISCV\B2R2.FrontEnd.BinLifter.RISCV.fsproj" />
+    <ProjectReference Include="..\BinLifter\SH4\B2R2.FrontEnd.BinLifter.SH4.fsproj" />
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="System.Reflection.Metadata" Version="6.0.0" />
+    <PackageReference Include="System.Reflection.Metadata" Version="8.0.0" />
   </ItemGroup>
 </Project>

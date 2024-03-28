@@ -75,14 +75,14 @@ let memUnch offset = OprMemory (UnchMode (offset))
 let extract binary n1 n2 =
   let m, n = if max n1 n2 = n1 then n1, n2 else n2, n1
   let range = m - n + 1u
-  if range > 31u then failwith "invaild range" else ()
+  assert (range <= 31u)
   let mask = pown 2 (int range) - 1 |> uint32
   binary >>> int n &&& mask
 
 let extract16 binary n1 n2 =
   let m, n = if max n1 n2 = n1 then n1, n2 else n2, n1
   let range = m - n + 1us
-  if range > 31us then failwith "invaild range" else ()
+  assert (range <= 31us)
   let mask = pown 2 (int range) - 1 |> uint16
   binary >>> int n &&& mask
 
@@ -119,7 +119,8 @@ let getConst4K b = extract b 7u 4u |> int32 |> OprImm
 
 let getConst6K b = concat (extract b 7u 6u) (b &&& 0b1111u) 4 |> int32 |> OprImm
 
-let getConst8K b = concat (extract b 11u 8u) (b &&& 0b1111u) 4 |> int32 |> OprImm
+let getConst8K b =
+  concat (extract b 11u 8u) (b &&& 0b1111u) 4 |> int32 |> OprImm
 
 let getConst3b b = b &&& 0b111u |> int32 |> OprImm
 

@@ -28,5 +28,5 @@ open B2R2.BinIR.LowUIR
 
 /// Is this IR statement a branch statement?
 let isBranch = function
-  | Jmp _ | CJmp _ | InterJmp _ | InterCJmp _ -> true
+  | Jmp _ | CJmp _ | InterJmp _ | InterCJmp _ | ExternalCall _ -> true
   | ISMark _ | IEMark _ | LMark _ | Put _ | Store _ | SideEffect _ -> false

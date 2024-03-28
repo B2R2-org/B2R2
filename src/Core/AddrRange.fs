@@ -44,7 +44,7 @@ type AddrRange =
     { Min = addr; Max = addr }
 
   override __.ToString () =
-    String.u64ToHexNoPrefix __.Min + " -- " + String.u64ToHexNoPrefix __.Max
+    $"{__.Min:x} -- {__.Max:x}"
 
   override __.Equals (rhs: obj) =
     match rhs with
@@ -58,6 +58,11 @@ type AddrRange =
 
   member __.ToTuple () =
     __.Min, __.Max
+
+  member __.Slice (target: AddrRange) =
+    let l = max __.Min target.Min
+    let h = min __.Max target.Max
+    AddrRange (l, h)
 
   /// Check if the address range is including the given address.
   member inline __.IsIncluding (addr: Addr) =

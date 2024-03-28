@@ -30,7 +30,7 @@ module Maybe = begin
   /// A builder for Maybe computation expression.
   type MaybeBuilder () =
     member __.Return (x) = Some x
-    member __.ReturnFrom (x: 'a option) = x
+    member __.ReturnFrom (x: Option<_>) = x
     member __.Bind (m, f) = Option.bind f m
     member __.Zero () = None
 

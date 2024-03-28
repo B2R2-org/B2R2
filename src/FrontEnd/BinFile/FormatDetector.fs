@@ -26,63 +26,45 @@
 [<RequireQualifiedAccess>]
 module B2R2.FrontEnd.BinFile.FormatDetector
 
-open System
 open B2R2
 
-let private identifyELF span =
-  if ELF.Header.isELF span then
-    let cls = ELF.Header.peekClass span
-    let endian = ELF.Header.peekEndianness span
-    let reader =
-      if endian = Endian.Little then BinReader.binReaderLE
-      else BinReader.binReaderBE
-    let arch = ELF.Header.peekArch span reader cls
-    let isa = ISA.Init arch endian
-    Some (FileFormat.ELFBinary, isa)
-  else None
+let private identifyELF bytes =
+  match ELF.Header.getISA bytes with
+  | Ok isa -> Some struct (FileFormat.ELFBinary, isa)
+  | _ -> None
 
 let private identifyPE bytes =
-  match PE.Helper.getPEArch bytes 0 with
+  match PE.Helper.getPEArch bytes with
   | Ok arch ->
     let isa = ISA.Init arch Endian.Little
-    Some (FileFormat.PEBinary, isa)
+    Some struct (FileFormat.PEBinary, isa)
   | Error _ -> None
 
-let private identifyMach span isa =
-  let reader = BinReader.binReaderLE
-  if Mach.Header.isMach span reader then
-    if Mach.Header.isFat span reader then
-      let fat =
-        Mach.Fat.loadFats span reader
-        |> Mach.Fat.findMatchingFatRecord isa
-      let arch = Mach.Header.cpuTypeToArch fat.CPUType fat.CPUSubType
-      let endian = Mach.Header.peekEndianness (span.Slice fat.Offset) reader
-      let isa = ISA.Init arch endian
-      Some (FileFormat.MachBinary, isa)
-    else
-      let arch = Mach.Header.peekArch span reader
-      let endian = Mach.Header.peekEndianness span reader
-      let isa = ISA.Init arch endian
-      Some (FileFormat.MachBinary, isa)
+let private identifyMach bytes isa =
+  if Mach.Header.isMach bytes 0UL then
+    let toolBox = Mach.Header.parse bytes None isa
+    let isa = Mach.Helper.getISA toolBox.Header
+    Some struct (FileFormat.MachBinary, isa)
   else None
 
-let private identifyWASM span isa =
-  if Wasm.Header.isWasm span BinReader.binReaderLE then
-    Some (FileFormat.WasmBinary, isa)
+let private identifyWASM bytes isa =
+  let reader = BinReader.Init Endian.Little
+  if Wasm.Header.isWasm bytes reader then
+    Some struct (FileFormat.WasmBinary, isa)
   else None
 
 /// <summary>
-///   Given a binary (byte array), identify its binary file format
-///   (B2R2.FileFormat) and its underlying ISA (B2R2.ISA). For FAT binaries,
-///   this function will select an ISA only when there is a match with the given
-///   input ISA. Otherwise, this function will raise InvalidISAException.
+///   Given a binary bytes, identify its binary file format (B2R2.FileFormat)
+///   and its underlying ISA (B2R2.ISA). For FAT binaries, this function will
+///   select an ISA only when there is a match with the given input ISA.
+///   Otherwise, this function will raise InvalidISAException.
 /// </summary>
 [<CompiledName("Identify")>]
 let identify bytes isa =
   Monads.OrElse.orElse {
-    yield! identifyELF (ReadOnlySpan bytes)
+    yield! identifyELF bytes
     yield! identifyPE bytes
-    yield! identifyMach (ReadOnlySpan bytes) isa
-    yield! identifyWASM (ReadOnlySpan bytes) isa
+    yield! identifyMach bytes isa
+    yield! identifyWASM bytes isa
     yield! Some (FileFormat.RawBinary, isa)
   } |> Option.get

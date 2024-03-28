@@ -9,18 +9,16 @@
 
   <ItemGroup>
     <Compile Include="MIPSRegister.fs" />
-    <Compile Include="MIPSRegisterSet.fs" />
     <Compile Include="MIPSRegExprs.fs" />
-    <Compile Include="MIPSRegisterBay.fs" />
+    <Compile Include="MIPSRegisterFactory.fs" />
     <Compile Include="MIPSTypes.fs" />
-    <Compile Include="MIPSUtils.fs" />
     <Compile Include="MIPSHelper.fs" />
     <Compile Include="MIPSDisasm.fs" />
     <Compile Include="MIPSLifter.fs" />
     <Compile Include="MIPSInstruction.fs" />
-    <Compile Include="MIPSParser.fsi" />
+    <Compile Include="MIPSParsingMain.fs" />
     <Compile Include="MIPSParser.fs" />
-    <Compile Include="MIPS.fs" />
+    <Compile Include="MIPSTranslationContext.fs" />
     <None Include="..\..\..\..\LICENSE.md" Pack="true" PackagePath="" />
     <None Include="..\..\..\..\assets\b2r2-240x240.png" Pack="true" PackagePath="" />
     <None Include="README.md" Pack="true" PackagePath="" />

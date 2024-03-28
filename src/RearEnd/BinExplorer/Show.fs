@@ -49,11 +49,11 @@ type CmdShow () =
   override __.SubCommands = []
 
   member private __.CallerToString (sb: StringBuilder) (addr: Addr) =
-    sb.Append ("  - referenced by " + String.u64ToHexNoPrefix addr + "\n")
+    sb.Append $"  - referenced by {addr:x}\n"
 
-  member private __.CalleeToSimpleString ess prefix (sb: StringBuilder) (callee: Function) =
+  member private __.CalleeToSimpleString prefix (sb: StringBuilder) callee =
     let noret =
-      match callee.NoReturnProperty with
+      match (callee: Function).NoReturnProperty with
       | NoRet -> " [no return]"
       | ConditionalNoRet _ -> " [conditional no return]"
       | NotNoRetConfirmed | NotNoRet -> ""
@@ -62,10 +62,10 @@ type CmdShow () =
       sb.Append (prefix + callee.FunctionName + noret + "\n")
     else
       sb.Append (prefix + callee.FunctionName
-               + noret + " @ " + String.u64ToHexNoPrefix callee.Entry + "\n")
+               + noret + $" @ {callee.EntryPoint:x}\n")
 
   member private __.CalleeToString ess (sb: StringBuilder) callee =
-    __.CalleeToSimpleString ess "" sb callee
+    __.CalleeToSimpleString "" sb callee
     |> (fun sb -> callee.Callers |> Seq.fold __.CallerToString sb)
 
   member __.ShowCaller ess = function
@@ -80,7 +80,7 @@ type CmdShow () =
           func.Callers
           |> Seq.fold (fun sb (addr: Addr) ->
             match ess.CodeManager.FunctionMaintainer.TryFind addr with
-            | Some callee -> __.CalleeToSimpleString ess "  - " sb callee
+            | Some callee -> __.CalleeToSimpleString "  - " sb callee
             | None -> sb) sb
         [| sb.ToString () |]
     | _ -> [| __.CmdHelp |]
@@ -92,7 +92,8 @@ type CmdShow () =
       if Char.IsDigit expr[0] then
         ess.CodeManager.FunctionMaintainer.TryFind (addr)
       else ess.CodeManager.FunctionMaintainer.TryFind (expr)
-      |> Option.map (fun callee -> (__.CalleeToString ess sb callee).ToString ())
+      |> Option.map (fun callee ->
+        (__.CalleeToString ess sb callee).ToString ())
       |> Option.defaultValue "[*] Not found."
       |> Array.singleton
     | _ -> [| __.CmdHelp |]
@@ -106,7 +107,7 @@ type CmdShow () =
   override __.CallBack _ ess args =
     match args with
     | [] -> [| __.CmdHelp |]
-    | c :: opts -> c.ToLower () |> __.CmdHandle ess opts
+    | c :: opts -> c.ToLowerInvariant () |> __.CmdHandle ess opts
     |> Array.map OutputNormal
 
 // vim: set tw=80 sts=2 sw=2:

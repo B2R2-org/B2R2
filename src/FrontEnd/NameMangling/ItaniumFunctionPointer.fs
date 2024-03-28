@@ -63,13 +63,13 @@ let rec getList input index result =
   if index >= len then
     result
   else
-    let first, new_idx = getArgs input (index + 1) 1 "("
-    let second, n_idx = getArgs input (new_idx + 1) 1 "("
-    if n_idx < len && (input[n_idx + 1] = 'c' || input[n_idx + 1] = 'v') then
-      let a1, a2 = getQualifier input (n_idx + 1)
+    let first, nIdx = getArgs input (index + 1) 1 "("
+    let second, nIdx = getArgs input (nIdx + 1) 1 "("
+    if nIdx < len && (input[nIdx + 1] = 'c' || input[nIdx + 1] = 'v') then
+      let a1, a2 = getQualifier input (nIdx + 1)
       getList input (a2 + 1) ((second + " " + a1) :: first :: result)
     else
-      getList input (n_idx + 1) (second :: first :: result)
+      getList input (nIdx + 1) (second :: first :: result)
 
 /// Getting return and argument list.
 let getReturnList input =
@@ -88,9 +88,9 @@ let rec combine input cur res =
       combine tail len (res + hd1 + hd2)
     else
       let len = (String.length hd1) - 1
-      let other_len = String.length res
+      let otherLen = String.length res
       let result =
-        res[0 .. (cur)] + hd1 + hd2 + res[(cur + 1) .. other_len - 1]
+        res[0 .. (cur)] + hd1 + hd2 + res[(cur + 1) .. otherLen - 1]
       combine tail (cur + len) result
   | _ -> ("", 0)
 
@@ -102,16 +102,16 @@ let rec getPointers input cur res flag =
     match d with
     | [] -> res
     | hd :: tail ->
-      let new_cur = hd :: cur
-      let new_begin = FunctionBegin (Some [], Pointer new_cur)
-      let new_item = FunctionPointer (new_begin, k, b, c)
-      let next_begin = FunctionBegin (Some [], Pointer tail)
-      let next_item = FunctionPointer (next_begin, k, b, c)
+      let newCur = hd :: cur
+      let newBegin = FunctionBegin (Some [], Pointer newCur)
+      let newItem = FunctionPointer (newBegin, k, b, c)
+      let nextBegin = FunctionBegin (Some [], Pointer tail)
+      let nextItem = FunctionPointer (nextBegin, k, b, c)
       if flag = 1 then
         let help = FunctionPointer (Name "", k, b, c)
-        getPointers next_item (new_cur) (new_item :: help :: res) 0
+        getPointers nextItem (newCur) (newItem :: help :: res) 0
       else
-        getPointers next_item (new_cur) (new_item :: res) 0
+        getPointers nextItem (newCur) (newItem :: res) 0
   | _ -> res
 
 /// Seperating pointers associated with qualifiers.
@@ -123,14 +123,14 @@ let rec getQualifierandP input cur res =
     match p with
     | [] -> res
     | hd :: tail2 ->
-      let new_cur = hd :: cur
-      let new_value = ConstVolatile (Pointer new_cur, dis) :: tail1
-      let new_begin = FunctionBegin (Some new_value, d)
-      let new_item = FunctionPointer (new_begin, k, b, c)
-      let next_value = ConstVolatile (Pointer tail2, dis) :: tail1
-      let next_begin = FunctionBegin (Some next_value, d)
-      let next_item = FunctionPointer (next_begin, k, b, c)
-      getQualifierandP (next_item) (new_cur) (new_item :: res)
+      let newCur = hd :: cur
+      let newValue = ConstVolatile (Pointer newCur, dis) :: tail1
+      let newBegin = FunctionBegin (Some newValue, d)
+      let newItem = FunctionPointer (newBegin, k, b, c)
+      let nextValue = ConstVolatile (Pointer tail2, dis) :: tail1
+      let nextBegin = FunctionBegin (Some nextValue, d)
+      let nextItem = FunctionPointer (nextBegin, k, b, c)
+      getQualifierandP (nextItem) (newCur) (newItem :: res)
   | _ -> res
 
 /// Applying previous function for every element in the list part of
@@ -141,16 +141,16 @@ let rec merge input cur res =
     match List.rev value with
     | [] -> res
     | ConstVolatile (Pointer p, dis) :: tail1 ->
-      let new_value = ConstVolatile (Pointer [], dis) :: cur
-      let new_begin = FunctionBegin (Some new_value, d)
-      let new_res = FunctionPointer(new_begin, k, b, c) :: res
-      let new_cur = ConstVolatile (Pointer p, dis) :: cur
-      let next_begin = FunctionBegin (Some new_cur, d)
-      let next_input = FunctionPointer (next_begin, k, b, c)
-      let result = getQualifierandP next_input [] new_res
-      let last_begin = FunctionBegin (Some (List.rev tail1), d)
-      let last_item = FunctionPointer(last_begin, k, b, c)
-      merge last_item new_cur (result)
+      let newValue = ConstVolatile (Pointer [], dis) :: cur
+      let newBegin = FunctionBegin (Some newValue, d)
+      let newRes = FunctionPointer(newBegin, k, b, c) :: res
+      let newCur = ConstVolatile (Pointer p, dis) :: cur
+      let nextBegin = FunctionBegin (Some newCur, d)
+      let nextInput = FunctionPointer (nextBegin, k, b, c)
+      let result = getQualifierandP nextInput [] newRes
+      let lastBegin = FunctionBegin (Some (List.rev tail1), d)
+      let lastItem = FunctionPointer(lastBegin, k, b, c)
+      merge lastItem newCur (result)
     | _ -> res
   | _ -> res
 

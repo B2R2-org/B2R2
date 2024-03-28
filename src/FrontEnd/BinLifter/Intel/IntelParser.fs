@@ -35,8 +35,6 @@ open type Prefix
 /// Parser for Intel (x86 or x86-64) instructions. Parser will return a
 /// platform-agnostic instruction type (Instruction).
 type IntelParser (wordSz) =
-  inherit Parser ()
-
   let oparsers =
     [| OpRmGpr () :> OperandParser
        OpRmSeg () :> OperandParser
@@ -56,6 +54,7 @@ type IntelParser (wordSz) =
        OpDbgGpr () :> OperandParser
        OpMmxRm () :> OperandParser
        OpMmxMm () :> OperandParser
+       OpMxMx () :> OperandParser
        OpGprRMm () :> OperandParser
        OpRegImm8 () :> OperandParser
        OpImm8Reg () :> OperandParser
@@ -125,6 +124,7 @@ type IntelParser (wordSz) =
        OpImmImm () :> OperandParser
        OpRmImm () :> OperandParser
        OpRmImm8 () :> OperandParser
+       OpRmSImm8 () :> OperandParser
        OpMmxImm8 () :> OperandParser
        OpMem () :> OperandParser
        OpM1 () :> OperandParser
@@ -152,7 +152,10 @@ type IntelParser (wordSz) =
        OpKnVvXm () :> OperandParser
        OpGprKn () :> OperandParser
        OpKnVvXmImm8 () :> OperandParser
-       OpKnGpr () :> OperandParser |]
+       OpKnGpr () :> OperandParser
+       OpXmmVvXmmXm () :> OperandParser
+       OpKnKm () :> OperandParser
+       OpMKn () :> OperandParser |]
 
   let szcomputers =
     [| SzByte () :> InsSizeComputer
@@ -227,7 +230,10 @@ type IntelParser (wordSz) =
        SzYDq () :> InsSizeComputer
        SzQq () :> InsSizeComputer
        SzDqwdX () :> InsSizeComputer
-       SzY () :> InsSizeComputer |]
+       SzY () :> InsSizeComputer
+       SzQQb () :> InsSizeComputer
+       SzQQd () :> InsSizeComputer
+       SzQQw () :> InsSizeComputer |]
 
   let oneByteParsers =
     [| OneOp00 () :> ParsingJob
@@ -536,22 +542,23 @@ type IntelParser (wordSz) =
         pos + 1
       else pos
 
-  override __.Parse (bs: byte[], addr) =
-    __.Parse (ReadOnlySpan bs, addr)
+  interface IInstructionParsable with
+    member __.Parse (bs: byte[], addr) =
+      (__ :> IInstructionParsable).Parse (ReadOnlySpan bs, addr)
 
-  override __.Parse (span: ByteSpan, addr) =
-    let mutable rex = REXPrefix.NOREX
-    let prefEndPos = __.ParsePrefix span
-    let nextPos = __.ParseREX (span, prefEndPos, &rex)
-    rhlp.VEXInfo <- None
-    rhlp.InsAddr <- addr
-    rhlp.REXPrefix <- rex
-    rhlp.CurrPos <- nextPos
+    member __.Parse (span: ByteSpan, addr) =
+      let mutable rex = REXPrefix.NOREX
+      let prefEndPos = __.ParsePrefix span
+      let nextPos = __.ParseREX (span, prefEndPos, &rex)
+      rhlp.VEXInfo <- None
+      rhlp.InsAddr <- addr
+      rhlp.REXPrefix <- rex
+      rhlp.CurrPos <- nextPos
 #if LCACHE
-    rhlp.MarkPrefixEnd (prefEndPos)
+      rhlp.MarkPrefixEnd (prefEndPos)
 #endif
-    oneByteParsers[int (rhlp.ReadByte span)].Run (span, rhlp) :> Instruction
+      oneByteParsers[int (rhlp.ReadByte span)].Run (span, rhlp) :> Instruction
 
-  override __.OperationMode with get() = ArchOperationMode.NoMode and set _ = ()
+    member __.MaxInstructionSize = 15
 
-// vim: set tw=80 sts=2 sw=2:
+    member __.OperationMode with get() = ArchOperationMode.NoMode and set _ = ()

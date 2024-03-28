@@ -68,7 +68,7 @@ let parseShiftOperation opcode imm =
   else preturn (srType.Value, imm)
 
 let getSRType (str: string) =
-  match str.ToLower () with
+  match str.ToLowerInvariant () with
   | "lsl" -> SRTypeLSL
   | "lsr" -> SRTypeLSR
   | "asr" -> SRTypeASR
@@ -109,7 +109,7 @@ let getOperandsAsList operands =
   | SixOperands (op1, op2, op3, op4, op5, op6) -> [op1; op2; op3; op4; op5; op6]
 
 let getSIMDTypFromStr (str: string) =
-  match str.ToLower () with
+  match str.ToLowerInvariant () with
   | "8" -> SIMDTyp8
   | "16" -> SIMDTyp16
   | "32" -> SIMDTyp32
@@ -133,7 +133,7 @@ let getSIMDTypFromStr (str: string) =
   | _ -> failwith "unknown SIMD Type"
 
 let getPSRFlagFromStr (str: string) =
-  match str.ToLower () with
+  match str.ToLowerInvariant () with
   | "c" -> PSRc
   | "x" -> PSRx
   | "xc" -> PSRxc
@@ -156,7 +156,7 @@ let getPSRFlagFromStr (str: string) =
   | _ -> failwith "unknown PSRFlag"
 
 let optionOprFromStr (str: string) =
-  match str.ToLower () with
+  match str.ToLowerInvariant () with
   | "sy" -> BarrierOption.SY
   | "st" -> BarrierOption.ST
   | "ld" -> BarrierOption.LD
@@ -172,7 +172,7 @@ let optionOprFromStr (str: string) =
   | _ -> failwith "unknown OptionOperand"
 
 let iFlagFromStr (str: string) =
-  match str.ToLower () with
+  match str.ToLowerInvariant () with
   | "a" -> A
   | "i" -> I
   | "f" -> F

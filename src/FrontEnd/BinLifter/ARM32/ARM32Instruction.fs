@@ -29,11 +29,9 @@ open B2R2.FrontEnd.BinLifter
 
 /// The internal representation for an ARM32 instruction used by our
 /// disassembler and lifter.
-type ARM32Instruction (addr, nb, cond, op, opr, its, wb, q, s, m, cf) =
+type ARM32Instruction (addr, nb, cond, op, opr, its, wb, q, s, m, cf, oSz, a) =
   inherit ARM32InternalInstruction (addr, nb, cond, op, opr,
-                                    its, wb, q, s, m, cf)
-
-  let dummyHelper = DisasmHelper ()
+                                    its, wb, q, s, m, cf, oSz, a)
 
   override __.IsBranch () =
     match op with
@@ -106,12 +104,16 @@ type ARM32Instruction (addr, nb, cond, op, opr, its, wb, q, s, m, cf) =
     | _ -> false
 
   override __.IsExit () =
-    Utils.futureFeature ()
+    match op with
+    | Opcode.HLT
+    | Opcode.UDF
+    | Opcode.ERET -> true
+    | _ -> false
 
   override __.IsBBLEnd () =
-    __.IsDirectBranch () ||
-    __.IsIndirectBranch () ||
-    __.IsInterrupt ()
+       __.IsBranch ()
+    || __.IsInterrupt ()
+    || __.IsExit ()
 
   override __.DirectBranchTarget (addr: byref<Addr>) =
     if __.IsBranch () then
@@ -164,18 +166,18 @@ type ARM32Instruction (addr, nb, cond, op, opr, its, wb, q, s, m, cf) =
     | _ -> m
 
   member private __.AddBranchTargetIfExist addrs =
-    match __.DirectBranchTarget () |> Utils.tupleToOpt with
+    match __.DirectBranchTarget () |> Utils.tupleResultToOpt with
     | None -> addrs
     | Some target ->
-      Seq.singleton (target, __.GetNextMode ()) |> Seq.append addrs
+      [| (target, __.GetNextMode ()) |] |> Array.append addrs
 
   override __.GetNextInstrAddrs () =
-    let acc = Seq.singleton (__.Address + uint64 __.Length, m)
+    let acc = [| (__.Address + uint64 __.Length, m) |]
     if __.IsCall () then acc |> __.AddBranchTargetIfExist
     elif __.IsBranch () then
       if __.IsCondBranch () then acc |> __.AddBranchTargetIfExist
-      else __.AddBranchTargetIfExist Seq.empty
-    elif op = Opcode.HLT then Seq.empty
+      else __.AddBranchTargetIfExist [||]
+    elif op = Opcode.HLT then [||]
     else acc
 
   override __.InterruptNum (_num: byref<int64>) = Utils.futureFeature ()
@@ -184,28 +186,29 @@ type ARM32Instruction (addr, nb, cond, op, opr, its, wb, q, s, m, cf) =
     op = Op.NOP
 
   override __.Translate ctxt =
-    (Lifter.translate __ ctxt).ToStmts ()
+    (Lifter.translate __ nb ctxt).ToStmts ()
 
   override __.TranslateToList ctxt =
-    Lifter.translate __ ctxt
+    Lifter.translate __ nb ctxt
 
-  override __.Disasm (showAddr, resolveSym, disasmHelper) =
+  override __.Disasm (showAddr, nameReader) =
+    let resolveSymb = not (isNull nameReader)
     let builder =
-      DisasmStringBuilder (showAddr, resolveSym, WordSize.Bit32, addr, nb)
-    Disasm.disasm disasmHelper __ builder
-    builder.Finalize ()
+      DisasmStringBuilder (showAddr, resolveSymb, WordSize.Bit32, addr, nb)
+    Disasm.disasm nameReader __ builder
+    builder.ToString ()
 
   override __.Disasm () =
     let builder =
       DisasmStringBuilder (false, false, WordSize.Bit32, addr, nb)
-    Disasm.disasm dummyHelper __ builder
-    builder.Finalize ()
+    Disasm.disasm null __ builder
+    builder.ToString ()
 
   override __.Decompose (showAddr) =
     let builder =
       DisasmWordBuilder (showAddr, false, WordSize.Bit32, addr, nb, 8)
-    Disasm.disasm dummyHelper __ builder
-    builder.Finalize ()
+    Disasm.disasm null __ builder
+    builder.ToArray ()
 
   override __.IsInlinedAssembly () = false
 

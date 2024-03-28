@@ -26,7 +26,7 @@ namespace B2R2.RearEnd.BinExplorer
 
 open System
 open B2R2
-open B2R2.FrontEnd.BinInterface
+open B2R2.FrontEnd
 open B2R2.MiddleEnd.BinEssence
 
 type CmdDisasm () =
@@ -40,12 +40,12 @@ type CmdDisasm () =
     try Ok (count, Convert.ToUInt64 (str, 16))
     with _ -> Error "[*] Invalid address is given."
 
-  let rec disasmLoop acc hdl addr count =
+  let rec disasmLoop acc (hdl: BinHandle) addr count =
     if count <= 0 then List.rev acc |> List.toArray
     else
-      match BinHandle.TryParseInstr (hdl, addr=addr) with
+      match hdl.TryParseInstr (addr=addr) with
       | Ok ins ->
-        let d = ins.Disasm (true, true, hdl.DisasmHelper)
+        let d = ins.Disasm (true, hdl.File)
         disasmLoop (d :: acc) hdl (addr + uint64 ins.Length) (count - 1)
       | Error _ ->
         disasmLoop ("(invalid)" :: acc) hdl (addr + 1UL) (count - 1)

@@ -65,7 +65,6 @@ type EVMInstruction (addr, numBytes, insInfo, wordSize) =
 
   override __.IsRET () =
     match __.Info.Opcode with
-    | Opcode.REVERT
     | Opcode.RETURN -> true
     | _ -> false
 
@@ -97,8 +96,8 @@ type EVMInstruction (addr, numBytes, insInfo, wordSize) =
 
   override __.GetNextInstrAddrs () =
     let fallthrough = __.Address + uint64 __.Length
-    let acc = Seq.singleton (fallthrough, ArchOperationMode.NoMode)
-    if __.IsExit () then Seq.empty
+    let acc = [| (fallthrough, ArchOperationMode.NoMode) |]
+    if __.IsExit () then [||]
     else acc
 
   override __.InterruptNum (_num: byref<int64>) = Utils.futureFeature ()
@@ -111,23 +110,23 @@ type EVMInstruction (addr, numBytes, insInfo, wordSize) =
   override __.TranslateToList ctxt =
     Lifter.translate __.Info ctxt
 
-  override __.Disasm (showAddr, _resolveSymbol, _fileInfo) =
+  override __.Disasm (showAddr, _) =
     let builder =
       DisasmStringBuilder (showAddr, false, WordSize.Bit256, addr, numBytes)
     Disasm.disasm __.Info builder
-    builder.Finalize ()
+    builder.ToString ()
 
   override __.Disasm () =
     let builder =
       DisasmStringBuilder (false, false, WordSize.Bit256, addr, numBytes)
     Disasm.disasm __.Info builder
-    builder.Finalize ()
+    builder.ToString ()
 
   override __.Decompose (showAddr) =
     let builder =
       DisasmWordBuilder (showAddr, false, WordSize.Bit256, addr, numBytes, 8)
     Disasm.disasm __.Info builder
-    builder.Finalize ()
+    builder.ToArray ()
 
   override __.IsInlinedAssembly () = false
 

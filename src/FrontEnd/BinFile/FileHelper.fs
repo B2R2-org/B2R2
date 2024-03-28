@@ -24,68 +24,47 @@
 
 module internal B2R2.FrontEnd.BinFile.FileHelper
 
-open System
 open B2R2
 
-let peekUIntOfType (span: ByteSpan) (reader: IBinReader) bitType o =
-  if bitType = WordSize.Bit32 then reader.ReadUInt32 (span, o) |> uint64
+/// Pick a number based on the word size.
+let inline pickNum wordSize o32 o64 =
+  if wordSize = WordSize.Bit32 then o32 else o64
+
+let readUIntOfType (span: ByteSpan) (reader: IBinReader) cls o =
+  if cls = WordSize.Bit32 then reader.ReadUInt32 (span, o) |> uint64
   else reader.ReadUInt64 (span, o)
 
-let readUIntOfType span reader bitType o =
-  let inline sizeByCls bitType = if bitType = WordSize.Bit32 then 4 else 8
-  struct (peekUIntOfType span reader bitType o, o + sizeByCls bitType)
-
-let peekHeaderB (span: ByteSpan) (reader: IBinReader) cls offset d32 d64 =
-  reader.ReadByte (span, offset + (if cls = WordSize.Bit32 then d32 else d64))
-
-let peekHeaderU16 (span: ByteSpan) (reader: IBinReader) cls offset d32 d64 =
-  reader.ReadUInt16 (span, offset + (if cls = WordSize.Bit32 then d32 else d64))
-
-let peekHeaderI32 (span: ByteSpan) (reader: IBinReader) cls offset d32 d64 =
-  reader.ReadInt32 (span, offset + (if cls = WordSize.Bit32 then d32 else d64))
-
-let peekHeaderU32 (span: ByteSpan) (reader: IBinReader) cls offset d32 d64 =
-  reader.ReadUInt32 (span, offset + (if cls = WordSize.Bit32 then d32 else d64))
-
-let peekHeaderNative span reader cls offset d32 d64 =
-  let offset = offset + (if cls = WordSize.Bit32 then d32 else d64)
-  peekUIntOfType span reader cls offset
+let readNative span reader cls d32 d64 =
+  readUIntOfType span reader cls (pickNum cls d32 d64)
 
 let rec private cstrLoop (span: ByteSpan) acc pos =
   let byte = span[pos]
   if byte = 0uy then List.rev (0uy :: acc) |> List.toArray
   else cstrLoop span (byte :: acc) (pos + 1)
 
-let peekCString (span: ByteSpan) offset =
+let readCString (span: ByteSpan) offset =
   let bs = cstrLoop span [] offset
   ByteArray.extractCString bs 0
 
-let addInvRange set saddr eaddr =
+let addInvalidRange set saddr eaddr =
   if saddr = eaddr then set
   else IntervalSet.add (AddrRange (saddr, eaddr - 1UL)) set
 
-let addLastInvRange wordSize (set, saddr) =
+let addLastInvalidRange wordSize (set, saddr) =
   let laddr =
     if wordSize = WordSize.Bit32 then 0xFFFFFFFFUL else 0xFFFFFFFFFFFFFFFFUL
   IntervalSet.add (AddrRange (saddr, laddr)) set
 
-/// Trim the target range based on my range (myrange) in such a way that the
-/// resulting range is always included in myrange.
-let trimByRange myrange target =
-  let l = max (AddrRange.GetMin myrange) (AddrRange.GetMin target)
-  let h = min (AddrRange.GetMax myrange) (AddrRange.GetMax target)
-  AddrRange (l, h)
-
 let getNotInFileIntervals fileBase fileSize (range: AddrRange) =
   let lastAddr = fileBase + fileSize - 1UL
-  if range.Max < fileBase then Seq.singleton range
+  if range.Max < fileBase then [| range |]
   elif range.Max <= lastAddr && range.Min < fileBase then
-    Seq.singleton (AddrRange (range.Min, fileBase - 1UL))
+    [| AddrRange (range.Min, fileBase - 1UL) |]
   elif range.Max > lastAddr && range.Min < fileBase then
-    [ AddrRange (range.Min, fileBase - 1UL)
-      AddrRange (lastAddr + 1UL, range.Max) ]
-    |> List.toSeq
+    [| AddrRange (range.Min, fileBase - 1UL)
+       AddrRange (lastAddr + 1UL, range.Max) |]
   elif range.Max > lastAddr && range.Min <= lastAddr then
-    Seq.singleton (AddrRange (lastAddr + 1UL, range.Max))
-  elif range.Max > lastAddr && range.Min > lastAddr then Seq.singleton range
-  else Seq.empty
+    [| AddrRange (lastAddr + 1UL, range.Max) |]
+  elif range.Max > lastAddr && range.Min > lastAddr then [| range |]
+  else [||]
+

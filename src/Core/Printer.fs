@@ -32,15 +32,13 @@ type TableColumn =
   | RightAligned of width: int
   | LeftAligned of width: int
 with
-  static member ofPaddedString isLast (s: string) column =
+  static member OfPaddedString isLast (s: string) column =
     match column with
     | RightAligned w -> let s = s.PadLeft (w) in if isLast then s else s + " "
     | LeftAligned w -> if isLast then s else s.PadRight (w) + " "
 
 /// Define a output configuration of a table.
 type TableConfig = TableColumn list
-
-module CS = ColoredSegment
 
 module private PrinterConst =
   let [<Literal>] ColWidth = 24
@@ -106,30 +104,34 @@ type Printer () =
   /// Flush out everything.
   abstract Flush: unit -> unit
 
-  [<CompiledName "PrintErrorToConsole">]
-  static member printErrorToConsole str =
-    [ CS.nocolor "[*] Error: "; CS.red str ] |> Printer.printToConsoleLine
-    Printer.printToConsoleLine ()
+  static member PrintToConsole s =
+    OutString.toConsole s
 
-  [<CompiledName "PrintToConsole">]
-  static member printToConsole s =
+  static member PrintToConsole s =
     ColoredString.toConsole s
 
-  [<CompiledName "PrintToConsole">]
-  static member printToConsole (s: string, [<ParamArray>] args) =
+  static member PrintToConsole (s: string, [<ParamArray>] args) =
     Console.Write (s, args)
 
-  [<CompiledName "PrintToConsoleLine">]
-  static member printToConsoleLine s =
+  static member PrintToConsoleLine s =
+    OutString.toConsoleLine s
+
+  static member PrintToConsoleLine s =
     ColoredString.toConsoleLine s
 
-  [<CompiledName "PrintToConsoleLine">]
-  static member printToConsoleLine (s: string, [<ParamArray>] args) =
+  static member PrintToConsoleLine (s: string) =
+    Console.WriteLine s
+
+  static member PrintToConsoleLine (s: string, [<ParamArray>] args) =
     Console.WriteLine (s, args)
 
-  [<CompiledName "PrintToConsoleLine">]
-  static member printToConsoleLine () =
+  static member PrintToConsoleLine () =
     Console.WriteLine ()
+
+  static member PrintErrorToConsole str =
+    [ ColoredSegment (NoColor, "[*] Error: ")
+      ColoredSegment (Red, str) ] |> Printer.PrintToConsoleLine
+    Printer.PrintToConsoleLine ()
 
 /// ConsolePrinter simply prints out strings to console whenever a print method
 /// is called. This printer does not perform any caching, so it immediately
@@ -180,7 +182,7 @@ type ConsolePrinter () =
       if indent then Console.Write ("  ") else ()
       match cs with
       | (c, s) :: rest ->
-        (c, TableColumn.ofPaddedString (i = lastIdx) s col) :: rest
+        (c, TableColumn.OfPaddedString (i = lastIdx) s col) :: rest
         |> __.Print
       | [] -> ())
     Console.WriteLine ()
@@ -192,12 +194,13 @@ type ConsolePrinter () =
     |> List.iteri (fun i (c, s) ->
       if indent then
         Console.Write ("  ")
-      Console.Write (TableColumn.ofPaddedString (i = lastIdx) s c))
+      Console.Write (TableColumn.OfPaddedString (i = lastIdx) s c))
     Console.WriteLine ()
     lastLineWasEmpty <- false
 
   override __.PrintSectionTitle title =
-    [ CS.red "# "; CS.nocolor title ]
+    [ ColoredSegment (Red, "# ")
+      ColoredSegment (NoColor, title) ]
     |> __.PrintLine
     __.PrintLine ()
     lastLineWasEmpty <- true
@@ -278,7 +281,7 @@ type ConsoleCachedPrinter () =
       if indent then __.Add ("  ") else ()
       match cs with
       | (_, s) :: rest ->
-        (TableColumn.ofPaddedString (i = lastIdx) s col
+        (TableColumn.OfPaddedString (i = lastIdx) s col
         + ColoredString.toString rest)
         |> __.Add
       | [] -> ())
@@ -290,7 +293,7 @@ type ConsoleCachedPrinter () =
     List.zip cfg strs
     |> List.iteri (fun i (c, s) ->
       if indent then __.Add ("  ")
-      TableColumn.ofPaddedString (i = lastIdx) s c |> __.Add)
+      TableColumn.OfPaddedString (i = lastIdx) s c |> __.Add)
     __.Add Environment.NewLine
     lastLineWasEmpty <- false
 

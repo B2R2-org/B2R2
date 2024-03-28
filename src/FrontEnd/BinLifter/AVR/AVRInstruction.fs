@@ -84,23 +84,23 @@ type AVRInstruction (addr, numBytes, insInfo) =
   override __.TranslateToList ctxt =
     Lifter.translate __.Info numBytes ctxt
 
-  override __.Disasm (showAddr, _resolveSymbol, _fileInfo) =
+  override __.Disasm (showAddr, _) =
     let builder =
       DisasmStringBuilder (showAddr, false, WordSize.Bit32, addr, numBytes)
     Disasm.disasm __.Info builder
-    builder.Finalize ()
+    builder.ToString ()
 
   override __.Disasm () =
     let builder =
       DisasmStringBuilder (false, false, WordSize.Bit32, addr, numBytes)
     Disasm.disasm __.Info builder
-    builder.Finalize ()
+    builder.ToString ()
 
   override __.Decompose (showAddr) =
     let builder =
       DisasmWordBuilder (showAddr, false, WordSize.Bit32, addr, numBytes, 8)
     Disasm.disasm __.Info builder
-    builder.Finalize ()
+    builder.ToArray ()
 
   override __.IsInlinedAssembly () = false
 

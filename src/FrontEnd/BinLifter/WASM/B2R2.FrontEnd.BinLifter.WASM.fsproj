@@ -9,13 +9,13 @@
 
   <ItemGroup>
     <Compile Include="WASMTypes.fs" />
-    <Compile Include="WASMRegisterSet.fs" />
     <Compile Include="WASMRegExprs.fs" />
-    <Compile Include="WASMRegisterBay.fs" />
+    <Compile Include="WASMRegisterFactory.fs" />
     <Compile Include="WASMDisasm.fs" />
     <Compile Include="WASMInstruction.fs" />
+    <Compile Include="WASMParsingMain.fs" />
     <Compile Include="WASMParser.fs" />
-    <Compile Include="WASM.fs" />
+    <Compile Include="WASMTranslationContext.fs" />
     <None Include="..\..\..\..\LICENSE.md" Pack="true" PackagePath="" />
     <None Include="..\..\..\..\assets\b2r2-240x240.png" Pack="true" PackagePath="" />
     <None Include="README.md" Pack="true" PackagePath="" />

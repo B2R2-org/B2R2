@@ -91,6 +91,7 @@ type Register =
   | F29 = 0x3D
   | F30 = 0x3E
   | F31 = 0x3F
+  /// CR0 - CR7 is 4bit chunk of CR.
   | CR0 = 0x40
   | CR1 = 0x41
   | CR2 = 0x42
@@ -99,14 +100,87 @@ type Register =
   | CR5 = 0x45
   | CR6 = 0x46
   | CR7 = 0x47
+  /// CR0_0 is the 1st 1-bit chunk of CR0.
+  | CR0_0 = 0x48
+  /// CR0_1 is the 2nd 1-bit chunk of CR0.
+  | CR0_1 = 0x49
+  /// CR0_2 is the 3rd 1-bit chunk of CR0.
+  | CR0_2 = 0x4A
+  /// CR0_3 is the 4th 1-bit chunk of CR0.
+  | CR0_3 = 0x4B
+  /// CR1_0 is the 1st 1-bit chunk of CR1.
+  | CR1_0 = 0x4C
+  /// CR1_1 is the 2nd 1-bit chunk of CR1.
+  | CR1_1 = 0x4D
+  /// CR1_2 is the 3rd 1-bit chunk of CR1.
+  | CR1_2 = 0x4E
+  /// CR1_3 is the 4th 1-bit chunk of CR1.
+  | CR1_3 = 0x4F
+  /// CR2_0 is the 1st 1-bit chunk of CR2.
+  | CR2_0 = 0x50
+  /// CR2_1 is the 2nd 1-bit chunk of CR2.
+  | CR2_1 = 0x51
+  /// CR2_2 is the 3rd 1-bit chunk of CR2.
+  | CR2_2 = 0x52
+  /// CR2_3 is the 4th 1-bit chunk of CR2.
+  | CR2_3 = 0x53
+  /// CR3_0 is the 1st 1-bit chunk of CR3.
+  | CR3_0 = 0x54
+  /// CR3_1 is the 2nd 1-bit chunk of CR3.
+  | CR3_1 = 0x55
+  /// CR3_2 is the 3rd 1-bit chunk of CR3.
+  | CR3_2 = 0x56
+  /// CR3_3 is the 4th 1-bit chunk of CR3.
+  | CR3_3 = 0x57
+  /// CR4_0 is the 1st 1-bit chunk of CR4.
+  | CR4_0 = 0x58
+  /// CR4_1 is the 2nd 1-bit chunk of CR4.
+  | CR4_1 = 0x59
+  /// CR4_2 is the 3rd 1-bit chunk of CR4.
+  | CR4_2 = 0x5A
+  /// CR4_3 is the 4th 1-bit chunk of CR4.
+  | CR4_3 = 0x5B
+  /// CR5_0 is the 1st 1-bit chunk of CR5.
+  | CR5_0 = 0x5C
+  /// CR5_1 is the 2nd 1-bit chunk of CR5.
+  | CR5_1 = 0x5D
+  /// CR5_2 is the 3rd 1-bit chunk of CR5.
+  | CR5_2 = 0x5E
+  /// CR5_3 is the 4th 1-bit chunk of CR5.
+  | CR5_3 = 0x5F
+  /// CR6_0 is the 1st 1-bit chunk of CR6.
+  | CR6_0 = 0x60
+  /// CR6_1 is the 2nd 1-bit chunk of CR6.
+  | CR6_1 = 0x61
+  /// CR6_2 is the 3rd 1-bit chunk of CR6.
+  | CR6_2 = 0x62
+  /// CR6_3 is the 4th 1-bit chunk of CR6.
+  | CR6_3 = 0x63
+  /// CR7_0 is the 1st 1-bit chunk of CR7.
+  | CR7_0 = 0x64
+  /// CR7_1 is the 2nd 1-bit chunk of CR7.
+  | CR7_1 = 0x65
+  /// CR7_2 is the 3rd 1-bit chunk of CR7.
+  | CR7_2 = 0x66
+  /// CR7_3 is the 4th 1-bit chunk of CR7.
+  | CR7_3 = 0x67
+  /// XER Register.
+  | XER = 0x70
+  /// LR Register.
+  | LR = 0x71
+  /// Count Register.
+  | CTR = 0x72
+  /// FPSCR Register
+  | FPSCR = 0x73
+  /// Processor Version Register.
+  | PVR = 0x74
+  /// Pseudo register for Reserve.
+  | RES = 0x75
 
 /// Shortcut for Register type.
 type internal R = Register
-type internal F = Register
-type internal CR = Register
 
-/// This module exposes several useful functions to handle PPC32
-/// registers.
+/// This module exposes several useful functions to handle PPC32 registers.
 [<RequireQualifiedAccess>]
 module Register =
   let inline ofRegID (n: RegisterID): Register =
@@ -117,7 +191,7 @@ module Register =
 
   let ofString (str: string) =
     match str.ToLower () with
-    | "r0" -> R.R0 (* FIXME: Add Registers *)
+    | "r0" -> R.R0
     | "r1" -> R.R1
     | "r2" -> R.R2
     | "r3" -> R.R3
@@ -149,50 +223,83 @@ module Register =
     | "r29" -> R.R29
     | "r30" -> R.R30
     | "r31" -> R.R31
-    | "f0" -> F.F0
-    | "f1" -> F.F1
-    | "f2" -> F.F2
-    | "f3" -> F.F3
-    | "f4" -> F.F4
-    | "f5" -> F.F5
-    | "f6" -> F.F6
-    | "f7" -> F.F7
-    | "f8" -> F.F8
-    | "f9" -> F.F9
-    | "f10" -> F.F10
-    | "f11" -> F.F11
-    | "f12" -> F.F12
-    | "f13" -> F.F13
-    | "f14" -> F.F14
-    | "f15" -> F.F15
-    | "f16" -> F.F16
-    | "f17" -> F.F17
-    | "f18" -> F.F18
-    | "f19" -> F.F19
-    | "f20" -> F.F20
-    | "f21" -> F.F21
-    | "f22" -> F.F22
-    | "f23" -> F.F23
-    | "f24" -> F.F24
-    | "f25" -> F.F25
-    | "f26" -> F.F26
-    | "f27" -> F.F27
-    | "f28" -> F.F28
-    | "f29" -> F.F29
-    | "f30" -> F.F30
-    | "f31" -> F.F31
-    | "cr0" -> CR.CR0
-    | "cr1" -> CR.CR1
-    | "cr2" -> CR.CR2
-    | "cr3" -> CR.CR3
-    | "cr4" -> CR.CR4
-    | "cr5" -> CR.CR5
-    | "cr6" -> CR.CR6
-    | "cr7" -> CR.CR7
+    | "f0" -> R.F0
+    | "f1" -> R.F1
+    | "f2" -> R.F2
+    | "f3" -> R.F3
+    | "f4" -> R.F4
+    | "f5" -> R.F5
+    | "f6" -> R.F6
+    | "f7" -> R.F7
+    | "f8" -> R.F8
+    | "f9" -> R.F9
+    | "f10" -> R.F10
+    | "f11" -> R.F11
+    | "f12" -> R.F12
+    | "f13" -> R.F13
+    | "f14" -> R.F14
+    | "f15" -> R.F15
+    | "f16" -> R.F16
+    | "f17" -> R.F17
+    | "f18" -> R.F18
+    | "f19" -> R.F19
+    | "f20" -> R.F20
+    | "f21" -> R.F21
+    | "f22" -> R.F22
+    | "f23" -> R.F23
+    | "f24" -> R.F24
+    | "f25" -> R.F25
+    | "f26" -> R.F26
+    | "f27" -> R.F27
+    | "f28" -> R.F28
+    | "f29" -> R.F29
+    | "f30" -> R.F30
+    | "f31" -> R.F31
+    | "cr0" -> R.CR0
+    | "cr1" -> R.CR1
+    | "cr2" -> R.CR2
+    | "cr3" -> R.CR3
+    | "cr4" -> R.CR4
+    | "cr5" -> R.CR5
+    | "cr6" -> R.CR6
+    | "cr7" -> R.CR7
+    | "cr0_0" -> R.CR0_0
+    | "cr0_1" -> R.CR0_1
+    | "cr0_2" -> R.CR0_2
+    | "cr0_3" -> R.CR0_3
+    | "cr1_0" -> R.CR1_0
+    | "cr1_1" -> R.CR1_1
+    | "cr1_2" -> R.CR1_2
+    | "cr1_3" -> R.CR1_3
+    | "cr2_0" -> R.CR2_0
+    | "cr2_1" -> R.CR2_1
+    | "cr2_2" -> R.CR2_2
+    | "cr2_3" -> R.CR2_3
+    | "cr3_0" -> R.CR3_0
+    | "cr3_1" -> R.CR3_1
+    | "cr3_2" -> R.CR3_2
+    | "cr3_3" -> R.CR3_3
+    | "cr4_0" -> R.CR4_0
+    | "cr4_1" -> R.CR4_1
+    | "cr4_2" -> R.CR4_2
+    | "cr4_3" -> R.CR4_3
+    | "cr5_0" -> R.CR5_0
+    | "cr5_1" -> R.CR5_1
+    | "cr5_2" -> R.CR5_2
+    | "cr5_3" -> R.CR5_3
+    | "cr6_0" -> R.CR6_0
+    | "cr6_1" -> R.CR6_1
+    | "cr6_2" -> R.CR6_2
+    | "cr6_3" -> R.CR6_3
+    | "cr7_0" -> R.CR7_0
+    | "cr7_1" -> R.CR7_1
+    | "cr7_2" -> R.CR7_2
+    | "cr7_3" -> R.CR7_3
+    | "res" -> R.RES
     | _ -> Utils.impossible ()
 
   let toString = function
-    | R.R0 -> "r0" (* FIXME: Add Registers *)
+    | R.R0 -> "r0"
     | R.R1 -> "r1"
     | R.R2 -> "r2"
     | R.R3 -> "r3"
@@ -224,44 +331,77 @@ module Register =
     | R.R29 -> "r29"
     | R.R30 -> "r30"
     | R.R31 -> "r31"
-    | F.F0 -> "f0"
-    | F.F1 -> "f1"
-    | F.F2 -> "f2"
-    | F.F3 -> "f3"
-    | F.F4 -> "f4"
-    | F.F5 -> "f5"
-    | F.F6 -> "f6"
-    | F.F7 -> "f7"
-    | F.F8 -> "f8"
-    | F.F9 -> "f9"
-    | F.F10 -> "f10"
-    | F.F11 -> "f11"
-    | F.F12 -> "f12"
-    | F.F13 -> "f13"
-    | F.F14 -> "f14"
-    | F.F15 -> "f15"
-    | F.F16 -> "f16"
-    | F.F17 -> "f17"
-    | F.F18 -> "f18"
-    | F.F19 -> "f19"
-    | F.F20 -> "f20"
-    | F.F21 -> "f21"
-    | F.F22 -> "f22"
-    | F.F23 -> "f23"
-    | F.F24 -> "f24"
-    | F.F25 -> "f25"
-    | F.F26 -> "f26"
-    | F.F27 -> "f27"
-    | F.F28 -> "f28"
-    | F.F29 -> "f29"
-    | F.F30 -> "f30"
-    | F.F31 -> "f31"
-    | CR.CR0 -> "cr0"
-    | CR.CR1 -> "cr1"
-    | CR.CR2 -> "cr2"
-    | CR.CR3 -> "cr3"
-    | CR.CR4 -> "cr4"
-    | CR.CR5 -> "cr5"
-    | CR.CR6 -> "cr6"
-    | CR.CR7 -> "cr7"
+    | R.F0 -> "f0"
+    | R.F1 -> "f1"
+    | R.F2 -> "f2"
+    | R.F3 -> "f3"
+    | R.F4 -> "f4"
+    | R.F5 -> "f5"
+    | R.F6 -> "f6"
+    | R.F7 -> "f7"
+    | R.F8 -> "f8"
+    | R.F9 -> "f9"
+    | R.F10 -> "f10"
+    | R.F11 -> "f11"
+    | R.F12 -> "f12"
+    | R.F13 -> "f13"
+    | R.F14 -> "f14"
+    | R.F15 -> "f15"
+    | R.F16 -> "f16"
+    | R.F17 -> "f17"
+    | R.F18 -> "f18"
+    | R.F19 -> "f19"
+    | R.F20 -> "f20"
+    | R.F21 -> "f21"
+    | R.F22 -> "f22"
+    | R.F23 -> "f23"
+    | R.F24 -> "f24"
+    | R.F25 -> "f25"
+    | R.F26 -> "f26"
+    | R.F27 -> "f27"
+    | R.F28 -> "f28"
+    | R.F29 -> "f29"
+    | R.F30 -> "f30"
+    | R.F31 -> "f31"
+    | R.CR0 -> "cr0"
+    | R.CR1 -> "cr1"
+    | R.CR2 -> "cr2"
+    | R.CR3 -> "cr3"
+    | R.CR4 -> "cr4"
+    | R.CR5 -> "cr5"
+    | R.CR6 -> "cr6"
+    | R.CR7 -> "cr7"
+    | R.CR0_0 -> "cr0_0"
+    | R.CR0_1 -> "cr0_1"
+    | R.CR0_2 -> "cr0_2"
+    | R.CR0_3 -> "cr0_3"
+    | R.CR1_0 -> "cr1_0"
+    | R.CR1_1 -> "cr1_1"
+    | R.CR1_2 -> "cr1_2"
+    | R.CR1_3 -> "cr1_3"
+    | R.CR2_0 -> "cr2_0"
+    | R.CR2_1 -> "cr2_1"
+    | R.CR2_2 -> "cr2_2"
+    | R.CR2_3 -> "cr2_3"
+    | R.CR3_0 -> "cr3_0"
+    | R.CR3_1 -> "cr3_1"
+    | R.CR3_2 -> "cr3_2"
+    | R.CR3_3 -> "cr3_3"
+    | R.CR4_0 -> "cr4_0"
+    | R.CR4_1 -> "cr4_1"
+    | R.CR4_2 -> "cr4_2"
+    | R.CR4_3 -> "cr4_3"
+    | R.CR5_0 -> "cr5_0"
+    | R.CR5_1 -> "cr5_1"
+    | R.CR5_2 -> "cr5_2"
+    | R.CR5_3 -> "cr5_3"
+    | R.CR6_0 -> "cr6_0"
+    | R.CR6_1 -> "cr6_1"
+    | R.CR6_2 -> "cr6_2"
+    | R.CR6_3 -> "cr6_3"
+    | R.CR7_0 -> "cr7_0"
+    | R.CR7_1 -> "cr7_1"
+    | R.CR7_2 -> "cr7_2"
+    | R.CR7_3 -> "cr7_3"
+    | R.RES -> "res"
     | _ -> Utils.impossible ()

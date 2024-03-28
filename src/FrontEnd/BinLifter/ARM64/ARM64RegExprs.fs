@@ -25,10 +25,11 @@
 namespace B2R2.FrontEnd.BinLifter.ARM64
 
 open B2R2
+open B2R2.FrontEnd.BinLifter
 open B2R2.BinIR.LowUIR
 
-type internal RegExprs () =
-  let var sz t name = AST.var sz t name (ARM64RegisterSet.singleton t)
+type RegExprs () =
+  let var sz t name = AST.var sz t name
 
   (* Registers *)
   let r0  = var 64<rt> (Register.toRegID Register.X0) "X0"
@@ -100,170 +101,202 @@ type internal RegExprs () =
   let wzr = AST.xtlo 32<rt> xzr
   let wsp = AST.xtlo 32<rt> sp
 
-  let v0  = var 128<rt> (Register.toRegID Register.V0) "V0"
-  let v1  = var 128<rt> (Register.toRegID Register.V1) "V1"
-  let v2  = var 128<rt> (Register.toRegID Register.V2) "V2"
-  let v3  = var 128<rt> (Register.toRegID Register.V3) "V3"
-  let v4  = var 128<rt> (Register.toRegID Register.V4) "V4"
-  let v5  = var 128<rt> (Register.toRegID Register.V5) "V5"
-  let v6  = var 128<rt> (Register.toRegID Register.V6) "V6"
-  let v7  = var 128<rt> (Register.toRegID Register.V7) "V7"
-  let v8  = var 128<rt> (Register.toRegID Register.V8) "V8"
-  let v9  = var 128<rt> (Register.toRegID Register.V9) "V9"
-  let v10 = var 128<rt> (Register.toRegID Register.V10) "V10"
-  let v11 = var 128<rt> (Register.toRegID Register.V11) "V11"
-  let v12 = var 128<rt> (Register.toRegID Register.V12) "V12"
-  let v13 = var 128<rt> (Register.toRegID Register.V13) "V13"
-  let v14 = var 128<rt> (Register.toRegID Register.V14) "V14"
-  let v15 = var 128<rt> (Register.toRegID Register.V15) "V15"
-  let v16 = var 128<rt> (Register.toRegID Register.V16) "V16"
-  let v17 = var 128<rt> (Register.toRegID Register.V17) "V17"
-  let v18 = var 128<rt> (Register.toRegID Register.V18) "V18"
-  let v19 = var 128<rt> (Register.toRegID Register.V19) "V19"
-  let v20 = var 128<rt> (Register.toRegID Register.V20) "V20"
-  let v21 = var 128<rt> (Register.toRegID Register.V21) "V21"
-  let v22 = var 128<rt> (Register.toRegID Register.V22) "V22"
-  let v23 = var 128<rt> (Register.toRegID Register.V23) "V23"
-  let v24 = var 128<rt> (Register.toRegID Register.V24) "V24"
-  let v25 = var 128<rt> (Register.toRegID Register.V25) "V25"
-  let v26 = var 128<rt> (Register.toRegID Register.V26) "V26"
-  let v27 = var 128<rt> (Register.toRegID Register.V27) "V27"
-  let v28 = var 128<rt> (Register.toRegID Register.V28) "V28"
-  let v29 = var 128<rt> (Register.toRegID Register.V29) "V29"
-  let v30 = var 128<rt> (Register.toRegID Register.V30) "V30"
-  let v31 = var 128<rt> (Register.toRegID Register.V31) "V31"
+  let v0a  = var 64<rt> (Register.toRegID Register.V0A) "V0A"
+  let v0b  = var 64<rt> (Register.toRegID Register.V0B) "V0B"
+  let v1a  = var 64<rt> (Register.toRegID Register.V1A) "V1A"
+  let v1b  = var 64<rt> (Register.toRegID Register.V1B) "V1B"
+  let v2a  = var 64<rt> (Register.toRegID Register.V2A) "V2A"
+  let v2b  = var 64<rt> (Register.toRegID Register.V2B) "V2B"
+  let v3a  = var 64<rt> (Register.toRegID Register.V3A) "V3A"
+  let v3b  = var 64<rt> (Register.toRegID Register.V3B) "V3B"
+  let v4a  = var 64<rt> (Register.toRegID Register.V4A) "V4A"
+  let v4b  = var 64<rt> (Register.toRegID Register.V4B) "V4B"
+  let v5a  = var 64<rt> (Register.toRegID Register.V5A) "V5A"
+  let v5b  = var 64<rt> (Register.toRegID Register.V5B) "V5B"
+  let v6a  = var 64<rt> (Register.toRegID Register.V6A) "V6A"
+  let v6b  = var 64<rt> (Register.toRegID Register.V6B) "V6B"
+  let v7a  = var 64<rt> (Register.toRegID Register.V7A) "V7A"
+  let v7b  = var 64<rt> (Register.toRegID Register.V7B) "V7B"
+  let v8a  = var 64<rt> (Register.toRegID Register.V8A) "V8A"
+  let v8b  = var 64<rt> (Register.toRegID Register.V8B) "V8B"
+  let v9a  = var 64<rt> (Register.toRegID Register.V9A) "V9A"
+  let v9b  = var 64<rt> (Register.toRegID Register.V9B) "V9B"
+  let v10a = var 64<rt> (Register.toRegID Register.V10A) "V10A"
+  let v10b = var 64<rt> (Register.toRegID Register.V10B) "V10B"
+  let v11a = var 64<rt> (Register.toRegID Register.V11A) "V11A"
+  let v11b = var 64<rt> (Register.toRegID Register.V11B) "V11B"
+  let v12a = var 64<rt> (Register.toRegID Register.V12A) "V12A"
+  let v12b = var 64<rt> (Register.toRegID Register.V12B) "V12B"
+  let v13a = var 64<rt> (Register.toRegID Register.V13A) "V13A"
+  let v13b = var 64<rt> (Register.toRegID Register.V13B) "V13B"
+  let v14a = var 64<rt> (Register.toRegID Register.V14A) "V14A"
+  let v14b = var 64<rt> (Register.toRegID Register.V14B) "V14B"
+  let v15a = var 64<rt> (Register.toRegID Register.V15A) "V15A"
+  let v15b = var 64<rt> (Register.toRegID Register.V15B) "V15B"
+  let v16a = var 64<rt> (Register.toRegID Register.V16A) "V16A"
+  let v16b = var 64<rt> (Register.toRegID Register.V16B) "V16B"
+  let v17a = var 64<rt> (Register.toRegID Register.V17A) "V17A"
+  let v17b = var 64<rt> (Register.toRegID Register.V17B) "V17B"
+  let v18a = var 64<rt> (Register.toRegID Register.V18A) "V18A"
+  let v18b = var 64<rt> (Register.toRegID Register.V18B) "V18B"
+  let v19a = var 64<rt> (Register.toRegID Register.V19A) "V19A"
+  let v19b = var 64<rt> (Register.toRegID Register.V19B) "V19B"
+  let v20a = var 64<rt> (Register.toRegID Register.V20A) "V20A"
+  let v20b = var 64<rt> (Register.toRegID Register.V20B) "V20B"
+  let v21a = var 64<rt> (Register.toRegID Register.V21A) "V21A"
+  let v21b = var 64<rt> (Register.toRegID Register.V21B) "V21B"
+  let v22a = var 64<rt> (Register.toRegID Register.V22A) "V22A"
+  let v22b = var 64<rt> (Register.toRegID Register.V22B) "V22B"
+  let v23a = var 64<rt> (Register.toRegID Register.V23A) "V23A"
+  let v23b = var 64<rt> (Register.toRegID Register.V23B) "V23B"
+  let v24a = var 64<rt> (Register.toRegID Register.V24A) "V24A"
+  let v24b = var 64<rt> (Register.toRegID Register.V24B) "V24B"
+  let v25a = var 64<rt> (Register.toRegID Register.V25A) "V25A"
+  let v25b = var 64<rt> (Register.toRegID Register.V25B) "V25B"
+  let v26a = var 64<rt> (Register.toRegID Register.V26A) "V26A"
+  let v26b = var 64<rt> (Register.toRegID Register.V26B) "V26B"
+  let v27a = var 64<rt> (Register.toRegID Register.V27A) "V27A"
+  let v27b = var 64<rt> (Register.toRegID Register.V27B) "V27B"
+  let v28a = var 64<rt> (Register.toRegID Register.V28A) "V28A"
+  let v28b = var 64<rt> (Register.toRegID Register.V28B) "V28B"
+  let v29a = var 64<rt> (Register.toRegID Register.V29A) "V29A"
+  let v29b = var 64<rt> (Register.toRegID Register.V29B) "V29B"
+  let v30a = var 64<rt> (Register.toRegID Register.V30A) "V30A"
+  let v30b = var 64<rt> (Register.toRegID Register.V30B) "V30B"
+  let v31a = var 64<rt> (Register.toRegID Register.V31A) "V31A"
+  let v31b = var 64<rt> (Register.toRegID Register.V31B) "V31B"
 
-  let d0  = AST.xtlo 64<rt> v0
-  let d1  = AST.xtlo 64<rt> v1
-  let d2  = AST.xtlo 64<rt> v2
-  let d3  = AST.xtlo 64<rt> v3
-  let d4  = AST.xtlo 64<rt> v4
-  let d5  = AST.xtlo 64<rt> v5
-  let d6  = AST.xtlo 64<rt> v6
-  let d7  = AST.xtlo 64<rt> v7
-  let d8  = AST.xtlo 64<rt> v8
-  let d9  = AST.xtlo 64<rt> v9
-  let d10 = AST.xtlo 64<rt> v10
-  let d11 = AST.xtlo 64<rt> v11
-  let d12 = AST.xtlo 64<rt> v12
-  let d13 = AST.xtlo 64<rt> v13
-  let d14 = AST.xtlo 64<rt> v14
-  let d15 = AST.xtlo 64<rt> v15
-  let d16 = AST.xtlo 64<rt> v16
-  let d17 = AST.xtlo 64<rt> v17
-  let d18 = AST.xtlo 64<rt> v18
-  let d19 = AST.xtlo 64<rt> v19
-  let d20 = AST.xtlo 64<rt> v20
-  let d21 = AST.xtlo 64<rt> v21
-  let d22 = AST.xtlo 64<rt> v22
-  let d23 = AST.xtlo 64<rt> v23
-  let d24 = AST.xtlo 64<rt> v24
-  let d25 = AST.xtlo 64<rt> v25
-  let d26 = AST.xtlo 64<rt> v26
-  let d27 = AST.xtlo 64<rt> v27
-  let d28 = AST.xtlo 64<rt> v28
-  let d29 = AST.xtlo 64<rt> v29
-  let d30 = AST.xtlo 64<rt> v30
-  let d31 = AST.xtlo 64<rt> v31
+  let d0  = v0a
+  let d1  = v1a
+  let d2  = v2a
+  let d3  = v3a
+  let d4  = v4a
+  let d5  = v5a
+  let d6  = v6a
+  let d7  = v7a
+  let d8  = v8a
+  let d9  = v9a
+  let d10 = v10a
+  let d11 = v11a
+  let d12 = v12a
+  let d13 = v13a
+  let d14 = v14a
+  let d15 = v15a
+  let d16 = v16a
+  let d17 = v17a
+  let d18 = v18a
+  let d19 = v19a
+  let d20 = v20a
+  let d21 = v21a
+  let d22 = v22a
+  let d23 = v23a
+  let d24 = v24a
+  let d25 = v25a
+  let d26 = v26a
+  let d27 = v27a
+  let d28 = v28a
+  let d29 = v29a
+  let d30 = v30a
+  let d31 = v31a
 
-  let s0  = AST.xtlo 32<rt> v0
-  let s1  = AST.xtlo 32<rt> v1
-  let s2  = AST.xtlo 32<rt> v2
-  let s3  = AST.xtlo 32<rt> v3
-  let s4  = AST.xtlo 32<rt> v4
-  let s5  = AST.xtlo 32<rt> v5
-  let s6  = AST.xtlo 32<rt> v6
-  let s7  = AST.xtlo 32<rt> v7
-  let s8  = AST.xtlo 32<rt> v8
-  let s9  = AST.xtlo 32<rt> v9
-  let s10 = AST.xtlo 32<rt> v10
-  let s11 = AST.xtlo 32<rt> v11
-  let s12 = AST.xtlo 32<rt> v12
-  let s13 = AST.xtlo 32<rt> v13
-  let s14 = AST.xtlo 32<rt> v14
-  let s15 = AST.xtlo 32<rt> v15
-  let s16 = AST.xtlo 32<rt> v16
-  let s17 = AST.xtlo 32<rt> v17
-  let s18 = AST.xtlo 32<rt> v18
-  let s19 = AST.xtlo 32<rt> v19
-  let s20 = AST.xtlo 32<rt> v20
-  let s21 = AST.xtlo 32<rt> v21
-  let s22 = AST.xtlo 32<rt> v22
-  let s23 = AST.xtlo 32<rt> v23
-  let s24 = AST.xtlo 32<rt> v24
-  let s25 = AST.xtlo 32<rt> v25
-  let s26 = AST.xtlo 32<rt> v26
-  let s27 = AST.xtlo 32<rt> v27
-  let s28 = AST.xtlo 32<rt> v28
-  let s29 = AST.xtlo 32<rt> v29
-  let s30 = AST.xtlo 32<rt> v30
-  let s31 = AST.xtlo 32<rt> v31
+  let s0  = AST.xtlo 32<rt> v0a
+  let s1  = AST.xtlo 32<rt> v1a
+  let s2  = AST.xtlo 32<rt> v2a
+  let s3  = AST.xtlo 32<rt> v3a
+  let s4  = AST.xtlo 32<rt> v4a
+  let s5  = AST.xtlo 32<rt> v5a
+  let s6  = AST.xtlo 32<rt> v6a
+  let s7  = AST.xtlo 32<rt> v7a
+  let s8  = AST.xtlo 32<rt> v8a
+  let s9  = AST.xtlo 32<rt> v9a
+  let s10 = AST.xtlo 32<rt> v10a
+  let s11 = AST.xtlo 32<rt> v11a
+  let s12 = AST.xtlo 32<rt> v12a
+  let s13 = AST.xtlo 32<rt> v13a
+  let s14 = AST.xtlo 32<rt> v14a
+  let s15 = AST.xtlo 32<rt> v15a
+  let s16 = AST.xtlo 32<rt> v16a
+  let s17 = AST.xtlo 32<rt> v17a
+  let s18 = AST.xtlo 32<rt> v18a
+  let s19 = AST.xtlo 32<rt> v19a
+  let s20 = AST.xtlo 32<rt> v20a
+  let s21 = AST.xtlo 32<rt> v21a
+  let s22 = AST.xtlo 32<rt> v22a
+  let s23 = AST.xtlo 32<rt> v23a
+  let s24 = AST.xtlo 32<rt> v24a
+  let s25 = AST.xtlo 32<rt> v25a
+  let s26 = AST.xtlo 32<rt> v26a
+  let s27 = AST.xtlo 32<rt> v27a
+  let s28 = AST.xtlo 32<rt> v28a
+  let s29 = AST.xtlo 32<rt> v29a
+  let s30 = AST.xtlo 32<rt> v30a
+  let s31 = AST.xtlo 32<rt> v31a
 
-  let h0  = AST.xtlo 16<rt> v0
-  let h1  = AST.xtlo 16<rt> v1
-  let h2  = AST.xtlo 16<rt> v2
-  let h3  = AST.xtlo 16<rt> v3
-  let h4  = AST.xtlo 16<rt> v4
-  let h5  = AST.xtlo 16<rt> v5
-  let h6  = AST.xtlo 16<rt> v6
-  let h7  = AST.xtlo 16<rt> v7
-  let h8  = AST.xtlo 16<rt> v8
-  let h9  = AST.xtlo 16<rt> v9
-  let h10 = AST.xtlo 16<rt> v10
-  let h11 = AST.xtlo 16<rt> v11
-  let h12 = AST.xtlo 16<rt> v12
-  let h13 = AST.xtlo 16<rt> v13
-  let h14 = AST.xtlo 16<rt> v14
-  let h15 = AST.xtlo 16<rt> v15
-  let h16 = AST.xtlo 16<rt> v16
-  let h17 = AST.xtlo 16<rt> v17
-  let h18 = AST.xtlo 16<rt> v18
-  let h19 = AST.xtlo 16<rt> v19
-  let h20 = AST.xtlo 16<rt> v20
-  let h21 = AST.xtlo 16<rt> v21
-  let h22 = AST.xtlo 16<rt> v22
-  let h23 = AST.xtlo 16<rt> v23
-  let h24 = AST.xtlo 16<rt> v24
-  let h25 = AST.xtlo 16<rt> v25
-  let h26 = AST.xtlo 16<rt> v26
-  let h27 = AST.xtlo 16<rt> v27
-  let h28 = AST.xtlo 16<rt> v28
-  let h29 = AST.xtlo 16<rt> v29
-  let h30 = AST.xtlo 16<rt> v30
-  let h31 = AST.xtlo 16<rt> v31
+  let h0  = AST.xtlo 16<rt> v0a
+  let h1  = AST.xtlo 16<rt> v1a
+  let h2  = AST.xtlo 16<rt> v2a
+  let h3  = AST.xtlo 16<rt> v3a
+  let h4  = AST.xtlo 16<rt> v4a
+  let h5  = AST.xtlo 16<rt> v5a
+  let h6  = AST.xtlo 16<rt> v6a
+  let h7  = AST.xtlo 16<rt> v7a
+  let h8  = AST.xtlo 16<rt> v8a
+  let h9  = AST.xtlo 16<rt> v9a
+  let h10 = AST.xtlo 16<rt> v10a
+  let h11 = AST.xtlo 16<rt> v11a
+  let h12 = AST.xtlo 16<rt> v12a
+  let h13 = AST.xtlo 16<rt> v13a
+  let h14 = AST.xtlo 16<rt> v14a
+  let h15 = AST.xtlo 16<rt> v15a
+  let h16 = AST.xtlo 16<rt> v16a
+  let h17 = AST.xtlo 16<rt> v17a
+  let h18 = AST.xtlo 16<rt> v18a
+  let h19 = AST.xtlo 16<rt> v19a
+  let h20 = AST.xtlo 16<rt> v20a
+  let h21 = AST.xtlo 16<rt> v21a
+  let h22 = AST.xtlo 16<rt> v22a
+  let h23 = AST.xtlo 16<rt> v23a
+  let h24 = AST.xtlo 16<rt> v24a
+  let h25 = AST.xtlo 16<rt> v25a
+  let h26 = AST.xtlo 16<rt> v26a
+  let h27 = AST.xtlo 16<rt> v27a
+  let h28 = AST.xtlo 16<rt> v28a
+  let h29 = AST.xtlo 16<rt> v29a
+  let h30 = AST.xtlo 16<rt> v30a
+  let h31 = AST.xtlo 16<rt> v31a
 
-  let b0  = AST.xtlo 8<rt> v0
-  let b1  = AST.xtlo 8<rt> v1
-  let b2  = AST.xtlo 8<rt> v2
-  let b3  = AST.xtlo 8<rt> v3
-  let b4  = AST.xtlo 8<rt> v4
-  let b5  = AST.xtlo 8<rt> v5
-  let b6  = AST.xtlo 8<rt> v6
-  let b7  = AST.xtlo 8<rt> v7
-  let b8  = AST.xtlo 8<rt> v8
-  let b9  = AST.xtlo 8<rt> v9
-  let b10 = AST.xtlo 8<rt> v10
-  let b11 = AST.xtlo 8<rt> v11
-  let b12 = AST.xtlo 8<rt> v12
-  let b13 = AST.xtlo 8<rt> v13
-  let b14 = AST.xtlo 8<rt> v14
-  let b15 = AST.xtlo 8<rt> v15
-  let b16 = AST.xtlo 8<rt> v16
-  let b17 = AST.xtlo 8<rt> v17
-  let b18 = AST.xtlo 8<rt> v18
-  let b19 = AST.xtlo 8<rt> v19
-  let b20 = AST.xtlo 8<rt> v20
-  let b21 = AST.xtlo 8<rt> v21
-  let b22 = AST.xtlo 8<rt> v22
-  let b23 = AST.xtlo 8<rt> v23
-  let b24 = AST.xtlo 8<rt> v24
-  let b25 = AST.xtlo 8<rt> v25
-  let b26 = AST.xtlo 8<rt> v26
-  let b27 = AST.xtlo 8<rt> v27
-  let b28 = AST.xtlo 8<rt> v28
-  let b29 = AST.xtlo 8<rt> v29
-  let b30 = AST.xtlo 8<rt> v30
-  let b31 = AST.xtlo 8<rt> v31
+  let b0  = AST.xtlo 8<rt> v0a
+  let b1  = AST.xtlo 8<rt> v1a
+  let b2  = AST.xtlo 8<rt> v2a
+  let b3  = AST.xtlo 8<rt> v3a
+  let b4  = AST.xtlo 8<rt> v4a
+  let b5  = AST.xtlo 8<rt> v5a
+  let b6  = AST.xtlo 8<rt> v6a
+  let b7  = AST.xtlo 8<rt> v7a
+  let b8  = AST.xtlo 8<rt> v8a
+  let b9  = AST.xtlo 8<rt> v9a
+  let b10 = AST.xtlo 8<rt> v10a
+  let b11 = AST.xtlo 8<rt> v11a
+  let b12 = AST.xtlo 8<rt> v12a
+  let b13 = AST.xtlo 8<rt> v13a
+  let b14 = AST.xtlo 8<rt> v14a
+  let b15 = AST.xtlo 8<rt> v15a
+  let b16 = AST.xtlo 8<rt> v16a
+  let b17 = AST.xtlo 8<rt> v17a
+  let b18 = AST.xtlo 8<rt> v18a
+  let b19 = AST.xtlo 8<rt> v19a
+  let b20 = AST.xtlo 8<rt> v20a
+  let b21 = AST.xtlo 8<rt> v21a
+  let b22 = AST.xtlo 8<rt> v22a
+  let b23 = AST.xtlo 8<rt> v23a
+  let b24 = AST.xtlo 8<rt> v24a
+  let b25 = AST.xtlo 8<rt> v25a
+  let b26 = AST.xtlo 8<rt> v26a
+  let b27 = AST.xtlo 8<rt> v27a
+  let b28 = AST.xtlo 8<rt> v28a
+  let b29 = AST.xtlo 8<rt> v29a
+  let b30 = AST.xtlo 8<rt> v30a
+  let b31 = AST.xtlo 8<rt> v31a
 
   (* General-purpose registers *)
   member val X0  = r0 with get
@@ -340,72 +373,136 @@ type internal RegExprs () =
 
   (* 32 SIMD&FP registers *)
   (* 128-bit registers *)
-  member val V0  = v0 with get
-  member val V1  = v1 with get
-  member val V2  = v2 with get
-  member val V3  = v3 with get
-  member val V4  = v4 with get
-  member val V5  = v5 with get
-  member val V6  = v6 with get
-  member val V7  = v7 with get
-  member val V8  = v8 with get
-  member val V9  = v9 with get
-  member val V10 = v10 with get
-  member val V11 = v11 with get
-  member val V12 = v12 with get
-  member val V13 = v13 with get
-  member val V14 = v14 with get
-  member val V15 = v15 with get
-  member val V16 = v16 with get
-  member val V17 = v17 with get
-  member val V18 = v18 with get
-  member val V19 = v19 with get
-  member val V20 = v20 with get
-  member val V21 = v21 with get
-  member val V22 = v22 with get
-  member val V23 = v23 with get
-  member val V24 = v24 with get
-  member val V25 = v25 with get
-  member val V26 = v26 with get
-  member val V27 = v27 with get
-  member val V28 = v28 with get
-  member val V29 = v29 with get
-  member val V30 = v30 with get
-  member val V31 = v31 with get
+  member val V0A  = v0a with get
+  member val V0B  = v0b with get
+  member val V1A  = v1a with get
+  member val V1B  = v1b with get
+  member val V2A  = v2a with get
+  member val V2B  = v2b with get
+  member val V3A  = v3a with get
+  member val V3B  = v3b with get
+  member val V4A  = v4a with get
+  member val V4B  = v4b with get
+  member val V5A  = v5a with get
+  member val V5B  = v5b with get
+  member val V6A  = v6a with get
+  member val V6B  = v6b with get
+  member val V7A  = v7a with get
+  member val V7B  = v7b with get
+  member val V8A  = v8a with get
+  member val V8B  = v8b with get
+  member val V9A  = v9a with get
+  member val V9B  = v9b with get
+  member val V10A = v10a with get
+  member val V10B = v10b with get
+  member val V11A = v11a with get
+  member val V11B = v11b with get
+  member val V12A = v12a with get
+  member val V12B = v12b with get
+  member val V13A = v13a with get
+  member val V13B = v13b with get
+  member val V14A = v14a with get
+  member val V14B = v14b with get
+  member val V15A = v15a with get
+  member val V15B = v15b with get
+  member val V16A = v16a with get
+  member val V16B = v16b with get
+  member val V17A = v17a with get
+  member val V17B = v17b with get
+  member val V18A = v18a with get
+  member val V18B = v18b with get
+  member val V19A = v19a with get
+  member val V19B = v19b with get
+  member val V20A = v20a with get
+  member val V20B = v20b with get
+  member val V21A = v21a with get
+  member val V21B = v21b with get
+  member val V22A = v22a with get
+  member val V22B = v22b with get
+  member val V23A = v23a with get
+  member val V23B = v23b with get
+  member val V24A = v24a with get
+  member val V24B = v24b with get
+  member val V25A = v25a with get
+  member val V25B = v25b with get
+  member val V26A = v26a with get
+  member val V26B = v26b with get
+  member val V27A = v27a with get
+  member val V27B = v27b with get
+  member val V28A = v28a with get
+  member val V28B = v28b with get
+  member val V29A = v29a with get
+  member val V29B = v29b with get
+  member val V30A = v30a with get
+  member val V30B = v30b with get
+  member val V31A = v31a with get
+  member val V31B = v31b with get
 
   (* 128-bit registers *)
-  member val Q0  = v0 with get
-  member val Q1  = v1 with get
-  member val Q2  = v2 with get
-  member val Q3  = v3 with get
-  member val Q4  = v4 with get
-  member val Q5  = v5 with get
-  member val Q6  = v6 with get
-  member val Q7  = v7 with get
-  member val Q8  = v8 with get
-  member val Q9  = v9 with get
-  member val Q10 = v10 with get
-  member val Q11 = v11 with get
-  member val Q12 = v12 with get
-  member val Q13 = v13 with get
-  member val Q14 = v14 with get
-  member val Q15 = v15 with get
-  member val Q16 = v16 with get
-  member val Q17 = v17 with get
-  member val Q18 = v18 with get
-  member val Q19 = v19 with get
-  member val Q20 = v20 with get
-  member val Q21 = v21 with get
-  member val Q22 = v22 with get
-  member val Q23 = v23 with get
-  member val Q24 = v24 with get
-  member val Q25 = v25 with get
-  member val Q26 = v26 with get
-  member val Q27 = v27 with get
-  member val Q28 = v28 with get
-  member val Q29 = v29 with get
-  member val Q30 = v30 with get
-  member val Q31 = v31 with get
+  member val Q0A = var 64<rt> (Register.toRegID Register.V0A) "Q0A" with get
+  member val Q0B = var 64<rt> (Register.toRegID Register.V0B) "Q0B" with get
+  member val Q1A = var 64<rt> (Register.toRegID Register.V1A) "Q1A" with get
+  member val Q1B = var 64<rt> (Register.toRegID Register.V1B) "Q1B" with get
+  member val Q2A = var 64<rt> (Register.toRegID Register.V2A) "Q2A" with get
+  member val Q2B = var 64<rt> (Register.toRegID Register.V2B) "Q2B" with get
+  member val Q3A = var 64<rt> (Register.toRegID Register.V3A) "Q3A" with get
+  member val Q3B = var 64<rt> (Register.toRegID Register.V3B) "Q3B" with get
+  member val Q4A = var 64<rt> (Register.toRegID Register.V4A) "Q4A" with get
+  member val Q4B = var 64<rt> (Register.toRegID Register.V4B) "Q4B" with get
+  member val Q5A = var 64<rt> (Register.toRegID Register.V5A) "Q5A" with get
+  member val Q5B = var 64<rt> (Register.toRegID Register.V5B) "Q5B" with get
+  member val Q6A = var 64<rt> (Register.toRegID Register.V6A) "Q6A" with get
+  member val Q6B = var 64<rt> (Register.toRegID Register.V6B) "Q6B" with get
+  member val Q7A = var 64<rt> (Register.toRegID Register.V7A) "Q7A" with get
+  member val Q7B = var 64<rt> (Register.toRegID Register.V7B) "Q7B" with get
+  member val Q8A = var 64<rt> (Register.toRegID Register.V8A) "Q8A" with get
+  member val Q8B = var 64<rt> (Register.toRegID Register.V8B) "Q8B" with get
+  member val Q9A = var 64<rt> (Register.toRegID Register.V9A) "Q9A" with get
+  member val Q9B = var 64<rt> (Register.toRegID Register.V9B) "Q9B" with get
+  member val Q10A = var 64<rt> (Register.toRegID Register.V10A) "Q10A" with get
+  member val Q10B = var 64<rt> (Register.toRegID Register.V10B) "Q10B" with get
+  member val Q11A = var 64<rt> (Register.toRegID Register.V11A) "Q11A" with get
+  member val Q11B = var 64<rt> (Register.toRegID Register.V11B) "Q11B" with get
+  member val Q12A = var 64<rt> (Register.toRegID Register.V12A) "Q12A" with get
+  member val Q12B = var 64<rt> (Register.toRegID Register.V12B) "Q12B" with get
+  member val Q13A = var 64<rt> (Register.toRegID Register.V13A) "Q13A" with get
+  member val Q13B = var 64<rt> (Register.toRegID Register.V13B) "Q13B" with get
+  member val Q14A = var 64<rt> (Register.toRegID Register.V14A) "Q14A" with get
+  member val Q14B = var 64<rt> (Register.toRegID Register.V14B) "Q14B" with get
+  member val Q15A = var 64<rt> (Register.toRegID Register.V15A) "Q15A" with get
+  member val Q15B = var 64<rt> (Register.toRegID Register.V15B) "Q15B" with get
+  member val Q16A = var 64<rt> (Register.toRegID Register.V16A) "Q16A" with get
+  member val Q16B = var 64<rt> (Register.toRegID Register.V16B) "Q16B" with get
+  member val Q17A = var 64<rt> (Register.toRegID Register.V17A) "Q17A" with get
+  member val Q17B = var 64<rt> (Register.toRegID Register.V17B) "Q17B" with get
+  member val Q18A = var 64<rt> (Register.toRegID Register.V18A) "Q18A" with get
+  member val Q18B = var 64<rt> (Register.toRegID Register.V18B) "Q18B" with get
+  member val Q19A = var 64<rt> (Register.toRegID Register.V19A) "Q19A" with get
+  member val Q19B = var 64<rt> (Register.toRegID Register.V19B) "Q19B" with get
+  member val Q20A = var 64<rt> (Register.toRegID Register.V20A) "Q20A" with get
+  member val Q20B = var 64<rt> (Register.toRegID Register.V20B) "Q20B" with get
+  member val Q21A = var 64<rt> (Register.toRegID Register.V21A) "Q21A" with get
+  member val Q21B = var 64<rt> (Register.toRegID Register.V21B) "Q21B" with get
+  member val Q22A = var 64<rt> (Register.toRegID Register.V22A) "Q22A" with get
+  member val Q22B = var 64<rt> (Register.toRegID Register.V22B) "Q22B" with get
+  member val Q23A = var 64<rt> (Register.toRegID Register.V23A) "Q23A" with get
+  member val Q23B = var 64<rt> (Register.toRegID Register.V23B) "Q23B" with get
+  member val Q24A = var 64<rt> (Register.toRegID Register.V24A) "Q24A" with get
+  member val Q24B = var 64<rt> (Register.toRegID Register.V24B) "Q24B" with get
+  member val Q25A = var 64<rt> (Register.toRegID Register.V25A) "Q25A" with get
+  member val Q25B = var 64<rt> (Register.toRegID Register.V25B) "Q25B" with get
+  member val Q26A = var 64<rt> (Register.toRegID Register.V26A) "Q26A" with get
+  member val Q26B = var 64<rt> (Register.toRegID Register.V26B) "Q26B" with get
+  member val Q27A = var 64<rt> (Register.toRegID Register.V27A) "Q27A" with get
+  member val Q27B = var 64<rt> (Register.toRegID Register.V27B) "Q27B" with get
+  member val Q28A = var 64<rt> (Register.toRegID Register.V28A) "Q28A" with get
+  member val Q28B = var 64<rt> (Register.toRegID Register.V28B) "Q28B" with get
+  member val Q29A = var 64<rt> (Register.toRegID Register.V29A) "Q29A" with get
+  member val Q29B = var 64<rt> (Register.toRegID Register.V29B) "Q29B" with get
+  member val Q30A = var 64<rt> (Register.toRegID Register.V30A) "Q30A" with get
+  member val Q30B = var 64<rt> (Register.toRegID Register.V30B) "Q30B" with get
+  member val Q31A = var 64<rt> (Register.toRegID Register.V31A) "Q31A" with get
+  member val Q31B = var 64<rt> (Register.toRegID Register.V31B) "Q31B" with get
 
   (* 64-bit registers *)
   member val D0  = d0 with get
@@ -548,14 +645,37 @@ type internal RegExprs () =
   member val FPSR = var 64<rt> (Register.toRegID Register.FPSR) "FPSR"
 
   (* Process state, PSTATE *)
-  /// Negative condition flag
+  /// Negative condition flag.
   member val N = var 1<rt> (Register.toRegID Register.N) "N"
-  /// Zero condition flag
+  /// Zero condition flag.
   member val Z = var 1<rt> (Register.toRegID Register.Z) "Z"
-  /// Carry condition flag
+  /// Carry condition flag.
   member val C = var 1<rt> (Register.toRegID Register.C) "C"
-  /// Overflow condition flag
+  /// Overflow condition flag.
   member val V = var 1<rt> (Register.toRegID Register.V) "V"
+
+  (* System registers *)
+  /// Data Cache Zero ID register.
+  member val DCZIDEL0 =
+    var 64<rt> (Register.toRegID Register.DCZIDEL0) "DCZID_EL0"
+  /// Main ID Register.
+  member val MIDREL1 = var 64<rt> (Register.toRegID Register.MIDREL1) "MIDR_EL1"
+  /// EL0 Read/Write Software Thread ID Register.
+  member val TPIDREL0 =
+    var 64<rt> (Register.toRegID Register.TPIDREL0) "TPIDR_EL0"
+  /// S<op0>_<op1>_<Cn>_<Cm>_<op2>.
+  member val S3_5_C3_C2_0 =
+    var 64<rt> (Register.toRegID Register.S3_5_C3_C2_0) "S3_5_C3_C2_0"
+  member val S3_7_C2_C2_7 =
+    var 64<rt> (Register.toRegID Register.S3_7_C2_C2_7) "S3_7_C2_C2_7"
+  member val S0_0_C2_C9_3 =
+    var 64<rt> (Register.toRegID Register.S0_0_C2_C9_3) "S0_0_C2_C9_3"
+  member val S2_7_C12_C7_6 =
+    var 64<rt> (Register.toRegID Register.S2_7_C12_C7_6) "S2_7_C12_C7_6"
+
+  (* Extra pseudo registers. *)
+  /// Pseudo register for passing a return value from an external call.
+  member val ERET = var 64<rt> (Register.toRegID Register.ERET) "ERET"
 
   member __.GetRegVar (name) =
     match name with
@@ -626,70 +746,6 @@ type internal RegExprs () =
     | R.SP  -> __.SP
     | R.WSP -> __.WSP
     | R.PC  -> __.PC
-    | R.V0  -> __.V0
-    | R.V1  -> __.V1
-    | R.V2  -> __.V2
-    | R.V3  -> __.V3
-    | R.V4  -> __.V4
-    | R.V5  -> __.V5
-    | R.V6  -> __.V6
-    | R.V7  -> __.V7
-    | R.V8  -> __.V8
-    | R.V9  -> __.V9
-    | R.V10 -> __.V10
-    | R.V11 -> __.V11
-    | R.V12 -> __.V12
-    | R.V13 -> __.V13
-    | R.V14 -> __.V14
-    | R.V15 -> __.V15
-    | R.V16 -> __.V16
-    | R.V17 -> __.V17
-    | R.V18 -> __.V18
-    | R.V19 -> __.V19
-    | R.V20 -> __.V20
-    | R.V21 -> __.V21
-    | R.V22 -> __.V22
-    | R.V23 -> __.V23
-    | R.V24 -> __.V24
-    | R.V25 -> __.V25
-    | R.V26 -> __.V26
-    | R.V27 -> __.V27
-    | R.V28 -> __.V28
-    | R.V29 -> __.V29
-    | R.V30 -> __.V30
-    | R.V31 -> __.V31
-    | R.Q0  -> __.Q0
-    | R.Q1  -> __.Q1
-    | R.Q2  -> __.Q2
-    | R.Q3  -> __.Q3
-    | R.Q4  -> __.Q4
-    | R.Q5  -> __.Q5
-    | R.Q6  -> __.Q6
-    | R.Q7  -> __.Q7
-    | R.Q8  -> __.Q8
-    | R.Q9  -> __.Q9
-    | R.Q10 -> __.Q10
-    | R.Q11 -> __.Q11
-    | R.Q12 -> __.Q12
-    | R.Q13 -> __.Q13
-    | R.Q14 -> __.Q14
-    | R.Q15 -> __.Q15
-    | R.Q16 -> __.Q16
-    | R.Q17 -> __.Q17
-    | R.Q18 -> __.Q18
-    | R.Q19 -> __.Q19
-    | R.Q20 -> __.Q20
-    | R.Q21 -> __.Q21
-    | R.Q22 -> __.Q22
-    | R.Q23 -> __.Q23
-    | R.Q24 -> __.Q24
-    | R.Q25 -> __.Q25
-    | R.Q26 -> __.Q26
-    | R.Q27 -> __.Q27
-    | R.Q28 -> __.Q28
-    | R.Q29 -> __.Q29
-    | R.Q30 -> __.Q30
-    | R.Q31 -> __.Q31
     | R.D0  -> __.D0
     | R.D1  -> __.D1
     | R.D2  -> __.D2
@@ -824,6 +880,146 @@ type internal RegExprs () =
     | R.Z -> __.Z
     | R.C -> __.C
     | R.V -> __.V
-    | _ -> raise B2R2.FrontEnd.BinLifter.UnhandledRegExprException
+    | R.DCZIDEL0 -> __.DCZIDEL0
+    | R.MIDREL1 -> __.MIDREL1
+    | R.TPIDREL0 -> __.TPIDREL0
+    | R.S3_5_C3_C2_0 -> __.S3_5_C3_C2_0
+    | R.S3_7_C2_C2_7 -> __.S3_7_C2_C2_7
+    | R.S0_0_C2_C9_3 -> __.S0_0_C2_C9_3
+    | R.S2_7_C12_C7_6 -> __.S2_7_C12_C7_6
+    | R.ERET -> __.ERET
+    | _ -> raise UnhandledRegExprException
+
+  member __.GetPseudoRegVar name pos =
+    match name, pos with
+    | R.Q0, 1 -> __.Q0A
+    | R.Q0, 2 -> __.Q0B
+    | R.Q1, 1 -> __.Q1A
+    | R.Q1, 2 -> __.Q1B
+    | R.Q2, 1 -> __.Q2A
+    | R.Q2, 2 -> __.Q2B
+    | R.Q3, 1 -> __.Q3A
+    | R.Q3, 2 -> __.Q3B
+    | R.Q4, 1 -> __.Q4A
+    | R.Q4, 2 -> __.Q4B
+    | R.Q5, 1 -> __.Q5A
+    | R.Q5, 2 -> __.Q5B
+    | R.Q6, 1 -> __.Q6A
+    | R.Q6, 2 -> __.Q6B
+    | R.Q7, 1 -> __.Q7A
+    | R.Q7, 2 -> __.Q7B
+    | R.Q8, 1 -> __.Q8A
+    | R.Q8, 2 -> __.Q8B
+    | R.Q9, 1 -> __.Q9A
+    | R.Q9, 2 -> __.Q9B
+    | R.Q10, 1 -> __.Q10A
+    | R.Q10, 2 -> __.Q10B
+    | R.Q11, 1 -> __.Q11A
+    | R.Q11, 2 -> __.Q11B
+    | R.Q12, 1 -> __.Q12A
+    | R.Q12, 2 -> __.Q12B
+    | R.Q13, 1 -> __.Q13A
+    | R.Q13, 2 -> __.Q13B
+    | R.Q14, 1 -> __.Q14A
+    | R.Q14, 2 -> __.Q14B
+    | R.Q15, 1 -> __.Q15A
+    | R.Q15, 2 -> __.Q15B
+    | R.Q16, 1 -> __.Q16A
+    | R.Q16, 2 -> __.Q16B
+    | R.Q17, 1 -> __.Q17A
+    | R.Q17, 2 -> __.Q17B
+    | R.Q18, 1 -> __.Q18A
+    | R.Q18, 2 -> __.Q18B
+    | R.Q19, 1 -> __.Q19A
+    | R.Q19, 2 -> __.Q19B
+    | R.Q20, 1 -> __.Q20A
+    | R.Q20, 2 -> __.Q20B
+    | R.Q21, 1 -> __.Q21A
+    | R.Q21, 2 -> __.Q21B
+    | R.Q22, 1 -> __.Q22A
+    | R.Q22, 2 -> __.Q22B
+    | R.Q23, 1 -> __.Q23A
+    | R.Q23, 2 -> __.Q23B
+    | R.Q24, 1 -> __.Q24A
+    | R.Q24, 2 -> __.Q24B
+    | R.Q25, 1 -> __.Q25A
+    | R.Q25, 2 -> __.Q25B
+    | R.Q26, 1 -> __.Q26A
+    | R.Q26, 2 -> __.Q26B
+    | R.Q27, 1 -> __.Q27A
+    | R.Q27, 2 -> __.Q27B
+    | R.Q28, 1 -> __.Q28A
+    | R.Q28, 2 -> __.Q28B
+    | R.Q29, 1 -> __.Q29A
+    | R.Q29, 2 -> __.Q29B
+    | R.Q30, 1 -> __.Q30A
+    | R.Q30, 2 -> __.Q30B
+    | R.Q31, 1 -> __.Q31A
+    | R.Q31, 2 -> __.Q31B
+    | R.V0, 1 -> __.V0A
+    | R.V0, 2 -> __.V0B
+    | R.V1, 1 -> __.V1A
+    | R.V1, 2 -> __.V1B
+    | R.V2, 1 -> __.V2A
+    | R.V2, 2 -> __.V2B
+    | R.V3, 1 -> __.V3A
+    | R.V3, 2 -> __.V3B
+    | R.V4, 1 -> __.V4A
+    | R.V4, 2 -> __.V4B
+    | R.V5, 1 -> __.V5A
+    | R.V5, 2 -> __.V5B
+    | R.V6, 1 -> __.V6A
+    | R.V6, 2 -> __.V6B
+    | R.V7, 1 -> __.V7A
+    | R.V7, 2 -> __.V7B
+    | R.V8, 1 -> __.V8A
+    | R.V8, 2 -> __.V8B
+    | R.V9, 1 -> __.V9A
+    | R.V9, 2 -> __.V9B
+    | R.V10, 1 -> __.V10A
+    | R.V10, 2 -> __.V10B
+    | R.V11, 1 -> __.V11A
+    | R.V11, 2 -> __.V11B
+    | R.V12, 1 -> __.V12A
+    | R.V12, 2 -> __.V12B
+    | R.V13, 1 -> __.V13A
+    | R.V13, 2 -> __.V13B
+    | R.V14, 1 -> __.V14A
+    | R.V14, 2 -> __.V14B
+    | R.V15, 1 -> __.V15A
+    | R.V15, 2 -> __.V15B
+    | R.V16, 1 -> __.V16A
+    | R.V16, 2 -> __.V16B
+    | R.V17, 1 -> __.V17A
+    | R.V17, 2 -> __.V17B
+    | R.V18, 1 -> __.V18A
+    | R.V18, 2 -> __.V18B
+    | R.V19, 1 -> __.V19A
+    | R.V19, 2 -> __.V19B
+    | R.V20, 1 -> __.V20A
+    | R.V20, 2 -> __.V20B
+    | R.V21, 1 -> __.V21A
+    | R.V21, 2 -> __.V21B
+    | R.V22, 1 -> __.V22A
+    | R.V22, 2 -> __.V22B
+    | R.V23, 1 -> __.V23A
+    | R.V23, 2 -> __.V23B
+    | R.V24, 1 -> __.V24A
+    | R.V24, 2 -> __.V24B
+    | R.V25, 1 -> __.V25A
+    | R.V25, 2 -> __.V25B
+    | R.V26, 1 -> __.V26A
+    | R.V26, 2 -> __.V26B
+    | R.V27, 1 -> __.V27A
+    | R.V27, 2 -> __.V27B
+    | R.V28, 1 -> __.V28A
+    | R.V28, 2 -> __.V28B
+    | R.V29, 1 -> __.V29A
+    | R.V29, 2 -> __.V29B
+    | R.V30, 1 -> __.V30A
+    | R.V30, 2 -> __.V30B
+    | R.V31, 1 -> __.V31A
+    | R.V31, 2 -> __.V31B
+    | _ -> raise UnhandledRegExprException
 
 // vim: set tw=80 sts=2 sw=2:

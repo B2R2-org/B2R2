@@ -37,7 +37,7 @@ type LRUCache<'K, 'V when 'K: equality and 'V: equality> (capacity: int) =
   let mutable size = 0
 
   member inline private __.InsertBack v =
-    if head = null then head <- v else tail.Next <- v
+    if isNull head then head <- v else tail.Next <- v
     v.Prev <- tail
     v.Next <- null
     v.RefCount <- v.RefCount + 1
@@ -45,8 +45,8 @@ type LRUCache<'K, 'V when 'K: equality and 'V: equality> (capacity: int) =
     size <- size + 1
 
   member inline private __.Remove (v: DoublyLinkedKeyValue<'K, 'V>) =
-    if v.Prev = null then head <- v.Next else v.Prev.Next <- v.Next
-    if v.Next = null then tail <- v.Prev else v.Next.Prev <- v.Prev
+    if isNull v.Prev then head <- v.Next else v.Prev.Next <- v.Next
+    if isNull v.Next then tail <- v.Prev else v.Next.Prev <- v.Prev
     size <- size - 1
 
   member __.Count with get () = size
@@ -107,7 +107,7 @@ type ConcurrentLRUCache<'K, 'V when 'K: equality and 'V: equality>
     Monitor.Exit (lock)
 
   member private __.InsertBack v =
-    if head = null then head <- v else tail.Next <- v
+    if isNull head then head <- v else tail.Next <- v
     v.Prev <- tail
     v.Next <- null
     tail <- v
@@ -115,8 +115,8 @@ type ConcurrentLRUCache<'K, 'V when 'K: equality and 'V: equality>
     v
 
   member private __.Remove (v: DoublyLinkedKeyValue<'K, 'V>) =
-    if v.Prev = null then head <- v.Next else v.Prev.Next <- v.Next
-    if v.Next = null then tail <- v.Prev else v.Next.Prev <- v.Prev
+    if isNull v.Prev then head <- v.Next else v.Prev.Next <- v.Next
+    if isNull v.Next then tail <- v.Prev else v.Next.Prev <- v.Prev
     size <- size - 1
 
   member __.Count with get () = size

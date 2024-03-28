@@ -71,37 +71,37 @@ type AsmParser (mipsISA: ISA, startAddress: Addr) =
 
   let pOpcode =
     (Enum.GetNames typeof<Opcode>)
-    |> Array.map (pstringCI)
-    |> Array.map
-      (fun p -> p .>> (lookAhead (pchar '.') <|> lookAhead (pchar ' ')))
-    |> Array.map (fun p -> attempt (p))
-    |> Array.map
-      (fun (p) ->
-        p |>>
-          (fun name -> Enum.Parse(typeof<Opcode>, name.ToUpper()) :?> Opcode))
+    |> Array.map (fun s ->
+      attempt (pstringCI s
+              .>> (lookAhead (pchar '.') <|> lookAhead (pchar ' ')))
+      |>> fun name -> Enum.Parse(typeof<Opcode>, name.ToUpper()) :?> Opcode
+    )
     |> choice
 
   let pCondition =
     pchar '.'
     >>.
-    ((Enum.GetNames typeof<Condition>)
-    |> Array.map pstringCI
-    |> Array.map
-      (fun p ->
-        p |>>
-          (fun name ->
+    (
+      (Enum.GetNames typeof<Condition>)
+      |> Array.map
+        (fun s ->
+          pstringCI s
+          |>> (fun name ->
             Enum.Parse(typeof<Condition>, name.ToUpper()) :?> Condition))
-    |> choice)
+      |> choice
+    )
 
   let pFmtTemp =
     pchar '.'
     >>.
-    ((Enum.GetNames typeof<Fmt>)
-    |> Array.map pstringCI
-    |> Array.map
-      (fun p ->
-        p |>> (fun name -> Enum.Parse(typeof<Fmt>, name.ToUpper()) :?> Fmt))
-    |> choice)
+    (
+      (Enum.GetNames typeof<Fmt>)
+      |> Array.map
+        (fun s ->
+          pstringCI s
+          |>> (fun name -> Enum.Parse(typeof<Fmt>, name.ToUpper()) :?> Fmt))
+      |> choice
+    )
 
   let pFmt =
     pFmtTemp .>> (opt pFmtTemp)

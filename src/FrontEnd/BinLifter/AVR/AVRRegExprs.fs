@@ -25,10 +25,11 @@
 namespace B2R2.FrontEnd.BinLifter.AVR
 
 open B2R2
+open B2R2.FrontEnd.BinLifter
 open B2R2.BinIR.LowUIR
 
-type internal RegExprs (wordSize) =
-  let var sz t name = AST.var sz t name (AVRRegisterSet.singleton t)
+type RegExprs (wordSize) =
+  let var sz t name = AST.var sz t name
 
   (* Registers *)
   let regType = WordSize.toRegType wordSize
@@ -137,6 +138,6 @@ type internal RegExprs (wordSize) =
     | R.CF  -> __.CF
     | R.PC -> __.PC
     | R.SP -> __.SP
-    | _ -> raise B2R2.FrontEnd.BinLifter.UnhandledRegExprException
+    | _ -> raise UnhandledRegExprException
 
 // vim: set tw=80 sts=2 sw=2:

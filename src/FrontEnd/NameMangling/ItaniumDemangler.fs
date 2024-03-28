@@ -26,12 +26,11 @@ namespace B2R2.FrontEnd.NameMangling
 
 open FParsec
 open System
+open B2R2
 open B2R2.FrontEnd.NameMangling.ItaniumTables
 open B2R2.FrontEnd.NameMangling.ItaniumUtils
 
 type ItaniumDemangler () =
-  inherit Demangler ()
-
   let charListtoStr a = String (List.toArray a)
 
   let rec convertbase36todecimal idx res input =
@@ -92,7 +91,7 @@ type ItaniumDemangler () =
     |>> Vendor
 
   let builtinsingle =
-    satisfy (fun c -> if (getTypeS c <>"") then true else false)
+    satisfy (fun c -> getTypeS c <> "")
     |>> string |>> BuiltinTypeIndicator.ofString
 
   let builtindouble =
@@ -498,17 +497,17 @@ type ItaniumDemangler () =
     |>> FunctionBegin
 
   do
-    pTemplateref :=
-    saveandreturn (
-      ((attempt pABITag <|> name <|> attempt psxname <|> pOperator
-      <|> attempt pSxoperator <|> attempt pConsOrDes) >>= addtoNamelist
-      <|> attempt pSxsubstitution <|> namebackrefS <|> (namebackrefT))
-      .>> clearCarry .>> pchar 'I' .>>. (pIarguments) .>> pchar 'E'
-      >>= checkBeginning
-      |>> Template
-    )
+    pTemplateref.Value <-
+      saveandreturn (
+        ((attempt pABITag <|> name <|> attempt psxname <|> pOperator
+        <|> attempt pSxoperator <|> attempt pConsOrDes) >>= addtoNamelist
+        <|> attempt pSxsubstitution <|> namebackrefS <|> (namebackrefT))
+        .>> clearCarry .>> pchar 'I' .>>. (pIarguments) .>> pchar 'E'
+        >>= checkBeginning
+        |>> Template
+      )
 
-    pNestedNameref :=
+    pNestedNameref.Value <-
       pchar 'N' >>. (pCVR <|> preturn (Name ""))
       .>>.
       (attempt (pNestedBeginning)
@@ -518,13 +517,13 @@ type ItaniumDemangler () =
       |>> fun (a, (b, c)) -> (a, b :: c)
       |>> NestedName
 
-    pPointerArgref :=
+    pPointerArgref.Value <-
       (pstring "P" .>>. (opt (pRCVqualifier <|> pCVqualifier)
       ) .>>. (pNormalArg <|> pLambda <|> pUnnamedType <|> pDecltype))
       |>> (fun ((a, b), c) -> (a, b, c)) |>> PointerArg >>= addargumenttolist
       .>> clearCarry
 
-    pfuncref :=
+    pfuncref.Value <-
       ((nparse <|> pReference) <|> preturn (Name "")) .>>. (opt pCVqualifier)
       .>> pchar 'F'
       .>>. pFunctionArg .>>. pArguments .>> pchar 'E'
@@ -532,18 +531,18 @@ type ItaniumDemangler () =
       |>> FunctionPointer
       >>= addfunctionptolist .>> clearCarry
 
-    prefArgref :=
+    prefArgref.Value <-
       pReferenceArg .>>.
       (attempt pNormalArg <|> pfunc <|> pLambda <|> pDecltype)
       |>> RefArg >>= addargumenttolist
 
-    pExpressionRef :=
+    pExpressionRef.Value <-
       attempt pBinaryExpr <|> attempt pUnaryExpr <|> attempt pCallExpr
       <|> attempt pConversionOneArg <|> pDotExpr <|> pDotPointerExpr
       <|> pConversionMoreArg <|> pCastingExpr <|> pTypeMeasure <|> pExprMeasure
       <|> pExpressionArgPack
 
-    scopeEncodingref :=
+    scopeEncodingref.Value <-
       pchar 'Z' >>.
       (attempt pFunctionRetArgs <|> scopeEncoding <|> namebackrefS
       <|> attempt pGuardVariable <|> pTransactionSafeFunc
@@ -551,7 +550,7 @@ type ItaniumDemangler () =
       <|> (attempt pVirtualThunk <|> attempt pVirtualThunkRet) <|> pTC
       ) .>> pchar 'E' |>> Scope
 
-    stmtref :=
+    stmtref.Value <-
       attempt pGuardVariable
       <|> pReferenceTemporary
       <|> pTransactionSafeFunc <|> attempt pRTTiVirtualTable
@@ -559,15 +558,16 @@ type ItaniumDemangler () =
       <|> attempt (pScope .>> pDiscard)
       <|> attempt (pFunctionRetArgs)
 
-  override __.Run str =
-    match runParserOnString (stmt) ItaniumUserState.Default "" str[2..] with
-    | Success (result, _, pos) ->
-      if pos.Column = int64(str.Length) - 1L then
-        Result.Ok <| ItaniumInterpreter.interpret result
-      else Result.Error TrailingChars
-    | Failure (e, _, _) ->
-      Result.Error ParsingFailure
-
   /// Check if the given string is a well-formed mangled string.
   static member IsWellFormed (str: string) =
     str.Length > 2 && str[0 .. 1] = "_Z"
+
+  interface IDemanglable with
+    member __.Demangle str =
+      match runParserOnString (stmt) ItaniumUserState.Default "" str[2..] with
+      | Success (result, _, pos) ->
+        if pos.Column = int64(str.Length) - 1L then
+          Result.Ok <| ItaniumInterpreter.interpret result
+        else Result.Error ErrorCase.ParsingFailure (* Didn't consume all. *)
+      | Failure (e, _, _) ->
+        Result.Error ErrorCase.ParsingFailure

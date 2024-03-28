@@ -750,6 +750,8 @@ type Opcode =
   | XORI = 326
   /// Invalid Opcode.
   | InvalOP = 327
+  /// Add Dword.
+  | DADD = 328
 
 type internal Op = Opcode
 
@@ -769,6 +771,18 @@ and Offset =
 and Base = Register
 and AccessLength = RegType
 and Label = string
+
+type RoundMode =
+  // Round to Nearest, ties to Even
+  | RNE
+  // Round towards Zero
+  | RTZ
+  // Round Down
+  | RDN
+  // Round Up
+  | RUP
+  // Round to Nearest, ties to Max Magnitude
+  | RMM
 
 type Operands =
   | NoOperand
@@ -798,7 +812,7 @@ type InsInfo = {
   /// Operation Size.
   OperationSize: RegType
   /// Mips architecture.
-  Arch: Arch
+  Arch: Architecture
 }
 with
   override __.GetHashCode () =

@@ -60,7 +60,7 @@ module JSONExport =
   let private getJSONTerms (visualBlock: VisualBlock) =
     visualBlock |> Array.map (Array.map AsmWord.ToStringTuple)
 
-  let private ofVisGraph (g: VisGraph) (roots: Vertex<#BasicBlock> list) =
+  let private ofVisGraph (g: VisGraph) (roots: IVertex<#BasicBlock> list) =
     let roots = roots |> List.map (fun r -> r.VData.PPoint.Address)
     let nodes =
       g.FoldVertex (fun acc v ->
@@ -71,7 +71,8 @@ module JSONExport =
           Coordinate = { X = v.VData.Coordinate.X
                          Y = v.VData.Coordinate.Y } } :: acc) []
     let edges =
-      g.FoldEdge (fun acc _ _ e ->
+      g.FoldEdge (fun acc e ->
+        let e = e.Label
         { Type = e.Type
           Points = e.Points |> List.map (fun p -> { X = p.X; Y = p.Y })
           IsBackEdge = e.IsBackEdge } :: acc) []

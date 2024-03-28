@@ -35,6 +35,7 @@ type Endian =
   | Big = 2
 
 /// A helper module for Endian type.
+[<RequireQualifiedAccess>]
 module Endian =
   /// <summary>
   ///   Get Endian from a string.
@@ -43,8 +44,9 @@ module Endian =
   /// <returns>
   ///   Endian.
   /// </returns>
+  [<CompiledName "OfString">]
   let ofString (str: string) =
-    match str.ToLower () with
+    match str.ToLowerInvariant () with
     | "l" | "le" | "little" -> Endian.Little
     | "b" | "be" | "big" -> Endian.Big
     | _     -> failwith "Wrong endian specified."
@@ -52,6 +54,7 @@ module Endian =
   /// <summary>
   ///   Get the string representation from an Endian.
   /// </summary>
+  [<CompiledName "ToString">]
   let toString = function
     | Endian.Little -> "Little"
     | Endian.Big -> "Big"

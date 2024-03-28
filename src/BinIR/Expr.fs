@@ -26,21 +26,11 @@ namespace B2R2.BinIR.LowUIR
 
 open System.Text
 #if HASHCONS
+open System
 open LanguagePrimitives
 #endif
 open B2R2
 open B2R2.BinIR
-
-/// ExprInfo summarizes several abstract information about the Expr. This is
-/// useful for writing an efficient post analyses.
-type ExprInfo = {
-  /// Is this expression contains memory load(s).
-  HasLoad: bool
-  /// A set of registers (their regids) used in this expression.
-  VarsUsed: RegisterSet
-  /// A set of temp variables (their IDs) used in this expression.
-  TempVarsUsed: Set<int>
-}
 
 /// IR Expressions.
 /// NOTE: You MUST create Expr/Stmt through the AST module. *NEVER* directly
@@ -58,7 +48,7 @@ type E =
   /// For example, (EAX:I32) represents the EAX register (of type I32).
   /// Note that name (n) is additional information that doesn't be used
   /// internally.
-  | Var of RegType * RegisterID * string * RegisterSet
+  | Var of RegType * RegisterID * string
 
   /// Nil to represent cons cells. This should only be used with BinOpType.CONS.
   | Nil
@@ -74,7 +64,7 @@ type E =
   | TempVar of RegType * int
 
   /// Unary operation such as negation.
-  | UnOp of UnOpType * Expr * ExprInfo
+  | UnOp of UnOpType * Expr
 
   /// Symbolic constant for labels.
   | Name of Symbol
@@ -84,26 +74,26 @@ type E =
 
   /// Binary operation such as add, sub, etc. The second argument is a result
   /// type after applying BinOp.
-  | BinOp of BinOpType * RegType * Expr * Expr * ExprInfo
+  | BinOp of BinOpType * RegType * Expr * Expr
 
   /// Relative operation such as eq, lt, etc.
-  | RelOp of RelOpType * Expr * Expr * ExprInfo
+  | RelOp of RelOpType * Expr * Expr
 
   /// Memory loading such as LE:[T_1:I32]
-  | Load of Endian * RegType * Expr * ExprInfo
+  | Load of Endian * RegType * Expr
 
   /// If-then-else expression. The first expression is a condition, and the
   /// second and the third are true and false expression respectively.
-  | Ite of Expr * Expr * Expr * ExprInfo
+  | Ite of Expr * Expr * Expr
 
   /// Type casting expression. The first argument is a casting type, and the
   /// second argument is a result type.
-  | Cast of CastKind * RegType * Expr * ExprInfo
+  | Cast of CastKind * RegType * Expr
 
   /// Extraction expression. The first argument is target expression, and the
   /// second argument is the number of bits for extraction, and the third is
   /// the start position.
-  | Extract of Expr * RegType * StartPos * ExprInfo
+  | Extract of Expr * RegType * StartPos
 
   /// Undefined expression. This is rarely used, and it is a fatal error when we
   /// encounter this expression while evaluating a program. Some CPU manuals
@@ -118,26 +108,26 @@ with
     | :? E as rhs ->
       match __, rhs with
       | Num (n1), Num (n2) -> n1 = n2
-      | Var (t1, r1, _, _), Var (t2, r2, _, _) -> t1 = t2 && r1 = r2
+      | Var (t1, r1, _), Var (t2, r2, _) -> t1 = t2 && r1 = r2
       | Nil, Nil -> true
       | PCVar (t1, _), PCVar (t2, _) -> t1 = t2
       | TempVar (t1, n1), TempVar (t2, n2) -> t1 = t2 && n1 = n2
-      | UnOp (t1, e1, _), UnOp (t2, e2, _) -> t1 = t2 && PhysicalEquality e1 e2
+      | UnOp (t1, e1), UnOp (t2, e2) -> t1 = t2 && PhysicalEquality e1 e2
       | Name (s1), Name (s2) -> s1 = s2
       | FuncName (n1), FuncName (n2) -> n1 = n2
-      | BinOp (o1, t1, lhs1, rhs1, _), BinOp (o2, t2, lhs2, rhs2, _) ->
+      | BinOp (o1, t1, lhs1, rhs1), BinOp (o2, t2, lhs2, rhs2) ->
         o1 = o2 && t1 = t2 &&
           PhysicalEquality lhs1 lhs2 && PhysicalEquality rhs1 rhs2
-      | RelOp (o1, lhs1, rhs1, _), RelOp (o2, lhs2, rhs2, _) ->
+      | RelOp (o1, lhs1, rhs1), RelOp (o2, lhs2, rhs2) ->
         o1 = o2 && PhysicalEquality lhs1 lhs2 && PhysicalEquality rhs1 rhs2
-      | Load (n1, t1, e1, _), Load (n2, t2, e2, _) ->
+      | Load (n1, t1, e1), Load (n2, t2, e2) ->
         n1 = n2 && t1 = t2 && PhysicalEquality e1 e2
-      | Ite (c1, t1, f1, _), Ite (c2, t2, f2, _) ->
+      | Ite (c1, t1, f1), Ite (c2, t2, f2) ->
         PhysicalEquality c1 c2 &&
           PhysicalEquality t1 t2 && PhysicalEquality f1 f2
-      | Cast (k1, t1, e1, _), Cast (k2, t2, e2, _) ->
+      | Cast (k1, t1, e1), Cast (k2, t2, e2) ->
         k1 = k2 && t1 = t2 && PhysicalEquality e1 e2
-      | Extract (e1, t1, p1, _), Extract (e2, t2, p2, _) ->
+      | Extract (e1, t1, p1), Extract (e2, t2, p2) ->
         PhysicalEquality e1 e2 && t1 = t2 && p1 = p2
       | Undefined (t1, s1), Undefined (t2, s2) -> t1 = t2 && s1 = s2
       | _ -> false
@@ -185,19 +175,19 @@ with
   override __.GetHashCode () =
     match __ with
     | Num n -> n.GetHashCode ()
-    | Var (rt, rid, _, _) -> E.HashVar rt rid
+    | Var (rt, rid, _) -> E.HashVar rt rid
     | Nil -> 0
     | PCVar (rt, _) -> E.HashPCVar rt
     | TempVar (rt, n) -> E.HashTempVar rt n
-    | UnOp (op, e, _) -> E.HashUnOp op e
+    | UnOp (op, e) -> E.HashUnOp op e
     | Name (s) -> E.HashName s
     | FuncName (s) -> E.HashFuncName s
-    | BinOp (op, rt, e1, e2, _) -> E.HashBinOp op rt e1 e2
-    | RelOp (op, e1, e2, _) -> E.HashRelOp op e1 e2
-    | Load (endian, rt, e, _) -> E.HashLoad endian rt e
-    | Ite (cond, t, f, _) -> E.HashIte cond t f
-    | Cast (k, rt, e, _) -> E.HashCast k rt e
-    | Extract (e, rt, pos, _) -> E.HashExtract e rt pos
+    | BinOp (op, rt, e1, e2) -> E.HashBinOp op rt e1 e2
+    | RelOp (op, e1, e2) -> E.HashRelOp op e1 e2
+    | Load (endian, rt, e) -> E.HashLoad endian rt e
+    | Ite (cond, t, f) -> E.HashIte cond t f
+    | Cast (k, rt, e) -> E.HashCast k rt e
+    | Extract (e, rt, pos) -> E.HashExtract e rt pos
     | Undefined (rt, s) -> E.HashUndef rt s
 #endif
 
@@ -235,8 +225,8 @@ with
 module Expr =
   let rec appendToString expr (sb: StringBuilder) =
     match expr.E with
-    | Num n -> sb.Append (BitVector.toString n) |> ignore
-    | Var (_typ, _, n, _) -> sb.Append (n) |> ignore
+    | Num n -> sb.Append (BitVector.ToString n) |> ignore
+    | Var (_typ, _, n) -> sb.Append (n) |> ignore
     | Nil -> sb.Append ("nil") |> ignore
     | PCVar (_typ, n) -> sb.Append (n) |> ignore
     | TempVar (typ, n) ->
@@ -246,19 +236,31 @@ module Expr =
       sb.Append (RegType.toString typ) |> ignore
     | Name (n) -> sb.Append (Symbol.getName n) |> ignore
     | FuncName (n) -> sb.Append (n) |> ignore
-    | UnOp (op, e, _) ->
+    | UnOp (op, e) ->
       sb.Append ("(") |> ignore
       sb.Append (UnOpType.toString op) |> ignore
       sb.Append (" ") |> ignore
       appendToString e sb
       sb.Append (")") |> ignore
-    | BinOp (BinOpType.FLOG, _typ, e1, e2, _) -> (* The only prefix operator *)
+    | BinOp (BinOpType.FLOG, _typ, e1, e2) -> (* The only prefix operator *)
       sb.Append ("(lg (") |> ignore
       appendToString e1 sb
       sb.Append (", ") |> ignore
       appendToString e2 sb
       sb.Append ("))") |> ignore
-    | BinOp (op, _typ, e1, e2, _) ->
+    | BinOp (BinOpType.APP, typ, e1, e2) ->
+      appendToString e1 sb
+      sb.Append ("(") |> ignore
+      appendToString e2 sb
+      sb.Append ("):") |> ignore
+      sb.Append (RegType.toString typ) |> ignore
+    | BinOp (BinOpType.CONS, _typ, e1, { E = Nil }) ->
+      appendToString e1 sb
+    | BinOp (BinOpType.CONS, _typ, e1, e2) ->
+      appendToString e1 sb
+      sb.Append (", ") |> ignore
+      appendToString e2 sb
+    | BinOp (op, _typ, e1, e2) ->
       sb.Append ("(") |> ignore
       appendToString e1 sb
       sb.Append (" ") |> ignore
@@ -266,7 +268,7 @@ module Expr =
       sb.Append (" ") |> ignore
       appendToString e2 sb
       sb.Append (")") |> ignore
-    | RelOp (op, e1, e2, _) ->
+    | RelOp (op, e1, e2) ->
       sb.Append ("(") |> ignore
       appendToString e1 sb
       sb.Append (" ") |> ignore
@@ -274,12 +276,12 @@ module Expr =
       sb.Append (" ") |> ignore
       appendToString e2 sb
       sb.Append (")") |> ignore
-    | Load (_endian, typ, e, _) ->
+    | Load (_endian, typ, e) ->
       sb.Append ("[") |> ignore
       appendToString e sb
       sb.Append ("]:") |> ignore
       sb.Append (RegType.toString typ) |> ignore
-    | Ite (cond, e1, e2, _) ->
+    | Ite (cond, e1, e2) ->
       sb.Append ("((") |> ignore
       appendToString cond sb
       sb.Append (") ? (") |> ignore
@@ -287,14 +289,14 @@ module Expr =
       sb.Append (") : (") |> ignore
       appendToString e2 sb
       sb.Append ("))") |> ignore
-    | Cast (cast, typ, e, _) ->
+    | Cast (cast, typ, e) ->
       sb.Append (CastKind.toString cast) |> ignore
       sb.Append (":") |> ignore
       sb.Append (RegType.toString typ) |> ignore
       sb.Append ("(") |> ignore
       appendToString e sb
       sb.Append (")") |> ignore
-    | Extract (e, typ, p, _) ->
+    | Extract (e, typ, p) ->
       sb.Append ("(") |> ignore
       appendToString e sb
       sb.Append ("[") |> ignore
@@ -307,6 +309,6 @@ module Expr =
       sb.Append (")") |> ignore
 
   let toString expr =
-    let sb = new StringBuilder ()
+    let sb = StringBuilder ()
     appendToString expr sb
     sb.ToString ()

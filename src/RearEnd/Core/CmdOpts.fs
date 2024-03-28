@@ -28,17 +28,15 @@ open B2R2
 open B2R2.FsOptParse
 open System
 
-module CS = ColoredSegment
-
 /// A common set of command-line options used in analyzing binaries.
 type CmdOpts () =
   /// Verbosity
   member val Verbose = false with get, set
 
   /// Just a wrapper function that instantiate an OptParse.Option object.
-  static member New<'a> (descr, ?callback, ?required, ?extra, ?help,
+  static member New<'T> (descr, ?callback, ?required, ?extra, ?help,
                                 ?short, ?long, ?dummy, ?descrColor) =
-    Option<'a> (descr,
+    Option<'T> (descr,
                 ?callback=callback,
                 ?required=required,
                 ?extra=extra, ?help=help,
@@ -60,25 +58,28 @@ type CmdOpts () =
   /// Write B2R2 logo to console. We can selectively append a new line at the
   /// end.
   static member WriteB2R2 newLine =
-    [ CS.dcyan "B"; CS.dyellow "2"; CS.dcyan "R"; CS.dyellow "2" ]
-    |> Printer.printToConsole
-    if newLine then Printer.printToConsoleLine () else ()
+    [ ColoredSegment (DarkCyan, "B")
+      ColoredSegment (DarkYellow, "2")
+      ColoredSegment (DarkCyan, "R")
+      ColoredSegment (DarkYellow, "2") ]
+    |> Printer.PrintToConsole
+    if newLine then Printer.PrintToConsoleLine () else ()
 
-  static member private WriteIntro () =
+  static member WriteIntro () =
     CmdOpts.WriteB2R2 false
-    Printer.printToConsoleLine (", the Next-Generation Reversing Platform")
-    Printer.printToConsoleLine (Attribution.Copyright + Environment.NewLine)
+    Printer.PrintToConsoleLine (", the Next-Generation Reversing Platform")
+    Printer.PrintToConsoleLine (Attribution.Copyright + Environment.NewLine)
 
   static member private CreateUsageGetter tool usageTail =
     fun () ->
       CmdOpts.WriteIntro ()
       let tail = if String.IsNullOrEmpty usageTail then "" else " " + usageTail
-      String.Format ("[Usage]{0}{0}dotnet b2r2 {1} %o{2}",
+      String.Format ("[Usage]{0}{0}b2r2 {1} %o{2}",
                      Environment.NewLine, tool, tail)
 
   static member private TermFunction () = exit 1
 
-  static member private parseCmdOpts spec defaultOpts argv tool usageTail =
+  static member private ParseCmdOpts spec defaultOpts argv tool usageTail =
     let prog = Environment.GetCommandLineArgs()[0]
     let usageGetter = CmdOpts.CreateUsageGetter tool usageTail
     try
@@ -101,7 +102,7 @@ type CmdOpts () =
 
   /// Parse command line arguments, and run the mainFn
   static member ParseAndRun mainFn tool usageTail spec (opts: #CmdOpts) args =
-    let rest, opts = CmdOpts.parseCmdOpts spec opts args tool usageTail
+    let rest, opts = CmdOpts.ParseCmdOpts spec opts args tool usageTail
     if opts.Verbose then CmdOpts.WriteIntro () else ()
     try mainFn rest opts; 0
     with e -> eprintfn "Error: %s" e.Message
@@ -113,7 +114,7 @@ type CmdOpts () =
     let rec sanitize = function
       | (arg: string) :: rest ->
         if arg.StartsWith ('-') then
-          Printer.printErrorToConsole
+          Printer.PrintErrorToConsole
           <| sprintf "Invalid argument (%s) is used" arg
           exit 1
         else sanitize rest

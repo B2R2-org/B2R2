@@ -29,7 +29,7 @@ open System.Net
 open System.Runtime.Serialization
 open System.Runtime.Serialization.Json
 open B2R2
-open B2R2.FrontEnd.BinInterface
+open B2R2.FrontEnd
 open B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.MiddleEnd.ControlFlowAnalysis
 open B2R2.MiddleEnd.BinEssence
@@ -97,15 +97,15 @@ let listener host handler =
 
 let defaultEnc = Text.Encoding.UTF8
 
-let json<'t> (obj: 't) =
+let json<'T> (obj: 'T) =
   use ms = new IO.MemoryStream ()
-  (new DataContractJsonSerializer(typeof<'t>)).WriteObject(ms, obj)
+  (DataContractJsonSerializer(typeof<'T>)).WriteObject(ms, obj)
   Text.Encoding.Default.GetString (ms.ToArray ())
 
-let jsonParser<'t> (jsonString:string)  : 't =
+let jsonParser<'T> (jsonString:string): 'T =
   use ms = new IO.MemoryStream (Text.Encoding.Default.GetBytes(jsonString))
-  let obj = (new DataContractJsonSerializer(typeof<'t>)).ReadObject(ms)
-  obj :?> 't
+  let obj = (DataContractJsonSerializer(typeof<'T>)).ReadObject(ms)
+  obj :?> 'T
 
 let readIfExists path =
   if IO.File.Exists path then Some (IO.File.ReadAllBytes (path))
@@ -133,7 +133,7 @@ let answer (req: HttpListenerRequest) (resp: HttpListenerResponse) = function
 
 let handleBinInfo req resp arbiter =
   let ess = Protocol.getBinEssence arbiter
-  let txt = ess.BinHandle.FileInfo.FilePath
+  let txt = ess.BinHandle.File.Path
   let txt = "\"" + txt.Replace(@"\", @"\\") + "\""
   Some (defaultEnc.GetBytes (txt)) |> answer req resp
 
@@ -142,7 +142,7 @@ let cfgToJSON cfgType (ess: BinEssence) g root =
   | IRCFG ->
     Visualizer.getJSONFromGraph g [root]
   | DisasmCFG ->
-    let g, root = DisasmLens.filter ess.CodeManager g root
+    let g, root = DisasmLens.convert ess.CodeManager g root
     Visualizer.getJSONFromGraph g [root]
   | SSACFG ->
     let struct (g, root) = SSACFG.ofIRCFG ess.BinHandle g root
@@ -155,7 +155,8 @@ let handleRegularCFG req resp (name: string) (ess: BinEssence) cfgType =
   | None -> answer req resp None
   | Some func ->
     try
-      let cfg, root = BinEssence.getFunctionCFG ess func.Entry |> Result.get
+      let cfg, root =
+        BinEssence.getFunctionCFG ess func.EntryPoint |> Result.get
       let s = cfgToJSON cfgType ess cfg root
       Some (defaultEnc.GetBytes s) |> answer req resp
     with e ->
@@ -185,7 +186,7 @@ let handleFunctions req resp arbiter =
   let ess = Protocol.getBinEssence arbiter
   let names =
     ess.CodeManager.FunctionMaintainer.RegularFunctions
-    |> Seq.sortBy (fun c -> c.Entry)
+    |> Seq.sortBy (fun c -> c.EntryPoint)
     |> Seq.map (fun c -> { FuncID = c.FunctionID; FuncName = c.FunctionName })
     |> Seq.toArray
   Some (json<(JsonFuncInfo) []> names |> defaultEnc.GetBytes)
@@ -193,11 +194,11 @@ let handleFunctions req resp arbiter =
 
 let handleHexview req resp arbiter =
   let ess = Protocol.getBinEssence arbiter
-  ess.BinHandle.FileInfo.GetSegments ()
+  ess.BinHandle.File.GetSegments ()
   |> Seq.map (fun seg ->
-    let bs = BinHandle.ReadBytes (ess.BinHandle, seg.Address, int (seg.Size))
-    let coloredHex = bs |> Array.map ColoredSegment.byteToHex
-    let coloredAscii = bs |> Array.map ColoredSegment.byteToAscii
+    let bs = ess.BinHandle.ReadBytes (seg.Address, int (seg.Size))
+    let coloredHex = bs |> Array.map ColoredSegment.hexOfByte
+    let coloredAscii = bs |> Array.map ColoredSegment.asciiOfByte
     let cha = (* DataColoredHexAscii *)
       Array.map2 (fun (c, h) (_, a) ->
         { Color = Color.toString c
@@ -229,10 +230,10 @@ let computeConnectedVars chain v =
       | None -> s
       | Some us -> Set.union us s) ds
 
-let getVarNames handler = function
+let getVarNames (hdl: BinHandle) = function
   | Regular v ->
-    handler.RegisterBay.GetRegisterAliases v
-    |> Array.map (handler.RegisterBay.RegIDToString)
+    hdl.RegisterFactory.GetRegisterAliases v
+    |> Array.map (hdl.RegisterFactory.RegIDToString)
   | _ -> [||]
 
 let handleDataflow req resp arbiter (args: string) =
@@ -243,7 +244,7 @@ let handleDataflow req resp arbiter (args: string) =
   let tag = args[2] (* either variable or value. *)
   match tag with
   | "variable" ->
-    let var = args[3] |> ess.BinHandle.RegisterBay.RegIDFromString
+    let var = args[3] |> ess.BinHandle.RegisterFactory.RegIDFromString
     try
       let cfg, root = BinEssence.getFunctionCFG ess entry |> Result.get
       let chain = DataFlowChain.init cfg root true
@@ -290,9 +291,9 @@ let handle (req: HttpListenerRequest) (resp: HttpListenerResponse) arbiter m =
 let startServer arbiter ip port verbose =
   let host = "http://" + ip + ":" + port.ToString () + "/"
   let cmdMap = CmdSpec.speclist |> CmdMap.build
-  let handler (req: HttpListenerRequest) (resp: HttpListenerResponse) =
+  let hdl (req: HttpListenerRequest) (resp: HttpListenerResponse) =
     try handle req resp arbiter cmdMap
     with e -> if verbose then eprintfn "%A" e else ()
-  listener host handler
+  listener host hdl
 
 // vim: set tw=80 sts=2 sw=2:

@@ -28,19 +28,83 @@ open B2R2
 open B2R2.BinIR.LowUIR
 open B2R2.FrontEnd.BinLifter.LiftingOperators
 
-let inline numU32 n t = BitVector.ofUInt32 n t |> AST.num
+let inline numU32 n t = BitVector.OfUInt32 n t |> AST.num
 
-let inline numI32 n t = BitVector.ofInt32 n t |> AST.num
+let inline numI32 n t = BitVector.OfInt32 n t |> AST.num
 
-let inline numU64 n t = BitVector.ofUInt64 n t |> AST.num
+let inline numU64 n t = BitVector.OfUInt64 n t |> AST.num
 
-let inline numI64 n t = BitVector.ofInt64 n t |> AST.num
+let inline numI64 n t = BitVector.OfInt64 n t |> AST.num
 
 let inline tmpVars2 ir t =
-  struct (!*ir t, !*ir t)
+  struct (!+ir t, !+ir t)
 
 let inline tmpVars3 ir t =
-  struct (!*ir t, !*ir t, !*ir t)
+  struct (!+ir t, !+ir t, !+ir t)
 
 let inline tmpVars4 ir t =
-  struct (!*ir t, !*ir t, !*ir t, !*ir t)
+  struct (!+ir t, !+ir t, !+ir t, !+ir t)
+
+module IEEE754Single =
+  open B2R2.BinIR.LowUIR.AST.InfixOp
+
+  let inline private hasFraction x =
+    (x .& numU32 0x7fffffu 32<rt>) != AST.num0 32<rt>
+
+  let isNaN x =
+    let exponent = (x >> numI32 23 32<rt>) .& numI32 0xff 32<rt>
+    let e = numI32 0xff 32<rt>
+    AST.xtlo 1<rt> ((exponent == e) .& hasFraction x)
+
+  let isSNaN x =
+    let nanChecker = isNaN x
+    let signalBit = numU32 (1u <<< 22) 32<rt>
+    nanChecker .& ((x .& signalBit) == AST.num0 32<rt>)
+
+  let isQNaN x =
+    let nanChecker = isNaN x
+    let signalBit = numU32 (1u <<< 22) 32<rt>
+    nanChecker .& ((x .& signalBit) != AST.num0 32<rt>)
+
+  let isInfinity x =
+    let exponent = (x >> numI32 23 32<rt>) .& numI32 0xff 32<rt>
+    let fraction = x .& numU32 0x7fffffu 32<rt>
+    let e = numI32 0xff 32<rt>
+    let zero = AST.num0 32<rt>
+    AST.xtlo 1<rt> ((exponent == e) .& (fraction == zero))
+
+  let isZero x =
+    let mask = numU32 0x7fffffffu 32<rt>
+    AST.eq (x .& mask) (AST.num0 32<rt>)
+
+module IEEE754Double =
+  open B2R2.BinIR.LowUIR.AST.InfixOp
+
+  let inline private hasFraction x =
+    (x .& numU64 0xfffff_ffffffffUL 64<rt>) != AST.num0 64<rt>
+
+  let isNaN x =
+    let exponent = (x >> numI32 52 64<rt>) .& numI32 0x7ff 64<rt>
+    let e = numI32 0x7ff 64<rt>
+    AST.xtlo 1<rt> ((exponent == e) .& hasFraction x)
+
+  let isSNaN x =
+    let nanChecker = isNaN x
+    let signalBit = numU64 (1UL <<< 51) 64<rt>
+    nanChecker .& ((x .& signalBit) == AST.num0 64<rt>)
+
+  let isQNaN x =
+    let nanChecker = isNaN x
+    let signalBit = numU64 (1UL <<< 51) 64<rt>
+    nanChecker .& ((x .& signalBit) != AST.num0 64<rt>)
+
+  let isInfinity x =
+    let exponent = (x >> numI32 52 64<rt>) .& numI32 0x7ff 64<rt>
+    let fraction = x .& numU64 0xfffff_ffffffffUL 64<rt>
+    let e = numI32 0x7ff 64<rt>
+    let zero = AST.num0 64<rt>
+    AST.xtlo 1<rt> ((exponent == e) .& (fraction == zero))
+
+  let isZero x =
+    let mask = numU64 0x7fffffff_ffffffffUL 64<rt>
+    AST.eq (x .& mask) (AST.num0 64<rt>)

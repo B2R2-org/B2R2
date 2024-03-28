@@ -33,9 +33,9 @@ type BinIRTest () =
 
   [<TestMethod>]
   member __.``Inline Optimization Test``() =
-    let n1 = AST.num <| BitVector.ofInt32 1 32<rt>
-    let n2 = AST.num <| BitVector.ofInt32 2 32<rt>
-    let n3 = AST.num <| BitVector.ofInt32 3 32<rt>
+    let n1 = AST.num <| BitVector.OfInt32 1 32<rt>
+    let n2 = AST.num <| BitVector.OfInt32 2 32<rt>
+    let n3 = AST.num <| BitVector.OfInt32 3 32<rt>
     let e1 = AST.add (AST.mul n1 n2) n3
     let e2 = AST.sub (AST.mul n2 n3) n1
     Assert.AreEqual (e1, e2)

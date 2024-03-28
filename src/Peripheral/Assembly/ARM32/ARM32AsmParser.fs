@@ -31,7 +31,7 @@ open FParsec
 open System
 
 type UserState = Map<string, Addr>
-type Parser<'a> = Parser<'a, unit>
+type Parser<'A> = Parser<'A, unit>
 
 type AsmParser (startAddress: Addr) =
 
@@ -106,10 +106,9 @@ type AsmParser (startAddress: Addr) =
 
   let pPSRFlag =
     [ "c"; "x"; "xc"; "s"; "sc"; "sx"; "sxc"; "f"; "fc"; "fx"; "fxc";
-    "fs"; "fsc"; "fsx"; "fsxc"; "nzcv"; "nzcvq"; "g"; "nzcvqg" ]
+      "fs"; "fsc"; "fsx"; "fsxc"; "nzcv"; "nzcvq"; "g"; "nzcvqg" ]
     |> Seq.rev
-    |> Seq.map pstringCI
-    |> Seq.map attempt
+    |> Seq.map (pstringCI >> attempt)
     |> choice
     |>> getPSRFlagFromStr
     |>> Some
@@ -117,22 +116,19 @@ type AsmParser (startAddress: Addr) =
   let pOptionOpr =
     [ "sy"; "ld"; "ishst"; "ishld"; "ish"; "nshst"; "nshld"; "nsh"; "oshst";
     "oshld"; "osh" ]
-    |> Seq.map pstringCI
-    |> Seq.map attempt
+    |> Seq.map (pstringCI >> attempt)
     |> choice
     |>> optionOprFromStr
 
   let pSRType =
     [ "lsl"; "lsr"; "asr"; "ror"; "rrx" ]
-    |> Seq.map pstringCI
-    |> Seq.map attempt
+    |> Seq.map (pstringCI >> attempt)
     |> choice
     |>> getSRType
 
   let pIflag =
     [ "ai"; "af"; "if"; "aif"; "a"; "i"  ]
-    |> Seq.map pstringCI
-    |> Seq.map attempt
+    |> Seq.map (pstringCI >> attempt)
     |> choice
     |>> iFlagFromStr
 
@@ -157,21 +153,18 @@ type AsmParser (startAddress: Addr) =
     (Enum.GetNames typeof<Opcode>)
     |> Array.map (pstringCI)
     |> Array.rev (* This is so that (eg. ADD does not get parsed for 'ADDS' *)
-    |> Array.map (fun p -> attempt (p))
-    |> Array.map
-      (fun p ->
-        p |>>
-          (fun name -> Enum.Parse(typeof<Opcode>, name.ToUpper()) :?> Opcode))
+    |> Array.map (fun p ->
+        attempt p
+        |>> (fun name -> Enum.Parse(typeof<Opcode>, name.ToUpper()) :?> Opcode))
     |> choice
 
   let pCondition =
     ((Enum.GetNames typeof<Condition>)
-    |> Array.map pstringCI
     |> Array.map
-      (fun p ->
-        p |>>
-          (fun name ->
-            Enum.Parse(typeof<Condition>, name.ToUpper()) :?> Condition))
+      (fun s ->
+        pstringCI s
+        |>> (fun name ->
+          Enum.Parse(typeof<Condition>, name.ToUpper()) :?> Condition))
     |> choice)
 
   let numberFormat =
@@ -332,7 +325,7 @@ type AsmParser (startAddress: Addr) =
       pOpcode .>>. pCondition .>>. opt (attempt pSIMDDataTypes)
       .>>. opt pQualifier >>= pOperands
       |>> (fun ((((opcode, cond), simd), qual), operands) ->
-              let qual = match qual with | Some W -> W | _ -> N /// XXX
+              let qual = match qual with | Some W -> W | _ -> N
               newInsInfo
                  address opcode cond 0uy wBackFlag qual simd
                  operands (getInsLength ()) opMode None )

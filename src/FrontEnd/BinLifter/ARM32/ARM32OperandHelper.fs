@@ -64,6 +64,7 @@ let inline checkUnpred cond = if cond then raise UnpredictableException else ()
 let inline checkUndef cond = if cond then raise UndefinedException else ()
 
 let oneDt dt = Some (OneDT dt)
+
 let twoDt (dt1, dt2) = Some (TwoDT (dt1, dt2))
 
 let getSign s = if s = 1u then Plus else Minus
@@ -74,13 +75,14 @@ let getEndian = function
 
 let getRegister n: Register = n |> int |> LanguagePrimitives.EnumOfValue
 
-let getRegList b =
-  let rec loop acc = function
-    | n when n > 15 -> acc
-    | n when ((b >>> n) &&& 1u) <> 0u ->
-      loop (getRegister (uint32 n) :: acc) (n + 1)
-    | n -> loop acc (n + 1)
-  loop [] 0 |> List.rev
+let rec private getRegListLoop acc b = function
+  | n when n > 15 -> acc
+  | n when ((b >>> n) &&& 1u) <> 0u ->
+    getRegListLoop (getRegister (uint32 n) :: acc) b (n + 1)
+  | n -> getRegListLoop acc b (n + 1)
+
+let inline getRegList b =
+  getRegListLoop [] b 0 |> List.rev
 
 (* SIMD vector register list *)
 let getSIMDVector rLst =

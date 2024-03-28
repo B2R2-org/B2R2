@@ -40,7 +40,7 @@ module SimpleArithParser =
     else
       (System.Numerics.BigInteger.Parse str, -1)
 
-  type Parser<'a> = Parser<'a,unit>
+  type Parser<'A> = Parser<'A, unit>
 
   let dummyValue = { IntValue = 0I; Type = CError Default ; FloatValue = 0.0 }
 
@@ -134,8 +134,7 @@ module SimpleArithParser =
 
   let strWs s = pstring s >>. spaces
 
-  let opp =
-    new OperatorPrecedenceParser<Number, Position, unit>()
+  let opp = OperatorPrecedenceParser<Number, Position, unit>()
 
   let expr = opp.ExpressionParser
 
@@ -171,12 +170,14 @@ module SimpleArithParser =
     opp.AddOperator(constructCastingOp "(float32)" (Float Bit32))
     opp.AddOperator(constructCastingOp "(float)" (Float Bit64))
 
-module SimpleArithASCIIPArser =
+module SimpleArithASCIIParser =
   let parseSingleByte =
     hex .>>. hex |>> (fun (a, b) -> "0x" + string a + string b)
 
+  let singleHexToString ch = "0x0" + string ch
+
   let parseSingleHexDigit: Parser<string, unit> =
-    hex |>> (fun a -> "0x0" + string a)
+    hex |>> singleHexToString
 
   let parseOddNumberOfHexDigits =
     pstringCI "0x" >>. parseSingleHexDigit .>>. many parseSingleByte
@@ -216,8 +217,10 @@ module SimpleArithASCIIPArser =
 
   let parseOctal = anyOf "01234567"
 
+  let singleOctalToString ch = "0o00" + string ch
+
   let parseSingleOctalDigit =
-    parseOctal |>> (fun a -> "0o00" + string a)
+    parseOctal |>> singleOctalToString
 
   let parseDoubleOctalDigit =
     parseOctal .>>. parseOctal

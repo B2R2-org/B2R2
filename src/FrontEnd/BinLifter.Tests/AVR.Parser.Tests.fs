@@ -1,4 +1,4 @@
-﻿(*
+(*
   B2R2 - the Next-Generation Reversing Platform
 
   Copyright (c) SoftSec Lab. @ KAIST, since 2016
@@ -22,58 +22,88 @@
   SOFTWARE.
 *)
 
-module B2R2.FrontEnd.Tests.AVRParser
+module B2R2.FrontEnd.Tests.AVR
 
 open Microsoft.VisualStudio.TestTools.UnitTesting
 open B2R2
 open B2R2.FrontEnd.BinLifter.AVR
+open type Opcode
+open type Register
 
-let private test opcode oprs bytes =
-  let reader = BinReader.binReaderLE
+/// Shortcut for creating operands.
+type O =
+  static member Reg (r) =
+    OprReg r
+
+  static member Imm (v) =
+    OprImm v
+
+  static member Addr (v) =
+    OprAddr v
+
+  static member MemDisp (r, v) =
+    OprMemory (DispMode (r, v))
+
+  static member MemPostIdx (r) =
+    OprMemory (PostIdxMode r)
+
+let private test (bytes: byte[]) (opcode, oprs) =
+  let reader = BinReader.Init Endian.Little
   let span = System.ReadOnlySpan bytes
-  let ins = Parser.parse span reader 0UL
+  let ins = ParsingMain.parse span reader 0UL
   Assert.AreEqual (ins.Info.Opcode, opcode)
   Assert.AreEqual (ins.Info.Operands, oprs)
+
+let private operandsFromArray oprList =
+  let oprs = Array.ofList oprList
+  match oprs.Length with
+  | 0 -> NoOperand
+  | 1 -> OneOperand oprs[0]
+  | 2 -> TwoOperands (oprs[0], oprs[1])
+  | _ -> Utils.impossible ()
+
+let private ( ** ) opcode oprList = (opcode, operandsFromArray oprList)
+
+let private ( ++ ) byteString pair = (ByteArray.ofHexString byteString, pair)
 
 [<TestClass>]
 type AVRUnitTest () =
   [<TestMethod>]
-  member __.``[AVR] No Operand Insturctions Parse Test`` () =
-    test Opcode.RET
-        (NoOperand)
-        [| 0x08uy; 0x95uy |]
+  member __.``[AVR] No Operand Insturctions Parse Test (1)`` () =
+    "0895"
+    ++ RET ** [ ] ||> test
 
   [<TestMethod>]
-  member __.``[AVR] One Operand Insturctions Parse Test`` () =
-    test Opcode.BREQ
-        (OneOperand (OprAddr 96))
-        [| 0x81uy; 0xf1uy |]
-    test Opcode.BRGE
-        (OneOperand (OprAddr 44))
-        [| 0xB4uy; 0xf4uy |]
+  member __.``[AVR] One Operand Insturctions Parse Test (1)`` () =
+    "81f1"
+    ++ BREQ ** [ O.Addr 96 ] ||> test
 
   [<TestMethod>]
-  member __.``[AVR] Two Register Operands Insturctions Parse Test`` () =
-    test Opcode.ADD
-        (TwoOperands (OprReg R.R12, OprReg R.R25))
-        [| 0xC9uy; 0x0Euy |]
-    test Opcode.MOV
-        (TwoOperands (OprReg R.R14, OprReg R.R1))
-        [| 0xE1uy; 0x2Cuy |]
+  member __.``[AVR] One Operand Insturctions Parse Test (2)`` () =
+    "b4f4"
+    ++ BRGE ** [ O.Addr 44 ] ||> test
 
   [<TestMethod>]
-  member __.``[AVR] Memory Operands Insturctions Parse Test`` () =
-    test Opcode.ST
-        (TwoOperands (OprMemory (PostIdxMode (R.X)), OprReg R.R1))
-        [| 0x1Duy; 0x92uy |]
-    test Opcode.LDD
-        (TwoOperands (OprReg R.R6, OprMemory (DispMode ((R.Y, 1)))))
-        [| 0x69uy; 0x80uy |]
+  member __.``[AVR] Two Register Operands Insturctions Parse Test (1)`` () =
+    "c90e"
+    ++ ADD ** [ O.Reg R12; O.Reg R25 ] ||> test
 
   [<TestMethod>]
-  member __.``[AVR] Immediate Operand Insturction Parse Test`` () =
-    test Opcode.LDI
-        (TwoOperands (OprReg R.R24, OprImm 0xff))
-        [| 0x8Fuy; 0xEFuy |]
+  member __.``[AVR] Two Register Operands Insturctions Parse Test (2)`` () =
+    "e12c"
+    ++ MOV ** [ O.Reg R14; O.Reg R1 ] ||> test
 
+  [<TestMethod>]
+  member __.``[AVR] Memory Operands Insturctions Parse Test (1)`` () =
+    "1d92"
+    ++ ST ** [ O.MemPostIdx X; OprReg R.R1 ] ||> test
 
+  [<TestMethod>]
+  member __.``[AVR] Memory Operands Insturctions Parse Test (2)`` () =
+    "6980"
+    ++ LDD ** [ O.Reg R6; O.MemDisp (Y, 1) ] ||> test
+
+  [<TestMethod>]
+  member __.``[AVR] Immediate Operand Insturction Parse Test (1)`` () =
+    "8fef"
+    ++ LDI ** [ O.Reg R24; O.Imm 0xff ] ||> test

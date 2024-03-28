@@ -1,0 +1,21 @@
+namespace B2R2.RearEnd.Transformer
+
+/// Sample Action for Transformer.
+type MyAction () =
+  let rec toType (o: obj) =
+    let typ = o.GetType ()
+    if typ = typeof<ObjCollection> then
+      (o :?> ObjCollection).Values
+      |> Array.map toType
+      |> String.concat ", "
+    else typ.ToString ()
+
+  interface IAction with
+    member __.ActionID with get() = "myaction"
+    member __.Signature with get() = "'a -> unit"
+    member __.Description with get() = """
+    Take in an input object and prints out its type.
+"""
+    member __.Transform _args o =
+      let res = box o |> toType
+      { Values = [| res |] }

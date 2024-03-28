@@ -24,8 +24,6 @@
 
 namespace B2R2.FrontEnd.BinLifter
 
-open System.Collections
-
 /// A kind of a term within an assembly statement.
 type AsmWordKind =
   /// An address of the given instruction.
@@ -56,27 +54,3 @@ with
     | AsmWordKind.Value -> s, "value"
     | AsmWordKind.String -> s, "string"
     | _ -> failwith "Impossible"
-
-/// Builder for an array of AsmWords.
-type AsmWordBuilder =
-  inherit Generic.List<AsmWord>
-
-  /// <summary>
-  ///   Initialize an IR statement builder of internal buffer size n.
-  /// </summary>
-  /// <param name="n">The size of the internal buffer.</param>
-  new (n: int) = { inherit Generic.List<AsmWord>(n) }
-
-  /// <summary>
-  ///   Append a new AsmWord to the builder.
-  /// </summary>
-  /// <param name="stmt">AsmWord to add.</param>
-  member __.Append stmt = __.Add (stmt); __
-
-  /// <summary>
-  ///   Create an array of AsmWords from the buffer.
-  /// </summary>
-  /// <returns>
-  ///   Returns an array of AsmWords.
-  /// </returns>
-  member __.Finish () = __.ToArray ()

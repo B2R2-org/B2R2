@@ -27,26 +27,26 @@ namespace B2R2
 open B2R2.FingerTree
 
 /// An element for our random access queue.
-type RandomAccessQueueElem<'a> (v) =
-  member val Val: 'a = v
+type RandomAccessQueueElem<'T> (v) =
+  member val Val: 'T = v
   override __.ToString () = __.Val.ToString ()
   interface IMeasured<Size> with
     member __.Measurement = Size (1u)
 
 /// Interval tree-based map: an interval of type (Addr) -> an
 /// RandomAccessQueueElement ('a).
-type RandomAccessQueue<'a> =
+type RandomAccessQueue<'T> =
   private
-    RandomAccessQueue of FingerTree<Size, RandomAccessQueueElem<'a>>
+    RandomAccessQueue of FingerTree<Size, RandomAccessQueueElem<'T>>
 
 /// A helper module for RandomAccessQueue<'a>.
 [<RequireQualifiedAccess>]
 module RandomAccessQueue =
 
   /// Empty interval tree.
-  let empty: RandomAccessQueue<'a> = RandomAccessQueue Empty
+  let empty: RandomAccessQueue<_> = RandomAccessQueue Empty
 
-  let isEmpty (q: RandomAccessQueue<'a>) = q = RandomAccessQueue Empty
+  let isEmpty (q: RandomAccessQueue<_>) = q = RandomAccessQueue Empty
 
   let length (RandomAccessQueue q) =
     ((q :> IMeasured<_>).Measurement).Value |> int
@@ -88,14 +88,14 @@ module RandomAccessQueue =
     let rec loop cnt q =
       match Op.ViewL q with
       | Nil -> None
-      | Cons (hd: RandomAccessQueueElem<'a>, tl) ->
+      | Cons (hd: RandomAccessQueueElem<_>, tl) ->
         if pred hd.Val then Some cnt else loop (cnt + 1) tl
     loop 0 q
 
   let rec findBack pred (RandomAccessQueue q) =
     match Op.ViewR q with
     | Nil -> None
-    | Cons (hd: RandomAccessQueueElem<'a>, tl) ->
+    | Cons (hd: RandomAccessQueueElem<_>, tl) ->
       let tl = RandomAccessQueue tl
       if pred hd.Val then length tl |> Some else findBack pred tl
 
@@ -103,6 +103,6 @@ module RandomAccessQueue =
     Op.Concat q1 q2 |> RandomAccessQueue
 
   let toList (RandomAccessQueue q) =
-    foldr (fun (elt: RandomAccessQueueElem<'a>) acc -> elt.Val :: acc) q []
+    foldr (fun (elt: RandomAccessQueueElem<_>) acc -> elt.Val :: acc) q []
 
 // vim: set tw=80 sts=2 sw=2:

@@ -1053,7 +1053,7 @@ type internal OneOp80 () =
   inherit ParsingJob ()
   override __.Run (span, rhlp) =
     let struct (op, oidx, szidx, szCond) =
-      parseGrpOpKind span rhlp OD.RmImm8 SZ.Byte OpGroup.G1
+      parseGrpOpKind span rhlp OD.RmSImm8 SZ.Byte OpGroup.G1
     render span rhlp op szCond oidx szidx
 
 type internal OneOp81 () =
@@ -1067,14 +1067,14 @@ type internal OneOp82 () =
   inherit ParsingJob ()
   override __.Run (span, rhlp) =
     let struct (op, oidx, szidx, szCond) =
-      parseGrpOpKind span rhlp OD.RmImm8 SZ.Byte OpGroup.G1Inv64
+      parseGrpOpKind span rhlp OD.RmSImm8 SZ.Byte OpGroup.G1Inv64
     render span rhlp op szCond oidx szidx
 
 type internal OneOp83 () =
   inherit ParsingJob ()
   override __.Run (span, rhlp) =
     let struct (op, oidx, szidx, szCond) =
-      parseGrpOpKind span rhlp OD.RmImm8 SZ.Def OpGroup.G1
+      parseGrpOpKind span rhlp OD.RmSImm8 SZ.Def OpGroup.G1
     render span rhlp op szCond oidx szidx
 
 type internal OneOp84 () =
@@ -1323,7 +1323,8 @@ type internal OneOpA4 () =
     rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Nor
     rhlp.OperationSize <- 8<rt>
     let oprs = rhlp.OprParsers[int OD.No].Render (span, rhlp)
-    newInsInfo rhlp Opcode.MOVSB oprs
+    if hasREPNZ rhlp.Prefixes then raise ParsingFailureException
+    else newInsInfo rhlp Opcode.MOVSB oprs
 
 type internal OneOpA5 () =
   inherit ParsingJob ()
@@ -1531,14 +1532,14 @@ type internal OneOpC0 () =
   inherit ParsingJob ()
   override __.Run (span, rhlp) =
     let struct (op, oidx, szidx, szCond) =
-      parseGrpOpKind span rhlp OD.RmImm8 SZ.Byte OpGroup.G2
+      parseGrpOpKind span rhlp OD.RmSImm8 SZ.Byte OpGroup.G2
     render span rhlp op szCond oidx szidx
 
 type internal OneOpC1 () =
   inherit ParsingJob ()
   override __.Run (span, rhlp) =
     let struct (op, oidx, szidx, szCond) =
-      parseGrpOpKind span rhlp OD.RmImm8 SZ.Def OpGroup.G2
+      parseGrpOpKind span rhlp OD.RmSImm8 SZ.Def OpGroup.G2
     render span rhlp op szCond oidx szidx
 
 type internal OneOpC2 () =
@@ -1594,7 +1595,7 @@ type internal OneOpC6 () =
   inherit ParsingJob ()
   override __.Run (span, rhlp) =
     let struct (op, oidx, szidx, szCond) =
-      parseGrpOpKind span rhlp OD.RmImm8 SZ.Byte OpGroup.G11A
+      parseGrpOpKind span rhlp OD.RmSImm8 SZ.Byte OpGroup.G11A
     render span rhlp op szCond oidx szidx
 
 type internal OneOpC7 () =
@@ -1895,6 +1896,7 @@ type internal OneOpE4 () =
 type internal OneOpE5 () =
   inherit ParsingJob ()
   override __.Run (span, rhlp) =
+    rhlp.REXPrefix <- REXPrefix.NOREX
     rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Nor
     let oprs = rhlp.OprParsers[int OD.RegImm8].Render (span, rhlp)
     newInsInfo rhlp Opcode.IN oprs
@@ -1909,6 +1911,7 @@ type internal OneOpE6 () =
 type internal OneOpE7 () =
   inherit ParsingJob ()
   override __.Run (span, rhlp) =
+    rhlp.REXPrefix <- REXPrefix.NOREX
     rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Nor
     let oprs = rhlp.OprParsers[int OD.Imm8Reg].Render (span, rhlp)
     newInsInfo rhlp Opcode.OUT oprs
@@ -1982,7 +1985,10 @@ type internal OneOpF0 () =
 
 type internal OneOpF1 () =
   inherit ParsingJob ()
-  override __.Run (_, _) = raise ParsingFailureException
+  override __.Run (span, rhlp) =
+    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Nor
+    let oprs = rhlp.OprParsers[int OD.No].Render (span, rhlp)
+    newInsInfo rhlp Opcode.INT1 oprs
 
 type internal OneOpF2 () =
   inherit ParsingJob ()

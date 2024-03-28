@@ -41,9 +41,15 @@ type CmdDemangle () =
 
   override __.SubCommands = []
 
+  member private __.MapResult = function
+    | Ok s -> [| OutputNormal s |]
+    | Error _ -> [| OutputNormal "[*] Invalid input." |]
+
   override __.CallBack _ _ args =
     let mangled = String.concat " " args
-    match Demangler.demangle mangled with
-    | Ok s -> [| s |]
-    | Error _ -> [| "[*] Invalid input." |]
-    |> Array.map OutputNormal
+    match Demangler.detect mangled with
+    | MSMangler ->
+      (MSDemangler () :> IDemanglable).Demangle mangled |> __.MapResult
+    | ItaniumMangler ->
+      (ItaniumDemangler () :> IDemanglable).Demangle mangled |> __.MapResult
+    | UnknownMangler -> [| OutputNormal "[*] Unknown mangling scheme." |]

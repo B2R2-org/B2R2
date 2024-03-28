@@ -30,7 +30,7 @@ open B2R2.Peripheral.Assembly.Intel
 
 [<TestClass>]
 type X86Tests () =
-  let isa = ISA.Init Arch.IntelX86 Endian.Little
+  let isa = ISA.Init Architecture.IntelX86 Endian.Little
   let asm = IntelAsmParser (isa, 0UL)
 
   [<TestMethod>]
@@ -55,5 +55,5 @@ done:
         [| 0x8buy; 0x05uy; 0x0fuy; 0x00uy; 0x00uy; 0x00uy |]
         [| 0x43uy |]
         [| 0xc3uy |] ]
-    List.forall2 (fun a b -> a = b) result expectation
+    List.forall2 (=) result expectation
     |> Assert.IsTrue

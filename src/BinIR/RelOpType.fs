@@ -46,14 +46,18 @@ type RelOpType =
   | SLT = 8
   /// Signed less than or equal
   | SLE = 9
+  /// Floating point equal
+  | FEQ = 10
+  /// Floating point not equal
+  | FNEQ = 11
   /// Floating point greater than
-  | FGT = 10
+  | FGT = 12
   /// Floating point greater than or equal
-  | FGE = 11
+  | FGE = 13
   /// Floating point less than
-  | FLT = 12
+  | FLT = 14
   /// Floating point less than or equal
-  | FLE = 13
+  | FLE = 15
 
 module RelOpType =
   let toString = function
@@ -67,6 +71,8 @@ module RelOpType =
     | RelOpType.LE -> "<="
     | RelOpType.SLT -> "?<"
     | RelOpType.SLE -> "?<="
+    | RelOpType.FEQ -> "=."
+    | RelOpType.FNEQ -> "!=."
     | RelOpType.FGT -> ">."
     | RelOpType.FGE -> ">=."
     | RelOpType.FLT -> "<."
@@ -84,6 +90,8 @@ module RelOpType =
     | "<=" -> RelOpType.LE
     | "?<" -> RelOpType.SLT
     | "?<=" -> RelOpType.SLE
+    | "=." -> RelOpType.FEQ
+    | "!=." -> RelOpType.FNEQ
     | ">." -> RelOpType.FGT
     | ">=." -> RelOpType.FGE
     | "<." -> RelOpType.FLT

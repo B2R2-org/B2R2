@@ -32,16 +32,16 @@ open B2R2.BinIR
 let rec typeOf e =
   match e.E with
   | Num n -> n.Length
-  | Var (t, _, _, _)
+  | Var (t, _, _)
   | PCVar (t, _)
   | TempVar (t, _) -> t
-  | UnOp (_, e, _) -> typeOf e
-  | BinOp (_, t, _, _, _) -> t
+  | UnOp (_, e) -> typeOf e
+  | BinOp (_, t, _, _) -> t
   | RelOp (_) -> 1<rt>
-  | Load (_, t, _, _) -> t
-  | Ite (_, e1, _, _) -> typeOf e1
-  | Cast (_, t, _, _) -> t
-  | Extract (_, t, _, _) -> t
+  | Load (_, t, _) -> t
+  | Ite (_, e1, _) -> typeOf e1
+  | Cast (_, t, _) -> t
+  | Extract (_, t, _) -> t
   | Undefined (t, _) -> t
   | FuncName (_) | Name (_) | Nil -> raise InvalidExprException
 
@@ -82,7 +82,8 @@ let internal canCast kind newType e =
     if oldType < newType then true
     else if oldType = newType then false
     else castErr newType oldType
-  | CastKind.IntToFloat ->
+  | CastKind.SIntToFloat
+  | CastKind.UIntToFloat ->
     if isValidFloatType newType then true else raise InvalidFloatTypeException
   | CastKind.FloatCast ->
     if isValidFloatType oldType && isValidFloatType newType then true
@@ -95,17 +96,17 @@ let internal extract (t: RegType) pos (t2: RegType) =
 
 let rec expr e =
   match e.E with
-  | UnOp (_, e, _) -> expr e
-  | BinOp (BinOpType.CONCAT, t, e1, e2, _) ->
+  | UnOp (_, e) -> expr e
+  | BinOp (BinOpType.CONCAT, t, e1, e2) ->
     expr e1 && expr e2 && concat e1 e2 = t
-  | BinOp (_, t, e1, e2, _) -> expr e1 && expr e2 && binop e1 e2 = t
-  | RelOp (_, e1, e2, _) -> expr e1 && expr e2 && typeOf e1 = typeOf e2
-  | Load (_, _, addr, _) -> expr addr
-  | Ite (cond, e1, e2, _) ->
+  | BinOp (_, t, e1, e2) -> expr e1 && expr e2 && binop e1 e2 = t
+  | RelOp (_, e1, e2) -> expr e1 && expr e2 && typeOf e1 = typeOf e2
+  | Load (_, _, addr) -> expr addr
+  | Ite (cond, e1, e2) ->
     typeOf cond = 1<rt> && expr e1 && expr e2 && typeOf e1 = typeOf e2
-  | Cast (CastKind.SignExt, t, e, _)
-  | Cast (CastKind.ZeroExt, t, e, _) -> expr e && t >= typeOf e
-  | Extract (e, t, p, _) ->
+  | Cast (CastKind.SignExt, t, e)
+  | Cast (CastKind.ZeroExt, t, e) -> expr e && t >= typeOf e
+  | Extract (e, t, p) ->
     expr e && ((t + LanguagePrimitives.Int32WithMeasure p) <= typeOf e)
   | _ -> true
 

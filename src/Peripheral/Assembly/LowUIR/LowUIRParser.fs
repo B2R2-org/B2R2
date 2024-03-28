@@ -35,10 +35,9 @@ open B2R2.BinIR.LowUIR
 open B2R2.Peripheral.Assembly.Utils
 open B2R2.Peripheral.Assembly.LowUIR.Helper
 
-type Parser<'t> = Parser<'t, RegType>
+type Parser<'T> = Parser<'T, RegType>
 
-type LowUIRParser (isa, regbay: RegisterBay) =
-
+type LowUIRParser (isa, regFactory: RegisterFactory) =
   let isAllowedFirstCharForID c = isAsciiLetter c
 
   let isAllowedCharForID c = isAsciiLetter c || isDigit c
@@ -62,7 +61,7 @@ type LowUIRParser (isa, regbay: RegisterBay) =
       if s.StartsWith ("0x") then
         BigInteger.Parse ("0" + s.Substring (2), NumberStyles.AllowHexSpecifier)
       else BigInteger.Parse (s)
-      |> BitVector.ofBInt
+      |> BitVector.OfBInt
 
   let pRegType =
     (anyOf "IiFf") >>. pint32 |>> RegType.fromBitWidth
@@ -72,28 +71,33 @@ type LowUIRParser (isa, regbay: RegisterBay) =
     .>>. opt (pchar ':' >>. ws >>. pRegType)
     >>= (fun (toBV, typ) ->
       match typ with
-      | None -> getUserState |>> (fun t -> toBV t)
+      | None -> getUserState |>> toBV
       | Some typ -> preturn (toBV typ))
 
   let pUnaryOperator =
     [ "-"; "~"; "sqrt"; "cos"; "sin"; "tan"; "atan" ]
-    |> List.map pstring |> List.map attempt |> choice |>> UnOpType.ofString
+    |> List.map (pstring >> attempt)
+    |> choice
+    |>> UnOpType.ofString
 
   let pCastType =
-    [ "sext"; "zext"; "float"; "round"; "ceil"; "floor"; "trunc"; "fext" ]
-    |> List.map pstring |> List.map attempt |> choice |>> CastKind.ofString
+    [ "sext"; "zext"; "float"; "round"; "ceil"; "floor"; "trunc"; "fext"
+      "roundf"; "ceilf"; "floorf"; "truncf" ]
+    |> List.map (pstring >> attempt)
+    |> choice
+    |>> CastKind.ofString
 
   let pExpr, pExprRef = createParserForwardedToRef ()
 
   let pNum = pBitVector |>> AST.num
 
-  let regnames = regbay.GetAllRegNames ()
+  let regnames = regFactory.GetAllRegNames ()
 
   let pVar =
-    List.map pstringCI regnames
-    |> List.map attempt
+    regnames
+    |> List.map (pstringCI >> attempt)
     |> choice
-    |>> regbay.StrToRegExpr
+    |>> regFactory.StrToRegExpr
 
   let pTempVar =
     pstring "T_" >>. pint32 .>> ws
@@ -186,7 +190,7 @@ type LowUIRParser (isa, regbay: RegisterBay) =
 
   let () =
     opp.TermParser <- term
-    pExprRef := pOps
+    pExprRef.Value <- pOps
 
     [ AST.binop BinOpType.ADD, "+", 3, Associativity.Left
       AST.binop BinOpType.SUB, "-", 3, Associativity.Left
@@ -221,6 +225,8 @@ type LowUIRParser (isa, regbay: RegisterBay) =
       AST.relop RelOpType.LE, "<=", 2, Associativity.Left
       AST.relop RelOpType.SLT, "?<", 2, Associativity.Left
       AST.relop RelOpType.SLE, "?<=", 2, Associativity.Left
+      AST.relop RelOpType.FEQ, "=.", 2, Associativity.Left
+      AST.relop RelOpType.FNEQ, "!=.", 2, Associativity.Left
       AST.relop RelOpType.FGT, ">.", 2, Associativity.Left
       AST.relop RelOpType.FGE, ">=.", 2, Associativity.Left
       AST.relop RelOpType.FLT, "<.", 2, Associativity.Left
@@ -292,6 +298,24 @@ type LowUIRParser (isa, regbay: RegisterBay) =
       let rt = TypeCheck.typeOf tExp
       AST.intercjmp cond tExp fExp)
 
+  let comma = pstring ","
+
+  let pArgs =
+    sepBy (ws >>. pExpr) comma
+
+  let pApp =
+    ws
+    >>. pIdentifier
+    .>>. pBetweenParen pArgs
+    .>> ws .>> pchar ':' .>> ws .>>. pRegType
+    |>> (fun ((fnName, args), rt) -> AST.app fnName args rt)
+
+  let pExtCall =
+    ws
+    >>. pstringCI "call"
+    >>. pApp
+    |>> AST.extCall
+
   let pException =
     pstringCI "Exception"
     >>. ws >>. pchar '(' >>. ws >>. pIdentifier .>> ws .>> pchar ')'
@@ -313,7 +337,6 @@ type LowUIRParser (isa, regbay: RegisterBay) =
     <|> attempt (pstringCI "privinstr" >>% UnsupportedPrivInstr)
     <|> attempt (pstringCI "far" >>% UnsupportedFAR)
     <|> attempt (pstringCI "cpu extension" >>% UnsupportedExtension)
-    <|> attempt (pstringCI "call " >>. pExpr |>> ExternalCall)
 
   let pSideEffect =
     ws
@@ -330,6 +353,7 @@ type LowUIRParser (isa, regbay: RegisterBay) =
     <|> attempt pCJmp
     <|> attempt pInterJmp
     <|> attempt pInterCJmp
+    <|> attempt pExtCall
     <|> attempt pSideEffect
     >>= typeCheck
 

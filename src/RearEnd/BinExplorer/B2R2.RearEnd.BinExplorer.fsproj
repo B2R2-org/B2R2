@@ -35,16 +35,16 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\FrontEnd\BinInterface\B2R2.FrontEnd.BinInterface.fsproj" />
+    <ProjectReference Include="..\..\FrontEnd\Core\B2R2.FrontEnd.Core.fsproj" />
     <ProjectReference Include="..\..\FrontEnd\NameMangling\B2R2.FrontEnd.NameMangling.fsproj" />
-    <ProjectReference Include="..\..\MiddleEnd\BinEssence\B2R2.MiddleEnd.BinEssence.fsproj" />
     <ProjectReference Include="..\Core\B2R2.RearEnd.Core.fsproj" />
     <ProjectReference Include="..\ROP\B2R2.RearEnd.ROP.fsproj" />
     <ProjectReference Include="..\Visualization\B2R2.RearEnd.Visualization.fsproj" />
+    <PackageReference Include="B2R2.MiddleEnd.BinEssence" Version="0.7.0" />
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="B2R2.FsReadLine" Version="0.1.5" />
+    <PackageReference Include="B2R2.FsReadLine" Version="0.2.0" />
     <PackageReference Include="FParsec" Version="1.1.1" />
   </ItemGroup>
 

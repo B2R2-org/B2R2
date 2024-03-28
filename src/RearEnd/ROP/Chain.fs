@@ -24,23 +24,24 @@
 
 namespace B2R2.RearEnd.ROP
 
+open System
 open System.Collections
 open B2R2
+open B2R2.FrontEnd
 open B2R2.FrontEnd.BinFile
-open B2R2.FrontEnd.BinInterface
 
 type ROPHandle = {
-  BinBase   : Addr
-  BinHdl    : BinHandle
-  Gadgets   : GadgetArr
-  Summaries : Concurrent.ConcurrentDictionary<uint64, Summary>
+  BinBase: Addr
+  BinHdl: BinHandle
+  Gadgets: GadgetArr
+  Summaries: Concurrent.ConcurrentDictionary<uint64, Summary>
 }
 
 module ROPHandle =
-  let inline getFileInfo hdl = hdl.BinHdl.FileInfo
+  let inline getFileInfo hdl = hdl.BinHdl.File
 
   let inline tryFindPlt hdl name =
-    hdl.BinHdl.FileInfo.GetLinkageTableEntries ()
+    hdl.BinHdl.File.GetLinkageTableEntries ()
     |> Seq.tryFind (fun entry -> entry.FuncName = name)
 
   let inline getKeys map = Map.fold (fun acc k _ -> Set.add k acc) Set.empty map
@@ -53,7 +54,7 @@ module ROPHandle =
     BinBase   = binBase
     BinHdl    = binHdl
     Gadgets   = Galileo.findGadgets binHdl |> Map.toArray |> GadgetArr.sort
-    Summaries = new Concurrent.ConcurrentDictionary<uint64, Summary> ()
+    Summaries = Concurrent.ConcurrentDictionary<uint64, Summary> ()
   }
 
   let private getSummary (hdl: ROPHandle) (gadget: Gadget) =
@@ -63,7 +64,7 @@ module ROPHandle =
       |> Ok
     with
     | B2R2.BinIR.InvalidExprException as e -> Error <| sprintf "%A" e
-    | e -> raise e
+    | _ -> reraise ()
 
   let private getSetterMap hdl =
     let folder acc info =
@@ -97,7 +98,7 @@ module ROPHandle =
     getSubset 1 (Set.toList set)
 
   let private getRegsSetters hdl setterMap regs =
-    let cache = new Concurrent.ConcurrentDictionary<Set<string>, Option<_>> ()
+    let cache = Concurrent.ConcurrentDictionary<Set<string>, Option<_>> ()
     let getSetter todoSet doneSet =
       cache.GetOrAdd (todoSet, (fun k -> findSetter setterMap todoSet doneSet))
     let rec finder todoSet doneSet =
@@ -181,7 +182,7 @@ module ROPHandle =
   let private findBytes hdl bytes =
     let chooser (seg: Segment) =
       let min = seg.Address
-      BinHandle.ReadBytes (hdl.BinHdl, min, int seg.Size)
+      hdl.BinHdl.ReadBytes (min, int seg.Size)
       |> ByteArray.tryFindIdx min bytes
     (getFileInfo hdl).GetSegments Permission.Readable
     |> Seq.tryPick chooser
@@ -193,13 +194,22 @@ module ROPHandle =
       |> Seq.maxBy (fun seg -> seg.Size)
     seg.Address + hdl.BinBase
 
+  let private toUInt32Arr (src: byte[]) =
+    let srcLen = Array.length src
+    let dstLen =
+      if srcLen % 4 = 0 then srcLen/4
+      else (srcLen / 4) + 1
+    let dst = Array.init dstLen (fun _ -> 0u)
+    Buffer.BlockCopy (src, 0, dst, 0, srcLen)
+    dst
+
   let private getOrWriteStr hdl str =
     let bytes = String.toBytes str
     match findBytes hdl bytes with
     | None ->
       let addr = getWritableAddr hdl
       let payload =
-        ByteArray.toUInt32Arr bytes
+        toUInt32Arr bytes
         |> Array.map ROPExpr.ofUInt32
         |> write32s hdl (ROPExpr.ofUInt32 addr)
       if Option.isSome payload then Some (payload, addr)

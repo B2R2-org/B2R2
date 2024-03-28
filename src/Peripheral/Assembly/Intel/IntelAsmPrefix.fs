@@ -40,8 +40,8 @@ let isFPUReg reg = Register.Kind.FPU = Register.getKind reg
 
 let private isAddrSz arch reg =
   match arch, Register.toRegType reg with
-  | Arch.IntelX64, 32<rt> -> true
-  | Arch.IntelX86, 16<rt> -> true
+  | Architecture.IntelX64, 32<rt> -> true
+  | Architecture.IntelX86, 16<rt> -> true
   | _ -> false
 
 let private isAddrSize isa = function
@@ -104,14 +104,14 @@ let encodeRex = function
   | _ -> 0x0uy
 
 let isExtendReg = function
-  | Register.R8L | Register.R8W | Register.R8D | Register.R8
-  | Register.R9L | Register.R9W | Register.R9D | Register.R9
-  | Register.R10L | Register.R10W | Register.R10D | Register.R10
-  | Register.R11L | Register.R11W | Register.R11D | Register.R11
-  | Register.R12L | Register.R12W | Register.R12D | Register.R12
-  | Register.R13L | Register.R13W | Register.R13D | Register.R13
-  | Register.R14L | Register.R14W | Register.R14D | Register.R14
-  | Register.R15L | Register.R15W | Register.R15D | Register.R15
+  | Register.R8B | Register.R8W | Register.R8D | Register.R8
+  | Register.R9B | Register.R9W | Register.R9D | Register.R9
+  | Register.R10B | Register.R10W | Register.R10D | Register.R10
+  | Register.R11B | Register.R11W | Register.R11D | Register.R11
+  | Register.R12B | Register.R12W | Register.R12D | Register.R12
+  | Register.R13B | Register.R13W | Register.R13D | Register.R13
+  | Register.R14B | Register.R14W | Register.R14D | Register.R14
+  | Register.R15B | Register.R15W | Register.R15D | Register.R15
   | Register.XMM8 | Register.XMM9 | Register.XMM10 | Register.XMM11
   | Register.XMM12 | Register.XMM13 | Register.XMM14 | Register.XMM15 -> true
   | _ -> false
@@ -123,11 +123,11 @@ let encodeRexB reg = if isExtendReg reg then 0x41uy else 0x0uy
 let convVEXRexByte rexByte = (~~~ rexByte) &&& 0b111uy
 
 let encodeVEXRexRB arch r1 r2 =
-  if arch = Arch.IntelX86 then 0b101uy
+  if arch = Architecture.IntelX86 then 0b101uy
   else convVEXRexByte (encodeRexR r1 ||| encodeRexB r2)
 
 let encodeVEXRexRXB arch reg rmOrSBase sIdx =
-  if arch = Arch.IntelX86 then 0b111uy
+  if arch = Architecture.IntelX86 then 0b111uy
   else
     match rmOrSBase, sIdx with
     | Some r1, Some (r2, _) ->
@@ -189,7 +189,7 @@ let encodeRexRXB isMR = function
   | o -> printfn "Inavlid Operand (%A)" o; Utils.futureFeature ()
 
 let encodeREXPref ins arch (rexPrx: EncREXPrefix) =
-  if arch = Arch.IntelX86 then [||]
+  if arch = Architecture.IntelX86 then [||]
   else (* Arch.IntelX64 *)
     let rexW = if rexPrx.RexW then 0x48uy else 0uy
     let rxb = encodeRexRXB rexPrx.IsMemReg ins.Operands

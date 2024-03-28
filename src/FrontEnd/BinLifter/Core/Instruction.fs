@@ -200,13 +200,13 @@ type Instruction (addr, len, wordSize) =
   abstract member Immediate: [<Out>] v: byref<int64> -> bool
 
   /// <summary>
-  ///   Return a sequence of possible next instruction addresses along with
+  ///   Return an array of possible next instruction addresses along with
   ///   their ArchOperationMode. For branch instructions, the returned sequence
   ///   includes jump target(s). For regular instructions, the sequence is a
   ///   singleton of the fall-through address. This function does not resolve
   ///   indirect branch targets.
   /// </summary>
-  abstract member GetNextInstrAddrs: unit -> seq<Addr * ArchOperationMode>
+  abstract member GetNextInstrAddrs: unit -> (Addr * ArchOperationMode) array
 
   /// <summary>
   ///   Return the interrupt number if this is an interrupt instruction.
@@ -239,23 +239,17 @@ type Instruction (addr, len, wordSize) =
   /// <param name="showAddr">
   ///   Whether to show the instruction address in the resulting disassembly.
   /// </param>
-  /// <param name="resolveSymbol">
-  ///   Whether to resolve symbols while disassembling the instruction. For
-  ///   example, when there is a call target, we the disassembled string will
-  ///   show the target function name if this parameter is true, and the symbol
-  ///   information exists.
-  /// </param>
-  /// <param name="disasmHelper">
-  ///   The helper allows our disassembler to resolve symbols.
+  /// <param name="nameReader">
+  ///   When this parameter is given, we disassemble the instruction with the
+  ///   given name reader to resolve symbols in the instruction. For example,
+  ///   when there is a call target, the disassembled string will show the
+  ///   target function name if this parameter is given and the corresponding
+  ///   symbol information exists. This parameter can be null.
   /// </param>
   /// <returns>
   ///   Returns a disassembled string.
   /// </returns>
-  abstract member Disasm:
-    showAddr: bool
-    * resolveSymbol: bool
-    * disasmHelper: DisasmHelper
-    -> string
+  abstract member Disasm: showAddr: bool * nameReader: INameReadable -> string
 
   /// <summary>
   ///   Disassemble this instruction without resolving symbols.

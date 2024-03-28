@@ -161,7 +161,7 @@ type Opcode =
   | LAS = 63
   /// Load and Toggle
   | LAT = 64
-  /// Load Indirect from Data Space to Register using Index Y and  Index Z
+  /// Load Indirect from Data Space to Register using Index Y and Index Z
   | LDD = 65
   /// Load Immediate
   | LDI = 66

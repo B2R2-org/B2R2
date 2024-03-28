@@ -25,7 +25,7 @@
 module B2R2.RearEnd.Repl.Program
 
 open B2R2
-open B2R2.FrontEnd.BinInterface
+open B2R2.FrontEnd
 open B2R2.Peripheral.Assembly
 
 let cmds =
@@ -66,8 +66,8 @@ let rec run showTemporary (state: ReplState) asm =
       run showTemporary state asm
 
 let runRepl _args (opts: ReplOpts) =
-  let binhandler = BinHandle.Init (opts.ISA)
-  let state = ReplState (opts.ISA, binhandler.RegisterBay, not opts.Verbose)
+  let binhandler = BinHandle ("", opts.ISA)
+  let state = ReplState (opts.ISA, binhandler.RegisterFactory, not opts.Verbose)
   let asm = AsmInterface (opts.ISA, 0UL)
   Display.printBlue "Welcome to B2R2 REPL\n"
   state.ConsolePrompt |> console.UpdatePrompt

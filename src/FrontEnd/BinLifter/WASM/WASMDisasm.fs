@@ -1,3 +1,27 @@
+(*
+  B2R2 - the Next-Generation Reversing Platform
+
+  Copyright (c) SoftSec Lab. @ KAIST, since 2016
+
+  Permission is hereby granted, free of charge, to any person obtaining a copy
+  of this software and associated documentation files (the "Software"), to deal
+  in the Software without restriction, including without limitation the rights
+  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+  copies of the Software, and to permit persons to whom the Software is
+  furnished to do so, subject to the following conditions:
+
+  The above copyright notice and this permission notice shall be included in all
+  copies or substantial portions of the Software.
+
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+  SOFTWARE.
+*)
+
 module internal B2R2.FrontEnd.BinLifter.WASM.Disasm
 
 open B2R2
@@ -525,11 +549,11 @@ let opcodeToString = function
   | I64AtomicRmw16CmpxchgU -> "i64.atomic.rmw16.cmpxchg_u"
   | I64AtomicRmw32CmpxchgU -> "i64.atomic.rmw32.cmpxchg_u"
 
-let inline buildOpcode insInfo (builder: DisasmBuilder<_>) =
+let inline buildOpcode insInfo (builder: DisasmBuilder) =
   let opcode = opcodeToString insInfo.Opcode
   builder.Accumulate AsmWordKind.Mnemonic opcode
 
-let oprToString opr delim (builder: DisasmBuilder<_>) =
+let oprToString opr delim (builder: DisasmBuilder) =
   match opr with
   | Type t ->
     builder.Accumulate AsmWordKind.String delim
@@ -552,13 +576,13 @@ let oprToString opr delim (builder: DisasmBuilder<_>) =
   | V128 (i32One, i32Two, i32Three, i32Four) ->
     builder.Accumulate AsmWordKind.String delim
     builder.Accumulate AsmWordKind.String "i32x4:"
-    builder.Accumulate AsmWordKind.Value (BitVector.valToString i32One)
+    builder.Accumulate AsmWordKind.Value (BitVector.ValToString i32One)
     builder.Accumulate AsmWordKind.String delim
-    builder.Accumulate AsmWordKind.Value (BitVector.valToString i32Two)
+    builder.Accumulate AsmWordKind.Value (BitVector.ValToString i32Two)
     builder.Accumulate AsmWordKind.String delim
-    builder.Accumulate AsmWordKind.Value (BitVector.valToString i32Three)
+    builder.Accumulate AsmWordKind.Value (BitVector.ValToString i32Three)
     builder.Accumulate AsmWordKind.String delim
-    builder.Accumulate AsmWordKind.Value (BitVector.valToString i32Four)
+    builder.Accumulate AsmWordKind.Value (BitVector.ValToString i32Four)
   | Alignment align ->
     builder.Accumulate AsmWordKind.String delim
     builder.Accumulate AsmWordKind.Value (align |> string)
@@ -575,7 +599,7 @@ let oprToString opr delim (builder: DisasmBuilder<_>) =
     builder.Accumulate AsmWordKind.String delim
     builder.Accumulate AsmWordKind.Value (reftype |> string)
 
-let buildOperands insInfo (builder: DisasmBuilder<_>) =
+let buildOperands insInfo (builder: DisasmBuilder) =
   match insInfo.Operands with
   | NoOperand -> ()
   | OneOperand opr ->
@@ -595,7 +619,7 @@ let buildOperands insInfo (builder: DisasmBuilder<_>) =
         auxOprsToString (List.tail oprs) builder
     auxOprsToString oprs builder
 
-let disasm insInfo (builder: DisasmBuilder<_>) =
+let disasm insInfo (builder: DisasmBuilder) =
   if builder.ShowAddr then builder.AccumulateAddr () else ()
   buildOpcode insInfo builder
   buildOperands insInfo builder

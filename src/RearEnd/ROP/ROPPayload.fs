@@ -40,14 +40,14 @@ module ROPPayload =
   let addExpr e p = Array.append p [|ROPValue.ofExpr e|]
 
   let addExprs exprs p =
-    Array.map (fun e -> ROPValue.ofExpr e) exprs |> Array.append p
+    Array.map ROPValue.ofExpr exprs |> Array.append p
 
   let setExpr e i p = Array.set p i (ROPValue.ofExpr e); p
 
   let addNum32 num p = Array.append p [|ROPValue.ofUInt32 num|]
 
   let addNum32s nums p =
-    Array.map (fun num -> ROPValue.ofUInt32 num) nums |> Array.append p
+    Array.map ROPValue.ofUInt32 nums |> Array.append p
 
   let setNum32 num i p = Array.set p i (ROPValue.ofUInt32 num); p
 

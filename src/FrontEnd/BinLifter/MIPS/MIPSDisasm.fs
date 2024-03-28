@@ -76,13 +76,16 @@ let opCodeToString = function
   | Op.BC3T -> "bc3t"
   | Op.BC3TL -> "bc3tl"
   | Op.BEQ -> "beq"
+  | Op.BEQL -> "beql"
   | Op.BGEZ -> "bgez"
   | Op.BGEZAL -> "bgezal"
   | Op.BGTZ -> "bgtz"
   | Op.BITSWAP -> "bitswap"
   | Op.BLEZ -> "blez"
   | Op.BLTZ -> "bltz"
+  | Op.BLTZAL -> "bltzal"
   | Op.BNE -> "bne"
+  | Op.BNEL -> "bnel"
   | Op.BREAK -> "break"
   | Op.C -> "c"
   | Op.CFC1 -> "cfc1"
@@ -90,6 +93,8 @@ let opCodeToString = function
   | Op.CTC1 -> "ctc1"
   | Op.CVTD -> "cvt.d"
   | Op.CVTS -> "cvt.s"
+  | Op.CVTW -> "cvt.w"
+  | Op.DADD -> "dadd"
   | Op.DADDIU -> "daddiu"
   | Op.DADDU -> "daddu"
   | Op.DALIGN -> "dalign"
@@ -216,7 +221,9 @@ let opCodeToString = function
   | Op.SWR -> "swr"
   | Op.SWXC1 -> "swxc1"
   | Op.SYNC -> "sync"
+  | Op.SYSCALL -> "syscall"
   | Op.TEQ -> "teq"
+  | Op.TEQI -> "teqi"
   | Op.TRUNCL -> "trunc.l"
   | Op.TRUNCW -> "trunc.w"
   | Op.WSBH -> "wsbh"
@@ -234,34 +241,39 @@ let inline appendFmt insInfo opcode =
   | None -> opcode
   | Some f -> opcode + fmtToString f
 
-let inline buildOpcode ins (builder: DisasmBuilder<_>) =
+let inline buildOpcode ins (builder: DisasmBuilder) =
   let str = opCodeToString ins.Opcode |> appendCond ins |> appendFmt ins
   builder.Accumulate AsmWordKind.Mnemonic str
 
-let inline relToString pc offset (builder: DisasmBuilder<_>) =
+let inline relToString pc offset (builder: DisasmBuilder) =
   let targetAddr = pc + uint64 offset
-  builder.Accumulate AsmWordKind.Value (String.u64ToHex targetAddr)
+  builder.Accumulate AsmWordKind.Value (HexString.ofUInt64 targetAddr)
 
-let oprToString insInfo opr delim (builder: DisasmBuilder<_>) =
+let inline regToString ins =
+  match ins.OperationSize with
+  | 64<rt> -> Register.toString64
+  | _ -> Register.toString32
+
+let oprToString insInfo opr delim (builder: DisasmBuilder) =
   match opr with
   | OpReg reg ->
     builder.Accumulate AsmWordKind.String delim
-    builder.Accumulate AsmWordKind.Variable (Register.toString reg)
+    builder.Accumulate AsmWordKind.Variable (regToString insInfo reg)
   | OpImm imm
   | OpShiftAmount imm ->
     builder.Accumulate AsmWordKind.String delim
-    builder.Accumulate AsmWordKind.Value (String.u64ToHex imm)
+    builder.Accumulate AsmWordKind.Value (HexString.ofUInt64 imm)
   | OpMem (b, Imm off, _) ->
     builder.Accumulate AsmWordKind.String delim
     builder.Accumulate AsmWordKind.Value (off.ToString ("D"))
     builder.Accumulate AsmWordKind.String "("
-    builder.Accumulate AsmWordKind.Variable (Register.toString b)
+    builder.Accumulate AsmWordKind.Variable (regToString insInfo b)
     builder.Accumulate AsmWordKind.String ")"
   | OpMem (b, Reg off, _) ->
     builder.Accumulate AsmWordKind.String delim
-    builder.Accumulate AsmWordKind.Variable (Register.toString off)
+    builder.Accumulate AsmWordKind.Variable (regToString insInfo off)
     builder.Accumulate AsmWordKind.String "("
-    builder.Accumulate AsmWordKind.Variable (Register.toString b)
+    builder.Accumulate AsmWordKind.Variable (regToString insInfo b)
     builder.Accumulate AsmWordKind.String ")"
   | OpAddr (Relative offset) ->
     builder.Accumulate AsmWordKind.String delim
@@ -269,7 +281,7 @@ let oprToString insInfo opr delim (builder: DisasmBuilder<_>) =
   // Never gets matched. Only used in intermediate stage mips assembly parser.
   | GoToLabel _ -> raise InvalidOperandException
 
-let buildOprs insInfo (builder: DisasmBuilder<_>) =
+let buildOprs insInfo (builder: DisasmBuilder) =
   match insInfo.Operands with
   | NoOperand -> ()
   | OneOperand opr ->
@@ -287,7 +299,7 @@ let buildOprs insInfo (builder: DisasmBuilder<_>) =
     oprToString insInfo opr3 ", " builder
     oprToString insInfo opr4 ", " builder
 
-let disasm wordSize insInfo (builder: DisasmBuilder<_>) =
+let disasm wordSize insInfo (builder: DisasmBuilder) =
   if builder.ShowAddr then builder.AccumulateAddr () else ()
   buildOpcode insInfo builder
   buildOprs insInfo builder

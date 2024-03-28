@@ -25,48 +25,50 @@
 namespace B2R2.RearEnd.BinExplorer
 
 open B2R2
+open B2R2.FrontEnd
 open B2R2.FrontEnd.BinFile
-open B2R2.FrontEnd.BinInterface
 open B2R2.MiddleEnd.BinEssence
 
 type CmdList () =
   inherit Cmd ()
 
-  let createFuncString hdl (addr, name) =
-    Addr.toString hdl.ISA.WordSize addr + ": " + name
+  let createFuncString (hdl: BinHandle) (addr, name) =
+    Addr.toString hdl.File.ISA.WordSize addr + ": " + name
 
   let listFunctions ess =
     ess.CodeManager.FunctionMaintainer.RegularFunctions
-    |> Seq.map (fun c -> c.Entry, c.FunctionID)
+    |> Seq.map (fun c -> c.EntryPoint, c.FunctionID)
     |> Seq.sortBy fst
     |> Seq.map (createFuncString ess.BinHandle)
     |> Seq.toArray
 
-  let createSegmentString handler (seg: Segment) =
+  let createSegmentString wordSize (seg: Segment) =
     "- "
-    + Addr.toString handler.ISA.WordSize seg.Address
+    + Addr.toString wordSize seg.Address
     + ":"
-    + Addr.toString handler.ISA.WordSize (seg.Address + seg.Size)
+    + Addr.toString wordSize (seg.Address + uint64 seg.Size)
     + " (" + seg.Size.ToString () + ") ("
-    + FileInfo.PermissionToString seg.Permission + ")"
+    + Permission.toString seg.Permission + ")"
 
-  let listSegments (handler: BinHandle) =
-    handler.FileInfo.GetSegments ()
-    |> Seq.map (createSegmentString handler)
+  let listSegments (hdl: BinHandle) =
+    let wordSize = hdl.File.ISA.WordSize
+    hdl.File.GetSegments ()
+    |> Seq.map (createSegmentString wordSize)
     |> Seq.toArray
 
-  let createSectionString handler (idx: int) (sec: Section) =
+  let createSectionString wordSize (idx: int) (sec: Section) =
     idx.ToString ("D2")
     + ". "
-    + Addr.toString handler.ISA.WordSize sec.Address
+    + Addr.toString wordSize sec.Address
     + ":"
-    + Addr.toString handler.ISA.WordSize (sec.Address + sec.Size)
+    + Addr.toString wordSize (sec.Address + uint64 sec.Size)
     + " (" + sec.Size.ToString ("D6") + ")"
     + " [" + sec.Name + "] "
 
-  let listSections (handler: BinHandle) =
-    handler.FileInfo.GetSections ()
-    |> Seq.mapi (createSectionString handler)
+  let listSections (hdl: BinHandle) =
+    let wordSize = hdl.File.ISA.WordSize
+    hdl.File.GetSections ()
+    |> Seq.mapi (createSectionString wordSize)
     |> Seq.toArray
 
   override __.CmdName = "list"

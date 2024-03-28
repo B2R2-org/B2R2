@@ -72,20 +72,13 @@ let BFXPreferred sf uns imms immr =
   else if imms = (concat sf 0b11111u 5) then false
   else if immr = 0b000000u then
     if sf = 0b0u && (imms = 0b000111u || imms = 0b001111u) then false
-    else if concat sf uns 1 = 0b10u &&
-            (imms = 0b000111u || imms = 0b001111u || imms = 0b011111u)
-         then false else true
+    else
+      not (concat sf uns 1 = 0b10u
+        && (imms = 0b000111u || imms = 0b001111u || imms = 0b011111u))
   else true
 
 // HighestSetBit()
 // ===============
-(*
-let highestSetBit nBit num =
-  let rec loop n =
-    if n < 0 then failwith "There is no SetBit"
-    else if pickBit num (uint32 n) = 0b1u then n else loop (n - 1)
-  loop (nBit - 1)
-*)
 let highestSetBit nBit imm =
   let rec loop idx =
     if idx < 0 then failwith "There is no SeBit"
@@ -124,10 +117,10 @@ let decodeBitMasks immN imms immr isImm oprSize =
   if isImm && (imms &&& levels) = levels then failwith "reserved value" else ()
 
   let eSize = 1 <<< len
-  let S = imms &&& levels
-  let R = immr &&& levels
+  let s = imms &&& levels
+  let r = immr &&& levels
 
-  replicate (RORZeroExtendOnes (int S + 1) eSize (int R)) eSize oprSize
+  replicate (RORZeroExtendOnes (int s + 1) eSize (int r)) eSize oprSize
 
 // aarch64/instrs/system/sysops/sysop/SysOp
 // SysOp()
