@@ -28,6 +28,7 @@ open B2R2
 open B2R2.FrontEnd.BinLifter
 open B2R2.BinIR
 
+/// Basic block type for IR-level CFGs.
 type IRBasicBlock private (ppoint, funcAbs, liftedInstrs) =
   inherit AbstractableBasicBlock<FunctionAbstraction> (ppoint, funcAbs)
 
@@ -44,6 +45,17 @@ type IRBasicBlock private (ppoint, funcAbs, liftedInstrs) =
       let lastIns = liftedInstrs[liftedInstrs.Length - 1].Original
       let lastAddr = lastIns.Address + uint64 lastIns.Length
       AddrRange (ppoint.Address, lastAddr - 1UL)
+
+  override __.Cut (cutPoint: Addr) =
+    match funcAbs with
+    | Some _ -> raise AbstractBlockAccessException
+    | None ->
+      assert (__.Range.IsIncluding cutPoint)
+      let before, after =
+        liftedInstrs
+        |> Array.partition (fun ins -> ins.Original.Address < cutPoint)
+      IRBasicBlock.CreateRegular (before, ppoint),
+      IRBasicBlock.CreateRegular (after, ppoint)
 
   override __.ToVisualBlock () =
     match funcAbs with

@@ -26,8 +26,6 @@ namespace B2R2.MiddleEnd.ControlFlowGraph
 
 open B2R2.MiddleEnd.BinGraph
 
-type CGVertex = IVertex<CallGraphBlock>
-
 /// Call graph, where each node represents a function.
 type CallCFG = IGraph<CallGraphBlock, CFGEdgeKind>
 

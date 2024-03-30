@@ -39,12 +39,12 @@ type Instruction (addr, len, wordSize) =
   /// <summary>
   ///   The address of this instruction.
   /// </summary>
-  member val Address: Addr = addr
+  member __.Address with get(): Addr = addr
 
   /// <summary>
   ///   The length of this instruction in bytes.
   /// </summary>
-  member val Length: uint32 = len
+  member __.Length with get(): uint32 = len
 
   /// <summary>
   ///   The word size used for translating this instruction. Some architectures
@@ -53,7 +53,7 @@ type Instruction (addr, len, wordSize) =
   ///   depending on the word size used. We store this information per
   ///   instruction to distinguish specific instruction sets used.
   /// </summary>
-  member val WordSize: WordSize = wordSize
+  member __.WordSize with get(): WordSize = wordSize
 
   /// <summary>
   ///   Is this a branch instruction? A branch instruction includes any kinds of
@@ -63,7 +63,7 @@ type Instruction (addr, len, wordSize) =
   /// <returns>
   ///   Returns true if this is a branch instruction.
   /// </returns>
-  abstract member IsBranch: unit -> bool
+  abstract IsBranch: unit -> bool
 
   /// <summary>
   ///   Is this a mode-changing instruction? In ARMv7, BLX is such an
@@ -72,7 +72,7 @@ type Instruction (addr, len, wordSize) =
   /// <returns>
   ///   Returns true if this is a mode-changing instruction.
   /// </returns>
-  abstract member IsModeChanging: unit -> bool
+  abstract IsModeChanging: unit -> bool
 
   /// <summary>
   ///   Is this a direct branch instruction? A direct branch instruction is a
@@ -83,7 +83,7 @@ type Instruction (addr, len, wordSize) =
   /// <returns>
   ///   Returns true if this is a direct branch instruction.
   /// </returns>
-  abstract member IsDirectBranch: unit -> bool
+  abstract IsDirectBranch: unit -> bool
 
   /// <summary>
   ///   Is this an indirect branch instruction? An indirect branch instruction
@@ -93,7 +93,7 @@ type Instruction (addr, len, wordSize) =
   /// <returns>
   ///   Returns true if this is an indirect branch instruction.
   /// </returns>
-  abstract member IsIndirectBranch: unit -> bool
+  abstract IsIndirectBranch: unit -> bool
 
   /// <summary>
   ///   Is this a conditional branch instruction?
@@ -101,7 +101,7 @@ type Instruction (addr, len, wordSize) =
   /// <returns>
   ///   Returns true if this is a conditional branch instruction.
   /// </returns>
-  abstract member IsCondBranch: unit -> bool
+  abstract IsCondBranch: unit -> bool
 
   /// <summary>
   ///   Is this a conditional branch instruction, and it jumps to the branch
@@ -113,7 +113,7 @@ type Instruction (addr, len, wordSize) =
   ///   Returns true if this is a conditional branch instruction, and jumps to
   ///   the target when the predicate is true.
   /// </returns>
-  abstract member IsCJmpOnTrue: unit -> bool
+  abstract IsCJmpOnTrue: unit -> bool
 
   /// <summary>
   ///   Is this a call instruction?
@@ -121,7 +121,7 @@ type Instruction (addr, len, wordSize) =
   /// <returns>
   ///   Returns true if this is a call instruction.
   /// </returns>
-  abstract member IsCall: unit -> bool
+  abstract IsCall: unit -> bool
 
   /// <summary>
   ///   Is this a return instruction?
@@ -129,7 +129,7 @@ type Instruction (addr, len, wordSize) =
   /// <returns>
   ///   Returns true if this is a return instruction.
   /// </returns>
-  abstract member IsRET: unit -> bool
+  abstract IsRET: unit -> bool
 
   /// <summary>
   ///   Does this instruction involve an interrupt?
@@ -137,7 +137,7 @@ type Instruction (addr, len, wordSize) =
   /// <returns>
   ///   Returns true if this is an interrupt instruction
   /// </returns>
-  abstract member IsInterrupt: unit -> bool
+  abstract IsInterrupt: unit -> bool
 
   /// <summary>
   ///   Does this instruction exits the program execution? For example, this
@@ -149,7 +149,7 @@ type Instruction (addr, len, wordSize) =
   ///   Returns true if this instruction should be at the end of the
   ///   corresponding basic block.
   /// </returns>
-  abstract member IsExit: unit -> bool
+  abstract IsExit: unit -> bool
 
   /// <summary>
   ///   Does this instruction end a basic block? For example, this function
@@ -160,7 +160,7 @@ type Instruction (addr, len, wordSize) =
   ///   Returns true if this instruction should be at the end of the
   ///   corresponding basic block.
   /// </returns>
-  abstract member IsBBLEnd: unit -> bool
+  abstract IsBBLEnd: unit -> bool
 
   /// <summary>
   ///   Is this a NO-OP instruction?
@@ -168,7 +168,7 @@ type Instruction (addr, len, wordSize) =
   /// <returns>
   ///   Returns true if this instruction is a NO-OP.
   /// </returns>
-  abstract member IsNop: unit -> bool
+  abstract IsNop: unit -> bool
 
   /// <summary>
   ///   Return a branch target address if we can directly compute it, i.e., for
@@ -177,7 +177,7 @@ type Instruction (addr, len, wordSize) =
   /// <returns>
   ///   Returns true if a target address exists. Otherwise, returns false.
   /// </returns>
-  abstract member DirectBranchTarget: [<Out>] addr: byref<Addr> -> bool
+  abstract DirectBranchTarget: [<Out>] addr: byref<Addr> -> bool
 
   /// <summary>
   ///   Return a trampoline address of an indirect branch instruction if we can
@@ -188,7 +188,7 @@ type Instruction (addr, len, wordSize) =
   /// <returns>
   ///   Returns true if a trampoline address exists. Otherwise, returns false.
   /// </returns>
-  abstract member IndirectTrampolineAddr: [<Out>] addr: byref<Addr> -> bool
+  abstract IndirectTrampolineAddr: [<Out>] addr: byref<Addr> -> bool
 
   /// <summary>
   ///   Return an integer immediate value of the instruction if there is one.
@@ -197,7 +197,7 @@ type Instruction (addr, len, wordSize) =
   /// <returns>
   ///   Returns true if an immediate exists. Otherwise, returns false.
   /// </returns>
-  abstract member Immediate: [<Out>] v: byref<int64> -> bool
+  abstract Immediate: [<Out>] v: byref<int64> -> bool
 
   /// <summary>
   ///   Return an array of possible next instruction addresses along with
@@ -206,12 +206,12 @@ type Instruction (addr, len, wordSize) =
   ///   singleton of the fall-through address. This function does not resolve
   ///   indirect branch targets.
   /// </summary>
-  abstract member GetNextInstrAddrs: unit -> (Addr * ArchOperationMode) array
+  abstract GetNextInstrAddrs: unit -> (Addr * ArchOperationMode) array
 
   /// <summary>
   ///   Return the interrupt number if this is an interrupt instruction.
   /// </summary>
-  abstract member InterruptNum: [<Out>] num: byref<int64> -> bool
+  abstract InterruptNum: [<Out>] num: byref<int64> -> bool
 
   /// <summary>
   ///   Lift this instruction into a LowUIR statement array given a translation
@@ -221,7 +221,7 @@ type Instruction (addr, len, wordSize) =
   /// <returns>
   ///   Returns an array of LowUIR statements.
   /// </returns>
-  abstract member Translate: ctxt: TranslationContext -> Stmt[]
+  abstract Translate: ctxt: TranslationContext -> Stmt[]
 
   /// <summary>
   ///   Lift this instruction into a LowUIR statement list given a translation
@@ -231,7 +231,7 @@ type Instruction (addr, len, wordSize) =
   /// <returns>
   ///   Returns a list of LowUIR statements.
   /// </returns>
-  abstract member TranslateToList: ctxt: TranslationContext -> List<Stmt>
+  abstract TranslateToList: ctxt: TranslationContext -> List<Stmt>
 
   /// <summary>
   ///   Disassemble this instruction.
@@ -249,7 +249,7 @@ type Instruction (addr, len, wordSize) =
   /// <returns>
   ///   Returns a disassembled string.
   /// </returns>
-  abstract member Disasm: showAddr: bool * nameReader: INameReadable -> string
+  abstract Disasm: showAddr: bool * nameReader: INameReadable -> string
 
   /// <summary>
   ///   Disassemble this instruction without resolving symbols.
@@ -257,7 +257,7 @@ type Instruction (addr, len, wordSize) =
   /// <returns>
   ///   Returns a disassembled string.
   /// </returns>
-  abstract member Disasm: unit -> string
+  abstract Disasm: unit -> string
 
   /// <summary>
   ///   Decompose this instruction into AsmWords.
@@ -265,8 +265,11 @@ type Instruction (addr, len, wordSize) =
   /// <returns>
   ///   Returns an array of AsmWords.
   /// </returns>
-  abstract member Decompose: bool -> AsmWord []
+  abstract Decompose: bool -> AsmWord []
 
-  abstract member IsInlinedAssembly: unit -> bool
+  /// <summary>
+  ///   Is this a virtual instruction that represents an inlined assembly code?
+  /// </summary>
+  abstract IsInlinedAssembly: unit -> bool
 
 // vim: set tw=80 sts=2 sw=2:

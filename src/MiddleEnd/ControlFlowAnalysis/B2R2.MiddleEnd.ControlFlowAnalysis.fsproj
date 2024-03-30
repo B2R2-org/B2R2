@@ -9,36 +9,7 @@
 
   <ItemGroup>
     <Compile Include="CFGHelper.fs" />
-    <Compile Include="CoverageMaintainer.fs" />
-    <Compile Include="HistoryManager.fs" />
-    <Compile Include="SSAPromotion.fs" />
-    <Compile Include="Function.fs" />
-    <Compile Include="FunctionMaintainer.fs" />
-    <Compile Include="ExceptionTable.fs" />
-    <Compile Include="BBLInfo.fs" />
-    <Compile Include="CFGEvents.fs" />
-    <Compile Include="BBLManager.fs" />
-    <Compile Include="JumpTableCollection.fs" />
-    <Compile Include="CFGError.fs" />
-    <Compile Include="RelocationTable.fs" />
-    <Compile Include="InlinedAssembly.fs" />
-    <Compile Include="CodeManager.fs" />
-    <Compile Include="ICFGBuildable.fs" />
-    <Compile Include="EvalHelper.fs" />
-    <Compile Include="PerFunctionAnalysis.fs" />
-    <Compile Include="IRHelper.fs" />
-    <Compile Include="IndirectCallResolution.fs" />
-    <Compile Include="IndirectJumpResolution.fs" />
-    <Compile Include="RegularJmpResolution.fs" />
-    <Compile Include="EVMJmpResolution.fs" />
-    <Compile Include="NoReturnFunctionIdentification.fs" />
-    <Compile Include="CFGBuilder.fs" />
-    <Compile Include="IPluggableAnalysis.fs" />
-    <Compile Include="PluggableAnalyses\LibcAnalysis.fs" />
-    <Compile Include="PluggableAnalyses\EVMCodeCopyAnalysis.fs" />
-    <Compile Include="PluggableAnalyses\EVMTrampolineAnalysis.fs" />
-    <Compile Include="PluggableAnalyses\ConditionRetriever.fs" />
-    <Compile Include="PluggableAnalyses\SpeculativeGapCompletion.fs" />
+    <Compile Include="BBLFactory.fs" />
     <None Include="..\..\..\LICENSE.md" Pack="true" PackagePath="" />
     <None Include="..\..\..\assets\b2r2-240x240.png" Pack="true" PackagePath="" />
     <None Include="README.md" Pack="true" PackagePath="" />

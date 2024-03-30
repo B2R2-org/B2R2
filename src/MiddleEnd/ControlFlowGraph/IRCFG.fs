@@ -26,8 +26,6 @@ namespace B2R2.MiddleEnd.ControlFlowGraph
 
 open B2R2.MiddleEnd.BinGraph
 
-type IRVertex = IVertex<IRBasicBlock>
-
 type IRCFG = IGraph<IRBasicBlock, CFGEdgeKind>
 
 [<RequireQualifiedAccess>]

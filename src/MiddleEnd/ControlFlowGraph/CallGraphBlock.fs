@@ -39,6 +39,8 @@ type CallGraphBlock (addr, id, name, isExternal) =
 
   override __.Range = AddrRange (addr)
 
+  override __.Cut _ = Utils.impossible ()
+
   override __.ToVisualBlock () =
     [| [| { AsmWordKind = AsmWordKind.Address
             AsmWordValue = Addr.toString WordSize.Bit32 addr }

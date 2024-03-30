@@ -64,7 +64,7 @@ module DataFlowChain =
 
   let private initUDChain cfg (ins: Dictionary<_,_>) (outs: Dictionary<_, _>) =
     Map.empty
-    |> (cfg: IGraph<_, _>).FoldVertex (fun map (v: IRVertex) ->
+    |> (cfg: IGraph<_, _>).FoldVertex (fun map (v: IVertex<IRBasicBlock>) ->
       v.VData.LiftedInstructions
       |> Array.fold (fun map lifted ->
         lifted.Stmts

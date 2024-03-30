@@ -47,7 +47,7 @@ module SSACFG =
     | Persistent -> initPersistent ()
 
   let private getVertex hdl (g: IGraph<_, _>) (vMap: SSAVMap) oldSrc =
-    let bbl = (oldSrc: IRVertex).VData
+    let bbl = (oldSrc: IVertex<IRBasicBlock>).VData
     let pos = bbl.PPoint
     match vMap.TryGetValue pos with
     | false, _ ->
@@ -59,7 +59,7 @@ module SSACFG =
     | true, v -> v, g
 
   let private getFakeVertex hdl (g: IGraph<_, _>) (fMap: FakeVMap) src ftPos =
-    let srcBbl = (src: IRVertex).VData
+    let srcBbl = (src: IVertex<IRBasicBlock>).VData
     let srcPos = srcBbl.PPoint
     let pos = (srcPos, ftPos)
     match fMap.TryGetValue pos with
@@ -78,7 +78,7 @@ module SSACFG =
       |> (irCFG: IGraph<_, _>).FoldEdge (fun ssaCFG e ->
         let src, dst = e.First, e.Second
         (* If the node is an abstracted one, it is a call target. *)
-        if (dst: IRVertex).VData.IsFake then
+        if (dst: IVertex<IRBasicBlock>).VData.IsFake then
           let last = src.VData.LastInstruction
           let fall = ProgramPoint (last.Address + uint64 last.Length, 0)
           let srcV, ssaCFG = getVertex hdl ssaCFG vMap src

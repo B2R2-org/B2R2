@@ -27,8 +27,6 @@ namespace B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.ControlFlowGraph
 
-type DisasmVertex = IVertex<DisasmBasicBlock>
-
 /// Disassembly-based CFG, where each node contains disassembly code.
 type DisasmCFG = IGraph<DisasmBasicBlock, CFGEdgeKind>
 

@@ -171,6 +171,17 @@ type SSABasicBlock private (hdl: BinHandle, ppoint, funcAbs, liftedInstrs) =
       let lastAddr = lastIns.Address + uint64 lastIns.Length
       AddrRange (ppoint.Address, lastAddr - 1UL)
 
+  override __.Cut (cutPoint: Addr) =
+    match funcAbs with
+    | Some _ -> raise AbstractBlockAccessException
+    | None ->
+      assert (__.Range.IsIncluding cutPoint)
+      let before, after =
+        liftedInstrs
+        |> Array.partition (fun ins -> ins.Original.Address < cutPoint)
+      SSABasicBlock.CreateRegular (hdl, ppoint, before),
+      SSABasicBlock.CreateRegular (hdl, ppoint, after)
+
   override __.ToVisualBlock () =
     match funcAbs with
     | Some _ -> [||]

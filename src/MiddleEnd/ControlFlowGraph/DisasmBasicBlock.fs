@@ -28,7 +28,7 @@ open B2R2
 open B2R2.FrontEnd.BinLifter
 
 /// Basic block type for a disassembly-based CFG (DisasmCFG).
-type DisasmBasicBlock private (ppoint, instrs) =
+type DisasmBasicBlock (ppoint, instrs) =
   inherit BasicBlock (ppoint)
 
   /// Instructions.
@@ -42,11 +42,15 @@ type DisasmBasicBlock private (ppoint, instrs) =
     let last = instrs[instrs.Length - 1]
     AddrRange (ppoint.Address, last.Address + uint64 last.Length - 1UL)
 
+  override __.Cut (cutPoint: Addr) =
+    assert (__.Range.IsIncluding cutPoint)
+    let before, after =
+      instrs
+      |> Array.partition (fun ins -> ins.Address < cutPoint)
+    DisasmBasicBlock (ppoint, before), DisasmBasicBlock (ppoint, after)
+
   override __.ToVisualBlock () =
     instrs
     |> Array.mapi (fun idx ins ->
       if idx = Array.length instrs - 1 then ins.Decompose (true)
       else ins.Decompose (true))
-
-  static member CreateRegular (instrs, ppoint) =
-    DisasmBasicBlock (ppoint, instrs)
