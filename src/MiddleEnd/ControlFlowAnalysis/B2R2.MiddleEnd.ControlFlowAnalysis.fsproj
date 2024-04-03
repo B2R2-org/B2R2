@@ -9,7 +9,21 @@
 
   <ItemGroup>
     <Compile Include="CFGHelper.fs" />
+    <Compile Include="CFGActionQueue.fs" />
+    <Compile Include="CFGResult.fs" />
     <Compile Include="BBLFactory.fs" />
+    <Compile Include="INoReturnIdentifiable.fs" />
+    <Compile Include="IResettable.fs" />
+    <Compile Include="IStateQueryable.fs" />
+    <Compile Include="IStateUpdatable.fs" />
+    <Compile Include="IValidityCheck.fs" />
+    <Compile Include="CFGTaskMessage.fs" />
+    <Compile Include="CFGBuildingContext.fs" />
+    <Compile Include="Function.fs" />
+    <Compile Include="IFunctionBuildingStrategy.fs" />
+    <Compile Include="FunctionBuilder.fs" />
+    <Compile Include="FunctionDependenceMap.fs" />
+    <Compile Include="CFGTaskManager.fs" />
     <None Include="..\..\..\LICENSE.md" Pack="true" PackagePath="" />
     <None Include="..\..\..\assets\b2r2-240x240.png" Pack="true" PackagePath="" />
     <None Include="README.md" Pack="true" PackagePath="" />
