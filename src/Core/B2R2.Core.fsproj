@@ -48,6 +48,7 @@
     <Compile Include="LRUCache.fs" />
     <Compile Include="PersistentQueue.fs" />
     <Compile Include="BinReader.fs" />
+    <Compile Include="Agent.fs" />
     <Compile Include="Logger.fs" />
     <Compile Include="Attribution.fs" />
     <None Include="..\..\LICENSE.md" Pack="true" PackagePath="" />
