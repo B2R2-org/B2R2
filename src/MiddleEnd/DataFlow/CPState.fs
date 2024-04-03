@@ -35,7 +35,9 @@ open System.Collections.Generic
 type SSAMemID = int
 
 /// Constant propagation analysis state.
-type CPState<'L when 'L: equality> = {
+type CPState<'L, 'Abs when 'L: equality
+                       and 'Abs :> SSAFunctionAbstraction
+                       and 'Abs: null> = {
   /// BinHandle of the current binary.
   BinHandle: BinHandle
   /// SSA edges
@@ -60,11 +62,13 @@ type CPState<'L when 'L: equality> = {
   /// Uninitialized memory addresses found during CP.
   UninitializedMemAddrs: HashSet<Addr>
   /// CP core interface.
-  CPCore: IConstantPropagation<'L>
+  CPCore: IConstantPropagation<'L, 'Abs>
 }
 
 /// The core interface of a Constant Propagation (CP) algorithm.
-and IConstantPropagation<'L when 'L: equality> =
+and IConstantPropagation<'L, 'Abs when 'L: equality
+                                   and 'Abs :> SSAFunctionAbstraction
+                                   and 'Abs: null> =
   /// Bottom of the lattice.
   abstract Bottom: 'L
 
@@ -76,9 +80,9 @@ and IConstantPropagation<'L when 'L: equality> =
 
   /// The transfer function.
   abstract Transfer:
-    CPState<'L>
-    -> IGraph<SSABasicBlock, CFGEdgeKind>
-    -> IVertex<SSABasicBlock>
+    CPState<'L, 'Abs>
+    -> IGraph<SSABasicBlock<'Abs>, CFGEdgeKind>
+    -> IVertex<SSABasicBlock<'Abs>>
     -> ProgramPoint
     -> Stmt
     -> unit
@@ -109,14 +113,14 @@ module CPState =
   let isExecuted st src dst =
     st.ExecutedEdges.Contains (src, dst)
 
-  let markAllSuccessors st (cfg: IGraph<_, _>) (blk: SSAVertex) =
+  let markAllSuccessors st (cfg: IGraph<_, _>) (blk: SSAVertex<_>) =
     let myid = blk.ID
     cfg.GetSuccs blk
     |> Seq.iter (fun succ ->
       let succid = succ.ID
       markExecutable st myid succid)
 
-  let markExceptCallFallThrough st (cfg: IGraph<_, _>) (blk: SSAVertex) =
+  let markExceptCallFallThrough st (cfg: IGraph<_, _>) (blk: SSAVertex<_>) =
     let myid = blk.ID
     cfg.GetSuccs blk
     |> Seq.iter (fun succ ->

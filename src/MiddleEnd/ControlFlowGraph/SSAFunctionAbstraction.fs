@@ -24,7 +24,8 @@
 
 namespace B2R2.MiddleEnd.ControlFlowGraph
 
-/// Information stored for an abstracted basic block in SSACFG.
+/// Information stored for an abstract basic block in SSACFG.
+[<AllowNullLiteral>]
 type SSAFunctionAbstraction (funcAbs: FunctionAbstraction) =
   inherit FunctionAbstraction (funcAbs)
   let mutable varInfo: SSAOutVariableInfo = Map.empty

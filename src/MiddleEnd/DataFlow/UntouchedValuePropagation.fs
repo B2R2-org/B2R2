@@ -27,6 +27,7 @@ namespace B2R2.MiddleEnd.DataFlow
 open System.Collections.Generic
 open B2R2.BinIR.SSA
 open B2R2.FrontEnd
+open B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.MiddleEnd.DataFlow.Utils
 
 [<AutoOpen>]
@@ -53,8 +54,9 @@ module private UntouchedValuePropagation =
 /// This is a variant of the SparseConstantPropagation, which computes which
 /// registers or memory cells are not re-defined (i.e., are untouched) within a
 /// function. This algorithm assumes that the SSA has been promoted.
-type UntouchedValuePropagation (hdl, ssaCFG) as this =
-  inherit ConstantPropagation<UVValue> (ssaCFG)
+type UntouchedValuePropagation<'Abs when 'Abs :> SSAFunctionAbstraction
+                                     and 'Abs: null> (hdl, ssaCFG) as this =
+  inherit ConstantPropagation<UVValue, 'Abs> (ssaCFG)
 
   let st = CPState.initState hdl ssaCFG (initRegister hdl) (initMemory ()) this
 
@@ -62,7 +64,7 @@ type UntouchedValuePropagation (hdl, ssaCFG) as this =
 
   override __.Top = Undef
 
-  interface IConstantPropagation<UVValue> with
+  interface IConstantPropagation<UVValue, 'Abs> with
     member __.Bottom = Touched
     member __.GoingUp a b = UVValue.goingUp a b
     member __.Meet a b = UVValue.meet a b

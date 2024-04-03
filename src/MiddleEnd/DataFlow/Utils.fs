@@ -71,7 +71,7 @@ let inline initMemory () =
   dict[0] <- (Map.empty, Set.empty)
   dict
 
-let computeStackShift rt (blk: SSAVertex) =
+let computeStackShift rt (blk: SSAVertex<_>) =
   let retAddrSize = RegType.toByteWidth rt |> int64
-  let adj = blk.VData.AbstractedContent.UnwindingBytes
+  let adj = blk.VData.AbstractContent.UnwindingBytes
   BitVector.OfInt64 (retAddrSize + adj) rt

@@ -30,5 +30,5 @@ open B2R2.MiddleEnd.ControlFlowGraph
 /// Interface for identifying whether a given function/syscall is a no-return
 /// function/syscall.
 type INoReturnIdentifiable =
-  abstract IsNoReturn: IRCFG * Addr -> bool
+  abstract IsNoReturn: IRCFG<_, _, _> * Addr -> bool
 

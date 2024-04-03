@@ -28,6 +28,7 @@ open System.Collections.Generic
 open B2R2
 open B2R2.BinIR.SSA
 open B2R2.FrontEnd
+open B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.MiddleEnd.DataFlow.Utils
 
 [<AutoOpen>]
@@ -47,8 +48,10 @@ module private SparseConstantPropagation =
 /// memory objects and GOT pointers. The reader is to enable reading data
 /// from external sections, e.g., rodata. If the reader is not given, we simply
 /// ignore such global data.
-type SparseConstantPropagation (hdl, ssaCFG, ?reader) as this =
-  inherit ConstantPropagation<SCPValue> (ssaCFG)
+type SparseConstantPropagation<'Abs when 'Abs :> SSAFunctionAbstraction
+                                     and 'Abs: null>
+  (hdl, ssaCFG, ?reader) as this =
+  inherit ConstantPropagation<SCPValue, 'Abs> (ssaCFG)
 
   let reader = defaultArg reader (fun _ _ -> None)
   let st = CPState.initState hdl ssaCFG (initRegister hdl) (initMemory ()) this
@@ -57,7 +60,7 @@ type SparseConstantPropagation (hdl, ssaCFG, ?reader) as this =
 
   override __.Top = Undef
 
-  interface IConstantPropagation<SCPValue> with
+  interface IConstantPropagation<SCPValue, 'Abs> with
     member __.Bottom = NotAConst
     member __.GoingUp a b = SCPValue.goingUp a b
     member __.Meet a b = SCPValue.meet a b

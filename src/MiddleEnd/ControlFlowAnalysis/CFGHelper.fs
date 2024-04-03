@@ -29,17 +29,56 @@ open B2R2.MiddleEnd.BinGraph
 
 #if CFGDEBUG
 open System.IO
+open System.Text
+open System.Threading
 open B2R2
 
 [<AutoOpen>]
 module internal Dbg =
-  let logger =
-    let path = Path.Combine (Directory.GetCurrentDirectory (), "cfg.log")
-    new FileLogger (path) :> ILogger
+  type LogMessage =
+    | Log of int * string
+    | Flush of int
 
-  let inline dbglog (locationName: string) fmt =
-    let after str = logger.LogLine (locationName.PadRight 20 + "| " + str)
-    Printf.ksprintf after fmt
+  [<AllowNullLiteral>]
+  type CFGLogger (numThreads) =
+    let logBuilders = Array.init numThreads (fun _ -> StringBuilder ())
+
+    let cts = new CancellationTokenSource ()
+
+    let logger =
+      let path = Path.Combine (Directory.GetCurrentDirectory (), "cfg.log")
+      new FileLogger (path) :> ILogger
+
+    let flushLog tid =
+      let sb = logBuilders[tid]
+      sb.ToString () |> logger.Log
+      sb.Clear () |> ignore
+
+    let task = fun (inbox: IAgentMessageReceivable<LogMessage>) ->
+      while not inbox.IsCancelled do
+        match inbox.Receive () with
+        | Log (tid, msg) -> logBuilders[tid].AppendLine msg |> ignore
+        | Flush tid -> flushLog tid
+
+    let agent = Agent<LogMessage>.Start (task, cts.Token)
+
+    member inline _.Log tid (locationName: string) msg =
+      let log = $"{tid, -2} | {locationName, -20} | {msg}"
+      agent.Post <| Log (tid, log)
+
+    member inline _.Flush tid =
+      agent.Post <| Flush tid
+
+  let mutable logger: CFGLogger = null
+
+  let initLogger numThreads =
+    logger <- CFGLogger numThreads
+
+  let inline dbglog tid locationName msg =
+    logger.Log tid locationName msg
+
+  let inline flushLog tid =
+    logger.Flush tid
 #endif
 
 /// Categorize neighboring edges of a given vertex (v) in the graph (g). This

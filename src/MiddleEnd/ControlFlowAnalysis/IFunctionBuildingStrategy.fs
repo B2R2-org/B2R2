@@ -24,18 +24,27 @@
 
 namespace B2R2.MiddleEnd.ControlFlowAnalysis
 
+open B2R2.MiddleEnd.ControlFlowGraph
+
 /// A strategy that defines how CFGActions are handled to build a function.
-type IFunctionBuildingStrategy<'Act,
+type IFunctionBuildingStrategy<'V,
+                               'E,
+                               'Abs,
+                               'Act,
                                'State,
                                'Req,
-                               'Res when 'Act :> ICFGAction
+                               'Res when 'V :> IRBasicBlock<'Abs>
+                                     and 'V: equality
+                                     and 'E: equality
+                                     and 'Abs: null
+                                     and 'Act :> ICFGAction
                                      and 'State :> IResettable> =
   /// This is a callback that is called for every CFGAction generated for a
   /// function. Each action may discover a new basic block, add a new edge, etc.
   /// This function returns a CFGResult that indicates whether the function
   /// building should continue, postpone, or exit with an error.
   abstract OnAction:
-      CFGBuildingContext<'State, 'Req, 'Res>
+      CFGBuildingContext<'V, 'E, 'Abs, 'State, 'Req, 'Res>
     * CFGActionQueue<'Act>
     * 'Act
     -> CFGResult
@@ -43,7 +52,7 @@ type IFunctionBuildingStrategy<'Act,
   /// This is a callback that is called when all CFGActions are processed, i.e.,
   /// when CFGActionQueue is empty.
   abstract OnFinish:
-      CFGBuildingContext<'State, 'Req, 'Res>
+      CFGBuildingContext<'V, 'E, 'Abs, 'State, 'Req, 'Res>
     * INoReturnIdentifiable
     -> CFGResult
 

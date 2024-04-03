@@ -126,7 +126,7 @@ let rec evalExpr st blk = function
   | Undefined _ -> NotAConst
   | _ -> Utils.impossible ()
 
-let evalDef (st: CPState<SCPValue>) blk v e =
+let evalDef (st: CPState<SCPValue, _>) blk v e =
   match v.Kind with
   | MemVar -> ()
   | _ -> evalExpr st blk e |> CPState.updateConst st v

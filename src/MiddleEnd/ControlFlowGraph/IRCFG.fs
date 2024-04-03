@@ -26,17 +26,19 @@ namespace B2R2.MiddleEnd.ControlFlowGraph
 
 open B2R2.MiddleEnd.BinGraph
 
-type IRCFG = IGraph<IRBasicBlock, CFGEdgeKind>
+/// CFG where each node is an IR-level basic block.
+type IRCFG<'V, 'E, 'Abs when 'V :> IRBasicBlock<'Abs>
+                         and 'V: equality
+                         and 'E: equality
+                         and 'Abs: null> =
+  IGraph<'V, 'E>
 
 [<RequireQualifiedAccess>]
 module IRCFG =
-  let private initImperative () =
-    ImperativeDiGraph<IRBasicBlock, CFGEdgeKind> () :> IRCFG
-
-  let private initPersistent () =
-    PersistentDiGraph<IRBasicBlock, CFGEdgeKind> () :> IRCFG
-
-  /// Initialize IRCFG based on the implementation type.
-  let init = function
-    | Imperative -> initImperative ()
-    | Persistent -> initPersistent ()
+  /// Constructor for IRCFG.
+  type IConstructable<'V, 'E, 'Abs when 'V :> IRBasicBlock<'Abs>
+                                    and 'V: equality
+                                    and 'E: equality
+                                    and 'Abs: null> =
+    /// Construct an IRCFG.
+    abstract Construct: ImplementationType -> IRCFG<'V, 'E, 'Abs>

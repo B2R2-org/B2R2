@@ -30,7 +30,7 @@ open B2R2.MiddleEnd.BinGraph
 let computeDominatorInfo g root =
   let domCtxt = Dominator.initDominatorContext g root
   let frontiers = Dominator.frontiers domCtxt
-  g.IterVertex (fun (v: SSAVertex) ->
+  g.IterVertex (fun (v: SSAVertex<_>) ->
     let dfnum = domCtxt.ForwardDomInfo.DFNumMap[v.ID]
     v.VData.ImmDominator <- Dominator.idom domCtxt v
     v.VData.DomFrontier <- frontiers[dfnum])
@@ -48,29 +48,29 @@ let findPhiSites g defsPerNode variable (phiSites, workList) v =
     (* Temporary vars are only meaningful in an instruction boundary. Thus, a
        PhiSite for a TempVar should be an intra-instruction bbl, but not the
        start of an instruction. *)
-    | SSA.TempVar _ when (v: SSAVertex).VData.PPoint.Position = 0 ->
+    | SSA.TempVar _ when (v: SSAVertex<_>).VData.PPoint.Position = 0 ->
       phiSites, workList
     | _ ->
       (* Insert Phi for v *)
       let preds = (g: IGraph<_, _>).GetPreds v
       v.VData.PrependPhi variable preds.Count
       let phiSites = Set.add v phiSites
-      let defs = (defsPerNode: DefsPerNode)[v]
+      let defs = (defsPerNode: DefsPerNode<_>)[v]
       if not <| Set.contains variable defs then phiSites, v :: workList
       else phiSites, workList
 
 let rec iterDefs g phiSites defsPerNode variable = function
   | [] -> phiSites
-  | (v: SSAVertex) :: workList ->
+  | (v: SSAVertex<_>) :: workList ->
     let phiSites, workList =
       v.VData.DomFrontier
       |> List.fold (findPhiSites g defsPerNode variable) (phiSites, workList)
     iterDefs g phiSites defsPerNode variable workList
 
-let placePhis g vertices (defSites: DefSites) domCtxt =
+let placePhis g vertices (defSites: DefSites<_>) domCtxt =
   let defsPerNode = DefsPerNode ()
   vertices
-  |> Seq.iter (fun (v: SSAVertex) ->
+  |> Seq.iter (fun (v: SSAVertex<_>) ->
     let defs = v.VData.LiftedSSAStmts |> Array.fold collectDefVars Set.empty
     defsPerNode[v] <- defs
     defs |> Set.iter (fun d ->
@@ -158,16 +158,16 @@ let renameStmt count stack (_, stmt) =
   | SSA.Phi (def, _) ->
     introduceDef count stack def
 
-let renamePhiAux (stack: IDStack) preds (parent: SSAVertex) (_, stmt) =
+let renamePhiAux (stack: IDStack) preds (parent: SSAVertex<_>) (_, stmt) =
   match stmt with
   | SSA.Phi (def, nums) ->
     let idx =
-      Seq.findIndex (fun (v: SSAVertex) ->
+      Seq.findIndex (fun (v: SSAVertex<_>) ->
         v.VData = parent.VData) preds
     nums[idx] <- List.head stack[def.Kind]
   | _ -> ()
 
-let renamePhi (g: IGraph<_, _>) stack parent (succ: SSAVertex) =
+let renamePhi (g: IGraph<_, _>) stack parent (succ: SSAVertex<_>) =
   succ.VData.LiftedSSAStmts
   |> Array.iter (renamePhiAux stack (g.GetPreds succ) parent)
 
@@ -177,7 +177,7 @@ let popStack (stack: IDStack) (_, stmt) =
   | SSA.Phi (def, _) -> stack[def.Kind] <- List.tail stack[def.Kind]
   | _ -> ()
 
-let rec rename (g: IGraph<_, _>) domTree count stack (v: SSAVertex) =
+let rec rename (g: IGraph<_, _>) domTree count stack (v: SSAVertex<_>) =
   v.VData.LiftedSSAStmts |> Array.iter (renameStmt count stack)
   g.GetSuccs v |> Seq.iter (renamePhi g stack v)
   traverseChildren g domTree count stack (Map.find v domTree)
@@ -189,7 +189,7 @@ and traverseChildren g domTree count stack = function
     traverseChildren g domTree count stack rest
   | [] -> ()
 
-let renameVars g (defSites: DefSites) domCtxt =
+let renameVars g (defSites: DefSites<_>) domCtxt =
   let domTree, root = Dominator.dominatorTree domCtxt
   let count = VarCountMap ()
   let stack = IDStack ()

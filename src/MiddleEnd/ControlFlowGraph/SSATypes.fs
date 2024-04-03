@@ -30,10 +30,12 @@ open B2R2.BinIR
 open B2R2.MiddleEnd.BinGraph
 
 /// SSACFG's vertex.
-type SSAVertex = IVertex<SSABasicBlock>
+type SSAVertex<'Abs when 'Abs :> SSAFunctionAbstraction and 'Abs: null> =
+  IVertex<SSABasicBlock<'Abs>>
 
 /// A mapping from an address to a SSACFG vertex.
-type SSAVMap = Dictionary<ProgramPoint, SSAVertex>
+type SSAVMap<'Abs when 'Abs :> SSAFunctionAbstraction and 'Abs: null> =
+  Dictionary<ProgramPoint, SSAVertex<'Abs>>
 
 /// This is a mapping from an edge to a dummy vertex (for external function
 /// calls). We first separately create dummy vertices even if they are
@@ -41,13 +43,16 @@ type SSAVMap = Dictionary<ProgramPoint, SSAVertex>
 /// relationships without introducing incorrect paths or cycles. For
 /// convenience, we will always consider as a key "a return edge" from a fake
 /// vertex to a fall-through vertex.
-type FakeVMap = Dictionary<ProgramPoint * ProgramPoint, SSAVertex>
+type FakeVMap<'Abs when 'Abs :> SSAFunctionAbstraction and 'Abs: null> =
+  Dictionary<ProgramPoint * ProgramPoint, SSAVertex<'Abs>>
 
 /// Mapping from a variable to a set of defining SSA basic blocks.
-type DefSites = Dictionary<SSA.VariableKind, Set<SSAVertex>>
+type DefSites<'Abs when 'Abs :> SSAFunctionAbstraction and 'Abs: null> =
+  Dictionary<SSA.VariableKind, Set<SSAVertex<'Abs>>>
 
 /// Defined variables per node in a SSACFG.
-type DefsPerNode = Dictionary<SSAVertex, Set<SSA.VariableKind>>
+type DefsPerNode<'Abs when 'Abs :> SSAFunctionAbstraction and 'Abs: null> =
+  Dictionary<SSAVertex<'Abs>, Set<SSA.VariableKind>>
 
 /// Counter for each variable.
 type VarCountMap = Dictionary<SSA.VariableKind, int>

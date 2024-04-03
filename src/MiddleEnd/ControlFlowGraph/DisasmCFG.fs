@@ -28,19 +28,11 @@ open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.ControlFlowGraph
 
 /// Disassembly-based CFG, where each node contains disassembly code.
-type DisasmCFG = IGraph<DisasmBasicBlock, CFGEdgeKind>
+type DisasmCFG<'E when 'E: equality> = IGraph<DisasmBasicBlock, 'E>
 
 [<RequireQualifiedAccess>]
 module DisasmCFG =
-  let private initImperative () =
-    ImperativeDiGraph<DisasmBasicBlock, CFGEdgeKind> ()
-    :> DisasmCFG
-
-  let private initPersistent () =
-    PersistentDiGraph<DisasmBasicBlock, CFGEdgeKind> ()
-    :> DisasmCFG
-
-  /// Initialize DisasmCFG based on the implementation type.
-  let init = function
-    | Imperative -> initImperative ()
-    | Persistent -> initPersistent ()
+  /// Constructor for DisasmCFG.
+  type IConstructable<'E when 'E: equality> =
+    /// Construct a DisasmCFG.
+    abstract Construct: ImplementationType -> DisasmCFG<'E>

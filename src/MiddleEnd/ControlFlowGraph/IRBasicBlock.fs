@@ -24,13 +24,16 @@
 
 namespace B2R2.MiddleEnd.ControlFlowGraph
 
+open System
 open B2R2
 open B2R2.FrontEnd.BinLifter
 open B2R2.BinIR
 
 /// Basic block type for IR-level CFGs.
-type IRBasicBlock private (ppoint, funcAbs, liftedInstrs) =
-  inherit AbstractableBasicBlock<FunctionAbstraction> (ppoint, funcAbs)
+type IRBasicBlock<'Abs when 'Abs: null> internal (ppoint,
+                                                  funcAbs,
+                                                  liftedInstrs) =
+  inherit PossiblyAbstractBasicBlock<'Abs> (ppoint, funcAbs)
 
   member __.LiftedInstructions with get(): LiftedInstruction[] = liftedInstrs
 
@@ -39,41 +42,39 @@ type IRBasicBlock private (ppoint, funcAbs, liftedInstrs) =
     else liftedInstrs[liftedInstrs.Length - 1].Original
 
   override __.Range with get() =
-    match funcAbs with
-    | Some _ -> raise AbstractBlockAccessException
-    | None ->
+    if isNull funcAbs then
       let lastIns = liftedInstrs[liftedInstrs.Length - 1].Original
       let lastAddr = lastIns.Address + uint64 lastIns.Length
       AddrRange (ppoint.Address, lastAddr - 1UL)
+    else raise AbstractBlockAccessException
 
   override __.Cut (cutPoint: Addr) =
-    match funcAbs with
-    | Some _ -> raise AbstractBlockAccessException
-    | None ->
+    if isNull funcAbs then
       assert (__.Range.IsIncluding cutPoint)
       let before, after =
         liftedInstrs
         |> Array.partition (fun ins -> ins.Original.Address < cutPoint)
-      IRBasicBlock.CreateRegular (before, ppoint),
-      IRBasicBlock.CreateRegular (after, ppoint)
+      IRBasicBlock<'Abs>.CreateRegular (before, ppoint),
+      IRBasicBlock<'Abs>.CreateRegular (after, ppoint)
+    else raise AbstractBlockAccessException
 
   override __.ToVisualBlock () =
-    match funcAbs with
-    | Some _ -> [||]
-    | None ->
+    if isNull funcAbs then
       liftedInstrs
       |> Array.collect (fun liftedIns -> liftedIns.Stmts)
       |> Array.map (fun stmt ->
         [| { AsmWordKind = AsmWordKind.String
              AsmWordValue = LowUIR.Pp.stmtToString stmt } |])
+    else [||]
+
+  interface IEquatable<IRBasicBlock<'Abs>> with
+    member __.Equals (other: IRBasicBlock<'Abs>) =
+      __.PPoint = other.PPoint
 
   static member CreateRegular (liftedInstrs, ppoint) =
-    IRBasicBlock (ppoint, None, liftedInstrs)
+    IRBasicBlock (ppoint, null, liftedInstrs)
 
-  static member CreateAbstract (ppoint, callSiteAddr, retPoint,
-                                ?fromTail, ?fromInd) =
-    let fromTail = defaultArg fromTail false
-    let fromInd = defaultArg fromInd false
-    let info = FunctionAbstraction (callSiteAddr, retPoint, fromTail, fromInd)
-    IRBasicBlock (ppoint, Some info, [||])
+  static member CreateAbstract (ppoint, info) =
+    assert (not (isNull info))
+    IRBasicBlock (ppoint, info, [||])
 

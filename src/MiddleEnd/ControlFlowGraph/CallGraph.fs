@@ -27,18 +27,12 @@ namespace B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.MiddleEnd.BinGraph
 
 /// Call graph, where each node represents a function.
-type CallCFG = IGraph<CallGraphBlock, CFGEdgeKind>
+type CallCFG<'E when 'E: equality> =
+  IGraph<CallGraphBlock, 'E>
 
+[<RequireQualifiedAccess>]
 module CallCFG =
-  let private initImperative () =
-    ImperativeDiGraph<CallGraphBlock, CFGEdgeKind> ()
-    :> CallCFG
-
-  let private initPersistent () =
-    PersistentDiGraph<CallGraphBlock, CFGEdgeKind> ()
-    :> CallCFG
-
-  /// Initialize CallCFG based on the implementation type.
-  let init = function
-    | Imperative -> initImperative ()
-    | Persistent -> initPersistent ()
+  /// Constructor for CallCFG.
+  type IConstructable<'E when 'E: equality> =
+    /// Construct a CallCFG.
+    abstract Construct: ImplementationType -> CallCFG<'E>

@@ -34,8 +34,8 @@ open B2R2.MiddleEnd.ControlFlowGraph
 /// Per-function factory for basic blocks. Each BBL is memoized so that we do
 /// not create multiple BBLs for the same address. As this is a per-function
 /// structure, each function may see overlapping basic blocks.
-type BBLFactory (hdl: BinHandle, instrs: InstructionCollection) =
-  let temporaryBBLs = ConcurrentDictionary<Addr, IRBasicBlock> ()
+type BBLFactory (hdl: BinHandle, instrs, tid: byref<int>) =
+  let temporaryBBLs = ConcurrentDictionary<Addr, IRBasicBlock<_>> ()
   let mutable bbls: ARMap<BasicBlock> = ARMap.empty
 
   member private __.LiftAndFill bblAddr (arr: LiftedInstruction[]) instrs idx =
@@ -55,7 +55,7 @@ type BBLFactory (hdl: BinHandle, instrs: InstructionCollection) =
     IRBasicBlock.CreateRegular (arr, ppoint)
 
   member private __.ParseBlock acc insCount addr =
-    match instrs.Find addr with
+    match (instrs: InstructionCollection).Find addr with
     | Ok ins ->
       let nextAddr = addr + uint64 ins.Length
       if ins.IsBBLEnd () || temporaryBBLs.ContainsKey nextAddr then
@@ -63,7 +63,7 @@ type BBLFactory (hdl: BinHandle, instrs: InstructionCollection) =
       else __.ParseBlock (ins :: acc) (insCount + 1) nextAddr
     | Error e ->
 #if CFGDEBUG
-      dbglog (nameof __) $"Failed to parse instruction at {addr:x}"
+      dbglog tid (nameof __) $"Failed to parse instruction at {addr:x}"
 #endif
       Error e
 

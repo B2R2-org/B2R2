@@ -30,21 +30,38 @@ open B2R2.MiddleEnd.ControlFlowGraph
 
 /// The main builder for a function, which is responsible for building a
 /// function from a given state and a strategy.
-type FunctionBuilder<'Act,
+type FunctionBuilder<'V,
+                     'E,
+                     'Abs,
+                     'Act,
                      'State,
                      'Req,
-                     'Res when 'Act :> ICFGAction
+                     'Res when 'V :> IRBasicBlock<'Abs>
+                           and 'V: equality
+                           and 'E: equality
+                           and 'Abs: null
+                           and 'Act :> ICFGAction
                            and 'State :> IResettable
                            and 'State: (new: unit -> 'State)>
     (hdl,
      instrs,
      entryPoint,
+     cfgConstructor: IRCFG.IConstructable<'V, 'E, 'Abs>,
      agent: Agent<CFGTaskMessage<'Req, 'Res>>,
-     strategy: IFunctionBuildingStrategy<'Act, 'State, 'Req, 'Res>,
+     strategy: IFunctionBuildingStrategy<_, _, _, _, _, _, _>,
      noRetAnalyzer) =
 
-  let bblFactory = BBLFactory (hdl, instrs)
-  let ircfg = IRCFG.init Imperative
+  let mutable inProgress = true
+
+  /// ID of the thread that is currently building this function.
+  let mutable threadId = -1
+
+  /// This function is invalid; we encountered a fatal error while recovering
+  /// the function.
+  let mutable isBad = false
+
+  let bblFactory = BBLFactory (hdl, instrs, &threadId)
+  let ircfg = cfgConstructor.Construct Imperative
   let state = new 'State ()
 
   let ms =
@@ -59,17 +76,20 @@ type FunctionBuilder<'Act,
 
   let queue = CFGActionQueue<'Act> ()
 
-  let mutable inProgress = true
-
-  /// This function is invalid; we encountered a fatal error while recovering
-  /// the function.
-  let mutable isBad = false
-
   /// Entry point of the function that is being built.
   member __.EntryPoint with get(): Addr = entryPoint
 
   /// Is the function building in progress?
-  member __.InProgress with get() = inProgress and set(v) = inProgress <- v
+  member __.InProgress
+    with get() = inProgress
+    and set(v) =
+#if CFGDEBUG
+      if not v then flushLog threadId else ()
+#endif
+      inProgress <- v
+
+  /// Which thread is building this function?
+  member __.ThreadId with get() = threadId and set(v) = threadId <- v
 
   /// The current context of the function building process.
   member __.Context with get() = ctxt
@@ -91,4 +111,6 @@ type FunctionBuilder<'Act,
 
   interface IValidityCheck with
     member __.IsValid with get() = not isBad
-    member __.Invalidate () = isBad <- true
+    member __.Invalidate () =
+      isBad <- true
+      __.InProgress <- false

@@ -27,26 +27,35 @@ namespace B2R2.MiddleEnd.ControlFlowAnalysis
 open System
 open System.Threading
 open System.Threading.Tasks.Dataflow
-open System.Collections
 open System.Collections.Generic
 open B2R2
 open B2R2.FrontEnd
+open B2R2.MiddleEnd.ControlFlowGraph
 
 /// Task manager for control flow recovery.
-type CFGTaskManager<'Act,
+type CFGTaskManager<'V,
+                    'E,
+                    'Abs,
+                    'Act,
                     'State,
                     'Req,
-                    'Res when 'Act :> ICFGAction
+                    'Res when 'V :> IRBasicBlock<'Abs>
+                          and 'V: equality
+                          and 'E: equality
+                          and 'Abs: null
+                          and 'Act :> ICFGAction
                           and 'State :> IResettable
                           and 'State: (new: unit -> 'State)>
     (hdl,
      instrs: InstructionCollection,
-     strategy: IFunctionBuildingStrategy<'Act, 'State, 'Req, 'Res>,
+     cfgConstructor: IRCFG.IConstructable<'V, 'E, 'Abs>,
+     strategy: IFunctionBuildingStrategy<_, _, _, _, 'State, 'Req, 'Res>,
      noRetAnalyzer,
      ?numThreads) =
 
-  let builders = Dictionary<Addr, FunctionBuilder<'Act, 'State, 'Req, 'Res>> ()
-  let channel = BufferBlock<FunctionBuilder<'Act, 'State, 'Req, 'Res>> ()
+  let numThreads = defaultArg numThreads Environment.ProcessorCount
+  let builders = Dictionary<Addr, FunctionBuilder<_, _, _, _, _, _, _>> ()
+  let channel = BufferBlock<FunctionBuilder<_, _, _, _, _, _, _>> ()
   let cts = new CancellationTokenSource ()
   let dependenceMap = FunctionDependenceMap ()
 
@@ -54,7 +63,8 @@ type CFGTaskManager<'Act,
     while not inbox.IsCancelled do
       match inbox.Receive () with
       | AddTask entryPoint ->
-        let builder: FunctionBuilder<_, _, _, _> = getBuilder entryPoint
+        let builder: FunctionBuilder<_, _, _, _, _, _, _> =
+          getBuilder entryPoint
         if builder.InProgress || (builder :> IValidityCheck).IsValid then ()
         else channel.Post builder |> ignore
       | AddDependency (caller, callee) ->
@@ -78,7 +88,8 @@ type CFGTaskManager<'Act,
     | true, builder -> builder
     | false, _ ->
       let builder =
-        FunctionBuilder (hdl, instrs, addr, manager, strategy, noRetAnalyzer)
+        FunctionBuilder (hdl, instrs, addr,
+                         cfgConstructor, manager, strategy, noRetAnalyzer)
       builders[addr] <- builder
       builder
 
@@ -87,30 +98,41 @@ type CFGTaskManager<'Act,
   and addTasks (entryPoints: IEnumerable<Addr>) =
     entryPoints |> Seq.iter (AddTask >> manager.Post)
 
-  let numThreads = defaultArg numThreads Environment.ProcessorCount
-
   let _workers =
-    Array.init numThreads (fun _ ->
-      CFGTaskWorker (manager, channel, cts.Token))
+    Array.init numThreads (fun idx ->
+      CFGTaskWorker (idx, manager, channel, cts.Token))
+
+#if CFGDEBUG
+  do initLogger numThreads
+#endif
 
   /// Start the CFG recovery process using the given sequence of entry points.
   member __.StartRecovery (entryPoints: Addr[]) =
     entryPoints |> addTasks
 
 /// Task worker for control flow recovery.
-and private CFGTaskWorker<'Act,
+and private CFGTaskWorker<'V,
+                          'E,
+                          'Abs,
+                          'Act,
                           'State,
                           'Req,
-                          'Res when 'Act :> ICFGAction
+                          'Res when 'V :> IRBasicBlock<'Abs>
+                                and 'V: equality
+                                and 'E: equality
+                                and 'Abs: null
+                                and 'Act :> ICFGAction
                                 and 'State :> IResettable
                                 and 'State: (new: unit -> 'State)>
-    (manager: Agent<CFGTaskMessage<'Req, 'Res>>,
-     taskChannel: BufferBlock<FunctionBuilder<'Act, 'State, 'Req, 'Res>>,
+    (tid: int,
+     manager: Agent<CFGTaskMessage<'Req, 'Res>>,
+     chan: BufferBlock<FunctionBuilder<'V, 'E, 'Abs, 'Act, 'State, 'Req, 'Res>>,
      token: CancellationToken) =
 
   let _worker = task {
     while not token.IsCancellationRequested do
-      let builder = taskChannel.Receive (cancellationToken=token)
+      let builder = chan.Receive (cancellationToken=token)
+      builder.ThreadId <- tid
       let res = builder.Recover ()
       manager.Post <| ReportResult (builder.EntryPoint, res)
   }

@@ -24,7 +24,6 @@
 
 namespace B2R2.MiddleEnd.DataFlow
 
-open B2R2
 open B2R2.BinIR.SSA
 open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.ControlFlowGraph
@@ -32,13 +31,15 @@ open B2R2.MiddleEnd.ControlFlowGraph
 /// The constant propagation framework, which is a modified version of sparse
 /// conditional constant propagation of Wegman et al.
 [<AbstractClass>]
-type ConstantPropagation<'L when 'L: equality> (ssaCFG: SSACFG) =
-  inherit DataFlowAnalysis<'L, SSABasicBlock> ()
+type ConstantPropagation<'L, 'Abs when 'L: equality
+                                   and 'Abs :> SSAFunctionAbstraction
+                                   and 'Abs: null> (ssaCFG: SSACFG<_, _>) =
+  inherit DataFlowAnalysis<'L, SSABasicBlock<'Abs>> ()
 
   /// Constant propagation state.
-  abstract State: CPState<'L>
+  abstract State: CPState<'L, 'Abs>
 
-  member private __.GetNumIncomingExecutedEdges st (blk: SSAVertex) =
+  member private __.GetNumIncomingExecutedEdges st (blk: SSAVertex<_>) =
     let mutable count = 0
     for pred in ssaCFG.GetPreds blk do
       if CPState.isExecuted st pred.ID blk.ID then count <- count + 1
@@ -67,7 +68,7 @@ type ConstantPropagation<'L when 'L: equality> (ssaCFG: SSACFG) =
       blk.VData.LiftedSSAStmts
       |> Array.iter (fun (ppoint, stmt) ->
         st.CPCore.Transfer st ssaCFG blk ppoint stmt)
-      if blk.VData.IsFake then ()
+      if blk.VData.IsAbstract then ()
       else
         match blk.VData.LastStmt with
         | Jmp _ -> ()

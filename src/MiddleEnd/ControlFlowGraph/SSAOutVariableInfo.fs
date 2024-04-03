@@ -36,7 +36,7 @@ module SSAOutVariableInfo =
   /// Translate the given expression into another one w.r.t caller's context.
   /// Its translation is done by replacing the stack variable with the
   /// corresponding load expression. Note that our current impl of SSA
-  /// construction does not rename stack variables in abstracted basic blocks
+  /// construction does not rename stack variables in abstract basic blocks
   /// for simplicity.
   let rec private translateExprForCallerContext hdl = function
     | Var { Kind = StackVar (rt, off) } -> (* convert into Load(...) *)

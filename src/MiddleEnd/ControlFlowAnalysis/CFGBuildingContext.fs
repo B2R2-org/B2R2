@@ -28,9 +28,18 @@ open B2R2.MiddleEnd.ControlFlowGraph
 
 /// The context for building a control flow graph. A user-defined state can be
 /// stored in the context, too.
-type CFGBuildingContext<'State, 'Req, 'Res when 'State :> IResettable> = {
+type CFGBuildingContext<'V,
+                        'E,
+                        'Abs,
+                        'State,
+                        'Req,
+                        'Res when 'V :> IRBasicBlock<'Abs>
+                              and 'V: equality
+                              and 'E: equality
+                              and 'Abs: null
+                              and 'State :> IResettable> = {
   /// The control flow graph.
-  CFG: IRCFG
+  CFG: IRCFG<'V, 'E, 'Abs>
   /// The basic block factory.
   BBLFactory: BBLFactory
   /// The user-defined state.
