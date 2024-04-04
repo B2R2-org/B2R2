@@ -24,6 +24,7 @@
 
 namespace B2R2.MiddleEnd.ControlFlowAnalysis
 
+open B2R2
 open B2R2.MiddleEnd.ControlFlowGraph
 
 /// A strategy that defines how CFGActions are handled to build a function.
@@ -39,6 +40,11 @@ type IFunctionBuildingStrategy<'V,
                                      and 'Abs: null
                                      and 'Act :> ICFGAction
                                      and 'State :> IResettable> =
+  /// Populate the initial action for the function located at the given entry
+  /// point.
+  abstract PopulateInitialAction:
+    entryPoint: Addr * mode: ArchOperationMode -> 'Act
+
   /// This is a callback that is called for every CFGAction generated for a
   /// function. Each action may discover a new basic block, add a new edge, etc.
   /// This function returns a CFGResult that indicates whether the function
@@ -53,7 +59,6 @@ type IFunctionBuildingStrategy<'V,
   /// when CFGActionQueue is empty.
   abstract OnFinish:
       CFGBuildingContext<'V, 'E, 'Abs, 'State, 'Req, 'Res>
-    * INoReturnIdentifiable
     -> CFGResult
 
   /// This is a callback that is called when a query is made to the

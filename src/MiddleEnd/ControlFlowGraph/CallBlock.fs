@@ -24,11 +24,23 @@
 
 namespace B2R2.MiddleEnd.ControlFlowGraph
 
-/// Information stored for an abstract basic block in SSACFG.
-[<AllowNullLiteral>]
-type SSAFunctionAbstraction (funcAbs: FunctionAbstraction) =
-  inherit FunctionAbstraction (funcAbs)
-  let mutable varInfo: SSAOutVariableInfo = Map.empty
+open B2R2
+open B2R2.FrontEnd.BinLifter
 
-  /// SSA variables that are defined in this function.
-  member __.OutVariableInfo with get() = varInfo
+/// Basic block type for a call graph (CallCFG).
+type CallBlock (addr, name, isExternal) =
+  inherit BasicBlock (ProgramPoint (addr, 0))
+
+  member __.Name with get () = name
+
+  member __.IsExternal with get () = isExternal
+
+  override __.Range = AddrRange (addr)
+
+  override __.ToVisualBlock () =
+    [| [| { AsmWordKind = AsmWordKind.Address
+            AsmWordValue = Addr.toString WordSize.Bit32 addr }
+          { AsmWordKind = AsmWordKind.String
+            AsmWordValue = ": " }
+          { AsmWordKind = AsmWordKind.Value
+            AsmWordValue = name } |] |]

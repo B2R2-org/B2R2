@@ -28,7 +28,7 @@ open System
 open System.Text.RegularExpressions
 open B2R2
 open B2R2.FrontEnd
-open B2R2.MiddleEnd.BinEssence
+open B2R2.MiddleEnd
 open B2R2.RearEnd
 
 type PrintFormat =
@@ -146,12 +146,12 @@ type CmdPrint () =
         let len = String.length s |> uint64
         printStrings hdl (addr + len + 1UL) (cnt - 1) ((addrstr + s) :: acc)
 
-  let validateRequest (binEssence: BinEssence) = function
+  let validateRequest (brew: BinaryBrew<_, _, _, _, _, _, _>) = function
     | Ok (_, count, ASCII, addr) ->
-      let hdl = binEssence.BinHandle
+      let hdl = brew.BinHandle
       printStrings hdl addr count []
     | Ok (sz, count, fmt, addr) ->
-      let hdl = binEssence.BinHandle
+      let hdl = brew.BinHandle
       let sz = PrintSize.ToInt sz
       let endAddr = addr + uint64 (sz * count)
       if addr > endAddr then [| "[*] Invalid address range given."|]
@@ -181,12 +181,12 @@ type CmdPrint () =
 
   override __.SubCommands = []
 
-  override __.CallBack _ binEssence args =
+  override __.CallBack _ brew args =
     match args with
     | fmt :: addr :: _ ->
       parseFormat fmt
       |> Result.bind (parseAddr addr)
-      |> validateRequest binEssence
+      |> validateRequest brew
     | _ -> [| __.CmdHelp |]
     |> Array.map OutputNormal
 

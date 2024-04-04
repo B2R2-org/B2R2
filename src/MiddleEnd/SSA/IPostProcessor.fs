@@ -22,17 +22,17 @@
   SOFTWARE.
 *)
 
-namespace B2R2.MiddleEnd.ControlFlowGraph
+namespace B2R2.MiddleEnd.SSA
 
-open B2R2.MiddleEnd.BinGraph
+open B2R2.MiddleEnd.ControlFlowGraph
 
-/// Call graph, where each node represents a function.
-type CallCFG<'E when 'E: equality> =
-  IGraph<CallGraphBlock, 'E>
-
-[<RequireQualifiedAccess>]
-module CallCFG =
-  /// Constructor for CallCFG.
-  type IConstructable<'E when 'E: equality> =
-    /// Construct a CallCFG.
-    abstract Construct: ImplementationType -> CallCFG<'E>
+/// Post-processor for SSACFG. This is used to transform a SSACFG into another
+/// SSACFG.
+[<AllowNullLiteral>]
+type IPostProcessor<'E, 'Abs when 'E: equality
+                              and 'Abs :> SSAFunctionAbstraction
+                              and 'Abs: null> =
+  /// Transform the given SSACFG into another SSACFG.
+  abstract PostProcess:
+       SSACFG<'E, 'Abs> * SSAVertex<'Abs>
+    -> struct (SSACFG<'E, 'Abs> * SSAVertex<'Abs>)

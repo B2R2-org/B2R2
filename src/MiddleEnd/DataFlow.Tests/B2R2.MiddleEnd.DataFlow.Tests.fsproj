@@ -15,7 +15,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\BinEssence\B2R2.MiddleEnd.BinEssence.fsproj" />
+    <ProjectReference Include="..\Core\B2R2.MiddleEnd.Core.fsproj" />
   </ItemGroup>
 
 </Project>

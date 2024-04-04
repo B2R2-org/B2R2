@@ -42,13 +42,6 @@ type DisasmBasicBlock (ppoint, instrs) =
     let last = instrs[instrs.Length - 1]
     AddrRange (ppoint.Address, last.Address + uint64 last.Length - 1UL)
 
-  override __.Cut (cutPoint: Addr) =
-    assert (__.Range.IsIncluding cutPoint)
-    let before, after =
-      instrs
-      |> Array.partition (fun ins -> ins.Address < cutPoint)
-    DisasmBasicBlock (ppoint, before), DisasmBasicBlock (ppoint, after)
-
   override __.ToVisualBlock () =
     instrs
     |> Array.mapi (fun idx ins ->

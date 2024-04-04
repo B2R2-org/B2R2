@@ -34,6 +34,7 @@ exception DummyDataAccessException
 type VertexID = int
 
 /// A vertex of a graph.
+[<AllowNullLiteral>]
 type IVertex<'V when 'V: equality> =
   inherit System.IComparable
 

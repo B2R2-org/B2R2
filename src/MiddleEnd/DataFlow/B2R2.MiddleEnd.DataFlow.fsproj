@@ -31,6 +31,7 @@
   <ItemGroup>
     <ProjectReference Include="..\BinGraph\B2R2.MiddleEnd.BinGraph.fsproj" />
     <ProjectReference Include="..\ControlFlowGraph\B2R2.MiddleEnd.ControlFlowGraph.fsproj" />
+    <ProjectReference Include="..\SSA\B2R2.MiddleEnd.SSA.fsproj" />
   </ItemGroup>
 
 </Project>

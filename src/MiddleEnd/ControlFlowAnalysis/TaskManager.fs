@@ -26,6 +26,7 @@ namespace B2R2.MiddleEnd.ControlFlowAnalysis
 
 open System
 open System.Threading
+open System.Threading.Tasks
 open System.Threading.Tasks.Dataflow
 open System.Collections.Generic
 open B2R2
@@ -49,89 +50,109 @@ type TaskManager<'V,
     (hdl,
      instrs: InstructionCollection,
      cfgConstructor: IRCFG.IConstructable<'V, 'E, 'Abs>,
-     strategy: IFunctionBuildingStrategy<_, _, _, _, 'State, 'Req, 'Res>,
-     noRetAnalyzer,
+     strategy: IFunctionBuildingStrategy<_, _, _, 'Act, 'State, 'Req, 'Res>,
      ?numThreads) =
 
   let numThreads = defaultArg numThreads Environment.ProcessorCount
   let builders = Dictionary<Addr, FunctionBuilder<_, _, _, _, _, _, _>> ()
+  let workingSet = HashSet<Addr> ()
   let toWorkers = BufferBlock<FunctionBuilder<_, _, _, _, _, _, _>> ()
   let cts = new CancellationTokenSource ()
   let dependenceMap = FunctionDependenceMap ()
-  let resultChannel = BufferBlock<unit> ()
 
-  let rec processor (inbox: IAgentMessageReceivable<_>) =
+  let rec managerTask (inbox: IAgentMessageReceivable<_>) =
     while not inbox.IsCancelled do
       match inbox.Receive () with
-      | AddTask entryPoint ->
-        let builder = getBuilder entryPoint
+      | AddTask (entryPoint, mode) ->
+        workingSet.Add entryPoint |> ignore
+        let builder = getOrCreateBuilder entryPoint mode
         if builder.InProgress then ()
         else
           builder.InProgress <- true
           toWorkers.Post builder |> ignore
-      | AddDependency (caller, callee) ->
+      | AddDependency (caller, callee, mode) ->
         dependenceMap.AddDependency (caller, callee)
-        addTask callee
-      | ReportResult (entryPoint, Success) ->
-        builders[entryPoint].InProgress <- false
-        dependenceMap.RemoveAndGetCallers entryPoint
-        |> Seq.iter (getBuilder >> toWorkers.Post >> ignore)
+        addTask callee mode
+      | ReportResult (entryPoint, result) ->
+        handleResult entryPoint result
         if isAllDone () then terminate () else ()
-      | ReportResult (entryPoint, Postponement) ->
-        let builder = builders[entryPoint]
-        builder.InProgress <- false
-        addTask entryPoint
-      | ReportResult (entryPoint, Failure _) ->
-        (builders[entryPoint] :> IValidityCheck).Invalidate ()
-        dependenceMap.RemoveAndGetCallers entryPoint
-        |> addTasks
       | Query (entryPoint, _, _) as msg ->
         let builder = builders[entryPoint]
         strategy.OnQuery (msg, builder :> IValidityCheck)
 
-  and getBuilder addr: FunctionBuilder<_, _, _, _, _, _, _> =
+  and getOrCreateBuilder addr mode: FunctionBuilder<_, _, _, _, _, _, _> =
     match builders.TryGetValue addr with
     | true, builder -> builder
     | false, _ ->
       let builder =
-        FunctionBuilder (hdl, instrs, addr,
-                         cfgConstructor, manager, strategy, noRetAnalyzer)
+        FunctionBuilder (hdl, instrs, addr, mode,
+                         cfgConstructor, manager, strategy)
       builders[addr] <- builder
       builder
 
-  and manager = Agent<_>.Start (processor, cts.Token)
+  and manager = Agent<_>.Start (managerTask, cts.Token)
 
-  and addTask (entryPoint: Addr) =
-    AddTask entryPoint |> manager.Post
+  and addTask entryPoint mode =
+    AddTask (entryPoint, mode) |> manager.Post
 
-  and addTasks (entryPoints: IEnumerable<Addr>) =
-    entryPoints |> Seq.iter addTask
+  and handleResult entryPoint result =
+    let builder = builders[entryPoint]
+    match result with
+    | Success ->
+      workingSet.Remove entryPoint |> ignore
+      builder.InProgress <- false
+      dependenceMap.RemoveAndGetCallers entryPoint
+      |> List.iter (fun addr -> toWorkers.Post builders[addr] |> ignore)
+    | Postponement ->
+      builder.InProgress <- false
+      addTask entryPoint builder.Mode
+    | Failure _ ->
+      workingSet.Remove entryPoint |> ignore
+      (builder :> IValidityCheck).Invalidate ()
+      dependenceMap.RemoveAndGetCallers entryPoint
+      |> List.iter (fun addr -> addTask addr ArchOperationMode.NoMode)
 
   and isAllDone () =
-    builders.Values |> Seq.forall (fun builder -> not builder.InProgress)
+    workingSet.Count = 0
 
   and terminate () =
+    toWorkers.Complete ()
     cts.Cancel ()
-    resultChannel.Post () |> ignore
 
-  let _workers =
-    Array.init numThreads (fun idx ->
-      TaskWorker (idx, manager, toWorkers, cts.Token))
+  let workers =
+    Array.init numThreads (fun idx -> TaskWorker(idx, manager, toWorkers).Task)
 
 #if CFGDEBUG
   do initLogger numThreads
 #endif
 
+  let waitForWorkers () =
+    Task.WhenAll workers (* all done *)
+    |> Async.AwaitTask
+    |> Async.RunSynchronously
+
+  let buildersToArray () =
+    let builders = builders.Values |> Seq.toArray
+    builders
+    |> Array.filter (fun builder ->
+      not builder.InProgress && (builder :> IValidityCheck).IsValid)
+#if DEBUG
+    |> fun filtered ->
+      if filtered.Length = builders.Length then Some builders
+      else None
+#else
+    |> Some
+#endif
+
   /// Recover the CFGs from the given sequence of entry points. This function
   /// will potentially discover more functions and then return the whole set of
   /// recovered functions (dictionary) as output.
-  member __.Recover (entryPoints: Addr[]) =
-    entryPoints |> addTasks
-    resultChannel.Receive ()
-    builders
-    |> Seq.map (fun (KeyValue (addr, builder)) ->
-      KeyValuePair (addr, builder.ToFunction ()))
-    |> Dictionary
+  member __.RecoverCFGs (entryPoints: (Addr * ArchOperationMode)[]) =
+    entryPoints |> Seq.iter (fun (addr, mode) -> addTask addr mode)
+    waitForWorkers ()
+    match buildersToArray () with
+    | Some builders -> FunctionCollection builders
+    | None -> Utils.impossible ()
 
 /// Task worker for control flow recovery.
 and private TaskWorker<'V,
@@ -147,15 +168,25 @@ and private TaskWorker<'V,
                              and 'Act :> ICFGAction
                              and 'State :> IResettable
                              and 'State: (new: unit -> 'State)>
+  public
     (tid: int,
      manager: Agent<TaskMessage<'Req, 'Res>>,
-     chan: BufferBlock<FunctionBuilder<'V, 'E, 'Abs, 'Act, 'State, 'Req, 'Res>>,
-     token: CancellationToken) =
+     chan: BufferBlock<FunctionBuilder<'V, 'E, 'Abs, 'Act, 'State, 'Req, 'Res>>)
+  =
 
-  let _worker = task {
-    while not token.IsCancellationRequested do
-      let builder = chan.Receive (cancellationToken=token)
-      builder.ThreadId <- tid
-      let res = builder.Recover ()
-      manager.Post <| ReportResult (builder.EntryPoint, res)
+  let worker = task {
+    while! chan.OutputAvailableAsync () do
+      match chan.TryReceive () with
+      | true, builder ->
+        builder.Context.ThreadID <- tid
+        try
+          let res = builder.Recover ()
+          manager.Post <| ReportResult (builder.EntryPoint, res)
+        with e ->
+          Console.Error.WriteLine $"{e}"
+          let result = Failure ErrorCase.FailedToRecoverCFG
+          manager.Post <| ReportResult (builder.EntryPoint, result)
+      | false, _ -> ()
   }
+
+  member _.Task with get() = worker

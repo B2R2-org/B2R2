@@ -24,27 +24,15 @@
 
 namespace B2R2.MiddleEnd.ControlFlowGraph
 
-open B2R2
-open B2R2.FrontEnd.BinLifter
+open B2R2.MiddleEnd.BinGraph
 
-/// Basic block type for a call graph (CallCFG).
-type CallGraphBlock (addr, id, name, isExternal) =
-  inherit BasicBlock (ProgramPoint (addr, 0))
+/// Call graph, where each node represents a function.
+type CallCFG<'E when 'E: equality> =
+  IGraph<CallBlock, 'E>
 
-  member __.ID with get () = id
-
-  member __.Name with get () = name
-
-  member __.IsExternal with get () = isExternal
-
-  override __.Range = AddrRange (addr)
-
-  override __.Cut _ = Utils.impossible ()
-
-  override __.ToVisualBlock () =
-    [| [| { AsmWordKind = AsmWordKind.Address
-            AsmWordValue = Addr.toString WordSize.Bit32 addr }
-          { AsmWordKind = AsmWordKind.String
-            AsmWordValue = ": " }
-          { AsmWordKind = AsmWordKind.Value
-            AsmWordValue = id } |] |]
+[<RequireQualifiedAccess>]
+module CallCFG =
+  /// Constructor for CallCFG.
+  type IConstructable<'E when 'E: equality> =
+    /// Construct a CallCFG.
+    abstract Construct: ImplementationType -> CallCFG<'E>

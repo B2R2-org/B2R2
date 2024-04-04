@@ -22,12 +22,13 @@
   SOFTWARE.
 *)
 
-namespace B2R2.MiddleEnd.ControlFlowAnalysis
+namespace B2R2.MiddleEnd.SSA
 
-open B2R2
+/// Information stored for an abstract basic block in SSACFG.
+[<AllowNullLiteral>]
+type SSAFunctionAbstraction (funcAbs: FunctionAbstraction) =
+  inherit FunctionAbstraction (funcAbs)
+  let mutable varInfo: SSAOutVariableInfo = Map.empty
 
-/// The interface for querying a global state from the TaskManager.
-type IStateUpdatable =
-  /// Make a query and get a response.
-  abstract UpdateDependency:
-    caller: Addr * callee: Addr * ArchOperationMode -> unit
+  /// SSA variables that are defined in this function.
+  member __.OutVariableInfo with get() = varInfo

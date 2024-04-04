@@ -22,11 +22,12 @@
   SOFTWARE.
 *)
 
-module B2R2.MiddleEnd.ControlFlowGraph.SSAEdges
+module B2R2.MiddleEnd.SSA.SSAEdges
 
 open B2R2
 open B2R2.BinIR
 open B2R2.MiddleEnd.BinGraph
+open B2R2.MiddleEnd.ControlFlowGraph
 
 type SSAStmtLocation = VertexID * int
 

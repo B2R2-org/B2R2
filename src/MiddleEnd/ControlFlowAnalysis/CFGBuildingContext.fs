@@ -24,6 +24,9 @@
 
 namespace B2R2.MiddleEnd.ControlFlowAnalysis
 
+open System.Collections.Generic
+open B2R2
+open B2R2.FrontEnd
 open B2R2.MiddleEnd.ControlFlowGraph
 
 /// The context for building a control flow graph. A user-defined state can be
@@ -38,15 +41,39 @@ type CFGBuildingContext<'V,
                               and 'E: equality
                               and 'Abs: null
                               and 'State :> IResettable> = {
+  /// The binary handle.
+  BinHandle: BinHandle
   /// The control flow graph.
-  CFG: IRCFG<'V, 'E, 'Abs>
+  mutable CFG: IRCFG<'V, 'E, 'Abs>
   /// The basic block factory.
-  BBLFactory: BBLFactory
+  BBLFactory: BBLFactory<'Abs>
+  /// The call instructions encountered so far. Callsite (call instruction)
+  /// address to its callee kind.
+  Calls: SortedList<Addr, CalleeKind>
   /// The user-defined state.
   State: 'State
   /// The channel for accessing the state of the TaskManager.
   ManagerState: IManagerState<'Req, 'Res>
+  /// Thread ID that is currently building this function.
+  mutable ThreadID: int
 }
+
+/// What kind of callee is this?
+and CalleeKind =
+  /// Callee is a regular function.
+  | RegularCallee of Addr
+  /// Callee is a syscall of the given number.
+  | SyscallCallee of number: int
+  /// Callee is a set of indirect call targets. This means potential callees
+  /// have been analyzed already.
+  | IndirectCallees of Set<Addr>
+  /// Callee (call target) is unresolved yet. This eventually will become
+  /// IndirectCallees after indirect call analyses.
+  | UnresolvedIndirectCallees
+  /// There can be "call 0" to call an external function. This pattern is
+  /// typically observed by object files, but sometimes we do see this pattern
+  /// in regular executables, e.g., GNU libc.
+  | NullCallee
 
 /// The state of the TaskManager.
 and IManagerState<'Req, 'Res> =

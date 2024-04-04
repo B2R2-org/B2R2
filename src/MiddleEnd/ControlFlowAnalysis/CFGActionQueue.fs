@@ -25,6 +25,7 @@
 namespace B2R2.MiddleEnd.ControlFlowAnalysis
 
 open System.Collections.Generic
+open B2R2
 
 /// Our CFG reconstruction algorithm is performed by consuming actions
 /// (ICFGActions). Each action has a priority, which is used to determine the

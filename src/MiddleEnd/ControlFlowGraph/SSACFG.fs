@@ -24,11 +24,11 @@
 
 namespace B2R2.MiddleEnd.ControlFlowGraph
 
+open B2R2.BinIR.SSA
 open B2R2.MiddleEnd.BinGraph
 
 /// SSA-based CFG, where each node contains disassembly code.
 type SSACFG<'E, 'Abs when 'E: equality
-                      and 'Abs :> SSAFunctionAbstraction
                       and 'Abs: null> =
   IGraph<SSABasicBlock<'Abs>, 'E>
 
@@ -36,7 +36,42 @@ type SSACFG<'E, 'Abs when 'E: equality
 module SSACFG =
   /// Constructor for SSACFG.
   type IConstructable<'E, 'Abs when 'E: equality
-                                and 'Abs :> SSAFunctionAbstraction
                                 and 'Abs: null> =
     /// Construct an SSACFG.
     abstract Construct: ImplementationType -> SSACFG<'E, 'Abs>
+
+  /// Find SSAVertex that includes the given instruction address.
+  [<CompiledName "FindVertexByAddr">]
+  let findVertexByAddr (ssaCFG: IGraph<SSABasicBlock<_>, _>) addr =
+    ssaCFG.FindVertexBy (fun v ->
+      if v.VData.IsAbstract then false
+      else v.VData.Range.IsIncluding addr)
+
+  /// Find the definition of the given variable kind (targetVarKind) at the
+  /// given node v. We simply follow the dominator tree of the given SSACFG
+  /// until we find a definition.
+  [<CompiledName "FindDef">]
+  let rec findDef (v: IVertex<SSABasicBlock<_>>) targetVarKind =
+    let stmtInfo =
+      v.VData.LiftedSSAStmts
+      |> Array.tryFindBack (fun (_, stmt) ->
+        match stmt with
+        | Def ({ Kind = k }, _) when k = targetVarKind -> true
+        | _ -> false)
+    match stmtInfo with
+    | Some stmtInfo -> Some (snd stmtInfo)
+    | None ->
+      match v.VData.ImmDominator with
+      | Some idom ->
+        findDef idom targetVarKind
+      | None -> None
+
+  /// Find the reaching definition of the given variable kind (targetVarKind) at
+  /// the entry of node v. We simply follow the dominator tree of the given
+  /// SSACFG until we find a definition.
+  [<CompiledName "FindReachingDef">]
+  let findReachingDef (v: IVertex<SSABasicBlock<_>>) targetVarKind =
+    match v.VData.ImmDominator with
+    | Some idom ->
+      findDef idom targetVarKind
+    | None -> None

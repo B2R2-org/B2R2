@@ -77,7 +77,7 @@ type EVMInstruction (addr, numBytes, insInfo, wordSize) =
     || __.Info.Opcode = Opcode.INVALID
     || __.Info.Opcode = Opcode.STOP
 
-  override __.IsBBLEnd () =
+  override __.IsTerminator () =
     __.IsDirectBranch ()
     || __.IsIndirectBranch ()
     || __.Info.Opcode = Opcode.REVERT

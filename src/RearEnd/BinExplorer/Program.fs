@@ -26,10 +26,8 @@ module B2R2.RearEnd.BinExplorer.Program
 
 open B2R2
 open B2R2.FrontEnd
-open B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.MiddleEnd
-open B2R2.MiddleEnd.BinEssence
-open B2R2.MiddleEnd.ControlFlowAnalysis
+open B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.RearEnd
 open B2R2.RearEnd.Visualization
 open B2R2.RearEnd.BinExplorer.CmdUtils
@@ -73,19 +71,6 @@ type BinExplorerOpts (isa) =
 
   /// Enable analysis for EVM.
   member val EnableEVMAnalysis = true with get, set
-
-  /// List of analyses to perform.
-  member __.GetAnalyses arch =
-    let preanalyses =
-      [ if arch = Architecture.EVM then
-          if __.EnableEVMAnalysis then
-            EVMCodeCopyAnalysis () :> IPluggableAnalysis
-            EVMTrampolineAnalysis (__.EVMAbiFile) :> IPluggableAnalysis
-        else
-          LibcAnalysis () :> IPluggableAnalysis ]
-    let iteranalyses = []
-    let postanalyses = []
-    preanalyses, iteranalyses, postanalyses
 
   static member private ToThis (opts: CmdOpts) =
     match opts with
@@ -206,27 +191,22 @@ let spec =
                   long = "--batch" )
   ]
 
-let buildGraph (opts: BinExplorerOpts) (hdl: BinHandle) =
-  let arch = hdl.File.ISA.Arch
-  let preanalyses, iteranalyses, postanalyses = opts.GetAnalyses arch
-  BinEssence.init hdl preanalyses iteranalyses postanalyses
-
 let startGUI (opts: BinExplorerOpts) arbiter =
   HTTPServer.startServer arbiter opts.IP opts.Port opts.Verbose
   |> Async.Start
 
 /// Dump each CFG into JSON file. This feature is implemented to ease the
 /// development and debugging process, and may be removed in the future.
-let dumpJsonFiles jsonDir ess =
+let dumpJsonFiles jsonDir (brew: BinaryBrew<_, _, _, _, _, _, _>) =
   try System.IO.Directory.Delete(jsonDir, true) with _ -> ()
   System.IO.Directory.CreateDirectory(jsonDir) |> ignore
-  ess.CodeManager.FunctionMaintainer.RegularFunctions
+  brew.Functions.Sequence
   |> Seq.iter (fun func ->
-    let id = func.FunctionID
+    let id = func.ID
     let ep = func.EntryPoint
     let disasmJsonPath = Printf.sprintf "%s/%s.disasmCFG" jsonDir id
-    let cfg, root = BinEssence.getFunctionCFG ess ep |> Result.get
-    let disasmcfg, _ = DisasmLens.convert ess.CodeManager cfg root
+    let root = func.CFG.TryGetSingleRoot () |> Option.get
+    let disasmcfg, _ = DisasmCFG.create func.CFG root
     CFGExport.toJson disasmcfg disasmJsonPath)
 
 let initBinHdl isa (name: string) =
@@ -239,9 +219,11 @@ let interactiveMain files (opts: BinExplorerOpts) =
               Type --help or --batch to see more info."; exit 1
   else
     let file = List.head files
-    let ess = initBinHdl opts.ISA file |> buildGraph opts
-    if opts.JsonDumpDir <> "" then dumpJsonFiles opts.JsonDumpDir ess else ()
-    let arbiter = Protocol.genArbiter ess opts.LogFile
+    let strategy = ControlFlowAnalysis.Strategies.SimpleStrategy ()
+    let hdl = initBinHdl opts.ISA file
+    let brew = BinaryBrew (hdl, strategy)
+    if opts.JsonDumpDir <> "" then dumpJsonFiles opts.JsonDumpDir brew else ()
+    let arbiter = Protocol.genArbiter brew opts.LogFile
     startGUI opts arbiter
     CLI.start opts.EnableReadLine arbiter
 
@@ -279,8 +261,10 @@ let batchRun opts paths fstParam restParams fn =
          fn cmdMap opts file fstParam restParams) arr)
 
 let runCommand cmdMap opts file cmd args =
-  let ess = initBinHdl ISA.DefaultISA file |> buildGraph opts
-  Cmd.handle cmdMap ess cmd args
+  let strategy = ControlFlowAnalysis.Strategies.SimpleStrategy ()
+  let hdl = initBinHdl ISA.DefaultISA file
+  let brew = BinaryBrew (hdl, strategy)
+  Cmd.handle cmdMap brew cmd args
   |> Array.iter out.Print
 
 let [<Literal>] private ToolName = "binexplore"

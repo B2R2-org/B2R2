@@ -61,6 +61,12 @@ type PersistentDiGraph<'V, 'E when 'V: equality
   let preds: Map<VertexID, Edge<'V, 'E> list> = preds
   let succs: Map<VertexID, Edge<'V, 'E> list> = succs
   let id: VertexID = id
+  let unreachables () =
+    preds
+    |> Map.fold (fun acc vid ps ->
+      if List.isEmpty ps then (Map.find vid vertices :> IVertex<'V>) :: acc
+      else acc) []
+    |> List.toArray
 
   new () = PersistentDiGraph (Map.empty, Map.empty, Map.empty, 0)
 
@@ -109,12 +115,7 @@ type PersistentDiGraph<'V, 'E when 'V: equality
       |> Seq.collect snd
       |> Seq.toArray
 
-    member __.Unreachables with get() =
-      preds
-      |> Map.fold (fun acc vid ps ->
-        if List.isEmpty ps then (Map.find vid vertices :> IVertex<'V>) :: acc
-        else acc) []
-      |> List.toArray
+    member __.Unreachables with get() = unreachables ()
 
     member __.Exits with get () =
       succs
@@ -208,6 +209,11 @@ type PersistentDiGraph<'V, 'E when 'V: equality
       Map.find v.ID succs
       |> List.fold (fun acc e -> (e.Second :> IVertex<'V>) :: acc) []
       :> IReadOnlyCollection<_>
+
+    member __.TryGetSingleRoot () =
+      match unreachables () with
+      | [| root |] -> Some root
+      | _ -> None
 
     member __.FoldVertex fn acc =
       vertices.Values

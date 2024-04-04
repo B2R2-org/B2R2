@@ -29,9 +29,9 @@ open B2R2
 /// A kind of messages to be handled by TaskManager.
 type TaskMessage<'Req, 'Res> =
   /// Add an address to recover the CFG.
-  | AddTask of Addr
+  | AddTask of Addr * ArchOperationMode
   /// Add a dependency between two functions.
-  | AddDependency of caller: Addr * callee: Addr
+  | AddDependency of caller: Addr * callee: Addr * mode: ArchOperationMode
   /// Report the result of a task.
   | ReportResult of Addr * CFGResult
   /// Query the global state.

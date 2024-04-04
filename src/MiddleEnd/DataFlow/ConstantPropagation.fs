@@ -32,14 +32,13 @@ open B2R2.MiddleEnd.ControlFlowGraph
 /// conditional constant propagation of Wegman et al.
 [<AbstractClass>]
 type ConstantPropagation<'L, 'Abs when 'L: equality
-                                   and 'Abs :> SSAFunctionAbstraction
                                    and 'Abs: null> (ssaCFG: SSACFG<_, _>) =
   inherit DataFlowAnalysis<'L, SSABasicBlock<'Abs>> ()
 
   /// Constant propagation state.
   abstract State: CPState<'L, 'Abs>
 
-  member private __.GetNumIncomingExecutedEdges st (blk: SSAVertex<_>) =
+  member private __.GetNumIncomingExecutedEdges st (blk: IVertex<_>) =
     let mutable count = 0
     for pred in ssaCFG.GetPreds blk do
       if CPState.isExecuted st pred.ID blk.ID then count <- count + 1

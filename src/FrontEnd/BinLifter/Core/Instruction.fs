@@ -154,13 +154,13 @@ type Instruction (addr, len, wordSize) =
   /// <summary>
   ///   Does this instruction end a basic block? For example, this function
   ///   returns true for branch instructions and exit instructions. We also
-  ///   consider system call instructions as an end of basic blocks.
+  ///   consider system call instructions as a terminator.
   /// </summary>
   /// <returns>
   ///   Returns true if this instruction should be at the end of the
   ///   corresponding basic block.
   /// </returns>
-  abstract IsBBLEnd: unit -> bool
+  abstract IsTerminator: unit -> bool
 
   /// <summary>
   ///   Is this a NO-OP instruction?

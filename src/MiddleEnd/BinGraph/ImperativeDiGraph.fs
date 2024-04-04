@@ -221,6 +221,10 @@ type ImperativeDiGraph<'V, 'E when 'V: equality and 'E: equality> () =
       |> Array.map (fun v -> v :> IVertex<'V>)
       :> IReadOnlyCollection<_>
 
+    member __.TryGetSingleRoot () =
+      if unreachables.Count <> 1 then None
+      else Some (unreachables |> Seq.head :> IVertex<'V>)
+
     member __.FoldVertex fn acc =
       vertices |> Seq.fold (fun acc v -> fn acc (v :> IVertex<'V>)) acc
 

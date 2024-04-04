@@ -24,6 +24,7 @@
 
 namespace B2R2.MiddleEnd.ControlFlowAnalysis
 
+open System.Collections.Generic
 open B2R2
 open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.ControlFlowGraph
@@ -46,21 +47,18 @@ type FunctionBuilder<'V,
     (hdl,
      instrs,
      entryPoint,
+     mode: ArchOperationMode,
      cfgConstructor: IRCFG.IConstructable<'V, 'E, 'Abs>,
      agent: Agent<TaskMessage<'Req, 'Res>>,
-     strategy: IFunctionBuildingStrategy<_, _, _, _, _, _, _>,
-     noRetAnalyzer) =
+     strategy: IFunctionBuildingStrategy<_, _, _, _, _, _, _>) =
 
-  let mutable inProgress = true
-
-  /// ID of the thread that is currently building this function.
-  let mutable threadId = -1
+  let mutable inProgress = false
 
   /// This function is invalid; we encountered a fatal error while recovering
   /// the function.
   let mutable isBad = false
 
-  let bblFactory = BBLFactory (hdl, instrs, &threadId)
+  let bblFactory = BBLFactory (hdl, instrs)
   let ircfg = cfgConstructor.Construct Imperative
   let state = new 'State ()
 
@@ -68,13 +66,21 @@ type FunctionBuilder<'V,
     { new IManagerState<'Req, 'Res> with
         member _.Query req =
           agent.PostAndReply (fun ch -> Query (entryPoint, req, ch))
-        member _.UpdateDependency (caller, callee) =
-          agent.Post <| AddDependency (caller, callee) }
+        member _.UpdateDependency (caller, callee, mode) =
+          agent.Post <| AddDependency (caller, callee, mode) }
 
   let ctxt =
-    { CFG = ircfg; BBLFactory = bblFactory; State = state; ManagerState = ms }
+    { BinHandle = hdl
+      CFG = ircfg
+      BBLFactory = bblFactory
+      Calls = SortedList ()
+      State = state
+      ManagerState = ms
+      ThreadID = -1 }
 
   let queue = CFGActionQueue<'Act> ()
+
+  do strategy.PopulateInitialAction (entryPoint, mode) |> queue.Push
 
   /// Entry point of the function that is being built.
   member __.EntryPoint with get(): Addr = entryPoint
@@ -84,19 +90,19 @@ type FunctionBuilder<'V,
     with get() = inProgress
     and set(v) =
 #if CFGDEBUG
-      if not v then flushLog threadId else ()
+      if not v then flushLog ctxt.ThreadID else ()
 #endif
       inProgress <- v
-
-  /// Which thread is building this function?
-  member __.ThreadId with get() = threadId and set(v) = threadId <- v
 
   /// The current context of the function building process.
   member __.Context with get() = ctxt
 
+  /// Operation mode of the function.
+  member __.Mode with get() = mode
+
   /// Start the recovery process.
   member __.Recover () =
-    if queue.IsEmpty () then strategy.OnFinish (ctxt, noRetAnalyzer)
+    if queue.IsEmpty () then strategy.OnFinish (ctxt)
     else
       let action = queue.Pop ()
       match strategy.OnAction (ctxt, queue, action) with
@@ -112,7 +118,11 @@ type FunctionBuilder<'V,
   /// Convert this builder to a function.
   member __.ToFunction () =
     assert (not isBad && not inProgress)
-    Function (entryPoint, ircfg)
+    let name =
+      match hdl.File.TryFindFunctionName entryPoint with
+      | Ok name -> name
+      | Error _ -> Addr.toFuncName entryPoint
+    Function (entryPoint, name, ircfg, ctxt.Calls)
 
   interface IValidityCheck with
     member __.IsValid with get() = not isBad

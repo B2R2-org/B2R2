@@ -37,11 +37,5 @@ type BasicBlock (pp) =
   /// instruction to compute the range.
   abstract Range: AddrRange with get
 
-  /// Cut the basic block at the given address and return the two new basic
-  /// blocks. This function does not modify the original basic block. We assume
-  /// that the given address is within the range of the basic block. Otherwise,
-  /// this function will raise an exception.
-  abstract Cut: Addr -> BasicBlock * BasicBlock
-
   /// Convert this basic block to a visual representation.
   abstract ToVisualBlock: unit -> VisualBlock

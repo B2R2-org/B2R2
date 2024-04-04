@@ -59,7 +59,7 @@ type SPARCInstruction (addr, numBytes, insInfo) =
 
   override __.IsExit () = Utils.futureFeature ()
 
-  override __.IsBBLEnd () =
+  override __.IsTerminator () =
     __.IsDirectBranch () ||
     __.IsIndirectBranch ()
 

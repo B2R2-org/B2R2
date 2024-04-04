@@ -25,9 +25,7 @@
 module B2R2.MiddleEnd.DataFlow.Utils
 
 open System.Collections.Generic
-open B2R2
 open B2R2.BinIR.LowUIR
-open B2R2.MiddleEnd.ControlFlowGraph
 
 /// We use this constant for our data-flow analyses.
 let [<Literal>] InitialStackPointer = 0x80000000UL
@@ -70,8 +68,3 @@ let inline initMemory () =
   let dict = Dictionary ()
   dict[0] <- (Map.empty, Set.empty)
   dict
-
-let computeStackShift rt (blk: SSAVertex<_>) =
-  let retAddrSize = RegType.toByteWidth rt |> int64
-  let adj = blk.VData.AbstractContent.UnwindingBytes
-  BitVector.OfInt64 (retAddrSize + adj) rt

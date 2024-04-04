@@ -94,7 +94,7 @@ let advanceAddr addr len =
 let rec parseLoopByAddr file parser addr acc =
   match tryParseInstrFromAddr file parser addr with
   | Ok ins ->
-    if ins.IsBBLEnd () then Ok (List.rev (ins :: acc))
+    if ins.IsTerminator () then Ok (List.rev (ins :: acc))
     else
       let addr = addr + (uint64 ins.Length)
       parseLoopByAddr file parser addr (ins :: acc)
@@ -106,7 +106,7 @@ let inline parseBBLFromAddr (file: IBinFile) parser addr =
 let rec parseLoopByPtr file parser ptr acc =
   match tryParseInstrFromBinPtr file parser ptr with
   | Ok (ins: Instruction) ->
-    if ins.IsBBLEnd () then Ok (List.rev (ins :: acc))
+    if ins.IsTerminator () then Ok (List.rev (ins :: acc))
     else
       let ptr = BinFilePointer.Advance ptr (int ins.Length)
       parseLoopByPtr file parser ptr (ins :: acc)

@@ -29,26 +29,34 @@ open B2R2.BinIR.LowUIR
 open B2R2.FrontEnd
 open B2R2.MiddleEnd
 open B2R2.MiddleEnd.BinGraph
+open B2R2.MiddleEnd.SSA
 open B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.MiddleEnd.ControlFlowAnalysis
-open B2R2.MiddleEnd.BinEssence
 open Microsoft.VisualStudio.TestTools.UnitTesting
 
 module Utils =
-  type IRNode = IVertex<IRBasicBlock>
-
-  let foldVertexNoFake m (v: IRNode) =
-    if v.VData.IsFakeBlock () then m
+  let foldVertexNoFake m (v: IVertex<IRBasicBlock<_>>) =
+    if v.VData.IsAbstract then m
     else Map.add v.VData.PPoint v m
 
-  let foldEdge m (e: Edge<IRBasicBlock, _>) =
+  let foldEdge m (e: Edge<IRBasicBlock<_>, _>) =
     let v1, v2 = e.First, e.Second
     Map.add (v1.VData.PPoint, v2.VData.PPoint) e m
 
-  let foldEdgeNoFake m (e: Edge<IRBasicBlock, _>) =
+  let foldEdgeNoFake m (e: Edge<IRBasicBlock<_>, _>) =
     let v1, v2 = e.First, e.Second
-    if v1.VData.IsFakeBlock () || v2.VData.IsFakeBlock () then m
+    if v1.VData.IsAbstract || v2.VData.IsAbstract then m
     else Map.add (v1.VData.PPoint, v2.VData.PPoint) e m
+
+  let collectInsBBLAddrPairs (fn: Function<_, _, _>) =
+    fn.CFG.FoldVertex (fun acc v ->
+      if v.VData.IsAbstract then acc
+      else
+        v.VData.LiftedInstructions
+        |> Array.map (fun li -> li.Original.Address, li.BBLAddr)
+        |> fun arr -> arr :: acc
+    ) []
+    |> Array.concat
 
 [<TestClass>]
 type CFGTest1 () =
@@ -82,7 +90,6 @@ type CFGTest1 () =
   /// }
   ///
   /// binary: 554889e54883ec10c745fc2a000000bf01000000e8490000000faf45fc89c1ba310cc33089c8f7eac1fa0389c8c1f81f29c289d06bc02a29c189c885c07509c745fc01000000eb0dbf02000000e8100000000145fc8b45fc89c7e81200000090c9c3554889e5897dfc8b45fc83c02a5dc3554889e5897dfc48c7c03c0000000f05905dc3
-
   let binary =
      [| 0x55uy; 0x48uy; 0x89uy; 0xe5uy; 0x48uy; 0x83uy; 0xecuy; 0x10uy; 0xc7uy;
         0x45uy; 0xfcuy; 0x2auy; 0x00uy; 0x00uy; 0x00uy; 0xbfuy; 0x01uy; 0x00uy;
@@ -102,143 +109,78 @@ type CFGTest1 () =
 
   let isa = ISA.Init Architecture.IntelX64 Endian.Little
   let hdl = BinHandle (binary, isa, ArchOperationMode.NoMode, None, false)
-  let ess = BinEssence.init hdl [] [] []
+  let strategy = Strategies.SimpleStrategy ()
 
   [<TestMethod>]
-  member __.``CFGInfo: Instruction Map Test`` () =
-    Assert.AreEqual (41, ess.CodeManager.InstructionCount)
-    let expected =
-      [ (0x00UL, 0x00UL); (0x01UL, 0x00UL); (0x04UL, 0x00UL); (0x08UL, 0x00UL);
-        (0x0fUL, 0x00UL); (0x14UL, 0x00UL); (0x19UL, 0x19UL); (0x1dUL, 0x19UL);
-        (0x1fUL, 0x19UL); (0x24UL, 0x19UL); (0x26UL, 0x19UL); (0x28UL, 0x19UL);
-        (0x2bUL, 0x19UL); (0x2dUL, 0x19UL); (0x30UL, 0x19UL); (0x32UL, 0x19UL);
-        (0x34UL, 0x19UL); (0x37UL, 0x19UL); (0x39UL, 0x19UL); (0x3bUL, 0x19UL);
-        (0x3dUL, 0x19UL); (0x3fUL, 0x3fUL); (0x46UL, 0x3fUL); (0x48UL, 0x48UL);
-        (0x4dUL, 0x48UL); (0x52UL, 0x52UL); (0x55UL, 0x55UL); (0x58UL, 0x55UL);
-        (0x5aUL, 0x55UL); (0x62UL, 0x62UL); (0x63UL, 0x62UL); (0x66UL, 0x62UL);
-        (0x69UL, 0x62UL); (0x6cUL, 0x62UL); (0x6fUL, 0x62UL); (0x70UL, 0x62UL);
-        (0x71UL, 0x71UL); (0x72UL, 0x71UL); (0x75UL, 0x71UL); (0x78UL, 0x71UL);
-        (0x7fUL, 0x71UL) ]
-      |> List.toArray
-    let actual =
-      ess.CodeManager.FoldInstructions (fun acc (KeyValue (insAddr, bbl)) ->
-        Set.add (insAddr, bbl.BBLAddr) acc) Set.empty
-      |> Set.toArray
-    CollectionAssert.AreEqual (expected, actual)
+  member __.``InstructionCollection Test 1`` () =
+    let instrs = InstructionCollection (hdl, LinearSweepInstructionCollector ())
+    Assert.AreEqual (47, instrs.Count)
 
   [<TestMethod>]
-  member __.``CFGInfo: Instruction BBLMap Test`` () =
-    Assert.AreEqual (8, ess.CodeManager.BBLCount)
-    (* BlkRange test *)
-    let expected =
-      [ (0x00UL, 0x18UL); (0x19UL, 0x3eUL); (0x3fUL, 0x47UL); (0x48UL, 0x51UL);
-        (0x52UL, 0x54UL); (0x55UL, 0x5eUL); (0x62UL, 0x70UL); (0x71UL, 0x80UL) ]
-      |> List.toArray
-    let actual =
-      ess.CodeManager.FoldBBLs (fun acc (KeyValue (_, bblInfo)) ->
-        let range = bblInfo.BlkRange
-        Set.add (range.Min, range.Max) acc) Set.empty
-      |> Set.toArray
-    CollectionAssert.AreEqual (expected, actual)
-    let expectedBBLAddrs =
-      [| 0x00UL; 0x19UL; 0x3fUL; 0x48UL; 0x52UL; 0x55UL; 0x62UL; 0x71UL |]
-    let actualBBLAddrs =
-      ess.CodeManager.FoldBBLs (fun acc (KeyValue (addr, _)) ->
-        Set.add addr acc) Set.empty
-      |> Set.toArray
-    CollectionAssert.AreEqual (expectedBBLAddrs, actualBBLAddrs)
-    (* InstrAddrs test *)
-    let expected =
-      Map.empty
-      |> Map.add 0x00UL [| 0x00UL; 0x01UL; 0x04UL; 0x08UL; 0x0fUL; 0x14UL |]
-      |> Map.add 0x19UL [| 0x19UL; 0x1dUL; 0x1fUL; 0x24UL; 0x26UL; 0x28UL;
-                           0x2bUL; 0x2dUL; 0x30UL; 0x32UL; 0x34UL; 0x37UL;
-                           0x39UL; 0x3bUL; 0x3dUL |]
-      |> Map.add 0x3fUL [| 0x3fUL; 0x46UL |]
-      |> Map.add 0x48UL [| 0x48UL; 0x4dUL |]
-      |> Map.add 0x52UL [| 0x52UL |]
-      |> Map.add 0x55UL [| 0x55UL; 0x58UL; 0x5aUL |]
-      |> Map.add 0x62UL [| 0x62UL; 0x63UL; 0x66UL; 0x69UL; 0x6cUL; 0x6fUL;
-                           0x70UL |]
-      |> Map.add 0x71UL [| 0x71UL; 0x72UL; 0x75UL; 0x78UL; 0x7fUL |]
-    let actual =
-      ess.CodeManager.FoldBBLs (fun acc (KeyValue (addr, bblInfo)) ->
-        Map.add addr (Set.toArray bblInfo.InstrAddrs) acc) Map.empty
-    [ 0x00UL; 0x19UL; 0x3fUL; 0x48UL; 0x52UL; 0x55UL; 0x62UL ]
+  member __.``InstructionCollection Test 2`` () =
+    let instrs = InstructionCollection (hdl, LinearSweepInstructionCollector ())
+    let addrs =
+      [ 0x00UL; 0x01UL; 0x04UL; 0x08UL; 0x0fUL; 0x14UL; 0x19UL; 0x1dUL; 0x1fUL
+        0x24UL; 0x26UL; 0x28UL; 0x2bUL; 0x2dUL; 0x30UL; 0x32UL; 0x34UL; 0x37UL
+        0x39UL; 0x3bUL; 0x3dUL; 0x3fUL; 0x46UL; 0x48UL; 0x4dUL; 0x52UL; 0x55UL
+        0x58UL; 0x5aUL; 0x62UL; 0x63UL; 0x66UL; 0x69UL; 0x6cUL; 0x6fUL; 0x70UL
+        0x71UL; 0x72UL; 0x75UL; 0x78UL; 0x7fUL ]
+    addrs
     |> List.iter (fun addr ->
-      CollectionAssert.AreEqual (Map.find addr expected, Map.find addr actual))
-    (* IRLeaders test *)
+      let ins = instrs.Find addr
+      Assert.AreEqual (addr, ins.Address))
+
+  [<TestMethod>]
+  member __.``BBLFactory Test 1`` () =
+    let instrs = InstructionCollection (hdl, LinearSweepInstructionCollector ())
+    let bblFactory = BBLFactory (hdl, instrs)
+    let extractBBLInfo ppoint =
+      match bblFactory.TryFind ppoint with
+      | Ok bbl ->
+        bbl.LiftedInstructions
+        |> Array.map (fun li -> li.Original.Address, li.BBLAddr)
+      | Error e -> [||]
+    bblFactory.ScanBBLs ([ 0x0UL, ArchOperationMode.NoMode ])
+    |> Async.AwaitTask
+    |> Async.RunSynchronously
+    let bblAddrs = [| 0x00UL; 0x62UL |]
     let expected =
-      Map.empty
-      |> Map.add 0x00UL [| (0x00UL, 0) |]
-      |> Map.add 0x19UL [| (0x19UL, 0) |]
-      |> Map.add 0x3fUL [| (0x3fUL, 0) |]
-      |> Map.add 0x48UL [| (0x48UL, 0) |]
-      |> Map.add 0x52UL [| (0x52UL, 0) |]
-      |> Map.add 0x55UL [| (0x55UL, 0) |]
-      |> Map.add 0x62UL [| (0x62UL, 0) |]
-      |> Map.add 0x71UL [| (0x71UL, 0) |]
+      [| (0x00UL, 0x00UL); (0x01UL, 0x00UL); (0x04UL, 0x00UL); (0x08UL, 0x00UL)
+         (0x0fUL, 0x00UL); (0x14UL, 0x00UL); (0x62UL, 0x62UL); (0x63UL, 0x62UL)
+         (0x66UL, 0x62UL); (0x69UL, 0x62UL); (0x6cUL, 0x62UL); (0x6fUL, 0x62UL)
+         (0x70UL, 0x62UL)|]
     let actual =
-      ess.CodeManager.FoldBBLs (fun acc (KeyValue (addr, bblInfo)) ->
-        let leaders =
-          bblInfo.IRLeaders
-          |> Set.map (fun pp -> pp.Address, pp.Position)
-          |> Set.toArray
-        Map.add addr leaders acc) Map.empty
-    [ 0x00UL; 0x19UL; 0x3fUL; 0x48UL; 0x52UL; 0x55UL; 0x62UL ]
-    |> List.iter (fun addr ->
-      CollectionAssert.AreEqual (Map.find addr expected, Map.find addr actual))
-    (* Entry point test*)
-    let expected =
-      [ (0x00UL, 0x00UL); (0x19UL, 0x00UL); (0x3fUL, 0x00UL); (0x48UL, 0x00UL);
-        (0x52UL, 0x00UL); (0x55UL, 0x00UL); (0x62UL, 0x62UL); (0x71UL, 0x71UL) ]
-      |> List.toArray
-    let actual =
-      ess.CodeManager.FoldBBLs (fun acc (KeyValue (addr, bblInfo)) ->
-        Set.add (addr, bblInfo.FunctionEntry) acc) Set.empty
-      |> Set.toArray
+      [| for addr in bblAddrs do extractBBLInfo (ProgramPoint (addr, 0)) |]
+      |> Array.concat
     CollectionAssert.AreEqual (expected, actual)
 
   [<TestMethod>]
-  member __.``CFGInfo: IRLevelBBLs Test`` () =
-    let cnt =
-      ess.CodeManager.FunctionMaintainer.RegularFunctions
-      |> Seq.fold (fun cnt f -> f.CountRegularVertices + cnt) 0
-    Assert.AreEqual (8, cnt)
-    let expected =
-      [ (0x00UL, 0); (0x19UL, 0); (0x3fUL, 0); (0x48UL, 0); (0x52UL, 0);
-        (0x55UL, 0); (0x62UL, 0); (0x71UL, 0) ]
-      |> List.toArray
+  member __.``BBLFactory Test 2`` () =
+    let instrs = InstructionCollection (hdl, LinearSweepInstructionCollector ())
+    let bblFactory = BBLFactory (hdl, instrs)
+    let extractBBLInfo ppoint =
+      let bbl = bblFactory.Find ppoint
+      bbl.Range.Min, bbl.Range.Max
+    bblFactory.ScanBBLs ([ 0x0UL, ArchOperationMode.NoMode ])
+    |> Async.AwaitTask
+    |> Async.RunSynchronously
+    Assert.AreEqual (2, bblFactory.Count)
+    let bblAddrs = [| 0x00UL; 0x62UL |]
+    let expected = [| (0x00UL, 0x18UL); (0x62UL, 0x70UL) |]
     let actual =
-      ess.CodeManager.FunctionMaintainer.RegularFunctions
-      |> Seq.fold (fun acc f ->
-        f.FoldRegularVertices (fun acc (KeyValue (pp,_)) ->
-          Set.add (pp.Address, pp.Position) acc) acc) Set.empty
-      |> Set.toArray
+      [| for addr in bblAddrs do extractBBLInfo (ProgramPoint (addr, 0)) |]
     CollectionAssert.AreEqual (expected, actual)
 
   [<TestMethod>]
-  member __.``CFGInfo: BBLBounds Test`` () =
-    let expected =
-      [ (0x00UL, 0x18UL); (0x19UL, 0x3EUL); (0x3FUL, 0x47UL); (0x48UL, 0x51UL);
-        (0x52UL, 0x54UL); (0x55UL, 0x5EUL); (0x62UL, 0x70UL); (0x71UL, 0x80UL) ]
-      |> List.toArray
-    expected
-    |> Array.iter (fun (minAddr, maxAddr) ->
-      let bbl = ess.CodeManager.GetBBL minAddr
-      let f = ess.CodeManager.FunctionMaintainer.FindRegular bbl.FunctionEntry
-      for addr in minAddr .. maxAddr - 1UL do
-        Assert.IsTrue (f.IsAddressCovered addr)
-    )
+  member __.``Functions Test 1`` () =
+    let brew = BinaryBrew (hdl, strategy)
+    let expected = [| 0UL; 0x62UL; 0x71UL |]
+    let actual = brew.Functions.Addresses |> Seq.toArray
+    CollectionAssert.AreEqual (expected, actual)
 
   [<TestMethod>]
-  member __.``CFGInfo: Funcs Test`` () =
-    Assert.AreEqual (3, ess.CodeManager.FunctionMaintainer.Count)
-    (* Entry point test *)
-    let expected = [ 0UL; 0x62UL; 0x71UL ] |> List.toArray
-    let actual = ess.CodeManager.FunctionMaintainer.Entries |> Seq.toArray
-    CollectionAssert.AreEqual (expected, actual)
-    (* Function test except CFG *)
+  member __.``Functions Test 2`` () =
+    let brew = BinaryBrew (hdl, strategy)
     (* CallEdges test *)
     let expected =
       Map.empty
@@ -248,9 +190,9 @@ type CFGTest1 () =
       |> Map.add 0x62UL [| |]
       |> Map.add 0x71UL [| |]
     let actual =
-      ess.CodeManager.FunctionMaintainer.RegularFunctions
-      |> Seq.fold (fun acc func ->
-        Map.add func.EntryPoint func.CallEdges acc) Map.empty
+      brew.Functions.Sequence
+      |> Seq.fold (fun acc fn ->
+        Map.add fn.EntryPoint fn.Callsites acc) Map.empty
     [ 0x00UL; 0x62UL; 0x71UL ]
     |> List.iter (fun addr ->
       CollectionAssert.AreEqual (Map.find addr expected, Map.find addr actual))
@@ -261,30 +203,76 @@ type CFGTest1 () =
       |> Map.add 0x62UL [| 0x00UL |]
       |> Map.add 0x71UL [| 0x00UL |]
     let actual =
-      ess.CodeManager.FunctionMaintainer.Functions
-      |> Seq.fold (fun acc func ->
-        Map.add func.EntryPoint (Seq.toArray func.Callers) acc) Map.empty
-    [ 0x00UL; 0x62UL; 0x71UL ]
-    |> List.iter (fun addr ->
-      CollectionAssert.AreEqual (Map.find addr expected, Map.find addr actual))
-    (* SyscallSites test *)
-    let expected =
-      Map.empty
-      |> Map.add 0x00UL [| |]
-      |> Map.add 0x62UL [| |]
-      |> Map.add 0x71UL [| 0x7fUL |]
-    let actual =
-      ess.CodeManager.FunctionMaintainer.RegularFunctions
-      |> Seq.fold (fun acc func ->
-        let syscallSites = func.SyscallSites |> Seq.toArray
-        Map.add func.EntryPoint syscallSites acc) Map.empty
+      brew.Functions.Sequence
+      |> Seq.fold (fun acc fn ->
+        Map.add fn.EntryPoint (Seq.toArray fn.Callers) acc) Map.empty
     [ 0x00UL; 0x62UL; 0x71UL ]
     |> List.iter (fun addr ->
       CollectionAssert.AreEqual (Map.find addr expected, Map.find addr actual))
 
   [<TestMethod>]
+  member __.``BBL Test 1`` () =
+    let brew = BinaryBrew (hdl, strategy)
+    let expected =
+      [| (0x00UL, 0x00UL); (0x01UL, 0x00UL); (0x04UL, 0x00UL); (0x08UL, 0x00UL)
+         (0x0fUL, 0x00UL); (0x14UL, 0x00UL); (0x19UL, 0x19UL); (0x1dUL, 0x19UL)
+         (0x1fUL, 0x19UL); (0x24UL, 0x19UL); (0x26UL, 0x19UL); (0x28UL, 0x19UL)
+         (0x2bUL, 0x19UL); (0x2dUL, 0x19UL); (0x30UL, 0x19UL); (0x32UL, 0x19UL)
+         (0x34UL, 0x19UL); (0x37UL, 0x19UL); (0x39UL, 0x19UL); (0x3bUL, 0x19UL)
+         (0x3dUL, 0x19UL); (0x3fUL, 0x3fUL); (0x46UL, 0x3fUL); (0x48UL, 0x48UL)
+         (0x4dUL, 0x48UL); (0x52UL, 0x52UL); (0x55UL, 0x55UL); (0x58UL, 0x55UL)
+         (0x5aUL, 0x55UL); (0x62UL, 0x62UL); (0x63UL, 0x62UL); (0x66UL, 0x62UL)
+         (0x69UL, 0x62UL); (0x6cUL, 0x62UL); (0x6fUL, 0x62UL); (0x70UL, 0x62UL)
+         (0x71UL, 0x71UL); (0x72UL, 0x71UL); (0x75UL, 0x71UL); (0x78UL, 0x71UL)
+         (0x7fUL, 0x71UL) |]
+    let actual =
+      brew.Functions.Sequence
+      |> Seq.toArray
+      |> Array.map Utils.collectInsBBLAddrPairs
+      |> Array.concat
+      |> Array.sortBy fst
+    CollectionAssert.AreEqual (expected, actual)
+
+  [<TestMethod>]
+  member __.``BBL Test 2`` () =
+    let brew = BinaryBrew (hdl, strategy)
+    Assert.AreEqual (8, brew.Functions.Count)
+    let expected =
+      [ (0x00UL, 0x18UL); (0x19UL, 0x3eUL); (0x3fUL, 0x47UL); (0x48UL, 0x51UL)
+        (0x52UL, 0x54UL); (0x55UL, 0x5eUL); (0x62UL, 0x70UL); (0x71UL, 0x80UL) ]
+      |> List.toArray
+    let actual =
+      brew.Functions.Sequence
+      |> Seq.toArray
+      |> Array.map Utils.collectInsBBLAddrPairs
+      |> Array.concat
+      |> Array.sortBy fst
+    CollectionAssert.AreEqual (expected, actual)
+
+  [<TestMethod>]
+  member __.``BBL Test 3`` () =
+    let brew = BinaryBrew (hdl, strategy)
+    let cnt =
+      brew.Functions.Sequence
+      |> Seq.fold (fun cnt fn ->
+        fn.CFG.FoldVertex (fun cnt _ -> cnt + 1) cnt + cnt) 0
+    Assert.AreEqual (8, cnt)
+    let expected =
+      [| (0x00UL, 0); (0x19UL, 0); (0x3fUL, 0); (0x48UL, 0); (0x52UL, 0)
+         (0x55UL, 0); (0x62UL, 0); (0x71UL, 0) |]
+    let actual =
+      brew.Functions.Sequence
+      |> Seq.fold (fun acc fn ->
+        fn.CFG.FoldVertex (fun acc v ->
+          let pp = v.VData.PPoint
+          Set.add (pp.Address, pp.Position) acc) acc) Set.empty
+      |> Set.toArray
+    CollectionAssert.AreEqual (expected, actual)
+
+  [<TestMethod>]
   member __.``CFG Vertex Test: _start`` () =
-    let cfg, _ = BinEssence.getFunctionCFG ess 0UL |> Result.get
+    let brew = BinaryBrew (hdl, strategy)
+    let cfg = brew.Functions[0x0UL].CFG
     Assert.AreEqual (9, cfg.Size)
     let vMap = cfg.FoldVertex Utils.foldVertexNoFake Map.empty
     Assert.AreEqual (6, vMap.Count)
@@ -302,7 +290,8 @@ type CFGTest1 () =
 
   [<TestMethod>]
   member __.``CFG Edge Test: _start`` () =
-    let cfg, _ = BinEssence.getFunctionCFG ess 0UL |> Result.get
+    let brew = BinaryBrew (hdl, strategy)
+    let cfg = brew.Functions[0x0UL].CFG
     let vMap = cfg.FoldVertex Utils.foldVertexNoFake Map.empty
     let leaders =
       [| ProgramPoint (0x00UL, 0); ProgramPoint (0x19UL, 0);
@@ -334,7 +323,8 @@ type CFGTest1 () =
 
   [<TestMethod>]
   member __.``CFG Vertex Test: foo`` () =
-    let cfg, _ = BinEssence.getFunctionCFG ess 0x62UL |> Result.get
+    let brew = BinaryBrew (hdl, strategy)
+    let cfg = brew.Functions[0x62UL].CFG
     Assert.AreEqual (1, cfg.Size)
     let vMap = cfg.FoldVertex Utils.foldVertexNoFake Map.empty
     let leaders = [| ProgramPoint (0x62UL, 0) |]
@@ -345,13 +335,15 @@ type CFGTest1 () =
 
   [<TestMethod>]
   member __.``CFG Edge Test: foo`` () =
-    let cfg, _ = BinEssence.getFunctionCFG ess 0x62UL |> Result.get
+    let brew = BinaryBrew (hdl, strategy)
+    let cfg = brew.Functions[0x62UL].CFG
     let eMap = cfg.FoldEdge Utils.foldEdge Map.empty
     Assert.AreEqual (0, eMap.Count)
 
   [<TestMethod>]
   member __.``CFG Vertex Test: bar`` () =
-    let cfg, _ = BinEssence.getFunctionCFG ess 0x71UL |> Result.get
+    let brew = BinaryBrew (hdl, strategy)
+    let cfg = brew.Functions[0x71UL].CFG
     Assert.AreEqual (1, cfg.Size)
     let vMap = cfg.FoldVertex Utils.foldVertexNoFake Map.empty
     let leaders = [| ProgramPoint (0x71UL, 0) |]
@@ -362,14 +354,18 @@ type CFGTest1 () =
 
   [<TestMethod>]
   member __.``CFG Edge Test: bar`` () =
-    let cfg, _ = BinEssence.getFunctionCFG ess 0x71UL |> Result.get
+    let brew = BinaryBrew (hdl, strategy)
+    let cfg = brew.Functions[0x71UL].CFG
     let eMap = cfg.FoldEdge Utils.foldEdge Map.empty
     Assert.AreEqual (0, eMap.Count)
 
   [<TestMethod>]
   member __.``CFG SSAGraph Vertex Test: _start`` () =
-    let cfg, root = BinEssence.getFunctionCFG ess 0UL |> Result.get
-    let struct (ssacfg, _) = SSACFG.ofIRCFG hdl cfg root
+    let brew = BinaryBrew (hdl, strategy)
+    let cfg = brew.Functions[0x0UL].CFG
+    let root = cfg.TryGetSingleRoot () |> Option.get
+    let ssaLifter = SSALifter hdl
+    let struct (ssacfg, _) = SSALens.convert ssaLifter null cfg root
     Assert.AreEqual (9, ssacfg.Size)
 
 [<TestClass>]
@@ -395,7 +391,6 @@ type CFGTest2 () =
   ///   return;
   /// }
   /// binary: 5756b920000000e81800000005341e000083ec2089e78db0e8e1fffff3a483c4205e5fc38b0424c3
-
   let binary =
      [| 0x57uy; 0x56uy; 0xb9uy; 0x20uy; 0x00uy; 0x00uy; 0x00uy; 0xe8uy; 0x18uy;
         0x00uy; 0x00uy; 0x00uy; 0x05uy; 0x34uy; 0x1euy; 0x00uy; 0x00uy; 0x83uy;
@@ -405,133 +400,79 @@ type CFGTest2 () =
 
   let isa = ISA.Init Architecture.IntelX86 Endian.Little
   let hdl = BinHandle (binary, isa, ArchOperationMode.NoMode, None, false)
-  let ess = BinEssence.init hdl [] [] []
+  let strategy = Strategies.SimpleStrategy ()
+  let brew = BinaryBrew (hdl, strategy)
 
   [<TestMethod>]
-  member __.``CFGInfo: Instruction Map Test`` () =
-    Assert.AreEqual (15, ess.CodeManager.InstructionCount)
-    let expected =
-      [ (0x00UL, 0x00UL); (0x01UL, 0x00UL); (0x02UL, 0x00UL); (0x07UL, 0x00UL);
-        (0x0cUL, 0x0cUL); (0x11UL, 0x0cUL); (0x14UL, 0x0cUL); (0x16UL, 0x0cUL);
-        (0x1cUL, 0x0cUL); (0x1eUL, 0x0cUL); (0x21UL, 0x0cUL); (0x22UL, 0x0cUL);
-        (0x23UL, 0x0cUL); (0x24UL, 0x24UL); (0x27UL, 0x24UL) ]
-      |> List.toArray
-    let actual =
-      ess.CodeManager.FoldInstructions (fun acc (KeyValue (insAddr, bbl)) ->
-        Set.add (insAddr, bbl.BBLAddr) acc) Set.empty
-      |> Set.toArray
-    CollectionAssert.AreEqual (expected, actual)
+  member __.``InstructionCollection Test 1`` () =
+    Assert.AreEqual (15, brew.Instructions.Count)
 
-#if !EMULATION
   [<TestMethod>]
-  member __.``CFGInfo: Instruction BBLMap Test`` () =
-    Assert.AreEqual (3, ess.CodeManager.BBLCount)
-    (* BlkRange test *)
-    let expected =
-      [ (0x00UL, 0x0bUL); (0x0cUL, 0x23UL); (0x24UL, 0x27UL) ]
-      |> List.toArray
-    let actual =
-      ess.CodeManager.FoldBBLs (fun acc (KeyValue (_, bblInfo)) ->
-        let range = bblInfo.BlkRange
-        Set.add (range.Min, range.Max) acc) Set.empty
-      |> Set.toArray
-    CollectionAssert.AreEqual (expected, actual)
-    let expectedBBLAddrs =
-      [| 0x00UL; 0x0cUL; 0x24UL |]
-    let actualBBLAddrs =
-      ess.CodeManager.FoldBBLs (fun acc (KeyValue (addr, _)) ->
-        Set.add addr acc) Set.empty
-      |> Set.toArray
-    CollectionAssert.AreEqual (expectedBBLAddrs, actualBBLAddrs)
-    (* InstrAddrs test *)
-    let expected =
-      Map.empty
-      |> Map.add 0x00UL [| 0x00UL; 0x01UL; 0x02UL; 0x07UL |]
-      |> Map.add 0x0cUL [| 0x0cUL; 0x11UL; 0x14UL; 0x16UL; 0x1cUL; 0x1eUL;
-                           0x21UL; 0x22UL; 0x23UL |]
-      |> Map.add 0x24UL [| 0x24UL; 0x27UL |]
-    let actual =
-      ess.CodeManager.FoldBBLs (fun acc (KeyValue (addr, bblInfo)) ->
-        Map.add addr (Set.toArray bblInfo.InstrAddrs) acc) Map.empty
-    [ 0x00UL; 0x0cUL; 0x24UL ]
+  member __.``InstructionCollection Test 2`` () =
+    let addrs =
+      [ 0x00UL; 0x01UL; 0x02UL; 0x07UL; 0x0cUL; 0x11UL; 0x14UL; 0x16UL
+        0x1cUL; 0x1eUL; 0x21UL; 0x22UL; 0x23UL; 0x24UL; 0x27UL ]
+    addrs
     |> List.iter (fun addr ->
-      CollectionAssert.AreEqual (Map.find addr expected, Map.find addr actual))
-    (* IRLeaders test *)
+      let ins = brew.Instructions.Find addr
+      Assert.AreEqual (addr, ins.Address))
+
+  [<TestMethod>]
+  member __.``BBLFactory Test 1`` () =
+    let bblFactory = BBLFactory (hdl, brew.Instructions)
+    let extractBBLInfo ppoint =
+      match bblFactory.TryFind ppoint with
+      | Ok bbl ->
+        bbl.LiftedInstructions
+        |> Array.map (fun li -> li.Original.Address, li.BBLAddr)
+      | Error e -> [||]
+    bblFactory.ScanBBLs ([ 0x0UL, ArchOperationMode.NoMode ])
+    |> Async.AwaitTask
+    |> Async.RunSynchronously
+    let bblAddrs = [| 0x00UL; 0x0cUL; 0x24UL |]
     let expected =
-      Map.empty
-      |> Map.add 0x00UL [| (0x00UL, 0) |]
-      |> Map.add 0x0cUL [| (0x0cUL, 0); (0x1cUL, 0); (0x1cUL, 2); (0x1cUL, 8);
-                           (0x1eUL, 0) |]
-      |> Map.add 0x24UL [| (0x24UL, 0) |]
+      [| (0x00UL, 0x00UL); (0x01UL, 0x00UL); (0x02UL, 0x00UL); (0x07UL, 0x00UL)
+         (0x0cUL, 0x0cUL); (0x11UL, 0x0cUL); (0x14UL, 0x0cUL); (0x16UL, 0x0cUL)
+         (0x1cUL, 0x0cUL); (0x1eUL, 0x0cUL); (0x21UL, 0x0cUL); (0x22UL, 0x0cUL)
+         (0x23UL, 0x0cUL); (0x24UL, 0x24UL); (0x27UL, 0x24UL) |]
     let actual =
-      ess.CodeManager.FoldBBLs (fun acc (KeyValue (addr, bblInfo)) ->
-        let leaders =
-          bblInfo.IRLeaders
-          |> Set.map (fun pp -> pp.Address, pp.Position)
-          |> Set.toArray
-        Map.add addr leaders acc) Map.empty
-    [ 0x00UL; 0x0cUL; 0x24UL ]
-    |> List.iter (fun addr ->
-      CollectionAssert.AreEqual (Map.find addr expected, Map.find addr actual))
-    (* Entry point test*)
-    let expected =
-      [ (0x00UL, 0x00UL); (0x0cUL, 0x00UL); (0x24UL, 0x24UL) ]
-      |> List.toArray
-    let actual =
-      ess.CodeManager.FoldBBLs (fun acc (KeyValue (addr, bblInfo)) ->
-        Set.add (addr, bblInfo.FunctionEntry) acc) Set.empty
-      |> Set.toArray
+      [| for addr in bblAddrs do extractBBLInfo (ProgramPoint (addr, 0)) |]
+      |> Array.concat
     CollectionAssert.AreEqual (expected, actual)
 
   [<TestMethod>]
-  member __.``CFGInfo: IRLevelBBLs Test`` () =
-    let cnt =
-      ess.CodeManager.FunctionMaintainer.RegularFunctions
-      |> Seq.fold (fun cnt f -> f.CountRegularVertices + cnt) 0
-    Assert.AreEqual (7, cnt)
-    let expected =
-      [ (0x00UL, 0); (0x0cUL, 0); (0x1cUL, 0); (0x1cUL, 2); (0x1cUL, 8);
-        (0x1eUL, 0); (0x24UL, 0) ]
-      |> List.toArray
+  member __.``BBLFactory Test 2`` () =
+    let bblFactory = BBLFactory (hdl, brew.Instructions)
+    let extractBBLInfo ppoint =
+      let bbl = bblFactory.Find ppoint
+      bbl.Range.Min, bbl.Range.Max
+    bblFactory.ScanBBLs ([ 0x0UL, ArchOperationMode.NoMode ])
+    |> Async.AwaitTask
+    |> Async.RunSynchronously
+    Assert.AreEqual (3, bblFactory.Count)
+    let bblAddrs = [| 0x00UL; 0x0cUL; 0x24UL |]
+    let expected = [| (0x00UL, 0x0bUL); (0x0cUL, 0x23UL); (0x24UL, 0x27UL) |]
     let actual =
-      ess.CodeManager.FunctionMaintainer.RegularFunctions
-      |> Seq.fold (fun acc f ->
-        f.FoldRegularVertices (fun acc (KeyValue (pp,_)) ->
-          Set.add (pp.Address, pp.Position) acc) acc) Set.empty
-      |> Set.toArray
+      [| for addr in bblAddrs do extractBBLInfo (ProgramPoint (addr, 0)) |]
     CollectionAssert.AreEqual (expected, actual)
-#endif
 
   [<TestMethod>]
-  member __.``CFGInfo: BBLBounds Test`` () =
-    let expected =
-      [ (0x00UL, 0x0bUL); (0x0cUL, 0x23UL); (0x24UL, 0x27UL) ]
-      |> List.toArray
-    expected
-    |> Array.iter (fun (minAddr, maxAddr) ->
-      let bbl = ess.CodeManager.GetBBL minAddr
-      let f = ess.CodeManager.FunctionMaintainer.FindRegular bbl.FunctionEntry
-      for addr in minAddr .. maxAddr - 1UL do
-        Assert.IsTrue (f.IsAddressCovered addr)
-    )
+  member __.``Functions Test 1`` () =
+    let expected = [| 0UL; 0x24UL |]
+    let actual = brew.Functions.Addresses |> Seq.toArray
+    CollectionAssert.AreEqual (expected, actual)
 
   [<TestMethod>]
-  member __.``CFGInfo: Funcs Test`` () =
-    Assert.AreEqual (2, ess.CodeManager.FunctionMaintainer.Count)
-    (* Entry point test *)
-    let expected = [ 0UL; 0x24UL ] |> List.toArray
-    let actual = ess.CodeManager.FunctionMaintainer.Entries |> Seq.toArray
-    CollectionAssert.AreEqual (expected, actual)
-    (* Function test except CFG *)
+  member __.``Functions Test 2`` () =
     (* CallEdges test *)
     let expected =
       Map.empty
       |> Map.add 0x00UL [| (0x07UL, RegularCallee 0x24UL) |]
       |> Map.add 0x24UL [| |]
     let actual =
-      ess.CodeManager.FunctionMaintainer.RegularFunctions
-      |> Seq.fold (fun acc func ->
-        Map.add func.EntryPoint func.CallEdges acc) Map.empty
+      brew.Functions.Sequence
+      |> Seq.fold (fun acc fn ->
+        Map.add fn.EntryPoint fn.Callsites acc) Map.empty
     [ 0x00UL; 0x24UL ]
     |> List.iter (fun addr ->
       CollectionAssert.AreEqual (Map.find addr expected, Map.find addr actual))
@@ -541,30 +482,36 @@ type CFGTest2 () =
       |> Map.add 0x00UL [| |]
       |> Map.add 0x24UL [| 0x00UL |]
     let actual =
-      ess.CodeManager.FunctionMaintainer.Functions
-      |> Seq.fold (fun acc func ->
-        Map.add func.EntryPoint (Seq.toArray func.Callers) acc) Map.empty
-    [ 0x00UL; 0x24UL ]
-    |> List.iter (fun addr ->
-      CollectionAssert.AreEqual (Map.find addr expected, Map.find addr actual))
-    (* SyscallSites test *)
-    let expected =
-      Map.empty
-      |> Map.add 0x00UL [| |]
-      |> Map.add 0x24UL [| |]
-    let actual =
-      ess.CodeManager.FunctionMaintainer.RegularFunctions
-      |> Seq.fold (fun acc func ->
-        let syscallSites = func.SyscallSites |> Seq.toArray
-        Map.add func.EntryPoint syscallSites acc) Map.empty
+      brew.Functions.Sequence
+      |> Seq.fold (fun acc fn ->
+        Map.add fn.EntryPoint (Seq.toArray fn.Callers) acc) Map.empty
     [ 0x00UL; 0x24UL ]
     |> List.iter (fun addr ->
       CollectionAssert.AreEqual (Map.find addr expected, Map.find addr actual))
 
-#if !EMULATION
+  [<TestMethod>]
+  member __.``IRLevelBBLs Test`` () =
+    let cnt =
+      brew.Functions.Sequence
+      |> Seq.fold (fun cnt fn ->
+        fn.CFG.FoldVertex (fun cnt _ -> cnt + 1) cnt + cnt) 0
+    Assert.AreEqual (7, cnt)
+    let expected =
+      [ (0x00UL, 0); (0x0cUL, 0); (0x1cUL, 0); (0x1cUL, 2); (0x1cUL, 8);
+        (0x1eUL, 0); (0x24UL, 0) ]
+      |> List.toArray
+    let actual =
+      brew.Functions.Sequence
+      |> Seq.fold (fun acc fn ->
+        fn.CFG.FoldVertex (fun acc v ->
+          let pp = v.VData.PPoint
+          Set.add (pp.Address, pp.Position) acc) acc) Set.empty
+      |> Set.toArray
+    CollectionAssert.AreEqual (expected, actual)
+
   [<TestMethod>]
   member __.``CFG Vertex Test: _start`` () =
-    let cfg, _ = BinEssence.getFunctionCFG ess 0UL |> Result.get
+    let cfg = brew.Functions[0x0UL].CFG
     Assert.AreEqual (7, cfg.Size)
     let vMap = cfg.FoldVertex Utils.foldVertexNoFake Map.empty
     let leaders =
@@ -575,7 +522,7 @@ type CFGTest2 () =
       leaders
       |> Array.map (fun leader ->
         let bbl = Map.find leader vMap
-        let lastStmts = bbl.VData.LastLifted.Stmts
+        let lastStmts = bbl.VData.LastLiftedInstruction.Stmts
         match lastStmts[lastStmts.Length - 1].S with
         | IEMark _ -> 0
         | InterJmp _ -> 1
@@ -583,13 +530,12 @@ type CFGTest2 () =
         | Jmp _ -> 3
         | CJmp _ -> 4
         | _ -> -1)
-    let expected =
-      [| 1; 0; 4; 1; 1; 1 |]
+    let expected = [| 1; 0; 4; 1; 1; 1 |]
     CollectionAssert.AreEqual (expected, actual)
 
   [<TestMethod>]
   member __.``CFG Edge Test: _start`` () =
-    let cfg, _ = BinEssence.getFunctionCFG ess 0UL |> Result.get
+    let cfg = brew.Functions[0x0UL].CFG
     let vMap = cfg.FoldVertex Utils.foldVertexNoFake Map.empty
     let leaders =
       [| ProgramPoint (0x00UL, 0); ProgramPoint (0x0CUL, 0);
@@ -618,12 +564,12 @@ type CFGTest2 () =
       [| CallFallThroughEdge; FallThroughEdge; IntraCJmpFalseEdge;
          IntraCJmpTrueEdge; InterJmpEdge; InterJmpEdge |]
     CollectionAssert.AreEqual (expected, actual)
-#endif
 
   [<TestMethod>]
-  member __.``DisasmLens Test: _start`` () =
-    let cfg, root = BinEssence.getFunctionCFG ess 0UL |> Result.get
-    let cfg, _ = DisasmLens.convert ess.CodeManager cfg root
+  member __.``DisasmCFG Test: _start`` () =
+    let cfg = brew.Functions[0x0UL].CFG
+    let root = cfg.TryGetSingleRoot () |> Option.get
+    let cfg, _ = DisasmCFG.create cfg root
     Assert.AreEqual (1, cfg.Size)
     let vMap = cfg.FoldVertex (fun m v ->
       Map.add v.VData.PPoint.Address v m) Map.empty
@@ -641,6 +587,8 @@ type CFGTest2 () =
 
   [<TestMethod>]
   member __.``SSAGraph Vertex Test: _start`` () =
-    let cfg, root = BinEssence.getFunctionCFG ess 0UL |> Result.get
-    let struct (ssacfg, _) = SSACFG.ofIRCFG hdl cfg root
+    let cfg = brew.Functions[0x0UL].CFG
+    let root = cfg.TryGetSingleRoot () |> Option.get
+    let ssaLifter = SSALifter hdl
+    let struct (ssacfg, _) = SSALens.convert ssaLifter null cfg root
     Assert.AreEqual (7, ssacfg.Size)

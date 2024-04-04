@@ -63,8 +63,6 @@ type VisBBlock (blk: BasicBlock, isDummy) =
 
   override __.Range with get () = blk.Range
 
-  override __.IsFakeBlock () = blk.IsFakeBlock ()
-
   override __.ToVisualBlock () = visBlock
 
   member __.IsDummy with get () = isDummy

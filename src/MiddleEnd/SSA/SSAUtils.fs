@@ -22,7 +22,7 @@
   SOFTWARE.
 *)
 
-module internal B2R2.MiddleEnd.ControlFlowGraph.SSAUtils
+module internal B2R2.MiddleEnd.SSA.SSAUtils
 
 open B2R2.BinIR
 open B2R2.MiddleEnd.BinGraph

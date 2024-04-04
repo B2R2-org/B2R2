@@ -110,7 +110,7 @@ type ARM32Instruction (addr, nb, cond, op, opr, its, wb, q, s, m, cf, oSz, a) =
     | Opcode.ERET -> true
     | _ -> false
 
-  override __.IsBBLEnd () =
+  override __.IsTerminator () =
        __.IsBranch ()
     || __.IsInterrupt ()
     || __.IsExit ()

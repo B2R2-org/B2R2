@@ -25,37 +25,73 @@
 namespace B2R2.MiddleEnd.ControlFlowGraph
 
 open System
+open System.Collections.Immutable
 open B2R2
 open B2R2.FrontEnd.BinLifter
 open B2R2.BinIR
+open B2R2.BinIR.LowUIR
 
 /// Basic block type for IR-level CFGs.
 type IRBasicBlock<'Abs when 'Abs: null> internal (ppoint,
                                                   funcAbs,
-                                                  liftedInstrs) =
+                                                  liftedInstrs,
+                                                  labelMap) =
   inherit PossiblyAbstractBasicBlock<'Abs> (ppoint, funcAbs)
+
+  let isBranch stmt =
+    match stmt.S with
+    | Jmp _ | CJmp _ | InterJmp _ | InterCJmp _ -> true
+    | _ -> false
 
   member __.LiftedInstructions with get(): LiftedInstruction[] = liftedInstrs
 
+  member __.LastLiftedInstruction with get() =
+    assert (not <| Array.isEmpty liftedInstrs)
+    liftedInstrs[liftedInstrs.Length - 1]
+
+  /// Last instruction in the basic block.
   member __.LastInstruction with get() =
-    if Array.isEmpty liftedInstrs then Utils.impossible ()
-    else liftedInstrs[liftedInstrs.Length - 1].Original
+    assert (not <| Array.isEmpty liftedInstrs)
+    liftedInstrs[liftedInstrs.Length - 1].Original
+
+  /// Terminator statement of the basic block.
+  member __.Terminator with get() =
+    assert (not <| Array.isEmpty liftedInstrs)
+    let stmts = liftedInstrs[liftedInstrs.Length - 1].Stmts
+    stmts[stmts.Length - 2..]
+    |> Array.filter isBranch
+    |> Array.tryExactlyOne
+    |> Option.defaultValue stmts[stmts.Length - 1]
+
+  /// Intra-instruction label information, which is a mapping from a label to
+  /// the corresponding program point.
+  member __.LabelMap
+    with get(): ImmutableDictionary<Symbol, ProgramPoint> = labelMap
+
+  /// Cut the basic block at the given address and return the two new basic
+  /// blocks. This function does not modify the original basic block. We assume
+  /// that the given address is within the range of the basic block. Otherwise,
+  /// this function will raise an exception.
+  member __.Cut (cutPoint: Addr) =
+    if isNull funcAbs then
+      assert (__.Range.IsIncluding cutPoint)
+      let fstInstrs, sndInstrs =
+        liftedInstrs
+        |> Array.partition (fun ins -> ins.Original.Address < cutPoint)
+      let sndInstrs =
+        sndInstrs |> Array.map (fun ins -> { ins with BBLAddr = cutPoint })
+      let cutPPoint = ProgramPoint (cutPoint, 0)
+      let fstLabelMap = ImmutableDictionary.CreateRange [||]
+      let sndLabelMap = ImmutableDictionary.CreateRange (Seq.toArray labelMap)
+      IRBasicBlock<'Abs>.CreateRegular (fstInstrs, ppoint, fstLabelMap),
+      IRBasicBlock<'Abs>.CreateRegular (sndInstrs, cutPPoint, sndLabelMap)
+    else raise AbstractBlockAccessException
 
   override __.Range with get() =
     if isNull funcAbs then
       let lastIns = liftedInstrs[liftedInstrs.Length - 1].Original
       let lastAddr = lastIns.Address + uint64 lastIns.Length
       AddrRange (ppoint.Address, lastAddr - 1UL)
-    else raise AbstractBlockAccessException
-
-  override __.Cut (cutPoint: Addr) =
-    if isNull funcAbs then
-      assert (__.Range.IsIncluding cutPoint)
-      let before, after =
-        liftedInstrs
-        |> Array.partition (fun ins -> ins.Original.Address < cutPoint)
-      IRBasicBlock<'Abs>.CreateRegular (before, ppoint),
-      IRBasicBlock<'Abs>.CreateRegular (after, ppoint)
     else raise AbstractBlockAccessException
 
   override __.ToVisualBlock () =
@@ -72,9 +108,12 @@ type IRBasicBlock<'Abs when 'Abs: null> internal (ppoint,
       __.PPoint = other.PPoint
 
   static member CreateRegular (liftedInstrs, ppoint) =
-    IRBasicBlock (ppoint, null, liftedInstrs)
+    IRBasicBlock (ppoint, null, liftedInstrs, ImmutableDictionary.Empty)
+
+  static member CreateRegular (liftedInstrs, ppoint, labelMap) =
+    IRBasicBlock (ppoint, null, liftedInstrs, labelMap)
 
   static member CreateAbstract (ppoint, info) =
     assert (not (isNull info))
-    IRBasicBlock (ppoint, info, [||])
+    IRBasicBlock (ppoint, info, [||], ImmutableDictionary.Empty)
 

@@ -127,6 +127,10 @@ type IGraph<'V, 'E when 'V: equality and 'E: equality> =
   /// sequence.
   abstract GetSuccs: IVertex<'V> -> IReadOnlyCollection<IVertex<'V>>
 
+  /// Try to get the single root of the graph. This function returns None if
+  /// there is no root or there are multiple roots.
+  abstract TryGetSingleRoot: unit -> IVertex<'V> option
+
   /// Fold every vertex (the order can be arbitrary).
   abstract FoldVertex: ('a -> IVertex<'V> -> 'a) -> 'a -> 'a
 

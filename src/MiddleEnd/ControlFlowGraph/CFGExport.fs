@@ -51,13 +51,13 @@ type CFGData = {
 
 let private translateNodes (cfg: IGraph<_, _>) =
   let lst = List ()
-  cfg.IterVertex (fun (v: IVertex<BasicBlock>) ->
+  cfg.IterVertex (fun (v: IVertex<#BasicBlock>) ->
     lst.Add $"{v.VData.PPoint.Address:x}")
   lst.ToArray ()
 
 let private translateEdges (cfg: IGraph<_, _>) =
   let lst = List ()
-  cfg.IterEdge (fun (e: Edge<BasicBlock, _>) ->
+  cfg.IterEdge (fun (e: Edge<#BasicBlock, _>) ->
     let src, dst = e.First, e.Second
     lst.Add { From = $"{src.VData.PPoint.Address:x}"
               To = $"{dst.VData.PPoint.Address:x}"

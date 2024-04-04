@@ -24,36 +24,35 @@
 
 namespace B2R2.RearEnd.BinExplorer
 
-open B2R2.MiddleEnd.BinEssence
+open B2R2.MiddleEnd
 open System.IO
 
 type SendMsg =
-  | GetBinEssence
+  | GetBinaryBrew
   | LogString of string
-  | UpdateBinEssence of BinEssence
   | Terminate
 
 type ReplyMsg =
   | Ack
-  | ReplyBinEssence of BinEssence
+  | ReplyBinaryBrew of DefaultBinaryBrew
   | ReplyExitStatus of bool (* Either success (true) or failure (false) *)
 
 type Msg =
   | Send of SendMsg
   | Reply of ReplyMsg
 
-type Agent = MailboxProcessor<Msg * AsyncReplyChannel<Msg>>
-
 module internal Protocol =
 
-  let genArbiter binEssence logFile =
+  type Agent = MailboxProcessor<Msg * AsyncReplyChannel<Msg>>
+
+  let genArbiter brew logFile =
     let logger = new StreamWriter (path=logFile, AutoFlush=true)
     Agent.Start (fun inbox ->
-      let rec loop ess = async {
+      let rec loop brew = async {
         let! (msg, channel) = inbox.Receive ()
         match msg with
-        | Send GetBinEssence ->
-          Reply (ReplyBinEssence ess) |> channel.Reply
+        | Send GetBinaryBrew ->
+          Reply (ReplyBinaryBrew brew) |> channel.Reply
         | Send (LogString str) ->
           logger.WriteLine str
           channel.Reply (Reply Ack)
@@ -62,15 +61,15 @@ module internal Protocol =
           logger.Dispose ()
           channel.Reply (Reply Ack)
         | _ -> ()
-        return! loop ess
+        return! loop brew
       }
-      loop binEssence
+      loop brew
     )
 
-  let getBinEssence (arbiter: Agent) =
-    match arbiter.PostAndReply (fun ch -> Send GetBinEssence, ch) with
-    | Reply (ReplyBinEssence (ess)) -> ess
-    | _ -> failwith "Failed to obtain the BinEssence."
+  let getBinaryBrew (arbiter: Agent) =
+    match arbiter.PostAndReply (fun ch -> Send GetBinaryBrew, ch) with
+    | Reply (ReplyBinaryBrew brew) -> brew
+    | _ -> failwith "Failed to obtain the BinaryBrew."
 
   let logString (arbiter: Agent) str =
     match arbiter.PostAndReply (fun ch -> Send (LogString str), ch) with

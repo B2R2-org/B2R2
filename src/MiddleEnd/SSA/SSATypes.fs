@@ -22,36 +22,23 @@
   SOFTWARE.
 *)
 
-namespace B2R2.MiddleEnd.ControlFlowGraph
+namespace B2R2.MiddleEnd.SSA
 
 open System.Collections.Generic
-open B2R2
 open B2R2.BinIR
 open B2R2.MiddleEnd.BinGraph
+open B2R2.MiddleEnd.ControlFlowGraph
 
 /// SSACFG's vertex.
-type SSAVertex<'Abs when 'Abs :> SSAFunctionAbstraction and 'Abs: null> =
+type SSAVertex<'Abs when 'Abs: null> =
   IVertex<SSABasicBlock<'Abs>>
 
-/// A mapping from an address to a SSACFG vertex.
-type SSAVMap<'Abs when 'Abs :> SSAFunctionAbstraction and 'Abs: null> =
-  Dictionary<ProgramPoint, SSAVertex<'Abs>>
-
-/// This is a mapping from an edge to a dummy vertex (for external function
-/// calls). We first separately create dummy vertices even if they are
-/// associated with the same node (address) in order to compute dominance
-/// relationships without introducing incorrect paths or cycles. For
-/// convenience, we will always consider as a key "a return edge" from a fake
-/// vertex to a fall-through vertex.
-type FakeVMap<'Abs when 'Abs :> SSAFunctionAbstraction and 'Abs: null> =
-  Dictionary<ProgramPoint * ProgramPoint, SSAVertex<'Abs>>
-
 /// Mapping from a variable to a set of defining SSA basic blocks.
-type DefSites<'Abs when 'Abs :> SSAFunctionAbstraction and 'Abs: null> =
+type DefSites<'Abs when 'Abs: null> =
   Dictionary<SSA.VariableKind, Set<SSAVertex<'Abs>>>
 
 /// Defined variables per node in a SSACFG.
-type DefsPerNode<'Abs when 'Abs :> SSAFunctionAbstraction and 'Abs: null> =
+type DefsPerNode<'Abs when 'Abs: null> =
   Dictionary<SSAVertex<'Abs>, Set<SSA.VariableKind>>
 
 /// Counter for each variable.

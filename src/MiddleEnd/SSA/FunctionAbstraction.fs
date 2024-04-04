@@ -22,7 +22,7 @@
   SOFTWARE.
 *)
 
-namespace B2R2.MiddleEnd.ControlFlowGraph
+namespace B2R2.MiddleEnd.SSA
 
 open B2R2
 

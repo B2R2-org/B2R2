@@ -23,8 +23,9 @@
     <Compile Include="IFunctionBuildingStrategy.fs" />
     <Compile Include="FunctionBuilder.fs" />
     <Compile Include="FunctionDependenceMap.fs" />
+    <Compile Include="FunctionCollection.fs" />
     <Compile Include="TaskManager.fs" />
-    <Compile Include="Strategies\DefaultStrategy.fs" />
+    <Compile Include="Strategies\SimpleStrategy.fs" />
     <None Include="..\..\..\LICENSE.md" Pack="true" PackagePath="" />
     <None Include="..\..\..\assets\b2r2-240x240.png" Pack="true" PackagePath="" />
     <None Include="README.md" Pack="true" PackagePath="" />

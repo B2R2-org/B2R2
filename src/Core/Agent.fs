@@ -51,11 +51,24 @@ type Agent<'Msg> private (ch: BufferBlock<'Msg>, task: Task) =
     let ch = BufferBlock<'Msg> ()
     let receivable =
       { new IAgentMessageReceivable<'Msg> with
-          member _.Receive () = ch.Receive (cancellationToken=token)
+          member _.Receive () =
+            task {
+              let! isAvailable = ch.OutputAvailableAsync token
+              if isAvailable then
+                match ch.TryReceive () with
+                | true, msg -> return msg
+                | false, _ -> return raise <| InvalidOperationException ()
+              else return raise <| OperationCanceledException ()
+            } |> fun task -> task.Wait (); task.Result
+          member _.Complete () = ch.Complete ()
           member _.IsCancelled with get() = token.IsCancellationRequested }
     let fn = fun () ->
       try taskFn receivable
-      with e -> Console.Error.WriteLine e.Message
+      with e ->
+        ()
+#if DEBUG
+        Console.Error.WriteLine e.Message
+#endif
     Agent (ch, Task.Run (fn, cancellationToken=token))
 
 /// Reply channel for the agent.
@@ -66,6 +79,9 @@ and AgentReplyChannel<'Reply> (replyf: 'Reply -> unit) =
 and IAgentMessageReceivable<'Msg> =
   /// Receive a message from the agent.
   abstract Receive: unit -> 'Msg
+
+  /// Notify the agent that no more messages will be sent.
+  abstract Complete: unit -> unit
 
   /// Is the agent cancelled?
   abstract IsCancelled: bool

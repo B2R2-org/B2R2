@@ -30,9 +30,9 @@ open System.Runtime.Serialization
 open System.Runtime.Serialization.Json
 open B2R2
 open B2R2.FrontEnd
+open B2R2.MiddleEnd
 open B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.MiddleEnd.ControlFlowAnalysis
-open B2R2.MiddleEnd.BinEssence
 open B2R2.MiddleEnd.DataFlow
 open B2R2.RearEnd.Visualization
 
@@ -132,32 +132,32 @@ let answer (req: HttpListenerRequest) (resp: HttpListenerResponse) = function
     resp.Close ()
 
 let handleBinInfo req resp arbiter =
-  let ess = Protocol.getBinEssence arbiter
-  let txt = ess.BinHandle.File.Path
+  let brew = Protocol.getBinaryBrew arbiter
+  let txt = brew.BinHandle.File.Path
   let txt = "\"" + txt.Replace(@"\", @"\\") + "\""
   Some (defaultEnc.GetBytes (txt)) |> answer req resp
 
-let cfgToJSON cfgType (ess: BinEssence) g root =
+let cfgToJSON cfgType (brew: BinaryBrew<_, _, _, _, _, _, _>) g root =
   match cfgType with
   | IRCFG ->
     Visualizer.getJSONFromGraph g [root]
   | DisasmCFG ->
-    let g, root = DisasmLens.convert ess.CodeManager g root
+    let g, root = DisasmCFG.create g root
     Visualizer.getJSONFromGraph g [root]
   | SSACFG ->
-    let struct (g, root) = SSACFG.ofIRCFG ess.BinHandle g root
-    let struct (g, root) = SSAPromotion.promote ess.BinHandle g root
+    let ssaLifter = SSA.SSALifter brew.BinHandle
+    let struct (g, root) = SSA.SSALens.convert ssaLifter null g root
     Visualizer.getJSONFromGraph g [root]
   | _ -> failwith "Invalid CFG type"
 
-let handleRegularCFG req resp (name: string) (ess: BinEssence) cfgType =
-  match ess.CodeManager.FunctionMaintainer.TryFind name with
-  | None -> answer req resp None
-  | Some func ->
+let handleRegularCFG req resp name (brew: BinaryBrew<_, _, _, _, _, _, _>)
+                     cfgType =
+  let fns = brew.Functions.Find (name=name)
+  if fns.Count > 0 then
+    let func = fns[0] (* XXX: handle multi func case *)
     try
-      let cfg, root =
-        BinEssence.getFunctionCFG ess func.EntryPoint |> Result.get
-      let s = cfgToJSON cfgType ess cfg root
+      let root = func.CFG.TryGetSingleRoot () |> Option.get
+      let s = cfgToJSON cfgType brew func.CFG root
       Some (defaultEnc.GetBytes s) |> answer req resp
     with e ->
 #if DEBUG
@@ -165,13 +165,14 @@ let handleRegularCFG req resp (name: string) (ess: BinEssence) cfgType =
 #else
       answer req resp None
 #endif
+  else answer req resp None
 
 let handleCFG req resp arbiter cfgType name =
-  let ess = Protocol.getBinEssence arbiter
+  let brew = Protocol.getBinaryBrew arbiter
   match cfgType with
   | CallCFG ->
     try
-      let g, roots = CallGraphLens.build ess
+      let g, roots = CallGraph.create BinGraph.Imperative brew
       let s = Visualizer.getJSONFromGraph g roots
       Some (defaultEnc.GetBytes s) |> answer req resp
     with e ->
@@ -180,23 +181,23 @@ let handleCFG req resp arbiter cfgType name =
 #else
       answer req resp None
 #endif
-  | typ -> handleRegularCFG req resp name ess typ
+  | typ -> handleRegularCFG req resp name brew typ
 
 let handleFunctions req resp arbiter =
-  let ess = Protocol.getBinEssence arbiter
+  let brew = Protocol.getBinaryBrew arbiter
   let names =
-    ess.CodeManager.FunctionMaintainer.RegularFunctions
-    |> Seq.sortBy (fun c -> c.EntryPoint)
-    |> Seq.map (fun c -> { FuncID = c.FunctionID; FuncName = c.FunctionName })
+    brew.Functions.Sequence
+    |> Seq.sortBy (fun fn -> fn.EntryPoint)
+    |> Seq.map (fun fn -> { FuncID = fn.ID; FuncName = fn.Name })
     |> Seq.toArray
   Some (json<(JsonFuncInfo) []> names |> defaultEnc.GetBytes)
   |> answer req resp
 
 let handleHexview req resp arbiter =
-  let ess = Protocol.getBinEssence arbiter
-  ess.BinHandle.File.GetSegments ()
+  let brew = Protocol.getBinaryBrew arbiter
+  brew.BinHandle.File.GetSegments ()
   |> Seq.map (fun seg ->
-    let bs = ess.BinHandle.ReadBytes (seg.Address, int (seg.Size))
+    let bs = brew.BinHandle.ReadBytes (seg.Address, int (seg.Size))
     let coloredHex = bs |> Array.map ColoredSegment.hexOfByte
     let coloredAscii = bs |> Array.map ColoredSegment.asciiOfByte
     let cha = (* DataColoredHexAscii *)
@@ -237,23 +238,24 @@ let getVarNames (hdl: BinHandle) = function
   | _ -> [||]
 
 let handleDataflow req resp arbiter (args: string) =
-  let ess = Protocol.getBinEssence arbiter
+  let brew = Protocol.getBinaryBrew arbiter
   let args = args.Split ([|','|])
   let entry = args[0] |> uint64
   let addr = args[1] |> uint64
   let tag = args[2] (* either variable or value. *)
   match tag with
   | "variable" ->
-    let var = args[3] |> ess.BinHandle.RegisterFactory.RegIDFromString
+    let var = args[3] |> brew.BinHandle.RegisterFactory.RegIDFromString
     try
-      let cfg, root = BinEssence.getFunctionCFG ess entry |> Result.get
+      let cfg = brew.Functions[entry].CFG
+      let root = cfg.TryGetSingleRoot () |> Option.get
       let chain = DataFlowChain.init cfg root true
       let v = { ProgramPoint = ProgramPoint (addr, 0); VarExpr = Regular var }
       computeConnectedVars chain v
       |> Set.toArray
       |> Array.map (fun vp ->
         { VarAddr = vp.ProgramPoint.Address
-          VarNames = getVarNames ess.BinHandle vp.VarExpr })
+          VarNames = getVarNames brew.BinHandle vp.VarExpr })
       |> json<JsonVarPoint []>
       |> defaultEnc.GetBytes
       |> Some

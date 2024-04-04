@@ -28,7 +28,6 @@ open System.Collections.Generic
 open B2R2
 open B2R2.BinIR.SSA
 open B2R2.FrontEnd
-open B2R2.MiddleEnd.ControlFlowGraph
 
 [<AutoOpen>]
 module private StackPointerPropagation =
@@ -48,8 +47,7 @@ module private StackPointerPropagation =
 /// constant first, and check how it propagates within the function.
 /// StackPointerPropagation is generally much faster than
 /// SparseConstantPropagation due to its simplicity.
-type StackPointerPropagation<'Abs when 'Abs :> SSAFunctionAbstraction
-                                   and 'Abs: null> (hdl, ssaCFG) as this =
+type StackPointerPropagation<'Abs when 'Abs: null> (hdl, ssaCFG) as this =
   inherit ConstantPropagation<SPValue, 'Abs> (ssaCFG)
 
   let st = CPState.initState hdl ssaCFG (initRegister hdl) (Dictionary ()) this

@@ -29,15 +29,14 @@ open B2R2.FrontEnd
 open B2R2.BinIR.SSA
 open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.ControlFlowGraph
+open B2R2.MiddleEnd.SSA
 open System.Collections.Generic
 
 /// An ID of an SSA memory instance.
 type SSAMemID = int
 
 /// Constant propagation analysis state.
-type CPState<'L, 'Abs when 'L: equality
-                       and 'Abs :> SSAFunctionAbstraction
-                       and 'Abs: null> = {
+type CPState<'L, 'Abs when 'L: equality and 'Abs: null> = {
   /// BinHandle of the current binary.
   BinHandle: BinHandle
   /// SSA edges
@@ -67,7 +66,6 @@ type CPState<'L, 'Abs when 'L: equality
 
 /// The core interface of a Constant Propagation (CP) algorithm.
 and IConstantPropagation<'L, 'Abs when 'L: equality
-                                   and 'Abs :> SSAFunctionAbstraction
                                    and 'Abs: null> =
   /// Bottom of the lattice.
   abstract Bottom: 'L
@@ -113,14 +111,14 @@ module CPState =
   let isExecuted st src dst =
     st.ExecutedEdges.Contains (src, dst)
 
-  let markAllSuccessors st (cfg: IGraph<_, _>) (blk: SSAVertex<_>) =
+  let markAllSuccessors st (cfg: IGraph<_, _>) (blk: IVertex<_>) =
     let myid = blk.ID
     cfg.GetSuccs blk
     |> Seq.iter (fun succ ->
       let succid = succ.ID
       markExecutable st myid succid)
 
-  let markExceptCallFallThrough st (cfg: IGraph<_, _>) (blk: SSAVertex<_>) =
+  let markExceptCallFallThrough st (cfg: IGraph<_, _>) (blk: IVertex<_>) =
     let myid = blk.ID
     cfg.GetSuccs blk
     |> Seq.iter (fun succ ->

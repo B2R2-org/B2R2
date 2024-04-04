@@ -34,8 +34,8 @@ let cliPrinter arbiter () (output: OutString) =
 let handle cmds arbiter (line: string) acc printer =
   match line.Split (' ') |> Array.toList with
   | cmd :: args ->
-    let ess = Protocol.getBinEssence arbiter
-    let acc = Cmd.handle cmds ess cmd args |> Array.fold (printer arbiter) acc
+    let brew = Protocol.getBinaryBrew arbiter
+    let acc = Cmd.handle cmds brew cmd args |> Array.fold (printer arbiter) acc
     printer arbiter acc (OutputNormal "")
   | [] -> acc
 

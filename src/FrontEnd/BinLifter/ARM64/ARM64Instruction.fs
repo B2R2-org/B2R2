@@ -101,7 +101,7 @@ type ARM64Instruction (addr, numBytes, insInfo, wordSize) =
     | Opcode.ERET -> true
     | _ -> false
 
-  override __.IsBBLEnd () =
+  override __.IsTerminator () =
        __.IsBranch ()
     || __.IsInterrupt ()
     || __.IsExit ()

@@ -47,6 +47,8 @@ type FunctionDependenceMap () =
 
   /// Remove a callee function from the map, and return its caller functions.
   member _.RemoveAndGetCallers (callee: Addr) =
-    let callers = dict[callee]
-    dict.Remove callee |> ignore
-    callers
+    match dict.TryGetValue callee with
+    | true, callers ->
+      dict.Remove callee |> ignore
+      callers |> Seq.toList
+    | false, _ -> []

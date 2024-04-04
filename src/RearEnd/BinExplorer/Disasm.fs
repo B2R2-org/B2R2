@@ -27,7 +27,7 @@ namespace B2R2.RearEnd.BinExplorer
 open System
 open B2R2
 open B2R2.FrontEnd
-open B2R2.MiddleEnd.BinEssence
+open B2R2.MiddleEnd
 
 type CmdDisasm () =
   inherit Cmd ()
@@ -50,14 +50,14 @@ type CmdDisasm () =
       | Error _ ->
         disasmLoop ("(invalid)" :: acc) hdl (addr + 1UL) (count - 1)
 
-  let render (ess: BinEssence) = function
-    | Ok (count, addr: uint64) -> disasmLoop [] ess.BinHandle addr count
+  let render (brew: BinaryBrew<_, _, _, _, _, _, _>) = function
+    | Ok (count, addr: uint64) -> disasmLoop [] brew.BinHandle addr count
     | Error str -> [| str |]
 
-  let disasm ess count addr =
+  let disasm brew count addr =
     convertCount count
     |> Result.bind (convertAddr addr)
-    |> render ess
+    |> render brew
 
   override __.CmdName = "disasm"
 
@@ -73,10 +73,10 @@ type CmdDisasm () =
 
   override __.SubCommands = []
 
-  override __.CallBack _ ess args =
+  override __.CallBack _ brew args =
     match args with
-    | cnt :: addr :: _ -> disasm ess cnt addr
-    | addr :: _ -> disasm ess "1" addr
+    | cnt :: addr :: _ -> disasm brew cnt addr
+    | addr :: _ -> disasm brew "1" addr
     | _ -> [| __.CmdHelp |]
     |> Array.map OutputNormal
 
