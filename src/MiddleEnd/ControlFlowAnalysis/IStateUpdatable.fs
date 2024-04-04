@@ -26,7 +26,7 @@ namespace B2R2.MiddleEnd.ControlFlowAnalysis
 
 open B2R2
 
-/// The interface for querying a global state from the CFGTaskManager.
+/// The interface for querying a global state from the TaskManager.
 type IStateUpdatable =
   /// Make a query and get a response.
   abstract UpdateDependency: caller: Addr * callee: Addr -> unit

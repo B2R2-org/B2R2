@@ -24,7 +24,7 @@
 
 namespace B2R2.MiddleEnd.ControlFlowAnalysis
 
-/// The interface for querying a global state from the CFGTaskManager.
+/// The interface for querying a global state from the TaskManager.
 type IStateQueryable<'Req, 'Res> =
   /// Make a query and get a response.
   abstract Query: 'Req -> 'Res

@@ -26,8 +26,8 @@ namespace B2R2.MiddleEnd.ControlFlowAnalysis
 
 open B2R2
 
-/// A kind of messages to be handled by CFGTaskManager.
-type CFGTaskMessage<'Req, 'Res> =
+/// A kind of messages to be handled by TaskManager.
+type TaskMessage<'Req, 'Res> =
   /// Add an address to recover the CFG.
   | AddTask of Addr
   /// Add a dependency between two functions.

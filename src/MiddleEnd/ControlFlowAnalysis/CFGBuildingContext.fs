@@ -44,11 +44,11 @@ type CFGBuildingContext<'V,
   BBLFactory: BBLFactory
   /// The user-defined state.
   State: 'State
-  /// The channel for accessing the state of the CFGTaskManager.
+  /// The channel for accessing the state of the TaskManager.
   ManagerState: IManagerState<'Req, 'Res>
 }
 
-/// The state of the CFGTaskManager.
+/// The state of the TaskManager.
 and IManagerState<'Req, 'Res> =
   inherit IStateQueryable<'Req, 'Res>
   inherit IStateUpdatable

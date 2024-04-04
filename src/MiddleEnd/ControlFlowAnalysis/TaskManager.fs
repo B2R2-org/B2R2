@@ -33,19 +33,19 @@ open B2R2.FrontEnd
 open B2R2.MiddleEnd.ControlFlowGraph
 
 /// Task manager for control flow recovery.
-type CFGTaskManager<'V,
-                    'E,
-                    'Abs,
-                    'Act,
-                    'State,
-                    'Req,
-                    'Res when 'V :> IRBasicBlock<'Abs>
-                          and 'V: equality
-                          and 'E: equality
-                          and 'Abs: null
-                          and 'Act :> ICFGAction
-                          and 'State :> IResettable
-                          and 'State: (new: unit -> 'State)>
+type TaskManager<'V,
+                 'E,
+                 'Abs,
+                 'Act,
+                 'State,
+                 'Req,
+                 'Res when 'V :> IRBasicBlock<'Abs>
+                       and 'V: equality
+                       and 'E: equality
+                       and 'Abs: null
+                       and 'Act :> ICFGAction
+                       and 'State :> IResettable
+                       and 'State: (new: unit -> 'State)>
     (hdl,
      instrs: InstructionCollection,
      cfgConstructor: IRCFG.IConstructable<'V, 'E, 'Abs>,
@@ -55,26 +55,32 @@ type CFGTaskManager<'V,
 
   let numThreads = defaultArg numThreads Environment.ProcessorCount
   let builders = Dictionary<Addr, FunctionBuilder<_, _, _, _, _, _, _>> ()
-  let channel = BufferBlock<FunctionBuilder<_, _, _, _, _, _, _>> ()
+  let toWorkers = BufferBlock<FunctionBuilder<_, _, _, _, _, _, _>> ()
   let cts = new CancellationTokenSource ()
   let dependenceMap = FunctionDependenceMap ()
+  let resultChannel = BufferBlock<unit> ()
 
   let rec processor (inbox: IAgentMessageReceivable<_>) =
     while not inbox.IsCancelled do
       match inbox.Receive () with
       | AddTask entryPoint ->
-        let builder: FunctionBuilder<_, _, _, _, _, _, _> =
-          getBuilder entryPoint
-        if builder.InProgress || (builder :> IValidityCheck).IsValid then ()
-        else channel.Post builder |> ignore
+        let builder = getBuilder entryPoint
+        if builder.InProgress then ()
+        else
+          builder.InProgress <- true
+          toWorkers.Post builder |> ignore
       | AddDependency (caller, callee) ->
         dependenceMap.AddDependency (caller, callee)
+        addTask callee
       | ReportResult (entryPoint, Success) ->
         builders[entryPoint].InProgress <- false
         dependenceMap.RemoveAndGetCallers entryPoint
-        |> Seq.iter (getBuilder >> channel.Post >> ignore)
+        |> Seq.iter (getBuilder >> toWorkers.Post >> ignore)
+        if isAllDone () then terminate () else ()
       | ReportResult (entryPoint, Postponement) ->
-        builders[entryPoint].InProgress <- false
+        let builder = builders[entryPoint]
+        builder.InProgress <- false
+        addTask entryPoint
       | ReportResult (entryPoint, Failure _) ->
         (builders[entryPoint] :> IValidityCheck).Invalidate ()
         dependenceMap.RemoveAndGetCallers entryPoint
@@ -83,7 +89,7 @@ type CFGTaskManager<'V,
         let builder = builders[entryPoint]
         strategy.OnQuery (msg, builder :> IValidityCheck)
 
-  and getBuilder addr =
+  and getBuilder addr: FunctionBuilder<_, _, _, _, _, _, _> =
     match builders.TryGetValue addr with
     | true, builder -> builder
     | false, _ ->
@@ -95,37 +101,54 @@ type CFGTaskManager<'V,
 
   and manager = Agent<_>.Start (processor, cts.Token)
 
+  and addTask (entryPoint: Addr) =
+    AddTask entryPoint |> manager.Post
+
   and addTasks (entryPoints: IEnumerable<Addr>) =
-    entryPoints |> Seq.iter (AddTask >> manager.Post)
+    entryPoints |> Seq.iter addTask
+
+  and isAllDone () =
+    builders.Values |> Seq.forall (fun builder -> not builder.InProgress)
+
+  and terminate () =
+    cts.Cancel ()
+    resultChannel.Post () |> ignore
 
   let _workers =
     Array.init numThreads (fun idx ->
-      CFGTaskWorker (idx, manager, channel, cts.Token))
+      TaskWorker (idx, manager, toWorkers, cts.Token))
 
 #if CFGDEBUG
   do initLogger numThreads
 #endif
 
-  /// Start the CFG recovery process using the given sequence of entry points.
-  member __.StartRecovery (entryPoints: Addr[]) =
+  /// Recover the CFGs from the given sequence of entry points. This function
+  /// will potentially discover more functions and then return the whole set of
+  /// recovered functions (dictionary) as output.
+  member __.Recover (entryPoints: Addr[]) =
     entryPoints |> addTasks
+    resultChannel.Receive ()
+    builders
+    |> Seq.map (fun (KeyValue (addr, builder)) ->
+      KeyValuePair (addr, builder.ToFunction ()))
+    |> Dictionary
 
 /// Task worker for control flow recovery.
-and private CFGTaskWorker<'V,
-                          'E,
-                          'Abs,
-                          'Act,
-                          'State,
-                          'Req,
-                          'Res when 'V :> IRBasicBlock<'Abs>
-                                and 'V: equality
-                                and 'E: equality
-                                and 'Abs: null
-                                and 'Act :> ICFGAction
-                                and 'State :> IResettable
-                                and 'State: (new: unit -> 'State)>
+and private TaskWorker<'V,
+                       'E,
+                       'Abs,
+                       'Act,
+                       'State,
+                       'Req,
+                       'Res when 'V :> IRBasicBlock<'Abs>
+                             and 'V: equality
+                             and 'E: equality
+                             and 'Abs: null
+                             and 'Act :> ICFGAction
+                             and 'State :> IResettable
+                             and 'State: (new: unit -> 'State)>
     (tid: int,
-     manager: Agent<CFGTaskMessage<'Req, 'Res>>,
+     manager: Agent<TaskMessage<'Req, 'Res>>,
      chan: BufferBlock<FunctionBuilder<'V, 'E, 'Abs, 'Act, 'State, 'Req, 'Res>>,
      token: CancellationToken) =
 

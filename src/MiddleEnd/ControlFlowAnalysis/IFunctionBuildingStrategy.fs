@@ -57,5 +57,5 @@ type IFunctionBuildingStrategy<'V,
     -> CFGResult
 
   /// This is a callback that is called when a query is made to the
-  /// CFGTaskManager.
-  abstract OnQuery: CFGTaskMessage<'Req, 'Res> * IValidityCheck -> unit
+  /// TaskManager.
+  abstract OnQuery: TaskMessage<'Req, 'Res> * IValidityCheck -> unit

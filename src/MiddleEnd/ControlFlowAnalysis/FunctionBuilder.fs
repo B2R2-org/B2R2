@@ -47,7 +47,7 @@ type FunctionBuilder<'V,
      instrs,
      entryPoint,
      cfgConstructor: IRCFG.IConstructable<'V, 'E, 'Abs>,
-     agent: Agent<CFGTaskMessage<'Req, 'Res>>,
+     agent: Agent<TaskMessage<'Req, 'Res>>,
      strategy: IFunctionBuildingStrategy<_, _, _, _, _, _, _>,
      noRetAnalyzer) =
 
@@ -109,8 +109,14 @@ type FunctionBuilder<'V,
     // XXX: cfg reset
     // XXX: bblFactory.Reset ()
 
+  /// Convert this builder to a function.
+  member __.ToFunction () =
+    assert (not isBad && not inProgress)
+    Function (entryPoint, ircfg)
+
   interface IValidityCheck with
     member __.IsValid with get() = not isBad
+
     member __.Invalidate () =
       isBad <- true
       __.InProgress <- false
