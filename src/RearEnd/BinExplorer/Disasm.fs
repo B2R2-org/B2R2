@@ -40,24 +40,24 @@ type CmdDisasm () =
     try Ok (count, Convert.ToUInt64 (str, 16))
     with _ -> Error "[*] Invalid address is given."
 
-  let rec disasmLoop acc (hdl: BinHandle) addr count =
+  let rec disasmLoop acc hdl (instrs: InstructionCollection) addr count =
     if count <= 0 then List.rev acc |> List.toArray
     else
-      match hdl.TryParseInstr (addr=addr) with
+      match instrs.TryFind (addr, ArchOperationMode.NoMode) with
       | Ok ins ->
-        let d = ins.Disasm (true, hdl.File)
-        disasmLoop (d :: acc) hdl (addr + uint64 ins.Length) (count - 1)
+        let d = ins.Disasm (true, (hdl: BinHandle).File)
+        disasmLoop (d :: acc) hdl instrs (addr + uint64 ins.Length) (count - 1)
       | Error _ ->
-        disasmLoop ("(invalid)" :: acc) hdl (addr + 1UL) (count - 1)
+        disasmLoop ("(invalid)" :: acc) hdl instrs (addr + 1UL) (count - 1)
 
-  let render (brew: BinaryBrew<_, _, _, _, _, _, _>) = function
-    | Ok (count, addr: uint64) -> disasmLoop [] brew.BinHandle addr count
+  let render hdl instrs = function
+    | Ok (count, addr: uint64) -> disasmLoop [] hdl instrs addr count
     | Error str -> [| str |]
 
-  let disasm brew count addr =
+  let disasm hdl instrs count addr =
     convertCount count
     |> Result.bind (convertAddr addr)
-    |> render brew
+    |> render hdl instrs
 
   override __.CmdName = "disasm"
 
@@ -75,8 +75,8 @@ type CmdDisasm () =
 
   override __.CallBack _ brew args =
     match args with
-    | cnt :: addr :: _ -> disasm brew cnt addr
-    | addr :: _ -> disasm brew "1" addr
+    | cnt :: addr :: _ -> disasm brew.BinHandle brew.Instructions cnt addr
+    | addr :: _ -> disasm brew.BinHandle brew.Instructions "1" addr
     | _ -> [| __.CmdHelp |]
     |> Array.map OutputNormal
 

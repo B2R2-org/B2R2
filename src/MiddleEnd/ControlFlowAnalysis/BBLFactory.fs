@@ -79,13 +79,13 @@ type BBLFactory<'Abs when 'Abs: null> (hdl: BinHandle,
     }
 
   /// The given list is reversed, so we fill the array in reverse order.
-  let rec liftAndFill bblAddr (arr: LiftedInstruction[]) instrs idx =
+  let rec liftAndFill lunit bblAddr (arr: LiftedInstruction[]) instrs idx =
     match instrs with
     | ins :: tl ->
-      let stmts = hdl.LiftOptimizedInstr (ins=ins)
+      let stmts = (lunit: LiftingUnit).LiftInstruction (ins=ins, optimize=true)
       let liftedIns = { Original = ins; Stmts = stmts; BBLAddr = bblAddr }
       arr[idx] <- liftedIns
-      liftAndFill bblAddr arr tl (idx - 1)
+      liftAndFill lunit bblAddr arr tl (idx - 1)
     | [] -> arr
 
   let scanIntraLeaders (liftedInstrs: LiftedInstruction[]) =
@@ -158,11 +158,11 @@ type BBLFactory<'Abs when 'Abs: null> (hdl: BinHandle,
     | [] ->
       addIRBasicBlock liftedInstrs labelMap prevInsIdx prevStmtIdx None
 
-  let liftBlock leaderAddr (instrs: Instruction list) insCount =
+  let liftBlock liftingUnit leaderAddr (instrs: Instruction list) insCount =
     assert (insCount <> 0)
     interProceduralLeaders.Add leaderAddr |> ignore
     let arr = Array.zeroCreate insCount
-    let arr = liftAndFill leaderAddr arr instrs (insCount - 1)
+    let arr = liftAndFill liftingUnit leaderAddr arr instrs (insCount - 1)
     let struct (labelMap, intraLeaders) = scanIntraLeaders arr
     if intraLeaders.Count = 0 then
       let ppoint = ProgramPoint (leaderAddr, 0)
@@ -171,11 +171,12 @@ type BBLFactory<'Abs when 'Abs: null> (hdl: BinHandle,
     else gatherIntraBBLs arr labelMap 0 0 (Seq.toList intraLeaders)
 
   let bblLifter (channel: BufferBlock<Addr * Instruction list * int>) =
+    let liftingUnit = hdl.NewLiftingUnit ()
     task {
       while! channel.OutputAvailableAsync () do
         match channel.TryReceive () with
         | true, (leaderAddr, instrs, insCount) ->
-          liftBlock leaderAddr instrs insCount
+          liftBlock liftingUnit leaderAddr instrs insCount
         | false, _ -> ()
     }
 

@@ -33,11 +33,10 @@ open B2R2.FrontEnd.BinFile
 /// Collection of lifted instructions. When this class is instantiated, it will
 /// automatically lift all possible instructions from the given binary, and
 /// store them in the internal collection. This is shared across all functions.
-type InstructionCollection (hdl: BinHandle,
-                            collector: IInstructionCollectable) =
+type InstructionCollection (collector: IInstructionCollectable) =
   let dict = ConcurrentDictionary<Addr, InstructionCandidate> ()
   let updateFn (addr, insCandidate) = dict.TryAdd (addr, insCandidate) |> ignore
-  do task { collector.Collect (hdl, updateFn) } |> ignore
+  do task { collector.Collect updateFn } |> ignore
 
   /// Number of instructions in the collection.
   member __.Count with get() = dict.Count
@@ -54,7 +53,7 @@ type InstructionCollection (hdl: BinHandle,
     match dict.TryGetValue addr with
     | true, candidate -> __.ExtractInstruction candidate mode
     | false, _ ->
-      match collector.ParseInstructionCandidate (hdl, addr, mode) with
+      match collector.ParseInstructionCandidate (addr, mode) with
       | Ok candidate ->
         let ins = __.ExtractInstruction candidate mode
         if Result.isOk ins then dict.TryAdd (addr, candidate) |> ignore else ()
@@ -76,7 +75,8 @@ type InstructionCollection (hdl: BinHandle,
     | OnlyOne ins -> ins
     | _ -> raise ParsingFailureException
 
-
+/// There could be two instructions at the same address, one for ARM and the
+/// other for Thumb mode.
 and InstructionCandidate =
   | OnlyOne of Instruction
   | MaybeTwo of Instruction option * Instruction option (* arm or thumb *)
@@ -86,35 +86,37 @@ and IInstructionCollectable =
   /// Collect instructions from the binary. The `updateFn` is called for each
   /// instruction that is parsed.
   abstract Collect:
-      BinHandle
-    * updateFn: (Addr * InstructionCandidate -> unit)
+       updateFn: (Addr * InstructionCandidate -> unit)
     -> unit
 
   /// Parse one or more instruction candidates from the given address.
   abstract ParseInstructionCandidate:
-      BinHandle * Addr * ArchOperationMode
+       Addr * ArchOperationMode
     -> Result<InstructionCandidate, ErrorCase>
 
 /// Perform linear sweep to collect instructions.
-type LinearSweepInstructionCollector () =
-  let rec update (hdl: BinHandle) updateFn shift ptr =
+type LinearSweepInstructionCollector (liftingUnit: LiftingUnit) =
+  let rec update updateFn shift ptr =
     if BinFilePointer.IsValid ptr then
-      match hdl.TryParseInstr (ptr=ptr) with
+      match liftingUnit.TryParseInstruction (ptr=ptr) with
       | Ok ins ->
         updateFn (ptr.Addr, OnlyOne ins) |> ignore
-        update hdl updateFn shift (BinFilePointer.Advance ptr (int ins.Length))
+        update updateFn shift (BinFilePointer.Advance ptr (int ins.Length))
       | Error _ ->
-        update hdl updateFn shift (BinFilePointer.Advance ptr shift)
+        update updateFn shift (BinFilePointer.Advance ptr shift)
     else ()
 
-  interface IInstructionCollectable with
-    member __.Collect (hdl, updateFn) =
-      let entryPoint = hdl.File.EntryPoint |> Option.defaultValue 0UL
-      let ptr = hdl.File.ToBinFilePointer entryPoint
-      let shiftAmount = 1 (* FIXME *)
-      update hdl updateFn shiftAmount ptr
+  new (hdl: BinHandle) =
+    LinearSweepInstructionCollector (hdl.NewLiftingUnit ())
 
-    member __.ParseInstructionCandidate (hdl, addr, _mode) =
-      match hdl.TryParseInstr (addr=addr) with
+  interface IInstructionCollectable with
+    member __.Collect (updateFn) =
+      let entryPoint = liftingUnit.File.EntryPoint |> Option.defaultValue 0UL
+      let ptr = liftingUnit.File.ToBinFilePointer entryPoint
+      let shiftAmount = 1 (* FIXME *)
+      update updateFn shiftAmount ptr
+
+    member __.ParseInstructionCandidate (addr, _mode) =
+      match liftingUnit.TryParseInstruction (addr=addr) with
       | Ok ins -> Ok (OnlyOne ins)
       | Error _ -> Error ErrorCase.ParsingFailure

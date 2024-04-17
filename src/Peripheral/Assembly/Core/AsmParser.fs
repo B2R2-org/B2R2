@@ -29,7 +29,7 @@ open B2R2.FrontEnd
 /// Assembly code parser interface.
 [<AbstractClass>]
 type AsmParser (isa, mode) =
-  let parser = Parser.init isa mode None
+  let parser = GroundWork.CreateParser isa mode
 
   /// Run parsing from a given assembly string, and assemble binary code.
   abstract Assemble: string -> Result<byte [] list, string>

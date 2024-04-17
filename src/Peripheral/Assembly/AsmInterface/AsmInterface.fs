@@ -37,7 +37,8 @@ type AsmInterface (isa: ISA, startAddress) =
     | Architecture.MIPS32
     | Architecture.MIPS64
     | _ -> raise InvalidISAException
-  let struct (ctxt, regFactory) = Basis.load isa
+  let ctxt = GroundWork.CreateTranslationContext isa
+  let regFactory = GroundWork.CreateRegisterFactory isa
   let uirParser = LowUIR.LowUIRParser (isa, regFactory)
 
   /// Parse the given assembly input, and assemble a list of byte arrays, where

@@ -53,9 +53,11 @@ type BinaryBrew<'V,
   public (hdl: BinHandle,
           strategy: IFunctionBuildingStrategy<_, _, _, _, _, _, _>) =
 
-  let exnInfo = ExceptionInfo (hdl)
+  let lunit = hdl.NewLiftingUnit ()
 
-  let instrs = InstructionCollection (hdl, LinearSweepInstructionCollector ())
+  let exnInfo = ExceptionInfo (lunit)
+
+  let instrs = InstructionCollection (LinearSweepInstructionCollector lunit)
 
   let cfgConstructor =
     { new IRCFG.IConstructable<'V, 'E, 'Abs> with
@@ -83,7 +85,7 @@ type BinaryBrew<'V,
     let entries =
       file.GetFunctionAddresses ()
       |> Set.ofSeq
-      |> Set.union (exnInfo.GetFunctionEntryPoints ())
+      |> Set.union exnInfo.FunctionEntryPoints
     file.EntryPoint
     |> Option.fold (fun acc addr ->
       if file.Type = FileType.LibFile && addr = 0UL then acc

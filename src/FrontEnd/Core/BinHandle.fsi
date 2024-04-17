@@ -25,7 +25,6 @@
 namespace B2R2.FrontEnd
 
 open B2R2
-open B2R2.BinIR
 open B2R2.FrontEnd.BinFile
 open B2R2.FrontEnd.BinLifter
 
@@ -65,14 +64,11 @@ type BinHandle =
   /// File handle.
   member File: IBinFile
 
-  /// Translation context.
-  member TranslationContext: TranslationContext
-
-  /// Parser.
-  member Parser: IInstructionParsable
-
   /// Register factory.
   member RegisterFactory: RegisterFactory
+
+  /// Get a new instance of lifting unit.
+  member NewLiftingUnit: unit -> LiftingUnit
 
   /// <summary>
   ///   Return the byte array of size (nBytes) located at the address (addr).
@@ -83,7 +79,7 @@ type BinHandle =
   ///   Return (byte[]) if succeeded, (ErrorCase) otherwise.
   /// </returns>
   member TryReadBytes:
-    addr: Addr * nBytes: int -> Result<byte [], ErrorCase>
+    addr: Addr * nBytes: int -> Result<byte[], ErrorCase>
 
   /// <summary>
   ///   Return the byte array of size (nBytes) pointed to by the pointer (ptr).
@@ -94,7 +90,7 @@ type BinHandle =
   ///   Return (byte[]) if succeeded, (ErrorCase) otherwise.
   /// </returns>
   member TryReadBytes:
-    ptr: BinFilePointer * nBytes: int -> Result<byte [], ErrorCase>
+    ptr: BinFilePointer * nBytes: int -> Result<byte[], ErrorCase>
 
   /// <summary>
   ///   Return the byte array of size (nBytes) at the addr from the current
@@ -105,7 +101,7 @@ type BinHandle =
   /// <returns>
   ///   Return the byte array if succeed. Otherwise, raise an exception.
   /// </returns>
-  member ReadBytes: addr: Addr * nBytes: int -> byte []
+  member ReadBytes: addr: Addr * nBytes: int -> byte[]
 
   /// <summary>
   ///   Return the byte array of size (nBytes) pointed to by the binary file
@@ -116,7 +112,7 @@ type BinHandle =
   /// <returns>
   ///   Return the byte array if succeed. Otherwise, raise an exception.
   /// </returns>
-  member ReadBytes: ptr: BinFilePointer * nBytes: int -> byte []
+  member ReadBytes: ptr: BinFilePointer * nBytes: int -> byte[]
 
   /// <summary>
   ///   Return the corresponding integer of the size from the given address.
@@ -239,147 +235,3 @@ type BinHandle =
   ///   Return the corresponding ASCII string.
   /// </returns>
   member ReadASCII: ptr: BinFilePointer -> string
-
-  /// <summary>
-  ///   Parse one instruction at the given address (addr), and return the
-  ///   corresponding instruction. This function raises an exception if the
-  ///   parsing process fails.
-  /// </summary>
-  /// <param name="addr">The address.</param>
-  /// <returns>
-  ///   Parsed instruction.
-  /// </returns>
-  member ParseInstr: addr: Addr -> Instruction
-
-  /// <summary>
-  ///   Parse one instruction pointed to by the binary file pointer (ptr), and
-  ///   return the corresponding instruction. This function raises an exception
-  ///   if the parsing process fails.
-  /// </summary>
-  /// <param name="ptr">BinFilePointer.</param>
-  /// <returns>
-  ///   Parsed instruction.
-  /// </returns>
-  member ParseInstr: ptr: BinFilePointer -> Instruction
-
-  /// <summary>
-  ///   Parse one instruction at the given address (addr), and return the
-  ///   corresponding instruction.
-  /// </summary>
-  /// <param name="addr">The address.</param>
-  /// <returns>
-  ///   Parsed instruction if succeeded, ErrorCase if otherwise.
-  /// </returns>
-  member TryParseInstr: addr: Addr -> Result<Instruction, ErrorCase>
-
-  /// <summary>
-  ///   Parse one instruction pointed to by the binary file pointer (ptr), and
-  ///   return the corresponding instruction.
-  /// </summary>
-  /// <param name="ptr">BinFilePointer.</param>
-  /// <returns>
-  ///   Parsed instruction if succeeded, ErrorCase if otherwise.
-  /// </returns>
-  member TryParseInstr: ptr: BinFilePointer -> Result<Instruction, ErrorCase>
-
-  /// Parse a basic block from the given address, and return the sequence of the
-  /// instructions of the basic block. This function may return an incomplete
-  /// basic block as an Error type. This function can be safely used for any
-  /// ISAs, and thus, this should be the main parsing function.
-  member ParseBBlock:
-    addr: Addr -> Result<Instruction list, Instruction list>
-
-  /// Parse a basic block pointed to by the binary file pointer (ptr), and
-  /// return the sequence of the instructions of the basic block. This function
-  /// may return an incomplete basic block as an Error type. This function can
-  /// be safely used for any ISAs, and thus, this should be the main parsing
-  /// function.
-  member ParseBBlock:
-    ptr: BinFilePointer -> Result<Instruction list, Instruction list>
-
-  /// Lift an instruction located at the given address to produce an array of IR
-  /// statements.
-  member LiftInstr: addr: Addr -> LowUIR.Stmt []
-
-  /// Lift an instruction pointed to by the given binary file pointer to produce
-  /// an array of IR statements.
-  member LiftInstr: ptr: BinFilePointer -> LowUIR.Stmt []
-
-  /// Lift the given instruction to produce an array of IR statements.
-  member LiftInstr: ins: Instruction -> LowUIR.Stmt []
-
-  /// Lift an instruction located at the given address to produce an array of
-  /// optimized IR statements.
-  member LiftOptimizedInstr: addr: Addr -> LowUIR.Stmt []
-
-  /// Lift an instruction pointed to by the given binary file pointer to produce
-  /// an array of optimized IR statements.
-  member LiftOptimizedInstr: ptr: BinFilePointer -> LowUIR.Stmt []
-
-  /// Lift a parsed instruction (Instruction) to produce an array of optimized
-  /// IR statements from a given BinHandle.
-  member LiftOptimizedInstr: ins: Instruction -> LowUIR.Stmt []
-
-  /// Return the lifted IR (an array of statements) of a basic block at the
-  /// given address. This function returns a partial bblock with Error, if the
-  /// parsing of the bblock was not successful.
-  member LiftBBlock:
-    addr: Addr -> Result<(LowUIR.Stmt [] * Addr), (LowUIR.Stmt [] * Addr)>
-
-  /// Return the lifted IR (an array of statements) of a basic block pointed to
-  /// by the binary file pointer (ptr). This function returns a partial bblock
-  /// with Error, if the parsing of the bblock was not successful.
-  member LiftBBlock:
-       ptr: BinFilePointer
-    -> Result<(LowUIR.Stmt [] * BinFilePointer),
-              (LowUIR.Stmt [] * BinFilePointer)>
-
-  /// Return a disassembled string of an instruction located at the given
-  /// address. The disassembled string contains the instruction address and
-  /// symbols if the corresponding options are set to true.
-  member DisasmInstr:
-    addr: Addr * showAddr: bool * resolveSymbol: bool -> string
-
-  /// Return a disassembled string of an instruction pointed to by the binary
-  /// file pointer. The disassembled string contains the instruction address and
-  /// symbols if the corresponding options are set to true.
-  member DisasmInstr:
-    ptr: BinFilePointer * showAddr: bool * resolveSymbol: bool -> string
-
-  /// Return a disassembled string of the given instruction. The disassembled
-  /// string contains the instruction address and symbols if the corresponding
-  /// options are set to true.
-  member DisasmInstr:
-    ins: Instruction * showAddr: bool * resolveSymbol: bool -> string
-
-  /// Return a disassembled string of an instruction located at the given
-  /// address without the instruction address nor symbols.
-  member DisasmInstr: addr: Addr -> string
-
-  /// Return a disassembled string of an instruction pointed to by the binary
-  /// file pointer without the instruction address nor symbols.
-  member DisasmInstr: ptr: BinFilePointer -> string
-
-  /// Return a disassembled string of the given instruction without the
-  /// instruction address nor symbols.
-  member inline DisasmInstr: ins: Instruction -> string
-
-  /// Return the disassembled string for a basic block starting at the given
-  /// address along with the fall-through address of the block. This function
-  /// returns a partial disassembly if parsing of the bblock was not successful.
-  member DisasmBBlock:
-       addr: Addr
-     * showAddr:bool
-     * resolveSymbol: bool
-    -> Result<(string * Addr), (string * Addr)>
-
-  /// Return the disassembled string for a basic block starting at address
-  /// pointed to by the binary pointer (ptr) along with the fall-through address
-  /// of the block. This function returns a partial disassembly if parsing of
-  /// the bblock was not successful.
-  member DisasmBBlock:
-       ptr: BinFilePointer
-     * showAddr:bool
-     * resolveSymbol: bool
-    -> Result<(string * BinFilePointer),
-              (string * BinFilePointer)>

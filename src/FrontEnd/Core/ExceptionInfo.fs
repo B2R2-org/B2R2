@@ -30,7 +30,7 @@ open B2R2.FrontEnd.BinFile.ELF
 
 /// ExceptionInfo holds parsed exception information of a binary code (given by
 /// the BinHandle).
-type ExceptionInfo (hdl: BinHandle) =
+type ExceptionInfo (liftingUnit: LiftingUnit) =
   let loadCallSiteTable lsdaPointer lsdas =
     let lsda = Map.find lsdaPointer lsdas
     lsda.CallSiteTable
@@ -38,9 +38,9 @@ type ExceptionInfo (hdl: BinHandle) =
   /// If a landing pad has a direct branch to another function, then we consider
   /// the frame containing the lading pad as a non-function FDE.
   let checkIfFDEIsFunction fde landingPad =
-    match hdl.ParseBBlock (addr=landingPad) with
+    match liftingUnit.ParseBBlock (addr=landingPad) with
     | Ok (blk) ->
-      let last = List.last blk
+      let last = blk[blk.Length - 1]
       if last.IsCall () |> not then
         match last.DirectBranchTarget () with
         | true, jmpTarget -> fde.PCBegin <= jmpTarget && jmpTarget < fde.PCEnd
@@ -87,16 +87,21 @@ type ExceptionInfo (hdl: BinHandle) =
     computeExceptionTable exn.ExceptionFrames exn.LSDAs
 
   let exnTbl, funcEntryPoints =
-    match hdl.File.Format with
-    | FileFormat.ELFBinary -> buildELF (hdl.File :?> ELFBinFile)
+    match liftingUnit.File.Format with
+    | FileFormat.ELFBinary -> buildELF (liftingUnit.File :?> ELFBinFile)
     | _ -> ARMap.empty, Set.empty
+
+  new (hdl: BinHandle) =
+    ExceptionInfo (hdl.NewLiftingUnit ())
+
+  /// Return the exception handler mapping.
+  member __.ExceptionMap with get() = exnTbl
+
+  /// Return a set of function entry points that are visible from exception
+  /// table information.
+  member __.FunctionEntryPoints with get() = funcEntryPoints
 
   /// For a given instruction address, find the landing pad (exception target)
   /// of the instruction.
   member __.TryFindExceptionTarget insAddr =
     ARMap.tryFindByAddr insAddr exnTbl
-
-  /// Return a set of function entry points that are visible from exception
-  /// table information.
-  member __.GetFunctionEntryPoints () =
-    funcEntryPoints

@@ -9,9 +9,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="Helper.fs" />
-    <Compile Include="Basis.fs" />
-    <Compile Include="Parser.fs" />
+    <Compile Include="GroundWork.fs" />
+    <Compile Include="LiftingUnit.fs" />
     <Compile Include="BinHandle.fsi" />
     <Compile Include="BinHandle.fs" />
     <Compile Include="CallingConvention.fsi" />

@@ -38,16 +38,9 @@ module private Parser =
   let parseThumb span phlp (itstate: byref<byte list>) =
     ThumbParser.parse span phlp &itstate
 
-  let detectThumb entryPoint (isa: ISA) =
-    match entryPoint, isa.Arch with
-    | Some entry, Architecture.ARMv7 when entry % 2UL <> 0UL ->
-      (* XXX: LIbraries? *)
-      ArchOperationMode.ThumbMode
-    | _ -> ArchOperationMode.ARMMode
-
 /// Parser for 32-bit ARM instructions. Parser will return a platform-agnostic
 /// instruction type (Instruction).
-type ARM32Parser (isa: ISA, mode, entryPoint: Addr option) =
+type ARM32Parser (isa: ISA, mode) =
 
   let oparsers = [|
     OprNo () :> OperandParser
@@ -362,10 +355,7 @@ type ARM32Parser (isa: ISA, mode, entryPoint: Addr option) =
     OprSPSPRm () :> OperandParser
     OprSregRnT () :> OperandParser |]
 
-  let mutable mode: ArchOperationMode =
-    if mode = ArchOperationMode.NoMode then
-      Parser.detectThumb entryPoint isa
-    else mode
+  let mutable mode: ArchOperationMode = mode
 
   let reader = BinReader.Init isa.Endian
 

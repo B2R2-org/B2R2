@@ -295,9 +295,9 @@ module Summary =
              s.OutMems
     printfn "-----------------------------------"
 
-  let summary (hdl: BinHandle) gadget =
+  let summary (liftingUnit: LiftingUnit) gadget =
     gadget.Instrs
-    |> List.map hdl.LiftInstr
+    |> List.map liftingUnit.LiftInstruction
     |> Array.concat
     |> Array.fold (State.evalStmt) State.initState
     |> getSummary

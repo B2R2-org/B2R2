@@ -28,14 +28,50 @@ open System.IO
 open B2R2
 open B2R2.FrontEnd.BinFile
 open B2R2.FrontEnd.BinLifter
-open B2R2.FrontEnd.Helper
 open type FileFormat
 open type ArchOperationMode
 
 type BinHandle private (path, bytes, fmt, isa, mode, baseAddrOpt) =
-  let struct (ctxt, regFactory) = Basis.load isa
+  let regFactory = GroundWork.CreateRegisterFactory isa
+
   let binFile = FileFactory.load path bytes fmt isa regFactory baseAddrOpt
-  let parser = Parser.init binFile.ISA mode binFile.EntryPoint
+
+  /// Subdivide the given range into in-file and not-in-file ranges. This
+  /// function returns (AddrRange * bool) list where the bool value indicates
+  /// whether the range is in-file or not-in-file.
+  let classifyRanges myrange =
+    binFile.GetNotInFileIntervals myrange (* not-in-file ranges *)
+    |> Seq.fold (fun (infiles, saddr) r ->
+         let l = AddrRange.GetMin r
+         let h = AddrRange.GetMax r
+         if saddr = l then (r, false) :: infiles, h
+         else (r, false) :: ((AddrRange (saddr, l), true) :: infiles), h
+       ) ([], AddrRange.GetMin myrange)
+    |> (fun (infiles, saddr) ->
+         if saddr = myrange.Max then infiles
+         else ((AddrRange (saddr, myrange.Max), true) :: infiles))
+    |> List.rev
+
+  let readIntBySize size (span: ByteSpan) =
+    match size with
+    | 1 -> binFile.Reader.ReadInt8 (span, 0) |> int64 |> Ok
+    | 2 -> binFile.Reader.ReadInt16 (span, 0) |> int64 |> Ok
+    | 4 -> binFile.Reader.ReadInt32 (span, 0) |> int64 |> Ok
+    | 8 -> binFile.Reader.ReadInt64 (span, 0) |> Ok
+    | _ -> Error ErrorCase.InvalidMemoryRead
+
+  let readUIntBySize size (span: ByteSpan) =
+    match size with
+    | 1 -> binFile.Reader.ReadUInt8 (span, 0) |> uint64 |> Ok
+    | 2 -> binFile.Reader.ReadUInt16 (span, 0) |> uint64 |> Ok
+    | 4 -> binFile.Reader.ReadUInt32 (span, 0) |> uint64 |> Ok
+    | 8 -> binFile.Reader.ReadUInt64 (span, 0) |> Ok
+    | _ -> Error ErrorCase.InvalidMemoryRead
+
+  let rec readAscii acc offset =
+    let b = binFile.ReadByte (offset=offset)
+    if b = 0uy then List.rev (b :: acc) |> List.toArray
+    else readAscii (b :: acc) (offset + 1)
 
   new (path, isa, mode, baseAddrOpt) =
     let bytes = File.ReadAllBytes path
@@ -61,11 +97,17 @@ type BinHandle private (path, bytes, fmt, isa, mode, baseAddrOpt) =
   /// Return the `IBinFile` object.
   member __.File with get(): IBinFile = binFile
 
-  member __.TranslationContext with get(): TranslationContext = ctxt
-
-  member __.Parser with get(): IInstructionParsable = parser
-
   member __.RegisterFactory with get(): RegisterFactory = regFactory
+
+  member __.NewLiftingUnit () =
+    let mode =
+      match binFile.ISA.Arch, binFile.EntryPoint, mode with
+      | Architecture.ARMv7, Some entryPoint, ArchOperationMode.NoMode ->
+        if entryPoint % 2UL <> 0UL then ArchOperationMode.ThumbMode
+        else ArchOperationMode.ARMMode
+      | _ -> mode
+    let parser = GroundWork.CreateParser binFile.ISA mode
+    LiftingUnit (binFile, parser)
 
   member __.TryReadBytes (addr: Addr, nBytes) =
     let range = AddrRange (addr, addr + uint64 nBytes - 1UL)
@@ -73,8 +115,7 @@ type BinHandle private (path, bytes, fmt, isa, mode, baseAddrOpt) =
       let slice = binFile.Slice (addr, nBytes)
       slice.ToArray () |> Ok
     elif binFile.IsValidRange range then
-      binFile.GetNotInFileIntervals range
-      |> classifyRanges range
+      classifyRanges range
       |> List.fold (fun bs (range, isInFile) ->
            let len = (range.Max - range.Min |> int) + 1
            if isInFile then
@@ -106,13 +147,11 @@ type BinHandle private (path, bytes, fmt, isa, mode, baseAddrOpt) =
     if (pos + size) > binFile.Length || (pos < 0) then
       Error ErrorCase.InvalidMemoryRead
     else
-      let span = binFile.Slice (offset=pos)
-      readIntBySize binFile.Reader span size
+      readIntBySize size (binFile.Slice (offset=pos))
 
   member __.TryReadInt (ptr: BinFilePointer, size) =
     if BinFilePointer.IsValidAccess ptr size then
-      let span = binFile.Slice (offset=ptr.Offset)
-      readIntBySize binFile.Reader span size
+      readIntBySize size (binFile.Slice (offset=ptr.Offset))
     else Error ErrorCase.InvalidMemoryRead
 
   member __.ReadInt (addr: Addr, size) =
@@ -130,13 +169,11 @@ type BinHandle private (path, bytes, fmt, isa, mode, baseAddrOpt) =
     if (pos + size) > binFile.Length || (pos < 0) then
       Error ErrorCase.InvalidMemoryRead
     else
-      let span = binFile.Slice (offset=pos)
-      readUIntBySize binFile.Reader span size
+      readUIntBySize size (binFile.Slice (offset=pos))
 
   member __.TryReadUInt (ptr: BinFilePointer, size) =
     if BinFilePointer.IsValidAccess ptr size then
-      let span = binFile.Slice (offset=ptr.Offset)
-      readUIntBySize binFile.Reader span size
+      readUIntBySize size (binFile.Slice (offset=ptr.Offset))
     else Error ErrorCase.InvalidMemoryRead
 
   member __.ReadUInt (addr: Addr, size) =
@@ -150,86 +187,11 @@ type BinHandle private (path, bytes, fmt, isa, mode, baseAddrOpt) =
     | Error e -> invalidArg (nameof ptr) (ErrorCase.toString e)
 
   member __.ReadASCII (addr: Addr) =
-    let bs = binFile.GetOffset addr |> readASCII binFile
+    let bs = binFile.GetOffset addr |> readAscii []
     ByteArray.extractCString bs 0
 
   member __.ReadASCII (ptr: BinFilePointer) =
-    let bs = readASCII binFile ptr.Offset
+    let bs = readAscii [] ptr.Offset
     ByteArray.extractCString bs 0
-
-  member __.ParseInstr (addr: Addr) =
-    parser.Parse (binFile.Slice (addr), addr)
-
-  member __.ParseInstr (ptr: BinFilePointer) =
-    parseInstrFromBinPtr binFile parser ptr
-
-  member __.TryParseInstr (addr) =
-    tryParseInstrFromAddr binFile parser addr
-
-  member __.TryParseInstr (ptr: BinFilePointer) =
-    tryParseInstrFromBinPtr binFile parser ptr
-
-  member __.ParseBBlock (addr) =
-    parseBBLFromAddr binFile parser addr
-
-  member __.ParseBBlock (ptr) =
-    parseBBLFromBinPtr binFile parser ptr
-
-  member __.LiftInstr (addr: Addr) =
-    let ins = parser.Parse (binFile.Slice addr, addr)
-    ins.Translate ctxt
-
-  member __.LiftInstr (ptr: BinFilePointer) =
-    let ins = parseInstrFromBinPtr binFile parser ptr
-    ins.Translate ctxt
-
-  member __.LiftInstr (ins: Instruction) =
-    ins.Translate ctxt
-
-  member __.LiftOptimizedInstr (addr: Addr) =
-    __.LiftInstr addr |> LocalOptimizer.Optimize
-
-  member __.LiftOptimizedInstr (ptr: BinFilePointer) =
-    __.LiftInstr ptr |> LocalOptimizer.Optimize
-
-  member __.LiftOptimizedInstr (ins: Instruction) =
-    ins.Translate ctxt |> LocalOptimizer.Optimize
-
-  member __.LiftBBlock (addr: Addr) =
-    liftBBLFromAddr binFile parser ctxt addr
-
-  member __.LiftBBlock (ptr: BinFilePointer) =
-    liftBBLFromBinPtr binFile parser ctxt ptr
-
-  member __.DisasmInstr (addr: Addr, showAddr, resolveSymbol) =
-    let ins = parser.Parse (binFile.Slice addr, addr)
-    let reader = if resolveSymbol then binFile :> INameReadable else null
-    ins.Disasm (showAddr, reader)
-
-  member __.DisasmInstr (ptr: BinFilePointer, showAddr, resolveSymbol) =
-    let ins = parseInstrFromBinPtr binFile parser ptr
-    let reader = if resolveSymbol then binFile :> INameReadable else null
-    ins.Disasm (showAddr, reader)
-
-  member __.DisasmInstr (ins: Instruction, showAddr, resolveSymbol) =
-    let reader = if resolveSymbol then binFile :> INameReadable else null
-    ins.Disasm (showAddr, reader)
-
-  member __.DisasmInstr (addr: Addr) =
-    let ins = parser.Parse (binFile.Slice addr, addr)
-    ins.Disasm ()
-
-  member __.DisasmInstr (ptr: BinFilePointer) =
-    let ins = parseInstrFromBinPtr binFile parser ptr
-    ins.Disasm ()
-
-  member inline __.DisasmInstr (ins: Instruction) =
-    ins.Disasm ()
-
-  member __.DisasmBBlock (addr, showAddr, resolveSymbol) =
-    disasmBBLFromAddr binFile parser showAddr resolveSymbol addr
-
-  member __.DisasmBBlock (ptr, showAddr, resolveSymbol) =
-    disasmBBLFromBinPtr binFile parser showAddr resolveSymbol ptr
 
 // vim: set tw=80 sts=2 sw=2:

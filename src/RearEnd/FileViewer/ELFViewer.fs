@@ -210,8 +210,8 @@ let dumpFunctions (opts: FileViewerOpts) (elf: ELFBinFile) =
   |> printSymbolInfo opts.Verbose elf
 
 let dumpExceptionTable hdl (_opts: FileViewerOpts) (file: ELFBinFile) =
-  let exnTbl, _ = ELFExceptionTable.build hdl file
-  exnTbl
+  let exnInfo = ExceptionInfo (hdl=hdl)
+  exnInfo.ExceptionMap
   |> ARMap.iter (fun range catchBlkAddr ->
     out.PrintLine $"{range.Min:x}:{range.Max:x} -> {catchBlkAddr:x}")
 

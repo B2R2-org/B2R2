@@ -130,25 +130,25 @@ let private printWasmCode (printer: BinPrinter) (code: Wasm.Code) =
   printer.Print ptr
   out.PrintLine ()
 
-let initHandleForTableOutput (hdl: BinHandle) =
-  match hdl.File.ISA.Arch with
+let private initHandleForTableOutput (printer: BinPrinter) =
+  match printer.LiftingUnit.File.ISA.Arch with
   (* For ARM PLTs, we just assume the ARM mode (if no symbol is given). *)
   | Architecture.ARMv7
   | Architecture.AARCH32 ->
-    hdl.Parser.OperationMode <- ArchOperationMode.ARMMode
+    printer.LiftingUnit.Parser.OperationMode <- ArchOperationMode.ARMMode
   | _ -> ()
 
 let private dumpSections hdl (opts: BinDumpOpts) (sections: seq<Section>) cfg =
-  let mymode = (hdl: BinHandle).Parser.OperationMode
   let codeprn = makeCodePrinter hdl cfg opts
   let tableprn = makeTablePrinter hdl cfg opts
+  let initialMode = codeprn.LiftingUnit.Parser.OperationMode
   sections
   |> Seq.iter (fun s ->
     if s.Size > 0u then
       out.PrintSectionTitle (String.wrapParen s.Name)
       match s.Kind with
       | SectionKind.ExecutableSection ->
-        hdl.Parser.OperationMode <- mymode
+        codeprn.LiftingUnit.Parser.OperationMode <- initialMode
         match hdl.File with
         | :? WasmBinFile as file ->
           match file.WASM.CodeSection with
@@ -159,7 +159,7 @@ let private dumpSections hdl (opts: BinDumpOpts) (sections: seq<Section>) cfg =
           | None -> printCodeOrTable codeprn s
         | _ -> printCodeOrTable codeprn s
       | SectionKind.LinkageTableSection ->
-        initHandleForTableOutput hdl
+        initHandleForTableOutput tableprn
         printCodeOrTable tableprn s
       | _ ->
         if opts.OnlyDisasm then printCodeOrTable codeprn s

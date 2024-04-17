@@ -113,12 +113,12 @@ type CFGTest1 () =
 
   [<TestMethod>]
   member __.``InstructionCollection Test 1`` () =
-    let instrs = InstructionCollection (hdl, LinearSweepInstructionCollector ())
+    let instrs = InstructionCollection (LinearSweepInstructionCollector hdl)
     Assert.AreEqual (47, instrs.Count)
 
   [<TestMethod>]
   member __.``InstructionCollection Test 2`` () =
-    let instrs = InstructionCollection (hdl, LinearSweepInstructionCollector ())
+    let instrs = InstructionCollection (LinearSweepInstructionCollector hdl)
     let addrs =
       [ 0x00UL; 0x01UL; 0x04UL; 0x08UL; 0x0fUL; 0x14UL; 0x19UL; 0x1dUL; 0x1fUL
         0x24UL; 0x26UL; 0x28UL; 0x2bUL; 0x2dUL; 0x30UL; 0x32UL; 0x34UL; 0x37UL
@@ -132,7 +132,7 @@ type CFGTest1 () =
 
   [<TestMethod>]
   member __.``BBLFactory Test 1`` () =
-    let instrs = InstructionCollection (hdl, LinearSweepInstructionCollector ())
+    let instrs = InstructionCollection (LinearSweepInstructionCollector hdl)
     let bblFactory = BBLFactory (hdl, instrs)
     let extractBBLInfo ppoint =
       match bblFactory.TryFind ppoint with
@@ -156,7 +156,7 @@ type CFGTest1 () =
 
   [<TestMethod>]
   member __.``BBLFactory Test 2`` () =
-    let instrs = InstructionCollection (hdl, LinearSweepInstructionCollector ())
+    let instrs = InstructionCollection (LinearSweepInstructionCollector hdl)
     let bblFactory = BBLFactory (hdl, instrs)
     let extractBBLInfo ppoint =
       let bbl = bblFactory.Find ppoint
