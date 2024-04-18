@@ -24,6 +24,7 @@
 
 namespace B2R2.MiddleEnd.ControlFlowAnalysis
 
+open System
 open System.Collections.Generic
 open System.Collections.Immutable
 open System.Collections.Concurrent
@@ -41,16 +42,19 @@ open B2R2.MiddleEnd.ControlFlowGraph
 /// structure, each function may see overlapping basic blocks.
 type BBLFactory<'Abs when 'Abs: null> (hdl: BinHandle,
                                        instrs) =
-  let interProceduralLeaders = HashSet<Addr> ()
+  let interProceduralLeaders = ConcurrentDictionary<Addr, unit> ()
   let bbls = ConcurrentDictionary<ProgramPoint, IRBasicBlock<'Abs>> ()
 
   let rec parseBlock (channel: BufferBlock<_>) acc insCount addr leader mode =
     match (instrs: InstructionCollection).TryFind (addr, mode) with
     | Ok ins ->
       let nextAddr = addr + uint64 ins.Length
-      if ins.IsTerminator () || interProceduralLeaders.Contains nextAddr then
+      if ins.IsTerminator () || interProceduralLeaders.ContainsKey nextAddr then
         channel.Post (leader, ins :: acc, insCount + 1) |> ignore
-        ins.GetNextInstrAddrs () |> Ok
+        ins.GetNextInstrAddrs ()
+        |> Array.choose (fun (nextAddr, nextMode) ->
+          if nextMode = mode then Some nextAddr else None)
+        |> Ok
       else parseBlock channel (ins :: acc) (insCount + 1) nextAddr leader mode
     | Error e ->
 #if CFGDEBUG
@@ -62,67 +66,88 @@ type BBLFactory<'Abs when 'Abs: null> (hdl: BinHandle,
   /// exists a BBL at the given address, then simply return an empty array. When
   /// parsing fails, this function can return an error result.
   let tryParse channel addr mode =
-    if interProceduralLeaders.Contains addr then Ok [||]
+    if interProceduralLeaders.ContainsKey addr then Ok [||]
     else parseBlock channel [] 0 addr addr mode
 
-  let instrProducer channel addrs =
-    let queue = Queue<Addr * ArchOperationMode> (collection=addrs)
+  let visited = ConcurrentDictionary<Addr, unit> ()
+
+  let instrProducer channel mode addrs =
+    let queue = Queue<Addr> (collection=addrs)
     task {
       while queue.Count <> 0 do
-        let addr, mode = queue.Dequeue ()
-        match tryParse channel addr mode with
-        | Ok nextAddrs -> nextAddrs |> Array.iter queue.Enqueue
-        | Error e ->
-          eprintfn "%s" (ErrorCase.toString e)
-          raise ParsingFailureException (* This is a fatal error. *)
+        let addr = queue.Dequeue ()
+        if visited.ContainsKey addr then ()
+        else
+          visited.TryAdd (addr, ()) |> ignore
+          match tryParse channel addr mode with
+          | Ok nextAddrs ->
+            nextAddrs |> Array.iter queue.Enqueue
+          | Error e ->
+            eprintfn "%s @ %x" (ErrorCase.toString e) addr
+            raise ParsingFailureException (* This is a fatal error. *)
       channel.Complete ()
     }
 
   /// The given list is reversed, so we fill the array in reverse order.
-  let rec liftAndFill lunit bblAddr (arr: LiftedInstruction[]) instrs idx =
+  let rec liftAndFill lunit bblAddr (arr: LiftedInstruction[]) instrs ndx =
     match instrs with
     | ins :: tl ->
       let stmts = (lunit: LiftingUnit).LiftInstruction (ins=ins, optimize=true)
       let liftedIns = { Original = ins; Stmts = stmts; BBLAddr = bblAddr }
-      arr[idx] <- liftedIns
-      liftAndFill lunit bblAddr arr tl (idx - 1)
+      arr[ndx] <- liftedIns
+      liftAndFill lunit bblAddr arr tl (ndx - 1)
     | [] -> arr
 
   let scanIntraLeaders (liftedInstrs: LiftedInstruction[]) =
     let labelMap = Dictionary<Addr * Symbol, ProgramPoint> ()
-    let intraLeaders = List<int * int> () (* instruction idx, stmt idx *)
+    let intraLeaders = LinkedList<int * int> () (* instruction ndx, stmt ndx *)
+    let mutable hasIntraFlow = false (* has intra control flow(s)? *)
     for i = 0 to liftedInstrs.Length - 1 do
       let liftedIns = liftedInstrs[i]
+      if hasIntraFlow then intraLeaders.AddLast ((i, 0)) |> ignore else ()
+      hasIntraFlow <- false
       for j = 0 to liftedIns.Stmts.Length - 1 do
         match liftedIns.Stmts[j].S with
         | LMark symb ->
           let insAddr = liftedIns.Original.Address
           labelMap[(insAddr, symb)] <- ProgramPoint (insAddr, j)
-          intraLeaders.Add ((i, j))
-        (* JMP PC means that the instruction jumps to itself, but this is not
-           allowed in our IR. We should fix the lifter in such a case. *)
+          intraLeaders.AddLast ((i, j)) |> ignore
+          hasIntraFlow <- true
         | InterJmp ({ E = PCVar _ }, InterJmpKind.Base)
         | InterCJmp (_, { E = PCVar _ }, _)
-        | InterCJmp (_, _, { E = PCVar _ }) -> Utils.impossible ()
+        | InterCJmp (_, _, { E = PCVar _ }) ->
+          (* JMP PC means that the instruction jumps to itself. *)
+          intraLeaders.AddFirst ((i, 0)) |> ignore
         | _ -> ()
     struct (labelMap, intraLeaders)
 
-  let extractInstrs (liftedInstrs: LiftedInstruction[]) startIdx endIdx =
-    match startIdx, endIdx with
-    | (insStartIdx, stmtStartIdx), Some (insEndIdx, stmtEndIdx) ->
-      let out = liftedInstrs[insStartIdx..insEndIdx]
-      let last = out.Length - 1
-      out[0] <- { out[0] with Stmts = out[0].Stmts[stmtStartIdx..] }
-      out[last] <- { out[last] with Stmts = out[last].Stmts[..stmtEndIdx] }
-      out
-    | (insStartIdx, stmtStartIdx), None ->
-      let out = liftedInstrs[insStartIdx..]
-      out[0] <- { out[0] with Stmts = out[0].Stmts[stmtStartIdx..] }
-      out
+  let extractInstrs (liftedInstrs: LiftedInstruction[]) startNdxs endNdxs =
+    match startNdxs, endNdxs with
+    | (insStartNdx, stmStartNdx), Some (insEndNdx, 0) ->
+      assert (insStartNdx <> insEndNdx)
+      if insStartNdx = 0 && stmStartNdx = 0 then
+        liftedInstrs[insStartNdx..insEndNdx-1]
+      else
+        let r = liftedInstrs[insStartNdx..insStartNdx]
+        r[0] <- { r[0] with Stmts = r[0].Stmts[stmStartNdx..] }
+        r
+    | (insStartNdx, stmStartNdx), Some (insEndNdx, stmEndNdx) ->
+      let r = liftedInstrs[insStartNdx..insEndNdx]
+      let last = r.Length - 1
+      if last = 0 then
+        r[0] <- { r[0] with Stmts = r[0].Stmts[stmStartNdx..(stmEndNdx-1)] }
+      else
+        r[0] <- { r[0] with Stmts = r[0].Stmts[stmStartNdx..] }
+        r[last] <- { r[last] with Stmts = r[last].Stmts[..(stmEndNdx-1)] }
+      r
+    | (insStartNdx, stmStartNdx), None ->
+      let r = liftedInstrs[insStartNdx..]
+      r[0] <- { r[0] with Stmts = r[0].Stmts[stmStartNdx..] }
+      r
 
-  let rec extractLabelInfo (labelMap: Dictionary<_, _>) liftedIns insAddr idx =
-    match liftedIns.Stmts[idx].S with
-    | IEMark _ -> extractLabelInfo labelMap liftedIns insAddr (idx - 1)
+  let rec extractLabelInfo (labelMap: Dictionary<_, _>) liftedIns insAddr ndx =
+    match liftedIns.Stmts[ndx].S with
+    | IEMark _ -> extractLabelInfo labelMap liftedIns insAddr (ndx - 1)
     | Jmp { E = Name symbol } ->
       let key = insAddr, symbol
       [ KeyValuePair (symbol, labelMap[key]) ]
@@ -142,25 +167,25 @@ type BBLFactory<'Abs when 'Abs: null> (hdl: BinHandle,
     extractLabelInfo labelMap liftedIns insAddr (liftedIns.Stmts.Length - 1)
     |> ImmutableDictionary.CreateRange
 
-  let addIRBasicBlock liftedInstrs labelMap prevInsIdx prevStmtIdx endIdx =
-    let instrs = extractInstrs liftedInstrs (prevInsIdx, prevStmtIdx) endIdx
-    let ppoint = ProgramPoint (instrs[0].Original.Address, prevStmtIdx)
+  let addIRBasicBlock liftedInstrs labelMap prevInsNdx prevStmtNdx endNdx =
+    let instrs = extractInstrs liftedInstrs (prevInsNdx, prevStmtNdx) endNdx
+    let ppoint = ProgramPoint (instrs[0].Original.Address, prevStmtNdx)
     let lastIns = instrs[instrs.Length - 1]
     let labelMap = buildLabelMap labelMap lastIns
     let bbl = IRBasicBlock.CreateRegular (instrs, ppoint, labelMap)
     bbls.TryAdd (ppoint, bbl) |> ignore
 
-  let rec gatherIntraBBLs liftedInstrs labelMap prevInsIdx prevStmtIdx indices =
+  let rec gatherIntraBBLs liftedInstrs labelMap prevInsNdx prevStmtNdx indices =
     match indices with
-    | (insIdx, stmtIdx) as endIdx :: tl ->
-      addIRBasicBlock liftedInstrs labelMap prevInsIdx prevStmtIdx (Some endIdx)
-      gatherIntraBBLs liftedInstrs labelMap insIdx stmtIdx tl
+    | (insNdx, stmtNdx) as endNdx :: tl ->
+      addIRBasicBlock liftedInstrs labelMap prevInsNdx prevStmtNdx (Some endNdx)
+      gatherIntraBBLs liftedInstrs labelMap insNdx stmtNdx tl
     | [] ->
-      addIRBasicBlock liftedInstrs labelMap prevInsIdx prevStmtIdx None
+      addIRBasicBlock liftedInstrs labelMap prevInsNdx prevStmtNdx None
 
   let liftBlock liftingUnit leaderAddr (instrs: Instruction list) insCount =
     assert (insCount <> 0)
-    interProceduralLeaders.Add leaderAddr |> ignore
+    interProceduralLeaders.TryAdd (leaderAddr, ()) |> ignore
     let arr = Array.zeroCreate insCount
     let arr = liftAndFill liftingUnit leaderAddr arr instrs (insCount - 1)
     let struct (labelMap, intraLeaders) = scanIntraLeaders arr
@@ -172,16 +197,18 @@ type BBLFactory<'Abs when 'Abs: null> (hdl: BinHandle,
 
   let bblLifter (channel: BufferBlock<Addr * Instruction list * int>) =
     let liftingUnit = hdl.NewLiftingUnit ()
+    use cts = new Threading.CancellationTokenSource ()
     task {
-      while! channel.OutputAvailableAsync () do
+      while! channel.OutputAvailableAsync (cts.Token) do
         match channel.TryReceive () with
         | true, (leaderAddr, instrs, insCount) ->
-          liftBlock liftingUnit leaderAddr instrs insCount
+          try liftBlock liftingUnit leaderAddr instrs insCount
+          with e -> Console.Error.WriteLine $"{e}"; cts.Cancel ()
         | false, _ -> ()
     }
 
   let getSortedLeaders () =
-    interProceduralLeaders
+    interProceduralLeaders.Keys
     |> Seq.toArray
     |> Array.sort
 
@@ -189,17 +216,17 @@ type BBLFactory<'Abs when 'Abs: null> (hdl: BinHandle,
   let commit () =
     let leaders = getSortedLeaders ()
     for i = 0 to leaders.Length - 1 do
-      let leaderAddr = leaders[i]
-      let ppoint = ProgramPoint (leaderAddr, 0)
-      if bbls.ContainsKey ppoint then ()
+      if i = leaders.Length - 1 then ()
       else
-        let prevPP = ProgramPoint (leaders[i-1], 0)
-        match bbls.TryGetValue prevPP with
-        | true, prevBBL ->
-          let fst, snd = prevBBL.Cut leaderAddr
-          bbls[prevPP] <- fst
-          bbls[ppoint] <- snd
-        | false, _ -> Utils.impossible ()
+        let nextAddr = leaders[i+1]
+        let currPPoint = ProgramPoint (leaders[i], 0)
+        let nextPPoint = ProgramPoint (nextAddr, 0)
+        let currentBBL = bbls[currPPoint]
+        if currentBBL.Range.IsIncluding nextAddr then
+          let fst, snd = currentBBL.Cut nextAddr
+          bbls[currPPoint] <- fst
+          bbls[nextPPoint] <- snd
+        else ()
     done
 
   /// Number of BBLs in the factory.
@@ -211,10 +238,10 @@ type BBLFactory<'Abs when 'Abs: null> (hdl: BinHandle,
   /// in order to avoid parsing incorrect BBLs. Fall-through BBLs should be
   /// considered only after we know that the target function can return (after a
   /// no-return analysis), which is not the scope of BBLFactory.
-  member __.ScanBBLs addrs =
+  member __.ScanBBLs mode addrs =
     task {
       let channel = BufferBlock<Addr * Instruction list * int> ()
-      instrProducer channel addrs |> ignore
+      instrProducer channel mode addrs |> ignore
       let lifters = Array.init 1 (fun _ -> bblLifter channel) (* TODO: opt? *)
       let! _ = Task.WhenAll lifters
       return commit ()
@@ -232,3 +259,17 @@ type BBLFactory<'Abs when 'Abs: null> (hdl: BinHandle,
 
   /// Find an existing BBL that contains the given address.
   member __.Find (ppoint: ProgramPoint) = bbls[ppoint]
+
+#if DEBUG
+  /// Dump all BBLs in the factory for debugging purposes.
+  member __.DumpBBLs () =
+    bbls
+    |> Seq.iter (fun kv ->
+      printfn "# %s" (kv.Key.ToString ())
+      kv.Value.LiftedInstructions
+      |> Array.iter (fun lifted ->
+        lifted.Stmts
+        |> Array.iter (fun stmt -> printfn "  -> %s" (Pp.stmtToString stmt))
+      )
+    )
+#endif

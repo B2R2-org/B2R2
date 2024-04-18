@@ -137,37 +137,35 @@ let handleBinInfo req resp arbiter =
   let txt = "\"" + txt.Replace(@"\", @"\\") + "\""
   Some (defaultEnc.GetBytes (txt)) |> answer req resp
 
-let cfgToJSON cfgType (brew: BinaryBrew<_, _, _, _, _, _, _>) g root =
+let cfgToJSON cfgType (brew: BinaryBrew<_, _, _, _, _, _>) g root =
   match cfgType with
   | IRCFG ->
     Visualizer.getJSONFromGraph g [root]
   | DisasmCFG ->
-    let g, root = DisasmCFG.create g root
-    Visualizer.getJSONFromGraph g [root]
+    let g = DisasmCFG.create g
+    let root = g.Unreachables |> Array.toList
+    Visualizer.getJSONFromGraph g root
   | SSACFG ->
     let ssaLifter = SSA.SSALifter brew.BinHandle
     let struct (g, root) = SSA.SSALens.convert ssaLifter null g root
     Visualizer.getJSONFromGraph g [root]
   | _ -> failwith "Invalid CFG type"
 
-let handleRegularCFG req resp name (brew: BinaryBrew<_, _, _, _, _, _, _>)
+let handleRegularCFG req resp funcID (brew: BinaryBrew<_, _, _, _, _, _>)
                      cfgType =
-  let fns = brew.Functions.Find (name=name)
-  if fns.Count > 0 then
-    let func = fns[0] (* XXX: handle multi func case *)
-    try
-      let root = func.CFG.TryGetSingleRoot () |> Option.get
-      let s = cfgToJSON cfgType brew func.CFG root
-      Some (defaultEnc.GetBytes s) |> answer req resp
-    with e ->
+  let func = brew.Functions.FindByID funcID
+  try
+    let root = func.CFG.TryGetSingleRoot () |> Option.get
+    let s = cfgToJSON cfgType brew func.CFG root
+    Some (defaultEnc.GetBytes s) |> answer req resp
+  with e ->
 #if DEBUG
-      printfn "%A" e; failwith "[FATAL]: Failed to generate CFG"
+    printfn "%A" e; failwith "[FATAL]: Failed to generate CFG"
 #else
-      answer req resp None
+    answer req resp None
 #endif
-  else answer req resp None
 
-let handleCFG req resp arbiter cfgType name =
+let handleCFG req resp arbiter cfgType funcID =
   let brew = Protocol.getBinaryBrew arbiter
   match cfgType with
   | CallCFG ->
@@ -181,7 +179,7 @@ let handleCFG req resp arbiter cfgType name =
 #else
       answer req resp None
 #endif
-  | typ -> handleRegularCFG req resp name brew typ
+  | typ -> handleRegularCFG req resp funcID brew typ
 
 let handleFunctions req resp arbiter =
   let brew = Protocol.getBinaryBrew arbiter

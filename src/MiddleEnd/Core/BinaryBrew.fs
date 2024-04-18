@@ -25,6 +25,7 @@
 namespace B2R2.MiddleEnd
 
 open System
+open System.Diagnostics
 open B2R2
 open B2R2.FrontEnd
 open B2R2.FrontEnd.BinFile
@@ -41,23 +42,21 @@ type BinaryBrew<'V,
                 'E,
                 'Abs,
                 'Act,
-                'State,
-                'Req,
-                'Res when 'V :> IRBasicBlock<'Abs>
-                      and 'V: equality
-                      and 'E: equality
-                      and 'Abs: null
-                      and 'Act :> ICFGAction
-                      and 'State :> IResettable
-                      and 'State: (new: unit -> 'State)>
+                'FnCtx,
+                'GlCtx when 'V :> IRBasicBlock<'Abs>
+                        and 'V: equality
+                        and 'E: equality
+                        and 'Abs: null
+                        and 'Act :> ICFGAction
+                        and 'FnCtx :> IResettable
+                        and 'FnCtx: (new: unit -> 'FnCtx)
+                        and 'GlCtx: (new: unit -> 'GlCtx)>
   public (hdl: BinHandle,
-          strategy: IFunctionBuildingStrategy<_, _, _, _, _, _, _>) =
+          strategy: IFunctionBuildingStrategy<_, _, _, _, _, _>) =
 
-  let lunit = hdl.NewLiftingUnit ()
+  let exnInfo = ExceptionInfo (hdl)
 
-  let exnInfo = ExceptionInfo (lunit)
-
-  let instrs = InstructionCollection (LinearSweepInstructionCollector lunit)
+  let instrs = InstructionCollection (LinearSweepInstructionCollector hdl)
 
   let cfgConstructor =
     { new IRCFG.IConstructable<'V, 'E, 'Abs> with
@@ -65,7 +64,7 @@ type BinaryBrew<'V,
           ImperativeDiGraph<'V, 'E> () :> IRCFG<'V, 'E, 'Abs> }
 
   let taskManager =
-    TaskManager<'V, 'E, 'Abs, 'Act, 'State, 'Req, 'Res>
+    TaskManager<'V, 'E, 'Abs, 'Act, 'FnCtx, 'GlCtx>
       (hdl, instrs, cfgConstructor, strategy)
 
   let getFunctionOperationMode (hdl: BinHandle) entry =
@@ -93,11 +92,21 @@ type BinaryBrew<'V,
     |> Set.toArray
     |> Array.map (getFunctionOperationMode hdl)
 
-  let funcs =
-  #if DEBUG
+  let recoverFunctions () =
+    #if DEBUG
+    let sw = Stopwatch ()
     Console.WriteLine "[*] CFG recovery started."
-  #endif
-    taskManager.RecoverCFGs <| getInitialEntryPoints ()
+    sw.Start ()
+    #endif
+    let funcs = taskManager.RecoverCFGs <| getInitialEntryPoints ()
+    #if DEBUG
+    sw.Stop ()
+    let ts = sw.Elapsed
+    Console.WriteLine $"[*] Total {ts.TotalSeconds}s elapsed."
+    #endif
+    funcs
+
+  let funcs = recoverFunctions ()
 
   /// Low-level access to binary code and data.
   member _.BinHandle with get(): BinHandle = hdl
@@ -117,6 +126,5 @@ type DefaultBinaryBrew =
              CFGEdgeKind,
              SSA.SSAFunctionAbstraction,
              Strategies.CFGAction<SSA.SSAFunctionAbstraction>,
-             Strategies.BuildingState,
-             Strategies.CFGQuery,
-             int>
+             Strategies.CFGContext,
+             Strategies.EmptyState>

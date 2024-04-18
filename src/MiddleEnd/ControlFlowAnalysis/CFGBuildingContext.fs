@@ -27,33 +27,44 @@ namespace B2R2.MiddleEnd.ControlFlowAnalysis
 open System.Collections.Generic
 open B2R2
 open B2R2.FrontEnd
+open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.ControlFlowGraph
 
-/// The context for building a control flow graph. A user-defined state can be
-/// stored in the context, too.
+/// The context for building a control flow graph of a function. This exists per
+/// function, and it can include a user-defined, too.
 type CFGBuildingContext<'V,
                         'E,
                         'Abs,
-                        'State,
-                        'Req,
-                        'Res when 'V :> IRBasicBlock<'Abs>
-                              and 'V: equality
-                              and 'E: equality
-                              and 'Abs: null
-                              and 'State :> IResettable> = {
+                        'FnCtx,
+                        'GlCtx when 'V :> IRBasicBlock<'Abs>
+                                and 'V: equality
+                                and 'E: equality
+                                and 'Abs: null
+                                and 'FnCtx :> IResettable
+                                and 'GlCtx: (new: unit -> 'GlCtx)> = {
   /// The binary handle.
   BinHandle: BinHandle
+  /// Mapping from a program point to a vertex in the IRCFG.
+  Vertices: Dictionary<ProgramPoint, IVertex<'V>>
   /// The control flow graph.
   mutable CFG: IRCFG<'V, 'E, 'Abs>
   /// The basic block factory.
   BBLFactory: BBLFactory<'Abs>
-  /// The call instructions encountered so far. Callsite (call instruction)
-  /// address to its callee kind.
-  Calls: SortedList<Addr, CalleeKind>
-  /// The user-defined state.
-  State: 'State
+  /// Is this function a no-return function?
+  mutable IsNoRet: bool
+  /// The callees of this function. This is a mapping from a callsite (call
+  /// instruction) address to its callee kind.
+  Callees: SortedList<Addr, CalleeKind>
+  /// The callers of this function.
+  Callers: HashSet<Addr>
+  /// The calling nodes (which terminate a basic block with a call instruction)
+  /// in this function. This is a mapping from a callee address to its calling
+  /// nodes.
+  CallingNodes: Dictionary<Addr, HashSet<IVertex<'V>>>
+  /// The user-defined per-function context.
+  UserContext: 'FnCtx
   /// The channel for accessing the state of the TaskManager.
-  ManagerState: IManagerState<'Req, 'Res>
+  ManagerChannel: IManagerAccessible<'V, 'E, 'Abs, 'FnCtx, 'GlCtx>
   /// Thread ID that is currently building this function.
   mutable ThreadID: int
 }
@@ -75,7 +86,30 @@ and CalleeKind =
   /// in regular executables, e.g., GNU libc.
   | NullCallee
 
-/// The state of the TaskManager.
-and IManagerState<'Req, 'Res> =
-  inherit IStateQueryable<'Req, 'Res>
-  inherit IStateUpdatable
+/// The interface for accessing the state of the TaskManager.
+and IManagerAccessible<'V,
+                       'E,
+                       'Abs,
+                       'FnCtx,
+                       'GlCtx when 'V :> IRBasicBlock<'Abs>
+                               and 'V: equality
+                               and 'E: equality
+                               and 'Abs: null
+                               and 'FnCtx :> IResettable
+                               and 'GlCtx: (new: unit -> 'GlCtx)> =
+  /// Update the dependency between two functions.
+  abstract UpdateDependency:
+    caller: Addr * callee: Addr * ArchOperationMode -> unit
+
+  /// Get the builder of a function located at `addr` if it is available (i.e.,
+  /// not in progress and valid). If the function builder is not available,
+  /// return None.
+  abstract GetBuildingContext:
+       addr: Addr
+    -> CFGBuildingContext<'V, 'E, 'Abs, 'FnCtx, 'GlCtx> option
+
+  /// Get the current user-defined global state of the TaskManager.
+  abstract GetGlobalContext: accessor: ('GlCtx -> 'Res) -> 'Res
+
+  /// Update the user-defined global state of the TaskManager.
+  abstract UpdateGlobalContext: updater: ('GlCtx -> 'GlCtx) -> unit

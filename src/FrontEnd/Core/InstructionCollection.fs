@@ -95,7 +95,8 @@ and IInstructionCollectable =
     -> Result<InstructionCandidate, ErrorCase>
 
 /// Perform linear sweep to collect instructions.
-type LinearSweepInstructionCollector (liftingUnit: LiftingUnit) =
+type LinearSweepInstructionCollector (hdl: BinHandle,
+                                      liftingUnit: LiftingUnit) =
   let rec update updateFn shift ptr =
     if BinFilePointer.IsValid ptr then
       match liftingUnit.TryParseInstruction (ptr=ptr) with
@@ -107,16 +108,19 @@ type LinearSweepInstructionCollector (liftingUnit: LiftingUnit) =
     else ()
 
   new (hdl: BinHandle) =
-    LinearSweepInstructionCollector (hdl.NewLiftingUnit ())
+    LinearSweepInstructionCollector (hdl, hdl.NewLiftingUnit ())
 
   interface IInstructionCollectable with
     member __.Collect (updateFn) =
-      let entryPoint = liftingUnit.File.EntryPoint |> Option.defaultValue 0UL
-      let ptr = liftingUnit.File.ToBinFilePointer entryPoint
+      let ptr =
+        liftingUnit.File.EntryPoint
+        |> Option.defaultValue 0UL
+        |> liftingUnit.File.ToBinFilePointer
       let shiftAmount = 1 (* FIXME *)
       update updateFn shiftAmount ptr
 
     member __.ParseInstructionCandidate (addr, _mode) =
+      let liftingUnit = hdl.NewLiftingUnit () (* always create a new one! *)
       match liftingUnit.TryParseInstruction (addr=addr) with
       | Ok ins -> Ok (OnlyOne ins)
       | Error _ -> Error ErrorCase.ParsingFailure

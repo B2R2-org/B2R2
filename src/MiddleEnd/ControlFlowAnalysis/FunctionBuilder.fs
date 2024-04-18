@@ -30,103 +30,121 @@ open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.ControlFlowGraph
 
 /// The main builder for a function, which is responsible for building a
-/// function from a given state and a strategy.
+/// function CFG while maintaining its internal state.
 type FunctionBuilder<'V,
                      'E,
                      'Abs,
                      'Act,
-                     'State,
-                     'Req,
-                     'Res when 'V :> IRBasicBlock<'Abs>
-                           and 'V: equality
-                           and 'E: equality
-                           and 'Abs: null
-                           and 'Act :> ICFGAction
-                           and 'State :> IResettable
-                           and 'State: (new: unit -> 'State)>
-    (hdl,
-     instrs,
-     entryPoint,
-     mode: ArchOperationMode,
-     cfgConstructor: IRCFG.IConstructable<'V, 'E, 'Abs>,
-     agent: Agent<TaskMessage<'Req, 'Res>>,
-     strategy: IFunctionBuildingStrategy<_, _, _, _, _, _, _>) =
+                     'FnCtx,
+                     'GlCtx when 'V :> IRBasicBlock<'Abs>
+                             and 'V: equality
+                             and 'E: equality
+                             and 'Abs: null
+                             and 'Act :> ICFGAction
+                             and 'FnCtx :> IResettable
+                             and 'FnCtx: (new: unit -> 'FnCtx)
+                             and 'GlCtx: (new: unit -> 'GlCtx)>
+  public (hdl,
+          instrs,
+          entryPoint,
+          mode: ArchOperationMode,
+          cfgConstructor: IRCFG.IConstructable<'V, 'E, 'Abs>,
+          agent: Agent<TaskMessage<'V, 'E, 'Abs, 'FnCtx, 'GlCtx>>,
+          strategy: IFunctionBuildingStrategy<_, _, _, _, _, _>) =
 
-  let mutable inProgress = false
-
-  /// This function is invalid; we encountered a fatal error while recovering
-  /// the function.
-  let mutable isBad = false
+  /// Internal builder state.
+  let mutable state = Initialized
 
   let bblFactory = BBLFactory (hdl, instrs)
   let ircfg = cfgConstructor.Construct Imperative
-  let state = new 'State ()
+  let fnCtx = new 'FnCtx ()
 
-  let ms =
-    { new IManagerState<'Req, 'Res> with
-        member _.Query req =
-          agent.PostAndReply (fun ch -> Query (entryPoint, req, ch))
+  let managerChannel =
+    { new IManagerAccessible<'V, 'E, 'Abs, 'FnCtx, 'GlCtx> with
         member _.UpdateDependency (caller, callee, mode) =
-          agent.Post <| AddDependency (caller, callee, mode) }
+          agent.Post <| AddDependency (caller, callee, mode)
+
+        member _.GetBuildingContext (addr) =
+          agent.PostAndReply (fun _cts ch -> RetrieveContext (addr, ch))
+
+        member _.GetGlobalContext accessor =
+          let mutable v = Unchecked.defaultof<_>
+          agent.PostAndReply (fun _cts ch ->
+            let fn = fun glCtx -> (v <- accessor glCtx)
+            AccessGlobalContext (fn, ch))
+          v
+
+        member _.UpdateGlobalContext (updater) =
+          agent.Post <| UpdateGlobalContext updater }
 
   let ctxt =
     { BinHandle = hdl
+      Vertices = Dictionary ()
       CFG = ircfg
       BBLFactory = bblFactory
-      Calls = SortedList ()
-      State = state
-      ManagerState = ms
+      IsNoRet = false
+      Callees = SortedList ()
+      Callers = HashSet ()
+      CallingNodes = Dictionary ()
+      UserContext = fnCtx
+      ManagerChannel = managerChannel
       ThreadID = -1 }
 
   let queue = CFGActionQueue<'Act> ()
 
-  do strategy.PopulateInitialAction (entryPoint, mode) |> queue.Push
-
-  /// Entry point of the function that is being built.
-  member __.EntryPoint with get(): Addr = entryPoint
-
-  /// Is the function building in progress?
-  member __.InProgress
-    with get() = inProgress
-    and set(v) =
-#if CFGDEBUG
-      if not v then flushLog ctxt.ThreadID else ()
-#endif
-      inProgress <- v
-
-  /// The current context of the function building process.
-  member __.Context with get() = ctxt
-
-  /// Operation mode of the function.
-  member __.Mode with get() = mode
-
-  /// Start the recovery process.
-  member __.Recover () =
-    if queue.IsEmpty () then strategy.OnFinish (ctxt)
+  let rec build () =
+    if queue.IsEmpty () then strategy.OnFinish ctxt
     else
       let action = queue.Pop ()
       match strategy.OnAction (ctxt, queue, action) with
-      | Success -> __.Recover ()
+      | Success -> build ()
       | Postponement -> queue.Push action; Postponement
       | Failure e -> Failure e
 
-  member __.Reset () =
-    state.Reset ()
-    // XXX: cfg reset
-    // XXX: bblFactory.Reset ()
+  do strategy.PopulateInitialAction (entryPoint, mode) |> queue.Push
 
-  /// Convert this builder to a function.
-  member __.ToFunction () =
-    assert (not isBad && not inProgress)
-    let name =
-      match hdl.File.TryFindFunctionName entryPoint with
-      | Ok name -> name
-      | Error _ -> Addr.toFuncName entryPoint
-    Function (entryPoint, name, ircfg, ctxt.Calls)
+  interface IFunctionBuildable<'V, 'E, 'Abs, 'FnCtx, 'GlCtx> with
+    member __.BuilderState with get() = state
 
-  interface IValidityCheck with
-    member __.IsValid with get() = not isBad
+    member __.EntryPoint with get(): Addr = entryPoint
+
+    member __.Mode with get() = mode
+
+    member __.Context with get() = ctxt
+
+    member __.Authorize () =
+      assert (state <> InProgress)
+      state <- InProgress
+
+    member __.Stop () =
+      assert (state = InProgress)
+      state <- Stopped
+
+    member __.Finalize () =
+      assert (state = InProgress)
+      state <- Finished
 
     member __.Invalidate () =
-      isBad <- true
-      __.InProgress <- false
+      assert (state = InProgress)
+      state <- Invalid
+
+    member __.Build () =
+      build ()
+
+    member __.Reset () =
+      fnCtx.Reset ()
+      // XXX: cfg reset
+      // XXX: bblFactory.Reset ()
+
+    member __.ToFunction () =
+      assert (state = Finished)
+      let name =
+        match hdl.File.TryFindFunctionName entryPoint with
+        | Ok name -> name
+        | Error _ -> Addr.toFuncName entryPoint
+      Function (entryPoint,
+                name,
+                ircfg,
+                ctxt.IsNoRet,
+                ctxt.Callees,
+                ctxt.Callers)

@@ -197,7 +197,7 @@ let startGUI (opts: BinExplorerOpts) arbiter =
 
 /// Dump each CFG into JSON file. This feature is implemented to ease the
 /// development and debugging process, and may be removed in the future.
-let dumpJsonFiles jsonDir (brew: BinaryBrew<_, _, _, _, _, _, _>) =
+let dumpJsonFiles jsonDir (brew: BinaryBrew<_, _, _, _, _, _>) =
   try System.IO.Directory.Delete(jsonDir, true) with _ -> ()
   System.IO.Directory.CreateDirectory(jsonDir) |> ignore
   brew.Functions.Sequence
@@ -205,8 +205,7 @@ let dumpJsonFiles jsonDir (brew: BinaryBrew<_, _, _, _, _, _, _>) =
     let id = func.ID
     let ep = func.EntryPoint
     let disasmJsonPath = Printf.sprintf "%s/%s.disasmCFG" jsonDir id
-    let root = func.CFG.TryGetSingleRoot () |> Option.get
-    let disasmcfg, _ = DisasmCFG.create func.CFG root
+    let disasmcfg = DisasmCFG.create func.CFG
     CFGExport.toJson disasmcfg disasmJsonPath)
 
 let initBinHdl isa (name: string) =

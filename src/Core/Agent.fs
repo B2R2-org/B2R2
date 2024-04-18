@@ -25,6 +25,7 @@
 namespace B2R2
 
 open System
+open System.Threading
 open System.Threading.Tasks
 open System.Threading.Tasks.Dataflow
 
@@ -37,11 +38,12 @@ type Agent<'Msg> private (ch: BufferBlock<'Msg>, task: Task) =
 
   /// Post a message and get a reply from the agent.
   member _.PostAndReply callback =
+    use cts = new CancellationTokenSource ()
     let replyChan = BufferBlock<_> ()
     let reply = AgentReplyChannel<_> (replyChan.Post >> ignore)
-    let msg = callback reply
+    let msg = callback cts reply
     ch.Post msg |> ignore
-    replyChan.Receive ()
+    replyChan.Receive (cts.Token)
 
   /// Agent's task.
   member _.Task with get() = task
@@ -61,7 +63,8 @@ type Agent<'Msg> private (ch: BufferBlock<'Msg>, task: Task) =
               else return raise <| OperationCanceledException ()
             } |> fun task -> task.Wait (); task.Result
           member _.Complete () = ch.Complete ()
-          member _.IsCancelled with get() = token.IsCancellationRequested }
+          member _.IsCancelled with get() = token.IsCancellationRequested
+          member _.Count with get() = ch.Count }
     let fn = fun () ->
       try taskFn receivable
       with e ->
@@ -85,3 +88,6 @@ and IAgentMessageReceivable<'Msg> =
 
   /// Is the agent cancelled?
   abstract IsCancelled: bool
+
+  /// How many messages are left in the agent?
+  abstract Count: int

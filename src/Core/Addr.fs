@@ -41,3 +41,10 @@ module Addr =
   [<CompiledName "ToFuncName">]
   let toFuncName (addr: Addr) =
     FunctionPrefix + addr.ToString ("x")
+
+  /// Convert a function name used in B2R2 to an address.
+  [<CompiledName "OfFuncName">]
+  let ofFuncName (name: string) =
+    assert (name.StartsWith FunctionPrefix)
+    let addrStr = name.Substring FunctionPrefix.Length
+    System.UInt64.Parse (addrStr, System.Globalization.NumberStyles.HexNumber)

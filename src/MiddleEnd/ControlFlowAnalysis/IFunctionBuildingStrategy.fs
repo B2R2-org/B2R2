@@ -27,19 +27,22 @@ namespace B2R2.MiddleEnd.ControlFlowAnalysis
 open B2R2
 open B2R2.MiddleEnd.ControlFlowGraph
 
-/// A strategy that defines how CFGActions are handled to build a function.
+/// A strategy that defines how CFGActions are handled to build a function. This
+/// interface will be accessed in parallel by multiple threads, so every
+/// operation should be thread-safe. Note that CFGBuildingContext as well as
+/// 'FnCtx are only accessed by a single thread, though.
 type IFunctionBuildingStrategy<'V,
                                'E,
                                'Abs,
                                'Act,
-                               'State,
-                               'Req,
-                               'Res when 'V :> IRBasicBlock<'Abs>
-                                     and 'V: equality
-                                     and 'E: equality
-                                     and 'Abs: null
-                                     and 'Act :> ICFGAction
-                                     and 'State :> IResettable> =
+                               'FnCtx,
+                               'GlCtx when 'V :> IRBasicBlock<'Abs>
+                                       and 'V: equality
+                                       and 'E: equality
+                                       and 'Abs: null
+                                       and 'Act :> ICFGAction
+                                       and 'FnCtx :> IResettable
+                                       and 'GlCtx: (new: unit -> 'GlCtx)> =
   /// Populate the initial action for the function located at the given entry
   /// point.
   abstract PopulateInitialAction:
@@ -50,17 +53,13 @@ type IFunctionBuildingStrategy<'V,
   /// This function returns a CFGResult that indicates whether the function
   /// building should continue, postpone, or exit with an error.
   abstract OnAction:
-      CFGBuildingContext<'V, 'E, 'Abs, 'State, 'Req, 'Res>
-    * CFGActionQueue<'Act>
-    * 'Act
+       CFGBuildingContext<'V, 'E, 'Abs, 'FnCtx, 'GlCtx>
+     * CFGActionQueue<'Act>
+     * 'Act
     -> CFGResult
 
   /// This is a callback that is called when all CFGActions are processed, i.e.,
   /// when CFGActionQueue is empty.
   abstract OnFinish:
-      CFGBuildingContext<'V, 'E, 'Abs, 'State, 'Req, 'Res>
+       CFGBuildingContext<'V, 'E, 'Abs, 'FnCtx, 'GlCtx>
     -> CFGResult
-
-  /// This is a callback that is called when a query is made to the
-  /// TaskManager.
-  abstract OnQuery: TaskMessage<'Req, 'Res> * IValidityCheck -> unit

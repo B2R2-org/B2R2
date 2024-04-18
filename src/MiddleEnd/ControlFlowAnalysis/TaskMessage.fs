@@ -25,15 +25,33 @@
 namespace B2R2.MiddleEnd.ControlFlowAnalysis
 
 open B2R2
+open B2R2.MiddleEnd.ControlFlowGraph
 
 /// A kind of messages to be handled by TaskManager.
-type TaskMessage<'Req, 'Res> =
+type TaskMessage<'V,
+                 'E,
+                 'Abs,
+                 'FnCtx,
+                 'GlCtx when 'V :> IRBasicBlock<'Abs>
+                         and 'V: equality
+                         and 'E: equality
+                         and 'Abs: null
+                         and 'FnCtx :> IResettable
+                         and 'GlCtx: (new: unit -> 'GlCtx)> =
   /// Add an address to recover the CFG.
   | AddTask of Addr * ArchOperationMode
   /// Add a dependency between two functions.
   | AddDependency of caller: Addr * callee: Addr * mode: ArchOperationMode
   /// Report the result of a task.
   | ReportResult of Addr * CFGResult
-  /// Query the global state.
-  | Query of Addr * 'Req * AgentReplyChannel<'Res>
-
+  /// Retrieve the building context of a function.
+  | RetrieveContext of Addr
+                     * AgentReplyChannel<CFGBuildingContext<'V,
+                                                            'E,
+                                                            'Abs,
+                                                            'FnCtx,
+                                                            'GlCtx> option>
+  /// Access the global context with the accessor, which has a side effect.
+  | AccessGlobalContext of accessor: ('GlCtx -> unit) * AgentReplyChannel<unit>
+  /// Update global context.
+  | UpdateGlobalContext of updater: ('GlCtx -> 'GlCtx)

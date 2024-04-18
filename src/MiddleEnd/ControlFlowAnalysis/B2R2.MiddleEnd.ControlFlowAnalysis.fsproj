@@ -14,12 +14,10 @@
     <Compile Include="BBLFactory.fs" />
     <Compile Include="INoReturnIdentifiable.fs" />
     <Compile Include="IResettable.fs" />
-    <Compile Include="IStateQueryable.fs" />
-    <Compile Include="IStateUpdatable.fs" />
-    <Compile Include="IValidityCheck.fs" />
-    <Compile Include="TaskMessage.fs" />
     <Compile Include="CFGBuildingContext.fs" />
     <Compile Include="Function.fs" />
+    <Compile Include="IFunctionBuildable.fs" />
+    <Compile Include="TaskMessage.fs" />
     <Compile Include="IFunctionBuildingStrategy.fs" />
     <Compile Include="FunctionBuilder.fs" />
     <Compile Include="FunctionDependenceMap.fs" />

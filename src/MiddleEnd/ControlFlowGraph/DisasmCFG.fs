@@ -40,53 +40,65 @@ module DisasmCFG =
     /// Construct a DisasmCFG.
     abstract Construct: ImplementationType -> DisasmCFG<'E>
 
-  type private DisasmBBLStorage<'E> = {
+  /// Temporarily stores vertex information for creating DisasmCFG.
+  type private TemporaryDisasmVertex<'E> = {
     Instructions: SortedList<Addr, Instruction>
     Successors: List<Addr * 'E>
     mutable Vertex: IVertex<DisasmBasicBlock>
   }
 
-  type private DisasmVMap<'E> = Dictionary<Addr, DisasmBBLStorage<'E>>
+  type private DisasmVMap<'E> = Dictionary<Addr, TemporaryDisasmVertex<'E>>
 
   let private updateSuccessor (succs: List<Addr * _>) = function
     | Some (succAddr, edge) -> succs.Add (succAddr, edge)
     | None -> ()
 
-  let private updateVMap (vMap: DisasmVMap<_>) addr instrs succ =
+  let private getTempVertex (vMap: DisasmVMap<_>) addr =
     match vMap.TryGetValue addr with
-    | true, storage -> updateSuccessor storage.Successors succ
+    | true, tmpV -> tmpV
     | false, _ ->
-      let insList = SortedList ()
-      let succList = List ()
-      instrs |> Array.iter (fun lifted ->
-        let ins = lifted.Original
-        insList.Add (ins.Address, ins))
-      updateSuccessor succList succ
-      vMap[addr] <- { Instructions = insList
-                      Successors = succList
-                      Vertex = null }
+      let tmpV =
+        { Instructions = SortedList ()
+          Successors = List ()
+          Vertex = null }
+      vMap[addr] <- tmpV
+      tmpV
 
-  let private mergeVertices (g: IRCFG<_, _, _>) (vMap: DisasmVMap<_>) =
+  let private updateDisasmVertexInfo vMap (bbl: #IRBasicBlock<_>) =
+    let tmpV = getTempVertex vMap bbl.LiftedInstructions[0].BBLAddr
+    let insList = tmpV.Instructions
+    bbl.LiftedInstructions
+    |> Array.iter (fun lifted ->
+      let ins = lifted.Original
+      if insList.ContainsKey ins.Address then ()
+      else insList.Add (ins.Address, ins))
+
+  let private updateDisasmEdgeInfo (vMap: DisasmVMap<_>) addr succ =
+    let tmpV = vMap[addr]
+    updateSuccessor tmpV.Successors succ
+
+  let private accumulateDisasmCFGInfo (g: IRCFG<_, _, _>) vMap =
+    g.IterVertex (fun v -> updateDisasmVertexInfo vMap v.VData)
     g.IterEdge (fun e ->
       let src, dst = e.First.VData, e.Second.VData
       let srcAddr = src.LiftedInstructions[0].BBLAddr
       let dstAddr = dst.LiftedInstructions[0].BBLAddr
       let succ = if srcAddr = dstAddr then None else Some (dstAddr, e.Label)
-      updateVMap vMap srcAddr src.LiftedInstructions succ)
+      updateDisasmEdgeInfo vMap srcAddr succ)
 
-  let private createVertices (vMap: DisasmVMap<_>) newGraph =
-    vMap |> Seq.fold (fun (g: DisasmCFG<_>) (KeyValue (addr, storage)) ->
+  let private createDisasmCFGVertices (vMap: DisasmVMap<_>) newGraph =
+    vMap |> Seq.fold (fun (g: DisasmCFG<_>) (KeyValue (addr, tmpV)) ->
       let ppoint = ProgramPoint (addr, 0)
-      let instrs = storage.Instructions.Values |> Seq.toArray
+      let instrs = tmpV.Instructions.Values |> Seq.toArray
       let bbl = DisasmBasicBlock (ppoint, instrs)
       let v, g = g.AddVertex bbl
-      storage.Vertex <- v
+      tmpV.Vertex <- v
       g) newGraph
 
-  let private createEdges (vMap: DisasmVMap<_>) newGraph =
-    vMap.Values |> Seq.fold (fun (g: DisasmCFG<_>) storage ->
-      let src = storage.Vertex
-      storage.Successors |> Seq.fold (fun g (succ, label) ->
+  let private createDisasmCFGEdges (vMap: DisasmVMap<_>) newGraph =
+    vMap.Values |> Seq.fold (fun (g: DisasmCFG<_>) tmpV ->
+      let src = tmpV.Vertex
+      tmpV.Successors |> Seq.fold (fun g (succ, label) ->
         let dst = vMap[succ].Vertex
         g.AddEdge (src, dst, label)
       ) g
@@ -94,7 +106,7 @@ module DisasmCFG =
 
   /// Create a new DisasmCFG from the given IRCFG.
   [<CompiledName "Create">]
-  let create (g: IRCFG<'V, 'E, 'Abs>) (root: IVertex<'V>) =
+  let create (g: IRCFG<'V, 'E, 'Abs>) =
     let newGraph =
       match g.ImplementationType with
       | Imperative ->
@@ -102,11 +114,7 @@ module DisasmCFG =
       | Persistent ->
         PersistentDiGraph<DisasmBasicBlock, 'E> () :> DisasmCFG<'E>
     let vMap = DisasmVMap ()
-    mergeVertices g vMap
+    accumulateDisasmCFGInfo g vMap
     newGraph
-    |> createVertices vMap
-    |> createEdges vMap
-    |> fun newGraph ->
-      let root =
-        newGraph.FindVertexBy (fun v -> v.VData.PPoint = root.VData.PPoint)
-      newGraph, root
+    |> createDisasmCFGVertices vMap
+    |> createDisasmCFGEdges vMap

@@ -28,7 +28,7 @@ open System.Collections.Generic
 open B2R2
 
 /// Map from a function (callee) to its caller functions. This is not
-/// thread-safe, and thus should be used only by CTFTaskManager.
+/// thread-safe, and thus should be used only by TaskManager.
 type FunctionDependenceMap () =
   let dict = Dictionary<Addr, List<Addr>> ()
 

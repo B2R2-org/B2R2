@@ -36,10 +36,8 @@ type Function<'V,
               'Abs when 'V :> IRBasicBlock<'Abs>
                     and 'V: equality
                     and 'E: equality
-                    and 'Abs: null> (entryPoint, name, ircfg, callSites) =
-  let mutable isNoRet = false
-  let callers = HashSet<Addr> ()
-  let callSites: SortedList<Addr, CalleeKind> = callSites
+                    and 'Abs: null>
+  public (entryPoint, name, ircfg, isNoRet, callees, callers) =
 
   /// Function entry point address.
   member _.EntryPoint with get(): Addr = entryPoint
@@ -55,10 +53,10 @@ type Function<'V,
   member _.CFG with get(): IRCFG<'V, 'E, 'Abs> = ircfg
 
   /// Is this function a no-return function?
-  member _.IsNoRet with get() = isNoRet and set(v) = isNoRet <- v
+  member _.IsNoRet with get() = isNoRet
 
   /// Call site information of this function.
-  member _.Callsites with get() = callSites
+  member _.Callees with get(): SortedList<Addr, CalleeKind> = callees
 
   /// Callers of this function.
-  member _.Callers with get() = callers
+  member _.Callers with get(): HashSet<Addr> = callers

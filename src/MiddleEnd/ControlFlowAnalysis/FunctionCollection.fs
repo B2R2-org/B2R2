@@ -32,15 +32,17 @@ type FunctionCollection<'V,
                         'E,
                         'Abs,
                         'Act,
-                        'State,
-                        'Req,
-                        'Res when 'V :> IRBasicBlock<'Abs>
-                              and 'V: equality
-                              and 'E: equality
-                              and 'Abs: null
-                              and 'Act :> ICFGAction
-                              and 'State :> IResettable
-                              and 'State: (new: unit -> 'State)> (builders) =
+                        'FnCtx,
+                        'GlCtx when 'V :> IRBasicBlock<'Abs>
+                                and 'V: equality
+                                and 'E: equality
+                                and 'Abs: null
+                                and 'Act :> ICFGAction
+                                and 'FnCtx :> IResettable
+                                and 'FnCtx: (new: unit -> 'FnCtx)
+                                and 'GlCtx: (new: unit -> 'GlCtx)>
+  public (builders: IFunctionBuildable<'V, 'E, 'Abs, 'FnCtx, 'GlCtx>[]) =
+
   let addrToFunction = Dictionary<Addr, Function<'V, 'E, 'Abs>> ()
 
   let nameToFunction = Dictionary<string, List<Function<'V, 'E, 'Abs>>> ()
@@ -51,16 +53,15 @@ type FunctionCollection<'V,
     | _ -> raise (KeyNotFoundException ($"Function not found: {addr:x}"))
 
   do builders
-     |> Array.iter (fun bld ->
-     let fn =
-      (bld: FunctionBuilder<_, _, _, 'Act, 'State, 'Req, 'Res>).ToFunction ()
-     addrToFunction.Add (fn.EntryPoint, fn)
-     match nameToFunction.TryGetValue fn.Name with
-     | false, _ ->
-       let fns = List<Function<'V, 'E, 'Abs>> ()
-       fns.Add fn
-       nameToFunction.Add (fn.Name, fns)
-     | true, fns -> fns.Add fn)
+     |> Array.iter (fun builder ->
+       let fn = builder.ToFunction ()
+       addrToFunction.Add (fn.EntryPoint, fn)
+       match nameToFunction.TryGetValue fn.Name with
+       | false, _ ->
+         let fns = List<Function<'V, 'E, 'Abs>> ()
+         fns.Add fn
+         nameToFunction.Add (fn.Name, fns)
+       | true, fns -> fns.Add fn)
 
   /// Sequence of functions.
   member _.Sequence with get() = addrToFunction.Values
@@ -83,3 +84,7 @@ type FunctionCollection<'V,
     match nameToFunction.TryGetValue name with
     | true, fns -> fns
     | false, _ -> raise (KeyNotFoundException ($"Function not found: {name}"))
+
+  /// Find a function by its function ID.
+  member _.FindByID (id: string) =
+    findByAddr <| Addr.ofFuncName id

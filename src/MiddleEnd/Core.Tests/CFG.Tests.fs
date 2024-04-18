@@ -192,7 +192,7 @@ type CFGTest1 () =
     let actual =
       brew.Functions.Sequence
       |> Seq.fold (fun acc fn ->
-        Map.add fn.EntryPoint fn.Callsites acc) Map.empty
+        Map.add fn.EntryPoint fn.Callees acc) Map.empty
     [ 0x00UL; 0x62UL; 0x71UL ]
     |> List.iter (fun addr ->
       CollectionAssert.AreEqual (Map.find addr expected, Map.find addr actual))
@@ -472,7 +472,7 @@ type CFGTest2 () =
     let actual =
       brew.Functions.Sequence
       |> Seq.fold (fun acc fn ->
-        Map.add fn.EntryPoint fn.Callsites acc) Map.empty
+        Map.add fn.EntryPoint fn.Callees acc) Map.empty
     [ 0x00UL; 0x24UL ]
     |> List.iter (fun addr ->
       CollectionAssert.AreEqual (Map.find addr expected, Map.find addr actual))
@@ -568,8 +568,7 @@ type CFGTest2 () =
   [<TestMethod>]
   member __.``DisasmCFG Test: _start`` () =
     let cfg = brew.Functions[0x0UL].CFG
-    let root = cfg.TryGetSingleRoot () |> Option.get
-    let cfg, _ = DisasmCFG.create cfg root
+    let cfg = DisasmCFG.create cfg
     Assert.AreEqual (1, cfg.Size)
     let vMap = cfg.FoldVertex (fun m v ->
       Map.add v.VData.PPoint.Address v m) Map.empty

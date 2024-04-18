@@ -26,7 +26,6 @@ namespace B2R2.Peripheral.Assembly
 
 open B2R2
 open B2R2.FrontEnd
-open B2R2.FrontEnd.BinLifter
 
 type AsmInterface (isa: ISA, startAddress) =
   let asmParser =
