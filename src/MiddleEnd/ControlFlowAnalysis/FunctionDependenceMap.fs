@@ -26,29 +26,46 @@ namespace B2R2.MiddleEnd.ControlFlowAnalysis
 
 open System.Collections.Generic
 open B2R2
+open B2R2.MiddleEnd.BinGraph
 
 /// Map from a function (callee) to its caller functions. This is not
 /// thread-safe, and thus should be used only by TaskManager.
 type FunctionDependenceMap () =
-  let dict = Dictionary<Addr, List<Addr>> ()
+  let g = ImperativeDiGraph<Addr, unit> () :> IGraph<Addr, unit>
 
-  let getCallerList (callee: Addr) =
-    if dict.ContainsKey callee then
-      dict[callee]
-    else
-      let newList = List<Addr> ()
-      dict[callee] <- newList
-      newList
+  let vertices = Dictionary<Addr, IVertex<Addr>> ()
+
+  let getVertex addr =
+    match vertices.TryGetValue addr with
+    | true, v -> v
+    | false, _ ->
+      let v, _ = g.AddVertex addr
+      vertices[addr] <- v
+      v
 
   /// Add a dependency between two functions.
   member _.AddDependency (caller: Addr, callee: Addr) =
-    let lst = getCallerList callee
-    lst.Add caller
+    let callerV = getVertex caller
+    let calleeV = getVertex callee
+    g.AddEdge (callerV, calleeV) |> ignore
 
-  /// Remove a callee function from the map, and return its caller functions.
+  /// Remove a callee function from the map, and return its caller functions,
+  /// excluding the recursive calls.
   member _.RemoveAndGetCallers (callee: Addr) =
-    match dict.TryGetValue callee with
-    | true, callers ->
-      dict.Remove callee |> ignore
-      callers |> Seq.toList
-    | false, _ -> []
+    let calleeV = getVertex callee
+    let preds = g.GetPreds calleeV
+    vertices.Remove callee |> ignore
+    g.RemoveVertex calleeV |> ignore
+    preds
+    |> Seq.choose (fun v ->
+      if v.VData <> callee then Some v.VData else None)
+    |> Seq.toList
+
+  /// Check if the function located at the given address has cyclic
+  /// dependencies. If so, return the sequence of dependent function addresses.
+  member _.GetCyclicDependencies (addr: Addr) =
+    SCC.compute g
+    |> Seq.collect (fun scc ->
+      if scc.Count > 1 && (scc |> Seq.exists (fun v -> v.VData = addr)) then
+        scc |> Seq.map (fun v -> v.VData)
+      else Seq.empty)

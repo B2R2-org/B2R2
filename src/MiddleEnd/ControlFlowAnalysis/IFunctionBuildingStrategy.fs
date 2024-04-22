@@ -63,3 +63,13 @@ type IFunctionBuildingStrategy<'V,
   abstract OnFinish:
        CFGBuildingContext<'V, 'E, 'Abs, 'FnCtx, 'GlCtx>
     -> CFGResult
+
+  /// This is a callback that is called when a cyclic dependency is detected.
+  /// We can decide whether to continue building the function or to stop the
+  /// building process and wait for the cyclic dependency to be resolved.
+  abstract OnCyclicDependency:
+       CFGBuildingContext<'V, 'E, 'Abs, 'FnCtx, 'GlCtx>
+     * CFGActionQueue<'Act>
+     * 'Act
+     * Addr
+    -> CFGResult

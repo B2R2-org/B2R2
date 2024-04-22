@@ -42,6 +42,8 @@ type CFGBuildingContext<'V,
                                 and 'Abs: null
                                 and 'FnCtx :> IResettable
                                 and 'GlCtx: (new: unit -> 'GlCtx)> = {
+  /// The address of the function that is being built.
+  FunctionAddress: Addr
   /// The binary handle.
   BinHandle: BinHandle
   /// Mapping from a program point to a vertex in the IRCFG.
@@ -106,10 +108,28 @@ and IManagerAccessible<'V,
   /// return None.
   abstract GetBuildingContext:
        addr: Addr
-    -> CFGBuildingContext<'V, 'E, 'Abs, 'FnCtx, 'GlCtx> option
+    -> BuildingCtxMsg<'V, 'E, 'Abs, 'FnCtx, 'GlCtx>
 
   /// Get the current user-defined global state of the TaskManager.
   abstract GetGlobalContext: accessor: ('GlCtx -> 'Res) -> 'Res
 
   /// Update the user-defined global state of the TaskManager.
   abstract UpdateGlobalContext: updater: ('GlCtx -> 'GlCtx) -> unit
+
+/// Message containing the building context of a function.
+and BuildingCtxMsg<'V,
+                   'E,
+                   'Abs,
+                   'FnCtx,
+                   'GlCtx when 'V :> IRBasicBlock<'Abs>
+                           and 'V: equality
+                           and 'E: equality
+                           and 'Abs: null
+                           and 'FnCtx :> IResettable
+                           and 'GlCtx: (new: unit -> 'GlCtx)> =
+  /// The building process is finished, and this is the final context.
+  | FinalCtx of CFGBuildingContext<'V, 'E, 'Abs, 'FnCtx, 'GlCtx>
+  /// The building process is still ongoing.
+  | StillBuilding
+  /// The building process failed.
+  | FailedBuilding

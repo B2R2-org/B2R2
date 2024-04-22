@@ -71,6 +71,11 @@ type TaskManager<'V,
   /// TaskMessage.
   let mutable globalCtx = new 'GlCtx ()
 
+  let isFinished entryPoint =
+    match builders.TryGetValue entryPoint with
+    | true, builder -> builder.BuilderState = Finished
+    | false, _ -> false
+
   let rec managerTask (inbox: IAgentMessageReceivable<_>) =
     while not inbox.IsCancelled do
       match inbox.Receive () with
@@ -82,25 +87,30 @@ type TaskManager<'V,
           workingSet.Add entryPoint |> ignore
           builder.Authorize ()
           toWorkers.Post builder |> ignore
+      | AddDependency (_, callee, _) when isFinished callee -> ()
       | AddDependency (caller, callee, mode) ->
         dependenceMap.AddDependency (caller, callee)
-        let _ = getOrCreateBuilder callee mode
+        getOrCreateBuilder callee mode |> ignore
         addTask callee mode
       | ReportResult (entryPoint, result) ->
         try handleResult entryPoint result
         with e -> Console.Error.WriteLine $"Failed to handle result:\n{e}"
         if isAllDone () then terminate () else ()
-      | RetrieveContext (addr, ch) ->
+      | RetrieveBuildingContext (addr, ch) ->
         match builders.TryGetValue addr with
         | true, builder ->
-          if builder.BuilderState <> Finished then ch.Reply None
-          else ch.Reply <| Some builder.Context
-        | false, _ -> ch.Reply None
+          match builder.BuilderState with
+          | Invalid -> ch.Reply FailedBuilding
+          | Finished -> ch.Reply <| FinalCtx builder.Context
+          | _ -> ch.Reply StillBuilding
+        | false, _ -> ch.Reply StillBuilding
       | AccessGlobalContext (accessor, ch) ->
         ch.Reply <| accessor globalCtx
       | UpdateGlobalContext updater ->
         try globalCtx <- updater globalCtx
         with e -> Console.Error.WriteLine $"Failed to update global ctxt:\n{e}"
+
+  and manager = Agent<_>.Start (managerTask, ct)
 
   and getOrCreateBuilder addr mode: IFunctionBuildable<_, _, _, _, _> =
     match builders.TryGetValue addr with
@@ -111,8 +121,6 @@ type TaskManager<'V,
                          cfgConstructor, manager, strategy)
       builders[addr] <- builder
       builder
-
-  and manager = Agent<_>.Start (managerTask, ct)
 
   and addTask entryPoint mode =
     AddTask (entryPoint, mode) |> manager.Post
@@ -125,7 +133,8 @@ type TaskManager<'V,
       builder.Finalize ()
       dependenceMap.RemoveAndGetCallers entryPoint
       |> List.iter (fun addr -> addTask addr ArchOperationMode.NoMode)
-    | Postponement ->
+    | Wait calleeAddr ->
+      updateCyclicDependencies entryPoint calleeAddr
       builder.Stop ()
       addTask entryPoint builder.Mode
     | Failure _ ->
@@ -133,6 +142,15 @@ type TaskManager<'V,
       builder.Invalidate ()
       dependenceMap.RemoveAndGetCallers entryPoint
       |> List.iter (fun addr -> addTask addr ArchOperationMode.NoMode)
+
+  and updateCyclicDependencies entryPoint calleeAddr =
+    let deps = dependenceMap.GetCyclicDependencies entryPoint
+    if Seq.contains calleeAddr deps then
+      for callerAddr in deps do
+        for calleeAddr in deps do
+          if callerAddr <> calleeAddr then
+            builders[callerAddr].AddCyclicDependency calleeAddr
+    else ()
 
   and isAllDone () =
     workingSet.Count = 0
@@ -161,12 +179,10 @@ type TaskManager<'V,
 #if DEBUG
     |> Array.partition (fun builder -> builder.BuilderState = Finished)
     |> fun (succs, fails) ->
-      Console.Error.WriteLine $"# of succs: {succs.Length}"
-      Console.Error.WriteLine $"# of fails: {fails.Length}"
+      Console.WriteLine $"[*] Done (total {succs.Length} functions)"
       fails
       |> Array.iter (fun b ->
-        Console.Error.WriteLine $"- {b.EntryPoint:x} {b.BuilderState}")
-      Console.Error.WriteLine $"[*] working set? {workingSet.Count}"
+        Console.WriteLine $"[!] Failure: {b.EntryPoint:x} w/ {b.BuilderState}")
       if fails.Length > 0 then None
       else Some succs
 #else
@@ -180,7 +196,6 @@ type TaskManager<'V,
   member __.RecoverCFGs (entryPoints: (Addr * ArchOperationMode)[]) =
     entryPoints |> Seq.iter (fun (addr, mode) -> addTask addr mode)
     waitForWorkers ()
-    Console.Error.WriteLine $"[*] All done: {workingSet.Count}"
     match buildersToArray () with
     | Some builders -> FunctionCollection builders
     | None ->

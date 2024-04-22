@@ -45,12 +45,8 @@ type TaskMessage<'V,
   /// Report the result of a task.
   | ReportResult of Addr * CFGResult
   /// Retrieve the building context of a function.
-  | RetrieveContext of Addr
-                     * AgentReplyChannel<CFGBuildingContext<'V,
-                                                            'E,
-                                                            'Abs,
-                                                            'FnCtx,
-                                                            'GlCtx> option>
+  | RetrieveBuildingContext of
+      Addr * AgentReplyChannel<BuildingCtxMsg<'V, 'E, 'Abs, 'FnCtx, 'GlCtx>>
   /// Access the global context with the accessor, which has a side effect.
   | AccessGlobalContext of accessor: ('GlCtx -> unit) * AgentReplyChannel<unit>
   /// Update global context.

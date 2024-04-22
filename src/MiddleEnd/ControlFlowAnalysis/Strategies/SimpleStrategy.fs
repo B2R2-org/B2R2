@@ -37,12 +37,11 @@ open B2R2.MiddleEnd.SSA
 type CFGAction<'Abs when 'Abs: null> =
   /// Build an initial CFG that is reachable from the given function start
   /// address.
-  | InitialCFG of fnAddr: Addr * mode: ArchOperationMode
-  /// Add more reachable edges to the initial CFG from the given new program
-  /// points.
+  | InitiateCFG of fnAddr: Addr * mode: ArchOperationMode
+  /// Add more reachable edges to the initial CFG using the new program points.
   | ExpandCFG of fnAddr: Addr * mode: ArchOperationMode * addrs: seq<Addr>
   /// Connect a call edge.
-  | CallEdge of fnAddr: Addr * calleeAddr: Addr * mode: ArchOperationMode
+  | ConnectCallEdge of fnAddr: Addr * calleeAddr: Addr * mode: ArchOperationMode
   | IndirectEdge of IRBasicBlock<'Abs>
   | SyscallEdge of IRBasicBlock<'Abs>
   | JumpTableEntryStart of IRBasicBlock<'Abs> * Addr * Addr
@@ -51,9 +50,9 @@ with
   interface ICFGAction with
     member __.Priority =
       match __ with
-      | InitialCFG _ -> 4
+      | InitiateCFG _ -> 4
       | ExpandCFG _ -> 4
-      | CallEdge _ -> 3
+      | ConnectCallEdge _ -> 3
       | IndirectEdge _ -> 2
       | SyscallEdge _ -> 1
       | JumpTableEntryStart _ -> 0
@@ -102,7 +101,8 @@ type SimpleStrategy (noRetAnalyzer: INoReturnIdentifiable) =
     | true, callsites -> callsites.Add callingNode |> ignore
     | false, _ -> ctxt.CallingNodes[calleeAddr] <- HashSet ([ callingNode ])
 
-  let constructCFG ctxt (actionQueue: CFGActionQueue<_>) fnAddr initPPs mode =
+  /// Build a CFG starting from the given program points.
+  let buildCFG ctxt (actionQueue: CFGActionQueue<_>) fnAddr initPPs mode =
     let ppQueue = Queue<ProgramPoint> (collection=initPPs)
     while ppQueue.Count > 0 do
       let ppoint = ppQueue.Dequeue ()
@@ -148,14 +148,14 @@ type SimpleStrategy (noRetAnalyzer: INoReturnIdentifiable) =
           ctxt.ManagerChannel.UpdateDependency (fnAddr, target, mode)
           ctxt.Callees.Add (callsiteAddr, RegularCallee target)
           updateCallingNodes ctxt srcVertex target
-          actionQueue.Push <| CallEdge (fnAddr, target, mode)
+          actionQueue.Push <| ConnectCallEdge (fnAddr, target, mode)
         | InterJmp ({ E = Num n }, InterJmpKind.IsCall) ->
           let callsiteAddr = srcBBL.LastInstruction.Address
           let target = BitVector.ToUInt64 n
           ctxt.ManagerChannel.UpdateDependency (fnAddr, target, mode)
           ctxt.Callees.Add (callsiteAddr, RegularCallee target)
           updateCallingNodes ctxt srcVertex target
-          actionQueue.Push <| CallEdge (fnAddr, target, mode)
+          actionQueue.Push <| ConnectCallEdge (fnAddr, target, mode)
         | InterCJmp (_, { E = BinOp (BinOpType.ADD, _, { E = PCVar _ },
                                                        { E = Num tv }) },
                         { E = BinOp (BinOpType.ADD, _, { E = PCVar _ },
@@ -178,6 +178,8 @@ type SimpleStrategy (noRetAnalyzer: INoReturnIdentifiable) =
           ()
         | _ ->
           ()
+    done
+    Success
 
   let connectFallThroughEdges ctxt queue fnAddr mode callingNodes =
     let newAddrs = List<Addr> ()
@@ -198,18 +200,19 @@ type SimpleStrategy (noRetAnalyzer: INoReturnIdentifiable) =
     Success
 
   let connectCallEdge ctxt queue fnAddr mode calleeAddr =
-    if fnAddr = calleeAddr then (* recursion = always returns *)
+    if fnAddr = calleeAddr then (* recursion = always returns (not noret) *)
       let fnPP = ProgramPoint (fnAddr, 0)
       [| getVertex ctxt fnPP |]
       |> connectFallThroughEdges ctxt queue fnAddr mode
     else
       match ctxt.ManagerChannel.GetBuildingContext calleeAddr with
-      | Some calleeContext ->
+      | FinalCtx calleeContext ->
         if calleeContext.IsNoRet then Success
         else
           ctxt.CallingNodes[calleeAddr]
           |> connectFallThroughEdges ctxt queue fnAddr mode
-      | None -> Postponement
+      | StillBuilding -> Wait calleeAddr
+      | FailedBuilding -> Failure ErrorCase.FailedToRecoverCFG
 
   new () =
     let noRetAnalyzer =
@@ -224,21 +227,19 @@ type SimpleStrategy (noRetAnalyzer: INoReturnIdentifiable) =
                                       CFGContext,
                                       EmptyState> with
     member __.PopulateInitialAction (entryPoint, mode) =
-      InitialCFG (entryPoint, mode)
+      InitiateCFG (entryPoint, mode)
 
     member _.OnAction (ctxt, queue, action) =
       try
         match action with
-        | InitialCFG (fnAddr, mode) ->
+        | InitiateCFG (fnAddr, mode) ->
           let pp = ProgramPoint (fnAddr, 0)
           scanBBLs ctxt mode [ fnAddr ]
-          constructCFG ctxt queue fnAddr [| pp |] mode
-          Success
+          buildCFG ctxt queue fnAddr [| pp |] mode
         | ExpandCFG (fnAddr, mode, addrs) ->
           let newPPs = addrs |> Seq.map (fun addr -> ProgramPoint (addr, 0))
-          constructCFG ctxt queue fnAddr newPPs mode
-          Success
-        | CallEdge (fnAddr, calleeAddr, mode) ->
+          buildCFG ctxt queue fnAddr newPPs mode
+        | ConnectCallEdge (fnAddr, calleeAddr, mode) ->
           connectCallEdge ctxt queue fnAddr mode calleeAddr
         | _ ->
           failwith "X"
@@ -249,3 +250,7 @@ type SimpleStrategy (noRetAnalyzer: INoReturnIdentifiable) =
     member _.OnFinish (ctxt) =
       ctxt.IsNoRet <- noRetAnalyzer.IsNoReturn (ctxt.CFG)
       Success
+
+    member _.OnCyclicDependency (ctxt, queue, action, addr) =
+      queue.Push action
+      Wait addr

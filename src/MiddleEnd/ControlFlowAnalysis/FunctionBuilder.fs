@@ -58,6 +58,7 @@ type FunctionBuilder<'V,
   let bblFactory = BBLFactory (hdl, instrs)
   let ircfg = cfgConstructor.Construct Imperative
   let fnCtx = new 'FnCtx ()
+  let blacklist = HashSet<Addr> ()
 
   let managerChannel =
     { new IManagerAccessible<'V, 'E, 'Abs, 'FnCtx, 'GlCtx> with
@@ -65,11 +66,11 @@ type FunctionBuilder<'V,
           agent.Post <| AddDependency (caller, callee, mode)
 
         member _.GetBuildingContext (addr) =
-          agent.PostAndReply (fun _cts ch -> RetrieveContext (addr, ch))
+          agent.PostAndReply (fun _ ch -> RetrieveBuildingContext (addr, ch))
 
         member _.GetGlobalContext accessor =
           let mutable v = Unchecked.defaultof<_>
-          agent.PostAndReply (fun _cts ch ->
+          agent.PostAndReply (fun _ ch ->
             let fn = fun glCtx -> (v <- accessor glCtx)
             AccessGlobalContext (fn, ch))
           v
@@ -78,7 +79,8 @@ type FunctionBuilder<'V,
           agent.Post <| UpdateGlobalContext updater }
 
   let ctxt =
-    { BinHandle = hdl
+    { FunctionAddress = entryPoint
+      BinHandle = hdl
       Vertices = Dictionary ()
       CFG = ircfg
       BBLFactory = bblFactory
@@ -98,7 +100,10 @@ type FunctionBuilder<'V,
       let action = queue.Pop ()
       match strategy.OnAction (ctxt, queue, action) with
       | Success -> build ()
-      | Postponement -> queue.Push action; Postponement
+      | Wait fnAddr ->
+        if blacklist.Contains fnAddr then
+          strategy.OnCyclicDependency (ctxt, queue, action, fnAddr)
+        else queue.Push action; Wait fnAddr
       | Failure e -> Failure e
 
   do strategy.PopulateInitialAction (entryPoint, mode) |> queue.Push
@@ -130,6 +135,12 @@ type FunctionBuilder<'V,
 
     member __.Build () =
       build ()
+
+    member __.AddCyclicDependency calleeAddr =
+      blacklist.Add calleeAddr |> ignore
+
+    member __.HasCyclicDependency calleeAddr =
+      blacklist.Contains calleeAddr
 
     member __.Reset () =
       fnCtx.Reset ()
