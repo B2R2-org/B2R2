@@ -71,6 +71,7 @@ let inline min x y = if x < y then x else y
 
 /// R.Tarjan. Depth-first search and linear graph algorithms
 let rec computeSCC (g: IGraph<_, _>) ctxt (v: IVertex<_>) n stack sccs =
+  assert (not (ctxt.DFNumMap.ContainsKey v.ID))
   ctxt.DFNumMap[v.ID] <- n
   ctxt.LowLink[n] <- n
   ctxt.Vertex[n] <- v
@@ -83,7 +84,7 @@ let rec computeSCC (g: IGraph<_, _>) ctxt (v: IVertex<_>) n stack sccs =
 and computeLowLink g ctxt v (n, stack, sccs) (w: IVertex<_>) =
   let vNum = dfnum ctxt v
   let vLink = lowlink ctxt v
-  if ctxt.DFNumMap.ContainsKey <| w.ID then
+  if ctxt.DFNumMap.ContainsKey w.ID then
     let wNum = dfnum ctxt w
     if List.contains wNum stack then ctxt.LowLink[vNum] <- min vLink wNum
     n, stack, sccs
@@ -93,19 +94,19 @@ and computeLowLink g ctxt v (n, stack, sccs) (w: IVertex<_>) =
     ctxt.LowLink[vNum] <- min vLink wLink
     n, stack, sccs
 
-let compute (g: IGraph<_, _>) root =
+let compute (g: IGraph<_, _>) =
   let ctxt = initSCCInfo g
-  g.Unreachables
-  |> Seq.fold (fun acc v -> Set.add v acc) Set.empty
-  |> Set.add root
-  |> Set.fold (fun (n, acc) root ->
-    let n, _, sccs = computeSCC g ctxt root n [] []
-    let acc = sccs |> List.fold (fun acc scc -> Set.add scc acc) acc
-    n, acc) (1, Set.empty)
+  g.Vertices
+  |> Seq.fold (fun (n, acc) root ->
+    if ctxt.DFNumMap.ContainsKey root.ID then n, acc
+    else
+      let n, _, sccs = computeSCC g ctxt root n [] []
+      let acc = sccs |> List.fold (fun acc scc -> Set.add scc acc) acc
+      n, acc) (1, Set.empty)
   |> snd
 
-let condensation graphInit g root =
-  let sccs = compute g root
+let condensation graphInit g =
+  let sccs = compute g
   let cGraph = graphInit ()
   let vMap, cGraph =
     sccs
