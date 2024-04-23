@@ -40,7 +40,7 @@ module GraphExample =
     let g = g.AddEdge (n2, n4, 3)
     let g = g.AddEdge (n3, n4, 4)
     let g = g.AddEdge (n3, n5, 5)
-    (g, n1)
+    g
 
   let example2 (g: IGraph<_, _>) =
     let n1, g = g.AddVertex 1
@@ -86,81 +86,92 @@ module GraphExample =
     let g = g.AddEdge (ng, nf, 12)
     let g = g.AddEdge (nh, nd, 13)
     let g = g.AddEdge (nh, ng, 14)
-    (g, na, [ na; nb; ne ], [ nc; nd; nh ], [ nf; ng ])
+    (g, [ na; nb; ne ], [ nc; nd; nh ], [ nf; ng ])
+
+  let example4 (g: IGraph<_, _>) =
+    let na, g = g.AddVertex 1
+    let nb, g = g.AddVertex 2
+    let nc, g = g.AddVertex 3
+    let nd, g = g.AddVertex 4
+    let ne, g = g.AddVertex 5
+    let g = g.AddEdge (na, nb, 1)
+    let g = g.AddEdge (nb, nc, 2)
+    let g = g.AddEdge (nc, na, 3)
+    let g = g.AddEdge (nd, ne, 4)
+    let g = g.AddEdge (ne, nd, 5)
+    (g, [ na; nb; nc ], [ nd; ne ])
+
+[<AutoOpen>]
+module Tests =
+  let SCCTest1 g =
+    let g = example1 g
+    let sccs = SCC.compute g
+    Assert.AreEqual (5, Set.count sccs)
+
+  let SCCTest2 g =
+    let g, n1, n8, s = example2 g
+    let sccs = SCC.compute g
+    Assert.AreEqual (3, Set.count sccs)
+    let scc1 = Set.singleton n1
+    Assert.IsTrue (Set.contains scc1 sccs)
+    let scc2 = Set.singleton n8
+    Assert.IsTrue (Set.contains scc2 sccs)
+    let scc3 = Set.ofList s
+    Assert.IsTrue (Set.contains scc3 sccs)
+
+  let SCCTest3 g =
+    let g, s1, s2, s3 = example3 g
+    let sccs = SCC.compute g
+    Assert.AreEqual (3, Set.count sccs)
+    let scc1 = Set.ofList s1
+    Assert.IsTrue (Set.contains scc1 sccs)
+    let scc2 = Set.ofList s2
+    Assert.IsTrue (Set.contains scc2 sccs)
+    let scc3 = Set.ofList s3
+    Assert.IsTrue (Set.contains scc3 sccs)
+
+  let SCCTest4 g =
+    let g, s1, s2 = example4 g
+    let sccs = SCC.compute g
+    Assert.AreEqual (2, Set.count sccs)
+    let scc1 = Set.ofList s1
+    Assert.IsTrue (Set.contains scc1 sccs)
+    let scc2 = Set.ofList s2
+    Assert.IsTrue (Set.contains scc2 sccs)
 
 [<TestClass>]
 type ImperativeSCCTest() =
   (* Arbitrary graph example *)
   [<TestMethod>]
-  member __.``SCC Test1``() =
-    let g = ImperativeDiGraph () :> IGraph<_, _>
-    let g, n1 = example1 g
-    let sccs = SCC.compute g n1
-    Assert.AreEqual (5, Set.count sccs)
+  member __.``SCC Test1``() = SCCTest1 <| ImperativeDiGraph ()
 
   (* Example from article about Bourdoncle Components by Matt Elder *)
   [<TestMethod>]
-  member __.``SCC Test2`` () =
-    let g = ImperativeDiGraph () :> IGraph<_, _>
-    let g, n1, n8, s = example2 g
-    let sccs = SCC.compute g n1
-    Assert.AreEqual (3, Set.count sccs)
-    let scc1 = Set.singleton n1
-    Assert.IsTrue (Set.contains scc1 sccs)
-    let scc2 = Set.singleton n8
-    Assert.IsTrue (Set.contains scc2 sccs)
-    let scc3 = Set.ofList s
-    Assert.IsTrue (Set.contains scc3 sccs)
+  member __.``SCC Test2`` () = SCCTest2 <| ImperativeDiGraph ()
 
   (* Example from Wikipedia *)
   [<TestMethod>]
-  member __.``SCC Test3`` () =
-    let g = ImperativeDiGraph () :> IGraph<_, _>
-    let g, na, s1, s2, s3 = example3 g
-    let sccs = SCC.compute g na
-    Assert.AreEqual (3, Set.count sccs)
-    let scc1 = Set.ofList s1
-    Assert.IsTrue (Set.contains scc1 sccs)
-    let scc2 = Set.ofList s2
-    Assert.IsTrue (Set.contains scc2 sccs)
-    let scc3 = Set.ofList s3
-    Assert.IsTrue (Set.contains scc3 sccs)
+  member __.``SCC Test3`` () = SCCTest3 <| ImperativeDiGraph ()
+
+  (* Example with isolated sub-graphs *)
+  [<TestMethod>]
+  member __.``SCC Test4`` () = SCCTest4 <| ImperativeDiGraph ()
 
 [<TestClass>]
 type PersistentSCCTest () =
   (* Arbitrary graph example *)
   [<TestMethod>]
-  member __.``SCC Test1``() =
-    let g = PersistentDiGraph () :> IGraph<_, _>
-    let g, n1 = example1 g
-    let sccs = SCC.compute g n1
-    Assert.AreEqual (5, Set.count sccs)
+  member __.``SCC Test1``() = SCCTest1 <| PersistentDiGraph ()
 
   (* Example from article about Bourdoncle Components by Matt Elder *)
   [<TestMethod>]
-  member __.``SCC Test2`` () =
-    let g = PersistentDiGraph () :> IGraph<_, _>
-    let g, n1, n8, s = example2 g
-    let sccs = SCC.compute g n1
-    Assert.AreEqual (3, Set.count sccs)
-    let scc1 = Set.singleton n1
-    Assert.IsTrue (Set.contains scc1 sccs)
-    let scc2 = Set.singleton n8
-    Assert.IsTrue (Set.contains scc2 sccs)
-    let scc3 = Set.ofList s
-    Assert.IsTrue (Set.contains scc3 sccs)
+  member __.``SCC Test2`` () = SCCTest2 <| PersistentDiGraph ()
 
   (* Example from Wikipedia *)
   [<TestMethod>]
-  member __.``SCC Test3`` () =
-    let g = PersistentDiGraph () :> IGraph<_, _>
-    let g, na, s1, s2, s3 = example3 g
-    let sccs = SCC.compute g na
-    Assert.AreEqual (3, Set.count sccs)
-    let scc1 = Set.ofList s1
-    Assert.IsTrue (Set.contains scc1 sccs)
-    let scc2 = Set.ofList s2
-    Assert.IsTrue (Set.contains scc2 sccs)
-    let scc3 = Set.ofList s3
-    Assert.IsTrue (Set.contains scc3 sccs)
+  member __.``SCC Test3`` () = SCCTest3 <| PersistentDiGraph ()
+
+  (* Example with isolated sub-graphs *)
+  [<TestMethod>]
+  member __.``SCC Test4`` () = SCCTest4 <| PersistentDiGraph ()
 
