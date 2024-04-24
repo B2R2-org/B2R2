@@ -205,9 +205,17 @@ type PersistentDiGraph<'V, 'E when 'V: equality
       |> List.fold (fun acc e -> (e.First :> IVertex<'V>) :: acc) []
       :> IReadOnlyCollection<_>
 
+    member __.GetPredEdges (v: IVertex<'V>) =
+      Map.find v.ID preds
+      :> IReadOnlyCollection<_>
+
     member __.GetSuccs (v: IVertex<'V>) =
       Map.find v.ID succs
       |> List.fold (fun acc e -> (e.Second :> IVertex<'V>) :: acc) []
+      :> IReadOnlyCollection<_>
+
+    member __.GetSuccEdges (v: IVertex<'V>) =
+      Map.find v.ID succs
       :> IReadOnlyCollection<_>
 
     member __.TryGetSingleRoot () =

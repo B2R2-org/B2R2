@@ -122,10 +122,20 @@ type IGraph<'V, 'E when 'V: equality and 'E: equality> =
   /// sequence.
   abstract GetPreds: IVertex<'V> -> IReadOnlyCollection<IVertex<'V>>
 
+  /// Get the predecessor edges of the given vertex. This is only meaningful for
+  /// directed graphs. For undirected graphs, this function returns an empty
+  /// sequence.
+  abstract GetPredEdges: IVertex<'V> -> IReadOnlyCollection<Edge<'V, 'E>>
+
   /// Get the successors of the given vertex. This is only meaningful for
   /// directed graphs. For undirected graphs, this function returns an empty
   /// sequence.
   abstract GetSuccs: IVertex<'V> -> IReadOnlyCollection<IVertex<'V>>
+
+  /// Get the successor edges of the given vertex. This is only meaningful for
+  /// directed graphs. For undirected graphs, this function returns an empty
+  /// sequence.
+  abstract GetSuccEdges: IVertex<'V> -> IReadOnlyCollection<Edge<'V, 'E>>
 
   /// Try to get the single root of the graph. This function returns None if
   /// there is no root or there are multiple roots.
