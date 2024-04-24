@@ -43,8 +43,8 @@ module VisGraph =
       if visited.ContainsKey v.ID then ()
       else
         let blk = VisBBlock (v.VData :> BasicBlock, false)
-        let v, _ = newGraph.AddVertex blk
-        visited[v.ID] <- v
+        let v', _ = newGraph.AddVertex blk
+        visited[v.ID] <- v'
     )
     let roots = roots |> List.map (fun (root: IVertex<_>) -> visited[root.ID])
     (g: IGraph<_, _>).IterEdge (fun e ->
