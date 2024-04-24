@@ -58,12 +58,14 @@ type FunctionBuilder<'V,
   let bblFactory = BBLFactory (hdl, instrs)
   let ircfg = cfgConstructor.Construct Imperative
   let fnCtx = new 'FnCtx ()
-  let blacklist = HashSet<Addr> ()
 
   let managerChannel =
     { new IManagerAccessible<'V, 'E, 'Abs, 'FnCtx, 'GlCtx> with
         member _.UpdateDependency (caller, callee, mode) =
           agent.Post <| AddDependency (caller, callee, mode)
+
+        member _.GetNonReturningStatus (addr) =
+          agent.PostAndReply (fun _ ch -> RetrieveNonReturningStatus (addr, ch))
 
         member _.GetBuildingContext (addr) =
           agent.PostAndReply (fun _ ch -> RetrieveBuildingContext (addr, ch))
@@ -78,13 +80,13 @@ type FunctionBuilder<'V,
         member _.UpdateGlobalContext (updater) =
           agent.Post <| UpdateGlobalContext updater }
 
-  let ctxt =
+  let ctx =
     { FunctionAddress = entryPoint
       BinHandle = hdl
       Vertices = Dictionary ()
       CFG = ircfg
       BBLFactory = bblFactory
-      IsNoRet = false
+      NonReturningStatus = UnknownNoRet
       Callees = SortedList ()
       Callers = HashSet ()
       CallingNodes = Dictionary ()
@@ -95,15 +97,12 @@ type FunctionBuilder<'V,
   let queue = CFGActionQueue<'Act> ()
 
   let rec build () =
-    if queue.IsEmpty () then strategy.OnFinish ctxt
+    if queue.IsEmpty () then strategy.OnFinish ctx
     else
       let action = queue.Pop ()
-      match strategy.OnAction (ctxt, queue, action) with
+      match strategy.OnAction (ctx, queue, action) with
       | Success -> build ()
-      | Wait fnAddr ->
-        if blacklist.Contains fnAddr then
-          strategy.OnCyclicDependency (ctxt, queue, action, fnAddr)
-        else queue.Push action; Wait fnAddr
+      | Wait fnAddr -> queue.Push action; Wait fnAddr
       | Failure e -> Failure e
 
   do strategy.PopulateInitialAction (entryPoint, mode) |> queue.Push
@@ -115,7 +114,7 @@ type FunctionBuilder<'V,
 
     member __.Mode with get() = mode
 
-    member __.Context with get() = ctxt
+    member __.Context with get() = ctx
 
     member __.Authorize () =
       assert (state <> InProgress)
@@ -136,12 +135,6 @@ type FunctionBuilder<'V,
     member __.Build () =
       build ()
 
-    member __.AddCyclicDependency calleeAddr =
-      blacklist.Add calleeAddr |> ignore
-
-    member __.HasCyclicDependency calleeAddr =
-      blacklist.Contains calleeAddr
-
     member __.Reset () =
       fnCtx.Reset ()
       // XXX: cfg reset
@@ -156,6 +149,6 @@ type FunctionBuilder<'V,
       Function (entryPoint,
                 name,
                 ircfg,
-                ctxt.IsNoRet,
-                ctxt.Callees,
-                ctxt.Callers)
+                ctx.NonReturningStatus,
+                ctx.Callees,
+                ctx.Callers)

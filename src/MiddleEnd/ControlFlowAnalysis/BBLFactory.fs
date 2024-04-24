@@ -51,10 +51,12 @@ type BBLFactory<'Abs when 'Abs: null> (hdl: BinHandle,
       let nextAddr = addr + uint64 ins.Length
       if ins.IsTerminator () || interProceduralLeaders.ContainsKey nextAddr then
         channel.Post (leader, ins :: acc, insCount + 1) |> ignore
-        ins.GetNextInstrAddrs ()
-        |> Array.choose (fun (nextAddr, nextMode) ->
-          if nextMode = mode then Some nextAddr else None)
-        |> Ok
+        if ins.IsCall () then Ok [||]
+        else
+          ins.GetNextInstrAddrs ()
+          |> Array.choose (fun (nextAddr, nextMode) ->
+            if nextMode = mode then Some nextAddr else None)
+          |> Ok
       else parseBlock channel (ins :: acc) (insCount + 1) nextAddr leader mode
     | Error e ->
 #if CFGDEBUG
@@ -215,6 +217,7 @@ type BBLFactory<'Abs when 'Abs: null> (hdl: BinHandle,
   /// Iterate over all the BBL leaders and split the BBLs if necessary.
   let commit () =
     let leaders = getSortedLeaders ()
+    let dividedEdges = List ()
     for i = 0 to leaders.Length - 1 do
       if i = leaders.Length - 1 then ()
       else
@@ -226,8 +229,10 @@ type BBLFactory<'Abs when 'Abs: null> (hdl: BinHandle,
           let fst, snd = currentBBL.Cut nextAddr
           bbls[currPPoint] <- fst
           bbls[nextPPoint] <- snd
+          dividedEdges.Add ((currPPoint, nextPPoint))
         else ()
     done
+    dividedEdges
 
   /// Number of BBLs in the factory.
   member __.Count with get() = bbls.Count
@@ -237,7 +242,10 @@ type BBLFactory<'Abs when 'Abs: null> (hdl: BinHandle,
   /// In particular, it always assumes that a call instruction will never return
   /// in order to avoid parsing incorrect BBLs. Fall-through BBLs should be
   /// considered only after we know that the target function can return (after a
-  /// no-return analysis), which is not the scope of BBLFactory.
+  /// no-return analysis), which is not the scope of BBLFactory. In the end,
+  /// this function returns a list of divided edges, which are pairs of BBL
+  /// addresses that have been created from a single BBL by splitting it. A BBL
+  /// can be divided if there is a new control flow target within the BBL.
   member __.ScanBBLs mode addrs =
     task {
       let channel = BufferBlock<Addr * Instruction list * int> ()

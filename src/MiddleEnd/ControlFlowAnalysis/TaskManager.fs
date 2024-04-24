@@ -96,6 +96,10 @@ type TaskManager<'V,
         try handleResult entryPoint result
         with e -> Console.Error.WriteLine $"Failed to handle result:\n{e}"
         if isAllDone () then terminate () else ()
+      | RetrieveNonReturningStatus (addr, ch) ->
+        match builders.TryGetValue addr with
+        | true, builder -> ch.Reply builder.Context.NonReturningStatus
+        | false, _ -> ch.Reply UnknownNoRet
       | RetrieveBuildingContext (addr, ch) ->
         match builders.TryGetValue addr with
         | true, builder ->
@@ -108,7 +112,7 @@ type TaskManager<'V,
         ch.Reply <| accessor globalCtx
       | UpdateGlobalContext updater ->
         try globalCtx <- updater globalCtx
-        with e -> Console.Error.WriteLine $"Failed to update global ctxt:\n{e}"
+        with e -> Console.Error.WriteLine $"Failed to update global ctx:\n{e}"
 
   and manager = Agent<_>.Start (managerTask, ct)
 
@@ -133,8 +137,11 @@ type TaskManager<'V,
       builder.Finalize ()
       dependenceMap.RemoveAndGetCallers entryPoint
       |> List.iter (fun addr -> addTask addr ArchOperationMode.NoMode)
+#if CFGDEBUG
+      dbglog 0 "handleResult" $"{entryPoint:x} finished."
+#endif
     | Wait calleeAddr ->
-      updateCyclicDependencies entryPoint calleeAddr
+      checkAndResolveCyclicDependencies entryPoint calleeAddr
       builder.Stop ()
       addTask entryPoint builder.Mode
     | Failure _ ->
@@ -142,14 +149,16 @@ type TaskManager<'V,
       builder.Invalidate ()
       dependenceMap.RemoveAndGetCallers entryPoint
       |> List.iter (fun addr -> addTask addr ArchOperationMode.NoMode)
+#if CFGDEBUG
+      dbglog 0 "handleResult" $"{entryPoint:x} failed."
+#endif
 
-  and updateCyclicDependencies entryPoint calleeAddr =
+  and checkAndResolveCyclicDependencies entryPoint calleeAddr =
     let deps = dependenceMap.GetCyclicDependencies entryPoint
     if Seq.contains calleeAddr deps then
-      for callerAddr in deps do
-        for calleeAddr in deps do
-          if callerAddr <> calleeAddr then
-            builders[callerAddr].AddCyclicDependency calleeAddr
+      deps
+      |> Seq.map (fun addr -> addr, builders[addr])
+      |> strategy.OnCyclicDependency
     else ()
 
   and isAllDone () =
@@ -230,8 +239,11 @@ and private TaskWorker<'V,
           manager.Post <| ReportResult (builder.EntryPoint, res)
         with e ->
           Console.Error.WriteLine $"Worker ({tid}) failed:\n{e}"
-          let result = Failure ErrorCase.FailedToRecoverCFG
-          manager.Post <| ReportResult (builder.EntryPoint, result)
+          let failure = Failure ErrorCase.FailedToRecoverCFG
+          manager.Post <| ReportResult (builder.EntryPoint, failure)
+#if CFGDEBUG
+        flushLog tid
+#endif
       | false, _ -> ()
   }
 

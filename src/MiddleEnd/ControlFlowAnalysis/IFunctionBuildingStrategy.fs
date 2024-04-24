@@ -64,12 +64,10 @@ type IFunctionBuildingStrategy<'V,
        CFGBuildingContext<'V, 'E, 'Abs, 'FnCtx, 'GlCtx>
     -> CFGResult
 
-  /// This is a callback that is called when a cyclic dependency is detected.
-  /// We can decide whether to continue building the function or to stop the
-  /// building process and wait for the cyclic dependency to be resolved.
+  /// This is a callback that is called when a cyclic dependency is detected
+  /// from the TaskManager. The sequence of dependent functions is passed as an
+  /// argument, and this function should set the non-returning status of each
+  /// function.
   abstract OnCyclicDependency:
-       CFGBuildingContext<'V, 'E, 'Abs, 'FnCtx, 'GlCtx>
-     * CFGActionQueue<'Act>
-     * 'Act
-     * Addr
-    -> CFGResult
+       (Addr * IFunctionBuildable<'V, 'E, 'Abs, 'FnCtx, 'GlCtx>) seq
+    -> unit

@@ -73,14 +73,6 @@ type IFunctionBuildable<'V,
   /// Build the function CFG.
   abstract Build: unit -> CFGResult
 
-  /// Remember that the callee and my function have a cyclic dependency in the
-  /// call graph. This information is later used by the building strategy to
-  /// resolve a deadlock caused by a no-return analysis.
-  abstract AddCyclicDependency: calleeAddr: Addr -> unit
-
-  /// Check if the function has a cyclic dependency with the given callee.
-  abstract HasCyclicDependency: calleeAddr: Addr -> bool
-
   /// Reset the current state in order to rebuild the function from scratch.
   abstract Reset: unit -> unit
 

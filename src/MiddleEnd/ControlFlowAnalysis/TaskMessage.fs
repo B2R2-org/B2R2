@@ -44,6 +44,8 @@ type TaskMessage<'V,
   | AddDependency of caller: Addr * callee: Addr * mode: ArchOperationMode
   /// Report the result of a task.
   | ReportResult of Addr * CFGResult
+  /// Retrieve the non-returning status of a function.
+  | RetrieveNonReturningStatus of Addr * AgentReplyChannel<NonReturningStatus>
   /// Retrieve the building context of a function.
   | RetrieveBuildingContext of
       Addr * AgentReplyChannel<BuildingCtxMsg<'V, 'E, 'Abs, 'FnCtx, 'GlCtx>>

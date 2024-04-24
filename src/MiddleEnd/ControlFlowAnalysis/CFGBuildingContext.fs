@@ -53,16 +53,16 @@ type CFGBuildingContext<'V,
   /// The basic block factory.
   BBLFactory: BBLFactory<'Abs>
   /// Is this function a no-return function?
-  mutable IsNoRet: bool
+  mutable NonReturningStatus: NonReturningStatus
   /// The callees of this function. This is a mapping from a callsite (call
   /// instruction) address to its callee kind.
   Callees: SortedList<Addr, CalleeKind>
   /// The callers of this function.
   Callers: HashSet<Addr>
-  /// The calling nodes (which terminate a basic block with a call instruction)
-  /// in this function. This is a mapping from a callee address to its calling
-  /// nodes.
-  CallingNodes: Dictionary<Addr, HashSet<IVertex<'V>>>
+  /// The addresses of calling nodes (which terminate a basic block with a call
+  /// instruction) in this function. This is a mapping from a callee address to
+  /// its caller addresses.
+  CallingNodes: Dictionary<Addr, HashSet<Addr>>
   /// The user-defined per-function context.
   UserContext: 'FnCtx
   /// The channel for accessing the state of the TaskManager.
@@ -70,6 +70,19 @@ type CFGBuildingContext<'V,
   /// Thread ID that is currently building this function.
   mutable ThreadID: int
 }
+
+/// The result of non-returning function analysis.
+and NonReturningStatus =
+  /// This function will never return. For example, the "exit" function should
+  /// have this property.
+  | NoRet
+  /// Regular case: *not* no-return.
+  | NotNoRet
+  /// Conditionally no-return; function does not return only if the n-th
+  /// argument (starting from one) specified is non-zero.
+  | ConditionalNoRet of int
+  /// We don't know yet: we need further analyses.
+  | UnknownNoRet
 
 /// What kind of callee is this?
 and CalleeKind =
@@ -102,6 +115,9 @@ and IManagerAccessible<'V,
   /// Update the dependency between two functions.
   abstract UpdateDependency:
     caller: Addr * callee: Addr * ArchOperationMode -> unit
+
+  /// Get the non-returning status of a function located at `addr`.
+  abstract GetNonReturningStatus: addr: Addr -> NonReturningStatus
 
   /// Get the builder of a function located at `addr` if it is available (i.e.,
   /// not in progress and valid). If the function builder is not available,

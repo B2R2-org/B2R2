@@ -140,9 +140,10 @@ type CFGTest1 () =
         bbl.LiftedInstructions
         |> Array.map (fun li -> li.Original.Address, li.BBLAddr)
       | Error e -> [||]
-    bblFactory.ScanBBLs ([ 0x0UL, ArchOperationMode.NoMode ])
+    bblFactory.ScanBBLs ArchOperationMode.NoMode [ 0x0UL ]
     |> Async.AwaitTask
     |> Async.RunSynchronously
+    |> ignore
     let bblAddrs = [| 0x00UL; 0x62UL |]
     let expected =
       [| (0x00UL, 0x00UL); (0x01UL, 0x00UL); (0x04UL, 0x00UL); (0x08UL, 0x00UL)
@@ -161,9 +162,10 @@ type CFGTest1 () =
     let extractBBLInfo ppoint =
       let bbl = bblFactory.Find ppoint
       bbl.Range.Min, bbl.Range.Max
-    bblFactory.ScanBBLs ([ 0x0UL, ArchOperationMode.NoMode ])
+    bblFactory.ScanBBLs ArchOperationMode.NoMode [ 0x0UL ]
     |> Async.AwaitTask
     |> Async.RunSynchronously
+    |> ignore
     Assert.AreEqual (2, bblFactory.Count)
     let bblAddrs = [| 0x00UL; 0x62UL |]
     let expected = [| (0x00UL, 0x18UL); (0x62UL, 0x70UL) |]
@@ -426,9 +428,10 @@ type CFGTest2 () =
         bbl.LiftedInstructions
         |> Array.map (fun li -> li.Original.Address, li.BBLAddr)
       | Error e -> [||]
-    bblFactory.ScanBBLs ([ 0x0UL, ArchOperationMode.NoMode ])
+    bblFactory.ScanBBLs ArchOperationMode.NoMode [ 0x0UL ]
     |> Async.AwaitTask
     |> Async.RunSynchronously
+    |> ignore
     let bblAddrs = [| 0x00UL; 0x0cUL; 0x24UL |]
     let expected =
       [| (0x00UL, 0x00UL); (0x01UL, 0x00UL); (0x02UL, 0x00UL); (0x07UL, 0x00UL)
@@ -446,9 +449,10 @@ type CFGTest2 () =
     let extractBBLInfo ppoint =
       let bbl = bblFactory.Find ppoint
       bbl.Range.Min, bbl.Range.Max
-    bblFactory.ScanBBLs ([ 0x0UL, ArchOperationMode.NoMode ])
+    bblFactory.ScanBBLs ArchOperationMode.NoMode [ 0x0UL ]
     |> Async.AwaitTask
     |> Async.RunSynchronously
+    |> ignore
     Assert.AreEqual (3, bblFactory.Count)
     let bblAddrs = [| 0x00UL; 0x0cUL; 0x24UL |]
     let expected = [| (0x00UL, 0x0bUL); (0x0cUL, 0x23UL); (0x24UL, 0x27UL) |]

@@ -38,9 +38,10 @@ type IRBasicBlock<'Abs when 'Abs: null> internal (ppoint,
                                                   labelMap) =
   inherit PossiblyAbstractBasicBlock<'Abs> (ppoint, funcAbs)
 
-  let isBranch stmt =
+  let isTerminatingStmt stmt =
     match stmt.S with
-    | Jmp _ | CJmp _ | InterJmp _ | InterCJmp _ -> true
+    | Jmp _ | CJmp _ | InterJmp _ | InterCJmp _
+    | SideEffect SysCall | SideEffect Terminate -> true
     | _ -> false
 
   member __.LiftedInstructions with get(): LiftedInstruction[] = liftedInstrs
@@ -59,7 +60,7 @@ type IRBasicBlock<'Abs when 'Abs: null> internal (ppoint,
     assert (not <| Array.isEmpty liftedInstrs)
     let stmts = liftedInstrs[liftedInstrs.Length - 1].Stmts
     stmts[stmts.Length - 2..]
-    |> Array.filter isBranch
+    |> Array.filter isTerminatingStmt
     |> Array.tryExactlyOne
     |> Option.defaultValue stmts[stmts.Length - 1]
 
