@@ -104,6 +104,51 @@ module DisasmCFG =
       ) g
     ) newGraph
 
+  let private selectCallingVertices (newGraph: DisasmCFG<_>) =
+    newGraph.Vertices
+    |> Array.choose (fun v ->
+      let inss = v.VData.Instructions
+      let lastIns = Array.last inss
+      let fallthroughAddr = lastIns.Address + uint64 lastIns.Length
+      if not <| lastIns.IsCall () then None
+      else
+        newGraph.GetSuccs v
+        |> Seq.tryFind (fun succ -> succ.VData.Range.Min = fallthroughAddr)
+        |> Option.map (fun succ -> (v, succ)))
+    |> Array.sortBy (fun (v, _) -> v.VData.Range.Min)
+
+  let rec private mergeDisasmCFGCallVertices newGraph =
+    let callingVertices = selectCallingVertices newGraph
+    let rec mergeLoop (g: DisasmCFG<_>) prevVertex prevSucc idx =
+      if idx >= callingVertices.Length then g
+      else
+        let v, succ = callingVertices[idx]
+        let merged, g =
+          if prevSucc = v then mergeVertices g prevVertex succ
+          else mergeVertices g v succ
+        mergeLoop g merged succ (idx + 1)
+    mergeLoop newGraph null null 0
+
+  and private mergeVertices (g: DisasmCFG<_>) v1 v2 =
+    let instrs1 = v1.VData.Instructions
+    let instrs2 = v2.VData.Instructions
+    let instrs = Array.concat [ instrs1; instrs2 ]
+    let blk = DisasmBasicBlock (v1.VData.PPoint, instrs)
+    let preds = g.GetPredEdges v1
+    let succs = g.GetSuccEdges v2
+    let g = g.RemoveVertex v1
+    let g = g.RemoveVertex v2
+    let v, g = g.AddVertex blk
+    let g =
+      preds
+      |> Seq.fold (fun (g: DisasmCFG<_>) edge ->
+        g.AddEdge (edge.First, v, edge.Label)) g
+    let g =
+      succs
+      |> Seq.fold (fun (g: DisasmCFG<_>) edge ->
+        g.AddEdge (v, edge.Second, edge.Label)) g
+    v, g
+
   /// Create a new DisasmCFG from the given IRCFG.
   [<CompiledName "Create">]
   let create (g: IRCFG<'V, 'E, 'Abs>) =
@@ -118,3 +163,4 @@ module DisasmCFG =
     newGraph
     |> createDisasmCFGVertices vMap
     |> createDisasmCFGEdges vMap
+    |> mergeDisasmCFGCallVertices
