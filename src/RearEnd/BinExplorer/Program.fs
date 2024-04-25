@@ -197,7 +197,7 @@ let startGUI (opts: BinExplorerOpts) arbiter =
 
 /// Dump each CFG into JSON file. This feature is implemented to ease the
 /// development and debugging process, and may be removed in the future.
-let dumpJsonFiles jsonDir (brew: BinaryBrew<_, _, _, _, _, _>) =
+let dumpJsonFiles jsonDir (brew: BinaryBrew<_, _, _, _, _>) =
   try System.IO.Directory.Delete(jsonDir, true) with _ -> ()
   System.IO.Directory.CreateDirectory(jsonDir) |> ignore
   brew.Functions.Sequence
@@ -218,7 +218,7 @@ let interactiveMain files (opts: BinExplorerOpts) =
               Type --help or --batch to see more info."; exit 1
   else
     let file = List.head files
-    let strategy = ControlFlowAnalysis.Strategies.SimpleStrategy ()
+    let strategy = ControlFlowAnalysis.Strategies.BaseStrategy<_, _> ()
     let hdl = initBinHdl opts.ISA file
     let brew = BinaryBrew (hdl, strategy)
     if opts.JsonDumpDir <> "" then dumpJsonFiles opts.JsonDumpDir brew else ()
@@ -260,9 +260,9 @@ let batchRun opts paths fstParam restParams fn =
          fn cmdMap opts file fstParam restParams) arr)
 
 let runCommand cmdMap opts file cmd args =
-  let strategy = ControlFlowAnalysis.Strategies.SimpleStrategy ()
+  let strategy = ControlFlowAnalysis.Strategies.BaseStrategy<_, _> ()
   let hdl = initBinHdl ISA.DefaultISA file
-  let brew = BinaryBrew (hdl, strategy)
+  let brew: DefaultBinaryBrew = BinaryBrew (hdl, strategy)
   Cmd.handle cmdMap brew cmd args
   |> Array.iter out.Print
 

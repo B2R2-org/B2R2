@@ -22,22 +22,11 @@
   SOFTWARE.
 *)
 
-namespace B2R2.MiddleEnd.ControlFlowAnalysis
+namespace B2R2.MiddleEnd.ControlFlowAnalysis.Strategies
 
-open B2R2.MiddleEnd.ControlFlowGraph
+open B2R2.MiddleEnd.ControlFlowAnalysis
 
-/// Interface for identifying whether a given function/syscall is a no-return
-/// function/syscall.
-type INoReturnIdentifiable<'V,
-                           'E,
-                           'Abs,
-                           'FnCtx,
-                           'GlCtx when 'V :> IRBasicBlock<'Abs>
-                                   and 'V: equality
-                                   and 'E: equality
-                                   and 'Abs: null
-                                   and 'FnCtx :> IResettable
-                                   and 'GlCtx: (new: unit -> 'GlCtx)> =
-  /// Returns true if the given function is a non-returning function.
-  abstract IsNoReturn: CFGBuildingContext<'V, 'E, 'Abs, 'FnCtx, 'GlCtx> -> bool
-
+/// Dummy context.
+type DummyContext () =
+  interface IResettable with
+    member _.Reset () = ()

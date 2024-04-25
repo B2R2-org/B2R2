@@ -52,7 +52,7 @@ type Cmd () =
   /// A command callback function. This function takes in an Agent (arbiter), a
   /// CmdMap, and a list of arguments as input, and produces some side effects.
   abstract CallBack:
-    CmdMap -> BinaryBrew<_, _, _, _, _, _> -> string list -> OutString[]
+    CmdMap -> BinaryBrew<_, _, _, _, _> -> string list -> OutString[]
 
 /// This is a mapping from a command name to the corresponding command (Cmd).
 and CmdMap = {

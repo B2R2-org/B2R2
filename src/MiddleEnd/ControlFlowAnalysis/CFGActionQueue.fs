@@ -25,25 +25,16 @@
 namespace B2R2.MiddleEnd.ControlFlowAnalysis
 
 open System.Collections.Generic
-open B2R2
-
-/// Our CFG reconstruction algorithm is performed by consuming actions
-/// (ICFGActions). Each action has a priority, which is used to determine the
-/// order of the actions
-/// to run.
-type ICFGAction =
-  /// The priority of the action. Higher values mean higher priority.
-  abstract Priority: int
 
 /// A priority queue to store the ICFGActions.
-type CFGActionQueue<'A when 'A :> ICFGAction> () =
-  let pq = PriorityQueue<'A, int> ()
+type CFGActionQueue<'Abs when 'Abs: null> (judge: IPrioritizable) =
+  let pq = PriorityQueue<CFGAction<'Abs>, int> ()
 
   /// Count the number of actions in the queue.
   member _.Count with get() = pq.Count
 
   /// Push an action to the queue.
-  member _.Push (action: 'A) = pq.Enqueue (action, -action.Priority)
+  member _.Push action = pq.Enqueue (action, - (action.Priority judge))
 
   /// Pop an action from the queue.
   member _.Pop () = pq.Dequeue ()

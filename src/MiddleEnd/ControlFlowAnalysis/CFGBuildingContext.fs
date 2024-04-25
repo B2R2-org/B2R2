@@ -44,32 +44,42 @@ type CFGBuildingContext<'V,
                                 and 'GlCtx: (new: unit -> 'GlCtx)> = {
   /// The address of the function that is being built.
   FunctionAddress: Addr
+  /// Function name.
+  FunctionName: string
   /// The binary handle.
   BinHandle: BinHandle
   /// Mapping from a program point to a vertex in the IRCFG.
   Vertices: Dictionary<ProgramPoint, IVertex<'V>>
+  /// Mapping from a call edge to an abstracted vertex in the IRCFG.
+  AbsVertices: Dictionary<AbsCallEdge, IVertex<'V>>
   /// The control flow graph.
   mutable CFG: IRCFG<'V, 'E, 'Abs>
   /// The basic block factory.
   BBLFactory: BBLFactory<'Abs>
   /// Is this function a no-return function?
   mutable NonReturningStatus: NonReturningStatus
-  /// The callees of this function. This is a mapping from a callsite (call
-  /// instruction) address to its callee kind.
-  Callees: SortedList<Addr, CalleeKind>
-  /// The callers of this function.
-  Callers: HashSet<Addr>
-  /// The addresses of calling nodes (which terminate a basic block with a call
-  /// instruction) in this function. This is a mapping from a callee address to
-  /// its caller addresses.
-  CallingNodes: Dictionary<Addr, HashSet<Addr>>
+  /// Table for maintaining function call information of this function.
+  CallTable: CallTable
+  /// Function summary, which is available only after finalizing the CFG.
+  mutable Summary: 'Abs
+  /// The set of visited BBL program points. This is to prevent visiting the
+  /// same basic block multiple times when constructing the CFG.
+  VisitedPPoints: HashSet<ProgramPoint>
   /// The user-defined per-function context.
   UserContext: 'FnCtx
+  /// Is this an external function or not.
+  IsExternal: bool
   /// The channel for accessing the state of the TaskManager.
   ManagerChannel: IManagerAccessible<'V, 'E, 'Abs, 'FnCtx, 'GlCtx>
   /// Thread ID that is currently building this function.
   mutable ThreadID: int
 }
+
+/// Call edge from its callsite address to the callee's address. This is to
+/// uniquely identify call edges for abstracted vertices. We create an abstract
+/// vertex for each call instruction even though multiple call instructions may
+/// target the same callee.
+and AbsCallEdge = Addr * Addr
 
 /// The result of non-returning function analysis.
 and NonReturningStatus =
@@ -84,34 +94,18 @@ and NonReturningStatus =
   /// We don't know yet: we need further analyses.
   | UnknownNoRet
 
-/// What kind of callee is this?
-and CalleeKind =
-  /// Callee is a regular function.
-  | RegularCallee of Addr
-  /// Callee is a syscall of the given number.
-  | SyscallCallee of number: int
-  /// Callee is a set of indirect call targets. This means potential callees
-  /// have been analyzed already.
-  | IndirectCallees of Set<Addr>
-  /// Callee (call target) is unresolved yet. This eventually will become
-  /// IndirectCallees after indirect call analyses.
-  | UnresolvedIndirectCallees
-  /// There can be "call 0" to call an external function. This pattern is
-  /// typically observed by object files, but sometimes we do see this pattern
-  /// in regular executables, e.g., GNU libc.
-  | NullCallee
-
 /// The interface for accessing the state of the TaskManager.
-and IManagerAccessible<'V,
-                       'E,
-                       'Abs,
-                       'FnCtx,
-                       'GlCtx when 'V :> IRBasicBlock<'Abs>
-                               and 'V: equality
-                               and 'E: equality
-                               and 'Abs: null
-                               and 'FnCtx :> IResettable
-                               and 'GlCtx: (new: unit -> 'GlCtx)> =
+and [<AllowNullLiteral>]
+  IManagerAccessible<'V,
+                     'E,
+                     'Abs,
+                     'FnCtx,
+                     'GlCtx when 'V :> IRBasicBlock<'Abs>
+                             and 'V: equality
+                             and 'E: equality
+                             and 'Abs: null
+                             and 'FnCtx :> IResettable
+                             and 'GlCtx: (new: unit -> 'GlCtx)> =
   /// Update the dependency between two functions.
   abstract UpdateDependency:
     caller: Addr * callee: Addr * ArchOperationMode -> unit

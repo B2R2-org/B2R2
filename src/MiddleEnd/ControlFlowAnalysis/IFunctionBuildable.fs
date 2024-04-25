@@ -38,6 +38,8 @@ type IFunctionBuildable<'V,
                                 and 'Abs: null
                                 and 'FnCtx :> IResettable
                                 and 'GlCtx: (new: unit -> 'GlCtx)> =
+  inherit ILinkage
+
   /// The current state of the function builder.
   abstract BuilderState: FunctionBuilderState
 

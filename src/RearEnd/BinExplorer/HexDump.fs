@@ -40,7 +40,7 @@ type CmdHexDump () =
     try Ok (addr, Convert.ToInt32 (count, 10))
     with _ -> Error "[*] Invalid byte count given."
 
-  let readBytes (brew: BinaryBrew<_, _, _, _, _, _>) (addr, count) =
+  let readBytes (brew: BinaryBrew<_, _, _, _, _>) (addr, count) =
     try (addr, brew.BinHandle.ReadBytes (addr=addr, nBytes=count)) |> Ok
     with _ -> Error "[*] Failed to read bytes."
 

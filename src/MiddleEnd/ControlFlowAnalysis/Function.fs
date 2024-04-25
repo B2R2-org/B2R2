@@ -37,7 +37,10 @@ type Function<'V,
                     and 'V: equality
                     and 'E: equality
                     and 'Abs: null>
-  public (entryPoint, name, ircfg, isNoRet, callees, callers) =
+  public (entryPoint, name, ircfg, isNoRet, callees, callers, isExtern) =
+
+  new (entryPoint, name, noret, callers, isExtern) =
+    Function (entryPoint, name, null, noret, null, callers, isExtern)
 
   /// Function entry point address.
   member _.EntryPoint with get(): Addr = entryPoint
@@ -52,11 +55,14 @@ type Function<'V,
   /// Function's control flow graph.
   member _.CFG with get(): IRCFG<'V, 'E, 'Abs> = ircfg
 
-  /// Is this function a no-return function?
-  member _.IsNoRet with get() = isNoRet
+  /// Return the non-returning status of this function.
+  member _.NoRet with get(): NonReturningStatus = isNoRet
 
   /// Call site information of this function.
   member _.Callees with get(): SortedList<Addr, CalleeKind> = callees
 
   /// Callers of this function.
   member _.Callers with get(): HashSet<Addr> = callers
+
+  interface ILinkage with
+    member _.IsExternal with get() = isExtern

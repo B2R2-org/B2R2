@@ -28,7 +28,6 @@ open System
 open System.Collections.Generic
 open System.Collections.Immutable
 open System.Collections.Concurrent
-open System.Threading.Tasks
 open System.Threading.Tasks.Dataflow
 open B2R2
 open B2R2.BinIR
@@ -237,9 +236,9 @@ type BBLFactory<'Abs when 'Abs: null> (hdl: BinHandle,
   /// Number of BBLs in the factory.
   member __.Count with get() = bbls.Count
 
-  /// Scan all directly reachable BBLs from the given addresses. This function
-  /// does not handle indirect branches nor fall-throughs of call instructions.
-  /// In particular, it always assumes that a call instruction will never return
+  /// Scan all directly reachable intra-procedurable BBLs from the given
+  /// addresses. This function does not handle indirect branches nor call
+  /// instructions. It always assumes that a call instruction will never return
   /// in order to avoid parsing incorrect BBLs. Fall-through BBLs should be
   /// considered only after we know that the target function can return (after a
   /// no-return analysis), which is not the scope of BBLFactory. In the end,
@@ -250,8 +249,7 @@ type BBLFactory<'Abs when 'Abs: null> (hdl: BinHandle,
     task {
       let channel = BufferBlock<Addr * Instruction list * int> ()
       instrProducer channel mode addrs |> ignore
-      let lifters = Array.init 1 (fun _ -> bblLifter channel) (* TODO: opt? *)
-      let! _ = Task.WhenAll lifters
+      do! bblLifter channel
       return commit ()
     }
 

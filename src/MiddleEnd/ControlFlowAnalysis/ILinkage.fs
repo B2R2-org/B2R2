@@ -24,20 +24,9 @@
 
 namespace B2R2.MiddleEnd.ControlFlowAnalysis
 
-open B2R2.MiddleEnd.ControlFlowGraph
-
-/// Interface for identifying whether a given function/syscall is a no-return
-/// function/syscall.
-type INoReturnIdentifiable<'V,
-                           'E,
-                           'Abs,
-                           'FnCtx,
-                           'GlCtx when 'V :> IRBasicBlock<'Abs>
-                                   and 'V: equality
-                                   and 'E: equality
-                                   and 'Abs: null
-                                   and 'FnCtx :> IResettable
-                                   and 'GlCtx: (new: unit -> 'GlCtx)> =
-  /// Returns true if the given function is a non-returning function.
-  abstract IsNoReturn: CFGBuildingContext<'V, 'E, 'Abs, 'FnCtx, 'GlCtx> -> bool
-
+/// Linkage information. A symbol/identifier in C can have either internal or
+/// external linkage.
+[<AllowNullLiteral>]
+type ILinkage =
+  /// Is this defined outside of the binary? (e.g., library functions)
+  abstract IsExternal: bool

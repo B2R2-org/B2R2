@@ -36,7 +36,7 @@ module CallGraph =
   /// A mapping from an addrbrew to a CallCFG vertex.
   type private CallVMap = Dictionary<Addr, IVertex<CallBlock>>
 
-  let private getVertex (brew: BinaryBrew<_, _, _, _, _, _>) vMap addr g =
+  let private getVertex (brew: BinaryBrew<_, _, _, _, _>) vMap addr g =
     match (vMap: CallVMap).TryGetValue addr with
     | false, _ ->
       let fn = brew.Functions[addr]
@@ -53,7 +53,7 @@ module CallGraph =
     let dst, callCFG = getVertex brew vMap target callCFG
     callCFG.AddEdge (src, dst, CallEdge)
 
-  let private buildCG callCFG vMap (brew: BinaryBrew<_, _, _, _, _, _>) =
+  let private buildCG callCFG vMap (brew: BinaryBrew<_, _, _, _, _>) =
     brew.Functions.Sequence
     |> Seq.fold (fun callCFG func ->
       func.Callees

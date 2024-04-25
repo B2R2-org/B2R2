@@ -63,7 +63,7 @@ module internal Dbg =
     let agent = Agent<LogMessage>.Start (task, cts.Token)
 
     member inline _.Log tid (locationName: string) msg =
-      let log = $"{tid, -2} | {locationName, -20} | {msg}"
+      let log = $"{tid, -2} | {locationName, -22} | {msg}"
       agent.Post <| Log (tid, log)
 
     member inline _.Flush tid =

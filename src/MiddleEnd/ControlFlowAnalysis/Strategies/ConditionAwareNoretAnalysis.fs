@@ -22,22 +22,29 @@
   SOFTWARE.
 *)
 
-namespace B2R2.MiddleEnd.ControlFlowAnalysis
+namespace B2R2.MiddleEnd.ControlFlowAnalysis.Strategies
 
 open B2R2.MiddleEnd.ControlFlowGraph
+open B2R2.MiddleEnd.ControlFlowAnalysis
 
-/// Interface for identifying whether a given function/syscall is a no-return
-/// function/syscall.
-type INoReturnIdentifiable<'V,
-                           'E,
-                           'Abs,
-                           'FnCtx,
-                           'GlCtx when 'V :> IRBasicBlock<'Abs>
-                                   and 'V: equality
-                                   and 'E: equality
-                                   and 'Abs: null
-                                   and 'FnCtx :> IResettable
-                                   and 'GlCtx: (new: unit -> 'GlCtx)> =
-  /// Returns true if the given function is a non-returning function.
-  abstract IsNoReturn: CFGBuildingContext<'V, 'E, 'Abs, 'FnCtx, 'GlCtx> -> bool
-
+/// This is a non-returning function identification strategy that can check
+/// conditionally non-returning functions. We currently support only those
+/// simple patterns that are handled by compilers, but we may have to extend
+/// this as the compilers evolve.
+type ConditionAwareNoretAnalysis<'V,
+                                 'E,
+                                 'Abs,
+                                 'FnCtx,
+                                 'GlCtx when 'V :> IRBasicBlock<'Abs>
+                                         and 'V: equality
+                                         and 'E: equality
+                                         and 'Abs: null
+                                         and 'FnCtx :> IResettable
+                                         and 'GlCtx: (new: unit -> 'GlCtx)> () =
+  interface INoReturnIdentifiable<'V, 'E, 'Abs, 'FnCtx, 'GlCtx> with
+    member _.IsNoReturn (ctx) =
+#if CFGDEBUG
+      dbglog ctx.ThreadID (nameof INoReturnIdentifiable)
+      <| $"{ctx.FunctionAddress:x}"
+#endif
+      false

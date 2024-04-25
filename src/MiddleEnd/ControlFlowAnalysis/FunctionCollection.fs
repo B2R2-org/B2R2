@@ -31,13 +31,11 @@ open B2R2.MiddleEnd.ControlFlowGraph
 type FunctionCollection<'V,
                         'E,
                         'Abs,
-                        'Act,
                         'FnCtx,
                         'GlCtx when 'V :> IRBasicBlock<'Abs>
                                 and 'V: equality
                                 and 'E: equality
                                 and 'Abs: null
-                                and 'Act :> ICFGAction
                                 and 'FnCtx :> IResettable
                                 and 'FnCtx: (new: unit -> 'FnCtx)
                                 and 'GlCtx: (new: unit -> 'GlCtx)>

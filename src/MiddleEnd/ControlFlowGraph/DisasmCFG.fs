@@ -49,10 +49,6 @@ module DisasmCFG =
 
   type private DisasmVMap<'E> = Dictionary<Addr, TemporaryDisasmVertex<'E>>
 
-  let private updateSuccessor (succs: List<Addr * _>) = function
-    | Some (succAddr, edge) -> succs.Add (succAddr, edge)
-    | None -> ()
-
   let private getTempVertex (vMap: DisasmVMap<_>) addr =
     match vMap.TryGetValue addr with
     | true, tmpV -> tmpV
@@ -65,13 +61,19 @@ module DisasmCFG =
       tmpV
 
   let private updateDisasmVertexInfo vMap (bbl: #IRBasicBlock<_>) =
-    let tmpV = getTempVertex vMap bbl.LiftedInstructions[0].BBLAddr
-    let insList = tmpV.Instructions
-    bbl.LiftedInstructions
-    |> Array.iter (fun lifted ->
-      let ins = lifted.Original
-      if insList.ContainsKey ins.Address then ()
-      else insList.Add (ins.Address, ins))
+    if bbl.IsAbstract then ()
+    else
+      let tmpV = getTempVertex vMap bbl.LiftedInstructions[0].BBLAddr
+      let insList = tmpV.Instructions
+      bbl.LiftedInstructions
+      |> Array.iter (fun lifted ->
+        let ins = lifted.Original
+        if insList.ContainsKey ins.Address then ()
+        else insList.Add (ins.Address, ins))
+
+  let private updateSuccessor (succs: List<Addr * _>) = function
+    | Some (succAddr, edge) -> succs.Add (succAddr, edge)
+    | None -> ()
 
   let private updateDisasmEdgeInfo (vMap: DisasmVMap<_>) addr succ =
     let tmpV = vMap[addr]
@@ -81,10 +83,12 @@ module DisasmCFG =
     g.IterVertex (fun v -> updateDisasmVertexInfo vMap v.VData)
     g.IterEdge (fun e ->
       let src, dst = e.First.VData, e.Second.VData
-      let srcAddr = src.LiftedInstructions[0].BBLAddr
-      let dstAddr = dst.LiftedInstructions[0].BBLAddr
-      let succ = if srcAddr = dstAddr then None else Some (dstAddr, e.Label)
-      updateDisasmEdgeInfo vMap srcAddr succ)
+      if src.IsAbstract || dst.IsAbstract then ()
+      else
+        let srcAddr = src.LiftedInstructions[0].BBLAddr
+        let dstAddr = dst.LiftedInstructions[0].BBLAddr
+        let succ = if srcAddr = dstAddr then None else Some (dstAddr, e.Label)
+        updateDisasmEdgeInfo vMap srcAddr succ)
 
   let private createDisasmCFGVertices (vMap: DisasmVMap<_>) newGraph =
     vMap |> Seq.fold (fun (g: DisasmCFG<_>) (KeyValue (addr, tmpV)) ->
@@ -129,7 +133,7 @@ module DisasmCFG =
         mergeLoop g merged succ (idx + 1)
     mergeLoop newGraph null null 0
 
-  and private mergeVertices (g: DisasmCFG<_>) v1 v2 =
+  and private mergeVertices g v1 v2 =
     let instrs1 = v1.VData.Instructions
     let instrs2 = v2.VData.Instructions
     let instrs = Array.concat [ instrs1; instrs2 ]

@@ -27,6 +27,7 @@ namespace B2R2.MiddleEnd.BinGraph
 open System.Collections.Generic
 
 /// General graph data type. This one can be either directed or undirected.
+[<AllowNullLiteral>]
 type IGraph<'V, 'E when 'V: equality and 'E: equality> =
   /// Is this empty? A graph is empty when there is no vertex in the graph.
   abstract IsEmpty: unit -> bool

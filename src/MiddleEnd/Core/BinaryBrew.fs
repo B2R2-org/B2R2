@@ -41,18 +41,16 @@ open B2R2.MiddleEnd.ControlFlowAnalysis
 type BinaryBrew<'V,
                 'E,
                 'Abs,
-                'Act,
                 'FnCtx,
                 'GlCtx when 'V :> IRBasicBlock<'Abs>
                         and 'V: equality
                         and 'E: equality
                         and 'Abs: null
-                        and 'Act :> ICFGAction
                         and 'FnCtx :> IResettable
                         and 'FnCtx: (new: unit -> 'FnCtx)
                         and 'GlCtx: (new: unit -> 'GlCtx)>
   public (hdl: BinHandle,
-          strategy: IFunctionBuildingStrategy<_, _, _, _, _, _>) =
+          strategy: IFunctionBuildingStrategy<_, _, _, _, _>) =
 
   let exnInfo = ExceptionInfo (hdl)
 
@@ -64,7 +62,7 @@ type BinaryBrew<'V,
           ImperativeDiGraph<'V, 'E> () :> IRCFG<'V, 'E, 'Abs> }
 
   let taskManager =
-    TaskManager<'V, 'E, 'Abs, 'Act, 'FnCtx, 'GlCtx>
+    TaskManager<'V, 'E, 'Abs, 'FnCtx, 'GlCtx>
       (hdl, instrs, cfgConstructor, strategy)
 
   let getFunctionOperationMode (hdl: BinHandle) entry =
@@ -122,9 +120,8 @@ type BinaryBrew<'V,
 
 /// Default BinaryBrew type that internally uses SSA IR to recover CFGs.
 type DefaultBinaryBrew =
-  BinaryBrew<IRBasicBlock<SSA.SSAFunctionAbstraction>,
+  BinaryBrew<IRBasicBlock<BaseFunctionSummary>,
              CFGEdgeKind,
-             SSA.SSAFunctionAbstraction,
-             Strategies.CFGAction<SSA.SSAFunctionAbstraction>,
-             Strategies.CFGContext,
-             Strategies.EmptyState>
+             BaseFunctionSummary,
+             Strategies.DummyContext,
+             Strategies.DummyContext>

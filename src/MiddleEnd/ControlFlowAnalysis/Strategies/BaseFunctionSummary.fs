@@ -24,20 +24,8 @@
 
 namespace B2R2.MiddleEnd.ControlFlowAnalysis
 
-open B2R2.MiddleEnd.ControlFlowGraph
-
-/// Interface for identifying whether a given function/syscall is a no-return
-/// function/syscall.
-type INoReturnIdentifiable<'V,
-                           'E,
-                           'Abs,
-                           'FnCtx,
-                           'GlCtx when 'V :> IRBasicBlock<'Abs>
-                                   and 'V: equality
-                                   and 'E: equality
-                                   and 'Abs: null
-                                   and 'FnCtx :> IResettable
-                                   and 'GlCtx: (new: unit -> 'GlCtx)> =
-  /// Returns true if the given function is a non-returning function.
-  abstract IsNoReturn: CFGBuildingContext<'V, 'E, 'Abs, 'FnCtx, 'GlCtx> -> bool
-
+/// The simplistic summary of a function.
+[<AllowNullLiteral>]
+type BaseFunctionSummary (isExtern) =
+  interface ILinkage with
+    member _.IsExternal with get() = isExtern

@@ -37,30 +37,22 @@ open B2R2.MiddleEnd.ControlFlowGraph
 type TaskManager<'V,
                  'E,
                  'Abs,
-                 'Act,
                  'FnCtx,
                  'GlCtx when 'V :> IRBasicBlock<'Abs>
                            and 'V: equality
                            and 'E: equality
                            and 'Abs: null
-                           and 'Act :> ICFGAction
                            and 'FnCtx :> IResettable
                            and 'FnCtx: (new: unit -> 'FnCtx)
                            and 'GlCtx: (new: unit -> 'GlCtx)>
   public (hdl,
           instrs: InstructionCollection,
           cfgConstructor: IRCFG.IConstructable<'V, 'E, 'Abs>,
-          strategy: IFunctionBuildingStrategy<'V,
-                                              'E,
-                                              'Abs,
-                                              'Act,
-                                              'FnCtx,
-                                              'GlCtx>,
+          strategy: IFunctionBuildingStrategy<'V, 'E, 'Abs, 'FnCtx, 'GlCtx>,
           ?numThreads) =
 
   let numThreads = defaultArg numThreads (Environment.ProcessorCount / 2)
-  let builders =
-    Dictionary<Addr, IFunctionBuildable<'V, 'E, 'Abs, 'FnCtx, 'GlCtx>> ()
+  let builders = FunctionBuilderTable (hdl, instrs, cfgConstructor, strategy)
   let workingSet = HashSet<Addr> ()
   let toWorkers = BufferBlock<IFunctionBuildable<_, _, _, _, _>> ()
   let cts = new CancellationTokenSource ()
@@ -72,15 +64,15 @@ type TaskManager<'V,
   let mutable globalCtx = new 'GlCtx ()
 
   let isFinished entryPoint =
-    match builders.TryGetValue entryPoint with
-    | true, builder -> builder.BuilderState = Finished
-    | false, _ -> false
+    match builders.TryGetBuilder entryPoint with
+    | Ok builder -> builder.BuilderState = Finished
+    | Error _ -> false
 
   let rec managerTask (inbox: IAgentMessageReceivable<_>) =
     while not inbox.IsCancelled do
       match inbox.Receive () with
       | AddTask (entryPoint, mode) ->
-        let builder = getOrCreateBuilder entryPoint mode
+        let builder = builders.GetOrCreateBuilder manager entryPoint mode
         if builder.BuilderState = InProgress ||
            builder.BuilderState = Finished then ()
         else
@@ -90,24 +82,24 @@ type TaskManager<'V,
       | AddDependency (_, callee, _) when isFinished callee -> ()
       | AddDependency (caller, callee, mode) ->
         dependenceMap.AddDependency (caller, callee)
-        getOrCreateBuilder callee mode |> ignore
+        builders.GetOrCreateBuilder manager callee mode |> ignore
         addTask callee mode
       | ReportResult (entryPoint, result) ->
         try handleResult entryPoint result
         with e -> Console.Error.WriteLine $"Failed to handle result:\n{e}"
         if isAllDone () then terminate () else ()
       | RetrieveNonReturningStatus (addr, ch) ->
-        match builders.TryGetValue addr with
-        | true, builder -> ch.Reply builder.Context.NonReturningStatus
-        | false, _ -> ch.Reply UnknownNoRet
+        match builders.TryGetBuilder addr with
+        | Ok builder -> ch.Reply builder.Context.NonReturningStatus
+        | Error _ -> ch.Reply UnknownNoRet
       | RetrieveBuildingContext (addr, ch) ->
-        match builders.TryGetValue addr with
-        | true, builder ->
+        match builders.TryGetBuilder addr with
+        | Ok builder ->
           match builder.BuilderState with
           | Invalid -> ch.Reply FailedBuilding
           | Finished -> ch.Reply <| FinalCtx builder.Context
           | _ -> ch.Reply StillBuilding
-        | false, _ -> ch.Reply StillBuilding
+        | Error _ -> ch.Reply StillBuilding
       | AccessGlobalContext (accessor, ch) ->
         ch.Reply <| accessor globalCtx
       | UpdateGlobalContext updater ->
@@ -115,16 +107,6 @@ type TaskManager<'V,
         with e -> Console.Error.WriteLine $"Failed to update global ctx:\n{e}"
 
   and manager = Agent<_>.Start (managerTask, ct)
-
-  and getOrCreateBuilder addr mode: IFunctionBuildable<_, _, _, _, _> =
-    match builders.TryGetValue addr with
-    | true, builder -> builder
-    | false, _ ->
-      let builder =
-        FunctionBuilder (hdl, instrs, addr, mode,
-                         cfgConstructor, manager, strategy)
-      builders[addr] <- builder
-      builder
 
   and addTask entryPoint mode =
     AddTask (entryPoint, mode) |> manager.Post
@@ -173,30 +155,26 @@ type TaskManager<'V,
     Array.init numThreads (fun idx ->
       TaskWorker(idx, manager, toWorkers, ct).Task)
 
-#if CFGDEBUG
-  do initLogger numThreads
-#endif
-
   let waitForWorkers () =
     Task.WhenAll workers (* all done *)
     |> Async.AwaitTask
     |> Async.RunSynchronously
 
-  let buildersToArray () =
-    let builders = builders.Values |> Seq.toArray
-    builders
-#if DEBUG
-    |> Array.partition (fun builder -> builder.BuilderState = Finished)
+  let sanityCheck arr =
+    arr
+    |> Array.partition (fun (builder: IFunctionBuildable<_, _, _, _, _>) ->
+      builder.BuilderState = Finished)
     |> fun (succs, fails) ->
       Console.WriteLine $"[*] Done (total {succs.Length} functions)"
       fails
       |> Array.iter (fun b ->
         Console.WriteLine $"[!] Failure: {b.EntryPoint:x} w/ {b.BuilderState}")
-      if fails.Length > 0 then None
-      else Some succs
-#else
-    |> Array.filter (fun builder -> not builder.InProgress && builder.IsValid)
-    |> Some
+      if fails.Length > 0 then Utils.impossible ()
+      else ()
+    arr
+
+#if CFGDEBUG
+  do initLogger numThreads
 #endif
 
   /// Recover the CFGs from the given sequence of entry points. This function
@@ -205,22 +183,21 @@ type TaskManager<'V,
   member __.RecoverCFGs (entryPoints: (Addr * ArchOperationMode)[]) =
     entryPoints |> Seq.iter (fun (addr, mode) -> addTask addr mode)
     waitForWorkers ()
-    match buildersToArray () with
-    | Some builders -> FunctionCollection builders
-    | None ->
-      Utils.impossible ()
+    builders.ToArray ()
+#if DEBUG
+    |> sanityCheck
+#endif
+    |> FunctionCollection
 
 /// Task worker for control flow recovery.
 and private TaskWorker<'V,
                        'E,
                        'Abs,
-                       'Act,
                        'FnCtx,
                        'GlCtx when 'V :> IRBasicBlock<'Abs>
                                and 'V: equality
                                and 'E: equality
                                and 'Abs: null
-                               and 'Act :> ICFGAction
                                and 'FnCtx :> IResettable
                                and 'FnCtx: (new: unit -> 'FnCtx)
                                and 'GlCtx: (new: unit -> 'GlCtx)>

@@ -146,7 +146,7 @@ type CmdPrint () =
         let len = String.length s |> uint64
         printStrings hdl (addr + len + 1UL) (cnt - 1) ((addrstr + s) :: acc)
 
-  let validateRequest (brew: BinaryBrew<_, _, _, _, _, _>) = function
+  let validateRequest (brew: BinaryBrew<_, _, _, _, _>) = function
     | Ok (_, count, ASCII, addr) ->
       let hdl = brew.BinHandle
       printStrings hdl addr count []

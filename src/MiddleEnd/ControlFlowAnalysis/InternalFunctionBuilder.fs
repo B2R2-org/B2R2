@@ -26,37 +26,38 @@ namespace B2R2.MiddleEnd.ControlFlowAnalysis
 
 open System.Collections.Generic
 open B2R2
+open B2R2.FrontEnd
 open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.ControlFlowGraph
 
-/// The main builder for a function, which is responsible for building a
-/// function CFG while maintaining its internal state.
-type FunctionBuilder<'V,
-                     'E,
-                     'Abs,
-                     'Act,
-                     'FnCtx,
-                     'GlCtx when 'V :> IRBasicBlock<'Abs>
-                             and 'V: equality
-                             and 'E: equality
-                             and 'Abs: null
-                             and 'Act :> ICFGAction
-                             and 'FnCtx :> IResettable
-                             and 'FnCtx: (new: unit -> 'FnCtx)
-                             and 'GlCtx: (new: unit -> 'GlCtx)>
-  public (hdl,
+/// The main builder for an internal function. This is responsible for building
+/// the function CFG while maintaining its internal state. By "internal", we
+/// mean that the function is defined within the target binary as opposed to
+/// external (library) functions.
+type InternalFunctionBuilder<'V,
+                             'E,
+                             'Abs,
+                             'FnCtx,
+                             'GlCtx when 'V :> IRBasicBlock<'Abs>
+                                     and 'V: equality
+                                     and 'E: equality
+                                     and 'Abs: null
+                                     and 'FnCtx :> IResettable
+                                     and 'FnCtx: (new: unit -> 'FnCtx)
+                                     and 'GlCtx: (new: unit -> 'GlCtx)>
+  public (hdl: BinHandle,
           instrs,
+          name,
           entryPoint,
           mode: ArchOperationMode,
-          cfgConstructor: IRCFG.IConstructable<'V, 'E, 'Abs>,
+          ircfg: IRCFG<'V, 'E, 'Abs>,
           agent: Agent<TaskMessage<'V, 'E, 'Abs, 'FnCtx, 'GlCtx>>,
-          strategy: IFunctionBuildingStrategy<_, _, _, _, _, _>) =
+          strategy: IFunctionBuildingStrategy<_, _, _, _, _>) =
 
   /// Internal builder state.
   let mutable state = Initialized
 
   let bblFactory = BBLFactory (hdl, instrs)
-  let ircfg = cfgConstructor.Construct Imperative
   let fnCtx = new 'FnCtx ()
 
   let managerChannel =
@@ -82,19 +83,22 @@ type FunctionBuilder<'V,
 
   let ctx =
     { FunctionAddress = entryPoint
+      FunctionName = name
       BinHandle = hdl
       Vertices = Dictionary ()
+      AbsVertices = Dictionary ()
       CFG = ircfg
       BBLFactory = bblFactory
       NonReturningStatus = UnknownNoRet
-      Callees = SortedList ()
-      Callers = HashSet ()
-      CallingNodes = Dictionary ()
+      CallTable = CallTable ()
+      Summary = null
+      VisitedPPoints = HashSet ()
       UserContext = fnCtx
+      IsExternal = false
       ManagerChannel = managerChannel
       ThreadID = -1 }
 
-  let queue = CFGActionQueue<'Act> ()
+  let queue = CFGActionQueue<'Abs> strategy.ActionPrioritizer
 
   let rec build () =
     if queue.IsEmpty () then strategy.OnFinish ctx
@@ -105,7 +109,28 @@ type FunctionBuilder<'V,
       | Wait fnAddr -> queue.Push action; Wait fnAddr
       | Failure e -> Failure e
 
-  do strategy.PopulateInitialAction (entryPoint, mode) |> queue.Push
+  do InitiateCFG (entryPoint, mode) |> queue.Push
+
+  new (hdl: BinHandle,
+       instrs,
+       entryPoint,
+       mode,
+       cfgConstructor: IRCFG.IConstructable<'V, 'E, 'Abs>,
+       agent,
+       strategy) =
+    let name =
+      match hdl.File.TryFindFunctionName entryPoint with
+      | Ok name -> name
+      | Error _ -> Addr.toFuncName entryPoint
+    let ircfg = cfgConstructor.Construct Imperative
+    InternalFunctionBuilder (hdl,
+                             instrs,
+                             name,
+                             entryPoint,
+                             mode,
+                             ircfg,
+                             agent,
+                             strategy)
 
   interface IFunctionBuildable<'V, 'E, 'Abs, 'FnCtx, 'GlCtx> with
     member __.BuilderState with get() = state
@@ -115,6 +140,8 @@ type FunctionBuilder<'V,
     member __.Mode with get() = mode
 
     member __.Context with get() = ctx
+
+    member __.IsExternal with get() = false
 
     member __.Authorize () =
       assert (state <> InProgress)
@@ -142,13 +169,10 @@ type FunctionBuilder<'V,
 
     member __.ToFunction () =
       assert (state = Finished)
-      let name =
-        match hdl.File.TryFindFunctionName entryPoint with
-        | Ok name -> name
-        | Error _ -> Addr.toFuncName entryPoint
       Function (entryPoint,
                 name,
                 ircfg,
                 ctx.NonReturningStatus,
-                ctx.Callees,
-                ctx.Callers)
+                ctx.CallTable.Callees,
+                HashSet (),
+                false)

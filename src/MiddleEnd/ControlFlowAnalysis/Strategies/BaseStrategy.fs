@@ -29,50 +29,18 @@ open System.Collections.Generic
 open B2R2
 open B2R2.BinIR
 open B2R2.BinIR.LowUIR
-open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.MiddleEnd.ControlFlowAnalysis
 open B2R2.MiddleEnd.SSA
 
-type CFGAction<'Abs when 'Abs: null> =
-  /// Build an initial CFG that is reachable from the given function start
-  /// address.
-  | InitiateCFG of fnAddr: Addr * mode: ArchOperationMode
-  /// Add more reachable edges to the initial CFG using the new program points.
-  | ExpandCFG of fnAddr: Addr * mode: ArchOperationMode * addrs: seq<Addr>
-  /// Connect a call edge.
-  | ConnectCallEdge of fnAddr: Addr * calleeAddr: Addr * mode: ArchOperationMode
-  | IndirectEdge of IRBasicBlock<'Abs>
-  | SyscallEdge of IRBasicBlock<'Abs>
-  | JumpTableEntryStart of IRBasicBlock<'Abs> * Addr * Addr
-  | JumpTableEntryEnd of IRBasicBlock<'Abs> * Addr * Addr
-with
-  interface ICFGAction with
-    member __.Priority =
-      match __ with
-      | InitiateCFG _ -> 4
-      | ExpandCFG _ -> 4
-      | ConnectCallEdge _ -> 3
-      | IndirectEdge _ -> 2
-      | SyscallEdge _ -> 1
-      | JumpTableEntryStart _ -> 0
-      | JumpTableEntryEnd _ -> 0
+/// Base strategy for building a CFG.
+type BaseStrategy<'FnCtx,
+                  'GlCtx when 'FnCtx :> IResettable
+                          and 'FnCtx: (new: unit -> 'FnCtx)
+                          and 'GlCtx: (new: unit -> 'GlCtx)>
+  public (noRetAnalyzer: INoReturnIdentifiable<_, _, _, 'FnCtx, 'GlCtx>,
+          summarizer: IFunctionSummarizable<_, _, _, 'FnCtx, 'GlCtx>) =
 
-type EmptyState () = class end
-
-type CFGContext () =
-  let visitedBBLs = HashSet<ProgramPoint> ()
-
-  /// The set of visited basic blocks. This is to prevent visiting the same
-  /// basic block multiple times.
-  member _.VisitedBBLs with get() = visitedBBLs
-
-  interface IResettable with
-    member __.Reset () =
-      __.VisitedBBLs.Clear ()
-
-/// Simple strategy for building a CFG.
-type SimpleStrategy (noRetAnalyzer: INoReturnIdentifiable) =
   let scanBBLs ctx mode entryPoints =
     ctx.BBLFactory.ScanBBLs mode entryPoints
     |> Async.AwaitTask
@@ -85,6 +53,18 @@ type SimpleStrategy (noRetAnalyzer: INoReturnIdentifiable) =
       let v, g = ctx.CFG.AddVertex (ctx.BBLFactory.Find ppoint)
       ctx.CFG <- g
       ctx.Vertices[ppoint] <- v
+      v
+
+  let getAbsVertex ctx callsiteAddr calleeAddr info =
+    let key = callsiteAddr, calleeAddr
+    match ctx.AbsVertices.TryGetValue key with
+    | true, v -> v
+    | false, _ ->
+      let calleePPoint = ProgramPoint (calleeAddr, 0)
+      let bbl = IRBasicBlock.CreateAbstract (calleePPoint, info)
+      let v, g = ctx.CFG.AddVertex bbl
+      ctx.CFG <- g
+      ctx.AbsVertices[key] <- v
       v
 
   let removeVertex ctx ppoint =
@@ -100,11 +80,11 @@ type SimpleStrategy (noRetAnalyzer: INoReturnIdentifiable) =
     | false, _ ->
       [||], [||]
 
-  let connectEdge ctx srcVertex dstPPoint edgeKind =
-    let dstVertex = getVertex ctx dstPPoint
+  let connectEdge ctx srcVertex dstVertex edgeKind =
     ctx.CFG <- ctx.CFG.AddEdge (srcVertex, dstVertex, edgeKind)
 #if CFGDEBUG
-    dbglog ctx.ThreadID "ConnectEdge" $"{srcVertex.VData.PPoint} -> {dstPPoint}"
+    dbglog ctx.ThreadID "ConnectEdge"
+    <| $"{srcVertex.VData.PPoint} -> {dstVertex.VData.PPoint}"
 #endif
 
   let maskedPPoint ctx targetAddr =
@@ -112,37 +92,33 @@ type SimpleStrategy (noRetAnalyzer: INoReturnIdentifiable) =
     let mask = BitVector.UnsignedMax rt |> BitVector.ToUInt64
     ProgramPoint (targetAddr &&& mask, 0)
 
-  let updateCallingNodes ctx callerAddr calleeAddr =
-    match ctx.CallingNodes.TryGetValue calleeAddr with
-    | true, callsites -> callsites.Add callerAddr |> ignore
-    | false, _ -> ctx.CallingNodes[calleeAddr] <- HashSet ([ callerAddr ])
-
   /// Build a CFG starting from the given program points.
   let buildCFG ctx (actionQueue: CFGActionQueue<_>) fnAddr initPPs mode =
     let ppQueue = Queue<ProgramPoint> (collection=initPPs)
     while ppQueue.Count > 0 do
       let ppoint = ppQueue.Dequeue ()
-      let userCtx: CFGContext = ctx.UserContext
-      if userCtx.VisitedBBLs.Contains ppoint then ()
+      if ctx.VisitedPPoints.Contains ppoint then ()
       else
-        userCtx.VisitedBBLs.Add ppoint |> ignore
+        ctx.VisitedPPoints.Add ppoint |> ignore
         let srcVertex = getVertex ctx ppoint
         let srcBBL = srcVertex.VData
         match srcBBL.Terminator.S with
         | IEMark _ ->
           let last = srcBBL.LastInstruction
           let nextPPoint = ProgramPoint (last.Address + uint64 last.Length, 0)
-          connectEdge ctx srcVertex nextPPoint FallThroughEdge
+          let dstVertex = getVertex ctx nextPPoint
+          connectEdge ctx srcVertex dstVertex FallThroughEdge
           ppQueue.Enqueue nextPPoint
         | Jmp { E = Name lbl } ->
           let dstPPoint = srcBBL.LabelMap[lbl]
-          connectEdge ctx srcVertex dstPPoint IntraJmpEdge
+          let dstVertex = getVertex ctx dstPPoint
+          connectEdge ctx srcVertex dstVertex IntraJmpEdge
           ppQueue.Enqueue dstPPoint
         | CJmp (_, { E = Name tLbl }, { E = Name fLbl }) ->
-          let tPPoint = srcBBL.LabelMap[tLbl]
-          let fPPoint = srcBBL.LabelMap[fLbl]
-          connectEdge ctx srcVertex tPPoint IntraCJmpTrueEdge
-          connectEdge ctx srcVertex fPPoint IntraCJmpFalseEdge
+          let tPPoint, fPPoint = srcBBL.LabelMap[tLbl], srcBBL.LabelMap[fLbl]
+          let tVertex, fVertex = getVertex ctx tPPoint, getVertex ctx fPPoint
+          connectEdge ctx srcVertex tVertex IntraCJmpTrueEdge
+          connectEdge ctx srcVertex fVertex IntraCJmpFalseEdge
           ppQueue.Enqueue tPPoint
           ppQueue.Enqueue fPPoint
         | InterJmp ({ E = BinOp (BinOpType.ADD, _, { E = PCVar _ },
@@ -150,28 +126,30 @@ type SimpleStrategy (noRetAnalyzer: INoReturnIdentifiable) =
                           InterJmpKind.Base) ->
           let target = srcBBL.LastInstruction.Address + BitVector.ToUInt64 n
           let dstPPoint = maskedPPoint ctx target
-          connectEdge ctx srcVertex dstPPoint InterJmpEdge
+          let dstVertex = getVertex ctx dstPPoint
+          connectEdge ctx srcVertex dstVertex InterJmpEdge
           ppQueue.Enqueue dstPPoint
         | InterJmp ({ E = Num n }, InterJmpKind.Base) ->
           let dstPPoint = maskedPPoint ctx (BitVector.ToUInt64 n)
-          connectEdge ctx srcVertex dstPPoint InterJmpEdge
+          let dstVertex = getVertex ctx dstPPoint
+          connectEdge ctx srcVertex dstVertex InterJmpEdge
           ppQueue.Enqueue dstPPoint
         | InterJmp ({ E = BinOp (BinOpType.ADD, _, { E = PCVar _ },
                                                    { E = Num n }) },
                           InterJmpKind.IsCall) ->
+          let callerAddr = srcBBL.PPoint.Address
           let callsiteAddr = srcBBL.LastInstruction.Address
           let target = callsiteAddr + BitVector.ToUInt64 n
           ctx.ManagerChannel.UpdateDependency (fnAddr, target, mode)
-          ctx.Callees[callsiteAddr] <- RegularCallee target
-          updateCallingNodes ctx srcBBL.PPoint.Address target
-          actionQueue.Push <| ConnectCallEdge (fnAddr, target, mode)
+          ctx.CallTable.AddRegularCall srcBBL.PPoint callsiteAddr target
+          actionQueue.Push <| MakeCall (fnAddr, callerAddr, target, mode)
         | InterJmp ({ E = Num n }, InterJmpKind.IsCall) ->
+          let callerAddr = srcBBL.PPoint.Address
           let callsiteAddr = srcBBL.LastInstruction.Address
           let target = BitVector.ToUInt64 n
           ctx.ManagerChannel.UpdateDependency (fnAddr, target, mode)
-          ctx.Callees[callsiteAddr] <- RegularCallee target
-          updateCallingNodes ctx srcBBL.PPoint.Address target
-          actionQueue.Push <| ConnectCallEdge (fnAddr, target, mode)
+          ctx.CallTable.AddRegularCall srcBBL.PPoint callsiteAddr target
+          actionQueue.Push <| MakeCall (fnAddr, callerAddr, target, mode)
         | InterCJmp (_, { E = BinOp (BinOpType.ADD, _, { E = PCVar _ },
                                                        { E = Num tv }) },
                         { E = BinOp (BinOpType.ADD, _, { E = PCVar _ },
@@ -179,31 +157,39 @@ type SimpleStrategy (noRetAnalyzer: INoReturnIdentifiable) =
           let lastAddr = srcBBL.LastInstruction.Address
           let tPPoint = maskedPPoint ctx (lastAddr + BitVector.ToUInt64 tv)
           let fPPoint = maskedPPoint ctx (lastAddr + BitVector.ToUInt64 fv)
-          connectEdge ctx srcVertex tPPoint InterCJmpTrueEdge
-          connectEdge ctx srcVertex fPPoint InterCJmpFalseEdge
+          let tVertex, fVertex = getVertex ctx tPPoint, getVertex ctx fPPoint
+          connectEdge ctx srcVertex tVertex InterCJmpTrueEdge
+          connectEdge ctx srcVertex fVertex InterCJmpFalseEdge
           ppQueue.Enqueue tPPoint
           ppQueue.Enqueue fPPoint
         | InterCJmp (_, { E = Num tv }, { E = Num fv }) ->
           let tPPoint = maskedPPoint ctx (BitVector.ToUInt64 tv)
           let fPPoint = maskedPPoint ctx (BitVector.ToUInt64 fv)
-          connectEdge ctx srcVertex tPPoint InterCJmpTrueEdge
-          connectEdge ctx srcVertex fPPoint InterCJmpFalseEdge
+          let tVertex, fVertex = getVertex ctx tPPoint, getVertex ctx fPPoint
+          connectEdge ctx srcVertex tVertex InterCJmpTrueEdge
+          connectEdge ctx srcVertex fVertex InterCJmpFalseEdge
           ppQueue.Enqueue tPPoint
           ppQueue.Enqueue fPPoint
         | Jmp _ | CJmp _ | InterJmp _ | InterCJmp _ ->
           ()
+        | SideEffect SysCall ->
+          Utils.futureFeature ()
         | _ ->
           ()
     done
     Success
 
-  let amendCallingNodes ctx (srcVertex: IVertex<IRBasicBlock<_>>) dstAddr =
-    let lastAddress = srcVertex.VData.LastInstruction.Address
-    match ctx.CallingNodes.TryGetValue lastAddress with
-    | true, callsites ->
-      callsites.Remove srcVertex.VData.PPoint.Address |> ignore
-      callsites.Add dstAddr |> ignore
-    | false, _ -> ()
+  /// This is to update the caller information when a basic block is split. This
+  /// is only effective when the block makes a call, and the callee(s) are
+  /// known.
+  let handleCallerSplit ctx callerAddr splitAddr callsiteAddr =
+    assert (callerAddr < splitAddr && splitAddr <= callsiteAddr)
+    match ctx.CallTable.TryGetCallee callsiteAddr with
+    | true, RegularCallee calleeAddr ->
+      let callsites = ctx.CallTable.GetCallers calleeAddr
+      callsites.Remove callerAddr |> ignore
+      callsites.Add splitAddr |> ignore
+    | _ -> ()
 
   let reconnectVertices ctx (dividedEdges: List<ProgramPoint * ProgramPoint>) =
     for (srcPPoint, dstPPoint) in dividedEdges do
@@ -213,59 +199,83 @@ type SimpleStrategy (noRetAnalyzer: INoReturnIdentifiable) =
 #if CFGDEBUG
       dbglog ctx.ThreadID "Reconnect" $"{srcPPoint} -> {dstPPoint}"
 #endif
-      amendCallingNodes ctx srcVertex dstPPoint.Address
+      let lastAddr = dstVertex.VData.LastInstruction.Address
+      handleCallerSplit ctx srcPPoint.Address dstPPoint.Address lastAddr
       ctx.CFG <- ctx.CFG.AddEdge (srcVertex, dstVertex, FallThroughEdge)
       for predEdge in preds do
-        let predVertex = getVertex ctx predEdge.First.VData.PPoint
-        ctx.CFG <- ctx.CFG.AddEdge (predVertex, srcVertex, predEdge.Label)
+        ctx.CFG <- ctx.CFG.AddEdge (predEdge.First, srcVertex, predEdge.Label)
       for succEdge in succs do
-        let succVertex = getVertex ctx succEdge.Second.VData.PPoint
-        ctx.CFG <- ctx.CFG.AddEdge (dstVertex, succVertex, succEdge.Label)
+        ctx.CFG <- ctx.CFG.AddEdge (dstVertex, succEdge.Second, succEdge.Label)
 
-  let connectFallThroughEdges ctx queue fnAddr mode callingNodes =
-    let newAddrs = List<Addr> ()
-    let newEdges = List<ProgramPoint * ProgramPoint> ()
-    for (callerAddr: Addr) in callingNodes do
-      let srcVertex = getVertex ctx (ProgramPoint (callerAddr, 0))
-      let callIns = srcVertex.VData.LastInstruction
-      let fallthroughAddr = callIns.Address + uint64 callIns.Length
-      let dstPPoint = ProgramPoint (fallthroughAddr, 0)
-      newAddrs.Add (fallthroughAddr)
-      newEdges.Add ((srcVertex.VData.PPoint, dstPPoint))
-    let dividedEdges = scanBBLs ctx mode newAddrs
-    for (srcPPoint, dstPPoint) in newEdges do
-      let srcVertex = getVertex ctx srcPPoint
-      connectEdge ctx srcVertex dstPPoint CallFallThroughEdge
+  let getFunctionSummary ctx calleeAddr =
+    match ctx.ManagerChannel.GetBuildingContext calleeAddr with
+    | FinalCtx calleeCtx -> calleeCtx.Summary
+    (* This can happen when a cyclic dependency has been resolved. *)
+    | _ -> summarizer.Summarize ctx
+
+  let connectAbsVertex ctx callerAddr calleeAddr summary =
+    let caller = getVertex ctx (ProgramPoint (callerAddr, 0))
+    let callIns = caller.VData.LastInstruction
+    let callsiteAddr = callIns.Address
+    let callee = getAbsVertex ctx callsiteAddr calleeAddr summary
+    connectEdge ctx caller callee CallEdge
+    callee, callsiteAddr + uint64 callIns.Length
+
+  let connectFallthrough ctx mode (callee, fallthroughAddr) =
+    let dividedEdges = scanBBLs ctx mode [ fallthroughAddr ]
+    let fallthroughPPoint = ProgramPoint (fallthroughAddr, 0)
+    let fallthroughVertex = getVertex ctx fallthroughPPoint
+    connectEdge ctx callee fallthroughVertex CallFallThroughEdge
     reconnectVertices ctx dividedEdges
-    (queue: CFGActionQueue<_>).Push <| ExpandCFG (fnAddr, mode, newAddrs)
-    Success
+    fallthroughAddr
 
-  let connectCallEdge ctx queue fnAddr mode calleeAddr =
+  let connectCallEdge ctx queue fnAddr callerAddr calleeAddr mode =
     if fnAddr = calleeAddr then (* recursion = always returns (not noret) *)
-      [| fnAddr |] |> connectFallThroughEdges ctx queue fnAddr mode
+      let summary = summarizer.Summarize ctx
+      let nextAddr =
+        connectAbsVertex ctx callerAddr calleeAddr summary
+        |> connectFallthrough ctx mode
+      (queue: CFGActionQueue<_>).Push <| ExpandCFG (fnAddr, mode, [nextAddr])
+      Success
     else
       match ctx.ManagerChannel.GetNonReturningStatus calleeAddr with
-      | NoRet -> Success
+      | NoRet ->
+        let summary = getFunctionSummary ctx calleeAddr
+        connectAbsVertex ctx callerAddr calleeAddr summary |> ignore
+        Success
       | NotNoRet ->
-        ctx.CallingNodes[calleeAddr]
-        |> connectFallThroughEdges ctx queue fnAddr mode
+        let summary = getFunctionSummary ctx calleeAddr
+        let nextAddr =
+          connectAbsVertex ctx callerAddr calleeAddr summary
+          |> connectFallthrough ctx mode
+        queue.Push <| ExpandCFG (fnAddr, mode, [nextAddr])
+        Success
       | UnknownNoRet -> Wait calleeAddr
       | _ -> Failure ErrorCase.FailedToRecoverCFG
 
   new () =
-    let noRetAnalyzer =
-      { new INoReturnIdentifiable with
-          member _.IsNoReturn (_) = false }
-    SimpleStrategy noRetAnalyzer
+    let noRetAnalyzer = ConditionAwareNoretAnalysis ()
+    let summarizer = { new IFunctionSummarizable<_, _, _, 'FnCtx, 'GlCtx> with
+                         member _.Summarize ctx =
+                           BaseFunctionSummary ctx.IsExternal }
+    BaseStrategy (noRetAnalyzer, summarizer)
 
-  interface IFunctionBuildingStrategy<IRBasicBlock<SSAFunctionAbstraction>,
+  interface IFunctionBuildingStrategy<IRBasicBlock<BaseFunctionSummary>,
                                       CFGEdgeKind,
-                                      SSAFunctionAbstraction,
-                                      CFGAction<SSAFunctionAbstraction>,
-                                      CFGContext,
-                                      EmptyState> with
-    member __.PopulateInitialAction (entryPoint, mode) =
-      InitiateCFG (entryPoint, mode)
+                                      BaseFunctionSummary,
+                                      'FnCtx,
+                                      'GlCtx> with
+    member __.ActionPrioritizer =
+      { new IPrioritizable with
+          member _.GetPriority action =
+            match action with
+            | InitiateCFG _ -> 4
+            | ExpandCFG _ -> 4
+            | MakeCall _ -> 3
+            | IndirectEdge _ -> 2
+            | SyscallEdge _ -> 1
+            | JumpTableEntryStart _ -> 0
+            | JumpTableEntryEnd _ -> 0 }
 
     member __.OnAction (ctx, queue, action) =
       try
@@ -285,12 +295,12 @@ type SimpleStrategy (noRetAnalyzer: INoReturnIdentifiable) =
 #endif
           let newPPs = addrs |> Seq.map (fun addr -> ProgramPoint (addr, 0))
           buildCFG ctx queue fnAddr newPPs mode
-        | ConnectCallEdge (fnAddr, calleeAddr, mode) ->
+        | MakeCall (fnAddr, callerAddr, calleeAddr, mode) ->
 #if CFGDEBUG
-          dbglog ctx.ThreadID (nameof ConnectCallEdge)
+          dbglog ctx.ThreadID (nameof MakeCall)
           <| $"{fnAddr:x} to {calleeAddr:x}"
 #endif
-          connectCallEdge ctx queue fnAddr mode calleeAddr
+          connectCallEdge ctx queue fnAddr callerAddr calleeAddr mode
         | _ ->
           failwith "X"
       with e ->
@@ -298,8 +308,9 @@ type SimpleStrategy (noRetAnalyzer: INoReturnIdentifiable) =
         Failure ErrorCase.FailedToRecoverCFG
 
     member _.OnFinish (ctx) =
-      if noRetAnalyzer.IsNoReturn (ctx.CFG) then ctx.NonReturningStatus <- NoRet
+      if noRetAnalyzer.IsNoReturn (ctx) then ctx.NonReturningStatus <- NoRet
       else ctx.NonReturningStatus <- NotNoRet
+      ctx.Summary <- summarizer.Summarize ctx
       Success
 
     member _.OnCyclicDependency (deps) =
