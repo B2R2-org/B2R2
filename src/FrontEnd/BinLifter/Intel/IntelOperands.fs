@@ -209,16 +209,18 @@ module internal OperandParsingHelper =
     | _ -> raise ParsingFailureException
 
   /// EVEX uses compressed displacement. See the manual Chap. 15 of Vol. 1.
-  let compressDisp vInfo disp =
-    match vInfo with
-    | None -> disp
-    | Some { VectorLength = 128<rt>; VEXType = t }
-      when t &&& VEXType.EVEX = VEXType.EVEX -> disp * 16L
-    | Some { VectorLength = 256<rt>; VEXType = t }
-        when t &&& VEXType.EVEX = VEXType.EVEX -> disp * 32L
-    | Some { VectorLength = 512<rt>; VEXType = t }
-        when t &&& VEXType.EVEX = VEXType.EVEX -> disp * 64L
-    | _ -> disp
+  let compressDisp vInfo disp dispSz =
+    if dispSz = 1 then
+      match vInfo with
+      | None -> disp
+      | Some { VectorLength = 128<rt>; VEXType = t }
+        when t &&& VEXType.EVEX = VEXType.EVEX -> disp * 16L
+      | Some { VectorLength = 256<rt>; VEXType = t }
+          when t &&& VEXType.EVEX = VEXType.EVEX -> disp * 32L
+      | Some { VectorLength = 512<rt>; VEXType = t }
+          when t &&& VEXType.EVEX = VEXType.EVEX -> disp * 64L
+      | _ -> disp
+    else disp
 
   let parseOprMem span (rhlp: ReadHelper) b s dispSz =
     let memSz = rhlp.MemEffOprSize
@@ -228,7 +230,7 @@ module internal OperandParsingHelper =
       rhlp.MarkHashEnd ()
 #endif
       let disp = parseSignedImm span rhlp dispSz
-      let disp = compressDisp rhlp.VEXInfo disp
+      let disp = compressDisp rhlp.VEXInfo disp dispSz
       OprMem (b, s, Some disp, memSz)
 
   let parseOprImm span (rhlp: ReadHelper) immSize =
@@ -316,7 +318,7 @@ module internal OperandParsingHelper =
     rhlp.MarkHashEnd ()
 #endif
     let disp = parseSignedImm span rhlp dispSz
-    let disp = compressDisp vInfo disp
+    let disp = compressDisp vInfo disp dispSz
     OprMem (b, si, Some disp, oprSz)
 
   let parseOprMemWithSIB span rhlp modVal dispSz =
