@@ -108,30 +108,41 @@ module DisasmCFG =
       ) g
     ) newGraph
 
-  let private selectCallingVertices (newGraph: DisasmCFG<_>) =
-    newGraph.Vertices
-    |> Array.choose (fun v ->
-      let inss = v.VData.Instructions
-      let lastIns = Array.last inss
-      let fallthroughAddr = lastIns.Address + uint64 lastIns.Length
-      if not <| lastIns.IsCall () then None
-      else
-        newGraph.GetSuccs v
-        |> Seq.tryFind (fun succ -> succ.VData.Range.Min = fallthroughAddr)
-        |> Option.map (fun succ -> (v, succ)))
-    |> Array.sortBy (fun (v, _) -> v.VData.Range.Min)
+  let private findVertexByAddr (g: DisasmCFG<_>) addr =
+    g.FindVertexBy (fun v -> v.VData.PPoint.Address = addr)
 
-  let rec private mergeDisasmCFGCallVertices newGraph =
-    let callingVertices = selectCallingVertices newGraph
-    let rec mergeLoop (g: DisasmCFG<_>) prevVertex prevSucc idx =
-      if idx >= callingVertices.Length then g
+  let private selectCallingVertices oldGraph newGraph =
+    (oldGraph: IRCFG<_, _, _>).Edges
+    |> Array.choose (fun edge ->
+      let src = edge.First
+      let dst = edge.Second
+      if not dst.VData.IsAbstract then None
       else
-        let v, succ = callingVertices[idx]
-        let merged, g =
-          if prevSucc = v then mergeVertices g prevVertex succ
-          else mergeVertices g v succ
-        mergeLoop g merged succ (idx + 1)
-    mergeLoop newGraph null null 0
+        let succs = oldGraph.GetSuccs dst
+        if Seq.isEmpty succs then None
+        else
+          assert (Seq.length succs = 1)
+          let succ = Seq.head succs
+          assert (not succ.VData.IsAbstract)
+          let srcAddr = src.VData.PPoint.Address
+          let succAddr = succ.VData.PPoint.Address
+          Some (srcAddr, succAddr))
+    |> Array.sortBy (fun (addr, _) -> addr)
+    |> Array.map (fun (addr, ftAddr) ->
+      findVertexByAddr newGraph addr, findVertexByAddr newGraph ftAddr)
+    |> Array.toList
+
+  let rec private mergeDisasmCFGCallVertices oldGraph newGraph =
+    selectCallingVertices oldGraph newGraph
+    |> mergeDisasmCFGCallVerticesAux newGraph null null
+
+  and mergeDisasmCFGCallVerticesAux g prevVertex prevSucc = function
+    | [] -> g
+    | (v, succ) :: tl ->
+      let merged, g =
+        if prevSucc = v then mergeVertices g prevVertex succ
+        else mergeVertices g v succ
+      mergeDisasmCFGCallVerticesAux g merged succ tl
 
   and private mergeVertices g v1 v2 =
     let instrs1 = v1.VData.Instructions
@@ -167,4 +178,4 @@ module DisasmCFG =
     newGraph
     |> createDisasmCFGVertices vMap
     |> createDisasmCFGEdges vMap
-    |> mergeDisasmCFGCallVertices
+    |> mergeDisasmCFGCallVertices g
