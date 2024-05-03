@@ -36,12 +36,10 @@ open B2R2.MiddleEnd.ControlFlowGraph
 /// external (library) functions.
 type InternalFunctionBuilder<'V,
                              'E,
-                             'Abs,
                              'FnCtx,
-                             'GlCtx when 'V :> IRBasicBlock<'Abs>
+                             'GlCtx when 'V :> IRBasicBlock
                                      and 'V: equality
                                      and 'E: equality
-                                     and 'Abs: null
                                      and 'FnCtx :> IResettable
                                      and 'FnCtx: (new: unit -> 'FnCtx)
                                      and 'GlCtx: (new: unit -> 'GlCtx)>
@@ -50,9 +48,9 @@ type InternalFunctionBuilder<'V,
           name,
           entryPoint,
           mode: ArchOperationMode,
-          ircfg: IRCFG<'V, 'E, 'Abs>,
-          agent: Agent<TaskMessage<'V, 'E, 'Abs, 'FnCtx, 'GlCtx>>,
-          strategy: IFunctionBuildingStrategy<_, _, _, _, _>) =
+          ircfg: IRCFG<'V, 'E>,
+          agent: Agent<TaskMessage<'V, 'E, 'FnCtx, 'GlCtx>>,
+          strategy: IFunctionBuildingStrategy<_, _, _, _>) =
 
   /// Internal builder state.
   let mutable state = Initialized
@@ -61,7 +59,7 @@ type InternalFunctionBuilder<'V,
   let fnCtx = new 'FnCtx ()
 
   let managerChannel =
-    { new IManagerAccessible<'V, 'E, 'Abs, 'FnCtx, 'GlCtx> with
+    { new IManagerAccessible<'V, 'E, 'FnCtx, 'GlCtx> with
         member _.UpdateDependency (caller, callee, mode) =
           agent.Post <| AddDependency (caller, callee, mode)
 
@@ -88,17 +86,17 @@ type InternalFunctionBuilder<'V,
       Vertices = Dictionary ()
       AbsVertices = Dictionary ()
       CFG = ircfg
+      SSACFG = null
       BBLFactory = bblFactory
       NonReturningStatus = UnknownNoRet
       CallTable = CallTable ()
-      Summary = null
       VisitedPPoints = HashSet ()
       UserContext = fnCtx
       IsExternal = false
       ManagerChannel = managerChannel
       ThreadID = -1 }
 
-  let queue = CFGActionQueue<'Abs> strategy.ActionPrioritizer
+  let queue = CFGActionQueue strategy.ActionPrioritizer
 
   let rec build () =
     if queue.IsEmpty () then strategy.OnFinish ctx
@@ -115,7 +113,7 @@ type InternalFunctionBuilder<'V,
        instrs,
        entryPoint,
        mode,
-       cfgConstructor: IRCFG.IConstructable<'V, 'E, 'Abs>,
+       cfgConstructor: IRCFG.IConstructable<'V, 'E>,
        agent,
        strategy) =
     let name =
@@ -132,7 +130,7 @@ type InternalFunctionBuilder<'V,
                              agent,
                              strategy)
 
-  interface IFunctionBuildable<'V, 'E, 'Abs, 'FnCtx, 'GlCtx> with
+  interface IFunctionBuildable<'V, 'E, 'FnCtx, 'GlCtx> with
     member __.BuilderState with get() = state
 
     member __.EntryPoint with get(): Addr = entryPoint

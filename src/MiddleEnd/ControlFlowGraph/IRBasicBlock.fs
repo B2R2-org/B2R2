@@ -32,11 +32,8 @@ open B2R2.BinIR
 open B2R2.BinIR.LowUIR
 
 /// Basic block type for IR-level CFGs.
-type IRBasicBlock<'Abs when 'Abs: null> internal (ppoint,
-                                                  funcAbs,
-                                                  liftedInstrs,
-                                                  labelMap) =
-  inherit PossiblyAbstractBasicBlock<'Abs> (ppoint, funcAbs)
+type IRBasicBlock internal (ppoint, funcAbs, liftedInstrs, labelMap) =
+  inherit PossiblyAbstractBasicBlock (ppoint, funcAbs)
 
   let isTerminatingStmt stmt =
     match stmt.S with
@@ -84,8 +81,8 @@ type IRBasicBlock<'Abs when 'Abs: null> internal (ppoint,
       let cutPPoint = ProgramPoint (cutPoint, 0)
       let fstLabelMap = ImmutableDictionary.CreateRange [||]
       let sndLabelMap = ImmutableDictionary.CreateRange (Seq.toArray labelMap)
-      IRBasicBlock<'Abs>.CreateRegular (fstInstrs, ppoint, fstLabelMap),
-      IRBasicBlock<'Abs>.CreateRegular (sndInstrs, cutPPoint, sndLabelMap)
+      IRBasicBlock.CreateRegular (fstInstrs, ppoint, fstLabelMap),
+      IRBasicBlock.CreateRegular (sndInstrs, cutPPoint, sndLabelMap)
     else raise AbstractBlockAccessException
 
   override __.Range with get() =
@@ -101,11 +98,11 @@ type IRBasicBlock<'Abs when 'Abs: null> internal (ppoint,
       |> Array.collect (fun liftedIns -> liftedIns.Stmts)
       |> Array.map (fun stmt ->
         [| { AsmWordKind = AsmWordKind.String
-             AsmWordValue = LowUIR.Pp.stmtToString stmt } |])
+             AsmWordValue = Pp.stmtToString stmt } |])
     else [||]
 
-  interface IEquatable<IRBasicBlock<'Abs>> with
-    member __.Equals (other: IRBasicBlock<'Abs>) =
+  interface IEquatable<IRBasicBlock> with
+    member __.Equals (other: IRBasicBlock) =
       __.PPoint = other.PPoint
 
   static member CreateRegular (liftedInstrs, ppoint) =
@@ -114,7 +111,7 @@ type IRBasicBlock<'Abs when 'Abs: null> internal (ppoint,
   static member CreateRegular (liftedInstrs, ppoint, labelMap) =
     IRBasicBlock (ppoint, null, liftedInstrs, labelMap)
 
-  static member CreateAbstract (ppoint, info) =
-    assert (not (isNull info))
-    IRBasicBlock (ppoint, info, [||], ImmutableDictionary.Empty)
+  static member CreateAbstract (ppoint, summary) =
+    assert (not (isNull summary))
+    IRBasicBlock (ppoint, summary, [||], ImmutableDictionary.Empty)
 

@@ -34,12 +34,10 @@ open B2R2.MiddleEnd.ControlFlowGraph
 /// function, and it can include a user-defined, too.
 type CFGBuildingContext<'V,
                         'E,
-                        'Abs,
                         'FnCtx,
-                        'GlCtx when 'V :> IRBasicBlock<'Abs>
+                        'GlCtx when 'V :> IRBasicBlock
                                 and 'V: equality
                                 and 'E: equality
-                                and 'Abs: null
                                 and 'FnCtx :> IResettable
                                 and 'GlCtx: (new: unit -> 'GlCtx)> = {
   /// The address of the function that is being built.
@@ -53,15 +51,15 @@ type CFGBuildingContext<'V,
   /// Mapping from a call edge to an abstracted vertex in the IRCFG.
   AbsVertices: Dictionary<AbsCallEdge, IVertex<'V>>
   /// The control flow graph.
-  mutable CFG: IRCFG<'V, 'E, 'Abs>
+  mutable CFG: IRCFG<'V, 'E>
+  /// The SSA-based CFG.
+  mutable SSACFG: SSACFG<'E>
   /// The basic block factory.
-  BBLFactory: BBLFactory<'Abs>
+  BBLFactory: BBLFactory
   /// Is this function a no-return function?
   mutable NonReturningStatus: NonReturningStatus
   /// Table for maintaining function call information of this function.
   CallTable: CallTable
-  /// Function summary, which is available only after finalizing the CFG.
-  mutable Summary: 'Abs
   /// The set of visited BBL program points. This is to prevent visiting the
   /// same basic block multiple times when constructing the CFG.
   VisitedPPoints: HashSet<ProgramPoint>
@@ -70,7 +68,7 @@ type CFGBuildingContext<'V,
   /// Is this an external function or not.
   IsExternal: bool
   /// The channel for accessing the state of the TaskManager.
-  ManagerChannel: IManagerAccessible<'V, 'E, 'Abs, 'FnCtx, 'GlCtx>
+  ManagerChannel: IManagerAccessible<'V, 'E, 'FnCtx, 'GlCtx>
   /// Thread ID that is currently building this function.
   mutable ThreadID: int
 }
@@ -98,12 +96,10 @@ and NonReturningStatus =
 and [<AllowNullLiteral>]
   IManagerAccessible<'V,
                      'E,
-                     'Abs,
                      'FnCtx,
-                     'GlCtx when 'V :> IRBasicBlock<'Abs>
+                     'GlCtx when 'V :> IRBasicBlock
                              and 'V: equality
                              and 'E: equality
-                             and 'Abs: null
                              and 'FnCtx :> IResettable
                              and 'GlCtx: (new: unit -> 'GlCtx)> =
   /// Update the dependency between two functions.
@@ -118,7 +114,7 @@ and [<AllowNullLiteral>]
   /// return None.
   abstract GetBuildingContext:
        addr: Addr
-    -> BuildingCtxMsg<'V, 'E, 'Abs, 'FnCtx, 'GlCtx>
+    -> BuildingCtxMsg<'V, 'E, 'FnCtx, 'GlCtx>
 
   /// Get the current user-defined global state of the TaskManager.
   abstract GetGlobalContext: accessor: ('GlCtx -> 'Res) -> 'Res
@@ -129,17 +125,15 @@ and [<AllowNullLiteral>]
 /// Message containing the building context of a function.
 and BuildingCtxMsg<'V,
                    'E,
-                   'Abs,
                    'FnCtx,
-                   'GlCtx when 'V :> IRBasicBlock<'Abs>
+                   'GlCtx when 'V :> IRBasicBlock
                            and 'V: equality
                            and 'E: equality
-                           and 'Abs: null
                            and 'FnCtx :> IResettable
                            and 'GlCtx: (new: unit -> 'GlCtx)> =
   /// The building process is finished, and this is the final context.
-  | FinalCtx of CFGBuildingContext<'V, 'E, 'Abs, 'FnCtx, 'GlCtx>
+  | FinalCtx of CFGBuildingContext<'V, 'E, 'FnCtx, 'GlCtx>
   /// The building process is still ongoing.
-  | StillBuilding
+  | StillBuilding of CFGBuildingContext<'V, 'E, 'FnCtx, 'GlCtx>
   /// The building process failed.
   | FailedBuilding

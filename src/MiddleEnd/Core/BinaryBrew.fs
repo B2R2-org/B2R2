@@ -40,29 +40,27 @@ open B2R2.MiddleEnd.ControlFlowAnalysis
 /// </summary>
 type BinaryBrew<'V,
                 'E,
-                'Abs,
                 'FnCtx,
-                'GlCtx when 'V :> IRBasicBlock<'Abs>
+                'GlCtx when 'V :> IRBasicBlock
                         and 'V: equality
                         and 'E: equality
-                        and 'Abs: null
                         and 'FnCtx :> IResettable
                         and 'FnCtx: (new: unit -> 'FnCtx)
                         and 'GlCtx: (new: unit -> 'GlCtx)>
   public (hdl: BinHandle,
-          strategy: IFunctionBuildingStrategy<_, _, _, _, _>) =
+          strategy: IFunctionBuildingStrategy<_, _, _, _>) =
 
   let exnInfo = ExceptionInfo (hdl)
 
   let instrs = InstructionCollection (LinearSweepInstructionCollector hdl)
 
   let cfgConstructor =
-    { new IRCFG.IConstructable<'V, 'E, 'Abs> with
+    { new IRCFG.IConstructable<'V, 'E> with
         member _.Construct _ =
-          ImperativeDiGraph<'V, 'E> () :> IRCFG<'V, 'E, 'Abs> }
+          ImperativeDiGraph<'V, 'E> () :> IRCFG<'V, 'E> }
 
   let taskManager =
-    TaskManager<'V, 'E, 'Abs, 'FnCtx, 'GlCtx>
+    TaskManager<'V, 'E, 'FnCtx, 'GlCtx>
       (hdl, instrs, cfgConstructor, strategy)
 
   let getFunctionOperationMode (hdl: BinHandle) entry =
@@ -120,8 +118,7 @@ type BinaryBrew<'V,
 
 /// Default BinaryBrew type that internally uses SSA IR to recover CFGs.
 type DefaultBinaryBrew =
-  BinaryBrew<IRBasicBlock<BaseFunctionSummary>,
+  BinaryBrew<IRBasicBlock,
              CFGEdgeKind,
-             BaseFunctionSummary,
              Strategies.DummyContext,
              Strategies.DummyContext>

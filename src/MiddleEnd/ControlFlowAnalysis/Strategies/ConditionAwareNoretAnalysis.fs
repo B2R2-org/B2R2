@@ -33,15 +33,13 @@ open B2R2.MiddleEnd.ControlFlowAnalysis
 /// this as the compilers evolve.
 type ConditionAwareNoretAnalysis<'V,
                                  'E,
-                                 'Abs,
                                  'FnCtx,
-                                 'GlCtx when 'V :> IRBasicBlock<'Abs>
+                                 'GlCtx when 'V :> IRBasicBlock
                                          and 'V: equality
                                          and 'E: equality
-                                         and 'Abs: null
                                          and 'FnCtx :> IResettable
                                          and 'GlCtx: (new: unit -> 'GlCtx)> () =
-  interface INoReturnIdentifiable<'V, 'E, 'Abs, 'FnCtx, 'GlCtx> with
+  interface INoReturnIdentifiable<'V, 'E, 'FnCtx, 'GlCtx> with
     member _.IsNoReturn (ctx) =
 #if CFGDEBUG
       dbglog ctx.ThreadID (nameof INoReturnIdentifiable)

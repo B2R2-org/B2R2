@@ -33,12 +33,10 @@ open B2R2.MiddleEnd.ControlFlowGraph
 /// information about the function, such as caller information.
 type ExternalFunctionBuilder<'V,
                              'E,
-                             'Abs,
                              'FnCtx,
-                             'GlCtx when 'V :> IRBasicBlock<'Abs>
+                             'GlCtx when 'V :> IRBasicBlock
                                      and 'V: equality
                                      and 'E: equality
-                                     and 'Abs: null
                                      and 'FnCtx :> IResettable
                                      and 'FnCtx: (new: unit -> 'FnCtx)
                                      and 'GlCtx: (new: unit -> 'GlCtx)>
@@ -54,17 +52,17 @@ type ExternalFunctionBuilder<'V,
       Vertices = Dictionary ()
       AbsVertices = Dictionary ()
       CFG = null
+      SSACFG = null
       BBLFactory = BBLFactory (hdl, null)
       NonReturningStatus = noretStatus
       CallTable = CallTable ()
-      Summary = null
       VisitedPPoints = HashSet ()
       UserContext = new 'FnCtx ()
       IsExternal = true
       ManagerChannel = null
       ThreadID = -1 }
 
-  interface IFunctionBuildable<'V, 'E, 'Abs, 'FnCtx, 'GlCtx> with
+  interface IFunctionBuildable<'V, 'E, 'FnCtx, 'GlCtx> with
     member __.BuilderState with get() = Finished
 
     member __.EntryPoint with get(): Addr = entryPoint

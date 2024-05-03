@@ -53,8 +53,8 @@ module private UntouchedValuePropagation =
 /// This is a variant of the SparseConstantPropagation, which computes which
 /// registers or memory cells are not re-defined (i.e., are untouched) within a
 /// function. This algorithm assumes that the SSA has been promoted.
-type UntouchedValuePropagation<'Abs when 'Abs: null> (hdl, ssaCFG) as this =
-  inherit ConstantPropagation<UVValue, 'Abs> (ssaCFG)
+type UntouchedValuePropagation (hdl, ssaCFG) as this =
+  inherit ConstantPropagation<UVValue> (ssaCFG)
 
   let st = CPState.initState hdl ssaCFG (initRegister hdl) (initMemory ()) this
 
@@ -62,7 +62,7 @@ type UntouchedValuePropagation<'Abs when 'Abs: null> (hdl, ssaCFG) as this =
 
   override __.Top = Undef
 
-  interface IConstantPropagation<UVValue, 'Abs> with
+  interface IConstantPropagation<UVValue> with
     member __.Bottom = Touched
     member __.GoingUp a b = UVValue.goingUp a b
     member __.Meet a b = UVValue.meet a b

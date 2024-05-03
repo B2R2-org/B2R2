@@ -53,12 +53,12 @@ type ReachingDefinitions<'Expr, 'BBL when 'Expr: comparison
     Set.union gens[vid] (Set.difference i kills[vid])
 
 /// Reaching definition analysis with a LowUIR-based CFG.
-type LowUIRReachingDefinitions<'Abs when 'Abs: null> (cfg) as this =
-  inherit ReachingDefinitions<VarExpr, IRBasicBlock<'Abs>> (cfg)
+type LowUIRReachingDefinitions (cfg) as this =
+  inherit ReachingDefinitions<VarExpr, IRBasicBlock> (cfg)
 
   do this.Initialize ()
 
-  member private __.FindDefs (v: IVertex<IRBasicBlock<_>>) =
+  member private __.FindDefs (v: IVertex<IRBasicBlock>) =
     v.VData.LiftedInstructions
     |> Array.fold (fun list lifted ->
       lifted.Stmts

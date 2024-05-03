@@ -60,7 +60,7 @@ module DisasmCFG =
       vMap[addr] <- tmpV
       tmpV
 
-  let private updateDisasmVertexInfo vMap (bbl: #IRBasicBlock<_>) =
+  let private updateDisasmVertexInfo vMap (bbl: #IRBasicBlock) =
     let tmpV = getTempVertex vMap bbl.LiftedInstructions[0].BBLAddr
     let insList = tmpV.Instructions
     bbl.LiftedInstructions
@@ -80,7 +80,7 @@ module DisasmCFG =
     let tmpV = vMap[addr]
     updateSuccessor tmpV.Successors succ
 
-  let private hasMultipleIncomingEdges (g: IRCFG<_, _, _>) v =
+  let private hasMultipleIncomingEdges (g: IRCFG<_, _>) v =
     g.GetPreds v |> Seq.length > 1
 
   let private appendInstructionsInto srcInss (dstInss: SortedList<_, _>) =
@@ -90,7 +90,7 @@ module DisasmCFG =
     assert (Seq.length edges = 1)
     let e = Seq.head edges
     let absV = (e: Edge<_, _>).Second
-    let maybeFtV = (g: IRCFG<_, _, _>).GetSuccs absV |> Seq.tryHead
+    let maybeFtV = (g: IRCFG<_, _>).GetSuccs absV |> Seq.tryHead
     match maybeFtV with
     | Some ftV when hasMultipleIncomingEdges g ftV ->
       let ftAddr = ftV.VData.PPoint.Address
@@ -111,11 +111,11 @@ module DisasmCFG =
 
   let private updateDisasmNormalVertexInfo vMap srcAddr edges =
     edges |> Seq.iter (fun (e: Edge<_, _>) ->
-      let dstAddr = (e.Second.VData: IRBasicBlock<_>).PPoint.Address
+      let dstAddr = (e.Second.VData: IRBasicBlock).PPoint.Address
       let succ = if srcAddr = dstAddr then None else Some (dstAddr, e.Label)
       updateDisasmEdgeInfo vMap srcAddr succ)
 
-  let rec private accumulateDisasmCFGInfo (g: IRCFG<_, _, _>) vMap =
+  let rec private accumulateDisasmCFGInfo (g: IRCFG<_, _>) vMap =
     g.Vertices
     |> Array.sortByDescending (fun v -> v.VData.PPoint.Address)
     |> Array.filter (fun v -> not v.VData.IsAbstract)
@@ -154,7 +154,7 @@ module DisasmCFG =
 
   /// Create a new DisasmCFG from the given IRCFG.
   [<CompiledName "Create">]
-  let create (g: IRCFG<'V, 'E, 'Abs>) =
+  let create (g: IRCFG<'V, 'E>) =
     let newGraph =
       match g.ImplementationType with
       | Imperative ->

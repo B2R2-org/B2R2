@@ -38,18 +38,18 @@ open Microsoft.VisualStudio.TestTools.UnitTesting
 
 [<AutoOpen>]
 module Utils =
-  let scanBBLs (bblFactory: BBLFactory<_>) mode addrs =
+  let scanBBLs (bblFactory: BBLFactory) mode addrs =
     bblFactory.ScanBBLs mode addrs
     |> Async.AwaitTask
     |> Async.RunSynchronously
     |> ignore
 
-  let extractInsBBLPairs (bblFactory: BBLFactory<_>) ppoint =
+  let extractInsBBLPairs (bblFactory: BBLFactory) ppoint =
     let bbl = bblFactory.Find ppoint
     bbl.LiftedInstructions
     |> Array.map (fun li -> li.Original.Address, li.BBLAddr)
 
-  let extractBBLRange (bblFactory: BBLFactory<_>) ppoint =
+  let extractBBLRange (bblFactory: BBLFactory) ppoint =
     let bbl = bblFactory.Find ppoint
     bbl.Range.Min, bbl.Range.Max
 
@@ -61,20 +61,20 @@ module Utils =
     |> Seq.map (fun (KeyValue (k, v)) -> k, v)
     |> Seq.toList
 
-  let foldVertexNoFake m (v: IVertex<IRBasicBlock<_>>) =
+  let foldVertexNoFake m (v: IVertex<IRBasicBlock>) =
     if v.VData.IsAbstract then m
     else Map.add v.VData.PPoint v m
 
-  let foldEdge m (e: Edge<IRBasicBlock<_>, _>) =
+  let foldEdge m (e: Edge<IRBasicBlock, _>) =
     let v1, v2 = e.First, e.Second
     Map.add (v1.VData.PPoint, v2.VData.PPoint) e m
 
-  let foldEdgeNoFake m (e: Edge<IRBasicBlock<_>, _>) =
+  let foldEdgeNoFake m (e: Edge<IRBasicBlock, _>) =
     let v1, v2 = e.First, e.Second
     if v1.VData.IsAbstract || v2.VData.IsAbstract then m
     else Map.add (v1.VData.PPoint, v2.VData.PPoint) e m
 
-  let collectInsBBLAddrPairs (fn: Function<_, _, _>) =
+  let collectInsBBLAddrPairs (fn: Function<_, _>) =
     fn.CFG.FoldVertex (fun acc v ->
       if v.VData.IsAbstract then acc
       else
@@ -327,8 +327,8 @@ type CFGTest1 () =
          cfg.FindEdge(vertices[3], vertices[4]).Label
          cfg.FindEdge(vertices[4], vertices[5]).Label |]
     let expected =
-      [| CallFallThroughEdge; InterCJmpFalseEdge; InterCJmpTrueEdge;
-         InterJmpEdge; CallFallThroughEdge; FallThroughEdge; |]
+      [| (* CallFallThroughEdge; *) InterCJmpFalseEdge; InterCJmpTrueEdge;
+         InterJmpEdge; (* CallFallThroughEdge; *) FallThroughEdge; |]
     CollectionAssert.AreEqual (expected, actual)
 
   [<TestMethod>]
@@ -374,8 +374,8 @@ type CFGTest1 () =
     let brew = BinaryBrew (hdl, strategy)
     let cfg = brew.Functions[0x0UL].CFG
     let root = cfg.TryGetSingleRoot () |> Option.get
-    let ssaLifter = SSALifter hdl
-    let struct (ssacfg, _) = SSALens.convert ssaLifter null cfg root
+    let ssaLifter = SSALifter ()
+    let ssacfg, _ = ssaLifter.Lift cfg root
     Assert.AreEqual (9, ssacfg.Size)
 
 [<TestClass>]
@@ -573,7 +573,7 @@ type CFGTest2 () =
          cfg.FindEdge(vertices[3], vertices[2]).Label
          cfg.FindEdge(vertices[4], vertices[5]).Label |]
     let expected =
-      [| CallFallThroughEdge; FallThroughEdge; IntraCJmpFalseEdge;
+      [| (* CallFallThroughEdge; *) FallThroughEdge; IntraCJmpFalseEdge;
          IntraCJmpTrueEdge; InterJmpEdge; InterJmpEdge |]
     CollectionAssert.AreEqual (expected, actual)
 
@@ -600,6 +600,6 @@ type CFGTest2 () =
   member __.``SSAGraph Vertex Test: _start`` () =
     let cfg = brew.Functions[0x0UL].CFG
     let root = cfg.TryGetSingleRoot () |> Option.get
-    let ssaLifter = SSALifter hdl
-    let struct (ssacfg, _) = SSALens.convert ssaLifter null cfg root
+    let ssaLifter = SSALifter ()
+    let ssacfg, _ = ssaLifter.Lift cfg root
     Assert.AreEqual (7, ssacfg.Size)

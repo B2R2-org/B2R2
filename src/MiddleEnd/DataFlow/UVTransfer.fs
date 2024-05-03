@@ -65,7 +65,7 @@ let evalPhi st cfg blk dst srcIDs =
         |> fun merged -> CPState.updateConst st dst merged
 
 let evalJmp st cfg blk = function
-  | InterJmp _ -> CPState.markExceptCallFallThrough st cfg blk
+  | InterJmp _ -> CPState.markAllSuccessors st cfg blk
   | _ -> CPState.markAllSuccessors st cfg blk
 
 let evalStmt st cfg blk = function

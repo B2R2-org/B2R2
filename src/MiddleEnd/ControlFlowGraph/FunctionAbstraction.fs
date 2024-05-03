@@ -22,27 +22,31 @@
   SOFTWARE.
 *)
 
-namespace B2R2.MiddleEnd.SSA
+namespace B2R2.MiddleEnd.ControlFlowGraph
 
-open System.Collections.Generic
+open B2R2
 open B2R2.BinIR
-open B2R2.MiddleEnd.BinGraph
-open B2R2.MiddleEnd.ControlFlowGraph
 
-/// SSACFG's vertex.
-type SSAVertex<'Abs when 'Abs: null> =
-  IVertex<SSABasicBlock<'Abs>>
+/// An abstract information about a function to be used in an intra-procedural
+/// CFG. This exists per function call, not per function definition. Therefore,
+/// one function can have multiple `FunctionAbstraction` instances.
+[<AllowNullLiteral>]
+type FunctionAbstraction (entryPoint,
+                          unwindingBytes,
+                          rundown,
+                          isExternal) =
+  /// Entry point of this function.
+  member _.EntryPoint with get(): Addr = entryPoint
 
-/// Mapping from a variable to a set of defining SSA basic blocks.
-type DefSites<'Abs when 'Abs: null> =
-  Dictionary<SSA.VariableKind, Set<SSAVertex<'Abs>>>
+  /// How many bytes of the stack does this function unwind when return?
+  member _.UnwindingBytes with get(): int option = unwindingBytes
 
-/// Defined variables per node in a SSACFG.
-type DefsPerNode<'Abs when 'Abs: null> =
-  Dictionary<SSAVertex<'Abs>, Set<SSA.VariableKind>>
+  /// A rundown of the function in SSA form.
+  member _.Rundown with get(): SSARundown = rundown
 
-/// Counter for each variable.
-type VarCountMap = Dictionary<SSA.VariableKind, int>
+  /// Is this an external function?
+  member _.IsExternal with get(): bool = isExternal
 
-/// Variable ID stack.
-type IDStack = Dictionary<SSA.VariableKind, int list>
+/// A rundown of a function in SSA form, where each SSA statement is associated
+/// with a program point.
+and SSARundown = (ProgramPoint * SSA.Stmt) array

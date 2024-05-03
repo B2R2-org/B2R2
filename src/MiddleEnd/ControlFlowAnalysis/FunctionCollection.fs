@@ -30,20 +30,18 @@ open B2R2.MiddleEnd.ControlFlowGraph
 
 type FunctionCollection<'V,
                         'E,
-                        'Abs,
                         'FnCtx,
-                        'GlCtx when 'V :> IRBasicBlock<'Abs>
+                        'GlCtx when 'V :> IRBasicBlock
                                 and 'V: equality
                                 and 'E: equality
-                                and 'Abs: null
                                 and 'FnCtx :> IResettable
                                 and 'FnCtx: (new: unit -> 'FnCtx)
                                 and 'GlCtx: (new: unit -> 'GlCtx)>
-  public (builders: IFunctionBuildable<'V, 'E, 'Abs, 'FnCtx, 'GlCtx>[]) =
+  public (builders: IFunctionBuildable<'V, 'E, 'FnCtx, 'GlCtx>[]) =
 
-  let addrToFunction = Dictionary<Addr, Function<'V, 'E, 'Abs>> ()
+  let addrToFunction = Dictionary<Addr, Function<'V, 'E>> ()
 
-  let nameToFunction = Dictionary<string, List<Function<'V, 'E, 'Abs>>> ()
+  let nameToFunction = Dictionary<string, List<Function<'V, 'E>>> ()
 
   let findByAddr addr =
     match addrToFunction.TryGetValue addr with
@@ -56,7 +54,7 @@ type FunctionCollection<'V,
        addrToFunction.Add (fn.EntryPoint, fn)
        match nameToFunction.TryGetValue fn.Name with
        | false, _ ->
-         let fns = List<Function<'V, 'E, 'Abs>> ()
+         let fns = List<Function<'V, 'E>> ()
          fns.Add fn
          nameToFunction.Add (fn.Name, fns)
        | true, fns -> fns.Add fn)

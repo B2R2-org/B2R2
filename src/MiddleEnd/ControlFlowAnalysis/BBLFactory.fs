@@ -39,10 +39,9 @@ open B2R2.MiddleEnd.ControlFlowGraph
 /// Per-function factory for basic blocks. Each BBL is memoized so that we do
 /// not create multiple BBLs for the same address. As this is a per-function
 /// structure, each function may see overlapping basic blocks.
-type BBLFactory<'Abs when 'Abs: null> (hdl: BinHandle,
-                                       instrs) =
+type BBLFactory (hdl: BinHandle, instrs) =
   let interProceduralLeaders = ConcurrentDictionary<Addr, unit> ()
-  let bbls = ConcurrentDictionary<ProgramPoint, IRBasicBlock<'Abs>> ()
+  let bbls = ConcurrentDictionary<ProgramPoint, IRBasicBlock> ()
 
   let rec parseBlock (channel: BufferBlock<_>) acc insCount addr leader mode =
     match (instrs: InstructionCollection).TryFind (addr, mode) with

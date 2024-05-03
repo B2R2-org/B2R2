@@ -27,18 +27,16 @@ namespace B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.MiddleEnd.BinGraph
 
 /// CFG where each node is an IR-level basic block.
-type IRCFG<'V, 'E, 'Abs when 'V :> IRBasicBlock<'Abs>
-                         and 'V: equality
-                         and 'E: equality
-                         and 'Abs: null> =
+type IRCFG<'V, 'E when 'V :> IRBasicBlock
+                   and 'V: equality
+                   and 'E: equality> =
   IGraph<'V, 'E>
 
 [<RequireQualifiedAccess>]
 module IRCFG =
   /// Constructor for IRCFG.
-  type IConstructable<'V, 'E, 'Abs when 'V :> IRBasicBlock<'Abs>
-                                    and 'V: equality
-                                    and 'E: equality
-                                    and 'Abs: null> =
+  type IConstructable<'V, 'E when 'V :> IRBasicBlock
+                              and 'V: equality
+                              and 'E: equality> =
     /// Construct an IRCFG.
-    abstract Construct: ImplementationType -> IRCFG<'V, 'E, 'Abs>
+    abstract Construct: ImplementationType -> IRCFG<'V, 'E>

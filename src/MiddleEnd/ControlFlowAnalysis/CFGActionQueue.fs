@@ -27,8 +27,8 @@ namespace B2R2.MiddleEnd.ControlFlowAnalysis
 open System.Collections.Generic
 
 /// A priority queue to store the ICFGActions.
-type CFGActionQueue<'Abs when 'Abs: null> (judge: IPrioritizable) =
-  let pq = PriorityQueue<CFGAction<'Abs>, int> ()
+type CFGActionQueue (judge: IPrioritizable) =
+  let pq = PriorityQueue<CFGAction, int> ()
 
   /// Count the number of actions in the queue.
   member _.Count with get() = pq.Count

@@ -31,12 +31,11 @@ open B2R2.MiddleEnd.ControlFlowGraph
 /// The constant propagation framework, which is a modified version of sparse
 /// conditional constant propagation of Wegman et al.
 [<AbstractClass>]
-type ConstantPropagation<'L, 'Abs when 'L: equality
-                                   and 'Abs: null> (ssaCFG: SSACFG<_, _>) =
-  inherit DataFlowAnalysis<'L, SSABasicBlock<'Abs>> ()
+type ConstantPropagation<'L when 'L: equality> (ssaCFG: SSACFG<_>) =
+  inherit DataFlowAnalysis<'L, SSABasicBlock> ()
 
   /// Constant propagation state.
-  abstract State: CPState<'L, 'Abs>
+  abstract State: CPState<'L>
 
   member private __.GetNumIncomingExecutedEdges st (blk: IVertex<_>) =
     let mutable count = 0

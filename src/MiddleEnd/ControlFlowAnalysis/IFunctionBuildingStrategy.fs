@@ -33,12 +33,10 @@ open B2R2.MiddleEnd.ControlFlowGraph
 /// 'FnCtx are only accessed by a single thread, though.
 type IFunctionBuildingStrategy<'V,
                                'E,
-                               'Abs,
                                'FnCtx,
-                               'GlCtx when 'V :> IRBasicBlock<'Abs>
+                               'GlCtx when 'V :> IRBasicBlock
                                        and 'V: equality
                                        and 'E: equality
-                                       and 'Abs: null
                                        and 'FnCtx :> IResettable
                                        and 'GlCtx: (new: unit -> 'GlCtx)> =
   /// Return the prioritizer to use for the CFG actions.
@@ -49,15 +47,15 @@ type IFunctionBuildingStrategy<'V,
   /// This function returns a CFGResult that indicates whether the function
   /// building should continue, postpone, or exit with an error.
   abstract OnAction:
-       CFGBuildingContext<'V, 'E, 'Abs, 'FnCtx, 'GlCtx>
-     * CFGActionQueue<'Abs>
-     * CFGAction<'Abs>
+       CFGBuildingContext<'V, 'E, 'FnCtx, 'GlCtx>
+     * CFGActionQueue
+     * CFGAction
     -> CFGResult
 
   /// This is a callback that is called when all CFGActions are processed, i.e.,
   /// when CFGActionQueue is empty.
   abstract OnFinish:
-       CFGBuildingContext<'V, 'E, 'Abs, 'FnCtx, 'GlCtx>
+       CFGBuildingContext<'V, 'E, 'FnCtx, 'GlCtx>
     -> CFGResult
 
   /// This is a callback that is called when a cyclic dependency is detected
@@ -65,5 +63,5 @@ type IFunctionBuildingStrategy<'V,
   /// argument, and this function should set the non-returning status of each
   /// function.
   abstract OnCyclicDependency:
-       (Addr * IFunctionBuildable<'V, 'E, 'Abs, 'FnCtx, 'GlCtx>) seq
+       (Addr * IFunctionBuildable<'V, 'E, 'FnCtx, 'GlCtx>) seq
     -> unit

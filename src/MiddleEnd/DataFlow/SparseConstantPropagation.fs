@@ -47,9 +47,9 @@ module private SparseConstantPropagation =
 /// memory objects and GOT pointers. The reader is to enable reading data
 /// from external sections, e.g., rodata. If the reader is not given, we simply
 /// ignore such global data.
-type SparseConstantPropagation<'Abs when 'Abs: null>
+type SparseConstantPropagation
   (hdl, ssaCFG, ?reader) as this =
-  inherit ConstantPropagation<SCPValue, 'Abs> (ssaCFG)
+  inherit ConstantPropagation<SCPValue> (ssaCFG)
 
   let reader = defaultArg reader (fun _ _ -> None)
   let st = CPState.initState hdl ssaCFG (initRegister hdl) (initMemory ()) this
@@ -58,7 +58,7 @@ type SparseConstantPropagation<'Abs when 'Abs: null>
 
   override __.Top = Undef
 
-  interface IConstantPropagation<SCPValue, 'Abs> with
+  interface IConstantPropagation<SCPValue> with
     member __.Bottom = NotAConst
     member __.GoingUp a b = SCPValue.goingUp a b
     member __.Meet a b = SCPValue.meet a b

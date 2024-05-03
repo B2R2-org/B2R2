@@ -30,7 +30,7 @@ open B2R2.MiddleEnd.ControlFlowGraph
 /// Our CFG reconstruction algorithm is performed by consuming actions
 /// (CFGAction). Each action has a priority, which is used to determine the
 /// order of the actions to run.
-type CFGAction<'Abs when 'Abs: null> =
+type CFGAction =
   /// Build an initial CFG that is reachable from the given function start
   /// address.
   | InitiateCFG of fnAddr: Addr * mode: ArchOperationMode
@@ -39,10 +39,10 @@ type CFGAction<'Abs when 'Abs: null> =
   /// Create an abstract call node and connect it to the caller and fallthrough
   /// nodes when necessary.
   | MakeCall of fnAddr: Addr * caller: Addr * callee: Addr * ArchOperationMode
-  | IndirectEdge of IRBasicBlock<'Abs>
-  | SyscallEdge of IRBasicBlock<'Abs>
-  | JumpTableEntryStart of IRBasicBlock<'Abs> * Addr * Addr
-  | JumpTableEntryEnd of IRBasicBlock<'Abs> * Addr * Addr
+  | IndirectEdge of IRBasicBlock
+  | SyscallEdge of IRBasicBlock
+  | JumpTableEntryStart of IRBasicBlock * Addr * Addr
+  | JumpTableEntryEnd of IRBasicBlock * Addr * Addr
 with
   /// The priority of the action. Higher values mean higher priority.
   member this.Priority (p: IPrioritizable) = p.GetPriority this
@@ -50,5 +50,5 @@ with
 /// Interface for setting the priority of an action.
 and IPrioritizable =
   /// Get the priority of the action. A higher value means higher priority.
-  abstract GetPriority: CFGAction<'Abs> -> int
+  abstract GetPriority: CFGAction -> int
 

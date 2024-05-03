@@ -127,8 +127,8 @@ let rec private translateStmtAux defaultRegType addr (s: LowUIR.Stmt) =
   | LowUIR.SideEffect s ->
     SideEffect s |> Some
 
-let translateStmts defaultRegType addr fnPostprocess stmts =
+let translateStmts defaultRegType addr (postProc: IStmtPostProcessor) stmts =
   stmts
   |> Array.choose (fun stmt ->
     translateStmtAux defaultRegType addr stmt
-    |> Option.map fnPostprocess)
+    |> Option.map postProc.PostProcess)

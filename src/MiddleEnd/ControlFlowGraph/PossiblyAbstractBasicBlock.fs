@@ -32,17 +32,15 @@ exception AbstractBlockAccessException
 /// create an abstract basic block for a function while building an
 /// intra-procedural CFG.
 [<AbstractClass>]
-type PossiblyAbstractBasicBlock<'Abs when 'Abs: null> (ppoint,
-                                                       absContent: 'Abs) =
+type PossiblyAbstractBasicBlock (ppoint, absContent: FunctionAbstraction) =
   inherit BasicBlock (ppoint)
 
-  /// Return if this is an abstract basic block inserted by our analysis. For
-  /// example, we create an abstract block to represent a function in a
-  /// function-level CFG.
+  /// Return if this is an abstract basic block inserted by our analysis. We
+  /// create an abstract block to represent a function in a CFG.
   member __.IsAbstract with get () = not (isNull absContent)
 
-  /// The abstract content of the basic block. If the block is not an abstract
-  /// one, this property raises an exception.
+  /// The abstract content of the basic block summarizing a function. If the
+  /// block is not an abstract one, this property raises an exception.
   member __.AbstractContent with get() =
     if isNull absContent then raise AbstractBlockAccessException
     else absContent

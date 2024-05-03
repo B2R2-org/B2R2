@@ -30,12 +30,10 @@ open B2R2.MiddleEnd.ControlFlowGraph
 /// The interface for building a function.
 type IFunctionBuildable<'V,
                         'E,
-                        'Abs,
                         'FnCtx,
-                        'GlCtx when 'V :> IRBasicBlock<'Abs>
+                        'GlCtx when 'V :> IRBasicBlock
                                 and 'V: equality
                                 and 'E: equality
-                                and 'Abs: null
                                 and 'FnCtx :> IResettable
                                 and 'GlCtx: (new: unit -> 'GlCtx)> =
   inherit ILinkage
@@ -50,7 +48,7 @@ type IFunctionBuildable<'V,
   abstract Mode: ArchOperationMode
 
   /// Return the current building context.
-  abstract Context: CFGBuildingContext<'V, 'E, 'Abs, 'FnCtx, 'GlCtx>
+  abstract Context: CFGBuildingContext<'V, 'E, 'FnCtx, 'GlCtx>
 
   /// Authorize the function builder to start building the function. This will
   /// change the state of the function builder to `InProgress`, meaning that the
@@ -79,7 +77,7 @@ type IFunctionBuildable<'V,
   abstract Reset: unit -> unit
 
   /// Convert this builder to a function.
-  abstract ToFunction: unit -> Function<'V, 'E, 'Abs>
+  abstract ToFunction: unit -> Function<'V, 'E>
 
 and FunctionBuilderState =
   /// Initialized but not started.

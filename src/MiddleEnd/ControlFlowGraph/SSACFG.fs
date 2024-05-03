@@ -28,21 +28,19 @@ open B2R2.BinIR.SSA
 open B2R2.MiddleEnd.BinGraph
 
 /// SSA-based CFG, where each node contains disassembly code.
-type SSACFG<'E, 'Abs when 'E: equality
-                      and 'Abs: null> =
-  IGraph<SSABasicBlock<'Abs>, 'E>
+type SSACFG<'E when 'E: equality> =
+  IGraph<SSABasicBlock, 'E>
 
 [<RequireQualifiedAccess>]
 module SSACFG =
   /// Constructor for SSACFG.
-  type IConstructable<'E, 'Abs when 'E: equality
-                                and 'Abs: null> =
+  type IConstructable<'E when 'E: equality> =
     /// Construct an SSACFG.
-    abstract Construct: ImplementationType -> SSACFG<'E, 'Abs>
+    abstract Construct: ImplementationType -> SSACFG<'E>
 
   /// Find SSAVertex that includes the given instruction address.
   [<CompiledName "FindVertexByAddr">]
-  let findVertexByAddr (ssaCFG: IGraph<SSABasicBlock<_>, _>) addr =
+  let findVertexByAddr (ssaCFG: IGraph<SSABasicBlock, _>) addr =
     ssaCFG.FindVertexBy (fun v ->
       if v.VData.IsAbstract then false
       else v.VData.Range.IsIncluding addr)
@@ -51,7 +49,7 @@ module SSACFG =
   /// given node v. We simply follow the dominator tree of the given SSACFG
   /// until we find a definition.
   [<CompiledName "FindDef">]
-  let rec findDef (v: IVertex<SSABasicBlock<_>>) targetVarKind =
+  let rec findDef (v: IVertex<SSABasicBlock>) targetVarKind =
     let stmtInfo =
       v.VData.LiftedSSAStmts
       |> Array.tryFindBack (fun (_, stmt) ->
@@ -70,7 +68,7 @@ module SSACFG =
   /// the entry of node v. We simply follow the dominator tree of the given
   /// SSACFG until we find a definition.
   [<CompiledName "FindReachingDef">]
-  let findReachingDef (v: IVertex<SSABasicBlock<_>>) targetVarKind =
+  let findReachingDef (v: IVertex<SSABasicBlock>) targetVarKind =
     match v.VData.ImmDominator with
     | Some idom ->
       findDef idom targetVarKind

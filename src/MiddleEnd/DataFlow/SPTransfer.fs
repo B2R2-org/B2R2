@@ -37,7 +37,7 @@ let evalBinOp op c1 c2 =
   | BinOpType.AND -> SPValue.``and`` c1 c2
   | _ -> NotAConst
 
-let isStackRelatedRegister (st: CPState<SPValue, _>) regid =
+let isStackRelatedRegister (st: CPState<SPValue>) regid =
   st.BinHandle.RegisterFactory.IsStackPointer regid
   || st.BinHandle.RegisterFactory.IsFramePointer regid
 
@@ -60,7 +60,7 @@ let rec evalExpr st blk = function
   | ReturnVal (addr, _, e) -> evalExpr st blk e
   | _ -> Utils.impossible ()
 
-let evalDef (st: CPState<SPValue, _>) blk v e =
+let evalDef (st: CPState<SPValue>) blk v e =
   match v.Kind with
   | RegVar (_, regid, _) when isStackRelatedRegister st regid ->
     evalExpr st blk e |> CPState.updateConst st v
@@ -82,7 +82,7 @@ let evalPhi st cfg blk dst srcIDs =
     | _ -> ()
 
 let evalJmp st cfg blk = function
-  | InterJmp _ -> CPState.markExceptCallFallThrough st cfg blk
+  | InterJmp _ -> CPState.markAllSuccessors st cfg blk
   | _ -> CPState.markAllSuccessors st cfg blk
 
 let evalStmt st cfg blk = function

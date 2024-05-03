@@ -197,7 +197,7 @@ let startGUI (opts: BinExplorerOpts) arbiter =
 
 /// Dump each CFG into JSON file. This feature is implemented to ease the
 /// development and debugging process, and may be removed in the future.
-let dumpJsonFiles jsonDir (brew: BinaryBrew<_, _, _, _, _>) =
+let dumpJsonFiles jsonDir (brew: BinaryBrew<_, _, _, _>) =
   try System.IO.Directory.Delete(jsonDir, true) with _ -> ()
   System.IO.Directory.CreateDirectory(jsonDir) |> ignore
   brew.Functions.Sequence

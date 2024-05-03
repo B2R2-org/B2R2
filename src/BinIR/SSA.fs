@@ -151,7 +151,7 @@ type Stmt =
   | Def of Variable * Expr
 
   /// Phi function.
-  | Phi of Variable * int []
+  | Phi of Variable * int[]
 
   /// Branch statement.
   | Jmp of JmpType
@@ -164,5 +164,10 @@ type Stmt =
 
 /// A program is a list of statements.
 type Prog = Stmt list list
+
+/// SSA statement post-processor.
+type IStmtPostProcessor =
+  /// This is a callback function that is called after lifting SSA stmts.
+  abstract PostProcess: Stmt -> Stmt
 
 // vim: set tw=80 sts=2 sw=2:

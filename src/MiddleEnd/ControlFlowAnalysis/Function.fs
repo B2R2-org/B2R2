@@ -31,12 +31,7 @@ open B2R2.MiddleEnd.ControlFlowGraph
 /// Function is a chunk of code in a binary. Functions may overlap with each
 /// other in rare cases. Function overlapping is rare because we will create a
 /// new function when there is an incoming edge in the middle of a funcion,
-type Function<'V,
-              'E,
-              'Abs when 'V :> IRBasicBlock<'Abs>
-                    and 'V: equality
-                    and 'E: equality
-                    and 'Abs: null>
+type Function<'V, 'E when 'V :> IRBasicBlock and 'V: equality and 'E: equality>
   public (entryPoint, name, ircfg, isNoRet, callees, callers, isExtern) =
 
   new (entryPoint, name, noret, callers, isExtern) =
@@ -53,7 +48,7 @@ type Function<'V,
   member _.Name with get(): string = name
 
   /// Function's control flow graph.
-  member _.CFG with get(): IRCFG<'V, 'E, 'Abs> = ircfg
+  member _.CFG with get(): IRCFG<'V, 'E> = ircfg
 
   /// Return the non-returning status of this function.
   member _.NoRet with get(): NonReturningStatus = isNoRet

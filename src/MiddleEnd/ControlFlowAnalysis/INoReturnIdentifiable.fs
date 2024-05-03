@@ -30,14 +30,12 @@ open B2R2.MiddleEnd.ControlFlowGraph
 /// function/syscall.
 type INoReturnIdentifiable<'V,
                            'E,
-                           'Abs,
                            'FnCtx,
-                           'GlCtx when 'V :> IRBasicBlock<'Abs>
+                           'GlCtx when 'V :> IRBasicBlock
                                    and 'V: equality
                                    and 'E: equality
-                                   and 'Abs: null
                                    and 'FnCtx :> IResettable
                                    and 'GlCtx: (new: unit -> 'GlCtx)> =
   /// Returns true if the given function is a non-returning function.
-  abstract IsNoReturn: CFGBuildingContext<'V, 'E, 'Abs, 'FnCtx, 'GlCtx> -> bool
+  abstract IsNoReturn: CFGBuildingContext<'V, 'E, 'FnCtx, 'GlCtx> -> bool
 

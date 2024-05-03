@@ -61,10 +61,6 @@ type CFGEdgeKind =
   /// A simple fall-through case. This type is created when an edge cuts in two
   /// consecutive instructions.
   | FallThroughEdge
-  /// A fall-through after a call instruction. This is indeed a pseudo edge from
-  /// a caller block to its fall-through block as there is no direct control
-  /// flow between them.
-  | CallFallThroughEdge
   /// A fall-through after a no-return call instruction. This edge will never be
   /// executed. We have this edge to include all "codes" compiler emitted. If we
   /// do not consider such "unreachable" codes from CFG building, we'll never
@@ -97,7 +93,6 @@ module CFGEdgeKind =
     | ExternalCallEdge -> "ExternalCallEdge"
     | RetEdge -> "RetEdge"
     | FallThroughEdge -> "FallThroughEdge"
-    | CallFallThroughEdge -> "CallFallThroughEdge"
     | NoReturnFallThroughEdge -> "NoReturnFallThroughEdge"
     | ExceptionFallThroughEdge -> "ExceptionFallThroughEdge"
     | ImplicitCallEdge -> "ImplicitCallEdge"

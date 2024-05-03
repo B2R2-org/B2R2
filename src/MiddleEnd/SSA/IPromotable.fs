@@ -24,15 +24,12 @@
 
 namespace B2R2.MiddleEnd.SSA
 
+open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.ControlFlowGraph
 
-/// Post-processor for SSACFG. This is used to transform a SSACFG into another
-/// SSACFG.
-[<AllowNullLiteral>]
-type IPostProcessor<'E, 'Abs when 'E: equality
-                              and 'Abs :> SSAFunctionAbstraction
-                              and 'Abs: null> =
+type IPromotable<'E when 'E: equality> =
   /// Transform the given SSACFG into another SSACFG.
-  abstract PostProcess:
-       SSACFG<'E, 'Abs> * SSAVertex<'Abs>
-    -> struct (SSACFG<'E, 'Abs> * SSAVertex<'Abs>)
+  abstract Promote:
+       cfg: SSACFG<'E> * root: IVertex<SSABasicBlock>
+    -> SSACFG<'E> * IVertex<SSABasicBlock>
+

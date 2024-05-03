@@ -29,17 +29,19 @@ open System.Collections.Generic
 open B2R2
 open B2R2.BinIR
 open B2R2.BinIR.LowUIR
+open B2R2.MiddleEnd.BinGraph
+open B2R2.MiddleEnd.SSA
 open B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.MiddleEnd.ControlFlowAnalysis
-open B2R2.MiddleEnd.SSA
 
 /// Base strategy for building a CFG.
 type BaseStrategy<'FnCtx,
                   'GlCtx when 'FnCtx :> IResettable
                           and 'FnCtx: (new: unit -> 'FnCtx)
                           and 'GlCtx: (new: unit -> 'GlCtx)>
-  public (noRetAnalyzer: INoReturnIdentifiable<_, _, _, 'FnCtx, 'GlCtx>,
-          summarizer: IFunctionSummarizable<_, _, _, 'FnCtx, 'GlCtx>) =
+  public (ssaLifter: SSALifter<_>,
+          noRetAnalyzer: INoReturnIdentifiable<_, _, 'FnCtx, 'GlCtx>,
+          summarizer: IFunctionSummarizable<_, _, 'FnCtx, 'GlCtx>) =
 
   let scanBBLs ctx mode entryPoints =
     ctx.BBLFactory.ScanBBLs mode entryPoints
@@ -55,13 +57,13 @@ type BaseStrategy<'FnCtx,
       ctx.Vertices[ppoint] <- v
       v
 
-  let getAbsVertex ctx callsiteAddr calleeAddr info =
+  let getAbsVertex ctx callsiteAddr calleeAddr abs =
     let key = callsiteAddr, calleeAddr
     match ctx.AbsVertices.TryGetValue key with
     | true, v -> v
     | false, _ ->
       let calleePPoint = ProgramPoint (calleeAddr, 0)
-      let bbl = IRBasicBlock.CreateAbstract (calleePPoint, info)
+      let bbl = IRBasicBlock.CreateAbstract (calleePPoint, abs)
       let v, g = ctx.CFG.AddVertex bbl
       ctx.CFG <- g
       ctx.AbsVertices[key] <- v
@@ -93,7 +95,7 @@ type BaseStrategy<'FnCtx,
     ProgramPoint (targetAddr &&& mask, 0)
 
   /// Build a CFG starting from the given program points.
-  let buildCFG ctx (actionQueue: CFGActionQueue<_>) fnAddr initPPs mode =
+  let buildCFG ctx (actionQueue: CFGActionQueue) fnAddr initPPs mode =
     let ppQueue = Queue<ProgramPoint> (collection=initPPs)
     while ppQueue.Count > 0 do
       let ppoint = ppQueue.Dequeue ()
@@ -207,62 +209,66 @@ type BaseStrategy<'FnCtx,
       for succEdge in succs do
         ctx.CFG <- ctx.CFG.AddEdge (dstVertex, succEdge.Second, succEdge.Label)
 
-  let getFunctionSummary ctx calleeAddr =
-    match ctx.ManagerChannel.GetBuildingContext calleeAddr with
-    | FinalCtx calleeCtx -> calleeCtx.Summary
-    (* This can happen when a cyclic dependency has been resolved. *)
-    | _ -> summarizer.Summarize ctx
+  let addExpandCFGAction (queue: CFGActionQueue) fnAddr mode addr =
+    queue.Push <| ExpandCFG (fnAddr, mode, [ addr ])
 
-  let connectAbsVertex ctx callerAddr calleeAddr summary =
-    let caller = getVertex ctx (ProgramPoint (callerAddr, 0))
+  let getFunctionAbstraction ctx callIns calleeAddr =
+    match ctx.ManagerChannel.GetBuildingContext calleeAddr with
+    | FinalCtx calleeCtx
+    | StillBuilding calleeCtx ->
+      summarizer.Summarize (calleeCtx, callIns) |> Ok
+    | FailedBuilding -> Error ErrorCase.FailedToRecoverCFG
+
+  let connectAbsVertex ctx (caller: IVertex<IRBasicBlock>) calleeAddr abs =
     let callIns = caller.VData.LastInstruction
     let callsiteAddr = callIns.Address
-    let callee = getAbsVertex ctx callsiteAddr calleeAddr summary
+    let callee = getAbsVertex ctx callsiteAddr calleeAddr abs
     connectEdge ctx caller callee CallEdge
     callee, callsiteAddr + uint64 callIns.Length
 
-  let connectFallthrough ctx mode (callee, fallthroughAddr) =
+  let connectRet ctx mode (callee, fallthroughAddr) =
     let dividedEdges = scanBBLs ctx mode [ fallthroughAddr ]
     let fallthroughPPoint = ProgramPoint (fallthroughAddr, 0)
     let fallthroughVertex = getVertex ctx fallthroughPPoint
-    connectEdge ctx callee fallthroughVertex CallFallThroughEdge
+    connectEdge ctx callee fallthroughVertex RetEdge
     reconnectVertices ctx dividedEdges
     fallthroughAddr
 
+  let toCFGResult = function
+    | Ok _ -> Success
+    | Error e -> Failure e
+
   let connectCallEdge ctx queue fnAddr callerAddr calleeAddr mode =
+    let caller = getVertex ctx (ProgramPoint (callerAddr, 0))
     if fnAddr = calleeAddr then (* recursion = always returns (not noret) *)
-      let summary = summarizer.Summarize ctx
-      let nextAddr =
-        connectAbsVertex ctx callerAddr calleeAddr summary
-        |> connectFallthrough ctx mode
-      (queue: CFGActionQueue<_>).Push <| ExpandCFG (fnAddr, mode, [nextAddr])
+      summarizer.Summarize (ctx, caller.VData.LastInstruction)
+      |> connectAbsVertex ctx caller calleeAddr
+      |> connectRet ctx mode
+      |> addExpandCFGAction queue fnAddr mode
       Success
     else
       match ctx.ManagerChannel.GetNonReturningStatus calleeAddr with
       | NoRet ->
-        let summary = getFunctionSummary ctx calleeAddr
-        connectAbsVertex ctx callerAddr calleeAddr summary |> ignore
-        Success
+        getFunctionAbstraction ctx caller.VData.LastInstruction calleeAddr
+        |> Result.map (connectAbsVertex ctx caller calleeAddr)
+        |> toCFGResult
       | NotNoRet ->
-        let summary = getFunctionSummary ctx calleeAddr
-        let nextAddr =
-          connectAbsVertex ctx callerAddr calleeAddr summary
-          |> connectFallthrough ctx mode
-        queue.Push <| ExpandCFG (fnAddr, mode, [nextAddr])
-        Success
+        getFunctionAbstraction ctx caller.VData.LastInstruction calleeAddr
+        |> Result.map (connectAbsVertex ctx caller calleeAddr)
+        |> Result.map (connectRet ctx mode)
+        |> Result.map (addExpandCFGAction queue fnAddr mode)
+        |> toCFGResult
       | UnknownNoRet -> Wait calleeAddr
       | _ -> Failure ErrorCase.FailedToRecoverCFG
 
   new () =
+    let ssaLifter = SSALifter ()
     let noRetAnalyzer = ConditionAwareNoretAnalysis ()
-    let summarizer = { new IFunctionSummarizable<_, _, _, 'FnCtx, 'GlCtx> with
-                         member _.Summarize ctx =
-                           BaseFunctionSummary ctx.IsExternal }
-    BaseStrategy (noRetAnalyzer, summarizer)
+    let summarizer = BaseFunctionSummarizer ()
+    BaseStrategy (ssaLifter, noRetAnalyzer, summarizer)
 
-  interface IFunctionBuildingStrategy<IRBasicBlock<BaseFunctionSummary>,
+  interface IFunctionBuildingStrategy<IRBasicBlock,
                                       CFGEdgeKind,
-                                      BaseFunctionSummary,
                                       'FnCtx,
                                       'GlCtx> with
     member __.ActionPrioritizer =
@@ -310,7 +316,9 @@ type BaseStrategy<'FnCtx,
     member _.OnFinish (ctx) =
       if noRetAnalyzer.IsNoReturn (ctx) then ctx.NonReturningStatus <- NoRet
       else ctx.NonReturningStatus <- NotNoRet
-      ctx.Summary <- summarizer.Summarize ctx
+      let root = ctx.CFG.TryGetSingleRoot () |> Option.get
+      let ssaCFG, _ = ssaLifter.Lift ctx.CFG root
+      ctx.SSACFG <- ssaCFG
       Success
 
     member _.OnCyclicDependency (deps) =

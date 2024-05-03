@@ -24,19 +24,22 @@
 
 namespace B2R2.MiddleEnd.ControlFlowAnalysis
 
+open B2R2.FrontEnd.BinLifter
 open B2R2.MiddleEnd.ControlFlowGraph
 
 /// Interface for summarizing a function based on the given context to abstract
 /// data.
 type IFunctionSummarizable<'V,
                            'E,
-                           'Abs,
                            'FnCtx,
-                           'GlCtx when 'V :> IRBasicBlock<'Abs>
+                           'GlCtx when 'V :> IRBasicBlock
                                    and 'V: equality
                                    and 'E: equality
-                                   and 'Abs: null
                                    and 'FnCtx :> IResettable
                                    and 'GlCtx: (new: unit -> 'GlCtx)> =
-  /// Summarize a function based on the given context to abstract data.
-  abstract Summarize: CFGBuildingContext<'V, 'E, 'Abs, 'FnCtx, 'GlCtx> -> 'Abs
+  /// Summarize a function based on the given context to abstract data. The
+  /// `ins` is the call instruction that calls the function.
+  abstract Summarize:
+       CFGBuildingContext<'V, 'E, 'FnCtx, 'GlCtx>
+     * ins: Instruction
+    -> FunctionAbstraction

@@ -32,7 +32,7 @@
     <Compile Include="TaskManager.fs" />
     <Compile Include="Strategies\DummyContext.fs" />
     <Compile Include="Strategies\ConditionAwareNoretAnalysis.fs" />
-    <Compile Include="Strategies\BaseFunctionSummary.fs" />
+    <Compile Include="Strategies\BaseFunctionSummarizer.fs" />
     <Compile Include="Strategies\BaseStrategy.fs" />
     <None Include="..\..\..\LICENSE.md" Pack="true" PackagePath="" />
     <None Include="..\..\..\assets\b2r2-240x240.png" Pack="true" PackagePath="" />

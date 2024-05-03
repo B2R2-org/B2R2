@@ -36,25 +36,23 @@ open B2R2.MiddleEnd.ControlFlowGraph
 /// Task manager for control flow recovery.
 type TaskManager<'V,
                  'E,
-                 'Abs,
                  'FnCtx,
-                 'GlCtx when 'V :> IRBasicBlock<'Abs>
+                 'GlCtx when 'V :> IRBasicBlock
                            and 'V: equality
                            and 'E: equality
-                           and 'Abs: null
                            and 'FnCtx :> IResettable
                            and 'FnCtx: (new: unit -> 'FnCtx)
                            and 'GlCtx: (new: unit -> 'GlCtx)>
   public (hdl,
           instrs: InstructionCollection,
-          cfgConstructor: IRCFG.IConstructable<'V, 'E, 'Abs>,
-          strategy: IFunctionBuildingStrategy<'V, 'E, 'Abs, 'FnCtx, 'GlCtx>,
+          cfgConstructor: IRCFG.IConstructable<'V, 'E>,
+          strategy: IFunctionBuildingStrategy<'V, 'E, 'FnCtx, 'GlCtx>,
           ?numThreads) =
 
   let numThreads = defaultArg numThreads (Environment.ProcessorCount / 2)
   let builders = FunctionBuilderTable (hdl, instrs, cfgConstructor, strategy)
   let workingSet = HashSet<Addr> ()
-  let toWorkers = BufferBlock<IFunctionBuildable<_, _, _, _, _>> ()
+  let toWorkers = BufferBlock<IFunctionBuildable<_, _, _, _>> ()
   let cts = new CancellationTokenSource ()
   let ct = cts.Token
   let dependenceMap = FunctionDependenceMap ()
@@ -98,8 +96,8 @@ type TaskManager<'V,
           match builder.BuilderState with
           | Invalid -> ch.Reply FailedBuilding
           | Finished -> ch.Reply <| FinalCtx builder.Context
-          | _ -> ch.Reply StillBuilding
-        | Error _ -> ch.Reply StillBuilding
+          | _ -> ch.Reply <| StillBuilding builder.Context
+        | Error _ -> ch.Reply <| FailedBuilding
       | AccessGlobalContext (accessor, ch) ->
         ch.Reply <| accessor globalCtx
       | UpdateGlobalContext updater ->
@@ -162,7 +160,7 @@ type TaskManager<'V,
 
   let sanityCheck arr =
     arr
-    |> Array.partition (fun (builder: IFunctionBuildable<_, _, _, _, _>) ->
+    |> Array.partition (fun (builder: IFunctionBuildable<_, _, _, _>) ->
       builder.BuilderState = Finished)
     |> fun (succs, fails) ->
       Console.WriteLine $"[*] Done (total {succs.Length} functions)"
@@ -192,18 +190,16 @@ type TaskManager<'V,
 /// Task worker for control flow recovery.
 and private TaskWorker<'V,
                        'E,
-                       'Abs,
                        'FnCtx,
-                       'GlCtx when 'V :> IRBasicBlock<'Abs>
+                       'GlCtx when 'V :> IRBasicBlock
                                and 'V: equality
                                and 'E: equality
-                               and 'Abs: null
                                and 'FnCtx :> IResettable
                                and 'FnCtx: (new: unit -> 'FnCtx)
                                and 'GlCtx: (new: unit -> 'GlCtx)>
   public (tid: int,
-          manager: Agent<TaskMessage<'V, 'E, 'Abs, 'FnCtx, 'GlCtx>>,
-          ch: BufferBlock<IFunctionBuildable<'V, 'E, 'Abs, 'FnCtx, 'GlCtx>>,
+          manager: Agent<TaskMessage<'V, 'E, 'FnCtx, 'GlCtx>>,
+          ch: BufferBlock<IFunctionBuildable<'V, 'E, 'FnCtx, 'GlCtx>>,
           token) =
 
   let worker = task {

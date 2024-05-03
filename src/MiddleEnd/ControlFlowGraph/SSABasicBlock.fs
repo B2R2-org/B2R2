@@ -25,22 +25,21 @@
 namespace B2R2.MiddleEnd.ControlFlowGraph
 
 open B2R2
-open B2R2.BinIR
 open B2R2.BinIR.SSA
 open B2R2.FrontEnd.BinLifter
 open B2R2.MiddleEnd.BinGraph
 
 /// Basic block type for an SSA-based CFG (SSACFG). It holds an array of
 /// LiftedSSAStmts (ProgramPoint * Stmt).
-type SSABasicBlock<'Abs when 'Abs: null>
-  private (ppoint, stmts, funcAbs: 'Abs, liftedInstrs) =
-  inherit PossiblyAbstractBasicBlock<'Abs> (ppoint, funcAbs)
+type SSABasicBlock private (ppoint, lastAddr, stmts: _[], funcAbs) =
+  inherit PossiblyAbstractBasicBlock (ppoint, funcAbs)
 
-  let mutable idom: IVertex<SSABasicBlock<'Abs>> option = None
+  let mutable idom: IVertex<SSABasicBlock> option = None
 
-  let mutable frontier: IVertex<SSABasicBlock<'Abs>> list = []
+  let mutable frontier: IVertex<SSABasicBlock> list = []
 
-  let mutable stmts: SSAStatementTuple[] = stmts
+  /// (ProgramPoint * SSA.Stmt) array.
+  let mutable stmts = stmts
 
   let computeNextPPoint (ppoint: ProgramPoint) = function
     | Def (v, Num bv) ->
@@ -48,9 +47,6 @@ type SSABasicBlock<'Abs when 'Abs: null>
       | PCVar _ -> ProgramPoint (BitVector.ToUInt64 bv, 0)
       | _ -> ProgramPoint.Next ppoint
     | _ -> ProgramPoint.Next ppoint
-
-  /// Return the LiftedInstruction array.
-  member __.LiftedInstructions with get(): LiftedInstruction[] = liftedInstrs
 
   /// Return the SSA statements.
   member __.LiftedSSAStmts with get() = stmts
@@ -80,10 +76,7 @@ type SSABasicBlock<'Abs when 'Abs: null>
     |> ignore
 
   override __.Range with get() =
-    if isNull funcAbs then
-      let lastIns = liftedInstrs[liftedInstrs.Length - 1].Original
-      let lastAddr = lastIns.Address + uint64 lastIns.Length
-      AddrRange (ppoint.Address, lastAddr - 1UL)
+    if isNull funcAbs then AddrRange (ppoint.Address, lastAddr)
     else raise AbstractBlockAccessException
 
   override __.ToVisualBlock () =
@@ -94,23 +87,10 @@ type SSABasicBlock<'Abs when 'Abs: null>
              AsmWordValue = Pp.stmtToString stmt } |])
     else [||]
 
-  static member CreateRegular (ssaLifter: ISSALiftable<_>, ppoint, liftedInstrs) =
-    let stmts = ssaLifter.Lift liftedInstrs
-    SSABasicBlock (ppoint, stmts, null, liftedInstrs)
+  static member CreateRegular (stmts, ppoint, lastAddr) =
+    SSABasicBlock (ppoint, lastAddr, stmts, null)
 
   /// Create an abstract basic block located at `ppoint`.
-  static member CreateAbstract (ssaLifter: ISSALiftable<_>, ppoint, info) =
-    assert (not (isNull info))
-    let stmts = ssaLifter.Summarize (info, ppoint)
-    SSABasicBlock (ppoint, stmts, info, [||])
-
-/// SSA statement along with the program point.
-and SSAStatementTuple = ProgramPoint * SSA.Stmt
-
-/// The interface for lifting SSA statements.
-and ISSALiftable<'Abs> =
-  /// Lift the given LowUIR statements to SSA statements.
-  abstract Lift: LiftedInstruction[] -> SSAStatementTuple[]
-
-  /// Summarize the function at the given program point.
-  abstract Summarize: 'Abs * ProgramPoint -> SSAStatementTuple[]
+  static member CreateAbstract (ppoint, abs: FunctionAbstraction) =
+    assert (not (isNull abs))
+    SSABasicBlock (ppoint, 0UL, abs.Rundown, abs)

@@ -137,7 +137,7 @@ let handleBinInfo req resp arbiter =
   let txt = "\"" + txt.Replace(@"\", @"\\") + "\""
   Some (defaultEnc.GetBytes (txt)) |> answer req resp
 
-let cfgToJSON cfgType (brew: BinaryBrew<_, _, _, _, _>) g root =
+let cfgToJSON cfgType (brew: BinaryBrew<_, _, _, _>) g root =
   match cfgType with
   | IRCFG ->
     Visualizer.getJSONFromGraph g [root]
@@ -152,7 +152,7 @@ let cfgToJSON cfgType (brew: BinaryBrew<_, _, _, _, _>) g root =
     Utils.futureFeature ()
   | _ -> failwith "Invalid CFG type"
 
-let handleRegularCFG req resp funcID (brew: BinaryBrew<_, _, _, _, _>)
+let handleRegularCFG req resp funcID (brew: BinaryBrew<_, _, _, _>)
                      cfgType =
   let func = brew.Functions.FindByID funcID
   try

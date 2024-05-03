@@ -31,6 +31,7 @@ open B2R2.MiddleEnd.ControlFlowGraph
 
 type SSAStmtLocation = VertexID * int
 
+/// SSA edges in a CFG.
 type EdgeInfo = {
   /// A mapping from an SSA var to a set of use locations.
   Uses: Map<SSA.Variable, Set<SSAStmtLocation>>
@@ -71,10 +72,10 @@ let rec private computeUses loc expr acc =
 
 /// Compute SSA edge map (SSA Var -> a set of (VertexID, Stmt idx)). From a
 /// given ssa var, this function returns a set of SSA-edge destination.
-let compute (ssaCFG: IGraph<SSABasicBlock<_>, _>) =
+let compute (ssaCFG: IGraph<SSABasicBlock, _>) =
   let emptyInfo = { Uses = Map.empty; Defs = Map.empty }
   emptyInfo
-  |> ssaCFG.FoldVertex (fun acc (v: SSAVertex<_>) ->
+  |> ssaCFG.FoldVertex (fun acc (v: IVertex<SSABasicBlock>) ->
     let vid = v.ID
     v.VData.LiftedSSAStmts
     |> Array.foldi (fun acc idx (_, stmt) ->

@@ -32,19 +32,17 @@ open B2R2.MiddleEnd.ControlFlowAnalysis.ExternalFunctionLoader
 
 type FunctionBuilderTable<'V,
                           'E,
-                          'Abs,
                           'FnCtx,
-                          'GlCtx when 'V :> IRBasicBlock<'Abs>
+                          'GlCtx when 'V :> IRBasicBlock
                                   and 'V: equality
                                   and 'E: equality
-                                  and 'Abs: null
                                   and 'FnCtx :> IResettable
                                   and 'FnCtx: (new: unit -> 'FnCtx)
                                   and 'GlCtx: (new: unit -> 'GlCtx)>
   public (hdl, instrs, cfgConstructor, strategy) =
 
   let builders =
-    Dictionary<Addr, IFunctionBuildable<'V,'E, 'Abs, 'FnCtx, 'GlCtx>> ()
+    Dictionary<Addr, IFunctionBuildable<'V,'E, 'FnCtx, 'GlCtx>> ()
 
   let getOrCreateInternalBuilder manager addr mode =
     match builders.TryGetValue addr with

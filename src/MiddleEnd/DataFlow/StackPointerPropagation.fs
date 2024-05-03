@@ -47,8 +47,8 @@ module private StackPointerPropagation =
 /// constant first, and check how it propagates within the function.
 /// StackPointerPropagation is generally much faster than
 /// SparseConstantPropagation due to its simplicity.
-type StackPointerPropagation<'Abs when 'Abs: null> (hdl, ssaCFG) as this =
-  inherit ConstantPropagation<SPValue, 'Abs> (ssaCFG)
+type StackPointerPropagation (hdl, ssaCFG) as this =
+  inherit ConstantPropagation<SPValue> (ssaCFG)
 
   let st = CPState.initState hdl ssaCFG (initRegister hdl) (Dictionary ()) this
 
@@ -56,7 +56,7 @@ type StackPointerPropagation<'Abs when 'Abs: null> (hdl, ssaCFG) as this =
 
   override __.Top = Undef
 
-  interface IConstantPropagation<SPValue, 'Abs> with
+  interface IConstantPropagation<SPValue> with
     member __.Bottom = NotAConst
     member __.GoingUp a b = SPValue.goingUp a b
     member __.Meet a b = SPValue.meet a b

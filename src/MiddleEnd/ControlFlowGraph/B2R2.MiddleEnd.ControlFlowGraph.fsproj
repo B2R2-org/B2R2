@@ -9,6 +9,7 @@
 
   <ItemGroup>
     <Compile Include="CFGEdgeKind.fs" />
+    <Compile Include="FunctionAbstraction.fs" />
     <Compile Include="VisualBlock.fs" />
     <Compile Include="BasicBlock.fs" />
     <Compile Include="PossiblyAbstractBasicBlock.fs" />
