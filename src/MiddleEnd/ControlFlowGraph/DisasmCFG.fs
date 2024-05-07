@@ -69,9 +69,6 @@ module DisasmCFG =
       if insList.ContainsKey ins.Address then ()
       else insList.Add (ins.Address, ins))
 
-  let private removeDisasmVertexInfo (vMap: DisasmVMap<_>) addr =
-    vMap.Remove addr |> ignore
-
   let private updateSuccessor (succs: List<Addr * _>) = function
     | Some (succAddr, edge) -> succs.Add (succAddr, edge)
     | None -> ()
@@ -80,33 +77,24 @@ module DisasmCFG =
     let tmpV = vMap[addr]
     updateSuccessor tmpV.Successors succ
 
-  let private hasMultipleIncomingEdges (g: IRCFG<_, _>) v =
-    g.GetPreds v |> Seq.length > 1
-
   let private appendInstructionsInto srcInss (dstInss: SortedList<_, _>) =
     srcInss |> Seq.iter (fun (KeyValue (addr, ins)) -> dstInss.Add (addr, ins))
 
   let private updateDisasmCallerVertexInfo g vMap srcAddr edges =
-    assert (Seq.length edges = 1)
-    let e = Seq.head edges
+    let e = Seq.exactlyOne edges
     let absV = (e: Edge<_, _>).Second
-    let maybeFtV = (g: IRCFG<_, _>).GetSuccs absV |> Seq.tryHead
-    match maybeFtV with
-    | Some ftV when hasMultipleIncomingEdges g ftV ->
-      let ftAddr = ftV.VData.PPoint.Address
-      let succ = Some (ftAddr, e.Label)
-      updateDisasmEdgeInfo vMap srcAddr succ
+    match (g: IRCFG<_, _>).GetSuccs absV |> Seq.tryHead with
+    | Some ftV when (g.GetPreds ftV).Count > 1 ->
+      Some (ftV.VData.PPoint.Address, e.Label)
+      |> updateDisasmEdgeInfo vMap srcAddr
     | Some ftV ->
       let ftAddr = ftV.VData.PPoint.Address
       let inss1 = vMap[srcAddr].Instructions
       let inss2 = vMap[ftAddr].Instructions
       let ftSuccs = vMap[ftAddr].Successors
       appendInstructionsInto inss2 inss1
-      removeDisasmVertexInfo vMap ftAddr
-      ftSuccs
-      |> Seq.iter (fun (succAddr, e) ->
-        let succ = Some (succAddr, e)
-        updateDisasmEdgeInfo vMap srcAddr succ)
+      vMap.Remove ftAddr |> ignore
+      for succ in ftSuccs do updateDisasmEdgeInfo vMap srcAddr <| Some succ
     | _ -> ()
 
   let private updateDisasmNormalVertexInfo vMap srcAddr edges =
@@ -116,23 +104,19 @@ module DisasmCFG =
       updateDisasmEdgeInfo vMap srcAddr succ)
 
   let rec private accumulateDisasmCFGInfo (g: IRCFG<_, _>) vMap =
-    g.Vertices
-    |> Array.sortByDescending (fun v -> v.VData.PPoint.Address)
-    |> Array.filter (fun v -> not v.VData.IsAbstract)
-    |> accumulateDisasmCFGInfoAux g vMap 0
-
-  and private accumulateDisasmCFGInfoAux g vMap i vs =
-    if i >= vs.Length then ()
-    else
-      let v = vs[i]
-      let vData = v.VData
-      let edges = g.GetSuccEdges v
-      let srcAddr = vData.PPoint.Address
-      let hasAbsSucc = edges |> Seq.exists (fun e -> e.Second.VData.IsAbstract)
-      updateDisasmVertexInfo vMap vData
-      if hasAbsSucc then updateDisasmCallerVertexInfo g vMap srcAddr edges
-      else updateDisasmNormalVertexInfo vMap srcAddr edges
-      accumulateDisasmCFGInfoAux g vMap (i + 1) vs
+    let sortedVertices =
+      g.Vertices
+      |> Array.sortByDescending (fun v -> v.VData.PPoint.Address)
+    for v in sortedVertices do
+      if v.VData.IsAbstract then ()
+      else
+        let vData = v.VData
+        let edges = g.GetSuccEdges v
+        let srcAddr = vData.PPoint.Address
+        let hasAbs = edges |> Seq.exists (fun e -> e.Second.VData.IsAbstract)
+        updateDisasmVertexInfo vMap vData
+        if hasAbs then updateDisasmCallerVertexInfo g vMap srcAddr edges
+        else updateDisasmNormalVertexInfo vMap srcAddr edges
 
   let private createDisasmCFGVertices (vMap: DisasmVMap<_>) newGraph =
     vMap |> Seq.fold (fun (g: DisasmCFG<_>) (KeyValue (addr, tmpV)) ->
