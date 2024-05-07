@@ -41,7 +41,8 @@ type BaseStrategy<'FnCtx,
                           and 'GlCtx: (new: unit -> 'GlCtx)>
   public (ssaLifter: SSALifter<_>,
           noRetAnalyzer: INoReturnIdentifiable<_, _, 'FnCtx, 'GlCtx>,
-          summarizer: IFunctionSummarizable<_, _, 'FnCtx, 'GlCtx>) =
+          summarizer: IFunctionSummarizable<_, _, 'FnCtx, 'GlCtx>,
+          allowOverlap) =
 
   let scanBBLs ctx mode entryPoints =
     ctx.BBLFactory.ScanBBLs mode entryPoints
@@ -265,12 +266,19 @@ type BaseStrategy<'FnCtx,
     let ssaLifter = SSALifter ()
     let noRetAnalyzer = ConditionAwareNoretAnalysis ()
     let summarizer = BaseFunctionSummarizer ()
-    BaseStrategy (ssaLifter, noRetAnalyzer, summarizer)
+    BaseStrategy (ssaLifter, noRetAnalyzer, summarizer, false)
+
+  new (ssaLifter) =
+    let noRetAnalyzer = ConditionAwareNoretAnalysis ()
+    let summarizer = BaseFunctionSummarizer ()
+    BaseStrategy (ssaLifter, noRetAnalyzer, summarizer, false)
 
   interface IFunctionBuildingStrategy<IRBasicBlock,
                                       CFGEdgeKind,
                                       'FnCtx,
                                       'GlCtx> with
+    member __.AllowBBLOverlap = allowOverlap
+
     member __.ActionPrioritizer =
       { new IPrioritizable with
           member _.GetPriority action =

@@ -25,6 +25,7 @@
 namespace B2R2.MiddleEnd.ControlFlowAnalysis
 
 open System
+open System.Runtime.InteropServices
 open System.Collections.Generic
 open System.Collections.Immutable
 open System.Collections.Concurrent
@@ -38,8 +39,16 @@ open B2R2.MiddleEnd.ControlFlowGraph
 
 /// Per-function factory for basic blocks. Each BBL is memoized so that we do
 /// not create multiple BBLs for the same address. As this is a per-function
-/// structure, each function may see overlapping basic blocks.
-type BBLFactory (hdl: BinHandle, instrs) =
+/// structure, each different function has its own BBLFactory. The third
+/// argument `allowOverlap` controls whether we allow overlapping basic blocks
+/// or not. When `allowOverlap` is false, we split basic blocks whenever we
+/// found an edge that jumps to the middle of an existing basic block. However,
+/// when it is true, we do not split basic blocks and allow overlapping basic
+/// blocks. Overlapping basic blocks could be useful when we analyze EVM
+/// binaries, for instance.
+type BBLFactory (hdl: BinHandle,
+                 instrs,
+                 [<Optional; DefaultParameterValue(false)>] allowOverlap) =
   let interProceduralLeaders = ConcurrentDictionary<Addr, unit> ()
   let bbls = ConcurrentDictionary<ProgramPoint, IRBasicBlock> ()
 
@@ -249,7 +258,7 @@ type BBLFactory (hdl: BinHandle, instrs) =
       let channel = BufferBlock<Addr * Instruction list * int> ()
       instrProducer channel mode addrs |> ignore
       do! bblLifter channel
-      return commit ()
+      return if allowOverlap then List () else commit ()
     }
 
   /// Check if there is a BBL at the given program point.

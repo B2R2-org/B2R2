@@ -55,7 +55,7 @@ type InternalFunctionBuilder<'V,
   /// Internal builder state.
   let mutable state = Initialized
 
-  let bblFactory = BBLFactory (hdl, instrs)
+  let bblFactory = BBLFactory (hdl, instrs, strategy.AllowBBLOverlap)
   let fnCtx = new 'FnCtx ()
 
   let managerChannel =

@@ -39,6 +39,9 @@ type IFunctionBuildingStrategy<'V,
                                        and 'E: equality
                                        and 'FnCtx :> IResettable
                                        and 'GlCtx: (new: unit -> 'GlCtx)> =
+  /// Whether to allow basic block overlap.
+  abstract AllowBBLOverlap: bool
+
   /// Return the prioritizer to use for the CFG actions.
   abstract ActionPrioritizer: IPrioritizable
 
