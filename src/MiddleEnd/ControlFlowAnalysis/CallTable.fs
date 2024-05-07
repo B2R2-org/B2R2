@@ -37,6 +37,11 @@ type CallTable () =
   /// its caller addresses.
   let callingNodes = Dictionary<Addr, HashSet<Addr>> ()
 
+  /// The frame distances of callees in this function. This is a mapping from a
+  /// callsite address to the distance from the stack base address of this
+  /// function to the stack base address of the callee.
+  let frameDistances = Dictionary<Addr, int> ()
+
   /// The callees of this function. This is a mapping from a callsite (call
   /// instruction) address to its callee kind.
   member _.Callees with get() = callees
@@ -64,6 +69,14 @@ type CallTable () =
   member _.TryGetCallers (calleeAddr: Addr) =
     callingNodes.TryGetValue calleeAddr
 
+  /// Update call frame distance information for the given callsite address.
+  member _.UpdateFrameDistance (callsiteAddr: Addr) distance =
+    frameDistances[callsiteAddr] <- distance
+
+  /// Try to get a frame distance for the given callsite address.
+  member _.TryGetFrameDistance (callsiteAddr: Addr) =
+    frameDistances.TryGetValue callsiteAddr
+
 /// What kind of callee is this?
 and CalleeKind =
   /// Callee is a regular function.
@@ -78,5 +91,5 @@ and CalleeKind =
   | UnresolvedIndirectCallees
   /// There can be "call 0" to call an external function. This pattern is
   /// typically observed by object files, but sometimes we do see this pattern
-  /// in regular executables, e.g., GNU libc.
+  /// in regular binaries, e.g., GNU libc.
   | NullCallee

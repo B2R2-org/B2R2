@@ -31,9 +31,7 @@ open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.ControlFlowGraph
 
 /// The main lifter for SSA.
-type SSALifter<'E when 'E: equality>
-  public (postProcessor: IStmtPostProcessor,
-          promoter: IPromotable<'E>) =
+type SSALifter<'E when 'E: equality> (postProcessor: IStmtPostProcessor) =
   /// Lift the given LowUIR statements to SSA statements.
   let liftStmts (liftedInstrs: LiftedInstruction[]) =
     liftedInstrs
@@ -44,8 +42,8 @@ type SSALifter<'E when 'E: equality>
       AST.translateStmts wordSize address postProcessor stmts)
     |> Array.map (fun s -> ProgramPoint.GetFake (), s)
 
-  let getVertex vMap g (src: IVertex<_>) =
-    let bbl: IRBasicBlock = src.VData
+  let getVertex vMap g (src: IVertex<#IRBasicBlock>) =
+    let bbl = src.VData
     let ppoint = bbl.PPoint
     match (vMap: SSAVMap).TryGetValue ppoint with
     | true, v -> v, g
@@ -59,7 +57,7 @@ type SSALifter<'E when 'E: equality>
       v, g
 
   let getAbsVertex avMap g src ftPpoint =
-    let srcBbl = (src: IVertex<IRBasicBlock>).VData
+    let srcBbl = (src: IVertex<#IRBasicBlock>).VData
     let calleePpoint = srcBbl.PPoint
     let key = calleePpoint, ftPpoint
     match (avMap: AbstractVMap).TryGetValue key with
@@ -275,26 +273,25 @@ type SSALifter<'E when 'E: equality>
 
   new () =
     SSALifter<'E> (
-      { new IStmtPostProcessor with member _.PostProcess stmt = stmt },
-      { new IPromotable<'E> with member _.Promote (g, root) = g, root })
+      { new IStmtPostProcessor with member _.PostProcess stmt = stmt })
 
-  /// Lift an IRCFG into an SSACFG.
-  member _.Lift (g: IRCFG<_, 'E>) (root: IVertex<#IRBasicBlock>) =
-    let ssaCFG =
-      match g.ImplementationType with
-      | Imperative ->
-        ImperativeDiGraph<SSABasicBlock, 'E> () :> IGraph<_, _>
-      | Persistent ->
-        PersistentDiGraph<SSABasicBlock, 'E> () :> IGraph<_, _>
-    let vMap = SSAVMap ()
-    let avMap = AbstractVMap ()
-    let ssaCFG, root = convertToSSA g vMap avMap ssaCFG root
-    let vertices = Seq.append vMap.Values avMap.Values
-    ssaCFG.FindVertexBy (fun v ->
-      v.VData.PPoint = root.VData.PPoint && not <| v.VData.IsAbstract)
-    |> installPhis vertices ssaCFG
-    ssaCFG.IterVertex (fun v -> v.VData.UpdatePPoints ())
-    promoter.Promote (ssaCFG, root)
+  interface ISSALiftable<'E> with
+    member _.Lift (g, root) =
+      let ssaCFG =
+        match g.ImplementationType with
+        | Imperative ->
+          ImperativeDiGraph<SSABasicBlock, 'E> () :> IGraph<_, _>
+        | Persistent ->
+          PersistentDiGraph<SSABasicBlock, 'E> () :> IGraph<_, _>
+      let vMap = SSAVMap ()
+      let avMap = AbstractVMap ()
+      let ssaCFG, root = convertToSSA g vMap avMap ssaCFG root
+      let vertices = Seq.append vMap.Values avMap.Values
+      ssaCFG.FindVertexBy (fun v ->
+        v.VData.PPoint = root.VData.PPoint && not <| v.VData.IsAbstract)
+      |> installPhis vertices ssaCFG
+      ssaCFG.IterVertex (fun v -> v.VData.UpdatePPoints ())
+      ssaCFG, root
 
 /// SSACFG's vertex.
 and SSAVertex = IVertex<SSABasicBlock>

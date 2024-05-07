@@ -39,7 +39,7 @@ type BaseStrategy<'FnCtx,
                   'GlCtx when 'FnCtx :> IResettable
                           and 'FnCtx: (new: unit -> 'FnCtx)
                           and 'GlCtx: (new: unit -> 'GlCtx)>
-  public (ssaLifter: SSALifter<_>,
+  public (ssaLifter: ISSALiftable<_>,
           noRetAnalyzer: INoReturnIdentifiable<_, _, 'FnCtx, 'GlCtx>,
           summarizer: IFunctionSummarizable<_, _, 'FnCtx, 'GlCtx>,
           allowOverlap) =
@@ -325,7 +325,7 @@ type BaseStrategy<'FnCtx,
       if noRetAnalyzer.IsNoReturn (ctx) then ctx.NonReturningStatus <- NoRet
       else ctx.NonReturningStatus <- NotNoRet
       let root = ctx.CFG.TryGetSingleRoot () |> Option.get
-      let ssaCFG, _ = ssaLifter.Lift ctx.CFG root
+      let ssaCFG, _ = ssaLifter.Lift (ctx.CFG, root)
       ctx.SSACFG <- ssaCFG
       Success
 

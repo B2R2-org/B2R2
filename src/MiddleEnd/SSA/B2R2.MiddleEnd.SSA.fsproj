@@ -9,7 +9,7 @@
 
   <ItemGroup>
     <Compile Include="SSAEdges.fs" />
-    <Compile Include="IPromotable.fs" />
+    <Compile Include="ISSALiftable.fs" />
     <Compile Include="SSALifter.fs" />
     <None Include="..\..\..\LICENSE.md" Pack="true" PackagePath="" />
     <None Include="..\..\..\assets\b2r2-240x240.png" Pack="true" PackagePath="" />
