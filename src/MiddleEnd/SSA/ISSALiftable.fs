@@ -33,3 +33,6 @@ type ISSALiftable<'E when 'E: equality> =
   abstract Lift:
        cfg: IRCFG<#IRBasicBlock, 'E> * root: IVertex<#IRBasicBlock>
     -> SSACFG<'E> * IVertex<SSABasicBlock>
+
+  /// Add phis and rename all the variables in the given SSACFG.
+  abstract UpdatePhis: ssaCFG: SSACFG<'E> * root: IVertex<SSABasicBlock> -> unit

@@ -69,7 +69,9 @@ type SSALifter<'E when 'E: equality> (postProcessor: IStmtPostProcessor) =
       avMap.Add (key, v)
       v, g
 
-  let convertToSSA irCFG vMap avMap ssaCFG root =
+  let convertToSSA irCFG ssaCFG root =
+    let vMap = SSAVMap ()
+    let avMap = AbstractVMap ()
     let root, ssaCFG = getVertex vMap ssaCFG root
     let ssaCFG =
       ssaCFG
@@ -95,20 +97,20 @@ type SSALifter<'E when 'E: equality> (postProcessor: IStmtPostProcessor) =
     ssaCFG, root
 
   let computeDominatorInfo g root =
-    let domCtxt = Dominator.initDominatorContext g root
-    let frontiers = Dominator.frontiers domCtxt
+    let domCtx = Dominator.initDominatorContext g root
+    let frontiers = Dominator.frontiers domCtx
     g.IterVertex (fun (v: SSAVertex) ->
-      let dfnum = domCtxt.ForwardDomInfo.DFNumMap[v.ID]
-      v.VData.ImmDominator <- Dominator.idom domCtxt v
+      let dfnum = domCtx.ForwardDomInfo.DFNumMap[v.ID]
+      v.VData.ImmDominator <- Dominator.idom domCtx v
       v.VData.DomFrontier <- frontiers[dfnum])
-    domCtxt
+    domCtx
 
   let collectDefVars defs (_, stmt) =
     match stmt with
     | Def ({ Kind = k }, _) -> Set.add k defs
     | _ -> defs
 
-  let findPhiSites g defsPerNode variable (phiSites, workList) v =
+  let addPhi g defsPerNode variable (phiSites, workList) v =
     if Set.contains v phiSites then phiSites, workList
     else
       match variable with
@@ -131,23 +133,25 @@ type SSALifter<'E when 'E: equality> (postProcessor: IStmtPostProcessor) =
     | (v: SSAVertex) :: workList ->
       let phiSites, workList =
         v.VData.DomFrontier
-        |> List.fold (findPhiSites g defsPerNode variable) (phiSites, workList)
+        |> List.fold (addPhi g defsPerNode variable) (phiSites, workList)
       iterDefs g phiSites defsPerNode variable workList
 
-  let placePhis g vertices (defSites: DefSites) domCtxt =
+  let findDefVars (ssaCFG: SSACFG<_>) (defSites: DefSites) =
     let defsPerNode = DefsPerNode ()
-    vertices
-    |> Seq.iter (fun (v: SSAVertex) ->
+    ssaCFG.Vertices
+    |> Array.iter (fun (v: SSAVertex) ->
       let defs = v.VData.LiftedSSAStmts |> Array.fold collectDefVars Set.empty
       defsPerNode[v] <- defs
       defs |> Set.iter (fun d ->
         if defSites.ContainsKey d then defSites[d] <- Set.add v defSites[d]
         else defSites[d] <- Set.singleton v))
+    defsPerNode
+
+  let placePhis g defsPerNode (defSites: DefSites) =
     for KeyValue (variable, defs) in defSites do
       Set.toList defs
       |> iterDefs g Set.empty defsPerNode variable
       |> ignore
-    domCtxt
 
   let renameVar (stack: IDStack) (v: Variable) =
     match stack.TryGetValue v.Kind with
@@ -255,8 +259,8 @@ type SSALifter<'E when 'E: equality> (postProcessor: IStmtPostProcessor) =
       traverseChildren g domTree count stack rest
     | [] -> ()
 
-  let renameVars g (defSites: DefSites) domCtxt =
-    let domTree, root = Dominator.dominatorTree domCtxt
+  let renameVars g (defSites: DefSites) domCtx =
+    let domTree, root = Dominator.dominatorTree domCtx
     let count = VarCountMap ()
     let stack = IDStack ()
     defSites.Keys |> Seq.iter (fun variable ->
@@ -265,11 +269,12 @@ type SSALifter<'E when 'E: equality> (postProcessor: IStmtPostProcessor) =
     rename g domTree count stack root |> ignore
 
   /// Add phis and rename all the variables in the SSACFG.
-  let installPhis vertices ssaCFG root =
+  let updatePhis ssaCFG root =
     let defSites = DefSites ()
-    computeDominatorInfo ssaCFG root
-    |> placePhis ssaCFG vertices defSites
-    |> renameVars ssaCFG defSites
+    let domCtx = computeDominatorInfo ssaCFG root
+    let defsPerNode = findDefVars ssaCFG defSites
+    placePhis ssaCFG defsPerNode defSites
+    renameVars ssaCFG defSites domCtx
 
   new () =
     SSALifter<'E> (
@@ -283,22 +288,21 @@ type SSALifter<'E when 'E: equality> (postProcessor: IStmtPostProcessor) =
           ImperativeDiGraph<SSABasicBlock, 'E> () :> IGraph<_, _>
         | Persistent ->
           PersistentDiGraph<SSABasicBlock, 'E> () :> IGraph<_, _>
-      let vMap = SSAVMap ()
-      let avMap = AbstractVMap ()
-      let ssaCFG, root = convertToSSA g vMap avMap ssaCFG root
-      let vertices = Seq.append vMap.Values avMap.Values
+      let ssaCFG, root = convertToSSA g ssaCFG root
       ssaCFG.FindVertexBy (fun v ->
         v.VData.PPoint = root.VData.PPoint && not <| v.VData.IsAbstract)
-      |> installPhis vertices ssaCFG
+      |> updatePhis ssaCFG
       ssaCFG.IterVertex (fun v -> v.VData.UpdatePPoints ())
       ssaCFG, root
+
+    member _.UpdatePhis (ssaCFG, root) =
+      updatePhis ssaCFG root
 
 /// SSACFG's vertex.
 and SSAVertex = IVertex<SSABasicBlock>
 
 /// A mapping from an address to an SSACFG vertex.
-and SSAVMap =
-  Dictionary<ProgramPoint, SSAVertex>
+and SSAVMap = Dictionary<ProgramPoint, SSAVertex>
 
 /// This is a mapping from an edge to an abstract vertex (for external function
 /// calls). We first separately create abstract vertices even if they are
@@ -306,16 +310,13 @@ and SSAVMap =
 /// dominance relationships without introducing incorrect paths or cycles. For
 /// convenience, we will always consider as a key "a return edge" from an
 /// abstract vertex to a fall-through vertex.
-and AbstractVMap =
-  Dictionary<ProgramPoint * ProgramPoint, SSAVertex>
+and AbstractVMap = Dictionary<ProgramPoint * ProgramPoint, SSAVertex>
 
 /// Mapping from a variable to a set of defining SSA basic blocks.
-and DefSites =
-  Dictionary<VariableKind, Set<IVertex<SSABasicBlock>>>
+and DefSites = Dictionary<VariableKind, Set<IVertex<SSABasicBlock>>>
 
 /// Defined variables per node in a SSACFG.
-and DefsPerNode =
-  Dictionary<IVertex<SSABasicBlock>, Set<VariableKind>>
+and DefsPerNode = Dictionary<IVertex<SSABasicBlock>, Set<VariableKind>>
 
 /// Counter for each variable.
 and VarCountMap = Dictionary<VariableKind, int>

@@ -33,6 +33,7 @@ open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.SSA
 open B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.MiddleEnd.ControlFlowAnalysis
+open B2R2.MiddleEnd.ControlFlowAnalysis.Strategies.IPostAnalysis
 
 /// Base strategy for building a CFG.
 type BaseStrategy<'FnCtx,
@@ -40,8 +41,8 @@ type BaseStrategy<'FnCtx,
                           and 'FnCtx: (new: unit -> 'FnCtx)
                           and 'GlCtx: (new: unit -> 'GlCtx)>
   public (ssaLifter: ISSALiftable<_>,
-          noRetAnalyzer: INoReturnIdentifiable<_, _, 'FnCtx, 'GlCtx>,
           summarizer: IFunctionSummarizable<_, _, 'FnCtx, 'GlCtx>,
+          postAnalysis: IPostAnalysis<_>,
           allowOverlap) =
 
   let scanBBLs ctx mode entryPoints =
@@ -264,14 +265,20 @@ type BaseStrategy<'FnCtx,
 
   new () =
     let ssaLifter = SSALifter ()
-    let noRetAnalyzer = ConditionAwareNoretAnalysis ()
     let summarizer = BaseFunctionSummarizer ()
-    BaseStrategy (ssaLifter, noRetAnalyzer, summarizer, false)
+    let postAnalysis =
+      StackPointerAnalysis ()
+      <+> StackAnalysis ()
+      <+> CondAwareNoretAnalysis ()
+    BaseStrategy (ssaLifter, summarizer, postAnalysis, false)
 
   new (ssaLifter) =
-    let noRetAnalyzer = ConditionAwareNoretAnalysis ()
     let summarizer = BaseFunctionSummarizer ()
-    BaseStrategy (ssaLifter, noRetAnalyzer, summarizer, false)
+    let postAnalysis =
+      StackPointerAnalysis ()
+      <+> StackAnalysis ()
+      <+> CondAwareNoretAnalysis ()
+    BaseStrategy (ssaLifter, summarizer, postAnalysis, false)
 
   interface IFunctionBuildingStrategy<IRBasicBlock,
                                       CFGEdgeKind,
@@ -322,11 +329,10 @@ type BaseStrategy<'FnCtx,
         Failure ErrorCase.FailedToRecoverCFG
 
     member _.OnFinish (ctx) =
-      if noRetAnalyzer.IsNoReturn (ctx) then ctx.NonReturningStatus <- NoRet
-      else ctx.NonReturningStatus <- NotNoRet
       let root = ctx.CFG.TryGetSingleRoot () |> Option.get
-      let ssaCFG, _ = ssaLifter.Lift (ctx.CFG, root)
+      let ssaCFG, root = ssaLifter.Lift (ctx.CFG, root)
       ctx.SSACFG <- ssaCFG
+      run { Context = ctx; SSALifter = ssaLifter; SSARoot = root } postAnalysis
       Success
 
     member _.OnCyclicDependency (deps) =

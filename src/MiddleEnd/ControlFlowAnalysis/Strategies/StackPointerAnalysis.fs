@@ -24,25 +24,13 @@
 
 namespace B2R2.MiddleEnd.ControlFlowAnalysis.Strategies
 
-open B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.MiddleEnd.ControlFlowAnalysis
+open B2R2.MiddleEnd.DataFlow
 
-/// This is a non-returning function identification strategy that can check
-/// conditionally non-returning functions. We currently support only those
-/// simple patterns that are handled by compilers, but we may have to extend
-/// this as the compilers evolve.
-type ConditionAwareNoretAnalysis<'V,
-                                 'E,
-                                 'FnCtx,
-                                 'GlCtx when 'V :> IRBasicBlock
-                                         and 'V: equality
-                                         and 'E: equality
-                                         and 'FnCtx :> IResettable
-                                         and 'GlCtx: (new: unit -> 'GlCtx)> () =
-  interface INoReturnIdentifiable<'V, 'E, 'FnCtx, 'GlCtx> with
-    member _.IsNoReturn (ctx) =
-#if CFGDEBUG
-      dbglog ctx.ThreadID (nameof INoReturnIdentifiable)
-      <| $"{ctx.FunctionAddress:x}"
-#endif
-      false
+/// Perform stack pointer propgation analysis on the current SSACFG.
+type StackPointerAnalysis () =
+  interface IPostAnalysis<unit -> CPState<SPValue>> with
+    member _.Unwrap env =
+      let ctx = env.Context
+      let spp = StackPointerPropagation (ctx.BinHandle, ctx.SSACFG)
+      fun () -> spp.Compute env.SSARoot

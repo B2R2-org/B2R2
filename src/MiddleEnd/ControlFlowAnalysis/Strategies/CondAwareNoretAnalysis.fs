@@ -22,20 +22,26 @@
   SOFTWARE.
 *)
 
-namespace B2R2.MiddleEnd.ControlFlowAnalysis
+namespace B2R2.MiddleEnd.ControlFlowAnalysis.Strategies
 
-open B2R2.MiddleEnd.ControlFlowGraph
+open B2R2.MiddleEnd.DataFlow
+open B2R2.MiddleEnd.ControlFlowAnalysis
 
-/// Interface for identifying whether a given function/syscall is a no-return
-/// function/syscall.
-type INoReturnIdentifiable<'V,
-                           'E,
-                           'FnCtx,
-                           'GlCtx when 'V :> IRBasicBlock
-                                   and 'V: equality
-                                   and 'E: equality
-                                   and 'FnCtx :> IResettable
-                                   and 'GlCtx: (new: unit -> 'GlCtx)> =
-  /// Returns true if the given function is a non-returning function.
-  abstract IsNoReturn: CFGBuildingContext<'V, 'E, 'FnCtx, 'GlCtx> -> bool
+/// This is a non-returning function identification strategy that can check
+/// conditionally non-returning functions. We currently support only those
+/// simple patterns that are handled by compilers, but we may have to extend
+/// this as the compilers evolve.
+type CondAwareNoretAnalysis () =
+  let isNoReturn ctx = // FIXME
+    false
 
+  interface IPostAnalysis<CPState<SPValue> -> unit> with
+    member _.Unwrap env =
+      let ctx = env.Context
+#if CFGDEBUG
+      dbglog ctx.ThreadID (nameof CondAwareNoretAnalysis)
+      <| $"{ctx.FunctionAddress:x}"
+#endif
+      fun spState ->
+        if isNoReturn ctx then ctx.NonReturningStatus <- NoRet
+        else ctx.NonReturningStatus <- NotNoRet

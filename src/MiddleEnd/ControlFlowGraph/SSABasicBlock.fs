@@ -49,7 +49,7 @@ type SSABasicBlock private (ppoint, lastAddr, stmts: _[], funcAbs) =
     | _ -> ProgramPoint.Next ppoint
 
   /// Return the SSA statements.
-  member __.LiftedSSAStmts with get() = stmts
+  member __.LiftedSSAStmts with get() = stmts and set(ss) = stmts <- ss
 
   /// Get the last SSA statement of the bblock.
   member __.LastStmt with get() = snd stmts[stmts.Length - 1]

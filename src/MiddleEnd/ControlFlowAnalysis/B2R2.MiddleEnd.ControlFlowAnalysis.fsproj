@@ -19,7 +19,6 @@
     <Compile Include="CFGBuildingContext.fs" />
     <Compile Include="Function.fs" />
     <Compile Include="IFunctionBuildable.fs" />
-    <Compile Include="INoReturnIdentifiable.fs" />
     <Compile Include="IFunctionSummarizable.fs" />
     <Compile Include="TaskMessage.fs" />
     <Compile Include="IFunctionBuildingStrategy.fs" />
@@ -31,7 +30,10 @@
     <Compile Include="FunctionCollection.fs" />
     <Compile Include="TaskManager.fs" />
     <Compile Include="Strategies\DummyContext.fs" />
-    <Compile Include="Strategies\ConditionAwareNoretAnalysis.fs" />
+    <Compile Include="Strategies\IPostAnalysis.fs" />
+    <Compile Include="Strategies\StackPointerAnalysis.fs" />
+    <Compile Include="Strategies\StackAnalysis.fs" />
+    <Compile Include="Strategies\CondAwareNoretAnalysis.fs" />
     <Compile Include="Strategies\BaseFunctionSummarizer.fs" />
     <Compile Include="Strategies\BaseStrategy.fs" />
     <None Include="..\..\..\LICENSE.md" Pack="true" PackagePath="" />
