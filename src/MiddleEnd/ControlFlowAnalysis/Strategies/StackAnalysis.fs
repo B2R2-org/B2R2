@@ -117,7 +117,7 @@ type StackAnalysis () =
       | None -> Some stmtInfo
     | _ -> Some stmtInfo
 
-  interface IPostAnalysis<CPState<SPValue> -> CPState<SPValue>> with
+  interface IPostAnalysis<CPState<SPValue> -> unit> with
     member _.Unwrap env =
       let ctx = env.Context
 #if CFGDEBUG
@@ -130,4 +130,3 @@ type StackAnalysis () =
           |> Array.choose (stmtChooser spState v)
           |> fun stmts -> v.VData.LiftedSSAStmts <- stmts
         env.SSALifter.UpdatePhis (ctx.SSACFG, env.SSARoot)
-        spState

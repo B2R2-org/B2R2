@@ -84,7 +84,7 @@ and NonReturningStatus =
   /// This function will never return. For example, the "exit" function should
   /// have this property.
   | NoRet
-  /// Regular case: *not* no-return.
+  /// Regular case: *not* no-return (i.e., this is a returning function).
   | NotNoRet
   /// Conditionally no-return; function does not return only if the n-th
   /// argument (starting from one) specified is non-zero.
