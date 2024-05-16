@@ -24,7 +24,50 @@
 
 namespace B2R2.MiddleEnd.ControlFlowAnalysis.Strategies
 
+open B2R2
+open B2R2.BinIR
+open B2R2.FrontEnd
+open B2R2.MiddleEnd.ConcEval
+open B2R2.MiddleEnd.ControlFlowGraph
+open B2R2.MiddleEnd.ControlFlowAnalysis
+
+/// Basic syscall analysis that only analyzes a single basic block that contains
+/// the syscall instruction.
 type SyscallAnalysis () =
   interface ISyscallAnalyzable with
-    member _.IsExit (_, _) = false
-    member _.MakeAbstract (_, _) = failwith "X"
+    member _.IsExit (ctx, v) =
+      let hdl = ctx.BinHandle
+      match hdl.File.Format with
+      | FileFormat.RawBinary
+      | FileFormat.ELFBinary ->
+        let st = CFGEvaluator.evalBlockFromScratch hdl v
+        let arch = hdl.File.ISA.Arch
+        let exitSyscall = LinuxSyscall.toNumber arch LinuxSyscall.Exit
+        let exitGrpSyscall = LinuxSyscall.toNumber arch LinuxSyscall.ExitGroup
+        let sigretSyscall = LinuxSyscall.toNumber arch LinuxSyscall.RtSigreturn
+        let reg = CallingConvention.returnRegister hdl
+        match st.TryGetReg reg with
+        | Def v ->
+          let n = BitVector.ToInt32 v
+          n = exitSyscall || n = exitGrpSyscall || n = sigretSyscall
+        | Undef -> false
+      | _ -> false
+
+    member _.MakeAbstract (ctx, v) =
+      let addr = ctx.FunctionAddress
+      let hdl = ctx.BinHandle
+      match hdl.File.Format with
+      | FileFormat.RawBinary
+      | FileFormat.ELFBinary ->
+        let lastAddr = v.VData.LastInstruction.Address
+        let nextAddr = lastAddr + uint64 v.VData.LastInstruction.Length
+        let rt = hdl.File.ISA.WordSize |> WordSize.toRegType
+        let reg = CallingConvention.returnRegister hdl
+        let var = SSA.RegVar (rt, reg, hdl.RegisterFactory.RegIDToString reg)
+        let dst = { SSA.Kind = var; SSA.Identifier = -1 }
+        let e = SSA.Undefined (rt, "ret")
+        let pp = ProgramPoint.GetFake ()
+        let rundown = [| pp, SSA.Def (dst, SSA.ReturnVal (addr, nextAddr, e)) |]
+        FunctionAbstraction (addr, Some 0, rundown, true)
+      | _ ->
+        FunctionAbstraction (addr, Some 0, [||], true)

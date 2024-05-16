@@ -179,7 +179,7 @@ type BaseStrategy<'FnCtx,
         | SideEffect (Interrupt 0x80) | SideEffect SysCall ->
           let callerAddr = srcBBL.PPoint.Address
           let callsiteAddr = srcBBL.LastInstruction.Address
-          let isExit = syscallAnalysis.IsExit (ctx.CFG, srcVertex)
+          let isExit = syscallAnalysis.IsExit (ctx, srcVertex)
           ctx.CallTable.AddSystemCall callsiteAddr isExit
           actionQueue.Push <| MakeSyscall (fnAddr, mode, callerAddr, isExit)
         | _ ->
@@ -270,11 +270,11 @@ type BaseStrategy<'FnCtx,
   let connectSyscallEdge ctx mode callerAddr isExit =
     let caller = getVertex ctx (ProgramPoint (callerAddr, 0))
     if isExit then
-      syscallAnalysis.MakeAbstract (ctx.CFG, caller)
+      syscallAnalysis.MakeAbstract (ctx, caller)
       |> connectAbsVertex ctx caller 0UL
       |> ignore
     else
-      syscallAnalysis.MakeAbstract (ctx.CFG, caller)
+      syscallAnalysis.MakeAbstract (ctx, caller)
       |> connectAbsVertex ctx caller 0UL
       |> connectRet ctx mode
       |> ignore

@@ -16,6 +16,7 @@
     <Compile Include="IResettable.fs" />
     <Compile Include="ILinkage.fs" />
     <Compile Include="CallTable.fs" />
+    <Compile Include="CFGEvaluator.fs" />
     <Compile Include="CFGBuildingContext.fs" />
     <Compile Include="Function.fs" />
     <Compile Include="IFunctionBuildable.fs" />

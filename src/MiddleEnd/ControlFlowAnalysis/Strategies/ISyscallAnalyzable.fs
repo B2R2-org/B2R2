@@ -26,6 +26,7 @@ namespace B2R2.MiddleEnd.ControlFlowAnalysis.Strategies
 
 open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.ControlFlowGraph
+open B2R2.MiddleEnd.ControlFlowAnalysis
 
 /// The interface for syscall stub analysis. This is to know whether the given
 /// syscall instruction is an exit syscall or not. Since this analysis runs in
@@ -35,11 +36,11 @@ type ISyscallAnalyzable =
   /// Is the given syscall instruction located at the target vertex an exit
   /// syscall?
   abstract IsExit:
-       cfg: IRCFG<IRBasicBlock, CFGEdgeKind>
+       ctx: CFGBuildingContext<IRBasicBlock, CFGEdgeKind, 'FnCtx, 'GlCtx>
      * TargetVertex: IVertex<IRBasicBlock>
     -> bool
 
   abstract MakeAbstract:
-       cfg: IRCFG<IRBasicBlock, CFGEdgeKind>
+       ctx: CFGBuildingContext<IRBasicBlock, CFGEdgeKind, 'FnCtx, 'GlCtx>
      * TargetVertex: IVertex<IRBasicBlock>
     -> FunctionAbstraction
