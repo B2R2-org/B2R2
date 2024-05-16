@@ -53,6 +53,10 @@ type CallTable () =
     | true, callsites -> callsites.Add srcPPoint.Address |> ignore
     | false, _ -> callingNodes[calleeAddr] <- HashSet [ srcPPoint.Address ]
 
+  /// Add information about a syscall.
+  member _.AddSystemCall callsiteAddr isExit =
+    callees[callsiteAddr] <- SyscallCallee isExit
+
   /// Get a callee information for the given call instruction address.
   member _.GetCallee (callsiteAddr: Addr) =
     callees[callsiteAddr]
@@ -82,7 +86,7 @@ and CalleeKind =
   /// Callee is a regular function.
   | RegularCallee of Addr
   /// Callee is a syscall of the given number.
-  | SyscallCallee of number: int
+  | SyscallCallee of isExit: bool
   /// Callee is a set of indirect call targets. This means potential callees
   /// have been analyzed already.
   | IndirectCallees of Set<Addr>

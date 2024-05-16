@@ -64,7 +64,7 @@ type CFGBuildingContext<'V,
   /// same basic block multiple times when constructing the CFG.
   VisitedPPoints: HashSet<ProgramPoint>
   /// The user-defined per-function context.
-  UserContext: 'FnCtx
+  mutable UserContext: 'FnCtx
   /// Is this an external function or not.
   IsExternal: bool
   /// The channel for accessing the state of the TaskManager.

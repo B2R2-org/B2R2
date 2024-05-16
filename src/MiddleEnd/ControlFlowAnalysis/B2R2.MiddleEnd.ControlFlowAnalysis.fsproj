@@ -30,9 +30,11 @@
     <Compile Include="FunctionCollection.fs" />
     <Compile Include="TaskManager.fs" />
     <Compile Include="Strategies\DummyContext.fs" />
+    <Compile Include="Strategies\ISyscallAnalyzable.fs" />
     <Compile Include="Strategies\IPostAnalysis.fs" />
     <Compile Include="Strategies\StackPointerAnalysis.fs" />
     <Compile Include="Strategies\StackAnalysis.fs" />
+    <Compile Include="Strategies\SyscallAnalysis.fs" />
     <Compile Include="Strategies\CondAwareNoretAnalysis.fs" />
     <Compile Include="Strategies\BaseFunctionSummarizer.fs" />
     <Compile Include="Strategies\BaseStrategy.fs" />

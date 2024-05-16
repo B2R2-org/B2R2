@@ -38,7 +38,9 @@ type IRBasicBlock internal (ppoint, funcAbs, liftedInstrs, labelMap) =
   let isTerminatingStmt stmt =
     match stmt.S with
     | Jmp _ | CJmp _ | InterJmp _ | InterCJmp _
-    | SideEffect SysCall | SideEffect Terminate -> true
+    | SideEffect SysCall
+    | SideEffect Terminate
+    | SideEffect (Interrupt _) -> true
     | _ -> false
 
   member __.LiftedInstructions with get(): LiftedInstruction[] = liftedInstrs

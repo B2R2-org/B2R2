@@ -34,24 +34,23 @@ open B2R2.MiddleEnd.SSA
 /// unwrapped and executed later.
 type IPostAnalysis<'Fn> =
   /// Unwrap the post-analysis (`'Fn`).
-  abstract Unwrap: PostAnalysisEnvironment<'FnCtx, 'GlCtx> -> 'Fn
+  abstract Unwrap: PostAnalysisEnv<'FnCtx, 'GlCtx> -> 'Fn
+with
+  static member inline (<+>) (a: IPostAnalysis<_>, b: IPostAnalysis<_>) =
+    { new IPostAnalysis<_> with
+        member _.Unwrap env = a.Unwrap env >> b.Unwrap env }
 
 /// The environment for a post-analysis.
-and PostAnalysisEnvironment<'FnCtx,
-                            'GlCtx when 'FnCtx :> IResettable
-                                    and 'FnCtx: (new: unit -> 'FnCtx)
-                                    and 'GlCtx: (new: unit -> 'GlCtx)> = {
+and PostAnalysisEnv<'FnCtx,
+                    'GlCtx when 'FnCtx :> IResettable
+                            and 'FnCtx: (new: unit -> 'FnCtx)
+                            and 'GlCtx: (new: unit -> 'GlCtx)> = {
   Context: CFGBuildingContext<IRBasicBlock, CFGEdgeKind, 'FnCtx, 'GlCtx>
   SSALifter: ISSALiftable<CFGEdgeKind>
   SSARoot: IVertex<SSABasicBlock>
 }
 
 module IPostAnalysis =
-  /// Compose two post-analyses.
-  let (<+>) (a: IPostAnalysis<_>) (b: IPostAnalysis<_>) =
-    { new IPostAnalysis<_> with
-        member _.Unwrap env = a.Unwrap env >> b.Unwrap env }
-
   /// Finalize the post-analysis, which ignores the output of the previous
   /// post-analysis.
   let finalize (a: IPostAnalysis<_>) =
@@ -60,4 +59,4 @@ module IPostAnalysis =
 
   /// Run the combined post-analysis, which should take `unit` as input and
   /// returns `unit` as output.
-  let run env (a: IPostAnalysis<_>): unit = a.Unwrap env ()
+  let inline run env (a: IPostAnalysis<_>): unit = a.Unwrap env ()

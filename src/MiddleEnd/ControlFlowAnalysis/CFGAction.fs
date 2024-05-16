@@ -38,7 +38,10 @@ type CFGAction =
   | ExpandCFG of fnAddr: Addr * mode: ArchOperationMode * addrs: seq<Addr>
   /// Create an abstract call node and connect it to the caller and fallthrough
   /// nodes when necessary.
-  | MakeCall of fnAddr: Addr * caller: Addr * callee: Addr * ArchOperationMode
+  | MakeCall of fnAddr: Addr * ArchOperationMode * caller: Addr * callee: Addr
+  /// Create an abstract syscall node and connect it to the caller and
+  /// fallthrough nodes when necessary.
+  | MakeSyscall of fnAddr: Addr * ArchOperationMode * caller: Addr * exit: bool
   | IndirectEdge of IRBasicBlock
   | SyscallEdge of IRBasicBlock
   | JumpTableEntryStart of IRBasicBlock * Addr * Addr

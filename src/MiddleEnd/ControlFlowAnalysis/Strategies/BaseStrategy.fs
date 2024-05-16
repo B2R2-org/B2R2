@@ -33,7 +33,6 @@ open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.SSA
 open B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.MiddleEnd.ControlFlowAnalysis
-open B2R2.MiddleEnd.ControlFlowAnalysis.Strategies.IPostAnalysis
 
 /// Base strategy for building a CFG.
 type BaseStrategy<'FnCtx,
@@ -42,6 +41,7 @@ type BaseStrategy<'FnCtx,
                           and 'GlCtx: (new: unit -> 'GlCtx)>
   public (ssaLifter: ISSALiftable<_>,
           summarizer: IFunctionSummarizable<_, _, 'FnCtx, 'GlCtx>,
+          syscallAnalysis: ISyscallAnalyzable,
           postAnalysis: IPostAnalysis<_>,
           allowOverlap) =
 
@@ -146,14 +146,14 @@ type BaseStrategy<'FnCtx,
           let target = callsiteAddr + BitVector.ToUInt64 n
           ctx.ManagerChannel.UpdateDependency (fnAddr, target, mode)
           ctx.CallTable.AddRegularCall srcBBL.PPoint callsiteAddr target
-          actionQueue.Push <| MakeCall (fnAddr, callerAddr, target, mode)
+          actionQueue.Push <| MakeCall (fnAddr, mode, callerAddr, target)
         | InterJmp ({ E = Num n }, InterJmpKind.IsCall) ->
           let callerAddr = srcBBL.PPoint.Address
           let callsiteAddr = srcBBL.LastInstruction.Address
           let target = BitVector.ToUInt64 n
           ctx.ManagerChannel.UpdateDependency (fnAddr, target, mode)
           ctx.CallTable.AddRegularCall srcBBL.PPoint callsiteAddr target
-          actionQueue.Push <| MakeCall (fnAddr, callerAddr, target, mode)
+          actionQueue.Push <| MakeCall (fnAddr, mode, callerAddr, target)
         | InterCJmp (_, { E = BinOp (BinOpType.ADD, _, { E = PCVar _ },
                                                        { E = Num tv }) },
                         { E = BinOp (BinOpType.ADD, _, { E = PCVar _ },
@@ -176,8 +176,12 @@ type BaseStrategy<'FnCtx,
           ppQueue.Enqueue fPPoint
         | Jmp _ | CJmp _ | InterJmp _ | InterCJmp _ ->
           ()
-        | SideEffect SysCall ->
-          Utils.futureFeature ()
+        | SideEffect (Interrupt 0x80) | SideEffect SysCall ->
+          let callerAddr = srcBBL.PPoint.Address
+          let callsiteAddr = srcBBL.LastInstruction.Address
+          let isExit = syscallAnalysis.IsExit (ctx.CFG, srcVertex)
+          ctx.CallTable.AddSystemCall callsiteAddr isExit
+          actionQueue.Push <| MakeSyscall (fnAddr, mode, callerAddr, isExit)
         | _ ->
           ()
     done
@@ -240,7 +244,7 @@ type BaseStrategy<'FnCtx,
     | Ok _ -> Success
     | Error e -> Failure e
 
-  let connectCallEdge ctx queue fnAddr callerAddr calleeAddr mode =
+  let connectCallEdge ctx queue fnAddr mode callerAddr calleeAddr =
     let caller = getVertex ctx (ProgramPoint (callerAddr, 0))
     if fnAddr = calleeAddr then (* recursion = always returns (not noret) *)
       summarizer.Summarize (ctx, caller.VData.LastInstruction)
@@ -263,22 +267,37 @@ type BaseStrategy<'FnCtx,
       | UnknownNoRet -> Wait calleeAddr
       | _ -> Failure ErrorCase.FailedToRecoverCFG
 
+  let connectSyscallEdge ctx mode callerAddr isExit =
+    let caller = getVertex ctx (ProgramPoint (callerAddr, 0))
+    if isExit then
+      syscallAnalysis.MakeAbstract (ctx.CFG, caller)
+      |> connectAbsVertex ctx caller 0UL
+      |> ignore
+    else
+      syscallAnalysis.MakeAbstract (ctx.CFG, caller)
+      |> connectAbsVertex ctx caller 0UL
+      |> connectRet ctx mode
+      |> ignore
+    Success
+
   new () =
     let ssaLifter = SSALifter ()
     let summarizer = BaseFunctionSummarizer ()
+    let syscallAnalysis = SyscallAnalysis ()
     let postAnalysis =
-      StackPointerAnalysis ()
+      StackPointerAnalysis () :> IPostAnalysis<_>
       <+> StackAnalysis ()
       <+> CondAwareNoretAnalysis ()
-    BaseStrategy (ssaLifter, summarizer, postAnalysis, false)
+    BaseStrategy (ssaLifter, summarizer, syscallAnalysis, postAnalysis, false)
 
   new (ssaLifter) =
     let summarizer = BaseFunctionSummarizer ()
+    let syscallAnalysis = SyscallAnalysis ()
     let postAnalysis =
-      StackPointerAnalysis ()
+      StackPointerAnalysis () :> IPostAnalysis<_>
       <+> StackAnalysis ()
       <+> CondAwareNoretAnalysis ()
-    BaseStrategy (ssaLifter, summarizer, postAnalysis, false)
+    BaseStrategy (ssaLifter, summarizer, syscallAnalysis, postAnalysis, false)
 
   interface IFunctionBuildingStrategy<IRBasicBlock,
                                       CFGEdgeKind,
@@ -293,6 +312,7 @@ type BaseStrategy<'FnCtx,
             | InitiateCFG _ -> 4
             | ExpandCFG _ -> 4
             | MakeCall _ -> 3
+            | MakeSyscall _ -> 3
             | IndirectEdge _ -> 2
             | SyscallEdge _ -> 1
             | JumpTableEntryStart _ -> 0
@@ -316,12 +336,17 @@ type BaseStrategy<'FnCtx,
 #endif
           let newPPs = addrs |> Seq.map (fun addr -> ProgramPoint (addr, 0))
           buildCFG ctx queue fnAddr newPPs mode
-        | MakeCall (fnAddr, callerAddr, calleeAddr, mode) ->
+        | MakeCall (fnAddr, mode, callerAddr, calleeAddr) ->
 #if CFGDEBUG
           dbglog ctx.ThreadID (nameof MakeCall)
           <| $"{fnAddr:x} to {calleeAddr:x}"
 #endif
-          connectCallEdge ctx queue fnAddr callerAddr calleeAddr mode
+          connectCallEdge ctx queue fnAddr mode callerAddr calleeAddr
+        | MakeSyscall (fnAddr, mode, callerAddr, isExit) ->
+#if CFGDEBUG
+          dbglog ctx.ThreadID (nameof MakeSyscall) $"{fnAddr:x}"
+#endif
+          connectSyscallEdge ctx mode callerAddr isExit
         | _ ->
           failwith "X"
       with e ->
@@ -332,7 +357,8 @@ type BaseStrategy<'FnCtx,
       let root = ctx.CFG.TryGetSingleRoot () |> Option.get
       let ssaCFG, root = ssaLifter.Lift (ctx.CFG, root)
       ctx.SSACFG <- ssaCFG
-      run { Context = ctx; SSALifter = ssaLifter; SSARoot = root } postAnalysis
+      IPostAnalysis.run
+        { Context = ctx; SSALifter = ssaLifter; SSARoot = root } postAnalysis
       Success
 
     member _.OnCyclicDependency (deps) =
