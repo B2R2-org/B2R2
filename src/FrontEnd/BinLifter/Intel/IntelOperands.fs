@@ -252,7 +252,9 @@ module internal OperandParsingHelper =
     | Some TupleType.EighthMem, false, _, _ -> disp * (int64 vl / 64L), memSz
     | Some TupleType.Mem128, false, _, _ -> disp * 16L, memSz
     | Some TupleType.MOVDDUP, false, _, _ -> disp * (int64 vl / 16L), memSz
-    | _ -> raise ParsingFailureException
+    | _ ->
+      printfn "Warning: TupleType must be specified."
+      disp, memSz // raise ParsingFailureException
 
   let inline private isEVEX (rhlp: ReadHelper) =
     match rhlp.VEXInfo with
