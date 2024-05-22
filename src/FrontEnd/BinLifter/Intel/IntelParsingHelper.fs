@@ -111,9 +111,7 @@ module internal ParsingHelper = begin
     let l'l = span[pos + 2] >>> 5 &&& 0b011uy
     let vLen = getVLen l'l
     let aaa = span[pos + 2] &&& 0b111uy
-    let z =
-      if (span[pos + 2] >>> 7 &&& 0b1uy) = 1uy then Zeroing
-      else Merging
+    let z = if (span[pos + 2] >>> 7 &&& 0b1uy) = 1uy then Zeroing else Merging
     let b = (span[pos + 2] >>> 4) &&& 0b1uy
     let e = Some { AAA = aaa; Z = z; B = b }
     rex <- rex ||| getVREXPref b1 b2

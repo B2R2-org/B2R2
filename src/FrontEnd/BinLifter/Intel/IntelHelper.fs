@@ -144,6 +144,11 @@ let inline hasNoPref (rhlp: ReadHelper) = (int rhlp.Prefixes) = 0
 
 let inline hasNoREX (rhlp: ReadHelper) = rhlp.REXPrefix = REXPrefix.NOREX
 
+let inline isEVEX (rhlp: ReadHelper) =
+  match rhlp.VEXInfo with
+  | Some vInfo -> vInfo.VEXType &&& VEXType.EVEX = VEXType.EVEX
+  | _ -> false
+
 let inline getMod (byte: byte) = (int byte >>> 6) &&& 0b11
 
 let inline getReg (byte: byte) = (int byte >>> 3) &&& 0b111
