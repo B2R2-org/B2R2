@@ -93,6 +93,14 @@ type PersistentDiGraph<'V, 'E when 'V: equality
     let g = PersistentDiGraph (vertices, preds, succs, vid)
     (v :> IVertex<'V>), (g :> IGraph<'V, 'E>)
 
+  member private __.AddVertex (data: VertexData<'V>, vid: VertexID) =
+    let v = PersistentVertex (vid, data)
+    let vertices = Map.add vid v vertices
+    let preds = Map.add vid [] preds
+    let succs = Map.add vid [] succs
+    let g = PersistentDiGraph (vertices, preds, succs, max id vid)
+    (v :> IVertex<'V>), (g :> IGraph<'V, 'E>)
+
   member private __.AddEdge (src: IVertex<'V>, dst: IVertex<'V>, label) =
     let srcid = src.ID
     let dstid = dst.ID
@@ -128,6 +136,10 @@ type PersistentDiGraph<'V, 'E when 'V: equality
 
     member __.AddVertex value =
       __.AddVertex (data=VertexData value)
+
+    member __.AddVertex (value, vid: VertexID) =
+      assert ((__: IGraph<_, _>).HasVertex vid |> not)
+      __.AddVertex (data=VertexData value, vid=vid)
 
     member __.AddVertex () =
       __.AddVertex (data=null)

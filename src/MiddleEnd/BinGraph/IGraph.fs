@@ -55,6 +55,11 @@ type IGraph<'V, 'E when 'V: equality and 'E: equality> =
   /// the added vertex.
   abstract AddVertex: data: 'V -> IVertex<'V> * IGraph<'V, 'E>
 
+  /// Add a vertex to the graph using a data value and a vertex ID, and return a
+  /// reference to the added vertex. This function assumes that the vertex ID is
+  /// unique in the graph, thus it needs to be used with caution.
+  abstract AddVertex: data: 'V * vid: VertexID -> IVertex<'V> * IGraph<'V, 'E>
+
   /// Add a vertex to the grpah without any data attached to it.
   abstract AddVertex: unit -> IVertex<'V> * IGraph<'V, 'E>
 

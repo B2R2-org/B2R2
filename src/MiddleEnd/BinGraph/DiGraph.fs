@@ -49,7 +49,7 @@ let subGraph inGraph emptyGraph vs =
 let reverse (srcGraph: IGraph<_, _>) emptyGraph =
   emptyGraph
   |> srcGraph.FoldVertex (fun (g: IGraph<_, _>) v ->
-    g.AddVertex v.VData |> snd)
+    g.AddVertex (v.VData, v.ID) |> snd)
   |> srcGraph.FoldEdge (fun (g: IGraph<_, _>) edge ->
     let src = g.FindVertexByID edge.First.ID
     let dst = g.FindVertexByID edge.Second.ID

@@ -83,6 +83,14 @@ type ImperativeDiGraph<'V, 'E when 'V: equality and 'E: equality> () =
     exits.Add v |> ignore
     (v :> IVertex<'V>), (__ :> IGraph<'V, 'E>)
 
+  member private __.AddVertex (data: VertexData<'V>, vid: VertexID) =
+    id <- max id vid
+    let v = ImperativeVertex (vid, data)
+    vertices.Add v |> ignore
+    unreachables.Add v |> ignore
+    exits.Add v |> ignore
+    (v :> IVertex<'V>), (__ :> IGraph<'V, 'E>)
+
   member private __.AddEdge (src: IVertex<'V>, dst: IVertex<'V>, label) =
     let src = src :?> ImperativeVertex<'V>
     let dst = dst :?> ImperativeVertex<'V>
@@ -126,6 +134,10 @@ type ImperativeDiGraph<'V, 'E when 'V: equality and 'E: equality> () =
 
     member __.AddVertex v =
       __.AddVertex (data=VertexData v)
+
+    member __.AddVertex (v, vid) =
+      assert ((__: IGraph<_, _>).HasVertex vid |> not)
+      __.AddVertex (data=VertexData v, vid=vid)
 
     member __.AddVertex () =
       __.AddVertex (data=null)
