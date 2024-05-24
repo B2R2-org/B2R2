@@ -1566,7 +1566,7 @@ module private IntelSyntax = begin
 
   let buildBroadcast (ins: InsInfo) (builder: DisasmBuilder) memSz =
     match ins.VEXInfo with
-    | Some { EVEXPrx = Some ePrx; VectorLength = vl }->
+    | Some { EVEXPrx = Some ePrx; VectorLength = vl } ->
       if ePrx.B = 1uy then
         builder.Accumulate AsmWordKind.String "{1to"
         builder.Accumulate AsmWordKind.Value ((vl / memSz).ToString())

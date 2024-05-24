@@ -896,8 +896,9 @@ module internal ParsingHelper = begin
     | MPref.MPrxNP -> raise ParsingFailureException
     | MPref.MPrx66 ->
       struct (VADDPD, OD.XmmVvXm, SZ.VecDef, Some TT.Full) (* VxHxWx *)
-    | MPref.MPrxF3
-    | MPref.MPrxF2
+    | MPref.MPrxF3 -> raise ParsingFailureException
+    | MPref.MPrxF2 -> (* VdqHdqWdqq *)
+      struct (VADDSD, OD.XmmVvXm, SZ.DqqDq, Some TT.Tuple1Scalar)
     | _ (* MPrx66F2 *) -> raise ParsingFailureException
 
   let nor0F59 = function
