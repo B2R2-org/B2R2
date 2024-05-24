@@ -226,6 +226,15 @@ type ZeroingOrMerging =
   | Zeroing
   | Merging
 
+/// Static Rounding Mode and SAE control can be enabled in the encoding of the
+// instruction by setting the EVEX.b bit to 1 in a register-register vector
+/// instruction.
+type StaticRoundingMode =
+  | RN (* Round to nearest (even) + SAE *)
+  | RD (* Round down (toward -inf) + SAE *)
+  | RU (* Round up (toward +inf) + SAE *)
+  | RZ (* Round toward zero (Truncate) + SAE *)
+
 type EVEXPrefix = {
   /// Embedded opmask register specifier, P[18:16].
   AAA: uint8
@@ -233,6 +242,8 @@ type EVEXPrefix = {
   Z: ZeroingOrMerging
   /// Broadcast/RC/SAE Context, P[20].
   B: uint8
+  /// Reg-reg, FP Instructions w/ rounding semantic or SAE, P2[6:5].
+  RC: StaticRoundingMode
 }
 
 /// Information about Intel vector extension.
@@ -278,6 +289,7 @@ type TupleType =
   | EighthMem = 10
   | Mem128 = 11
   | MOVDDUP = 12
+  | NA = 13 (* N/A *)
 
 [<AbstractClass>]
 type IntelInternalInstruction

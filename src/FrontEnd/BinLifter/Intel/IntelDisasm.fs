@@ -1574,6 +1574,16 @@ module private IntelSyntax = begin
       else ()
     | _ -> ()
 
+  let buildRoundingControl (ins: InsInfo) (builder: DisasmBuilder) =
+    match ins.VEXInfo with
+    | Some { EVEXPrx = Some ePrx }->
+      if ePrx.B = 1uy then
+        builder.Accumulate AsmWordKind.String ", {"
+        builder.Accumulate AsmWordKind.String (ePrx.RC.ToString().ToLower())
+        builder.Accumulate AsmWordKind.String "-sae}"
+      else ()
+    | _ -> ()
+
   let oprToString ins reader opr (builder: DisasmBuilder) =
     match opr with
     | OprReg reg ->
@@ -1633,6 +1643,15 @@ module private IntelSyntax = begin
       builder.Accumulate AsmWordKind.String ", "
       oprToString ins reader opr3 builder
       buildBroadcast ins builder memSz
+    | ThreeOperands (opr1, opr2, (OprReg _ as opr3)) ->
+      builder.Accumulate AsmWordKind.String " "
+      oprToString ins reader opr1 builder
+      buildMask ins builder
+      builder.Accumulate AsmWordKind.String ", "
+      oprToString ins reader opr2 builder
+      builder.Accumulate AsmWordKind.String ", "
+      oprToString ins reader opr3 builder
+      buildRoundingControl ins builder
     | ThreeOperands (opr1, opr2, opr3) ->
       builder.Accumulate AsmWordKind.String " "
       oprToString ins reader opr1 builder

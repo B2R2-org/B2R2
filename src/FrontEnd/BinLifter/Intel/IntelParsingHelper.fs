@@ -101,6 +101,13 @@ module internal ParsingHelper = begin
     | 0b11uy -> raise ParsingFailureException
     | _ -> raise ParsingFailureException
 
+  let getRC = function
+    | 0b00uy -> RN
+    | 0b01uy -> RD
+    | 0b10uy -> RU
+    | 0b11uy -> RZ
+    | _ -> raise ParsingFailureException
+
   let getEVEXInfo (span: ByteSpan) (rex: byref<REXPrefix>) pos =
     let b1 = span[pos]
     if ((b1 >>> 2) &&& 0b11uy) <> 0uy then raise ParsingFailureException
@@ -110,10 +117,11 @@ module internal ParsingHelper = begin
     else ()
     let l'l = span[pos + 2] >>> 5 &&& 0b011uy
     let vLen = getVLen l'l
+    let rc = getRC l'l
     let aaa = span[pos + 2] &&& 0b111uy
     let z = if (span[pos + 2] >>> 7 &&& 0b1uy) = 1uy then Zeroing else Merging
     let b = (span[pos + 2] >>> 4) &&& 0b1uy
-    let e = Some { AAA = aaa; Z = z; B = b }
+    let e = Some { AAA = aaa; Z = z; B = b; RC = rc }
     rex <- rex ||| getVREXPref b1 b2
     { VVVV = getVVVV b2
       VectorLength = vLen
