@@ -179,6 +179,7 @@ type TaskManager<'V,
   /// will potentially discover more functions and then return the whole set of
   /// recovered functions (dictionary) as output.
   member __.RecoverCFGs (entryPoints: (Addr * ArchOperationMode)[]) =
+    builders.Load manager
     entryPoints |> Seq.iter (fun (addr, mode) -> addTask addr mode)
     waitForWorkers ()
     builders.ToArray ()

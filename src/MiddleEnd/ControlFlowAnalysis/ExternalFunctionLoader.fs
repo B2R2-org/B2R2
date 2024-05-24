@@ -27,6 +27,7 @@ module B2R2.MiddleEnd.ControlFlowAnalysis.ExternalFunctionLoader
 open System.Collections.Generic
 open B2R2
 open B2R2.FrontEnd.BinFile
+open B2R2.MiddleEnd.ControlFlowGraph
 
 [<RequireQualifiedAccess>]
 module internal ELF = begin
@@ -49,7 +50,7 @@ module internal ELF = begin
       | _ -> Error ErrorCase.SymbolNotFound
 
   /// Known non-returning function names.
-  let knownNoReturnFuncs =
+  let private knownNoReturnFuncs =
     HashSet [| "__assert_fail"
                "__stack_chk_fail"
                "abort"
@@ -64,9 +65,19 @@ module internal ELF = begin
                "__libc_start_main"
                "longjmp" |]
 
-  let isKnownNoReturnFunc (name: string) =
+  /// A mapping from known conditionally-not-returning function names to the
+  /// index of the argument that determines the return status.
+  let private knownCondNoReturnFuncMap =
+    [ ("error", 1)
+      ("error_at_line", 1) ]
+    |> Map.ofList
+
+  let getNoReturnStatusFromKnownFunc (name: string) =
     if knownNoReturnFuncs.Contains name then NoRet
-    else NotNoRet
+    else
+      match knownCondNoReturnFuncMap.TryGetValue name with
+      | true, nth -> ConditionalNoRet nth
+      | false, _ -> NotNoRet (* For common cases. *)
 
   let isDynamicReloc (sec: ELFSection) =
     sec.SecName = ".rela.dyn" || sec.SecName = ".rel.dyn"

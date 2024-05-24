@@ -193,10 +193,12 @@ type BaseFunctionSummarizer<'V,
 
   interface IFunctionSummarizable<'V, 'E, 'FnCtx, 'GlCtx> with
     member __.Summarize (ctx: CFGBuildingContext<'V, 'E, 'FnCtx, 'GlCtx>, ins) =
-      let unwindingBytes = __.ComputeUnwindingAmount ctx
+      let unwindingBytes =
+        if ctx.IsExternal then None else __.ComputeUnwindingAmount ctx
       let unwindingAmount = Option.defaultValue 0 unwindingBytes
       let ssaRundown = __.SSASummarize (ctx, ins, unwindingAmount)
       FunctionAbstraction (ctx.FunctionAddress,
                            unwindingBytes,
                            ssaRundown,
-                           ctx.IsExternal)
+                           ctx.IsExternal,
+                           ctx.NonReturningStatus)

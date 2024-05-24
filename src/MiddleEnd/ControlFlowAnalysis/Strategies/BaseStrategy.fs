@@ -244,6 +244,20 @@ type BaseStrategy<'FnCtx,
     | Ok _ -> Success
     | Error e -> Failure e
 
+  let connectAbsWithFT ctx caller calleeAddr mode queue fnAddr =
+    let lastIns = (caller: IVertex<IRBasicBlock>).VData.LastInstruction
+    getFunctionAbstraction ctx lastIns calleeAddr
+    |> Result.map (connectAbsVertex ctx caller calleeAddr)
+    |> Result.map (connectRet ctx mode)
+    |> Result.map (addExpandCFGAction queue fnAddr mode)
+    |> toCFGResult
+
+  let connectAbsWithoutFT ctx caller calleeAddr =
+    let lastIns = (caller: IVertex<IRBasicBlock>).VData.LastInstruction
+    getFunctionAbstraction ctx lastIns calleeAddr
+    |> Result.map (connectAbsVertex ctx caller calleeAddr)
+    |> toCFGResult
+
   let connectCallEdge ctx queue fnAddr mode callerAddr calleeAddr =
     let caller = getVertex ctx (ProgramPoint (callerAddr, 0))
     if fnAddr = calleeAddr then (* recursion = always returns (not noret) *)
@@ -254,30 +268,22 @@ type BaseStrategy<'FnCtx,
       Success
     else
       match ctx.ManagerChannel.GetNonReturningStatus calleeAddr with
-      | NoRet ->
-        getFunctionAbstraction ctx caller.VData.LastInstruction calleeAddr
-        |> Result.map (connectAbsVertex ctx caller calleeAddr)
-        |> toCFGResult
-      | NotNoRet ->
-        getFunctionAbstraction ctx caller.VData.LastInstruction calleeAddr
-        |> Result.map (connectAbsVertex ctx caller calleeAddr)
-        |> Result.map (connectRet ctx mode)
-        |> Result.map (addExpandCFGAction queue fnAddr mode)
-        |> toCFGResult
+      | NoRet -> connectAbsWithoutFT ctx caller calleeAddr
+      | NotNoRet -> connectAbsWithFT ctx caller calleeAddr mode queue fnAddr
+      | ConditionalNoRet nth ->
+        let hdl = ctx.BinHandle
+        let retOrPossiblyCondNoRet =
+          CondAwareNoretAnalysis.hasLocallyZeroOrTopCondition hdl caller nth
+        if retOrPossiblyCondNoRet then
+          connectAbsWithFT ctx caller calleeAddr mode queue fnAddr
+        else connectAbsWithoutFT ctx caller calleeAddr
       | UnknownNoRet -> Wait calleeAddr
-      | _ -> Failure ErrorCase.FailedToRecoverCFG
 
   let connectSyscallEdge ctx mode callerAddr isExit =
     let caller = getVertex ctx (ProgramPoint (callerAddr, 0))
-    if isExit then
-      syscallAnalysis.MakeAbstract (ctx, caller)
-      |> connectAbsVertex ctx caller 0UL
-      |> ignore
-    else
-      syscallAnalysis.MakeAbstract (ctx, caller)
-      |> connectAbsVertex ctx caller 0UL
-      |> connectRet ctx mode
-      |> ignore
+    syscallAnalysis.MakeAbstract (ctx, caller, isExit)
+    |> connectAbsVertex ctx caller 0UL
+    |> fun callee -> if not isExit then connectRet ctx mode callee |> ignore
     Success
 
   new () =
@@ -287,7 +293,7 @@ type BaseStrategy<'FnCtx,
     let postAnalysis =
       StackPointerAnalysis () :> IPostAnalysis<_>
       <+> StackAnalysis ()
-      <+> CondAwareNoretAnalysis ()
+      <+> CondAwareNoretAnalysis false
     BaseStrategy (ssaLifter, summarizer, syscallAnalysis, postAnalysis, false)
 
   new (ssaLifter) =
@@ -296,7 +302,7 @@ type BaseStrategy<'FnCtx,
     let postAnalysis =
       StackPointerAnalysis () :> IPostAnalysis<_>
       <+> StackAnalysis ()
-      <+> CondAwareNoretAnalysis ()
+      <+> CondAwareNoretAnalysis false
     BaseStrategy (ssaLifter, summarizer, syscallAnalysis, postAnalysis, false)
 
   interface IFunctionBuildingStrategy<IRBasicBlock,

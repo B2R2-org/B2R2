@@ -43,4 +43,5 @@ type ISyscallAnalyzable =
   abstract MakeAbstract:
        ctx: CFGBuildingContext<IRBasicBlock, CFGEdgeKind, 'FnCtx, 'GlCtx>
      * TargetVertex: IVertex<IRBasicBlock>
+     * IsExit: bool
     -> FunctionAbstraction

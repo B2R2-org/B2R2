@@ -271,12 +271,22 @@ let ipdom ctxt (v: IVertex<_>) =
 let rec private domsAux acc v info =
   let id = info.IDom[dfnum info v]
   if id > 0 then domsAux (info.Vertex[id] :: acc) info.Vertex[id] info
-  else List.rev acc
+  else acc |> List.toArray
 
 let doms ctxt v =
   let g = ctxt.ForwardGraph
   checkVertexInGraph g v
   domsAux [] v ctxt.ForwardDomInfo
+
+let rec private domSetAux s v info =
+  let id = info.IDom[dfnum info v]
+  if id > 0 then domSetAux (Set.add info.Vertex[id] s) info.Vertex[id] info
+  else s
+
+let domSet ctxt v =
+  let g = ctxt.ForwardGraph
+  checkVertexInGraph g v
+  domSetAux Set.empty v ctxt.ForwardDomInfo
 
 let pdoms ctxt v =
   domsAux [] v ctxt.BackwardDomInfo
@@ -308,7 +318,7 @@ let rec private computeDF domTree (frontiers: IVertex<_> list []) g ctxt r =
     computeDF domTree frontiers g ctxt child
     for node in frontiers[dfnum ctxt child] do
       let doms = domsAux [] node ctxt
-      let dominate = doms |> List.exists (fun d -> d.ID = r.ID)
+      let dominate = doms |> Array.exists (fun d -> d.ID = r.ID)
       if not dominate then s <- Set.add (dfnum ctxt node) s
     done
   done

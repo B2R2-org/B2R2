@@ -36,7 +36,7 @@ let private getBackEdges g root =
   []
   |> g.FoldEdge (fun acc edge ->
     match doms[edge.First] with
-    | l when l |> List.exists (fun v -> v = edge.Second) -> edge :: acc
+    | ds when ds |> Array.exists (fun v -> v = edge.Second) -> edge :: acc
     | _ -> acc)
 
 let private findIn (g: IGraph<_, _>) (v: IVertex<_>) =

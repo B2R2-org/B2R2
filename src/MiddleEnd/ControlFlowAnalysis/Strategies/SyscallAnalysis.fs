@@ -53,9 +53,10 @@ type SyscallAnalysis () =
         | Undef -> false
       | _ -> false
 
-    member _.MakeAbstract (ctx, v) =
+    member _.MakeAbstract (ctx, v, isExit) =
       let addr = ctx.FunctionAddress
       let hdl = ctx.BinHandle
+      let returningStatus = if isExit then NoRet else NotNoRet
       match hdl.File.Format with
       | FileFormat.RawBinary
       | FileFormat.ELFBinary ->
@@ -68,6 +69,6 @@ type SyscallAnalysis () =
         let e = SSA.Undefined (rt, "ret")
         let pp = ProgramPoint.GetFake ()
         let rundown = [| pp, SSA.Def (dst, SSA.ReturnVal (addr, nextAddr, e)) |]
-        FunctionAbstraction (addr, Some 0, rundown, true)
+        FunctionAbstraction (addr, Some 0, rundown, true, returningStatus)
       | _ ->
-        FunctionAbstraction (addr, Some 0, [||], true)
+        FunctionAbstraction (addr, Some 0, [||], true, returningStatus)

@@ -79,19 +79,6 @@ type CFGBuildingContext<'V,
 /// target the same callee.
 and AbsCallEdge = Addr * Addr
 
-/// The result of non-returning function analysis.
-and NonReturningStatus =
-  /// This function will never return. For example, the "exit" function should
-  /// have this property.
-  | NoRet
-  /// Regular case: *not* no-return (i.e., this is a returning function).
-  | NotNoRet
-  /// Conditionally no-return; function does not return only if the n-th
-  /// argument (starting from one) specified is non-zero.
-  | ConditionalNoRet of int
-  /// We don't know yet: we need further analyses.
-  | UnknownNoRet
-
 /// The interface for accessing the state of the TaskManager.
 and [<AllowNullLiteral>]
   IManagerAccessible<'V,

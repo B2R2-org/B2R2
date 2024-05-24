@@ -67,7 +67,7 @@ type FunctionBuilderTable<'V,
         builders[range.Min] <- builder
       | Error _ ->
         let addr, name = entry.TableAddress, entry.FuncName
-        let isNoRet = ELF.isKnownNoReturnFunc name
+        let isNoRet = ELF.getNoReturnStatusFromKnownFunc name
         let builder = ExternalFunctionBuilder (hdl, addr, name, isNoRet)
         builders[range.Min] <- builder
     )

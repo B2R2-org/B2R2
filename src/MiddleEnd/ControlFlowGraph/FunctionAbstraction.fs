@@ -34,7 +34,8 @@ open B2R2.BinIR
 type FunctionAbstraction (entryPoint,
                           unwindingBytes,
                           rundown,
-                          isExternal) =
+                          isExternal,
+                          returningStatus) =
   /// Entry point of this function.
   member _.EntryPoint with get(): Addr = entryPoint
 
@@ -47,6 +48,21 @@ type FunctionAbstraction (entryPoint,
   /// Is this an external function?
   member _.IsExternal with get(): bool = isExternal
 
+  member __.ReturningStatus with get(): NonReturningStatus = returningStatus
+
 /// A rundown of a function in SSA form, where each SSA statement is associated
 /// with a program point.
 and SSARundown = (ProgramPoint * SSA.Stmt) array
+
+/// The result of non-returning function analysis.
+and NonReturningStatus =
+  /// This function will never return. For example, the "exit" function should
+  /// have this property.
+  | NoRet
+  /// Regular case: *not* no-return (i.e., this is a returning function).
+  | NotNoRet
+  /// Conditionally no-return; function does not return only if the n-th
+  /// argument (starting from one) specified is non-zero.
+  | ConditionalNoRet of int
+  /// We don't know yet: we need further analyses.
+  | UnknownNoRet
