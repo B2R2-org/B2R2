@@ -72,23 +72,8 @@ type FunctionBuilderTable<'V,
         builders[range.Min] <- builder
     )
 
-  let loadFromReloc (elf: ELFBinFile) =
-    elf.RelocationInfo.RelocByAddr.Values
-    |> Seq.iter (fun reloc ->
-      match reloc.RelSymbol with
-      | Some symb ->
-        let sec = elf.FindSection reloc.RelSecNumber
-        if ELF.isDynamicReloc sec && ELF.isKnownNoPLTFunc symb.SymName then
-          let addr, name = reloc.RelOffset, symb.SymName
-          let builder = ExternalFunctionBuilder (hdl, addr, name, NotNoRet)
-          builders[reloc.RelOffset] <- builder
-        else ()
-      | None -> ()
-    )
-
   let loadELF manager (elf: ELFBinFile) =
     loadFromPLT manager elf
-    loadFromReloc elf
 
   member _.Load manager =
     match hdl.File.Format with

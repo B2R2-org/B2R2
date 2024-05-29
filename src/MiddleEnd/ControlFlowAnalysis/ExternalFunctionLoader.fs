@@ -78,12 +78,4 @@ module internal ELF = begin
       match knownCondNoReturnFuncMap.TryGetValue name with
       | true, nth -> ConditionalNoRet nth
       | false, _ -> NotNoRet (* For common cases. *)
-
-  let isDynamicReloc (sec: ELFSection) =
-    sec.SecName = ".rela.dyn" || sec.SecName = ".rel.dyn"
-
-  let knownNoPLTFuncs = [| "__libc_start_main"; "__gmon_start__" |]
-
-  let isKnownNoPLTFunc (name: string) =
-    Array.contains name knownNoPLTFuncs
 end
