@@ -38,6 +38,19 @@ type [<AbstractClass>] OperandParser () =
 
 and [<AbstractClass>] InsSizeComputer () =
   abstract Render: ReadHelper -> SzCond -> unit
+  abstract RenderEVEX: ByteSpan * ReadHelper * SzCond -> unit
+  default _.Render (rhlp: ReadHelper) _ =
+    rhlp.MemEffOprSize <- 0<rt>
+    rhlp.MemEffAddrSize <- 0<rt>
+    rhlp.MemEffRegSize <- 0<rt>
+    rhlp.RegSize <- 0<rt>
+    rhlp.OperationSize <- 0<rt>
+  default _.RenderEVEX (_, rhlp: ReadHelper, _) =
+    rhlp.MemEffOprSize <- 0<rt>
+    rhlp.MemEffAddrSize <- 0<rt>
+    rhlp.MemEffRegSize <- 0<rt>
+    rhlp.RegSize <- 0<rt>
+    rhlp.OperationSize <- 0<rt>
 
 and ReadHelper (addr, cpos, pref, rex, vex, wordSz, ops, szs) =
   let reader = BinReader.Init Endian.Little
@@ -291,6 +304,26 @@ type SzVecDef () =
     rhlp.MemEffRegSize <- vLen
     rhlp.RegSize <- vLen
     rhlp.OperationSize <- vLen
+
+type SzVecDefRC () =
+  inherit InsSizeComputer ()
+  override __.RenderEVEX (span, rhlp: ReadHelper, _) =
+    let vInfo = Option.get rhlp.VEXInfo
+    let vLen = vInfo.VectorLength
+    let modRM = rhlp.PeekByte span
+    let evex = Option.get vInfo.EVEXPrx
+    if modIsReg modRM && evex.B = 1uy then
+      rhlp.MemEffOprSize <- 512<rt>
+      rhlp.MemEffAddrSize <- getEffAddrSize rhlp
+      rhlp.MemEffRegSize <- 512<rt>
+      rhlp.RegSize <- 512<rt>
+      rhlp.OperationSize <- 512<rt>
+    else
+      rhlp.MemEffOprSize <- vLen
+      rhlp.MemEffAddrSize <- getEffAddrSize rhlp
+      rhlp.MemEffRegSize <- vLen
+      rhlp.RegSize <- vLen
+      rhlp.OperationSize <- vLen
 
 /// GvEd Md
 type SzDV () =
@@ -1234,5 +1267,6 @@ type SizeKind =
   | QQb = 73
   | QQd = 74
   | QQw = 75
+  | VecDefRC = 76
 
 // vim: set tw=80 sts=2 sw=2:

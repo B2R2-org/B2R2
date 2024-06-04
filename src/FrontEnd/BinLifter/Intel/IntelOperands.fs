@@ -483,6 +483,20 @@ module internal OperandParsingHelper =
     | Some vInfo ->
       Register.xmm (int vInfo.VVVV) |> OprReg
 
+  let parseVVVVRegRC isReg (rhlp: ReadHelper) =
+    match rhlp.VEXInfo with
+    | None -> raise ParsingFailureException
+    | Some vInfo ->
+      match vInfo.EVEXPrx with
+      | Some evex when evex.B = 1uy && isReg ->
+        Register.zmm (int vInfo.VVVV) |> OprReg
+      | _ ->
+        match vInfo.VectorLength with
+        | 512<rt> -> Register.zmm (int vInfo.VVVV) |> OprReg
+        | 256<rt> -> Register.ymm (int vInfo.VVVV) |> OprReg
+        | 128<rt> -> Register.xmm (int vInfo.VVVV) |> OprReg
+        | _ -> raise ParsingFailureException
+
   let parseVEXtoGPR (rhlp: ReadHelper) =
     match rhlp.VEXInfo with
     | None -> raise ParsingFailureException
@@ -1212,7 +1226,7 @@ type internal OpXmmVvXm () =
     let opr1 =
       findRegRBits rhlp.RegSize rhlp.REXPrefix (getReg modRM) |> OprReg
     let opr3 = parseMemOrReg modRM span rhlp
-    ThreeOperands (opr1, parseVVVVReg rhlp, opr3)
+    ThreeOperands (opr1, parseVVVVRegRC (modIsReg modRM) rhlp, opr3)
 
 type internal OpGprVvRm () =
   inherit OperandParser ()

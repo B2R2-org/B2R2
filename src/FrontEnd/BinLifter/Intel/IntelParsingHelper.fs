@@ -98,7 +98,7 @@ module internal ParsingHelper = begin
     | 0b00uy -> 128<rt>
     | 0b01uy -> 256<rt>
     | 0b10uy -> 512<rt>
-    | 0b11uy -> raise ParsingFailureException
+    | 0b11uy -> 0<rt>
     | _ -> raise ParsingFailureException
 
   let getRC = function
@@ -886,7 +886,7 @@ module internal ParsingHelper = begin
 
   let evex0F58W0 = function
     | MPref.MPrxNP ->
-      struct (VADDPS, OD.XmmVvXm, SZ.VecDef, Some TT.Full) (* VxHxWx *)
+      struct (VADDPS, OD.XmmVvXm, SZ.VecDefRC, Some TT.Full) (* VxHxWx *)
     | MPref.MPrx66
     | MPref.MPrxF3
     | MPref.MPrxF2
@@ -6126,7 +6126,10 @@ module internal ParsingHelper = begin
 
   /// The main instruction rendering function.
   let render span rhlp opcode szCond (oidx: OprDesc) (sidx: SizeKind) =
-    (rhlp: ReadHelper).SzComputers[int sidx].Render rhlp szCond
+    match sidx with
+    | SizeKind.VecDefRC ->
+      (rhlp: ReadHelper).SzComputers[int sidx].RenderEVEX (span, rhlp, szCond)
+    | _ -> (rhlp: ReadHelper).SzComputers[int sidx].Render rhlp szCond
     exceptionHandling opcode rhlp
     let oprs = rhlp.OprParsers[int oidx].Render (span, rhlp)
     newInsInfo rhlp opcode oprs
