@@ -65,7 +65,7 @@ and ReadHelper (addr, cpos, pref, rex, vex, wordSz, ops, szs) =
   let mutable memRegSz = 0<rt>
   let mutable regSz = 0<rt>
   let mutable operationSz = 0<rt>
-  let mutable tupleType = None
+  let mutable tupleType = TupleType.NA
   new (wordSz, oparsers, szcomputers) =
     ReadHelper (0UL, 0, Prefix.PrxNone, REXPrefix.NOREX, None,
                 wordSz, oparsers, szcomputers)
@@ -84,7 +84,7 @@ and ReadHelper (addr, cpos, pref, rex, vex, wordSz, ops, szs) =
   member __.RegSize with get() = regSz and set(s) = regSz <- s
   member __.OperationSize with get() = operationSz and set(s) = operationSz <- s
   member __.TupleType
-    with get(): TupleType option = tupleType and set(t) = tupleType <- t
+    with get(): TupleType = tupleType and set(t) = tupleType <- t
 
   member inline private __.ModCPos i = cpos <- cpos + i
 

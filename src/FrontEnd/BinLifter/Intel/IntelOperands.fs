@@ -209,7 +209,7 @@ module internal OperandParsingHelper =
     | _ -> raise ParsingFailureException
 
   /// EVEX uses compressed displacement. See the manual Chap. 15 of Vol. 1.
-  let compressDisp (rhlp: ReadHelper) disp =
+  let uncompressedDisp (rhlp: ReadHelper) disp =
     let vInfo = rhlp.VEXInfo.Value
     let evex = vInfo.EVEXPrx.Value
     let tt = rhlp.TupleType
@@ -221,40 +221,38 @@ module internal OperandParsingHelper =
     match tt, b, inputSz, w with
     /// Table 2-34. Compressed Displacement (DISP8*N) Affected by Embedded
     /// Broadcast.
-    | Some TupleType.Full, false, 32<rt>, false ->
+    | TupleType.Full, false, 32<rt>, false ->
       disp * (int64 vl / 8L), memSz
-    | Some TupleType.Full, true, 32<rt>, false -> disp * 4L, inputSz
-    | Some TupleType.Full, false, 64<rt>, true -> disp * (int64 vl / 8L), memSz
-    | Some TupleType.Full, true, 64<rt>, true -> disp * 8L, inputSz
-    | Some TupleType.Half, false, 32<rt>, false ->
+    | TupleType.Full, true, 32<rt>, false -> disp * 4L, inputSz
+    | TupleType.Full, false, 64<rt>, true -> disp * (int64 vl / 8L), memSz
+    | TupleType.Full, true, 64<rt>, true -> disp * 8L, inputSz
+    | TupleType.Half, false, 32<rt>, false ->
       disp * (int64 vl / 16L), memSz
-    | Some TupleType.Half, true, 32<rt>, false -> disp * 4L, inputSz
+    | TupleType.Half, true, 32<rt>, false -> disp * 4L, inputSz
     /// Table 2-35. EVEX DISP8*N for Instructions Not Affected by Embedded
     /// Broadcast.
-    | Some TupleType.FullMem, false, _, _ -> disp * (int64 vl / 8L), memSz
-    | Some TupleType.Tuple1Scalar, false, 8<rt>, _ -> disp, memSz
-    | Some TupleType.Tuple1Scalar, false, 16<rt>, _ -> disp * 2L, memSz
-    | Some TupleType.Tuple1Scalar, false, 32<rt>, false -> disp * 4L, memSz
-    | Some TupleType.Tuple1Scalar, false, 64<rt>, true -> disp * 8L, memSz
-    | Some TupleType.Tuple1Fixed, false, 32<rt>, _ -> disp * 4L, memSz
-    | Some TupleType.Tuple1Fixed, false, 64<rt>, _ -> disp * 8L, memSz
-    | Some TupleType.Tuple2, false, 32<rt>, false -> disp * 8L, memSz
-    | Some TupleType.Tuple2, false, 64<rt>, true when vl <> 128<rt> ->
+    | TupleType.FullMem, false, _, _ -> disp * (int64 vl / 8L), memSz
+    | TupleType.Tuple1Scalar, false, 8<rt>, _ -> disp, memSz
+    | TupleType.Tuple1Scalar, false, 16<rt>, _ -> disp * 2L, memSz
+    | TupleType.Tuple1Scalar, false, 32<rt>, false -> disp * 4L, memSz
+    | TupleType.Tuple1Scalar, false, 64<rt>, true -> disp * 8L, memSz
+    | TupleType.Tuple1Fixed, false, 32<rt>, _ -> disp * 4L, memSz
+    | TupleType.Tuple1Fixed, false, 64<rt>, _ -> disp * 8L, memSz
+    | TupleType.Tuple2, false, 32<rt>, false -> disp * 8L, memSz
+    | TupleType.Tuple2, false, 64<rt>, true when vl <> 128<rt> ->
       disp * 16L, memSz
-    | Some TupleType.Tuple4, false, 32<rt>, true when vl <> 128<rt> ->
+    | TupleType.Tuple4, false, 32<rt>, true when vl <> 128<rt> ->
       disp * 16L, memSz
-    | Some TupleType.Tuple4, false, 64<rt>, true when vl = 512<rt> ->
+    | TupleType.Tuple4, false, 64<rt>, true when vl = 512<rt> ->
       disp * 32L, memSz
-    | Some TupleType.Tuple8, false, 32<rt>, false when vl = 512<rt> ->
+    | TupleType.Tuple8, false, 32<rt>, false when vl = 512<rt> ->
       disp * 32L, memSz
-    | Some TupleType.HalfMem, false, _, _ -> disp * (int64 vl / 16L), memSz
-    | Some TupleType.QuarterMem, false, _, _ -> disp * (int64 vl / 32L), memSz
-    | Some TupleType.EighthMem, false, _, _ -> disp * (int64 vl / 64L), memSz
-    | Some TupleType.Mem128, false, _, _ -> disp * 16L, memSz
-    | Some TupleType.MOVDDUP, false, _, _ -> disp * (int64 vl / 16L), memSz
-    | _ -> raise ParsingFailureException
-      //printfn "Warning: TupleType must be specified."
-      //disp, memSz
+    | TupleType.HalfMem, false, _, _ -> disp * (int64 vl / 16L), memSz
+    | TupleType.QuarterMem, false, _, _ -> disp * (int64 vl / 32L), memSz
+    | TupleType.EighthMem, false, _, _ -> disp * (int64 vl / 64L), memSz
+    | TupleType.Mem128, false, _, _ -> disp * 16L, memSz
+    | TupleType.MOVDDUP, false, _, _ -> disp * (int64 vl / 16L), memSz
+    | _ (* TupleType.NA *) -> disp, memSz
 
   let inline private isEVEX (rhlp: ReadHelper) =
     match rhlp.VEXInfo with
@@ -276,7 +274,7 @@ module internal OperandParsingHelper =
         OprMem (b, s, None, memSz)
       | 1, _ ->
         let disp = parseSignedImm span rhlp dispSz
-        let disp, memSz = compressDisp rhlp disp
+        let disp, memSz = uncompressedDisp rhlp disp
         OprMem (b, s, Some disp, memSz)
       | 4, true ->
         let disp = parseSignedImm span rhlp dispSz
@@ -386,7 +384,7 @@ module internal OperandParsingHelper =
         OprMem (b, s, None, memSz)
       | 1, _ ->
         let disp = parseSignedImm span rhlp dispSz
-        let disp, memSz = compressDisp rhlp disp
+        let disp, memSz = uncompressedDisp rhlp disp
         OprMem (b, s, Some disp, memSz)
       | 4, true ->
         let disp = parseSignedImm span rhlp dispSz
@@ -483,6 +481,7 @@ module internal OperandParsingHelper =
     | Some vInfo ->
       Register.xmm (int vInfo.VVVV) |> OprReg
 
+  /// FIXME
   let parseVVVVRegRC isReg (rhlp: ReadHelper) =
     match rhlp.VEXInfo with
     | None -> raise ParsingFailureException

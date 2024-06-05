@@ -1559,7 +1559,7 @@ module private IntelSyntax = begin
 
   let buildMask (ins: InsInfo) builder =
     match ins.VEXInfo with
-    | Some { EVEXPrx = Some ePrx }->
+    | Some { EVEXPrx = Some ePrx } ->
       buildOpMask ePrx builder
       buildEVEXZ ePrx builder
     | _ -> ()
