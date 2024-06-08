@@ -374,8 +374,8 @@ type CFGTest1 () =
     let brew = BinaryBrew (hdl, strategy)
     let cfg = brew.Functions[0x0UL].CFG
     let root = cfg.TryGetSingleRoot () |> Option.get
-    let ssaLifter = SSALifter ()
-    let ssacfg, _ = ssaLifter.Lift cfg root
+    let ssaLifter = SSALifter () :> ISSALiftable<_>
+    let ssacfg, _ = ssaLifter.Lift (cfg, root)
     Assert.AreEqual (9, ssacfg.Size)
 
 [<TestClass>]
@@ -600,6 +600,6 @@ type CFGTest2 () =
   member __.``SSAGraph Vertex Test: _start`` () =
     let cfg = brew.Functions[0x0UL].CFG
     let root = cfg.TryGetSingleRoot () |> Option.get
-    let ssaLifter = SSALifter ()
-    let ssacfg, _ = ssaLifter.Lift cfg root
+    let ssaLifter = SSALifter () :> ISSALiftable<_>
+    let ssacfg, _ = ssaLifter.Lift (cfg, root)
     Assert.AreEqual (7, ssacfg.Size)

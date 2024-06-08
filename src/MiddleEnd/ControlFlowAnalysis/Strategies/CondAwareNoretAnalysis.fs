@@ -24,6 +24,7 @@
 
 namespace B2R2.MiddleEnd.ControlFlowAnalysis.Strategies
 
+open System.Runtime.InteropServices
 open B2R2
 open B2R2.FrontEnd
 open B2R2.FrontEnd.BinLifter
@@ -37,9 +38,9 @@ open B2R2.MiddleEnd.DataFlow
 /// conditionally non-returning functions. We currently support only those
 /// simple patterns that are handled by compilers, but we may have to extend
 /// this as the compilers evolve.
-type CondAwareNoretAnalysis (useReturnHeuristic) =
+type CondAwareNoretAnalysis ([<Optional; DefaultParameterValue(true)>] strict) =
   /// Default value used for unknown non-returning status.
-  let defaultStatus = if useReturnHeuristic then NotNoRet else NoRet
+  let defaultStatus = if strict then NoRet else NotNoRet
 
   let meet a b =
     match a, b with
@@ -169,7 +170,8 @@ type CondAwareNoretAnalysis (useReturnHeuristic) =
       i <- i + 1
       if not v.VData.IsAbstract then
         if not <| v.VData.LastInstruction.IsRET () then ()
-        else updateStatus (getStatusFromDominators domCtx absVSet argNumMap v)
+        else
+          updateStatus (getStatusFromDominators domCtx absVSet argNumMap v)
       else
         match v.VData.AbstractContent.ReturningStatus with
         | ConditionalNoRet _ -> updateStatus NoRet
@@ -194,7 +196,7 @@ module CondAwareNoretAnalysis =
   let private hasNonZeroOnX86 st nth =
     let esp = (Intel.Register.ESP |> Intel.Register.toRegID)
     match (st: EvalState).TryGetReg esp with
-    | EvalValue.Def esp ->
+    | Def esp ->
       let p = esp.Add (BitVector.OfInt32 (4 * nth) 32<rt>)
       let endian = Endian.Little
       match st.Memory.Read (BitVector.ToUInt64 p) endian 32<rt> with
@@ -205,7 +207,7 @@ module CondAwareNoretAnalysis =
   let private hasNonZeroOnX64 hdl st nth =
     let reg = CallingConvention.functionArgRegister hdl OS.Linux nth
     match (st: EvalState).TryGetReg reg with
-    | EvalValue.Def bv -> not <| bv.IsZero ()
+    | Def bv -> not <| bv.IsZero ()
     | _ -> false
 
   let hasLocallyZeroOrTopCondition (hdl: BinHandle) caller nth =
