@@ -54,15 +54,6 @@ type CondAwareNoretAnalysis ([<Optional; DefaultParameterValue(true)>] strict) =
     | ConditionalNoRet n1, ConditionalNoRet n2 when n1 <> n2 -> NoRet
     | _ -> Utils.impossible ()
 
-  /// Disregard return instructions and PLT entries because they should not
-  /// decide the return status.
-  let filterReturns exitVertices =
-    match (exitVertices: IVertex<IRBasicBlock>[]) with
-    | [| v |] when not v.VData.IsAbstract ->
-      if v.VData.LastInstruction.IsRET () then [||]
-      else exitVertices
-    | _ -> exitVertices
-
   let untouchedArgIndexX86 frameDist absV uvState nth =
     let argOff = frameDist - 4 * nth
     let varKind = BinIR.SSA.StackVar (32<rt>, argOff)
@@ -158,7 +149,7 @@ type CondAwareNoretAnalysis ([<Optional; DefaultParameterValue(true)>] strict) =
   let analyze ctx =
     let cfgRoot = ctx.CFG.TryGetSingleRoot () |> Option.get
     let domCtx = Dominator.initDominatorContext ctx.CFG cfgRoot
-    let exits = ctx.CFG.Exits |> filterReturns
+    let exits = ctx.CFG.Exits
     let condNoRetCalls = collectConditionalNoRetCalls ctx
     let absVSet = condNoRetCalls |> List.map fst |> Set.ofList
     let argNumMap = condNoRetCalls |> Map.ofSeq
