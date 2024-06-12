@@ -53,7 +53,7 @@ type Function<'V, 'E when 'V :> IRBasicBlock and 'V: equality and 'E: equality>
   /// Return the non-returning status of this function.
   member _.NoRet with get(): NonReturningStatus = isNoRet
 
-  /// Call site information of this function.
+  /// Mapping from a callsite to its callee kind.
   member _.Callees with get(): SortedList<Addr, CalleeKind> = callees
 
   /// Callers of this function.

@@ -43,21 +43,56 @@ type FunctionCollection<'V,
 
   let nameToFunction = Dictionary<string, List<Function<'V, 'E>>> ()
 
+  /// Callee to callers.
+  let callTable = Dictionary<Addr, List<Addr>> ()
+
+  let addToCallTable caller callee =
+    match callTable.TryGetValue callee with
+    | true, callers -> callers.Add caller
+    | false, _ ->
+      let callers = List<Addr> ()
+      callers.Add caller
+      callTable.Add (callee, callers)
+
+  let analyzeCallRelationship (fn: Function<_, _>) =
+    for callee in fn.Callees.Values do
+      match callee with
+      | RegularCallee calleeAddr -> addToCallTable fn.EntryPoint calleeAddr
+      | IndirectCallees calleeAddrs ->
+        for calleeAddr in calleeAddrs do addToCallTable fn.EntryPoint calleeAddr
+      | _ -> ()
+
+  let updateCallers (fn: Function<_, _>) =
+    match callTable.TryGetValue fn.EntryPoint with
+    | true, callers ->
+      for caller in callers do fn.Callers.Add caller |> ignore
+    | false, _ -> ()
+
+  let createFunctions () =
+    builders
+    |> Array.map (fun builder ->
+      let fn = builder.ToFunction ()
+      analyzeCallRelationship fn
+      fn)
+
+  let updateCollection fns =
+    fns
+    |> Array.iter (fun (fn: Function<_, _>) ->
+      updateCallers fn
+      addrToFunction.Add (fn.EntryPoint, fn)
+      match nameToFunction.TryGetValue fn.Name with
+      | false, _ ->
+        let fns = List<Function<'V, 'E>> ()
+        fns.Add fn
+        nameToFunction.Add (fn.Name, fns)
+      | true, fns -> fns.Add fn)
+
   let findByAddr addr =
     match addrToFunction.TryGetValue addr with
     | true, fn -> fn
     | _ -> raise (KeyNotFoundException ($"Function not found: {addr:x}"))
 
-  do builders
-     |> Array.iter (fun builder ->
-       let fn = builder.ToFunction ()
-       addrToFunction.Add (fn.EntryPoint, fn)
-       match nameToFunction.TryGetValue fn.Name with
-       | false, _ ->
-         let fns = List<Function<'V, 'E>> ()
-         fns.Add fn
-         nameToFunction.Add (fn.Name, fns)
-       | true, fns -> fns.Add fn)
+  do createFunctions () |> updateCollection
 
   /// Sequence of functions.
   member _.Sequence with get() = addrToFunction.Values
