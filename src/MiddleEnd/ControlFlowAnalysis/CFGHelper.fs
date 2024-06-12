@@ -46,7 +46,9 @@ module internal Dbg =
     let cts = new CancellationTokenSource ()
 
     let logger =
-      let path = Path.Combine (Directory.GetCurrentDirectory (), "cfg.log")
+      let fileName = Path.ChangeExtension (Path.GetRandomFileName (), "log")
+      System.Console.Error.WriteLine $"[!] CFG log is written @ {fileName}"
+      let path = Path.Combine (Directory.GetCurrentDirectory (), fileName)
       new FileLogger (path) :> ILogger
 
     let flushLog tid =

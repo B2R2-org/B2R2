@@ -61,7 +61,7 @@ module DisasmCFG =
       tmpV
 
   let private updateDisasmVertexInfo vMap (bbl: #IRBasicBlock) =
-    let tmpV = getTempVertex vMap bbl.LiftedInstructions[0].BBLAddr
+    let tmpV = getTempVertex vMap bbl.PPoint.Address
     let insList = tmpV.Instructions
     bbl.LiftedInstructions
     |> Array.iter (fun lifted ->
@@ -69,16 +69,12 @@ module DisasmCFG =
       if insList.ContainsKey ins.Address then ()
       else insList.Add (ins.Address, ins))
 
-  let private updateSuccessor (succs: List<Addr * _>) = function
-    | Some (succAddr, edge) -> succs.Add (succAddr, edge)
-    | None -> ()
-
   let private updateDisasmEdgeInfo (vMap: DisasmVMap<_>) addr succ =
-    let tmpV = vMap[addr]
-    updateSuccessor tmpV.Successors succ
-
-  let private appendInstructionsInto srcInss (dstInss: SortedList<_, _>) =
-    srcInss |> Seq.iter (fun (KeyValue (addr, ins)) -> dstInss.Add (addr, ins))
+    match succ with
+    | Some (succAddr, edge) ->
+      let tmpV = vMap[addr]
+      tmpV.Successors.Add (succAddr, edge)
+    | None -> ()
 
   let private updateDisasmCallerVertexInfo g vMap srcAddr edges =
     let e = Seq.exactlyOne edges
@@ -92,7 +88,7 @@ module DisasmCFG =
       let inss1 = vMap[srcAddr].Instructions
       let inss2 = vMap[ftAddr].Instructions
       let ftSuccs = vMap[ftAddr].Successors
-      appendInstructionsInto inss2 inss1
+      for KeyValue (addr, ins) in inss2 do inss1.Add (addr, ins)
       vMap.Remove ftAddr |> ignore
       for succ in ftSuccs do updateDisasmEdgeInfo vMap srcAddr <| Some succ
     | _ -> ()
