@@ -126,6 +126,10 @@ type BaseStrategy<'FnCtx,
           connectEdge ctx srcVertex fVertex IntraCJmpFalseEdge
           ppQueue.Enqueue tPPoint
           ppQueue.Enqueue fPPoint
+        | InterJmp ({ E = PCVar _ }, InterJmpKind.Base) ->
+          let dstPPoint = ProgramPoint (ppoint.Address, 0)
+          let dstVertex = getVertex ctx dstPPoint
+          connectEdge ctx srcVertex dstVertex InterJmpEdge
         | InterJmp ({ E = BinOp (BinOpType.ADD, _, { E = PCVar _ },
                                                    { E = Num n }) },
                           InterJmpKind.Base) ->
