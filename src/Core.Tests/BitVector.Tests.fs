@@ -222,7 +222,7 @@ type BitVectorTests () =
     Assert.AreEqual (BitVector.ToString <| BitVector.Shr (n1, n1), "0x0:I1")
     Assert.AreEqual (BitVector.ToString <| BitVector.Sar (n1, n0), "0x1:I1")
     Assert.AreEqual (BitVector.ToString <| BitVector.Sar (n0, n1), "0x0:I1")
-    Assert.AreEqual (BitVector.ToString <| BitVector.Sar (n1, n1), "0x0:I1")
+    Assert.AreEqual (BitVector.ToString <| BitVector.Sar (n1, n1), "0x1:I1")
 
   [<TestMethod>]
   member __.``Shift by a Large Amount`` () =
@@ -235,10 +235,12 @@ type BitVectorTests () =
     Assert.AreEqual (BitVector.ToString <| BitVector.Shr (n1, n2), "0x0:I32")
     Assert.AreEqual (BitVector.ToString <| BitVector.Shl (n1, n2), "0x0:I32")
     Assert.AreEqual (BitVector.ToString <| BitVector.Shr (n3, n4), "0x0:I64")
-    Assert.AreEqual (BitVector.ToString <| BitVector.Sar (n3, n4), "0x0:I64")
+    Assert.AreEqual (BitVector.ToString <| BitVector.Sar (n3, n4),
+                     "0xffffffffffffffff:I64")
     Assert.AreEqual (BitVector.ToString <| BitVector.Shl (n3, n4), "0x0:I64")
     Assert.AreEqual (BitVector.ToString <| BitVector.Shr (n5, n6), "0x0:I128")
-    Assert.AreEqual (BitVector.ToString <| BitVector.Sar (n5, n6), "0x0:I128")
+    Assert.AreEqual (BitVector.ToString <| BitVector.Sar (n5, n6),
+                     "0xffffffffffffffffffffffffffffffff:I128")
     Assert.AreEqual (BitVector.ToString <| BitVector.Shl (n5, n6), "0x0:I128")
 
   [<TestMethod>]
