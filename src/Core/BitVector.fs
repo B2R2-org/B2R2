@@ -886,11 +886,11 @@ and BitVectorSmall (n, len) =
     let v1 = n
     let v2 = rhs.SmallValue ()
     (* In .NET, 1UL >>> 63 = 0, but 1UL >>> 64 = 1 *)
-    if v2 >= 64UL then BitVectorSmall (0UL, len) :> BitVector
+    if v2 >= 64UL then
+      BitVectorSmall (UInt64.MaxValue |> adaptSmall len, len) :> BitVector
     else
       let res = v1 >>> (int v2)
-      if len = 1<rt> then
-        if v2 = 0UL then __ :> BitVector else BitVector.Zero len
+      if len = 1<rt> then __ :> BitVector
       elif isSmallPositive len v1 then BitVectorSmall (res, len) :> BitVector
       else
         let pad =
@@ -1458,7 +1458,7 @@ and BitVectorBig (n, len) =
     if len <> rhs.Length then raise ArithTypeMismatchException else ()
     let v1 = n
     let v2 = rhs.SmallValue () |> uint16 |> int
-    if v2 >= int len then BitVectorBig (0I, len) :> BitVector
+    if v2 >= int len then BitVectorBig ((1I <<< int len) - 1I, len) :> BitVector
     else
       let res = v1 >>> v2
       if isBigPositive len v1 then BitVectorBig (res, len) :> BitVector
