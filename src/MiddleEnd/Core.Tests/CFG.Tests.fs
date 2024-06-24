@@ -26,7 +26,6 @@ namespace B2R2.MiddleEnd.Tests
 
 open System.Collections.Generic
 open B2R2
-open B2R2.BinIR.LowUIR
 open B2R2.FrontEnd
 open B2R2.MiddleEnd
 open B2R2.MiddleEnd.BinGraph
@@ -360,9 +359,8 @@ type CFGTest1 () =
   member __.``CFG SSAGraph Vertex Test: _start`` () =
     let brew = BinaryBrew (hdl, strategy)
     let cfg = brew.Functions[0x0UL].CFG
-    let root = cfg.TryGetSingleRoot () |> Option.get
     let ssaLifter = SSALifter () :> ISSALiftable<_>
-    let ssacfg, _ = ssaLifter.Lift (cfg, root)
+    let ssacfg = ssaLifter.Lift (cfg)
     Assert.AreEqual (9, ssacfg.Size)
 
 [<TestClass>]
@@ -535,17 +533,13 @@ type CFGTest2 () =
   member __.``DisasmCFG Test: _start`` () =
     let brew = BinaryBrew (hdl, strategy)
     let cfg = brew.Functions[0x0UL].CFG
-    let cfg = DisasmCFG.create cfg
-    Assert.AreEqual (1, cfg.Size)
-    let vMap = cfg.FoldVertex (fun m v ->
+    let dcfg = DisasmCFG.create cfg
+    Assert.AreEqual (1, dcfg.Size)
+    let vMap = dcfg.FoldVertex (fun m v ->
       Map.add v.VData.PPoint.Address v m) Map.empty
-    let leaders = [| 0x00UL |]
-    let vertices = leaders |> Array.map (fun l -> Map.find l vMap)
-    let disasmLens = [| 13 |]
-    Array.zip vertices disasmLens
-    |> Array.iter (fun (v, len) ->
-      Assert.AreEqual (len, v.VData.Disassemblies.Length))
-    let eMap = cfg.FoldEdge (fun m e ->
+    let v = Map.find 0x00UL vMap
+    Assert.AreEqual (13, v.VData.Disassemblies.Length)
+    let eMap = dcfg.FoldEdge (fun m e ->
       let v1, v2 = e.First, e.Second
       let key = v1.VData.PPoint.Address, v2.VData.PPoint.Address
       Map.add key e m) Map.empty
@@ -555,7 +549,6 @@ type CFGTest2 () =
   member __.``SSAGraph Vertex Test: _start`` () =
     let brew = BinaryBrew (hdl, strategy)
     let cfg = brew.Functions[0x0UL].CFG
-    let root = cfg.TryGetSingleRoot () |> Option.get
     let ssaLifter = SSALifter () :> ISSALiftable<_>
-    let ssacfg, _ = ssaLifter.Lift (cfg, root)
+    let ssacfg = ssaLifter.Lift cfg
     Assert.AreEqual (7, ssacfg.Size)

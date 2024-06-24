@@ -103,8 +103,8 @@ type BinHandle private (path, bytes, fmt, isa, mode, baseAddrOpt) =
     let mode =
       match binFile.ISA.Arch, binFile.EntryPoint, mode with
       | Architecture.ARMv7, Some entryPoint, ArchOperationMode.NoMode ->
-        if entryPoint % 2UL <> 0UL then ArchOperationMode.ThumbMode
-        else ArchOperationMode.ARMMode
+        if entryPoint % 2UL <> 0UL then ThumbMode
+        else ARMMode
       | _ -> mode
     let parser = GroundWork.CreateParser binFile.ISA mode
     LiftingUnit (binFile, parser)
@@ -193,5 +193,11 @@ type BinHandle private (path, bytes, fmt, isa, mode, baseAddrOpt) =
   member __.ReadASCII (ptr: BinFilePointer) =
     let bs = readAscii [] ptr.Offset
     ByteArray.extractCString bs 0
+
+  member __.MakeNew (bs: byte[]) =
+    BinHandle (path, bs, fmt, isa, mode, baseAddrOpt)
+
+  member __.MakeNew (bs: byte[], baseAddr) =
+    BinHandle (path, bs, fmt, isa, mode, Some baseAddr)
 
 // vim: set tw=80 sts=2 sw=2:

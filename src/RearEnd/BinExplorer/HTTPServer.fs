@@ -31,8 +31,8 @@ open System.Runtime.Serialization.Json
 open B2R2
 open B2R2.FrontEnd
 open B2R2.MiddleEnd
+open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.ControlFlowGraph
-open B2R2.MiddleEnd.ControlFlowAnalysis
 open B2R2.MiddleEnd.DataFlow
 open B2R2.RearEnd.Visualization
 
@@ -137,14 +137,15 @@ let handleBinInfo req resp arbiter =
   let txt = "\"" + txt.Replace(@"\", @"\\") + "\""
   Some (defaultEnc.GetBytes (txt)) |> answer req resp
 
-let cfgToJSON cfgType (brew: BinaryBrew<_, _, _, _>) g root =
+let cfgToJSON cfgType (brew: BinaryBrew<_, _, _, _>) (g: IGraph<_, _>) =
   match cfgType with
   | IRCFG ->
-    Visualizer.getJSONFromGraph g [root]
+    let roots = g.GetRoots () |> Seq.toList
+    Visualizer.getJSONFromGraph g roots
   | DisasmCFG ->
     let g = DisasmCFG.create g
-    let root = g.Unreachables |> Array.toList
-    Visualizer.getJSONFromGraph g root
+    let roots = g.GetRoots () |> Seq.toList
+    Visualizer.getJSONFromGraph g roots
   | SSACFG ->
     // let ssaLifter = SSA.SSALifter brew.BinHandle
     // let struct (g, root) = SSA.SSALens.convert ssaLifter null g root
@@ -156,8 +157,7 @@ let handleRegularCFG req resp funcID (brew: BinaryBrew<_, _, _, _>)
                      cfgType =
   let func = brew.Functions.FindByID funcID
   try
-    let root = func.CFG.TryGetSingleRoot () |> Option.get
-    let s = cfgToJSON cfgType brew func.CFG root
+    let s = cfgToJSON cfgType brew func.CFG
     Some (defaultEnc.GetBytes s) |> answer req resp
   with e ->
 #if DEBUG
@@ -247,8 +247,7 @@ let handleDataflow req resp arbiter (args: string) =
     let var = args[3] |> brew.BinHandle.RegisterFactory.RegIDFromString
     try
       let cfg = brew.Functions[entry].CFG
-      let root = cfg.TryGetSingleRoot () |> Option.get
-      let chain = DataFlowChain.init cfg root true
+      let chain = DataFlowChain.init cfg true
       let v = { ProgramPoint = ProgramPoint (addr, 0); VarExpr = Regular var }
       computeConnectedVars chain v
       |> Set.toArray

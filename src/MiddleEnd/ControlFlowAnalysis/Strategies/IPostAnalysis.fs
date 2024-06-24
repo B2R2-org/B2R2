@@ -47,7 +47,6 @@ and PostAnalysisEnv<'FnCtx,
                             and 'GlCtx: (new: unit -> 'GlCtx)> = {
   Context: CFGBuildingContext<IRBasicBlock, CFGEdgeKind, 'FnCtx, 'GlCtx>
   SSALifter: ISSALiftable<CFGEdgeKind>
-  SSARoot: IVertex<SSABasicBlock>
 }
 
 module IPostAnalysis =

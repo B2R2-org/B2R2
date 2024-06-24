@@ -24,15 +24,12 @@
 
 namespace B2R2.MiddleEnd.SSA
 
-open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.ControlFlowGraph
 
 /// The interface for lifting an IRCFG to an SSACFG.
 type ISSALiftable<'E when 'E: equality> =
   /// Lift the given IRCFG to SSACFG.
-  abstract Lift:
-       cfg: IRCFG<#IRBasicBlock, 'E> * root: IVertex<#IRBasicBlock>
-    -> SSACFG<'E> * IVertex<SSABasicBlock>
+  abstract Lift: cfg: IRCFG<#IRBasicBlock, 'E> -> SSACFG<'E>
 
   /// Add phis and rename all the variables in the given SSACFG.
-  abstract UpdatePhis: ssaCFG: SSACFG<'E> * root: IVertex<SSABasicBlock> -> unit
+  abstract UpdatePhis: ssaCFG: SSACFG<'E> -> unit

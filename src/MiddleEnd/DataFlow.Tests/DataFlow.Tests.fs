@@ -30,6 +30,7 @@ open B2R2
 open B2R2.FrontEnd
 open B2R2.FrontEnd.BinLifter
 open B2R2.MiddleEnd
+open B2R2.MiddleEnd.ControlFlowAnalysis.Strategies
 open B2R2.MiddleEnd.DataFlow
 
 [<TestClass>]
@@ -81,14 +82,15 @@ type PersistentDataFlowTests () =
 
   let isa = ISA.Init Architecture.IntelX86 Endian.Little
   let hdl = BinHandle (binary, isa, ArchOperationMode.NoMode, None, false)
-  let ess = BinEssence.init hdl [] [] []
+  let strategy = BaseStrategy<DummyContext, DummyContext> ()
+  let brew = BinaryBrew (hdl, strategy)
 
 #if !EMULATION
   [<TestMethod>]
   member __.``Reaching Definitions Test 1``() =
-    let cfg, root = BinEssence.getFunctionCFG ess 0UL |> Result.get
+    let cfg = brew.Functions[0UL].CFG
     let rd = LowUIRReachingDefinitions (cfg)
-    let ins, _outs = rd.Compute cfg root
+    let ins, _outs = rd.Compute cfg
     let v = cfg.FindVertexBy (fun b ->
       b.VData.PPoint.Address = 0xEUL) (* 2nd *)
     let result = ins[v.ID] |> Set.filter (fun v ->
@@ -133,8 +135,8 @@ type PersistentDataFlowTests () =
 
   [<TestMethod>]
   member __.``Use-Def Test 1``() =
-    let cfg, root = BinEssence.getFunctionCFG ess 0UL |> Result.get
-    let chain = DataFlowChain.init cfg root false
+    let cfg = brew.Functions[0UL].CFG
+    let chain = DataFlowChain.init cfg false
     let vp =
       { ProgramPoint = ProgramPoint (0xEUL, 1)
         VarExpr = Regular (Intel.Register.toRegID Intel.Register.EDX) }
@@ -146,8 +148,8 @@ type PersistentDataFlowTests () =
 
   [<TestMethod>]
   member __.``Use-Def Test 2``() =
-    let cfg, root = BinEssence.getFunctionCFG ess 0UL |> Result.get
-    let chain = DataFlowChain.init cfg root true
+    let cfg = brew.Functions[0UL].CFG
+    let chain = DataFlowChain.init cfg true
     let vp =
       { ProgramPoint = ProgramPoint (0xEUL, 0)
         VarExpr = Regular (Intel.Register.toRegID Intel.Register.EDX) }
@@ -160,8 +162,8 @@ type PersistentDataFlowTests () =
 #if !EMULATION
   [<TestMethod>]
   member __.``Use-Def Test 3``() =
-    let cfg, root = BinEssence.getFunctionCFG ess 0UL |> Result.get
-    let chain = DataFlowChain.init cfg root false
+    let cfg = brew.Functions[0UL].CFG
+    let chain = DataFlowChain.init cfg false
     let vp =
       { ProgramPoint = ProgramPoint (0x1AUL, 1)
         VarExpr = Regular (Intel.Register.toRegID Intel.Register.EDX) }

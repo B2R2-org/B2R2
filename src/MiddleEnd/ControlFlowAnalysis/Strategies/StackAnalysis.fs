@@ -129,4 +129,4 @@ type StackAnalysis () =
           v.VData.LiftedSSAStmts
           |> Array.choose (stmtChooser spState v)
           |> fun stmts -> v.VData.LiftedSSAStmts <- stmts
-        env.SSALifter.UpdatePhis (ctx.SSACFG, env.SSARoot)
+        env.SSALifter.UpdatePhis ctx.SSACFG

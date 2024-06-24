@@ -26,8 +26,8 @@ module B2R2.MiddleEnd.BinGraph.Loop
 
 open System.Collections.Generic
 
-let private getBackEdges g root =
-  let ctx = Dominator.initDominatorContext g root
+let private getBackEdges g =
+  let ctx = Dominator.initDominatorContext g
   let doms =
     []
     |> g.FoldVertex (fun acc v ->
@@ -44,7 +44,7 @@ let private findIn (g: IGraph<_, _>) (v: IVertex<_>) =
 
 let getNaturalLoops (g: IGraph<_, _>) root =
   let rev = g.Reverse ()
-  getBackEdges g root
+  getBackEdges g
   |> List.fold (fun acc edge ->
     let s = findIn rev edge.First
     let d = findIn rev edge.Second

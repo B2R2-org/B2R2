@@ -69,13 +69,13 @@ type SSALifter<'E when 'E: equality> (postProcessor: IStmtPostProcessor) =
       avMap.Add (key, v)
       v, g
 
-  let convertToSSA irCFG ssaCFG root =
+  let convertToSSA (irCFG: IRCFG<_, _>) ssaCFG =
     let vMap = SSAVMap ()
     let avMap = AbstractVMap ()
-    let root, ssaCFG = getVertex vMap ssaCFG root
+    let _, ssaCFG = getVertex vMap ssaCFG irCFG.SingleRoot
     let ssaCFG =
       ssaCFG
-      |> (irCFG: IRCFG<_, _>).FoldEdge (fun ssaCFG e ->
+      |> irCFG.FoldEdge (fun ssaCFG e ->
         let src, dst = e.First, e.Second
         (* If a node is abstract, then it is a call target. *)
         if dst.VData.IsAbstract then
@@ -94,10 +94,10 @@ type SSALifter<'E when 'E: equality> (postProcessor: IStmtPostProcessor) =
           let dstV, ssaCFG = getVertex vMap ssaCFG dst
           ssaCFG.AddEdge (srcV, dstV, e.Label)
       )
-    ssaCFG, root
+    ssaCFG
 
-  let computeDominatorInfo g root =
-    let domCtx = Dominator.initDominatorContext g root
+  let computeDominatorInfo g =
+    let domCtx = Dominator.initDominatorContext g
     let frontiers = Dominator.frontiers domCtx
     g.IterVertex (fun (v: SSAVertex) ->
       let dfnum = domCtx.ForwardDomInfo.DFNumMap[v.ID]
@@ -269,9 +269,9 @@ type SSALifter<'E when 'E: equality> (postProcessor: IStmtPostProcessor) =
     rename g domTree count stack root |> ignore
 
   /// Add phis and rename all the variables in the SSACFG.
-  let updatePhis ssaCFG root =
+  let updatePhis ssaCFG =
     let defSites = DefSites ()
-    let domCtx = computeDominatorInfo ssaCFG root
+    let domCtx = computeDominatorInfo ssaCFG
     let defsPerNode = findDefVars ssaCFG defSites
     placePhis ssaCFG defsPerNode defSites
     renameVars ssaCFG defSites domCtx
@@ -281,22 +281,20 @@ type SSALifter<'E when 'E: equality> (postProcessor: IStmtPostProcessor) =
       { new IStmtPostProcessor with member _.PostProcess stmt = stmt })
 
   interface ISSALiftable<'E> with
-    member _.Lift (g, root) =
+    member _.Lift (g) =
       let ssaCFG =
         match g.ImplementationType with
         | Imperative ->
           ImperativeDiGraph<SSABasicBlock, 'E> () :> IGraph<_, _>
         | Persistent ->
           PersistentDiGraph<SSABasicBlock, 'E> () :> IGraph<_, _>
-      let ssaCFG, root = convertToSSA g ssaCFG root
-      ssaCFG.FindVertexBy (fun v ->
-        v.VData.PPoint = root.VData.PPoint && not <| v.VData.IsAbstract)
-      |> updatePhis ssaCFG
+      convertToSSA g ssaCFG
+      |> updatePhis
       ssaCFG.IterVertex (fun v -> v.VData.UpdatePPoints ())
-      ssaCFG, root
+      ssaCFG
 
-    member _.UpdatePhis (ssaCFG, root) =
-      updatePhis ssaCFG root
+    member _.UpdatePhis (ssaCFG) =
+      updatePhis ssaCFG
 
 /// SSACFG's vertex.
 and SSAVertex = IVertex<SSABasicBlock>

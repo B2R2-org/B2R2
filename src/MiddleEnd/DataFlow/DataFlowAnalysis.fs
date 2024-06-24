@@ -96,9 +96,10 @@ type TopologicalDataFlowAnalysis<'L, 'V
 
   /// Initialize worklist queue. This should be a topologically sorted list to
   /// be efficient.
-  let initWorklist g (root: IVertex<'V>) =
+  let initWorklist (g: IGraph<_, _>) =
     let q = Queue<IVertex<'V>> ()
-    Traversal.iterRevPostorder g [root] q.Enqueue
+    let roots = g.GetRoots () |> Seq.toList
+    Traversal.iterRevPostorder g roots q.Enqueue
     q
 
   /// Meet operation of the lattice.
@@ -109,16 +110,17 @@ type TopologicalDataFlowAnalysis<'L, 'V
   abstract Transfer: 'L -> IVertex<'V> -> 'L
 
   /// Initialize ints and outs.
-  member private __.InitInsOuts g (root: IVertex<'V>) =
-    Traversal.iterPreorder g [root] (fun v ->
+  member private __.InitInsOuts (g: IGraph<_, _>) =
+    let roots = g.GetRoots () |> Seq.toList
+    Traversal.iterPreorder g roots (fun v ->
       let blkid = v.ID
       outs[blkid] <- __.Top
       ins[blkid] <- __.Top)
 
   /// Compute data-flow with the iterative worklist algorithm.
-  member __.Compute g (root: IVertex<'V>) =
-    __.InitInsOuts g root
-    let worklist = initWorklist g root
+  member __.Compute g =
+    __.InitInsOuts g
+    let worklist = initWorklist g
     while worklist.Count <> 0 do
       let blk = worklist.Dequeue ()
       let blkid = blk.ID

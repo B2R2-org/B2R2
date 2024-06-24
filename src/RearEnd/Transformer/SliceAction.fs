@@ -25,8 +25,6 @@
 namespace B2R2.RearEnd.Transformer
 
 open System
-open B2R2
-open B2R2.FrontEnd
 
 /// The `slice` action.
 type SliceAction () =
@@ -38,8 +36,7 @@ type SliceAction () =
       invalidArg (nameof hdl) "Address out of range."
     else
       let bs = hdl.File.Slice(a1, int (a2 - a1 + 1UL)).ToArray ()
-      let isa, mode = hdl.File.ISA, hdl.Parser.OperationMode
-      lazy BinHandle (bs, isa, mode, None, false)
+      lazy hdl.MakeNew bs
       |> Binary.Init (Binary.MakeAnnotation "Sliced from " bin)
 
   let sliceBySectionName bin secName =

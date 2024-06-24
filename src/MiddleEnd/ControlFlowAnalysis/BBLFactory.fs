@@ -283,7 +283,7 @@ type BBLFactory (hdl: BinHandle,
       kv.Value.LiftedInstructions
       |> Array.iter (fun lifted ->
         lifted.Stmts
-        |> Array.iter (fun stmt -> printfn "  -> %s" (Pp.stmtToString stmt))
+        |> Array.iter (Pp.stmtToString >> (printfn "  -> %s"))
       )
     )
 #endif

@@ -10,8 +10,10 @@
     <Compile Include="Edge.fs" />
     <Compile Include="ImplementationType.fs" />
     <Compile Include="IGraph.fs" />
-    <Compile Include="DiGraph.fs" />
+    <Compile Include="GraphUtils.fs" />
+    <Compile Include="ImperativeVertex.fs" />
     <Compile Include="ImperativeDiGraph.fs" />
+    <Compile Include="PersistentVertex.fs" />
     <Compile Include="PersistentDiGraph.fs" />
     <Compile Include="Traversal.fs" />
     <Compile Include="SCC.fs" />

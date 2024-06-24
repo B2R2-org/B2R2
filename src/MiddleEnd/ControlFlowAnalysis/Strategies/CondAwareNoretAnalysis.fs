@@ -117,9 +117,8 @@ type CondAwareNoretAnalysis ([<Optional; DefaultParameterValue(true)>] strict) =
   let collectConditionalNoRetCalls ctx =
     let ssa = ctx.SSACFG
     let hdl = ctx.BinHandle
-    let root = ssa.TryGetSingleRoot () |> Option.get
     let uvp = UntouchedValuePropagation (hdl, ssa)
-    let uvState = uvp.Compute root
+    let uvState = uvp.Compute ssa.SingleRoot
     collectReturningCallEdges ctx
     |> List.choose (fun callEdge ->
       let absV = ctx.AbsVertices[callEdge]
@@ -147,8 +146,7 @@ type CondAwareNoretAnalysis ([<Optional; DefaultParameterValue(true)>] strict) =
     | Some dom -> ConditionalNoRet <| Map.find dom argNumMap
 
   let analyze ctx =
-    let cfgRoot = ctx.CFG.TryGetSingleRoot () |> Option.get
-    let domCtx = Dominator.initDominatorContext ctx.CFG cfgRoot
+    let domCtx = Dominator.initDominatorContext ctx.CFG
     let exits = ctx.CFG.Exits
     let condNoRetCalls = collectConditionalNoRetCalls ctx
     let absVSet = condNoRetCalls |> List.map fst |> Set.ofList

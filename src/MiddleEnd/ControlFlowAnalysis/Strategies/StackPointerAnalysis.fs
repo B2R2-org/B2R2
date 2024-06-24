@@ -33,4 +33,4 @@ type StackPointerAnalysis () =
     member _.Unwrap env =
       let ctx = env.Context
       let spp = StackPointerPropagation (ctx.BinHandle, ctx.SSACFG)
-      fun () -> spp.Compute env.SSARoot
+      fun () -> spp.Compute ctx.SSACFG.SingleRoot

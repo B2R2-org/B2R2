@@ -55,12 +55,15 @@ type FunctionCollection<'V,
       callTable.Add (callee, callers)
 
   let analyzeCallRelationship (fn: Function<_, _>) =
-    for callee in fn.Callees.Values do
-      match callee with
-      | RegularCallee calleeAddr -> addToCallTable fn.EntryPoint calleeAddr
-      | IndirectCallees calleeAddrs ->
-        for calleeAddr in calleeAddrs do addToCallTable fn.EntryPoint calleeAddr
-      | _ -> ()
+    if isNull fn.Callees then ()
+    else
+      for callee in fn.Callees.Values do
+        match callee with
+        | RegularCallee calleeAddr -> addToCallTable fn.EntryPoint calleeAddr
+        | IndirectCallees calleeAddrs ->
+          for calleeAddr in calleeAddrs do
+            addToCallTable fn.EntryPoint calleeAddr
+        | _ -> ()
 
   let updateCallers (fn: Function<_, _>) =
     match callTable.TryGetValue fn.EntryPoint with

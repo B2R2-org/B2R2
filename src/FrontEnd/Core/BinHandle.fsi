@@ -235,3 +235,24 @@ type BinHandle =
   ///   Return the corresponding ASCII string.
   /// </returns>
   member ReadASCII: ptr: BinFilePointer -> string
+
+  /// <summary>
+  ///   Create a new BinHandle from the given byte array while keeping the other
+  ///   properties of the original BinHandle.
+  /// </summary>
+  /// <param name="bs">The byte array.</param>
+  /// <returns>
+  ///   Return a new BinHandle.
+  /// </returns>
+  member MakeNew: bs: byte[] -> BinHandle
+
+  /// <summary>
+  ///   Create a new BinHandle from the given byte array while keeping the other
+  ///   properties of the original BinHandle.
+  /// </summary>
+  /// <param name="bs">The byte array.</param>
+  /// <param name="baseAddr">The new base address.</param>
+  /// <returns>
+  ///   Return a new BinHandle.
+  /// </returns>
+  member MakeNew: bs: byte[] * baseAddr: Addr -> BinHandle

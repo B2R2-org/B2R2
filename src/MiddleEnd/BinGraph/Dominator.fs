@@ -238,7 +238,8 @@ let private preparePostDomAnalysis (fg: IGraph<_, _>) root (bg: IGraph<_, _>) =
     |> List.fold (fun (bg: IGraph<_, _>) v -> bg.AddEdge (dummy, v)) bg
   bg, dummy
 
-let initDominatorContext (g: IGraph<'V, _>) (root: IVertex<'V>) =
+let initDominatorContext (g: IGraph<'V, _>) =
+  let root = g.GetRoots () |> Seq.exactlyOne
   let forward = initDominator g root
   let g', root' = g.Reverse () |> preparePostDomAnalysis g root
   let backward = initDominator g' root'

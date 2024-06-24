@@ -48,6 +48,10 @@ type IGraph<'V, 'E when 'V: equality and 'E: equality> =
   /// undirected graphs.
   abstract Exits: IVertex<'V>[]
 
+  /// Get exactly one root vertex of this graph. If there are multiple root
+  /// vertices, this will raise an exception.
+  abstract SingleRoot: IVertex<'V>
+
   /// Get the implementation type of this graph.
   abstract ImplementationType: ImplementationType
 
@@ -143,9 +147,19 @@ type IGraph<'V, 'E when 'V: equality and 'E: equality> =
   /// sequence.
   abstract GetSuccEdges: IVertex<'V> -> IReadOnlyCollection<Edge<'V, 'E>>
 
-  /// Try to get the single root of the graph. This function returns None if
-  /// there is no root or there are multiple roots.
-  abstract TryGetSingleRoot: unit -> IVertex<'V> option
+  /// Get the root vertices of this graph. When there's no root, this will
+  /// return an empty collection.
+  abstract GetRoots: unit -> IReadOnlyCollection<IVertex<'V>>
+
+  /// Explicitly add a root vertex to this graph. `AddVertex` will automatically
+  /// set the root vertex to the first vertex added to the graph, but this
+  /// function allows the user to add root vertices explicitly.
+  abstract AddRoot: IVertex<'V> -> IGraph<'V, 'E>
+
+  /// Set a single root vertex for this graph. `AddVertex` will automatically
+  /// set the root vertex to the first vertex added to the graph, but this
+  /// function allows the user to set a single root vertex explicitly.
+  abstract SetRoot: IVertex<'V> -> IGraph<'V, 'E>
 
   /// Fold every vertex (the order can be arbitrary).
   abstract FoldVertex: ('a -> IVertex<'V> -> 'a) -> 'a -> 'a

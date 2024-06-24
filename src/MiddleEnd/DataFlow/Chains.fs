@@ -110,9 +110,9 @@ module DataFlowChain =
         | Some old -> Map.add vp (Set.union old newSet) map) Map.empty
 
   [<CompiledName("Init")>]
-  let init cfg root isDisasmLevel =
+  let init cfg isDisasmLevel =
     let rd = LowUIRReachingDefinitions (cfg)
-    let ins, outs = rd.Compute cfg root
+    let ins, outs = rd.Compute cfg
     let udchain = initUDChain cfg ins outs |> filterDisasm isDisasmLevel
     let duchain = initDUChain udchain |> filterDisasm isDisasmLevel
     { UseDefChain = udchain; DefUseChain = duchain }

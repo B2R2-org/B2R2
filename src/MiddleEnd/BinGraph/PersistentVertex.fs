@@ -22,20 +22,34 @@
   SOFTWARE.
 *)
 
-namespace B2R2.RearEnd.Transformer
+namespace B2R2.MiddleEnd.BinGraph
 
 open B2R2
 
-/// The `dot` action.
-type DOTAction () =
-  let toDOT o = Utils.futureFeature ()
+/// Persistent vertex.
+type PersistentVertex<'V when 'V: equality>
+  internal (id, vData: VertexData<'V>) =
 
-  interface IAction with
-    member __.ActionID with get() = "dot"
-    member __.Signature with get() = "CFG -> string"
-    member __.Description with get() = """
-    Take in a CFG as input, and returns a string representation of the CFG in
-    DOT format.
-"""
-    member __.Transform _args collection =
-      { Values = [| collection.Values |> Array.map toDOT |] }
+  /// Unique identifier of this vertex.
+  member __.ID with get(): VertexID = id
+
+  interface IVertex<'V> with
+    member __.ID = id
+
+    member __.VData =
+      if isNull vData then raise DummyDataAccessException
+      else vData.Value
+
+    member __.HasData = not (isNull vData)
+
+    member __.CompareTo (other: obj) =
+      match other with
+      | :? IVertex<'V> as other -> id.CompareTo other.ID
+      | _ -> Utils.impossible ()
+
+  override __.GetHashCode () = id
+
+  override __.Equals (other) =
+    match other with
+    | :? IVertex<'V> as other -> id = other.ID
+    | _ -> false

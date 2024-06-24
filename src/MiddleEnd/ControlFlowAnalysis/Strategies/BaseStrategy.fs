@@ -389,11 +389,8 @@ type BaseStrategy<'FnCtx,
         Failure ErrorCase.FailedToRecoverCFG
 
     member _.OnFinish (ctx) =
-      let root = ctx.CFG.TryGetSingleRoot () |> Option.get
-      let ssaCFG, root = ssaLifter.Lift (ctx.CFG, root)
-      ctx.SSACFG <- ssaCFG
-      IPostAnalysis.run
-        { Context = ctx; SSALifter = ssaLifter; SSARoot = root } postAnalysis
+      ctx.SSACFG <- ssaLifter.Lift ctx.CFG
+      IPostAnalysis.run { Context = ctx; SSALifter = ssaLifter } postAnalysis
       Success
 
     member _.OnCyclicDependency (deps) =

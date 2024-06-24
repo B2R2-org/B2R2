@@ -33,7 +33,7 @@ open B2R2.FrontEnd.BinLifter
 type LiftingUnit (binFile: IBinFile, parser: IInstructionParsable) =
   let ctxt = GroundWork.CreateTranslationContext binFile.ISA
 
-  let toReversedArray cnt (lst: 'a list) =
+  let toReversedArray cnt lst =
     let arr = Array.zeroCreate cnt
     let mutable idx = cnt - 1
     for elt in lst do
@@ -253,9 +253,9 @@ type LiftingUnit (binFile: IBinFile, parser: IInstructionParsable) =
   member _.LiftBBlock (addr: Addr) =
     match parseBBLByAddr addr 0 [] with
     | Ok instrs ->
-      instrs |> Array.map (fun i -> i.Translate ctxt) |> Array.concat |> Ok
+      instrs |> Array.collect (fun i -> i.Translate ctxt) |> Ok
     | Error instrs ->
-      instrs |> Array.map (fun i -> i.Translate ctxt) |> Array.concat |> Error
+      instrs |> Array.collect (fun i -> i.Translate ctxt) |> Error
 
   /// <summary>
   ///   Lift a basic block starting from the given pointer (ptr) and return the
@@ -269,9 +269,9 @@ type LiftingUnit (binFile: IBinFile, parser: IInstructionParsable) =
   member _.LiftBBlock (ptr: BinFilePointer) =
     match parseBBLByPtr ptr 0 [] with
     | Ok instrs ->
-      instrs |> Array.map (fun i -> i.Translate ctxt) |> Array.concat |> Ok
+      instrs |> Array.collect (fun i -> i.Translate ctxt) |> Ok
     | Error instrs ->
-      instrs |> Array.map (fun i -> i.Translate ctxt) |> Array.concat |> Error
+      instrs |> Array.collect (fun i -> i.Translate ctxt) |> Error
 
   /// <summary>
   ///   Disassemble the given instruction and return the disassembled string.

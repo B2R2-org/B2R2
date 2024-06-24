@@ -30,6 +30,9 @@ exception VertexNotFoundException
 /// Trying to access dummy data
 exception DummyDataAccessException
 
+/// Trying to access a single root vertex when there are multiple root vertices.
+exception MultipleRootVerticesException
+
 /// A unique ID for a vertex.
 type VertexID = int
 
