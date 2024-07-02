@@ -1,6 +1,8 @@
 {
     "ignoreFiles": [
-        "*.Assemblyinfo.*"
+        "*.Assemblyinfo.*",
+        "CFG.Tests.fs",
+        "*.AssemblyAttributes.*"
     ],
     "global": {
         "numIndentationSpaces": 2
