@@ -841,8 +841,7 @@ type internal OneOp63 () =
   inherit ParsingJob ()
   override __.Run (span, rhlp) =
     if is64bit rhlp then
-      if not (hasREXW rhlp.REXPrefix) then raise ParsingFailureException
-      else render span rhlp Opcode.MOVSXD SzCond.Nor OD.GprRm SZ.DV
+      render span rhlp Opcode.MOVSXD SzCond.Nor OD.GprRm SZ.DV
     else render span rhlp Opcode.ARPL SzCond.Nor OD.RmGpr SZ.Word
 
 type internal OneOp64 () =
