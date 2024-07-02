@@ -1559,9 +1559,29 @@ module private IntelSyntax = begin
 
   let buildMask (ins: InsInfo) builder =
     match ins.VEXInfo with
-    | Some { EVEXPrx = Some ePrx }->
+    | Some { EVEXPrx = Some ePrx } ->
       buildOpMask ePrx builder
       buildEVEXZ ePrx builder
+    | _ -> ()
+
+  let buildBroadcast (ins: InsInfo) (builder: DisasmBuilder) memSz =
+    match ins.VEXInfo with
+    | Some { EVEXPrx = Some ePrx; VectorLength = vl } ->
+      if ePrx.B = 1uy then
+        builder.Accumulate AsmWordKind.String "{1to"
+        builder.Accumulate AsmWordKind.Value ((vl / memSz).ToString())
+        builder.Accumulate AsmWordKind.String "}"
+      else ()
+    | _ -> ()
+
+  let buildRoundingControl (ins: InsInfo) (builder: DisasmBuilder) =
+    match ins.VEXInfo with
+    | Some { EVEXPrx = Some ePrx }->
+      if ePrx.B = 1uy then
+        builder.Accumulate AsmWordKind.String ", {"
+        builder.Accumulate AsmWordKind.String (ePrx.RC.ToString().ToLower())
+        builder.Accumulate AsmWordKind.String "-sae}"
+      else ()
     | _ -> ()
 
   let oprToString ins reader opr (builder: DisasmBuilder) =
@@ -1601,12 +1621,37 @@ module private IntelSyntax = begin
       mToString ins builder (Some Register.RIP) None (Some disp) sz
       buildComment reader
         (builder.Address + uint64 builder.InsLength + uint64 disp) builder
+    | TwoOperands (opr1, (OprMem (_, _, _, memSz) as opr2)) ->
+      builder.Accumulate AsmWordKind.String " "
+      oprToString ins reader opr1 builder
+      buildMask ins builder
+      builder.Accumulate AsmWordKind.String ", "
+      oprToString ins reader opr2 builder
+      buildBroadcast ins builder memSz
     | TwoOperands (opr1, opr2) ->
       builder.Accumulate AsmWordKind.String " "
       oprToString ins reader opr1 builder
       buildMask ins builder
       builder.Accumulate AsmWordKind.String ", "
       oprToString ins reader opr2 builder
+    | ThreeOperands (opr1, opr2, (OprMem (_, _, _, memSz) as opr3)) ->
+      builder.Accumulate AsmWordKind.String " "
+      oprToString ins reader opr1 builder
+      buildMask ins builder
+      builder.Accumulate AsmWordKind.String ", "
+      oprToString ins reader opr2 builder
+      builder.Accumulate AsmWordKind.String ", "
+      oprToString ins reader opr3 builder
+      buildBroadcast ins builder memSz
+    | ThreeOperands (opr1, opr2, (OprReg _ as opr3)) ->
+      builder.Accumulate AsmWordKind.String " "
+      oprToString ins reader opr1 builder
+      buildMask ins builder
+      builder.Accumulate AsmWordKind.String ", "
+      oprToString ins reader opr2 builder
+      builder.Accumulate AsmWordKind.String ", "
+      oprToString ins reader opr3 builder
+      buildRoundingControl ins builder
     | ThreeOperands (opr1, opr2, opr3) ->
       builder.Accumulate AsmWordKind.String " "
       oprToString ins reader opr1 builder
@@ -1615,6 +1660,17 @@ module private IntelSyntax = begin
       oprToString ins reader opr2 builder
       builder.Accumulate AsmWordKind.String ", "
       oprToString ins reader opr3 builder
+    | FourOperands (opr1, opr2, (OprMem (_, _, _, memSz) as opr3), opr4) ->
+      builder.Accumulate AsmWordKind.String " "
+      oprToString ins reader opr1 builder
+      buildMask ins builder
+      builder.Accumulate AsmWordKind.String ", "
+      oprToString ins reader opr2 builder
+      builder.Accumulate AsmWordKind.String ", "
+      oprToString ins reader opr3 builder
+      buildBroadcast ins builder memSz
+      builder.Accumulate AsmWordKind.String ", "
+      oprToString ins reader opr4 builder
     | FourOperands (opr1, opr2, opr3, opr4) ->
       builder.Accumulate AsmWordKind.String " "
       oprToString ins reader opr1 builder

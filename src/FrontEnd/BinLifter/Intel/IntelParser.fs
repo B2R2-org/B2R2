@@ -233,7 +233,8 @@ type IntelParser (wordSz) =
        SzY () :> InsSizeComputer
        SzQQb () :> InsSizeComputer
        SzQQd () :> InsSizeComputer
-       SzQQw () :> InsSizeComputer |]
+       SzQQw () :> InsSizeComputer
+       SzVecDefRC () :> InsSizeComputer |]
 
   let oneByteParsers =
     [| OneOp00 () :> ParsingJob

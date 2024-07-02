@@ -209,29 +209,87 @@ module internal OperandParsingHelper =
     | _ -> raise ParsingFailureException
 
   /// EVEX uses compressed displacement. See the manual Chap. 15 of Vol. 1.
-  let compressDisp vInfo disp dispSz =
-    if dispSz = 1 then
-      match vInfo with
-      | None -> disp
-      | Some { VectorLength = 128<rt>; VEXType = t }
-        when t &&& VEXType.EVEX = VEXType.EVEX -> disp * 16L
-      | Some { VectorLength = 256<rt>; VEXType = t }
-          when t &&& VEXType.EVEX = VEXType.EVEX -> disp * 32L
-      | Some { VectorLength = 512<rt>; VEXType = t }
-          when t &&& VEXType.EVEX = VEXType.EVEX -> disp * 64L
-      | _ -> disp
-    else disp
+  let uncompressedDisp (rhlp: ReadHelper) disp =
+    let vInfo = rhlp.VEXInfo.Value
+    let evex = vInfo.EVEXPrx.Value
+    let tt = rhlp.TupleType
+    let b = evex.B = 1uy
+    let w = rhlp.REXPrefix &&& REXPrefix.REXW = REXPrefix.REXW
+    let inputSz = if w then 64<rt> else 32<rt>
+    let memSz = rhlp.MemEffOprSize
+    let vl = vInfo.VectorLength
+    match tt, b, inputSz, w with
+    /// Table 2-34. Compressed Displacement (DISP8*N) Affected by Embedded
+    /// Broadcast.
+    | TupleType.Full, false, 32<rt>, false ->
+      disp * (int64 vl / 8L), memSz
+    | TupleType.Full, true, 32<rt>, false -> disp * 4L, inputSz
+    | TupleType.Full, false, 64<rt>, true -> disp * (int64 vl / 8L), memSz
+    | TupleType.Full, true, 64<rt>, true -> disp * 8L, inputSz
+    | TupleType.Half, false, 32<rt>, false ->
+      disp * (int64 vl / 16L), memSz
+    | TupleType.Half, true, 32<rt>, false -> disp * 4L, inputSz
+    /// Table 2-35. EVEX DISP8*N for Instructions Not Affected by Embedded
+    /// Broadcast.
+    | TupleType.FullMem, false, _, _ -> disp * (int64 vl / 8L), memSz
+    | TupleType.Tuple1Scalar, false, 8<rt>, _ -> disp, memSz
+    | TupleType.Tuple1Scalar, false, 16<rt>, _ -> disp * 2L, memSz
+    | TupleType.Tuple1Scalar, false, 32<rt>, false -> disp * 4L, memSz
+    | TupleType.Tuple1Scalar, false, 64<rt>, true -> disp * 8L, memSz
+    | TupleType.Tuple1Fixed, false, 32<rt>, _ -> disp * 4L, memSz
+    | TupleType.Tuple1Fixed, false, 64<rt>, _ -> disp * 8L, memSz
+    | TupleType.Tuple2, false, 32<rt>, false -> disp * 8L, memSz
+    | TupleType.Tuple2, false, 64<rt>, true when vl <> 128<rt> ->
+      disp * 16L, memSz
+    | TupleType.Tuple4, false, 32<rt>, true when vl <> 128<rt> ->
+      disp * 16L, memSz
+    | TupleType.Tuple4, false, 64<rt>, true when vl = 512<rt> ->
+      disp * 32L, memSz
+    | TupleType.Tuple8, false, 32<rt>, false when vl = 512<rt> ->
+      disp * 32L, memSz
+    | TupleType.HalfMem, false, _, _ -> disp * (int64 vl / 16L), memSz
+    | TupleType.QuarterMem, false, _, _ -> disp * (int64 vl / 32L), memSz
+    | TupleType.EighthMem, false, _, _ -> disp * (int64 vl / 64L), memSz
+    | TupleType.Mem128, false, _, _ -> disp * 16L, memSz
+    | TupleType.MOVDDUP, false, _, _ -> disp * (int64 vl / 16L), memSz
+    | _ (* TupleType.NA *) -> disp, memSz
+
+  let inline private isEVEX (rhlp: ReadHelper) =
+    match rhlp.VEXInfo with
+    | Some vInfo -> vInfo.VEXType &&& VEXType.EVEX = VEXType.EVEX
+    | _ -> false
 
   let parseOprMem span (rhlp: ReadHelper) b s dispSz =
     let memSz = rhlp.MemEffOprSize
-    if dispSz = 0 then OprMem (b, s, None, memSz)
-    else
 #if LCACHE
       rhlp.MarkHashEnd ()
 #endif
-      let disp = parseSignedImm span rhlp dispSz
-      let disp = compressDisp rhlp.VEXInfo disp dispSz
-      OprMem (b, s, Some disp, memSz)
+    if isEVEX rhlp then
+      let isBcst = rhlp.VEXInfo.Value.EVEXPrx.Value.B = 1uy
+      match dispSz, isBcst with
+      | 0, false -> OprMem (b, s, None, memSz)
+      | 0, true ->
+        let w = rhlp.REXPrefix &&& REXPrefix.REXW = REXPrefix.REXW
+        let memSz = if w then 64<rt> else 32<rt>
+        OprMem (b, s, None, memSz)
+      | 1, _ ->
+        let disp = parseSignedImm span rhlp dispSz
+        let disp, memSz = uncompressedDisp rhlp disp
+        OprMem (b, s, Some disp, memSz)
+      | 4, true ->
+        let disp = parseSignedImm span rhlp dispSz
+        let w = rhlp.REXPrefix &&& REXPrefix.REXW = REXPrefix.REXW
+        let memSz = if w then 64<rt> else 32<rt>
+        OprMem (b, s, Some disp, memSz)
+      | _, _ ->
+        let disp = parseSignedImm span rhlp dispSz
+        OprMem (b, s, Some disp, memSz)
+    else
+      match dispSz with
+      | 0 -> OprMem (b, s, None, memSz)
+      | _ ->
+        let disp = parseSignedImm span rhlp dispSz
+        OprMem (b, s, Some disp, memSz)
 
   let parseOprImm span (rhlp: ReadHelper) immSize =
 #if LCACHE
@@ -312,14 +370,36 @@ module internal OperandParsingHelper =
   let baseRMReg (rhlp: ReadHelper) regGrp =
     findRegRmAndSIBBase rhlp.MemEffAddrSize rhlp.REXPrefix (int regGrp) |> Some
 
-  let sibWithDisp span (rhlp: ReadHelper) b si dispSz oprSz =
-    let vInfo = rhlp.VEXInfo
+  let sibWithDisp span (rhlp: ReadHelper) b s dispSz memSz =
 #if LCACHE
     rhlp.MarkHashEnd ()
 #endif
-    let disp = parseSignedImm span rhlp dispSz
-    let disp = compressDisp vInfo disp dispSz
-    OprMem (b, si, Some disp, oprSz)
+    if isEVEX rhlp then
+      let isBcst = rhlp.VEXInfo.Value.EVEXPrx.Value.B = 1uy
+      match dispSz, isBcst with
+      | 0, false -> OprMem (b, s, None, memSz)
+      | 0, true ->
+        let w = rhlp.REXPrefix &&& REXPrefix.REXW = REXPrefix.REXW
+        let memSz = if w then 64<rt> else 32<rt>
+        OprMem (b, s, None, memSz)
+      | 1, _ ->
+        let disp = parseSignedImm span rhlp dispSz
+        let disp, memSz = uncompressedDisp rhlp disp
+        OprMem (b, s, Some disp, memSz)
+      | 4, true ->
+        let disp = parseSignedImm span rhlp dispSz
+        let w = rhlp.REXPrefix &&& REXPrefix.REXW = REXPrefix.REXW
+        let memSz = if w then 64<rt> else 32<rt>
+        OprMem (b, s, Some disp, memSz)
+      | _, _ ->
+        let disp = parseSignedImm span rhlp dispSz
+        OprMem (b, s, Some disp, memSz)
+    else
+      match dispSz with
+      | 0 -> OprMem (b, s, None, memSz)
+      | _ ->
+        let disp = parseSignedImm span rhlp dispSz
+        OprMem (b, s, Some disp, memSz)
 
   let parseOprMemWithSIB span rhlp modVal dispSz =
     let struct (si, b, bgrp) = parseSIB span rhlp modVal
@@ -400,6 +480,21 @@ module internal OperandParsingHelper =
       Register.ymm (int vInfo.VVVV) |> OprReg
     | Some vInfo ->
       Register.xmm (int vInfo.VVVV) |> OprReg
+
+  /// FIXME
+  let parseVVVVRegRC isReg (rhlp: ReadHelper) =
+    match rhlp.VEXInfo with
+    | None -> raise ParsingFailureException
+    | Some vInfo ->
+      match vInfo.EVEXPrx with
+      | Some evex when evex.B = 1uy && isReg ->
+        Register.zmm (int vInfo.VVVV) |> OprReg
+      | _ ->
+        match vInfo.VectorLength with
+        | 512<rt> -> Register.zmm (int vInfo.VVVV) |> OprReg
+        | 256<rt> -> Register.ymm (int vInfo.VVVV) |> OprReg
+        | 128<rt> -> Register.xmm (int vInfo.VVVV) |> OprReg
+        | _ -> raise ParsingFailureException
 
   let parseVEXtoGPR (rhlp: ReadHelper) =
     match rhlp.VEXInfo with
@@ -1130,7 +1225,7 @@ type internal OpXmmVvXm () =
     let opr1 =
       findRegRBits rhlp.RegSize rhlp.REXPrefix (getReg modRM) |> OprReg
     let opr3 = parseMemOrReg modRM span rhlp
-    ThreeOperands (opr1, parseVVVVReg rhlp, opr3)
+    ThreeOperands (opr1, parseVVVVRegRC (modIsReg modRM) rhlp, opr3)
 
 type internal OpGprVvRm () =
   inherit OperandParser ()
