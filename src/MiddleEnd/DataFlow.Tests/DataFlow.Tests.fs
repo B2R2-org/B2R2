@@ -82,7 +82,7 @@ type PersistentDataFlowTests () =
 
   let isa = ISA.Init Architecture.IntelX86 Endian.Little
   let hdl = BinHandle (binary, isa, ArchOperationMode.NoMode, None, false)
-  let strategy = BaseStrategy<DummyContext, DummyContext> ()
+  let strategy = BaseStrategy ()
   let brew = BinaryBrew (hdl, strategy)
 
 #if !EMULATION

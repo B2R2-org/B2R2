@@ -34,7 +34,7 @@ type SendMsg =
 
 type ReplyMsg =
   | Ack
-  | ReplyBinaryBrew of DefaultBinaryBrew
+  | ReplyBinaryBrew of BinaryBrew
   | ReplyExitStatus of bool (* Either success (true) or failure (false) *)
 
 type Msg =

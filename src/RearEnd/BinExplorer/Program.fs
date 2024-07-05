@@ -262,7 +262,7 @@ let batchRun opts paths fstParam restParams fn =
 let runCommand cmdMap opts file cmd args =
   let strategy = ControlFlowAnalysis.Strategies.BaseStrategy<_, _> ()
   let hdl = initBinHdl ISA.DefaultISA file
-  let brew: DefaultBinaryBrew = BinaryBrew (hdl, strategy)
+  let brew = BinaryBrew (hdl, strategy)
   Cmd.handle cmdMap brew cmd args
   |> Array.iter out.Print
 

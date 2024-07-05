@@ -403,3 +403,26 @@ type BaseStrategy<'FnCtx,
 #endif
       let _, builder = Seq.head sorted
       builder.Context.NonReturningStatus <- NotNoRet
+
+/// Base strategy for building a CFG without any customizable context.
+type BaseStrategy =
+  inherit BaseStrategy<DummyContext, DummyContext>
+
+  new () =
+    { inherit BaseStrategy<DummyContext, DummyContext> () }
+
+  new (ssaLifter) =
+    { inherit BaseStrategy<DummyContext, DummyContext> (ssaLifter) }
+
+  new (ssaLifter,
+       summarizer,
+       syscallAnalysis,
+       postAnalysis,
+       allowOverlap,
+       useTCJumpHeuristic) =
+    { inherit BaseStrategy<DummyContext, DummyContext> (ssaLifter,
+                                                        summarizer,
+                                                        syscallAnalysis,
+                                                        postAnalysis,
+                                                        allowOverlap,
+                                                        useTCJumpHeuristic) }

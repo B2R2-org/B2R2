@@ -140,7 +140,7 @@ type CFGTest1 () =
   let isa = ISA.Init Architecture.IntelX64 Endian.Little
   let hdl = BinHandle (binary, isa, ArchOperationMode.NoMode, None, false)
   let instrs = InstructionCollection (LinearSweepInstructionCollector hdl)
-  let strategy = BaseStrategy<DummyContext, DummyContext> ()
+  let strategy = BaseStrategy ()
 
   [<TestMethod>]
   member __.``InstructionCollection Test 1`` () =
@@ -396,7 +396,7 @@ type CFGTest2 () =
   let isa = ISA.Init Architecture.IntelX86 Endian.Little
   let hdl = BinHandle (binary, isa, ArchOperationMode.NoMode, None, false)
   let instrs = InstructionCollection (LinearSweepInstructionCollector hdl)
-  let strategy = BaseStrategy<DummyContext, DummyContext> ()
+  let strategy = BaseStrategy ()
 
   [<TestMethod>]
   member __.``InstructionCollection Test 1`` () =

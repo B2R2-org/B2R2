@@ -32,6 +32,7 @@ open B2R2.FrontEnd.BinFile
 open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.MiddleEnd.ControlFlowAnalysis
+open B2R2.MiddleEnd.ControlFlowAnalysis.Strategies
 
 /// <summary>
 ///   BinaryBrew is a potent brew of analyzed (and recovered) information about
@@ -117,8 +118,9 @@ type BinaryBrew<'V,
   member _.Instructions with get() = instrs
 
 /// Default BinaryBrew type that internally uses SSA IR to recover CFGs.
-type DefaultBinaryBrew =
-  BinaryBrew<IRBasicBlock,
-             CFGEdgeKind,
-             Strategies.DummyContext,
-             Strategies.DummyContext>
+type BinaryBrew =
+  inherit BinaryBrew<IRBasicBlock, CFGEdgeKind, DummyContext, DummyContext>
+
+  new (hdl: BinHandle, strategies) =
+    { inherit BinaryBrew<IRBasicBlock, CFGEdgeKind, DummyContext, DummyContext>
+        (hdl, strategies) }
