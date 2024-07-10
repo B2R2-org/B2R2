@@ -30,33 +30,57 @@ open B2R2.BinIR
 open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.ControlFlowGraph
 
-[<AbstractClass>]
-type ReachingDefinitions<'Expr, 'BBL when 'Expr: comparison
-                                      and 'BBL: equality
-                                      and 'BBL :> BasicBlock>
-                        (_cfg: IGraph<'BBL, CFGEdgeKind>) =
-  inherit TopologicalDataFlowAnalysis<Set<VarPoint<'Expr>>, 'BBL> (Forward)
+type VarExpr =
+  | Regular of RegisterID
+  | Temporary of int
+  | Memory
 
-  let gens = Dictionary<VertexID, Set<VarPoint<'Expr>>> ()
-  let kills = Dictionary<VertexID, Set<VarPoint<'Expr>>> ()
+type VarPoint<'E> = {
+  ProgramPoint: ProgramPoint
+  VarExpr: 'E
+}
+
+type ReachingDefinitionLattice = {
+  Ins: Set<VarPoint<VarExpr>>
+  Outs: Set<VarPoint<VarExpr>>
+}
+
+[<AbstractClass>]
+type ReachingDefinitionAnalysis (g: IGraph<IRBasicBlock, CFGEdgeKind>) as this =
+  inherit DataFlowAnalysis<ReachingDefinitionLattice, VertexID, IRBasicBlock> ()
+
+  let gens = Dictionary<VertexID, Set<VarPoint<VarExpr>>> ()
+  let kills = Dictionary<VertexID, Set<VarPoint<VarExpr>>> ()
+
+  do this.InitWorklistWithTopologicalSort g
+  do this.InitGensAndKills g
 
   member __.Gens with get() = gens
 
   member __.Kills with get() = kills
 
-  override __.Meet a b = Set.union a b
+  override __.Meet (a, b) =
+    let ins = Set.union a.Ins b.Ins
+    let outs = Set.union a.Outs b.Outs
+    { Ins = ins; Outs = outs }
 
-  override __.Top = Set.empty
+  override __.Subsume (a, b) =
+    Set.isSuperset a.Ins b.Ins && Set.isSuperset a.Outs b.Outs
 
-  override __.Transfer i v =
-    let vid = v.ID
-    Set.union gens[vid] (Set.difference i kills[vid])
+  override __.Transfer (g, vid, s) =
+    let v = g.FindVertexByID vid
+    let preds = g.GetPreds v
+    let ins = preds |> Seq.fold (fun set pred ->
+      let vid = pred.ID
+      let absValue = __.GetAbsValue vid
+      let outs = absValue.Outs
+      Set.union set outs) Set.empty
+    let outs = Set.union gens[vid] (Set.difference s.Outs kills[vid])
+    { Ins = ins; Outs = outs }
 
-/// Reaching definition analysis with a LowUIR-based CFG.
-type LowUIRReachingDefinitions (cfg) as this =
-  inherit ReachingDefinitions<VarExpr, IRBasicBlock> (cfg)
+  override __.GetNextWorks (_g, _v) = [] (* since we use topological sort *)
 
-  do this.Initialize ()
+  override __.GetInitialValue _v = { Ins = Set.empty; Outs = Set.empty }
 
   member private __.FindDefs (v: IVertex<IRBasicBlock>) =
     v.VData.LiftedInstructions
@@ -73,7 +97,11 @@ type LowUIRReachingDefinitions (cfg) as this =
         | _ -> list) list
       |> fst) []
 
-  member private __.Initialize () =
+  member private __.InitWorklistWithTopologicalSort g =
+    let roots = g.GetRoots () |> Seq.toList
+    Traversal.iterRevPostorder g roots (fun v -> __.PushWork v.ID)
+
+  member private __.InitGensAndKills cfg =
     let gens, kills = __.Gens, __.Kills
     let vpPerVar = Dictionary<VarExpr, Set<VarPoint<VarExpr>>> ()
     let vpPerVertex = Dictionary<VertexID, VarPoint<VarExpr> list> ()

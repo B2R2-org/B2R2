@@ -24,112 +24,69 @@
 
 namespace B2R2.MiddleEnd.DataFlow
 
-open B2R2
-open B2R2.MiddleEnd.BinGraph
 open System.Collections.Generic
+open B2R2.MiddleEnd.BinGraph
 
-/// Defined variable.
-type VarExpr =
-  | Regular of RegisterID
-  | Temporary of int
-  | Memory of Addr
-
-/// Program point of a defined variable.
-type VarPoint<'E> = {
-  ProgramPoint: ProgramPoint
-  VarExpr: 'E
-}
-
-/// Either forward or backward analysis.
-type DataFlowDirection =
-  | Forward
-  | Backward
-
+/// Dataflow analysis that runs under the abstract interpretation framework.
+/// Abstract values are represented by 'Lattice and the unit of the analysis,
+/// e.g., basic block, instruction, etc., is represented by 'WorkUnit.
 [<AbstractClass>]
-type private DataFlowHelper () =
-  /// Obtain the neighboring vertices.
-  abstract Neighbor:
-    IGraph<'V, 'E> -> IVertex<'V> -> IReadOnlyCollection<IVertex<'V>>
+type DataFlowAnalysis<'Lattice, 'WorkUnit, 'V, 'E when 'Lattice: equality
+                                                   and 'WorkUnit: equality
+                                                   and 'V: equality
+                                                   and 'E: equality> () =
+  let workList = Queue<'WorkUnit> ()
+  let workSet = HashSet<'WorkUnit> ()
+  let absValues = Dictionary<'WorkUnit, 'Lattice> ()
 
-  /// Add next vertices to the worklist queue.
-  abstract AddToWorkList:
-    IGraph<'V, 'E> -> IVertex<'V> -> Queue<IVertex<'V>> -> unit
+  /// The initial abstract value. Our analysis starts with this value until
+  /// a fixed point is reached.
+  abstract Bottom: 'Lattice
 
-type private ForwardDataFlowHelper () =
-  inherit DataFlowHelper ()
-  override __.Neighbor (g: IGraph<_, _>) v = g.GetPreds v
-  override __.AddToWorkList (g: IGraph<_, _>) v worklist =
-    g.GetSuccs v |> Seq.iter worklist.Enqueue
+  /// The subsume operator, which checks if the first lattice subsumes the
+  /// second. This is to know if the analysis should stop or not.
+  abstract Subsume: 'Lattice * 'Lattice -> bool
 
-type private BackwardDataFlowHelper () =
-  inherit DataFlowHelper ()
-  override __.Neighbor (g: IGraph<_, _>) v = g.GetSuccs v
-  override __.AddToWorkList (g: IGraph<_, _>) v worklist =
-    g.GetPreds v |> Seq.iter worklist.Enqueue
+  /// The transfer function, which computes the next abstract value from the
+  /// current abstract value by executing the given 'WorkUnit.
+  abstract Transfer:
+     IGraph<'V, 'E>
+     * 'WorkUnit
+     * 'Lattice
+    -> 'Lattice
 
-/// Data-flow analysis framework. 'L is a lattice, 'V is a vertex data type of a
-/// graph.
-[<AbstractClass>]
-type DataFlowAnalysis<'L, 'V when 'L: equality
-                              and 'V: equality> () =
-  /// The top of the lattice. A data-flow analysis solution is computed by
-  /// iterating down from top to bottom.
-  abstract Top: 'L
+  /// Get the next set of works to perform.
+  abstract GetNextWorks:
+     IGraph<'V, 'E>
+     * 'WorkUnit
+    -> IReadOnlyCollection<'WorkUnit>
 
-/// Classic data-flow analysis with topological worklist algorithm.
-[<AbstractClass>]
-type TopologicalDataFlowAnalysis<'L, 'V
-    when 'L: equality and 'V: equality> (direction) =
-  inherit DataFlowAnalysis<'L, 'V> ()
-  /// Exit lattice per vertex.
-  let outs = Dictionary<VertexID, 'L> ()
+  /// Get the abstract value for the given work unit.
+  member __.GetAbsValue (work: 'WorkUnit) =
+    match absValues.TryGetValue work with
+    | false, _ -> __.Bottom
+    | true, absValue -> absValue
 
-  /// Entry lattice per vertex.
-  let ins = Dictionary<VertexID, 'L> ()
+  member __.PushWork (work: 'WorkUnit) =
+    if workSet.Contains work then ()
+    else
+      workSet.Add work |> ignore
+      workList.Enqueue work
 
-  /// Accessor of the vertices to compute dataflow. This is dependent on the
-  /// direction of the analysis.
-  let helper =
-    match direction with
-    | Forward -> ForwardDataFlowHelper () :> DataFlowHelper
-    | Backward -> BackwardDataFlowHelper () :> DataFlowHelper
+  member private __.PopWork () =
+    let work = workList.Dequeue ()
+    assert (workSet.Contains work)
+    workSet.Remove work |> ignore
+    work
 
-  /// Initialize worklist queue. This should be a topologically sorted list to
-  /// be efficient.
-  let initWorklist (g: IGraph<_, _>) =
-    let q = Queue<IVertex<'V>> ()
-    let roots = g.GetRoots () |> Seq.toList
-    Traversal.iterRevPostorder g roots q.Enqueue
-    q
-
-  /// Meet operation of the lattice.
-  abstract Meet: 'L -> 'L -> 'L
-
-  /// The transfer function from an input lattice to an output lattice. The
-  /// second parameter is to specify the current block of interest.
-  abstract Transfer: 'L -> IVertex<'V> -> 'L
-
-  /// Initialize ints and outs.
-  member private __.InitInsOuts (g: IGraph<_, _>) =
-    let roots = g.GetRoots () |> Seq.toList
-    Traversal.iterPreorder g roots (fun v ->
-      let blkid = v.ID
-      outs[blkid] <- __.Top
-      ins[blkid] <- __.Top)
-
-  /// Compute data-flow with the iterative worklist algorithm.
+  /// Perform the dataflow analysis until a fixed point is reached.
   member __.Compute g =
-    __.InitInsOuts g
-    let worklist = initWorklist g
-    while worklist.Count <> 0 do
-      let blk = worklist.Dequeue ()
-      let blkid = blk.ID
-      ins[blkid] <-
-        helper.Neighbor g blk
-        |> Seq.fold (fun eff v -> __.Meet eff outs[v.ID]) __.Top
-      let outeffect = __.Transfer ins[blkid] blk
-      if outs[blkid] <> outeffect then
-        outs[blkid] <- outeffect
-        helper.AddToWorkList g blk worklist
-      else ()
-    ins, outs
+    while not <| Seq.isEmpty workList do
+      let work = __.PopWork ()
+      let absValue = __.GetAbsValue work
+      let transferedAbsValue = __.Transfer (g, work, absValue)
+      if __.Subsume (absValue, transferedAbsValue) then ()
+      else
+        absValues[work] <- transferedAbsValue
+        for work in __.GetNextWorks (g, work) do __.PushWork work
+
