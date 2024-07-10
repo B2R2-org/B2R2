@@ -42,6 +42,9 @@ type CFGAction =
   /// Create an abstract tail-call node and connect it to the caller and
   /// fallthrough nodes when necessary.
   | MakeTlCall of fnAddr: Addr * ArchOperationMode * caller: Addr * callee: Addr
+  /// Create an abstract call node for an indirect call and connect it to the
+  /// caller and the fallthrough node.
+  | MakeIndCall of fnAddr: Addr * ArchOperationMode * caller: Addr
   /// Create an abstract syscall node and connect it to the caller and
   /// fallthrough nodes when necessary.
   | MakeSyscall of fnAddr: Addr * ArchOperationMode * caller: Addr * exit: bool

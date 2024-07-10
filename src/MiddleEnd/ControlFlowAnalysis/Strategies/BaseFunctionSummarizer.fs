@@ -185,8 +185,8 @@ type BaseFunctionSummarizer<'V,
         let dst = { Kind = kind; Identifier = -1 }
         Def (dst, ReturnVal (ctx.FunctionAddress, returnAddress, e)))
       |> Seq.toArray
-    let wordSize = ctx.BinHandle.File.ISA.WordSize |> WordSize.toRegType
-    let fallThrough = BitVector.OfUInt64 returnAddress wordSize
+    let regType = ctx.BinHandle.File.ISA.WordSize |> WordSize.toRegType
+    let fallThrough = BitVector.OfUInt64 returnAddress regType
     let jmpToFallThrough = Jmp (InterJmp (Num fallThrough))
     Array.append stmts [| jmpToFallThrough |]
     |> Array.map (fun s -> ProgramPoint.GetFake (), s)
@@ -202,3 +202,11 @@ type BaseFunctionSummarizer<'V,
                            ssaRundown,
                            ctx.IsExternal,
                            ctx.NonReturningStatus)
+
+    member __.SummarizeUnknown (wordSize, callIns) =
+      let returnAddress = callIns.Address + uint64 callIns.Length
+      let regType = wordSize |> WordSize.toRegType
+      let fallThrough = BitVector.OfUInt64 returnAddress regType
+      let jmpToFallThrough = Jmp (InterJmp (Num fallThrough))
+      let ssaRundown = [| (ProgramPoint.GetFake (), jmpToFallThrough) |]
+      FunctionAbstraction (0UL, None, ssaRundown, false, NotNoRet)

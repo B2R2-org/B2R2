@@ -76,8 +76,8 @@ type CFGBuildingContext<'V,
 /// Call edge from its callsite address to the callee's address. This is to
 /// uniquely identify call edges for abstracted vertices. We create an abstract
 /// vertex for each call instruction even though multiple call instructions may
-/// target the same callee.
-and AbsCallEdge = Addr * Addr
+/// target the same callee. The callee address can be None for an indirect call.
+and AbsCallEdge = Addr * Addr option
 
 /// The interface for accessing the state of the TaskManager.
 and [<AllowNullLiteral>]

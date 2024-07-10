@@ -44,7 +44,7 @@ type BaseStrategy<'FnCtx,
           syscallAnalysis: ISyscallAnalyzable,
           postAnalysis: IPostAnalysis<_>,
           allowOverlap,
-          useTCJumpHeuristic) =
+          useTailcallHeuristic) =
 
   let scanBBLs ctx mode entryPoints =
     ctx.BBLFactory.ScanBBLs mode entryPoints
@@ -60,12 +60,17 @@ type BaseStrategy<'FnCtx,
       ctx.Vertices[ppoint] <- v
       v
 
-  let getAbsVertex ctx callsiteAddr calleeAddr abs =
-    let key = callsiteAddr, calleeAddr
+  let getCalleePPoint calleeAddrOpt =
+    match calleeAddrOpt with
+    | Some addr -> ProgramPoint (addr, 0)
+    | None -> ProgramPoint.GetFake ()
+
+  let getAbsVertex ctx callsiteAddr calleeAddrOpt abs =
+    let key = callsiteAddr, calleeAddrOpt
     match ctx.AbsVertices.TryGetValue key with
     | true, v -> v
     | false, _ ->
-      let calleePPoint = ProgramPoint (calleeAddr, 0)
+      let calleePPoint = getCalleePPoint calleeAddrOpt
       let bbl = IRBasicBlock.CreateAbstract (calleePPoint, abs)
       let v, g = ctx.CFG.AddVertex bbl
       ctx.CFG <- g
@@ -88,14 +93,21 @@ type BaseStrategy<'FnCtx,
   let connectEdge ctx srcVertex dstVertex edgeKind =
     ctx.CFG <- ctx.CFG.AddEdge (srcVertex, dstVertex, edgeKind)
 #if CFGDEBUG
+    let edgeStr = CFGEdgeKind.toString edgeKind
     dbglog ctx.ThreadID "ConnectEdge"
-    <| $"{srcVertex.VData.PPoint} -> {dstVertex.VData.PPoint}"
+    <| $"{srcVertex.VData.PPoint} -> {dstVertex.VData.PPoint} ({edgeStr})"
 #endif
 
   let maskedPPoint ctx targetAddr =
     let rt = ctx.BinHandle.File.ISA.WordSize |> WordSize.toRegType
     let mask = BitVector.UnsignedMax rt |> BitVector.ToUInt64
     ProgramPoint (targetAddr &&& mask, 0)
+
+  let jmpToDstAddr ctx (ppQueue: Queue<_>) srcVertex dstAddr jmpKind =
+    let dstPPoint = maskedPPoint ctx dstAddr
+    let dstVertex = getVertex ctx dstPPoint
+    connectEdge ctx srcVertex dstVertex jmpKind
+    ppQueue.Enqueue dstPPoint
 
   /// Build a CFG starting from the given program points.
   let buildCFG ctx (actionQueue: CFGActionQueue) fnAddr initPPs mode =
@@ -134,29 +146,22 @@ type BaseStrategy<'FnCtx,
                                                    { E = Num n }) },
                           InterJmpKind.Base) ->
           let target = srcBBL.LastInstruction.Address + BitVector.ToUInt64 n
-          let dstPPoint = maskedPPoint ctx target
-          let dstVertex = getVertex ctx dstPPoint
-          connectEdge ctx srcVertex dstVertex InterJmpEdge
-          ppQueue.Enqueue dstPPoint
-        | InterJmp ({ E = Num n }, InterJmpKind.Base) when useTCJumpHeuristic ->
-          let dstAddr = BitVector.ToUInt64 n
-          match ctx.ManagerChannel.GetBuildingContext dstAddr with
-          | FailedBuilding -> (* not exists *)
-            let dstPPoint = maskedPPoint ctx dstAddr
-            let dstVertex = getVertex ctx dstPPoint
-            connectEdge ctx srcVertex dstVertex InterJmpEdge
-            ppQueue.Enqueue dstPPoint
-          | _ ->
-            let callerAddr = srcBBL.PPoint.Address
-            let callSiteAddr = srcBBL.LastInstruction.Address
-            ctx.ManagerChannel.UpdateDependency (fnAddr, dstAddr, mode)
-            ctx.CallTable.AddRegularCall srcBBL.PPoint callSiteAddr dstAddr
-            actionQueue.Push <| MakeTlCall (fnAddr, mode, callerAddr, dstAddr)
+          jmpToDstAddr ctx ppQueue srcVertex target InterJmpEdge
         | InterJmp ({ E = Num n }, InterJmpKind.Base) ->
-          let dstPPoint = maskedPPoint ctx (BitVector.ToUInt64 n)
-          let dstVertex = getVertex ctx dstPPoint
-          connectEdge ctx srcVertex dstVertex InterJmpEdge
-          ppQueue.Enqueue dstPPoint
+          if useTailcallHeuristic then
+            let dstAddr = BitVector.ToUInt64 n
+            match ctx.ManagerChannel.GetBuildingContext dstAddr with
+            | FailedBuilding -> (* not exists *)
+              jmpToDstAddr ctx ppQueue srcVertex dstAddr InterJmpEdge
+            | _ ->
+              let callerAddr = srcBBL.PPoint.Address
+              let callSiteAddr = srcBBL.LastInstruction.Address
+              ctx.ManagerChannel.UpdateDependency (fnAddr, dstAddr, mode)
+              ctx.CallTable.AddRegularCall srcBBL.PPoint callSiteAddr dstAddr
+              actionQueue.Push <| MakeTlCall (fnAddr, mode, callerAddr, dstAddr)
+          else
+            let dstAddr = BitVector.ToUInt64 n
+            jmpToDstAddr ctx ppQueue srcVertex dstAddr InterJmpEdge
         | InterJmp ({ E = BinOp (BinOpType.ADD, _, { E = PCVar _ },
                                                    { E = Num n }) },
                           InterJmpKind.IsCall) ->
@@ -193,6 +198,8 @@ type BaseStrategy<'FnCtx,
           connectEdge ctx srcVertex fVertex InterCJmpFalseEdge
           ppQueue.Enqueue tPPoint
           ppQueue.Enqueue fPPoint
+        | InterJmp (_, InterJmpKind.IsCall) -> (* Indirect calls *)
+          actionQueue.Push <| MakeIndCall (fnAddr, mode, srcBBL.PPoint.Address)
         | Jmp _ | CJmp _ | InterJmp _ | InterCJmp _ ->
           ()
         | SideEffect (Interrupt 0x80) | SideEffect SysCall ->
@@ -247,7 +254,7 @@ type BaseStrategy<'FnCtx,
   let connectAbsVertex ctx (caller: IVertex<IRBasicBlock>) calleeAddr abs =
     let callIns = caller.VData.LastInstruction
     let callsiteAddr = callIns.Address
-    let callee = getAbsVertex ctx callsiteAddr calleeAddr abs
+    let callee = getAbsVertex ctx callsiteAddr (Some calleeAddr) abs
     connectEdge ctx caller callee CallEdge
     callee, callsiteAddr + uint64 callIns.Length
 
@@ -280,7 +287,7 @@ type BaseStrategy<'FnCtx,
   let connectCallEdge ctx queue fnAddr mode callerAddr calleeAddr isTailCall =
     let caller = getVertex ctx (ProgramPoint (callerAddr, 0))
     if isTailCall then connectAbsWithoutFT ctx caller calleeAddr
-    else if fnAddr = calleeAddr then (* recursion = 100% returns (not no-ret) *)
+    elif fnAddr = calleeAddr then (* recursion = 100% returns (not no-ret) *)
       summarizer.Summarize (ctx, caller.VData.LastInstruction)
       |> connectAbsVertex ctx caller calleeAddr
       |> connectRet ctx mode
@@ -298,6 +305,18 @@ type BaseStrategy<'FnCtx,
           connectAbsWithFT ctx caller calleeAddr mode queue fnAddr
         else connectAbsWithoutFT ctx caller calleeAddr
       | UnknownNoRet -> Wait calleeAddr
+
+  let connectIndirectCallEdge ctx queue fnAddr mode callerAddr =
+    let caller = getVertex ctx (ProgramPoint (callerAddr, 0))
+    let callIns = caller.VData.LastInstruction
+    let callSite = callIns.Address
+    let wordSize = ctx.BinHandle.File.ISA.WordSize
+    let abs = summarizer.SummarizeUnknown (wordSize, callIns)
+    let absV = getAbsVertex ctx callSite None abs
+    connectEdge ctx caller absV CallEdge
+    connectRet ctx mode (absV, callSite + uint64 callIns.Length)
+    |> addExpandCFGAction queue fnAddr mode
+    Success
 
   let connectSyscallEdge ctx mode callerAddr isExit =
     let caller = getVertex ctx (ProgramPoint (callerAddr, 0))
@@ -341,6 +360,7 @@ type BaseStrategy<'FnCtx,
             | ExpandCFG _ -> 4
             | MakeCall _ -> 3
             | MakeTlCall _ -> 3
+            | MakeIndCall _ -> 3
             | MakeSyscall _ -> 3
             | IndirectEdge _ -> 2
             | SyscallEdge _ -> 1
@@ -377,6 +397,12 @@ type BaseStrategy<'FnCtx,
           <| $"{fnAddr:x} to {calleeAddr:x}"
 #endif
           connectCallEdge ctx queue fnAddr mode callerAddr calleeAddr true
+        | MakeIndCall (fnAddr, mode, callerAddr) ->
+#if CFGDEBUG
+          dbglog ctx.ThreadID (nameof MakeIndCall)
+          <| $"{fnAddr:x} @ {callerAddr:x}"
+#endif
+          connectIndirectCallEdge ctx queue fnAddr mode callerAddr
         | MakeSyscall (fnAddr, mode, callerAddr, isExit) ->
 #if CFGDEBUG
           dbglog ctx.ThreadID (nameof MakeSyscall) $"{fnAddr:x}"
@@ -419,10 +445,10 @@ type BaseStrategy =
        syscallAnalysis,
        postAnalysis,
        allowOverlap,
-       useTCJumpHeuristic) =
+       useTailcallHeuristic) =
     { inherit BaseStrategy<DummyContext, DummyContext> (ssaLifter,
                                                         summarizer,
                                                         syscallAnalysis,
                                                         postAnalysis,
                                                         allowOverlap,
-                                                        useTCJumpHeuristic) }
+                                                        useTailcallHeuristic) }

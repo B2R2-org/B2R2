@@ -96,9 +96,9 @@ type CondAwareNoretAnalysis ([<Optional; DefaultParameterValue(true)>] strict) =
     ctx.CallTable.Callees
     |> Seq.fold (fun acc (KeyValue (callSite, calleeKind)) ->
       match calleeKind with
-      | RegularCallee callee -> (callSite, callee) :: acc
+      | RegularCallee callee -> (callSite, Some callee) :: acc
       | IndirectCallees callees ->
-        Set.fold (fun acc callee -> (callSite, callee) :: acc) acc callees
+        Set.fold (fun acc callee -> (callSite, Some callee) :: acc) acc callees
       | _ -> acc) []
     |> List.filter (hasCallFallthroughNode ctx)
 
