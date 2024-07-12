@@ -40,49 +40,21 @@ type VarPoint<'E> = {
   VarExpr: 'E
 }
 
-type ReachingDefinitionLattice = {
+type ReachingDefinition = {
   Ins: Set<VarPoint<VarExpr>>
   Outs: Set<VarPoint<VarExpr>>
 }
 
 [<AbstractClass>]
-type ReachingDefinitionAnalysis (g: IGraph<IRBasicBlock, CFGEdgeKind>) as this =
-  inherit DataFlowAnalysis<ReachingDefinitionLattice, VertexID, IRBasicBlock> ()
+type ReachingDefinitionAnalysis (g: IGraph<IRBasicBlock, CFGEdgeKind>) =
+  inherit DataFlowAnalysis<ReachingDefinition, VertexID,
+                           IRBasicBlock, CFGEdgeKind> ()
 
   let gens = Dictionary<VertexID, Set<VarPoint<VarExpr>>> ()
+
   let kills = Dictionary<VertexID, Set<VarPoint<VarExpr>>> ()
 
-  do this.InitWorklistWithTopologicalSort g
-  do this.InitGensAndKills g
-
-  member __.Gens with get() = gens
-
-  member __.Kills with get() = kills
-
-  override __.Meet (a, b) =
-    let ins = Set.union a.Ins b.Ins
-    let outs = Set.union a.Outs b.Outs
-    { Ins = ins; Outs = outs }
-
-  override __.Subsume (a, b) =
-    Set.isSuperset a.Ins b.Ins && Set.isSuperset a.Outs b.Outs
-
-  override __.Transfer (g, vid, s) =
-    let v = g.FindVertexByID vid
-    let preds = g.GetPreds v
-    let ins = preds |> Seq.fold (fun set pred ->
-      let vid = pred.ID
-      let absValue = __.GetAbsValue vid
-      let outs = absValue.Outs
-      Set.union set outs) Set.empty
-    let outs = Set.union gens[vid] (Set.difference s.Outs kills[vid])
-    { Ins = ins; Outs = outs }
-
-  override __.GetNextWorks (_g, _v) = [] (* since we use topological sort *)
-
-  override __.GetInitialValue _v = { Ins = Set.empty; Outs = Set.empty }
-
-  member private __.FindDefs (v: IVertex<IRBasicBlock>) =
+  let findDefs (v: IVertex<IRBasicBlock>) =
     v.VData.LiftedInstructions
     |> Array.fold (fun list lifted ->
       lifted.Stmts
@@ -97,17 +69,12 @@ type ReachingDefinitionAnalysis (g: IGraph<IRBasicBlock, CFGEdgeKind>) as this =
         | _ -> list) list
       |> fst) []
 
-  member private __.InitWorklistWithTopologicalSort g =
-    let roots = g.GetRoots () |> Seq.toList
-    Traversal.iterRevPostorder g roots (fun v -> __.PushWork v.ID)
-
-  member private __.InitGensAndKills cfg =
-    let gens, kills = __.Gens, __.Kills
+  let initGensAndKills () =
     let vpPerVar = Dictionary<VarExpr, Set<VarPoint<VarExpr>>> ()
     let vpPerVertex = Dictionary<VertexID, VarPoint<VarExpr> list> ()
-    cfg.IterVertex (fun v ->
+    g.IterVertex (fun v ->
       let vid = v.ID
-      let defs = __.FindDefs v
+      let defs = findDefs v
       gens[vid] <- defs |> Set.ofList
       vpPerVertex[vid] <- defs
       defs |> List.iter (fun ({ VarExpr = v } as vp) ->
@@ -115,12 +82,42 @@ type ReachingDefinitionAnalysis (g: IGraph<IRBasicBlock, CFGEdgeKind>) as this =
         else vpPerVar[v] <- Set.singleton vp
       )
     )
-    cfg.IterVertex (fun v ->
+    g.IterVertex (fun v ->
       let vid = v.ID
       let defVarPoints = vpPerVertex[vid]
       let vars = defVarPoints |> List.map (fun vp -> vp.VarExpr)
       let vps = defVarPoints |> Set.ofList
       let alldefs =
-        vars |> List.fold (fun set v -> Set.union set vpPerVar[v]) Set.empty
+        vars |> List.fold (fun acc v -> Set.union acc vpPerVar[v]) Set.empty
       kills[vid] <- Set.difference alldefs vps
     )
+
+  do initGensAndKills ()
+
+  member __.Gens with get() = gens
+
+  member __.Kills with get() = kills
+
+  override __.Bottom = { Ins = Set.empty; Outs = Set.empty }
+
+  override __.InitialWorkList =
+    let lst = List<VertexID> ()
+    let roots = g.GetRoots () |> Seq.toList
+    Traversal.iterRevPostorder g roots (fun v -> lst.Add v.ID)
+    lst
+
+  override __.Subsume (a, b) =
+    a.Outs = b.Outs
+
+  override __.Transfer (g, vid, s) =
+    let v = g.FindVertexByID vid
+    let preds = g.GetPreds v
+    let ins = preds |> Seq.fold (fun acc pred ->
+      let vid = pred.ID
+      let absValue = __.GetAbsValue vid
+      let outs = absValue.Outs
+      Set.union acc outs) Set.empty
+    let outs = Set.union gens[vid] (Set.difference s.Outs kills[vid])
+    { Ins = ins; Outs = outs }
+
+  override __.GetNextWorks (_g, v) = [| v |]

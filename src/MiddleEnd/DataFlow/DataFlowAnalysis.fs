@@ -43,6 +43,9 @@ type DataFlowAnalysis<'Lattice, 'WorkUnit, 'V, 'E when 'Lattice: equality
   /// a fixed point is reached.
   abstract Bottom: 'Lattice
 
+  /// The initial list of work units to start the analysis.
+  abstract InitialWorkList: IReadOnlyCollection<'WorkUnit>
+
   /// The subsume operator, which checks if the first lattice subsumes the
   /// second. This is to know if the analysis should stop or not.
   abstract Subsume: 'Lattice * 'Lattice -> bool
@@ -67,6 +70,7 @@ type DataFlowAnalysis<'Lattice, 'WorkUnit, 'V, 'E when 'Lattice: equality
     | false, _ -> __.Bottom
     | true, absValue -> absValue
 
+  /// This is a low-level API to push a work unit to the internal worklist.
   member __.PushWork (work: 'WorkUnit) =
     if workSet.Contains work then ()
     else
@@ -79,8 +83,12 @@ type DataFlowAnalysis<'Lattice, 'WorkUnit, 'V, 'E when 'Lattice: equality
     workSet.Remove work |> ignore
     work
 
+  member private __.Initialize () =
+    for work in __.InitialWorkList do __.PushWork work
+
   /// Perform the dataflow analysis until a fixed point is reached.
   member __.Compute g =
+    __.Initialize ()
     while not <| Seq.isEmpty workList do
       let work = __.PopWork ()
       let absValue = __.GetAbsValue work
