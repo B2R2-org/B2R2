@@ -43,8 +43,10 @@ type DataFlowAnalysis<'Lattice, 'WorkUnit, 'V, 'E when 'Lattice: equality
   /// a fixed point is reached.
   abstract Bottom: 'Lattice
 
-  /// The initial list of work units to start the analysis.
-  abstract InitialWorkList: IReadOnlyCollection<'WorkUnit>
+  /// Initialize the list of work units to start the analysis. This is a
+  /// callback method that runs before the analysis starts, so any
+  /// initialization logic should be implemented here.
+  abstract InitializeWorkList: IGraph<'V, 'E> -> IReadOnlyCollection<'WorkUnit>
 
   /// The subsume operator, which checks if the first lattice subsumes the
   /// second. This is to know if the analysis should stop or not.
@@ -83,12 +85,12 @@ type DataFlowAnalysis<'Lattice, 'WorkUnit, 'V, 'E when 'Lattice: equality
     workSet.Remove work |> ignore
     work
 
-  member private __.Initialize () =
-    for work in __.InitialWorkList do __.PushWork work
+  member private __.Initialize g =
+    for work in __.InitializeWorkList g do __.PushWork work
 
   /// Perform the dataflow analysis until a fixed point is reached.
   member __.Compute g =
-    __.Initialize ()
+    __.Initialize g
     while not <| Seq.isEmpty workList do
       let work = __.PopWork ()
       let absValue = __.GetAbsValue work

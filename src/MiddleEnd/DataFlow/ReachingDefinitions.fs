@@ -45,8 +45,7 @@ type ReachingDefinition = {
   Outs: Set<VarPoint<VarExpr>>
 }
 
-[<AbstractClass>]
-type ReachingDefinitionAnalysis (g: IGraph<IRBasicBlock, CFGEdgeKind>) =
+type ReachingDefinitionAnalysis () =
   inherit DataFlowAnalysis<ReachingDefinition, VertexID,
                            IRBasicBlock, CFGEdgeKind> ()
 
@@ -69,7 +68,7 @@ type ReachingDefinitionAnalysis (g: IGraph<IRBasicBlock, CFGEdgeKind>) =
         | _ -> list) list
       |> fst) []
 
-  let initGensAndKills () =
+  let initGensAndKills (g: IGraph<IRBasicBlock, CFGEdgeKind>) =
     let vpPerVar = Dictionary<VarExpr, Set<VarPoint<VarExpr>>> ()
     let vpPerVertex = Dictionary<VertexID, VarPoint<VarExpr> list> ()
     g.IterVertex (fun v ->
@@ -92,15 +91,14 @@ type ReachingDefinitionAnalysis (g: IGraph<IRBasicBlock, CFGEdgeKind>) =
       kills[vid] <- Set.difference alldefs vps
     )
 
-  do initGensAndKills ()
-
   member __.Gens with get() = gens
 
   member __.Kills with get() = kills
 
   override __.Bottom = { Ins = Set.empty; Outs = Set.empty }
 
-  override __.InitialWorkList =
+  override __.InitializeWorkList g =
+    initGensAndKills g
     let lst = List<VertexID> ()
     let roots = g.GetRoots () |> Seq.toList
     Traversal.iterRevPostorder g roots (fun v -> lst.Add v.ID)

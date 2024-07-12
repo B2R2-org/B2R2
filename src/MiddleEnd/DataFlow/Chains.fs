@@ -111,8 +111,9 @@ module DataFlowChain =
 
   [<CompiledName("Init")>]
   let init cfg isDisasmLevel =
-    let rd = LowUIRReachingDefinitions (cfg)
-    let ins, outs = rd.Compute cfg
+    let rd = ReachingDefinitionAnalysis ()
+    rd.Compute cfg
+    // let ins, outs = rd.Compute cfg
     let udchain = initUDChain cfg ins outs |> filterDisasm isDisasmLevel
     let duchain = initDUChain udchain |> filterDisasm isDisasmLevel
     { UseDefChain = udchain; DefUseChain = duchain }
