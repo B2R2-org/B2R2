@@ -22,14 +22,23 @@
   SOFTWARE.
 *)
 
-module B2R2.MiddleEnd.DataFlow.Utils
+namespace B2R2.MiddleEnd.DataFlow
 
-open System.Collections.Generic
+open B2R2
 
-/// We use this constant for our data-flow analyses.
-let [<Literal>] InitialStackPointer = 0x80000000UL
+/// Variable at a specific program point.
+type VarPoint = {
+  /// Program point of the variable.
+  ProgramPoint: ProgramPoint
+  /// Kind of the variable.
+  VarKind: VarKind
+}
 
-let inline initMemory () =
-  let dict = Dictionary ()
-  dict[0] <- (Map.empty, Set.empty)
-  dict
+/// Variable kinds of our interest.
+and VarKind =
+  /// Regular variable that represents a register.
+  | Regular of RegisterID
+  /// Temporary variable that represents a temporary variable used in our IR.
+  | Temporary of int
+  /// Memory.
+  | Memory

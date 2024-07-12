@@ -22,5 +22,7 @@
   SOFTWARE.
 *)
 
-namespace B2R2.MiddleEnd.DataFlow.SSA
+module B2R2.MiddleEnd.DataFlow.Constants
 
+/// Default stack pointer value we use in our analyses.
+let [<Literal>] InitialStackPointer = 0x80000000UL

@@ -26,33 +26,31 @@ namespace B2R2.MiddleEnd.DataFlow
 
 open B2R2
 
-/// Constant or not.
-type SCPValue =
+/// A domain for constant propagation analysis.
+type ConstantDomain =
   | NotAConst
   | Const of BitVector
   | Undef
 
 [<RequireQualifiedAccess>]
-module SCPValue =
-
-  /// Are we going towards TOP from a given value "fromV" to a new value "toV"?
-  /// If so, our meet operation will not change the value, and we don't need to
-  /// push a new task to the SSAWorkList.
-  let goingUp fromV toV =
-    match fromV, toV with
-    | Const _, Undef
+module ConstantDomain =
+  /// Check if the transition from the old domain to the new domain is
+  /// non-monotonic.
+  let isNonmonotonic oldDomain newDomain =
+    match oldDomain, newDomain with
+    | NotAConst, Const _
     | NotAConst, Undef
-    | NotAConst, Const _ -> true
+    | Const _, Undef -> true
     | _ -> false
 
-  /// The meet operator.
-  let meet c1 c2 =
-    match c1, c2 with
+  /// Joins two constant domains.
+  let join (a: ConstantDomain) (b: ConstantDomain) =
+    match a, b with
     | Undef, c | c, Undef -> c
-    | Const bv1, Const bv2 -> if bv1 = bv2 then c1 else NotAConst
+    | Const x, Const y when x = y -> a
     | _ -> NotAConst
 
-  let unOp op = function
+  let private unOp op = function
     | Const bv -> Const (op bv)
     | c -> c
 
@@ -60,7 +58,7 @@ module SCPValue =
 
   let not c = unOp BitVector.BNot c
 
-  let binOp op c1 c2 =
+  let private binOp op c1 c2 =
     match c1, c2 with
     | Undef, _ | _, Undef -> Undef
     | Const bv1, Const bv2 -> Const (op (bv1, bv2))
@@ -76,7 +74,7 @@ module SCPValue =
 
   let mul c1 c2 = binOp BitVector.Mul c1 c2
 
-  let divAux divop c1 c2 =
+  let private divAux divop c1 c2 =
     match c1, c2 with
     | Undef, _ | _, Undef -> Undef
     | Const bv1, Const bv2 ->
@@ -132,7 +130,7 @@ module SCPValue =
     match cond with
     | Undef -> Undef
     | Const bv -> if BitVector.IsZero bv then c2 else c1
-    | NotAConst -> meet c1 c2
+    | NotAConst -> join c1 c2
 
   let cast op rt c =
     unOp (fun bv -> op (bv, rt)) c

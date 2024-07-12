@@ -24,3 +24,11 @@
 
 namespace B2R2.MiddleEnd.DataFlow.SSA
 
+open B2R2.BinIR.SSA
+open B2R2.MiddleEnd.DataFlow
+open B2R2.MiddleEnd.ControlFlowGraph
+
+[<AbstractClass>]
+type SSAVarBasedDataFlowAnalysis<'Lattice, 'E when 'Lattice: equality
+                                               and 'E: equality> () =
+  inherit DataFlowAnalysis<Variable, 'Lattice, SSABasicBlock, 'E> ()

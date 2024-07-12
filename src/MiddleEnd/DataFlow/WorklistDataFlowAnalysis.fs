@@ -27,17 +27,35 @@ namespace B2R2.MiddleEnd.DataFlow
 open System.Collections.Generic
 open B2R2.MiddleEnd.BinGraph
 
-/// Data-flow analysis that runs under the abstract interpretation framework.
-/// Abstract values are represented by 'Lattice and the unit of the analysis,
-/// e.g., basic block, instruction, etc., is represented by 'WorkUnit.
+/// Worklist-based dataflow analysis.
 [<AbstractClass>]
-type DataFlowAnalysis<'Lattice, 'WorkUnit, 'V, 'E when 'Lattice: equality
-                                                   and 'WorkUnit: equality
-                                                   and 'V: equality
-                                                   and 'E: equality> () =
+type WorklistDataFlowAnalysis<'WorkUnit, 'Lattice, 'V, 'E
+                                                 when 'WorkUnit: equality
+                                                  and 'Lattice: equality
+                                                  and 'V: equality
+                                                  and 'E: equality> () as this =
   let workList = Queue<'WorkUnit> ()
+
   let workSet = HashSet<'WorkUnit> ()
+
+  let pushWork (work: 'WorkUnit) =
+    if workSet.Contains work then ()
+    else
+      workSet.Add work |> ignore
+      workList.Enqueue work
+
+  let popWork () =
+    let work = workList.Dequeue ()
+    assert (workSet.Contains work)
+    workSet.Remove work |> ignore
+    work
+
   let absValues = Dictionary<'WorkUnit, 'Lattice> ()
+
+  let getAbsValue (loc: 'WorkUnit) =
+    match absValues.TryGetValue loc with
+    | false, _ -> this.Bottom
+    | true, absValue -> absValue
 
   /// The initial abstract value. Our analysis starts with this value until
   /// a fixed point is reached.
@@ -66,37 +84,19 @@ type DataFlowAnalysis<'Lattice, 'WorkUnit, 'V, 'E when 'Lattice: equality
      * 'WorkUnit
     -> IReadOnlyCollection<'WorkUnit>
 
-  /// Get the abstract value for the given work unit.
-  member __.GetAbsValue (work: 'WorkUnit) =
-    match absValues.TryGetValue work with
-    | false, _ -> __.Bottom
-    | true, absValue -> absValue
-
-  /// This is a low-level API to push a work unit to the internal worklist.
-  member __.PushWork (work: 'WorkUnit) =
-    if workSet.Contains work then ()
-    else
-      workSet.Add work |> ignore
-      workList.Enqueue work
-
-  member private __.PopWork () =
-    let work = workList.Dequeue ()
-    assert (workSet.Contains work)
-    workSet.Remove work |> ignore
-    work
-
   member private __.Initialize g =
-    for work in __.InitializeWorkList g do __.PushWork work
+    for work in __.InitializeWorkList g do pushWork work
 
-  /// Perform the dataflow analysis until a fixed point is reached.
-  member __.Compute g =
-    __.Initialize g
-    while not <| Seq.isEmpty workList do
-      let work = __.PopWork ()
-      let absValue = __.GetAbsValue work
-      let transferedAbsValue = __.Transfer (g, work, absValue)
-      if __.Subsume (absValue, transferedAbsValue) then ()
-      else
-        absValues[work] <- transferedAbsValue
-        for work in __.GetNextWorks (g, work) do __.PushWork work
+  interface IDataFlowAnalysis<'WorkUnit, 'Lattice, 'V, 'E> with
+    member __.Compute g =
+      __.Initialize g
+      while not <| Seq.isEmpty workList do
+        let work = popWork ()
+        let absValue = getAbsValue work
+        let transferedAbsValue = __.Transfer (g, work, absValue)
+        if __.Subsume (absValue, transferedAbsValue) then ()
+        else
+          absValues[work] <- transferedAbsValue
+          for work in __.GetNextWorks (g, work) do pushWork work
 
+    member __.GetAbsValue absLoc = getAbsValue absLoc

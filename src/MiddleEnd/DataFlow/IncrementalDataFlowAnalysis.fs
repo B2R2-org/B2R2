@@ -24,43 +24,11 @@
 
 namespace B2R2.MiddleEnd.DataFlow
 
+open B2R2.MiddleEnd.DataFlow
+open B2R2.MiddleEnd.ControlFlowGraph
 open B2R2
 
-/// StackPointerPropagation values.
-type SPValue =
-  | NotAConst
-  | Const of BitVector
-  | Undef
-
-module SPValue =
-
-  let goingUp fromV toV =
-    match fromV, toV with
-    | Const _, Undef
-    | NotAConst, Undef
-    | NotAConst, Const _ -> true
-    | _ -> false
-
-  let meet c1 c2 =
-    match c1, c2 with
-    | Undef, c | c, Undef -> c
-    | Const bv1, Const bv2 -> if bv1 = bv2 then c1 else NotAConst
-    | _ -> NotAConst
-
-  let add c1 c2 =
-    match c1, c2 with
-    | Undef, _ | _, Undef -> Undef
-    | Const bv1, Const bv2 -> Const (BitVector.Add (bv1, bv2))
-    | _ -> NotAConst
-
-  let sub c1 c2 =
-    match c1, c2 with
-    | Undef, _ | _, Undef -> Undef
-    | Const bv1, Const bv2 -> Const (BitVector.Sub (bv1, bv2))
-    | _ -> NotAConst
-
-  let ``and`` c1 c2 =
-    match c1, c2 with
-    | Undef, _ | _, Undef -> Undef
-    | Const bv1, Const bv2 -> Const (BitVector.BAnd (bv1, bv2))
-    | _ -> NotAConst
+[<AbstractClass>]
+type IncrementalDataFlowAnalysis<'Lattice, 'E when 'Lattice: equality
+                                               and 'E: equality> () =
+  inherit DataFlowAnalysis<ProgramPoint, 'Lattice, IRBasicBlock, 'E> ()

@@ -22,5 +22,19 @@
   SOFTWARE.
 *)
 
-namespace B2R2.MiddleEnd.DataFlow.SSA
+namespace B2R2.MiddleEnd.DataFlow
+
+open B2R2.MiddleEnd.BinGraph
+
+/// Data-flow analysis that runs under the abstract interpretation framework.
+/// Abstract values are represented by 'AbsVal, which is stored in an abstract
+/// location 'AbsLoc.
+type IDataFlowAnalysis<'AbsLoc, 'AbsVal, 'V, 'E when 'AbsLoc: equality
+                                                 and 'V: equality
+                                                 and 'E: equality> =
+  /// Get the abstract value (AbsVal) for the given abstract location.
+  abstract GetAbsValue: 'AbsLoc -> 'AbsVal
+
+  /// Perform the dataflow analysis until a fixed point is reached.
+  abstract Compute: IGraph<'V, 'E> -> unit
 

@@ -32,16 +32,16 @@ open B2R2.MiddleEnd.ControlFlowGraph
 /// Data-flow chain that contains both Use-Def and Def-Use chains.
 type DataFlowChain = {
   /// Use-def chain.
-  UseDefChain: Map<VarPoint<VarExpr>, Set<VarPoint<VarExpr>>>
+  UseDefChain: Map<VarPoint, Set<VarPoint>>
   /// Def-use chain.
-  DefUseChain: Map<VarPoint<VarExpr>, Set<VarPoint<VarExpr>>>
+  DefUseChain: Map<VarPoint, Set<VarPoint>>
 }
 
 module DataFlowChain =
-  let private computeInBlockDefs pp u (outset: Set<VarPoint<VarExpr>>) =
+  let private computeInBlockDefs pp u (outset: Set<VarPoint>) =
     outset
     |> Seq.filter (fun vp ->
-      vp.VarExpr = u
+      vp.VarKind = u
       && vp.ProgramPoint < (pp: ProgramPoint))
     |> Seq.sortBy (fun vp -> vp.ProgramPoint)
     |> Seq.tryLast (* Picking the def that has the largest position idx *)
@@ -60,9 +60,9 @@ module DataFlowChain =
     |> Map.toList
     |> List.map snd
 
-  let private computeOutBlockDefs u (inset: Set<VarPoint<VarExpr>>) =
+  let private computeOutBlockDefs u (inset: Set<VarPoint>) =
     inset
-    |> Set.filter (fun d -> d.VarExpr = u)
+    |> Set.filter (fun d -> d.VarKind = u)
     |> filterLastDefInBlock
 
   let rec private extractUseFromExpr e acc =
@@ -94,7 +94,7 @@ module DataFlowChain =
     extractUseFromStmt stmt
     |> Set.ofList
 
-  let private initUDChain cfg (rd: ReachingDefinitionAnalysis) =
+  let private initUDChain cfg (rd: IDataFlowAnalysis<_, _, _, _>) =
     Map.empty
     |> (cfg: IGraph<_, _>).FoldVertex (fun map (v: IVertex<IRBasicBlock>) ->
       v.VData.LiftedInstructions
@@ -105,7 +105,7 @@ module DataFlowChain =
           let abs = rd.GetAbsValue v.ID
           let uses = extractUses stmt
           uses |> Set.fold (fun map u ->
-            let usepoint = { VarExpr = u; ProgramPoint = pp }
+            let usepoint = { ProgramPoint = pp; VarKind = u }
             let set = computeOutBlockDefs u abs.Ins |> Set.ofList
             let set =
               match computeInBlockDefs pp u abs.Outs with
@@ -125,7 +125,7 @@ module DataFlowChain =
         | None -> Map.add d (Set.singleton u) map
         | Some us -> Map.add d (Set.add u us) map) map) Map.empty
 
-  let private normalizeVP (vp: VarPoint<VarExpr>) =
+  let private normalizeVP (vp: VarPoint) =
     let addr = vp.ProgramPoint.Address
     { vp with ProgramPoint = ProgramPoint (addr, 0) }
 
@@ -142,7 +142,7 @@ module DataFlowChain =
 
   [<CompiledName("Init")>]
   let init cfg isDisasmLevel =
-    let rd = ReachingDefinitionAnalysis ()
+    let rd = ReachingDefinitionAnalysis () :> IDataFlowAnalysis<_, _, _, _>
     rd.Compute cfg
     let udchain = initUDChain cfg rd |> filterDisasm isDisasmLevel
     let duchain = initDUChain udchain |> filterDisasm isDisasmLevel

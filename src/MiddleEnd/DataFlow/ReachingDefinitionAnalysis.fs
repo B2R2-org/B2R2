@@ -30,28 +30,19 @@ open B2R2.BinIR
 open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.ControlFlowGraph
 
-type VarExpr =
-  | Regular of RegisterID
-  | Temporary of int
-  | Memory
-
-type VarPoint<'E> = {
-  ProgramPoint: ProgramPoint
-  VarExpr: 'E
-}
-
 type ReachingDefinition = {
-  Ins: Set<VarPoint<VarExpr>>
-  Outs: Set<VarPoint<VarExpr>>
+  Ins: Set<VarPoint>
+  Outs: Set<VarPoint>
 }
 
+/// Traditional reaching definition analysis.
 type ReachingDefinitionAnalysis () =
-  inherit DataFlowAnalysis<ReachingDefinition, VertexID,
-                           IRBasicBlock, CFGEdgeKind> ()
+  inherit WorklistDataFlowAnalysis<VertexID, ReachingDefinition,
+                                   IRBasicBlock, CFGEdgeKind> ()
 
-  let gens = Dictionary<VertexID, Set<VarPoint<VarExpr>>> ()
+  let gens = Dictionary<VertexID, Set<VarPoint>> ()
 
-  let kills = Dictionary<VertexID, Set<VarPoint<VarExpr>>> ()
+  let kills = Dictionary<VertexID, Set<VarPoint>> ()
 
   let findDefs (v: IVertex<IRBasicBlock>) =
     v.VData.LiftedInstructions
@@ -61,22 +52,22 @@ type ReachingDefinitionAnalysis () =
         match stmt.S with
         | LowUIR.Put ({ LowUIR.E = LowUIR.TempVar (_, n) }, _) ->
           let pp = ProgramPoint (lifted.Original.Address, idx)
-          { ProgramPoint = pp; VarExpr = Temporary n } :: list
+          { ProgramPoint = pp; VarKind = Temporary n } :: list
         | LowUIR.Put ({ LowUIR.E = LowUIR.Var (_, id, _) }, _) ->
           let pp = ProgramPoint (lifted.Original.Address, idx)
-          { ProgramPoint = pp; VarExpr = Regular id } :: list
+          { ProgramPoint = pp; VarKind = Regular id } :: list
         | _ -> list) list
       |> fst) []
 
   let initGensAndKills (g: IGraph<IRBasicBlock, CFGEdgeKind>) =
-    let vpPerVar = Dictionary<VarExpr, Set<VarPoint<VarExpr>>> ()
-    let vpPerVertex = Dictionary<VertexID, VarPoint<VarExpr> list> ()
+    let vpPerVar = Dictionary<VarKind, Set<VarPoint>> ()
+    let vpPerVertex = Dictionary<VertexID, VarPoint list> ()
     g.IterVertex (fun v ->
       let vid = v.ID
       let defs = findDefs v
       gens[vid] <- defs |> Set.ofList
       vpPerVertex[vid] <- defs
-      defs |> List.iter (fun ({ VarExpr = v } as vp) ->
+      defs |> List.iter (fun ({ VarKind = v } as vp) ->
         if vpPerVar.ContainsKey v then vpPerVar[v] <- Set.add vp vpPerVar[v]
         else vpPerVar[v] <- Set.singleton vp
       )
@@ -84,7 +75,7 @@ type ReachingDefinitionAnalysis () =
     g.IterVertex (fun v ->
       let vid = v.ID
       let defVarPoints = vpPerVertex[vid]
-      let vars = defVarPoints |> List.map (fun vp -> vp.VarExpr)
+      let vars = defVarPoints |> List.map (fun vp -> vp.VarKind)
       let vps = defVarPoints |> Set.ofList
       let alldefs =
         vars |> List.fold (fun acc v -> Set.union acc vpPerVar[v]) Set.empty
@@ -112,7 +103,7 @@ type ReachingDefinitionAnalysis () =
     let preds = g.GetPreds v
     let ins = preds |> Seq.fold (fun acc pred ->
       let vid = pred.ID
-      let absValue = __.GetAbsValue vid
+      let absValue = (__ :> IDataFlowAnalysis<_, _, _, _>).GetAbsValue vid
       let outs = absValue.Outs
       Set.union acc outs) Set.empty
     let outs = Set.union gens[vid] (Set.difference s.Outs kills[vid])

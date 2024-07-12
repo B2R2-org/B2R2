@@ -8,21 +8,17 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="DataFlowAnalysis.fs" />
+    <Compile Include="Constants.fs" />
+    <Compile Include="VarPoint.fs" />
+    <Compile Include="IDataFlowAnalysis.fs" />
+    <Compile Include="WorklistDataFlowAnalysis.fs" />
     <Compile Include="ReachingDefinitionAnalysis.fs" />
     <Compile Include="DataFlowChain.fs" />
-    <Compile Include="Utils.fs" />
-    <Compile Include="CPState.fs" />
+    <Compile Include="ConstantDomain.fs" />
+    <Compile Include="IncrementalDataFlowAnalysis.fs" />
     <Compile Include="ConstantPropagation.fs" />
-    <Compile Include="SCPValue.fs" />
-    <Compile Include="SCPTransfer.fs" />
+    <Compile Include="SSAVarBasedDataFlowAnalysis.fs" />
     <Compile Include="SparseConstantPropagation.fs" />
-    <Compile Include="SPValue.fs" />
-    <Compile Include="SPTransfer.fs" />
-    <Compile Include="StackPointerPropagation.fs" />
-    <Compile Include="UVValue.fs" />
-    <Compile Include="UVTransfer.fs" />
-    <Compile Include="UntouchedValuePropagation.fs" />
     <None Include="..\..\..\LICENSE.md" Pack="true" PackagePath="" />
     <None Include="..\..\..\assets\b2r2-240x240.png" Pack="true" PackagePath="" />
     <None Include="README.md" Pack="true" PackagePath="" />
