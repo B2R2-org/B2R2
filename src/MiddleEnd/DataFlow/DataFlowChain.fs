@@ -24,13 +24,16 @@
 
 namespace B2R2.MiddleEnd.DataFlow
 
-open System.Collections.Generic
 open B2R2
+open B2R2.BinIR.LowUIR
 open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.ControlFlowGraph
 
+/// Data-flow chain that contains both Use-Def and Def-Use chains.
 type DataFlowChain = {
+  /// Use-def chain.
   UseDefChain: Map<VarPoint<VarExpr>, Set<VarPoint<VarExpr>>>
+  /// Def-use chain.
   DefUseChain: Map<VarPoint<VarExpr>, Set<VarPoint<VarExpr>>>
 }
 
@@ -62,7 +65,36 @@ module DataFlowChain =
     |> Set.filter (fun d -> d.VarExpr = u)
     |> filterLastDefInBlock
 
-  let private initUDChain cfg (ins: Dictionary<_,_>) (outs: Dictionary<_, _>) =
+  let rec private extractUseFromExpr e acc =
+    match e.E with
+    | Var (_, id, _) -> Regular id :: acc
+    | TempVar (_, n) -> Temporary n :: acc
+    | UnOp (_, e) -> extractUseFromExpr e acc
+    | BinOp (_, _, e1, e2) -> extractUseFromExpr e1 (extractUseFromExpr e2 acc)
+    | RelOp (_, e1, e2) -> extractUseFromExpr e1 (extractUseFromExpr e2 acc)
+    | Load (_, _, e) -> extractUseFromExpr e acc
+    | Ite (c, e1, e2) ->
+      extractUseFromExpr c (extractUseFromExpr e1 (extractUseFromExpr e2 acc))
+    | Cast (_, _, e) -> extractUseFromExpr e acc
+    | Extract (e, _, _) -> extractUseFromExpr e acc
+    | _ -> []
+
+  let private extractUseFromStmt s =
+    match s.S with
+    | Put (_, e)
+    | Store (_, _, e)
+    | Jmp (e)
+    | CJmp (e, _, _)
+    | InterJmp (e, _) -> extractUseFromExpr e []
+    | InterCJmp (c, e1, e2) ->
+      extractUseFromExpr c (extractUseFromExpr e1 (extractUseFromExpr e2 []))
+    | _ -> []
+
+  let private extractUses stmt =
+    extractUseFromStmt stmt
+    |> Set.ofList
+
+  let private initUDChain cfg (rd: ReachingDefinitionAnalysis) =
     Map.empty
     |> (cfg: IGraph<_, _>).FoldVertex (fun map (v: IVertex<IRBasicBlock>) ->
       v.VData.LiftedInstructions
@@ -70,14 +102,13 @@ module DataFlowChain =
         lifted.Stmts
         |> Array.foldi (fun map idx stmt ->
           let pp = ProgramPoint (lifted.Original.Address, idx)
-          let inset = ins[v.ID]
-          let outset = outs[v.ID]
-          let uses = Utils.extractUses stmt
+          let abs = rd.GetAbsValue v.ID
+          let uses = extractUses stmt
           uses |> Set.fold (fun map u ->
             let usepoint = { VarExpr = u; ProgramPoint = pp }
-            let set = computeOutBlockDefs u inset |> Set.ofList
+            let set = computeOutBlockDefs u abs.Ins |> Set.ofList
             let set =
-              match computeInBlockDefs pp u outset with
+              match computeInBlockDefs pp u abs.Outs with
               | Some def -> Set.add def set
               | None -> set
             Map.add usepoint set map
@@ -113,7 +144,6 @@ module DataFlowChain =
   let init cfg isDisasmLevel =
     let rd = ReachingDefinitionAnalysis ()
     rd.Compute cfg
-    // let ins, outs = rd.Compute cfg
-    let udchain = initUDChain cfg ins outs |> filterDisasm isDisasmLevel
+    let udchain = initUDChain cfg rd |> filterDisasm isDisasmLevel
     let duchain = initDUChain udchain |> filterDisasm isDisasmLevel
     { UseDefChain = udchain; DefUseChain = duchain }

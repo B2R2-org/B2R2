@@ -27,7 +27,7 @@ namespace B2R2.MiddleEnd.DataFlow
 open System.Collections.Generic
 open B2R2.MiddleEnd.BinGraph
 
-/// Dataflow analysis that runs under the abstract interpretation framework.
+/// Data-flow analysis that runs under the abstract interpretation framework.
 /// Abstract values are represented by 'Lattice and the unit of the analysis,
 /// e.g., basic block, instruction, etc., is represented by 'WorkUnit.
 [<AbstractClass>]

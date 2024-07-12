@@ -9,9 +9,9 @@
 
   <ItemGroup>
     <Compile Include="DataFlowAnalysis.fs" />
-    <Compile Include="ReachingDefinitions.fs" />
+    <Compile Include="ReachingDefinitionAnalysis.fs" />
+    <Compile Include="DataFlowChain.fs" />
     <Compile Include="Utils.fs" />
-    <Compile Include="Chains.fs" />
     <Compile Include="CPState.fs" />
     <Compile Include="ConstantPropagation.fs" />
     <Compile Include="SCPValue.fs" />

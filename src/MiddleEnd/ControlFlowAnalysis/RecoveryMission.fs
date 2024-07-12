@@ -44,7 +44,7 @@ type RecoveryMission<'V,
   public (strategy: ICFGBuildingStrategy<'V, 'E, 'FnCtx, 'GlCtx>) =
 
   member _.Execute (builders: CFGBuilderTable<_, _, _, _>) =
-    let manager =  TaskManager<'V, 'E, 'FnCtx, 'GlCtx> (builders, strategy)
+    let manager = TaskManager<'V, 'E, 'FnCtx, 'GlCtx> (builders, strategy)
     manager.Start ()
 
 /// Task manager for control flow analysis.

@@ -25,44 +25,9 @@
 module B2R2.MiddleEnd.DataFlow.Utils
 
 open System.Collections.Generic
-open B2R2.BinIR.LowUIR
 
 /// We use this constant for our data-flow analyses.
 let [<Literal>] InitialStackPointer = 0x80000000UL
-
-let rec private extractUseFromExpr e acc =
-  match e.E with
-  | Var (_, id, _) -> Regular id :: acc
-  | TempVar (_, n) -> Temporary n :: acc
-  | UnOp (_, e) -> extractUseFromExpr e acc
-  | BinOp (_, _, e1, e2) -> extractUseFromExpr e1 (extractUseFromExpr e2 acc)
-  | RelOp (_, e1, e2) -> extractUseFromExpr e1 (extractUseFromExpr e2 acc)
-  | Load (_, _, e) -> extractUseFromExpr e acc
-  | Ite (c, e1, e2) ->
-    extractUseFromExpr c (extractUseFromExpr e1 (extractUseFromExpr e2 acc))
-  | Cast (_, _, e) -> extractUseFromExpr e acc
-  | Extract (e, _, _) -> extractUseFromExpr e acc
-  | _ -> []
-
-let private extractUseFromStmt s =
-  match s.S with
-  | Put (_, e)
-  | Store (_, _, e)
-  | Jmp (e)
-  | CJmp (e, _, _)
-  | InterJmp (e, _) -> extractUseFromExpr e []
-  | InterCJmp (c, e1, e2) ->
-    extractUseFromExpr c (extractUseFromExpr e1 (extractUseFromExpr e2 []))
-  | _ -> []
-
-let extractUses stmt =
-  extractUseFromStmt stmt
-  |> Set.ofList
-
-let filterRegularVars vars =
-  vars |> Set.filter (function
-    | Regular _ -> true
-    | _ -> false)
 
 let inline initMemory () =
   let dict = Dictionary ()
