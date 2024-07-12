@@ -34,29 +34,19 @@ open B2R2.MiddleEnd.ControlFlowGraph
 /// the function CFG while maintaining its internal state. By "internal", we
 /// mean that the function is defined within the target binary as opposed to
 /// external (library) functions.
-type InternalFunctionBuilder<'V,
-                             'E,
-                             'FnCtx,
-                             'GlCtx when 'V :> IRBasicBlock
-                                     and 'V: equality
-                                     and 'E: equality
-                                     and 'FnCtx :> IResettable
-                                     and 'FnCtx: (new: unit -> 'FnCtx)
-                                     and 'GlCtx: (new: unit -> 'GlCtx)>
-  public (hdl: BinHandle,
-          instrs,
-          name,
-          entryPoint,
-          mode: ArchOperationMode,
-          ircfg: IRCFG<'V, 'E>,
-          agent: Agent<TaskMessage<'V, 'E, 'FnCtx, 'GlCtx>>,
-          strategy: IFunctionBuildingStrategy<_, _, _, _>) =
+type InternalFnCFGBuilder<'V,
+                          'E,
+                          'FnCtx,
+                          'GlCtx when 'V :> IRBasicBlock
+                                  and 'V: equality
+                                  and 'E: equality
+                                  and 'FnCtx :> IResettable
+                                  and 'FnCtx: (new: unit -> 'FnCtx)
+                                  and 'GlCtx: (new: unit -> 'GlCtx)>
+  public (ctx, agent: Agent<TaskMessage<'V, 'E, 'FnCtx, 'GlCtx>>) =
 
   /// Internal builder state.
   let mutable state = Initialized
-
-  let bblFactory = BBLFactory (hdl, instrs, strategy.AllowBBLOverlap)
-  let fnCtx = new 'FnCtx ()
 
   let managerChannel =
     { new IManagerAccessible<'V, 'E, 'FnCtx, 'GlCtx> with
@@ -79,63 +69,56 @@ type InternalFunctionBuilder<'V,
         member _.UpdateGlobalContext (updater) =
           agent.Post <| UpdateGlobalContext updater }
 
-  let ctx =
-    { FunctionAddress = entryPoint
-      FunctionName = name
-      BinHandle = hdl
-      Vertices = Dictionary ()
-      AbsVertices = Dictionary ()
-      CFG = ircfg
-      SSACFG = null
-      BBLFactory = bblFactory
-      NonReturningStatus = UnknownNoRet
-      CallTable = CallTable ()
-      VisitedPPoints = HashSet ()
-      UserContext = fnCtx
-      IsExternal = false
-      ManagerChannel = managerChannel
-      ThreadID = -1 }
-
-  let queue = CFGActionQueue strategy.ActionPrioritizer
-
-  let rec build () =
-    if queue.IsEmpty () then strategy.OnFinish ctx
+  let rec build (strategy: ICFGBuildingStrategy<_, _, _, _>) queue =
+    if (queue: CFGActionQueue).IsEmpty () then strategy.OnFinish ctx
     else
       let action = queue.Pop ()
       match strategy.OnAction (ctx, queue, action) with
-      | Success -> build ()
-      | Wait fnAddr -> queue.Push action; Wait fnAddr
+      | Success -> build strategy queue
+      | Wait fnAddr -> queue.Push strategy.ActionPrioritizer action; Wait fnAddr
       | Failure e -> Failure e
 
-  do InitiateCFG (entryPoint, mode) |> queue.Push
+  do ctx.ManagerChannel <- managerChannel
 
   new (hdl: BinHandle,
        instrs,
        entryPoint,
        mode,
        cfgConstructor: IRCFG.IConstructable<'V, 'E>,
-       agent,
-       strategy) =
+       agent) =
     let name =
       match hdl.File.TryFindFunctionName entryPoint with
       | Ok name -> name
       | Error _ -> Addr.toFuncName entryPoint
     let ircfg = cfgConstructor.Construct Imperative
-    InternalFunctionBuilder (hdl,
-                             instrs,
-                             name,
-                             entryPoint,
-                             mode,
-                             ircfg,
-                             agent,
-                             strategy)
+    let bblFactory = BBLFactory (hdl, instrs, cfgConstructor.AllowBBLOverlap)
+    let fnCtx = new 'FnCtx ()
+    let ctx =
+      { FunctionAddress = entryPoint
+        FunctionName = name
+        FunctionMode = mode
+        BinHandle = hdl
+        Vertices = Dictionary ()
+        AbsVertices = Dictionary ()
+        CFG = ircfg
+        SSACFG = null
+        BBLFactory = bblFactory
+        NonReturningStatus = UnknownNoRet
+        CallTable = CallTable ()
+        VisitedPPoints = HashSet ()
+        ActionQueue = CFGActionQueue ()
+        UserContext = fnCtx
+        IsExternal = false
+        ManagerChannel = null
+        ThreadID = -1 }
+    InternalFnCFGBuilder (ctx, agent)
 
-  interface IFunctionBuildable<'V, 'E, 'FnCtx, 'GlCtx> with
+  interface ICFGBuildable<'V, 'E, 'FnCtx, 'GlCtx> with
     member __.BuilderState with get() = state
 
-    member __.EntryPoint with get(): Addr = entryPoint
+    member __.EntryPoint with get(): Addr = ctx.FunctionAddress
 
-    member __.Mode with get() = mode
+    member __.Mode with get() = ctx.FunctionMode
 
     member __.Context with get() = ctx
 
@@ -157,19 +140,23 @@ type InternalFunctionBuilder<'V,
       assert (state = InProgress)
       state <- Invalid
 
-    member __.Build () =
-      build ()
+    member __.Build strategy =
+      InitiateCFG (ctx.FunctionAddress, ctx.FunctionMode)
+      |> ctx.ActionQueue.Push strategy.ActionPrioritizer
+      build strategy ctx.ActionQueue
 
     member __.Reset () =
-      fnCtx.Reset ()
-      // XXX: cfg reset
-      // XXX: bblFactory.Reset ()
+      ctx.UserContext.Reset ()
+      // state <- Stopped
+
+    member __.MakeNew (agent) =
+      InternalFnCFGBuilder (ctx, agent)
 
     member __.ToFunction () =
       assert (state = Finished)
-      Function (entryPoint,
-                name,
-                ircfg,
+      Function (ctx.FunctionAddress,
+                ctx.FunctionName,
+                ctx.CFG,
                 ctx.NonReturningStatus,
                 ctx.CallTable.Callees,
                 HashSet (),

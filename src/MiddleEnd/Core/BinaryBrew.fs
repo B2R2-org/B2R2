@@ -28,7 +28,6 @@ open System
 open System.Diagnostics
 open B2R2
 open B2R2.FrontEnd
-open B2R2.FrontEnd.BinFile
 open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.MiddleEnd.ControlFlowAnalysis
@@ -49,61 +48,62 @@ type BinaryBrew<'V,
                         and 'FnCtx: (new: unit -> 'FnCtx)
                         and 'GlCtx: (new: unit -> 'GlCtx)>
   public (hdl: BinHandle,
-          strategy: IFunctionBuildingStrategy<_, _, _, _>) =
-
-  let exnInfo = ExceptionInfo (hdl)
+          exnInfo: ExceptionInfo,
+          strategies: ICFGBuildingStrategy<_, _, _, _>[],
+          allowBBLOverlap) =
 
   let instrs = InstructionCollection (LinearSweepInstructionCollector hdl)
 
   let cfgConstructor =
     { new IRCFG.IConstructable<'V, 'E> with
+        member _.AllowBBLOverlap with get() = allowBBLOverlap
         member _.Construct _ =
           ImperativeDiGraph<'V, 'E> () :> IRCFG<'V, 'E> }
 
-  let taskManager =
-    TaskManager<'V, 'E, 'FnCtx, 'GlCtx>
-      (hdl, instrs, cfgConstructor, strategy)
+  let builders = CFGBuilderTable (hdl, instrs, cfgConstructor)
 
-  let getFunctionOperationMode (hdl: BinHandle) entry =
-    match hdl.File.ISA.Arch with
-    | Architecture.ARMv7 ->
-      if entry &&& 1UL = 1UL then
-        entry - 1UL, ArchOperationMode.ThumbMode
-      else entry, ArchOperationMode.ARMMode
-    | _ -> entry, ArchOperationMode.NoMode
+  let missions = strategies |> Array.map RecoveryMission<'V, 'E, 'FnCtx, 'GlCtx>
 
-  /// This function returns an initial sequence of entry points obtained from
-  /// the binary itself (e.g., from its symbol information). Therefore, if the
-  /// binary is stripped, the returned sequence will be incomplete, and we need
-  /// to expand it during the main recovery phase.
-  let getInitialEntryPoints () =
-    let file = hdl.File
-    let entries =
-      file.GetFunctionAddresses ()
-      |> Set.ofSeq
-      |> Set.union exnInfo.FunctionEntryPoints
-    file.EntryPoint
-    |> Option.fold (fun acc addr ->
-      if file.Type = FileType.LibFile && addr = 0UL then acc
-      else Set.add addr acc) entries
-    |> Set.toArray
-    |> Array.map (getFunctionOperationMode hdl)
+  #if DEBUG
+  let sanityCheck arr =
+    arr
+    |> Array.partition (fun (builder: ICFGBuildable<_, _, _, _>) ->
+      builder.BuilderState = Finished)
+    |> fun (succs, fails) ->
+      Console.WriteLine $"[*] Done (total {succs.Length} functions)"
+      fails
+      |> Array.iter (fun b ->
+        Console.WriteLine $"[!] Failure: {b.EntryPoint:x} w/ {b.BuilderState}")
+      if fails.Length > 0 then Utils.impossible ()
+      else ()
+    arr
+  #endif
+
+  let buildersToFunctions (builders: CFGBuilderTable<_, _, _, _>) =
+    builders.ToArray ()
+    #if DEBUG
+    |> sanityCheck
+    #endif
+    |> FunctionCollection
 
   let recoverFunctions () =
-    #if DEBUG
     let sw = Stopwatch ()
     Console.WriteLine "[*] CFG recovery started."
     sw.Start ()
-    #endif
-    let funcs = taskManager.RecoverCFGs <| getInitialEntryPoints ()
-    #if DEBUG
+    let funcs =
+      missions
+      |> Array.fold (fun builders mission -> mission.Execute builders) builders
+      |> buildersToFunctions
     sw.Stop ()
     let ts = sw.Elapsed
     Console.WriteLine $"[*] Total {ts.TotalSeconds}s elapsed."
-    #endif
     funcs
 
   let funcs = recoverFunctions ()
+
+  new (hdl: BinHandle, strategies) =
+    let exnInfo = ExceptionInfo (hdl)
+    BinaryBrew (hdl, exnInfo, strategies, false)
 
   /// Low-level access to binary code and data.
   member _.BinHandle with get(): BinHandle = hdl
@@ -120,6 +120,14 @@ type BinaryBrew<'V,
 /// Default BinaryBrew type that internally uses SSA IR to recover CFGs.
 type BinaryBrew =
   inherit BinaryBrew<IRBasicBlock, CFGEdgeKind, DummyContext, DummyContext>
+
+  new (hdl: BinHandle, exnInfo, strategies, allowBBLOverlap) =
+    { inherit BinaryBrew<IRBasicBlock, CFGEdgeKind, DummyContext, DummyContext>
+        (hdl, exnInfo, strategies, allowBBLOverlap) }
+
+  new (hdl: BinHandle, exnInfo, strategies) =
+    { inherit BinaryBrew<IRBasicBlock, CFGEdgeKind, DummyContext, DummyContext>
+        (hdl, exnInfo, strategies, false) }
 
   new (hdl: BinHandle, strategies) =
     { inherit BinaryBrew<IRBasicBlock, CFGEdgeKind, DummyContext, DummyContext>

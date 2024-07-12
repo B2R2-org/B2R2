@@ -19,17 +19,16 @@
     <Compile Include="CFGEvaluator.fs" />
     <Compile Include="CFGBuildingContext.fs" />
     <Compile Include="Function.fs" />
-    <Compile Include="IFunctionBuildable.fs" />
-    <Compile Include="IFunctionSummarizable.fs" />
     <Compile Include="TaskMessage.fs" />
-    <Compile Include="IFunctionBuildingStrategy.fs" />
-    <Compile Include="InternalFunctionBuilder.fs" />
-    <Compile Include="ExternalFunctionBuilder.fs" />
+    <Compile Include="ICFGBuildable.fs" />
+    <Compile Include="IFunctionSummarizable.fs" />
+    <Compile Include="InternalFnCFGBuilder.fs" />
+    <Compile Include="ExternalFnCFGBuilder.fs" />
     <Compile Include="ExternalFunctionLoader.fs" />
-    <Compile Include="FunctionBuilderTable.fs" />
+    <Compile Include="CFGBuilderTable.fs" />
     <Compile Include="FunctionDependenceMap.fs" />
     <Compile Include="FunctionCollection.fs" />
-    <Compile Include="TaskManager.fs" />
+    <Compile Include="RecoveryMission.fs" />
     <Compile Include="Strategies\DummyContext.fs" />
     <Compile Include="Strategies\ISyscallAnalyzable.fs" />
     <Compile Include="Strategies\IPostAnalysis.fs" />
@@ -38,7 +37,8 @@
     <Compile Include="Strategies\SyscallAnalysis.fs" />
     <Compile Include="Strategies\CondAwareNoretAnalysis.fs" />
     <Compile Include="Strategies\BaseFunctionSummarizer.fs" />
-    <Compile Include="Strategies\BaseStrategy.fs" />
+    <Compile Include="Strategies\FunctionIdentification.fs" />
+    <Compile Include="Strategies\CFGRecovery.fs" />
     <None Include="..\..\..\LICENSE.md" Pack="true" PackagePath="" />
     <None Include="..\..\..\assets\b2r2-240x240.png" Pack="true" PackagePath="" />
     <None Include="README.md" Pack="true" PackagePath="" />

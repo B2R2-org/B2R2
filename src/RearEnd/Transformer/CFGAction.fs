@@ -24,8 +24,10 @@
 
 namespace B2R2.RearEnd.Transformer
 
+open B2R2.FrontEnd
 open B2R2.MiddleEnd
 open B2R2.MiddleEnd.ControlFlowGraph
+open B2R2.MiddleEnd.ControlFlowAnalysis
 open B2R2.MiddleEnd.ControlFlowAnalysis.Strategies
 
 /// The `cfg` action.
@@ -34,8 +36,11 @@ type CFGAction () =
     match input with
     | :? Binary as bin ->
       let hdl = Binary.Handle bin
-      let strategy = BaseStrategy ()
-      let brew = BinaryBrew (hdl, strategy)
+      let exnInfo = ExceptionInfo hdl
+      let funcId = FunctionIdentification (hdl, exnInfo)
+      let strategies =
+        [| funcId :> ICFGBuildingStrategy<_, _, _, _>; CFGRecovery () |]
+      let brew = BinaryBrew (hdl, strategies)
       brew.Functions[0UL].CFG
       |> DisasmCFG.create
       |> box

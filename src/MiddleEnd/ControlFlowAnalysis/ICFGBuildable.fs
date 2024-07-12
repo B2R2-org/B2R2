@@ -28,7 +28,7 @@ open B2R2
 open B2R2.MiddleEnd.ControlFlowGraph
 
 /// The interface for building a function.
-type IFunctionBuildable<'V,
+type ICFGBuildable<'V,
                         'E,
                         'FnCtx,
                         'GlCtx when 'V :> IRBasicBlock
@@ -39,7 +39,7 @@ type IFunctionBuildable<'V,
   inherit ILinkage
 
   /// The current state of the function builder.
-  abstract BuilderState: FunctionBuilderState
+  abstract BuilderState: CFGBuilderState
 
   /// Entry point of the function that is being built.
   abstract EntryPoint: Addr
@@ -70,16 +70,21 @@ type IFunctionBuildable<'V,
   /// while building the function.
   abstract Invalidate: unit -> unit
 
-  /// Build the function CFG.
-  abstract Build: unit -> CFGResult
+  /// Build the function CFG using the given strategy.
+  abstract Build: ICFGBuildingStrategy<'V, 'E, 'FnCtx, 'GlCtx> -> CFGResult
 
   /// Reset the current state in order to rebuild the function from scratch.
   abstract Reset: unit -> unit
 
+  /// Make a new builder with a new agent by copying the current one.
+  abstract MakeNew:
+       Agent<TaskMessage<'V, 'E, 'FnCtx, 'GlCtx>>
+    -> ICFGBuildable<'V, 'E, 'FnCtx, 'GlCtx>
+
   /// Convert this builder to a function.
   abstract ToFunction: unit -> Function<'V, 'E>
 
-and FunctionBuilderState =
+and CFGBuilderState =
   /// Initialized but not started.
   | Initialized
   /// Currently building.
@@ -91,3 +96,47 @@ and FunctionBuilderState =
   | Invalid
   /// Finished building and everything has been valid.
   | Finished
+
+/// A strategy that defines how CFGActions are handled to build a function. This
+/// interface will be accessed in parallel by multiple threads, so every
+/// operation should be thread-safe. Note that CFGBuildingContext as well as
+/// 'FnCtx are only accessed by a single thread, though.
+and ICFGBuildingStrategy<'V,
+                         'E,
+                         'FnCtx,
+                         'GlCtx when 'V :> IRBasicBlock
+                                 and 'V: equality
+                                 and 'E: equality
+                                 and 'FnCtx :> IResettable
+                                 and 'GlCtx: (new: unit -> 'GlCtx)> =
+  /// Return the prioritizer to use for the CFG actions.
+  abstract ActionPrioritizer: IPrioritizable
+
+  /// This is a callback that is called when a recovery mission starts. It finds
+  /// a list of candidate functions to analyze based on the given list of
+  /// function builders.
+  abstract FindCandidates:
+    ICFGBuildable<'V, 'E, 'FnCtx, 'GlCtx>[] -> (Addr * ArchOperationMode)[]
+
+  /// This is a callback that is called for every CFGAction generated for a
+  /// function. Each action may discover a new basic block, add a new edge, etc.
+  /// This function returns a CFGResult that indicates whether the function
+  /// building should continue, postpone, or exit with an error.
+  abstract OnAction:
+       CFGBuildingContext<'V, 'E, 'FnCtx, 'GlCtx>
+     * CFGActionQueue
+     * CFGAction
+    -> CFGResult
+
+  /// This is a callback that is called when all CFGActions are processed, i.e.,
+  /// when CFGActionQueue is empty.
+  abstract OnFinish:
+       CFGBuildingContext<'V, 'E, 'FnCtx, 'GlCtx>
+    -> CFGResult
+
+  /// This is a callback that is called when a cyclic dependency is detected
+  /// from the TaskManager. The sequence of dependent functions is passed as an
+  /// argument, and this function should set the non-returning status of each
+  /// function.
+  abstract OnCyclicDependency:
+    (Addr * ICFGBuildable<'V, 'E, 'FnCtx, 'GlCtx>) seq -> unit

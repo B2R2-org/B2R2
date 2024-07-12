@@ -30,6 +30,7 @@ open B2R2
 open B2R2.FrontEnd
 open B2R2.FrontEnd.BinLifter
 open B2R2.MiddleEnd
+open B2R2.MiddleEnd.ControlFlowAnalysis
 open B2R2.MiddleEnd.ControlFlowAnalysis.Strategies
 open B2R2.MiddleEnd.DataFlow
 
@@ -82,8 +83,11 @@ type PersistentDataFlowTests () =
 
   let isa = ISA.Init Architecture.IntelX86 Endian.Little
   let hdl = BinHandle (binary, isa, ArchOperationMode.NoMode, None, false)
-  let strategy = BaseStrategy ()
-  let brew = BinaryBrew (hdl, strategy)
+  let exnInfo = ExceptionInfo hdl
+  let funcId = FunctionIdentification (hdl, exnInfo)
+  let strategies =
+    [| funcId :> ICFGBuildingStrategy<_, _, _, _>; CFGRecovery () |]
+  let brew = BinaryBrew (hdl, exnInfo, strategies)
 
 #if !EMULATION
   [<TestMethod>]

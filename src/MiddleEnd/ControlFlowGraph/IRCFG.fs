@@ -38,5 +38,8 @@ module IRCFG =
   type IConstructable<'V, 'E when 'V :> IRBasicBlock
                               and 'V: equality
                               and 'E: equality> =
+    /// Whether to allow basic block overlap.
+    abstract AllowBBLOverlap: bool
+
     /// Construct an IRCFG.
     abstract Construct: ImplementationType -> IRCFG<'V, 'E>

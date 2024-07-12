@@ -30,6 +30,7 @@ open System.Threading.Tasks
 open System.Threading.Tasks.Dataflow
 
 /// The agent for processing messages based on the TPL Dataflow.
+[<AllowNullLiteral>]
 type Agent<'Msg> private (ch: BufferBlock<'Msg>, task: Task) =
 
   /// Post a message to the agent.

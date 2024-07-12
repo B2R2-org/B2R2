@@ -28,6 +28,7 @@ open System.Collections.Generic
 open B2R2
 open B2R2.MiddleEnd.ControlFlowGraph
 
+/// Collection of recovered functions.
 type FunctionCollection<'V,
                         'E,
                         'FnCtx,
@@ -37,7 +38,7 @@ type FunctionCollection<'V,
                                 and 'FnCtx :> IResettable
                                 and 'FnCtx: (new: unit -> 'FnCtx)
                                 and 'GlCtx: (new: unit -> 'GlCtx)>
-  public (builders: IFunctionBuildable<'V, 'E, 'FnCtx, 'GlCtx>[]) =
+  public (builders: ICFGBuildable<'V, 'E, 'FnCtx, 'GlCtx>[]) =
 
   let addrToFunction = Dictionary<Addr, Function<'V, 'E>> ()
 

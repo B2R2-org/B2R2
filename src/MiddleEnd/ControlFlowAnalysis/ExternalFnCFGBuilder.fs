@@ -31,15 +31,15 @@ open B2R2.MiddleEnd.ControlFlowGraph
 
 /// The builder for an external function, which is responsible storing auxiliary
 /// information about the function, such as caller information.
-type ExternalFunctionBuilder<'V,
-                             'E,
-                             'FnCtx,
-                             'GlCtx when 'V :> IRBasicBlock
-                                     and 'V: equality
-                                     and 'E: equality
-                                     and 'FnCtx :> IResettable
-                                     and 'FnCtx: (new: unit -> 'FnCtx)
-                                     and 'GlCtx: (new: unit -> 'GlCtx)>
+type ExternalFnCFGBuilder<'V,
+                          'E,
+                          'FnCtx,
+                          'GlCtx when 'V :> IRBasicBlock
+                                  and 'V: equality
+                                  and 'E: equality
+                                  and 'FnCtx :> IResettable
+                                  and 'FnCtx: (new: unit -> 'FnCtx)
+                                  and 'GlCtx: (new: unit -> 'GlCtx)>
   public (hdl: BinHandle,
           entryPoint,
           name,
@@ -48,6 +48,7 @@ type ExternalFunctionBuilder<'V,
   let ctx =
     { FunctionAddress = entryPoint
       FunctionName = name
+      FunctionMode = ArchOperationMode.NoMode
       BinHandle = hdl
       Vertices = Dictionary ()
       AbsVertices = Dictionary ()
@@ -57,12 +58,13 @@ type ExternalFunctionBuilder<'V,
       NonReturningStatus = noretStatus
       CallTable = CallTable ()
       VisitedPPoints = HashSet ()
+      ActionQueue = CFGActionQueue ()
       UserContext = new 'FnCtx ()
       IsExternal = true
       ManagerChannel = null
       ThreadID = -1 }
 
-  interface IFunctionBuildable<'V, 'E, 'FnCtx, 'GlCtx> with
+  interface ICFGBuildable<'V, 'E, 'FnCtx, 'GlCtx> with
     member __.BuilderState with get() = Finished
 
     member __.EntryPoint with get(): Addr = entryPoint
@@ -81,9 +83,11 @@ type ExternalFunctionBuilder<'V,
 
     member __.Invalidate () = ()
 
-    member __.Build () = Utils.impossible ()
+    member __.Build _ = Utils.impossible ()
 
     member __.Reset () = ()
+
+    member __.MakeNew _ = Utils.impossible ()
 
     member __.ToFunction () =
       Function (entryPoint, name, ctx.NonReturningStatus, HashSet (), true)

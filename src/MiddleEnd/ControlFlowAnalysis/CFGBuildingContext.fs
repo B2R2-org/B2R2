@@ -44,6 +44,8 @@ type CFGBuildingContext<'V,
   FunctionAddress: Addr
   /// Function name.
   FunctionName: string
+  /// Function operation mode (for ARM Thumb).
+  FunctionMode: ArchOperationMode
   /// The binary handle.
   BinHandle: BinHandle
   /// Mapping from a program point to a vertex in the IRCFG.
@@ -63,12 +65,14 @@ type CFGBuildingContext<'V,
   /// The set of visited BBL program points. This is to prevent visiting the
   /// same basic block multiple times when constructing the CFG.
   VisitedPPoints: HashSet<ProgramPoint>
+  /// The action queue for the CFG building process.
+  ActionQueue: CFGActionQueue
   /// The user-defined per-function context.
   mutable UserContext: 'FnCtx
   /// Is this an external function or not.
   IsExternal: bool
   /// The channel for accessing the state of the TaskManager.
-  ManagerChannel: IManagerAccessible<'V, 'E, 'FnCtx, 'GlCtx>
+  mutable ManagerChannel: IManagerAccessible<'V, 'E, 'FnCtx, 'GlCtx>
   /// Thread ID that is currently building this function.
   mutable ThreadID: int
 }

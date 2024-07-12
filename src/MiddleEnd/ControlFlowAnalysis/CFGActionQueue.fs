@@ -27,14 +27,15 @@ namespace B2R2.MiddleEnd.ControlFlowAnalysis
 open System.Collections.Generic
 
 /// A priority queue to store the ICFGActions.
-type CFGActionQueue (judge: IPrioritizable) =
+type CFGActionQueue () =
   let pq = PriorityQueue<CFGAction, int> ()
 
   /// Count the number of actions in the queue.
   member _.Count with get() = pq.Count
 
   /// Push an action to the queue.
-  member _.Push action = pq.Enqueue (action, - (action.Priority judge))
+  member _.Push (judge: IPrioritizable) action =
+    pq.Enqueue (action, - (action.Priority judge))
 
   /// Pop an action from the queue.
   member _.Pop () = pq.Dequeue ()

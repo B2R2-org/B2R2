@@ -28,6 +28,7 @@ open B2R2
 open B2R2.FrontEnd
 open B2R2.MiddleEnd
 open B2R2.MiddleEnd.ControlFlowGraph
+open B2R2.MiddleEnd.ControlFlowAnalysis
 open B2R2.RearEnd
 open B2R2.RearEnd.Visualization
 open B2R2.RearEnd.BinExplorer.CmdUtils
@@ -218,9 +219,13 @@ let interactiveMain files (opts: BinExplorerOpts) =
               Type --help or --batch to see more info."; exit 1
   else
     let file = List.head files
-    let strategy = ControlFlowAnalysis.Strategies.BaseStrategy<_, _> ()
     let hdl = initBinHdl opts.ISA file
-    let brew = BinaryBrew (hdl, strategy)
+    let exnInfo = ExceptionInfo hdl
+    let funcId = Strategies.FunctionIdentification (hdl, exnInfo)
+    let cfgRecovery = Strategies.CFGRecovery ()
+    let strategies =
+      [| funcId :> ICFGBuildingStrategy<_, _, _, _>; cfgRecovery |]
+    let brew = BinaryBrew (hdl, exnInfo, strategies)
     if opts.JsonDumpDir <> "" then dumpJsonFiles opts.JsonDumpDir brew else ()
     let arbiter = Protocol.genArbiter brew opts.LogFile
     startGUI opts arbiter
@@ -260,9 +265,12 @@ let batchRun opts paths fstParam restParams fn =
          fn cmdMap opts file fstParam restParams) arr)
 
 let runCommand cmdMap opts file cmd args =
-  let strategy = ControlFlowAnalysis.Strategies.BaseStrategy<_, _> ()
   let hdl = initBinHdl ISA.DefaultISA file
-  let brew = BinaryBrew (hdl, strategy)
+  let exnInfo = ExceptionInfo hdl
+  let funcId = Strategies.FunctionIdentification (hdl, exnInfo)
+  let cfgRecovery = Strategies.CFGRecovery ()
+  let strategies = [| funcId :> ICFGBuildingStrategy<_, _, _, _>; cfgRecovery |]
+  let brew = BinaryBrew (hdl, exnInfo, strategies)
   Cmd.handle cmdMap brew cmd args
   |> Array.iter out.Print
 

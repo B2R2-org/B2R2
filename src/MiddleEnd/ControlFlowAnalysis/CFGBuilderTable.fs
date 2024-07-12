@@ -30,31 +30,30 @@ open B2R2.FrontEnd.BinFile
 open B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.MiddleEnd.ControlFlowAnalysis.ExternalFunctionLoader
 
-type FunctionBuilderTable<'V,
-                          'E,
-                          'FnCtx,
-                          'GlCtx when 'V :> IRBasicBlock
-                                  and 'V: equality
-                                  and 'E: equality
-                                  and 'FnCtx :> IResettable
-                                  and 'FnCtx: (new: unit -> 'FnCtx)
-                                  and 'GlCtx: (new: unit -> 'GlCtx)>
-  public (hdl, instrs, cfgConstructor, strategy) =
+type CFGBuilderTable<'V,
+                     'E,
+                     'FnCtx,
+                     'GlCtx when 'V :> IRBasicBlock
+                             and 'V: equality
+                             and 'E: equality
+                             and 'FnCtx :> IResettable
+                             and 'FnCtx: (new: unit -> 'FnCtx)
+                             and 'GlCtx: (new: unit -> 'GlCtx)>
+  public (hdl, instrs, cfgConstructor) =
 
   let builders =
-    Dictionary<Addr, IFunctionBuildable<'V,'E, 'FnCtx, 'GlCtx>> ()
+    Dictionary<Addr, ICFGBuildable<'V,'E, 'FnCtx, 'GlCtx>> ()
 
-  let getOrCreateInternalBuilder manager addr mode =
+  let getOrCreateInternalBuilder agent addr mode =
     match builders.TryGetValue addr with
     | true, builder -> builder
     | false, _ ->
       let builder =
-        InternalFunctionBuilder (hdl, instrs, addr, mode,
-                                 cfgConstructor, manager, strategy)
+        InternalFnCFGBuilder (hdl, instrs, addr, mode, cfgConstructor, agent)
       builders[addr] <- builder
       builder
 
-  let loadFromPLT manager (elf: ELFBinFile) =
+  let loadFromPLT (elf: ELFBinFile) =
     elf.PLT
     |> ARMap.iter (fun range entry ->
       match ELF.findInternalFuncReloc elf entry with
@@ -63,32 +62,40 @@ type FunctionBuilderTable<'V,
            address because some static binaries have a PLT entry for an internal
            function. *)
         let mode = ArchOperationMode.NoMode
-        let builder = getOrCreateInternalBuilder manager fnAddr mode
+        let builder = getOrCreateInternalBuilder null fnAddr mode
         builders[range.Min] <- builder
       | Error _ ->
         let addr, name = entry.TableAddress, entry.FuncName
         let isNoRet = ELF.getNoReturnStatusFromKnownFunc name
-        let builder = ExternalFunctionBuilder (hdl, addr, name, isNoRet)
+        let builder = ExternalFnCFGBuilder (hdl, addr, name, isNoRet)
         builders[range.Min] <- builder
     )
 
-  let loadELF manager (elf: ELFBinFile) =
-    loadFromPLT manager elf
-
-  member _.Load manager =
-    match hdl.File.Format with
-    | FileFormat.ELFBinary ->
-      hdl.File :?> ELFBinFile |> loadELF manager
-    | _ -> ()
+  (* Load external function builders by parsing the PLT. *)
+  do match hdl.File.Format with
+     | FileFormat.ELFBinary -> hdl.File :?> ELFBinFile |> loadFromPLT
+     | _ -> ()
 
   /// Retrieve a function builder by its address.
   member _.Item with get(addr:Addr) = builders[addr]
+                 and set addr v = builders[addr] <- v
 
-  member _.Values with get() = builders.Values
+  /// Retrieve all function builders.
+  member _.Values with get() = builders.Values |> Seq.toArray
+
+  /// Are all function builders finished?
+  member _.AllFinished () =
+    builders.Values
+    |> Seq.forall (fun builder -> builder.BuilderState = Finished)
 
   /// Get or create a function builder by its address and operation mode.
-  member _.GetOrCreateBuilder manager addr mode =
-    getOrCreateInternalBuilder manager addr mode
+  member _.GetOrCreateBuilder agent addr mode =
+    getOrCreateInternalBuilder agent addr mode
+
+  /// Update existing function builder to have a new agent.
+  member _.Reload (builder: ICFGBuildable<_, _, _, _>) agent =
+    let old = builders[builder.EntryPoint]
+    builders[builder.EntryPoint] <- old.MakeNew agent
 
   /// Try to retrieve a function builder by its address.
   member _.TryGetBuilder (addr: Addr) =

@@ -35,16 +35,30 @@ open B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.MiddleEnd.ControlFlowAnalysis
 
 /// Base strategy for building a CFG.
-type BaseStrategy<'FnCtx,
-                  'GlCtx when 'FnCtx :> IResettable
-                          and 'FnCtx: (new: unit -> 'FnCtx)
-                          and 'GlCtx: (new: unit -> 'GlCtx)>
+type CFGRecovery<'FnCtx,
+                 'GlCtx when 'FnCtx :> IResettable
+                         and 'FnCtx: (new: unit -> 'FnCtx)
+                         and 'GlCtx: (new: unit -> 'GlCtx)>
   public (ssaLifter: ISSALiftable<_>,
           summarizer: IFunctionSummarizable<_, _, 'FnCtx, 'GlCtx>,
           syscallAnalysis: ISyscallAnalyzable,
           postAnalysis: IPostAnalysis<_>,
-          allowOverlap,
           useTailcallHeuristic) =
+
+  let prioritizer =
+    { new IPrioritizable with
+        member _.GetPriority action =
+          match action with
+          | InitiateCFG _ -> 4
+          | ExpandCFG _ -> 4
+          | MakeCall _ -> 3
+          | MakeTlCall _ -> 3
+          | MakeIndCall _ -> 3
+          | MakeSyscall _ -> 3
+          | IndirectEdge _ -> 2
+          | SyscallEdge _ -> 1
+          | JumpTableEntryStart _ -> 0
+          | JumpTableEntryEnd _ -> 0 }
 
   let scanBBLs ctx mode entryPoints =
     ctx.BBLFactory.ScanBBLs mode entryPoints
@@ -158,7 +172,8 @@ type BaseStrategy<'FnCtx,
               let callSiteAddr = srcBBL.LastInstruction.Address
               ctx.ManagerChannel.UpdateDependency (fnAddr, dstAddr, mode)
               ctx.CallTable.AddRegularCall srcBBL.PPoint callSiteAddr dstAddr
-              actionQueue.Push <| MakeTlCall (fnAddr, mode, callerAddr, dstAddr)
+              actionQueue.Push prioritizer
+              <| MakeTlCall (fnAddr, mode, callerAddr, dstAddr)
           else
             let dstAddr = BitVector.ToUInt64 n
             jmpToDstAddr ctx ppQueue srcVertex dstAddr InterJmpEdge
@@ -170,14 +185,16 @@ type BaseStrategy<'FnCtx,
           let target = callsiteAddr + BitVector.ToUInt64 n
           ctx.ManagerChannel.UpdateDependency (fnAddr, target, mode)
           ctx.CallTable.AddRegularCall srcBBL.PPoint callsiteAddr target
-          actionQueue.Push <| MakeCall (fnAddr, mode, callerAddr, target)
+          actionQueue.Push prioritizer
+          <| MakeCall (fnAddr, mode, callerAddr, target)
         | InterJmp ({ E = Num n }, InterJmpKind.IsCall) ->
           let callerAddr = srcBBL.PPoint.Address
           let callsiteAddr = srcBBL.LastInstruction.Address
           let target = BitVector.ToUInt64 n
           ctx.ManagerChannel.UpdateDependency (fnAddr, target, mode)
           ctx.CallTable.AddRegularCall srcBBL.PPoint callsiteAddr target
-          actionQueue.Push <| MakeCall (fnAddr, mode, callerAddr, target)
+          actionQueue.Push prioritizer
+          <| MakeCall (fnAddr, mode, callerAddr, target)
         | InterCJmp (_, { E = BinOp (BinOpType.ADD, _, { E = PCVar _ },
                                                        { E = Num tv }) },
                         { E = BinOp (BinOpType.ADD, _, { E = PCVar _ },
@@ -199,7 +216,8 @@ type BaseStrategy<'FnCtx,
           ppQueue.Enqueue tPPoint
           ppQueue.Enqueue fPPoint
         | InterJmp (_, InterJmpKind.IsCall) -> (* Indirect calls *)
-          actionQueue.Push <| MakeIndCall (fnAddr, mode, srcBBL.PPoint.Address)
+          actionQueue.Push prioritizer
+          <| MakeIndCall (fnAddr, mode, srcBBL.PPoint.Address)
         | Jmp _ | CJmp _ | InterJmp _ | InterCJmp _ ->
           ()
         | SideEffect (Interrupt 0x80) | SideEffect SysCall ->
@@ -207,7 +225,8 @@ type BaseStrategy<'FnCtx,
           let callsiteAddr = srcBBL.LastInstruction.Address
           let isExit = syscallAnalysis.IsExit (ctx, srcVertex)
           ctx.CallTable.AddSystemCall callsiteAddr isExit
-          actionQueue.Push <| MakeSyscall (fnAddr, mode, callerAddr, isExit)
+          actionQueue.Push prioritizer
+          <| MakeSyscall (fnAddr, mode, callerAddr, isExit)
         | _ ->
           ()
     done
@@ -242,7 +261,7 @@ type BaseStrategy<'FnCtx,
         ctx.CFG <- ctx.CFG.AddEdge (dstVertex, succEdge.Second, succEdge.Label)
 
   let addExpandCFGAction (queue: CFGActionQueue) fnAddr mode addr =
-    queue.Push <| ExpandCFG (fnAddr, mode, [ addr ])
+    queue.Push prioritizer <| ExpandCFG (fnAddr, mode, [ addr ])
 
   let getFunctionAbstraction ctx callIns calleeAddr =
     match ctx.ManagerChannel.GetBuildingContext calleeAddr with
@@ -333,8 +352,7 @@ type BaseStrategy<'FnCtx,
       StackPointerAnalysis () :> IPostAnalysis<_>
       <+> StackAnalysis ()
       <+> CondAwareNoretAnalysis ()
-    BaseStrategy (ssaLifter, summarizer, syscallAnalysis, postAnalysis, false,
-                  true)
+    CFGRecovery (ssaLifter, summarizer, syscallAnalysis, postAnalysis, true)
 
   new (ssaLifter) =
     let summarizer = BaseFunctionSummarizer ()
@@ -343,29 +361,19 @@ type BaseStrategy<'FnCtx,
       StackPointerAnalysis () :> IPostAnalysis<_>
       <+> StackAnalysis ()
       <+> CondAwareNoretAnalysis ()
-    BaseStrategy (ssaLifter, summarizer, syscallAnalysis, postAnalysis, false,
-                  false)
+    CFGRecovery (ssaLifter, summarizer, syscallAnalysis, postAnalysis, true)
 
-  interface IFunctionBuildingStrategy<IRBasicBlock,
-                                      CFGEdgeKind,
-                                      'FnCtx,
-                                      'GlCtx> with
-    member __.AllowBBLOverlap = allowOverlap
+  interface ICFGBuildingStrategy<IRBasicBlock,
+                                 CFGEdgeKind,
+                                 'FnCtx,
+                                 'GlCtx> with
+    member __.ActionPrioritizer = prioritizer
 
-    member __.ActionPrioritizer =
-      { new IPrioritizable with
-          member _.GetPriority action =
-            match action with
-            | InitiateCFG _ -> 4
-            | ExpandCFG _ -> 4
-            | MakeCall _ -> 3
-            | MakeTlCall _ -> 3
-            | MakeIndCall _ -> 3
-            | MakeSyscall _ -> 3
-            | IndirectEdge _ -> 2
-            | SyscallEdge _ -> 1
-            | JumpTableEntryStart _ -> 0
-            | JumpTableEntryEnd _ -> 0 }
+    member __.FindCandidates (builders) =
+      builders
+      |> Array.choose (fun b ->
+        if not b.Context.IsExternal then Some <| (b.EntryPoint, b.Mode)
+        else None)
 
     member __.OnAction (ctx, queue, action) =
       try
@@ -431,24 +439,22 @@ type BaseStrategy<'FnCtx,
       builder.Context.NonReturningStatus <- NotNoRet
 
 /// Base strategy for building a CFG without any customizable context.
-type BaseStrategy =
-  inherit BaseStrategy<DummyContext, DummyContext>
+type CFGRecovery =
+  inherit CFGRecovery<DummyContext, DummyContext>
 
   new () =
-    { inherit BaseStrategy<DummyContext, DummyContext> () }
+    { inherit CFGRecovery<DummyContext, DummyContext> () }
 
   new (ssaLifter) =
-    { inherit BaseStrategy<DummyContext, DummyContext> (ssaLifter) }
+    { inherit CFGRecovery<DummyContext, DummyContext> (ssaLifter) }
 
   new (ssaLifter,
        summarizer,
        syscallAnalysis,
        postAnalysis,
-       allowOverlap,
        useTailcallHeuristic) =
-    { inherit BaseStrategy<DummyContext, DummyContext> (ssaLifter,
-                                                        summarizer,
-                                                        syscallAnalysis,
-                                                        postAnalysis,
-                                                        allowOverlap,
-                                                        useTailcallHeuristic) }
+    { inherit CFGRecovery<DummyContext, DummyContext> (ssaLifter,
+                                                       summarizer,
+                                                       syscallAnalysis,
+                                                       postAnalysis,
+                                                       useTailcallHeuristic) }
