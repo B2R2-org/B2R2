@@ -35,6 +35,7 @@ type IDataFlowAnalysis<'AbsLoc, 'AbsVal, 'V, 'E when 'AbsLoc: equality
   /// Get the abstract value (AbsVal) for the given abstract location.
   abstract GetAbsValue: 'AbsLoc -> 'AbsVal
 
-  /// Perform the dataflow analysis until a fixed point is reached.
-  abstract Compute: IGraph<'V, 'E> -> unit
+  /// Perform the dataflow analysis on the given CFG until a fixed point is
+  /// reached.
+  abstract Compute: cfg: IGraph<'V, 'E> -> unit
 

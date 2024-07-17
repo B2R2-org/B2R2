@@ -29,11 +29,13 @@ open B2R2.MiddleEnd.BinGraph
 
 /// Worklist-based dataflow analysis.
 [<AbstractClass>]
-type WorklistDataFlowAnalysis<'WorkUnit, 'Lattice, 'V, 'E
-                                                 when 'WorkUnit: equality
-                                                  and 'Lattice: equality
-                                                  and 'V: equality
-                                                  and 'E: equality> () as this =
+type WorklistDataFlowAnalysis<'WorkUnit,
+                              'Lattice,
+                              'V,
+                              'E when 'WorkUnit: equality
+                                  and 'Lattice: equality
+                                  and 'V: equality
+                                  and 'E: equality> () as this =
   let workList = Queue<'WorkUnit> ()
 
   let workSet = HashSet<'WorkUnit> ()

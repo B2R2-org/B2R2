@@ -24,3 +24,141 @@
 
 namespace B2R2.MiddleEnd.DataFlow.SSA
 
+open B2R2
+open B2R2.BinIR
+open B2R2.BinIR.SSA
+open B2R2.FrontEnd
+open B2R2.MiddleEnd.DataFlow
+open B2R2.MiddleEnd.DataFlow.Constants
+
+/// Sparse conditional constant propagation algorithm, which is a modified
+/// version of Wegman et al.
+type SparseConditionalConstantPropagation<'E when 'E: equality>
+  public (hdl: BinHandle) as this =
+  inherit SSAVarBasedDataFlowAnalysis<ConstantDomain, 'E> (hdl)
+
+  let initStackRegister () =
+    match hdl.RegisterFactory.StackPointer with
+    | Some sp ->
+      let rt = hdl.RegisterFactory.RegIDToRegType sp
+      let str = hdl.RegisterFactory.RegIDToString sp
+      let var = { Kind = RegVar (rt, sp, str); Identifier = 0 }
+      this.SetRegValueWithoutPushing var
+      <| Const (BitVector.OfUInt64 InitialStackPointer rt)
+    | None -> ()
+
+  let evalLoad m rt addr =
+    match addr with
+    | Const addr ->
+      let addr = BitVector.ToUInt64 addr
+      this.GetMemValue m rt addr
+    | _ -> NotAConst
+
+  let evalUnOp op c =
+    match op with
+    | UnOpType.NEG -> ConstantDomain.neg c
+    | UnOpType.NOT -> ConstantDomain.not c
+    | _ -> NotAConst
+
+  let evalBinOp op c1 c2 =
+    match op with
+    | BinOpType.ADD -> ConstantDomain.add c1 c2
+    | BinOpType.SUB -> ConstantDomain.sub c1 c2
+    | BinOpType.MUL -> ConstantDomain.mul c1 c2
+    | BinOpType.DIV -> ConstantDomain.div c1 c2
+    | BinOpType.SDIV -> ConstantDomain.sdiv c1 c2
+    | BinOpType.MOD -> ConstantDomain.``mod`` c1 c2
+    | BinOpType.SMOD -> ConstantDomain.smod c1 c2
+    | BinOpType.SHL -> ConstantDomain.shl c1 c2
+    | BinOpType.SHR -> ConstantDomain.shr c1 c2
+    | BinOpType.SAR -> ConstantDomain.sar c1 c2
+    | BinOpType.AND -> ConstantDomain.``and`` c1 c2
+    | BinOpType.OR -> ConstantDomain.``or`` c1 c2
+    | BinOpType.XOR -> ConstantDomain.xor c1 c2
+    | BinOpType.CONCAT -> ConstantDomain.concat c1 c2
+    | _ -> NotAConst
+
+  let evalRelOp op c1 c2 =
+    match op with
+    | RelOpType.EQ -> ConstantDomain.eq c1 c2
+    | RelOpType.NEQ -> ConstantDomain.neq c1 c2
+    | RelOpType.GT -> ConstantDomain.gt c1 c2
+    | RelOpType.GE -> ConstantDomain.ge c1 c2
+    | RelOpType.SGT -> ConstantDomain.sgt c1 c2
+    | RelOpType.SGE -> ConstantDomain.sge c1 c2
+    | RelOpType.LT -> ConstantDomain.lt c1 c2
+    | RelOpType.LE -> ConstantDomain.le c1 c2
+    | RelOpType.SLT -> ConstantDomain.slt c1 c2
+    | RelOpType.SLE -> ConstantDomain.sle c1 c2
+    | _ -> NotAConst
+
+  let evalCast op rt c =
+    match op with
+    | CastKind.SignExt -> ConstantDomain.signExt rt c
+    | CastKind.ZeroExt -> ConstantDomain.zeroExt rt c
+    | _ -> NotAConst
+
+  let rec evalExpr blk = function
+    | Num bv -> Const bv
+    | Var v -> this.GetRegValue v
+    | Load (m, rt, addr) ->
+      evalExpr blk addr |> evalLoad m rt
+    | UnOp (op, _, e) ->
+      evalExpr blk e |> evalUnOp op
+    | BinOp (op, _, e1, e2) ->
+      let c1 = evalExpr blk e1
+      let c2 = evalExpr blk e2
+      evalBinOp op c1 c2
+    | RelOp (op, _, e1, e2) ->
+      let c1 = evalExpr blk e1
+      let c2 = evalExpr blk e2
+      evalRelOp op c1 c2
+    | Ite (e1, _, e2, e3) ->
+      let c1 = evalExpr blk e1
+      let c2 = evalExpr blk e2
+      let c3 = evalExpr blk e3
+      ConstantDomain.ite c1 c2 c3
+    | Cast (op, rt, e) ->
+      let c = evalExpr blk e
+      evalCast op rt c
+    | Extract (e, rt, pos) ->
+      let c = evalExpr blk e
+      ConstantDomain.extract c rt pos
+    | ReturnVal (_addr, _ret, e) -> evalExpr blk e
+    | FuncName _ | Nil | Undefined _ -> NotAConst
+    | _ -> Utils.impossible ()
+
+  let evalDef blk pp var e =
+    match var.Kind with
+    | MemVar -> ()
+    | _ -> this.SetRegValue (pp, var, evalExpr blk e)
+
+  let evalPhi cfg blk pp dst srcIDs =
+    match this.GetExecutedSources cfg blk srcIDs with
+    | [||] -> ()
+    | executedSrcIDs ->
+      match dst.Kind with
+      | MemVar -> ()
+      | _ ->
+        executedSrcIDs
+        |> Array.map (fun i -> { dst with Identifier = i } |> this.GetRegValue)
+        |> Array.reduce this.Join
+        |> fun merged -> this.SetRegValue (pp, dst, merged)
+
+  let evalJmp cfg blk =
+    this.MarkSuccessorsExecutable cfg blk
+
+  do initStackRegister ()
+
+  override _.Bottom with get() = Undef
+
+  override _.Join a b = ConstantDomain.join a b
+
+  override _.Transfer ssaCFG blk pp stmt =
+    match stmt with
+    | Def (var, e) -> evalDef blk pp var e
+    | Phi (var, ns) -> evalPhi ssaCFG blk pp var ns
+    | Jmp _ -> evalJmp ssaCFG blk
+    | LMark _ | ExternalCall _ | SideEffect _ -> ()
+
+  override _.UpdateMemFromBinaryFile _rt _addr = Undef

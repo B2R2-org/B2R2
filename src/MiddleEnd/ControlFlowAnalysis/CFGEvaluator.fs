@@ -30,7 +30,7 @@ open B2R2.FrontEnd
 open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.MiddleEnd.ConcEval
-open B2R2.MiddleEnd.DataFlow.Utils
+open B2R2.MiddleEnd.DataFlow.Constants
 
 let private memoryReader (hdl: BinHandle) _pc addr typ _e =
   let len = RegType.toByteWidth typ

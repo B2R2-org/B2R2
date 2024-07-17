@@ -41,12 +41,26 @@ and VarKind =
   | Regular of RegisterID
   /// Temporary variable that represents a temporary variable used in our IR.
   | Temporary of int
-  /// Memory.
-  | Memory
+  /// Memory instance. The optional field is used only when the memory address
+  /// is a constant.
+  | Memory of Addr option
+  /// Program counter.
+  | PC
+  /// Stack variable.
+  | StackLocal of int
 
 module VarKind =
   let ofIRExpr (e: LowUIR.Expr) =
     match e.E with
     | LowUIR.Var (_, regId, _) -> Regular regId
     | LowUIR.TempVar (_, tempId) -> Temporary tempId
+    | _ -> Utils.impossible ()
+
+  let ofSSAVariable (v: SSA.Variable) addrOpt =
+    match v.Kind with
+    | SSA.RegVar (_, rid, _) -> Regular rid
+    | SSA.PCVar _ -> PC
+    | SSA.TempVar (_, n) -> Temporary n
+    | SSA.MemVar -> Memory addrOpt
+    | SSA.StackVar (_, offset) -> StackLocal offset
     | _ -> Utils.impossible ()

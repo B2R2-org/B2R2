@@ -55,7 +55,7 @@ module IRReachingDef =
 
   let load addr rd =
     rd
-    |> Map.tryFind VarKind.Memory
+    |> Map.tryFind (VarKind.Memory None)
     |> function
       | None -> empty
       | Some (Memory m) -> m
@@ -67,7 +67,7 @@ module IRReachingDef =
 
   let store addr pp rd =
     let m =
-      match Map.tryFind VarKind.Memory rd with
+      match Map.tryFind (VarKind.Memory None) rd with
       | None -> Map.empty
       | Some (Memory m) -> m
       | _ -> Utils.impossible ()
@@ -77,7 +77,7 @@ module IRReachingDef =
       | Some s -> s
     let pps = Set.add pp pps
     let v = Memory (Map.add addr pps m)
-    Map.add VarKind.Memory v rd
+    Map.add (VarKind.Memory None) v rd
 
 [<AbstractClass>]
 type IncrementalDataFlowAnalysis<'Lattice> () as this =
@@ -180,7 +180,7 @@ type IncrementalDataFlowAnalysis<'Lattice> () as this =
         let rd = calculateIncomingReachingDef pp
         let addr = BitVector.ToUInt64 bv
         let memRD = (* get the rd of memory *)
-          match Map.tryFind VarKind.Memory rd with (* TODO: make API *)
+          match Map.tryFind (VarKind.Memory None) rd with (* TODO: make API *)
           | None -> Map.empty
           | Some (IRReachingDef.Memory m) -> m
           | _ -> Utils.impossible ()
@@ -222,7 +222,7 @@ type IncrementalDataFlowAnalysis<'Lattice> () as this =
         let valueVarConst = evaluateExprIntoVarConst pp value
         let rd = calculateIncomingReachingDef pp
         let addrToPps =
-          match Map.tryFind VarKind.Memory rd with
+          match Map.tryFind (VarKind.Memory None) rd with
           | None -> Map.empty
           | Some (IRReachingDef.Memory m) -> m
           | _ -> Utils.impossible ()
