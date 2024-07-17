@@ -913,7 +913,7 @@ let ficom ins insLen ctxt doPop =
   let isNan = isNan true tmp0 .| isNan true tmp1
   !!ir (!.ctxt R.FSWC0 := isNan .| AST.flt tmp0 tmp1)
   !!ir (!.ctxt R.FSWC2 := isNan .| AST.b0)
-  !!ir (!.ctxt R.FSWC3 := isNan .| tmp0 == tmp1)
+  !!ir (!.ctxt R.FSWC3 := isNan .| (tmp0 == tmp1))
   !!ir (!.ctxt R.FSWC1 := AST.b0)
   if doPop then !?ir (popFPUStack ctxt) else ()
   !>ir insLen
