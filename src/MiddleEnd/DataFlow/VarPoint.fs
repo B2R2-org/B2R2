@@ -25,6 +25,7 @@
 namespace B2R2.MiddleEnd.DataFlow
 
 open B2R2
+open B2R2.BinIR
 
 /// Variable at a specific program point.
 type VarPoint = {
@@ -42,3 +43,10 @@ and VarKind =
   | Temporary of int
   /// Memory.
   | Memory
+
+module VarKind =
+  let ofIRExpr (e: LowUIR.Expr) =
+    match e.E with
+    | LowUIR.Var (_, regId, _) -> Regular regId
+    | LowUIR.TempVar (_, tempId) -> Temporary tempId
+    | _ -> Utils.impossible ()
