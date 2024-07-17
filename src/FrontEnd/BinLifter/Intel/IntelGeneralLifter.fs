@@ -1808,11 +1808,11 @@ let leave _ins insLen ctxt =
 let private lodsBody ins ctxt ir =
   let oprSize = getOperationSize ins
   let df = !.ctxt R.DF
-  let di = !.ctxt (if is64bit ctxt then R.RDI else R.EDI)
+  let si = !.ctxt (if is64bit ctxt then R.RSI else R.ESI)
   let dst = getRegOfSize ctxt oprSize grpEAX
   let amount = numI32 (RegType.toByteWidth oprSize) ctxt.WordBitSize
-  !!ir (dst := AST.loadLE oprSize di)
-  !!ir (di := AST.ite df (di .- amount) (di .+ amount))
+  !!ir (dst := AST.loadLE oprSize si)
+  !!ir (si := AST.ite df (si .- amount) (si .+ amount))
 
 let lods (ins: InsInfo) insLen ctxt =
   let ir = !*ctxt
