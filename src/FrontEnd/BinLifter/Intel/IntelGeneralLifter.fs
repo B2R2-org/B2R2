@@ -2269,10 +2269,10 @@ let popcnt ins insLen ctxt =
   let struct (dst, src) = transTwoOprs ir false ins insLen ctxt
   let oprSize = getOperationSize ins
   let max = numI32 (RegType.toBitWidth oprSize) oprSize
-  let i = !+ir oprSize
-  let count = !+ir oprSize
+  let struct (i, count, orgSrc) = tmpVars3 ir oprSize
   !!ir (i := AST.num0 oprSize)
   !!ir (count := AST.num0 oprSize)
+  !!ir (orgSrc := src)
   !!ir (AST.lmark lblLoopCond)
   !!ir (AST.cjmp (i .< max) (AST.name lblLoop) (AST.name lblExit))
   !!ir (AST.lmark lblLoop)
@@ -2284,7 +2284,7 @@ let popcnt ins insLen ctxt =
   !!ir (dstAssign oprSize dst count)
   !!ir (!.ctxt R.OF := AST.b0)
   !!ir (!.ctxt R.SF := AST.b0)
-  !!ir (!.ctxt R.ZF := src == AST.num0 oprSize)
+  !!ir (!.ctxt R.ZF := orgSrc == AST.num0 oprSize)
   !!ir (!.ctxt R.AF := AST.b0)
   !!ir (!.ctxt R.CF := AST.b0)
   !!ir (!.ctxt R.PF := AST.b0)
