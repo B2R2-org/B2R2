@@ -38,7 +38,7 @@ module UntouchedValueDomain =
     | Undef
 
   and UntouchedTag =
-    | RegisterTag of Variable
+    | RegisterTag of VarKind
     | MemoryTag of Addr
 
   let isSubsumable fromV toV =
