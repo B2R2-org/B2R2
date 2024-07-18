@@ -300,3 +300,66 @@ type PersistentDataFlowTests () =
       let out = dfa.GetAbsValue var
       Debug.Print <| sprintf "%A: %A <-> %A" var ans out
       Assert.AreEqual (ans, out))
+
+  [<TestMethod>]
+  member __.``Incremental Data Flow Test 1``() =
+    let cfg = brew2.Functions[0UL].CFG
+    let rt = 64<rt>
+    let roots = cfg.GetRoots ()
+    let regValues =
+      (Intel.Register.RSP, Constants.InitialStackPointer)
+      |> fun (r, v) -> Intel.Register.toRegID r, BitVector.OfUInt64 v rt
+      |> Seq.singleton
+      |> Map.ofSeq
+    let genRegularVar addr i r =
+      let rid = Intel.Register.toRegID r
+      let pp = ProgramPoint (addr, i)
+      let varKind = VarKind.Regular rid
+      { ProgramPoint = pp; VarKind = varKind }
+    let genMemVar addr i memAddr =
+      let pp = ProgramPoint (addr, i)
+      let varKind = VarKind.Memory (Some memAddr)
+      { ProgramPoint = pp; VarKind = varKind }
+    let regularVarEq addr i r c =
+      let vp = genRegularVar addr i r
+      vp, c
+    let memVarEq addr i memAddr c =
+      let vp = genMemVar addr i memAddr
+      vp, c
+    let regularVarConst addr i r value =
+      regularVarEq addr i r (ConstantDomain.Const (BitVector.OfUInt64 value rt))
+    let regularVarUndef addr i r =
+      regularVarEq addr i r ConstantDomain.Undef
+    let memVarNotConst addr i memAddr =
+      memVarEq addr i memAddr ConstantDomain.NotAConst
+    let memVarDWordConst addr i memAddr v =
+      memVarEq addr i memAddr (ConstantDomain.Const (BitVector.OfUInt32 v 32<rt>))
+    let memVarUndef addr i memAddr =
+      memVarEq addr i memAddr ConstantDomain.Undef
+    let varAnsMap =
+      [ regularVarConst 0x0UL 0 Intel.Register.RSP 0x80000000UL
+        regularVarConst 0x4UL 1 Intel.Register.RSP 0x7ffffff8UL
+        regularVarUndef 0x5UL 0 Intel.Register.RBP
+        regularVarConst 0x5UL 1 Intel.Register.RBP 0x7ffffff8UL
+        memVarUndef 0xbUL 1 0x7ffffff8UL
+        memVarDWordConst 0x11UL 1 (0x7ffffff8UL - 0xcUL) 0x2ul
+        memVarDWordConst 0x18UL 1 (0x7ffffff8UL - 0x8UL) 0x3ul
+        memVarDWordConst 0x21UL 1 (0x7ffffff8UL - 0xcUL) 0x3ul
+        memVarDWordConst 0x28UL 1 (0x7ffffff8UL - 0x8UL) 0x2ul
+        memVarNotConst 0x2fUL 0 (0x7ffffff8UL - 0xcUL)
+        memVarNotConst 0x2fUL 0 (0x7ffffff8UL - 0x8UL)
+        regularVarConst 0x3bUL 2 Intel.Register.RSP (0x7ffffff8UL + 0x8UL)
+        regularVarConst 0x3cUL 2 Intel.Register.RSP (0x7ffffff8UL + 0x10UL) ]
+    let idfa =
+      { new IncrementalDataFlowAnalysis<int, CFGEdgeKind> () with
+        member __.Bottom = 0
+        member __.Transfer (_, _, _, _, _) = 0
+        member __.IsSubsumable (_, _) = true
+        member __.Join (_, _) = 0 }
+    let dfa = idfa :> IDataFlowAnalysis<_, _, _, _>
+    Seq.iter idfa.PushWork roots
+    idfa.SetInitialRegisterConstants regValues
+    dfa.Compute cfg
+    varAnsMap |> List.iter (fun (vp, ans) ->
+      let out = idfa.GetConstant vp
+      Assert.AreEqual (ans, out))
