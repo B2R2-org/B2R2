@@ -115,6 +115,10 @@ type SSAVarBasedDataFlowAnalysis<'Lattice,
   member __.SetRegValueWithoutPushing (var: Variable) (value: 'Lattice) =
     regValues[var] <- value
 
+  /// Check if the register has been initialized.
+  member __.IsRegSet (var: Variable) =
+    regValues.ContainsKey var
+
   /// Set register value.
   member __.SetRegValue (pp: ProgramPoint, var: Variable, value: 'Lattice) =
     if not (regValues.ContainsKey var) then

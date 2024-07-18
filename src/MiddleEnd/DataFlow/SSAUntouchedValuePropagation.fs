@@ -1,4 +1,4 @@
-(*
+﻿(*
   B2R2 - the Next-Generation Reversing Platform
 
   Copyright (c) SoftSec Lab. @ KAIST, since 2016
@@ -24,85 +24,75 @@
 
 namespace B2R2.MiddleEnd.DataFlow.SSA
 
-open B2R2
 open B2R2.BinIR
 open B2R2.BinIR.SSA
 open B2R2.MiddleEnd.DataFlow
-open B2R2.MiddleEnd.DataFlow.Constants
+open type UntouchedValueDomain.UntouchedTag
 
-type SSAStackPointerPropagation<'E when 'E: equality> (hdl) as this =
-  inherit SSAVarBasedDataFlowAnalysis<StackPointerDomain.Lattice, 'E> (hdl)
+type SSAUntouchedValuePropagation<'E when 'E: equality> (hdl) as this =
+  inherit SSAVarBasedDataFlowAnalysis<UntouchedValueDomain.Lattice, 'E> (hdl)
 
-  let initStackRegister () =
+  let initRegisters () =
+    hdl.RegisterFactory.GetGeneralRegExprs ()
+    |> List.iter (fun regExpr ->
+      let rid = hdl.RegisterFactory.RegIDFromRegExpr regExpr
+      let rt = hdl.RegisterFactory.RegIDToRegType rid
+      let str = hdl.RegisterFactory.RegIDToString rid
+      let var = { Kind = RegVar (rt, rid, str); Identifier = 0 }
+      let vkind = VarKind.ofSSAVarKind var.Kind
+      this.SetRegValueWithoutPushing var
+      <| UntouchedValueDomain.Untouched (RegisterTag vkind)
+    )
     match hdl.RegisterFactory.StackPointer with
     | Some sp ->
       let rt = hdl.RegisterFactory.RegIDToRegType sp
       let str = hdl.RegisterFactory.RegIDToString sp
       let var = { Kind = RegVar (rt, sp, str); Identifier = 0 }
-      this.SetRegValueWithoutPushing var
-      <| StackPointerDomain.ConstSP (BitVector.OfUInt64 InitialStackPointer rt)
+      this.SetRegValueWithoutPushing var UntouchedValueDomain.Touched
     | None -> ()
 
-  let evalBinOp op c1 c2 =
-    match op with
-    | BinOpType.ADD -> StackPointerDomain.add c1 c2
-    | BinOpType.SUB -> StackPointerDomain.sub c1 c2
-    | BinOpType.AND -> StackPointerDomain.``and`` c1 c2
-    | _ -> StackPointerDomain.NotConstSP
+  let evalVar v =
+    if this.IsRegSet v then this.GetRegValue v
+    else
+      if v.Identifier = 0 then
+        let kind = VarKind.ofSSAVarKind v.Kind
+        UntouchedValueDomain.Untouched (RegisterTag kind) (* Initialize here. *)
+      else UntouchedValueDomain.Touched
 
   let rec evalExpr blk = function
-    | Num bv -> StackPointerDomain.ConstSP bv
-    | Var v -> this.GetRegValue v
-    | Nil -> StackPointerDomain.NotConstSP
-    | Load _ -> StackPointerDomain.NotConstSP
-    | UnOp _ -> StackPointerDomain.NotConstSP
-    | FuncName _ -> StackPointerDomain.NotConstSP
-    | BinOp (op, _, e1, e2) ->
-      let c1 = evalExpr blk e1
-      let c2 = evalExpr blk e2
-      evalBinOp op c1 c2
-    | RelOp _ -> StackPointerDomain.NotConstSP
-    | Ite _ -> StackPointerDomain.NotConstSP
-    | Cast _ -> StackPointerDomain.NotConstSP
-    | Extract _ -> StackPointerDomain.NotConstSP
-    | Undefined _ -> StackPointerDomain.NotConstSP
-    | ReturnVal (_, _, e) -> evalExpr blk e
-    | _ -> Utils.impossible ()
-
-  let isStackRelatedRegister regId =
-    hdl.RegisterFactory.IsStackPointer regId
-    || hdl.RegisterFactory.IsFramePointer regId
+    | Var v -> evalVar v
+    | Extract (e, _, _)
+    | Cast (CastKind.ZeroExt, _, e)
+    | Cast (CastKind.SignExt, _, e) -> evalExpr blk e
+    | _ -> (* Any other operations will be considered "touched". *)
+      UntouchedValueDomain.Touched
 
   let evalDef blk pp var e =
     match var.Kind with
-    | RegVar (_, regid, _) when isStackRelatedRegister regid ->
-      this.SetRegValue (pp, var, evalExpr blk e)
-    | RegVar _ ->
-      this.SetRegValue (pp, var, StackPointerDomain.NotConstSP)
-    | TempVar _ ->
-      this.SetRegValue (pp, var, evalExpr blk e)
-    | _ -> ()
+    | MemVar
+    | PCVar _ -> () (* Just ignore PCVar as it will always be "touched". *)
+    | _ -> this.SetRegValue (pp, var, evalExpr blk e)
 
   let evalPhi ssaCFG blk pp dst srcIDs =
     match this.GetExecutedSources ssaCFG blk srcIDs with
     | [||] -> ()
     | executedSrcIDs ->
       match dst.Kind with
-      | RegVar _ | TempVar _ ->
+      | MemVar | PCVar _ -> ()
+      | _ ->
         executedSrcIDs
         |> Array.map (fun i -> { dst with Identifier = i } |> this.GetRegValue)
         |> Array.reduce this.Join
         |> fun merged -> this.SetRegValue (pp, dst, merged)
-      | _ -> ()
 
   let evalJmp ssaCFG blk =
     this.MarkSuccessorsExecutable ssaCFG blk
 
-  do initStackRegister ()
+  do initRegisters ()
 
-  override _.Bottom with get() = StackPointerDomain.Undef
+  override _.Bottom with get() = UntouchedValueDomain.Undef
 
-  override _.Join a b = StackPointerDomain.join a b
+  override _.Join a b = UntouchedValueDomain.join a b
 
   override _.Transfer ssaCFG blk pp stmt =
     match stmt with
@@ -111,6 +101,6 @@ type SSAStackPointerPropagation<'E when 'E: equality> (hdl) as this =
     | Jmp _ -> evalJmp ssaCFG blk
     | LMark _ | ExternalCall _ | SideEffect _ -> ()
 
-  override _.IsSubsumable lhs rhs = StackPointerDomain.isSubsumable lhs rhs
+  override _.IsSubsumable lhs rhs = UntouchedValueDomain.isSubsumable lhs rhs
 
-  override _.UpdateMemFromBinaryFile _rt _addr = StackPointerDomain.Undef
+  override _.UpdateMemFromBinaryFile _rt _addr = UntouchedValueDomain.Undef

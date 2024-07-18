@@ -51,3 +51,9 @@ module VarKind =
     | LowUIR.Var (_, rid, _) -> Regular rid
     | LowUIR.TempVar (_, n) -> Temporary n
     | _ -> Utils.impossible ()
+
+  let ofSSAVarKind (kind: SSA.VariableKind) =
+    match kind with
+    | SSA.RegVar (_, rid, _) -> Regular rid
+    | SSA.TempVar (_, n) -> Temporary n
+    | _ -> Utils.impossible ()
