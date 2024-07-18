@@ -51,9 +51,6 @@ type SSAVarBasedDataFlowAnalysis<'Lattice,
   /// constant) do not have an SSA edge to its dependent memory cells.
   let memValues = Dictionary<SSAMemID, Map<Addr, 'Lattice>> ()
 
-  /// VarPoint to SSA variable mapping.
-  let varpointToSSAVar = Dictionary<VarPoint, Variable> ()
-
   /// Executable edges from a vertex to another. If there is no element in this
   /// set, the edge is not executable.
   let executableEdges = HashSet<VertexID * VertexID> ()
@@ -120,8 +117,6 @@ type SSAVarBasedDataFlowAnalysis<'Lattice,
     if not (regValues.ContainsKey var) then regValues[var] <- value
     else regValues[var] <- __.Join regValues[var] value
     ssaWorkList.Push var
-    let vp = { ProgramPoint = pp; VarKind = VarKind.ofSSAVariable var None }
-    varpointToSSAVar[vp] <- var
 
   /// Try to get memory value. Unaligned access will always return Bottom.
   member __.GetMemValue (var: Variable) (rt: RegType) (addr: Addr) =
@@ -177,7 +172,7 @@ type SSAVarBasedDataFlowAnalysis<'Lattice,
           else ()
         )
 
-  interface IDataFlowAnalysis<VarPoint, 'Lattice, SSABasicBlock, 'E> with
+  interface IDataFlowAnalysis<SSAVarPoint, 'Lattice, SSABasicBlock, 'E> with
     member __.Compute (cfg: SSACFG<'E>) =
       ssaEdges <- SSAEdges cfg
       cfg.GetRoots ()
@@ -186,11 +181,19 @@ type SSAVarBasedDataFlowAnalysis<'Lattice,
         __.ProcessFlow cfg
         __.ProcessSSA cfg
 
-    member __.GetAbsValue varPoint =
-      let var = varpointToSSAVar[varPoint]
-      match var.Kind with
-      | MemVar ->
-        match memValues.TryGetValue var.Identifier with
-        | true, map -> Map.find varPoint.ProgramPoint.Address map
+    member __.GetAbsValue ssaVarPoint =
+      match ssaVarPoint with
+      | Regular v -> __.GetRegValue v
+      | Memory (id, addr) ->
+        match memValues.TryGetValue id with
+        | true, map -> Map.find addr map
         | false, _ -> __.Bottom
-      | _ -> __.GetRegValue var
+
+/// SSA variable point.
+and SSAVarPoint =
+  /// Everything except memory variable, i.e., register, temporary, stack var,
+  /// etc.
+  | Regular of Variable
+  /// Memory variable. Since SSA.Variable doesn't have a field for address, we
+  /// use this type to represent a memory variable at a specific address.
+  | Memory of SSAMemID * Addr

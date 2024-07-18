@@ -63,8 +63,6 @@ type IncrementalDataFlowAnalysis<'Lattice> () as this =
   let reachingDefs = Dictionary<ProgramPoint, ReachingDefDomain> ()
   let constants = Dictionary<VarPoint, ConstantDomain> ()
 
-  let regInitialValues = Dictionary<RegisterID, BitVector> ()
-
   let workList = Queue ()
   let workSet = HashSet ()
 
@@ -304,4 +302,4 @@ type IncrementalDataFlowAnalysis<'Lattice> () as this =
       let rd = Map.add varKind (Set.singleton virtualVp) ReachingDefDomain.empty
       reachingDefs[pp] <- rd
       (* 2. set an initial value *)
-      constants[virtualVp] <- ConstantDomain.Const bv)
+      constants[virtualVp] <- Const bv)
