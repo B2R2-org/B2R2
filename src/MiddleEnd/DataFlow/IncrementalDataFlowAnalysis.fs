@@ -33,7 +33,7 @@ open B2R2.BinIR.LowUIR
 open System.Collections.Generic
 
 [<AbstractClass>]
-type IncrementalDataFlowAnalysis<'Lattice> () as this =
+type IncrementalDataFlowAnalysis<'Lattice, 'E when 'E: equality> () as this =
   let absValues = Dictionary<ProgramPoint, 'Lattice> ()
   let varDefs = Dictionary<ProgramPoint, VarDefDomain.Lattice> ()
   let constants = Dictionary<VarPoint, ConstantDomain.Lattice> ()
@@ -122,8 +122,6 @@ type IncrementalDataFlowAnalysis<'Lattice> () as this =
     |> VarDefDomain.get varKind
     |> getConstantFromPps
 
-  /// ProgramPoint -> Expr -> ConstantDomain
-  /// Note that this does not return IRConstant.Domain.
   let rec evaluateExprIntoConst g v pp (e: Expr) =
     match e.E with
     | Num bv -> ConstantDomain.Const bv
@@ -162,12 +160,11 @@ type IncrementalDataFlowAnalysis<'Lattice> () as this =
       let vp = { ProgramPoint = pp; VarKind = varKind }
       let prevConst = getConstant vp
       let currConst = evaluateExprIntoConst g v pp src
-      let joinConst = ConstantDomain.join prevConst currConst
-      if ConstantDomain.isSubsumable prevConst joinConst then false
-      else constants[vp] <- joinConst; true
+      if ConstantDomain.isSubsumable prevConst currConst then false
+      else constants[vp] <- ConstantDomain.join prevConst currConst; true
     // Note that we do not maintain an abstracted value for each memory.
     | Store (_, _addr, _value) -> false
-    | _ -> failwith "TODO: FILLME"
+    | _ -> false
 
   /// Transfer function for var definition analysis.
   /// Note that a source expression is not used here since var definition
@@ -195,7 +192,7 @@ type IncrementalDataFlowAnalysis<'Lattice> () as this =
         let vp = { ProgramPoint = pp; VarKind = varKind }
         update vp rd
       | _ -> false
-    | _ -> failwith "TODO"
+    | _ -> false
 
   member private __.TransferConstantAndVarDef (g, v, pp, stmt) =
     let constantChanged = __.TransferConstant (g, v, pp, stmt)
@@ -204,8 +201,7 @@ type IncrementalDataFlowAnalysis<'Lattice> () as this =
 
   abstract Bottom: 'Lattice
 
-  interface IDataFlowAnalysis<ProgramPoint, 'Lattice, IRBasicBlock, CFGEdgeKind>
-    with
+  interface IDataFlowAnalysis<ProgramPoint, 'Lattice, IRBasicBlock, 'E> with
     /// Execute each vertex in the worklist until a fixed point is reached.
     member __.Compute g =
       while not <| isWorklistEmpty () do
@@ -222,23 +218,22 @@ type IncrementalDataFlowAnalysis<'Lattice> () as this =
         let mutable dirty = false
         for pp, stmt in stmts do
           let prevAbsValue = getAbsValue pp
-          let currAbsValue = __.Transfer (g, v, pp, stmt)
-          let joinAbsValue = __.Join (prevAbsValue, currAbsValue)
-          if not <| __.Subsume (prevAbsValue, joinAbsValue) then
+          let currAbsValue = __.Transfer (g, v, pp, stmt, prevAbsValue)
+          if not <| __.IsSubsumable (prevAbsValue, currAbsValue) then
             dirty <- true
-            absValues[pp] <- joinAbsValue
+            absValues[pp] <- __.Join (prevAbsValue, currAbsValue)
           if __.TransferConstantAndVarDef (g, v, pp, stmt) then
             dirty <- true
-        if not dirty then ()
-        else for vid in __.GetNextVertices (g, v) do pushWork vid
+        if dirty then for vid in __.GetNextVertices (g, v) do pushWork vid
 
     member __.GetAbsValue absLoc = getAbsValue absLoc
 
   abstract Transfer:
-       IGraph<IRBasicBlock, CFGEdgeKind>
+       IGraph<IRBasicBlock, 'E>
      * IVertex<IRBasicBlock>
      * ProgramPoint
      * Stmt
+     * 'Lattice
     -> 'Lattice
 
   abstract Join:
@@ -246,15 +241,17 @@ type IncrementalDataFlowAnalysis<'Lattice> () as this =
      * 'Lattice
     -> 'Lattice
 
-  abstract Subsume:
+  abstract IsSubsumable:
        'Lattice
      * 'Lattice
     -> bool
 
   abstract GetNextVertices:
-       IGraph<IRBasicBlock, CFGEdgeKind>
+       IGraph<IRBasicBlock, 'E>
      * IVertex<IRBasicBlock>
     -> VertexID seq
+
+  default __.GetNextVertices (g, v) = g.GetSuccs v |> Seq.map (fun x -> x.ID)
 
   /// Call this whenever a new vertex is added to the graph
   member __.PushWork (v: IVertex<IRBasicBlock>) = pushWork v.ID
@@ -266,6 +263,8 @@ type IncrementalDataFlowAnalysis<'Lattice> () as this =
   member __.GetConstant (vp: VarPoint) =
     __.GetVarDef vp
     |> getConstantFromPps
+
+  member __.EvaluateExprIntoConst (g, v, pp, e) = evaluateExprIntoConst g v pp e
 
   member __.SetInitialRegisterValues (regs: Map<RegisterID, BitVector>) =
     regs |> Map.iter (fun regId bv ->
