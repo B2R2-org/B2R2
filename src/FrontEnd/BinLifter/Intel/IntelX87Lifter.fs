@@ -975,7 +975,7 @@ let fxam _ins insLen ctxt =
 
 let private checkForTrigFunction unsigned lin lout ir =
   let maxLimit = numI64 (1L <<< 63) 64<rt>
-  let maxFloat = AST.cast CastKind.SIntToFloat 64<rt> maxLimit
+  let maxFloat = AST.cast CastKind.UIntToFloat 64<rt> maxLimit
   !!ir (AST.cjmp (AST.flt unsigned maxFloat) (AST.name lin) (AST.name lout))
 
 let private ftrig _ins insLen ctxt trigFunc =
