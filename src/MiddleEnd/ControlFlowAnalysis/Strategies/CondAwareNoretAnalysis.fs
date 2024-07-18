@@ -26,6 +26,7 @@ namespace B2R2.MiddleEnd.ControlFlowAnalysis.Strategies
 
 open System.Runtime.InteropServices
 open B2R2
+open B2R2.BinIR
 open B2R2.FrontEnd
 open B2R2.FrontEnd.BinLifter
 open B2R2.MiddleEnd.BinGraph
@@ -33,6 +34,8 @@ open B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.MiddleEnd.ControlFlowAnalysis
 open B2R2.MiddleEnd.ConcEval
 open B2R2.MiddleEnd.DataFlow
+open B2R2.MiddleEnd.DataFlow.SSA
+open type B2R2.MiddleEnd.DataFlow.UntouchedValueDomain.UntouchedTag
 
 /// This is a non-returning function identification strategy that can check
 /// conditionally non-returning functions. We currently support only those
@@ -54,33 +57,32 @@ type CondAwareNoretAnalysis ([<Optional; DefaultParameterValue(true)>] strict) =
     | ConditionalNoRet n1, ConditionalNoRet n2 when n1 <> n2 -> NoRet
     | _ -> Utils.impossible ()
 
-  let untouchedArgIndexX86 frameDist absV uvState nth =
+  let untouchedArgIndexX86 frameDist absV uvAnalysis nth =
     let argOff = frameDist - 4 * nth
-    let varKind = BinIR.SSA.StackVar (32<rt>, argOff)
+    let varKind = SSA.StackVar (32<rt>, argOff)
     SSACFG.findReachingDef absV varKind
     |> Option.bind (function
-      | BinIR.SSA.Def (var, _) ->
-        match CPState.findReg uvState var with
-        | Untouched (RegisterTag { Kind = BinIR.SSA.StackVar (_, off) }) ->
+      | SSA.Def (var, _) ->
+        match (uvAnalysis: SSAUntouchedValuePropagation<_>).GetRegValue var with
+        | UntouchedValueDomain.Untouched (RegisterTag (StackLocal off)) ->
           Some (- off / 4)
         | _ -> None
       | _ -> None)
 
-  let ssaRegToArgNumX64 hdl r =
-    match (r: BinIR.SSA.Variable).Kind with
-    | BinIR.SSA.RegVar (_, rid, _) ->
-      [ 1 .. 6 ] |> List.tryFind (fun nth ->
-        rid = CallingConvention.functionArgRegister hdl OS.Linux nth)
-    | _ -> None
+  let ssaRegToArgNumX64 hdl rid =
+    [ 1 .. 6 ]
+    |> List.tryFind (fun nth ->
+      rid = CallingConvention.functionArgRegister hdl OS.Linux nth)
 
-  let untouchedArgIndexX64 hdl absV uvState nth =
+  let untouchedArgIndexX64 hdl absV uvAnalysis nth =
     let argReg = CallingConvention.functionArgRegister hdl OS.Linux nth
     let name = hdl.RegisterFactory.RegIDToString argReg
-    let varKind = BinIR.SSA.RegVar (64<rt>, argReg, name)
+    let varKind = SSA.RegVar (64<rt>, argReg, name)
     match SSACFG.findReachingDef absV varKind with
-    | Some (BinIR.SSA.Def (var, _)) ->
-      match CPState.findReg uvState var with
-      | Untouched (RegisterTag r) -> ssaRegToArgNumX64 hdl r
+    | Some (SSA.Def (var, _)) ->
+      match (uvAnalysis: SSAUntouchedValuePropagation<_>).GetRegValue var with
+      | UntouchedValueDomain.Untouched (RegisterTag (Regular rid)) ->
+        ssaRegToArgNumX64 hdl rid
       | _ -> None
     | _ ->
       (* If no definition is found, this means the parameter register is
@@ -102,29 +104,29 @@ type CondAwareNoretAnalysis ([<Optional; DefaultParameterValue(true)>] strict) =
       | _ -> acc) []
     |> List.filter (hasCallFallthroughNode ctx)
 
-  let tryGetConnectedArgument ctx ssa uvState callEdge nth =
+  let tryGetConnectedArgument ctx ssa uvAnalysis callEdge nth =
     let callSite = fst callEdge
     let callerSSAV = SSACFG.findVertexByAddr ssa callSite
     let absSSAV = ssa.GetSuccs callerSSAV |> Seq.exactlyOne
     let arch = (ctx: CFGBuildingContext<_, _, _, _>).BinHandle.File.ISA.Arch
     match ctx.CallTable.TryGetFrameDistance callSite with
     | true, frameDist when arch = Architecture.IntelX86 ->
-      untouchedArgIndexX86 frameDist absSSAV uvState nth
+      untouchedArgIndexX86 frameDist absSSAV uvAnalysis nth
     | true, _ when arch = Architecture.IntelX64 ->
-      untouchedArgIndexX64 ctx.BinHandle absSSAV uvState nth
+      untouchedArgIndexX64 ctx.BinHandle absSSAV uvAnalysis nth
     | _ -> None
 
   let collectConditionalNoRetCalls ctx =
     let ssa = ctx.SSACFG
     let hdl = ctx.BinHandle
-    let uvp = UntouchedValuePropagation (hdl, ssa)
-    let uvState = uvp.Compute ssa.SingleRoot
+    let uvAnalysis = SSAUntouchedValuePropagation (hdl)
+    (uvAnalysis: IDataFlowAnalysis<_, _, _, _>).Compute ssa
     collectReturningCallEdges ctx
     |> List.choose (fun callEdge ->
       let absV = ctx.AbsVertices[callEdge]
       match absV.VData.AbstractContent.ReturningStatus with
       | ConditionalNoRet nth ->
-        tryGetConnectedArgument ctx ssa uvState callEdge nth
+        tryGetConnectedArgument ctx ssa uvAnalysis callEdge nth
         |> Option.bind (fun nth' -> Some (absV, nth'))
       | NotNoRet | UnknownNoRet -> None
       | NoRet -> Utils.impossible ())

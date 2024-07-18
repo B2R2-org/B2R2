@@ -50,7 +50,7 @@ type SSAStackPointerPropagation<'E when 'E: equality> (hdl) as this =
     | BinOpType.AND -> StackPointerDomain.``and`` c1 c2
     | _ -> StackPointerDomain.NotConstSP
 
-  let rec evalExpr blk = function
+  let rec evalExpr = function
     | Num bv -> StackPointerDomain.ConstSP bv
     | Var v -> this.GetRegValue v
     | Nil -> StackPointerDomain.NotConstSP
@@ -58,29 +58,29 @@ type SSAStackPointerPropagation<'E when 'E: equality> (hdl) as this =
     | UnOp _ -> StackPointerDomain.NotConstSP
     | FuncName _ -> StackPointerDomain.NotConstSP
     | BinOp (op, _, e1, e2) ->
-      let c1 = evalExpr blk e1
-      let c2 = evalExpr blk e2
+      let c1 = evalExpr e1
+      let c2 = evalExpr e2
       evalBinOp op c1 c2
     | RelOp _ -> StackPointerDomain.NotConstSP
     | Ite _ -> StackPointerDomain.NotConstSP
     | Cast _ -> StackPointerDomain.NotConstSP
     | Extract _ -> StackPointerDomain.NotConstSP
     | Undefined _ -> StackPointerDomain.NotConstSP
-    | ReturnVal (_, _, e) -> evalExpr blk e
+    | ReturnVal (_, _, e) -> evalExpr e
     | _ -> Utils.impossible ()
 
   let isStackRelatedRegister regId =
     hdl.RegisterFactory.IsStackPointer regId
     || hdl.RegisterFactory.IsFramePointer regId
 
-  let evalDef blk pp var e =
+  let evalDef pp var e =
     match var.Kind with
     | RegVar (_, regid, _) when isStackRelatedRegister regid ->
-      this.SetRegValue (pp, var, evalExpr blk e)
+      this.SetRegValue (pp, var, evalExpr e)
     | RegVar _ ->
       this.SetRegValue (pp, var, StackPointerDomain.NotConstSP)
     | TempVar _ ->
-      this.SetRegValue (pp, var, evalExpr blk e)
+      this.SetRegValue (pp, var, evalExpr e)
     | _ -> ()
 
   let evalPhi ssaCFG blk pp dst srcIDs =
@@ -106,7 +106,7 @@ type SSAStackPointerPropagation<'E when 'E: equality> (hdl) as this =
 
   override _.Transfer ssaCFG blk pp stmt =
     match stmt with
-    | Def (var, e) -> evalDef blk pp var e
+    | Def (var, e) -> evalDef pp var e
     | Phi (var, ns) -> evalPhi ssaCFG blk pp var ns
     | Jmp _ -> evalJmp ssaCFG blk
     | LMark _ | ExternalCall _ | SideEffect _ -> ()
@@ -114,3 +114,6 @@ type SSAStackPointerPropagation<'E when 'E: equality> (hdl) as this =
   override _.IsSubsumable lhs rhs = StackPointerDomain.isSubsumable lhs rhs
 
   override _.UpdateMemFromBinaryFile _rt _addr = StackPointerDomain.Undef
+
+  /// Evaluate the given expression based on the current abstract state.
+  member _.EvalExpr e = evalExpr e

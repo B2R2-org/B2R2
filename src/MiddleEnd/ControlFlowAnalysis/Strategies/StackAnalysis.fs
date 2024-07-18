@@ -30,6 +30,7 @@ open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.MiddleEnd.ControlFlowAnalysis
 open B2R2.MiddleEnd.DataFlow
+open B2R2.MiddleEnd.DataFlow.SSA
 
 /// Perform stack memory analysis on the current SSACFG. This analysis performs
 /// mainly two tasks: (1) identify stack variables and update the SSACFG, and
@@ -44,11 +45,11 @@ type StackAnalysis () =
     SSACFG.findReachingDef v targetVarKind
     |> Option.map extractStackVar
 
-  let updateIfStackValueIsConstant ctx spState (v: IVertex<SSABasicBlock>) sp =
-    match CPState.findReg spState sp with
-    | SPValue.Const bv ->
+  let updateIfStackValueIsConstant ctx spAnalysis (v: IVertex<SSABasicBlock>) sp =
+    match (spAnalysis: SSAStackPointerPropagation<_>).GetRegValue sp with
+    | StackPointerDomain.ConstSP bv ->
       let spValue = BitVector.ToUInt64 bv
-      let offset = Utils.InitialStackPointer - spValue |> int
+      let offset = Constants.InitialStackPointer - spValue |> int
       let callTable = (ctx: CFGBuildingContext<_, _, _, _>).CallTable
       let pred = ctx.SSACFG.GetPreds v |> Seq.exactlyOne
       let stmts = pred.VData.LiftedSSAStmts
@@ -59,7 +60,7 @@ type StackAnalysis () =
 #endif
     | _ -> ()
 
-  let updateFrameDistance ctx spState (v: IVertex<SSABasicBlock>) =
+  let updateFrameDistance ctx spAnalysis (v: IVertex<SSABasicBlock>) =
     let hdl = (ctx: CFGBuildingContext<_, _, _, _>).BinHandle
     match hdl.RegisterFactory.StackPointer with
     | Some rid ->
@@ -67,66 +68,66 @@ type StackAnalysis () =
       let rt = hdl.File.ISA.WordSize |> WordSize.toRegType
       let spRegKind = RegVar (rt, rid, spName)
       match findLastStackDef v spRegKind with
-      | Some sp -> updateIfStackValueIsConstant ctx spState v sp
+      | Some sp -> updateIfStackValueIsConstant ctx spAnalysis v sp
       | None -> ()
     | None -> ()
 
   let memStore ((pp, _) as stmtInfo) rt addr src =
     match addr with
-    | SPValue.Const addr ->
+    | StackPointerDomain.ConstSP addr ->
       let addr = BitVector.ToUInt64 addr
-      let offset = int (int64 Utils.InitialStackPointer - int64 addr)
+      let offset = int (int64 Constants.InitialStackPointer - int64 addr)
       let v = { Kind = StackVar (rt, offset); Identifier = 0 }
       Some (pp, Def (v, src))
     | _ -> Some stmtInfo
 
   let loadToVar rt addr =
     match addr with
-    | SPValue.Const addr ->
+    | StackPointerDomain.ConstSP addr ->
       let addr = BitVector.ToUInt64 addr
-      let offset = int (int64 Utils.InitialStackPointer - int64 addr)
+      let offset = int (int64 Constants.InitialStackPointer - int64 addr)
       let v = { Kind = StackVar (rt, offset); Identifier = 0 }
       Some (Var v)
     | _ -> None
 
-  let rec replaceLoad spState v e =
+  let rec replaceLoad (spAnalysis: SSAStackPointerPropagation<_>) e =
     match e with
     | Load (_, rt, addr) ->
-      let addr = SPTransfer.evalExpr spState v addr
+      let addr = spAnalysis.EvalExpr addr
       loadToVar rt addr
     | Cast (ck, rt, e) ->
-      replaceLoad spState v e
+      replaceLoad spAnalysis e
       |> Option.map (fun e -> Cast (ck, rt, e))
     | Extract (e, rt, sPos) ->
-      replaceLoad spState v e
+      replaceLoad spAnalysis e
       |> Option.map (fun e -> Extract (e, rt, sPos))
     | ReturnVal (addr, rt, e) ->
-      replaceLoad spState v e
+      replaceLoad spAnalysis e
       |> Option.map (fun e -> ReturnVal (addr, rt, e))
     | _ -> None
 
-  let stmtChooser spState v ((pp, stmt) as stmtInfo) =
+  let stmtChooser spAnalysis ((pp, stmt) as stmtInfo) =
     match stmt with
     | Phi _ -> None
     | Def ({ Kind = MemVar }, Store (_, rt, addr, src)) ->
-      let addr = SPTransfer.evalExpr spState v addr
+      let addr = (spAnalysis: SSAStackPointerPropagation<_>).EvalExpr addr
       memStore stmtInfo rt addr src
     | Def (dstVar, e) ->
-      match replaceLoad spState v e with
+      match replaceLoad spAnalysis e with
       | Some e -> Some (pp, Def (dstVar, e))
       | None -> Some stmtInfo
     | _ -> Some stmtInfo
 
-  interface IPostAnalysis<CPState<SPValue> -> unit> with
+  interface IPostAnalysis<SSAStackPointerPropagation<CFGEdgeKind> -> unit> with
     member _.Unwrap env =
       let ctx = env.Context
 #if CFGDEBUG
       dbglog ctx.ThreadID (nameof StackAnalysis) $"{ctx.FunctionAddress:x}"
 #endif
-      fun spState ->
+      fun spAnalysis ->
         for v in ctx.SSACFG.Vertices do
-          if v.VData.IsAbstract then updateFrameDistance ctx spState v else ()
+          if v.VData.IsAbstract then updateFrameDistance ctx spAnalysis v else ()
           v.VData.LiftedSSAStmts
-          |> Array.choose (stmtChooser spState v)
+          |> Array.choose (stmtChooser spAnalysis)
           |> fun stmts -> v.VData.LiftedSSAStmts <- stmts
         env.SSALifter.UpdatePhis ctx.SSACFG

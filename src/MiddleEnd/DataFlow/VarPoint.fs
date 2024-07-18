@@ -44,6 +44,8 @@ and VarKind =
   /// Memory instance. The optional field is used only when the memory address
   /// is a constant.
   | Memory of Addr option
+  /// Stack local variable at a specific offset.
+  | StackLocal of int
 
 module VarKind =
   let ofIRExpr (e: LowUIR.Expr) =
@@ -56,4 +58,5 @@ module VarKind =
     match kind with
     | SSA.RegVar (_, rid, _) -> Regular rid
     | SSA.TempVar (_, n) -> Temporary n
+    | SSA.StackVar (_, offset) -> StackLocal offset
     | _ -> Utils.impossible ()

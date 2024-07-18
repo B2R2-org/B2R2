@@ -93,48 +93,49 @@ type PersistentDataFlowTests () =
   [<TestMethod>]
   member __.``Reaching Definitions Test 1``() =
     let cfg = brew.Functions[0UL].CFG
-    let rd = LowUIRReachingDefinitions (cfg)
-    let ins, _outs = rd.Compute cfg
-    let v = cfg.FindVertexBy (fun b ->
-      b.VData.PPoint.Address = 0xEUL) (* 2nd *)
-    let result = ins[v.ID] |> Set.filter (fun v ->
-      match v.VarExpr with
+    let analysis = ReachingDefinitionAnalysis () :> IDataFlowAnalysis<_, _, _, _>
+    analysis.Compute cfg
+    let v = cfg.FindVertexBy (fun b -> b.VData.PPoint.Address = 0xEUL) (* 2nd *)
+    let rd = analysis.GetAbsValue v.ID
+    let ins =
+      rd.Ins |> Set.filter (fun v ->
+      match v.VarKind with
       | Regular _ -> true
       | _ -> false)
     let solution = [
       { ProgramPoint = ProgramPoint (0UL, 1)
-        VarExpr = Regular (Intel.Register.toRegID Intel.Register.EDX) }
+        VarKind = Regular (Intel.Register.toRegID Intel.Register.EDX) }
       { ProgramPoint = ProgramPoint (4UL, 1)
-        VarExpr = Regular (Intel.Register.toRegID Intel.Register.ESP) }
+        VarKind = Regular (Intel.Register.toRegID Intel.Register.ESP) }
       { ProgramPoint = ProgramPoint (5UL, 1)
-        VarExpr = Regular (Intel.Register.toRegID Intel.Register.ESI) }
+        VarKind = Regular (Intel.Register.toRegID Intel.Register.ESI) }
       { ProgramPoint = ProgramPoint (5UL, 2)
-        VarExpr = Regular (Intel.Register.toRegID Intel.Register.OF) }
+        VarKind = Regular (Intel.Register.toRegID Intel.Register.OF) }
       { ProgramPoint = ProgramPoint (5UL, 3)
-        VarExpr = Regular (Intel.Register.toRegID Intel.Register.CF) }
+        VarKind = Regular (Intel.Register.toRegID Intel.Register.CF) }
       { ProgramPoint = ProgramPoint (5UL, 4)
-        VarExpr = Regular (Intel.Register.toRegID Intel.Register.SF) }
+        VarKind = Regular (Intel.Register.toRegID Intel.Register.SF) }
       { ProgramPoint = ProgramPoint (5UL, 5)
-        VarExpr = Regular (Intel.Register.toRegID Intel.Register.ZF) }
+        VarKind = Regular (Intel.Register.toRegID Intel.Register.ZF) }
       { ProgramPoint = ProgramPoint (5UL, 6)
-        VarExpr = Regular (Intel.Register.toRegID Intel.Register.PF) }
+        VarKind = Regular (Intel.Register.toRegID Intel.Register.PF) }
       { ProgramPoint = ProgramPoint (5UL, 7)
-        VarExpr = Regular (Intel.Register.toRegID Intel.Register.AF) }
+        VarKind = Regular (Intel.Register.toRegID Intel.Register.AF) }
       { ProgramPoint = ProgramPoint (7UL, 1)
-        VarExpr = Regular (Intel.Register.toRegID Intel.Register.ECX) }
+        VarKind = Regular (Intel.Register.toRegID Intel.Register.ECX) }
       { ProgramPoint = ProgramPoint (0xAUL, 4)
-        VarExpr = Regular (Intel.Register.toRegID Intel.Register.CF) }
+        VarKind = Regular (Intel.Register.toRegID Intel.Register.CF) }
       { ProgramPoint = ProgramPoint (0xAUL, 5)
-        VarExpr = Regular (Intel.Register.toRegID Intel.Register.OF) }
+        VarKind = Regular (Intel.Register.toRegID Intel.Register.OF) }
       { ProgramPoint = ProgramPoint (0xAUL, 6)
-        VarExpr = Regular (Intel.Register.toRegID Intel.Register.AF) }
+        VarKind = Regular (Intel.Register.toRegID Intel.Register.AF) }
       { ProgramPoint = ProgramPoint (0xAUL, 7)
-        VarExpr = Regular (Intel.Register.toRegID Intel.Register.SF) }
+        VarKind = Regular (Intel.Register.toRegID Intel.Register.SF) }
       { ProgramPoint = ProgramPoint (0xAUL, 8)
-        VarExpr = Regular (Intel.Register.toRegID Intel.Register.ZF) }
+        VarKind = Regular (Intel.Register.toRegID Intel.Register.ZF) }
       { ProgramPoint = ProgramPoint (0xAUL, 11)
-        VarExpr = Regular (Intel.Register.toRegID Intel.Register.PF) } ]
-    Assert.AreEqual (result, Set.ofList solution)
+        VarKind = Regular (Intel.Register.toRegID Intel.Register.PF) } ]
+    Assert.AreEqual (Set.ofList solution, ins)
 #endif
 
   [<TestMethod>]
@@ -143,11 +144,11 @@ type PersistentDataFlowTests () =
     let chain = DataFlowChain.init cfg false
     let vp =
       { ProgramPoint = ProgramPoint (0xEUL, 1)
-        VarExpr = Regular (Intel.Register.toRegID Intel.Register.EDX) }
+        VarKind = Regular (Intel.Register.toRegID Intel.Register.EDX) }
     let res = chain.UseDefChain |> Map.find vp |> Set.toArray
     let solution = [|
       { ProgramPoint = ProgramPoint (0x0UL, 1)
-        VarExpr = Regular (Intel.Register.toRegID Intel.Register.EDX) } |]
+        VarKind = Regular (Intel.Register.toRegID Intel.Register.EDX) } |]
     CollectionAssert.AreEqual (solution, res)
 
   [<TestMethod>]
@@ -156,11 +157,11 @@ type PersistentDataFlowTests () =
     let chain = DataFlowChain.init cfg true
     let vp =
       { ProgramPoint = ProgramPoint (0xEUL, 0)
-        VarExpr = Regular (Intel.Register.toRegID Intel.Register.EDX) }
+        VarKind = Regular (Intel.Register.toRegID Intel.Register.EDX) }
     let res = chain.UseDefChain |> Map.find vp |> Set.toArray
     let solution = [|
       { ProgramPoint = ProgramPoint (0x0UL, 0)
-        VarExpr = Regular (Intel.Register.toRegID Intel.Register.EDX) } |]
+        VarKind = Regular (Intel.Register.toRegID Intel.Register.EDX) } |]
     CollectionAssert.AreEqual (solution, res)
 
 #if !EMULATION
@@ -170,12 +171,12 @@ type PersistentDataFlowTests () =
     let chain = DataFlowChain.init cfg false
     let vp =
       { ProgramPoint = ProgramPoint (0x1AUL, 1)
-        VarExpr = Regular (Intel.Register.toRegID Intel.Register.EDX) }
+        VarKind = Regular (Intel.Register.toRegID Intel.Register.EDX) }
     let res = chain.UseDefChain |> Map.find vp |> Set.toArray
     let solution = [|
       { ProgramPoint = ProgramPoint (0x12UL, 3)
-        VarExpr = Regular (Intel.Register.toRegID Intel.Register.EDX) }
+        VarKind = Regular (Intel.Register.toRegID Intel.Register.EDX) }
       { ProgramPoint = ProgramPoint (0x1AUL, 3)
-        VarExpr = Regular (Intel.Register.toRegID Intel.Register.EDX) } |]
+        VarKind = Regular (Intel.Register.toRegID Intel.Register.EDX) } |]
     CollectionAssert.AreEqual (solution, res)
 #endif

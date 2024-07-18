@@ -248,12 +248,12 @@ let handleDataflow req resp arbiter (args: string) =
     try
       let cfg = brew.Functions[entry].CFG
       let chain = DataFlowChain.init cfg true
-      let v = { ProgramPoint = ProgramPoint (addr, 0); VarExpr = Regular var }
+      let v = { ProgramPoint = ProgramPoint (addr, 0); VarKind = Regular var }
       computeConnectedVars chain v
       |> Set.toArray
       |> Array.map (fun vp ->
         { VarAddr = vp.ProgramPoint.Address
-          VarNames = getVarNames brew.BinHandle vp.VarExpr })
+          VarNames = getVarNames brew.BinHandle vp.VarKind })
       |> json<JsonVarPoint []>
       |> defaultEnc.GetBytes
       |> Some

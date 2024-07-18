@@ -194,8 +194,8 @@ type SSAVarBasedDataFlowAnalysis<'Lattice,
 
     member __.GetAbsValue ssaVarPoint =
       match ssaVarPoint with
-      | Regular v -> __.GetRegValue v
-      | Memory (id, addr) ->
+      | RegularSSAVar v -> __.GetRegValue v
+      | MemorySSAVar (id, addr) ->
         match memValues.TryGetValue id with
         | true, map -> Map.find addr map
         | false, _ -> __.Bottom
@@ -204,7 +204,7 @@ type SSAVarBasedDataFlowAnalysis<'Lattice,
 and SSAVarPoint =
   /// Everything except memory variable, i.e., register, temporary, stack var,
   /// etc.
-  | Regular of Variable
+  | RegularSSAVar of Variable
   /// Memory variable. Since SSA.Variable doesn't have a field for address, we
   /// use this type to represent a memory variable at a specific address.
-  | Memory of SSAMemID * Addr
+  | MemorySSAVar of SSAMemID * Addr

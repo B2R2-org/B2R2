@@ -24,13 +24,15 @@
 
 namespace B2R2.MiddleEnd.ControlFlowAnalysis.Strategies
 
+open B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.MiddleEnd.ControlFlowAnalysis
 open B2R2.MiddleEnd.DataFlow
+open B2R2.MiddleEnd.DataFlow.SSA
 
 /// Perform stack pointer propgation analysis on the current SSACFG.
 type StackPointerAnalysis () =
-  interface IPostAnalysis<unit -> CPState<SPValue>> with
+  interface IPostAnalysis<unit -> SSAStackPointerPropagation<CFGEdgeKind>> with
     member _.Unwrap env =
       let ctx = env.Context
-      let spp = StackPointerPropagation (ctx.BinHandle, ctx.SSACFG)
-      fun () -> spp.Compute ctx.SSACFG.SingleRoot
+      let spp = SSAStackPointerPropagation (ctx.BinHandle)
+      fun () -> (spp: IDataFlowAnalysis<_, _, _, _>).Compute ctx.SSACFG; spp
