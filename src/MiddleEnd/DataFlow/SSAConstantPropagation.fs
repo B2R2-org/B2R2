@@ -33,7 +33,7 @@ open B2R2.MiddleEnd.DataFlow.Constants
 
 /// Sparse conditional constant propagation algorithm, which is a modified
 /// version of Wegman et al.
-type SparseConditionalConstantPropagation<'E when 'E: equality>
+type SSAConstantPropagation<'E when 'E: equality>
   public (hdl: BinHandle) as this =
   inherit SSAVarBasedDataFlowAnalysis<ConstantDomain.Lattice, 'E> (hdl)
 

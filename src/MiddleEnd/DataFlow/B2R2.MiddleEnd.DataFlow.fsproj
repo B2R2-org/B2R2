@@ -22,7 +22,8 @@
     <Compile Include="UntouchedValueAnalysis.fs" />
     <Compile Include="ConstantPropagation.fs" />
     <Compile Include="SSAVarBasedDataFlowAnalysis.fs" />
-    <Compile Include="SparseConstantPropagation.fs" />
+    <Compile Include="SSAConstantPropagation.fs" />
+    <Compile Include="SSAStackPointerPropagation.fs" />
     <None Include="..\..\..\LICENSE.md" Pack="true" PackagePath="" />
     <None Include="..\..\..\assets\b2r2-240x240.png" Pack="true" PackagePath="" />
     <None Include="README.md" Pack="true" PackagePath="" />
