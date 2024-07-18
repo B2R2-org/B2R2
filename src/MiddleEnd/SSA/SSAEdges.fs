@@ -89,7 +89,7 @@ type SSAEdges<'E when 'E: equality> (ssaCFG: SSACFG<'E>) =
   let compute (ssaCFG: SSACFG<_>) =
     ssaCFG.IterVertex (fun (v: IVertex<SSABasicBlock>) ->
       let vid = v.ID
-      for idx = 0 to v.VData.LiftedSSAStmts.Length do
+      for idx = 0 to v.VData.LiftedSSAStmts.Length - 1 do
         let stmt = snd v.VData.LiftedSSAStmts[idx]
         match stmt with
         | SSA.LMark _ -> ()
