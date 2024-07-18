@@ -45,7 +45,7 @@ type StackAnalysis () =
     SSACFG.findReachingDef v targetVarKind
     |> Option.map extractStackVar
 
-  let updateIfStackValueIsConstant ctx spAnalysis (v: IVertex<SSABasicBlock>) sp =
+  let updateIfStackValueIsConstant ctx spAnalysis v sp =
     match (spAnalysis: SSAStackPointerPropagation<_>).GetRegValue sp with
     | StackPointerDomain.ConstSP bv ->
       let spValue = BitVector.ToUInt64 bv

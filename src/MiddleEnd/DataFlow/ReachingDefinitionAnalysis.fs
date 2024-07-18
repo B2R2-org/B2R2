@@ -96,17 +96,18 @@ type ReachingDefinitionAnalysis () =
     lst
 
   override __.Subsume (a, b) =
-    a.Outs = b.Outs
+    a.Ins = b.Ins && a.Outs = b.Outs
 
-  override __.Transfer (g, vid, s) =
-    let v = g.FindVertexByID vid
-    let preds = g.GetPreds v
-    let ins = preds |> Seq.fold (fun acc pred ->
-      let vid = pred.ID
-      let absValue = (__ :> IDataFlowAnalysis<_, _, _, _>).GetAbsValue vid
-      let outs = absValue.Outs
-      Set.union acc outs) Set.empty
-    let outs = Set.union gens[vid] (Set.difference s.Outs kills[vid])
+  override __.Transfer (g, vid, _absVal) =
+    let ins =
+      g.FindVertexByID vid
+      |> g.GetPreds
+      |> Seq.fold (fun acc pred ->
+        let vid = pred.ID
+        let absValue = (__ :> IDataFlowAnalysis<_, _, _, _>).GetAbsValue vid
+        let outs = absValue.Outs
+        Set.union acc outs) Set.empty
+    let outs = Set.union gens[vid] (Set.difference ins kills[vid])
     { Ins = ins; Outs = outs }
 
-  override __.GetNextWorks (_g, v) = [| v |]
+  override __.GetNextWorks (_g, vid) = [| vid |]
