@@ -20,6 +20,7 @@
     <Compile Include="DataFlowChain.fs" />
     <Compile Include="IncrementalDataFlowAnalysis.fs" />
     <Compile Include="UntouchedValueAnalysis.fs" />
+    <Compile Include="StackPointerPropagation.fs" />
     <Compile Include="ConstantPropagation.fs" />
     <Compile Include="SSAVarBasedDataFlowAnalysis.fs" />
     <Compile Include="SSAConstantPropagation.fs" />
