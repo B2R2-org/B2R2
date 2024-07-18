@@ -19,6 +19,7 @@
     <Compile Include="ReachingDefinitionAnalysis.fs" />
     <Compile Include="DataFlowChain.fs" />
     <Compile Include="IncrementalDataFlowAnalysis.fs" />
+    <Compile Include="UntouchedValueAnalysis.fs" />
     <Compile Include="ConstantPropagation.fs" />
     <Compile Include="SSAVarBasedDataFlowAnalysis.fs" />
     <Compile Include="SparseConstantPropagation.fs" />
