@@ -33,7 +33,8 @@ type UntouchedValueAnalysis<'E when 'E: equality> () as this =
   inherit IncrementalDataFlowAnalysis<UntouchedValueDomain.Lattice, 'E> ()
 
   let evaluateVarPoint pp varKind =
-    let vps = this.GetVarDef { ProgramPoint = pp; VarKind = varKind }
+    let varDef = this.GetVarDef { ProgramPoint = pp; VarKind = varKind }
+    let vps = VarDefDomain.get varKind varDef
     if Set.isEmpty vps then (* initialize here *)
       UntouchedValueDomain.RegisterTag varKind
       |> UntouchedValueDomain.Untouched
@@ -47,7 +48,7 @@ type UntouchedValueAnalysis<'E when 'E: equality> () as this =
     match e.E with
     | Var _ | TempVar _ -> evaluateVarPoint pp (VarKind.ofIRExpr e)
     | Load (_, _, addr) ->
-      match this.EvaluateExprIntoConst (g, v, pp, addr) with
+      match this.EvaluateExprIntoConst (pp, addr) with
       | ConstantDomain.Const bv ->
         let addr = BitVector.ToUInt64 bv
         evaluateVarPoint pp (VarKind.Memory (Some addr))

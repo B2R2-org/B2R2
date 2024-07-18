@@ -57,7 +57,8 @@ type StackPointerPropagation<'E when 'E: equality> (hdl) as this =
       let varKind = VarKind.ofIRExpr e
       let varPoint = { ProgramPoint = pp; VarKind = varKind }
       let varDef = this.GetVarDef varPoint
-      let pps = Set.map (fun vp -> vp.ProgramPoint) varDef
+      let vps = VarDefDomain.get varKind varDef
+      let pps = Set.map (fun vp -> vp.ProgramPoint) vps
       let dfa = this :> IDataFlowAnalysis<_, _, _, _>
       let incomingAbsVals = Seq.map dfa.GetAbsValue pps
       let absVal = Seq.reduce StackPointerDomain.join incomingAbsVals
