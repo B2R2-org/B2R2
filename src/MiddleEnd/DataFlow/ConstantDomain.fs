@@ -27,24 +27,25 @@ namespace B2R2.MiddleEnd.DataFlow
 open B2R2
 
 /// A domain for constant propagation analysis.
-type ConstantDomain =
-  | NotAConst
-  | Const of BitVector
-  | Undef
-
 [<RequireQualifiedAccess>]
 module ConstantDomain =
+  type Lattice =
+    | NotAConst
+    | Const of BitVector
+    | Undef
+
   /// Check if the transition from the old domain to the new domain is
-  /// non-monotonic.
-  let isNonmonotonic oldDomain newDomain =
+  /// non-monotonic or the same.
+  let isSubsumable oldDomain newDomain =
     match oldDomain, newDomain with
+    | a, b when a = b -> true
     | NotAConst, Const _
     | NotAConst, Undef
     | Const _, Undef -> true
     | _ -> false
 
   /// Joins two constant domains.
-  let join (a: ConstantDomain) (b: ConstantDomain) =
+  let join a b =
     match a, b with
     | Undef, c | c, Undef -> c
     | Const x, Const y when x = y -> a

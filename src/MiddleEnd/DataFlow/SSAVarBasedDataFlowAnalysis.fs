@@ -98,6 +98,9 @@ type SSAVarBasedDataFlowAnalysis<'Lattice,
   abstract Transfer:
     SSACFG<'E> -> IVertex<SSABasicBlock> -> ProgramPoint -> Stmt -> unit
 
+  /// Check if lhs subsumes rhs.
+  abstract IsSubsumable: lhs: 'Lattice -> rhs: 'Lattice -> bool
+
   /// Update memory value by reading constant values from a binary file when
   /// the memory value is not found in the memory value map.
   abstract UpdateMemFromBinaryFile: RegType -> Addr -> 'Lattice
@@ -114,9 +117,13 @@ type SSAVarBasedDataFlowAnalysis<'Lattice,
 
   /// Set register value.
   member __.SetRegValue (pp: ProgramPoint, var: Variable, value: 'Lattice) =
-    if not (regValues.ContainsKey var) then regValues[var] <- value
-    else regValues[var] <- __.Join regValues[var] value
-    ssaWorkList.Push var
+    if not (regValues.ContainsKey var) then
+      regValues[var] <- value
+      ssaWorkList.Push var
+    elif __.IsSubsumable regValues[var] value then ()
+    else
+      regValues[var] <- __.Join regValues[var] value
+      ssaWorkList.Push var
 
   /// Try to get memory value. Unaligned access will always return Bottom.
   member __.GetMemValue (var: Variable) (rt: RegType) (addr: Addr) =

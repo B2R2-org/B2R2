@@ -10,11 +10,14 @@
   <ItemGroup>
     <Compile Include="Constants.fs" />
     <Compile Include="VarPoint.fs" />
+    <Compile Include="ConstantDomain.fs" />
+    <Compile Include="StackPointerDomain.fs" />
+    <Compile Include="UntouchedValueDomain.fs" />
+    <Compile Include="VarDefDomain.fs" />
     <Compile Include="IDataFlowAnalysis.fs" />
     <Compile Include="WorklistDataFlowAnalysis.fs" />
     <Compile Include="ReachingDefinitionAnalysis.fs" />
     <Compile Include="DataFlowChain.fs" />
-    <Compile Include="ConstantDomain.fs" />
     <Compile Include="IncrementalDataFlowAnalysis.fs" />
     <Compile Include="ConstantPropagation.fs" />
     <Compile Include="SSAVarBasedDataFlowAnalysis.fs" />

@@ -35,7 +35,7 @@ open B2R2.MiddleEnd.DataFlow.Constants
 /// version of Wegman et al.
 type SparseConditionalConstantPropagation<'E when 'E: equality>
   public (hdl: BinHandle) as this =
-  inherit SSAVarBasedDataFlowAnalysis<ConstantDomain, 'E> (hdl)
+  inherit SSAVarBasedDataFlowAnalysis<ConstantDomain.Lattice, 'E> (hdl)
 
   let initStackRegister () =
     match hdl.RegisterFactory.StackPointer with
@@ -44,21 +44,21 @@ type SparseConditionalConstantPropagation<'E when 'E: equality>
       let str = hdl.RegisterFactory.RegIDToString sp
       let var = { Kind = RegVar (rt, sp, str); Identifier = 0 }
       this.SetRegValueWithoutPushing var
-      <| Const (BitVector.OfUInt64 InitialStackPointer rt)
+      <| ConstantDomain.Const (BitVector.OfUInt64 InitialStackPointer rt)
     | None -> ()
 
   let evalLoad m rt addr =
     match addr with
-    | Const addr ->
+    | ConstantDomain.Const addr ->
       let addr = BitVector.ToUInt64 addr
       this.GetMemValue m rt addr
-    | _ -> NotAConst
+    | _ -> ConstantDomain.NotAConst
 
   let evalUnOp op c =
     match op with
     | UnOpType.NEG -> ConstantDomain.neg c
     | UnOpType.NOT -> ConstantDomain.not c
-    | _ -> NotAConst
+    | _ -> ConstantDomain.NotAConst
 
   let evalBinOp op c1 c2 =
     match op with
@@ -76,7 +76,7 @@ type SparseConditionalConstantPropagation<'E when 'E: equality>
     | BinOpType.OR -> ConstantDomain.``or`` c1 c2
     | BinOpType.XOR -> ConstantDomain.xor c1 c2
     | BinOpType.CONCAT -> ConstantDomain.concat c1 c2
-    | _ -> NotAConst
+    | _ -> ConstantDomain.NotAConst
 
   let evalRelOp op c1 c2 =
     match op with
@@ -90,16 +90,16 @@ type SparseConditionalConstantPropagation<'E when 'E: equality>
     | RelOpType.LE -> ConstantDomain.le c1 c2
     | RelOpType.SLT -> ConstantDomain.slt c1 c2
     | RelOpType.SLE -> ConstantDomain.sle c1 c2
-    | _ -> NotAConst
+    | _ -> ConstantDomain.NotAConst
 
   let evalCast op rt c =
     match op with
     | CastKind.SignExt -> ConstantDomain.signExt rt c
     | CastKind.ZeroExt -> ConstantDomain.zeroExt rt c
-    | _ -> NotAConst
+    | _ -> ConstantDomain.NotAConst
 
   let rec evalExpr blk = function
-    | Num bv -> Const bv
+    | Num bv -> ConstantDomain.Const bv
     | Var v -> this.GetRegValue v
     | Load (m, rt, addr) ->
       evalExpr blk addr |> evalLoad m rt
@@ -125,7 +125,7 @@ type SparseConditionalConstantPropagation<'E when 'E: equality>
       let c = evalExpr blk e
       ConstantDomain.extract c rt pos
     | ReturnVal (_addr, _ret, e) -> evalExpr blk e
-    | FuncName _ | Nil | Undefined _ -> NotAConst
+    | FuncName _ | Nil | Undefined _ -> ConstantDomain.NotAConst
     | _ -> Utils.impossible ()
 
   let evalDef blk pp var e =
@@ -150,7 +150,7 @@ type SparseConditionalConstantPropagation<'E when 'E: equality>
 
   do initStackRegister ()
 
-  override _.Bottom with get() = Undef
+  override _.Bottom with get() = ConstantDomain.Undef
 
   override _.Join a b = ConstantDomain.join a b
 
@@ -161,4 +161,6 @@ type SparseConditionalConstantPropagation<'E when 'E: equality>
     | Jmp _ -> evalJmp ssaCFG blk
     | LMark _ | ExternalCall _ | SideEffect _ -> ()
 
-  override _.UpdateMemFromBinaryFile _rt _addr = Undef
+  override _.IsSubsumable lhs rhs = ConstantDomain.isSubsumable lhs rhs
+
+  override _.UpdateMemFromBinaryFile _rt _addr = ConstantDomain.Undef

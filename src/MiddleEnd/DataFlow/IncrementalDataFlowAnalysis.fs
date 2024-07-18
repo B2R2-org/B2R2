@@ -32,36 +32,11 @@ open B2R2.BinIR
 open B2R2.BinIR.LowUIR
 open System.Collections.Generic
 
-type ReachingDefDomain = Map<VarKind, Set<VarPoint>>
-
-module ReachingDefDomain =
-  let empty = Map.empty
-
-  let get varKind rd =
-    match Map.tryFind varKind rd with
-    | None -> Set.empty
-    | Some pps -> pps
-
-  let load addr rd = get (Memory addr) rd
-
-  let store addr pp rd =
-    let pps = load addr rd
-    let pps = Set.add pp pps
-    Map.add (Memory addr) pps rd
-
-  let join rd1 rd2 =
-    Map.keys rd2
-    |> Seq.fold (fun acc k ->
-      let pps1 = get k rd1
-      let pps2 = get k rd2
-      let pps = Set.union pps1 pps2
-      Map.add k pps acc) rd1
-
 [<AbstractClass>]
 type IncrementalDataFlowAnalysis<'Lattice> () as this =
   let absValues = Dictionary<ProgramPoint, 'Lattice> ()
-  let reachingDefs = Dictionary<ProgramPoint, ReachingDefDomain> ()
-  let constants = Dictionary<VarPoint, ConstantDomain> ()
+  let varDefs = Dictionary<ProgramPoint, VarDefDomain.Lattice> ()
+  let constants = Dictionary<VarPoint, ConstantDomain.Lattice> ()
 
   let workList = Queue ()
   let workSet = HashSet ()
@@ -111,23 +86,23 @@ type IncrementalDataFlowAnalysis<'Lattice> () as this =
     bv.Ge ub |> BitVector.IsTrue
 
   //////////////////////////////////
-  // Reaching definition analysis //
+  // Var definition analysis //
   //////////////////////////////////
 
-  /// Note that we record **outgoing** reaching definitions!
-  /// To get an incoming reaching definitions, use calculateIncomingReachingDef.
-  let getReachingDef (pp: ProgramPoint) =
-    match reachingDefs.TryGetValue pp with
-    | false, _ -> ReachingDefDomain.empty
+  /// Note that we record **outgoing** var definitions!
+  /// To get an incoming var definitions, use calculateIncomingVarDef.
+  let getVarDef (pp: ProgramPoint) =
+    match varDefs.TryGetValue pp with
+    | false, _ -> VarDefDomain.empty
     | true, rd -> rd
 
   /// TODO: do not forget to implement memoization of it
-  let calculateIncomingReachingDef g v pp =
+  let calculateIncomingVarDef g v pp =
     let incomingPps = getIncomingProgramPoints g v pp
-    let incomingReachingDefs = incomingPps |> Seq.map getReachingDef
-    let firstIncomingRD = Seq.head incomingReachingDefs
-    let otherIncomingRDs = Seq.tail incomingReachingDefs
-    Seq.fold ReachingDefDomain.join firstIncomingRD otherIncomingRDs
+    let incomingVarDefs = incomingPps |> Seq.map getVarDef
+    let firstIncomingRD = Seq.head incomingVarDefs
+    let otherIncomingRDs = Seq.tail incomingVarDefs
+    Seq.fold VarDefDomain.join firstIncomingRD otherIncomingRDs
 
   //////////////////////////
   // Constant propagation //
@@ -143,8 +118,8 @@ type IncrementalDataFlowAnalysis<'Lattice> () as this =
       ConstantDomain.join acc (getConstant pp)) ConstantDomain.Undef
 
   let getConstantFromVarKindAt g v varKind pp =
-    calculateIncomingReachingDef g v pp
-    |> ReachingDefDomain.get varKind
+    calculateIncomingVarDef g v pp
+    |> VarDefDomain.get varKind
     |> getConstantFromPps
 
   /// ProgramPoint -> Expr -> ConstantDomain
@@ -188,24 +163,24 @@ type IncrementalDataFlowAnalysis<'Lattice> () as this =
       let prevConst = getConstant vp
       let currConst = evaluateExprIntoConst g v pp src
       let joinConst = ConstantDomain.join prevConst currConst
-      if ConstantDomain.isNonmonotonic prevConst joinConst then false
+      if ConstantDomain.isSubsumable prevConst joinConst then false
       else constants[vp] <- joinConst; true
     // Note that we do not maintain an abstracted value for each memory.
     | Store (_, _addr, _value) -> false
     | _ -> failwith "TODO: FILLME"
 
-  /// Transfer function for reaching definition analysis.
-  /// Note that a source expression is not used here since reaching definition
+  /// Transfer function for var definition analysis.
+  /// Note that a source expression is not used here since var definition
   /// analysis does not need to evaluate expressions.
-  member private __.TransferReachingDef (g, v, pp: ProgramPoint, stmt) =
-    let rd = calculateIncomingReachingDef g v pp
+  member private __.TransferVarDef (g, v, pp: ProgramPoint, stmt) =
+    let rd = calculateIncomingVarDef g v pp
     let update vp rd =
-      let prevVps = ReachingDefDomain.get vp.VarKind rd
+      let prevVps = VarDefDomain.get vp.VarKind rd
       if Set.contains vp prevVps then false
       else
         let joinVps = Set.add vp prevVps
         let rd = Map.add vp.VarKind joinVps rd
-        reachingDefs[vp.ProgramPoint] <- rd
+        varDefs[vp.ProgramPoint] <- rd
         true
     match stmt.S with
     | Put (dst, _src) ->
@@ -222,10 +197,10 @@ type IncrementalDataFlowAnalysis<'Lattice> () as this =
       | _ -> false
     | _ -> failwith "TODO"
 
-  member private __.TransferConstantAndReachingDef (g, v, pp, stmt) =
+  member private __.TransferConstantAndVarDef (g, v, pp, stmt) =
     let constantChanged = __.TransferConstant (g, v, pp, stmt)
-    let reachingDefChanged = __.TransferReachingDef (g, v, pp, stmt)
-    constantChanged || reachingDefChanged
+    let varDefChanged = __.TransferVarDef (g, v, pp, stmt)
+    constantChanged || varDefChanged
 
   abstract Bottom: 'Lattice
 
@@ -252,7 +227,7 @@ type IncrementalDataFlowAnalysis<'Lattice> () as this =
           if not <| __.Subsume (prevAbsValue, joinAbsValue) then
             dirty <- true
             absValues[pp] <- joinAbsValue
-          if __.TransferConstantAndReachingDef (g, v, pp, stmt) then
+          if __.TransferConstantAndVarDef (g, v, pp, stmt) then
             dirty <- true
         if not dirty then ()
         else for vid in __.GetNextVertices (g, v) do pushWork vid
@@ -284,22 +259,22 @@ type IncrementalDataFlowAnalysis<'Lattice> () as this =
   /// Call this whenever a new vertex is added to the graph
   member __.PushWork (v: IVertex<IRBasicBlock>) = pushWork v.ID
 
-  member __.GetReachingDef (vp: VarPoint) =
-    getReachingDef vp.ProgramPoint
-    |> ReachingDefDomain.get vp.VarKind
+  member __.GetVarDef (vp: VarPoint) =
+    getVarDef vp.ProgramPoint
+    |> VarDefDomain.get vp.VarKind
 
   member __.GetConstant (vp: VarPoint) =
-    __.GetReachingDef vp
+    __.GetVarDef vp
     |> getConstantFromPps
 
   member __.SetInitialRegisterValues (regs: Map<RegisterID, BitVector>) =
     regs |> Map.iter (fun regId bv ->
-      (* 1. set a virtual reaching definition *)
+      (* 1. set a virtual var definition *)
       let pp = ProgramPoint (0UL, 0)
       let varKind = Regular regId
       let virtualPp = ProgramPoint (0UL, -1)
       let virtualVp = { ProgramPoint = virtualPp; VarKind = varKind }
-      let rd = Map.add varKind (Set.singleton virtualVp) ReachingDefDomain.empty
-      reachingDefs[pp] <- rd
+      let rd = Map.add varKind (Set.singleton virtualVp) VarDefDomain.empty
+      varDefs[pp] <- rd
       (* 2. set an initial value *)
-      constants[virtualVp] <- Const bv)
+      constants[virtualVp] <- ConstantDomain.Const bv)
