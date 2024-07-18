@@ -230,7 +230,7 @@ let private castFrom80Bit dstExpr dstSize srcB srcA ir =
       AST.ite (exp == AST.num0 16<rt>) (AST.num0 16<rt>)
         (AST.ite (exp == numI32 0x7fff 16<rt>) (numI32 0x1f 16<rt>)
           (AST.ite (computedExp .> maxExp) maxExp computedExp))
-      << numI32 10 64<rt>
+      << numI32 10 dstSize
     let n53 = numI32 53 64<rt>
     let significand =
       AST.xtlo 16<rt> ((srcA .& numI64 0x7FFFFFFFFFFFFFFFL 64<rt>) >> n53)
