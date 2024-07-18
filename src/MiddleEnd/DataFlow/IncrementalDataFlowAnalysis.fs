@@ -209,10 +209,9 @@ type IncrementalDataFlowAnalysis<'Lattice, 'E when 'E: equality> () as this =
         let v = g.FindVertexByID vid
         let stmts =
           v.VData.LiftedInstructions
-          |> Array.map (fun x ->
+          |> Array.collect (fun x ->
             let addr = x.Original.Address
             x.Stmts |> Array.mapi (fun i stmt -> ProgramPoint (addr, i), stmt))
-          |> Array.concat
         (* TODO: what about abstract vertices? they do not have a unqiue
            identifier unlike normal vertices other than VertexID. *)
         let mutable dirty = false

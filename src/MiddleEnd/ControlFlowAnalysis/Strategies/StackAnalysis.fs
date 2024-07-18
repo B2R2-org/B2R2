@@ -126,7 +126,8 @@ type StackAnalysis () =
 #endif
       fun spAnalysis ->
         for v in ctx.SSACFG.Vertices do
-          if v.VData.IsAbstract then updateFrameDistance ctx spAnalysis v else ()
+          if v.VData.IsAbstract then updateFrameDistance ctx spAnalysis v
+          else ()
           v.VData.LiftedSSAStmts
           |> Array.choose (stmtChooser spAnalysis)
           |> fun stmts -> v.VData.LiftedSSAStmts <- stmts
