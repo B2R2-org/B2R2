@@ -353,7 +353,7 @@ type PersistentDataFlowTests () =
     let idfa =
       { new IncrementalDataFlowAnalysis<int, CFGEdgeKind> () with
         member __.Bottom = 0
-        member __.Transfer (_, _, _, _, _) = 0
+        member __.Transfer (_, _, _, _) = None
         member __.IsSubsumable (_, _) = true
         member __.Join (_, _) = 0 }
     let dfa = idfa :> IDataFlowAnalysis<_, _, _, _>

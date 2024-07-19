@@ -34,7 +34,7 @@ open System.Collections.Generic
 
 [<AbstractClass>]
 type IncrementalDataFlowAnalysis<'Lattice, 'E when 'E: equality> () as this =
-  let absValues = Dictionary<ProgramPoint, 'Lattice> ()
+  let absValues = Dictionary<VarPoint, 'Lattice> ()
   let varDefs = Dictionary<ProgramPoint, VarDefDomain.Lattice> ()
   let constants = Dictionary<VarPoint, ConstantDomain.Lattice> ()
 
@@ -69,8 +69,8 @@ type IncrementalDataFlowAnalysis<'Lattice, 'E when 'E: equality> () as this =
     | true, set -> set
     | false, _ -> Set.empty
 
-  let getAbsValue pp =
-    match absValues.TryGetValue pp with
+  let getAbsValue vp =
+    match absValues.TryGetValue vp with
     | false, _ -> this.Bottom
     | true, v -> v
 
@@ -106,6 +106,11 @@ type IncrementalDataFlowAnalysis<'Lattice, 'E when 'E: equality> () as this =
 
   /// TODO: do not forget to implement memoization of it
   let calculateIncomingVarDef pp =
+    (*
+    match incomingVarDefs.TryGetValue pp with
+    | false, _ -> VarDefDomain.empty
+    | true, rd -> rd
+    *)
     let incomingPps = getIncomingPps pp
     let incomingVarDefs = incomingPps |> Seq.map getVarDef
     Seq.fold VarDefDomain.join VarDefDomain.empty incomingVarDefs
@@ -212,28 +217,28 @@ type IncrementalDataFlowAnalysis<'Lattice, 'E when 'E: equality> () as this =
   /// analysis does not need to evaluate expressions.
   member private __.TransferVarDef (pp: ProgramPoint, stmt) =
     let varDef = calculateIncomingVarDef pp
-    let fnPropagate varDef =
-      let prevVarDef = getVarDef pp
-      if varDef = prevVarDef then false
-      else varDefs[pp] <- VarDefDomain.join prevVarDef varDef; true
-    let fnUpdate vp varDef =
-      let vps = Set.singleton vp
-      let varDef = Map.add vp.VarKind vps varDef
-      fnPropagate varDef
-    match stmt.S with
-    | Put (dst, _src) ->
-      let dstVarKind = VarKind.ofIRExpr dst
-      let dstVp = { ProgramPoint = pp; VarKind = dstVarKind }
-      fnUpdate dstVp varDef
-    | Store (_, addr, _value) ->
-      match evaluateExprIntoConst pp addr with
-      | ConstantDomain.Const bv when intoUInt64 bv ->
-        let loc = BitVector.ToUInt64 bv
-        let varKind = Memory (Some loc)
-        let vp = { ProgramPoint = pp; VarKind = varKind }
-        fnUpdate vp varDef
-      | _ -> fnPropagate varDef
-    | _ -> fnPropagate varDef
+    let varDef =
+      match stmt.S with
+      | Put (dst, _src) ->
+        let dstVarKind = VarKind.ofIRExpr dst
+        let vp = { ProgramPoint = pp; VarKind = dstVarKind }
+        let vps = Set.singleton vp
+        let varDef = Map.add vp.VarKind vps varDef
+        varDef
+      | Store (_, addr, _value) ->
+        match evaluateExprIntoConst pp addr with
+        | ConstantDomain.Const bv when intoUInt64 bv ->
+          let loc = BitVector.ToUInt64 bv
+          let varKind = Memory (Some loc)
+          let vp = { ProgramPoint = pp; VarKind = varKind }
+          let vps = Set.singleton vp
+          let varDef = Map.add vp.VarKind vps varDef
+          varDef
+        | _ -> varDef
+      | _ -> varDef
+    let prevVarDef = getVarDef pp
+    if varDef = prevVarDef then false
+    else varDefs[pp] <- VarDefDomain.join prevVarDef varDef; true
 
   member private __.TransferConstantAndVarDef (pp, stmt) =
     let constantChanged = __.TransferConstant (pp, stmt)
@@ -242,7 +247,7 @@ type IncrementalDataFlowAnalysis<'Lattice, 'E when 'E: equality> () as this =
 
   abstract Bottom: 'Lattice
 
-  interface IDataFlowAnalysis<ProgramPoint, 'Lattice, IRBasicBlock, 'E> with
+  interface IDataFlowAnalysis<VarPoint, 'Lattice, IRBasicBlock, 'E> with
     /// Execute each vertex in the worklist until a fixed point is reached.
     member __.Compute g =
       while not <| isWorklistEmpty () do
@@ -262,11 +267,12 @@ type IncrementalDataFlowAnalysis<'Lattice, 'E when 'E: equality> () as this =
           | None -> ()
           | Some lastPp -> addIncomingPp pp lastPp
           lastExecutedPp <- Some pp
-          let prevAbsValue = getAbsValue pp
-          let currAbsValue = __.Transfer (g, v, pp, stmt, prevAbsValue)
-          if not <| __.IsSubsumable (prevAbsValue, currAbsValue) then
+          match __.Transfer (g, v, pp, stmt) with
+          | None -> ()
+          | Some (vp, value) when __.IsSubsumable (getAbsValue vp, value) -> ()
+          | Some (vp, value) ->
+            absValues[vp] <- value
             dirty <- true
-            absValues[pp] <- __.Join (prevAbsValue, currAbsValue)
           if __.TransferConstantAndVarDef (pp, stmt) then
             dirty <- true
         if dirty then
@@ -284,18 +290,17 @@ type IncrementalDataFlowAnalysis<'Lattice, 'E when 'E: equality> () as this =
      * IVertex<IRBasicBlock>
      * ProgramPoint
      * Stmt
-     * 'Lattice
-    -> 'Lattice
-
-  abstract Join:
-       'Lattice
-     * 'Lattice
-    -> 'Lattice
+    -> (VarPoint * 'Lattice) option
 
   abstract IsSubsumable:
        'Lattice
      * 'Lattice
     -> bool
+
+  abstract Join:
+       'Lattice
+     * 'Lattice
+    -> 'Lattice
 
   abstract GetNextVertices:
        IGraph<IRBasicBlock, 'E>

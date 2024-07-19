@@ -41,10 +41,10 @@ type UntouchedValueAnalysis<'E when 'E: equality> () as this =
     else
       let dfa = this :> IDataFlowAnalysis<_, _, _, _>
       vps
-      |> Set.map (fun vp -> dfa.GetAbsValue vp.ProgramPoint)
+      |> Set.map (fun vp -> dfa.GetAbsValue vp)
       |> Seq.reduce UntouchedValueDomain.join
 
-  let rec evaluateExpr g v pp e =
+  let rec evaluateExpr pp e =
     match e.E with
     | Var _ | TempVar _ -> evaluateVarPoint pp (VarKind.ofIRExpr e)
     | Load (_, _, addr) ->
@@ -55,16 +55,28 @@ type UntouchedValueAnalysis<'E when 'E: equality> () as this =
       | _ -> UntouchedValueDomain.Touched
     | Extract (e, _, _)
     | Cast (CastKind.ZeroExt, _, e)
-    | Cast (CastKind.SignExt, _, e) -> evaluateExpr g v pp e
+    | Cast (CastKind.SignExt, _, e) -> evaluateExpr pp e
     | _ -> UntouchedValueDomain.Touched
 
   override __.Bottom = UntouchedValueDomain.Undef
 
-  override __.IsSubsumable (a, b) = UntouchedValueDomain.isSubsumable a b
-
   override __.Join (a, b) = UntouchedValueDomain.join a b
 
-  override __.Transfer (g, v, pp, stmt, absVal) =
+  override __.IsSubsumable (a, b) = UntouchedValueDomain.isSubsumable a b
+
+  override __.Transfer (_g, _v, pp, stmt) =
     match stmt.S with
-    | Put (_dst, src) -> evaluateExpr g v pp src
-    | _ -> absVal
+    | Put (dst, src) ->
+      let varKind = VarKind.ofIRExpr dst
+      let varPoint = { ProgramPoint = pp; VarKind = varKind }
+      let v = evaluateExpr pp src
+      Some (varPoint, v)
+    | Store (_, addr, value) ->
+      match this.EvaluateExprIntoConst (pp, addr) with
+      | ConstantDomain.Const bv ->
+        let varKind = VarKind.Memory (Some (BitVector.ToUInt64 bv))
+        let varPoint = { ProgramPoint = pp; VarKind = varKind }
+        let v = evaluateExpr pp value
+        Some (varPoint, v)
+      | _ -> None
+    | _ -> None

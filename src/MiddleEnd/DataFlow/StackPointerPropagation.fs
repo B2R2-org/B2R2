@@ -50,7 +50,7 @@ type StackPointerPropagation<'E when 'E: equality> (hdl) as this =
     | BinOpType.AND -> StackPointerDomain.``and`` c1 c2
     | _ -> StackPointerDomain.NotConstSP
 
-  let rec evaluateExpr g v pp e =
+  let rec evaluateExpr pp e =
     match e.E with
     | Num bv -> StackPointerDomain.ConstSP bv
     | Var _ | TempVar _ ->
@@ -58,9 +58,8 @@ type StackPointerPropagation<'E when 'E: equality> (hdl) as this =
       let varPoint = { ProgramPoint = pp; VarKind = varKind }
       let varDef = this.GetVarDef varPoint
       let vps = VarDefDomain.get varKind varDef
-      let pps = Set.map (fun vp -> vp.ProgramPoint) vps
       let dfa = this :> IDataFlowAnalysis<_, _, _, _>
-      let incomingAbsVals = Seq.map dfa.GetAbsValue pps
+      let incomingAbsVals = Seq.map dfa.GetAbsValue vps
       let absVal = Seq.reduce StackPointerDomain.join incomingAbsVals
       absVal
     | Nil -> StackPointerDomain.NotConstSP
@@ -68,8 +67,8 @@ type StackPointerPropagation<'E when 'E: equality> (hdl) as this =
     | UnOp _ -> StackPointerDomain.NotConstSP
     | FuncName _ -> StackPointerDomain.NotConstSP
     | BinOp (op, _, e1, e2) ->
-      let c1 = evaluateExpr g v pp e1
-      let c2 = evaluateExpr g v pp e2
+      let c1 = evaluateExpr pp e1
+      let c2 = evaluateExpr pp e2
       evalBinOp op c1 c2
     | RelOp _ -> StackPointerDomain.NotConstSP
     | Ite _ -> StackPointerDomain.NotConstSP
@@ -78,11 +77,10 @@ type StackPointerPropagation<'E when 'E: equality> (hdl) as this =
     | Undefined _ -> StackPointerDomain.NotConstSP
     | _ -> Utils.impossible ()
 
-  let rec transferPut g v pp dst src =
-    match VarKind.ofIRExpr dst with
-    | Regular rid when isStackRelatedRegister rid -> evaluateExpr g v pp src
+  let evaluateSrcByVarKind pp src = function
+    | Regular rid when isStackRelatedRegister rid -> evaluateExpr pp src
     | Regular _ -> StackPointerDomain.NotConstSP
-    | Temporary _ -> evaluateExpr g v pp src
+    | Temporary _ -> evaluateExpr pp src
     | _ -> StackPointerDomain.NotConstSP
 
   override __.Bottom = StackPointerDomain.Undef
@@ -91,7 +89,12 @@ type StackPointerPropagation<'E when 'E: equality> (hdl) as this =
 
   override __.Join (a, b) = StackPointerDomain.join a b
 
-  override __.Transfer (g, v, pp, stmt, absVal) =
+  override __.Transfer (_g, _v, pp, stmt) =
     match stmt.S with
-    | Put (dst, src) -> transferPut g v pp dst src
-    | _ -> absVal
+    | Put (dst, src) ->
+      let varKind = VarKind.ofIRExpr dst
+      let varPoint = { ProgramPoint = pp; VarKind = varKind }
+      let v = evaluateSrcByVarKind pp src varKind
+      Some (varPoint, v)
+    // We ignore the data-flow through memory operations in SPP.
+    | _ -> None
