@@ -31,7 +31,6 @@ open B2R2
 open B2R2.BinIR
 open B2R2.FrontEnd.BinLifter
 open B2R2.MiddleEnd
-open B2R2.MiddleEnd.ControlFlowAnalysis
 open B2R2.MiddleEnd.DataFlow
 open B2R2.MiddleEnd.ControlFlowGraph
 

@@ -83,10 +83,11 @@ type CFGBuilderTable<'V,
   /// Retrieve all function builders.
   member _.Values with get() = builders.Values |> Seq.toArray
 
-  /// Are all function builders finished?
-  member _.AllFinished () =
+  /// Are all function builders finished or invalid?
+  member _.AllTerminated () =
     builders.Values
-    |> Seq.forall (fun builder -> builder.BuilderState = Finished)
+    |> Seq.forall (fun builder ->
+      builder.BuilderState = Finished || builder.BuilderState = Invalid)
 
   /// Get or create a function builder by its address and operation mode.
   member _.GetOrCreateBuilder agent addr mode =

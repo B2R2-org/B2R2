@@ -83,6 +83,7 @@ and private TaskManager<'V,
       | AddTask (entryPoint, mode) ->
         let builder = builders.GetOrCreateBuilder agent entryPoint mode
         if builder.BuilderState = InProgress ||
+           builder.BuilderState = Invalid ||
            builder.BuilderState = Finished then ()
         else
           workingSet.Add entryPoint |> ignore
@@ -154,7 +155,7 @@ and private TaskManager<'V,
 
   and isAllDone () =
     workingSet.Count = 0
-    && builders.AllFinished ()
+    && builders.AllTerminated ()
 
   and terminate () =
     toWorkers.Complete ()
