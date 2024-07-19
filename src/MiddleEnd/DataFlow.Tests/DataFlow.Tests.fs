@@ -259,3 +259,73 @@ type PersistentDataFlowTests () =
     varAnsMap |> List.iter (fun (vp, ans) ->
       let out = idfa.GetConstant vp
       Assert.AreEqual (ans, out))
+
+  [<TestMethod>]
+  member __.``Untouched Value Analysis 1``() =
+    let brew = TestCases.brew3
+    let cfg = brew.Functions[0UL].CFG
+    let rt = 64<rt>
+    let roots = cfg.GetRoots ()
+    let regValues =
+      (Intel.Register.RSP, Constants.InitialStackPointer)
+      |> fun (r, v) -> Intel.Register.toRegID r, BitVector.OfUInt64 v rt
+      |> Seq.singleton
+      |> Map.ofSeq
+    let genRegularVar addr i r =
+      let rid = Intel.Register.toRegID r
+      let pp = ProgramPoint (addr, i)
+      let varKind = VarKind.Regular rid
+      { ProgramPoint = pp; VarKind = varKind }
+    let genMemVar addr i memAddr =
+      let pp = ProgramPoint (addr, i)
+      let varKind = VarKind.Memory (Some memAddr)
+      { ProgramPoint = pp; VarKind = varKind }
+    let regularVarEq addr i r c =
+      let vp = genRegularVar addr i r
+      vp, c
+    let memVarEq addr i memAddr c =
+      let vp = genMemVar addr i memAddr
+      vp, c
+    let regularVarTouched addr i r =
+      let v = UntouchedValueDomain.Touched
+      regularVarEq addr i r v
+    let regularVarUntouched addr i r srcReg =
+      let varKind = VarKind.Regular (Intel.Register.toRegID srcReg)
+      let tag = UntouchedValueDomain.RegisterTag varKind
+      let v = UntouchedValueDomain.Untouched tag
+      regularVarEq addr i r v
+    let memVarTouched addr i memAddr =
+      let v = UntouchedValueDomain.Touched
+      memVarEq addr i memAddr v
+    let memVarUntouched addr i memAddr r =
+      let varKind = VarKind.Regular (Intel.Register.toRegID r)
+      let tag = UntouchedValueDomain.RegisterTag varKind
+      let v = UntouchedValueDomain.Untouched tag
+      memVarEq addr i memAddr v
+    let varAnsMap =
+      [ memVarUntouched 0xcUL 1 (0x7ffffff8UL - 0x14UL) Intel.Register.RDI
+        memVarUntouched 0xfUL 1 (0x7ffffff8UL - 0x18UL) Intel.Register.RSI
+        memVarUntouched 0x15UL 1 (0x7ffffff8UL - 0x10UL) Intel.Register.RDI
+        memVarTouched 0x1eUL 1 (0x7ffffff8UL - 0xcUL)
+        regularVarTouched 0x32UL 1 Intel.Register.RCX
+        regularVarTouched 0x35UL 1 Intel.Register.RDX
+        regularVarTouched 0x38UL 1 Intel.Register.RSI
+        regularVarUntouched 0x3bUL 1 Intel.Register.RAX Intel.Register.RDI ]
+    let uva = UntouchedValueAnalysis<CFGEdgeKind> ()
+    let dfa = uva :> IDataFlowAnalysis<_, _, _, _>
+    Seq.iter uva.PushWork roots
+    uva.SetInitialRegisterConstants regValues
+    dfa.Compute cfg
+#if DEBUG
+    cfg.IterVertex (fun v ->
+      v.VData.LiftedInstructions
+      |> Array.iter (fun ins ->
+        let stmts = ins.Stmts
+        stmts |> Array.iteri (fun i stmt ->
+          let s = LowUIR.Pp.stmtToString stmt
+          let addr = ins.Original.Address
+          Debug.Print <| sprintf "%x:%i -> %s" addr i s)))
+#endif
+    varAnsMap |> List.iter (fun (vp, ans) ->
+      let out = dfa.GetAbsValue vp
+      Assert.AreEqual (ans, out))

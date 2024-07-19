@@ -33,7 +33,7 @@ type UntouchedValueAnalysis<'E when 'E: equality> () as this =
   inherit IncrementalDataFlowAnalysis<UntouchedValueDomain.Lattice, 'E> ()
 
   let evaluateVarPoint pp varKind =
-    let varDef = this.GetVarDef { ProgramPoint = pp; VarKind = varKind }
+    let varDef = this.CalculateIncomingVarDef pp
     let vps = VarDefDomain.get varKind varDef
     if Set.isEmpty vps then (* initialize here *)
       UntouchedValueDomain.RegisterTag varKind

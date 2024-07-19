@@ -314,6 +314,8 @@ type IncrementalDataFlowAnalysis<'Lattice, 'E when 'E: equality> () as this =
 
   member __.GetVarDef (vp: VarPoint) = getVarDef vp.ProgramPoint
 
+  member __.CalculateIncomingVarDef pp = calculateIncomingVarDef pp
+
   member __.GetConstant (vp: VarPoint) =
     getVarDef vp.ProgramPoint
     |> VarDefDomain.get vp.VarKind
