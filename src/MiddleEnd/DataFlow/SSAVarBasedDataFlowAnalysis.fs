@@ -30,7 +30,6 @@ open B2R2.BinIR.SSA
 open B2R2.FrontEnd
 open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.ControlFlowGraph
-open B2R2.MiddleEnd.SSA
 open B2R2.MiddleEnd.DataFlow
 
 /// An ID of an SSA memory instance.
@@ -69,7 +68,7 @@ type SSAVarBasedDataFlowAnalysis<'Lattice,
     if executableEdges.Add (src, dst) then flowWorkList.Enqueue (src, dst)
     else ()
 
-  let getNumIncomingExecutedEdges (ssaCFG: SSACFG<'E>) (blk: SSAVertex) =
+  let getNumIncomingExecutedEdges (ssaCFG: SSACFG<'E>) (blk: IVertex<_>) =
     let mutable count = 0
     for pred in ssaCFG.GetPreds blk do
       if executedEdges.Contains (pred.ID, blk.ID) then count <- count + 1
@@ -140,7 +139,7 @@ type SSAVarBasedDataFlowAnalysis<'Lattice,
     else __.Bottom
 
   /// Get the list of executed source vertices.
-  member __.GetExecutedSources (ssaCFG: SSACFG<'E>) (blk: SSAVertex) srcIDs =
+  member __.GetExecutedSources (ssaCFG: SSACFG<'E>) (blk: IVertex<_>) srcIDs =
     let preds = ssaCFG.GetPreds blk |> Seq.toArray
     srcIDs
     |> Array.mapi (fun i srcID ->
@@ -148,7 +147,7 @@ type SSAVarBasedDataFlowAnalysis<'Lattice,
       else None)
     |> Array.choose id
 
-  member __.MarkSuccessorsExecutable (ssaCFG: SSACFG<'E>) (blk: SSAVertex) =
+  member __.MarkSuccessorsExecutable (ssaCFG: SSACFG<'E>) (blk: IVertex<_>) =
     for succ in ssaCFG.GetSuccs blk do
       markExecutable blk.ID succ.ID
 

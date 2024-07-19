@@ -29,26 +29,53 @@ open B2R2
 open B2R2.BinIR.SSA
 open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.ControlFlowGraph
+open B2R2.MiddleEnd.DataFlow
+open B2R2.MiddleEnd.DataFlow.SSA
 
-/// The main lifter for SSA.
-type SSALifter<'E when 'E: equality> (postProcessor: IStmtPostProcessor) =
+/// SSACFG's vertex.
+type SSAVertex = IVertex<SSABasicBlock>
+
+/// A mapping from an address to an SSACFG vertex.
+type SSAVMap = Dictionary<ProgramPoint, SSAVertex>
+
+/// This is a mapping from an edge to an abstract vertex (for external function
+/// calls). We first separately create abstract vertices even if they are
+/// associated with the same external function (address) in order to compute
+/// dominance relationships without introducing incorrect paths or cycles. For
+/// convenience, we will always consider as a key "a return edge" from an
+/// abstract vertex to a fall-through vertex.
+type AbstractVMap = Dictionary<ProgramPoint * ProgramPoint, SSAVertex>
+
+/// Mapping from a variable to a set of defining SSA basic blocks.
+type DefSites = Dictionary<VariableKind, Set<IVertex<SSABasicBlock>>>
+
+/// Defined variables per node in a SSACFG.
+type DefsPerNode = Dictionary<IVertex<SSABasicBlock>, Set<VariableKind>>
+
+/// Counter for each variable.
+type VarCountMap = Dictionary<VariableKind, int>
+
+/// Variable ID stack.
+type IDStack = Dictionary<VariableKind, int list>
+
+module private SSALifterFactory =
   /// Lift the given LowUIR statements to SSA statements.
-  let liftStmts (liftedInstrs: LiftedInstruction[]) =
+  let liftStmts stmtProcessor (liftedInstrs: LiftedInstruction[]) =
     liftedInstrs
     |> Array.collect (fun liftedIns ->
       let wordSize = liftedIns.Original.WordSize |> WordSize.toRegType
       let stmts = liftedIns.Stmts
       let address = liftedIns.Original.Address
-      AST.translateStmts wordSize address postProcessor stmts)
+      AST.translateStmts wordSize address stmtProcessor stmts)
     |> Array.map (fun s -> ProgramPoint.GetFake (), s)
 
-  let getVertex vMap g (src: IVertex<#IRBasicBlock>) =
+  let getVertex stmtProcessor vMap g (src: IVertex<#IRBasicBlock>) =
     let bbl = src.VData
     let ppoint = bbl.PPoint
     match (vMap: SSAVMap).TryGetValue ppoint with
     | true, v -> v, g
     | false, _ ->
-      let stmts = liftStmts bbl.LiftedInstructions
+      let stmts = liftStmts stmtProcessor bbl.LiftedInstructions
       let lastAddr = bbl.LastInstruction.Address
       let endPoint = lastAddr + uint64 bbl.LastInstruction.Length - 1UL
       let blk = SSABasicBlock.CreateRegular (stmts, ppoint, endPoint)
@@ -69,10 +96,10 @@ type SSALifter<'E when 'E: equality> (postProcessor: IStmtPostProcessor) =
       avMap.Add (key, v)
       v, g
 
-  let convertToSSA (irCFG: IRCFG<_, _>) ssaCFG =
+  let convertToSSA stmtProcessor (irCFG: IRCFG<_, _>) ssaCFG =
     let vMap = SSAVMap ()
     let avMap = AbstractVMap ()
-    let _, ssaCFG = getVertex vMap ssaCFG irCFG.SingleRoot
+    let _, ssaCFG = getVertex stmtProcessor vMap ssaCFG irCFG.SingleRoot
     let ssaCFG =
       ssaCFG
       |> irCFG.FoldEdge (fun ssaCFG e ->
@@ -81,17 +108,17 @@ type SSALifter<'E when 'E: equality> (postProcessor: IStmtPostProcessor) =
         if dst.VData.IsAbstract then
           let last = src.VData.LastInstruction
           let fallPp = ProgramPoint (last.Address + uint64 last.Length, 0)
-          let srcV, ssaCFG = getVertex vMap ssaCFG src
+          let srcV, ssaCFG = getVertex stmtProcessor vMap ssaCFG src
           let dstV, ssaCFG = getAbsVertex avMap ssaCFG dst fallPp
           ssaCFG.AddEdge (srcV, dstV, e.Label)
         elif src.VData.IsAbstract then
           let dstPp = dst.VData.PPoint
           let srcV, ssaCFG = getAbsVertex avMap ssaCFG src dstPp
-          let dstV, ssaCFG = getVertex vMap ssaCFG dst
+          let dstV, ssaCFG = getVertex stmtProcessor vMap ssaCFG dst
           ssaCFG.AddEdge (srcV, dstV, e.Label)
         else
-          let srcV, ssaCFG = getVertex vMap ssaCFG src
-          let dstV, ssaCFG = getVertex vMap ssaCFG dst
+          let srcV, ssaCFG = getVertex stmtProcessor vMap ssaCFG src
+          let dstV, ssaCFG = getVertex stmtProcessor vMap ssaCFG dst
           ssaCFG.AddEdge (srcV, dstV, e.Label)
       )
     ssaCFG
@@ -276,48 +303,98 @@ type SSALifter<'E when 'E: equality> (postProcessor: IStmtPostProcessor) =
     placePhis ssaCFG defsPerNode defSites
     renameVars ssaCFG defSites domCtx
 
-  new () =
-    SSALifter<'E> (
-      { new IStmtPostProcessor with member _.PostProcess stmt = stmt })
+  let memStore ((pp, _) as stmtInfo) rt addr src =
+    match addr with
+    | StackPointerDomain.ConstSP addr ->
+      let addr = BitVector.ToUInt64 addr
+      let offset = int (int64 Constants.InitialStackPointer - int64 addr)
+      let v = { Kind = StackVar (rt, offset); Identifier = 0 }
+      Some (pp, Def (v, src))
+    | _ -> Some stmtInfo
 
-  interface ISSALiftable<'E> with
-    member _.Lift (g) =
-      let ssaCFG =
-        match g.ImplementationType with
-        | Imperative ->
-          ImperativeDiGraph<SSABasicBlock, 'E> () :> IGraph<_, _>
-        | Persistent ->
-          PersistentDiGraph<SSABasicBlock, 'E> () :> IGraph<_, _>
-      convertToSSA g ssaCFG
-      |> updatePhis
-      ssaCFG.IterVertex (fun v -> v.VData.UpdatePPoints ())
-      ssaCFG
+  let loadToVar rt addr =
+    match addr with
+    | StackPointerDomain.ConstSP addr ->
+      let addr = BitVector.ToUInt64 addr
+      let offset = int (int64 Constants.InitialStackPointer - int64 addr)
+      let v = { Kind = StackVar (rt, offset); Identifier = 0 }
+      Some (Var v)
+    | _ -> None
 
-    member _.UpdatePhis (ssaCFG) =
-      updatePhis ssaCFG
+  let rec replaceLoad (spp: SSAStackPointerPropagation<_>) e =
+    match e with
+    | Load (_, rt, addr) ->
+      let addr = spp.EvalExpr addr
+      loadToVar rt addr
+    | Cast (ck, rt, e) ->
+      replaceLoad spp e
+      |> Option.map (fun e -> Cast (ck, rt, e))
+    | Extract (e, rt, sPos) ->
+      replaceLoad spp e
+      |> Option.map (fun e -> Extract (e, rt, sPos))
+    | ReturnVal (addr, rt, e) ->
+      replaceLoad spp e
+      |> Option.map (fun e -> ReturnVal (addr, rt, e))
+    | _ -> None
 
-/// SSACFG's vertex.
-and SSAVertex = IVertex<SSABasicBlock>
+  let stmtChooser spp ((pp, stmt) as stmtInfo) =
+    match stmt with
+    | Phi _ -> None
+    | Def ({ Kind = MemVar }, Store (_, rt, addr, src)) ->
+      let addr = (spp: SSAStackPointerPropagation<_>).EvalExpr addr
+      memStore stmtInfo rt addr src
+    | Def (dstVar, e) ->
+      match replaceLoad spp e with
+      | Some e -> Some (pp, Def (dstVar, e))
+      | None -> Some stmtInfo
+    | _ -> Some stmtInfo
 
-/// A mapping from an address to an SSACFG vertex.
-and SSAVMap = Dictionary<ProgramPoint, SSAVertex>
+  let promote hdl ssaCFG (callback: ISSAVertexCallback<_>) =
+    let spp = SSAStackPointerPropagation hdl
+    (spp: IDataFlowAnalysis<_, _, _, _>).Compute ssaCFG
+    for v in ssaCFG.Vertices do
+      callback.OnVertexCreation ssaCFG spp v
+      v.VData.LiftedSSAStmts
+      |> Array.choose (stmtChooser spp)
+      |> fun stmts -> v.VData.LiftedSSAStmts <- stmts
+    updatePhis ssaCFG
+    ssaCFG
 
-/// This is a mapping from an edge to an abstract vertex (for external function
-/// calls). We first separately create abstract vertices even if they are
-/// associated with the same external function (address) in order to compute
-/// dominance relationships without introducing incorrect paths or cycles. For
-/// convenience, we will always consider as a key "a return edge" from an
-/// abstract vertex to a fall-through vertex.
-and AbstractVMap = Dictionary<ProgramPoint * ProgramPoint, SSAVertex>
+  let create<'E when 'E: equality> hdl stmtProcessor callback =
+    { new ISSALiftable<'E> with
+        member _.Lift g =
+          let ssaCFG =
+            match g.ImplementationType with
+            | Imperative ->
+              ImperativeDiGraph<SSABasicBlock, 'E> () :> IGraph<_, _>
+            | Persistent ->
+              PersistentDiGraph<SSABasicBlock, 'E> () :> IGraph<_, _>
+          convertToSSA stmtProcessor g ssaCFG
+          |> updatePhis
+          ssaCFG.IterVertex (fun v -> v.VData.UpdatePPoints ())
+          promote hdl ssaCFG callback }
 
-/// Mapping from a variable to a set of defining SSA basic blocks.
-and DefSites = Dictionary<VariableKind, Set<IVertex<SSABasicBlock>>>
+/// The factory for SSA lifter.
+type SSALifterFactory<'E when 'E: equality> =
+  /// Create an SSA lifter with a binary handle.
+  static member Create (hdl) =
+    SSALifterFactory.create<'E> hdl
+      { new IStmtPostProcessor with member _.PostProcess stmt = stmt }
+      { new ISSAVertexCallback<'E> with member _.OnVertexCreation _ _ _ = () }
 
-/// Defined variables per node in a SSACFG.
-and DefsPerNode = Dictionary<IVertex<SSABasicBlock>, Set<VariableKind>>
+  /// Create an SSA lifter with a binary handle and a statement processor.
+  static member Create (hdl, stmtProcessor) =
+    SSALifterFactory.create<'E> hdl stmtProcessor
+      { new ISSAVertexCallback<'E> with member _.OnVertexCreation _ _ _ = () }
 
-/// Counter for each variable.
-and VarCountMap = Dictionary<VariableKind, int>
+  /// Create an SSA lifter with a binary handle and a callback for SSA vertex
+  /// creation.
+  static member Create (hdl, callback) =
+    SSALifterFactory.create<'E> hdl
+      { new IStmtPostProcessor with member _.PostProcess stmt = stmt }
+      callback
 
-/// Variable ID stack.
-and IDStack = Dictionary<VariableKind, int list>
+  /// Create an SSA lifter with a binary handle, a statement processor, and a
+  /// callback for SSA vertex creation.
+  static member Create (hdl, stmtProcessor, callback) =
+    SSALifterFactory.create<'E> hdl stmtProcessor callback

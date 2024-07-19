@@ -116,17 +116,16 @@ type CondAwareNoretAnalysis ([<Optional; DefaultParameterValue(true)>] strict) =
       untouchedArgIndexX64 ctx.BinHandle absSSAV uvAnalysis nth
     | _ -> None
 
-  let collectConditionalNoRetCalls ctx =
-    let ssa = ctx.SSACFG
+  let collectConditionalNoRetCalls ctx ssaCFG =
     let hdl = ctx.BinHandle
     let uvAnalysis = SSAUntouchedValuePropagation (hdl)
-    (uvAnalysis: IDataFlowAnalysis<_, _, _, _>).Compute ssa
+    (uvAnalysis: IDataFlowAnalysis<_, _, _, _>).Compute ssaCFG
     collectReturningCallEdges ctx
     |> List.choose (fun callEdge ->
       let absV = ctx.AbsVertices[callEdge]
       match absV.VData.AbstractContent.ReturningStatus with
       | ConditionalNoRet nth ->
-        tryGetConnectedArgument ctx ssa uvAnalysis callEdge nth
+        tryGetConnectedArgument ctx ssaCFG uvAnalysis callEdge nth
         |> Option.bind (fun nth' -> Some (absV, nth'))
       | NotNoRet | UnknownNoRet -> None
       | NoRet -> Utils.impossible ())
@@ -147,10 +146,10 @@ type CondAwareNoretAnalysis ([<Optional; DefaultParameterValue(true)>] strict) =
     | None -> NotNoRet
     | Some dom -> ConditionalNoRet <| Map.find dom argNumMap
 
-  let analyze ctx =
+  let analyze ctx ssaCFG =
     let domCtx = Dominator.initDominatorContext ctx.CFG
     let exits = ctx.CFG.Exits
-    let condNoRetCalls = collectConditionalNoRetCalls ctx
+    let condNoRetCalls = collectConditionalNoRetCalls ctx ssaCFG
     let absVSet = condNoRetCalls |> List.map fst |> Set.ofList
     let argNumMap = condNoRetCalls |> Map.ofSeq
     let mutable status = UnknownNoRet
@@ -171,11 +170,11 @@ type CondAwareNoretAnalysis ([<Optional; DefaultParameterValue(true)>] strict) =
         | status -> updateStatus status
     status
 
-  interface IPostAnalysis<unit -> unit> with
+  interface IPostAnalysis<SSACFG<CFGEdgeKind> -> unit> with
     member _.Unwrap env =
       let ctx = env.Context
-      fun () ->
-        match analyze ctx with
+      fun ssaCFG ->
+        match analyze ctx ssaCFG with
         | UnknownNoRet -> ctx.NonReturningStatus <- defaultStatus
         | status -> ctx.NonReturningStatus <- status
 #if CFGDEBUG

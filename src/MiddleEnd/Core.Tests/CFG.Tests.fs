@@ -363,7 +363,7 @@ type CFGTest1 () =
   member __.``CFG SSAGraph Vertex Test: _start`` () =
     let brew = BinaryBrew (hdl, exnInfo, strategies)
     let cfg = brew.Functions[0x0UL].CFG
-    let ssaLifter = SSALifter () :> ISSALiftable<_>
+    let ssaLifter = SSALifterFactory<_>.Create hdl
     let ssacfg = ssaLifter.Lift (cfg)
     Assert.AreEqual (9, ssacfg.Size)
 
@@ -556,6 +556,6 @@ type CFGTest2 () =
   member __.``SSAGraph Vertex Test: _start`` () =
     let brew = BinaryBrew (hdl, exnInfo, strategies)
     let cfg = brew.Functions[0x0UL].CFG
-    let ssaLifter = SSALifter () :> ISSALiftable<_>
+    let ssaLifter = SSALifterFactory<_>.Create hdl
     let ssacfg = ssaLifter.Lift cfg
     Assert.AreEqual (7, ssacfg.Size)

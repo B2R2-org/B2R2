@@ -31,6 +31,7 @@ open B2R2
 open B2R2.BinIR
 open B2R2.FrontEnd.BinLifter
 open B2R2.MiddleEnd
+open B2R2.MiddleEnd.SSA
 open B2R2.MiddleEnd.DataFlow
 open B2R2.MiddleEnd.ControlFlowGraph
 
@@ -137,8 +138,8 @@ type PersistentDataFlowTests () =
   member __.``SSA Constant Propagation Test 1`` () =
     let brew = TestCases.brew2
     let fn = brew.Functions[0UL]
-    let lifter = SSA.SSALifter ()
-    let cfg = (lifter: SSA.ISSALiftable<CFGEdgeKind>).Lift fn.CFG
+    let lifter = SSALifterFactory<CFGEdgeKind>.Create (brew.BinHandle)
+    let cfg = lifter.Lift fn.CFG
     let cp = SSA.SSAConstantPropagation brew.BinHandle
     let dfa = cp :> IDataFlowAnalysis<_, _, _, _>
     dfa.Compute cfg
@@ -228,7 +229,8 @@ type PersistentDataFlowTests () =
     let memVarNotConst addr i memAddr =
       memVarEq addr i memAddr ConstantDomain.NotAConst
     let memVarDWordConst addr i memAddr v =
-      memVarEq addr i memAddr (ConstantDomain.Const (BitVector.OfUInt32 v 32<rt>))
+      memVarEq addr i memAddr
+        (ConstantDomain.Const (BitVector.OfUInt32 v 32<rt>))
     let memVarUndef addr i memAddr =
       memVarEq addr i memAddr ConstantDomain.Undef
     let varAnsMap =

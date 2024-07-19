@@ -34,15 +34,15 @@ open B2R2.MiddleEnd.ControlFlowAnalysis
 
 /// Base class for summarizing a function in a lightweight manner. One can
 /// extend this class to implement a more sophisticated function summarizer.
-type BaseFunctionSummarizer<'V,
-                            'E,
-                            'FnCtx,
-                            'GlCtx when 'V :> IRBasicBlock
-                                    and 'V: equality
-                                    and 'E: equality
-                                    and 'FnCtx :> IResettable
-                                    and 'FnCtx: (new: unit -> 'FnCtx)
-                                    and 'GlCtx: (new: unit -> 'GlCtx)> () =
+type FunctionSummarizer<'V,
+                        'E,
+                        'FnCtx,
+                        'GlCtx when 'V :> IRBasicBlock
+                                and 'V: equality
+                                and 'E: equality
+                                and 'FnCtx :> IResettable
+                                and 'FnCtx: (new: unit -> 'FnCtx)
+                                and 'GlCtx: (new: unit -> 'GlCtx)> () =
   let retrieveStackAdjustment (ins: Instruction) =
     match ins.Immediate () with
     | true, v -> int v

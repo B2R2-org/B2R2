@@ -22,6 +22,7 @@
     <Compile Include="UntouchedValueAnalysis.fs" />
     <Compile Include="StackPointerPropagation.fs" />
     <Compile Include="ConstantPropagation.fs" />
+    <Compile Include="SSAEdges.fs" />
     <Compile Include="SSAVarBasedDataFlowAnalysis.fs" />
     <Compile Include="SSAConstantPropagation.fs" />
     <Compile Include="SSAStackPointerPropagation.fs" />
@@ -34,7 +35,6 @@
   <ItemGroup>
     <ProjectReference Include="..\BinGraph\B2R2.MiddleEnd.BinGraph.fsproj" />
     <ProjectReference Include="..\ControlFlowGraph\B2R2.MiddleEnd.ControlFlowGraph.fsproj" />
-    <ProjectReference Include="..\SSA\B2R2.MiddleEnd.SSA.fsproj" />
   </ItemGroup>
 
 </Project>

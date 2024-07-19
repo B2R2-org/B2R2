@@ -22,14 +22,14 @@
   SOFTWARE.
 *)
 
-namespace B2R2.MiddleEnd.SSA
+namespace B2R2.MiddleEnd.DataFlow.SSA
 
 open System.Collections.Generic
 open B2R2.BinIR
 open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.ControlFlowGraph
 
-type SSAStmtLocation = VertexID * int
+type private SSAStmtLocation = VertexID * int
 
 /// SSA edges in a CFG.
 [<AllowNullLiteral>]

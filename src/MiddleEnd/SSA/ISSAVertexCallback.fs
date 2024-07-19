@@ -22,17 +22,20 @@
   SOFTWARE.
 *)
 
-namespace B2R2.MiddleEnd.ControlFlowAnalysis.Strategies
+namespace B2R2.MiddleEnd.SSA
 
+open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.ControlFlowGraph
-open B2R2.MiddleEnd.ControlFlowAnalysis
-open B2R2.MiddleEnd.DataFlow
 open B2R2.MiddleEnd.DataFlow.SSA
 
-/// Perform stack pointer propgation analysis on the current SSACFG.
-type StackPointerAnalysis () =
-  interface IPostAnalysis<unit -> SSAStackPointerPropagation<CFGEdgeKind>> with
-    member _.Unwrap env =
-      let ctx = env.Context
-      let spp = SSAStackPointerPropagation (ctx.BinHandle)
-      fun () -> (spp: IDataFlowAnalysis<_, _, _, _>).Compute ctx.SSACFG; spp
+/// Callback interface for SSA vertex creation.
+type ISSAVertexCallback<'E when 'E: equality> =
+  /// When a new SSA vertex is created, this callback is called. The current
+  /// SSACFG as well as the stack pointer propagation analysis is also provided
+  /// for the callback so that one can use it to easily compute stack local
+  /// variables.
+  abstract OnVertexCreation:
+       SSACFG<'E>
+    -> SSAStackPointerPropagation<'E>
+    -> IVertex<SSABasicBlock>
+    -> unit

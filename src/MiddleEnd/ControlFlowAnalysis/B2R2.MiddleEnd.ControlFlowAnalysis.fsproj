@@ -32,11 +32,10 @@
     <Compile Include="Strategies\DummyContext.fs" />
     <Compile Include="Strategies\ISyscallAnalyzable.fs" />
     <Compile Include="Strategies\IPostAnalysis.fs" />
-    <Compile Include="Strategies\StackPointerAnalysis.fs" />
-    <Compile Include="Strategies\StackAnalysis.fs" />
-    <Compile Include="Strategies\SyscallAnalysis.fs" />
+    <Compile Include="Strategies\SSALifter.fs" />
     <Compile Include="Strategies\CondAwareNoretAnalysis.fs" />
-    <Compile Include="Strategies\BaseFunctionSummarizer.fs" />
+    <Compile Include="Strategies\SyscallAnalysis.fs" />
+    <Compile Include="Strategies\FunctionSummarizer.fs" />
     <Compile Include="Strategies\FunctionIdentification.fs" />
     <Compile Include="Strategies\CFGRecovery.fs" />
     <None Include="..\..\..\LICENSE.md" Pack="true" PackagePath="" />
@@ -50,6 +49,7 @@
     <ProjectReference Include="..\BinGraph\B2R2.MiddleEnd.BinGraph.fsproj" />
     <ProjectReference Include="..\ControlFlowGraph\B2R2.MiddleEnd.ControlFlowGraph.fsproj" />
     <ProjectReference Include="..\DataFlow\B2R2.MiddleEnd.DataFlow.fsproj" />
+    <ProjectReference Include="..\SSA\B2R2.MiddleEnd.SSA.fsproj" />
   </ItemGroup>
 
   <ItemGroup>

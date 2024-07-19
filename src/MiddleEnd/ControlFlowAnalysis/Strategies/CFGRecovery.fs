@@ -39,8 +39,7 @@ type CFGRecovery<'FnCtx,
                  'GlCtx when 'FnCtx :> IResettable
                          and 'FnCtx: (new: unit -> 'FnCtx)
                          and 'GlCtx: (new: unit -> 'GlCtx)>
-  public (ssaLifter: ISSALiftable<_>,
-          summarizer: IFunctionSummarizable<_, _, 'FnCtx, 'GlCtx>,
+  public (summarizer: IFunctionSummarizable<_, _, 'FnCtx, 'GlCtx>,
           syscallAnalysis: ISyscallAnalyzable,
           postAnalysis: IPostAnalysis<_>,
           useTailcallHeuristic) =
@@ -345,23 +344,12 @@ type CFGRecovery<'FnCtx,
     Success
 
   new () =
-    let ssaLifter = SSALifter ()
-    let summarizer = BaseFunctionSummarizer ()
+    let summarizer = FunctionSummarizer ()
     let syscallAnalysis = SyscallAnalysis ()
     let postAnalysis =
-      StackPointerAnalysis () :> IPostAnalysis<_>
-      <+> StackAnalysis ()
+          SSALifter () :> IPostAnalysis<_>
       <+> CondAwareNoretAnalysis ()
-    CFGRecovery (ssaLifter, summarizer, syscallAnalysis, postAnalysis, true)
-
-  new (ssaLifter) =
-    let summarizer = BaseFunctionSummarizer ()
-    let syscallAnalysis = SyscallAnalysis ()
-    let postAnalysis =
-      StackPointerAnalysis () :> IPostAnalysis<_>
-      <+> StackAnalysis ()
-      <+> CondAwareNoretAnalysis ()
-    CFGRecovery (ssaLifter, summarizer, syscallAnalysis, postAnalysis, true)
+    CFGRecovery (summarizer, syscallAnalysis, postAnalysis, true)
 
   interface ICFGBuildingStrategy<IRBasicBlock,
                                  CFGEdgeKind,
@@ -423,8 +411,7 @@ type CFGRecovery<'FnCtx,
         Failure ErrorCase.FailedToRecoverCFG
 
     member _.OnFinish (ctx) =
-      ctx.SSACFG <- ssaLifter.Lift ctx.CFG
-      IPostAnalysis.run { Context = ctx; SSALifter = ssaLifter } postAnalysis
+      IPostAnalysis.run { Context = ctx } postAnalysis
       Success
 
     member _.OnCyclicDependency (deps) =
@@ -445,16 +432,11 @@ type CFGRecovery =
   new () =
     { inherit CFGRecovery<DummyContext, DummyContext> () }
 
-  new (ssaLifter) =
-    { inherit CFGRecovery<DummyContext, DummyContext> (ssaLifter) }
-
-  new (ssaLifter,
-       summarizer,
+  new (summarizer,
        syscallAnalysis,
        postAnalysis,
        useTailcallHeuristic) =
-    { inherit CFGRecovery<DummyContext, DummyContext> (ssaLifter,
-                                                       summarizer,
+    { inherit CFGRecovery<DummyContext, DummyContext> (summarizer,
                                                        syscallAnalysis,
                                                        postAnalysis,
                                                        useTailcallHeuristic) }
