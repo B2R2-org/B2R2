@@ -29,13 +29,36 @@ open System.Diagnostics
 
 open B2R2
 open B2R2.BinIR
-open B2R2.FrontEnd.BinLifter
+open B2R2.FrontEnd.BinLifter.Intel
 open B2R2.MiddleEnd.SSA
 open B2R2.MiddleEnd.DataFlow
 open B2R2.MiddleEnd.ControlFlowGraph
 
 [<TestClass>]
 type PersistentDataFlowTests () =
+  let isRegular (v: VarPoint) =
+    match v.VarKind with
+    | Regular _ -> true
+    | _ -> false
+
+  let reg addr idx reg =
+    { ProgramPoint = ProgramPoint (addr, idx)
+      VarKind = Regular (Register.toRegID reg) }
+
+  let mkConst v rt =
+    ConstantDomain.Const (BitVector.OfUInt32 v rt)
+
+  let ssaReg r id rt =
+    let rid = Register.toRegID r
+    let rstr = Register.toString r
+    let k = SSA.RegVar (rt, rid, rstr)
+    SSA.SSAVarPoint.RegularSSAVar { Kind = k; Identifier = id }
+
+  let ssaStk offset id rt =
+    let k = SSA.StackVar (rt, offset)
+    SSA.SSAVarPoint.RegularSSAVar { Kind = k; Identifier = id }
+
+  let cmp vp c = vp, c
 
 #if !EMULATION
   [<TestMethod>]
@@ -46,44 +69,24 @@ type PersistentDataFlowTests () =
     dfa.Compute cfg
     let v = cfg.FindVertexBy (fun b -> b.VData.PPoint.Address = 0xEUL) (* 2nd *)
     let rd = dfa.GetAbsValue v.ID
-    let ins =
-      rd.Ins |> Set.filter (fun v ->
-      match v.VarKind with
-      | Regular _ -> true
-      | _ -> false)
-    let solution = [
-      { ProgramPoint = ProgramPoint (0UL, 1)
-        VarKind = Regular (Intel.Register.toRegID Intel.Register.EDX) }
-      { ProgramPoint = ProgramPoint (4UL, 1)
-        VarKind = Regular (Intel.Register.toRegID Intel.Register.ESP) }
-      { ProgramPoint = ProgramPoint (5UL, 1)
-        VarKind = Regular (Intel.Register.toRegID Intel.Register.ESI) }
-      { ProgramPoint = ProgramPoint (5UL, 2)
-        VarKind = Regular (Intel.Register.toRegID Intel.Register.OF) }
-      { ProgramPoint = ProgramPoint (5UL, 3)
-        VarKind = Regular (Intel.Register.toRegID Intel.Register.CF) }
-      { ProgramPoint = ProgramPoint (5UL, 4)
-        VarKind = Regular (Intel.Register.toRegID Intel.Register.SF) }
-      { ProgramPoint = ProgramPoint (5UL, 5)
-        VarKind = Regular (Intel.Register.toRegID Intel.Register.ZF) }
-      { ProgramPoint = ProgramPoint (5UL, 6)
-        VarKind = Regular (Intel.Register.toRegID Intel.Register.PF) }
-      { ProgramPoint = ProgramPoint (5UL, 7)
-        VarKind = Regular (Intel.Register.toRegID Intel.Register.AF) }
-      { ProgramPoint = ProgramPoint (7UL, 1)
-        VarKind = Regular (Intel.Register.toRegID Intel.Register.ECX) }
-      { ProgramPoint = ProgramPoint (0xAUL, 4)
-        VarKind = Regular (Intel.Register.toRegID Intel.Register.CF) }
-      { ProgramPoint = ProgramPoint (0xAUL, 5)
-        VarKind = Regular (Intel.Register.toRegID Intel.Register.OF) }
-      { ProgramPoint = ProgramPoint (0xAUL, 6)
-        VarKind = Regular (Intel.Register.toRegID Intel.Register.AF) }
-      { ProgramPoint = ProgramPoint (0xAUL, 7)
-        VarKind = Regular (Intel.Register.toRegID Intel.Register.SF) }
-      { ProgramPoint = ProgramPoint (0xAUL, 8)
-        VarKind = Regular (Intel.Register.toRegID Intel.Register.ZF) }
-      { ProgramPoint = ProgramPoint (0xAUL, 11)
-        VarKind = Regular (Intel.Register.toRegID Intel.Register.PF) } ]
+    let ins = rd.Ins |> Set.filter isRegular
+    let solution =
+      [ reg 0x0UL 1 Register.EDX
+        reg 0x4UL 1 Register.ESP
+        reg 0x5UL 1 Register.ESI
+        reg 0x5UL 2 Register.OF
+        reg 0x5UL 3 Register.CF
+        reg 0x5UL 4 Register.SF
+        reg 0x5UL 5 Register.ZF
+        reg 0x5UL 6 Register.PF
+        reg 0x5UL 7 Register.AF
+        reg 0x7UL 1 Register.ECX
+        reg 0xAUL 4 Register.CF
+        reg 0xAUL 5 Register.OF
+        reg 0xAUL 6 Register.AF
+        reg 0xAUL 7 Register.SF
+        reg 0xAUL 8 Register.ZF
+        reg 0xAUL 11 Register.PF ]
     Assert.AreEqual (Set.ofList solution, ins)
 #endif
 
@@ -92,13 +95,9 @@ type PersistentDataFlowTests () =
     let brew = Binaries.loadOne Binaries.sample1
     let cfg = brew.Functions[0UL].CFG
     let chain = DataFlowChain.init cfg false
-    let vp =
-      { ProgramPoint = ProgramPoint (0xEUL, 1)
-        VarKind = Regular (Intel.Register.toRegID Intel.Register.EDX) }
+    let vp = reg 0xEUL 1 Register.EDX
     let res = chain.UseDefChain |> Map.find vp |> Set.toArray
-    let solution = [|
-      { ProgramPoint = ProgramPoint (0x0UL, 1)
-        VarKind = Regular (Intel.Register.toRegID Intel.Register.EDX) } |]
+    let solution = [| reg 0x0UL 1 Register.EDX |]
     CollectionAssert.AreEqual (solution, res)
 
   [<TestMethod>]
@@ -106,13 +105,9 @@ type PersistentDataFlowTests () =
     let brew = Binaries.loadOne Binaries.sample1
     let cfg = brew.Functions[0UL].CFG
     let chain = DataFlowChain.init cfg true
-    let vp =
-      { ProgramPoint = ProgramPoint (0xEUL, 0)
-        VarKind = Regular (Intel.Register.toRegID Intel.Register.EDX) }
+    let vp = reg 0xEUL 0 Register.EDX
     let res = chain.UseDefChain |> Map.find vp |> Set.toArray
-    let solution = [|
-      { ProgramPoint = ProgramPoint (0x0UL, 0)
-        VarKind = Regular (Intel.Register.toRegID Intel.Register.EDX) } |]
+    let solution = [| reg 0x0UL 0 Register.EDX |]
     CollectionAssert.AreEqual (solution, res)
 
 #if !EMULATION
@@ -121,86 +116,44 @@ type PersistentDataFlowTests () =
     let brew = Binaries.loadOne Binaries.sample1
     let cfg = brew.Functions[0UL].CFG
     let chain = DataFlowChain.init cfg false
-    let vp =
-      { ProgramPoint = ProgramPoint (0x1AUL, 1)
-        VarKind = Regular (Intel.Register.toRegID Intel.Register.EDX) }
+    let vp = reg 0x1AUL 1 Register.EDX
     let res = chain.UseDefChain |> Map.find vp |> Set.toArray
-    let solution = [|
-      { ProgramPoint = ProgramPoint (0x12UL, 3)
-        VarKind = Regular (Intel.Register.toRegID Intel.Register.EDX) }
-      { ProgramPoint = ProgramPoint (0x1AUL, 3)
-        VarKind = Regular (Intel.Register.toRegID Intel.Register.EDX) } |]
+    let solution = [| reg 0x12UL 3 Register.EDX
+                      reg 0x1AUL 3 Register.EDX |]
     CollectionAssert.AreEqual (solution, res)
 #endif
 
   [<TestMethod>]
   member __.``SSA Constant Propagation Test 1`` () =
     let brew = Binaries.loadOne Binaries.sample2
-    let fn = brew.Functions[0UL]
+    let cfg = brew.Functions[0UL].CFG
     let lifter = SSALifterFactory<CFGEdgeKind>.Create (brew.BinHandle)
-    let cfg = lifter.Lift fn.CFG
+    let ssaCFG = lifter.Lift cfg
     let cp = SSA.SSAConstantPropagation brew.BinHandle
     let dfa = cp :> IDataFlowAnalysis<_, _, _, _>
-    dfa.Compute cfg
-    cfg.IterVertex (fun v ->
-      Debug.Print $"[Vertex {v.VData.PPoint.Address:x}]"
-      let inss = v.VData.LiftedSSAStmts
-      let stmts = inss |> Array.map (fun (_, stmt) -> stmt)
-      Debug.Print <| $"{SSA.Pp.stmtsToString stmts}")
-    let rt = 64<rt>
-    let genRegularVar r id =
-      let rid = Intel.Register.toRegID r
-      let rstr = Intel.Register.toString r
-      let v = SSA.RegVar (rt, rid, rstr)
-      SSA.SSAVarPoint.RegularSSAVar { Kind = v; Identifier = id }
-    let genMemVar memId addr = SSA.SSAVarPoint.MemorySSAVar (memId, addr)
-    let regularVarEq r id c =
-      let vp = genRegularVar r id
-      (vp, c)
-    let memVarEq memId addr c =
-      let vp = genMemVar memId addr
-      (vp, c)
-    let regularVarNotConst r id =
-      regularVarEq r id ConstantDomain.NotAConst
-    let regularVarConst r id value =
-      regularVarEq r id (ConstantDomain.Const (BitVector.OfUInt64 value rt))
-    let regularVarUndef r id =
-      regularVarEq r id ConstantDomain.Undef
-    let memVarNotConst memId addr =
-      memVarEq memId addr ConstantDomain.NotAConst
-    let stackVarConst rt id (offset: uint64) value =
-      let k = SSA.StackVar (rt, int offset)
-      let ssaVar = SSA.SSAVarPoint.RegularSSAVar { Kind = k; Identifier = id }
-      (ssaVar, ConstantDomain.Const (BitVector.OfUInt64 value rt))
-    let stackVarNotConst rt id (offset: uint64) =
-      let k = SSA.StackVar (rt, int offset)
-      let ssaVar = SSA.SSAVarPoint.RegularSSAVar { Kind = k; Identifier = id }
-      (ssaVar, ConstantDomain.NotAConst)
-    let memVarUndef memId addr =
-      memVarEq memId addr ConstantDomain.Undef
-    let varAnsMap =
-      [ regularVarConst Intel.Register.RSP 0 0x80000000UL
-        regularVarConst Intel.Register.RSP 1 0x7ffffff8UL
-        regularVarUndef Intel.Register.RBP 0
-        regularVarConst Intel.Register.RBP 1 0x7ffffff8UL
-        memVarUndef 1 0x7ffffff8UL
-        stackVarConst 32<rt> 2 (8UL + 0xcUL) 0x2UL
-        stackVarConst 32<rt> 2 (8UL + 0x8UL) 0x3UL
-        stackVarConst 32<rt> 3 (8UL + 0xcUL) 0x3UL
-        stackVarConst 32<rt> 3 (8UL + 0x8UL) 0x2UL
-        stackVarNotConst 32<rt> 1 (8UL + 0xcUL)
-        stackVarNotConst 32<rt> 1 (8UL + 0x8UL)
-        regularVarNotConst Intel.Register.RAX 1
-        regularVarNotConst Intel.Register.RDX 1
-        regularVarNotConst Intel.Register.RAX 2
-        regularVarUndef Intel.Register.RBP 2
-        regularVarConst Intel.Register.RSP 2 (0x7ffffff8UL + 0x8UL)
-        regularVarConst Intel.Register.RSP 3 (0x7ffffff8UL + 0x10UL) ]
-    varAnsMap |> List.iter (fun (var, ans) ->
+    dfa.Compute ssaCFG
+    [ ssaReg Register.RSP 0 64<rt> |> cmp <| mkConst 0x80000000u 64<rt>
+      ssaReg Register.RSP 1 64<rt> |> cmp <| mkConst 0x7ffffff8u 64<rt>
+      ssaReg Register.RBP 0 64<rt> |> cmp <| ConstantDomain.Undef
+      ssaReg Register.RBP 1 64<rt> |> cmp <| mkConst 0x7ffffff8u 64<rt>
+      ssaStk (8 + 0xc) 2 32<rt> |> cmp <| mkConst 0x2u 32<rt>
+      ssaStk (8 + 0x8) 2 32<rt> |> cmp <| mkConst 0x3u 32<rt>
+      ssaStk (8 + 0xc) 3 32<rt> |> cmp <| mkConst 0x3u 32<rt>
+      ssaStk (8 + 0x8) 3 32<rt> |> cmp <| mkConst 0x2u 32<rt>
+      ssaStk (8 + 0xc) 1 32<rt> |> cmp <| ConstantDomain.NotAConst
+      ssaStk (8 + 0x8) 1 32<rt> |> cmp <| ConstantDomain.NotAConst
+      ssaReg Register.RAX 1 64<rt> |> cmp <| ConstantDomain.NotAConst
+      ssaReg Register.RDX 1 64<rt> |> cmp <| ConstantDomain.NotAConst
+      ssaReg Register.RAX 2 64<rt> |> cmp <| ConstantDomain.NotAConst
+      ssaReg Register.RBP 2 64<rt> |> cmp <| ConstantDomain.Undef
+      ssaReg Register.RSP 2 64<rt> |> cmp <| mkConst 0x80000000u 64<rt>
+      ssaReg Register.RSP 3 64<rt> |> cmp <| mkConst 0x80000008u 64<rt> ]
+    |> List.iter (fun (var, ans) ->
       let out = dfa.GetAbsValue var
-      Debug.Print <| sprintf "%A: %A <-> %A" var ans out
+      Debug.Print $"{var}: {ans} <-> {out}"
       Assert.AreEqual (ans, out))
 
+#if !EMULATION
   [<TestMethod>]
   member __.``Incremental Data Flow Test 1``() =
     let brew = Binaries.loadOne Binaries.sample2
@@ -208,12 +161,12 @@ type PersistentDataFlowTests () =
     let rt = 64<rt>
     let roots = cfg.GetRoots ()
     let regValues =
-      (Intel.Register.RSP, Constants.InitialStackPointer)
-      |> fun (r, v) -> Intel.Register.toRegID r, BitVector.OfUInt64 v rt
+      (Register.RSP, Constants.InitialStackPointer)
+      |> fun (r, v) -> Register.toRegID r, BitVector.OfUInt64 v rt
       |> Seq.singleton
       |> Map.ofSeq
     let genRegularVar addr i r =
-      let rid = Intel.Register.toRegID r
+      let rid = Register.toRegID r
       let pp = ProgramPoint (addr, i)
       let varKind = VarKind.Regular rid
       { ProgramPoint = pp; VarKind = varKind }
@@ -239,10 +192,10 @@ type PersistentDataFlowTests () =
     let memVarUndef addr i memAddr =
       memVarEq addr i memAddr ConstantDomain.Undef
     let varAnsMap =
-      [ regularVarConst 0x0UL 0 Intel.Register.RSP 0x80000000UL
-        regularVarConst 0x4UL 1 Intel.Register.RSP 0x7ffffff8UL
-        regularVarUndef 0x5UL 0 Intel.Register.RBP
-        regularVarConst 0x5UL 1 Intel.Register.RBP 0x7ffffff8UL
+      [ regularVarConst 0x0UL 0 Register.RSP 0x80000000UL
+        regularVarConst 0x4UL 1 Register.RSP 0x7ffffff8UL
+        regularVarUndef 0x5UL 0 Register.RBP
+        regularVarConst 0x5UL 1 Register.RBP 0x7ffffff8UL
         memVarUndef 0xbUL 1 0x7ffffff8UL
         memVarDWordConst 0x11UL 1 (0x7ffffff8UL - 0xcUL) 0x2ul
         memVarDWordConst 0x18UL 1 (0x7ffffff8UL - 0x8UL) 0x3ul
@@ -250,8 +203,8 @@ type PersistentDataFlowTests () =
         memVarDWordConst 0x28UL 1 (0x7ffffff8UL - 0x8UL) 0x2ul
         memVarNotConst 0x2fUL 0 (0x7ffffff8UL - 0xcUL)
         memVarNotConst 0x2fUL 0 (0x7ffffff8UL - 0x8UL)
-        regularVarConst 0x3bUL 2 Intel.Register.RSP (0x7ffffff8UL + 0x8UL)
-        regularVarConst 0x3cUL 2 Intel.Register.RSP (0x7ffffff8UL + 0x10UL) ]
+        regularVarConst 0x3bUL 2 Register.RSP (0x7ffffff8UL + 0x8UL)
+        regularVarConst 0x3cUL 2 Register.RSP (0x7ffffff8UL + 0x10UL) ]
     let idfa =
       { new IncrementalDataFlowAnalysis<int, CFGEdgeKind> () with
         member __.Bottom = 0
@@ -265,6 +218,7 @@ type PersistentDataFlowTests () =
     varAnsMap |> List.iter (fun (vp, ans) ->
       let out = idfa.GetConstant vp
       Assert.AreEqual (ans, out))
+#endif
 
   [<TestMethod>]
   member __.``Untouched Value Analysis 1``() =
@@ -273,12 +227,12 @@ type PersistentDataFlowTests () =
     let rt = 64<rt>
     let roots = cfg.GetRoots ()
     let regValues =
-      (Intel.Register.RSP, Constants.InitialStackPointer)
-      |> fun (r, v) -> Intel.Register.toRegID r, BitVector.OfUInt64 v rt
+      (Register.RSP, Constants.InitialStackPointer)
+      |> fun (r, v) -> Register.toRegID r, BitVector.OfUInt64 v rt
       |> Seq.singleton
       |> Map.ofSeq
     let genRegularVar addr i r =
-      let rid = Intel.Register.toRegID r
+      let rid = Register.toRegID r
       let pp = ProgramPoint (addr, i)
       let varKind = VarKind.Regular rid
       { ProgramPoint = pp; VarKind = varKind }
@@ -296,7 +250,7 @@ type PersistentDataFlowTests () =
       let v = UntouchedValueDomain.Touched
       regularVarEq addr i r v
     let regularVarUntouched addr i r srcReg =
-      let varKind = VarKind.Regular (Intel.Register.toRegID srcReg)
+      let varKind = VarKind.Regular (Register.toRegID srcReg)
       let tag = UntouchedValueDomain.RegisterTag varKind
       let v = UntouchedValueDomain.Untouched tag
       regularVarEq addr i r v
@@ -304,19 +258,19 @@ type PersistentDataFlowTests () =
       let v = UntouchedValueDomain.Touched
       memVarEq addr i memAddr v
     let memVarUntouched addr i memAddr r =
-      let varKind = VarKind.Regular (Intel.Register.toRegID r)
+      let varKind = VarKind.Regular (Register.toRegID r)
       let tag = UntouchedValueDomain.RegisterTag varKind
       let v = UntouchedValueDomain.Untouched tag
       memVarEq addr i memAddr v
     let varAnsMap =
-      [ memVarUntouched 0xcUL 1 (0x7ffffff8UL - 0x14UL) Intel.Register.RDI
-        memVarUntouched 0xfUL 1 (0x7ffffff8UL - 0x18UL) Intel.Register.RSI
-        memVarUntouched 0x15UL 1 (0x7ffffff8UL - 0x10UL) Intel.Register.RDI
+      [ memVarUntouched 0xcUL 1 (0x7ffffff8UL - 0x14UL) Register.RDI
+        memVarUntouched 0xfUL 1 (0x7ffffff8UL - 0x18UL) Register.RSI
+        memVarUntouched 0x15UL 1 (0x7ffffff8UL - 0x10UL) Register.RDI
         memVarTouched 0x1eUL 1 (0x7ffffff8UL - 0xcUL)
-        regularVarTouched 0x32UL 1 Intel.Register.RCX
-        regularVarTouched 0x35UL 1 Intel.Register.RDX
-        regularVarTouched 0x38UL 1 Intel.Register.RSI
-        regularVarUntouched 0x3bUL 1 Intel.Register.RAX Intel.Register.RDI ]
+        regularVarTouched 0x32UL 1 Register.RCX
+        regularVarTouched 0x35UL 1 Register.RDX
+        regularVarTouched 0x38UL 1 Register.RSI
+        regularVarUntouched 0x3bUL 1 Register.RAX Register.RDI ]
     let uva = UntouchedValueAnalysis<CFGEdgeKind> ()
     let dfa = uva :> IDataFlowAnalysis<_, _, _, _>
     Seq.iter uva.PushWork roots
