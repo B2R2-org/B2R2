@@ -128,12 +128,12 @@ type SSAConstantPropagation<'E when 'E: equality>
     | FuncName _ | Nil | Undefined _ -> ConstantDomain.NotAConst
     | _ -> Utils.impossible ()
 
-  let evalDef blk pp var e =
+  let evalDef blk var e =
     match var.Kind with
     | MemVar -> ()
-    | _ -> this.SetRegValue (pp, var, evalExpr blk e)
+    | _ -> this.SetRegValue (var, evalExpr blk e)
 
-  let evalPhi cfg blk pp dst srcIDs =
+  let evalPhi cfg blk dst srcIDs =
     match this.GetExecutedSources cfg blk srcIDs with
     | [||] -> ()
     | executedSrcIDs ->
@@ -143,7 +143,7 @@ type SSAConstantPropagation<'E when 'E: equality>
         executedSrcIDs
         |> Array.map (fun i -> { dst with Identifier = i } |> this.GetRegValue)
         |> Array.reduce this.Join
-        |> fun merged -> this.SetRegValue (pp, dst, merged)
+        |> fun merged -> this.SetRegValue (dst, merged)
 
   let evalJmp cfg blk =
     this.MarkSuccessorsExecutable cfg blk
@@ -154,10 +154,10 @@ type SSAConstantPropagation<'E when 'E: equality>
 
   override _.Join a b = ConstantDomain.join a b
 
-  override _.Transfer ssaCFG blk pp stmt =
+  override _.Transfer ssaCFG blk _pp stmt =
     match stmt with
-    | Def (var, e) -> evalDef blk pp var e
-    | Phi (var, ns) -> evalPhi ssaCFG blk pp var ns
+    | Def (var, e) -> evalDef blk var e
+    | Phi (var, ns) -> evalPhi ssaCFG blk var ns
     | Jmp _ -> evalJmp ssaCFG blk
     | LMark _ | ExternalCall _ | SideEffect _ -> ()
 

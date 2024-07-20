@@ -5,7 +5,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="TestCases.fs" />
+    <Compile Include="Binaries.fs" />
     <Compile Include="DataFlow.Tests.fs" />
   </ItemGroup>
 

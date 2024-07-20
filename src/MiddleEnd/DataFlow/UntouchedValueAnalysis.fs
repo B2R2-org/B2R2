@@ -41,7 +41,7 @@ type UntouchedValueAnalysis<'E when 'E: equality> () as this =
     else
       let dfa = this :> IDataFlowAnalysis<_, _, _, _>
       vps
-      |> Set.map (fun vp -> dfa.GetAbsValue vp)
+      |> Set.map dfa.GetAbsValue
       |> Seq.reduce UntouchedValueDomain.join
 
   let rec evaluateExpr pp e =

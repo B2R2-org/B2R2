@@ -67,13 +67,13 @@ type SSAUntouchedValuePropagation<'E when 'E: equality> (hdl) as this =
     | _ -> (* Any other operations will be considered "touched". *)
       UntouchedValueDomain.Touched
 
-  let evalDef blk pp var e =
+  let evalDef blk var e =
     match var.Kind with
     | MemVar
     | PCVar _ -> () (* Just ignore PCVar as it will always be "touched". *)
-    | _ -> this.SetRegValue (pp, var, evalExpr blk e)
+    | _ -> this.SetRegValue (var, evalExpr blk e)
 
-  let evalPhi ssaCFG blk pp dst srcIDs =
+  let evalPhi ssaCFG blk dst srcIDs =
     match this.GetExecutedSources ssaCFG blk srcIDs with
     | [||] -> ()
     | executedSrcIDs ->
@@ -83,7 +83,7 @@ type SSAUntouchedValuePropagation<'E when 'E: equality> (hdl) as this =
         executedSrcIDs
         |> Array.map (fun i -> { dst with Identifier = i } |> this.GetRegValue)
         |> Array.reduce this.Join
-        |> fun merged -> this.SetRegValue (pp, dst, merged)
+        |> fun merged -> this.SetRegValue (dst, merged)
 
   let evalJmp ssaCFG blk =
     this.MarkSuccessorsExecutable ssaCFG blk
@@ -94,10 +94,10 @@ type SSAUntouchedValuePropagation<'E when 'E: equality> (hdl) as this =
 
   override _.Join a b = UntouchedValueDomain.join a b
 
-  override _.Transfer ssaCFG blk pp stmt =
+  override _.Transfer ssaCFG blk _pp stmt =
     match stmt with
-    | Def (var, e) -> evalDef blk pp var e
-    | Phi (var, ns) -> evalPhi ssaCFG blk pp var ns
+    | Def (var, e) -> evalDef blk var e
+    | Phi (var, ns) -> evalPhi ssaCFG blk var ns
     | Jmp _ -> evalJmp ssaCFG blk
     | LMark _ | ExternalCall _ | SideEffect _ -> ()
 

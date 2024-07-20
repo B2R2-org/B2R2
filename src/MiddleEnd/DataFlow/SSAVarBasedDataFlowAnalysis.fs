@@ -119,7 +119,7 @@ type SSAVarBasedDataFlowAnalysis<'Lattice,
     regValues.ContainsKey var
 
   /// Set register value.
-  member __.SetRegValue (pp: ProgramPoint, var: Variable, value: 'Lattice) =
+  member __.SetRegValue (var: Variable, value: 'Lattice) =
     if not (regValues.ContainsKey var) then
       regValues[var] <- value
       ssaWorkList.Push var
@@ -155,7 +155,7 @@ type SSAVarBasedDataFlowAnalysis<'Lattice,
     match flowWorkList.TryDequeue () with
     | false, _ -> ()
     | true, (parentId, myId) ->
-      executableEdges.Add (parentId, myId) |> ignore
+      executedEdges.Add (parentId, myId) |> ignore
       let blk = ssaCFG.FindVertexByID myId
       blk.VData.LiftedSSAStmts
       |> Array.iter (fun (ppoint, stmt) -> __.Transfer ssaCFG blk ppoint stmt)

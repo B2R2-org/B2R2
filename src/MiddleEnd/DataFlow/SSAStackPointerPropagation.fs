@@ -73,17 +73,17 @@ type SSAStackPointerPropagation<'E when 'E: equality> (hdl) as this =
     hdl.RegisterFactory.IsStackPointer regId
     || hdl.RegisterFactory.IsFramePointer regId
 
-  let evalDef pp var e =
+  let evalDef var e =
     match var.Kind with
     | RegVar (_, regid, _) when isStackRelatedRegister regid ->
-      this.SetRegValue (pp, var, evalExpr e)
+      this.SetRegValue (var, evalExpr e)
     | RegVar _ ->
-      this.SetRegValue (pp, var, StackPointerDomain.NotConstSP)
+      this.SetRegValue (var, StackPointerDomain.NotConstSP)
     | TempVar _ ->
-      this.SetRegValue (pp, var, evalExpr e)
+      this.SetRegValue (var, evalExpr e)
     | _ -> ()
 
-  let evalPhi ssaCFG blk pp dst srcIDs =
+  let evalPhi ssaCFG blk dst srcIDs =
     match this.GetExecutedSources ssaCFG blk srcIDs with
     | [||] -> ()
     | executedSrcIDs ->
@@ -92,7 +92,7 @@ type SSAStackPointerPropagation<'E when 'E: equality> (hdl) as this =
         executedSrcIDs
         |> Array.map (fun i -> { dst with Identifier = i } |> this.GetRegValue)
         |> Array.reduce this.Join
-        |> fun merged -> this.SetRegValue (pp, dst, merged)
+        |> fun merged -> this.SetRegValue (dst, merged)
       | _ -> ()
 
   let evalJmp ssaCFG blk =
@@ -104,10 +104,10 @@ type SSAStackPointerPropagation<'E when 'E: equality> (hdl) as this =
 
   override _.Join a b = StackPointerDomain.join a b
 
-  override _.Transfer ssaCFG blk pp stmt =
+  override _.Transfer ssaCFG blk _pp stmt =
     match stmt with
-    | Def (var, e) -> evalDef pp var e
-    | Phi (var, ns) -> evalPhi ssaCFG blk pp var ns
+    | Def (var, e) -> evalDef var e
+    | Phi (var, ns) -> evalPhi ssaCFG blk var ns
     | Jmp _ -> evalJmp ssaCFG blk
     | LMark _ | ExternalCall _ | SideEffect _ -> ()
 

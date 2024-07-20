@@ -22,7 +22,8 @@
   SOFTWARE.
 *)
 
-module B2R2.MiddleEnd.DataFlow.Tests.TestCases
+[<RequireQualifiedAccess>]
+module B2R2.MiddleEnd.DataFlow.Tests.Binaries
 
 open B2R2
 open B2R2.FrontEnd
@@ -30,9 +31,11 @@ open B2R2.MiddleEnd
 open B2R2.MiddleEnd.ControlFlowAnalysis
 open B2R2.MiddleEnd.ControlFlowAnalysis.Strategies
 
-let private getBrewFromBinary arch (binary: byte[]) =
+type Binary = Binary of byte[] * Architecture
+
+let loadOne (Binary (code, arch)) =
   let isa = ISA.Init arch Endian.Little
-  let hdl = BinHandle (binary, isa, ArchOperationMode.NoMode, None, false)
+  let hdl = BinHandle (code, isa, ArchOperationMode.NoMode, None, false)
   let exnInfo = ExceptionInfo hdl
   let funcId = FunctionIdentification (hdl, exnInfo)
   let strategies =
@@ -76,12 +79,13 @@ let private getBrewFromBinary arch (binary: byte[]) =
 
   8B5424045633F68D4E013BD177048BC25EC34A8D04318D318BC883EA0175F45EC3
 *)
-let private binary1 =
+let private code1 =
   [| 0x8Buy; 0x54uy; 0x24uy; 0x04uy; 0x56uy; 0x33uy; 0xF6uy; 0x8Duy; 0x4Euy;
      0x01uy; 0x3Buy; 0xD1uy; 0x77uy; 0x04uy; 0x8Buy; 0xC2uy; 0x5Euy; 0xC3uy;
      0x4Auy; 0x8Duy; 0x04uy; 0x31uy; 0x8Duy; 0x31uy; 0x8Buy; 0xC8uy; 0x83uy;
      0xEAuy; 0x01uy; 0x75uy; 0xF4uy; 0x5Euy; 0xC3uy |]
-let brew1 = getBrewFromBinary Architecture.IntelX86 binary1
+
+let sample1 = Binary (code1, Architecture.IntelX86)
 
 (*
   Example 2: Constant Propagation Test (from Dragon Book, p636)
@@ -125,7 +129,7 @@ let brew1 = getBrewFromBinary Architecture.IntelX86 binary1
   00000020: 0ec7 45f4 0300 0000 c745 f802 0000 008b  ..E......E......
   00000030: 55f4 8b45 f801 d089 45fc 905d c3         U..E....E..].
 *)
-let private binary2 =
+let private code2 =
   [| 0xF3uy; 0x0Fuy; 0x1Euy; 0xFAuy; 0x55uy; 0x48uy; 0x89uy; 0xE5uy; 0x89uy;
      0x7Duy; 0xECuy; 0x83uy; 0x7Duy; 0xECuy; 0x00uy; 0x74uy; 0x10uy; 0xC7uy;
      0x45uy; 0xF4uy; 0x02uy; 0x00uy; 0x00uy; 0x00uy; 0xC7uy; 0x45uy; 0xF8uy;
@@ -133,7 +137,8 @@ let private binary2 =
      0x03uy; 0x00uy; 0x00uy; 0x00uy; 0xC7uy; 0x45uy; 0xF8uy; 0x02uy; 0x00uy;
      0x00uy; 0x00uy; 0x8Buy; 0x55uy; 0xF4uy; 0x8Buy; 0x45uy; 0xF8uy; 0x01uy;
      0xD0uy; 0x89uy; 0x45uy; 0xFCuy; 0x90uy; 0x5Duy; 0xC3uy |]
-let brew2 = getBrewFromBinary Architecture.IntelX64 binary2
+
+let sample2 = Binary (code2, Architecture.IntelX64)
 
 (*
   Example 3: Untouched Value Propagation Test
@@ -176,7 +181,7 @@ let brew2 = getBrewFromBinary Architecture.IntelX64 binary2
   00000030: f801 8b4d fc8b 55f8 8b75 f48b 45f0 89c7  ...M..U..u..E...
   00000040: c9c3                                     ..
 *)
-let private binary3 =
+let private code3 =
   [| 0xf3uy; 0x0fuy; 0x1euy; 0xfauy; 0x55uy; 0x48uy; 0x89uy; 0xe5uy;
      0x48uy; 0x83uy; 0xecuy; 0x20uy; 0x89uy; 0x7duy; 0xecuy; 0x89uy;
      0x75uy; 0xe8uy; 0x8buy; 0x45uy; 0xecuy; 0x89uy; 0x45uy; 0xf0uy;
@@ -186,4 +191,5 @@ let private binary3 =
      0xf8uy; 0x01uy; 0x8buy; 0x4duy; 0xfcuy; 0x8buy; 0x55uy; 0xf8uy;
      0x8buy; 0x75uy; 0xf4uy; 0x8buy; 0x45uy; 0xf0uy; 0x89uy; 0xc7uy;
      0xc9uy; 0xc3uy; |]
-let brew3 = getBrewFromBinary Architecture.IntelX64 binary3
+
+let sample3 = Binary (code3, Architecture.IntelX64)

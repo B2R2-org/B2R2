@@ -30,7 +30,6 @@ open System.Diagnostics
 open B2R2
 open B2R2.BinIR
 open B2R2.FrontEnd.BinLifter
-open B2R2.MiddleEnd
 open B2R2.MiddleEnd.SSA
 open B2R2.MiddleEnd.DataFlow
 open B2R2.MiddleEnd.ControlFlowGraph
@@ -41,7 +40,7 @@ type PersistentDataFlowTests () =
 #if !EMULATION
   [<TestMethod>]
   member __.``Reaching Definitions Test 1``() =
-    let brew = TestCases.brew1
+    let brew = Binaries.loadOne Binaries.sample1
     let cfg = brew.Functions[0UL].CFG
     let dfa = ReachingDefinitionAnalysis () :> IDataFlowAnalysis<_, _, _, _>
     dfa.Compute cfg
@@ -90,7 +89,7 @@ type PersistentDataFlowTests () =
 
   [<TestMethod>]
   member __.``Use-Def Test 1``() =
-    let brew = TestCases.brew1
+    let brew = Binaries.loadOne Binaries.sample1
     let cfg = brew.Functions[0UL].CFG
     let chain = DataFlowChain.init cfg false
     let vp =
@@ -104,7 +103,7 @@ type PersistentDataFlowTests () =
 
   [<TestMethod>]
   member __.``Use-Def Test 2``() =
-    let brew = TestCases.brew1
+    let brew = Binaries.loadOne Binaries.sample1
     let cfg = brew.Functions[0UL].CFG
     let chain = DataFlowChain.init cfg true
     let vp =
@@ -119,7 +118,7 @@ type PersistentDataFlowTests () =
 #if !EMULATION
   [<TestMethod>]
   member __.``Use-Def Test 3``() =
-    let brew = TestCases.brew1
+    let brew = Binaries.loadOne Binaries.sample1
     let cfg = brew.Functions[0UL].CFG
     let chain = DataFlowChain.init cfg false
     let vp =
@@ -136,7 +135,7 @@ type PersistentDataFlowTests () =
 
   [<TestMethod>]
   member __.``SSA Constant Propagation Test 1`` () =
-    let brew = TestCases.brew2
+    let brew = Binaries.loadOne Binaries.sample2
     let fn = brew.Functions[0UL]
     let lifter = SSALifterFactory<CFGEdgeKind>.Create (brew.BinHandle)
     let cfg = lifter.Lift fn.CFG
@@ -169,8 +168,14 @@ type PersistentDataFlowTests () =
       regularVarEq r id ConstantDomain.Undef
     let memVarNotConst memId addr =
       memVarEq memId addr ConstantDomain.NotAConst
-    let memVarConst memId addr value =
-      memVarEq memId addr (ConstantDomain.Const (BitVector.OfUInt64 value rt))
+    let stackVarConst rt id (offset: uint64) value =
+      let k = SSA.StackVar (rt, int offset)
+      let ssaVar = SSA.SSAVarPoint.RegularSSAVar { Kind = k; Identifier = id }
+      (ssaVar, ConstantDomain.Const (BitVector.OfUInt64 value rt))
+    let stackVarNotConst rt id (offset: uint64) =
+      let k = SSA.StackVar (rt, int offset)
+      let ssaVar = SSA.SSAVarPoint.RegularSSAVar { Kind = k; Identifier = id }
+      (ssaVar, ConstantDomain.NotAConst)
     let memVarUndef memId addr =
       memVarEq memId addr ConstantDomain.Undef
     let varAnsMap =
@@ -179,16 +184,16 @@ type PersistentDataFlowTests () =
         regularVarUndef Intel.Register.RBP 0
         regularVarConst Intel.Register.RBP 1 0x7ffffff8UL
         memVarUndef 1 0x7ffffff8UL
-        memVarConst 5 (0x7ffffff8UL - 0xcUL) 0x2UL
-        memVarConst 6 (0x7ffffff8UL - 0x8UL) 0x3UL
-        memVarConst 7 (0x7ffffff8UL - 0xcUL) 0x3UL
-        memVarConst 8 (0x7ffffff8UL - 0x8UL) 0x2UL
-        memVarNotConst 3 (0x7ffffff8UL - 0xcUL)
-        memVarNotConst 3 (0x7ffffff8UL - 0x8UL)
+        stackVarConst 32<rt> 2 (8UL + 0xcUL) 0x2UL
+        stackVarConst 32<rt> 2 (8UL + 0x8UL) 0x3UL
+        stackVarConst 32<rt> 3 (8UL + 0xcUL) 0x3UL
+        stackVarConst 32<rt> 3 (8UL + 0x8UL) 0x2UL
+        stackVarNotConst 32<rt> 1 (8UL + 0xcUL)
+        stackVarNotConst 32<rt> 1 (8UL + 0x8UL)
         regularVarNotConst Intel.Register.RAX 1
         regularVarNotConst Intel.Register.RDX 1
         regularVarNotConst Intel.Register.RAX 2
-        regularVarNotConst Intel.Register.RBP 2
+        regularVarUndef Intel.Register.RBP 2
         regularVarConst Intel.Register.RSP 2 (0x7ffffff8UL + 0x8UL)
         regularVarConst Intel.Register.RSP 3 (0x7ffffff8UL + 0x10UL) ]
     varAnsMap |> List.iter (fun (var, ans) ->
@@ -198,7 +203,7 @@ type PersistentDataFlowTests () =
 
   [<TestMethod>]
   member __.``Incremental Data Flow Test 1``() =
-    let brew = TestCases.brew2
+    let brew = Binaries.loadOne Binaries.sample2
     let cfg = brew.Functions[0UL].CFG
     let rt = 64<rt>
     let roots = cfg.GetRoots ()
@@ -263,7 +268,7 @@ type PersistentDataFlowTests () =
 
   [<TestMethod>]
   member __.``Untouched Value Analysis 1``() =
-    let brew = TestCases.brew3
+    let brew = Binaries.loadOne Binaries.sample3
     let cfg = brew.Functions[0UL].CFG
     let rt = 64<rt>
     let roots = cfg.GetRoots ()
