@@ -22,20 +22,44 @@
   SOFTWARE.
 *)
 
-namespace B2R2.BinIR
+namespace B2R2.BinIR.SSA
 
-/// Pretty printer "module" for B2R2's IR.
-type PrettyPrinter =
-  /// <summary>
-  ///   Given a list of LowUIR statements, return a well-formated string.
-  /// </summary>
-  /// <param name="stmts">LowUIR statements.</param>
-  static member inline ToString (stmts: LowUIR.Stmt[]) =
-    LowUIR.Pp.stmtsToString stmts
+open B2R2
+open B2R2.BinIR
 
-  /// <summary>
-  ///   Given a list of SSA statements, return a well-formated string.
-  /// </summary>
-  /// <param name="stmts">LowUIR statements.</param>
-  static member inline ToString (stmts: SSA.Stmt[]) =
-    SSA.Pp.stmtsToString stmts
+/// IR Statements.
+type Stmt =
+  /// A label (as in an assembly language). LMark is only valid within a
+  /// machine instruction.
+  | LMark of Label
+
+  /// Assignment in SSA.
+  | Def of Variable * Expr
+
+  /// Phi function.
+  | Phi of Variable * int[]
+
+  /// Branch statement.
+  | Jmp of JmpType
+
+  /// External call.
+  | ExternalCall of Expr * inVars: Variable list * outVars: Variable list
+
+  /// This represents an instruction with side effects such as a system call.
+  | SideEffect of SideEffect
+
+/// IR Label. Since we don't distinguish instruction boundary in SSA level, we
+/// want to specify where the label comes from.
+and Label = Addr * Symbol
+
+and JmpType =
+  /// Jump to a label.
+  | IntraJmp of Label
+  /// Conditional jump to a label.
+  | IntraCJmp of Expr * Label * Label
+  /// Jump to another instruction. The Expr is the jump address.
+  | InterJmp of Expr
+  /// Conditional jump. The first Expr is the condition, and the second and the
+  /// third Expr refer to true and false branch addresses, respectively.
+  | InterCJmp of Expr * Expr * Expr
+

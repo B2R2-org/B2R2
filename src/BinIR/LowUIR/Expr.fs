@@ -93,7 +93,7 @@ type E =
   /// Extraction expression. The first argument is target expression, and the
   /// second argument is the number of bits for extraction, and the third is
   /// the start position.
-  | Extract of Expr * RegType * StartPos
+  | Extract of Expr * RegType * startPos: int
 
   /// Undefined expression. This is rarely used, and it is a fatal error when we
   /// encounter this expression while evaluating a program. Some CPU manuals

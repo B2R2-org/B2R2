@@ -22,11 +22,21 @@
   SOFTWARE.
 *)
 
-module B2R2.BinIR.Utils
+namespace B2R2.BinIR
 
-open B2R2.BinIR.LowUIR
+/// Raised when an illegal AST type is used. This should never be raised in
+/// normal situation.
+exception IllegalASTTypeException
 
-/// Is this IR statement a branch statement?
-let isBranch = function
-  | Jmp _ | CJmp _ | InterJmp _ | InterCJmp _ | ExternalCall _ -> true
-  | ISMark _ | IEMark _ | LMark _ | Put _ | Store _ | SideEffect _ -> false
+/// Raised when an assignment expression has an invalid destination expression.
+exception InvalidAssignmentException
+
+/// Rasied when an invalid expression is encountered during type checking or
+/// evaluation.
+exception InvalidExprException
+
+/// Raised when an expression does not type-check.
+exception TypeCheckException of string
+
+/// Raised when an illegal number of bits is used to represent floats.
+exception InvalidFloatTypeException

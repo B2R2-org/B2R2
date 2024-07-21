@@ -27,46 +27,6 @@ namespace B2R2.BinIR.SSA
 open B2R2
 open B2R2.BinIR
 
-/// Type representing destination of an assignment.
-type VariableKind =
-  /// Register.
-  | RegVar of RegType * RegisterID * string
-  /// PC.
-  | PCVar of RegType
-  /// Temporary variables.
-  | TempVar of RegType * int
-  /// The whole memory as a var (an over-approximated instance). Whenever there
-  /// is a memory store op, we update MemVar.
-  | MemVar
-  /// Stack variables. This variable is available only after the SSA promotion,
-  /// which basically translates every memory load/store expression with a
-  /// concrete address into either a StackVar or a GlobalVar.
-  | StackVar of RegType * offset: int
-  /// Global variables. This variable is available only after the SSA promotion.
-  | GlobalVar of RegType * Addr
-with
-  static member ToString = function
-    | RegVar (_, _, n) -> n
-    | PCVar (_) -> "PC"
-    | TempVar (_, n) -> "T_" + n.ToString()
-    | MemVar -> "MEM"
-    | StackVar (_, offset) -> "V_" + offset.ToString ()
-    | GlobalVar (_, addr) -> "G_" + addr.ToString ()
-
-/// SSA variables always have their own identifier.
-type Variable = {
-  Kind: VariableKind
-  mutable Identifier: int
-}
-with
-  static member ToString ({ Kind = k; Identifier = i }) =
-    VariableKind.ToString k + "_" + i.ToString ()
-
-  static member IsPC ({ Kind = k }) =
-    match k with
-    | PCVar (_) -> true
-    | _ -> false
-
 /// Basic expressions similar to LowUIR.Expr.
 type Expr =
   /// A number. For example, (0x42:I32) is a 32-bit number 0x42
@@ -111,7 +71,7 @@ type Expr =
   /// Extraction expression. The first argument is target expression, and the
   /// second argument is the number of bits for extraction, and the third is
   /// the start position.
-  | Extract of Expr * RegType * StartPos
+  | Extract of Expr * RegType * startPos: int
 
   /// Undefined expression. It is a fatal error when we encounter this
   /// expression while evaluating a program. This expression is useful when we
@@ -126,48 +86,3 @@ type Expr =
   /// will contain this expression.
   | ReturnVal of fnAddr: Addr * retAddr: Addr * value: Expr
 
-/// IR Label. Since we don't distinguish instruction boundary in SSA level, we
-/// want to specify where the label comes from.
-type Label = Addr * Symbol
-
-type JmpType =
-  /// Jump to a label.
-  | IntraJmp of Label
-  /// Conditional jump to a label.
-  | IntraCJmp of Expr * Label * Label
-  /// Jump to another instruction. The Expr is the jump address.
-  | InterJmp of Expr
-  /// Conditional jump. The first Expr is the condition, and the second and the
-  /// third Expr refer to true and false branch addresses, respectively.
-  | InterCJmp of Expr * Expr * Expr
-
-/// IR Statements.
-type Stmt =
-  /// A label (as in an assembly language). LMark is only valid within a
-  /// machine instruction.
-  | LMark of Label
-
-  /// Assignment in SSA.
-  | Def of Variable * Expr
-
-  /// Phi function.
-  | Phi of Variable * int[]
-
-  /// Branch statement.
-  | Jmp of JmpType
-
-  /// External call.
-  | ExternalCall of Expr * inVars: Variable list * outVars: Variable list
-
-  /// This represents an instruction with side effects such as a system call.
-  | SideEffect of SideEffect
-
-/// A program is a list of statements.
-type Prog = Stmt list list
-
-/// SSA statement post-processor.
-type IStmtPostProcessor =
-  /// This is a callback function that is called after lifting SSA stmts.
-  abstract PostProcess: Stmt -> Stmt
-
-// vim: set tw=80 sts=2 sw=2:

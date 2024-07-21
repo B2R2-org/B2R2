@@ -27,7 +27,6 @@ module B2R2.BinIR.LowUIR.Pp
 
 open System
 open System.Text
-open B2R2
 
 let expToString = Expr.toString
 
