@@ -31,7 +31,7 @@ open B2R2.MiddleEnd.DataFlow
 open B2R2.FrontEnd
 
 type StackPointerPropagation<'E when 'E: equality> (hdl) as this =
-  inherit IncrementalDataFlowAnalysis<StackPointerDomain.Lattice, 'E> ()
+  inherit IncrementalDataFlowAnalysis<StackPointerDomain.Lattice, 'E> (hdl)
 
   let isStackRelatedRegister rid =
     (hdl: BinHandle).RegisterFactory.IsStackPointer rid

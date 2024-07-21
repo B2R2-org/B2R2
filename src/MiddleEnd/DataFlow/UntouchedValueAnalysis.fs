@@ -29,8 +29,8 @@ open B2R2.BinIR
 open B2R2.BinIR.LowUIR
 open B2R2.MiddleEnd.DataFlow
 
-type UntouchedValueAnalysis<'E when 'E: equality> () as this =
-  inherit IncrementalDataFlowAnalysis<UntouchedValueDomain.Lattice, 'E> ()
+type UntouchedValueAnalysis<'E when 'E: equality> (hdl) as this =
+  inherit IncrementalDataFlowAnalysis<UntouchedValueDomain.Lattice, 'E> (hdl)
 
   let evaluateVarPoint pp varKind =
     let varDef = this.CalculateIncomingVarDef pp

@@ -25,6 +25,7 @@
 namespace B2R2.MiddleEnd.DataFlow
 
 open B2R2
+open B2R2.FrontEnd
 open B2R2.MiddleEnd.DataFlow
 open B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.MiddleEnd.BinGraph
@@ -33,14 +34,12 @@ open B2R2.BinIR.LowUIR
 open System.Collections.Generic
 
 [<AbstractClass>]
-type IncrementalDataFlowAnalysis<'Lattice, 'E when 'E: equality> () as this =
+type IncrementalDataFlowAnalysis<'Lattice, 'E when 'E: equality> (hdl) as this =
   let absValues = Dictionary<VarPoint, 'Lattice> ()
   let varDefs = Dictionary<ProgramPoint, VarDefDomain.Lattice> ()
   let constants = Dictionary<VarPoint, ConstantDomain.Lattice> ()
 
   let incomingPps = Dictionary<ProgramPoint, Set<ProgramPoint>> ()
-
-  let initialConstants = Dictionary<VarKind, ConstantDomain.Lattice> ()
 
   let workList = Queue ()
   let workSet = HashSet ()
@@ -74,13 +73,9 @@ type IncrementalDataFlowAnalysis<'Lattice, 'E when 'E: equality> () as this =
     | false, _ -> this.Bottom
     | true, v -> v
 
-  let getInitialConstant varKind =
-    match initialConstants.TryGetValue varKind with
-    | false, _ -> ConstantDomain.Undef
-    | true, c -> c
-
-  let setInitialConstantWithBitVector vk bv =
-    initialConstants[Regular vk] <- ConstantDomain.Const bv
+  let getInitialVarConstant varKind =
+    Map.tryFind varKind this.InitialVarConstants
+    |> Option.defaultValue ConstantDomain.Undef
 
   /////////
   // Etc //
@@ -106,11 +101,6 @@ type IncrementalDataFlowAnalysis<'Lattice, 'E when 'E: equality> () as this =
 
   /// TODO: do not forget to implement memoization of it
   let calculateIncomingVarDef pp =
-    (*
-    match incomingVarDefs.TryGetValue pp with
-    | false, _ -> VarDefDomain.empty
-    | true, rd -> rd
-    *)
     let incomingPps = getIncomingPps pp
     let incomingVarDefs = incomingPps |> Seq.map getVarDef
     Seq.fold VarDefDomain.join VarDefDomain.empty incomingVarDefs
@@ -139,7 +129,7 @@ type IncrementalDataFlowAnalysis<'Lattice, 'E when 'E: equality> () as this =
     | Var _ | TempVar _ ->
       let varKind = VarKind.ofIRExpr e
       match getConstantFromVarKindAt varKind pp with
-      | ConstantDomain.Undef -> getInitialConstant varKind
+      | ConstantDomain.Undef -> getInitialVarConstant varKind
       | c -> c
     | Load (_, _, addr) ->
       match evaluateExprIntoConst pp addr with
@@ -190,6 +180,62 @@ type IncrementalDataFlowAnalysis<'Lattice, 'E when 'E: equality> () as this =
       | _ -> ConstantDomain.NotAConst
     | Cast (_, _, e) -> evaluateExprIntoConst pp e
     | _ -> failwith "TODO: FILLME"
+
+  abstract Bottom: 'Lattice
+
+  abstract Transfer:
+       IGraph<IRBasicBlock, 'E>
+     * IVertex<IRBasicBlock>
+     * ProgramPoint
+     * Stmt
+    -> (VarPoint * 'Lattice) option
+
+  abstract IsSubsumable:
+       'Lattice
+     * 'Lattice
+    -> bool
+
+  abstract Join:
+       'Lattice
+     * 'Lattice
+    -> 'Lattice
+
+  abstract GetNextVertices:
+       IGraph<IRBasicBlock, 'E>
+     * IVertex<IRBasicBlock>
+    -> VertexID seq
+
+  abstract InitialVarConstants: Map<VarKind, ConstantDomain.Lattice>
+
+  /// Call this whenever a new vertex is added to the graph
+  member __.PushWork (v: IVertex<IRBasicBlock>) = pushWork v.ID
+
+  member __.GetVarDef (vp: VarPoint) = getVarDef vp.ProgramPoint
+
+  member __.CalculateIncomingVarDef pp = calculateIncomingVarDef pp
+
+  member __.GetConstant (vp: VarPoint) =
+    getVarDef vp.ProgramPoint
+    |> VarDefDomain.get vp.VarKind
+    |> fun vps ->
+      if Set.isEmpty vps then getInitialVarConstant vp.VarKind
+      else getConstantFromVps vps
+
+  member __.EvaluateExprIntoConst (pp, e) = evaluateExprIntoConst pp e
+
+  default __.GetNextVertices (g, v) = g.GetSuccs v |> Seq.map (fun x -> x.ID)
+
+  /// Has an initial constant value for a stack pointer.
+  default __.InitialVarConstants =
+    match (hdl: BinHandle).RegisterFactory.StackPointer with
+    | None -> Map.empty
+    | Some rid ->
+      let rt = hdl.RegisterFactory.RegIDToRegType rid
+      let varKind = Regular rid
+      let bv = BitVector.OfUInt64 Constants.InitialStackPointer rt
+      let c = ConstantDomain.Const bv
+      [ (varKind, c) ]
+      |> Map.ofList
 
   member private __.TransferConstant (pp, stmt) =
     let fnUpdate vp e =
@@ -245,8 +291,6 @@ type IncrementalDataFlowAnalysis<'Lattice, 'E when 'E: equality> () as this =
     let varDefChanged = __.TransferVarDef (pp, stmt)
     constantChanged || varDefChanged
 
-  abstract Bottom: 'Lattice
-
   interface IDataFlowAnalysis<VarPoint, 'Lattice, IRBasicBlock, 'E> with
     /// Execute each vertex in the worklist until a fixed point is reached.
     member __.Compute g =
@@ -285,45 +329,16 @@ type IncrementalDataFlowAnalysis<'Lattice, 'E when 'E: equality> () as this =
 
     member __.GetAbsValue absLoc = getAbsValue absLoc
 
-  abstract Transfer:
-       IGraph<IRBasicBlock, 'E>
-     * IVertex<IRBasicBlock>
-     * ProgramPoint
-     * Stmt
-    -> (VarPoint * 'Lattice) option
+[<RequireQualifiedAccess>]
+module IncrementalDataFlowAnalysis =
+  type DummyLattice = DummyValue
 
-  abstract IsSubsumable:
-       'Lattice
-     * 'Lattice
-    -> bool
-
-  abstract Join:
-       'Lattice
-     * 'Lattice
-    -> 'Lattice
-
-  abstract GetNextVertices:
-       IGraph<IRBasicBlock, 'E>
-     * IVertex<IRBasicBlock>
-    -> VertexID seq
-
-  default __.GetNextVertices (g, v) = g.GetSuccs v |> Seq.map (fun x -> x.ID)
-
-  /// Call this whenever a new vertex is added to the graph
-  member __.PushWork (v: IVertex<IRBasicBlock>) = pushWork v.ID
-
-  member __.GetVarDef (vp: VarPoint) = getVarDef vp.ProgramPoint
-
-  member __.CalculateIncomingVarDef pp = calculateIncomingVarDef pp
-
-  member __.GetConstant (vp: VarPoint) =
-    getVarDef vp.ProgramPoint
-    |> VarDefDomain.get vp.VarKind
-    |> fun vps ->
-      if Set.isEmpty vps then getInitialConstant vp.VarKind
-      else getConstantFromVps vps
-
-  member __.EvaluateExprIntoConst (pp, e) = evaluateExprIntoConst pp e
-
-  member __.SetInitialRegisterConstants regToBv =
-    Map.iter setInitialConstantWithBitVector regToBv
+  /// Dummy incremental data flow analysis only for using its internal lattices
+  /// such as ConstantDomain and VarDefDomain. We fill the lattice and the
+  /// methods with dummy values.
+  let createDummy<'E when 'E: equality> (hdl) =
+    { new IncrementalDataFlowAnalysis<DummyLattice, 'E> (hdl) with
+      override __.Bottom = DummyValue
+      override __.IsSubsumable (_a, _b) = true
+      override __.Join (_a, _b) = __.Bottom
+      override __.Transfer (_g, _v, _pp, _stmt) = None }
