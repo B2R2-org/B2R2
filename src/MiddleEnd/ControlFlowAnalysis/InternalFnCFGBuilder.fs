@@ -101,7 +101,6 @@ type InternalFnCFGBuilder<'V,
         Vertices = Dictionary ()
         AbsVertices = Dictionary ()
         CFG = ircfg
-        SSACFG = null
         BBLFactory = bblFactory
         NonReturningStatus = UnknownNoRet
         CallTable = CallTable ()

@@ -53,7 +53,6 @@ type ExternalFnCFGBuilder<'V,
       Vertices = Dictionary ()
       AbsVertices = Dictionary ()
       CFG = null
-      SSACFG = null
       BBLFactory = BBLFactory (hdl, null)
       NonReturningStatus = noretStatus
       CallTable = CallTable ()

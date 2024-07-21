@@ -54,8 +54,6 @@ type CFGBuildingContext<'V,
   AbsVertices: Dictionary<AbsCallEdge, IVertex<'V>>
   /// The control flow graph.
   mutable CFG: IRCFG<'V, 'E>
-  /// The SSA-based CFG.
-  mutable SSACFG: SSACFG<'E>
   /// The basic block factory.
   BBLFactory: BBLFactory
   /// Is this function a no-return function?
