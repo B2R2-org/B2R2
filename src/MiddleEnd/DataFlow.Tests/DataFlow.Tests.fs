@@ -30,9 +30,9 @@ open System.Diagnostics
 open B2R2
 open B2R2.BinIR
 open B2R2.FrontEnd.BinLifter.Intel
-open B2R2.MiddleEnd.SSA
 open B2R2.MiddleEnd.DataFlow
 open B2R2.MiddleEnd.ControlFlowGraph
+open B2R2.MiddleEnd.SSA
 
 [<TestClass>]
 type PersistentDataFlowTests () =
@@ -57,6 +57,22 @@ type PersistentDataFlowTests () =
   let ssaStk offset id rt =
     let k = SSA.StackVar (rt, offset)
     SSA.SSAVarPoint.RegularSSAVar { Kind = k; Identifier = id }
+
+  let irReg addr idx r =
+    let rid = Register.toRegID r
+    let pp = ProgramPoint (addr, idx)
+    let varKind = VarKind.Regular rid
+    { ProgramPoint = pp; VarKind = varKind }
+
+  let irMem add idx offset =
+    let pp = ProgramPoint (add, idx)
+    let varKind = VarKind.Memory (Some offset)
+    { ProgramPoint = pp; VarKind = varKind }
+
+  let mkUntouchedReg r =
+    VarKind.Regular (Register.toRegID r)
+    |> UntouchedValueDomain.RegisterTag
+    |> UntouchedValueDomain.Untouched
 
   let cmp vp c = vp, c
 
@@ -157,65 +173,27 @@ type PersistentDataFlowTests () =
   [<TestMethod>]
   member __.``Incremental Data Flow Test 1``() =
     let brew = Binaries.loadOne Binaries.sample2
+    let hdl = brew.BinHandle
     let cfg = brew.Functions[0UL].CFG
-    let rt = 64<rt>
     let roots = cfg.GetRoots ()
-    let regValues =
-      (Register.RSP, Constants.InitialStackPointer)
-      |> fun (r, v) -> Register.toRegID r, BitVector.OfUInt64 v rt
-      |> Seq.singleton
-      |> Map.ofSeq
-    let genRegularVar addr i r =
-      let rid = Register.toRegID r
-      let pp = ProgramPoint (addr, i)
-      let varKind = VarKind.Regular rid
-      { ProgramPoint = pp; VarKind = varKind }
-    let genMemVar addr i memAddr =
-      let pp = ProgramPoint (addr, i)
-      let varKind = VarKind.Memory (Some memAddr)
-      { ProgramPoint = pp; VarKind = varKind }
-    let regularVarEq addr i r c =
-      let vp = genRegularVar addr i r
-      vp, c
-    let memVarEq addr i memAddr c =
-      let vp = genMemVar addr i memAddr
-      vp, c
-    let regularVarConst addr i r value =
-      regularVarEq addr i r (ConstantDomain.Const (BitVector.OfUInt64 value rt))
-    let regularVarUndef addr i r =
-      regularVarEq addr i r ConstantDomain.Undef
-    let memVarNotConst addr i memAddr =
-      memVarEq addr i memAddr ConstantDomain.NotAConst
-    let memVarDWordConst addr i memAddr v =
-      memVarEq addr i memAddr
-        (ConstantDomain.Const (BitVector.OfUInt32 v 32<rt>))
-    let memVarUndef addr i memAddr =
-      memVarEq addr i memAddr ConstantDomain.Undef
-    let varAnsMap =
-      [ regularVarConst 0x0UL 0 Register.RSP 0x80000000UL
-        regularVarConst 0x4UL 1 Register.RSP 0x7ffffff8UL
-        regularVarUndef 0x5UL 0 Register.RBP
-        regularVarConst 0x5UL 1 Register.RBP 0x7ffffff8UL
-        memVarUndef 0xbUL 1 0x7ffffff8UL
-        memVarDWordConst 0x11UL 1 (0x7ffffff8UL - 0xcUL) 0x2ul
-        memVarDWordConst 0x18UL 1 (0x7ffffff8UL - 0x8UL) 0x3ul
-        memVarDWordConst 0x21UL 1 (0x7ffffff8UL - 0xcUL) 0x3ul
-        memVarDWordConst 0x28UL 1 (0x7ffffff8UL - 0x8UL) 0x2ul
-        memVarNotConst 0x2fUL 0 (0x7ffffff8UL - 0xcUL)
-        memVarNotConst 0x2fUL 0 (0x7ffffff8UL - 0x8UL)
-        regularVarConst 0x3bUL 2 Register.RSP (0x7ffffff8UL + 0x8UL)
-        regularVarConst 0x3cUL 2 Register.RSP (0x7ffffff8UL + 0x10UL) ]
-    let idfa =
-      { new IncrementalDataFlowAnalysis<int, CFGEdgeKind> () with
-        member __.Bottom = 0
-        member __.Transfer (_, _, _, _) = None
-        member __.IsSubsumable (_, _) = true
-        member __.Join (_, _) = 0 }
+    let idfa = IncrementalDataFlowAnalysis.createDummy<CFGEdgeKind> hdl
     let dfa = idfa :> IDataFlowAnalysis<_, _, _, _>
     Seq.iter idfa.PushWork roots
-    idfa.SetInitialRegisterConstants regValues
     dfa.Compute cfg
-    varAnsMap |> List.iter (fun (vp, ans) ->
+    [ irReg 0x0UL 0 Register.RSP |> cmp <| mkConst 0x80000000u 64<rt>
+      irReg 0x4UL 1 Register.RSP |> cmp <| mkConst 0x7ffffff8u 64<rt>
+      irReg 0x5UL 0 Register.RBP |> cmp <| ConstantDomain.Undef
+      irReg 0x5UL 1 Register.RBP |> cmp <| mkConst 0x7ffffff8u 64<rt>
+      irMem 0xbUL 1 0x7ffffff8UL |> cmp <| ConstantDomain.Undef
+      irMem 0x11UL 1 (0x7ffffff8UL - 0xcUL) |> cmp <| mkConst 0x2u 32<rt>
+      irMem 0x18UL 1 (0x7ffffff8UL - 0x8UL) |> cmp <| mkConst 0x3u 32<rt>
+      irMem 0x21UL 1 (0x7ffffff8UL - 0xcUL) |> cmp <| mkConst 0x3u 32<rt>
+      irMem 0x28UL 1 (0x7ffffff8UL - 0x8UL) |> cmp <| mkConst 0x2u 32<rt>
+      irMem 0x2fUL 0 (0x7ffffff8UL - 0xcUL) |> cmp <| ConstantDomain.NotAConst
+      irMem 0x2fUL 0 (0x7ffffff8UL - 0x8UL) |> cmp <| ConstantDomain.NotAConst
+      irReg 0x3bUL 2 Register.RSP |> cmp <| mkConst 0x80000000u 64<rt>
+      irReg 0x3cUL 2 Register.RSP |> cmp <| mkConst 0x80000008u 64<rt> ]
+    |> List.iter (fun (vp, ans) ->
       let out = idfa.GetConstant vp
       Assert.AreEqual (ans, out))
 #endif
@@ -224,68 +202,20 @@ type PersistentDataFlowTests () =
   member __.``Untouched Value Analysis 1``() =
     let brew = Binaries.loadOne Binaries.sample3
     let cfg = brew.Functions[0UL].CFG
-    let rt = 64<rt>
     let roots = cfg.GetRoots ()
-    let regValues =
-      (Register.RSP, Constants.InitialStackPointer)
-      |> fun (r, v) -> Register.toRegID r, BitVector.OfUInt64 v rt
-      |> Seq.singleton
-      |> Map.ofSeq
-    let genRegularVar addr i r =
-      let rid = Register.toRegID r
-      let pp = ProgramPoint (addr, i)
-      let varKind = VarKind.Regular rid
-      { ProgramPoint = pp; VarKind = varKind }
-    let genMemVar addr i memAddr =
-      let pp = ProgramPoint (addr, i)
-      let varKind = VarKind.Memory (Some memAddr)
-      { ProgramPoint = pp; VarKind = varKind }
-    let regularVarEq addr i r c =
-      let vp = genRegularVar addr i r
-      vp, c
-    let memVarEq addr i memAddr c =
-      let vp = genMemVar addr i memAddr
-      vp, c
-    let regularVarTouched addr i r =
-      let v = UntouchedValueDomain.Touched
-      regularVarEq addr i r v
-    let regularVarUntouched addr i r srcReg =
-      let varKind = VarKind.Regular (Register.toRegID srcReg)
-      let tag = UntouchedValueDomain.RegisterTag varKind
-      let v = UntouchedValueDomain.Untouched tag
-      regularVarEq addr i r v
-    let memVarTouched addr i memAddr =
-      let v = UntouchedValueDomain.Touched
-      memVarEq addr i memAddr v
-    let memVarUntouched addr i memAddr r =
-      let varKind = VarKind.Regular (Register.toRegID r)
-      let tag = UntouchedValueDomain.RegisterTag varKind
-      let v = UntouchedValueDomain.Untouched tag
-      memVarEq addr i memAddr v
-    let varAnsMap =
-      [ memVarUntouched 0xcUL 1 (0x7ffffff8UL - 0x14UL) Register.RDI
-        memVarUntouched 0xfUL 1 (0x7ffffff8UL - 0x18UL) Register.RSI
-        memVarUntouched 0x15UL 1 (0x7ffffff8UL - 0x10UL) Register.RDI
-        memVarTouched 0x1eUL 1 (0x7ffffff8UL - 0xcUL)
-        regularVarTouched 0x32UL 1 Register.RCX
-        regularVarTouched 0x35UL 1 Register.RDX
-        regularVarTouched 0x38UL 1 Register.RSI
-        regularVarUntouched 0x3bUL 1 Register.RAX Register.RDI ]
-    let uva = UntouchedValueAnalysis<CFGEdgeKind> ()
+    let uva = UntouchedValueAnalysis<CFGEdgeKind> brew.BinHandle
     let dfa = uva :> IDataFlowAnalysis<_, _, _, _>
     Seq.iter uva.PushWork roots
-    uva.SetInitialRegisterConstants regValues
+    let rbp = 0x7ffffff8UL
     dfa.Compute cfg
-#if DEBUG
-    cfg.IterVertex (fun v ->
-      v.VData.LiftedInstructions
-      |> Array.iter (fun ins ->
-        let stmts = ins.Stmts
-        stmts |> Array.iteri (fun i stmt ->
-          let s = LowUIR.Pp.stmtToString stmt
-          let addr = ins.Original.Address
-          Debug.Print <| sprintf "%x:%i -> %s" addr i s)))
-#endif
-    varAnsMap |> List.iter (fun (vp, ans) ->
+    [ irMem 0xcUL 1 (rbp - 0x14UL) |> cmp <| mkUntouchedReg Register.RDI
+      irMem 0xfUL 1 (rbp - 0x18UL) |> cmp <| mkUntouchedReg Register.RSI
+      irMem 0x15UL 1 (rbp - 0x10UL) |> cmp <| mkUntouchedReg Register.RDI
+      irMem 0x1eUL 1 (rbp - 0xcUL) |> cmp <| UntouchedValueDomain.Touched
+      irReg 0x32UL 1 Register.RCX |> cmp <| UntouchedValueDomain.Touched
+      irReg 0x35UL 1 Register.RDX |> cmp <| UntouchedValueDomain.Touched
+      irReg 0x38UL 1 Register.RSI |> cmp <| UntouchedValueDomain.Touched
+      irReg 0x3bUL 1 Register.RAX |> cmp <| mkUntouchedReg Register.RDI ]
+    |> List.iter (fun (vp, ans) ->
       let out = dfa.GetAbsValue vp
       Assert.AreEqual (ans, out))
