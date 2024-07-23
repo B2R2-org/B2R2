@@ -29,13 +29,23 @@ open B2R2.MiddleEnd.BinGraph
 /// Data-flow analysis that runs under the abstract interpretation framework.
 /// Abstract values are represented by 'AbsVal, which is stored in an abstract
 /// location 'AbsLoc.
-type IDataFlowAnalysis<'AbsLoc, 'AbsVal, 'V, 'E when 'AbsLoc: equality
-                                                 and 'V: equality
-                                                 and 'E: equality> =
-  /// Get the abstract value (AbsVal) for the given abstract location.
-  abstract GetAbsValue: 'AbsLoc -> 'AbsVal
+type IDataFlowAnalysis<'AbsLoc,
+                       'AbsVal,
+                       'State,
+                       'V,
+                       'E when 'AbsLoc: equality
+                           and 'State :> IDataFlowState<'AbsLoc, 'AbsVal>
+                           and 'V: equality
+                           and 'E: equality> =
+  /// Return an initial state for the data-flow analysis.
+  abstract InitializeState: unit -> 'State
 
   /// Perform the dataflow analysis on the given CFG until a fixed point is
   /// reached.
-  abstract Compute: cfg: IGraph<'V, 'E> -> unit
+  abstract Compute: cfg: IGraph<'V, 'E> -> 'State -> 'State
 
+/// The state of the data-flow analysis, which contains a mapping from abstract
+/// locations to abstract values.
+and IDataFlowState<'AbsLoc, 'AbsVal when 'AbsLoc: equality> =
+  /// Get the abstract value (AbsVal) for the given abstract location.
+  abstract GetAbsValue: 'AbsLoc -> 'AbsVal

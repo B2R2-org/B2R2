@@ -27,93 +27,102 @@ namespace B2R2.MiddleEnd.DataFlow.SSA
 open B2R2
 open B2R2.BinIR
 open B2R2.BinIR.SSA
+open B2R2.FrontEnd
 open B2R2.MiddleEnd.DataFlow
 open B2R2.MiddleEnd.DataFlow.Constants
 
-type SSAStackPointerPropagation<'E when 'E: equality> (hdl) as this =
-  inherit SSAVarBasedDataFlowAnalysis<StackPointerDomain.Lattice, 'E> (hdl)
+/// Stack pointer propagation analysis on SSACFG.
+type SSAStackPointerPropagation<'E when 'E: equality> =
+  inherit SSAVarBasedDataFlowAnalysis<StackPointerDomain.Lattice, 'E>
 
-  let initStackRegister () =
-    match hdl.RegisterFactory.StackPointer with
-    | Some sp ->
-      let rt = hdl.RegisterFactory.RegIDToRegType sp
-      let str = hdl.RegisterFactory.RegIDToString sp
-      let var = { Kind = RegVar (rt, sp, str); Identifier = 0 }
-      this.SetRegValueWithoutPushing var
-      <| StackPointerDomain.ConstSP (BitVector.OfUInt64 InitialStackPointer rt)
-    | None -> ()
+  new (hdl: BinHandle) =
+    let evalBinOp op c1 c2 =
+      match op with
+      | BinOpType.ADD -> StackPointerDomain.add c1 c2
+      | BinOpType.SUB -> StackPointerDomain.sub c1 c2
+      | BinOpType.AND -> StackPointerDomain.``and`` c1 c2
+      | _ -> StackPointerDomain.NotConstSP
 
-  let evalBinOp op c1 c2 =
-    match op with
-    | BinOpType.ADD -> StackPointerDomain.add c1 c2
-    | BinOpType.SUB -> StackPointerDomain.sub c1 c2
-    | BinOpType.AND -> StackPointerDomain.``and`` c1 c2
-    | _ -> StackPointerDomain.NotConstSP
+    let rec evalExpr (state: SSAVarBasedDataFlowState<_, _>) = function
+      | Num bv -> StackPointerDomain.ConstSP bv
+      | Var v -> state.GetRegValue v
+      | Nil -> StackPointerDomain.NotConstSP
+      | Load _ -> StackPointerDomain.NotConstSP
+      | UnOp _ -> StackPointerDomain.NotConstSP
+      | FuncName _ -> StackPointerDomain.NotConstSP
+      | BinOp (op, _, e1, e2) ->
+        let c1 = evalExpr state e1
+        let c2 = evalExpr state e2
+        evalBinOp op c1 c2
+      | RelOp _ -> StackPointerDomain.NotConstSP
+      | Ite _ -> StackPointerDomain.NotConstSP
+      | Cast _ -> StackPointerDomain.NotConstSP
+      | Extract _ -> StackPointerDomain.NotConstSP
+      | Undefined _ -> StackPointerDomain.NotConstSP
+      | ReturnVal (_, _, e) -> evalExpr state e
+      | _ -> Utils.impossible ()
 
-  let rec evalExpr = function
-    | Num bv -> StackPointerDomain.ConstSP bv
-    | Var v -> this.GetRegValue v
-    | Nil -> StackPointerDomain.NotConstSP
-    | Load _ -> StackPointerDomain.NotConstSP
-    | UnOp _ -> StackPointerDomain.NotConstSP
-    | FuncName _ -> StackPointerDomain.NotConstSP
-    | BinOp (op, _, e1, e2) ->
-      let c1 = evalExpr e1
-      let c2 = evalExpr e2
-      evalBinOp op c1 c2
-    | RelOp _ -> StackPointerDomain.NotConstSP
-    | Ite _ -> StackPointerDomain.NotConstSP
-    | Cast _ -> StackPointerDomain.NotConstSP
-    | Extract _ -> StackPointerDomain.NotConstSP
-    | Undefined _ -> StackPointerDomain.NotConstSP
-    | ReturnVal (_, _, e) -> evalExpr e
-    | _ -> Utils.impossible ()
+    let isStackRelatedRegister regId =
+      hdl.RegisterFactory.IsStackPointer regId
+      || hdl.RegisterFactory.IsFramePointer regId
 
-  let isStackRelatedRegister regId =
-    hdl.RegisterFactory.IsStackPointer regId
-    || hdl.RegisterFactory.IsFramePointer regId
-
-  let evalDef var e =
-    match var.Kind with
-    | RegVar (_, regid, _) when isStackRelatedRegister regid ->
-      this.SetRegValue (var, evalExpr e)
-    | RegVar _ ->
-      this.SetRegValue (var, StackPointerDomain.NotConstSP)
-    | TempVar _ ->
-      this.SetRegValue (var, evalExpr e)
-    | _ -> ()
-
-  let evalPhi ssaCFG blk dst srcIDs =
-    match this.GetExecutedSources ssaCFG blk srcIDs with
-    | [||] -> ()
-    | executedSrcIDs ->
-      match dst.Kind with
-      | RegVar _ | TempVar _ ->
-        executedSrcIDs
-        |> Array.map (fun i -> { dst with Identifier = i } |> this.GetRegValue)
-        |> Array.reduce this.Join
-        |> fun merged -> this.SetRegValue (dst, merged)
+    let evalDef (state: SSAVarBasedDataFlowState<_, _>) var e =
+      match var.Kind with
+      | RegVar (_, regid, _) when isStackRelatedRegister regid ->
+        state.SetRegValue (var, evalExpr state e)
+      | RegVar _ ->
+        state.SetRegValue (var, StackPointerDomain.NotConstSP)
+      | TempVar _ ->
+        state.SetRegValue (var, evalExpr state e)
       | _ -> ()
 
-  let evalJmp ssaCFG blk =
-    this.MarkSuccessorsExecutable ssaCFG blk
+    let evalPhi (state: SSAVarBasedDataFlowState<_, _>) ssaCFG blk dst srcIDs =
+      match state.GetExecutedSources ssaCFG blk srcIDs with
+      | [||] -> ()
+      | executedSrcIDs ->
+        match dst.Kind with
+        | RegVar _ | TempVar _ ->
+          executedSrcIDs
+          |> Array.map (fun i ->
+            { dst with Identifier = i } |> state.GetRegValue)
+          |> Array.reduce StackPointerDomain.join
+          |> fun merged -> state.SetRegValue (dst, merged)
+        | _ -> ()
 
-  do initStackRegister ()
+    let evalJmp (state: SSAVarBasedDataFlowState<_, _>) ssaCFG blk =
+      state.MarkSuccessorsExecutable ssaCFG blk
 
-  override _.Bottom with get() = StackPointerDomain.Undef
+    let analysis =
+      { new ISSAVarBasedDataFlowAnalysis<StackPointerDomain.Lattice, 'E> with
+          member _.OnInitialize state =
+            match hdl.RegisterFactory.StackPointer with
+            | Some sp ->
+              let rt = hdl.RegisterFactory.RegIDToRegType sp
+              let str = hdl.RegisterFactory.RegIDToString sp
+              let var = { Kind = RegVar (rt, sp, str); Identifier = 0 }
+              let spVal = BitVector.OfUInt64 InitialStackPointer rt
+              state.SetRegValueWithoutPushing var
+              <| StackPointerDomain.ConstSP spVal
+              state
+            | None -> state
 
-  override _.Join a b = StackPointerDomain.join a b
+          member _.Bottom with get() = StackPointerDomain.Undef
 
-  override _.Transfer ssaCFG blk _pp stmt =
-    match stmt with
-    | Def (var, e) -> evalDef var e
-    | Phi (var, ns) -> evalPhi ssaCFG blk var ns
-    | Jmp _ -> evalJmp ssaCFG blk
-    | LMark _ | ExternalCall _ | SideEffect _ -> ()
+          member _.Join a b = StackPointerDomain.join a b
 
-  override _.IsSubsumable lhs rhs = StackPointerDomain.isSubsumable lhs rhs
+          member _.Transfer state ssaCFG blk _pp stmt =
+            match stmt with
+            | Def (var, e) -> evalDef state var e
+            | Phi (var, ns) -> evalPhi state ssaCFG blk var ns
+            | Jmp _ -> evalJmp state ssaCFG blk
+            | LMark _ | ExternalCall _ | SideEffect _ -> ()
 
-  override _.UpdateMemFromBinaryFile _rt _addr = StackPointerDomain.Undef
+          member _.Subsume lhs rhs = StackPointerDomain.isSubsumable lhs rhs
 
-  /// Evaluate the given expression based on the current abstract state.
-  member _.EvalExpr e = evalExpr e
+          member _.UpdateMemFromBinaryFile _rt _addr =
+            StackPointerDomain.Undef
+
+          member _.EvalExpr state e = evalExpr state e }
+
+    { inherit SSAVarBasedDataFlowAnalysis<StackPointerDomain.Lattice,
+                                          'E> (hdl, analysis) }

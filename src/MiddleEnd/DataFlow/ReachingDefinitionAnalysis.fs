@@ -36,78 +36,86 @@ type ReachingDefinition = {
 }
 
 /// Traditional reaching definition analysis.
-type ReachingDefinitionAnalysis () =
-  inherit WorklistDataFlowAnalysis<VertexID, ReachingDefinition,
-                                   IRBasicBlock, CFGEdgeKind> ()
+type ReachingDefinitionAnalysis =
+  inherit WorklistDataFlowAnalysis<VertexID,
+                                   ReachingDefinition,
+                                   IRBasicBlock,
+                                   CFGEdgeKind>
+  new () =
+    let gens = Dictionary<VertexID, Set<VarPoint>> ()
 
-  let gens = Dictionary<VertexID, Set<VarPoint>> ()
+    let kills = Dictionary<VertexID, Set<VarPoint>> ()
 
-  let kills = Dictionary<VertexID, Set<VarPoint>> ()
+    let findDefs (v: IVertex<IRBasicBlock>) =
+      v.VData.LiftedInstructions
+      |> Array.fold (fun list lifted ->
+        lifted.Stmts
+        |> Array.foldi (fun list idx stmt ->
+          match stmt.S with
+          | LowUIR.Put ({ LowUIR.E = LowUIR.TempVar (_, n) }, _) ->
+            let pp = ProgramPoint (lifted.Original.Address, idx)
+            { ProgramPoint = pp; VarKind = Temporary n } :: list
+          | LowUIR.Put ({ LowUIR.E = LowUIR.Var (_, id, _) }, _) ->
+            let pp = ProgramPoint (lifted.Original.Address, idx)
+            { ProgramPoint = pp; VarKind = Regular id } :: list
+          | _ -> list) list
+        |> fst) []
 
-  let findDefs (v: IVertex<IRBasicBlock>) =
-    v.VData.LiftedInstructions
-    |> Array.fold (fun list lifted ->
-      lifted.Stmts
-      |> Array.foldi (fun list idx stmt ->
-        match stmt.S with
-        | LowUIR.Put ({ LowUIR.E = LowUIR.TempVar (_, n) }, _) ->
-          let pp = ProgramPoint (lifted.Original.Address, idx)
-          { ProgramPoint = pp; VarKind = Temporary n } :: list
-        | LowUIR.Put ({ LowUIR.E = LowUIR.Var (_, id, _) }, _) ->
-          let pp = ProgramPoint (lifted.Original.Address, idx)
-          { ProgramPoint = pp; VarKind = Regular id } :: list
-        | _ -> list) list
-      |> fst) []
-
-  let initGensAndKills (g: IGraph<IRBasicBlock, CFGEdgeKind>) =
-    let vpPerVar = Dictionary<VarKind, Set<VarPoint>> ()
-    let vpPerVertex = Dictionary<VertexID, VarPoint list> ()
-    g.IterVertex (fun v ->
-      let vid = v.ID
-      let defs = findDefs v
-      gens[vid] <- defs |> Set.ofList
-      vpPerVertex[vid] <- defs
-      defs |> List.iter (fun ({ VarKind = v } as vp) ->
-        if vpPerVar.ContainsKey v then vpPerVar[v] <- Set.add vp vpPerVar[v]
-        else vpPerVar[v] <- Set.singleton vp
+    let initGensAndKills (g: IGraph<IRBasicBlock, CFGEdgeKind>) =
+      let vpPerVar = Dictionary<VarKind, Set<VarPoint>> ()
+      let vpPerVertex = Dictionary<VertexID, VarPoint list> ()
+      g.IterVertex (fun v ->
+        let vid = v.ID
+        let defs = findDefs v
+        gens[vid] <- defs |> Set.ofList
+        vpPerVertex[vid] <- defs
+        defs |> List.iter (fun ({ VarKind = v } as vp) ->
+          if vpPerVar.ContainsKey v then vpPerVar[v] <- Set.add vp vpPerVar[v]
+          else vpPerVar[v] <- Set.singleton vp
+        )
       )
-    )
-    g.IterVertex (fun v ->
-      let vid = v.ID
-      let defVarPoints = vpPerVertex[vid]
-      let vars = defVarPoints |> List.map (fun vp -> vp.VarKind)
-      let vps = defVarPoints |> Set.ofList
-      let alldefs =
-        vars |> List.fold (fun acc v -> Set.union acc vpPerVar[v]) Set.empty
-      kills[vid] <- Set.difference alldefs vps
-    )
+      g.IterVertex (fun v ->
+        let vid = v.ID
+        let defVarPoints = vpPerVertex[vid]
+        let vars = defVarPoints |> List.map (fun vp -> vp.VarKind)
+        let vps = defVarPoints |> Set.ofList
+        let alldefs =
+          vars |> List.fold (fun acc v -> Set.union acc vpPerVar[v]) Set.empty
+        kills[vid] <- Set.difference alldefs vps
+      )
 
-  member __.Gens with get() = gens
+    let analysis =
+      { new IWorklistDataFlowAnalysis<VertexID,
+                                      ReachingDefinition,
+                                      IRBasicBlock,
+                                      CFGEdgeKind> with
+          member _.Bottom = { Ins = Set.empty; Outs = Set.empty }
 
-  member __.Kills with get() = kills
+          member _.InitializeWorkList g =
+            initGensAndKills g
+            let lst = List<VertexID> ()
+            let roots = g.GetRoots () |> Seq.toList
+            Traversal.iterRevPostorder g roots (fun v -> lst.Add v.ID)
+            lst
 
-  override __.Bottom = { Ins = Set.empty; Outs = Set.empty }
+          member _.Subsume (a, b) =
+            a.Ins = b.Ins && a.Outs = b.Outs
 
-  override __.InitializeWorkList g =
-    initGensAndKills g
-    let lst = List<VertexID> ()
-    let roots = g.GetRoots () |> Seq.toList
-    Traversal.iterRevPostorder g roots (fun v -> lst.Add v.ID)
-    lst
+          member _.Transfer (state, g, vid, _absVal) =
+            let ins =
+              g.FindVertexByID vid
+              |> g.GetPreds
+              |> Seq.fold (fun acc pred ->
+                let vid = pred.ID
+                let absValue = state.GetAbsValue vid
+                let outs = absValue.Outs
+                Set.union acc outs) Set.empty
+            let outs = Set.union gens[vid] (Set.difference ins kills[vid])
+            { Ins = ins; Outs = outs }
 
-  override __.Subsume (a, b) =
-    a.Ins = b.Ins && a.Outs = b.Outs
+          member _.GetNextWorks (_g, vid) = [| vid |] }
 
-  override __.Transfer (g, vid, _absVal) =
-    let ins =
-      g.FindVertexByID vid
-      |> g.GetPreds
-      |> Seq.fold (fun acc pred ->
-        let vid = pred.ID
-        let absValue = (__ :> IDataFlowAnalysis<_, _, _, _>).GetAbsValue vid
-        let outs = absValue.Outs
-        Set.union acc outs) Set.empty
-    let outs = Set.union gens[vid] (Set.difference ins kills[vid])
-    { Ins = ins; Outs = outs }
-
-  override __.GetNextWorks (_g, vid) = [| vid |]
+    { inherit WorklistDataFlowAnalysis<VertexID,
+                                       ReachingDefinition,
+                                       IRBasicBlock,
+                                       CFGEdgeKind> (analysis) }

@@ -24,81 +24,35 @@
 
 namespace B2R2.MiddleEnd.DataFlow
 
-open System.Collections.Generic
-open B2R2.MiddleEnd.BinGraph
-
 /// Worklist-based dataflow analysis.
-[<AbstractClass>]
 type WorklistDataFlowAnalysis<'WorkUnit,
                               'Lattice,
                               'V,
                               'E when 'WorkUnit: equality
                                   and 'Lattice: equality
                                   and 'V: equality
-                                  and 'E: equality> () as this =
-  let workList = Queue<'WorkUnit> ()
+                                  and 'E: equality>
+  public (analysis: IWorklistDataFlowAnalysis<'WorkUnit, 'Lattice, 'V, 'E>) =
 
-  let workSet = HashSet<'WorkUnit> ()
+  interface IDataFlowAnalysis<'WorkUnit,
+                              'Lattice,
+                              WorklistDataFlowState<'WorkUnit,
+                                                    'Lattice,
+                                                    'V,
+                                                    'E>,
+                              'V,
+                              'E> with
+    member __.InitializeState () =
+      WorklistDataFlowState<'WorkUnit, 'Lattice, 'V, 'E> (analysis)
 
-  let pushWork (work: 'WorkUnit) =
-    if workSet.Contains work then ()
-    else
-      workSet.Add work |> ignore
-      workList.Enqueue work
-
-  let popWork () =
-    let work = workList.Dequeue ()
-    assert (workSet.Contains work)
-    workSet.Remove work |> ignore
-    work
-
-  let absValues = Dictionary<'WorkUnit, 'Lattice> ()
-
-  let getAbsValue (loc: 'WorkUnit) =
-    match absValues.TryGetValue loc with
-    | false, _ -> this.Bottom
-    | true, absValue -> absValue
-
-  /// The initial abstract value. Our analysis starts with this value until
-  /// a fixed point is reached.
-  abstract Bottom: 'Lattice
-
-  /// Initialize the list of work units to start the analysis. This is a
-  /// callback method that runs before the analysis starts, so any
-  /// initialization logic should be implemented here.
-  abstract InitializeWorkList: IGraph<'V, 'E> -> IReadOnlyCollection<'WorkUnit>
-
-  /// The subsume operator, which checks if the first lattice subsumes the
-  /// second. This is to know if the analysis should stop or not.
-  abstract Subsume: 'Lattice * 'Lattice -> bool
-
-  /// The transfer function, which computes the next abstract value from the
-  /// current abstract value by executing the given 'WorkUnit.
-  abstract Transfer:
-     IGraph<'V, 'E>
-     * 'WorkUnit
-     * 'Lattice
-    -> 'Lattice
-
-  /// Get the next set of works to perform.
-  abstract GetNextWorks:
-     IGraph<'V, 'E>
-     * 'WorkUnit
-    -> IReadOnlyCollection<'WorkUnit>
-
-  member private __.Initialize g =
-    for work in __.InitializeWorkList g do pushWork work
-
-  interface IDataFlowAnalysis<'WorkUnit, 'Lattice, 'V, 'E> with
-    member __.Compute g =
-      __.Initialize g
-      while not <| Seq.isEmpty workList do
-        let work = popWork ()
-        let absValue = getAbsValue work
-        let transferedAbsValue = __.Transfer (g, work, absValue)
-        if __.Subsume (absValue, transferedAbsValue) then ()
+    member __.Compute g state =
+      for work in analysis.InitializeWorkList g do state.PushWork work
+      while not <| Seq.isEmpty state.WorkList do
+        let work = state.PopWork ()
+        let absValue = (state :> IDataFlowState<_, _>).GetAbsValue work
+        let transferedAbsValue = analysis.Transfer (state, g, work, absValue)
+        if analysis.Subsume (absValue, transferedAbsValue) then ()
         else
-          absValues[work] <- transferedAbsValue
-          for work in __.GetNextWorks (g, work) do pushWork work
-
-    member __.GetAbsValue absLoc = getAbsValue absLoc
+          state.AbsValues[work] <- transferedAbsValue
+          for work in analysis.GetNextWorks (g, work) do state.PushWork work
+      state
