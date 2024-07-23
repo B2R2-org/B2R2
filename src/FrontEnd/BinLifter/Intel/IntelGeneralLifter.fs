@@ -970,6 +970,14 @@ let cmpxchg ins insLen ctxt =
 #endif
   !>ir insLen
 
+let private saveOprMem ir expr =
+  let t = !+ir 64<rt>
+  match expr.E with
+  | Load (e, rt, expr) ->
+    !!ir (t := expr)
+    AST.load e rt t
+  | _ -> expr
+
 let compareExchangeBytes ins insLen ctxt =
   let ir = !*ctxt
   let oprSize = getOperationSize ins
@@ -979,6 +987,7 @@ let compareExchangeBytes ins insLen ctxt =
   match oprSize with
   | 64<rt> ->
     let dst = transOneOpr ir ins insLen ctxt
+    let orgDstMem = saveOprMem ir dst
     let eax = !.ctxt R.EAX
     let ecx = !.ctxt R.ECX
     let edx = !.ctxt R.EDX
@@ -989,22 +998,27 @@ let compareExchangeBytes ins insLen ctxt =
     !!ir (zf := cond)
     !!ir (dstAssign 32<rt> eax (AST.ite cond eax (AST.xtlo 32<rt> t)))
     !!ir (dstAssign 32<rt> edx (AST.ite cond edx (AST.xthi 32<rt> t)))
-    !!ir (dst := AST.ite cond (AST.concat ecx ebx) t)
+    !!ir (orgDstMem := AST.ite cond (AST.concat ecx ebx) t)
   | 128<rt> ->
     let dstB, dstA =
       match ins.Operands with
       | OneOperand opr -> transOprToExpr128 ir false ins insLen ctxt opr
       | _ -> raise InvalidOperandException
+    let orgDstAMem = saveOprMem ir dstA
+    let orgDstBMem = saveOprMem ir dstB
     let rax = !.ctxt R.RAX
     let rcx = !.ctxt R.RCX
     let rdx = !.ctxt R.RDX
     let rbx = !.ctxt R.RBX
-    !!ir (cond := (dstB == rdx) .& (dstA == rax))
+    let struct (t1, t2) = tmpVars2 ir 64<rt>
+    !!ir (t1 := dstA)
+    !!ir (t2 := dstB)
+    !!ir (cond := (t2 == rdx) .& (t1 == rax))
     !!ir (zf := cond)
-    !!ir (rax := AST.ite cond rax dstA)
-    !!ir (rdx := AST.ite cond rdx dstB)
-    !!ir (dstA := AST.ite cond rbx dstA)
-    !!ir (dstB := AST.ite cond rcx dstB)
+    !!ir (rax := AST.ite cond rax t1)
+    !!ir (rdx := AST.ite cond rdx t2)
+    !!ir (orgDstAMem := AST.ite cond rbx t1)
+    !!ir (orgDstBMem := AST.ite cond rcx t2)
   | _ -> raise InvalidOperandSizeException
   !>ir insLen
 
