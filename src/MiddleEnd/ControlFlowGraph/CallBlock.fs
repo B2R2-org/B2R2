@@ -37,7 +37,7 @@ type CallBlock (addr, name, isExternal) =
 
   override __.Range = AddrRange (addr)
 
-  override __.ToVisualBlock () =
+  override __.Visualize () =
     [| [| { AsmWordKind = AsmWordKind.Address
             AsmWordValue = Addr.toString WordSize.Bit32 addr }
           { AsmWordKind = AsmWordKind.String

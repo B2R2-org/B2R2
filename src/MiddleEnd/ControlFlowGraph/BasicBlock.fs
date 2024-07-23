@@ -25,6 +25,7 @@
 namespace B2R2.MiddleEnd.ControlFlowGraph
 
 open B2R2
+open B2R2.FrontEnd.BinLifter
 
 /// The base type for basic block.
 [<AbstractClass>]
@@ -38,4 +39,4 @@ type BasicBlock (pp) =
   abstract Range: AddrRange with get
 
   /// Convert this basic block to a visual representation.
-  abstract ToVisualBlock: unit -> VisualBlock
+  abstract Visualize: unit -> AsmWord[][]

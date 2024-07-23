@@ -79,7 +79,7 @@ type SSABasicBlock private (ppoint, lastAddr, stmts: _[], funcAbs) =
     if isNull funcAbs then AddrRange (ppoint.Address, lastAddr)
     else raise AbstractBlockAccessException
 
-  override __.ToVisualBlock () =
+  override __.Visualize () =
     if isNull funcAbs then
       stmts
       |> Array.map (fun (_, stmt) ->

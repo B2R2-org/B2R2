@@ -57,15 +57,15 @@ type JSONGraph = {
 }
 
 module JSONExport =
-  let private getJSONTerms (visualBlock: VisualBlock) =
-    visualBlock |> Array.map (Array.map AsmWord.ToStringTuple)
+  let private getJSONTerms (visualizableAsm: AsmWord[][]) =
+    visualizableAsm |> Array.map (Array.map AsmWord.ToStringTuple)
 
   let private ofVisGraph (g: VisGraph) (roots: IVertex<#BasicBlock> list) =
     let roots = roots |> List.map (fun r -> r.VData.PPoint.Address)
     let nodes =
       g.FoldVertex (fun acc v ->
         { PPoint = v.VData.PPoint.Address, v.VData.PPoint.Position
-          Terms = v.VData.ToVisualBlock () |> getJSONTerms
+          Terms = v.VData.Visualize () |> getJSONTerms
           Width = v.VData.Width
           Height = v.VData.Height
           Coordinate = { X = v.VData.Coordinate.X

@@ -42,7 +42,7 @@ type DisasmBasicBlock (ppoint, instrs) =
     let last = instrs[instrs.Length - 1]
     AddrRange (ppoint.Address, last.Address + uint64 last.Length - 1UL)
 
-  override __.ToVisualBlock () =
+  override __.Visualize () =
     instrs
     |> Array.mapi (fun idx ins ->
       if idx = Array.length instrs - 1 then ins.Decompose (true)

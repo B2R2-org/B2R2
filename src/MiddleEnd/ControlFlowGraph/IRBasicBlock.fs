@@ -94,7 +94,7 @@ type IRBasicBlock internal (ppoint, funcAbs, liftedInstrs, labelMap) =
       AddrRange (ppoint.Address, lastAddr - 1UL)
     else raise AbstractBlockAccessException
 
-  override __.ToVisualBlock () =
+  override __.Visualize () =
     if isNull funcAbs then
       liftedInstrs
       |> Array.collect (fun liftedIns -> liftedIns.Stmts)
