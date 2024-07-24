@@ -102,5 +102,5 @@ type StackPointerPropagation<'E when 'E: equality> =
             (g: IGraph<_, _>).GetSuccs v
             |> Seq.map (fun v -> v.ID) }
 
-    { inherit IncrementalDataFlowAnalysis<StackPointerDomain.Lattice, 'E>
-        (hdl, analysis) }
+    { inherit IncrementalDataFlowAnalysis<StackPointerDomain.Lattice,
+                                          'E> (hdl, analysis) }

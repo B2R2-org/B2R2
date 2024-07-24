@@ -94,37 +94,15 @@ type IncrementalDataFlowState<'Lattice, 'E when 'E: equality>
       let c = ConstantDomain.Const bv
       initialConstants[varKind] <- c
 
-  /////////
-  // Etc //
-  /////////
-
-  /// TODO: isn't it slow due to creation of the upper bound?
-  /// TODO: rename
-  let intoUInt64 (bv: BitVector) =
-    let rt = bv.Length
-    let ub = BitVector.OfUInt64 0xFFFFFFFFFFFFFFFFUL rt
-    bv.Le ub |> BitVector.IsTrue
-
-  //////////////////////////////////
-  // Var definition analysis //
-  //////////////////////////////////
-
-  /// Note that we record **outgoing** var definitions!
-  /// To get an incoming var definitions, use calculateIncomingVarDef.
   let getVarDef (pp: ProgramPoint) =
     match varDefs.TryGetValue pp with
     | false, _ -> VarDefDomain.empty
     | true, rd -> rd
 
-  /// TODO: do not forget to implement memoization of it
   let calculateIncomingVarDef pp =
-    let incomingPps = getIncomingPps pp
-    let incomingVarDefs = incomingPps |> Seq.map getVarDef
-    Seq.fold VarDefDomain.join VarDefDomain.empty incomingVarDefs
-
-  //////////////////////////
-  // Constant propagation //
-  //////////////////////////
+    getIncomingPps pp
+    |> Seq.map getVarDef
+    |> Seq.fold VarDefDomain.join VarDefDomain.empty
 
   let getConstant vp =
     match constants.TryGetValue vp with
@@ -135,24 +113,36 @@ type IncrementalDataFlowState<'Lattice, 'E when 'E: equality>
     vps |> Set.fold (fun acc vp ->
       ConstantDomain.join acc (getConstant vp)) ConstantDomain.Undef
 
-  let getConstantFromVarKindAt varKind pp =
+  let getIncomingConstant varKind pp =
     calculateIncomingVarDef pp
     |> VarDefDomain.get varKind
     |> getConstantFromVps
+
+  let calculateConstant vp =
+    getConstant vp
+    |> function
+      | ConstantDomain.Undef -> getInitialConstant vp.VarKind
+      | c -> c
+    |> function
+      | ConstantDomain.Undef ->
+        getVarDef vp.ProgramPoint
+        |> VarDefDomain.get vp.VarKind
+        |> getConstantFromVps
+      | c -> c
 
   let rec evaluateExprIntoConst pp (e: Expr) =
     match e.E with
     | Num bv -> ConstantDomain.Const bv
     | Var _ | TempVar _ ->
       let varKind = VarKind.ofIRExpr e
-      match getConstantFromVarKindAt varKind pp with
+      match getIncomingConstant varKind pp with
       | ConstantDomain.Undef -> getInitialConstant varKind
       | c -> c
     | Load (_, _, addr) ->
       match evaluateExprIntoConst pp addr with
-      | ConstantDomain.Const bv when intoUInt64 bv ->
+      | ConstantDomain.Const bv ->
         let addr = BitVector.ToUInt64 bv
-        getConstantFromVarKindAt (Memory (Some addr)) pp
+        getIncomingConstant (Memory (Some addr)) pp
       | _ -> ConstantDomain.NotAConst
     | BinOp (binOpType, _, e1, e2) ->
       let v1 = evaluateExprIntoConst pp e1
@@ -202,7 +192,8 @@ type IncrementalDataFlowState<'Lattice, 'E when 'E: equality>
 
   member __.IsWorklistEmpty with get () = isWorklistEmpty ()
 
-  /// Call this whenever a new vertex is added to the graph
+  /// Push a work (vertex id) to the worklist in the data flow analysis. Call
+  /// this whenever a new vertex is added to the graph.
   member __.PushWork vid = pushWork vid
 
   member __.PopWork () = popWork ()
@@ -211,26 +202,28 @@ type IncrementalDataFlowState<'Lattice, 'E when 'E: equality>
 
   member __.SetVarDef pp vd = varDefs[pp] <- vd
 
-  member __.AddIncomingProgramPoint pp incomingPp = addIncomingPp pp incomingPp
-
+  /// Calculate the incoming var defs to the given program point. Note that we
+  /// use outgoing var defs in our lattice.
   member __.CalculateIncomingVarDef pp = calculateIncomingVarDef pp
 
-  member __.GetConstant (vp: VarPoint) =
-    getVarDef vp.ProgramPoint
-    |> VarDefDomain.get vp.VarKind
-    |> fun vps ->
-      if Set.isEmpty vps then getInitialConstant vp.VarKind
-      else getConstantFromVps vps
+  /// Remember an incoming program point to the given program point.
+  member __.AddIncomingProgramPoint pp incomingPp = addIncomingPp pp incomingPp
+
+  member __.GetConstant vp = getConstant vp
 
   member __.SetConstant vp c = constants[vp] <- c
+
+  /// Get the abstract value of a variable point, but calculate it if the given
+  /// variable point is not defined in the existing statements. We can use this
+  /// to calculate the abstract value of a variable after a certain statement.
+  member __.CalculateConstant vp = calculateConstant vp
 
   member __.EvaluateExprIntoConst pp e = evaluateExprIntoConst pp e
 
   member __.SetAbsValue vp absVal = absValues[vp] <- absVal
 
   interface IDataFlowState<VarPoint, 'Lattice> with
-    member __.GetAbsValue absLoc =
-      getAbsValue absLoc
+    member __.GetAbsValue absLoc = getAbsValue absLoc
 
 and IIncrementalDataFlowAnalysis<'Lattice, 'E when 'E: equality> =
   abstract OnInitialize:

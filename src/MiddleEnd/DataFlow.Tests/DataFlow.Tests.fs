@@ -168,7 +168,6 @@ type PersistentDataFlowTests () =
       ssaReg Register.RSP 3 64<rt> |> cmp <| mkConst 0x80000008u 64<rt> ]
     |> List.iter (fun (var, ans) ->
       let out = (state :> IDataFlowState<_, _>).GetAbsValue var
-      Debug.Print $"{var}: {ans} <-> {out}"
       Assert.AreEqual (ans, out))
 
 #if !EMULATION
@@ -177,11 +176,12 @@ type PersistentDataFlowTests () =
     let brew = Binaries.loadOne Binaries.sample2
     let hdl = brew.BinHandle
     let cfg = brew.Functions[0UL].CFG
-    let roots = cfg.GetRoots ()
-    let idfa = IncrementalDataFlowAnalysis.createDummy<CFGEdgeKind> hdl
-    let dfa = idfa :> IDataFlowAnalysis<_, _, _, _>
-    Seq.iter idfa.PushWork roots
-    dfa.Compute cfg
+    let rootVids = cfg.GetRoots () |> Seq.map (fun v -> v.ID)
+    let varDfa = DummyVarBasedDataFlowAnalysis<CFGEdgeKind> hdl
+    let dfa = varDfa :> IDataFlowAnalysis<_, _, _, _, _>
+    let st = dfa.InitializeState ()
+    Seq.iter st.PushWork rootVids
+    let st = dfa.Compute cfg st
     [ irReg 0x0UL 0 Register.RSP |> cmp <| mkConst 0x80000000u 64<rt>
       irReg 0x4UL 1 Register.RSP |> cmp <| mkConst 0x7ffffff8u 64<rt>
       irReg 0x5UL 0 Register.RBP |> cmp <| ConstantDomain.Undef
@@ -196,7 +196,7 @@ type PersistentDataFlowTests () =
       irReg 0x3bUL 2 Register.RSP |> cmp <| mkConst 0x80000000u 64<rt>
       irReg 0x3cUL 2 Register.RSP |> cmp <| mkConst 0x80000008u 64<rt> ]
     |> List.iter (fun (vp, ans) ->
-      let out = idfa.GetConstant vp
+      let out = st.CalculateConstant vp
       Assert.AreEqual (ans, out))
 #endif
 
@@ -204,13 +204,13 @@ type PersistentDataFlowTests () =
   member __.``Untouched Value Analysis 1``() =
     let brew = Binaries.loadOne Binaries.sample3
     let cfg = brew.Functions[0UL].CFG
-    let roots = cfg.GetRoots ()
+    let rootVids = cfg.GetRoots () |> Seq.map (fun v -> v.ID)
     let uva = UntouchedValueAnalysis<CFGEdgeKind> brew.BinHandle
     let dfa = uva :> IDataFlowAnalysis<_, _, _, _, _>
-    let state = dfa.InitializeState ()
-    Seq.iter uva.PushWork roots
+    let st = dfa.InitializeState ()
+    Seq.iter st.PushWork rootVids
     let rbp = 0x7ffffff8UL
-    dfa.Compute cfg
+    let st = dfa.Compute cfg st
     [ irMem 0xcUL 1 (rbp - 0x14UL) |> cmp <| mkUntouchedReg Register.RDI
       irMem 0xfUL 1 (rbp - 0x18UL) |> cmp <| mkUntouchedReg Register.RSI
       irMem 0x15UL 1 (rbp - 0x10UL) |> cmp <| mkUntouchedReg Register.RDI
@@ -220,5 +220,5 @@ type PersistentDataFlowTests () =
       irReg 0x38UL 1 Register.RSI |> cmp <| UntouchedValueDomain.Touched
       irReg 0x3bUL 1 Register.RAX |> cmp <| mkUntouchedReg Register.RDI ]
     |> List.iter (fun (vp, ans) ->
-      let out = dfa.GetAbsValue vp
+      let out = (st :> IDataFlowState<_, _>).GetAbsValue vp
       Assert.AreEqual (ans, out))

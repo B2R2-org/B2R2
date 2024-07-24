@@ -93,5 +93,5 @@ type UntouchedValueAnalysis<'E when 'E: equality> =
             (g: IGraph<_, _>).GetSuccs v
             |> Seq.map (fun v -> v.ID) }
 
-    { inherit IncrementalDataFlowAnalysis<UntouchedValueDomain.Lattice, 'E>
-        (hdl, analysis) }
+    { inherit IncrementalDataFlowAnalysis<UntouchedValueDomain.Lattice,
+                                          'E> (hdl, analysis) }
