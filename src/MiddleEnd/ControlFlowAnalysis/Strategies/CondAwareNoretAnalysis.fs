@@ -120,7 +120,7 @@ type CondAwareNoretAnalysis ([<Optional; DefaultParameterValue(true)>] strict) =
     let hdl = ctx.BinHandle
     let uva =
       SSAUntouchedValuePropagation (hdl) :> IDataFlowAnalysis<_, _, _, _, _>
-    let state = uva.InitializeState ()
+    let state = uva.InitializeState []
     let state = uva.Compute ssaCFG state
     collectReturningCallEdges ctx
     |> List.choose (fun callEdge ->

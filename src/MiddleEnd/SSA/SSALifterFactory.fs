@@ -352,7 +352,7 @@ module private SSALifterFactory =
   let promote hdl ssaCFG (callback: ISSAVertexCallback<_>) =
     let spp = SSAStackPointerPropagation hdl
     let dfa = spp :> IDataFlowAnalysis<_, _, _, _, _>
-    let state = dfa.InitializeState ()
+    let state = dfa.InitializeState []
     let state = dfa.Compute ssaCFG state
     for v in ssaCFG.Vertices do
       callback.OnVertexCreation ssaCFG state v

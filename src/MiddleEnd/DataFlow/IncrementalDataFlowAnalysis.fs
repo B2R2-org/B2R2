@@ -126,13 +126,19 @@ type IncrementalDataFlowAnalysis<'Lattice, 'E when 'E: equality>
       state.AddIncomingProgramPoint pp lastPp
       state.PushWork vid
 
+  let addInitialWorks vs (state: IncrementalDataFlowState<_, _>) =
+    vs |> Seq.fold (fun state (v: IVertex<_>) ->
+      (state: IncrementalDataFlowState<_, _>).PushWork v.ID
+      state) state
+
   interface IDataFlowAnalysis<VarPoint, 'Lattice,
                               IncrementalDataFlowState<'Lattice, 'E>,
                               IRBasicBlock, 'E> with
 
-    member __.InitializeState () =
+    member __.InitializeState vs =
       IncrementalDataFlowState<'Lattice, 'E> (hdl, analysis)
       |> analysis.OnInitialize
+      |> addInitialWorks vs
 
     member __.Compute g state =
       while not <| state.IsWorklistEmpty do

@@ -38,7 +38,7 @@ type IDataFlowAnalysis<'AbsLoc,
                            and 'V: equality
                            and 'E: equality> =
   /// Return an initial state for the data-flow analysis.
-  abstract InitializeState: unit -> 'State
+  abstract InitializeState: IVertex<'V> seq -> 'State
 
   /// Perform the dataflow analysis on the given CFG until a fixed point is
   /// reached.

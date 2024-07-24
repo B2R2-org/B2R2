@@ -143,7 +143,7 @@ module DataFlowChain =
   [<CompiledName("Init")>]
   let init cfg isDisasmLevel =
     let rd = ReachingDefinitionAnalysis () :> IDataFlowAnalysis<_, _, _, _, _>
-    let st = rd.InitializeState ()
+    let st = rd.InitializeState []
     let st = rd.Compute cfg st
     let udchain = initUDChain cfg st |> filterDisasm isDisasmLevel
     let duchain = initDUChain udchain |> filterDisasm isDisasmLevel

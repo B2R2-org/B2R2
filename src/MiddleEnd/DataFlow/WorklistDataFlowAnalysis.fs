@@ -42,7 +42,7 @@ type WorklistDataFlowAnalysis<'WorkUnit,
                                                     'E>,
                               'V,
                               'E> with
-    member __.InitializeState () =
+    member __.InitializeState _vs =
       WorklistDataFlowState<'WorkUnit, 'Lattice, 'V, 'E> (analysis)
 
     member __.Compute g state =

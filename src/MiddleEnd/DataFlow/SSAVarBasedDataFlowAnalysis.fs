@@ -72,7 +72,7 @@ type SSAVarBasedDataFlowAnalysis<'Lattice,
                               SSAVarBasedDataFlowState<'Lattice, 'E>,
                               SSABasicBlock,
                               'E> with
-    member __.InitializeState () =
+    member __.InitializeState _vs =
       SSAVarBasedDataFlowState<'Lattice, 'E> (hdl, analysis)
       |> analysis.OnInitialize
 
