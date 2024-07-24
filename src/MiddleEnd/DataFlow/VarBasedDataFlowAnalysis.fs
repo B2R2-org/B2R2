@@ -31,8 +31,8 @@ open B2R2.MiddleEnd.DataFlow
 open B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.MiddleEnd.BinGraph
 
-type IncrementalDataFlowAnalysis<'Lattice, 'E when 'E: equality>
-  public (hdl, analysis: IIncrementalDataFlowAnalysis<'Lattice, 'E>) =
+type VarBasedDataFlowAnalysis<'Lattice, 'E when 'E: equality>
+  public (hdl, analysis: IVarBasedDataFlowAnalysis<'Lattice, 'E>) =
 
   let getStatements (v: IVertex<IRBasicBlock>) =
     v.VData.LiftedInstructions
@@ -41,7 +41,7 @@ type IncrementalDataFlowAnalysis<'Lattice, 'E when 'E: equality>
       let stmts = x.Stmts
       Array.mapi (fun i stmt -> ProgramPoint (addr, i), stmt) stmts)
 
-  let updateConstant (state: IncrementalDataFlowState<_, _>) vp e =
+  let updateConstant (state: VarBasedDataFlowState<_, _>) vp e =
     let prevConst = state.GetConstant vp
     let currConst = state.EvaluateExprIntoConst vp.ProgramPoint e
     if ConstantDomain.subsume prevConst currConst then false
@@ -49,7 +49,7 @@ type IncrementalDataFlowAnalysis<'Lattice, 'E when 'E: equality>
       state.SetConstant vp <| ConstantDomain.join prevConst currConst
       true
 
-  let transferConstant (state: IncrementalDataFlowState<_, _>) pp stmt =
+  let transferConstant (state: VarBasedDataFlowState<_, _>) pp stmt =
     if (pp: ProgramPoint).Address = 0x5UL then ()
     match stmt.S with
     | Put (dst, src) ->
@@ -66,14 +66,14 @@ type IncrementalDataFlowAnalysis<'Lattice, 'E when 'E: equality>
       | _ -> false
     | _ -> false
 
-  let updateVarDef (state: IncrementalDataFlowState<_, _>) varDef pp =
+  let updateVarDef (state: VarBasedDataFlowState<_, _>) varDef pp =
     let prevVarDef = state.GetVarDef pp
     if varDef = prevVarDef then false
     else
       state.SetVarDef pp <| VarDefDomain.join prevVarDef varDef
       true
 
-  let transferVarDef (state: IncrementalDataFlowState<_, _>) pp stmt =
+  let transferVarDef (state: VarBasedDataFlowState<_, _>) pp stmt =
     let varDef = state.CalculateIncomingVarDef pp
     match stmt.S with
     | Put (dst, _src) ->
@@ -110,7 +110,7 @@ type IncrementalDataFlowAnalysis<'Lattice, 'E when 'E: equality>
     let domChanged = transferDom state g v pp stmt
     constantChanged || varDefChanged || domChanged
 
-  let transfer (state: IncrementalDataFlowState<_, _>) g v stmts =
+  let transfer (state: VarBasedDataFlowState<_, _>) g v stmts =
     let mutable hasChanged = false
     let mutable i = 0
     for (pp, stmt) in (stmts: _ []) do
@@ -119,24 +119,24 @@ type IncrementalDataFlowAnalysis<'Lattice, 'E when 'E: equality>
       i <- i + 1
     hasChanged
 
-  let propagate (state: IncrementalDataFlowState<_, _>) g v lastPp =
+  let propagate (state: VarBasedDataFlowState<_, _>) g v lastPp =
     for vid in analysis.GetNextVertices g v do
       let nextV = g.FindVertexByID vid
       let pp = nextV.VData.PPoint
       state.AddIncomingProgramPoint pp lastPp
       state.PushWork vid
 
-  let addInitialWorks vs (state: IncrementalDataFlowState<_, _>) =
+  let addInitialWorks vs (state: VarBasedDataFlowState<_, _>) =
     vs |> Seq.fold (fun state (v: IVertex<_>) ->
-      (state: IncrementalDataFlowState<_, _>).PushWork v.ID
+      (state: VarBasedDataFlowState<_, _>).PushWork v.ID
       state) state
 
   interface IDataFlowAnalysis<VarPoint, 'Lattice,
-                              IncrementalDataFlowState<'Lattice, 'E>,
+                              VarBasedDataFlowState<'Lattice, 'E>,
                               IRBasicBlock, 'E> with
 
     member __.InitializeState vs =
-      IncrementalDataFlowState<'Lattice, 'E> (hdl, analysis)
+      VarBasedDataFlowState<'Lattice, 'E> (hdl, analysis)
       |> analysis.OnInitialize
       |> addInitialWorks vs
 
@@ -152,12 +152,12 @@ type IncrementalDataFlowAnalysis<'Lattice, 'E when 'E: equality>
 type private DummyLattice = int
 
 type DummyVarBasedDataFlowAnalysis<'E when 'E: equality> =
-  inherit IncrementalDataFlowAnalysis<DummyLattice, 'E>
+  inherit VarBasedDataFlowAnalysis<DummyLattice, 'E>
 
   new (hdl: BinHandle) =
     let getVid (v: IVertex<_>) = v.ID
     let analysis =
-      { new IIncrementalDataFlowAnalysis<DummyLattice, 'E> with
+      { new IVarBasedDataFlowAnalysis<DummyLattice, 'E> with
           member __.OnInitialize state = state
           member __.Bottom = 0
           member __.Join _a _b = 0
@@ -165,4 +165,4 @@ type DummyVarBasedDataFlowAnalysis<'E when 'E: equality> =
           member __.Transfer _g _v _pp _stmt _state = None
           member __.EvalExpr _state _pp _e = 0
           member __.GetNextVertices g v = g.GetSuccs v |> Seq.map getVid  }
-    { inherit IncrementalDataFlowAnalysis<DummyLattice, 'E> (hdl, analysis) }
+    { inherit VarBasedDataFlowAnalysis<DummyLattice, 'E> (hdl, analysis) }

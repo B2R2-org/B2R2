@@ -33,8 +33,8 @@ open B2R2.BinIR
 open B2R2.BinIR.LowUIR
 open System.Collections.Generic
 
-type IncrementalDataFlowState<'Lattice, 'E when 'E: equality>
-  public (hdl, analysis: IIncrementalDataFlowAnalysis<'Lattice, 'E>) =
+type VarBasedDataFlowState<'Lattice, 'E when 'E: equality>
+  public (hdl, analysis: IVarBasedDataFlowAnalysis<'Lattice, 'E>) =
 
   let absValues = Dictionary<VarPoint, 'Lattice> ()
 
@@ -225,10 +225,10 @@ type IncrementalDataFlowState<'Lattice, 'E when 'E: equality>
   interface IDataFlowState<VarPoint, 'Lattice> with
     member __.GetAbsValue absLoc = getAbsValue absLoc
 
-and IIncrementalDataFlowAnalysis<'Lattice, 'E when 'E: equality> =
+and IVarBasedDataFlowAnalysis<'Lattice, 'E when 'E: equality> =
   abstract OnInitialize:
-       IncrementalDataFlowState<'Lattice, 'E>
-    -> IncrementalDataFlowState<'Lattice, 'E>
+       VarBasedDataFlowState<'Lattice, 'E>
+    -> VarBasedDataFlowState<'Lattice, 'E>
 
   abstract Bottom: 'Lattice
 
@@ -247,11 +247,11 @@ and IIncrementalDataFlowAnalysis<'Lattice, 'E when 'E: equality> =
     -> IVertex<IRBasicBlock>
     -> ProgramPoint
     -> Stmt
-    -> IncrementalDataFlowState<'Lattice, 'E>
+    -> VarBasedDataFlowState<'Lattice, 'E>
     -> (VarPoint * 'Lattice) option
 
   abstract EvalExpr:
-       IncrementalDataFlowState<'Lattice, 'E>
+       VarBasedDataFlowState<'Lattice, 'E>
     -> ProgramPoint
     -> Expr
     -> 'Lattice

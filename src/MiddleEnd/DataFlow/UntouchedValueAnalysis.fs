@@ -32,10 +32,10 @@ open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.DataFlow
 
 type UntouchedValueAnalysis<'E when 'E: equality> =
-  inherit IncrementalDataFlowAnalysis<UntouchedValueDomain.Lattice, 'E>
+  inherit VarBasedDataFlowAnalysis<UntouchedValueDomain.Lattice, 'E>
 
   new (hdl: BinHandle) =
-    let evaluateVarPoint (state: IncrementalDataFlowState<_, _>)  pp varKind =
+    let evaluateVarPoint (state: VarBasedDataFlowState<_, _>)  pp varKind =
       let varDef = state.CalculateIncomingVarDef pp
       let vps = VarDefDomain.get varKind varDef
       if Set.isEmpty vps then (* initialize here *)
@@ -61,7 +61,7 @@ type UntouchedValueAnalysis<'E when 'E: equality> =
       | _ -> UntouchedValueDomain.Touched
 
     let analysis =
-      { new IIncrementalDataFlowAnalysis<UntouchedValueDomain.Lattice, 'E> with
+      { new IVarBasedDataFlowAnalysis<UntouchedValueDomain.Lattice, 'E> with
           member __.OnInitialize state = state // FIXME
 
           member __.Bottom = UntouchedValueDomain.Undef
@@ -93,5 +93,5 @@ type UntouchedValueAnalysis<'E when 'E: equality> =
             (g: IGraph<_, _>).GetSuccs v
             |> Seq.map (fun v -> v.ID) }
 
-    { inherit IncrementalDataFlowAnalysis<UntouchedValueDomain.Lattice,
+    { inherit VarBasedDataFlowAnalysis<UntouchedValueDomain.Lattice,
                                           'E> (hdl, analysis) }

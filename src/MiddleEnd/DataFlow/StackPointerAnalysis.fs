@@ -31,8 +31,8 @@ open B2R2.FrontEnd
 open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.DataFlow
 
-type StackPointerPropagation<'E when 'E: equality> =
-  inherit IncrementalDataFlowAnalysis<StackPointerDomain.Lattice, 'E>
+type StackPointerAnalysis<'E when 'E: equality> =
+  inherit VarBasedDataFlowAnalysis<StackPointerDomain.Lattice, 'E>
 
   new (hdl: BinHandle) =
     let isStackRelatedRegister rid =
@@ -47,7 +47,7 @@ type StackPointerPropagation<'E when 'E: equality> =
       | BinOpType.AND -> StackPointerDomain.``and`` c1 c2
       | _ -> StackPointerDomain.NotConstSP
 
-    let rec evaluateExpr (state: IncrementalDataFlowState<_, _>) pp e =
+    let rec evaluateExpr (state: VarBasedDataFlowState<_, _>) pp e =
       match e.E with
       | Num bv -> StackPointerDomain.ConstSP bv
       | Var _ | TempVar _ ->
@@ -77,7 +77,7 @@ type StackPointerPropagation<'E when 'E: equality> =
       | _ -> StackPointerDomain.NotConstSP
 
     let analysis =
-      { new IIncrementalDataFlowAnalysis<StackPointerDomain.Lattice, 'E> with
+      { new IVarBasedDataFlowAnalysis<StackPointerDomain.Lattice, 'E> with
           member __.OnInitialize state = state // FIXME
 
           member __.Bottom = StackPointerDomain.Undef
@@ -102,5 +102,5 @@ type StackPointerPropagation<'E when 'E: equality> =
             (g: IGraph<_, _>).GetSuccs v
             |> Seq.map (fun v -> v.ID) }
 
-    { inherit IncrementalDataFlowAnalysis<StackPointerDomain.Lattice,
+    { inherit VarBasedDataFlowAnalysis<StackPointerDomain.Lattice,
                                           'E> (hdl, analysis) }
