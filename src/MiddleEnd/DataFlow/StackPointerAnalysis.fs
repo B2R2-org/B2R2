@@ -35,11 +35,22 @@ type StackPointerAnalysis<'E when 'E: equality> =
   inherit VarBasedDataFlowAnalysis<StackPointerDomain.Lattice, 'E>
 
   new (hdl: BinHandle) =
+    let initialStackPointerValue =
+      hdl.RegisterFactory.StackPointer
+      |> Option.get
+      |> hdl.RegisterFactory.RegIDToRegType
+      |> BitVector.OfUInt64 Constants.InitialStackPointer
+      |> StackPointerDomain.ConstSP
+
+    let isStackPointer rid =
+      match hdl.RegisterFactory.StackPointer with
+      | Some spRid -> rid = spRid
+      | None -> false
+
     let isStackRelatedRegister rid =
       hdl.RegisterFactory.IsStackPointer rid
       || hdl.RegisterFactory.IsFramePointer rid
 
-    /// TODO: move into StackPointerDomain module
     let evalBinOp op c1 c2 =
       match op with
       | BinOpType.ADD -> StackPointerDomain.add c1 c2
@@ -47,14 +58,24 @@ type StackPointerAnalysis<'E when 'E: equality> =
       | BinOpType.AND -> StackPointerDomain.``and`` c1 c2
       | _ -> StackPointerDomain.NotConstSP
 
+    let getBaseCase varKind =
+      match varKind with
+      | Regular rid when isStackPointer rid -> initialStackPointerValue
+      | _ -> StackPointerDomain.Undef
+
     let rec evaluateExpr (state: VarBasedDataFlowState<_, _>) pp e =
       match e.E with
       | Num bv -> StackPointerDomain.ConstSP bv
       | Var _ | TempVar _ ->
+        let varKind = VarKind.ofIRExpr e
         state.GetVarDef pp
-        |> VarDefDomain.get (VarKind.ofIRExpr e)
-        |> Seq.map (state: IDataFlowState<_, _>).GetAbsValue
-        |> Seq.reduce StackPointerDomain.join
+        |> VarDefDomain.get varKind
+        |> fun vps ->
+          if Set.isEmpty vps then getBaseCase varKind
+          else
+            vps
+            |> Seq.map (state: IDataFlowState<_, _>).GetAbsValue
+            |> Seq.reduce StackPointerDomain.join
       | Nil -> StackPointerDomain.NotConstSP
       | Load _ -> StackPointerDomain.NotConstSP
       | UnOp _ -> StackPointerDomain.NotConstSP
@@ -78,7 +99,7 @@ type StackPointerAnalysis<'E when 'E: equality> =
 
     let analysis =
       { new IVarBasedDataFlowAnalysis<StackPointerDomain.Lattice, 'E> with
-          member __.OnInitialize state = state // FIXME
+          member __.OnInitialize state = state
 
           member __.Bottom = StackPointerDomain.Undef
 
@@ -93,7 +114,7 @@ type StackPointerAnalysis<'E when 'E: equality> =
               let varPoint = { ProgramPoint = pp; VarKind = varKind }
               let v = evaluateSrcByVarKind state pp src varKind
               Some (varPoint, v)
-            // We ignore the data-flow through memory operations in SPP.
+            (* We ignore the data-flow through memory operations in SPP. *)
             | _ -> None
 
           member __.EvalExpr state pp e = evaluateExpr state pp e
@@ -103,4 +124,4 @@ type StackPointerAnalysis<'E when 'E: equality> =
             |> Seq.map (fun v -> v.ID) }
 
     { inherit VarBasedDataFlowAnalysis<StackPointerDomain.Lattice,
-                                          'E> (hdl, analysis) }
+                                       'E> (hdl, analysis) }

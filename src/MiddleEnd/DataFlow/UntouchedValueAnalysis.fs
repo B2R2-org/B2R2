@@ -35,12 +35,25 @@ type UntouchedValueAnalysis<'E when 'E: equality> =
   inherit VarBasedDataFlowAnalysis<UntouchedValueDomain.Lattice, 'E>
 
   new (hdl: BinHandle) =
+    let isStackPointer rid =
+      match hdl.RegisterFactory.StackPointer with
+      | Some spRid -> rid = spRid
+      | None -> false
+
+    let mkUntouched varKind =
+      UntouchedValueDomain.RegisterTag varKind
+      |> UntouchedValueDomain.Untouched
+
+    let getBaseCase varKind =
+      match varKind with
+      | Regular rid when isStackPointer rid -> UntouchedValueDomain.Touched
+      | Regular _ -> mkUntouched varKind
+      | _ -> UntouchedValueDomain.Undef (* not intended *)
+
     let evaluateVarPoint (state: VarBasedDataFlowState<_, _>)  pp varKind =
       let varDef = state.CalculateIncomingVarDef pp
       let vps = VarDefDomain.get varKind varDef
-      if Set.isEmpty vps then (* initialize here *)
-        UntouchedValueDomain.RegisterTag varKind
-        |> UntouchedValueDomain.Untouched
+      if Set.isEmpty vps then getBaseCase varKind (* initialize here *)
       else
         vps
         |> Set.map (state: IDataFlowState<_, _>).GetAbsValue
@@ -62,7 +75,7 @@ type UntouchedValueAnalysis<'E when 'E: equality> =
 
     let analysis =
       { new IVarBasedDataFlowAnalysis<UntouchedValueDomain.Lattice, 'E> with
-          member __.OnInitialize state = state // FIXME
+          member __.OnInitialize state = state
 
           member __.Bottom = UntouchedValueDomain.Undef
 
@@ -94,4 +107,4 @@ type UntouchedValueAnalysis<'E when 'E: equality> =
             |> Seq.map (fun v -> v.ID) }
 
     { inherit VarBasedDataFlowAnalysis<UntouchedValueDomain.Lattice,
-                                          'E> (hdl, analysis) }
+                                       'E> (hdl, analysis) }
