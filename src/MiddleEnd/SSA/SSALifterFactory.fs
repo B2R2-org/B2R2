@@ -321,41 +321,43 @@ module private SSALifterFactory =
       Some (Var v)
     | _ -> None
 
-  let rec replaceLoad (spp: SSAStackPointerPropagation<_>) e =
+  let rec replaceLoad (state: SSAVarBasedDataFlowState<_, _>) e =
     match e with
     | Load (_, rt, addr) ->
-      let addr = spp.EvalExpr addr
+      let addr = state.EvalExpr addr
       loadToVar rt addr
     | Cast (ck, rt, e) ->
-      replaceLoad spp e
+      replaceLoad state e
       |> Option.map (fun e -> Cast (ck, rt, e))
     | Extract (e, rt, sPos) ->
-      replaceLoad spp e
+      replaceLoad state e
       |> Option.map (fun e -> Extract (e, rt, sPos))
     | ReturnVal (addr, rt, e) ->
-      replaceLoad spp e
+      replaceLoad state e
       |> Option.map (fun e -> ReturnVal (addr, rt, e))
     | _ -> None
 
-  let stmtChooser spp ((pp, stmt) as stmtInfo) =
+  let stmtChooser state ((pp, stmt) as stmtInfo) =
     match stmt with
     | Phi _ -> None
     | Def ({ Kind = MemVar }, Store (_, rt, addr, src)) ->
-      let addr = (spp: SSAStackPointerPropagation<_>).EvalExpr addr
+      let addr = (state: SSAVarBasedDataFlowState<_, _>).EvalExpr addr
       memStore stmtInfo rt addr src
     | Def (dstVar, e) ->
-      match replaceLoad spp e with
+      match replaceLoad state e with
       | Some e -> Some (pp, Def (dstVar, e))
       | None -> Some stmtInfo
     | _ -> Some stmtInfo
 
   let promote hdl ssaCFG (callback: ISSAVertexCallback<_>) =
     let spp = SSAStackPointerPropagation hdl
-    (spp: IDataFlowAnalysis<_, _, _, _>).Compute ssaCFG
+    let dfa = spp :> IDataFlowAnalysis<_, _, _, _, _>
+    let state = dfa.InitializeState ()
+    let state = dfa.Compute ssaCFG state
     for v in ssaCFG.Vertices do
-      callback.OnVertexCreation ssaCFG spp v
+      callback.OnVertexCreation ssaCFG state v
       v.VData.LiftedSSAStmts
-      |> Array.choose (stmtChooser spp)
+      |> Array.choose (stmtChooser state)
       |> fun stmts -> v.VData.LiftedSSAStmts <- stmts
     updatePhis ssaCFG
     ssaCFG

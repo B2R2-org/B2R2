@@ -26,6 +26,7 @@ namespace B2R2.MiddleEnd.SSA
 
 open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.ControlFlowGraph
+open B2R2.MiddleEnd.DataFlow
 open B2R2.MiddleEnd.DataFlow.SSA
 
 /// Callback interface for SSA vertex creation.
@@ -36,6 +37,6 @@ type ISSAVertexCallback<'E when 'E: equality> =
   /// variables.
   abstract OnVertexCreation:
        SSACFG<'E>
-    -> SSAStackPointerPropagation<'E>
+    -> SSAVarBasedDataFlowState<StackPointerDomain.Lattice, 'E>
     -> IVertex<SSABasicBlock>
     -> unit

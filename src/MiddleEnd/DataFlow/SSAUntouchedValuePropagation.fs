@@ -109,7 +109,8 @@ type SSAUntouchedValuePropagation<'E when 'E: equality> =
 
           member _.Subsume lhs rhs = UntouchedValueDomain.subsume lhs rhs
 
-          member _.UpdateMemFromBinaryFile _rt _addr = UntouchedValueDomain.Undef
+          member _.UpdateMemFromBinaryFile _rt _addr =
+            UntouchedValueDomain.Undef
 
           member _.EvalExpr state e = evalExpr state e }
 

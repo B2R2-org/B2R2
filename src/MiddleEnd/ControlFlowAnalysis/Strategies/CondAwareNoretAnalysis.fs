@@ -57,13 +57,13 @@ type CondAwareNoretAnalysis ([<Optional; DefaultParameterValue(true)>] strict) =
     | ConditionalNoRet n1, ConditionalNoRet n2 when n1 <> n2 -> NoRet
     | _ -> Utils.impossible ()
 
-  let untouchedArgIndexX86 frameDist absV uvAnalysis nth =
+  let untouchedArgIndexX86 frameDist absV state nth =
     let argOff = frameDist - 4 * nth
     let varKind = SSA.StackVar (32<rt>, argOff)
     SSACFG.findReachingDef absV varKind
     |> Option.bind (function
       | SSA.Def (var, _) ->
-        match (uvAnalysis: SSAUntouchedValuePropagation<_>).GetRegValue var with
+        match (state: SSAVarBasedDataFlowState<_, _>).GetRegValue var with
         | UntouchedValueDomain.Untouched (RegisterTag (StackLocal off)) ->
           Some (- off / 4)
         | _ -> None
@@ -74,13 +74,13 @@ type CondAwareNoretAnalysis ([<Optional; DefaultParameterValue(true)>] strict) =
     |> List.tryFind (fun nth ->
       rid = CallingConvention.functionArgRegister hdl OS.Linux nth)
 
-  let untouchedArgIndexX64 hdl absV uvAnalysis nth =
+  let untouchedArgIndexX64 hdl absV state nth =
     let argReg = CallingConvention.functionArgRegister hdl OS.Linux nth
     let name = hdl.RegisterFactory.RegIDToString argReg
     let varKind = SSA.RegVar (64<rt>, argReg, name)
     match SSACFG.findReachingDef absV varKind with
     | Some (SSA.Def (var, _)) ->
-      match (uvAnalysis: SSAUntouchedValuePropagation<_>).GetRegValue var with
+      match (state: SSAVarBasedDataFlowState<_, _>).GetRegValue var with
       | UntouchedValueDomain.Untouched (RegisterTag (Regular rid)) ->
         ssaRegToArgNumX64 hdl rid
       | _ -> None
@@ -104,28 +104,30 @@ type CondAwareNoretAnalysis ([<Optional; DefaultParameterValue(true)>] strict) =
       | _ -> acc) []
     |> List.filter (hasCallFallthroughNode ctx)
 
-  let tryGetConnectedArgument ctx ssa uvAnalysis callEdge nth =
+  let tryGetConnectedArgument ctx ssa state callEdge nth =
     let callSite = fst callEdge
     let callerSSAV = SSACFG.findVertexByAddr ssa callSite
     let absSSAV = ssa.GetSuccs callerSSAV |> Seq.exactlyOne
     let arch = (ctx: CFGBuildingContext<_, _, _, _>).BinHandle.File.ISA.Arch
     match ctx.CallTable.TryGetFrameDistance callSite with
     | true, frameDist when arch = Architecture.IntelX86 ->
-      untouchedArgIndexX86 frameDist absSSAV uvAnalysis nth
+      untouchedArgIndexX86 frameDist absSSAV state nth
     | true, _ when arch = Architecture.IntelX64 ->
-      untouchedArgIndexX64 ctx.BinHandle absSSAV uvAnalysis nth
+      untouchedArgIndexX64 ctx.BinHandle absSSAV state nth
     | _ -> None
 
   let collectConditionalNoRetCalls ctx ssaCFG =
     let hdl = ctx.BinHandle
-    let uvAnalysis = SSAUntouchedValuePropagation (hdl)
-    (uvAnalysis: IDataFlowAnalysis<_, _, _, _>).Compute ssaCFG
+    let uva =
+      SSAUntouchedValuePropagation (hdl) :> IDataFlowAnalysis<_, _, _, _, _>
+    let state = uva.InitializeState ()
+    let state = uva.Compute ssaCFG state
     collectReturningCallEdges ctx
     |> List.choose (fun callEdge ->
       let absV = ctx.AbsVertices[callEdge]
       match absV.VData.AbstractContent.ReturningStatus with
       | ConditionalNoRet nth ->
-        tryGetConnectedArgument ctx ssaCFG uvAnalysis callEdge nth
+        tryGetConnectedArgument ctx ssaCFG state callEdge nth
         |> Option.bind (fun nth' -> Some (absV, nth'))
       | NotNoRet | UnknownNoRet -> None
       | NoRet -> Utils.impossible ())

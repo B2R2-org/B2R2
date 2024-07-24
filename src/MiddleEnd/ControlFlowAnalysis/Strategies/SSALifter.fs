@@ -46,8 +46,8 @@ type SSALifter () =
     SSACFG.findReachingDef v targetVarKind
     |> Option.map extractStackVar
 
-  let updateIfStackValueIsConstant ctx (ssaCFG: SSACFG<_>) spp v sp =
-    match (spp: SSAStackPointerPropagation<_>).GetRegValue sp with
+  let updateIfStackValueIsConstant ctx (ssaCFG: SSACFG<_>) state v sp =
+    match (state: SSAVarBasedDataFlowState<_, _>).GetRegValue sp with
     | StackPointerDomain.ConstSP bv ->
       let spValue = BitVector.ToUInt64 bv
       let offset = Constants.InitialStackPointer - spValue |> int
@@ -61,7 +61,7 @@ type SSALifter () =
 #endif
     | _ -> ()
 
-  let updateFrameDistance ctx ssaCFG spp (v: IVertex<SSABasicBlock>) =
+  let updateFrameDistance ctx ssaCFG state (v: IVertex<SSABasicBlock>) =
     let hdl = (ctx: CFGBuildingContext<_, _, _, _>).BinHandle
     match hdl.RegisterFactory.StackPointer with
     | Some rid ->
@@ -69,15 +69,15 @@ type SSALifter () =
       let rt = hdl.File.ISA.WordSize |> WordSize.toRegType
       let spRegKind = RegVar (rt, rid, spName)
       match findLastStackDef v spRegKind with
-      | Some sp -> updateIfStackValueIsConstant ctx ssaCFG spp v sp
+      | Some sp -> updateIfStackValueIsConstant ctx ssaCFG state v sp
       | None -> ()
     | None -> ()
 
   let createCallback ctx =
     { new ISSAVertexCallback<CFGEdgeKind> with
-        member _.OnVertexCreation ssaCFG spp v =
+        member _.OnVertexCreation ssaCFG state v =
           if (v: IVertex<SSABasicBlock>).VData.IsAbstract then
-            updateFrameDistance ctx ssaCFG spp v
+            updateFrameDistance ctx ssaCFG state v
           else () }
 
   interface IPostAnalysis<unit -> SSACFG<CFGEdgeKind>> with

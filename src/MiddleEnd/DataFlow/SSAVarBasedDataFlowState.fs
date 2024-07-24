@@ -144,6 +144,8 @@ type SSAVarBasedDataFlowState<'Lattice, 'E when 'Lattice: equality
       else ()
     count
 
+  member __.EvalExpr expr = analysis.EvalExpr __ expr
+
   interface IDataFlowState<SSAVarPoint, 'Lattice> with
     member __.GetAbsValue ssaVarPoint =
       match ssaVarPoint with

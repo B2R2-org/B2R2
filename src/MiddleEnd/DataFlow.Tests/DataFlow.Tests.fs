@@ -81,10 +81,11 @@ type PersistentDataFlowTests () =
   member __.``Reaching Definitions Test 1``() =
     let brew = Binaries.loadOne Binaries.sample1
     let cfg = brew.Functions[0UL].CFG
-    let dfa = ReachingDefinitionAnalysis () :> IDataFlowAnalysis<_, _, _, _>
-    dfa.Compute cfg
+    let dfa = ReachingDefinitionAnalysis () :> IDataFlowAnalysis<_, _, _, _, _>
+    let state = dfa.InitializeState ()
+    let state = dfa.Compute cfg state
     let v = cfg.FindVertexBy (fun b -> b.VData.PPoint.Address = 0xEUL) (* 2nd *)
-    let rd = dfa.GetAbsValue v.ID
+    let rd = (state :> IDataFlowState<_, _>).GetAbsValue v.ID
     let ins = rd.Ins |> Set.filter isRegular
     let solution =
       [ reg 0x0UL 1 Register.EDX
@@ -146,8 +147,9 @@ type PersistentDataFlowTests () =
     let lifter = SSALifterFactory<CFGEdgeKind>.Create (brew.BinHandle)
     let ssaCFG = lifter.Lift cfg
     let cp = SSA.SSAConstantPropagation brew.BinHandle
-    let dfa = cp :> IDataFlowAnalysis<_, _, _, _>
-    dfa.Compute ssaCFG
+    let dfa = cp :> IDataFlowAnalysis<_, _, _, _, _>
+    let state = dfa.InitializeState ()
+    let state = dfa.Compute ssaCFG state
     [ ssaReg Register.RSP 0 64<rt> |> cmp <| mkConst 0x80000000u 64<rt>
       ssaReg Register.RSP 1 64<rt> |> cmp <| mkConst 0x7ffffff8u 64<rt>
       ssaReg Register.RBP 0 64<rt> |> cmp <| ConstantDomain.Undef
@@ -165,7 +167,7 @@ type PersistentDataFlowTests () =
       ssaReg Register.RSP 2 64<rt> |> cmp <| mkConst 0x80000000u 64<rt>
       ssaReg Register.RSP 3 64<rt> |> cmp <| mkConst 0x80000008u 64<rt> ]
     |> List.iter (fun (var, ans) ->
-      let out = dfa.GetAbsValue var
+      let out = (state :> IDataFlowState<_, _>).GetAbsValue var
       Debug.Print $"{var}: {ans} <-> {out}"
       Assert.AreEqual (ans, out))
 
@@ -204,7 +206,8 @@ type PersistentDataFlowTests () =
     let cfg = brew.Functions[0UL].CFG
     let roots = cfg.GetRoots ()
     let uva = UntouchedValueAnalysis<CFGEdgeKind> brew.BinHandle
-    let dfa = uva :> IDataFlowAnalysis<_, _, _, _>
+    let dfa = uva :> IDataFlowAnalysis<_, _, _, _, _>
+    let state = dfa.InitializeState ()
     Seq.iter uva.PushWork roots
     let rbp = 0x7ffffff8UL
     dfa.Compute cfg
