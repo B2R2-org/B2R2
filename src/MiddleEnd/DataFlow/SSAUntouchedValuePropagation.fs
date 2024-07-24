@@ -107,7 +107,7 @@ type SSAUntouchedValuePropagation<'E when 'E: equality> =
             | Jmp _ -> evalJmp state ssaCFG blk
             | LMark _ | ExternalCall _ | SideEffect _ -> ()
 
-          member _.Subsume lhs rhs = UntouchedValueDomain.isSubsumable lhs rhs
+          member _.Subsume lhs rhs = UntouchedValueDomain.subsume lhs rhs
 
           member _.UpdateMemFromBinaryFile _rt _addr = UntouchedValueDomain.Undef
 

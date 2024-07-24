@@ -36,7 +36,7 @@ module ConstantDomain =
 
   /// Check if the transition from the old domain to the new domain is
   /// non-monotonic or the same.
-  let isSubsumable oldDomain newDomain =
+  let subsume oldDomain newDomain =
     match oldDomain, newDomain with
     | a, b when a = b -> true
     | NotAConst, Const _

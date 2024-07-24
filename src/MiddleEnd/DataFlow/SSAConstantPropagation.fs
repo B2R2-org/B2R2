@@ -162,7 +162,7 @@ type SSAConstantPropagation<'E when 'E: equality> =
             | Jmp _ -> evalJmp state ssaCFG blk
             | LMark _ | ExternalCall _ | SideEffect _ -> ()
 
-          member _.Subsume lhs rhs = ConstantDomain.isSubsumable lhs rhs
+          member _.Subsume lhs rhs = ConstantDomain.subsume lhs rhs
 
           member _.UpdateMemFromBinaryFile _rt _addr = ConstantDomain.Undef
 

@@ -34,7 +34,7 @@ module StackPointerDomain =
     | ConstSP of BitVector
     | Undef
 
-  let isSubsumable fromV toV =
+  let subsume fromV toV =
     match fromV, toV with
     | a, b when a = b -> true
     | ConstSP _, Undef

@@ -117,7 +117,7 @@ type SSAStackPointerPropagation<'E when 'E: equality> =
             | Jmp _ -> evalJmp state ssaCFG blk
             | LMark _ | ExternalCall _ | SideEffect _ -> ()
 
-          member _.Subsume lhs rhs = StackPointerDomain.isSubsumable lhs rhs
+          member _.Subsume lhs rhs = StackPointerDomain.subsume lhs rhs
 
           member _.UpdateMemFromBinaryFile _rt _addr =
             StackPointerDomain.Undef

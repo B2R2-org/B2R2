@@ -41,7 +41,7 @@ module UntouchedValueDomain =
     | RegisterTag of VarKind
     | MemoryTag of Addr
 
-  let isSubsumable fromV toV =
+  let subsume fromV toV =
     match fromV, toV with
     | a, b when a = b -> true
     | Untouched _, Undef

@@ -19,10 +19,10 @@
     <Compile Include="WorklistDataFlowAnalysis.fs" />
     <Compile Include="ReachingDefinitionAnalysis.fs" />
     <Compile Include="DataFlowChain.fs" />
+    <Compile Include="IncrementalDataFlowState.fs" />
     <Compile Include="IncrementalDataFlowAnalysis.fs" />
     <Compile Include="UntouchedValueAnalysis.fs" />
     <Compile Include="StackPointerPropagation.fs" />
-    <Compile Include="ConstantPropagation.fs" />
     <Compile Include="SSAEdges.fs" />
     <Compile Include="SSAVarBasedDataFlowState.fs" />
     <Compile Include="SSAVarBasedDataFlowAnalysis.fs" />
