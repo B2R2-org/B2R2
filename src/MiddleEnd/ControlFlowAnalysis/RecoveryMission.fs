@@ -77,6 +77,22 @@ and private TaskManager<'V,
     | Ok builder -> builder.BuilderState = Finished
     | Error _ -> false
 
+  let isInvalid entryPoint =
+    match builders.TryGetBuilder entryPoint with
+    | Ok builder -> builder.BuilderState = Invalid
+    | Error _ -> false
+
+  let makeInvalid builder =
+    match (builder: ICFGBuildable<_, _, _, _>).BuilderState with
+    | Finished | Invalid -> ()
+    | InProgress -> builder.Invalidate ()
+    | _ ->
+      builder.Authorize ()
+      builder.Invalidate ()
+
+  let removeFromWorkingSet entryPoint =
+    workingSet.Remove entryPoint |> ignore
+
   let rec schedule (inbox: IAgentMessageReceivable<_>) =
     while not inbox.IsCancelled do
       match inbox.Receive () with
@@ -89,6 +105,10 @@ and private TaskManager<'V,
           workingSet.Add entryPoint |> ignore
           builder.Authorize ()
           toWorkers.Post builder |> ignore
+      | InvalidateBuilder (entryPoint, mode) ->
+        let builder = builders.GetOrCreateBuilder agent entryPoint mode
+        makeInvalid builder
+        propagateInvalidation entryPoint
       | AddDependency (_, callee, _) when isFinished callee -> ()
       | AddDependency (caller, callee, mode) ->
         dependenceMap.AddDependency (caller, callee)
@@ -121,26 +141,40 @@ and private TaskManager<'V,
   and addTask entryPoint mode =
     AddTask (entryPoint, mode) |> agent.Post
 
+  and invalidateBuilder entryPoint mode =
+    InvalidateBuilder (entryPoint, mode) |> agent.Post
+
+  and propagateInvalidation entryPoint =
+    dependenceMap.RemoveAndGetCallers entryPoint
+    |> List.iter (fun addr -> invalidateBuilder addr ArchOperationMode.NoMode)
+
   and handleResult entryPoint result =
     let builder = builders[entryPoint]
     match result with
     | Success ->
-      workingSet.Remove entryPoint |> ignore
+      removeFromWorkingSet entryPoint
       builder.Finalize ()
       dependenceMap.RemoveAndGetCallers entryPoint
       |> List.iter (fun addr -> addTask addr ArchOperationMode.NoMode)
 #if CFGDEBUG
       dbglog 0 "handleResult" $"{entryPoint:x} finished."
 #endif
+    | Wait _ when isInvalid entryPoint ->
+      removeFromWorkingSet entryPoint
+      propagateInvalidation entryPoint
     | Wait calleeAddr ->
-      checkAndResolveCyclicDependencies entryPoint calleeAddr
-      builder.Stop ()
-      addTask entryPoint builder.Mode
+      if isInvalid calleeAddr then
+        builder.Invalidate ()
+        removeFromWorkingSet entryPoint
+        propagateInvalidation entryPoint
+      else
+        checkAndResolveCyclicDependencies entryPoint calleeAddr
+        builder.Stop ()
+        addTask entryPoint builder.Mode
     | Failure _ ->
-      workingSet.Remove entryPoint |> ignore
       builder.Invalidate ()
-      dependenceMap.RemoveAndGetCallers entryPoint
-      |> List.iter (fun addr -> addTask addr ArchOperationMode.NoMode)
+      removeFromWorkingSet entryPoint
+      propagateInvalidation entryPoint
 #if CFGDEBUG
       dbglog 0 "handleResult" $"{entryPoint:x} failed."
 #endif
@@ -211,7 +245,7 @@ and private TaskWorker<'V,
           agent.Post <| ReportResult (builder.EntryPoint, res)
         with e ->
           Console.Error.WriteLine $"Worker ({tid}) failed:\n{e}"
-          let failure = Failure ErrorCase.FailedToRecoverCFG
+          let failure = Failure ErrorCase.UnexpectedError
           agent.Post <| ReportResult (builder.EntryPoint, failure)
 #if CFGDEBUG
         flushLog tid

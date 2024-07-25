@@ -38,6 +38,8 @@ type TaskMessage<'V,
                          and 'GlCtx: (new: unit -> 'GlCtx)> =
   /// Add an address to recover the CFG.
   | AddTask of Addr * ArchOperationMode
+  /// Invalidate a builder.
+  | InvalidateBuilder of Addr * ArchOperationMode
   /// Add a dependency between two functions.
   | AddDependency of caller: Addr * callee: Addr * mode: ArchOperationMode
   /// Report the result of a task.
