@@ -97,12 +97,6 @@ let rec private expToStringAux expr (sb: StringBuilder) =
     sb.Append ("Undefined expression (") |> ignore
     sb.Append reason |> ignore
     sb.Append ")" |> ignore
-  | ReturnVal (addr, ret, _) ->
-    sb.Append "RetFromFunc(" |> ignore
-    sb.Append $"{addr:x}" |> ignore
-    sb.Append "," |> ignore
-    sb.Append $"{ret:x}" |> ignore
-    sb.Append ")" |> ignore
 
 let private labelToString (addr: Addr, symb) (sb: StringBuilder) =
   sb.Append $"{Symbol.getName symb} @ {addr:x}" |> ignore

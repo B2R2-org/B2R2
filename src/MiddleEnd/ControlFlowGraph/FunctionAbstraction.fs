@@ -25,17 +25,16 @@
 namespace B2R2.MiddleEnd.ControlFlowGraph
 
 open B2R2
-open B2R2.BinIR
 
 /// An abstract information about a function to be used in an intra-procedural
 /// CFG. This exists per function call, not per function definition. Therefore,
 /// one function can have multiple `FunctionAbstraction` instances.
 [<AllowNullLiteral>]
-type FunctionAbstraction (entryPoint,
-                          unwindingBytes,
-                          rundown,
-                          isExternal,
-                          returningStatus) =
+type FunctionAbstraction<'Stmt> (entryPoint,
+                                 unwindingBytes,
+                                 rundown,
+                                 isExternal,
+                                 returningStatus) =
   /// Entry point of this function.
   member _.EntryPoint with get(): Addr = entryPoint
 
@@ -43,16 +42,16 @@ type FunctionAbstraction (entryPoint,
   member _.UnwindingBytes with get(): int option = unwindingBytes
 
   /// A rundown of the function in SSA form.
-  member _.Rundown with get(): SSARundown = rundown
+  member _.Rundown with get(): Rundown<'Stmt> = rundown
 
   /// Is this an external function?
   member _.IsExternal with get(): bool = isExternal
 
   member __.ReturningStatus with get(): NonReturningStatus = returningStatus
 
-/// A rundown of a function in SSA form, where each SSA statement is associated
-/// with a program point.
-and SSARundown = (ProgramPoint * SSA.Stmt) array
+/// A rundown of a function is really just an array of statements, summarizing
+/// the function.
+and Rundown<'Stmt> = 'Stmt array
 
 /// The result of non-returning function analysis.
 and NonReturningStatus =

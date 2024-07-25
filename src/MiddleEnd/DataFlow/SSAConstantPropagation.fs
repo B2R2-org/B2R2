@@ -113,7 +113,6 @@ type SSAConstantPropagation<'E when 'E: equality> =
       | Extract (e, rt, pos) ->
         let c = evalExpr state e
         ConstantDomain.extract c rt pos
-      | ReturnVal (_addr, _ret, e) -> evalExpr state e
       | FuncName _ | Nil | Undefined _ -> ConstantDomain.NotAConst
       | _ -> Utils.impossible ()
 
@@ -155,7 +154,7 @@ type SSAConstantPropagation<'E when 'E: equality> =
 
           member _.Join a b = ConstantDomain.join a b
 
-          member _.Transfer state ssaCFG blk _pp stmt =
+          member _.Transfer ssaCFG blk _pp stmt state =
             match stmt with
             | Def (var, e) -> evalDef state var e
             | Phi (var, ns) -> evalPhi state ssaCFG blk var ns

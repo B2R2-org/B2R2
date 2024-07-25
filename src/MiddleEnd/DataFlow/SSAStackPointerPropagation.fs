@@ -59,7 +59,6 @@ type SSAStackPointerPropagation<'E when 'E: equality> =
       | Cast _ -> StackPointerDomain.NotConstSP
       | Extract _ -> StackPointerDomain.NotConstSP
       | Undefined _ -> StackPointerDomain.NotConstSP
-      | ReturnVal (_, _, e) -> evalExpr state e
       | _ -> Utils.impossible ()
 
     let isStackRelatedRegister regId =
@@ -110,7 +109,7 @@ type SSAStackPointerPropagation<'E when 'E: equality> =
 
           member _.Join a b = StackPointerDomain.join a b
 
-          member _.Transfer state ssaCFG blk _pp stmt =
+          member _.Transfer ssaCFG blk _pp stmt state =
             match stmt with
             | Def (var, e) -> evalDef state var e
             | Phi (var, ns) -> evalPhi state ssaCFG blk var ns

@@ -32,7 +32,8 @@ exception AbstractBlockAccessException
 /// create an abstract basic block for a function while building an
 /// intra-procedural CFG.
 [<AbstractClass>]
-type PossiblyAbstractBasicBlock (ppoint, absContent: FunctionAbstraction) =
+type PossiblyAbstractBasicBlock<'Stmt>
+  public (ppoint, absContent: FunctionAbstraction<'Stmt>) =
   inherit BasicBlock (ppoint)
 
   /// Return if this is an abstract basic block inserted by our analysis. We

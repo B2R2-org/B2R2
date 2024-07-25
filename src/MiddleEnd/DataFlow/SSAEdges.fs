@@ -80,8 +80,6 @@ type SSAEdges<'E when 'E: equality> (ssaCFG: SSACFG<'E>) =
       computeUses loc e
     | SSA.Extract (e, _, _) ->
       computeUses loc e
-    | SSA.ReturnVal (_, _, e) ->
-      computeUses loc e
     | _ -> ()
 
   /// Compute SSA edge map (SSA Var -> a set of (VertexID, Stmt idx)). From a

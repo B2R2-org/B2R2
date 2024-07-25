@@ -24,6 +24,7 @@
 
 namespace B2R2.MiddleEnd.ControlFlowAnalysis.Strategies
 
+open B2R2.BinIR
 open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.MiddleEnd.ControlFlowAnalysis
@@ -44,4 +45,4 @@ type ISyscallAnalyzable =
        ctx: CFGBuildingContext<IRBasicBlock, CFGEdgeKind, 'FnCtx, 'GlCtx>
      * TargetVertex: IVertex<IRBasicBlock>
      * IsExit: bool
-    -> FunctionAbstraction
+    -> FunctionAbstraction<LowUIR.Stmt>

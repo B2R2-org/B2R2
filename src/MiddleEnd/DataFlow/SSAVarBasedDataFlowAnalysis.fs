@@ -43,14 +43,15 @@ type SSAVarBasedDataFlowAnalysis<'Lattice,
       let blk = ssaCFG.FindVertexByID myId
       blk.VData.LiftedSSAStmts
       |> Array.iter (fun (ppoint, stmt) ->
-        analysis.Transfer state ssaCFG blk ppoint stmt)
+        analysis.Transfer ssaCFG blk ppoint stmt state)
       if blk.VData.IsAbstract then ()
       else
         match blk.VData.LastStmt with
         | Jmp _ -> ()
         | _ -> (* Fall-through cases. *)
           ssaCFG.GetSuccs blk
-          |> Seq.iter (fun succ -> state.MarkExecutable myId succ.ID)
+          |> Seq.iter (fun succ ->
+            state.MarkExecutable myId succ.ID)
 
   let processSSA (state: SSAVarBasedDataFlowState<_, _>) (ssaCFG: SSACFG<'E>) =
     match state.SSAWorkList.TryPop () with
@@ -59,13 +60,12 @@ type SSAVarBasedDataFlowAnalysis<'Lattice,
       match state.SSAEdges.Uses.TryGetValue def with
       | false, _ -> ()
       | _, uses ->
-        uses |> Set.iter (fun (vid, idx) ->
+        for (vid, idx) in uses do
           let v = ssaCFG.FindVertexByID vid
           if state.GetNumIncomingExecutedEdges ssaCFG v > 0 then
             let ppoint, stmt = v.VData.LiftedSSAStmts[idx]
-            analysis.Transfer state ssaCFG v ppoint stmt
+            analysis.Transfer ssaCFG v ppoint stmt state
           else ()
-        )
 
   interface IDataFlowAnalysis<SSAVarPoint,
                               'Lattice,

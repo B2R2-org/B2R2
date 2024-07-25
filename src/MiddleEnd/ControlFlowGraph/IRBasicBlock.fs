@@ -33,7 +33,7 @@ open B2R2.BinIR.LowUIR
 
 /// Basic block type for IR-level CFGs.
 type IRBasicBlock internal (ppoint, funcAbs, liftedInstrs, labelMap) =
-  inherit PossiblyAbstractBasicBlock (ppoint, funcAbs)
+  inherit PossiblyAbstractBasicBlock<LowUIR.Stmt> (ppoint, funcAbs)
 
   let isTerminatingStmt stmt =
     match stmt.S with

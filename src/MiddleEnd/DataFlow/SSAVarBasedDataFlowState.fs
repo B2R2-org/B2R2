@@ -163,24 +163,25 @@ and ISSAVarBasedDataFlowAnalysis<'Lattice, 'E when 'Lattice: equality
        SSAVarBasedDataFlowState<'Lattice, 'E>
     -> SSAVarBasedDataFlowState<'Lattice, 'E>
 
-  /// The initial abstract value representing the bottom of the lattice. Our
+  /// Initial abstract value representing the bottom of the lattice. Our
   /// analysis starts with this value until it reaches a fixed point.
   abstract Bottom: 'Lattice
 
   /// Join operator.
   abstract Join: 'Lattice -> 'Lattice -> 'Lattice
 
-  /// Transfer function.
+  /// Transfer function. Since SSAVarBasedDataFlowState is a mutable object, we
+  /// don't need to return the updated state.
   abstract Transfer:
-       SSAVarBasedDataFlowState<'Lattice, 'E>
-    -> SSACFG<'E>
+       SSACFG<'E>
     -> IVertex<SSABasicBlock>
     -> ProgramPoint
     -> Stmt
+    -> SSAVarBasedDataFlowState<'Lattice, 'E>
     -> unit
 
-  /// The subsume operator, which checks if the first lattice subsumes the
-  /// second. This is to know if the analysis should stop or not.
+  /// Subsume operator, which checks if the first lattice subsumes the second.
+  /// This is to know if the analysis should stop or not.
   abstract Subsume: 'Lattice -> 'Lattice -> bool
 
   /// Update memory value by reading constant values from a binary file when

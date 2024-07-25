@@ -25,6 +25,7 @@
 namespace B2R2.MiddleEnd.ControlFlowGraph
 
 open B2R2
+open B2R2.BinIR
 open B2R2.BinIR.SSA
 open B2R2.FrontEnd.BinLifter
 open B2R2.MiddleEnd.BinGraph
@@ -32,7 +33,7 @@ open B2R2.MiddleEnd.BinGraph
 /// Basic block type for an SSA-based CFG (SSACFG). It holds an array of
 /// LiftedSSAStmts (ProgramPoint * Stmt).
 type SSABasicBlock private (ppoint, lastAddr, stmts: _[], funcAbs) =
-  inherit PossiblyAbstractBasicBlock (ppoint, funcAbs)
+  inherit PossiblyAbstractBasicBlock<Stmt> (ppoint, funcAbs)
 
   let mutable idom: IVertex<SSABasicBlock> option = None
 
@@ -91,6 +92,7 @@ type SSABasicBlock private (ppoint, lastAddr, stmts: _[], funcAbs) =
     SSABasicBlock (ppoint, lastAddr, stmts, null)
 
   /// Create an abstract basic block located at `ppoint`.
-  static member CreateAbstract (ppoint, abs: FunctionAbstraction) =
+  static member CreateAbstract (ppoint, abs: FunctionAbstraction<SSA.Stmt>) =
     assert (not (isNull abs))
-    SSABasicBlock (ppoint, 0UL, abs.Rundown, abs)
+    let rundown = abs.Rundown |> Array.map (fun s -> ProgramPoint.GetFake (), s)
+    SSABasicBlock (ppoint, 0UL, rundown, abs)

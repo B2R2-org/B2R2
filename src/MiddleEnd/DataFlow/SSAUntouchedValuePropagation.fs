@@ -100,7 +100,7 @@ type SSAUntouchedValuePropagation<'E when 'E: equality> =
 
           member _.Join a b = UntouchedValueDomain.join a b
 
-          member _.Transfer state ssaCFG blk _pp stmt =
+          member _.Transfer ssaCFG blk _pp stmt state =
             match stmt with
             | Def (var, e) -> evalDef state var e
             | Phi (var, ns) -> evalPhi state ssaCFG blk var ns

@@ -24,6 +24,7 @@
 
 namespace B2R2.MiddleEnd.DataFlow
 
+open System.Collections.Generic
 open B2R2
 open B2R2.FrontEnd
 open B2R2.MiddleEnd.DataFlow
@@ -31,7 +32,6 @@ open B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.MiddleEnd.BinGraph
 open B2R2.BinIR
 open B2R2.BinIR.LowUIR
-open System.Collections.Generic
 
 type VarBasedDataFlowState<'Lattice, 'E when 'E: equality>
   public (hdl, analysis: IVarBasedDataFlowAnalysis<'Lattice, 'E>) =
@@ -84,7 +84,7 @@ type VarBasedDataFlowState<'Lattice, 'E when 'E: equality>
     | false, _ -> ConstantDomain.Undef
     | true, c -> c
 
-  let initializeInitialConstants () =
+  let initializeConstants () =
     match (hdl: BinHandle).RegisterFactory.StackPointer with
     | None -> ()
     | Some rid ->
@@ -186,9 +186,9 @@ type VarBasedDataFlowState<'Lattice, 'E when 'E: equality>
       | UnOpType.NOT -> ConstantDomain.not v
       | _ -> ConstantDomain.NotAConst
     | Cast (_, _, e) -> evaluateExprIntoConst pp e
-    | _ -> failwith "TODO: FILLME"
+    | _ -> Utils.futureFeature ()
 
-  do initializeInitialConstants ()
+  do initializeConstants ()
 
   member __.IsWorklistEmpty with get () = isWorklistEmpty ()
 
@@ -226,22 +226,29 @@ type VarBasedDataFlowState<'Lattice, 'E when 'E: equality>
     member __.GetAbsValue absLoc = getAbsValue absLoc
 
 and IVarBasedDataFlowAnalysis<'Lattice, 'E when 'E: equality> =
+  /// A callback for initializing the state.
   abstract OnInitialize:
        VarBasedDataFlowState<'Lattice, 'E>
     -> VarBasedDataFlowState<'Lattice, 'E>
 
+  /// Initial abstract value representing the bottom of the lattice. Our
+  /// analysis starts with this value until it reaches a fixed point.
   abstract Bottom: 'Lattice
 
+  /// Join operator.
   abstract Join:
        'Lattice
     -> 'Lattice
     -> 'Lattice
 
+  /// Subsume operator, which checks if the first lattice subsumes the second.
+  /// This is to know if the analysis should stop or not.
   abstract Subsume:
        'Lattice
     -> 'Lattice
     -> bool
 
+  /// Transfer function.
   abstract Transfer:
        IGraph<IRBasicBlock, 'E>
     -> IVertex<IRBasicBlock>
@@ -250,6 +257,7 @@ and IVarBasedDataFlowAnalysis<'Lattice, 'E when 'E: equality> =
     -> VarBasedDataFlowState<'Lattice, 'E>
     -> (VarPoint * 'Lattice) option
 
+  /// Evaluate the given expression based on the current abstract state.
   abstract EvalExpr:
        VarBasedDataFlowState<'Lattice, 'E>
     -> ProgramPoint

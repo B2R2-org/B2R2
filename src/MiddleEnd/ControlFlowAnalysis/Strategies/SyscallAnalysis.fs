@@ -60,15 +60,11 @@ type SyscallAnalysis () =
       match hdl.File.Format with
       | FileFormat.RawBinary
       | FileFormat.ELFBinary ->
-        let lastAddr = v.VData.LastInstruction.Address
-        let nextAddr = lastAddr + uint64 v.VData.LastInstruction.Length
         let rt = hdl.File.ISA.WordSize |> WordSize.toRegType
-        let reg = CallingConvention.returnRegister hdl
-        let var = SSA.RegVar (rt, reg, hdl.RegisterFactory.RegIDToString reg)
-        let dst = { SSA.Kind = var; SSA.Identifier = -1 }
-        let e = SSA.Undefined (rt, "ret")
-        let pp = ProgramPoint.GetFake ()
-        let rundown = [| pp, SSA.Def (dst, SSA.ReturnVal (addr, nextAddr, e)) |]
+        let rid = CallingConvention.returnRegister hdl
+        let reg = hdl.RegisterFactory.RegIDToRegExpr rid
+        let e = LowUIR.AST.undef rt "ret"
+        let rundown = [| LowUIR.AST.put reg e |]
         FunctionAbstraction (addr, Some 0, rundown, true, returningStatus)
       | _ ->
         FunctionAbstraction (addr, Some 0, [||], true, returningStatus)

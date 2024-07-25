@@ -83,14 +83,29 @@ module private SSALifterFactory =
       vMap.Add (ppoint, v)
       v, g
 
-  let getAbsVertex avMap g src ftPpoint =
-    let srcBbl = (src: IVertex<#IRBasicBlock>).VData
-    let calleePpoint = srcBbl.PPoint
+  let liftRundown stmtProcessor rundown =
+    if Array.isEmpty rundown then [||]
+    else
+      let memVar = { Kind = MemVar; Identifier = -1 }
+      [| (* safe approximation: memory is always defined. (optional?) *)
+         Def (memVar, Var memVar)
+         (* addr should not matter*)
+         yield! AST.translateStmts 64<rt> 0UL stmtProcessor rundown |]
+
+  let getAbsVertex stmtProcessor avMap g irBBL ftPpoint =
+    let irData = (irBBL: IVertex<#IRBasicBlock>).VData
+    let calleePpoint = irData.PPoint
     let key = calleePpoint, ftPpoint
     match (avMap: AbstractVMap).TryGetValue key with
     | true, v -> v, g
     | false, _ ->
-      let absContent = srcBbl.AbstractContent
+      let absContent = irData.AbstractContent
+      let rundown = absContent.Rundown |> liftRundown stmtProcessor
+      let absContent = FunctionAbstraction<Stmt> (absContent.EntryPoint,
+                                                  absContent.UnwindingBytes,
+                                                  rundown,
+                                                  absContent.IsExternal,
+                                                  absContent.ReturningStatus)
       let blk = SSABasicBlock.CreateAbstract (calleePpoint, absContent)
       let v, g = (g: SSACFG<_>).AddVertex blk
       avMap.Add (key, v)
@@ -109,11 +124,11 @@ module private SSALifterFactory =
           let last = src.VData.LastInstruction
           let fallPp = ProgramPoint (last.Address + uint64 last.Length, 0)
           let srcV, ssaCFG = getVertex stmtProcessor vMap ssaCFG src
-          let dstV, ssaCFG = getAbsVertex avMap ssaCFG dst fallPp
+          let dstV, ssaCFG = getAbsVertex stmtProcessor avMap ssaCFG dst fallPp
           ssaCFG.AddEdge (srcV, dstV, e.Label)
         elif src.VData.IsAbstract then
           let dstPp = dst.VData.PPoint
-          let srcV, ssaCFG = getAbsVertex avMap ssaCFG src dstPp
+          let srcV, ssaCFG = getAbsVertex stmtProcessor avMap ssaCFG src dstPp
           let dstV, ssaCFG = getVertex stmtProcessor vMap ssaCFG dst
           ssaCFG.AddEdge (srcV, dstV, e.Label)
         else
@@ -194,7 +209,6 @@ module private SSALifterFactory =
     | Undefined (_)
     | FuncName (_)
     | Nil -> ()
-    | ReturnVal (_, _, e) -> renameExpr stack e
     | Var v -> renameVar stack v
     | Load (v, _, expr) ->
       renameVar stack v
@@ -332,9 +346,6 @@ module private SSALifterFactory =
     | Extract (e, rt, sPos) ->
       replaceLoad state e
       |> Option.map (fun e -> Extract (e, rt, sPos))
-    | ReturnVal (addr, rt, e) ->
-      replaceLoad state e
-      |> Option.map (fun e -> ReturnVal (addr, rt, e))
     | _ -> None
 
   let stmtChooser state ((pp, stmt) as stmtInfo) =

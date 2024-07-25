@@ -25,6 +25,7 @@
 namespace B2R2.MiddleEnd.ControlFlowAnalysis
 
 open B2R2
+open B2R2.BinIR
 open B2R2.FrontEnd.BinLifter
 open B2R2.MiddleEnd.ControlFlowGraph
 
@@ -43,10 +44,10 @@ type IFunctionSummarizable<'V,
   abstract Summarize:
        CFGBuildingContext<'V, 'E, 'FnCtx, 'GlCtx>
      * ins: Instruction
-    -> FunctionAbstraction
+    -> FunctionAbstraction<LowUIR.Stmt>
 
-  /// Return a default summary for an unknown function.
+  /// Return a default summary for a unknown function.
   abstract SummarizeUnknown:
        wordSz: WordSize
      * ins: Instruction
-    -> FunctionAbstraction
+    -> FunctionAbstraction<LowUIR.Stmt>
