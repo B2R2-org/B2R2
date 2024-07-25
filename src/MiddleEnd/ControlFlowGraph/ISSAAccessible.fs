@@ -24,22 +24,22 @@
 
 namespace B2R2.MiddleEnd.ControlFlowGraph
 
-open B2R2.MiddleEnd.BinGraph
+open B2R2
+open B2R2.BinIR
 
-/// CFG where each node is an IR-level basic block.
-type IRCFG<'V, 'E when 'V :> IRBasicBlock
-                   and 'V: equality
-                   and 'E: equality> =
-  IGraph<'V, 'E>
+/// Interface for a basic block containing a sequence of SSA statements.
+type ISSAAccessible =
+  /// Return a sequence of SSA statements along with their program points.
+  abstract Statements: (ProgramPoint * SSA.Stmt)[]
 
-[<RequireQualifiedAccess>]
-module IRCFG =
-  /// Constructor for IRCFG.
-  type IConstructable<'V, 'E when 'V :> IRBasicBlock
-                              and 'V: equality
-                              and 'E: equality> =
-    /// Whether to allow basic block overlap.
-    abstract AllowBBLOverlap: bool
+  /// Get the last SSA statement of the basic block.
+  abstract LastStmt: SSA.Stmt
 
-    /// Construct an IRCFG.
-    abstract Construct: ImplementationType -> IRCFG<'V, 'E>
+  /// Prepend a phi statement to the basic block.
+  abstract PrependPhi: SSA.VariableKind -> count: int -> unit
+
+  /// Update SSA statements.
+  abstract UpdateStatements: (ProgramPoint * SSA.Stmt)[] -> unit
+
+  /// Update program points. This must be called after updating SSA stmts.
+  abstract UpdatePPoints: unit -> unit

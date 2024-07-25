@@ -32,9 +32,7 @@ open B2R2.BinIR
 open B2R2.BinIR.LowUIR
 
 /// Basic block type for IR-level CFGs.
-type IRBasicBlock internal (ppoint, funcAbs, liftedInstrs, labelMap) =
-  inherit PossiblyAbstractBasicBlock<LowUIR.Stmt> (ppoint, funcAbs)
-
+type LowUIRBasicBlock internal (ppoint, funcAbs, liftedInstrs, labelMap) =
   let isTerminatingStmt stmt =
     match stmt.S with
     | Jmp _ | CJmp _ | InterJmp _ | InterCJmp _
@@ -43,25 +41,9 @@ type IRBasicBlock internal (ppoint, funcAbs, liftedInstrs, labelMap) =
     | SideEffect (Interrupt _) -> true
     | _ -> false
 
-  member __.LiftedInstructions with get(): LiftedInstruction[] = liftedInstrs
-
-  member __.LastLiftedInstruction with get() =
-    assert (not <| Array.isEmpty liftedInstrs)
-    liftedInstrs[liftedInstrs.Length - 1]
-
-  /// Last instruction in the basic block.
-  member __.LastInstruction with get() =
-    assert (not <| Array.isEmpty liftedInstrs)
-    liftedInstrs[liftedInstrs.Length - 1].Original
-
-  /// Terminator statement of the basic block.
-  member __.Terminator with get() =
-    assert (not <| Array.isEmpty liftedInstrs)
-    let stmts = liftedInstrs[liftedInstrs.Length - 1].Stmts
-    stmts[stmts.Length - 2..]
-    |> Array.filter isTerminatingStmt
-    |> Array.tryExactlyOne
-    |> Option.defaultValue stmts[stmts.Length - 1]
+  /// Return the `ILowUIRBasicBlock` interface to access the internal
+  /// representation of the basic block.
+  member __.Internals with get() = __ :> ILowUIRBasicBlock
 
   /// Intra-instruction label information, which is a mapping from a label to
   /// the corresponding program point.
@@ -74,7 +56,7 @@ type IRBasicBlock internal (ppoint, funcAbs, liftedInstrs, labelMap) =
   /// this function will raise an exception.
   member __.Cut (cutPoint: Addr) =
     if isNull funcAbs then
-      assert (__.Range.IsIncluding cutPoint)
+      assert ((__ :> IAddressable).Range.IsIncluding cutPoint)
       let fstInstrs, sndInstrs =
         liftedInstrs
         |> Array.partition (fun ins -> ins.Original.Address < cutPoint)
@@ -83,37 +65,78 @@ type IRBasicBlock internal (ppoint, funcAbs, liftedInstrs, labelMap) =
       let cutPPoint = ProgramPoint (cutPoint, 0)
       let fstLabelMap = ImmutableDictionary.CreateRange [||]
       let sndLabelMap = ImmutableDictionary.CreateRange (Seq.toArray labelMap)
-      IRBasicBlock.CreateRegular (fstInstrs, ppoint, fstLabelMap),
-      IRBasicBlock.CreateRegular (sndInstrs, cutPPoint, sndLabelMap)
+      LowUIRBasicBlock.CreateRegular (fstInstrs, ppoint, fstLabelMap),
+      LowUIRBasicBlock.CreateRegular (sndInstrs, cutPPoint, sndLabelMap)
     else raise AbstractBlockAccessException
 
-  override __.Range with get() =
-    if isNull funcAbs then
-      let lastIns = liftedInstrs[liftedInstrs.Length - 1].Original
-      let lastAddr = lastIns.Address + uint64 lastIns.Length
-      AddrRange (ppoint.Address, lastAddr - 1UL)
-    else raise AbstractBlockAccessException
+  interface ILowUIRBasicBlock with
+    member _.PPoint with get() = ppoint
 
-  override __.Visualize () =
-    if isNull funcAbs then
+    member _.Range with get() =
+      if isNull funcAbs then
+        let lastIns = liftedInstrs[liftedInstrs.Length - 1].Original
+        let lastAddr = lastIns.Address + uint64 lastIns.Length
+        AddrRange (ppoint.Address, lastAddr - 1UL)
+      else raise AbstractBlockAccessException
+
+    member _.IsAbstract with get() = not (isNull funcAbs)
+
+    member _.AbstractContent with get() =
+      if isNull funcAbs then raise AbstractBlockAccessException
+      else funcAbs
+
+    member _.LiftedInstructions with get() = liftedInstrs
+
+    /// Terminator statement of the basic block.
+    member _.Terminator with get() =
+      assert (not <| Array.isEmpty liftedInstrs)
+      let stmts = liftedInstrs[liftedInstrs.Length - 1].Stmts
+      stmts[stmts.Length - 2..]
+      |> Array.filter isTerminatingStmt
+      |> Array.tryExactlyOne
+      |> Option.defaultValue stmts[stmts.Length - 1]
+
+    member _.Instructions with get() =
+      liftedInstrs |> Array.map (fun liftedIns -> liftedIns.Original)
+
+    member _.LastInstruction with get() =
+      assert (not <| Array.isEmpty liftedInstrs)
+      liftedInstrs[liftedInstrs.Length - 1].Original
+
+    member _.Disassemblies with get() =
       liftedInstrs
-      |> Array.collect (fun liftedIns -> liftedIns.Stmts)
-      |> Array.map (fun stmt ->
-        [| { AsmWordKind = AsmWordKind.String
-             AsmWordValue = Pp.stmtToString stmt } |])
-    else [||]
+      |> Array.map (fun liftedIns -> liftedIns.Original.Disasm ())
 
-  interface IEquatable<IRBasicBlock> with
-    member __.Equals (other: IRBasicBlock) =
-      __.PPoint = other.PPoint
+    member _.BlockAddress with get() = ppoint.Address
+
+    member _.Visualize () =
+      if isNull funcAbs then
+        liftedInstrs
+        |> Array.collect (fun liftedIns -> liftedIns.Stmts)
+        |> Array.map (fun stmt ->
+          [| { AsmWordKind = AsmWordKind.String
+               AsmWordValue = Pp.stmtToString stmt } |])
+      else [||]
+
+  interface IEquatable<LowUIRBasicBlock> with
+    member __.Equals (other: LowUIRBasicBlock) =
+      (__ :> IAddressable).PPoint = (other :> IAddressable).PPoint
 
   static member CreateRegular (liftedInstrs, ppoint) =
-    IRBasicBlock (ppoint, null, liftedInstrs, ImmutableDictionary.Empty)
+    LowUIRBasicBlock (ppoint, null, liftedInstrs, ImmutableDictionary.Empty)
 
   static member CreateRegular (liftedInstrs, ppoint, labelMap) =
-    IRBasicBlock (ppoint, null, liftedInstrs, labelMap)
+    LowUIRBasicBlock (ppoint, null, liftedInstrs, labelMap)
 
   static member CreateAbstract (ppoint, summary) =
     assert (not (isNull summary))
-    IRBasicBlock (ppoint, summary, [||], ImmutableDictionary.Empty)
+    LowUIRBasicBlock (ppoint, summary, [||], ImmutableDictionary.Empty)
 
+/// Interface for a basic block containing a sequence of lifted LowUIR
+/// statements.
+and ILowUIRBasicBlock =
+  inherit IAddressable
+  inherit IAbstractable<LowUIR.Stmt>
+  inherit ILowUIRAccessible
+  inherit IInstructionAccessible
+  inherit IVisualizable

@@ -32,38 +32,28 @@ open System.Collections.Generic
 open B2R2
 open B2R2.MiddleEnd.ControlFlowGraph
 
-type RecoveryMission<'V,
-                     'E,
-                     'FnCtx,
-                     'GlCtx when 'V :> IRBasicBlock
-                             and 'V: equality
-                             and 'E: equality
-                             and 'FnCtx :> IResettable
+type RecoveryMission<'FnCtx,
+                     'GlCtx when 'FnCtx :> IResettable
                              and 'FnCtx: (new: unit -> 'FnCtx)
                              and 'GlCtx: (new: unit -> 'GlCtx)>
-  public (strategy: ICFGBuildingStrategy<'V, 'E, 'FnCtx, 'GlCtx>) =
+  public (strategy: ICFGBuildingStrategy<'FnCtx, 'GlCtx>) =
 
-  member _.Execute (builders: CFGBuilderTable<_, _, _, _>) =
-    let manager = TaskManager<'V, 'E, 'FnCtx, 'GlCtx> (builders, strategy)
+  member _.Execute (builders: CFGBuilderTable<_, _>) =
+    let manager = TaskManager<'FnCtx, 'GlCtx> (builders, strategy)
     manager.Start ()
 
 /// Task manager for control flow analysis.
-and private TaskManager<'V,
-                        'E,
-                        'FnCtx,
-                        'GlCtx when 'V :> IRBasicBlock
-                                and 'V: equality
-                                and 'E: equality
-                                and 'FnCtx :> IResettable
+and private TaskManager<'FnCtx,
+                        'GlCtx when 'FnCtx :> IResettable
                                 and 'FnCtx: (new: unit -> 'FnCtx)
                                 and 'GlCtx: (new: unit -> 'GlCtx)>
-  public (builders: CFGBuilderTable<'V, 'E, 'FnCtx, 'GlCtx>,
-          strategy: ICFGBuildingStrategy<'V, 'E, 'FnCtx, 'GlCtx>,
+  public (builders: CFGBuilderTable<'FnCtx, 'GlCtx>,
+          strategy: ICFGBuildingStrategy<'FnCtx, 'GlCtx>,
           ?numThreads) =
 
   let numThreads = defaultArg numThreads (Environment.ProcessorCount / 2)
   let workingSet = HashSet<Addr> ()
-  let toWorkers = BufferBlock<ICFGBuildable<_, _, _, _>> ()
+  let toWorkers = BufferBlock<ICFGBuildable<_, _>> ()
   let cts = new CancellationTokenSource ()
   let ct = cts.Token
   let dependenceMap = FunctionDependenceMap ()
@@ -83,7 +73,7 @@ and private TaskManager<'V,
     | Error _ -> false
 
   let makeInvalid builder =
-    match (builder: ICFGBuildable<_, _, _, _>).BuilderState with
+    match (builder: ICFGBuildable<_, _>).BuilderState with
     | Finished | Invalid -> ()
     | InProgress -> builder.Invalidate ()
     | _ ->
@@ -220,19 +210,14 @@ and private TaskManager<'V,
     builders
 
 /// Task worker for control flow recovery.
-and private TaskWorker<'V,
-                       'E,
-                       'FnCtx,
-                       'GlCtx when 'V :> IRBasicBlock
-                               and 'V: equality
-                               and 'E: equality
-                               and 'FnCtx :> IResettable
+and private TaskWorker<'FnCtx,
+                       'GlCtx when 'FnCtx :> IResettable
                                and 'FnCtx: (new: unit -> 'FnCtx)
                                and 'GlCtx: (new: unit -> 'GlCtx)>
   public (tid: int,
-          agent: Agent<TaskMessage<'V, 'E, 'FnCtx, 'GlCtx>>,
-          strategy: ICFGBuildingStrategy<'V, 'E, 'FnCtx, 'GlCtx>,
-          ch: BufferBlock<ICFGBuildable<'V, 'E, 'FnCtx, 'GlCtx>>,
+          agent: Agent<TaskMessage<'FnCtx, 'GlCtx>>,
+          strategy: ICFGBuildingStrategy<'FnCtx, 'GlCtx>,
+          ch: BufferBlock<ICFGBuildable<'FnCtx, 'GlCtx>>,
           token) =
 
   let worker = task {

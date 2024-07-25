@@ -50,7 +50,7 @@ type BBLFactory (hdl: BinHandle,
                  instrs,
                  [<Optional; DefaultParameterValue(false)>] allowOverlap) =
   let interProceduralLeaders = ConcurrentDictionary<Addr, unit> ()
-  let bbls = ConcurrentDictionary<ProgramPoint, IRBasicBlock> ()
+  let bbls = ConcurrentDictionary<ProgramPoint, LowUIRBasicBlock> ()
 
   let rec parseBlock (channel: BufferBlock<_>) acc insCount addr leader mode =
     match (instrs: InstructionCollection).TryFind (addr, mode) with
@@ -181,7 +181,7 @@ type BBLFactory (hdl: BinHandle,
     let ppoint = ProgramPoint (instrs[0].Original.Address, prevStmtNdx)
     let lastIns = instrs[instrs.Length - 1]
     let labelMap = buildLabelMap labelMap lastIns
-    let bbl = IRBasicBlock.CreateRegular (instrs, ppoint, labelMap)
+    let bbl = LowUIRBasicBlock.CreateRegular (instrs, ppoint, labelMap)
     bbls.TryAdd (ppoint, bbl) |> ignore
 
   let rec gatherIntraBBLs liftedInstrs labelMap prevInsNdx prevStmtNdx indices =
@@ -200,7 +200,7 @@ type BBLFactory (hdl: BinHandle,
     let struct (labelMap, intraLeaders) = scanIntraLeaders arr
     if intraLeaders.Count = 0 then
       let ppoint = ProgramPoint (leaderAddr, 0)
-      let bbl = IRBasicBlock.CreateRegular (arr, ppoint)
+      let bbl = LowUIRBasicBlock.CreateRegular (arr, ppoint)
       bbls.TryAdd (ppoint, bbl) |> ignore
     else gatherIntraBBLs arr labelMap 0 0 (Seq.toList intraLeaders)
 
@@ -232,7 +232,7 @@ type BBLFactory (hdl: BinHandle,
         let currPPoint = ProgramPoint (leaders[i], 0)
         let nextPPoint = ProgramPoint (nextAddr, 0)
         let currentBBL = bbls[currPPoint]
-        if currentBBL.Range.IsIncluding nextAddr then
+        if (currentBBL :> IAddressable).Range.IsIncluding nextAddr then
           let fst, snd = currentBBL.Cut nextAddr
           bbls[currPPoint] <- fst
           bbls[nextPPoint] <- snd
@@ -280,7 +280,7 @@ type BBLFactory (hdl: BinHandle,
     bbls
     |> Seq.iter (fun kv ->
       printfn "# %s" (kv.Key.ToString ())
-      kv.Value.LiftedInstructions
+      kv.Value.Internals.LiftedInstructions
       |> Array.iter (fun lifted ->
         lifted.Stmts
         |> Array.iter (Pp.stmtToString >> (printfn "  -> %s"))

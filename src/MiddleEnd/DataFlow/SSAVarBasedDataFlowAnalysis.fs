@@ -30,30 +30,28 @@ open B2R2.MiddleEnd.DataFlow
 
 /// SSA variable-based data flow analysis framework, which is based on the idea
 /// of sparse conditional constant propagation algorithm by Wegman et al.
-type SSAVarBasedDataFlowAnalysis<'Lattice,
-                                 'E when 'Lattice: equality
-                                     and 'E: equality>
-  public (hdl, analysis: ISSAVarBasedDataFlowAnalysis<'Lattice, 'E>) =
+type SSAVarBasedDataFlowAnalysis<'Lattice when 'Lattice: equality>
+  public (hdl, analysis: ISSAVarBasedDataFlowAnalysis<'Lattice>) =
 
-  let processFlow (state: SSAVarBasedDataFlowState<_, _>) (ssaCFG: SSACFG<'E>) =
+  let processFlow (state: SSAVarBasedDataFlowState<_>) (ssaCFG: SSACFG) =
     match state.FlowWorkList.TryDequeue () with
     | false, _ -> ()
     | true, (parentId, myId) ->
       state.ExecutedEdges.Add (parentId, myId) |> ignore
       let blk = ssaCFG.FindVertexByID myId
-      blk.VData.LiftedSSAStmts
+      blk.VData.Internals.Statements
       |> Array.iter (fun (ppoint, stmt) ->
         analysis.Transfer ssaCFG blk ppoint stmt state)
-      if blk.VData.IsAbstract then ()
+      if blk.VData.Internals.IsAbstract then ()
       else
-        match blk.VData.LastStmt with
+        match blk.VData.Internals.LastStmt with
         | Jmp _ -> ()
         | _ -> (* Fall-through cases. *)
           ssaCFG.GetSuccs blk
           |> Seq.iter (fun succ ->
             state.MarkExecutable myId succ.ID)
 
-  let processSSA (state: SSAVarBasedDataFlowState<_, _>) (ssaCFG: SSACFG<'E>) =
+  let processSSA (state: SSAVarBasedDataFlowState<_>) (ssaCFG: SSACFG) =
     match state.SSAWorkList.TryPop () with
     | false, _ -> ()
     | true, def ->
@@ -63,20 +61,19 @@ type SSAVarBasedDataFlowAnalysis<'Lattice,
         for (vid, idx) in uses do
           let v = ssaCFG.FindVertexByID vid
           if state.GetNumIncomingExecutedEdges ssaCFG v > 0 then
-            let ppoint, stmt = v.VData.LiftedSSAStmts[idx]
+            let ppoint, stmt = v.VData.Internals.Statements[idx]
             analysis.Transfer ssaCFG v ppoint stmt state
           else ()
 
   interface IDataFlowAnalysis<SSAVarPoint,
                               'Lattice,
-                              SSAVarBasedDataFlowState<'Lattice, 'E>,
-                              SSABasicBlock,
-                              'E> with
+                              SSAVarBasedDataFlowState<'Lattice>,
+                              SSABasicBlock> with
     member __.InitializeState _vs =
-      SSAVarBasedDataFlowState<'Lattice, 'E> (hdl, analysis)
+      SSAVarBasedDataFlowState<'Lattice> (hdl, analysis)
       |> analysis.OnInitialize
 
-    member __.Compute cfg (state: SSAVarBasedDataFlowState<'Lattice, 'E>) =
+    member __.Compute cfg (state: SSAVarBasedDataFlowState<'Lattice>) =
       state.SSAEdges <- SSAEdges cfg
       cfg.GetRoots ()
       |> Seq.iter (fun root -> state.FlowWorkList.Enqueue (0, root.ID))

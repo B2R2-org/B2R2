@@ -35,12 +35,11 @@ open B2R2.MiddleEnd.DataFlow
 /// An ID of an SSA memory instance.
 type private SSAMemID = int
 
-type SSAVarBasedDataFlowState<'Lattice, 'E when 'Lattice: equality
-                                            and 'E: equality>
+type SSAVarBasedDataFlowState<'Lattice when 'Lattice: equality>
   public (hdl: BinHandle,
-          analysis: ISSAVarBasedDataFlowAnalysis<'Lattice, 'E>) =
+          analysis: ISSAVarBasedDataFlowAnalysis<'Lattice>) =
 
-  let mutable ssaEdges: SSAEdges<'E> = null
+  let mutable ssaEdges: SSAEdges = null
 
   /// Register values per SSA variable.
   let regValues = Dictionary<Variable, 'Lattice> ()
@@ -123,7 +122,7 @@ type SSAVarBasedDataFlowState<'Lattice, 'E when 'Lattice: equality
     else analysis.Bottom
 
   /// Get the list of executed source vertices.
-  member __.GetExecutedSources (ssaCFG: SSACFG<'E>) (blk: IVertex<_>) srcIDs =
+  member __.GetExecutedSources (ssaCFG: SSACFG) (blk: IVertex<_>) srcIDs =
     let preds = ssaCFG.GetPreds blk |> Seq.toArray
     srcIDs
     |> Array.mapi (fun i srcID ->
@@ -131,13 +130,13 @@ type SSAVarBasedDataFlowState<'Lattice, 'E when 'Lattice: equality
       else None)
     |> Array.choose id
 
-  member __.MarkSuccessorsExecutable (ssaCFG: SSACFG<'E>) (blk: IVertex<_>) =
+  member __.MarkSuccessorsExecutable (ssaCFG: SSACFG) (blk: IVertex<_>) =
     for succ in ssaCFG.GetSuccs blk do
       markExecutable blk.ID succ.ID
 
   member _.MarkExecutable src dst = markExecutable src dst
 
-  member _.GetNumIncomingExecutedEdges (ssaCFG: SSACFG<'E>) (blk: IVertex<_>) =
+  member _.GetNumIncomingExecutedEdges (ssaCFG: SSACFG) (blk: IVertex<_>) =
     let mutable count = 0
     for pred in ssaCFG.GetPreds blk do
       if executedEdges.Contains (pred.ID, blk.ID) then count <- count + 1
@@ -156,12 +155,11 @@ type SSAVarBasedDataFlowState<'Lattice, 'E when 'Lattice: equality
         | false, _ -> analysis.Bottom
 
 /// The core interface for SSA-based data flow analysis.
-and ISSAVarBasedDataFlowAnalysis<'Lattice, 'E when 'Lattice: equality
-                                               and 'E: equality> =
+and ISSAVarBasedDataFlowAnalysis<'Lattice when 'Lattice: equality> =
   /// A callback for initializing the state.
   abstract OnInitialize:
-       SSAVarBasedDataFlowState<'Lattice, 'E>
-    -> SSAVarBasedDataFlowState<'Lattice, 'E>
+       SSAVarBasedDataFlowState<'Lattice>
+    -> SSAVarBasedDataFlowState<'Lattice>
 
   /// Initial abstract value representing the bottom of the lattice. Our
   /// analysis starts with this value until it reaches a fixed point.
@@ -173,11 +171,11 @@ and ISSAVarBasedDataFlowAnalysis<'Lattice, 'E when 'Lattice: equality
   /// Transfer function. Since SSAVarBasedDataFlowState is a mutable object, we
   /// don't need to return the updated state.
   abstract Transfer:
-       SSACFG<'E>
+       SSACFG
     -> IVertex<SSABasicBlock>
     -> ProgramPoint
     -> Stmt
-    -> SSAVarBasedDataFlowState<'Lattice, 'E>
+    -> SSAVarBasedDataFlowState<'Lattice>
     -> unit
 
   /// Subsume operator, which checks if the first lattice subsumes the second.
@@ -189,7 +187,7 @@ and ISSAVarBasedDataFlowAnalysis<'Lattice, 'E when 'Lattice: equality
   abstract UpdateMemFromBinaryFile: RegType -> Addr -> 'Lattice
 
   /// Evaluate the given expression based on the current abstract state.
-  abstract EvalExpr: SSAVarBasedDataFlowState<'Lattice, 'E> -> Expr -> 'Lattice
+  abstract EvalExpr: SSAVarBasedDataFlowState<'Lattice> -> Expr -> 'Lattice
 
 /// SSA variable point.
 and SSAVarPoint =

@@ -30,11 +30,11 @@ open B2R2.FrontEnd
 open B2R2.MiddleEnd.DataFlow
 open type UntouchedValueDomain.UntouchedTag
 
-type SSAUntouchedValuePropagation<'E when 'E: equality> =
-  inherit SSAVarBasedDataFlowAnalysis<UntouchedValueDomain.Lattice, 'E>
+type SSAUntouchedValuePropagation =
+  inherit SSAVarBasedDataFlowAnalysis<UntouchedValueDomain.Lattice>
 
   new (hdl: BinHandle) =
-    let initRegisters (state: SSAVarBasedDataFlowState<_, _>) =
+    let initRegisters (state: SSAVarBasedDataFlowState<_>) =
       hdl.RegisterFactory.GetGeneralRegExprs ()
       |> List.iter (fun regExpr ->
         let rid = hdl.RegisterFactory.RegIDFromRegExpr regExpr
@@ -54,7 +54,7 @@ type SSAUntouchedValuePropagation<'E when 'E: equality> =
         state
       | None -> state
 
-    let evalVar (state: SSAVarBasedDataFlowState<_, _>) v =
+    let evalVar (state: SSAVarBasedDataFlowState<_>) v =
       if state.IsRegSet v then state.GetRegValue v
       else
         if v.Identifier = 0 then
@@ -70,13 +70,13 @@ type SSAUntouchedValuePropagation<'E when 'E: equality> =
       | _ -> (* Any other operations will be considered "touched". *)
         UntouchedValueDomain.Touched
 
-    let evalDef (state: SSAVarBasedDataFlowState<_, _>) var e =
+    let evalDef (state: SSAVarBasedDataFlowState<_>) var e =
       match var.Kind with
       | MemVar
       | PCVar _ -> () (* Just ignore PCVar as it will always be "touched". *)
       | _ -> state.SetRegValue (var, evalExpr state e)
 
-    let evalPhi (state: SSAVarBasedDataFlowState<_, _>) ssaCFG blk dst srcIDs =
+    let evalPhi (state: SSAVarBasedDataFlowState<_>) ssaCFG blk dst srcIDs =
       match state.GetExecutedSources ssaCFG blk srcIDs with
       | [||] -> ()
       | executedSrcIDs ->
@@ -89,11 +89,11 @@ type SSAUntouchedValuePropagation<'E when 'E: equality> =
           |> Array.reduce UntouchedValueDomain.join
           |> fun merged -> state.SetRegValue (dst, merged)
 
-    let evalJmp (state: SSAVarBasedDataFlowState<_, _>) ssaCFG blk =
+    let evalJmp (state: SSAVarBasedDataFlowState<_>) ssaCFG blk =
       state.MarkSuccessorsExecutable ssaCFG blk
 
     let analysis =
-      { new ISSAVarBasedDataFlowAnalysis<UntouchedValueDomain.Lattice, 'E> with
+      { new ISSAVarBasedDataFlowAnalysis<UntouchedValueDomain.Lattice> with
           member _.OnInitialize state = initRegisters state
 
           member _.Bottom with get() = UntouchedValueDomain.Undef
@@ -114,5 +114,5 @@ type SSAUntouchedValuePropagation<'E when 'E: equality> =
 
           member _.EvalExpr state e = evalExpr state e }
 
-    { inherit SSAVarBasedDataFlowAnalysis<UntouchedValueDomain.Lattice,
-                                          'E> (hdl, analysis) }
+    { inherit SSAVarBasedDataFlowAnalysis<UntouchedValueDomain.Lattice>
+        (hdl, analysis) }

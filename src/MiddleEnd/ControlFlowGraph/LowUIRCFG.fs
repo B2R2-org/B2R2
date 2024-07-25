@@ -24,23 +24,17 @@
 
 namespace B2R2.MiddleEnd.ControlFlowGraph
 
-open B2R2
-open B2R2.FrontEnd.BinLifter
+open B2R2.MiddleEnd.BinGraph
 
-/// Basic block type for a call graph (CallCFG).
-type CallBlock (addr, name, isExternal) =
-  inherit BasicBlock (ProgramPoint (addr, 0))
+/// CFG where each node is an IR-level basic block.
+type LowUIRCFG = IGraph<LowUIRBasicBlock, CFGEdgeKind>
 
-  member __.Name with get () = name
+[<RequireQualifiedAccess>]
+module LowUIRCFG =
+  /// Constructor for LowUIRCFG.
+  type IConstructable =
+    /// Whether to allow basic block overlap.
+    abstract AllowBBLOverlap: bool
 
-  member __.IsExternal with get () = isExternal
-
-  override __.Range = AddrRange (addr)
-
-  override __.Visualize () =
-    [| [| { AsmWordKind = AsmWordKind.Address
-            AsmWordValue = Addr.toString WordSize.Bit32 addr }
-          { AsmWordKind = AsmWordKind.String
-            AsmWordValue = ": " }
-          { AsmWordKind = AsmWordKind.Value
-            AsmWordValue = name } |] |]
+    /// Construct a LowUIRCFG.
+    abstract Construct: ImplementationType -> LowUIRCFG

@@ -28,14 +28,9 @@ open B2R2
 open B2R2.MiddleEnd.ControlFlowGraph
 
 /// The interface for building a function.
-type ICFGBuildable<'V,
-                        'E,
-                        'FnCtx,
-                        'GlCtx when 'V :> IRBasicBlock
-                                and 'V: equality
-                                and 'E: equality
-                                and 'FnCtx :> IResettable
-                                and 'GlCtx: (new: unit -> 'GlCtx)> =
+type ICFGBuildable<'FnCtx,
+                   'GlCtx when 'FnCtx :> IResettable
+                           and 'GlCtx: (new: unit -> 'GlCtx)> =
   inherit ILinkage
 
   /// The current state of the function builder.
@@ -48,7 +43,7 @@ type ICFGBuildable<'V,
   abstract Mode: ArchOperationMode
 
   /// Return the current building context.
-  abstract Context: CFGBuildingContext<'V, 'E, 'FnCtx, 'GlCtx>
+  abstract Context: CFGBuildingContext<'FnCtx, 'GlCtx>
 
   /// Authorize the function builder to start building the function. This will
   /// change the state of the function builder to `InProgress`, meaning that the
@@ -71,18 +66,18 @@ type ICFGBuildable<'V,
   abstract Invalidate: unit -> unit
 
   /// Build the function CFG using the given strategy.
-  abstract Build: ICFGBuildingStrategy<'V, 'E, 'FnCtx, 'GlCtx> -> CFGResult
+  abstract Build: ICFGBuildingStrategy<'FnCtx, 'GlCtx> -> CFGResult
 
   /// Reset the current state in order to rebuild the function from scratch.
   abstract Reset: unit -> unit
 
   /// Make a new builder with a new agent by copying the current one.
   abstract MakeNew:
-       Agent<TaskMessage<'V, 'E, 'FnCtx, 'GlCtx>>
-    -> ICFGBuildable<'V, 'E, 'FnCtx, 'GlCtx>
+       Agent<TaskMessage<'FnCtx, 'GlCtx>>
+    -> ICFGBuildable<'FnCtx, 'GlCtx>
 
   /// Convert this builder to a function.
-  abstract ToFunction: unit -> Function<'V, 'E>
+  abstract ToFunction: unit -> Function
 
 and CFGBuilderState =
   /// Initialized but not started.
@@ -101,13 +96,8 @@ and CFGBuilderState =
 /// interface will be accessed in parallel by multiple threads, so every
 /// operation should be thread-safe. Note that CFGBuildingContext as well as
 /// 'FnCtx are only accessed by a single thread, though.
-and ICFGBuildingStrategy<'V,
-                         'E,
-                         'FnCtx,
-                         'GlCtx when 'V :> IRBasicBlock
-                                 and 'V: equality
-                                 and 'E: equality
-                                 and 'FnCtx :> IResettable
+and ICFGBuildingStrategy<'FnCtx,
+                         'GlCtx when 'FnCtx :> IResettable
                                  and 'GlCtx: (new: unit -> 'GlCtx)> =
   /// Return the prioritizer to use for the CFG actions.
   abstract ActionPrioritizer: IPrioritizable
@@ -116,14 +106,14 @@ and ICFGBuildingStrategy<'V,
   /// a list of candidate functions to analyze based on the given list of
   /// function builders.
   abstract FindCandidates:
-    ICFGBuildable<'V, 'E, 'FnCtx, 'GlCtx>[] -> (Addr * ArchOperationMode)[]
+    ICFGBuildable<'FnCtx, 'GlCtx>[] -> (Addr * ArchOperationMode)[]
 
   /// This is a callback that is called for every CFGAction generated for a
   /// function. Each action may discover a new basic block, add a new edge, etc.
   /// This function returns a CFGResult that indicates whether the function
   /// building should continue, postpone, or exit with an error.
   abstract OnAction:
-       CFGBuildingContext<'V, 'E, 'FnCtx, 'GlCtx>
+       CFGBuildingContext<'FnCtx, 'GlCtx>
      * CFGActionQueue
      * CFGAction
     -> CFGResult
@@ -131,7 +121,7 @@ and ICFGBuildingStrategy<'V,
   /// This is a callback that is called when all CFGActions are processed, i.e.,
   /// when CFGActionQueue is empty.
   abstract OnFinish:
-       CFGBuildingContext<'V, 'E, 'FnCtx, 'GlCtx>
+       CFGBuildingContext<'FnCtx, 'GlCtx>
     -> CFGResult
 
   /// This is a callback that is called when a cyclic dependency is detected
@@ -139,4 +129,4 @@ and ICFGBuildingStrategy<'V,
   /// argument, and this function should set the non-returning status of each
   /// function.
   abstract OnCyclicDependency:
-    (Addr * ICFGBuildable<'V, 'E, 'FnCtx, 'GlCtx>) seq -> unit
+    (Addr * ICFGBuildable<'FnCtx, 'GlCtx>) seq -> unit

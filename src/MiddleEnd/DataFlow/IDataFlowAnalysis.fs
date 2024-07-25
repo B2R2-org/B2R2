@@ -25,6 +25,7 @@
 namespace B2R2.MiddleEnd.DataFlow
 
 open B2R2.MiddleEnd.BinGraph
+open B2R2.MiddleEnd.ControlFlowGraph
 
 /// Data-flow analysis that runs under the abstract interpretation framework.
 /// Abstract values are represented by 'AbsVal, which is stored in an abstract
@@ -32,17 +33,15 @@ open B2R2.MiddleEnd.BinGraph
 type IDataFlowAnalysis<'AbsLoc,
                        'AbsVal,
                        'State,
-                       'V,
-                       'E when 'AbsLoc: equality
+                       'V when 'AbsLoc: equality
                            and 'State :> IDataFlowState<'AbsLoc, 'AbsVal>
-                           and 'V: equality
-                           and 'E: equality> =
+                           and 'V: equality> =
   /// Return an initial state for the data-flow analysis.
   abstract InitializeState: IVertex<'V> seq -> 'State
 
   /// Perform the dataflow analysis on the given CFG until a fixed point is
   /// reached.
-  abstract Compute: cfg: IGraph<'V, 'E> -> 'State -> 'State
+  abstract Compute: cfg: IGraph<'V, CFGEdgeKind> -> 'State -> 'State
 
 /// The state of the data-flow analysis, which contains a mapping from abstract
 /// locations to abstract values.

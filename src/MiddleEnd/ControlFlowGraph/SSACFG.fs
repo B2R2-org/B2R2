@@ -28,22 +28,21 @@ open B2R2.BinIR.SSA
 open B2R2.MiddleEnd.BinGraph
 
 /// SSA-based CFG, where each node contains disassembly code.
-type SSACFG<'E when 'E: equality> =
-  IGraph<SSABasicBlock, 'E>
+type SSACFG = IGraph<SSABasicBlock, CFGEdgeKind>
 
 [<RequireQualifiedAccess>]
 module SSACFG =
   /// Constructor for SSACFG.
-  type IConstructable<'E when 'E: equality> =
+  type IConstructable =
     /// Construct an SSACFG.
-    abstract Construct: ImplementationType -> SSACFG<'E>
+    abstract Construct: ImplementationType -> SSACFG
 
   /// Find SSAVertex that includes the given instruction address.
   [<CompiledName "FindVertexByAddr">]
-  let findVertexByAddr (ssaCFG: IGraph<SSABasicBlock, _>) addr =
+  let findVertexByAddr (ssaCFG: SSACFG) addr =
     ssaCFG.FindVertexBy (fun v ->
-      if v.VData.IsAbstract then false
-      else v.VData.Range.IsIncluding addr)
+      if v.VData.Internals.IsAbstract then false
+      else v.VData.Internals.Range.IsIncluding addr)
 
   /// Find the definition of the given variable kind (targetVarKind) at the
   /// given node v. We simply follow the dominator tree of the given SSACFG
@@ -51,7 +50,7 @@ module SSACFG =
   [<CompiledName "FindDef">]
   let rec findDef (v: IVertex<SSABasicBlock>) targetVarKind =
     let stmtInfo =
-      v.VData.LiftedSSAStmts
+      v.VData.Internals.Statements
       |> Array.tryFindBack (fun (_, stmt) ->
         match stmt with
         | Def ({ Kind = k }, _) when k = targetVarKind -> true

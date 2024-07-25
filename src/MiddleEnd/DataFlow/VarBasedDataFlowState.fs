@@ -33,8 +33,8 @@ open B2R2.MiddleEnd.BinGraph
 open B2R2.BinIR
 open B2R2.BinIR.LowUIR
 
-type VarBasedDataFlowState<'Lattice, 'E when 'E: equality>
-  public (hdl, analysis: IVarBasedDataFlowAnalysis<'Lattice, 'E>) =
+type VarBasedDataFlowState<'Lattice>
+  public (hdl, analysis: IVarBasedDataFlowAnalysis<'Lattice>) =
 
   let absValues = Dictionary<VarPoint, 'Lattice> ()
 
@@ -225,11 +225,11 @@ type VarBasedDataFlowState<'Lattice, 'E when 'E: equality>
   interface IDataFlowState<VarPoint, 'Lattice> with
     member __.GetAbsValue absLoc = getAbsValue absLoc
 
-and IVarBasedDataFlowAnalysis<'Lattice, 'E when 'E: equality> =
+and IVarBasedDataFlowAnalysis<'Lattice> =
   /// A callback for initializing the state.
   abstract OnInitialize:
-       VarBasedDataFlowState<'Lattice, 'E>
-    -> VarBasedDataFlowState<'Lattice, 'E>
+       VarBasedDataFlowState<'Lattice>
+    -> VarBasedDataFlowState<'Lattice>
 
   /// Initial abstract value representing the bottom of the lattice. Our
   /// analysis starts with this value until it reaches a fixed point.
@@ -250,21 +250,21 @@ and IVarBasedDataFlowAnalysis<'Lattice, 'E when 'E: equality> =
 
   /// Transfer function.
   abstract Transfer:
-       IGraph<IRBasicBlock, 'E>
-    -> IVertex<IRBasicBlock>
+       IGraph<LowUIRBasicBlock, 'E>
+    -> IVertex<LowUIRBasicBlock>
     -> ProgramPoint
     -> Stmt
-    -> VarBasedDataFlowState<'Lattice, 'E>
+    -> VarBasedDataFlowState<'Lattice>
     -> (VarPoint * 'Lattice) option
 
   /// Evaluate the given expression based on the current abstract state.
   abstract EvalExpr:
-       VarBasedDataFlowState<'Lattice, 'E>
+       VarBasedDataFlowState<'Lattice>
     -> ProgramPoint
     -> Expr
     -> 'Lattice
 
   abstract GetNextVertices:
-       IGraph<IRBasicBlock, 'E>
-    -> IVertex<IRBasicBlock>
+       IGraph<LowUIRBasicBlock, 'E>
+    -> IVertex<LowUIRBasicBlock>
     -> VertexID seq

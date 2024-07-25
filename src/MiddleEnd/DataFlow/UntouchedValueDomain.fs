@@ -25,7 +25,6 @@
 namespace B2R2.MiddleEnd.DataFlow
 
 open B2R2
-open B2R2.BinIR.SSA
 
 /// A domain for untouched value analysis.
 [<RequireQualifiedAccess>]

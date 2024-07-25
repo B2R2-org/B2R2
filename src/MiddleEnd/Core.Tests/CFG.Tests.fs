@@ -45,12 +45,12 @@ module Utils =
 
   let extractInsBBLPairs (bblFactory: BBLFactory) ppoint =
     let bbl = bblFactory.Find ppoint
-    bbl.LiftedInstructions
+    bbl.Internals.LiftedInstructions
     |> Array.map (fun li -> li.Original.Address, li.BBLAddr)
 
   let extractBBLRange (bblFactory: BBLFactory) ppoint =
     let bbl = bblFactory.Find ppoint
-    bbl.Range.Min, bbl.Range.Max
+    bbl.Internals.Range.Min, bbl.Internals.Range.Max
 
   let makeMap keys values =
     List.fold2 (fun map k v -> Map.add k v map) Map.empty keys values
@@ -60,33 +60,34 @@ module Utils =
     |> Seq.map (fun (KeyValue (k, v)) -> k, v)
     |> Seq.toList
 
-  let foldVertexNoFake m (v: IVertex<IRBasicBlock>) =
-    if v.VData.IsAbstract then m
-    else Map.add v.VData.PPoint v m
+  let foldVertexNoFake m (v: IVertex<LowUIRBasicBlock>) =
+    if v.VData.Internals.IsAbstract then m
+    else Map.add v.VData.Internals.PPoint v m
 
-  let foldEdge m (e: Edge<IRBasicBlock, _>) =
+  let foldEdge m (e: Edge<LowUIRBasicBlock, _>) =
     let v1, v2 = e.First, e.Second
-    Map.add (v1.VData.PPoint, v2.VData.PPoint) e m
+    Map.add (v1.VData.Internals.PPoint, v2.VData.Internals.PPoint) e m
 
-  let foldEdgeNoFake m (e: Edge<IRBasicBlock, _>) =
+  let foldEdgeNoFake m (e: Edge<LowUIRBasicBlock, _>) =
     let v1, v2 = e.First, e.Second
-    if v1.VData.IsAbstract || v2.VData.IsAbstract then m
-    else Map.add (v1.VData.PPoint, v2.VData.PPoint) e m
+    if v1.VData.Internals.IsAbstract || v2.VData.Internals.IsAbstract then m
+    else Map.add (v1.VData.Internals.PPoint, v2.VData.Internals.PPoint) e m
 
-  let collectInsBBLAddrPairs (fn: Function<_, _>) =
+  let collectInsBBLAddrPairs (fn: Function) =
     fn.CFG.FoldVertex (fun acc v ->
-      if v.VData.IsAbstract then acc
+      if v.VData.Internals.IsAbstract then acc
       else
-        v.VData.LiftedInstructions
+        v.VData.Internals.LiftedInstructions
         |> Array.map (fun li -> li.Original.Address, li.BBLAddr)
         |> fun arr -> arr :: acc
     ) []
     |> Array.concat
 
-  let getDisasmVertexRanges (cfg: IRCFG<IRBasicBlock, _>) =
+  let getDisasmVertexRanges (cfg: LowUIRCFG) =
     let dcfg = DisasmCFG.create cfg
     dcfg.Vertices
-    |> Array.map (fun v -> v.VData.Range.Min, v.VData.Range.Max)
+    |> Array.map (fun v ->
+      v.VData.Internals.Range.Min, v.VData.Internals.Range.Max)
     |> Array.sortBy fst
 
 [<TestClass>]
@@ -143,8 +144,8 @@ type CFGTest1 () =
   let instrs = InstructionCollection (LinearSweepInstructionCollector hdl)
   let funcId = FunctionIdentification (hdl, exnInfo)
   let strategies =
-    [| funcId :> ICFGBuildingStrategy<_, _, _, _>
-       CFGRecovery () :> ICFGBuildingStrategy<_, _, _, _> |]
+    [| funcId :> ICFGBuildingStrategy<_, _>
+       CFGRecovery () :> ICFGBuildingStrategy<_, _> |]
 
   [<TestMethod>]
   member __.``InstructionCollection Test 1`` () =
@@ -290,7 +291,8 @@ type CFGTest1 () =
       [| ProgramPoint (0x00UL, 0); ProgramPoint (0x19UL, 0);
          ProgramPoint (0x3FUL, 0); ProgramPoint (0x48UL, 0);
          ProgramPoint (0x52UL, 0); ProgramPoint (0x55UL, 0); |]
-    let actual = leaders |> Array.map (fun l -> (Map.find l vMap).VData.Range)
+    let actual =
+      leaders |> Array.map (fun l -> (Map.find l vMap).VData.Internals.Range)
     let expected =
       [| AddrRange (0x00UL, 0x18UL); AddrRange (0x19UL, 0x3EUL);
          AddrRange (0x3FUL, 0x47UL); AddrRange (0x48UL, 0x51UL);
@@ -329,7 +331,7 @@ type CFGTest1 () =
     let vMap = cfg.FoldVertex foldVertexNoFake Map.empty
     let leaders = [| ProgramPoint (0x62UL, 0) |]
     let actual =
-      leaders |> Array.map (fun l -> (Map.find l vMap).VData.Range)
+      leaders |> Array.map (fun l -> (Map.find l vMap).VData.Internals.Range)
     let expected = [| AddrRange (0x62UL, 0x70UL) |]
     CollectionAssert.AreEqual (expected, actual)
 
@@ -348,7 +350,7 @@ type CFGTest1 () =
     let vMap = cfg.FoldVertex foldVertexNoFake Map.empty
     let leaders = [| ProgramPoint (0x71UL, 0) |]
     let actual =
-      leaders |> Array.map (fun l -> (Map.find l vMap).VData.Range)
+      leaders |> Array.map (fun l -> (Map.find l vMap).VData.Internals.Range)
     let expected = [| AddrRange (0x71UL, 0x80UL) |]
     CollectionAssert.AreEqual (expected, actual)
 
@@ -363,7 +365,7 @@ type CFGTest1 () =
   member __.``CFG SSAGraph Vertex Test: _start`` () =
     let brew = BinaryBrew (hdl, exnInfo, strategies)
     let cfg = brew.Functions[0x0UL].CFG
-    let ssaLifter = SSALifterFactory<_>.Create hdl
+    let ssaLifter = SSALifterFactory.Create hdl
     let ssacfg = ssaLifter.Lift (cfg)
     Assert.AreEqual (9, ssacfg.Size)
 
@@ -402,8 +404,7 @@ type CFGTest2 () =
   let exnInfo = ExceptionInfo hdl
   let instrs = InstructionCollection (LinearSweepInstructionCollector hdl)
   let funcId = FunctionIdentification (hdl, exnInfo)
-  let strategies =
-    [| funcId :> ICFGBuildingStrategy<_, _, _, _>; CFGRecovery () |]
+  let strategies = [| funcId :> ICFGBuildingStrategy<_, _>; CFGRecovery () |]
 
   [<TestMethod>]
   member __.``InstructionCollection Test 1`` () =
@@ -504,7 +505,8 @@ type CFGTest2 () =
       [| ProgramPoint (0x00UL, 0); ProgramPoint (0x0CUL, 0);
          ProgramPoint (0x1CUL, 0); ProgramPoint (0x1CUL, 2);
          ProgramPoint (0x1CUL, 8); ProgramPoint (0x1EUL, 0) |]
-    let actual = leaders |> Array.map (fun l -> (Map.find l vMap).VData.Range)
+    let actual =
+      leaders |> Array.map (fun l -> (Map.find l vMap).VData.Internals.Range)
     let expected =
       [| AddrRange (0x00UL, 0x0bUL); AddrRange (0x0cUL, 0x1bUL)
          AddrRange (0x1cUL, 0x1dUL); AddrRange (0x1cUL, 0x1dUL)
@@ -543,12 +545,13 @@ type CFGTest2 () =
     let dcfg = DisasmCFG.create cfg
     Assert.AreEqual (1, dcfg.Size)
     let vMap = dcfg.FoldVertex (fun m v ->
-      Map.add v.VData.PPoint.Address v m) Map.empty
+      Map.add v.VData.Internals.PPoint.Address v m) Map.empty
     let v = Map.find 0x00UL vMap
-    Assert.AreEqual (13, v.VData.Disassemblies.Length)
+    Assert.AreEqual (13, v.VData.Internals.Disassemblies.Length)
     let eMap = dcfg.FoldEdge (fun m e ->
       let v1, v2 = e.First, e.Second
-      let key = v1.VData.PPoint.Address, v2.VData.PPoint.Address
+      let key =
+        v1.VData.Internals.PPoint.Address, v2.VData.Internals.PPoint.Address
       Map.add key e m) Map.empty
     Assert.AreEqual (0, eMap.Count)
 
@@ -556,6 +559,6 @@ type CFGTest2 () =
   member __.``SSAGraph Vertex Test: _start`` () =
     let brew = BinaryBrew (hdl, exnInfo, strategies)
     let cfg = brew.Functions[0x0UL].CFG
-    let ssaLifter = SSALifterFactory<_>.Create hdl
+    let ssaLifter = SSALifterFactory.Create hdl
     let ssacfg = ssaLifter.Lift cfg
     Assert.AreEqual (7, ssacfg.Size)

@@ -25,15 +25,33 @@
 namespace B2R2.MiddleEnd.ControlFlowGraph
 
 open B2R2
-open B2R2.BinIR.LowUIR
 open B2R2.FrontEnd.BinLifter
 
-/// A lifted instruction.
-type LiftedInstruction = {
-  /// Original assembly instruction.
-  Original: Instruction
-  /// IR statements.
-  Stmts: Stmt[]
-  /// Corresponding BBL's address.
-  BBLAddr: Addr
-}
+/// Basic block type for a call graph (CallCFG).
+type CallBasicBlock (addr, name, isExternal) =
+  /// Return the `ICallBasicBlock` interface to access the internal
+  /// representation of the basic block.
+  member __.Internals with get() = __ :> ICallBasicBlock
+
+  member _.Name with get () = name
+
+  member _.IsExternal with get () = isExternal
+
+  interface ICallBasicBlock with
+    member _.PPoint with get() = ProgramPoint (addr, 0)
+
+    member _.Range = AddrRange (addr)
+
+    member _.BlockAddress with get() = addr
+
+    member _.Visualize () =
+      [| [| { AsmWordKind = AsmWordKind.Address
+              AsmWordValue = Addr.toString WordSize.Bit32 addr }
+            { AsmWordKind = AsmWordKind.String
+              AsmWordValue = ": " }
+            { AsmWordKind = AsmWordKind.Value
+              AsmWordValue = name } |] |]
+
+and ICallBasicBlock =
+  inherit IAddressable
+  inherit IVisualizable

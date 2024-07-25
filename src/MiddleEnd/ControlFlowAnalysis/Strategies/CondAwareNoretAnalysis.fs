@@ -63,7 +63,7 @@ type CondAwareNoretAnalysis ([<Optional; DefaultParameterValue(true)>] strict) =
     SSACFG.findReachingDef absV varKind
     |> Option.bind (function
       | SSA.Def (var, _) ->
-        match (state: SSAVarBasedDataFlowState<_, _>).GetRegValue var with
+        match (state: SSAVarBasedDataFlowState<_>).GetRegValue var with
         | UntouchedValueDomain.Untouched (RegisterTag (StackLocal off)) ->
           Some (- off / 4)
         | _ -> None
@@ -80,7 +80,7 @@ type CondAwareNoretAnalysis ([<Optional; DefaultParameterValue(true)>] strict) =
     let varKind = SSA.RegVar (64<rt>, argReg, name)
     match SSACFG.findReachingDef absV varKind with
     | Some (SSA.Def (var, _)) ->
-      match (state: SSAVarBasedDataFlowState<_, _>).GetRegValue var with
+      match (state: SSAVarBasedDataFlowState<_>).GetRegValue var with
       | UntouchedValueDomain.Untouched (RegisterTag (Regular rid)) ->
         ssaRegToArgNumX64 hdl rid
       | _ -> None
@@ -108,7 +108,7 @@ type CondAwareNoretAnalysis ([<Optional; DefaultParameterValue(true)>] strict) =
     let callSite = fst callEdge
     let callerSSAV = SSACFG.findVertexByAddr ssa callSite
     let absSSAV = ssa.GetSuccs callerSSAV |> Seq.exactlyOne
-    let arch = (ctx: CFGBuildingContext<_, _, _, _>).BinHandle.File.ISA.Arch
+    let arch = (ctx: CFGBuildingContext<_, _>).BinHandle.File.ISA.Arch
     match ctx.CallTable.TryGetFrameDistance callSite with
     | true, frameDist when arch = Architecture.IntelX86 ->
       untouchedArgIndexX86 frameDist absSSAV state nth
@@ -118,14 +118,13 @@ type CondAwareNoretAnalysis ([<Optional; DefaultParameterValue(true)>] strict) =
 
   let collectConditionalNoRetCalls ctx ssaCFG =
     let hdl = ctx.BinHandle
-    let uva =
-      SSAUntouchedValuePropagation (hdl) :> IDataFlowAnalysis<_, _, _, _, _>
+    let uva = SSAUntouchedValuePropagation hdl :> IDataFlowAnalysis<_, _, _, _>
     let state = uva.InitializeState []
     let state = uva.Compute ssaCFG state
     collectReturningCallEdges ctx
     |> List.choose (fun callEdge ->
       let absV = ctx.AbsVertices[callEdge]
-      match absV.VData.AbstractContent.ReturningStatus with
+      match absV.VData.Internals.AbstractContent.ReturningStatus with
       | ConditionalNoRet nth ->
         tryGetConnectedArgument ctx ssaCFG state callEdge nth
         |> Option.bind (fun nth' -> Some (absV, nth'))
@@ -160,19 +159,20 @@ type CondAwareNoretAnalysis ([<Optional; DefaultParameterValue(true)>] strict) =
     while i < exits.Length && status <> NotNoRet do
       let v = exits[i]
       i <- i + 1
-      if not v.VData.IsAbstract then
-        if not <| v.VData.LastInstruction.IsRET () then ()
+      let vData = v.VData :> ILowUIRBasicBlock
+      if not vData.IsAbstract then
+        if not <| vData.LastInstruction.IsRET () then ()
         else
           updateStatus (getStatusFromDominators domCtx absVSet argNumMap v)
       else
-        match v.VData.AbstractContent.ReturningStatus with
+        match vData.AbstractContent.ReturningStatus with
         | ConditionalNoRet _ -> updateStatus NoRet
         | NotNoRet ->
           updateStatus (getStatusFromDominators domCtx absVSet argNumMap v)
         | status -> updateStatus status
     status
 
-  interface IPostAnalysis<SSACFG<CFGEdgeKind> -> unit> with
+  interface IPostAnalysis<SSACFG -> unit> with
     member _.Unwrap env =
       let ctx = env.Context
       fun ssaCFG ->

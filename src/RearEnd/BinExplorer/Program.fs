@@ -198,7 +198,7 @@ let startGUI (opts: BinExplorerOpts) arbiter =
 
 /// Dump each CFG into JSON file. This feature is implemented to ease the
 /// development and debugging process, and may be removed in the future.
-let dumpJsonFiles jsonDir (brew: BinaryBrew<_, _, _, _>) =
+let dumpJsonFiles jsonDir (brew: BinaryBrew<_, _>) =
   try System.IO.Directory.Delete(jsonDir, true) with _ -> ()
   System.IO.Directory.CreateDirectory(jsonDir) |> ignore
   brew.Functions.Sequence
@@ -207,7 +207,7 @@ let dumpJsonFiles jsonDir (brew: BinaryBrew<_, _, _, _>) =
     let ep = func.EntryPoint
     let disasmJsonPath = Printf.sprintf "%s/%s.disasmCFG" jsonDir id
     let disasmcfg = DisasmCFG.create func.CFG
-    CFGExport.toJson disasmcfg disasmJsonPath)
+    ExportCFG.toJson disasmcfg disasmJsonPath)
 
 let initBinHdl isa (name: string) =
   let autoDetect = (isa.Arch <> Architecture.EVM)
@@ -224,7 +224,7 @@ let interactiveMain files (opts: BinExplorerOpts) =
     let funcId = Strategies.FunctionIdentification (hdl, exnInfo)
     let cfgRecovery = Strategies.CFGRecovery ()
     let strategies =
-      [| funcId :> ICFGBuildingStrategy<_, _, _, _>; cfgRecovery |]
+      [| funcId :> ICFGBuildingStrategy<_, _>; cfgRecovery |]
     let brew = BinaryBrew (hdl, exnInfo, strategies)
     if opts.JsonDumpDir <> "" then dumpJsonFiles opts.JsonDumpDir brew else ()
     let arbiter = Protocol.genArbiter brew opts.LogFile
@@ -269,7 +269,7 @@ let runCommand cmdMap opts file cmd args =
   let exnInfo = ExceptionInfo hdl
   let funcId = Strategies.FunctionIdentification (hdl, exnInfo)
   let cfgRecovery = Strategies.CFGRecovery ()
-  let strategies = [| funcId :> ICFGBuildingStrategy<_, _, _, _>; cfgRecovery |]
+  let strategies = [| funcId :> ICFGBuildingStrategy<_, _>; cfgRecovery |]
   let brew = BinaryBrew (hdl, exnInfo, strategies)
   Cmd.handle cmdMap brew cmd args
   |> Array.iter out.Print

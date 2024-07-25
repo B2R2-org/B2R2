@@ -39,7 +39,7 @@ let loadOne (Binary (code, arch)) =
   let exnInfo = ExceptionInfo hdl
   let funcId = FunctionIdentification (hdl, exnInfo)
   let strategies =
-    [| funcId :> ICFGBuildingStrategy<_, _, _, _>; CFGRecovery () |]
+    [| funcId :> ICFGBuildingStrategy<_, _>; CFGRecovery () |]
   BinaryBrew (hdl, exnInfo, strategies)
 
 (*

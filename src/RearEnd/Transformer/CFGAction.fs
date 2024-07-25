@@ -39,7 +39,7 @@ type CFGAction () =
       let exnInfo = ExceptionInfo hdl
       let funcId = FunctionIdentification (hdl, exnInfo)
       let strategies =
-        [| funcId :> ICFGBuildingStrategy<_, _, _, _>; CFGRecovery () |]
+        [| funcId :> ICFGBuildingStrategy<_, _>; CFGRecovery () |]
       let brew = BinaryBrew (hdl, strategies)
       brew.Functions[0UL].CFG
       |> DisasmCFG.create

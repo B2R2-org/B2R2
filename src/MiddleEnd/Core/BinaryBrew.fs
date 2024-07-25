@@ -38,36 +38,31 @@ open B2R2.MiddleEnd.ControlFlowAnalysis.Strategies
 ///   the target binary, such as instructions, IRs, functions, CFGs, and
 ///   exception information, etc.
 /// </summary>
-type BinaryBrew<'V,
-                'E,
-                'FnCtx,
-                'GlCtx when 'V :> IRBasicBlock
-                        and 'V: equality
-                        and 'E: equality
-                        and 'FnCtx :> IResettable
+type BinaryBrew<'FnCtx,
+                'GlCtx when 'FnCtx :> IResettable
                         and 'FnCtx: (new: unit -> 'FnCtx)
                         and 'GlCtx: (new: unit -> 'GlCtx)>
   public (hdl: BinHandle,
           exnInfo: ExceptionInfo,
-          strategies: ICFGBuildingStrategy<_, _, _, _>[],
+          strategies: ICFGBuildingStrategy<_, _>[],
           allowBBLOverlap) =
 
   let instrs = InstructionCollection (LinearSweepInstructionCollector hdl)
 
   let cfgConstructor =
-    { new IRCFG.IConstructable<'V, 'E> with
+    { new LowUIRCFG.IConstructable with
         member _.AllowBBLOverlap with get() = allowBBLOverlap
         member _.Construct _ =
-          ImperativeDiGraph<'V, 'E> () :> IRCFG<'V, 'E> }
+          ImperativeDiGraph<LowUIRBasicBlock, CFGEdgeKind> () :> LowUIRCFG }
 
   let builders = CFGBuilderTable (hdl, instrs, cfgConstructor)
 
-  let missions = strategies |> Array.map RecoveryMission<'V, 'E, 'FnCtx, 'GlCtx>
+  let missions = strategies |> Array.map RecoveryMission<'FnCtx, 'GlCtx>
 
   #if DEBUG
   let sanityCheck arr =
     arr
-    |> Array.partition (fun (builder: ICFGBuildable<_, _, _, _>) ->
+    |> Array.partition (fun (builder: ICFGBuildable<_, _>) ->
       builder.BuilderState = Finished)
     |> fun (succs, fails) ->
       Console.WriteLine $"[*] Done (total {succs.Length} functions)"
@@ -79,7 +74,7 @@ type BinaryBrew<'V,
     arr
   #endif
 
-  let buildersToFunctions (builders: CFGBuilderTable<_, _, _, _>) =
+  let buildersToFunctions (builders: CFGBuilderTable<_, _>) =
     builders.ToArray ()
     #if DEBUG
     |> sanityCheck
@@ -119,16 +114,15 @@ type BinaryBrew<'V,
 
 /// Default BinaryBrew type that internally uses SSA IR to recover CFGs.
 type BinaryBrew =
-  inherit BinaryBrew<IRBasicBlock, CFGEdgeKind, DummyContext, DummyContext>
+  inherit BinaryBrew<DummyContext, DummyContext>
 
   new (hdl: BinHandle, exnInfo, strategies, allowBBLOverlap) =
-    { inherit BinaryBrew<IRBasicBlock, CFGEdgeKind, DummyContext, DummyContext>
+    { inherit BinaryBrew<DummyContext, DummyContext>
         (hdl, exnInfo, strategies, allowBBLOverlap) }
 
   new (hdl: BinHandle, exnInfo, strategies) =
-    { inherit BinaryBrew<IRBasicBlock, CFGEdgeKind, DummyContext, DummyContext>
+    { inherit BinaryBrew<DummyContext, DummyContext>
         (hdl, exnInfo, strategies, false) }
 
   new (hdl: BinHandle, strategies) =
-    { inherit BinaryBrew<IRBasicBlock, CFGEdgeKind, DummyContext, DummyContext>
-        (hdl, strategies) }
+    { inherit BinaryBrew<DummyContext, DummyContext> (hdl, strategies) }

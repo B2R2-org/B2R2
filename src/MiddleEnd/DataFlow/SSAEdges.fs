@@ -33,7 +33,7 @@ type private SSAStmtLocation = VertexID * int
 
 /// SSA edges in a CFG.
 [<AllowNullLiteral>]
-type SSAEdges<'E when 'E: equality> (ssaCFG: SSACFG<'E>) =
+type SSAEdges (ssaCFG: SSACFG) =
   let uses = Dictionary<SSA.Variable, Set<SSAStmtLocation>> ()
   let defs = Dictionary<SSA.Variable, SSA.Stmt> ()
 
@@ -84,11 +84,11 @@ type SSAEdges<'E when 'E: equality> (ssaCFG: SSACFG<'E>) =
 
   /// Compute SSA edge map (SSA Var -> a set of (VertexID, Stmt idx)). From a
   /// given ssa var, this function returns a set of SSA-edge destination.
-  let compute (ssaCFG: SSACFG<_>) =
+  let compute (ssaCFG: SSACFG) =
     ssaCFG.IterVertex (fun (v: IVertex<SSABasicBlock>) ->
       let vid = v.ID
-      for idx = 0 to v.VData.LiftedSSAStmts.Length - 1 do
-        let stmt = snd v.VData.LiftedSSAStmts[idx]
+      for idx = 0 to v.VData.Internals.Statements.Length - 1 do
+        let stmt = snd v.VData.Internals.Statements[idx]
         match stmt with
         | SSA.LMark _ -> ()
         | SSA.ExternalCall (expr, inVars, outVars) ->

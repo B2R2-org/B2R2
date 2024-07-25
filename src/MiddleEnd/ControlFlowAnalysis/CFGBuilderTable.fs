@@ -27,22 +27,16 @@ namespace B2R2.MiddleEnd.ControlFlowAnalysis
 open System.Collections.Generic
 open B2R2
 open B2R2.FrontEnd.BinFile
-open B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.MiddleEnd.ControlFlowAnalysis.ExternalFunctionLoader
 
-type CFGBuilderTable<'V,
-                     'E,
-                     'FnCtx,
-                     'GlCtx when 'V :> IRBasicBlock
-                             and 'V: equality
-                             and 'E: equality
-                             and 'FnCtx :> IResettable
+type CFGBuilderTable<'FnCtx,
+                     'GlCtx when 'FnCtx :> IResettable
                              and 'FnCtx: (new: unit -> 'FnCtx)
                              and 'GlCtx: (new: unit -> 'GlCtx)>
   public (hdl, instrs, cfgConstructor) =
 
   let builders =
-    Dictionary<Addr, ICFGBuildable<'V,'E, 'FnCtx, 'GlCtx>> ()
+    Dictionary<Addr, ICFGBuildable<'FnCtx, 'GlCtx>> ()
 
   let getOrCreateInternalBuilder agent addr mode =
     match builders.TryGetValue addr with
@@ -94,7 +88,7 @@ type CFGBuilderTable<'V,
     getOrCreateInternalBuilder agent addr mode
 
   /// Update existing function builder to have a new agent.
-  member _.Reload (builder: ICFGBuildable<_, _, _, _>) agent =
+  member _.Reload (builder: ICFGBuildable<_, _>) agent =
     let old = builders[builder.EntryPoint]
     builders[builder.EntryPoint] <- old.MakeNew agent
 

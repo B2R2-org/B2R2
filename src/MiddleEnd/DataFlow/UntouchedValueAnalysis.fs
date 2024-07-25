@@ -31,8 +31,8 @@ open B2R2.FrontEnd
 open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.DataFlow
 
-type UntouchedValueAnalysis<'E when 'E: equality> =
-  inherit VarBasedDataFlowAnalysis<UntouchedValueDomain.Lattice, 'E>
+type UntouchedValueAnalysis =
+  inherit VarBasedDataFlowAnalysis<UntouchedValueDomain.Lattice>
 
   new (hdl: BinHandle) =
     let isStackPointer rid =
@@ -50,7 +50,7 @@ type UntouchedValueAnalysis<'E when 'E: equality> =
       | Regular _ -> mkUntouched varKind
       | _ -> UntouchedValueDomain.Undef (* not intended *)
 
-    let evaluateVarPoint (state: VarBasedDataFlowState<_, _>)  pp varKind =
+    let evaluateVarPoint (state: VarBasedDataFlowState<_>)  pp varKind =
       let varDef = state.CalculateIncomingVarDef pp
       let vps = VarDefDomain.get varKind varDef
       if Set.isEmpty vps then getBaseCase varKind (* initialize here *)
@@ -74,7 +74,7 @@ type UntouchedValueAnalysis<'E when 'E: equality> =
       | _ -> UntouchedValueDomain.Touched
 
     let analysis =
-      { new IVarBasedDataFlowAnalysis<UntouchedValueDomain.Lattice, 'E> with
+      { new IVarBasedDataFlowAnalysis<UntouchedValueDomain.Lattice> with
           member __.OnInitialize state = state
 
           member __.Bottom = UntouchedValueDomain.Undef
@@ -106,5 +106,5 @@ type UntouchedValueAnalysis<'E when 'E: equality> =
             (g: IGraph<_, _>).GetSuccs v
             |> Seq.map (fun v -> v.ID) }
 
-    { inherit VarBasedDataFlowAnalysis<UntouchedValueDomain.Lattice,
-                                       'E> (hdl, analysis) }
+    { inherit VarBasedDataFlowAnalysis<UntouchedValueDomain.Lattice>
+        (hdl, analysis) }

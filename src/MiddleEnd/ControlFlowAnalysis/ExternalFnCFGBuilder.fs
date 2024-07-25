@@ -27,17 +27,11 @@ namespace B2R2.MiddleEnd.ControlFlowAnalysis
 open System.Collections.Generic
 open B2R2
 open B2R2.FrontEnd
-open B2R2.MiddleEnd.ControlFlowGraph
 
 /// The builder for an external function, which is responsible storing auxiliary
 /// information about the function, such as caller information.
-type ExternalFnCFGBuilder<'V,
-                          'E,
-                          'FnCtx,
-                          'GlCtx when 'V :> IRBasicBlock
-                                  and 'V: equality
-                                  and 'E: equality
-                                  and 'FnCtx :> IResettable
+type ExternalFnCFGBuilder<'FnCtx,
+                          'GlCtx when 'FnCtx :> IResettable
                                   and 'FnCtx: (new: unit -> 'FnCtx)
                                   and 'GlCtx: (new: unit -> 'GlCtx)>
   public (hdl: BinHandle,
@@ -63,7 +57,7 @@ type ExternalFnCFGBuilder<'V,
       ManagerChannel = null
       ThreadID = -1 }
 
-  interface ICFGBuildable<'V, 'E, 'FnCtx, 'GlCtx> with
+  interface ICFGBuildable<'FnCtx, 'GlCtx> with
     member __.BuilderState with get() = Finished
 
     member __.EntryPoint with get(): Addr = entryPoint

@@ -28,9 +28,7 @@ open B2R2.FrontEnd.BinLifter
 open B2R2.MiddleEnd.ControlFlowGraph
 
 /// The main vertex type used for visualization.
-type VisBBlock (blk: BasicBlock, isDummy) =
-  inherit BasicBlock (blk.PPoint)
-
+type VisBBlock (blk: IVisualizable, isDummy) =
   let mutable layer = -1
 
   let mutable index = -1
@@ -45,7 +43,7 @@ type VisBBlock (blk: BasicBlock, isDummy) =
     let block = blk.Visualize ()
     if block.Length = 0 then
       [| [| { AsmWordKind = AsmWordKind.String
-              AsmWordValue = $"# fake block @ {blk.PPoint.Address:x}" } |] |]
+              AsmWordValue = $"# fake block @ {blk.BlockAddress:x}" } |] |]
     else block
 
   let maxLine = visualizableAsm |> Array.maxBy (AsmLine.lineWidth)
@@ -65,10 +63,6 @@ type VisBBlock (blk: BasicBlock, isDummy) =
   let height =
     if isDummy then 0.0 else float numLines * 14.0 + TSpanOffset + Padding * 2.0
 
-  override __.Range with get () = blk.Range
-
-  override __.Visualize () = visualizableAsm
-
   member __.IsDummy with get () = isDummy
 
   /// The width of the node.
@@ -85,3 +79,7 @@ type VisBBlock (blk: BasicBlock, isDummy) =
 
   /// X-Y coordinate in the visualized graph.
   member __.Coordinate with get () = pos
+
+  interface IVisualizable with
+    member _.BlockAddress with get() = blk.BlockAddress
+    member _.Visualize () = visualizableAsm

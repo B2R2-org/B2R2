@@ -32,13 +32,8 @@ open B2R2.MiddleEnd.ControlFlowGraph
 
 /// The context for building a control flow graph of a function. This exists per
 /// function, and it can include a user-defined, too.
-type CFGBuildingContext<'V,
-                        'E,
-                        'FnCtx,
-                        'GlCtx when 'V :> IRBasicBlock
-                                and 'V: equality
-                                and 'E: equality
-                                and 'FnCtx :> IResettable
+type CFGBuildingContext<'FnCtx,
+                        'GlCtx when 'FnCtx :> IResettable
                                 and 'GlCtx: (new: unit -> 'GlCtx)> = {
   /// The address of the function that is being built.
   FunctionAddress: Addr
@@ -48,12 +43,12 @@ type CFGBuildingContext<'V,
   FunctionMode: ArchOperationMode
   /// The binary handle.
   BinHandle: BinHandle
-  /// Mapping from a program point to a vertex in the IRCFG.
-  Vertices: Dictionary<ProgramPoint, IVertex<'V>>
-  /// Mapping from a call edge to an abstracted vertex in the IRCFG.
-  AbsVertices: Dictionary<AbsCallEdge, IVertex<'V>>
-  /// The control flow graph.
-  mutable CFG: IRCFG<'V, 'E>
+  /// Mapping from a program point to a vertex in the LowUIRCFG.
+  Vertices: Dictionary<ProgramPoint, IVertex<LowUIRBasicBlock>>
+  /// Mapping from a call edge to an abstracted vertex in the LowUIRCFG.
+  AbsVertices: Dictionary<AbsCallEdge, IVertex<LowUIRBasicBlock>>
+  /// The control flow graph in LowUIR.
+  mutable CFG: LowUIRCFG
   /// The basic block factory.
   BBLFactory: BBLFactory
   /// Is this function a no-return function?
@@ -70,7 +65,7 @@ type CFGBuildingContext<'V,
   /// Is this an external function or not.
   IsExternal: bool
   /// The channel for accessing the state of the TaskManager.
-  mutable ManagerChannel: IManagerAccessible<'V, 'E, 'FnCtx, 'GlCtx>
+  mutable ManagerChannel: IManagerAccessible<'FnCtx, 'GlCtx>
   /// Thread ID that is currently building this function.
   mutable ThreadID: int
 }
@@ -83,13 +78,8 @@ and AbsCallEdge = Addr * Addr option
 
 /// The interface for accessing the state of the TaskManager.
 and [<AllowNullLiteral>]
-  IManagerAccessible<'V,
-                     'E,
-                     'FnCtx,
-                     'GlCtx when 'V :> IRBasicBlock
-                             and 'V: equality
-                             and 'E: equality
-                             and 'FnCtx :> IResettable
+  IManagerAccessible<'FnCtx,
+                     'GlCtx when 'FnCtx :> IResettable
                              and 'GlCtx: (new: unit -> 'GlCtx)> =
   /// Update the dependency between two functions.
   abstract UpdateDependency:
@@ -103,7 +93,7 @@ and [<AllowNullLiteral>]
   /// return None.
   abstract GetBuildingContext:
        addr: Addr
-    -> BuildingCtxMsg<'V, 'E, 'FnCtx, 'GlCtx>
+    -> BuildingCtxMsg<'FnCtx, 'GlCtx>
 
   /// Get the current user-defined global state of the TaskManager.
   abstract GetGlobalContext: accessor: ('GlCtx -> 'Res) -> 'Res
@@ -112,17 +102,12 @@ and [<AllowNullLiteral>]
   abstract UpdateGlobalContext: updater: ('GlCtx -> 'GlCtx) -> unit
 
 /// Message containing the building context of a function.
-and BuildingCtxMsg<'V,
-                   'E,
-                   'FnCtx,
-                   'GlCtx when 'V :> IRBasicBlock
-                           and 'V: equality
-                           and 'E: equality
-                           and 'FnCtx :> IResettable
+and BuildingCtxMsg<'FnCtx,
+                   'GlCtx when 'FnCtx :> IResettable
                            and 'GlCtx: (new: unit -> 'GlCtx)> =
   /// The building process is finished, and this is the final context.
-  | FinalCtx of CFGBuildingContext<'V, 'E, 'FnCtx, 'GlCtx>
+  | FinalCtx of CFGBuildingContext<'FnCtx, 'GlCtx>
   /// The building process is still ongoing.
-  | StillBuilding of CFGBuildingContext<'V, 'E, 'FnCtx, 'GlCtx>
+  | StillBuilding of CFGBuildingContext<'FnCtx, 'GlCtx>
   /// The building process failed.
   | FailedBuilding

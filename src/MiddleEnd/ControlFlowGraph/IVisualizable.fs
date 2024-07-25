@@ -27,16 +27,12 @@ namespace B2R2.MiddleEnd.ControlFlowGraph
 open B2R2
 open B2R2.FrontEnd.BinLifter
 
-/// The base type for basic block.
-[<AbstractClass>]
-type BasicBlock (pp) =
-  /// The start position (ProgramPoint) of the basic block.
-  member __.PPoint with get(): ProgramPoint = pp
+/// Interface for a visualizable basic block.
+type IVisualizable =
+  /// Basic block address.
+  abstract BlockAddress: Addr
 
-  /// The instruction address range of the basic block. Even if the block
-  /// contains a partial IR statements of an instruction, we include the
-  /// instruction to compute the range.
-  abstract Range: AddrRange with get
-
-  /// Convert this basic block to a visual representation.
+  /// Convert this basic block to a visual representation. The first dimension
+  /// of the array represents the line number, and the second dimension
+  /// represents the words in each line.
   abstract Visualize: unit -> AsmWord[][]

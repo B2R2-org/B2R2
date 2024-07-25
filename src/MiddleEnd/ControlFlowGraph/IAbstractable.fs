@@ -22,27 +22,20 @@
   SOFTWARE.
 *)
 
-namespace B2R2.MiddleEnd.ControlFlowAnalysis
+namespace B2R2.MiddleEnd.ControlFlowGraph
 
-open B2R2
-open B2R2.BinIR
-open B2R2.FrontEnd.BinLifter
-open B2R2.MiddleEnd.ControlFlowGraph
+/// Interface for an abstractable basic block.
+type IAbstractable<'Stmt> =
+  /// Return if this is an abstract basic block inserted by our analysis. We
+  /// create an abstract block to represent a function in a CFG.
+  abstract IsAbstract: bool
 
-/// Interface for summarizing a function based on the given context to abstract
-/// data.
-type IFunctionSummarizable<'FnCtx,
-                           'GlCtx when 'FnCtx :> IResettable
-                                   and 'GlCtx: (new: unit -> 'GlCtx)> =
-  /// Summarize a function based on the given context to abstract data. The
-  /// `ins` is the call instruction that calls the function.
-  abstract Summarize:
-       CFGBuildingContext<'FnCtx, 'GlCtx>
-     * ins: Instruction
-    -> FunctionAbstraction<LowUIR.Stmt>
+  /// The abstract content of the basic block summarizing a function. If the
+  /// block is not an abstract one, this property raises
+  /// `AbstractBlockAccessException`.
+  abstract AbstractContent: FunctionAbstraction<'Stmt>
 
-  /// Return a default summary for a unknown function.
-  abstract SummarizeUnknown:
-       wordSz: WordSize
-     * ins: Instruction
-    -> FunctionAbstraction<LowUIR.Stmt>
+/// This exception is thrown when an abstract basic block is accessed as if it
+/// is a regular block.
+exception AbstractBlockAccessException
+

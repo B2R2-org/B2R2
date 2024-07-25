@@ -28,13 +28,8 @@ open B2R2
 open B2R2.MiddleEnd.ControlFlowGraph
 
 /// A kind of messages to be handled by TaskManager.
-type TaskMessage<'V,
-                 'E,
-                 'FnCtx,
-                 'GlCtx when 'V :> IRBasicBlock
-                         and 'V: equality
-                         and 'E: equality
-                         and 'FnCtx :> IResettable
+type TaskMessage<'FnCtx,
+                 'GlCtx when 'FnCtx :> IResettable
                          and 'GlCtx: (new: unit -> 'GlCtx)> =
   /// Add an address to recover the CFG.
   | AddTask of Addr * ArchOperationMode
@@ -48,7 +43,7 @@ type TaskMessage<'V,
   | RetrieveNonReturningStatus of Addr * AgentReplyChannel<NonReturningStatus>
   /// Retrieve the building context of a function.
   | RetrieveBuildingContext of
-      Addr * AgentReplyChannel<BuildingCtxMsg<'V, 'E, 'FnCtx, 'GlCtx>>
+      Addr * AgentReplyChannel<BuildingCtxMsg<'FnCtx, 'GlCtx>>
   /// Access the global context with the accessor, which has a side effect.
   | AccessGlobalContext of accessor: ('GlCtx -> unit) * AgentReplyChannel<unit>
   /// Update global context.

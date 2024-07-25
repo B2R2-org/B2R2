@@ -34,15 +34,15 @@ open B2R2.MiddleEnd.ControlFlowAnalysis
 [<RequireQualifiedAccess>]
 module CallGraph =
   /// A mapping from an addrbrew to a CallCFG vertex.
-  type private CallVMap = Dictionary<Addr, IVertex<CallBlock>>
+  type private CallVMap = Dictionary<Addr, IVertex<CallBasicBlock>>
 
-  let private getVertex (brew: BinaryBrew<_, _, _, _>) vMap addr g =
+  let private getVertex (brew: BinaryBrew<_, _>) vMap addr g =
     match (vMap: CallVMap).TryGetValue addr with
     | false, _ ->
       let fn = brew.Functions[addr]
       let name = fn.Name
       // let ext = fn.FunctionKind <> FunctionKind.Regular
-      let blk = CallBlock (addr, name, false)
+      let blk = CallBasicBlock (addr, name, false)
       let v, g = (g: IGraph<_, _>).AddVertex blk
       vMap.Add (addr, v)
       v, g
@@ -53,7 +53,7 @@ module CallGraph =
     let dst, callCFG = getVertex brew vMap target callCFG
     callCFG.AddEdge (src, dst, CallEdge)
 
-  let private buildCG callCFG vMap (brew: BinaryBrew<_, _, _, _>) =
+  let private buildCG callCFG vMap (brew: BinaryBrew<_, _>) =
     brew.Functions.Sequence
     |> Seq.fold (fun callCFG func ->
       func.Callees
@@ -77,9 +77,9 @@ module CallGraph =
     let callGraph =
       match implType with
       | Imperative ->
-        ImperativeDiGraph<CallBlock, CFGEdgeKind> () :> CallCFG<_>
+        ImperativeDiGraph<CallBasicBlock, CFGEdgeKind> () :> CallCFG
       | Persistent ->
-        PersistentDiGraph<CallBlock, CFGEdgeKind> () :> CallCFG<_>
+        PersistentDiGraph<CallBasicBlock, CFGEdgeKind> () :> CallCFG
     let vMap = CallVMap ()
     let callGraph = buildCG callGraph vMap brew
     callGraph, callGraph.Unreachables |> Array.toList

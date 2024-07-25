@@ -63,11 +63,12 @@ let private initState hdl pc =
   st
 
 /// Concretely evaluate a basic block from an arbitrarily generated state.
-let evalBlockFromScratch hdl (blk: IVertex<IRBasicBlock>) =
-  let pc = blk.VData.PPoint.Address
+let evalBlockFromScratch hdl (blk: IVertex<LowUIRBasicBlock>) =
+  let pc = blk.VData.Internals.PPoint.Address
   let st = initState hdl pc
   st.SideEffectEventHandler <- fun _ st -> st.AbortInstr ()
-  let stmts = blk.VData.LiftedInstructions |> Array.map (fun arr -> arr.Stmts)
+  let stmts =
+    blk.VData.Internals.LiftedInstructions |> Array.map (fun arr -> arr.Stmts)
   match SafeEvaluator.evalBlock st pc stmts with
   | Ok st -> st
   | Error _ -> Utils.impossible ()

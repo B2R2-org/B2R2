@@ -96,8 +96,8 @@ module DataFlowChain =
 
   let private initUDChain cfg (st: IDataFlowState<_, _>) =
     Map.empty
-    |> (cfg: IGraph<_, _>).FoldVertex (fun map (v: IVertex<IRBasicBlock>) ->
-      v.VData.LiftedInstructions
+    |> (cfg: IGraph<_, _>).FoldVertex (fun map (v: IVertex<LowUIRBasicBlock>) ->
+      v.VData.Internals.LiftedInstructions
       |> Array.fold (fun map lifted ->
         lifted.Stmts
         |> Array.foldi (fun map idx stmt ->
@@ -142,7 +142,7 @@ module DataFlowChain =
 
   [<CompiledName("Init")>]
   let init cfg isDisasmLevel =
-    let rd = ReachingDefinitionAnalysis () :> IDataFlowAnalysis<_, _, _, _, _>
+    let rd = ReachingDefinitionAnalysis () :> IDataFlowAnalysis<_, _, _, _>
     let st = rd.InitializeState []
     let st = rd.Compute cfg st
     let udchain = initUDChain cfg st |> filterDisasm isDisasmLevel

@@ -28,22 +28,34 @@ open B2R2
 open B2R2.FrontEnd.BinLifter
 
 /// Basic block type for a disassembly-based CFG (DisasmCFG).
-type DisasmBasicBlock (ppoint, instrs) =
-  inherit BasicBlock (ppoint)
+type DisasmBasicBlock (ppoint, instrs: Instruction[]) =
+  /// Return the `IDisasmBasicBlock` interface.
+  member __.Internals with get() = __ :> IDisasmBasicBlock
 
-  /// Instructions.
-  member __.Instructions with get(): Instruction[] = instrs
+  interface IDisasmBasicBlock with
+    member _.PPoint with get() = ppoint
 
-  /// Disassembled instructions.
-  member __.Disassemblies with get () =
-    instrs |> Array.map (fun i -> i.Disasm ())
+    member _.Range with get() =
+      let last = instrs[instrs.Length - 1]
+      AddrRange (ppoint.Address, last.Address + uint64 last.Length - 1UL)
 
-  override __.Range with get() =
-    let last = instrs[instrs.Length - 1]
-    AddrRange (ppoint.Address, last.Address + uint64 last.Length - 1UL)
+    member _.Instructions with get(): Instruction[] = instrs
 
-  override __.Visualize () =
-    instrs
-    |> Array.mapi (fun idx ins ->
-      if idx = Array.length instrs - 1 then ins.Decompose (true)
-      else ins.Decompose (true))
+    member _.LastInstruction with get() = instrs[instrs.Length - 1]
+
+    member _.Disassemblies with get () =
+      instrs |> Array.map (fun i -> i.Disasm ())
+
+    member _.BlockAddress with get() = ppoint.Address
+
+    member _.Visualize () =
+      instrs
+      |> Array.mapi (fun idx ins ->
+        if idx = Array.length instrs - 1 then ins.Decompose (true)
+        else ins.Decompose (true))
+
+/// Interface for a basic block containing disassembled instructions.
+and IDisasmBasicBlock =
+  inherit IAddressable
+  inherit IInstructionAccessible
+  inherit IVisualizable

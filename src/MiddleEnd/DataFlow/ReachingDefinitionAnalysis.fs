@@ -39,15 +39,14 @@ type ReachingDefinition = {
 type ReachingDefinitionAnalysis =
   inherit WorklistDataFlowAnalysis<VertexID,
                                    ReachingDefinition,
-                                   IRBasicBlock,
-                                   CFGEdgeKind>
+                                   LowUIRBasicBlock>
   new () =
     let gens = Dictionary<VertexID, Set<VarPoint>> ()
 
     let kills = Dictionary<VertexID, Set<VarPoint>> ()
 
-    let findDefs (v: IVertex<IRBasicBlock>) =
-      v.VData.LiftedInstructions
+    let findDefs (v: IVertex<LowUIRBasicBlock>) =
+      v.VData.Internals.LiftedInstructions
       |> Array.fold (fun list lifted ->
         lifted.Stmts
         |> Array.foldi (fun list idx stmt ->
@@ -61,7 +60,7 @@ type ReachingDefinitionAnalysis =
           | _ -> list) list
         |> fst) []
 
-    let initGensAndKills (g: IGraph<IRBasicBlock, CFGEdgeKind>) =
+    let initGensAndKills (g: IGraph<LowUIRBasicBlock, _>) =
       let vpPerVar = Dictionary<VarKind, Set<VarPoint>> ()
       let vpPerVertex = Dictionary<VertexID, VarPoint list> ()
       g.IterVertex (fun v ->
@@ -87,8 +86,7 @@ type ReachingDefinitionAnalysis =
     let analysis =
       { new IWorklistDataFlowAnalysis<VertexID,
                                       ReachingDefinition,
-                                      IRBasicBlock,
-                                      CFGEdgeKind> with
+                                      LowUIRBasicBlock> with
           member _.Bottom = { Ins = Set.empty; Outs = Set.empty }
 
           member _.InitializeWorkList g =
@@ -117,5 +115,4 @@ type ReachingDefinitionAnalysis =
 
     { inherit WorklistDataFlowAnalysis<VertexID,
                                        ReachingDefinition,
-                                       IRBasicBlock,
-                                       CFGEdgeKind> (analysis) }
+                                       LowUIRBasicBlock> (analysis) }

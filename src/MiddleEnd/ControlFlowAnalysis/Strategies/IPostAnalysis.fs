@@ -24,7 +24,6 @@
 
 namespace B2R2.MiddleEnd.ControlFlowAnalysis.Strategies
 
-open B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.MiddleEnd.ControlFlowAnalysis
 
 /// The interface for a post-analysis, which is performed after a function CFG
@@ -43,7 +42,7 @@ and PostAnalysisEnv<'FnCtx,
                     'GlCtx when 'FnCtx :> IResettable
                             and 'FnCtx: (new: unit -> 'FnCtx)
                             and 'GlCtx: (new: unit -> 'GlCtx)> = {
-  Context: CFGBuildingContext<IRBasicBlock, CFGEdgeKind, 'FnCtx, 'GlCtx>
+  Context: CFGBuildingContext<'FnCtx, 'GlCtx>
 }
 
 module IPostAnalysis =

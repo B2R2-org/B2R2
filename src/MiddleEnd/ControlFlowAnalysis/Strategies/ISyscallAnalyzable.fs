@@ -31,18 +31,18 @@ open B2R2.MiddleEnd.ControlFlowAnalysis
 
 /// The interface for syscall stub analysis. This is to know whether the given
 /// syscall instruction is an exit syscall or not. Since this analysis runs in
-/// the middle of the CFG building, it should be solely based on the IRCFG, not
-/// the SSACFG.
+/// the middle of the CFG building, it should be solely based on the LowUIRCFG,
+/// not the SSACFG.
 type ISyscallAnalyzable =
   /// Is the given syscall instruction located at the target vertex an exit
   /// syscall?
   abstract IsExit:
-       ctx: CFGBuildingContext<IRBasicBlock, CFGEdgeKind, 'FnCtx, 'GlCtx>
-     * TargetVertex: IVertex<IRBasicBlock>
+       ctx: CFGBuildingContext<'FnCtx, 'GlCtx>
+     * TargetVertex: IVertex<LowUIRBasicBlock>
     -> bool
 
   abstract MakeAbstract:
-       ctx: CFGBuildingContext<IRBasicBlock, CFGEdgeKind, 'FnCtx, 'GlCtx>
-     * TargetVertex: IVertex<IRBasicBlock>
+       ctx: CFGBuildingContext<'FnCtx, 'GlCtx>
+     * TargetVertex: IVertex<LowUIRBasicBlock>
      * IsExit: bool
     -> FunctionAbstraction<LowUIR.Stmt>

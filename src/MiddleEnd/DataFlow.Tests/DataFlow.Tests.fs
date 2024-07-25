@@ -81,11 +81,11 @@ type PersistentDataFlowTests () =
   member __.``Reaching Definitions Test 1``() =
     let brew = Binaries.loadOne Binaries.sample1
     let cfg = brew.Functions[0UL].CFG
-    let dfa = ReachingDefinitionAnalysis () :> IDataFlowAnalysis<_, _, _, _, _>
+    let dfa = ReachingDefinitionAnalysis () :> IDataFlowAnalysis<_, _, _, _>
     let state = dfa.InitializeState []
     let state = dfa.Compute cfg state
-    let v = cfg.FindVertexBy (fun b -> b.VData.PPoint.Address = 0xEUL) (* 2nd *)
-    let rd = (state :> IDataFlowState<_, _>).GetAbsValue v.ID
+    let v = cfg.FindVertexBy (fun b -> b.VData.Internals.PPoint.Address = 0xEUL)
+    let rd = (state :> IDataFlowState<_, _>).GetAbsValue v.ID (* 2nd vertex *)
     let ins = rd.Ins |> Set.filter isRegular
     let solution =
       [ reg 0x0UL 1 Register.EDX
@@ -144,10 +144,10 @@ type PersistentDataFlowTests () =
   member __.``SSA Constant Propagation Test 1`` () =
     let brew = Binaries.loadOne Binaries.sample2
     let cfg = brew.Functions[0UL].CFG
-    let lifter = SSALifterFactory<CFGEdgeKind>.Create (brew.BinHandle)
+    let lifter = SSALifterFactory.Create (brew.BinHandle)
     let ssaCFG = lifter.Lift cfg
     let cp = SSA.SSAConstantPropagation brew.BinHandle
-    let dfa = cp :> IDataFlowAnalysis<_, _, _, _, _>
+    let dfa = cp :> IDataFlowAnalysis<_, _, _, _>
     let state = dfa.InitializeState []
     let state = dfa.Compute ssaCFG state
     [ ssaReg Register.RSP 0 64<rt> |> cmp <| mkConst 0x80000000u 64<rt>
@@ -177,8 +177,8 @@ type PersistentDataFlowTests () =
     let hdl = brew.BinHandle
     let cfg = brew.Functions[0UL].CFG
     let roots = cfg.GetRoots ()
-    let varDfa = DummyVarBasedDataFlowAnalysis<CFGEdgeKind> hdl
-    let dfa = varDfa :> IDataFlowAnalysis<_, _, _, _, _>
+    let varDfa = DummyVarBasedDataFlowAnalysis hdl
+    let dfa = varDfa :> IDataFlowAnalysis<_, _, _, _>
     let state = dfa.InitializeState roots |> dfa.Compute cfg
     let rbp = 0x7ffffff8UL
     [ irReg 0x0UL 0 Register.RSP |> cmp <| mkConst 0x80000000u 64<rt>
@@ -204,8 +204,8 @@ type PersistentDataFlowTests () =
     let brew = Binaries.loadOne Binaries.sample3
     let cfg = brew.Functions[0UL].CFG
     let roots = cfg.GetRoots ()
-    let uva = UntouchedValueAnalysis<CFGEdgeKind> brew.BinHandle
-    let dfa = uva :> IDataFlowAnalysis<_, _, _, _, _>
+    let uva = UntouchedValueAnalysis brew.BinHandle
+    let dfa = uva :> IDataFlowAnalysis<_, _, _, _>
     let state = dfa.InitializeState roots |> dfa.Compute cfg
     let rbp = 0x7ffffff8UL
     [ irMem 0xcUL 1 (rbp - 0x14UL) |> cmp <| mkUntouchedReg Register.RDI

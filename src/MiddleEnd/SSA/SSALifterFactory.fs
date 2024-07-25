@@ -69,8 +69,8 @@ module private SSALifterFactory =
       AST.translateStmts wordSize address stmtProcessor stmts)
     |> Array.map (fun s -> ProgramPoint.GetFake (), s)
 
-  let getVertex stmtProcessor vMap g (src: IVertex<#IRBasicBlock>) =
-    let bbl = src.VData
+  let getVertex stmtProcessor vMap g (src: IVertex<LowUIRBasicBlock>) =
+    let bbl = src.VData :> ILowUIRBasicBlock
     let ppoint = bbl.PPoint
     match (vMap: SSAVMap).TryGetValue ppoint with
     | true, v -> v, g
@@ -79,7 +79,7 @@ module private SSALifterFactory =
       let lastAddr = bbl.LastInstruction.Address
       let endPoint = lastAddr + uint64 bbl.LastInstruction.Length - 1UL
       let blk = SSABasicBlock.CreateRegular (stmts, ppoint, endPoint)
-      let v, g = (g: SSACFG<_>).AddVertex blk
+      let v, g = (g: SSACFG).AddVertex blk
       vMap.Add (ppoint, v)
       v, g
 
@@ -93,7 +93,7 @@ module private SSALifterFactory =
          yield! AST.translateStmts 64<rt> 0UL stmtProcessor rundown |]
 
   let getAbsVertex stmtProcessor avMap g irBBL ftPpoint =
-    let irData = (irBBL: IVertex<#IRBasicBlock>).VData
+    let irData = (irBBL: IVertex<_>).VData :> ILowUIRBasicBlock
     let calleePpoint = irData.PPoint
     let key = calleePpoint, ftPpoint
     match (avMap: AbstractVMap).TryGetValue key with
@@ -107,27 +107,27 @@ module private SSALifterFactory =
                                                   absContent.IsExternal,
                                                   absContent.ReturningStatus)
       let blk = SSABasicBlock.CreateAbstract (calleePpoint, absContent)
-      let v, g = (g: SSACFG<_>).AddVertex blk
+      let v, g = (g: SSACFG).AddVertex blk
       avMap.Add (key, v)
       v, g
 
-  let convertToSSA stmtProcessor (irCFG: IRCFG<_, _>) ssaCFG =
+  let convertToSSA stmtProcessor (cfg: LowUIRCFG) ssaCFG =
     let vMap = SSAVMap ()
     let avMap = AbstractVMap ()
-    let _, ssaCFG = getVertex stmtProcessor vMap ssaCFG irCFG.SingleRoot
+    let _, ssaCFG = getVertex stmtProcessor vMap ssaCFG cfg.SingleRoot
     let ssaCFG =
       ssaCFG
-      |> irCFG.FoldEdge (fun ssaCFG e ->
+      |> cfg.FoldEdge (fun ssaCFG e ->
         let src, dst = e.First, e.Second
         (* If a node is abstract, then it is a call target. *)
-        if dst.VData.IsAbstract then
-          let last = src.VData.LastInstruction
+        if dst.VData.Internals.IsAbstract then
+          let last = src.VData.Internals.LastInstruction
           let fallPp = ProgramPoint (last.Address + uint64 last.Length, 0)
           let srcV, ssaCFG = getVertex stmtProcessor vMap ssaCFG src
           let dstV, ssaCFG = getAbsVertex stmtProcessor avMap ssaCFG dst fallPp
           ssaCFG.AddEdge (srcV, dstV, e.Label)
-        elif src.VData.IsAbstract then
-          let dstPp = dst.VData.PPoint
+        elif src.VData.Internals.IsAbstract then
+          let dstPp = dst.VData.Internals.PPoint
           let srcV, ssaCFG = getAbsVertex stmtProcessor avMap ssaCFG src dstPp
           let dstV, ssaCFG = getVertex stmtProcessor vMap ssaCFG dst
           ssaCFG.AddEdge (srcV, dstV, e.Label)
@@ -152,19 +152,19 @@ module private SSALifterFactory =
     | Def ({ Kind = k }, _) -> Set.add k defs
     | _ -> defs
 
-  let addPhi g defsPerNode variable (phiSites, workList) v =
+  let addPhi g defsPerNode variable (phiSites, workList) (v: SSAVertex) =
     if Set.contains v phiSites then phiSites, workList
     else
       match variable with
       (* Temporary vars are only meaningful in an instruction boundary. Thus, a
          PhiSite for a TempVar should be an intra-instruction bbl, but not the
          start of an instruction. *)
-      | TempVar _ when (v: SSAVertex).VData.PPoint.Position = 0 ->
+      | TempVar _ when v.VData.Internals.PPoint.Position = 0 ->
         phiSites, workList
       | _ ->
         (* Insert Phi for v *)
         let preds = (g: IGraph<_, _>).GetPreds v
-        v.VData.PrependPhi variable preds.Count
+        v.VData.Internals.PrependPhi variable preds.Count
         let phiSites = Set.add v phiSites
         let defs = (defsPerNode: DefsPerNode)[v]
         if not <| Set.contains variable defs then phiSites, v :: workList
@@ -178,11 +178,12 @@ module private SSALifterFactory =
         |> List.fold (addPhi g defsPerNode variable) (phiSites, workList)
       iterDefs g phiSites defsPerNode variable workList
 
-  let findDefVars (ssaCFG: SSACFG<_>) (defSites: DefSites) =
+  let findDefVars (ssaCFG: SSACFG) (defSites: DefSites) =
     let defsPerNode = DefsPerNode ()
     ssaCFG.Vertices
     |> Array.iter (fun (v: SSAVertex) ->
-      let defs = v.VData.LiftedSSAStmts |> Array.fold collectDefVars Set.empty
+      let defs =
+        v.VData.Internals.Statements |> Array.fold collectDefVars Set.empty
       defsPerNode[v] <- defs
       defs |> Set.iter (fun d ->
         if defSites.ContainsKey d then defSites[d] <- Set.add v defSites[d]
@@ -279,7 +280,7 @@ module private SSALifterFactory =
     | _ -> ()
 
   let renamePhi (g: IGraph<_, _>) stack parent (succ: SSAVertex) =
-    succ.VData.LiftedSSAStmts
+    succ.VData.Internals.Statements
     |> Array.iter (renamePhiAux stack (g.GetPreds succ) parent)
 
   let popStack (stack: IDStack) (_, stmt) =
@@ -289,10 +290,10 @@ module private SSALifterFactory =
     | _ -> ()
 
   let rec rename (g: IGraph<_, _>) domTree count stack (v: SSAVertex) =
-    v.VData.LiftedSSAStmts |> Array.iter (renameStmt count stack)
+    v.VData.Internals.Statements |> Array.iter (renameStmt count stack)
     g.GetSuccs v |> Seq.iter (renamePhi g stack v)
     traverseChildren g domTree count stack (Map.find v domTree)
-    v.VData.LiftedSSAStmts |> Array.iter (popStack stack)
+    v.VData.Internals.Statements |> Array.iter (popStack stack)
 
   and traverseChildren g domTree count stack = function
     | child :: rest ->
@@ -335,7 +336,7 @@ module private SSALifterFactory =
       Some (Var v)
     | _ -> None
 
-  let rec replaceLoad (state: SSAVarBasedDataFlowState<_, _>) e =
+  let rec replaceLoad (state: SSAVarBasedDataFlowState<_>) e =
     match e with
     | Load (_, rt, addr) ->
       let addr = state.EvalExpr addr
@@ -352,7 +353,7 @@ module private SSALifterFactory =
     match stmt with
     | Phi _ -> None
     | Def ({ Kind = MemVar }, Store (_, rt, addr, src)) ->
-      let addr = (state: SSAVarBasedDataFlowState<_, _>).EvalExpr addr
+      let addr = (state: SSAVarBasedDataFlowState<_>).EvalExpr addr
       memStore stmtInfo rt addr src
     | Def (dstVar, e) ->
       match replaceLoad state e with
@@ -360,54 +361,54 @@ module private SSALifterFactory =
       | None -> Some stmtInfo
     | _ -> Some stmtInfo
 
-  let promote hdl ssaCFG (callback: ISSAVertexCallback<_>) =
+  let promote hdl ssaCFG (callback: ISSAVertexCallback) =
     let spp = SSAStackPointerPropagation hdl
-    let dfa = spp :> IDataFlowAnalysis<_, _, _, _, _>
+    let dfa = spp :> IDataFlowAnalysis<_, _, _, _>
     let state = dfa.InitializeState []
     let state = dfa.Compute ssaCFG state
     for v in ssaCFG.Vertices do
       callback.OnVertexCreation ssaCFG state v
-      v.VData.LiftedSSAStmts
+      v.VData.Internals.Statements
       |> Array.choose (stmtChooser state)
-      |> fun stmts -> v.VData.LiftedSSAStmts <- stmts
+      |> v.VData.Internals.UpdateStatements
     updatePhis ssaCFG
     ssaCFG
 
-  let create<'E when 'E: equality> hdl stmtProcessor callback =
-    { new ISSALiftable<'E> with
-        member _.Lift g =
+  let create hdl stmtProcessor callback =
+    { new ISSALiftable with
+        member _.Lift cfg =
           let ssaCFG =
-            match g.ImplementationType with
+            match cfg.ImplementationType with
             | Imperative ->
-              ImperativeDiGraph<SSABasicBlock, 'E> () :> IGraph<_, _>
+              ImperativeDiGraph<SSABasicBlock, CFGEdgeKind> () :> IGraph<_, _>
             | Persistent ->
-              PersistentDiGraph<SSABasicBlock, 'E> () :> IGraph<_, _>
-          convertToSSA stmtProcessor g ssaCFG
+              PersistentDiGraph<SSABasicBlock, CFGEdgeKind> () :> IGraph<_, _>
+          convertToSSA stmtProcessor cfg ssaCFG
           |> updatePhis
-          ssaCFG.IterVertex (fun v -> v.VData.UpdatePPoints ())
+          ssaCFG.IterVertex (fun v -> v.VData.Internals.UpdatePPoints ())
           promote hdl ssaCFG callback }
 
 /// The factory for SSA lifter.
-type SSALifterFactory<'E when 'E: equality> =
+type SSALifterFactory =
   /// Create an SSA lifter with a binary handle.
   static member Create (hdl) =
-    SSALifterFactory.create<'E> hdl
+    SSALifterFactory.create hdl
       { new IStmtPostProcessor with member _.PostProcess stmt = stmt }
-      { new ISSAVertexCallback<'E> with member _.OnVertexCreation _ _ _ = () }
+      { new ISSAVertexCallback with member _.OnVertexCreation _ _ _ = () }
 
   /// Create an SSA lifter with a binary handle and a statement processor.
   static member Create (hdl, stmtProcessor) =
-    SSALifterFactory.create<'E> hdl stmtProcessor
-      { new ISSAVertexCallback<'E> with member _.OnVertexCreation _ _ _ = () }
+    SSALifterFactory.create hdl stmtProcessor
+      { new ISSAVertexCallback with member _.OnVertexCreation _ _ _ = () }
 
   /// Create an SSA lifter with a binary handle and a callback for SSA vertex
   /// creation.
   static member Create (hdl, callback) =
-    SSALifterFactory.create<'E> hdl
+    SSALifterFactory.create hdl
       { new IStmtPostProcessor with member _.PostProcess stmt = stmt }
       callback
 
   /// Create an SSA lifter with a binary handle, a statement processor, and a
   /// callback for SSA vertex creation.
   static member Create (hdl, stmtProcessor, callback) =
-    SSALifterFactory.create<'E> hdl stmtProcessor callback
+    SSALifterFactory.create hdl stmtProcessor callback

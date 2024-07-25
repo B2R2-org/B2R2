@@ -48,10 +48,10 @@ type CFGAction =
   /// Create an abstract syscall node and connect it to the caller and
   /// fallthrough nodes when necessary.
   | MakeSyscall of fnAddr: Addr * ArchOperationMode * caller: Addr * exit: bool
-  | IndirectEdge of IRBasicBlock
-  | SyscallEdge of IRBasicBlock
-  | JumpTableEntryStart of IRBasicBlock * Addr * Addr
-  | JumpTableEntryEnd of IRBasicBlock * Addr * Addr
+  | IndirectEdge of LowUIRBasicBlock
+  | SyscallEdge of LowUIRBasicBlock
+  | JumpTableEntryStart of LowUIRBasicBlock * Addr * Addr
+  | JumpTableEntryEnd of LowUIRBasicBlock * Addr * Addr
 with
   /// The priority of the action. Higher values mean higher priority.
   member this.Priority (p: IPrioritizable) = p.GetPriority this

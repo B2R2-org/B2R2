@@ -32,11 +32,11 @@ open B2R2.MiddleEnd.DataFlow
 open B2R2.MiddleEnd.DataFlow.Constants
 
 /// Sparse conditional constant propagation analysis on SSACFG.
-type SSAConstantPropagation<'E when 'E: equality> =
-  inherit SSAVarBasedDataFlowAnalysis<ConstantDomain.Lattice, 'E>
+type SSAConstantPropagation =
+  inherit SSAVarBasedDataFlowAnalysis<ConstantDomain.Lattice>
 
   new (hdl: BinHandle) =
-    let evalLoad (state: SSAVarBasedDataFlowState<_, _>) m rt addr =
+    let evalLoad (state: SSAVarBasedDataFlowState<_>) m rt addr =
       match addr with
       | ConstantDomain.Const addr ->
         let addr = BitVector.ToUInt64 addr
@@ -87,7 +87,7 @@ type SSAConstantPropagation<'E when 'E: equality> =
       | CastKind.ZeroExt -> ConstantDomain.zeroExt rt c
       | _ -> ConstantDomain.NotAConst
 
-    let rec evalExpr (state: SSAVarBasedDataFlowState<_, _>) = function
+    let rec evalExpr (state: SSAVarBasedDataFlowState<_>) = function
       | Num bv -> ConstantDomain.Const bv
       | Var v -> state.GetRegValue v
       | Load (m, rt, addr) ->
@@ -116,12 +116,12 @@ type SSAConstantPropagation<'E when 'E: equality> =
       | FuncName _ | Nil | Undefined _ -> ConstantDomain.NotAConst
       | _ -> Utils.impossible ()
 
-    let evalDef (state: SSAVarBasedDataFlowState<_, _>) var e =
+    let evalDef (state: SSAVarBasedDataFlowState<_>) var e =
       match var.Kind with
       | MemVar -> ()
       | _ -> state.SetRegValue (var, evalExpr state e)
 
-    let evalPhi (state: SSAVarBasedDataFlowState<_, _>) cfg blk dst srcIDs =
+    let evalPhi (state: SSAVarBasedDataFlowState<_>) cfg blk dst srcIDs =
       match state.GetExecutedSources cfg blk srcIDs with
       | [||] -> ()
       | executedSrcIDs ->
@@ -134,11 +134,11 @@ type SSAConstantPropagation<'E when 'E: equality> =
           |> Array.reduce ConstantDomain.join
           |> fun merged -> state.SetRegValue (dst, merged)
 
-    let evalJmp (state: SSAVarBasedDataFlowState<_, _>) cfg blk =
+    let evalJmp (state: SSAVarBasedDataFlowState<_>) cfg blk =
       state.MarkSuccessorsExecutable cfg blk
 
     let analysis =
-      { new ISSAVarBasedDataFlowAnalysis<ConstantDomain.Lattice, 'E> with
+      { new ISSAVarBasedDataFlowAnalysis<ConstantDomain.Lattice> with
           member _.OnInitialize state =
             match hdl.RegisterFactory.StackPointer with
             | Some sp ->
@@ -167,5 +167,5 @@ type SSAConstantPropagation<'E when 'E: equality> =
 
           member _.EvalExpr state e = evalExpr state e }
 
-    { inherit SSAVarBasedDataFlowAnalysis<ConstantDomain.Lattice,
-                                          'E> (hdl, analysis) }
+    { inherit SSAVarBasedDataFlowAnalysis<ConstantDomain.Lattice>
+        (hdl, analysis) }

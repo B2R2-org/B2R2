@@ -46,14 +46,14 @@ type SSALifter () =
     SSACFG.findReachingDef v targetVarKind
     |> Option.map extractStackVar
 
-  let updateIfStackValueIsConstant ctx (ssaCFG: SSACFG<_>) state v sp =
-    match (state: SSAVarBasedDataFlowState<_, _>).GetRegValue sp with
+  let updateIfStackValueIsConstant ctx (ssaCFG: SSACFG) state v sp =
+    match (state: SSAVarBasedDataFlowState<_>).GetRegValue sp with
     | StackPointerDomain.ConstSP bv ->
       let spValue = BitVector.ToUInt64 bv
       let offset = Constants.InitialStackPointer - spValue |> int
-      let callTable = (ctx: CFGBuildingContext<_, _, _, _>).CallTable
+      let callTable = (ctx: CFGBuildingContext<_, _>).CallTable
       let pred = ssaCFG.GetPreds v |> Seq.exactlyOne
-      let stmts = pred.VData.LiftedSSAStmts
+      let stmts = pred.VData.Internals.Statements
       let lastPP, _ = stmts[stmts.Length - 1]
       callTable.UpdateFrameDistance lastPP.Address offset
 #if CFGDEBUG
@@ -62,7 +62,7 @@ type SSALifter () =
     | _ -> ()
 
   let updateFrameDistance ctx ssaCFG state (v: IVertex<SSABasicBlock>) =
-    let hdl = (ctx: CFGBuildingContext<_, _, _, _>).BinHandle
+    let hdl = (ctx: CFGBuildingContext<_, _>).BinHandle
     match hdl.RegisterFactory.StackPointer with
     | Some rid ->
       let spName = hdl.RegisterFactory.RegIDToString rid
@@ -74,17 +74,17 @@ type SSALifter () =
     | None -> ()
 
   let createCallback ctx =
-    { new ISSAVertexCallback<CFGEdgeKind> with
+    { new ISSAVertexCallback with
         member _.OnVertexCreation ssaCFG state v =
-          if (v: IVertex<SSABasicBlock>).VData.IsAbstract then
+          if (v.VData :> IAbstractable<_>).IsAbstract then
             updateFrameDistance ctx ssaCFG state v
           else () }
 
-  interface IPostAnalysis<unit -> SSACFG<CFGEdgeKind>> with
+  interface IPostAnalysis<unit -> SSACFG> with
     member _.Unwrap env =
       let ctx = env.Context
       fun () ->
         let vCallback = createCallback ctx
         let ssaLifter =
-          SSALifterFactory<CFGEdgeKind>.Create (ctx.BinHandle, vCallback)
+          SSALifterFactory.Create (ctx.BinHandle, vCallback)
         ssaLifter.Lift ctx.CFG

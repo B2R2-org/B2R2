@@ -27,12 +27,11 @@ namespace B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.MiddleEnd.BinGraph
 
 /// Call graph, where each node represents a function.
-type CallCFG<'E when 'E: equality> =
-  IGraph<CallBlock, 'E>
+type CallCFG = IGraph<CallBasicBlock, CFGEdgeKind>
 
 [<RequireQualifiedAccess>]
 module CallCFG =
   /// Constructor for CallCFG.
-  type IConstructable<'E when 'E: equality> =
+  type IConstructable =
     /// Construct a CallCFG.
-    abstract Construct: ImplementationType -> CallCFG<'E>
+    abstract Construct: ImplementationType -> CallCFG

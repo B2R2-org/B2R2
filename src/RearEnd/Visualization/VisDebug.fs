@@ -28,6 +28,7 @@ namespace B2R2.RearEnd.Visualization
 module VisDebug =
   open System
   open B2R2.MiddleEnd.BinGraph
+  open B2R2.MiddleEnd.ControlFlowGraph
 
   let private fs = IO.File.Create ("visualization.log")
 
@@ -43,7 +44,8 @@ module VisDebug =
   let private ppNode (vGraph: IGraph<_, _>) (vNode: IVertex<VisBBlock>) =
     logn "Node {"
     sprintf "\tID: %d" vNode.ID |> logn
-    sprintf "\tAddr: (%s)" (vNode.VData.PPoint.ToString ()) |> logn
+    sprintf "\tAddr: (%x)" ((vNode.VData :> IVisualizable).BlockAddress)
+    |> logn
     sprintf "\tLayer: %d" vNode.VData.Layer |> logn
     logn "\tPreds: ["
     Seq.iter (fun (v: IVertex<VisBBlock>) ->

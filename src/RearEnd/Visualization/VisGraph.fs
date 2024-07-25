@@ -25,7 +25,6 @@
 namespace B2R2.RearEnd.Visualization
 
 open B2R2.MiddleEnd.BinGraph
-open B2R2.MiddleEnd.ControlFlowGraph
 open System.Collections.Generic
 
 /// The main graph type for visualization.
@@ -42,7 +41,7 @@ module VisGraph =
     (g: IGraph<_, _>).IterVertex (fun v ->
       if visited.ContainsKey v.ID then ()
       else
-        let blk = VisBBlock (v.VData :> BasicBlock, false)
+        let blk = VisBBlock (v.VData, false)
         let v', _ = newGraph.AddVertex blk
         visited[v.ID] <- v'
     )

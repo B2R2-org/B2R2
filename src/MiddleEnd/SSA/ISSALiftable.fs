@@ -27,6 +27,6 @@ namespace B2R2.MiddleEnd.SSA
 open B2R2.MiddleEnd.ControlFlowGraph
 
 /// The interface for lifting an IRCFG to an SSACFG.
-type ISSALiftable<'E when 'E: equality> =
+type ISSALiftable =
   /// Lift the given IRCFG to SSACFG.
-  abstract Lift: cfg: IRCFG<#IRBasicBlock, 'E> -> SSACFG<'E>
+  abstract Lift: cfg: LowUIRCFG -> SSACFG

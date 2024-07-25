@@ -30,13 +30,13 @@ open B2R2.MiddleEnd.DataFlow
 open B2R2.MiddleEnd.DataFlow.SSA
 
 /// Callback interface for SSA vertex creation.
-type ISSAVertexCallback<'E when 'E: equality> =
+type ISSAVertexCallback =
   /// When a new SSA vertex is created, this callback is called. The current
   /// SSACFG as well as the stack pointer propagation analysis is also provided
   /// for the callback so that one can use it to easily compute stack local
   /// variables.
   abstract OnVertexCreation:
-       SSACFG<'E>
-    -> SSAVarBasedDataFlowState<StackPointerDomain.Lattice, 'E>
+       SSACFG
+    -> SSAVarBasedDataFlowState<StackPointerDomain.Lattice>
     -> IVertex<SSABasicBlock>
     -> unit

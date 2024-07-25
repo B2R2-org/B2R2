@@ -31,10 +31,8 @@ open B2R2.FrontEnd.BinLifter
 open B2R2.MiddleEnd.BinGraph
 
 /// Basic block type for an SSA-based CFG (SSACFG). It holds an array of
-/// LiftedSSAStmts (ProgramPoint * Stmt).
+/// (ProgramPoint * Stmt).
 type SSABasicBlock private (ppoint, lastAddr, stmts: _[], funcAbs) =
-  inherit PossiblyAbstractBasicBlock<Stmt> (ppoint, funcAbs)
-
   let mutable idom: IVertex<SSABasicBlock> option = None
 
   let mutable frontier: IVertex<SSABasicBlock> list = []
@@ -49,11 +47,9 @@ type SSABasicBlock private (ppoint, lastAddr, stmts: _[], funcAbs) =
       | _ -> ProgramPoint.Next ppoint
     | _ -> ProgramPoint.Next ppoint
 
-  /// Return the SSA statements.
-  member __.LiftedSSAStmts with get() = stmts and set(ss) = stmts <- ss
-
-  /// Get the last SSA statement of the bblock.
-  member __.LastStmt with get() = snd stmts[stmts.Length - 1]
+  /// Return the `ISSABasicBlock` interface to access the internal
+  /// representation of the basic block.
+  member __.Internals with get() = __ :> ISSABasicBlock
 
   /// Immediate dominator of this block.
   member __.ImmDominator with get() = idom and set(d) = idom <- d
@@ -61,32 +57,48 @@ type SSABasicBlock private (ppoint, lastAddr, stmts: _[], funcAbs) =
   /// Dominance frontier of this block.
   member __.DomFrontier with get() = frontier and set(f) = frontier <- f
 
-  /// Prepend a Phi node to this SSA basic block.
-  member __.PrependPhi varKind count =
-    let var = { Kind = varKind; Identifier = -1 }
-    let ppoint = ProgramPoint.GetFake ()
-    stmts <- Array.append [| ppoint, Phi (var, Array.zeroCreate count) |] stmts
+  interface ISSABasicBlock with
+    member _.PPoint with get() = ppoint
 
-  /// Update program points. This must be called after updating SSA stmts.
-  member __.UpdatePPoints () =
-    stmts
-    |> Array.foldi (fun ppoint idx (_, stmt) ->
-      let ppoint' = computeNextPPoint ppoint stmt
-      __.LiftedSSAStmts[idx] <- (ppoint', stmt)
-      ppoint') ppoint
-    |> ignore
+    member _.Range with get() =
+      if isNull funcAbs then AddrRange (ppoint.Address, lastAddr)
+      else raise AbstractBlockAccessException
 
-  override __.Range with get() =
-    if isNull funcAbs then AddrRange (ppoint.Address, lastAddr)
-    else raise AbstractBlockAccessException
+    member _.IsAbstract with get() = not (isNull funcAbs)
 
-  override __.Visualize () =
-    if isNull funcAbs then
+    member _.AbstractContent with get() =
+      if isNull funcAbs then raise AbstractBlockAccessException
+      else funcAbs
+
+    member _.Statements with get() = stmts
+
+    member _.LastStmt with get() = snd stmts[stmts.Length - 1]
+
+    member _.PrependPhi varKind count =
+      let var = { Kind = varKind; Identifier = -1 }
+      let pp = ProgramPoint.GetFake ()
+      stmts <- Array.append [| pp, Phi (var, Array.zeroCreate count) |] stmts
+
+    member _.UpdateStatements stmts' =
+      stmts <- stmts'
+
+    member _.UpdatePPoints () =
       stmts
-      |> Array.map (fun (_, stmt) ->
-        [| { AsmWordKind = AsmWordKind.String
-             AsmWordValue = Pp.stmtToString stmt } |])
-    else [||]
+      |> Array.foldi (fun ppoint idx (_, stmt) ->
+        let ppoint' = computeNextPPoint ppoint stmt
+        stmts[idx] <- (ppoint', stmt)
+        ppoint') ppoint
+      |> ignore
+
+    member _.BlockAddress with get() = ppoint.Address
+
+    member _.Visualize () =
+      if isNull funcAbs then
+        stmts
+        |> Array.map (fun (_, stmt) ->
+          [| { AsmWordKind = AsmWordKind.String
+               AsmWordValue = Pp.stmtToString stmt } |])
+      else [||]
 
   static member CreateRegular (stmts, ppoint, lastAddr) =
     SSABasicBlock (ppoint, lastAddr, stmts, null)
@@ -96,3 +108,10 @@ type SSABasicBlock private (ppoint, lastAddr, stmts: _[], funcAbs) =
     assert (not (isNull abs))
     let rundown = abs.Rundown |> Array.map (fun s -> ProgramPoint.GetFake (), s)
     SSABasicBlock (ppoint, 0UL, rundown, abs)
+
+/// Interafce for a basic block containing a sequence of SSA statements.
+and ISSABasicBlock =
+  inherit IAddressable
+  inherit IAbstractable<SSA.Stmt>
+  inherit ISSAAccessible
+  inherit IVisualizable

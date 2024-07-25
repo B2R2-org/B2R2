@@ -27,23 +27,17 @@ namespace B2R2.MiddleEnd.DataFlow
 /// Worklist-based dataflow analysis.
 type WorklistDataFlowAnalysis<'WorkUnit,
                               'Lattice,
-                              'V,
-                              'E when 'WorkUnit: equality
+                              'V when 'WorkUnit: equality
                                   and 'Lattice: equality
-                                  and 'V: equality
-                                  and 'E: equality>
-  public (analysis: IWorklistDataFlowAnalysis<'WorkUnit, 'Lattice, 'V, 'E>) =
+                                  and 'V: equality>
+  public (analysis: IWorklistDataFlowAnalysis<'WorkUnit, 'Lattice, 'V>) =
 
   interface IDataFlowAnalysis<'WorkUnit,
                               'Lattice,
-                              WorklistDataFlowState<'WorkUnit,
-                                                    'Lattice,
-                                                    'V,
-                                                    'E>,
-                              'V,
-                              'E> with
+                              WorklistDataFlowState<'WorkUnit, 'Lattice, 'V>,
+                              'V> with
     member __.InitializeState _vs =
-      WorklistDataFlowState<'WorkUnit, 'Lattice, 'V, 'E> (analysis)
+      WorklistDataFlowState<'WorkUnit, 'Lattice, 'V> (analysis)
 
     member __.Compute g state =
       for work in analysis.InitializeWorkList g do state.PushWork work

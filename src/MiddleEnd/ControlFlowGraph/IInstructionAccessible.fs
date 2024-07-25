@@ -24,24 +24,15 @@
 
 namespace B2R2.MiddleEnd.ControlFlowGraph
 
-/// This exception is thrown when an abstract basic block is accessed as if it
-/// is a regular block.
-exception AbstractBlockAccessException
+open B2R2.FrontEnd.BinLifter
 
-/// Basic block that may or may not be in an abstract form. For example, we
-/// create an abstract basic block for a function while building an
-/// intra-procedural CFG.
-[<AbstractClass>]
-type PossiblyAbstractBasicBlock<'Stmt>
-  public (ppoint, absContent: FunctionAbstraction<'Stmt>) =
-  inherit BasicBlock (ppoint)
+/// Interface for a basic block containing a sequence of instructions.
+type IInstructionAccessible =
+  /// Instructions in the basic block.
+  abstract Instructions: Instruction[]
 
-  /// Return if this is an abstract basic block inserted by our analysis. We
-  /// create an abstract block to represent a function in a CFG.
-  member __.IsAbstract with get () = not (isNull absContent)
+  /// Last instruction in the basic block.
+  abstract LastInstruction: Instruction
 
-  /// The abstract content of the basic block summarizing a function. If the
-  /// block is not an abstract one, this property raises an exception.
-  member __.AbstractContent with get() =
-    if isNull absContent then raise AbstractBlockAccessException
-    else absContent
+  /// Disassembled instruction strings.
+  abstract Disassemblies: string[]

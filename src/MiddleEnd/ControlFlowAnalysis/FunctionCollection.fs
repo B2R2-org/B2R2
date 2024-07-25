@@ -29,20 +29,15 @@ open B2R2
 open B2R2.MiddleEnd.ControlFlowGraph
 
 /// Collection of recovered functions.
-type FunctionCollection<'V,
-                        'E,
-                        'FnCtx,
-                        'GlCtx when 'V :> IRBasicBlock
-                                and 'V: equality
-                                and 'E: equality
-                                and 'FnCtx :> IResettable
+type FunctionCollection<'FnCtx,
+                        'GlCtx when 'FnCtx :> IResettable
                                 and 'FnCtx: (new: unit -> 'FnCtx)
                                 and 'GlCtx: (new: unit -> 'GlCtx)>
-  public (builders: ICFGBuildable<'V, 'E, 'FnCtx, 'GlCtx>[]) =
+  public (builders: ICFGBuildable<'FnCtx, 'GlCtx>[]) =
 
-  let addrToFunction = Dictionary<Addr, Function<'V, 'E>> ()
+  let addrToFunction = Dictionary<Addr, Function> ()
 
-  let nameToFunction = Dictionary<string, List<Function<'V, 'E>>> ()
+  let nameToFunction = Dictionary<string, List<Function>> ()
 
   /// Callee to callers.
   let callTable = Dictionary<Addr, List<Addr>> ()
@@ -55,7 +50,7 @@ type FunctionCollection<'V,
       callers.Add caller
       callTable.Add (callee, callers)
 
-  let analyzeCallRelationship (fn: Function<_, _>) =
+  let analyzeCallRelationship (fn: Function) =
     if isNull fn.Callees then ()
     else
       for callee in fn.Callees.Values do
@@ -66,7 +61,7 @@ type FunctionCollection<'V,
             addToCallTable fn.EntryPoint calleeAddr
         | _ -> ()
 
-  let updateCallers (fn: Function<_, _>) =
+  let updateCallers (fn: Function) =
     match callTable.TryGetValue fn.EntryPoint with
     | true, callers ->
       for caller in callers do fn.Callers.Add caller |> ignore
@@ -81,12 +76,12 @@ type FunctionCollection<'V,
 
   let updateCollection fns =
     fns
-    |> Array.iter (fun (fn: Function<_, _>) ->
+    |> Array.iter (fun (fn: Function) ->
       updateCallers fn
       addrToFunction.Add (fn.EntryPoint, fn)
       match nameToFunction.TryGetValue fn.Name with
       | false, _ ->
-        let fns = List<Function<'V, 'E>> ()
+        let fns = List<Function> ()
         fns.Add fn
         nameToFunction.Add (fn.Name, fns)
       | true, fns -> fns.Add fn)

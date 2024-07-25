@@ -34,13 +34,8 @@ open B2R2.MiddleEnd.ControlFlowAnalysis
 
 /// Base class for summarizing a function in a lightweight manner. One can
 /// extend this class to implement a more sophisticated function summarizer.
-type FunctionSummarizer<'V,
-                        'E,
-                        'FnCtx,
-                        'GlCtx when 'V :> IRBasicBlock
-                                and 'V: equality
-                                and 'E: equality
-                                and 'FnCtx :> IResettable
+type FunctionSummarizer<'FnCtx,
+                        'GlCtx when 'FnCtx :> IResettable
                                 and 'FnCtx: (new: unit -> 'FnCtx)
                                 and 'GlCtx: (new: unit -> 'GlCtx)> () =
   let retrieveStackAdjustment (ins: Instruction) =
@@ -81,7 +76,7 @@ type FunctionSummarizer<'V,
     let sp = hdl.RegisterFactory.RegIDToRegExpr spId
     AST.load Endian.Little rt sp (* [rsp] *)
 
-  let initializeLiveVarMap (ctx: CFGBuildingContext<_, _, _, _>) =
+  let initializeLiveVarMap (ctx: CFGBuildingContext<_, _>) =
     match ctx.BinHandle.File.ISA.Arch with
     | Architecture.IntelX86 ->
       let hdl = ctx.BinHandle
@@ -92,7 +87,7 @@ type FunctionSummarizer<'V,
       | None -> []
     | _ -> []
 
-  let computeLiveVars (ctx: CFGBuildingContext<_, _, _, _>) unwindingAmount =
+  let computeLiveVars (ctx: CFGBuildingContext<_, _>) unwindingAmount =
     let hdl = ctx.BinHandle
     if ctx.IsExternal then
       let retReg =
@@ -108,23 +103,24 @@ type FunctionSummarizer<'V,
 
   /// Compute how many bytes are unwound by this function.
   abstract ComputeUnwindingAmount:
-    ctx: CFGBuildingContext<'V, 'E, 'FnCtx, 'GlCtx> -> int option
+    ctx: CFGBuildingContext<'FnCtx, 'GlCtx> -> int option
 
   /// This is the simplistic way of counting the unwinding amount. Assuming that
   /// "ret NN" instructions are used, compute how many bytes are unwound.
   default _.ComputeUnwindingAmount ctx =
     ctx.CFG.Exits
     |> Array.fold (fun acc v ->
-      if Option.isSome acc || v.VData.IsAbstract then acc
+      let vData = v.VData :> ILowUIRBasicBlock
+      if Option.isSome acc || vData.IsAbstract then acc
       else
-        let ins = v.VData.LastInstruction
+        let ins = vData.LastInstruction
         if ins.IsRET () then retrieveStackAdjustment ins |> Some
         else acc
     ) None
 
   /// Summarize the function using LowUIR.
   abstract Summarize:
-       ctx: CFGBuildingContext<'V, 'E, 'FnCtx, 'GlCtx>
+       ctx: CFGBuildingContext<'FnCtx, 'GlCtx>
      * Instruction
      * unwindingAmount: int
     -> Rundown<LowUIR.Stmt>
@@ -142,8 +138,8 @@ type FunctionSummarizer<'V,
     let jmpToFallThrough = AST.interjmp fallThrough InterJmpKind.Base
     Array.append stmts [| jmpToFallThrough |]
 
-  interface IFunctionSummarizable<'V, 'E, 'FnCtx, 'GlCtx> with
-    member __.Summarize (ctx: CFGBuildingContext<'V, 'E, 'FnCtx, 'GlCtx>, ins) =
+  interface IFunctionSummarizable<'FnCtx, 'GlCtx> with
+    member __.Summarize (ctx: CFGBuildingContext<'FnCtx, 'GlCtx>, ins) =
       let unwindingBytes =
         if ctx.IsExternal then None else __.ComputeUnwindingAmount ctx
       let unwindingAmount = Option.defaultValue 0 unwindingBytes

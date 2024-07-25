@@ -35,7 +35,7 @@ type CmdList () =
   let createFuncString (hdl: BinHandle) (addr, name) =
     Addr.toString hdl.File.ISA.WordSize addr + ": " + name
 
-  let listFunctions (brew: BinaryBrew<_, _, _, _>) =
+  let listFunctions (brew: BinaryBrew<_, _>) =
     brew.Functions.Sequence
     |> Seq.map (fun c -> c.EntryPoint, c.Name)
     |> Seq.sortBy fst

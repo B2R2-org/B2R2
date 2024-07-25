@@ -30,12 +30,10 @@ open B2R2.MiddleEnd.BinGraph
 /// Worklist-based dataflow analysis state.
 type WorklistDataFlowState<'WorkUnit,
                            'Lattice,
-                           'V,
-                           'E when 'WorkUnit: equality
+                           'V when 'WorkUnit: equality
                                and 'Lattice: equality
-                               and 'V: equality
-                               and 'E: equality>
-  public (analysis: IWorklistDataFlowAnalysis<'WorkUnit, 'Lattice, 'V, 'E>) =
+                               and 'V: equality>
+  public (analysis: IWorklistDataFlowAnalysis<'WorkUnit, 'Lattice, 'V>) =
 
   let workList = Queue<'WorkUnit> ()
 
@@ -72,11 +70,9 @@ type WorklistDataFlowState<'WorkUnit,
 /// Worklist-based data-flow analysis interface.
 and IWorklistDataFlowAnalysis<'WorkUnit,
                               'Lattice,
-                              'V,
-                              'E when 'WorkUnit: equality
+                              'V when 'WorkUnit: equality
                                   and 'Lattice: equality
-                                  and 'V: equality
-                                  and 'E: equality> =
+                                  and 'V: equality> =
   /// The initial abstract value representing the bottom of the lattice. Our
   /// analysis starts with this value until it reaches a fixed point.
   abstract Bottom: 'Lattice
@@ -84,7 +80,7 @@ and IWorklistDataFlowAnalysis<'WorkUnit,
   /// Initialize the list of work units to start the analysis. This is a
   /// callback method that runs before the analysis starts, so any
   /// initialization logic should be implemented here.
-  abstract InitializeWorkList: IGraph<'V, 'E> -> IReadOnlyCollection<'WorkUnit>
+  abstract InitializeWorkList: IGraph<'V, _> -> IReadOnlyCollection<'WorkUnit>
 
   /// The subsume operator, which checks if the first lattice subsumes the
   /// second. This is to know if the analysis should stop or not.

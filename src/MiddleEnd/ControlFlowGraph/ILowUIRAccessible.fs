@@ -22,27 +22,28 @@
   SOFTWARE.
 *)
 
-namespace B2R2.MiddleEnd.ControlFlowAnalysis
+namespace B2R2.MiddleEnd.ControlFlowGraph
 
 open B2R2
 open B2R2.BinIR
 open B2R2.FrontEnd.BinLifter
-open B2R2.MiddleEnd.ControlFlowGraph
 
-/// Interface for summarizing a function based on the given context to abstract
-/// data.
-type IFunctionSummarizable<'FnCtx,
-                           'GlCtx when 'FnCtx :> IResettable
-                                   and 'GlCtx: (new: unit -> 'GlCtx)> =
-  /// Summarize a function based on the given context to abstract data. The
-  /// `ins` is the call instruction that calls the function.
-  abstract Summarize:
-       CFGBuildingContext<'FnCtx, 'GlCtx>
-     * ins: Instruction
-    -> FunctionAbstraction<LowUIR.Stmt>
+/// Interface for a basic block, which contains a sequence of lifted IR
+/// statements.
+type ILowUIRAccessible =
+  /// Lifted instructions. The array could be empty if the basic block is
+  /// abstract.
+  abstract LiftedInstructions: LiftedInstruction[]
 
-  /// Return a default summary for a unknown function.
-  abstract SummarizeUnknown:
-       wordSz: WordSize
-     * ins: Instruction
-    -> FunctionAbstraction<LowUIR.Stmt>
+  /// Terminator statement of the basic block.
+  abstract Terminator: LowUIR.Stmt
+
+/// A lifted instruction.
+and LiftedInstruction = {
+  /// Original assembly instruction.
+  Original: Instruction
+  /// IR statements.
+  Stmts: LowUIR.Stmt[]
+  /// Corresponding BBL's address.
+  BBLAddr: Addr
+}

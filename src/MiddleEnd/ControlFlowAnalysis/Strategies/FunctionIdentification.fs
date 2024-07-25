@@ -27,7 +27,6 @@ namespace B2R2.MiddleEnd.ControlFlowAnalysis.Strategies
 open B2R2
 open B2R2.FrontEnd
 open B2R2.FrontEnd.BinFile
-open B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.MiddleEnd.ControlFlowAnalysis
 
 /// Base strategy for identifying function entry points.
@@ -62,10 +61,7 @@ type FunctionIdentification<'FnCtx,
     |> Set.toArray
     |> Array.map getFunctionOperationMode
 
-  interface ICFGBuildingStrategy<IRBasicBlock,
-                                 CFGEdgeKind,
-                                 'FnCtx,
-                                 'GlCtx> with
+  interface ICFGBuildingStrategy<'FnCtx, 'GlCtx> with
     member __.ActionPrioritizer with get() =
       { new IPrioritizable with member _.GetPriority _ = 0 }
 

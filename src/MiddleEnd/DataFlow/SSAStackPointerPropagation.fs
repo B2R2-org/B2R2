@@ -32,8 +32,8 @@ open B2R2.MiddleEnd.DataFlow
 open B2R2.MiddleEnd.DataFlow.Constants
 
 /// Stack pointer propagation analysis on SSACFG.
-type SSAStackPointerPropagation<'E when 'E: equality> =
-  inherit SSAVarBasedDataFlowAnalysis<StackPointerDomain.Lattice, 'E>
+type SSAStackPointerPropagation =
+  inherit SSAVarBasedDataFlowAnalysis<StackPointerDomain.Lattice>
 
   new (hdl: BinHandle) =
     let evalBinOp op c1 c2 =
@@ -43,7 +43,7 @@ type SSAStackPointerPropagation<'E when 'E: equality> =
       | BinOpType.AND -> StackPointerDomain.``and`` c1 c2
       | _ -> StackPointerDomain.NotConstSP
 
-    let rec evalExpr (state: SSAVarBasedDataFlowState<_, _>) = function
+    let rec evalExpr (state: SSAVarBasedDataFlowState<_>) = function
       | Num bv -> StackPointerDomain.ConstSP bv
       | Var v -> state.GetRegValue v
       | Nil -> StackPointerDomain.NotConstSP
@@ -65,7 +65,7 @@ type SSAStackPointerPropagation<'E when 'E: equality> =
       hdl.RegisterFactory.IsStackPointer regId
       || hdl.RegisterFactory.IsFramePointer regId
 
-    let evalDef (state: SSAVarBasedDataFlowState<_, _>) var e =
+    let evalDef (state: SSAVarBasedDataFlowState<_>) var e =
       match var.Kind with
       | RegVar (_, regid, _) when isStackRelatedRegister regid ->
         state.SetRegValue (var, evalExpr state e)
@@ -75,7 +75,7 @@ type SSAStackPointerPropagation<'E when 'E: equality> =
         state.SetRegValue (var, evalExpr state e)
       | _ -> ()
 
-    let evalPhi (state: SSAVarBasedDataFlowState<_, _>) ssaCFG blk dst srcIDs =
+    let evalPhi (state: SSAVarBasedDataFlowState<_>) ssaCFG blk dst srcIDs =
       match state.GetExecutedSources ssaCFG blk srcIDs with
       | [||] -> ()
       | executedSrcIDs ->
@@ -88,11 +88,11 @@ type SSAStackPointerPropagation<'E when 'E: equality> =
           |> fun merged -> state.SetRegValue (dst, merged)
         | _ -> ()
 
-    let evalJmp (state: SSAVarBasedDataFlowState<_, _>) ssaCFG blk =
+    let evalJmp (state: SSAVarBasedDataFlowState<_>) ssaCFG blk =
       state.MarkSuccessorsExecutable ssaCFG blk
 
     let analysis =
-      { new ISSAVarBasedDataFlowAnalysis<StackPointerDomain.Lattice, 'E> with
+      { new ISSAVarBasedDataFlowAnalysis<StackPointerDomain.Lattice> with
           member _.OnInitialize state =
             match hdl.RegisterFactory.StackPointer with
             | Some sp ->
@@ -123,5 +123,5 @@ type SSAStackPointerPropagation<'E when 'E: equality> =
 
           member _.EvalExpr state e = evalExpr state e }
 
-    { inherit SSAVarBasedDataFlowAnalysis<StackPointerDomain.Lattice,
-                                          'E> (hdl, analysis) }
+    { inherit SSAVarBasedDataFlowAnalysis<StackPointerDomain.Lattice>
+        (hdl, analysis) }
