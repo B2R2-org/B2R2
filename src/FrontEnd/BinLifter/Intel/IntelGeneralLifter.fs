@@ -2097,8 +2097,8 @@ let mulx ins insLen ctxt =
     !!ir (tHigh :=
       high .+ AST.ite isOverflow (numI64 0x100000000L 64<rt>) (AST.num0 64<rt>))
     !!ir (tLow := low)
-    !!ir (dstAssign oprSize dst1 tHigh)
     !!ir (dstAssign oprSize dst2 tLow)
+    !!ir (dstAssign oprSize dst1 tHigh)
   | _ -> raise InvalidOperandSizeException
   !>ir insLen
 
