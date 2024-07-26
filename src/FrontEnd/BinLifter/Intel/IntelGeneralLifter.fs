@@ -3062,6 +3062,7 @@ let xadd ins insLen ctxt =
   let ir = !*ctxt
   !<ir insLen
   let struct (dst, src) = transTwoOprs ir false ins insLen ctxt
+  let orgDst = saveOprMem ir dst
   let oprSize = getOperationSize ins
   let struct (t1, t2, t3) = tmpVars3 ir oprSize
   if hasLock ins.Prefixes then !!ir (AST.sideEffect Lock) else ()
@@ -3069,7 +3070,7 @@ let xadd ins insLen ctxt =
   !!ir (t2 := src)
   !!ir (t3 := t1 .+ t2)
   !!ir (dstAssign oprSize src dst)
-  !!ir (dstAssign oprSize dst t3)
+  !!ir (dstAssign oprSize orgDst t3)
 #if EMULATION
   !?ir (setCCOperands2 ctxt t2 t3)
   match oprSize with
