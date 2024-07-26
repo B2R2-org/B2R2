@@ -711,7 +711,8 @@ let bzhi ins insLen ctxt =
   !<ir insLen
   let struct (dst, src1, src2) = transThreeOprs ir false ins insLen ctxt
   let oprSize = getOperationSize ins
-  let n = AST.xtlo 8<rt> src2
+  let n = !+ir 8<rt>
+  !!ir (n := AST.xtlo 8<rt> src2)
   let cond1 = n .< numI32 (RegType.toBitWidth oprSize) 8<rt>
   let cond2 = n .> numI32 ((RegType.toBitWidth oprSize) - 1) 8<rt>
   let tmp = AST.zext oprSize (numI32 (RegType.toBitWidth oprSize) 8<rt> .- n)
