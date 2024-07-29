@@ -1163,11 +1163,9 @@ type internal OneOp8F () =
 type internal OneOp90 () =
   inherit ParsingJob ()
   override __.Run (span, rhlp) =
-    if hasNoPref rhlp && hasNoREX rhlp then
-      render span rhlp Opcode.NOP SzCond.Nor OD.No SZ.Def
-    elif hasREPZ rhlp.Prefixes then
+    if hasREPZ rhlp.Prefixes then
       render span rhlp Opcode.PAUSE SzCond.Nor OD.No SZ.Def
-    else render span rhlp Opcode.XCHG SzCond.Nor OD.RaxRax SZ.Def
+    else render span rhlp Opcode.NOP SzCond.Nor OD.No SZ.Def
 
 type internal OneOp91 () =
   inherit ParsingJob ()
