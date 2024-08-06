@@ -2813,36 +2813,55 @@ let inline shiftDblPrec ins insLen ctxt fnDst fnSrc isShl =
   let exprOprSz = numI32 (int oprSz) oprSz
   let struct (dst, src, cnt) = transThreeOprs ir false ins insLen ctxt
   let struct (count, size, tDst, tSrc) = tmpVars4 ir oprSz
+  let struct (cond1, cond2, cond3) = tmpVars3 ir 1<rt>
   let org = !+ir oprSz
   let cF = !.ctxt R.CF
   let oF = !.ctxt R.OF
   let sf = !.ctxt R.SF
   let zf = !.ctxt R.ZF
-  let cond1 = count == AST.num0 oprSz
-  let cond2 = count == AST.num1 oprSz
-  !!ir (org := dst)
-  !!ir (size := exprOprSz)
   let wordSize = numI32 (if hasREXW ins.REXPrefix then 64 else 32) oprSz
   !!ir (count := (AST.zext oprSz cnt .% wordSize))
+  !!ir (size := exprOprSz)
+  !!ir (cond1 := count == AST.num0 oprSz)
+  !!ir (cond2 := count .> size)
+  !!ir (cond3 := count == AST.num1 oprSz)
+  !!ir (org := dst)
   !!ir (tDst := dst)
   !!ir (tSrc := src)
   !!ir (tDst := fnDst tDst count)
   !!ir (tSrc := fnSrc tSrc (size .- count))
-  !!ir (dstAssign oprSz dst (AST.ite cond1 org (tDst .| tSrc)))
+#if !EMULATION
+  let undefDEST = AST.undef oprSz "DEST is undefined."
+  let fallThrough = AST.ite cond2 undefDEST (tDst .| tSrc)
+  !!ir (dstAssign oprSz dst (AST.ite cond1 org fallThrough))
+#else
+  !!ir (dstAssign oprSz dst (AST.ite (cond1 .| cond2) org (tDst .| tSrc)))
+#endif
   let amount = if isShl then size .- count else count .- AST.num1 oprSz
-  !!ir (cF := AST.ite cond1 cF (AST.xtlo 1<rt> (org >> amount)))
+#if !EMULATION
+  let fallThrough = AST.ite cond2 undefCF (AST.xtlo 1<rt> (org >> amount))
+  !!ir (cF := AST.ite cond1 cF fallThrough)
+#else
+  !!ir (cF := AST.ite (cond1 .| cond2) cF (AST.xtlo 1<rt> (org >> amount)))
+#endif
   let overflow = AST.xthi 1<rt> (org <+> dst)
 #if !EMULATION
   let aF = !.ctxt R.AF
-  !!ir (oF := AST.ite cond1 oF (AST.ite cond2 overflow undefOF))
+  let fallThrough = AST.ite cond2 undefOF (AST.ite cond3 overflow undefOF)
+  !!ir (oF := AST.ite cond1 oF fallThrough)
   !!ir (aF := AST.ite cond1 aF undefAF)
 #else
-  !!ir (oF := AST.ite cond1 oF (AST.ite cond2 overflow oF))
+  !!ir (oF := AST.ite (cond1 .| cond2) oF (AST.ite cond3 overflow oF))
   ctxt.ConditionCodeOp <- ConditionCodeOp.EFlags
 #endif
-  !!ir (sf := AST.ite cond1 sf (AST.xthi 1<rt> dst))
-  !!ir (zf := AST.ite cond1 zf (dst == (AST.num0 oprSz)))
-  !?ir (buildPF ctxt dst oprSz (Some cond1))
+#if !EMULATION
+  !!ir (sf := AST.ite cond1 sf (AST.ite cond2 undefSF (AST.xthi 1<rt> dst)))
+  !!ir (zf := AST.ite cond1 zf (AST.ite cond2 undefZF (dst == AST.num0 oprSz)))
+#else
+  !!ir (sf := AST.ite (cond1 .| cond2) sf (AST.xthi 1<rt> dst))
+  !!ir (zf := AST.ite (cond1 .| cond2) zf (dst == AST.num0 oprSz))
+#endif
+  !?ir (buildPF ctxt dst oprSz (Some (cond1 .| cond2)))
   !>ir insLen
 
 let shld ins insLen ctxt =
