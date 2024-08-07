@@ -30,9 +30,8 @@ open B2R2
 type CFGResult =
   /// We have successfully handled the task.
   | Success
-  /// We need to postpone the current task because we need more information
-  /// about the function located at `fnAddr`, which is currently scheduled to
-  /// be recovered.
-  | Wait of fnAddr: Addr
+  /// We need to postpone the current task because the current function depends
+  /// on other function(s) that have not been recovered yet.
+  | Wait
   /// Failure with an error.
   | Failure of ErrorCase

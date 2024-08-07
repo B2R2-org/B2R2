@@ -61,6 +61,16 @@ type FunctionDependenceMap () =
       if v.VData <> callee then Some v.VData else None)
     |> Seq.toList
 
+  /// Get the caller functions of the given callee function but excluding
+  /// the recursive calls.
+  member _.GetCallers (callee: Addr) =
+    let calleeV = getVertex callee
+    let preds = g.GetPreds calleeV
+    preds
+    |> Seq.choose (fun v ->
+      if v.VData <> callee then Some v.VData else None)
+    |> Seq.toList
+
   /// Check if the function located at the given address has cyclic
   /// dependencies. If so, return the sequence of dependent function addresses.
   member _.GetCyclicDependencies (addr: Addr) =

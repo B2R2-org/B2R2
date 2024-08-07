@@ -57,6 +57,7 @@ and private TaskManager<'FnCtx,
   let cts = new CancellationTokenSource ()
   let ct = cts.Token
   let dependenceMap = FunctionDependenceMap ()
+  let pendingMessages = Dictionary<Addr, List<Addr>> () (* message to caller *)
 
   /// Globally maintained context. This context can only be accessed through a
   /// TaskMessage.
@@ -83,6 +84,17 @@ and private TaskManager<'FnCtx,
   let removeFromWorkingSet entryPoint =
     workingSet.Remove entryPoint |> ignore
 
+  let processPendingActions callerCtx callee =
+    let callerPendingActions = callerCtx.PendingActions
+    let callerActionQueue = callerCtx.ActionQueue
+    (* when a cycle appears, a builder may be notified two times for a single
+       callee from (1) cycle handling and (2) the callee's completion. *)
+    if not <| callerPendingActions.ContainsKey callee then ()
+    else
+      callerPendingActions[callee]
+      |> Seq.iter (callerActionQueue.Push strategy.ActionPrioritizer)
+      callerPendingActions.Remove callee |> ignore
+
   let rec schedule (inbox: IAgentMessageReceivable<_>) =
     while not inbox.IsCancelled do
       match inbox.Receive () with
@@ -92,6 +104,7 @@ and private TaskManager<'FnCtx,
            builder.BuilderState = Invalid ||
            builder.BuilderState = Finished then ()
         else
+          pendingMessages[entryPoint] <- List ()
           workingSet.Add entryPoint |> ignore
           builder.Authorize ()
           toWorkers.Post builder |> ignore
@@ -102,8 +115,10 @@ and private TaskManager<'FnCtx,
       | AddDependency (_, callee, _) when isFinished callee -> ()
       | AddDependency (caller, callee, mode) ->
         dependenceMap.AddDependency (caller, callee)
-        builders.GetOrCreateBuilder agent callee mode |> ignore
-        addTask callee mode
+        if builders.TryGetBuilder callee |> Result.isOk then
+          checkAndResolveCyclicDependencies caller callee
+        else
+          addTask callee mode
       | ReportResult (entryPoint, result) ->
         try handleResult entryPoint result
         with e -> Console.Error.WriteLine $"Failed to handle result:\n{e}"
@@ -134,9 +149,26 @@ and private TaskManager<'FnCtx,
   and invalidateBuilder entryPoint mode =
     InvalidateBuilder (entryPoint, mode) |> agent.Post
 
+  and consumePendingMessages (builder: ICFGBuildable<_, _>) entryPoint =
+    let pendingMessages = pendingMessages[entryPoint]
+    if Seq.isEmpty pendingMessages then ()
+    else
+      for callee in pendingMessages do
+        processPendingActions builders[entryPoint].Context callee
+      addTask entryPoint builder.Mode
+
   and propagateInvalidation entryPoint =
     dependenceMap.RemoveAndGetCallers entryPoint
     |> List.iter (fun addr -> invalidateBuilder addr ArchOperationMode.NoMode)
+
+  and propagateSuccess entryPoint caller =
+    let callerBuilder = builders[caller]
+    match callerBuilder.BuilderState with
+    | Stopped ->
+      processPendingActions callerBuilder.Context entryPoint
+      addTask caller callerBuilder.Mode
+    | InProgress -> pendingMessages[caller].Add entryPoint
+    | _ -> Utils.impossible ()
 
   and handleResult entryPoint result =
     let builder = builders[entryPoint]
@@ -144,23 +176,19 @@ and private TaskManager<'FnCtx,
     | Success ->
       removeFromWorkingSet entryPoint
       builder.Finalize ()
+      pendingMessages.Remove entryPoint |> ignore
       dependenceMap.RemoveAndGetCallers entryPoint
-      |> List.iter (fun addr -> addTask addr ArchOperationMode.NoMode)
+      |> List.iter (propagateSuccess entryPoint)
 #if CFGDEBUG
       dbglog 0 "handleResult" $"{entryPoint:x} finished."
 #endif
-    | Wait _ when isInvalid entryPoint ->
-      removeFromWorkingSet entryPoint
-      propagateInvalidation entryPoint
-    | Wait calleeAddr ->
-      if isInvalid calleeAddr then
-        builder.Invalidate ()
+    | Wait ->
+      if isInvalid entryPoint then
         removeFromWorkingSet entryPoint
         propagateInvalidation entryPoint
       else
-        checkAndResolveCyclicDependencies entryPoint calleeAddr
+        consumePendingMessages builder entryPoint
         builder.Stop ()
-        addTask entryPoint builder.Mode
     | Failure _ ->
       builder.Invalidate ()
       removeFromWorkingSet entryPoint
@@ -175,6 +203,12 @@ and private TaskManager<'FnCtx,
       deps
       |> Seq.map (fun addr -> addr, builders[addr])
       |> strategy.OnCyclicDependency
+      |> function
+        | None -> ()
+        | Some builder ->
+          builder.Context.NonReturningStatus <- NotNoRet
+          dependenceMap.GetCallers builder.EntryPoint
+          |> List.iter (propagateSuccess builder.EntryPoint)
     else ()
 
   and isAllDone () =

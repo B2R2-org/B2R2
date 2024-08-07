@@ -126,7 +126,8 @@ and ICFGBuildingStrategy<'FnCtx,
 
   /// This is a callback that is called when a cyclic dependency is detected
   /// from the TaskManager. The sequence of dependent functions is passed as an
-  /// argument, and this function should set the non-returning status of each
-  /// function.
+  /// argument, and this function should return the function builder that should
+  /// be built first.
   abstract OnCyclicDependency:
-    (Addr * ICFGBuildable<'FnCtx, 'GlCtx>) seq -> unit
+       (Addr * ICFGBuildable<'FnCtx, 'GlCtx>) seq
+    -> ICFGBuildable<'FnCtx, 'GlCtx> option

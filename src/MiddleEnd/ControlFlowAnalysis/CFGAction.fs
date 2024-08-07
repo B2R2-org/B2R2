@@ -48,6 +48,8 @@ type CFGAction =
   /// Create an abstract syscall node and connect it to the caller and
   /// fallthrough nodes when necessary.
   | MakeSyscall of fnAddr: Addr * ArchOperationMode * caller: Addr * exit: bool
+  /// Wait for the callee to be resolved.
+  | WaitForCallee of fnAddr: Addr
   | IndirectEdge of LowUIRBasicBlock
   | SyscallEdge of LowUIRBasicBlock
   | JumpTableEntryStart of LowUIRBasicBlock * Addr * Addr

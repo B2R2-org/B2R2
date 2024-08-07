@@ -52,6 +52,7 @@ type ExternalFnCFGBuilder<'FnCtx,
       CallTable = CallTable ()
       VisitedPPoints = HashSet ()
       ActionQueue = CFGActionQueue ()
+      PendingActions = Dictionary ()
       UserContext = new 'FnCtx ()
       IsExternal = true
       ManagerChannel = null

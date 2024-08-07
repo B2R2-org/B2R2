@@ -53,6 +53,7 @@ type CFGRecovery<'FnCtx,
           | MakeTlCall _ -> 3
           | MakeIndCall _ -> 3
           | MakeSyscall _ -> 3
+          | WaitForCallee _ -> 2
           | IndirectEdge _ -> 2
           | SyscallEdge _ -> 1
           | JumpTableEntryStart _ -> 0
@@ -123,6 +124,35 @@ type CFGRecovery<'FnCtx,
     connectEdge ctx srcVertex dstVertex jmpKind
     ppQueue.Enqueue dstPPoint
 
+  let postponeActionOnCallee ctx calleeAddr action =
+    let pendingActions = ctx.PendingActions
+    let lst =
+      match pendingActions.TryGetValue calleeAddr with
+      | false, _ ->
+        let lst = List ()
+        pendingActions[calleeAddr] <- lst
+        lst
+      | true, lst -> lst
+    lst.Add action
+
+  let pushCallAction ctx srcPp callsiteAddr callee action =
+    let mode = ctx.FunctionMode
+    let fnAddr = ctx.FunctionAddress
+    let actionQueue = ctx.ActionQueue
+    ctx.CallTable.AddRegularCall srcPp callsiteAddr callee
+    ctx.ManagerChannel.UpdateDependency (fnAddr, callee, mode)
+    if fnAddr = callee then (* it is a self-recursion *)
+      actionQueue.Push prioritizer action
+    else
+      match ctx.ManagerChannel.GetBuildingContext callee with
+      (* Wait for the callee to finish *)
+      | StillBuilding _
+      | FailedBuilding ->
+        postponeActionOnCallee ctx callee action
+        actionQueue.Push prioritizer <| WaitForCallee callee
+      (* Directly push the given action into its action queue. *)
+      | FinalCtx _ -> actionQueue.Push prioritizer action
+
   /// Build a CFG starting from the given program points.
   let buildCFG ctx (actionQueue: CFGActionQueue) fnAddr initPPs mode =
     let ppQueue = Queue<ProgramPoint> (collection=initPPs)
@@ -169,11 +199,9 @@ type CFGRecovery<'FnCtx,
             | FailedBuilding -> (* not exists *)
               jmpToDstAddr ctx ppQueue srcVertex dstAddr InterJmpEdge
             | _ ->
-              let callerAddr = srcData.PPoint.Address
               let callSiteAddr = srcData.LastInstruction.Address
-              ctx.ManagerChannel.UpdateDependency (fnAddr, dstAddr, mode)
-              ctx.CallTable.AddRegularCall srcData.PPoint callSiteAddr dstAddr
-              actionQueue.Push prioritizer
+              let callerAddr = srcData.PPoint.Address
+              pushCallAction ctx srcData.PPoint callSiteAddr dstAddr
               <| MakeTlCall (fnAddr, mode, callerAddr, dstAddr)
           else
             let dstAddr = BitVector.ToUInt64 n
@@ -184,17 +212,13 @@ type CFGRecovery<'FnCtx,
           let callerAddr = srcData.PPoint.Address
           let callsiteAddr = srcData.LastInstruction.Address
           let target = callsiteAddr + BitVector.ToUInt64 n
-          ctx.ManagerChannel.UpdateDependency (fnAddr, target, mode)
-          ctx.CallTable.AddRegularCall srcData.PPoint callsiteAddr target
-          actionQueue.Push prioritizer
+          pushCallAction ctx srcData.PPoint callsiteAddr target
           <| MakeCall (fnAddr, mode, callerAddr, target)
         | InterJmp ({ E = Num n }, InterJmpKind.IsCall) ->
           let callerAddr = srcData.PPoint.Address
           let callsiteAddr = srcData.LastInstruction.Address
           let target = BitVector.ToUInt64 n
-          ctx.ManagerChannel.UpdateDependency (fnAddr, target, mode)
-          ctx.CallTable.AddRegularCall srcData.PPoint callsiteAddr target
-          actionQueue.Push prioritizer
+          pushCallAction ctx srcData.PPoint callsiteAddr target
           <| MakeCall (fnAddr, mode, callerAddr, target)
         | InterCJmp (_, { E = BinOp (BinOpType.ADD, _, { E = PCVar _ },
                                                        { E = Num tv }) },
@@ -326,7 +350,7 @@ type CFGRecovery<'FnCtx,
         if retOrPossiblyCondNoRet then
           connectAbsWithFT ctx caller calleeAddr mode queue fnAddr
         else connectAbsWithoutFT ctx caller calleeAddr
-      | UnknownNoRet -> Wait calleeAddr
+      | UnknownNoRet -> failwith "TODO"
 
   let connectIndirectCallEdge ctx queue fnAddr mode callerAddr =
     let caller = getVertex ctx (ProgramPoint (callerAddr, 0))
@@ -405,6 +429,11 @@ type CFGRecovery<'FnCtx,
           dbglog ctx.ThreadID (nameof MakeSyscall) $"{fnAddr:x}"
 #endif
           connectSyscallEdge ctx mode callerAddr isExit
+        | WaitForCallee calleeAddr ->
+          if ctx.PendingActions.ContainsKey calleeAddr then
+            Wait (* not resolved yet *)
+          else
+            Success
         | _ ->
           failwith "X"
       with e ->
@@ -424,7 +453,7 @@ type CFGRecovery<'FnCtx,
       |> dbglog 0 "OnCyclicDependency"
 #endif
       let _, builder = Seq.head sorted
-      builder.Context.NonReturningStatus <- NotNoRet
+      Some builder
 
 /// Base strategy for building a CFG without any customizable context.
 type CFGRecovery =

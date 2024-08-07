@@ -70,7 +70,7 @@ type InternalFnCFGBuilder<'FnCtx,
       let action = queue.Pop ()
       match strategy.OnAction (ctx, queue, action) with
       | Success -> build strategy queue
-      | Wait fnAddr -> queue.Push strategy.ActionPrioritizer action; Wait fnAddr
+      | Wait -> queue.Push strategy.ActionPrioritizer action; Wait
       | Failure e -> Failure e
 
   do ctx.ManagerChannel <- managerChannel
@@ -101,6 +101,7 @@ type InternalFnCFGBuilder<'FnCtx,
         CallTable = CallTable ()
         VisitedPPoints = HashSet ()
         ActionQueue = CFGActionQueue ()
+        PendingActions = Dictionary ()
         UserContext = fnCtx
         IsExternal = false
         ManagerChannel = null

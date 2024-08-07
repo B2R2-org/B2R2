@@ -60,6 +60,9 @@ type CFGBuildingContext<'FnCtx,
   VisitedPPoints: HashSet<ProgramPoint>
   /// The action queue for the CFG building process.
   ActionQueue: CFGActionQueue
+  /// Pending actions for each callee address. This is to remember the actions
+  /// that are waiting for the callee to be built.
+  PendingActions: Dictionary<Addr, List<CFGAction>>
   /// The user-defined per-function context.
   mutable UserContext: 'FnCtx
   /// Is this an external function or not.
