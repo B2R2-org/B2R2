@@ -126,11 +126,13 @@ type CFGRecovery<'FnCtx,
 
   let postponeActionOnCallee ctx calleeAddr action =
     let pendingActions = ctx.PendingActions
+    let queue = ctx.ActionQueue
     let lst =
       match pendingActions.TryGetValue calleeAddr with
       | false, _ ->
         let lst = List ()
         pendingActions[calleeAddr] <- lst
+        queue.Push prioritizer <| WaitForCallee calleeAddr
         lst
       | true, lst -> lst
     lst.Add action
@@ -147,9 +149,7 @@ type CFGRecovery<'FnCtx,
       match ctx.ManagerChannel.GetBuildingContext callee with
       (* Wait for the callee to finish *)
       | StillBuilding _
-      | FailedBuilding ->
-        postponeActionOnCallee ctx callee action
-        actionQueue.Push prioritizer <| WaitForCallee callee
+      | FailedBuilding -> postponeActionOnCallee ctx callee action
       (* Directly push the given action into its action queue. *)
       | FinalCtx _ -> actionQueue.Push prioritizer action
 
