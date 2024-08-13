@@ -74,7 +74,8 @@ module internal Dbg =
   let mutable logger: CFGLogger = null
 
   let initLogger numThreads =
-    logger <- CFGLogger numThreads
+    if isNull logger then logger <- CFGLogger numThreads
+    else ()
 
   let inline dbglog tid locationName msg =
     logger.Log tid locationName msg

@@ -39,7 +39,11 @@ type RecoveryMission<'FnCtx,
   public (strategy: ICFGBuildingStrategy<'FnCtx, 'GlCtx>) =
 
   member _.Execute (builders: CFGBuilderTable<_, _>) =
-    let manager = TaskManager<'FnCtx, 'GlCtx> (builders, strategy)
+    let numThreads = Environment.ProcessorCount / 2
+    let manager = TaskManager<'FnCtx, 'GlCtx> (builders, strategy, numThreads)
+#if CFGDEBUG
+    initLogger numThreads
+#endif
     manager.Start ()
 
 /// Task manager for control flow analysis.
@@ -49,9 +53,8 @@ and private TaskManager<'FnCtx,
                                 and 'GlCtx: (new: unit -> 'GlCtx)>
   public (builders: CFGBuilderTable<'FnCtx, 'GlCtx>,
           strategy: ICFGBuildingStrategy<'FnCtx, 'GlCtx>,
-          ?numThreads) =
+          numThreads) =
 
-  let numThreads = defaultArg numThreads (Environment.ProcessorCount / 2)
   let workingSet = HashSet<Addr> ()
   let toWorkers = BufferBlock<ICFGBuildable<_, _>> ()
   let cts = new CancellationTokenSource ()
@@ -226,10 +229,6 @@ and private TaskManager<'FnCtx,
     Task.WhenAll workers (* all done *)
     |> Async.AwaitTask
     |> Async.RunSynchronously
-
-#if CFGDEBUG
-  do initLogger numThreads
-#endif
 
   member __.Start () =
     match strategy.FindCandidates builders.Values with
