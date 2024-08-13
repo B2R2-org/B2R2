@@ -75,7 +75,7 @@ type BinaryBrew<'FnCtx,
   #endif
 
   let buildersToFunctions (builders: CFGBuilderTable<_, _>) =
-    builders.ToArray ()
+    builders.Values
     #if DEBUG
     |> sanityCheck
     #endif

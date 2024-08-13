@@ -235,11 +235,11 @@ and private TaskManager<'FnCtx,
     match strategy.FindCandidates builders.Values with
     | [||] -> terminate ()
     | candidates ->
-      candidates
-      |> Array.iter (fun (addr, mode) ->
+      for (addr, mode) in candidates do
         let builder = builders.GetOrCreateBuilder agent addr mode
         builders.Reload builder agent
-        addTask addr mode)
+      (* Tasks should be added at last to avoid a race for builders. *)
+      for (addr, mode) in candidates do addTask addr mode done
     waitForWorkers ()
     builders
 

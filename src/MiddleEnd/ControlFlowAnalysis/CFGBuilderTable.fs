@@ -97,7 +97,3 @@ type CFGBuilderTable<'FnCtx,
     match builders.TryGetValue addr with
     | true, builder -> Ok builder
     | false, _ -> Error ErrorCase.ItemNotFound
-
-  /// Convert the table to an array.
-  member _.ToArray () =
-    builders.Values |> Seq.toArray
