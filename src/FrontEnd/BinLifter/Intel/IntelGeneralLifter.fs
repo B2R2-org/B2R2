@@ -1050,6 +1050,72 @@ let convWDQ ins insLen (ctxt: TranslationContext) =
   | _, _ -> raise InvalidOperandSizeException
   !>ir insLen
 
+let private bitReflect ir src =
+  let oprSize = TypeCheck.typeOf src
+  let struct (res, tmp) = tmpVars2 ir oprSize
+  !!ir (tmp := src)
+  let oSz = int oprSize
+  for i in 0 .. oSz - 1 do
+    !!ir (AST.extract res 1<rt> (oSz - 1 - i) := AST.extract tmp 1<rt> i)
+  done
+  res |> AST.zext 64<rt>
+
+let private mod2 ir dividend divisor divdnSz =
+  let divsSz = 33
+  let struct (remainder, mask) = tmpVars2 ir 64<rt>
+  let divdnSzMask = numI64 ((1L <<< (int divdnSz)) - 1L) 64<rt>
+  !!ir (mask := if divdnSz = 64 then getMask 64<rt> else divdnSzMask)
+  for i in (divdnSz - 1) .. -1 .. divsSz - 1 do
+    let shfAmt = numI32 (i + 1 - divsSz) 64<rt>
+    let pDivdn = dividend >> shfAmt
+    let cond = AST.extract dividend 1<rt> i
+    !!ir (remainder := AST.ite cond (pDivdn <+> divisor) pDivdn)
+    let m = mask >> (numI32 divdnSz 64<rt> .- shfAmt)
+    !!ir (dividend := (dividend .& m) .| (remainder << shfAmt))
+  done
+  dividend |> AST.xtlo 32<rt>
+
+let crc32 ins insLen ctxt =
+  let ir = !*ctxt
+  !<ir insLen
+  let struct (dst, src) = transTwoOprs ir true ins insLen ctxt
+  let divisor = !+ir 64<rt>
+  !!ir (divisor := numI64 0x11EDC6F41L 64<rt>)
+  let srcSz = TypeCheck.typeOf src
+  match srcSz with
+  | 32<rt> | 16<rt> | 8<rt> ->
+    let struct (t1, t2, t3) = tmpVars3 ir 64<rt>
+    let struct (t4, t5) = tmpVars2 ir 64<rt>
+    let t6 = !+ir 32<rt>
+    !!ir (t1 := bitReflect ir src)
+    !!ir (t2 := bitReflect ir (AST.xtlo 32<rt> dst))
+    !!ir (t3 := t1 << numI32 32 64<rt>)
+    !!ir (t4 := t2 << numI32 (int srcSz) 64<rt>)
+    !!ir (t5 := t3 <+> t4)
+    !!ir (t6 := mod2 ir t5 divisor (int srcSz + 32))
+    !!ir (dstAssign 32<rt> dst (bitReflect ir t6))
+  | 64<rt> ->
+    let struct (t1, t2) = tmpVars2 ir 64<rt>
+    let struct (t3a, t3b) = tmpVars2 ir 64<rt>
+    let struct (t4a, t4b) = tmpVars2 ir 64<rt>
+    let struct (t5a, t5b) = tmpVars2 ir 64<rt>
+    let t6 = !+ir 32<rt>
+    !!ir (t1 := bitReflect ir src)
+    !!ir (t2 := bitReflect ir (AST.xtlo 32<rt> dst))
+    !!ir (t3a := (AST.xtlo 32<rt> t1 |> AST.zext 64<rt>) << numI32 32 64<rt>)
+    !!ir (t3b := AST.xthi 32<rt> t1 |> AST.zext 64<rt>)
+    !!ir (t4a := AST.num0 64<rt>)
+    !!ir (t4b := AST.xtlo 32<rt> t2 |> AST.zext 64<rt>)
+    !!ir (t5a := t3a <+> t4a)
+    !!ir (t5b := t3b <+> t4b)
+    !!ir (t5b := AST.concat (AST.xtlo 32<rt> t5b) (AST.xthi 32<rt> t5a))
+    !!ir (t6 := mod2 ir t5b divisor 64)
+    !!ir (t5a := AST.concat (AST.xtlo 32<rt> t6) (AST.xtlo 32<rt> t5a))
+    !!ir (t6 := mod2 ir t5a divisor 64)
+    !!ir (dstAssign 32<rt> dst (bitReflect ir t6))
+  | _ -> raise InvalidOperandSizeException
+  !>ir insLen
+
 let daa insLen ctxt =
 #if DEBUG
   assert32 ctxt

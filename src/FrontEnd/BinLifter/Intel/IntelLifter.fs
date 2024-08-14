@@ -76,7 +76,7 @@ let translate (ins: IntelInternalInstruction) insLen ctxt =
   | OP.CMPXCHG8B | OP.CMPXCHG16B ->
     GeneralLifter.compareExchangeBytes ins insLen ctxt
   | OP.CPUID -> LiftingUtils.sideEffects ctxt insLen ProcessorID
-  | OP.CRC32 -> GeneralLifter.nop insLen ctxt
+  | OP.CRC32 -> GeneralLifter.crc32 ins insLen ctxt
   | OP.CWD | OP.CDQ | OP.CQO ->
     GeneralLifter.convWDQ ins insLen ctxt
   | OP.DAA -> GeneralLifter.daa insLen ctxt
