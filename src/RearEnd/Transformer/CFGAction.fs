@@ -36,11 +36,7 @@ type CFGAction () =
     match input with
     | :? Binary as bin ->
       let hdl = Binary.Handle bin
-      let exnInfo = ExceptionInfo hdl
-      let funcId = FunctionIdentification (hdl, exnInfo)
-      let strategies =
-        [| funcId :> ICFGBuildingStrategy<_, _>; CFGRecovery () |]
-      let brew = BinaryBrew (hdl, strategies)
+      let brew = BinaryBrew hdl
       brew.Functions[0UL].CFG
       |> DisasmCFG.create
       |> box

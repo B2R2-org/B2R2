@@ -220,12 +220,7 @@ let interactiveMain files (opts: BinExplorerOpts) =
   else
     let file = List.head files
     let hdl = initBinHdl opts.ISA file
-    let exnInfo = ExceptionInfo hdl
-    let funcId = Strategies.FunctionIdentification (hdl, exnInfo)
-    let cfgRecovery = Strategies.CFGRecovery ()
-    let strategies =
-      [| funcId :> ICFGBuildingStrategy<_, _>; cfgRecovery |]
-    let brew = BinaryBrew (hdl, exnInfo, strategies)
+    let brew = BinaryBrew hdl
     if opts.JsonDumpDir <> "" then dumpJsonFiles opts.JsonDumpDir brew else ()
     let arbiter = Protocol.genArbiter brew opts.LogFile
     startGUI opts arbiter

@@ -126,3 +126,14 @@ type BinaryBrew =
 
   new (hdl: BinHandle, strategies) =
     { inherit BinaryBrew<DummyContext, DummyContext> (hdl, strategies) }
+
+  new (hdl: BinHandle) =
+    let exnInfo = ExceptionInfo hdl
+    let funcId = FunctionIdentification (hdl, exnInfo)
+    let strategies =
+      [| funcId :> ICFGBuildingStrategy<_, _>
+         CFGRecovery () |]
+    { inherit BinaryBrew<DummyContext, DummyContext> (hdl,
+                                                      exnInfo,
+                                                      strategies,
+                                                      false) }

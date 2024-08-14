@@ -49,6 +49,10 @@ type BinHandle =
   /// is set to NoMode.
   new: path: string * isa: ISA -> BinHandle
 
+  /// Construct a BinHandle from a given file path. ISA is set to
+  /// `ISA.DefaultISA` and ArchOperationMode is set to NoMode.
+  new: path: string -> BinHandle
+
   /// Construct a BinHandle from a given byte array. File format detection is
   /// performed only if detectFormat is set to true.
   new: bytes: byte[]

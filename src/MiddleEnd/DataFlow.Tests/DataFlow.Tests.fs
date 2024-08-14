@@ -25,13 +25,11 @@
 namespace B2R2.MiddleEnd.DataFlow.Tests
 
 open Microsoft.VisualStudio.TestTools.UnitTesting
-open System.Diagnostics
 
 open B2R2
 open B2R2.BinIR
 open B2R2.FrontEnd.BinLifter.Intel
 open B2R2.MiddleEnd.DataFlow
-open B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.MiddleEnd.SSA
 
 [<TestClass>]

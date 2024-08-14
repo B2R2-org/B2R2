@@ -140,12 +140,7 @@ type CFGTest1 () =
 
   let isa = ISA.Init Architecture.IntelX64 Endian.Little
   let hdl = BinHandle (binary, isa, ArchOperationMode.NoMode, None, false)
-  let exnInfo = ExceptionInfo hdl
   let instrs = InstructionCollection (LinearSweepInstructionCollector hdl)
-  let funcId = FunctionIdentification (hdl, exnInfo)
-  let strategies =
-    [| funcId :> ICFGBuildingStrategy<_, _>
-       CFGRecovery () :> ICFGBuildingStrategy<_, _> |]
 
   [<TestMethod>]
   member __.``InstructionCollection Test 1`` () =
@@ -194,14 +189,14 @@ type CFGTest1 () =
 
   [<TestMethod>]
   member __.``Functions Test 1`` () =
-    let brew = BinaryBrew (hdl, exnInfo, strategies)
+    let brew = BinaryBrew hdl
     let expected = [| 0UL; 0x62UL; 0x71UL |]
     let actual = brew.Functions.Addresses |> Seq.toArray
     CollectionAssert.AreEqual (expected, actual)
 
   [<TestMethod>]
   member __.``Functions Test 2`` () =
-    let brew = BinaryBrew (hdl, exnInfo, strategies)
+    let brew = BinaryBrew hdl
     let bblAddrs = [ 0x00UL; 0x62UL; 0x71UL ]
     let callees = [ [ (0x14UL, RegularCallee 0x62UL)
                       (0x4dUL, RegularCallee 0x62UL)
@@ -219,7 +214,7 @@ type CFGTest1 () =
 
   [<TestMethod>]
   member __.``Functions Test 3`` () =
-    let brew = BinaryBrew (hdl, exnInfo, strategies)
+    let brew = BinaryBrew hdl
     let bblAddrs = [ 0x00UL; 0x62UL; 0x71UL ]
     let callers = [ []; [ 0x00UL ]; [ 0x00UL ] ]
     let expected = makeMap bblAddrs callers
@@ -233,7 +228,7 @@ type CFGTest1 () =
 
   [<TestMethod>]
   member __.``BBL Test 1`` () =
-    let brew = BinaryBrew (hdl, exnInfo, strategies)
+    let brew = BinaryBrew hdl
     let expected =
       [| (0x00UL, 0x00UL); (0x01UL, 0x00UL); (0x04UL, 0x00UL); (0x08UL, 0x00UL)
          (0x0fUL, 0x00UL); (0x14UL, 0x00UL); (0x19UL, 0x19UL); (0x1dUL, 0x19UL)
@@ -256,7 +251,7 @@ type CFGTest1 () =
 
   [<TestMethod>]
   member __.``BBL Test 2`` () =
-    let brew = BinaryBrew (hdl, exnInfo, strategies)
+    let brew = BinaryBrew hdl
     let cfg = brew.Functions[0x0UL].CFG
     let expected =
       [ (0x00UL, 0x3eUL); (0x3fUL, 0x47UL); (0x48UL, 0x54UL); (0x55UL, 0x5eUL) ]
@@ -266,7 +261,7 @@ type CFGTest1 () =
 
   [<TestMethod>]
   member __.``BBL Test 3`` () =
-    let brew = BinaryBrew (hdl, exnInfo, strategies)
+    let brew = BinaryBrew hdl
     let cfg = brew.Functions[0x62UL].CFG
     let expected = [| (0x62UL, 0x70UL) |]
     let actual = getDisasmVertexRanges cfg
@@ -274,7 +269,7 @@ type CFGTest1 () =
 
   [<TestMethod>]
   member __.``BBL Test 4`` () =
-    let brew = BinaryBrew (hdl, exnInfo, strategies)
+    let brew = BinaryBrew hdl
     let cfg = brew.Functions[0x71UL].CFG
     let expected = [| (0x71UL, 0x80UL) |]
     let actual = getDisasmVertexRanges cfg
@@ -282,7 +277,7 @@ type CFGTest1 () =
 
   [<TestMethod>]
   member __.``CFG Vertex Test: _start`` () =
-    let brew = BinaryBrew (hdl, exnInfo, strategies)
+    let brew = BinaryBrew hdl
     let cfg = brew.Functions[0x0UL].CFG
     Assert.AreEqual (9, cfg.Size)
     let vMap = cfg.FoldVertex foldVertexNoFake Map.empty
@@ -301,7 +296,7 @@ type CFGTest1 () =
 
   [<TestMethod>]
   member __.``CFG Edge Test: _start`` () =
-    let brew = BinaryBrew (hdl, exnInfo, strategies)
+    let brew = BinaryBrew hdl
     let cfg = brew.Functions[0x0UL].CFG
     let vMap = cfg.FoldVertex foldVertexNoFake Map.empty
     let leaders =
@@ -325,7 +320,7 @@ type CFGTest1 () =
 
   [<TestMethod>]
   member __.``CFG Vertex Test: foo`` () =
-    let brew = BinaryBrew (hdl, exnInfo, strategies)
+    let brew = BinaryBrew hdl
     let cfg = brew.Functions[0x62UL].CFG
     Assert.AreEqual (1, cfg.Size)
     let vMap = cfg.FoldVertex foldVertexNoFake Map.empty
@@ -337,14 +332,14 @@ type CFGTest1 () =
 
   [<TestMethod>]
   member __.``CFG Edge Test: foo`` () =
-    let brew = BinaryBrew (hdl, exnInfo, strategies)
+    let brew = BinaryBrew hdl
     let cfg = brew.Functions[0x62UL].CFG
     let eMap = cfg.FoldEdge foldEdge Map.empty
     Assert.AreEqual (0, eMap.Count)
 
   [<TestMethod>]
   member __.``CFG Vertex Test: bar`` () =
-    let brew = BinaryBrew (hdl, exnInfo, strategies)
+    let brew = BinaryBrew hdl
     let cfg = brew.Functions[0x71UL].CFG
     Assert.AreEqual (2, cfg.Size)
     let vMap = cfg.FoldVertex foldVertexNoFake Map.empty
@@ -356,14 +351,14 @@ type CFGTest1 () =
 
   [<TestMethod>]
   member __.``CFG Edge Test: bar`` () =
-    let brew = BinaryBrew (hdl, exnInfo, strategies)
+    let brew = BinaryBrew hdl
     let cfg = brew.Functions[0x71UL].CFG
     let eMap = cfg.FoldEdge foldEdge Map.empty
     Assert.AreEqual (1, eMap.Count)
 
   [<TestMethod>]
   member __.``CFG SSAGraph Vertex Test: _start`` () =
-    let brew = BinaryBrew (hdl, exnInfo, strategies)
+    let brew = BinaryBrew hdl
     let cfg = brew.Functions[0x0UL].CFG
     let ssaLifter = SSALifterFactory.Create hdl
     let ssacfg = ssaLifter.Lift (cfg)
@@ -457,14 +452,14 @@ type CFGTest2 () =
 
   [<TestMethod>]
   member __.``Functions Test 1`` () =
-    let brew = BinaryBrew (hdl, exnInfo, strategies)
+    let brew = BinaryBrew hdl
     let expected = [| 0UL; 0x24UL |]
     let actual = brew.Functions.Addresses |> Seq.toArray
     CollectionAssert.AreEqual (expected, actual)
 
   [<TestMethod>]
   member __.``Functions Test 2`` () =
-    let brew = BinaryBrew (hdl, exnInfo, strategies)
+    let brew = BinaryBrew hdl
     let bblAddrs = [ 0x00UL; 0x24UL ]
     let callees = [ [ (0x07UL, RegularCallee 0x24UL) ]; [] ]
     (* CallEdges test *)
@@ -479,7 +474,7 @@ type CFGTest2 () =
 
   [<TestMethod>]
   member __.``BBL Test`` () =
-    let brew = BinaryBrew (hdl, exnInfo, strategies)
+    let brew = BinaryBrew hdl
     let expected =
       [| (0x00UL, 0x00UL); (0x01UL, 0x00UL); (0x02UL, 0x00UL); (0x07UL, 0x00UL)
          (0x0cUL, 0x0cUL); (0x11UL, 0x0cUL); (0x14UL, 0x0cUL); (0x16UL, 0x0cUL)
@@ -496,7 +491,7 @@ type CFGTest2 () =
 
   [<TestMethod>]
   member __.``CFG Vertex Test: _start`` () =
-    let brew = BinaryBrew (hdl, exnInfo, strategies)
+    let brew = BinaryBrew hdl
     let cfg = brew.Functions[0x0UL].CFG
     Assert.AreEqual (7, cfg.Size)
     let vMap = cfg.FoldVertex foldVertexNoFake Map.empty
@@ -515,7 +510,7 @@ type CFGTest2 () =
 
   [<TestMethod>]
   member __.``CFG Edge Test: _start`` () =
-    let brew = BinaryBrew (hdl, exnInfo, strategies)
+    let brew = BinaryBrew hdl
     let cfg = brew.Functions[0x0UL].CFG
     let vMap = cfg.FoldVertex foldVertexNoFake Map.empty
     let leaders =
@@ -540,7 +535,7 @@ type CFGTest2 () =
 
   [<TestMethod>]
   member __.``DisasmCFG Test: _start`` () =
-    let brew = BinaryBrew (hdl, exnInfo, strategies)
+    let brew = BinaryBrew hdl
     let cfg = brew.Functions[0x0UL].CFG
     let dcfg = DisasmCFG.create cfg
     Assert.AreEqual (1, dcfg.Size)
@@ -557,7 +552,7 @@ type CFGTest2 () =
 
   [<TestMethod>]
   member __.``SSAGraph Vertex Test: _start`` () =
-    let brew = BinaryBrew (hdl, exnInfo, strategies)
+    let brew = BinaryBrew hdl
     let cfg = brew.Functions[0x0UL].CFG
     let ssaLifter = SSALifterFactory.Create hdl
     let ssacfg = ssaLifter.Lift cfg

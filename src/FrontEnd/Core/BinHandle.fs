@@ -84,6 +84,9 @@ type BinHandle private (path, bytes, fmt, isa, mode, baseAddrOpt) =
   new (path, isa) =
     BinHandle (path=path, isa=isa, mode=NoMode, baseAddrOpt=None)
 
+  new (path) =
+    BinHandle (path=path, isa=ISA.DefaultISA, mode=NoMode, baseAddrOpt=None)
+
   new (bytes, isa, mode, baseAddrOpt, detectFormat) =
     if detectFormat then
       let struct (fmt, isa) = FormatDetector.identify bytes isa

@@ -36,11 +36,7 @@ type Binary = Binary of byte[] * Architecture
 let loadOne (Binary (code, arch)) =
   let isa = ISA.Init arch Endian.Little
   let hdl = BinHandle (code, isa, ArchOperationMode.NoMode, None, false)
-  let exnInfo = ExceptionInfo hdl
-  let funcId = FunctionIdentification (hdl, exnInfo)
-  let strategies =
-    [| funcId :> ICFGBuildingStrategy<_, _>; CFGRecovery () |]
-  BinaryBrew (hdl, exnInfo, strategies)
+  BinaryBrew hdl
 
 (*
   Example 1: Fibonacci function
