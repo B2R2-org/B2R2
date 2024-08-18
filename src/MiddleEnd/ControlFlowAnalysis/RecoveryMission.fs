@@ -60,11 +60,13 @@ and private TaskManager<'FnCtx,
   let cts = new CancellationTokenSource ()
   let ct = cts.Token
   let dependenceMap = FunctionDependenceMap ()
-  let pendingMessages = Dictionary<Addr, List<Addr>> () (* message to caller *)
+  let msgbox = Dictionary<Addr, List<TaskMessage>> () (* for each caller *)
 
   /// Globally maintained context. This context can only be accessed through a
   /// TaskMessage.
   let mutable globalCtx = new 'GlCtx ()
+
+  let jmptblNotes = JmpTableRecoveryNotebook ()
 
   let isFinished entryPoint =
     match builders.TryGetBuilder entryPoint with
@@ -79,24 +81,14 @@ and private TaskManager<'FnCtx,
   let makeInvalid builder =
     match (builder: ICFGBuildable<_, _>).BuilderState with
     | Finished | Invalid -> ()
-    | InProgress -> builder.Invalidate ()
+    | InProgress ->
+      builder.Invalidate ()
     | _ ->
       builder.Authorize ()
       builder.Invalidate ()
 
   let removeFromWorkingSet entryPoint =
     workingSet.Remove entryPoint |> ignore
-
-  let processPendingActions callerCtx callee =
-    let callerPendingActions = callerCtx.PendingActions
-    let callerActionQueue = callerCtx.ActionQueue
-    (* when a cycle appears, a builder may be notified two times for a single
-       callee from (1) cycle handling and (2) the callee's completion. *)
-    if not <| callerPendingActions.ContainsKey callee then ()
-    else
-      callerPendingActions[callee]
-      |> Seq.iter (callerActionQueue.Push strategy.ActionPrioritizer)
-      callerPendingActions.Remove callee |> ignore
 
   let rec schedule (inbox: IAgentMessageReceivable<_>) =
     while not inbox.IsCancelled do
@@ -107,14 +99,18 @@ and private TaskManager<'FnCtx,
            builder.BuilderState = Invalid ||
            builder.BuilderState = Finished then ()
         else
-          pendingMessages[entryPoint] <- List ()
+          msgbox[entryPoint] <- List ()
           workingSet.Add entryPoint |> ignore
           builder.Authorize ()
           toWorkers.Post builder |> ignore
       | InvalidateBuilder (entryPoint, mode) ->
         let builder = builders.GetOrCreateBuilder agent entryPoint mode
+#if CFGDEBUG
+        dbglog ManagerTid (nameof InvalidateBuilder) $"{entryPoint:x}"
+#endif
         makeInvalid builder
-        propagateInvalidation entryPoint
+        rollbackIfNecessary entryPoint builder
+        if isAllDone () then terminate () else ()
       | AddDependency (_, callee, _) when isFinished callee -> ()
       | AddDependency (caller, callee, mode) ->
         dependenceMap.AddDependency (caller, callee)
@@ -122,7 +118,7 @@ and private TaskManager<'FnCtx,
           checkAndResolveCyclicDependencies caller callee
         else
           addTask callee mode
-      | ReportResult (entryPoint, result) ->
+      | ReportCFGResult (entryPoint, result) ->
         try handleResult entryPoint result
         with e -> Console.Error.WriteLine $"Failed to handle result:\n{e}"
         if isAllDone () then terminate () else ()
@@ -138,6 +134,10 @@ and private TaskManager<'FnCtx,
           | Finished -> ch.Reply <| FinalCtx builder.Context
           | _ -> ch.Reply <| StillBuilding builder.Context
         | Error _ -> ch.Reply <| FailedBuilding
+      | NotifyJumpTableRecovery (fnAddr, jmptbl) ->
+        handleJumpTableRecoveryRequest fnAddr jmptbl
+      | ReportJumpTableSuccess (tblAddr, idx, ch) ->
+        ch.Reply <| handleJumpTableRecoverySuccess tblAddr idx
       | AccessGlobalContext (accessor, ch) ->
         ch.Reply <| accessor globalCtx
       | UpdateGlobalContext updater ->
@@ -149,56 +149,90 @@ and private TaskManager<'FnCtx,
   and addTask entryPoint mode =
     AddTask (entryPoint, mode) |> agent.Post
 
-  and invalidateBuilder entryPoint mode =
-    InvalidateBuilder (entryPoint, mode) |> agent.Post
+  and rollbackIfNecessary entryPoint builder =
+    match builder.Context.JumpTableRecoveryStatus with
+    | Some (tblAddr, idx) ->
+      jmptblNotes.SetPotentialEndPoint tblAddr (idx - 1)
+      builder.Reset builders.CFGConstructor
+      addTask builder.Context.FunctionAddress builder.Mode
+#if CFGDEBUG
+      dbglog ManagerTid "rollback" $"{builder.Context.FunctionAddress:x}"
+#endif
+    | None ->
+      dependenceMap.RemoveAndGetCallers entryPoint
+      |> List.iter propagateInvalidation
+
+  and rechargeActionQueue callerCtx callee =
+    let callerPendingActions = callerCtx.PendingActions
+    let callerActionQueue = callerCtx.ActionQueue
+    if not <| callerPendingActions.ContainsKey callee then ()
+    else
+      callerPendingActions[callee]
+      |> Seq.iter (callerActionQueue.Push strategy.ActionPrioritizer)
+      callerPendingActions.Remove callee |> ignore
 
   and consumePendingMessages (builder: ICFGBuildable<_, _>) entryPoint =
-    let pendingMessages = pendingMessages[entryPoint]
-    if Seq.isEmpty pendingMessages then ()
+    let messages = msgbox[entryPoint]
+    if Seq.isEmpty messages then ()
     else
-      for callee in pendingMessages do
-        processPendingActions builders[entryPoint].Context callee
+      for msg in messages do
+        match msg with
+        | CalleeSuccess calleeAddr ->
+          rechargeActionQueue builders[entryPoint].Context calleeAddr
       addTask entryPoint builder.Mode
 
   and propagateInvalidation entryPoint =
-    dependenceMap.RemoveAndGetCallers entryPoint
-    |> List.iter (fun addr -> invalidateBuilder addr ArchOperationMode.NoMode)
+    InvalidateBuilder (entryPoint, ArchOperationMode.NoMode) |> agent.Post
 
   and propagateSuccess entryPoint caller =
     let callerBuilder = builders[caller]
     match callerBuilder.BuilderState with
     | Stopped ->
-      processPendingActions callerBuilder.Context entryPoint
+      rechargeActionQueue callerBuilder.Context entryPoint
       addTask caller callerBuilder.Mode
-    | InProgress -> pendingMessages[caller].Add entryPoint
+    | InProgress -> msgbox[caller].Add <| CalleeSuccess entryPoint
     | _ -> Utils.impossible ()
 
   and handleResult entryPoint result =
     let builder = builders[entryPoint]
+    removeFromWorkingSet entryPoint
     match result with
-    | Success ->
-      removeFromWorkingSet entryPoint
+    | Continue ->
       builder.Finalize ()
-      pendingMessages.Remove entryPoint |> ignore
+      msgbox.Remove entryPoint |> ignore
       dependenceMap.RemoveAndGetCallers entryPoint
       |> List.iter (propagateSuccess entryPoint)
 #if CFGDEBUG
-      dbglog 0 "handleResult" $"{entryPoint:x} finished."
+      dbglog ManagerTid "handleResult" $"{entryPoint:x}: ok"
 #endif
     | Wait ->
       if isInvalid entryPoint then
-        removeFromWorkingSet entryPoint
-        propagateInvalidation entryPoint
+        dependenceMap.RemoveAndGetCallers entryPoint
+        |> List.iter propagateInvalidation
       else
         consumePendingMessages builder entryPoint
         builder.Stop ()
-    | Failure _ ->
-      builder.Invalidate ()
-      removeFromWorkingSet entryPoint
+#if CFGDEBUG
+      dbglog ManagerTid "handleResult" $"{entryPoint:x}: stopped"
+#endif
+    | FailStop e ->
       propagateInvalidation entryPoint
 #if CFGDEBUG
-      dbglog 0 "handleResult" $"{entryPoint:x} failed."
+      dbglog ManagerTid "handleResult" $"{entryPoint:x}: {ErrorCase.toString e}"
 #endif
+
+  and handleJumpTableRecoveryRequest fnAddr (jmptbl: JmpTableInfo) =
+    match jmptblNotes.Register fnAddr jmptbl with
+    | Ok _ -> ()
+    | Error note -> propagateInvalidation note.HostFunctionAddr
+#if CFGDEBUG
+    dbglog ManagerTid "JumpTable"
+    <| jmptblNotes.GetNoteString jmptbl.TableAddress
+#endif
+
+  and handleJumpTableRecoverySuccess tblAddr idx =
+    jmptblNotes.SetConfirmedEndPoint tblAddr idx
+    jmptblNotes.IsExpandable tblAddr (idx + 1)
 
   and checkAndResolveCyclicDependencies entryPoint calleeAddr =
     let deps = dependenceMap.GetCyclicDependencies entryPoint
@@ -240,6 +274,9 @@ and private TaskManager<'FnCtx,
       (* Tasks should be added at last to avoid a race for builders. *)
       for (addr, mode) in candidates do addTask addr mode done
     waitForWorkers ()
+#if CFGDEBUG
+    for tid in 0 .. numThreads do flushLog tid
+#endif
     builders
 
 /// Task worker for control flow recovery.
@@ -260,11 +297,11 @@ and private TaskWorker<'FnCtx,
         builder.Context.ThreadID <- tid
         try
           let res = builder.Build strategy
-          agent.Post <| ReportResult (builder.EntryPoint, res)
+          agent.Post <| ReportCFGResult (builder.EntryPoint, res)
         with e ->
           Console.Error.WriteLine $"Worker ({tid}) failed:\n{e}"
-          let failure = Failure ErrorCase.UnexpectedError
-          agent.Post <| ReportResult (builder.EntryPoint, failure)
+          let failure = FailStop ErrorCase.UnexpectedError
+          agent.Post <| ReportCFGResult (builder.EntryPoint, failure)
 #if CFGDEBUG
         flushLog tid
 #endif
@@ -272,3 +309,7 @@ and private TaskWorker<'FnCtx,
   }
 
   member _.Task with get() = worker
+
+and private TaskMessage =
+  /// Callee has been successfully built.
+  | CalleeSuccess of callee: Addr

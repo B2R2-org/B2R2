@@ -25,7 +25,6 @@
 namespace B2R2.MiddleEnd.ControlFlowAnalysis
 
 open B2R2
-open B2R2.MiddleEnd.ControlFlowGraph
 
 /// Our CFG reconstruction algorithm is performed by consuming actions
 /// (CFGAction). Each action has a priority, which is used to determine the
@@ -33,27 +32,31 @@ open B2R2.MiddleEnd.ControlFlowGraph
 type CFGAction =
   /// Build an initial CFG that is reachable from the given function start
   /// address.
-  | InitiateCFG of fnAddr: Addr * mode: ArchOperationMode
+  | InitiateCFG
   /// Add more reachable edges to the initial CFG using the new program points.
-  | ExpandCFG of fnAddr: Addr * mode: ArchOperationMode * addrs: seq<Addr>
+  | ExpandCFG of addrs: seq<Addr>
   /// Create an abstract call node and connect it to the caller and fallthrough
   /// nodes when necessary.
-  | MakeCall of fnAddr: Addr * ArchOperationMode * caller: Addr * callee: Addr
+  | MakeCall of caller: Addr * callee: Addr
   /// Create an abstract tail-call node and connect it to the caller and
   /// fallthrough nodes when necessary.
-  | MakeTlCall of fnAddr: Addr * ArchOperationMode * caller: Addr * callee: Addr
+  | MakeTlCall of caller: Addr * callee: Addr
   /// Create an abstract call node for an indirect call and connect it to the
   /// caller and the fallthrough node.
-  | MakeIndCall of fnAddr: Addr * ArchOperationMode * caller: Addr
+  | MakeIndCall of caller: Addr
   /// Create an abstract syscall node and connect it to the caller and
   /// fallthrough nodes when necessary.
-  | MakeSyscall of fnAddr: Addr * ArchOperationMode * caller: Addr * exit: bool
+  | MakeSyscall of caller: Addr * exit: bool
+  /// Create edges for an indirect branch. We find the possible targets of the
+  /// indirect branch and connect them with the given basic block.
+  | MakeIndEdges of bbl: Addr * ins: Addr
   /// Wait for the callee to be resolved.
-  | WaitForCallee of fnAddr: Addr
-  | IndirectEdge of LowUIRBasicBlock
-  | SyscallEdge of LowUIRBasicBlock
-  | JumpTableEntryStart of LowUIRBasicBlock * Addr * Addr
-  | JumpTableEntryEnd of LowUIRBasicBlock * Addr * Addr
+  | WaitForCallee of calleeAddr: Addr
+  /// Start recovering a jump table entry (only single entry at a time).
+  | StartTblRec of tbl: JmpTableInfo * idx: int * src: Addr * dst: Addr
+  /// Report the recovery result of a jump table entry. This will always be
+  /// followed by a `StartTblRec` action to denote the end of the recovery.
+  | EndTblRec of tbl: JmpTableInfo * idx: int * dst: Addr
 with
   /// The priority of the action. Higher values mean higher priority.
   member this.Priority (p: IPrioritizable) = p.GetPriority this

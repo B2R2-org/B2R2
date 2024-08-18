@@ -30,6 +30,7 @@ open B2R2.MiddleEnd.ControlFlowGraph
 /// A kind of messages to be handled by TaskManager.
 type TaskMessage<'FnCtx,
                  'GlCtx when 'FnCtx :> IResettable
+                         and 'FnCtx: (new: unit -> 'FnCtx)
                          and 'GlCtx: (new: unit -> 'GlCtx)> =
   /// Add an address to recover the CFG.
   | AddTask of Addr * ArchOperationMode
@@ -38,12 +39,17 @@ type TaskMessage<'FnCtx,
   /// Add a dependency between two functions.
   | AddDependency of caller: Addr * callee: Addr * mode: ArchOperationMode
   /// Report the result of a task.
-  | ReportResult of Addr * CFGResult
+  | ReportCFGResult of Addr * CFGResult
   /// Retrieve the non-returning status of a function.
   | RetrieveNonReturningStatus of Addr * AgentReplyChannel<NonReturningStatus>
   /// Retrieve the building context of a function.
   | RetrieveBuildingContext of
-      Addr * AgentReplyChannel<BuildingCtxMsg<'FnCtx, 'GlCtx>>
+    Addr * AgentReplyChannel<BuildingCtxMsg<'FnCtx, 'GlCtx>>
+  /// Notify the manager that a new jump table entry is about to be recovered.
+  | NotifyJumpTableRecovery of fn: Addr * tbl: JmpTableInfo
+  /// Report jump entry recovery result (success only) to the manager. The
+  /// manager will then decide whether to continue the analysis or not.
+  | ReportJumpTableSuccess of tbl: Addr * idx: int * AgentReplyChannel<bool>
   /// Access the global context with the accessor, which has a side effect.
   | AccessGlobalContext of accessor: ('GlCtx -> unit) * AgentReplyChannel<unit>
   /// Update global context.

@@ -67,7 +67,8 @@ type BBLFactory (hdl: BinHandle,
       else parseBlock channel (ins :: acc) (insCount + 1) nextAddr leader mode
     | Error e ->
 #if CFGDEBUG
-      dbglog 0 (nameof BBLFactory) $"Failed to parse instruction at {addr:x}"
+      dbglog ManagerTid (nameof BBLFactory)
+      <| $"Failed to parse instruction at {addr:x}"
 #endif
       Error e
 
@@ -92,8 +93,9 @@ type BBLFactory (hdl: BinHandle,
           | Ok nextAddrs ->
             nextAddrs |> Array.iter queue.Enqueue
           | Error e ->
-            eprintfn "%s @ %x" (ErrorCase.toString e) addr
-            raise ParsingFailureException (* This is a fatal error. *)
+            queue.Clear ()
+            channel.Post (0UL, [], -1) |> ignore (* post error *)
+            channel.Complete ()
       channel.Complete ()
     }
 
@@ -206,14 +208,23 @@ type BBLFactory (hdl: BinHandle,
 
   let bblLifter (channel: BufferBlock<Addr * Instruction list * int>) =
     let liftingUnit = hdl.NewLiftingUnit ()
+    let mutable isSuccessful = true
     use cts = new Threading.CancellationTokenSource ()
     task {
       while! channel.OutputAvailableAsync (cts.Token) do
         match channel.TryReceive () with
+        | true, (_, _, -1) -> (* error case*)
+          isSuccessful <- false; cts.Cancel ()
         | true, (leaderAddr, instrs, insCount) ->
           try liftBlock liftingUnit leaderAddr instrs insCount
-          with e -> Console.Error.WriteLine $"{e}"; cts.Cancel ()
+          with _ ->
+#if CFGDEBUG
+            dbglog ManagerTid (nameof BBLFactory)
+            <| $"Failed to lift instruction at {leaderAddr:x}"
+#endif
+            isSuccessful <- false; cts.Cancel ()
         | false, _ -> ()
+      return isSuccessful
     }
 
   let getSortedLeaders () =
@@ -257,8 +268,10 @@ type BBLFactory (hdl: BinHandle,
     task {
       let channel = BufferBlock<Addr * Instruction list * int> ()
       instrProducer channel mode addrs |> ignore
-      do! bblLifter channel
-      return if allowOverlap then List () else commit ()
+      let! isSuccessful = bblLifter channel
+      if isSuccessful then
+        return if allowOverlap then Ok (List ()) else Ok (commit ())
+      else return Error ErrorCase.ParsingFailure
     }
 
   /// Check if there is a BBL at the given program point.

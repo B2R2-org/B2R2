@@ -172,7 +172,7 @@ type CondAwareNoretAnalysis ([<Optional; DefaultParameterValue(true)>] strict) =
         | status -> updateStatus status
     status
 
-  interface IPostAnalysis<SSACFG -> unit> with
+  interface ICFGAnalysis<SSACFG -> unit> with
     member _.Unwrap env =
       let ctx = env.Context
       fun ssaCFG ->

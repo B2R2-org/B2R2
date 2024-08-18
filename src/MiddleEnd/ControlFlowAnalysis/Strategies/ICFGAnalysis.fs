@@ -26,32 +26,32 @@ namespace B2R2.MiddleEnd.ControlFlowAnalysis.Strategies
 
 open B2R2.MiddleEnd.ControlFlowAnalysis
 
-/// The interface for a post-analysis, which is performed after a function CFG
-/// is completely built. This interface wraps an analysis function, which can be
-/// unwrapped and executed later.
-type IPostAnalysis<'Fn> =
-  /// Unwrap the post-analysis (`'Fn`).
-  abstract Unwrap: PostAnalysisEnv<'FnCtx, 'GlCtx> -> 'Fn
+/// The interface for a CFG-based analysis, which is performed on a CFG. This
+/// interface wraps an analysis function, which can be unwrapped and executed
+/// later.
+type ICFGAnalysis<'Fn> =
+  /// Unwrap the CFG-based analysis (`'Fn`).
+  abstract Unwrap: CFGAnalysisEnv<'FnCtx, 'GlCtx> -> 'Fn
 with
-  static member inline (<+>) (a: IPostAnalysis<_>, b: IPostAnalysis<_>) =
-    { new IPostAnalysis<_> with
+  static member inline (<+>) (a: ICFGAnalysis<_>, b: ICFGAnalysis<_>) =
+    { new ICFGAnalysis<_> with
         member _.Unwrap env = a.Unwrap env >> b.Unwrap env }
 
-/// The environment for a post-analysis.
-and PostAnalysisEnv<'FnCtx,
+/// The environment for a CFG-based analysis.
+and CFGAnalysisEnv<'FnCtx,
                     'GlCtx when 'FnCtx :> IResettable
                             and 'FnCtx: (new: unit -> 'FnCtx)
                             and 'GlCtx: (new: unit -> 'GlCtx)> = {
   Context: CFGBuildingContext<'FnCtx, 'GlCtx>
 }
 
-module IPostAnalysis =
-  /// Finalize the post-analysis, which ignores the output of the previous
-  /// post-analysis.
-  let finalize (a: IPostAnalysis<_>) =
-    { new IPostAnalysis<_> with
+module ICFGAnalysis =
+  /// Finalize the CFG-based analysis, which ignores the output of the previous
+  /// CFG-based analysis.
+  let finalize (a: ICFGAnalysis<_>) =
+    { new ICFGAnalysis<_> with
         member _.Unwrap env = a.Unwrap env >> ignore }
 
-  /// Run the combined post-analysis, which should take `unit` as input and
+  /// Run the combined CFG-based analysis, which should take `unit` as input and
   /// returns `unit` as output.
-  let inline run env (a: IPostAnalysis<_>): unit = a.Unwrap env ()
+  let inline run env (a: ICFGAnalysis<_>): unit = a.Unwrap env ()

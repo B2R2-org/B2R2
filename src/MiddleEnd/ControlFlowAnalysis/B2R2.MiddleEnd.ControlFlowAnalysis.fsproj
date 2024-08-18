@@ -9,6 +9,7 @@
 
   <ItemGroup>
     <Compile Include="CFGHelper.fs" />
+    <Compile Include="JmpTableInfo.fs" />
     <Compile Include="CFGAction.fs" />
     <Compile Include="CFGActionQueue.fs" />
     <Compile Include="CFGResult.fs" />
@@ -28,12 +29,15 @@
     <Compile Include="CFGBuilderTable.fs" />
     <Compile Include="FunctionDependenceMap.fs" />
     <Compile Include="FunctionCollection.fs" />
+    <Compile Include="JmpTableRecoveryNotebook.fs" />
     <Compile Include="RecoveryMission.fs" />
     <Compile Include="Strategies\DummyContext.fs" />
+    <Compile Include="Strategies\ICFGAnalysis.fs" />
+    <Compile Include="Strategies\IJmpTableAnalyzable.fs" />
     <Compile Include="Strategies\ISyscallAnalyzable.fs" />
-    <Compile Include="Strategies\IPostAnalysis.fs" />
     <Compile Include="Strategies\SSALifter.fs" />
     <Compile Include="Strategies\CondAwareNoretAnalysis.fs" />
+    <Compile Include="Strategies\SSAJmpTableAnalysis.fs" />
     <Compile Include="Strategies\SyscallAnalysis.fs" />
     <Compile Include="Strategies\FunctionSummarizer.fs" />
     <Compile Include="Strategies\FunctionIdentification.fs" />

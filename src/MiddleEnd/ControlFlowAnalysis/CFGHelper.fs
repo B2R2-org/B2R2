@@ -35,15 +35,19 @@ open B2R2
 
 [<AutoOpen>]
 module internal Dbg =
+  let [<Literal>] ManagerTid = -1
+
   type LogMessage =
     | Log of int * string
     | Flush of int
 
   [<AllowNullLiteral>]
   type CFGLogger (numThreads) =
-    let logBuilders = Array.init numThreads (fun _ -> StringBuilder ())
+    let logBuilders = Array.init (numThreads + 1) (fun _ -> StringBuilder ())
 
     let cts = new CancellationTokenSource ()
+
+    let lock = System.Object ()
 
     let logger =
       let fileName = Path.ChangeExtension (Path.GetRandomFileName (), "log")
@@ -52,20 +56,31 @@ module internal Dbg =
       new FileLogger (path) :> ILogger
 
     let flushLog tid =
-      let sb = logBuilders[tid]
-      sb.ToString () |> logger.Log
-      sb.Clear () |> ignore
+      Monitor.Enter lock
+      try
+        let sb = logBuilders[tid]
+        sb.ToString () |> logger.Log
+        sb.Clear () |> ignore
+      finally
+        Monitor.Exit lock
 
     let task = fun (inbox: IAgentMessageReceivable<LogMessage>) ->
       while not inbox.IsCancelled do
         match inbox.Receive () with
-        | Log (tid, msg) -> logBuilders[tid].AppendLine msg |> ignore
-        | Flush tid -> flushLog tid
+        | Log (tid, msg) ->
+          if tid = ManagerTid then
+            logBuilders[numThreads].AppendLine msg |> ignore
+            flushLog numThreads
+          else
+            logBuilders[tid].AppendLine msg |> ignore
+        | Flush tid ->
+          flushLog (if tid = ManagerTid then numThreads else tid)
 
     let agent = Agent<LogMessage>.Start (task, cts.Token)
 
     member inline _.Log tid (locationName: string) msg =
-      let log = $"{tid, -2} | {locationName, -22} | {msg}"
+      let t = if tid = ManagerTid then "m " else $"{tid, -2}"
+      let log = $"{t} | {locationName, -22} | {msg}"
       agent.Post <| Log (tid, log)
 
     member inline _.Flush tid =

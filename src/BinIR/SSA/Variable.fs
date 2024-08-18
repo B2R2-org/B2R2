@@ -25,7 +25,6 @@
 namespace B2R2.BinIR.SSA
 
 open B2R2
-open B2R2.BinIR
 
 /// SSA variables always have their own identifier.
 type Variable = {

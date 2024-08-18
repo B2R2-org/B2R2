@@ -54,6 +54,13 @@ type InternalFnCFGBuilder<'FnCtx,
         member _.GetBuildingContext (addr) =
           agent.PostAndReply (fun _ ch -> RetrieveBuildingContext (addr, ch))
 
+        member _.NotifyJumpTableRecovery (fnAddr, tblInfo) =
+          agent.Post <| NotifyJumpTableRecovery (fnAddr, tblInfo)
+
+        member _.ReportJumpTableSuccess (tblAddr, idx) =
+          agent.PostAndReply (fun _ ch ->
+            ReportJumpTableSuccess (tblAddr, idx, ch))
+
         member _.GetGlobalContext accessor =
           let mutable v = Unchecked.defaultof<_>
           agent.PostAndReply (fun _ ch ->
@@ -69,9 +76,9 @@ type InternalFnCFGBuilder<'FnCtx,
     else
       let action = queue.Pop ()
       match strategy.OnAction (ctx, queue, action) with
-      | Success -> build strategy queue
+      | Continue -> build strategy queue
       | Wait -> queue.Push strategy.ActionPrioritizer action; Wait
-      | Failure e -> Failure e
+      | FailStop e -> FailStop e
 
   do ctx.ManagerChannel <- managerChannel
 
@@ -98,6 +105,7 @@ type InternalFnCFGBuilder<'FnCtx,
         CFG = cfg
         BBLFactory = bblFactory
         NonReturningStatus = UnknownNoRet
+        JumpTableRecoveryStatus = None
         CallTable = CallTable ()
         VisitedPPoints = HashSet ()
         ActionQueue = CFGActionQueue ()
@@ -136,13 +144,13 @@ type InternalFnCFGBuilder<'FnCtx,
       state <- Invalid
 
     member __.Build strategy =
-      InitiateCFG (ctx.FunctionAddress, ctx.FunctionMode)
-      |> ctx.ActionQueue.Push strategy.ActionPrioritizer
+      ctx.ActionQueue.Push strategy.ActionPrioritizer InitiateCFG
       build strategy ctx.ActionQueue
 
-    member __.Reset () =
-      ctx.UserContext.Reset ()
-      // state <- Stopped
+    member __.Reset (cfgConstructor: LowUIRCFG.IConstructable) =
+      state <- Initialized
+      cfgConstructor.Construct Imperative
+      |> ctx.Reset
 
     member __.MakeNew (agent) =
       InternalFnCFGBuilder (ctx, agent)

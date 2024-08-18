@@ -49,6 +49,7 @@ type ExternalFnCFGBuilder<'FnCtx,
       CFG = null
       BBLFactory = BBLFactory (hdl, null)
       NonReturningStatus = noretStatus
+      JumpTableRecoveryStatus = None
       CallTable = CallTable ()
       VisitedPPoints = HashSet ()
       ActionQueue = CFGActionQueue ()
@@ -79,7 +80,7 @@ type ExternalFnCFGBuilder<'FnCtx,
 
     member __.Build _ = Utils.impossible ()
 
-    member __.Reset () = ()
+    member __.Reset _ = ()
 
     member __.MakeNew _ = Utils.impossible ()
 

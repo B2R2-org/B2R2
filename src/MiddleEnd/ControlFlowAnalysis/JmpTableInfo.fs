@@ -26,12 +26,15 @@ namespace B2R2.MiddleEnd.ControlFlowAnalysis
 
 open B2R2
 
-/// The result obtained from recovering a CFG.
-type CFGResult =
-  /// We have successfully handled the task, so continue to the next task.
-  | Continue
-  /// We need to postpone the current task because the current function depends
-  /// on other function(s) that have not been recovered yet.
-  | Wait
-  /// We need to stop the current task due to a fatal error.
-  | FailStop of ErrorCase
+/// Jump table information.
+type JmpTableInfo = {
+  /// The address of the indirect branch instruction corresponding to the jump
+  /// table.
+  InsAddr: Addr
+  /// The base address to be added to compute the final jump target.
+  JumpBase: Addr
+  /// The address of the jump table.
+  TableAddress: Addr
+  /// The size of each entry in the jump table.
+  EntrySize: RegType
+}

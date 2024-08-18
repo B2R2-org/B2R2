@@ -68,7 +68,7 @@ type BinaryBrew<'FnCtx,
       Console.WriteLine $"[*] Done (total {succs.Length} functions)"
       fails
       |> Array.iter (fun b ->
-        Console.WriteLine $"[!] Failure: {b.EntryPoint:x} w/ {b.BuilderState}")
+        Console.WriteLine $"[!] Failure: {b.EntryPoint:x} was {b.BuilderState}")
       if fails.Length > 0 then Utils.impossible ()
       else ()
     arr

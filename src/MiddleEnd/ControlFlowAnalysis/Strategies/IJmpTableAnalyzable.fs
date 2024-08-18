@@ -26,12 +26,15 @@ namespace B2R2.MiddleEnd.ControlFlowAnalysis
 
 open B2R2
 
-/// The result obtained from recovering a CFG.
-type CFGResult =
-  /// We have successfully handled the task, so continue to the next task.
-  | Continue
-  /// We need to postpone the current task because the current function depends
-  /// on other function(s) that have not been recovered yet.
-  | Wait
-  /// We need to stop the current task due to a fatal error.
-  | FailStop of ErrorCase
+/// Interface for analyzing indirect branch instructions that use a jump table.
+type IJmpTableAnalyzable<'FnCtx,
+                         'GlCtx when 'FnCtx :> IResettable
+                                 and 'FnCtx: (new: unit -> 'FnCtx)
+                                 and 'GlCtx: (new: unit -> 'GlCtx)> =
+  /// Check the given indirect branch instruction and return the jump table
+  /// information if it uses a jump table.
+  abstract Identify:
+       ctx: CFGBuildingContext<'FnCtx, 'GlCtx>
+    -> insAddr: Addr
+    -> blkAddr: Addr
+    -> Result<JmpTableInfo, ErrorCase>

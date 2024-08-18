@@ -49,8 +49,8 @@ type FunctionDependenceMap () =
     let calleeV = getVertex callee
     g.AddEdge (callerV, calleeV) |> ignore
 
-  /// Remove a callee function from the map, and return its caller functions,
-  /// excluding the recursive calls.
+  /// Remove a callee function from the map, and return its immediate caller
+  /// functions, excluding the recursive calls.
   member _.RemoveAndGetCallers (callee: Addr) =
     let calleeV = getVertex callee
     let preds = g.GetPreds calleeV
@@ -61,8 +61,8 @@ type FunctionDependenceMap () =
       if v.VData <> callee then Some v.VData else None)
     |> Seq.toList
 
-  /// Get the caller functions of the given callee function but excluding
-  /// the recursive calls.
+  /// Get the immediate caller functions of the given callee, but excluding the
+  /// recursive calls.
   member _.GetCallers (callee: Addr) =
     let calleeV = getVertex callee
     let preds = g.GetPreds calleeV

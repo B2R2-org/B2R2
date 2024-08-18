@@ -80,7 +80,7 @@ type SSALifter () =
             updateFrameDistance ctx ssaCFG state v
           else () }
 
-  interface IPostAnalysis<unit -> SSACFG> with
+  interface ICFGAnalysis<unit -> SSACFG> with
     member _.Unwrap env =
       let ctx = env.Context
       fun () ->

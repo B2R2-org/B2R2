@@ -81,6 +81,11 @@ type CallTable () =
   member _.TryGetFrameDistance (callsiteAddr: Addr) =
     frameDistances.TryGetValue callsiteAddr
 
+  member _.Reset () =
+    callees.Clear ()
+    callingNodes.Clear ()
+    frameDistances.Clear ()
+
 /// What kind of callee is this?
 and CalleeKind =
   /// Callee is a regular function.

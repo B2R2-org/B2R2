@@ -30,6 +30,7 @@ open B2R2.MiddleEnd.ControlFlowGraph
 /// The interface for building a function.
 type ICFGBuildable<'FnCtx,
                    'GlCtx when 'FnCtx :> IResettable
+                           and 'FnCtx: (new: unit -> 'FnCtx)
                            and 'GlCtx: (new: unit -> 'GlCtx)> =
   inherit ILinkage
 
@@ -69,7 +70,7 @@ type ICFGBuildable<'FnCtx,
   abstract Build: ICFGBuildingStrategy<'FnCtx, 'GlCtx> -> CFGResult
 
   /// Reset the current state in order to rebuild the function from scratch.
-  abstract Reset: unit -> unit
+  abstract Reset: LowUIRCFG.IConstructable -> unit
 
   /// Make a new builder with a new agent by copying the current one.
   abstract MakeNew:
@@ -98,6 +99,7 @@ and CFGBuilderState =
 /// 'FnCtx are only accessed by a single thread, though.
 and ICFGBuildingStrategy<'FnCtx,
                          'GlCtx when 'FnCtx :> IResettable
+                                 and 'FnCtx: (new: unit -> 'FnCtx)
                                  and 'GlCtx: (new: unit -> 'GlCtx)> =
   /// Return the prioritizer to use for the CFG actions.
   abstract ActionPrioritizer: IPrioritizable

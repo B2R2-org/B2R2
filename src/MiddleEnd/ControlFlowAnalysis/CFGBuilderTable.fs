@@ -72,10 +72,12 @@ type CFGBuilderTable<'FnCtx,
 
   /// Retrieve a function builder by its address.
   member _.Item with get(addr:Addr) = builders[addr]
-                 and set addr v = builders[addr] <- v
 
   /// Retrieve all function builders.
   member _.Values with get() = builders.Values |> Seq.toArray
+
+  /// Get the CFG constructor associated with this table.
+  member _.CFGConstructor with get() = cfgConstructor
 
   /// Are all function builders finished or invalid?
   member _.AllTerminated () =

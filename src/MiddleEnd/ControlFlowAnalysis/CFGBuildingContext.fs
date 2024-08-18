@@ -34,6 +34,7 @@ open B2R2.MiddleEnd.ControlFlowGraph
 /// function, and it can include a user-defined, too.
 type CFGBuildingContext<'FnCtx,
                         'GlCtx when 'FnCtx :> IResettable
+                                and 'FnCtx: (new: unit -> 'FnCtx)
                                 and 'GlCtx: (new: unit -> 'GlCtx)> = {
   /// The address of the function that is being built.
   FunctionAddress: Addr
@@ -53,6 +54,8 @@ type CFGBuildingContext<'FnCtx,
   BBLFactory: BBLFactory
   /// Is this function a no-return function?
   mutable NonReturningStatus: NonReturningStatus
+  /// Which jump table entry is currently being recovered? (table addr, index)
+  mutable JumpTableRecoveryStatus: (Addr * int) option
   /// Table for maintaining function call information of this function.
   CallTable: CallTable
   /// The set of visited BBL program points. This is to prevent visiting the
@@ -72,6 +75,19 @@ type CFGBuildingContext<'FnCtx,
   /// Thread ID that is currently building this function.
   mutable ThreadID: int
 }
+with
+  /// Reset the context to its initial state.
+  member __.Reset cfg =
+    __.Vertices.Clear ()
+    __.AbsVertices.Clear ()
+    __.CFG <- cfg
+    __.NonReturningStatus <- UnknownNoRet
+    __.JumpTableRecoveryStatus <- None
+    __.CallTable.Reset ()
+    __.VisitedPPoints.Clear ()
+    __.ActionQueue.Clear ()
+    __.PendingActions.Clear ()
+    __.UserContext.Reset ()
 
 /// Call edge from its callsite address to the callee's address. This is to
 /// uniquely identify call edges for abstracted vertices. We create an abstract
@@ -83,6 +99,7 @@ and AbsCallEdge = Addr * Addr option
 and [<AllowNullLiteral>]
   IManagerAccessible<'FnCtx,
                      'GlCtx when 'FnCtx :> IResettable
+                             and 'FnCtx: (new: unit -> 'FnCtx)
                              and 'GlCtx: (new: unit -> 'GlCtx)> =
   /// Update the dependency between two functions.
   abstract UpdateDependency:
@@ -98,6 +115,20 @@ and [<AllowNullLiteral>]
        addr: Addr
     -> BuildingCtxMsg<'FnCtx, 'GlCtx>
 
+  /// Notify the manager that a new jump table entry is about to be recovered,
+  /// and get the decision whether to continue the analysis or not.
+  abstract NotifyJumpTableRecovery:
+       fnAddr: Addr
+     * jmptbl: JmpTableInfo
+    -> unit
+
+  /// Report the success of jump table entry recovery to the manager, and get
+  /// the decision whether to continue the analysis or not.
+  abstract ReportJumpTableSuccess:
+       tblAddr: Addr
+     * idx: int
+    -> bool
+
   /// Get the current user-defined global state of the TaskManager.
   abstract GetGlobalContext: accessor: ('GlCtx -> 'Res) -> 'Res
 
@@ -107,6 +138,7 @@ and [<AllowNullLiteral>]
 /// Message containing the building context of a function.
 and BuildingCtxMsg<'FnCtx,
                    'GlCtx when 'FnCtx :> IResettable
+                           and 'FnCtx: (new: unit -> 'FnCtx)
                            and 'GlCtx: (new: unit -> 'GlCtx)> =
   /// The building process is finished, and this is the final context.
   | FinalCtx of CFGBuildingContext<'FnCtx, 'GlCtx>
