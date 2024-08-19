@@ -8,7 +8,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="CFGHelper.fs" />
+    <Compile Include="CFGDebug.fs" />
     <Compile Include="JmpTableInfo.fs" />
     <Compile Include="CFGAction.fs" />
     <Compile Include="CFGActionQueue.fs" />
