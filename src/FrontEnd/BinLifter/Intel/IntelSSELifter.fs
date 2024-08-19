@@ -874,6 +874,7 @@ let cvtps2pi ins insLen ctxt rounded =
   !!ir (tmp2 := AST.xthi 32<rt> src)
   !!ir (AST.xtlo 32<rt> dst := AST.cast castKind 32<rt> tmp1)
   !!ir (AST.xthi 32<rt> dst := AST.cast castKind 32<rt> tmp2)
+  fillOnesToMMXHigh16 ir ins ctxt
   !>ir insLen
 
 let cvtps2pd ins insLen ctxt =
@@ -909,6 +910,7 @@ let cvtpd2pi ins insLen ctxt rounded =
   let castKind = if rounded then CastKind.FtoIRound else CastKind.FtoITrunc
   !!ir (AST.xtlo 32<rt> dst := AST.cast castKind 32<rt> src1)
   !!ir (AST.xthi 32<rt> dst := AST.cast castKind 32<rt> src2)
+  fillOnesToMMXHigh16 ir ins ctxt
   !>ir insLen
 
 let cvtpd2dq ins insLen ctxt rounded =
@@ -1160,6 +1162,7 @@ let pinsrw ins insLen ctxt =
       let index = getImmValue imm8 &&& 0b11 |> int
       let dst = transOprToArr ir false ins insLen ctxt packSz pNum 64<rt> dst
       !!ir (dst[index] := src)
+      fillOnesToMMXHigh16 ir ins ctxt
     | Register.Kind.XMM ->
       let index = getImmValue imm8 &&& 0b111 |> int
       let dst = transOprToArr ir false ins insLen ctxt packSz pNum 128<rt> dst
@@ -1386,6 +1389,7 @@ let pshufw ins insLen ctxt =
     !!ir (tmps[i - 1] := AST.xtlo 16<rt> (src >> (order' .* n16)))
   done
   !!ir (dst := AST.concatArr tmps)
+  fillOnesToMMXHigh16 ir ins ctxt
   !>ir insLen
 
 let pshufd ins insLen ctxt =
@@ -1472,6 +1476,7 @@ let pshufb ins insLen ctxt =
       let numShift = AST.zext oprSize idx .* n8
       AST.ite (AST.xthi 1<rt> src) n0 (AST.xtlo packSize (dst >> numShift))
     !!ir (dst := Array.map shuffle src |> AST.concatArr)
+    fillOnesToMMXHigh16 ir ins ctxt
   | 128<rt> ->
     let dstB, dstA = transOprToExpr128 ir false ins insLen ctxt dst
     let n8 = !+ir 64<rt>
@@ -1511,6 +1516,7 @@ let movdq2q ins insLen ctxt =
   let dst = transOprToExpr ir false ins insLen ctxt dst
   let _, srcA = transOprToExpr128 ir false ins insLen ctxt src
   !!ir (dst := srcA)
+  fillOnesToMMXHigh16 ir ins ctxt
   !>ir insLen
 
 let private opPmuludq _ =
@@ -1673,6 +1679,7 @@ let palignr ins insLen ctxt =
     if amount < 64 then !!ir (dst := (tDst << leftAmt) .| (tSrc >> rightAmt))
     elif amount < 128 then !!ir (dst := tDst >> rightAmt)
     else !!ir (dst := AST.num0 64<rt>)
+    fillOnesToMMXHigh16 ir ins ctxt
   | 128<rt> ->
     let dstB, dstA = transOprToExpr128 ir false ins insLen ctxt dst
     let srcB, srcA = transOprToExpr128 ir false ins insLen ctxt src

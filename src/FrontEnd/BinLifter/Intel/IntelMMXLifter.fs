@@ -34,7 +34,7 @@ open B2R2.FrontEnd.BinLifter.LiftingUtils
 open B2R2.FrontEnd.BinLifter.Intel
 open B2R2.FrontEnd.BinLifter.Intel.LiftingUtils
 
-let private movdRegToReg ctxt r1 r2 ir =
+let private movdRegToReg ins ctxt r1 r2 ir =
   let tmp = !+ir 32<rt>
   match Register.getKind r1, Register.getKind r2 with
   | Register.Kind.XMM, _ ->
@@ -45,6 +45,7 @@ let private movdRegToReg ctxt r1 r2 ir =
     !!ir (dstAssign 32<rt> (!.ctxt r1) tmp)
   | Register.Kind.MMX, _ ->
     !!ir (!.ctxt r1 := AST.zext 64<rt> (!.ctxt r2))
+    fillOnesToMMXHigh16 ir ins ctxt
   | _, Register.Kind.MMX ->
     !!ir (tmp := AST.xtlo 32<rt> (!.ctxt r2))
     !!ir (dstAssign 32<rt> (!.ctxt r1) tmp)
@@ -57,12 +58,14 @@ let private movdRegToMem ctxt dst r ir =
   | Register.Kind.MMX -> !!ir (dst := AST.xtlo 32<rt> (!.ctxt r))
   | _ -> Utils.impossible ()
 
-let private movdMemToReg ctxt src r ir =
+let private movdMemToReg ins ctxt src r ir =
   match Register.getKind r with
   | Register.Kind.XMM ->
     !!ir (getPseudoRegVar ctxt r 1 := AST.zext 64<rt> src)
     !!ir (getPseudoRegVar ctxt r 2 := AST.num0 64<rt>)
-  | Register.Kind.MMX -> !!ir (!.ctxt r := AST.zext 64<rt> src)
+  | Register.Kind.MMX ->
+    !!ir (!.ctxt r := AST.zext 64<rt> src)
+    fillOnesToMMXHigh16 ir ins ctxt
   | _ -> Utils.impossible ()
 
 let movd ins insLen ctxt =
@@ -70,15 +73,17 @@ let movd ins insLen ctxt =
   !<ir insLen
   let struct (dst, src) = getTwoOprs ins
   match dst, src with
-  | OprReg r1, OprReg r2 -> movdRegToReg ctxt r1 r2 ir
-  | OprMem _, OprReg r -> let dst = transOprToExpr ir false ins insLen ctxt dst
-                          movdRegToMem ctxt dst r ir
-  | OprReg r, OprMem _ -> let src = transOprToExpr ir false ins insLen ctxt src
-                          movdMemToReg ctxt src r ir
+  | OprReg r1, OprReg r2 -> movdRegToReg ins ctxt r1 r2 ir
+  | OprMem _, OprReg r ->
+    let dst = transOprToExpr ir false ins insLen ctxt dst
+    movdRegToMem ctxt dst r ir
+  | OprReg r, OprMem _ ->
+    let src = transOprToExpr ir false ins insLen ctxt src
+    movdMemToReg ins ctxt src r ir
   | _, _ -> raise InvalidOperandException
   !>ir insLen
 
-let private movqRegToReg ctxt r1 r2 ir =
+let private movqRegToReg ins ctxt r1 r2 ir =
   match Register.getKind r1, Register.getKind r2 with
   | Register.Kind.XMM, Register.Kind.XMM ->
     !!ir (getPseudoRegVar ctxt r1 1 := getPseudoRegVar ctxt r2 1 )
@@ -89,7 +94,9 @@ let private movqRegToReg ctxt r1 r2 ir =
   | Register.Kind.GP, Register.Kind.XMM ->
     !!ir (!.ctxt r1 := getPseudoRegVar ctxt r2 1)
   | Register.Kind.MMX, Register.Kind.MMX
-  | Register.Kind.MMX, Register.Kind.GP
+  | Register.Kind.MMX, Register.Kind.GP ->
+    !!ir (!.ctxt r1 := !.ctxt r2)
+    fillOnesToMMXHigh16 ir ins ctxt
   | Register.Kind.GP, Register.Kind.MMX ->
     !!ir (!.ctxt r1 := !.ctxt r2)
   | _ -> raise InvalidOperandException
@@ -100,12 +107,14 @@ let private movqRegToMem ctxt dst r ir =
   | Register.Kind.MMX -> !!ir (dst := !.ctxt r)
   | _ -> raise InvalidOperandException
 
-let private movqMemToReg ctxt src r ir =
+let private movqMemToReg ins ctxt src r ir =
   match Register.getKind r with
   | Register.Kind.XMM ->
     !!ir (getPseudoRegVar ctxt r 1 := src)
     !!ir (getPseudoRegVar ctxt r 2 := AST.num0 64<rt>)
-  | Register.Kind.MMX -> !!ir (!.ctxt r := src)
+  | Register.Kind.MMX ->
+    !!ir (!.ctxt r := src)
+    fillOnesToMMXHigh16 ir ins ctxt
   | _ -> raise InvalidOperandException
 
 let movq ins insLen ctxt =
@@ -113,11 +122,13 @@ let movq ins insLen ctxt =
   !<ir insLen
   let struct (dst, src) = getTwoOprs ins
   match dst, src with
-  | OprReg r1, OprReg r2 -> movqRegToReg ctxt r1 r2 ir
-  | OprMem _, OprReg r -> let dst = transOprToExpr ir false ins insLen ctxt dst
-                          movqRegToMem ctxt dst r ir
-  | OprReg r, OprMem _ -> let src = transOprToExpr ir false ins insLen ctxt src
-                          movqMemToReg ctxt src r ir
+  | OprReg r1, OprReg r2 -> movqRegToReg ins ctxt r1 r2 ir
+  | OprMem _, OprReg r ->
+    let dst = transOprToExpr ir false ins insLen ctxt dst
+    movqRegToMem ctxt dst r ir
+  | OprReg r, OprMem _ ->
+    let src = transOprToExpr ir false ins insLen ctxt src
+    movqMemToReg ins ctxt src r ir
   | _, _ -> raise InvalidOperandException
   !>ir insLen
 
@@ -613,6 +624,7 @@ let pxor ins insLen ctxt =
   | 64<rt> ->
     let struct (dst, src) = transTwoOprs ir false ins insLen ctxt
     !!ir (dst := dst <+> src)
+    fillOnesToMMXHigh16 ir ins ctxt
   | 128<rt> ->
     let struct (dst, src) = getTwoOprs ins
     let dstB, dstA = transOprToExpr128 ir false ins insLen ctxt dst

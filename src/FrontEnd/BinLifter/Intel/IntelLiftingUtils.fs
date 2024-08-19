@@ -378,8 +378,7 @@ let transOprToArr ir useTmpVars ins insLen ctxt packSz packNum oprSize opr =
         let oprB = Array.init packNum (fun i -> AST.extract mB packSz (i * pos))
         Array.append oprA oprB
       | 256<rt> ->
-        let oD, oC, oB, oA =
-          transOprToExpr256 ir false ins insLen ctxt opr
+        let oD, oC, oB, oA = transOprToExpr256 ir false ins insLen ctxt opr
         let struct (mD, mC, mB, mA) = tmpVars4 ir 64<rt>
         !!ir (mA := oA)
         !!ir (mB := oB)
@@ -450,8 +449,34 @@ let transOprToArr ir useTmpVars ins insLen ctxt packSz packNum oprSize opr =
     tmps
   else exprArr
 
+let private isMMXReg = function
+  | OprReg r -> Register.getKind r = Register.Kind.MMX
+  | _ -> false
+
+let private convMMXToST = function
+  | OprReg R.MM0 -> R.ST0
+  | OprReg R.MM1 -> R.ST1
+  | OprReg R.MM2 -> R.ST2
+  | OprReg R.MM3 -> R.ST3
+  | OprReg R.MM4 -> R.ST4
+  | OprReg R.MM5 -> R.ST5
+  | OprReg R.MM6 -> R.ST6
+  | OprReg R.MM7 -> R.ST7
+  | _ -> raise InvalidOperandException
+
+let fillOnesToMMXHigh16 ir (ins: InsInfo) ctxt =
+  match ins.Operands with
+  | TwoOperands (OprReg _ as o, _)
+  | ThreeOperands (OprReg _ as o, _, _) ->
+    !!ir (getPseudoRegVar ctxt (convMMXToST o) 2 := AST.num BitVector.MaxUInt16)
+  | _ -> ()
+
 let assignPackedInstr ir useTmpVar ins insLen ctxt packNum oprSize dst result =
   match oprSize with
+  | 64<rt> when isMMXReg dst ->
+    let dst = transOprToExpr ir useTmpVar ins insLen ctxt dst
+    !!ir (dst := result |> AST.concatArr)
+    fillOnesToMMXHigh16 ir ins ctxt
   | 64<rt> ->
     let dst = transOprToExpr ir useTmpVar ins insLen ctxt dst
     !!ir (dst := result |> AST.concatArr)
