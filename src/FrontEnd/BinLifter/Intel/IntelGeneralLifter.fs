@@ -2616,19 +2616,21 @@ let rotate ins insLen ctxt lfn hfn cfFn ofFn =
   let oprSize = getOperationSize ins
   let cF = !.ctxt R.CF
   let oF = !.ctxt R.OF
+  let struct (orgCount, maskedCnt) = tmpVars2 ir oprSize
   let size = numI32 (RegType.toBitWidth oprSize) oprSize
-  let orgCount = AST.zext oprSize count .% (numI32 (int oprSize) oprSize)
-  let cond1 = orgCount == AST.num0 oprSize
-  let cond2 = orgCount == AST.num1 oprSize
+  !!ir (orgCount := AST.zext oprSize count .% (numI32 (int oprSize) oprSize))
+  let countmask = if oprSize = 64<rt> then 0x3F else 0x1F
+  !!ir (maskedCnt := AST.zext oprSize count .& numI32 countmask oprSize)
+  let cond1 = maskedCnt == AST.num0 oprSize
+  let cond2 = maskedCnt == AST.num1 oprSize
   let value = (lfn dst orgCount) .| (hfn dst (size .- orgCount))
   !!ir (dstAssign oprSize dst value)
-#if EMULATION
-  !?ir (genDynamicFlagsUpdate ctxt)
-#endif
-  !!ir (cF := AST.ite cond1 cF (cfFn 1<rt> dst))
 #if !EMULATION
+  !!ir (cF := AST.ite cond1 cF (cfFn 1<rt> dst))
   !!ir (oF := AST.ite cond2 (ofFn dst cF) undefOF)
 #else
+  !?ir (genDynamicFlagsUpdate ctxt)
+  !!ir (cF := AST.ite cond1 cF (cfFn 1<rt> dst))
   !!ir (oF := AST.ite cond2 (ofFn dst cF) oF)
   ctxt.ConditionCodeOp <- ConditionCodeOp.EFlags
 #endif
