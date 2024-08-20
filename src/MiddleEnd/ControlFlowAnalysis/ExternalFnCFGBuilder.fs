@@ -50,6 +50,7 @@ type ExternalFnCFGBuilder<'FnCtx,
       BBLFactory = BBLFactory (hdl, null)
       NonReturningStatus = noretStatus
       JumpTableRecoveryStatus = None
+      JumpTables = List ()
       CallTable = CallTable ()
       VisitedPPoints = HashSet ()
       ActionQueue = CFGActionQueue ()
@@ -85,4 +86,9 @@ type ExternalFnCFGBuilder<'FnCtx,
     member __.MakeNew _ = Utils.impossible ()
 
     member __.ToFunction () =
-      Function (entryPoint, name, ctx.NonReturningStatus, HashSet (), true)
+      Function (entryPoint,
+                name,
+                ctx.NonReturningStatus,
+                HashSet (),
+                ctx.JumpTables,
+                true)

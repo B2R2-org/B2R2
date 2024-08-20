@@ -541,6 +541,8 @@ type CFGRecovery<'FnCtx,
           dbglog ctx.ThreadID (nameof EndTblRec)
           <| $"{jmptbl.InsAddr:x}[{idx}] @ {ctx.FunctionAddress:x}"
 #endif
+          jmptbl.NumEntries <- idx + 1
+          ctx.JumpTables.Add jmptbl
           ctx.JumpTableRecoveryStatus <- None
           sendJmpTblRecoverySuccess ctx queue jmptbl idx target
       with e ->

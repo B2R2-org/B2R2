@@ -37,4 +37,6 @@ type JmpTableInfo = {
   TableAddress: Addr
   /// The size of each entry in the jump table.
   EntrySize: RegType
+  /// The number of entries in the jump table.
+  mutable NumEntries: int
 }

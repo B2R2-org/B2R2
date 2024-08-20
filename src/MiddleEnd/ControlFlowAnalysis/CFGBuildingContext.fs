@@ -56,6 +56,8 @@ type CFGBuildingContext<'FnCtx,
   mutable NonReturningStatus: NonReturningStatus
   /// Which jump table entry is currently being recovered? (table addr, index)
   mutable JumpTableRecoveryStatus: (Addr * int) option
+  /// Jump tables associated with this function.
+  JumpTables: List<JmpTableInfo>
   /// Table for maintaining function call information of this function.
   CallTable: CallTable
   /// The set of visited BBL program points. This is to prevent visiting the
@@ -83,6 +85,7 @@ with
     __.CFG <- cfg
     __.NonReturningStatus <- UnknownNoRet
     __.JumpTableRecoveryStatus <- None
+    __.JumpTables.Clear ()
     __.CallTable.Reset ()
     __.VisitedPPoints.Clear ()
     __.ActionQueue.Clear ()

@@ -106,6 +106,7 @@ type InternalFnCFGBuilder<'FnCtx,
         BBLFactory = bblFactory
         NonReturningStatus = UnknownNoRet
         JumpTableRecoveryStatus = None
+        JumpTables = List ()
         CallTable = CallTable ()
         VisitedPPoints = HashSet ()
         ActionQueue = CFGActionQueue ()
@@ -163,4 +164,5 @@ type InternalFnCFGBuilder<'FnCtx,
                 ctx.NonReturningStatus,
                 ctx.CallTable.Callees,
                 HashSet (),
+                ctx.JumpTables,
                 false)

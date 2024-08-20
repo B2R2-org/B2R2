@@ -26,10 +26,10 @@
     <Compile Include="InternalFnCFGBuilder.fs" />
     <Compile Include="ExternalFnCFGBuilder.fs" />
     <Compile Include="ExternalFunctionLoader.fs" />
+    <Compile Include="JmpTableRecoveryNotebook.fs" />
     <Compile Include="CFGBuilderTable.fs" />
     <Compile Include="FunctionDependenceMap.fs" />
     <Compile Include="FunctionCollection.fs" />
-    <Compile Include="JmpTableRecoveryNotebook.fs" />
     <Compile Include="RecoveryMission.fs" />
     <Compile Include="Strategies\DummyContext.fs" />
     <Compile Include="Strategies\ICFGAnalysis.fs" />

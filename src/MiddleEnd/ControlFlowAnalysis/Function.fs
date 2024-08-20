@@ -31,10 +31,17 @@ open B2R2.MiddleEnd.ControlFlowGraph
 /// Function is a chunk of code in a binary. Functions may overlap with each
 /// other in rare cases. Function overlapping is rare because we will create a
 /// new function when there is an incoming edge in the middle of a funcion,
-type Function (entryPoint, name, cfg, isNoRet, callees, callers, isExtern) =
+type Function (entryPoint,
+               name,
+               cfg,
+               isNoRet,
+               callees,
+               callers,
+               jmptbls,
+               isExtern) =
 
-  new (entryPoint, name, noret, callers, isExtern) =
-    Function (entryPoint, name, null, noret, null, callers, isExtern)
+  new (entryPoint, name, noret, callers, jmptbls, isExtern) =
+    Function (entryPoint, name, null, noret, null, callers, jmptbls, isExtern)
 
   /// Function entry point address.
   member _.EntryPoint with get(): Addr = entryPoint
@@ -57,6 +64,9 @@ type Function (entryPoint, name, cfg, isNoRet, callees, callers, isExtern) =
 
   /// Callers of this function.
   member _.Callers with get(): HashSet<Addr> = callers
+
+  /// Jump tables associated with this function.
+  member _.JumpTables with get(): List<JmpTableInfo> = jmptbls
 
   interface ILinkage with
     member _.IsExternal with get() = isExtern

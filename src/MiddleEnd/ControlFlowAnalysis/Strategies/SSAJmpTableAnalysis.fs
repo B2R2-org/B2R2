@@ -216,7 +216,8 @@ type SSAJmpTableAnalysis<'FnCtx,
       Ok { InsAddr = insAddr
            JumpBase = baseAddr
            TableAddress = tblAddr
-           EntrySize = sz }
+           EntrySize = sz
+           NumEntries = 0 }
     | _ -> Error ErrorCase.ItemNotFound
 
   let detect state iAddr = function
