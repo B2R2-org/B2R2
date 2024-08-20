@@ -383,7 +383,7 @@ type CFGRecovery<'FnCtx,
   let readJumpTable ctx (jmptbl: JmpTableInfo) idx =
     let size = RegType.toByteWidth jmptbl.EntrySize
     let addr = jmptbl.TableAddress + uint64 (idx * size)
-    jmptbl.JumpBase + ctx.BinHandle.ReadUInt (addr, size)
+    jmptbl.JumpBase + uint64 (ctx.BinHandle.ReadInt (addr, size))
 
   let pushJmpTblRecoveryAction ctx queue bblAddr jmptbl idx =
     let targetAddr = readJumpTable ctx jmptbl idx
@@ -397,7 +397,7 @@ type CFGRecovery<'FnCtx,
     | Ok jmptbl ->
 #if CFGDEBUG
       dbglog ctx.ThreadID "JumpTable"
-      <| $"{insAddr:x} -> {jmptbl.TableAddress:x} w/ base {jmptbl.JumpBase:x}"
+      <| $"{insAddr:x}: [{jmptbl.TableAddress:x}] w/ base {jmptbl.JumpBase:x}"
 #endif
       ctx.ManagerChannel.NotifyJumpTableRecovery (ctx.FunctionAddress, jmptbl)
       pushJmpTblRecoveryAction ctx queue bblAddr jmptbl 0
