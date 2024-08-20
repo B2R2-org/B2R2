@@ -270,7 +270,8 @@ and private TaskManager<'FnCtx,
     | candidates ->
       for (addr, mode) in candidates do
         let builder = builders.GetOrCreateBuilder agent addr mode
-        builders.Reload builder agent
+        if builder.IsExternal then ()
+        else builders.Reload builder agent
       (* Tasks should be added at last to avoid a race for builders. *)
       for (addr, mode) in candidates do addTask addr mode done
     waitForWorkers ()
