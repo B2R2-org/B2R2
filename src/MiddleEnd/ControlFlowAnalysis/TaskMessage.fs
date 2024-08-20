@@ -49,7 +49,8 @@ type TaskMessage<'FnCtx,
   | NotifyJumpTableRecovery of fn: Addr * tbl: JmpTableInfo
   /// Report jump entry recovery result (success only) to the manager. The
   /// manager will then decide whether to continue the analysis or not.
-  | ReportJumpTableSuccess of tbl: Addr * idx: int * AgentReplyChannel<bool>
+  | ReportJumpTableSuccess of
+    fn: Addr * tbl: Addr * idx: int * next: Addr * AgentReplyChannel<bool>
   /// Access the global context with the accessor, which has a side effect.
   | AccessGlobalContext of accessor: ('GlCtx -> unit) * AgentReplyChannel<unit>
   /// Update global context.

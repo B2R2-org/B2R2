@@ -136,8 +136,8 @@ and private TaskManager<'FnCtx,
         | Error _ -> ch.Reply <| FailedBuilding
       | NotifyJumpTableRecovery (fnAddr, jmptbl) ->
         handleJumpTableRecoveryRequest fnAddr jmptbl
-      | ReportJumpTableSuccess (tblAddr, idx, ch) ->
-        ch.Reply <| handleJumpTableRecoverySuccess tblAddr idx
+      | ReportJumpTableSuccess (fnAddr, tblAddr, idx, nextTarget, ch) ->
+        ch.Reply <| handleJumpTableRecoverySuccess fnAddr tblAddr idx nextTarget
       | AccessGlobalContext (accessor, ch) ->
         ch.Reply <| accessor globalCtx
       | UpdateGlobalContext updater ->
@@ -230,9 +230,14 @@ and private TaskManager<'FnCtx,
     <| jmptblNotes.GetNoteString jmptbl.TableAddress
 #endif
 
-  and handleJumpTableRecoverySuccess tblAddr idx =
+  and handleJumpTableRecoverySuccess fnAddr tblAddr idx nextJumpTarget =
     jmptblNotes.SetConfirmedEndPoint tblAddr idx
-    jmptblNotes.IsExpandable tblAddr (idx + 1)
+    if jmptblNotes.IsExpandable tblAddr (idx + 1) then
+      match builders.TryGetNextBuilder fnAddr with
+      | Ok nextBuilder ->
+        fnAddr < nextJumpTarget && nextJumpTarget < nextBuilder.EntryPoint
+      | Error _ -> false
+    else false
 
   and checkAndResolveCyclicDependencies entryPoint calleeAddr =
     let deps = dependenceMap.GetCyclicDependencies entryPoint

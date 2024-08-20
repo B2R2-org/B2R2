@@ -128,8 +128,10 @@ and [<AllowNullLiteral>]
   /// Report the success of jump table entry recovery to the manager, and get
   /// the decision whether to continue the analysis or not.
   abstract ReportJumpTableSuccess:
-       tblAddr: Addr
+       fnAddr: Addr
+     * tblAddr: Addr
      * idx: int
+     * potentialNextTarget: Addr
     -> bool
 
   /// Get the current user-defined global state of the TaskManager.

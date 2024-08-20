@@ -36,7 +36,7 @@ type CFGBuilderTable<'FnCtx,
   public (hdl, instrs, cfgConstructor) =
 
   let builders =
-    Dictionary<Addr, ICFGBuildable<'FnCtx, 'GlCtx>> ()
+    SortedList<Addr, ICFGBuildable<'FnCtx, 'GlCtx>> ()
 
   let getOrCreateInternalBuilder agent addr mode =
     match builders.TryGetValue addr with
@@ -99,3 +99,12 @@ type CFGBuilderTable<'FnCtx,
     match builders.TryGetValue addr with
     | true, builder -> Ok builder
     | false, _ -> Error ErrorCase.ItemNotFound
+
+  /// Try to retrieve a function builder right next (based on its address) to
+  /// the builder of the given address.
+  member _.TryGetNextBuilder (addr: Addr) =
+    match builders.IndexOfKey addr with
+    | -1 -> Error ErrorCase.ItemNotFound
+    | idx ->
+      if idx + 1 < builders.Count then Ok <| builders.GetValueAtIndex (idx + 1)
+      else Error ErrorCase.ItemNotFound

@@ -57,9 +57,9 @@ type InternalFnCFGBuilder<'FnCtx,
         member _.NotifyJumpTableRecovery (fnAddr, tblInfo) =
           agent.Post <| NotifyJumpTableRecovery (fnAddr, tblInfo)
 
-        member _.ReportJumpTableSuccess (tblAddr, idx) =
+        member _.ReportJumpTableSuccess (fnAddr, tblAddr, idx, nextAddr) =
           agent.PostAndReply (fun _ ch ->
-            ReportJumpTableSuccess (tblAddr, idx, ch))
+            ReportJumpTableSuccess (fnAddr, tblAddr, idx, nextAddr, ch))
 
         member _.GetGlobalContext accessor =
           let mutable v = Unchecked.defaultof<_>

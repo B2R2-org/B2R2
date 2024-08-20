@@ -29,7 +29,6 @@ open System.Collections.Generic
 open B2R2
 open B2R2.BinIR
 open B2R2.BinIR.LowUIR
-open B2R2.FrontEnd.BinLifter
 open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.MiddleEnd.ControlFlowAnalysis
@@ -390,6 +389,7 @@ type CFGRecovery<'FnCtx,
     <| StartTblRec (jmptbl, idx, bblAddr, targetAddr)
     queue.Push prioritizer
     <| EndTblRec (jmptbl, idx, targetAddr)
+    Continue
 
   let recoverIndirectBranches ctx queue insAddr bblAddr =
     match jmptblAnalysis.Identify ctx insAddr bblAddr with
@@ -400,7 +400,6 @@ type CFGRecovery<'FnCtx,
 #endif
       ctx.ManagerChannel.NotifyJumpTableRecovery (ctx.FunctionAddress, jmptbl)
       pushJmpTblRecoveryAction ctx queue bblAddr jmptbl 0
-      Continue
     | Error _ -> Continue (* We ignore this indirect branch. *)
 
   let isFailedBuilding (ctx: CFGBuildingContext<'FnCtx, 'GlCtx>) calleeAddr =
@@ -421,8 +420,10 @@ type CFGRecovery<'FnCtx,
     | Error e -> FailStop e
 
   let sendJmpTblRecoverySuccess ctx queue jmptbl idx target =
+    let fnAddr = ctx.FunctionAddress
     let tblAddr = jmptbl.TableAddress
-    ctx.ManagerChannel.ReportJumpTableSuccess (tblAddr, idx)
+    let nextTarget = readJumpTable ctx jmptbl (idx + 1)
+    ctx.ManagerChannel.ReportJumpTableSuccess (fnAddr, tblAddr, idx, nextTarget)
     |> function
       | true ->
         let targetVertex = ctx.Vertices[ProgramPoint (target, 0)]
@@ -432,7 +433,6 @@ type CFGRecovery<'FnCtx,
             v.VData.Internals.LastInstruction.Address = jmptbl.InsAddr)
         let srcAddr = srcVertex.VData.Internals.BlockAddress
         pushJmpTblRecoveryAction ctx queue srcAddr jmptbl (idx + 1)
-        Continue
       | false ->
 #if CFGDEBUG
         dbglog ctx.ThreadID "JumpTable" $"No more to add"
