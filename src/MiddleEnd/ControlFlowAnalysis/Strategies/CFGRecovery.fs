@@ -64,9 +64,6 @@ type CFGRecovery<'FnCtx,
     ctx.BBLFactory.ScanBBLs mode entryPoints
     |> Async.AwaitTask
     |> Async.RunSynchronously
-    |> function
-      | Ok dividedEdges -> dividedEdges
-      | Error _ -> raise ParsingFailureException
 
   let getVertex ctx ppoint =
     match ctx.Vertices.TryGetValue ppoint with
@@ -311,12 +308,14 @@ type CFGRecovery<'FnCtx,
     callee, callsiteAddr + uint64 callIns.Length
 
   let connectRet ctx (callee, fallthroughAddr) =
-    let dividedEdges = scanBBLs ctx ctx.FunctionMode [ fallthroughAddr ]
-    let fallthroughPPoint = ProgramPoint (fallthroughAddr, 0)
-    let fallthroughVertex = getVertex ctx fallthroughPPoint
-    connectEdge ctx callee fallthroughVertex RetEdge
-    reconnectVertices ctx dividedEdges
-    fallthroughAddr
+    match scanBBLs ctx ctx.FunctionMode [ fallthroughAddr ] with
+    | Ok dividedEdges ->
+      let fallthroughPPoint = ProgramPoint (fallthroughAddr, 0)
+      let fallthroughVertex = getVertex ctx fallthroughPPoint
+      connectEdge ctx callee fallthroughVertex RetEdge
+      reconnectVertices ctx dividedEdges
+      Ok fallthroughAddr
+    | Error e -> Error e
 
   let toCFGResult = function
     | Ok _ -> Continue
@@ -327,7 +326,7 @@ type CFGRecovery<'FnCtx,
       (caller: IVertex<LowUIRBasicBlock>).VData.Internals.LastInstruction
     getFunctionAbstraction ctx lastIns calleeAddr
     |> Result.map (connectAbsVertex ctx caller calleeAddr)
-    |> Result.map (connectRet ctx)
+    |> Result.bind (connectRet ctx)
     |> Result.map (addExpandCFGAction queue)
     |> toCFGResult
 
@@ -346,8 +345,8 @@ type CFGRecovery<'FnCtx,
       summarizer.Summarize (ctx, caller.VData.Internals.LastInstruction)
       |> connectAbsVertex ctx caller calleeAddr
       |> connectRet ctx
-      |> addExpandCFGAction queue
-      Continue
+      |> Result.map (addExpandCFGAction queue)
+      |> toCFGResult
     else
       match ctx.ManagerChannel.GetNonReturningStatus calleeAddr with
       | NoRet -> connectAbsWithoutFT ctx caller calleeAddr
@@ -370,8 +369,8 @@ type CFGRecovery<'FnCtx,
     let absV = getAbsVertex ctx callSite None abs
     connectEdge ctx caller absV CallEdge
     connectRet ctx (absV, callSite + uint64 callIns.Length)
-    |> addExpandCFGAction queue
-    Continue
+    |> Result.map (addExpandCFGAction queue)
+    |> toCFGResult
 
   let connectSyscallEdge ctx callerAddr isExit =
     let caller = getVertex ctx (ProgramPoint (callerAddr, 0))
@@ -411,13 +410,15 @@ type CFGRecovery<'FnCtx,
 
   let recoverJumpTableEntry ctx queue srcAddr dstAddr =
     let srcVertex = getVertex ctx (ProgramPoint (srcAddr, 0))
-    let dividedEdges = scanBBLs ctx ctx.FunctionMode [ dstAddr ]
-    let targetPPoint = ProgramPoint (dstAddr, 0)
-    let targetVertex = getVertex ctx targetPPoint
-    connectEdge ctx srcVertex targetVertex IndirectJmpEdge
-    reconnectVertices ctx dividedEdges
-    addExpandCFGAction queue dstAddr
-    Continue
+    match scanBBLs ctx ctx.FunctionMode [ dstAddr ] with
+    | Ok dividedEdges ->
+      let targetPPoint = ProgramPoint (dstAddr, 0)
+      let targetVertex = getVertex ctx targetPPoint
+      connectEdge ctx srcVertex targetVertex IndirectJmpEdge
+      reconnectVertices ctx dividedEdges
+      addExpandCFGAction queue dstAddr
+      Continue
+    | Error e -> FailStop e
 
   let sendJmpTblRecoverySuccess ctx queue jmptbl idx target =
     let tblAddr = jmptbl.TableAddress
@@ -468,8 +469,9 @@ type CFGRecovery<'FnCtx,
           dbglog ctx.ThreadID (nameof InitiateCFG) $"{fnAddr:x}"
 #endif
           let pp = ProgramPoint (fnAddr, 0)
-          scanBBLs ctx mode [ fnAddr ] |> ignore
-          buildCFG ctx queue [| pp |]
+          match scanBBLs ctx mode [ fnAddr ] with
+          | Ok _ -> buildCFG ctx queue [| pp |]
+          | Error e -> FailStop e
         | ExpandCFG addrs ->
 #if CFGDEBUG
           let targets =

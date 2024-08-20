@@ -24,7 +24,6 @@
 
 namespace B2R2.MiddleEnd.ControlFlowAnalysis
 
-open System
 open System.Runtime.InteropServices
 open System.Collections.Generic
 open System.Collections.Immutable
@@ -209,21 +208,24 @@ type BBLFactory (hdl: BinHandle,
   let bblLifter (channel: BufferBlock<Addr * Instruction list * int>) =
     let liftingUnit = hdl.NewLiftingUnit ()
     let mutable isSuccessful = true
-    use cts = new Threading.CancellationTokenSource ()
+    let mutable canContinue = true
     task {
-      while! channel.OutputAvailableAsync (cts.Token) do
-        match channel.TryReceive () with
-        | true, (_, _, -1) -> (* error case*)
-          isSuccessful <- false; cts.Cancel ()
-        | true, (leaderAddr, instrs, insCount) ->
-          try liftBlock liftingUnit leaderAddr instrs insCount
-          with _ ->
+      while canContinue do
+        let! available = channel.OutputAvailableAsync ()
+        if available then
+          match channel.TryReceive () with
+          | true, (_, _, -1) -> (* error case*)
+            isSuccessful <- false; canContinue <- false
+          | true, (leaderAddr, instrs, insCount) ->
+            try liftBlock liftingUnit leaderAddr instrs insCount
+            with _ ->
 #if CFGDEBUG
-            dbglog ManagerTid (nameof BBLFactory)
-            <| $"Failed to lift instruction at {leaderAddr:x}"
+              dbglog ManagerTid (nameof BBLFactory)
+              <| $"Failed to lift instruction at {leaderAddr:x}"
 #endif
-            isSuccessful <- false; cts.Cancel ()
-        | false, _ -> ()
+              isSuccessful <- false; canContinue <- false
+          | false, _ -> ()
+        else canContinue <- false
       return isSuccessful
     }
 
