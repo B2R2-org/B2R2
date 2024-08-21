@@ -59,10 +59,10 @@ let private baryCenter (vGraph: IGraph<_, _>) isDown (v: IVertex<VisBBlock>) =
   let neighbor =
     if isDown then vGraph.GetPreds v
     else vGraph.GetSuccs v
-  if neighbor.Count = 0 then System.Double.MaxValue, v
+  if neighbor.Length = 0 then System.Double.MaxValue, v
   else
     let xs = neighbor |> Seq.fold (fun acc v -> acc + v.VData.Index) 0
-    float xs / float neighbor.Count, v
+    float xs / float neighbor.Length, v
 
 let private bcReorderOneLayer vGraph (vLayout: VLayout) isDown layer =
   let vertices = vLayout[layer]

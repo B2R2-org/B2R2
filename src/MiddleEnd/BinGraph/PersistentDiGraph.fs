@@ -24,8 +24,6 @@
 
 namespace B2R2.MiddleEnd.BinGraph
 
-open System.Collections.Generic
-
 /// Persistent directed graph.
 type PersistentDiGraph<'V, 'E when 'V: equality
                                and 'E: equality> (roots, vs, preds, succs, id) =
@@ -193,23 +191,23 @@ type PersistentDiGraph<'V, 'E when 'V: equality
     member __.GetPreds (v: IVertex<'V>) =
       Map.find v.ID preds
       |> List.fold (fun acc e -> (e.First :> IVertex<'V>) :: acc) []
-      :> IReadOnlyCollection<_>
+      |> List.toArray
 
     member __.GetPredEdges (v: IVertex<'V>) =
       Map.find v.ID preds
-      :> IReadOnlyCollection<_>
+      |> List.toArray
 
     member __.GetSuccs (v: IVertex<'V>) =
       Map.find v.ID succs
       |> List.fold (fun acc e -> (e.Second :> IVertex<'V>) :: acc) []
-      :> IReadOnlyCollection<_>
+      |> List.toArray
 
     member __.GetSuccEdges (v: IVertex<'V>) =
       Map.find v.ID succs
-      :> IReadOnlyCollection<_>
+      |> List.toArray
 
     member __.GetRoots () =
-      roots :> IReadOnlyCollection<_>
+      roots |> List.toArray
 
     member __.AddRoot (v) =
       assert (vertices.ContainsKey v.ID)

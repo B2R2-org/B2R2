@@ -130,26 +130,26 @@ type IGraph<'V, 'E when 'V: equality and 'E: equality> =
   /// Get the predecessors of the given vertex. This is only meaningful for
   /// directed graphs. For undirected graphs, this function returns an empty
   /// sequence.
-  abstract GetPreds: IVertex<'V> -> IReadOnlyCollection<IVertex<'V>>
+  abstract GetPreds: IVertex<'V> -> IVertex<'V>[]
 
   /// Get the predecessor edges of the given vertex. This is only meaningful for
   /// directed graphs. For undirected graphs, this function returns an empty
   /// sequence.
-  abstract GetPredEdges: IVertex<'V> -> IReadOnlyCollection<Edge<'V, 'E>>
+  abstract GetPredEdges: IVertex<'V> -> Edge<'V, 'E>[]
 
   /// Get the successors of the given vertex. This is only meaningful for
   /// directed graphs. For undirected graphs, this function returns an empty
   /// sequence.
-  abstract GetSuccs: IVertex<'V> -> IReadOnlyCollection<IVertex<'V>>
+  abstract GetSuccs: IVertex<'V> -> IVertex<'V>[]
 
   /// Get the successor edges of the given vertex. This is only meaningful for
   /// directed graphs. For undirected graphs, this function returns an empty
   /// sequence.
-  abstract GetSuccEdges: IVertex<'V> -> IReadOnlyCollection<Edge<'V, 'E>>
+  abstract GetSuccEdges: IVertex<'V> -> Edge<'V, 'E>[]
 
   /// Get the root vertices of this graph. When there's no root, this will
   /// return an empty collection.
-  abstract GetRoots: unit -> IReadOnlyCollection<IVertex<'V>>
+  abstract GetRoots: unit -> IVertex<'V>[]
 
   /// Explicitly add a root vertex to this graph. `AddVertex` will automatically
   /// set the root vertex to the first vertex added to the graph, but this

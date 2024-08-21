@@ -95,7 +95,7 @@ type CFGRecovery<'FnCtx,
     | true, v ->
       let preds =
         ctx.CFG.GetPredEdges v
-        |> Seq.filter (fun e -> e.First.VData.Internals.PPoint <> ppoint)
+        |> Array.filter (fun e -> e.First.VData.Internals.PPoint <> ppoint)
       let succs = ctx.CFG.GetSuccEdges v
       ctx.Vertices.Remove ppoint |> ignore
       ctx.CFG <- ctx.CFG.RemoveVertex v
@@ -296,18 +296,23 @@ type CFGRecovery<'FnCtx,
   let reconnectVertices ctx (dividedEdges: List<ProgramPoint * ProgramPoint>) =
     for (srcPPoint, dstPPoint) in dividedEdges do
       let preds, succs = removeVertex ctx srcPPoint
-      let srcVertex = getVertex ctx srcPPoint
-      let dstVertex = getVertex ctx dstPPoint
+      if Array.isEmpty preds && Array.isEmpty succs then
+        (* Don't reconnect previously unseen blocks, which can be introduced by
+           tail-calls. N.B. BBLFactory cannot see tail-calls. *)
+        ()
+      else
+        let srcVertex = getVertex ctx srcPPoint
+        let dstVertex = getVertex ctx dstPPoint
 #if CFGDEBUG
-      dbglog ctx.ThreadID "Reconnect" $"{srcPPoint} -> {dstPPoint}"
+        dbglog ctx.ThreadID "Reconnect" $"{srcPPoint} -> {dstPPoint}"
 #endif
-      let lastAddr = dstVertex.VData.Internals.LastInstruction.Address
-      handleCallerSplit ctx srcPPoint.Address dstPPoint.Address lastAddr
-      ctx.CFG <- ctx.CFG.AddEdge (srcVertex, dstVertex, FallThroughEdge)
-      for predEdge in preds do
-        ctx.CFG <- ctx.CFG.AddEdge (predEdge.First, srcVertex, predEdge.Label)
-      for succEdge in succs do
-        ctx.CFG <- ctx.CFG.AddEdge (dstVertex, succEdge.Second, succEdge.Label)
+        let lastAddr = dstVertex.VData.Internals.LastInstruction.Address
+        handleCallerSplit ctx srcPPoint.Address dstPPoint.Address lastAddr
+        ctx.CFG <- ctx.CFG.AddEdge (srcVertex, dstVertex, FallThroughEdge)
+        for e in preds do
+          ctx.CFG <- ctx.CFG.AddEdge (e.First, srcVertex, e.Label)
+        for e in succs do
+          ctx.CFG <- ctx.CFG.AddEdge (dstVertex, e.Second, e.Label)
 
   let addExpandCFGAction (queue: CFGActionQueue) addr =
     queue.Push prioritizer <| ExpandCFG ([ addr ])

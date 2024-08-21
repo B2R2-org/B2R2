@@ -132,7 +132,7 @@ let vAlign (vGraph: IGraph<_, _>) vLayout maxLayer conflicts vDir hDir =
       | Rightmost -> Int32.MaxValue
     for v in vertices do
       let neighbors = neighborFn v
-      if neighbors.Count = 0 then ()
+      if neighbors.Length = 0 then ()
       else
         let neighbors = Seq.toArray neighbors |> Array.sortBy VisGraph.getIndex
         let medians = getMedianNeighbors neighbors hDir

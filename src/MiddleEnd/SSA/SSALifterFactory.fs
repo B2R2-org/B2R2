@@ -164,7 +164,7 @@ module private SSALifterFactory =
       | _ ->
         (* Insert Phi for v *)
         let preds = (g: IGraph<_, _>).GetPreds v
-        v.VData.Internals.PrependPhi variable preds.Count
+        v.VData.Internals.PrependPhi variable preds.Length
         let phiSites = Set.add v phiSites
         let defs = (defsPerNode: DefsPerNode)[v]
         if not <| Set.contains variable defs then phiSites, v :: workList

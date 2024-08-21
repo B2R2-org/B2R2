@@ -194,31 +194,26 @@ type ImperativeDiGraph<'V, 'E when 'V: equality and 'E: equality> () =
       (v :?> ImperativeVertex<'V>).Preds
       |> Seq.toArray
       |> Array.map (fun v -> v :> IVertex<'V>)
-      :> IReadOnlyCollection<_>
 
     member __.GetPredEdges (v: IVertex<'V>) =
       (v :?> ImperativeVertex<'V>).Preds
       |> Seq.toArray
       |> Array.map (fun pred -> edges[(pred.ID, v.ID)])
-      :> IReadOnlyCollection<_>
 
     member __.GetSuccs (v: IVertex<'V>) =
       (v :?> ImperativeVertex<'V>).Succs
       |> Seq.toArray
       |> Array.map (fun v -> v :> IVertex<'V>)
-      :> IReadOnlyCollection<_>
 
     member __.GetSuccEdges (v: IVertex<'V>) =
       (v :?> ImperativeVertex<'V>).Succs
       |> Seq.toArray
       |> Array.map (fun succ -> edges[(v.ID, succ.ID)])
-      :> IReadOnlyCollection<_>
 
     member __.GetRoots () =
       roots
       |> Seq.toArray
       |> Array.map (fun v -> v :> IVertex<'V>)
-      :> IReadOnlyCollection<_>
 
     member __.AddRoot (v) =
       let v = v :?> ImperativeVertex<'V>
