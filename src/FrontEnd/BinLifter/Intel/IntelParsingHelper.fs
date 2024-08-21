@@ -1478,9 +1478,9 @@ module internal ParsingHelper = begin
 
   let nor0F7C = function
     | MPref.MPrxNP  -> raise ParsingFailureException
-    | MPref.MPrx66 -> struct (HADDPD, OD.GprRm, SZ.Dq, None)
+    | MPref.MPrx66 -> struct (HADDPD, OD.GprRm, SZ.Dq, TT.NA)
     | MPref.MPrxF3
-    | MPref.MPrxF2 -> struct (HADDPS, OD.GprRm, SZ.Dq, None)
+    | MPref.MPrxF2 -> struct (HADDPS, OD.GprRm, SZ.Dq, TT.NA)
     | _ (* MPrx66F2 *) -> raise ParsingFailureException
 
   let vex0F7C = function
@@ -1494,9 +1494,9 @@ module internal ParsingHelper = begin
 
   let nor0F7D = function
     | MPref.MPrxNP  -> raise ParsingFailureException
-    | MPref.MPrx66 -> struct (HSUBPD, OD.GprRm, SZ.Dq, None)
+    | MPref.MPrx66 -> struct (HSUBPD, OD.GprRm, SZ.Dq, TT.NA)
     | MPref.MPrxF3
-    | MPref.MPrxF2 -> struct (HSUBPS, OD.GprRm, SZ.Dq, None)
+    | MPref.MPrxF2 -> struct (HSUBPS, OD.GprRm, SZ.Dq, TT.NA)
     | _ (* MPrx66F2 *) -> raise ParsingFailureException
 
   let vex0F7D = function
@@ -5163,42 +5163,42 @@ module internal ParsingHelper = begin
 
   let nor0F3A16W0 = function
     | MPref.MPrxNP -> raise ParsingFailureException
-    | MPref.MPrx66 -> struct (PEXTRD, OD.XmRegImm8, SZ.VyDqMR, None)
+    | MPref.MPrx66 -> struct (PEXTRD, OD.XmRegImm8, SZ.VyDqMR, TT.NA)
     | MPref.MPrxF3
     | MPref.MPrxF2
     | _ (* MPrx66F2 *) -> raise ParsingFailureException
 
   let nor0F3A16W1 = function
     | MPref.MPrxNP -> raise ParsingFailureException
-    | MPref.MPrx66 -> struct (PEXTRQ, OD.XmRegImm8, SZ.VyDqMR, None)
+    | MPref.MPrx66 -> struct (PEXTRQ, OD.XmRegImm8, SZ.VyDqMR, TT.NA)
     | MPref.MPrxF3
     | MPref.MPrxF2
     | _ (* MPrx66F2 *) -> raise ParsingFailureException
 
   let vex0F3A16W0 = function
     | MPref.MPrxNP -> raise ParsingFailureException
-    | MPref.MPrx66 -> struct (VPEXTRD, OD.XmRegImm8, SZ.VyDqMR, None)
+    | MPref.MPrx66 -> struct (VPEXTRD, OD.XmRegImm8, SZ.VyDqMR, TT.NA)
     | MPref.MPrxF3
     | MPref.MPrxF2
     | _ (* MPrx66F2 *) -> raise ParsingFailureException
 
   let vex0F3A16W1 = function
     | MPref.MPrxNP -> raise ParsingFailureException
-    | MPref.MPrx66 -> struct (VPEXTRQ, OD.XmRegImm8, SZ.VyDqMR, None)
+    | MPref.MPrx66 -> struct (VPEXTRQ, OD.XmRegImm8, SZ.VyDqMR, TT.NA)
     | MPref.MPrxF3
     | MPref.MPrxF2
     | _ (* MPrx66F2 *) -> raise ParsingFailureException
 
   let evex0F3A16W0 = function
     | MPref.MPrxNP -> raise ParsingFailureException
-    | MPref.MPrx66 -> struct (VPEXTRD, OD.XmRegImm8, SZ.VyDqMR, None)
+    | MPref.MPrx66 -> struct (VPEXTRD, OD.XmRegImm8, SZ.VyDqMR, TT.NA)
     | MPref.MPrxF3
     | MPref.MPrxF2
     | _ (* MPrx66F2 *) -> raise ParsingFailureException
 
   let evex0F3A16W1 = function
     | MPref.MPrxNP -> raise ParsingFailureException
-    | MPref.MPrx66 -> struct (VPEXTRQ, OD.XmRegImm8, SZ.VyDqMR, None)
+    | MPref.MPrx66 -> struct (VPEXTRQ, OD.XmRegImm8, SZ.VyDqMR, TT.NA)
     | MPref.MPrxF3
     | MPref.MPrxF2
     | _ (* MPrx66F2 *) -> raise ParsingFailureException
@@ -5818,7 +5818,7 @@ module internal ParsingHelper = begin
 
   let nor0F3ADF = function
     | MPref.MPrxNP -> raise ParsingFailureException
-    | MPref.MPrx66 -> struct (AESKEYGENASSIST,OD.XmmRmImm8, SZ.DqDq, None)
+    | MPref.MPrx66 -> struct (AESKEYGENASSIST,OD.XmmRmImm8, SZ.DqDq, TT.NA)
     | MPref.MPrxF3
     | MPref.MPrxF2
     | _ (* MPrx66F2 *) -> raise ParsingFailureException
@@ -6218,11 +6218,11 @@ module internal ParsingHelper = begin
   let parseVEX span (rhlp: ReadHelper) fnNor fnVex =
     match rhlp.VEXInfo with
     | None ->
-      let struct (op, oidx, sidx, tt) = fnNor (getMandPrx rhlp.Prefixes)
+      let struct (op, oidx, sidx, _) = fnNor (getMandPrx rhlp.Prefixes)
       rhlp.Prefixes <- filterPrefs rhlp.Prefixes
       render span rhlp op SzCond.Nor oidx sidx
     | Some v ->
-      let struct (op, oidx, sidx, tt) = fnVex (getMandPrx v.VPrefixes)
+      let struct (op, oidx, sidx, _) = fnVex (getMandPrx v.VPrefixes)
       render span rhlp op SzCond.Nor oidx sidx
 
   /// Select Normal(REX.W), VEX(REX.W)
@@ -6239,7 +6239,7 @@ module internal ParsingHelper = begin
 
   /// Normal(REX.W)/VEX(REX.W)
   let parseVEXW span rhlp fnNorW0 fnNorW1 fnVexW0 fnVexW1 =
-    let struct (op, oidx, sidx, tt) =
+    let struct (op, oidx, sidx, _) =
       selectVEXW span rhlp fnNorW0 fnNorW1 fnVexW0 fnVexW1
     render span rhlp op SzCond.Nor oidx sidx
 
@@ -6279,6 +6279,7 @@ module internal ParsingHelper = begin
   let parseEVEXW span rhlp fnVexW0 fnVexW1 fnEVexW0 fnEVexW1 =
     let struct (op, oidx, sidx, tt) =
       selectEVEXW rhlp fnVexW0 fnVexW1 fnEVexW0 fnEVexW1
+    rhlp.TupleType <- tt
     render span rhlp op SzCond.Nor oidx sidx
 
   /// Select Normal(REX.W), VEX(REX.W), EVEX(REX.W)
@@ -6302,11 +6303,12 @@ module internal ParsingHelper = begin
   let parseEVEXAll span rhlp fnNorW0 fnNorW1 fnVexW0 fnVexW1 fnEVexW0 fnEVexW1 =
     let struct (op, oidx, sidx, tt) =
       selectEVEXAll rhlp fnNorW0 fnNorW1 fnVexW0 fnVexW1 fnEVexW0 fnEVexW1
+    rhlp.TupleType <- tt
     render span rhlp op SzCond.Nor oidx sidx
 
   /// Parse non-VEX instructions.
   let parseNonVEX span (rhlp: ReadHelper) fnNor =
-    let struct (op, oidx, sidx, tt) = getInstr rhlp.Prefixes fnNor
+    let struct (op, oidx, sidx, _) = getInstr rhlp.Prefixes fnNor
     rhlp.Prefixes <- filterPrefs rhlp.Prefixes
     render span rhlp op SzCond.Nor oidx sidx
 
@@ -6319,18 +6321,18 @@ module internal ParsingHelper = begin
 
   /// Parse BND-related instructions.
   let parseBND span (rhlp: ReadHelper) szCond fnBND =
-    let struct (op, oidx, sidx, tt) = getInstr rhlp.Prefixes fnBND
+    let struct (op, oidx, sidx, _) = getInstr rhlp.Prefixes fnBND
     rhlp.Prefixes <- filterPrefs rhlp.Prefixes
     render span rhlp op szCond oidx sidx
 
   let parseCETInstr span (rhlp: ReadHelper) =
-    let struct (op, oidx, sidx, tt) =
+    let struct (op, oidx, sidx, _) =
       match rhlp.PeekByte span with
-      | 0xFAuy -> rhlp.IncPos (); struct (ENDBR64, OD.No, SZ.Def, None)
-      | 0xFBuy -> rhlp.IncPos (); struct (ENDBR32, OD.No, SZ.Def, None)
+      | 0xFAuy -> rhlp.IncPos (); struct (ENDBR64, OD.No, SZ.Def, TT.NA)
+      | 0xFBuy -> rhlp.IncPos (); struct (ENDBR32, OD.No, SZ.Def, TT.NA)
       | b when getReg b = 0b001 && getMod b = 0b11 ->
         let op = if hasREXW rhlp.REXPrefix then RDSSPQ else RDSSPD
-        struct (op, OD.Gpr, SZ.Def, None)
+        struct (op, OD.Gpr, SZ.Def, TT.NA)
       | _ -> raise InvalidOpcodeException
     rhlp.Prefixes <- ClearGrp1PrefMask &&& rhlp.Prefixes
     render span rhlp op SzCond.Nor oidx sidx
