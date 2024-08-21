@@ -89,9 +89,8 @@ let rec private assignDFNum (g: IGraph<_, _>) (info: DomInfo<'V>) n = function
     info.Vertex[n] <- v
     info.Label[n] <- n
     info.Parent[n] <- p
-    g.GetSuccs v
-    |> Seq.fold (fun acc s -> (n, s) :: acc) stack
-    |> assignDFNum g info (n+1)
+    let stack' = g.GetSuccs v |> Seq.fold (fun acc s -> (n, s) :: acc) stack
+    assignDFNum g info (n+1) stack'
   | _ :: stack -> assignDFNum g info n stack
   | [] -> n - 1
 
@@ -299,49 +298,49 @@ let private computeDomTree (g: IGraph<_, _>) info =
     domTree[idom] <- v :: domTree[idom])
   domTree
 
-let rec private computeFrontierLocal s ctxt (parent: IVertex<_>) = function
+let rec private computeFrontierLocal s info (parent: IVertex<_>) = function
   | succ :: rest ->
-    let succID = dfnum ctxt succ
-    let d = ctxt.Vertex[ctxt.IDom[succID]]
+    let succID = dfnum info succ
+    let d = info.Vertex[info.IDom[succID]]
     let s = if d.ID = parent.ID then s else Set.add succID s
-    computeFrontierLocal s ctxt parent rest
+    computeFrontierLocal s info parent rest
   | [] -> s
 
-let rec private computeDF domTree (frontiers: IVertex<_> list []) g ctxt r =
+let rec private computeDF domTree (frontiers: IVertex<_> list []) g info r =
   let mutable s = Set.empty
   for succ in (g: IGraph<_, _>).GetSuccs r do
-    let succID = dfnum ctxt succ
-    let domID = ctxt.IDom[succID]
-    let d = ctxt.Vertex[ctxt.IDom[succID]]
+    let succID = dfnum info succ
+    let domID = info.IDom[succID]
+    let d = info.Vertex[info.IDom[succID]]
     if domID <> 0 && d.ID <> r.ID then s <- Set.add succID s
   done
-  for child in (domTree: IVertex<_> list [])[dfnum ctxt r] do
-    computeDF domTree frontiers g ctxt child
-    for node in frontiers[dfnum ctxt child] do
-      let doms = domsAux [] node ctxt
+  for child in (domTree: IVertex<_> list [])[dfnum info r] do
+    computeDF domTree frontiers g info child
+    for node in frontiers[dfnum info child] do
+      let doms = domsAux [] node info
       let dominate = doms |> Array.exists (fun d -> d.ID = r.ID)
-      if not dominate then s <- Set.add (dfnum ctxt node) s
+      if not dominate then s <- Set.add (dfnum info node) s
     done
   done
-  frontiers[dfnum ctxt r] <- Set.fold (fun df n -> ctxt.Vertex[n] :: df) [] s
+  frontiers[dfnum info r] <- Set.fold (fun df n -> info.Vertex[n] :: df) [] s
 
 let frontier ctxt v =
   let g = ctxt.ForwardGraph
   checkVertexInGraph g v
   let root = ctxt.ForwardRoot
-  let ctxt = ctxt.ForwardDomInfo
-  let frontiers = Array.create ctxt.MaxLength []
-  let domTree = computeDomTree g ctxt
-  computeDF domTree frontiers g ctxt root
-  frontiers[dfnum ctxt v]
+  let info = ctxt.ForwardDomInfo
+  let frontiers = Array.create info.MaxLength []
+  let domTree = computeDomTree g info
+  computeDF domTree frontiers g info root
+  frontiers[dfnum info v]
 
 let frontiers ctxt =
   let g = ctxt.ForwardGraph
   let root = ctxt.ForwardRoot
-  let ctxt = ctxt.ForwardDomInfo
-  let frontiers = Array.create ctxt.MaxLength []
-  let domTree = computeDomTree g ctxt
-  computeDF domTree frontiers g ctxt root
+  let info = ctxt.ForwardDomInfo
+  let frontiers = Array.create info.MaxLength []
+  let domTree = computeDomTree g info
+  computeDF domTree frontiers g info root
   frontiers
 
 let dominatorTree ctxt =
