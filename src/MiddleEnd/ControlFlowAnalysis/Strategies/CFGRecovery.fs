@@ -455,7 +455,8 @@ type CFGRecovery<'FnCtx,
         let srcVertex = (* Since src vertex can be split, we need to find it *)
           ctx.CFG.GetPreds targetVertex
           |> Seq.find (fun v ->
-            v.VData.Internals.LastInstruction.Address = jmptbl.InsAddr)
+            if (v.VData :> IAbstractable<_>).IsAbstract then false
+            else v.VData.Internals.LastInstruction.Address = jmptbl.InsAddr)
         let srcAddr = srcVertex.VData.Internals.BlockAddress
         pushJmpTblRecoveryAction ctx queue srcAddr jmptbl (idx + 1)
       | false ->
