@@ -107,38 +107,38 @@ module Tests =
   let SCCTest1 g =
     let g = example1 g
     let sccs = SCC.compute g
-    Assert.AreEqual (5, sccs.Count)
+    Assert.AreEqual (5, sccs.Length)
 
   let SCCTest2 g =
     let g, n1, n8, s = example2 g
     let sccs = SCC.compute g
-    Assert.AreEqual (3, sccs.Count)
+    Assert.AreEqual (3, sccs.Length)
     let scc1 = HashSet [ n1 ]
-    Assert.IsTrue <| sccs.Exists (fun scc -> scc.SetEquals scc1)
+    sccs |> Array.exists (fun scc -> scc.SetEquals scc1) |> Assert.IsTrue
     let scc2 = HashSet [ n8 ]
-    Assert.IsTrue <| sccs.Exists (fun scc -> scc.SetEquals scc2)
+    sccs |> Array.exists (fun scc -> scc.SetEquals scc2) |> Assert.IsTrue
     let scc3 = HashSet s
-    Assert.IsTrue <| sccs.Exists (fun scc -> scc.SetEquals scc3)
+    sccs |> Array.exists (fun scc -> scc.SetEquals scc3) |> Assert.IsTrue
 
   let SCCTest3 g =
     let g, s1, s2, s3 = example3 g
     let sccs = SCC.compute g
-    Assert.AreEqual (3, sccs.Count)
+    Assert.AreEqual (3, sccs.Length)
     let scc1 = HashSet s1
-    Assert.IsTrue <| sccs.Exists (fun scc -> scc.SetEquals scc1)
+    sccs |> Array.exists (fun scc -> scc.SetEquals scc1) |> Assert.IsTrue
     let scc2 = HashSet s2
-    Assert.IsTrue <| sccs.Exists (fun scc -> scc.SetEquals scc2)
+    sccs |> Array.exists (fun scc -> scc.SetEquals scc2) |> Assert.IsTrue
     let scc3 = HashSet s3
-    Assert.IsTrue <| sccs.Exists (fun scc -> scc.SetEquals scc3)
+    sccs |> Array.exists (fun scc -> scc.SetEquals scc3) |> Assert.IsTrue
 
   let SCCTest4 g =
     let g, s1, s2 = example4 g
     let sccs = SCC.compute g
-    Assert.AreEqual (2, sccs.Count)
+    Assert.AreEqual (2, sccs.Length)
     let scc1 = HashSet s1
-    Assert.IsTrue <| sccs.Exists (fun scc -> scc.SetEquals scc1)
+    sccs |> Array.exists (fun scc -> scc.SetEquals scc1) |> Assert.IsTrue
     let scc2 = HashSet s2
-    Assert.IsTrue <| sccs.Exists (fun scc -> scc.SetEquals scc2)
+    sccs |> Array.exists (fun scc -> scc.SetEquals scc2) |> Assert.IsTrue
 
 [<TestClass>]
 type ImperativeSCCTest() =

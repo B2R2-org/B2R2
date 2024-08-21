@@ -48,6 +48,7 @@ type ExternalFnCFGBuilder<'FnCtx,
       AbsVertices = Dictionary ()
       CFG = null
       BBLFactory = BBLFactory (hdl, null)
+      ForceFinish = false
       NonReturningStatus = noretStatus
       JumpTableRecoveryStatus = None
       JumpTables = List ()

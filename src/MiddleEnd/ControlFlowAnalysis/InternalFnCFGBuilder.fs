@@ -104,6 +104,7 @@ type InternalFnCFGBuilder<'FnCtx,
         AbsVertices = Dictionary ()
         CFG = cfg
         BBLFactory = bblFactory
+        ForceFinish = false
         NonReturningStatus = UnknownNoRet
         JumpTableRecoveryStatus = None
         JumpTables = List ()

@@ -52,6 +52,10 @@ type CFGBuildingContext<'FnCtx,
   mutable CFG: LowUIRCFG
   /// The basic block factory.
   BBLFactory: BBLFactory
+  /// Do not wait for callee functions to be built, and finish building this
+  /// function by under-approximating the CFG, i.e., we consider every unknown
+  /// callee of this function as a no-return function.
+  mutable ForceFinish: bool
   /// Is this function a no-return function?
   mutable NonReturningStatus: NonReturningStatus
   /// Which jump table entry is currently being recovered? (table addr, index)

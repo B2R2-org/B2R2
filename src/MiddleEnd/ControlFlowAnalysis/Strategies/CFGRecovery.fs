@@ -143,7 +143,7 @@ type CFGRecovery<'FnCtx,
     let actionQueue = ctx.ActionQueue
     ctx.CallTable.AddRegularCall srcPp callsiteAddr callee
     ctx.ManagerChannel.UpdateDependency (fnAddr, callee, mode)
-    if fnAddr = callee then (* it is a self-recursion *)
+    if fnAddr = callee || ctx.ForceFinish then (* self-recursion or coercion *)
       actionQueue.Push prioritizer action
     else
       match ctx.ManagerChannel.GetBuildingContext callee with
@@ -382,7 +382,14 @@ type CFGRecovery<'FnCtx,
         if retOrPossiblyCondNoRet then
           connectAbsWithFT ctx caller calleeAddr queue
         else connectAbsWithoutFT ctx caller calleeAddr
-      | UnknownNoRet -> Utils.futureFeature ()
+      | UnknownNoRet ->
+        if ctx.ForceFinish then
+#if CFGDEBUG
+          dbglog ctx.ThreadID "CallEdge"
+          <| $"Underapprox {calleeAddr:x} as non-returning"
+#endif
+          connectAbsWithoutFT ctx caller calleeAddr
+        else Utils.futureFeature ()
 
   let connectIndirectCallEdge ctx queue callerAddr =
     let caller = getVertex ctx (ProgramPoint (callerAddr, 0))
@@ -503,7 +510,7 @@ type CFGRecovery<'FnCtx,
           let targets =
             addrs |> Seq.map (fun addr -> $"{addr:x}") |> String.concat ";"
           dbglog ctx.ThreadID (nameof ExpandCFG)
-          <| $"({targets}) @ {ctx.FunctionAddress:x}"
+          <| $"{targets} @ {ctx.FunctionAddress:x}"
 #endif
           let newPPs = addrs |> Seq.map (fun addr -> ProgramPoint (addr, 0))
           buildCFG ctx queue newPPs
@@ -541,7 +548,7 @@ type CFGRecovery<'FnCtx,
           dbglog ctx.ThreadID (nameof WaitForCallee)
           <| $"{ctx.FunctionAddress:x} waits for {calleeAddr:x}"
 #endif
-          if not <| ctx.PendingActions.ContainsKey calleeAddr then
+          if not (ctx.PendingActions.ContainsKey calleeAddr) then
 #if CFGDEBUG
             dbglog ctx.ThreadID (nameof WaitForCallee) "-> continue"
 #endif
@@ -551,6 +558,13 @@ type CFGRecovery<'FnCtx,
             dbglog ctx.ThreadID (nameof WaitForCallee) "-> failstop"
 #endif
             FailStop ErrorCase.FailedToRecoverCFG
+          elif ctx.ForceFinish then
+#if CFGDEBUG
+            dbglog ctx.ThreadID (nameof WaitForCallee) "-> force continue"
+#endif
+            ctx.PendingActions[calleeAddr] |> Seq.iter (queue.Push prioritizer)
+            ctx.PendingActions.Remove calleeAddr |> ignore
+            Continue
           else
 #if CFGDEBUG
             dbglog ctx.ThreadID (nameof WaitForCallee) "-> wait"
@@ -582,15 +596,19 @@ type CFGRecovery<'FnCtx,
       Continue
 
     member _.OnCyclicDependency (deps) =
-      let sorted = deps |> Seq.sortBy fst
+      let sorted = deps |> Array.sortBy fst
 #if CFGDEBUG
       sorted
-      |> Seq.map (fun (addr, _) -> $"{addr:x}")
+      |> Array.map (fun (addr, _) -> $"{addr:x}")
       |> String.concat ","
       |> dbglog ManagerTid "OnCyclicDependency"
 #endif
-      let _, builder = Seq.head sorted
-      Some builder
+      let target = Array.head sorted |> snd
+#if CFGDEBUG
+      dbglog ManagerTid "OnCyclicDependency"
+      <| $"target = {target.EntryPoint:x}"
+#endif
+      target
 
 /// Base strategy for building a CFG without any customizable context.
 type CFGRecovery =

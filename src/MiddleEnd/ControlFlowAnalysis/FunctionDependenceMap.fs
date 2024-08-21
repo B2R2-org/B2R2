@@ -71,11 +71,14 @@ type FunctionDependenceMap () =
       if v.VData <> callee then Some v.VData else None)
     |> Seq.toList
 
-  /// Check if the function located at the given address has cyclic
-  /// dependencies. If so, return the sequence of dependent function addresses.
-  member _.GetCyclicDependencies (addr: Addr) =
+  /// Return an array of sets of mutually recurive nodes in the current
+  /// dependence graph.
+  member _.GetCyclicDependencies () =
     SCC.compute g
-    |> Seq.collect (fun scc ->
-      if scc.Count > 1 && (scc |> Seq.exists (fun v -> v.VData = addr)) then
-        scc |> Seq.map (fun v -> v.VData)
-      else Seq.empty)
+    |> Array.choose (fun scc ->
+      if scc.Count > 1 then
+        let arr = Array.zeroCreate scc.Count
+        let mutable i = 0
+        for v in scc do arr[i] <- v.VData; i <- i + 1 done
+        Some arr
+      else None)

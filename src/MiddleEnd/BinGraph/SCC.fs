@@ -93,11 +93,11 @@ and private computeLowLink g ctxt v (n, stack, sccs) (w: IVertex<_>) =
 let compute (g: IGraph<_, _>) =
   let ctxt = initSCCInfo g
   g.Vertices
-  |> Seq.fold (fun (n, acc) root ->
+  |> Array.fold (fun (n, acc) root ->
     if ctxt.DFNumMap.ContainsKey root.ID then n, acc
     else
       let n, _, sccs = computeSCC g ctxt root n [] []
       n, sccs :: acc) (1, [])
   |> snd
   |> List.concat
-  |> ResizeArray
+  |> List.toArray
