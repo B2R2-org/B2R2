@@ -232,6 +232,26 @@ type CFGRecovery<'FnCtx,
           connectEdge ctx srcVertex fVertex InterCJmpFalseEdge
           ppQueue.Enqueue tPPoint
           ppQueue.Enqueue fPPoint
+        | InterCJmp (_, { E = BinOp (BinOpType.ADD, _, { E = PCVar _ },
+                                                       { E = Num tv }) },
+                        { E = PCVar _ }) ->
+          let lastAddr = (srcBBL :> ILowUIRBasicBlock).LastInstruction.Address
+          let tPPoint = maskedPPoint ctx (lastAddr + BitVector.ToUInt64 tv)
+          let fPPoint = maskedPPoint ctx lastAddr
+          let tVertex, fVertex = getVertex ctx tPPoint, getVertex ctx fPPoint
+          connectEdge ctx srcVertex tVertex InterCJmpTrueEdge
+          connectEdge ctx srcVertex fVertex InterCJmpFalseEdge
+          ppQueue.Enqueue tPPoint
+        | InterCJmp (_, { E = PCVar _ },
+                        { E = BinOp (BinOpType.ADD, _, { E = PCVar _ },
+                                                       { E = Num fv }) }) ->
+          let lastAddr = (srcBBL :> ILowUIRBasicBlock).LastInstruction.Address
+          let tPPoint = maskedPPoint ctx lastAddr
+          let fPPoint = maskedPPoint ctx (lastAddr + BitVector.ToUInt64 fv)
+          let tVertex, fVertex = getVertex ctx tPPoint, getVertex ctx fPPoint
+          connectEdge ctx srcVertex tVertex InterCJmpTrueEdge
+          connectEdge ctx srcVertex fVertex InterCJmpFalseEdge
+          ppQueue.Enqueue fPPoint
         | InterCJmp (_, { E = Num tv }, { E = Num fv }) ->
           let tPPoint = maskedPPoint ctx (BitVector.ToUInt64 tv)
           let fPPoint = maskedPPoint ctx (BitVector.ToUInt64 fv)
@@ -477,7 +497,7 @@ type CFGRecovery<'FnCtx,
           let targets =
             addrs |> Seq.map (fun addr -> $"{addr:x}") |> String.concat ";"
           dbglog ctx.ThreadID (nameof ExpandCFG)
-          <| $"{ctx.FunctionAddress:x} ({targets})"
+          <| $"({targets}) @ {ctx.FunctionAddress:x}"
 #endif
           let newPPs = addrs |> Seq.map (fun addr -> ProgramPoint (addr, 0))
           buildCFG ctx queue newPPs
