@@ -42,14 +42,12 @@ type SSAVarBasedDataFlowAnalysis<'Lattice when 'Lattice: equality>
       blk.VData.Internals.Statements
       |> Array.iter (fun (ppoint, stmt) ->
         analysis.Transfer ssaCFG blk ppoint stmt state)
-      if blk.VData.Internals.IsAbstract then ()
-      else
-        match blk.VData.Internals.LastStmt with
-        | Jmp _ -> ()
-        | _ -> (* Fall-through cases. *)
-          ssaCFG.GetSuccs blk
-          |> Seq.iter (fun succ ->
-            state.MarkExecutable myId succ.ID)
+      match blk.VData.Internals.LastStmt with
+      | Jmp _ -> ()
+      | _ -> (* Fall-through cases. *)
+        ssaCFG.GetSuccs blk
+        |> Seq.iter (fun succ ->
+          state.MarkExecutable myId succ.ID)
 
   let processSSA (state: SSAVarBasedDataFlowState<_>) (ssaCFG: SSACFG) =
     match state.SSAWorkList.TryPop () with
