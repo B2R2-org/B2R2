@@ -107,7 +107,11 @@ and private TaskManager<'FnCtx,
 #endif
         makeInvalid builder
         rollbackIfNecessary entryPoint builder
-        if isAllDone () then terminate () else ()
+        if workingSet.Count = 0 then
+          match builders.GetTerminationStatus () with
+          | AllDone | ForceTerminated _ -> terminate ()
+          | _ -> ()
+        else ()
       | AddDependency (_, callee, _) when isFinished callee -> ()
       | AddDependency (caller, callee, mode) ->
 #if CFGDEBUG
@@ -119,8 +123,20 @@ and private TaskManager<'FnCtx,
       | ReportCFGResult (entryPoint, result) ->
         try handleResult entryPoint result
         with e -> Console.Error.WriteLine $"Failed to handle result:\n{e}"
-        if isAllDone () then terminate ()
-        elif workingSet.Count = 0 then checkAndResolveCyclicDependencies ()
+        if workingSet.Count = 0 then
+          match builders.GetTerminationStatus () with
+          | AllDone -> terminate ()
+          | ForceTerminated blds ->
+            blds
+            |> Array.iter (fun builder ->
+#if CFGDEBUG
+              dbglog ManagerTid "ForceReset"
+              <| $"{builder.Context.FunctionAddress:x}"
+#endif
+              builder.Reset builders.CFGConstructor
+              builder.Context.ForceFinish <- false
+              addTask builder.EntryPoint builder.Mode)
+          | YetDone -> checkAndResolveCyclicDependencies ()
         else ()
       | RetrieveNonReturningStatus (addr, ch) ->
         match builders.TryGetBuilder addr with
@@ -275,10 +291,6 @@ and private TaskManager<'FnCtx,
         fnAddr < nextJumpTarget && nextJumpTarget < nextBuilder.EntryPoint
       | Error _ -> false
     else false
-
-  and isAllDone () =
-    workingSet.Count = 0
-    && builders.AllTerminated ()
 
   and terminate () =
     toWorkers.Complete ()

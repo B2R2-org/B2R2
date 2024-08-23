@@ -79,11 +79,17 @@ type CFGBuilderTable<'FnCtx,
   /// Get the CFG constructor associated with this table.
   member _.CFGConstructor with get() = cfgConstructor
 
-  /// Are all function builders finished or invalid?
-  member _.AllTerminated () =
-    builders.Values
-    |> Seq.forall (fun builder ->
-      builder.BuilderState = Finished || builder.BuilderState = Invalid)
+  /// Return the current termination status of all function builders.
+  member _.GetTerminationStatus () =
+    let mutable allDone = true
+    let forceTerminated = List ()
+    for bld in builders.Values do
+      if bld.BuilderState = Finished || bld.BuilderState = Invalid then ()
+      else allDone <- false
+      if bld.Context.ForceFinish then forceTerminated.Add bld else ()
+    if allDone && forceTerminated.Count = 0 then AllDone
+    elif allDone then ForceTerminated <| forceTerminated.ToArray ()
+    else YetDone
 
   /// Get or create a function builder by its address and operation mode.
   member _.GetOrCreateBuilder agent addr mode =
@@ -108,3 +114,15 @@ type CFGBuilderTable<'FnCtx,
     | idx ->
       if idx + 1 < builders.Count then Ok <| builders.GetValueAtIndex (idx + 1)
       else Error ErrorCase.ItemNotFound
+
+and TerminationStatus<'FnCtx,
+                      'GlCtx when 'FnCtx :> IResettable
+                              and 'FnCtx: (new: unit -> 'FnCtx)
+                              and 'GlCtx: (new: unit -> 'GlCtx)> =
+  /// Everything is finished and there's no forcefully terminated builders.
+  | AllDone
+  /// Everything is finished, but there are some builders that are forcefully
+  /// terminated, which need to be reanalyzed.
+  | ForceTerminated of ICFGBuildable<'FnCtx, 'GlCtx>[]
+  /// Not all builders are finished.
+  | YetDone
