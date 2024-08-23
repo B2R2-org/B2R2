@@ -151,6 +151,7 @@ type OprDesc =
   | XmmVvXmmXm = 117
   | KnKm = 118
   | MKn = 119
+  | KKn = 120
 
 module internal OperandParsingHelper =
   /// Find a specific reg. The bitmask will be used to extract a specific REX
@@ -1473,4 +1474,13 @@ type internal OpMKn () =
     let opr1 = if modIsMemory modRM then parseMemory modRM span rhlp
                else raise ParsingFailureException
     let opr2 = parseOpMaskReg (getReg modRM)
+    TwoOperands (opr1, opr2)
+
+type internal OpKKn () =
+  inherit OperandParser ()
+  override __.Render (span, rhlp) =
+    let modRM = rhlp.ReadByte span
+    let opr1 = parseOpMaskReg (getReg modRM)
+    let opr2 = if modIsMemory modRM then raise ParsingFailureException
+               else parseOpMaskReg (getRM modRM)
     TwoOperands (opr1, opr2)

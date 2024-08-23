@@ -1662,6 +1662,27 @@ module internal ParsingHelper = begin
     | MPref.MPrxF2 -> struct (KMOVQ, OD.GprKn, SZ.Def, TT.NA) (* r64, k1 *)
     | _ (* MPrx66F2 *) -> raise ParsingFailureException
 
+  let nor0F98 = function
+    | MPref.MPrxNP -> struct (SETS, OD.Mem, SZ.Byte, TT.NA) (* Eb *)
+    | MPref.MPrx66
+    | MPref.MPrxF3
+    | MPref.MPrxF2
+    | _ (* MPrx66F2 *) -> raise ParsingFailureException
+
+  let vex0F98W0 = function
+    | MPref.MPrxNP -> struct (KORTESTW, OD.KKn, SZ.Def, TT.NA) (* k1, k2 *)
+    | MPref.MPrx66 -> struct (KORTESTB, OD.KKn, SZ.Def, TT.NA) (* k1, k2 *)
+    | MPref.MPrxF3
+    | MPref.MPrxF2
+    | _ (* MPrx66F2 *) -> raise ParsingFailureException
+
+  let vex0F98W1 = function
+    | MPref.MPrxNP -> struct (KORTESTQ, OD.KKn, SZ.Def, TT.NA) (* k1, k2 *)
+    | MPref.MPrx66 -> struct (KORTESTD, OD.KKn, SZ.Def, TT.NA) (* k1, k2 *)
+    | MPref.MPrxF3
+    | MPref.MPrxF2
+    | _ (* MPrx66F2 *) -> raise ParsingFailureException
+
   let nor0FC2 = function
     | MPref.MPrxNP ->
       struct (CMPPS, OD.XmmRmImm8, SZ.DqDq, TT.NA) (* VdqWdqIb *)
@@ -6804,7 +6825,7 @@ module internal ParsingHelper = begin
     | 0x95uy -> render span rhlp SETNZ SzCond.Nor OD.Mem SZ.Byte
     | 0x96uy -> render span rhlp SETBE SzCond.Nor OD.Mem SZ.Byte
     | 0x97uy -> render span rhlp SETA SzCond.Nor OD.Mem SZ.Byte
-    | 0x98uy -> render span rhlp SETS SzCond.Nor OD.Mem SZ.Byte
+    | 0x98uy -> parseVEXW span rhlp nor0F98 nor0F98 vex0F98W0 vex0F98W1
     | 0x99uy -> render span rhlp SETNS SzCond.Nor OD.Mem SZ.Byte
     | 0x9Auy -> render span rhlp SETP SzCond.Nor OD.Mem SZ.Byte
     | 0x9Buy -> render span rhlp SETNP SzCond.Nor OD.Mem SZ.Byte
