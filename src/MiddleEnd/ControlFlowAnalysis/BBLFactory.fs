@@ -91,7 +91,7 @@ type BBLFactory (hdl: BinHandle,
           match tryParse channel addr mode with
           | Ok nextAddrs ->
             nextAddrs |> Array.iter queue.Enqueue
-          | Error e ->
+          | Error _e ->
             queue.Clear ()
             channel.Post (0UL, [], -1) |> ignore (* post error *)
             channel.Complete ()
@@ -177,12 +177,16 @@ type BBLFactory (hdl: BinHandle,
     extractLabelInfo labelMap liftedIns insAddr (liftedIns.Stmts.Length - 1)
     |> ImmutableDictionary.CreateRange
 
+  let addInterProceduralLeader addr =
+    interProceduralLeaders.TryAdd (addr, ()) |> ignore
+
   let addIRBasicBlock liftedInstrs labelMap prevInsNdx prevStmtNdx endNdx =
     let instrs = extractInstrs liftedInstrs (prevInsNdx, prevStmtNdx) endNdx
     let ppoint = ProgramPoint (instrs[0].Original.Address, prevStmtNdx)
     let lastIns = instrs[instrs.Length - 1]
     let labelMap = buildLabelMap labelMap lastIns
     let bbl = LowUIRBasicBlock.CreateRegular (instrs, ppoint, labelMap)
+    if prevStmtNdx = 0 then addInterProceduralLeader ppoint.Address else ()
     bbls.TryAdd (ppoint, bbl) |> ignore
 
   let rec gatherIntraBBLs liftedInstrs labelMap prevInsNdx prevStmtNdx indices =
@@ -195,7 +199,7 @@ type BBLFactory (hdl: BinHandle,
 
   let liftBlock liftingUnit leaderAddr (instrs: Instruction list) insCount =
     assert (insCount <> 0)
-    interProceduralLeaders.TryAdd (leaderAddr, ()) |> ignore
+    addInterProceduralLeader leaderAddr
     let arr = Array.zeroCreate insCount
     let arr = liftAndFill liftingUnit leaderAddr arr instrs (insCount - 1)
     let struct (labelMap, intraLeaders) = scanIntraLeaders arr
