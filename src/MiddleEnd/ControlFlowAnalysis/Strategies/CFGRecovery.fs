@@ -73,6 +73,18 @@ type CFGRecovery<'FnCtx,
       ctx.Vertices[ppoint] <- v
       v
 
+  let tryGetVertex ctx ppoint =
+    match ctx.Vertices.TryGetValue ppoint with
+    | true, v -> Ok v
+    | false, _ ->
+      match ctx.BBLFactory.TryFind ppoint with
+      | Ok bbl ->
+        let v, g = ctx.CFG.AddVertex bbl
+        ctx.CFG <- g
+        ctx.Vertices[ppoint] <- v
+        Ok v
+      | Error _ -> Error ErrorCase.ItemNotFound
+
   let getCalleePPoint calleeAddrOpt =
     match calleeAddrOpt with
     | Some addr -> ProgramPoint (addr, 0)
@@ -168,9 +180,11 @@ type CFGRecovery<'FnCtx,
         | IEMark _ ->
           let last = srcData.LastInstruction
           let nextPPoint = ProgramPoint (last.Address + uint64 last.Length, 0)
-          let dstVertex = getVertex ctx nextPPoint
-          connectEdge ctx srcVertex dstVertex FallThroughEdge
-          ppQueue.Enqueue nextPPoint
+          match tryGetVertex ctx nextPPoint with
+          | Ok dstVertex ->
+            connectEdge ctx srcVertex dstVertex FallThroughEdge
+            ppQueue.Enqueue nextPPoint
+          | Error _ -> () (* Ignore when a bad instruction follows *)
         | Jmp { E = Name lbl } ->
           let dstPPoint = srcBBL.LabelMap[lbl]
           let dstVertex = getVertex ctx dstPPoint
