@@ -32,7 +32,9 @@ let rec typeOf = function
   | Num bv -> BitVector.GetType bv
   | Var { Kind = RegVar (rt, _, _) }
   | Var { Kind = PCVar rt }
-  | Var { Kind = TempVar (rt, _) } -> rt
+  | Var { Kind = TempVar (rt, _) }
+  | Var { Kind = StackVar (rt, _) }
+  | Var { Kind = GlobalVar (rt, _) } -> rt
   | Load (_, rt, _) -> rt
   | Store (_, rt, _, _) -> rt
   | UnOp (_, rt, _) -> rt
@@ -42,7 +44,7 @@ let rec typeOf = function
   | Cast (_, rt, _) -> rt
   | Extract (_, rt, _) -> rt
   | Undefined (rt, _) -> rt
-  | _ -> raise InvalidExprException
+  | e -> raise InvalidExprException
 
 let rec private translateDest = function
   | LowUIR.Var (ty, r, n) -> { Kind = RegVar (ty, r, n); Identifier = -1 }
