@@ -190,6 +190,8 @@ type SSAJmpTableAnalysis<'FnCtx,
     | BinOp (BinOpType.ADD, _, e, BinOp (BinOpType.MUL, _, _, Num _))
     | BinOp (BinOpType.ADD, _, e, BinOp (BinOpType.MUL, _, Num _, _))
     | BinOp (BinOpType.ADD, _, e, BinOp (BinOpType.SHL, _, _, Num _)) -> e
+    | BinOp (op, rt, e1, e2) ->
+      BinOp (op, rt, extractTableExpr e1, extractTableExpr e2)
     | e -> e
 
   let extractBaseAddr state expr =
