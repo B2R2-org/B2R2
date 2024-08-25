@@ -326,7 +326,10 @@ type CFGRecovery<'FnCtx,
         for e in preds do
           ctx.CFG <- ctx.CFG.AddEdge (e.First, srcVertex, e.Label)
         for e in succs do
-          ctx.CFG <- ctx.CFG.AddEdge (dstVertex, e.Second, e.Label)
+          if e.Second.VData.Internals.PPoint = srcPPoint then
+            ctx.CFG <- ctx.CFG.AddEdge (dstVertex, srcVertex, e.Label)
+          else
+            ctx.CFG <- ctx.CFG.AddEdge (dstVertex, e.Second, e.Label)
 
   let addExpandCFGAction (queue: CFGActionQueue) addr =
     queue.Push prioritizer <| ExpandCFG ([ addr ])
