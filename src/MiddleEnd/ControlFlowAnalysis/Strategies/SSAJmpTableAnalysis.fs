@@ -247,7 +247,7 @@ type SSAJmpTableAnalysis<'FnCtx,
     | _ -> Error ErrorCase.ItemNotFound
 
   /// This is a practical limit for the depth of symbolic expansion.
-  let [<Literal>] MaxDepth = 3
+  let [<Literal>] MaxDepth = 4
 
   let rec findSymbolicPattern state insAddr depth expr =
     if depth <= MaxDepth then

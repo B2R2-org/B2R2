@@ -448,7 +448,11 @@ type CFGRecovery<'FnCtx,
       |> function
         | true -> pushJmpTblRecoveryAction ctx queue bblAddr jmptbl 0
         | false -> StopAndReload
-    | Error _ -> Continue (* We ignore this indirect branch. *)
+    | Error _ ->
+#if CFGDEBUG
+      dbglog ctx.ThreadID "JumpTable" $"{insAddr:x} unknown pattern"
+#endif
+      Continue (* We ignore this indirect branch. *)
 
   let isFailedBuilding (ctx: CFGBuildingContext<'FnCtx, 'GlCtx>) calleeAddr =
     match ctx.ManagerChannel.GetBuildingContext calleeAddr with
