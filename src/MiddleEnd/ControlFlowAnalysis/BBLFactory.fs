@@ -108,6 +108,13 @@ type BBLFactory (hdl: BinHandle,
       liftAndFill lunit bblAddr arr tl (ndx - 1)
     | [] -> arr
 
+  let rec addLeaderHead (intraLeaders: LinkedList<_>) lastLeader idx =
+    if isNull (lastLeader: LinkedListNode<_>) then
+      intraLeaders.AddFirst ((idx, 0))
+    elif fst lastLeader.Value < idx then
+      intraLeaders.AddAfter (lastLeader, (idx, 0))
+    else addLeaderHead intraLeaders lastLeader.Previous idx
+
   let scanIntraLeaders (liftedInstrs: LiftedInstruction[]) =
     let labelMap = Dictionary<Addr * Symbol, ProgramPoint> ()
     let intraLeaders = LinkedList<int * int> () (* instruction ndx, stmt ndx *)
@@ -127,7 +134,7 @@ type BBLFactory (hdl: BinHandle,
         | InterCJmp (_, { E = PCVar _ }, _)
         | InterCJmp (_, _, { E = PCVar _ }) ->
           (* JMP PC means that the instruction jumps to itself. *)
-          intraLeaders.AddFirst ((i, 0)) |> ignore
+          addLeaderHead intraLeaders intraLeaders.Last i |> ignore
         | _ -> ()
     struct (labelMap, intraLeaders)
 
@@ -222,10 +229,10 @@ type BBLFactory (hdl: BinHandle,
             isSuccessful <- false; canContinue <- false
           | true, (leaderAddr, instrs, insCount) ->
             try liftBlock liftingUnit leaderAddr instrs insCount
-            with _ ->
+            with e ->
 #if CFGDEBUG
               dbglog ManagerTid (nameof BBLFactory)
-              <| $"Failed to lift instruction at {leaderAddr:x}"
+              <| $"Failed to lift instruction at {leaderAddr:x} {e}"
 #endif
               isSuccessful <- false; canContinue <- false
           | false, _ -> ()
