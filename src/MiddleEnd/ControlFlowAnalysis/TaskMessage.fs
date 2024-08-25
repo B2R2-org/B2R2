@@ -46,7 +46,9 @@ type TaskMessage<'FnCtx,
   | RetrieveBuildingContext of
     Addr * AgentReplyChannel<BuildingCtxMsg<'FnCtx, 'GlCtx>>
   /// Notify the manager that a new jump table entry is about to be recovered.
-  | NotifyJumpTableRecovery of fn: Addr * tbl: JmpTableInfo
+  /// The manager returns whether the recovery should continue or not.
+  | NotifyJumpTableRecovery of
+    fn: Addr * tbl: JmpTableInfo * AgentReplyChannel<bool>
   /// Report jump entry recovery result (success only) to the manager. The
   /// manager will then decide whether to continue the analysis or not.
   | ReportJumpTableSuccess of

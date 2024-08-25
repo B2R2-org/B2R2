@@ -154,7 +154,7 @@ type CFGRecovery<'FnCtx,
     let fnAddr = ctx.FunctionAddress
     let actionQueue = ctx.ActionQueue
     ctx.CallTable.AddRegularCall srcPp callsiteAddr callee
-    ctx.ManagerChannel.UpdateDependency (fnAddr, callee, mode)
+    ctx.ManagerChannel.AddDependency (fnAddr, callee, mode)
     if fnAddr = callee || ctx.ForceFinish then (* self-recursion or coercion *)
       actionQueue.Push prioritizer action
     else
@@ -425,7 +425,7 @@ type CFGRecovery<'FnCtx,
     Continue
 
   let readJumpTable ctx (jmptbl: JmpTableInfo) idx =
-    let size = RegType.toByteWidth jmptbl.EntrySize
+    let size = jmptbl.EntrySize
     let addr = jmptbl.TableAddress + uint64 (idx * size)
     jmptbl.JumpBase + uint64 (ctx.BinHandle.ReadInt (addr, size))
 
@@ -445,7 +445,9 @@ type CFGRecovery<'FnCtx,
       <| $"{insAddr:x}: [{jmptbl.TableAddress:x}] w/ base {jmptbl.JumpBase:x}"
 #endif
       ctx.ManagerChannel.NotifyJumpTableRecovery (ctx.FunctionAddress, jmptbl)
-      pushJmpTblRecoveryAction ctx queue bblAddr jmptbl 0
+      |> function
+        | true -> pushJmpTblRecoveryAction ctx queue bblAddr jmptbl 0
+        | false -> StopAndReload
     | Error _ -> Continue (* We ignore this indirect branch. *)
 
   let isFailedBuilding (ctx: CFGBuildingContext<'FnCtx, 'GlCtx>) calleeAddr =

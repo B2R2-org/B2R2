@@ -208,7 +208,7 @@ type SSAJmpTableAnalysis<'FnCtx,
       | Num t -> Ok <| BitVector.ToUInt64 t
       | _ -> Error ErrorCase.ItemNotFound
 
-  let extractTableInfo state insAddr baseExpr tblExpr sz =
+  let extractTableInfo state insAddr baseExpr tblExpr rt =
     let baseAddr = extractBaseAddr state baseExpr
     let tblAddr = extractTableAddr state tblExpr
     match baseAddr, tblAddr with
@@ -216,7 +216,7 @@ type SSAJmpTableAnalysis<'FnCtx,
       Ok { InsAddr = insAddr
            JumpBase = baseAddr
            TableAddress = tblAddr
-           EntrySize = sz
+           EntrySize = RegType.toByteWidth rt
            NumEntries = 0 }
     | _ -> Error ErrorCase.ItemNotFound
 

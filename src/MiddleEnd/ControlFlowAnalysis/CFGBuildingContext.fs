@@ -109,7 +109,7 @@ and [<AllowNullLiteral>]
                              and 'FnCtx: (new: unit -> 'FnCtx)
                              and 'GlCtx: (new: unit -> 'GlCtx)> =
   /// Update the dependency between two functions.
-  abstract UpdateDependency:
+  abstract AddDependency:
     caller: Addr * callee: Addr * ArchOperationMode -> unit
 
   /// Get the non-returning status of a function located at `addr`.
@@ -127,7 +127,7 @@ and [<AllowNullLiteral>]
   abstract NotifyJumpTableRecovery:
        fnAddr: Addr
      * jmptbl: JmpTableInfo
-    -> unit
+    -> bool
 
   /// Report the success of jump table entry recovery to the manager, and get
   /// the decision whether to continue the analysis or not.

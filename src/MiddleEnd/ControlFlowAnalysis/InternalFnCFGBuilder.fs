@@ -45,7 +45,7 @@ type InternalFnCFGBuilder<'FnCtx,
 
   let managerChannel =
     { new IManagerAccessible<'FnCtx, 'GlCtx> with
-        member _.UpdateDependency (caller, callee, mode) =
+        member _.AddDependency (caller, callee, mode) =
           agent.Post <| AddDependency (caller, callee, mode)
 
         member _.GetNonReturningStatus (addr) =
@@ -55,7 +55,8 @@ type InternalFnCFGBuilder<'FnCtx,
           agent.PostAndReply (fun _ ch -> RetrieveBuildingContext (addr, ch))
 
         member _.NotifyJumpTableRecovery (fnAddr, tblInfo) =
-          agent.Post <| NotifyJumpTableRecovery (fnAddr, tblInfo)
+          agent.PostAndReply (fun _ ch ->
+            NotifyJumpTableRecovery (fnAddr, tblInfo, ch))
 
         member _.ReportJumpTableSuccess (fnAddr, tblAddr, idx, nextAddr) =
           agent.PostAndReply (fun _ ch ->
@@ -78,6 +79,7 @@ type InternalFnCFGBuilder<'FnCtx,
       match strategy.OnAction (ctx, queue, action) with
       | Continue -> build strategy queue
       | Wait -> queue.Push strategy.ActionPrioritizer action; Wait
+      | StopAndReload -> StopAndReload
       | FailStop e -> FailStop e
 
   do ctx.ManagerChannel <- managerChannel

@@ -103,7 +103,11 @@ and private TaskManager<'FnCtx,
       | InvalidateBuilder (entryPoint, mode) ->
         let builder = builders.GetOrCreateBuilder agent entryPoint mode
 #if CFGDEBUG
-        dbglog ManagerTid (nameof InvalidateBuilder) $"{entryPoint:x}"
+        let jt =
+          match builder.Context.JumpTableRecoveryStatus with
+          | Some (addr, idx) -> $"!{addr:x}[{idx}]"
+          | None -> "n/a"
+        dbglog ManagerTid (nameof InvalidateBuilder) $"{jt} @ {entryPoint:x}"
 #endif
         makeInvalid builder
         rollbackIfNecessary entryPoint builder
@@ -150,8 +154,8 @@ and private TaskManager<'FnCtx,
           | Finished -> ch.Reply <| FinalCtx builder.Context
           | _ -> ch.Reply <| StillBuilding builder.Context
         | Error _ -> ch.Reply <| FailedBuilding
-      | NotifyJumpTableRecovery (fnAddr, jmptbl) ->
-        handleJumpTableRecoveryRequest fnAddr jmptbl
+      | NotifyJumpTableRecovery (fnAddr, jmptbl, ch) ->
+        ch.Reply <| handleJumpTableRecoveryRequest fnAddr jmptbl
       | ReportJumpTableSuccess (fnAddr, tblAddr, idx, nextTarget, ch) ->
         ch.Reply <| handleJumpTableRecoverySuccess fnAddr tblAddr idx nextTarget
       | AccessGlobalContext (accessor, ch) ->
@@ -168,12 +172,12 @@ and private TaskManager<'FnCtx,
   and rollbackIfNecessary entryPoint builder =
     match builder.Context.JumpTableRecoveryStatus with
     | Some (tblAddr, idx) ->
-      jmptblNotes.SetPotentialEndPoint tblAddr (idx - 1)
-      builder.Reset builders.CFGConstructor
-      addTask builder.Context.FunctionAddress builder.Mode
 #if CFGDEBUG
       dbglog ManagerTid "rollback" $"{builder.Context.FunctionAddress:x}"
 #endif
+      jmptblNotes.SetPotentialEndPoint tblAddr (idx - 1)
+      builder.Reset builders.CFGConstructor
+      addTask builder.Context.FunctionAddress builder.Mode
     | None ->
       dependenceMap.RemoveAndGetCallers entryPoint
       |> List.iter propagateInvalidation
@@ -268,6 +272,12 @@ and private TaskManager<'FnCtx,
 #if CFGDEBUG
         dbglog ManagerTid "HandleResult" $"{entryPoint:x}: stopped"
 #endif
+    | StopAndReload ->
+      builder.Reset builders.CFGConstructor
+      addTask builder.Context.FunctionAddress builder.Mode
+#if CFGDEBUG
+      dbglog ManagerTid "HandleResult" $"{entryPoint:x}: reloaded"
+#endif
     | FailStop e ->
       propagateInvalidation entryPoint
 #if CFGDEBUG
@@ -276,14 +286,31 @@ and private TaskManager<'FnCtx,
 
   and handleJumpTableRecoveryRequest fnAddr (jmptbl: JmpTableInfo) =
     match jmptblNotes.Register fnAddr jmptbl with
-    | Ok _ -> ()
-    | Error note -> propagateInvalidation note.HostFunctionAddr
+    | Ok _ ->
 #if CFGDEBUG
-    dbglog ManagerTid "JumpTable"
-    <| jmptblNotes.GetNoteString jmptbl.TableAddress
+      dbglog ManagerTid "JumpTable add"
+      <| jmptblNotes.GetNoteString jmptbl.TableAddress
 #endif
+      true
+    | Error note ->
+#if CFGDEBUG
+      let str = jmptblNotes.GetNoteString note.StartingPoint
+      dbglog ManagerTid "JumpTable failed"
+      <| $"{jmptbl.TableAddress:x} @ {jmptbl.InsAddr:x} overlapped with ({str})"
+#endif
+      if note.HostFunctionAddr = fnAddr then
+        note.PotentialEndPoint <- jmptbl.TableAddress - uint64 jmptbl.EntrySize
+#if CFGDEBUG
+        dbglog ManagerTid "JumpTable rollback"
+        <| $"changed potential endpoint to {note.PotentialEndPoint:x}"
+#endif
+        false
+      else propagateInvalidation note.HostFunctionAddr; false
 
   and handleJumpTableRecoverySuccess fnAddr tblAddr idx nextJumpTarget =
+#if CFGDEBUG
+    dbglog ManagerTid "JumpTable success" $"{tblAddr:x}[{idx}] @ {fnAddr:x}"
+#endif
     jmptblNotes.SetConfirmedEndPoint tblAddr idx
     if jmptblNotes.IsExpandable tblAddr (idx + 1) then
       match builders.TryGetNextBuilder fnAddr with

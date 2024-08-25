@@ -33,5 +33,7 @@ type CFGResult =
   /// We need to postpone the current task because the current function depends
   /// on other function(s) that have not been recovered yet.
   | Wait
+  /// We need to stop and reload the current task.
+  | StopAndReload
   /// We need to stop the current task due to a fatal error.
   | FailStop of ErrorCase
