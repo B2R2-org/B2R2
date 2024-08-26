@@ -2028,8 +2028,12 @@ VPADDW
 VPALIGNR
 /// Logical AND.
 VPAND
+/// Logical AND.
+VPANDD
 /// Logical AND NOT.
 VPANDN
+/// Logical AND.
+VPANDQ
 /// Average Packed Integers (byte).
 VPAVGB
 /// Average Packed Integers (word).
@@ -2378,6 +2382,10 @@ VPOPCNTQ
 VPOPCNTW
 /// Bitwise Logical OR.
 VPOR
+/// Bitwise Logical OR.
+VPORD
+/// Bitwise Logical OR.
+VPORQ
 /// Rotate dword elem left by a constant shift count with conditional update.
 VPROLD
 /// Rotate qword elem left by a constant shift count with conditional update.

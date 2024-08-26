@@ -1944,6 +1944,22 @@ module internal ParsingHelper = begin
     | MPref.MPrxF2
     | _ (* MPrx66F2 *) -> raise ParsingFailureException
 
+  let evex0FDBW0 = function
+    | MPref.MPrxNP -> raise ParsingFailureException
+    | MPref.MPrx66 ->
+      struct (VPANDD, OD.XmmVvXm, SZ.VecDef, TT.Full) (* VxHxWx *)
+    | MPref.MPrxF3
+    | MPref.MPrxF2
+    | _ (* MPrx66F2 *) -> raise ParsingFailureException
+
+  let evex0FDBW1 = function
+    | MPref.MPrxNP -> raise ParsingFailureException
+    | MPref.MPrx66 ->
+      struct (VPANDQ, OD.XmmVvXm, SZ.VecDef, TT.Full) (* VxHxWx *)
+    | MPref.MPrxF3
+    | MPref.MPrxF2
+    | _ (* MPrx66F2 *) -> raise ParsingFailureException
+
   let nor0FDC = function
     | MPref.MPrxNP -> struct (PADDUSB, OD.MmxRm, SZ.QQ, TT.NA) (* PqQq *)
     | MPref.MPrx66 -> struct (PADDUSB, OD.GprRm, SZ.DqDq, TT.NA) (* VdqWdq *)
@@ -2202,6 +2218,22 @@ module internal ParsingHelper = begin
   let vex0FEB = function
     | MPref.MPrxNP -> raise ParsingFailureException
     | MPref.MPrx66 -> struct (VPOR, OD.XmmVvXm, SZ.VecDef, TT.NA) (* VxHxWx *)
+    | MPref.MPrxF3
+    | MPref.MPrxF2
+    | _ (* MPrx66F2 *) -> raise ParsingFailureException
+
+  let evex0FEBW0 = function
+    | MPref.MPrxNP -> raise ParsingFailureException
+    | MPref.MPrx66 ->
+      struct (VPORD, OD.XmmVvXm, SZ.VecDef, TT.Full) (* VxHxWx *)
+    | MPref.MPrxF3
+    | MPref.MPrxF2
+    | _ (* MPrx66F2 *) -> raise ParsingFailureException
+
+  let evex0FEBW1 = function
+    | MPref.MPrxNP -> raise ParsingFailureException
+    | MPref.MPrx66 ->
+      struct (VPORQ, OD.XmmVvXm, SZ.VecDef, TT.Full) (* VxHxWx *)
     | MPref.MPrxF3
     | MPref.MPrxF2
     | _ (* MPrx66F2 *) -> raise ParsingFailureException
@@ -6919,7 +6951,7 @@ module internal ParsingHelper = begin
     | 0xD8uy -> parseVEX span rhlp nor0FD8 vex0FD8
     | 0xD9uy -> parseVEX span rhlp nor0FD9 vex0FD9
     | 0xDAuy -> parseVEX span rhlp nor0FDA vex0FDA
-    | 0xDBuy -> parseVEX span rhlp nor0FDB vex0FDB
+    | 0xDBuy -> parseEVEX span rhlp nor0FDB vex0FDB evex0FDBW0 evex0FDBW1
     | 0xDCuy -> parseVEX span rhlp nor0FDC vex0FDC
     | 0xDDuy -> parseVEX span rhlp nor0FDD vex0FDD
     | 0xDEuy -> parseVEX span rhlp nor0FDE vex0FDE
@@ -6935,7 +6967,7 @@ module internal ParsingHelper = begin
     | 0xE8uy -> parseVEX span rhlp nor0FE8 vex0FE8
     | 0xE9uy -> parseVEX span rhlp nor0FE9 vex0FE9
     | 0xEAuy -> parseVEX span rhlp nor0FEA vex0FEA
-    | 0xEBuy -> parseVEX span rhlp nor0FEB vex0FEB
+    | 0xEBuy -> parseEVEX span rhlp nor0FEB vex0FEB evex0FEBW0 evex0FEBW1
     | 0xECuy -> parseVEX span rhlp nor0FEC vex0FEC
     | 0xEDuy -> parseVEX span rhlp nor0FED vex0FED
     | 0xEEuy -> parseVEX span rhlp nor0FEE vex0FEE
