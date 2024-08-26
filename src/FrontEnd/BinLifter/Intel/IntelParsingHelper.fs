@@ -5465,6 +5465,39 @@ module internal ParsingHelper = begin
     | MPref.MPrxF2
     | _ (* MPrx66F2 *) -> raise ParsingFailureException
 
+  let vex0F3A30W0 = function
+    | MPref.MPrxNP -> raise ParsingFailureException
+    | MPref.MPrx66 ->
+      struct (KSHIFTRB, OD.KnKmImm8, SZ.VecDef, TT.NA) (* KnKmIb *)
+    | MPref.MPrxF3
+    | MPref.MPrxF2
+    | _ (* MPrx66F2 *) -> raise ParsingFailureException
+
+  let vex0F3A30W1 = function
+    | MPref.MPrxNP
+    | MPref.MPrx66 ->
+      struct (KSHIFTRW, OD.KnKmImm8, SZ.VecDef, TT.NA) (* KnKmIb *)
+    | MPref.MPrxF3
+    | MPref.MPrxF2
+    | _ (* MPrx66F2 *) -> raise ParsingFailureException
+
+  let vex0F3A31W0 = function
+    | MPref.MPrxNP -> raise ParsingFailureException
+    | MPref.MPrx66 ->
+      struct (KSHIFTRD, OD.KnKmImm8, SZ.VecDef, TT.NA) (* KnKmIb *)
+    | MPref.MPrxF3
+    | MPref.MPrxF2
+    | _ (* MPrx66F2 *) -> raise ParsingFailureException
+
+  let vex0F3A31W1 = function
+    | MPref.MPrxNP
+    | MPref.MPrx66 ->
+      struct (KSHIFTRQ, OD.KnKmImm8, SZ.VecDef, TT.NA) (* KnKmIb *)
+    | MPref.MPrxF3
+    | MPref.MPrxF2
+    | _ (* MPrx66F2 *) -> raise ParsingFailureException
+
+
   let nor0F3A38 = function
     | MPref.MPrxNP
     | MPref.MPrx66
@@ -6657,6 +6690,8 @@ module internal ParsingHelper = begin
         evex0F3A22W0 evex0F3A22W1
     | 0x25uy -> parseEVEXW span rhlp notEn notEn evex0F3A25W0 evex0F3A25W1
     | 0x27uy -> parseEVEXW span rhlp notEn notEn notEn evex0F3A27W1
+    | 0x30uy -> parseVEXW span rhlp notEn notEn vex0F3A30W0 vex0F3A30W1
+    | 0x31uy -> parseVEXW span rhlp notEn notEn vex0F3A31W0 vex0F3A31W1
     | 0x38uy -> parseVEX span rhlp nor0F3A38 vex0F3A38
     | 0x39uy -> parseEVEXW span rhlp vex0F3A39W0 notEn notEn evex0F3A39W1
     | 0x3Auy -> parseEVEXW span rhlp notEn notEn evex0F3A3AW0 evex0F3A3AW1
