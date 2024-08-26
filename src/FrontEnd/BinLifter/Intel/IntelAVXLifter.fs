@@ -1503,6 +1503,19 @@ let vpmovx ins insLen ctxt srcSz dstSz isSignExt =
     let result = Array.map ext src
     assignPackedInstr ir false ins insLen ctxt packNum oprSize dst result
     fillZeroFromVLToMaxVL ctxt dst oprSize 512 ir
+  | OprMem (_, _, _, 256<rt>), 512<rt> | OprReg _, 512<rt> ->
+    let sNum = (oprSize / 4) / dstSz
+    let src =
+      let srcD, srcC, srcB, srcA =
+        transOprToExpr256 ir false ins insLen ctxt src
+      if (dstSz / srcSz) = 2 then
+        Array.concat
+          [| (extSrc sNum srcA); (extSrc sNum srcB)
+             (extSrc sNum srcC); (extSrc sNum srcD) |]
+      else extSrc (sNum * 2) srcA
+    let result = Array.map ext src
+    assignPackedInstr ir false ins insLen ctxt packNum oprSize dst result
+
   | OprMem (_, _, _, memSz), _ ->
     let sNum = memSz / srcSz
     let src = transOprToExpr ir false ins insLen ctxt src
