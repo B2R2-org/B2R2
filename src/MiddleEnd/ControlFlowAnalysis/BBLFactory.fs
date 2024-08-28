@@ -134,7 +134,8 @@ type BBLFactory (hdl: BinHandle,
         | InterCJmp (_, { E = PCVar _ }, _)
         | InterCJmp (_, _, { E = PCVar _ }) ->
           (* JMP PC means that the instruction jumps to itself. *)
-          addLeaderHead intraLeaders intraLeaders.Last i |> ignore
+          if i = 0 then () (* Ignore if it is the first lifted instruction. *)
+          else addLeaderHead intraLeaders intraLeaders.Last i |> ignore
         | _ -> ()
     struct (labelMap, intraLeaders)
 
