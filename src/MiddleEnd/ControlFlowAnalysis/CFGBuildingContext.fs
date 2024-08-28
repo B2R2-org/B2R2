@@ -72,6 +72,8 @@ type CFGBuildingContext<'FnCtx,
   /// Pending actions for each callee address. This is to remember the actions
   /// that are waiting for the callee to be built.
   PendingActions: Dictionary<Addr, List<CFGAction>>
+  /// From a call site of a caller vertex to the caller vertex itself.
+  CallerVertices: Dictionary<Addr, IVertex<LowUIRBasicBlock>>
   /// The user-defined per-function context.
   mutable UserContext: 'FnCtx
   /// Is this an external function or not.
@@ -94,6 +96,7 @@ with
     __.VisitedPPoints.Clear ()
     __.ActionQueue.Clear ()
     __.PendingActions.Clear ()
+    __.CallerVertices.Clear ()
     __.UserContext.Reset ()
 
 /// Call edge from its callsite address to the callee's address. This is to

@@ -37,16 +37,16 @@ type CFGAction =
   | ExpandCFG of addrs: seq<Addr>
   /// Create an abstract call node and connect it to the caller and fallthrough
   /// nodes when necessary.
-  | MakeCall of caller: Addr * callee: Addr
+  | MakeCall of callSite: Addr * callee: Addr
   /// Create an abstract tail-call node and connect it to the caller and
   /// fallthrough nodes when necessary.
-  | MakeTlCall of caller: Addr * callee: Addr
+  | MakeTlCall of callSite: Addr * callee: Addr
   /// Create an abstract call node for an indirect call and connect it to the
   /// caller and the fallthrough node.
-  | MakeIndCall of caller: Addr
+  | MakeIndCall of callSite: Addr
   /// Create an abstract syscall node and connect it to the caller and
   /// fallthrough nodes when necessary.
-  | MakeSyscall of caller: Addr * exit: bool
+  | MakeSyscall of callSite: Addr * exit: bool
   /// Create edges for an indirect branch. We find the possible targets of the
   /// indirect branch and connect them with the given basic block.
   | MakeIndEdges of bbl: Addr * ins: Addr
@@ -56,7 +56,7 @@ type CFGAction =
   | StartTblRec of tbl: JmpTableInfo * idx: int * src: Addr * dst: Addr
   /// Report the recovery result of a jump table entry. This will always be
   /// followed by a `StartTblRec` action to denote the end of the recovery.
-  | EndTblRec of tbl: JmpTableInfo * idx: int * dst: Addr
+  | EndTblRec of tbl: JmpTableInfo * idx: int
 with
   /// The priority of the action. Higher values mean higher priority.
   member this.Priority (p: IPrioritizable) = p.GetPriority this

@@ -114,6 +114,7 @@ type InternalFnCFGBuilder<'FnCtx,
         VisitedPPoints = HashSet ()
         ActionQueue = CFGActionQueue ()
         PendingActions = Dictionary ()
+        CallerVertices = Dictionary ()
         UserContext = fnCtx
         IsExternal = false
         ManagerChannel = null
