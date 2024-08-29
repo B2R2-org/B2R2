@@ -555,7 +555,7 @@ type CFGRecovery<'FnCtx,
         | MakeIndCall (callSiteAddr) ->
 #if CFGDEBUG
           dbglog ctx.ThreadID (nameof MakeIndCall)
-          <| $"{callerAddr:x} @ {ctx.FunctionAddress:x}"
+          <| $"{callSiteAddr:x} @ {ctx.FunctionAddress:x}"
 #endif
           connectIndirectCallEdge ctx queue callSiteAddr
         | MakeSyscall (callSiteAddr, isExit) ->

@@ -59,62 +59,6 @@ type SSAJmpTableAnalysis<'FnCtx,
     (* Since there could be multiple SSA vertices, search for the right one. *)
     findJumpExpr ssaCFG v [ v ]
 
-  let varToBV (state: SSAVarBasedDataFlowState<L>) var id =
-    let v = { var with Identifier = id }
-    match state.GetRegValue v with
-    | ConstantDomain.Const bv -> Some bv
-    | _ -> None
-
-  let expandPhi state var ids e =
-    let bvs = ids |> Array.map (fun id -> varToBV state var id)
-    match bvs[0] with
-    | Some hd ->
-      if bvs |> Array.forall (fun bv -> bv = Some hd) then Num hd
-      else e
-    | None -> e
-
-  /// Expand the given expression by recursively substituting the subexpressions
-  /// with their definitions. The recursion stops when the depth reaches the
-  /// maximum depth. This function should be used with varying `maxDepth` until
-  /// the desired pattern is found. Indefinitely increasing `maxDepth` leads to
-  /// incorrect results as over-approximated constants can be used.
-  let rec symbolicExpand (state: SSAVarBasedDataFlowState<_>) maxDepth depth e =
-    match e with
-    | Num _ -> e
-    | Var v ->
-      if depth = maxDepth then e
-      else
-        match state.SSAEdges.Defs.TryGetValue v with
-        | true, Def (_, e) -> symbolicExpand state maxDepth (depth + 1) e
-        | true, Phi (_, ids) -> expandPhi state v ids e
-        | _ -> e
-    | Load (m, rt, addr) ->
-      let e = symbolicExpand state maxDepth depth addr
-      Load (m, rt, e)
-    | UnOp (op, rt, e) ->
-      let e = symbolicExpand state maxDepth depth e
-      UnOp (op, rt, e)
-    | BinOp (op, rt, e1, e2) ->
-      let e1 = symbolicExpand state maxDepth depth e1
-      let e2 = symbolicExpand state maxDepth depth e2
-      BinOp (op, rt, e1, e2)
-    | RelOp (op, rt, e1, e2) ->
-      let e1 = symbolicExpand state maxDepth depth e1
-      let e2 = symbolicExpand state maxDepth depth e2
-      RelOp (op, rt, e1, e2)
-    | Ite (e1, rt, e2, e3) ->
-      let e1 = symbolicExpand state maxDepth depth e1
-      let e2 = symbolicExpand state maxDepth depth e2
-      let e3 = symbolicExpand state maxDepth depth e3
-      Ite (e1, rt, e2, e3)
-    | Cast (op, rt, e) ->
-      let e = symbolicExpand state maxDepth depth e
-      Cast (op, rt, e)
-    | Extract (e, rt, pos) ->
-      let e = symbolicExpand state maxDepth depth e
-      Extract (e, rt, pos)
-    | e -> e
-
   let rec simplify = function
     | Load (v, rt, e) -> Load (v, rt, simplify e)
     | Store (v, rt, e1, e2) -> Store (v, rt, simplify e1, simplify e2)
@@ -176,11 +120,30 @@ type SSAJmpTableAnalysis<'FnCtx,
     | Extract (e, rt, pos) -> Extract (foldWithConstant state e, rt, pos)
     | e -> e
 
-  let rec isJmpTable = function
-    | BinOp (BinOpType.MUL, _, _, Num _)
-    | BinOp (BinOpType.MUL, _, Num _, _)
-    | BinOp (BinOpType.SHL, _, _, Num _) -> true
-    | BinOp (_, _, e1, e2) -> isJmpTable e1 || isJmpTable e2
+  /// Jump table index does not involve more than one multiplication or shift
+  /// operation. If so, it is considered as a complex operation, and the
+  /// expression should be ignored.
+  let rec isComplexOp (state: SSAVarBasedDataFlowState<_>) e =
+    match e with
+    | BinOp (BinOpType.MUL, _, _, _)
+    | BinOp (BinOpType.SHL, _, _, _)  -> true
+    | BinOp (_, _, e1, e2) -> isComplexOp state e1 || isComplexOp state e2
+    | Var v ->
+      match state.SSAEdges.Defs.TryGetValue v with
+      | true, Def (_, e) ->
+        isComplexOp state e
+      | _ -> false
+    | _ -> false
+
+  let rec isJmpTable state t = function
+    | BinOp (BinOpType.MUL, _, e, Num n)
+    | BinOp (BinOpType.MUL, _, Num n, e) ->
+      (RegType.toByteWidth t = BitVector.ToInt32 n) && not (isComplexOp state e)
+    | BinOp (BinOpType.SHL, _, e, Num n) ->
+      (RegType.toByteWidth t = (1 <<< BitVector.ToInt32 n))
+      && not (isComplexOp state e)
+    | BinOp (BinOpType.ADD, _, e1, e2) ->
+      isJmpTable state t e1 || isJmpTable state t e2
     | _ -> false
 
   let rec extractTableExpr = function
@@ -203,14 +166,13 @@ type SSAJmpTableAnalysis<'FnCtx,
 
   let extractTableAddr state memExpr =
     memExpr
-    |> symbolicExpand state 1 0
     |> extractTableExpr
     |> foldWithConstant state
     |> function
       | Num t -> Ok <| BitVector.ToUInt64 t
       | _ -> Error ErrorCase.ItemNotFound
 
-  let extractTableInfo state insAddr baseExpr tblExpr rt =
+  let extractTblInfo state insAddr baseExpr tblExpr rt =
     let baseAddr = extractBaseAddr state baseExpr
     let tblAddr = extractTableAddr state tblExpr
     match baseAddr, tblAddr with
@@ -227,39 +189,113 @@ type SSAJmpTableAnalysis<'FnCtx,
     | BinOp (BinOpType.ADD, _, Load (_, t, memExpr), Num b)
     | BinOp (BinOpType.ADD, _, Num b, Cast (_, _, Load (_, t, memExpr)))
     | BinOp (BinOpType.ADD, _, Cast (_, _, Load (_, t, memExpr)), Num b) ->
-      if isJmpTable memExpr then extractTableInfo state iAddr (Num b) memExpr t
+      if isJmpTable state t memExpr then
+        extractTblInfo state iAddr (Num b) memExpr t
       else Error ErrorCase.ItemNotFound
     | BinOp (BinOpType.ADD, _, (Load (_, _, e1) as m1),
                                (Load (_, t, e2) as m2)) ->
-      if isJmpTable e1 then extractTableInfo state iAddr m2 e1 t
-      elif isJmpTable e2 then extractTableInfo state iAddr m1 e2 t
+      if isJmpTable state t e1 then extractTblInfo state iAddr m2 e1 t
+      elif isJmpTable state t e2 then extractTblInfo state iAddr m1 e2 t
       else Error ErrorCase.ItemNotFound
     | BinOp (BinOpType.ADD, _, baseExpr, Load (_, t, tblExpr))
     | BinOp (BinOpType.ADD, _, Load (_, t, tblExpr), baseExpr) ->
-      if isJmpTable tblExpr then extractTableInfo state iAddr baseExpr tblExpr t
+      if isJmpTable state t tblExpr then
+        extractTblInfo state iAddr baseExpr tblExpr t
       else Error ErrorCase.ItemNotFound
     | Load (_, t, memExpr)
     | Cast (_, _, Load (_, t, memExpr)) ->
-      if isJmpTable memExpr then
+      if isJmpTable state t memExpr then
         let zero = BitVector.Zero t
-        extractTableInfo state iAddr (Num zero) memExpr t
+        extractTblInfo state iAddr (Num zero) memExpr t
       else Error ErrorCase.ItemNotFound
     | _ -> Error ErrorCase.ItemNotFound
 
+  let varToBV (state: SSAVarBasedDataFlowState<L>) var id =
+    let v = { var with Identifier = id }
+    match state.GetRegValue v with
+    | ConstantDomain.Const bv -> Some bv
+    | _ -> None
+
+  let expandPhi state var ids e =
+    let bvs = ids |> Array.map (fun id -> varToBV state var id)
+    match bvs[0] with
+    | Some hd ->
+      if bvs |> Array.forall (fun bv -> bv = Some hd) then Num hd
+      else e
+    | None -> e
+
+  /// Expand the given expression by recursively substituting the subexpressions
+  /// with their definitions. The recursion stops after folloing the next
+  /// definitions.
+  let rec symbolicExpand (state: SSAVarBasedDataFlowState<_>) doNext e =
+    match e with
+    | Num _ -> e
+    | Var ({ Kind = PCVar _ } as v) -> (* regard PC as a constant *)
+      match state.GetRegValue v with
+      | ConstantDomain.Const bv -> Num bv
+      | _ -> e
+    | Var v ->
+      match state.SSAEdges.Defs.TryGetValue v with
+      | true, Def (_, e) when doNext -> symbolicExpand state false e
+      | true, Phi (_, ids) when doNext -> expandPhi state v ids e
+      | _ -> e
+    | Load (m, rt, addr) ->
+      let e = symbolicExpand state doNext addr
+      Load (m, rt, e)
+    | UnOp (op, rt, e) ->
+      let e = symbolicExpand state doNext e
+      UnOp (op, rt, e)
+    | BinOp (op, rt, e1, e2) ->
+      let e1 = symbolicExpand state doNext e1
+      let e2 = symbolicExpand state doNext e2
+      BinOp (op, rt, e1, e2)
+    | RelOp (op, rt, e1, e2) ->
+      let e1 = symbolicExpand state doNext e1
+      let e2 = symbolicExpand state doNext e2
+      RelOp (op, rt, e1, e2)
+    | Ite (e1, rt, e2, e3) ->
+      let e1 = symbolicExpand state doNext e1
+      let e2 = symbolicExpand state doNext e2
+      let e3 = symbolicExpand state doNext e3
+      Ite (e1, rt, e2, e3)
+    | Cast (op, rt, e) ->
+      let e = symbolicExpand state doNext e
+      Cast (op, rt, e)
+    | Extract (e, rt, pos) ->
+      let e = symbolicExpand state doNext e
+      Extract (e, rt, pos)
+    | e -> e
+
   /// This is a practical limit for the depth of symbolic expansion.
-  let [<Literal>] MaxDepth = 4
+  let [<Literal>] MaxDepth = 7
 
   let rec findSymbolicPattern state insAddr depth expr =
-    if depth <= MaxDepth then
-      let expr = symbolicExpand state depth 0 expr |> simplify
-      match detect state insAddr expr with
-      | Ok info -> Ok info
-      | Error _ -> findSymbolicPattern state insAddr (depth + 1) expr
-    else Error ErrorCase.ItemNotFound
+#if CFGDEBUG
+    dbglog ManagerTid "JumpTable"
+    <| $"{insAddr:x} ({depth}): {Pp.expToString expr}"
+#endif
+    match detect state insAddr expr with
+    | Ok info ->
+#if CFGDEBUG
+      dbglog ManagerTid "JumpTable" "detected"
+#endif
+      Ok info
+    | Error _ ->
+      if depth < MaxDepth then
+        let expr = symbolicExpand state true expr |> simplify
+        findSymbolicPattern state insAddr (depth + 1) expr
+      else Error ErrorCase.ItemNotFound
 
   let analyzeSymbolically ssaCFG state insAddr bblAddr =
     match findIndBranchExpr ssaCFG bblAddr with
-    | Ok jmpExpr -> findSymbolicPattern state insAddr 1 jmpExpr
+    | Ok jmpExpr -> findSymbolicPattern state insAddr 0 jmpExpr
+    | Error e -> Error e
+
+  let checkValidity (ctx: CFGBuildingContext<'FnCtx, 'GlCtx>) result =
+    match result with
+    | Ok info ->
+      if ctx.BinHandle.File.IsValidAddr info.TableAddress then Ok info
+      else Error ErrorCase.InvalidMemoryRead
     | Error e -> Error e
 
   interface IJmpTableAnalyzable<'FnCtx, 'GlCtx> with
@@ -270,3 +306,4 @@ type SSAJmpTableAnalysis<'FnCtx,
       let state = dfa.InitializeState []
       let state = dfa.Compute ssaCFG state
       analyzeSymbolically ssaCFG state insAddr bblAddr
+      |> checkValidity ctx
