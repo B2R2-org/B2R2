@@ -246,6 +246,10 @@ type BBLFactory (hdl: BinHandle,
     |> Seq.toArray
     |> Array.sort
 
+  let isInstructionAddress (currentBBL: LowUIRBasicBlock) addr =
+    currentBBL.Internals.LiftedInstructions
+    |> Array.exists (fun lifted -> lifted.Original.Address = addr)
+
   /// Iterate over all the BBL leaders and split the BBLs if necessary.
   let commit () =
     let leaders = getSortedLeaders ()
@@ -257,7 +261,9 @@ type BBLFactory (hdl: BinHandle,
         let currPPoint = ProgramPoint (leaders[i], 0)
         let nextPPoint = ProgramPoint (nextAddr, 0)
         let currentBBL = bbls[currPPoint]
-        if (currentBBL :> IAddressable).Range.IsIncluding nextAddr then
+        if (currentBBL :> IAddressable).Range.IsIncluding nextAddr
+          && isInstructionAddress currentBBL nextAddr
+        then
           let fst, snd = currentBBL.Cut nextAddr
           bbls[currPPoint] <- fst
           bbls[nextPPoint] <- snd
