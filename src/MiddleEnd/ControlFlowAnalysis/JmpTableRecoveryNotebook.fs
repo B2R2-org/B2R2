@@ -57,9 +57,10 @@ type JmpTableRecoveryNotebook () =
   member _.Register fnAddr jmptbl =
     let tblAddr = jmptbl.TableAddress
     if notes.ContainsKey tblAddr then
-      (* Duplicate registeration is possible due to rollback in which case we
-         simply reuse the existing note. *)
-      Ok notes[tblAddr]
+      (* Duplicate registeration is possible due to rollback. *)
+      let note = notes[tblAddr]
+      if note.InsAddr = jmptbl.InsAddr then Ok note
+      else Error note (* But, two branches cannot share the same table. *)
     else
       match findOverlap tblAddr with
       | Some note -> Error note
@@ -94,10 +95,15 @@ type JmpTableRecoveryNotebook () =
 
   /// Set the potential end point of the jump table by giving the currently
   /// confirmed index.
-  member _.SetPotentialEndPoint tblAddr confirmedIdx =
+  member _.SetPotentialEndPointByIndex tblAddr confirmedIdx =
     let note = notes[tblAddr]
     let newPoint = note.StartingPoint + uint64 (confirmedIdx * note.EntrySize)
     updatePotentialEndPoint note newPoint
+
+  /// Set the potential end point of the jump table by giving the currently
+  /// confirmed address.
+  member _.SetPotentialEndPointByAddr tblAddr confirmedAddr =
+    updatePotentialEndPoint notes[tblAddr] confirmedAddr
 
   /// Get the string representation of the note.
   member _.GetNoteString tblAddr =

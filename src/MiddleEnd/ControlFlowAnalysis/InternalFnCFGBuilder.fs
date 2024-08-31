@@ -49,10 +49,10 @@ type InternalFnCFGBuilder<'FnCtx,
           agent.Post <| AddDependency (caller, callee, mode)
 
         member _.GetNonReturningStatus (addr) =
-          agent.PostAndReply (fun _ ch -> RetrieveNonReturningStatus (addr, ch))
+          agent.PostAndReply (fun _ ch -> GetNonReturningStatus (addr, ch))
 
         member _.GetBuildingContext (addr) =
-          agent.PostAndReply (fun _ ch -> RetrieveBuildingContext (addr, ch))
+          agent.PostAndReply (fun _ ch -> GetBuildingContext (addr, ch))
 
         member _.NotifyJumpTableRecovery (fnAddr, tblInfo) =
           agent.PostAndReply (fun _ ch ->

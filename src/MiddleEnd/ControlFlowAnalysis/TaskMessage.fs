@@ -41,9 +41,9 @@ type TaskMessage<'FnCtx,
   /// Report the result of a task.
   | ReportCFGResult of Addr * CFGResult
   /// Retrieve the non-returning status of a function.
-  | RetrieveNonReturningStatus of Addr * AgentReplyChannel<NonReturningStatus>
+  | GetNonReturningStatus of Addr * AgentReplyChannel<NonReturningStatus>
   /// Retrieve the building context of a function.
-  | RetrieveBuildingContext of
+  | GetBuildingContext of
     Addr * AgentReplyChannel<BuildingCtxMsg<'FnCtx, 'GlCtx>>
   /// Notify the manager that a new jump table entry is about to be recovered.
   /// The manager returns whether the recovery should continue or not.

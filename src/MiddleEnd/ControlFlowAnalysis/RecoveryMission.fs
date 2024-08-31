@@ -142,11 +142,11 @@ and private TaskManager<'FnCtx,
               addTask builder.EntryPoint builder.Mode)
           | YetDone -> checkAndResolveCyclicDependencies ()
         else ()
-      | RetrieveNonReturningStatus (addr, ch) ->
+      | GetNonReturningStatus (addr, ch) ->
         match builders.TryGetBuilder addr with
         | Ok builder -> ch.Reply builder.Context.NonReturningStatus
         | Error _ -> ch.Reply UnknownNoRet
-      | RetrieveBuildingContext (addr, ch) ->
+      | GetBuildingContext (addr, ch) ->
         match builders.TryGetBuilder addr with
         | Ok builder ->
           match builder.BuilderState with
@@ -175,7 +175,7 @@ and private TaskManager<'FnCtx,
 #if CFGDEBUG
       dbglog ManagerTid "rollback" $"{builder.Context.FunctionAddress:x}"
 #endif
-      jmptblNotes.SetPotentialEndPoint tblAddr (idx - 1)
+      jmptblNotes.SetPotentialEndPointByIndex tblAddr (idx - 1)
       builder.Reset builders.CFGConstructor
       addTask builder.Context.FunctionAddress builder.Mode
     | None ->
@@ -238,7 +238,7 @@ and private TaskManager<'FnCtx,
         | Ok builders ->
           let targetBuilder = strategy.OnCyclicDependency builders
           (* Forcefully complete the target builder by considering every
-             possible callee as a "returning" function. *)
+             possible callee as a "non-returning" function. *)
           targetBuilder.Context.ForceFinish <- true
           addTask targetBuilder.EntryPoint targetBuilder.Mode
         | Error _ -> ()
@@ -299,7 +299,12 @@ and private TaskManager<'FnCtx,
       <| $"{jmptbl.TableAddress:x} @ {jmptbl.InsAddr:x} overlapped with ({str})"
 #endif
       if note.HostFunctionAddr = fnAddr then
-        note.PotentialEndPoint <- jmptbl.TableAddress - uint64 jmptbl.EntrySize
+        let tblAddr, entSize = jmptbl.TableAddress, uint64 jmptbl.EntrySize
+        if note.InsAddr = jmptbl.InsAddr then
+          jmptblNotes.SetPotentialEndPointByAddr tblAddr (tblAddr - entSize)
+        else
+          let prevPoint = note.ConfirmedEndPoint - entSize
+          jmptblNotes.SetPotentialEndPointByAddr tblAddr prevPoint
 #if CFGDEBUG
         dbglog ManagerTid "JumpTable rollback"
         <| $"changed potential endpoint to {note.PotentialEndPoint:x}"

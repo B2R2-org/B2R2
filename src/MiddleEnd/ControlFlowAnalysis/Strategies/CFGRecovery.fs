@@ -347,7 +347,11 @@ type CFGRecovery<'FnCtx,
     | FinalCtx calleeCtx
     | StillBuilding calleeCtx ->
       summarizer.Summarize (calleeCtx, callIns) |> Ok
-    | FailedBuilding -> Error ErrorCase.FailedToRecoverCFG
+    | FailedBuilding ->
+      if ctx.ForceFinish then
+        let wordSize = ctx.BinHandle.File.ISA.WordSize
+        summarizer.SummarizeUnknown (wordSize, callIns) |> Ok
+      else Error ErrorCase.FailedToRecoverCFG
 
   let connectAbsVertex ctx (caller: IVertex<LowUIRBasicBlock>) calleeAddr abs =
     let callIns = caller.VData.Internals.LastInstruction
