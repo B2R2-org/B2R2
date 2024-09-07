@@ -199,6 +199,8 @@ and private TaskManager<'FnCtx,
         match msg with
         | CalleeSuccess calleeAddr ->
           rechargeActionQueue builders[entryPoint].Context calleeAddr
+        | BuilderReset ->
+          builder.Reset builders.CFGConstructor
       addTask entryPoint builder.Mode
 
   and propagateInvalidation entryPoint =
@@ -298,19 +300,24 @@ and private TaskManager<'FnCtx,
       dbglog ManagerTid "JumpTable failed"
       <| $"{jmptbl.TableAddress:x} @ {jmptbl.InsAddr:x} overlapped with ({str})"
 #endif
-      if note.HostFunctionAddr = fnAddr then
-        let tblAddr, entSize = jmptbl.TableAddress, uint64 jmptbl.EntrySize
-        if note.InsAddr = jmptbl.InsAddr then
-          jmptblNotes.SetPotentialEndPointByAddr tblAddr (tblAddr - entSize)
-        else
-          let prevPoint = note.ConfirmedEndPoint - entSize
-          jmptblNotes.SetPotentialEndPointByAddr tblAddr prevPoint
+      let errTblAddr, entSize = note.StartingPoint, uint64 jmptbl.EntrySize
+      let endPoint =
+        if jmptbl.TableAddress = errTblAddr then errTblAddr - entSize
+        else jmptbl.TableAddress - entSize
+      jmptblNotes.SetPotentialEndPointByAddr errTblAddr endPoint
 #if CFGDEBUG
-        dbglog ManagerTid "JumpTable rollback"
-        <| $"changed potential endpoint to {note.PotentialEndPoint:x}"
+      dbglog ManagerTid "JumpTable rollback"
+      <| $"changed potential endpoint to {note.PotentialEndPoint:x}"
 #endif
+      if note.HostFunctionAddr = fnAddr then false
+      else
+        let hostAddr = note.HostFunctionAddr
+        let builder = builders[hostAddr]
+        if builder.BuilderState <> InProgress then
+          builder.Reset builders.CFGConstructor
+          addTask builder.Context.FunctionAddress builder.Mode
+        else msgbox[hostAddr].Add BuilderReset
         false
-      else propagateInvalidation note.HostFunctionAddr; false
 
   and handleJumpTableRecoverySuccess fnAddr tblAddr idx nextJumpTarget =
 #if CFGDEBUG
@@ -386,3 +393,5 @@ and private TaskWorker<'FnCtx,
 and private TaskMessage =
   /// Callee has been successfully built.
   | CalleeSuccess of callee: Addr
+  /// Reset the builder.
+  | BuilderReset
