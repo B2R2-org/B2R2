@@ -52,7 +52,8 @@ type ExternalFnCFGBuilder<'FnCtx,
       NonReturningStatus = noretStatus
       JumpTableRecoveryStatus = None
       JumpTables = List ()
-      CallTable = CallTable ()
+      Callers = HashSet ()
+      IntraCallTable = IntraCallTable ()
       VisitedPPoints = HashSet ()
       ActionQueue = CFGActionQueue ()
       PendingActions = Dictionary ()
@@ -77,7 +78,9 @@ type ExternalFnCFGBuilder<'FnCtx,
 
     member __.Stop () = ()
 
-    member __.Finalize () = ()
+    member __.Finalize (_) = ()
+
+    member __.ReInitialize () = ()
 
     member __.Invalidate () = ()
 
@@ -91,6 +94,6 @@ type ExternalFnCFGBuilder<'FnCtx,
       Function (entryPoint,
                 name,
                 ctx.NonReturningStatus,
-                HashSet (),
+                ctx.Callers,
                 ctx.JumpTables,
                 true)

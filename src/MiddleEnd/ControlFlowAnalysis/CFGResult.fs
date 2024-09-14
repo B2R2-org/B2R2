@@ -30,6 +30,10 @@ open B2R2
 type CFGResult =
   /// We have successfully handled the task, so continue to the next task.
   | Continue
+  /// We have successfully handled the task, but we found the function's
+  /// internal state has been changed, so we need to reload caller functions,
+  /// too. This result is only used in the post-recovery phase.
+  | ContinueWithCallers of callers: Addr[]
   /// We need to postpone the current task because the current function depends
   /// on other function(s) that have not been recovered yet.
   | Wait

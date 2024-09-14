@@ -51,11 +51,11 @@ type SSALifter () =
     | StackPointerDomain.ConstSP bv ->
       let spValue = BitVector.ToUInt64 bv
       let offset = Constants.InitialStackPointer - spValue |> int
-      let callTable = (ctx: CFGBuildingContext<_, _>).CallTable
+      let intraCallTable = (ctx: CFGBuildingContext<_, _>).IntraCallTable
       let pred = ssaCFG.GetPreds v |> Seq.exactlyOne
       let stmts = pred.VData.Internals.Statements
       let lastPP, _ = stmts[stmts.Length - 1]
-      callTable.UpdateFrameDistance lastPP.Address offset
+      intraCallTable.UpdateFrameDistance lastPP.Address offset
 #if CFGDEBUG
       dbglog ctx.ThreadID "FrameDistance" $"{lastPP.Address:x}: {offset}"
 #endif

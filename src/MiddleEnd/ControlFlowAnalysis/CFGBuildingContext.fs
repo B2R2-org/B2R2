@@ -62,8 +62,10 @@ type CFGBuildingContext<'FnCtx,
   mutable JumpTableRecoveryStatus: (Addr * int) option
   /// Jump tables associated with this function.
   JumpTables: List<JmpTableInfo>
-  /// Table for maintaining function call information of this function.
-  CallTable: CallTable
+  /// Table for maintaining intra-function call information of this function.
+  IntraCallTable: IntraCallTable
+  /// Set of callers of this function.
+  Callers: HashSet<Addr>
   /// The set of visited BBL program points. This is to prevent visiting the
   /// same basic block multiple times when constructing the CFG.
   VisitedPPoints: HashSet<ProgramPoint>
@@ -92,7 +94,8 @@ with
     __.NonReturningStatus <- UnknownNoRet
     __.JumpTableRecoveryStatus <- None
     __.JumpTables.Clear ()
-    __.CallTable.Reset ()
+    __.IntraCallTable.Reset ()
+    __.Callers.Clear ()
     __.VisitedPPoints.Clear ()
     __.ActionQueue.Clear ()
     __.PendingActions.Clear ()

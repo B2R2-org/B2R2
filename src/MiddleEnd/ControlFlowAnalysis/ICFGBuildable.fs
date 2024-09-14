@@ -24,6 +24,7 @@
 
 namespace B2R2.MiddleEnd.ControlFlowAnalysis
 
+open System.Runtime.InteropServices
 open B2R2
 open B2R2.MiddleEnd.ControlFlowGraph
 
@@ -60,7 +61,13 @@ type ICFGBuildable<'FnCtx,
   /// Finalize the function building process. This will change the state of the
   /// function builder to `Finished`, meaning that the function has been built
   /// successfully.
-  abstract Finalize: unit -> unit
+  abstract Finalize:
+    [<Optional; DefaultParameterValue(false)>] isForceful: bool -> unit
+
+  /// Re-initialize the function builder. This will change the state of the
+  /// function builder to `Initialized`, meaning that the function can be
+  /// scheduled again. This can only be called during the post-recovery phase.
+  abstract ReInitialize: unit -> unit
 
   /// Mark the state to be invalid. This means that there has been a fatal error
   /// while building the function.

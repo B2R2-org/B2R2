@@ -27,15 +27,16 @@ namespace B2R2.MiddleEnd.ControlFlowAnalysis
 open System.Collections.Generic
 open B2R2
 
-/// A per-function table that maintains function call information, such as
-/// callsites in the function, callees, and their relationships.
-type CallTable () =
+/// A per-function table that maintains function call information within a
+/// function, such as callsites in the function, callees, and their
+/// relationships.
+type IntraCallTable () =
   let callees = SortedList<Addr, CalleeKind> ()
 
   /// The addresses of calling nodes (which terminate a basic block with a call
   /// instruction) in this function. This is a mapping from a callee address to
-  /// its caller addresses.
-  let callingNodes = Dictionary<Addr, HashSet<Addr>> ()
+  /// its callsite addresses.
+  let callingBBLs = Dictionary<Addr, HashSet<Addr>> ()
 
   /// The frame distances of callees in this function. This is a mapping from a
   /// callsite address to the distance from the stack base address of this
@@ -49,9 +50,9 @@ type CallTable () =
   /// Add information about a regular function call.
   member _.AddRegularCall (srcPPoint: ProgramPoint) callsiteAddr calleeAddr =
     callees[callsiteAddr] <- RegularCallee calleeAddr
-    match callingNodes.TryGetValue calleeAddr with
+    match callingBBLs.TryGetValue calleeAddr with
     | true, callsites -> callsites.Add srcPPoint.Address |> ignore
-    | false, _ -> callingNodes[calleeAddr] <- HashSet [ srcPPoint.Address ]
+    | false, _ -> callingBBLs[calleeAddr] <- HashSet [ srcPPoint.Address ]
 
   /// Add information about a syscall.
   member _.AddSystemCall callsiteAddr isExit =
@@ -65,13 +66,13 @@ type CallTable () =
   member _.TryGetCallee (callsiteAddr: Addr) =
     callees.TryGetValue callsiteAddr
 
-  /// Get a set of callers in this function that call the given callee.
-  member _.GetCallers (calleeAddr: Addr) =
-    callingNodes[calleeAddr]
+  /// Get a set of calling BBL addresses of a callee.
+  member _.GetCallingBBLs (calleeAddr: Addr) =
+    callingBBLs[calleeAddr]
 
-  /// Try to get a set of callers in this function that call the given callee.
-  member _.TryGetCallers (calleeAddr: Addr) =
-    callingNodes.TryGetValue calleeAddr
+  /// Try to get a set of calling BBL addresses of a callee.
+  member _.TryGetCallingBBLs (calleeAddr: Addr) =
+    callingBBLs.TryGetValue calleeAddr
 
   /// Update call frame distance information for the given callsite address.
   member _.UpdateFrameDistance (callsiteAddr: Addr) distance =
@@ -83,7 +84,7 @@ type CallTable () =
 
   member _.Reset () =
     callees.Clear ()
-    callingNodes.Clear ()
+    callingBBLs.Clear ()
     frameDistances.Clear ()
 
 /// What kind of callee is this?

@@ -158,9 +158,9 @@ type CFGRecovery<'FnCtx,
     let fnAddr = ctx.FunctionAddress
     let actionQueue = ctx.ActionQueue
     addCallerVertex ctx callsiteAddr (getVertex ctx srcPp)
-    ctx.CallTable.AddRegularCall srcPp callsiteAddr callee
+    ctx.IntraCallTable.AddRegularCall srcPp callsiteAddr callee
     ctx.ManagerChannel.AddDependency (fnAddr, callee, mode)
-    if fnAddr = callee || ctx.ForceFinish then (* self-recursion or coercion *)
+    if fnAddr = callee then (* self-recursion *)
       actionQueue.Push prioritizer action
     else
       match ctx.ManagerChannel.GetBuildingContext callee with
@@ -291,7 +291,7 @@ type CFGRecovery<'FnCtx,
         | SideEffect (Interrupt 0x80) | SideEffect SysCall ->
           let callsiteAddr = srcData.LastInstruction.Address
           let isExit = syscallAnalysis.IsExit (ctx, srcVertex)
-          ctx.CallTable.AddSystemCall callsiteAddr isExit
+          ctx.IntraCallTable.AddSystemCall callsiteAddr isExit
           addCallerVertex ctx callsiteAddr srcVertex
           actionQueue.Push prioritizer
           <| MakeSyscall (callsiteAddr, isExit)
@@ -305,11 +305,11 @@ type CFGRecovery<'FnCtx,
   /// known.
   let handleCallerSplit ctx callerAddr splitAddr callsiteAddr =
     assert (callerAddr < splitAddr && splitAddr <= callsiteAddr)
-    match ctx.CallTable.TryGetCallee callsiteAddr with
+    match ctx.IntraCallTable.TryGetCallee callsiteAddr with
     | true, RegularCallee calleeAddr ->
-      let callsites = ctx.CallTable.GetCallers calleeAddr
-      callsites.Remove callerAddr |> ignore
-      callsites.Add splitAddr |> ignore
+      let callingBBLs = ctx.IntraCallTable.GetCallingBBLs calleeAddr
+      callingBBLs.Remove callerAddr |> ignore
+      callingBBLs.Add splitAddr |> ignore
     | _ -> ()
 
   let reconnectVertices ctx (dividedEdges: List<ProgramPoint * ProgramPoint>) =
@@ -347,11 +347,7 @@ type CFGRecovery<'FnCtx,
     | FinalCtx calleeCtx
     | StillBuilding calleeCtx ->
       summarizer.Summarize (calleeCtx, callIns) |> Ok
-    | FailedBuilding ->
-      if ctx.ForceFinish then
-        let wordSize = ctx.BinHandle.File.ISA.WordSize
-        summarizer.SummarizeUnknown (wordSize, callIns) |> Ok
-      else Error ErrorCase.FailedToRecoverCFG
+    | FailedBuilding -> Error ErrorCase.FailedToRecoverCFG
 
   let connectAbsVertex ctx (caller: IVertex<LowUIRBasicBlock>) calleeAddr abs =
     let callIns = caller.VData.Internals.LastInstruction
@@ -411,14 +407,7 @@ type CFGRecovery<'FnCtx,
         if retOrPossiblyCondNoRet then
           connectAbsWithFT ctx caller calleeAddr queue
         else connectAbsWithoutFT ctx caller calleeAddr
-      | UnknownNoRet ->
-        if ctx.ForceFinish then
-#if CFGDEBUG
-          dbglog ctx.ThreadID "CallEdge"
-          <| $"Underapprox {calleeAddr:x} as non-returning"
-#endif
-          connectAbsWithoutFT ctx caller calleeAddr
-        else Utils.futureFeature ()
+      | UnknownNoRet -> Utils.futureFeature ()
 
   let connectIndirectCallEdge ctx queue callSiteAddr =
     let caller = ctx.CallerVertices[callSiteAddr]
@@ -588,13 +577,6 @@ type CFGRecovery<'FnCtx,
             dbglog ctx.ThreadID (nameof WaitForCallee) "-> failstop"
 #endif
             FailStop ErrorCase.FailedToRecoverCFG
-          elif ctx.ForceFinish then
-#if CFGDEBUG
-            dbglog ctx.ThreadID (nameof WaitForCallee) "-> force continue"
-#endif
-            ctx.PendingActions[calleeAddr] |> Seq.iter (queue.Push prioritizer)
-            ctx.PendingActions.Remove calleeAddr |> ignore
-            Continue
           else
 #if CFGDEBUG
             dbglog ctx.ThreadID (nameof WaitForCallee) "-> wait"
@@ -622,8 +604,16 @@ type CFGRecovery<'FnCtx,
         FailStop ErrorCase.FailedToRecoverCFG
 
     member _.OnFinish (ctx) =
+      let oldNoRetStatus = ctx.NonReturningStatus
       ICFGAnalysis.run { Context = ctx } postAnalysis
-      Continue
+      let newNoRetStatus = ctx.NonReturningStatus
+      match oldNoRetStatus, newNoRetStatus with
+      | NoRet, NotNoRet
+      | NoRet, ConditionalNoRet _ ->
+        let callers = Array.zeroCreate ctx.Callers.Count
+        ctx.Callers.CopyTo callers
+        ContinueWithCallers callers
+      | _ -> Continue
 
     member _.OnCyclicDependency (deps) =
       let sorted = deps |> Array.sortBy fst

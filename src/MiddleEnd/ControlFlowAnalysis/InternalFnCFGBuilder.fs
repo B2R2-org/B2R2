@@ -78,6 +78,7 @@ type InternalFnCFGBuilder<'FnCtx,
       let action = queue.Pop ()
       match strategy.OnAction (ctx, queue, action) with
       | Continue -> build strategy queue
+      | ContinueWithCallers _ -> Utils.impossible ()
       | Wait -> queue.Push strategy.ActionPrioritizer action; Wait
       | StopAndReload -> StopAndReload
       | FailStop e -> FailStop e
@@ -110,7 +111,8 @@ type InternalFnCFGBuilder<'FnCtx,
         NonReturningStatus = UnknownNoRet
         JumpTableRecoveryStatus = None
         JumpTables = List ()
-        CallTable = CallTable ()
+        Callers = HashSet ()
+        IntraCallTable = IntraCallTable ()
         VisitedPPoints = HashSet ()
         ActionQueue = CFGActionQueue ()
         PendingActions = Dictionary ()
@@ -140,9 +142,13 @@ type InternalFnCFGBuilder<'FnCtx,
       assert (state = InProgress)
       state <- Stopped
 
-    member __.Finalize () =
-      assert (state = InProgress)
+    member __.Finalize (isForceful) =
+      assert (state = InProgress || isForceful)
       state <- Finished
+
+    member __.ReInitialize () =
+      assert (state = Finished)
+      state <- Initialized
 
     member __.Invalidate () =
       assert (state = InProgress)
@@ -166,7 +172,7 @@ type InternalFnCFGBuilder<'FnCtx,
                 ctx.FunctionName,
                 ctx.CFG,
                 ctx.NonReturningStatus,
-                ctx.CallTable.Callees,
-                HashSet (),
+                ctx.IntraCallTable.Callees,
+                ctx.Callers,
                 ctx.JumpTables,
                 false)

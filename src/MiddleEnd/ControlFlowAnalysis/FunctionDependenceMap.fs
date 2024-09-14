@@ -45,9 +45,14 @@ type FunctionDependenceMap () =
 
   /// Add a dependency between two functions.
   member _.AddDependency (caller: Addr, callee: Addr) =
-    let callerV = getVertex caller
-    let calleeV = getVertex callee
-    g.AddEdge (callerV, calleeV) |> ignore
+    if caller = callee then () (* skip recursive call *)
+    else
+      let callerV = getVertex caller
+      let calleeV = getVertex callee
+#if CFGDEBUG
+      dbglog ManagerTid (nameof AddDependency) $"{caller:x} -> {callee:x}"
+#endif
+      g.AddEdge (callerV, calleeV) |> ignore
 
   /// Remove a callee function from the map, and return its immediate caller
   /// functions, excluding the recursive calls.
@@ -60,6 +65,15 @@ type FunctionDependenceMap () =
     |> Seq.choose (fun v ->
       if v.VData <> callee then Some v.VData else None)
     |> Seq.toList
+
+  /// Remove all the reachable functions from the given address.
+  member __.RemoveAllReachables (addr: Addr) =
+    let v = getVertex addr
+    let succs = g.GetSuccs v
+    vertices.Remove addr |> ignore
+    g.RemoveVertex v |> ignore
+    succs
+    |> Seq.iter (fun succ -> __.RemoveAllReachables succ.VData)
 
   /// Get the immediate caller functions of the given callee, but excluding the
   /// recursive calls.

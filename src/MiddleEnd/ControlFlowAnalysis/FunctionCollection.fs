@@ -38,45 +38,13 @@ type FunctionCollection<'FnCtx,
 
   let nameToFunction = Dictionary<string, List<Function>> ()
 
-  /// Callee to callers.
-  let callTable = Dictionary<Addr, List<Addr>> ()
-
-  let addToCallTable caller callee =
-    match callTable.TryGetValue callee with
-    | true, callers -> callers.Add caller
-    | false, _ ->
-      let callers = List<Addr> ()
-      callers.Add caller
-      callTable.Add (callee, callers)
-
-  let analyzeCallRelationship (fn: Function) =
-    if isNull fn.Callees then ()
-    else
-      for callee in fn.Callees.Values do
-        match callee with
-        | RegularCallee calleeAddr -> addToCallTable fn.EntryPoint calleeAddr
-        | IndirectCallees calleeAddrs ->
-          for calleeAddr in calleeAddrs do
-            addToCallTable fn.EntryPoint calleeAddr
-        | _ -> ()
-
-  let updateCallers (fn: Function) =
-    match callTable.TryGetValue fn.EntryPoint with
-    | true, callers ->
-      for caller in callers do fn.Callers.Add caller |> ignore
-    | false, _ -> ()
-
   let createFunctions () =
     builders
-    |> Array.map (fun builder ->
-      let fn = builder.ToFunction ()
-      analyzeCallRelationship fn
-      fn)
+    |> Array.map (fun builder -> builder.ToFunction ())
 
   let updateCollection fns =
     fns
     |> Array.iter (fun (fn: Function) ->
-      updateCallers fn
       addrToFunction.Add (fn.EntryPoint, fn)
       match nameToFunction.TryGetValue fn.Name with
       | false, _ ->

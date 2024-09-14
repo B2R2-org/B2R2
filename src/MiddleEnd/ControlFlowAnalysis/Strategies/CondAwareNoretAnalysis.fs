@@ -95,10 +95,12 @@ type CondAwareNoretAnalysis ([<Optional; DefaultParameterValue(true)>] strict) =
     not <| Seq.isEmpty succs
 
   let collectReturningCallEdges ctx =
-    ctx.CallTable.Callees
+    ctx.IntraCallTable.Callees
     |> Seq.fold (fun acc (KeyValue (callSite, calleeKind)) ->
       match calleeKind with
-      | RegularCallee callee -> (callSite, Some callee) :: acc
+      | RegularCallee callee ->
+        if ctx.FunctionAddress = callee then acc
+        else (callSite, Some callee) :: acc
       | IndirectCallees callees ->
         Set.fold (fun acc callee -> (callSite, Some callee) :: acc) acc callees
       | _ -> acc) []
@@ -109,7 +111,7 @@ type CondAwareNoretAnalysis ([<Optional; DefaultParameterValue(true)>] strict) =
     let callerSSAV = SSACFG.findVertexByAddr ssa callSite
     let absSSAV = ssa.GetSuccs callerSSAV |> Seq.exactlyOne
     let arch = (ctx: CFGBuildingContext<_, _>).BinHandle.File.ISA.Arch
-    match ctx.CallTable.TryGetFrameDistance callSite with
+    match ctx.IntraCallTable.TryGetFrameDistance callSite with
     | true, frameDist when arch = Architecture.IntelX86 ->
       untouchedArgIndexX86 frameDist absSSAV state nth
     | true, _ when arch = Architecture.IntelX64 ->
