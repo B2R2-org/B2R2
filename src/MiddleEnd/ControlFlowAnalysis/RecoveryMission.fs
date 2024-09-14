@@ -255,12 +255,15 @@ and private TaskManager<'FnCtx,
       |> Array.iter (fun cycleAddrs ->
         match getAllStoppedCycle cycleAddrs with
         | Ok deps ->
-          let targetBuilder = strategy.OnCyclicDependency deps
           (* Forcefully complete the target builder by under-approximating it as
              a "non-returning" function. *)
+          let targetBuilder = strategy.OnCyclicDependency deps
+          let nextStatus = targetBuilder.Context.NonReturningStatus
+          let nextStatus = (* preserve old status so the algo terminates. *)
+            if nextStatus = UnknownNoRet then NoRet else nextStatus
           targetBuilder.Reset builders.CFGConstructor
           targetBuilder.Context.ForceFinish <- true
-          targetBuilder.Context.NonReturningStatus <- NoRet
+          targetBuilder.Context.NonReturningStatus <- nextStatus
           targetBuilder.Finalize true (* mark as Finished *)
 #if CFGDEBUG
           dbglog ManagerTid "CyclicDependencies"
