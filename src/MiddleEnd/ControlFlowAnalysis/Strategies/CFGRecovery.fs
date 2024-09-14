@@ -491,6 +491,13 @@ type CFGRecovery<'FnCtx,
 #endif
         Continue
 
+  let hasReturnNode (ctx: CFGBuildingContext<'FnCtx, 'GlCtx>) =
+    ctx.CFG.TryFindVertexBy (fun v ->
+      if v.VData.Internals.IsAbstract then
+        v.VData.Internals.AbstractContent.ReturningStatus = NotNoRet
+      else v.VData.Internals.LastInstruction.IsRET ())
+    |> Option.isSome
+
   new () =
     let summarizer = FunctionSummarizer ()
     let ssaLifter = SSALifter () :> ICFGAnalysis<_>
@@ -623,7 +630,11 @@ type CFGRecovery<'FnCtx,
       |> String.concat ","
       |> dbglog ManagerTid "OnCyclicDependency"
 #endif
-      let target = Array.head sorted |> snd
+      let target =
+        sorted (* If there's no ret instruction, it is likely non-returning *)
+        |> Array.tryFind (fun (_, bld) -> not (hasReturnNode bld.Context))
+        |> Option.defaultValue (Array.head sorted)
+        |> snd
 #if CFGDEBUG
       dbglog ManagerTid "OnCyclicDependency"
       <| $"target = {target.EntryPoint:x}"
