@@ -42,6 +42,10 @@ type JmpTableRecoveryNotebook () =
       note.PotentialEndPoint <- newPoint
     else ()
 
+  let syncConfirmedEndPoint note newPoint =
+    if note.ConfirmedEndPoint > newPoint then note.ConfirmedEndPoint <- newPoint
+    else ()
+
   let syncAfterRegistration tblAddr note =
     let sz = uint64 note.EntrySize
     match SortedList.findGreatestLowerBoundKey tblAddr notes with
@@ -99,11 +103,13 @@ type JmpTableRecoveryNotebook () =
     let note = notes[tblAddr]
     let newPoint = note.StartingPoint + uint64 (confirmedIdx * note.EntrySize)
     updatePotentialEndPoint note newPoint
+    syncConfirmedEndPoint note newPoint
 
   /// Set the potential end point of the jump table by giving the currently
   /// confirmed address.
   member _.SetPotentialEndPointByAddr tblAddr confirmedAddr =
     updatePotentialEndPoint notes[tblAddr] confirmedAddr
+    syncConfirmedEndPoint notes[tblAddr] confirmedAddr
 
   /// Get the string representation of the note.
   member _.GetNoteString tblAddr =

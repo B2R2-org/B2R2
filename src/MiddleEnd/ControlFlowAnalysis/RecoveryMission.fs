@@ -97,7 +97,8 @@ and private TaskManager<'FnCtx,
   let computeCallers () =
     for builder in builders.Values do
       let callerAddr = builder.EntryPoint
-      for callee in builder.Context.IntraCallTable.Callees.Values do
+      let callees = builder.Context.IntraCallTable.Callees.Values |> Seq.toArray
+      for callee in callees do
         match callee with
         | RegularCallee calleeAddr -> updateCaller callerAddr calleeAddr
         | IndirectCallees calleeAddrs ->
@@ -302,7 +303,7 @@ and private TaskManager<'FnCtx,
           callerBuilder.Context.NonReturningStatus <- oldStatus
           addTask callerAddr callerBuilder.Context.FunctionMode
       )
-      if callers.Length > 0 then computeCallers () else ()
+      if callers.Length > 0 then computeCallers () else () (* FIXME sync prob *)
     | Wait ->
       if isInvalid entryPoint then
         dependenceMap.RemoveAndGetCallers entryPoint
