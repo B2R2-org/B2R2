@@ -153,27 +153,34 @@ type CFGRecovery<'FnCtx,
     if ctx.CallerVertices.ContainsKey callsiteAddr then ()
     else ctx.CallerVertices.Add (callsiteAddr, vertex) |> ignore
 
-  let pushCallAction ctx srcPp callsiteAddr callee action =
-    let mode = ctx.FunctionMode
-    let fnAddr = ctx.FunctionAddress
-    let actionQueue = ctx.ActionQueue
-    addCallerVertex ctx callsiteAddr (getVertex ctx srcPp)
-    ctx.IntraCallTable.AddRegularCall srcPp callsiteAddr callee
-    ctx.ManagerChannel.AddDependency (fnAddr, callee, mode)
-    if fnAddr = callee then (* self-recursion *)
-      actionQueue.Push prioritizer action
-    else
-      match ctx.ManagerChannel.GetBuildingContext callee with
-      (* Wait for the callee to finish *)
-      | StillBuilding _
-      | FailedBuilding -> postponeActionOnCallee ctx callee action
-      (* Directly push the given action into its action queue. *)
-      | FinalCtx _ -> actionQueue.Push prioritizer action
+  let isExecutableAddr (ctx: CFGBuildingContext<_, _>) targetAddr =
+    ctx.BinHandle.File.IsExecutableAddr targetAddr
+
+  let pushCallAction ctx srcPp callsiteAddr calleeAddr action =
+    if isExecutableAddr ctx calleeAddr then
+      let mode = ctx.FunctionMode
+      let fnAddr = ctx.FunctionAddress
+      let actionQueue = ctx.ActionQueue
+      addCallerVertex ctx callsiteAddr (getVertex ctx srcPp)
+      ctx.IntraCallTable.AddRegularCall srcPp callsiteAddr calleeAddr
+      ctx.ManagerChannel.AddDependency (fnAddr, calleeAddr, mode)
+      if fnAddr = calleeAddr then (* self-recursion *)
+        actionQueue.Push prioritizer action
+      else
+        match ctx.ManagerChannel.GetBuildingContext calleeAddr with
+        (* Wait for the callee to finish *)
+        | StillBuilding _
+        | FailedBuilding -> postponeActionOnCallee ctx calleeAddr action
+        (* Directly push the given action into its action queue. *)
+        | FinalCtx _ -> actionQueue.Push prioritizer action
+      Continue
+    else FailStop ErrorCase.FailedToRecoverCFG
 
   /// Build a CFG starting from the given program points.
   let buildCFG ctx (actionQueue: CFGActionQueue) initPPs =
     let ppQueue = Queue<ProgramPoint> (collection=initPPs)
-    while ppQueue.Count > 0 do
+    let mutable result = Continue
+    while ppQueue.Count > 0 && result = Continue do
       let ppoint = ppQueue.Dequeue ()
       if ctx.VisitedPPoints.Contains ppoint then ()
       else
@@ -215,12 +222,12 @@ type CFGRecovery<'FnCtx,
           if useTailcallHeuristic then
             let dstAddr = BitVector.ToUInt64 n
             match ctx.ManagerChannel.GetBuildingContext dstAddr with
-            | FailedBuilding -> (* not exists *)
+            | FailedBuilding -> (* function does not exist *)
               jmpToDstAddr ctx ppQueue srcVertex dstAddr InterJmpEdge
             | _ ->
-              let callSiteAddr = srcData.LastInstruction.Address
-              pushCallAction ctx srcData.PPoint callSiteAddr dstAddr
-              <| MakeTlCall (callSiteAddr, dstAddr)
+              let callSite = srcData.LastInstruction.Address
+              let act = MakeTlCall (callSite, dstAddr)
+              result <- pushCallAction ctx srcData.PPoint callSite dstAddr act
           else
             let dstAddr = BitVector.ToUInt64 n
             jmpToDstAddr ctx ppQueue srcVertex dstAddr InterJmpEdge
@@ -229,13 +236,13 @@ type CFGRecovery<'FnCtx,
                           InterJmpKind.IsCall) ->
           let callsiteAddr = srcData.LastInstruction.Address
           let target = callsiteAddr + BitVector.ToUInt64 n
-          pushCallAction ctx srcData.PPoint callsiteAddr target
-          <| MakeCall (callsiteAddr, target)
+          let act = MakeCall (callsiteAddr, target)
+          result <- pushCallAction ctx srcData.PPoint callsiteAddr target act
         | InterJmp ({ E = Num n }, InterJmpKind.IsCall) ->
           let callsiteAddr = srcData.LastInstruction.Address
           let target = BitVector.ToUInt64 n
-          pushCallAction ctx srcData.PPoint callsiteAddr target
-          <| MakeCall (callsiteAddr, target)
+          let act = MakeCall (callsiteAddr, target)
+          result <- pushCallAction ctx srcData.PPoint callsiteAddr target act
         | InterCJmp (_, { E = BinOp (BinOpType.ADD, _, { E = PCVar _ },
                                                        { E = Num tv }) },
                         { E = BinOp (BinOpType.ADD, _, { E = PCVar _ },
@@ -298,7 +305,7 @@ type CFGRecovery<'FnCtx,
         | _ ->
           ()
     done
-    Continue
+    result
 
   /// This is to update the caller information when a basic block is split. This
   /// is only effective when the block makes a call, and the callee(s) are
