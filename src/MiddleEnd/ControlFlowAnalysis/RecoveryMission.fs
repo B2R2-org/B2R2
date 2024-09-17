@@ -208,17 +208,27 @@ and private TaskManager<'FnCtx,
       |> Seq.iter (callerActionQueue.Push strategy.ActionPrioritizer)
       callerPendingActions.Remove callee |> ignore
 
+  /// Returns true if there was one or more pending reset messages.
   and consumePendingMessages (builder: ICFGBuildable<_, _>) entryPoint =
     let messages = msgbox[entryPoint]
-    if Seq.isEmpty messages then ()
+    if Seq.isEmpty messages then false
     else
+      let mutable pendingReset = false
       for msg in messages do
         match msg with
         | CalleeSuccess calleeAddr ->
+#if CFGDEBUG
+          dbglog ManagerTid "PendingMsg" $"CalleeSuccess {calleeAddr:x}"
+#endif
           rechargeActionQueue builders[entryPoint].Context calleeAddr
         | BuilderReset ->
+#if CFGDEBUG
+          dbglog ManagerTid "PendingMsg" $"BuilderReset"
+#endif
           builder.Reset builders.CFGConstructor
+          pendingReset <- true
       addTask entryPoint builder.Mode
+      pendingReset
 
   and propagateInvalidation entryPoint =
     if builders[entryPoint].Context.ForceFinish then ()
@@ -280,15 +290,16 @@ and private TaskManager<'FnCtx,
     workingSet.Remove entryPoint |> ignore
     match result with
     | Continue ->
-      finalizeBuilder entryPoint builder
 #if CFGDEBUG
-      dbglog ManagerTid "HandleResult" $"{entryPoint:x}: ok"
+      dbglog ManagerTid "HandleResult" $"{entryPoint:x}: finished"
 #endif
+      finalizeBuilder builder entryPoint
     | ContinueWithCallers callers ->
-      finalizeBuilder entryPoint builder
 #if CFGDEBUG
-      dbglog ManagerTid "HandleResult" $"{entryPoint:x}: result changed"
+      dbglog ManagerTid "HandleResult"
+      <| $"{entryPoint:x}: finished, but result changed"
 #endif
+      finalizeBuilder builder entryPoint
       callers
       |> Array.iter (fun callerAddr ->
 #if CFGDEBUG
@@ -310,7 +321,7 @@ and private TaskManager<'FnCtx,
         |> List.iter propagateInvalidation
       else
         builder.Stop ()
-        consumePendingMessages builder entryPoint
+        consumePendingMessages builder entryPoint |> ignore
 #if CFGDEBUG
         dbglog ManagerTid "HandleResult" $"{entryPoint:x}: stopped"
 #endif
@@ -326,11 +337,18 @@ and private TaskManager<'FnCtx,
       dbglog ManagerTid "HandleResult" $"{entryPoint:x}: {ErrorCase.toString e}"
 #endif
 
-  and finalizeBuilder entryPoint builder =
-    builder.Finalize ()
-    msgbox.Remove entryPoint |> ignore
-    dependenceMap.RemoveAndGetCallers entryPoint
-    |> List.iter (propagateSuccess entryPoint)
+  and finalizeBuilder builder entryPoint =
+    if consumePendingMessages builder entryPoint then
+#if CFGDEBUG
+      dbglog ManagerTid "HandleResult"
+      <| $"{entryPoint:x}: restart due to pending messages"
+#endif
+      ()
+    else
+      builder.Finalize ()
+      msgbox.Remove entryPoint |> ignore
+      dependenceMap.RemoveAndGetCallers entryPoint
+      |> List.iter (propagateSuccess entryPoint)
 
   and handleJumpTableRecoveryRequest fnAddr (jmptbl: JmpTableInfo) =
     match jmptblNotes.Register fnAddr jmptbl with
