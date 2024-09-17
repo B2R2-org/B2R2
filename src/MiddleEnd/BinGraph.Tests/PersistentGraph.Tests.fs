@@ -24,7 +24,6 @@
 
 namespace B2R2.MiddleEnd.BinGraph.Tests
 
-open B2R2
 open B2R2.MiddleEnd.BinGraph
 open Microsoft.VisualStudio.TestTools.UnitTesting
 
@@ -242,12 +241,10 @@ type BasicPersistentGraphTest () =
 
   [<TestMethod>]
   member __.``Dominance Frontier Test``() =
-    let df =
-      Dominator.frontier ctxt4 <| g4.FindVertexByData 5 |> List.toArray
+    let df = Dominator.frontier ctxt4 <| g4.FindVertexByData 5 |> List.toArray
     let df = df |> Array.map (fun v -> v.VData) |> Array.sort
     CollectionAssert.AreEqual (df, [|4; 5; 12; 13|])
-    let df =
-      Dominator.frontier ctxt4 <| g4.FindVertexByData 9 |> List.toArray
+    let df = Dominator.frontier ctxt4 <| g4.FindVertexByData 9 |> List.toArray
     let df = df |> Array.map (fun v -> v.VData) |> Array.sort
     CollectionAssert.AreEqual (df, [|12|])
 
