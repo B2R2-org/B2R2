@@ -127,7 +127,6 @@ and private TaskManager<'FnCtx,
           | None -> "n/a"
         dbglog ManagerTid (nameof InvalidateBuilder) $"{jt} @ {entryPoint:x}"
 #endif
-        makeInvalid builder
         rollbackOrPropagateInvalidation entryPoint builder
         terminateIfAllDone ()
       | AddDependency (_, callee, _) when isFinished callee -> ()
@@ -153,6 +152,12 @@ and private TaskManager<'FnCtx,
         | Error _ -> ch.Reply <| FailedBuilding
       | NotifyJumpTableRecovery (fnAddr, jmptbl, ch) ->
         ch.Reply <| handleJumpTableRecoveryRequest fnAddr jmptbl
+      | CancelJumpTableRecovery (fnAddr, tblAddr) ->
+#if CFGDEBUG
+        let insAddr = jmptblNotes.GetIndBranchAddress tblAddr
+        dbglog ManagerTid "JumpTable canceled" $"{insAddr:x} @ {fnAddr:x}"
+#endif
+        jmptblNotes.Unregister tblAddr
       | ReportJumpTableSuccess (fnAddr, tblAddr, idx, nextTarget, ch) ->
         ch.Reply <| handleJumpTableRecoverySuccess fnAddr tblAddr idx nextTarget
       | AccessGlobalContext (accessor, ch) ->
@@ -169,6 +174,7 @@ and private TaskManager<'FnCtx,
   and rollbackOrPropagateInvalidation entryPoint builder =
     match builder.Context.JumpTableRecoveryStatus with
     | Some (tblAddr, idx) ->
+      assert (idx > 0)
 #if CFGDEBUG
       dbglog ManagerTid "rollback" $"{builder.Context.FunctionAddress:x}"
 #endif
@@ -176,6 +182,7 @@ and private TaskManager<'FnCtx,
       builder.Reset builders.CFGConstructor
       addTask builder.Context.FunctionAddress builder.Mode
     | None ->
+      makeInvalid builder
       dependenceMap.RemoveAndGetCallers entryPoint
       |> List.iter propagateInvalidation
 
@@ -354,7 +361,7 @@ and private TaskManager<'FnCtx,
     match jmptblNotes.Register fnAddr jmptbl with
     | Ok _ ->
 #if CFGDEBUG
-      dbglog ManagerTid "JumpTable add"
+      dbglog ManagerTid "JumpTable registered"
       <| jmptblNotes.GetNoteString jmptbl.TableAddress
 #endif
       true

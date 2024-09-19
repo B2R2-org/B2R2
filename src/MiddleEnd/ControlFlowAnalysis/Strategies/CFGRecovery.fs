@@ -472,15 +472,29 @@ type CFGRecovery<'FnCtx,
 
   let recoverJumpTableEntry ctx queue srcAddr dstAddr =
     let srcVertex = getVertex ctx (ProgramPoint (srcAddr, 0))
-    match scanBBLs ctx ctx.FunctionMode [ dstAddr ] with
-    | Ok dividedEdges ->
-      let targetPPoint = ProgramPoint (dstAddr, 0)
-      let targetVertex = getVertex ctx targetPPoint
-      connectEdge ctx srcVertex targetVertex IndirectJmpEdge
-      reconnectVertices ctx dividedEdges
-      addExpandCFGAction queue dstAddr
-      Continue
-    | Error e -> FailStop e
+    let fnAddr = ctx.FunctionAddress
+    if dstAddr < fnAddr || not (isExecutableAddr ctx dstAddr) then
+      match ctx.JumpTableRecoveryStatus with
+      | Some (tblAddr, 0) ->
+        (* The first jump table entry was invalid. For example, the target could
+           be outside the boundary of the current function. In this case, we
+           conclude that the indirect jump is not using a jump table, and thus,
+           we simply ignore the indirect branch. *)
+        ctx.ManagerChannel.CancelJumpTableRecovery (fnAddr, tblAddr)
+        ctx.ActionQueue.Pop () |> ignore (* pop off `EndTblRec` *)
+        Continue
+      | _ ->
+        FailStop ErrorCase.FailedToRecoverCFG
+    else
+      match scanBBLs ctx ctx.FunctionMode [ dstAddr ] with
+      | Ok dividedEdges ->
+        let targetPPoint = ProgramPoint (dstAddr, 0)
+        let targetVertex = getVertex ctx targetPPoint
+        connectEdge ctx srcVertex targetVertex IndirectJmpEdge
+        reconnectVertices ctx dividedEdges
+        addExpandCFGAction queue dstAddr
+        Continue
+      | Error e -> FailStop e
 
   let sendJmpTblRecoverySuccess ctx queue jmptbl idx =
     let fnAddr = ctx.FunctionAddress

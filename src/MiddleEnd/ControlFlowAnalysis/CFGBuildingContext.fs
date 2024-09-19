@@ -135,6 +135,12 @@ and [<AllowNullLiteral>]
      * jmptbl: JmpTableInfo
     -> bool
 
+  /// Let the manager know that the jump table recovery is canceled.
+  abstract CancelJumpTableRecovery:
+       fnAddr: Addr
+     * tblAddr: Addr
+    -> unit
+
   /// Report the success of jump table entry recovery to the manager, and get
   /// the decision whether to continue the analysis or not.
   abstract ReportJumpTableSuccess:

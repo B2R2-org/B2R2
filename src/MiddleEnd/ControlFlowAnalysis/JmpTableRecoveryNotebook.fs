@@ -81,6 +81,11 @@ type JmpTableRecoveryNotebook () =
         syncAfterRegistration tblAddr note
         Ok note
 
+  /// Unregister the given jump table note. This means, we later found out that
+  /// the jump table is not really a jump table.
+  member _.Unregister tblAddr =
+    notes.Remove tblAddr |> ignore
+
   /// Check if the given index is expandable within the jump table.
   member _.IsExpandable tblAddr idx =
     let note = notes[tblAddr]
@@ -110,6 +115,11 @@ type JmpTableRecoveryNotebook () =
   member _.SetPotentialEndPointByAddr tblAddr confirmedAddr =
     updatePotentialEndPoint notes[tblAddr] confirmedAddr
     syncConfirmedEndPoint notes[tblAddr] confirmedAddr
+
+  /// Get the indirect branch address that is associated with the given jump
+  /// table address.
+  member _.GetIndBranchAddress tblAddr =
+    notes[tblAddr].InsAddr
 
   /// Get the string representation of the note.
   member _.GetNoteString tblAddr =
