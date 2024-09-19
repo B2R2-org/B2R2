@@ -120,28 +120,12 @@ type SSAJmpTableAnalysis<'FnCtx,
     | Extract (e, rt, pos) -> Extract (foldWithConstant state e, rt, pos)
     | e -> e
 
-  /// Jump table index does not involve more than one multiplication or shift
-  /// operation. If so, it is considered as a complex operation, and the
-  /// expression should be ignored.
-  let rec isComplexOp (state: SSAVarBasedDataFlowState<_>) e =
-    match e with
-    | BinOp (BinOpType.MUL, _, _, _)
-    | BinOp (BinOpType.SHL, _, _, _)  -> true
-    | BinOp (_, _, e1, e2) -> isComplexOp state e1 || isComplexOp state e2
-    | Var v ->
-      match state.SSAEdges.Defs.TryGetValue v with
-      | true, Def (_, e) ->
-        isComplexOp state e
-      | _ -> false
-    | _ -> false
-
   let rec isJmpTable state t = function
-    | BinOp (BinOpType.MUL, _, e, Num n)
-    | BinOp (BinOpType.MUL, _, Num n, e) ->
-      (RegType.toByteWidth t = BitVector.ToInt32 n) && not (isComplexOp state e)
-    | BinOp (BinOpType.SHL, _, e, Num n) ->
+    | BinOp (BinOpType.MUL, _, _, Num n)
+    | BinOp (BinOpType.MUL, _, Num n, _) ->
+      (RegType.toByteWidth t = BitVector.ToInt32 n)
+    | BinOp (BinOpType.SHL, _, _, Num n) ->
       (RegType.toByteWidth t = (1 <<< BitVector.ToInt32 n))
-      && not (isComplexOp state e)
     | BinOp (BinOpType.ADD, _, e1, e2) ->
       isJmpTable state t e1 || isJmpTable state t e2
     | _ -> false
