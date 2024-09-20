@@ -421,7 +421,7 @@ type CFGRecovery<'FnCtx,
     let callIns = caller.VData.Internals.LastInstruction
     let callSite = callIns.Address
     let wordSize = ctx.BinHandle.File.ISA.WordSize
-    let abs = summarizer.SummarizeUnknown (wordSize, callIns)
+    let abs = summarizer.SummarizeUnknown (ctx, callIns)
     let absV = getAbsVertex ctx callSite None abs
     connectEdge ctx caller absV CallEdge
     connectRet ctx (absV, callSite + uint64 callIns.Length)

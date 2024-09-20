@@ -38,12 +38,12 @@ type IFunctionSummarizable<'FnCtx,
   /// Summarize a function based on the given context to abstract data. The
   /// `ins` is the call instruction that calls the function.
   abstract Summarize:
-       CFGBuildingContext<'FnCtx, 'GlCtx>
+       ctx: CFGBuildingContext<'FnCtx, 'GlCtx>
      * ins: Instruction
     -> FunctionAbstraction<LowUIR.Stmt>
 
   /// Return a default summary for a unknown function.
   abstract SummarizeUnknown:
-       wordSz: WordSize
+       ctx: CFGBuildingContext<'FnCtx, 'GlCtx>
      * ins: Instruction
     -> FunctionAbstraction<LowUIR.Stmt>

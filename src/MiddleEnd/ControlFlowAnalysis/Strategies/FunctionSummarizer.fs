@@ -52,8 +52,8 @@ type FunctionSummarizer<'FnCtx,
       let adj = int64 unwindingAmount
       let shiftAmount = BitVector.OfInt64 (retAddrSize + adj) rt
       let e = AST.binop BinOpType.ADD sp (AST.num shiftAmount)
-      [ sp, e ]
-    | None -> []
+      [| (sp, e) |]
+    | None -> [||]
 
   let toRegExpr (hdl: BinHandle) register =
     Intel.Register.toRegID register
@@ -83,9 +83,9 @@ type FunctionSummarizer<'FnCtx,
       match tryFindLiveRegFromGetPCThunk hdl ctx.FunctionAddress with
       | Some var ->
         let e = genFreshStackVarExpr hdl
-        [ (var, e) ]
-      | None -> []
-    | _ -> []
+        [| (var, e) |]
+      | None -> [||]
+    | _ -> [||]
 
   let computeLiveVars (ctx: CFGBuildingContext<_, _>) unwindingAmount =
     let hdl = ctx.BinHandle
@@ -95,11 +95,11 @@ type FunctionSummarizer<'FnCtx,
         |> hdl.RegisterFactory.RegIDToRegExpr
       let rt = hdl.File.ISA.WordSize |> WordSize.toRegType
       let e = AST.undef rt "ret"
-      [ (retReg, e)
-        yield! stackPointerDef hdl unwindingAmount ]
+      [| (retReg, e)
+         yield! stackPointerDef hdl unwindingAmount |]
     else
-      [ yield! initializeLiveVarMap ctx
-        yield! stackPointerDef hdl unwindingAmount ]
+      [| yield! initializeLiveVarMap ctx
+         yield! stackPointerDef hdl unwindingAmount |]
 
   /// Compute how many bytes are unwound by this function.
   abstract ComputeUnwindingAmount:
@@ -131,8 +131,7 @@ type FunctionSummarizer<'FnCtx,
     let returnAddress = callInstruction.Address + uint64 callInstruction.Length
     let stmts = (* For abstraction, we check which var can be defined. *)
       computeLiveVars ctx unwindingAmount
-      |> List.map (fun (dst, src) -> AST.put dst src)
-      |> List.toArray
+      |> Array.map (fun (dst, src) -> AST.put dst src)
     let regType = ctx.BinHandle.File.ISA.WordSize |> WordSize.toRegType
     let fallThrough = AST.num <| BitVector.OfUInt64 returnAddress regType
     let jmpToFallThrough = AST.interjmp fallThrough InterJmpKind.Base
@@ -150,10 +149,14 @@ type FunctionSummarizer<'FnCtx,
                            ctx.IsExternal,
                            ctx.NonReturningStatus)
 
-    member __.SummarizeUnknown (wordSize, callIns) =
+    member __.SummarizeUnknown (ctx, callIns) =
       let returnAddress = callIns.Address + uint64 callIns.Length
+      let wordSize = ctx.BinHandle.File.ISA.WordSize
       let regType = wordSize |> WordSize.toRegType
       let fallThrough = AST.num <| BitVector.OfUInt64 returnAddress regType
       let jmpToFallThrough = AST.interjmp fallThrough InterJmpKind.Base
-      let ssaRundown = [| jmpToFallThrough |]
+      let stmts =
+        stackPointerDef ctx.BinHandle 0
+        |> Array.map (fun (dst, src) -> AST.put dst src)
+      let ssaRundown = [| yield! stmts; yield jmpToFallThrough |]
       FunctionAbstraction (0UL, None, ssaRundown, false, NotNoRet)
