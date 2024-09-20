@@ -143,12 +143,9 @@ type BBLFactory (hdl: BinHandle,
     match startNdxs, endNdxs with
     | (insStartNdx, stmStartNdx), Some (insEndNdx, 0) ->
       assert (insStartNdx <> insEndNdx)
-      if insStartNdx = 0 && stmStartNdx = 0 then
-        liftedInstrs[insStartNdx..insEndNdx-1]
-      else
-        let r = liftedInstrs[insStartNdx..insStartNdx]
-        r[0] <- { r[0] with Stmts = r[0].Stmts[stmStartNdx..] }
-        r
+      let r = liftedInstrs[insStartNdx..insEndNdx-1]
+      r[0] <- { r[0] with Stmts = r[0].Stmts[stmStartNdx..] }
+      r
     | (insStartNdx, stmStartNdx), Some (insEndNdx, stmEndNdx) ->
       let r = liftedInstrs[insStartNdx..insEndNdx]
       let last = r.Length - 1
@@ -215,7 +212,8 @@ type BBLFactory (hdl: BinHandle,
       let ppoint = ProgramPoint (leaderAddr, 0)
       let bbl = LowUIRBasicBlock.CreateRegular (arr, ppoint)
       bbls.TryAdd (ppoint, bbl) |> ignore
-    else gatherIntraBBLs arr labelMap 0 0 (Seq.toList intraLeaders)
+    else
+      gatherIntraBBLs arr labelMap 0 0 (Seq.toList intraLeaders)
 
   let bblLifter (channel: BufferBlock<Addr * Instruction list * int>) =
     let liftingUnit = hdl.NewLiftingUnit ()
