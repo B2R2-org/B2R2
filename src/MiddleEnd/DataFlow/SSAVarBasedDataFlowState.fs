@@ -35,7 +35,8 @@ open B2R2.MiddleEnd.DataFlow
 /// An ID of an SSA memory instance.
 type private SSAMemID = int
 
-type SSAVarBasedDataFlowState<'Lattice when 'Lattice: equality>
+/// SSA-variable-based data flow state.
+type SSAVarBasedDataFlowState<'Lattice>
   public (hdl: BinHandle,
           analysis: ISSAVarBasedDataFlowAnalysis<'Lattice>) =
 
@@ -155,7 +156,7 @@ type SSAVarBasedDataFlowState<'Lattice when 'Lattice: equality>
         | false, _ -> analysis.Bottom
 
 /// The core interface for SSA-based data flow analysis.
-and ISSAVarBasedDataFlowAnalysis<'Lattice when 'Lattice: equality> =
+and ISSAVarBasedDataFlowAnalysis<'Lattice> =
   /// A callback for initializing the state.
   abstract OnInitialize:
        SSAVarBasedDataFlowState<'Lattice>

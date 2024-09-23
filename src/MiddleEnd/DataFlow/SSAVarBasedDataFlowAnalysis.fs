@@ -30,7 +30,7 @@ open B2R2.MiddleEnd.DataFlow
 
 /// SSA variable-based data flow analysis framework, which is based on the idea
 /// of sparse conditional constant propagation algorithm by Wegman et al.
-type SSAVarBasedDataFlowAnalysis<'Lattice when 'Lattice: equality>
+type SSAVarBasedDataFlowAnalysis<'Lattice>
   public (hdl, analysis: ISSAVarBasedDataFlowAnalysis<'Lattice>) =
 
   let processFlow (state: SSAVarBasedDataFlowState<_>) (ssaCFG: SSACFG) =

@@ -25,10 +25,25 @@
 namespace B2R2.RearEnd.Transformer
 
 open B2R2
+open B2R2.MiddleEnd.BinGraph
+open B2R2.MiddleEnd.ControlFlowGraph
 
 /// The `dot` action.
 type DOTAction () =
-  let toDOT o = Utils.futureFeature ()
+  let vToStr (v: IVertex<LowUIRBasicBlock>) =
+    let id = v.VData.Internals.BlockAddress.ToString "x"
+    let instrs =
+      v.VData.Internals.Instructions
+      |> Array.map (fun ins -> ins.Disasm (true, null))
+      |> String.concat "\\l"
+    $"n_{id}", $"[label=\"{instrs}\\l\"]"
+
+  let toDOT o =
+    match unbox<CFG> o with
+    | CFG (addr, cfg) ->
+      let name = Addr.toFuncName addr
+      cfg.ToDOTStr (name, vToStr, (fun _ -> ""))
+    | NoCFG e -> $"Failed to construct CFG: {e}"
 
   interface IAction with
     member __.ActionID with get() = "dot"

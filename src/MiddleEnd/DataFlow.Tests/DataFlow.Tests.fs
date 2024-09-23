@@ -28,9 +28,27 @@ open Microsoft.VisualStudio.TestTools.UnitTesting
 
 open B2R2
 open B2R2.BinIR
+open B2R2.FrontEnd
 open B2R2.FrontEnd.BinLifter.Intel
 open B2R2.MiddleEnd.DataFlow
+open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.SSA
+
+type private DummyLattice = int
+
+type DummyVarBasedDataFlowAnalysis =
+  inherit VarBasedDataFlowAnalysis<DummyLattice>
+
+  new (hdl: BinHandle) =
+    let analysis =
+      { new IVarBasedDataFlowAnalysis<DummyLattice> with
+          member __.OnInitialize state = state
+          member __.Bottom = 0
+          member __.Join _a _b = 0
+          member __.Subsume _a _b = true
+          member __.Transfer _g _v _pp _stmt _state = None
+          member __.EvalExpr _state _pp _e = 0 }
+    { inherit VarBasedDataFlowAnalysis<DummyLattice> (hdl, analysis) }
 
 [<TestClass>]
 type PersistentDataFlowTests () =

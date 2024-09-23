@@ -100,11 +100,7 @@ type UntouchedValueAnalysis =
               | _ -> None
             | _ -> None
 
-          member __.EvalExpr state pp e = evaluateExpr state pp e
-
-          member __.GetNextVertices g v =
-            (g: IGraph<_, _>).GetSuccs v
-            |> Seq.map (fun v -> v.ID) }
+          member __.EvalExpr state pp e = evaluateExpr state pp e }
 
     { inherit VarBasedDataFlowAnalysis<UntouchedValueDomain.Lattice>
         (hdl, analysis) }

@@ -33,36 +33,29 @@ open B2R2.MiddleEnd.BinGraph
 open B2R2.BinIR
 open B2R2.BinIR.LowUIR
 
+/// LowUIR-variable-based data flow state.
 type VarBasedDataFlowState<'Lattice>
   public (hdl, analysis: IVarBasedDataFlowAnalysis<'Lattice>) =
 
+  /// Abstract values for each variable.
   let absValues = Dictionary<VarPoint, 'Lattice> ()
 
+  /// For every program point, we store a mapping from every variable to its
+  /// definition (VarPoint).
   let varDefs = Dictionary<ProgramPoint, VarDefDomain.Lattice> ()
 
+  /// Abstract values (in the constant propagation domain) for each variable.
   let constants = Dictionary<VarPoint, ConstantDomain.Lattice> ()
 
+  /// Preceding program points of the current program point.
   let incomingPps = Dictionary<ProgramPoint, Set<ProgramPoint>> ()
 
   let workList = Queue<VertexID> ()
 
+  /// To deduplicate items in workList.
   let workSet = HashSet ()
 
   let initialConstants = Dictionary<VarKind, ConstantDomain.Lattice> ()
-
-  let isWorklistEmpty () = Seq.isEmpty workList
-
-  let pushWork vid =
-    if workSet.Contains vid then ()
-    else
-      workSet.Add vid |> ignore
-      workList.Enqueue vid
-
-  let popWork () =
-    let vid = workList.Dequeue ()
-    assert (workSet.Contains vid)
-    workSet.Remove vid |> ignore
-    vid
 
   let addIncomingPp pp incomingPp =
     match incomingPps.TryGetValue pp with
@@ -190,13 +183,21 @@ type VarBasedDataFlowState<'Lattice>
 
   do initializeConstants ()
 
-  member __.IsWorklistEmpty with get () = isWorklistEmpty ()
+  member __.IsWorklistEmpty with get () = workList.Count = 0
 
-  /// Push a work (vertex id) to the worklist in the data flow analysis. Call
-  /// this whenever a new vertex is added to the graph.
-  member __.PushWork vid = pushWork vid
+  /// Push a work (vertex id) to the worklist. Call this whenever a new vertex
+  /// is added to the graph.
+  member __.PushWork vid =
+    if workSet.Contains vid then ()
+    else
+      workSet.Add vid |> ignore
+      workList.Enqueue vid
 
-  member __.PopWork () = popWork ()
+  member __.PopWork () =
+    let vid = workList.Dequeue ()
+    assert (workSet.Contains vid)
+    workSet.Remove vid |> ignore
+    vid
 
   member __.GetVarDef pp = getVarDef pp
 
@@ -225,6 +226,7 @@ type VarBasedDataFlowState<'Lattice>
   interface IDataFlowState<VarPoint, 'Lattice> with
     member __.GetAbsValue absLoc = getAbsValue absLoc
 
+/// The core interface for IR-based data flow analysis.
 and IVarBasedDataFlowAnalysis<'Lattice> =
   /// A callback for initializing the state.
   abstract OnInitialize:
@@ -236,17 +238,7 @@ and IVarBasedDataFlowAnalysis<'Lattice> =
   abstract Bottom: 'Lattice
 
   /// Join operator.
-  abstract Join:
-       'Lattice
-    -> 'Lattice
-    -> 'Lattice
-
-  /// Subsume operator, which checks if the first lattice subsumes the second.
-  /// This is to know if the analysis should stop or not.
-  abstract Subsume:
-       'Lattice
-    -> 'Lattice
-    -> bool
+  abstract Join: 'Lattice -> 'Lattice -> 'Lattice
 
   /// Transfer function.
   abstract Transfer:
@@ -257,14 +249,13 @@ and IVarBasedDataFlowAnalysis<'Lattice> =
     -> VarBasedDataFlowState<'Lattice>
     -> (VarPoint * 'Lattice) option
 
+  /// Subsume operator, which checks if the first lattice subsumes the second.
+  /// This is to know if the analysis should stop or not.
+  abstract Subsume: 'Lattice -> 'Lattice -> bool
+
   /// Evaluate the given expression based on the current abstract state.
   abstract EvalExpr:
        VarBasedDataFlowState<'Lattice>
     -> ProgramPoint
     -> Expr
     -> 'Lattice
-
-  abstract GetNextVertices:
-       IGraph<LowUIRBasicBlock, 'E>
-    -> IVertex<LowUIRBasicBlock>
-    -> VertexID seq

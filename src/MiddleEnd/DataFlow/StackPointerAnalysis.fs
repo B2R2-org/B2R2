@@ -117,11 +117,7 @@ type StackPointerAnalysis =
             (* We ignore the data-flow through memory operations in SPP. *)
             | _ -> None
 
-          member __.EvalExpr state pp e = evaluateExpr state pp e
-
-          member __.GetNextVertices g v =
-            (g: IGraph<_, _>).GetSuccs v
-            |> Seq.map (fun v -> v.ID) }
+          member __.EvalExpr state pp e = evaluateExpr state pp e }
 
     { inherit VarBasedDataFlowAnalysis<StackPointerDomain.Lattice>
         (hdl, analysis) }

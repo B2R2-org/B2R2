@@ -24,11 +24,34 @@
 
 namespace B2R2.RearEnd.Transformer
 
-open B2R2
+open B2R2.MiddleEnd
+open B2R2.MiddleEnd.ControlFlowAnalysis
+open B2R2.MiddleEnd.LLVM
 
 /// The `llvm` action.
 type LLVMAction () =
-  let translate (o: obj) = Utils.futureFeature ()
+
+  let printOut hdl (fn: Function) =
+    let builder = LLVMTranslator.createBuilder hdl fn.EntryPoint
+    fn.CFG.IterVertex (fun bbl ->
+      let succs =
+        fn.CFG.GetSuccs bbl
+        |> Array.map (fun s -> s.VData.Internals.PPoint.Address)
+        |> Array.toList
+      let bblAddr = bbl.VData.Internals.PPoint.Address
+      bbl.VData.Internals.LiftedInstructions
+      |> Array.collect (fun ins -> ins.Stmts)
+      |> LLVMTranslator.translate builder bblAddr succs
+    )
+    builder.ToString ()
+
+  let translate (o: obj) =
+    let bin = unbox<Binary> o
+    let hdl = Binary.Handle bin
+    let brew = BinaryBrew hdl
+    let entryPoint = hdl.File.EntryPoint |> Option.defaultValue 0UL
+    let fn = brew.Functions[entryPoint]
+    printOut hdl fn
 
   interface IAction with
     member __.ActionID with get() = "llvm"

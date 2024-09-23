@@ -24,22 +24,18 @@
 
 namespace B2R2.RearEnd.Transformer
 
-open B2R2.FrontEnd
 open B2R2.MiddleEnd
-open B2R2.MiddleEnd.ControlFlowGraph
-open B2R2.MiddleEnd.ControlFlowAnalysis
-open B2R2.MiddleEnd.ControlFlowAnalysis.Strategies
 
 /// The `cfg` action.
 type CFGAction () =
   let getCFG (input: obj) =
     match input with
     | :? Binary as bin ->
-      let hdl = Binary.Handle bin
-      let brew = BinaryBrew hdl
-      brew.Functions[0UL].CFG
-      |> DisasmCFG.create
-      |> box
+      try
+        let hdl = Binary.Handle bin
+        let brew = BinaryBrew hdl
+        CFG.Init 0UL brew.Functions[0UL].CFG |> box
+      with e -> e.ToString () |> NoCFG |> box
     | _ -> invalidArg (nameof input) "Invalid argument."
 
   interface IAction with

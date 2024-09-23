@@ -50,7 +50,6 @@ type VarBasedDataFlowAnalysis<'Lattice>
       true
 
   let transferConstant (state: VarBasedDataFlowState<_>) pp stmt =
-    if (pp: ProgramPoint).Address = 0x5UL then ()
     match stmt.S with
     | Put (dst, src) ->
       let varKind = VarKind.ofIRExpr dst
@@ -119,12 +118,11 @@ type VarBasedDataFlowAnalysis<'Lattice>
       i <- i + 1
     hasChanged
 
-  let propagate (state: VarBasedDataFlowState<_>) g v lastPp =
-    for vid in analysis.GetNextVertices g v do
-      let nextV = g.FindVertexByID vid
-      let pp = nextV.VData.Internals.PPoint
+  let propagate (state: VarBasedDataFlowState<_>) (g: LowUIRCFG) v lastPp =
+    for succ in g.GetSuccs v do
+      let pp = succ.VData.Internals.PPoint
       state.AddIncomingProgramPoint pp lastPp
-      state.PushWork vid
+      state.PushWork succ.ID
 
   let addInitialWorks vs (state: VarBasedDataFlowState<_>) =
     vs |> Seq.fold (fun state (v: IVertex<_>) ->
@@ -149,21 +147,3 @@ type VarBasedDataFlowAnalysis<'Lattice>
         if transfer state g v stmts then
           propagate state g v <| fst (Array.last stmts)
       state
-
-type private DummyLattice = int
-
-type DummyVarBasedDataFlowAnalysis =
-  inherit VarBasedDataFlowAnalysis<DummyLattice>
-
-  new (hdl: BinHandle) =
-    let getVid (v: IVertex<_>) = v.ID
-    let analysis =
-      { new IVarBasedDataFlowAnalysis<DummyLattice> with
-          member __.OnInitialize state = state
-          member __.Bottom = 0
-          member __.Join _a _b = 0
-          member __.Subsume _a _b = true
-          member __.Transfer _g _v _pp _stmt _state = None
-          member __.EvalExpr _state _pp _e = 0
-          member __.GetNextVertices g v = g.GetSuccs v |> Seq.map getVid  }
-    { inherit VarBasedDataFlowAnalysis<DummyLattice> (hdl, analysis) }
