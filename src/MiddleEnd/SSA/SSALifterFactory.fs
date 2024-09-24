@@ -47,10 +47,10 @@ type SSAVMap = Dictionary<ProgramPoint, SSAVertex>
 type AbstractVMap = Dictionary<ProgramPoint * ProgramPoint, SSAVertex>
 
 /// Mapping from a variable to a set of defining SSA basic blocks.
-type DefSites = Dictionary<VariableKind, Set<IVertex<SSABasicBlock>>>
+type DefSites = Dictionary<VariableKind, HashSet<IVertex<SSABasicBlock>>>
 
 /// Defined variables per node in a SSACFG.
-type DefsPerNode = Dictionary<IVertex<SSABasicBlock>, Set<VariableKind>>
+type DefsPerNode = Dictionary<IVertex<SSABasicBlock>, HashSet<VariableKind>>
 
 /// Counter for each variable.
 type VarCountMap = Dictionary<VariableKind, int>
@@ -147,54 +147,40 @@ module private SSALifterFactory =
       v.VData.DomFrontier <- frontiers[dfnum])
     domCtx
 
-  let collectDefVars defs (_, stmt) =
-    match stmt with
-    | Def ({ Kind = k }, _) -> Set.add k defs
-    | _ -> defs
-
-  let addPhi g defsPerNode variable (phiSites, workList) (v: SSAVertex) =
-    if Set.contains v phiSites then phiSites, workList
-    else
-      match variable with
-      (* Temporary vars are only meaningful in an instruction boundary. Thus, a
-         PhiSite for a TempVar should be an intra-instruction bbl, but not the
-         start of an instruction. *)
-      | TempVar _ when v.VData.Internals.PPoint.Position = 0 ->
-        phiSites, workList
-      | _ ->
-        (* Insert Phi for v *)
-        let preds = (g: IGraph<_, _>).GetPreds v
-        v.VData.Internals.PrependPhi variable preds.Length
-        let phiSites = Set.add v phiSites
-        let defs = (defsPerNode: DefsPerNode)[v]
-        if not <| Set.contains variable defs then phiSites, v :: workList
-        else phiSites, workList
-
-  let rec iterDefs g phiSites defsPerNode variable = function
-    | [] -> phiSites
-    | (v: SSAVertex) :: workList ->
-      let phiSites, workList =
-        v.VData.DomFrontier
-        |> List.fold (addPhi g defsPerNode variable) (phiSites, workList)
-      iterDefs g phiSites defsPerNode variable workList
-
   let findDefVars (ssaCFG: SSACFG) (defSites: DefSites) =
     let defsPerNode = DefsPerNode ()
-    ssaCFG.Vertices
-    |> Array.iter (fun (v: SSAVertex) ->
-      let defs =
-        v.VData.Internals.Statements |> Array.fold collectDefVars Set.empty
+    for v in ssaCFG.Vertices do
+      let defs = HashSet ()
+      for _pp, stmt in v.VData.Internals.Statements do
+        match stmt with
+        | Def ({ Kind = k }, _) -> defs.Add k |> ignore
+        | _ -> ()
       defsPerNode[v] <- defs
-      defs |> Set.iter (fun d ->
-        if defSites.ContainsKey d then defSites[d] <- Set.add v defSites[d]
-        else defSites[d] <- Set.singleton v))
+      for d in defs do
+        if defSites.ContainsKey d then defSites[d].Add v |> ignore
+        else defSites[d] <- HashSet [v]
     defsPerNode
 
-  let placePhis g defsPerNode (defSites: DefSites) =
+  let placePhis g (defsPerNode: DefsPerNode) (defSites: DefSites) =
     for KeyValue (variable, defs) in defSites do
-      Set.toList defs
-      |> iterDefs g Set.empty defsPerNode variable
-      |> ignore
+      let workList = Queue defs
+      let phiSites = HashSet ()
+      while workList.Count <> 0 do
+        let node = workList.Dequeue ()
+        for df in node.VData.DomFrontier do
+          if phiSites.Contains df then ()
+          else
+            match variable with
+            (* Temporary vars are only meaningful in an instruction boundary.
+               Thus, a PhiSite for a TempVar should be an intra-instruction bbl,
+               but not the start of an instruction. *)
+            | TempVar _ when df.VData.Internals.PPoint.Position = 0 -> ()
+            | _ ->
+              let preds = (g: IGraph<_, _>).GetPreds df
+              df.VData.Internals.PrependPhi variable preds.Length
+              phiSites.Add df |> ignore
+              let defs = defsPerNode[df]
+              if not (defs.Contains variable) then workList.Enqueue df else ()
 
   let renameVar (stack: IDStack) (v: Variable) =
     match stack.TryGetValue v.Kind with
@@ -256,7 +242,7 @@ module private SSALifterFactory =
     | [] -> ()
     | v :: vs -> introduceDef count stack v; introduceDefList count stack vs
 
-  let renameStmt count stack (_, stmt) =
+  let renameStmt count stack stmt =
     match stmt with
     | LMark _ -> ()
     | ExternalCall (e, inVars, outVars) ->
@@ -271,29 +257,26 @@ module private SSALifterFactory =
     | Phi (def, _) ->
       introduceDef count stack def
 
-  let renamePhiAux (stack: IDStack) preds (parent: SSAVertex) (_, stmt) =
-    match stmt with
-    | Phi (def, nums) ->
-      let idx =
-        Seq.findIndex (fun (v: SSAVertex) -> v.VData = parent.VData) preds
-      nums[idx] <- List.head stack[def.Kind]
-    | _ -> ()
+  let renamePhi g (stack: IDStack) (parent: SSAVertex) (succ: SSAVertex) =
+    for _, stmt in succ.VData.Internals.Statements do
+      match stmt with
+      | Phi (def, nums) ->
+        let preds = (g: IGraph<_, _>).GetPreds succ
+        let idx = preds |> Array.findIndex (fun v -> v.VData = parent.VData)
+        nums[idx] <- List.head stack[def.Kind]
+      | _ -> ()
 
-  let renamePhi (g: IGraph<_, _>) stack parent (succ: SSAVertex) =
-    succ.VData.Internals.Statements
-    |> Array.iter (renamePhiAux stack (g.GetPreds succ) parent)
-
-  let popStack (stack: IDStack) (_, stmt) =
+  let popStack (stack: IDStack) stmt =
     match stmt with
     | Def (def, _)
     | Phi (def, _) -> stack[def.Kind] <- List.tail stack[def.Kind]
     | _ -> ()
 
   let rec rename (g: IGraph<_, _>) domTree count stack (v: SSAVertex) =
-    v.VData.Internals.Statements |> Array.iter (renameStmt count stack)
-    g.GetSuccs v |> Seq.iter (renamePhi g stack v)
+    for _, stmt in v.VData.Internals.Statements do renameStmt count stack stmt
+    for succ in g.GetSuccs v do renamePhi g stack v succ
     traverseChildren g domTree count stack (Map.find v domTree)
-    v.VData.Internals.Statements |> Array.iter (popStack stack)
+    for _, stmt in v.VData.Internals.Statements do popStack stack stmt
 
   and traverseChildren g domTree count stack = function
     | child :: rest ->
@@ -305,9 +288,9 @@ module private SSALifterFactory =
     let domTree, root = Dominator.dominatorTree domCtx
     let count = VarCountMap ()
     let stack = IDStack ()
-    defSites.Keys |> Seq.iter (fun variable ->
+    for variable in defSites.Keys do
       count[variable] <- 0
-      stack[variable] <- [0])
+      stack[variable] <- [0]
     rename g domTree count stack root |> ignore
 
   /// Add phis and rename all the variables in the SSACFG.
