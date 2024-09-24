@@ -73,13 +73,13 @@ module ROPValue =
 
   let dummy32 = ofUInt32 0xdeadbeefu
 
-  let strFolder (hdl: BinHandle) acc (ins: Instruction) =
-    let acc = acc + "  " + hdl.DisasmInstr (ins, true, false)
+  let strFolder (liftingUnit: LiftingUnit) acc (ins: Instruction) =
+    let acc = acc + "  " + liftingUnit.DisasmInstruction (ins, true, false)
     acc + Environment.NewLine
 
-  let toString hdl binBase = function
+  let toString liftingUnit binBase = function
     | Expr expr -> ROPExpr.toString expr
     | Gadget gadget ->
       let s = sprintf "[ %08X ]" ((uint32 gadget.Offset) + binBase)
       let s = s + Environment.NewLine
-      gadget.Instrs |> List.fold (strFolder hdl) s
+      gadget.Instrs |> List.fold (strFolder liftingUnit) s

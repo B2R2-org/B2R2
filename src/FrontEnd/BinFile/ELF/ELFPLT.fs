@@ -77,15 +77,15 @@ type PLTSectionType =
 type PLTParser () =
   /// Parse PLT entries. This function returns a mapping from a PLT entry
   /// address range to LinkageTableEntry.
-  abstract member Parse: ELFToolbox -> ARMap<LinkageTableEntry>
+  abstract Parse: ELFToolbox -> ARMap<LinkageTableEntry>
 
   /// Parse the given PLT section.
-  abstract member ParseSection:
+  abstract ParseSection:
     ELFToolbox * ELFSection * ARMap<LinkageTableEntry>
     -> ARMap<LinkageTableEntry>
 
   /// Parse the given PLT section.
-  abstract member ParseEntry:
+  abstract ParseEntry:
     addr: Addr * idx: int * ELFSection * PLTDescriptor * IBinReader * ByteSpan
     -> PLTEntryInfo
 

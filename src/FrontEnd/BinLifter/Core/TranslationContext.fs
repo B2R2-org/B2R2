@@ -109,7 +109,7 @@ type TranslationContext (isa) =
   /// <returns>
   ///   Returns an IR expression of a register.
   /// </returns>
-  abstract member GetRegVar: id: RegisterID -> Expr
+  abstract GetRegVar: id: RegisterID -> Expr
 
   /// <summary>
   ///   Get pseudo register expression from a given register ID and an index.
@@ -119,4 +119,4 @@ type TranslationContext (isa) =
   /// <returns>
   ///   Returns an IR expression of a pseudo-register.
   /// </returns>
-  abstract member GetPseudoRegVar: id: RegisterID -> idx: int -> Expr
+  abstract GetPseudoRegVar: id: RegisterID -> idx: int -> Expr

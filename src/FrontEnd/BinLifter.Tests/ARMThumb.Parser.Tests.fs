@@ -35,7 +35,7 @@ open type Register
 let private test c op w q (s: SIMDDataTypes option) oprs (b: byte[]) =
   let mode = ArchOperationMode.ThumbMode
   let isa = ISA.Init Architecture.ARMv7 Endian.Big
-  let parser = ARM32Parser (isa, mode, None) :> IInstructionParsable
+  let parser = ARM32Parser (isa, mode) :> IInstructionParsable
   let ins = parser.Parse (b, 0UL) :?> ARM32Instruction
   let cond' = ins.Condition
   let opcode' = ins.Opcode

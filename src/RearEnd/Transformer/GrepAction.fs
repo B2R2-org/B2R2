@@ -47,8 +47,7 @@ type GrepAction () =
       let eoff = i + len - 1
       let eoff = if (eoff + bytesAfter) >= bs.Length then bs.Length - 1
                  else eoff + bytesAfter
-      let isa, mode = hdl.File.ISA, hdl.Parser.OperationMode
-      lazy BinHandle (bs[soff .. eoff], isa, mode, Some (uint64 soff), false)
+      lazy hdl.MakeNew (bs[soff .. eoff], uint64 soff)
       |> Binary.Init (Binary.MakeAnnotation "Greped from " bin))
     |> box
 

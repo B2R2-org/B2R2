@@ -24,64 +24,36 @@
 
 namespace B2R2.MiddleEnd.BinGraph
 
-open B2R2
 open System.Collections.Generic
-
-/// Imperative vertex.
-type ImperativeVertex<'V when 'V: equality>
-  internal (id, vData: VertexData<'V>) =
-  let preds = List<ImperativeVertex<'V>> ()
-  let succs = List<ImperativeVertex<'V>> ()
-
-  /// Unique identifier of this vertex.
-  member __.ID with get() = id
-
-  /// List of predecessors.
-  member __.Preds with get () = preds
-
-  /// List of successors.
-  member __.Succs with get () = succs
-
-  interface IVertex<'V> with
-    member __.ID = id
-
-    member __.VData =
-      if isNull vData then raise DummyDataAccessException
-      else vData.Value
-
-    member __.HasData = not (isNull vData)
-
-    member __.CompareTo (other: obj) =
-      match other with
-      | :? IVertex<'V> as other -> id.CompareTo other.ID
-      | _ -> Utils.impossible ()
-
-  override __.GetHashCode () = id
-
-  override __.Equals (other) =
-    match other with
-    | :? IVertex<'V> as other -> id = other.ID
-    | _ -> false
 
 /// Imperative directed graph.
 type ImperativeDiGraph<'V, 'E when 'V: equality and 'E: equality> () =
-  let vertices = HashSet<ImperativeVertex<'V>> ()
+  let vertices = Dictionary<VertexID, ImperativeVertex<'V>> ()
   let edges = Dictionary<VertexID * VertexID, Edge<'V, 'E>> ()
   let unreachables = HashSet<ImperativeVertex<'V>> ()
   let exits = HashSet<ImperativeVertex<'V>> ()
   let mutable id = 0
+  let roots = List<ImperativeVertex<'V>> ()
 
-  member inline private __.CheckVertexExistence v =
-    if not <| vertices.Contains v then raise VertexNotFoundException
+  member inline private __.CheckVertexExistence (v: IVertex<'V>) =
+    if not <| vertices.ContainsKey v.ID then raise VertexNotFoundException
     else ()
 
-  member private __.AddVertex (data: VertexData<'V>) =
-    id <- id + 1
-    let v = ImperativeVertex (id, data)
-    vertices.Add v |> ignore
+  member private __.AddVertexInternal (data: VertexData<'V>, vid: VertexID) =
+    let v = ImperativeVertex (vid, data)
+    if roots.Count = 0 then roots.Add v else ()
+    vertices.Add (vid, v) |> ignore
     unreachables.Add v |> ignore
     exits.Add v |> ignore
     (v :> IVertex<'V>), (__ :> IGraph<'V, 'E>)
+
+  member private __.AddVertex (data: VertexData<'V>) =
+    id <- id + 1
+    __.AddVertexInternal (data, id)
+
+  member private __.AddVertex (data: VertexData<'V>, vid: VertexID) =
+    id <- max id vid
+    __.AddVertexInternal (data, vid)
 
   member private __.AddEdge (src: IVertex<'V>, dst: IVertex<'V>, label) =
     let src = src :?> ImperativeVertex<'V>
@@ -99,13 +71,21 @@ type ImperativeDiGraph<'V, 'E when 'V: equality and 'E: equality> () =
       exits.Remove src |> ignore
     __ :> IGraph<'V, 'E>
 
+  member private __.FindVertexBy fn =
+    vertices.Values |> Seq.find fn :> IVertex<'V>
+
+  member private __.TryFindVertexBy fn =
+    vertices.Values
+    |> Seq.tryFind fn
+    |> Option.map (fun v -> v :> IVertex<'V>)
+
   interface IGraph<'V, 'E> with
     member __.IsEmpty () = vertices.Count = 0
 
     member __.Size with get() = vertices.Count
 
     member __.Vertices with get() =
-      vertices |> Seq.map (fun v -> v :> IVertex<'V>) |> Seq.toArray
+      vertices.Values |> Seq.map (fun v -> v :> IVertex<'V>) |> Seq.toArray
 
     member __.Edges with get() =
       edges
@@ -122,10 +102,18 @@ type ImperativeDiGraph<'V, 'E when 'V: equality and 'E: equality> () =
       |> Seq.toArray
       |> Array.map (fun v -> v :> IVertex<'V>)
 
+    member __.SingleRoot with get() =
+      if roots.Count = 1 then roots[0]
+      else raise MultipleRootVerticesException
+
     member __.ImplementationType with get() = Imperative
 
     member __.AddVertex v =
       __.AddVertex (data=VertexData v)
+
+    member __.AddVertex (v, vid) =
+      assert ((__: IGraph<_, _>).HasVertex vid |> not)
+      __.AddVertex (data=VertexData v, vid=vid)
 
     member __.AddVertex () =
       __.AddVertex (data=null)
@@ -139,42 +127,30 @@ type ImperativeDiGraph<'V, 'E when 'V: equality and 'E: equality> () =
       v.Succs
       |> Seq.toArray
       |> Array.iter (fun s -> (__ :> IGraph<_, _>).RemoveEdge (v, s) |> ignore)
-      vertices.Remove v |> ignore
+      vertices.Remove v.ID |> ignore
       unreachables.Remove v |> ignore
       exits.Remove v |> ignore
+      roots.Remove v |> ignore
       __
 
-    member __.HasVertex vid =
-      vertices
-      |> Seq.exists (fun v -> (v :> IVertex<'V>).ID = vid)
+    member __.HasVertex vid = vertices.ContainsKey vid
 
-    member __.FindVertexByID vid =
-      vertices
-      |> Seq.find (fun v -> (v :> IVertex<'V>).ID = vid)
-      :> IVertex<'V>
+    member __.FindVertexBy fn = __.FindVertexBy fn
+
+    member __.TryFindVertexBy fn = __.TryFindVertexBy fn
+
+    member __.FindVertexByID vid = vertices[vid]
 
     member __.TryFindVertexByID vid =
-      vertices
-      |> Seq.tryFind (fun v -> (v :> IVertex<_>).ID = vid)
-      |> Option.map (fun v -> v :> IVertex<'V>)
+      match vertices.TryGetValue vid with
+      | false, _ -> None
+      | true, v -> Some v
 
     member __.FindVertexByData data =
-      vertices
-      |> Seq.find (fun v -> (v :> IVertex<'V>).VData = data)
-      :> IVertex<'V>
+      __.FindVertexBy (fun v -> (v :> IVertex<'V>).VData = data)
 
     member __.TryFindVertexByData data =
-      vertices
-      |> Seq.tryFind (fun v -> (v :> IVertex<'V>).VData = data)
-      |> Option.map (fun v -> v :> IVertex<'V>)
-
-    member __.FindVertexBy fn =
-      vertices |> Seq.find fn :> IVertex<'V>
-
-    member __.TryFindVertexBy fn =
-      vertices
-      |> Seq.tryFind fn
-      |> Option.map (fun v -> v :> IVertex<'V>)
+      __.TryFindVertexBy (fun v -> (v :> IVertex<'V>).VData = data)
 
     member __.AddEdge (src: IVertex<'V>, dst: IVertex<'V>, label) =
       __.AddEdge (src, dst, EdgeLabel label)
@@ -213,19 +189,44 @@ type ImperativeDiGraph<'V, 'E when 'V: equality and 'E: equality> () =
       (v :?> ImperativeVertex<'V>).Preds
       |> Seq.toArray
       |> Array.map (fun v -> v :> IVertex<'V>)
-      :> IReadOnlyCollection<_>
+
+    member __.GetPredEdges (v: IVertex<'V>) =
+      (v :?> ImperativeVertex<'V>).Preds
+      |> Seq.toArray
+      |> Array.map (fun pred -> edges[(pred.ID, v.ID)])
 
     member __.GetSuccs (v: IVertex<'V>) =
       (v :?> ImperativeVertex<'V>).Succs
       |> Seq.toArray
       |> Array.map (fun v -> v :> IVertex<'V>)
-      :> IReadOnlyCollection<_>
+
+    member __.GetSuccEdges (v: IVertex<'V>) =
+      (v :?> ImperativeVertex<'V>).Succs
+      |> Seq.toArray
+      |> Array.map (fun succ -> edges[(v.ID, succ.ID)])
+
+    member __.GetRoots () =
+      roots
+      |> Seq.toArray
+      |> Array.map (fun v -> v :> IVertex<'V>)
+
+    member __.AddRoot (v) =
+      let v = v :?> ImperativeVertex<'V>
+      assert (vertices.ContainsKey v.ID)
+      if roots.Contains v then () else roots.Add v
+      __
+
+    member __.SetRoot (v) =
+      assert (vertices.ContainsKey v.ID)
+      roots.Clear ()
+      roots.Add (v :?> ImperativeVertex<'V>)
+      __
 
     member __.FoldVertex fn acc =
-      vertices |> Seq.fold (fun acc v -> fn acc (v :> IVertex<'V>)) acc
+      vertices.Values |> Seq.fold (fun acc v -> fn acc (v :> IVertex<'V>)) acc
 
     member __.IterVertex fn =
-      vertices |> Seq.iter (fun v -> fn (v :> IVertex<'V>))
+      vertices.Values |> Seq.iter (fun v -> fn (v :> IVertex<'V>))
 
     member __.FoldEdge fn acc =
       edges.Values |> Seq.fold fn acc
@@ -234,10 +235,10 @@ type ImperativeDiGraph<'V, 'E when 'V: equality and 'E: equality> () =
       edges.Values |> Seq.iter fn
 
     member __.SubGraph vs =
-      DiGraph.subGraph __ (ImperativeDiGraph ()) vs
+      GraphUtils.subGraph __ (ImperativeDiGraph ()) vs
 
     member __.Reverse () =
-      DiGraph.reverse __ (ImperativeDiGraph ())
+      GraphUtils.reverse __ (ImperativeDiGraph ())
 
     member __.Clone () =
       let g = ImperativeDiGraph () :> IGraph<_, _>
@@ -252,4 +253,4 @@ type ImperativeDiGraph<'V, 'E when 'V: equality and 'E: equality> () =
       g
 
     member __.ToDOTStr (name, vToStrFn, _eToStrFn) =
-      DiGraph.toDOTString __ name vToStrFn _eToStrFn
+      GraphUtils.toDiGraphDOTString __ name vToStrFn _eToStrFn

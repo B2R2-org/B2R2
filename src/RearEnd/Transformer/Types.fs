@@ -107,7 +107,7 @@ with
 
 /// CFG of a function.
 type CFG =
-  | CFG of addr: Addr * ir: IRCFG
+  | CFG of addr: Addr * ir: LowUIRCFG
   | NoCFG of err: string (* Error message describing the reason for failure. *)
 with
   static member Init addr ir = CFG (addr, ir)

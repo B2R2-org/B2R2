@@ -30,8 +30,8 @@ open B2R2
 /// Builder for disassembled strings.
 [<AbstractClass>]
 type DisasmBuilder (showAddr, resolveSymb, wordSz, addr, len) =
-  abstract member Accumulate: AsmWordKind -> string -> unit
-  abstract member AccumulateAddr: unit -> unit
+  abstract Accumulate: AsmWordKind -> string -> unit
+  abstract AccumulateAddr: unit -> unit
   member __.ShowAddr with get(): bool = showAddr
   member __.ResolveSymbol with get(): bool = resolveSymb
   member __.WordSize with get(): WordSize = wordSz

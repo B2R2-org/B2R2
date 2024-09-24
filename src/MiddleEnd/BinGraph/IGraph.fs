@@ -27,6 +27,7 @@ namespace B2R2.MiddleEnd.BinGraph
 open System.Collections.Generic
 
 /// General graph data type. This one can be either directed or undirected.
+[<AllowNullLiteral>]
 type IGraph<'V, 'E when 'V: equality and 'E: equality> =
   /// Is this empty? A graph is empty when there is no vertex in the graph.
   abstract IsEmpty: unit -> bool
@@ -47,12 +48,21 @@ type IGraph<'V, 'E when 'V: equality and 'E: equality> =
   /// undirected graphs.
   abstract Exits: IVertex<'V>[]
 
+  /// Get exactly one root vertex of this graph. If there are multiple root
+  /// vertices, this will raise an exception.
+  abstract SingleRoot: IVertex<'V>
+
   /// Get the implementation type of this graph.
   abstract ImplementationType: ImplementationType
 
   /// Add a vertex to the graph using a data value, and return a reference to
   /// the added vertex.
   abstract AddVertex: data: 'V -> IVertex<'V> * IGraph<'V, 'E>
+
+  /// Add a vertex to the graph using a data value and a vertex ID, and return a
+  /// reference to the added vertex. This function assumes that the vertex ID is
+  /// unique in the graph, thus it needs to be used with caution.
+  abstract AddVertex: data: 'V * vid: VertexID -> IVertex<'V> * IGraph<'V, 'E>
 
   /// Add a vertex to the grpah without any data attached to it.
   abstract AddVertex: unit -> IVertex<'V> * IGraph<'V, 'E>
@@ -120,12 +130,36 @@ type IGraph<'V, 'E when 'V: equality and 'E: equality> =
   /// Get the predecessors of the given vertex. This is only meaningful for
   /// directed graphs. For undirected graphs, this function returns an empty
   /// sequence.
-  abstract GetPreds: IVertex<'V> -> IReadOnlyCollection<IVertex<'V>>
+  abstract GetPreds: IVertex<'V> -> IVertex<'V>[]
+
+  /// Get the predecessor edges of the given vertex. This is only meaningful for
+  /// directed graphs. For undirected graphs, this function returns an empty
+  /// sequence.
+  abstract GetPredEdges: IVertex<'V> -> Edge<'V, 'E>[]
 
   /// Get the successors of the given vertex. This is only meaningful for
   /// directed graphs. For undirected graphs, this function returns an empty
   /// sequence.
-  abstract GetSuccs: IVertex<'V> -> IReadOnlyCollection<IVertex<'V>>
+  abstract GetSuccs: IVertex<'V> -> IVertex<'V>[]
+
+  /// Get the successor edges of the given vertex. This is only meaningful for
+  /// directed graphs. For undirected graphs, this function returns an empty
+  /// sequence.
+  abstract GetSuccEdges: IVertex<'V> -> Edge<'V, 'E>[]
+
+  /// Get the root vertices of this graph. When there's no root, this will
+  /// return an empty collection.
+  abstract GetRoots: unit -> IVertex<'V>[]
+
+  /// Explicitly add a root vertex to this graph. `AddVertex` will automatically
+  /// set the root vertex to the first vertex added to the graph, but this
+  /// function allows the user to add root vertices explicitly.
+  abstract AddRoot: IVertex<'V> -> IGraph<'V, 'E>
+
+  /// Set a single root vertex for this graph. `AddVertex` will automatically
+  /// set the root vertex to the first vertex added to the graph, but this
+  /// function allows the user to set a single root vertex explicitly.
+  abstract SetRoot: IVertex<'V> -> IGraph<'V, 'E>
 
   /// Fold every vertex (the order can be arbitrary).
   abstract FoldVertex: ('a -> IVertex<'V> -> 'a) -> 'a -> 'a

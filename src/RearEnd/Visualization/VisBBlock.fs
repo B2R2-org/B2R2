@@ -24,12 +24,11 @@
 
 namespace B2R2.RearEnd.Visualization
 
+open B2R2.FrontEnd.BinLifter
 open B2R2.MiddleEnd.ControlFlowGraph
 
 /// The main vertex type used for visualization.
-type VisBBlock (blk: BasicBlock, isDummy) =
-  inherit BasicBlock (blk.PPoint)
-
+type VisBBlock (blk: IVisualizable, isDummy) =
   let mutable layer = -1
 
   let mutable index = -1
@@ -40,13 +39,16 @@ type VisBBlock (blk: BasicBlock, isDummy) =
 
   let [<Literal>] Padding = 4.0
 
-  let visBlock =
-    let block = blk.ToVisualBlock ()
-    if block.Length = 0 then VisualBlock.empty blk.PPoint.Address else block
+  let visualizableAsm =
+    let block = blk.Visualize ()
+    if block.Length = 0 then
+      [| [| { AsmWordKind = AsmWordKind.String
+              AsmWordValue = $"# fake block @ {blk.BlockAddress:x}" } |] |]
+    else block
 
-  let maxLine = visBlock |> Array.maxBy (VisualLine.lineWidth)
+  let maxLine = visualizableAsm |> Array.maxBy (AsmLine.lineWidth)
 
-  let maxLineWidth = VisualLine.lineWidth maxLine |> float
+  let maxLineWidth = AsmLine.lineWidth maxLine |> float
 
   /// This number (7.5) is empirically obtained with the current font. For some
   /// reasons, we cannot precisely determine the width of each text even though
@@ -54,18 +56,12 @@ type VisBBlock (blk: BasicBlock, isDummy) =
   let mutable width =
     if isDummy then 0.0 else maxLineWidth * 7.5 + Padding * 2.0
 
-  let numLines = visBlock |> Array.length
+  let numLines = visualizableAsm |> Array.length
 
   /// This number (14), as in the width case, is empirically obtained with the
   /// current font.
   let height =
     if isDummy then 0.0 else float numLines * 14.0 + TSpanOffset + Padding * 2.0
-
-  override __.Range with get () = blk.Range
-
-  override __.IsFakeBlock () = blk.IsFakeBlock ()
-
-  override __.ToVisualBlock () = visBlock
 
   member __.IsDummy with get () = isDummy
 
@@ -83,3 +79,7 @@ type VisBBlock (blk: BasicBlock, isDummy) =
 
   /// X-Y coordinate in the visualized graph.
   member __.Coordinate with get () = pos
+
+  interface IVisualizable with
+    member _.BlockAddress with get() = blk.BlockAddress
+    member _.Visualize () = visualizableAsm

@@ -61,7 +61,7 @@ type TMS320C6000Instruction (addr, numBytes, insInfo) =
 
   override __.IsExit () = Utils.futureFeature ()
 
-  override __.IsBBLEnd () =
+  override __.IsTerminator () =
     __.IsDirectBranch () ||
     __.IsIndirectBranch ()
 

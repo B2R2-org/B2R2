@@ -24,7 +24,6 @@
 
 namespace B2R2.MiddleEnd.BinGraph.Tests
 
-open B2R2
 open B2R2.MiddleEnd.BinGraph
 open Microsoft.VisualStudio.TestTools.UnitTesting
 
@@ -46,7 +45,7 @@ type BasicPersistentGraphTest () =
   let g1 = g1.AddEdge (n4, n5, 6)
   let g1 = g1.AddEdge (n5, n2, 7)
   let g1root = n1
-  let ctxt1 = Dominator.initDominatorContext g1 g1root
+  let ctxt1 = Dominator.initDominatorContext g1
 
   (* Graph example from Tiger book. *)
   let g2 = PersistentDiGraph () :> IGraph<_, _>
@@ -62,8 +61,7 @@ type BasicPersistentGraphTest () =
   let g2 = g2.AddEdge (n4, n5, 4)
   let g2 = g2.AddEdge (n4, n6, 5)
   let g2 = g2.AddEdge (n6, n4, 6)
-  let g2root = n1
-  let ctxt2 = Dominator.initDominatorContext g2 g2root
+  let ctxt2 = Dominator.initDominatorContext g2
 
   (* Arbitrary graph example *)
   let g3 = PersistentDiGraph () :> IGraph<_, _>
@@ -78,7 +76,7 @@ type BasicPersistentGraphTest () =
   let g3 = g3.AddEdge (n3, n4, 4)
   let g3 = g3.AddEdge (n3, n5, 5)
   let g3root = n1
-  let ctxt3 = Dominator.initDominatorContext g3 g3root
+  let ctxt3 = Dominator.initDominatorContext g3
 
   (* Graph example from Tiger book (Fig. 19.5) *)
   let g4 = PersistentDiGraph () :> IGraph<_, _>
@@ -116,7 +114,7 @@ type BasicPersistentGraphTest () =
   let g4 = g4.AddEdge (n11, n12, 19)
   let g4 = g4.AddEdge (n12, n13, 20)
   let g4root = n1
-  let ctxt4 = Dominator.initDominatorContext g4 g4root
+  let ctxt4 = Dominator.initDominatorContext g4
 
   let getVertexVal (v: IVertex<_> option) = (Option.get v).VData
 
@@ -243,12 +241,10 @@ type BasicPersistentGraphTest () =
 
   [<TestMethod>]
   member __.``Dominance Frontier Test``() =
-    let df =
-      Dominator.frontier ctxt4 <| g4.FindVertexByData 5 |> List.toArray
+    let df = Dominator.frontier ctxt4 <| g4.FindVertexByData 5 |> List.toArray
     let df = df |> Array.map (fun v -> v.VData) |> Array.sort
     CollectionAssert.AreEqual (df, [|4; 5; 12; 13|])
-    let df =
-      Dominator.frontier ctxt4 <| g4.FindVertexByData 9 |> List.toArray
+    let df = Dominator.frontier ctxt4 <| g4.FindVertexByData 9 |> List.toArray
     let df = df |> Array.map (fun v -> v.VData) |> Array.sort
     CollectionAssert.AreEqual (df, [|12|])
 
@@ -269,7 +265,7 @@ type BasicPersistentGraphTest () =
     let g = g.AddEdge (n4, n6, 6)
     let g = g.AddEdge (n5, n6, 7)
     let g = g.AddEdge (n6, n1, 8) // Back edge to the root node.
-    let ctxt = Dominator.initDominatorContext g n1
+    let ctxt = Dominator.initDominatorContext g
     let v = Dominator.idom ctxt <| g.FindVertexByData 1
     Assert.IsTrue (v.IsNone)
     let v = Dominator.idom ctxt <| g.FindVertexByData 2
@@ -339,8 +335,7 @@ type ExtraPersistentDomTest () =
   let g1 = g1.AddEdge (n19, n23, 28)
   let g1 = g1.AddEdge (n20, n22, 29)
   let g1 = g1.AddEdge (n21, n22, 30)
-  let g1root = n1
-  let ctxt1 = Dominator.initDominatorContext g1 g1root
+  let ctxt1 = Dominator.initDominatorContext g1
 
   let getVertexVal (v: IVertex<_> option) = (Option.get v).VData
 

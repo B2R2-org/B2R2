@@ -13,6 +13,7 @@
     <Compile Include="TranslationContext.fs" />
     <Compile Include="AsmWord.fs" />
     <Compile Include="AsmWordBuilder.fs" />
+    <Compile Include="AsmLine.fs" />
     <Compile Include="RegisterFactory.fs" />
     <Compile Include="INameReadable.fs" />
     <Compile Include="DisasmSyntax.fs" />

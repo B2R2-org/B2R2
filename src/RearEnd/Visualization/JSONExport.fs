@@ -36,8 +36,8 @@ type JSONCoordinate = {
 }
 
 type JSONNode = {
-  PPoint: Addr * int
-  Terms: (string * string) [] []
+  PPoint: Addr
+  Terms: (string * string) [][]
   Width: float
   Height: float
   Coordinate: JSONCoordinate
@@ -57,15 +57,17 @@ type JSONGraph = {
 }
 
 module JSONExport =
-  let private getJSONTerms (visualBlock: VisualBlock) =
-    visualBlock |> Array.map (Array.map AsmWord.ToStringTuple)
+  let private getJSONTerms (visualizableAsm: AsmWord[][]) =
+    visualizableAsm |> Array.map (Array.map AsmWord.ToStringTuple)
 
-  let private ofVisGraph (g: VisGraph) (roots: IVertex<#BasicBlock> list) =
-    let roots = roots |> List.map (fun r -> r.VData.PPoint.Address)
+  let private ofVisGraph (g: VisGraph) (roots: IVertex<_> list) =
+    let roots =
+      roots |> List.map (fun r -> (r.VData :> IVisualizable).BlockAddress)
     let nodes =
       g.FoldVertex (fun acc v ->
-        { PPoint = v.VData.PPoint.Address, v.VData.PPoint.Position
-          Terms = v.VData.ToVisualBlock () |> getJSONTerms
+        let vData = v.VData :> IVisualizable
+        { PPoint = vData.BlockAddress
+          Terms = vData.Visualize () |> getJSONTerms
           Width = v.VData.Width
           Height = v.VData.Height
           Coordinate = { X = v.VData.Coordinate.X

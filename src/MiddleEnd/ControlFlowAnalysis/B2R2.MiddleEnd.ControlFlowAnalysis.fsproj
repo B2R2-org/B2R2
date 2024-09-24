@@ -8,37 +8,40 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="CFGHelper.fs" />
-    <Compile Include="CoverageMaintainer.fs" />
-    <Compile Include="HistoryManager.fs" />
-    <Compile Include="SSAPromotion.fs" />
+    <Compile Include="CFGDebug.fs" />
+    <Compile Include="JmpTableInfo.fs" />
+    <Compile Include="CFGAction.fs" />
+    <Compile Include="CFGActionQueue.fs" />
+    <Compile Include="CFGResult.fs" />
+    <Compile Include="BBLFactory.fs" />
+    <Compile Include="IResettable.fs" />
+    <Compile Include="ILinkage.fs" />
+    <Compile Include="IntraCallTable.fs" />
+    <Compile Include="CFGEvaluator.fs" />
+    <Compile Include="CFGBuildingContext.fs" />
     <Compile Include="Function.fs" />
-    <Compile Include="FunctionMaintainer.fs" />
-    <Compile Include="ExceptionTable.fs" />
-    <Compile Include="BBLInfo.fs" />
-    <Compile Include="CFGEvents.fs" />
-    <Compile Include="BBLManager.fs" />
-    <Compile Include="JumpTableCollection.fs" />
-    <Compile Include="CFGError.fs" />
-    <Compile Include="RelocationTable.fs" />
-    <Compile Include="InlinedAssembly.fs" />
-    <Compile Include="CodeManager.fs" />
+    <Compile Include="TaskMessage.fs" />
     <Compile Include="ICFGBuildable.fs" />
-    <Compile Include="EvalHelper.fs" />
-    <Compile Include="PerFunctionAnalysis.fs" />
-    <Compile Include="IRHelper.fs" />
-    <Compile Include="IndirectCallResolution.fs" />
-    <Compile Include="IndirectJumpResolution.fs" />
-    <Compile Include="RegularJmpResolution.fs" />
-    <Compile Include="EVMJmpResolution.fs" />
-    <Compile Include="NoReturnFunctionIdentification.fs" />
-    <Compile Include="CFGBuilder.fs" />
-    <Compile Include="IPluggableAnalysis.fs" />
-    <Compile Include="PluggableAnalyses\LibcAnalysis.fs" />
-    <Compile Include="PluggableAnalyses\EVMCodeCopyAnalysis.fs" />
-    <Compile Include="PluggableAnalyses\EVMTrampolineAnalysis.fs" />
-    <Compile Include="PluggableAnalyses\ConditionRetriever.fs" />
-    <Compile Include="PluggableAnalyses\SpeculativeGapCompletion.fs" />
+    <Compile Include="IFunctionSummarizable.fs" />
+    <Compile Include="InternalFnCFGBuilder.fs" />
+    <Compile Include="ExternalFnCFGBuilder.fs" />
+    <Compile Include="ExternalFunctionLoader.fs" />
+    <Compile Include="JmpTableRecoveryNotebook.fs" />
+    <Compile Include="CFGBuilderTable.fs" />
+    <Compile Include="FunctionDependenceMap.fs" />
+    <Compile Include="FunctionCollection.fs" />
+    <Compile Include="RecoveryMission.fs" />
+    <Compile Include="Strategies\DummyContext.fs" />
+    <Compile Include="Strategies\ICFGAnalysis.fs" />
+    <Compile Include="Strategies\IJmpTableAnalyzable.fs" />
+    <Compile Include="Strategies\ISyscallAnalyzable.fs" />
+    <Compile Include="Strategies\SSALifter.fs" />
+    <Compile Include="Strategies\CondAwareNoretAnalysis.fs" />
+    <Compile Include="Strategies\SSAJmpTableAnalysis.fs" />
+    <Compile Include="Strategies\SyscallAnalysis.fs" />
+    <Compile Include="Strategies\FunctionSummarizer.fs" />
+    <Compile Include="Strategies\FunctionIdentification.fs" />
+    <Compile Include="Strategies\CFGRecovery.fs" />
     <None Include="..\..\..\LICENSE.md" Pack="true" PackagePath="" />
     <None Include="..\..\..\assets\b2r2-240x240.png" Pack="true" PackagePath="" />
     <None Include="README.md" Pack="true" PackagePath="" />
@@ -50,6 +53,7 @@
     <ProjectReference Include="..\BinGraph\B2R2.MiddleEnd.BinGraph.fsproj" />
     <ProjectReference Include="..\ControlFlowGraph\B2R2.MiddleEnd.ControlFlowGraph.fsproj" />
     <ProjectReference Include="..\DataFlow\B2R2.MiddleEnd.DataFlow.fsproj" />
+    <ProjectReference Include="..\SSA\B2R2.MiddleEnd.SSA.fsproj" />
   </ItemGroup>
 
   <ItemGroup>

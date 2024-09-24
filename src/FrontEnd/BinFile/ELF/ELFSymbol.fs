@@ -372,7 +372,8 @@ module internal Symbol =
   let buildSymbolMap staticSymArr dynamicSymArr =
     let map = Dictionary<Addr, ELFSymbol> ()
     let iterator sym =
-      if sym.Addr > 0UL then map[sym.Addr] <- sym
+      if sym.Addr > 0UL || sym.SymType = SymbolType.STT_FUNC then
+        map[sym.Addr] <- sym
       else ()
     staticSymArr |> Array.iter iterator
     dynamicSymArr |> Array.iter iterator

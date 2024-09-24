@@ -30,15 +30,15 @@ open B2R2
 type IInstructionParsable =
   /// Parse one instruction from the given byte array assuming that the address
   /// of the instruction is `addr`.
-  abstract member Parse: bs: byte[] * addr: Addr -> Instruction
+  abstract Parse: bs: byte[] * addr: Addr -> Instruction
 
   /// Parse one instruction from the given byte span assuming that the address
   /// of the instruction is `addr`.
-  abstract member Parse: span: ByteSpan * addr: Addr -> Instruction
+  abstract Parse: span: ByteSpan * addr: Addr -> Instruction
 
   /// Return the maximum possible size of an instruction.
-  abstract member MaxInstructionSize: int
+  abstract MaxInstructionSize: int
 
   /// The current operation mode of the Parser. This is only useful for ARMv7
   /// parsers.
-  abstract member OperationMode: ArchOperationMode with get, set
+  abstract OperationMode: ArchOperationMode with get, set

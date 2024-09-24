@@ -34,7 +34,7 @@ open LanguagePrimitives
 do ()
 
 type [<AbstractClass>] OperandParser () =
-  abstract member Render: ByteSpan * ReadHelper -> Operands
+  abstract Render: ByteSpan * ReadHelper -> Operands
 
 and [<AbstractClass>] InsSizeComputer () =
   abstract Render: ReadHelper -> SzCond -> unit

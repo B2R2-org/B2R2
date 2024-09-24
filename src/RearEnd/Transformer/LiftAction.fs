@@ -32,13 +32,13 @@ open B2R2.FrontEnd.BinFile
 
 /// The `lift` action.
 type LiftAction () =
-  let rec lift (sb: StringBuilder) (hdl: BinHandle) ptr =
+  let rec lift (sb: StringBuilder) (lifter: LiftingUnit) ptr =
     if BinFilePointer.IsValid ptr then
-      match hdl.TryParseInstr (ptr) with
+      match lifter.TryParseInstruction (ptr) with
       | Ok instr ->
-        let s = instr.Translate hdl.TranslationContext |> Pp.stmtsToString
+        let s = instr.Translate lifter.TranslationContext |> Pp.stmtsToString
         let ptr = BinFilePointer.Advance ptr (int instr.Length)
-        lift (sb.Append s) hdl ptr
+        lift (sb.Append s) lifter ptr
       | Error _ -> "Bad instruction found"
     else
       sb.ToString ()
@@ -46,10 +46,11 @@ type LiftAction () =
   let liftByteArray (o: obj) =
     let bin = unbox<Binary> o
     let hdl = Binary.Handle bin
+    let lifter = hdl.NewLiftingUnit ()
     let baddr = hdl.File.BaseAddress
     let ptr = BinFilePointer (baddr, 0, hdl.File.Length - 1)
     let sb = StringBuilder ()
-    lift sb hdl ptr
+    lift sb lifter ptr
     |> box
 
   interface IAction with

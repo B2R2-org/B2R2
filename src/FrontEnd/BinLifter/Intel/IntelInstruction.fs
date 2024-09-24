@@ -94,7 +94,7 @@ type IntelInstruction
     | Opcode.IRET | Opcode.IRETW | Opcode.IRETD | Opcode.IRETQ -> true
     | _ -> false
 
-  override __.IsBBLEnd () =
+  override __.IsTerminator () =
        __.IsBranch ()
     || __.IsInterrupt ()
     || __.IsExit ()
@@ -135,20 +135,18 @@ type IntelInstruction
     | _ -> false
 
   member private __.AddBranchTargetIfExist addrs =
-    match __.DirectBranchTarget () |> Utils.tupleResultToOpt with
-    | None -> addrs
-    | Some target ->
-      [| (target, ArchOperationMode.NoMode) |] |> Array.append addrs
+    match __.DirectBranchTarget () with
+    | false, _ -> addrs
+    | true, target -> (target, ArchOperationMode.NoMode) :: addrs
 
   override __.GetNextInstrAddrs () =
-    let acc = [| (__.Address + uint64 __.Length, ArchOperationMode.NoMode) |]
-    if __.IsCall () then acc |> __.AddBranchTargetIfExist
-    elif __.IsDirectBranch () || __.IsIndirectBranch () then
+    let acc = [ (__.Address + uint64 __.Length, ArchOperationMode.NoMode) ]
+    if __.IsBranch () then
       if __.IsCondBranch () then acc |> __.AddBranchTargetIfExist
-      else __.AddBranchTargetIfExist [||]
-    elif opcode = Opcode.HLT then [||]
-    elif opcode = Opcode.UD2 then [||]
+      else __.AddBranchTargetIfExist []
+    elif opcode = Opcode.HLT || opcode = Opcode.UD2 then []
     else acc
+    |> List.toArray
 
   override __.InterruptNum (num: byref<int64>) =
     if opcode = Opcode.INT then

@@ -51,9 +51,10 @@ module TestHelper =
     ByteArray.ofHexString byteStr, givenStmts
 
   let test mode (bytes: byte[]) (givenStmts: Stmt[]) =
-    let parser = ARM32Parser (isa, mode, None) :> IInstructionParsable
+    let parser = ARM32Parser (isa, mode) :> IInstructionParsable
+    let ctxt = GroundWork.CreateTranslationContext isa
     let ins = parser.Parse (bytes, 0UL)
-    let liftInstr = BinHandle(isa).LiftInstr ins
+    let liftInstr = ins.Translate ctxt
     CollectionAssert.AreEqual (givenStmts, unwrapStmts liftInstr)
 
   let testARM (bytes: byte[], givenStmts: Stmt[]) =

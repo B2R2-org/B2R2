@@ -943,8 +943,7 @@ module OperandParsingHelper =
     opcode, itState
 
 type [<AbstractClass>] OperandParser () =
-  abstract member Render: uint32 ->
-    struct (Operands * bool * bool option * RegType)
+  abstract Render: uint32 -> struct (Operands * bool * bool option * RegType)
 
 and ParsingHelper (arch, mode, rd, addr, oprs, len, cond, isAdd) =
   let isARMv7 = (arch = Architecture.ARMv7)

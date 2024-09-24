@@ -27,7 +27,7 @@ namespace B2R2.RearEnd.BinExplorer
 open B2R2
 open B2R2.FrontEnd
 open B2R2.FrontEnd.BinFile
-open B2R2.MiddleEnd.BinEssence
+open B2R2.MiddleEnd
 
 type CmdList () =
   inherit Cmd ()
@@ -35,11 +35,11 @@ type CmdList () =
   let createFuncString (hdl: BinHandle) (addr, name) =
     Addr.toString hdl.File.ISA.WordSize addr + ": " + name
 
-  let listFunctions ess =
-    ess.CodeManager.FunctionMaintainer.RegularFunctions
-    |> Seq.map (fun c -> c.EntryPoint, c.FunctionID)
+  let listFunctions (brew: BinaryBrew<_, _>) =
+    brew.Functions.Sequence
+    |> Seq.map (fun c -> c.EntryPoint, c.Name)
     |> Seq.sortBy fst
-    |> Seq.map (createFuncString ess.BinHandle)
+    |> Seq.map (createFuncString brew.BinHandle)
     |> Seq.toArray
 
   let createSegmentString wordSize (seg: Segment) =
@@ -86,14 +86,14 @@ type CmdList () =
 
   override __.SubCommands = [ "functions"; "segments"; ]
 
-  override __.CallBack _ (ess: BinEssence) args =
+  override __.CallBack _ brew args =
     match args with
     | "functions" :: _
-    | "funcs" :: _ -> listFunctions ess
+    | "funcs" :: _ -> listFunctions brew
     | "segments" :: _
-    | "segs" :: _ -> listSegments ess.BinHandle
+    | "segs" :: _ -> listSegments brew.BinHandle
     | "sections" :: _
-    | "secs" :: _ -> listSections ess.BinHandle
+    | "secs" :: _ -> listSections brew.BinHandle
     | _ -> [| "[*] Unknown list cmd is given." |]
     |> Array.map OutputNormal
 

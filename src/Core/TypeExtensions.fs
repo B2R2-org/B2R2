@@ -137,10 +137,11 @@ module SortedList =
   let rec private binSearch value lo hi (keys: IList<_>) (comp: Comparer<_>) =
     if lo < hi then
       let mid = (lo + hi) / 2
-      if comp.Compare (keys[mid], value) < 0 then
-        binSearch value (mid + 1) hi keys comp
-      else
-        binSearch value lo (mid - 1) keys comp
+      match comp.Compare (keys[mid], value) with
+      | 0 -> mid
+      | n ->
+        if n < 0 then binSearch value (mid + 1) hi keys comp
+        else binSearch value lo (mid - 1) keys comp
     else lo
 
   /// Find the greatest key that is less than the given key from the SortedList.
@@ -163,7 +164,7 @@ module SortedList =
     if keys.Count = 0 || comp.Compare (keys[lastIdx], key) <= 0 then None
     else
       let idx = binSearch key 0 lastIdx keys comp
-      if comp.Compare (keys[idx], key) < 0 then keys[idx + 1] else keys[idx]
+      if comp.Compare (keys[idx], key) <= 0 then keys[idx + 1] else keys[idx]
       |> Some
 
 // vim: set tw=80 sts=2 sw=2:

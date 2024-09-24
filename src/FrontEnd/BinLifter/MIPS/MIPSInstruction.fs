@@ -95,7 +95,7 @@ type MIPSInstruction (addr, numBytes, insInfo, wordSize) =
     | Opcode.DERET | Opcode.ERET | Opcode.ERETNC -> true
     | _ -> false
 
-  override __.IsBBLEnd () =
+  override __.IsTerminator () =
        __.IsBranch ()
     || __.IsInterrupt ()
     || __.IsExit ()

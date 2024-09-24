@@ -25,7 +25,6 @@
 namespace B2R2.RearEnd.Visualization
 
 open B2R2.MiddleEnd.BinGraph
-open B2R2.MiddleEnd.ControlFlowGraph
 open System.Collections.Generic
 
 /// The main graph type for visualization.
@@ -39,19 +38,17 @@ module VisGraph =
   let ofCFG g roots =
     let newGraph = init ()
     let visited = Dictionary<VertexID, IVertex<VisBBlock>> ()
-    let getVisBBlock (oldV: IVertex<#BasicBlock>) =
-      match visited.TryGetValue oldV.ID with
-      | false, _ ->
-        let blk = VisBBlock (oldV.VData :> BasicBlock, false)
-        let v, _ = newGraph.AddVertex blk
-        visited[oldV.ID] <- v
-        v
-      | true, v -> v
-    (* In case there is no edge in the graph. *)
-    let roots = roots |> List.map (getVisBBlock)
+    (g: IGraph<_, _>).IterVertex (fun v ->
+      if visited.ContainsKey v.ID then ()
+      else
+        let blk = VisBBlock (v.VData, false)
+        let v', _ = newGraph.AddVertex blk
+        visited[v.ID] <- v'
+    )
+    let roots = roots |> List.map (fun (root: IVertex<_>) -> visited[root.ID])
     (g: IGraph<_, _>).IterEdge (fun e ->
-      let srcV = getVisBBlock e.First
-      let dstV = getVisBBlock e.Second
+      let srcV = visited[e.First.ID]
+      let dstV = visited[e.Second.ID]
       let edge = VisEdge e.Label
       newGraph.AddEdge (srcV, dstV, edge) |> ignore)
     newGraph, roots

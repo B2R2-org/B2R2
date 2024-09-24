@@ -24,30 +24,30 @@
 
 module B2R2.MiddleEnd.BinGraph.Dominator
 
-open B2R2.Utils
 open System.Collections.Generic
+open B2R2.Utils
 
 type DomInfo<'V when 'V: equality> = {
   /// Vertex ID -> DFNum
   DFNumMap: Dictionary<VertexID, int>
   /// DFNum -> Vertex
-  Vertex: IVertex<'V> []
+  Vertex: IVertex<'V>[]
   /// DFNum -> DFNum in the ancestor chain s.t. DFNum of its Semi is minimal.
-  Label: int []
+  Label: int[]
   /// DFNum -> DFNum of the parent node (zero if not exists).
-  Parent: int []
+  Parent: int[]
   /// DFNum -> DFNum of the child node (zero if not exists).
-  Child: int []
+  Child: int[]
   /// DFNum -> DFNum of an ancestor.
-  Ancestor: int []
+  Ancestor: int[]
   /// DFNum -> DFNum of a semidominator.
-  Semi: int []
+  Semi: int[]
   /// DFNum -> set of DFNums (vertices that share the same sdom).
-  Bucket: Set<int> []
+  Bucket: Set<int>[]
   /// DFNum -> Size
-  Size: int []
+  Size: int[]
   /// DFNum -> DFNum of an immediate dominator.
-  IDom: int []
+  IDom: int[]
   /// Length of the arrays.
   MaxLength: int
 }
@@ -81,18 +81,16 @@ let private initDomInfo (g: IGraph<_, _>) =
 let inline private dfnum (info: DomInfo<'V>) (v: IVertex<_>) =
   info.DFNumMap[v.ID]
 
-let rec private assignDFNum (g: IGraph<_, _>) (info: DomInfo<'V>) n = function
-  | (p, v : IVertex<_>) :: stack
-      when not <| info.DFNumMap.ContainsKey v.ID ->
+let rec private prepare (g: IGraph<_, _>) (info: DomInfo<'V>) n = function
+  | (p, v : IVertex<_>) :: stack when not <| info.DFNumMap.ContainsKey v.ID ->
     info.DFNumMap.Add (v.ID, n)
     info.Semi[n] <- n
     info.Vertex[n] <- v
     info.Label[n] <- n
     info.Parent[n] <- p
-    g.GetSuccs v
-    |> Seq.fold (fun acc s -> (n, s) :: acc) stack
-    |> assignDFNum g info (n+1)
-  | _ :: stack -> assignDFNum g info n stack
+    let stack' = g.GetSuccs v |> Seq.fold (fun acc s -> (n, s) :: acc) stack
+    prepare g info (n + 1) stack'
+  | _ :: stack -> prepare g info n stack
   | [] -> n - 1
 
 let rec private compress info v =
@@ -160,10 +158,10 @@ let private connectDummy (g: IGraph<_, _>) (root: IVertex<_>) =
     let g = g.AddEdge (dummyEntry, root)
     dummyEntry, g
 
-let private initDominator g root =
+let private computeDominatorInfo g root =
   let info = initDomInfo g
   let dummyEntry, g = connectDummy g root
-  let n = assignDFNum g info 0 [(0, dummyEntry)]
+  let n = prepare g info 0 [(0, dummyEntry)]
   for i = n downto 1 do
     let v = info.Vertex[i]
     let p = info.Parent[i]
@@ -238,10 +236,11 @@ let private preparePostDomAnalysis (fg: IGraph<_, _>) root (bg: IGraph<_, _>) =
     |> List.fold (fun (bg: IGraph<_, _>) v -> bg.AddEdge (dummy, v)) bg
   bg, dummy
 
-let initDominatorContext (g: IGraph<'V, _>) (root: IVertex<'V>) =
-  let forward = initDominator g root
+let initDominatorContext (g: IGraph<'V, _>) =
+  let root = g.GetRoots () |> Seq.exactlyOne
+  let forward = computeDominatorInfo g root
   let g', root' = g.Reverse () |> preparePostDomAnalysis g root
-  let backward = initDominator g' root'
+  let backward = computeDominatorInfo g' root'
   { ForwardGraph = g
     ForwardRoot = root
     ForwardDomInfo = forward
@@ -271,16 +270,29 @@ let ipdom ctxt (v: IVertex<_>) =
 let rec private domsAux acc v info =
   let id = info.IDom[dfnum info v]
   if id > 0 then domsAux (info.Vertex[id] :: acc) info.Vertex[id] info
-  else List.rev acc
+  else acc |> List.toArray
 
 let doms ctxt v =
   let g = ctxt.ForwardGraph
   checkVertexInGraph g v
   domsAux [] v ctxt.ForwardDomInfo
 
+let rec private domSetAux s v info =
+  let id = info.IDom[dfnum info v]
+  if id > 0 then domSetAux (Set.add info.Vertex[id] s) info.Vertex[id] info
+  else s
+
+let domSet ctxt v =
+  let g = ctxt.ForwardGraph
+  checkVertexInGraph g v
+  domSetAux Set.empty v ctxt.ForwardDomInfo
+
 let pdoms ctxt v =
   domsAux [] v ctxt.BackwardDomInfo
 
+/// A dominator tree is a tree where each node's children are those nodes it
+/// immediately dominates. This function returns a map from a node to its
+/// children in the dom tree.
 let private computeDomTree (g: IGraph<_, _>) info =
   let domTree = Array.create info.MaxLength []
   g.IterVertex (fun v ->
@@ -288,49 +300,59 @@ let private computeDomTree (g: IGraph<_, _>) info =
     domTree[idom] <- v :: domTree[idom])
   domTree
 
-let rec private computeFrontierLocal s ctxt (parent: IVertex<_>) = function
+let rec private computeFrontierLocal s info (parent: IVertex<_>) = function
   | succ :: rest ->
-    let succID = dfnum ctxt succ
-    let d = ctxt.Vertex[ctxt.IDom[succID]]
+    let succID = dfnum info succ
+    let d = info.Vertex[info.IDom[succID]]
     let s = if d.ID = parent.ID then s else Set.add succID s
-    computeFrontierLocal s ctxt parent rest
+    computeFrontierLocal s info parent rest
   | [] -> s
 
-let rec private computeDF domTree (frontiers: IVertex<_> list []) g ctxt r =
-  let mutable s = Set.empty
-  for succ in (g: IGraph<_, _>).GetSuccs r do
-    let succID = dfnum ctxt succ
-    let domID = ctxt.IDom[succID]
-    let d = ctxt.Vertex[ctxt.IDom[succID]]
-    if domID <> 0 && d.ID <> r.ID then s <- Set.add succID s
-  done
-  for child in (domTree: IVertex<_> list [])[dfnum ctxt r] do
-    computeDF domTree frontiers g ctxt child
-    for node in frontiers[dfnum ctxt child] do
-      let doms = domsAux [] node ctxt
-      let dominate = doms |> List.exists (fun d -> d.ID = r.ID)
-      if not dominate then s <- Set.add (dfnum ctxt node) s
+let traverseBottomUp (domTree: list<IVertex<_>>[]) info root =
+  let stack1, stack2 = Stack (), Stack ()
+  stack1.Push root
+  while stack1.Count > 0 do
+    let v = stack1.Pop ()
+    stack2.Push v
+    for child in domTree[dfnum info v] do stack1.Push child
+  stack2.ToArray ()
+
+/// Compute dominance frontiers.
+let private computeDF domTree (frontiers: list<IVertex<_>>[]) g info root =
+  for v in traverseBottomUp domTree info root do
+    let df = HashSet<IVertex<_>> ()
+    for succ in (g: IGraph<_, _>).GetSuccs v do
+      let succID = dfnum info succ
+      let idomID = info.IDom[succID]
+      let d = info.Vertex[idomID]
+      if idomID <> 0 && d.ID <> v.ID then df.Add info.Vertex[succID] |> ignore
     done
-  done
-  frontiers[dfnum ctxt r] <- Set.fold (fun df n -> ctxt.Vertex[n] :: df) [] s
+    for child in (domTree: list<IVertex<_>>[])[dfnum info v] do
+      for node in frontiers[dfnum info child] do
+        let doms = domsAux [] node info
+        let dominate = doms |> Array.exists (fun d -> d.ID = v.ID)
+        if not dominate then df.Add info.Vertex[dfnum info node] |> ignore
+      done
+    done
+    frontiers[dfnum info v] <- df |> List.ofSeq
 
 let frontier ctxt v =
   let g = ctxt.ForwardGraph
   checkVertexInGraph g v
   let root = ctxt.ForwardRoot
-  let ctxt = ctxt.ForwardDomInfo
-  let frontiers = Array.create ctxt.MaxLength []
-  let domTree = computeDomTree g ctxt
-  computeDF domTree frontiers g ctxt root
-  frontiers[dfnum ctxt v]
+  let info = ctxt.ForwardDomInfo
+  let frontiers = Array.create info.MaxLength []
+  let domTree = computeDomTree g info
+  computeDF domTree frontiers g info root
+  frontiers[dfnum info v]
 
 let frontiers ctxt =
   let g = ctxt.ForwardGraph
   let root = ctxt.ForwardRoot
-  let ctxt = ctxt.ForwardDomInfo
-  let frontiers = Array.create ctxt.MaxLength []
-  let domTree = computeDomTree g ctxt
-  computeDF domTree frontiers g ctxt root
+  let info = ctxt.ForwardDomInfo
+  let frontiers = Array.create info.MaxLength []
+  let domTree = computeDomTree g info
+  computeDF domTree frontiers g info root
   frontiers
 
 let dominatorTree ctxt =

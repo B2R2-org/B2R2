@@ -24,19 +24,18 @@
 
 namespace B2R2.BinIR
 
-/// Pretty printer module for B2R2's IR.
-[<AbstractClass>]
-type PrettyPrinter () =
+/// Pretty printer "module" for B2R2's IR.
+type PrettyPrinter =
   /// <summary>
   ///   Given a list of LowUIR statements, return a well-formated string.
   /// </summary>
   /// <param name="stmts">LowUIR statements.</param>
-  static member inline ToString (stmts: LowUIR.Stmt []) =
+  static member inline ToString (stmts: LowUIR.Stmt[]) =
     LowUIR.Pp.stmtsToString stmts
 
   /// <summary>
   ///   Given a list of SSA statements, return a well-formated string.
   /// </summary>
   /// <param name="stmts">LowUIR statements.</param>
-  static member inline ToString (stmts: SSA.Stmt []) =
+  static member inline ToString (stmts: SSA.Stmt[]) =
     SSA.Pp.stmtsToString stmts

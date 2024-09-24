@@ -35,14 +35,14 @@ let filter = function
 
 let private toTail bytes = { Pattern = bytes }
 
-let private instrMaxLen (hdl: BinHandle) =
-  match hdl.File.ISA.Arch with
+let private instrMaxLen (liftingUnit: LiftingUnit) =
+  match liftingUnit.File.ISA.Arch with
   | Architecture.IntelX86 | Architecture.IntelX64 -> 15UL
   | Architecture.AARCH32 | Architecture.AARCH64 | Architecture.ARMv7 -> 4UL
   | _ -> raise InvalidISAException
 
-let getTailPatterns (hdl: BinHandle) =
-  match hdl.File.ISA.Arch, hdl.File.ISA.Endian with
+let getTailPatterns (liftingUnit: LiftingUnit) =
+  match liftingUnit.File.ISA.Arch, liftingUnit.File.ISA.Endian with
   | Architecture.IntelX86, Endian.Little ->
     [ [| 0xC3uy |] (* RET *)
       [| 0xCDuy; 0x80uy |] (* INT 0x80 *)
@@ -54,8 +54,8 @@ let getTailPatterns (hdl: BinHandle) =
   | _ -> failwith "Unsupported arch."
   |> List.map toTail
 
-let private getExecutableSegs (hdl: BinHandle) =
-  let file = hdl.File
+let private getExecutableSegs (liftingUnit: LiftingUnit) =
+  let file = liftingUnit.File
   let rxRanges =
     file.GetSegments (Permission.Readable ||| Permission.Executable)
   if not file.IsNXEnabled then
@@ -74,45 +74,49 @@ let inline updateGadgets curAddr nextAddr ins gadgets =
     Map.add curAddr g gadgets |> Some
   | _ -> None
 
-let rec buildBackward (hdl: BinHandle) minAddr curAddr lastAddr map =
+let rec buildBackward (liftingUnit: LiftingUnit) minAddr curAddr lastAddr map =
   if curAddr < minAddr || (curAddr + 1UL) = 0UL then map
   else
-    match hdl.TryParseInstr curAddr with
+    match liftingUnit.TryParseInstruction curAddr with
     | Ok ins ->
       let nextAddr = curAddr + (uint64 ins.Length)
-      if ins.IsBBLEnd () then
+      if ins.IsTerminator () then
         if nextAddr < lastAddr then map
-        else buildBackward hdl minAddr (curAddr - 1UL) lastAddr map
+        else buildBackward liftingUnit minAddr (curAddr - 1UL) lastAddr map
       else
         match updateGadgets curAddr nextAddr ins map with
         | Some map ->
-          let minAddr' = curAddr - instrMaxLen hdl
-          buildBackward hdl minAddr' (curAddr - 1UL) curAddr map
-        | None -> buildBackward hdl minAddr (curAddr - 1UL) lastAddr map
-    | Error _ -> buildBackward hdl minAddr (curAddr - 1UL) lastAddr map
+          let minAddr' = curAddr - instrMaxLen liftingUnit
+          buildBackward liftingUnit minAddr' (curAddr - 1UL) curAddr map
+        | None -> buildBackward liftingUnit minAddr (curAddr - 1UL) lastAddr map
+    | Error _ -> buildBackward liftingUnit minAddr (curAddr - 1UL) lastAddr map
 
-let parseTail (hdl: BinHandle) addr bytes =
+let parseTail (liftingUnit: LiftingUnit) addr bytes =
   let lastAddr = (Array.length bytes |> uint64) + addr
   let rec parseLoop acc addr =
     if lastAddr > addr then
-      let ins = hdl.ParseInstr addr
+      let ins = liftingUnit.ParseInstruction addr
       parseLoop (ins :: acc) (addr + uint64 ins.Length)
     else List.rev acc
   parseLoop [] addr
 
-let private buildGadgetMap (hdl: BinHandle) (tail: Tail) map (seg: Segment) =
-  let minAddr = seg.Address
+let private buildGadgetMap hdl (liftingUnit: LiftingUnit) tail map seg =
+  let minAddr = (seg: Segment).Address
   let build map idx =
-    let sGadget = parseTail hdl idx tail.Pattern |> Gadget.create idx
+    let sGadget = parseTail liftingUnit idx tail.Pattern |> Gadget.create idx
     Map.add idx sGadget map
-    |> buildBackward hdl (min 0UL (minAddr - instrMaxLen hdl)) (idx - 1UL) idx
-  hdl.ReadBytes (seg.Address, int (seg.Size))
+    |> buildBackward liftingUnit
+                     (min 0UL (minAddr - instrMaxLen liftingUnit))
+                     (idx - 1UL)
+                     idx
+  (hdl: BinHandle).ReadBytes (seg.Address, int (seg.Size))
   |> ByteArray.findIdxs minAddr tail.Pattern
   |> List.fold build map
 
-let findGadgets hdl =
-  let segs = getExecutableSegs hdl
+let findGadgets (hdl: BinHandle) =
+  let liftingUnit = hdl.NewLiftingUnit ()
+  let segs = getExecutableSegs liftingUnit
   let buildGadgetMapPerTail acc tail =
-    Seq.fold (buildGadgetMap hdl tail) acc segs
-  getTailPatterns hdl
+    Seq.fold (buildGadgetMap hdl liftingUnit tail) acc segs
+  getTailPatterns liftingUnit
   |> List.fold buildGadgetMapPerTail GadgetMap.empty

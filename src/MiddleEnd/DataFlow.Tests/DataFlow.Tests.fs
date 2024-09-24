@@ -27,149 +27,211 @@ namespace B2R2.MiddleEnd.DataFlow.Tests
 open Microsoft.VisualStudio.TestTools.UnitTesting
 
 open B2R2
+open B2R2.BinIR
 open B2R2.FrontEnd
-open B2R2.FrontEnd.BinLifter
-open B2R2.MiddleEnd.BinEssence
+open B2R2.FrontEnd.BinLifter.Intel
 open B2R2.MiddleEnd.DataFlow
+open B2R2.MiddleEnd.BinGraph
+open B2R2.MiddleEnd.SSA
+
+type private DummyLattice = int
+
+type DummyVarBasedDataFlowAnalysis =
+  inherit VarBasedDataFlowAnalysis<DummyLattice>
+
+  new (hdl: BinHandle) =
+    let analysis =
+      { new IVarBasedDataFlowAnalysis<DummyLattice> with
+          member __.OnInitialize state = state
+          member __.Bottom = 0
+          member __.Join _a _b = 0
+          member __.Subsume _a _b = true
+          member __.Transfer _g _v _pp _stmt _state = None
+          member __.EvalExpr _state _pp _e = 0 }
+    { inherit VarBasedDataFlowAnalysis<DummyLattice> (hdl, analysis) }
 
 [<TestClass>]
 type PersistentDataFlowTests () =
+  let isRegular (v: VarPoint) =
+    match v.VarKind with
+    | Regular _ -> true
+    | _ -> false
 
-  (*
-    Example 1: Fibonacci function
+  let reg addr idx reg =
+    { ProgramPoint = ProgramPoint (addr, idx)
+      VarKind = Regular (Register.toRegID reg) }
 
-    unsigned int fib(unsigned int m)
-    {
-        unsigned int f0 = 0, f1 = 1, f2, i;
-        if (m <= 1) return m;
-        else {
-            for (i = 2; i <= m; i++) {
-                f2 = f0 + f1;
-                f0 = f1;
-                f1 = f2;
-            }
-            return f2;
-        }
-    }
+  let mkConst v rt =
+    ConstantDomain.Const (BitVector.OfUInt32 v rt)
 
-    00000000: 8B 54 24 04        mov         edx,dword ptr [esp+4]
-    00000004: 56                 push        esi
-    00000005: 33 F6              xor         esi,esi
-    00000007: 8D 4E 01           lea         ecx,[esi+1]
-    0000000A: 3B D1              cmp         edx,ecx
-    0000000C: 77 04              ja          00000012
-    0000000E: 8B C2              mov         eax,edx
-    00000010: 5E                 pop         esi
-    00000011: C3                 ret
-    00000012: 4A                 dec         edx
-    00000013: 8D 04 31           lea         eax,[ecx+esi]
-    00000016: 8D 31              lea         esi,[ecx]
-    00000018: 8B C8              mov         ecx,eax
-    0000001A: 83 EA 01           sub         edx,1
-    0000001D: 75 F4              jne         00000013
-    0000001F: 5E                 pop         esi
-    00000020: C3                 ret
+  let ssaReg r id rt =
+    let rid = Register.toRegID r
+    let rstr = Register.toString r
+    let k = SSA.RegVar (rt, rid, rstr)
+    SSA.SSAVarPoint.RegularSSAVar { Kind = k; Identifier = id }
 
-    8B5424045633F68D4E013BD177048BC25EC34A8D04318D318BC883EA0175F45EC3
-  *)
+  let ssaStk offset id rt =
+    let k = SSA.StackVar (rt, offset)
+    SSA.SSAVarPoint.RegularSSAVar { Kind = k; Identifier = id }
 
-  let binary =
-    [| 0x8Buy; 0x54uy; 0x24uy; 0x04uy; 0x56uy; 0x33uy; 0xF6uy; 0x8Duy; 0x4Euy;
-       0x01uy; 0x3Buy; 0xD1uy; 0x77uy; 0x04uy; 0x8Buy; 0xC2uy; 0x5Euy; 0xC3uy;
-       0x4Auy; 0x8Duy; 0x04uy; 0x31uy; 0x8Duy; 0x31uy; 0x8Buy; 0xC8uy; 0x83uy;
-       0xEAuy; 0x01uy; 0x75uy; 0xF4uy; 0x5Euy; 0xC3uy |]
+  let irReg addr idx r =
+    let rid = Register.toRegID r
+    let pp = ProgramPoint (addr, idx)
+    let varKind = VarKind.Regular rid
+    { ProgramPoint = pp; VarKind = varKind }
 
-  let isa = ISA.Init Architecture.IntelX86 Endian.Little
-  let hdl = BinHandle (binary, isa, ArchOperationMode.NoMode, None, false)
-  let ess = BinEssence.init hdl [] [] []
+  let irMem add idx offset =
+    let pp = ProgramPoint (add, idx)
+    let varKind = VarKind.Memory (Some offset)
+    { ProgramPoint = pp; VarKind = varKind }
+
+  let mkUntouchedReg r =
+    VarKind.Regular (Register.toRegID r)
+    |> UntouchedValueDomain.RegisterTag
+    |> UntouchedValueDomain.Untouched
+
+  let cmp vp c = vp, c
 
 #if !EMULATION
   [<TestMethod>]
   member __.``Reaching Definitions Test 1``() =
-    let cfg, root = BinEssence.getFunctionCFG ess 0UL |> Result.get
-    let rd = LowUIRReachingDefinitions (cfg)
-    let ins, _outs = rd.Compute cfg root
-    let v = cfg.FindVertexBy (fun b ->
-      b.VData.PPoint.Address = 0xEUL) (* 2nd *)
-    let result = ins[v.ID] |> Set.filter (fun v ->
-      match v.VarExpr with
-      | Regular _ -> true
-      | _ -> false)
-    let solution = [
-      { ProgramPoint = ProgramPoint (0UL, 1)
-        VarExpr = Regular (Intel.Register.toRegID Intel.Register.EDX) }
-      { ProgramPoint = ProgramPoint (4UL, 1)
-        VarExpr = Regular (Intel.Register.toRegID Intel.Register.ESP) }
-      { ProgramPoint = ProgramPoint (5UL, 1)
-        VarExpr = Regular (Intel.Register.toRegID Intel.Register.ESI) }
-      { ProgramPoint = ProgramPoint (5UL, 2)
-        VarExpr = Regular (Intel.Register.toRegID Intel.Register.OF) }
-      { ProgramPoint = ProgramPoint (5UL, 3)
-        VarExpr = Regular (Intel.Register.toRegID Intel.Register.CF) }
-      { ProgramPoint = ProgramPoint (5UL, 4)
-        VarExpr = Regular (Intel.Register.toRegID Intel.Register.SF) }
-      { ProgramPoint = ProgramPoint (5UL, 5)
-        VarExpr = Regular (Intel.Register.toRegID Intel.Register.ZF) }
-      { ProgramPoint = ProgramPoint (5UL, 6)
-        VarExpr = Regular (Intel.Register.toRegID Intel.Register.PF) }
-      { ProgramPoint = ProgramPoint (5UL, 7)
-        VarExpr = Regular (Intel.Register.toRegID Intel.Register.AF) }
-      { ProgramPoint = ProgramPoint (7UL, 1)
-        VarExpr = Regular (Intel.Register.toRegID Intel.Register.ECX) }
-      { ProgramPoint = ProgramPoint (0xAUL, 4)
-        VarExpr = Regular (Intel.Register.toRegID Intel.Register.CF) }
-      { ProgramPoint = ProgramPoint (0xAUL, 5)
-        VarExpr = Regular (Intel.Register.toRegID Intel.Register.OF) }
-      { ProgramPoint = ProgramPoint (0xAUL, 6)
-        VarExpr = Regular (Intel.Register.toRegID Intel.Register.AF) }
-      { ProgramPoint = ProgramPoint (0xAUL, 7)
-        VarExpr = Regular (Intel.Register.toRegID Intel.Register.SF) }
-      { ProgramPoint = ProgramPoint (0xAUL, 8)
-        VarExpr = Regular (Intel.Register.toRegID Intel.Register.ZF) }
-      { ProgramPoint = ProgramPoint (0xAUL, 11)
-        VarExpr = Regular (Intel.Register.toRegID Intel.Register.PF) } ]
-    Assert.AreEqual (result, Set.ofList solution)
+    let brew = Binaries.loadOne Binaries.sample1
+    let cfg = brew.Functions[0UL].CFG
+    let dfa = ReachingDefinitionAnalysis () :> IDataFlowAnalysis<_, _, _, _>
+    let state = dfa.InitializeState []
+    let state = dfa.Compute cfg state
+    let v = cfg.FindVertexBy (fun b -> b.VData.Internals.PPoint.Address = 0xEUL)
+    let rd = (state :> IDataFlowState<_, _>).GetAbsValue v.ID (* 2nd vertex *)
+    let ins = rd.Ins |> Set.filter isRegular
+    let solution =
+      [ reg 0x0UL 1 Register.EDX
+        reg 0x4UL 1 Register.ESP
+        reg 0x5UL 1 Register.ESI
+        reg 0x5UL 2 Register.OF
+        reg 0x5UL 3 Register.CF
+        reg 0x5UL 4 Register.SF
+        reg 0x5UL 5 Register.ZF
+        reg 0x5UL 6 Register.PF
+        reg 0x5UL 7 Register.AF
+        reg 0x7UL 1 Register.ECX
+        reg 0xAUL 4 Register.CF
+        reg 0xAUL 5 Register.OF
+        reg 0xAUL 6 Register.AF
+        reg 0xAUL 7 Register.SF
+        reg 0xAUL 8 Register.ZF
+        reg 0xAUL 11 Register.PF ]
+    Assert.AreEqual (Set.ofList solution, ins)
 #endif
 
   [<TestMethod>]
   member __.``Use-Def Test 1``() =
-    let cfg, root = BinEssence.getFunctionCFG ess 0UL |> Result.get
-    let chain = DataFlowChain.init cfg root false
-    let vp =
-      { ProgramPoint = ProgramPoint (0xEUL, 1)
-        VarExpr = Regular (Intel.Register.toRegID Intel.Register.EDX) }
+    let brew = Binaries.loadOne Binaries.sample1
+    let cfg = brew.Functions[0UL].CFG
+    let chain = DataFlowChain.init cfg false
+    let vp = reg 0xEUL 1 Register.EDX
     let res = chain.UseDefChain |> Map.find vp |> Set.toArray
-    let solution = [|
-      { ProgramPoint = ProgramPoint (0x0UL, 1)
-        VarExpr = Regular (Intel.Register.toRegID Intel.Register.EDX) } |]
+    let solution = [| reg 0x0UL 1 Register.EDX |]
     CollectionAssert.AreEqual (solution, res)
 
   [<TestMethod>]
   member __.``Use-Def Test 2``() =
-    let cfg, root = BinEssence.getFunctionCFG ess 0UL |> Result.get
-    let chain = DataFlowChain.init cfg root true
-    let vp =
-      { ProgramPoint = ProgramPoint (0xEUL, 0)
-        VarExpr = Regular (Intel.Register.toRegID Intel.Register.EDX) }
+    let brew = Binaries.loadOne Binaries.sample1
+    let cfg = brew.Functions[0UL].CFG
+    let chain = DataFlowChain.init cfg true
+    let vp = reg 0xEUL 0 Register.EDX
     let res = chain.UseDefChain |> Map.find vp |> Set.toArray
-    let solution = [|
-      { ProgramPoint = ProgramPoint (0x0UL, 0)
-        VarExpr = Regular (Intel.Register.toRegID Intel.Register.EDX) } |]
+    let solution = [| reg 0x0UL 0 Register.EDX |]
     CollectionAssert.AreEqual (solution, res)
 
 #if !EMULATION
   [<TestMethod>]
   member __.``Use-Def Test 3``() =
-    let cfg, root = BinEssence.getFunctionCFG ess 0UL |> Result.get
-    let chain = DataFlowChain.init cfg root false
-    let vp =
-      { ProgramPoint = ProgramPoint (0x1AUL, 1)
-        VarExpr = Regular (Intel.Register.toRegID Intel.Register.EDX) }
+    let brew = Binaries.loadOne Binaries.sample1
+    let cfg = brew.Functions[0UL].CFG
+    let chain = DataFlowChain.init cfg false
+    let vp = reg 0x1AUL 1 Register.EDX
     let res = chain.UseDefChain |> Map.find vp |> Set.toArray
-    let solution = [|
-      { ProgramPoint = ProgramPoint (0x12UL, 3)
-        VarExpr = Regular (Intel.Register.toRegID Intel.Register.EDX) }
-      { ProgramPoint = ProgramPoint (0x1AUL, 3)
-        VarExpr = Regular (Intel.Register.toRegID Intel.Register.EDX) } |]
+    let solution = [| reg 0x12UL 3 Register.EDX
+                      reg 0x1AUL 3 Register.EDX |]
     CollectionAssert.AreEqual (solution, res)
 #endif
+
+  [<TestMethod>]
+  member __.``SSA Constant Propagation Test 1`` () =
+    let brew = Binaries.loadOne Binaries.sample2
+    let cfg = brew.Functions[0UL].CFG
+    let lifter = SSALifterFactory.Create (brew.BinHandle)
+    let ssaCFG = lifter.Lift cfg
+    let cp = SSA.SSAConstantPropagation brew.BinHandle
+    let dfa = cp :> IDataFlowAnalysis<_, _, _, _>
+    let state = dfa.InitializeState []
+    let state = dfa.Compute ssaCFG state
+    [ ssaReg Register.RSP 0 64<rt> |> cmp <| mkConst 0x80000000u 64<rt>
+      ssaReg Register.RSP 1 64<rt> |> cmp <| mkConst 0x7ffffff8u 64<rt>
+      ssaReg Register.RBP 0 64<rt> |> cmp <| ConstantDomain.Undef
+      ssaReg Register.RBP 1 64<rt> |> cmp <| mkConst 0x7ffffff8u 64<rt>
+      ssaStk (8 + 0xc) 2 32<rt> |> cmp <| mkConst 0x2u 32<rt>
+      ssaStk (8 + 0x8) 2 32<rt> |> cmp <| mkConst 0x3u 32<rt>
+      ssaStk (8 + 0xc) 3 32<rt> |> cmp <| mkConst 0x3u 32<rt>
+      ssaStk (8 + 0x8) 3 32<rt> |> cmp <| mkConst 0x2u 32<rt>
+      ssaStk (8 + 0xc) 1 32<rt> |> cmp <| ConstantDomain.NotAConst
+      ssaStk (8 + 0x8) 1 32<rt> |> cmp <| ConstantDomain.NotAConst
+      ssaReg Register.RAX 1 64<rt> |> cmp <| ConstantDomain.NotAConst
+      ssaReg Register.RDX 1 64<rt> |> cmp <| ConstantDomain.NotAConst
+      ssaReg Register.RAX 2 64<rt> |> cmp <| ConstantDomain.NotAConst
+      ssaReg Register.RBP 2 64<rt> |> cmp <| ConstantDomain.Undef
+      ssaReg Register.RSP 2 64<rt> |> cmp <| mkConst 0x80000000u 64<rt>
+      ssaReg Register.RSP 3 64<rt> |> cmp <| mkConst 0x80000008u 64<rt> ]
+    |> List.iter (fun (var, ans) ->
+      let out = (state :> IDataFlowState<_, _>).GetAbsValue var
+      Assert.AreEqual (ans, out))
+
+#if !EMULATION
+  [<TestMethod>]
+  member __.``Incremental Data Flow Test 1``() =
+    let brew = Binaries.loadOne Binaries.sample2
+    let hdl = brew.BinHandle
+    let cfg = brew.Functions[0UL].CFG
+    let roots = cfg.GetRoots ()
+    let varDfa = DummyVarBasedDataFlowAnalysis hdl
+    let dfa = varDfa :> IDataFlowAnalysis<_, _, _, _>
+    let state = dfa.InitializeState roots |> dfa.Compute cfg
+    let rbp = 0x7ffffff8UL
+    [ irReg 0x0UL 0 Register.RSP |> cmp <| mkConst 0x80000000u 64<rt>
+      irReg 0x4UL 1 Register.RSP |> cmp <| mkConst 0x7ffffff8u 64<rt>
+      irReg 0x5UL 0 Register.RBP |> cmp <| ConstantDomain.Undef
+      irReg 0x5UL 1 Register.RBP |> cmp <| mkConst 0x7ffffff8u 64<rt>
+      irMem 0xbUL 1 rbp |> cmp <| ConstantDomain.Undef
+      irMem 0x11UL 1 (rbp - 0xcUL) |> cmp <| mkConst 0x2u 32<rt>
+      irMem 0x18UL 1 (rbp - 0x8UL) |> cmp <| mkConst 0x3u 32<rt>
+      irMem 0x21UL 1 (rbp - 0xcUL) |> cmp <| mkConst 0x3u 32<rt>
+      irMem 0x28UL 1 (rbp - 0x8UL) |> cmp <| mkConst 0x2u 32<rt>
+      irMem 0x2fUL 0 (rbp - 0xcUL) |> cmp <| ConstantDomain.NotAConst
+      irMem 0x2fUL 0 (rbp - 0x8UL) |> cmp <| ConstantDomain.NotAConst
+      irReg 0x3bUL 2 Register.RSP |> cmp <| mkConst 0x80000000u 64<rt>
+      irReg 0x3cUL 2 Register.RSP |> cmp <| mkConst 0x80000008u 64<rt> ]
+    |> List.iter (fun (vp, ans) ->
+      let out = state.CalculateConstant vp
+      Assert.AreEqual (ans, out))
+#endif
+
+  [<TestMethod>]
+  member __.``Untouched Value Analysis 1``() =
+    let brew = Binaries.loadOne Binaries.sample3
+    let cfg = brew.Functions[0UL].CFG
+    let roots = cfg.GetRoots ()
+    let uva = UntouchedValueAnalysis brew.BinHandle
+    let dfa = uva :> IDataFlowAnalysis<_, _, _, _>
+    let state = dfa.InitializeState roots |> dfa.Compute cfg
+    let rbp = 0x7ffffff8UL
+    [ irMem 0xcUL 1 (rbp - 0x14UL) |> cmp <| mkUntouchedReg Register.RDI
+      irMem 0xfUL 1 (rbp - 0x18UL) |> cmp <| mkUntouchedReg Register.RSI
+      irMem 0x15UL 1 (rbp - 0x10UL) |> cmp <| mkUntouchedReg Register.RDI
+      irMem 0x1eUL 1 (rbp - 0xcUL) |> cmp <| UntouchedValueDomain.Touched
+      irReg 0x32UL 1 Register.RCX |> cmp <| UntouchedValueDomain.Touched
+      irReg 0x35UL 1 Register.RDX |> cmp <| UntouchedValueDomain.Touched
+      irReg 0x38UL 1 Register.RSI |> cmp <| UntouchedValueDomain.Touched
+      irReg 0x3bUL 1 Register.RAX |> cmp <| mkUntouchedReg Register.RDI ]
+    |> List.iter (fun (vp, ans) ->
+      let out = (state :> IDataFlowState<_, _>).GetAbsValue vp
+      Assert.AreEqual (ans, out))

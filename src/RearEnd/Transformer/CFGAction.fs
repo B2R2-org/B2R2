@@ -24,35 +24,18 @@
 
 namespace B2R2.RearEnd.Transformer
 
-open B2R2
-open B2R2.MiddleEnd.BinEssence
-open B2R2.MiddleEnd.ControlFlowAnalysis
+open B2R2.MiddleEnd
 
 /// The `cfg` action.
 type CFGAction () =
-  let output (fn: RegularFunction) = function
-    | Ok () ->
-      CFG.Init fn.MinAddr fn.IRCFG |> box
-    | Error e ->
-      ConsolePrinter.PrintErrorToConsole $"Failed to recover CFG: {e}"
-      NoCFG <| e.ToString () |> box
-
   let getCFG (input: obj) =
     match input with
     | :? Binary as bin ->
-      let hdl = Binary.Handle bin
-      let ess = BinEssence.empty hdl
-      let ep = hdl.File.EntryPoint |> Option.defaultValue 0UL
-      let fn = ess.CodeManager.FunctionMaintainer.GetOrAddFunction ep
-      let eAddr = uint64 hdl.File.Length - 1UL
-      let mode = hdl.Parser.OperationMode
-      let builder = CFGBuilder (hdl, ess.CodeManager, ess.JumpTables)
-      let evts = CFGEvents.empty
-      ess.CodeManager.ParseSequence hdl mode ep eAddr fn evts
-      |> Result.bind (fun evts ->
-        (builder :> ICFGBuildable).Update (evts, true)
-        |> Result.mapError (fun _ -> ErrorCase.FailedToRecoverCFG))
-      |> output fn
+      try
+        let hdl = Binary.Handle bin
+        let brew = BinaryBrew hdl
+        CFG.Init 0UL brew.Functions[0UL].CFG |> box
+      with e -> e.ToString () |> NoCFG |> box
     | _ -> invalidArg (nameof input) "Invalid argument."
 
   interface IAction with

@@ -71,13 +71,13 @@ module ROPPayload =
     | Some p1, Some p2 -> merge p1 p2 |> Some
     | _, _ -> None
 
-  let toString hdl binBase p =
+  let toString liftingUnit binBase p =
     let sb = StringBuilder ()
     let sb = sb.Append ("------------")
     let sb = sb.Append (System.Environment.NewLine)
     let sb =
       Array.fold (fun (sb: StringBuilder) v ->
-                   sb.Append (ROPValue.toString hdl binBase v)) sb p
+                   sb.Append (ROPValue.toString liftingUnit binBase v)) sb p
     let sb = sb.Append ("------------")
     let sb = sb.Append (System.Environment.NewLine)
     sb.ToString ()

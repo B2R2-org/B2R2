@@ -24,44 +24,34 @@
 
 namespace B2R2.RearEnd.Transformer
 
-open B2R2
-open B2R2.MiddleEnd.BinEssence
+open B2R2.MiddleEnd
 open B2R2.MiddleEnd.ControlFlowAnalysis
 open B2R2.MiddleEnd.LLVM
 
 /// The `llvm` action.
 type LLVMAction () =
-  let printOut hdl (fn: RegularFunction) = function
-    | Ok () ->
-      let builder = LLVMTranslator.createBuilder hdl fn.MinAddr
-      fn.IRCFG.IterVertex (fun bbl ->
-        let succs =
-          fn.IRCFG.GetSuccs bbl
-          |> Seq.toList
-          |> List.map (fun s -> s.VData.PPoint.Address)
-        let bblAddr = bbl.VData.PPoint.Address
-        bbl.VData.IRStatements
-        |> Array.concat
-        |> LLVMTranslator.translate builder bblAddr succs
-      )
-      builder.ToString ()
-    | Error e -> e.ToString ()
+
+  let printOut hdl (fn: Function) =
+    let builder = LLVMTranslator.createBuilder hdl fn.EntryPoint
+    fn.CFG.IterVertex (fun bbl ->
+      let succs =
+        fn.CFG.GetSuccs bbl
+        |> Array.map (fun s -> s.VData.Internals.PPoint.Address)
+        |> Array.toList
+      let bblAddr = bbl.VData.Internals.PPoint.Address
+      bbl.VData.Internals.LiftedInstructions
+      |> Array.collect (fun ins -> ins.Stmts)
+      |> LLVMTranslator.translate builder bblAddr succs
+    )
+    builder.ToString ()
 
   let translate (o: obj) =
     let bin = unbox<Binary> o
     let hdl = Binary.Handle bin
-    let ess = BinEssence.empty hdl
-    let ep = hdl.File.EntryPoint |> Option.defaultValue 0UL
-    let fn = ess.CodeManager.FunctionMaintainer.GetOrAddFunction ep
-    let eAddr = uint64 hdl.File.Length - 1UL
-    let mode = hdl.Parser.OperationMode
-    let builder = CFGBuilder (hdl, ess.CodeManager, ess.JumpTables)
-    let evts = CFGEvents.empty
-    ess.CodeManager.ParseSequence hdl mode ep eAddr fn evts
-    |> Result.bind (fun evts ->
-      (builder :> ICFGBuildable).Update (evts, true)
-      |> Result.mapError (fun _ -> ErrorCase.FailedToRecoverCFG))
-    |> printOut hdl fn
+    let brew = BinaryBrew hdl
+    let entryPoint = hdl.File.EntryPoint |> Option.defaultValue 0UL
+    let fn = brew.Functions[entryPoint]
+    printOut hdl fn
 
   interface IAction with
     member __.ActionID with get() = "llvm"

@@ -30,10 +30,10 @@ open B2R2.MiddleEnd.ControlFlowGraph
 
 /// The `dot` action.
 type DOTAction () =
-  let vToStr (v: IVertex<IRBasicBlock>) =
-    let id = v.VData.FirstLifted.BBLAddr.ToString "x"
+  let vToStr (v: IVertex<LowUIRBasicBlock>) =
+    let id = v.VData.Internals.BlockAddress.ToString "x"
     let instrs =
-      v.VData.ToArray ()
+      v.VData.Internals.Instructions
       |> Array.map (fun ins -> ins.Disasm (true, null))
       |> String.concat "\\l"
     $"n_{id}", $"[label=\"{instrs}\\l\"]"

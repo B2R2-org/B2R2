@@ -26,7 +26,6 @@ namespace B2R2.RearEnd.BinExplorer
 
 open B2R2
 open B2R2.FrontEnd.BinFile
-open B2R2.MiddleEnd.BinEssence
 open B2R2.RearEnd.StringUtils
 
 type CmdBinInfo () =
@@ -46,11 +45,11 @@ type CmdBinInfo () =
 
   override __.SubCommands = []
 
-  override __.CallBack _ ess _args =
-    let file = ess.BinHandle.File
-    let isa = ess.BinHandle.File.ISA
+  override __.CallBack _ brew _args =
+    let file = brew.BinHandle.File
+    let isa = brew.BinHandle.File.ISA
     let machine = isa.Arch |> ISA.ArchToString
-    let fmt = ess.BinHandle.File.Format |> FileFormat.toString
+    let fmt = brew.BinHandle.File.Format |> FileFormat.toString
     let entry = file.EntryPoint |> entryPointToString
     let secNum = file.GetSections () |> Seq.length
     let staticSymNum = file.GetStaticSymbols () |> Seq.length

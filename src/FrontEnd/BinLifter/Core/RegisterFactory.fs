@@ -33,14 +33,14 @@ open B2R2.BinIR.LowUIR
 [<AbstractClass>]
 type RegisterFactory () =
   /// Return all register expressions.
-  abstract member GetAllRegExprs: unit -> Expr list
+  abstract GetAllRegExprs: unit -> Expr list
 
   /// Return all register names.
-  abstract member GetAllRegNames: unit -> string list
+  abstract GetAllRegNames: unit -> string list
 
   /// Return all general register expressions excluding FPU registers, vector
   /// registers, etc.
-  abstract member GetGeneralRegExprs: unit -> Expr list
+  abstract GetGeneralRegExprs: unit -> Expr list
 
   /// Return RegType from a given RegExpr.
   member __.RegTypeFromRegExpr (e: Expr) =
@@ -50,65 +50,65 @@ type RegisterFactory () =
     | _ -> raise InvalidRegisterException
 
   /// Return RegID from a given RegExpr.
-  abstract member RegIDFromRegExpr: Expr -> RegisterID
+  abstract RegIDFromRegExpr: Expr -> RegisterID
 
   /// Return RegExpr from a given RegID.
-  abstract member RegIDToRegExpr: RegisterID -> Expr
+  abstract RegIDToRegExpr: RegisterID -> Expr
 
   /// Return RegExpr from a string.
-  abstract member StrToRegExpr: string -> Expr
+  abstract StrToRegExpr: string -> Expr
 
   /// <summary>
   /// Return RegisterID from a given register string. Depending on the
   /// underlying architecture of the BinHandle, we may have different
   /// RegisterID.
   /// </summary>
-  abstract member RegIDFromString: string -> RegisterID
+  abstract RegIDFromString: string -> RegisterID
 
   /// <summary>
   /// Return a register string from a given RegisterID. Depending on the
   /// underlying architecture of the BinHandle, we may have a different string
   /// result.
   /// </summary>
-  abstract member RegIDToString: RegisterID -> string
+  abstract RegIDToString: RegisterID -> string
 
   /// <summary>
   /// Return a RegType from a given RegisterID.
   /// </summary>
-  abstract member RegIDToRegType: RegisterID -> RegType
+  abstract RegIDToRegType: RegisterID -> RegType
 
   /// <summary>
   /// Return an array of aliases of a given register based on the current
   /// architecture of BinHandle.
   /// </summary>
-  abstract member GetRegisterAliases: RegisterID -> RegisterID []
+  abstract GetRegisterAliases: RegisterID -> RegisterID []
 
   /// <summary>
   /// Return a program counter register for a given BinHandle.
   /// </summary>
-  abstract member ProgramCounter: RegisterID
+  abstract ProgramCounter: RegisterID
 
   /// <summary>
   /// Return a stack pointer register for a given BinHandle.
   /// </summary>
-  abstract member StackPointer: RegisterID option
+  abstract StackPointer: RegisterID option
 
   /// <summary>
   /// Return a frame pointer register for a given BinHandle.
   /// </summary>
-  abstract member FramePointer: RegisterID option
+  abstract FramePointer: RegisterID option
 
   /// <summary>
   /// Check if the given RegisterID represents PC.
   /// </summary>
-  abstract member IsProgramCounter: RegisterID -> bool
+  abstract IsProgramCounter: RegisterID -> bool
 
   /// <summary>
   /// Check if the given RegisterID represents a stack pointer.
   /// </summary>
-  abstract member IsStackPointer: RegisterID -> bool
+  abstract IsStackPointer: RegisterID -> bool
 
   /// <summary>
   /// Check if the given RegisterID represents a frame pointer.
   /// </summary>
-  abstract member IsFramePointer: RegisterID -> bool
+  abstract IsFramePointer: RegisterID -> bool

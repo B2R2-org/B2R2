@@ -24,6 +24,7 @@
 
 namespace B2R2.MiddleEnd.BinGraph.Tests
 
+open System.Collections.Generic
 open B2R2.MiddleEnd.BinGraph
 open Microsoft.VisualStudio.TestTools.UnitTesting
 
@@ -106,38 +107,38 @@ module Tests =
   let SCCTest1 g =
     let g = example1 g
     let sccs = SCC.compute g
-    Assert.AreEqual (5, Set.count sccs)
+    Assert.AreEqual (5, sccs.Length)
 
   let SCCTest2 g =
     let g, n1, n8, s = example2 g
     let sccs = SCC.compute g
-    Assert.AreEqual (3, Set.count sccs)
-    let scc1 = Set.singleton n1
-    Assert.IsTrue (Set.contains scc1 sccs)
-    let scc2 = Set.singleton n8
-    Assert.IsTrue (Set.contains scc2 sccs)
-    let scc3 = Set.ofList s
-    Assert.IsTrue (Set.contains scc3 sccs)
+    Assert.AreEqual (3, sccs.Length)
+    let scc1 = HashSet [ n1 ]
+    sccs |> Array.exists (fun scc -> scc.SetEquals scc1) |> Assert.IsTrue
+    let scc2 = HashSet [ n8 ]
+    sccs |> Array.exists (fun scc -> scc.SetEquals scc2) |> Assert.IsTrue
+    let scc3 = HashSet s
+    sccs |> Array.exists (fun scc -> scc.SetEquals scc3) |> Assert.IsTrue
 
   let SCCTest3 g =
     let g, s1, s2, s3 = example3 g
     let sccs = SCC.compute g
-    Assert.AreEqual (3, Set.count sccs)
-    let scc1 = Set.ofList s1
-    Assert.IsTrue (Set.contains scc1 sccs)
-    let scc2 = Set.ofList s2
-    Assert.IsTrue (Set.contains scc2 sccs)
-    let scc3 = Set.ofList s3
-    Assert.IsTrue (Set.contains scc3 sccs)
+    Assert.AreEqual (3, sccs.Length)
+    let scc1 = HashSet s1
+    sccs |> Array.exists (fun scc -> scc.SetEquals scc1) |> Assert.IsTrue
+    let scc2 = HashSet s2
+    sccs |> Array.exists (fun scc -> scc.SetEquals scc2) |> Assert.IsTrue
+    let scc3 = HashSet s3
+    sccs |> Array.exists (fun scc -> scc.SetEquals scc3) |> Assert.IsTrue
 
   let SCCTest4 g =
     let g, s1, s2 = example4 g
     let sccs = SCC.compute g
-    Assert.AreEqual (2, Set.count sccs)
-    let scc1 = Set.ofList s1
-    Assert.IsTrue (Set.contains scc1 sccs)
-    let scc2 = Set.ofList s2
-    Assert.IsTrue (Set.contains scc2 sccs)
+    Assert.AreEqual (2, sccs.Length)
+    let scc1 = HashSet s1
+    sccs |> Array.exists (fun scc -> scc.SetEquals scc1) |> Assert.IsTrue
+    let scc2 = HashSet s2
+    sccs |> Array.exists (fun scc -> scc.SetEquals scc2) |> Assert.IsTrue
 
 [<TestClass>]
 type ImperativeSCCTest() =

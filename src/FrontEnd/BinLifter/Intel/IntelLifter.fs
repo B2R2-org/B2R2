@@ -85,7 +85,7 @@ let translate (ins: IntelInternalInstruction) insLen ctxt =
   | OP.DIV | OP.IDIV -> GeneralLifter.div ins insLen ctxt
   | OP.ENDBR32 | OP.ENDBR64 -> GeneralLifter.nop insLen ctxt
   | OP.ENTER -> GeneralLifter.enter ins insLen ctxt
-  | OP.HLT -> LiftingUtils.sideEffects ctxt insLen Delay
+  | OP.HLT -> LiftingUtils.sideEffects ctxt insLen Terminate
   | OP.IMUL -> GeneralLifter.imul ins insLen ctxt
   | OP.INC -> GeneralLifter.inc ins insLen ctxt
   | OP.INCSSPD | OP.INCSSPQ -> GeneralLifter.nop insLen ctxt

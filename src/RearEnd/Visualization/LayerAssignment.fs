@@ -29,7 +29,7 @@ open B2R2.MiddleEnd.BinGraph
 let assignLayerFromPred (vGraph: VisGraph) vData =
   let v = vGraph.FindVertexByData vData
   let preds = VisGraph.getPreds vGraph v
-  if preds.Count = 0 then VisGraph.setLayer v 0
+  if preds.Length = 0 then VisGraph.setLayer v 0
   else
     let maxLayer = (Seq.maxBy VisGraph.getLayer preds).VData.Layer
     VisGraph.setLayer v <| maxLayer + 1

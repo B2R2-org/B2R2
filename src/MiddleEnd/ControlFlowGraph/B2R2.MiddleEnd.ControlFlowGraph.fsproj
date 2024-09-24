@@ -9,23 +9,22 @@
 
   <ItemGroup>
     <Compile Include="CFGEdgeKind.fs" />
-    <Compile Include="VisualBlock.fs" />
-    <Compile Include="BasicBlock.fs" />
-    <Compile Include="CFGExport.fs" />
-    <Compile Include="LiftedInstruction.fs" />
-    <Compile Include="FakeBlockInfo.fs" />
-    <Compile Include="SyscallTailInfo.fs" />
-    <Compile Include="IRBasicBlock.fs" />
-    <Compile Include="IRCFG.fs" />
+    <Compile Include="FunctionAbstraction.fs" />
+    <Compile Include="IAddressable.fs" />
+    <Compile Include="IAbstractable.fs" />
+    <Compile Include="ILowUIRAccessible.fs" />
+    <Compile Include="ISSAAccessible.fs" />
+    <Compile Include="IInstructionAccessible.fs" />
+    <Compile Include="IVisualizable.fs" />
+    <Compile Include="ExportCFG.fs" />
+    <Compile Include="LowUIRBasicBlock.fs" />
+    <Compile Include="LowUIRCFG.fs" />
     <Compile Include="DisasmBasicBlock.fs" />
     <Compile Include="DisasmCFG.fs" />
     <Compile Include="SSABasicBlock.fs" />
-    <Compile Include="SSATypes.fs" />
-    <Compile Include="SSAEdges.fs" />
-    <Compile Include="SSAUtils.fs" />
     <Compile Include="SSACFG.fs" />
-    <Compile Include="CallGraphBlock.fs" />
-    <Compile Include="CallGraph.fs" />
+    <Compile Include="CallBasicBlock.fs" />
+    <Compile Include="CallCFG.fs" />
     <None Include="..\..\..\LICENSE.md" Pack="true" PackagePath="" />
     <None Include="..\..\..\assets\b2r2-240x240.png" Pack="true" PackagePath="" />
     <None Include="README.md" Pack="true" PackagePath="" />

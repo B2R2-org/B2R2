@@ -24,7 +24,7 @@
 
 namespace B2R2.BinIR
 
-/// Representation of symbolic data.
+/// Representation of symbolic value used to represent a label.
 type Symbol = string * int
 
 module Symbol =

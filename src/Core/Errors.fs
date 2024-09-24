@@ -59,6 +59,8 @@ type ErrorCase =
   | IntrudingInstruction = 14
   /// Encountered fatal error while recovering CFG.
   | FailedToRecoverCFG = 15
+  /// Encountered unexpected error.
+  | UnexpectedError = 16
 
 [<RequireQualifiedAccess>]
 module ErrorCase =
@@ -82,4 +84,5 @@ module ErrorCase =
     | ErrorCase.InvalidFunctionAddress -> "Given invalid function address."
     | ErrorCase.IntrudingInstruction -> "Intruding instruction."
     | ErrorCase.FailedToRecoverCFG -> "Failed to recover CFG."
+    | ErrorCase.UnexpectedError -> "Unexpected error."
     | _ -> invalidArg (nameof errCase) "Unknown error case."

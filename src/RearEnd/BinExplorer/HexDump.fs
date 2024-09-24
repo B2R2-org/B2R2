@@ -26,7 +26,7 @@ namespace B2R2.RearEnd.BinExplorer
 
 open System
 open B2R2
-open B2R2.MiddleEnd.BinEssence
+open B2R2.MiddleEnd
 open B2R2.RearEnd
 
 type CmdHexDump () =
@@ -40,8 +40,8 @@ type CmdHexDump () =
     try Ok (addr, Convert.ToInt32 (count, 10))
     with _ -> Error "[*] Invalid byte count given."
 
-  let readBytes (binEssence: BinEssence) (addr, count) =
-    try (addr, binEssence.BinHandle.ReadBytes (addr=addr, nBytes=count)) |> Ok
+  let readBytes (brew: BinaryBrew<_, _>) (addr, count) =
+    try (addr, brew.BinHandle.ReadBytes (addr=addr, nBytes=count)) |> Ok
     with _ -> Error "[*] Failed to read bytes."
 
   override __.CmdName = "hexdump"
@@ -56,16 +56,16 @@ type CmdHexDump () =
 
   override __.SubCommands = []
 
-  override __.CallBack _ binEssence args =
+  override __.CallBack _ brew args =
     match args with
     | addr :: cnt :: _ ->
       let result =
         parseAddr addr
         |> Result.bind (parseCount cnt)
-        |> Result.bind (readBytes binEssence)
+        |> Result.bind (readBytes brew)
       match result with
       | Ok (addr, bytes: byte []) ->
-        let wordSize = binEssence.BinHandle.File.ISA.WordSize
+        let wordSize = brew.BinHandle.File.ISA.WordSize
         HexDumper.dump 16 wordSize true addr bytes
       | Error e -> [| OutputColored [ ColoredSegment (NoColor, e) ] |]
     | _ -> [| __.CmdHelp |] |> Array.map OutputNormal
