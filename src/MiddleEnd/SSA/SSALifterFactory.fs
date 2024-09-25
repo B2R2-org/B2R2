@@ -49,9 +49,6 @@ type AbstractVMap = Dictionary<ProgramPoint * ProgramPoint, SSAVertex>
 /// Mapping from a variable to a set of defining SSA basic blocks.
 type DefSites = Dictionary<VariableKind, HashSet<IVertex<SSABasicBlock>>>
 
-/// Defined variables per node in a SSACFG.
-type DefsPerNode = Dictionary<IVertex<SSABasicBlock>, HashSet<VariableKind>>
-
 /// Counter for each variable.
 type VarCountMap = Dictionary<VariableKind, int>
 
@@ -147,24 +144,54 @@ module private SSALifterFactory =
       v.VData.DomFrontier <- frontiers[dfnum])
     domCtx
 
+  let inline updateGlobalName (globals: HashSet<_>) (varKill: HashSet<_>) v =
+    if varKill.Contains v then ()
+    else globals.Add v |> ignore
+
+  let rec updateGlobals (globals: HashSet<_>) (varKill: HashSet<_>) = function
+    | Num _ | Undefined _ | FuncName _ | Nil -> ()
+    | Var v ->
+      updateGlobalName globals varKill v.Kind
+    | Load (v, _, e)
+    | Store (v, _, _, e) ->
+      updateGlobalName globals varKill v.Kind
+      updateGlobals globals varKill e
+    | Cast (_, _, e)
+    | UnOp (_, _, e) ->
+      updateGlobals globals varKill e
+    | BinOp (_, _, lhs, rhs)
+    | RelOp (_, _, lhs, rhs) ->
+      updateGlobals globals varKill lhs
+      updateGlobals globals varKill rhs
+    | Ite (cond, _, lhs, rhs) ->
+      updateGlobals globals varKill cond
+      updateGlobals globals varKill lhs
+      updateGlobals globals varKill rhs
+    | Extract (e, _, _) ->
+      updateGlobals globals varKill e
+
   let findDefVars (ssaCFG: SSACFG) (defSites: DefSites) =
-    let defsPerNode = DefsPerNode ()
+    let globals = HashSet ()
+    let varKill = HashSet ()
     for v in ssaCFG.Vertices do
-      let defs = HashSet ()
+      varKill.Clear ()
       for _pp, stmt in v.VData.Internals.Statements do
         match stmt with
-        | Def ({ Kind = k }, _) -> defs.Add k |> ignore
+        | Def ({ Kind = k }, srcExpr) ->
+          updateGlobals globals varKill srcExpr
+          varKill.Add k |> ignore
+          if defSites.ContainsKey k then defSites[k].Add v |> ignore
+          else defSites[k] <- HashSet [v]
         | _ -> ()
-      defsPerNode[v] <- defs
-      for d in defs do
-        if defSites.ContainsKey d then defSites[d].Add v |> ignore
-        else defSites[d] <- HashSet [v]
-    defsPerNode
+    globals
 
-  let placePhis g (defsPerNode: DefsPerNode) (defSites: DefSites) =
-    for KeyValue (variable, defs) in defSites do
-      let workList = Queue defs
-      let phiSites = HashSet ()
+  let placePhis g (defSites: DefSites) globals =
+    let phiSites = HashSet ()
+    for variable in globals do
+      let workList =
+        if defSites.ContainsKey variable then Queue defSites[variable]
+        else Queue ()
+      phiSites.Clear ()
       while workList.Count <> 0 do
         let node = workList.Dequeue ()
         for df in node.VData.DomFrontier do
@@ -179,8 +206,7 @@ module private SSALifterFactory =
               let preds = (g: IGraph<_, _>).GetPreds df
               df.VData.Internals.PrependPhi variable preds.Length
               phiSites.Add df |> ignore
-              let defs = defsPerNode[df]
-              if not (defs.Contains variable) then workList.Enqueue df else ()
+              workList.Enqueue df
 
   let renameVar (stack: IDStack) (v: Variable) =
     match stack.TryGetValue v.Kind with
@@ -297,8 +323,8 @@ module private SSALifterFactory =
   let updatePhis ssaCFG =
     let defSites = DefSites ()
     let domCtx = computeDominatorInfo ssaCFG
-    let defsPerNode = findDefVars ssaCFG defSites
-    placePhis ssaCFG defsPerNode defSites
+    let globals = findDefVars ssaCFG defSites
+    placePhis ssaCFG defSites globals
     renameVars ssaCFG defSites domCtx
 
   let memStore ((pp, _) as stmtInfo) rt addr src =

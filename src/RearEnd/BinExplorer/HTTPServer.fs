@@ -33,6 +33,7 @@ open B2R2.FrontEnd
 open B2R2.MiddleEnd
 open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.ControlFlowGraph
+open B2R2.MiddleEnd.ControlFlowAnalysis
 open B2R2.MiddleEnd.DataFlow
 open B2R2.RearEnd.Visualization
 
@@ -147,10 +148,10 @@ let cfgToJSON cfgType (brew: BinaryBrew<_, _>) (g: LowUIRCFG) =
     let roots = g.GetRoots () |> Seq.toList
     Visualizer.getJSONFromGraph g roots
   | SSACFG ->
-    // let ssaLifter = SSA.SSALifter brew.BinHandle
-    // let struct (g, root) = SSA.SSALens.convert ssaLifter null g root
-    // Visualizer.getJSONFromGraph g [root]
-    Utils.futureFeature ()
+    let factory = SSA.SSALifterFactory.Create (brew.BinHandle)
+    let ssaCFG = factory.Lift g
+    let roots = ssaCFG.GetRoots () |> List.ofArray
+    Visualizer.getJSONFromGraph ssaCFG roots
   | _ -> failwith "Invalid CFG type"
 
 let handleRegularCFG req resp funcID (brew: BinaryBrew<_, _>)
