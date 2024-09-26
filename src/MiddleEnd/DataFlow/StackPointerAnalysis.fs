@@ -63,19 +63,25 @@ type StackPointerAnalysis =
       | Regular rid when isStackPointer rid -> initialStackPointerValue
       | _ -> StackPointerDomain.Undef
 
+    let evaluateVarPoint (state: VarBasedDataFlowState<_>) pp varKind =
+      let vp = { IRProgramPoint = pp; VarKind = varKind }
+      match state.UseDefMap.TryGetValue vp with
+      | false, _ -> getBaseCase varKind (* initialize here *)
+      | true, defSite ->
+        match defSite with
+        | DefSite.Single pp ->
+          state.GetAbsValue { IRProgramPoint = pp; VarKind = varKind }
+        | DefSite.Phi vid ->
+          let pp =
+            match state.VidToPp[vid] with
+            | IRPPReg pp -> IRPPReg <| ProgramPoint (pp.Address, -1)
+            | IRPPAbs (cs, fn, _) -> IRPPAbs (cs, fn, -1)
+          state.GetAbsValue { IRProgramPoint = pp; VarKind = varKind }
+
     let rec evaluateExpr (state: VarBasedDataFlowState<_>) pp e =
       match e.E with
       | Num bv -> StackPointerDomain.ConstSP bv
-      | Var _ | TempVar _ ->
-        let varKind = VarKind.ofIRExpr e
-        state.GetVarDef pp
-        |> VarDefDomain.get varKind
-        |> fun vps ->
-          if Set.isEmpty vps then getBaseCase varKind
-          else
-            vps
-            |> Seq.map (state: IDataFlowState<_, _>).GetAbsValue
-            |> Seq.reduce StackPointerDomain.join
+      | Var _ | TempVar _ -> evaluateVarPoint state pp (VarKind.ofIRExpr e)
       | Nil -> StackPointerDomain.NotConstSP
       | Load _ -> StackPointerDomain.NotConstSP
       | UnOp _ -> StackPointerDomain.NotConstSP
@@ -106,16 +112,6 @@ type StackPointerAnalysis =
           member __.Join a b = StackPointerDomain.join a b
 
           member __.Subsume a b = StackPointerDomain.subsume a b
-
-          member __.Transfer _g _v pp stmt state =
-            match stmt.S with
-            | Put (dst, src) ->
-              let varKind = VarKind.ofIRExpr dst
-              let varPoint = { ProgramPoint = pp; VarKind = varKind }
-              let v = evaluateSrcByVarKind state pp src varKind
-              Some (varPoint, v)
-            (* We ignore the data-flow through memory operations in SPP. *)
-            | _ -> None
 
           member __.EvalExpr state pp e = evaluateExpr state pp e }
 

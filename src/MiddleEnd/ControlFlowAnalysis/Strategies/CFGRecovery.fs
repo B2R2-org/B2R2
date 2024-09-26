@@ -42,7 +42,8 @@ type CFGRecovery<'FnCtx,
           jmptblAnalysis: IJmpTableAnalyzable<'FnCtx, 'GlCtx>,
           syscallAnalysis: ISyscallAnalyzable,
           postAnalysis: ICFGAnalysis<_>,
-          useTailcallHeuristic) =
+          useTailcallHeuristic,
+          useSSA) =
 
   let prioritizer =
     { new IPrioritizable with
@@ -64,6 +65,10 @@ type CFGRecovery<'FnCtx,
     |> Async.AwaitTask
     |> Async.RunSynchronously
 
+  let pushWorkToCP ctx vid =
+    if useSSA then ()
+    else ctx.CPState.Value.PendingVertices.Add vid |> ignore
+
   let getVertex ctx ppoint =
     match ctx.Vertices.TryGetValue ppoint with
     | true, v -> v
@@ -71,6 +76,7 @@ type CFGRecovery<'FnCtx,
       let v, g = ctx.CFG.AddVertex (ctx.BBLFactory.Find ppoint)
       ctx.CFG <- g
       ctx.Vertices[ppoint] <- v
+      pushWorkToCP ctx v.ID
       v
 
   let tryGetVertex ctx ppoint =
@@ -82,6 +88,7 @@ type CFGRecovery<'FnCtx,
         let v, g = ctx.CFG.AddVertex bbl
         ctx.CFG <- g
         ctx.Vertices[ppoint] <- v
+        pushWorkToCP ctx v.ID
         Ok v
       | Error _ -> Error ErrorCase.ItemNotFound
 
@@ -100,6 +107,7 @@ type CFGRecovery<'FnCtx,
       let v, g = ctx.CFG.AddVertex bbl
       ctx.CFG <- g
       ctx.AbsVertices[key] <- v
+      pushWorkToCP ctx v.ID
       v
 
   let removeVertex ctx ppoint =
@@ -117,6 +125,8 @@ type CFGRecovery<'FnCtx,
 
   let connectEdge ctx srcVertex dstVertex edgeKind =
     ctx.CFG <- ctx.CFG.AddEdge (srcVertex, dstVertex, edgeKind)
+    pushWorkToCP ctx dstVertex.ID
+
 #if CFGDEBUG
     let edgeStr = CFGEdgeKind.toString edgeKind
     let srcPPoint = (srcVertex.VData :> IAddressable).PPoint
@@ -337,14 +347,14 @@ type CFGRecovery<'FnCtx,
         if not <| ctx.CallerVertices.ContainsKey callSiteAddr then ()
         else ctx.CallerVertices[callSiteAddr] <- dstVertex
         handleCallerSplit ctx srcPPoint.Address dstPPoint.Address lastAddr
-        ctx.CFG <- ctx.CFG.AddEdge (srcVertex, dstVertex, FallThroughEdge)
+        connectEdge ctx srcVertex dstVertex FallThroughEdge
         for e in preds do
-          ctx.CFG <- ctx.CFG.AddEdge (e.First, srcVertex, e.Label)
+          connectEdge ctx e.First srcVertex e.Label
         for e in succs do
           if e.Second.VData.Internals.PPoint = srcPPoint then
-            ctx.CFG <- ctx.CFG.AddEdge (dstVertex, srcVertex, e.Label)
+            connectEdge ctx dstVertex srcVertex e.Label
           else
-            ctx.CFG <- ctx.CFG.AddEdge (dstVertex, e.Second, e.Label)
+            connectEdge ctx dstVertex e.Second e.Label
 
   let addExpandCFGAction (queue: CFGActionQueue) addr =
     queue.Push prioritizer <| ExpandCFG ([ addr ])
@@ -519,17 +529,22 @@ type CFGRecovery<'FnCtx,
       else v.VData.Internals.LastInstruction.IsRET ())
     |> Option.isSome
 
-  new () =
+  new (useSSA) =
     let summarizer = FunctionSummarizer ()
-    let ssaLifter = SSALifter () :> ICFGAnalysis<_>
-    let jmptblAnalysis = SSAJmpTableAnalysis ssaLifter
     let syscallAnalysis = SyscallAnalysis ()
-    let postAnalysis = ssaLifter <+> CondAwareNoretAnalysis ()
+    let ssaLifter = SSALifter () :> ICFGAnalysis<_>
+    let jmptblAnalysis =
+      if useSSA then SSAJmpTableAnalysis ssaLifter :> IJmpTableAnalyzable<_, _>
+      else JmpTableAnalysis () :> IJmpTableAnalyzable<_, _>
+    let postAnalysis =
+      if useSSA then ssaLifter <+> SSACondAwareNoretAnalysis ()
+      else CondAwareNoretAnalysis ()
     CFGRecovery (summarizer,
                  jmptblAnalysis,
                  syscallAnalysis,
                  postAnalysis,
-                 true)
+                 true,
+                 useSSA)
 
   interface ICFGBuildingStrategy<'FnCtx, 'GlCtx> with
     member __.ActionPrioritizer = prioritizer
@@ -667,7 +682,7 @@ type CFGRecovery =
   inherit CFGRecovery<DummyContext, DummyContext>
 
   new () =
-    { inherit CFGRecovery<DummyContext, DummyContext> () }
+    { inherit CFGRecovery<DummyContext, DummyContext> (false) }
 
   new (summarizer,
        jmptblAnalysis,
@@ -678,4 +693,5 @@ type CFGRecovery =
                                                        jmptblAnalysis,
                                                        syscallAnalysis,
                                                        postAnalysis,
-                                                       useTailcallHeuristic) }
+                                                       useTailcallHeuristic,
+                                                       false) }

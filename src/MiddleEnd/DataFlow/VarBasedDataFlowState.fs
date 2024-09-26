@@ -33,197 +33,482 @@ open B2R2.MiddleEnd.BinGraph
 open B2R2.BinIR
 open B2R2.BinIR.LowUIR
 
-/// LowUIR-variable-based data flow state.
+[<RequireQualifiedAccess>]
+module DefSite =
+  type DefSite =
+    | Single of IRProgramPoint
+    | Phi of VertexID
+
+type UniqueQueue<'T> () =
+  let queue = Queue<'T> ()
+  let set = HashSet<'T> ()
+
+  member __.Enqueue (x: 'T) =
+    if set.Add x |> not then ()
+    else queue.Enqueue x
+
+  member __.Dequeue () =
+    let x = queue.Dequeue ()
+    if set.Remove x then x
+    else Utils.impossible ()
+
+  member __.TryDequeue () =
+    match queue.TryDequeue () with
+    | false, _ -> None
+    | true, x ->
+      if set.Remove x then Some x
+      else Utils.impossible ()
+
+  member __.Count = queue.Count
+
+  member __.Clear () = queue.Clear ()
+
+  member __.IsEmpty with get () = Seq.isEmpty queue
+
+type SparseState<'Lattice> = {
+  FlowQueue: UniqueQueue<VertexID * VertexID>
+  ExecutedFlows: HashSet<VertexID * VertexID>
+  ExecutedVertices: HashSet<VertexID>
+  DefSiteQueue: UniqueQueue<DefSite.DefSite>
+  Bottom: 'Lattice
+  GetAbsValue: IRVarPoint -> 'Lattice
+  SetAbsValue: IRVarPoint -> 'Lattice -> unit
+  Join: 'Lattice -> 'Lattice -> 'Lattice
+  Subsume: 'Lattice -> 'Lattice -> bool
+}
+
+type PhiInfo = Dictionary<VarKind, Set<DefSite.DefSite>>
+
 type VarBasedDataFlowState<'Lattice>
   public (hdl, analysis: IVarBasedDataFlowAnalysis<'Lattice>) =
 
-  /// Abstract values for each variable.
-  let absValues = Dictionary<VarPoint, 'Lattice> ()
+  let statementMemo = Dictionary<VertexID, (IRProgramPoint * Stmt) array> ()
 
-  /// For every program point, we store a mapping from every variable to its
-  /// definition (VarPoint).
-  let varDefs = Dictionary<ProgramPoint, VarDefDomain.Lattice> ()
+  let absValues = Dictionary<IRVarPoint, 'Lattice> ()
 
-  /// Abstract values (in the constant propagation domain) for each variable.
-  let constants = Dictionary<VarPoint, ConstantDomain.Lattice> ()
+  let stackPointers = Dictionary<IRVarPoint, StackPointerDomain.Lattice> ()
 
-  /// Preceding program points of the current program point.
-  let incomingPps = Dictionary<ProgramPoint, Set<ProgramPoint>> ()
+  let initialStackPointers = Dictionary<VarKind, StackPointerDomain.Lattice> ()
 
-  let workList = Queue<VertexID> ()
+  let innerDefs = Dictionary<VertexID, Map<VarKind, DefSite.DefSite>> ()
 
-  /// To deduplicate items in workList.
-  let workSet = HashSet ()
+  let incomingDefs = Dictionary<VertexID, Map<VarKind, DefSite.DefSite>> ()
 
-  let initialConstants = Dictionary<VarKind, ConstantDomain.Lattice> ()
+  let outgoingDefs = Dictionary<VertexID, Map<VarKind, DefSite.DefSite>> ()
 
-  let addIncomingPp pp incomingPp =
-    match incomingPps.TryGetValue pp with
-    | true, set -> incomingPps[pp] <- Set.add incomingPp set
-    | false, _ -> incomingPps[pp] <- Set.singleton incomingPp
+  let defUseMap = Dictionary<DefSite.DefSite, Set<DefSite.DefSite>> ()
 
-  let getIncomingPps pp =
-    match incomingPps.TryGetValue pp with
-    | true, set -> set
-    | false, _ -> Set.empty
+  let useDefMap = Dictionary<IRVarPoint, DefSite.DefSite> ()
+
+  let phiInfos = Dictionary<VertexID, PhiInfo> ()
+
+  let ppToStmt = Dictionary<IRProgramPoint, VertexID * Stmt> ()
+
+  let vidToPp = Dictionary<VertexID, IRProgramPoint> ()
+
+  let pendingVertices = HashSet<VertexID> ()
+
+  let getStackPointer vp =
+    match stackPointers.TryGetValue vp with
+    | false, _ -> StackPointerDomain.Undef
+    | true, c -> c
+
+  let setStackPointer vp c = stackPointers[vp] <- c
+
+  let stackPointerSparseState =
+    { FlowQueue = UniqueQueue ()
+      DefSiteQueue = UniqueQueue ()
+      ExecutedFlows = HashSet ()
+      ExecutedVertices = HashSet ()
+      Bottom = StackPointerDomain.Undef
+      GetAbsValue = getStackPointer
+      SetAbsValue = setStackPointer
+      Join = StackPointerDomain.join
+      Subsume = StackPointerDomain.subsume }
 
   let getAbsValue vp =
     match absValues.TryGetValue vp with
     | false, _ -> analysis.Bottom
     | true, v -> v
 
-  let getInitialConstant varKind =
-    match initialConstants.TryGetValue varKind with
-    | false, _ -> ConstantDomain.Undef
+  let setAbsValue vp absVal = absValues[vp] <- absVal
+
+  let domainSparseState =
+    { FlowQueue = UniqueQueue ()
+      DefSiteQueue = UniqueQueue ()
+      ExecutedFlows = HashSet ()
+      ExecutedVertices = HashSet ()
+      Bottom = analysis.Bottom
+      GetAbsValue = getAbsValue
+      SetAbsValue = setAbsValue
+      Join = analysis.Join
+      Subsume = analysis.Subsume }
+
+  let getInitialStackPointer varKind =
+    match initialStackPointers.TryGetValue varKind with
+    | false, _ -> StackPointerDomain.Undef
     | true, c -> c
 
-  let initializeConstants () =
+  let initializeStackPointers () =
     match (hdl: BinHandle).RegisterFactory.StackPointer with
     | None -> ()
     | Some rid ->
       let rt = hdl.RegisterFactory.RegIDToRegType rid
       let varKind = Regular rid
       let bv = BitVector.OfUInt64 Constants.InitialStackPointer rt
-      let c = ConstantDomain.Const bv
-      initialConstants[varKind] <- c
+      let c = StackPointerDomain.ConstSP bv
+      initialStackPointers[varKind] <- c
 
-  let getVarDef (pp: ProgramPoint) =
-    match varDefs.TryGetValue pp with
-    | false, _ -> VarDefDomain.empty
-    | true, rd -> rd
+  /// It converts a program point to a phi program point.
+  /// We use -1 as the index of the phi program point.
+  let convertToPhiPp pp =
+    match pp with
+    | IRPPReg pp -> IRPPReg <| ProgramPoint (pp.Address, -1)
+    | IRPPAbs (cs, fn, _) -> IRPPAbs (cs, fn, -1)
 
-  let calculateIncomingVarDef pp =
-    getIncomingPps pp
-    |> Seq.map getVarDef
-    |> Seq.fold VarDefDomain.join VarDefDomain.empty
+  let evaluateStackPointer varKind pp =
+    let vp = { IRProgramPoint = pp; VarKind = varKind }
+    match (useDefMap: Dictionary<_, _>).TryGetValue vp with
+    | false, _ -> getInitialStackPointer varKind
+    | true, defSite ->
+      match defSite with
+      | DefSite.Single pp ->
+        getStackPointer <| { IRProgramPoint = pp; VarKind = varKind }
+      | DefSite.Phi vid ->
+        match vidToPp.TryGetValue vid with
+        | false, _ -> StackPointerDomain.Undef
+        | true, pp ->
+          let phiPp = convertToPhiPp pp
+          let phiVp = { IRProgramPoint = phiPp; VarKind = varKind }
+          getStackPointer phiVp
 
-  let getConstant vp =
-    match constants.TryGetValue vp with
-    | false, _ -> ConstantDomain.Undef
-    | true, c -> c
-
-  let getConstantFromVps vps =
-    vps |> Set.fold (fun acc vp ->
-      ConstantDomain.join acc (getConstant vp)) ConstantDomain.Undef
-
-  let getIncomingConstant varKind pp =
-    calculateIncomingVarDef pp
-    |> VarDefDomain.get varKind
-    |> getConstantFromVps
-
-  let calculateConstant vp =
-    getConstant vp
-    |> function
-      | ConstantDomain.Undef -> getInitialConstant vp.VarKind
-      | c -> c
-    |> function
-      | ConstantDomain.Undef ->
-        getVarDef vp.ProgramPoint
-        |> VarDefDomain.get vp.VarKind
-        |> getConstantFromVps
-      | c -> c
-
-  let rec evaluateExprIntoConst pp (e: Expr) =
+  let rec evaluateExprToStackPointer pp (e: Expr) =
     match e.E with
-    | Num bv -> ConstantDomain.Const bv
+    | Num bv -> StackPointerDomain.ConstSP bv
     | Var _ | TempVar _ ->
       let varKind = VarKind.ofIRExpr e
-      match getIncomingConstant varKind pp with
-      | ConstantDomain.Undef -> getInitialConstant varKind
+      match evaluateStackPointer varKind pp with
+      | StackPointerDomain.Undef -> getInitialStackPointer varKind
       | c -> c
     | Load (_, _, addr) ->
-      match evaluateExprIntoConst pp addr with
-      | ConstantDomain.Const bv ->
+      match evaluateExprToStackPointer pp addr with
+      | StackPointerDomain.ConstSP bv ->
         let addr = BitVector.ToUInt64 bv
-        getIncomingConstant (Memory (Some addr)) pp
-      | _ -> ConstantDomain.NotAConst
+        evaluateStackPointer (Memory (Some addr)) pp
+      | _ -> StackPointerDomain.NotConstSP
     | BinOp (binOpType, _, e1, e2) ->
-      let v1 = evaluateExprIntoConst pp e1
-      let v2 = evaluateExprIntoConst pp e2
+      let v1 = evaluateExprToStackPointer pp e1
+      let v2 = evaluateExprToStackPointer pp e2
       match binOpType with
-      | BinOpType.ADD -> ConstantDomain.add v1 v2
-      | BinOpType.SUB -> ConstantDomain.sub v1 v2
-      | BinOpType.MUL -> ConstantDomain.mul v1 v2
-      | BinOpType.DIV -> ConstantDomain.div v1 v2
-      | BinOpType.SDIV -> ConstantDomain.div v1 v2
-      | BinOpType.MOD -> ConstantDomain.``mod`` v1 v2
-      | BinOpType.SMOD -> ConstantDomain.``mod`` v1 v2
-      | BinOpType.SHL -> ConstantDomain.shl v1 v2
-      | BinOpType.SHR -> ConstantDomain.shr v1 v2
-      | BinOpType.SAR -> ConstantDomain.sar v1 v2
-      | BinOpType.AND -> ConstantDomain.``and`` v1 v2
-      | BinOpType.OR -> ConstantDomain.``or`` v1 v2
-      | BinOpType.XOR -> ConstantDomain.xor v1 v2
-      | BinOpType.CONCAT -> ConstantDomain.concat v1 v2
-      | _ -> ConstantDomain.NotAConst
+      | BinOpType.ADD -> StackPointerDomain.add v1 v2
+      | BinOpType.SUB -> StackPointerDomain.sub v1 v2
+      | BinOpType.AND -> StackPointerDomain.``and`` v1 v2
+      | _ -> StackPointerDomain.NotConstSP
+    | _ -> StackPointerDomain.NotConstSP
+
+  let getStatements g (v: IVertex<LowUIRBasicBlock>) =
+    let maybeStmts =
+      match statementMemo.TryGetValue v.ID with
+      | false, _ -> None
+      | true, stmts -> Some stmts
+    match maybeStmts with
+    | None ->
+      let stmts =
+        if v.VData.Internals.IsAbstract then
+          let callerV = (g: IGraph<_, _>).GetPreds v |> Seq.exactlyOne
+          let callSite = callerV.VData.Internals.LastInstruction.Address
+          let callee = v.VData.Internals.AbstractContent.EntryPoint
+          let stmts = v.VData.Internals.AbstractContent.Rundown
+          Array.mapi (fun i stmt ->
+            let irpp = IRPPAbs (callSite, callee, i)
+            if ppToStmt.ContainsKey irpp then ppToStmt[irpp] <- (v.ID, stmt)
+            else ppToStmt.Add (irpp, (v.ID, stmt))
+            irpp, stmt) stmts
+        else
+          v.VData.Internals.LiftedInstructions
+          |> Array.collect (fun x ->
+            x.Stmts |> Array.mapi (fun i stmt ->
+              let irpp = IRPPReg <| ProgramPoint (x.Original.Address, i)
+              if ppToStmt.ContainsKey irpp then ppToStmt[irpp] <- (v.ID, stmt)
+              else ppToStmt.Add (irpp, (v.ID, stmt))
+              irpp, stmt))
+      statementMemo[v.ID] <- stmts
+      stmts
+    | Some stmts -> stmts
+
+  let vpToSSAVar = Dictionary<IRVarPoint, SSA.Variable> ()
+
+  let vkToFreshId = Dictionary<VarKind, int> ()
+
+  let ssaVarToVp = Dictionary<SSA.Variable, IRVarPoint> ()
+
+  let getNewVarId vk =
+    match vkToFreshId.TryGetValue vk with
+    | true, id ->
+      vkToFreshId[vk] <- id + 1
+      id
+    | false, _ ->
+      let id = 1
+      vkToFreshId[vk] <- id + 1
+      id
+
+  let toSSAVarKind vk =
+    match vk with
+    | Regular rid ->
+      let rt = hdl.RegisterFactory.RegIDToRegType rid
+      let rname = hdl.RegisterFactory.RegIDToString rid
+      SSA.RegVar (rt, rid, rname)
+    | Memory (Some cellAddr) ->
+      let rt = 0<rt>
+      let offset = cellAddr - Constants.InitialStackPointer |> int
+      SSA.StackVar (rt, offset)
+    | Memory None -> SSA.MemVar
+    | Temporary n ->
+      let rt = 0<rt>
+      SSA.TempVar (rt, n)
+    | _ -> Utils.impossible ()
+
+  let getSSAVar vp =
+    match vpToSSAVar.TryGetValue vp with
+    | true, v -> v
+    | false, _ ->
+      let ssaVarId = getNewVarId vp.VarKind
+      let ssaVarKind = toSSAVarKind vp.VarKind
+      let ssaVar = { SSA.Kind = ssaVarKind; SSA.Identifier = ssaVarId }
+      vpToSSAVar[vp] <- ssaVar
+      ssaVarToVp[ssaVar] <- vp
+      ssaVar
+
+  let getSSAVarFromDefSite defSite varKind =
+    match defSite with
+    | DefSite.Single pp ->
+      getSSAVar { IRProgramPoint = pp; VarKind = varKind }
+    | DefSite.Phi vid ->
+      let pp = convertToPhiPp vidToPp[vid]
+      getSSAVar { IRProgramPoint = pp; VarKind = varKind }
+
+  let mkEmptySSAVar vk = { SSA.Kind = toSSAVarKind vk; SSA.Identifier = 0 }
+
+  let getSSAVarFromUse pp vk =
+    let vp = { IRProgramPoint = pp; VarKind = vk }
+    match useDefMap.TryGetValue vp with
+    | false, _ -> mkEmptySSAVar vp.VarKind (* coming from its caller context *)
+    | true, defSite -> getSSAVarFromDefSite defSite vk
+
+  let rec translateToSSAExpr pp e =
+    match e.E with
+    | Num bv -> SSA.Num bv
+    | PCVar (rt, _) ->
+      match pp with
+      | IRPPReg pp -> SSA.Num <| BitVector.OfUInt64 pp.Address rt
+      | _ -> Utils.futureFeature ()
+    | Var _ | TempVar _ ->
+      let vk = VarKind.ofIRExpr e
+      let ssaVar = getSSAVarFromUse pp vk
+      SSA.Var ssaVar
+    | Load (_, rt, addr) ->
+      match evaluateExprToStackPointer pp addr with
+      | StackPointerDomain.ConstSP bv ->
+        let addr = BitVector.ToUInt64 bv
+        let vk = Memory (Some addr)
+        let ssaVar = getSSAVarFromUse pp vk
+        SSA.Var ssaVar
+      | _ ->
+        let emptyMemVar = mkEmptySSAVar (Memory None)
+        let e = translateToSSAExpr pp addr
+        SSA.Load (emptyMemVar, rt, e)
+    | BinOp (binOpType, rt, e1, e2) ->
+      let e1 = translateToSSAExpr pp e1
+      let e2 = translateToSSAExpr pp e2
+      SSA.BinOp (binOpType, rt, e1, e2)
     | RelOp (relOpType, e1, e2) ->
-      let v1 = evaluateExprIntoConst pp e1
-      let v2 = evaluateExprIntoConst pp e2
-      match relOpType with
-      | RelOpType.EQ -> ConstantDomain.eq v1 v2
-      | RelOpType.NEQ -> ConstantDomain.neq v1 v2
-      | RelOpType.GT -> ConstantDomain.gt v1 v2
-      | RelOpType.GE -> ConstantDomain.ge v1 v2
-      | RelOpType.SGT -> ConstantDomain.sgt v1 v2
-      | RelOpType.SGE -> ConstantDomain.sge v1 v2
-      | RelOpType.LT -> ConstantDomain.lt v1 v2
-      | RelOpType.LE -> ConstantDomain.le v1 v2
-      | RelOpType.SLT -> ConstantDomain.slt v1 v2
-      | RelOpType.SLE -> ConstantDomain.sle v1 v2
-      | _ -> ConstantDomain.NotAConst
-    | Extract (e, _, _) -> evaluateExprIntoConst pp e
+      let rt = LowUIR.TypeCheck.typeOf e1
+      let e1 = translateToSSAExpr pp e1
+      let e2 = translateToSSAExpr pp e2
+      SSA.RelOp (relOpType, rt, e1, e2)
+    | Extract (e, rt, startPos) ->
+      let e = translateToSSAExpr pp e
+      SSA.Extract (e, rt, startPos)
     | UnOp (unOpType, e) ->
-      let v = evaluateExprIntoConst pp e
-      match unOpType with
-      | UnOpType.NEG -> ConstantDomain.neg v
-      | UnOpType.NOT -> ConstantDomain.not v
-      | _ -> ConstantDomain.NotAConst
-    | Cast (_, _, e) -> evaluateExprIntoConst pp e
-    | _ -> Utils.futureFeature ()
+      let rt = LowUIR.TypeCheck.typeOf e
+      let e = translateToSSAExpr pp e
+      SSA.UnOp (unOpType, rt, e)
+    | Cast (castKind, rt, e) ->
+      let e = translateToSSAExpr pp e
+      SSA.Cast (castKind, rt, e)
+    | FuncName s -> SSA.FuncName s
+    | Nil -> SSA.Nil
+    | Undefined (rt, s) -> SSA.Undefined (rt, s)
+    | Ite (e1, e2, e3) ->
+      let rt = LowUIR.TypeCheck.typeOf e2
+      let e1 = translateToSSAExpr pp e1
+      let e2 = translateToSSAExpr pp e2
+      let e3 = translateToSSAExpr pp e3
+      SSA.Ite (e1, rt, e2, e3)
+    | _ -> Utils.impossible ()
 
-  do initializeConstants ()
+  let translateLabel addr = function
+    | LowUIR.Name symb -> addr, symb
+    | LowUIR.Undefined (_, s) -> addr, (s, -1)
+    | _ -> raise InvalidExprException
 
-  member __.IsWorklistEmpty with get () = workList.Count = 0
+  let tryTranslateStmtToSSA pp stmt =
+    match stmt.S with
+    | Put (dst, src) ->
+      let vk = VarKind.ofIRExpr dst
+      let vp = { IRProgramPoint = pp; VarKind = vk }
+      let v = getSSAVar vp
+      let e = translateToSSAExpr pp src
+      SSA.Def (v, e)
+      |> Some
+    | Store (_, addr, value) ->
+      match evaluateExprToStackPointer pp addr with
+      | StackPointerDomain.ConstSP bv ->
+        let addr = BitVector.ToUInt64 bv
+        let vk = Memory (Some addr)
+        let vp = { IRProgramPoint = pp; VarKind = vk }
+        let v = getSSAVar vp
+        let e = translateToSSAExpr pp value
+        SSA.Def (v, e)
+        |> Some
+      | _ ->
+        let prevMemVar = mkEmptySSAVar (Memory None) (* empty one *)
+        let newMemVar = getSSAVar { IRProgramPoint = pp; VarKind = Memory None }
+        let rt = LowUIR.TypeCheck.typeOf value
+        let e1 = translateToSSAExpr pp addr
+        let e2 = translateToSSAExpr pp value
+        let e = SSA.Store (prevMemVar, rt, e1, e2)
+        SSA.Def (newMemVar, e)
+        |> Some
+    | Jmp (expr) ->
+      let addr = 0x0UL
+      let label = translateLabel addr expr.E
+      let e = SSA.IntraJmp label
+      SSA.Jmp e
+      |> Some
+    | CJmp (expr, label1, label2) ->
+      let addr = 0x0UL
+      let expr = translateToSSAExpr pp expr
+      let label1 = translateLabel addr label1.E
+      let label2 = translateLabel addr label2.E
+      let e = SSA.IntraCJmp (expr, label1, label2)
+      SSA.Jmp e
+      |> Some
+    | InterJmp (expr, _) ->
+      let expr = translateToSSAExpr pp expr
+      let e = SSA.InterJmp (expr)
+      SSA.Jmp e
+      |> Some
+    | InterCJmp (expr1, expr2, expr3) ->
+      let expr1 = translateToSSAExpr pp expr1
+      let expr2 = translateToSSAExpr pp expr2
+      let expr3 = translateToSSAExpr pp expr3
+      let e = SSA.InterCJmp (expr1, expr2, expr3)
+      SSA.Jmp e
+      |> Some
+    | _ -> None
 
-  /// Push a work (vertex id) to the worklist. Call this whenever a new vertex
-  /// is added to the graph.
-  member __.PushWork vid =
-    if workSet.Contains vid then ()
-    else
-      workSet.Add vid |> ignore
-      workList.Enqueue vid
+  let convertDefSitesToIds defSites varKind =
+    defSites
+    |> Seq.map (fun defSite ->
+      getSSAVarFromDefSite defSite varKind |> fun v -> v.Identifier)
+    |> Seq.toArray
 
-  member __.PopWork () =
-    let vid = workList.Dequeue ()
-    assert (workSet.Contains vid)
-    workSet.Remove vid |> ignore
-    vid
+  let insertPhis phiInfo addr acc =
+    let pp = IRPPReg <| ProgramPoint (addr, -1)
+    phiInfo |> Seq.fold (fun acc (KeyValue (vk, defSites)) ->
+      let var = getSSAVar { IRProgramPoint = pp; VarKind = vk }
+      let ids = convertDefSitesToIds defSites vk
+      SSA.Phi (var, ids) :: acc) acc
 
-  member __.GetVarDef pp = getVarDef pp
+  let translateToSSA g (v: IVertex<LowUIRBasicBlock>) =
+    let ssaStmts =
+      if phiInfos.ContainsKey v.ID then
+        let addr = v.VData.Internals.PPoint.Address
+        insertPhis phiInfos[v.ID] addr []
+      else []
+    getStatements g v
+    |> Array.fold (fun ssaStmts (pp, irStmt) ->
+      match tryTranslateStmtToSSA pp irStmt with
+      | None -> ssaStmts
+      | Some ssaStmt -> ssaStmt :: ssaStmts) ssaStmts
+    |> List.rev
+    |> Array.ofList
 
-  member __.SetVarDef pp vd = varDefs[pp] <- vd
+  let mutable times = (0L, 0L, 0L, 0L)
 
-  /// Calculate the incoming var defs to the given program point. Note that we
-  /// use outgoing var defs in our lattice.
-  member __.CalculateIncomingVarDef pp = calculateIncomingVarDef pp
+  do initializeStackPointers ()
 
-  /// Remember an incoming program point to the given program point.
-  member __.AddIncomingProgramPoint pp incomingPp = addIncomingPp pp incomingPp
+  member __.GetStackPointer vp = getStackPointer vp
 
-  member __.GetConstant vp = getConstant vp
+  member __.SetStackPointer vp c = setStackPointer vp c
 
-  member __.SetConstant vp c = constants[vp] <- c
+  member __.EvaluateExprToStackPointer pp e = evaluateExprToStackPointer pp e
 
-  /// Get the abstract value of a variable point, but calculate it if the given
-  /// variable point is not defined in the existing statements. We can use this
-  /// to calculate the abstract value of a variable after a certain statement.
-  member __.CalculateConstant vp = calculateConstant vp
+  member __.GetAbsValue vp = getAbsValue vp
 
-  member __.EvaluateExprIntoConst pp e = evaluateExprIntoConst pp e
+  member __.SetAbsValue vp absVal = setAbsValue vp absVal
 
-  member __.SetAbsValue vp absVal = absValues[vp] <- absVal
+  member __.GetStatements g v = getStatements g v
 
-  interface IDataFlowState<VarPoint, 'Lattice> with
+  member __.TranslateToSSA g v = translateToSSA g v
+
+  member __.TryTranslateStmtToSSA pp stmt = tryTranslateStmtToSSA pp stmt
+
+  member __.PendingVertices with get () = pendingVertices
+
+  member __.StackPointerSparseState with get () = stackPointerSparseState
+
+  member __.DomainSparseState with get () = domainSparseState
+
+  member __.IncomingDefs with get () = incomingDefs
+
+  member __.InnerDefs with get () = innerDefs
+
+  member __.OutgoingDefs with get () = outgoingDefs
+
+  member __.DefUseMap with get () = defUseMap
+
+  member __.UseDefMap with get () = useDefMap
+
+  member __.VidToPp with get () = vidToPp
+
+  member __.SSAVarToVp with get () = ssaVarToVp
+
+  member __.VpToSSAVar with get () = vpToSSAVar
+
+  member __.PhiInfos with get () = phiInfos
+
+  member __.PpToStmt with get () = ppToStmt
+
+  member __.Times with get () = times and set (v) = times <- v
+
+  member __.Reset () =
+    absValues.Clear ()
+    stackPointers.Clear ()
+    innerDefs.Clear ()
+    vidToPp.Clear ()
+    vpToSSAVar.Clear ()
+    vkToFreshId.Clear ()
+    ssaVarToVp.Clear ()
+    incomingDefs.Clear ()
+    outgoingDefs.Clear ()
+    defUseMap.Clear ()
+    useDefMap.Clear ()
+    phiInfos.Clear ()
+    ppToStmt.Clear ()
+    pendingVertices.Clear ()
+    statementMemo.Clear ()
+    stackPointerSparseState.FlowQueue.Clear ()
+    stackPointerSparseState.ExecutedFlows.Clear ()
+    stackPointerSparseState.ExecutedVertices.Clear ()
+    stackPointerSparseState.DefSiteQueue.Clear ()
+    domainSparseState.FlowQueue.Clear ()
+    domainSparseState.ExecutedFlows.Clear ()
+    domainSparseState.ExecutedVertices.Clear ()
+    domainSparseState.DefSiteQueue.Clear ()
+
+  interface IDataFlowState<IRVarPoint, 'Lattice> with
     member __.GetAbsValue absLoc = getAbsValue absLoc
 
 /// The core interface for IR-based data flow analysis.
@@ -240,15 +525,6 @@ and IVarBasedDataFlowAnalysis<'Lattice> =
   /// Join operator.
   abstract Join: 'Lattice -> 'Lattice -> 'Lattice
 
-  /// Transfer function.
-  abstract Transfer:
-       IGraph<LowUIRBasicBlock, 'E>
-    -> IVertex<LowUIRBasicBlock>
-    -> ProgramPoint
-    -> Stmt
-    -> VarBasedDataFlowState<'Lattice>
-    -> (VarPoint * 'Lattice) option
-
   /// Subsume operator, which checks if the first lattice subsumes the second.
   /// This is to know if the analysis should stop or not.
   abstract Subsume: 'Lattice -> 'Lattice -> bool
@@ -256,6 +532,6 @@ and IVarBasedDataFlowAnalysis<'Lattice> =
   /// Evaluate the given expression based on the current abstract state.
   abstract EvalExpr:
        VarBasedDataFlowState<'Lattice>
-    -> ProgramPoint
+    -> IRProgramPoint
     -> Expr
     -> 'Lattice

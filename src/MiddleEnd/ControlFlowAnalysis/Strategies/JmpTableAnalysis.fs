@@ -1,4 +1,4 @@
-(*
+﻿(*
   B2R2 - the Next-Generation Reversing Platform
 
   Copyright (c) SoftSec Lab. @ KAIST, since 2016
@@ -33,29 +33,30 @@ open B2R2.MiddleEnd.ControlFlowAnalysis
 open B2R2.MiddleEnd.DataFlow
 open B2R2.MiddleEnd.DataFlow.SSA
 
-/// Base class for analyzing jump tables.
-type SSAJmpTableAnalysis<'FnCtx,
-                         'GlCtx when 'FnCtx :> IResettable
-                                 and 'FnCtx: (new: unit -> 'FnCtx)
-                                 and 'GlCtx: (new: unit -> 'GlCtx)>
-  public (ssaLifter: ICFGAnalysis<unit -> SSACFG>) =
+type private L = ConstantDomain.Lattice
 
-  let rec findJumpExpr (ssaCFG: SSACFG) vFst = function
-    | (v: IVertex<SSABasicBlock>) :: vs ->
-      match v.VData.Internals.LastStmt with
+/// Base class for analyzing jump tables.
+type JmpTableAnalysis<'FnCtx,
+                      'GlCtx when 'FnCtx :> IResettable
+                              and 'FnCtx: (new: unit -> 'FnCtx)
+                              and 'GlCtx: (new: unit -> 'GlCtx)> () =
+  let rec findJumpExpr state g vFst = function
+    | (v: IVertex<LowUIRBasicBlock>) :: vs ->
+      let ssaStmts = (state: VarBasedDataFlowState<_>).TranslateToSSA g v
+      match Array.last ssaStmts with
       | Jmp (InterJmp jmpExpr) -> Ok jmpExpr
       | _ ->
         let vs =
-          ssaCFG.GetSuccs v
+          g.GetSuccs v
           |> Seq.fold (fun acc succ ->
             if succ <> vFst then succ :: acc else acc) vs
-        findJumpExpr ssaCFG vFst vs
+        findJumpExpr state g vFst vs
     | [] -> Error ErrorCase.ItemNotFound
 
-  let findIndBranchExpr (ssaCFG: SSACFG) addr =
-    let v = ssaCFG.FindVertexBy (fun v -> v.VData.Internals.BlockAddress = addr)
+  let findIndBranchExpr state (g: LowUIRCFG) addr =
+    let v = g.FindVertexBy (fun v -> v.VData.Internals.BlockAddress = addr)
     (* Since there could be multiple SSA vertices, search for the right one. *)
-    findJumpExpr ssaCFG v [ v ]
+    findJumpExpr state g v [ v ]
 
   let rec simplify = function
     | Load (v, rt, e) -> Load (v, rt, simplify e)
@@ -83,23 +84,27 @@ type SSAJmpTableAnalysis<'FnCtx,
     | Extract (e, rt, pos) -> Extract (simplify e, rt, pos)
     | expr -> expr
 
-  let rec foldWithConstant (state: SSAVarBasedDataFlowState<_>) e =
+  let rec foldWithConstant (state: VarBasedDataFlowState<_>) e =
     match e with
-    | Var v ->
-      match state.GetRegValue v with
+    | Var v when v.Identifier <> 0 ->
+      let vp = state.SSAVarToVp[v]
+      match state.GetAbsValue vp with
       | ConstantDomain.Const bv -> Num bv
       | _ ->
-        match state.SSAEdges.Defs.TryGetValue v with
-        | true, Def (_, e) -> foldWithConstant state e
-        | _ -> e
-    | Load (m, rt, addr) ->
-      match foldWithConstant state addr with
-      | Num addr ->
-        let addr = BitVector.ToUInt64 addr
-        match state.GetMemValue m rt addr with
-        | ConstantDomain.Const bv -> Num bv
-        | _ -> e
-      | _ -> e
+        let isPhiVar =
+          match vp.IRProgramPoint with
+          | IRPPReg pp -> pp.Position = -1
+          | IRPPAbs (_, _, -1) -> true
+          | _ -> false
+        if isPhiVar then e
+        else
+          let pp = vp.IRProgramPoint
+          let _, stmt = state.PpToStmt[pp]
+          let ssaStmt = state.TryTranslateStmtToSSA pp stmt |> Option.get
+          match ssaStmt with
+          | Def (_, e) -> foldWithConstant state e
+          | _ -> Utils.impossible ()
+    | Load (m, rt, addr) -> Load (m, rt, foldWithConstant state addr)
     | UnOp (op, rt, e) -> UnOp (op, rt, foldWithConstant state e)
     | BinOp (op, rt, e1, e2) ->
       let e1 = foldWithConstant state e1
@@ -192,35 +197,36 @@ type SSAJmpTableAnalysis<'FnCtx,
       else Error ErrorCase.ItemNotFound
     | _ -> Error ErrorCase.ItemNotFound
 
-  let varToBV (state: SSAVarBasedDataFlowState<L>) var id =
-    let v = { var with Identifier = id }
-    match state.GetRegValue v with
-    | ConstantDomain.Const bv -> Some bv
-    | _ -> None
+  let setPpZeroPosition = function
+    | IRPPReg pp -> IRPPReg <| ProgramPoint (pp.Address, 0)
+    | IRPPAbs (cs, fn, _) -> IRPPAbs (cs, fn, 0)
 
-  let expandPhi state var ids e =
-    let bvs = ids |> Array.map (fun id -> varToBV state var id)
-    match bvs[0] with
-    | Some hd ->
-      if bvs |> Array.forall (fun bv -> bv = Some hd) then Num hd
-      else e
-    | None -> e
+  let expandPhi state vp e =
+    match (state: VarBasedDataFlowState<_>).GetAbsValue vp with
+    | ConstantDomain.Const bv -> Num bv
+    | _ -> e
 
   /// Expand the given expression by recursively substituting the subexpressions
   /// with their definitions. The recursion stops after folloing the next
   /// definitions.
-  let rec symbolicExpand (state: SSAVarBasedDataFlowState<_>) doNext e =
+  let rec symbolicExpand (state: VarBasedDataFlowState<_>) doNext e =
     match e with
     | Num _ -> e
-    | Var ({ Kind = PCVar _ } as v) -> (* regard PC as a constant *)
-      match state.GetRegValue v with
-      | ConstantDomain.Const bv -> Num bv
-      | _ -> e
-    | Var v ->
-      match state.SSAEdges.Defs.TryGetValue v with
-      | true, Def (_, e) when doNext -> symbolicExpand state false e
-      | true, Phi (_, ids) when doNext -> expandPhi state v ids e
-      | _ -> e
+    | Var v when v.Identifier <> 0 && doNext ->
+      let vp = state.SSAVarToVp[v]
+      let isPhiVar =
+        match vp.IRProgramPoint with
+        | IRPPReg pp -> pp.Position = -1
+        | IRPPAbs (_, _, -1) -> true
+        | _ -> false
+      if not isPhiVar then
+         let pp = vp.IRProgramPoint
+         let stmt = state.PpToStmt[pp] |> snd
+         let ssaStmt = state.TryTranslateStmtToSSA pp stmt |> Option.get
+         match ssaStmt with
+         | Def (_, e) -> symbolicExpand state false e
+         | _ -> Utils.impossible ()
+       else expandPhi state vp e
     | Load (m, rt, addr) ->
       let e = symbolicExpand state doNext addr
       Load (m, rt, e)
@@ -251,7 +257,7 @@ type SSAJmpTableAnalysis<'FnCtx,
   /// This is a practical limit for the depth of symbolic expansion.
   let [<Literal>] MaxDepth = 7
 
-  let rec findSymbolicPattern state insAddr depth expr =
+  let rec findSymbolicPattern g state insAddr depth expr =
 #if CFGDEBUG
     dbglog ManagerTid "JumpTable"
     <| $"{insAddr:x} ({depth}): {Pp.expToString expr}"
@@ -265,12 +271,12 @@ type SSAJmpTableAnalysis<'FnCtx,
     | Error _ ->
       if depth < MaxDepth then
         let expr = symbolicExpand state true expr |> simplify
-        findSymbolicPattern state insAddr (depth + 1) expr
+        findSymbolicPattern g state insAddr (depth + 1) expr
       else Error ErrorCase.ItemNotFound
 
-  let analyzeSymbolically ssaCFG state insAddr bblAddr =
-    match findIndBranchExpr ssaCFG bblAddr with
-    | Ok jmpExpr -> findSymbolicPattern state insAddr 0 jmpExpr
+  let analyzeSymbolically g state insAddr bblAddr =
+    match findIndBranchExpr state g bblAddr with
+    | Ok jmpExpr -> findSymbolicPattern g state insAddr 0 jmpExpr
     | Error e -> Error e
 
   let checkValidity (ctx: CFGBuildingContext<'FnCtx, 'GlCtx>) result =
@@ -282,10 +288,10 @@ type SSAJmpTableAnalysis<'FnCtx,
 
   interface IJmpTableAnalyzable<'FnCtx, 'GlCtx> with
     member _.Identify ctx insAddr bblAddr =
-      let ssaCFG = ssaLifter.Unwrap { Context = ctx } ()
-      let cp = SSAConstantPropagation ctx.BinHandle
+      let cp = ConstantPropagation ctx.BinHandle
       let dfa = cp :> IDataFlowAnalysis<_, _, _, _>
-      let state = dfa.InitializeState []
-      let state = dfa.Compute ssaCFG state
-      analyzeSymbolically ssaCFG state insAddr bblAddr
+      let state = Option.get ctx.CPState
+      let state = dfa.Compute ctx.CFG state
+      let g = ctx.CFG
+      analyzeSymbolically g state insAddr bblAddr
       |> checkValidity ctx

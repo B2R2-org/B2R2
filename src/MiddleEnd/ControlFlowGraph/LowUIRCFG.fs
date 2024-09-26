@@ -38,3 +38,10 @@ module LowUIRCFG =
 
     /// Construct a LowUIRCFG.
     abstract Construct: ImplementationType -> LowUIRCFG
+
+  /// Find a vertex that includes the given instruction address.
+  [<CompiledName "FindVertexByAddr">]
+  let findVertexByAddr (cfg: LowUIRCFG) addr =
+    cfg.FindVertexBy (fun v ->
+      if v.VData.Internals.IsAbstract then false
+      else v.VData.Internals.Range.IsIncluding addr)

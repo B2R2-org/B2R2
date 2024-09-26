@@ -21,6 +21,7 @@
     <Compile Include="DataFlowChain.fs" />
     <Compile Include="VarBasedDataFlowState.fs" />
     <Compile Include="VarBasedDataFlowAnalysis.fs" />
+    <Compile Include="ConstantPropagation.fs" />
     <Compile Include="UntouchedValueAnalysis.fs" />
     <Compile Include="StackPointerAnalysis.fs" />
     <Compile Include="SSAEdges.fs" />
