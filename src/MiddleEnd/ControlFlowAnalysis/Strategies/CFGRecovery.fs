@@ -33,6 +33,12 @@ open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.MiddleEnd.ControlFlowAnalysis
 
+[<AutoOpen>]
+module private CFGRecovery =
+  let inline markVertexForAnalysis useSSA ctx vid =
+    if useSSA then ()
+    else ctx.CPState.Value.PendingVertices.Add vid |> ignore
+
 /// Base strategy for building a CFG.
 type CFGRecovery<'FnCtx,
                  'GlCtx when 'FnCtx :> IResettable
@@ -65,10 +71,6 @@ type CFGRecovery<'FnCtx,
     |> Async.AwaitTask
     |> Async.RunSynchronously
 
-  let pushWorkToCP ctx vid =
-    if useSSA then ()
-    else ctx.CPState.Value.PendingVertices.Add vid |> ignore
-
   let getVertex ctx ppoint =
     match ctx.Vertices.TryGetValue ppoint with
     | true, v -> v
@@ -76,7 +78,7 @@ type CFGRecovery<'FnCtx,
       let v, g = ctx.CFG.AddVertex (ctx.BBLFactory.Find ppoint)
       ctx.CFG <- g
       ctx.Vertices[ppoint] <- v
-      pushWorkToCP ctx v.ID
+      markVertexForAnalysis useSSA ctx v.ID
       v
 
   let tryGetVertex ctx ppoint =
@@ -88,7 +90,7 @@ type CFGRecovery<'FnCtx,
         let v, g = ctx.CFG.AddVertex bbl
         ctx.CFG <- g
         ctx.Vertices[ppoint] <- v
-        pushWorkToCP ctx v.ID
+        markVertexForAnalysis useSSA ctx v.ID
         Ok v
       | Error _ -> Error ErrorCase.ItemNotFound
 
@@ -107,7 +109,7 @@ type CFGRecovery<'FnCtx,
       let v, g = ctx.CFG.AddVertex bbl
       ctx.CFG <- g
       ctx.AbsVertices[key] <- v
-      pushWorkToCP ctx v.ID
+      markVertexForAnalysis useSSA ctx v.ID
       v
 
   let removeVertex ctx ppoint =
@@ -125,7 +127,7 @@ type CFGRecovery<'FnCtx,
 
   let connectEdge ctx srcVertex dstVertex edgeKind =
     ctx.CFG <- ctx.CFG.AddEdge (srcVertex, dstVertex, edgeKind)
-    pushWorkToCP ctx dstVertex.ID
+    markVertexForAnalysis useSSA ctx dstVertex.ID
 
 #if CFGDEBUG
     let edgeStr = CFGEdgeKind.toString edgeKind
@@ -418,12 +420,9 @@ type CFGRecovery<'FnCtx,
       | NoRet -> connectAbsWithoutFT ctx caller calleeAddr
       | NotNoRet -> connectAbsWithFT ctx caller calleeAddr queue
       | ConditionalNoRet nth ->
-        let hdl = ctx.BinHandle
-        let retOrPossiblyCondNoRet =
-          CondAwareNoretAnalysis.hasLocallyZeroOrTopCondition hdl caller nth
-        if retOrPossiblyCondNoRet then
-          connectAbsWithFT ctx caller calleeAddr queue
-        else connectAbsWithoutFT ctx caller calleeAddr
+        if CondAwareNoretAnalysis.hasNonZero ctx.BinHandle caller nth then
+          connectAbsWithoutFT ctx caller calleeAddr
+        else connectAbsWithFT ctx caller calleeAddr queue
       | UnknownNoRet -> Utils.futureFeature ()
 
   let connectIndirectCallEdge ctx queue callSiteAddr =
@@ -532,13 +531,14 @@ type CFGRecovery<'FnCtx,
   new (useSSA) =
     let summarizer = FunctionSummarizer ()
     let syscallAnalysis = SyscallAnalysis ()
-    let ssaLifter = SSALifter () :> ICFGAnalysis<_>
-    let jmptblAnalysis =
-      if useSSA then SSAJmpTableAnalysis ssaLifter :> IJmpTableAnalyzable<_, _>
-      else JmpTableAnalysis () :> IJmpTableAnalyzable<_, _>
-    let postAnalysis =
-      if useSSA then ssaLifter <+> SSACondAwareNoretAnalysis ()
-      else CondAwareNoretAnalysis ()
+    let jmptblAnalysis, postAnalysis =
+      if useSSA then
+        let ssaLifter = SSALifter () :> ICFGAnalysis<_>
+        SSAJmpTableAnalysis ssaLifter :> IJmpTableAnalyzable<_, _>,
+        ssaLifter <+> CondAwareNoretAnalysis ()
+      else
+        JmpTableAnalysis () :> IJmpTableAnalyzable<_, _>,
+        CondAwareNoretAnalysis ()
     CFGRecovery (summarizer,
                  jmptblAnalysis,
                  syscallAnalysis,

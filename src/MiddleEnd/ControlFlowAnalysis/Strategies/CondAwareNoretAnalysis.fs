@@ -28,11 +28,9 @@ open System.Runtime.InteropServices
 open B2R2
 open B2R2.BinIR
 open B2R2.FrontEnd
-open B2R2.FrontEnd.BinLifter
 open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.MiddleEnd.ControlFlowAnalysis
-open B2R2.MiddleEnd.ConcEval
 open B2R2.MiddleEnd.DataFlow
 open B2R2.MiddleEnd.DataFlow.SSA
 open type B2R2.MiddleEnd.DataFlow.UntouchedValueDomain.UntouchedTag
@@ -71,7 +69,7 @@ type CondAwareNoretAnalysis ([<Optional; DefaultParameterValue(true)>] strict) =
       Some <| (state :> IDataFlowState<_, _>).GetAbsValue vp
     | None -> None
 
-  let untouchedArgIndexX86 ctx frameDist callEdge state nth =
+  let untouchedArgIndexX86FromIRCFG ctx frameDist callEdge state nth =
     let argOff = uint64 <| frameDist - 4 * nth
     let varKind = Memory <| Some (Constants.InitialStackPointer + argOff)
     let absV = ctx.AbsVertices[callEdge]
@@ -80,18 +78,18 @@ type CondAwareNoretAnalysis ([<Optional; DefaultParameterValue(true)>] strict) =
       Some (- off / 4)
     | _ -> None
 
-  let ssaRegToArgNumX64 hdl rid =
+  let regIdToArgNumX64 hdl rid =
     [ 1 .. 6 ]
     |> List.tryFind (fun nth ->
       rid = CallingConvention.functionArgRegister hdl OS.Linux nth)
 
-  let untouchedArgIndexX64 hdl ctx callEdge state nth =
+  let untouchedArgIndexX64FromIRCFG hdl ctx callEdge state nth =
     let argRegId = CallingConvention.functionArgRegister hdl OS.Linux nth
     let varKind = Regular argRegId
     let absV = ctx.AbsVertices[callEdge]
     match tryGetValue state absV.ID varKind with
     | Some (UntouchedValueDomain.Untouched (RegisterTag (Regular rid))) ->
-      ssaRegToArgNumX64 hdl rid
+      regIdToArgNumX64 hdl rid
     | _ ->
       (* If no definition is found, this means the parameter register is
          untouched, thus conditional no return. *)
@@ -114,27 +112,79 @@ type CondAwareNoretAnalysis ([<Optional; DefaultParameterValue(true)>] strict) =
       | _ -> acc) []
     |> List.filter (hasCallFallthroughNode ctx)
 
-  let tryGetConnectedArgument ctx state callEdge nth =
+  let tryGetConnectedArgumentFromIRCFG ctx state callEdge nth =
     let callSite = fst callEdge
     let arch = (ctx: CFGBuildingContext<_, _>).BinHandle.File.ISA.Arch
     match ctx.IntraCallTable.TryGetFrameDistance callSite with
     | true, frameDist when arch = Architecture.IntelX86 ->
-      untouchedArgIndexX86 ctx frameDist callEdge state nth
+      untouchedArgIndexX86FromIRCFG ctx frameDist callEdge state nth
     | true, _ when arch = Architecture.IntelX64 ->
-      untouchedArgIndexX64 ctx.BinHandle ctx callEdge state nth
+      untouchedArgIndexX64FromIRCFG ctx.BinHandle ctx callEdge state nth
     | _ -> None
 
-  let collectConditionalNoRetCalls ctx =
+  let collectConditionalNoRetCallsFromIRCFG ctx (cfg: LowUIRCFG) =
     let hdl = ctx.BinHandle
     let uva = UntouchedValueAnalysis hdl :> IDataFlowAnalysis<_, _, _, _>
-    let g = ctx.CFG
-    let state = lazy (uva.InitializeState g.Vertices |> uva.Compute g)
+    let state = lazy (uva.InitializeState cfg.Vertices |> uva.Compute cfg)
     collectReturningCallEdges ctx
     |> List.choose (fun callEdge ->
       let absV = ctx.AbsVertices[callEdge]
       match absV.VData.Internals.AbstractContent.ReturningStatus with
       | ConditionalNoRet nth ->
-        tryGetConnectedArgument ctx state.Value callEdge nth
+        tryGetConnectedArgumentFromIRCFG ctx state.Value callEdge nth
+        |> Option.bind (fun nth' -> Some (absV, nth'))
+      | NotNoRet | UnknownNoRet -> None
+      | NoRet -> Utils.impossible ())
+
+  let untouchedArgIndexX86FromSSACFG frameDist absV state nth =
+    let argOff = frameDist - 4 * nth
+    let varKind = SSA.StackVar (32<rt>, argOff)
+    SSACFG.findReachingDef absV varKind
+    |> Option.bind (function
+      | SSA.Def (var, _) ->
+        match (state: SSAVarBasedDataFlowState<_>).GetRegValue var with
+        | UntouchedValueDomain.Untouched (RegisterTag (StackLocal off)) ->
+          Some (- off / 4)
+        | _ -> None
+      | _ -> None)
+
+  let untouchedArgIndexX64FromSSACFG hdl absV state nth =
+    let argReg = CallingConvention.functionArgRegister hdl OS.Linux nth
+    let name = hdl.RegisterFactory.RegIDToString argReg
+    let varKind = SSA.RegVar (64<rt>, argReg, name)
+    match SSACFG.findReachingDef absV varKind with
+    | Some (SSA.Def (var, _)) ->
+      match (state: SSAVarBasedDataFlowState<_>).GetRegValue var with
+      | UntouchedValueDomain.Untouched (RegisterTag (Regular rid)) ->
+        regIdToArgNumX64 hdl rid
+      | _ -> None
+    | _ ->
+      (* If no definition is found, this means the parameter register is
+         untouched, thus conditional no return. *)
+      Some nth
+
+  let tryGetConnectedArgumentFromSSACFG ctx ssa state callEdge nth =
+    let callSite = fst callEdge
+    let callerSSAV = SSACFG.findVertexByAddr ssa callSite
+    let absSSAV = ssa.GetSuccs callerSSAV |> Seq.exactlyOne
+    let arch = (ctx: CFGBuildingContext<_, _>).BinHandle.File.ISA.Arch
+    match ctx.IntraCallTable.TryGetFrameDistance callSite with
+    | true, frameDist when arch = Architecture.IntelX86 ->
+      untouchedArgIndexX86FromSSACFG frameDist absSSAV state nth
+    | true, _ when arch = Architecture.IntelX64 ->
+      untouchedArgIndexX64FromSSACFG ctx.BinHandle absSSAV state nth
+    | _ -> None
+
+  let collectConditionalNoRetCallsFromSSACFG ctx ssaCFG =
+    let hdl = ctx.BinHandle
+    let uva = SSAUntouchedValuePropagation hdl :> IDataFlowAnalysis<_, _, _, _>
+    let state = lazy (uva.InitializeState [] |> uva.Compute ssaCFG)
+    collectReturningCallEdges ctx
+    |> List.choose (fun callEdge ->
+      let absV = ctx.AbsVertices[callEdge]
+      match absV.VData.Internals.AbstractContent.ReturningStatus with
+      | ConditionalNoRet nth ->
+        tryGetConnectedArgumentFromSSACFG ctx ssaCFG state.Value callEdge nth
         |> Option.bind (fun nth' -> Some (absV, nth'))
       | NotNoRet | UnknownNoRet -> None
       | NoRet -> Utils.impossible ())
@@ -155,10 +205,9 @@ type CondAwareNoretAnalysis ([<Optional; DefaultParameterValue(true)>] strict) =
     | None -> NotNoRet
     | Some dom -> ConditionalNoRet <| Map.find dom argNumMap
 
-  let analyze ctx =
+  let analyze ctx condNoRetCalls =
     let domCtx = Dominator.initDominatorContext ctx.CFG
     let exits = ctx.CFG.Exits
-    let condNoRetCalls = collectConditionalNoRetCalls ctx
     let absVSet = condNoRetCalls |> List.map fst |> Set.ofList
     let argNumMap = condNoRetCalls |> Map.ofSeq
     let mutable status = UnknownNoRet
@@ -180,11 +229,13 @@ type CondAwareNoretAnalysis ([<Optional; DefaultParameterValue(true)>] strict) =
         | status -> updateStatus status
     status
 
+  /// Non-returning function identification for IR-based CFG.
   interface ICFGAnalysis<unit -> unit> with
     member _.Unwrap env =
       let ctx = env.Context
       fun () ->
-        match analyze ctx with
+        let condNoRetCalls = collectConditionalNoRetCallsFromIRCFG ctx ctx.CFG
+        match analyze ctx condNoRetCalls with
         | UnknownNoRet -> ctx.NonReturningStatus <- defaultStatus
         | status -> ctx.NonReturningStatus <- status
 #if CFGDEBUG
@@ -192,7 +243,24 @@ type CondAwareNoretAnalysis ([<Optional; DefaultParameterValue(true)>] strict) =
         <| $"{ctx.FunctionAddress:x}: {ctx.NonReturningStatus}"
 #endif
 
+  /// Non-returning function identification for SSA-based CFG.
+  interface ICFGAnalysis<SSACFG -> unit> with
+    member _.Unwrap env =
+      let ctx = env.Context
+      fun ssaCFG ->
+        let condNoRetCalls = collectConditionalNoRetCallsFromSSACFG ctx ssaCFG
+        match analyze ctx condNoRetCalls with
+        | UnknownNoRet -> ctx.NonReturningStatus <- defaultStatus
+        | status -> ctx.NonReturningStatus <- status
+#if CFGDEBUG
+        dbglog ctx.ThreadID (nameof CondAwareNoretAnalysis)
+        <| $"{ctx.FunctionAddress:x}: {ctx.NonReturningStatus} (w/ SSA)"
+#endif
+
 module CondAwareNoretAnalysis =
+  open B2R2.FrontEnd.BinLifter
+  open B2R2.MiddleEnd.ConcEval
+
   let private hasNonZeroOnX86 st nth =
     let esp = (Intel.Register.ESP |> Intel.Register.toRegID)
     match (st: EvalState).TryGetReg esp with
@@ -210,9 +278,11 @@ module CondAwareNoretAnalysis =
     | Def bv -> not <| bv.IsZero ()
     | _ -> false
 
-  let hasLocallyZeroOrTopCondition (hdl: BinHandle) caller nth =
+  /// Locally analyze the given basic block and see if the `nth` parameter
+  /// (defined by the current ABI) is non-zero.
+  let hasNonZero (hdl: BinHandle) caller nth =
     let st = CFGEvaluator.evalBlockFromScratch hdl caller
     match hdl.File.ISA.Arch with
-    | Architecture.IntelX86 -> not <| hasNonZeroOnX86 st nth
-    | Architecture.IntelX64 -> not <| hasNonZeroOnX64 hdl st nth
+    | Architecture.IntelX86 -> hasNonZeroOnX86 st nth
+    | Architecture.IntelX64 -> hasNonZeroOnX64 hdl st nth
     | _ -> false
