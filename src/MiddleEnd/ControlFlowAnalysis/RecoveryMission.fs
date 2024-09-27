@@ -87,23 +87,13 @@ and private TaskManager<'FnCtx,
       builder.Authorize ()
       builder.Invalidate ()
 
+  let resetBuilder (builder: ICFGBuildable<_, _>) =
+    let oldStatus = builder.Context.NonReturningStatus
+    builder.Reset builders.CFGConstructor
+    builder.Context.NonReturningStatus <- oldStatus
+
   let terminateWorkers () =
     toWorkers.Complete ()
-
-  let updateCaller callerAddr calleeAddr =
-    if callerAddr = calleeAddr then ()
-    else builders[calleeAddr].Context.Callers.Add callerAddr |> ignore
-
-  let computeCallers () =
-    for builder in builders.Values do
-      let callerAddr = builder.EntryPoint
-      let callees = builder.Context.IntraCallTable.Callees.Values |> Seq.toArray
-      for callee in callees do
-        match callee with
-        | RegularCallee calleeAddr -> updateCaller callerAddr calleeAddr
-        | IndirectCallees calleeAddrs ->
-          for calleeAddr in calleeAddrs do updateCaller callerAddr calleeAddr
-        | _ -> ()
 
   let rec schedule (inbox: IAgentMessageReceivable<_>) =
     while not inbox.IsCancelled do
@@ -179,21 +169,19 @@ and private TaskManager<'FnCtx,
       dbglog ManagerTid "rollback" $"{builder.Context.FunctionAddress:x}"
 #endif
       jmptblNotes.SetPotentialEndPointByIndex tblAddr (idx - 1)
-      builder.Reset builders.CFGConstructor
+      resetBuilder builder
       addTask builder.Context.FunctionAddress builder.Mode
     | None ->
       makeInvalid builder
-      dependenceMap.RemoveAndGetCallers entryPoint
-      |> List.iter propagateInvalidation
+      dependenceMap.MarkComplete entryPoint false
+      |> Array.iter propagateInvalidation
 
   and terminateIfAllDone () =
     if workingSet.Count = 0 then
       match builders.GetTerminationStatus () with
       | AllDone ->
-        computeCallers ()
         terminateWorkers ()
       | ForceTerminated blds ->
-        computeCallers ()
         blds
         |> Array.iter (fun builder ->
 #if CFGDEBUG
@@ -232,7 +220,7 @@ and private TaskManager<'FnCtx,
 #if CFGDEBUG
           dbglog ManagerTid "PendingMsg" $"BuilderReset"
 #endif
-          builder.Reset builders.CFGConstructor
+          resetBuilder builder
           pendingReset <- true
       addTask entryPoint builder.Mode
       pendingReset
@@ -251,6 +239,7 @@ and private TaskManager<'FnCtx,
       rechargeActionQueue callerBuilder.Context calleeAddr
       addTask callerAddr callerBuilder.Mode
     | InProgress -> msgbox[callerAddr].Add <| CalleeSuccess calleeAddr
+    | Initialized -> () (* Ignore since it has been reset. *)
     | _ -> Utils.impossible ()
 
   and getAllStoppedCycle (cycleAddrs: Addr[]) =
@@ -287,8 +276,8 @@ and private TaskManager<'FnCtx,
           dbglog ManagerTid "CyclicDependencies"
           <| $"force finish {targetBuilder.EntryPoint:x}"
 #endif
-          dependenceMap.RemoveAndGetCallers targetBuilder.EntryPoint
-          |> List.iter (propagateSuccess targetBuilder.EntryPoint)
+          dependenceMap.MarkComplete targetBuilder.EntryPoint true
+          |> Array.iter (propagateSuccess targetBuilder.EntryPoint)
         | Error _ -> ()
       )
 
@@ -301,12 +290,12 @@ and private TaskManager<'FnCtx,
       dbglog ManagerTid "HandleResult" $"{entryPoint:x}: finished"
 #endif
       finalizeBuilder builder entryPoint
-    | ContinueWithCallers callers ->
+    | ContinueAndReloadCallers ->
 #if CFGDEBUG
       dbglog ManagerTid "HandleResult"
       <| $"{entryPoint:x}: finished, but result changed"
 #endif
-      finalizeBuilder builder entryPoint
+      let callers = dependenceMap.GetConfirmedCallers entryPoint
       callers
       |> Array.iter (fun callerAddr ->
 #if CFGDEBUG
@@ -314,18 +303,17 @@ and private TaskManager<'FnCtx,
         <| $"{entryPoint:x} -> reload: {callerAddr:x}"
 #endif
         let callerBuilder = builders[callerAddr]
-        if callerBuilder.BuilderState = InProgress then ()
+        if callerBuilder.BuilderState = InProgress then
+          msgbox[callerAddr].Add BuilderReset
         else
-          let oldStatus = callerBuilder.Context.NonReturningStatus
-          callerBuilder.Reset builders.CFGConstructor
-          callerBuilder.Context.NonReturningStatus <- oldStatus
+          resetBuilder callerBuilder
           addTask callerAddr callerBuilder.Context.FunctionMode
       )
-      if callers.Length > 0 then computeCallers () else () (* FIXME sync prob *)
+      finalizeBuilder builder entryPoint
     | Wait ->
       if isInvalid entryPoint then
-        dependenceMap.RemoveAndGetCallers entryPoint
-        |> List.iter propagateInvalidation
+        dependenceMap.MarkComplete entryPoint false
+        |> Array.iter propagateInvalidation
       else
         builder.Stop ()
         consumePendingMessages builder entryPoint |> ignore
@@ -354,8 +342,8 @@ and private TaskManager<'FnCtx,
     else
       builder.Finalize ()
       msgbox.Remove entryPoint |> ignore
-      dependenceMap.RemoveAndGetCallers entryPoint
-      |> List.iter (propagateSuccess entryPoint)
+      dependenceMap.MarkComplete entryPoint true
+      |> Array.iter (propagateSuccess entryPoint)
 
   and handleJumpTableRecoveryRequest fnAddr (jmptbl: JmpTableInfo) =
     match jmptblNotes.Register fnAddr jmptbl with
@@ -422,6 +410,9 @@ and private TaskManager<'FnCtx,
       (* Tasks should be added at last to avoid a race for builders. *)
       for (addr, mode) in candidates do addTask addr mode done
     waitForWorkers ()
+    for builder in builders.Values do (* Update callers of each builder. *)
+      dependenceMap.GetConfirmedCallers builder.EntryPoint
+      |> builder.Context.Callers.UnionWith
 #if CFGDEBUG
     for tid in 0 .. numThreads do flushLog tid
 #endif
