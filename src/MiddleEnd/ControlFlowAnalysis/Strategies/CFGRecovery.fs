@@ -637,10 +637,7 @@ type CFGRecovery<'FnCtx,
       let newNoRetStatus = ctx.NonReturningStatus
       match oldNoRetStatus, newNoRetStatus with
       | NoRet, NotNoRet
-      | NoRet, ConditionalNoRet _ ->
-        let callers = Array.zeroCreate ctx.Callers.Count
-        ctx.Callers.CopyTo callers
-        ContinueWithCallers callers
+      | NoRet, ConditionalNoRet _ -> ContinueAndReloadCallers
       | _ -> Continue
 
     member _.OnCyclicDependency (deps) =

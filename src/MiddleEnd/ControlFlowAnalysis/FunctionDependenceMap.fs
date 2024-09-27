@@ -31,64 +31,81 @@ open B2R2.MiddleEnd.BinGraph
 /// Map from a function (callee) to its caller functions. This is not
 /// thread-safe, and thus should be used only by TaskManager.
 type FunctionDependenceMap () =
-  let g = ImperativeDiGraph<Addr, unit> () :> IGraph<Addr, unit>
+  /// A temporary graph that only contains unconfirmed edges.
+  let tg = ImperativeDiGraph<Addr, unit> () :> IGraph<Addr, unit>
 
-  let vertices = Dictionary<Addr, IVertex<Addr>> ()
+  /// Vertices in the temporary graph.
+  let tgVertices = Dictionary<Addr, IVertex<Addr>> ()
 
-  let getVertex addr =
-    match vertices.TryGetValue addr with
+  /// A complete inter-procedural call graph.
+  let cg = ImperativeDiGraph<Addr, uint> () :> IGraph<Addr, uint>
+
+  /// Vertices in the call graph.
+  let cgVertices = Dictionary<Addr, IVertex<Addr>> ()
+
+  let getTGVertex addr =
+    match tgVertices.TryGetValue addr with
     | true, v -> v
     | false, _ ->
-      let v, _ = g.AddVertex addr
-      vertices[addr] <- v
+      let v, _ = tg.AddVertex addr
+      tgVertices[addr] <- v
       v
+
+  let getCGVertex addr =
+    match cgVertices.TryGetValue addr with
+    | true, v -> v
+    | false, _ ->
+      let v, _ = cg.AddVertex addr
+      cgVertices[addr] <- v
+      v
+
+  let addResolvedDependency callee callers =
+    let calleeV = getCGVertex callee
+    callers
+    |> Array.iter (fun caller ->
+      let callerV = getCGVertex caller
+      cg.AddEdge (callerV, calleeV) |> ignore)
 
   /// Add a dependency between two functions.
   member _.AddDependency (caller: Addr, callee: Addr) =
     if caller = callee then () (* skip recursive call *)
     else
-      let callerV = getVertex caller
-      let calleeV = getVertex callee
+      let callerV = getTGVertex caller
+      let calleeV = getTGVertex callee
 #if CFGDEBUG
       dbglog ManagerTid (nameof AddDependency) $"{caller:x} -> {callee:x}"
 #endif
-      g.AddEdge (callerV, calleeV) |> ignore
+      tg.AddEdge (callerV, calleeV) |> ignore
 
-  /// Remove a callee function from the map, and return its immediate caller
-  /// functions, excluding the recursive calls.
-  member _.RemoveAndGetCallers (callee: Addr) =
-    let calleeV = getVertex callee
-    let preds = g.GetPreds calleeV
-    vertices.Remove callee |> ignore
-    g.RemoveVertex calleeV |> ignore
+  /// Mark a function as completed and returns the immediate callers of the
+  /// function excluding the recursive calls. This means we remove the function
+  /// from the temporary dependence graph. We also update the call graph only if
+  /// `isSuccessful` is true.
+  member _.MarkComplete (callee: Addr) isSuccessful =
+    let calleeV = getTGVertex callee
+    let preds = tg.GetPreds calleeV
+    tgVertices.Remove callee |> ignore
+    tg.RemoveVertex calleeV |> ignore
+    let callers =
+      preds
+      |> Array.choose (fun v ->
+        if v.VData <> callee then Some v.VData else None)
+    if isSuccessful then addResolvedDependency callee callers else ()
+    callers
+
+  /// Get the immediate **confirmed** caller functions of the given callee from
+  /// the call graph, but excluding the recursive calls.
+  member _.GetConfirmedCallers (callee: Addr) =
+    let calleeV = getCGVertex callee
+    let preds = cg.GetPreds calleeV
     preds
-    |> Seq.choose (fun v ->
+    |> Array.choose (fun v ->
       if v.VData <> callee then Some v.VData else None)
-    |> Seq.toList
 
-  /// Remove all the reachable functions from the given address.
-  member __.RemoveAllReachables (addr: Addr) =
-    let v = getVertex addr
-    let succs = g.GetSuccs v
-    vertices.Remove addr |> ignore
-    g.RemoveVertex v |> ignore
-    succs
-    |> Seq.iter (fun succ -> __.RemoveAllReachables succ.VData)
-
-  /// Get the immediate caller functions of the given callee, but excluding the
-  /// recursive calls.
-  member _.GetCallers (callee: Addr) =
-    let calleeV = getVertex callee
-    let preds = g.GetPreds calleeV
-    preds
-    |> Seq.choose (fun v ->
-      if v.VData <> callee then Some v.VData else None)
-    |> Seq.toList
-
-  /// Return an array of sets of mutually recurive nodes in the current
+  /// Return an array of sets of mutually recurive nodes in the temporary
   /// dependence graph.
   member _.GetCyclicDependencies () =
-    SCC.compute g
+    SCC.compute tg
     |> Array.choose (fun scc ->
       if scc.Count > 1 then
         let arr = Array.zeroCreate scc.Count
