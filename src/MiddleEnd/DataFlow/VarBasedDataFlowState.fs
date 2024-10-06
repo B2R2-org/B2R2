@@ -79,6 +79,7 @@ type SparseState<'Lattice> = {
 
 type PhiInfo = Dictionary<VarKind, Set<DefSite.DefSite>>
 
+[<AllowNullLiteral>]
 type VarBasedDataFlowState<'Lattice>
   public (hdl, analysis: IVarBasedDataFlowAnalysis<'Lattice>) =
 
@@ -322,7 +323,7 @@ type VarBasedDataFlowState<'Lattice>
       let e2 = translateToSSAExpr pp e2
       SSA.BinOp (binOpType, rt, e1, e2)
     | RelOp (relOpType, e1, e2) ->
-      let rt = LowUIR.TypeCheck.typeOf e1
+      let rt = TypeCheck.typeOf e1
       let e1 = translateToSSAExpr pp e1
       let e2 = translateToSSAExpr pp e2
       SSA.RelOp (relOpType, rt, e1, e2)
@@ -330,7 +331,7 @@ type VarBasedDataFlowState<'Lattice>
       let e = translateToSSAExpr pp e
       SSA.Extract (e, rt, startPos)
     | UnOp (unOpType, e) ->
-      let rt = LowUIR.TypeCheck.typeOf e
+      let rt = TypeCheck.typeOf e
       let e = translateToSSAExpr pp e
       SSA.UnOp (unOpType, rt, e)
     | Cast (castKind, rt, e) ->
@@ -340,7 +341,7 @@ type VarBasedDataFlowState<'Lattice>
     | Nil -> SSA.Nil
     | Undefined (rt, s) -> SSA.Undefined (rt, s)
     | Ite (e1, e2, e3) ->
-      let rt = LowUIR.TypeCheck.typeOf e2
+      let rt = TypeCheck.typeOf e2
       let e1 = translateToSSAExpr pp e1
       let e2 = translateToSSAExpr pp e2
       let e3 = translateToSSAExpr pp e3
@@ -348,8 +349,8 @@ type VarBasedDataFlowState<'Lattice>
     | _ -> Utils.impossible ()
 
   let translateLabel addr = function
-    | LowUIR.Name symb -> addr, symb
-    | LowUIR.Undefined (_, s) -> addr, (s, -1)
+    | Name symb -> addr, symb
+    | Undefined (_, s) -> addr, (s, -1)
     | _ -> raise InvalidExprException
 
   let tryTranslateStmtToSSA pp stmt =
@@ -374,7 +375,7 @@ type VarBasedDataFlowState<'Lattice>
       | _ ->
         let prevMemVar = mkEmptySSAVar (Memory None) (* empty one *)
         let newMemVar = getSSAVar { IRProgramPoint = pp; VarKind = Memory None }
-        let rt = LowUIR.TypeCheck.typeOf value
+        let rt = TypeCheck.typeOf value
         let e1 = translateToSSAExpr pp addr
         let e2 = translateToSSAExpr pp value
         let e = SSA.Store (prevMemVar, rt, e1, e2)

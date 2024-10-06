@@ -37,7 +37,7 @@ open B2R2.MiddleEnd.ControlFlowAnalysis
 module private CFGRecovery =
   let inline markVertexForAnalysis useSSA ctx vid =
     if useSSA then ()
-    else ctx.CPState.Value.PendingVertices.Add vid |> ignore
+    else ctx.CPState.PendingVertices.Add vid |> ignore
 
 /// Base strategy for building a CFG.
 type CFGRecovery<'FnCtx,
@@ -534,10 +534,10 @@ type CFGRecovery<'FnCtx,
     let jmptblAnalysis, postAnalysis =
       if useSSA then
         let ssaLifter = SSALifter () :> ICFGAnalysis<_>
-        SSAJmpTableAnalysis ssaLifter :> IJmpTableAnalyzable<_, _>,
+        JmpTableAnalysis (Some ssaLifter) :> IJmpTableAnalyzable<_, _>,
         ssaLifter <+> CondAwareNoretAnalysis ()
       else
-        JmpTableAnalysis () :> IJmpTableAnalyzable<_, _>,
+        JmpTableAnalysis None :> IJmpTableAnalyzable<_, _>,
         CondAwareNoretAnalysis ()
     CFGRecovery (summarizer,
                  jmptblAnalysis,

@@ -47,7 +47,7 @@ type ExternalFnCFGBuilder<'FnCtx,
       Vertices = Dictionary ()
       AbsVertices = Dictionary ()
       CFG = null
-      CPState = None
+      CPState = null
       BBLFactory = BBLFactory (hdl, null)
       ForceFinish = false
       NonReturningStatus = noretStatus

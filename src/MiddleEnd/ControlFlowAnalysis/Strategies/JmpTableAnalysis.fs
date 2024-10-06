@@ -39,24 +39,34 @@ type private L = ConstantDomain.Lattice
 type JmpTableAnalysis<'FnCtx,
                       'GlCtx when 'FnCtx :> IResettable
                               and 'FnCtx: (new: unit -> 'FnCtx)
-                              and 'GlCtx: (new: unit -> 'GlCtx)> () =
-  let rec findJumpExpr state g vFst = function
-    | (v: IVertex<LowUIRBasicBlock>) :: vs ->
-      let ssaStmts = (state: VarBasedDataFlowState<_>).TranslateToSSA g v
-      match Array.last ssaStmts with
+                              and 'GlCtx: (new: unit -> 'GlCtx)>
+  public (ssaLifter: ICFGAnalysis<unit -> SSACFG> option) =
+
+  let rec findJumpExpr stmExtractor (g: IGraph<_, _>) vFst = function
+    | (v: IVertex<_>) :: vs ->
+      match stmExtractor g v with
       | Jmp (InterJmp jmpExpr) -> Ok jmpExpr
       | _ ->
         let vs =
           g.GetSuccs v
           |> Seq.fold (fun acc succ ->
             if succ <> vFst then succ :: acc else acc) vs
-        findJumpExpr state g vFst vs
+        findJumpExpr stmExtractor g vFst vs
     | [] -> Error ErrorCase.ItemNotFound
 
-  let findIndBranchExpr state (g: LowUIRCFG) addr =
-    let v = g.FindVertexBy (fun v -> v.VData.Internals.BlockAddress = addr)
+  let findIndBranchExprFromIRCFG state (g: LowUIRCFG) addr =
     (* Since there could be multiple SSA vertices, search for the right one. *)
-    findJumpExpr state g v [ v ]
+    let v = g.FindVertexBy (fun v -> v.VData.Internals.BlockAddress = addr)
+    let stmExtractor g v =
+      (state: VarBasedDataFlowState<_>).TranslateToSSA g v |> Array.last
+    findJumpExpr stmExtractor g v [ v ]
+
+  let findIndBranchExprFromSSACFG (ssaCFG: SSACFG) addr =
+    (* Since there could be multiple SSA vertices, search for the right one. *)
+    let v = ssaCFG.FindVertexBy (fun v -> v.VData.Internals.BlockAddress = addr)
+    let stmExtractor _ (v: IVertex<SSABasicBlock>) =
+      v.VData.Internals.LastStmt
+    findJumpExpr stmExtractor ssaCFG v [ v ]
 
   let rec simplify = function
     | Load (v, rt, e) -> Load (v, rt, simplify e)
@@ -84,43 +94,36 @@ type JmpTableAnalysis<'FnCtx,
     | Extract (e, rt, pos) -> Extract (simplify e, rt, pos)
     | expr -> expr
 
-  let rec foldWithConstant (state: VarBasedDataFlowState<_>) e =
+  let rec constantFold findConstant findDef e =
     match e with
     | Var v when v.Identifier <> 0 ->
-      let vp = state.SSAVarToVp[v]
-      match state.GetAbsValue vp with
+      match findConstant v with
       | ConstantDomain.Const bv -> Num bv
       | _ ->
-        let isPhiVar =
-          match vp.IRProgramPoint with
-          | IRPPReg pp -> pp.Position = -1
-          | IRPPAbs (_, _, -1) -> true
-          | _ -> false
-        if isPhiVar then e
-        else
-          let pp = vp.IRProgramPoint
-          let _, stmt = state.PpToStmt[pp]
-          let ssaStmt = state.TryTranslateStmtToSSA pp stmt |> Option.get
-          match ssaStmt with
-          | Def (_, e) -> foldWithConstant state e
-          | _ -> Utils.impossible ()
-    | Load (m, rt, addr) -> Load (m, rt, foldWithConstant state addr)
-    | UnOp (op, rt, e) -> UnOp (op, rt, foldWithConstant state e)
+        match findDef v with
+        | Some (Def (_, e)) -> constantFold findConstant findDef e
+        | _ -> e
+    | Load (m, rt, addr) ->
+      Load (m, rt, constantFold findConstant findDef addr)
+    | UnOp (op, rt, e) ->
+      UnOp (op, rt, constantFold findConstant findDef e)
     | BinOp (op, rt, e1, e2) ->
-      let e1 = foldWithConstant state e1
-      let e2 = foldWithConstant state e2
+      let e1 = constantFold findConstant findDef e1
+      let e2 = constantFold findConstant findDef e2
       BinOp (op, rt, e1, e2) |> simplify
     | RelOp (op, rt, e1, e2) ->
-      let e1 = foldWithConstant state e1
-      let e2 = foldWithConstant state e2
+      let e1 = constantFold findConstant findDef e1
+      let e2 = constantFold findConstant findDef e2
       RelOp (op, rt, e1, e2)
     | Ite (e1, rt, e2, e3) ->
-      let e1 = foldWithConstant state e1
-      let e2 = foldWithConstant state e2
-      let e3 = foldWithConstant state e3
+      let e1 = constantFold findConstant findDef e1
+      let e2 = constantFold findConstant findDef e2
+      let e3 = constantFold findConstant findDef e3
       Ite (e1, rt, e2, e3)
-    | Cast (op, rt, e) -> Cast (op, rt, foldWithConstant state e)
-    | Extract (e, rt, pos) -> Extract (foldWithConstant state e, rt, pos)
+    | Cast (op, rt, e) ->
+      Cast (op, rt, constantFold findConstant findDef e)
+    | Extract (e, rt, pos) ->
+      Extract (constantFold findConstant findDef e, rt, pos)
     | e -> e
 
   let rec isJmpTable t = function
@@ -144,24 +147,24 @@ type JmpTableAnalysis<'FnCtx,
       BinOp (op, rt, extractTableExpr e1, extractTableExpr e2)
     | e -> e
 
-  let extractBaseAddr state expr =
-    foldWithConstant state expr
+  let extractBaseAddr findConstant findDef expr =
+    constantFold findConstant findDef expr
     |> simplify
     |> function
       | Num b -> Ok <| BitVector.ToUInt64 b
       | _ -> Error ErrorCase.ItemNotFound
 
-  let extractTableAddr state memExpr =
+  let extractTableAddr findConstant findDef memExpr =
     memExpr
     |> extractTableExpr
-    |> foldWithConstant state
+    |> constantFold findConstant findDef
     |> function
       | Num t -> Ok <| BitVector.ToUInt64 t
       | _ -> Error ErrorCase.ItemNotFound
 
-  let extractTblInfo state insAddr baseExpr tblExpr rt =
-    let baseAddr = extractBaseAddr state baseExpr
-    let tblAddr = extractTableAddr state tblExpr
+  let extractTblInfo findConstant findDef insAddr baseExpr tblExpr rt =
+    let baseAddr = extractBaseAddr findConstant findDef baseExpr
+    let tblAddr = extractTableAddr findConstant findDef tblExpr
     match baseAddr, tblAddr with
     | Ok baseAddr, Ok tblAddr ->
       Ok { InsAddr = insAddr
@@ -171,98 +174,87 @@ type JmpTableAnalysis<'FnCtx,
            NumEntries = 0 }
     | _ -> Error ErrorCase.ItemNotFound
 
-  let detect state iAddr = function
+  let detect findConstant findDef iAddr = function
     | BinOp (BinOpType.ADD, _, Num b, Load (_, t, memExpr))
     | BinOp (BinOpType.ADD, _, Load (_, t, memExpr), Num b)
     | BinOp (BinOpType.ADD, _, Num b, Cast (_, _, Load (_, t, memExpr)))
     | BinOp (BinOpType.ADD, _, Cast (_, _, Load (_, t, memExpr)), Num b) ->
       if isJmpTable t memExpr then
-        extractTblInfo state iAddr (Num b) memExpr t
+        extractTblInfo findConstant findDef iAddr (Num b) memExpr t
       else Error ErrorCase.ItemNotFound
     | BinOp (BinOpType.ADD, _, (Load (_, _, e1) as m1),
                                (Load (_, t, e2) as m2)) ->
-      if isJmpTable t e1 then extractTblInfo state iAddr m2 e1 t
-      elif isJmpTable t e2 then extractTblInfo state iAddr m1 e2 t
-      else Error ErrorCase.ItemNotFound
+      if isJmpTable t e1 then
+        extractTblInfo findConstant findDef iAddr m2 e1 t
+      elif isJmpTable t e2 then
+        extractTblInfo findConstant findDef iAddr m1 e2 t
+      else
+        Error ErrorCase.ItemNotFound
     | BinOp (BinOpType.ADD, _, baseExpr, Load (_, t, tblExpr))
     | BinOp (BinOpType.ADD, _, Load (_, t, tblExpr), baseExpr) ->
       if isJmpTable t tblExpr then
-        extractTblInfo state iAddr baseExpr tblExpr t
+        extractTblInfo findConstant findDef iAddr baseExpr tblExpr t
       else Error ErrorCase.ItemNotFound
     | Load (_, t, memExpr)
     | Cast (_, _, Load (_, t, memExpr)) ->
       if isJmpTable t memExpr then
         let zero = BitVector.Zero t
-        extractTblInfo state iAddr (Num zero) memExpr t
+        extractTblInfo findConstant findDef iAddr (Num zero) memExpr t
       else Error ErrorCase.ItemNotFound
     | _ -> Error ErrorCase.ItemNotFound
-
-  let setPpZeroPosition = function
-    | IRPPReg pp -> IRPPReg <| ProgramPoint (pp.Address, 0)
-    | IRPPAbs (cs, fn, _) -> IRPPAbs (cs, fn, 0)
-
-  let expandPhi state vp e =
-    match (state: VarBasedDataFlowState<_>).GetAbsValue vp with
-    | ConstantDomain.Const bv -> Num bv
-    | _ -> e
 
   /// Expand the given expression by recursively substituting the subexpressions
   /// with their definitions. The recursion stops after folloing the next
   /// definitions.
-  let rec symbolicExpand (state: VarBasedDataFlowState<_>) doNext e =
+  let rec symbExpand expandPhi findConstant findDef doNext e =
     match e with
     | Num _ -> e
+    | Var ({ Kind = PCVar _ } as v) -> (* regard PC as a constant *)
+      match findConstant v with
+      | ConstantDomain.Const bv -> Num bv
+      | _ -> e
     | Var v when v.Identifier <> 0 && doNext ->
-      let vp = state.SSAVarToVp[v]
-      let isPhiVar =
-        match vp.IRProgramPoint with
-        | IRPPReg pp -> pp.Position = -1
-        | IRPPAbs (_, _, -1) -> true
-        | _ -> false
-      if not isPhiVar then
-         let pp = vp.IRProgramPoint
-         let stmt = state.PpToStmt[pp] |> snd
-         let ssaStmt = state.TryTranslateStmtToSSA pp stmt |> Option.get
-         match ssaStmt with
-         | Def (_, e) -> symbolicExpand state false e
-         | _ -> Utils.impossible ()
-       else expandPhi state vp e
+      match findDef v with
+      | Some (Def (_, e)) ->
+        symbExpand expandPhi findConstant findDef false e
+      | Some (Phi (_, ids)) -> expandPhi findConstant v ids e
+      | _ -> e
     | Load (m, rt, addr) ->
-      let e = symbolicExpand state doNext addr
+      let e = symbExpand expandPhi findConstant findDef doNext addr
       Load (m, rt, e)
     | UnOp (op, rt, e) ->
-      let e = symbolicExpand state doNext e
+      let e = symbExpand expandPhi findConstant findDef doNext e
       UnOp (op, rt, e)
     | BinOp (op, rt, e1, e2) ->
-      let e1 = symbolicExpand state doNext e1
-      let e2 = symbolicExpand state doNext e2
+      let e1 = symbExpand expandPhi findConstant findDef doNext e1
+      let e2 = symbExpand expandPhi findConstant findDef doNext e2
       BinOp (op, rt, e1, e2)
     | RelOp (op, rt, e1, e2) ->
-      let e1 = symbolicExpand state doNext e1
-      let e2 = symbolicExpand state doNext e2
+      let e1 = symbExpand expandPhi findConstant findDef doNext e1
+      let e2 = symbExpand expandPhi findConstant findDef doNext e2
       RelOp (op, rt, e1, e2)
     | Ite (e1, rt, e2, e3) ->
-      let e1 = symbolicExpand state doNext e1
-      let e2 = symbolicExpand state doNext e2
-      let e3 = symbolicExpand state doNext e3
+      let e1 = symbExpand expandPhi findConstant findDef doNext e1
+      let e2 = symbExpand expandPhi findConstant findDef doNext e2
+      let e3 = symbExpand expandPhi findConstant findDef doNext e3
       Ite (e1, rt, e2, e3)
     | Cast (op, rt, e) ->
-      let e = symbolicExpand state doNext e
+      let e = symbExpand expandPhi findConstant findDef doNext e
       Cast (op, rt, e)
     | Extract (e, rt, pos) ->
-      let e = symbolicExpand state doNext e
+      let e = symbExpand expandPhi findConstant findDef doNext e
       Extract (e, rt, pos)
     | e -> e
 
   /// This is a practical limit for the depth of symbolic expansion.
   let [<Literal>] MaxDepth = 7
 
-  let rec findSymbolicPattern g state insAddr depth expr =
+  let rec findSymbPattern expandPhi findConstant findDef insAddr depth expr =
 #if CFGDEBUG
     dbglog ManagerTid "JumpTable"
     <| $"{insAddr:x} ({depth}): {Pp.expToString expr}"
 #endif
-    match detect state insAddr expr with
+    match detect findConstant findDef insAddr expr with
     | Ok info ->
 #if CFGDEBUG
       dbglog ManagerTid "JumpTable" "detected"
@@ -270,13 +262,65 @@ type JmpTableAnalysis<'FnCtx,
       Ok info
     | Error _ ->
       if depth < MaxDepth then
-        let expr = symbolicExpand state true expr |> simplify
-        findSymbolicPattern g state insAddr (depth + 1) expr
+        let e = symbExpand expandPhi findConstant findDef true expr |> simplify
+        findSymbPattern expandPhi findConstant findDef insAddr (depth + 1) e
       else Error ErrorCase.ItemNotFound
 
-  let analyzeSymbolically g state insAddr bblAddr =
-    match findIndBranchExpr state g bblAddr with
-    | Ok jmpExpr -> findSymbolicPattern g state insAddr 0 jmpExpr
+  let findConstantFromIRCFG (state: VarBasedDataFlowState<_>) v =
+    let vp = state.SSAVarToVp[v]
+    state.GetAbsValue vp
+
+  let findDefFromIRCFG (state: VarBasedDataFlowState<_>) v =
+    let vp = state.SSAVarToVp[v]
+    match vp.IRProgramPoint with
+    | IRPPReg pp when pp.Position = -1 -> None
+    | IRPPAbs (_, _, -1) -> None
+    | _ ->
+      let pp = vp.IRProgramPoint
+      let stmt = state.PpToStmt[pp] |> snd
+      state.TryTranslateStmtToSSA pp stmt
+
+  let expandPhiFromIRCFG findConstant v _ e =
+    match findConstant v with
+    | ConstantDomain.Const bv -> Num bv
+    | _ -> e
+
+  let analyzeSymbolicallyWithIRCFG g state insAddr bblAddr =
+    match findIndBranchExprFromIRCFG state g bblAddr with
+    | Ok jmpExpr ->
+      let findConstant = findConstantFromIRCFG state
+      let findDef = findDefFromIRCFG state
+      findSymbPattern expandPhiFromIRCFG findConstant findDef insAddr 0 jmpExpr
+    | Error e -> Error e
+
+  let findConstantFromSSACFG (state: SSAVarBasedDataFlowState<_>) v =
+      state.GetRegValue v
+
+  let findDefFromSSACFG (state: SSAVarBasedDataFlowState<_>) v =
+    match state.SSAEdges.Defs.TryGetValue v with
+    | true, def -> Some def
+    | false, _ -> None
+
+  let varToBV findConstant var id =
+    let v = { var with Identifier = id }
+    match findConstant v with
+    | ConstantDomain.Const bv -> Some bv
+    | _ -> None
+
+  let expandPhiFromSSACFG findConstant var ids e =
+    let bvs = ids |> Array.map (fun id -> varToBV findConstant var id)
+    match bvs[0] with
+    | Some hd ->
+      if bvs |> Array.forall (fun bv -> bv = Some hd) then Num hd
+      else e
+    | None -> e
+
+  let analyzeSymbolicallyWithSSACFG ssaCFG state insAddr bblAddr =
+    match findIndBranchExprFromSSACFG ssaCFG bblAddr with
+    | Ok jmpExpr ->
+      let findConstant = findConstantFromSSACFG state
+      let findDef = findDefFromSSACFG state
+      findSymbPattern expandPhiFromSSACFG findConstant findDef insAddr 0 jmpExpr
     | Error e -> Error e
 
   let checkValidity (ctx: CFGBuildingContext<'FnCtx, 'GlCtx>) result =
@@ -288,10 +332,18 @@ type JmpTableAnalysis<'FnCtx,
 
   interface IJmpTableAnalyzable<'FnCtx, 'GlCtx> with
     member _.Identify ctx insAddr bblAddr =
-      let cp = ConstantPropagation ctx.BinHandle
-      let dfa = cp :> IDataFlowAnalysis<_, _, _, _>
-      let state = Option.get ctx.CPState
-      let state = dfa.Compute ctx.CFG state
-      let g = ctx.CFG
-      analyzeSymbolically g state insAddr bblAddr
-      |> checkValidity ctx
+      match ssaLifter with
+      | Some ssaLifter ->
+        let ssaCFG = ssaLifter.Unwrap { Context = ctx } ()
+        let cp = SSAConstantPropagation ctx.BinHandle
+        let dfa = cp :> IDataFlowAnalysis<_, _, _, _>
+        let state = dfa.InitializeState []
+        let state = dfa.Compute ssaCFG state
+        analyzeSymbolicallyWithSSACFG ssaCFG state insAddr bblAddr
+        |> checkValidity ctx
+      | None ->
+        let cp = ConstantPropagation ctx.BinHandle
+        let dfa = cp :> IDataFlowAnalysis<_, _, _, _>
+        let state = dfa.Compute ctx.CFG ctx.CPState
+        analyzeSymbolicallyWithIRCFG ctx.CFG state insAddr bblAddr
+        |> checkValidity ctx

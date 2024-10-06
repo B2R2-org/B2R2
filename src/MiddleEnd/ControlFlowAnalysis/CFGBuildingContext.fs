@@ -52,7 +52,7 @@ type CFGBuildingContext<'FnCtx,
   /// The control flow graph in LowUIR.
   mutable CFG: LowUIRCFG
   /// The state of constant propagation.
-  CPState: VarBasedDataFlowState<ConstantDomain.Lattice> option
+  CPState: VarBasedDataFlowState<ConstantDomain.Lattice>
   /// The basic block factory.
   BBLFactory: BBLFactory
   /// Do not wait for callee functions to be built, and finish building this
@@ -104,9 +104,7 @@ with
     __.PendingActions.Clear ()
     __.CallerVertices.Clear ()
     __.UserContext.Reset ()
-    match __.CPState with
-    | None -> ()
-    | Some cpState -> cpState.Reset ()
+    if isNull __.CPState then () else __.CPState.Reset ()
 
 /// Call edge from its callsite address to the callee's address. This is to
 /// uniquely identify call edges for abstracted vertices. We create an abstract

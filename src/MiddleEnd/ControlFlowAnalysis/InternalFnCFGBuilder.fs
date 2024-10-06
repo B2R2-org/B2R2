@@ -112,7 +112,7 @@ type InternalFnCFGBuilder<'FnCtx,
         Vertices = Dictionary ()
         AbsVertices = Dictionary ()
         CFG = cfg
-        CPState = Some cpState
+        CPState = cpState
         BBLFactory = bblFactory
         ForceFinish = false
         NonReturningStatus = UnknownNoRet
