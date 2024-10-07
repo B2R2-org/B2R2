@@ -349,7 +349,12 @@ type VarBasedDataFlowState<'Lattice>
     | Undefined (_, s) -> addr, (s, -1)
     | _ -> raise InvalidExprException
 
-  let tryTranslateStmtToSSA pp stmt =
+  let isPhiPp pp =
+    match pp with
+    | IRPPReg pp -> pp.Position = -1
+    | IRPPAbs (_, _, i) -> i = -1
+
+  let tryTranslateNonPhiToSSAStmt pp stmt =
     match stmt.S with
     | Put (dst, src) ->
       let vk = VarKind.ofIRExpr dst
@@ -411,8 +416,7 @@ type VarBasedDataFlowState<'Lattice>
       getSSAVarFromDefSite defSite varKind |> fun v -> v.Identifier)
     |> Seq.toArray
 
-  let insertPhis phiInfo addr acc =
-    let pp = IRPPReg <| ProgramPoint (addr, -1)
+  let insertPhis phiInfo pp acc =
     phiInfo |> Seq.fold (fun acc (KeyValue (vk, defSites)) ->
       let var = getSSAVar { IRProgramPoint = pp; VarKind = vk }
       let ids = convertDefSitesToIds defSites vk
@@ -420,17 +424,37 @@ type VarBasedDataFlowState<'Lattice>
 
   let translateToSSA g (v: IVertex<LowUIRBasicBlock>) =
     let ssaStmts =
-      if phiInfos.ContainsKey v.ID then
-        let addr = v.VData.Internals.PPoint.Address
-        insertPhis phiInfos[v.ID] addr []
-      else []
+      if not <| phiInfos.ContainsKey v.ID then []
+      else insertPhis phiInfos[v.ID] vidToPp[v.ID] []
     getStatements g v
     |> Array.fold (fun ssaStmts (pp, irStmt) ->
-      match tryTranslateStmtToSSA pp irStmt with
+      match tryTranslateNonPhiToSSAStmt pp irStmt with
       | None -> ssaStmts
       | Some ssaStmt -> ssaStmt :: ssaStmts) ssaStmts
     |> List.rev
     |> Array.ofList
+
+  let tryTranslatePhiToSSAStmt vp =
+    let pp =
+      match vp.IRProgramPoint with
+      | IRPPReg pp -> IRPPReg <| ProgramPoint (pp.Address, 0)
+      | IRPPAbs (cs, fn, _) -> IRPPAbs (cs, fn, 0)
+    let vid, _ = ppToStmt[pp]
+    let phiInfo = phiInfos[vid]
+    let varKind = vp.VarKind
+    let defSites = phiInfo[varKind]
+    let var = getSSAVar vp
+    let ids = convertDefSitesToIds defSites varKind
+    SSA.Phi (var, ids)
+    |> Some
+
+  let tryTranslateToSSAStmt vp =
+    if not <| isPhiPp vp.IRProgramPoint then (* non-phi *)
+      let pp = vp.IRProgramPoint
+      let stmt = snd ppToStmt[pp]
+      tryTranslateNonPhiToSSAStmt pp stmt
+    else (* phi *)
+      tryTranslatePhiToSSAStmt vp
 
   let mutable times = (0L, 0L, 0L, 0L)
 
@@ -450,7 +474,7 @@ type VarBasedDataFlowState<'Lattice>
 
   member __.TranslateToSSA g v = translateToSSA g v
 
-  member __.TryTranslateStmtToSSA pp stmt = tryTranslateStmtToSSA pp stmt
+  member __.TryTranslateToSSAStmt vp = tryTranslateToSSAStmt vp
 
   member __.PendingVertices with get () = pendingVertices
 

@@ -271,14 +271,7 @@ type JmpTableAnalysis<'FnCtx,
     state.GetAbsValue vp
 
   let findDefFromIRCFG (state: VarBasedDataFlowState<_>) v =
-    let vp = state.SSAVarToVp[v]
-    match vp.IRProgramPoint with
-    | IRPPReg pp when pp.Position = -1 -> None
-    | IRPPAbs (_, _, -1) -> None
-    | _ ->
-      let pp = vp.IRProgramPoint
-      let stmt = state.PpToStmt[pp] |> snd
-      state.TryTranslateStmtToSSA pp stmt
+    state.TryTranslateToSSAStmt state.SSAVarToVp[v]
 
   let expandPhiFromIRCFG findConstant v _ e =
     match findConstant v with
