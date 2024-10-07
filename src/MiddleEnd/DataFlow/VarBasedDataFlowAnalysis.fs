@@ -356,11 +356,10 @@ type VarBasedDataFlowAnalysis<'Lattice>
       | None -> false
       | Some vid -> sparseState.ExecutedVertices.Contains vid
 
-  let updateAbsValue sparseState defUseMap vp prev curr =
+  let updateAbsValue sparseState defUseMap vp defSite prev curr =
     if sparseState.Subsume prev curr then ()
     else
       sparseState.SetAbsValue vp <| sparseState.Join prev curr
-      let defSite = DefSite.Single vp.IRProgramPoint
       match (defUseMap: Dictionary<_, _>).TryGetValue defSite with
       | false, _ -> ()
       | true, defSites -> Set.iter sparseState.DefSiteQueue.Enqueue defSites
@@ -384,7 +383,8 @@ type VarBasedDataFlowAnalysis<'Lattice>
         let prevConst = state.GetStackPointer vp
         let sparseState = state.StackPointerSparseState
         let defUseMap = state.DefUseMap
-        updateAbsValue sparseState defUseMap vp prevConst currConst
+        let defSite = DefSite.Single pp
+        updateAbsValue sparseState defUseMap vp defSite prevConst currConst
     | _ -> ()
 
   let transferLattice state (pp, stmt) =
@@ -396,7 +396,8 @@ type VarBasedDataFlowAnalysis<'Lattice>
       let curr = analysis.EvalExpr state pp src
       let sparseState = state.DomainSparseState
       let defUseMap = state.DefUseMap
-      updateAbsValue sparseState defUseMap vp prev curr
+      let defSite = DefSite.Single pp
+      updateAbsValue sparseState defUseMap vp defSite prev curr
     | Store (_, addr, value) ->
       match state.EvaluateExprToStackPointer pp addr with
       | StackPointerDomain.ConstSP bv ->
@@ -407,7 +408,8 @@ type VarBasedDataFlowAnalysis<'Lattice>
         let curr = analysis.EvalExpr state pp value
         let sparseState = state.DomainSparseState
         let defUseMap = state.DefUseMap
-        updateAbsValue sparseState defUseMap vp prev curr
+        let defSite = DefSite.Single pp
+        updateAbsValue sparseState defUseMap vp defSite prev curr
       | _ -> ()
     | _ -> ()
 
@@ -427,7 +429,7 @@ type VarBasedDataFlowAnalysis<'Lattice>
               |> sparseState.GetAbsValue
               |> sparseState.Join c) sparseState.Bottom
         let defUseMap = (state: VarBasedDataFlowState<_>).DefUseMap
-        updateAbsValue sparseState defUseMap vp prev curr)
+        updateAbsValue sparseState defUseMap vp defSite prev curr)
 
   let processDefSite g state sparseState fnTransfer =
     match sparseState.DefSiteQueue.TryDequeue () with

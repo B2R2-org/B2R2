@@ -186,17 +186,13 @@ type VarBasedDataFlowState<'Lattice>
   let rec evaluateExprToStackPointer pp (e: Expr) =
     match e.E with
     | Num bv -> StackPointerDomain.ConstSP bv
-    | Var _ | TempVar _ ->
-      let varKind = VarKind.ofIRExpr e
-      match evaluateStackPointer varKind pp with
-      | StackPointerDomain.Undef -> getInitialStackPointer varKind
-      | c -> c
+    | Var _ | TempVar _ -> evaluateStackPointer (VarKind.ofIRExpr e) pp
     | Load (_, _, addr) ->
       match evaluateExprToStackPointer pp addr with
       | StackPointerDomain.ConstSP bv ->
         let addr = BitVector.ToUInt64 bv
         evaluateStackPointer (Memory (Some addr)) pp
-      | _ -> StackPointerDomain.NotConstSP
+      | c -> c
     | BinOp (binOpType, _, e1, e2) ->
       let v1 = evaluateExprToStackPointer pp e1
       let v2 = evaluateExprToStackPointer pp e2

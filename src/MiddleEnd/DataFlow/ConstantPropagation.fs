@@ -108,8 +108,7 @@ type ConstantPropagation =
         let bv = BitVector.OfUInt64 addr rt
         ConstantDomain.Const bv
       | Num bv -> ConstantDomain.Const bv
-      | Var (_, rid, _) -> evaluateVarPoint state pp (Regular rid)
-      | TempVar (_, n) -> evaluateVarPoint state pp (Temporary n)
+      | Var _ | TempVar _ -> evaluateVarPoint state pp (VarKind.ofIRExpr e)
       | Load (_m, rt, addr) ->
         match state.EvaluateExprToStackPointer pp addr with
         | StackPointerDomain.ConstSP bv ->
@@ -121,7 +120,8 @@ type ConstantPropagation =
           | ConstantDomain.Const bv when bv.Length > rt ->
             ConstantDomain.Const <| BitVector.Extract (bv, rt, 0)
           | _ -> c
-        | _ -> ConstantDomain.Undef
+        | StackPointerDomain.NotConstSP -> ConstantDomain.NotAConst
+        | StackPointerDomain.Undef -> ConstantDomain.Undef
       | UnOp (op, e) ->
         evaluateExpr state pp e
         |> evalUnOp op
