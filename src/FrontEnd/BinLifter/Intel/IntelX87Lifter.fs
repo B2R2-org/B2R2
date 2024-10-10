@@ -298,10 +298,10 @@ let ffst (ins: InsInfo) insLen ctxt doPop =
 
 let fild ins insLen ctxt =
   let ir = !*ctxt
+  !<ir insLen
   let struct (st0b, st0a) = getFPUPseudoRegVars ctxt R.ST0
   let oprExpr = transOneOpr ir ins insLen ctxt
   let tmpB, tmpA = !+ir 16<rt>, !+ir 64<rt>
-  !<ir insLen
   !?ir
     (castTo80Bit ctxt tmpB tmpA (AST.cast CastKind.SIntToFloat 64<rt> oprExpr))
   !?ir (pushFPUStack ctxt)
