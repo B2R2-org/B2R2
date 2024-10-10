@@ -44,6 +44,8 @@ type ProgramPoint private (addr, pos, callsite) =
   /// vertex.
   member __.CallSite with get(): Addr option = callsite
 
+  member __.WithPosition (pos) = ProgramPoint (addr, pos, callsite)
+
   override __.Equals (o) =
     match o with
     | :? ProgramPoint as o ->
