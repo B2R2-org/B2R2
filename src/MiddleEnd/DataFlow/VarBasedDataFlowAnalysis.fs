@@ -40,13 +40,6 @@ module private Chains =
     | false, _ -> state.DefUseMap[defSite] <- Set.singleton useSitePp
     | true, useSites -> state.DefUseMap[defSite] <- Set.add useSitePp useSites
 
-  let updateDefUseChainWithPhi state defSite usePhiVid =
-    let usePp = (state: VarBasedDataFlowState<_>).VidToPp[usePhiVid]
-    let usePp = usePp.WithPosition -1
-    match state.DefUseMap.TryGetValue defSite with
-    | false, _ -> state.DefUseMap[defSite] <- Set.singleton usePp
-    | true, useSites -> state.DefUseMap[defSite] <- Set.add usePp useSites
-
   let updateUseDefChain state defSite useSitePp varKind =
     let vp = { ProgramPoint = useSitePp; VarKind = varKind }
     (state: VarBasedDataFlowState<_>).UseDefMap[vp] <- defSite
@@ -217,7 +210,9 @@ module private Chains =
           let currDefSites = Set.add defSite prevDefSites
           phiInfo[varKind] <- currDefSites
           (* And, update the def-use chain. *)
-          updateDefUseChainWithPhi state defSite child.ID)
+          let usePp = state.VidToPp[child.ID]
+          assert (state.PhiInfos.ContainsKey child.ID)
+          updateDefUseChain state defSite usePp)
 
   let rec rename g state domTree inM (visited: HashSet<_>) v =
     let vid = (v: IVertex<_>).ID
@@ -230,7 +225,8 @@ module private Chains =
       | false, _ -> inM
       | true, phiInfo ->
         phiInfo |> Seq.fold (fun m (KeyValue (varKind, _defSites)) ->
-          let pp = state.VidToPp[v.ID].WithPosition -1
+          let pp = state.VidToPp[v.ID]
+          assert (state.PhiInfos.ContainsKey v.ID)
           Map.add varKind pp m) inM
     (* Execute the statements. *)
     let outM = stmts |> Array.fold (executeStmt state) inM
@@ -316,14 +312,9 @@ type VarBasedDataFlowAnalysis<'Lattice>
     || hdl.RegisterFactory.IsFramePointer rid
 
   let isExecuted state sparseState defPp =
-    if (defPp: ProgramPoint).Position <> -1 then
-      match (state: VarBasedDataFlowState<_>).PpToStmt.TryGetValue defPp with
-      | false, _ -> None
-      | true, (vid, _) -> Some vid
-    else state.PpToStmt[defPp.WithPosition 0] |> fst |> Some
-    |> function
-      | None -> false
-      | Some vid -> sparseState.ExecutedVertices.Contains vid
+    match (state: VarBasedDataFlowState<_>).PpToStmt.TryGetValue defPp with
+    | false, _ -> false
+    | true, (vid, _) -> sparseState.ExecutedVertices.Contains vid
 
   let updateAbsValue sparseState defUseMap vp defSite prev curr =
     if sparseState.Subsume prev curr then ()
@@ -379,6 +370,8 @@ type VarBasedDataFlowAnalysis<'Lattice>
       | _ -> ()
     | _ -> ()
 
+  /// TODO: do not use pp; instead, use VarPoint directly so that we can
+  /// distinguish different phi variables.
   let transferPhi state sparseState phiInfo defPp =
     phiInfo |> Seq.iter (fun (KeyValue (varKind, defPps)) ->
       let vp = { ProgramPoint = defPp; VarKind = varKind }
@@ -391,17 +384,21 @@ type VarBasedDataFlowAnalysis<'Lattice>
       let defUseMap = (state: VarBasedDataFlowState<_>).DefUseMap
       updateAbsValue sparseState defUseMap vp defPp prev curr)
 
+  let isPhiProgramPoint state pp =
+    let vid, _ = (state: VarBasedDataFlowState<_>).PpToStmt[pp]
+    let pp' = state.VidToPp[vid]
+    pp = pp'
+
   let processDefSite state sparseState fnTransfer =
     match sparseState.DefSiteQueue.TryDequeue () with
     | Some defPp when isExecuted state sparseState defPp ->
-      if defPp.Position <> -1 then (* non-phi *)
-        let stmt =
-          (state: VarBasedDataFlowState<_>).PpToStmt[defPp]
-          |> snd
-          |> Option.get
+      if not <| isPhiProgramPoint state defPp then (* non-phi *)
+        let stmt = (state: VarBasedDataFlowState<_>).PpToStmt[defPp] |> snd
         fnTransfer state (defPp, stmt)
       else (* phi *)
-        let vid = state.PpToStmt[defPp.WithPosition 0] |> fst
+        let vid = state.PpToStmt[defPp] |> fst
+        let pp' = state.VidToPp[vid]
+        assert (state.PhiInfos.ContainsKey vid)
         transferPhi state sparseState state.PhiInfos[vid] defPp
     | _ -> ()
 
@@ -409,10 +406,10 @@ type VarBasedDataFlowAnalysis<'Lattice>
     let stmts = (state: VarBasedDataFlowState<_>).GetStatements g v
     let vid = v.ID
     sparseState.ExecutedVertices.Add vid |> ignore
-    match state.PhiInfos.TryGetValue v.ID with (* Execute phis first. *)
+    match state.PhiInfos.TryGetValue vid with (* Execute phis first. *)
     | false, _ -> ()
     | true, phiInfo ->
-      let phiDefPp = state.VidToPp[vid].WithPosition -1
+      let phiDefPp = state.VidToPp[vid]
       transferPhi state sparseState phiInfo phiDefPp
     Seq.iter (fnTransfer state) stmts
     g.GetSuccs v

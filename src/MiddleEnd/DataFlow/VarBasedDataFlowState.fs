@@ -97,7 +97,7 @@ type VarBasedDataFlowState<'Lattice>
 
   let phiInfos = Dictionary<VertexID, PhiInfo> ()
 
-  let ppToStmt = Dictionary<ProgramPoint, VertexID * (Stmt option)> ()
+  let ppToStmt = Dictionary<ProgramPoint, VertexID * Stmt> ()
 
   let vidToPp = Dictionary<VertexID, ProgramPoint> ()
 
@@ -193,18 +193,21 @@ type VarBasedDataFlowState<'Lattice>
           let callSite = callerV.VData.Internals.LastInstruction.Address
           let callee = v.VData.Internals.AbstractContent.EntryPoint
           let stmts = v.VData.Internals.AbstractContent.Rundown
+          let startingPosition = 1
           Array.mapi (fun i stmt ->
-            let pp = ProgramPoint (callSite, callee, i)
-            if ppToStmt.ContainsKey pp then ppToStmt[pp] <- (v.ID, Some stmt)
-            else ppToStmt.Add (pp, (v.ID, Some stmt))
+            let pp = ProgramPoint (callSite, callee, startingPosition + i)
+            if ppToStmt.ContainsKey pp then ppToStmt[pp] <- (v.ID, stmt)
+            else ppToStmt.Add (pp, (v.ID, stmt))
             pp, stmt) stmts
         else
+          let startingPosition = v.VData.Internals.PPoint.Position
           v.VData.Internals.LiftedInstructions
           |> Array.collect (fun x ->
             x.Stmts |> Array.mapi (fun i stmt ->
-              let pp = ProgramPoint (x.Original.Address, i)
-              if ppToStmt.ContainsKey pp then ppToStmt[pp] <- (v.ID, Some stmt)
-              else ppToStmt.Add (pp, (v.ID, Some stmt))
+              if startingPosition <> 0 then ()
+              let pp = ProgramPoint (x.Original.Address, startingPosition + i)
+              if ppToStmt.ContainsKey pp then ppToStmt[pp] <- (v.ID, stmt)
+              else ppToStmt.Add (pp, (v.ID, stmt))
               pp, stmt))
       statementMemo[v.ID] <- stmts
       stmts
@@ -383,7 +386,7 @@ type VarBasedDataFlowState<'Lattice>
 
   let insertPhis phiInfo (pp: ProgramPoint) acc =
     phiInfo |> Seq.fold (fun acc (KeyValue (vk, defSites)) ->
-      let var = getSSAVar { ProgramPoint = pp.WithPosition -1; VarKind = vk }
+      let var = getSSAVar { ProgramPoint = pp; VarKind = vk }
       let ids = convertDefSitesToIds defSites vk
       SSA.Phi (var, ids) :: acc) acc
 
@@ -400,8 +403,7 @@ type VarBasedDataFlowState<'Lattice>
     |> Array.ofList
 
   let tryTranslatePhiToSSAStmt vp =
-    let pp = vp.ProgramPoint.WithPosition 0
-    let vid, _ = ppToStmt[pp]
+    let vid, _ = ppToStmt[vp.ProgramPoint]
     let phiInfo = phiInfos[vid]
     let varKind = vp.VarKind
     let defSites = phiInfo[varKind]
@@ -411,9 +413,10 @@ type VarBasedDataFlowState<'Lattice>
     |> Some
 
   let tryTranslateToSSAStmt vp =
-    if vp.ProgramPoint.Position <> -1 then (* non-phi *)
-      let pp = vp.ProgramPoint
-      let stmt = ppToStmt[pp] |> snd |> Option.get
+    let pp = vp.ProgramPoint
+    let vid, stmt = ppToStmt[pp]
+    let pp' = vidToPp[vid]
+    if pp <> pp' then (* non-phi *)
       tryTranslateNonPhiToSSAStmt vp.ProgramPoint stmt
     else (* phi *)
       tryTranslatePhiToSSAStmt vp
