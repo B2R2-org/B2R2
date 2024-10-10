@@ -28,11 +28,9 @@ open B2R2
 open B2R2.BinIR
 open B2R2.BinIR.LowUIR
 open B2R2.FrontEnd
-open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.DataFlow
 
-[<AutoOpen>]
-module private ConstantPropagation =
+module internal ConstantPropagation =
   let evalUnOp op c =
     match op with
     | UnOpType.NEG -> ConstantDomain.neg c
@@ -124,15 +122,15 @@ type ConstantPropagation =
         | StackPointerDomain.Undef -> ConstantDomain.Undef
       | UnOp (op, e) ->
         evaluateExpr state pp e
-        |> evalUnOp op
+        |> ConstantPropagation.evalUnOp op
       | BinOp (op, _, e1, e2) ->
         let c1 = evaluateExpr state pp e1
         let c2 = evaluateExpr state pp e2
-        evalBinOp op c1 c2
+        ConstantPropagation.evalBinOp op c1 c2
       | RelOp (op, e1, e2) ->
         let c1 = evaluateExpr state pp e1
         let c2 = evaluateExpr state pp e2
-        evalRelOp op c1 c2
+        ConstantPropagation.evalRelOp op c1 c2
       | Ite (e1, e2, e3) ->
         let c1 = evaluateExpr state pp e1
         let c2 = evaluateExpr state pp e2
@@ -140,7 +138,7 @@ type ConstantPropagation =
         ConstantDomain.ite c1 c2 c3
       | Cast (op, rt, e) ->
         let c = evaluateExpr state pp e
-        evalCast op rt c
+        ConstantPropagation.evalCast op rt c
       | Extract (e, rt, pos) ->
         let c = evaluateExpr state pp e
         ConstantDomain.extract c rt pos

@@ -28,10 +28,18 @@ open B2R2
 open B2R2.BinIR
 open B2R2.BinIR.LowUIR
 open B2R2.FrontEnd
-open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.DataFlow
 
-type StackPointerAnalysis =
+module internal StackPointerPropagation =
+  let evalBinOp op c1 c2 =
+    match op with
+    | BinOpType.ADD -> StackPointerDomain.add c1 c2
+    | BinOpType.SUB -> StackPointerDomain.sub c1 c2
+    | BinOpType.AND -> StackPointerDomain.``and`` c1 c2
+    | _ -> StackPointerDomain.NotConstSP
+
+
+type StackPointerPropagation =
   inherit VarBasedDataFlowAnalysis<StackPointerDomain.Lattice>
 
   new (hdl: BinHandle) =
@@ -46,17 +54,6 @@ type StackPointerAnalysis =
       match hdl.RegisterFactory.StackPointer with
       | Some spRid -> rid = spRid
       | None -> false
-
-    let isStackRelatedRegister rid =
-      hdl.RegisterFactory.IsStackPointer rid
-      || hdl.RegisterFactory.IsFramePointer rid
-
-    let evalBinOp op c1 c2 =
-      match op with
-      | BinOpType.ADD -> StackPointerDomain.add c1 c2
-      | BinOpType.SUB -> StackPointerDomain.sub c1 c2
-      | BinOpType.AND -> StackPointerDomain.``and`` c1 c2
-      | _ -> StackPointerDomain.NotConstSP
 
     let getBaseCase varKind =
       match varKind with
@@ -89,19 +86,13 @@ type StackPointerAnalysis =
       | BinOp (op, _, e1, e2) ->
         let c1 = evaluateExpr state pp e1
         let c2 = evaluateExpr state pp e2
-        evalBinOp op c1 c2
+        StackPointerPropagation.evalBinOp op c1 c2
       | RelOp _ -> StackPointerDomain.NotConstSP
       | Ite _ -> StackPointerDomain.NotConstSP
       | Cast _ -> StackPointerDomain.NotConstSP
       | Extract _ -> StackPointerDomain.NotConstSP
       | Undefined _ -> StackPointerDomain.NotConstSP
       | _ -> Utils.impossible ()
-
-    let evaluateSrcByVarKind state pp src = function
-      | Regular rid when isStackRelatedRegister rid -> evaluateExpr state pp src
-      | Regular _ -> StackPointerDomain.NotConstSP
-      | Temporary _ -> evaluateExpr state pp src
-      | _ -> StackPointerDomain.NotConstSP
 
     let analysis =
       { new IVarBasedDataFlowAnalysis<StackPointerDomain.Lattice> with

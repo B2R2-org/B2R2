@@ -177,7 +177,7 @@ type CondAwareNoretAnalysis ([<Optional; DefaultParameterValue(true)>] strict) =
 
   let collectConditionalNoRetCallsFromSSACFG ctx ssaCFG =
     let hdl = ctx.BinHandle
-    let uva = SSAUntouchedValuePropagation hdl :> IDataFlowAnalysis<_, _, _, _>
+    let uva = SSAUntouchedValueAnalysis hdl :> IDataFlowAnalysis<_, _, _, _>
     let state = lazy (uva.InitializeState [] |> uva.Compute ssaCFG)
     collectReturningCallEdges ctx
     |> List.choose (fun callEdge ->

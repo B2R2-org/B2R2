@@ -30,7 +30,7 @@ open B2R2.FrontEnd
 open B2R2.MiddleEnd.DataFlow
 open type UntouchedValueDomain.UntouchedTag
 
-type SSAUntouchedValuePropagation =
+type SSAUntouchedValueAnalysis =
   inherit SSAVarBasedDataFlowAnalysis<UntouchedValueDomain.Lattice>
 
   new (hdl: BinHandle) =

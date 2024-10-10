@@ -196,19 +196,12 @@ type PersistentDataFlowTests () =
     let state = dfa.InitializeState cfg.Vertices
     let state = dfa.Compute cfg state
     let rbp = 0x7ffffff8UL
-    [ //irReg 0x0UL 0 Register.RSP |> cmp <| mkConst 0x80000000u 64<rt>
-      //irReg 0x4UL 1 Register.RSP |> cmp <| mkConst 0x7ffffff8u 64<rt>
-      //irReg 0x5UL 0 Register.RBP |> cmp <| ConstantDomain.Undef
-      //irReg 0x5UL 1 Register.RBP |> cmp <| mkConst 0x7ffffff8u 64<rt>
-      irMem 0xbUL 1 rbp |> cmp <| ConstantDomain.Undef
+    [ irMem 0xbUL 1 rbp |> cmp <| ConstantDomain.Undef
       irMem 0x11UL 1 (rbp - 0xcUL) |> cmp <| mkConst 0x2u 32<rt>
       irMem 0x18UL 1 (rbp - 0x8UL) |> cmp <| mkConst 0x3u 32<rt>
       irMem 0x21UL 1 (rbp - 0xcUL) |> cmp <| mkConst 0x3u 32<rt>
       irMem 0x28UL 1 (rbp - 0x8UL) |> cmp <| mkConst 0x2u 32<rt>
-      irReg 0x2fUL 1 Register.RDX |> cmp <| ConstantDomain.NotAConst
-      //irReg 0x3bUL 2 Register.RSP |> cmp <| mkConst 0x80000000u 64<rt>
-      //irReg 0x3cUL 2 Register.RSP |> cmp <| mkConst 0x80000008u 64<rt>
-    ]
+      irReg 0x2fUL 1 Register.RDX |> cmp <| ConstantDomain.NotAConst ]
     |> List.iter (fun (vp, ans) ->
       let out = (state :> IDataFlowState<_, _>).GetAbsValue vp
       Assert.AreEqual (ans, out))
