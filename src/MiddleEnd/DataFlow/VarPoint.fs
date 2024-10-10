@@ -35,22 +35,6 @@ type VarPoint = {
   VarKind: VarKind
 }
 
-/// VarPoint with IRProgramPoint.
-and IRVarPoint = {
-  /// Program point of the variable.
-  IRProgramPoint: IRProgramPoint
-  /// Kind of the variable.
-  VarKind: VarKind
-}
-
-/// Special program point that expresses either (1) a regular program point or
-/// (2) a program point in an abstract vertex.
-and IRProgramPoint =
-  /// Regular program point.
-  | IRPPReg of ProgramPoint
-  /// Program point in an abstract vertex.
-  | IRPPAbs of callsite: Addr * callee: Addr * position: int
-
 /// Variable kinds of our interest.
 and VarKind =
   /// Regular variable that represents a register.

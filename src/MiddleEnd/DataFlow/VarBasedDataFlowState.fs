@@ -36,7 +36,7 @@ open B2R2.BinIR.LowUIR
 [<RequireQualifiedAccess>]
 module DefSite =
   type DefSite =
-    | Single of IRProgramPoint
+    | Single of ProgramPoint
     | Phi of VertexID
 
 type UniqueQueue<'T> () =
@@ -71,8 +71,8 @@ type SparseState<'Lattice> = {
   ExecutedVertices: HashSet<VertexID>
   DefSiteQueue: UniqueQueue<DefSite.DefSite>
   Bottom: 'Lattice
-  GetAbsValue: IRVarPoint -> 'Lattice
-  SetAbsValue: IRVarPoint -> 'Lattice -> unit
+  GetAbsValue: VarPoint -> 'Lattice
+  SetAbsValue: VarPoint -> 'Lattice -> unit
   Join: 'Lattice -> 'Lattice -> 'Lattice
   Subsume: 'Lattice -> 'Lattice -> bool
 }
@@ -83,11 +83,11 @@ type PhiInfo = Dictionary<VarKind, Set<DefSite.DefSite>>
 type VarBasedDataFlowState<'Lattice>
   public (hdl, analysis: IVarBasedDataFlowAnalysis<'Lattice>) =
 
-  let statementMemo = Dictionary<VertexID, (IRProgramPoint * Stmt) array> ()
+  let statementMemo = Dictionary<VertexID, (ProgramPoint * Stmt) array> ()
 
-  let absValues = Dictionary<IRVarPoint, 'Lattice> ()
+  let absValues = Dictionary<VarPoint, 'Lattice> ()
 
-  let stackPointers = Dictionary<IRVarPoint, StackPointerDomain.Lattice> ()
+  let stackPointers = Dictionary<VarPoint, StackPointerDomain.Lattice> ()
 
   let initialStackPointers = Dictionary<VarKind, StackPointerDomain.Lattice> ()
 
@@ -99,13 +99,13 @@ type VarBasedDataFlowState<'Lattice>
 
   let defUseMap = Dictionary<DefSite.DefSite, Set<DefSite.DefSite>> ()
 
-  let useDefMap = Dictionary<IRVarPoint, DefSite.DefSite> ()
+  let useDefMap = Dictionary<VarPoint, DefSite.DefSite> ()
 
   let phiInfos = Dictionary<VertexID, PhiInfo> ()
 
-  let ppToStmt = Dictionary<IRProgramPoint, VertexID * Stmt> ()
+  let ppToStmt = Dictionary<ProgramPoint, VertexID * Stmt> ()
 
-  let vidToPp = Dictionary<VertexID, IRProgramPoint> ()
+  let vidToPp = Dictionary<VertexID, ProgramPoint> ()
 
   let pendingVertices = HashSet<VertexID> ()
 
@@ -160,27 +160,20 @@ type VarBasedDataFlowState<'Lattice>
       let c = StackPointerDomain.ConstSP bv
       initialStackPointers[varKind] <- c
 
-  /// It converts a program point to a phi program point.
-  /// We use -1 as the index of the phi program point.
-  let convertToPhiPp pp =
-    match pp with
-    | IRPPReg pp -> IRPPReg <| ProgramPoint (pp.Address, -1)
-    | IRPPAbs (cs, fn, _) -> IRPPAbs (cs, fn, -1)
-
   let evaluateStackPointer varKind pp =
-    let vp = { IRProgramPoint = pp; VarKind = varKind }
+    let vp = { ProgramPoint = pp; VarKind = varKind }
     match (useDefMap: Dictionary<_, _>).TryGetValue vp with
     | false, _ -> getInitialStackPointer varKind
     | true, defSite ->
       match defSite with
       | DefSite.Single pp ->
-        getStackPointer <| { IRProgramPoint = pp; VarKind = varKind }
+        getStackPointer <| { ProgramPoint = pp; VarKind = varKind }
       | DefSite.Phi vid ->
         match vidToPp.TryGetValue vid with
         | false, _ -> StackPointerDomain.Undef
         | true, pp ->
-          let phiPp = convertToPhiPp pp
-          let phiVp = { IRProgramPoint = phiPp; VarKind = varKind }
+          let phiPp = pp.WithPosition -1
+          let phiVp = { ProgramPoint = phiPp; VarKind = varKind }
           getStackPointer phiVp
 
   let rec evaluateExprToStackPointer pp (e: Expr) =
@@ -217,27 +210,27 @@ type VarBasedDataFlowState<'Lattice>
           let callee = v.VData.Internals.AbstractContent.EntryPoint
           let stmts = v.VData.Internals.AbstractContent.Rundown
           Array.mapi (fun i stmt ->
-            let irpp = IRPPAbs (callSite, callee, i)
-            if ppToStmt.ContainsKey irpp then ppToStmt[irpp] <- (v.ID, stmt)
-            else ppToStmt.Add (irpp, (v.ID, stmt))
-            irpp, stmt) stmts
+            let pp = ProgramPoint (callSite, callee, i)
+            if ppToStmt.ContainsKey pp then ppToStmt[pp] <- (v.ID, stmt)
+            else ppToStmt.Add (pp, (v.ID, stmt))
+            pp, stmt) stmts
         else
           v.VData.Internals.LiftedInstructions
           |> Array.collect (fun x ->
             x.Stmts |> Array.mapi (fun i stmt ->
-              let irpp = IRPPReg <| ProgramPoint (x.Original.Address, i)
-              if ppToStmt.ContainsKey irpp then ppToStmt[irpp] <- (v.ID, stmt)
-              else ppToStmt.Add (irpp, (v.ID, stmt))
-              irpp, stmt))
+              let pp = ProgramPoint (x.Original.Address, i)
+              if ppToStmt.ContainsKey pp then ppToStmt[pp] <- (v.ID, stmt)
+              else ppToStmt.Add (pp, (v.ID, stmt))
+              pp, stmt))
       statementMemo[v.ID] <- stmts
       stmts
     | Some stmts -> stmts
 
-  let vpToSSAVar = Dictionary<IRVarPoint, SSA.Variable> ()
+  let vpToSSAVar = Dictionary<VarPoint, SSA.Variable> ()
 
   let vkToFreshId = Dictionary<VarKind, int> ()
 
-  let ssaVarToVp = Dictionary<SSA.Variable, IRVarPoint> ()
+  let ssaVarToVp = Dictionary<SSA.Variable, VarPoint> ()
 
   let getNewVarId vk =
     match vkToFreshId.TryGetValue vk with
@@ -279,26 +272,25 @@ type VarBasedDataFlowState<'Lattice>
   let getSSAVarFromDefSite defSite varKind =
     match defSite with
     | DefSite.Single pp ->
-      getSSAVar { IRProgramPoint = pp; VarKind = varKind }
+      getSSAVar { ProgramPoint = pp; VarKind = varKind }
     | DefSite.Phi vid ->
-      let pp = convertToPhiPp vidToPp[vid]
-      getSSAVar { IRProgramPoint = pp; VarKind = varKind }
+      let pp = vidToPp[vid].WithPosition -1
+      getSSAVar { ProgramPoint = pp; VarKind = varKind }
 
   let mkEmptySSAVar vk = { SSA.Kind = toSSAVarKind vk; SSA.Identifier = 0 }
 
   let getSSAVarFromUse pp vk =
-    let vp = { IRProgramPoint = pp; VarKind = vk }
+    let vp = { ProgramPoint = pp; VarKind = vk }
     match useDefMap.TryGetValue vp with
     | false, _ -> mkEmptySSAVar vp.VarKind (* coming from its caller context *)
     | true, defSite -> getSSAVarFromDefSite defSite vk
 
-  let rec translateToSSAExpr pp e =
+  let rec translateToSSAExpr (pp: ProgramPoint) e =
     match e.E with
     | Num bv -> SSA.Num bv
     | PCVar (rt, _) ->
-      match pp with
-      | IRPPReg pp -> SSA.Num <| BitVector.OfUInt64 pp.Address rt
-      | _ -> Utils.futureFeature ()
+      assert (Option.isNone pp.CallSite)
+      SSA.Num <| BitVector.OfUInt64 pp.Address rt
     | Var _ | TempVar _ ->
       let vk = VarKind.ofIRExpr e
       let ssaVar = getSSAVarFromUse pp vk
@@ -349,16 +341,13 @@ type VarBasedDataFlowState<'Lattice>
     | Undefined (_, s) -> addr, (s, -1)
     | _ -> raise InvalidExprException
 
-  let isPhiPp pp =
-    match pp with
-    | IRPPReg pp -> pp.Position = -1
-    | IRPPAbs (_, _, i) -> i = -1
+  let isPhiPp (pp: ProgramPoint) = pp.Position = -1
 
   let tryTranslateNonPhiToSSAStmt pp stmt =
     match stmt.S with
     | Put (dst, src) ->
       let vk = VarKind.ofIRExpr dst
-      let vp = { IRProgramPoint = pp; VarKind = vk }
+      let vp = { ProgramPoint = pp; VarKind = vk }
       let v = getSSAVar vp
       let e = translateToSSAExpr pp src
       SSA.Def (v, e)
@@ -368,14 +357,14 @@ type VarBasedDataFlowState<'Lattice>
       | StackPointerDomain.ConstSP bv ->
         let addr = BitVector.ToUInt64 bv
         let vk = Memory (Some addr)
-        let vp = { IRProgramPoint = pp; VarKind = vk }
+        let vp = { ProgramPoint = pp; VarKind = vk }
         let v = getSSAVar vp
         let e = translateToSSAExpr pp value
         SSA.Def (v, e)
         |> Some
       | _ ->
         let prevMemVar = mkEmptySSAVar (Memory None) (* empty one *)
-        let newMemVar = getSSAVar { IRProgramPoint = pp; VarKind = Memory None }
+        let newMemVar = getSSAVar { ProgramPoint = pp; VarKind = Memory None }
         let rt = TypeCheck.typeOf value
         let e1 = translateToSSAExpr pp addr
         let e2 = translateToSSAExpr pp value
@@ -418,7 +407,7 @@ type VarBasedDataFlowState<'Lattice>
 
   let insertPhis phiInfo pp acc =
     phiInfo |> Seq.fold (fun acc (KeyValue (vk, defSites)) ->
-      let var = getSSAVar { IRProgramPoint = pp; VarKind = vk }
+      let var = getSSAVar { ProgramPoint = pp; VarKind = vk }
       let ids = convertDefSitesToIds defSites vk
       SSA.Phi (var, ids) :: acc) acc
 
@@ -435,10 +424,7 @@ type VarBasedDataFlowState<'Lattice>
     |> Array.ofList
 
   let tryTranslatePhiToSSAStmt vp =
-    let pp =
-      match vp.IRProgramPoint with
-      | IRPPReg pp -> IRPPReg <| ProgramPoint (pp.Address, 0)
-      | IRPPAbs (cs, fn, _) -> IRPPAbs (cs, fn, 0)
+    let pp = vp.ProgramPoint.WithPosition 0
     let vid, _ = ppToStmt[pp]
     let phiInfo = phiInfos[vid]
     let varKind = vp.VarKind
@@ -449,8 +435,8 @@ type VarBasedDataFlowState<'Lattice>
     |> Some
 
   let tryTranslateToSSAStmt vp =
-    if not <| isPhiPp vp.IRProgramPoint then (* non-phi *)
-      let pp = vp.IRProgramPoint
+    if not <| isPhiPp vp.ProgramPoint then (* non-phi *)
+      let pp = vp.ProgramPoint
       let stmt = snd ppToStmt[pp]
       tryTranslateNonPhiToSSAStmt pp stmt
     else (* phi *)
@@ -529,7 +515,7 @@ type VarBasedDataFlowState<'Lattice>
     domainSparseState.ExecutedVertices.Clear ()
     domainSparseState.DefSiteQueue.Clear ()
 
-  interface IDataFlowState<IRVarPoint, 'Lattice> with
+  interface IDataFlowState<VarPoint, 'Lattice> with
     member __.GetAbsValue absLoc = getAbsValue absLoc
 
 /// The core interface for IR-based data flow analysis.
@@ -553,6 +539,6 @@ and IVarBasedDataFlowAnalysis<'Lattice> =
   /// Evaluate the given expression based on the current abstract state.
   abstract EvalExpr:
        VarBasedDataFlowState<'Lattice>
-    -> IRProgramPoint
+    -> ProgramPoint
     -> Expr
     -> 'Lattice

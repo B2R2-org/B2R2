@@ -50,7 +50,7 @@ module private Chains =
       state.DefUseMap[defSite] <- Set.add (DefSite.Phi usePhiVid) useSites
 
   let updateUseDefChain state defSite useSitePp varKind =
-    let vp = { IRProgramPoint = useSitePp; VarKind = varKind }
+    let vp = { ProgramPoint = useSitePp; VarKind = varKind }
     (state: VarBasedDataFlowState<_>).UseDefMap[vp] <- defSite
 
   let removeOldDefUses state vp pp newDefSite =
@@ -70,12 +70,12 @@ module private Chains =
     match Map.tryFind vk m with
     | None -> ()
     | Some defSite ->
-      let vp = { IRProgramPoint = pp; VarKind = vk }
+      let vp = { ProgramPoint = pp; VarKind = vk }
       removeOldDefUses state vp pp defSite
       updateDefUseChain state defSite pp
       updateUseDefChain state defSite pp vk
 
-  let rec executeExpr state m (pp: IRProgramPoint) = function
+  let rec executeExpr state m (pp: ProgramPoint) = function
     | Num (_)
     | Undefined (_)
     | FuncName (_)
@@ -144,16 +144,19 @@ module private Chains =
     | InterCJmp _ -> renameJmp state m pp stmt.S; m
     | _ -> m
 
-  let updateVidToPp g state vid=
+  let getPpFromVertex g v =
+    if (v: IVertex<LowUIRBasicBlock>).VData.Internals.IsAbstract then
+      let callerV = (g: IGraph<_, _>).GetPreds v |> Seq.exactlyOne
+      let callSite = callerV.VData.Internals.LastInstruction.Address
+      let callee = v.VData.Internals.AbstractContent.EntryPoint
+      ProgramPoint (callSite, callee, 0)
+    else
+      ProgramPoint (v.VData.Internals.PPoint.Address, 0)
+
+  let updateVidToPp g (state: VarBasedDataFlowState<_>) vid =
     let v = (g: IGraph<_, _>).FindVertexByID vid
-    (state: VarBasedDataFlowState<_>).VidToPp[vid] <-
-      if (v: IVertex<LowUIRBasicBlock>).VData.Internals.IsAbstract then
-        let callerV = g.GetPreds v |> Seq.exactlyOne
-        let callSite = callerV.VData.Internals.LastInstruction.Address
-        let callee = v.VData.Internals.AbstractContent.EntryPoint
-        IRPPAbs (callSite, callee, 0)
-      else
-        IRPPReg v.VData.Internals.PPoint
+    let pp = getPpFromVertex g v
+    state.VidToPp[vid] <- pp
 
   let collectDefsFromStmt state defs (pp, stmt) =
     match stmt.S with
@@ -224,7 +227,7 @@ module private Chains =
           (* And, update the def-use chain. *)
           updateDefUseChainWithPhi state defSite child.ID)
 
-  let rec rename2 g state domTree inM (visited: HashSet<_>) v =
+  let rec rename g state domTree inM (visited: HashSet<_>) v =
     let vid = (v: IVertex<_>).ID
     assert (not <| visited.Contains vid)
     visited.Add vid |> ignore
@@ -247,15 +250,15 @@ module private Chains =
     (* Update phi information of succs. *)
     g.GetSuccs v |> Seq.iter (renamePhi state outM)
     (* Visit its sub-tree in the dominator tree. *)
-    traverseChildren2 g state domTree outM visited (Map.find v domTree)
+    traverseChildren g state domTree outM visited (Map.find v domTree)
     (* Update the intermediate chains for incremental analysis. *)
     state.IncomingDefs[v.ID] <- inM
     state.OutgoingDefs[v.ID] <- outM
 
-  and traverseChildren2 g state domTree m visited = function
+  and traverseChildren g state domTree m visited = function
     | child :: rest ->
-      rename2 g state domTree m visited child
-      traverseChildren2 g state domTree m visited rest
+      rename g state domTree m visited child
+      traverseChildren g state domTree m visited rest
     | [] -> ()
 
   let joinDefs m1 m2 =
@@ -281,7 +284,7 @@ module private Chains =
               | true, m -> m
             joinDefs m outM) Map.empty
         | true, m -> m
-      rename2 g state domTree incomingDef visited v (* traverse the sub-tree *)
+      rename g state domTree incomingDef visited v (* traverse the sub-tree *)
     else
       (* check its children too *)
       for child in Map.find v domTree do
@@ -322,13 +325,6 @@ type VarBasedDataFlowAnalysis<'Lattice>
     (hdl: BinHandle).RegisterFactory.IsStackPointer rid
     || hdl.RegisterFactory.IsFramePointer rid
 
-  let hasSameLocationExceptIndex irpp1 irpp2 =
-    match irpp1, irpp2 with
-    | IRPPReg pp1, IRPPReg pp2 -> pp1.Address = pp2.Address
-    | IRPPAbs (cs1, c1, i1), IRPPAbs (cs2, c2, i2) ->
-      cs1 = cs2 && c1 = c2 && i1 = i2
-    | _ -> false
-
   let tryGetPpFromDefSite g defSite =
     match defSite with
     | DefSite.Single pp -> Some pp
@@ -337,13 +333,8 @@ type VarBasedDataFlowAnalysis<'Lattice>
       match v with
       | None -> None
       | Some v ->
-        if v.VData.Internals.IsAbstract then
-          let callerV = g.GetPreds v |> Seq.exactlyOne
-          let callSite = callerV.VData.Internals.LastInstruction.Address
-          let callee = v.VData.Internals.AbstractContent.EntryPoint
-          Some <| IRPPAbs (callSite, callee, -1)
-        else
-          Some (IRPPReg <| ProgramPoint (v.VData.Internals.PPoint.Address, -1))
+        let pp = getPpFromVertex g v
+        Some <| pp.WithPosition -1
 
   let isExecuted state sparseState defSite =
     match defSite with
@@ -379,7 +370,7 @@ type VarBasedDataFlowAnalysis<'Lattice>
       match currConst with
       | None -> ()
       | Some currConst ->
-        let vp = { IRProgramPoint = pp; VarKind = varKind }
+        let vp = { ProgramPoint = pp; VarKind = varKind }
         let prevConst = state.GetStackPointer vp
         let sparseState = state.StackPointerSparseState
         let defUseMap = state.DefUseMap
@@ -391,7 +382,7 @@ type VarBasedDataFlowAnalysis<'Lattice>
     match stmt.S with
     | Put (dst, src) ->
       let varKind = VarKind.ofIRExpr dst
-      let vp = { IRProgramPoint = pp; VarKind = varKind }
+      let vp = { ProgramPoint = pp; VarKind = varKind }
       let prev = (state: VarBasedDataFlowState<_>).GetAbsValue vp
       let curr = analysis.EvalExpr state pp src
       let sparseState = state.DomainSparseState
@@ -403,7 +394,7 @@ type VarBasedDataFlowAnalysis<'Lattice>
       | StackPointerDomain.ConstSP bv ->
         let loc = BitVector.ToUInt64 bv
         let varKind = Memory (Some loc)
-        let vp = { IRProgramPoint = pp; VarKind = varKind }
+        let vp = { ProgramPoint = pp; VarKind = varKind }
         let prev = state.GetAbsValue vp
         let curr = analysis.EvalExpr state pp value
         let sparseState = state.DomainSparseState
@@ -418,14 +409,14 @@ type VarBasedDataFlowAnalysis<'Lattice>
       match tryGetPpFromDefSite g defSite with
       | None -> ()
       | Some defPp ->
-        let vp = { IRProgramPoint = defPp; VarKind = varKind }
+        let vp = { ProgramPoint = defPp; VarKind = varKind }
         let prev = sparseState.GetAbsValue vp
         let curr =
           defSites |> Set.fold (fun c defSite ->
             match tryGetPpFromDefSite g defSite with
             | None -> c
             | Some defPp ->
-              { IRProgramPoint = defPp; VarKind = varKind }
+              { ProgramPoint = defPp; VarKind = varKind }
               |> sparseState.GetAbsValue
               |> sparseState.Join c) sparseState.Bottom
         let defUseMap = (state: VarBasedDataFlowState<_>).DefUseMap
@@ -515,7 +506,7 @@ type VarBasedDataFlowAnalysis<'Lattice>
     Seq.iter (fun (v: IVertex<_>) -> pendingVertices.Add v.ID |> ignore) vs
     state
 
-  interface IDataFlowAnalysis<IRVarPoint,
+  interface IDataFlowAnalysis<VarPoint,
                               'Lattice,
                               VarBasedDataFlowState<'Lattice>,
                               LowUIRBasicBlock> with

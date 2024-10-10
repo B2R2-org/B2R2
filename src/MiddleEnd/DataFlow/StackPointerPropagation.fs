@@ -61,19 +61,16 @@ type StackPointerPropagation =
       | _ -> StackPointerDomain.Undef
 
     let evaluateVarPoint (state: VarBasedDataFlowState<_>) pp varKind =
-      let vp = { IRProgramPoint = pp; VarKind = varKind }
+      let vp = { ProgramPoint = pp; VarKind = varKind }
       match state.UseDefMap.TryGetValue vp with
       | false, _ -> getBaseCase varKind (* initialize here *)
       | true, defSite ->
         match defSite with
         | DefSite.Single pp ->
-          state.GetAbsValue { IRProgramPoint = pp; VarKind = varKind }
+          state.GetAbsValue { ProgramPoint = pp; VarKind = varKind }
         | DefSite.Phi vid ->
-          let pp =
-            match state.VidToPp[vid] with
-            | IRPPReg pp -> IRPPReg <| ProgramPoint (pp.Address, -1)
-            | IRPPAbs (cs, fn, _) -> IRPPAbs (cs, fn, -1)
-          state.GetAbsValue { IRProgramPoint = pp; VarKind = varKind }
+          let pp = state.VidToPp[vid].WithPosition -1
+          state.GetAbsValue { ProgramPoint = pp; VarKind = varKind }
 
     let rec evaluateExpr (state: VarBasedDataFlowState<_>) pp e =
       match e.E with

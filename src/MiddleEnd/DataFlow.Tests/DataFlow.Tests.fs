@@ -56,7 +56,7 @@ type PersistentDataFlowTests () =
     | _ -> false
 
   let reg addr idx reg =
-    { ProgramPoint = ProgramPoint (addr=addr, pos=idx)
+    { ProgramPoint = ProgramPoint (addr, idx)
       VarKind = Regular (Register.toRegID reg) }
 
   let mkConst v rt =
@@ -74,17 +74,17 @@ type PersistentDataFlowTests () =
 
   let irReg addr idx r =
     let rid = Register.toRegID r
-    let pp = IRPPReg <| ProgramPoint (addr=addr, pos=idx)
-    let varKind = VarKind.Regular rid
-    { IRProgramPoint = pp; VarKind = varKind }
+    let pp = ProgramPoint (addr, idx)
+    let varKind = Regular rid
+    { ProgramPoint = pp; VarKind = varKind }
 
   let irMem addr idx offset =
-    let pp = IRPPReg <| ProgramPoint (addr=addr, pos=idx)
-    let varKind = VarKind.Memory (Some offset)
-    { IRProgramPoint = pp; VarKind = varKind }
+    let pp = ProgramPoint (addr, idx)
+    let varKind = Memory (Some offset)
+    { ProgramPoint = pp; VarKind = varKind }
 
   let mkUntouchedReg r =
-    VarKind.Regular (Register.toRegID r)
+    Regular (Register.toRegID r)
     |> UntouchedValueDomain.RegisterTag
     |> UntouchedValueDomain.Untouched
 

@@ -80,29 +80,23 @@ type ConstantPropagation =
 
   new (hdl: BinHandle) =
     let evaluateVarPoint (state: VarBasedDataFlowState<_>) pp varKind =
-      let vp = { IRProgramPoint = pp; VarKind = varKind }
+      let vp = { ProgramPoint = pp; VarKind = varKind }
       match state.UseDefMap.TryGetValue vp with
       | false, _ -> ConstantDomain.Undef
       | true, defSite ->
         match defSite with
         | DefSite.Single pp ->
-          { IRProgramPoint = pp; VarKind = varKind }
+          { ProgramPoint = pp; VarKind = varKind }
           |> (state: IDataFlowState<_, _>).GetAbsValue
         | DefSite.Phi vid ->
-          let phiPp =
-            match state.VidToPp[vid] with
-            | IRPPReg pp -> IRPPReg <| ProgramPoint (pp.Address, -1)
-            | IRPPAbs (cs, fn, _) -> IRPPAbs (cs, fn, -1)
-          let phiVp = { IRProgramPoint = phiPp; VarKind = varKind }
+          let phiPp = state.VidToPp[vid].WithPosition -1
+          let phiVp = { ProgramPoint = phiPp; VarKind = varKind }
           (state: IDataFlowState<_, _>).GetAbsValue phiVp
 
     let rec evaluateExpr state pp e =
       match e.E with
       | PCVar (rt, _) ->
-        let addr =
-          match pp with
-          | IRPPReg pp -> pp.Address
-          | IRPPAbs _ -> Utils.impossible ()
+        let addr = (pp: ProgramPoint).Address
         let bv = BitVector.OfUInt64 addr rt
         ConstantDomain.Const bv
       | Num bv -> ConstantDomain.Const bv
