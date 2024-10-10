@@ -31,7 +31,6 @@ open B2R2.BinIR
 open B2R2.FrontEnd
 open B2R2.FrontEnd.BinLifter.Intel
 open B2R2.MiddleEnd.DataFlow
-open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.SSA
 
 type private DummyLattice = int
@@ -57,7 +56,7 @@ type PersistentDataFlowTests () =
     | _ -> false
 
   let reg addr idx reg =
-    { ProgramPoint = ProgramPoint (addr, idx)
+    { ProgramPoint = ProgramPoint (addr=addr, pos=idx)
       VarKind = Regular (Register.toRegID reg) }
 
   let mkConst v rt =
@@ -75,12 +74,12 @@ type PersistentDataFlowTests () =
 
   let irReg addr idx r =
     let rid = Register.toRegID r
-    let pp = IRPPReg <| ProgramPoint (addr, idx)
+    let pp = IRPPReg <| ProgramPoint (addr=addr, pos=idx)
     let varKind = VarKind.Regular rid
     { IRProgramPoint = pp; VarKind = varKind }
 
-  let irMem add idx offset =
-    let pp = IRPPReg <| ProgramPoint (add, idx)
+  let irMem addr idx offset =
+    let pp = IRPPReg <| ProgramPoint (addr=addr, pos=idx)
     let varKind = VarKind.Memory (Some offset)
     { IRProgramPoint = pp; VarKind = varKind }
 
