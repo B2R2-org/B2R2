@@ -33,12 +33,6 @@ open B2R2.MiddleEnd.BinGraph
 open B2R2.BinIR
 open B2R2.BinIR.LowUIR
 
-[<RequireQualifiedAccess>]
-module DefSite =
-  type DefSite =
-    | Single of ProgramPoint
-    | Phi of VertexID
-
 type UniqueQueue<'T> () =
   let queue = Queue<'T> ()
   let set = HashSet<'T> ()
@@ -69,7 +63,7 @@ type SparseState<'Lattice> = {
   FlowQueue: UniqueQueue<VertexID * VertexID>
   ExecutedFlows: HashSet<VertexID * VertexID>
   ExecutedVertices: HashSet<VertexID>
-  DefSiteQueue: UniqueQueue<DefSite.DefSite>
+  DefSiteQueue: UniqueQueue<ProgramPoint>
   Bottom: 'Lattice
   GetAbsValue: VarPoint -> 'Lattice
   SetAbsValue: VarPoint -> 'Lattice -> unit
@@ -77,7 +71,7 @@ type SparseState<'Lattice> = {
   Subsume: 'Lattice -> 'Lattice -> bool
 }
 
-type PhiInfo = Dictionary<VarKind, Set<DefSite.DefSite>>
+type PhiInfo = Dictionary<VarKind, Set<ProgramPoint>>
 
 [<AllowNullLiteral>]
 type VarBasedDataFlowState<'Lattice>
@@ -91,19 +85,19 @@ type VarBasedDataFlowState<'Lattice>
 
   let initialStackPointers = Dictionary<VarKind, StackPointerDomain.Lattice> ()
 
-  let innerDefs = Dictionary<VertexID, Map<VarKind, DefSite.DefSite>> ()
+  let innerDefs = Dictionary<VertexID, Map<VarKind, ProgramPoint>> ()
 
-  let incomingDefs = Dictionary<VertexID, Map<VarKind, DefSite.DefSite>> ()
+  let incomingDefs = Dictionary<VertexID, Map<VarKind, ProgramPoint>> ()
 
-  let outgoingDefs = Dictionary<VertexID, Map<VarKind, DefSite.DefSite>> ()
+  let outgoingDefs = Dictionary<VertexID, Map<VarKind, ProgramPoint>> ()
 
-  let defUseMap = Dictionary<DefSite.DefSite, Set<DefSite.DefSite>> ()
+  let defUseMap = Dictionary<ProgramPoint, Set<ProgramPoint>> ()
 
-  let useDefMap = Dictionary<VarPoint, DefSite.DefSite> ()
+  let useDefMap = Dictionary<VarPoint, ProgramPoint> ()
 
   let phiInfos = Dictionary<VertexID, PhiInfo> ()
 
-  let ppToStmt = Dictionary<ProgramPoint, VertexID * Stmt> ()
+  let ppToStmt = Dictionary<ProgramPoint, VertexID * (Stmt option)> ()
 
   let vidToPp = Dictionary<VertexID, ProgramPoint> ()
 
@@ -164,17 +158,7 @@ type VarBasedDataFlowState<'Lattice>
     let vp = { ProgramPoint = pp; VarKind = varKind }
     match (useDefMap: Dictionary<_, _>).TryGetValue vp with
     | false, _ -> getInitialStackPointer varKind
-    | true, defSite ->
-      match defSite with
-      | DefSite.Single pp ->
-        getStackPointer <| { ProgramPoint = pp; VarKind = varKind }
-      | DefSite.Phi vid ->
-        match vidToPp.TryGetValue vid with
-        | false, _ -> StackPointerDomain.Undef
-        | true, pp ->
-          let phiPp = pp.WithPosition -1
-          let phiVp = { ProgramPoint = phiPp; VarKind = varKind }
-          getStackPointer phiVp
+    | true, defPp -> getStackPointer { ProgramPoint = defPp; VarKind = varKind }
 
   let rec evaluateExprToStackPointer pp (e: Expr) =
     match e.E with
@@ -211,16 +195,16 @@ type VarBasedDataFlowState<'Lattice>
           let stmts = v.VData.Internals.AbstractContent.Rundown
           Array.mapi (fun i stmt ->
             let pp = ProgramPoint (callSite, callee, i)
-            if ppToStmt.ContainsKey pp then ppToStmt[pp] <- (v.ID, stmt)
-            else ppToStmt.Add (pp, (v.ID, stmt))
+            if ppToStmt.ContainsKey pp then ppToStmt[pp] <- (v.ID, Some stmt)
+            else ppToStmt.Add (pp, (v.ID, Some stmt))
             pp, stmt) stmts
         else
           v.VData.Internals.LiftedInstructions
           |> Array.collect (fun x ->
             x.Stmts |> Array.mapi (fun i stmt ->
               let pp = ProgramPoint (x.Original.Address, i)
-              if ppToStmt.ContainsKey pp then ppToStmt[pp] <- (v.ID, stmt)
-              else ppToStmt.Add (pp, (v.ID, stmt))
+              if ppToStmt.ContainsKey pp then ppToStmt[pp] <- (v.ID, Some stmt)
+              else ppToStmt.Add (pp, (v.ID, Some stmt))
               pp, stmt))
       statementMemo[v.ID] <- stmts
       stmts
@@ -269,21 +253,13 @@ type VarBasedDataFlowState<'Lattice>
       ssaVarToVp[ssaVar] <- vp
       ssaVar
 
-  let getSSAVarFromDefSite defSite varKind =
-    match defSite with
-    | DefSite.Single pp ->
-      getSSAVar { ProgramPoint = pp; VarKind = varKind }
-    | DefSite.Phi vid ->
-      let pp = vidToPp[vid].WithPosition -1
-      getSSAVar { ProgramPoint = pp; VarKind = varKind }
-
   let mkEmptySSAVar vk = { SSA.Kind = toSSAVarKind vk; SSA.Identifier = 0 }
 
   let getSSAVarFromUse pp vk =
     let vp = { ProgramPoint = pp; VarKind = vk }
     match useDefMap.TryGetValue vp with
     | false, _ -> mkEmptySSAVar vp.VarKind (* coming from its caller context *)
-    | true, defSite -> getSSAVarFromDefSite defSite vk
+    | true, defPp -> getSSAVar { ProgramPoint = defPp; VarKind = vp.VarKind }
 
   let rec translateToSSAExpr (pp: ProgramPoint) e =
     match e.E with
@@ -340,8 +316,6 @@ type VarBasedDataFlowState<'Lattice>
     | Name symb -> addr, symb
     | Undefined (_, s) -> addr, (s, -1)
     | _ -> raise InvalidExprException
-
-  let isPhiPp (pp: ProgramPoint) = pp.Position = -1
 
   let tryTranslateNonPhiToSSAStmt pp stmt =
     match stmt.S with
@@ -402,12 +376,14 @@ type VarBasedDataFlowState<'Lattice>
   let convertDefSitesToIds defSites varKind =
     defSites
     |> Seq.map (fun defSite ->
-      getSSAVarFromDefSite defSite varKind |> fun v -> v.Identifier)
+      { ProgramPoint = defSite; VarKind = varKind }
+      |> getSSAVar
+      |> fun v -> v.Identifier)
     |> Seq.toArray
 
-  let insertPhis phiInfo pp acc =
+  let insertPhis phiInfo (pp: ProgramPoint) acc =
     phiInfo |> Seq.fold (fun acc (KeyValue (vk, defSites)) ->
-      let var = getSSAVar { ProgramPoint = pp; VarKind = vk }
+      let var = getSSAVar { ProgramPoint = pp.WithPosition -1; VarKind = vk }
       let ids = convertDefSitesToIds defSites vk
       SSA.Phi (var, ids) :: acc) acc
 
@@ -435,10 +411,10 @@ type VarBasedDataFlowState<'Lattice>
     |> Some
 
   let tryTranslateToSSAStmt vp =
-    if not <| isPhiPp vp.ProgramPoint then (* non-phi *)
+    if vp.ProgramPoint.Position <> -1 then (* non-phi *)
       let pp = vp.ProgramPoint
-      let stmt = snd ppToStmt[pp]
-      tryTranslateNonPhiToSSAStmt pp stmt
+      let stmt = ppToStmt[pp] |> snd |> Option.get
+      tryTranslateNonPhiToSSAStmt vp.ProgramPoint stmt
     else (* phi *)
       tryTranslatePhiToSSAStmt vp
 

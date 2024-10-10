@@ -53,13 +53,8 @@ type UntouchedValueAnalysis =
       let vp = { ProgramPoint = pp; VarKind = varKind }
       match state.UseDefMap.TryGetValue vp with
       | false, _ -> getBaseCase varKind (* initialize here *)
-      | true, defSite ->
-        match defSite with
-        | DefSite.Single pp ->
-          state.GetAbsValue { ProgramPoint = pp; VarKind = varKind }
-        | DefSite.Phi vid ->
-          let pp = state.VidToPp[vid].WithPosition -1
-          state.GetAbsValue { ProgramPoint = pp; VarKind = varKind }
+      | true, defPp ->
+        state.GetAbsValue { ProgramPoint = defPp; VarKind = varKind }
 
     let rec evaluateExpr state pp e =
       match e.E with

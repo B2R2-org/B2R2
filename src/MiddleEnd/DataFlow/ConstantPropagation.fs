@@ -83,15 +83,9 @@ type ConstantPropagation =
       let vp = { ProgramPoint = pp; VarKind = varKind }
       match state.UseDefMap.TryGetValue vp with
       | false, _ -> ConstantDomain.Undef
-      | true, defSite ->
-        match defSite with
-        | DefSite.Single pp ->
-          { ProgramPoint = pp; VarKind = varKind }
-          |> (state: IDataFlowState<_, _>).GetAbsValue
-        | DefSite.Phi vid ->
-          let phiPp = state.VidToPp[vid].WithPosition -1
-          let phiVp = { ProgramPoint = phiPp; VarKind = varKind }
-          (state: IDataFlowState<_, _>).GetAbsValue phiVp
+      | true, defPp ->
+        { ProgramPoint = defPp; VarKind = varKind }
+        |> (state: IDataFlowState<_, _>).GetAbsValue
 
     let rec evaluateExpr state pp e =
       match e.E with

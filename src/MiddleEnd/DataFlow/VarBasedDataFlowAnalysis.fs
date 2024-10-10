@@ -37,17 +37,15 @@ open System.Collections.Generic
 module private Chains =
   let updateDefUseChain state defSite useSitePp =
     match (state: VarBasedDataFlowState<_>).DefUseMap.TryGetValue defSite with
-    | false, _ ->
-      state.DefUseMap[defSite] <- Set.singleton <| DefSite.Single useSitePp
-    | true, useSites ->
-      state.DefUseMap[defSite] <- Set.add (DefSite.Single useSitePp) useSites
+    | false, _ -> state.DefUseMap[defSite] <- Set.singleton useSitePp
+    | true, useSites -> state.DefUseMap[defSite] <- Set.add useSitePp useSites
 
   let updateDefUseChainWithPhi state defSite usePhiVid =
-    match (state: VarBasedDataFlowState<_>).DefUseMap.TryGetValue defSite with
-    | false, _ ->
-      state.DefUseMap[defSite] <- Set.singleton <| DefSite.Phi usePhiVid
-    | true, useSites ->
-      state.DefUseMap[defSite] <- Set.add (DefSite.Phi usePhiVid) useSites
+    let usePp = (state: VarBasedDataFlowState<_>).VidToPp[usePhiVid]
+    let usePp = usePp.WithPosition -1
+    match state.DefUseMap.TryGetValue defSite with
+    | false, _ -> state.DefUseMap[defSite] <- Set.singleton usePp
+    | true, useSites -> state.DefUseMap[defSite] <- Set.add usePp useSites
 
   let updateUseDefChain state defSite useSitePp varKind =
     let vp = { ProgramPoint = useSitePp; VarKind = varKind }
@@ -56,13 +54,10 @@ module private Chains =
   let removeOldDefUses state vp pp newDefSite =
     match (state: VarBasedDataFlowState<_>).UseDefMap.TryGetValue vp with
     | true, prevDefSite when prevDefSite <> newDefSite ->
-      (* Oh, you gotta be killed :D *)
       (* Erase the old def-use. *)
       let usesOfPrevDefSite = state.DefUseMap[prevDefSite]
-      let useSite = DefSite.Single pp
-      state.DefUseMap[prevDefSite] <- Set.remove useSite usesOfPrevDefSite
-      (* Here, we do not erase the old use-def since we anyways gonna
-         overwrite it. *)
+      state.DefUseMap[prevDefSite] <- Set.remove pp usesOfPrevDefSite
+      (* Erase the old use-def which will be overwritten by the new def. *)
       state.UseDefMap.Remove vp |> ignore
     | _ -> ()
 
@@ -128,7 +123,7 @@ module private Chains =
     | Put (dst, { E = src }) ->
       let varKind = VarKind.ofIRExpr dst
       executeExpr state m pp src
-      Map.add varKind (DefSite.Single pp) m
+      Map.add varKind pp m
     | Store (_, addr, value) ->
       executeExpr state m pp addr.E
       executeExpr state m pp value.E
@@ -136,7 +131,7 @@ module private Chains =
       | StackPointerDomain.ConstSP bv ->
         let loc = BitVector.ToUInt64 bv
         let varKind = Memory (Some loc)
-        Map.add varKind (DefSite.Single pp) m
+        Map.add varKind pp m
       | _ -> m
     | Jmp _
     | CJmp _
@@ -160,16 +155,13 @@ module private Chains =
 
   let collectDefsFromStmt state defs (pp, stmt) =
     match stmt.S with
-    | Put (dst, _) ->
-      let defSite = DefSite.Single pp
-      Map.add (VarKind.ofIRExpr dst) defSite defs
+    | Put (dst, _) -> Map.add (VarKind.ofIRExpr dst) pp defs
     | Store (_, addr, _) ->
       (state: VarBasedDataFlowState<_>).EvaluateExprToStackPointer pp addr
       |> function
         | StackPointerDomain.ConstSP bv ->
           let loc = BitVector.ToUInt64 bv
-          let defSite = DefSite.Single pp
-          Map.add (Memory (Some loc)) defSite defs
+          Map.add (Memory (Some loc)) pp defs
         | _ -> defs
     | _ -> defs
 
@@ -237,9 +229,9 @@ module private Chains =
       match state.PhiInfos.TryGetValue v.ID with
       | false, _ -> inM
       | true, phiInfo ->
-        phiInfo
-        |> Seq.fold (fun m (KeyValue (varKind, _defSites)) ->
-          Map.add varKind (DefSite.Phi v.ID) m) inM
+        phiInfo |> Seq.fold (fun m (KeyValue (varKind, _defSites)) ->
+          let pp = state.VidToPp[v.ID].WithPosition -1
+          Map.add varKind pp m) inM
     (* Execute the statements. *)
     let outM = stmts |> Array.fold (executeStmt state) inM
     (* Filter out temporary variables. *)
@@ -295,8 +287,6 @@ module private Chains =
   /// worst-case time complexity as the original algorithm, but it is more
   /// efficient for incremental changes in practice since its search space is
   /// reduced to the affected vertices that are possibly updated.
-  /// Unlike calculateChainsIncrementally, this algorithm ensures that every
-  /// vertex is visited only once since it strictly follows the dominator tree.
   let calculateChainsIncrementally g state domCtx domTree frontiers =
     (* 1. Calculate inner defs. *)
     let defSites = Dictionary ()
@@ -325,24 +315,12 @@ type VarBasedDataFlowAnalysis<'Lattice>
     (hdl: BinHandle).RegisterFactory.IsStackPointer rid
     || hdl.RegisterFactory.IsFramePointer rid
 
-  let tryGetPpFromDefSite g defSite =
-    match defSite with
-    | DefSite.Single pp -> Some pp
-    | DefSite.Phi vid ->
-      let v = (g: IGraph<LowUIRBasicBlock, _>).TryFindVertexByID vid
-      match v with
-      | None -> None
-      | Some v ->
-        let pp = getPpFromVertex g v
-        Some <| pp.WithPosition -1
-
-  let isExecuted state sparseState defSite =
-    match defSite with
-    | DefSite.Single pp ->
-      match (state: VarBasedDataFlowState<_>).PpToStmt.TryGetValue pp with
+  let isExecuted state sparseState defPp =
+    if (defPp: ProgramPoint).Position <> -1 then
+      match (state: VarBasedDataFlowState<_>).PpToStmt.TryGetValue defPp with
       | false, _ -> None
       | true, (vid, _) -> Some vid
-    | DefSite.Phi vid -> Some vid
+    else state.PpToStmt[defPp.WithPosition 0] |> fst |> Some
     |> function
       | None -> false
       | Some vid -> sparseState.ExecutedVertices.Contains vid
@@ -374,8 +352,7 @@ type VarBasedDataFlowAnalysis<'Lattice>
         let prevConst = state.GetStackPointer vp
         let sparseState = state.StackPointerSparseState
         let defUseMap = state.DefUseMap
-        let defSite = DefSite.Single pp
-        updateAbsValue sparseState defUseMap vp defSite prevConst currConst
+        updateAbsValue sparseState defUseMap vp pp prevConst currConst
     | _ -> ()
 
   let transferLattice state (pp, stmt) =
@@ -387,8 +364,7 @@ type VarBasedDataFlowAnalysis<'Lattice>
       let curr = analysis.EvalExpr state pp src
       let sparseState = state.DomainSparseState
       let defUseMap = state.DefUseMap
-      let defSite = DefSite.Single pp
-      updateAbsValue sparseState defUseMap vp defSite prev curr
+      updateAbsValue sparseState defUseMap vp pp prev curr
     | Store (_, addr, value) ->
       match state.EvaluateExprToStackPointer pp addr with
       | StackPointerDomain.ConstSP bv ->
@@ -399,38 +375,34 @@ type VarBasedDataFlowAnalysis<'Lattice>
         let curr = analysis.EvalExpr state pp value
         let sparseState = state.DomainSparseState
         let defUseMap = state.DefUseMap
-        let defSite = DefSite.Single pp
-        updateAbsValue sparseState defUseMap vp defSite prev curr
+        updateAbsValue sparseState defUseMap vp pp prev curr
       | _ -> ()
     | _ -> ()
 
-  let transferPhi g state sparseState phiInfo defSite =
-    phiInfo |> Seq.iter (fun (KeyValue (varKind, defSites)) ->
-      match tryGetPpFromDefSite g defSite with
-      | None -> ()
-      | Some defPp ->
-        let vp = { ProgramPoint = defPp; VarKind = varKind }
-        let prev = sparseState.GetAbsValue vp
-        let curr =
-          defSites |> Set.fold (fun c defSite ->
-            match tryGetPpFromDefSite g defSite with
-            | None -> c
-            | Some defPp ->
-              { ProgramPoint = defPp; VarKind = varKind }
-              |> sparseState.GetAbsValue
-              |> sparseState.Join c) sparseState.Bottom
-        let defUseMap = (state: VarBasedDataFlowState<_>).DefUseMap
-        updateAbsValue sparseState defUseMap vp defSite prev curr)
+  let transferPhi state sparseState phiInfo defPp =
+    phiInfo |> Seq.iter (fun (KeyValue (varKind, defPps)) ->
+      let vp = { ProgramPoint = defPp; VarKind = varKind }
+      let prev = sparseState.GetAbsValue vp
+      let curr =
+        defPps |> Set.fold (fun c defPp ->
+          { ProgramPoint = defPp; VarKind = varKind }
+          |> sparseState.GetAbsValue
+          |> sparseState.Join c) sparseState.Bottom
+      let defUseMap = (state: VarBasedDataFlowState<_>).DefUseMap
+      updateAbsValue sparseState defUseMap vp defPp prev curr)
 
-  let processDefSite g state sparseState fnTransfer =
+  let processDefSite state sparseState fnTransfer =
     match sparseState.DefSiteQueue.TryDequeue () with
-    | Some defSite when isExecuted state sparseState defSite ->
-      match defSite with
-      | DefSite.Single pp ->
-        let _vid, stmt = (state: VarBasedDataFlowState<_>).PpToStmt[pp]
-        fnTransfer state (pp, stmt)
-      | DefSite.Phi vid ->
-        transferPhi g state sparseState state.PhiInfos[vid] defSite
+    | Some defPp when isExecuted state sparseState defPp ->
+      if defPp.Position <> -1 then (* non-phi *)
+        let stmt =
+          (state: VarBasedDataFlowState<_>).PpToStmt[defPp]
+          |> snd
+          |> Option.get
+        fnTransfer state (defPp, stmt)
+      else (* phi *)
+        let vid = state.PpToStmt[defPp.WithPosition 0] |> fst
+        transferPhi state sparseState state.PhiInfos[vid] defPp
     | _ -> ()
 
   let transferFlow state sparseState g v fnTransfer =
@@ -439,7 +411,9 @@ type VarBasedDataFlowAnalysis<'Lattice>
     sparseState.ExecutedVertices.Add vid |> ignore
     match state.PhiInfos.TryGetValue v.ID with (* Execute phis first. *)
     | false, _ -> ()
-    | true, phiInfo -> transferPhi g state sparseState phiInfo (DefSite.Phi vid)
+    | true, phiInfo ->
+      let phiDefPp = state.VidToPp[vid].WithPosition -1
+      transferPhi state sparseState phiInfo phiDefPp
     Seq.iter (fnTransfer state) stmts
     g.GetSuccs v
     |> Seq.map (fun succ -> vid, succ.ID)
@@ -461,7 +435,7 @@ type VarBasedDataFlowAnalysis<'Lattice>
     while not sparseState.FlowQueue.IsEmpty
           || not sparseState.DefSiteQueue.IsEmpty do
       processFlow g state sparseState fnTransfer
-      processDefSite g state sparseState fnTransfer
+      processDefSite state sparseState fnTransfer
 
   let calculateStackPointer g state =
     propagate g state state.StackPointerSparseState transferStackPointer

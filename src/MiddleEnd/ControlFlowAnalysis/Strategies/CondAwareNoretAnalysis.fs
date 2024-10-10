@@ -58,13 +58,10 @@ type CondAwareNoretAnalysis ([<Optional; DefaultParameterValue(true)>] strict) =
   let tryGetValue state vid varKind =
     let defSites = (state :> VarBasedDataFlowState<_>).IncomingDefs[vid]
     match Map.tryFind varKind defSites with
-    | Some defSite ->
-      let pp =
-        match defSite with
-        | DefSite.Single pp -> pp
-        | DefSite.Phi vid' -> state.VidToPp[vid'].WithPosition -1
-      let vp = { ProgramPoint = pp; VarKind = varKind }
-      Some <| (state :> IDataFlowState<_, _>).GetAbsValue vp
+    | Some defPp ->
+      { ProgramPoint = defPp; VarKind = varKind }
+      |> (state :> IDataFlowState<_, _>).GetAbsValue
+      |> Some
     | None -> None
 
   let untouchedArgIndexX86FromIRCFG ctx frameDist callEdge state nth =
