@@ -57,8 +57,8 @@ type JmpTableAnalysis<'FnCtx,
   let findIndBranchExprFromIRCFG state (g: LowUIRCFG) addr =
     (* Since there could be multiple SSA vertices, search for the right one. *)
     let v = g.FindVertexBy (fun v -> v.VData.Internals.BlockAddress = addr)
-    let stmExtractor g v =
-      (state: VarBasedDataFlowState<_>).TranslateToSSA g v |> Array.last
+    let stmExtractor _g v =
+      (state: VarBasedDataFlowState<_>).TranslateToSSA v |> Array.last
     findJumpExpr stmExtractor g v [ v ]
 
   let findIndBranchExprFromSSACFG (ssaCFG: SSACFG) addr =

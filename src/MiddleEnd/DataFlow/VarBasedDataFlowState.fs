@@ -180,38 +180,45 @@ type VarBasedDataFlowState<'Lattice>
       | _ -> StackPointerDomain.NotConstSP
     | _ -> StackPointerDomain.NotConstSP
 
-  let getStatements g (v: IVertex<LowUIRBasicBlock>) =
-    let maybeStmts =
-      match statementMemo.TryGetValue v.ID with
-      | false, _ -> None
-      | true, stmts -> Some stmts
-    match maybeStmts with
-    | None ->
+  let getStmtsWithPP v (pp: ProgramPoint) =
+    if not (v: IVertex<LowUIRBasicBlock>).VData.Internals.IsAbstract then
+      let liftedInss = v.VData.Internals.LiftedInstructions
+      let startPos = pp.Position
       let stmts =
-        if v.VData.Internals.IsAbstract then
-          let callerV = (g: IGraph<_, _>).GetPreds v |> Seq.exactlyOne
-          let callSite = callerV.VData.Internals.LastInstruction.Address
-          let callee = v.VData.Internals.AbstractContent.EntryPoint
-          let stmts = v.VData.Internals.AbstractContent.Rundown
-          let startingPosition = 1
-          Array.mapi (fun i stmt ->
-            let pp = ProgramPoint (callSite, callee, startingPosition + i)
-            if ppToStmt.ContainsKey pp then ppToStmt[pp] <- (v.ID, stmt)
-            else ppToStmt.Add (pp, (v.ID, stmt))
-            pp, stmt) stmts
-        else
-          let startingPosition = v.VData.Internals.PPoint.Position
-          v.VData.Internals.LiftedInstructions
-          |> Array.collect (fun x ->
-            x.Stmts |> Array.mapi (fun i stmt ->
-              if startingPosition <> 0 then ()
-              let pp = ProgramPoint (x.Original.Address, startingPosition + i)
-              if ppToStmt.ContainsKey pp then ppToStmt[pp] <- (v.ID, stmt)
-              else ppToStmt.Add (pp, (v.ID, stmt))
-              pp, stmt))
-      statementMemo[v.ID] <- stmts
+        liftedInss
+        |> Seq.collect (fun x ->
+          x.Stmts |> Seq.mapi (fun i stmt ->
+            ProgramPoint (x.Original.Address, startPos + i), stmt))
+        |> Seq.toArray
       stmts
-    | Some stmts -> stmts
+    else
+      let startPos = 1 (* we reserve 0 for phi definitions. *)
+      let addr = pp.Address
+      let cs = pp.CallSite |> Option.get
+      let rundown = v.VData.Internals.AbstractContent.Rundown
+      let stmts =
+        rundown
+        |> Seq.mapi (fun i stmt -> ProgramPoint (cs, addr, startPos + i), stmt)
+        |> Seq.toArray
+      stmts
+
+  let updatePPToStmts stmts vid =
+    stmts |> Array.iter (fun (pp, stmt) ->
+      if ppToStmt.ContainsKey pp then
+        ppToStmt[pp] <- (vid, stmt)
+      else
+        ppToStmt.Add (pp, (vid, stmt)))
+
+  let getStatements (v: IVertex<LowUIRBasicBlock>) =
+    let vid = v.ID
+    match statementMemo.TryGetValue vid with
+    | true, stmts -> stmts
+    | false, _ ->
+      let pp = vidToPp[vid]
+      let stmts = getStmtsWithPP v pp
+      updatePPToStmts stmts vid
+      statementMemo[vid] <- stmts
+      stmts
 
   let vpToSSAVar = Dictionary<VarPoint, SSA.Variable> ()
 
@@ -390,17 +397,14 @@ type VarBasedDataFlowState<'Lattice>
       let ids = convertDefSitesToIds defSites vk
       SSA.Phi (var, ids) :: acc) acc
 
-  let translateToSSA g (v: IVertex<LowUIRBasicBlock>) =
-    let ssaStmts =
+  let translateToSSA (v: IVertex<LowUIRBasicBlock>) =
+    let header = (* here comes phi definitions. *)
       if not <| phiInfos.ContainsKey v.ID then []
       else insertPhis phiInfos[v.ID] vidToPp[v.ID] []
-    getStatements g v
-    |> Array.fold (fun ssaStmts (pp, irStmt) ->
-      match tryTranslateNonPhiToSSAStmt pp irStmt with
-      | None -> ssaStmts
-      | Some ssaStmt -> ssaStmt :: ssaStmts) ssaStmts
-    |> List.rev
-    |> Array.ofList
+    getStatements v
+    |> Seq.choose (fun (pp, irStmt) -> tryTranslateNonPhiToSSAStmt pp irStmt)
+    |> Seq.append header
+    |> Seq.toArray
 
   let tryTranslatePhiToSSAStmt vp =
     let vid, _ = ppToStmt[vp.ProgramPoint]
@@ -416,12 +420,9 @@ type VarBasedDataFlowState<'Lattice>
     let pp = vp.ProgramPoint
     let vid, stmt = ppToStmt[pp]
     let pp' = vidToPp[vid]
-    if pp <> pp' then (* non-phi *)
-      tryTranslateNonPhiToSSAStmt vp.ProgramPoint stmt
-    else (* phi *)
-      tryTranslatePhiToSSAStmt vp
-
-  let mutable times = (0L, 0L, 0L, 0L)
+    let isPhi = pp = pp'
+    if not isPhi then tryTranslateNonPhiToSSAStmt pp stmt
+    else tryTranslatePhiToSSAStmt vp
 
   do initializeStackPointers ()
 
@@ -435,9 +436,9 @@ type VarBasedDataFlowState<'Lattice>
 
   member __.SetAbsValue vp absVal = setAbsValue vp absVal
 
-  member __.GetStatements g v = getStatements g v
+  member __.GetStatements v = getStatements v
 
-  member __.TranslateToSSA g v = translateToSSA g v
+  member __.TranslateToSSA v = translateToSSA v
 
   member __.TryTranslateToSSAStmt vp = tryTranslateToSSAStmt vp
 
@@ -466,8 +467,6 @@ type VarBasedDataFlowState<'Lattice>
   member __.PhiInfos with get () = phiInfos
 
   member __.PpToStmt with get () = ppToStmt
-
-  member __.Times with get () = times and set (v) = times <- v
 
   member __.Reset () =
     absValues.Clear ()

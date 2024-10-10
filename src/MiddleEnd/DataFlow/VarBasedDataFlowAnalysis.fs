@@ -132,18 +132,18 @@ module private Chains =
     | InterCJmp _ -> renameJmp state m pp stmt.S; m
     | _ -> m
 
-  let getPpFromVertex g v =
-    if (v: IVertex<LowUIRBasicBlock>).VData.Internals.IsAbstract then
+  let calculateProgramPoint g v =
+    let isAbstract = (v: IVertex<LowUIRBasicBlock>).VData.Internals.IsAbstract
+    if not isAbstract then v.VData.Internals.PPoint
+    else
       let callerV = (g: IGraph<_, _>).GetPreds v |> Seq.exactlyOne
       let callSite = callerV.VData.Internals.LastInstruction.Address
-      let callee = v.VData.Internals.AbstractContent.EntryPoint
+      let callee = v.VData.Internals.PPoint.Address
       ProgramPoint (callSite, callee, 0)
-    else
-      ProgramPoint (v.VData.Internals.PPoint.Address, 0)
 
   let updateVidToPp g (state: VarBasedDataFlowState<_>) vid =
     let v = (g: IGraph<_, _>).FindVertexByID vid
-    let pp = getPpFromVertex g v
+    let pp = calculateProgramPoint g v
     state.VidToPp[vid] <- pp
 
   let collectDefsFromStmt state defs (pp, stmt) =
@@ -218,7 +218,7 @@ module private Chains =
     let vid = (v: IVertex<_>).ID
     assert (not <| visited.Contains vid)
     visited.Add vid |> ignore
-    let stmts = (state: VarBasedDataFlowState<_>).GetStatements g v
+    let stmts = (state: VarBasedDataFlowState<_>).GetStatements v
     (* Introduce phis. *)
     let inM =
       match state.PhiInfos.TryGetValue v.ID with
@@ -229,14 +229,14 @@ module private Chains =
           assert (state.PhiInfos.ContainsKey v.ID)
           Map.add varKind pp m) inM
     (* Execute the statements. *)
-    let outM = stmts |> Array.fold (executeStmt state) inM
+    let outM = stmts |> Seq.fold (executeStmt state) inM
     (* Filter out temporary variables. *)
     let outM = outM |> Map.filter (fun vk _ ->
       match vk with
       | Temporary _ -> false
       | _ -> true)
     (* Update phi information of succs. *)
-    g.GetSuccs v |> Seq.iter (renamePhi state outM)
+    (g: IGraph<_, _>).GetSuccs v |> Seq.iter (renamePhi state outM)
     (* Visit its sub-tree in the dominator tree. *)
     traverseChildren g state domTree outM visited (Map.find v domTree)
     (* Update the intermediate chains for incremental analysis. *)
@@ -287,9 +287,9 @@ module private Chains =
     (* 1. Calculate inner defs. *)
     let defSites = Dictionary ()
     (g: IGraph<_, _>).IterVertex (fun v ->
-      let stmts = (state: VarBasedDataFlowState<_>).GetStatements g v
       updateVidToPp g state v.ID
-      let defs = Array.fold (collectDefsFromStmt state) Map.empty stmts
+      let stmts = (state: VarBasedDataFlowState<_>).GetStatements v
+      let defs = Seq.fold (collectDefsFromStmt state) Map.empty stmts
       state.InnerDefs[v.ID] <- defs
       let varKinds = Map.keys defs
       for varKind in varKinds do
@@ -370,8 +370,6 @@ type VarBasedDataFlowAnalysis<'Lattice>
       | _ -> ()
     | _ -> ()
 
-  /// TODO: do not use pp; instead, use VarPoint directly so that we can
-  /// distinguish different phi variables.
   let transferPhi state sparseState phiInfo defPp =
     phiInfo |> Seq.iter (fun (KeyValue (varKind, defPps)) ->
       let vp = { ProgramPoint = defPp; VarKind = varKind }
@@ -397,22 +395,19 @@ type VarBasedDataFlowAnalysis<'Lattice>
         fnTransfer state (defPp, stmt)
       else (* phi *)
         let vid = state.PpToStmt[defPp] |> fst
-        let pp' = state.VidToPp[vid]
         assert (state.PhiInfos.ContainsKey vid)
         transferPhi state sparseState state.PhiInfos[vid] defPp
     | _ -> ()
 
   let transferFlow state sparseState g v fnTransfer =
-    let stmts = (state: VarBasedDataFlowState<_>).GetStatements g v
+    let stmts = (state: VarBasedDataFlowState<_>).GetStatements v
     let vid = v.ID
     sparseState.ExecutedVertices.Add vid |> ignore
     match state.PhiInfos.TryGetValue vid with (* Execute phis first. *)
     | false, _ -> ()
-    | true, phiInfo ->
-      let phiDefPp = state.VidToPp[vid]
-      transferPhi state sparseState phiInfo phiDefPp
+    | true, phiInfo -> transferPhi state sparseState phiInfo state.VidToPp[vid]
     Seq.iter (fnTransfer state) stmts
-    g.GetSuccs v
+    (g: IGraph<_, _>).GetSuccs v
     |> Seq.map (fun succ -> vid, succ.ID)
     |> Seq.iter sparseState.FlowQueue.Enqueue
 
@@ -444,33 +439,12 @@ type VarBasedDataFlowAnalysis<'Lattice>
     let domCtx = Dominator.initDominatorContext g
     let domTree, _ = Dominator.dominatorTree domCtx
     let domFrontiers = Dominator.frontiers domCtx
-    let sw = System.Diagnostics.Stopwatch ()
-    sw.Start ()
     calculateChainsIncrementally g state domCtx domTree domFrontiers
-    sw.Stop ()
-    let time1 = sw.ElapsedMilliseconds
-    sw.Reset ()
-    sw.Start ()
     calculateStackPointer g state
-    sw.Stop ()
-    let time2 = sw.ElapsedMilliseconds
-    sw.Reset ()
-    sw.Start ()
     calculateChainsIncrementally g state domCtx domTree domFrontiers
-    sw.Stop ()
-    let time3 = sw.ElapsedMilliseconds
-    sw.Reset ()
-    sw.Start ()
     calculateLattice g state
-    sw.Stop ()
-    let time4 = sw.ElapsedMilliseconds
-    sw.Reset ()
-    // state.Times <- (time1, time2, time3, time4)
     state.PendingVertices.Clear ()
     state
-
-  let isFirstTime state =
-    Seq.isEmpty (state: VarBasedDataFlowState<_>).DefUseMap
 
   let addPendingVertices vs state =
     let pendingVertices = (state: VarBasedDataFlowState<_>).PendingVertices
@@ -487,12 +461,5 @@ type VarBasedDataFlowAnalysis<'Lattice>
       |> analysis.OnInitialize
       |> addPendingVertices vs
 
-    /// We have three ways to compute the data flow analysis: exhaustive,
-    /// incremental1, and incremental2. The exhaustive computation calculates
-    /// the def-use/use-def chains from scratch as Cytron's algorithm does. Both
-    /// incremental1 and incremental2 calculate the chains incrementally. The
-    /// difference between them is that incremental1 calculates the chains
-    /// using order-based abstract interpretation, while incremental2 uses the
-    /// dominator tree to reduce the number of visiting vertices.
     member __.Compute g state =
       computeIncrementally g state
