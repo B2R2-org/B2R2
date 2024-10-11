@@ -92,7 +92,7 @@ type SSAStackPointerPropagation =
               let str = hdl.RegisterFactory.RegIDToString sp
               let var = { Kind = RegVar (rt, sp, str); Identifier = 0 }
               let spVal = BitVector.OfUInt64 InitialStackPointer rt
-              state.SetRegValueWithoutPushing var
+              state.SetRegValueWithoutAdding var
               <| StackPointerDomain.ConstSP spVal
               state
             | None -> state

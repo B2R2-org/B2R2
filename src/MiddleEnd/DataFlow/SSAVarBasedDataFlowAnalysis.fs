@@ -50,7 +50,7 @@ type SSAVarBasedDataFlowAnalysis<'Lattice>
           state.MarkExecutable myId succ.ID)
 
   let processSSA (state: SSAVarBasedDataFlowState<_>) (ssaCFG: SSACFG) =
-    match state.SSAWorkList.TryPop () with
+    match state.SSAWorkList.TryDequeue () with
     | false, _ -> ()
     | true, def ->
       match state.SSAEdges.Uses.TryGetValue def with

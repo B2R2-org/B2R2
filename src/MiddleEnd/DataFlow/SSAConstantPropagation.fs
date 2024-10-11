@@ -101,7 +101,7 @@ type SSAConstantPropagation =
               let str = hdl.RegisterFactory.RegIDToString sp
               let var = { Kind = RegVar (rt, sp, str); Identifier = 0 }
               let spVal = BitVector.OfUInt64 InitialStackPointer rt
-              state.SetRegValueWithoutPushing var <| ConstantDomain.Const spVal
+              state.SetRegValueWithoutAdding var <| ConstantDomain.Const spVal
               state
             | None -> state
 

@@ -33,32 +33,6 @@ open B2R2.MiddleEnd.BinGraph
 open B2R2.BinIR
 open B2R2.BinIR.LowUIR
 
-type UniqueQueue<'T> () =
-  let queue = Queue<'T> ()
-  let set = HashSet<'T> ()
-
-  member __.Enqueue (x: 'T) =
-    if set.Add x |> not then ()
-    else queue.Enqueue x
-
-  member __.Dequeue () =
-    let x = queue.Dequeue ()
-    if set.Remove x then x
-    else Utils.impossible ()
-
-  member __.TryDequeue () =
-    match queue.TryDequeue () with
-    | false, _ -> None
-    | true, x ->
-      if set.Remove x then Some x
-      else Utils.impossible ()
-
-  member __.Count = queue.Count
-
-  member __.Clear () = queue.Clear ()
-
-  member __.IsEmpty with get () = Seq.isEmpty queue
-
 [<AllowNullLiteral>]
 type VarBasedDataFlowState<'Lattice>
   public (hdl, analysis: IVarBasedDataFlowAnalysis<'Lattice>) =

@@ -407,7 +407,7 @@ module private Propagation =
 
   let private processDefSite state analysis subState fnTransfer =
     match (subState: IDataFlowSubState<_>).DefSiteQueue.TryDequeue () with
-    | Some defPp when isExecuted state subState defPp ->
+    | true, defPp when isExecuted state subState defPp ->
       if not <| isPhiProgramPoint state defPp then (* non-phi *)
         let stmt = (state: VarBasedDataFlowState<_>).PpToStmt[defPp] |> snd
         fnTransfer state analysis (defPp, stmt)
@@ -431,8 +431,8 @@ module private Propagation =
 
   let private processFlow g state analysis subState fnTransfer =
     match (subState: IDataFlowSubState<_>).FlowQueue.TryDequeue () with
-    | None -> ()
-    | Some (srcVid, dstVid) ->
+    | false, _ -> ()
+    | true, (srcVid, dstVid) ->
       if not <| subState.ExecutedFlows.Add (srcVid, dstVid) then ()
       else
         match (g: IGraph<_, _>).TryFindVertexByID dstVid with
