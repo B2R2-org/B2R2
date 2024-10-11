@@ -94,21 +94,21 @@ type CFGRecovery<'FnCtx,
         Ok v
       | Error _ -> Error ErrorCase.ItemNotFound
 
-  let getCalleePPoint calleeAddrOpt =
+  let getCalleePPoint callsite calleeAddrOpt =
     match calleeAddrOpt with
-    | Some addr -> ProgramPoint (addr, 0)
-    | None -> ProgramPoint.GetFake ()
+    | Some addr -> ProgramPoint (callsite, addr, 0)
+    | None -> ProgramPoint (callsite, 0UL, -1)
 
   let getAbsVertex ctx callsiteAddr calleeAddrOpt abs =
-    let key = callsiteAddr, calleeAddrOpt
-    match ctx.AbsVertices.TryGetValue key with
+    let calleePPoint = getCalleePPoint callsiteAddr calleeAddrOpt
+    match ctx.Vertices.TryGetValue calleePPoint with
     | true, v -> v
     | false, _ ->
-      let calleePPoint = getCalleePPoint calleeAddrOpt
+      let calleePPoint = getCalleePPoint callsiteAddr calleeAddrOpt
       let bbl = LowUIRBasicBlock.CreateAbstract (calleePPoint, abs)
       let v, g = ctx.CFG.AddVertex bbl
       ctx.CFG <- g
-      ctx.AbsVertices[key] <- v
+      ctx.Vertices[calleePPoint] <- v
       markVertexForAnalysis useSSA ctx v.ID
       v
 

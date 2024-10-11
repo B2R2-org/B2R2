@@ -110,7 +110,6 @@ type InternalFnCFGBuilder<'FnCtx,
         FunctionMode = mode
         BinHandle = hdl
         Vertices = Dictionary ()
-        AbsVertices = Dictionary ()
         CFG = cfg
         CPState = cpState
         BBLFactory = bblFactory

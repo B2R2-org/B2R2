@@ -47,8 +47,6 @@ type CFGBuildingContext<'FnCtx,
   BinHandle: BinHandle
   /// Mapping from a program point to a vertex in the LowUIRCFG.
   Vertices: Dictionary<ProgramPoint, IVertex<LowUIRBasicBlock>>
-  /// Mapping from a call edge to an abstracted vertex in the LowUIRCFG.
-  AbsVertices: Dictionary<AbsCallEdge, IVertex<LowUIRBasicBlock>>
   /// The control flow graph in LowUIR.
   mutable CFG: LowUIRCFG
   /// The state of constant propagation.
@@ -92,7 +90,6 @@ with
   /// Reset the context to its initial state.
   member __.Reset cfg =
     __.Vertices.Clear ()
-    __.AbsVertices.Clear ()
     __.CFG <- cfg
     __.NonReturningStatus <- UnknownNoRet
     __.JumpTableRecoveryStatus <- None

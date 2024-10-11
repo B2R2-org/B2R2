@@ -45,7 +45,6 @@ type ExternalFnCFGBuilder<'FnCtx,
       FunctionMode = ArchOperationMode.NoMode
       BinHandle = hdl
       Vertices = Dictionary ()
-      AbsVertices = Dictionary ()
       CFG = null
       CPState = null
       BBLFactory = BBLFactory (hdl, null)

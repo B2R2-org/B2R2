@@ -64,10 +64,10 @@ type CondAwareNoretAnalysis ([<Optional; DefaultParameterValue(true)>] strict) =
       |> Some
     | None -> None
 
-  let untouchedArgIndexX86FromIRCFG ctx frameDist callEdge state nth =
+  let untouchedArgIndexX86FromIRCFG ctx frameDist pp state nth =
     let argOff = uint64 <| frameDist - 4 * nth
     let varKind = Memory <| Some (Constants.InitialStackPointer + argOff)
-    let absV = ctx.AbsVertices[callEdge]
+    let absV = ctx.Vertices[pp]
     match tryGetValue state absV.ID varKind with
     | Some (UntouchedValueDomain.Untouched (RegisterTag (StackLocal off))) ->
       Some (- off / 4)
@@ -78,10 +78,10 @@ type CondAwareNoretAnalysis ([<Optional; DefaultParameterValue(true)>] strict) =
     |> List.tryFind (fun nth ->
       rid = CallingConvention.functionArgRegister hdl OS.Linux nth)
 
-  let untouchedArgIndexX64FromIRCFG hdl ctx callEdge state nth =
+  let untouchedArgIndexX64FromIRCFG hdl ctx pp state nth =
     let argRegId = CallingConvention.functionArgRegister hdl OS.Linux nth
     let varKind = Regular argRegId
-    let absV = ctx.AbsVertices[callEdge]
+    let absV = ctx.Vertices[pp]
     match tryGetValue state absV.ID varKind with
     | Some (UntouchedValueDomain.Untouched (RegisterTag (Regular rid))) ->
       regIdToArgNumX64 hdl rid
@@ -90,43 +90,44 @@ type CondAwareNoretAnalysis ([<Optional; DefaultParameterValue(true)>] strict) =
          untouched, thus conditional no return. *)
       Some nth
 
-  let hasCallFallthroughNode ctx absCallEdge =
-    let absV = ctx.AbsVertices[absCallEdge]
+  let hasCallFallthroughNode ctx pp =
+    assert (ctx.Vertices.ContainsKey pp)
+    let absV = ctx.Vertices[pp]
     let succs = ctx.CFG.GetSuccs absV
     not <| Seq.isEmpty succs
 
-  let collectReturningCallEdges ctx =
+  let collectReturningAbsPPs ctx =
     ctx.IntraCallTable.Callees
-    |> Seq.fold (fun acc (KeyValue (callSite, calleeKind)) ->
+    |> Seq.fold (fun acc (KeyValue (cs, calleeKind)) ->
       match calleeKind with
       | RegularCallee callee ->
         if ctx.FunctionAddress = callee then acc
-        else (callSite, Some callee) :: acc
+        else ProgramPoint (cs, callee, 0) :: acc
       | IndirectCallees callees ->
-        Set.fold (fun acc callee -> (callSite, Some callee) :: acc) acc callees
+        Set.fold (fun acc c -> ProgramPoint (cs, c, 0) :: acc) acc callees
       | _ -> acc) []
     |> List.filter (hasCallFallthroughNode ctx)
 
-  let tryGetConnectedArgumentFromIRCFG ctx state callEdge nth =
-    let callSite = fst callEdge
+  let tryGetConnectedArgumentFromIRCFG ctx state pp nth =
+    let callSite = (pp: ProgramPoint).CallSite |> Option.get
     let arch = (ctx: CFGBuildingContext<_, _>).BinHandle.File.ISA.Arch
     match ctx.IntraCallTable.TryGetFrameDistance callSite with
     | true, frameDist when arch = Architecture.IntelX86 ->
-      untouchedArgIndexX86FromIRCFG ctx frameDist callEdge state nth
+      untouchedArgIndexX86FromIRCFG ctx frameDist pp state nth
     | true, _ when arch = Architecture.IntelX64 ->
-      untouchedArgIndexX64FromIRCFG ctx.BinHandle ctx callEdge state nth
+      untouchedArgIndexX64FromIRCFG ctx.BinHandle ctx pp state nth
     | _ -> None
 
   let collectConditionalNoRetCallsFromIRCFG ctx (cfg: LowUIRCFG) =
     let hdl = ctx.BinHandle
     let uva = UntouchedValueAnalysis hdl :> IDataFlowAnalysis<_, _, _, _>
     let state = lazy (uva.InitializeState cfg.Vertices |> uva.Compute cfg)
-    collectReturningCallEdges ctx
-    |> List.choose (fun callEdge ->
-      let absV = ctx.AbsVertices[callEdge]
+    collectReturningAbsPPs ctx
+    |> List.choose (fun pp ->
+      let absV = ctx.Vertices[pp]
       match absV.VData.Internals.AbstractContent.ReturningStatus with
       | ConditionalNoRet nth ->
-        tryGetConnectedArgumentFromIRCFG ctx state.Value callEdge nth
+        tryGetConnectedArgumentFromIRCFG ctx state.Value pp nth
         |> Option.bind (fun nth' -> Some (absV, nth'))
       | NotNoRet | UnknownNoRet -> None
       | NoRet -> Utils.impossible ())
@@ -158,8 +159,8 @@ type CondAwareNoretAnalysis ([<Optional; DefaultParameterValue(true)>] strict) =
          untouched, thus conditional no return. *)
       Some nth
 
-  let tryGetConnectedArgumentFromSSACFG ctx ssa state callEdge nth =
-    let callSite = fst callEdge
+  let tryGetConnectedArgumentFromSSACFG ctx ssa state pp nth =
+    let callSite = (pp: ProgramPoint).CallSite |> Option.get
     let callerSSAV = SSACFG.findVertexByAddr ssa callSite
     let absSSAV = ssa.GetSuccs callerSSAV |> Seq.exactlyOne
     let arch = (ctx: CFGBuildingContext<_, _>).BinHandle.File.ISA.Arch
@@ -174,12 +175,12 @@ type CondAwareNoretAnalysis ([<Optional; DefaultParameterValue(true)>] strict) =
     let hdl = ctx.BinHandle
     let uva = SSAUntouchedValueAnalysis hdl :> IDataFlowAnalysis<_, _, _, _>
     let state = lazy (uva.InitializeState [] |> uva.Compute ssaCFG)
-    collectReturningCallEdges ctx
-    |> List.choose (fun callEdge ->
-      let absV = ctx.AbsVertices[callEdge]
+    collectReturningAbsPPs ctx
+    |> List.choose (fun pp ->
+      let absV = ctx.Vertices[pp]
       match absV.VData.Internals.AbstractContent.ReturningStatus with
       | ConditionalNoRet nth ->
-        tryGetConnectedArgumentFromSSACFG ctx ssaCFG state.Value callEdge nth
+        tryGetConnectedArgumentFromSSACFG ctx ssaCFG state.Value pp nth
         |> Option.bind (fun nth' -> Some (absV, nth'))
       | NotNoRet | UnknownNoRet -> None
       | NoRet -> Utils.impossible ())
