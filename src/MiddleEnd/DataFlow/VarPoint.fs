@@ -60,3 +60,8 @@ module VarKind =
     | SSA.TempVar (_, n) -> Temporary n
     | SSA.StackVar (_, offset) -> StackLocal offset
     | _ -> Utils.impossible ()
+
+  let isTemporary (kind: VarKind) =
+    match kind with
+    | Temporary _ -> true
+    | _ -> false

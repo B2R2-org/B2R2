@@ -35,9 +35,9 @@ open B2R2.MiddleEnd.ControlFlowAnalysis
 
 [<AutoOpen>]
 module private CFGRecovery =
-  let inline markVertexForAnalysis useSSA ctx vid =
+  let inline markVertexForAnalysis useSSA ctx v =
     if useSSA then ()
-    else ctx.CPState.PendingVertices.Add vid |> ignore
+    else ctx.CPState.MarkVertexAsPending v
 
 /// Base strategy for building a CFG.
 type CFGRecovery<'FnCtx,
@@ -78,7 +78,7 @@ type CFGRecovery<'FnCtx,
       let v, g = ctx.CFG.AddVertex (ctx.BBLFactory.Find ppoint)
       ctx.CFG <- g
       ctx.Vertices[ppoint] <- v
-      markVertexForAnalysis useSSA ctx v.ID
+      markVertexForAnalysis useSSA ctx v
       v
 
   let tryGetVertex ctx ppoint =
@@ -90,7 +90,7 @@ type CFGRecovery<'FnCtx,
         let v, g = ctx.CFG.AddVertex bbl
         ctx.CFG <- g
         ctx.Vertices[ppoint] <- v
-        markVertexForAnalysis useSSA ctx v.ID
+        markVertexForAnalysis useSSA ctx v
         Ok v
       | Error _ -> Error ErrorCase.ItemNotFound
 
@@ -109,7 +109,7 @@ type CFGRecovery<'FnCtx,
       let v, g = ctx.CFG.AddVertex bbl
       ctx.CFG <- g
       ctx.Vertices[calleePPoint] <- v
-      markVertexForAnalysis useSSA ctx v.ID
+      markVertexForAnalysis useSSA ctx v
       v
 
   let removeVertex ctx ppoint =
@@ -127,7 +127,7 @@ type CFGRecovery<'FnCtx,
 
   let connectEdge ctx srcVertex dstVertex edgeKind =
     ctx.CFG <- ctx.CFG.AddEdge (srcVertex, dstVertex, edgeKind)
-    markVertexForAnalysis useSSA ctx dstVertex.ID
+    markVertexForAnalysis useSSA ctx dstVertex
 
 #if CFGDEBUG
     let edgeStr = CFGEdgeKind.toString edgeKind

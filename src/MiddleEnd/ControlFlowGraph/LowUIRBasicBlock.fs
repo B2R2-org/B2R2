@@ -43,7 +43,7 @@ type LowUIRBasicBlock internal (ppoint, funcAbs, liftedInstrs, labelMap) =
 
   /// Return the `ILowUIRBasicBlock` interface to access the internal
   /// representation of the basic block.
-  member __.Internals with get() = __ :> ILowUIRBasicBlock
+  member inline __.Internals with get() = __ :> ILowUIRBasicBlock
 
   /// Intra-instruction label information, which is a mapping from a label to
   /// the corresponding program point.

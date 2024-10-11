@@ -44,7 +44,7 @@ type JmpTableAnalysis<'FnCtx,
 
   let rec findJumpExpr stmExtractor (g: IGraph<_, _>) vFst = function
     | (v: IVertex<_>) :: vs ->
-      match stmExtractor g v with
+      match stmExtractor v with
       | Jmp (InterJmp jmpExpr) -> Ok jmpExpr
       | _ ->
         let vs =
@@ -57,15 +57,13 @@ type JmpTableAnalysis<'FnCtx,
   let findIndBranchExprFromIRCFG state (g: LowUIRCFG) addr =
     (* Since there could be multiple SSA vertices, search for the right one. *)
     let v = g.FindVertexBy (fun v -> v.VData.Internals.BlockAddress = addr)
-    let stmExtractor _g v =
-      (state: VarBasedDataFlowState<_>).GetSSAStmts v |> Array.last
+    let stmExtractor = (state: VarBasedDataFlowState<_>).GetTerminatorInSSA
     findJumpExpr stmExtractor g v [ v ]
 
   let findIndBranchExprFromSSACFG (ssaCFG: SSACFG) addr =
     (* Since there could be multiple SSA vertices, search for the right one. *)
     let v = ssaCFG.FindVertexBy (fun v -> v.VData.Internals.BlockAddress = addr)
-    let stmExtractor _ (v: IVertex<SSABasicBlock>) =
-      v.VData.Internals.LastStmt
+    let stmExtractor (v: IVertex<SSABasicBlock>) = v.VData.Internals.LastStmt
     findJumpExpr stmExtractor ssaCFG v [ v ]
 
   let rec simplify = function
@@ -267,11 +265,10 @@ type JmpTableAnalysis<'FnCtx,
       else Error ErrorCase.ItemNotFound
 
   let findConstantFromIRCFG (state: VarBasedDataFlowState<_>) v =
-    let vp = state.SSAVarToVp[v]
-    state.GetDomainValue vp
+    state.DomainSubState.GetAbsValue (v=v)
 
   let findDefFromIRCFG (state: VarBasedDataFlowState<_>) v =
-    state.TryGetSSAStmt state.SSAVarToVp[v]
+    state.TryGetSSADef v
 
   let expandPhiFromIRCFG findConstant v _ e =
     match findConstant v with
@@ -287,7 +284,7 @@ type JmpTableAnalysis<'FnCtx,
     | Error e -> Error e
 
   let findConstantFromSSACFG (state: SSAVarBasedDataFlowState<_>) v =
-      state.GetRegValue v
+    state.GetRegValue v
 
   let findDefFromSSACFG (state: SSAVarBasedDataFlowState<_>) v =
     match state.SSAEdges.Defs.TryGetValue v with

@@ -83,9 +83,7 @@ type ConstantPropagation =
       let vp = { ProgramPoint = pp; VarKind = varKind }
       match state.UseDefMap.TryGetValue vp with
       | false, _ -> ConstantDomain.Undef
-      | true, defPp ->
-        { ProgramPoint = defPp; VarKind = varKind }
-        |> (state: IDataFlowState<_, _>).GetAbsValue
+      | true, defVp -> (state: IDataFlowState<_, _>).GetAbsValue defVp
 
     let rec evaluateExpr state pp e =
       match e.E with
@@ -96,7 +94,7 @@ type ConstantPropagation =
       | Num bv -> ConstantDomain.Const bv
       | Var _ | TempVar _ -> evaluateVarPoint state pp (VarKind.ofIRExpr e)
       | Load (_m, rt, addr) ->
-        match state.EvaluateToStackPointer pp addr with
+        match state.StackPointerSubState.EvalExpr pp addr with
         | StackPointerDomain.ConstSP bv ->
           let addr = BitVector.ToUInt64 bv
           let c = evaluateVarPoint state pp (Memory (Some addr))

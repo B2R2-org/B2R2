@@ -1,4 +1,4 @@
-﻿(*
+(*
   B2R2 - the Next-Generation Reversing Platform
 
   Copyright (c) SoftSec Lab. @ KAIST, since 2016
@@ -33,128 +33,72 @@ open B2R2.MiddleEnd.BinGraph
 open B2R2.BinIR
 open B2R2.BinIR.LowUIR
 
+/// LowUIR-variable-based data flow state.
 [<AllowNullLiteral>]
 type VarBasedDataFlowState<'Lattice>
-  public (hdl, analysis: IVarBasedDataFlowAnalysis<'Lattice>) =
+  public (hdl, analysis: IVarBasedDataFlowAnalysis<'Lattice>) as this =
 
-  /// A memoization that maps a vertex ID to its list of statements.
-  let perVertexStmtInfos = Dictionary<VertexID, StmtInfo array> ()
+  /// Initial stack pointer value in the stack pointer domain.
+  let spInitial =
+    match (hdl: BinHandle).RegisterFactory.StackPointer with
+    | None -> None
+    | Some rid ->
+      let rt = hdl.RegisterFactory.RegIDToRegType rid
+      let varKind = Regular rid
+      let bv = BitVector.OfUInt64 Constants.InitialStackPointer rt
+      let c = StackPointerDomain.ConstSP bv
+      Some (varKind, c)
 
-  /// A mapping from a variable point to its domain abstract value.
+  /// Mapping from a CFG vertex to its StmtInfo array.
+  let stmtInfoCache = Dictionary<IVertex<LowUIRBasicBlock>, StmtInfo[]> ()
+
+  /// Mapping from a VarPoint to its abstract value in the user's domain.
   let domainAbsValues = Dictionary<VarPoint, 'Lattice> ()
 
-  /// A mapping from a variable point to its stack pointer abstract value.
+  /// Mapping from a VarPoint to its abstract value in the stack-pointer domain.
   let spAbsValues = Dictionary<VarPoint, StackPointerDomain.Lattice> ()
 
-  /// A mapping from a variable kind to its initial stack pointer abstract
-  /// value.
-  let spInitialAbsValues = Dictionary<VarKind, StackPointerDomain.Lattice> ()
+  /// Mapping from a CFG vertex to its phi information.
+  let phiInfos = Dictionary<IVertex<LowUIRBasicBlock>, PhiInfo> ()
 
-  /// A mapping from a vertex ID to its incoming definitions.
   let perVertexIncomingDefs =
-    Dictionary<VertexID, Map<VarKind, ProgramPoint>> ()
+    Dictionary<IVertex<LowUIRBasicBlock>, Map<VarKind, VarPoint>> ()
 
-  /// A mapping from a vertex ID to its inner definitions.
-  let perVertexInnerDefs = Dictionary<VertexID, Map<VarKind, ProgramPoint>> ()
+  let perVertexInnerDefs =
+    Dictionary<IVertex<LowUIRBasicBlock>, HashSet<VarKind>> ()
 
-  /// A mapping from a vertex ID to its outgoing definitions.
   let perVertexOutgoingDefs =
-    Dictionary<VertexID, Map<VarKind, ProgramPoint>> ()
+    Dictionary<IVertex<LowUIRBasicBlock>, Map<VarKind, VarPoint>> ()
 
-  /// A mapping from a program point of a definition to its use sites.
-  let defUseMap = Dictionary<ProgramPoint, Set<ProgramPoint>> ()
+  let defUseMap = Dictionary<VarPoint, HashSet<VarPoint>> ()
 
-  /// A mapping from a variable point of a use to its definition site.
-  let useDefMap = Dictionary<VarPoint, ProgramPoint> ()
+  let useDefMap = Dictionary<VarPoint, VarPoint> ()
 
-  /// A mapping from a vertex ID to its phi information.
-  let phiInfos = Dictionary<VertexID, PhiInfo> ()
+  let stmtOfBBLs = Dictionary<ProgramPoint, StmtOfBBL> ()
 
-  /// A mapping from a program point to its corresponding statements and the
-  /// vertex id that contains the statements.
-  let ppToStmt = Dictionary<ProgramPoint, VertexID * Stmt> ()
-
-  /// A mapping from a vertex ID to the program point that corresponds to the
-  /// vertex.
-  let vidToPp = Dictionary<VertexID, ProgramPoint> ()
-
-  /// A set of pending vertices that need to be processed.
-  let pendingVertices = HashSet<VertexID> ()
-
-  //
-  // For sparse analysis of domain lattice.
-  //
-  let domainFlowQueue = UniqueQueue ()
-  let domainDefSiteQueue = UniqueQueue ()
-  let domainExecutedFlows = HashSet ()
-  let domainExecutedVertices = HashSet ()
-
-  //
-  // For sparse analysis of stack pointer lattice.
-  //
-  let spFlowQueue = UniqueQueue ()
-  let spDefSiteQueue = UniqueQueue ()
-  let spExecutedFlows = HashSet ()
-  let spExecutedVertices = HashSet ()
-
-  let spGetAbsValue vp =
-    match spAbsValues.TryGetValue vp with
-    | false, _ -> StackPointerDomain.Undef
-    | true, c -> c
-
-  let spSetAbsValue vp c = spAbsValues[vp] <- c
+  /// Set of pending vertices that need to be processed.
+  let pendingVertices = HashSet<IVertex<LowUIRBasicBlock>> ()
 
   let domainGetAbsValue vp =
     match domainAbsValues.TryGetValue vp with
     | false, _ -> analysis.Bottom
     | true, v -> v
 
-  let domainSetAbsValue vp absVal = domainAbsValues[vp] <- absVal
-
-  let domainSubState =
-    { new IDataFlowSubState<'Lattice> with
-        member __.FlowQueue = domainFlowQueue
-        member __.DefSiteQueue = domainDefSiteQueue
-        member __.ExecutedFlows = domainExecutedFlows
-        member __.ExecutedVertices = domainExecutedVertices
-        member __.Bottom = analysis.Bottom
-        member __.GetAbsValue vp = domainGetAbsValue vp
-        member __.SetAbsValue vp absVal = domainSetAbsValue vp absVal
-        member __.Join a b = analysis.Join a b
-        member __.Subsume a b = analysis.Subsume a b }
-
-  let spSubState =
-    { new IDataFlowSubState<StackPointerDomain.Lattice> with
-        member __.FlowQueue = spFlowQueue
-        member __.DefSiteQueue = spDefSiteQueue
-        member __.ExecutedFlows = spExecutedFlows
-        member __.ExecutedVertices = spExecutedVertices
-        member __.Bottom = StackPointerDomain.Undef
-        member __.GetAbsValue vp = spGetAbsValue vp
-        member __.SetAbsValue vp absVal = spSetAbsValue vp absVal
-        member __.Join a b = StackPointerDomain.join a b
-        member __.Subsume a b = StackPointerDomain.subsume a b }
-
-  let spGetInitialAbsValue varKind =
-    match spInitialAbsValues.TryGetValue varKind with
+  let spGetAbsValue vp =
+    match spAbsValues.TryGetValue vp with
     | false, _ -> StackPointerDomain.Undef
     | true, c -> c
 
-  let spSetInitialAbsValues () =
-    match (hdl: BinHandle).RegisterFactory.StackPointer with
-    | None -> ()
-    | Some rid ->
-      let rt = hdl.RegisterFactory.RegIDToRegType rid
-      let varKind = Regular rid
-      let bv = BitVector.OfUInt64 Constants.InitialStackPointer rt
-      let c = StackPointerDomain.ConstSP bv
-      spInitialAbsValues[varKind] <- c
+  let spGetInitialAbsValue varKind =
+    match spInitial with
+    | Some (stackVar, c) when varKind = stackVar -> c
+    | _ -> StackPointerDomain.Undef
 
   let spEvaluateVar varKind pp =
     let vp = { ProgramPoint = pp; VarKind = varKind }
-    match (useDefMap: Dictionary<_, _>).TryGetValue vp with
+    match useDefMap.TryGetValue vp with
     | false, _ -> spGetInitialAbsValue varKind
-    | true, defPp -> spGetAbsValue { ProgramPoint = defPp; VarKind = varKind }
+    | true, defVp -> spGetAbsValue defVp
 
   let rec spEvaluateExpr pp (e: Expr) =
     match e.E with
@@ -177,35 +121,32 @@ type VarBasedDataFlowState<'Lattice>
     | _ -> StackPointerDomain.NotConstSP
 
   /// Updates the mapping from a program point to its corresponding statements.
-  let updatePPToStmts stmts vid =
-    Array.iter (fun (pp, stmt) -> ppToStmt[pp] <- (vid, stmt)) stmts
+  let updatePPToStmts stmts v =
+    Array.iter (fun (stmt, pp) -> stmtOfBBLs[pp] <- (stmt, v)) stmts
 
-  /// Returns the statements of a vertex.
   let rec getStatements (v: IVertex<LowUIRBasicBlock>) =
-    let vid = v.ID
-    match perVertexStmtInfos.TryGetValue vid with
+    match stmtInfoCache.TryGetValue v with
     | true, stmts -> stmts
     | false, _ ->
-      let pp = vidToPp[vid]
+      let pp = v.VData.Internals.PPoint
       let stmts = getStatementsAux v pp |> Seq.toArray
-      updatePPToStmts stmts vid
-      perVertexStmtInfos[vid] <- stmts
+      updatePPToStmts stmts v
+      stmtInfoCache[v] <- stmts
       stmts
 
-  and getStatementsAux v (pp: ProgramPoint) =
-    let isAbstract = (v: IVertex<LowUIRBasicBlock>).VData.Internals.IsAbstract
-    if not isAbstract then (* regular vertex *)
+  and getStatementsAux (v: IVertex<LowUIRBasicBlock>) (pp: ProgramPoint) =
+    if not v.VData.Internals.IsAbstract then (* regular vertex *)
       let startPos = pp.Position
       v.VData.Internals.LiftedInstructions
-      |> Seq.collect (fun x ->
-        x.Stmts |> Seq.mapi (fun i stmt ->
-          ProgramPoint (x.Original.Address, startPos + i), stmt))
+      |> Array.collect (fun ins ->
+        ins.Stmts |> Array.mapi (fun i stmt ->
+          stmt, ProgramPoint (ins.Original.Address, startPos + i)))
     else (* abstract vertex *)
       let startPos = 1 (* we reserve 0 for phi definitions. *)
       let cs = Option.get pp.CallSite
       let addr = pp.Address
       v.VData.Internals.AbstractContent.Rundown
-      |> Seq.mapi (fun i s -> ProgramPoint (cs, addr, startPos + i), s)
+      |> Array.mapi (fun i s -> s, ProgramPoint (cs, addr, startPos + i))
 
   //
   // NOTE: Below are the logics for translating the IR to SSA form!
@@ -271,7 +212,7 @@ type VarBasedDataFlowState<'Lattice>
     let vp = { ProgramPoint = pp; VarKind = vk }
     match useDefMap.TryGetValue vp with
     | false, _ -> mkEmptySSAVar vp.VarKind (* coming from its caller context *)
-    | true, defPp -> getSSAVar { ProgramPoint = defPp; VarKind = vp.VarKind }
+    | true, defVp -> getSSAVar defVp
 
   /// Translates an IR expression to its SSA expression.
   let rec translateToSSAExpr (pp: ProgramPoint) e =
@@ -330,17 +271,9 @@ type VarBasedDataFlowState<'Lattice>
     | Undefined (_, s) -> addr, (s, -1)
     | _ -> raise InvalidExprException
 
-  let convertDefSitesToIds defSites varKind =
-    defSites
-    |> Seq.map (fun defSite ->
-      { ProgramPoint = defSite; VarKind = varKind }
-      |> getSSAVar
-      |> fun v -> v.Identifier)
-    |> Seq.toArray
-
-  /// Try to translate a non-phi (ordinary) IR statement to an SSA statement.
-  /// It fails if the statement is not interesting to be translated to SSA.
-  let tryTranslateToSSAStmt pp stmt =
+  /// Translate a non-phi (ordinary) IR statement to an SSA statement. It
+  /// returns a dummy exception statement if the given IR statement is invalid.
+  let translateToSSAStmt pp stmt =
     match stmt.S with
     | Put (dst, src) ->
       let vk = VarKind.ofIRExpr dst
@@ -348,7 +281,6 @@ type VarBasedDataFlowState<'Lattice>
       let v = getSSAVar vp
       let e = translateToSSAExpr pp src
       SSA.Def (v, e)
-      |> Some
     | Store (_, addr, value) ->
       match spEvaluateExpr pp addr with
       | StackPointerDomain.ConstSP bv ->
@@ -358,7 +290,6 @@ type VarBasedDataFlowState<'Lattice>
         let v = getSSAVar vp
         let e = translateToSSAExpr pp value
         SSA.Def (v, e)
-        |> Some
       | _ ->
         let prevMemVar = mkEmptySSAVar (Memory None) (* empty one *)
         let newMemVar = getSSAVar { ProgramPoint = pp; VarKind = Memory None }
@@ -367,13 +298,11 @@ type VarBasedDataFlowState<'Lattice>
         let e2 = translateToSSAExpr pp value
         let e = SSA.Store (prevMemVar, rt, e1, e2)
         SSA.Def (newMemVar, e)
-        |> Some
     | Jmp (expr) ->
       let addr = 0x0UL
       let label = translateLabel addr expr.E
       let e = SSA.IntraJmp label
       SSA.Jmp e
-      |> Some
     | CJmp (expr, label1, label2) ->
       let addr = 0x0UL
       let expr = translateToSSAExpr pp expr
@@ -381,157 +310,204 @@ type VarBasedDataFlowState<'Lattice>
       let label2 = translateLabel addr label2.E
       let e = SSA.IntraCJmp (expr, label1, label2)
       SSA.Jmp e
-      |> Some
     | InterJmp (expr, _) ->
       let expr = translateToSSAExpr pp expr
       let e = SSA.InterJmp (expr)
       SSA.Jmp e
-      |> Some
     | InterCJmp (expr1, expr2, expr3) ->
       let expr1 = translateToSSAExpr pp expr1
       let expr2 = translateToSSAExpr pp expr2
       let expr3 = translateToSSAExpr pp expr3
       let e = SSA.InterCJmp (expr1, expr2, expr3)
       SSA.Jmp e
-      |> Some
-    | _ -> None
+    | _ ->
+      SSA.SideEffect <| Exception "Invalid SSA stmt encountered"
+
+  let convertDefsToIds defs =
+    defs
+    |> Set.map (fun def ->
+      let v = getSSAVar def
+      v.Identifier)
+    |> Set.toArray
 
   /// Generates a phi statement for the given variable point.
   let generatePhiSSAStmt vp =
-    let vid, _ = ppToStmt[vp.ProgramPoint]
-    let phiInfo = phiInfos[vid]
+    let _, v = stmtOfBBLs[vp.ProgramPoint]
+    let phiInfo = phiInfos[v]
     let varKind = vp.VarKind
-    let defSites = phiInfo[varKind]
+    let defs = phiInfo[varKind]
     let var = getSSAVar vp
-    let ids = convertDefSitesToIds defSites varKind
+    let ids = convertDefsToIds defs
     SSA.Phi (var, ids)
 
   /// Inserts phi definitions to the given list.
   let insertPhis phiInfo (pp: ProgramPoint) acc =
-    phiInfo |> Seq.fold (fun acc (KeyValue (vk, defSites)) ->
+    phiInfo |> Seq.fold (fun acc (KeyValue (vk, defs)) ->
       let var = getSSAVar { ProgramPoint = pp; VarKind = vk }
-      let ids = convertDefSitesToIds defSites vk
+      let ids = convertDefsToIds defs
       SSA.Phi (var, ids) :: acc) acc
 
-  /// Translates a vertex to SSA form.
-  let getSSAStmts (v: IVertex<LowUIRBasicBlock>) =
-    let header = (* here comes phi definitions. *)
-      if not <| phiInfos.ContainsKey v.ID then []
-      else insertPhis phiInfos[v.ID] vidToPp[v.ID] []
-    getStatements v
-    |> Seq.choose (fun (pp, irStmt) -> tryTranslateToSSAStmt pp irStmt)
-    |> Seq.append header
-    |> Seq.toArray
+  let domainSubState =
+    let flowQueue = UniqueQueue ()
+    let defSiteQueue = UniqueQueue ()
+    let executedFlows = HashSet ()
+    let executedVertices = HashSet ()
+    { new IVarBasedDataFlowSubState<'Lattice> with
+        member _.FlowQueue = flowQueue
+        member _.DefSiteQueue = defSiteQueue
+        member _.ExecutedFlows = executedFlows
+        member _.ExecutedVertices = executedVertices
+        member _.Bottom = analysis.Bottom
+        member _.GetAbsValue v = domainGetAbsValue ssaVarToVp[v]
+        member _.GetAbsValue vp = domainGetAbsValue vp
+        member _.SetAbsValue vp absVal = domainAbsValues[vp] <- absVal
+        member _.Join a b = analysis.Join a b
+        member _.Subsume a b = analysis.Subsume a b
+        member _.EvalExpr pp expr = analysis.EvalExpr this pp expr }
 
-  /// Tries to translate a variable point to an SSA statement including phi
-  /// statements.
-  let tryGetSSAStmt vp =
-    let pp = vp.ProgramPoint
-    let vid, stmt = ppToStmt[pp]
-    let pp' = vidToPp[vid]
-    let isPhi = pp = pp'
-    if not isPhi then tryTranslateToSSAStmt pp stmt
-    else generatePhiSSAStmt vp |> Some
+  let spSubState =
+    let flowQueue = UniqueQueue ()
+    let defSiteQueue = UniqueQueue ()
+    let executedFlows = HashSet ()
+    let executedVertices = HashSet ()
+    { new IVarBasedDataFlowSubState<StackPointerDomain.Lattice> with
+        member _.FlowQueue = flowQueue
+        member _.DefSiteQueue = defSiteQueue
+        member _.ExecutedFlows = executedFlows
+        member _.ExecutedVertices = executedVertices
+        member _.Bottom = StackPointerDomain.Undef
+        member _.GetAbsValue v = spGetAbsValue ssaVarToVp[v]
+        member _.GetAbsValue vp = spGetAbsValue vp
+        member _.SetAbsValue vp absVal = spAbsValues[vp] <- absVal
+        member _.Join a b = StackPointerDomain.join a b
+        member _.Subsume a b = StackPointerDomain.subsume a b
+        member _.EvalExpr pp expr = spEvaluateExpr pp expr }
 
-  let resetSubState (subState: IDataFlowSubState<_>) =
+  let resetSubState (subState: IVarBasedDataFlowSubState<_>) =
     subState.FlowQueue.Clear ()
     subState.DefSiteQueue.Clear ()
     subState.ExecutedFlows.Clear ()
     subState.ExecutedVertices.Clear ()
 
-  /// Reset this state.
   let reset () =
+    stmtInfoCache.Clear ()
     domainAbsValues.Clear ()
     spAbsValues.Clear ()
-    perVertexStmtInfos.Clear ()
-    vidToPp.Clear ()
-    ppToStmt.Clear ()
+    phiInfos.Clear ()
     perVertexIncomingDefs.Clear ()
     perVertexInnerDefs.Clear ()
     perVertexOutgoingDefs.Clear ()
     defUseMap.Clear ()
     useDefMap.Clear ()
-    phiInfos.Clear ()
+    stmtOfBBLs.Clear ()
     pendingVertices.Clear ()
-    ssaVarToVp.Clear ()
     vpToSSAVar.Clear ()
     vkToFreshId.Clear ()
+    ssaVarToVp.Clear ()
     resetSubState spSubState
     resetSubState domainSubState
 
-  do spSetInitialAbsValues ()
-
-  member __.EvaluateToStackPointer pp e = spEvaluateExpr pp e
-
-  member __.GetStackPointerValue vp = spGetAbsValue vp
-
-  member __.SetStackPointerValue vp c = spSetAbsValue vp c
-
-  member __.GetDomainValue vp = domainGetAbsValue vp
-
-  member __.SetDomainValue vp absVal = domainSetAbsValue vp absVal
-
-  member __.GetStmtInfos v = getStatements v
-
-  member __.GetSSAStmts v = getSSAStmts v
-
-  member __.TryGetSSAStmt vp = tryGetSSAStmt vp
-
-  member __.PendingVertices with get () = pendingVertices
-
-  member __.StackPointerSubState with get () = spSubState
-
-  member __.DomainSubState with get () = domainSubState
-
-  member __.PerVertexIncomingDefs with get () = perVertexIncomingDefs
-
-  member __.PerVertexInnerDefs with get () = perVertexInnerDefs
-
-  member __.PerVertexOutgoingDefs with get () = perVertexOutgoingDefs
-
-  member __.DefUseMap with get () = defUseMap
-
-  member __.UseDefMap with get () = useDefMap
-
-  member __.VidToPp with get () = vidToPp
-
-  member __.SSAVarToVp with get () = ssaVarToVp
-
-  member __.VpToSSAVar with get () = vpToSSAVar
-
   member __.PhiInfos with get () = phiInfos
 
-  member __.PpToStmt with get () = ppToStmt
+  /// Mapping from a CFG vertex to its incoming definitions.
+  member __.PerVertexIncomingDefs with get () = perVertexIncomingDefs
 
-  member __.BinHandle with get () = hdl
+  /// Mapping from a CFG vertex to its inner definitions.
+  member __.PerVertexInnerDefs with get () = perVertexInnerDefs
 
+  /// Mapping from a CFG vertex to its outgoing definitions.
+  member __.PerVertexOutgoingDefs with get () = perVertexOutgoingDefs
+
+  /// Mapping from a variable def to its uses.
+  member __.DefUseMap with get () = defUseMap
+
+  /// Mapping from a variable use to its definition.
+  member __.UseDefMap with get () = useDefMap
+
+  /// Mapping from a program point to `StmtOfBBL`, which is a pair of a Low-UIR
+  /// statement and its corresponding vertex that contains the statement.
+  member __.StmtOfBBLs with get () = stmtOfBBLs
+
+  /// Sub-state for the stack-pointer domain.
+  member __.StackPointerSubState with get () = spSubState
+
+  /// Sub-state for the user's domain.
+  member __.DomainSubState with get () = domainSubState
+
+  /// Mark the given vertex as pending, which means that the vertex needs to be
+  /// processed.
+  member __.MarkVertexAsPending v = pendingVertices.Add v |> ignore
+
+  /// Check if the given vertex is pending.
+  member __.IsVertexPending v = pendingVertices.Contains v
+
+  /// Clear the pending vertices.
+  member __.ClearPendingVertices () = pendingVertices.Clear ()
+
+  /// Enqueue the pending vertices to the given sub-state.
+  member __.EnqueuePendingVertices (subState: IVarBasedDataFlowSubState<_>) =
+    for v in pendingVertices do
+      subState.FlowQueue.Enqueue (null, v)
+
+  /// Return the array of StmtInfos of the given vertex.
+  member __.GetStmtInfos v = getStatements v
+
+  /// Return the terminator statment of the given vertex in an SSA form.
+  member __.GetTerminatorInSSA v =
+    getStatements v
+    |> Array.last
+    |> fun (irStmt, pp) -> translateToSSAStmt pp irStmt
+
+  /// Try to get the definition of the given SSA variable in an SSA form.
+  member __.TryGetSSADef v =
+    let vp = ssaVarToVp[v]
+    let pp = vp.ProgramPoint
+    let stmt, v = stmtOfBBLs[pp]
+    let pp' = v.VData.Internals.PPoint
+    let isPhi = pp = pp'
+    if not isPhi then
+      match translateToSSAStmt pp stmt with
+      | SSA.SideEffect _ -> None
+      | s -> Some s
+    else generatePhiSSAStmt vp |> Some
+
+  /// Reset this state.
   member __.Reset () = reset ()
 
   interface IDataFlowState<VarPoint, 'Lattice> with
     member __.GetAbsValue absLoc = domainGetAbsValue absLoc
 
-and StmtInfo = ProgramPoint * Stmt
+/// A Low-UIR statement and its corresponding program point.
+and private StmtInfo = Stmt * ProgramPoint
 
-and IDataFlowSubState<'Lattice> =
+/// A Low-UIR statement and its corresponding vertex in the Low-UIR CFG.
+and private StmtOfBBL = Stmt * IVertex<LowUIRBasicBlock>
+
+and IVarBasedDataFlowSubState<'Lattice> =
   inherit IDataFlowState<VarPoint, 'Lattice>
 
   /// The edge queue for calculating the data flow.
-  abstract FlowQueue: UniqueQueue<VertexID * VertexID>
+  abstract FlowQueue:
+    UniqueQueue<IVertex<LowUIRBasicBlock> * IVertex<LowUIRBasicBlock>>
 
   /// The definition site queue for calculating the data flow.
   abstract DefSiteQueue: UniqueQueue<ProgramPoint>
 
   /// Executed edges during the data flow calculation.
-  abstract ExecutedFlows: HashSet<VertexID * VertexID>
+  abstract ExecutedFlows:
+    HashSet<IVertex<LowUIRBasicBlock> * IVertex<LowUIRBasicBlock>>
 
   /// Executed vertices during the data flow calculation.
-  abstract ExecutedVertices: HashSet<VertexID>
+  abstract ExecutedVertices: HashSet<IVertex<LowUIRBasicBlock>>
 
   /// The bottom of the lattice.
   abstract Bottom: 'Lattice
 
+  /// Get the abstract value of the given SSA variable.
+  abstract GetAbsValue: v: SSA.Variable -> 'Lattice
+
   /// Get the abstract value at the given location.
-  abstract SetAbsValue: VarPoint -> 'Lattice -> unit
+  abstract SetAbsValue: vp: VarPoint -> 'Lattice -> unit
 
   /// Join two abstract values.
   abstract Join: 'Lattice -> 'Lattice -> 'Lattice
@@ -539,9 +515,12 @@ and IDataFlowSubState<'Lattice> =
   /// Check if the first abstract value subsumes the second.
   abstract Subsume: 'Lattice -> 'Lattice -> bool
 
+  /// Evaluate the given expression using the current abstract state.
+  abstract EvalExpr: ProgramPoint -> Expr -> 'Lattice
+
 /// A mapping from a variable kind of a phi variable to the program points of
 /// its incoming variable.
-and PhiInfo = Dictionary<VarKind, Set<ProgramPoint>>
+and PhiInfo = Dictionary<VarKind, Set<VarPoint>>
 
 /// The core interface for IR-based data flow analysis.
 and IVarBasedDataFlowAnalysis<'Lattice> =

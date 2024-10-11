@@ -214,7 +214,7 @@ type PersistentDataFlowTests () =
     let uva = UntouchedValueAnalysis brew.BinHandle
     let dfa = uva :> IDataFlowAnalysis<_, _, _, _>
     let state = dfa.InitializeState roots
-    cfg.IterVertex (fun v -> state.PendingVertices.Add v.ID |> ignore)
+    cfg.IterVertex state.MarkVertexAsPending
     let state = dfa.Compute cfg state
     let rbp = 0x7ffffff8UL
     [ irMem 0xcUL 1 (rbp - 0x14UL) |> cmp <| mkUntouchedReg Register.RDI

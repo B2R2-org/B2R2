@@ -64,8 +64,7 @@ type StackPointerPropagation =
       let vp = { ProgramPoint = pp; VarKind = varKind }
       match state.UseDefMap.TryGetValue vp with
       | false, _ -> getBaseCase varKind (* initialize here *)
-      | true, defPp ->
-        state.GetDomainValue { ProgramPoint = defPp; VarKind = varKind }
+      | true, defVp -> state.DomainSubState.GetAbsValue defVp
 
     let rec evaluateExpr (state: VarBasedDataFlowState<_>) pp e =
       match e.E with

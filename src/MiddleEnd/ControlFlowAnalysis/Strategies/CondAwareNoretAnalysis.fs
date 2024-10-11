@@ -55,20 +55,17 @@ type CondAwareNoretAnalysis ([<Optional; DefaultParameterValue(true)>] strict) =
     | ConditionalNoRet n1, ConditionalNoRet n2 when n1 <> n2 -> NoRet
     | _ -> Utils.impossible ()
 
-  let tryGetValue (state: VarBasedDataFlowState<_>) vid varKind =
-    let defSites = state.PerVertexIncomingDefs[vid]
-    match Map.tryFind varKind defSites with
-    | Some defPp ->
-      { ProgramPoint = defPp; VarKind = varKind }
-      |> (state :> IDataFlowState<_, _>).GetAbsValue
-      |> Some
+  let tryGetValue (state: VarBasedDataFlowState<_>) v varKind =
+    let defs = state.PerVertexIncomingDefs[v]
+    match Map.tryFind varKind defs with
+    | Some defVp -> (state :> IDataFlowState<_, _>).GetAbsValue defVp |> Some
     | None -> None
 
   let untouchedArgIndexX86FromIRCFG ctx frameDist pp state nth =
     let argOff = uint64 <| frameDist - 4 * nth
     let varKind = Memory <| Some (Constants.InitialStackPointer + argOff)
     let absV = ctx.Vertices[pp]
-    match tryGetValue state absV.ID varKind with
+    match tryGetValue state absV varKind with
     | Some (UntouchedValueDomain.Untouched (RegisterTag (StackLocal off))) ->
       Some (- off / 4)
     | _ -> None
@@ -82,7 +79,7 @@ type CondAwareNoretAnalysis ([<Optional; DefaultParameterValue(true)>] strict) =
     let argRegId = CallingConvention.functionArgRegister hdl OS.Linux nth
     let varKind = Regular argRegId
     let absV = ctx.Vertices[pp]
-    match tryGetValue state absV.ID varKind with
+    match tryGetValue state absV varKind with
     | Some (UntouchedValueDomain.Untouched (RegisterTag (Regular rid))) ->
       regIdToArgNumX64 hdl rid
     | _ ->
@@ -225,7 +222,7 @@ type CondAwareNoretAnalysis ([<Optional; DefaultParameterValue(true)>] strict) =
         | status -> updateStatus status
     status
 
-  /// Non-returning function identification for IR-based CFG.
+  (* Non-returning function identification for IR-based CFG. *)
   interface ICFGAnalysis<unit -> unit> with
     member _.Unwrap env =
       let ctx = env.Context
@@ -239,7 +236,7 @@ type CondAwareNoretAnalysis ([<Optional; DefaultParameterValue(true)>] strict) =
         <| $"{ctx.FunctionAddress:x}: {ctx.NonReturningStatus}"
 #endif
 
-  /// Non-returning function identification for SSA-based CFG.
+  (* Non-returning function identification for SSA-based CFG. *)
   interface ICFGAnalysis<SSACFG -> unit> with
     member _.Unwrap env =
       let ctx = env.Context
