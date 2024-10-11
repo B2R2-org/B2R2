@@ -54,13 +54,13 @@ type UntouchedValueAnalysis =
       match state.UseDefMap.TryGetValue vp with
       | false, _ -> getBaseCase varKind (* initialize here *)
       | true, defPp ->
-        state.GetAbsValue { ProgramPoint = defPp; VarKind = varKind }
+        state.GetDomainValue { ProgramPoint = defPp; VarKind = varKind }
 
     let rec evaluateExpr state pp e =
       match e.E with
       | Var _ | TempVar _ -> evaluateVarPoint state pp (VarKind.ofIRExpr e)
       | Load (_, _, addr) ->
-        match state.EvaluateExprToStackPointer pp addr with
+        match state.EvaluateToStackPointer pp addr with
         | StackPointerDomain.ConstSP bv ->
           let addr = BitVector.ToUInt64 bv
           evaluateVarPoint state pp (Memory (Some addr))

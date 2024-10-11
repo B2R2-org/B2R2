@@ -55,8 +55,8 @@ type CondAwareNoretAnalysis ([<Optional; DefaultParameterValue(true)>] strict) =
     | ConditionalNoRet n1, ConditionalNoRet n2 when n1 <> n2 -> NoRet
     | _ -> Utils.impossible ()
 
-  let tryGetValue state vid varKind =
-    let defSites = (state :> VarBasedDataFlowState<_>).IncomingDefs[vid]
+  let tryGetValue (state: VarBasedDataFlowState<_>) vid varKind =
+    let defSites = state.PerVertexIncomingDefs[vid]
     match Map.tryFind varKind defSites with
     | Some defPp ->
       { ProgramPoint = defPp; VarKind = varKind }
