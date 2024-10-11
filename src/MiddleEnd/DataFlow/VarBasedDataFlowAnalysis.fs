@@ -132,18 +132,9 @@ module private Chains =
     | InterCJmp _ -> renameJmp state m pp stmt.S; m
     | _ -> m
 
-  let calculateProgramPoint g v =
-    let isAbstract = (v: IVertex<LowUIRBasicBlock>).VData.Internals.IsAbstract
-    if not isAbstract then v.VData.Internals.PPoint
-    else
-      let callerV = (g: IGraph<_, _>).GetPreds v |> Seq.exactlyOne
-      let callSite = callerV.VData.Internals.LastInstruction.Address
-      let callee = v.VData.Internals.PPoint.Address
-      ProgramPoint (callSite, callee, 0)
-
   let updateVidToPp g (state: VarBasedDataFlowState<_>) vid =
     let v = (g: IGraph<_, _>).FindVertexByID vid
-    let pp = calculateProgramPoint g v
+    let pp = (v.VData: LowUIRBasicBlock).Internals.PPoint
     state.VidToPp[vid] <- pp
 
   let collectDefsFromStmt state defs (pp, stmt) =
