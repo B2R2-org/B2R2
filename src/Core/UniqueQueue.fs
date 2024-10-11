@@ -46,7 +46,8 @@ type UniqueQueue<'T> () =
 
   /// Try to dequeue an element.
   member __.TryDequeue ([<Out>] result: byref<'T>) =
-    queue.TryDequeue (&result)
+    if not <| queue.TryDequeue (&result) then false
+    else set.Remove result
 
   /// Get the number of elements in the queue.
   member __.Count = queue.Count
