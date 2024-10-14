@@ -6965,7 +6965,9 @@ module internal ParsingHelper = begin
     | 0xC0uy -> render span rhlp XADD SzCond.Nor OD.RmGpr SZ.Byte
     | 0xC1uy -> render span rhlp XADD SzCond.Nor OD.RmGpr SZ.Def
     | 0xC2uy -> parseEVEX span rhlp nor0FC2 vex0FC2 evex0FC2W0 evex0FC2W1
-    | 0xC3uy -> render span rhlp MOVNTI SzCond.Nor OD.RmGpr SZ.Def
+    | 0xC3uy ->
+      if rhlp.VEXInfo.IsSome then raise ParsingFailureException
+      else render span rhlp MOVNTI SzCond.Nor OD.RmGpr SZ.Def
     | 0xC4uy -> parseVEX span rhlp nor0FC4 vex0FC4
     | 0xC5uy -> parseVEX span rhlp nor0FC5 vex0FC5
     | 0xC6uy -> parseVEX span rhlp nor0FC6 vex0FC6
