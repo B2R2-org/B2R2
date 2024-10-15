@@ -1505,8 +1505,7 @@ type internal OpXmmVsXm () =
       findRegRBits rhlp.RegSize rhlp.REXPrefix (getReg modRM) |> OprReg
     let opr2 =
       match rhlp.VEXInfo with
-      | Some vInfo ->
-        Register.xmm (int vInfo.VVVV) |> OprReg
-      | _ -> raise ParsingFailureException
+      | Some vInfo -> Register.xmm (int vInfo.VVVV) |> OprReg
+      | None -> raise ParsingFailureException
     let opr3 = parseMemOrReg modRM span rhlp
     ThreeOperands (opr1, opr2, opr3)
