@@ -668,9 +668,9 @@ module internal ParsingHelper = begin
     | MPref.MPrxNP
     | MPref.MPrx66 -> raise ParsingFailureException
     | MPref.MPrxF3 ->
-      struct (VCVTSI2SS, OD.XmmVvXm, SZ.VyDq, TT.NA) (* VssHssEy *)
+      struct (VCVTSI2SS, OD.XmmVsXm, SZ.VyDq, TT.Tuple1Scalar) (* VssHssEy *)
     | MPref.MPrxF2 ->
-      struct (VCVTSI2SD, OD.XmmVvXm, SZ.VyDq, TT.NA) (* VsdHsdEy *)
+      struct (VCVTSI2SD, OD.XmmVsXm, SZ.VyDq, TT.Tuple1Scalar) (* VsdHsdEy *)
     | _ (* MPrx66F2 *) -> raise ParsingFailureException
 
   let nor0F2B = function
@@ -1024,9 +1024,9 @@ module internal ParsingHelper = begin
     | MPref.MPrx66 ->
       struct (VDIVPD, OD.XmmVvXm, SZ.VecDef, TT.NA) (* VpdHpdWpd *)
     | MPref.MPrxF3 ->
-      struct (VDIVSS, OD.XmmVvXm, SZ.DqdDq, TT.NA) (* VdqHdqWdqd *)
+      struct (VDIVSS, OD.XmmVsXm, SZ.DqdDq, TT.Tuple1Scalar) (* VssHssWdqd *)
     | MPref.MPrxF2 ->
-      struct (VDIVSD, OD.XmmVvXm, SZ.DqqDq, TT.NA) (* VdqHdqWdqq *)
+      struct (VDIVSD, OD.XmmVsXm, SZ.DqqDq, TT.Tuple1Scalar) (* VsdHsdWdqq *)
     | _ (* MPrx66F2 *) -> raise ParsingFailureException
 
   let nor0F5F = function

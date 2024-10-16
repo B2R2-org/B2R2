@@ -157,7 +157,8 @@ type IntelParser (wordSz) =
        OpKnKm () :> OperandParser
        OpMKn () :> OperandParser
        OpKKn () :> OperandParser
-       OpKnKmImm8 () :> OperandParser |]
+       OpKnKmImm8 () :> OperandParser
+       OpXmmVsXm () :> OperandParser |]
 
   let szcomputers =
     [| SzByte () :> InsSizeComputer
