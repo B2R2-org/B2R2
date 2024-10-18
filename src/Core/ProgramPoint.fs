@@ -44,6 +44,13 @@ type ProgramPoint private (addr, pos, callsite) =
   /// vertex.
   member __.CallSite with get(): Addr option = callsite
 
+  /// Compare against another program point.
+  member __.CompareTo (rhs: ProgramPoint) =
+    let result = compare __.Address rhs.Address
+    if result <> 0 then result
+    elif __.Position = rhs.Position then compare __.CallSite rhs.CallSite
+    else compare __.Position rhs.Position
+
   override __.Equals (o) =
     match o with
     | :? ProgramPoint as o ->
@@ -52,7 +59,10 @@ type ProgramPoint private (addr, pos, callsite) =
       && o.CallSite = __.CallSite
     | _ -> false
 
-  override __.GetHashCode () = hash (__.Address, __.Position, __.CallSite)
+  override __.GetHashCode () =
+    match __.CallSite with
+    | None -> int __.Address ^^^ (__.Position <<< 16)
+    | Some callSite -> int __.Address ^^^ (__.Position <<< 16) + int callSite
 
   override __.ToString () =
     match __.CallSite with
@@ -73,9 +83,8 @@ type ProgramPoint private (addr, pos, callsite) =
   interface System.IComparable with
     member __.CompareTo (rhs) =
       match rhs with
-      | :? ProgramPoint as rhs ->
-        (* To lexicographically sort leaders. Being too pedantic here. *)
-        if __.Address = rhs.Address then compare __.Position rhs.Position
-        elif __.CallSite = rhs.CallSite then compare __.Address rhs.Address
-        else compare __.CallSite rhs.CallSite
+      | :? ProgramPoint as rhs -> __.CompareTo rhs
       | _ -> invalidArg (nameof rhs) "Invalid comparison"
+
+  interface System.IComparable<ProgramPoint> with
+    member __.CompareTo (rhs) = __.CompareTo rhs
