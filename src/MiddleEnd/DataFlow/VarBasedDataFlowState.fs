@@ -64,9 +64,6 @@ type VarBasedDataFlowState<'Lattice>
   let perVertexIncomingDefs =
     Dictionary<IVertex<LowUIRBasicBlock>, Map<VarKind, VarPoint>> ()
 
-  let perVertexInnerDefs =
-    Dictionary<IVertex<LowUIRBasicBlock>, HashSet<VarKind>> ()
-
   let perVertexOutgoingDefs =
     Dictionary<IVertex<LowUIRBasicBlock>, Map<VarKind, VarPoint>> ()
 
@@ -395,7 +392,6 @@ type VarBasedDataFlowState<'Lattice>
     spAbsValues.Clear ()
     phiInfos.Clear ()
     perVertexIncomingDefs.Clear ()
-    perVertexInnerDefs.Clear ()
     perVertexOutgoingDefs.Clear ()
     defUseMap.Clear ()
     useDefMap.Clear ()
@@ -411,9 +407,6 @@ type VarBasedDataFlowState<'Lattice>
 
   /// Mapping from a CFG vertex to its incoming definitions.
   member __.PerVertexIncomingDefs with get () = perVertexIncomingDefs
-
-  /// Mapping from a CFG vertex to its inner definitions.
-  member __.PerVertexInnerDefs with get () = perVertexInnerDefs
 
   /// Mapping from a CFG vertex to its outgoing definitions.
   member __.PerVertexOutgoingDefs with get () = perVertexOutgoingDefs

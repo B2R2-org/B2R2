@@ -37,40 +37,105 @@ open System.Collections.Generic
 /// that calculates def-use/use-def chains.
 [<RequireQualifiedAccess>]
 module private Chains =
-  let collectDefsFromStmt state (defs: HashSet<VarKind>) pp stmt =
-    match stmt.S with
-    | Put (dst, _) ->
-      let vk = VarKind.ofIRExpr dst
-      defs.Add vk |> ignore
-    | Store (_, addr, _) ->
-      (state: IVarBasedDataFlowSubState<_>).EvalExpr pp addr
-      |> function
-        | StackPointerDomain.ConstSP bv ->
-          let loc = BitVector.ToUInt64 bv
-          let vk = Memory (Some loc)
-          defs.Add vk |> ignore
+  let inline updateGlobalName (globals: HashSet<_>) (varKill: HashSet<_>) vk =
+    if varKill.Contains vk then ()
+    else globals.Add vk |> ignore
+
+  let inline getStackValue state pp e =
+    match (state: IVarBasedDataFlowSubState<_>).EvalExpr pp e with
+    | StackPointerDomain.ConstSP bv -> Ok <| BitVector.ToUInt64 bv
+    | _ -> Error ErrorCase.InvalidExprEvaluation
+
+  let rec updateGlobals globals varKill stackState pp expr =
+    match expr.E with
+    | Num _ | Undefined _ | FuncName _ | Name _ | Nil | PCVar _ -> ()
+    | Var (_, rid, _) ->
+      updateGlobalName globals varKill (Regular rid)
+    | TempVar (_, n) ->
+      updateGlobalName globals varKill (Temporary n)
+    | UnOp (_, e) -> updateGlobals globals varKill stackState pp e
+    | BinOp (_, _, lhs, rhs)
+    | RelOp (_, lhs, rhs) ->
+      updateGlobals globals varKill stackState pp lhs
+      updateGlobals globals varKill stackState pp rhs
+    | Load (_, _, e) ->
+      updateGlobals globals varKill stackState pp e
+      getStackValue stackState pp e
+      |> Result.iter (fun loc ->
+        updateGlobalName globals varKill (Memory (Some loc)))
+    | Ite (cond, e1, e2) ->
+      updateGlobals globals varKill stackState pp cond
+      updateGlobals globals varKill stackState pp e1
+      updateGlobals globals varKill stackState pp e2
+    | Cast (_, _, e) ->
+      updateGlobals globals varKill stackState pp e
+    | Extract (e, _, _) ->
+      updateGlobals globals varKill stackState pp e
+
+  let addDefSite (defSites: Dictionary<_, _>) vk blk =
+    match defSites.TryGetValue vk with
+    | false, _ -> defSites[vk] <- List [ blk ]
+    | true, lst -> lst.Add blk
+
+  /// Iterate over the vertices to find the def sites for each variable kind
+  /// (defSites) and the global variables that are live across multible bbls
+  /// (globals).
+  let findDefVars g state (defSites: Dictionary<_, _>) globals =
+    let varKill = HashSet ()
+    let stackState = (state: VarBasedDataFlowState<_>).StackPointerSubState
+    for v in (g: IGraph<_, _>).Vertices do
+      varKill.Clear ()
+      for (stmt, pp) in state.GetStmtInfos v do
+        match stmt.S with
+        | Put (dst, src) ->
+          let vk = VarKind.ofIRExpr dst
+          updateGlobals globals varKill stackState pp src
+          varKill.Add vk |> ignore
+          addDefSite defSites vk v
+        | Store (_, addr, value) ->
+          updateGlobals globals varKill stackState pp value
+          getStackValue stackState pp addr
+          |> Result.iter (fun loc ->
+            let vk = Memory (Some loc)
+            varKill.Add vk |> ignore
+            addDefSite defSites vk v)
         | _ -> ()
-    | _ -> ()
 
-  let updateAndGetInnerDefs (state: VarBasedDataFlowState<_>) v =
-    let defs = HashSet ()
-    let stackState = state.StackPointerSubState
-    for (stmt, pp) in state.GetStmtInfos v do
-      collectDefsFromStmt stackState defs pp stmt
-    state.PerVertexInnerDefs[v] <- defs
-    defs
+  let getPhiInfo state vid =
+    match (state: VarBasedDataFlowState<_>).PhiInfos.TryGetValue vid with
+    | true, dict -> dict
+    | false, _ ->
+      let dict = Dictionary ()
+      state.PhiInfos[vid] <- dict
+      dict
 
-  /// Calculates the set of def sites for each variable kind. This is used to
-  /// update the phi information. Note that we update the inner definitions here
-  /// to apply the former changes (e.g. stack pointer propagation).
-  let calculateDefSites g state =
-    let defSites = Dictionary ()
-    (g: IGraph<_, _>).IterVertex (fun v ->
-      for varKind in updateAndGetInnerDefs state v do
-        match defSites.TryGetValue varKind with
-        | false, _-> defSites[varKind] <- List [ v ]
-        | true, lst -> lst.Add v)
-    defSites
+  let placePhis state domCtx globals defSites (frontiers: _[]) =
+    let domInfo = (domCtx: DominatorContext<_, _>).ForwardDomInfo
+    let phiSites = HashSet ()
+    for varKind in globals do
+      let workList =
+        match (defSites: Dictionary<_, List<_>>).TryGetValue varKind with
+        | true, defs -> Queue defs
+        | false, _ -> Queue ()
+      phiSites.Clear ()
+      while workList.Count <> 0 do
+        let node: IVertex<LowUIRBasicBlock> = workList.Dequeue ()
+        let frontier = frontiers[domInfo.DFNumMap[node.ID]]
+        for df: IVertex<LowUIRBasicBlock> in frontier do
+          if phiSites.Contains df then ()
+          else
+            match varKind with
+            | Temporary _ when df.VData.Internals.PPoint.Position = 0 -> ()
+            | _ ->
+              let phiInfo = getPhiInfo state df
+              if phiInfo.ContainsKey varKind then ()
+              else
+                (* insert a new phi *)
+                phiInfo[varKind] <- Set.empty
+                (* we may need to update chains from the phi site *)
+                state.MarkVertexAsPending df
+              phiSites.Add df |> ignore
+              workList.Enqueue df
 
   let removeOldDefUses state useVp defVp =
     match (state: VarBasedDataFlowState<_>).UseDefMap.TryGetValue useVp with
@@ -107,11 +172,9 @@ module private Chains =
     | TempVar (_, n) -> updateChains state (Temporary n) defs pp
     | Load (_, _, expr) ->
       executeExpr state defs pp expr.E
-      match state.StackPointerSubState.EvalExpr pp expr with
-      | StackPointerDomain.ConstSP bv ->
-        let loc = BitVector.ToUInt64 bv
-        updateChains state (Memory (Some loc)) defs pp
-      | _ -> ()
+      getStackValue state.StackPointerSubState pp expr
+      |> Result.iter (fun loc ->
+        updateChains state (Memory (Some loc)) defs pp)
       executeExpr state defs pp expr.E
     | UnOp (_, expr) ->
       executeExpr state defs pp expr.E
@@ -162,9 +225,8 @@ module private Chains =
     | Store (_, addr, value) ->
       executeExpr state defs pp addr.E
       executeExpr state defs pp value.E
-      match state.StackPointerSubState.EvalExpr pp addr with
-      | StackPointerDomain.ConstSP bv ->
-        let loc = BitVector.ToUInt64 bv
+      match getStackValue state.StackPointerSubState pp addr with
+      | Ok loc ->
         let kind = Memory (Some loc)
         let vp = { ProgramPoint = pp; VarKind = kind }
         defs <- Map.add kind vp defs
@@ -200,7 +262,7 @@ module private Chains =
       prevAddr <- pp.Address
     if intraBlockContinues then outs else defs
 
-  /// Updates the def-use chain whose use exists in the successors.
+  /// Update the def-use chain whose use exists in the successors.
   let rec executePhi state m child =
     let phiInfos = (state: VarBasedDataFlowState<_>).PhiInfos
     match phiInfos.TryGetValue child with
@@ -233,7 +295,7 @@ module private Chains =
         let vp = { ProgramPoint = pp; VarKind = vk }
         Map.add vk vp ins) ins
 
-  /// Updates the def-use/use-def chains for the vertices in the dominator tree.
+  /// Update the def-use/use-def chains for the vertices in the dominator tree.
   let rec update g state domTree (visited: HashSet<_>) v ins =
     assert (not <| visited.Contains v)
     visited.Add v |> ignore
@@ -276,60 +338,16 @@ module private Chains =
       update g s domTree visited v (getIncomingDefs g s v)
     else List.iter (visitDomTree g s domTree visited) (Map.find v domTree)
 
-  let getPhiInfo state vid =
-    match (state: VarBasedDataFlowState<_>).PhiInfos.TryGetValue vid with
-    | true, dict -> dict
-    | false, _ ->
-      let dict = Dictionary ()
-      state.PhiInfos[vid] <- dict
-      dict
-
-  /// Refer to Cytron's algorithm.
-  let addPhi state varKind (phiSites, worklist) v =
-    if Set.contains (v: IVertex<LowUIRBasicBlock>) phiSites then
-      phiSites, worklist
-    else
-      match varKind with
-      | Temporary _ when v.VData.Internals.PPoint.Position = 0 ->
-        phiSites, worklist
-      | _ ->
-        let phiInfo = getPhiInfo state v
-        if phiInfo.ContainsKey varKind then ()
-        else
-          (* insert a new phi *)
-          phiInfo[varKind] <- Set.empty
-          (* we may need to update chains from the phi site *)
-          state.MarkVertexAsPending v
-        let phiSites = Set.add v phiSites
-        let innerDef = state.PerVertexInnerDefs[v]
-        if not <| innerDef.Contains varKind then
-          phiSites, v :: worklist (* add the current vertex to the worklist *)
-        else phiSites, worklist
-
-  /// Refer to Cytron's algorithm.
-  let rec iterDefs state phiSites vk forwardDomInfo frontiers worklist =
-    match worklist with
-    | [] -> ()
-    | (v: IVertex<_>) :: tl ->
-      let dfNum = (forwardDomInfo: DomInfo<_>).DFNumMap[v.ID]
-      let frontier = (frontiers: IVertex<_> list [])[dfNum]
-      let phiSites, tl = List.fold (addPhi state vk) (phiSites, tl) frontier
-      iterDefs state phiSites vk forwardDomInfo frontiers tl
-
-  /// Updates the phi information of the vertices using dominance frontiers.
-  let updatePhiInfos state perVarKindDefSites domCtx frontiers =
-    let domInfo = (domCtx: DominatorContext<_, _>).ForwardDomInfo
-    for KeyValue (varKind, defs) in perVarKindDefSites do
-      iterDefs state Set.empty varKind domInfo frontiers (Seq.toList defs)
-
   /// This is a modification of Cytron's algorithm that uses the dominator tree
   /// to calculate the def-use/use-def chains. This has theoretically the same
   /// worst-case time complexity as the original algorithm, but it is more
   /// efficient for incremental changes in practice since its search space is
   /// reduced to the affected vertices that are possibly updated.
   let calculate g state domCtx domTree frontiers =
-    let perVarKindDefSites = calculateDefSites g state
-    updatePhiInfos state perVarKindDefSites domCtx frontiers
+    let globals = HashSet<VarKind> ()
+    let defSites = Dictionary<VarKind, List<IVertex<LowUIRBasicBlock>>> ()
+    findDefVars g state defSites globals
+    placePhis state domCtx globals defSites frontiers
     visitDomTree g state domTree (HashSet ()) domCtx.ForwardRoot
 
 /// This module contains the implementation of incremental data flow analysis
