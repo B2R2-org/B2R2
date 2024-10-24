@@ -282,9 +282,21 @@ type VarBasedDataFlowAnalysis<'Lattice>
     | true, phiInfo ->
       phiInfo.Keys
       |> Seq.filter (fun vk -> Map.containsKey vk m)
-      |> Seq.iter (fun vk -> executePhiAux state vk m[vk] child)
+      |> Seq.iter (fun vk ->
+        let childIncomingDefs =
+          match state.PerVertexIncomingDefs.TryGetValue child with
+          | false, _ -> Map.empty
+          | true, defs -> defs
+        let vps =
+          match Map.tryFind vk childIncomingDefs with
+          | Some prevDefVp
+                 when prevDefVp.ProgramPoint <> child.VData.Internals.PPoint ->
+            [ prevDefVp ]
+          | _ -> []
+        let vps = Map.find vk m :: vps
+        List.iter (executePhiAux state vk child) vps)
 
-  and executePhiAux (state: VarBasedDataFlowState<_>) varKind defVp v =
+  and executePhiAux (state: VarBasedDataFlowState<_>) varKind v defVp =
     assert (state.PhiInfos.ContainsKey v)
     let phiInfo = state.PhiInfos[v]
     (* Add this defSite to the current phi info. *)
