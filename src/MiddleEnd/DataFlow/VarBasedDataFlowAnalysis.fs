@@ -138,11 +138,11 @@ type VarBasedDataFlowAnalysis<'Lattice>
               phiSites.Add df |> ignore
               workList.Enqueue df
 
-  /// Update the def-use chain whose use exists in the successors.
-  let addPhis phiInfos v pp ins =
-    match (phiInfos: Dictionary<_, PhiInfo>).TryGetValue v with
+  let updateIncomingDefsWithPhis state (v: IVertex<LowUIRBasicBlock>) ins =
+    match (state: VarBasedDataFlowState<_>).PhiInfos.TryGetValue v with
     | false, _ -> ins
     | true, phiInfo ->
+      let pp = v.VData.Internals.PPoint
       phiInfo.Keys
       |> Seq.fold (fun ins vk ->
         let vp = { ProgramPoint = pp; VarKind = vk }
@@ -174,7 +174,7 @@ type VarBasedDataFlowAnalysis<'Lattice>
       updateDefUseChain state useVp defVp
       updateUseDefChain state useVp defVp
 
-  let rec executeExpr state defs (pp: ProgramPoint) = function
+  let rec updateWithExpr state defs (pp: ProgramPoint) = function
     | Num (_)
     | Undefined (_)
     | FuncName (_)
@@ -182,61 +182,61 @@ type VarBasedDataFlowAnalysis<'Lattice>
     | Var (_rt, rid, _rstr) -> updateChains state (Regular rid) defs pp
     | TempVar (_, n) -> updateChains state (Temporary n) defs pp
     | Load (_, _, expr) ->
-      executeExpr state defs pp expr.E
+      updateWithExpr state defs pp expr.E
       getStackValue state.StackPointerSubState pp expr
       |> Result.iter (fun loc ->
         let offset = VarBasedDataFlowState<_>.ToFrameOffset loc
         updateChains state (StackLocal offset) defs pp)
-      executeExpr state defs pp expr.E
+      updateWithExpr state defs pp expr.E
     | UnOp (_, expr) ->
-      executeExpr state defs pp expr.E
+      updateWithExpr state defs pp expr.E
     | BinOp (_, _, expr1, expr2) ->
-      executeExpr state defs pp expr1.E
-      executeExpr state defs pp expr2.E
+      updateWithExpr state defs pp expr1.E
+      updateWithExpr state defs pp expr2.E
     | RelOp (_, expr1, expr2) ->
-      executeExpr state defs pp expr1.E
-      executeExpr state defs pp expr2.E
+      updateWithExpr state defs pp expr1.E
+      updateWithExpr state defs pp expr2.E
     | Ite (expr1, expr2, expr3) ->
-      executeExpr state defs pp expr1.E
-      executeExpr state defs pp expr2.E
-      executeExpr state defs pp expr3.E
+      updateWithExpr state defs pp expr1.E
+      updateWithExpr state defs pp expr2.E
+      updateWithExpr state defs pp expr3.E
     | Cast (_, _, expr) ->
-      executeExpr state defs pp expr.E
+      updateWithExpr state defs pp expr.E
     | Extract (expr, _, _) ->
-      executeExpr state defs pp expr.E
+      updateWithExpr state defs pp expr.E
     | _ -> ()
 
-  let executeJmp state defs pp = function
+  let updateWithJmp state defs pp = function
     | Jmp ({ E = expr }) ->
-      executeExpr state defs pp expr
+      updateWithExpr state defs pp expr
     | CJmp ({ E = expr }, { E = target1 }, { E = target2 }) ->
-      executeExpr state defs pp expr
-      executeExpr state defs pp target1
-      executeExpr state defs pp target2
+      updateWithExpr state defs pp expr
+      updateWithExpr state defs pp target1
+      updateWithExpr state defs pp target2
     | InterJmp ({ E = expr }, _jmpKind) ->
-      executeExpr state defs pp expr
+      updateWithExpr state defs pp expr
     | InterCJmp ({ E = cond }, { E = target1 }, { E = target2 }) ->
-      executeExpr state defs pp cond
-      executeExpr state defs pp target1
-      executeExpr state defs pp target2
+      updateWithExpr state defs pp cond
+      updateWithExpr state defs pp target1
+      updateWithExpr state defs pp target2
     | _ -> Utils.impossible ()
 
   /// Update DU/UD chains stored in the state as well as the out variables by
   /// executing the given statement. The `defs` stores every definition
   /// including temporary variables, but the `outs` only stores the
   /// non-temporary variables.
-  let executeStmt state (outs: byref<_>) (defs: byref<_>) stmt pp =
+  let updateWithStmt state (outs: byref<_>) (defs: byref<_>) stmt pp =
     match stmt.S with
     | Put (dst, { E = src }) ->
-      executeExpr state defs pp src
+      updateWithExpr state defs pp src
       let kind = VarKind.ofIRExpr dst
       let vp = { ProgramPoint = pp; VarKind = kind }
       defs <- Map.add kind vp defs
       if not (VarKind.isTemporary kind) then outs <- Map.add kind vp outs
       else ()
     | Store (_, addr, value) ->
-      executeExpr state defs pp addr.E
-      executeExpr state defs pp value.E
+      updateWithExpr state defs pp addr.E
+      updateWithExpr state defs pp value.E
       match getStackValue state.StackPointerSubState pp addr with
       | Ok loc ->
         let offset = VarBasedDataFlowState<_>.ToFrameOffset loc
@@ -249,7 +249,7 @@ type VarBasedDataFlowAnalysis<'Lattice>
     | Jmp _
     | CJmp _
     | InterJmp _
-    | InterCJmp _ -> executeJmp state defs pp stmt.S
+    | InterCJmp _ -> updateWithJmp state defs pp stmt.S
     | _ -> ()
 
   let isIntraEdge lbl =
@@ -259,7 +259,9 @@ type VarBasedDataFlowAnalysis<'Lattice>
     | IntraJmpEdge -> true
     | _ -> false
 
-  let executeBBL g (state: VarBasedDataFlowState<_>) v defs =
+  /// Update the DU/UD chains for the given basic block and return the defined
+  /// variables in the block.
+  let updateChainsWithBBLStmts g (state: VarBasedDataFlowState<_>) v defs =
     let blkAddr = (v: IVertex<LowUIRBasicBlock>).VData.Internals.PPoint.Address
     let intraBlockContinues =
       (g: IGraph<_, _>).GetSuccEdges v
@@ -271,61 +273,55 @@ type VarBasedDataFlowAnalysis<'Lattice>
     for i = 0 to stmtInfos.Length - 1 do
       let stmt, pp = stmtInfos[i]
       if pp.Address <> prevAddr then defs <- outs else ()
-      executeStmt state &outs &defs stmt pp
+      updateWithStmt state &outs &defs stmt pp
       prevAddr <- pp.Address
     if intraBlockContinues then outs else defs
 
-  let rec executePhi state m child =
-    let phiInfos = (state: VarBasedDataFlowState<_>).PhiInfos
-    match phiInfos.TryGetValue child with
+  let rec updatePhisOfSuccessor (state: VarBasedDataFlowState<_>) outs succ =
+    match state.PhiInfos.TryGetValue succ with
     | false, _ -> ()
     | true, phiInfo ->
       phiInfo.Keys
-      |> Seq.filter (fun vk -> Map.containsKey vk m)
-      |> Seq.iter (fun vk ->
-        let childIncomingDefs =
-          match state.PerVertexIncomingDefs.TryGetValue child with
-          | false, _ -> Map.empty
-          | true, defs -> defs
-        let vps =
-          match Map.tryFind vk childIncomingDefs with
-          | Some prevDefVp
-                 when prevDefVp.ProgramPoint <> child.VData.Internals.PPoint ->
-            [ prevDefVp ]
-          | _ -> []
-        let vps = Map.find vk m :: vps
-        List.iter (executePhiAux state vk child) vps)
+      |> Seq.filter (fun vk -> Map.containsKey vk outs)
+      |> Seq.iter (fun incomingVk ->
+        match state.PerVertexIncomingDefs.TryGetValue succ with
+        | true, defs ->
+          let succPp = succ.VData.Internals.PPoint
+          match Map.tryFind incomingVk defs with
+          | Some prevDef when prevDef.ProgramPoint <> succPp ->
+            [ outs[incomingVk]; prevDef ]
+          | _ -> [ outs[incomingVk] ]
+        | false, _ -> [ outs[incomingVk] ]
+        |> List.iter (updatePhis state incomingVk succ)
+      )
 
-  and executePhiAux (state: VarBasedDataFlowState<_>) varKind v defVp =
-    assert (state.PhiInfos.ContainsKey v)
-    let phiInfo = state.PhiInfos[v]
-    (* Add this defSite to the current phi info. *)
-    let prevDefs = phiInfo[varKind]
-    phiInfo[varKind] <- Set.add defVp prevDefs
-    (* And, update the def-use chain. *)
-    let useVp = { ProgramPoint = v.VData.Internals.PPoint; VarKind = varKind }
+  and updatePhis (state: VarBasedDataFlowState<_>) vk succ defVp =
+    assert (state.PhiInfos.ContainsKey succ)
+    let phiInfo = state.PhiInfos[succ]
+    let prevDefs = phiInfo[vk]
+    phiInfo[vk] <- Set.add defVp prevDefs
+    let useVp = { ProgramPoint = succ.VData.Internals.PPoint; VarKind = vk }
     updateDefUseChain state useVp defVp
 
-  let executeSuccessorPhis state g v outs  =
-    (g: IGraph<_, _>).GetSuccs v
-    |> Seq.iter (executePhi state outs)
+  let updatePhisOfSuccessors state g v outs  =
+    for succ in (g: IGraph<_, _>).GetSuccs v do
+      updatePhisOfSuccessor state outs succ
 
   /// Update the def-use/use-def chains for the vertices in the dominator tree.
   let rec update g state domTree (visited: HashSet<_>) v ins =
     assert (not <| visited.Contains v)
     visited.Add v |> ignore
-    let phiInfos = (state: VarBasedDataFlowState<_>).PhiInfos
-    let ins = addPhis phiInfos v v.VData.Internals.PPoint ins
-    let outs = executeBBL g state v ins
-    executeSuccessorPhis state g v outs
-    traverseChildren g state domTree outs visited (Map.find v domTree)
+    let ins = updateIncomingDefsWithPhis state v ins
+    let outs = updateChainsWithBBLStmts g state v ins
+    updatePhisOfSuccessors state g v outs
+    traverseSuccessors g state domTree outs visited (Map.find v domTree)
     state.PerVertexIncomingDefs[v] <- ins
     state.PerVertexOutgoingDefs[v] <- outs
 
-  and traverseChildren g state domTree m visited = function
-    | child :: rest ->
-      update g state domTree visited child m
-      traverseChildren g state domTree m visited rest
+  and traverseSuccessors g state domTree outs visited = function
+    | succ :: rest ->
+      update g state domTree visited succ outs
+      traverseSuccessors g state domTree outs visited rest
     | [] -> ()
 
   let getOutgoingDefs (state: VarBasedDataFlowState<_>) v =
@@ -343,15 +339,14 @@ type VarBasedDataFlowAnalysis<'Lattice>
         |> Map.fold (fun defs vk def -> Map.add vk def defs) defs
       ) Map.empty
 
-  /// We visits the dominator tree in a depth-first manner to calculate the
-  /// def-use/use-def chains as Cytron's SSA construction algorithm does.
-  /// But, we are only interested in the vertices that have changes in the CFG,
-  /// so we only visit the vertices that are possibly updated by the changes.
-  let rec visitDomTree g (s: VarBasedDataFlowState<_>) domTree visited v =
+  /// We only visit the vertices that have changed and update data-flow chains.
+  let rec incrementalUpdate g (s: VarBasedDataFlowState<_>) domTree visited v =
     if (visited: HashSet<_>).Contains v then ()
     elif s.IsVertexPending v then
       update g s domTree visited v (getIncomingDefs g s v)
-    else List.iter (visitDomTree g s domTree visited) (Map.find v domTree)
+    else
+      for dominator in Map.find v domTree do
+        incrementalUpdate g s domTree visited dominator
 
   /// This is a modification of Cytron's algorithm that uses the dominator tree
   /// to calculate the def-use/use-def chains. This has theoretically the same
@@ -363,7 +358,7 @@ type VarBasedDataFlowAnalysis<'Lattice>
     let defSites = Dictionary<VarKind, List<IVertex<LowUIRBasicBlock>>> ()
     findDefVars g state defSites globals
     placePhis state domCtx globals defSites frontiers
-    visitDomTree g state domTree (HashSet ()) domCtx.ForwardRoot
+    incrementalUpdate g state domTree (HashSet ()) domCtx.ForwardRoot
 
   let isStackRelatedRegister rid =
     hdl.RegisterFactory.IsStackPointer rid
@@ -469,8 +464,8 @@ type VarBasedDataFlowAnalysis<'Lattice>
       transferPhi state subState phiInfo v.VData.Internals.PPoint
     for stmt in state.GetStmtInfos v do fnTransfer state stmt done
     (g: IGraph<_, _>).GetSuccs v
-    |> Seq.map (fun succ -> v, succ)
-    |> Seq.iter subState.FlowQueue.Enqueue
+    |> Array.map (fun succ -> v, succ)
+    |> Array.iter subState.FlowQueue.Enqueue
 
   let processFlow g state subState fnTransfer =
     match (subState: IVarBasedDataFlowSubState<_>).FlowQueue.TryDequeue () with

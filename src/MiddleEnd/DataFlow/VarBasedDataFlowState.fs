@@ -1,4 +1,4 @@
-(*
+﻿(*
   B2R2 - the Next-Generation Reversing Platform
 
   Copyright (c) SoftSec Lab. @ KAIST, since 2016
@@ -283,12 +283,12 @@ type VarBasedDataFlowState<'Lattice>
         let e = SSA.Store (prevMemVar, rt, e1, e2)
         SSA.Def (newMemVar, e)
     | Jmp (expr) ->
-      let addr = 0x0UL
+      let addr = 0x0UL (* use dummy address for simplicity *)
       let label = translateLabel addr expr.E
       let e = SSA.IntraJmp label
       SSA.Jmp e
     | CJmp (expr, label1, label2) ->
-      let addr = 0x0UL
+      let addr = 0x0UL (* use dummy address for simplicity *)
       let expr = translateToSSAExpr pp expr
       let label1 = translateLabel addr label1.E
       let label2 = translateLabel addr label2.E
