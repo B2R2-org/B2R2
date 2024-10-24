@@ -78,9 +78,9 @@ type PersistentDataFlowTests () =
     let varKind = Regular rid
     { ProgramPoint = pp; VarKind = varKind }
 
-  let irMem addr idx offset =
+  let irStk addr idx offset =
     let pp = ProgramPoint (addr, idx)
-    let varKind = Memory (Some offset)
+    let varKind = StackLocal offset
     { ProgramPoint = pp; VarKind = varKind }
 
   let mkUntouchedReg r =
@@ -194,12 +194,12 @@ type PersistentDataFlowTests () =
     let dfa = varDfa :> IDataFlowAnalysis<_, _, _, _>
     let state = dfa.InitializeState cfg.Vertices
     let state = dfa.Compute cfg state
-    let rbp = 0x7ffffff8UL
-    [ irMem 0xbUL 1 rbp |> cmp <| ConstantDomain.Undef
-      irMem 0x11UL 1 (rbp - 0xcUL) |> cmp <| mkConst 0x2u 32<rt>
-      irMem 0x18UL 1 (rbp - 0x8UL) |> cmp <| mkConst 0x3u 32<rt>
-      irMem 0x21UL 1 (rbp - 0xcUL) |> cmp <| mkConst 0x3u 32<rt>
-      irMem 0x28UL 1 (rbp - 0x8UL) |> cmp <| mkConst 0x2u 32<rt>
+    let rbp = -8 (* stack offset of old rbp *)
+    [ irStk 0xbUL 1 rbp |> cmp <| ConstantDomain.Undef
+      irStk 0x11UL 1 (rbp - 0xc) |> cmp <| mkConst 0x2u 32<rt>
+      irStk 0x18UL 1 (rbp - 0x8) |> cmp <| mkConst 0x3u 32<rt>
+      irStk 0x21UL 1 (rbp - 0xc) |> cmp <| mkConst 0x3u 32<rt>
+      irStk 0x28UL 1 (rbp - 0x8) |> cmp <| mkConst 0x2u 32<rt>
       irReg 0x2fUL 1 Register.RDX |> cmp <| ConstantDomain.NotAConst ]
     |> List.iter (fun (vp, ans) ->
       let out = (state :> IDataFlowState<_, _>).GetAbsValue vp
@@ -216,11 +216,11 @@ type PersistentDataFlowTests () =
     let state = dfa.InitializeState roots
     cfg.IterVertex state.MarkVertexAsPending
     let state = dfa.Compute cfg state
-    let rbp = 0x7ffffff8UL
-    [ irMem 0xcUL 1 (rbp - 0x14UL) |> cmp <| mkUntouchedReg Register.RDI
-      irMem 0xfUL 1 (rbp - 0x18UL) |> cmp <| mkUntouchedReg Register.RSI
-      irMem 0x15UL 1 (rbp - 0x10UL) |> cmp <| mkUntouchedReg Register.RDI
-      irMem 0x1eUL 1 (rbp - 0xcUL) |> cmp <| UntouchedValueDomain.Touched
+    let rbp = -8 (* stack offset of old rbp *)
+    [ irStk 0xcUL 1 (rbp - 0x14) |> cmp <| mkUntouchedReg Register.RDI
+      irStk 0xfUL 1 (rbp - 0x18) |> cmp <| mkUntouchedReg Register.RSI
+      irStk 0x15UL 1 (rbp - 0x10) |> cmp <| mkUntouchedReg Register.RDI
+      irStk 0x1eUL 1 (rbp - 0xc) |> cmp <| UntouchedValueDomain.Touched
       irReg 0x32UL 1 Register.RCX |> cmp <| UntouchedValueDomain.Touched
       irReg 0x35UL 1 Register.RDX |> cmp <| UntouchedValueDomain.Touched
       irReg 0x38UL 1 Register.RSI |> cmp <| UntouchedValueDomain.Touched

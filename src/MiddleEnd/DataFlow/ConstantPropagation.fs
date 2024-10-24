@@ -97,7 +97,8 @@ type ConstantPropagation =
         match state.StackPointerSubState.EvalExpr pp addr with
         | StackPointerDomain.ConstSP bv ->
           let addr = BitVector.ToUInt64 bv
-          let c = evaluateVarPoint state pp (Memory (Some addr))
+          let offset = VarBasedDataFlowState<_>.ToFrameOffset addr
+          let c = evaluateVarPoint state pp (StackLocal offset)
           match c with
           | ConstantDomain.Const bv when bv.Length < rt ->
             ConstantDomain.Const <| BitVector.ZExt (bv, rt)

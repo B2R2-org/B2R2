@@ -58,7 +58,6 @@ type VarBasedDataFlowState<'Lattice>
   /// Mapping from a VarPoint to its abstract value in the stack-pointer domain.
   let spAbsValues = Dictionary<VarPoint, StackPointerDomain.Lattice> ()
 
-  /// Mapping from a CFG vertex to its phi information.
   let phiInfos = Dictionary<IVertex<LowUIRBasicBlock>, PhiInfo> ()
 
   let perVertexIncomingDefs =
@@ -75,6 +74,15 @@ type VarBasedDataFlowState<'Lattice>
 
   /// Set of pending vertices that need to be processed.
   let pendingVertices = HashSet<IVertex<LowUIRBasicBlock>> ()
+
+  /// SSA variable identifier counter.
+  let mutable ssaVarCounter = 0
+
+  /// A mapping from a variable point to its corresponding SSA variable.
+  let vpToSSAVar = Dictionary<VarPoint, SSA.Variable> ()
+
+  /// A mapping from an SSA variable to its corresponding variable point.
+  let ssaVarToVp = Dictionary<SSA.Variable, VarPoint> ()
 
   let domainGetAbsValue vp =
     match domainAbsValues.TryGetValue vp with
@@ -104,8 +112,9 @@ type VarBasedDataFlowState<'Lattice>
     | Load (_, _, addr) ->
       match spEvaluateExpr pp addr with
       | StackPointerDomain.ConstSP bv ->
-        let addr = BitVector.ToUInt64 bv
-        spEvaluateVar (Memory (Some addr)) pp
+        let offset =
+          BitVector.ToUInt64 bv |> VarBasedDataFlowState<_>.ToFrameOffset
+        spEvaluateVar (StackLocal offset) pp
       | c -> c
     | BinOp (binOpType, _, e1, e2) ->
       let v1 = spEvaluateExpr pp e1
@@ -126,7 +135,7 @@ type VarBasedDataFlowState<'Lattice>
     | true, stmts -> stmts
     | false, _ ->
       let pp = v.VData.Internals.PPoint
-      let stmts = getStatementsAux v pp |> Seq.toArray
+      let stmts = getStatementsAux v pp
       updatePPToStmts stmts v
       stmtInfoCache[v] <- stmts
       stmts
@@ -145,32 +154,11 @@ type VarBasedDataFlowState<'Lattice>
       v.VData.Internals.AbstractContent.Rundown
       |> Array.mapi (fun i s -> s, ProgramPoint (cs, addr, startPos + i))
 
-  //
-  // NOTE: Below are the logics for translating the IR to SSA form!
-  // The logics below can be separated into a different module since
-  // the data-flow analysis itself does not need to know about the SSA form.
-  //
-
-  /// A mapping from a variable kind to its fresh identifier.
-  let vkToFreshId = Dictionary<VarKind, int> ()
-
-  /// A mapping from a variable point to its corresponding SSA variable.
-  let vpToSSAVar = Dictionary<VarPoint, SSA.Variable> ()
-
-  /// A mapping from an SSA variable to its corresponding variable point.
-  let ssaVarToVp = Dictionary<SSA.Variable, VarPoint> ()
-
   /// Returns a fresh identifier for the given variable kind and increments the
   /// identifier.
-  let getNewVarId vk =
-    match vkToFreshId.TryGetValue vk with
-    | true, id ->
-      vkToFreshId[vk] <- id + 1
-      id
-    | false, _ ->
-      let id = 1
-      vkToFreshId[vk] <- id + 1
-      id
+  let getNewVarId () =
+    ssaVarCounter <- ssaVarCounter + 1
+    ssaVarCounter
 
   /// Converts a variable kind to an SSA variable kind.
   let toSSAVarKind vk =
@@ -179,22 +167,19 @@ type VarBasedDataFlowState<'Lattice>
       let rt = hdl.RegisterFactory.RegIDToRegType rid
       let rname = hdl.RegisterFactory.RegIDToString rid
       SSA.RegVar (rt, rid, rname)
-    | Memory (Some cellAddr) ->
-      let rt = 0<rt>
-      let offset = cellAddr - Constants.InitialStackPointer |> int
-      SSA.StackVar (rt, offset)
+    | Memory (Some _) -> SSA.MemVar
     | Memory None -> SSA.MemVar
+    | StackLocal offset -> SSA.StackVar (0<rt>, offset)
     | Temporary n ->
       let rt = 0<rt>
       SSA.TempVar (rt, n)
-    | _ -> Utils.impossible ()
 
   /// Returns an SSA variable for the given variable point.
   let getSSAVar vp =
     match vpToSSAVar.TryGetValue vp with
     | true, v -> v
     | false, _ ->
-      let ssaVarId = getNewVarId vp.VarKind
+      let ssaVarId = getNewVarId ()
       let ssaVarKind = toSSAVarKind vp.VarKind
       let ssaVar = { SSA.Kind = ssaVarKind; SSA.Identifier = ssaVarId }
       vpToSSAVar[vp] <- ssaVar
@@ -225,8 +210,9 @@ type VarBasedDataFlowState<'Lattice>
     | Load (_, rt, addr) ->
       match spEvaluateExpr pp addr with
       | StackPointerDomain.ConstSP bv ->
-        let addr = BitVector.ToUInt64 bv
-        let vk = Memory (Some addr)
+        let offset =
+          BitVector.ToUInt64 bv |> VarBasedDataFlowState<_>.ToFrameOffset
+        let vk = StackLocal offset
         let ssaVar = getSSAVarFromUse pp vk
         SSA.Var ssaVar
       | _ ->
@@ -268,8 +254,8 @@ type VarBasedDataFlowState<'Lattice>
     | Undefined (_, s) -> addr, (s, -1)
     | _ -> raise InvalidExprException
 
-  /// Translate a non-phi (ordinary) IR statement to an SSA statement. It
-  /// returns a dummy exception statement if the given IR statement is invalid.
+  /// Translate a ordinary IR statement to an SSA statement. It returns a dummy
+  /// exception statement if the given IR statement is invalid.
   let translateToSSAStmt pp stmt =
     match stmt.S with
     | Put (dst, src) ->
@@ -281,8 +267,9 @@ type VarBasedDataFlowState<'Lattice>
     | Store (_, addr, value) ->
       match spEvaluateExpr pp addr with
       | StackPointerDomain.ConstSP bv ->
-        let addr = BitVector.ToUInt64 bv
-        let vk = Memory (Some addr)
+        let offset =
+          BitVector.ToUInt64 bv |> VarBasedDataFlowState<_>.ToFrameOffset
+        let vk = StackLocal offset
         let vp = { ProgramPoint = pp; VarKind = vk }
         let v = getSSAVar vp
         let e = translateToSSAExpr pp value
@@ -336,13 +323,6 @@ type VarBasedDataFlowState<'Lattice>
     let var = getSSAVar vp
     let ids = convertDefsToIds defs
     SSA.Phi (var, ids)
-
-  /// Inserts phi definitions to the given list.
-  let insertPhis phiInfo (pp: ProgramPoint) acc =
-    phiInfo |> Seq.fold (fun acc (KeyValue (vk, defs)) ->
-      let var = getSSAVar { ProgramPoint = pp; VarKind = vk }
-      let ids = convertDefsToIds defs
-      SSA.Phi (var, ids) :: acc) acc
 
   let domainSubState =
     let flowQueue = UniqueQueue ()
@@ -398,11 +378,12 @@ type VarBasedDataFlowState<'Lattice>
     stmtOfBBLs.Clear ()
     pendingVertices.Clear ()
     vpToSSAVar.Clear ()
-    vkToFreshId.Clear ()
+    ssaVarCounter <- 0
     ssaVarToVp.Clear ()
     resetSubState spSubState
     resetSubState domainSubState
 
+  /// Mapping from a CFG vertex to its phi information.
   member __.PhiInfos with get () = phiInfos
 
   /// Mapping from a CFG vertex to its incoming definitions.
@@ -466,6 +447,10 @@ type VarBasedDataFlowState<'Lattice>
 
   /// Reset this state.
   member __.Reset () = reset ()
+
+  /// Translate the given stack pointer address to a local frame offset.
+  static member inline ToFrameOffset stackAddr =
+    int (stackAddr - Constants.InitialStackPointer)
 
   interface IDataFlowState<VarPoint, 'Lattice> with
     member __.GetAbsValue absLoc = domainGetAbsValue absLoc

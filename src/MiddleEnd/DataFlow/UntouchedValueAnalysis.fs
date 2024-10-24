@@ -62,7 +62,8 @@ type UntouchedValueAnalysis =
         match state.StackPointerSubState.EvalExpr pp addr with
         | StackPointerDomain.ConstSP bv ->
           let addr = BitVector.ToUInt64 bv
-          evaluateVarPoint state pp (Memory (Some addr))
+          let offset = VarBasedDataFlowState<_>.ToFrameOffset addr
+          evaluateVarPoint state pp (StackLocal offset)
         | _ -> UntouchedValueDomain.Touched
       | Extract (e, _, _)
       | Cast (CastKind.ZeroExt, _, e)

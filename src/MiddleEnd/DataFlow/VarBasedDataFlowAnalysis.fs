@@ -33,15 +33,14 @@ open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.BinGraph.Dominator
 open System.Collections.Generic
 
-/// This module contains the implementation of incremental data flow analysis
-/// that calculates def-use/use-def chains.
-[<RequireQualifiedAccess>]
-module private Chains =
-  let inline updateGlobalName (globals: HashSet<_>) (varKill: HashSet<_>) vk =
+type VarBasedDataFlowAnalysis<'Lattice>
+  public (hdl: BinHandle, analysis: IVarBasedDataFlowAnalysis<'Lattice>) =
+
+  let updateGlobalName (globals: HashSet<_>) (varKill: HashSet<_>) vk =
     if varKill.Contains vk then ()
     else globals.Add vk |> ignore
 
-  let inline getStackValue state pp e =
+  let getStackValue state pp e =
     match (state: IVarBasedDataFlowSubState<_>).EvalExpr pp e with
     | StackPointerDomain.ConstSP bv -> Ok <| BitVector.ToUInt64 bv
     | _ -> Error ErrorCase.InvalidExprEvaluation
@@ -62,7 +61,8 @@ module private Chains =
       updateGlobals globals varKill stackState pp e
       getStackValue stackState pp e
       |> Result.iter (fun loc ->
-        updateGlobalName globals varKill (Memory (Some loc)))
+        let offset = VarBasedDataFlowState<_>.ToFrameOffset loc
+        updateGlobalName globals varKill (StackLocal offset))
     | Ite (cond, e1, e2) ->
       updateGlobals globals varKill stackState pp cond
       updateGlobals globals varKill stackState pp e1
@@ -96,7 +96,8 @@ module private Chains =
           updateGlobals globals varKill stackState pp value
           getStackValue stackState pp addr
           |> Result.iter (fun loc ->
-            let vk = Memory (Some loc)
+            let offset = VarBasedDataFlowState<_>.ToFrameOffset loc
+            let vk = StackLocal offset
             varKill.Add vk |> ignore
             addDefSite defSites vk v)
         | _ -> ()
@@ -137,6 +138,16 @@ module private Chains =
               phiSites.Add df |> ignore
               workList.Enqueue df
 
+  /// Update the def-use chain whose use exists in the successors.
+  let addPhis phiInfos v pp ins =
+    match (phiInfos: Dictionary<_, PhiInfo>).TryGetValue v with
+    | false, _ -> ins
+    | true, phiInfo ->
+      phiInfo.Keys
+      |> Seq.fold (fun ins vk ->
+        let vp = { ProgramPoint = pp; VarKind = vk }
+        Map.add vk vp ins) ins
+
   let removeOldDefUses state useVp defVp =
     match (state: VarBasedDataFlowState<_>).UseDefMap.TryGetValue useVp with
     | true, prevDef when prevDef.ProgramPoint <> defVp.ProgramPoint ->
@@ -151,7 +162,7 @@ module private Chains =
     | false, _ -> state.DefUseMap[defVp] <- HashSet [ useVp ]
     | true, uses -> uses.Add useVp |> ignore
 
-  let inline updateUseDefChain state useVp defVp =
+  let updateUseDefChain state useVp defVp =
     (state: VarBasedDataFlowState<_>).UseDefMap[useVp] <- defVp
 
   let updateChains state vk defs pp =
@@ -174,7 +185,8 @@ module private Chains =
       executeExpr state defs pp expr.E
       getStackValue state.StackPointerSubState pp expr
       |> Result.iter (fun loc ->
-        updateChains state (Memory (Some loc)) defs pp)
+        let offset = VarBasedDataFlowState<_>.ToFrameOffset loc
+        updateChains state (StackLocal offset) defs pp)
       executeExpr state defs pp expr.E
     | UnOp (_, expr) ->
       executeExpr state defs pp expr.E
@@ -227,7 +239,8 @@ module private Chains =
       executeExpr state defs pp value.E
       match getStackValue state.StackPointerSubState pp addr with
       | Ok loc ->
-        let kind = Memory (Some loc)
+        let offset = VarBasedDataFlowState<_>.ToFrameOffset loc
+        let kind = StackLocal offset
         let vp = { ProgramPoint = pp; VarKind = kind }
         defs <- Map.add kind vp defs
         if not (VarKind.isTemporary kind) then outs <- Map.add kind vp outs
@@ -239,7 +252,7 @@ module private Chains =
     | InterCJmp _ -> executeJmp state defs pp stmt.S
     | _ -> ()
 
-  let inline isIntraEdge lbl =
+  let isIntraEdge lbl =
     match lbl with
     | IntraCJmpTrueEdge
     | IntraCJmpFalseEdge
@@ -262,7 +275,6 @@ module private Chains =
       prevAddr <- pp.Address
     if intraBlockContinues then outs else defs
 
-  /// Update the def-use chain whose use exists in the successors.
   let rec executePhi state m child =
     let phiInfos = (state: VarBasedDataFlowState<_>).PhiInfos
     match phiInfos.TryGetValue child with
@@ -285,15 +297,6 @@ module private Chains =
   let executeSuccessorPhis state g v outs  =
     (g: IGraph<_, _>).GetSuccs v
     |> Seq.iter (executePhi state outs)
-
-  let addPhis phiInfos vid pp ins =
-    match (phiInfos: Dictionary<_, PhiInfo>).TryGetValue vid with
-    | false, _ -> ins
-    | true, phiInfo ->
-      phiInfo.Keys
-      |> Seq.fold (fun ins vk ->
-        let vp = { ProgramPoint = pp; VarKind = vk }
-        Map.add vk vp ins) ins
 
   /// Update the def-use/use-def chains for the vertices in the dominator tree.
   let rec update g state domTree (visited: HashSet<_>) v ins =
@@ -343,19 +346,15 @@ module private Chains =
   /// worst-case time complexity as the original algorithm, but it is more
   /// efficient for incremental changes in practice since its search space is
   /// reduced to the affected vertices that are possibly updated.
-  let calculate g state domCtx domTree frontiers =
+  let calculateChains g state domCtx domTree frontiers =
     let globals = HashSet<VarKind> ()
     let defSites = Dictionary<VarKind, List<IVertex<LowUIRBasicBlock>>> ()
     findDefVars g state defSites globals
     placePhis state domCtx globals defSites frontiers
     visitDomTree g state domTree (HashSet ()) domCtx.ForwardRoot
 
-/// This module contains the implementation of incremental data flow analysis
-/// that propagates the data flow values.
-[<RequireQualifiedAccess>]
-module private Propagation =
-  let isStackRelatedRegister hdl rid =
-    (hdl: BinHandle).RegisterFactory.IsStackPointer rid
+  let isStackRelatedRegister rid =
+    hdl.RegisterFactory.IsStackPointer rid
     || hdl.RegisterFactory.IsFramePointer rid
 
   let updateAbsValue subState defUseMap vp prev curr =
@@ -368,13 +367,13 @@ module private Propagation =
         defs
         |> Seq.iter (fun vp -> subState.DefSiteQueue.Enqueue vp.ProgramPoint)
 
-  let spTransfer hdl (state: VarBasedDataFlowState<_>) _ (stmt, pp) =
+  let spTransfer (state: VarBasedDataFlowState<_>) (stmt, pp) =
     match stmt.S with
     | Put (dst, src) ->
       let varKind = VarKind.ofIRExpr dst
       let currConst =
         match varKind with
-        | Regular rid when isStackRelatedRegister hdl rid ->
+        | Regular rid when isStackRelatedRegister rid ->
           state.StackPointerSubState.EvalExpr pp src
           |> Some
         | Regular _ -> StackPointerDomain.NotConstSP |> Some
@@ -390,21 +389,22 @@ module private Propagation =
         updateAbsValue subState defUseMap vp prevConst currConst
     | _ -> ()
 
-  let domainTransfer _ (state: VarBasedDataFlowState<_>) analysis (stmt, pp) =
+  let domainTransfer (state: VarBasedDataFlowState<_>) (stmt, pp) =
     match stmt.S with
     | Put (dst, src) ->
       let varKind = VarKind.ofIRExpr dst
       let vp = { ProgramPoint = pp; VarKind = varKind }
       let subState = state.DomainSubState
       let prev = subState.GetAbsValue vp
-      let curr = (analysis: IVarBasedDataFlowAnalysis<_>).EvalExpr state pp src
+      let curr = analysis.EvalExpr state pp src
       let defUseMap = state.DefUseMap
       updateAbsValue subState defUseMap vp prev curr
     | Store (_, addr, value) ->
       match state.StackPointerSubState.EvalExpr pp addr with
       | StackPointerDomain.ConstSP bv ->
         let loc = BitVector.ToUInt64 bv
-        let varKind = Memory (Some loc)
+        let offset = VarBasedDataFlowState<_>.ToFrameOffset loc
+        let varKind = StackLocal offset
         let vp = { ProgramPoint = pp; VarKind = varKind }
         let subState = state.DomainSubState
         let prev = subState.GetAbsValue vp
@@ -436,61 +436,55 @@ module private Propagation =
     let pp' = v.VData.Internals.PPoint
     pp = pp'
 
-  let inline tryDequeueDefSite (subState: IVarBasedDataFlowSubState<_>) =
-    subState.DefSiteQueue.TryDequeue ()
-
-  let processDefSite hdl state analysis subState fnTransfer =
-    match tryDequeueDefSite subState with
+  let processDefSite state (subState: IVarBasedDataFlowSubState<_>) fnTransfer =
+    match subState.DefSiteQueue.TryDequeue () with
     | true, defPp when isExecuted state subState defPp ->
       if not <| isPhiProgramPoint state defPp then (* non-phi *)
         let stmt, _ = (state: VarBasedDataFlowState<_>).StmtOfBBLs[defPp]
-        fnTransfer hdl state analysis (stmt, defPp)
+        fnTransfer state (stmt, defPp)
       else (* phi *)
         let _, bbl = state.StmtOfBBLs[defPp]
         assert (state.PhiInfos.ContainsKey bbl)
         transferPhi state subState state.PhiInfos[bbl] defPp
     | _ -> ()
 
-  let transferFlow hdl state analysis subState g v fnTransfer =
+  let transferFlow state subState g v fnTransfer =
     (subState: IVarBasedDataFlowSubState<_>).ExecutedVertices.Add v |> ignore
     (* Execute phis first. *)
     match (state: VarBasedDataFlowState<_>).PhiInfos.TryGetValue v with
     | false, _ -> ()
     | true, phiInfo ->
       transferPhi state subState phiInfo v.VData.Internals.PPoint
-    for stmt in state.GetStmtInfos v do fnTransfer hdl state analysis stmt done
+    for stmt in state.GetStmtInfos v do fnTransfer state stmt done
     (g: IGraph<_, _>).GetSuccs v
     |> Seq.map (fun succ -> v, succ)
     |> Seq.iter subState.FlowQueue.Enqueue
 
-  let processFlow hdl g state analysis subState fnTransfer =
+  let processFlow g state subState fnTransfer =
     match (subState: IVarBasedDataFlowSubState<_>).FlowQueue.TryDequeue () with
     | false, _ -> ()
     | true, (src, dst) ->
       if not <| subState.ExecutedFlows.Add (src, dst) then ()
       else
         match (g: IGraph<_, _>).TryFindVertexByID dst.ID with
-        | Some v -> transferFlow hdl state analysis subState g v fnTransfer
+        | Some v -> transferFlow state subState g v fnTransfer
         | None -> ()
 
   let registerPendingVertices state (subState: IVarBasedDataFlowSubState<_>) =
     (state: VarBasedDataFlowState<_>).EnqueuePendingVertices subState
 
-  let propagateAux hdl g state analysis subState fnTransfer =
+  let propagateAux g state subState fnTransfer =
     registerPendingVertices state subState
     while not subState.FlowQueue.IsEmpty
           || not subState.DefSiteQueue.IsEmpty do
-      processFlow hdl g state analysis subState fnTransfer
-      processDefSite hdl state analysis subState fnTransfer
+      processFlow g state subState fnTransfer
+      processDefSite state subState fnTransfer
 
-  let propagateStackPointer hdl g state analysis =
-    propagateAux hdl g state analysis state.StackPointerSubState spTransfer
+  let propagateStackPointer g state =
+    propagateAux g state state.StackPointerSubState spTransfer
 
-  let propagateDomain hdl g state analysis =
-    propagateAux hdl g state analysis state.DomainSubState domainTransfer
-
-type VarBasedDataFlowAnalysis<'Lattice>
-  public (hdl, analysis: IVarBasedDataFlowAnalysis<'Lattice>) =
+  let propagateDomain g state =
+    propagateAux g state state.DomainSubState domainTransfer
 
   /// Compute the data flow analysis incrementally in four stages: (1) calculate
   /// def-use/use-def chains, (2) propagate stack pointer values, (3) calculate
@@ -500,10 +494,10 @@ type VarBasedDataFlowAnalysis<'Lattice>
     let domCtx = initDominatorContext g
     let domTree, _ = dominatorTree domCtx
     let domFrontiers = frontiers domCtx
-    Chains.calculate g state domCtx domTree domFrontiers
-    Propagation.propagateStackPointer hdl g state analysis
-    Chains.calculate g state domCtx domTree domFrontiers
-    Propagation.propagateDomain hdl g state analysis
+    calculateChains g state domCtx domTree domFrontiers
+    propagateStackPointer g state
+    calculateChains g state domCtx domTree domFrontiers
+    propagateDomain g state
     state.ClearPendingVertices ()
     state
 
