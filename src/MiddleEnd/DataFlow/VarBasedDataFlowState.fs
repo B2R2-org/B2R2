@@ -75,6 +75,9 @@ type VarBasedDataFlowState<'Lattice>
   /// Set of pending vertices that need to be processed.
   let pendingVertices = HashSet<IVertex<LowUIRBasicBlock>> ()
 
+  /// Queue of vertices that need to be removed.
+  let verticesForRemoval = Queue<IVertex<LowUIRBasicBlock>> ()
+
   /// SSA variable identifier counter.
   let mutable ssaVarCounter = 0
 
@@ -309,10 +312,10 @@ type VarBasedDataFlowState<'Lattice>
 
   let convertDefsToIds defs =
     defs
-    |> Set.map (fun def ->
+    |> Seq.map (fun def ->
       let v = getSSAVar def
       v.Identifier)
-    |> Set.toArray
+    |> Seq.toArray
 
   /// Generates a phi statement for the given variable point.
   let generatePhiSSAStmt vp =
@@ -321,7 +324,7 @@ type VarBasedDataFlowState<'Lattice>
     let varKind = vp.VarKind
     let defs = phiInfo[varKind]
     let var = getSSAVar vp
-    let ids = convertDefsToIds defs
+    let ids = convertDefsToIds defs.Values
     SSA.Phi (var, ids)
 
   let domainSubState =
@@ -412,6 +415,10 @@ type VarBasedDataFlowState<'Lattice>
   /// processed.
   member __.MarkVertexAsPending v = pendingVertices.Add v |> ignore
 
+  /// Mark the given vertex as removal, which means that the vertex needs to be
+  /// removed.
+  member __.MarkVertexAsRemoval v = verticesForRemoval.Enqueue v |> ignore
+
   /// Check if the given vertex is pending.
   member __.IsVertexPending v = pendingVertices.Contains v
 
@@ -422,6 +429,10 @@ type VarBasedDataFlowState<'Lattice>
   member __.EnqueuePendingVertices (subState: IVarBasedDataFlowSubState<_>) =
     for v in pendingVertices do
       subState.FlowQueue.Enqueue (null, v)
+
+  /// Dequeue the vertex for removal. When there is no vertex to remove, it
+  /// returns `false`.
+  member __.DequeueVertexForRemoval () = verticesForRemoval.TryDequeue ()
 
   /// Return the array of StmtInfos of the given vertex.
   member __.GetStmtInfos v = getStatements v
@@ -498,7 +509,7 @@ and IVarBasedDataFlowSubState<'Lattice> =
 
 /// A mapping from a variable kind of a phi variable to the program points of
 /// its incoming variable.
-and PhiInfo = Dictionary<VarKind, Set<VarPoint>>
+and PhiInfo = Dictionary<VarKind, Dictionary<ProgramPoint, VarPoint>>
 
 /// The core interface for IR-based data flow analysis.
 and IVarBasedDataFlowAnalysis<'Lattice> =

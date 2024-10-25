@@ -102,12 +102,12 @@ type VarBasedDataFlowAnalysis<'Lattice>
             addDefSite defSites vk v)
         | _ -> ()
 
-  let getPhiInfo state vid =
-    match (state: VarBasedDataFlowState<_>).PhiInfos.TryGetValue vid with
+  let getPhiInfo state v =
+    match (state: VarBasedDataFlowState<_>).PhiInfos.TryGetValue v with
     | true, dict -> dict
     | false, _ ->
       let dict = Dictionary ()
-      state.PhiInfos[vid] <- dict
+      state.PhiInfos[v] <- dict
       dict
 
   let placePhis state domCtx globals defSites (frontiers: _[]) =
@@ -132,7 +132,7 @@ type VarBasedDataFlowAnalysis<'Lattice>
               if phiInfo.ContainsKey varKind then ()
               else
                 (* insert a new phi *)
-                phiInfo[varKind] <- Set.empty
+                phiInfo[varKind] <- Dictionary ()
                 (* we may need to update chains from the phi site *)
                 state.MarkVertexAsPending df
               phiSites.Add df |> ignore
@@ -148,7 +148,7 @@ type VarBasedDataFlowAnalysis<'Lattice>
         let vp = { ProgramPoint = pp; VarKind = vk }
         Map.add vk vp ins) ins
 
-  let removeOldDefUses state useVp defVp =
+  let removeOldChains state useVp defVp =
     match (state: VarBasedDataFlowState<_>).UseDefMap.TryGetValue useVp with
     | true, prevDef when prevDef.ProgramPoint <> defVp.ProgramPoint ->
       (* Erase the old def-use. *)
@@ -170,7 +170,7 @@ type VarBasedDataFlowAnalysis<'Lattice>
     | None -> ()
     | Some defVp ->
       let useVp = { ProgramPoint = pp; VarKind = vk }
-      removeOldDefUses state useVp defVp
+      removeOldChains state useVp defVp
       updateDefUseChain state useVp defVp
       updateUseDefChain state useVp defVp
 
@@ -277,10 +277,16 @@ type VarBasedDataFlowAnalysis<'Lattice>
       prevAddr <- pp.Address
     if intraBlockContinues then outs else defs
 
-  let rec updatePhisOfSuccessor (state: VarBasedDataFlowState<_>) outs succ =
+  let getEndPP state v =
+    (state: VarBasedDataFlowState<_>).GetStmtInfos v
+    |> Array.last
+    |> snd
+
+  let rec updatePhisOfSuccessor (state: VarBasedDataFlowState<_>) outs v succ =
     match state.PhiInfos.TryGetValue succ with
     | false, _ -> ()
     | true, phiInfo ->
+      let endPP = getEndPP state v
       phiInfo.Keys
       |> Seq.filter (fun vk -> Map.containsKey vk outs)
       |> Seq.iter (fun incomingVk ->
@@ -292,20 +298,28 @@ type VarBasedDataFlowAnalysis<'Lattice>
             [ outs[incomingVk]; prevDef ]
           | _ -> [ outs[incomingVk] ]
         | false, _ -> [ outs[incomingVk] ]
-        |> List.iter (updatePhis state incomingVk succ)
+        |> List.iter (updatePhis state incomingVk succ endPP)
       )
 
-  and updatePhis (state: VarBasedDataFlowState<_>) vk succ defVp =
+  and updatePhis (state: VarBasedDataFlowState<_>) vk succ endPP defVp =
     assert (state.PhiInfos.ContainsKey succ)
     let phiInfo = state.PhiInfos[succ]
-    let prevDefs = phiInfo[vk]
-    phiInfo[vk] <- Set.add defVp prevDefs
+    let defs = phiInfo[vk]
+    defs[endPP] <- defVp
     let useVp = { ProgramPoint = succ.VData.Internals.PPoint; VarKind = vk }
     updateDefUseChain state useVp defVp
 
+  let hasProperPhiOperandNumbers state g v =
+    let preds = (g: IGraph<_, _>).GetPreds v
+    let predCount = preds.Length
+    match (state: VarBasedDataFlowState<_>).PhiInfos.TryGetValue v with
+    | false, _ -> true
+    | true, phiInfo ->
+      phiInfo.Values |> Seq.forall (fun defs -> defs.Count <= predCount)
+
   let updatePhisOfSuccessors state g v outs  =
     for succ in (g: IGraph<_, _>).GetSuccs v do
-      updatePhisOfSuccessor state outs succ
+      updatePhisOfSuccessor state outs v succ
 
   /// Update the def-use/use-def chains for the vertices in the dominator tree.
   let rec update g state domTree (visited: HashSet<_>) v ins =
@@ -314,6 +328,7 @@ type VarBasedDataFlowAnalysis<'Lattice>
     let ins = updateIncomingDefsWithPhis state v ins
     let outs = updateChainsWithBBLStmts g state v ins
     updatePhisOfSuccessors state g v outs
+    assert (hasProperPhiOperandNumbers state g v)
     traverseSuccessors g state domTree outs visited (Map.find v domTree)
     state.PerVertexIncomingDefs[v] <- ins
     state.PerVertexOutgoingDefs[v] <- outs
@@ -359,6 +374,20 @@ type VarBasedDataFlowAnalysis<'Lattice>
     findDefVars g state defSites globals
     placePhis state domCtx globals defSites frontiers
     incrementalUpdate g state domTree (HashSet ()) domCtx.ForwardRoot
+
+  /// FIXME: what if addtion and deletion come together in a single phase?
+  /// we need to remember which one wins.
+  let rec removeUnnecessaryChains (state: VarBasedDataFlowState<_>) =
+    match state.DequeueVertexForRemoval () with
+    | true, v when state.PerVertexIncomingDefs.ContainsKey v ->
+      state.GetStmtInfos v
+      |> Seq.map snd
+      |> Seq.iter (state.StmtOfBBLs.Remove >> ignore)
+      state.PhiInfos.Remove v |> ignore
+      state.PerVertexIncomingDefs.Remove v |> ignore
+      state.PerVertexOutgoingDefs.Remove v |> ignore
+    | true, _ -> removeUnnecessaryChains state
+    | false, _ -> ()
 
   let isStackRelatedRegister rid =
     hdl.RegisterFactory.IsStackPointer rid
@@ -423,11 +452,11 @@ type VarBasedDataFlowAnalysis<'Lattice>
 
   let transferPhi state subState phiInfo defPp =
     phiInfo
-    |> Seq.iter (fun (KeyValue (varKind, defs)) ->
+    |> Seq.iter (fun (KeyValue (varKind, defs: Dictionary<_, _>)) ->
       let vp = { ProgramPoint = defPp; VarKind = varKind }
       let prev = (subState: IVarBasedDataFlowSubState<_>).GetAbsValue vp
       let curr =
-        defs |> Set.fold (fun c (def: VarPoint) ->
+        defs.Values |> Seq.fold (fun c (def: VarPoint) ->
           subState.GetAbsValue def
           |> subState.Join c) subState.Bottom
       let defUseMap = (state: VarBasedDataFlowState<_>).DefUseMap
@@ -501,6 +530,7 @@ type VarBasedDataFlowAnalysis<'Lattice>
     let domCtx = initDominatorContext g
     let domTree, _ = dominatorTree domCtx
     let domFrontiers = frontiers domCtx
+    removeUnnecessaryChains state
     calculateChains g state domCtx domTree domFrontiers
     propagateStackPointer g state
     calculateChains g state domCtx domTree domFrontiers

@@ -39,6 +39,10 @@ module private CFGRecovery =
     if useSSA then ()
     else ctx.CPState.MarkVertexAsPending v
 
+  let inline markVertexAsRemovalForAnalysis useSSA ctx v =
+    if useSSA then ()
+    else ctx.CPState.MarkVertexAsRemoval v
+
 /// Base strategy for building a CFG.
 type CFGRecovery<'FnCtx,
                  'GlCtx when 'FnCtx :> IResettable
@@ -121,9 +125,9 @@ type CFGRecovery<'FnCtx,
       let succs = ctx.CFG.GetSuccEdges v
       ctx.Vertices.Remove ppoint |> ignore
       ctx.CFG <- ctx.CFG.RemoveVertex v
-      preds, succs
+      preds, succs, v
     | false, _ ->
-      [||], [||]
+      [||], [||], null
 
   let connectEdge ctx srcVertex dstVertex edgeKind =
     ctx.CFG <- ctx.CFG.AddEdge (srcVertex, dstVertex, edgeKind)
@@ -333,7 +337,7 @@ type CFGRecovery<'FnCtx,
 
   let reconnectVertices ctx (dividedEdges: List<ProgramPoint * ProgramPoint>) =
     for (srcPPoint, dstPPoint) in dividedEdges do
-      let preds, succs = removeVertex ctx srcPPoint
+      let preds, succs, origVertex = removeVertex ctx srcPPoint
       if Array.isEmpty preds && Array.isEmpty succs then
         (* Don't reconnect previously unseen blocks, which can be introduced by
            tail-calls. N.B. BBLFactory cannot see tail-calls. *)
@@ -350,6 +354,8 @@ type CFGRecovery<'FnCtx,
         else ctx.CallerVertices[callSiteAddr] <- dstVertex
         handleCallerSplit ctx srcPPoint.Address dstPPoint.Address lastAddr
         connectEdge ctx srcVertex dstVertex FallThroughEdge
+        markVertexForAnalysis useSSA ctx srcVertex
+        markVertexAsRemovalForAnalysis useSSA ctx origVertex
         for e in preds do
           connectEdge ctx e.First srcVertex e.Label
         for e in succs do
