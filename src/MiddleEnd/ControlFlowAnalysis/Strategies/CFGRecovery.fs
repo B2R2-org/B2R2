@@ -35,7 +35,7 @@ open B2R2.MiddleEnd.ControlFlowAnalysis
 
 [<AutoOpen>]
 module private CFGRecovery =
-  let inline markVertexForAnalysis useSSA ctx v =
+  let inline markVertexAsPendingForAnalysis useSSA ctx v =
     if useSSA then ()
     else ctx.CPState.MarkVertexAsPending v
 
@@ -82,7 +82,7 @@ type CFGRecovery<'FnCtx,
       let v, g = ctx.CFG.AddVertex (ctx.BBLFactory.Find ppoint)
       ctx.CFG <- g
       ctx.Vertices[ppoint] <- v
-      markVertexForAnalysis useSSA ctx v
+      markVertexAsPendingForAnalysis useSSA ctx v
       v
 
   let tryGetVertex ctx ppoint =
@@ -94,7 +94,7 @@ type CFGRecovery<'FnCtx,
         let v, g = ctx.CFG.AddVertex bbl
         ctx.CFG <- g
         ctx.Vertices[ppoint] <- v
-        markVertexForAnalysis useSSA ctx v
+        markVertexAsPendingForAnalysis useSSA ctx v
         Ok v
       | Error _ -> Error ErrorCase.ItemNotFound
 
@@ -113,7 +113,7 @@ type CFGRecovery<'FnCtx,
       let v, g = ctx.CFG.AddVertex bbl
       ctx.CFG <- g
       ctx.Vertices[calleePPoint] <- v
-      markVertexForAnalysis useSSA ctx v
+      markVertexAsPendingForAnalysis useSSA ctx v
       v
 
   let removeVertex ctx ppoint =
@@ -131,7 +131,7 @@ type CFGRecovery<'FnCtx,
 
   let connectEdge ctx srcVertex dstVertex edgeKind =
     ctx.CFG <- ctx.CFG.AddEdge (srcVertex, dstVertex, edgeKind)
-    markVertexForAnalysis useSSA ctx dstVertex
+    markVertexAsPendingForAnalysis useSSA ctx dstVertex
 
 #if CFGDEBUG
     let edgeStr = CFGEdgeKind.toString edgeKind
@@ -354,7 +354,7 @@ type CFGRecovery<'FnCtx,
         else ctx.CallerVertices[callSiteAddr] <- dstVertex
         handleCallerSplit ctx srcPPoint.Address dstPPoint.Address lastAddr
         connectEdge ctx srcVertex dstVertex FallThroughEdge
-        markVertexForAnalysis useSSA ctx srcVertex
+        markVertexAsPendingForAnalysis useSSA ctx srcVertex
         markVertexAsRemovalForAnalysis useSSA ctx origVertex
         for e in preds do
           connectEdge ctx e.First srcVertex e.Label

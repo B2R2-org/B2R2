@@ -72,8 +72,9 @@ type VarBasedDataFlowState<'Lattice>
 
   let stmtOfBBLs = Dictionary<ProgramPoint, StmtOfBBL> ()
 
-  /// Set of pending vertices that need to be processed.
-  let pendingVertices = HashSet<IVertex<LowUIRBasicBlock>> ()
+  /// Set of vertices that need to be analyzed for reconstructing data flow
+  /// information.
+  let verticesForProcessing = HashSet<IVertex<LowUIRBasicBlock>> ()
 
   /// Queue of vertices that need to be removed.
   let verticesForRemoval = Queue<IVertex<LowUIRBasicBlock>> ()
@@ -379,7 +380,7 @@ type VarBasedDataFlowState<'Lattice>
     defUseMap.Clear ()
     useDefMap.Clear ()
     stmtOfBBLs.Clear ()
-    pendingVertices.Clear ()
+    verticesForProcessing.Clear ()
     vpToSSAVar.Clear ()
     ssaVarCounter <- 0
     ssaVarToVp.Clear ()
@@ -413,21 +414,21 @@ type VarBasedDataFlowState<'Lattice>
 
   /// Mark the given vertex as pending, which means that the vertex needs to be
   /// processed.
-  member __.MarkVertexAsPending v = pendingVertices.Add v |> ignore
+  member __.MarkVertexAsPending v = verticesForProcessing.Add v |> ignore
 
   /// Mark the given vertex as removal, which means that the vertex needs to be
   /// removed.
   member __.MarkVertexAsRemoval v = verticesForRemoval.Enqueue v |> ignore
 
-  /// Check if the given vertex is pending.
-  member __.IsVertexPending v = pendingVertices.Contains v
+  /// Check if the given vertex is pending for processing.
+  member __.IsVertexPending v = verticesForProcessing.Contains v
 
   /// Clear the pending vertices.
-  member __.ClearPendingVertices () = pendingVertices.Clear ()
+  member __.ClearPendingVertices () = verticesForProcessing.Clear ()
 
   /// Enqueue the pending vertices to the given sub-state.
   member __.EnqueuePendingVertices (subState: IVarBasedDataFlowSubState<_>) =
-    for v in pendingVertices do
+    for v in verticesForProcessing do
       subState.FlowQueue.Enqueue (null, v)
 
   /// Dequeue the vertex for removal. When there is no vertex to remove, it
@@ -507,8 +508,10 @@ and IVarBasedDataFlowSubState<'Lattice> =
   /// Evaluate the given expression using the current abstract state.
   abstract EvalExpr: ProgramPoint -> Expr -> 'Lattice
 
-/// A mapping from a variable kind of a phi variable to the program points of
-/// its incoming variable.
+/// A mapping from a variable kind of a phi to its definitions. We represent
+/// each definition as a mapping from predecessor's program point to a variable
+/// point. This way, a definition from the same predecessor can be replaced by
+/// the latest definition.
 and PhiInfo = Dictionary<VarKind, Dictionary<ProgramPoint, VarPoint>>
 
 /// The core interface for IR-based data flow analysis.
