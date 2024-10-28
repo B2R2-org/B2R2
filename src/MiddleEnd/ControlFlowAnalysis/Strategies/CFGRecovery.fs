@@ -190,7 +190,13 @@ type CFGRecovery<'FnCtx,
         | StillBuilding _
         | FailedBuilding -> postponeActionOnCallee ctx calleeAddr action
         (* Directly push the given action into its action queue. *)
-        | FinalCtx _ -> actionQueue.Push prioritizer action
+        | FinalCtx ctx ->
+          let calleeInfo = ctx.NonReturningStatus, ctx.UnwindingBytes
+          match action with
+          | MakeCall _ -> MakeCall (callsiteAddr, calleeAddr, calleeInfo)
+          | MakeTlCall _ -> MakeTlCall (callsiteAddr, calleeAddr, calleeInfo)
+          | _ -> action
+          |> actionQueue.Push prioritizer
       Continue
     else FailStop ErrorCase.FailedToRecoverCFG
 
@@ -244,7 +250,7 @@ type CFGRecovery<'FnCtx,
               jmpToDstAddr ctx ppQueue srcVertex dstAddr InterJmpEdge
             | _ ->
               let callSite = srcData.LastInstruction.Address
-              let act = MakeTlCall (callSite, dstAddr)
+              let act = MakeTlCall (callSite, dstAddr, (UnknownNoRet, 0))
               result <- pushCallAction ctx srcData.PPoint callSite dstAddr act
           else
             let dstAddr = BitVector.ToUInt64 n
@@ -254,12 +260,12 @@ type CFGRecovery<'FnCtx,
                           InterJmpKind.IsCall) ->
           let callsiteAddr = srcData.LastInstruction.Address
           let target = callsiteAddr + BitVector.ToUInt64 n
-          let act = MakeCall (callsiteAddr, target)
+          let act = MakeCall (callsiteAddr, target, (UnknownNoRet, 0))
           result <- pushCallAction ctx srcData.PPoint callsiteAddr target act
         | InterJmp ({ E = Num n }, InterJmpKind.IsCall) ->
           let callsiteAddr = srcData.LastInstruction.Address
           let target = BitVector.ToUInt64 n
-          let act = MakeCall (callsiteAddr, target)
+          let act = MakeCall (callsiteAddr, target, (UnknownNoRet, 0))
           result <- pushCallAction ctx srcData.PPoint callsiteAddr target act
         | InterCJmp (_, { E = BinOp (BinOpType.ADD, _, { E = PCVar _ },
                                                        { E = Num tv }) },
@@ -369,11 +375,12 @@ type CFGRecovery<'FnCtx,
   let addExpandCFGAction (queue: CFGActionQueue) addr =
     queue.Push prioritizer <| ExpandCFG ([ addr ])
 
-  let getFunctionAbstraction ctx callIns calleeAddr =
+  let getFunctionAbstraction ctx callIns calleeAddr calleeInfo =
     match ctx.ManagerChannel.GetBuildingContext calleeAddr with
     | FinalCtx calleeCtx
     | StillBuilding calleeCtx ->
-      summarizer.Summarize (calleeCtx, callIns) |> Ok
+      let retStatus, unwindingBytes = calleeInfo
+      Ok <| summarizer.Summarize (calleeCtx, retStatus, unwindingBytes, callIns)
     | FailedBuilding -> Error ErrorCase.FailedToRecoverCFG
 
   let connectAbsVertex ctx (caller: IVertex<LowUIRBasicBlock>) calleeAddr abs =
@@ -397,48 +404,54 @@ type CFGRecovery<'FnCtx,
     | Ok _ -> Continue
     | Error e -> FailStop e
 
-  let connectAbsWithFT ctx caller calleeAddr queue =
+  let connectAbsWithFT ctx caller calleeAddr calleeInfo queue =
     let lastIns =
       (caller: IVertex<LowUIRBasicBlock>).VData.Internals.LastInstruction
-    getFunctionAbstraction ctx lastIns calleeAddr
+    getFunctionAbstraction ctx lastIns calleeAddr calleeInfo
     |> Result.map (connectAbsVertex ctx caller calleeAddr)
     |> Result.bind (connectRet ctx)
     |> Result.map (addExpandCFGAction queue)
     |> toCFGResult
 
-  let connectAbsWithoutFT ctx caller calleeAddr =
+  let connectAbsWithoutFT ctx caller calleeAddr calleeInfo =
     let lastIns =
       (caller: IVertex<LowUIRBasicBlock>).VData.Internals.LastInstruction
-    getFunctionAbstraction ctx lastIns calleeAddr
+    getFunctionAbstraction ctx lastIns calleeAddr calleeInfo
     |> Result.map (connectAbsVertex ctx caller calleeAddr)
     |> toCFGResult
 
-  let connectCallEdge ctx queue callSiteAddr calleeAddr isTailCall =
+  let connectCallEdge ctx queue callSiteAddr callee calleeInfo isTailCall =
     let caller = ctx.CallerVertices[callSiteAddr]
-    if isTailCall then connectAbsWithoutFT ctx caller calleeAddr
-    elif ctx.FunctionAddress = calleeAddr then
+    if isTailCall then
+      let lastIns = caller.VData.Internals.LastInstruction
+      summarizer.MakeUnknownFunctionAbstraction (ctx.BinHandle, lastIns)
+      |> Ok
+      |> Result.map (connectAbsVertex ctx caller callee)
+      |> toCFGResult
+    elif ctx.FunctionAddress = callee then
       (* recursion = 100% returns (not no-ret) *)
-      summarizer.Summarize (ctx, caller.VData.Internals.LastInstruction)
-      |> connectAbsVertex ctx caller calleeAddr
+      let lastIns = caller.VData.Internals.LastInstruction
+      (* TODO: its unwinding bytes cannot be decided at this moment. *)
+      summarizer.Summarize (ctx, NotNoRet, 0, lastIns)
+      |> connectAbsVertex ctx caller callee
       |> connectRet ctx
       |> Result.map (addExpandCFGAction queue)
       |> toCFGResult
     else
-      match ctx.ManagerChannel.GetNonReturningStatus calleeAddr with
-      | NoRet -> connectAbsWithoutFT ctx caller calleeAddr
-      | NotNoRet -> connectAbsWithFT ctx caller calleeAddr queue
-      | ConditionalNoRet nth ->
+      match calleeInfo with
+      | NoRet, _ -> connectAbsWithoutFT ctx caller callee calleeInfo
+      | NotNoRet, _ -> connectAbsWithFT ctx caller callee calleeInfo queue
+      | ConditionalNoRet nth, _ ->
         if CondAwareNoretAnalysis.hasNonZero ctx.BinHandle caller nth then
-          connectAbsWithoutFT ctx caller calleeAddr
-        else connectAbsWithFT ctx caller calleeAddr queue
-      | UnknownNoRet -> Utils.futureFeature ()
+          connectAbsWithoutFT ctx caller callee calleeInfo
+        else connectAbsWithFT ctx caller callee calleeInfo queue
+      | UnknownNoRet, _ -> Utils.impossible ()
 
   let connectIndirectCallEdge ctx queue callSiteAddr =
     let caller = ctx.CallerVertices[callSiteAddr]
     let callIns = caller.VData.Internals.LastInstruction
     let callSite = callIns.Address
-    let wordSize = ctx.BinHandle.File.ISA.WordSize
-    let abs = summarizer.SummarizeUnknown (ctx, callIns)
+    let abs = summarizer.MakeUnknownFunctionAbstraction (ctx.BinHandle, callIns)
     let absV = getAbsVertex ctx callSite None abs
     connectEdge ctx caller absV CallEdge
     connectRet ctx (absV, callSite + uint64 callIns.Length)
@@ -584,18 +597,18 @@ type CFGRecovery<'FnCtx,
 #endif
           let newPPs = addrs |> Seq.map (fun addr -> ProgramPoint (addr, 0))
           buildCFG ctx queue newPPs
-        | MakeCall (callSiteAddr, calleeAddr) ->
+        | MakeCall (callSite, callee, calleeInfo) ->
 #if CFGDEBUG
           dbglog ctx.ThreadID (nameof MakeCall)
           <| $"{ctx.FunctionAddress:x} to {calleeAddr:x}"
 #endif
-          connectCallEdge ctx queue callSiteAddr calleeAddr false
-        | MakeTlCall (callSiteAddr, calleeAddr) ->
+          connectCallEdge ctx queue callSite callee calleeInfo false
+        | MakeTlCall (callSite, callee, calleeInfo) ->
 #if CFGDEBUG
           dbglog ctx.ThreadID (nameof MakeTlCall)
           <| $"{ctx.FunctionAddress:x} to {calleeAddr:x}"
 #endif
-          connectCallEdge ctx queue callSiteAddr calleeAddr true
+          connectCallEdge ctx queue callSite callee calleeInfo true
         | MakeIndCall (callSiteAddr) ->
 #if CFGDEBUG
           dbglog ctx.ThreadID (nameof MakeIndCall)
@@ -658,6 +671,7 @@ type CFGRecovery<'FnCtx,
       let oldNoRetStatus = ctx.NonReturningStatus
       ICFGAnalysis.run { Context = ctx } postAnalysis
       let newNoRetStatus = ctx.NonReturningStatus
+      ctx.UnwindingBytes <- summarizer.ComputeUnwindingAmount ctx
       match oldNoRetStatus, newNoRetStatus with
       | NoRet, NotNoRet
       | NoRet, ConditionalNoRet _ -> ContinueAndReloadCallers

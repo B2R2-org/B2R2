@@ -194,28 +194,35 @@ and private TaskManager<'FnCtx,
         checkAndResolveCyclicDependencies ()
     else ()
 
-  and rechargeActionQueue callerCtx callee =
+  and rechargeActionQueue callerCtx callee calleeInfo =
     let callerPendingActions = callerCtx.PendingActions
     let callerActionQueue = callerCtx.ActionQueue
     if not <| callerPendingActions.ContainsKey callee then ()
     else
       callerPendingActions[callee]
+      |> Seq.map (function
+        | MakeCall (callSite, callee, _) ->
+          MakeCall (callSite, callee, calleeInfo)
+        | MakeTlCall (callSite, callee, _) ->
+          MakeTlCall (callSite, callee, calleeInfo)
+        | _ -> Utils.impossible ())
       |> Seq.iter (callerActionQueue.Push strategy.ActionPrioritizer)
       callerPendingActions.Remove callee |> ignore
 
   /// Returns true if there was one or more pending reset messages.
   and consumePendingMessages (builder: ICFGBuildable<_, _>) entryPoint =
+    let ctx = builder.Context
     let messages = msgbox[entryPoint]
     if Seq.isEmpty messages then false
     else
       let mutable pendingReset = false
       for msg in messages do
         match msg with
-        | CalleeSuccess calleeAddr ->
+        | CalleeSuccess (calleeAddr, calleeInfo) ->
 #if CFGDEBUG
           dbglog ManagerTid "PendingMsg" $"CalleeSuccess {calleeAddr:x}"
 #endif
-          rechargeActionQueue builders[entryPoint].Context calleeAddr
+          rechargeActionQueue ctx calleeAddr calleeInfo
         | BuilderReset ->
 #if CFGDEBUG
           dbglog ManagerTid "PendingMsg" $"BuilderReset"
@@ -230,15 +237,18 @@ and private TaskManager<'FnCtx,
     else InvalidateBuilder (entryPoint, ArchOperationMode.NoMode) |> agent.Post
 
   and propagateSuccess calleeAddr callerAddr =
+    let calleeCtx = builders[calleeAddr].Context
+    let calleeInfo = calleeCtx.NonReturningStatus, calleeCtx.UnwindingBytes
     let callerBuilder = builders[callerAddr]
 #if CFGDEBUG
     dbglog ManagerTid "PropagateSuccess" $"{calleeAddr:x} to {callerAddr:x}"
 #endif
     match callerBuilder.BuilderState with
     | Stopped ->
-      rechargeActionQueue callerBuilder.Context calleeAddr
+      rechargeActionQueue callerBuilder.Context calleeAddr calleeInfo
       addTask callerAddr callerBuilder.Mode
-    | InProgress -> msgbox[callerAddr].Add <| CalleeSuccess calleeAddr
+    | InProgress ->
+      msgbox[callerAddr].Add <| CalleeSuccess (calleeAddr, calleeInfo)
     | Initialized -> () (* Ignore since it has been reset. *)
     | _ -> Utils.impossible ()
 
@@ -451,6 +461,6 @@ and private TaskWorker<'FnCtx,
 
 and private TaskMessage =
   /// Callee has been successfully built.
-  | CalleeSuccess of callee: Addr
+  | CalleeSuccess of callee: Addr * calleeInfo: CalleeInfo
   /// Reset the builder.
   | BuilderReset

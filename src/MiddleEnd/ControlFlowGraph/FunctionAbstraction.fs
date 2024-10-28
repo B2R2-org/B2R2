@@ -39,7 +39,7 @@ type FunctionAbstraction<'Stmt> (entryPoint,
   member _.EntryPoint with get(): Addr = entryPoint
 
   /// How many bytes of the stack does this function unwind when return?
-  member _.UnwindingBytes with get(): int option = unwindingBytes
+  member _.UnwindingBytes with get(): int = unwindingBytes
 
   /// A rundown of the function in SSA form.
   member _.Rundown with get(): Rundown<'Stmt> = rundown

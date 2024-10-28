@@ -58,6 +58,7 @@ type ExternalFnCFGBuilder<'FnCtx,
       ActionQueue = CFGActionQueue ()
       PendingActions = Dictionary ()
       CallerVertices = Dictionary ()
+      UnwindingBytes = 0
       UserContext = new 'FnCtx ()
       IsExternal = true
       ManagerChannel = null

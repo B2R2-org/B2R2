@@ -77,6 +77,8 @@ type CFGBuildingContext<'FnCtx,
   PendingActions: Dictionary<Addr, List<CFGAction>>
   /// From a call site of a caller vertex to the caller vertex itself.
   CallerVertices: Dictionary<Addr, IVertex<LowUIRBasicBlock>>
+  /// The number of unwinding bytes of the stack when this function returns.
+  mutable UnwindingBytes: int
   /// The user-defined per-function context.
   mutable UserContext: 'FnCtx
   /// Is this an external function or not.
@@ -100,6 +102,7 @@ with
     __.ActionQueue.Clear ()
     __.PendingActions.Clear ()
     __.CallerVertices.Clear ()
+    __.UnwindingBytes <- 0
     __.UserContext.Reset ()
     if isNull __.CPState then () else __.CPState.Reset ()
 
