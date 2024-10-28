@@ -41,7 +41,9 @@ module private CFGRecovery =
 
   let inline markVertexAsRemovalForAnalysis useSSA ctx v =
     if useSSA then ()
-    else ctx.CPState.MarkVertexAsRemoval v
+    else
+      ctx.CPState.MarkVertexAsRemoval v
+      ctx.CFG.GetSuccs v |> Seq.iter ctx.CPState.MarkVertexAsPending
 
 /// Base strategy for building a CFG.
 type CFGRecovery<'FnCtx,

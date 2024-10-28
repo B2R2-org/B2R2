@@ -314,7 +314,8 @@ type VarBasedDataFlowAnalysis<'Lattice>
   /// We only visit the vertices that have changed and update data-flow chains.
   let rec incrementalUpdate g state domTree visited domInfo v =
     if (visited: HashSet<_>).Contains v then ()
-    elif (state: VarBasedDataFlowState<_>).IsVertexPending v then
+    elif (state: VarBasedDataFlowState<_>).IsVertexPending v
+         && (g: IGraph<_, _>).HasVertex v.ID then
       let dfnum = domInfo.DFNumMap[v.ID]
       let idomNum = domInfo.IDom[dfnum]
       let idom = domInfo.Vertex[idomNum]
