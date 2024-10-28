@@ -98,11 +98,17 @@ type BBLFactory (hdl: BinHandle,
       channel.Complete ()
     }
 
+  let hasProperISMark (stmts: Stmt array) =
+    match stmts[0] with
+    | { S = ISMark _ } -> true
+    | _ -> false
+
   /// The given list is reversed, so we fill the array in reverse order.
   let rec liftAndFill lunit bblAddr (arr: LiftedInstruction[]) instrs ndx =
     match instrs with
     | ins :: tl ->
       let stmts = (lunit: LiftingUnit).LiftInstruction (ins=ins, optimize=true)
+      assert (hasProperISMark stmts)
       let liftedIns = { Original = ins; Stmts = stmts; BBLAddr = bblAddr }
       arr[ndx] <- liftedIns
       liftAndFill lunit bblAddr arr tl (ndx - 1)

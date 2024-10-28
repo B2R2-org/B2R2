@@ -21,14 +21,15 @@
     <Compile Include="DataFlowChain.fs" />
     <Compile Include="VarBasedDataFlowState.fs" />
     <Compile Include="VarBasedDataFlowAnalysis.fs" />
+    <Compile Include="ConstantPropagation.fs" />
+    <Compile Include="StackPointerPropagation.fs" />
     <Compile Include="UntouchedValueAnalysis.fs" />
-    <Compile Include="StackPointerAnalysis.fs" />
     <Compile Include="SSAEdges.fs" />
     <Compile Include="SSAVarBasedDataFlowState.fs" />
     <Compile Include="SSAVarBasedDataFlowAnalysis.fs" />
     <Compile Include="SSAConstantPropagation.fs" />
     <Compile Include="SSAStackPointerPropagation.fs" />
-    <Compile Include="SSAUntouchedValuePropagation.fs" />
+    <Compile Include="SSAUntouchedValueAnalysis.fs" />
     <None Include="..\..\..\LICENSE.md" Pack="true" PackagePath="" />
     <None Include="..\..\..\assets\b2r2-240x240.png" Pack="true" PackagePath="" />
     <None Include="README.md" Pack="true" PackagePath="" />

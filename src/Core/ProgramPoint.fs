@@ -24,24 +24,50 @@
 
 namespace B2R2
 
-/// A program point (ProgramPoint) is a fine-grained location in a program,
-/// which can point to a specific IR statement. We represent it as a tuple:
-/// (Address of the instruction, Index of the IR stmt for the instruction).
-type ProgramPoint (addr, pos) =
+/// A program point (ProgramPoint) is a specific location in a lifted program.
+/// We represent it as a three-tuple: (Address of the instruction, Index of the
+/// IR stmt for the instruction, Address of a callsite). The third element is
+/// optional and only meaningful for abstract vertices.
+type ProgramPoint private (addr, pos, callsite) =
+
+  new (addr, pos: int) = ProgramPoint (addr, pos, None)
+
+  new (callsite, addr, pos: int) = ProgramPoint (addr, pos, Some callsite)
+
   /// Address of the instruction.
   member __.Address with get(): Addr = addr
+
   /// Index of the IR statement within the instruction.
   member __.Position with get(): int = pos
 
+  /// Address of the callsite if this program point refers to an abstract
+  /// vertex.
+  member __.CallSite with get(): Addr option = callsite
+
+  /// Compare against another program point.
+  member __.CompareTo (rhs: ProgramPoint) =
+    let result = compare __.Address rhs.Address
+    if result <> 0 then result
+    elif __.Position = rhs.Position then compare __.CallSite rhs.CallSite
+    else compare __.Position rhs.Position
+
   override __.Equals (o) =
     match o with
-    | :? ProgramPoint as o -> o.Address = __.Address && o.Position = __.Position
+    | :? ProgramPoint as o ->
+      o.Address = __.Address
+      && o.Position = __.Position
+      && o.CallSite = __.CallSite
     | _ -> false
 
-  override __.GetHashCode () = hash (__.Address, __.Position)
+  override __.GetHashCode () =
+    match __.CallSite with
+    | None -> int __.Address ^^^ (__.Position <<< 16)
+    | Some callSite -> int __.Address ^^^ (__.Position <<< 16) + int callSite
 
   override __.ToString () =
-    $"{addr:x}:{pos}"
+    match __.CallSite with
+    | Some callsite -> $"{callsite:x}-{addr:x}"
+    | None -> $"{addr:x}:{pos}"
 
   /// Get a fake program point to represent a fake vertex, which does not exist
   /// in a CFG. Fake vertices are useful for representing external function
@@ -57,8 +83,8 @@ type ProgramPoint (addr, pos) =
   interface System.IComparable with
     member __.CompareTo (rhs) =
       match rhs with
-      | :? ProgramPoint as rhs ->
-        (* To lexicographically sort leaders. Being too pedantic here. *)
-        if __.Address = rhs.Address then compare __.Position rhs.Position
-        else compare __.Address rhs.Address
+      | :? ProgramPoint as rhs -> __.CompareTo rhs
       | _ -> invalidArg (nameof rhs) "Invalid comparison"
+
+  interface System.IComparable<ProgramPoint> with
+    member __.CompareTo (rhs) = __.CompareTo rhs

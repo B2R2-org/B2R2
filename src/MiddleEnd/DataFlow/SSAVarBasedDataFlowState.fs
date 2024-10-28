@@ -63,7 +63,7 @@ type SSAVarBasedDataFlowState<'Lattice>
 
   /// Worklist for SSA stmt, this stack stores a list of def variables, and we
   /// will use SSAEdges to find all related SSA statements.
-  let ssaWorkList = Stack<Variable> ()
+  let ssaWorkList = UniqueQueue<Variable> ()
 
   let markExecutable src dst =
     if executableEdges.Add (src, dst) then flowWorkList.Enqueue (src, dst)
@@ -94,8 +94,8 @@ type SSAVarBasedDataFlowState<'Lattice>
     | true, v -> v
     | false, _ -> analysis.Bottom
 
-  /// Set register value without pushing it to the worklist.
-  member __.SetRegValueWithoutPushing (var: Variable) (value: 'Lattice) =
+  /// Set register value without adding it to the worklist.
+  member __.SetRegValueWithoutAdding (var: Variable) (value: 'Lattice) =
     regValues[var] <- value
 
   /// Check if the register has been initialized.
@@ -106,11 +106,11 @@ type SSAVarBasedDataFlowState<'Lattice>
   member __.SetRegValue (var: Variable, value: 'Lattice) =
     if not (regValues.ContainsKey var) then
       regValues[var] <- value
-      ssaWorkList.Push var
+      ssaWorkList.Enqueue var
     elif analysis.Subsume regValues[var] value then ()
     else
       regValues[var] <- analysis.Join regValues[var] value
-      ssaWorkList.Push var
+      ssaWorkList.Enqueue var
 
   /// Try to get memory value. Unaligned access will always return Bottom.
   member __.GetMemValue (var: Variable) (rt: RegType) (addr: Addr) =

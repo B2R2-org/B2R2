@@ -28,7 +28,6 @@ open B2R2
 open B2R2.BinIR
 open B2R2.BinIR.LowUIR
 open B2R2.FrontEnd
-open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.DataFlow
 
 type UntouchedValueAnalysis =
@@ -50,23 +49,21 @@ type UntouchedValueAnalysis =
       | Regular _ -> mkUntouched varKind
       | _ -> UntouchedValueDomain.Undef (* not intended *)
 
-    let evaluateVarPoint (state: VarBasedDataFlowState<_>)  pp varKind =
-      let varDef = state.CalculateIncomingVarDef pp
-      let vps = VarDefDomain.get varKind varDef
-      if Set.isEmpty vps then getBaseCase varKind (* initialize here *)
-      else
-        vps
-        |> Set.map (state: IDataFlowState<_, _>).GetAbsValue
-        |> Seq.reduce UntouchedValueDomain.join
+    let evaluateVarPoint (state: VarBasedDataFlowState<_>) pp varKind =
+      let vp = { ProgramPoint = pp; VarKind = varKind }
+      match state.UseDefMap.TryGetValue vp with
+      | false, _ -> getBaseCase varKind (* initialize here *)
+      | true, defVp -> state.DomainSubState.GetAbsValue defVp
 
     let rec evaluateExpr state pp e =
       match e.E with
       | Var _ | TempVar _ -> evaluateVarPoint state pp (VarKind.ofIRExpr e)
       | Load (_, _, addr) ->
-        match state.EvaluateExprIntoConst pp addr with
-        | ConstantDomain.Const bv ->
+        match state.StackPointerSubState.EvalExpr pp addr with
+        | StackPointerDomain.ConstSP bv ->
           let addr = BitVector.ToUInt64 bv
-          evaluateVarPoint state pp (Memory (Some addr))
+          let offset = VarBasedDataFlowState<_>.ToFrameOffset addr
+          evaluateVarPoint state pp (StackLocal offset)
         | _ -> UntouchedValueDomain.Touched
       | Extract (e, _, _)
       | Cast (CastKind.ZeroExt, _, e)
@@ -82,23 +79,6 @@ type UntouchedValueAnalysis =
           member __.Join a b = UntouchedValueDomain.join a b
 
           member __.Subsume a b = UntouchedValueDomain.subsume a b
-
-          member __.Transfer _g _v pp stmt state =
-            match stmt.S with
-            | Put (dst, src) ->
-              let varKind = VarKind.ofIRExpr dst
-              let varPoint = { ProgramPoint = pp; VarKind = varKind }
-              let v = evaluateExpr state pp src
-              Some (varPoint, v)
-            | Store (_, addr, value) ->
-              match state.EvaluateExprIntoConst pp addr with
-              | ConstantDomain.Const bv ->
-                let varKind = Memory (Some (BitVector.ToUInt64 bv))
-                let varPoint = { ProgramPoint = pp; VarKind = varKind }
-                let v = evaluateExpr state pp value
-                Some (varPoint, v)
-              | _ -> None
-            | _ -> None
 
           member __.EvalExpr state pp e = evaluateExpr state pp e }
 

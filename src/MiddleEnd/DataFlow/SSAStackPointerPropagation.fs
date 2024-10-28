@@ -25,7 +25,6 @@
 namespace B2R2.MiddleEnd.DataFlow.SSA
 
 open B2R2
-open B2R2.BinIR
 open B2R2.BinIR.SSA
 open B2R2.FrontEnd
 open B2R2.MiddleEnd.DataFlow
@@ -36,13 +35,6 @@ type SSAStackPointerPropagation =
   inherit SSAVarBasedDataFlowAnalysis<StackPointerDomain.Lattice>
 
   new (hdl: BinHandle) =
-    let evalBinOp op c1 c2 =
-      match op with
-      | BinOpType.ADD -> StackPointerDomain.add c1 c2
-      | BinOpType.SUB -> StackPointerDomain.sub c1 c2
-      | BinOpType.AND -> StackPointerDomain.``and`` c1 c2
-      | _ -> StackPointerDomain.NotConstSP
-
     let rec evalExpr (state: SSAVarBasedDataFlowState<_>) = function
       | Num bv -> StackPointerDomain.ConstSP bv
       | Var v -> state.GetRegValue v
@@ -53,7 +45,7 @@ type SSAStackPointerPropagation =
       | BinOp (op, _, e1, e2) ->
         let c1 = evalExpr state e1
         let c2 = evalExpr state e2
-        evalBinOp op c1 c2
+        StackPointerPropagation.evalBinOp op c1 c2
       | RelOp _ -> StackPointerDomain.NotConstSP
       | Ite _ -> StackPointerDomain.NotConstSP
       | Cast _ -> StackPointerDomain.NotConstSP
@@ -100,7 +92,7 @@ type SSAStackPointerPropagation =
               let str = hdl.RegisterFactory.RegIDToString sp
               let var = { Kind = RegVar (rt, sp, str); Identifier = 0 }
               let spVal = BitVector.OfUInt64 InitialStackPointer rt
-              state.SetRegValueWithoutPushing var
+              state.SetRegValueWithoutAdding var
               <| StackPointerDomain.ConstSP spVal
               state
             | None -> state

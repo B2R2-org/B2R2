@@ -28,10 +28,18 @@ open B2R2
 open B2R2.BinIR
 open B2R2.BinIR.LowUIR
 open B2R2.FrontEnd
-open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.DataFlow
 
-type StackPointerAnalysis =
+module internal StackPointerPropagation =
+  let evalBinOp op c1 c2 =
+    match op with
+    | BinOpType.ADD -> StackPointerDomain.add c1 c2
+    | BinOpType.SUB -> StackPointerDomain.sub c1 c2
+    | BinOpType.AND -> StackPointerDomain.``and`` c1 c2
+    | _ -> StackPointerDomain.NotConstSP
+
+
+type StackPointerPropagation =
   inherit VarBasedDataFlowAnalysis<StackPointerDomain.Lattice>
 
   new (hdl: BinHandle) =
@@ -47,35 +55,21 @@ type StackPointerAnalysis =
       | Some spRid -> rid = spRid
       | None -> false
 
-    let isStackRelatedRegister rid =
-      hdl.RegisterFactory.IsStackPointer rid
-      || hdl.RegisterFactory.IsFramePointer rid
-
-    let evalBinOp op c1 c2 =
-      match op with
-      | BinOpType.ADD -> StackPointerDomain.add c1 c2
-      | BinOpType.SUB -> StackPointerDomain.sub c1 c2
-      | BinOpType.AND -> StackPointerDomain.``and`` c1 c2
-      | _ -> StackPointerDomain.NotConstSP
-
     let getBaseCase varKind =
       match varKind with
       | Regular rid when isStackPointer rid -> initialStackPointerValue
       | _ -> StackPointerDomain.Undef
 
+    let evaluateVarPoint (state: VarBasedDataFlowState<_>) pp varKind =
+      let vp = { ProgramPoint = pp; VarKind = varKind }
+      match state.UseDefMap.TryGetValue vp with
+      | false, _ -> getBaseCase varKind (* initialize here *)
+      | true, defVp -> state.DomainSubState.GetAbsValue defVp
+
     let rec evaluateExpr (state: VarBasedDataFlowState<_>) pp e =
       match e.E with
       | Num bv -> StackPointerDomain.ConstSP bv
-      | Var _ | TempVar _ ->
-        let varKind = VarKind.ofIRExpr e
-        state.GetVarDef pp
-        |> VarDefDomain.get varKind
-        |> fun vps ->
-          if Set.isEmpty vps then getBaseCase varKind
-          else
-            vps
-            |> Seq.map (state: IDataFlowState<_, _>).GetAbsValue
-            |> Seq.reduce StackPointerDomain.join
+      | Var _ | TempVar _ -> evaluateVarPoint state pp (VarKind.ofIRExpr e)
       | Nil -> StackPointerDomain.NotConstSP
       | Load _ -> StackPointerDomain.NotConstSP
       | UnOp _ -> StackPointerDomain.NotConstSP
@@ -83,19 +77,13 @@ type StackPointerAnalysis =
       | BinOp (op, _, e1, e2) ->
         let c1 = evaluateExpr state pp e1
         let c2 = evaluateExpr state pp e2
-        evalBinOp op c1 c2
+        StackPointerPropagation.evalBinOp op c1 c2
       | RelOp _ -> StackPointerDomain.NotConstSP
       | Ite _ -> StackPointerDomain.NotConstSP
       | Cast _ -> StackPointerDomain.NotConstSP
       | Extract _ -> StackPointerDomain.NotConstSP
       | Undefined _ -> StackPointerDomain.NotConstSP
       | _ -> Utils.impossible ()
-
-    let evaluateSrcByVarKind state pp src = function
-      | Regular rid when isStackRelatedRegister rid -> evaluateExpr state pp src
-      | Regular _ -> StackPointerDomain.NotConstSP
-      | Temporary _ -> evaluateExpr state pp src
-      | _ -> StackPointerDomain.NotConstSP
 
     let analysis =
       { new IVarBasedDataFlowAnalysis<StackPointerDomain.Lattice> with
@@ -106,16 +94,6 @@ type StackPointerAnalysis =
           member __.Join a b = StackPointerDomain.join a b
 
           member __.Subsume a b = StackPointerDomain.subsume a b
-
-          member __.Transfer _g _v pp stmt state =
-            match stmt.S with
-            | Put (dst, src) ->
-              let varKind = VarKind.ofIRExpr dst
-              let varPoint = { ProgramPoint = pp; VarKind = varKind }
-              let v = evaluateSrcByVarKind state pp src varKind
-              Some (varPoint, v)
-            (* We ignore the data-flow through memory operations in SPP. *)
-            | _ -> None
 
           member __.EvalExpr state pp e = evaluateExpr state pp e }
 

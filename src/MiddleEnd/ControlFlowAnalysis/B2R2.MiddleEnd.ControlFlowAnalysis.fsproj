@@ -37,7 +37,7 @@
     <Compile Include="Strategies\ISyscallAnalyzable.fs" />
     <Compile Include="Strategies\SSALifter.fs" />
     <Compile Include="Strategies\CondAwareNoretAnalysis.fs" />
-    <Compile Include="Strategies\SSAJmpTableAnalysis.fs" />
+    <Compile Include="Strategies\JmpTableAnalysis.fs" />
     <Compile Include="Strategies\SyscallAnalysis.fs" />
     <Compile Include="Strategies\FunctionSummarizer.fs" />
     <Compile Include="Strategies\FunctionIdentification.fs" />

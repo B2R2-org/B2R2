@@ -29,6 +29,7 @@ open B2R2
 open B2R2.FrontEnd
 open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.ControlFlowGraph
+open B2R2.MiddleEnd.DataFlow
 
 /// The main builder for an internal function. This is responsible for building
 /// the function CFG while maintaining its internal state. By "internal", we
@@ -101,14 +102,16 @@ type InternalFnCFGBuilder<'FnCtx,
     let cfg = cfgConstructor.Construct Imperative
     let bblFactory = BBLFactory (hdl, instrs, cfgConstructor.AllowBBLOverlap)
     let fnCtx = new 'FnCtx ()
+    let cp = ConstantPropagation hdl :> IDataFlowAnalysis<_, _, _, _>
+    let cpState = cp.InitializeState cfg.Vertices
     let ctx =
       { FunctionAddress = entryPoint
         FunctionName = name
         FunctionMode = mode
         BinHandle = hdl
         Vertices = Dictionary ()
-        AbsVertices = Dictionary ()
         CFG = cfg
+        CPState = cpState
         BBLFactory = bblFactory
         ForceFinish = false
         NonReturningStatus = UnknownNoRet

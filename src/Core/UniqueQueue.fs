@@ -22,26 +22,39 @@
   SOFTWARE.
 *)
 
-namespace B2R2.MiddleEnd.ControlFlowGraph
+namespace B2R2
 
-open B2R2.MiddleEnd.BinGraph
+open System.Collections.Generic
+open System.Runtime.InteropServices
 
-/// CFG where each node is an IR-level basic block.
-type LowUIRCFG = IGraph<LowUIRBasicBlock, CFGEdgeKind>
+/// A queue that only stores unique elements.
+type UniqueQueue<'T> () =
+  let queue = Queue<'T> ()
+  let set = HashSet<'T> ()
 
-[<RequireQualifiedAccess>]
-module LowUIRCFG =
-  /// Constructor for LowUIRCFG.
-  type IConstructable =
-    /// Whether to allow basic block overlap.
-    abstract AllowBBLOverlap: bool
+  /// Enqueue an element only if it is not already in the queue.
+  member __.Enqueue (x: 'T) =
+    if set.Add x |> not then ()
+    else queue.Enqueue x
 
-    /// Construct a LowUIRCFG.
-    abstract Construct: ImplementationType -> LowUIRCFG
+  /// Dequeue an element. If the element is not in the queue, it raises an
+  /// exception.
+  member __.Dequeue () =
+    let x = queue.Dequeue ()
+    if set.Remove x then x
+    else Utils.impossible ()
 
-  /// Find a vertex that includes the given instruction address.
-  [<CompiledName "FindVertexByAddr">]
-  let findVertexByAddr (cfg: LowUIRCFG) addr =
-    cfg.FindVertexBy (fun v ->
-      if v.VData.Internals.IsAbstract then false
-      else v.VData.Internals.Range.IsIncluding addr)
+  /// Try to dequeue an element.
+  member __.TryDequeue ([<Out>] result: byref<'T>) =
+    if not <| queue.TryDequeue (&result) then false
+    else set.Remove result
+
+  /// Get the number of elements in the queue.
+  member __.Count = queue.Count
+
+  /// Clear the queue.
+  member __.Clear () = queue.Clear ()
+
+  /// Check if the queue is empty.
+  member __.IsEmpty with get () = queue.Count = 0
+

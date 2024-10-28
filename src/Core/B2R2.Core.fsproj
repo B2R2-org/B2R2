@@ -47,6 +47,7 @@
     <Compile Include="DoublyLinkedKeyValue.fs" />
     <Compile Include="LRUCache.fs" />
     <Compile Include="PersistentQueue.fs" />
+    <Compile Include="UniqueQueue.fs" />
     <Compile Include="BinReader.fs" />
     <Compile Include="Agent.fs" />
     <Compile Include="Logger.fs" />

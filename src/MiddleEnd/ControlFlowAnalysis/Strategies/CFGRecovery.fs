@@ -33,6 +33,18 @@ open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.MiddleEnd.ControlFlowAnalysis
 
+[<AutoOpen>]
+module private CFGRecovery =
+  let inline markVertexAsPendingForAnalysis useSSA ctx v =
+    if useSSA then ()
+    else ctx.CPState.MarkVertexAsPending v
+
+  let inline markVertexAsRemovalForAnalysis useSSA ctx v =
+    if useSSA then ()
+    else
+      ctx.CPState.MarkVertexAsRemoval v
+      ctx.CFG.GetSuccs v |> Seq.iter ctx.CPState.MarkVertexAsPending
+
 /// Base strategy for building a CFG.
 type CFGRecovery<'FnCtx,
                  'GlCtx when 'FnCtx :> IResettable
@@ -42,7 +54,8 @@ type CFGRecovery<'FnCtx,
           jmptblAnalysis: IJmpTableAnalyzable<'FnCtx, 'GlCtx>,
           syscallAnalysis: ISyscallAnalyzable,
           postAnalysis: ICFGAnalysis<_>,
-          useTailcallHeuristic) =
+          useTailcallHeuristic,
+          useSSA) =
 
   let prioritizer =
     { new IPrioritizable with
@@ -71,6 +84,7 @@ type CFGRecovery<'FnCtx,
       let v, g = ctx.CFG.AddVertex (ctx.BBLFactory.Find ppoint)
       ctx.CFG <- g
       ctx.Vertices[ppoint] <- v
+      markVertexAsPendingForAnalysis useSSA ctx v
       v
 
   let tryGetVertex ctx ppoint =
@@ -82,24 +96,26 @@ type CFGRecovery<'FnCtx,
         let v, g = ctx.CFG.AddVertex bbl
         ctx.CFG <- g
         ctx.Vertices[ppoint] <- v
+        markVertexAsPendingForAnalysis useSSA ctx v
         Ok v
       | Error _ -> Error ErrorCase.ItemNotFound
 
-  let getCalleePPoint calleeAddrOpt =
+  let getCalleePPoint callsite calleeAddrOpt =
     match calleeAddrOpt with
-    | Some addr -> ProgramPoint (addr, 0)
-    | None -> ProgramPoint.GetFake ()
+    | Some addr -> ProgramPoint (callsite, addr, 0)
+    | None -> ProgramPoint (callsite, 0UL, -1)
 
   let getAbsVertex ctx callsiteAddr calleeAddrOpt abs =
-    let key = callsiteAddr, calleeAddrOpt
-    match ctx.AbsVertices.TryGetValue key with
+    let calleePPoint = getCalleePPoint callsiteAddr calleeAddrOpt
+    match ctx.Vertices.TryGetValue calleePPoint with
     | true, v -> v
     | false, _ ->
-      let calleePPoint = getCalleePPoint calleeAddrOpt
+      let calleePPoint = getCalleePPoint callsiteAddr calleeAddrOpt
       let bbl = LowUIRBasicBlock.CreateAbstract (calleePPoint, abs)
       let v, g = ctx.CFG.AddVertex bbl
       ctx.CFG <- g
-      ctx.AbsVertices[key] <- v
+      ctx.Vertices[calleePPoint] <- v
+      markVertexAsPendingForAnalysis useSSA ctx v
       v
 
   let removeVertex ctx ppoint =
@@ -111,12 +127,14 @@ type CFGRecovery<'FnCtx,
       let succs = ctx.CFG.GetSuccEdges v
       ctx.Vertices.Remove ppoint |> ignore
       ctx.CFG <- ctx.CFG.RemoveVertex v
-      preds, succs
+      preds, succs, v
     | false, _ ->
-      [||], [||]
+      [||], [||], null
 
   let connectEdge ctx srcVertex dstVertex edgeKind =
     ctx.CFG <- ctx.CFG.AddEdge (srcVertex, dstVertex, edgeKind)
+    markVertexAsPendingForAnalysis useSSA ctx dstVertex
+
 #if CFGDEBUG
     let edgeStr = CFGEdgeKind.toString edgeKind
     let srcPPoint = (srcVertex.VData :> IAddressable).PPoint
@@ -321,7 +339,7 @@ type CFGRecovery<'FnCtx,
 
   let reconnectVertices ctx (dividedEdges: List<ProgramPoint * ProgramPoint>) =
     for (srcPPoint, dstPPoint) in dividedEdges do
-      let preds, succs = removeVertex ctx srcPPoint
+      let preds, succs, origVertex = removeVertex ctx srcPPoint
       if Array.isEmpty preds && Array.isEmpty succs then
         (* Don't reconnect previously unseen blocks, which can be introduced by
            tail-calls. N.B. BBLFactory cannot see tail-calls. *)
@@ -337,14 +355,16 @@ type CFGRecovery<'FnCtx,
         if not <| ctx.CallerVertices.ContainsKey callSiteAddr then ()
         else ctx.CallerVertices[callSiteAddr] <- dstVertex
         handleCallerSplit ctx srcPPoint.Address dstPPoint.Address lastAddr
-        ctx.CFG <- ctx.CFG.AddEdge (srcVertex, dstVertex, FallThroughEdge)
+        connectEdge ctx srcVertex dstVertex FallThroughEdge
+        markVertexAsPendingForAnalysis useSSA ctx srcVertex
+        markVertexAsRemovalForAnalysis useSSA ctx origVertex
         for e in preds do
-          ctx.CFG <- ctx.CFG.AddEdge (e.First, srcVertex, e.Label)
+          connectEdge ctx e.First srcVertex e.Label
         for e in succs do
           if e.Second.VData.Internals.PPoint = srcPPoint then
-            ctx.CFG <- ctx.CFG.AddEdge (dstVertex, srcVertex, e.Label)
+            connectEdge ctx dstVertex srcVertex e.Label
           else
-            ctx.CFG <- ctx.CFG.AddEdge (dstVertex, e.Second, e.Label)
+            connectEdge ctx dstVertex e.Second e.Label
 
   let addExpandCFGAction (queue: CFGActionQueue) addr =
     queue.Push prioritizer <| ExpandCFG ([ addr ])
@@ -408,12 +428,9 @@ type CFGRecovery<'FnCtx,
       | NoRet -> connectAbsWithoutFT ctx caller calleeAddr
       | NotNoRet -> connectAbsWithFT ctx caller calleeAddr queue
       | ConditionalNoRet nth ->
-        let hdl = ctx.BinHandle
-        let retOrPossiblyCondNoRet =
-          CondAwareNoretAnalysis.hasLocallyZeroOrTopCondition hdl caller nth
-        if retOrPossiblyCondNoRet then
-          connectAbsWithFT ctx caller calleeAddr queue
-        else connectAbsWithoutFT ctx caller calleeAddr
+        if CondAwareNoretAnalysis.hasNonZero ctx.BinHandle caller nth then
+          connectAbsWithoutFT ctx caller calleeAddr
+        else connectAbsWithFT ctx caller calleeAddr queue
       | UnknownNoRet -> Utils.futureFeature ()
 
   let connectIndirectCallEdge ctx queue callSiteAddr =
@@ -519,17 +536,23 @@ type CFGRecovery<'FnCtx,
       else v.VData.Internals.LastInstruction.IsRET ())
     |> Option.isSome
 
-  new () =
+  new (useSSA) =
     let summarizer = FunctionSummarizer ()
-    let ssaLifter = SSALifter () :> ICFGAnalysis<_>
-    let jmptblAnalysis = SSAJmpTableAnalysis ssaLifter
     let syscallAnalysis = SyscallAnalysis ()
-    let postAnalysis = ssaLifter <+> CondAwareNoretAnalysis ()
+    let jmptblAnalysis, postAnalysis =
+      if useSSA then
+        let ssaLifter = SSALifter () :> ICFGAnalysis<_>
+        JmpTableAnalysis (Some ssaLifter) :> IJmpTableAnalyzable<_, _>,
+        ssaLifter <+> CondAwareNoretAnalysis ()
+      else
+        JmpTableAnalysis None :> IJmpTableAnalyzable<_, _>,
+        CondAwareNoretAnalysis ()
     CFGRecovery (summarizer,
                  jmptblAnalysis,
                  syscallAnalysis,
                  postAnalysis,
-                 true)
+                 true,
+                 useSSA)
 
   interface ICFGBuildingStrategy<'FnCtx, 'GlCtx> with
     member __.ActionPrioritizer = prioritizer
@@ -664,7 +687,7 @@ type CFGRecovery =
   inherit CFGRecovery<DummyContext, DummyContext>
 
   new () =
-    { inherit CFGRecovery<DummyContext, DummyContext> () }
+    { inherit CFGRecovery<DummyContext, DummyContext> (false) }
 
   new (summarizer,
        jmptblAnalysis,
@@ -675,4 +698,5 @@ type CFGRecovery =
                                                        jmptblAnalysis,
                                                        syscallAnalysis,
                                                        postAnalysis,
-                                                       useTailcallHeuristic) }
+                                                       useTailcallHeuristic,
+                                                       false) }

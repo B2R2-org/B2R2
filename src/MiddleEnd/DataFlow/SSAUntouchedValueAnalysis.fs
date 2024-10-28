@@ -30,7 +30,7 @@ open B2R2.FrontEnd
 open B2R2.MiddleEnd.DataFlow
 open type UntouchedValueDomain.UntouchedTag
 
-type SSAUntouchedValuePropagation =
+type SSAUntouchedValueAnalysis =
   inherit SSAVarBasedDataFlowAnalysis<UntouchedValueDomain.Lattice>
 
   new (hdl: BinHandle) =
@@ -42,7 +42,7 @@ type SSAUntouchedValuePropagation =
         let str = hdl.RegisterFactory.RegIDToString rid
         let var = { Kind = RegVar (rt, rid, str); Identifier = 0 }
         let vkind = VarKind.ofSSAVarKind var.Kind
-        state.SetRegValueWithoutPushing var
+        state.SetRegValueWithoutAdding var
         <| UntouchedValueDomain.Untouched (RegisterTag vkind)
       )
       match hdl.RegisterFactory.StackPointer with
@@ -50,7 +50,7 @@ type SSAUntouchedValuePropagation =
         let rt = hdl.RegisterFactory.RegIDToRegType sp
         let str = hdl.RegisterFactory.RegIDToString sp
         let var = { Kind = RegVar (rt, sp, str); Identifier = 0 }
-        state.SetRegValueWithoutPushing var UntouchedValueDomain.Touched
+        state.SetRegValueWithoutAdding var UntouchedValueDomain.Touched
         state
       | None -> state
 

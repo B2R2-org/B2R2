@@ -45,6 +45,7 @@ type IDataFlowAnalysis<'AbsLoc,
 
 /// The state of the data-flow analysis, which contains a mapping from abstract
 /// locations to abstract values.
-and IDataFlowState<'AbsLoc, 'AbsVal when 'AbsLoc: equality> =
+and [<AllowNullLiteral>]
+  IDataFlowState<'AbsLoc, 'AbsVal when 'AbsLoc: equality> =
   /// Get the abstract value (AbsVal) for the given abstract location.
   abstract GetAbsValue: 'AbsLoc -> 'AbsVal

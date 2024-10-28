@@ -29,6 +29,7 @@ open B2R2
 open B2R2.FrontEnd
 open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.ControlFlowGraph
+open B2R2.MiddleEnd.DataFlow
 
 /// The context for building a control flow graph of a function. This exists per
 /// function, and it can include a user-defined, too.
@@ -46,10 +47,10 @@ type CFGBuildingContext<'FnCtx,
   BinHandle: BinHandle
   /// Mapping from a program point to a vertex in the LowUIRCFG.
   Vertices: Dictionary<ProgramPoint, IVertex<LowUIRBasicBlock>>
-  /// Mapping from a call edge to an abstracted vertex in the LowUIRCFG.
-  AbsVertices: Dictionary<AbsCallEdge, IVertex<LowUIRBasicBlock>>
   /// The control flow graph in LowUIR.
   mutable CFG: LowUIRCFG
+  /// The state of constant propagation.
+  CPState: VarBasedDataFlowState<ConstantDomain.Lattice>
   /// The basic block factory.
   BBLFactory: BBLFactory
   /// Do not wait for callee functions to be built, and finish building this
@@ -89,7 +90,6 @@ with
   /// Reset the context to its initial state.
   member __.Reset cfg =
     __.Vertices.Clear ()
-    __.AbsVertices.Clear ()
     __.CFG <- cfg
     __.NonReturningStatus <- UnknownNoRet
     __.JumpTableRecoveryStatus <- None
@@ -101,6 +101,7 @@ with
     __.PendingActions.Clear ()
     __.CallerVertices.Clear ()
     __.UserContext.Reset ()
+    if isNull __.CPState then () else __.CPState.Reset ()
 
 /// Call edge from its callsite address to the callee's address. This is to
 /// uniquely identify call edges for abstracted vertices. We create an abstract
