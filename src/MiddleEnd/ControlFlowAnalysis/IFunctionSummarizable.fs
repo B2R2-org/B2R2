@@ -24,8 +24,8 @@
 
 namespace B2R2.MiddleEnd.ControlFlowAnalysis
 
-open B2R2
 open B2R2.BinIR
+open B2R2.FrontEnd
 open B2R2.FrontEnd.BinLifter
 open B2R2.MiddleEnd.ControlFlowGraph
 
@@ -35,15 +35,23 @@ type IFunctionSummarizable<'FnCtx,
                            'GlCtx when 'FnCtx :> IResettable
                                    and 'FnCtx: (new: unit -> 'FnCtx)
                                    and 'GlCtx: (new: unit -> 'GlCtx)> =
-  /// Summarize a function based on the given context to abstract data. The
-  /// `ins` is the call instruction that calls the function.
+  /// Summarize a function based on the given context. The `ins` is the call
+  /// instruction that calls the function.
   abstract Summarize:
        ctx: CFGBuildingContext<'FnCtx, 'GlCtx>
+     * retStatus: NonReturningStatus
+     * unwindingBytes: int
      * ins: Instruction
     -> FunctionAbstraction<LowUIR.Stmt>
 
-  /// Return a default summary for a unknown function.
-  abstract SummarizeUnknown:
-       ctx: CFGBuildingContext<'FnCtx, 'GlCtx>
+  /// Make a dummy function abstraction for an unknown function.
+  abstract MakeUnknownFunctionAbstraction:
+       hdl: BinHandle
      * ins: Instruction
     -> FunctionAbstraction<LowUIR.Stmt>
+
+  /// Compute the stack unwinding amount of a function based on the given
+  /// context.
+  abstract ComputeUnwindingAmount:
+       ctx: CFGBuildingContext<'FnCtx, 'GlCtx>
+    -> int

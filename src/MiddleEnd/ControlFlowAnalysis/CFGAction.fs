@@ -25,6 +25,7 @@
 namespace B2R2.MiddleEnd.ControlFlowAnalysis
 
 open B2R2
+open B2R2.MiddleEnd.ControlFlowGraph
 
 /// Our CFG reconstruction algorithm is performed by consuming actions
 /// (CFGAction). Each action has a priority, which is used to determine the
@@ -37,10 +38,10 @@ type CFGAction =
   | ExpandCFG of addrs: seq<Addr>
   /// Create an abstract call node and connect it to the caller and fallthrough
   /// nodes when necessary.
-  | MakeCall of callSite: Addr * callee: Addr
+  | MakeCall of callSite: Addr * callee: Addr * CalleeInfo
   /// Create an abstract tail-call node and connect it to the caller and
   /// fallthrough nodes when necessary.
-  | MakeTlCall of callSite: Addr * callee: Addr
+  | MakeTlCall of callSite: Addr * callee: Addr * CalleeInfo
   /// Create an abstract call node for an indirect call and connect it to the
   /// caller and the fallthrough node.
   | MakeIndCall of callSite: Addr
@@ -60,6 +61,9 @@ type CFGAction =
 with
   /// The priority of the action. Higher values mean higher priority.
   member this.Priority (p: IPrioritizable) = p.GetPriority this
+
+/// Callee's abstract information.
+and CalleeInfo = NonReturningStatus * int
 
 /// Interface for setting the priority of an action.
 and IPrioritizable =
