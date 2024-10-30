@@ -330,8 +330,10 @@ and private TaskManager<'FnCtx,
       finalizeBuilder builder entryPoint
     | Wait ->
       if isInvalid entryPoint then
-        dependenceMap.MarkComplete entryPoint false
+        dependenceMap.MarkComplete entryPoint true |> ignore
+        dependenceMap.GetConfirmedCallers entryPoint
         |> Array.iter propagateInvalidation
+        dependenceMap.RemoveFromCallGraph entryPoint
       else
         builder.Stop ()
         consumePendingMessages builder entryPoint |> ignore

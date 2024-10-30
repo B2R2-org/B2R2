@@ -100,6 +100,11 @@ type FunctionDependenceMap () =
     if isSuccessful then addResolvedDependency callee callers else ()
     callers
 
+  member _.RemoveFromCallGraph (callee: Addr) =
+    let calleeV = getCGVertex callee
+    cgVertices.Remove callee |> ignore
+    cg.RemoveVertex calleeV |> ignore
+
   /// Get the immediate **confirmed** caller functions of the given callee from
   /// the call graph, but excluding the recursive calls.
   member _.GetConfirmedCallers (callee: Addr) =
