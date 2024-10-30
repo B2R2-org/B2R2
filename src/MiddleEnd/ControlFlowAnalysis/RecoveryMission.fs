@@ -121,7 +121,7 @@ and private TaskManager<'FnCtx,
         terminateIfAllDone ()
       | AddDependency (_, callee, _) when isFinished callee -> ()
       | AddDependency (caller, callee, mode) ->
-        dependenceMap.AddDependency (caller, callee)
+        dependenceMap.AddDependency (caller, callee, not <| isFinished callee)
         if builders.TryGetBuilder callee |> Result.isOk then ()
         else addTask callee mode
       | ReportCFGResult (entryPoint, result) ->

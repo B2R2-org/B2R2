@@ -67,15 +67,22 @@ type FunctionDependenceMap () =
       cg.AddEdge (callerV, calleeV) |> ignore)
 
   /// Add a dependency between two functions.
-  member _.AddDependency (caller: Addr, callee: Addr) =
+  member _.AddDependency (caller: Addr, callee: Addr, isTemporary) =
     if caller = callee then () (* skip recursive call *)
-    else
+    elif isTemporary then
       let callerV = getTGVertex caller
       let calleeV = getTGVertex callee
 #if CFGDEBUG
       dbglog ManagerTid (nameof AddDependency) $"{caller:x} -> {callee:x}"
 #endif
       tg.AddEdge (callerV, calleeV) |> ignore
+    else
+      let callerV = getCGVertex caller
+      let calleeV = getCGVertex callee
+#if CFGDEBUG
+      dbglog ManagerTid (nameof AddDependency) $"{caller:x} -> {callee:x}"
+#endif
+      cg.AddEdge (callerV, calleeV) |> ignore
 
   /// Mark a function as completed and returns the immediate callers of the
   /// function excluding the recursive calls. This means we remove the function
