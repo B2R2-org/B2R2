@@ -38,10 +38,10 @@ type CFGAction =
   | ExpandCFG of addrs: seq<Addr>
   /// Create an abstract call node and connect it to the caller and fallthrough
   /// nodes when necessary.
-  | MakeCall of callSite: Addr * callee: Addr * CalleeInfo
+  | MakeCall of callSite: Addr * calleeAddr: Addr * CalleeInfo
   /// Create an abstract tail-call node and connect it to the caller and
   /// fallthrough nodes when necessary.
-  | MakeTlCall of callSite: Addr * callee: Addr * CalleeInfo
+  | MakeTlCall of callSite: Addr * calleeAddr: Addr * CalleeInfo
   /// Create an abstract call node for an indirect call and connect it to the
   /// caller and the fallthrough node.
   | MakeIndCall of callSite: Addr

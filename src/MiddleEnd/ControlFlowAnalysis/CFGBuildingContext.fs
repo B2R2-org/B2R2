@@ -72,8 +72,8 @@ type CFGBuildingContext<'FnCtx,
   VisitedPPoints: HashSet<ProgramPoint>
   /// The action queue for the CFG building process.
   ActionQueue: CFGActionQueue
-  /// Pending actions for each callee address. This is to remember the actions
-  /// that are waiting for the callee to be built.
+  /// Pending call-edge connection actions for each callee address. This is to
+  /// remember the actions that are waiting for the callee to be built.
   PendingActions: Dictionary<Addr, List<CFGAction>>
   /// From a call site of a caller vertex to the caller vertex itself.
   CallerVertices: Dictionary<Addr, IVertex<LowUIRBasicBlock>>

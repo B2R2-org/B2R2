@@ -597,18 +597,18 @@ type CFGRecovery<'FnCtx,
 #endif
           let newPPs = addrs |> Seq.map (fun addr -> ProgramPoint (addr, 0))
           buildCFG ctx queue newPPs
-        | MakeCall (callSite, callee, calleeInfo) ->
+        | MakeCall (callSite, calleeAddr, calleeInfo) ->
 #if CFGDEBUG
           dbglog ctx.ThreadID (nameof MakeCall)
           <| $"{ctx.FunctionAddress:x} to {calleeAddr:x}"
 #endif
-          connectCallEdge ctx queue callSite callee calleeInfo false
-        | MakeTlCall (callSite, callee, calleeInfo) ->
+          connectCallEdge ctx queue callSite calleeAddr calleeInfo false
+        | MakeTlCall (callSite, calleeAddr, calleeInfo) ->
 #if CFGDEBUG
           dbglog ctx.ThreadID (nameof MakeTlCall)
           <| $"{ctx.FunctionAddress:x} to {calleeAddr:x}"
 #endif
-          connectCallEdge ctx queue callSite callee calleeInfo true
+          connectCallEdge ctx queue callSite calleeAddr calleeInfo true
         | MakeIndCall (callSiteAddr) ->
 #if CFGDEBUG
           dbglog ctx.ThreadID (nameof MakeIndCall)

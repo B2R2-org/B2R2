@@ -181,6 +181,9 @@ and private TaskManager<'FnCtx,
       match builders.GetTerminationStatus () with
       | AllDone ->
         terminateWorkers ()
+#if CFGDEBUG
+        dbglog ManagerTid "Termination" "All done."
+#endif
       | ForceTerminated blds ->
         blds
         |> Array.iter (fun builder ->
@@ -288,7 +291,11 @@ and private TaskManager<'FnCtx,
 #endif
           dependenceMap.MarkComplete targetBuilder.EntryPoint true
           |> Array.iter (propagateSuccess targetBuilder.EntryPoint)
-        | Error _ -> ()
+        | Error _ ->
+#if CFGDEBUG
+          dbglog ManagerTid "CyclicDependencies" "No stopped cycle found yet."
+#endif
+          ()
       )
 
   and handleResult entryPoint result =
