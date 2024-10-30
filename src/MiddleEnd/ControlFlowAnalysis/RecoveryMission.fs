@@ -88,6 +88,9 @@ and private TaskManager<'FnCtx,
       builder.Invalidate ()
 
   let resetBuilder (builder: ICFGBuildable<_, _>) =
+  #if CFGDEBUG
+    dbglog ManagerTid "ResetBuilder" $"{builder.Context.FunctionAddress:x}"
+  #endif
     let oldStatus = builder.Context.NonReturningStatus
     builder.Reset builders.CFGConstructor
     builder.Context.NonReturningStatus <- oldStatus
@@ -187,7 +190,7 @@ and private TaskManager<'FnCtx,
         blds
         |> Array.iter (fun builder ->
 #if CFGDEBUG
-          dbglog ManagerTid "ForceRestart" $"{builder.EntryPoint:x}"
+          dbglog ManagerTid "Restart" $"{builder.EntryPoint:x}"
 #endif
           builder.Context.ForceFinish <- false
           builder.ReInitialize ()
@@ -232,15 +235,19 @@ and private TaskManager<'FnCtx,
           resetBuilder builder
           pendingReset <- true
       addTask entryPoint builder.Mode
+#if CFGDEBUG
+      if pendingReset then
+        dbglog ManagerTid "HandleResult" $"{entryPoint:x}: had a pending reset"
+      else ()
+#endif
       pendingReset
 
   and propagateInvalidation entryPoint =
     if builders[entryPoint].Context.ForceFinish then ()
     else InvalidateBuilder (entryPoint, ArchOperationMode.NoMode) |> agent.Post
 
-  and propagateSuccess calleeAddr callerAddr =
-    let calleeCtx = builders[calleeAddr].Context
-    let calleeInfo = calleeCtx.NonReturningStatus, calleeCtx.UnwindingBytes
+  and propagateSuccess calleeAddr calleeInfo callerAddr =
+    assert (fst calleeInfo <> UnknownNoRet)
     let callerBuilder = builders[callerAddr]
 #if CFGDEBUG
     dbglog ManagerTid "PropagateSuccess" $"{calleeAddr:x} to {callerAddr:x}"
@@ -280,6 +287,9 @@ and private TaskManager<'FnCtx,
           let nextStatus = targetBuilder.Context.NonReturningStatus
           let nextStatus = (* preserve old status so the algo terminates. *)
             if nextStatus = UnknownNoRet then NoRet else nextStatus
+          let unwindingBytes = targetBuilder.Context.UnwindingBytes
+          let calleeInfo = nextStatus, unwindingBytes
+          let calleeAddr = targetBuilder.EntryPoint
           targetBuilder.Reset builders.CFGConstructor
           targetBuilder.Context.ForceFinish <- true
           targetBuilder.Context.NonReturningStatus <- nextStatus
@@ -288,10 +298,10 @@ and private TaskManager<'FnCtx,
           dbglog ManagerTid "CyclicDependencies"
           <| $"force finish {targetBuilder.EntryPoint:x}"
 #endif
-          dependenceMap.MarkComplete targetBuilder.EntryPoint true |> ignore
-          dependenceMap.GetConfirmedCallers targetBuilder.EntryPoint
+          dependenceMap.MarkComplete calleeAddr true |> ignore
+          dependenceMap.GetConfirmedCallers calleeAddr
           |> Array.filter (not << isFinished)
-          |> Array.iter (propagateSuccess targetBuilder.EntryPoint)
+          |> Array.iter (propagateSuccess calleeAddr calleeInfo)
         | Error _ ->
 #if CFGDEBUG
           dbglog ManagerTid "CyclicDependencies" "No stopped cycle found yet."
@@ -307,27 +317,18 @@ and private TaskManager<'FnCtx,
 #if CFGDEBUG
       dbglog ManagerTid "HandleResult" $"{entryPoint:x}: finished"
 #endif
-      finalizeBuilder builder entryPoint
+      if consumePendingMessages builder entryPoint then ()
+      else
+        finalizeBuilder builder entryPoint
     | ContinueAndReloadCallers ->
 #if CFGDEBUG
       dbglog ManagerTid "HandleResult"
       <| $"{entryPoint:x}: finished, but result changed"
 #endif
-      let callers = dependenceMap.GetConfirmedCallers entryPoint
-      callers
-      |> Array.iter (fun callerAddr ->
-#if CFGDEBUG
-        dbglog ManagerTid "HandleResult"
-        <| $"{entryPoint:x} -> reload: {callerAddr:x}"
-#endif
-        let callerBuilder = builders[callerAddr]
-        if callerBuilder.BuilderState = InProgress then
-          msgbox[callerAddr].Add BuilderReset
-        else
-          resetBuilder callerBuilder
-          addTask callerAddr callerBuilder.Context.FunctionMode
-      )
-      finalizeBuilder builder entryPoint
+      if consumePendingMessages builder entryPoint then ()
+      else
+        reloadConfirmedCallers entryPoint
+        finalizeBuilder builder entryPoint
     | Wait ->
       if isInvalid entryPoint then
         dependenceMap.MarkComplete entryPoint true |> ignore
@@ -336,10 +337,10 @@ and private TaskManager<'FnCtx,
         dependenceMap.RemoveFromCallGraph entryPoint
       else
         builder.Stop ()
-        consumePendingMessages builder entryPoint |> ignore
 #if CFGDEBUG
         dbglog ManagerTid "HandleResult" $"{entryPoint:x}: stopped"
 #endif
+        consumePendingMessages builder entryPoint |> ignore
     | StopAndReload ->
       builder.Reset builders.CFGConstructor
       addTask builder.Context.FunctionAddress builder.Mode
@@ -352,18 +353,31 @@ and private TaskManager<'FnCtx,
       dbglog ManagerTid "HandleResult" $"{entryPoint:x}: {ErrorCase.toString e}"
 #endif
 
+  /// This function is called when a callee has been successfully built.
+  /// It propagates the success to its callers who are waiting for the builder.
   and finalizeBuilder builder entryPoint =
-    if consumePendingMessages builder entryPoint then
+    builder.Finalize ()
+    msgbox.Remove entryPoint |> ignore
+    let retStatus = builder.Context.NonReturningStatus
+    let unwindingBytes = builder.Context.UnwindingBytes
+    let calleeInfo = retStatus, unwindingBytes
+    dependenceMap.MarkComplete entryPoint true
+    |> Array.iter (propagateSuccess entryPoint calleeInfo)
+
+  and reloadConfirmedCallers entryPoint =
+    dependenceMap.GetConfirmedCallers entryPoint
+    |> Array.iter (fun callerAddr ->
 #if CFGDEBUG
       dbglog ManagerTid "HandleResult"
-      <| $"{entryPoint:x}: restart due to pending messages"
+      <| $"{entryPoint:x} -> reload: {callerAddr:x}"
 #endif
-      ()
-    else
-      builder.Finalize ()
-      msgbox.Remove entryPoint |> ignore
-      dependenceMap.MarkComplete entryPoint true
-      |> Array.iter (propagateSuccess entryPoint)
+      let callerBuilder = builders[callerAddr]
+      if callerBuilder.BuilderState = InProgress then
+        msgbox[callerAddr].Add BuilderReset
+      else
+        resetBuilder callerBuilder
+        addTask callerAddr callerBuilder.Context.FunctionMode
+    )
 
   and handleJumpTableRecoveryRequest fnAddr (jmptbl: JmpTableInfo) =
     match jmptblNotes.Register fnAddr jmptbl with
