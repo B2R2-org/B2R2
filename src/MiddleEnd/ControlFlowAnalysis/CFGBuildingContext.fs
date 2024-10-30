@@ -93,7 +93,8 @@ with
   member __.Reset cfg =
     __.Vertices.Clear ()
     __.CFG <- cfg
-    __.NonReturningStatus <- UnknownNoRet
+    (* TODO: for reload propagation mechanism, we need to preserve the status *)
+    // __.NonReturningStatus <- UnknownNoRet
     __.JumpTableRecoveryStatus <- None
     __.JumpTables.Clear ()
     __.IntraCallTable.Reset ()
