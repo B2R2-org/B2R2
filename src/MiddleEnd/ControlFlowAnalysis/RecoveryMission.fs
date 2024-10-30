@@ -119,7 +119,6 @@ and private TaskManager<'FnCtx,
 #endif
         rollbackOrPropagateInvalidation entryPoint builder
         terminateIfAllDone ()
-      | AddDependency (_, callee, _) when isFinished callee -> ()
       | AddDependency (caller, callee, mode) ->
         dependenceMap.AddDependency (caller, callee, not <| isFinished callee)
         if builders.TryGetBuilder callee |> Result.isOk then ()
@@ -289,7 +288,9 @@ and private TaskManager<'FnCtx,
           dbglog ManagerTid "CyclicDependencies"
           <| $"force finish {targetBuilder.EntryPoint:x}"
 #endif
-          dependenceMap.MarkComplete targetBuilder.EntryPoint true
+          dependenceMap.MarkComplete targetBuilder.EntryPoint true |> ignore
+          dependenceMap.GetConfirmedCallers targetBuilder.EntryPoint
+          |> Array.filter (not << isFinished)
           |> Array.iter (propagateSuccess targetBuilder.EntryPoint)
         | Error _ ->
 #if CFGDEBUG
