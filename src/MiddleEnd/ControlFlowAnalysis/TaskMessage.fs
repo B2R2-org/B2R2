@@ -37,7 +37,10 @@ type TaskMessage<'FnCtx,
   /// Invalidate a builder.
   | InvalidateBuilder of Addr * ArchOperationMode
   /// Add a dependency between two functions.
-  | AddDependency of caller: Addr * callee: Addr * mode: ArchOperationMode
+  | AddDependency of caller: Addr
+                   * callee: Addr
+                   * ArchOperationMode
+                   * AgentReplyChannel<BuildingCtxMsg<'FnCtx, 'GlCtx>>
   /// Report the result of a task.
   | ReportCFGResult of Addr * CFGResult
   /// Retrieve the non-returning status of a function.

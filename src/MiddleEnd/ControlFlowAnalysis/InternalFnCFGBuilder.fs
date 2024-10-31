@@ -47,7 +47,8 @@ type InternalFnCFGBuilder<'FnCtx,
   let managerChannel =
     { new IManagerAccessible<'FnCtx, 'GlCtx> with
         member _.AddDependency (caller, callee, mode) =
-          agent.Post <| AddDependency (caller, callee, mode)
+          agent.PostAndReply (fun _ ch ->
+            AddDependency (caller, callee, mode, ch))
 
         member _.GetNonReturningStatus (addr) =
           agent.PostAndReply (fun _ ch -> GetNonReturningStatus (addr, ch))

@@ -119,9 +119,13 @@ and [<AllowNullLiteral>]
                      'GlCtx when 'FnCtx :> IResettable
                              and 'FnCtx: (new: unit -> 'FnCtx)
                              and 'GlCtx: (new: unit -> 'GlCtx)> =
-  /// Update the dependency between two functions.
+  /// Update the dependency between two functions and return the current
+  /// building context of the callee.
   abstract AddDependency:
-    caller: Addr * callee: Addr * ArchOperationMode -> unit
+       caller: Addr
+     * callee: Addr
+     * ArchOperationMode
+    -> BuildingCtxMsg<'FnCtx, 'GlCtx>
 
   /// Get the non-returning status of a function located at `addr`.
   abstract GetNonReturningStatus: addr: Addr -> NonReturningStatus

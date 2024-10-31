@@ -181,11 +181,10 @@ type CFGRecovery<'FnCtx,
       let actionQueue = ctx.ActionQueue
       addCallerVertex ctx callsiteAddr (getVertex ctx srcPp)
       ctx.IntraCallTable.AddRegularCall srcPp callsiteAddr calleeAddr
-      ctx.ManagerChannel.AddDependency (fnAddr, calleeAddr, mode)
       if fnAddr = calleeAddr then (* self-recursion *)
         actionQueue.Push prioritizer action
       else
-        match ctx.ManagerChannel.GetBuildingContext calleeAddr with
+        match ctx.ManagerChannel.AddDependency (fnAddr, calleeAddr, mode) with
         (* Wait for the callee to finish *)
         | StillBuilding _
         | FailedBuilding -> postponeActionOnCallee ctx calleeAddr action

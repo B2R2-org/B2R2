@@ -98,6 +98,14 @@ and private TaskManager<'FnCtx,
   let terminateWorkers () =
     toWorkers.Complete ()
 
+  let toBuilderMessage = function
+    | Ok (builder: ICFGBuildable<_, _>) ->
+      match builder.BuilderState with
+      | Invalid -> FailedBuilding
+      | Finished -> FinalCtx builder.Context
+      | _ -> StillBuilding builder.Context
+    | Error _ -> FailedBuilding
+
   let rec schedule (inbox: IAgentMessageReceivable<_>) =
     while not inbox.IsCancelled do
       match inbox.Receive () with
@@ -122,10 +130,11 @@ and private TaskManager<'FnCtx,
 #endif
         rollbackOrPropagateInvalidation entryPoint builder
         terminateIfAllDone ()
-      | AddDependency (caller, callee, mode) ->
+      | AddDependency (caller, callee, mode, ch) ->
         dependenceMap.AddDependency (caller, callee, not <| isFinished callee)
-        if builders.TryGetBuilder callee |> Result.isOk then ()
-        else addTask callee mode
+        let builder = builders.TryGetBuilder callee
+        if Result.isOk builder then () else addTask callee mode
+        toBuilderMessage builder |> ch.Reply
       | ReportCFGResult (entryPoint, result) ->
         try handleResult entryPoint result
         with e -> Console.Error.WriteLine $"Failed to handle result:\n{e}"
@@ -135,13 +144,9 @@ and private TaskManager<'FnCtx,
         | Ok builder -> ch.Reply builder.Context.NonReturningStatus
         | Error _ -> ch.Reply UnknownNoRet
       | GetBuildingContext (addr, ch) ->
-        match builders.TryGetBuilder addr with
-        | Ok builder ->
-          match builder.BuilderState with
-          | Invalid -> ch.Reply FailedBuilding
-          | Finished -> ch.Reply <| FinalCtx builder.Context
-          | _ -> ch.Reply <| StillBuilding builder.Context
-        | Error _ -> ch.Reply <| FailedBuilding
+        builders.TryGetBuilder addr
+        |> toBuilderMessage
+        |> ch.Reply
       | NotifyJumpTableRecovery (fnAddr, jmptbl, ch) ->
         ch.Reply <| handleJumpTableRecoveryRequest fnAddr jmptbl
       | CancelJumpTableRecovery (fnAddr, tblAddr) ->
@@ -275,7 +280,16 @@ and private TaskManager<'FnCtx,
 
   and checkAndResolveCyclicDependencies () =
     let deps = dependenceMap.GetCyclicDependencies ()
-    if Array.isEmpty deps then ()
+    if Array.isEmpty deps then
+#if CFGDEBUG
+      dbglog ManagerTid "CyclicDependencies" $"No cycle"
+      builders.Values
+      |> Array.iter (fun bld ->
+        if bld.BuilderState <> Finished && bld.BuilderState <> Invalid then
+          dbglog ManagerTid "Terminate" $"? {bld.Context.FunctionAddress:x}"
+      )
+#endif
+      ()
     else
       deps
       |> Array.iter (fun cycleAddrs ->
