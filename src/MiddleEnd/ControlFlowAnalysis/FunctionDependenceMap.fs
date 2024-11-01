@@ -59,60 +59,83 @@ type FunctionDependenceMap () =
       cgVertices[addr] <- v
       v
 
-  let addResolvedDependency callee callers =
+  let addTGDependency (caller: IVertex<Addr>) (callee: IVertex<Addr>) =
+    if caller = callee then () (* skip recursive call *)
+    else
+#if CFGDEBUG
+      dbglog ManagerTid "AddTGDependency"
+      <| $"{caller.VData:x} -> {callee.VData:x}"
+#endif
+      tg.AddEdge (caller, callee) |> ignore
+
+  let addCGDependency (caller: IVertex<Addr>) (callee: IVertex<Addr>) =
+    if caller = callee then () (* skip recursive call *)
+    else
+#if CFGDEBUG
+      dbglog ManagerTid "AddCGDependency"
+      <| $"{caller.VData:x} -> {callee.VData:x}"
+#endif
+      cg.AddEdge (caller, callee) |> ignore
+
+  let removeTGVertex (v: IVertex<Addr>) =
+#if CFGDEBUG
+    dbglog ManagerTid "RemoveTGVertex" $"{v.VData:x}"
+#endif
+    tgVertices.Remove v.VData |> ignore
+    tg.RemoveVertex v |> ignore
+
+  let removeCGVertex (v: IVertex<Addr>) =
+#if CFGDEBUG
+    dbglog ManagerTid "RemoveCGVertex" $"{v.VData:x}"
+#endif
+    cgVertices.Remove v.VData |> ignore
+    cg.RemoveVertex v |> ignore
+
+  let filterOutNonRecursiveCallers calleeAddr callers =
+    callers
+    |> Array.choose (fun (v: IVertex<Addr>) ->
+      if v.VData <> calleeAddr then Some v.VData else None)
+
+  /// Add a dependency between two functions. When the third parameter is true,
+  /// we only update the temporary graph, and when it is false, we update the
+  /// call graph.
+  member _.AddDependency (caller, callee, isTemp) =
+    if isTemp then addTGDependency (getTGVertex caller) (getTGVertex callee)
+    else addCGDependency (getCGVertex caller) (getCGVertex callee)
+
+  /// Update the call graph by adding the dependencies between the callee and
+  /// the callers, and return the given callers as is. This will only update the
+  /// call graph.
+  member _.AddResolvedDependencies callee callers =
     let calleeV = getCGVertex callee
     callers
     |> Array.iter (fun caller ->
       let callerV = getCGVertex caller
-      cg.AddEdge (callerV, calleeV) |> ignore)
-
-  /// Add a dependency between two functions.
-  member _.AddDependency (caller: Addr, callee: Addr, isTemporary) =
-    if caller = callee then () (* skip recursive call *)
-    elif isTemporary then
-      let callerV = getTGVertex caller
-      let calleeV = getTGVertex callee
-#if CFGDEBUG
-      dbglog ManagerTid (nameof AddDependency) $"{caller:x} -> {callee:x}"
-#endif
-      tg.AddEdge (callerV, calleeV) |> ignore
-    else
-      let callerV = getCGVertex caller
-      let calleeV = getCGVertex callee
-#if CFGDEBUG
-      dbglog ManagerTid (nameof AddDependency) $"{caller:x} -> {callee:x}"
-#endif
-      cg.AddEdge (callerV, calleeV) |> ignore
-
-  /// Mark a function as completed and returns the immediate callers of the
-  /// function excluding the recursive calls. This means we remove the function
-  /// from the temporary dependence graph. We also update the call graph only if
-  /// `isSuccessful` is true.
-  member _.MarkComplete (callee: Addr) isSuccessful =
-    let calleeV = getTGVertex callee
-    let preds = tg.GetPreds calleeV
-    tgVertices.Remove callee |> ignore
-    tg.RemoveVertex calleeV |> ignore
-    let callers =
-      preds
-      |> Array.choose (fun v ->
-        if v.VData <> callee then Some v.VData else None)
-    if isSuccessful then addResolvedDependency callee callers else ()
+      addCGDependency callerV calleeV)
     callers
 
-  member _.RemoveFromCallGraph (callee: Addr) =
-    let calleeV = getCGVertex callee
-    cgVertices.Remove callee |> ignore
-    cg.RemoveVertex calleeV |> ignore
+  /// Remove a function from the dependence map and return the immediate
+  /// callers' addresses of the function excluding the recursive calls. When the
+  /// second parameter is true, we remove the function from the temporary graph,
+  /// and when it is false, we remove the function from the call graph.
+  member _.RemoveFunctionAndGetDependentAddrs callee isTemp =
+    if isTemp then
+      let calleeV = getTGVertex callee
+      let preds = tg.GetPreds calleeV
+      removeTGVertex calleeV
+      preds |> filterOutNonRecursiveCallers callee
+    else
+      let calleeV = getCGVertex callee
+      let preds = cg.GetPreds calleeV
+      removeCGVertex calleeV
+      preds |> filterOutNonRecursiveCallers callee
 
   /// Get the immediate **confirmed** caller functions of the given callee from
   /// the call graph, but excluding the recursive calls.
   member _.GetConfirmedCallers (callee: Addr) =
     let calleeV = getCGVertex callee
     let preds = cg.GetPreds calleeV
-    preds
-    |> Array.choose (fun v ->
-      if v.VData <> callee then Some v.VData else None)
+    preds |> filterOutNonRecursiveCallers callee
 
   /// Return an array of sets of mutually recurive nodes in the temporary
   /// dependence graph.

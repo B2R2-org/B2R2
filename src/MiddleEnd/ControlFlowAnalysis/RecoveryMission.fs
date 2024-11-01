@@ -180,7 +180,7 @@ and private TaskManager<'FnCtx,
       addTask builder.Context.FunctionAddress builder.Mode
     | None ->
       makeInvalid builder
-      dependenceMap.MarkComplete entryPoint false
+      dependenceMap.RemoveFunctionAndGetDependentAddrs entryPoint false
       |> Array.iter propagateInvalidation
 
   and terminateIfAllDone () =
@@ -278,6 +278,28 @@ and private TaskManager<'FnCtx,
     if isAllStopped then Ok tuples
     else Error ErrorCase.ItemNotFound
 
+  /// Forcefully complete the target builder by under-approximating it as a
+  /// "non-returning" function.
+  and forceFinish (targetBuilder: ICFGBuildable<_, _>) =
+    let nextStatus = targetBuilder.Context.NonReturningStatus
+    let nextStatus = (* preserve old status so the algo terminates. *)
+      if nextStatus = UnknownNoRet then NoRet else nextStatus
+    let unwindingBytes = targetBuilder.Context.UnwindingBytes
+    let calleeInfo = nextStatus, unwindingBytes
+    let calleeAddr = targetBuilder.EntryPoint
+    targetBuilder.Reset builders.CFGConstructor
+    targetBuilder.Context.ForceFinish <- true
+    targetBuilder.Context.NonReturningStatus <- nextStatus
+    targetBuilder.Finalize true (* mark as Finished *)
+#if CFGDEBUG
+    dbglog ManagerTid "CyclicDependencies"
+    <| $"force finish {targetBuilder.EntryPoint:x}"
+#endif
+    dependenceMap.RemoveFunctionAndGetDependentAddrs calleeAddr true
+    |> dependenceMap.AddResolvedDependencies calleeAddr
+    |> Array.filter (not << isFinished)
+    |> Array.iter (propagateSuccess calleeAddr calleeInfo)
+
   and checkAndResolveCyclicDependencies () =
     let deps = dependenceMap.GetCyclicDependencies ()
     if Array.isEmpty deps then
@@ -294,28 +316,7 @@ and private TaskManager<'FnCtx,
       deps
       |> Array.iter (fun cycleAddrs ->
         match getAllStoppedCycle cycleAddrs with
-        | Ok deps ->
-          (* Forcefully complete the target builder by under-approximating it as
-             a "non-returning" function. *)
-          let targetBuilder = strategy.OnCyclicDependency deps
-          let nextStatus = targetBuilder.Context.NonReturningStatus
-          let nextStatus = (* preserve old status so the algo terminates. *)
-            if nextStatus = UnknownNoRet then NoRet else nextStatus
-          let unwindingBytes = targetBuilder.Context.UnwindingBytes
-          let calleeInfo = nextStatus, unwindingBytes
-          let calleeAddr = targetBuilder.EntryPoint
-          targetBuilder.Reset builders.CFGConstructor
-          targetBuilder.Context.ForceFinish <- true
-          targetBuilder.Context.NonReturningStatus <- nextStatus
-          targetBuilder.Finalize true (* mark as Finished *)
-#if CFGDEBUG
-          dbglog ManagerTid "CyclicDependencies"
-          <| $"force finish {targetBuilder.EntryPoint:x}"
-#endif
-          dependenceMap.MarkComplete calleeAddr true |> ignore
-          dependenceMap.GetConfirmedCallers calleeAddr
-          |> Array.filter (not << isFinished)
-          |> Array.iter (propagateSuccess calleeAddr calleeInfo)
+        | Ok deps -> strategy.OnCyclicDependency deps |> forceFinish
         | Error _ ->
 #if CFGDEBUG
           dbglog ManagerTid "CyclicDependencies" "No stopped cycle found yet."
@@ -345,10 +346,9 @@ and private TaskManager<'FnCtx,
         finalizeBuilder builder entryPoint
     | Wait ->
       if isInvalid entryPoint then
-        dependenceMap.MarkComplete entryPoint true |> ignore
-        dependenceMap.GetConfirmedCallers entryPoint
+        dependenceMap.RemoveFunctionAndGetDependentAddrs entryPoint true
+        |> Array.append (dependenceMap.GetConfirmedCallers entryPoint)
         |> Array.iter propagateInvalidation
-        dependenceMap.RemoveFromCallGraph entryPoint
       else
         builder.Stop ()
 #if CFGDEBUG
@@ -367,15 +367,16 @@ and private TaskManager<'FnCtx,
       dbglog ManagerTid "HandleResult" $"{entryPoint:x}: {ErrorCase.toString e}"
 #endif
 
-  /// This function is called when a callee has been successfully built.
-  /// It propagates the success to its callers who are waiting for the builder.
+  /// This function is called when a callee has been successfully built. It
+  /// propagates the success to its callers who are waiting for the builder.
   and finalizeBuilder builder entryPoint =
     builder.Finalize ()
     msgbox.Remove entryPoint |> ignore
     let retStatus = builder.Context.NonReturningStatus
     let unwindingBytes = builder.Context.UnwindingBytes
     let calleeInfo = retStatus, unwindingBytes
-    dependenceMap.MarkComplete entryPoint true
+    dependenceMap.RemoveFunctionAndGetDependentAddrs entryPoint true
+    |> dependenceMap.AddResolvedDependencies entryPoint
     |> Array.iter (propagateSuccess entryPoint calleeInfo)
 
   and reloadConfirmedCallers entryPoint =

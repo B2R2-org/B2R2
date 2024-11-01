@@ -93,8 +93,10 @@ with
   member __.Reset cfg =
     __.Vertices.Clear ()
     __.CFG <- cfg
-    (* N.B. for reload propagation mechanism, we need to preserve the status *)
-    // __.NonReturningStatus <- UnknownNoRet
+    (* N.B. We should keep the value of `NonReturningStatus` (i.e., leave the
+       below line commented out) because we should be able to compare the
+       difference before/after rebuilding the CFG. *)
+    (* __.NonReturningStatus <- UnknownNoRet *)
     __.JumpTableRecoveryStatus <- None
     __.JumpTables.Clear ()
     __.IntraCallTable.Reset ()
