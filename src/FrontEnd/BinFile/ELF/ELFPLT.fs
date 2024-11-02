@@ -27,7 +27,6 @@ module internal B2R2.FrontEnd.BinFile.ELF.PLT
 open System
 open B2R2
 open B2R2.FrontEnd.BinFile
-open B2R2.FrontEnd.BinFile.FileHelper
 
 type CodeKind =
   | PIC
@@ -355,6 +354,12 @@ type X64PLTParser (shdrs, relocInfo, symbInfo) =
     [| OneByte 0xffuy; OneByte 0x25uy; AnyByte; AnyByte; AnyByte; AnyByte
        AnyByte; AnyByte |]
 
+  let nonLazyX32IbtEntry = (* endbr64; jmp [got+x]; nop [rax+rax*1+0] *)
+    [| OneByte 0xf3uy; OneByte 0x0fuy; OneByte 0x1euy; OneByte 0xfauy
+       OneByte 0xffuy; OneByte 0x25uy; AnyByte; AnyByte; AnyByte; AnyByte
+       OneByte 0x66uy; OneByte 0x0fuy; OneByte 0x1fuy; OneByte 0x44uy
+       OneByte 0x00uy; OneByte 0x00uy |]
+
   let eagerBndEntry = (* bnd jmp [got+n]] *)
     [| OneByte 0xf2uy; OneByte 0xffuy; OneByte 0x25uy; AnyByte; AnyByte; AnyByte
        AnyByte; AnyByte |]
@@ -379,6 +384,8 @@ type X64PLTParser (shdrs, relocInfo, symbInfo) =
       newPLT DontCare EagerBinding true 16UL 3UL 7UL
     elif BytePattern.matchSpan eagerIbtEntry plt then
       newPLT DontCare EagerBinding true 16UL 7UL 11UL
+    elif BytePattern.matchSpan nonLazyX32IbtEntry plt then
+      newPLT DontCare EagerBinding false 16UL 6UL 10UL
     else UnknownPLT
 
   override __.ParseEntry (addr, _, sec, desc, reader, span) =
