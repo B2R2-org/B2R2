@@ -35,6 +35,7 @@ type ExternalFnCFGBuilder<'FnCtx,
                                   and 'FnCtx: (new: unit -> 'FnCtx)
                                   and 'GlCtx: (new: unit -> 'GlCtx)>
   public (hdl: BinHandle,
+          exnInfo,
           entryPoint,
           name,
           noretStatus) =
@@ -44,6 +45,7 @@ type ExternalFnCFGBuilder<'FnCtx,
       FunctionName = name
       FunctionMode = ArchOperationMode.NoMode
       BinHandle = hdl
+      ExnInfo = exnInfo
       Vertices = Dictionary ()
       CFG = null
       CPState = null

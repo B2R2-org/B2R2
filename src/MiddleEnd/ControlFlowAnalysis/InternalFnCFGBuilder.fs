@@ -91,6 +91,7 @@ type InternalFnCFGBuilder<'FnCtx,
   do ctx.ManagerChannel <- managerChannel
 
   new (hdl: BinHandle,
+       exnInfo,
        instrs,
        entryPoint,
        mode,
@@ -110,6 +111,7 @@ type InternalFnCFGBuilder<'FnCtx,
         FunctionName = name
         FunctionMode = mode
         BinHandle = hdl
+        ExnInfo = exnInfo
         Vertices = Dictionary ()
         CFG = cfg
         CPState = cpState
