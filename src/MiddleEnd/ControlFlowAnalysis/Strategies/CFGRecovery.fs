@@ -309,13 +309,11 @@ type CFGRecovery<'FnCtx,
         | InterJmp (_, InterJmpKind.Base) -> (* Indirect jumps *)
           let insAddr = srcVertex.VData.Internals.LastInstruction.Address
           addCallerVertex ctx insAddr srcVertex
-          actionQueue.Push prioritizer
-          <| MakeIndEdges (ppoint.Address, insAddr)
+          actionQueue.Push prioritizer <| MakeIndEdges (ppoint.Address, insAddr)
         | InterJmp (_, InterJmpKind.IsCall) -> (* Indirect calls *)
-          let callSiteAddr = srcData.LastInstruction.Address
-          addCallerVertex ctx callSiteAddr srcVertex
-          actionQueue.Push prioritizer
-          <| MakeIndCall (callSiteAddr)
+          let callsiteAddr = srcData.LastInstruction.Address
+          addCallerVertex ctx callsiteAddr srcVertex
+          actionQueue.Push prioritizer <| MakeIndCall (callsiteAddr)
         | Jmp _ | CJmp _ | InterCJmp _ ->
           ()
         | SideEffect (Interrupt 0x80) | SideEffect SysCall ->
@@ -323,8 +321,7 @@ type CFGRecovery<'FnCtx,
           let isExit = syscallAnalysis.IsExit (ctx, srcVertex)
           ctx.IntraCallTable.AddSystemCall callsiteAddr isExit
           addCallerVertex ctx callsiteAddr srcVertex
-          actionQueue.Push prioritizer
-          <| MakeSyscall (callsiteAddr, isExit)
+          actionQueue.Push prioritizer <| MakeSyscall (callsiteAddr, isExit)
         | _ ->
           ()
     done
@@ -356,9 +353,9 @@ type CFGRecovery<'FnCtx,
         dbglog ctx.ThreadID "Reconnect" $"{srcPPoint} -> {dstPPoint}"
 #endif
         let lastAddr = dstVertex.VData.Internals.LastInstruction.Address
-        let callSiteAddr = lastAddr
-        if not <| ctx.CallerVertices.ContainsKey callSiteAddr then ()
-        else ctx.CallerVertices[callSiteAddr] <- dstVertex
+        let callsiteAddr = lastAddr
+        if not <| ctx.CallerVertices.ContainsKey callsiteAddr then ()
+        else ctx.CallerVertices[callsiteAddr] <- dstVertex
         handleCallerSplit ctx srcPPoint.Address dstPPoint.Address lastAddr
         connectEdge ctx srcVertex dstVertex FallThroughEdge
         markVertexAsPendingForAnalysis useSSA ctx srcVertex
@@ -389,38 +386,51 @@ type CFGRecovery<'FnCtx,
     connectEdge ctx caller callee CallEdge
     callee, callsiteAddr + uint64 callIns.Length
 
-  let connectRet ctx (callee, fallthroughAddr) =
-    match scanBBLs ctx ctx.FunctionMode [ fallthroughAddr ] with
+  let scanTargetAndConnect ctx queue src dstAddr edgeKind =
+    match scanBBLs ctx ctx.FunctionMode [ dstAddr ] with
     | Ok dividedEdges ->
-      let fallthroughPPoint = ProgramPoint (fallthroughAddr, 0)
-      let fallthroughVertex = getVertex ctx fallthroughPPoint
-      connectEdge ctx callee fallthroughVertex RetEdge
+      let dstPPoint = ProgramPoint (dstAddr, 0)
+      let dstVertex = getVertex ctx dstPPoint
+      connectEdge ctx src dstVertex edgeKind
       reconnectVertices ctx dividedEdges
-      Ok fallthroughAddr
+      addExpandCFGAction queue dstAddr
+      Ok ()
     | Error e -> Error e
+
+  let connectRet ctx queue (callee, fallthroughAddr) =
+    scanTargetAndConnect ctx queue callee fallthroughAddr RetEdge
+
+  let connectExnEdge ctx queue (callsiteAddr: Addr) =
+    match ctx.ExnInfo.TryFindExceptionTarget callsiteAddr with
+    | Some target ->
+      (* necessary to lookup the caller again as bbls could be divided *)
+      let caller = ctx.CallerVertices[callsiteAddr]
+      scanTargetAndConnect ctx queue caller target ExceptionFallThroughEdge
+    | None -> Ok ()
 
   let toCFGResult = function
     | Ok _ -> Continue
     | Error e -> FailStop e
 
-  let connectAbsWithFT ctx caller calleeAddr calleeInfo queue =
+  let connectCallWithFT ctx caller calleeAddr calleeInfo queue =
     let lastIns =
       (caller: IVertex<LowUIRBasicBlock>).VData.Internals.LastInstruction
     getFunctionAbstraction ctx lastIns calleeAddr calleeInfo
     |> Result.map (connectAbsVertex ctx caller calleeAddr)
-    |> Result.bind (connectRet ctx)
-    |> Result.map (addExpandCFGAction queue)
+    |> Result.bind (connectRet ctx queue)
+    |> Result.bind (fun _ -> connectExnEdge ctx queue lastIns.Address)
     |> toCFGResult
 
-  let connectAbsWithoutFT ctx caller calleeAddr calleeInfo =
+  let connectCallWithoutFT ctx caller calleeAddr calleeInfo queue =
     let lastIns =
       (caller: IVertex<LowUIRBasicBlock>).VData.Internals.LastInstruction
     getFunctionAbstraction ctx lastIns calleeAddr calleeInfo
     |> Result.map (connectAbsVertex ctx caller calleeAddr)
+    |> Result.bind (fun _ -> connectExnEdge ctx queue lastIns.Address)
     |> toCFGResult
 
-  let connectCallEdge ctx queue callSiteAddr callee calleeInfo isTailCall =
-    let caller = ctx.CallerVertices[callSiteAddr]
+  let connectCallEdge ctx queue callsiteAddr callee calleeInfo isTailCall =
+    let caller = ctx.CallerVertices[callsiteAddr]
     if isTailCall then
       let lastIns = caller.VData.Internals.LastInstruction
       summarizer.MakeUnknownFunctionAbstraction (ctx.BinHandle, lastIns)
@@ -433,35 +443,35 @@ type CFGRecovery<'FnCtx,
       (* TODO: its unwinding bytes cannot be decided at this moment. *)
       summarizer.Summarize (ctx, NotNoRet, 0, lastIns)
       |> connectAbsVertex ctx caller callee
-      |> connectRet ctx
-      |> Result.map (addExpandCFGAction queue)
+      |> connectRet ctx queue
       |> toCFGResult
     else
       match calleeInfo with
-      | NoRet, _ -> connectAbsWithoutFT ctx caller callee calleeInfo
-      | NotNoRet, _ -> connectAbsWithFT ctx caller callee calleeInfo queue
+      | NoRet, _ -> connectCallWithoutFT ctx caller callee calleeInfo queue
+      | NotNoRet, _ -> connectCallWithFT ctx caller callee calleeInfo queue
       | ConditionalNoRet nth, _ ->
         if CondAwareNoretAnalysis.hasNonZero ctx.BinHandle caller nth then
-          connectAbsWithoutFT ctx caller callee calleeInfo
-        else connectAbsWithFT ctx caller callee calleeInfo queue
+          connectCallWithoutFT ctx caller callee calleeInfo queue
+        else connectCallWithFT ctx caller callee calleeInfo queue
       | UnknownNoRet, _ -> Utils.impossible ()
 
-  let connectIndirectCallEdge ctx queue callSiteAddr =
-    let caller = ctx.CallerVertices[callSiteAddr]
+  let connectIndirectCallEdge ctx queue callsiteAddr =
+    let caller = ctx.CallerVertices[callsiteAddr]
     let callIns = caller.VData.Internals.LastInstruction
     let callSite = callIns.Address
     let abs = summarizer.MakeUnknownFunctionAbstraction (ctx.BinHandle, callIns)
     let absV = getAbsVertex ctx callSite None abs
     connectEdge ctx caller absV CallEdge
-    connectRet ctx (absV, callSite + uint64 callIns.Length)
-    |> Result.map (addExpandCFGAction queue)
+    connectRet ctx queue (absV, callSite + uint64 callIns.Length)
     |> toCFGResult
 
-  let connectSyscallEdge ctx callSiteAddr isExit =
-    let caller = ctx.CallerVertices[callSiteAddr]
+  let connectSyscallEdge ctx queue callsiteAddr isExit =
+    let caller = ctx.CallerVertices[callsiteAddr]
     syscallAnalysis.MakeAbstract (ctx, caller, isExit)
     |> connectAbsVertex ctx caller 0UL
-    |> fun callee -> if not isExit then connectRet ctx callee |> ignore
+    |> fun callee ->
+      if not isExit then connectRet ctx queue callee |> ignore
+      else ()
     Continue
 
   let readJumpTable ctx (jmptbl: JmpTableInfo) idx =
@@ -608,17 +618,17 @@ type CFGRecovery<'FnCtx,
           <| $"{ctx.FunctionAddress:x} to {calleeAddr:x}"
 #endif
           connectCallEdge ctx queue callSite calleeAddr calleeInfo true
-        | MakeIndCall (callSiteAddr) ->
+        | MakeIndCall (callsiteAddr) ->
 #if CFGDEBUG
           dbglog ctx.ThreadID (nameof MakeIndCall)
-          <| $"{callSiteAddr:x} @ {ctx.FunctionAddress:x}"
+          <| $"{callsiteAddr:x} @ {ctx.FunctionAddress:x}"
 #endif
-          connectIndirectCallEdge ctx queue callSiteAddr
-        | MakeSyscall (callSiteAddr, isExit) ->
+          connectIndirectCallEdge ctx queue callsiteAddr
+        | MakeSyscall (callsiteAddr, isExit) ->
 #if CFGDEBUG
           dbglog ctx.ThreadID (nameof MakeSyscall) $"{ctx.FunctionAddress:x}"
 #endif
-          connectSyscallEdge ctx callSiteAddr isExit
+          connectSyscallEdge ctx queue callsiteAddr isExit
         | MakeIndEdges (bblAddr, insAddr) ->
 #if CFGDEBUG
           dbglog ctx.ThreadID (nameof MakeIndEdges)

@@ -55,7 +55,7 @@ type BinaryBrew<'FnCtx,
         member _.Construct _ =
           ImperativeDiGraph<LowUIRBasicBlock, CFGEdgeKind> () :> LowUIRCFG }
 
-  let builders = CFGBuilderTable (hdl, instrs, cfgConstructor)
+  let builders = CFGBuilderTable (hdl, exnInfo, instrs, cfgConstructor)
 
   let missions = strategies |> Array.map RecoveryMission<'FnCtx, 'GlCtx>
 

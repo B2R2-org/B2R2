@@ -45,6 +45,8 @@ type CFGBuildingContext<'FnCtx,
   FunctionMode: ArchOperationMode
   /// The binary handle.
   BinHandle: BinHandle
+  /// The exception information of the binary.
+  ExnInfo: ExceptionInfo
   /// Mapping from a program point to a vertex in the LowUIRCFG.
   Vertices: Dictionary<ProgramPoint, IVertex<LowUIRBasicBlock>>
   /// The control flow graph in LowUIR.

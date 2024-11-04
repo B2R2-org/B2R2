@@ -44,73 +44,27 @@ type private DisasmVMap = Dictionary<Addr, TemporaryDisasmVertex>
 
 [<AutoOpen>]
 module private DisasmCFGHelper =
-  let getTempVertex (vMap: DisasmVMap) addr =
-    match vMap.TryGetValue addr with
-    | true, tmpV -> tmpV
-    | false, _ ->
-      let tmpV =
-        { Instructions = SortedList ()
-          Successors = List ()
-          Vertex = null }
-      vMap[addr] <- tmpV
-      tmpV
-
-  let initTempDisasmVertex vMap (bbl: ILowUIRBasicBlock) =
-    let tmpV = getTempVertex vMap bbl.PPoint.Address
-    let insList = tmpV.Instructions
-    bbl.LiftedInstructions
-    |> Array.iter (fun lifted ->
-      let ins = lifted.Original
-      if insList.ContainsKey ins.Address then ()
-      else insList.Add (ins.Address, ins))
-
-  let addEdgeToTempDisasmVertex (vMap: DisasmVMap) addr succ =
+  let addEdgeToDisasmVertex (vMap: DisasmVMap) addr succ =
     match succ with
     | Some (succAddr, edge) ->
       let tmpV = vMap[addr]
       tmpV.Successors.Add (succAddr, edge)
     | None -> ()
 
-  let mergeDisasmVertexInfos (vMap: DisasmVMap) srcAddr ftAddr =
-    let inss1 = vMap[srcAddr].Instructions
-    let inss2 = vMap[ftAddr].Instructions
-    let ftSuccs = vMap[ftAddr].Successors
-    for KeyValue (addr, ins) in inss2 do inss1.Add (addr, ins)
-    vMap.Remove ftAddr |> ignore
-    for succ in ftSuccs do addEdgeToTempDisasmVertex vMap srcAddr <| Some succ
-
-  let isNonReturningAbsVertex (g: LowUIRCFG) v =
-    g.GetSuccs v |> Array.isEmpty
-
-  let addEdgesToTempDisasmVertex (g: LowUIRCFG) verticesToMerge vMap v =
-    let edges = g.GetSuccEdges v
-    let srcAddr = (v: IVertex<LowUIRBasicBlock>).VData.Internals.PPoint.Address
-    edges |> Seq.iter (fun (e: Edge<LowUIRBasicBlock, _>) ->
-      if e.Second.VData.Internals.IsAbstract then
-        if (verticesToMerge: Dictionary<_, _>).ContainsKey e.First
-          || isNonReturningAbsVertex g e.Second then ()
-        else
-          (* When we reach here, we have a call fallthrough edge that meets an
-             existing vertex. So we should connect an edge to it. *)
-          let last = v.VData.Internals.LastInstruction
-          let fallthroughAddr = last.Address + uint64 last.Length
-          let succ = Some (fallthroughAddr, e.Label)
-          addEdgeToTempDisasmVertex vMap srcAddr succ
-      else
-        let dstAddr = e.Second.VData.Internals.PPoint.Address
-        let succ = if srcAddr = dstAddr then None else Some (dstAddr, e.Label)
-        addEdgeToTempDisasmVertex vMap srcAddr succ)
-
   let hasSameAddress (v1: IVertex<_>) (v2: IVertex<_>) =
     let v1Addr = (v1.VData :> IAddressable).PPoint.Address
     let v2Addr = (v2.VData :> IAddressable).PPoint.Address
     v1Addr = v2Addr
 
-  let hasSingleIncomingEdge g v =
-    (g: LowUIRCFG).GetPreds v
+  let hasSingleIncomingEdge (g: LowUIRCFG) v =
+    g.GetPreds v
     |> Seq.filter (not << hasSameAddress v)
     |> Seq.tryExactlyOne
     |> Option.isSome
+
+  let hasManyOutgoingEdges (g: LowUIRCFG) v =
+    let cnt = g.GetSuccs v |> Array.length
+    cnt > 1
 
   let getNeighbors (g: LowUIRCFG) v =
     let preds = g.GetPreds v
@@ -132,22 +86,77 @@ module private DisasmCFGHelper =
         if (v.VData :> IAbstractable<_>).IsAbstract then
           let pred = g.GetPreds v |> Seq.exactlyOne
           verticesToMerge[pred] <- succ
+          assert (pred.VData.Internals.PPoint < succ.VData.Internals.PPoint)
         (* Going in to an intra node *)
         elif not <| isIntraNode g v && isIntraNode g succ then
           verticesToMerge[v] <- succ
+          assert (v.VData.Internals.PPoint < succ.VData.Internals.PPoint)
         (* Going out from an intra node *)
         elif isIntraNode g v && not <| isIntraNode g succ then
           verticesToMerge[v] <- succ
+          assert (v.VData.Internals.PPoint < succ.VData.Internals.PPoint)
         else ()
       | _ -> ()
     verticesToMerge
 
-  let rec prepareDisasmCFGInfo (g: LowUIRCFG) =
+  let sortVertices (g: LowUIRCFG) =
+    g.Vertices |> Array.sortByDescending (fun v -> v.VData.Internals.PPoint)
+
+  let getTempVertex (vMap: DisasmVMap) addr =
+    match vMap.TryGetValue addr with
+    | true, tmpV -> tmpV
+    | false, _ ->
+      let tmpV =
+        { Instructions = SortedList ()
+          Successors = List ()
+          Vertex = null }
+      vMap[addr] <- tmpV
+      tmpV
+
+  let initTempDisasmVertex vMap (bbl: ILowUIRBasicBlock) =
+    let tmpV = getTempVertex vMap bbl.PPoint.Address
+    let insList = tmpV.Instructions
+    bbl.LiftedInstructions
+    |> Array.iter (fun lifted ->
+      let ins = lifted.Original
+      if insList.ContainsKey ins.Address then ()
+      else insList.Add (ins.Address, ins))
+
+  let mergeDisasmVertexInfos (vMap: DisasmVMap) srcAddr ftAddr =
+    let src = vMap[srcAddr]
+    let dst = vMap[ftAddr]
+    for KeyValue (addr, ins) in dst.Instructions do
+      src.Instructions.Add (addr, ins)
+    vMap.Remove ftAddr |> ignore
+    for succ in dst.Successors do
+      addEdgeToDisasmVertex vMap srcAddr <| Some succ
+
+  let isNonReturningAbsVertex (g: LowUIRCFG) v =
+    g.GetSuccs v |> Array.isEmpty
+
+  let addEdgesToDisasmVertex (g: LowUIRCFG) verticesToMerge vMap v =
+    let edges = g.GetSuccEdges v
+    let srcAddr = (v: IVertex<LowUIRBasicBlock>).VData.Internals.PPoint.Address
+    edges |> Seq.iter (fun (e: Edge<LowUIRBasicBlock, _>) ->
+      if e.Second.VData.Internals.IsAbstract then
+        if (verticesToMerge: Dictionary<_, _>).ContainsKey e.First
+          || isNonReturningAbsVertex g e.Second then ()
+        else
+          (* When we reach here, we have a call fallthrough edge that meets an
+             existing vertex. So we should connect an edge to it. *)
+          let last = v.VData.Internals.LastInstruction
+          let fallthroughAddr = last.Address + uint64 last.Length
+          let succ = Some (fallthroughAddr, e.Label)
+          addEdgeToDisasmVertex vMap srcAddr succ
+      else
+        let dstAddr = e.Second.VData.Internals.PPoint.Address
+        let succ = if srcAddr = dstAddr then None else Some (dstAddr, e.Label)
+        addEdgeToDisasmVertex vMap srcAddr succ)
+
+  let prepareDisasmCFGInfo (g: LowUIRCFG) =
     let vMap = DisasmVMap ()
-    let sortedVertices =
-      g.Vertices |> Array.sortByDescending (fun v -> v.VData.Internals.PPoint)
     let verticesToMerge = collectVerticesToMerge g
-    for v in sortedVertices do
+    for v in sortVertices g do
       if v.VData.Internals.IsAbstract then ()
       else
         initTempDisasmVertex vMap v.VData
@@ -155,10 +164,13 @@ module private DisasmCFGHelper =
         | true, ft ->
           let srcAddr = v.VData.Internals.PPoint.Address
           let ftAddr = ft.VData.Internals.PPoint.Address
-          mergeDisasmVertexInfos vMap srcAddr ftAddr
+          if hasManyOutgoingEdges g v then
+            addEdgeToDisasmVertex vMap srcAddr (Some (ftAddr, FallThroughEdge))
+            addEdgesToDisasmVertex g verticesToMerge vMap v
+          else mergeDisasmVertexInfos vMap srcAddr ftAddr
         | false, _ ->
           if v.VData.Internals.PPoint.Position = 0 then
-            addEdgesToTempDisasmVertex g verticesToMerge vMap v
+            addEdgesToDisasmVertex g verticesToMerge vMap v
           else ()
     vMap
 

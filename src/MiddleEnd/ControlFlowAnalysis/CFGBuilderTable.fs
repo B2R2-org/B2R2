@@ -33,7 +33,7 @@ type CFGBuilderTable<'FnCtx,
                      'GlCtx when 'FnCtx :> IResettable
                              and 'FnCtx: (new: unit -> 'FnCtx)
                              and 'GlCtx: (new: unit -> 'GlCtx)>
-  public (hdl, instrs, cfgConstructor) =
+  public (hdl, exnInfo, instrs, cfgConstructor) =
 
   let builders =
     SortedList<Addr, ICFGBuildable<'FnCtx, 'GlCtx>> ()
@@ -43,7 +43,13 @@ type CFGBuilderTable<'FnCtx,
     | true, builder -> builder
     | false, _ ->
       let builder =
-        InternalFnCFGBuilder (hdl, instrs, addr, mode, cfgConstructor, agent)
+        InternalFnCFGBuilder (hdl,
+                              exnInfo,
+                              instrs,
+                              addr,
+                              mode,
+                              cfgConstructor,
+                              agent)
       builders[addr] <- builder
       builder
 
@@ -61,7 +67,7 @@ type CFGBuilderTable<'FnCtx,
       | Error _ ->
         let addr, name = entry.TableAddress, entry.FuncName
         let isNoRet = ELF.getNoReturnStatusFromKnownFunc name
-        let builder = ExternalFnCFGBuilder (hdl, addr, name, isNoRet)
+        let builder = ExternalFnCFGBuilder (hdl, exnInfo, addr, name, isNoRet)
         builders[range.Min] <- builder
     )
 
