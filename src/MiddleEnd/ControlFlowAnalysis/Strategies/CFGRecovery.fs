@@ -386,7 +386,7 @@ type CFGRecovery<'FnCtx,
     connectEdge ctx caller callee CallEdge
     callee, callsiteAddr + uint64 callIns.Length
 
-  let scanTargetAndConnect ctx queue src dstAddr edgeKind =
+  let scanBBLsAndConnect ctx queue src dstAddr edgeKind =
     match scanBBLs ctx ctx.FunctionMode [ dstAddr ] with
     | Ok dividedEdges ->
       let dstPPoint = ProgramPoint (dstAddr, 0)
@@ -398,14 +398,14 @@ type CFGRecovery<'FnCtx,
     | Error e -> Error e
 
   let connectRet ctx queue (callee, fallthroughAddr) =
-    scanTargetAndConnect ctx queue callee fallthroughAddr RetEdge
+    scanBBLsAndConnect ctx queue callee fallthroughAddr RetEdge
 
   let connectExnEdge ctx queue (callsiteAddr: Addr) =
     match ctx.ExnInfo.TryFindExceptionTarget callsiteAddr with
     | Some target ->
       (* necessary to lookup the caller again as bbls could be divided *)
       let caller = ctx.CallerVertices[callsiteAddr]
-      scanTargetAndConnect ctx queue caller target ExceptionFallThroughEdge
+      scanBBLsAndConnect ctx queue caller target ExceptionFallThroughEdge
     | None -> Ok ()
 
   let toCFGResult = function
@@ -525,15 +525,8 @@ type CFGRecovery<'FnCtx,
       | _ ->
         FailStop ErrorCase.FailedToRecoverCFG
     else
-      match scanBBLs ctx ctx.FunctionMode [ dstAddr ] with
-      | Ok dividedEdges ->
-        let targetPPoint = ProgramPoint (dstAddr, 0)
-        let targetVertex = getVertex ctx targetPPoint
-        connectEdge ctx srcVertex targetVertex IndirectJmpEdge
-        reconnectVertices ctx dividedEdges
-        addExpandCFGAction queue dstAddr
-        Continue
-      | Error e -> FailStop e
+      scanBBLsAndConnect ctx queue srcVertex dstAddr IndirectJmpEdge
+      |> toCFGResult
 
   let sendJmpTblRecoverySuccess ctx queue jmptbl idx =
     let fnAddr = ctx.FunctionAddress

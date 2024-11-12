@@ -45,6 +45,7 @@ open B2R2.MiddleEnd.ControlFlowGraph
 /// when it is true, we do not split basic blocks and allow overlapping basic
 /// blocks. Overlapping basic blocks could be useful when we analyze EVM
 /// binaries, for instance.
+[<AllowNullLiteral>]
 type BBLFactory (hdl: BinHandle,
                  instrs,
                  [<Optional; DefaultParameterValue(false)>] allowOverlap) =
@@ -272,14 +273,31 @@ type BBLFactory (hdl: BinHandle,
           bbls[currPPoint] <- fst
           bbls[nextPPoint] <- snd
           dividedEdges.Add ((currPPoint, nextPPoint))
-        else ()
+        else
+          (* We do *not* split BBLs when there is an instruction-level overlap.
+             One may still split such BBLs by finding a merging instruction, but
+             it is not desirable as it can introduce more bogus edges. For
+             example, let BBL_1 and BBL_2 be two BBLs that are located at
+             address 1 and 2, respectively. BBL_1 has three instructions (i_1,
+             i_3, i_5) where i_n is the instruction at address n. BBL_2 has
+             three instructions (i_2, i_3, i_5). And let i_5 be an indirect jump
+             instruction (jmp rcx), representing a switch-case statement. One
+             may split both BBLs at address 3, but it will introduce a bogus
+             edge reaching the jmp instruction, which makes our dataflow
+             analysis fails to detect the jump table for the jmp instruction.
+             However, by *not* splitting the BBLs and having the two independent
+             BBLs untouched, we can still detect the jump table for the jmp
+             instruction (although the two BBLs have an overlapping jmp
+             instruction), and this allows us to perform a more precise jump
+             table analysis in the end. *)
+          ()
     done
-    dividedEdges
+    Ok dividedEdges
 
   /// Number of BBLs in the factory.
   member __.Count with get() = bbls.Count
 
-  /// Scan all directly reachable intra-procedurable BBLs from the given
+  /// Scan all directly reachable intra-procedural BBLs from the given
   /// addresses. This function does not handle indirect branches nor call
   /// instructions. It always assumes that a call instruction will never return
   /// in order to avoid parsing incorrect BBLs. Fall-through BBLs should be
@@ -294,7 +312,7 @@ type BBLFactory (hdl: BinHandle,
       instrProducer channel mode addrs |> ignore
       let! isSuccessful = bblLifter channel
       if isSuccessful then
-        return if allowOverlap then Ok (List ()) else Ok (commit ())
+        return if allowOverlap then Ok (List ()) else commit ()
       else return Error ErrorCase.ParsingFailure
     }
 
