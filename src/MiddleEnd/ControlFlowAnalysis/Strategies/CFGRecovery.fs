@@ -73,7 +73,7 @@ type CFGRecovery<'FnCtx,
           | EndTblRec _ -> 0 }
 
   let scanBBLs ctx mode entryPoints =
-    ctx.BBLFactory.ScanBBLs mode entryPoints
+    ctx.BBLFactory.ScanBBLs ctx.JumpTableRecoveryStatus mode entryPoints
     |> Async.AwaitTask
     |> Async.RunSynchronously
 
@@ -551,6 +551,16 @@ type CFGRecovery<'FnCtx,
       else v.VData.Internals.LastInstruction.IsRET ())
     |> Option.isSome
 
+  let finalizeRecovery ctx =
+    let oldNoRetStatus = ctx.NonReturningStatus
+    ICFGAnalysis.run { Context = ctx } postAnalysis
+    let newNoRetStatus = ctx.NonReturningStatus
+    ctx.UnwindingBytes <- summarizer.ComputeUnwindingAmount ctx
+    match oldNoRetStatus, newNoRetStatus with
+    | NoRet, NotNoRet
+    | NoRet, ConditionalNoRet _ -> ContinueAndReloadCallers
+    | _ -> Continue
+
   new (useSSA) =
     let summarizer = FunctionSummarizer ()
     let syscallAnalysis = SyscallAnalysis ()
@@ -670,14 +680,21 @@ type CFGRecovery<'FnCtx,
         FailStop ErrorCase.FailedToRecoverCFG
 
     member _.OnFinish (ctx) =
-      let oldNoRetStatus = ctx.NonReturningStatus
-      ICFGAnalysis.run { Context = ctx } postAnalysis
-      let newNoRetStatus = ctx.NonReturningStatus
-      ctx.UnwindingBytes <- summarizer.ComputeUnwindingAmount ctx
-      match oldNoRetStatus, newNoRetStatus with
-      | NoRet, NotNoRet
-      | NoRet, ConditionalNoRet _ -> ContinueAndReloadCallers
-      | _ -> Continue
+      match ctx.FindOverlap () with
+      | Some v ->
+#if CFGDEBUG
+        let addr = v.VData.Internals.PPoint.Address
+        dbglog ctx.ThreadID "OnFinish" $"Found overlap @ {addr:x}"
+#endif
+        match v.VData.DominatingJumpTableEntry with
+        | Some (tblAddr, idx) ->
+          let fnAddr = ctx.FunctionAddress
+          ctx.ManagerChannel.NotifyBogusJumpTableEntry (fnAddr, tblAddr, idx)
+          |> function
+            | true -> StopAndReload
+            | false -> finalizeRecovery ctx
+        | None -> finalizeRecovery ctx
+      | _ -> finalizeRecovery ctx
 
     member _.OnCyclicDependency (deps) =
       let sorted = deps |> Array.sortBy fst

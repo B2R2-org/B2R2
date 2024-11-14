@@ -149,6 +149,8 @@ and private TaskManager<'FnCtx,
         |> ch.Reply
       | NotifyJumpTableRecovery (fnAddr, jmptbl, ch) ->
         ch.Reply <| handleJumpTableRecoveryRequest fnAddr jmptbl
+      | NotifyBogusJumpTableEntry (fnAddr, tblAddr, idx, ch) ->
+        ch.Reply <| handleBogusJumpTableEntry fnAddr tblAddr idx
       | CancelJumpTableRecovery (fnAddr, tblAddr) ->
 #if CFGDEBUG
         let insAddr = jmptblNotes.GetIndBranchAddress tblAddr
@@ -426,6 +428,16 @@ and private TaskManager<'FnCtx,
           addTask builder.Context.FunctionAddress builder.Mode
         else msgbox[hostAddr].Add BuilderReset
         false
+
+  and handleBogusJumpTableEntry fnAddr tblAddr idx =
+    if idx > 0 then
+#if CFGDEBUG
+      dbglog ManagerTid "BogusJumpTableEntry"
+      <| $"{tblAddr:x}:[{idx}] @ {fnAddr:x} is bogus so set the idx to {idx-1}"
+#endif
+      jmptblNotes.SetPotentialEndPointByIndex tblAddr (idx - 1)
+      true
+    else false
 
   and handleJumpTableRecoverySuccess fnAddr tblAddr idx nextJumpTarget =
 #if CFGDEBUG

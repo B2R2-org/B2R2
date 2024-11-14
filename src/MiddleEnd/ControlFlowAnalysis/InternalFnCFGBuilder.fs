@@ -60,6 +60,10 @@ type InternalFnCFGBuilder<'FnCtx,
           agent.PostAndReply (fun _ ch ->
             NotifyJumpTableRecovery (fnAddr, tblInfo, ch))
 
+        member _.NotifyBogusJumpTableEntry (fnAddr, tblAddr, idx) =
+          agent.PostAndReply (fun _ ch ->
+            NotifyBogusJumpTableEntry (fnAddr, tblAddr, idx, ch))
+
         member _.CancelJumpTableRecovery (fnAddr, tblAddr) =
           agent.Post <| CancelJumpTableRecovery (fnAddr, tblAddr)
 

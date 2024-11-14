@@ -111,6 +111,41 @@ with
     __.UserContext.Reset ()
     if isNull __.CPState then () else __.CPState.Reset ()
 
+  member private __.UpdateDictionary (dict: Dictionary<_, _>) k v delta =
+    match dict.TryGetValue k with
+    | true, (sum, _) -> dict[k] <- (sum + delta, v)
+    | false, _ -> dict[k] <- (delta, v)
+
+  /// Find the first overlapping vertex in the CFG. If there's no overlap,
+  /// return None. This function will scan the vertices in the ascending order
+  /// of addresses. This is crucial for the correctness of the rollback
+  /// mechanism as we need to figure out which vertex is causing the overlap.
+  /// Since we run this function after fully over-appriximating the CFG, we can
+  /// assume that the first overlapping vertex is the problematic one.
+  member __.FindOverlap () =
+    let vertices = __.CFG.Vertices
+    let dict = Dictionary (vertices.Length * 2)
+    for v in vertices do
+      let vData = v.VData.Internals
+      if not vData.IsAbstract && vData.PPoint.Position = 0 then
+        let range = v.VData.Internals.Range
+        __.UpdateDictionary dict range.Min v 1
+        __.UpdateDictionary dict (range.Max + 1UL) v -1
+      else ()
+    let lst = SortedList dict
+    let enumerator = lst.GetEnumerator ()
+    let mutable hasOverlap = false
+    let mutable overlapVertex = null
+    let mutable sum = 0
+    while not hasOverlap && enumerator.MoveNext () do
+      let (delta, v) = enumerator.Current.Value
+      sum <- sum + delta
+      if sum > 1 then
+        hasOverlap <- true
+        overlapVertex <- v
+      else ()
+    if hasOverlap then Some overlapVertex else None
+
 /// Call edge from its callsite address to the callee's address. This is to
 /// uniquely identify call edges for abstracted vertices. We create an abstract
 /// vertex for each call instruction even though multiple call instructions may
@@ -146,6 +181,14 @@ and [<AllowNullLiteral>]
   abstract NotifyJumpTableRecovery:
        fnAddr: Addr
      * jmptbl: JmpTableInfo
+    -> bool
+
+  /// Notify the manager that a bogus jump table entry is found, and get the
+  /// decision whether to continue the analysis or not.
+  abstract NotifyBogusJumpTableEntry:
+       fnAddr: Addr
+     * tblAddr: Addr
+     * idx: int
     -> bool
 
   /// Let the manager know that the jump table recovery is canceled.
