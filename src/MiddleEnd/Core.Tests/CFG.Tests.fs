@@ -38,7 +38,7 @@ open Microsoft.VisualStudio.TestTools.UnitTesting
 [<AutoOpen>]
 module Utils =
   let scanBBLs (bblFactory: BBLFactory) mode addrs =
-    bblFactory.ScanBBLs mode addrs
+    bblFactory.ScanBBLs None mode addrs
     |> Async.AwaitTask
     |> Async.RunSynchronously
     |> ignore

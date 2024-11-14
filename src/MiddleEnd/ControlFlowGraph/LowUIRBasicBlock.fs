@@ -32,7 +32,7 @@ open B2R2.BinIR
 open B2R2.BinIR.LowUIR
 
 /// Basic block type for IR-level CFGs.
-type LowUIRBasicBlock internal (ppoint, funcAbs, liftedInstrs, labelMap) =
+type LowUIRBasicBlock internal (pp, funcAbs, liftedInss, lblMap, domJT) =
   let isTerminatingStmt stmt =
     match stmt.S with
     | Jmp _ | CJmp _ | InterJmp _ | InterCJmp _
@@ -48,7 +48,14 @@ type LowUIRBasicBlock internal (ppoint, funcAbs, liftedInstrs, labelMap) =
   /// Intra-instruction label information, which is a mapping from a label to
   /// the corresponding program point.
   member __.LabelMap
-    with get(): ImmutableDictionary<Symbol, ProgramPoint> = labelMap
+    with get(): ImmutableDictionary<Symbol, ProgramPoint> = lblMap
+
+  /// Dominating jump table entry (tbl address and index) is a jump table entry
+  /// that dominates this basic block. In other words, this basic block is
+  /// dominated by the indirect jump instruction that uses this jump table
+  /// entry. This property is None if there's no such dominating jump table
+  /// entry.
+  member __.DominatingJumpTableEntry with get(): (Addr * int) option = domJT
 
   /// Cut the basic block at the given address and return the two new basic
   /// blocks. This function does not modify the original basic block. We assume
@@ -58,25 +65,25 @@ type LowUIRBasicBlock internal (ppoint, funcAbs, liftedInstrs, labelMap) =
     if isNull funcAbs then
       assert ((__ :> IAddressable).Range.IsIncluding cutPoint)
       let fstInstrs, sndInstrs =
-        liftedInstrs
+        liftedInss
         |> Array.partition (fun ins -> ins.Original.Address < cutPoint)
       let sndInstrs =
         sndInstrs |> Array.map (fun ins -> { ins with BBLAddr = cutPoint })
       let cutPPoint = ProgramPoint (cutPoint, 0)
       let fstLabelMap = ImmutableDictionary.CreateRange [||]
-      let sndLabelMap = ImmutableDictionary.CreateRange (Seq.toArray labelMap)
-      LowUIRBasicBlock.CreateRegular (fstInstrs, ppoint, fstLabelMap),
-      LowUIRBasicBlock.CreateRegular (sndInstrs, cutPPoint, sndLabelMap)
+      let sndLabelMap = ImmutableDictionary.CreateRange (Seq.toArray lblMap)
+      LowUIRBasicBlock.CreateRegular (fstInstrs, pp, fstLabelMap, domJT),
+      LowUIRBasicBlock.CreateRegular (sndInstrs, cutPPoint, sndLabelMap, domJT)
     else raise AbstractBlockAccessException
 
   interface ILowUIRBasicBlock with
-    member _.PPoint with get() = ppoint
+    member _.PPoint with get() = pp
 
     member _.Range with get() =
       if isNull funcAbs then
-        let lastIns = liftedInstrs[liftedInstrs.Length - 1].Original
+        let lastIns = liftedInss[liftedInss.Length - 1].Original
         let lastAddr = lastIns.Address + uint64 lastIns.Length
-        AddrRange (ppoint.Address, lastAddr - 1UL)
+        AddrRange (pp.Address, lastAddr - 1UL)
       else raise AbstractBlockAccessException
 
     member _.IsAbstract with get() = not (isNull funcAbs)
@@ -85,33 +92,33 @@ type LowUIRBasicBlock internal (ppoint, funcAbs, liftedInstrs, labelMap) =
       if isNull funcAbs then raise AbstractBlockAccessException
       else funcAbs
 
-    member _.LiftedInstructions with get() = liftedInstrs
+    member _.LiftedInstructions with get() = liftedInss
 
     /// Terminator statement of the basic block.
     member _.Terminator with get() =
-      assert (not <| Array.isEmpty liftedInstrs)
-      let stmts = liftedInstrs[liftedInstrs.Length - 1].Stmts
+      assert (not <| Array.isEmpty liftedInss)
+      let stmts = liftedInss[liftedInss.Length - 1].Stmts
       stmts[stmts.Length - 2..]
       |> Array.filter isTerminatingStmt
       |> Array.tryExactlyOne
       |> Option.defaultValue stmts[stmts.Length - 1]
 
     member _.Instructions with get() =
-      liftedInstrs |> Array.map (fun liftedIns -> liftedIns.Original)
+      liftedInss |> Array.map (fun liftedIns -> liftedIns.Original)
 
     member _.LastInstruction with get() =
-      assert (not <| Array.isEmpty liftedInstrs)
-      liftedInstrs[liftedInstrs.Length - 1].Original
+      assert (not <| Array.isEmpty liftedInss)
+      liftedInss[liftedInss.Length - 1].Original
 
     member _.Disassemblies with get() =
-      liftedInstrs
+      liftedInss
       |> Array.map (fun liftedIns -> liftedIns.Original.Disasm ())
 
-    member _.BlockAddress with get() = ppoint.Address
+    member _.BlockAddress with get() = pp.Address
 
     member _.Visualize () =
       if isNull funcAbs then
-        liftedInstrs
+        liftedInss
         |> Array.collect (fun liftedIns -> liftedIns.Stmts)
         |> Array.map (fun stmt ->
           [| { AsmWordKind = AsmWordKind.String
@@ -122,15 +129,15 @@ type LowUIRBasicBlock internal (ppoint, funcAbs, liftedInstrs, labelMap) =
     member __.Equals (other: LowUIRBasicBlock) =
       (__ :> IAddressable).PPoint = (other :> IAddressable).PPoint
 
-  static member CreateRegular (liftedInstrs, ppoint) =
-    LowUIRBasicBlock (ppoint, null, liftedInstrs, ImmutableDictionary.Empty)
+  static member CreateRegular (liftedInss, pp, domJT) =
+    LowUIRBasicBlock (pp, null, liftedInss, ImmutableDictionary.Empty, domJT)
 
-  static member CreateRegular (liftedInstrs, ppoint, labelMap) =
-    LowUIRBasicBlock (ppoint, null, liftedInstrs, labelMap)
+  static member CreateRegular (liftedInss, pp, lblMap, domJT) =
+    LowUIRBasicBlock (pp, null, liftedInss, lblMap, domJT)
 
-  static member CreateAbstract (ppoint, summary) =
+  static member CreateAbstract (pp, summary) =
     assert (not (isNull summary))
-    LowUIRBasicBlock (ppoint, summary, [||], ImmutableDictionary.Empty)
+    LowUIRBasicBlock (pp, summary, [||], ImmutableDictionary.Empty, None)
 
 /// Interface for a basic block containing a sequence of lifted LowUIR
 /// statements.

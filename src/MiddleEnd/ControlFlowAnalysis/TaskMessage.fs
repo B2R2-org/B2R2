@@ -52,6 +52,10 @@ type TaskMessage<'FnCtx,
   /// The manager returns whether the recovery should continue or not.
   | NotifyJumpTableRecovery of
     fn: Addr * tbl: JmpTableInfo * AgentReplyChannel<bool>
+  /// Notify the manager that we found a bogus jump table entry. The manager
+  /// returns whether the recovery should continue or not.
+  | NotifyBogusJumpTableEntry of
+    fn: Addr * tbl: Addr * idx: int * AgentReplyChannel<bool>
   /// Cancel the jump table recovery because we found that the indirect branch
   /// is not using a jump table.
   | CancelJumpTableRecovery of fn:Addr * tbl: Addr

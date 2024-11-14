@@ -30,6 +30,7 @@ open B2R2
 /// A per-function table that maintains function call information within a
 /// function, such as callsites in the function, callees, and their
 /// relationships.
+[<AllowNullLiteral>]
 type IntraCallTable () =
   let callees = SortedList<Addr, CalleeKind> ()
 

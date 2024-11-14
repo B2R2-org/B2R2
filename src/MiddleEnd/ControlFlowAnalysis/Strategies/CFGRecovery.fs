@@ -73,7 +73,7 @@ type CFGRecovery<'FnCtx,
           | EndTblRec _ -> 0 }
 
   let scanBBLs ctx mode entryPoints =
-    ctx.BBLFactory.ScanBBLs mode entryPoints
+    ctx.BBLFactory.ScanBBLs ctx.JumpTableRecoveryStatus mode entryPoints
     |> Async.AwaitTask
     |> Async.RunSynchronously
 
@@ -386,7 +386,7 @@ type CFGRecovery<'FnCtx,
     connectEdge ctx caller callee CallEdge
     callee, callsiteAddr + uint64 callIns.Length
 
-  let scanTargetAndConnect ctx queue src dstAddr edgeKind =
+  let scanBBLsAndConnect ctx queue src dstAddr edgeKind =
     match scanBBLs ctx ctx.FunctionMode [ dstAddr ] with
     | Ok dividedEdges ->
       let dstPPoint = ProgramPoint (dstAddr, 0)
@@ -398,14 +398,14 @@ type CFGRecovery<'FnCtx,
     | Error e -> Error e
 
   let connectRet ctx queue (callee, fallthroughAddr) =
-    scanTargetAndConnect ctx queue callee fallthroughAddr RetEdge
+    scanBBLsAndConnect ctx queue callee fallthroughAddr RetEdge
 
   let connectExnEdge ctx queue (callsiteAddr: Addr) =
     match ctx.ExnInfo.TryFindExceptionTarget callsiteAddr with
     | Some target ->
       (* necessary to lookup the caller again as bbls could be divided *)
       let caller = ctx.CallerVertices[callsiteAddr]
-      scanTargetAndConnect ctx queue caller target ExceptionFallThroughEdge
+      scanBBLsAndConnect ctx queue caller target ExceptionFallThroughEdge
     | None -> Ok ()
 
   let toCFGResult = function
@@ -525,15 +525,8 @@ type CFGRecovery<'FnCtx,
       | _ ->
         FailStop ErrorCase.FailedToRecoverCFG
     else
-      match scanBBLs ctx ctx.FunctionMode [ dstAddr ] with
-      | Ok dividedEdges ->
-        let targetPPoint = ProgramPoint (dstAddr, 0)
-        let targetVertex = getVertex ctx targetPPoint
-        connectEdge ctx srcVertex targetVertex IndirectJmpEdge
-        reconnectVertices ctx dividedEdges
-        addExpandCFGAction queue dstAddr
-        Continue
-      | Error e -> FailStop e
+      scanBBLsAndConnect ctx queue srcVertex dstAddr IndirectJmpEdge
+      |> toCFGResult
 
   let sendJmpTblRecoverySuccess ctx queue jmptbl idx =
     let fnAddr = ctx.FunctionAddress
@@ -557,6 +550,16 @@ type CFGRecovery<'FnCtx,
         v.VData.Internals.AbstractContent.ReturningStatus = NotNoRet
       else v.VData.Internals.LastInstruction.IsRET ())
     |> Option.isSome
+
+  let finalizeRecovery ctx =
+    let oldNoRetStatus = ctx.NonReturningStatus
+    ICFGAnalysis.run { Context = ctx } postAnalysis
+    let newNoRetStatus = ctx.NonReturningStatus
+    ctx.UnwindingBytes <- summarizer.ComputeUnwindingAmount ctx
+    match oldNoRetStatus, newNoRetStatus with
+    | NoRet, NotNoRet
+    | NoRet, ConditionalNoRet _ -> ContinueAndReloadCallers
+    | _ -> Continue
 
   new (useSSA) =
     let summarizer = FunctionSummarizer ()
@@ -677,14 +680,21 @@ type CFGRecovery<'FnCtx,
         FailStop ErrorCase.FailedToRecoverCFG
 
     member _.OnFinish (ctx) =
-      let oldNoRetStatus = ctx.NonReturningStatus
-      ICFGAnalysis.run { Context = ctx } postAnalysis
-      let newNoRetStatus = ctx.NonReturningStatus
-      ctx.UnwindingBytes <- summarizer.ComputeUnwindingAmount ctx
-      match oldNoRetStatus, newNoRetStatus with
-      | NoRet, NotNoRet
-      | NoRet, ConditionalNoRet _ -> ContinueAndReloadCallers
-      | _ -> Continue
+      match ctx.FindOverlap () with
+      | Some v ->
+#if CFGDEBUG
+        let addr = v.VData.Internals.PPoint.Address
+        dbglog ctx.ThreadID "OnFinish" $"Found overlap @ {addr:x}"
+#endif
+        match v.VData.DominatingJumpTableEntry with
+        | Some (tblAddr, idx) ->
+          let fnAddr = ctx.FunctionAddress
+          ctx.ManagerChannel.NotifyBogusJumpTableEntry (fnAddr, tblAddr, idx)
+          |> function
+            | true -> StopAndReload
+            | false -> finalizeRecovery ctx
+        | None -> finalizeRecovery ctx
+      | _ -> finalizeRecovery ctx
 
     member _.OnCyclicDependency (deps) =
       let sorted = deps |> Array.sortBy fst
