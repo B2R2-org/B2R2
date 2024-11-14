@@ -40,6 +40,12 @@ type WasmBinFile (path, bytes, baseAddrOpt) =
   member __.WASM with get() = wm
 
   interface IBinFile with
+    member __.Reader with get() = reader
+
+    member __.RawBytes = bytes
+
+    member __.Length = bytes.Length
+
     member __.Path with get() = path
 
     member __.Format with get() = FileFormat.WasmBinary
@@ -118,8 +124,6 @@ type WasmBinFile (path, bytes, baseAddrOpt) =
     member __.ToBinFilePointer name =
       BinFilePointer.OfSectionOpt (getSectionsByName wm name |> Seq.tryHead)
 
-    member __.GetRelocatedAddr _relocAddr = Utils.futureFeature ()
-
     member __.TryFindFunctionName (addr) = tryFindFunSymName wm addr
 
     member __.GetSymbols () = getSymbols wm
@@ -129,8 +133,6 @@ type WasmBinFile (path, bytes, baseAddrOpt) =
     member __.GetFunctionSymbols () = Utils.futureFeature ()
 
     member __.GetDynamicSymbols (?exc) = getDynamicSymbols wm exc
-
-    member __.GetRelocationSymbols () = [||]
 
     member __.AddSymbol _addr _symbol = Utils.futureFeature ()
 
@@ -156,16 +158,16 @@ type WasmBinFile (path, bytes, baseAddrOpt) =
 
     member __.GetSegments (_perm: Permission): Segment[] = [||]
 
-    member __.GetLinkageTableEntries () = getImports wm
-
-    member __.IsLinkageTable _addr = Utils.futureFeature ()
-
     member __.GetFunctionAddresses () = Utils.futureFeature ()
 
     member __.GetFunctionAddresses (_) = Utils.futureFeature ()
 
-    member __.Reader with get() = reader
+    member __.GetRelocationInfos () = [||]
 
-    member __.RawBytes = bytes
+    member __.HasRelocationInfo _addr = false
 
-    member __.Length = bytes.Length
+    member __.GetRelocatedAddr _relocAddr = Utils.futureFeature ()
+
+    member __.GetLinkageTableEntries () = getImports wm
+
+    member __.IsLinkageTable _addr = Utils.futureFeature ()

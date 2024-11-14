@@ -206,7 +206,7 @@ let dumpSymbols _ (pe: PEBinFile) =
   |> printSymbolInfo pe
 
 let dumpRelocs _ (pe: PEBinFile) =
-  (pe :> IBinFile).GetRelocationSymbols ()
+  (pe :> IBinFile).GetRelocationInfos ()
   |> printSymbolInfo pe
 
 let dumpFunctions _ (pe: PEBinFile) =

@@ -53,6 +53,12 @@ type MachBinFile (path, bytes: byte[], isa, baseAddrOpt) =
   member __.SymbolInfo with get() = symInfo.Value
 
   interface IBinFile with
+    member __.Reader with get() = toolBox.Reader
+
+    member __.RawBytes = bytes
+
+    member __.Length = bytes.Length
+
     member __.Path with get() = path
 
     member __.Format with get() = FileFormat.MachBinary
@@ -133,8 +139,6 @@ type MachBinFile (path, bytes: byte[], isa, baseAddrOpt) =
       |> Seq.tryHead
       |> BinFilePointer.OfSectionOpt
 
-    member __.GetRelocatedAddr _relocAddr = Utils.futureFeature ()
-
     member __.TryFindFunctionName (addr) =
       tryFindFuncSymb symInfo.Value addr
 
@@ -155,8 +159,6 @@ type MachBinFile (path, bytes: byte[], isa, baseAddrOpt) =
 
     member __.GetDynamicSymbols (?e) =
       getDynamicSymbols e secs.Value symInfo.Value
-
-    member __.GetRelocationSymbols () = relocs.Value
 
     member __.AddSymbol _addr _symbol = Utils.futureFeature ()
 
@@ -182,10 +184,6 @@ type MachBinFile (path, bytes: byte[], isa, baseAddrOpt) =
       (__ :> IBinFile).GetSegments ()
       |> Array.filter (fun s -> (s.Permission &&& perm = perm) && s.Size > 0u)
 
-    member __.GetLinkageTableEntries () = getPLT symInfo.Value
-
-    member __.IsLinkageTable addr = isPLT symInfo.Value addr
-
     member __.GetFunctionAddresses () =
       (__ :> IBinFile).GetFunctionSymbols ()
       |> Array.map (fun s -> s.Address)
@@ -193,8 +191,14 @@ type MachBinFile (path, bytes: byte[], isa, baseAddrOpt) =
     member __.GetFunctionAddresses (_) =
       (__ :> IBinFile).GetFunctionAddresses ()
 
-    member __.Reader with get() = toolBox.Reader
+    member __.GetRelocationInfos () = relocs.Value
 
-    member __.RawBytes = bytes
+    member __.HasRelocationInfo addr =
+      relocs.Value
+      |> Array.exists (fun r -> r.Address = addr)
 
-    member __.Length = bytes.Length
+    member __.GetRelocatedAddr _relocAddr = Utils.futureFeature ()
+
+    member __.GetLinkageTableEntries () = getPLT symInfo.Value
+
+    member __.IsLinkageTable addr = isPLT symInfo.Value addr

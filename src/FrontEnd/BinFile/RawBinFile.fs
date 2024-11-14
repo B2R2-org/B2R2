@@ -37,6 +37,12 @@ type RawBinFile (path, bytes: byte[], isa, baseAddrOpt) =
   let reader = BinReader.Init isa.Endian
 
   interface IBinFile with
+    member __.Reader with get() = reader
+
+    member __.RawBytes = bytes
+
+    member __.Length = bytes.Length
+
     member __.Path with get() = path
 
     member __.Format with get() = FileFormat.RawBinary
@@ -118,8 +124,6 @@ type RawBinFile (path, bytes: byte[], isa, baseAddrOpt) =
 
     member __.ToBinFilePointer (_name: string) = BinFilePointer.Null
 
-    member __.GetRelocatedAddr _relocAddr = Utils.impossible ()
-
     member __.TryFindFunctionName (_addr) =
       if symbolMap.ContainsKey(_addr) then Ok symbolMap[_addr].Name
       else Error ErrorCase.SymbolNotFound
@@ -132,8 +136,6 @@ type RawBinFile (path, bytes: byte[], isa, baseAddrOpt) =
     member __.GetFunctionSymbols () = (__ :> IBinFile).GetStaticSymbols ()
 
     member __.GetDynamicSymbols (?_excludeImported) = [||]
-
-    member __.GetRelocationSymbols () = [||]
 
     member __.AddSymbol addr symbol = symbolMap[addr] <- symbol
 
@@ -169,10 +171,6 @@ type RawBinFile (path, bytes: byte[], isa, baseAddrOpt) =
       (__ :> IBinFile).GetSegments ()
       |> Array.filter (fun s -> (s.Permission &&& perm = perm) && s.Size > 0u)
 
-    member __.GetLinkageTableEntries () = [||]
-
-    member __.IsLinkageTable _ = false
-
     member __.GetFunctionAddresses () =
       (__ :> IBinFile).GetFunctionSymbols ()
       |> Array.filter (fun s -> s.Kind = SymFunctionType)
@@ -181,8 +179,12 @@ type RawBinFile (path, bytes: byte[], isa, baseAddrOpt) =
     member __.GetFunctionAddresses (_) =
       (__ :> IBinFile).GetFunctionAddresses ()
 
-    member __.Reader with get() = reader
+    member __.GetRelocationInfos () = [||]
 
-    member __.RawBytes = bytes
+    member __.HasRelocationInfo _ = false
 
-    member __.Length = bytes.Length
+    member __.GetRelocatedAddr _relocAddr = Utils.impossible ()
+
+    member __.GetLinkageTableEntries () = [||]
+
+    member __.IsLinkageTable _ = false

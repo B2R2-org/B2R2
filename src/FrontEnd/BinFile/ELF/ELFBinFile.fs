@@ -80,6 +80,12 @@ type ELFBinFile (path, bytes: byte[], baseAddrOpt, rfOpt) =
   member __.RelocationInfo with get() = relocs.Value
 
   interface IBinFile with
+    member __.Reader with get() = toolBox.Reader
+
+    member __.RawBytes = bytes
+
+    member __.Length = bytes.Length
+
     member __.Path with get() = path
 
     member __.Format with get() = FileFormat.ELFBinary
@@ -162,9 +168,6 @@ type ELFBinFile (path, bytes: byte[], baseAddrOpt, rfOpt) =
       |> Seq.tryHead
       |> BinFilePointer.OfSectionOpt
 
-    member __.GetRelocatedAddr relocAddr =
-      getRelocatedAddr relocs.Value relocAddr
-
     member __.TryFindFunctionName (addr) =
       tryFindFuncSymb symbInfo.Value addr
 
@@ -191,8 +194,6 @@ type ELFBinFile (path, bytes: byte[], baseAddrOpt, rfOpt) =
     member __.GetDynamicSymbols (?exc) =
       getDynamicSymbols exc shdrs.Value symbInfo.Value
 
-    member __.GetRelocationSymbols () = getRelocSymbols relocs.Value
-
     member __.AddSymbol _addr _symbol = Utils.futureFeature ()
 
     member __.GetSections () = getSections shdrs.Value
@@ -216,14 +217,6 @@ type ELFBinFile (path, bytes: byte[], baseAddrOpt, rfOpt) =
       (__ :> IBinFile).GetSegments ()
       |> Array.filter (fun s -> (s.Permission &&& perm = perm) && s.Size > 0u)
 
-    member __.GetLinkageTableEntries () =
-      plt.Value
-      |> ARMap.fold (fun acc _ entry -> entry :: acc) []
-      |> List.sortBy (fun entry -> entry.TrampolineAddress)
-      |> List.toArray
-
-    member __.IsLinkageTable addr = ARMap.containsAddr addr plt.Value
-
     member __.GetFunctionAddresses () =
       (__ :> IBinFile).GetFunctionSymbols ()
       |> Seq.map (fun s -> s.Address)
@@ -237,8 +230,18 @@ type ELFBinFile (path, bytes: byte[], baseAddrOpt, rfOpt) =
       |> addExtraFunctionAddrs toolBox shdrs.Value loadables.Value
                                relocs.Value exnInfo
 
-    member __.Reader with get() = toolBox.Reader
+    member __.GetRelocationInfos () = getRelocSymbols relocs.Value
 
-    member __.RawBytes = bytes
+    member __.HasRelocationInfo addr =
+      relocs.Value.RelocByAddr.ContainsKey addr
 
-    member __.Length = bytes.Length
+    member __.GetRelocatedAddr relocAddr =
+      getRelocatedAddr relocs.Value relocAddr
+
+    member __.GetLinkageTableEntries () =
+      plt.Value
+      |> ARMap.fold (fun acc _ entry -> entry :: acc) []
+      |> List.sortBy (fun entry -> entry.TrampolineAddress)
+      |> List.toArray
+
+    member __.IsLinkageTable addr = ARMap.containsAddr addr plt.Value

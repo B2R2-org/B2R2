@@ -26,23 +26,30 @@ namespace B2R2.FrontEnd.BinFile
 
 open B2R2
 
-/// IBinFile describes a binary file in a format-agnostic way.
-type IBinFile =
-  inherit IBinMetadata
-  inherit IBinProperty
-  inherit IContentAddressable
-  inherit IBinSymbolTable
-  inherit IBinOrganization
-  inherit IRelocationTable
-  inherit ILinkageTable
+/// Relocation table in a binary file.
+type IRelocationTable =
+  /// <summary>
+  ///   Return a list of all symbols for relocatable entries in the binary.
+  /// </summary>
+  /// <returns>
+  ///   An array of relocation symbols.
+  /// </returns>
+  abstract GetRelocationInfos: unit -> Symbol[]
 
   /// <summary>
-  ///   Return a reader for this binary file.
+  ///   Check if the given address has a relocation information.
   /// </summary>
-  abstract Reader: IBinReader
+  /// <returns>
+  ///   True if the address has a relocation information, false otherwise.
+  /// </returns>
+  abstract HasRelocationInfo: Addr -> bool
 
-  /// The raw file content as a byte array.
-  abstract RawBytes: byte[]
-
-  /// The size of the associated binary file.
-  abstract Length: int
+  /// <summary>
+  ///   Return a relocation target address of the given virtual address if there
+  ///   is a corresponding relocation entry.
+  /// </summary>
+  /// <param name="relocAddr">Virtual address be relocated.</param>
+  /// <returns>
+  ///   Returns a relocated address for a given virtual address.
+  /// </returns>
+  abstract GetRelocatedAddr: relocAddr: Addr -> Result<Addr, ErrorCase>

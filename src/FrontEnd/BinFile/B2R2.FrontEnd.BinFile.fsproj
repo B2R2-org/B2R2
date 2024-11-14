@@ -20,6 +20,8 @@
     <Compile Include="IContentAddressable.fs" />
     <Compile Include="IBinSymbolTable.fs" />
     <Compile Include="IBinOrganization.fs" />
+    <Compile Include="ILinkageTable.fs" />
+    <Compile Include="IRelocationTable.fs" />
     <Compile Include="IBinFile.fs" />
     <Compile Include="FileHelper.fs" />
     <Compile Include="RawBinFile.fs" />

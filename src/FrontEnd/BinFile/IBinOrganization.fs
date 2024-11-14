@@ -27,14 +27,13 @@ namespace B2R2.FrontEnd.BinFile
 open System.Runtime.InteropServices
 open B2R2
 
-/// Organization of a binary file, such as sections, segments, and linkage
-/// table.
+/// Organization of a binary file, such as sections, segments, and functions.
 type IBinOrganization =
   /// <summary>
   ///   Return a list of all the sections from the binary.
   /// </summary>
   /// <returns>
-  ///   A sequence of sections.
+  ///   An array of sections.
   /// </returns>
   abstract GetSections: unit -> Section[]
 
@@ -43,8 +42,8 @@ type IBinOrganization =
   /// </summary>
   /// <param name="addr">The address that belongs to a section.</param>
   /// <returns>
-  ///   A sequence of sections. This function returns a singleton if there
-  ///   exists a corresponding section. Otherwise, it returns an empty sequence.
+  ///   An array of sections. This function returns a singleton if there exists
+  ///   a corresponding section. Otherwise, it returns an empty array.
   /// </returns>
   abstract GetSections: addr: Addr -> Section[]
 
@@ -53,8 +52,8 @@ type IBinOrganization =
   /// </summary>
   /// <param name="name">The name of the section.</param>
   /// <returns>
-  ///   A sequence of sections that have the specified name. This function
-  ///   returns an empty sequence if there is no section of the given name.
+  ///   An array of sections that have the specified name. This function returns
+  ///   an empty array if there is no section of the given name.
   /// </returns>
   abstract GetSections: name: string -> Section[]
 
@@ -63,7 +62,7 @@ type IBinOrganization =
   ///   function raises an exception.
   /// </summary>
   /// <returns>
-  ///   A sequence of text sections.
+  ///   An array of text sections.
   /// </returns>
   abstract GetTextSection: unit -> Section
 
@@ -74,7 +73,7 @@ type IBinOrganization =
   ///   only loadable segments, e.g., PT_LOAD segment of ELF.
   /// </summary>
   /// <returns>
-  ///   A sequence of segments.
+  ///   An array of segments.
   /// </returns>
   abstract GetSegments:
     [<Optional; DefaultParameterValue(true)>] isLoadable:bool
@@ -86,7 +85,7 @@ type IBinOrganization =
   /// </summary>
   /// <param name="addr">The address that belongs to segments.</param>
   /// <returns>
-  ///   A sequence of segments.
+  ///   An array of segments.
   /// </returns>
   abstract GetSegments: addr: Addr -> Segment[]
 
@@ -96,38 +95,22 @@ type IBinOrganization =
   ///   a segment whose permission is "READABLE and WRITABLE", as an instance.
   /// </summary>
   /// <returns>
-  ///   A sequence of segments.
+  ///   An array of segments.
   /// </returns>
   abstract GetSegments: Permission -> Segment[]
 
   /// <summary>
-  ///   Return a list of all the linkage table entries from the binary.
-  /// </summary>
-  /// <returns>
-  ///   A sequence of linkage table entries, e.g., PLT entries for ELF files.
-  /// </returns>
-  abstract GetLinkageTableEntries: unit -> LinkageTableEntry[]
-
-  /// <summary>
-  ///   Return if a given address is an address of a linkage table entry.
-  /// </summary>
-  /// <returns>
-  ///   True if the address is a linkage table address, false otherwise.
-  /// </returns>
-  abstract IsLinkageTable: Addr -> bool
-
-  /// <summary>
-  ///   Returns a sequence of local function addresses (excluding external
+  ///   Returns an array of local function addresses (excluding external
   ///   functions) from a given BinFile. This function only considers addresses
   ///   that are certain.
   /// </summary>
   /// <returns>
-  ///   A sequence of function addresses.
+  ///   An array of function addresses.
   /// </returns>
   abstract GetFunctionAddresses: unit -> Addr[]
 
   /// <summary>
-  ///   Returns a sequence of local function addresses (excluding external
+  ///   Returns an array of local function addresses (excluding external
   ///   functions) from a given BinFile. If the argument is true, then this
   ///   funciton utilizes exception information of the binary to infer function
   ///   entries. Note that the inference process is not necessarily precise, so
@@ -135,7 +118,6 @@ type IBinOrganization =
   ///   future.
   /// </summary>
   /// <returns>
-  ///   A sequence of function addresses.
+  ///   An array of function addresses.
   /// </returns>
   abstract GetFunctionAddresses: bool -> Addr[]
-

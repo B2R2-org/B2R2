@@ -250,7 +250,7 @@ let dumpSymbols (opts: FileViewerOpts) (mach: MachBinFile) =
   |> printSymbolInfo opts.Verbose mach
 
 let dumpRelocs (opts: FileViewerOpts) (mach: MachBinFile) =
-  (mach :> IBinFile).GetRelocationSymbols ()
+  (mach :> IBinFile).GetRelocationInfos ()
   |> printSymbolInfo opts.Verbose mach
 
 let dumpFunctions (opts: FileViewerOpts) (mach: MachBinFile) =

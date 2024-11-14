@@ -195,6 +195,14 @@ let getRelocationSymbols pe =
     ArchOperationMode = ArchOperationMode.NoMode })
   |> Seq.toArray
 
+let hasRelocationSymbols pe addr = (* FIXME: linear lookup is bad *)
+  pe.RelocBlocks
+  |> List.exists (fun block ->
+    block.Entries
+    |> Array.exists (fun entry ->
+      uint64 (block.PageRVA + uint32 entry.Offset) = addr)
+  )
+
 let getSections pe =
   pe.SectionHeaders
   |> Array.map (secHdrToSection pe)

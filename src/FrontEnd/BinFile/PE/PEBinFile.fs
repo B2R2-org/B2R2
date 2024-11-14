@@ -42,6 +42,12 @@ type PEBinFile (path, bytes: byte[], baseAddrOpt, rawpdb) =
   member __.RawPDB = rawpdb
 
   interface IBinFile with
+    member __.Reader with get() = pe.BinReader
+
+    member __.RawBytes = bytes
+
+    member __.Length = bytes.Length
+
     member __.Path with get() = path
 
     member __.Format with get() = FileFormat.PEBinary
@@ -110,8 +116,6 @@ type PEBinFile (path, bytes: byte[], baseAddrOpt, rawpdb) =
     member __.ToBinFilePointer name =
       BinFilePointer.OfSectionOpt (getSectionsByName pe name |> Seq.tryHead)
 
-    member __.GetRelocatedAddr _relocAddr = Utils.futureFeature ()
-
     member __.TryFindFunctionName (addr) = tryFindFuncSymb pe addr
 
     member __.GetSymbols () = getSymbols pe
@@ -129,8 +133,6 @@ type PEBinFile (path, bytes: byte[], baseAddrOpt, rawpdb) =
       Array.append staticSymbols dynamicSymbols
 
     member __.GetDynamicSymbols (?exc) = getDynamicSymbols pe exc
-
-    member __.GetRelocationSymbols () = getRelocationSymbols pe
 
     member __.AddSymbol _addr _symbol = Utils.futureFeature ()
 
@@ -153,10 +155,6 @@ type PEBinFile (path, bytes: byte[], baseAddrOpt, rawpdb) =
       (__ :> IBinFile).GetSegments ()
       |> Array.filter (fun s -> (s.Permission &&& perm = perm) && s.Size > 0u)
 
-    member __.GetLinkageTableEntries () = getImportTable pe
-
-    member __.IsLinkageTable addr = isImportTable pe addr
-
     member __.GetFunctionAddresses () =
       (__ :> IBinFile).GetFunctionSymbols ()
       |> Array.map (fun s -> s.Address)
@@ -164,8 +162,12 @@ type PEBinFile (path, bytes: byte[], baseAddrOpt, rawpdb) =
     member __.GetFunctionAddresses (_) =
       (__ :> IBinFile).GetFunctionAddresses ()
 
-    member __.Reader with get() = pe.BinReader
+    member __.GetRelocationInfos () = getRelocationSymbols pe
 
-    member __.RawBytes = bytes
+    member __.HasRelocationInfo addr = hasRelocationSymbols pe addr
 
-    member __.Length = bytes.Length
+    member __.GetRelocatedAddr _relocAddr = Utils.futureFeature ()
+
+    member __.GetLinkageTableEntries () = getImportTable pe
+
+    member __.IsLinkageTable addr = isImportTable pe addr

@@ -54,9 +54,6 @@ type IBinSymbolTable =
   /// dynamic symbols.
   abstract GetDynamicSymbols: ?excludeImported: bool -> Symbol[]
 
-  /// Return a list of all symbols for relocatable entries in the binary.
-  abstract GetRelocationSymbols: unit -> Symbol[]
-
   /// Add a symbol for the address. This function is useful when we can obtain
   /// extra symbol information from outside of B2R2.
   abstract AddSymbol: Addr -> Symbol -> unit

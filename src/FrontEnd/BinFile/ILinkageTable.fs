@@ -26,23 +26,20 @@ namespace B2R2.FrontEnd.BinFile
 
 open B2R2
 
-/// IBinFile describes a binary file in a format-agnostic way.
-type IBinFile =
-  inherit IBinMetadata
-  inherit IBinProperty
-  inherit IContentAddressable
-  inherit IBinSymbolTable
-  inherit IBinOrganization
-  inherit IRelocationTable
-  inherit ILinkageTable
+/// Linkage table in a binary file.
+type ILinkageTable =
+  /// <summary>
+  ///   Return a list of all the linkage table entries from the binary.
+  /// </summary>
+  /// <returns>
+  ///   An array of linkage table entries, e.g., PLT entries for ELF files.
+  /// </returns>
+  abstract GetLinkageTableEntries: unit -> LinkageTableEntry[]
 
   /// <summary>
-  ///   Return a reader for this binary file.
+  ///   Return if a given address is an address of a linkage table entry.
   /// </summary>
-  abstract Reader: IBinReader
-
-  /// The raw file content as a byte array.
-  abstract RawBytes: byte[]
-
-  /// The size of the associated binary file.
-  abstract Length: int
+  /// <returns>
+  ///   True if the address is a linkage table address, false otherwise.
+  /// </returns>
+  abstract IsLinkageTable: Addr -> bool

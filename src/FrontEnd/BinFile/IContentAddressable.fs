@@ -159,13 +159,3 @@ type IContentAddressable =
   /// </summary>
   abstract ToBinFilePointer: string -> BinFilePointer
 
-  /// <summary>
-  ///   Return a relocation target address of the given virtual address if there
-  ///   is a corresponding relocation entry.
-  /// </summary>
-  /// <param name="relocAddr">Virtual address be relocated.</param>
-  /// <returns>
-  ///   Returns a relocated address for a given virtual address.
-  /// </returns>
-  abstract GetRelocatedAddr: relocAddr: Addr -> Result<Addr, ErrorCase>
-
