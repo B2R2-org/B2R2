@@ -255,6 +255,33 @@ type BBLFactory (hdl: BinHandle,
     currentBBL.Internals.LiftedInstructions
     |> Array.exists (fun lifted -> lifted.Original.Address = addr)
 
+  /// We do *not* split BBLs when there is an instruction-level overlap. One may
+  /// still split such BBLs by finding a merging instruction, but it is not
+  /// desirable as it can introduce more bogus edges. For example, let BBL_1 and
+  /// BBL_2 be two BBLs that are located at address 1 and 2, respectively. BBL_1
+  /// has three instructions (i_1, i_3, i_5) where i_n is the instruction at
+  /// address n. BBL_2 has three instructions (i_2, i_3, i_5). And let i_5 be an
+  /// indirect jump instruction (jmp rcx), representing a switch-case statement.
+  /// One may split both BBLs at address 3, but it will introduce a bogus edge
+  /// reaching the jmp instruction, which makes our dataflow analysis fails to
+  /// detect the jump table for the jmp instruction. However, by *not* splitting
+  /// the BBLs and having the two independent BBLs untouched, we can still
+  /// detect the jump table for the jmp instruction (although the two BBLs have
+  /// an overlapping jmp instruction), and this allows us to perform a more
+  /// precise jump table analysis in the end.
+  ///
+  /// Nonetheless, we have to check if there is any subsequent leaders that have
+  /// a BBL-level overlap because when there is an instruction-level overlap,
+  /// our pairwise check will miss the overlapping BBLs.
+  let rec findOverlappingLeader currentBBL (leaders: Addr[]) idx =
+    if idx = leaders.Length then Error ErrorCase.ItemNotFound
+    else
+      let nextAddr = leaders[idx]
+      if (currentBBL :> IAddressable).Range.IsIncluding nextAddr then
+        if isInstructionAddress currentBBL nextAddr then Ok nextAddr
+        else findOverlappingLeader currentBBL leaders (idx + 1)
+      else Error ErrorCase.ItemNotFound
+
   /// Iterate over all the BBL leaders and split the BBLs if necessary.
   let commit () =
     let leaders = getSortedLeaders ()
@@ -262,35 +289,16 @@ type BBLFactory (hdl: BinHandle,
     for i = 0 to leaders.Length - 1 do
       if i = leaders.Length - 1 then ()
       else
-        let nextAddr = leaders[i+1]
         let currPPoint = ProgramPoint (leaders[i], 0)
-        let nextPPoint = ProgramPoint (nextAddr, 0)
         let currentBBL = bbls[currPPoint]
-        if (currentBBL :> IAddressable).Range.IsIncluding nextAddr
-          && isInstructionAddress currentBBL nextAddr
-        then
+        match findOverlappingLeader currentBBL leaders (i+1) with
+        | Ok nextAddr ->
+          let nextPPoint = ProgramPoint (nextAddr, 0)
           let fst, snd = currentBBL.Cut nextAddr
           bbls[currPPoint] <- fst
           bbls[nextPPoint] <- snd
           dividedEdges.Add ((currPPoint, nextPPoint))
-        else
-          (* We do *not* split BBLs when there is an instruction-level overlap.
-             One may still split such BBLs by finding a merging instruction, but
-             it is not desirable as it can introduce more bogus edges. For
-             example, let BBL_1 and BBL_2 be two BBLs that are located at
-             address 1 and 2, respectively. BBL_1 has three instructions (i_1,
-             i_3, i_5) where i_n is the instruction at address n. BBL_2 has
-             three instructions (i_2, i_3, i_5). And let i_5 be an indirect jump
-             instruction (jmp rcx), representing a switch-case statement. One
-             may split both BBLs at address 3, but it will introduce a bogus
-             edge reaching the jmp instruction, which makes our dataflow
-             analysis fails to detect the jump table for the jmp instruction.
-             However, by *not* splitting the BBLs and having the two independent
-             BBLs untouched, we can still detect the jump table for the jmp
-             instruction (although the two BBLs have an overlapping jmp
-             instruction), and this allows us to perform a more precise jump
-             table analysis in the end. *)
-          ()
+        | Error _ -> ()
     done
     Ok dividedEdges
 
@@ -329,7 +337,7 @@ type BBLFactory (hdl: BinHandle,
     | true, bbl -> Ok bbl
     | false, _ -> Error ErrorCase.ItemNotFound
 
-  /// Find an existing BBL that contains the given address.
+  /// Find an existing BBL that contains the given program point.
   member __.Find (ppoint: ProgramPoint) = bbls[ppoint]
 
 #if DEBUG
