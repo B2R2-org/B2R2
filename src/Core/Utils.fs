@@ -41,6 +41,10 @@ let impossible () =
   trace.ToString () |> printfn "%s"
   raise <| InvalidOperationException ()
 
+let fatalExit (msg: string) =
+  Console.Error.WriteLine msg
+  exit 1
+
 let inline (===) a b = LanguagePrimitives.PhysicalEquality a b
 
 let inline tupleResultToOpt result =

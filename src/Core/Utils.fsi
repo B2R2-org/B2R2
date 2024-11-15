@@ -31,6 +31,9 @@ val futureFeature: unit -> 'a
 /// Fatal error. This should never happen.
 val impossible: unit -> 'a
 
+/// Exit the whole program with a fatal error message.
+val fatalExit: string -> 'a
+
 /// Physical equality.
 val inline (===) : 'a -> 'a -> bool when 'a : not struct
 
