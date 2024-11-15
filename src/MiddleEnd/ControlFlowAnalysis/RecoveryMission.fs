@@ -430,7 +430,8 @@ and private TaskManager<'FnCtx,
         false
 
   and handleBogusJumpTableEntry fnAddr tblAddr idx =
-    if idx > 0 then
+    let currentIdx = jmptblNotes.GetPotentialEndPointIndex tblAddr
+    if idx > 0 && (idx - 1) <= currentIdx then
 #if CFGDEBUG
       dbglog ManagerTid "BogusJumpTableEntry"
       <| $"{tblAddr:x}:[{idx}] @ {fnAddr:x} is bogus so set the idx to {idx-1}"

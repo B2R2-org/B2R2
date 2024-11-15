@@ -102,6 +102,11 @@ type JmpTableRecoveryNotebook () =
     let newEndPoint = note.StartingPoint + uint64 (idx * note.EntrySize)
     note.ConfirmedEndPoint <- newEndPoint
 
+  /// Get the potential end point of the jump table.
+  member _.GetPotentialEndPointIndex tblAddr =
+    let note = notes[tblAddr]
+    int (note.PotentialEndPoint - note.StartingPoint) / note.EntrySize
+
   /// Set the potential end point of the jump table by giving the currently
   /// confirmed index.
   member _.SetPotentialEndPointByIndex tblAddr confirmedIdx =
