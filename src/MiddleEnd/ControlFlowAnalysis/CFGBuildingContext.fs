@@ -95,6 +95,7 @@ with
   member __.Reset cfg =
     __.Vertices.Clear ()
     __.CFG <- cfg
+    __.ForceFinish <- false
     (* N.B. We should keep the value of `NonReturningStatus` (i.e., leave the
        below line commented out) because we should be able to compare the
        difference before/after rebuilding the CFG. *)
