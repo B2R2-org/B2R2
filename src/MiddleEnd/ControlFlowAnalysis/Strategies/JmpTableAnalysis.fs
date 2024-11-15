@@ -316,7 +316,11 @@ type JmpTableAnalysis<'FnCtx,
   let checkValidity (ctx: CFGBuildingContext<'FnCtx, 'GlCtx>) result =
     match result with
     | Ok info ->
-      if ctx.BinHandle.File.IsValidAddr info.TableAddress then Ok info
+      let tblAddr = info.TableAddress
+      (* jump table should not have a relocation entry. *)
+      if ctx.BinHandle.File.IsValidAddr tblAddr &&
+        not (ctx.BinHandle.File.HasRelocationInfo tblAddr)
+      then Ok info
       else Error ErrorCase.InvalidMemoryRead
     | Error e -> Error e
 
