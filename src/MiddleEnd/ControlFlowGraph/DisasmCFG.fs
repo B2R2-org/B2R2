@@ -56,10 +56,17 @@ module private DisasmCFGHelper =
     let v2Addr = (v2.VData :> IAddressable).PPoint.Address
     v1Addr = v2Addr
 
-  let hasSingleIncomingEdge (g: LowUIRCFG) v =
+  /// There are three cases:
+  /// (1) it has only one incoming edge (mergable)
+  /// (2) it has many incoming edges from a single instruction (mergable)
+  /// (3) otherwise (not mergable)
+  /// Note that the second case can happen when it has multiple incoming edges
+  /// from intra nodes.
+  let isMergableWithPredecessors (g: LowUIRCFG) v =
     g.GetPreds v
-    |> Seq.filter (not << hasSameAddress v)
-    |> Seq.tryExactlyOne
+    |> Array.filter (not << hasSameAddress v)
+    |> Array.distinctBy (fun v -> (v.VData :> IAddressable).PPoint.Address)
+    |> Array.tryExactlyOne
     |> Option.isSome
 
   let hasManyOutgoingEdges (g: LowUIRCFG) v =
@@ -81,7 +88,7 @@ module private DisasmCFGHelper =
     let verticesToMerge = Dictionary ()
     for v in g.Vertices do
       match g.GetSuccs v |> Seq.tryExactlyOne with
-      | Some succ when hasSingleIncomingEdge g succ ->
+      | Some succ when isMergableWithPredecessors g succ ->
         (* Merge a caller node and its fallthrough node. *)
         if (v.VData :> IAbstractable<_>).IsAbstract then
           let pred = g.GetPreds v |> Seq.exactlyOne
@@ -203,6 +210,10 @@ module private DisasmCFGHelper =
     |> addDisasmCFGVertices vMap
     |> addDisasmCFGEdges vMap
 
+  let assertCFGValidity (g: DisasmCFG) =
+    assert (g.Unreachables.Length = 1)
+    g
+
 [<RequireQualifiedAccess>]
 module DisasmCFG =
   /// Constructor for DisasmCFG.
@@ -216,3 +227,6 @@ module DisasmCFG =
     g
     |> prepareDisasmCFGInfo
     |> createDisasmCFG g.ImplementationType
+#if DEBUG
+    |> assertCFGValidity
+#endif
