@@ -202,7 +202,7 @@ type JmpTableAnalysis<'FnCtx,
     | _ -> Error ErrorCase.ItemNotFound
 
   /// Expand the given expression by recursively substituting the subexpressions
-  /// with their definitions. The recursion stops after folloing the next
+  /// with their definitions. The recursion stops after following the next
   /// definitions.
   let rec symbExpand expandPhi findConstant findDef doNext e =
     match e with

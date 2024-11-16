@@ -178,11 +178,11 @@ and [<AllowNullLiteral>]
     -> BuildingCtxMsg<'FnCtx, 'GlCtx>
 
   /// Notify the manager that a new jump table entry is about to be recovered,
-  /// and get the decision whether to continue the analysis or not.
+  /// and get the decision about what to do next.
   abstract NotifyJumpTableRecovery:
        fnAddr: Addr
      * jmptbl: JmpTableInfo
-    -> bool
+    -> JumpTableRecoveryDecision
 
   /// Notify the manager that a bogus jump table entry is found, and get the
   /// decision whether to continue the analysis or not.
@@ -212,6 +212,17 @@ and [<AllowNullLiteral>]
 
   /// Update the user-defined global state of the TaskManager.
   abstract UpdateGlobalContext: updater: ('GlCtx -> 'GlCtx) -> unit
+
+/// Decision about what to do next in the jump table registration process.
+and JumpTableRecoveryDecision =
+  /// Continue the recovery process.
+  | GoRecovery
+  /// Error occurred during the recovery process, but we can recover it, so
+  /// reload the builder.
+  | StopRecoveryButReload
+  /// Stop the recovery process since this is a fatal error that we cannot
+  /// handle.
+  | StopRecoveryAndContinue
 
 /// Message containing the building context of a function.
 and BuildingCtxMsg<'FnCtx,

@@ -496,8 +496,9 @@ type CFGRecovery<'FnCtx,
 #endif
       ctx.ManagerChannel.NotifyJumpTableRecovery (ctx.FunctionAddress, jmptbl)
       |> function
-        | true -> pushJmpTblRecoveryAction ctx queue bblAddr jmptbl 0
-        | false -> StopAndReload
+        | GoRecovery -> pushJmpTblRecoveryAction ctx queue bblAddr jmptbl 0
+        | StopRecoveryButReload -> StopAndReload
+        | StopRecoveryAndContinue -> Continue
     | Error _ ->
 #if CFGDEBUG
       dbglog ctx.ThreadID "JumpTable" $"{insAddr:x} unknown pattern"

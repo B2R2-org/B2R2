@@ -266,6 +266,7 @@ and private TaskManager<'FnCtx,
     | InProgress ->
       msgbox[callerAddr].Add <| CalleeSuccess (calleeAddr, calleeInfo)
     | Initialized -> () (* Ignore since it has been reset. *)
+    | Invalid -> Utils.fatalExit $"[!] FATAL Error with {callerAddr:x}"
     | _ -> Utils.impossible ()
 
   and getAllStoppedCycle (cycleAddrs: Addr[]) =
@@ -403,31 +404,35 @@ and private TaskManager<'FnCtx,
       dbglog ManagerTid "JumpTable registered"
       <| jmptblNotes.GetNoteString jmptbl.TableAddress
 #endif
-      true
-    | Error note ->
+      GoRecovery
+    | Error oldNote ->
 #if CFGDEBUG
-      let str = jmptblNotes.GetNoteString note.StartingPoint
+      let str = jmptblNotes.GetNoteString oldNote.StartingPoint
       dbglog ManagerTid "JumpTable failed"
       <| $"{jmptbl.TableAddress:x} @ {jmptbl.InsAddr:x} overlapped with ({str})"
 #endif
-      let errTblAddr, entSize = note.StartingPoint, uint64 jmptbl.EntrySize
-      let endPoint =
-        if jmptbl.TableAddress = errTblAddr then errTblAddr - entSize
-        else jmptbl.TableAddress - entSize
-      jmptblNotes.SetPotentialEndPointByAddr errTblAddr endPoint
-#if CFGDEBUG
-      dbglog ManagerTid "JumpTable rollback"
-      <| $"changed potential endpoint to {note.PotentialEndPoint:x}"
-#endif
-      if note.HostFunctionAddr = fnAddr then false
+      let oldTblAddr, entSize = oldNote.StartingPoint, uint64 jmptbl.EntrySize
+      if jmptbl.TableAddress = oldTblAddr then
+        (* We found two different jmp instructions for the same jump table, in
+           which case we cannot decide which one is wrong. Thus, we just ignore
+           this error. *)
+        StopRecoveryAndContinue
       else
-        let hostAddr = note.HostFunctionAddr
-        let builder = builders[hostAddr]
-        if builder.BuilderState <> InProgress then
-          builder.Reset builders.CFGConstructor
-          addTask builder.Context.FunctionAddress builder.Mode
-        else msgbox[hostAddr].Add BuilderReset
-        false
+        let endPoint = jmptbl.TableAddress - entSize
+        jmptblNotes.SetPotentialEndPointByAddr oldTblAddr endPoint
+#if CFGDEBUG
+        dbglog ManagerTid "JumpTable rollback"
+        <| $"changed potential endpoint to {oldNote.PotentialEndPoint:x}"
+#endif
+        if oldNote.HostFunctionAddr <> fnAddr then
+          let hostAddr = oldNote.HostFunctionAddr
+          let builder = builders[hostAddr]
+          if builder.BuilderState <> InProgress then
+            builder.Reset builders.CFGConstructor
+            addTask builder.Context.FunctionAddress builder.Mode
+          else msgbox[hostAddr].Add BuilderReset
+        else ()
+        StopRecoveryButReload
 
   and handleBogusJumpTableEntry fnAddr tblAddr idx =
     let currentIdx = jmptblNotes.GetPotentialEndPointIndex tblAddr
