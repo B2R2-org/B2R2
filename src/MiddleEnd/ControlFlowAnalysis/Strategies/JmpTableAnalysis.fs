@@ -27,6 +27,7 @@ namespace B2R2.MiddleEnd.ControlFlowAnalysis.Strategies
 open B2R2
 open B2R2.BinIR
 open B2R2.BinIR.SSA
+open B2R2.FrontEnd.BinFile
 open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.MiddleEnd.ControlFlowAnalysis
@@ -313,14 +314,18 @@ type JmpTableAnalysis<'FnCtx,
       findSymbPattern expandPhiFromSSACFG findConstant findDef insAddr 0 jmpExpr
     | Error e -> Error e
 
+  /// Jump table always belongs to either code or read-only data section.
+  let checkBelongingSection ctx (addr: Addr) =
+    ctx.BinHandle.File.GetSections addr
+    |> Array.exists (fun sec ->
+      sec.Kind = SectionKind.CodeSection ||
+      sec.Kind = SectionKind.ReadOnlyDataSection)
+
   let checkValidity (ctx: CFGBuildingContext<'FnCtx, 'GlCtx>) result =
     match result with
     | Ok info ->
       let tblAddr = info.TableAddress
-      (* jump table should not have a relocation entry. *)
-      if ctx.BinHandle.File.IsValidAddr tblAddr &&
-        not (ctx.BinHandle.File.HasRelocationInfo tblAddr)
-      then Ok info
+      if checkBelongingSection ctx tblAddr then Ok info
       else Error ErrorCase.InvalidMemoryRead
     | Error e -> Error e
 
