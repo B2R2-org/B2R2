@@ -28,14 +28,18 @@ open B2R2
 
 /// Kinds of sections.
 type SectionKind =
-  /// Executable section.
-  | ExecutableSection = 1
-  /// Writable section.
-  | WritableSection = 2
+  /// Executable code section.
+  | CodeSection = 1
   /// Linkage table, such as PLT, section.
-  | LinkageTableSection = 3
-  /// Extra section.
-  | ExtraSection = 4
+  | LinkageTableSection = 2
+  /// Data section that contains initialized data, e.g., .data section.
+  | InitializedDataSection = 3
+  /// Data section that contains uninitialized data, e.g., .bss section.
+  | UninitializedDataSection = 4
+  /// Read-only data section, e.g., .rodata section.
+  | ReadOnlyDataSection = 5
+  /// Extra section that does not fit into the above categories.
+  | ExtraSection = 6
 
 /// A section object defined in a file-format-agnostic way. A Section in B2R2
 /// should be located inside a segment.

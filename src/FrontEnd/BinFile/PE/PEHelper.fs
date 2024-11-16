@@ -61,9 +61,9 @@ let inline addrFromRVA baseAddr rva =
 
 let secFlagToSectionKind (flags: SectionCharacteristics) =
   if flags.HasFlag SectionCharacteristics.MemExecute then
-    SectionKind.ExecutableSection
+    SectionKind.CodeSection
   elif flags.HasFlag SectionCharacteristics.MemWrite then
-    SectionKind.WritableSection
+    SectionKind.InitializedDataSection
   else
     SectionKind.ExtraSection
 

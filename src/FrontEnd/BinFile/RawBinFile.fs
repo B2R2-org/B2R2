@@ -142,7 +142,7 @@ type RawBinFile (path, bytes: byte[], isa, baseAddrOpt) =
     member __.GetSections () =
       [| { Address = baseAddr
            FileOffset = 0u
-           Kind = SectionKind.ExecutableSection
+           Kind = SectionKind.CodeSection
            Size = uint32 size
            Name = "" } |]
 

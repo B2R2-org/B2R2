@@ -144,7 +144,7 @@ let secFlagToSectionKind isExecutable = function
   | SectionType.S_LAZY_SYMBOL_POINTERS
   | SectionType.S_SYMBOL_STUBS -> SectionKind.LinkageTableSection
   | _ ->
-    if isExecutable then SectionKind.ExecutableSection
+    if isExecutable then SectionKind.CodeSection
     else SectionKind.ExtraSection
 
 let machSectionToSection segMap (sec: MachSection) =
@@ -157,20 +157,18 @@ let machSectionToSection segMap (sec: MachSection) =
     Size = uint32 sec.SecSize
     Name = sec.SecName }
 
-let getSectionsByAddr secs segMap addr =
-  secs
-  |> Array.tryFind (fun s -> addr >= s.SecAddr && addr < s.SecAddr + s.SecSize)
-  |> function
-    | Some s -> [| machSectionToSection segMap s |]
-    | None -> [||]
-
-let getSectionsByName secs segMap name =
-  match secs |> Array.tryFind (fun s -> s.SecName = name) with
-  | Some s -> [| machSectionToSection segMap s |]
-  | None -> [||]
-
 let getSections secs segMap =
   secs
+  |> Array.map (machSectionToSection segMap)
+
+let getSectionsByAddr secs segMap addr =
+  secs
+  |> Array.filter (fun s -> addr >= s.SecAddr && addr < s.SecAddr + s.SecSize)
+  |> Array.map (machSectionToSection segMap)
+
+let getSectionsByName secs segMap name =
+  secs
+  |> Array.filter (fun s -> s.SecName = name)
   |> Array.map (machSectionToSection segMap)
 
 let getTextSection (secs: MachSection[]) segMap =

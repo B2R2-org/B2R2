@@ -108,8 +108,8 @@ let sectionIdToKind id =
   match id with
   | SectionId.Table
   | SectionId.Memory
-  | SectionId.Global -> SectionKind.WritableSection
-  | SectionId.Code -> SectionKind.ExecutableSection
+  | SectionId.Global -> SectionKind.InitializedDataSection
+  | SectionId.Code -> SectionKind.CodeSection
   | _ -> SectionKind.ExtraSection
 
 let secSummaryToGenericSection (secSumm: SectionSummary) =

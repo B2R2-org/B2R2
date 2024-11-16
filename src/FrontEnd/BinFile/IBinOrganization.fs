@@ -42,8 +42,9 @@ type IBinOrganization =
   /// </summary>
   /// <param name="addr">The address that belongs to a section.</param>
   /// <returns>
-  ///   An array of sections. This function returns a singleton if there exists
-  ///   a corresponding section. Otherwise, it returns an empty array.
+  ///   An array of sections that contain the given address. This function
+  ///   returns an empty array if there is no section that contains the given
+  ///   address.
   /// </returns>
   abstract GetSections: addr: Addr -> Section[]
 

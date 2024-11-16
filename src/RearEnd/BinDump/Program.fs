@@ -147,7 +147,7 @@ let private dumpSections hdl (opts: BinDumpOpts) (sections: seq<Section>) cfg =
     if s.Size > 0u then
       out.PrintSectionTitle (String.wrapParen s.Name)
       match s.Kind with
-      | SectionKind.ExecutableSection ->
+      | SectionKind.CodeSection ->
         codeprn.LiftingUnit.Parser.OperationMode <- initialMode
         match hdl.File with
         | :? WasmBinFile as file ->

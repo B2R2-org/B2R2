@@ -134,9 +134,11 @@ let getRelocSymbols relocInfo =
 let secFlagToSectionKind sec =
   if sec.SecFlags &&& SectionFlag.SHF_EXECINSTR = SectionFlag.SHF_EXECINSTR then
     if PLT.isPLTSectionName sec.SecName then SectionKind.LinkageTableSection
-    else SectionKind.ExecutableSection
+    else SectionKind.CodeSection
   elif sec.SecFlags &&& SectionFlag.SHF_WRITE = SectionFlag.SHF_WRITE then
-    SectionKind.WritableSection
+    if sec.SecName = Section.SecBSS then SectionKind.UninitializedDataSection
+    else SectionKind.InitializedDataSection
+  elif sec.SecName = Section.SecROData then SectionKind.ReadOnlyDataSection
   else
     SectionKind.ExtraSection
 
@@ -153,18 +155,14 @@ let getSections shdrs =
 
 let getSectionsByAddr shdrs addr =
   shdrs
-  |> Array.tryFind (fun section ->
+  |> Array.filter (fun section ->
     section.SecAddr <= addr && addr < section.SecAddr + section.SecSize)
-  |> function
-    | Some section -> [| elfSectionToSection section |]
-    | None -> [||]
+  |> Array.map elfSectionToSection
 
 let getSectionsByName shdrs name =
   shdrs
-  |> Array.tryFind (fun section -> section.SecName = name)
-  |> function
-    | Some section -> [| elfSectionToSection section |]
-    | None -> [||]
+  |> Array.filter (fun section -> section.SecName = name)
+  |> Array.map elfSectionToSection
 
 let getTextSection shdrs =
   shdrs

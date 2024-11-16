@@ -25,7 +25,6 @@
 namespace B2R2.FrontEnd.BinFile.ELF
 
 open System
-open System.IO
 open B2R2
 open B2R2.FrontEnd.BinFile.FileHelper
 
@@ -224,6 +223,7 @@ type ELFSection = {
 
 module internal Section =
   let [<Literal>] SecText = ".text"
+  let [<Literal>] SecBSS = ".bss"
   let [<Literal>] SecROData = ".rodata"
 
   /// Return the section file offset and size, which represents the section
