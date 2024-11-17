@@ -123,9 +123,9 @@ and private TaskManager<'FnCtx,
         let builder = builders.GetOrCreateBuilder agent entryPoint mode
 #if CFGDEBUG
         let jt =
-          match builder.Context.JumpTableRecoveryStatus with
-          | Some (addr, idx) -> $"!{addr:x}[{idx}]"
-          | None -> "n/a"
+          match builder.Context.JumpTableRecoveryStatus.TryPeek () with
+          | true, (addr, idx) -> $"!{addr:x}[{idx}]"
+          | false, _ -> "n/a"
         dbglog ManagerTid (nameof InvalidateBuilder) $"{jt} @ {entryPoint:x}"
 #endif
         rollbackOrPropagateInvalidation entryPoint builder
@@ -176,8 +176,8 @@ and private TaskManager<'FnCtx,
     AddTask (entryPoint, mode) |> agent.Post
 
   and rollbackOrPropagateInvalidation entryPoint builder =
-    match builder.Context.JumpTableRecoveryStatus with
-    | Some (tblAddr, idx) ->
+    match builder.Context.JumpTableRecoveryStatus.TryPeek () with
+    | true, (tblAddr, idx) ->
       assert (idx > 0)
 #if CFGDEBUG
       dbglog ManagerTid "rollback" $"{builder.Context.FunctionAddress:x}"
@@ -185,7 +185,7 @@ and private TaskManager<'FnCtx,
       jmptblNotes.SetPotentialEndPointByIndex tblAddr (idx - 1)
       resetBuilder builder
       addTask builder.Context.FunctionAddress builder.Mode
-    | None ->
+    | false, _ ->
       makeInvalid builder
       dependenceMap.RemoveFunctionAndGetDependentAddrs entryPoint false
       |> Array.iter propagateInvalidation

@@ -52,7 +52,7 @@ type ExternalFnCFGBuilder<'FnCtx,
       BBLFactory = null
       ForceFinish = false
       NonReturningStatus = noretStatus
-      JumpTableRecoveryStatus = None
+      JumpTableRecoveryStatus = null
       JumpTables = null
       Callers = HashSet ()
       IntraCallTable = null

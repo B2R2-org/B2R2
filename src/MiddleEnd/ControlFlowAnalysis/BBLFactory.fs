@@ -192,24 +192,24 @@ type BBLFactory (hdl: BinHandle,
   let addInterProceduralLeader addr =
     interProceduralLeaders.TryAdd (addr, ()) |> ignore
 
-  let addIRBBL domJT liftedInss lblMap prevInsNdx prevStmtNdx endNdx =
+  let addIRBBL liftedInss lblMap prevInsNdx prevStmtNdx endNdx =
     let instrs = extractInstrs liftedInss (prevInsNdx, prevStmtNdx) endNdx
     let ppoint = ProgramPoint (instrs[0].Original.Address, prevStmtNdx)
     let lastIns = instrs[instrs.Length - 1]
     let lblMap = buildLabelMap lblMap lastIns
-    let bbl = LowUIRBasicBlock.CreateRegular (instrs, ppoint, lblMap, domJT)
+    let bbl = LowUIRBasicBlock.CreateRegular (instrs, ppoint, lblMap)
     if prevStmtNdx = 0 then addInterProceduralLeader ppoint.Address else ()
     bbls.TryAdd (ppoint, bbl) |> ignore
 
-  let rec gatherIntraBBLs domJT liftedInss lblMap prevInsNdx prevStmtNdx idxs =
+  let rec gatherIntraBBLs liftedInss lblMap prevInsNdx prevStmtNdx idxs =
     match idxs with
     | (insNdx, stmtNdx) as endNdx :: tl ->
-      addIRBBL domJT liftedInss lblMap prevInsNdx prevStmtNdx (Some endNdx)
-      gatherIntraBBLs domJT liftedInss lblMap insNdx stmtNdx tl
+      addIRBBL liftedInss lblMap prevInsNdx prevStmtNdx (Some endNdx)
+      gatherIntraBBLs liftedInss lblMap insNdx stmtNdx tl
     | [] ->
-      addIRBBL domJT liftedInss lblMap prevInsNdx prevStmtNdx None
+      addIRBBL liftedInss lblMap prevInsNdx prevStmtNdx None
 
-  let liftBlock domJT liftingUnit leaderAddr instrs insCount =
+  let liftBlock liftingUnit leaderAddr instrs insCount =
     assert (insCount <> 0)
     addInterProceduralLeader leaderAddr
     let arr = Array.zeroCreate insCount
@@ -217,12 +217,12 @@ type BBLFactory (hdl: BinHandle,
     let struct (lblMap, intraLeaders) = scanIntraLeaders arr
     if intraLeaders.Count = 0 then
       let ppoint = ProgramPoint (leaderAddr, 0)
-      let bbl = LowUIRBasicBlock.CreateRegular (arr, ppoint, domJT)
+      let bbl = LowUIRBasicBlock.CreateRegular (arr, ppoint)
       bbls.TryAdd (ppoint, bbl) |> ignore
     else
-      gatherIntraBBLs domJT arr lblMap 0 0 (Seq.toList intraLeaders)
+      gatherIntraBBLs arr lblMap 0 0 (Seq.toList intraLeaders)
 
-  let bblLifter domJT (channel: BufferBlock<Addr * Instruction list * int>) =
+  let bblLifter (channel: BufferBlock<Addr * Instruction list * int>) =
     let liftingUnit = hdl.NewLiftingUnit ()
     let mutable isSuccessful = true
     let mutable canContinue = true
@@ -234,7 +234,7 @@ type BBLFactory (hdl: BinHandle,
           | true, (_, _, -1) -> (* error case*)
             isSuccessful <- false; canContinue <- false
           | true, (leaderAddr, instrs, insCount) ->
-            try liftBlock domJT liftingUnit leaderAddr instrs insCount
+            try liftBlock liftingUnit leaderAddr instrs insCount
             with e ->
 #if CFGDEBUG
               dbglog ManagerTid (nameof BBLFactory)
@@ -317,11 +317,11 @@ type BBLFactory (hdl: BinHandle,
   /// this function returns a list of divided edges, which are pairs of BBL
   /// addresses that have been created from a single BBL by splitting it. A BBL
   /// can be divided if there is a new control flow target within the BBL.
-  member __.ScanBBLs domJT mode addrs =
+  member __.ScanBBLs mode addrs =
     task {
       let channel = BufferBlock<Addr * Instruction list * int> ()
       instrProducer channel mode addrs |> ignore
-      let! isSuccessful = bblLifter domJT channel
+      let! isSuccessful = bblLifter channel
       if isSuccessful then
         return if allowOverlap then Ok (List ()) else commit ()
       else return Error ErrorCase.ParsingFailure

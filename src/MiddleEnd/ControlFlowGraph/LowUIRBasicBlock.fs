@@ -32,7 +32,10 @@ open B2R2.BinIR
 open B2R2.BinIR.LowUIR
 
 /// Basic block type for IR-level CFGs.
-type LowUIRBasicBlock internal (pp, funcAbs, liftedInss, lblMap, domJT) =
+type LowUIRBasicBlock internal (pp, funcAbs, liftedInss, lblMap) =
+  /// Dominating jump table.
+  let mutable domJT = None
+
   let isTerminatingStmt stmt =
     match stmt.S with
     | Jmp _ | CJmp _ | InterJmp _ | InterCJmp _
@@ -55,7 +58,9 @@ type LowUIRBasicBlock internal (pp, funcAbs, liftedInss, lblMap, domJT) =
   /// dominated by the indirect jump instruction that uses this jump table
   /// entry. This property is None if there's no such dominating jump table
   /// entry.
-  member __.DominatingJumpTableEntry with get(): (Addr * int) option = domJT
+  member __.DominatingJumpTableEntry
+    with get(): (Addr * int) option = domJT
+     and set(v) = domJT <- v
 
   /// Cut the basic block at the given address and return the two new basic
   /// blocks. This function does not modify the original basic block. We assume
@@ -72,8 +77,8 @@ type LowUIRBasicBlock internal (pp, funcAbs, liftedInss, lblMap, domJT) =
       let cutPPoint = ProgramPoint (cutPoint, 0)
       let fstLabelMap = ImmutableDictionary.CreateRange [||]
       let sndLabelMap = ImmutableDictionary.CreateRange (Seq.toArray lblMap)
-      LowUIRBasicBlock.CreateRegular (fstInstrs, pp, fstLabelMap, domJT),
-      LowUIRBasicBlock.CreateRegular (sndInstrs, cutPPoint, sndLabelMap, domJT)
+      LowUIRBasicBlock.CreateRegular (fstInstrs, pp, fstLabelMap),
+      LowUIRBasicBlock.CreateRegular (sndInstrs, cutPPoint, sndLabelMap)
     else raise AbstractBlockAccessException
 
   interface ILowUIRBasicBlock with
@@ -129,15 +134,15 @@ type LowUIRBasicBlock internal (pp, funcAbs, liftedInss, lblMap, domJT) =
     member __.Equals (other: LowUIRBasicBlock) =
       (__ :> IAddressable).PPoint = (other :> IAddressable).PPoint
 
-  static member CreateRegular (liftedInss, pp, domJT) =
-    LowUIRBasicBlock (pp, null, liftedInss, ImmutableDictionary.Empty, domJT)
+  static member CreateRegular (liftedInss, pp) =
+    LowUIRBasicBlock (pp, null, liftedInss, ImmutableDictionary.Empty)
 
-  static member CreateRegular (liftedInss, pp, lblMap, domJT) =
-    LowUIRBasicBlock (pp, null, liftedInss, lblMap, domJT)
+  static member CreateRegular (liftedInss, pp, lblMap) =
+    LowUIRBasicBlock (pp, null, liftedInss, lblMap)
 
   static member CreateAbstract (pp, summary) =
     assert (not (isNull summary))
-    LowUIRBasicBlock (pp, summary, [||], ImmutableDictionary.Empty, None)
+    LowUIRBasicBlock (pp, summary, [||], ImmutableDictionary.Empty)
 
 /// Interface for a basic block containing a sequence of lifted LowUIR
 /// statements.

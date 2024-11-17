@@ -62,7 +62,7 @@ type CFGBuildingContext<'FnCtx,
   /// Is this function a no-return function?
   mutable NonReturningStatus: NonReturningStatus
   /// Which jump table entry is currently being recovered? (table addr, index)
-  mutable JumpTableRecoveryStatus: (Addr * int) option
+  JumpTableRecoveryStatus: Stack<Addr * int>
   /// Jump tables associated with this function.
   JumpTables: List<JmpTableInfo>
   /// Table for maintaining intra-function call information of this function.
@@ -100,7 +100,7 @@ with
        below line commented out) because we should be able to compare the
        difference before/after rebuilding the CFG. *)
     (* __.NonReturningStatus <- UnknownNoRet *)
-    __.JumpTableRecoveryStatus <- None
+    __.JumpTableRecoveryStatus.Clear ()
     __.JumpTables.Clear ()
     __.IntraCallTable.Reset ()
     __.Callers.Clear ()

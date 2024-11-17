@@ -73,7 +73,7 @@ type CFGRecovery<'FnCtx,
           | EndTblRec _ -> 0 }
 
   let scanBBLs ctx mode entryPoints =
-    ctx.BBLFactory.ScanBBLs ctx.JumpTableRecoveryStatus mode entryPoints
+    ctx.BBLFactory.ScanBBLs mode entryPoints
     |> Async.AwaitTask
     |> Async.RunSynchronously
 
@@ -81,7 +81,11 @@ type CFGRecovery<'FnCtx,
     match ctx.Vertices.TryGetValue ppoint with
     | true, v -> v
     | false, _ ->
-      let v, g = ctx.CFG.AddVertex (ctx.BBLFactory.Find ppoint)
+      let bbl = ctx.BBLFactory.Find ppoint
+      match ctx.JumpTableRecoveryStatus.TryPeek () with
+      | true, status -> bbl.DominatingJumpTableEntry <- Some status
+      | false, _ -> ()
+      let v, g = ctx.CFG.AddVertex bbl
       ctx.CFG <- g
       ctx.Vertices[ppoint] <- v
       markVertexAsPendingForAnalysis useSSA ctx v
@@ -134,13 +138,11 @@ type CFGRecovery<'FnCtx,
   let connectEdge ctx srcVertex dstVertex edgeKind =
     ctx.CFG <- ctx.CFG.AddEdge (srcVertex, dstVertex, edgeKind)
     markVertexAsPendingForAnalysis useSSA ctx dstVertex
-
 #if CFGDEBUG
     let edgeStr = CFGEdgeKind.toString edgeKind
     let srcPPoint = (srcVertex.VData :> IAddressable).PPoint
     let dstPPoint = (dstVertex.VData :> IAddressable).PPoint
-    dbglog ctx.ThreadID "ConnectEdge"
-    <| $"{srcPPoint} -> {dstPPoint} ({edgeStr})"
+    dbglog ctx.ThreadID "ConnectEdge" $"{srcPPoint} -> {dstPPoint} ({edgeStr})"
 #endif
 
   let maskedPPoint ctx targetAddr =
@@ -514,8 +516,8 @@ type CFGRecovery<'FnCtx,
     let srcVertex = getVertex ctx (ProgramPoint (srcAddr, 0))
     let fnAddr = ctx.FunctionAddress
     if dstAddr < fnAddr || not (isExecutableAddr ctx dstAddr) then
-      match ctx.JumpTableRecoveryStatus with
-      | Some (tblAddr, 0) ->
+      match ctx.JumpTableRecoveryStatus.TryPeek () with
+      | true, (tblAddr, 0) ->
         (* The first jump table entry was invalid. For example, the target could
            be outside the boundary of the current function. In this case, we
            conclude that the indirect jump is not using a jump table, and thus,
@@ -665,7 +667,7 @@ type CFGRecovery<'FnCtx,
           dbglog ctx.ThreadID (nameof StartTblRec)
           <| $"{jmptbl.InsAddr:x}[{idx}] -> {dstAddr:x} @ {fnAddr:x}"
 #endif
-          ctx.JumpTableRecoveryStatus <- Some (jmptbl.TableAddress, idx)
+          ctx.JumpTableRecoveryStatus.Push (jmptbl.TableAddress, idx)
           recoverJumpTableEntry ctx queue srcAddr dstAddr
         | EndTblRec (jmptbl, idx) ->
 #if CFGDEBUG
@@ -674,7 +676,7 @@ type CFGRecovery<'FnCtx,
 #endif
           jmptbl.NumEntries <- idx + 1
           ctx.JumpTables.Add jmptbl
-          ctx.JumpTableRecoveryStatus <- None
+          ctx.JumpTableRecoveryStatus.Pop () |> ignore
           sendJmpTblRecoverySuccess ctx queue jmptbl idx
       with e ->
         Console.Error.WriteLine $"OnAction failed:\n{e}"

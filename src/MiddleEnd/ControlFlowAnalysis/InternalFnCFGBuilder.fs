@@ -125,7 +125,7 @@ type InternalFnCFGBuilder<'FnCtx,
         BBLFactory = bblFactory
         ForceFinish = false
         NonReturningStatus = UnknownNoRet
-        JumpTableRecoveryStatus = None
+        JumpTableRecoveryStatus = Stack ()
         JumpTables = List ()
         Callers = HashSet ()
         IntraCallTable = IntraCallTable ()
