@@ -343,12 +343,15 @@ and private TaskManager<'FnCtx,
       if consumePendingMessages builder entryPoint then ()
       else
         finalizeBuilder builder entryPoint
-    | ContinueAndReloadCallers ->
+    | ContinueAndReloadCallers prevStatus ->
 #if CFGDEBUG
       dbglog ManagerTid "HandleResult"
       <| $"{entryPoint:x}: finished, but result changed"
 #endif
-      if consumePendingMessages builder entryPoint then ()
+      if consumePendingMessages builder entryPoint then
+        (* We need to recover the previous status so that we can detect the
+           change again. *)
+        builders[entryPoint].Context.NonReturningStatus <- prevStatus
       else
         reloadConfirmedCallers entryPoint
         finalizeBuilder builder entryPoint

@@ -25,6 +25,7 @@
 namespace B2R2.MiddleEnd.ControlFlowAnalysis
 
 open B2R2
+open B2R2.MiddleEnd.ControlFlowGraph
 
 /// The result obtained from recovering a CFG.
 type CFGResult =
@@ -33,7 +34,7 @@ type CFGResult =
   /// We have successfully handled the task, but we found the function's
   /// internal state has been changed, so we need to reload caller functions,
   /// too. This result is only used in the post-recovery phase.
-  | ContinueAndReloadCallers
+  | ContinueAndReloadCallers of previousStatus: NonReturningStatus
   /// We need to postpone the current task because the current function depends
   /// on other function(s) that have not been recovered yet.
   | Wait

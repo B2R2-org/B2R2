@@ -561,7 +561,7 @@ type CFGRecovery<'FnCtx,
     ctx.UnwindingBytes <- summarizer.ComputeUnwindingAmount ctx
     match oldNoRetStatus, newNoRetStatus with
     | NoRet, NotNoRet
-    | NoRet, ConditionalNoRet _ -> ContinueAndReloadCallers
+    | NoRet, ConditionalNoRet _ -> ContinueAndReloadCallers oldNoRetStatus
     | _ -> Continue
 
   new (useSSA) =
