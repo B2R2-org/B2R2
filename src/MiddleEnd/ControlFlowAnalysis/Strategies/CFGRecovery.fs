@@ -512,10 +512,18 @@ type CFGRecovery<'FnCtx,
     | FailedBuilding -> true
     | _ -> false
 
+  let isWithinFunction ctx fnAddr dstAddr =
+    match ctx.ManagerChannel.GetNextFunctionAddress fnAddr with
+    | Some nextFnAddr -> dstAddr < nextFnAddr
+    | None -> true
+
   let recoverJumpTableEntry ctx queue srcAddr dstAddr =
     let srcVertex = getVertex ctx (ProgramPoint (srcAddr, 0))
     let fnAddr = ctx.FunctionAddress
-    if dstAddr < fnAddr || not (isExecutableAddr ctx dstAddr) then
+    if dstAddr < fnAddr
+      || not (isExecutableAddr ctx dstAddr)
+      || not (isWithinFunction ctx fnAddr dstAddr)
+    then
       match ctx.JumpTableRecoveryStatus.TryPeek () with
       | true, (tblAddr, 0) ->
         (* The first jump table entry was invalid. For example, the target could

@@ -451,7 +451,19 @@ and private TaskManager<'FnCtx,
 #endif
       jmptblNotes.SetPotentialEndPointByIndex tblAddr (idx - 1)
       true
-    else false
+    elif idx = 0 && idx < currentIdx then
+#if CFGDEBUG
+      dbglog ManagerTid "BogusJumpTableEntry"
+      <| $"{tblAddr:x}:[{idx}] @ {fnAddr:x} is bogus so set the idx to 0"
+#endif
+      jmptblNotes.SetPotentialEndPointByIndex tblAddr 0
+      true
+    else
+#if CFGDEBUG
+      dbglog ManagerTid "BogusJumpTableEntry"
+      <| $"{tblAddr:x}:[{idx}] @ {fnAddr:x} is bogus but didn't rollback"
+#endif
+      false
 
   and handleJumpTableRecoverySuccess fnAddr tblAddr idx nextJumpTarget =
 #if CFGDEBUG
