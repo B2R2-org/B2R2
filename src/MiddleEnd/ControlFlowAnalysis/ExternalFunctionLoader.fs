@@ -51,17 +51,22 @@ module internal ELF = begin
 
   /// Known non-returning function names.
   let private knownNoReturnFuncs =
-    HashSet [| "__assert_fail"
+    HashSet [| "__assert"
+               "__assert_fail"
                "__stack_chk_fail"
                "abort"
                "_abort"
                "exit"
                "_exit"
                "__longjmp_chk"
+               "__cxa_rethrow"
                "__cxa_throw"
                "_Unwind_Resume"
                "_ZSt20__throw_length_errorPKc"
+               "_gfortran_runtime_error"
+               "_gfortran_runtime_error_at"
                "_gfortran_stop_numeric"
+               "_gfortran_stop_string"
                "__libc_start_main"
                "longjmp" |]
 
