@@ -147,6 +147,11 @@ and private TaskManager<'FnCtx,
         builders.TryGetBuilder addr
         |> toBuilderMessage
         |> ch.Reply
+      | GetNextFunctionAddress (addr, ch) ->
+        builders.TryGetNextBuilder addr
+        |> Result.map (fun builder -> builder.EntryPoint)
+        |> Result.toOption
+        |> ch.Reply
       | NotifyJumpTableRecovery (fnAddr, jmptbl, ch) ->
         ch.Reply <| handleJumpTableRecoveryRequest fnAddr jmptbl
       | NotifyBogusJumpTableEntry (fnAddr, tblAddr, idx, ch) ->

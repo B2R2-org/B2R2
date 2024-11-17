@@ -48,6 +48,8 @@ type TaskMessage<'FnCtx,
   /// Retrieve the building context of a function.
   | GetBuildingContext of
     Addr * AgentReplyChannel<BuildingCtxMsg<'FnCtx, 'GlCtx>>
+  /// Get the next function of the given function address.
+  | GetNextFunctionAddress of Addr * AgentReplyChannel<Addr option>
   /// Notify the manager that a new jump table entry is about to be recovered.
   /// The manager returns the decision about the next action.
   | NotifyJumpTableRecovery of

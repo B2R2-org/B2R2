@@ -56,6 +56,9 @@ type InternalFnCFGBuilder<'FnCtx,
         member _.GetBuildingContext (addr) =
           agent.PostAndReply (fun _ ch -> GetBuildingContext (addr, ch))
 
+        member _.GetNextFunctionAddress (addr) =
+          agent.PostAndReply (fun _ ch -> GetNextFunctionAddress (addr, ch))
+
         member _.NotifyJumpTableRecovery (fnAddr, tblInfo) =
           agent.PostAndReply (fun _ ch ->
             NotifyJumpTableRecovery (fnAddr, tblInfo, ch))

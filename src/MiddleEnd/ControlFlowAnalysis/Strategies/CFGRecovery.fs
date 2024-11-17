@@ -681,7 +681,8 @@ type CFGRecovery<'FnCtx,
         FailStop ErrorCase.FailedToRecoverCFG
 
     member _.OnFinish (ctx) =
-      match ctx.FindOverlap () with
+      let nextFn = ctx.ManagerChannel.GetNextFunctionAddress ctx.FunctionAddress
+      match ctx.FindOverlap nextFn with
       | Some v ->
 #if CFGDEBUG
         let addr = v.VData.Internals.PPoint.Address

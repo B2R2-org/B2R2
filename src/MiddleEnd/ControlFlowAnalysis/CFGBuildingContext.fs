@@ -117,13 +117,44 @@ with
     | true, (sum, _) -> dict[k] <- (sum + delta, v)
     | false, _ -> dict[k] <- (delta, v)
 
-  /// Find the first overlapping vertex in the CFG. If there's no overlap,
-  /// return None. This function will scan the vertices in the ascending order
-  /// of addresses. This is crucial for the correctness of the rollback
-  /// mechanism as we need to figure out which vertex is causing the overlap.
-  /// Since we run this function after fully over-appriximating the CFG, we can
-  /// assume that the first overlapping vertex is the problematic one.
-  member __.FindOverlap () =
+  /// Search for the first overlapping vertex in the CFG by reverse traversing
+  /// the vertices. Since there can be many vertices beyond the range of the
+  /// current function, we should return the first one (with the smallest
+  /// addrress).
+  member private __.FindFunctionOverlap lst nextFnAddr idx res =
+    if idx = 0 then
+#if DEBUG
+      (* This is a fatal error when our function identification or noreturn
+         analysis failed. *)
+      Utils.impossible ()
+#else
+      None (* Ignore this error in release mode. *)
+#endif
+    else
+      let _, v = (lst: SortedList<_, _ * IVertex<LowUIRBasicBlock>>).Values[idx]
+      if v.VData.Internals.Range.Max >= nextFnAddr then
+        __.FindFunctionOverlap lst nextFnAddr (idx - 1) v
+      elif isNull res then None
+      else Some res
+
+  /// Find the first overlapping vertex in the CFG. We consider two cases: (1)
+  /// two vertices share the same address, or (2) a vertex is beyond the range
+  /// of the current function. If there's no such an overlap, return None.
+  ///
+  /// This function will check for the first case by traversing the vertices in
+  /// the ascending order of addresses. This is crucial for the correctness of
+  /// the rollback mechanism as we need to figure out which vertex is causing
+  /// the overlap. Since we run this function after fully over-appriximating the
+  /// CFG, we can assume that the first overlapping vertex is the problematic
+  /// one.
+  ///
+  /// We then check the second case by assuming that the current function's
+  /// boundary is determined by the next function's address. If there's a vertex
+  /// that is located beyond the boundary, we consider it as an overlap.
+  ///
+  /// This function will return only the first overlapping vertex even though
+  /// there may be multiple overlapping vertices.
+  member __.FindOverlap (nextFnAddrOpt) =
     let vertices = __.CFG.Vertices
     let dict = Dictionary (vertices.Length * 2)
     for v in vertices do
@@ -145,7 +176,12 @@ with
         hasOverlap <- true
         overlapVertex <- v
       else ()
-    if hasOverlap then Some overlapVertex else None
+    if hasOverlap then Some overlapVertex
+    else
+      match nextFnAddrOpt with
+      | Some nextFnAddr ->
+        __.FindFunctionOverlap lst nextFnAddr (lst.Count - 1) null
+      | None -> None
 
 /// Call edge from its callsite address to the callee's address. This is to
 /// uniquely identify call edges for abstracted vertices. We create an abstract
@@ -176,6 +212,10 @@ and [<AllowNullLiteral>]
   abstract GetBuildingContext:
        addr: Addr
     -> BuildingCtxMsg<'FnCtx, 'GlCtx>
+
+  /// Get the next function address of the given function address. If there's no
+  /// next function, return None.
+  abstract GetNextFunctionAddress: addr: Addr -> Addr option
 
   /// Notify the manager that a new jump table entry is about to be recovered,
   /// and get the decision about what to do next.
