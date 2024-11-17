@@ -59,15 +59,19 @@ module internal ELF = begin
                "exit"
                "_exit"
                "__longjmp_chk"
+               "__cxa_bad_cast"
                "__cxa_rethrow"
                "__cxa_throw"
                "_Unwind_Resume"
-               "_ZSt20__throw_length_errorPKc"
+               "_gfortran_os_error"
                "_gfortran_runtime_error"
                "_gfortran_runtime_error_at"
                "_gfortran_stop_numeric"
                "_gfortran_stop_string"
                "__libc_start_main"
+               "_ZSt20__throw_length_errorPKc"
+               "_ZSt17__throw_bad_allocv"
+               "_ZSt16__throw_bad_castv"
                "longjmp" |]
 
   /// A mapping from known conditionally-not-returning function names to the
