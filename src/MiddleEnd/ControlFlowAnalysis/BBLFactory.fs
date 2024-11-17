@@ -117,9 +117,10 @@ type BBLFactory (hdl: BinHandle,
 
   let rec addLeaderHead (intraLeaders: LinkedList<_>) lastLeader idx =
     if isNull (lastLeader: LinkedListNode<_>) then
-      intraLeaders.AddFirst ((idx, 0))
+      intraLeaders.AddFirst ((idx, 0)) |> ignore
+    elif lastLeader.Value = (idx, 0) then () (* due to `hasIntraFlow` *)
     elif fst lastLeader.Value < idx then
-      intraLeaders.AddAfter (lastLeader, (idx, 0))
+      intraLeaders.AddAfter (lastLeader, (idx, 0)) |> ignore
     else addLeaderHead intraLeaders lastLeader.Previous idx
 
   let scanIntraLeaders (liftedInss: LiftedInstruction[]) =
@@ -142,7 +143,7 @@ type BBLFactory (hdl: BinHandle,
         | InterCJmp (_, _, { E = PCVar _ }) ->
           (* JMP PC means that the instruction jumps to itself. *)
           if i = 0 then () (* Ignore if it is the first lifted instruction. *)
-          else addLeaderHead intraLeaders intraLeaders.Last i |> ignore
+          else addLeaderHead intraLeaders intraLeaders.Last i
         | _ -> ()
     struct (lblMap, intraLeaders)
 
