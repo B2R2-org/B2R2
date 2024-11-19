@@ -63,11 +63,13 @@ type JmpTableRecoveryNotebook () =
     if notes.ContainsKey tblAddr then
       (* Duplicate registeration is possible due to rollback. *)
       let note = notes[tblAddr]
-      if note.InsAddr = jmptbl.InsAddr then Ok note
-      else Error note (* But, two branches cannot share the same table. *)
+      match note.HostFunctionAddr = fnAddr, note.InsAddr = jmptbl.InsAddr with
+      | true, true -> RegistrationSucceeded
+      | true, false -> SharedByInstructions
+      | false, _ -> SharedByFunctions note.HostFunctionAddr
     else
       match findOverlap tblAddr with
-      | Some note -> Error note
+      | Some note -> OverlappingNote note (* Return the overlapping note. *)
       | None ->
         let note = {
           HostFunctionAddr = fnAddr
@@ -79,7 +81,7 @@ type JmpTableRecoveryNotebook () =
           PotentialEndPoint = System.UInt64.MaxValue }
         notes[tblAddr] <- note
         syncAfterRegistration tblAddr note
-        Ok note
+        RegistrationSucceeded
 
   /// Unregister the given jump table note. This means, we later found out that
   /// the jump table is not really a jump table.
@@ -131,6 +133,21 @@ type JmpTableRecoveryNotebook () =
     let n = notes[tblAddr]
     let confirmed = n.ConfirmedEndPoint
     $"{n.InsAddr:x} => {tblAddr:x}, {confirmed:x}, {n.PotentialEndPoint:x}"
+
+/// The result of jump table registration.
+and [<Struct>] JmpTableRegistrationResult =
+  /// Registration has succeeded.
+  | RegistrationSucceeded
+  /// Registration has failed because there are two functions sharing the same
+  /// table. We return the address of the function that previously registered
+  /// the table.
+  | SharedByFunctions of oldFnAddr: Addr
+  /// Registration has failed because there are two different branches sharing
+  /// the same table.
+  | SharedByInstructions
+  /// Registration has failed because there is an overlapping table. We return
+  /// the address of the overlapping table.
+  | OverlappingNote of note: JmpTableRecoveryNote
 
 /// A note (or a recovery state) for jump table recovery.
 and JmpTableRecoveryNote = {

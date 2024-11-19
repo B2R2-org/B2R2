@@ -87,14 +87,6 @@ and private TaskManager<'FnCtx,
       builder.Authorize ()
       builder.Invalidate ()
 
-  let resetBuilder (builder: ICFGBuildable<_, _>) =
-  #if CFGDEBUG
-    dbglog ManagerTid "ResetBuilder" $"{builder.Context.FunctionAddress:x}"
-  #endif
-    let oldStatus = builder.Context.NonReturningStatus
-    builder.Reset builders.CFGConstructor
-    builder.Context.NonReturningStatus <- oldStatus
-
   let terminateWorkers () =
     toWorkers.Complete ()
 
@@ -175,6 +167,12 @@ and private TaskManager<'FnCtx,
   and addTask entryPoint mode =
     AddTask (entryPoint, mode) |> agent.Post
 
+  and reloadBuilder (builder: ICFGBuildable<_, _>) =
+    if builder.BuilderState <> InProgress then
+      builder.Reset builders.CFGConstructor
+      addTask builder.EntryPoint builder.Mode
+    else msgbox[builder.EntryPoint].Add BuilderReset
+
   and rollbackOrPropagateInvalidation entryPoint builder =
     match builder.Context.JumpTableRecoveryStatus.TryPeek () with
     | true, (tblAddr, idx) ->
@@ -183,7 +181,7 @@ and private TaskManager<'FnCtx,
       dbglog ManagerTid "rollback" $"{builder.Context.FunctionAddress:x}"
 #endif
       jmptblNotes.SetPotentialEndPointByIndex tblAddr (idx - 1)
-      resetBuilder builder
+      builder.Reset builders.CFGConstructor
       addTask builder.Context.FunctionAddress builder.Mode
     | false, _ ->
       makeInvalid builder
@@ -244,7 +242,7 @@ and private TaskManager<'FnCtx,
 #if CFGDEBUG
           dbglog ManagerTid "PendingMsg" $"BuilderReset"
 #endif
-          resetBuilder builder
+          builder.Reset builders.CFGConstructor
           pendingReset <- true
       addTask entryPoint builder.Mode
 #if CFGDEBUG
@@ -397,50 +395,71 @@ and private TaskManager<'FnCtx,
       dbglog ManagerTid "HandleResult"
       <| $"{entryPoint:x} -> reload: {callerAddr:x}"
 #endif
-      let callerBuilder = builders[callerAddr]
-      if callerBuilder.BuilderState = InProgress then
-        msgbox[callerAddr].Add BuilderReset
-      else
-        resetBuilder callerBuilder
-        addTask callerAddr callerBuilder.Context.FunctionMode
+      reloadBuilder builders[callerAddr]
     )
 
   and handleJumpTableRecoveryRequest fnAddr (jmptbl: JmpTableInfo) =
     match jmptblNotes.Register fnAddr jmptbl with
-    | Ok _ ->
+    | RegistrationSucceeded ->
 #if CFGDEBUG
       dbglog ManagerTid "JumpTable registered"
       <| jmptblNotes.GetNoteString jmptbl.TableAddress
 #endif
       GoRecovery
-    | Error oldNote ->
+    | SharedByFunctions oldFnAddr ->
+#if CFGDEBUG
+      dbglog ManagerTid "JumpTable failed"
+      <| $"{jmptbl.TableAddress:x} @ {jmptbl.InsAddr:x} shared by two funcs."
+#endif
+      (* We found two distinct functions for the same jump table. This is only
+         possible when a function had a bogus edge that goes beyond the boundary
+         of a function, but we were unlucky to find the bogus edge because the
+         next function was not loaded yet. But we happened to find the next
+         function and both functions share the same basic block, which includes
+         the indirect branch instruction. In this case, a function that has a
+         greater address is closer to the indirect branch instruction and should
+         be the one that includes the indirect branch. Therefore, if we simply
+         reload the function that has the lower address (which has a problematic
+         CFG expansion), then we will be able to detect the bogus edge. *)
+      if oldFnAddr < fnAddr then
+#if CFGDEBUG
+        dbglog ManagerTid "JumpTable failed" $"so, reload {oldFnAddr:x}"
+#endif
+        reloadBuilder builders[oldFnAddr]
+        GoRecovery
+      else
+#if CFGDEBUG
+        dbglog ManagerTid "JumpTable failed" $"so, reload {fnAddr:x}"
+#endif
+        StopRecoveryButReload
+    | SharedByInstructions ->
+#if CFGDEBUG
+      dbglog ManagerTid "JumpTable failed"
+      <| $"{jmptbl.TableAddress:x} @ {jmptbl.InsAddr:x} shared by two instrs."
+#endif
+      (* We found two different jmp instructions for the same jump table, in
+         which case we cannot decide which one is wrong. Thus, we just ignore
+         this error, meaning that we ignore the later found one. *)
+      StopRecoveryAndContinue
+    | OverlappingNote oldNote ->
 #if CFGDEBUG
       let str = jmptblNotes.GetNoteString oldNote.StartingPoint
       dbglog ManagerTid "JumpTable failed"
       <| $"{jmptbl.TableAddress:x} @ {jmptbl.InsAddr:x} overlapped with ({str})"
 #endif
       let oldTblAddr, entSize = oldNote.StartingPoint, uint64 jmptbl.EntrySize
-      if jmptbl.TableAddress = oldTblAddr then
-        (* We found two different jmp instructions for the same jump table, in
-           which case we cannot decide which one is wrong. Thus, we just ignore
-           this error. *)
-        StopRecoveryAndContinue
-      else
-        let endPoint = jmptbl.TableAddress - entSize
-        jmptblNotes.SetPotentialEndPointByAddr oldTblAddr endPoint
+      let endPoint = jmptbl.TableAddress - entSize
+      jmptblNotes.SetPotentialEndPointByAddr oldTblAddr endPoint
 #if CFGDEBUG
-        dbglog ManagerTid "JumpTable rollback"
-        <| $"changed potential endpoint to {oldNote.PotentialEndPoint:x}"
+      dbglog ManagerTid "JumpTable rollback"
+      <| $"changed potential endpoint to {oldNote.PotentialEndPoint:x}"
 #endif
-        if oldNote.HostFunctionAddr <> fnAddr then
-          let hostAddr = oldNote.HostFunctionAddr
-          let builder = builders[hostAddr]
-          if builder.BuilderState <> InProgress then
-            builder.Reset builders.CFGConstructor
-            addTask builder.Context.FunctionAddress builder.Mode
-          else msgbox[hostAddr].Add BuilderReset
-        else ()
-        StopRecoveryButReload
+      if oldNote.HostFunctionAddr <> fnAddr then
+        let hostAddr = oldNote.HostFunctionAddr
+        let builder = builders[hostAddr]
+        reloadBuilder builder
+      else ()
+      StopRecoveryButReload
 
   and handleBogusJumpTableEntry fnAddr tblAddr idx =
     let currentIdx = jmptblNotes.GetPotentialEndPointIndex tblAddr
