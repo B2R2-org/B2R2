@@ -69,10 +69,8 @@ type Agent<'Msg> private (ch: BufferBlock<'Msg>, task: Task) =
     let fn = fun () ->
       try taskFn receivable
       with e ->
-        ()
-#if DEBUG
         Console.Error.WriteLine e.Message
-#endif
+        exit 1
     Agent (ch, Task.Run (fn, cancellationToken=token))
 
 /// Reply channel for the agent.
