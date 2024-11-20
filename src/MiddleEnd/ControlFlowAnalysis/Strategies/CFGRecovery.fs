@@ -435,8 +435,7 @@ type CFGRecovery<'FnCtx,
     let caller = ctx.CallerVertices[callsiteAddr]
     if isTailCall then
       let lastIns = caller.VData.Internals.LastInstruction
-      summarizer.MakeUnknownFunctionAbstraction (ctx.BinHandle, lastIns)
-      |> Ok
+      getFunctionAbstraction ctx lastIns callee calleeInfo
       |> Result.map (connectAbsVertex ctx caller callee)
       |> toCFGResult
     elif ctx.FunctionAddress = callee then
