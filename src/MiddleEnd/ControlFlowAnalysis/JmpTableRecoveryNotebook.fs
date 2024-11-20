@@ -35,7 +35,7 @@ type JmpTableRecoveryNotebook () =
   let findOverlap addr =
     notes.Values
     |> Seq.tryFind (fun note ->
-      note.StartingPoint <= addr && addr <= note.ConfirmedEndPoint)
+      note.StartingPoint <= addr && addr <= note.PotentialEndPoint)
 
   let updatePotentialEndPoint note newPoint =
     if note.PotentialEndPoint > newPoint then
