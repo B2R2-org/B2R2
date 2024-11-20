@@ -62,6 +62,7 @@ module internal ELF = begin
                "__cxa_bad_cast"
                "__cxa_rethrow"
                "__cxa_throw"
+               "__cxa_throw_bad_array_new_length"
                "_Unwind_Resume"
                "_gfortran_os_error"
                "_gfortran_runtime_error"

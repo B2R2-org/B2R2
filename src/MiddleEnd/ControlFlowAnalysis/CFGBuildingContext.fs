@@ -126,6 +126,8 @@ with
 #if DEBUG
       (* This is a fatal error when our function identification or noreturn
          analysis failed. *)
+      System.Console.Error.WriteLine
+        $"{__.FunctionAddress:x} overlapped with {nextFnAddr:x}"
       Utils.impossible ()
 #else
       None (* Ignore this error in release mode. *)
