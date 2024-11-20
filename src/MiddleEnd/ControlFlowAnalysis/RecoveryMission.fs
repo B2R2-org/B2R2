@@ -443,14 +443,16 @@ and private TaskManager<'FnCtx,
       StopRecoveryAndContinue
     | OverlappingNote oldNote ->
       let oldTblAddr, newTblAddr = oldNote.StartingPoint, jmptbl.TableAddress
-      let newEndPoint = newTblAddr - uint64 jmptbl.EntrySize
+      let entrySize = uint64 jmptbl.EntrySize
+      let newEndPoint = newTblAddr - entrySize
+      let entryBeingAnalyzed = oldNote.ConfirmedEndPoint + entrySize
 #if CFGDEBUG
       let str = jmptblNotes.GetNoteString oldNote.StartingPoint
       dbglog ManagerTid "JumpTable overlap"
       <| $"{newTblAddr:x} @ {jmptbl.InsAddr:x} overlapped with ({str})"
 #endif
       jmptblNotes.SetPotentialEndPointByAddr oldTblAddr newEndPoint
-      if oldNote.ConfirmedEndPoint < newTblAddr then
+      if entryBeingAnalyzed <= newEndPoint then
 #if CFGDEBUG
         dbglog ManagerTid "JumpTable" $"overlap resolved and continue"
 #endif
