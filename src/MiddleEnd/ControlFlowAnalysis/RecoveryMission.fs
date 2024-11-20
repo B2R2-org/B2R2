@@ -442,24 +442,32 @@ and private TaskManager<'FnCtx,
          this error, meaning that we ignore the later found one. *)
       StopRecoveryAndContinue
     | OverlappingNote oldNote ->
+      let oldTblAddr, newTblAddr = oldNote.StartingPoint, jmptbl.TableAddress
+      let newEndPoint = newTblAddr - uint64 jmptbl.EntrySize
 #if CFGDEBUG
       let str = jmptblNotes.GetNoteString oldNote.StartingPoint
-      dbglog ManagerTid "JumpTable failed"
-      <| $"{jmptbl.TableAddress:x} @ {jmptbl.InsAddr:x} overlapped with ({str})"
+      dbglog ManagerTid "JumpTable overlap"
+      <| $"{newTblAddr:x} @ {jmptbl.InsAddr:x} overlapped with ({str})"
 #endif
-      let oldTblAddr, entSize = oldNote.StartingPoint, uint64 jmptbl.EntrySize
-      let endPoint = jmptbl.TableAddress - entSize
-      jmptblNotes.SetPotentialEndPointByAddr oldTblAddr endPoint
+      jmptblNotes.SetPotentialEndPointByAddr oldTblAddr newEndPoint
+      if oldNote.ConfirmedEndPoint < newTblAddr then
 #if CFGDEBUG
-      dbglog ManagerTid "JumpTable rollback"
-      <| $"changed potential endpoint to {oldNote.PotentialEndPoint:x}"
+        dbglog ManagerTid "JumpTable" $"overlap resolved and continue"
 #endif
-      if oldNote.HostFunctionAddr <> fnAddr then
-        let hostAddr = oldNote.HostFunctionAddr
-        let builder = builders[hostAddr]
-        reloadBuilder builder
-      else ()
-      StopRecoveryButReload
+        let result = jmptblNotes.Register fnAddr jmptbl
+        assert (result = RegistrationSucceeded)
+        GoRecovery
+      else
+#if CFGDEBUG
+        dbglog ManagerTid "JumpTable rollback"
+        <| $"changed potential endpoint to {oldNote.PotentialEndPoint:x}"
+#endif
+        if oldNote.HostFunctionAddr <> fnAddr then
+          let hostAddr = oldNote.HostFunctionAddr
+          let builder = builders[hostAddr]
+          reloadBuilder builder
+        else ()
+        StopRecoveryButReload
 
   and handleBogusJumpTableEntry fnAddr tblAddr idx =
     let currentIdx = jmptblNotes.GetPotentialEndPointIndex tblAddr
