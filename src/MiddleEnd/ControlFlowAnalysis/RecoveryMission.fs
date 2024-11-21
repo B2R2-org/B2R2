@@ -181,11 +181,15 @@ and private TaskManager<'FnCtx,
       dbglog ManagerTid "rollback" $"{builder.Context.FunctionAddress:x}"
 #endif
       jmptblNotes.SetPotentialEndPointByIndex tblAddr (idx - 1)
-      builder.Reset builders.CFGConstructor
-      addTask builder.Context.FunctionAddress builder.Mode
+      reloadBuilder builder
     | false, _ ->
+      let tempCallers =
+        dependenceMap.RemoveFunctionAndGetDependentAddrs entryPoint true
+      let confirmedCallers =
+        dependenceMap.RemoveFunctionAndGetDependentAddrs entryPoint false
       makeInvalid builder
-      dependenceMap.RemoveFunctionAndGetDependentAddrs entryPoint false
+      tempCallers
+      |> Array.append confirmedCallers
       |> Array.iter propagateInvalidation
 
   and terminateIfAllDone () =
@@ -313,8 +317,11 @@ and private TaskManager<'FnCtx,
       dbglog ManagerTid "CyclicDependencies" $"No cycle"
       builders.Values
       |> Array.iter (fun bld ->
-        if bld.BuilderState <> Finished && bld.BuilderState <> Invalid then
-          dbglog ManagerTid "Terminate" $"? {bld.Context.FunctionAddress:x}"
+        let state = bld.BuilderState
+        if state <> Finished && state <> Invalid then
+          let addr = bld.Context.FunctionAddress
+          let forceFinished = bld.Context.ForceFinish
+          dbglog ManagerTid "Terminate" $"? {addr:x} ({state}, {forceFinished})"
       )
 #endif
       ()
@@ -371,7 +378,21 @@ and private TaskManager<'FnCtx,
       dbglog ManagerTid "HandleResult" $"{entryPoint:x}: reloaded"
 #endif
     | FailStop e ->
-      propagateInvalidation entryPoint
+      match builder.Context.JumpTableRecoveryStatus.TryPeek () with
+      | true, (tblAddr, idx) ->
+        assert (idx > 0)
+        jmptblNotes.SetPotentialEndPointByIndex tblAddr (idx - 1)
+        builder.Reset builders.CFGConstructor
+        addTask entryPoint builder.Mode
+      | false, _ ->
+        let tempCallers =
+          dependenceMap.RemoveFunctionAndGetDependentAddrs entryPoint true
+        let confirmedCallers =
+          dependenceMap.RemoveFunctionAndGetDependentAddrs entryPoint false
+        makeInvalid builder
+        tempCallers
+        |> Array.append confirmedCallers
+        |> Array.iter propagateInvalidation
 #if CFGDEBUG
       dbglog ManagerTid "HandleResult" $"{entryPoint:x}: {ErrorCase.toString e}"
 #endif
