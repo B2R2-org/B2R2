@@ -201,6 +201,14 @@ type CFGRecovery<'FnCtx,
       Continue
     else FailStop ErrorCase.FailedToRecoverCFG
 
+  let makeIntraFallThroughEdge ctx (ppQueue: Queue<_>) srcVertex =
+    match ppQueue.TryPeek () with
+    | true, nextPPoint ->
+      match tryGetVertex ctx nextPPoint with
+      | Ok dstVertex -> connectEdge ctx srcVertex dstVertex FallThroughEdge
+      | Error _ -> () (* Ignore when a bad instruction follows *)
+    | false, _ -> ()
+
   /// Build a CFG starting from the given program points.
   let buildCFG ctx (actionQueue: CFGActionQueue) initPPs =
     let ppQueue = Queue<ProgramPoint> (collection=initPPs)
@@ -237,6 +245,7 @@ type CFGRecovery<'FnCtx,
         | InterJmp ({ E = PCVar _ }, InterJmpKind.Base) ->
           let dstPPoint = ProgramPoint (ppoint.Address, 0)
           let dstVertex = getVertex ctx dstPPoint
+          let last = srcData.LastInstruction
           connectEdge ctx srcVertex dstVertex InterJmpEdge
         | InterJmp ({ E = BinOp (BinOpType.ADD, _, { E = PCVar _ },
                                                    { E = Num n }) },
@@ -316,16 +325,24 @@ type CFGRecovery<'FnCtx,
           let callsiteAddr = srcData.LastInstruction.Address
           addCallerVertex ctx callsiteAddr srcVertex
           actionQueue.Push prioritizer <| MakeIndCall (callsiteAddr)
-        | Jmp _ | CJmp _ | InterCJmp _ ->
-          ()
         | SideEffect (Interrupt 0x80) | SideEffect SysCall ->
           let callsiteAddr = srcData.LastInstruction.Address
           let isExit = syscallAnalysis.IsExit (ctx, srcVertex)
           ctx.IntraCallTable.AddSystemCall callsiteAddr isExit
           addCallerVertex ctx callsiteAddr srcVertex
           actionQueue.Push prioritizer <| MakeSyscall (callsiteAddr, isExit)
-        | _ ->
+        | Jmp _
+        | CJmp _
+        | InterJmp _
+        | InterCJmp _
+        | SideEffect (Exception _)
+        | SideEffect Terminate
+        | SideEffect Breakpoint ->
           ()
+#if DEBUG
+        | ISMark _ | LMark _ -> Utils.impossible ()
+#endif
+        | _ -> makeIntraFallThroughEdge ctx ppQueue srcVertex
     done
     result
 
