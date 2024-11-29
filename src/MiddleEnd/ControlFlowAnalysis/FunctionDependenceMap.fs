@@ -31,13 +31,13 @@ open B2R2.MiddleEnd.BinGraph
 /// Map from a function (callee) to its caller functions. This is not
 /// thread-safe, and thus should be used only by TaskManager.
 type FunctionDependenceMap () =
-  /// A temporary graph that only contains unconfirmed edges.
+  /// A temporary call graph that only contains unconfirmed edges.
   let tg = ImperativeDiGraph<Addr, unit> () :> IGraph<Addr, unit>
 
   /// Vertices in the temporary graph.
   let tgVertices = Dictionary<Addr, IVertex<Addr>> ()
 
-  /// A complete inter-procedural call graph.
+  /// A regular inter-procedural call graph.
   let cg = ImperativeDiGraph<Addr, uint> () :> IGraph<Addr, uint>
 
   /// Vertices in the call graph.
@@ -149,6 +149,8 @@ type FunctionDependenceMap () =
         Some arr
       else None)
 
+  /// Remove call edges (successors) from the given function from both the
+  /// temporary and regular call graphs.
   member _.RemoveCallEdgesFrom entryAddr =
     let tgV = getTGVertex entryAddr
     let cgV = getCGVertex entryAddr

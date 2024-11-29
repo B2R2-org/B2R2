@@ -59,26 +59,9 @@ type BinaryBrew<'FnCtx,
 
   let missions = strategies |> Array.map RecoveryMission<'FnCtx, 'GlCtx>
 
-  #if DEBUG
-  let sanityCheck arr =
-    arr
-    |> Array.partition (fun (builder: ICFGBuildable<_, _>) ->
-      builder.BuilderState = Finished)
-    |> fun (succs, fails) ->
-      Console.WriteLine $"[*] Done (total {succs.Length} functions)"
-      fails
-      |> Array.iter (fun b ->
-        Console.WriteLine $"[!] Failure: {b.EntryPoint:x} was {b.BuilderState}")
-      if fails.Length > 0 then Utils.impossible ()
-      else ()
-    arr
-  #endif
-
   let buildersToFunctions (builders: CFGBuilderTable<_, _>) =
     builders.Values
-    #if DEBUG
-    |> sanityCheck
-    #endif
+    |> Array.filter (fun builder -> builder.BuilderState = Finished)
     |> FunctionCollection
 
   let recoverFunctions () =
