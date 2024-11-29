@@ -169,7 +169,7 @@ and private TaskManager<'FnCtx,
 
   and reloadBuilder (builder: ICFGBuildable<_, _>) =
     if builder.BuilderState <> InProgress then
-      builder.Reset builders.CFGConstructor
+      resetBuilder builder
       addTask builder.EntryPoint builder.Mode
     else msgbox[builder.EntryPoint].Add BuilderReset
 
@@ -246,7 +246,7 @@ and private TaskManager<'FnCtx,
 #if CFGDEBUG
           dbglog ManagerTid "PendingMsg" $"BuilderReset"
 #endif
-          builder.Reset builders.CFGConstructor
+          resetBuilder builder
           pendingReset <- true
       addTask entryPoint builder.Mode
 #if CFGDEBUG
@@ -297,7 +297,7 @@ and private TaskManager<'FnCtx,
     let unwindingBytes = targetBuilder.Context.UnwindingBytes
     let calleeInfo = nextStatus, unwindingBytes
     let calleeAddr = targetBuilder.EntryPoint
-    targetBuilder.Reset builders.CFGConstructor
+    resetBuilder targetBuilder
     targetBuilder.Context.ForceFinish <- true
     targetBuilder.Context.NonReturningStatus <- nextStatus
     targetBuilder.Finalize true (* mark as Finished *)
@@ -372,7 +372,7 @@ and private TaskManager<'FnCtx,
 #endif
         consumePendingMessages builder entryPoint |> ignore
     | StopAndReload ->
-      builder.Reset builders.CFGConstructor
+      resetBuilder builder
       addTask builder.Context.FunctionAddress builder.Mode
 #if CFGDEBUG
       dbglog ManagerTid "HandleResult" $"{entryPoint:x}: reloaded"
@@ -382,7 +382,7 @@ and private TaskManager<'FnCtx,
       | true, (tblAddr, idx) ->
         assert (idx > 0)
         jmptblNotes.SetPotentialEndPointByIndex tblAddr (idx - 1)
-        builder.Reset builders.CFGConstructor
+        resetBuilder builder
         addTask entryPoint builder.Mode
       | false, _ ->
         let tempCallers =
@@ -526,6 +526,10 @@ and private TaskManager<'FnCtx,
         fnAddr < nextJumpTarget && nextJumpTarget < nextBuilder.EntryPoint
       | Error _ -> false
     else false
+
+  and resetBuilder (builder: ICFGBuildable<_, _>) =
+    dependenceMap.RemoveCallEdgesFrom builder.EntryPoint
+    builder.Reset builders.CFGConstructor
 
   let workers =
     Array.init numThreads (fun idx ->

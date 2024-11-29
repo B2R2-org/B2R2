@@ -148,3 +148,11 @@ type FunctionDependenceMap () =
         for v in scc do arr[i] <- v.VData; i <- i + 1 done
         Some arr
       else None)
+
+  member _.RemoveCallEdgesFrom entryAddr =
+    let tgV = getTGVertex entryAddr
+    let cgV = getCGVertex entryAddr
+    tg.GetSuccs tgV
+    |> Array.iter (fun succV -> tg.RemoveEdge (tgV, succV) |> ignore)
+    cg.GetSuccs cgV
+    |> Array.iter (fun succV -> cg.RemoveEdge (cgV, succV) |> ignore)
