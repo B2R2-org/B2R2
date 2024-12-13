@@ -752,8 +752,8 @@ module internal ParsingHelper = begin
     | _ (* MPrx66F2 *) -> raise ParsingFailureException
 
   let vex0F50 = function
-    | MPref.MPrxNP -> struct (VMOVMSKPS, OD.GprRm, SZ.DqY, TT.NA) (* GyUdq *)
-    | MPref.MPrx66 -> struct (VMOVMSKPD, OD.GprRm, SZ.DqY, TT.NA) (* GyUdq *)
+    | MPref.MPrxNP -> struct (VMOVMSKPS, OD.GprRm, SZ.YP, TT.NA) (* GyUps *)
+    | MPref.MPrx66 -> struct (VMOVMSKPD, OD.GprRm, SZ.YP, TT.NA) (* GyUpd *)
     | MPref.MPrxF3
     | MPref.MPrxF2
     | _ (* MPrx66F2 *) -> raise ParsingFailureException

@@ -1154,6 +1154,19 @@ type SzY () =
     rhlp.RegSize <- effOprSz
     rhlp.OperationSize <- effOprSz
 
+/// GyUps GyUpd
+type SzYP () =
+  inherit InsSizeComputer ()
+  override __.Render rhlp szCond =
+    let effAddrSz = getEffAddrSize rhlp
+    let effOprSz = getEffOprSize rhlp szCond
+    let vLen = (Option.get rhlp.VEXInfo).VectorLength
+    rhlp.MemEffOprSize <- effOprSz
+    rhlp.MemEffAddrSize <- effAddrSz
+    rhlp.MemEffRegSize <- vLen
+    rhlp.RegSize <- effOprSz
+    rhlp.OperationSize <- effOprSz
+
 /// KnKm MKn
 type SzQQb () =
   inherit InsSizeComputer ()
@@ -1268,5 +1281,6 @@ type SizeKind =
   | QQd = 74
   | QQw = 75
   | VecDefRC = 76
+  | YP = 77
 
 // vim: set tw=80 sts=2 sw=2:
