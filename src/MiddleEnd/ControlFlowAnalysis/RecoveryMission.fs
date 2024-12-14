@@ -73,11 +73,6 @@ and private TaskManager<'FnCtx,
     | Ok builder -> builder.BuilderState = Finished
     | Error _ -> false
 
-  let isInvalid entryPoint =
-    match builders.TryGetBuilder entryPoint with
-    | Ok builder -> builder.BuilderState = Invalid
-    | Error _ -> false
-
   let makeInvalid builder =
     match (builder: ICFGBuildable<_, _>).BuilderState with
     | Finished | Invalid -> ()
@@ -340,6 +335,12 @@ and private TaskManager<'FnCtx,
   and handleResult entryPoint result =
     let builder = builders[entryPoint]
     workingSet.Remove entryPoint |> ignore
+    if builder.BuilderState = Invalid then
+      rollbackOrPropagateInvalidation entryPoint builder
+    else
+      handleResultWithValidBuilder entryPoint builder result
+
+  and handleResultWithValidBuilder entryPoint builder result =
     match result with
     | Continue ->
 #if CFGDEBUG
@@ -361,16 +362,11 @@ and private TaskManager<'FnCtx,
         reloadConfirmedCallers entryPoint
         finalizeBuilder builder entryPoint
     | Wait ->
-      if isInvalid entryPoint then
-        dependenceMap.RemoveFunctionAndGetDependentAddrs entryPoint true
-        |> Array.append (dependenceMap.GetConfirmedCallers entryPoint)
-        |> Array.iter propagateInvalidation
-      else
-        builder.Stop ()
+      builder.Stop ()
 #if CFGDEBUG
-        dbglog ManagerTid "HandleResult" $"{entryPoint:x}: stopped"
+      dbglog ManagerTid "HandleResult" $"{entryPoint:x}: stopped"
 #endif
-        consumePendingMessages builder entryPoint |> ignore
+      consumePendingMessages builder entryPoint |> ignore
     | StopAndReload ->
       resetBuilder builder
       addTask builder.Context.FunctionAddress builder.Mode
