@@ -533,6 +533,11 @@ type CFGRecovery<'FnCtx,
     | Some nextFnAddr -> dstAddr < nextFnAddr
     | None -> true
 
+  let popOffJmpTblRecoveryAction ctx =
+    match ctx.ActionQueue.Pop () with
+    | EndTblRec _ -> ()
+    | _ -> assert false
+
   let recoverJumpTableEntry ctx queue srcAddr dstAddr =
     let srcVertex = getVertex ctx (ProgramPoint (srcAddr, 0))
     let fnAddr = ctx.FunctionAddress
@@ -547,7 +552,8 @@ type CFGRecovery<'FnCtx,
            conclude that the indirect jump is not using a jump table, and thus,
            we simply ignore the indirect branch. *)
         ctx.ManagerChannel.CancelJumpTableRecovery (fnAddr, tblAddr)
-        ctx.ActionQueue.Pop () |> ignore (* pop off `EndTblRec` *)
+        popOffJmpTblRecoveryAction ctx
+        ctx.JumpTableRecoveryStatus.Pop () |> ignore
         Continue
       | _ ->
         FailStop ErrorCase.FailedToRecoverCFG
@@ -707,6 +713,7 @@ type CFGRecovery<'FnCtx,
         FailStop ErrorCase.FailedToRecoverCFG
 
     member _.OnFinish (ctx) =
+      assert (ctx.JumpTableRecoveryStatus.Count = 0)
       let nextFn = ctx.ManagerChannel.GetNextFunctionAddress ctx.FunctionAddress
       match ctx.FindOverlap nextFn with
       | Some v ->
