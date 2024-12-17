@@ -157,13 +157,13 @@ type CFGRecovery<'FnCtx,
     ppQueue.Enqueue dstPPoint
 
   let postponeActionOnCallee ctx calleeAddr action =
-    let pendingActions = ctx.PendingActions
+    let pendingCallActions = ctx.PendingCallActions
     let queue = ctx.ActionQueue
     let lst =
-      match pendingActions.TryGetValue calleeAddr with
+      match pendingCallActions.TryGetValue calleeAddr with
       | false, _ ->
         let lst = List ()
-        pendingActions[calleeAddr] <- lst
+        pendingCallActions[calleeAddr] <- lst
         queue.Push prioritizer <| WaitForCallee calleeAddr
         lst
       | true, lst -> lst
@@ -676,7 +676,7 @@ type CFGRecovery<'FnCtx,
           dbglog ctx.ThreadID (nameof WaitForCallee)
           <| $"{ctx.FunctionAddress:x} waits for {calleeAddr:x}"
 #endif
-          if not (ctx.PendingActions.ContainsKey calleeAddr) then
+          if not (ctx.PendingCallActions.ContainsKey calleeAddr) then
 #if CFGDEBUG
             dbglog ctx.ThreadID (nameof WaitForCallee) "-> continue"
 #endif

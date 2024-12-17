@@ -26,7 +26,6 @@ namespace B2R2.MiddleEnd
 
 open System
 open System.Diagnostics
-open B2R2
 open B2R2.FrontEnd
 open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.ControlFlowGraph

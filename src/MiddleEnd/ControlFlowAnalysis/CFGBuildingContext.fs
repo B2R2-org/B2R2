@@ -74,9 +74,10 @@ type CFGBuildingContext<'FnCtx,
   VisitedPPoints: HashSet<ProgramPoint>
   /// The action queue for the CFG building process.
   ActionQueue: CFGActionQueue
-  /// Pending call-edge connection actions for each callee address. This is to
-  /// remember the actions that are waiting for the callee to be built.
-  PendingActions: Dictionary<Addr, List<CFGAction>>
+  /// Pending call-edge connection actions (e.g., MakeCall, MakeTlCall, etc) for
+  /// each callee address. This is to remember the actions that are waiting for
+  /// the callee to be built.
+  PendingCallActions: Dictionary<Addr, List<CFGAction>>
   /// From a call site of a caller vertex to the caller vertex itself.
   CallerVertices: Dictionary<Addr, IVertex<LowUIRBasicBlock>>
   /// The number of unwinding bytes of the stack when this function returns.
@@ -95,6 +96,7 @@ with
   member __.Reset cfg =
     __.Vertices.Clear ()
     __.CFG <- cfg
+    if isNull __.CPState then () else __.CPState.Reset ()
     __.ForceFinish <- false
     (* N.B. We should keep the value of `NonReturningStatus` (i.e., leave the
        below line commented out) because we should be able to compare the
@@ -106,11 +108,10 @@ with
     __.Callers.Clear ()
     __.VisitedPPoints.Clear ()
     __.ActionQueue.Clear ()
-    __.PendingActions.Clear ()
+    __.PendingCallActions.Clear ()
     __.CallerVertices.Clear ()
     __.UnwindingBytes <- 0
     __.UserContext.Reset ()
-    if isNull __.CPState then () else __.CPState.Reset ()
 
   member private __.UpdateDictionary (dict: Dictionary<_, _>) k v delta =
     match dict.TryGetValue k with

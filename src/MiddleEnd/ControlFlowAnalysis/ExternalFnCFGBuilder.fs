@@ -58,7 +58,7 @@ type ExternalFnCFGBuilder<'FnCtx,
       IntraCallTable = null
       VisitedPPoints = null
       ActionQueue = null
-      PendingActions = null
+      PendingCallActions = null
       CallerVertices = Dictionary ()
       UnwindingBytes = 0
       UserContext = new 'FnCtx ()
@@ -74,6 +74,8 @@ type ExternalFnCFGBuilder<'FnCtx,
     member __.Mode with get() = Utils.impossible ()
 
     member __.Context with get() = ctx
+
+    member __.DelayedBuilderRequests with get() = Utils.impossible ()
 
     member __.IsExternal with get() = true
 

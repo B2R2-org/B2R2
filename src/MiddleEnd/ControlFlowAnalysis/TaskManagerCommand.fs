@@ -27,15 +27,14 @@ namespace B2R2.MiddleEnd.ControlFlowAnalysis
 open B2R2
 open B2R2.MiddleEnd.ControlFlowGraph
 
-/// A kind of messages to be handled by TaskManager.
-type TaskMessage<'FnCtx,
-                 'GlCtx when 'FnCtx :> IResettable
-                         and 'FnCtx: (new: unit -> 'FnCtx)
-                         and 'GlCtx: (new: unit -> 'GlCtx)> =
-  /// Add an address to recover the CFG.
-  | AddTask of Addr * ArchOperationMode
-  /// Invalidate a builder.
-  | InvalidateBuilder of Addr * ArchOperationMode
+/// Request messages for the task manager.
+type TaskManagerCommand<'FnCtx,
+                        'GlCtx when 'FnCtx :> IResettable
+                                and 'FnCtx: (new: unit -> 'FnCtx)
+                                and 'GlCtx: (new: unit -> 'GlCtx)> =
+  /// Start building a CFG for a function at the given address using the given
+  /// operation mode.
+  | StartBuilding of Addr * ArchOperationMode
   /// Add a dependency between two functions.
   | AddDependency of caller: Addr
                    * callee: Addr

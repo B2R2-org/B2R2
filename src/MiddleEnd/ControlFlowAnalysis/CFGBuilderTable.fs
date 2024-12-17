@@ -38,7 +38,7 @@ type CFGBuilderTable<'FnCtx,
   let builders =
     SortedList<Addr, ICFGBuildable<'FnCtx, 'GlCtx>> ()
 
-  let getOrCreateInternalBuilder agent addr mode =
+  let getOrCreateInternalBuilder managerMsgbox addr mode =
     match builders.TryGetValue addr with
     | true, builder -> builder
     | false, _ ->
@@ -49,7 +49,7 @@ type CFGBuilderTable<'FnCtx,
                               addr,
                               mode,
                               cfgConstructor,
-                              agent)
+                              managerMsgbox)
       builders[addr] <- builder
       builder
 
@@ -98,13 +98,13 @@ type CFGBuilderTable<'FnCtx,
     else YetDone
 
   /// Get or create a function builder by its address and operation mode.
-  member _.GetOrCreateBuilder agent addr mode =
-    getOrCreateInternalBuilder agent addr mode
+  member _.GetOrCreateBuilder managerMsgbox addr mode =
+    getOrCreateInternalBuilder managerMsgbox addr mode
 
-  /// Update existing function builder to have a new agent.
-  member _.Reload (builder: ICFGBuildable<_, _>) agent =
+  /// Update existing function builder to have a new manager msgbox.
+  member _.Reload (builder: ICFGBuildable<_, _>) managerMsgbox =
     let old = builders[builder.EntryPoint]
-    builders[builder.EntryPoint] <- old.MakeNew agent
+    builders[builder.EntryPoint] <- old.MakeNew managerMsgbox
 
   /// Try to retrieve a function builder by its address.
   member _.TryGetBuilder (addr: Addr) =

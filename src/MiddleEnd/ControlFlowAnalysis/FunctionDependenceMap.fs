@@ -114,21 +114,21 @@ type FunctionDependenceMap () =
       addCGDependency callerV calleeV)
     callers
 
-  /// Remove a function from the dependence map and return the immediate
-  /// callers' addresses of the function excluding the recursive calls. When the
-  /// second parameter is true, we remove the function from the temporary graph,
-  /// and when it is false, we remove the function from the call graph.
-  member _.RemoveFunctionAndGetDependentAddrs callee isTemp =
-    if isTemp then
-      let calleeV = getTGVertex callee
-      let preds = tg.GetPreds calleeV
-      removeTGVertex calleeV
-      preds |> filterOutNonRecursiveCallers callee
-    else
-      let calleeV = getCGVertex callee
-      let preds = cg.GetPreds calleeV
-      removeCGVertex calleeV
-      preds |> filterOutNonRecursiveCallers callee
+  /// Remove a function from the temporary graph and return the immediate
+  /// callers' addresses of the function excluding the recursive calls.
+  member _.RemoveTemporary callee =
+    let calleeV = getTGVertex callee
+    let preds = tg.GetPreds calleeV
+    removeTGVertex calleeV
+    preds |> filterOutNonRecursiveCallers callee
+
+  /// Remove a function from the call graph and return the immediate callers'
+  /// addresses of the function excluding the recursive calls.
+  member _.RemoveConfirmed callee =
+    let calleeV = getCGVertex callee
+    let preds = cg.GetPreds calleeV
+    removeCGVertex calleeV
+    preds |> filterOutNonRecursiveCallers callee
 
   /// Get the immediate **confirmed** caller functions of the given callee from
   /// the call graph, but excluding the recursive calls.

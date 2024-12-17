@@ -39,50 +39,52 @@ type InternalFnCFGBuilder<'FnCtx,
                           'GlCtx when 'FnCtx :> IResettable
                                   and 'FnCtx: (new: unit -> 'FnCtx)
                                   and 'GlCtx: (new: unit -> 'GlCtx)>
-  public (ctx, agent: Agent<TaskMessage<'FnCtx, 'GlCtx>>) =
+  public (ctx, manager: Agent<TaskManagerCommand<'FnCtx, 'GlCtx>>) =
 
   /// Internal builder state.
   let mutable state = Initialized
 
+  let delayedBuilderRequests = Queue<DelayedBuilderRequest> ()
+
   let managerChannel =
     { new IManagerAccessible<'FnCtx, 'GlCtx> with
         member _.AddDependency (caller, callee, mode) =
-          agent.PostAndReply (fun _ ch ->
+          manager.PostAndReply (fun _ ch ->
             AddDependency (caller, callee, mode, ch))
 
         member _.GetNonReturningStatus (addr) =
-          agent.PostAndReply (fun _ ch -> GetNonReturningStatus (addr, ch))
+          manager.PostAndReply (fun _ ch -> GetNonReturningStatus (addr, ch))
 
         member _.GetBuildingContext (addr) =
-          agent.PostAndReply (fun _ ch -> GetBuildingContext (addr, ch))
+          manager.PostAndReply (fun _ ch -> GetBuildingContext (addr, ch))
 
         member _.GetNextFunctionAddress (addr) =
-          agent.PostAndReply (fun _ ch -> GetNextFunctionAddress (addr, ch))
+          manager.PostAndReply (fun _ ch -> GetNextFunctionAddress (addr, ch))
 
         member _.NotifyJumpTableRecovery (fnAddr, tblInfo) =
-          agent.PostAndReply (fun _ ch ->
+          manager.PostAndReply (fun _ ch ->
             NotifyJumpTableRecovery (fnAddr, tblInfo, ch))
 
         member _.NotifyBogusJumpTableEntry (fnAddr, tblAddr, idx) =
-          agent.PostAndReply (fun _ ch ->
+          manager.PostAndReply (fun _ ch ->
             NotifyBogusJumpTableEntry (fnAddr, tblAddr, idx, ch))
 
         member _.CancelJumpTableRecovery (fnAddr, tblAddr) =
-          agent.Post <| CancelJumpTableRecovery (fnAddr, tblAddr)
+          manager.Post <| CancelJumpTableRecovery (fnAddr, tblAddr)
 
         member _.ReportJumpTableSuccess (fnAddr, tblAddr, idx, nextAddr) =
-          agent.PostAndReply (fun _ ch ->
+          manager.PostAndReply (fun _ ch ->
             ReportJumpTableSuccess (fnAddr, tblAddr, idx, nextAddr, ch))
 
         member _.GetGlobalContext accessor =
           let mutable v = Unchecked.defaultof<_>
-          agent.PostAndReply (fun _ ch ->
+          manager.PostAndReply (fun _ ch ->
             let fn = fun glCtx -> (v <- accessor glCtx)
             AccessGlobalContext (fn, ch))
           v
 
         member _.UpdateGlobalContext (updater) =
-          agent.Post <| UpdateGlobalContext updater }
+          manager.Post <| UpdateGlobalContext updater }
 
   let rec build (strategy: ICFGBuildingStrategy<_, _>) queue =
     if (queue: CFGActionQueue).IsEmpty () then strategy.OnFinish ctx
@@ -103,7 +105,7 @@ type InternalFnCFGBuilder<'FnCtx,
        entryPoint,
        mode,
        cfgConstructor: LowUIRCFG.IConstructable,
-       agent) =
+       manager) =
     let name =
       match hdl.File.TryFindFunctionName entryPoint with
       | Ok name -> name
@@ -131,14 +133,14 @@ type InternalFnCFGBuilder<'FnCtx,
         IntraCallTable = IntraCallTable ()
         VisitedPPoints = HashSet ()
         ActionQueue = CFGActionQueue ()
-        PendingActions = Dictionary ()
+        PendingCallActions = Dictionary ()
         CallerVertices = Dictionary ()
         UnwindingBytes = 0
         UserContext = fnCtx
         IsExternal = false
         ManagerChannel = null
         ThreadID = -1 }
-    InternalFnCFGBuilder (ctx, agent)
+    InternalFnCFGBuilder (ctx, manager)
 
   interface ICFGBuildable<'FnCtx, 'GlCtx> with
     member __.BuilderState with get() = state
@@ -148,6 +150,8 @@ type InternalFnCFGBuilder<'FnCtx,
     member __.Mode with get() = ctx.FunctionMode
 
     member __.Context with get() = ctx
+
+    member __.DelayedBuilderRequests with get() = delayedBuilderRequests
 
     member __.IsExternal with get() = false
 
@@ -168,7 +172,6 @@ type InternalFnCFGBuilder<'FnCtx,
       state <- Initialized
 
     member __.Invalidate () =
-      assert (state = InProgress)
       state <- Invalid
 
     member __.Build strategy =
@@ -177,11 +180,12 @@ type InternalFnCFGBuilder<'FnCtx,
 
     member __.Reset (cfgConstructor: LowUIRCFG.IConstructable) =
       state <- Initialized
+      delayedBuilderRequests.Clear ()
       cfgConstructor.Construct Imperative
       |> ctx.Reset
 
-    member __.MakeNew (agent) =
-      InternalFnCFGBuilder (ctx, agent)
+    member __.MakeNew (manager) =
+      InternalFnCFGBuilder (ctx, manager)
 
     member __.ToFunction () =
       assert (state = Finished)
