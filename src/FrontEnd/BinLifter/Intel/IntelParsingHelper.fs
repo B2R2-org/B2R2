@@ -463,7 +463,7 @@ module internal ParsingHelper = begin
     | MPref.MPrxNP -> struct (VMOVUPS, OD.GprRm, SZ.VecDef, TT.NA) (* VpsWps *)
     | MPref.MPrx66 -> struct (VMOVUPD, OD.GprRm, SZ.VecDef, TT.NA) (* VpdWpd *)
     | MPref.MPrxF3 ->
-      struct (VMOVSS, OD.XmmVvXm, SZ.VecDef, TT.NA) (* VxHxWss *)
+      struct (VMOVSS, OD.XmmVsXm, SZ.Dq, TT.NA) (* VxHxWss *)
     | MPref.MPrxF2 ->
       struct (VMOVSD, OD.XmmVvXm, SZ.VecDef, TT.NA) (* VxHxWsd *)
     | _ (* MPrx66F2 *) -> raise ParsingFailureException
@@ -486,7 +486,7 @@ module internal ParsingHelper = begin
     | MPref.MPrxNP -> struct (VMOVUPS, OD.RmGpr, SZ.VecDef, TT.NA) (* WpsVps *)
     | MPref.MPrx66 -> struct (VMOVUPD, OD.RmGpr, SZ.VecDef, TT.NA) (* WpdVpd *)
     | MPref.MPrxF3 ->
-      struct (VMOVSS, OD.XmVvXmm, SZ.VecDef, TT.NA) (* WssHxVss *)
+      struct (VMOVSS, OD.XmVsXmm, SZ.Dq, TT.Tuple1Scalar) (* WssHxVss *)
     | MPref.MPrxF2 ->
       struct (VMOVSD, OD.XmVvXmm, SZ.VecDef, TT.NA) (* WsdHxVsd *)
     | _ (* MPrx66F2 *) -> raise ParsingFailureException
