@@ -103,17 +103,6 @@ type FunctionDependenceMap () =
     if isTemp then addTGDependency (getTGVertex caller) (getTGVertex callee)
     else addCGDependency (getCGVertex caller) (getCGVertex callee)
 
-  /// Update the call graph by adding the dependencies between the callee and
-  /// the callers, and return the given callers as is. This will only update the
-  /// call graph.
-  member _.AddResolvedDependencies callee callers =
-    let calleeV = getCGVertex callee
-    callers
-    |> Array.iter (fun caller ->
-      let callerV = getCGVertex caller
-      addCGDependency callerV calleeV)
-    callers
-
   /// Remove a function from the temporary graph and return the immediate
   /// callers' addresses of the function excluding the recursive calls.
   member _.RemoveTemporary callee =
@@ -129,6 +118,17 @@ type FunctionDependenceMap () =
     let preds = cg.GetPreds calleeV
     removeCGVertex calleeV
     preds |> filterOutNonRecursiveCallers callee
+
+  /// Confirm the temporary dependencies by shifting the dependencies to the
+  /// call graph. This function returns the confirmed callers.
+  member __.Confirm callee =
+    let calleeV = getCGVertex callee
+    let callers = __.RemoveTemporary callee
+    callers
+    |> Array.iter (fun caller ->
+      let callerV = getCGVertex caller
+      addCGDependency callerV calleeV)
+    callers
 
   /// Get the immediate **confirmed** caller functions of the given callee from
   /// the call graph, but excluding the recursive calls.

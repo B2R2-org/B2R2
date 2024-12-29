@@ -75,11 +75,23 @@ type TaskScheduler<'FnCtx,
     dependenceMap.RemoveCallEdgesFrom builder.EntryPoint
     builder.Reset builders.CFGConstructor
 
-  let restartBuilder (builder: ICFGBuildable<_, _>) forceRestart =
-    if forceRestart || builder.BuilderState <> InProgress then
-      resetBuilder builder
-      scheduleCFGBuilding builder.EntryPoint builder.Mode
-    else builder.DelayedBuilderRequests.Enqueue ResetBuilder
+  /// Restart = reset and reschedule builder.
+  let restartBuilder (builder: ICFGBuildable<_, _>) =
+    resetBuilder builder
+    scheduleCFGBuilding builder.EntryPoint builder.Mode
+
+  /// Conditionally restart (reset and reload) builder based on its state. If
+  /// the builder is currently building, then it will send a delayed request to
+  /// the builder to reset itself after the current building process is done.
+  /// N.B. the BuilderState is not a reliable indicator of the builder's status
+  /// especially when the manager is handling the result of the builder. Thus,
+  /// this function should be only used for builders that are not currently
+  /// handled by the manager.
+  let restartBuilderIfNotInProgress (builder: ICFGBuildable<_, _>) =
+    if builder.BuilderState <> InProgress then
+      restartBuilder builder
+    else
+      builder.DelayedBuilderRequests.Enqueue ResetBuilder
 
   let rechargeActionQueue ctx callee calleeInfo =
     let callerPendingActions = ctx.PendingCallActions
@@ -112,21 +124,25 @@ type TaskScheduler<'FnCtx,
         assignCFGBuildingTaskNow callerBuilder
       else ()
 
-  let rec rollbackOrPropagateInvalidation builder forceRestart =
-    let fnAddr = (builder: ICFGBuildable<_, _>).EntryPoint
+  /// Rollback the current builder and notify the callers to rollback if
+  /// necessary. N.B. the target builder should not be currently building,
+  /// otherwise its `JumpTableRecoveryStatus` could be invalid.
+  let rec rollback (builder: ICFGBuildable<_, _>) =
     match builder.Context.JumpTableRecoveryStatus.TryPeek () with
     | true, (tblAddr, idx) ->
       assert (idx > 0)
 #if CFGDEBUG
-      dbglog ManagerTid "Rollback" $"{tblAddr:x}[{idx}] @ {fnAddr:x}"
+      dbglog ManagerTid "Rollback"
+      <| $"{tblAddr:x}[{idx}] @ {builder.EntryPoint:x}"
 #endif
       jmptblNotes.SetPotentialEndPointByIndex tblAddr (idx - 1)
-      restartBuilder builder forceRestart
+      restartBuilder builder
     | false, _ ->
+      let fnAddr = builder.EntryPoint
       let tempCallers = dependenceMap.RemoveTemporary fnAddr
       let confirmedCallers = dependenceMap.RemoveConfirmed fnAddr
       let callers = Array.append tempCallers confirmedCallers
-      builder.Invalidate ()
+      builder.Invalidate () (* the builder will stop later *)
       for callerFnAddr in callers do invalidateBuilder builders[callerFnAddr]
 
   and invalidateBuilder builder =
@@ -134,7 +150,9 @@ type TaskScheduler<'FnCtx,
     dbglog ManagerTid "Invalidate" $"{builder.EntryPoint:x}"
 #endif
     if builder.Context.ForceFinish then ()
-    else rollbackOrPropagateInvalidation builder false
+    elif builder.BuilderState = InProgress then
+      builder.DelayedBuilderRequests.Enqueue Rollback
+    else rollback builder
 
   let getAllStoppedCycle (cycleAddrs: Addr[]) =
     let tuples = Array.zeroCreate cycleAddrs.Length
@@ -165,8 +183,7 @@ type TaskScheduler<'FnCtx,
     dbglog ManagerTid "CyclicDependencies"
     <| $"force finish {targetBuilder.EntryPoint:x}"
 #endif
-    dependenceMap.RemoveTemporary calleeAddr
-    |> dependenceMap.AddResolvedDependencies calleeAddr
+    dependenceMap.Confirm calleeAddr
     |> Array.filter (not << isFinished)
     |> Array.iter (notifySuccessToCaller calleeAddr calleeInfo)
 
@@ -232,13 +249,18 @@ type TaskScheduler<'FnCtx,
 #endif
       rechargeActionQueue builder.Context calleeAddr calleeInfo |> ignore
       consumeUntilPendingReset builder
+    | true, Rollback ->
+#if CFGDEBUG
+      dbglog ManagerTid (nameof Rollback) $"{builder.EntryPoint:x}"
+#endif
+      rollback builder
+      builder.DelayedBuilderRequests.Clear ()
+      true
     | true, ResetBuilder ->
 #if CFGDEBUG
       dbglog ManagerTid (nameof ResetBuilder) $"{builder.EntryPoint:x}"
 #endif
-      resetBuilder builder
-      builder.DelayedBuilderRequests.Clear ()
-      scheduleCFGBuilding builder.EntryPoint builder.Mode
+      restartBuilder builder
       true
     | false, _ ->
       scheduleCFGBuilding builder.EntryPoint builder.Mode
@@ -257,19 +279,19 @@ type TaskScheduler<'FnCtx,
     let retStatus = builder.Context.NonReturningStatus
     let unwindingBytes = builder.Context.UnwindingBytes
     let calleeInfo = retStatus, unwindingBytes
-    dependenceMap.RemoveTemporary entryPoint
-    |> dependenceMap.AddResolvedDependencies entryPoint
+    dependenceMap.Confirm entryPoint
     |> Array.iter (notifySuccessToCaller entryPoint calleeInfo)
 
-  let reloadConfirmedCallers entryPoint =
+  let reloadCallersAndFinalizeBuilder builder entryPoint =
     dependenceMap.GetConfirmedCallers entryPoint
     |> Array.iter (fun callerAddr ->
 #if CFGDEBUG
-      dbglog ManagerTid "HandleResult"
-      <| $"{entryPoint:x} -> reload: {callerAddr:x}"
+      dbglog ManagerTid "ReloadDueCalleeChange"
+      <| $"{entryPoint:x} -> {callerAddr:x}"
 #endif
-      restartBuilder builders[callerAddr] false
+      restartBuilderIfNotInProgress builders[callerAddr]
     )
+    finalizeBuilder builder entryPoint
 
   let handleResult entryPoint result =
     let builder = builders[entryPoint]
@@ -288,9 +310,7 @@ type TaskScheduler<'FnCtx,
 #endif
       recoverPrevNonReturningStatus builder prevStatus
       if consumeDelayedRequests builder then ()
-      else
-        reloadConfirmedCallers entryPoint
-        finalizeBuilder builder entryPoint
+      else reloadCallersAndFinalizeBuilder builder entryPoint
     | Wait ->
 #if CFGDEBUG
       dbglog ManagerTid "HandleResult" $"{entryPoint:x}: stopped"
@@ -298,8 +318,7 @@ type TaskScheduler<'FnCtx,
       builder.Stop ()
       consumeDelayedRequests builder |> ignore
     | StopAndReload ->
-      resetBuilder builder
-      scheduleCFGBuilding builder.Context.FunctionAddress builder.Mode
+      restartBuilder builder
 #if CFGDEBUG
       dbglog ManagerTid "HandleResult" $"{entryPoint:x}: reloaded"
 #endif
@@ -307,7 +326,9 @@ type TaskScheduler<'FnCtx,
 #if CFGDEBUG
       dbglog ManagerTid "HandleResult" $"{entryPoint:x}: {ErrorCase.toString e}"
 #endif
-      rollbackOrPropagateInvalidation builder true
+      (* invalid builder will be auto-reloaded later *)
+      if builder.BuilderState = Invalid then ()
+      else rollback builder
 
   let handleJumpTableRecoveryRequest fnAddr (jmptbl: JmpTableInfo) =
     match jmptblNotes.Register fnAddr jmptbl with
@@ -336,7 +357,7 @@ type TaskScheduler<'FnCtx,
 #if CFGDEBUG
         dbglog ManagerTid "JumpTable failed" $"so, reload {oldFnAddr:x}"
 #endif
-        restartBuilder builders[oldFnAddr] false
+        restartBuilderIfNotInProgress builders[oldFnAddr]
         GoRecovery
       else
 #if CFGDEBUG
@@ -378,7 +399,7 @@ type TaskScheduler<'FnCtx,
         if oldNote.HostFunctionAddr <> fnAddr then
           let hostAddr = oldNote.HostFunctionAddr
           let builder = builders[hostAddr]
-          restartBuilder builder false
+          restartBuilderIfNotInProgress builder
         else ()
         StopRecoveryButReload
 

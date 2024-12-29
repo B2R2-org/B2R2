@@ -32,5 +32,8 @@ open B2R2
 type DelayedBuilderRequest =
   /// Notify that the callee has been successfully built.
   | NotifyCalleeSuccess of callee: Addr * calleeInfo: CalleeInfo
+  /// Rollback the current builder and make the callers to rollback if
+  /// necessary.
+  | Rollback
   /// Reset the builder.
   | ResetBuilder
