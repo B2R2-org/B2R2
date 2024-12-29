@@ -593,6 +593,19 @@ type RelocationPPC32 =
   | R_PPC_REL16_HA = 252UL
   | R_PPC_TOC16 = 255UL
 
+/// Relocation type for PARISC.
+type RelocationPARISC =
+  | R_PARISC_NONE = 0UL
+  | R_PARISC_DIR32 = 1UL
+  | R_PARISC_DIR21L = 2UL
+  | R_PARISC_DIR17R = 3UL
+  | R_PARISC_DIR17F = 4UL
+  | R_PARISC_DIR14R = 6UL
+  | R_PARISC_PCREL21L = 10UL
+  | R_PARISC_PCREL17R = 11UL
+  // FIXME: FutureFeatures
+  // ...
+
 /// Relocation type.
 type RelocationType =
   | RelocationX86 of RelocationX86
@@ -603,6 +616,7 @@ type RelocationType =
   | RelocationSH4 of RelocationSH4
   | RelocationRISCV of RelocationRISCV
   | RelocationPPC32 of RelocationPPC32
+  | RelocationPARISC of RelocationPARISC
 with
   static member FromNum arch n =
     match arch with
@@ -624,6 +638,8 @@ with
       RelocationRISCV <| LanguagePrimitives.EnumOfValue n
     | Architecture.PPC32 ->
       RelocationPPC32 <| LanguagePrimitives.EnumOfValue n
+    | Architecture.PARISC | Architecture.PARISC64 ->
+      RelocationPARISC <| LanguagePrimitives.EnumOfValue n
     | _ -> invalidArg (nameof arch) "Unsupported architecture for relocation."
 
   static member ToString rt =
@@ -636,6 +652,7 @@ with
     | RelocationSH4 t -> t.ToString ()
     | RelocationRISCV t -> t.ToString ()
     | RelocationPPC32 t -> t.ToString ()
+    | RelocationPARISC t -> t.ToString ()
 
 /// Relocation entry.
 type RelocationEntry = {

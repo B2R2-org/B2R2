@@ -152,7 +152,251 @@ module Register =
 
   let ofString (str: string) =
     match str.ToLowerInvariant () with
+    | "gr0" -> R.GR0
+    | "gr1" -> R.GR1
+    | "gr2" -> R.GR2
+    | "gr3" -> R.GR3
+    | "gr4" -> R.GR4
+    | "gr5" -> R.GR5
+    | "gr6" -> R.GR6
+    | "gr7" -> R.GR7
+    | "gr8" -> R.GR8
+    | "gr9" -> R.GR9
+    | "gr10" -> R.GR10
+    | "gr11" -> R.GR11
+    | "gr12" -> R.GR12
+    | "gr13" -> R.GR13
+    | "gr14" -> R.GR14
+    | "gr15" -> R.GR15
+    | "gr16" -> R.GR16
+    | "gr17" -> R.GR17
+    | "gr18" -> R.GR18
+    | "gr19" -> R.GR19
+    | "gr20" -> R.GR20
+    | "gr21" -> R.GR21
+    | "gr22" -> R.GR22
+    | "gr23" -> R.GR23
+    | "gr24" -> R.GR24
+    | "gr25" -> R.GR25
+    | "gr26" -> R.GR26
+    | "gr27" -> R.GR27
+    | "gr28" -> R.GR28
+    | "gr29" -> R.GR29
+    | "gr30" -> R.GR30
+    | "gr31" -> R.GR31
+    | "sr0" -> R.SR0
+    | "sr1" -> R.SR1
+    | "sr2" -> R.SR2
+    | "sr3" -> R.SR3
+    | "sr4" -> R.SR4
+    | "sr5" -> R.SR5
+    | "sr6" -> R.SR6
+    | "sr7" -> R.SR7
+    | "iaoq_front" -> R.IAOQ_Front
+    | "iaoq_back" -> R.IAOQ_Back
+    | "iasq_front" -> R.IASQ_Front
+    | "iasq_back" -> R.IASQ_Back
+    | "psw" -> R.PSW
+    | "cr0" -> R.CR0
+    | "cr1" -> R.CR1
+    | "cr2" -> R.CR2
+    | "cr3" -> R.CR3
+    | "cr4" -> R.CR4
+    | "cr5" -> R.CR5
+    | "cr6" -> R.CR6
+    | "cr7" -> R.CR7
+    | "cr8" -> R.CR8
+    | "cr9" -> R.CR9
+    | "cr10" -> R.CR10
+    | "cr11" -> R.CR11
+    | "cr12" -> R.CR12
+    | "cr13" -> R.CR13
+    | "cr14" -> R.CR14
+    | "cr15" -> R.CR15
+    | "cr16" -> R.CR16
+    | "cr17" -> R.CR17
+    | "cr18" -> R.CR18
+    | "cr19" -> R.CR19
+    | "cr20" -> R.CR20
+    | "cr21" -> R.CR21
+    | "cr22" -> R.CR22
+    | "cr23" -> R.CR23
+    | "cr24" -> R.CR24
+    | "cr25" -> R.CR25
+    | "cr26" -> R.CR26
+    | "cr27" -> R.CR27
+    | "cr28" -> R.CR28
+    | "cr29" -> R.CR29
+    | "cr30" -> R.CR30
+    | "cr31" -> R.CR31
+    | "fpr0" -> R.FPR0
+    | "fpr1" -> R.FPR1
+    | "fpr2" -> R.FPR2
+    | "fpr3" -> R.FPR3
+    | "fpr4" -> R.FPR4
+    | "fpr5" -> R.FPR5
+    | "fpr6" -> R.FPR6
+    | "fpr7" -> R.FPR7
+    | "fpr8" -> R.FPR8
+    | "fpr9" -> R.FPR9
+    | "fpr10" -> R.FPR10
+    | "fpr11" -> R.FPR11
+    | "fpr12" -> R.FPR12
+    | "fpr13" -> R.FPR13
+    | "fpr14" -> R.FPR14
+    | "fpr15" -> R.FPR15
+    | "fpr16" -> R.FPR16
+    | "fpr17" -> R.FPR17
+    | "fpr18" -> R.FPR18
+    | "fpr19" -> R.FPR19
+    | "fpr20" -> R.FPR20
+    | "fpr21" -> R.FPR21
+    | "fpr22" -> R.FPR22
+    | "fpr23" -> R.FPR23
+    | "fpr24" -> R.FPR24
+    | "fpr25" -> R.FPR25
+    | "fpr26" -> R.FPR26
+    | "fpr27" -> R.FPR27
+    | "fpr28" -> R.FPR28
+    | "fpr29" -> R.FPR29
+    | "fpr30" -> R.FPR30
+    | "fpr31" -> R.FPR31
+    | _ -> Utils.impossible ()
+
+  let toString = function
+    | R.GR0 -> "gr0"
+    | R.GR1 -> "gr1"
+    | R.GR2 -> "gr2"
+    | R.GR3 -> "gr3"
+    | R.GR4 -> "gr4"
+    | R.GR5 -> "gr5"
+    | R.GR6 -> "gr6"
+    | R.GR7 -> "gr7"
+    | R.GR8 -> "gr8"
+    | R.GR9 -> "gr9"
+    | R.GR10 -> "gr10"
+    | R.GR11 -> "gr11"
+    | R.GR12 -> "gr12"
+    | R.GR13 -> "gr13"
+    | R.GR14 -> "gr14"
+    | R.GR15 -> "gr15"
+    | R.GR16 -> "gr16"
+    | R.GR17 -> "gr17"
+    | R.GR18 -> "gr18"
+    | R.GR19 -> "gr19"
+    | R.GR20 -> "gr20"
+    | R.GR21 -> "gr21"
+    | R.GR22 -> "gr22"
+    | R.GR23 -> "gr23"
+    | R.GR24 -> "gr24"
+    | R.GR25 -> "gr25"
+    | R.GR26 -> "gr26"
+    | R.GR27 -> "gr27"
+    | R.GR28 -> "gr28"
+    | R.GR29 -> "gr29"
+    | R.GR30 -> "gr30"
+    | R.GR31 -> "gr31"
+    | R.SR0 -> "sr0"
+    | R.SR1 -> "sr1"
+    | R.SR2 -> "sr2"
+    | R.SR3 -> "sr3"
+    | R.SR4 -> "sr4"
+    | R.SR5 -> "sr5"
+    | R.SR6 -> "sr6"
+    | R.SR7 -> "sr7"
+    | R.IAOQ_Front -> "iaoq_front"
+    | R.IAOQ_Back -> "iaoq_back"
+    | R.IASQ_Front -> "iasq_front"
+    | R.IASQ_Back -> "iasq_back"
+    | R.PSW -> "psw"
+    | R.CR0 -> "cr0"
+    | R.CR1 -> "cr1"
+    | R.CR2 -> "cr2"
+    | R.CR3 -> "cr3"
+    | R.CR4 -> "cr4"
+    | R.CR5 -> "cr5"
+    | R.CR6 -> "cr6"
+    | R.CR7 -> "cr7"
+    | R.CR8 -> "cr8"
+    | R.CR9 -> "cr9"
+    | R.CR10 -> "cr10"
+    | R.CR11 -> "cr11"
+    | R.CR12 -> "cr12"
+    | R.CR13 -> "cr13"
+    | R.CR14 -> "cr14"
+    | R.CR15 -> "cr15"
+    | R.CR16 -> "cr16"
+    | R.CR17 -> "cr17"
+    | R.CR18 -> "cr18"
+    | R.CR19 -> "cr19"
+    | R.CR20 -> "cr20"
+    | R.CR21 -> "cr21"
+    | R.CR22 -> "cr22"
+    | R.CR23 -> "cr23"
+    | R.CR24 -> "cr24"
+    | R.CR25 -> "cr25"
+    | R.CR26 -> "cr26"
+    | R.CR27 -> "cr27"
+    | R.CR28 -> "cr28"
+    | R.CR29 -> "cr29"
+    | R.CR30 -> "cr30"
+    | R.CR31 -> "cr31"
+    | R.FPR0 -> "fpr0"
+    | R.FPR1 -> "fpr1"
+    | R.FPR2 -> "fpr2"
+    | R.FPR3 -> "fpr3"
+    | R.FPR4 -> "fpr4"
+    | R.FPR5 -> "fpr5"
+    | R.FPR6 -> "fpr6"
+    | R.FPR7 -> "fpr7"
+    | R.FPR8 -> "fpr8"
+    | R.FPR9 -> "fpr9"
+    | R.FPR10 -> "fpr10"
+    | R.FPR11 -> "fpr11"
+    | R.FPR12 -> "fpr12"
+    | R.FPR13 -> "fpr13"
+    | R.FPR14 -> "fpr14"
+    | R.FPR15 -> "fpr15"
+    | R.FPR16 -> "fpr16"
+    | R.FPR17 -> "fpr17"
+    | R.FPR18 -> "fpr18"
+    | R.FPR19 -> "fpr19"
+    | R.FPR20 -> "fpr20"
+    | R.FPR21 -> "fpr21"
+    | R.FPR22 -> "fpr22"
+    | R.FPR23 -> "fpr23"
+    | R.FPR24 -> "fpr24"
+    | R.FPR25 -> "fpr25"
+    | R.FPR26 -> "fpr26"
+    | R.FPR27 -> "fpr27"
+    | R.FPR28 -> "fpr28"
+    | R.FPR29 -> "fpr29"
+    | R.FPR30 -> "fpr30"
+    | R.FPR31 -> "fpr31"
     | _ -> Utils.impossible ()
 
   let toRegType wordSize = function
+    | R.GR0 | R.GR1 | R.GR2 | R.GR3 | R.GR4 | R.GR5 | R.GR6 | R.GR7
+    | R.GR8 | R.GR9 | R.GR10 | R.GR11 | R.GR12 | R.GR13 | R.GR14 | R.GR15
+    | R.GR16 | R.GR17 | R.GR18 | R.GR19 | R.GR20 | R.GR21 | R.GR22 | R.GR23
+    | R.GR24 | R.GR25 | R.GR26 | R.GR27 | R.GR28
+    | R.GR29 | R.GR30 | R.GR31 -> WordSize.toRegType wordSize
+    | R.SR0 | R.SR1 | R.SR2 | R.SR3 | R.SR4 | R.SR5
+    | R.SR6 | R.SR7 -> 64<rt>
+    | R.IAOQ_Front | R.IAOQ_Back | R.IASQ_Front | R.IASQ_Back -> 64<rt>
+    | R.PSW -> 64<rt>
+    | R.CR0 | R.CR1 | R.CR2 | R.CR3 | R.CR4 | R.CR5 | R.CR6 | R.CR7
+    | R.CR8 | R.CR9 | R.CR10 | R.CR11 | R.CR12 | R.CR13 | R.CR14 | R.CR15
+    | R.CR16 | R.CR17 | R.CR18 | R.CR19 | R.CR20 | R.CR21 | R.CR22 | R.CR23
+    | R.CR24 | R.CR25 | R.CR26 | R.CR27 | R.CR28
+    | R.CR29 | R.CR30 | R.CR31 -> 64<rt>
+    | R.FPR0 | R.FPR1 | R.FPR2 | R.FPR3 | R.FPR4
+    | R.FPR5 | R.FPR6 | R.FPR7
+    | R.FPR8 | R.FPR9 | R.FPR10 | R.FPR11
+    | R.FPR12 | R.FPR13 | R.FPR14 | R.FPR15
+    | R.FPR16 | R.FPR17 | R.FPR18 | R.FPR19 | R.FPR20
+    | R.FPR21 | R.FPR22 | R.FPR23
+    | R.FPR24 | R.FPR25 | R.FPR26 | R.FPR27
+    | R.FPR28 | R.FPR29 | R.FPR30 | R.FPR31 -> 64<rt>
     | _ -> Utils.impossible ()
+

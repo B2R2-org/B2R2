@@ -85,13 +85,22 @@ type PARISCInstruction (addr, numBytes, insInfo) =
     Utils.futureFeature ()
 
   override __.Disasm (showAddr, _) =
-    Utils.futureFeature ()
+    let builder =
+      DisasmStringBuilder (showAddr, false, WordSize.Bit64, addr, numBytes)
+    Disasm.disasm __.Info builder
+    builder.ToString ()
 
   override __.Disasm () =
-    Utils.futureFeature ()
+    let builder =
+      DisasmStringBuilder (false, false, WordSize.Bit64, addr, numBytes)
+    Disasm.disasm __.Info builder
+    builder.ToString ()
 
   override __.Decompose (showAddr) =
-    Utils.futureFeature ()
+    let builder =
+      DisasmWordBuilder (showAddr, false, WordSize.Bit64, addr, numBytes, 8)
+    Disasm.disasm __.Info builder
+    builder.ToArray ()
 
   override __.IsInlinedAssembly () = false
 
