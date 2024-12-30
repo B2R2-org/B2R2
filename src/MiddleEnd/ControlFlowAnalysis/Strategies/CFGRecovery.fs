@@ -177,11 +177,18 @@ type CFGRecovery<'FnCtx,
     if ctx.CallerVertices.ContainsKey callsiteAddr then ()
     else ctx.CallerVertices.Add (callsiteAddr, vertex) |> ignore
 
+  let doesAbsVertexExist ctx callsiteAddr calleeAddr =
+    getCalleePPoint callsiteAddr (Some calleeAddr)
+    |> ctx.Vertices.ContainsKey
+
   let isExecutableAddr (ctx: CFGBuildingContext<_, _>) targetAddr =
     ctx.BinHandle.File.IsExecutableAddr targetAddr
 
   let pushCallAction ctx srcPp callsiteAddr calleeAddr action =
-    if isExecutableAddr ctx calleeAddr then
+    (* When a caller node is split into multiple nodes, we can detect the same
+       abs-vertex multiple times. So we'd better check duplicates here. *)
+    if doesAbsVertexExist ctx callsiteAddr calleeAddr then Continue
+    elif isExecutableAddr ctx calleeAddr then
       let mode = ctx.FunctionMode
       let fnAddr = ctx.FunctionAddress
       let actionQueue = ctx.ActionQueue
