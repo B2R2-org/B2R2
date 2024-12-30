@@ -25,6 +25,7 @@
 namespace B2R2.MiddleEnd.ControlFlowAnalysis
 
 open System.Runtime.InteropServices
+open System.Collections.Generic
 open B2R2
 open B2R2.MiddleEnd.ControlFlowGraph
 
@@ -46,6 +47,12 @@ type ICFGBuildable<'FnCtx,
 
   /// Return the current building context.
   abstract Context: CFGBuildingContext<'FnCtx, 'GlCtx>
+
+  /// Currently pending DelayedBuilderRequest(s). This queue can only be
+  /// populated when another builder wants to update the status of this builder
+  /// while it is running. Note that this queue is not thread-safe, and thus, it
+  /// should be accessed only by the task manager.
+  abstract DelayedBuilderRequests: Queue<DelayedBuilderRequest>
 
   /// Authorize the function builder to start building the function. This will
   /// change the state of the function builder to `InProgress`, meaning that the
@@ -81,7 +88,7 @@ type ICFGBuildable<'FnCtx,
 
   /// Make a new builder with a new agent by copying the current one.
   abstract MakeNew:
-       Agent<TaskMessage<'FnCtx, 'GlCtx>>
+       Agent<TaskManagerCommand<'FnCtx, 'GlCtx>>
     -> ICFGBuildable<'FnCtx, 'GlCtx>
 
   /// Convert this builder to a function.

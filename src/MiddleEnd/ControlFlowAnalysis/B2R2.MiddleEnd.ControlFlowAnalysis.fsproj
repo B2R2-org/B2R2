@@ -20,7 +20,8 @@
     <Compile Include="CFGEvaluator.fs" />
     <Compile Include="CFGBuildingContext.fs" />
     <Compile Include="Function.fs" />
-    <Compile Include="TaskMessage.fs" />
+    <Compile Include="TaskManagerCommand.fs" />
+    <Compile Include="DelayedBuilderRequest.fs" />
     <Compile Include="ICFGBuildable.fs" />
     <Compile Include="IFunctionSummarizable.fs" />
     <Compile Include="InternalFnCFGBuilder.fs" />
@@ -30,6 +31,9 @@
     <Compile Include="CFGBuilderTable.fs" />
     <Compile Include="FunctionDependenceMap.fs" />
     <Compile Include="FunctionCollection.fs" />
+    <Compile Include="TaskWorkerCommand.fs" />
+    <Compile Include="TaskWorkerCommandStream.fs" />
+    <Compile Include="TaskScheduler.fs" />
     <Compile Include="RecoveryMission.fs" />
     <Compile Include="Strategies\DummyContext.fs" />
     <Compile Include="Strategies\ICFGAnalysis.fs" />
