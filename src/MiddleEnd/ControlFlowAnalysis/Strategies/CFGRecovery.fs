@@ -122,18 +122,22 @@ type CFGRecovery<'FnCtx,
       markVertexAsPendingForAnalysis useSSA ctx v
       v
 
-  let removeVertex ctx ppoint =
+  /// Try to remove a vertex in the CFG whose program point is given as `ppoint`
+  /// and return its predecessors and successors. When there's no such vertex,
+  /// return empty arrays.
+  let removeVertexAt ctx ppoint =
     match ctx.Vertices.TryGetValue ppoint with
     | true, v ->
       let preds =
         ctx.CFG.GetPredEdges v
         |> Array.filter (fun e -> e.First.VData.Internals.PPoint <> ppoint)
       let succs = ctx.CFG.GetSuccEdges v
-      ctx.Vertices.Remove ppoint |> ignore
       ctx.CFG <- ctx.CFG.RemoveVertex v
-      preds, succs, v
+      ctx.Vertices.Remove ppoint |> ignore
+      markVertexAsRemovalForAnalysis useSSA ctx v
+      preds, succs
     | false, _ ->
-      [||], [||], null
+      [||], [||]
 
   let connectEdge ctx srcVertex dstVertex edgeKind =
     ctx.CFG <- ctx.CFG.AddEdge (srcVertex, dstVertex, edgeKind)
@@ -182,7 +186,7 @@ type CFGRecovery<'FnCtx,
       let fnAddr = ctx.FunctionAddress
       let actionQueue = ctx.ActionQueue
       addCallerVertex ctx callsiteAddr (getVertex ctx srcPp)
-      ctx.IntraCallTable.AddRegularCall srcPp callsiteAddr calleeAddr
+      ctx.IntraCallTable.AddRegularCall callsiteAddr calleeAddr
       if fnAddr = calleeAddr then (* self-recursion *)
         actionQueue.Push prioritizer action
       else
@@ -346,21 +350,9 @@ type CFGRecovery<'FnCtx,
     done
     result
 
-  /// This is to update the caller information when a basic block is split. This
-  /// is only effective when the block makes a call, and the callee(s) are
-  /// known.
-  let handleCallerSplit ctx callerAddr splitAddr callsiteAddr =
-    assert (callerAddr < splitAddr && splitAddr <= callsiteAddr)
-    match ctx.IntraCallTable.TryGetCallee callsiteAddr with
-    | true, RegularCallee calleeAddr ->
-      let callingBBLs = ctx.IntraCallTable.GetCallingBBLs calleeAddr
-      callingBBLs.Remove callerAddr |> ignore
-      callingBBLs.Add splitAddr |> ignore
-    | _ -> ()
-
   let reconnectVertices ctx (dividedEdges: List<ProgramPoint * ProgramPoint>) =
     for (srcPPoint, dstPPoint) in dividedEdges do
-      let preds, succs, origVertex = removeVertex ctx srcPPoint
+      let preds, succs = removeVertexAt ctx srcPPoint
       if Array.isEmpty preds && Array.isEmpty succs then
         (* Don't reconnect previously unseen blocks, which can be introduced by
            tail-calls. N.B. BBLFactory cannot see tail-calls. *)
@@ -372,13 +364,9 @@ type CFGRecovery<'FnCtx,
         dbglog ctx.ThreadID "Reconnect" $"{srcPPoint} -> {dstPPoint}"
 #endif
         let lastAddr = dstVertex.VData.Internals.LastInstruction.Address
-        let callsiteAddr = lastAddr
-        if not <| ctx.CallerVertices.ContainsKey callsiteAddr then ()
-        else ctx.CallerVertices[callsiteAddr] <- dstVertex
-        handleCallerSplit ctx srcPPoint.Address dstPPoint.Address lastAddr
+        if not <| ctx.CallerVertices.ContainsKey lastAddr then ()
+        else ctx.CallerVertices[lastAddr] <- dstVertex
         connectEdge ctx srcVertex dstVertex FallThroughEdge
-        markVertexAsPendingForAnalysis useSSA ctx srcVertex
-        markVertexAsRemovalForAnalysis useSSA ctx origVertex
         for e in preds do
           connectEdge ctx e.First srcVertex e.Label
         for e in succs do
