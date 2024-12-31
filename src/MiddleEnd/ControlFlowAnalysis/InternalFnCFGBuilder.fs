@@ -126,7 +126,6 @@ type InternalFnCFGBuilder<'FnCtx,
         CFG = cfg
         CPState = cpState
         BBLFactory = bblFactory
-        ForceFinish = false
         NonReturningStatus = UnknownNoRet
         JumpTableRecoveryStatus = Stack ()
         JumpTables = List ()
@@ -164,12 +163,15 @@ type InternalFnCFGBuilder<'FnCtx,
       assert (state = InProgress)
       state <- Stopped
 
-    member __.Finalize (isForceful) =
-      assert (state = InProgress || isForceful)
+    member __.ForceFinish () =
+      state <- ForceFinished
+
+    member __.Finalize () =
+      assert (state = InProgress)
       state <- Finished
 
     member __.ReInitialize () =
-      assert (state = Finished)
+      assert (state = Finished || state = ForceFinished)
       state <- Initialized
 
     member __.Invalidate () =

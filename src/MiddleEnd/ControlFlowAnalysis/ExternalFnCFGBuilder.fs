@@ -50,7 +50,6 @@ type ExternalFnCFGBuilder<'FnCtx,
       CFG = null
       CPState = null
       BBLFactory = null
-      ForceFinish = false
       NonReturningStatus = noretStatus
       JumpTableRecoveryStatus = null
       JumpTables = null
@@ -83,7 +82,9 @@ type ExternalFnCFGBuilder<'FnCtx,
 
     member __.Stop () = ()
 
-    member __.Finalize (_) = ()
+    member __.ForceFinish () = ()
+
+    member __.Finalize () = ()
 
     member __.ReInitialize () = ()
 

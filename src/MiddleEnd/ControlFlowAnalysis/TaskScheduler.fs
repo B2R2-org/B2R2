@@ -54,14 +54,15 @@ type TaskScheduler<'FnCtx,
 
   let isFinished entryPoint =
     match builders.TryGetBuilder entryPoint with
-    | Ok builder -> builder.BuilderState = Finished
+    | Ok builder ->
+      builder.BuilderState = Finished || builder.BuilderState = ForceFinished
     | Error _ -> false
 
   let toBuilderMessage = function
     | Ok (builder: ICFGBuildable<_, _>) ->
       match builder.BuilderState with
       | Invalid -> FailedBuilding
-      | Finished -> FinalCtx builder.Context
+      | ForceFinished | Finished -> FinalCtx builder.Context
       | _ -> StillBuilding builder.Context
     | Error _ -> FailedBuilding
 
@@ -149,10 +150,10 @@ type TaskScheduler<'FnCtx,
 #if CFGDEBUG
     dbglog ManagerTid "Invalidate" $"{builder.EntryPoint:x}"
 #endif
-    if builder.Context.ForceFinish then ()
-    elif builder.BuilderState = InProgress then
-      builder.DelayedBuilderRequests.Enqueue Rollback
-    else rollback builder
+    match builder.BuilderState with
+    | ForceFinished -> ()
+    | InProgress -> builder.DelayedBuilderRequests.Enqueue Rollback
+    | _ -> rollback builder
 
   let getAllStoppedCycle (cycleAddrs: Addr[]) =
     let tuples = Array.zeroCreate cycleAddrs.Length
@@ -176,9 +177,8 @@ type TaskScheduler<'FnCtx,
     let calleeInfo = nextStatus, unwindingBytes
     let calleeAddr = targetBuilder.EntryPoint
     resetBuilder targetBuilder
-    targetBuilder.Context.ForceFinish <- true
+    targetBuilder.ForceFinish ()
     targetBuilder.Context.NonReturningStatus <- nextStatus
-    targetBuilder.Finalize true (* mark as Finished *)
 #if CFGDEBUG
     dbglog ManagerTid "CyclicDependencies"
     <| $"force finish {targetBuilder.EntryPoint:x}"
@@ -197,7 +197,7 @@ type TaskScheduler<'FnCtx,
         let state = bld.BuilderState
         if state <> Finished && state <> Invalid then
           let addr = bld.Context.FunctionAddress
-          let forceFinished = bld.Context.ForceFinish
+          let forceFinished = bld.BuilderState = ForceFinished
           dbglog ManagerTid "Terminate" $"? {addr:x} ({state}, {forceFinished})"
       )
 #endif
@@ -228,7 +228,6 @@ type TaskScheduler<'FnCtx,
 #if CFGDEBUG
           dbglog ManagerTid "Restart" $"{builder.EntryPoint:x}"
 #endif
-          builder.Context.ForceFinish <- false
           builder.ReInitialize ()
           scheduleCFGBuilding builder.EntryPoint builder.Mode)
       | YetDone ->
@@ -445,6 +444,7 @@ type TaskScheduler<'FnCtx,
         let builder = builders.GetOrCreateBuilder msgbox entryPoint mode
         if builder.BuilderState = InProgress ||
            builder.BuilderState = Invalid ||
+           builder.BuilderState = ForceFinished ||
            builder.BuilderState = Finished then ()
         else
           workingSet.Add entryPoint |> ignore

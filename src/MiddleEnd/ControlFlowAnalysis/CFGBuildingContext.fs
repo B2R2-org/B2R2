@@ -55,10 +55,6 @@ type CFGBuildingContext<'FnCtx,
   CPState: VarBasedDataFlowState<ConstantDomain.Lattice>
   /// The basic block factory.
   BBLFactory: BBLFactory
-  /// Do not wait for callee functions to be built, and finish building this
-  /// function by under-approximating the CFG, i.e., we consider every unknown
-  /// callee of this function as a no-return function.
-  mutable ForceFinish: bool
   /// Is this function a no-return function?
   mutable NonReturningStatus: NonReturningStatus
   /// Which jump table entry is currently being recovered? (table addr, index)
@@ -97,7 +93,6 @@ with
     __.Vertices.Clear ()
     __.CFG <- cfg
     if isNull __.CPState then () else __.CPState.Reset ()
-    __.ForceFinish <- false
     (* N.B. We should keep the value of `NonReturningStatus` (i.e., leave the
        below line commented out) because we should be able to compare the
        difference before/after rebuilding the CFG. *)

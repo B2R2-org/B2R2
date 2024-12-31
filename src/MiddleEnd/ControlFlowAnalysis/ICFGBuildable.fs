@@ -24,7 +24,6 @@
 
 namespace B2R2.MiddleEnd.ControlFlowAnalysis
 
-open System.Runtime.InteropServices
 open System.Collections.Generic
 open B2R2
 open B2R2.MiddleEnd.ControlFlowGraph
@@ -65,11 +64,15 @@ type ICFGBuildable<'FnCtx,
   /// scheduled again later.
   abstract Stop: unit -> unit
 
+  /// Forcefully finish the function building process because of a cyclic
+  /// dependency. This will change the state of the function builder to
+  /// `ForceFinished`.
+  abstract ForceFinish: unit -> unit
+
   /// Finalize the function building process. This will change the state of the
   /// function builder to `Finished`, meaning that the function has been built
   /// successfully.
-  abstract Finalize:
-    [<Optional; DefaultParameterValue(false)>] isForceful: bool -> unit
+  abstract Finalize: unit -> unit
 
   /// Re-initialize the function builder. This will change the state of the
   /// function builder to `Initialized`, meaning that the function can be
@@ -104,6 +107,10 @@ and CFGBuilderState =
   /// Error occurred so this builder is invalid. We can re-initalize this
   /// builder later, but converting this builder to a function will fail.
   | Invalid
+  /// Forcefully finished due to cyclic dependency. This builder has a
+  /// under-approximated CFG because every unknown callee is considered
+  /// non-returning.
+  | ForceFinished
   /// Finished building and everything has been valid.
   | Finished
 

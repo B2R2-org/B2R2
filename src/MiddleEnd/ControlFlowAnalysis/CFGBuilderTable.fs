@@ -90,9 +90,10 @@ type CFGBuilderTable<'FnCtx,
     let mutable allDone = true
     let forceTerminated = List ()
     for bld in builders.Values do
-      if bld.BuilderState = Finished || bld.BuilderState = Invalid then ()
-      else allDone <- false
-      if bld.Context.ForceFinish then forceTerminated.Add bld else ()
+      match bld.BuilderState with
+      | Finished | Invalid -> ()
+      | ForceFinished -> forceTerminated.Add bld
+      | _ -> allDone <- false
     if allDone && forceTerminated.Count = 0 then AllDone
     elif allDone then ForceTerminated <| forceTerminated.ToArray ()
     else YetDone
