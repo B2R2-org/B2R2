@@ -71,6 +71,17 @@ type CFGBuilderTable<'FnCtx,
         builders[range.Min] <- builder
     )
 
+  let rec getTerminationStatus (builders: IList<ICFGBuildable<_, _>>) acc idx =
+    if idx < 0 then
+      if List.isEmpty acc then AllDone
+      else ForceTerminated <| List.toArray acc
+    else
+      let b = builders[idx]
+      match b.BuilderState with
+      | Finished | Invalid -> getTerminationStatus builders acc (idx - 1)
+      | ForceFinished -> getTerminationStatus builders (b :: acc) (idx - 1)
+      | _ -> YetDone
+
   (* Load external function builders by parsing the PLT. *)
   do match hdl.File.Format with
      | FileFormat.ELFBinary -> hdl.File :?> ELFBinFile |> loadFromPLT
@@ -87,16 +98,7 @@ type CFGBuilderTable<'FnCtx,
 
   /// Return the current termination status of all function builders.
   member _.GetTerminationStatus () =
-    let mutable allDone = true
-    let forceTerminated = List ()
-    for bld in builders.Values do
-      match bld.BuilderState with
-      | Finished | Invalid -> ()
-      | ForceFinished -> forceTerminated.Add bld
-      | _ -> allDone <- false
-    if allDone && forceTerminated.Count = 0 then AllDone
-    elif allDone then ForceTerminated <| forceTerminated.ToArray ()
-    else YetDone
+    getTerminationStatus builders.Values [] (builders.Count - 1)
 
   /// Get or create a function builder by its address and operation mode.
   member _.GetOrCreateBuilder managerMsgbox addr mode =
