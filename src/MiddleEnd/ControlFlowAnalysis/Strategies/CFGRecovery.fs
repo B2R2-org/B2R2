@@ -256,7 +256,6 @@ type CFGRecovery<'FnCtx,
         | InterJmp ({ E = PCVar _ }, InterJmpKind.Base) ->
           let dstPPoint = ProgramPoint (ppoint.Address, 0)
           let dstVertex = getVertex ctx dstPPoint
-          let last = srcData.LastInstruction
           connectEdge ctx srcVertex dstVertex InterJmpEdge
         | InterJmp ({ E = BinOp (BinOpType.ADD, _, { E = PCVar _ },
                                                    { E = Num n }) },

@@ -234,12 +234,6 @@ type TaskScheduler<'FnCtx,
         checkAndResolveCyclicDependencies ()
     else ()
 
-  let recoverPrevNonReturningStatus (builder: ICFGBuildable<_, _>) prevStatus =
-    if builder.DelayedBuilderRequests.Count = 0 then ()
-    else
-      (* Recover the previous status in order to detect the change again. *)
-      builder.Context.NonReturningStatus <- prevStatus
-
   let rec consumeUntilPendingReset (builder: ICFGBuildable<_, _>) =
     match builder.DelayedBuilderRequests.TryDequeue () with
     | true, NotifyCalleeSuccess (calleeAddr, calleeInfo) ->
@@ -307,9 +301,11 @@ type TaskScheduler<'FnCtx,
       dbglog ManagerTid "HandleResult"
       <| $"{entryPoint:x}: finished, but result changed"
 #endif
-      recoverPrevNonReturningStatus builder prevStatus
-      if consumeDelayedRequests builder then ()
-      else reloadCallersAndFinalizeBuilder builder entryPoint
+      if consumeDelayedRequests builder then
+        (* Recover the previous status in order to detect the change again. *)
+        builder.Context.NonReturningStatus <- prevStatus
+      else
+        reloadCallersAndFinalizeBuilder builder entryPoint
     | Wait ->
 #if CFGDEBUG
       dbglog ManagerTid "HandleResult" $"{entryPoint:x}: stopped"
