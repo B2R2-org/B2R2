@@ -69,6 +69,7 @@ type CFGRecovery<'FnCtx,
           | MakeSyscall _ -> 3
           | MakeIndEdges _ -> 2
           | WaitForCallee _ -> 2
+          | UpdateCallEdges _ -> 1
           | StartTblRec _ -> 0
           | EndTblRec _ -> 0 }
 
@@ -125,7 +126,7 @@ type CFGRecovery<'FnCtx,
   /// Try to remove a vertex in the CFG whose program point is given as `ppoint`
   /// and return its predecessors and successors. When there's no such vertex,
   /// return empty arrays.
-  let removeVertexAt ctx ppoint =
+  let tryRemoveVertexAt ctx ppoint =
     match ctx.Vertices.TryGetValue ppoint with
     | true, v ->
       let preds =
@@ -358,7 +359,7 @@ type CFGRecovery<'FnCtx,
 
   let reconnectVertices ctx (dividedEdges: List<ProgramPoint * ProgramPoint>) =
     for (srcPPoint, dstPPoint) in dividedEdges do
-      let preds, succs = removeVertexAt ctx srcPPoint
+      let preds, succs = tryRemoveVertexAt ctx srcPPoint
       if Array.isEmpty preds && Array.isEmpty succs then
         (* Don't reconnect previously unseen blocks, which can be introduced by
            tail-calls. N.B. BBLFactory cannot see tail-calls. *)
@@ -392,11 +393,13 @@ type CFGRecovery<'FnCtx,
       Ok <| summarizer.Summarize (calleeCtx, retStatus, unwindingBytes, callIns)
     | FailedBuilding -> Error ErrorCase.FailedToRecoverCFG
 
-  let connectAbsVertex ctx (caller: IVertex<LowUIRBasicBlock>) calleeAddr abs =
-    let callIns = caller.VData.Internals.LastInstruction
+  let connectAbsVertex ctx caller calleeAddr isTail abs =
+    let callerBBL = (caller: IVertex<LowUIRBasicBlock>).VData.Internals
+    let callIns = callerBBL.LastInstruction
     let callsiteAddr = callIns.Address
     let callee = getAbsVertex ctx callsiteAddr (Some calleeAddr) abs
-    connectEdge ctx caller callee CallEdge
+    let edgeKind = if isTail then TailCallEdge else CallEdge
+    connectEdge ctx caller callee edgeKind
     callee, callsiteAddr + uint64 callIns.Length
 
   let scanBBLsAndConnect ctx queue src dstAddr edgeKind =
@@ -429,7 +432,7 @@ type CFGRecovery<'FnCtx,
     let lastIns =
       (caller: IVertex<LowUIRBasicBlock>).VData.Internals.LastInstruction
     getFunctionAbstraction ctx lastIns calleeAddr calleeInfo
-    |> Result.map (connectAbsVertex ctx caller calleeAddr)
+    |> Result.map (connectAbsVertex ctx caller calleeAddr false)
     |> Result.bind (connectRet ctx queue)
     |> Result.bind (fun _ -> connectExnEdge ctx queue lastIns.Address)
     |> toCFGResult
@@ -438,7 +441,7 @@ type CFGRecovery<'FnCtx,
     let lastIns =
       (caller: IVertex<LowUIRBasicBlock>).VData.Internals.LastInstruction
     getFunctionAbstraction ctx lastIns calleeAddr calleeInfo
-    |> Result.map (connectAbsVertex ctx caller calleeAddr)
+    |> Result.map (connectAbsVertex ctx caller calleeAddr false)
     |> Result.bind (fun _ -> connectExnEdge ctx queue lastIns.Address)
     |> toCFGResult
 
@@ -447,14 +450,14 @@ type CFGRecovery<'FnCtx,
     if isTailCall then
       let lastIns = caller.VData.Internals.LastInstruction
       getFunctionAbstraction ctx lastIns callee calleeInfo
-      |> Result.map (connectAbsVertex ctx caller callee)
+      |> Result.map (connectAbsVertex ctx caller callee true)
       |> toCFGResult
     elif ctx.FunctionAddress = callee then
       (* recursion = 100% returns (not no-ret) *)
       let lastIns = caller.VData.Internals.LastInstruction
       (* TODO: its unwinding bytes cannot be decided at this moment. *)
       summarizer.Summarize (ctx, NotNoRet, 0, lastIns)
-      |> connectAbsVertex ctx caller callee
+      |> connectAbsVertex ctx caller callee false
       |> connectRet ctx queue
       |> toCFGResult
     else
@@ -480,7 +483,7 @@ type CFGRecovery<'FnCtx,
   let connectSyscallEdge ctx queue callsiteAddr isExit =
     let caller = ctx.CallerVertices[callsiteAddr]
     syscallAnalysis.MakeAbstract (ctx, caller, isExit)
-    |> connectAbsVertex ctx caller 0UL
+    |> connectAbsVertex ctx caller 0UL false
     |> fun callee ->
       if not isExit then connectRet ctx queue callee |> ignore
       else ()
@@ -570,6 +573,36 @@ type CFGRecovery<'FnCtx,
         dbglog ctx.ThreadID "JumpTable" $"No more to add"
 #endif
         Continue
+
+  let isNoRet (v: IVertex<LowUIRBasicBlock>) =
+    v.VData.Internals.AbstractContent.ReturningStatus = NoRet
+
+  let updateCallEdgesForEachCallsite ctx callsites calleeAddr calleeInfo =
+    for callsite in callsites do
+      let absPp = ProgramPoint (callsite, calleeAddr, 0)
+      match ctx.Vertices.TryGetValue absPp with
+      | true, absV when isNoRet absV ->
+        let edge = ctx.CFG.GetPredEdges absV |> Array.exactlyOne
+        let isTailCall = edge.Label = TailCallEdge
+        let action =
+          if isTailCall then MakeTlCall (callsite, calleeAddr, calleeInfo)
+          else MakeCall (callsite, calleeAddr, calleeInfo)
+#if CFGDEBUG
+        let fnAddr = ctx.FunctionAddress
+        dbglog ctx.ThreadID (nameof UpdateCallEdges)
+        <| $"{callsite:x} -> {calleeAddr:x} @ {fnAddr:x}"
+#endif
+        tryRemoveVertexAt ctx absPp |> ignore
+        ctx.ActionQueue.Push prioritizer action
+      | _ -> ()
+    Continue
+
+  let updateCallEdges (ctx: CFGBuildingContext<_, _>) calleeAddr calleeInfo =
+    match ctx.IntraCallTable.TryGetCallsites calleeAddr with
+    | true, callsites ->
+      updateCallEdgesForEachCallsite ctx callsites calleeAddr calleeInfo
+    | false, _ ->
+      Utils.impossible ()
 
   let hasReturnNode (ctx: CFGBuildingContext<'FnCtx, 'GlCtx>) =
     ctx.CFG.TryFindVertexBy (fun v ->
@@ -702,6 +735,14 @@ type CFGRecovery<'FnCtx,
           ctx.JumpTables.Add jmptbl
           ctx.JumpTableRecoveryStatus.Pop () |> ignore
           sendJmpTblRecoverySuccess ctx queue jmptbl idx
+        | UpdateCallEdges (calleeAddr, calleeInfo) ->
+#if CFGDEBUG
+          let noret, unwinding = calleeInfo
+          let fnAddr = ctx.FunctionAddress
+          dbglog ctx.ThreadID (nameof UpdateCallEdges)
+          <| $"{calleeAddr:x} changed to {noret}, {unwinding} @ {fnAddr:x}"
+#endif
+          updateCallEdges ctx calleeAddr calleeInfo
       with e ->
         Console.Error.WriteLine $"OnAction failed:\n{e}"
         FailStop ErrorCase.FailedToRecoverCFG

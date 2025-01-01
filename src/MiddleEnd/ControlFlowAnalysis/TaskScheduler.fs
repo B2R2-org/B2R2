@@ -52,10 +52,12 @@ type TaskScheduler<'FnCtx,
     builder.Authorize ()
     taskStream.Post <| BuildCFG builder
 
+  let isBuilderFinished (builder: ICFGBuildable<_, _>) =
+    builder.BuilderState = Finished || builder.BuilderState = ForceFinished
+
   let isFinished entryPoint =
     match builders.TryGetBuilder entryPoint with
-    | Ok builder ->
-      builder.BuilderState = Finished || builder.BuilderState = ForceFinished
+    | Ok builder -> isBuilderFinished builder
     | Error _ -> false
 
   let toBuilderMessage = function
@@ -89,10 +91,8 @@ type TaskScheduler<'FnCtx,
   /// this function should be only used for builders that are not currently
   /// handled by the manager.
   let restartBuilderIfNotInProgress (builder: ICFGBuildable<_, _>) =
-    if builder.BuilderState <> InProgress then
-      restartBuilder builder
-    else
-      builder.DelayedBuilderRequests.Enqueue ResetBuilder
+    if builder.BuilderState <> InProgress then restartBuilder builder
+    else builder.DelayedBuilderRequests.Enqueue ResetBuilder
 
   let rechargeActionQueue ctx callee calleeInfo =
     let callerPendingActions = ctx.PendingCallActions
@@ -249,6 +249,13 @@ type TaskScheduler<'FnCtx,
       rollback builder
       builder.DelayedBuilderRequests.Clear ()
       true
+    | true, NotifyCalleeChange (calleeAddr, calleeInfo) ->
+#if CFGDEBUG
+      dbglog ManagerTid (nameof NotifyCalleeChange) $"{calleeAddr:x}"
+#endif
+      builder.Context.ActionQueue.Push strategy.ActionPrioritizer
+      <| UpdateCallEdges (calleeAddr, calleeInfo)
+      consumeUntilPendingReset builder
     | true, ResetBuilder ->
 #if CFGDEBUG
       dbglog ManagerTid (nameof ResetBuilder) $"{builder.EntryPoint:x}"
@@ -264,6 +271,26 @@ type TaskScheduler<'FnCtx,
     if builder.DelayedBuilderRequests.Count = 0 then false
     else consumeUntilPendingReset builder
 
+  /// Conditionally update builder based on its state. If the builder is
+  /// currently building, then it will send a delayed request to the builder to
+  /// update itself after the current building process is done. N.B. the
+  /// BuilderState is not a reliable indicator of the builder's status
+  /// especially when the manager is handling the result of the builder. Thus,
+  /// this function should be only used for builders that are not currently
+  /// handled by the manager.
+  let updateCallersIfNotInProgress (callee: ICFGBuildable<_, _>) caller =
+    let calleeCtx = callee.Context
+    let calleeAddr = callee.EntryPoint
+    let calleeInfo = calleeCtx.NonReturningStatus, calleeCtx.UnwindingBytes
+    if (caller: ICFGBuildable<_, _>).BuilderState <> InProgress then
+      if isBuilderFinished caller then caller.ReInitialize () else ()
+      caller.Context.ActionQueue.Push strategy.ActionPrioritizer
+      <| UpdateCallEdges (calleeAddr, calleeInfo)
+      scheduleCFGBuilding caller.EntryPoint caller.Mode
+    else
+      caller.DelayedBuilderRequests.Enqueue
+      <| NotifyCalleeChange (calleeAddr, calleeInfo)
+
   /// This function is called when a callee has been successfully built. It
   /// propagates the success to its callers who are waiting for the builder.
   let finalizeBuilder (builder: ICFGBuildable<_, _>) entryPoint =
@@ -276,14 +303,12 @@ type TaskScheduler<'FnCtx,
     |> Array.iter (notifySuccessToCaller entryPoint calleeInfo)
 
   let reloadCallersAndFinalizeBuilder builder entryPoint =
-    dependenceMap.GetConfirmedCallers entryPoint
-    |> Array.iter (fun callerAddr ->
+    for callerAddr in dependenceMap.GetConfirmedCallers entryPoint do
 #if CFGDEBUG
       dbglog ManagerTid "ReloadDueCalleeChange"
       <| $"{entryPoint:x} -> {callerAddr:x}"
 #endif
-      restartBuilderIfNotInProgress builders[callerAddr]
-    )
+      updateCallersIfNotInProgress builder builders[callerAddr]
     finalizeBuilder builder entryPoint
 
   let handleResult entryPoint result =

@@ -35,5 +35,8 @@ type DelayedBuilderRequest =
   /// Rollback the current builder and make the callers to rollback if
   /// necessary.
   | Rollback
+  /// Notify that the callee's information (e.g., its returning status) has been
+  /// changed.
+  | NotifyCalleeChange of callee: Addr * calleeInfo: CalleeInfo
   /// Reset the builder.
   | ResetBuilder

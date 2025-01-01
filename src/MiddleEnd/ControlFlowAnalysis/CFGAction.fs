@@ -58,6 +58,10 @@ type CFGAction =
   /// Report the recovery result of a jump table entry. This will always be
   /// followed by a `StartTblRec` action to denote the end of the recovery.
   | EndTblRec of tbl: JmpTableInfo * idx: int
+  /// Update the call edge(s) for the callee's abstract vertex. This action is
+  /// used to inform that the callee's information (e.g., non-returning status)
+  /// has been changed, and the call edges should be updated accordingly.
+  | UpdateCallEdges of calleeAddr: Addr * CalleeInfo
 with
   /// The priority of the action. Higher values mean higher priority.
   member this.Priority (p: IPrioritizable) = p.GetPriority this
@@ -69,4 +73,3 @@ and CalleeInfo = NonReturningStatus * int
 and IPrioritizable =
   /// Get the priority of the action. A higher value means higher priority.
   abstract GetPriority: CFGAction -> int
-
