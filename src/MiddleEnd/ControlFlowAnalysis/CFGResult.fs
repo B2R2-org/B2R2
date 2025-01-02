@@ -29,12 +29,12 @@ open B2R2.MiddleEnd.ControlFlowGraph
 
 /// The result obtained from recovering a CFG.
 type CFGResult =
-  /// We have successfully handled the task, so continue to the next task.
-  | Continue
+  /// We have successfully handled the task, so move on to the next task.
+  | MoveOn
   /// We have successfully handled the task, but we found the function's
   /// internal state has been changed, so we need to reload caller functions,
   /// too. This result is only used in the post-recovery phase.
-  | ContinueAndReloadCallers of previousStatus: NonReturningStatus
+  | MoveOnButReloadCallers of previousStatus: NonReturningStatus
   /// We need to postpone the current task because the current function depends
   /// on other function(s) that have not been recovered yet.
   | Wait

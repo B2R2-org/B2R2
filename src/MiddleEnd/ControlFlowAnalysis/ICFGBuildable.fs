@@ -69,6 +69,10 @@ type ICFGBuildable<'FnCtx,
   /// `ForceFinished`.
   abstract ForceFinish: unit -> unit
 
+  /// Mark the state to be `Verifying`. This means that the function builder is
+  /// currently verifying the built function.
+  abstract StartVerifying: unit -> unit
+
   /// Finalize the function building process. This will change the state of the
   /// function builder to `Finished`, meaning that the function has been built
   /// successfully.
@@ -104,13 +108,16 @@ and CFGBuilderState =
   | InProgress
   /// Stopped and will be resumed later.
   | Stopped
-  /// Error occurred so this builder is invalid. We can re-initalize this
+  /// Error occurred so this builder is invalid. We can re-authorize this
   /// builder later, but converting this builder to a function will fail.
   | Invalid
   /// Forcefully finished due to cyclic dependency. This builder has a
   /// under-approximated CFG because every unknown callee is considered
   /// non-returning.
   | ForceFinished
+  /// Waiting for the builder to be finzlied, while performing some
+  /// verification.
+  | Verifying
   /// Finished building and everything has been valid.
   | Finished
 

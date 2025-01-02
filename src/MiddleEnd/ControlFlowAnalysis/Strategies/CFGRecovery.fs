@@ -188,7 +188,7 @@ type CFGRecovery<'FnCtx,
   let pushCallAction ctx srcPp callsiteAddr calleeAddr action =
     (* When a caller node is split into multiple nodes, we can detect the same
        abs-vertex multiple times. So we'd better check duplicates here. *)
-    if doesAbsVertexExist ctx callsiteAddr calleeAddr then Continue
+    if doesAbsVertexExist ctx callsiteAddr calleeAddr then MoveOn
     elif isExecutableAddr ctx calleeAddr then
       let mode = ctx.FunctionMode
       let fnAddr = ctx.FunctionAddress
@@ -210,7 +210,7 @@ type CFGRecovery<'FnCtx,
           | MakeTlCall _ -> MakeTlCall (callsiteAddr, calleeAddr, calleeInfo)
           | _ -> action
           |> actionQueue.Push prioritizer
-      Continue
+      MoveOn
     else FailStop ErrorCase.FailedToRecoverCFG
 
   let makeIntraFallThroughEdge ctx (ppQueue: Queue<_>) srcVertex =
@@ -224,8 +224,8 @@ type CFGRecovery<'FnCtx,
   /// Build a CFG starting from the given program points.
   let buildCFG ctx (actionQueue: CFGActionQueue) initPPs =
     let ppQueue = Queue<ProgramPoint> (collection=initPPs)
-    let mutable result = Continue
-    while ppQueue.Count > 0 && result = Continue do
+    let mutable result = MoveOn
+    while ppQueue.Count > 0 && result = MoveOn do
       let ppoint = ppQueue.Dequeue ()
       if ctx.VisitedPPoints.Contains ppoint then ()
       else
@@ -425,7 +425,7 @@ type CFGRecovery<'FnCtx,
     | None -> Ok ()
 
   let toCFGResult = function
-    | Ok _ -> Continue
+    | Ok _ -> MoveOn
     | Error e -> FailStop e
 
   let connectCallWithFT ctx caller calleeAddr calleeInfo queue =
@@ -487,7 +487,7 @@ type CFGRecovery<'FnCtx,
     |> fun callee ->
       if not isExit then connectRet ctx queue callee |> ignore
       else ()
-    Continue
+    MoveOn
 
   let readJumpTable ctx (jmptbl: JmpTableInfo) idx =
     let size = jmptbl.EntrySize
@@ -500,7 +500,7 @@ type CFGRecovery<'FnCtx,
     <| StartTblRec (jmptbl, idx, bblAddr, targetAddr)
     queue.Push prioritizer
     <| EndTblRec (jmptbl, idx)
-    Continue
+    MoveOn
 
   let recoverIndirectBranches ctx queue insAddr bblAddr =
     match jmptblAnalysis.Identify ctx insAddr bblAddr with
@@ -513,12 +513,12 @@ type CFGRecovery<'FnCtx,
       |> function
         | GoRecovery -> pushJmpTblRecoveryAction ctx queue bblAddr jmptbl 0
         | StopRecoveryButReload -> StopAndReload
-        | StopRecoveryAndContinue -> Continue
+        | StopRecoveryAndContinue -> MoveOn
     | Error _ ->
 #if CFGDEBUG
       dbglog ctx.ThreadID "JumpTable" $"{insAddr:x} unknown pattern"
 #endif
-      Continue (* We ignore this indirect branch. *)
+      MoveOn (* We ignore this indirect branch. *)
 
   let isFailedBuilding (ctx: CFGBuildingContext<'FnCtx, 'GlCtx>) calleeAddr =
     match ctx.ManagerChannel.GetBuildingContext calleeAddr with
@@ -551,7 +551,7 @@ type CFGRecovery<'FnCtx,
         ctx.ManagerChannel.CancelJumpTableRecovery (fnAddr, tblAddr)
         popOffJmpTblRecoveryAction ctx
         ctx.JumpTableRecoveryStatus.Pop () |> ignore
-        Continue
+        MoveOn
       | _ ->
         FailStop ErrorCase.FailedToRecoverCFG
     else
@@ -572,7 +572,7 @@ type CFGRecovery<'FnCtx,
 #if CFGDEBUG
         dbglog ctx.ThreadID "JumpTable" $"No more to add"
 #endif
-        Continue
+        MoveOn
 
   let isNoRet (v: IVertex<LowUIRBasicBlock>) =
     v.VData.Internals.AbstractContent.ReturningStatus = NoRet
@@ -595,7 +595,7 @@ type CFGRecovery<'FnCtx,
         tryRemoveVertexAt ctx absPp |> ignore
         ctx.ActionQueue.Push prioritizer action
       | _ -> ()
-    Continue
+    MoveOn
 
   let updateCallEdges (ctx: CFGBuildingContext<_, _>) calleeAddr calleeInfo =
     match ctx.IntraCallTable.TryGetCallsites calleeAddr with
@@ -618,8 +618,8 @@ type CFGRecovery<'FnCtx,
     ctx.UnwindingBytes <- summarizer.ComputeUnwindingAmount ctx
     match oldNoRetStatus, newNoRetStatus with
     | NoRet, NotNoRet
-    | NoRet, ConditionalNoRet _ -> ContinueAndReloadCallers oldNoRetStatus
-    | _ -> Continue
+    | NoRet, ConditionalNoRet _ -> MoveOnButReloadCallers oldNoRetStatus
+    | _ -> MoveOn
 
   new (useSSA) =
     let summarizer = FunctionSummarizer ()
@@ -705,9 +705,9 @@ type CFGRecovery<'FnCtx,
 #endif
           if not (ctx.PendingCallActions.ContainsKey calleeAddr) then
 #if CFGDEBUG
-            dbglog ctx.ThreadID (nameof WaitForCallee) "-> continue"
+            dbglog ctx.ThreadID (nameof WaitForCallee) "-> move on"
 #endif
-            Continue
+            MoveOn
           elif isFailedBuilding ctx calleeAddr then
 #if CFGDEBUG
             dbglog ctx.ThreadID (nameof WaitForCallee) "-> failstop"
@@ -740,7 +740,7 @@ type CFGRecovery<'FnCtx,
           let noret, unwinding = calleeInfo
           let fnAddr = ctx.FunctionAddress
           dbglog ctx.ThreadID (nameof UpdateCallEdges)
-          <| $"{calleeAddr:x} changed to {noret}, {unwinding} @ {fnAddr:x}"
+          <| $"{calleeAddr:x} changed to ({noret}:{unwinding}) @ {fnAddr:x}"
 #endif
           updateCallEdges ctx calleeAddr calleeInfo
       with e ->

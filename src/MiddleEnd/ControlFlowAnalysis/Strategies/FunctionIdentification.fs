@@ -68,7 +68,7 @@ type FunctionIdentification<'FnCtx,
     member __.FindCandidates (_builders) =
       getInitialEntryPoints ()
 
-    member __.OnAction (_ctx, _queue, _action) = Continue
-    member __.OnFinish (_ctx) = Continue
+    member __.OnAction (_ctx, _queue, _action) = MoveOn
+    member __.OnFinish (_ctx) = MoveOn
     member __.OnCyclicDependency (_) = Utils.impossible ()
 

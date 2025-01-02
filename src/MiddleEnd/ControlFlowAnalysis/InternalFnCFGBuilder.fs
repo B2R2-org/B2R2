@@ -92,8 +92,8 @@ type InternalFnCFGBuilder<'FnCtx,
     else
       let action = queue.Pop ()
       match strategy.OnAction (ctx, queue, action) with
-      | Continue -> build strategy queue
-      | ContinueAndReloadCallers _ -> Utils.impossible ()
+      | MoveOn -> build strategy queue
+      | MoveOnButReloadCallers _ -> Utils.impossible ()
       | Wait -> queue.Push strategy.ActionPrioritizer action; Wait
       | StopAndReload -> StopAndReload
       | FailStop e -> FailStop e
@@ -166,8 +166,12 @@ type InternalFnCFGBuilder<'FnCtx,
     member __.ForceFinish () =
       state <- ForceFinished
 
-    member __.Finalize () =
+    member __.StartVerifying () =
       assert (state = InProgress)
+      state <- Verifying
+
+    member __.Finalize () =
+      assert (state = Verifying)
       state <- Finished
 
     member __.ReInitialize () =

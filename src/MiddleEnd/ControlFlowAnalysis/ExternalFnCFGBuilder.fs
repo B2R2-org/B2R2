@@ -84,6 +84,8 @@ type ExternalFnCFGBuilder<'FnCtx,
 
     member __.ForceFinish () = ()
 
+    member __.StartVerifying () = ()
+
     member __.Finalize () = ()
 
     member __.ReInitialize () = ()

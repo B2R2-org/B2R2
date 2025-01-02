@@ -248,10 +248,10 @@ type TaskScheduler<'FnCtx,
 #endif
       rollback builder
       builder.DelayedBuilderRequests.Clear ()
-      true
     | true, NotifyCalleeChange (calleeAddr, calleeInfo) ->
 #if CFGDEBUG
-      dbglog ManagerTid (nameof NotifyCalleeChange) $"{calleeAddr:x}"
+      dbglog ManagerTid (nameof NotifyCalleeChange)
+      <| $"{calleeAddr:x} @ {builder.EntryPoint:x}"
 #endif
       builder.Context.ActionQueue.Push strategy.ActionPrioritizer
       <| UpdateCallEdges (calleeAddr, calleeInfo)
@@ -261,15 +261,13 @@ type TaskScheduler<'FnCtx,
       dbglog ManagerTid (nameof ResetBuilder) $"{builder.EntryPoint:x}"
 #endif
       restartBuilder builder
-      true
     | false, _ ->
       scheduleCFGBuilding builder.EntryPoint builder.Mode
-      false
 
-  /// Returns true if there was a reset request.
+  /// Returns true if there was a consumed request.
   let consumeDelayedRequests (builder: ICFGBuildable<_, _>) =
     if builder.DelayedBuilderRequests.Count = 0 then false
-    else consumeUntilPendingReset builder
+    else consumeUntilPendingReset builder; true
 
   /// Conditionally update builder based on its state. If the builder is
   /// currently building, then it will send a delayed request to the builder to
@@ -288,6 +286,10 @@ type TaskScheduler<'FnCtx,
       <| UpdateCallEdges (calleeAddr, calleeInfo)
       scheduleCFGBuilding caller.EntryPoint caller.Mode
     else
+#if CFGDEBUG
+      dbglog ManagerTid "Delayed!"
+      <| $"{callee.EntryPoint:x} -> {caller.EntryPoint:x}"
+#endif
       caller.DelayedBuilderRequests.Enqueue
       <| NotifyCalleeChange (calleeAddr, calleeInfo)
 
@@ -315,36 +317,38 @@ type TaskScheduler<'FnCtx,
     let builder = builders[entryPoint]
     workingSet.Remove entryPoint |> ignore
     match result with
-    | Continue ->
+    | MoveOn ->
 #if CFGDEBUG
-      dbglog ManagerTid "HandleResult" $"{entryPoint:x}: finished"
+      dbglog ManagerTid (nameof MoveOn) $"{entryPoint:x}"
 #endif
+      builder.StartVerifying ()
       if consumeDelayedRequests builder then ()
       else finalizeBuilder builder entryPoint
-    | ContinueAndReloadCallers prevStatus ->
+    | MoveOnButReloadCallers prevStatus ->
 #if CFGDEBUG
-      dbglog ManagerTid "HandleResult"
-      <| $"{entryPoint:x}: finished, but result changed"
+      dbglog ManagerTid (nameof MoveOnButReloadCallers)
+      <| $"{entryPoint:x}, prev: {prevStatus}"
 #endif
+      builder.StartVerifying ()
       if consumeDelayedRequests builder then
         (* Recover the previous status in order to detect the change again. *)
         builder.Context.NonReturningStatus <- prevStatus
-      else
-        reloadCallersAndFinalizeBuilder builder entryPoint
+      else reloadCallersAndFinalizeBuilder builder entryPoint
     | Wait ->
 #if CFGDEBUG
-      dbglog ManagerTid "HandleResult" $"{entryPoint:x}: stopped"
+      dbglog ManagerTid (nameof Wait) $"{entryPoint:x}"
 #endif
       builder.Stop ()
       consumeDelayedRequests builder |> ignore
     | StopAndReload ->
-      restartBuilder builder
 #if CFGDEBUG
-      dbglog ManagerTid "HandleResult" $"{entryPoint:x}: reloaded"
+      dbglog ManagerTid (nameof StopAndReload) $"{entryPoint:x}"
 #endif
+      restartBuilder builder
     | FailStop e ->
 #if CFGDEBUG
-      dbglog ManagerTid "HandleResult" $"{entryPoint:x}: {ErrorCase.toString e}"
+      dbglog ManagerTid (nameof FailStop)
+      <| $"{entryPoint:x}: {ErrorCase.toString e}"
 #endif
       (* invalid builder will be auto-reloaded later *)
       if builder.BuilderState = Invalid then ()
