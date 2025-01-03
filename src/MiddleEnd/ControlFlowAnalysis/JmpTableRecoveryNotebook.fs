@@ -83,10 +83,14 @@ type JmpTableRecoveryNotebook () =
         syncAfterRegistration tblAddr note
         RegistrationSucceeded
 
-  /// Unregister the given jump table note. This means, we later found out that
-  /// the jump table is not really a jump table.
-  member _.Unregister tblAddr =
-    notes.Remove tblAddr |> ignore
+  /// Unregister the given jump table note associated with the given function
+  /// address. This means, we later found out that the jump table is really not
+  /// a jump table.
+  member _.Unregister tblAddr fnAddr =
+    match notes.TryGetValue tblAddr with
+    | true, note when note.HostFunctionAddr = fnAddr ->
+      notes.Remove tblAddr |> ignore
+    | _ -> ()
 
   /// Check if the given index is expandable within the jump table.
   member _.IsExpandable tblAddr idx =

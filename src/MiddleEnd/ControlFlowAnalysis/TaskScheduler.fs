@@ -382,17 +382,20 @@ type TaskScheduler<'FnCtx,
       (* We found two distinct functions for the same jump table. This is only
          possible when a function had a bogus edge that goes beyond the boundary
          of a function, but we were unlucky to find the bogus edge because the
-         next function was not loaded yet. But we happened to find the next
-         function and both functions share the same basic block, which includes
-         the indirect branch instruction. In this case, a function that has a
-         greater address is closer to the indirect branch instruction and should
-         be the one that includes the indirect branch. Therefore, if we simply
-         reload the function that has the lower address (which has a problematic
-         CFG expansion), then we will be able to detect the bogus edge. *)
+         next function was not fully loaded yet. But we happened to find the
+         next function and both functions share the same basic block, which
+         includes the indirect branch instruction. In this case, a function that
+         has a greater address is closer to the indirect branch instruction and
+         should be the one that includes the indirect branch. Therefore, if we
+         simply reload the function that has the lower address (which has a
+         problematic CFG expansion), then we will be able to detect the bogus
+         edge. *)
       if oldFnAddr < fnAddr then
 #if CFGDEBUG
         dbglog ManagerTid "JumpTable failed" $"so, reload {oldFnAddr:x}"
 #endif
+        jmptblNotes.Unregister jmptbl.TableAddress oldFnAddr
+        jmptblNotes.Register fnAddr jmptbl |> ignore
         restartBuilderIfNotInProgress builders[oldFnAddr]
         GoRecovery
       else
@@ -514,11 +517,11 @@ type TaskScheduler<'FnCtx,
       | NotifyBogusJumpTableEntry (fnAddr, tblAddr, idx, ch) ->
         ch.Reply <| handleBogusJumpTableEntry fnAddr tblAddr idx
       | CancelJumpTableRecovery (fnAddr, tblAddr) ->
+        jmptblNotes.Unregister tblAddr fnAddr
 #if CFGDEBUG
         let insAddr = jmptblNotes.GetIndBranchAddress tblAddr
         dbglog ManagerTid "JumpTable canceled" $"{insAddr:x} @ {fnAddr:x}"
 #endif
-        jmptblNotes.Unregister tblAddr
       | ReportJumpTableSuccess (fnAddr, tblAddr, idx, nextTarget, ch) ->
         ch.Reply <| handleJumpTableRecoverySuccess fnAddr tblAddr idx nextTarget
       | AccessGlobalContext (accessor, ch) ->
