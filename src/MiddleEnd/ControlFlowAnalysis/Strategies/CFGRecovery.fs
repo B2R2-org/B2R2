@@ -754,7 +754,8 @@ type CFGRecovery<'FnCtx,
       | Some v ->
 #if CFGDEBUG
         let addr = v.VData.Internals.PPoint.Address
-        dbglog ctx.ThreadID "OnFinish" $"Found overlap @ {addr:x}"
+        dbglog ctx.ThreadID "OnFinish"
+        <| $"Found overlap at {addr:x} @ {ctx.FunctionAddress}"
 #endif
         match v.VData.DominatingJumpTableEntry with
         | Some (tblAddr, idx) ->
