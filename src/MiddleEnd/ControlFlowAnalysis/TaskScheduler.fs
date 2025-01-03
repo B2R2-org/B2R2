@@ -262,7 +262,14 @@ type TaskScheduler<'FnCtx,
 #endif
       restartBuilder builder
     | false, _ ->
-      scheduleCFGBuilding builder.EntryPoint builder.Mode
+      (* if the builder has force finished, then it is safer to restart the
+         whole process instead of incrementally updating the CFG because the
+         under-approximated CFG can introduce a bogus edge in some rare cases
+         where a switch table size is over-approximated by not considering the
+         other switch table that are yet to be analyzed due to the
+         under-approximation. *)
+      if builder.HasForceFinished then restartBuilder builder
+      else scheduleCFGBuilding builder.EntryPoint builder.Mode
 
   /// Returns true if there was a consumed request.
   let consumeDelayedRequests (builder: ICFGBuildable<_, _>) =
@@ -276,19 +283,28 @@ type TaskScheduler<'FnCtx,
   /// especially when the manager is handling the result of the builder. Thus,
   /// this function should be only used for builders that are not currently
   /// handled by the manager.
-  let updateCallersIfNotInProgress (callee: ICFGBuildable<_, _>) caller =
+  let updateCallers (callee: ICFGBuildable<_, _>) caller =
     let calleeCtx = callee.Context
     let calleeAddr = callee.EntryPoint
     let calleeInfo = calleeCtx.NonReturningStatus, calleeCtx.UnwindingBytes
     if (caller: ICFGBuildable<_, _>).BuilderState <> InProgress then
-      if isBuilderFinished caller then caller.ReInitialize () else ()
-      caller.Context.ActionQueue.Push strategy.ActionPrioritizer
-      <| UpdateCallEdges (calleeAddr, calleeInfo)
-      scheduleCFGBuilding caller.EntryPoint caller.Mode
+#if CFGDEBUG
+      dbglog ManagerTid "ReloadDueCalleeChange"
+      <| $"{callee.EntryPoint:x} -> {caller.EntryPoint:x}"
+#endif
+      (* We restart the caller builder if it has force-finished as the
+         under-approximated CFG can introduce a bogus edge in some rare cases
+         as described in the `consumeUntilPendingReset` function. *)
+      if caller.HasForceFinished then restartBuilder caller
+      else
+        if isBuilderFinished caller then caller.ReInitialize () else ()
+        caller.Context.ActionQueue.Push strategy.ActionPrioritizer
+        <| UpdateCallEdges (calleeAddr, calleeInfo)
+        scheduleCFGBuilding caller.EntryPoint caller.Mode
     else
 #if CFGDEBUG
-      dbglog ManagerTid "Delayed!"
-      <| $"{callee.EntryPoint:x} -> {caller.EntryPoint:x}"
+      dbglog ManagerTid "ReloadDueCalleeChange"
+      <| $"{callee.EntryPoint:x} -> {caller.EntryPoint:x} (delayed)"
 #endif
       caller.DelayedBuilderRequests.Enqueue
       <| NotifyCalleeChange (calleeAddr, calleeInfo)
@@ -306,11 +322,7 @@ type TaskScheduler<'FnCtx,
 
   let reloadCallersAndFinalizeBuilder builder entryPoint =
     for callerAddr in dependenceMap.GetConfirmedCallers entryPoint do
-#if CFGDEBUG
-      dbglog ManagerTid "ReloadDueCalleeChange"
-      <| $"{entryPoint:x} -> {callerAddr:x}"
-#endif
-      updateCallersIfNotInProgress builder builders[callerAddr]
+      updateCallers builder builders[callerAddr]
     finalizeBuilder builder entryPoint
 
   let handleResult entryPoint result =
@@ -365,7 +377,7 @@ type TaskScheduler<'FnCtx,
     | SharedByFunctions oldFnAddr ->
 #if CFGDEBUG
       dbglog ManagerTid "JumpTable failed"
-      <| $"{jmptbl.TableAddress:x} @ {jmptbl.InsAddr:x} shared by two funcs."
+      <| $"{jmptbl.InsAddr:x}:{jmptbl.TableAddress:x} shared by two funcs."
 #endif
       (* We found two distinct functions for the same jump table. This is only
          possible when a function had a bogus edge that goes beyond the boundary
@@ -390,8 +402,9 @@ type TaskScheduler<'FnCtx,
         StopRecoveryButReload
     | SharedByInstructions ->
 #if CFGDEBUG
+      let insAddr = jmptbl.InsAddr
       dbglog ManagerTid "JumpTable failed"
-      <| $"{jmptbl.TableAddress:x} @ {jmptbl.InsAddr:x} shared by two instrs."
+      <| $"{insAddr:x}:{jmptbl.TableAddress:x}) shared by two instrs."
 #endif
       (* We found two different jmp instructions for the same jump table, in
          which case we cannot decide which one is wrong. Thus, we just ignore
@@ -405,7 +418,7 @@ type TaskScheduler<'FnCtx,
 #if CFGDEBUG
       let str = jmptblNotes.GetNoteString oldNote.StartingPoint
       dbglog ManagerTid "JumpTable overlap"
-      <| $"{newTblAddr:x} @ {jmptbl.InsAddr:x} overlapped with ({str})"
+      <| $"{jmptbl.InsAddr:x}:{newTblAddr:x} overlapped with ({str})"
 #endif
       jmptblNotes.SetPotentialEndPointByAddr oldTblAddr newEndPoint
       if entryBeingAnalyzed <= newEndPoint then

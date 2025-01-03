@@ -46,6 +46,8 @@ type InternalFnCFGBuilder<'FnCtx,
 
   let delayedBuilderRequests = Queue<DelayedBuilderRequest> ()
 
+  let mutable hasForceFinished = false
+
   let managerChannel =
     { new IManagerAccessible<'FnCtx, 'GlCtx> with
         member _.AddDependency (caller, callee, mode) =
@@ -153,6 +155,8 @@ type InternalFnCFGBuilder<'FnCtx,
 
     member __.DelayedBuilderRequests with get() = delayedBuilderRequests
 
+    member __.HasForceFinished with get() = hasForceFinished
+
     member __.IsExternal with get() = false
 
     member __.Authorize () =
@@ -164,6 +168,7 @@ type InternalFnCFGBuilder<'FnCtx,
       state <- Stopped
 
     member __.ForceFinish () =
+      hasForceFinished <- true
       state <- ForceFinished
 
     member __.StartVerifying () =

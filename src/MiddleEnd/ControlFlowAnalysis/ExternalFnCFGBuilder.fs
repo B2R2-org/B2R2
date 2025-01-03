@@ -76,6 +76,8 @@ type ExternalFnCFGBuilder<'FnCtx,
 
     member __.DelayedBuilderRequests with get() = Utils.impossible ()
 
+    member __.HasForceFinished with get() = false
+
     member __.IsExternal with get() = true
 
     member __.Authorize () = ()
