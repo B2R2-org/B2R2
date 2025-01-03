@@ -70,6 +70,7 @@ type Agent<'Msg> private (ch: BufferBlock<'Msg>, task: Task) =
       try taskFn receivable
       with e ->
         Console.Error.WriteLine e.Message
+        Console.Error.WriteLine e.StackTrace
         exit 1
     Agent (ch, Task.Run (fn, cancellationToken=token))
 
