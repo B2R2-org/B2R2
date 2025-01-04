@@ -41,6 +41,9 @@ type ICFGBuildable<'FnCtx,
   /// Entry point of the function that is being built.
   abstract EntryPoint: Addr
 
+  /// The address of the next function if there is any. Otherwise, this is None.
+  abstract NextFunctionAddress: Addr option with get, set
+
   /// Return the operation mode of the function.
   abstract Mode: ArchOperationMode
 

@@ -39,10 +39,12 @@ type InternalFnCFGBuilder<'FnCtx,
                           'GlCtx when 'FnCtx :> IResettable
                                   and 'FnCtx: (new: unit -> 'FnCtx)
                                   and 'GlCtx: (new: unit -> 'GlCtx)>
-  public (ctx, manager: Agent<TaskManagerCommand<'FnCtx, 'GlCtx>>) =
+  public (ctx, nextFnAddr, manager: Agent<TaskManagerCommand<'FnCtx, 'GlCtx>>) =
 
   /// Internal builder state.
   let mutable state = Initialized
+
+  let mutable nextFnAddr = nextFnAddr
 
   let delayedBuilderRequests = Queue<DelayedBuilderRequest> ()
 
@@ -142,12 +144,16 @@ type InternalFnCFGBuilder<'FnCtx,
         IsExternal = false
         ManagerChannel = null
         ThreadID = -1 }
-    InternalFnCFGBuilder (ctx, manager)
+    InternalFnCFGBuilder (ctx, None, manager)
 
   interface ICFGBuildable<'FnCtx, 'GlCtx> with
     member __.BuilderState with get() = state
 
     member __.EntryPoint with get(): Addr = ctx.FunctionAddress
+
+    member __.NextFunctionAddress
+      with get() = nextFnAddr
+       and set(v) = nextFnAddr <- v
 
     member __.Mode with get() = ctx.FunctionMode
 
@@ -197,7 +203,7 @@ type InternalFnCFGBuilder<'FnCtx,
       |> ctx.Reset
 
     member __.MakeNew (manager) =
-      InternalFnCFGBuilder (ctx, manager)
+      InternalFnCFGBuilder (ctx, nextFnAddr, manager)
 
     member __.ToFunction () =
       assert (state = Finished)

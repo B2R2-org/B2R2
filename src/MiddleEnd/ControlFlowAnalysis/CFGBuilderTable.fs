@@ -38,6 +38,21 @@ type CFGBuilderTable<'FnCtx,
   let builders =
     SortedList<Addr, ICFGBuildable<'FnCtx, 'GlCtx>> ()
 
+  let updateNextFunctionOfPrevBuilder idx addr =
+    if idx <= 0 then ()
+    else builders.Values[idx - 1].NextFunctionAddress <- Some addr
+
+  let updateNextFunctionOfNewBuilder (newBuilder: ICFGBuildable<_, _>) idx =
+    let endPoint =
+      if idx = (builders.Count - 1) then None
+      else Some (builders.Values[idx + 1].EntryPoint)
+    newBuilder.NextFunctionAddress <- endPoint
+
+  let updateNextFunctionAddrs newBuilder addr =
+    let idx = builders.IndexOfKey addr
+    updateNextFunctionOfPrevBuilder idx addr
+    updateNextFunctionOfNewBuilder newBuilder idx
+
   let getOrCreateInternalBuilder managerMsgbox addr mode =
     match builders.TryGetValue addr with
     | true, builder -> builder
@@ -49,8 +64,9 @@ type CFGBuilderTable<'FnCtx,
                               addr,
                               mode,
                               cfgConstructor,
-                              managerMsgbox)
+                              managerMsgbox) :> ICFGBuildable<'FnCtx, 'GlCtx>
       builders[addr] <- builder
+      updateNextFunctionAddrs builder addr
       builder
 
   let loadFromPLT (elf: ELFBinFile) =
@@ -114,15 +130,6 @@ type CFGBuilderTable<'FnCtx,
     match builders.TryGetValue addr with
     | true, builder -> Ok builder
     | false, _ -> Error ErrorCase.ItemNotFound
-
-  /// Try to retrieve a function builder right next (based on its address) to
-  /// the builder of the given address.
-  member _.TryGetNextBuilder (addr: Addr) =
-    match builders.IndexOfKey addr with
-    | -1 -> Error ErrorCase.ItemNotFound
-    | idx ->
-      if idx + 1 < builders.Count then Ok <| builders.GetValueAtIndex (idx + 1)
-      else Error ErrorCase.ItemNotFound
 
 and TerminationStatus<'FnCtx,
                       'GlCtx when 'FnCtx :> IResettable

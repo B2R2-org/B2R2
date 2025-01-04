@@ -70,6 +70,8 @@ type ExternalFnCFGBuilder<'FnCtx,
 
     member __.EntryPoint with get(): Addr = entryPoint
 
+    member __.NextFunctionAddress with get() = None and set(_) = ()
+
     member __.Mode with get() = Utils.impossible ()
 
     member __.Context with get() = ctx

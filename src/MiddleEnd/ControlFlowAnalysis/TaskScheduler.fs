@@ -472,10 +472,11 @@ type TaskScheduler<'FnCtx,
 #endif
     jmptblNotes.SetConfirmedEndPoint tblAddr idx
     if jmptblNotes.IsExpandable tblAddr (idx + 1) then
-      match builders.TryGetNextBuilder fnAddr with
-      | Ok nextBuilder ->
+      match builders[fnAddr].NextFunctionAddress with
+      | Some nextFnAddr ->
+        let nextBuilder = builders[nextFnAddr]
         fnAddr < nextJumpTarget && nextJumpTarget < nextBuilder.EntryPoint
-      | Error _ -> false
+      | None -> false
     else false
 
   let rec schedule (inbox: IAgentMessageReceivable<_>) =
@@ -508,9 +509,7 @@ type TaskScheduler<'FnCtx,
         |> toBuilderMessage
         |> ch.Reply
       | GetNextFunctionAddress (addr, ch) ->
-        builders.TryGetNextBuilder addr
-        |> Result.map (fun builder -> builder.EntryPoint)
-        |> Result.toOption
+        builders[addr].NextFunctionAddress
         |> ch.Reply
       | NotifyJumpTableRecovery (fnAddr, jmptbl, ch) ->
         ch.Reply <| handleJumpTableRecoveryRequest fnAddr jmptbl

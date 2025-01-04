@@ -32,7 +32,7 @@ open B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.MiddleEnd.DataFlow
 
 /// The context for building a control flow graph of a function. This exists per
-/// function, and it can include a user-defined, too.
+/// function, and it can include a user-defined context, too.
 type CFGBuildingContext<'FnCtx,
                         'GlCtx when 'FnCtx :> IResettable
                                 and 'FnCtx: (new: unit -> 'FnCtx)
