@@ -233,6 +233,7 @@ and [<AllowNullLiteral>]
   /// Let the manager know that the jump table recovery is canceled.
   abstract CancelJumpTableRecovery:
        fnAddr: Addr
+     * insAddr: Addr
      * tblAddr: Addr
     -> unit
 

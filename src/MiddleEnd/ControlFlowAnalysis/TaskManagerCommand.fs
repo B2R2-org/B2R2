@@ -59,7 +59,7 @@ type TaskManagerCommand<'FnCtx,
     fn: Addr * tbl: Addr * idx: int * AgentReplyChannel<bool>
   /// Cancel the jump table recovery because we found that the indirect branch
   /// is not using a jump table.
-  | CancelJumpTableRecovery of fn:Addr * tbl: Addr
+  | CancelJumpTableRecovery of fn:Addr * ins: Addr * tbl: Addr
   /// Report jump entry recovery result (success only) to the manager. The
   /// manager will then decide whether to continue the analysis or not.
   | ReportJumpTableSuccess of

@@ -48,7 +48,7 @@ type InternalFnCFGBuilder<'FnCtx,
 
   let delayedBuilderRequests = Queue<DelayedBuilderRequest> ()
 
-  let mutable hasForceFinished = false
+  let mutable hasJumpTable = false
 
   let managerChannel =
     { new IManagerAccessible<'FnCtx, 'GlCtx> with
@@ -73,10 +73,11 @@ type InternalFnCFGBuilder<'FnCtx,
           manager.PostAndReply (fun _ ch ->
             NotifyBogusJumpTableEntry (fnAddr, tblAddr, idx, ch))
 
-        member _.CancelJumpTableRecovery (fnAddr, tblAddr) =
-          manager.Post <| CancelJumpTableRecovery (fnAddr, tblAddr)
+        member _.CancelJumpTableRecovery (fnAddr, insAddr, tblAddr) =
+          manager.Post <| CancelJumpTableRecovery (fnAddr, insAddr, tblAddr)
 
         member _.ReportJumpTableSuccess (fnAddr, tblAddr, idx, nextAddr) =
+          hasJumpTable <- true
           manager.PostAndReply (fun _ ch ->
             ReportJumpTableSuccess (fnAddr, tblAddr, idx, nextAddr, ch))
 
@@ -161,7 +162,7 @@ type InternalFnCFGBuilder<'FnCtx,
 
     member __.DelayedBuilderRequests with get() = delayedBuilderRequests
 
-    member __.HasForceFinished with get() = hasForceFinished
+    member __.HasJumpTable with get() = hasJumpTable
 
     member __.IsExternal with get() = false
 
@@ -174,7 +175,6 @@ type InternalFnCFGBuilder<'FnCtx,
       state <- Stopped
 
     member __.ForceFinish () =
-      hasForceFinished <- true
       state <- ForceFinished
 
     member __.StartVerifying () =

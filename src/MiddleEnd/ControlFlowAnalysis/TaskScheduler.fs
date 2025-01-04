@@ -262,13 +262,13 @@ type TaskScheduler<'FnCtx,
 #endif
       restartBuilder builder
     | false, _ ->
-      (* if the builder has force finished, then it is safer to restart the
-         whole process instead of incrementally updating the CFG because the
+      (* if the builder has a jump table, then it is safer to restart the whole
+         process instead of incrementally updating the CFG because the
          under-approximated CFG can introduce a bogus edge in some rare cases
-         where a switch table size is over-approximated by not considering the
-         other switch table that are yet to be analyzed due to the
-         under-approximation. *)
-      if builder.HasForceFinished then restartBuilder builder
+         where we have some bogus dataflows due to the under-approximation,
+         making our switch table identification wrong (e.g., the switch table
+         size is over-approximated or it has a wrong base address). *)
+      if builder.HasJumpTable then restartBuilder builder
       else scheduleCFGBuilding builder.EntryPoint builder.Mode
 
   /// Returns true if there was a consumed request.
@@ -292,10 +292,10 @@ type TaskScheduler<'FnCtx,
       dbglog ManagerTid "ReloadDueCalleeChange"
       <| $"{callee.EntryPoint:x} -> {caller.EntryPoint:x}"
 #endif
-      (* We restart the caller builder if it has force-finished as the
+      (* We restart the caller builder if it has a jump table as the
          under-approximated CFG can introduce a bogus edge in some rare cases
          as described in the `consumeUntilPendingReset` function. *)
-      if caller.HasForceFinished then restartBuilder caller
+      if caller.HasJumpTable then restartBuilder caller
       else
         if isBuilderFinished caller then caller.ReInitialize () else ()
         caller.Context.ActionQueue.Push strategy.ActionPrioritizer
@@ -515,12 +515,11 @@ type TaskScheduler<'FnCtx,
         ch.Reply <| handleJumpTableRecoveryRequest fnAddr jmptbl
       | NotifyBogusJumpTableEntry (fnAddr, tblAddr, idx, ch) ->
         ch.Reply <| handleBogusJumpTableEntry fnAddr tblAddr idx
-      | CancelJumpTableRecovery (fnAddr, tblAddr) ->
-        jmptblNotes.Unregister tblAddr fnAddr
+      | CancelJumpTableRecovery (fnAddr, insAddr, tblAddr) ->
 #if CFGDEBUG
-        let insAddr = jmptblNotes.GetIndBranchAddress tblAddr
         dbglog ManagerTid "JumpTable canceled" $"{insAddr:x} @ {fnAddr:x}"
 #endif
+        jmptblNotes.Unregister tblAddr fnAddr
       | ReportJumpTableSuccess (fnAddr, tblAddr, idx, nextTarget, ch) ->
         ch.Reply <| handleJumpTableRecoverySuccess fnAddr tblAddr idx nextTarget
       | AccessGlobalContext (accessor, ch) ->

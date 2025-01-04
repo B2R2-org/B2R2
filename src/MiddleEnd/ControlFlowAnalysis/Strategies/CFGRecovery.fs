@@ -535,7 +535,7 @@ type CFGRecovery<'FnCtx,
     | EndTblRec _ -> ()
     | _ -> assert false
 
-  let recoverJumpTableEntry ctx queue srcAddr dstAddr =
+  let recoverJumpTableEntry ctx queue insAddr srcAddr dstAddr =
     let srcVertex = getVertex ctx (ProgramPoint (srcAddr, 0))
     let fnAddr = ctx.FunctionAddress
     if dstAddr < fnAddr
@@ -548,7 +548,7 @@ type CFGRecovery<'FnCtx,
            be outside the boundary of the current function. In this case, we
            conclude that the indirect jump is not using a jump table, and thus,
            we simply ignore the indirect branch. *)
-        ctx.ManagerChannel.CancelJumpTableRecovery (fnAddr, tblAddr)
+        ctx.ManagerChannel.CancelJumpTableRecovery (fnAddr, insAddr, tblAddr)
         popOffJmpTblRecoveryAction ctx
         ctx.JumpTableRecoveryStatus.Pop () |> ignore
         MoveOn
@@ -725,7 +725,7 @@ type CFGRecovery<'FnCtx,
           <| $"{jmptbl.InsAddr:x}[{idx}] -> {dstAddr:x} @ {fnAddr:x}"
 #endif
           ctx.JumpTableRecoveryStatus.Push (jmptbl.TableAddress, idx)
-          recoverJumpTableEntry ctx queue srcAddr dstAddr
+          recoverJumpTableEntry ctx queue jmptbl.InsAddr srcAddr dstAddr
         | EndTblRec (jmptbl, idx) ->
 #if CFGDEBUG
           dbglog ctx.ThreadID (nameof EndTblRec)

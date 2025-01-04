@@ -56,8 +56,8 @@ type ICFGBuildable<'FnCtx,
   /// should be accessed only by the task manager.
   abstract DelayedBuilderRequests: Queue<DelayedBuilderRequest>
 
-  /// Return whether the function building process has been force-finished.
-  abstract HasForceFinished: bool
+  /// Return whether the function has a jump table or not.
+  abstract HasJumpTable: bool
 
   /// Authorize the function builder to start building the function. This will
   /// change the state of the function builder to `InProgress`, meaning that the
