@@ -501,24 +501,19 @@ let vmovmskps ins insLen ctxt =
     | Register.Kind.XMM -> movmskps ins insLen ctxt
     | Register.Kind.YMM ->
       !<ir insLen
+      let oprSz = getOperationSize ins
       let dst = transOprToExpr ir false ins insLen ctxt dst
-      let dstSz = TypeCheck.typeOf dst
-      let src4, src3, src2, src1 =
+      let srcD, srcC, srcB, srcA =
         transOprToExpr256 ir false ins insLen ctxt src
-      let src1A, src1B = AST.xtlo 32<rt> src1, AST.xthi 32<rt> src1
-      let src2A, src2B = AST.xtlo 32<rt> src2, AST.xthi 32<rt> src2
-      let src3A, src3B = AST.xtlo 32<rt> src3, AST.xthi 32<rt> src3
-      let src4A, src4B = AST.xtlo 32<rt> src4, AST.xthi 32<rt> src4
-      let src31 = AST.sext dstSz (AST.xthi 1<rt> src1A)
-      let src63 = AST.sext dstSz (AST.xthi 1<rt> src1B) << AST.num1 dstSz
-      let src95 = (AST.sext dstSz (AST.xthi 1<rt> src2A)) << numI32 2 dstSz
-      let src127 = (AST.sext dstSz (AST.xthi 1<rt> src2B)) << numI32 3 dstSz
-      let src159 = (AST.sext dstSz (AST.xthi 1<rt> src3A)) << numI32 4 dstSz
-      let src191 = (AST.sext dstSz (AST.xthi 1<rt> src3B)) << numI32 5 dstSz
-      let src223 = (AST.sext dstSz (AST.xthi 1<rt> src4A)) << numI32 6 dstSz
-      let src255 = (AST.sext dstSz (AST.xthi 1<rt> src4B)) << numI32 7 dstSz
-      !!ir (dst := src31 .| src63 .| src95 .| src127)
-      !!ir (dst := dst .| src159 .| src191 .| src223 .| src255)
+      let b0 = (srcA >> (numI32 31 64<rt>) .& (numI32 0b1 64<rt>))
+      let b1 = (srcA >> (numI32 62 64<rt>) .& (numI32 0b10 64<rt>))
+      let b2 = (srcB >> (numI32 29 64<rt>) .& (numI32 0b100 64<rt>))
+      let b3 = (srcB >> (numI32 60 64<rt>) .& (numI32 0b1000 64<rt>))
+      let b4 = (srcC >> (numI32 27 64<rt>) .& (numI32 0b10000 64<rt>))
+      let b5 = (srcC >> (numI32 58 64<rt>) .& (numI32 0b100000 64<rt>))
+      let b6 = (srcD >> (numI32 25 64<rt>) .& (numI32 0b1000000 64<rt>))
+      let b7 = (srcD >> (numI32 56 64<rt>) .& (numI32 0b10000000 64<rt>))
+      !!ir (dstAssign oprSz dst (b7 .| b6 .| b5 .| b4 .| b3 .| b2 .| b1 .| b0))
       !>ir insLen
     | _ -> raise InvalidOperandException
   match src with
