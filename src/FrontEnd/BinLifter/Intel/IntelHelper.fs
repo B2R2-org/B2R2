@@ -141,6 +141,8 @@ let inline hasREXW rexPref = rexPref &&& REXPrefix.REXW = REXPrefix.REXW
 
 let inline hasREXR rexPref = rexPref &&& REXPrefix.REXR = REXPrefix.REXR
 
+let inline hasREXB rexPref = rexPref &&& REXPrefix.REXB = REXPrefix.REXB
+
 let inline hasAddrSz p = p &&& Prefix.PrxADDRSIZE = Prefix.PrxADDRSIZE
 
 let inline hasOprSz p = p &&& Prefix.PrxOPSIZE = Prefix.PrxOPSIZE
