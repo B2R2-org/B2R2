@@ -175,11 +175,13 @@ let movmskps ins insLen ctxt =
   !<ir insLen
   let struct (dst, src) = getTwoOprs ins
   let dst = transOprToExpr ir false ins insLen ctxt dst
-  let srcB, srcA= transOprToExpr128 ir false ins insLen ctxt src
+  let srcB, srcA = transOprToExpr128 ir false ins insLen ctxt src
   let oprSize = getOperationSize ins
-  let srcA = AST.concat (AST.extract srcA 1<rt> 63) (AST.extract srcA 1<rt> 31)
-  let srcB = AST.concat (AST.extract srcB 1<rt> 63) (AST.extract srcB 1<rt> 31)
-  !!ir (dst := AST.zext oprSize <| AST.concat srcB srcA)
+  let b0 = (srcA >> (numI32 31 64<rt>) .& (numI32 0b1 64<rt>))
+  let b1 = (srcA >> (numI32 62 64<rt>) .& (numI32 0b10 64<rt>))
+  let b2 = (srcB >> (numI32 29 64<rt>) .& (numI32 0b100 64<rt>))
+  let b3 = (srcB >> (numI32 60 64<rt>) .& (numI32 0b1000 64<rt>))
+  !!ir (dstAssign oprSize dst (b3 .| b2 .| b1 .| b0))
   !>ir insLen
 
 let movmskpd ins insLen ctxt =
