@@ -437,6 +437,8 @@ let bextr ins insLen ctxt =
   !!ir (tmp := (tmp >> start) .& AST.not(mask))
   !!ir (dstAssign oprSize dst tmp)
   !!ir (zF := (dst == AST.num0 oprSize))
+  !!ir (!.ctxt R.CF := AST.b0)
+  !!ir (!.ctxt R.OF := AST.b0)
 #if !EMULATION
   !!ir (!.ctxt R.AF := undefAF)
   !!ir (!.ctxt R.SF := undefSF)
