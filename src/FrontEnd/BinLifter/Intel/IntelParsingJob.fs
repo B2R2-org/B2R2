@@ -1165,6 +1165,10 @@ type internal OneOp90 () =
   override __.Run (span, rhlp) =
     if hasREPZ rhlp.Prefixes then
       render span rhlp Opcode.PAUSE SzCond.Nor OD.No SZ.Def
+    elif hasREXB rhlp.REXPrefix then
+      rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Nor
+      let oprs = rhlp.OprParsers[int OD.RaxRax].Render (span, rhlp)
+      newInsInfo rhlp Opcode.XCHG oprs
     else render span rhlp Opcode.NOP SzCond.Nor OD.No SZ.Def
 
 type internal OneOp91 () =
