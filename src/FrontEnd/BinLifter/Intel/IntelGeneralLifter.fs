@@ -459,6 +459,7 @@ let blsi ins insLen ctxt =
   !!ir (!.ctxt R.ZF := tmp == AST.num0 oprSize)
   !!ir (!.ctxt R.CF := src != AST.num0 oprSize)
   !!ir (dstAssign oprSize dst tmp)
+  !!ir (!.ctxt R.OF := AST.b0)
 #if !EMULATION
   !!ir (!.ctxt R.AF := undefAF)
   !!ir (!.ctxt R.PF := undefPF)
