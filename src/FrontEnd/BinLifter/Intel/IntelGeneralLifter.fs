@@ -721,7 +721,13 @@ let bzhi ins insLen ctxt =
   let cf = !.ctxt R.CF
   !!ir (dstAssign oprSize dst (AST.ite cond1 ((src1 << tmp) >> tmp) src1))
   !!ir (cf := AST.ite cond2 AST.b1 AST.b0)
-#if EMULATION
+  !!ir (!.ctxt R.SF := AST.xthi 1<rt> dst)
+  !!ir (!.ctxt R.ZF := dst == (AST.num0 oprSize))
+  !!ir (!.ctxt R.OF := AST.b0)
+#if !EMULATION
+  !!ir (!.ctxt R.AF := undefAF)
+  !!ir (!.ctxt R.PF := undefPF)
+#else
   ctxt.ConditionCodeOp <- ConditionCodeOp.EFlags
 #endif
   !>ir insLen
