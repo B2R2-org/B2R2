@@ -399,7 +399,12 @@ let andn ins insLen ctxt =
   !!ir (dstAssign oprSize dst t)
   !!ir (!.ctxt R.SF := AST.extract dst 1<rt> (int oprSize - 1))
   !!ir (!.ctxt R.ZF := AST.eq dst (AST.num0 oprSize))
-#if EMULATION
+  !!ir (!.ctxt R.OF := AST.b0)
+  !!ir (!.ctxt R.CF := AST.b0)
+#if !EMULATION
+  !!ir (!.ctxt R.AF := undefAF)
+  !!ir (!.ctxt R.PF := undefPF)
+#else
   ctxt.ConditionCodeOp <- ConditionCodeOp.EFlags
 #endif
   !>ir insLen
