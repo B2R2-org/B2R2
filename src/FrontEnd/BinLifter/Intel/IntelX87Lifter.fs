@@ -665,8 +665,56 @@ let fpudiv ins insLen ctxt doPop =
 let fidiv ins insLen ctxt =
   fpuIntOp ins insLen ctxt AST.fdiv true
 
-let fdivr ins insLen ctxt doPop =
-  fpuFBinOp ins insLen ctxt AST.fdiv doPop false
+let private isZero exponent significand =
+  (exponent == (AST.num0 16<rt>)) .& (significand == (AST.num0 64<rt>))
+
+let fdivr (ins: InsInfo) insLen ctxt doPop =
+  let ir = !*ctxt
+  !<ir insLen
+  let lblChk = !%ir "Check"
+  let lblErr = !%ir "DivErr"
+  let struct (tmp0, tmp1) = tmpVars2 ir 64<rt>
+  let res = !+ir 64<rt>
+  match ins.Operands with
+  | NoOperand ->
+    let struct (st0b, st0a) = getFPUPseudoRegVars ctxt R.ST0
+    let struct (st1b, st1a) = getFPUPseudoRegVars ctxt R.ST1
+    !!ir (AST.cjmp (isZero st0b st0a) (AST.name lblErr) (AST.name lblChk))
+    !!ir (AST.lmark lblErr)
+    !!ir (AST.sideEffect (Exception "DivErr"))
+    !!ir (AST.lmark lblChk)
+    !?ir (castFrom80Bit tmp0 64<rt> st0b st0a)
+    !?ir (castFrom80Bit tmp1 64<rt> st1b st1a)
+    !!ir (res := AST.fdiv tmp1 tmp0)
+    !?ir (castTo80Bit ctxt st1b st1a res)
+  | OneOperand _ ->
+    let oprExpr = transOneOpr ir ins insLen ctxt
+    let oprSize = TypeCheck.typeOf oprExpr
+    let struct (st0b, st0a) = getFPUPseudoRegVars ctxt R.ST0
+    !!ir (AST.cjmp (isZero st0b st0a) (AST.name lblErr) (AST.name lblChk))
+    !!ir (AST.lmark lblErr)
+    !!ir (AST.sideEffect (Exception "DivErr"))
+    !!ir (AST.lmark lblChk)
+    !?ir (castFrom80Bit tmp0 64<rt> st0b st0a)
+    if oprSize = 64<rt> then !!ir (tmp1 := oprExpr)
+    else !!ir (tmp1 := AST.cast CastKind.FloatCast 64<rt> oprExpr)
+    !!ir (res := AST.fdiv tmp1 tmp0)
+    !?ir (castTo80Bit ctxt st0b st0a res)
+  | TwoOperands (OprReg reg0, OprReg reg1) ->
+    let struct (r0B, r0A) = getFPUPseudoRegVars ctxt reg0
+    let struct (r1B, r1A) = getFPUPseudoRegVars ctxt reg1
+    !!ir (AST.cjmp (isZero r0B r0A) (AST.name lblErr) (AST.name lblChk))
+    !!ir (AST.lmark lblErr)
+    !!ir (AST.sideEffect (Exception "DivErr"))
+    !!ir (AST.lmark lblChk)
+    !?ir (castFrom80Bit tmp0 64<rt> r0B r0A)
+    !?ir (castFrom80Bit tmp1 64<rt> r1B r1A)
+    !!ir (res := AST.fdiv tmp1 tmp0)
+    !?ir (castTo80Bit ctxt r0B r0A res)
+  | _ -> raise InvalidOperandException
+  if doPop then !?ir (popFPUStack ctxt) else ()
+  !?ir (updateC1OnStore ctxt)
+  !>ir insLen
 
 let fidivr ins insLen ctxt =
   fpuIntOp ins insLen ctxt AST.fdiv false
