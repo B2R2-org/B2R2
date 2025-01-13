@@ -58,6 +58,8 @@ type GroundWork =
       SPARC.SPARCTranslationContext isa :> TranslationContext
     | Architecture.PARISC | Architecture.PARISC64 ->
       PARISC.PARISCTranslationContext isa :> TranslationContext
+    | Architecture.S390 | Architecture.S390X ->
+      S390.S390TranslationContext isa :> TranslationContext
     | _ -> Utils.futureFeature ()
 
   /// Create a new register factory for the given architecture.
@@ -96,6 +98,9 @@ type GroundWork =
       PARISC.PARISC64RegisterFactory
         (isa.WordSize, PARISC.RegExprs isa.WordSize)
       :> RegisterFactory
+    | Architecture.S390 | Architecture.S390X ->
+      S390.S39064RegisterFactory
+        (isa.WordSize, S390.RegExprs isa.WordSize)
     | _ -> Utils.futureFeature ()
 
   /// Create a new parser (IInstructionParsable) for the given architecture.
@@ -128,5 +133,7 @@ type GroundWork =
       SPARC.SPARCParser (isa) :> IInstructionParsable
     | Architecture.PARISC | Architecture.PARISC64 ->
       PARISC.PARISC64Parser (isa) :> IInstructionParsable
+    | Architecture.S390 | Architecture.S390X ->
+      S390.S39064Parser (isa) :> IInstructionParsable
     | _ ->
       Utils.futureFeature ()

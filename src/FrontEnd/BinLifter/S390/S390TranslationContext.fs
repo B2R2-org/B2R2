@@ -25,6 +25,7 @@
 namespace B2R2.FrontEnd.BinLifter.S390
 
 open B2R2
+open B2R2.FrontEnd.Register
 open B2R2.FrontEnd.BinLifter
 
 /// Translation context for S390 instructions.
@@ -36,7 +37,7 @@ type S390TranslationContext (isa) =
   member __.RegExprs with get() = regExprs
 
   override __.GetRegVar id =
-    Utils.futureFeature ()
+    S390Register.Get id |> regExprs.GetRegVar
 
   override __.GetPseudoRegVar _id _pos =
     Utils.impossible ()

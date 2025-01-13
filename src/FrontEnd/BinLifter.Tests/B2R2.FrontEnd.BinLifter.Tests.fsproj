@@ -25,6 +25,7 @@
     <Compile Include="SPARCParserTests.fs" />
     <Compile Include="SPARCLifterTests.fs" />
     <Compile Include="PARISCParserTests.fs" />
+    <Compile Include="S390ParserTests.fs" />
     <Compile Include="OptimizerTests.fs" />
   </ItemGroup>
 

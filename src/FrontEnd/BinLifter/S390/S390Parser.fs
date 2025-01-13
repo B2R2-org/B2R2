@@ -24,6 +24,7 @@
 
 namespace B2R2.FrontEnd.BinLifter.S390
 
+open System
 open B2R2
 open B2R2.FrontEnd
 open B2R2.FrontEnd.BinLifter
@@ -31,16 +32,22 @@ open B2R2.FrontEnd.BinLifter
 /// Parser for S390 instructions. Parser will return a platform-agnostic
 /// instruction type (Instruction).
 type S39064Parser (isa: ISA) =
-  let wordSize = int isa.WordSize
+  let wordSize = isa.WordSize
+  let arch = isa.Arch
   let reader = BinReader.Init isa.Endian
+  let mutable state = {
+    Tm = TranslationMode.RealMode;
+    Bp = ASC.BPDisalbled
+  }
 
   interface IInstructionParsable with
     member __.Parse (span: ByteSpan, addr: Addr) =
-      Utils.futureFeature (): Instruction
+      ParsingMain.parse span reader arch wordSize addr state :> Instruction
 
     member __.Parse (bs: byte[], addr: Addr) =
-      Utils.futureFeature (): Instruction
+      let span = ReadOnlySpan bs
+      ParsingMain.parse span reader arch wordSize addr state :> Instruction
 
-    member __.MaxInstructionSize = 4
+    member __.MaxInstructionSize = 6
 
     member __.OperationMode with get() = ArchOperationMode.NoMode and set _ = ()

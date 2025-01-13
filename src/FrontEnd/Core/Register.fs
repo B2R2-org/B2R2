@@ -6685,3 +6685,333 @@ type TMS320C6000Register =
     | TMS320C6000.TSCL -> "TSCL"
     | TMS320C6000.TSR -> "TSR"
     | _ -> Utils.impossible ()
+
+/// <summary>
+/// Registers for S390.<para/>
+/// </summary>
+type S390 =
+  /// General Purpose Registers (64-bit long)
+  | R0 = 0
+  | R1 = 1
+  | R2 = 2
+  | R3 = 3
+  | R4 = 4
+  | R5 = 5
+  | R6 = 6
+  | R7 = 7
+  | R8 = 8
+  | R9 = 9
+  | R10 = 10
+  | R11 = 11
+  | R12 = 12
+  | R13 = 13
+  | R14 = 14
+  | R15 = 15
+  /// Floating-Point Registers (64-bit long)
+  | FPR0 = 16
+  | FPR1 = 17
+  | FPR2 = 18
+  | FPR3 = 19
+  | FPR4 = 20
+  | FPR5 = 21
+  | FPR6 = 22
+  | FPR7 = 23
+  | FPR8 = 24
+  | FPR9 = 25
+  | FPR10 = 26
+  | FPR11 = 27
+  | FPR12 = 28
+  | FPR13 = 29
+  | FPR14 = 30
+  | FPR15 = 31
+  /// Floating-Point Control Register (32-bit long)
+  | FPC = 32
+  /// Vector Registers (64-bit long)
+  | VR0 = 33
+  | VR1 = 34
+  | VR2 = 35
+  | VR3 = 36
+  | VR4 = 37
+  | VR5 = 38
+  | VR6 = 39
+  | VR7 = 40
+  | VR8 = 41
+  | VR9 = 42
+  | VR10 = 43
+  | VR11 = 44
+  | VR12 = 45
+  | VR13 = 46
+  | VR14 = 47
+  | VR15 = 48
+  | VR16 = 49
+  | VR17 = 50
+  | VR18 = 51
+  | VR19 = 52
+  | VR20 = 53
+  | VR21 = 54
+  | VR22 = 55
+  | VR23 = 56
+  | VR24 = 57
+  | VR25 = 58
+  | VR26 = 59
+  | VR27 = 60
+  | VR28 = 61
+  | VR29 = 62
+  | VR30 = 63
+  | VR31 = 64
+  /// Control Registers (64-bit long)
+  | CR0 = 65
+  | CR1 = 66
+  | CR2 = 67
+  | CR3 = 68
+  | CR4 = 69
+  | CR5 = 70
+  | CR6 = 71
+  | CR7 = 72
+  | CR8 = 73
+  | CR9 = 74
+  | CR10 = 75
+  | CR11 = 76
+  | CR12 = 77
+  | CR13 = 78
+  | CR14 = 79
+  | CR15 = 80
+  /// Access Registers (32-bit long)
+  | AR0 = 81
+  | AR1 = 82
+  | AR2 = 83
+  | AR3 = 84
+  | AR4 = 85
+  | AR5 = 86
+  | AR6 = 87
+  | AR7 = 88
+  | AR8 = 89
+  | AR9 = 90
+  | AR10 = 91
+  | AR11 = 92
+  | AR12 = 93
+  | AR13 = 94
+  | AR14 = 95
+  | AR15 = 96
+  /// Breaking-event-address Register (64-bit long)
+  | BEAR = 97
+  /// Program State Word Register (128-bit long)
+  | PSW = 98
+
+/// Helper module for S390 registers.
+type S390Register =
+  /// Get the S390 register from a register ID.
+  static member inline Get (rid: RegisterID): S390 =
+    int rid |> LanguagePrimitives.EnumOfValue
+
+  /// Get the S390 register from a string representation.
+  static member Get (str: string): S390 =
+    match str.ToLowerInvariant () with
+    | "r0" -> S390.R0
+    | "r1" -> S390.R1
+    | "r2" -> S390.R2
+    | "r3" -> S390.R3
+    | "r4" -> S390.R4
+    | "r5" -> S390.R5
+    | "r6" -> S390.R6
+    | "r7" -> S390.R7
+    | "r8" -> S390.R8
+    | "r9" -> S390.R9
+    | "r10" -> S390.R10
+    | "r11" -> S390.R11
+    | "r12" -> S390.R12
+    | "r13" -> S390.R13
+    | "r14" -> S390.R14
+    | "r15" -> S390.R15
+    | "fpr0" -> S390.FPR0
+    | "fpr1" -> S390.FPR1
+    | "fpr2" -> S390.FPR2
+    | "fpr3" -> S390.FPR3
+    | "fpr4" -> S390.FPR4
+    | "fpr5" -> S390.FPR5
+    | "fpr6" -> S390.FPR6
+    | "fpr7" -> S390.FPR7
+    | "fpr8" -> S390.FPR8
+    | "fpr9" -> S390.FPR9
+    | "fpr10" -> S390.FPR10
+    | "fpr11" -> S390.FPR11
+    | "fpr12" -> S390.FPR12
+    | "fpr13" -> S390.FPR13
+    | "fpr14" -> S390.FPR14
+    | "fpr15" -> S390.FPR15
+    | "fpc" -> S390.FPC
+    | "vr0" -> S390.VR0
+    | "vr1" -> S390.VR1
+    | "vr2" -> S390.VR2
+    | "vr3" -> S390.VR3
+    | "vr4" -> S390.VR4
+    | "vr5" -> S390.VR5
+    | "vr6" -> S390.VR6
+    | "vr7" -> S390.VR7
+    | "vr8" -> S390.VR8
+    | "vr9" -> S390.VR9
+    | "vr10" -> S390.VR10
+    | "vr11" -> S390.VR11
+    | "vr12" -> S390.VR12
+    | "vr13" -> S390.VR13
+    | "vr14" -> S390.VR14
+    | "vr15" -> S390.VR15
+    | "vr16" -> S390.VR16
+    | "vr17" -> S390.VR17
+    | "vr18" -> S390.VR18
+    | "vr19" -> S390.VR19
+    | "vr20" -> S390.VR20
+    | "vr21" -> S390.VR21
+    | "vr22" -> S390.VR22
+    | "vr23" -> S390.VR23
+    | "vr24" -> S390.VR24
+    | "vr25" -> S390.VR25
+    | "vr26" -> S390.VR26
+    | "vr27" -> S390.VR27
+    | "vr28" -> S390.VR28
+    | "vr29" -> S390.VR29
+    | "vr30" -> S390.VR30
+    | "vr31" -> S390.VR31
+    | "cr0" -> S390.CR0
+    | "cr1" -> S390.CR1
+    | "cr2" -> S390.CR2
+    | "cr3" -> S390.CR3
+    | "cr4" -> S390.CR4
+    | "cr5" -> S390.CR5
+    | "cr6" -> S390.CR6
+    | "cr7" -> S390.CR7
+    | "cr8" -> S390.CR8
+    | "cr9" -> S390.CR9
+    | "cr10" -> S390.CR10
+    | "cr11" -> S390.CR11
+    | "cr12" -> S390.CR12
+    | "cr13" -> S390.CR13
+    | "cr14" -> S390.CR14
+    | "cr15" -> S390.CR15
+    | "ar0" -> S390.AR0
+    | "ar1" -> S390.AR1
+    | "ar2" -> S390.AR2
+    | "ar3" -> S390.AR3
+    | "ar4" -> S390.AR4
+    | "ar5" -> S390.AR5
+    | "ar6" -> S390.AR6
+    | "ar7" -> S390.AR7
+    | "ar8" -> S390.AR8
+    | "ar9" -> S390.AR9
+    | "ar10" -> S390.AR10
+    | "ar11" -> S390.AR11
+    | "ar12" -> S390.AR12
+    | "ar13" -> S390.AR13
+    | "ar14" -> S390.AR14
+    | "ar15" -> S390.AR15
+    | "bear" -> S390.BEAR
+    | "psw" -> S390.PSW
+    | _ -> Utils.impossible ()
+
+  /// Get the register ID of a S390 register.
+  static member inline ID (reg: S390) =
+    LanguagePrimitives.EnumToValue (reg) |> RegisterID.create
+
+  /// Get the string representation of a S390 register.
+  static member String (reg: S390) =
+    match reg with
+    | S390.R0 -> "R0"
+    | S390.R1 -> "R1"
+    | S390.R2 -> "R2"
+    | S390.R3 -> "R3"
+    | S390.R4 -> "R4"
+    | S390.R5 -> "R5"
+    | S390.R6 -> "R6"
+    | S390.R7 -> "R7"
+    | S390.R8 -> "R8"
+    | S390.R9 -> "R9"
+    | S390.R10 -> "R10"
+    | S390.R11 -> "R11"
+    | S390.R12 -> "R12"
+    | S390.R13 -> "R13"
+    | S390.R14 -> "R14"
+    | S390.R15 -> "R15"
+    | S390.FPR0 -> "FPR0"
+    | S390.FPR1 -> "FPR1"
+    | S390.FPR2 -> "FPR2"
+    | S390.FPR3 -> "FPR3"
+    | S390.FPR4 -> "FPR4"
+    | S390.FPR5 -> "FPR5"
+    | S390.FPR6 -> "FPR6"
+    | S390.FPR7 -> "FPR7"
+    | S390.FPR8 -> "FPR8"
+    | S390.FPR9 -> "FPR9"
+    | S390.FPR10 -> "FPR10"
+    | S390.FPR11 -> "FPR11"
+    | S390.FPR12 -> "FPR12"
+    | S390.FPR13 -> "FPR13"
+    | S390.FPR14 -> "FPR14"
+    | S390.FPR15 -> "FPR15"
+    | S390.FPC -> "FPC"
+    | S390.VR0 -> "VR0"
+    | S390.VR1 -> "VR1"
+    | S390.VR2 -> "VR2"
+    | S390.VR3 -> "VR3"
+    | S390.VR4 -> "VR4"
+    | S390.VR5 -> "VR5"
+    | S390.VR6 -> "VR6"
+    | S390.VR7 -> "VR7"
+    | S390.VR8 -> "VR8"
+    | S390.VR9 -> "VR9"
+    | S390.VR10 -> "VR10"
+    | S390.VR11 -> "VR11"
+    | S390.VR12 -> "VR12"
+    | S390.VR13 -> "VR13"
+    | S390.VR14 -> "VR14"
+    | S390.VR15 -> "VR15"
+    | S390.VR16 -> "VR16"
+    | S390.VR17 -> "VR17"
+    | S390.VR18 -> "VR18"
+    | S390.VR19 -> "VR19"
+    | S390.VR20 -> "VR20"
+    | S390.VR21 -> "VR21"
+    | S390.VR22 -> "VR22"
+    | S390.VR23 -> "VR23"
+    | S390.VR24 -> "VR24"
+    | S390.VR25 -> "VR25"
+    | S390.VR26 -> "VR26"
+    | S390.VR27 -> "VR27"
+    | S390.VR28 -> "VR28"
+    | S390.VR29 -> "VR29"
+    | S390.VR30 -> "VR30"
+    | S390.VR31 -> "VR31"
+    | S390.CR0 -> "CR0"
+    | S390.CR1 -> "CR1"
+    | S390.CR2 -> "CR2"
+    | S390.CR3 -> "CR3"
+    | S390.CR4 -> "CR4"
+    | S390.CR5 -> "CR5"
+    | S390.CR6 -> "CR6"
+    | S390.CR7 -> "CR7"
+    | S390.CR8 -> "CR8"
+    | S390.CR9 -> "CR9"
+    | S390.CR10 -> "CR10"
+    | S390.CR11 -> "CR11"
+    | S390.CR12 -> "CR12"
+    | S390.CR13 -> "CR13"
+    | S390.CR14 -> "CR14"
+    | S390.CR15 -> "CR15"
+    | S390.AR0 -> "AR0"
+    | S390.AR1 -> "AR1"
+    | S390.AR2 -> "AR2"
+    | S390.AR3 -> "AR3"
+    | S390.AR4 -> "AR4"
+    | S390.AR5 -> "AR5"
+    | S390.AR6 -> "AR6"
+    | S390.AR7 -> "AR7"
+    | S390.AR8 -> "AR8"
+    | S390.AR9 -> "AR9"
+    | S390.AR10 -> "AR10"
+    | S390.AR11 -> "AR11"
+    | S390.AR12 -> "AR12"
+    | S390.AR13 -> "AR13"
+    | S390.AR14 -> "AR14"
+    | S390.AR15 -> "AR15"
+    | S390.BEAR -> "BEAR"
+    | S390.PSW -> "PSW"
+    | _ -> Utils.impossible ()

@@ -1,0 +1,2444 @@
+/// Invalid Opcode
+InvalOp
+/// Add Registers (32)
+AR
+/// Add Registers (64)
+AGR
+/// Add Registers (64 <- 32)
+AGFR
+/// Add (32)
+ARK
+/// Add (64)
+AGRK
+/// Add (32)
+A
+/// Add (32)
+AY
+/// Add (64)
+AG
+/// Add (64 <- 32)
+AGF
+/// Add Immediate (32)
+AFI
+/// Add Immediate to Register (64 <- 32)
+AGFI
+/// Add Immediate to Register (32 <- 16)
+AHIK
+/// Add Immediate to Register (64 <- 16)
+AGHIK
+/// Add Immediate to Register (32 <- 8)
+ASI
+/// Add Immediate to Register (64 <- 8)
+AGSI
+/// Add Halfword (32 <- 16)
+AH
+/// Add Halfword (32 <- 16)
+AHY
+/// Add Halfword (64 <- 16)
+AGH
+/// Add Halfword Immediate to Register (32)
+AHI
+/// Add Halfword Immediate to Register (64)
+AGHI
+/// Add High (32)
+AHHHR
+/// Add High (32)
+AHHLR
+/// Add Immediate High (32)
+AIH
+/// Add Logical Registers (32)
+ALR
+/// Add Logical Registers (64)
+ALGR
+/// Add Logical Registers (64 <- 32)
+ALGFR
+/// Add Logical (32)
+ALRK
+/// Add Logical (64)
+ALGRK
+/// Add Logical (32)
+AL
+/// Add Logical (32)
+ALY
+/// Add Logical (64)
+ALG
+/// Add Logical (64 <- 32)
+ALGF
+/// Add Logical Immediate to Register (32)
+ALFI
+/// Add Logical Immediate to Register (64 <- 32)
+ALGFI
+/// Add Logical High (32)
+ALHHHR
+/// Add Logical High (32)
+ALHHLR
+/// Add Logical Registers with Carry (32)
+ALCR
+/// Add Logical Registers with Carry (64)
+ALCGR
+/// Add Logical with Carry (32)
+ALC
+/// Add Logical with Carry (64)
+ALCG
+/// Add Logical with Signed Immediate (32 <- 8)
+ALSI
+/// Add Logical with Signed Immediate (64 <- 8)
+ALGSI
+/// Add Logical with Signed Immediate (32 <- 16)
+ALHSIK
+/// Add Logical with Signed Immediate (64 <- 16)
+ALGHSIK
+/// Add Logical with Signed Immediate High (32)
+ALSIH
+/// Add Logical with Signed Immediate High (32)
+ALSIHN
+/// AND Registers (32)
+NR
+/// AND Registers (64)
+NGR
+/// And Registers (32)
+NRK
+/// And Registers (64)
+NGRK
+/// AND (32)
+N
+/// AND (32)
+NY
+/// AND (64)
+NG
+/// AND Immediate
+NI
+/// AND Immediate
+NIY
+/// AND (Character)
+NC
+/// AND Register with Immediate (high, bit 0-31)
+NIHF
+/// AND Register with Immediate (high high, bit 0-15)
+NIHH
+/// AND Register with Immediate (high low, bit 16-31)
+NIHL
+/// AND Register with Immediate (low, bit 32-63)
+NILF
+/// AND Register with Immediate (low high, bit 32-47)
+NILH
+/// AND Register with Immediate (low low, bit 48-63)
+NILL
+/// Branch and Link
+BALR
+/// Branch and Link
+BAL
+/// Branch and Save
+BASR
+/// Branch and Save
+BAS
+/// Branch and Save and Set Mode
+BASSM
+/// Branch and Set Mode
+BSM
+/// Branch Indirect on Condition
+BIC
+/// Branch on Condition
+BCR
+/// Branch on Condition
+BC
+/// Branch on Count Register (32)
+BCTR
+/// Branch on Count Register (64)
+BCTGR
+/// Branch on Count (32)
+BCT
+/// Branch on Count (64)
+BCTG
+/// Branch on Index High (32)
+BXH
+/// Branch on Index High (64)
+BXHG
+/// Branch on Index Low or Equal (32)
+BXLE
+/// Branch on Index Low or Equal (64)
+BXLEG
+/// Branch Prediction Preload
+BPP
+/// Branch Prediction Relative Preload
+BPRP
+/// Branch Relative and Save
+BRAS
+/// Branch Relative and Save Long
+BRASL
+/// Branch Relative on Condition
+BRC
+/// Branch Relative on Condition Long
+BRCL
+/// Branch Relative on Count Register (32)
+BRCT
+/// Branch Relative on Count Register (64)
+BRCTG
+/// Branch Relative on Count High (32)
+BRCTH
+/// Branch Relative on Index High (32)
+BRXH
+/// Branch Relative on Index High (64)
+BRXHG
+/// Branch Relative on Index Low or Equal (32)
+BRXLE
+/// Branch Relative on Index Low or Equal (64)
+BRXLG
+/// Checksun
+CKSM
+/// Cipher Messasge
+KM
+/// Cipher Message with Chaining
+KMC
+/// Cipher Message with Authentication
+KMA
+/// Cipher Message with Cipher Feedback
+KMF
+/// Cipher Message with Counter
+KMCTR
+/// Cipher Message with Output Feedback
+KMO
+/// Compare Registers (32)
+CR
+/// Compare Registers (64)
+CGR
+/// Compare Registers (64 <- 32)
+CGFR
+/// Compare (32)
+C
+/// Compare (32)
+CY
+/// Compare (64)
+CG
+/// Compare (64 <- 32)
+CGF
+/// Compare Register with Immediate (32)
+CFI
+/// Compare Register with Immediate (64 <- 32)
+CGFI
+/// Compare Relative Long (32)
+CRL
+/// Compare Relative Long (64)
+CGRL
+/// Compare Relative Long (64 <- 32)
+CGFRL
+/// Compare and Branch (32)
+CRB
+/// Compare and Branch (64)
+CGRB
+/// Compare and Branch Relative (32)
+CRJ
+/// Compare and Branch Relative (64)
+CGRJ
+/// Compare Immediate and Branch (32 <- 8)
+CIB
+/// Compare Immediate And Branch (64 <- 8)
+CGIB
+/// Compare Immediate And Branch Relative (32 <- 8)
+CIJ
+/// Compare Immediate and Branch Relative (64 <- 8)
+CGIJ
+/// Compare and Form Codeword
+CFC
+/// Compare and Swap (32)
+CS
+/// Compare and Swap (32)
+CSY
+/// Compare and Swap (64)
+CSG
+/// Compare Double and Swap (32)
+CDS
+/// Compare Double and Swap (32)
+CDSY
+/// Compare Double and Swap (64)
+CDSG
+/// Compare and Swap and Store
+CSST
+/// Compare and Trap (32)
+CRT
+/// Compare and Trap (64)
+CGRT
+/// Compare Immediate and Trap (32 <- 16)
+CIT
+/// Compare Immediate and Trap (64 <- 16)
+CGIT
+/// Compare Halfword (32 <- 16)
+CH
+/// Compare Halfword (32 <- 16)
+CHY
+/// Compare Halfword (64 <- 16)
+CGH
+/// Compare Halfword Immediate (32 <- 16)
+CHI
+/// Compare Halfword Immediate (64 <- 16)
+CGHI
+/// Compare Halfword Immediate (16)
+CHHSI
+/// Compare Halfword Immediate (32 <- 16)
+CHSI
+/// Compare Halfword Immediate (64 <- 16)
+CGHSI
+/// Compare Halfword Relative Long (32 <- 16)
+CHRL
+/// Compare Halfword Relative Long (64 <- 16)
+CGHRL
+/// Compare High (32)
+CHHR
+/// Compare High (32)
+CHLR
+/// Compare High (32)
+CHF
+/// Compare Immediate High (32)
+CIH
+/// Compare Logical (32)
+CLR
+/// Compare Logical (64)
+CLGR
+/// Compare Logical (64 <- 32)
+CLGFR
+/// Compare Logical (32)
+CL
+/// Compare Logical (32)
+CLY
+/// Compare Logical (64)
+CLG
+/// Compare Logical (64 <- 32)
+CLGF
+/// Compare Logical (Character)
+CLC
+/// Compare Logical Immediate (32)
+CLFI
+/// Compare Logical Immediate (64 <- 32)
+CLGFI
+/// Compare Logical Immediate
+CLI
+/// Compare Logical Immediate
+CLIY
+/// Compare Logical Immediate (32 <- 16)
+CLFHSI
+/// Compare Logical Immediate (64 <- 16)
+CLGHSI
+/// Compare Logical Immediate (16)
+CLHHSI
+/// Compare Logical Relative Long (32)
+CLRL
+/// Compare Logical Relative Long (64)
+CLGRL
+/// Compare Logical Relative Long (64 <- 32)
+CLGFRL
+/// Compare Logical Relative Long (32 <- 16)
+CLHRL
+/// Compare Logical Relative Long (64 <- 16)
+CLGHRL
+/// Compare Logical and Branch (32)
+CLRB
+/// Compare Logical and Branch (64)
+CLGRB
+/// Compare Logical and Branch Relative (32)
+CLRJ
+/// Compare Logical and Branch Relative (64)
+CLGRJ
+/// Compare Logical Immediate and Branch (32 <- 8)
+CLIB
+/// Compare Logical Immediate and Branch (64 <- 8)
+CLGIB
+/// Compare Logical Immediate and Branch Relative (32 <- 8)
+CLIJ
+/// Compare Logical Immediate and Branch Relative (64 <- 8)
+CLGIJ
+/// Compare Logical and Trap (32)
+CLRT
+/// Compare Logical and Trap (64)
+CLGRT
+/// Compare Logical and Trap (32)
+CLT
+/// Compare Logical and Trap (64)
+CLGT
+/// Compare Logical Immediate and Trap (32 <- 16)
+CLFIT
+/// Compare Logical Immediate and Trap (64 <- 16)
+CLGIT
+/// Compare Logical Char under Mask (low)
+CLM
+/// Compare Logical Char under Mask (low)
+CLMY
+/// Compare Logical Char under Mask (high)
+CLMH
+/// Compare Logical High (32)
+CLHHR
+/// Compare Logical High (32)
+CLHLR
+/// Compare Logical High (32)
+CLHF
+/// Compare Logical Immediate High (32)
+CLIH
+/// Compare Logical Long
+CLCL
+/// Compare Logical Long Extended
+CLCLE
+/// Compare Logical Long Unicode
+CLCLU
+/// Compare Logical String
+CLST
+/// Compare Until Substring Equal
+CUSE
+/// Compression Call
+CMPSC
+/// Compute Intermediate Message Digest
+KIMD
+/// Compute Last Message Digest
+KLMD
+/// Compute Message Authentication Code
+KMAC
+/// Convert to Binary (32)
+CVB
+/// Convert to Binary (32)
+CVBY
+/// Convert to Binary (64)
+CVBG
+/// Convert to Decimal (32)
+CVD
+/// Convert to Decimal (32)
+CVDY
+/// Convert to Decimal (64)
+CVDG
+/// Convert UTF-16 to UTF-32
+CU24
+/// Convert UTF-16 to UTF-8
+CU21
+/// Convert Unicode to UTF-8
+CUUTF
+/// Convert UTF-32 to UTF-16
+CU42
+/// Convert UTF-32 to UTF-8
+CU41
+/// Convert UTF-8 to UTF-16
+CU12
+/// Convert UTF-8 to Unicode
+CUTFU
+/// Convert UTF-8 to UTF-32
+CU14
+/// Copy Access
+CPYA
+/// Divide (32 <- 64)
+DR
+/// Divide (32 <- 64)
+D
+/// Divide Logical (32 <- 64)
+DLR
+/// Divide Logical (64 <- 128)
+DLGR
+/// Divide Logical (32 <- 64)
+DL
+/// Divide Logical (64 <- 128)
+DLG
+/// Divide Single (64)
+DSGR
+/// Divide Single (64 <- 32)
+DSGFR
+/// Divide Single (64)
+DSG
+/// Divide Single (64 <- 32)
+DSGF
+/// Exclusive OR (32)
+XR
+/// Exclusive OR (64)
+XGR
+/// Exclusive OR (32)
+XRK
+/// Exclusive OR (64)
+XGRK
+/// Exclusive OR (32)
+X
+/// Exclusive OR (32)
+XY
+/// Exclusive OR (64)
+XG
+/// Exclusive OR (Immediate)
+XI
+/// Exclusive OR (Immediate)
+XIY
+/// Exclusive OR (Character)
+XC
+/// Exclusive OR Immediate (high)
+XIHF
+/// Exclusive OR Immediate (low)
+XILF
+/// Execute
+EX
+/// Execute Relative Long
+EXRL
+/// Extract Access Register
+EAR
+/// Extract Cache Attribute
+ECAG
+/// Extract CPU Time
+ECTG
+/// Extract PSW
+EPSW
+/// Extract Transaction Nesting Depth
+ETND
+/// Find Leftmost One
+FLOGR
+/// Insert Character
+IC
+/// Insert Character
+ICY
+/// Insert Characters under Mask (low)
+ICM
+/// Insert Characters under Mask (low)
+ICMY
+/// Insert Characters under Mask (high)
+ICMH
+/// Insert Immediate (high)
+IIHF
+/// Insert Immediate (high high)
+IIHH
+/// Insert Immediate (high low)
+IIHL
+/// Insert Immediate (low)
+IILF
+/// Insert Immediate (low high)
+IILH
+/// Insert Immediate (low low)
+IILL
+/// Insert Program Mask
+IPM
+/// Load (32)
+LR
+/// Load (64)
+LGR
+/// Load (64 <- 32)
+LGFR
+/// Load (32)
+L
+/// Load (32)
+LY
+/// Load (64)
+LG
+/// Load (64 <- 32)
+LGF
+/// Load Immediate (64 <- 32)
+LGFI
+/// Load Relative Long (32)
+LRL
+/// Load Relative Long (64)
+LGRL
+/// Load Relative Long (64 <- 32)
+LGFRL
+/// Load Access Multiple
+LAM
+/// Load Access Multiple
+LAMY
+/// Load Address
+LA
+/// Load Address
+LAY
+/// Load Address Extended
+LAE
+/// Load Address Extended
+LAEY
+/// Load Address Relative Long
+LARL
+/// Load and Add (32)
+LAA
+/// Load and Add (64)
+LAAG
+/// Load and Add Logical (32)
+LAAL
+/// Load and Add Logical (64)
+LAALG
+/// Load and AND (32)
+LAN
+/// Load and AND (64)
+LANG
+/// Load and Exclusive OR (32)
+LAX
+/// Load and Exclusive OR (64)
+LAXG
+/// Load and OR (32)
+LAO
+/// Load and OR (64)
+LAOG
+/// Load and Test (32)
+LTR
+/// Load and Test (64)
+LTGR
+/// Load and Test (64 <- 32)
+LTGFR
+/// Load and Test (32)
+LT
+/// Load and Test (64)
+LTG
+/// Load and Test (64 <- 32)
+LTGF
+/// Load and Trap (32L <- 32)
+LAT
+/// Load and Trap (64)
+LGAT
+/// Load and Zero Rightmost Byte (32)
+LZRF
+/// Load and Zero Rightmost Byte (64)
+LZRG
+/// Load Byte (32)
+LBR
+/// Load Byte (64)
+LGBR
+/// Load Byte (32)
+LB
+/// Load Byte (64)
+LGB
+/// Load Byte High (32 <- 8)
+LBH
+/// Load Complement (32)
+LCR
+/// Load Complement (64)
+LCGR
+/// Load Complement (64 <- 32)
+LCGFR
+/// Load Count to Block Boundary
+LCBB
+/// Load Guarded (64)
+LGG
+/// Load Logical and Shift Guarded (64 <- 32)
+LLGFSG
+/// Load Guarded Storage Controls
+LGSC
+/// Load Halfword (32)
+LHR
+/// Load Halfword (64)
+LGHR
+/// Load Halfword (32)
+LH
+/// Load Halfword (32)
+LHY
+/// Load Halfword (64)
+LGH
+/// Load Halfword Immediate (32)
+LHI
+/// Load Halfword Immediate (64)
+LGHI
+/// Load Halfword Relative Long (32 <- 16)
+LHRL
+/// Load Halfword Relative Long (64 <- 16)
+LGHRL
+/// Load Halfword High (32 <- 16)
+LHH
+/// Load Halfword Immediate on Condition (32 <- 16)
+LOCHI
+/// Load Halfword Immediate on Condition (64 <- 16)
+LOCGHI
+/// Load Halfword High Immediate on Condition (32 <- 16)
+LOCHHI
+/// Load High (32)
+LFH
+/// Load High and Trap (32)
+LFHAT
+/// Load Logical (64 <- 32)
+LLGFR
+/// Load Logical (64 <- 32)
+LLGF
+/// Load Logical Relative Long (64 <- 32)
+LLGFRL
+/// Load Logical and Trap (64 <- 32)
+LLGFAT
+/// Load Logical and Zero Rightmost Byte (64 <- 32)
+LLZRGF
+/// Load Logical Character (32)
+LLCR
+/// Load Logical Character (64)
+LLGCR
+/// Load Logical Character (32)
+LLC
+/// Load Logical Character (64)
+LLGC
+/// Load Logical Character High (32 <- 8)
+LLCH
+/// Load Logical Halfword (32)
+LLHR
+/// Load Logical Halfword (64)
+LLGHR
+/// Load Logical Halfword (32)
+LLH
+/// Load Logical Halfword (64)
+LLGH
+/// Load Logical Halfword Relative Long (32 <- 16)
+LLHRL
+/// Load Logical Halfword Relative Long (64 <- 16)
+LLGHRL
+/// Load Logical Halfword High (32 <- 16)
+LLHH
+/// Load Logical Immediate (high)
+LLIHF
+/// Load Logical Immediate (high high)
+LLIHH
+/// Load Logical Immediate (high low)
+LLIHL
+/// Load Logical Immediate (low)
+LLILF
+/// Load Logical Immediate (low high)
+LLILH
+/// Load Logical Immediate (low low)
+LLILL
+/// Load Logical Thirty One Bits
+LLGTR
+/// Load Logical Thirty One Bits
+LLGT
+/// Load Logical Thirty One Bits and Trap (64 <- 31)
+LLGTAT
+/// Load Multiple (32)
+LM
+/// Load Multiple (32)
+LMY
+/// Load Multiple (64)
+LMG
+/// Load Multiple Disjoint
+LMD
+/// Load Multiple High
+LMH
+/// Load Negative (32)
+LNR
+/// Load Negative (64)
+LNGR
+/// Load Negative (64 <- 32)
+LNGFR
+/// Load on Condition (32)
+LOCR
+/// Load on Condition (64)
+LOCGR
+/// Load on Condition (32)
+LOC
+/// Load on Condition (64)
+LOCG
+/// Load High on Condition (32)
+LOCFHR
+/// Load High on Condition (32)
+LOCFH
+/// Load Pair Disjoint (32)
+LPD
+/// Load Pair Disjoint (64)
+LPDG
+/// Load Pair from Quadword
+LPQ
+/// Load Positive (32)
+LPR
+/// Load Positive (64)
+LPGR
+/// Load Positive (64 <- 32)
+LPGFR
+/// Load Reserved (32)
+LRVR
+/// Load Reserved (64)
+LRVGR
+/// Load Reserved (16)
+LRVH
+/// Load Reserved (32)
+LRV
+/// Load Reserved (64)
+LRVG
+/// Monitor Call
+MC
+/// Move (Character)
+MVC
+/// Move (16 <- 16)
+MVHHI
+/// Move (32 <- 16)
+MVHI
+/// Move (64 <- 16)
+MVGHI
+/// Move (Immediate)
+MVI
+/// Move (Immediate)
+MVIY
+/// Move Inverse
+MVCIN
+/// Move Long
+MVCL
+/// Move Long Extended
+MVCLE
+/// Move Long Unicode
+MVCLU
+/// Move Numerics
+MVN
+/// Move String
+MVST
+/// Move with Offset
+MVO
+/// Move Zones
+MVZ
+/// Multiply (64 <- 32)
+MR
+/// Multiply (128 <- 64)
+MGRK
+/// Multiply (64 <- 32)
+M
+/// Multiply (64 <- 32)
+MFY
+/// Multiply (128 <- 64)
+MG
+/// Multiply Halfword (32)
+MH
+/// Multiply Halfword (32)
+MHY
+/// Multiply Halfword (64 <- 16)
+MGH
+/// Multiply Halfword Immediate (32)
+MHI
+/// Multiply Halfword Immediate (64)
+MGHI
+/// Multiply Logical (64 <- 32)
+MLR
+/// Multiply Logical (128 <- 64)
+MLGR
+/// Multiply Logical (64 <- 32)
+ML
+/// Multiply Logical (128 <- 64)
+MLG
+/// Multiply Single (32)
+MSR
+/// Multiply Single (32)
+MSRKC
+/// Multiply Single (64)
+MSGR
+/// Multiply Single (64)
+MSGRKC
+/// Multiply Single (64 <- 32)
+MSGFR
+/// Multiply Single (32)
+MS
+/// Multiply Single (32)
+MSC
+/// Multiply Single (32)
+MSY
+/// Multiply Single (64)
+MSG
+/// Multiply Single (64)
+MSGC
+/// Multiply Single (64 <- 32)
+MSGF
+/// Multiply Single Immediate (32)
+MSFI
+/// Multiply Single Immediate (64 <- 32)
+MSGFI
+/// Next Instruction Access Intent
+NIAI
+/// Nontransactional Store (64)
+NTSTG
+/// OR (32)
+OR
+/// OR (64)
+OGR
+/// OR (32)
+ORK
+/// OR (64)
+OGRK
+/// OR (32)
+O
+/// OR (32)
+OY
+/// OR (64)
+OG
+/// OR (Immediate)
+OI
+/// OR (Immediate)
+OIY
+/// OR (Character)
+OC
+/// OR Immediate (high)
+OIHF
+/// OR Immediate (high high)
+OIHH
+/// OR Immediate (high low)
+OIHL
+/// OR Immediate (low)
+OILF
+/// OR Immediate (low high)
+OILH
+/// OR Immediate (low low)
+OILL
+/// Pack
+PACK
+/// Pack ASCII
+PKA
+/// Pack Unicode
+PKU
+/// Perform Cryptographic Computation
+PCC
+/// Perform Locked Operation
+PLO
+/// Perform Processor Assist
+PPA
+/// Perform Random Number Operation
+PRNO
+/// Population Count
+POPCNT
+/// Prefetch Data
+PFD
+/// Prefetch Data Relative Long
+PFDRL
+/// Rotate Left Single Logical (32)
+RLL
+/// Rotate Left Single Logical (64)
+RLLG
+/// Rotate then AND Selected Bits
+RNSBG
+/// Rotate then Exclusive OR Selected Bits
+RXSBG
+/// Rotate then OR Selected Bits
+ROSBG
+/// Rotate then Insert Selected Bits
+RISBG
+/// Rotate then Insert Selected Bits (64)
+RISBGN
+/// Rotate then Insert Selected Bits High (32)
+RISBHG
+/// Rotate then Insert Selected Bits Low (32)
+RISBLG
+/// Search String
+SRST
+/// Search String Unicode
+SRSTU
+/// Set Access Register
+SAR
+/// Set Addressing Mode (24)
+SAM24
+/// Set Addressing Mode (31)
+SAM31
+/// Set Addressing Mode (64)
+SAM64
+/// Set Program Mask
+SPM
+/// Shift Left Double
+SLDA
+/// Shift Left Double Logical
+SLDL
+/// Shift Left Single (32)
+SLA
+/// Shift Left Single (32)
+SLAK
+/// Shift Left Single (64)
+SLAG
+/// Shift Left Single Logical (32)
+SLL
+/// Shift Left Single Logical (32)
+SLLK
+/// Shift Left Single Logical (64)
+SLLG
+/// Shift Right Double
+SRDA
+/// Shift Right Double Logical
+SRDL
+/// Shift Right Single (32)
+SRA
+/// Shift Right Single (32)
+SRAK
+/// Shift Right Single (64)
+SRAG
+/// Shift Right Single Logical (32)
+SRL
+/// Shift Right Single Logical (32)
+SRLK
+/// Shift Right Single Logical (64)
+SRLG
+/// Store (32)
+ST
+/// Store (32)
+STY
+/// Store (64)
+STG
+/// Store Relative Long (32)
+STRL
+/// Store Relative Long (64)
+STGRL
+/// Store Access Multiple
+STAM
+/// Store Access Multiple
+STAMY
+/// Store Character
+STC
+/// Store Character
+STCY
+/// Store Character High (8)
+STCH
+/// Store Characters under Mask (low)
+STCM
+/// Store Characters under Mask (low)
+STCMY
+/// Store Characters under Mask (high)
+STCMH
+/// Store Clock
+STCK
+/// Store Clock Fast
+STCKF
+/// Store Clock Extended
+STCKE
+/// Store Facility List Extended
+STFLE
+/// Store Guarded Storage Controls
+STGSC
+/// Store Halfword
+STH
+/// Store Halfword
+STHY
+/// Store Halfword Relative Long
+STHRL
+/// Store Halfword High (16)
+STHH
+/// Store High (32)
+STFH
+/// Store Multiple (32)
+STM
+/// Store Multiple (32)
+STMY
+/// Store Multiple (64)
+STMG
+/// Store Multiple High
+STMH
+/// Store on Condition (32)
+STOC
+/// Store on Condition (64)
+STOCG
+/// Store High on Condition
+STOCFH
+/// Store Pair to Quadword
+STPQ
+/// Store Reversed (16)
+STRVH
+/// Store Reversed (32)
+STRV
+/// Store Reversed (46)
+STRVG
+/// Subtract (32)
+SR
+/// Subtract (64)
+SGR
+/// Subtract (64 <- 32)
+SGFR
+/// Subtract (32)
+SRK
+/// Subtract (64)
+SGRK
+/// Subtract (32)
+S
+/// Subtract (32)
+SY
+/// Subtract (64)
+SG
+/// Subtract (64 <- 32)
+SGF
+/// Subtract Halfword
+SH
+/// Subtract Halfword
+SHY
+/// Subtract Halfword (64 <- 16)
+SGH
+/// Subtract High (32)
+SHHHR
+/// Subtract High (32)
+SHHLR
+/// Subtract Logical (32)
+SLR
+/// Subtract Logical (64)
+SLGR
+/// Subtract Logical (64 <- 32)
+SLGFR
+/// Subtract Logical (32)
+SLRK
+/// Subtract Logical (64)
+SLGRK
+/// Subtract Logical (32)
+SL
+/// Subtract Logical (32)
+SLY
+/// Subtract Logical (64)
+SLG
+/// Subtract Logical (64 <- 32)
+SLGF
+/// Subtract Logical Immediate (32)
+SLFI
+/// Subtract Logical Immediate (64 <- 32)
+SLGFI
+/// Subtract Logical High (32)
+SLHHHR
+/// Subtract Logical High (32)
+SLHHLR
+/// Subtract Logical with Borrow (32)
+SLBR
+/// Subtract Logical with Borrow (64)
+SLBGR
+/// Subtract Logical with Borrow (32)
+SLB
+/// Subtract Logical with Borrow (64)
+SLBG
+/// Supervisor Call
+SVC
+/// Test Addressing Mode
+TAM
+/// Test and Set
+TS
+/// Test under Mask
+TM
+/// Test under Mask
+TMY
+/// Test under Mask (high high)
+TMHH
+/// Test under Mask (high low)
+TMHL
+/// Test under Mask (low high)
+TMLH
+/// Test under Mask (low low)
+TMLL
+/// Transaction Abort
+TABORT
+/// Transaction Begin (nonconstrained)
+TBEGIN
+/// Transaction Begin (constrained)
+TBEGINC
+/// Transaction End
+TEND
+/// Translate
+TR
+/// Translate and Test
+TRT
+/// Translate and Test Extended
+TRTE
+/// Translate and Test Reverse Extended
+TRTRE
+/// Translate and Test Reverse
+TRTR
+/// Translate Extended
+TRE
+/// Translate One to One
+TROO
+/// Translate One to Two
+TROT
+/// Translate Two to One
+TRTO
+/// Translate Two to Two
+TRTT
+/// Unpack
+UNPK
+/// Unpack ASCII
+UNPKA
+/// Unpack Unicode
+UNPKU
+/// Update Tree
+UPT
+/// Add Decimal
+AP
+/// Compare Decimal
+CP
+/// Divide Decimal
+DP
+/// Edit
+ED
+/// Edit and Mark
+EDMK
+/// Multiply Decimal
+MP
+/// Shift and Round Decimal
+SRP
+/// Subtract Decimal
+SP
+/// Test Decimal
+TP
+/// Zero and Add
+ZAP
+/// Convert BFP to HFP (short to long)
+THDER
+/// Convert BFP to HFP (long)
+THDR
+/// Convert HFP to BFP (short to long)
+TBEDR
+/// Convert HFP to BFP (long)
+TBDR
+/// Copy Sign (long)
+CPSDR
+/// Extract FPC
+EFPC
+/// Load (short)
+LER
+/// Load (long)
+LDR
+/// Load (extended)
+LXR
+/// Load (short)
+LE
+/// Load (long)
+LD
+/// Load (short)
+LEY
+/// Load (long)
+LDY
+/// Load Complement (long)
+LCDFR
+/// Load FPC
+LFPC
+/// Load FPC and Signal
+LFAS
+/// Load FPR from GR (long <- 64)
+LDGR
+/// Load GR from FPR (64 <- long)
+LGDR
+/// Load Negative (long)
+LNDFR
+/// Load Positive (long)
+LPDFR
+/// Load Zero (short)
+LZER
+/// Load Zero (long)
+LZDR
+/// Load Zero (extended)
+LZXR
+/// Perform Floating-Point Operation
+PFPO
+/// Set BFP Rounding Mode (2 bit)
+SRNM
+/// Set BFP Rounding Mode (3 bit)
+SRNMB
+/// Set DPF Rounding Mode
+SRNMT
+/// Set FPC
+SFPC
+/// Set FPC and Signal
+SFASR
+/// Store (short)
+STE
+/// Store (long)
+STD
+/// Store (short)
+STEY
+/// Store (long)
+STDY
+/// Store FPC
+STFPC
+/// Branch and Set Authority
+BSA
+/// Branch and Stack
+BAKR
+/// Branch in Subspace Group
+BSG
+/// Compare and Replace DAT Table Entry
+CRDTE
+/// Compare and Swap and Purge
+CSP
+/// Compare and Swap and Purge
+CSPG
+/// Diagnose
+Diagnose
+/// Extract and Set Extended Authority
+ESEA
+/// Extract Primary ASN
+EPAR
+/// Extract Primary ASN and Instance
+EPAIR
+/// Extract Secondary ASN
+ESAR
+/// Extract Secondary ASN and Instance
+ESAIR
+/// Extract Stacked Registers (32)
+EREG
+/// Extract Stacked Registers (64)
+EREGG
+/// Extract Stacked State
+ESTA
+/// Insert Address Space Control
+IAC
+/// Insert PSW Key
+IPK
+/// Insert Reference Bits Multiple
+IRBM
+/// Insert Storage Key Extended
+ISKE
+/// Insert Virtual Storage Key
+IVSK
+/// Invalidate DAT Table Entry
+IDTE
+/// Invalidate Page Table Entry
+IPTE
+/// Load Address Space Parameters
+LASP
+/// Load Control (32)
+LCTL
+/// Load Control (64)
+LCTLG
+/// Load Page Table Entry Address
+LPTEA
+/// Load PSW
+LPSW
+/// Load PSW Extended
+LPSWE
+/// Load Real Address (32)
+LRA
+/// Load Real Address (32)
+LRAY
+/// Load Real Address (64)
+LRAG
+/// Load Using Real Address (32)
+LURA
+/// Load Using Real Address (64)
+LURAG
+/// Modify Stacked State
+MSTA
+/// Move Page
+MVPG
+/// Move to Primary
+MVCP
+/// Move to Secondary
+MVCS
+/// Move with Destination Key
+MVCDK
+/// Move with Key
+MVCK
+/// Move with Optional Specifications
+MVCOS
+/// Move with Source Key
+MVCSK
+/// Page In
+PGIN
+/// Page Out
+PGOUT
+/// Perform Cryptography Key Management Operation
+PCKMO
+/// Perform Frame Management Function
+PFMF
+/// Perform Timing Facility Function
+PTFF
+/// Perform Topology Function
+PTF
+/// Program Call
+PC
+/// Program Return
+PR
+/// Program Transfer
+PT
+/// Program Transfer with Instance
+PTI
+/// Purge ALB
+PALB
+/// Purge TLB
+PTLB
+/// Reset Reference Bit Extended
+RRBE
+/// Reset Reference Bit Multiple
+RRBM
+/// Resume Program
+RP
+/// Set Address Space Control
+SAC
+/// Set Address Space Control Fast
+SACF
+/// Set Clock
+SCK
+/// Set Clock Comparator
+SCKC
+/// Set Clock Programmable Field
+SCKPF
+/// Set CPU Timer
+SPT
+/// Set Prefix
+SPX
+/// Set PSW Key from Address
+SPKA
+/// Set Secondary ASN
+SSAR
+/// Set Secondary ASN with Instance
+SSAIR
+/// Set Storage Key Extended
+SSKE
+/// Set System Mask
+SSM
+/// Signal Processor
+SIGP
+/// Store Clock Comparator
+STCKC
+/// Store Control (32)
+STCTL
+/// Store Control (64)
+STCTG
+/// Store CPU Address
+STAP
+/// Store CPU ID
+STIDP
+/// Store CPU Timer
+STPT
+/// Store Facility List
+STFL
+/// Store Prefix
+STPX
+/// Store Real Address
+STRAG
+/// Store System Information
+STSI
+/// Store then AND System Mask
+STNSM
+/// Store then OR System Mask
+STOSM
+/// Store Using Real Address (32)
+STURA
+/// Store Using Real Address (64)
+STURG
+/// Test Access
+TAR
+/// Test Block
+TB
+/// Test Pending External Interruption
+TPEI
+/// Test Protection
+TPROT
+/// Trace (32)
+TRACE
+/// Trace (64)
+TRACG
+/// Trap
+TRAP2
+/// TRAP
+TRAP4
+/// Cancel Subchannel
+XSCH
+/// Clear Subchannel
+CSCH
+/// Halt Subchannel
+HSCH
+/// Modify Subchannel
+MSCH
+/// Reset Channel Path
+RCHP
+/// Resume Subchannel
+RSCH
+/// Set Address Limit
+SAL
+/// Set Channel Monitor
+SCHM
+/// Start Subchannel
+SSCH
+/// Store Channel Path Status
+STCPS
+/// Store Channel Report Word
+STCRW
+/// Store Subchannel
+STSCH
+/// Test Pending Interruption
+TPI
+/// Test Subchannel
+TSCH
+/// Add Normalized (short HFP)
+AER
+/// Add Normalized (long HFP)
+ADR
+/// Add Normalized (extended HFP)
+AXR
+/// Add Normalized (short HFP)
+AE
+/// Add Normalized (long HFP)
+AD
+/// Add Unnormalized (short HFP)
+AUR
+/// Add Unnormalized (long HFP)
+AWR
+/// Add Unnormalized (short HFP)
+AU
+/// Add Unnormalized (long HFP)
+AW
+/// Compare (short HFP)
+CER
+/// Compare (long HFP)
+CDR
+/// Compare (extended HFP)
+CXR
+/// Compare (short HFP)
+CE
+/// Compare (long HFP)
+CD
+/// Convert from Fixed (short HFP <- 32)
+CEFR
+/// Convert from Fixed (long HFP <- 32)
+CDFR
+/// Convert from Fixed (extended HFP <- 32)
+CXFR
+/// Convert from Fixed (short HFP <- 64)
+CEGR
+/// Convert from Fixed (long HFP <- 64)
+CDGR
+/// Convert from Fixed (extended HFP <- 64)
+CXGR
+/// Convert to Fixed (32 <- short HFP)
+CFER
+/// Convert to Fixed (32 <- long HFP)
+CFDR
+/// Convert to Fixed (32 <- extended HFP)
+CFXR
+/// Convert to Fixed (64 <- short HFP)
+CGER
+/// Convert to Fixed (64 <- long HFP)
+CGDR
+/// Convert to Fixed (64 <- extended HFP)
+CGXR
+/// Divide (short HFP)
+DER
+/// Divide (long HFP)
+DDR
+/// Divide (extended HFP)
+DXR
+/// Divide (short HFP)
+DE
+/// Divide (long HFP)
+DD
+/// Halve (short HFP)
+HER
+/// Halve (long HFP)
+HDR
+/// Load and Test (short HFP)
+LTER
+/// Load and Test (long HFP)
+LTDR
+/// Load and Test (extended HFP)
+LTXR
+/// Load Complement (short HFP)
+LCER
+/// Load Complement (long HFP)
+LCDR
+/// Load Complement (extended HFP)
+LCXR
+/// Load FP Integer (short HFP)
+FIER
+/// Load FP Integer (long HFP)
+FIDR
+/// Load FP Integer (extended HFP)
+FIXR
+/// Load Lengthened (long HFP <- short)
+LDER
+/// Load Lengthened (extended HFP <- long)
+LXDR
+/// Load Lengthened (extended HFP <- short)
+LXER
+/// Load Lengthened (long HFP <- short)
+LDE
+/// Load Lengthened (extended HFP <- long)
+LXD
+/// Load Lengthened (extended HFP <- short)
+LXE
+/// Load Negative (short HFP)
+LNER
+/// Load Negative (long HFP)
+LNDR
+/// Load Negative (extended HFP)
+LNXR
+/// Load Positive (short HFP)
+LPER
+/// Load Positive (long HFP)
+LPDR
+/// Load Positive (extended HFP)
+LPXR
+/// Load Rounded (short HFP <- long)
+LEDR
+/// Load Rounded (long HFP <- extended)
+LDXR
+/// Load Rounded (short HFP <- extended)
+LEXR
+/// Multiply (short HFP)
+MEER
+/// Multiply (long HFP)
+MDR
+/// Multiply (extended HFP)
+MXR
+/// Multiply (long HFP <- short)
+MDER
+/// Multiply (extended HFP <- long)
+MXDR
+/// Multiply (short HFP)
+MEE
+/// Multiply (long HFP)
+MD
+/// Multiply (long HFP <- short)
+MDE
+/// Multiply (extended HFP <- long)
+MXD
+/// Multiply and Add (short HFP)
+MAER
+/// Multiply and Add (long HFP)
+MADR
+/// Multiply and Add (short HFP)
+MAE
+/// Multiply and Add (long HFP)
+MAD
+/// Multiply and Subtract (short HFP)
+MSER
+/// Multiply and Subtract (long HFP)
+MSDR
+/// Multiply and Subtract (short HFP)
+MSE
+/// Multiply and Subtract (long HFP)
+MSD
+/// Multiply and Add Unnormalized (long to ext. HFP)
+MAYR
+/// Multiply and Add Unnormalized (long to ext. high HFP)
+MAYHR
+/// Multiply and Add Unnormalized (long to ext. low HFP)
+MAYLR
+/// Multiply and Add Unnormalized (long to ext. HFP)
+MAY
+/// Multiply and Add Unnormalized (long to ext. high HFP)
+MAYH
+/// Multiply and Add Unnormalized (long to ext. low HFP)
+MAYL
+/// Multiply Unnormalized (long to ext. HFP)
+MYR
+/// Multiply Unnormalized (long to ext. high HFP)
+MYHR
+/// Multiply Unnormalized (long to ext. low HFP)
+MYLR
+/// Multiply Unnormalized (long to ext. HFP)
+MY
+/// Multiply Unnormalized (long to ext. high HFP)
+MYH
+/// Multiply Unnormalized (long to ext. low HFP)
+MYL
+/// Square Root (short HFP)
+SQER
+/// Square Root (long HFP)
+SQDR
+/// Square Root (extended HFP)
+SQXR
+/// Square Root (short HFP)
+SQE
+/// Square Root (long HFP)
+SQD
+/// Subtract Normalized (short HFP)
+SER
+/// Subtract Normalized (long HFP)
+SDR
+/// Subtract Normalized (extended HFP)
+SXR
+/// Subtract Normalized (short HFP)
+SE
+/// Subtract Normalized (long HFP)
+SD
+/// Subtract Unnormalized (short HFP)
+SUR
+/// Subtract Unnormalized (long HFP)
+SWR
+/// Subtract Unnormalized (short HFP)
+SU
+/// Subtract Unnormalized (long HFP)
+SW
+/// Add (short BFP)
+AEBR
+/// Add (long BFP)
+ADBR
+/// Add (extended BFP)
+AXBR
+/// Add (short BFP)
+AEB
+/// Add (long BFP)
+ADB
+/// Compare (short BFP)
+CEBR
+/// Compare (long BFP)
+CDBR
+/// Compare (extended BFP)
+CXBR
+/// Compare (short BFP)
+CEB
+/// Compare (long BFP)
+CDB
+/// Compare and Signal (short BFP)
+KEBR
+/// Compare and Signal (long BFP)
+KDBR
+/// Compare and Signal (extended BFP)
+KXBR
+/// Compare and Signal (short BFP)
+KEB
+/// Compare and Signal (long BFP)
+KDB
+/// Convert from Fixed (short BFP <- 32)
+CEFBR
+/// Convert from Fixed (long BFP <- 32)
+CDFBR
+/// Convert from Fixed (extended BFP <- 32)
+CXFBR
+/// Convert from Fixed (short BFP <- 64)
+CEGBR
+/// Convert from Fixed (long BFP <- 64)
+CDGBR
+/// Convert from Fixed (extended BFP <- 64)
+CXGBR
+/// Convert from Fixed (short BFP <- 32)
+CEFBRA
+/// Convert from Fixed (long BFP <- 64)
+CDFBRA
+/// Convert from Fixed (extended BFP <- 32)
+CXFBRA
+/// Convert from Fixed (short BFP <- 32)
+CEGBRA
+/// Convert from Fixed (long BFP <- 64)
+CDGBRA
+/// Convert from Fixed (extended BFP <- 64)
+CXGBRA
+/// Convert from Logical (short BFP <- 32)
+CELFBR
+/// Convert from Logical (long BFP <- 32)
+CDLFBR
+/// Convert from Logical (extended BFP <- 32)
+CXLFBR
+/// Convert from Logical (short BFP <- 64)
+CELGBR
+/// Convert from Logical (long BFP <- 64)
+CDLGBR
+/// Convert from Logical (extended BFP <- 64)
+CXLGBR
+/// Convert to Fixed (32 <- short BFP)
+CFEBR
+/// Convert to Fixed (32 <- long BFP)
+CFDBR
+/// Convert to Fixed (32 <- extended BFP)
+CFXBR
+/// Convert to Fixed (64 <- short BFP)
+CGEBR
+/// Convert to Fixed (64 <- long BFP)
+CGDBR
+/// Convert to Fixed (64 <- extended BFP)
+CGXBR
+/// Convert to Fixed (32 <- short BFP)
+CFEBRA
+/// Convert to Fixed (32 <- long BFP)
+CFDBRA
+/// Convert to Fixed (32 <- extended BFP)
+CFXBRA
+/// Convert to Fixed (64 <- short BFP)
+CGEBRA
+/// Convert to Fixed (64 <- long BFP)
+CGDBRA
+/// Convert to Fixed (64 <- extended BFP)
+CGXBRA
+/// Convert to Logical (32 <- short BFP)
+CLFEBR
+/// Convert to Logical (32 <- long BFP)
+CLFDBR
+/// Convert to Logical (32 <- extended BFP)
+CLFXBR
+/// Convert to Logical (64 <- short BFP)
+CLGEBR
+/// Convert to Logical (64 <- long BFP)
+CLGDBR
+/// Convert to Logical (64 <- extended BFP)
+CLGXBR
+/// Divide (short BFP)
+DEBR
+/// Divide (long BFP)
+DDBR
+/// Divide (extended BFP)
+DXBR
+/// Divide (short BFP)
+DEB
+/// Divide (long BFP)
+DDB
+/// Divide to Integer (short BFP)
+DIEBR
+/// Divide to Integer (long BFP)
+DIDBR
+/// Load and Test (short BFP)
+LTEBR
+/// Load and Test (long BFP)
+LTDBR
+/// Load and Test (extended BFP)
+LTXBR
+/// Load Complement (short BFP)
+LCEBR
+/// Load Complement (long BFP)
+LCDBR
+/// Load Complement (extended BFP)
+LCXBR
+/// Load FP Integer (short BFP)
+FIEBR
+/// Load FP Integer (long BFP)
+FIDBR
+/// Load FP Integer (extended BFP)
+FIXBR
+/// Load FP Integer (short BFP)
+FIEBRA
+/// Load FP Integer (long BFP)
+FIDBRA
+/// Load FP Integer (extended BFP)
+FIXBRA
+/// Load Lengthened (long BFP <- short)
+LDEBR
+/// Load Lengthened (extended BFP <- long)
+LXDBR
+/// Load Lengthened (extended BFP <- short)
+LXEBR
+/// Load Lengthened (long BFP <- short)
+LDEB
+/// Load Lengthened (extended BFP <- long)
+LXDB
+/// Load Lengthened (extended BFP <- short)
+LXEB
+/// Load Negative (short BFP)
+LNEBR
+/// Load Negative (long BFP)
+LNDBR
+/// Load Negative (extended BFP)
+LNXBR
+/// Load Positive (short BFP)
+LPEBR
+/// Load Positive (long BFP)
+LPDBR
+/// Load Positive (extended BFP)
+LPXBR
+/// Load Rounded (short BFP <- long)
+LEDBR
+/// Load Rounded (long BFP <- extended)
+LDXBR
+/// Load Rounded (short BFP <- extended)
+LEXBR
+/// Load Rounded (short BFP <- long)
+LEDBRA
+/// Load Rounded (long BFP <- extended)
+LDXBRA
+/// Load Rounded (short BFP <- extended)
+LEXBRA
+/// Multiply (short BFP)
+MEEBR
+/// Multiply (long BFP)
+MDBR
+/// Mulltiply (extended BFP)
+MXBR
+/// Multiply (long BFP <- short)
+MDEBR
+/// Multiply (extended BFP <- long)
+MXDBR
+/// Multiply (short BFP)
+MEEB
+/// Multiply (long BFP)
+MDB
+/// Multiply (long BFP <- short)
+MDEB
+/// Multiply (extended BFP <- long)
+MXDB
+/// Multiply and Add (short BFP)
+MAEBR
+/// Multiply and Add (long BFP)
+MADBR
+/// Multiply and Add (short BFP)
+MAEB
+/// Multiply and Add (long BFP)
+MADB
+/// Multiply and Subtract (short BFP)
+MSEBR
+/// Multiply and Subtract (long BFP)
+MSDBR
+/// Multiply and Subtract (short BFP)
+MSEB
+/// Multiply and Subtract (long BFP)
+MSDB
+/// Square Root (short BFP)
+SQEBR
+/// Square Root (long BFP)
+SQDBR
+/// Square Root (extended BFP)
+SQXBR
+/// Square Root (short BFP)
+SQEB
+/// Square Root (long BFP)
+SQDB
+/// Subtract (short BFP)
+SEBR
+/// Subtract (long BFP)
+SDBR
+/// Subtract (extended BFP)
+SXBR
+/// Subtract (short BFP)
+SEB
+/// Subtract (long BFP)
+SDB
+/// Test Data Class (short BFP)
+TCEB
+/// Test Data Class (long BFP)
+TCDB
+/// Test Data Class (extended BFP)
+TCXB
+/// Add (long DFP)
+ADTR
+/// Add (extended DFP)
+AXTR
+/// Add (extended DFP)
+ADTRA
+/// Add (extended DFP)
+AXTRA
+/// Compare (long DFP)
+CDTR
+/// Compare (extended DFP)
+CXTR
+/// Compare and Signal (long DFP)
+KDTR
+/// Compare and Signal (extended DFP)
+KXTR
+/// Compare Biased Exponent (long DFP)
+CEDTR
+/// Compare Biased Exponent (extended DFP)
+CEXTR
+/// Convert from Fixed (long DFP <- 64)
+CDGTR
+/// Convert from Fixed (extended DFP <- 64)
+CXGTR
+/// Convert from Fixed (long DFP <- 64)
+CDGTRA
+/// Convert from Fixed (extended DFP <- 64)
+CXGTRA
+/// Convert from Fixed (long DFP <- 32)
+CDFTR
+/// Convert from Fixed (extended DFP <- 32)
+CXFTR
+/// Convert from Logical (long DFP <- 64)
+CDLGTR
+/// Convert from Logical (extended DFP <- 64)
+CXLGTR
+/// Convert from Logical (long DFP <- 32)
+CDLFTR
+/// Convert from Logical (extended DFP <- 32)
+CXLFTR
+/// Convert from Packed (to long DFP)
+CDPT
+/// Convert from Packed (to extended DFP)
+CXPT
+/// Convert from Signed Packed (long DFP <- 64)
+CDSTR
+/// Convert from Signed Packed (extended DFP <- 128)
+CXSTR
+/// Convert from Unsigned Packed (long DFP <- 64)
+CDUTR
+/// Convert from Unsigned Packed (extended DFP <- 128)
+CXUTR
+/// Convert from Zoned (to long DFP)
+CDZT
+/// Convert from Zoned (to extended DFP)
+CXZT
+/// Convert to Fixed (64 <- long DFP)
+CGDTR
+/// Convert to Fixed (64 <- extended DFP)
+CGXTR
+/// Convert to Fixed (64 <- long DFP)
+CGDTRA
+/// Convert to Fixed (64 <- extended DFP)
+CGXTRA
+/// Convert to Fixed (32 <- long DFP)
+CFDTR
+/// Convert to Fixed (32 <- extended DFP)
+CFXTR
+/// Convert to Logical (64 <- long DFP)
+CLGDTR
+/// Convert to Logical (64 <- extended DFP)
+CLGXTR
+/// Convert to Logical (32 <- long DFP)
+CLFDTR
+/// Convert to Logical (32 <- extended DFP)
+CLFXTR
+/// Convert to Packed (from long DFP)
+CPDT
+/// Convert to Packed (from extended DFP)
+CPXT
+/// Convert to Signed Packed (64 <- long DFP)
+CSDTR
+/// Convert to Signed Packed (128 <- extended DFP)
+CSXTR
+/// Convert to Unsigned Packed (64 <- long DFP)
+CUDTR
+/// Convert to Unsigned Packed (64 <- long DFP)
+CUXTR
+/// Convert to Zoned (from long DFP)
+CZDT
+/// Convert to Zoned (from extended DFP)
+CZXT
+/// Divide (long DFP)
+DDTR
+/// Divide (extended DFP)
+DXTR
+/// Divide (long DFP)
+DDTRA
+/// Divide (extended DFP)
+DXTRA
+/// Extract Biased Exponent (64 <- long DFP)
+EEDTR
+/// Extract Biased Exponent (64 <- extended DFP)
+EEXTR
+/// Extract Significance (long DFP)
+ESDTR
+/// Extract Significance (long DFP)
+ESXTR
+/// Insert Biased Exponent (long DFP <- 64)
+IEDTR
+/// Insert Biased Exponent (long DFP <- 64)
+IEXTR
+/// Load and Test (long DFP)
+LTDTR
+/// Load and Test (extended DFP)
+LTXTR
+/// Load FP Integer (long DFP)
+FIDTR
+/// Load FP Integer (long DFP)
+FIXTR
+/// Load Lengthened (long DFP <- short)
+LDETR
+/// Load Lengthened (extended DFP <- long)
+LXDTR
+/// Load Rounded (short DFP <- long)
+LEDTR
+/// Load Rounded (long DFP <- extended)
+LDXTR
+/// Multiply (long DFP)
+MDTR
+/// Multiply (extended DFP)
+MXTR
+/// Multiply (long DFP)
+MDTRA
+/// Multiply (extended DFP)
+MXTRA
+/// Quantize (long DFP)
+QADTR
+/// Quantize (extended DFP)
+QAXTR
+/// Reround (long DFP)
+RRDTR
+/// Reround (extended DFP)
+RRXTR
+/// Shift Significand Left (long DFP)
+SLDT
+/// Shift Significand Left (extended DFP)
+SLXT
+/// Shift Significand Right (long DFP)
+SRDT
+/// Shift Significand Right (extended DFP)
+SRXT
+/// Subtract (long DFP)
+SDTR
+/// Subtract (extended DFP)
+SXTR
+/// Subtract (long DFP)
+SDTRA
+/// Subtract (extended DFP)
+SXTRA
+/// Test Data Class (short DFP)
+TDCET
+/// Test Data Class (long DFP)
+TDCDT
+/// Test Data Class (extended DFP)
+TDCXT
+/// Test Data Group (short DFP)
+TDGET
+/// Test Data Group (long DFP)
+TDGDT
+/// Test Data Group (extended DFP)
+TDGXT
+/// Vector Bit Permute
+VBPERM
+/// Vector Gather Element (32)
+VGEF
+/// Vector Gather Element (64)
+VGEG
+/// Vector Generate Byte Mask
+VGBM
+/// Vector Generate Mask
+VGM
+/// Vector Load
+VL
+/// Vector Load
+VLR
+/// Vector Load and Replicate
+VLREP
+/// Vector Load Element (8)
+VLEB
+/// Vector Load Element (16)
+VLEH
+/// Vector Load Element (32)
+VLEF
+/// Vector Load Element (64)
+VLEG
+/// Vector Load Element Immediate (8)
+VLEIB
+/// Vector Load Element Immediate (16)
+VLEIH
+/// Vector Load Element Immediate (32)
+VLEIF
+/// Vector Load Element Immediate (64)
+VLEIG
+/// Vector Load GR from VR Element
+VLGV
+/// Vector Load Logical Element and Zero
+VLLEZ
+/// Vector Load Multiple
+VLM
+/// VEctor Load Rightmost with Length
+VLRLR
+/// Vector Load Rightmost with Length
+VLRL
+/// Vector Load to Block Boundary
+VLBB
+/// Vector Load VR Element from GR
+VLVG
+/// Vector Load VR from GRS Disjoint
+VLVGP
+/// Vector Load with Length
+VLL
+/// Vector Merge High
+VMRH
+/// Vector Merge Low
+VMRL
+/// Vector Pack
+VPK
+/// Vector Pack Saturate
+VPKS
+/// Vector Pack Logical Saturate
+VPKLS
+/// Vector Permute
+VPERM
+/// Vector Permute Doubleword Immediate
+VPDI
+/// Vector Replicate
+VREP
+/// Vector Replicate Immediate
+VREPI
+/// Vector Scatter Element (32)
+VSCEF
+/// Vector Scatter Element (64)
+VSCEG
+/// Vector Select
+VSEL
+/// Vector Sign Extend to Doubleword
+VSEG
+/// Vector Store
+VST
+/// Vector Store Element (8)
+VSTEB
+/// Vector Store Element (16)
+VSTEH
+/// Vector Store Element (32)
+VSTEF
+/// Vector Store Element (64)
+VSTEG
+/// Vector Store Multiple
+VSTM
+/// Vector Store Rightmost with Length
+VSTRLR
+/// Vector Store Rightmost with Length
+VSTRL
+/// Vectore Store with Length
+VSTL
+/// Vector Unpack High
+VUPH
+/// Vector Unpack Logical High
+VUPLH
+/// Vector Unpack Low
+VUPL
+/// Vector Unpack Logical Low
+VUPLL
+/// Vector Add
+VA
+/// Vector Add Compute Carry
+VACC
+/// Vector Add with Carry
+VAC
+/// Vector Add with Carry Compute Carry
+VACCC
+/// Vector AND
+VN
+/// Vector AND with Complement
+VNC
+/// Vector Average
+VAVG
+/// Vector Average Logical
+VAVGL
+/// Vector Checksum
+VCKSM
+/// Vector Element Compare
+VEC
+/// Vector Element Compare Logical
+VECL
+/// Vector Compare Equal
+VCEQ
+/// Vector Compare High
+VCH
+/// Vector Compare High Logical
+VCHL
+/// Vector Count Leading Zeros
+VCLZ
+/// Vector Count Trailing Zeros
+VCTZ
+/// Vector Exclusive OR
+VX
+/// Vector Galois Field Multiply Sum
+VGFM
+/// Vector Galois Field Multiply Sum and Accumulate
+VGFMA
+/// Vector Load Complement
+VLC
+/// Vector Load Positive
+VLP
+/// Vector Maximum
+VMX
+/// Vector Maximum Logical
+VMXL
+/// Vector Minimum
+VMN
+/// Vector Minimum Logical
+VMNL
+/// Vector Multiply and Add Low
+VMAL
+/// Vector Multiply and Add High
+VMAH
+/// Vector Multiply and Add Logical High
+VMALH
+/// Vector Multiply and Add Even
+VMAE
+/// Vector Multiply and Add Logical Even
+VMALE
+/// Vector Multiply and Add Odd
+VMAO
+/// Vector Multiply and Add Logical Odd
+VMALO
+/// Vector Multiply High
+VMH
+/// Vector Multiply Logical High
+VMLH
+/// Vector Multiply Low
+VML
+/// Vector Multiply Even
+VME
+/// Vector Multiply Logical Even
+VMLE
+/// Vector Multiply Odd
+VMO
+/// Vector Multiply Logial Odd
+VMLO
+/// Vector Multiply Sum Logical
+VMSL
+/// Vector NAND
+VNN
+/// Vector NOR
+VNO
+/// Vector NOT Exclusive OR
+VNX
+/// Vector OR
+VO
+/// Vector OR with Complement
+VOC
+/// Vector Population Count
+VPOPCT
+/// Vector Element Rotate Left Logical
+VERLLV
+/// Vector Element Rotate Left Logical
+VERLL
+/// Vector Element Rotate and Insert Under Mask
+VERIM
+/// Vector Element Shift Left
+VESLV
+/// Vector Element Shift Left
+VESL
+/// Vector Element Shift Right Arithmentic
+VESRAV
+/// Vector Element Shift Right Arithmetic
+VESRA
+/// Vector Element Shift Right Logical
+VESRLV
+/// Vector Element Shift Right Logical
+VESRL
+/// Vector Shift Left
+VSL
+/// Vector Shift Left by Byte
+VSLB
+/// Vector Shift Left Double by Byte
+VSLDB
+/// Vector Shift Right Arithmetic
+VSRA
+/// Vector Shift Right Arithmetic by Byte
+VSRAB
+/// Vector Shift Right Logical
+VSRL
+/// Vector Shift Right Logical by Byte
+VSRLB
+/// Vector Subtract
+VS
+/// Vector Subtract Compute Borrow Indication
+VSCBI
+/// Vector Subtract with Borrow Indication
+VSBI
+/// Vector Subtract with Borrow Compute Borrow Indication
+VSBCBI
+/// Vector Sum Across Doubleword
+VSUMG
+/// Vector Sum Across Quadword
+VSUMQ
+/// Vector Sum Across Word
+VSUM
+/// Vector Test under Mask
+VTM
+/// Vector Find Any Element Equal
+VFAE
+/// Vector Find Element Equal
+VFEE
+/// Vector Find Element Not Equal
+VFENE
+/// Vector Isolate String
+VISTR
+/// Vector String Range Compare
+VSTRC
+/// Vector FP Add
+VFA
+/// Vector FP Compare Scalar
+WFC
+/// Vector FP Compare and Signal Scalar
+WFK
+/// Vector FP Compare Equal
+VFCE
+/// Vector fP Compare High
+VFCH
+/// VEctor FP Compare High or Equal
+VFCHE
+/// Vector FP Divide
+VFD
+/// Vector Load FP Integer
+VFI
+/// Vector FP Load Lengthened
+VFLL
+/// Vector FP Load Rounded
+VFLR
+/// Vector FP Maximum
+VFMAX
+/// Vector FP Minimum
+VFMIN
+/// Vector FP Multiply
+VFM
+/// Vector FP Multiply and Add
+VFMA
+/// Vector FP Multiply and Subtract
+VFMS
+/// Vector FP Negative Multiply and Add
+VFNMA
+/// Vector FP Negative Multiply and Subtract
+VFNMS
+/// Vector FP Perform Sign Operation
+VFPSO
+/// Vector FP Square Root
+VFSQ
+/// Vector FP Subtract
+VFS
+/// Vector FP Test Data Class Immediate
+VFTCI
+/// Vector Add Decimal
+VAP
+/// Vector Compare Decimal
+VCP
+/// Vector Convert to Binary
+VCVB
+/// Vector Convert to Binary
+VCVBG
+/// Vector Convert to Decimal
+VCVD
+/// Vector Convert to Decimal
+VCVDG
+/// Vector Divide Decimal
+VDP
+/// Vector Load Immediate Decimal
+VLIP
+/// Vector Multiply Decimal
+VMP
+/// Vector Multiply and Shift Decimal
+VMSP
+/// Vector Pack Zoned
+VPKZ
+/// Vector Perform Sign Operation Decimal
+VPSOP
+/// Vector Remainder Decimal
+VRP
+/// Vector Shift and Divide Decimal
+VSDP
+/// Vector Shift and Round Decimal
+VSRP
+/// Load BEAR
+LBEAR
+/// Store BEAR
+STBEAR
+/// Query Processor Activity Counter Information
+QPACI
+/// Sort Lists
+SORTL
+/// Deflate Conversion Call
+DFLTCC
+/// Compute Digital Signature Authentication
+KDSA
+/// Neural Networking Processing Assist
+NNPA
+/// Load PSW Extended
+LPSWEY
+/// Move Right to Left
+MVCRL
+/// Vector Pack Zoned Register
+VPKZR
+/// Vector Shift and Round Decimal Register
+VSRPR
+/// Vector Subtract Decimal
+VSP
+/// Vector Shift Left Double by Bit
+VSLD
+/// Vector Shift Right Double by Bit
+VSRD
+/// Vector Count Leading Zero Digits
+VCLZDP
+/// Vector Unpack Zoned High
+VUPKZH
+/// Vector FP Convert to NNP
+VCNF
+/// Vector FP Convert and Lengthen from NNP High
+VCLFNH
+/// Vector Unpack Zoned Low
+VUPKZL
+/// Vector FP Convert from NNP
+VCFN
+/// Vector FP Convert and Lengthen from NNP Low
+VCLFNL
+/// Vector Test Decimal
+VTP
+/// Decimal Scale and Convert to HFP
+VSCHP
+/// Vector FP Convert and Round to NNP
+VCRNF
+/// Decimal Scale and Convert and Split to HFP
+VSCSHP
+/// Vector Convert HFP to Scaled Decimal
+VCSPH
+/// Vector String Search
+VSTRS
+/// Vector FP Convert to Logical
+VCLFP
+/// Vector FP Convert from Logical
+VCFPL
+/// Vector FP Convert to Fixed
+VCSFP
+/// Vector FP Convert from Fixed
+VCFPS
+/// Vectir Load Byte Reversed Element
+VLEBRH
+/// Vector Load Byte Reversed Element
+VLEBRG
+/// Vector Load Byte Reversed Element
+VLEBRF
+/// Vector Load Byte Reversed Element and Zero
+VLLEBRZ
+/// Vector Load Byte Reversed Element and Replicate
+VLBRREP
+/// Vector Load Byte Reversed Elements
+VLBR
+/// Vector Load Elements Reversed
+VLER
+/// Vector Store Byte Reversed Elements
+VSTEBRH
+/// Vector Store Byte Reversed Elements
+VSTEBRF
+/// Vector Store Byte Reversed Elements
+VSTEBRG
+/// Vector Store Byte Reversed Elements
+VSTBR
+/// Vector Store Elements Reversed
+VSTER
+/// Vector Unpack Zoned
+VUPKZ
