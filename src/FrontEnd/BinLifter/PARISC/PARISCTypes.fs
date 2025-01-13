@@ -52,11 +52,11 @@ type Opcode =
   | DS = 9
   | CMPCLR = 10
   | DCOR = 11
-  (*Immediate Arithmetic Instructions*)
+  (* Immediate Arithmetic Instructions *)
   | ADDI = 12
   | SUBI = 13
   | CMPICLR = 14
-  (*Shift Pair, Extract & Deposit Instructions*)
+  (* Shift Pair, Extract & Deposit Instructions *)
   | SHRPD = 15
   | SHRPW = 16
   | EXTRD = 17
@@ -65,20 +65,20 @@ type Opcode =
   | DEPDI = 20
   | DEPW = 21
   | DEPWI = 22
-  (*Parallel Halfword Arithmetic Instructions*)
+  (* Parallel Halfword Arithmetic Instructions *)
   | HADD = 23
   | HSUB = 24
   | HAVG = 25
-  (*Parallel Halfword Shift Instructions*)
+  (* Parallel Halfword Shift Instructions *)
   | HSHLADD = 26
   | HSHRADD = 27
   | HSHL = 28
   | HSHR = 29
-  (*Rearrangement Instructions*)
+  (* Rearrangement Instructions *)
   | PERMH = 30
   | MIXH = 31
   | MIXW = 32
-  (*Load/Store Instructions*)
+  (* Load/Store Instructions *)
   | LDB = 33
   | STB = 34
   | LDH = 35
@@ -87,29 +87,29 @@ type Opcode =
   | STW = 38
   | LDD = 39
   | STD = 40
-  (*Load/Store Absolute Instructions*)
+  (* Load/Store Absolute Instructions *)
   | LDWA = 41
   | STWA = 42
   | LDDA = 43
   | STDA = 44
-  (*Load and Clear Instructions*)
+  (* Load and Clear Instructions *)
   | LDCW = 45
   | LDCD = 46
-  (*Store Bytes/DoubleWord Bytes Instructions*)
+  (* Store Bytes/DoubleWord Bytes Instructions *)
   | STBY = 47
   | STDBY = 48
-  (*Long Immediate Instructions*)
+  (* Long Immediate Instructions *)
   | LDO = 49
   | LDIL = 50
   | ADDIL = 51
-  (*Unconditional Local Branches*)
+  (* Unconditional Local Branches *)
   | BL = 52
   | BLR = 53
   | BV = 54
-  (*Unconditional External Branches*)
+  (* Unconditional External Branches *)
   | BE = 55
   | BVE = 56
-  (*Conditional Local Branches*)
+  (* Conditional Local Branches *)
   | ADDB = 57
   | ADDIB = 58
   | BB = 59
@@ -117,7 +117,7 @@ type Opcode =
   | CMPIB = 61
   | MOVB = 62
   | MOVIB = 63
-  (*Special Register Move Instructions*)
+  (* Special Register Move Instructions *)
   | LDSID = 64
   | MTSP = 65
   | MFSP = 66
@@ -125,14 +125,14 @@ type Opcode =
   | MFCTL = 68
   | MTSARCM = 69
   | MFIA = 70
-  (*System Mask Control Instructions*)
+  (* System Mask Control Instructions *)
   | SSM = 71
   | RSM = 72
   | MTSM = 73
-  (*Return From Interrupt & Break Instructions*)
+  (* Return From Interrupt & Break Instructions *)
   | RFI = 74
   | BREAK = 75
-  (*Memory Management Instructions*)
+  (* Memory Management Instructions *)
   | SYNC = 76
   | SYNCDMA = 77
   | PROBE = 78
@@ -152,31 +152,31 @@ type Opcode =
   | FICE = 92
   | PUSHBTS = 93
   | PUSHNOM = 94
-  (*Implementation-Dependent Instruction*)
+  (* Implementation-Dependent Instruction *)
   | DIAG = 95
-  (*Special Function Instructions*)
+  (* Special Function Instructions *)
   | SPOP0 = 96
   | SPOP1 = 97
   | SPOP2 = 98
   | SPOP3 = 99
-  (*Coprocessor Instructions*)
+  (* Coprocessor Instructions *)
   | COPR = 100
   | CLDD = 101
   | CLDW = 102
   | CSTD = 103
   | CSTW = 104
-  (*Floating-Point Load and Store Instructions*)
+  (* Floating-Point Load and Store Instructions *)
   | FLDW = 105
   | FLDD = 106
   | FSTW = 107
   | FSTD = 108
-  (*Floating-Point Multiply/Add Instructions*)
+  (* Floating-Point Multiply/Add Instructions *)
   | FMPYADD = 109
   | FMPYSUB = 110
-  (*Floating-Point Sub-op Multiply/Add Instructions*)
+  (* Floating-Point Sub-op Multiply/Add Instructions *)
   | FMPYFADD = 111
   | FMPYNFADD = 112
-  (*Floating-Point Conversion and Arithmetic Instructions*)
+  (* Floating-Point Conversion and Arithmetic Instructions *)
   | FID = 113
   | FCPYDBL = 114
   | FCPYSGL = 142
@@ -185,17 +185,17 @@ type Opcode =
   | FRND = 117
   | FNEG = 118
   | FNEGABS = 119
-  (*Floating-Point Conversion Instructions*)
+  (* Floating-Point Conversion Instructions *)
   | FCNV = 120
-  (*Floating-Point Compare and Test Instructions*)
+  (* Floating-Point Compare and Test Instructions *)
   | FCMP = 121
   | FTEST = 122
-  (*Floating-Point Arithmetic Instructions*)
+  (* Floating-Point Arithmetic Instructions *)
   | FADD = 123
   | FSUB = 124
   | FMPY = 125
   | FDIV = 126
-  (*Floating-Point interruptions and exceptions*)
+  (* Floating-Point interruptions and exceptions *)
   | PMENB = 127
   | PMDIS = 128
   | InvalOP = 129

@@ -28,10 +28,9 @@ module B2R2.FrontEnd.BinLifter.PARISC.Disasm
 
 open B2R2
 open B2R2.FrontEnd.BinLifter
-open B2R2.FrontEnd.BinLifter.BitData
 
 let opCodeToString = function
-  (*3-Register Arithmetic & Logical Instructions*)
+  (* 3-Register Arithmetic & Logical Instructions *)
   | Op.ADD -> "add"
   | Op.ADDL -> "add,l"
   | Op.ADDC -> "add,c"
@@ -48,11 +47,11 @@ let opCodeToString = function
   | Op.DS -> "ds"
   | Op.CMPCLR -> "cmpclr"
   | Op.DCOR -> "dcor"
-  (*Immediate Arithmetic Instructions*)
+  (* Immediate Arithmetic Instructions *)
   | Op.ADDI -> "addi"
   | Op.SUBI -> "subi"
   | Op.CMPICLR -> "cmpiclr"
-  (*Shift Pair, Extract & Deposit Instructions*)
+  (* Shift Pair, Extract & Deposit Instructions *)
   | Op.SHRPD -> "shrpd"
   | Op.SHRPW -> "shrpw"
   | Op.EXTRD -> "extrd"
@@ -61,20 +60,20 @@ let opCodeToString = function
   | Op.DEPDI -> "depdi"
   | Op.DEPW -> "depw,z"
   | Op.DEPWI -> "depwi"
-  (*Parallel Halfword Arithmetic Instructions*)
+  (* Parallel Halfword Arithmetic Instructions *)
   | Op.HADD -> "hadd"
   | Op.HSUB -> "hsub"
   | Op.HAVG -> "havg"
-  (*Parallel Halfword Shift Instructions*)
+  (* Parallel Halfword Shift Instructions *)
   | Op.HSHLADD -> "hshladd"
   | Op.HSHRADD -> "hshradd"
   | Op.HSHL -> "hshl"
   | Op.HSHR -> "hshr"
-  (*Rearrangement Instructions*)
+  (* Rearrangement Instructions *)
   | Op.PERMH -> "permh"
   | Op.MIXH -> "mixh"
   | Op.MIXW -> "mixw"
-  (*Load/Store Instructions*)
+  (* Load/Store Instructions *)
   | Op.LDB -> "ldb"
   | Op.STB -> "stb"
   | Op.LDH -> "ldh"
@@ -83,29 +82,29 @@ let opCodeToString = function
   | Op.STW -> "stw"
   | Op.LDD -> "ldd"
   | Op.STD -> "std"
-  (*Load/Store Absolute Instructions*)
+  (* Load/Store Absolute Instructions *)
   | Op.LDWA -> "ldwa"
   | Op.STWA -> "stwa"
   | Op.LDDA -> "ldda"
   | Op.STDA -> "stda"
-  (*Load and Clear Instructions*)
+  (* Load and Clear Instructions *)
   | Op.LDCW -> "ldcw"
   | Op.LDCD -> "ldcd"
-  (*Store Bytes/DoubleWord Bytes Instructions*)
+  (* Store Bytes/DoubleWord Bytes Instructions *)
   | Op.STBY -> "stby"
   | Op.STDBY -> "stdby"
-  (*Long Immediate Instructions*)
+  (* Long Immediate Instructions *)
   | Op.LDO -> "ldo"
   | Op.LDIL -> "ldil"
   | Op.ADDIL -> "addil"
-  (*Unconditional Local Branches*)
+  (* Unconditional Local Branches *)
   | Op.BL -> "b,l"
   | Op.BLR -> "blr"
   | Op.BV -> "bv"
-  (*Unconditional External Branches*)
+  (* Unconditional External Branches *)
   | Op.BE -> "be"
   | Op.BVE -> "bve"
-  (*Conditional Local Branches*)
+  (* Conditional Local Branches *)
   | Op.ADDB -> "addb"
   | Op.ADDIB -> "addib"
   | Op.BB -> "bb"
@@ -113,7 +112,7 @@ let opCodeToString = function
   | Op.CMPIB -> "cmpib"
   | Op.MOVB -> "movb"
   | Op.MOVIB -> "movib"
-  (*Special Register Move Instructions*)
+  (* Special Register Move Instructions *)
   | Op.LDSID -> "ldsid"
   | Op.MTSP -> "mtsp"
   | Op.MFSP -> "mfsp"
@@ -121,14 +120,14 @@ let opCodeToString = function
   | Op.MFCTL -> "mfctl"
   | Op.MTSARCM -> "mtsarcm"
   | Op.MFIA -> "mfia"
-  (*System Mask Control Instructions*)
+  (* System Mask Control Instructions *)
   | Op.SSM -> "ssm"
   | Op.RSM -> "rsm"
   | Op.MTSM -> "mtsm"
-  (*Return From Interrupt & Break Instructions*)
+  (* Return From Interrupt & Break Instructions *)
   | Op.RFI -> "rfi"
   | Op.BREAK -> "break"
-  (*Memory Management Instructions*)
+  (* Memory Management Instructions *)
   | Op.SYNC -> "sync"
   | Op.SYNCDMA -> "syncdma"
   | Op.PROBE -> "probe"
@@ -148,31 +147,31 @@ let opCodeToString = function
   | Op.FICE -> "fice"
   | Op.PUSHBTS -> "pushbts"
   | Op.PUSHNOM -> "pushnom"
-  (*Implementation-Dependent Instruction*)
+  (* Implementation-Dependent Instruction *)
   | Op.DIAG -> "diag"
-  (*Special Function Instructions*)
+  (* Special Function Instructions *)
   | Op.SPOP0 -> "spop0"
   | Op.SPOP1 -> "spop1"
   | Op.SPOP2 -> "spop2"
   | Op.SPOP3 -> "spop3"
-  (*Coprocessor Instructions*)
+  (* Coprocessor Instructions *)
   | Op.COPR -> "copr"
   | Op.CLDD -> "cldd"
   | Op.CLDW -> "cldw"
   | Op.CSTD -> "cstd"
   | Op.CSTW -> "cstw"
-  (*Floating-Point Load and Store Instructions*)
+  (* Floating-Point Load and Store Instructions *)
   | Op.FLDW -> "fldw"
   | Op.FLDD -> "fldd"
   | Op.FSTW -> "fstw"
   | Op.FSTD -> "fstd"
-  (*Floating-Point Multiply/Add Instructions*)
+  (* Floating-Point Multiply/Add Instructions *)
   | Op.FMPYADD -> "fmpyadd"
   | Op.FMPYSUB -> "fmpysub"
-  (*Floating-Point Sub-op Multiply/Add Instructions*)
+  (* Floating-Point Sub-op Multiply/Add Instructions *)
   | Op.FMPYFADD -> "fmpyfadd"
   | Op.FMPYNFADD -> "fmpynfadd"
-  (*Floating-Point Conversion and Arithmetic Instructions*)
+  (* Floating-Point Conversion and Arithmetic Instructions *)
   | Op.FID -> "fid"
   | Op.FCPYDBL -> "fcpy,dbl"
   | Op.FCPYSGL -> "fcpy,sgl"
@@ -181,20 +180,20 @@ let opCodeToString = function
   | Op.FRND -> "frnd"
   | Op.FNEG -> "fneg"
   | Op.FNEGABS -> "fnegabs"
-  (*Floating-Point Conversion Instructions*)
+  (* Floating-Point Conversion Instructions *)
   | Op.FCNV -> "fcnv"
-  (*Floating-Point Compare and Test Instructions*)
+  (* Floating-Point Compare and Test Instructions *)
   | Op.FCMP -> "fcmp"
   | Op.FTEST -> "ftest"
-  (*Floating-Point Arithmetic Instructions*)
+  (* Floating-Point Arithmetic Instructions *)
   | Op.FADD -> "fadd"
   | Op.FSUB -> "fsub"
   | Op.FMPY -> "fmpy"
   | Op.FDIV -> "fdiv"
-  (*Floating-Point interruptions and exceptions*)
+  (* Floating-Point interruptions and exceptions *)
   | Op.PMENB -> "pmenb"
   | Op.PMDIS -> "pmdis"
-  (* Default case for unknown opcodes *)
+  (*  Default case for unknown opcodes  *)
   | _ -> failwith "Unknown opcode"
 
 let roundModeToString = function
@@ -272,10 +271,10 @@ let oprToString insInfo opr delim (builder: DisasmBuilder) =
   | OpCond (cond) ->
     match cond with
     | PARISCCondition.NV ->
-        builder.Accumulate AsmWordKind.String (condToString cond)
+      builder.Accumulate AsmWordKind.String (condToString cond)
     | _ ->
-        builder.Accumulate AsmWordKind.String ","
-        builder.Accumulate AsmWordKind.String (condToString cond)
+      builder.Accumulate AsmWordKind.String ","
+      builder.Accumulate AsmWordKind.String (condToString cond)
   | OpSARSHIFT (sarshiftstr) ->
     builder.Accumulate AsmWordKind.String ","
     builder.Accumulate AsmWordKind.String (shtostring sarshiftstr)

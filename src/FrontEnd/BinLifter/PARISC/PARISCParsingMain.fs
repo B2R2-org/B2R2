@@ -290,10 +290,6 @@ let parseFLsAloneInstruction bin wordSz =
 
 let parseLoadStoreShortInstruction bin wordSz =
   let baseReg = getRegFromRange bin 25u 21u
-  let bt = extract bin 9u 6u
-  let firstopc = extract bin 31u 26u
-  let bt30 = extract bin 1u 1u
-  let bt29 = extract bin 2u 2u
   let opcode =
     match extract bin 31u 26u with
     | 0b000011u ->
@@ -341,8 +337,8 @@ let parseLoadStoreShortInstruction bin wordSz =
 
 let parseLoadStoredwInstruction bin wordSz =
   let baseReg = getRegFromRange bin 25u 21u
-  let bit30 = extract bin 1u 1u
-  let bit29 = extract bin 2u 2u
+  let bit30 = pickBit bin 1u
+  let bit29 = pickBit bin 2u
   let opcode =
     match extract bin 31u 26u with
     | 0b010110u -> Op.FLDW
@@ -516,20 +512,20 @@ let parseBranchImmediateInstruction bin wordSz =
       | 0b110u -> OpCond (PARISCCondition.GTE)
       | _ -> raise ParsingFailureException
     | Op.ADDIB | Op.CMPIB ->
-        match (condc, fbit) with
-        | (0b000u, 0b0u) -> OpCond (PARISCCondition.NV)
-        | (0b001u, 0b0u) -> OpCond (PARISCCondition.EQ)
-        | (0b010u, 0b0u) -> OpCond (PARISCCondition.LT)
-        | (0b011u, 0b0u) -> OpCond (PARISCCondition.LTE)
-        | (0b100u, 0b0u) -> OpCond (PARISCCondition.LTU)
-        | (0b101u, 0b0u) -> OpCond (PARISCCondition.LTEU)
-        | (0b000u, 0b1u) -> OpCond (PARISCCondition.TR)
-        | (0b001u, 0b1u) -> OpCond (PARISCCondition.NEQ)
-        | (0b010u, 0b1u) -> OpCond (PARISCCondition.GTE)
-        | (0b011u, 0b1u) -> OpCond (PARISCCondition.GT)
-        | (0b100u, 0b1u) -> OpCond (PARISCCondition.GTEU)
-        | (0b101u, 0b1u) -> OpCond (PARISCCondition.GTU)
-        | _ -> raise ParsingFailureException
+      match (condc, fbit) with
+      | (0b000u, 0b0u) -> OpCond (PARISCCondition.NV)
+      | (0b001u, 0b0u) -> OpCond (PARISCCondition.EQ)
+      | (0b010u, 0b0u) -> OpCond (PARISCCondition.LT)
+      | (0b011u, 0b0u) -> OpCond (PARISCCondition.LTE)
+      | (0b100u, 0b0u) -> OpCond (PARISCCondition.LTU)
+      | (0b101u, 0b0u) -> OpCond (PARISCCondition.LTEU)
+      | (0b000u, 0b1u) -> OpCond (PARISCCondition.TR)
+      | (0b001u, 0b1u) -> OpCond (PARISCCondition.NEQ)
+      | (0b010u, 0b1u) -> OpCond (PARISCCondition.GTE)
+      | (0b011u, 0b1u) -> OpCond (PARISCCondition.GT)
+      | (0b100u, 0b1u) -> OpCond (PARISCCondition.GTEU)
+      | (0b101u, 0b1u) -> OpCond (PARISCCondition.GTU)
+      | _ -> raise ParsingFailureException
     | _ -> raise ParsingFailureException
   let operands = FourOperands (condbit, imm5, OpReg reg, memAddr)
   struct (opcode, operands)
