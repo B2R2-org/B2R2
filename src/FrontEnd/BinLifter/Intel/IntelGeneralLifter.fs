@@ -1680,24 +1680,6 @@ let inc ins insLen ctxt =
 #endif
   !>ir insLen
 
-let private insBody ins ctxt ir =
-  let oprSize = getOperationSize ins
-  let df = !.ctxt R.DF
-  let di = !.ctxt (if is64bit ctxt then R.RDI else R.EDI)
-  let src = AST.zext ctxt.WordBitSize (!.ctxt R.DX)
-  let amount = numI32 (RegType.toByteWidth oprSize) ctxt.WordBitSize
-  !!ir (AST.loadLE ctxt.WordBitSize di := src)
-  !!ir (di := AST.ite df (di .- amount) (di .+ amount))
-
-let insinstr (ins: InsInfo) insLen ctxt =
-  let ir = !*ctxt
-  !<ir insLen
-  if hasREPZ ins.Prefixes then
-    strRepeat ins insLen ctxt insBody None ir
-  elif hasREPNZ ins.Prefixes then Utils.impossible ()
-  else insBody ins ctxt ir
-  !>ir insLen
-
 let interrupt ins insLen ctxt =
   let ir = !*ctxt
   match transOneOpr ir ins insLen ctxt with
@@ -2258,33 +2240,6 @@ let logOr ins insLen ctxt =
   !!ir (!.ctxt R.AF := undefAF)
 #endif
   if hasLock ins.Prefixes then !!ir (AST.sideEffect Unlock) else ()
-  !>ir insLen
-
-let private outsBody ins ctxt ir =
-  let oprSize = getOperationSize ins
-  let df = !.ctxt R.DF
-  let si = !.ctxt (if is64bit ctxt then R.RSI else R.ESI)
-  let src = !.ctxt R.DX
-  let amount = numI32 (RegType.toByteWidth oprSize) ctxt.WordBitSize
-  match oprSize with
-  | 8<rt> ->
-    !!ir (src := AST.zext 16<rt> (AST.loadLE oprSize si))
-    !!ir (si := AST.ite df (si .- amount) (si .+ amount))
-  | 16<rt> ->
-    !!ir (src := AST.loadLE oprSize si)
-    !!ir (si := AST.ite df (si .- amount) (si .+ amount))
-  | 32<rt> ->
-    !!ir (si := AST.ite df (si .- amount) (si .+ amount))
-    !!ir (src := AST.xtlo 16<rt> (AST.loadLE oprSize si))
-  | _ -> raise InvalidOperandSizeException
-
-let outs (ins: InsInfo) insLen ctxt =
-  let ir = !*ctxt
-  !<ir insLen
-  if hasREPZ ins.Prefixes then
-    strRepeat ins insLen ctxt outsBody None ir
-  elif hasREPNZ ins.Prefixes then Utils.impossible ()
-  else outsBody ins ctxt ir
   !>ir insLen
 
 let pdep ins insLen ctxt =
