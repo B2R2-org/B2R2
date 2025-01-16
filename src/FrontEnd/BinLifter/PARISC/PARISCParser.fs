@@ -31,7 +31,7 @@ open B2R2.FrontEnd.BinLifter
 /// Parser for PARISC instructions. Parser will return a platform-agnostic
 /// instruction type (Instruction).
 type PARISC64Parser (isa: ISA) =
-  let wordSize = int isa.WordSize
+  let wordSize = isa.WordSize
   let reader = BinReader.Init isa.Endian
 
   interface IInstructionParsable with

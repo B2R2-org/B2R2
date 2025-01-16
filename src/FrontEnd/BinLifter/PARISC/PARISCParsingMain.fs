@@ -82,15 +82,36 @@ let getFRegister = function
   | 0xFu -> R.FPR15
   | _ -> raise InvalidRegisterException
 
-let getRegFromRange bin low high =
+let getRegFromRange bin high low =
   extract bin high low |> uint32 |> getRegister
 
-let getFRegFromRange bin low high =
+let getFRegFromRange bin high low =
   extract bin high low |> uint32 |> getFRegister
 
-let getImmediate bin low high wordSize =
+let getImmediate bin high low wordSize =
   let imm = extract bin high low |> uint64
   signExtend (int (high - low + 1u)) wordSize imm
+
+let getImmLowSignExt bin high low =
+  let imm = extract bin high low |> uint64
+  (imm >>> 1) - ((imm &&& 1UL) <<< (int (high - low)))
+
+let getImmAssemble16 bin =
+  let bit31 = pickBit bin 31u
+  let shift = (bin >>> 1) &&& 0x1fffu
+  let imm =
+    shift ||| (bit31 <<< 15) ||| (bit31 <<< 14) ||| (bit31 <<< 13) |> uint64
+  signExtend 14 64 imm
+
+let getImmAssemble17 bin =
+  let w1 = extract bin 20u 16u
+  let w2 = extract bin 12u 2u
+  let w = pickBit bin 0u
+  let bit0to9 = w2 &&& 0x3FFu
+  let bit10 = (w2 >>> 10) &&& 1u
+  let assemble17 =
+    (w <<< 16) ||| (w1 <<< 11) ||| (bit10 <<< 10) ||| bit0to9 |> uint64
+  signExtend 17 32 assemble17 <<< 2
 
 let getRelativeAddress pc bin low high wordSize =
   let offset = getImmediate bin low high wordSize
@@ -262,7 +283,8 @@ let parseLoadStoreBWHAloneInstruction bin wordSz =
   let baseReg = getRegFromRange bin 25u 21u
   let rd = getRegFromRange bin 20u 16u
   let offset = getImmediate bin 13u 0u wordSz
-  let memAddr = OpMem (baseReg, Some (Imm (int64 offset)), wordSz)
+  let memAddr =
+    OpMem (baseReg, Some (Imm (int64 offset)), RegType.fromBitWidth wordSz)
   let opcode =
     match extract bin 31u 26u with
     | 0b010000u -> Op.LDB
@@ -272,14 +294,15 @@ let parseLoadStoreBWHAloneInstruction bin wordSz =
     | 0b011001u -> Op.STH
     | 0b011010u | 0b011011u  -> Op.STW
     | _ -> raise ParsingFailureException
-  let operands = TwoOperands (OpReg rd, memAddr)
+  let operands = TwoOperands (memAddr, OpReg rd)
   struct (opcode, operands)
 
 let parseFLsAloneInstruction bin wordSz =
   let baseReg = getRegFromRange bin 25u 21u
   let offset = getImmediate bin 20u 16u wordSz
   let rd = getRegFromRange bin 4u 0u
-  let memAddr = OpMem (baseReg, Some (Imm (int64 offset)), wordSz)
+  let memAddr =
+    OpMem (baseReg, Some (Imm (int64 offset)), RegType.fromBitWidth wordSz)
   let operands = TwoOperands (OpReg rd, memAddr)
   let opcode =
     match extract bin 9u 9u with
@@ -294,16 +317,16 @@ let parseLoadStoreShortInstruction bin wordSz =
     match extract bin 31u 26u with
     | 0b000011u ->
       match extract bin 9u 6u with
-      | 0b0000u -> Op.LDB
+      | 0b0000u -> if wordSz = 32 then Op.LDBS else Op.LDB
       | 0b0001u -> Op.LDH
-      | 0b0010u -> Op.LDW
+      | 0b0010u -> if wordSz = 32 then Op.LDWS else Op.LDW
       | 0b0011u -> Op.LDD
       | 0b0100u -> Op.LDDA
       | 0b0101u -> Op.LDCD
       | 0b0111u -> Op.LDCW
       | 0b1000u -> Op.STB
       | 0b1001u -> Op.STH
-      | 0b1010u -> Op.STW
+      | 0b1010u -> if wordSz = 32 then Op.STWS else Op.STW
       | 0b1011u -> Op.STD
       | 0b1100u -> Op.STBY
       | 0b1101u -> Op.STDBY
@@ -316,22 +339,33 @@ let parseLoadStoreShortInstruction bin wordSz =
       | 0b1u -> Op.FSTD
       | _ -> raise ParsingFailureException
     | _ -> raise ParsingFailureException
+  let getBitSize =
+    match opcode with
+    | Op.STB
+    | Op.LDB | Op.LDBS -> 8<rt>
+    | Op.STH
+    | Op.LDH -> 16<rt>
+    | Op.STW | Op.STWS | Op.STWA | Op.FSTW
+    | Op.LDW | Op.LDWS | Op.LDCW | Op.FLDW -> 32<rt>
+    | _ -> 64<rt>
   let operands =
     match opcode with
-    | Op.STB | Op.STH | Op.STW | Op.STD
-    | Op.STDA | Op.STBY | Op.STDBY
+    | Op.STB | Op.STH | Op.STW | Op.STWS
+    | Op.STD | Op.STDA | Op.STBY | Op.STDBY
     | Op.STWA | Op.FSTW | Op.FSTD ->
-      let offset = getImmediate bin 4u 0u wordSz
+      let offset = getImmLowSignExt bin 4u 0u
       let rs = getRegFromRange bin 20u 16u
-      let memAddr = OpMem (baseReg, Some (Imm (int64 offset)), wordSz)
+      let memAddr =
+        OpMem (baseReg, Some (Imm (int64 offset)), getBitSize)
       TwoOperands (OpReg rs, memAddr)
-    | Op.LDB | Op.LDH | Op.LDW | Op.LDD
-    | Op.LDDA | Op.LDCD | Op.LDCW
+    | Op.LDB | Op.LDBS | Op.LDH | Op.LDW | Op.LDWS
+    | Op.LDD | Op.LDDA | Op.LDCD | Op.LDCW
     | Op.FLDW | Op.FLDD ->
       let rd = getRegFromRange bin 4u 0u
-      let offset = getImmediate bin 20u 16u wordSz
-      let memAddr = OpMem (baseReg, Some (Imm (int64 offset)), wordSz)
-      TwoOperands (OpReg rd, memAddr)
+      let offset = getImmLowSignExt bin 20u 16u
+      let memAddr =
+        OpMem (baseReg, Some (Imm (int64 offset)), getBitSize)
+      TwoOperands (memAddr, OpReg rd)
     | _ -> raise ParsingFailureException
   struct (opcode, operands)
 
@@ -369,12 +403,14 @@ let parseLoadStoredwInstruction bin wordSz =
     | Op.LDD | Op.FLDD | Op.STD | Op.FSTD ->
       let rd = getRegFromRange bin 20u 16u
       let offset = getImmediate bin 13u 4u wordSz
-      let memAddr = OpMem (baseReg, Some (Imm (int64 offset)), wordSz)
+      let memAddr =
+        OpMem (baseReg, Some (Imm (int64 offset)), RegType.fromBitWidth wordSz)
       TwoOperands (OpReg rd, memAddr)
     | Op.LDW | Op.FLDW | Op.STW | Op.FSTW ->
       let rd = getRegFromRange bin 20u 16u
       let offset = getImmediate bin 13u 3u wordSz
-      let memAddr = OpMem (baseReg, Some (Imm (int64 offset)), wordSz)
+      let memAddr =
+        OpMem (baseReg, Some (Imm (int64 offset)), RegType.fromBitWidth wordSz)
       TwoOperands (OpReg rd, memAddr)
     | _ -> raise ParsingFailureException
   struct (opcode, operands)
@@ -391,18 +427,13 @@ let parseBranchC3Instruction bin wordSz =
     match opcode with
     | Op.BL ->
       let rd = getRegFromRange bin 25u 21u
-      let br = getRegFromRange bin 20u 16u
-      let w1bit = extract bin 20u 16u
-      let w2bit = extract bin 12u 2u
-      let wbit = extract bin 0u 0u
-      let combinedbit = (w2bit <<< 5) ||| (w1bit <<< 1) ||| wbit
-      let offset = getImmediate combinedbit 0u 20u wordSz
-      let memAddr = OpMem (br, Some (Imm (int64 offset)), wordSz)
-      TwoOperands (memAddr, OpReg rd)
+      let target = getImmAssemble17 bin |> OpImm
+      TwoOperands (target, OpReg rd)
     | Op.BV ->
       let br = getRegFromRange bin 25u 21u
-      let offset = getImmediate bin 20u 16u wordSz
-      let memAddr = OpMem (br, Some (Imm (int64 offset)), wordSz)
+      let offset = getRegFromRange bin 20u 16u
+      let memAddr =
+        OpMem (br, Some (Reg offset), RegType.fromBitWidth wordSz)
       OneOperand (memAddr)
     | Op.BLR ->
       let regx = getRegFromRange bin 20u 16u
@@ -417,7 +448,8 @@ let parseBranchAlonesInstruction bin wordSz =
   let wbit = extract bin 0u 0u
   let combinedbit = (w1bit <<< 1) ||| wbit
   let offset = getImmediate combinedbit 0u 12u wordSz
-  let memAddr = OpMem (brg , Some (Imm (int64 offset)), wordSz)
+  let memAddr =
+    OpMem (brg , Some (Imm (int64 offset)), RegType.fromBitWidth wordSz)
   let opcode =
     match extract bin 31u 26u with
     | 0b110010u -> Op.MOVB
@@ -499,7 +531,8 @@ let parseBranchImmediateInstruction bin wordSz =
   let wbit = extract bin 0u 0u
   let combinedbit = (w1bit <<< 1) ||| wbit
   let offset = getImmediate combinedbit 0u 12u wordSz
-  let memAddr = OpMem (brg , Some (Imm (int64 offset)), wordSz)
+  let memAddr =
+    OpMem (brg , Some (Imm (int64 offset)), RegType.fromBitWidth wordSz)
   let condbit =
     match opcode with
     | Op.MOVIB ->
@@ -560,7 +593,8 @@ let parseSpecialRegisterInstruction bin wordSz =
       let desReg = getRegFromRange bin 4u 0u
       match sbit with
       | 0b00u ->
-        TwoOperands (OpMem (baseReg, Some (Imm (int64 sbit)), wordSz),
+        let rt = RegType.fromBitWidth wordSz
+        TwoOperands (OpMem (baseReg, Some (Imm (int64 sbit)), rt),
         OpReg desReg)
       | _ ->
         let spaceReg = getRegFromRange bin 15u 14u
@@ -697,9 +731,11 @@ let parseLongimmInstruction bin wordSz =
     let opcode = Op.LDO
     let baseReg = getRegFromRange bin 25u 21u
     let destReg = getRegFromRange bin 20u 16u
-    let offset = getImmediate bin 13u 0u wordSz
-    let memAddr = OpMem (baseReg, Some (Imm (int64 offset)), wordSz)
-    let operands = TwoOperands (OpReg destReg, memAddr)
+    let offset =
+      if wordSz = 32 then getImmLowSignExt bin 13u 0u else getImmAssemble16 bin
+    let memAddr =
+      OpMem (baseReg, Some (Imm (int64 offset)), RegType.fromBitWidth wordSz)
+    let operands = TwoOperands (memAddr, OpReg destReg)
     struct (opcode, operands)
   | 0b001000u ->
     let opcode = Op.LDIL
@@ -745,8 +781,8 @@ let parseCoprocessorandFLsInstruction bin wordSz =
   | _ -> raise ParsingFailureException
 
 let private parseInstruction bin wordSz =
-  let opc = extract bin 31u 26u
-  match opc with
+  let opcode = extract bin 31u 26u
+  match opcode with
   | 0b000010u -> parseArithmeticInstruction bin wordSz
   | 0b101101u | 0b100101u -> parseImmediateArithmeticInstruction bin wordSz
   | 0b110100u | 0b110101u -> parseShiftExtractDepositInstruction bin wordSz
@@ -782,7 +818,7 @@ let parse (span: ByteSpan) (reader: IBinReader) wordSize addr =
       NumBytes = 4u
       Opcode = op
       Operands = operands
-      OperationSize = 32<rt> }
-  PARISCInstruction (addr, 4u, insInfo)
+      OperationSize = WordSize.toRegType wordSize }
+  PARISCInstruction (addr, 4u, insInfo, wordSize)
 
 // vim: set tw=80 sts=2 sw=2:

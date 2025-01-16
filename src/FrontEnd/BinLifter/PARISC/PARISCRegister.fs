@@ -152,38 +152,38 @@ module Register =
 
   let ofString (str: string) =
     match str.ToLowerInvariant () with
-    | "gr0" -> R.GR0
-    | "gr1" -> R.GR1
-    | "gr2" -> R.GR2
-    | "gr3" -> R.GR3
-    | "gr4" -> R.GR4
-    | "gr5" -> R.GR5
-    | "gr6" -> R.GR6
-    | "gr7" -> R.GR7
-    | "gr8" -> R.GR8
-    | "gr9" -> R.GR9
-    | "gr10" -> R.GR10
-    | "gr11" -> R.GR11
-    | "gr12" -> R.GR12
-    | "gr13" -> R.GR13
-    | "gr14" -> R.GR14
-    | "gr15" -> R.GR15
-    | "gr16" -> R.GR16
-    | "gr17" -> R.GR17
-    | "gr18" -> R.GR18
-    | "gr19" -> R.GR19
-    | "gr20" -> R.GR20
-    | "gr21" -> R.GR21
-    | "gr22" -> R.GR22
-    | "gr23" -> R.GR23
-    | "gr24" -> R.GR24
-    | "gr25" -> R.GR25
-    | "gr26" -> R.GR26
-    | "gr27" -> R.GR27
-    | "gr28" -> R.GR28
-    | "gr29" -> R.GR29
-    | "gr30" -> R.GR30
-    | "gr31" -> R.GR31
+    | "flags" -> R.GR0
+    | "r1" -> R.GR1
+    | "rp" -> R.GR2
+    | "r3" -> R.GR3
+    | "r4" -> R.GR4
+    | "r5" -> R.GR5
+    | "r6" -> R.GR6
+    | "r7" -> R.GR7
+    | "r8" -> R.GR8
+    | "r9" -> R.GR9
+    | "r10" -> R.GR10
+    | "r11" -> R.GR11
+    | "r12" -> R.GR12
+    | "r13" -> R.GR13
+    | "r14" -> R.GR14
+    | "r15" -> R.GR15
+    | "r16" -> R.GR16
+    | "r17" -> R.GR17
+    | "r18" -> R.GR18
+    | "r19" -> R.GR19
+    | "r20" -> R.GR20
+    | "r21" -> R.GR21
+    | "r22" -> R.GR22
+    | "r23" -> R.GR23
+    | "r24" -> R.GR24
+    | "r25" -> R.GR25
+    | "r26" -> R.GR26
+    | "dp" -> R.GR27
+    | "ret0" -> R.GR28
+    | "ret1" -> R.GR29
+    | "sp" -> R.GR30
+    | "r31" -> R.GR31
     | "sr0" -> R.SR0
     | "sr1" -> R.SR1
     | "sr2" -> R.SR2
@@ -264,38 +264,38 @@ module Register =
     | _ -> Utils.impossible ()
 
   let toString = function
-    | R.GR0 -> "gr0"
-    | R.GR1 -> "gr1"
-    | R.GR2 -> "gr2"
-    | R.GR3 -> "gr3"
-    | R.GR4 -> "gr4"
-    | R.GR5 -> "gr5"
-    | R.GR6 -> "gr6"
-    | R.GR7 -> "gr7"
-    | R.GR8 -> "gr8"
-    | R.GR9 -> "gr9"
-    | R.GR10 -> "gr10"
-    | R.GR11 -> "gr11"
-    | R.GR12 -> "gr12"
-    | R.GR13 -> "gr13"
-    | R.GR14 -> "gr14"
-    | R.GR15 -> "gr15"
-    | R.GR16 -> "gr16"
-    | R.GR17 -> "gr17"
-    | R.GR18 -> "gr18"
-    | R.GR19 -> "gr19"
-    | R.GR20 -> "gr20"
-    | R.GR21 -> "gr21"
-    | R.GR22 -> "gr22"
-    | R.GR23 -> "gr23"
-    | R.GR24 -> "gr24"
-    | R.GR25 -> "gr25"
-    | R.GR26 -> "gr26"
-    | R.GR27 -> "gr27"
-    | R.GR28 -> "gr28"
-    | R.GR29 -> "gr29"
-    | R.GR30 -> "gr30"
-    | R.GR31 -> "gr31"
+    | R.GR0 -> "flags"
+    | R.GR1 -> "r1"
+    | R.GR2 -> "rp"
+    | R.GR3 -> "r3"
+    | R.GR4 -> "r4"
+    | R.GR5 -> "r5"
+    | R.GR6 -> "r6"
+    | R.GR7 -> "r7"
+    | R.GR8 -> "r8"
+    | R.GR9 -> "r9"
+    | R.GR10 -> "r10"
+    | R.GR11 -> "r11"
+    | R.GR12 -> "r12"
+    | R.GR13 -> "r13"
+    | R.GR14 -> "r14"
+    | R.GR15 -> "r15"
+    | R.GR16 -> "r16"
+    | R.GR17 -> "r17"
+    | R.GR18 -> "r18"
+    | R.GR19 -> "r19"
+    | R.GR20 -> "r20"
+    | R.GR21 -> "r21"
+    | R.GR22 -> "r22"
+    | R.GR23 -> "r23"
+    | R.GR24 -> "r24"
+    | R.GR25 -> "r25"
+    | R.GR26 -> "r26"
+    | R.GR27 -> "dp"
+    | R.GR28 -> "ret0"
+    | R.GR29 -> "ret1"
+    | R.GR30 -> "sp"
+    | R.GR31 -> "r31"
     | R.SR0 -> "sr0"
     | R.SR1 -> "sr1"
     | R.SR2 -> "sr2"
@@ -379,24 +379,17 @@ module Register =
     | R.GR0 | R.GR1 | R.GR2 | R.GR3 | R.GR4 | R.GR5 | R.GR6 | R.GR7
     | R.GR8 | R.GR9 | R.GR10 | R.GR11 | R.GR12 | R.GR13 | R.GR14 | R.GR15
     | R.GR16 | R.GR17 | R.GR18 | R.GR19 | R.GR20 | R.GR21 | R.GR22 | R.GR23
-    | R.GR24 | R.GR25 | R.GR26 | R.GR27 | R.GR28
-    | R.GR29 | R.GR30 | R.GR31 -> WordSize.toRegType wordSize
-    | R.SR0 | R.SR1 | R.SR2 | R.SR3 | R.SR4 | R.SR5
-    | R.SR6 | R.SR7 -> 64<rt>
-    | R.IAOQ_Front | R.IAOQ_Back | R.IASQ_Front | R.IASQ_Back -> 64<rt>
-    | R.PSW -> 64<rt>
+    | R.GR24 | R.GR25 | R.GR26 | R.GR27 | R.GR28 | R.GR29 | R.GR30 | R.GR31
+    | R.SR0 | R.SR1 | R.SR2 | R.SR3 | R.SR4 | R.SR5 | R.SR6 | R.SR7
+    | R.IAOQ_Front | R.IAOQ_Back | R.IASQ_Front | R.IASQ_Back | R.PSW
     | R.CR0 | R.CR1 | R.CR2 | R.CR3 | R.CR4 | R.CR5 | R.CR6 | R.CR7
     | R.CR8 | R.CR9 | R.CR10 | R.CR11 | R.CR12 | R.CR13 | R.CR14 | R.CR15
     | R.CR16 | R.CR17 | R.CR18 | R.CR19 | R.CR20 | R.CR21 | R.CR22 | R.CR23
-    | R.CR24 | R.CR25 | R.CR26 | R.CR27 | R.CR28
-    | R.CR29 | R.CR30 | R.CR31 -> 64<rt>
-    | R.FPR0 | R.FPR1 | R.FPR2 | R.FPR3 | R.FPR4
-    | R.FPR5 | R.FPR6 | R.FPR7
-    | R.FPR8 | R.FPR9 | R.FPR10 | R.FPR11
-    | R.FPR12 | R.FPR13 | R.FPR14 | R.FPR15
-    | R.FPR16 | R.FPR17 | R.FPR18 | R.FPR19 | R.FPR20
-    | R.FPR21 | R.FPR22 | R.FPR23
-    | R.FPR24 | R.FPR25 | R.FPR26 | R.FPR27
-    | R.FPR28 | R.FPR29 | R.FPR30 | R.FPR31 -> 64<rt>
+    | R.CR24 | R.CR25 | R.CR26 | R.CR27 | R.CR28 | R.CR29 | R.CR30 | R.CR31
+    | R.FPR0 | R.FPR1 | R.FPR2 | R.FPR3 | R.FPR4 | R.FPR5 | R.FPR6 | R.FPR7
+    | R.FPR8 | R.FPR9 | R.FPR10 | R.FPR11 | R.FPR12 | R.FPR13 | R.FPR14
+    | R.FPR15 | R.FPR16 | R.FPR17 | R.FPR18 | R.FPR19 | R.FPR20 | R.FPR21
+    | R.FPR22 | R.FPR23 | R.FPR24 | R.FPR25 | R.FPR26 | R.FPR27 | R.FPR28
+    | R.FPR29 | R.FPR30 | R.FPR31 -> WordSize.toRegType wordSize
     | _ -> Utils.impossible ()
 

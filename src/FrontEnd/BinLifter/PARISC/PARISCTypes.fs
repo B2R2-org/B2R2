@@ -80,11 +80,15 @@ type Opcode =
   | MIXW = 32
   (* Load/Store Instructions *)
   | LDB = 33
+  | LDBS = 132
   | STB = 34
+  | STBS = 133
   | LDH = 35
   | STH = 36
   | LDW = 37
+  | LDWS = 130
   | STW = 38
+  | STWS = 131
   | LDD = 39
   | STD = 40
   (* Load/Store Absolute Instructions *)
@@ -232,14 +236,14 @@ type SHIFTST =
 type Operand =
   | OpReg of Register
   | OpImm of Imm
-  | OpMem of Base * Offset option * int64
+  | OpMem of Base * Offset option * AccessLength
   | OpAddr of JumpTarget
   | OpShiftAmount of Imm
   | OpSARSHIFT of SHIFTST
   | OpRoundMode of RoundMode
   | OpAtomMemOper of Aq * Rl
   | OpCSR of uint16
-  | OpCond of PARISCCondition
+  | OpCond of PARISCCondition (* FIXME *)
 and Aq = bool
 and Rl = bool
 and Imm = uint64
@@ -248,6 +252,7 @@ and JumpTarget =
   | RelativeBase of Base * Imm
 and Offset =
   | Imm of int64
+  | Reg of Register
 and AccessLength = RegType
 and Base = Register
 

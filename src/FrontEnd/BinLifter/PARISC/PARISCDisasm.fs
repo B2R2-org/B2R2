@@ -75,11 +75,15 @@ let opCodeToString = function
   | Op.MIXW -> "mixw"
   (* Load/Store Instructions *)
   | Op.LDB -> "ldb"
+  | Op.LDBS -> "ldbs"
   | Op.STB -> "stb"
+  | Op.STBS -> "stbs"
   | Op.LDH -> "ldh"
   | Op.STH -> "sth"
   | Op.LDW -> "ldw"
+  | Op.LDWS -> "ldws"
   | Op.STW -> "stw"
+  | Op.STWS -> "sts"
   | Op.LDD -> "ldd"
   | Op.STD -> "std"
   (* Load/Store Absolute Instructions *)
@@ -247,6 +251,12 @@ let oprToString insInfo opr delim (builder: DisasmBuilder) =
   | OpMem (b, Some (Imm off), _) ->
     builder.Accumulate AsmWordKind.String delim
     builder.Accumulate AsmWordKind.Value (off.ToString ("D"))
+    builder.Accumulate AsmWordKind.String "("
+    builder.Accumulate AsmWordKind.Variable (Register.toString b)
+    builder.Accumulate AsmWordKind.String ")"
+  | OpMem (b, Some (Reg off), _) ->
+    builder.Accumulate AsmWordKind.String delim
+    builder.Accumulate AsmWordKind.Variable (Register.toString off)
     builder.Accumulate AsmWordKind.String "("
     builder.Accumulate AsmWordKind.Variable (Register.toString b)
     builder.Accumulate AsmWordKind.String ")"

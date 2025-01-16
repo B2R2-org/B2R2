@@ -29,8 +29,8 @@ open B2R2.FrontEnd.BinLifter
 
 /// The internal representation for a PARISC instruction used by our
 /// disassembler and lifter.
-type PARISCInstruction (addr, numBytes, insInfo) =
-  inherit Instruction (addr, numBytes, WordSize.Bit32)
+type PARISCInstruction (addr, numBytes, insInfo, wordSize) =
+  inherit Instruction (addr, numBytes, wordSize)
 
   /// Basic instruction information.
   member val Info: InsInfo = insInfo
@@ -86,19 +86,19 @@ type PARISCInstruction (addr, numBytes, insInfo) =
 
   override __.Disasm (showAddr, _) =
     let builder =
-      DisasmStringBuilder (showAddr, false, WordSize.Bit64, addr, numBytes)
+      DisasmStringBuilder (showAddr, false, wordSize, addr, numBytes)
     Disasm.disasm __.Info builder
     builder.ToString ()
 
   override __.Disasm () =
     let builder =
-      DisasmStringBuilder (false, false, WordSize.Bit64, addr, numBytes)
+      DisasmStringBuilder (false, false, wordSize, addr, numBytes)
     Disasm.disasm __.Info builder
     builder.ToString ()
 
   override __.Decompose (showAddr) =
     let builder =
-      DisasmWordBuilder (showAddr, false, WordSize.Bit64, addr, numBytes, 8)
+      DisasmWordBuilder (showAddr, false, wordSize, addr, numBytes, 8)
     Disasm.disasm __.Info builder
     builder.ToArray ()
 
