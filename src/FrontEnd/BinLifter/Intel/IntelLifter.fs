@@ -90,7 +90,7 @@ let translate (ins: IntelInternalInstruction) insLen ctxt =
   | OP.INC -> GeneralLifter.inc ins insLen ctxt
   | OP.INCSSPD | OP.INCSSPQ -> GeneralLifter.nop insLen ctxt
   | OP.INSB | OP.INSW | OP.INSD ->
-    GeneralLifter.insinstr ins insLen ctxt
+    LiftingUtils.sideEffects ctxt insLen UnsupportedPrivInstr
   | OP.INT | OP.INTO -> GeneralLifter.interrupt ins insLen ctxt
   | OP.INT3 -> LiftingUtils.sideEffects ctxt insLen Breakpoint
   | OP.JMPFar | OP.JMPNear -> GeneralLifter.jmp ins insLen ctxt
@@ -122,7 +122,7 @@ let translate (ins: IntelInternalInstruction) insLen ctxt =
   | OP.NOT -> GeneralLifter.not ins insLen ctxt
   | OP.OR -> GeneralLifter.logOr ins insLen ctxt
   | OP.OUTSB | OP.OUTSW | OP.OUTSD ->
-    GeneralLifter.outs ins insLen ctxt
+    LiftingUtils.sideEffects ctxt insLen UnsupportedPrivInstr
   | OP.PDEP -> GeneralLifter.pdep ins insLen ctxt
   | OP.PEXT -> GeneralLifter.pext ins insLen ctxt
   | OP.POP -> GeneralLifter.pop ins insLen ctxt
