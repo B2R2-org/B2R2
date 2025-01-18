@@ -110,7 +110,7 @@ type Printer () =
   static member PrintToConsole s =
     ColoredString.toConsole s
 
-  static member PrintToConsole (s: string, [<ParamArray>] args) =
+  static member PrintToConsole (s: string, [<ParamArray>] args: obj[]) =
     Console.Write (s, args)
 
   static member PrintToConsoleLine s =
@@ -122,7 +122,7 @@ type Printer () =
   static member PrintToConsoleLine (s: string) =
     Console.WriteLine s
 
-  static member PrintToConsoleLine (s: string, [<ParamArray>] args) =
+  static member PrintToConsoleLine (s: string, [<ParamArray>] args: obj[]) =
     Console.WriteLine (s, args)
 
   static member PrintToConsoleLine () =
