@@ -172,7 +172,7 @@ with
       ISA.Init Architecture.SH4 Endian.Little
     | "sh4be" | "sh-4be" ->
       ISA.Init Architecture.SH4 Endian.Big
-    | "parisc" | "hppa" ->
+    | "parisc" | "hppa" | "hppa32" ->
       ISA.Init Architecture.PARISC Endian.Big
     | "parisc64" | "hppa64" ->
       ISA.Init Architecture.PARISC64 Endian.Big

@@ -56,6 +56,8 @@ type GroundWork =
       SH4.SH4TranslationContext isa :> TranslationContext
     | Architecture.SPARC ->
       SPARC.SPARCTranslationContext isa :> TranslationContext
+    | Architecture.PARISC | Architecture.PARISC64 ->
+      PARISC.PARISCTranslationContext isa :> TranslationContext
     | _ -> Utils.futureFeature ()
 
   /// Create a new register factory for the given architecture.
@@ -90,6 +92,10 @@ type GroundWork =
     | Architecture.SPARC ->
       SPARC.SPARCRegisterFactory ()
       :> RegisterFactory
+    | Architecture.PARISC | Architecture.PARISC64 ->
+      PARISC.PARISC64RegisterFactory
+        (isa.WordSize, PARISC.RegExprs isa.WordSize)
+      :> RegisterFactory
     | _ -> Utils.futureFeature ()
 
   /// Create a new parser (IInstructionParsable) for the given architecture.
@@ -120,5 +126,7 @@ type GroundWork =
       RISCV.RISCV64Parser (isa) :> IInstructionParsable
     | Architecture.SPARC ->
       SPARC.SPARCParser (isa) :> IInstructionParsable
+    | Architecture.PARISC | Architecture.PARISC64 ->
+      PARISC.PARISC64Parser (isa) :> IInstructionParsable
     | _ ->
       Utils.futureFeature ()
