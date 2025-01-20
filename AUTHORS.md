@@ -3,7 +3,6 @@
 
 # Current Developers (alphabetical order)
 
-- Su Geun Ji <jsgtwins1@kaist.ac.kr>
 - Seung Il Jung <sijung@kaist.ac.kr>
 - Jun Tae Kim <gnrkr789@kaist.ac.kr>
 - Jung Hyun Kim <jhkim@softsec.kaist.ac.kr>
@@ -16,6 +15,7 @@ a list of the contributors in alphabetic order.
 
 - Anar Abbas
 - Mehdi Aghakishiyev
+- Kaleb Mesfin Asfaw
 - Zunnoor Fayyaz Awan
 - Jaeseung Choi
 - TA Thanh Dinh
@@ -23,6 +23,7 @@ a list of the contributors in alphabetic order.
 - Abdirakhman Ismail
 - Cheonhoo Jeon
 - Subin Jeong
+- Su Geun Ji
 - Minkyu Jung
 - Dohyeok Kim
 - Dongkwan Kim
