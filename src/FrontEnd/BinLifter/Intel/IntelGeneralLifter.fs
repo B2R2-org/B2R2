@@ -985,11 +985,11 @@ let cmpxchg ins insLen ctxt =
 #endif
   !>ir insLen
 
-let private saveOprMem ir expr =
-  let t = !+ir 64<rt>
+let private saveOprMem ir sz expr =
+  let t = !+ir sz
   match expr.E with
   | Load (e, rt, expr) ->
-    !!ir (t := expr)
+    !!ir (t := AST.zext sz expr)
     AST.load e rt t
   | _ -> expr
 
@@ -1002,7 +1002,7 @@ let compareExchangeBytes ins insLen ctxt =
   match oprSize with
   | 64<rt> ->
     let dst = transOneOpr ir ins insLen ctxt
-    let orgDstMem = saveOprMem ir dst
+    let orgDstMem = saveOprMem ir ctxt.WordBitSize dst
     let eax = !.ctxt R.EAX
     let ecx = !.ctxt R.ECX
     let edx = !.ctxt R.EDX
@@ -1019,8 +1019,8 @@ let compareExchangeBytes ins insLen ctxt =
       match ins.Operands with
       | OneOperand opr -> transOprToExpr128 ir false ins insLen ctxt opr
       | _ -> raise InvalidOperandException
-    let orgDstAMem = saveOprMem ir dstA
-    let orgDstBMem = saveOprMem ir dstB
+    let orgDstAMem = saveOprMem ir ctxt.WordBitSize dstA
+    let orgDstBMem = saveOprMem ir ctxt.WordBitSize dstB
     let rax = !.ctxt R.RAX
     let rcx = !.ctxt R.RCX
     let rdx = !.ctxt R.RDX
@@ -3119,7 +3119,7 @@ let xadd ins insLen ctxt =
   let ir = !*ctxt
   !<ir insLen
   let struct (dst, src) = transTwoOprs ir false ins insLen ctxt
-  let orgDst = saveOprMem ir dst
+  let orgDst = saveOprMem ir ctxt.WordBitSize dst
   let oprSize = getOperationSize ins
   let struct (t1, t2, t3) = tmpVars3 ir oprSize
   if hasLock ins.Prefixes then !!ir (AST.sideEffect Lock) else ()
