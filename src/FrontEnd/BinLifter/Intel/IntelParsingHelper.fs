@@ -6832,22 +6832,54 @@ module internal ParsingHelper = begin
     | 0x34uy -> render span rhlp SYSENTER SzCond.Nor OD.No SZ.Def
     | 0x35uy -> render span rhlp SYSEXIT SzCond.Nor OD.No SZ.Def
     | 0x37uy -> render span rhlp GETSEC SzCond.Nor OD.No SZ.Def
-    | 0x40uy -> render span rhlp CMOVO SzCond.Nor OD.GprRm SZ.Def
-    | 0x41uy -> render span rhlp CMOVNO SzCond.Nor OD.GprRm SZ.Def
-    | 0x42uy -> render span rhlp CMOVB SzCond.Nor OD.GprRm SZ.Def
-    | 0x43uy -> render span rhlp CMOVAE SzCond.Nor OD.GprRm SZ.Def
-    | 0x44uy -> render span rhlp CMOVZ SzCond.Nor OD.GprRm SZ.Def
-    | 0x45uy -> render span rhlp CMOVNZ SzCond.Nor OD.GprRm SZ.Def
-    | 0x46uy -> render span rhlp CMOVBE SzCond.Nor OD.GprRm SZ.Def
-    | 0x47uy -> render span rhlp CMOVA SzCond.Nor OD.GprRm SZ.Def
-    | 0x48uy -> render span rhlp CMOVS SzCond.Nor OD.GprRm SZ.Def
-    | 0x49uy -> render span rhlp CMOVNS SzCond.Nor OD.GprRm SZ.Def
-    | 0x4Auy -> render span rhlp CMOVP SzCond.Nor OD.GprRm SZ.Def
-    | 0x4Buy -> render span rhlp CMOVNP SzCond.Nor OD.GprRm SZ.Def
-    | 0x4Cuy -> render span rhlp CMOVL SzCond.Nor OD.GprRm SZ.Def
-    | 0x4Duy -> render span rhlp CMOVGE SzCond.Nor OD.GprRm SZ.Def
-    | 0x4Euy -> render span rhlp CMOVLE SzCond.Nor OD.GprRm SZ.Def
-    | 0x4Fuy -> render span rhlp CMOVG SzCond.Nor OD.GprRm SZ.Def
+    | 0x40uy ->
+      if rhlp.VEXInfo.IsSome then raise ParsingFailureException
+      else render span rhlp CMOVO SzCond.Nor OD.GprRm SZ.Def
+    | 0x41uy ->
+      if rhlp.VEXInfo.IsSome then raise ParsingFailureException
+      else render span rhlp CMOVNO SzCond.Nor OD.GprRm SZ.Def
+    | 0x42uy ->
+      if rhlp.VEXInfo.IsSome then raise ParsingFailureException
+      else render span rhlp CMOVB SzCond.Nor OD.GprRm SZ.Def
+    | 0x43uy ->
+      if rhlp.VEXInfo.IsSome then raise ParsingFailureException
+      else render span rhlp CMOVAE SzCond.Nor OD.GprRm SZ.Def
+    | 0x44uy ->
+      if rhlp.VEXInfo.IsSome then raise ParsingFailureException
+      else render span rhlp CMOVZ SzCond.Nor OD.GprRm SZ.Def
+    | 0x45uy ->
+      if rhlp.VEXInfo.IsSome then raise ParsingFailureException
+      else render span rhlp CMOVNZ SzCond.Nor OD.GprRm SZ.Def
+    | 0x46uy ->
+      if rhlp.VEXInfo.IsSome then raise ParsingFailureException
+      else render span rhlp CMOVBE SzCond.Nor OD.GprRm SZ.Def
+    | 0x47uy ->
+      if rhlp.VEXInfo.IsSome then raise ParsingFailureException
+      else render span rhlp CMOVA SzCond.Nor OD.GprRm SZ.Def
+    | 0x48uy ->
+      if rhlp.VEXInfo.IsSome then raise ParsingFailureException
+      else render span rhlp CMOVS SzCond.Nor OD.GprRm SZ.Def
+    | 0x49uy ->
+      if rhlp.VEXInfo.IsSome then raise ParsingFailureException
+      else render span rhlp CMOVNS SzCond.Nor OD.GprRm SZ.Def
+    | 0x4Auy ->
+      if rhlp.VEXInfo.IsSome then raise ParsingFailureException
+      else render span rhlp CMOVP SzCond.Nor OD.GprRm SZ.Def
+    | 0x4Buy ->
+      if rhlp.VEXInfo.IsSome then raise ParsingFailureException
+      else render span rhlp CMOVNP SzCond.Nor OD.GprRm SZ.Def
+    | 0x4Cuy ->
+      if rhlp.VEXInfo.IsSome then raise ParsingFailureException
+      else render span rhlp CMOVL SzCond.Nor OD.GprRm SZ.Def
+    | 0x4Duy ->
+      if rhlp.VEXInfo.IsSome then raise ParsingFailureException
+      else render span rhlp CMOVGE SzCond.Nor OD.GprRm SZ.Def
+    | 0x4Euy ->
+      if rhlp.VEXInfo.IsSome then raise ParsingFailureException
+      else render span rhlp CMOVLE SzCond.Nor OD.GprRm SZ.Def
+    | 0x4Fuy ->
+      if rhlp.VEXInfo.IsSome then raise ParsingFailureException
+      else render span rhlp CMOVG SzCond.Nor OD.GprRm SZ.Def
     | 0x50uy -> parseVEX span rhlp nor0F50 vex0F50
     | 0x51uy -> parseVEX span rhlp nor0F51 vex0F51
     | 0x52uy -> parseVEX span rhlp nor0F52 vex0F52
