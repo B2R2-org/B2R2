@@ -139,20 +139,25 @@ module internal ParsingHelper = begin
     | Opcode.OUTSD -> rhlp.OperationSize <- 32<rt>
     | _ -> ()
 
-  /// If VMOVL/H is encoded with VEX.L or EVEX.L'L= 1, an attempt to execute
-  /// the instruction encoded with VEX.L or EVEX.L'L= 1 will cause an #UD
-  /// exception.
+  /// #UD Exception and VEX.L Field Encoding (Vol. 2A 2-25 Table 2-17).
+  /// ex) If VMOVL/H is encoded with VEX.L or EVEX.L'L= 1, an attempt to execute
+  ///     the instruction encoded with VEX.L or EVEX.L'L= 1 will cause an #UD
+  ///     exception.
   let exceptionUD opcode (rhlp: ReadHelper) =
-    let isVMOVLorH =
+    let isExcepOpcode =
       match opcode with
-      | Opcode.VMOVHLPS | Opcode.VMOVHPD | Opcode.VMOVHPS | Opcode.VMOVLHPS
-      | Opcode.VMOVLPD | Opcode.VMOVLPS -> true
+      (* Exception Class: Type 2 *)
+      | Opcode.VDPPD
+      (* Exception Class: Type 5 *)
+      | Opcode.VMOVHPS | Opcode.VMOVHPD | Opcode.VMOVLPD | Opcode.VMOVLPS
+      (* Exception Class: Type 7 *)
+      | Opcode.VMOVLHPS | Opcode.VMOVHLPS -> true
       | _ -> false
     let isNotVLen128 =
       match rhlp.VEXInfo with
       | Some vex when vex.VectorLength <> 128<rt> -> true
       | _ -> false
-    if isVMOVLorH && isNotVLen128 then raise ParsingFailureException else ()
+    if isExcepOpcode && isNotVLen128 then raise ParsingFailureException else ()
 
   let exceptionHandling opcode rhlp =
     exceptionalOperationSize opcode rhlp
