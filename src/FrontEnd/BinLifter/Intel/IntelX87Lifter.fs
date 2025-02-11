@@ -86,6 +86,19 @@ let private moveFPRegtoFPReg regdst regsrc ctxt ir =
   !!ir (dstA := srcA)
   !!ir (dstB := srcB)
 
+let private moveFPRegtoTemp src ctxt ir =
+  let tmpA = !+ir 64<rt>
+  let tmpB = !+ir 16<rt>
+  let struct (srcB, srcA) = getFPUPseudoRegVars ctxt src
+  !!ir (tmpA := srcA)
+  !!ir (tmpB := srcB)
+  struct (tmpB, tmpA)
+
+let private moveTemptoFPReg dst tmpA tmpB ctxt ir =
+  let struct (dstB, dstA) = getFPUPseudoRegVars ctxt dst
+  !!ir (dstA := tmpA)
+  !!ir (dstB := tmpB)
+
 let private clearFPReg reg ctxt ir =
   let struct (stB, stA) = getFPUPseudoRegVars ctxt reg
   !!ir (stB := AST.num0 16<rt>)
@@ -1240,7 +1253,18 @@ let fincstp _ins insLen ctxt =
   let top = !.ctxt R.FTOP
   !<ir insLen
   (* TOP in B2R2 is really a counter, so we decrement TOP here (same as pop). *)
-  !!ir (extractDstAssign top (top .- AST.num1 8<rt>))
+  let cond = top == numI32 0 8<rt>
+  let updatedTOP = AST.ite cond (numI32 7 8<rt>) (top .- AST.num1 8<rt>)
+  !!ir (extractDstAssign top updatedTOP)
+  let struct (tmpB, tmpA) = moveFPRegtoTemp R.ST0 ctxt ir
+  !?ir (moveFPRegtoFPReg R.ST0 R.ST1 ctxt)
+  !?ir (moveFPRegtoFPReg R.ST1 R.ST2 ctxt)
+  !?ir (moveFPRegtoFPReg R.ST2 R.ST3 ctxt)
+  !?ir (moveFPRegtoFPReg R.ST3 R.ST4 ctxt)
+  !?ir (moveFPRegtoFPReg R.ST4 R.ST5 ctxt)
+  !?ir (moveFPRegtoFPReg R.ST5 R.ST6 ctxt)
+  !?ir (moveFPRegtoFPReg R.ST6 R.ST7 ctxt)
+  !?ir (moveTemptoFPReg R.ST7 tmpA tmpB ctxt)
   !!ir (!.ctxt R.FSWC1 := AST.b0)
 #if !EMULATION
   !!ir (!.ctxt R.FSWC0 := undefC0)
@@ -1254,7 +1278,18 @@ let fdecstp _ins insLen ctxt =
   let top = !.ctxt R.FTOP
   !<ir insLen
   (* TOP in B2R2 is really a counter, so we increment TOP here. *)
-  !!ir (extractDstAssign top (top .+ AST.num1 8<rt>))
+  let cond = top == numI32 7 8<rt>
+  let updatedTOP = AST.ite cond (AST.num0 8<rt>) (top .+ AST.num1 8<rt>)
+  !!ir (extractDstAssign top updatedTOP)
+  let struct (tmpB, tmpA) = moveFPRegtoTemp R.ST7 ctxt ir
+  !?ir (moveFPRegtoFPReg R.ST7 R.ST6 ctxt)
+  !?ir (moveFPRegtoFPReg R.ST6 R.ST5 ctxt)
+  !?ir (moveFPRegtoFPReg R.ST5 R.ST4 ctxt)
+  !?ir (moveFPRegtoFPReg R.ST4 R.ST3 ctxt)
+  !?ir (moveFPRegtoFPReg R.ST3 R.ST2 ctxt)
+  !?ir (moveFPRegtoFPReg R.ST2 R.ST1 ctxt)
+  !?ir (moveFPRegtoFPReg R.ST1 R.ST0 ctxt)
+  !?ir (moveTemptoFPReg R.ST0 tmpA tmpB ctxt)
   !!ir (!.ctxt R.FSWC1 := AST.b0)
 #if !EMULATION
   !!ir (!.ctxt R.FSWC0 := undefC0)
