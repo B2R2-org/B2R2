@@ -81,7 +81,7 @@ type CFGBuilderTable<'FnCtx,
         let builder = getOrCreateInternalBuilder null fnAddr mode
         builders[range.Min] <- builder
       | Error _ ->
-        let addr, name = entry.TableAddress, entry.FuncName
+        let addr, name = entry.TrampolineAddress, entry.FuncName
         let isNoRet = ELF.getNoReturnStatusFromKnownFunc name
         let builder = ExternalFnCFGBuilder (hdl, exnInfo, addr, name, isNoRet)
         builders[range.Min] <- builder
