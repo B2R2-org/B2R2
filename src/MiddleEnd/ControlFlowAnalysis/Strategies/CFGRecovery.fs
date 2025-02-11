@@ -478,6 +478,7 @@ type CFGRecovery<'FnCtx,
     let absV = getAbsVertex ctx callSite None abs
     connectEdge ctx caller absV CallEdge
     connectRet ctx queue (absV, callSite + uint64 callIns.Length)
+    |> Result.bind (fun _ -> connectExnEdge ctx queue callIns.Address)
     |> toCFGResult
 
   let connectSyscallEdge ctx queue callsiteAddr isExit =
