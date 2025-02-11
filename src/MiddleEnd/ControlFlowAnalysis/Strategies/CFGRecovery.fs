@@ -55,7 +55,8 @@ type CFGRecovery<'FnCtx,
           syscallAnalysis: ISyscallAnalyzable,
           postAnalysis: ICFGAnalysis<_>,
           useTailcallHeuristic,
-          useSSA) =
+          useSSA,
+          allowBBLOverlap) =
 
   let prioritizer =
     { new IPrioritizable with
@@ -620,7 +621,7 @@ type CFGRecovery<'FnCtx,
     | NoRet, ConditionalNoRet _ -> MoveOnButReloadCallers oldNoRetStatus
     | _ -> MoveOn
 
-  new (useSSA) =
+  new (useSSA, allowBBLOverlap) =
     let summarizer = FunctionSummarizer ()
     let syscallAnalysis = SyscallAnalysis ()
     let jmptblAnalysis, postAnalysis =
@@ -636,10 +637,13 @@ type CFGRecovery<'FnCtx,
                  syscallAnalysis,
                  postAnalysis,
                  true,
-                 useSSA)
+                 useSSA,
+                 allowBBLOverlap)
 
   interface ICFGBuildingStrategy<'FnCtx, 'GlCtx> with
     member __.ActionPrioritizer = prioritizer
+
+    member __.AllowBBLOverlap with get() = allowBBLOverlap
 
     member __.FindCandidates (builders) =
       builders
@@ -790,16 +794,21 @@ type CFGRecovery =
   inherit CFGRecovery<DummyContext, DummyContext>
 
   new () =
-    { inherit CFGRecovery<DummyContext, DummyContext> (false) }
+    { inherit CFGRecovery<DummyContext, DummyContext> (false, false) }
+
+  new (allowBBLOverlap) =
+    { inherit CFGRecovery<DummyContext, DummyContext> (false, allowBBLOverlap) }
 
   new (summarizer,
        jmptblAnalysis,
        syscallAnalysis,
        postAnalysis,
-       useTailcallHeuristic) =
+       useTailcallHeuristic,
+       allowBBLOverlap) =
     { inherit CFGRecovery<DummyContext, DummyContext> (summarizer,
                                                        jmptblAnalysis,
                                                        syscallAnalysis,
                                                        postAnalysis,
                                                        useTailcallHeuristic,
-                                                       false) }
+                                                       false,
+                                                       allowBBLOverlap) }

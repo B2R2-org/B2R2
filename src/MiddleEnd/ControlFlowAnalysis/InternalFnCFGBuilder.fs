@@ -117,7 +117,7 @@ type InternalFnCFGBuilder<'FnCtx,
       | Ok name -> name
       | Error _ -> Addr.toFuncName entryPoint
     let cfg = cfgConstructor.Construct Imperative
-    let bblFactory = BBLFactory (hdl, instrs, cfgConstructor.AllowBBLOverlap)
+    let bblFactory = BBLFactory (hdl, instrs)
     let fnCtx = new 'FnCtx ()
     let cp = ConstantPropagation hdl :> IDataFlowAnalysis<_, _, _, _>
     let cpState = cp.InitializeState cfg.Vertices

@@ -33,9 +33,6 @@ type LowUIRCFG = IGraph<LowUIRBasicBlock, CFGEdgeKind>
 module LowUIRCFG =
   /// Constructor for LowUIRCFG.
   type IConstructable =
-    /// Whether to allow basic block overlap.
-    abstract AllowBBLOverlap: bool
-
     /// Construct a LowUIRCFG.
     abstract Construct: ImplementationType -> LowUIRCFG
 

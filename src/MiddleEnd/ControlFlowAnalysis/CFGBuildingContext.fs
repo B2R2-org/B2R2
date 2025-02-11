@@ -113,7 +113,7 @@ with
   /// blocks. By discovering new basic blocks, existing blocks can be divided
   /// into multiple blocks.
   member __.ScanBBLs mode entryPoints =
-    __.BBLFactory.ScanBBLs mode entryPoints
+    __.BBLFactory.ScanBBLs (mode, entryPoints)
     |> Async.AwaitTask
     |> Async.RunSynchronously
 

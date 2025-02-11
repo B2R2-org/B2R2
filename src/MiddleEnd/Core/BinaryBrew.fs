@@ -24,6 +24,7 @@
 
 namespace B2R2.MiddleEnd
 
+open System.Runtime.InteropServices
 open System
 open System.Diagnostics
 open B2R2.FrontEnd
@@ -43,14 +44,12 @@ type BinaryBrew<'FnCtx,
                         and 'GlCtx: (new: unit -> 'GlCtx)>
   public (hdl: BinHandle,
           exnInfo: ExceptionInfo,
-          strategies: ICFGBuildingStrategy<_, _>[],
-          allowBBLOverlap) =
+          strategies: ICFGBuildingStrategy<_, _>[]) =
 
   let instrs = InstructionCollection (LinearSweepInstructionCollector hdl)
 
   let cfgConstructor =
     { new LowUIRCFG.IConstructable with
-        member _.AllowBBLOverlap with get() = allowBBLOverlap
         member _.Construct _ =
           ImperativeDiGraph<LowUIRBasicBlock, CFGEdgeKind> () :> LowUIRCFG }
 
@@ -80,7 +79,7 @@ type BinaryBrew<'FnCtx,
 
   new (hdl: BinHandle, strategies) =
     let exnInfo = ExceptionInfo (hdl)
-    BinaryBrew (hdl, exnInfo, strategies, false)
+    BinaryBrew (hdl, exnInfo, strategies)
 
   /// Low-level access to binary code and data.
   member _.BinHandle with get(): BinHandle = hdl
@@ -98,24 +97,20 @@ type BinaryBrew<'FnCtx,
 type BinaryBrew =
   inherit BinaryBrew<DummyContext, DummyContext>
 
-  new (hdl: BinHandle, exnInfo, strategies, allowBBLOverlap) =
-    { inherit BinaryBrew<DummyContext, DummyContext>
-        (hdl, exnInfo, strategies, allowBBLOverlap) }
-
   new (hdl: BinHandle, exnInfo, strategies) =
     { inherit BinaryBrew<DummyContext, DummyContext>
-        (hdl, exnInfo, strategies, false) }
+        (hdl, exnInfo, strategies) }
 
   new (hdl: BinHandle, strategies) =
     { inherit BinaryBrew<DummyContext, DummyContext> (hdl, strategies) }
 
-  new (hdl: BinHandle) =
+  new (hdl: BinHandle,
+       [<Optional; DefaultParameterValue(false)>] allowBBLOverlap) =
     let exnInfo = ExceptionInfo hdl
     let funcId = FunctionIdentification (hdl, exnInfo)
     let strategies =
       [| funcId :> ICFGBuildingStrategy<_, _>
-         CFGRecovery () |]
+         CFGRecovery (allowBBLOverlap) |]
     { inherit BinaryBrew<DummyContext, DummyContext> (hdl,
                                                       exnInfo,
-                                                      strategies,
-                                                      false) }
+                                                      strategies) }

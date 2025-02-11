@@ -138,6 +138,9 @@ and ICFGBuildingStrategy<'FnCtx,
   /// Return the prioritizer to use for the CFG actions.
   abstract ActionPrioritizer: IPrioritizable
 
+  /// Whether to allow basic block overlap or not while building a CFG.
+  abstract AllowBBLOverlap: bool
+
   /// This is a callback that is called when a recovery mission starts. It finds
   /// a list of candidate functions to analyze based on the given list of
   /// function builders.
