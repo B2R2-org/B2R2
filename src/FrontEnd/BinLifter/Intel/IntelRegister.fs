@@ -1603,7 +1603,7 @@ module Register = begin
     | _ -> "?"
 #endif
 
-  let toRegType = function
+  let toRegType wordSize = function
     | R.MM0 | R.MM1 | R.MM2 | R.MM3 | R.MM4 | R.MM5 | R.MM6 | R.MM7
     | R.ST0A | R.ST1A | R.ST2A | R.ST3A | R.ST4A | R.ST5A | R.ST6A | R.ST7A
     | R.RIP | R.R8 | R.R9 | R.R10 | R.R11 | R.R12 | R.R13 | R.R14 | R.R15
@@ -1676,6 +1676,7 @@ module Register = begin
     | R.FTW0 | R.FTW1 | R.FTW2 | R.FTW3
     | R.FTW4 | R.FTW5 | R.FTW6 | R.FTW7
     | R.FTOP -> 8<rt>
+    | R.FSBase | R.GSBase -> WordSize.toRegType wordSize
     | _ -> raise UnknownRegException
 
   let extendRegister32 = function

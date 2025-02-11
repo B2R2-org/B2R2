@@ -1819,13 +1819,13 @@ module private ATTSyntax = begin
     match operands with
     | TwoOperands (_, OprMem (_, _, _, sz)) -> addOpSuffix builder sz
     | TwoOperands (_, OprReg dst) ->
-      Register.toRegType dst |> addOpSuffix builder
+      Register.toRegType builder.WordSize dst |> addOpSuffix builder
     | _ -> Utils.impossible ()
 
-  let buildDstSizeSuffix operands builder =
+  let buildDstSizeSuffix operands (builder: DisasmBuilder) =
     match operands with
     | TwoOperands (OprReg dst, _) ->
-      Register.toRegType dst |> addOpSuffix builder
+      Register.toRegType builder.WordSize dst |> addOpSuffix builder
     | _ -> Utils.impossible ()
 
   let buildOprs (ins: InsInfo) reader (builder: DisasmBuilder) =

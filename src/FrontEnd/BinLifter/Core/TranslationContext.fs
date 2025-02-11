@@ -81,6 +81,9 @@ type TranslationContext (isa) =
   let mutable conditionCodeOp = ConditionCodeOp.TraceStart
 #endif
 
+  /// Word size.
+  member __.WordSize with get() = isa.WordSize
+
   /// Word size in bits (RegType).
   member __.WordBitSize with get(): RegType = WordSize.toRegType isa.WordSize
 

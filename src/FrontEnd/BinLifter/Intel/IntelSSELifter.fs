@@ -1136,7 +1136,7 @@ let pextrw ins insLen ctxt =
   let packNum = 64<rt> / 16<rt>
   let srcSz =
     match src with
-    | OprReg reg -> Register.toRegType reg
+    | OprReg reg -> Register.toRegType ctxt.WordSize reg
     | _ -> raise InvalidOperandException
   let d = transOprToExpr ir false ins insLen ctxt dst
   let src = transOprToArr ir false ins insLen ctxt 16<rt> packNum srcSz src

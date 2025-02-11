@@ -28,26 +28,26 @@ open B2R2
 open B2R2.FrontEnd.BinLifter.Intel
 open B2R2.Peripheral.Assembly.Intel.ParserHelper
 
-let isReg8 reg = Register.toRegType reg = 8<rt>
-let isReg16 reg = Register.toRegType reg = 16<rt>
-let isReg32 reg = Register.toRegType reg = 32<rt>
-let isReg64 reg = Register.toRegType reg = 64<rt>
+let isReg8 (ctx: EncContext) reg = Register.toRegType ctx.WordSize reg = 8<rt>
+let isReg16 (ctx: EncContext) reg = Register.toRegType ctx.WordSize reg = 16<rt>
+let isReg32 (ctx: EncContext) reg = Register.toRegType ctx.WordSize reg = 32<rt>
+let isReg64 (ctx: EncContext) reg = Register.toRegType ctx.WordSize reg = 64<rt>
 let isMMXReg reg = Register.Kind.MMX = Register.getKind reg
 let isXMMReg reg = Register.Kind.XMM = Register.getKind reg
 let isYMMReg reg = Register.Kind.YMM = Register.getKind reg
 let isSegReg reg = Register.Kind.Segment = Register.getKind reg
 let isFPUReg reg = Register.Kind.FPU = Register.getKind reg
 
-let private isAddrSz arch reg =
-  match arch, Register.toRegType reg with
+let private isHalfSplit (ctx: EncContext) reg =
+  match ctx.Arch, Register.toRegType ctx.WordSize reg with
   | Architecture.IntelX64, 32<rt> -> true
   | Architecture.IntelX86, 16<rt> -> true
   | _ -> false
 
-let private isAddrSize isa = function
+let private isAddrSize ctx = function
   | OneOperand (OprMem (Some bReg, _, _, _))
   | TwoOperands (_, OprMem (Some bReg, _, _, _))
-  | TwoOperands (OprMem (Some bReg, _, _, _), _) -> isAddrSz isa bReg
+  | TwoOperands (OprMem (Some bReg, _, _, _), _) -> isHalfSplit ctx bReg
   | _ -> false
 
 let getPrefByte = function
@@ -66,11 +66,7 @@ let getPrefByte = function
 let getGrp1Pref prefs = prefs &&& 0x7 |> getPrefByte
 let getGrp2Pref prefs = prefs &&& 0x1F8 |> getPrefByte
 
-let encodePrefix ins arch (pref: EncPrefix) =
-  (* 64-bit mode : register -> 16bit => 66
-                   memory base register -> 32bit => 67
-     32-bit mode : register -> 16bit => 66
-                   memory base register -> 16bit => 67 *)
+let encodePrefix ins ctx (pref: EncPrefix) =
   let prefs = LanguagePrimitives.EnumToValue ins.Prefixes
   (* Prefix group1 and group2 *)
   let prxGrp1 =
@@ -85,9 +81,7 @@ let encodePrefix ins arch (pref: EncPrefix) =
     if pGrp2 = 0uy then [||]
     else if pref.CanSeg then [| pGrp2 |> Normal |]
          else printfn "%A" ins; failwith "Invalid prefix (Segment)"
-  (* Prefix group3: Operand-size override
-     Control with mandatory prefix *)
-  (* Mandatory Prefix: Two-Byte or Three-Byte opcode *)
+  (* Prefix group3: Operand-size override control with mandatory prefix *)
   let mandPrx =
     match pref.MandPrefix with
     | Prefix.PrxREPZ -> [| Normal 0xF3uy |]
@@ -96,7 +90,7 @@ let encodePrefix ins arch (pref: EncPrefix) =
     | _ -> [||]
   (* Prefix group4: Address-size override *)
   let prxGrp4 =
-    if isAddrSize arch ins.Operands then [| Normal 0x67uy |] else [||]
+    if isAddrSize ctx ins.Operands then [| Normal 0x67uy |] else [||]
   [| yield! prxGrp1; yield! prxGrp2; yield! mandPrx; yield! prxGrp4 |]
 
 let encodeRex = function
@@ -138,16 +132,16 @@ let encodeVEXRexRXB arch reg rmOrSBase sIdx =
       convVEXRexByte (encodeRexR reg ||| encodeRexX r2)
     | None, None -> convVEXRexByte (encodeRexR reg)
 
-let encodeRexRR isMR r1 r2 =
-  if ((isReg8 r1 || isReg32 r1 || isReg64 r1) && isReg8 r2) then
+let encodeRexRR ctx isMR r1 r2 =
+  if ((isReg8 ctx r1 || isReg32 ctx r1 || isReg64 ctx r1) && isReg8 ctx r2) then
     if isMR
     then encodeRex r1 ||| encodeRex r2 ||| encodeRexR r2 ||| encodeRexB r1
     else encodeRex r1 ||| encodeRex r2 ||| encodeRexR r1 ||| encodeRexB r2
   elif isMR then encodeRexR r2 ||| encodeRexB r1
   else encodeRexR r1 ||| encodeRexB r2
 
-let encodeRexRM r b s =
-  let rex = if isReg8 r then encodeRex r else 0uy
+let encodeRexRM ctx r b s =
+  let rex = if isReg8 ctx r then encodeRex r else 0uy
   match b, s with
   | Some b, Some (s, _) ->
     rex ||| encodeRexR r ||| encodeRexX s ||| encodeRexB b
@@ -155,23 +149,23 @@ let encodeRexRM r b s =
   | None, Some (s, _) -> rex ||| encodeRexR r ||| encodeRexX s
   | None, None -> rex ||| encodeRexR r
 
-let encodeRexRXB isMR = function
+let encodeRexRXB ctx isMR = function
   | NoOperand
   | OneOperand (Label _) | OneOperand (OprDirAddr _)
   | OneOperand (OprImm _)
   | TwoOperands (OprMem (None, None, Some _, _), OprImm _)
   | TwoOperands (Label _, OprImm _) -> 0uy
   | OneOperand (OprReg r) ->
-    if isReg8 r then encodeRex r ||| encodeRexB r else encodeRexB r
+    if isReg8 ctx r then encodeRex r ||| encodeRexB r else encodeRexB r
   | OneOperand (OprMem (Some bReg, Some (s, _), _, _)) ->
     encodeRexX s ||| encodeRexB bReg
   | OneOperand (OprMem (Some bReg, None, _, _)) -> encodeRexB bReg
   | OneOperand (OprMem (None, Some (s, _), _, _)) -> encodeRexX s
-  | TwoOperands (OprReg r1, OprReg r2) -> encodeRexRR isMR r1 r2
+  | TwoOperands (OprReg r1, OprReg r2) -> encodeRexRR ctx isMR r1 r2
   | TwoOperands (OprReg r, OprMem (b, s, _, _))
-  | TwoOperands (OprMem (b, s, _, _), OprReg r) -> encodeRexRM r b s
+  | TwoOperands (OprMem (b, s, _, _), OprReg r) -> encodeRexRM ctx r b s
   | TwoOperands (OprReg r, OprImm _) ->
-    if isReg8 r then encodeRex r ||| encodeRexB r else encodeRexB r
+    if isReg8 ctx r then encodeRex r ||| encodeRexB r else encodeRexB r
   | TwoOperands (OprMem (Some bReg, None, _, _), OprImm _) -> encodeRexB bReg
   | TwoOperands (OprMem (Some bReg, Some (s, _), _, _), OprImm _) ->
     encodeRexR s ||| encodeRexB bReg
@@ -188,11 +182,11 @@ let encodeRexRXB isMR = function
   | ThreeOperands (OprReg r, Label _, OprImm _) -> encodeRexR r
   | o -> printfn "Inavlid Operand (%A)" o; Utils.futureFeature ()
 
-let encodeREXPref ins arch (rexPrx: EncREXPrefix) =
-  if arch = Architecture.IntelX86 then [||]
+let encodeREXPref ins (ctx: EncContext) (rexPrx: EncREXPrefix) =
+  if ctx.Arch = Architecture.IntelX86 then [||]
   else (* Arch.IntelX64 *)
     let rexW = if rexPrx.RexW then 0x48uy else 0uy
-    let rxb = encodeRexRXB rexPrx.IsMemReg ins.Operands
+    let rxb = encodeRexRXB ctx rexPrx.IsMemReg ins.Operands
     if rxb = 0uy && rexW = 0uy then [||] else [| Normal (rexW ||| rxb) |]
 
 let private getLeadingOpcodeByte = function (* m-mmmm *)

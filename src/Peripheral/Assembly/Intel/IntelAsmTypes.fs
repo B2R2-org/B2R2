@@ -26,6 +26,8 @@ namespace B2R2.Peripheral.Assembly.Intel
 
 open B2R2
 open B2R2.FrontEnd.BinLifter.Intel
+open type Prefix
+open type VEXType
 
 exception NotEncodableException
 
@@ -45,13 +47,13 @@ type AsmComponent =
   | CompOp of Opcode * Operands * byte [] * byte [] option
 
 type EncodedByteCode = {
-  Prefix        : AsmComponent []
-  REXPrefix     : AsmComponent []
-  Opcode        : AsmComponent []
-  ModRM         : AsmComponent []
-  SIB           : AsmComponent []
-  Displacement  : AsmComponent []
-  Immediate     : AsmComponent []
+  Prefix: AsmComponent []
+  REXPrefix: AsmComponent []
+  Opcode: AsmComponent []
+  ModRM: AsmComponent []
+  SIB: AsmComponent []
+  Displacement: AsmComponent []
+  Immediate: AsmComponent []
 }
 
 type EncPrefix =
@@ -89,46 +91,39 @@ type EncVEXPrefix =
         PP = p }
   end
 
-type EncContext (arch: Architecture) =
-  member val Arch = arch
-  member val PrefNormal = EncPrefix (Prefix.PrxNone, false, false, true)
-  member val PrefREP = EncPrefix (Prefix.PrxNone, false, true, true)
-  member val PrefREP66 = EncPrefix (Prefix.PrxOPSIZE, false, true, true)
-  member val PrefF3 = EncPrefix (Prefix.PrxREPZ, false, false, true)
-  member val PrefF2 = EncPrefix (Prefix.PrxREPNZ, false, false, true)
-  member val Pref66 = EncPrefix (Prefix.PrxOPSIZE, false, false, true)
+/// Assembly encoding context.
+type EncContext (isa: ISA) =
+  member _.Arch with get() = isa.Arch
+  member _.WordSize with get() = isa.WordSize
+  member _.PrefNormal with get() = EncPrefix (PrxNone, false, false, true)
+  member _.PrefREP with get() = EncPrefix (PrxNone, false, true, true)
+  member _.PrefREP66 with get() = EncPrefix (PrxOPSIZE, false, true, true)
+  member _.PrefF3 with get() = EncPrefix (PrxREPZ, false, false, true)
+  member _.PrefF2 with get() = EncPrefix (PrxREPNZ, false, false, true)
+  member _.Pref66 with get() = EncPrefix (PrxOPSIZE, false, false, true)
 
-  member val RexNormal = EncREXPrefix (false, false)
-  member val RexW = EncREXPrefix (true, false)
-  member val RexMR = EncREXPrefix (false, true)
-  member val RexWAndMR = EncREXPrefix (true, true)
+  member _.RexNormal with get() = EncREXPrefix (false, false)
+  member _.RexW with get() = EncREXPrefix (true, false)
+  member _.RexMR with get() = EncREXPrefix (false, true)
+  member _.RexWAndMR with get() = EncREXPrefix (true, true)
 
-  member val VEX128n0F =
-    EncVEXPrefix (VEXType.VEXTwoByteOp, REXPrefix.NOREX, 128<rt>,
-                  Prefix.PrxNone)
-  member val VEX256n0F =
-    EncVEXPrefix (VEXType.VEXTwoByteOp, REXPrefix.NOREX, 256<rt>,
-                  Prefix.PrxNone)
-  member val VEX128nF3n0F =
-    EncVEXPrefix (VEXType.VEXTwoByteOp, REXPrefix.NOREX, 128<rt>,
-                  Prefix.PrxREPZ)
-  member val VEX128nF2n0F =
-    EncVEXPrefix (VEXType.VEXTwoByteOp, REXPrefix.NOREX, 128<rt>,
-                  Prefix.PrxREPNZ)
-  member val VEX128n66n0F =
-    EncVEXPrefix (VEXType.VEXTwoByteOp, REXPrefix.NOREX, 128<rt>,
-                  Prefix.PrxOPSIZE)
-  member val VEX256n66n0F =
-    EncVEXPrefix (VEXType.VEXTwoByteOp, REXPrefix.NOREX, 256<rt>,
-                  Prefix.PrxOPSIZE)
-  member val VEX128n66nWn0F =
-    EncVEXPrefix (VEXType.VEXTwoByteOp, REXPrefix.REXW, 128<rt>,
-                  Prefix.PrxOPSIZE)
-  member val VEX128n66n0F3A =
-    EncVEXPrefix (VEXType.VEXThreeByteOpTwo, REXPrefix.NOREX, 128<rt>,
-                  Prefix.PrxOPSIZE)
-  member val VEX256n66n0F3A =
-    EncVEXPrefix (VEXType.VEXThreeByteOpTwo, REXPrefix.NOREX, 256<rt>,
-                  Prefix.PrxOPSIZE)
+  member _.VEX128n0F with get() =
+    EncVEXPrefix (VEXTwoByteOp, REXPrefix.NOREX, 128<rt>, PrxNone)
+  member _.VEX256n0F with get() =
+    EncVEXPrefix (VEXTwoByteOp, REXPrefix.NOREX, 256<rt>, PrxNone)
+  member _.VEX128nF3n0F with get() =
+    EncVEXPrefix (VEXTwoByteOp, REXPrefix.NOREX, 128<rt>, PrxREPZ)
+  member _.VEX128nF2n0F with get() =
+    EncVEXPrefix (VEXTwoByteOp, REXPrefix.NOREX, 128<rt>, PrxREPNZ)
+  member _.VEX128n66n0F with get() =
+    EncVEXPrefix (VEXTwoByteOp, REXPrefix.NOREX, 128<rt>, PrxOPSIZE)
+  member _.VEX256n66n0F with get() =
+    EncVEXPrefix (VEXTwoByteOp, REXPrefix.NOREX, 256<rt>, PrxOPSIZE)
+  member _.VEX128n66nWn0F with get() =
+    EncVEXPrefix (VEXTwoByteOp, REXPrefix.REXW, 128<rt>, PrxOPSIZE)
+  member _.VEX128n66n0F3A with get() =
+    EncVEXPrefix (VEXThreeByteOpTwo, REXPrefix.NOREX, 128<rt>, PrxOPSIZE)
+  member _.VEX256n66n0F3A with get() =
+    EncVEXPrefix (VEXThreeByteOpTwo, REXPrefix.NOREX, 256<rt>, PrxOPSIZE)
 
 // vim: set tw=80 sts=2 sw=2:

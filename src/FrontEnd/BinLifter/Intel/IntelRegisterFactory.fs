@@ -398,7 +398,7 @@ type IntelRegisterFactory (wordSize, r: RegExprs) =
     Register.ofRegID rid |> Register.toString
 
   override __.RegIDToRegType rid =
-    Register.ofRegID rid |> Register.toRegType
+    Register.ofRegID rid |> Register.toRegType wordSize
 
   override __.GetRegisterAliases rid =
     Register.ofRegID rid

@@ -294,27 +294,28 @@ let transOprToExprVec ir useTmpVar ins insLen ctxt opr =
   | OprImm (imm, _) -> [ numI64 imm (getOperationSize ins) ]
   | _ -> raise InvalidOperandException
 
-let transOprToExpr16 ir useTmpVar ins insLen ctxt opr =
+let transOprToExpr16 ir useTmpVar ins insLen (ctxt: TranslationContext) opr =
   match opr with
-  | OprReg r when Register.toRegType r > 64<rt> ->
+  | OprReg r when Register.toRegType ctxt.WordSize r > 64<rt> ->
     getPseudoRegVar ctxt r 1 |> AST.xtlo 16<rt>
   | OprReg r -> !.ctxt r
   | OprMem (b, index, disp, 16<rt>) ->
     transMem ir useTmpVar ins insLen ctxt b index disp 16<rt>
   | _ -> raise InvalidOperandException
 
-let transOprToExpr32 ir useTmpVar ins insLen ctxt opr =
+let transOprToExpr32 ir useTmpVar ins insLen (ctxt: TranslationContext) opr =
   match opr with
-  | OprReg r when Register.toRegType r > 64<rt> ->
+  | OprReg r when Register.toRegType ctxt.WordSize r > 64<rt> ->
     getPseudoRegVar ctxt r 1 |> AST.xtlo 32<rt>
   | OprReg r -> !.ctxt r
   | OprMem (b, index, disp, 32<rt>) ->
     transMem ir useTmpVar ins insLen ctxt b index disp 32<rt>
   | _ -> raise InvalidOperandException
 
-let transOprToExpr64 ir useTmpVar ins insLen ctxt opr =
+let transOprToExpr64 ir useTmpVar ins insLen (ctxt: TranslationContext) opr =
   match opr with
-  | OprReg r when Register.toRegType r > 64<rt> -> getPseudoRegVar ctxt r 1
+  | OprReg r when Register.toRegType ctxt.WordSize r > 64<rt> ->
+    getPseudoRegVar ctxt r 1
   | OprReg r -> !.ctxt r
   | OprMem (b, index, disp, 64<rt>) ->
     transMem ir useTmpVar ins insLen ctxt b index disp 64<rt>

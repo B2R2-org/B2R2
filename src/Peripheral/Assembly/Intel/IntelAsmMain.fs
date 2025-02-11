@@ -336,7 +336,7 @@ let finalize arch parserState realLenArr baseAddr myIdx comp =
   | _ -> comp |> Array.map normalToByte
 
 let assemble parserState isa (baseAddr: Addr) (instrs: AsmInsInfo list) =
-  let ctxt = EncContext (isa.Arch)
+  let ctxt = EncContext (isa)
   let components = instrs |> List.map (fun ins -> encodeInstruction ins ctxt)
   let maxLenArr = computeMaxLen components
   let components' = components |> List.mapi (decideOp parserState maxLenArr)
