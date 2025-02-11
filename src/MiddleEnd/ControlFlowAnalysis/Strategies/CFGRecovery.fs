@@ -73,10 +73,8 @@ type CFGRecovery<'FnCtx,
           | StartTblRec _ -> 0
           | EndTblRec _ -> 0 }
 
-  let scanBBLs ctx mode entryPoints =
-    ctx.BBLFactory.ScanBBLs mode entryPoints
-    |> Async.AwaitTask
-    |> Async.RunSynchronously
+  let scanBBLs (ctx: CFGBuildingContext<_, _>) mode entryPoints =
+    ctx.ScanBBLs mode entryPoints
 
   let getVertex ctx ppoint =
     match ctx.Vertices.TryGetValue ppoint with

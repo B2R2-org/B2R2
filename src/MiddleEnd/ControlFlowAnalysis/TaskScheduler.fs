@@ -313,6 +313,18 @@ type TaskScheduler<'FnCtx,
   /// propagates the success to its callers who are waiting for the builder.
   let finalizeBuilder (builder: ICFGBuildable<_, _>) entryPoint =
     assert (builder.DelayedBuilderRequests.Count = 0)
+#if CFGDEBUG
+    let nextFnAddrOpt = builder.NextFunctionAddress
+    if builder.Context.JumpTables.Count > 0 then
+      let gap = builder.Context.AnalyzeGap nextFnAddrOpt
+      if List.isEmpty gap then
+        dbglog ManagerTid "Gap" $"none @ {builder.EntryPoint:x}"
+      else
+        gap
+        |> List.iter (fun range ->
+          dbglog ManagerTid "Gap" $"{range} @ {builder.EntryPoint:x}")
+    else ()
+#endif
     builder.Finalize ()
     let retStatus = builder.Context.NonReturningStatus
     let unwindingBytes = builder.Context.UnwindingBytes
