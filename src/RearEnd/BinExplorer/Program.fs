@@ -206,7 +206,7 @@ let dumpJsonFiles jsonDir (brew: BinaryBrew<_, _>) =
     let id = func.ID
     let ep = func.EntryPoint
     let disasmJsonPath = Printf.sprintf "%s/%s.disasmCFG" jsonDir id
-    let disasmcfg = DisasmCFG.create func.CFG
+    let disasmcfg = DisasmCFG func.CFG
     ExportCFG.toJson disasmcfg disasmJsonPath)
 
 let initBinHdl isa (name: string) =

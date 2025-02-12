@@ -31,17 +31,15 @@ open System.Runtime.Serialization.Json
 open B2R2
 open B2R2.FrontEnd
 open B2R2.MiddleEnd
-open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.ControlFlowGraph
-open B2R2.MiddleEnd.ControlFlowAnalysis
 open B2R2.MiddleEnd.DataFlow
 open B2R2.RearEnd.Visualization
 
 type CFGType =
-  | DisasmCFG
-  | IRCFG
-  | SSACFG
-  | CallCFG
+  | DisasmCFG = 0
+  | IRCFG = 1
+  | SSACFG = 2
+  | CallCFG = 3
 
 [<DataContract>]
 type JsonFuncInfo = {
@@ -140,22 +138,21 @@ let handleBinInfo req resp arbiter =
 
 let cfgToJSON cfgType (brew: BinaryBrew<_, _>) (g: LowUIRCFG) =
   match cfgType with
-  | IRCFG ->
-    let roots = g.GetRoots () |> Seq.toList
+  | CFGType.IRCFG ->
+    let roots = g.Roots |> Seq.toList
     Visualizer.getJSONFromGraph g roots
-  | DisasmCFG ->
-    let g = DisasmCFG.create g
-    let roots = g.GetRoots () |> Seq.toList
+  | CFGType.DisasmCFG ->
+    let g = DisasmCFG g
+    let roots = g.Roots |> Seq.toList
     Visualizer.getJSONFromGraph g roots
-  | SSACFG ->
+  | CFGType.SSACFG ->
     let factory = SSA.SSALifterFactory.Create (brew.BinHandle)
     let ssaCFG = factory.Lift g
-    let roots = ssaCFG.GetRoots () |> List.ofArray
+    let roots = ssaCFG.Roots |> List.ofArray
     Visualizer.getJSONFromGraph ssaCFG roots
   | _ -> failwith "Invalid CFG type"
 
-let handleRegularCFG req resp funcID (brew: BinaryBrew<_, _>)
-                     cfgType =
+let handleRegularCFG req resp funcID (brew: BinaryBrew<_, _>) cfgType =
   let func = brew.Functions.FindByID funcID
   try
     let s = cfgToJSON cfgType brew func.CFG
@@ -170,7 +167,7 @@ let handleRegularCFG req resp funcID (brew: BinaryBrew<_, _>)
 let handleCFG req resp arbiter cfgType funcID =
   let brew = Protocol.getBinaryBrew arbiter
   match cfgType with
-  | CallCFG ->
+  | CFGType.CallCFG ->
     try
       let g, roots = CallGraph.create BinGraph.Imperative brew
       let s = Visualizer.getJSONFromGraph g roots
@@ -270,10 +267,10 @@ let handleDataflow req resp arbiter (args: string) =
 let handleAJAX req resp arbiter cmdMap query args =
   match query with
   | "BinInfo" -> handleBinInfo req resp arbiter
-  | "Disasm" -> handleCFG req resp arbiter DisasmCFG args
-  | "LowUIR" -> handleCFG req resp arbiter IRCFG args
-  | "SSA" -> handleCFG req resp arbiter SSACFG args
-  | "CG" -> handleCFG req resp arbiter CallCFG args
+  | "Disasm" -> handleCFG req resp arbiter CFGType.DisasmCFG args
+  | "LowUIR" -> handleCFG req resp arbiter CFGType.IRCFG args
+  | "SSA" -> handleCFG req resp arbiter CFGType.SSACFG args
+  | "CG" -> handleCFG req resp arbiter CFGType.CallCFG args
   | "Functions" -> handleFunctions req resp arbiter
   | "Hexview" -> handleHexview req resp arbiter
   | "Command" -> handleCommand req resp arbiter cmdMap args

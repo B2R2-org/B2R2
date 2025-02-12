@@ -84,7 +84,7 @@ module Utils =
     |> Array.concat
 
   let getDisasmVertexRanges (cfg: LowUIRCFG) =
-    let dcfg = DisasmCFG.create cfg
+    let dcfg = DisasmCFG cfg
     dcfg.Vertices
     |> Array.map (fun v ->
       v.VData.Internals.Range.Min, v.VData.Internals.Range.Max)
@@ -537,7 +537,7 @@ type CFGTest2 () =
   member __.``DisasmCFG Test: _start`` () =
     let brew = BinaryBrew hdl
     let cfg = brew.Functions[0x0UL].CFG
-    let dcfg = DisasmCFG.create cfg
+    let dcfg = DisasmCFG cfg
     Assert.AreEqual (1, dcfg.Size)
     let vMap = dcfg.FoldVertex (fun m v ->
       Map.add v.VData.Internals.PPoint.Address v m) Map.empty

@@ -89,9 +89,10 @@ type CFGBuildingContext<'FnCtx,
 }
 with
   /// Reset the context to its initial state.
-  member __.Reset cfg =
+  member __.Reset () =
     __.Vertices.Clear ()
-    __.CFG <- cfg
+    __.CallerVertices.Clear ()
+    __.CFG <- LowUIRCFG (__.CFG :> IGraph<_, _>).ImplementationType
     if isNull __.CPState then () else __.CPState.Reset ()
     (* N.B. We should keep the value of `NonReturningStatus` (i.e., leave the
        below line commented out) because we should be able to compare the
@@ -162,7 +163,7 @@ with
   /// This function will return only the first overlapping vertex even though
   /// there may be multiple overlapping vertices.
   member __.FindOverlap (nextFnAddrOpt) =
-    let vertices = __.CFG.Vertices
+    let vertices = (__.CFG :> IGraph<_, _>).Vertices
     let dict = Dictionary (vertices.Length * 2)
     for v in vertices do
       let vData = v.VData.Internals
@@ -219,7 +220,7 @@ with
     match nextFnAddrOpt with
     | Some nextFnAddr ->
       let endAddr = nextFnAddr - 1UL
-      __.CFG.Vertices
+      (__.CFG :> IGraph<_, _>).Vertices
       |> Array.fold (fun acc v ->
         if v.VData.Internals.IsAbstract then acc
         else v.VData.Internals.Range :: acc) []

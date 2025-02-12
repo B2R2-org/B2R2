@@ -74,12 +74,7 @@ module CallGraph =
   /// Create a CallCFG from a BinaryBrew.
   [<CompiledName "Create">]
   let create implType brew =
-    let callGraph =
-      match implType with
-      | Imperative ->
-        ImperativeDiGraph<CallBasicBlock, CFGEdgeKind> () :> CallCFG
-      | Persistent ->
-        PersistentDiGraph<CallBasicBlock, CFGEdgeKind> () :> CallCFG
+    let callGraph = CallCFG implType
     let vMap = CallVMap ()
     let callGraph = buildCG callGraph vMap brew
     callGraph, callGraph.Unreachables |> Array.toList

@@ -24,9 +24,6 @@
 
 module B2R2.RearEnd.Visualization.Visualizer
 
-open B2R2.MiddleEnd.BinGraph
-open B2R2.MiddleEnd.ControlFlowGraph
-
 let getJSONFromGraph iGraph roots =
   try
     let vGraph, roots = VisGraph.ofCFG iGraph roots

@@ -70,15 +70,15 @@ module private SSALifterFactory =
     let bbl = src.VData :> ILowUIRBasicBlock
     let ppoint = bbl.PPoint
     match (vMap: SSAVMap).TryGetValue ppoint with
-    | true, v -> v, g
+    | true, v -> v
     | false, _ ->
       let stmts = liftStmts stmtProcessor bbl.LiftedInstructions
       let lastAddr = bbl.LastInstruction.Address
       let endPoint = lastAddr + uint64 bbl.LastInstruction.Length - 1UL
       let blk = SSABasicBlock.CreateRegular (stmts, ppoint, endPoint)
-      let v, g = (g: SSACFG).AddVertex blk
+      let v = (g: SSACFG).AddVertex blk
       vMap.Add (ppoint, v)
-      v, g
+      v
 
   let liftRundown stmtProcessor rundown =
     if Array.isEmpty rundown then [||]
@@ -89,12 +89,12 @@ module private SSALifterFactory =
          (* addr should not matter*)
          yield! AST.translateStmts 64<rt> 0UL stmtProcessor rundown |]
 
-  let getAbsVertex stmtProcessor avMap g irBBL ftPpoint =
+  let getAbsVertex stmtProcessor avMap (g: SSACFG) irBBL ftPpoint =
     let irData = (irBBL: IVertex<_>).VData :> ILowUIRBasicBlock
     let calleePpoint = irData.PPoint
     let key = calleePpoint, ftPpoint
     match (avMap: AbstractVMap).TryGetValue key with
-    | true, v -> v, g
+    | true, v -> v
     | false, _ ->
       let absContent = irData.AbstractContent
       let rundown = absContent.Rundown |> liftRundown stmtProcessor
@@ -104,36 +104,33 @@ module private SSALifterFactory =
                                                   absContent.IsExternal,
                                                   absContent.ReturningStatus)
       let blk = SSABasicBlock.CreateAbstract (calleePpoint, absContent)
-      let v, g = (g: SSACFG).AddVertex blk
+      let v = g.AddVertex blk
       avMap.Add (key, v)
-      v, g
+      v
 
-  let convertToSSA stmtProcessor (cfg: LowUIRCFG) ssaCFG =
+  let convertToSSA stmtProcessor (cfg: IGraph<_, _>) (ssaCFG: SSACFG) =
     let vMap = SSAVMap ()
     let avMap = AbstractVMap ()
-    let _, ssaCFG = getVertex stmtProcessor vMap ssaCFG cfg.SingleRoot
-    let ssaCFG =
-      ssaCFG
-      |> cfg.FoldEdge (fun ssaCFG e ->
-        let src, dst = e.First, e.Second
-        (* If a node is abstract, then it is a call target. *)
-        if dst.VData.Internals.IsAbstract then
-          let last = src.VData.Internals.LastInstruction
-          let fallPp = ProgramPoint (last.Address + uint64 last.Length, 0)
-          let srcV, ssaCFG = getVertex stmtProcessor vMap ssaCFG src
-          let dstV, ssaCFG = getAbsVertex stmtProcessor avMap ssaCFG dst fallPp
-          ssaCFG.AddEdge (srcV, dstV, e.Label)
-        elif src.VData.Internals.IsAbstract then
-          let dstPp = dst.VData.Internals.PPoint
-          let srcV, ssaCFG = getAbsVertex stmtProcessor avMap ssaCFG src dstPp
-          let dstV, ssaCFG = getVertex stmtProcessor vMap ssaCFG dst
-          ssaCFG.AddEdge (srcV, dstV, e.Label)
-        else
-          let srcV, ssaCFG = getVertex stmtProcessor vMap ssaCFG src
-          let dstV, ssaCFG = getVertex stmtProcessor vMap ssaCFG dst
-          ssaCFG.AddEdge (srcV, dstV, e.Label)
-      )
-    ssaCFG
+    getVertex stmtProcessor vMap ssaCFG cfg.SingleRoot |> ignore
+    cfg.IterEdge (fun e ->
+      let src, dst = e.First, e.Second
+      (* If a node is abstract, then it is a call target. *)
+      if dst.VData.Internals.IsAbstract then
+        let last = src.VData.Internals.LastInstruction
+        let fallPp = ProgramPoint (last.Address + uint64 last.Length, 0)
+        let srcV = getVertex stmtProcessor vMap ssaCFG src
+        let dstV = getAbsVertex stmtProcessor avMap ssaCFG dst fallPp
+        ssaCFG.AddEdge (srcV, dstV, e.Label)
+      elif src.VData.Internals.IsAbstract then
+        let dstPp = dst.VData.Internals.PPoint
+        let srcV = getAbsVertex stmtProcessor avMap ssaCFG src dstPp
+        let dstV = getVertex stmtProcessor vMap ssaCFG dst
+        ssaCFG.AddEdge (srcV, dstV, e.Label)
+      else
+        let srcV = getVertex stmtProcessor vMap ssaCFG src
+        let dstV = getVertex stmtProcessor vMap ssaCFG dst
+        ssaCFG.AddEdge (srcV, dstV, e.Label)
+    )
 
   let computeDominatorInfo g =
     let domCtx = Dominator.initDominatorContext g
@@ -170,7 +167,7 @@ module private SSALifterFactory =
     | Extract (e, _, _) ->
       updateGlobals globals varKill e
 
-  let findDefVars (ssaCFG: SSACFG) (defSites: DefSites) =
+  let findDefVars (ssaCFG: IGraph<SSABasicBlock, _>) (defSites: DefSites) =
     let globals = HashSet ()
     let varKill = HashSet ()
     for v in ssaCFG.Vertices do
@@ -381,21 +378,16 @@ module private SSALifterFactory =
       |> Array.choose (stmtChooser state)
       |> v.VData.Internals.UpdateStatements
     updatePhis ssaCFG
-    ssaCFG
 
   let create hdl stmtProcessor callback =
     { new ISSALiftable with
         member _.Lift cfg =
-          let ssaCFG =
-            match cfg.ImplementationType with
-            | Imperative ->
-              ImperativeDiGraph<SSABasicBlock, CFGEdgeKind> () :> IGraph<_, _>
-            | Persistent ->
-              PersistentDiGraph<SSABasicBlock, CFGEdgeKind> () :> IGraph<_, _>
+          let ssaCFG = SSACFG (cfg: IGraph<_, _>).ImplementationType
           convertToSSA stmtProcessor cfg ssaCFG
-          |> updatePhis
+          updatePhis ssaCFG
           ssaCFG.IterVertex (fun v -> v.VData.Internals.UpdatePPoints ())
-          promote hdl ssaCFG callback }
+          promote hdl ssaCFG callback
+          ssaCFG }
 
 /// The factory for SSA lifter.
 type SSALifterFactory =

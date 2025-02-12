@@ -76,7 +76,7 @@ type TaskScheduler<'FnCtx,
 
   let resetBuilder (builder: ICFGBuildable<_, _>) =
     dependenceMap.RemoveCallEdgesFrom builder.EntryPoint
-    builder.Reset builders.CFGConstructor
+    builder.Reset ()
 
   /// Restart = reset and reschedule builder.
   let restartBuilder (builder: ICFGBuildable<_, _>) =

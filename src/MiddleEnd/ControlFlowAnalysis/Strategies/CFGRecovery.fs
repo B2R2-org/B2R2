@@ -116,8 +116,7 @@ type CFGRecovery<'FnCtx,
     | false, _ ->
       let calleePPoint = getCalleePPoint callsiteAddr calleeAddrOpt
       let bbl = LowUIRBasicBlock.CreateAbstract (calleePPoint, abs)
-      let v, g = ctx.CFG.AddVertex bbl
-      ctx.CFG <- g
+      let v = ctx.CFG.AddVertex bbl
       ctx.Vertices[calleePPoint] <- v
       markVertexAsPendingForAnalysis useSSA ctx v
       v
@@ -132,7 +131,7 @@ type CFGRecovery<'FnCtx,
         ctx.CFG.GetPredEdges v
         |> Array.filter (fun e -> e.First.VData.Internals.PPoint <> ppoint)
       let succs = ctx.CFG.GetSuccEdges v
-      ctx.CFG <- ctx.CFG.RemoveVertex v
+      ctx.CFG.RemoveVertex v
       ctx.Vertices.Remove ppoint |> ignore
       markVertexAsRemovalForAnalysis useSSA ctx v
       preds, succs
@@ -140,7 +139,7 @@ type CFGRecovery<'FnCtx,
       [||], [||]
 
   let connectEdge ctx srcVertex dstVertex edgeKind =
-    ctx.CFG <- ctx.CFG.AddEdge (srcVertex, dstVertex, edgeKind)
+    ctx.CFG.AddEdge (srcVertex, dstVertex, edgeKind)
     markVertexAsPendingForAnalysis useSSA ctx dstVertex
 #if CFGDEBUG
     let edgeStr = CFGEdgeKind.toString edgeKind

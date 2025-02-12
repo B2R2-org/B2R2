@@ -26,7 +26,6 @@ namespace B2R2.MiddleEnd.ControlFlowAnalysis
 
 open System.Collections.Generic
 open B2R2
-open B2R2.MiddleEnd.ControlFlowGraph
 
 /// The interface for building a function.
 type ICFGBuildable<'FnCtx,
@@ -97,7 +96,7 @@ type ICFGBuildable<'FnCtx,
   abstract Build: ICFGBuildingStrategy<'FnCtx, 'GlCtx> -> CFGResult
 
   /// Reset the current state in order to rebuild the function from scratch.
-  abstract Reset: LowUIRCFG.IConstructable -> unit
+  abstract Reset: unit -> unit
 
   /// Make a new builder with a new agent by copying the current one.
   abstract MakeNew:

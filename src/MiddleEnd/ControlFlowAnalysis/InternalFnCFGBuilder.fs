@@ -110,17 +110,16 @@ type InternalFnCFGBuilder<'FnCtx,
        instrs,
        entryPoint,
        mode,
-       cfgConstructor: LowUIRCFG.IConstructable,
        manager) =
     let name =
       match hdl.File.TryFindFunctionName entryPoint with
       | Ok name -> name
       | Error _ -> Addr.toFuncName entryPoint
-    let cfg = cfgConstructor.Construct Imperative
+    let cfg = LowUIRCFG Imperative
     let bblFactory = BBLFactory (hdl, instrs)
     let fnCtx = new 'FnCtx ()
     let cp = ConstantPropagation hdl :> IDataFlowAnalysis<_, _, _, _>
-    let cpState = cp.InitializeState cfg.Vertices
+    let cpState = cp.InitializeState (cfg :> IGraph<_, _>).Vertices
     let ctx =
       { FunctionAddress = entryPoint
         FunctionName = name
@@ -196,11 +195,10 @@ type InternalFnCFGBuilder<'FnCtx,
       ctx.ActionQueue.Push strategy.ActionPrioritizer InitiateCFG
       build strategy ctx.ActionQueue
 
-    member __.Reset (cfgConstructor: LowUIRCFG.IConstructable) =
+    member __.Reset () =
       state <- Initialized
       delayedBuilderRequests.Clear ()
-      cfgConstructor.Construct Imperative
-      |> ctx.Reset
+      ctx.Reset ()
 
     member __.MakeNew (manager) =
       InternalFnCFGBuilder (ctx, nextFnAddr, manager)

@@ -33,7 +33,7 @@ type private SSAStmtLocation = VertexID * int
 
 /// SSA edges in a CFG.
 [<AllowNullLiteral>]
-type SSAEdges (ssaCFG: SSACFG) =
+type SSAEdges (ssaCFG: IGraph<SSABasicBlock, CFGEdgeKind>) =
   let uses = Dictionary<SSA.Variable, Set<SSAStmtLocation>> ()
   let defs = Dictionary<SSA.Variable, SSA.Stmt> ()
 
@@ -84,8 +84,8 @@ type SSAEdges (ssaCFG: SSACFG) =
 
   /// Compute SSA edge map (SSA Var -> a set of (VertexID, Stmt idx)). From a
   /// given ssa var, this function returns a set of SSA-edge destination.
-  let compute (ssaCFG: SSACFG) =
-    ssaCFG.IterVertex (fun (v: IVertex<SSABasicBlock>) ->
+  let compute (ssaCFG: IGraph<SSABasicBlock, _>) =
+    ssaCFG.IterVertex (fun v ->
       let vid = v.ID
       for idx = 0 to v.VData.Internals.Statements.Length - 1 do
         let stmt = snd v.VData.Internals.Statements[idx]
