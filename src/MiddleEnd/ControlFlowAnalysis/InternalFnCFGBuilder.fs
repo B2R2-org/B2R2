@@ -119,7 +119,7 @@ type InternalFnCFGBuilder<'FnCtx,
     let bblFactory = BBLFactory (hdl, instrs)
     let fnCtx = new 'FnCtx ()
     let cp = ConstantPropagation hdl :> IDataFlowAnalysis<_, _, _, _>
-    let cpState = cp.InitializeState (cfg :> IGraph<_, _>).Vertices
+    let cpState = cp.InitializeState cfg.Vertices
     let ctx =
       { FunctionAddress = entryPoint
         FunctionName = name

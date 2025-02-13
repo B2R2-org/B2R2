@@ -157,7 +157,7 @@ type CondAwareNoretAnalysis ([<Optional; DefaultParameterValue(true)>] strict) =
       Some nth
 
   let findSSAVertexByAddr (ssa: SSACFG) addr =
-    ssa.FindVertexBy (fun v ->
+    ssa.FindVertex (fun v ->
       if v.VData.Internals.IsAbstract then false
       else v.VData.Internals.Range.IsIncluding addr)
 

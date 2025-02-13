@@ -85,8 +85,7 @@ type CFGRecovery<'FnCtx,
       match ctx.JumpTableRecoveryStatus.TryPeek () with
       | true, status -> bbl.DominatingJumpTableEntry <- Some status
       | false, _ -> ()
-      let v, g = ctx.CFG.AddVertex bbl
-      ctx.CFG <- g
+      let v = ctx.CFG.AddVertex bbl
       ctx.Vertices[ppoint] <- v
       markVertexAsPendingForAnalysis useSSA ctx v
       v
@@ -97,8 +96,7 @@ type CFGRecovery<'FnCtx,
     | false, _ ->
       match ctx.BBLFactory.TryFind ppoint with
       | Ok bbl ->
-        let v, g = ctx.CFG.AddVertex bbl
-        ctx.CFG <- g
+        let v = ctx.CFG.AddVertex bbl
         ctx.Vertices[ppoint] <- v
         markVertexAsPendingForAnalysis useSSA ctx v
         Ok v
@@ -604,7 +602,7 @@ type CFGRecovery<'FnCtx,
       Utils.impossible ()
 
   let hasReturnNode (ctx: CFGBuildingContext<'FnCtx, 'GlCtx>) =
-    ctx.CFG.TryFindVertexBy (fun v ->
+    ctx.CFG.TryFindVertex (fun v ->
       if v.VData.Internals.IsAbstract then
         v.VData.Internals.AbstractContent.ReturningStatus = NotNoRet
       else v.VData.Internals.LastInstruction.IsRET ())

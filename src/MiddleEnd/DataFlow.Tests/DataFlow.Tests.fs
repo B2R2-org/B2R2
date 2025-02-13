@@ -98,7 +98,7 @@ type PersistentDataFlowTests () =
     let dfa = ReachingDefinitionAnalysis () :> IDataFlowAnalysis<_, _, _, _>
     let state = dfa.InitializeState []
     let state = dfa.Compute cfg state
-    let v = cfg.FindVertexBy (fun b -> b.VData.Internals.PPoint.Address = 0xEUL)
+    let v = cfg.FindVertex (fun b -> b.VData.Internals.PPoint.Address = 0xEUL)
     let rd = (state :> IDataFlowState<_, _>).GetAbsValue v.ID (* 2nd vertex *)
     let ins = rd.Ins |> Set.filter isRegular
     let solution =

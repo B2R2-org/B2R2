@@ -96,7 +96,7 @@ module DataFlowChain =
 
   let private initUDChain cfg (st: IDataFlowState<_, _>) =
     Map.empty
-    |> (cfg: IGraph<_, _>).FoldVertex (fun map (v: IVertex<LowUIRBasicBlock>) ->
+    |> (cfg: IReadOnlyGraph<LowUIRBasicBlock, _>).FoldVertex (fun map v ->
       v.VData.Internals.LiftedInstructions
       |> Array.fold (fun map lifted ->
         lifted.Stmts

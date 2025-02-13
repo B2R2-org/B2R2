@@ -359,7 +359,7 @@ let dominatorTree ctxt =
   let g = ctxt.ForwardGraph
   let info = ctxt.ForwardDomInfo
   let tree = computeDomTree g info
-  let tree = Array.sub tree 1 (Array.length tree - 1) // Remove a dummy node
+  let tree = Array.sub tree 1 (Array.length tree - 1) (* Remove a dummy node *)
   let root = info.Vertex[1]
   let tree =
     Array.mapi (fun dfNum vs -> dfNum, vs) tree

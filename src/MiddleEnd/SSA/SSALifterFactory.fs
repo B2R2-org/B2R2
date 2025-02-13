@@ -108,7 +108,7 @@ module private SSALifterFactory =
       avMap.Add (key, v)
       v
 
-  let convertToSSA stmtProcessor (cfg: IGraph<_, _>) (ssaCFG: SSACFG) =
+  let convertToSSA stmtProcessor (cfg: LowUIRCFG) (ssaCFG: SSACFG) =
     let vMap = SSAVMap ()
     let avMap = AbstractVMap ()
     getVertex stmtProcessor vMap ssaCFG cfg.SingleRoot |> ignore
@@ -382,7 +382,7 @@ module private SSALifterFactory =
   let create hdl stmtProcessor callback =
     { new ISSALiftable with
         member _.Lift cfg =
-          let ssaCFG = SSACFG (cfg: IGraph<_, _>).ImplementationType
+          let ssaCFG = SSACFG cfg.ImplementationType
           convertToSSA stmtProcessor cfg ssaCFG
           updatePhis ssaCFG
           ssaCFG.IterVertex (fun v -> v.VData.Internals.UpdatePPoints ())

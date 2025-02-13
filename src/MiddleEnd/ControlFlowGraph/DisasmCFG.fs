@@ -53,18 +53,18 @@ type DisasmCFG (ircfg: LowUIRCFG) =
   /// (3) otherwise (not mergable)
   /// Note that the second case can happen when it has multiple incoming edges
   /// from intra nodes.
-  let isMergableWithPredecessors (g: IGraph<_, _>) v =
+  let isMergableWithPredecessors (g: LowUIRCFG) v =
     g.GetPreds v
     |> Array.filter (not << hasSameAddress v)
     |> Array.distinctBy (fun v -> (v.VData :> IAddressable).PPoint.Address)
     |> Array.tryExactlyOne
     |> Option.isSome
 
-  let hasManyOutgoingEdges (g: IGraph<_, _>) v =
+  let hasManyOutgoingEdges (g: LowUIRCFG) v =
     let cnt = g.GetSuccs v |> Array.length
     cnt > 1
 
-  let getNeighbors (g: IGraph<_, _>) v =
+  let getNeighbors (g: LowUIRCFG) v =
     let preds = g.GetPreds v
     let succs = g.GetSuccs v
     Seq.append preds succs
@@ -197,8 +197,7 @@ type DisasmCFG (ircfg: LowUIRCFG) =
     | Persistent -> PersistentDiGraph () :> IGraph<_, _>
 
   let createDisasmCFG vMap =
-    let implType = (ircfg :> IGraph<_, _>).ImplementationType
-    createEmptyDisasmCFGByType implType
+    createEmptyDisasmCFGByType ircfg.ImplementationType
     |> addDisasmCFGVertices vMap
     |> addDisasmCFGEdges vMap
 
@@ -269,8 +268,7 @@ type DisasmCFG (ircfg: LowUIRCFG) =
   /// Iterate over the edges of this CFG with the given function.
   member _.IterEdge fn = g.IterEdge fn
 
-  interface IGraph<DisasmBasicBlock, CFGEdgeKind> with
-    member _.IsEmpty () = g.IsEmpty ()
+  interface IReadOnlyGraph<DisasmBasicBlock, CFGEdgeKind> with
     member _.Size = g.Size
     member _.Vertices = g.Vertices
     member _.Edges = g.Edges
@@ -278,10 +276,7 @@ type DisasmCFG (ircfg: LowUIRCFG) =
     member _.Exits = g.Exits
     member _.SingleRoot = g.SingleRoot
     member _.ImplementationType = g.ImplementationType
-    member _.AddVertex data = g.AddVertex data
-    member _.AddVertex (data, vid) = g.AddVertex (data, vid)
-    member _.AddVertex () = g.AddVertex ()
-    member _.RemoveVertex v = g.RemoveVertex v
+    member _.IsEmpty () = g.IsEmpty ()
     member _.HasVertex vid = g.HasVertex vid
     member _.FindVertexByID vid = g.FindVertexByID vid
     member _.TryFindVertexByID vid = g.TryFindVertexByID vid
@@ -289,10 +284,6 @@ type DisasmCFG (ircfg: LowUIRCFG) =
     member _.TryFindVertexByData vdata = g.TryFindVertexByData vdata
     member _.FindVertexBy fn = g.FindVertexBy fn
     member _.TryFindVertexBy fn = g.TryFindVertexBy fn
-    member _.AddEdge (src, dst) = g.AddEdge (src, dst)
-    member _.AddEdge (src, dst, label) = g.AddEdge (src, dst, label)
-    member _.RemoveEdge (src, dst) = g.RemoveEdge (src, dst)
-    member _.RemoveEdge edge = g.RemoveEdge edge
     member _.FindEdge (src, dst) = g.FindEdge (src, dst)
     member _.TryFindEdge (src, dst) = g.TryFindEdge (src, dst)
     member _.GetPreds v = g.GetPreds v
@@ -300,8 +291,6 @@ type DisasmCFG (ircfg: LowUIRCFG) =
     member _.GetSuccs v = g.GetSuccs v
     member _.GetSuccEdges v = g.GetSuccEdges v
     member _.GetRoots () = g.GetRoots ()
-    member _.AddRoot v = g.AddRoot v
-    member _.SetRoot v = g.SetRoot v
     member _.FoldVertex fn acc = g.FoldVertex fn acc
     member _.IterVertex fn = g.IterVertex fn
     member _.FoldEdge fn acc = g.FoldEdge fn acc

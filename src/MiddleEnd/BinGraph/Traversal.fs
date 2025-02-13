@@ -30,7 +30,7 @@ let rec private prependReverseTo lst (arr: _[]) idx =
   if idx >= 0 then prependReverseTo (arr[idx] :: lst) arr (idx - 1)
   else lst
 
-let private prependSuccessors (g: IGraph<_, _>) lst v =
+let private prependSuccessors (g: IReadOnlyGraph<_, _>) lst v =
   let succs = g.GetSuccs v
   prependReverseTo lst succs (succs.Length - 1)
 

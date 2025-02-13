@@ -75,16 +75,8 @@ type SSACFG private (g: IGraph<SSABasicBlock, CFGEdgeKind>) =
   /// Is this empty? A CFG is empty when there is no vertex.
   member _.IsEmpty () = g.IsEmpty ()
 
-  /// Add a vertex to the graph using a data value, and return the added vertex.
-  member _.AddVertex data = g.AddVertex data |> addVertex
-
-  /// Add a vertex to this CFG using a data value and a vertex ID, and return
-  /// the added vertex. This function assumes that the vertex ID is unique in
-  /// the graph, thus it needs to be used with caution.
-  member _.AddVertex (data, vid) = g.AddVertex (data, vid) |> addVertex
-
-  /// Add a dummy vertex to this CFG without any data attached to it.
-  member _.AddVertex () = g.AddVertex () |> addVertex
+  /// Add a vertex containing this BBL to this CFG, and return the added vertex.
+  member _.AddVertex bbl = g.AddVertex bbl |> addVertex
 
   /// Remove the given vertex from this CFG.
   member _.RemoveVertex v = g.RemoveVertex v |> update
@@ -94,25 +86,18 @@ type SSACFG private (g: IGraph<SSABasicBlock, CFGEdgeKind>) =
 
   /// Find a vertex by its VertexID. This function raises an exception when
   /// there is no such a vertex.
-  member _.FindVertexByID vid = g.FindVertexByID vid
+  member _.FindVertex vid = g.FindVertexByID vid
 
   /// Find a vertex by its VertexID. This function returns an Option type.
   /// If there is no such a vertex, it returns None.
-  member _.TryFindVertexByID vid = g.TryFindVertexByID vid
-
-  /// Find a vertex that has the given data value from this CFG.
-  member _.FindVertexByData vdata = g.FindVertexByData vdata
-
-  /// Find a vertex that has the given VertexData from this CFG. This function
-  /// returns an Option type. If there is no such a vertex, it returns None.
-  member _.TryFindVertexByData vdata = g.TryFindVertexByData vdata
+  member _.TryFindVertex vid = g.TryFindVertexByID vid
 
   /// Find a vertex that satisfies the given predicate function.
-  member _.FindVertexBy fn = g.FindVertexBy fn
+  member _.FindVertex fn = g.FindVertexBy fn
 
   /// Find a vertex that satisfies the given predicate function. This function
   /// returns an Option type. If there is no such a vertex, it returns None.
-  member _.TryFindVertexBy fn = g.TryFindVertexBy fn
+  member _.TryFindVertex fn = g.TryFindVertexBy fn
 
   /// Add an edge between the given source and destination vertices.
   member _.AddEdge (src, dst) = g.AddEdge (src, dst) |> update
@@ -204,8 +189,7 @@ type SSACFG private (g: IGraph<SSABasicBlock, CFGEdgeKind>) =
       __.FindDef idom targetVarKind
     | None -> None
 
-  interface IGraph<SSABasicBlock, CFGEdgeKind> with
-    member _.IsEmpty () = g.IsEmpty ()
+  interface IReadOnlyGraph<SSABasicBlock, CFGEdgeKind> with
     member _.Size = g.Size
     member _.Vertices = g.Vertices
     member _.Edges = g.Edges
@@ -213,10 +197,7 @@ type SSACFG private (g: IGraph<SSABasicBlock, CFGEdgeKind>) =
     member _.Exits = g.Exits
     member _.SingleRoot = g.SingleRoot
     member _.ImplementationType = g.ImplementationType
-    member _.AddVertex data = g.AddVertex data
-    member _.AddVertex (data, vid) = g.AddVertex (data, vid)
-    member _.AddVertex () = g.AddVertex ()
-    member _.RemoveVertex v = g.RemoveVertex v
+    member _.IsEmpty () = g.IsEmpty ()
     member _.HasVertex vid = g.HasVertex vid
     member _.FindVertexByID vid = g.FindVertexByID vid
     member _.TryFindVertexByID vid = g.TryFindVertexByID vid
@@ -224,10 +205,6 @@ type SSACFG private (g: IGraph<SSABasicBlock, CFGEdgeKind>) =
     member _.TryFindVertexByData vdata = g.TryFindVertexByData vdata
     member _.FindVertexBy fn = g.FindVertexBy fn
     member _.TryFindVertexBy fn = g.TryFindVertexBy fn
-    member _.AddEdge (src, dst) = g.AddEdge (src, dst)
-    member _.AddEdge (src, dst, label) = g.AddEdge (src, dst, label)
-    member _.RemoveEdge (src, dst) = g.RemoveEdge (src, dst)
-    member _.RemoveEdge edge = g.RemoveEdge edge
     member _.FindEdge (src, dst) = g.FindEdge (src, dst)
     member _.TryFindEdge (src, dst) = g.TryFindEdge (src, dst)
     member _.GetPreds v = g.GetPreds v
@@ -235,8 +212,6 @@ type SSACFG private (g: IGraph<SSABasicBlock, CFGEdgeKind>) =
     member _.GetSuccs v = g.GetSuccs v
     member _.GetSuccEdges v = g.GetSuccEdges v
     member _.GetRoots () = g.GetRoots ()
-    member _.AddRoot v = g.AddRoot v
-    member _.SetRoot v = g.SetRoot v
     member _.FoldVertex fn acc = g.FoldVertex fn acc
     member _.IterVertex fn = g.IterVertex fn
     member _.FoldEdge fn acc = g.FoldEdge fn acc
@@ -245,3 +220,18 @@ type SSACFG private (g: IGraph<SSABasicBlock, CFGEdgeKind>) =
     member _.Reverse () = g.Reverse ()
     member _.Clone () = g.Clone ()
     member _.ToDOTStr (name, vFn, eFn) = g.ToDOTStr (name, vFn, eFn)
+
+  interface IGraph<SSABasicBlock, CFGEdgeKind> with
+    member _.AddVertex data = g.AddVertex data
+    member _.AddVertex (data, vid) = g.AddVertex (data, vid)
+    member _.AddVertex () = g.AddVertex ()
+    member _.RemoveVertex v = g.RemoveVertex v
+    member _.AddEdge (src, dst) = g.AddEdge (src, dst)
+    member _.AddEdge (src, dst, label) = g.AddEdge (src, dst, label)
+    member _.RemoveEdge (src, dst) = g.RemoveEdge (src, dst)
+    member _.RemoveEdge edge = g.RemoveEdge edge
+    member _.AddRoot v = g.AddRoot v
+    member _.SetRoot v = g.SetRoot v
+    member _.SubGraph vs = g.SubGraph vs
+    member _.Reverse () = g.Reverse ()
+    member _.Clone () = g.Clone ()
