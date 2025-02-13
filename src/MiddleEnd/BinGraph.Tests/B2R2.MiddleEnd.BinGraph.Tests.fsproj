@@ -5,10 +5,11 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="SCC.Tests.fs" />
-    <Compile Include="ImperativeGraph.Tests.fs" />
-    <Compile Include="PersistentGraph.Tests.fs" />
-    <Compile Include="Loop.Tests.fs" />
+    <Compile Include="Examples.fs" />
+    <Compile Include="SCC.fs" />
+    <Compile Include="Basic.fs" />
+    <Compile Include="Dominator.fs" />
+    <Compile Include="Loop.fs" />
   </ItemGroup>
 
   <ItemGroup>
