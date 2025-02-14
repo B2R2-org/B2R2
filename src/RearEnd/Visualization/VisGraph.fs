@@ -38,7 +38,7 @@ module VisGraph =
   let ofCFG g roots =
     let newGraph = init ()
     let visited = Dictionary<VertexID, IVertex<VisBBlock>> ()
-    (g: IGraph<_, _>).IterVertex (fun v ->
+    (g: IReadOnlyGraph<_, _>).IterVertex (fun v ->
       if visited.ContainsKey v.ID then ()
       else
         let blk = VisBBlock (v.VData, false)
@@ -46,7 +46,7 @@ module VisGraph =
         visited[v.ID] <- v'
     )
     let roots = roots |> List.map (fun (root: IVertex<_>) -> visited[root.ID])
-    (g: IGraph<_, _>).IterEdge (fun e ->
+    (g: IReadOnlyGraph<_, _>).IterEdge (fun e ->
       let srcV = visited[e.First.ID]
       let dstV = visited[e.Second.ID]
       let edge = VisEdge e.Label

@@ -89,9 +89,10 @@ type CFGBuildingContext<'FnCtx,
 }
 with
   /// Reset the context to its initial state.
-  member __.Reset cfg =
+  member __.Reset () =
     __.Vertices.Clear ()
-    __.CFG <- cfg
+    __.CallerVertices.Clear ()
+    __.CFG <- LowUIRCFG __.CFG.ImplementationType
     if isNull __.CPState then () else __.CPState.Reset ()
     (* N.B. We should keep the value of `NonReturningStatus` (i.e., leave the
        below line commented out) because we should be able to compare the
@@ -107,6 +108,15 @@ with
     __.CallerVertices.Clear ()
     __.UnwindingBytes <- 0
     __.UserContext.Reset ()
+
+  /// Scan basic blocks starting from the given entry points. This function
+  /// returns a sequence of divided edges created by discovering new basic
+  /// blocks. By discovering new basic blocks, existing blocks can be divided
+  /// into multiple blocks.
+  member __.ScanBBLs mode entryPoints =
+    __.BBLFactory.ScanBBLs (mode, entryPoints)
+    |> Async.AwaitTask
+    |> Async.RunSynchronously
 
   member private __.UpdateDictionary (dict: Dictionary<_, _>) k v delta =
     match dict.TryGetValue k with
@@ -180,6 +190,44 @@ with
       | Some nextFnAddr ->
         __.FindFunctionOverlap lst nextFnAddr (lst.Count - 1) null
       | None -> None
+
+  member private __.AddOrIgnore acc gapStart gapEnd =
+    match __.ScanBBLs __.FunctionMode [ gapStart ] with
+    | Ok _dividedEdges ->
+      let bbl = __.BBLFactory.Find <| ProgramPoint (gapStart, 0)
+      if bbl.Internals.Range.Max > gapEnd then acc
+      else (AddrRange (gapStart, gapEnd)) :: acc
+    | Error _ -> acc
+
+  [<TailCall>]
+  member private __.FindGap acc fnEnd gapAddr ranges =
+    match ranges with
+    | [] ->
+      if gapAddr < fnEnd then __.AddOrIgnore acc gapAddr fnEnd
+      else acc
+    | (range: AddrRange) :: tl ->
+      if gapAddr < range.Min then
+        let acc = __.AddOrIgnore acc gapAddr (range.Min - 1UL)
+        __.FindGap acc fnEnd (range.Max + 1UL) tl
+      elif gapAddr >= range.Min && gapAddr <= range.Max then
+        __.FindGap acc fnEnd (range.Max + 1UL) tl
+      else acc
+
+  /// Find a gap between the current function and the next function. This
+  /// function finds every gap between the current function and the next
+  /// function. If there are multiple gaps, return all of them.
+  member __.AnalyzeGap (nextFnAddrOpt) =
+    match nextFnAddrOpt with
+    | Some nextFnAddr ->
+      let endAddr = nextFnAddr - 1UL
+      __.CFG.Vertices
+      |> Array.fold (fun acc v ->
+        if v.VData.Internals.IsAbstract then acc
+        else v.VData.Internals.Range :: acc) []
+      |> List.sortBy (fun r -> r.Min)
+      |> __.FindGap [] endAddr __.FunctionAddress
+      |> List.rev
+    | None -> []
 
 /// Call edge from its callsite address to the callee's address. This is to
 /// uniquely identify call edges for abstracted vertices. We create an abstract

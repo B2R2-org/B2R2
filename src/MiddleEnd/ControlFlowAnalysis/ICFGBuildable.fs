@@ -26,7 +26,6 @@ namespace B2R2.MiddleEnd.ControlFlowAnalysis
 
 open System.Collections.Generic
 open B2R2
-open B2R2.MiddleEnd.ControlFlowGraph
 
 /// The interface for building a function.
 type ICFGBuildable<'FnCtx,
@@ -97,7 +96,7 @@ type ICFGBuildable<'FnCtx,
   abstract Build: ICFGBuildingStrategy<'FnCtx, 'GlCtx> -> CFGResult
 
   /// Reset the current state in order to rebuild the function from scratch.
-  abstract Reset: LowUIRCFG.IConstructable -> unit
+  abstract Reset: unit -> unit
 
   /// Make a new builder with a new agent by copying the current one.
   abstract MakeNew:
@@ -137,6 +136,9 @@ and ICFGBuildingStrategy<'FnCtx,
                                  and 'GlCtx: (new: unit -> 'GlCtx)> =
   /// Return the prioritizer to use for the CFG actions.
   abstract ActionPrioritizer: IPrioritizable
+
+  /// Whether to allow basic block overlap or not while building a CFG.
+  abstract AllowBBLOverlap: bool
 
   /// This is a callback that is called when a recovery mission starts. It finds
   /// a list of candidate functions to analyze based on the given list of

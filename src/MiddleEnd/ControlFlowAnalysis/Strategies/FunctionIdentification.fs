@@ -65,6 +65,8 @@ type FunctionIdentification<'FnCtx,
     member __.ActionPrioritizer with get() =
       { new IPrioritizable with member _.GetPriority _ = 0 }
 
+    member __.AllowBBLOverlap with get() = false
+
     member __.FindCandidates (_builders) =
       getInitialEntryPoints ()
 

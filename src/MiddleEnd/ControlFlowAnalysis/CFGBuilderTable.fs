@@ -33,7 +33,7 @@ type CFGBuilderTable<'FnCtx,
                      'GlCtx when 'FnCtx :> IResettable
                              and 'FnCtx: (new: unit -> 'FnCtx)
                              and 'GlCtx: (new: unit -> 'GlCtx)>
-  public (hdl, exnInfo, instrs, cfgConstructor) =
+  public (hdl, exnInfo, instrs) =
 
   let builders =
     SortedList<Addr, ICFGBuildable<'FnCtx, 'GlCtx>> ()
@@ -63,7 +63,6 @@ type CFGBuilderTable<'FnCtx,
                               instrs,
                               addr,
                               mode,
-                              cfgConstructor,
                               managerMsgbox) :> ICFGBuildable<'FnCtx, 'GlCtx>
       builders[addr] <- builder
       updateNextFunctionAddrs builder addr
@@ -81,7 +80,7 @@ type CFGBuilderTable<'FnCtx,
         let builder = getOrCreateInternalBuilder null fnAddr mode
         builders[range.Min] <- builder
       | Error _ ->
-        let addr, name = entry.TableAddress, entry.FuncName
+        let addr, name = entry.TrampolineAddress, entry.FuncName
         let isNoRet = ELF.getNoReturnStatusFromKnownFunc name
         let builder = ExternalFnCFGBuilder (hdl, exnInfo, addr, name, isNoRet)
         builders[range.Min] <- builder
@@ -108,9 +107,6 @@ type CFGBuilderTable<'FnCtx,
 
   /// Retrieve all function builders.
   member _.Values with get() = builders.Values |> Seq.toArray
-
-  /// Get the CFG constructor associated with this table.
-  member _.CFGConstructor with get() = cfgConstructor
 
   /// Return the current termination status of all function builders.
   member _.GetTerminationStatus () =

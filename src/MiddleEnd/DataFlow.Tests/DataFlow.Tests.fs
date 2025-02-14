@@ -98,7 +98,7 @@ type PersistentDataFlowTests () =
     let dfa = ReachingDefinitionAnalysis () :> IDataFlowAnalysis<_, _, _, _>
     let state = dfa.InitializeState []
     let state = dfa.Compute cfg state
-    let v = cfg.FindVertexBy (fun b -> b.VData.Internals.PPoint.Address = 0xEUL)
+    let v = cfg.FindVertex (fun b -> b.VData.Internals.PPoint.Address = 0xEUL)
     let rd = (state :> IDataFlowState<_, _>).GetAbsValue v.ID (* 2nd vertex *)
     let ins = rd.Ins |> Set.filter isRegular
     let solution =
@@ -210,7 +210,7 @@ type PersistentDataFlowTests () =
   member __.``Untouched Value Analysis 1``() =
     let brew = Binaries.loadOne Binaries.sample3
     let cfg = brew.Functions[0UL].CFG
-    let roots = cfg.GetRoots ()
+    let roots = cfg.Roots
     let uva = UntouchedValueAnalysis brew.BinHandle
     let dfa = uva :> IDataFlowAnalysis<_, _, _, _>
     let state = dfa.InitializeState roots

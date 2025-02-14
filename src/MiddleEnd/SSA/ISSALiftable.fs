@@ -29,4 +29,4 @@ open B2R2.MiddleEnd.ControlFlowGraph
 /// The interface for lifting an IRCFG to an SSACFG.
 type ISSALiftable =
   /// Lift the given IRCFG to SSACFG.
-  abstract Lift: cfg: LowUIRCFG -> SSACFG
+  abstract Lift: LowUIRCFG -> SSACFG

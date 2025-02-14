@@ -129,10 +129,10 @@ type CondAwareNoretAnalysis ([<Optional; DefaultParameterValue(true)>] strict) =
       | NotNoRet | UnknownNoRet -> None
       | NoRet -> Utils.impossible ())
 
-  let untouchedArgIndexX86FromSSACFG frameDist absV state nth =
+  let untouchedArgIndexX86FromSSACFG (ssa: SSACFG) frameDist absV state nth =
     let argOff = frameDist - 4 * nth
     let varKind = SSA.StackVar (32<rt>, argOff)
-    SSACFG.findReachingDef absV varKind
+    ssa.FindReachingDef absV varKind
     |> Option.bind (function
       | SSA.Def (var, _) ->
         match (state: SSAVarBasedDataFlowState<_>).GetRegValue var with
@@ -141,11 +141,11 @@ type CondAwareNoretAnalysis ([<Optional; DefaultParameterValue(true)>] strict) =
         | _ -> None
       | _ -> None)
 
-  let untouchedArgIndexX64FromSSACFG hdl absV state nth =
+  let untouchedArgIndexX64FromSSACFG hdl (ssa: SSACFG) absV state nth =
     let argReg = CallingConvention.functionArgRegister hdl OS.Linux nth
     let name = hdl.RegisterFactory.RegIDToString argReg
     let varKind = SSA.RegVar (64<rt>, argReg, name)
-    match SSACFG.findReachingDef absV varKind with
+    match ssa.FindReachingDef absV varKind with
     | Some (SSA.Def (var, _)) ->
       match (state: SSAVarBasedDataFlowState<_>).GetRegValue var with
       | UntouchedValueDomain.Untouched (RegisterTag (Regular rid)) ->
@@ -156,16 +156,21 @@ type CondAwareNoretAnalysis ([<Optional; DefaultParameterValue(true)>] strict) =
          untouched, thus conditional no return. *)
       Some nth
 
-  let tryGetConnectedArgumentFromSSACFG ctx ssa state pp nth =
+  let findSSAVertexByAddr (ssa: SSACFG) addr =
+    ssa.FindVertex (fun v ->
+      if v.VData.Internals.IsAbstract then false
+      else v.VData.Internals.Range.IsIncluding addr)
+
+  let tryGetConnectedArgumentFromSSACFG ctx (ssa: SSACFG) state pp nth =
     let callSite = (pp: ProgramPoint).CallSite |> Option.get
-    let callerSSAV = SSACFG.findVertexByAddr ssa callSite
+    let callerSSAV = findSSAVertexByAddr ssa callSite
     let absSSAV = ssa.GetSuccs callerSSAV |> Seq.exactlyOne
     let arch = (ctx: CFGBuildingContext<_, _>).BinHandle.File.ISA.Arch
     match ctx.IntraCallTable.TryGetFrameDistance callSite with
     | true, frameDist when arch = Architecture.IntelX86 ->
-      untouchedArgIndexX86FromSSACFG frameDist absSSAV state nth
+      untouchedArgIndexX86FromSSACFG ssa frameDist absSSAV state nth
     | true, _ when arch = Architecture.IntelX64 ->
-      untouchedArgIndexX64FromSSACFG ctx.BinHandle absSSAV state nth
+      untouchedArgIndexX64FromSSACFG ctx.BinHandle ssa absSSAV state nth
     | _ -> None
 
   let collectConditionalNoRetCallsFromSSACFG ctx ssaCFG =

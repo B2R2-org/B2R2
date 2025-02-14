@@ -55,7 +55,8 @@ type CFGRecovery<'FnCtx,
           syscallAnalysis: ISyscallAnalyzable,
           postAnalysis: ICFGAnalysis<_>,
           useTailcallHeuristic,
-          useSSA) =
+          useSSA,
+          allowBBLOverlap) =
 
   let prioritizer =
     { new IPrioritizable with
@@ -73,10 +74,8 @@ type CFGRecovery<'FnCtx,
           | StartTblRec _ -> 0
           | EndTblRec _ -> 0 }
 
-  let scanBBLs ctx mode entryPoints =
-    ctx.BBLFactory.ScanBBLs mode entryPoints
-    |> Async.AwaitTask
-    |> Async.RunSynchronously
+  let scanBBLs (ctx: CFGBuildingContext<_, _>) mode entryPoints =
+    ctx.ScanBBLs mode entryPoints
 
   let getVertex ctx ppoint =
     match ctx.Vertices.TryGetValue ppoint with
@@ -86,8 +85,7 @@ type CFGRecovery<'FnCtx,
       match ctx.JumpTableRecoveryStatus.TryPeek () with
       | true, status -> bbl.DominatingJumpTableEntry <- Some status
       | false, _ -> ()
-      let v, g = ctx.CFG.AddVertex bbl
-      ctx.CFG <- g
+      let v = ctx.CFG.AddVertex bbl
       ctx.Vertices[ppoint] <- v
       markVertexAsPendingForAnalysis useSSA ctx v
       v
@@ -98,8 +96,7 @@ type CFGRecovery<'FnCtx,
     | false, _ ->
       match ctx.BBLFactory.TryFind ppoint with
       | Ok bbl ->
-        let v, g = ctx.CFG.AddVertex bbl
-        ctx.CFG <- g
+        let v = ctx.CFG.AddVertex bbl
         ctx.Vertices[ppoint] <- v
         markVertexAsPendingForAnalysis useSSA ctx v
         Ok v
@@ -117,8 +114,7 @@ type CFGRecovery<'FnCtx,
     | false, _ ->
       let calleePPoint = getCalleePPoint callsiteAddr calleeAddrOpt
       let bbl = LowUIRBasicBlock.CreateAbstract (calleePPoint, abs)
-      let v, g = ctx.CFG.AddVertex bbl
-      ctx.CFG <- g
+      let v = ctx.CFG.AddVertex bbl
       ctx.Vertices[calleePPoint] <- v
       markVertexAsPendingForAnalysis useSSA ctx v
       v
@@ -133,7 +129,7 @@ type CFGRecovery<'FnCtx,
         ctx.CFG.GetPredEdges v
         |> Array.filter (fun e -> e.First.VData.Internals.PPoint <> ppoint)
       let succs = ctx.CFG.GetSuccEdges v
-      ctx.CFG <- ctx.CFG.RemoveVertex v
+      ctx.CFG.RemoveVertex v
       ctx.Vertices.Remove ppoint |> ignore
       markVertexAsRemovalForAnalysis useSSA ctx v
       preds, succs
@@ -141,7 +137,7 @@ type CFGRecovery<'FnCtx,
       [||], [||]
 
   let connectEdge ctx srcVertex dstVertex edgeKind =
-    ctx.CFG <- ctx.CFG.AddEdge (srcVertex, dstVertex, edgeKind)
+    ctx.CFG.AddEdge (srcVertex, dstVertex, edgeKind)
     markVertexAsPendingForAnalysis useSSA ctx dstVertex
 #if CFGDEBUG
     let edgeStr = CFGEdgeKind.toString edgeKind
@@ -478,6 +474,7 @@ type CFGRecovery<'FnCtx,
     let absV = getAbsVertex ctx callSite None abs
     connectEdge ctx caller absV CallEdge
     connectRet ctx queue (absV, callSite + uint64 callIns.Length)
+    |> Result.bind (fun _ -> connectExnEdge ctx queue callIns.Address)
     |> toCFGResult
 
   let connectSyscallEdge ctx queue callsiteAddr isExit =
@@ -605,7 +602,7 @@ type CFGRecovery<'FnCtx,
       Utils.impossible ()
 
   let hasReturnNode (ctx: CFGBuildingContext<'FnCtx, 'GlCtx>) =
-    ctx.CFG.TryFindVertexBy (fun v ->
+    ctx.CFG.TryFindVertex (fun v ->
       if v.VData.Internals.IsAbstract then
         v.VData.Internals.AbstractContent.ReturningStatus = NotNoRet
       else v.VData.Internals.LastInstruction.IsRET ())
@@ -621,7 +618,7 @@ type CFGRecovery<'FnCtx,
     | NoRet, ConditionalNoRet _ -> MoveOnButReloadCallers oldNoRetStatus
     | _ -> MoveOn
 
-  new (useSSA) =
+  new (useSSA, allowBBLOverlap) =
     let summarizer = FunctionSummarizer ()
     let syscallAnalysis = SyscallAnalysis ()
     let jmptblAnalysis, postAnalysis =
@@ -637,10 +634,13 @@ type CFGRecovery<'FnCtx,
                  syscallAnalysis,
                  postAnalysis,
                  true,
-                 useSSA)
+                 useSSA,
+                 allowBBLOverlap)
 
   interface ICFGBuildingStrategy<'FnCtx, 'GlCtx> with
     member __.ActionPrioritizer = prioritizer
+
+    member __.AllowBBLOverlap with get() = allowBBLOverlap
 
     member __.FindCandidates (builders) =
       builders
@@ -791,16 +791,21 @@ type CFGRecovery =
   inherit CFGRecovery<DummyContext, DummyContext>
 
   new () =
-    { inherit CFGRecovery<DummyContext, DummyContext> (false) }
+    { inherit CFGRecovery<DummyContext, DummyContext> (false, false) }
+
+  new (allowBBLOverlap) =
+    { inherit CFGRecovery<DummyContext, DummyContext> (false, allowBBLOverlap) }
 
   new (summarizer,
        jmptblAnalysis,
        syscallAnalysis,
        postAnalysis,
-       useTailcallHeuristic) =
+       useTailcallHeuristic,
+       allowBBLOverlap) =
     { inherit CFGRecovery<DummyContext, DummyContext> (summarizer,
                                                        jmptblAnalysis,
                                                        syscallAnalysis,
                                                        postAnalysis,
                                                        useTailcallHeuristic,
-                                                       false) }
+                                                       false,
+                                                       allowBBLOverlap) }

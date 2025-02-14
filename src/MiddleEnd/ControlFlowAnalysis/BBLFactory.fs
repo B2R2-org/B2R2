@@ -38,17 +38,9 @@ open B2R2.MiddleEnd.ControlFlowGraph
 
 /// Per-function factory for basic blocks. Each BBL is memoized so that we do
 /// not create multiple BBLs for the same address. As this is a per-function
-/// structure, each different function has its own BBLFactory. The third
-/// argument `allowOverlap` controls whether we allow overlapping basic blocks
-/// or not. When `allowOverlap` is false, we split basic blocks whenever we
-/// found an edge that jumps to the middle of an existing basic block. However,
-/// when it is true, we do not split basic blocks and allow overlapping basic
-/// blocks. Overlapping basic blocks could be useful when we analyze EVM
-/// binaries, for instance.
+/// structure, each different function has its own BBLFactory.
 [<AllowNullLiteral>]
-type BBLFactory (hdl: BinHandle,
-                 instrs,
-                 [<Optional; DefaultParameterValue(false)>] allowOverlap) =
+type BBLFactory (hdl: BinHandle, instrs) =
   let interProceduralLeaders = ConcurrentDictionary<Addr, unit> ()
   let bbls = ConcurrentDictionary<ProgramPoint, LowUIRBasicBlock> ()
 
@@ -306,9 +298,6 @@ type BBLFactory (hdl: BinHandle,
   /// Number of BBLs in the factory.
   member __.Count with get() = bbls.Count
 
-  /// Whether the factory allows overlapping BBLs or not.
-  member __.AllowOverlap with get() = allowOverlap
-
   /// Scan all directly reachable intra-procedural BBLs from the given
   /// addresses. This function does not handle indirect branches nor call
   /// instructions. It always assumes that a call instruction will never return
@@ -318,7 +307,11 @@ type BBLFactory (hdl: BinHandle,
   /// this function returns a list of divided edges, which are pairs of BBL
   /// addresses that have been created from a single BBL by splitting it. A BBL
   /// can be divided if there is a new control flow target within the BBL.
-  member __.ScanBBLs mode addrs =
+  /// When the `allowOverlap` argument is true, however, we do not split BBLs
+  /// and allow overlapping BBLs. This is useful when we analyze EVM binaries,
+  /// for instance.
+  member __.ScanBBLs (mode, addrs,
+                      [<Optional; DefaultParameterValue(false)>] allowOverlap) =
     task {
       let channel = BufferBlock<Addr * Instruction list * int> ()
       instrProducer channel mode addrs |> ignore

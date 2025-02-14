@@ -28,8 +28,11 @@ namespace B2R2.MiddleEnd.BinGraph
 type PersistentDiGraph<'V, 'E when 'V: equality
                                and 'E: equality> (roots, vs, preds, succs, id) =
   let vertices = vs
+
   let preds: Map<VertexID, Edge<'V, 'E> list> = preds
+
   let succs: Map<VertexID, Edge<'V, 'E> list> = succs
+
   let id: VertexID = id
 
   let unreachables () =
@@ -39,39 +42,37 @@ type PersistentDiGraph<'V, 'E when 'V: equality
       else acc) []
     |> List.toArray
 
-  new () = PersistentDiGraph ([], Map.empty, Map.empty, Map.empty, 0)
-
-  member private __.RemoveSuccEdge succs (edge: Edge<'V, 'E>) =
+  let removeSuccEdge succs (edge: Edge<'V, 'E>) =
     let isElseThen targetID (edge: Edge<'V, 'E>) = edge.Second.ID <> targetID
     succs
     |> Map.map (fun id succs ->
       if edge.First.ID = id then List.filter (isElseThen edge.Second.ID) succs
       else succs)
 
-  member private __.RemovePredEdge preds (edge: Edge<'V, 'E>) =
+  let removePredEdge preds (edge: Edge<'V, 'E>) =
     let isElseThen targetID (edge: Edge<'V, 'E>) = edge.First.ID <> targetID
     preds
     |> Map.map (fun id preds ->
       if edge.Second.ID = id then List.filter (isElseThen edge.First.ID) preds
       else preds)
 
-  member private __.AddVertexInternal (data: VertexData<'V>, vid, nextvid) =
+  let addVertex (data: VertexData<'V>) vid nextvid =
     let v = PersistentVertex (vid, data)
     let roots = if List.isEmpty roots then [ v :> IVertex<'V> ] else roots
     let vertices = Map.add vid v vertices
     let preds = Map.add vid [] preds
     let succs = Map.add vid [] succs
     let g = PersistentDiGraph (roots, vertices, preds, succs, nextvid)
-    (v :> IVertex<'V>), (g :> IGraph<'V, 'E>)
+    struct (v, g)
 
-  member private __.AddVertex (data: VertexData<'V>) =
+  let addVertexWithData (data: VertexData<'V>) =
     let vid = id + 1
-    __.AddVertexInternal (data, vid, vid)
+    addVertex data vid vid
 
-  member private __.AddVertex (data: VertexData<'V>, vid: VertexID) =
-    __.AddVertexInternal (data, vid, max id vid)
+  let addVertexWithDataAndID data vid =
+    addVertex data vid (max id vid)
 
-  member private __.AddEdge (src: IVertex<'V>, dst: IVertex<'V>, label) =
+  let addEdge (src: IVertex<'V>) (dst: IVertex<'V>) label =
     let srcid = src.ID
     let dstid = dst.ID
     let edge = Edge (src, dst, label)
@@ -79,8 +80,9 @@ type PersistentDiGraph<'V, 'E when 'V: equality
     let succs = Map.add srcid (edge :: Map.find srcid succs) succs
     PersistentDiGraph (roots, vertices, preds, succs, id)
 
-  interface IGraph<'V, 'E> with
-    member __.IsEmpty () = vertices.Count = 0
+  new () = PersistentDiGraph ([], Map.empty, Map.empty, Map.empty, 0)
+
+  interface IReadOnlyGraph<'V, 'E> with
 
     member __.Size with get() = vertices.Count
 
@@ -109,24 +111,7 @@ type PersistentDiGraph<'V, 'E when 'V: equality
 
     member __.ImplementationType with get() = Persistent
 
-    member __.AddVertex value =
-      __.AddVertex (data=VertexData value)
-
-    member __.AddVertex (value, vid: VertexID) =
-      assert ((__: IGraph<_, _>).HasVertex vid |> not)
-      __.AddVertex (data=VertexData value, vid=vid)
-
-    member __.AddVertex () =
-      __.AddVertex (data=null)
-
-    member __.RemoveVertex v =
-      let succs = Map.find v.ID preds |> List.fold __.RemoveSuccEdge succs
-      let preds = Map.find v.ID succs |> List.fold __.RemovePredEdge preds
-      let vertices = Map.remove v.ID vertices
-      let preds = Map.remove v.ID preds
-      let succs = Map.remove v.ID succs
-      let roots = List.filter (fun r -> r <> v) roots
-      PersistentDiGraph (roots, vertices, preds, succs, id)
+    member __.IsEmpty () = vertices.Count = 0
 
     member __.HasVertex vid =
       vertices |> Map.containsKey vid
@@ -163,21 +148,6 @@ type PersistentDiGraph<'V, 'E when 'V: equality
         let v = v :> IVertex<'V>
         if fn v then Some v else None)
 
-    member __.AddEdge (src: IVertex<'V>, dst: IVertex<'V>, label) =
-      __.AddEdge (src, dst, EdgeLabel label)
-
-    member __.AddEdge (src: IVertex<'V>, dst: IVertex<'V>) =
-      __.AddEdge (src, dst, null)
-
-    member __.RemoveEdge (src: IVertex<'V>, dst: IVertex<'V>) =
-      let edge = Edge (src, dst, null)
-      (__ :> IGraph<_, _>).RemoveEdge edge
-
-    member __.RemoveEdge (edge: Edge<'V, 'E>) =
-      let preds = __.RemovePredEdge preds edge
-      let succs = __.RemoveSuccEdge succs edge
-      PersistentDiGraph (roots, vertices, preds, succs, id)
-
     member __.FindEdge (src: IVertex<'V>, dst: IVertex<'V>) =
       let dstID = dst.ID
       Map.find src.ID succs
@@ -209,15 +179,6 @@ type PersistentDiGraph<'V, 'E when 'V: equality
     member __.GetRoots () =
       roots |> List.toArray
 
-    member __.AddRoot (v) =
-      assert (vertices.ContainsKey v.ID)
-      let roots = if List.contains v roots then roots else v :: roots
-      PersistentDiGraph(roots, vertices, preds, succs, id)
-
-    member __.SetRoot (v) =
-      assert (vertices.ContainsKey v.ID)
-      PersistentDiGraph ([ v ], vertices, preds, succs, id)
-
     member __.FoldVertex fn acc =
       vertices.Values
       |> Seq.fold (fun acc v -> fn acc (v :> IVertex<'V>)) acc
@@ -240,7 +201,64 @@ type PersistentDiGraph<'V, 'E when 'V: equality
       GraphUtils.reverse __ (PersistentDiGraph ())
 
     member __.Clone () =
-      __ :> IGraph<'V, 'E>
+      __
 
     member __.ToDOTStr (name, vToStrFn, _eToStrFn) =
       GraphUtils.toDiGraphDOTString __ name vToStrFn _eToStrFn
+
+  interface IGraph<'V, 'E> with
+
+    member __.AddVertex value =
+      let struct (v, g) = addVertexWithData (VertexData value)
+      v, g
+
+    member __.AddVertex (value, vid: VertexID) =
+      assert ((__: IGraph<_, _>).HasVertex vid |> not)
+      let struct (v, g) = addVertexWithDataAndID (VertexData value) vid
+      v, g
+
+    member __.AddVertex () =
+      let struct (v, g) = addVertexWithData null
+      v, g
+
+    member __.RemoveVertex v =
+      let succs = Map.find v.ID preds |> List.fold removeSuccEdge succs
+      let preds = Map.find v.ID succs |> List.fold removePredEdge preds
+      let vertices = Map.remove v.ID vertices
+      let preds = Map.remove v.ID preds
+      let succs = Map.remove v.ID succs
+      let roots = List.filter (fun r -> r <> v) roots
+      PersistentDiGraph (roots, vertices, preds, succs, id)
+
+    member __.AddEdge (src: IVertex<'V>, dst: IVertex<'V>, label) =
+      addEdge src dst (EdgeLabel label)
+
+    member __.AddEdge (src: IVertex<'V>, dst: IVertex<'V>) =
+      addEdge src dst null
+
+    member __.RemoveEdge (src: IVertex<'V>, dst: IVertex<'V>) =
+      let edge = Edge (src, dst, null)
+      (__ :> IGraph<_, _>).RemoveEdge edge
+
+    member __.RemoveEdge (edge: Edge<'V, 'E>) =
+      let preds = removePredEdge preds edge
+      let succs = removeSuccEdge succs edge
+      PersistentDiGraph (roots, vertices, preds, succs, id)
+
+    member __.AddRoot (v) =
+      assert (vertices.ContainsKey v.ID)
+      let roots = if List.contains v roots then roots else v :: roots
+      PersistentDiGraph(roots, vertices, preds, succs, id)
+
+    member __.SetRoot (v) =
+      assert (vertices.ContainsKey v.ID)
+      PersistentDiGraph ([ v ], vertices, preds, succs, id)
+
+    member __.SubGraph vs =
+      GraphUtils.subGraph __ (PersistentDiGraph ()) vs
+
+    member __.Reverse () =
+      GraphUtils.reverse __ (PersistentDiGraph ())
+
+    member __.Clone () =
+      __

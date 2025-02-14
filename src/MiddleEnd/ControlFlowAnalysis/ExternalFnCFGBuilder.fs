@@ -98,7 +98,7 @@ type ExternalFnCFGBuilder<'FnCtx,
 
     member __.Build _ = Utils.impossible ()
 
-    member __.Reset _ = ()
+    member __.Reset () = ()
 
     member __.MakeNew _ = Utils.impossible ()
 

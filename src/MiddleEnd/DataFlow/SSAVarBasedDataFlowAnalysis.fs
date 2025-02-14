@@ -25,6 +25,7 @@
 namespace B2R2.MiddleEnd.DataFlow.SSA
 
 open B2R2.BinIR.SSA
+open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.MiddleEnd.DataFlow
 
@@ -33,12 +34,12 @@ open B2R2.MiddleEnd.DataFlow
 type SSAVarBasedDataFlowAnalysis<'Lattice>
   public (hdl, analysis: ISSAVarBasedDataFlowAnalysis<'Lattice>) =
 
-  let processFlow (state: SSAVarBasedDataFlowState<_>) (ssaCFG: SSACFG) =
+  let processFlow (state: SSAVarBasedDataFlowState<_>) ssaCFG =
     match state.FlowWorkList.TryDequeue () with
     | false, _ -> ()
     | true, (parentId, myId) ->
       state.ExecutedEdges.Add (parentId, myId) |> ignore
-      let blk = ssaCFG.FindVertexByID myId
+      let blk = (ssaCFG: IGraph<SSABasicBlock, _>).FindVertexByID myId
       blk.VData.Internals.Statements
       |> Array.iter (fun (ppoint, stmt) ->
         analysis.Transfer ssaCFG blk ppoint stmt state)
@@ -49,7 +50,7 @@ type SSAVarBasedDataFlowAnalysis<'Lattice>
         |> Seq.iter (fun succ ->
           state.MarkExecutable myId succ.ID)
 
-  let processSSA (state: SSAVarBasedDataFlowState<_>) (ssaCFG: SSACFG) =
+  let processSSA (state: SSAVarBasedDataFlowState<_>) ssaCFG =
     match state.SSAWorkList.TryDequeue () with
     | false, _ -> ()
     | true, def ->
@@ -57,7 +58,7 @@ type SSAVarBasedDataFlowAnalysis<'Lattice>
       | false, _ -> ()
       | _, uses ->
         for (vid, idx) in uses do
-          let v = ssaCFG.FindVertexByID vid
+          let v = (ssaCFG: IGraph<SSABasicBlock, _>).FindVertexByID vid
           if state.GetNumIncomingExecutedEdges ssaCFG v > 0 then
             let ppoint, stmt = v.VData.Internals.Statements[idx]
             analysis.Transfer ssaCFG v ppoint stmt state
