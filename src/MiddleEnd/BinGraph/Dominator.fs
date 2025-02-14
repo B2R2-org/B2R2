@@ -178,6 +178,57 @@ let private computeDominatorInfo g root =
   g.RemoveVertex dummyEntry |> ignore
   info
 
+let private getTouchedPredAndOthers (g: IGraph<_, _>) (info: DomInfo<_>) v =
+  let preds = g.GetPreds v
+  let touched = Seq.find (fun p -> info.IDom[dfnum info p] <> -1) preds
+  let others = preds |> Seq.filter (fun p -> p <> touched) |> Seq.toList
+  touched, others
+
+let private intersect (info: DomInfo<_>) (poNumbers: Dictionary<_, _>) b1 b2 =
+  let mutable f1 = b1
+  let mutable f2 = b2
+  while f1 <> f2 do
+    while poNumbers[f1] < poNumbers[f2] do
+      let n = info.IDom[dfnum info f1]
+      f1 <- info.Vertex[n]
+    while poNumbers[f2] < poNumbers[f1] do
+      let n = info.IDom[dfnum info f2]
+      f2 <- info.Vertex[n]
+  f1
+
+let private getPONumbersAndRPOVertices g root =
+  let dict = Dictionary ()
+  let mutable vs = []
+  let fn v =
+    dict[v] <- dict.Count + 1
+    vs <- v :: vs
+  Traversal.iterPostorder g [ root ] fn
+  dict, vs
+
+let private computeDominatorInfoWithCooper g root =
+  let info = initDomInfo g
+  let dummyEntry, g = connectDummy g root
+  let n = prepare g info 0 [ (0, dummyEntry) ]
+  for i = 0 to n do info.IDom[i] <- -1 (* -1: Undefined *)
+  info.IDom[dfnum info root] <- dfnum info root
+  let mutable changed = true
+  let postorderNumbers, rpoNodes = getPONumbersAndRPOVertices g root
+  let rpoNodes = rpoNodes |> List.tail (* skip the root *)
+  while changed do
+    changed <- false
+    for b in rpoNodes do
+      let touched, otherPreds = getTouchedPredAndOthers g info b
+      let mutable newIdom = touched
+      for p in otherPreds do
+        if info.IDom[dfnum info p] <> -1 then (* if already calculated *)
+          newIdom <- intersect info postorderNumbers p newIdom
+      if info.IDom[dfnum info b] <> dfnum info newIdom then
+        info.IDom[dfnum info b] <- dfnum info newIdom
+        changed <- true
+  g.RemoveVertex dummyEntry |> ignore
+  info.IDom[dfnum info root] <- 0 (* 0: None *)
+  info
+
 let private updateReachMap (g: IGraph<_, _>) exits reachMap =
   let rec loop reachMap = function
     | [] -> reachMap
@@ -236,7 +287,7 @@ let private preparePostDomAnalysis (fg: IGraph<_, _>) root (bg: IGraph<_, _>) =
     |> List.fold (fun (bg: IGraph<_, _>) v -> bg.AddEdge (dummy, v)) bg
   bg, dummy
 
-let initDominatorContext (g: IGraph<'V, _>) =
+let initDominatorContextWithLengauer (g: IGraph<'V, _>) =
   let root = g.GetRoots () |> Seq.exactlyOne
   let forward = computeDominatorInfo g root
   let g', root' = g.Reverse () |> preparePostDomAnalysis g root
@@ -248,9 +299,23 @@ let initDominatorContext (g: IGraph<'V, _>) =
     BackwardRoot = root'
     BackwardDomInfo = backward }
 
+let initDominatorContextWithCooper (g: IGraph<'V, _>) =
+  let root = g.GetRoots () |> Seq.exactlyOne
+  let forward = computeDominatorInfoWithCooper g root
+  let g', root' = g.Reverse () |> preparePostDomAnalysis g root
+  let backward = computeDominatorInfoWithCooper g' root'
+  { ForwardGraph = g
+    ForwardRoot = root
+    ForwardDomInfo = forward
+    BackwardGraph = g'
+    BackwardRoot = root'
+    BackwardDomInfo = backward }
+
+let initDominatorContext g = initDominatorContextWithCooper g
+
 let private checkVertexInGraph (g: IGraph<_, _>) (v: IVertex<_>) =
   let v' = g.FindVertexByData v.VData
-  if v === v' then ()
+  if v.ID = v'.ID then ()
   else raise VertexNotFoundException
 
 let private idomAux info v =
@@ -336,6 +401,19 @@ let private computeDF domTree (frontiers: list<IVertex<_>>[]) g info root =
     done
     frontiers[dfnum info v] <- df |> List.ofSeq
 
+let private computeDFWithCooper (frontiers: Set<IVertex<_>>[])
+                                (g: IGraph<_, _>) (info: DomInfo<_>) root =
+  for v in g.Vertices do
+    let preds = g.GetPreds v
+    if Seq.length preds < 2 then ()
+    else
+      for p in preds do
+        let mutable runner = p
+        while dfnum info runner <> info.IDom[dfnum info v] do
+          frontiers[dfnum info runner] <- Set.add v frontiers[dfnum info runner]
+          let n = info.IDom[dfnum info runner]
+          runner <- info.Vertex[n]
+
 let frontier ctxt v =
   let g = ctxt.ForwardGraph
   checkVertexInGraph g v
@@ -346,14 +424,15 @@ let frontier ctxt v =
   computeDF domTree frontiers g info root
   frontiers[dfnum info v]
 
-let frontiers ctxt =
+let frontiersWithCooper ctxt =
   let g = ctxt.ForwardGraph
   let root = ctxt.ForwardRoot
   let info = ctxt.ForwardDomInfo
-  let frontiers = Array.create info.MaxLength []
-  let domTree = computeDomTree g info
-  computeDF domTree frontiers g info root
-  frontiers
+  let frontiers = Array.create info.MaxLength Set.empty
+  computeDFWithCooper frontiers g info root
+  frontiers |> Array.map Set.toList
+
+let frontiers ctxt = frontiersWithCooper ctxt
 
 let dominatorTree ctxt =
   let g = ctxt.ForwardGraph
