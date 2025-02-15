@@ -26,6 +26,7 @@ namespace B2R2.MiddleEnd.BinGraph.Tests
 
 open Microsoft.VisualStudio.TestTools.UnitTesting
 open B2R2.MiddleEnd.BinGraph
+open B2R2.MiddleEnd.BinGraph.Traversal
 open B2R2.MiddleEnd.BinGraph.Tests.Examples
 
 [<TestClass>]
@@ -42,7 +43,7 @@ type Traversal () =
   member __.``Preorder traversal test 1`` (t) =
     let g, vmap = digraph1 t
     let root = vmap[1]
-    let actual = Traversal.foldPreorder g [root] accumulate [] |> makeAnswer
+    let actual = DFS.foldPreorder g [root] accumulate [] |> makeAnswer
     let expected = [ 1; 2; 3; 5; 4; 6 ]
     Assert.AreEqual (expected, actual)
 
@@ -51,7 +52,7 @@ type Traversal () =
   member __.``Preorder traversal test 2`` (t) =
     let g, vmap = digraph2 t
     let root = vmap[1]
-    let actual = Traversal.foldPreorder g [root] accumulate [] |> makeAnswer
+    let actual = DFS.foldPreorder g [root] accumulate [] |> makeAnswer
     let expected = [ 1; 2; 3; 4; 5; 6 ]
     Assert.AreEqual (expected, actual)
 
@@ -60,7 +61,7 @@ type Traversal () =
   member __.``Preorder traversal test 3`` (t) =
     let g, vmap = digraph3 t
     let root = vmap[1]
-    let actual = Traversal.foldPreorder g [root] accumulate [] |> makeAnswer
+    let actual = DFS.foldPreorder g [root] accumulate [] |> makeAnswer
     let expected = [ 1; 2; 4; 3; 5 ]
     Assert.AreEqual (expected, actual)
 
@@ -69,7 +70,7 @@ type Traversal () =
   member __.``Postorder traversal test 1`` (t) =
     let g, vmap = digraph1 t
     let root = vmap[1]
-    let actual = Traversal.foldPostorder g [root] accumulate [] |> makeAnswer
+    let actual = DFS.foldPostorder g [root] accumulate [] |> makeAnswer
     let expected = [ 5; 3; 4; 6; 2; 1 ]
     Assert.AreEqual (expected, actual)
 
@@ -78,7 +79,7 @@ type Traversal () =
   member __.``Postorder traversal test 2`` (t) =
     let g, vmap = digraph2 t
     let root = vmap[1]
-    let actual = Traversal.foldPostorder g [root] accumulate [] |> makeAnswer
+    let actual = DFS.foldPostorder g [root] accumulate [] |> makeAnswer
     let expected = [ 2; 5; 6; 4; 3; 1 ]
     Assert.AreEqual (expected, actual)
 
@@ -87,7 +88,7 @@ type Traversal () =
   member __.``Postorder traversal test 3`` (t) =
     let g, vmap = digraph3 t
     let root = vmap[1]
-    let actual = Traversal.foldPostorder g [root] accumulate [] |> makeAnswer
+    let actual = DFS.foldPostorder g [root] accumulate [] |> makeAnswer
     let expected = [ 4; 2; 5; 3; 1 ]
     Assert.AreEqual (expected, actual)
 

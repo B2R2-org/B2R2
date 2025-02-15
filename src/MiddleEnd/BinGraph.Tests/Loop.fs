@@ -25,22 +25,36 @@
 namespace B2R2.MiddleEnd.BinGraph.Tests
 
 open Microsoft.VisualStudio.TestTools.UnitTesting
+open System.Collections.Generic
 open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.BinGraph.Tests.Examples
 
 [<TestClass>]
 type Loop () =
+  let toTuple (KeyValue (k, v)) = k, v
+
+  let toSet (vmap: Map<_, _>) lst =
+    lst |> List.map (fun vid -> vmap[vid]) |> HashSet
+
+  let assertLoop (edge: Edge<_, _>, vertices) (src, dst, expectedVS) =
+    Assert.AreEqual (edge.First.ID, src) (* backedge src *)
+    Assert.AreEqual (edge.Second.ID, dst) (* backedge dst *)
+    Assert.IsTrue <| (expectedVS: HashSet<_>).SetEquals vertices
+
   static member GraphTypes = [| [| box Persistent |]; [| box Imperative |] |]
 
   [<TestMethod>]
   [<DynamicData(nameof Basic.GraphTypes)>]
   member __.`` Natural Loop Test `` (t) =
     let g, vmap = digraph11 t
-    let root = vmap[1]
-    let s = Loop.getNaturalLoops g root |> Seq.toArray
-    Assert.AreEqual (5, s.Length)
-    Assert.IsFalse (s[0].Contains vmap[9])
-    Assert.IsTrue (s[1].Contains vmap[10])
-    Assert.IsFalse (s[2].Contains vmap[1])
-    Assert.IsTrue (s[3].Contains vmap[7])
-    Assert.IsTrue (s[4].Contains vmap[8])
+    let dict =
+      Loop.getNaturalLoops g
+      |> Seq.map toTuple
+      |> Seq.toArray
+      |> Array.sortBy (fun (k, _) -> k.First.ID)
+    Assert.AreEqual (5, dict.Length)
+    assertLoop dict[0] <| (4, 3, toSet vmap [ 3; 4; 5; 6; 7; 8; 10 ])
+    assertLoop dict[1] <| (7, 4, toSet vmap [ 4; 5; 6; 7; 8; 10 ])
+    assertLoop dict[2] <| (8, 3, toSet vmap [ 3; 4; 5; 6; 7; 8; 10 ])
+    assertLoop dict[3] <| (9, 1, toSet vmap [ 1; 2; 3; 4; 5; 6; 7; 8; 9; 10 ])
+    assertLoop dict[4] <| (10, 7, toSet vmap [ 7; 8; 10 ])

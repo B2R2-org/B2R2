@@ -37,7 +37,7 @@ let private collectBackEdge vGraph order backEdgeList (edge: Edge<_, VisEdge>) =
 
 let private dfsCollectBackEdges vGraph roots backEdgeList =
   let _, orderMap =
-    Traversal.foldTopologically vGraph roots (fun (cnt, map) v ->
+    Traversal.Topological.fold vGraph roots (fun (cnt, map) v ->
       cnt + 1, Map.add v cnt map) (0, Map.empty)
   vGraph.FoldEdge (collectBackEdge vGraph orderMap) backEdgeList
 

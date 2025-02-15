@@ -25,7 +25,6 @@
 module B2R2.MiddleEnd.BinGraph.Dominator
 
 open System.Collections.Generic
-open B2R2.Utils
 
 type DomInfo<'V when 'V: equality> = {
   /// Vertex ID -> DFNum
@@ -202,7 +201,7 @@ let private getPONumbersAndRPOVertices g root =
   let fn v =
     dict[v] <- dict.Count + 1
     vs <- v :: vs
-  Traversal.iterPostorder g [ root ] fn
+  Traversal.DFS.iterPostorder g [ root ] fn
   dict, vs
 
 let private computeDominatorInfoWithCooper g root =
@@ -257,7 +256,7 @@ let rec private calculateExits (fg: IGraph<_, _>) bg reachMap exits =
 
 let private preparePostDomAnalysis (fg: IGraph<_, _>) root (bg: IGraph<_, _>) =
   let _, orderMap =
-    Traversal.foldTopologically fg [root] (fun (cnt, map) v ->
+    Traversal.Topological.fold fg [root] (fun (cnt, map) v ->
       cnt + 1, Map.add v cnt map) (0, Map.empty)
   let fg, backEdges =
     fg.FoldEdge (fun (fg: IGraph<_, _>, acc) edge ->

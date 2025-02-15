@@ -26,6 +26,7 @@ namespace B2R2.MiddleEnd.BinGraph.Tests
 
 open Microsoft.VisualStudio.TestTools.UnitTesting
 open B2R2.MiddleEnd.BinGraph
+open B2R2.MiddleEnd.BinGraph.Traversal
 open B2R2.MiddleEnd.BinGraph.Tests.Examples
 
 [<TestClass>]
@@ -41,9 +42,9 @@ type Basic () =
   member __.``DiGraph Traversal Test 1`` (t) =
     let g, vmap = digraph1 t
     let root = vmap[1]
-    let s1 = Traversal.foldPostorder g [root] sum 0
-    let s2 = Traversal.foldRevPostorder g [root] sum 0
-    let s3 = Traversal.foldPreorder g [root] sum 0
+    let s1 = DFS.foldPostorder g [root] sum 0
+    let s2 = DFS.foldRevPostorder g [root] sum 0
+    let s3 = DFS.foldPreorder g [root] sum 0
     let s4 = g.FoldVertex sum 0
     let s5 = g.FoldEdge inc 0
     Assert.AreEqual (21, s1)
@@ -58,10 +59,10 @@ type Basic () =
     let g, vmap = digraph1 t
     let root = vmap[1]
     let s1 =
-      Traversal.foldPostorder g [root] (fun acc v -> v.VData :: acc) []
+      DFS.foldPostorder g [root] (fun acc v -> v.VData :: acc) []
       |> List.rev |> List.toArray
     let s2 =
-      Traversal.foldPreorder g [root] (fun acc v -> v.VData :: acc) []
+      DFS.foldPreorder g [root] (fun acc v -> v.VData :: acc) []
       |> List.rev |> List.toArray
     CollectionAssert.AreEqual ([| 5; 3; 4; 6; 2; 1 |], s1)
     CollectionAssert.AreEqual ([| 1; 2; 3; 5; 4; 6 |], s2)
@@ -72,10 +73,10 @@ type Basic () =
     let g, vmap = digraph3 t
     let root = vmap[1]
     let s1 =
-      Traversal.foldPostorder g [root] (fun acc v -> v.VData :: acc) []
+      DFS.foldPostorder g [root] (fun acc v -> v.VData :: acc) []
       |> List.rev |> List.toArray
     let s2 =
-      Traversal.foldPreorder g [root] (fun acc v -> v.VData :: acc) []
+      DFS.foldPreorder g [root] (fun acc v -> v.VData :: acc) []
       |> List.rev |> List.toArray
     CollectionAssert.AreEqual ([| 4; 2; 5; 3; 1 |], s1)
     CollectionAssert.AreEqual ([| 1; 2; 4; 3; 5 |], s2)
@@ -88,8 +89,8 @@ type Basic () =
     let g2 = g1.Clone ()
     let g2root = g2.FindVertexByData g1root.VData
     let g2 = g2.FindVertexByData 3 |> g2.RemoveVertex
-    let s1 = Traversal.foldPreorder g1 [g1root] sum 0
-    let s2 = Traversal.foldPreorder g2 [g2root] sum 0
+    let s1 = DFS.foldPreorder g1 [g1root] sum 0
+    let s2 = DFS.foldPreorder g2 [g2root] sum 0
     Assert.AreEqual (6, g1.Size)
     Assert.AreEqual (5, g2.Size)
     Assert.AreEqual (21, s1)
@@ -102,8 +103,8 @@ type Basic () =
     let g1root = g1vmap[1]
     let g2 = g1.Reverse ()
     let g2root = g2.FindVertexByData 6
-    let s1 = Traversal.foldPreorder g1 [g1root] sum 0
-    let s2 = Traversal.foldPreorder g2 [g2root] sum 0
+    let s1 = DFS.foldPreorder g1 [g1root] sum 0
+    let s2 = DFS.foldPreorder g2 [g2root] sum 0
     let lst =
       g2.FoldEdge (fun acc e -> (e.First.VData, e.Second.VData) :: acc) []
     let edges = List.sort lst |> List.toArray

@@ -39,18 +39,22 @@ let private getBackEdges g =
     | ds when ds |> Array.exists (fun v -> v = edge.Second) -> edge :: acc
     | _ -> acc)
 
-let private findIn (g: IGraph<_, _>) (v: IVertex<_>) =
-  g.FindVertexByID v.ID
+let private findNaturalLoopBody (g: IReadOnlyGraph<_, _>) (edge: Edge<_, _>) =
+  let body = HashSet ()
+  let stack = Stack ()
+  let n, h = edge.First, edge.Second
+  body.Add h |> ignore
+  stack.Push  n
+  while stack.Count > 0 do
+    let v = stack.Pop ()
+    if not (body.Contains v) then
+      body.Add v |> ignore
+      for pred in g.GetPreds v do stack.Push pred
+    else ()
+  body
 
-let getNaturalLoops (g: IGraph<_, _>) root =
-  let rev = g.Reverse ()
-  getBackEdges g
-  |> List.fold (fun acc edge ->
-    let s = findIn rev edge.First
-    let d = findIn rev edge.Second
-    let vertices =
-      [ d ]
-      |> Traversal.foldPreorderExcept rev [ s ] [ d ] (fun acc v ->
-        (findIn g v) :: acc)
-      |> HashSet
-    vertices :: acc) []
+let getNaturalLoops (g: IGraph<_, _>) =
+  let dict = Dictionary ()
+  for edge in getBackEdges g do
+    dict[edge] <- findNaturalLoopBody g edge
+  dict
