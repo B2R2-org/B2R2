@@ -6,6 +6,7 @@
 
   <ItemGroup>
     <Compile Include="Examples.fs" />
+    <Compile Include="Traversal.fs" />
     <Compile Include="SCC.fs" />
     <Compile Include="Basic.fs" />
     <Compile Include="Dominator.fs" />

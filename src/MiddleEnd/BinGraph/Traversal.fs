@@ -26,13 +26,13 @@ module B2R2.MiddleEnd.BinGraph.Traversal
 
 open System.Collections.Generic
 
-let rec private prependReverseTo lst (arr: _[]) idx =
-  if idx >= 0 then prependReverseTo (arr[idx] :: lst) arr (idx - 1)
+let rec private reversePrependTo lst (arr: _[]) idx =
+  if idx >= 0 then reversePrependTo (arr[idx] :: lst) arr (idx - 1)
   else lst
 
 let private prependSuccessors (g: IReadOnlyGraph<_, _>) lst v =
   let succs = g.GetSuccs v
-  prependReverseTo lst succs (succs.Length - 1)
+  reversePrependTo lst succs (succs.Length - 1)
 
 let rec private foldPreorderLoop visited g fn acc = function
   | [] -> acc
@@ -51,7 +51,7 @@ let rec private foldPostorderLoop visited g fn acc vstack = function
     let struct (acc, vstack) = consume visited g fn acc (v :: vstack)
     foldPostorderLoop visited g fn acc vstack (prependSuccessors g tovisit v)
 
-and consume visited g fn acc = function
+and private consume visited g fn acc = function
   | [] -> struct (acc, [])
   | v :: rest ->
     let allSuccsVisited =
@@ -63,7 +63,7 @@ and consume visited g fn acc = function
 /// Fold vertices of the graph in a depth-first manner with the preorder
 /// traversal.
 let foldPreorder g roots fn acc =
-  let visited = HashSet<int> ()
+  let visited = HashSet<VertexID> ()
   foldPreorderLoop visited g fn acc roots
 
 /// Fold vertices, except them in the second list, of the graph in a
@@ -88,7 +88,7 @@ let iterPreorderExcept g roots excepts fn =
 /// Fold vertices of the graph in a depth-first manner with the postorder
 /// traversal. The traversal starts from each vertex in roots.
 let foldPostorder g roots fn acc =
-  let visited = HashSet<int> ()
+  let visited = HashSet<VertexID> ()
   foldPostorderLoop visited g fn acc [] roots
 
 /// Iterate vertices of the graph in a depth-first manner with the postorder
@@ -116,7 +116,7 @@ let iterRevPostorder g roots fn =
 /// providing root vertices in case there is no unreachable node, e.g., when
 /// there is a loop to the root node.
 let foldTopologically (g: IGraph<_, _>) roots fn acc =
-  let visited = HashSet<int> ()
+  let visited = HashSet<VertexID> ()
   let roots =
     g.Unreachables
     |> Set.ofSeq
