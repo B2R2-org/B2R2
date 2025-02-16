@@ -28,14 +28,9 @@ open System.Collections.Generic
 
 let private getBackEdges g =
   let ctx = Dominator.initDominatorContext g
-  let doms =
-    []
-    |> g.FoldVertex (fun acc v ->
-      (v, Dominator.doms ctx v) :: acc)
-    |> Map.ofList
   []
   |> g.FoldEdge (fun acc edge ->
-    match doms[edge.First] with
+    match Dominator.doms ctx edge.First with
     | ds when ds |> Array.exists (fun v -> v = edge.Second) -> edge :: acc
     | _ -> acc)
 

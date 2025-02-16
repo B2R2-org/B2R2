@@ -24,6 +24,8 @@
 
 namespace B2R2.MiddleEnd.BinGraph
 
+open System.Collections.Generic
+
 /// General graph data type. This one can be either directed or undirected.
 [<AllowNullLiteral>]
 type IGraph<'V, 'E when 'V: equality and 'E: equality> =
@@ -67,17 +69,37 @@ type IGraph<'V, 'E when 'V: equality and 'E: equality> =
   /// function allows the user to add root vertices explicitly.
   abstract AddRoot: IVertex<'V> -> IGraph<'V, 'E>
 
-  /// Set a single root vertex for this graph. `AddVertex` will automatically
-  /// set the root vertex to the first vertex added to the graph, but this
-  /// function allows the user to set a single root vertex explicitly.
-  abstract SetRoot: IVertex<'V> -> IGraph<'V, 'E>
+  /// Set root vertices for this graph. `AddVertex` will automatically set the
+  /// root vertex to the first vertex added to the graph, but this function
+  /// allows the user to set root vertices explicitly.
+  abstract SetRoots: IEnumerable<IVertex<'V>> -> IGraph<'V, 'E>
 
-  /// Return a subgraph that contains only the set of vertices.
-  abstract SubGraph: Set<IVertex<'V>> -> IGraph<'V, 'E>
-
-  /// Return a new transposed (i.e., reversed) graph. This will return the same
-  /// graph if this is an undirected graph.
-  abstract Reverse: unit -> IGraph<'V, 'E>
+  /// Return a new transposed (i.e., reversed) graph. For directed graphs, the
+  /// given set of vertices will be used to set the root vertices of the
+  /// transposed graph. For undirected graphs, the parameter is ignored and this
+  /// function will return the same graph as the input graph.
+  abstract Reverse: IEnumerable<IVertex<'V>> -> IGraph<'V, 'E>
 
   /// Return a cloned copy of this graph.
   abstract Clone: unit -> IGraph<'V, 'E>
+
+/// Module for IGraph<'V, 'E> type to provide utility functions.
+module IGraph =
+  /// Compute a subgraph of the given graph (inGraph) using only the vertices
+  /// in the given set (vs). The resulting graph will have the same structure
+  /// as the original graph, but only the vertices in the set and the edges
+  /// between them will be included. This function assumes that the (outGraph)
+  /// is an empty graph. Otherwise, the behavior is undefined.
+  let subGraph inGraph outGraph (vs: HashSet<IVertex<'V>>) =
+    (* Add vertices *)
+    vs
+    |> Seq.fold (fun (g: IGraph<'V, 'E>) (v: IVertex<'V>) ->
+      g.AddVertex v.VData |> snd) outGraph
+    |>
+    (* Add edges where both ends are in vs *)
+    (inGraph :> IGraph<_, _>).FoldEdge (fun (g: IGraph<'V, 'E>) e ->
+      if vs.Contains e.First && vs.Contains e.Second then
+        let src = g.FindVertexByID <| e.First.ID
+        let dst = g.FindVertexByID <| e.Second.ID
+        (g :> IGraph<'V, _>).AddEdge (src, dst, e.Label)
+      else g)

@@ -141,8 +141,8 @@ type LowUIRCFG private (g: IGraph<LowUIRBasicBlock, CFGEdgeKind>) =
   /// Add a root vertex to this CFG.
   member _.AddRoot v = g.AddRoot v |> update
 
-  /// Set the root vertex of this CFG.
-  member _.SetRoot v = g.SetRoot v |> update
+  /// Set root vertices of this CFG.
+  member _.SetRoots vs = g.SetRoots vs |> update
 
   /// Fold the vertices of this CFG with the given function and accumulator.
   member _.FoldVertex fn acc = g.FoldVertex fn acc
@@ -156,11 +156,9 @@ type LowUIRCFG private (g: IGraph<LowUIRBasicBlock, CFGEdgeKind>) =
   /// Iterate over the edges of this CFG with the given function.
   member _.IterEdge fn = g.IterEdge fn
 
-  /// Get a subgraph of this CFG that contains only the given vertices.
-  member _.SubGraph vs = g.SubGraph vs |> LowUIRCFG
-
-  /// Reverse the direction of the edges in this CFG.
-  member _.Reverse () = g.Reverse () |> LowUIRCFG
+  /// Reverse the direction of the edges in this CFG while making the given
+  /// vertices as root vertices.
+  member _.Reverse roots = g.Reverse roots |> LowUIRCFG
 
   /// Clone this CFG.
   member _.Clone () = g.Clone () |> LowUIRCFG
@@ -195,8 +193,7 @@ type LowUIRCFG private (g: IGraph<LowUIRBasicBlock, CFGEdgeKind>) =
     member _.IterVertex fn = g.IterVertex fn
     member _.FoldEdge fn acc = g.FoldEdge fn acc
     member _.IterEdge fn = g.IterEdge fn
-    member _.SubGraph vs = g.SubGraph vs
-    member _.Reverse () = g.Reverse ()
+    member _.Reverse vs = g.Reverse vs
     member _.Clone () = g.Clone ()
     member _.ToDOTStr (name, vFn, eFn) = g.ToDOTStr (name, vFn, eFn)
 
@@ -210,7 +207,6 @@ type LowUIRCFG private (g: IGraph<LowUIRBasicBlock, CFGEdgeKind>) =
     member _.RemoveEdge (src, dst) = g.RemoveEdge (src, dst)
     member _.RemoveEdge edge = g.RemoveEdge edge
     member _.AddRoot v = g.AddRoot v
-    member _.SetRoot v = g.SetRoot v
-    member _.SubGraph vs = g.SubGraph vs
-    member _.Reverse () = g.Reverse ()
+    member _.SetRoots vs = g.SetRoots vs
+    member _.Reverse vs = g.Reverse vs
     member _.Clone () = g.Clone ()

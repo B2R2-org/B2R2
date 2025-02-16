@@ -205,11 +205,8 @@ type ImperativeDiGraph<'V, 'E when 'V: equality and 'E: equality> () =
     member __.IterEdge fn =
       edges.Values |> Seq.iter fn
 
-    member __.SubGraph vs =
-      GraphUtils.subGraph __ (ImperativeDiGraph ()) vs
-
-    member __.Reverse () =
-      GraphUtils.reverse __ (ImperativeDiGraph ())
+    member __.Reverse (vs) =
+      GraphUtils.reverse __ vs (ImperativeDiGraph ())
 
     member __.Clone () =
       clone ()
@@ -262,17 +259,15 @@ type ImperativeDiGraph<'V, 'E when 'V: equality and 'E: equality> () =
       if roots.Contains v then () else roots.Add v
       __
 
-    member __.SetRoot (v) =
-      assert (vertices.ContainsKey v.ID)
+    member __.SetRoots (vs) =
       roots.Clear ()
-      roots.Add (v :?> ImperativeVertex<'V>)
+      for v in vs do
+        assert (vertices.ContainsKey v.ID)
+        roots.Add (v :?> ImperativeVertex<'V>)
       __
 
-    member __.SubGraph vs =
-      GraphUtils.subGraph __ (ImperativeDiGraph ()) vs
-
-    member __.Reverse () =
-      GraphUtils.reverse __ (ImperativeDiGraph ())
+    member __.Reverse (vs) =
+      GraphUtils.reverse __ vs (ImperativeDiGraph ())
 
     member __.Clone () =
       clone ()

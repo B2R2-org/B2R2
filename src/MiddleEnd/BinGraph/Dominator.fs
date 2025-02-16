@@ -201,7 +201,7 @@ let private getPONumbersAndRPOVertices g root =
   let fn v =
     dict[v] <- dict.Count + 1
     vs <- v :: vs
-  Traversal.DFS.iterPostorder g [ root ] fn
+  Traversal.DFS.iterPostorderWithRoots g [ root ] fn
   dict, vs
 
 let private computeDominatorInfoWithCooper g root =
@@ -254,9 +254,9 @@ let rec private calculateExits (fg: IGraph<_, _>) bg reachMap exits =
         else acc) exits
     calculateExits fg bg reachMap exits
 
-let private preparePostDomAnalysis (fg: IGraph<_, _>) root (bg: IGraph<_, _>) =
+let private preparePostDomAnalysis (fg: IGraph<_, _>) (bg: IGraph<_, _>) =
   let _, orderMap =
-    Traversal.Topological.fold fg [root] (fun (cnt, map) v ->
+    Traversal.DFS.foldRevPostorder fg (fun (cnt, map) v ->
       cnt + 1, Map.add v cnt map) (0, Map.empty)
   let fg, backEdges =
     fg.FoldEdge (fun (fg: IGraph<_, _>, acc) edge ->
@@ -289,7 +289,7 @@ let private preparePostDomAnalysis (fg: IGraph<_, _>) root (bg: IGraph<_, _>) =
 let initDominatorContextWithLengauer (g: IGraph<'V, _>) =
   let root = g.GetRoots () |> Seq.exactlyOne
   let forward = computeDominatorInfo g root
-  let g', root' = g.Reverse () |> preparePostDomAnalysis g root
+  let g', root' = g.Reverse [] |> preparePostDomAnalysis g
   let backward = computeDominatorInfo g' root'
   { ForwardGraph = g
     ForwardRoot = root
@@ -301,7 +301,7 @@ let initDominatorContextWithLengauer (g: IGraph<'V, _>) =
 let initDominatorContextWithCooper (g: IGraph<'V, _>) =
   let root = g.GetRoots () |> Seq.exactlyOne
   let forward = computeDominatorInfoWithCooper g root
-  let g', root' = g.Reverse () |> preparePostDomAnalysis g root
+  let g', root' = g.Reverse [] |> preparePostDomAnalysis g
   let backward = computeDominatorInfoWithCooper g' root'
   { ForwardGraph = g
     ForwardRoot = root

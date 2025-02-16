@@ -35,7 +35,7 @@ let assignLayerFromPred (vGraph: VisGraph) vData =
     VisGraph.setLayer v <| maxLayer + 1
 
 let kahnAssignLayers (vGraph: VisGraph) =
-  Traversal.Topological.fold vGraph [] (fun acc v -> v.VData :: acc) []
+  Traversal.DFS.foldRevPostorder vGraph (fun acc v -> v.VData :: acc) []
   |> List.rev
   |> List.iter (assignLayerFromPred vGraph)
 

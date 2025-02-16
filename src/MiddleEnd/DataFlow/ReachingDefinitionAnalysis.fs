@@ -92,8 +92,7 @@ type ReachingDefinitionAnalysis =
           member _.InitializeWorkList g =
             initGensAndKills g
             let lst = List<VertexID> ()
-            let roots = g.GetRoots () |> Seq.toList
-            Traversal.DFS.iterRevPostorder g roots (fun v -> lst.Add v.ID)
+            Traversal.DFS.iterRevPostorder g (fun v -> lst.Add v.ID)
             lst
 
           member _.Subsume (a, b) =

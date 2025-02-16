@@ -194,11 +194,8 @@ type PersistentDiGraph<'V, 'E when 'V: equality
     member __.IterEdge fn =
       succs.Values |> Seq.iter (fun edges -> List.iter fn edges)
 
-    member __.SubGraph vs =
-      GraphUtils.subGraph __ (PersistentDiGraph ()) vs
-
-    member __.Reverse () =
-      GraphUtils.reverse __ (PersistentDiGraph ())
+    member __.Reverse (vs) =
+      GraphUtils.reverse __ vs (PersistentDiGraph ())
 
     member __.Clone () =
       __
@@ -250,15 +247,13 @@ type PersistentDiGraph<'V, 'E when 'V: equality
       let roots = if List.contains v roots then roots else v :: roots
       PersistentDiGraph(roots, vertices, preds, succs, id)
 
-    member __.SetRoot (v) =
-      assert (vertices.ContainsKey v.ID)
-      PersistentDiGraph ([ v ], vertices, preds, succs, id)
+    member __.SetRoots (vs) =
+      for v in vs do assert (vertices.ContainsKey v.ID)
+      let roots = Seq.toList vs
+      PersistentDiGraph (roots, vertices, preds, succs, id)
 
-    member __.SubGraph vs =
-      GraphUtils.subGraph __ (PersistentDiGraph ()) vs
-
-    member __.Reverse () =
-      GraphUtils.reverse __ (PersistentDiGraph ())
+    member __.Reverse (vs) =
+      GraphUtils.reverse __ vs (PersistentDiGraph ())
 
     member __.Clone () =
       __

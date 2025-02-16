@@ -24,6 +24,8 @@
 
 namespace B2R2.MiddleEnd.BinGraph
 
+open System.Collections.Generic
+
 /// General read-only graph data type. This one can be either directed or
 /// undirected.
 [<AllowNullLiteral>]
@@ -129,12 +131,11 @@ type IReadOnlyGraph<'V, 'E when 'V: equality and 'E: equality> =
   /// Fold every edge in the graph (the order can be arbitrary).
   abstract IterEdge: (Edge<'V, 'E> -> unit) -> unit
 
-  /// Return a subgraph that contains only the set of vertices.
-  abstract SubGraph: Set<IVertex<'V>> -> IReadOnlyGraph<'V, 'E>
-
-  /// Return a new transposed (i.e., reversed) graph. This will return the same
-  /// graph if this is an undirected graph.
-  abstract Reverse: unit -> IReadOnlyGraph<'V, 'E>
+  /// Return a new transposed (i.e., reversed) graph. For directed graphs, the
+  /// given set of vertices will be used to set the root vertices of the
+  /// transposed graph. For undirected graphs, the parameter is ignored and this
+  /// function will return the same graph as the input graph.
+  abstract Reverse: IEnumerable<IVertex<'V>> -> IReadOnlyGraph<'V, 'E>
 
   /// Return a cloned copy of this graph.
   abstract Clone: unit -> IReadOnlyGraph<'V, 'E>

@@ -27,38 +27,24 @@ module internal B2R2.MiddleEnd.BinGraph.GraphUtils
 
 open System.Text
 
-/// Compute a subgraph of the given graph (inGraph), build on top of the given
-/// empty graph (emptyGraph).
-let subGraph inGraph emptyGraph vs =
-  (* Add vertices to new graph *)
-  let g =
-    vs |> Set.fold (fun (g: IGraph<'V, 'E>) (v: IVertex<'V>) ->
-      g.AddVertex v.VData |> snd) emptyGraph
-  (* Collect edges where both ends are in vs *)
-  let es =
-    (inGraph :> IGraph<_, _>).FoldEdge (fun acc e ->
-      if Set.contains e.First vs && Set.contains e.Second vs then e :: acc
-      else acc) []
-  (* Add the collected edges to new graph *)
-  es
-  |> List.fold (fun (g: IGraph<'V, 'E>) edge ->
-    let src = g.FindVertexByID <| edge.First.ID
-    let dst = g.FindVertexByID <| edge.Second.ID
-    (g :> IGraph<'V, _>).AddEdge (src, dst, edge.Label)) g
-
-let reverse (srcGraph: IGraph<_, _>) emptyGraph =
-  emptyGraph
-  |> srcGraph.FoldVertex (fun (g: IGraph<_, _>) v ->
-    g.AddVertex (v.VData, v.ID) |> snd)
-  |> srcGraph.FoldEdge (fun (g: IGraph<_, _>) edge ->
-    let src = g.FindVertexByID edge.First.ID
-    let dst = g.FindVertexByID edge.Second.ID
-    g.AddEdge (dst, src, edge.Label))
+let reverse (inGraph: IGraph<_, _>) roots outGraph =
+  outGraph
+  |> inGraph.FoldVertex (fun (outGraph: IGraph<_, _>) v ->
+    outGraph.AddVertex (v.VData, v.ID) |> snd)
+  |> inGraph.FoldEdge (fun outGraph edge ->
+    let src = outGraph.FindVertexByID edge.First.ID
+    let dst = outGraph.FindVertexByID edge.Second.ID
+    outGraph.AddEdge (dst, src, edge.Label))
+  |> fun outGraph -> (* renew root vertices *)
+    roots |> Seq.map (fun (root: IVertex<_>) ->
+      assert (inGraph.HasVertex root.ID)
+      outGraph.FindVertexByID root.ID)
+    |> outGraph.SetRoots
 
 let inline private (!!) (sb: StringBuilder) (s: string) =
   sb.Append s |> ignore
 
-let toDiGraphDOTString (g: IGraph<_, _>) name vToStrFn _eToStrFn =
+let toDiGraphDOTString (g: IReadOnlyGraph<_, _>) name vToStrFn _eToStrFn =
   let sb = StringBuilder ()
   let vertexToString v =
     let id, lbl = vToStrFn v
