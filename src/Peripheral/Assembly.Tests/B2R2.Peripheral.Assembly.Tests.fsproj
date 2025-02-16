@@ -5,15 +5,14 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="LowUIR.Tests.fs" />
-    <Compile Include="Intel.Tests.fs" />
-    <Compile Include="MIPS.Tests.fs" />
+    <Compile Include="LowUIRTests.fs" />
+    <Compile Include="IntelTests.fs" />
+    <Compile Include="MIPSTests.fs" />
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.8.0" />
-    <PackageReference Include="MSTest.TestAdapter" Version="3.1.1" />
-    <PackageReference Include="MSTest.TestFramework" Version="3.1.1" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.13.0" />
+    <PackageReference Include="MSTest" Version="3.8.0" />
   </ItemGroup>
 
   <ItemGroup>

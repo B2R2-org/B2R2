@@ -5,21 +5,20 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="RegisterSet.Tests.fs" />
-    <Compile Include="AddrRange.Tests.fs" />
-    <Compile Include="LRUCache.Tests.fs" />
-    <Compile Include="IntervalTree.Tests.fs" />
-    <Compile Include="BitVector.Tests.fs" />
-    <Compile Include="ByteArray.Tests.fs" />
-    <Compile Include="LEB128.Tests.fs" />
-    <Compile Include="SortedList.Tests.fs" />
-    <Compile Include="BinReader.Tests.fs" />
+    <Compile Include="RegisterSetTests.fs" />
+    <Compile Include="AddrRangeTests.fs" />
+    <Compile Include="LRUCacheTests.fs" />
+    <Compile Include="IntervalTreeTests.fs" />
+    <Compile Include="BitVectorTests.fs" />
+    <Compile Include="ByteArrayTests.fs" />
+    <Compile Include="LEB128Tests.fs" />
+    <Compile Include="SortedListTests.fs" />
+    <Compile Include="BinReaderTests.fs" />
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.8.0" />
-    <PackageReference Include="MSTest.TestAdapter" Version="3.1.1" />
-    <PackageReference Include="MSTest.TestFramework" Version="3.1.1" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.13.0" />
+    <PackageReference Include="MSTest" Version="3.8.0" />
   </ItemGroup>
 
   <ItemGroup>

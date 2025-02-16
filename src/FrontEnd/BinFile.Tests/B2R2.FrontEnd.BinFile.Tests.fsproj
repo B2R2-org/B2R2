@@ -5,13 +5,17 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="BinFile.Tests.fs" />
+    <Compile Include="ZIPReader.fs" />
+    <Compile Include="Helper.fs" />
+    <Compile Include="ELFTests.fs" />
+    <Compile Include="PETests.fs" />
+    <Compile Include="MachTests.fs" />
+    <Compile Include="WasmTests.fs" />
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.8.0" />
-    <PackageReference Include="MSTest.TestAdapter" Version="3.1.1" />
-    <PackageReference Include="MSTest.TestFramework" Version="3.1.1" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.13.0" />
+    <PackageReference Include="MSTest" Version="3.8.0" />
   </ItemGroup>
 
   <ItemGroup>
