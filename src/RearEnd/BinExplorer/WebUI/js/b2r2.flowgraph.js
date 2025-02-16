@@ -166,8 +166,10 @@ class FlowGraph extends Graph {
   }
 
   drawNodes(json) {
-    for (let i = 0; i < json.Nodes.length; i++) {
-      this.drawNode(json.Nodes[i], json.Roots);
+    if (!isEmpty(json)) {
+      for (let i = 0; i < json.Nodes.length; i++) {
+        this.drawNode(json.Nodes[i], json.Roots);
+      }
     }
   }
 
@@ -183,8 +185,10 @@ class FlowGraph extends Graph {
   }
 
   drawEdges(json) {
-    for (let i = 0; i < json.Edges.length; i++) {
-      this.drawEdge(json.Edges[i]);
+    if (!isEmpty(json)) {
+      for (let i = 0; i < json.Edges.length; i++) {
+        this.drawEdge(json.Edges[i]);
+      }
     }
   }
 

@@ -137,20 +137,22 @@ let handleBinInfo req resp arbiter =
   Some (defaultEnc.GetBytes (txt)) |> answer req resp
 
 let cfgToJSON cfgType (brew: BinaryBrew<_, _>) (g: LowUIRCFG) =
-  match cfgType with
-  | CFGType.IRCFG ->
-    let roots = g.Roots |> Seq.toList
-    Visualizer.getJSONFromGraph g roots
-  | CFGType.DisasmCFG ->
-    let g = DisasmCFG g
-    let roots = g.Roots |> Seq.toList
-    Visualizer.getJSONFromGraph g roots
-  | CFGType.SSACFG ->
-    let factory = SSA.SSALifterFactory.Create (brew.BinHandle)
-    let ssaCFG = factory.Lift g
-    let roots = ssaCFG.Roots |> List.ofArray
-    Visualizer.getJSONFromGraph ssaCFG roots
-  | _ -> failwith "Invalid CFG type"
+  if isNull g then "{}"
+  else
+    match cfgType with
+    | CFGType.IRCFG ->
+      let roots = g.Roots |> Seq.toList
+      Visualizer.getJSONFromGraph g roots
+    | CFGType.DisasmCFG ->
+      let g = DisasmCFG g
+      let roots = g.Roots |> Seq.toList
+      Visualizer.getJSONFromGraph g roots
+    | CFGType.SSACFG ->
+      let factory = SSA.SSALifterFactory.Create (brew.BinHandle)
+      let ssaCFG = factory.Lift g
+      let roots = ssaCFG.Roots |> List.ofArray
+      Visualizer.getJSONFromGraph ssaCFG roots
+    | _ -> failwith "Invalid CFG type"
 
 let handleRegularCFG req resp funcID (brew: BinaryBrew<_, _>) cfgType =
   let func = brew.Functions.FindByID funcID
