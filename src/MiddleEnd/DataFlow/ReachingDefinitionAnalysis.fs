@@ -60,7 +60,7 @@ type ReachingDefinitionAnalysis =
           | _ -> list) list
         |> fst) []
 
-    let initGensAndKills (g: IReadOnlyGraph<LowUIRBasicBlock, _>) =
+    let initGensAndKills (g: IDiGraphAccessible<LowUIRBasicBlock, _>) =
       let vpPerVar = Dictionary<VarKind, Set<VarPoint>> ()
       let vpPerVertex = Dictionary<VertexID, VarPoint list> ()
       g.IterVertex (fun v ->

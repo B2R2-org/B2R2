@@ -43,7 +43,7 @@ module CallGraph =
       let name = fn.Name
       // let ext = fn.FunctionKind <> FunctionKind.Regular
       let blk = CallBasicBlock (addr, name, false)
-      let v, g = (g: IGraph<_, _>).AddVertex blk
+      let v, g = (g: IDiGraph<_, _>).AddVertex blk
       vMap.Add (addr, v)
       v, g
     | true, v -> v, g

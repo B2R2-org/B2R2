@@ -24,12 +24,10 @@
 
 namespace B2R2.MiddleEnd.BinGraph
 
-open System.Collections.Generic
-
-/// General read-only graph data type. This one can be either directed or
-/// undirected.
+/// Read-only graph information accessor. This interface provides a way to
+/// access the information of a graph without modifying it.
 [<AllowNullLiteral>]
-type IReadOnlyGraph<'V, 'E when 'V: equality and 'E: equality> =
+type IGraphAccessible<'V, 'E when 'V: equality and 'E: equality> =
   /// Number of vertices.
   abstract Size: int
 
@@ -41,10 +39,6 @@ type IReadOnlyGraph<'V, 'E when 'V: equality and 'E: equality> =
 
   /// Get a collection of unreachable vertices in the graph.
   abstract Unreachables: IVertex<'V>[]
-
-  /// Get an array of exit vertices in the graph. This is always empty for
-  /// undirected graphs.
-  abstract Exits: IVertex<'V>[]
 
   /// Get exactly one root vertex of this graph. If there are multiple root
   /// vertices, this will raise an exception.
@@ -95,30 +89,6 @@ type IReadOnlyGraph<'V, 'E when 'V: equality and 'E: equality> =
   abstract TryFindEdge:
     src: IVertex<'V> * dst: IVertex<'V> -> Edge<'V, 'E> option
 
-  /// Get the predecessors of the given vertex. This is only meaningful for
-  /// directed graphs. For undirected graphs, this function returns an empty
-  /// sequence.
-  abstract GetPreds: IVertex<'V> -> IVertex<'V>[]
-
-  /// Get the predecessor edges of the given vertex. This is only meaningful for
-  /// directed graphs. For undirected graphs, this function returns an empty
-  /// sequence.
-  abstract GetPredEdges: IVertex<'V> -> Edge<'V, 'E>[]
-
-  /// Get the successors of the given vertex. This is only meaningful for
-  /// directed graphs. For undirected graphs, this function returns an empty
-  /// sequence.
-  abstract GetSuccs: IVertex<'V> -> IVertex<'V>[]
-
-  /// Get the successor edges of the given vertex. This is only meaningful for
-  /// directed graphs. For undirected graphs, this function returns an empty
-  /// sequence.
-  abstract GetSuccEdges: IVertex<'V> -> Edge<'V, 'E>[]
-
-  /// Get the root vertices of this graph. When there's no root, this will
-  /// return an empty collection.
-  abstract GetRoots: unit -> IVertex<'V>[]
-
   /// Fold every vertex (the order can be arbitrary).
   abstract FoldVertex: ('a -> IVertex<'V> -> 'a) -> 'a -> 'a
 
@@ -130,15 +100,6 @@ type IReadOnlyGraph<'V, 'E when 'V: equality and 'E: equality> =
 
   /// Fold every edge in the graph (the order can be arbitrary).
   abstract IterEdge: (Edge<'V, 'E> -> unit) -> unit
-
-  /// Return a new transposed (i.e., reversed) graph. For directed graphs, the
-  /// given set of vertices will be used to set the root vertices of the
-  /// transposed graph. For undirected graphs, the parameter is ignored and this
-  /// function will return the same graph as the input graph.
-  abstract Reverse: IEnumerable<IVertex<'V>> -> IReadOnlyGraph<'V, 'E>
-
-  /// Return a cloned copy of this graph.
-  abstract Clone: unit -> IReadOnlyGraph<'V, 'E>
 
   /// Return the DOT-representation of this graph. The first argument specifies
   /// the name of the graph. The second argument specifies the callback function

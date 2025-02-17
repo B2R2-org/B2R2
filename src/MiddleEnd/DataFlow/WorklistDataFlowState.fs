@@ -81,7 +81,7 @@ and IWorklistDataFlowAnalysis<'WorkUnit,
   /// callback method that runs before the analysis starts, so any
   /// initialization logic should be implemented here.
   abstract InitializeWorkList:
-    IReadOnlyGraph<'V, _> -> IReadOnlyCollection<'WorkUnit>
+    IDiGraphAccessible<'V, _> -> IReadOnlyCollection<'WorkUnit>
 
   /// The subsume operator, which checks if the first lattice subsumes the
   /// second. This is to know if the analysis should stop or not.
@@ -91,14 +91,14 @@ and IWorklistDataFlowAnalysis<'WorkUnit,
   /// current abstract value by executing the given 'WorkUnit.
   abstract Transfer:
        IDataFlowState<'WorkUnit, 'Lattice>
-     * IReadOnlyGraph<'V, 'E>
+     * IDiGraphAccessible<'V, 'E>
      * 'WorkUnit
      * 'Lattice
     -> 'Lattice
 
   /// Get the next set of works to perform.
   abstract GetNextWorks:
-     IReadOnlyGraph<'V, 'E>
+       IDiGraphAccessible<'V, 'E>
      * 'WorkUnit
     -> IReadOnlyCollection<'WorkUnit>
 

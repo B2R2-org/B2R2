@@ -28,9 +28,9 @@ open B2R2.BinIR.SSA
 open B2R2.MiddleEnd.BinGraph
 
 /// SSA-based CFG, where each node contains SSA-based basic blocks. This is a
-/// wrapper class of `IGraph<SSABasicBlock, CFGEdgeKind>`, which provides a
+/// wrapper class of `IDiGraph<SSABasicBlock, CFGEdgeKind>`, which provides a
 /// uniform interface for both imperative and persistent graphs.
-type SSACFG private (g: IGraph<SSABasicBlock, CFGEdgeKind>) =
+type SSACFG private (g: IDiGraph<SSABasicBlock, CFGEdgeKind>) =
   let mutable g = g
 
   let addVertex (v, g') = g <- g'; v
@@ -42,9 +42,9 @@ type SSACFG private (g: IGraph<SSABasicBlock, CFGEdgeKind>) =
     let g =
       match t with
       | Imperative ->
-        ImperativeDiGraph<SSABasicBlock, CFGEdgeKind> () :> IGraph<_, _>
+        ImperativeDiGraph<SSABasicBlock, CFGEdgeKind> () :> IDiGraph<_, _>
       | Persistent ->
-        PersistentDiGraph<SSABasicBlock, CFGEdgeKind> () :> IGraph<_, _>
+        PersistentDiGraph<SSABasicBlock, CFGEdgeKind> () :> IDiGraph<_, _>
     SSACFG g
 
   /// Number of vertices.
@@ -187,7 +187,7 @@ type SSACFG private (g: IGraph<SSABasicBlock, CFGEdgeKind>) =
       __.FindDef idom targetVarKind
     | None -> None
 
-  interface IReadOnlyGraph<SSABasicBlock, CFGEdgeKind> with
+  interface IDiGraphAccessible<SSABasicBlock, CFGEdgeKind> with
     member _.Size = g.Size
     member _.Vertices = g.Vertices
     member _.Edges = g.Edges
@@ -214,11 +214,9 @@ type SSACFG private (g: IGraph<SSABasicBlock, CFGEdgeKind>) =
     member _.IterVertex fn = g.IterVertex fn
     member _.FoldEdge fn acc = g.FoldEdge fn acc
     member _.IterEdge fn = g.IterEdge fn
-    member _.Reverse vs = g.Reverse vs
-    member _.Clone () = g.Clone ()
     member _.ToDOTStr (name, vFn, eFn) = g.ToDOTStr (name, vFn, eFn)
 
-  interface IGraph<SSABasicBlock, CFGEdgeKind> with
+  interface IDiGraph<SSABasicBlock, CFGEdgeKind> with
     member _.AddVertex data = g.AddVertex data
     member _.AddVertex (data, vid) = g.AddVertex (data, vid)
     member _.AddVertex () = g.AddVertex ()

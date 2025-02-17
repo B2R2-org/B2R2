@@ -41,7 +41,7 @@ module VisDebug =
     fs.Write (bytes, 0, bytes.Length)
     fs.Flush ()
 
-  let private ppNode (vGraph: IGraph<_, _>) (vNode: IVertex<VisBBlock>) =
+  let private ppNode (vGraph: IDiGraph<_, _>) (vNode: IVertex<VisBBlock>) =
     logn "Node {"
     sprintf "\tID: %d" vNode.ID |> logn
     sprintf "\tAddr: (%x)" ((vNode.VData :> IVisualizable).BlockAddress)

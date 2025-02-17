@@ -54,15 +54,15 @@ type DomInfo<'V when 'V: equality> = {
 /// Storing DomInfo of a graph. We use this to repeatedly compute doms/pdoms of
 /// the same graph.
 type DominatorContext<'V, 'E when 'V: equality and 'E: equality> = {
-  ForwardGraph: IGraph<'V, 'E>
+  ForwardGraph: IDiGraph<'V, 'E>
   ForwardRoot: IVertex<'V>
   ForwardDomInfo: DomInfo<'V>
-  BackwardGraph: IGraph<'V, 'E>
+  BackwardGraph: IDiGraph<'V, 'E>
   BackwardRoot: IVertex<'V>
   BackwardDomInfo: DomInfo<'V>
 }
 
-let private initDomInfo (g: IGraph<_, _>) =
+let private initDomInfo (g: IDiGraph<_, _>) =
   (* To reserve a room for entry (dummy) node. *)
   let len = g.Size + 1
   { DFNumMap = Dictionary<VertexID, int> ()
@@ -80,7 +80,7 @@ let private initDomInfo (g: IGraph<_, _>) =
 let inline private dfnum (info: DomInfo<'V>) (v: IVertex<_>) =
   info.DFNumMap[v.ID]
 
-let rec private prepare (g: IGraph<_, _>) (info: DomInfo<'V>) n = function
+let rec private prepare (g: IDiGraph<_, _>) (info: DomInfo<'V>) n = function
   | (p, v : IVertex<_>) :: stack when not <| info.DFNumMap.ContainsKey v.ID ->
     info.DFNumMap.Add (v.ID, n)
     info.Semi[n] <- n
@@ -150,7 +150,7 @@ let rec private computeDomOrDelay info parent =
   if info.Bucket[parent].IsEmpty then ()
   else computeDom info parent
 
-let private connectDummy (g: IGraph<_, _>) (root: IVertex<_>) =
+let private connectDummy (g: IDiGraph<_, _>) (root: IVertex<_>) =
   if not root.HasData then root, g
   else
     let dummyEntry, g = g.AddVertex ()
@@ -177,7 +177,7 @@ let private computeDominatorInfo g root =
   g.RemoveVertex dummyEntry |> ignore
   info
 
-let private getTouchedPredAndOthers (g: IGraph<_, _>) (info: DomInfo<_>) v =
+let private getTouchedPredAndOthers (g: IDiGraph<_, _>) (info: DomInfo<_>) v =
   let preds = g.GetPreds v
   let touched = Seq.find (fun p -> info.IDom[dfnum info p] <> -1) preds
   let others = preds |> Seq.filter (fun p -> p <> touched) |> Seq.toList
@@ -228,7 +228,7 @@ let private computeDominatorInfoWithCooper g root =
   info.IDom[dfnum info root] <- 0 (* 0: None *)
   info
 
-let private updateReachMap (g: IGraph<_, _>) exits reachMap =
+let private updateReachMap (g: IDiGraph<_, _>) exits reachMap =
   let rec loop reachMap = function
     | [] -> reachMap
     | (v: IVertex<_>) :: vs ->
@@ -242,7 +242,7 @@ let private updateReachMap (g: IGraph<_, _>) exits reachMap =
     not (Map.find v.ID reachMap)) exits
   |> loop reachMap
 
-let rec private calculateExits (fg: IGraph<_, _>) bg reachMap exits =
+let rec private calculateExits (fg: IDiGraph<_, _>) bg reachMap exits =
   if Map.forall (fun _ b -> b) reachMap then exits
   else
     let reachMap = updateReachMap bg exits reachMap
@@ -254,17 +254,17 @@ let rec private calculateExits (fg: IGraph<_, _>) bg reachMap exits =
         else acc) exits
     calculateExits fg bg reachMap exits
 
-let private preparePostDomAnalysis (fg: IGraph<_, _>) (bg: IGraph<_, _>) =
+let private preparePostDomAnalysis (fg: IDiGraph<_, _>) (bg: IDiGraph<_, _>) =
   let _, orderMap =
     Traversal.DFS.foldRevPostorder fg (fun (cnt, map) v ->
       cnt + 1, Map.add v cnt map) (0, Map.empty)
   let fg, backEdges =
-    fg.FoldEdge (fun (fg: IGraph<_, _>, acc) edge ->
+    fg.FoldEdge (fun (fg: IDiGraph<_, _>, acc) edge ->
       if edge.First.ID = edge.Second.ID then
         fg.RemoveEdge (edge), edge :: acc
       else fg, acc) (fg, [])
   let fg, backEdges =
-    fg.FoldEdge (fun (fg: IGraph<_, _>, acc) edge ->
+    fg.FoldEdge (fun (fg: IDiGraph<_, _>, acc) edge ->
       if Map.find edge.First orderMap > Map.find edge.Second orderMap then
         fg.RemoveEdge edge, edge :: acc
       else fg, acc) (fg, backEdges)
@@ -277,16 +277,16 @@ let private preparePostDomAnalysis (fg: IGraph<_, _>) (bg: IGraph<_, _>) =
     |> calculateExits fg bg reachMap
   (* Restore backedges. This is needed for imperative graphs. *)
   backEdges
-  |> List.fold (fun (fg: IGraph<_, _>) (edge: Edge<_, _>) ->
+  |> List.fold (fun (fg: IDiGraph<_, _>) (edge: Edge<_, _>) ->
     fg.AddEdge (edge.First, edge.Second, edge.Label)) fg
   |> ignore
   let dummy, bg = bg.AddVertex ()
   let bg =
     exits
-    |> List.fold (fun (bg: IGraph<_, _>) v -> bg.AddEdge (dummy, v)) bg
+    |> List.fold (fun (bg: IDiGraph<_, _>) v -> bg.AddEdge (dummy, v)) bg
   bg, dummy
 
-let initDominatorContextWithLengauer (g: IGraph<'V, _>) =
+let initDominatorContextWithLengauer (g: IDiGraph<'V, _>) =
   let root = g.GetRoots () |> Seq.exactlyOne
   let forward = computeDominatorInfo g root
   let g', root' = g.Reverse [] |> preparePostDomAnalysis g
@@ -298,7 +298,7 @@ let initDominatorContextWithLengauer (g: IGraph<'V, _>) =
     BackwardRoot = root'
     BackwardDomInfo = backward }
 
-let initDominatorContextWithCooper (g: IGraph<'V, _>) =
+let initDominatorContextWithCooper (g: IDiGraph<'V, _>) =
   let root = g.GetRoots () |> Seq.exactlyOne
   let forward = computeDominatorInfoWithCooper g root
   let g', root' = g.Reverse [] |> preparePostDomAnalysis g
@@ -312,7 +312,7 @@ let initDominatorContextWithCooper (g: IGraph<'V, _>) =
 
 let initDominatorContext g = initDominatorContextWithCooper g
 
-let private checkVertexInGraph (g: IGraph<_, _>) (v: IVertex<_>) =
+let private checkVertexInGraph (g: IDiGraph<_, _>) (v: IVertex<_>) =
   let v' = g.FindVertexByData v.VData
   if v.ID = v'.ID then ()
   else raise VertexNotFoundException
@@ -357,7 +357,7 @@ let pdoms ctxt v =
 /// A dominator tree is a tree where each node's children are those nodes it
 /// immediately dominates. This function returns a map from a node to its
 /// children in the dom tree.
-let private computeDomTree (g: IGraph<_, _>) info =
+let private computeDomTree (g: IDiGraph<_, _>) info =
   let domTree = Array.create info.MaxLength []
   g.IterVertex (fun v ->
     let idom = info.IDom[dfnum info v]
@@ -385,7 +385,7 @@ let traverseBottomUp (domTree: list<IVertex<_>>[]) info root =
 let private computeDF domTree (frontiers: list<IVertex<_>>[]) g info root =
   for v in traverseBottomUp domTree info root do
     let df = HashSet<IVertex<_>> ()
-    for succ in (g: IGraph<_, _>).GetSuccs v do
+    for succ in (g: IDiGraph<_, _>).GetSuccs v do
       let succID = dfnum info succ
       let idomID = info.IDom[succID]
       let d = info.Vertex[idomID]
@@ -401,7 +401,7 @@ let private computeDF domTree (frontiers: list<IVertex<_>>[]) g info root =
     frontiers[dfnum info v] <- df |> List.ofSeq
 
 let private computeDFWithCooper (frontiers: Set<IVertex<_>>[])
-                                (g: IGraph<_, _>) (info: DomInfo<_>) root =
+                                (g: IDiGraph<_, _>) (info: DomInfo<_>) root =
   for v in g.Vertices do
     let preds = g.GetPreds v
     if Seq.length preds < 2 then ()

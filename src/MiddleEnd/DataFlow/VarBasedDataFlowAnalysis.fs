@@ -96,7 +96,7 @@ type VarBasedDataFlowAnalysis<'Lattice>
   let findDefVars g state (defSites: Dictionary<_, _>) globals =
     let varKill = HashSet ()
     let stackState = (state: VarBasedDataFlowState<_>).StackPointerSubState
-    for v in (g: IGraph<_, _>).Vertices do
+    for v in (g: IDiGraph<_, _>).Vertices do
       varKill.Clear ()
       for (stmt, pp) in state.GetStmtInfos v do
         match stmt.S with
@@ -277,7 +277,7 @@ type VarBasedDataFlowAnalysis<'Lattice>
   let updateChainsWithBBLStmts g (state: VarBasedDataFlowState<_>) v defs =
     let blkAddr = (v: IVertex<LowUIRBasicBlock>).VData.Internals.PPoint.Address
     let intraBlockContinues =
-      (g: IGraph<_, _>).GetSuccEdges v
+      (g: IDiGraph<_, _>).GetSuccEdges v
       |> Array.exists (fun e -> isIntraEdge e.Label)
     let stmtInfos = state.GetStmtInfos v
     let mutable outs = defs
@@ -315,7 +315,7 @@ type VarBasedDataFlowAnalysis<'Lattice>
   let rec incrementalUpdate g state domTree visited domInfo v =
     if (visited: HashSet<_>).Contains v then ()
     elif (state: VarBasedDataFlowState<_>).IsVertexPending v
-         && (g: IGraph<_, _>).HasVertex v.ID then
+         && (g: IDiGraph<_, _>).HasVertex v.ID then
       let dfnum = domInfo.DFNumMap[v.ID]
       let idomNum = domInfo.IDom[dfnum]
       let idom = domInfo.Vertex[idomNum]
@@ -329,7 +329,7 @@ type VarBasedDataFlowAnalysis<'Lattice>
     match (state: VarBasedDataFlowState<_>).PhiInfos.TryGetValue v with
     | false, _ -> true
     | true, phiInfo ->
-      let predCount = (g: IGraph<_, _>).GetPreds v |> Seq.length
+      let predCount = (g: IDiGraph<_, _>).GetPreds v |> Seq.length
       phiInfo.Values |> Seq.forall (fun d -> d.Count <= predCount)
 #endif
 
@@ -359,7 +359,7 @@ type VarBasedDataFlowAnalysis<'Lattice>
       match state.PhiInfos.TryGetValue v with
       | true, phiInfo ->
         for (KeyValue (vk, inDefs)) in phiInfo do
-          for pred in (g: IGraph<_, _>).GetPreds v do
+          for pred in (g: IDiGraph<_, _>).GetPreds v do
             match Map.tryFind vk <| getOutgoingDefs state pred with
             | None -> ()
             | Some def ->
@@ -484,7 +484,7 @@ type VarBasedDataFlowAnalysis<'Lattice>
     | true, phiInfo ->
       transferPhi state subState phiInfo v.VData.Internals.PPoint
     for stmt in state.GetStmtInfos v do fnTransfer state stmt done
-    (g: IGraph<_, _>).GetSuccs v
+    (g: IDiGraph<_, _>).GetSuccs v
     |> Array.map (fun succ -> v, succ)
     |> Array.iter subState.FlowQueue.Enqueue
 
@@ -494,7 +494,7 @@ type VarBasedDataFlowAnalysis<'Lattice>
     | true, (src, dst) ->
       if not <| subState.ExecutedFlows.Add (src, dst) then ()
       else
-        match (g: IGraph<_, _>).TryFindVertexByID dst.ID with
+        match (g: IDiGraph<_, _>).TryFindVertexByID dst.ID with
         | Some v -> transferFlow state subState g v fnTransfer
         | None -> ()
 

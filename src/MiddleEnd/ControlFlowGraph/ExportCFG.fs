@@ -51,13 +51,13 @@ module ExportCFG =
     Edges: EdgeData[]
   }
 
-  let private translateNodes (cfg: IReadOnlyGraph<_, _>) =
+  let private translateNodes (cfg: IDiGraphAccessible<_, _>) =
     let lst = List ()
     cfg.IterVertex (fun (v: IVertex<#IVisualizable>) ->
       lst.Add $"{v.VData.BlockAddress:x}")
     lst.ToArray ()
 
-  let private translateEdges (cfg: IReadOnlyGraph<_, _>) =
+  let private translateEdges (cfg: IDiGraphAccessible<_, _>) =
     let lst = List ()
     cfg.IterEdge (fun (e: Edge<#IVisualizable, _>) ->
       let src, dst = e.First, e.Second
@@ -68,7 +68,7 @@ module ExportCFG =
 
   /// Export the control flow graph to a JSON format.
   [<CompiledName "ToJson">]
-  let toJson (cfg: IReadOnlyGraph<_, _>) jsonPath =
+  let toJson (cfg: IDiGraphAccessible<_, _>) jsonPath =
     let enc = Encoding.UTF8
     use fs = File.Create (jsonPath)
     use writer = JsonReaderWriterFactory.CreateJsonWriter (fs, enc, true, true)

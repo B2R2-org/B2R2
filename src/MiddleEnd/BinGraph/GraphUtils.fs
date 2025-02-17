@@ -27,9 +27,9 @@ module internal B2R2.MiddleEnd.BinGraph.GraphUtils
 
 open System.Text
 
-let reverse (inGraph: IGraph<_, _>) roots outGraph =
+let reverse (inGraph: IDiGraph<_, _>) roots outGraph =
   outGraph
-  |> inGraph.FoldVertex (fun (outGraph: IGraph<_, _>) v ->
+  |> inGraph.FoldVertex (fun (outGraph: IDiGraph<_, _>) v ->
     outGraph.AddVertex (v.VData, v.ID) |> snd)
   |> inGraph.FoldEdge (fun outGraph edge ->
     let src = outGraph.FindVertexByID edge.First.ID
@@ -44,7 +44,7 @@ let reverse (inGraph: IGraph<_, _>) roots outGraph =
 let inline private (!!) (sb: StringBuilder) (s: string) =
   sb.Append s |> ignore
 
-let toDiGraphDOTString (g: IReadOnlyGraph<_, _>) name vToStrFn _eToStrFn =
+let toDiGraphDOTString (g: IDiGraphAccessible<_, _>) name vToStrFn _eToStrFn =
   let sb = StringBuilder ()
   let vertexToString v =
     let id, lbl = vToStrFn v

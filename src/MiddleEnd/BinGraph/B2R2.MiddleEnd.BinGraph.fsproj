@@ -9,8 +9,10 @@
     <Compile Include="IVertex.fs" />
     <Compile Include="Edge.fs" />
     <Compile Include="ImplementationType.fs" />
-    <Compile Include="IReadOnlyGraph.fs" />
+    <Compile Include="IGraphAccessible.fs" />
+    <Compile Include="IDiGraphAccessible.fs" />
     <Compile Include="IGraph.fs" />
+    <Compile Include="IDiGraph.fs" />
     <Compile Include="GraphUtils.fs" />
     <Compile Include="ImperativeVertex.fs" />
     <Compile Include="ImperativeDiGraph.fs" />

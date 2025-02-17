@@ -28,13 +28,13 @@ open B2R2.MiddleEnd.BinGraph
 
 let private makeGraph (t: ImplementationType) =
   match t with
-  | Persistent -> PersistentDiGraph<int, int> () :> IGraph<_, _>
-  | Imperative -> ImperativeDiGraph<int, int> () :> IGraph<_, _>
+  | Persistent -> PersistentDiGraph<int, int> () :> IDiGraph<_, _>
+  | Imperative -> ImperativeDiGraph<int, int> () :> IDiGraph<_, _>
 
 /// Add `count` number of nodes to the graph.
 let private addNodes count g =
   [ 1.. count ]
-  |> List.fold (fun (g: IGraph<_, _>, vmap) i ->
+  |> List.fold (fun (g: IDiGraph<_, _>, vmap) i ->
     let n, g = g.AddVertex i
     g, Map.add i n vmap
   ) (g, Map.empty)
@@ -42,7 +42,7 @@ let private addNodes count g =
 let private prepare count t =
   let g, vmap = makeGraph t |> addNodes count
   let mutable cnt = 0
-  let addEdge (g: IGraph<_, _>) i j =
+  let addEdge (g: IDiGraph<_, _>) i j =
     cnt <- cnt + 1
     g.AddEdge (vmap[i], vmap[j], cnt)
   g, vmap, addEdge

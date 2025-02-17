@@ -41,7 +41,7 @@ type IDataFlowAnalysis<'AbsLoc,
 
   /// Perform the dataflow analysis on the given CFG until a fixed point is
   /// reached.
-  abstract Compute: cfg: IGraph<'V, CFGEdgeKind> -> 'State -> 'State
+  abstract Compute: cfg: IDiGraph<'V, CFGEdgeKind> -> 'State -> 'State
 
 /// The state of the data-flow analysis, which contains a mapping from abstract
 /// locations to abstract values.

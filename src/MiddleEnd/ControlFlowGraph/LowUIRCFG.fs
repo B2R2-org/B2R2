@@ -30,11 +30,11 @@ open B2R2.MiddleEnd.BinGraph
 
 /// CFG where each node is an IR-level basic block. This is the main data
 /// structure that we use to represent the control flow graph of a function.
-/// This is essentially a wrapper class of `IGraph<LowUIRBasicBlock,
+/// This is essentially a wrapper class of `IDiGraph<LowUIRBasicBlock,
 /// CFGEdgeKind>`, which provides a uniform interface for both imperative and
 /// persistent graphs.
 [<AllowNullLiteral>]
-type LowUIRCFG private (g: IGraph<LowUIRBasicBlock, CFGEdgeKind>) =
+type LowUIRCFG private (g: IDiGraph<LowUIRBasicBlock, CFGEdgeKind>) =
   let mutable g = g
 
   let vertexCache = Dictionary<ProgramPoint, IVertex<LowUIRBasicBlock>> ()
@@ -48,9 +48,9 @@ type LowUIRCFG private (g: IGraph<LowUIRBasicBlock, CFGEdgeKind>) =
     let g =
       match t with
       | Imperative ->
-        ImperativeDiGraph<LowUIRBasicBlock, CFGEdgeKind> () :> IGraph<_, _>
+        ImperativeDiGraph<LowUIRBasicBlock, CFGEdgeKind> () :> IDiGraph<_, _>
       | Persistent ->
-        PersistentDiGraph<LowUIRBasicBlock, CFGEdgeKind> () :> IGraph<_, _>
+        PersistentDiGraph<LowUIRBasicBlock, CFGEdgeKind> () :> IDiGraph<_, _>
     LowUIRCFG g
 
   /// Number of vertices.
@@ -166,7 +166,7 @@ type LowUIRCFG private (g: IGraph<LowUIRBasicBlock, CFGEdgeKind>) =
   /// Convert this CFG to a DOT string.
   member _.ToDOTStr (name, vFn, eFn) = g.ToDOTStr (name, vFn, eFn)
 
-  interface IReadOnlyGraph<LowUIRBasicBlock, CFGEdgeKind> with
+  interface IDiGraphAccessible<LowUIRBasicBlock, CFGEdgeKind> with
     member _.Size = g.Size
     member _.Vertices = g.Vertices
     member _.Edges = g.Edges
@@ -193,11 +193,9 @@ type LowUIRCFG private (g: IGraph<LowUIRBasicBlock, CFGEdgeKind>) =
     member _.IterVertex fn = g.IterVertex fn
     member _.FoldEdge fn acc = g.FoldEdge fn acc
     member _.IterEdge fn = g.IterEdge fn
-    member _.Reverse vs = g.Reverse vs
-    member _.Clone () = g.Clone ()
     member _.ToDOTStr (name, vFn, eFn) = g.ToDOTStr (name, vFn, eFn)
 
-  interface IGraph<LowUIRBasicBlock, CFGEdgeKind> with
+  interface IDiGraph<LowUIRBasicBlock, CFGEdgeKind> with
     member _.AddVertex data = g.AddVertex data
     member _.AddVertex (data, vid) = g.AddVertex (data, vid)
     member _.AddVertex () = g.AddVertex ()

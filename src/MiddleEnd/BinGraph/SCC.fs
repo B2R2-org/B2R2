@@ -35,7 +35,7 @@ type private SCCInfo<'V when 'V: equality> = {
   LowLink: int[]
 }
 
-let private initSCCInfo (g: IGraph<_, _>) =
+let private initSCCInfo (g: IDiGraphAccessible<_, _>) =
   let len = g.Size + 1
   { DFNumMap = Dictionary<VertexID, int>()
     Vertex = Array.zeroCreate len
@@ -66,13 +66,13 @@ let private createSCC ctxt v stack sccs =
   else stack, sccs
 
 /// R.Tarjan. Depth-first search and linear graph algorithms
-let rec private computeSCC (g: IGraph<_, _>) ctxt (v: IVertex<_>) n stack sccs =
+let rec private computeSCC g ctxt (v: IVertex<_>) n stack sccs =
   assert (not (ctxt.DFNumMap.ContainsKey v.ID))
   ctxt.DFNumMap[v.ID] <- n
   ctxt.LowLink[n] <- n
   ctxt.Vertex[n] <- v
   let n, stack, sccs =
-    g.GetSuccs v
+    (g: IDiGraphAccessible<_, _>).GetSuccs v
     |> Seq.fold (computeLowLink g ctxt v) (n + 1, n :: stack, sccs)
   let stack, sccs = createSCC ctxt v stack sccs
   n, stack, sccs
@@ -90,7 +90,7 @@ and private computeLowLink g ctxt v (n, stack, sccs) (w: IVertex<_>) =
     ctxt.LowLink[vNum] <- min vLink wLink
     n, stack, sccs
 
-let compute (g: IGraph<_, _>) =
+let compute (g: IDiGraphAccessible<_, _>) =
   let ctxt = initSCCInfo g
   g.Vertices
   |> Array.fold (fun (n, acc) root ->

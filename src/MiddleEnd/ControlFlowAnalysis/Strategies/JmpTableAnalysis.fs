@@ -43,7 +43,7 @@ type JmpTableAnalysis<'FnCtx,
                               and 'GlCtx: (new: unit -> 'GlCtx)>
   public (ssaLifter: ICFGAnalysis<unit -> SSACFG> option) =
 
-  let rec findJumpExpr stmExtractor (g: IGraph<_, _>) vFst = function
+  let rec findJumpExpr stmExtractor (g: IDiGraph<_, _>) vFst = function
     | (v: IVertex<_>) :: vs ->
       match stmExtractor v with
       | Jmp (InterJmp jmpExpr) -> Ok jmpExpr

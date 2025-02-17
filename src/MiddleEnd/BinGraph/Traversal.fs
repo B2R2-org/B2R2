@@ -33,7 +33,7 @@ module DFS =
     if idx >= 0 then reversePrependTo (arr[idx] :: lst) arr (idx - 1)
     else lst
 
-  let private prependSuccessors (g: IReadOnlyGraph<_, _>) lst v =
+  let private prependSuccessors (g: IDiGraphAccessible<_, _>) lst v =
     let succs = g.GetSuccs v
     reversePrependTo lst succs (succs.Length - 1)
 
@@ -65,14 +65,14 @@ module DFS =
 
   /// Fold vertices of the graph in a depth-first manner with the preorder
   /// traversal, starting from the given root vertices.
-  let foldPreorderWithRoots (g: IReadOnlyGraph<_, _>) roots fn acc =
+  let foldPreorderWithRoots (g: IDiGraphAccessible<_, _>) roots fn acc =
     let visited = HashSet<VertexID> ()
     foldPreorderLoop visited g fn acc roots
 
   /// Fold vertices of the graph in a depth-first manner with the preorder
   /// traversal. This function visits every vertex in the graph including
   /// unreachable ones. For those unreachable vertices, the order is random.
-  let foldPreorder (g: IReadOnlyGraph<_, _>) fn acc =
+  let foldPreorder (g: IDiGraphAccessible<_, _>) fn acc =
     let visited = HashSet<VertexID> ()
     let roots = g.GetRoots () |> Array.toList
     let acc = foldPreorderLoop visited g fn acc roots
@@ -93,14 +93,14 @@ module DFS =
 
   /// Fold vertices of the graph in a depth-first manner with the postorder
   /// traversal, starting from the given root vertices.
-  let foldPostorderWithRoots (g: IReadOnlyGraph<_, _>) roots fn acc =
+  let foldPostorderWithRoots (g: IDiGraphAccessible<_, _>) roots fn acc =
     let visited = HashSet<VertexID> ()
     foldPostorderLoop visited g fn acc [] roots
 
   /// Fold vertices of the graph in a depth-first manner with the postorder
   /// traversal. This function visits every vertex in the graph including
   /// unreachable ones. For those unreachable vertices, the order is random.
-  let foldPostorder (g: IReadOnlyGraph<_, _>) fn acc =
+  let foldPostorder (g: IDiGraphAccessible<_, _>) fn acc =
     let visited = HashSet<VertexID> ()
     let roots = g.GetRoots () |> Array.toList
     let acc = foldPostorderLoop visited g fn acc [] roots
@@ -129,7 +129,7 @@ module DFS =
   /// postorder traversal. This function visits every vertex in the graph
   /// including unreachable ones. For those unreachable vertices, the order is
   /// random.
-  let foldRevPostorder (g: IReadOnlyGraph<_, _>) fn acc =
+  let foldRevPostorder (g: IDiGraphAccessible<_, _>) fn acc =
     foldPostorder g (fun acc v -> v :: acc) []
     |> List.fold fn acc
 

@@ -33,7 +33,6 @@ open B2R2.MiddleEnd.ControlFlowGraph
 /// Disassembly-based CFG, where each node contains disassembly code. This is
 /// the most user-friendly CFG, although we do not use this for internal
 /// analyses. Therefore, this class does not provide ways to modify the CFG.
-/// Modification should be done through the `IGraph` interface if needed.
 type DisasmCFG (ircfg: LowUIRCFG) =
   let addEdgeToDisasmVertex (vMap: DisasmVMap) addr succ =
     match succ with
@@ -173,7 +172,7 @@ type DisasmCFG (ircfg: LowUIRCFG) =
     vMap
 
   let addDisasmCFGVertices (vMap: DisasmVMap) newGraph =
-    vMap |> Seq.fold (fun (g: IGraph<_, _>) (KeyValue (addr, tmpV)) ->
+    vMap |> Seq.fold (fun (g: IDiGraph<_, _>) (KeyValue (addr, tmpV)) ->
       let ppoint = ProgramPoint (addr, 0)
       let instrs = tmpV.Instructions.Values |> Seq.toArray
       let bbl = DisasmBasicBlock (ppoint, instrs)
@@ -182,7 +181,7 @@ type DisasmCFG (ircfg: LowUIRCFG) =
       g) newGraph
 
   let addDisasmCFGEdges (vMap: DisasmVMap) newGraph =
-    vMap.Values |> Seq.fold (fun (g: IGraph<_, _>) tmpV ->
+    vMap.Values |> Seq.fold (fun (g: IDiGraph<_, _>) tmpV ->
       let src = tmpV.Vertex
       tmpV.Successors |> Seq.fold (fun g (succ, label) ->
         if vMap.ContainsKey succ |> not then ()
@@ -193,8 +192,8 @@ type DisasmCFG (ircfg: LowUIRCFG) =
 
   let createEmptyDisasmCFGByType (implType: ImplementationType) =
     match implType with
-    | Imperative -> ImperativeDiGraph () :> IGraph<_, _>
-    | Persistent -> PersistentDiGraph () :> IGraph<_, _>
+    | Imperative -> ImperativeDiGraph () :> IDiGraph<_, _>
+    | Persistent -> PersistentDiGraph () :> IDiGraph<_, _>
 
   let createDisasmCFG vMap =
     createEmptyDisasmCFGByType ircfg.ImplementationType
@@ -268,7 +267,7 @@ type DisasmCFG (ircfg: LowUIRCFG) =
   /// Iterate over the edges of this CFG with the given function.
   member _.IterEdge fn = g.IterEdge fn
 
-  interface IReadOnlyGraph<DisasmBasicBlock, CFGEdgeKind> with
+  interface IDiGraphAccessible<DisasmBasicBlock, CFGEdgeKind> with
     member _.Size = g.Size
     member _.Vertices = g.Vertices
     member _.Edges = g.Edges
@@ -295,8 +294,6 @@ type DisasmCFG (ircfg: LowUIRCFG) =
     member _.IterVertex fn = g.IterVertex fn
     member _.FoldEdge fn acc = g.FoldEdge fn acc
     member _.IterEdge fn = g.IterEdge fn
-    member _.Reverse vs = g.Reverse vs
-    member _.Clone () = g.Clone ()
     member _.ToDOTStr (name, vFn, eFn) = g.ToDOTStr (name, vFn, eFn)
 
 /// Temporarily stores vertex information for creating DisasmCFG.

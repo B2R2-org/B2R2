@@ -98,7 +98,7 @@ type ImperativeDiGraph<'V, 'E when 'V: equality and 'E: equality> () =
 
   let clone () =
     let g = ImperativeDiGraph<'V, 'E> ()
-    let ig = g :> IGraph<_, _>
+    let ig = g :> IDiGraph<_, _>
     let dictOldToNew = Dictionary<VertexID, VertexID> ()
     vertices.Values |> Seq.iter (fun v ->
       let v', _ = ig.AddVertex (v :> IVertex<_>).VData
@@ -109,7 +109,7 @@ type ImperativeDiGraph<'V, 'E when 'V: equality and 'E: equality> () =
       ig.AddEdge (src, dst, e.Label) |> ignore)
     g
 
-  interface IReadOnlyGraph<'V, 'E> with
+  interface IDiGraphAccessible<'V, 'E> with
 
     member __.Size with get() = vertices.Count
 
@@ -205,22 +205,16 @@ type ImperativeDiGraph<'V, 'E when 'V: equality and 'E: equality> () =
     member __.IterEdge fn =
       edges.Values |> Seq.iter fn
 
-    member __.Reverse (vs) =
-      GraphUtils.reverse __ vs (ImperativeDiGraph ())
-
-    member __.Clone () =
-      clone ()
-
     member __.ToDOTStr (name, vToStrFn, _eToStrFn) =
       GraphUtils.toDiGraphDOTString __ name vToStrFn _eToStrFn
 
-  interface IGraph<'V, 'E> with
+  interface IDiGraph<'V, 'E> with
 
     member __.AddVertex v =
       addVertexWithData (VertexData v), __
 
     member __.AddVertex (v, vid) =
-      assert ((__: IGraph<_, _>).HasVertex vid |> not)
+      assert ((__: IDiGraph<_, _>).HasVertex vid |> not)
       addVertexWithDataAndID (VertexData v) vid, __
 
     member __.AddVertex () =

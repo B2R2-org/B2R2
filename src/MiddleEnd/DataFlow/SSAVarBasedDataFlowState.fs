@@ -123,23 +123,23 @@ type SSAVarBasedDataFlowState<'Lattice>
     else analysis.Bottom
 
   /// Get the list of executed source vertices.
-  member __.GetExecutedSources (ssaCFG: IGraph<_, _>) (blk: IVertex<_>) srcIDs =
-    let preds = ssaCFG.GetPreds blk |> Seq.toArray
+  member __.GetExecutedSources ssaCFG (blk: IVertex<_>) srcIDs =
+    let preds = (ssaCFG: IDiGraph<_, _>).GetPreds blk |> Seq.toArray
     srcIDs
     |> Array.mapi (fun i srcID ->
       if executedEdges.Contains (preds[i].ID, blk.ID) then Some srcID
       else None)
     |> Array.choose id
 
-  member __.MarkSuccessorsExecutable (ssaCFG: IGraph<_, _>) (blk: IVertex<_>) =
-    for succ in ssaCFG.GetSuccs blk do
+  member __.MarkSuccessorsExecutable ssaCFG (blk: IVertex<_>) =
+    for succ in (ssaCFG: IDiGraph<_, _>).GetSuccs blk do
       markExecutable blk.ID succ.ID
 
   member _.MarkExecutable src dst = markExecutable src dst
 
   member _.GetNumIncomingExecutedEdges ssaCFG (blk: IVertex<_>) =
     let mutable count = 0
-    for pred in (ssaCFG: IGraph<_, _>).GetPreds blk do
+    for pred in (ssaCFG: IDiGraph<_, _>).GetPreds blk do
       if executedEdges.Contains (pred.ID, blk.ID) then count <- count + 1
       else ()
     count
@@ -172,7 +172,7 @@ and ISSAVarBasedDataFlowAnalysis<'Lattice> =
   /// Transfer function. Since SSAVarBasedDataFlowState is a mutable object, we
   /// don't need to return the updated state.
   abstract Transfer:
-       IGraph<SSABasicBlock, CFGEdgeKind>
+       IDiGraph<SSABasicBlock, CFGEdgeKind>
     -> IVertex<SSABasicBlock>
     -> ProgramPoint
     -> Stmt

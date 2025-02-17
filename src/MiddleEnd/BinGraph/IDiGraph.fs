@@ -26,61 +26,54 @@ namespace B2R2.MiddleEnd.BinGraph
 
 open System.Collections.Generic
 
-/// Graph interface.
+/// Directed graph interface.
 [<AllowNullLiteral>]
-type IGraph<'V, 'E when 'V: equality and 'E: equality> =
-  inherit IGraphAccessible<'V, 'E>
+type IDiGraph<'V, 'E when 'V: equality and 'E: equality> =
+  inherit IDiGraphAccessible<'V, 'E>
 
   /// Add a vertex to the graph using a data value, and return a reference to
   /// the added vertex.
-  abstract AddVertex: data: 'V -> IVertex<'V> * IGraph<'V, 'E>
+  abstract AddVertex: data: 'V -> IVertex<'V> * IDiGraph<'V, 'E>
 
   /// Add a vertex to the graph using a data value and a vertex ID, and return a
   /// reference to the added vertex. This function assumes that the vertex ID is
   /// unique in the graph, thus it needs to be used with caution.
-  abstract AddVertex: data: 'V * vid: VertexID -> IVertex<'V> * IGraph<'V, 'E>
+  abstract AddVertex: data: 'V * vid: VertexID -> IVertex<'V> * IDiGraph<'V, 'E>
 
   /// Add a vertex to the grpah without any data attached to it.
-  abstract AddVertex: unit -> IVertex<'V> * IGraph<'V, 'E>
+  abstract AddVertex: unit -> IVertex<'V> * IDiGraph<'V, 'E>
 
   /// Remove the given vertex from the graph.
-  abstract RemoveVertex: IVertex<'V> -> IGraph<'V, 'E>
+  abstract RemoveVertex: IVertex<'V> -> IDiGraph<'V, 'E>
 
-  /// Add an edge between src and dst.
-  abstract AddEdge: src: IVertex<'V> * dst: IVertex<'V> -> IGraph<'V, 'E>
+  /// Add an edge from src to dst.
+  abstract AddEdge: src: IVertex<'V> * dst: IVertex<'V> -> IDiGraph<'V, 'E>
 
   /// Add an edge from src to dst with the given label.
   abstract AddEdge:
-    src: IVertex<'V> * dst: IVertex<'V> * label: 'E -> IGraph<'V, 'E>
+    src: IVertex<'V> * dst: IVertex<'V> * label: 'E -> IDiGraph<'V, 'E>
 
-  /// Remove the edge that spans between src and dst.
-  abstract RemoveEdge: src: IVertex<'V> * dst: IVertex<'V> -> IGraph<'V, 'E>
+  /// Remove the edge that spans from src to dst.
+  abstract RemoveEdge: src: IVertex<'V> * dst: IVertex<'V> -> IDiGraph<'V, 'E>
 
   /// Remove the given edge from the graph. The input edge does not need to have
   /// the same label as the one in the graph; we only check the source and
   /// destination vertices to perform this operation.
-  abstract RemoveEdge: edge: Edge<'V, 'E> -> IGraph<'V, 'E>
+  abstract RemoveEdge: edge: Edge<'V, 'E> -> IDiGraph<'V, 'E>
+
+  /// Explicitly add a root vertex to this graph. `AddVertex` will automatically
+  /// set the root vertex to the first vertex added to the graph, but this
+  /// function allows the user to add root vertices explicitly.
+  abstract AddRoot: IVertex<'V> -> IDiGraph<'V, 'E>
+
+  /// Set root vertices for this graph. `AddVertex` will automatically set the
+  /// root vertex to the first vertex added to the graph, but this function
+  /// allows the user to set root vertices explicitly.
+  abstract SetRoots: IEnumerable<IVertex<'V>> -> IDiGraph<'V, 'E>
+
+  /// Return a new transposed (i.e., reversed) graph. The given set of vertices
+  /// will be used to set the root vertices of the transposed graph.
+  abstract Reverse: IEnumerable<IVertex<'V>> -> IDiGraph<'V, 'E>
 
   /// Return a cloned copy of this graph.
-  abstract Clone: unit -> IGraph<'V, 'E>
-
-/// Module for IGraph<'V, 'E> type to provide utility functions.
-module IGraph =
-  /// Compute a subgraph of the given graph (inGraph) using only the vertices
-  /// in the given set (vs). The resulting graph will have the same structure
-  /// as the original graph, but only the vertices in the set and the edges
-  /// between them will be included. This function assumes that the (outGraph)
-  /// is an empty graph. Otherwise, the behavior is undefined.
-  let subGraph inGraph outGraph (vs: HashSet<IVertex<'V>>) =
-    (* Add vertices *)
-    vs
-    |> Seq.fold (fun (g: IGraph<'V, 'E>) (v: IVertex<'V>) ->
-      g.AddVertex v.VData |> snd) outGraph
-    |>
-    (* Add edges where both ends are in vs *)
-    (inGraph :> IGraph<_, _>).FoldEdge (fun (g: IGraph<'V, 'E>) e ->
-      if vs.Contains e.First && vs.Contains e.Second then
-        let src = g.FindVertexByID <| e.First.ID
-        let dst = g.FindVertexByID <| e.Second.ID
-        (g :> IGraph<'V, _>).AddEdge (src, dst, e.Label)
-      else g)
+  abstract Clone: unit -> IDiGraph<'V, 'E>

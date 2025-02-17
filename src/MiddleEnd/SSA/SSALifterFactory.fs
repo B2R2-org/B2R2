@@ -167,7 +167,7 @@ module private SSALifterFactory =
     | Extract (e, _, _) ->
       updateGlobals globals varKill e
 
-  let findDefVars (ssaCFG: IGraph<SSABasicBlock, _>) (defSites: DefSites) =
+  let findDefVars (ssaCFG: IDiGraph<SSABasicBlock, _>) (defSites: DefSites) =
     let globals = HashSet ()
     let varKill = HashSet ()
     for v in ssaCFG.Vertices do
@@ -200,7 +200,7 @@ module private SSALifterFactory =
                but not the start of an instruction. *)
             | TempVar _ when df.VData.Internals.PPoint.Position = 0 -> ()
             | _ ->
-              let preds = (g: IGraph<_, _>).GetPreds df
+              let preds = (g: IDiGraph<_, _>).GetPreds df
               df.VData.Internals.PrependPhi variable preds.Length
               phiSites.Add df |> ignore
               workList.Enqueue df
@@ -284,7 +284,7 @@ module private SSALifterFactory =
     for _, stmt in succ.VData.Internals.Statements do
       match stmt with
       | Phi (def, nums) ->
-        let preds = (g: IGraph<_, _>).GetPreds succ
+        let preds = (g: IDiGraph<_, _>).GetPreds succ
         let idx = preds |> Array.findIndex (fun v -> v.VData = parent.VData)
         nums[idx] <- List.head stack[def.Kind]
       | _ -> ()
@@ -295,7 +295,7 @@ module private SSALifterFactory =
     | Phi (def, _) -> stack[def.Kind] <- List.tail stack[def.Kind]
     | _ -> ()
 
-  let rec rename (g: IGraph<_, _>) domTree count stack (v: SSAVertex) =
+  let rec rename (g: IDiGraph<_, _>) domTree count stack (v: SSAVertex) =
     for _, stmt in v.VData.Internals.Statements do renameStmt count stack stmt
     for succ in g.GetSuccs v do renamePhi g stack v succ
     traverseChildren g domTree count stack (Map.find v domTree)

@@ -115,7 +115,7 @@ let isBefore a b = function
   | Rightmost -> a > b
 
 /// Alg 2 of Brandes et al.
-let vAlign (vGraph: IGraph<_, _>) vLayout maxLayer conflicts vDir hDir =
+let vAlign (vGraph: IDiGraph<_, _>) vLayout maxLayer conflicts vDir hDir =
   let layers, neighborFn =
     match vDir with
     | Topmost -> [0 .. (maxLayer - 1)], vGraph.GetPreds
