@@ -27,11 +27,11 @@ module B2R2.MiddleEnd.BinGraph.Loop
 open System.Collections.Generic
 
 let private getBackEdges g =
-  let ctx = Dominator.initDominatorContext g
+  let dom = Dominator.LengauerTarjan.create g
   []
   |> g.FoldEdge (fun acc edge ->
-    match Dominator.doms ctx edge.First with
-    | ds when ds |> Array.exists (fun v -> v = edge.Second) -> edge :: acc
+    match dom.Dominators edge.First with
+    | ds when ds |> Seq.exists (fun v -> v = edge.Second) -> edge :: acc
     | _ -> acc)
 
 let private findNaturalLoopBody g (edge: Edge<_, _>) =

@@ -30,7 +30,6 @@ open B2R2.FrontEnd
 open B2R2.MiddleEnd.DataFlow
 open B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.MiddleEnd.BinGraph
-open B2R2.MiddleEnd.BinGraph.Dominator
 open System.Collections.Generic
 
 type VarBasedDataFlowAnalysis<'Lattice>
@@ -123,8 +122,7 @@ type VarBasedDataFlowAnalysis<'Lattice>
       state.PhiInfos[v] <- dict
       dict
 
-  let placePhis state domCtx globals defSites (frontiers: _[]) =
-    let domInfo = domCtx.ForwardDomInfo
+  let placePhis state (dom: IDominator<_, _>) globals defSites =
     let phiSites = HashSet ()
     for varKind in globals do
       let workList =
@@ -134,7 +132,7 @@ type VarBasedDataFlowAnalysis<'Lattice>
       phiSites.Clear ()
       while workList.Count <> 0 do
         let node: IVertex<LowUIRBasicBlock> = workList.Dequeue ()
-        let frontier = frontiers[domInfo.DFNumMap[node.ID]]
+        let frontier = dom.DominanceFrontier node
         for df: IVertex<LowUIRBasicBlock> in frontier do
           if phiSites.Contains df then ()
           else
@@ -296,15 +294,10 @@ type VarBasedDataFlowAnalysis<'Lattice>
     visited.Add v |> ignore
     let ins = updateIncomingDefsWithPhis state v ins
     let outs = updateChainsWithBBLStmts g state v ins
-    traverseSuccessors g state domTree outs visited (Map.find v domTree)
+    for child in (domTree: DominatorTree<_, _>).GetChildren v do
+      update g state domTree visited child outs
     state.PerVertexIncomingDefs[v] <- ins
     state.PerVertexOutgoingDefs[v] <- outs
-
-  and traverseSuccessors g state domTree outs visited = function
-    | succ :: rest ->
-      update g state domTree visited succ outs
-      traverseSuccessors g state domTree outs visited rest
-    | [] -> ()
 
   let getOutgoingDefs (state: VarBasedDataFlowState<_>) v =
     match state.PerVertexOutgoingDefs.TryGetValue v with
@@ -312,17 +305,16 @@ type VarBasedDataFlowAnalysis<'Lattice>
     | true, defs -> defs
 
   /// We only visit the vertices that have changed and update data-flow chains.
-  let rec incrementalUpdate g state domTree visited domInfo v =
+  let rec incrementalUpdate g state domTree visited (dom: IDominator<_, _>) v =
     if (visited: HashSet<_>).Contains v then ()
     elif (state: VarBasedDataFlowState<_>).IsVertexPending v
          && (g: IDiGraph<_, _>).HasVertex v.ID then
-      let dfnum = domInfo.DFNumMap[v.ID]
-      let idomNum = domInfo.IDom[dfnum]
-      let idom = domInfo.Vertex[idomNum]
-      update g state domTree visited v (getOutgoingDefs state idom)
+      let idom = dom.ImmediateDominator v
+      let defs = if isNull idom then Map.empty else getOutgoingDefs state idom
+      update g state domTree visited v defs
     else
-      for child in Map.find v domTree do
-        incrementalUpdate g state domTree visited domInfo child
+      for child in domTree.GetChildren v do
+        incrementalUpdate g state domTree visited dom child
 
 #if DEBUG
   let hasProperPhiOperandNumbers state g v =
@@ -375,15 +367,13 @@ type VarBasedDataFlowAnalysis<'Lattice>
   /// worst-case time complexity as the original algorithm, but it is more
   /// efficient for incremental changes in practice since its search space is
   /// reduced to the affected vertices that are possibly updated.
-  let calculateChains g state domCtx domTree frontiers =
+  let calculateChains g state dom domTree =
     let globals = HashSet<VarKind> ()
     let defSites = Dictionary<VarKind, List<IVertex<LowUIRBasicBlock>>> ()
     let visited = HashSet<IVertex<LowUIRBasicBlock>> ()
-    let domInfo = domCtx.ForwardDomInfo
-    let root = domCtx.ForwardRoot
     findDefVars g state defSites globals
-    placePhis state domCtx globals defSites frontiers
-    incrementalUpdate g state domTree visited domInfo root
+    placePhis state dom globals defSites
+    incrementalUpdate g state domTree visited dom g.SingleRoot
     updatePhis g state visited
 
   let isStackRelatedRegister rid =
@@ -528,13 +518,12 @@ type VarBasedDataFlowAnalysis<'Lattice>
 
     /// Compute the data flow incrementally.
     member __.Compute g state =
-      let domCtx = initDominatorContext g
-      let domTree, _ = dominatorTree domCtx
-      let domFrontiers = frontiers domCtx
+      let dom = Dominator.Cooper.create g
+      let domTree = dom.DominatorTree ()
       removeInvalidChains state
-      calculateChains g state domCtx domTree domFrontiers
+      calculateChains g state dom domTree
       propagateStackPointer g state
-      calculateChains g state domCtx domTree domFrontiers
+      calculateChains g state dom domTree
       propagateDomain g state
       state.ClearPendingVertices ()
       state
