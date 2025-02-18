@@ -140,8 +140,8 @@ type FunctionDependenceMap () =
   /// Return an array of sets of mutually recurive nodes in the temporary
   /// dependence graph.
   member _.GetCyclicDependencies () =
-    SCC.compute tg
-    |> Array.choose (fun scc ->
+    SCC.Tarjan.compute tg
+    |> Seq.choose (fun scc ->
       if scc.Count > 1 then
         let arr = Array.zeroCreate scc.Count
         let mutable i = 0

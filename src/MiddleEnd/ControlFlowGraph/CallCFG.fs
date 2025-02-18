@@ -115,3 +115,6 @@ type CallCFG (t: ImplementationType) =
     member _.SetRoots vs = g.SetRoots vs
     member _.Reverse vs = g.Reverse vs
     member _.Clone () = g.Clone ()
+
+  interface ISCCEnumerable<CallBasicBlock> with
+    member _.GetSCCEnumerator () = SCC.Tarjan.compute g

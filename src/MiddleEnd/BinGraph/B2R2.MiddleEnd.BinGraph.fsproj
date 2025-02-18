@@ -19,6 +19,7 @@
     <Compile Include="PersistentVertex.fs" />
     <Compile Include="PersistentDiGraph.fs" />
     <Compile Include="Traversal.fs" />
+    <Compile Include="ISCCEnumerable.fs" />
     <Compile Include="SCC.fs" />
     <Compile Include="Dominator.fs" />
     <Compile Include="Loop.fs" />
