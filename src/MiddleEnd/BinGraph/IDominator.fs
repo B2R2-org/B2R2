@@ -58,16 +58,16 @@ and DominatorTree<'V, 'E when 'V: equality
                           and 'E: equality>
   public (g: IDiGraphAccessible<'V, 'E>, dom: IDominator<'V, 'E>) =
 
-  let domTree = Dictionary<IVertex<'V>, list<IVertex<'V>>> ()
+  let domTree = Dictionary<IVertex<'V>, List<IVertex<'V>>> ()
 
   do g.IterVertex (fun v ->
        let idom = dom.ImmediateDominator v
        if isNull idom then ()
-       elif domTree.ContainsKey idom then domTree[idom] <- v :: domTree[idom]
-       else domTree[idom] <- [ v ])
+       elif domTree.ContainsKey idom then domTree[idom].Add v
+       else domTree[idom] <- List [ v ])
 
   /// Get the children of a vertex in the dominator tree.
   member _.GetChildren (v: IVertex<'V>) =
     match domTree.TryGetValue v with
     | true, children -> children
-    | false, _ -> []
+    | false, _ -> List ()

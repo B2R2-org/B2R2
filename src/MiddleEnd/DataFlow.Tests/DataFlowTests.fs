@@ -31,6 +31,7 @@ open B2R2.BinIR
 open B2R2.FrontEnd.BinLifter.Intel
 open B2R2.MiddleEnd.DataFlow
 open B2R2.MiddleEnd.SSA
+open B2R2.MiddleEnd.ControlFlowGraph
 
 [<TestClass>]
 type DataFlowTests () =
@@ -52,9 +53,32 @@ type DataFlowTests () =
     let k = SSA.RegVar (rt, rid, rstr)
     SSA.SSAVarPoint.RegularSSAVar { Kind = k; Identifier = id }
 
-  let ssaStk offset id rt =
-    let k = SSA.StackVar (rt, offset)
-    SSA.SSAVarPoint.RegularSSAVar { Kind = k; Identifier = id }
+  let rec findVarDefFromStmts (stmts: _[]) vaddr idx addr kind =
+    if idx < stmts.Length then
+      match stmts[idx] with
+      | (pp: ProgramPoint), SSA.Def (v, _) when v.Kind = kind ->
+        if pp.Address = addr then Some v
+        else findVarDefFromStmts stmts vaddr (idx + 1) addr kind
+      | _, SSA.Phi (v, _) when v.Kind = kind ->
+        if vaddr = addr then Some v
+        else findVarDefFromStmts stmts vaddr (idx + 1) addr kind
+      | _ -> findVarDefFromStmts stmts vaddr (idx + 1) addr kind
+    else None
+
+  let rec findSSAVarDef (ssaCFG: SSACFG) vidx addr kind =
+    if vidx < ssaCFG.Vertices.Length then
+      let v = ssaCFG.Vertices[vidx]
+      let stmts = v.VData.Internals.Statements
+      findVarDefFromStmts stmts v.VData.Internals.PPoint.Address 0 addr kind
+      |> function
+        | Some v -> v
+        | None -> findSSAVarDef ssaCFG (vidx + 1) addr kind
+    else failwith $"variable {kind} @ {addr:x} not found"
+
+  let ssaStk ssaCFG offset addr rt =
+    let kind = SSA.StackVar (rt, offset)
+    let v = findSSAVarDef ssaCFG 0 addr kind
+    SSA.SSAVarPoint.RegularSSAVar { Kind = v.Kind; Identifier = v.Identifier }
 
   let irReg addr idx r =
     let rid = Register.toRegID r
@@ -152,12 +176,12 @@ type DataFlowTests () =
       ssaReg Register.RSP 1 64<rt> |> cmp <| mkConst 0x7ffffff8u 64<rt>
       ssaReg Register.RBP 0 64<rt> |> cmp <| ConstantDomain.Undef
       ssaReg Register.RBP 1 64<rt> |> cmp <| mkConst 0x7ffffff8u 64<rt>
-      ssaStk (8 + 0xc) 2 32<rt> |> cmp <| mkConst 0x2u 32<rt>
-      ssaStk (8 + 0x8) 2 32<rt> |> cmp <| mkConst 0x3u 32<rt>
-      ssaStk (8 + 0xc) 3 32<rt> |> cmp <| mkConst 0x3u 32<rt>
-      ssaStk (8 + 0x8) 3 32<rt> |> cmp <| mkConst 0x2u 32<rt>
-      ssaStk (8 + 0xc) 1 32<rt> |> cmp <| ConstantDomain.NotAConst
-      ssaStk (8 + 0x8) 1 32<rt> |> cmp <| ConstantDomain.NotAConst
+      ssaStk ssaCFG (8 + 0xc) 0x11UL 32<rt> |> cmp <| mkConst 0x2u 32<rt>
+      ssaStk ssaCFG (8 + 0x8) 0x18UL 32<rt> |> cmp <| mkConst 0x3u 32<rt>
+      ssaStk ssaCFG (8 + 0xc) 0x21UL 32<rt> |> cmp <| mkConst 0x3u 32<rt>
+      ssaStk ssaCFG (8 + 0x8) 0x28UL 32<rt> |> cmp <| mkConst 0x2u 32<rt>
+      ssaStk ssaCFG (8 + 0xc) 0x2fUL 32<rt> |> cmp <| ConstantDomain.NotAConst
+      ssaStk ssaCFG (8 + 0x8) 0x2fUL 32<rt> |> cmp <| ConstantDomain.NotAConst
       ssaReg Register.RAX 1 64<rt> |> cmp <| ConstantDomain.NotAConst
       ssaReg Register.RDX 1 64<rt> |> cmp <| ConstantDomain.NotAConst
       ssaReg Register.RAX 2 64<rt> |> cmp <| ConstantDomain.NotAConst
