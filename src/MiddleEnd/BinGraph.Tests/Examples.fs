@@ -105,7 +105,7 @@ let digraph4 t =
   let g = addEdge g 12 13
   g, vmap
 
-/// Another arbitrarily generated example containing a loop.
+/// Another arbitrarily generated example containing a loop. Exits: 6
 let digraph5 t =
   let g, vmap, addEdge = prepare 6 t
   let g = addEdge g 1 2
@@ -118,7 +118,7 @@ let digraph5 t =
   let g = addEdge g 6 1
   g, vmap
 
-/// Little larger example.
+/// Little larger example. Exits: 6, 22, 23
 let digraph6 t =
   let g, vmap, addEdge = prepare 23 t
   let g = addEdge g 1 2
