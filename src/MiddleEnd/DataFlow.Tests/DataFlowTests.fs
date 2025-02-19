@@ -47,12 +47,6 @@ type DataFlowTests () =
   let mkConst v rt =
     ConstantDomain.Const (BitVector.OfUInt32 v rt)
 
-  let ssaReg r id rt =
-    let rid = Register.toRegID r
-    let rstr = Register.toString r
-    let k = SSA.RegVar (rt, rid, rstr)
-    SSA.SSAVarPoint.RegularSSAVar { Kind = k; Identifier = id }
-
   let rec findVarDefFromStmts (stmts: _[]) vaddr idx addr kind =
     if idx < stmts.Length then
       match stmts[idx] with
@@ -74,6 +68,19 @@ type DataFlowTests () =
         | Some v -> v
         | None -> findSSAVarDef ssaCFG (vidx + 1) addr kind
     else failwith $"variable {kind} @ {addr:x} not found"
+
+  let ssaReg ssaCFG r addr rt =
+    let rid = Register.toRegID r
+    let rstr = Register.toString r
+    let k = SSA.RegVar (rt, rid, rstr)
+    let v = findSSAVarDef ssaCFG 0 addr k
+    SSA.SSAVarPoint.RegularSSAVar { Kind = k; Identifier = v.Identifier }
+
+  let ssaRegInitial r rt =
+    let rid = Register.toRegID r
+    let rstr = Register.toString r
+    let k = SSA.RegVar (rt, rid, rstr)
+    SSA.SSAVarPoint.RegularSSAVar { Kind = k; Identifier = 0 }
 
   let ssaStk ssaCFG offset addr rt =
     let kind = SSA.StackVar (rt, offset)
@@ -167,27 +174,27 @@ type DataFlowTests () =
     let brew = Binaries.loadOne Binaries.sample2
     let cfg = brew.Functions[0UL].CFG
     let lifter = SSALifterFactory.Create (brew.BinHandle)
-    let ssaCFG = lifter.Lift cfg
+    let g = lifter.Lift cfg
     let cp = SSA.SSAConstantPropagation brew.BinHandle
     let dfa = cp :> IDataFlowAnalysis<_, _, _, _>
     let state = dfa.InitializeState []
-    let state = dfa.Compute ssaCFG state
-    [ ssaReg Register.RSP 0 64<rt> |> cmp <| mkConst 0x80000000u 64<rt>
-      ssaReg Register.RSP 1 64<rt> |> cmp <| mkConst 0x7ffffff8u 64<rt>
-      ssaReg Register.RBP 0 64<rt> |> cmp <| ConstantDomain.Undef
-      ssaReg Register.RBP 1 64<rt> |> cmp <| mkConst 0x7ffffff8u 64<rt>
-      ssaStk ssaCFG (8 + 0xc) 0x11UL 32<rt> |> cmp <| mkConst 0x2u 32<rt>
-      ssaStk ssaCFG (8 + 0x8) 0x18UL 32<rt> |> cmp <| mkConst 0x3u 32<rt>
-      ssaStk ssaCFG (8 + 0xc) 0x21UL 32<rt> |> cmp <| mkConst 0x3u 32<rt>
-      ssaStk ssaCFG (8 + 0x8) 0x28UL 32<rt> |> cmp <| mkConst 0x2u 32<rt>
-      ssaStk ssaCFG (8 + 0xc) 0x2fUL 32<rt> |> cmp <| ConstantDomain.NotAConst
-      ssaStk ssaCFG (8 + 0x8) 0x2fUL 32<rt> |> cmp <| ConstantDomain.NotAConst
-      ssaReg Register.RAX 1 64<rt> |> cmp <| ConstantDomain.NotAConst
-      ssaReg Register.RDX 1 64<rt> |> cmp <| ConstantDomain.NotAConst
-      ssaReg Register.RAX 2 64<rt> |> cmp <| ConstantDomain.NotAConst
-      ssaReg Register.RBP 2 64<rt> |> cmp <| ConstantDomain.Undef
-      ssaReg Register.RSP 2 64<rt> |> cmp <| mkConst 0x80000000u 64<rt>
-      ssaReg Register.RSP 3 64<rt> |> cmp <| mkConst 0x80000008u 64<rt> ]
+    let state = dfa.Compute g state
+    [ ssaRegInitial Register.RSP 64<rt> |> cmp <| mkConst 0x80000000u 64<rt>
+      ssaRegInitial Register.RBP 64<rt> |> cmp <| ConstantDomain.Undef
+      ssaReg g Register.RSP 0x4UL 64<rt> |> cmp <| mkConst 0x7ffffff8u 64<rt>
+      ssaReg g Register.RBP 0x5UL 64<rt> |> cmp <| mkConst 0x7ffffff8u 64<rt>
+      ssaStk g (8 + 0xc) 0x11UL 32<rt> |> cmp <| mkConst 0x2u 32<rt>
+      ssaStk g (8 + 0x8) 0x18UL 32<rt> |> cmp <| mkConst 0x3u 32<rt>
+      ssaStk g (8 + 0xc) 0x21UL 32<rt> |> cmp <| mkConst 0x3u 32<rt>
+      ssaStk g (8 + 0x8) 0x28UL 32<rt> |> cmp <| mkConst 0x2u 32<rt>
+      ssaStk g (8 + 0xc) 0x2fUL 32<rt> |> cmp <| ConstantDomain.NotAConst
+      ssaStk g (8 + 0x8) 0x2fUL 32<rt> |> cmp <| ConstantDomain.NotAConst
+      ssaReg g Register.RAX 0x32UL 64<rt> |> cmp <| ConstantDomain.NotAConst
+      ssaReg g Register.RDX 0x2fUL 64<rt> |> cmp <| ConstantDomain.NotAConst
+      ssaReg g Register.RAX 0x35UL 64<rt> |> cmp <| ConstantDomain.NotAConst
+      ssaReg g Register.RBP 0x3bUL 64<rt> |> cmp <| ConstantDomain.Undef
+      ssaReg g Register.RSP 0x3bUL 64<rt> |> cmp <| mkConst 0x80000000u 64<rt>
+      ssaReg g Register.RSP 0x3CUL 64<rt> |> cmp <| mkConst 0x80000008u 64<rt> ]
     |> List.iter (fun (var, ans) ->
       let out = (state :> IDataFlowState<_, _>).GetAbsValue var
       Assert.AreEqual<ConstantDomain.Lattice> (ans, out))
