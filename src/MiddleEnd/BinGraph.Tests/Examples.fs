@@ -207,7 +207,7 @@ let digraph10 t =
   let g = addEdge g 5 4
   g, vmap
 
-/// Example taken from Dragon book (Fig. 9.38).
+/// Example taken from Dragon book (Fig. 9.38). Exits: 9, 10
 let digraph11 t =
   let g, vmap, addEdge = prepare 10 t
   let g = addEdge g 1 2

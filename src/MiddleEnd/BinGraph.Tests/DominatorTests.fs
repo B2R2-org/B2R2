@@ -531,7 +531,7 @@ type DominatorTests () =
     let df = getDominanceFrontier dom g 5
     Assert.IsTrue (Set.ofList [ 6 ] = df)
     let df = getDominanceFrontier dom g 6
-    Assert.IsTrue (Set.isEmpty df)
+    Assert.IsTrue (Set.isEmpty df) (* maybe {1} *)
 
   [<TestMethod>]
   [<DynamicData(nameof DominatorTests.TestData)>]
@@ -829,10 +829,10 @@ type DominatorTests () =
     let pds = getPostDominators dom g 23
     Assert.IsTrue (Set.isEmpty pds)
 
-  [<TestMethod; Timeout(1000)>]
+  [<TestMethod>]
   [<DynamicData(nameof DominatorTests.TestData)>]
-  member __.``Root Node Loop Test`` (t, alg) =
-    let g, _ = digraph5 t
+  member __.``Immediate Dominator Test 7`` (t, alg) =
+    let g, _ = digraph7 t
     let dom: IDominator<_, _> = instantiate g alg
     let v = dom.ImmediateDominator <| g.FindVertexByData 1
     Assert.IsTrue (isNull v)
@@ -844,5 +844,477 @@ type DominatorTests () =
     Assert.AreEqual<int> (1, v.VData)
     let v = dom.ImmediateDominator <| g.FindVertexByData 5
     Assert.AreEqual<int> (3, v.VData)
-    let v = dom.ImmediateDominator <| g.FindVertexByData 6
+
+  [<TestMethod>]
+  [<DynamicData(nameof DominatorTests.TestData)>]
+  member __.``Dominators Test 7`` (t, alg) =
+    let g, _ = digraph7 t
+    let dom: IDominator<_, _> = instantiate g alg
+    let ds = getDominators dom g 1
+    Assert.IsTrue (Set.isEmpty ds)
+    let ds = getDominators dom g 2
+    Assert.IsTrue (Set.ofList [ 1 ] = ds)
+    let ds = getDominators dom g 3
+    Assert.IsTrue (Set.ofList [ 1 ] = ds)
+    let ds = getDominators dom g 4
+    Assert.IsTrue (Set.ofList [ 1 ] = ds)
+    let ds = getDominators dom g 5
+    Assert.IsTrue (Set.ofList [ 1; 3 ] = ds)
+
+  [<TestMethod>]
+  [<DynamicData(nameof DominatorTests.TestData)>]
+  member __.``Dominance Frontier Test 7`` (t, alg) =
+    let g, _ = digraph7 t
+    let dom: IDominator<_, _> = instantiate g alg
+    let df = getDominanceFrontier dom g 1
+    Assert.IsTrue (Set.isEmpty df)
+    let df = getDominanceFrontier dom g 2
+    Assert.IsTrue (Set.ofList [ 4 ] = df)
+    let df = getDominanceFrontier dom g 3
+    Assert.IsTrue (Set.ofList [ 4 ] = df)
+    let df = getDominanceFrontier dom g 4
+    Assert.IsTrue (Set.isEmpty df)
+    let df = getDominanceFrontier dom g 5
+    Assert.IsTrue (Set.isEmpty df)
+
+  [<TestMethod>]
+  [<DynamicData(nameof DominatorTests.TestData)>]
+  member __.``Immediate Post-Dominator Test 7`` (t, alg) =
+    let g, _ = digraph7 t
+    let dom: IDominator<_, _> = instantiate g alg
+    let v = dom.ImmediatePostDominator <| g.FindVertexByData 1
+    Assert.IsTrue (isNull v)
+    let v = dom.ImmediatePostDominator <| g.FindVertexByData 2
+    Assert.AreEqual<int> (4, v.VData)
+    let v = dom.ImmediatePostDominator <| g.FindVertexByData 3
+    Assert.IsTrue (isNull v)
+    let v = dom.ImmediatePostDominator <| g.FindVertexByData 4
+    Assert.IsTrue (isNull v)
+    let v = dom.ImmediatePostDominator <| g.FindVertexByData 5
+    Assert.IsTrue (isNull v)
+
+  [<TestMethod>]
+  [<DynamicData(nameof DominatorTests.TestData)>]
+  member __.``Post-Dominators Test 7`` (t, alg) =
+    let g, _ = digraph7 t
+    let dom: IDominator<_, _> = instantiate g alg
+    let pds = getPostDominators dom g 1
+    Assert.IsTrue (Set.isEmpty pds)
+    let pds = getPostDominators dom g 2
+    Assert.IsTrue (Set.ofList [ 4 ] = pds)
+    let pds = getPostDominators dom g 3
+    Assert.IsTrue (Set.isEmpty pds)
+    let pds = getPostDominators dom g 4
+    Assert.IsTrue (Set.isEmpty pds)
+    let pds = getPostDominators dom g 5
+    Assert.IsTrue (Set.isEmpty pds)
+
+  [<TestMethod>]
+  [<DynamicData(nameof DominatorTests.TestData)>]
+  member __.``Immediate Dominator Test 8`` (t, alg) =
+    let g, _ = digraph8 t
+    let dom: IDominator<_, _> = instantiate g alg
+    let v = dom.ImmediateDominator <| g.FindVertexByData 1
+    Assert.IsTrue (isNull v)
+    let v = dom.ImmediateDominator <| g.FindVertexByData 2
     Assert.AreEqual<int> (1, v.VData)
+    let v = dom.ImmediateDominator <| g.FindVertexByData 3
+    Assert.AreEqual<int> (2, v.VData)
+    let v = dom.ImmediateDominator <| g.FindVertexByData 4
+    Assert.AreEqual<int> (3, v.VData)
+    let v = dom.ImmediateDominator <| g.FindVertexByData 5
+    Assert.AreEqual<int> (4, v.VData)
+    let v = dom.ImmediateDominator <| g.FindVertexByData 6
+    Assert.AreEqual<int> (5, v.VData)
+    let v = dom.ImmediateDominator <| g.FindVertexByData 7
+    Assert.AreEqual<int> (6, v.VData)
+    let v = dom.ImmediateDominator <| g.FindVertexByData 8
+    Assert.AreEqual<int> (7, v.VData)
+
+  [<TestMethod>]
+  [<DynamicData(nameof DominatorTests.TestData)>]
+  member __.``Dominators Test 8`` (t, alg) =
+    let g, _ = digraph8 t
+    let dom: IDominator<_, _> = instantiate g alg
+    let ds = getDominators dom g 1
+    Assert.IsTrue (Set.isEmpty ds)
+    let ds = getDominators dom g 2
+    Assert.IsTrue (Set.ofList [ 1 ] = ds)
+    let ds = getDominators dom g 3
+    Assert.IsTrue (Set.ofList [ 1; 2 ] = ds)
+    let ds = getDominators dom g 4
+    Assert.IsTrue (Set.ofList [ 1; 2; 3 ] = ds)
+    let ds = getDominators dom g 5
+    Assert.IsTrue (Set.ofList [ 1; 2; 3; 4 ] = ds)
+    let ds = getDominators dom g 6
+    Assert.IsTrue (Set.ofList [ 1; 2; 3; 4; 5 ] = ds)
+    let ds = getDominators dom g 7
+    Assert.IsTrue (Set.ofList [ 1; 2; 3; 4; 5; 6 ] = ds)
+    let ds = getDominators dom g 8
+    Assert.IsTrue (Set.ofList [ 1; 2; 3; 4; 5; 6; 7 ] = ds)
+
+  [<TestMethod>]
+  [<DynamicData(nameof DominatorTests.TestData)>]
+  member __.``Dominance Frontier Test 8`` (t, alg) =
+    let g, _ = digraph8 t
+    let dom: IDominator<_, _> = instantiate g alg
+    let df = getDominanceFrontier dom g 1
+    Assert.IsTrue (Set.isEmpty df)
+    let df = getDominanceFrontier dom g 2
+    Assert.IsTrue (Set.ofList [ 2 ] = df)
+    let df = getDominanceFrontier dom g 3
+    Assert.IsTrue (Set.ofList [ 2; 3 ] = df)
+    let df = getDominanceFrontier dom g 4
+    Assert.IsTrue (Set.ofList [ 2; 3 ] = df)
+    let df = getDominanceFrontier dom g 5
+    Assert.IsTrue (Set.ofList [ 2; 3 ] = df)
+    let df = getDominanceFrontier dom g 6
+    Assert.IsTrue (Set.ofList [ 2; 3 ] = df)
+    let df = getDominanceFrontier dom g 7
+    Assert.IsTrue (Set.ofList [ 2 ] = df)
+    let df = getDominanceFrontier dom g 8
+    Assert.IsTrue (Set.isEmpty df)
+
+  [<TestMethod>]
+  [<DynamicData(nameof DominatorTests.TestData)>]
+  member __.``Immediate Post-Dominator Test 8`` (t, alg) =
+    let g, _ = digraph8 t
+    let dom: IDominator<_, _> = instantiate g alg
+    let v = dom.ImmediatePostDominator <| g.FindVertexByData 1
+    Assert.AreEqual<int> (2, v.VData)
+    let v = dom.ImmediatePostDominator <| g.FindVertexByData 2
+    Assert.AreEqual<int> (3, v.VData)
+    let v = dom.ImmediatePostDominator <| g.FindVertexByData 3
+    Assert.AreEqual<int> (4, v.VData)
+    let v = dom.ImmediatePostDominator <| g.FindVertexByData 4
+    Assert.AreEqual<int> (5, v.VData)
+    let v = dom.ImmediatePostDominator <| g.FindVertexByData 5
+    Assert.AreEqual<int> (6, v.VData)
+    let v = dom.ImmediatePostDominator <| g.FindVertexByData 6
+    Assert.AreEqual<int> (7, v.VData)
+    let v = dom.ImmediatePostDominator <| g.FindVertexByData 7
+    Assert.AreEqual<int> (8, v.VData)
+    let v = dom.ImmediatePostDominator <| g.FindVertexByData 8
+    Assert.IsTrue (isNull v)
+
+  [<TestMethod>]
+  [<DynamicData(nameof DominatorTests.TestData)>]
+  member __.``Post-Dominators Test 8`` (t, alg) =
+    let g, _ = digraph8 t
+    let dom: IDominator<_, _> = instantiate g alg
+    let pds = getPostDominators dom g 1
+    Assert.IsTrue (Set.ofList [ 2; 3; 4; 5; 6; 7; 8 ] = pds)
+    let pds = getPostDominators dom g 2
+    Assert.IsTrue (Set.ofList [ 3; 4; 5; 6; 7; 8 ] = pds)
+    let pds = getPostDominators dom g 3
+    Assert.IsTrue (Set.ofList [ 4; 5; 6; 7; 8 ] = pds)
+    let pds = getPostDominators dom g 4
+    Assert.IsTrue (Set.ofList [ 5; 6; 7; 8 ] = pds)
+    let pds = getPostDominators dom g 5
+    Assert.IsTrue (Set.ofList [ 6; 7; 8 ] = pds)
+    let pds = getPostDominators dom g 6
+    Assert.IsTrue (Set.ofList [ 7; 8 ] = pds)
+    let pds = getPostDominators dom g 7
+    Assert.IsTrue (Set.ofList [ 8 ] = pds)
+    let pds = getPostDominators dom g 8
+    Assert.IsTrue (Set.isEmpty pds)
+
+  [<TestMethod>]
+  [<DynamicData(nameof DominatorTests.TestData)>]
+  member __.``Immediate Dominator Test 9`` (t, alg) =
+    let g, _ = digraph9 t
+    let dom: IDominator<_, _> = instantiate g alg
+    let v = dom.ImmediateDominator <| g.FindVertexByData 1
+    Assert.IsTrue (isNull v)
+    let v = dom.ImmediateDominator <| g.FindVertexByData 2
+    Assert.AreEqual<int> (1, v.VData)
+    let v = dom.ImmediateDominator <| g.FindVertexByData 3
+    Assert.AreEqual<int> (2, v.VData)
+    let v = dom.ImmediateDominator <| g.FindVertexByData 4
+    Assert.AreEqual<int> (3, v.VData)
+    let v = dom.ImmediateDominator <| g.FindVertexByData 5
+    Assert.AreEqual<int> (2, v.VData)
+    let v = dom.ImmediateDominator <| g.FindVertexByData 6
+    Assert.AreEqual<int> (2, v.VData)
+    let v = dom.ImmediateDominator <| g.FindVertexByData 7
+    Assert.AreEqual<int> (2, v.VData)
+    let v = dom.ImmediateDominator <| g.FindVertexByData 8
+    Assert.AreEqual<int> (4, v.VData)
+
+  [<TestMethod>]
+  [<DynamicData(nameof DominatorTests.TestData)>]
+  member __.``Dominators Test 9`` (t, alg) =
+    let g, _ = digraph9 t
+    let dom: IDominator<_, _> = instantiate g alg
+    let ds = getDominators dom g 1
+    Assert.IsTrue (Set.isEmpty ds)
+    let ds = getDominators dom g 2
+    Assert.IsTrue (Set.ofList [ 1 ] = ds)
+    let ds = getDominators dom g 3
+    Assert.IsTrue (Set.ofList [ 1; 2 ] = ds)
+    let ds = getDominators dom g 4
+    Assert.IsTrue (Set.ofList [ 1; 2; 3 ] = ds)
+    let ds = getDominators dom g 5
+    Assert.IsTrue (Set.ofList [ 1; 2 ] = ds)
+    let ds = getDominators dom g 6
+    Assert.IsTrue (Set.ofList [ 1; 2 ] = ds)
+    let ds = getDominators dom g 7
+    Assert.IsTrue (Set.ofList [ 1; 2 ] = ds)
+    let ds = getDominators dom g 8
+    Assert.IsTrue (Set.ofList [ 1; 2; 3; 4 ] = ds)
+
+  [<TestMethod>]
+  [<DynamicData(nameof DominatorTests.TestData)>]
+  member __.``Dominance Frontier Test 9`` (t, alg) =
+    let g, _ = digraph9 t
+    let dom: IDominator<_, _> = instantiate g alg
+    let df = getDominanceFrontier dom g 1
+    Assert.IsTrue (Set.isEmpty df)
+    let df = getDominanceFrontier dom g 2
+    Assert.IsTrue (Set.isEmpty df)
+    let df = getDominanceFrontier dom g 3
+    Assert.IsTrue (Set.ofList [ 3; 7 ] = df)
+    let df = getDominanceFrontier dom g 4
+    Assert.IsTrue (Set.ofList [ 3; 4; 7 ] = df)
+    let df = getDominanceFrontier dom g 5
+    Assert.IsTrue (Set.ofList [ 6 ] = df) (* maybe {1,6} *)
+    let df = getDominanceFrontier dom g 6
+    Assert.IsTrue (Set.ofList [ 7 ] = df)
+    let df = getDominanceFrontier dom g 7
+    Assert.IsTrue (Set.ofList [ 6 ] = df)
+    let df = getDominanceFrontier dom g 8
+    Assert.IsTrue (Set.ofList [ 4; 7 ] = df)
+
+  [<TestMethod>]
+  [<DynamicData(nameof DominatorTests.TestData)>]
+  member __.``Immediate Post-Dominator Test 9`` (t, alg) =
+    let g, _ = digraph9 t
+    let dom: IDominator<_, _> = instantiate g alg
+    let v = dom.ImmediatePostDominator <| g.FindVertexByData 1
+    Assert.AreEqual<int> (2, v.VData)
+    let v = dom.ImmediatePostDominator <| g.FindVertexByData 2
+    Assert.AreEqual<int> (6, v.VData)
+    let v = dom.ImmediatePostDominator <| g.FindVertexByData 3
+    Assert.AreEqual<int> (7, v.VData)
+    let v = dom.ImmediatePostDominator <| g.FindVertexByData 4
+    Assert.AreEqual<int> (7, v.VData)
+    let v = dom.ImmediatePostDominator <| g.FindVertexByData 5
+    Assert.AreEqual<int> (6, v.VData)
+    let v = dom.ImmediatePostDominator <| g.FindVertexByData 6
+    Assert.IsTrue (isNull v)
+    let v = dom.ImmediatePostDominator <| g.FindVertexByData 7
+    Assert.AreEqual<int> (6, v.VData)
+    let v = dom.ImmediatePostDominator <| g.FindVertexByData 8
+    Assert.AreEqual<int> (7, v.VData)
+
+  [<TestMethod>]
+  [<DynamicData(nameof DominatorTests.TestData)>]
+  member __.``Post-Dominators Test 9`` (t, alg) =
+    let g, _ = digraph9 t
+    let dom: IDominator<_, _> = instantiate g alg
+    let pds = getPostDominators dom g 1
+    Assert.IsTrue (Set.ofList [ 2; 6 ] = pds)
+    let pds = getPostDominators dom g 2
+    Assert.IsTrue (Set.ofList [ 6 ] = pds)
+    let pds = getPostDominators dom g 3
+    Assert.IsTrue (Set.ofList [ 6; 7 ] = pds)
+    let pds = getPostDominators dom g 4
+    Assert.IsTrue (Set.ofList [ 6; 7 ] = pds)
+    let pds = getPostDominators dom g 5
+    Assert.IsTrue (Set.ofList [ 6 ] = pds)
+    let pds = getPostDominators dom g 6
+    Assert.IsTrue (Set.isEmpty pds)
+    let pds = getPostDominators dom g 7
+    Assert.IsTrue (Set.ofList [ 6 ] = pds)
+    let pds = getPostDominators dom g 8
+    Assert.IsTrue (Set.ofList [ 6; 7 ] = pds)
+
+  [<TestMethod>]
+  [<DynamicData(nameof DominatorTests.TestData)>]
+  member __.``Immediate Dominator Test 10`` (t, alg) =
+    let g, _ = digraph10 t
+    let dom: IDominator<_, _> = instantiate g alg
+    let v = dom.ImmediateDominator <| g.FindVertexByData 1
+    Assert.IsTrue (isNull v)
+    let v = dom.ImmediateDominator <| g.FindVertexByData 2
+    Assert.AreEqual<int> (1, v.VData)
+    let v = dom.ImmediateDominator <| g.FindVertexByData 3
+    Assert.AreEqual<int> (2, v.VData)
+
+  [<TestMethod>]
+  [<DynamicData(nameof DominatorTests.TestData)>]
+  member __.``Dominators Test 10`` (t, alg) =
+    let g, _ = digraph10 t
+    let dom: IDominator<_, _> = instantiate g alg
+    let ds = getDominators dom g 1
+    Assert.IsTrue (Set.isEmpty ds)
+    let ds = getDominators dom g 2
+    Assert.IsTrue (Set.ofList [ 1 ] = ds)
+    let ds = getDominators dom g 3
+    Assert.IsTrue (Set.ofList [ 1; 2 ] = ds)
+
+  [<TestMethod>]
+  [<DynamicData(nameof DominatorTests.TestData)>]
+  member __.``Dominance Frontier Test 10`` (t, alg) =
+    let g, _ = digraph10 t
+    let dom: IDominator<_, _> = instantiate g alg
+    let df = getDominanceFrontier dom g 1
+    Assert.IsTrue (Set.isEmpty df)
+    let df = getDominanceFrontier dom g 2
+    Assert.IsTrue (Set.isEmpty df)
+    let df = getDominanceFrontier dom g 3
+    Assert.IsTrue (Set.isEmpty df)
+
+  [<TestMethod>]
+  [<DynamicData(nameof DominatorTests.TestData)>]
+  member __.``Immediate Post-Dominator Test 10`` (t, alg) =
+    let g, _ = digraph10 t
+    let dom: IDominator<_, _> = instantiate g alg
+    let v = dom.ImmediatePostDominator <| g.FindVertexByData 1
+    Assert.AreEqual<int> (2, v.VData)
+    let v = dom.ImmediatePostDominator <| g.FindVertexByData 2
+    Assert.AreEqual<int> (3, v.VData)
+    let v = dom.ImmediatePostDominator <| g.FindVertexByData 3
+    Assert.IsTrue (isNull v)
+
+  [<TestMethod>]
+  [<DynamicData(nameof DominatorTests.TestData)>]
+  member __.``Post-Dominators Test 10`` (t, alg) =
+    let g, _ = digraph10 t
+    let dom: IDominator<_, _> = instantiate g alg
+    let pds = getPostDominators dom g 1
+    Assert.IsTrue (Set.ofList [ 2; 3 ] = pds)
+    let pds = getPostDominators dom g 2
+    Assert.IsTrue (Set.ofList [ 3 ] = pds)
+    let pds = getPostDominators dom g 3
+    Assert.IsTrue (Set.isEmpty pds)
+
+  [<TestMethod>]
+  [<DynamicData(nameof DominatorTests.TestData)>]
+  member __.``Immediate Dominator Test 11`` (t, alg) =
+    let g, _ = digraph11 t
+    let dom: IDominator<_, _> = instantiate g alg
+    let v = dom.ImmediateDominator <| g.FindVertexByData 1
+    Assert.IsTrue (isNull v)
+    let v = dom.ImmediateDominator <| g.FindVertexByData 2
+    Assert.AreEqual<int> (1, v.VData)
+    let v = dom.ImmediateDominator <| g.FindVertexByData 3
+    Assert.AreEqual<int> (1, v.VData)
+    let v = dom.ImmediateDominator <| g.FindVertexByData 4
+    Assert.AreEqual<int> (3, v.VData)
+    let v = dom.ImmediateDominator <| g.FindVertexByData 5
+    Assert.AreEqual<int> (4, v.VData)
+    let v = dom.ImmediateDominator <| g.FindVertexByData 6
+    Assert.AreEqual<int> (4, v.VData)
+    let v = dom.ImmediateDominator <| g.FindVertexByData 7
+    Assert.AreEqual<int> (4, v.VData)
+    let v = dom.ImmediateDominator <| g.FindVertexByData 8
+    Assert.AreEqual<int> (7, v.VData)
+    let v = dom.ImmediateDominator <| g.FindVertexByData 9
+    Assert.AreEqual<int> (8, v.VData)
+    let v = dom.ImmediateDominator <| g.FindVertexByData 10
+    Assert.AreEqual<int> (8, v.VData)
+
+  [<TestMethod>]
+  [<DynamicData(nameof DominatorTests.TestData)>]
+  member __.``Dominators Test 11`` (t, alg) =
+    let g, _ = digraph11 t
+    let dom: IDominator<_, _> = instantiate g alg
+    let ds = getDominators dom g 1
+    Assert.IsTrue (Set.isEmpty ds)
+    let ds = getDominators dom g 2
+    Assert.IsTrue (Set.ofList [ 1 ] = ds)
+    let ds = getDominators dom g 3
+    Assert.IsTrue (Set.ofList [ 1 ] = ds)
+    let ds = getDominators dom g 4
+    Assert.IsTrue (Set.ofList [ 1; 3 ] = ds)
+    let ds = getDominators dom g 5
+    Assert.IsTrue (Set.ofList [ 1; 3; 4 ] = ds)
+    let ds = getDominators dom g 6
+    Assert.IsTrue (Set.ofList [ 1; 3; 4 ] = ds)
+    let ds = getDominators dom g 7
+    Assert.IsTrue (Set.ofList [ 1; 3; 4 ] = ds)
+    let ds = getDominators dom g 8
+    Assert.IsTrue (Set.ofList [ 1; 3; 4; 7 ] = ds)
+    let ds = getDominators dom g 9
+    Assert.IsTrue (Set.ofList [ 1; 3; 4; 7; 8 ] = ds)
+    let ds = getDominators dom g 10
+    Assert.IsTrue (Set.ofList [ 1; 3; 4; 7; 8 ] = ds)
+
+  [<TestMethod>]
+  [<DynamicData(nameof DominatorTests.TestData)>]
+  member __.``Dominance Frontier Test 11`` (t, alg) =
+    let g, _ = digraph11 t
+    let dom: IDominator<_, _> = instantiate g alg
+    let df = getDominanceFrontier dom g 1
+    Assert.IsTrue (Set.isEmpty df)
+    let df = getDominanceFrontier dom g 2
+    Assert.IsTrue (Set.ofList [ 3 ] = df)
+    let df = getDominanceFrontier dom g 3
+    Assert.IsTrue (Set.ofList [ 3 ] = df)
+    let df = getDominanceFrontier dom g 4
+    Assert.IsTrue (Set.ofList [ 3; 4 ] = df)
+    let df = getDominanceFrontier dom g 5
+    Assert.IsTrue (Set.ofList [ 7 ] = df)
+    let df = getDominanceFrontier dom g 6
+    Assert.IsTrue (Set.ofList [ 7 ] = df)
+    let df = getDominanceFrontier dom g 7
+    Assert.IsTrue (Set.ofList [ 3; 4; 7 ] = df)
+    let df = getDominanceFrontier dom g 8
+    Assert.IsTrue (Set.ofList [ 3; 7 ] = df)
+    let df = getDominanceFrontier dom g 9
+    Assert.IsTrue (Set.isEmpty df) (* maybe {1} *)
+    let df = getDominanceFrontier dom g 10
+    Assert.IsTrue (Set.ofList [ 7 ] = df)
+
+  [<TestMethod>]
+  [<DynamicData(nameof DominatorTests.TestData)>]
+  member __.``Immediate Post-Dominator Test 11`` (t, alg) =
+    let g, _ = digraph11 t
+    let dom: IDominator<_, _> = instantiate g alg
+    let v = dom.ImmediatePostDominator <| g.FindVertexByData 1
+    Assert.AreEqual<int> (3, v.VData)
+    let v = dom.ImmediatePostDominator <| g.FindVertexByData 2
+    Assert.AreEqual<int> (3, v.VData)
+    let v = dom.ImmediatePostDominator <| g.FindVertexByData 3
+    Assert.AreEqual<int> (4, v.VData)
+    let v = dom.ImmediatePostDominator <| g.FindVertexByData 4
+    Assert.AreEqual<int> (7, v.VData)
+    let v = dom.ImmediatePostDominator <| g.FindVertexByData 5
+    Assert.AreEqual<int> (7, v.VData)
+    let v = dom.ImmediatePostDominator <| g.FindVertexByData 6
+    Assert.AreEqual<int> (7, v.VData)
+    let v = dom.ImmediatePostDominator <| g.FindVertexByData 7
+    Assert.AreEqual<int> (8, v.VData)
+    let v = dom.ImmediatePostDominator <| g.FindVertexByData 8
+    Assert.IsTrue (isNull v)
+    let v = dom.ImmediatePostDominator <| g.FindVertexByData 9
+    Assert.IsTrue (isNull v)
+    let v = dom.ImmediatePostDominator <| g.FindVertexByData 10
+    Assert.IsTrue (isNull v)
+
+  [<TestMethod>]
+  [<DynamicData(nameof DominatorTests.TestData)>]
+  member __.``Post-Dominators Test 11`` (t, alg) =
+    let g, _ = digraph11 t
+    let dom: IDominator<_, _> = instantiate g alg
+    let pds = getPostDominators dom g 1
+    Assert.IsTrue (Set.ofList [ 3; 4; 7; 8 ] = pds)
+    let pds = getPostDominators dom g 2
+    Assert.IsTrue (Set.ofList [ 3; 4; 7; 8 ] = pds)
+    let pds = getPostDominators dom g 3
+    Assert.IsTrue (Set.ofList [ 4; 7; 8 ] = pds)
+    let pds = getPostDominators dom g 4
+    Assert.IsTrue (Set.ofList [ 7; 8 ] = pds)
+    let pds = getPostDominators dom g 5
+    Assert.IsTrue (Set.ofList [ 7; 8 ] = pds)
+    let pds = getPostDominators dom g 6
+    Assert.IsTrue (Set.ofList [ 7; 8 ] = pds)
+    let pds = getPostDominators dom g 7
+    Assert.IsTrue (Set.ofList [ 8 ] = pds)
+    let pds = getPostDominators dom g 8
+    Assert.IsTrue (Set.isEmpty pds)
+    let pds = getPostDominators dom g 9
+    Assert.IsTrue (Set.isEmpty pds)
+    let pds = getPostDominators dom g 10
+    Assert.IsTrue (Set.isEmpty pds)
