@@ -156,13 +156,17 @@ let private checkVertexInGraph (g: IDiGraph<_, _>) (v: IVertex<_>) =
   else raise VertexNotFoundException
 
 let rec private domsAux acc v info =
-  let id = info.IDom[dfnum info v]
-  if id > 0 then domsAux (info.Vertex[id] :: acc) info.Vertex[id] info
+  if info.DFNumMap.ContainsKey (v: IVertex<'V>).ID then
+    let id = info.IDom[dfnum info v]
+    if id > 0 then domsAux (info.Vertex[id] :: acc) info.Vertex[id] info
+    else acc |> List.toArray
   else acc |> List.toArray
 
 let private idomAux info v =
-  let id = info.IDom[dfnum info v]
-  if id >= 1 then info.Vertex[id] else null
+  if info.DFNumMap.ContainsKey (v: IVertex<'V>).ID then
+    let id = info.IDom[dfnum info v]
+    if id >= 1 then info.Vertex[id] else null
+  else null
 
 /// A dominator tree is a tree where each node's children are those nodes it
 /// immediately dominates. This function returns a map from a node to its
@@ -170,8 +174,10 @@ let private idomAux info v =
 let private computeDomTree (g: IDiGraph<_, _>) info =
   let domTree = Array.create info.MaxLength []
   g.IterVertex (fun v ->
-    let idom = info.IDom[dfnum info v]
-    domTree[idom] <- v :: domTree[idom])
+    if info.DFNumMap.ContainsKey v.ID then
+      let idom = info.IDom[dfnum info v]
+      domTree[idom] <- v :: domTree[idom]
+    else ())
   domTree
 
 /// Lengauer-Tarjan algorithm for dominator computation. A fast algorithm for
@@ -325,12 +331,14 @@ module LengauerTarjan =
           checkVertexInGraph g v
           let root = ctx.ForwardRoot
           let info = ctx.ForwardDomInfo
-          if isNull frontiers then
-            frontiers <- Array.create info.MaxLength []
-            let domTree = computeDomTree g info
-            computeDF domTree frontiers g info root
-          else ()
-          frontiers[dfnum info v]
+          if info.DFNumMap.ContainsKey v.ID then
+            if isNull frontiers then
+              frontiers <- Array.create info.MaxLength []
+              let domTree = computeDomTree g info
+              computeDF domTree frontiers g info root
+            else ()
+            frontiers[dfnum info v]
+          else []
 
         member __.DominatorTree () =
           DominatorTree (ctx.ForwardGraph, __)
@@ -448,12 +456,15 @@ module Cooper =
         member _.DominanceFrontier v =
           let g = ctx.ForwardGraph
           let info = ctx.ForwardDomInfo
-          if isNull frontiers then
-            let arr = Array.create info.MaxLength Set.empty
-            computeDFWithCooper arr g info
-            frontiers <- Array.map Set.toList arr
-          else ()
-          frontiers[dfnum info v]
+          if info.DFNumMap.ContainsKey v.ID then
+            if isNull frontiers then
+              let arr = Array.create info.MaxLength Set.empty
+              computeDFWithCooper arr g info
+              frontiers <- Array.map Set.toList arr
+            else ()
+            frontiers[dfnum info v]
+          else
+            []
 
         member __.DominatorTree () =
           DominatorTree (ctx.ForwardGraph, __)
