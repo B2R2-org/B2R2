@@ -521,7 +521,7 @@ type DominatorTests () =
     let g, _ = digraph5 t
     let dom: IDominator<_, _> = instantiate g alg
     let df = getDominanceFrontier dom g 1
-    Assert.IsTrue (Set.isEmpty df)
+    Assert.IsTrue (Set.ofList [ 1 ] = df)
     let df = getDominanceFrontier dom g 2
     Assert.IsTrue (Set.ofList [ 4 ] = df)
     let df = getDominanceFrontier dom g 3
@@ -531,7 +531,7 @@ type DominatorTests () =
     let df = getDominanceFrontier dom g 5
     Assert.IsTrue (Set.ofList [ 6 ] = df)
     let df = getDominanceFrontier dom g 6
-    Assert.IsTrue (Set.isEmpty df) (* maybe {1} *)
+    Assert.IsTrue (Set.ofList [ 1 ] = df)
 
   [<TestMethod>]
   [<DynamicData(nameof DominatorTests.TestData)>]
@@ -1069,15 +1069,15 @@ type DominatorTests () =
     let g, _ = digraph9 t
     let dom: IDominator<_, _> = instantiate g alg
     let df = getDominanceFrontier dom g 1
-    Assert.IsTrue (Set.isEmpty df)
+    Assert.IsTrue (Set.ofList [ 1 ] = df)
     let df = getDominanceFrontier dom g 2
-    Assert.IsTrue (Set.isEmpty df)
+    Assert.IsTrue (Set.ofList [ 1 ] = df)
     let df = getDominanceFrontier dom g 3
     Assert.IsTrue (Set.ofList [ 3; 7 ] = df)
     let df = getDominanceFrontier dom g 4
     Assert.IsTrue (Set.ofList [ 3; 4; 7 ] = df)
     let df = getDominanceFrontier dom g 5
-    Assert.IsTrue (Set.ofList [ 6 ] = df) (* maybe {1,6} *)
+    Assert.IsTrue (Set.ofList [ 1; 6 ] = df)
     let df = getDominanceFrontier dom g 6
     Assert.IsTrue (Set.ofList [ 7 ] = df)
     let df = getDominanceFrontier dom g 7
@@ -1159,11 +1159,11 @@ type DominatorTests () =
     let g, _ = digraph10 t
     let dom: IDominator<_, _> = instantiate g alg
     let df = getDominanceFrontier dom g 1
-    Assert.IsTrue (Set.isEmpty df)
+    Assert.IsTrue (Set.ofList [ 1 ] = df)
     let df = getDominanceFrontier dom g 2
-    Assert.IsTrue (Set.isEmpty df)
+    Assert.IsTrue (Set.ofList [ 1 ] = df)
     let df = getDominanceFrontier dom g 3
-    Assert.IsTrue (Set.isEmpty df)
+    Assert.IsTrue (Set.ofList [ 1 ] = df)
 
   [<TestMethod>]
   [<DynamicData(nameof DominatorTests.TestData)>]
@@ -1247,23 +1247,23 @@ type DominatorTests () =
     let g, _ = digraph11 t
     let dom: IDominator<_, _> = instantiate g alg
     let df = getDominanceFrontier dom g 1
-    Assert.IsTrue (Set.isEmpty df)
+    Assert.IsTrue (Set.ofList [ 1 ] = df)
     let df = getDominanceFrontier dom g 2
     Assert.IsTrue (Set.ofList [ 3 ] = df)
     let df = getDominanceFrontier dom g 3
-    Assert.IsTrue (Set.ofList [ 3 ] = df)
+    Assert.IsTrue (Set.ofList [ 1; 3 ] = df)
     let df = getDominanceFrontier dom g 4
-    Assert.IsTrue (Set.ofList [ 3; 4 ] = df)
+    Assert.IsTrue (Set.ofList [ 1; 3; 4 ] = df)
     let df = getDominanceFrontier dom g 5
     Assert.IsTrue (Set.ofList [ 7 ] = df)
     let df = getDominanceFrontier dom g 6
     Assert.IsTrue (Set.ofList [ 7 ] = df)
     let df = getDominanceFrontier dom g 7
-    Assert.IsTrue (Set.ofList [ 3; 4; 7 ] = df)
+    Assert.IsTrue (Set.ofList [ 1; 3; 4; 7 ] = df)
     let df = getDominanceFrontier dom g 8
-    Assert.IsTrue (Set.ofList [ 3; 7 ] = df)
+    Assert.IsTrue (Set.ofList [ 1; 3; 7 ] = df)
     let df = getDominanceFrontier dom g 9
-    Assert.IsTrue (Set.isEmpty df) (* maybe {1} *)
+    Assert.IsTrue (Set.ofList [ 1 ] = df)
     let df = getDominanceFrontier dom g 10
     Assert.IsTrue (Set.ofList [ 7 ] = df)
 

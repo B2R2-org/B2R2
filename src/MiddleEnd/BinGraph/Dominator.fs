@@ -300,7 +300,7 @@ module LengauerTarjan =
         let succID = dfnum info succ
         let idomID = info.IDom[succID]
         let d = info.Vertex[idomID]
-        if idomID <> 0 && d.ID <> v.ID then df.Add info.Vertex[succID] |> ignore
+        if d.ID <> v.ID then df.Add info.Vertex[succID] |> ignore
       done
       for child in (domTree: list<IVertex<_>>[])[dfnum info v] do
         for node in frontiers[dfnum info child] do
@@ -426,9 +426,11 @@ module Cooper =
 
   let private computeDFWithCooper (frontiers: Set<IVertex<_>>[])
                                   (g: IDiGraph<_, _>) (info: DomInfo<_>) =
+    let root = g.GetRoots () |> Seq.exactlyOne
     for v in g.Vertices do
       let preds = g.GetPreds v
-      if Seq.length preds < 2 then ()
+      if v <> root && Seq.length preds < 2
+         || v = root && Seq.isEmpty preds then ()
       else
         for p in preds do
           let mutable runner = p
