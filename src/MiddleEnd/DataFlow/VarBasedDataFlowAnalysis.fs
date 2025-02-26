@@ -305,16 +305,16 @@ type VarBasedDataFlowAnalysis<'Lattice>
     | true, defs -> defs
 
   /// We only visit the vertices that have changed and update data-flow chains.
-  let rec incrementalUpdate g state domTree visited (dom: IDominance<_, _>) v =
+  let rec incrementalUpdate g state visited (dom: IDominance<_, _>) v =
     if (visited: HashSet<_>).Contains v then ()
     elif (state: VarBasedDataFlowState<_>).IsVertexPending v
          && (g: IDiGraph<_, _>).HasVertex v.ID then
       let idom = dom.ImmediateDominator v
       let defs = if isNull idom then Map.empty else getOutgoingDefs state idom
-      update g state domTree visited v defs
+      update g state dom.DominatorTree visited v defs
     else
-      for child in domTree.GetChildren v do
-        incrementalUpdate g state domTree visited dom child
+      for child in dom.DominatorTree.GetChildren v do
+        incrementalUpdate g state visited dom child
 
 #if DEBUG
   let hasProperPhiOperandNumbers state g v =
@@ -367,13 +367,13 @@ type VarBasedDataFlowAnalysis<'Lattice>
   /// worst-case time complexity as the original algorithm, but it is more
   /// efficient for incremental changes in practice since its search space is
   /// reduced to the affected vertices that are possibly updated.
-  let calculateChains g state dom domTree =
+  let calculateChains g state dom =
     let globals = HashSet<VarKind> ()
     let defSites = Dictionary<VarKind, List<IVertex<LowUIRBasicBlock>>> ()
     let visited = HashSet<IVertex<LowUIRBasicBlock>> ()
     findDefVars g state defSites globals
     placePhis state dom globals defSites
-    incrementalUpdate g state domTree visited dom g.SingleRoot
+    incrementalUpdate g state visited dom g.SingleRoot
     updatePhis g state visited
 
   let isStackRelatedRegister rid =
@@ -519,11 +519,10 @@ type VarBasedDataFlowAnalysis<'Lattice>
     /// Compute the data flow incrementally.
     member __.Compute g state =
       let dom = Dominance.Cooper.create g
-      let domTree = dom.DominatorTree ()
       removeInvalidChains state
-      calculateChains g state dom domTree
+      calculateChains g state dom
       propagateStackPointer g state
-      calculateChains g state dom domTree
+      calculateChains g state dom
       propagateDomain g state
       state.ClearPendingVertices ()
       state

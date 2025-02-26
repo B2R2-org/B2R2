@@ -302,7 +302,7 @@ module private SSALifterFactory =
     for _, stmt in v.VData.Internals.Statements do popStack stack stmt
 
   let renameVars g defSites (dom: IDominance<_, _>) =
-    let domTree = dom.DominatorTree ()
+    let domTree = dom.DominatorTree
     let count = VarCountMap ()
     let stack = IDStack ()
     for variable in (defSites: DefSites).Keys do

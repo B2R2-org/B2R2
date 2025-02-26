@@ -142,18 +142,6 @@ let private preparePostDomAnalysis (fg: IDiGraph<_, _>) (bg: IDiGraph<_, _>) =
     |> List.fold (fun (bg: IDiGraph<_, _>) v -> bg.AddEdge (dummy, v)) bg
   bg, dummy
 
-/// A dominator tree is a tree where each node's children are those nodes it
-/// immediately dominates. This function returns a map from a node to its
-/// children in the dom tree.
-let private computeDomTree (g: IDiGraph<_, _>) info =
-  let domTree = Array.create info.MaxLength []
-  g.IterVertex (fun v ->
-    if info.DFNumMap.ContainsKey v.ID then
-      let idom = info.IDom[dfnum info v]
-      domTree[idom] <- v :: domTree[idom]
-    else ())
-  domTree
-
 let rec private compress info v =
   let a = info.Ancestor[v]
   if info.Ancestor[a] <> 0 then
@@ -242,15 +230,6 @@ let private computeDominatorInfo g root =
   g.RemoveVertex dummyEntry |> ignore
   info
 
-let private traverseBottomUp (domTree: list<IVertex<_>>[]) info root =
-  let stack1, stack2 = Stack (), Stack ()
-  stack1.Push root
-  while stack1.Count > 0 do
-    let v = stack1.Pop ()
-    stack2.Push v
-    for child in domTree[dfnum info v] do stack1.Push child
-  stack2.ToArray ()
-
 let rec private domsAux acc v info =
   if info.DFNumMap.ContainsKey (v: IVertex<'V>).ID then
     let id = info.IDom[dfnum info v]
@@ -264,9 +243,19 @@ let private idomAux info v =
     if id >= 1 then info.Vertex[id] else null
   else null
 
+let private traverseBottomUp (domTree: DominatorTree<_, _>) root =
+  let stack1, stack2 = Stack (), Stack ()
+  stack1.Push root
+  while stack1.Count > 0 do
+    let v = stack1.Pop ()
+    stack2.Push v
+    for child in domTree.GetChildren v do stack1.Push child
+  stack2.ToArray ()
+
 /// Compute dominance frontiers.
-let private computeDF domTree (frontiers: list<IVertex<_>>[]) g info root =
-  for v in traverseBottomUp domTree info root do
+let private computeDF g (domTree: Lazy<DominatorTree<_, _>>) info root =
+  let frontiers = Array.create info.MaxLength []
+  for v in traverseBottomUp domTree.Value root do
     let df = HashSet<IVertex<_>> ()
     for succ in (g: IDiGraph<_, _>).GetSuccs v do
       let succID = dfnum info succ
@@ -274,7 +263,7 @@ let private computeDF domTree (frontiers: list<IVertex<_>>[]) g info root =
       let d = info.Vertex[idomID]
       if d.ID <> v.ID then df.Add info.Vertex[succID] |> ignore
     done
-    for child in (domTree: list<IVertex<_>>[])[dfnum info v] do
+    for child in domTree.Value.GetChildren v do
       for node in frontiers[dfnum info child] do
         let doms = domsAux [] node info
         let dominate = doms |> Array.exists (fun d -> d.ID = v.ID)
@@ -282,47 +271,50 @@ let private computeDF domTree (frontiers: list<IVertex<_>>[]) g info root =
       done
     done
     frontiers[dfnum info v] <- df |> List.ofSeq
-
-let private checkVertexInGraph (g: IDiGraph<_, _>) (v: IVertex<_>) =
-  let v' = g.FindVertexByData v.VData
-  if v.ID = v'.ID then ()
-  else raise VertexNotFoundException
+  frontiers
 
 let private computeDominanceFromReversedGraph (g: IDiGraph<_, _>) =
   let g', root' = g.Reverse [] |> preparePostDomAnalysis g
   let backwardDom = computeDominatorInfo g' root'
   {| Graph = g'; DomInfo = backwardDom |}
 
+#if DEBUG
+let private checkVertexInGraph (g: IDiGraph<_, _>) (v: IVertex<_>) =
+  let v' = g.FindVertexByData v.VData
+  if v.ID = v'.ID then ()
+  else raise VertexNotFoundException
+#endif
+
 [<CompiledName "Create">]
 let create (g: IDiGraph<'V, 'E>) =
   let forwardRoot = g.GetRoots () |> Seq.exactlyOne
   let forwardDomInfo = computeDominatorInfo g forwardRoot
+  let domTree = lazy DominatorTree (g, idomAux forwardDomInfo)
+  let frontiers = lazy computeDF g domTree forwardDomInfo forwardRoot
   let backward = lazy computeDominanceFromReversedGraph g
-  let mutable frontiers = null
   { new IDominance<'V, 'E> with
       member _.Dominators v =
+#if DEBUG
         checkVertexInGraph g v
+#endif
         domsAux [] v forwardDomInfo
 
       member _.ImmediateDominator v =
+#if DEBUG
         checkVertexInGraph g v
+#endif
         idomAux forwardDomInfo v
 
       member _.DominanceFrontier v =
+#if DEBUG
         checkVertexInGraph g v
-        let root = forwardRoot
+#endif
         let info = forwardDomInfo
-        if info.DFNumMap.ContainsKey v.ID then
-          if isNull frontiers then
-            frontiers <- Array.create info.MaxLength []
-            let domTree = computeDomTree g info
-            computeDF domTree frontiers g info root
-          else ()
-          frontiers[dfnum info v]
+        if info.DFNumMap.ContainsKey v.ID then frontiers.Value[dfnum info v]
         else []
 
-      member __.DominatorTree () =
-        DominatorTree (g, __)
+      member __.DominatorTree =
+        domTree.Value
 
       member _.PostDominators v =
         domsAux [] v backward.Value.DomInfo

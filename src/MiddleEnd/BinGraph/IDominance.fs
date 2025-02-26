@@ -42,7 +42,7 @@ type IDominance<'V, 'E when 'V: equality and 'E: equality> =
   abstract DominanceFrontier: IVertex<'V> -> IEnumerable<IVertex<'V>>
 
   /// Get the dominator tree of the given implementation type.
-  abstract DominatorTree: unit -> DominatorTree<'V, 'E>
+  abstract DominatorTree: DominatorTree<'V, 'E>
 
   /// Get the post-dominators of a vertex.
   abstract PostDominators: IVertex<'V> -> IEnumerable<IVertex<'V>>
@@ -52,16 +52,15 @@ type IDominance<'V, 'E when 'V: equality and 'E: equality> =
   abstract ImmediatePostDominator: IVertex<'V> -> IVertex<'V>
 
 /// Dominator tree interface. A dominator tree is a tree where each node's
-/// children are those nodes it immediately dominates. This function returns a
-/// map from a node to its children in the dom tree.
+/// children are those nodes it immediately dominates.
 and DominatorTree<'V, 'E when 'V: equality
                           and 'E: equality>
-  public (g: IDiGraphAccessible<'V, 'E>, dom: IDominance<'V, 'E>) =
+  public (g: IDiGraphAccessible<'V, 'E>, getIDom: IVertex<'V> -> IVertex<'V>) =
 
   let domTree = Dictionary<IVertex<'V>, List<IVertex<'V>>> ()
 
   do g.IterVertex (fun v ->
-       let idom = dom.ImmediateDominator v
+       let idom = getIDom v
        if isNull idom then ()
        elif domTree.ContainsKey idom then domTree[idom].Add v
        else domTree[idom] <- List [ v ])
