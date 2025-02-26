@@ -26,8 +26,8 @@ namespace B2R2.MiddleEnd.BinGraph
 
 open System.Collections.Generic
 
-/// Dominator interface.
-type IDominator<'V, 'E when 'V: equality and 'E: equality> =
+/// Interface for computing dominance relationships of nodes in digraphs.
+type IDominance<'V, 'E when 'V: equality and 'E: equality> =
   /// Get the dominators of a vertex.
   abstract Dominators: IVertex<'V> -> IEnumerable<IVertex<'V>>
 
@@ -56,7 +56,7 @@ type IDominator<'V, 'E when 'V: equality and 'E: equality> =
 /// map from a node to its children in the dom tree.
 and DominatorTree<'V, 'E when 'V: equality
                           and 'E: equality>
-  public (g: IDiGraphAccessible<'V, 'E>, dom: IDominator<'V, 'E>) =
+  public (g: IDiGraphAccessible<'V, 'E>, dom: IDominance<'V, 'E>) =
 
   let domTree = Dictionary<IVertex<'V>, List<IVertex<'V>>> ()
 

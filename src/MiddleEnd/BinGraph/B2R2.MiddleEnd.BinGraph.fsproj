@@ -21,8 +21,9 @@
     <Compile Include="Traversal.fs" />
     <Compile Include="ISCCEnumerable.fs" />
     <Compile Include="SCC.fs" />
-    <Compile Include="IDominator.fs" />
-    <Compile Include="Dominator.fs" />
+    <Compile Include="IDominance.fs" />
+    <Compile Include="Dominance\LengauerTarjan.fs" />
+    <Compile Include="Dominance\Cooper.fs" />
     <Compile Include="Loop.fs" />
     <None Include="..\..\..\LICENSE.md" Pack="true" PackagePath="" />
     <None Include="..\..\..\assets\b2r2-240x240.png" Pack="true" PackagePath="" />

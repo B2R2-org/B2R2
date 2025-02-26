@@ -27,7 +27,7 @@ module B2R2.MiddleEnd.BinGraph.Loop
 open System.Collections.Generic
 
 let private getBackEdges g =
-  let dom = Dominator.LengauerTarjan.create g
+  let dom = Dominance.LengauerTarjan.create g
   []
   |> g.FoldEdge (fun acc edge ->
     match dom.Dominators edge.First with

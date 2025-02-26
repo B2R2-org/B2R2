@@ -133,7 +133,7 @@ module private SSALifterFactory =
     )
 
   let computeDominatorInfo g =
-    let dom = Dominator.Cooper.create g
+    let dom = Dominance.Cooper.create g
     g.IterVertex (fun (v: SSAVertex) ->
       let idom = dom.ImmediateDominator v
       v.VData.ImmDominator <- if isNull idom then None else Some idom
@@ -301,7 +301,7 @@ module private SSALifterFactory =
       rename g domTree count stack child
     for _, stmt in v.VData.Internals.Statements do popStack stack stmt
 
-  let renameVars g defSites (dom: IDominator<_, _>) =
+  let renameVars g defSites (dom: IDominance<_, _>) =
     let domTree = dom.DominatorTree ()
     let count = VarCountMap ()
     let stack = IDStack ()

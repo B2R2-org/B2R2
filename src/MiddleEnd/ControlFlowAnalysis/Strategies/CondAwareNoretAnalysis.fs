@@ -187,7 +187,7 @@ type CondAwareNoretAnalysis ([<Optional; DefaultParameterValue(true)>] strict) =
       | NotNoRet | UnknownNoRet -> None
       | NoRet -> Utils.impossible ())
 
-  let tryFindCondNoRetDom (dom: IDominator<_, _>) absVSet v =
+  let tryFindCondNoRetDom (dom: IDominance<_, _>) absVSet v =
     dom.Dominators v
     |> Seq.filter (fun v -> Set.contains v absVSet)
     |> fun doms ->
@@ -204,7 +204,7 @@ type CondAwareNoretAnalysis ([<Optional; DefaultParameterValue(true)>] strict) =
     | Some dom -> ConditionalNoRet <| Map.find dom argNumMap
 
   let analyze ctx condNoRetCalls =
-    let dom = Dominator.Cooper.create ctx.CFG
+    let dom = Dominance.Cooper.create ctx.CFG
     let exits = ctx.CFG.Exits
     let absVSet = condNoRetCalls |> List.map fst |> Set.ofList
     let argNumMap = condNoRetCalls |> Map.ofSeq
