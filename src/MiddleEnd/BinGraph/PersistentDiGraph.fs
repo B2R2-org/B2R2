@@ -194,9 +194,6 @@ type PersistentDiGraph<'V, 'E when 'V: equality
     member __.IterEdge fn =
       succs.Values |> Seq.iter (fun edges -> List.iter fn edges)
 
-    member __.ToDOTStr (name, vToStrFn, _eToStrFn) =
-      GraphUtils.toDiGraphDOTString __ name vToStrFn _eToStrFn
-
   interface IDiGraph<'V, 'E> with
 
     member __.AddVertex value =

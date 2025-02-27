@@ -47,8 +47,14 @@ type Edge<'V, 'E when 'V: equality
   /// Check if the edge has a label.
   member __.HasLabel with get() = not (isNull label)
 
+  override _.ToString () =
+    if isNull label then ""
+    else $"{label}"
+
 and [<AllowNullLiteral>] internal EdgeLabel<'E when 'E: equality> (value: 'E) =
   member __.Value = value
+
+  override _.ToString () = $"{value}"
 
   interface System.IEquatable<EdgeLabel<'E>> with
     member __.Equals (other: EdgeLabel<'E>) =

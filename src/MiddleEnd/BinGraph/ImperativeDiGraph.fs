@@ -205,9 +205,6 @@ type ImperativeDiGraph<'V, 'E when 'V: equality and 'E: equality> () =
     member __.IterEdge fn =
       edges.Values |> Seq.iter fn
 
-    member __.ToDOTStr (name, vToStrFn, _eToStrFn) =
-      GraphUtils.toDiGraphDOTString __ name vToStrFn _eToStrFn
-
   interface IDiGraph<'V, 'E> with
 
     member __.AddVertex v =

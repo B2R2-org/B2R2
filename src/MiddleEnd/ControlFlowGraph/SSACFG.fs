@@ -157,9 +157,6 @@ type SSACFG private (g: IDiGraph<SSABasicBlock, CFGEdgeKind>) =
   /// Clone this CFG.
   member _.Clone () = g.Clone () |> SSACFG
 
-  /// Convert this CFG to a DOT string.
-  member _.ToDOTStr (name, vFn, eFn) = g.ToDOTStr (name, vFn, eFn)
-
   /// Find the definition of the given variable kind (targetVarKind) at the
   /// given node v. We simply follow the dominator tree of the given SSACFG
   /// until we find a definition.
@@ -214,7 +211,6 @@ type SSACFG private (g: IDiGraph<SSABasicBlock, CFGEdgeKind>) =
     member _.IterVertex fn = g.IterVertex fn
     member _.FoldEdge fn acc = g.FoldEdge fn acc
     member _.IterEdge fn = g.IterEdge fn
-    member _.ToDOTStr (name, vFn, eFn) = g.ToDOTStr (name, vFn, eFn)
 
   interface IDiGraph<SSABasicBlock, CFGEdgeKind> with
     member _.AddVertex data = g.AddVertex data

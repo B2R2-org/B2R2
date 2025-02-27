@@ -24,9 +24,11 @@
 
 module B2R2.RearEnd.BinExplorer.Program
 
+open System.IO
 open B2R2
 open B2R2.FrontEnd
 open B2R2.MiddleEnd
+open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.MiddleEnd.ControlFlowAnalysis
 open B2R2.RearEnd
@@ -204,10 +206,12 @@ let dumpJsonFiles jsonDir (brew: BinaryBrew<_, _>) =
   brew.Functions.Sequence
   |> Seq.iter (fun func ->
     let id = func.ID
-    let ep = func.EntryPoint
     let disasmJsonPath = Printf.sprintf "%s/%s.disasmCFG" jsonDir id
-    let disasmcfg = DisasmCFG func.CFG
-    ExportCFG.toJson disasmcfg disasmJsonPath)
+    if isNull func.CFG then ()
+    else
+      let disasmcfg = DisasmCFG func.CFG
+      let s = Serializer.ToJson disasmcfg
+      File.WriteAllText (disasmJsonPath, s))
 
 let initBinHdl isa (name: string) =
   let autoDetect = (isa.Arch <> Architecture.EVM)

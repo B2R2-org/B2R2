@@ -100,13 +100,3 @@ type IGraphAccessible<'V, 'E when 'V: equality and 'E: equality> =
 
   /// Fold every edge in the graph (the order can be arbitrary).
   abstract IterEdge: (Edge<'V, 'E> -> unit) -> unit
-
-  /// Return the DOT-representation of this graph. The first argument specifies
-  /// the name of the graph. The second argument specifies the callback function
-  /// that returns the id and label of a vertex. The third argument specifies
-  /// the callback function that returns the label of an edge.
-  abstract ToDOTStr:
-       name: string
-     * vFn: (IVertex<'V> -> (string * string))
-     * eFn: (Edge<'V, 'E> -> string)
-    -> string

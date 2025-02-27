@@ -40,6 +40,7 @@ type VertexID = int
 [<AllowNullLiteral>]
 type IVertex<'V when 'V: equality> =
   inherit System.IComparable
+  inherit System.IFormattable
 
   /// Unique ID of the vertex.
   abstract ID: VertexID
@@ -56,7 +57,9 @@ type IVertex<'V when 'V: equality> =
 /// represent nullable data.
 [<AllowNullLiteral>]
 type internal VertexData<'V when 'V: equality> (v) =
-  member __.Value: 'V = v
+  member _.Value: 'V = v
+
+  override _.ToString () = $"{v}"
 
   interface System.IEquatable<VertexData<'V>> with
     member __.Equals (other: VertexData<'V>) =

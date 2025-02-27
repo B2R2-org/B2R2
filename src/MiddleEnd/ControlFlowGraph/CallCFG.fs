@@ -100,7 +100,6 @@ type CallCFG (t: ImplementationType) =
     member _.IterVertex fn = g.IterVertex fn
     member _.FoldEdge fn acc = g.FoldEdge fn acc
     member _.IterEdge fn = g.IterEdge fn
-    member _.ToDOTStr (name, vFn, eFn) = g.ToDOTStr (name, vFn, eFn)
 
   interface IDiGraph<CallBasicBlock, CFGEdgeKind> with
     member _.AddVertex data = g.AddVertex data

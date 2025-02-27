@@ -37,6 +37,7 @@ open B2R2.MiddleEnd.BinGraph
 type LowUIRCFG private (g: IDiGraph<LowUIRBasicBlock, CFGEdgeKind>) =
   let mutable g = g
 
+  // FIXME: use this to later to remove dictionary from CFGBuildingContext.
   let vertexCache = Dictionary<ProgramPoint, IVertex<LowUIRBasicBlock>> ()
 
   let addVertex (v, g') = g <- g'; v
@@ -163,9 +164,6 @@ type LowUIRCFG private (g: IDiGraph<LowUIRBasicBlock, CFGEdgeKind>) =
   /// Clone this CFG.
   member _.Clone () = g.Clone () |> LowUIRCFG
 
-  /// Convert this CFG to a DOT string.
-  member _.ToDOTStr (name, vFn, eFn) = g.ToDOTStr (name, vFn, eFn)
-
   interface IDiGraphAccessible<LowUIRBasicBlock, CFGEdgeKind> with
     member _.Size = g.Size
     member _.Vertices = g.Vertices
@@ -193,7 +191,6 @@ type LowUIRCFG private (g: IDiGraph<LowUIRBasicBlock, CFGEdgeKind>) =
     member _.IterVertex fn = g.IterVertex fn
     member _.FoldEdge fn acc = g.FoldEdge fn acc
     member _.IterEdge fn = g.IterEdge fn
-    member _.ToDOTStr (name, vFn, eFn) = g.ToDOTStr (name, vFn, eFn)
 
   interface IDiGraph<LowUIRBasicBlock, CFGEdgeKind> with
     member _.AddVertex data = g.AddVertex data

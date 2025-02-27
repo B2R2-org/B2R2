@@ -24,6 +24,7 @@
 
 namespace B2R2.MiddleEnd.BinGraph
 
+open System.Globalization
 open System.Collections.Generic
 open B2R2
 
@@ -56,9 +57,15 @@ type ImperativeVertex<'V when 'V: equality>
       | :? IVertex<'V> as other -> id.CompareTo other.ID
       | _ -> Utils.impossible ()
 
+  interface System.IFormattable with
+    member _.ToString (_, _) = $"{nameof ImperativeVertex}({vData.ToString ()})"
+
   override __.GetHashCode () = id
 
   override __.Equals (other) =
     match other with
     | :? IVertex<'V> as other -> id = other.ID
     | _ -> false
+
+  override __.ToString () =
+    (__ :> System.IFormattable).ToString (null, CultureInfo.CurrentCulture)

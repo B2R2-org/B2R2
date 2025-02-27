@@ -14,6 +14,7 @@
     <Compile Include="IGraph.fs" />
     <Compile Include="IDiGraph.fs" />
     <Compile Include="GraphUtils.fs" />
+    <Compile Include="Serializer.fs" />
     <Compile Include="ImperativeVertex.fs" />
     <Compile Include="ImperativeDiGraph.fs" />
     <Compile Include="PersistentVertex.fs" />

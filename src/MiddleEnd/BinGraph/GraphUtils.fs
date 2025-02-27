@@ -25,8 +25,6 @@
 /// Several useful functions for directed graphs.
 module internal B2R2.MiddleEnd.BinGraph.GraphUtils
 
-open System.Text
-
 let reverse (inGraph: IDiGraph<_, _>) roots outGraph =
   outGraph
   |> inGraph.FoldVertex (fun (outGraph: IDiGraph<_, _>) v ->
@@ -40,19 +38,3 @@ let reverse (inGraph: IDiGraph<_, _>) roots outGraph =
       assert (inGraph.HasVertex root.ID)
       outGraph.FindVertexByID root.ID)
     |> outGraph.SetRoots
-
-let inline private (!!) (sb: StringBuilder) (s: string) =
-  sb.Append s |> ignore
-
-let toDiGraphDOTString (g: IDiGraphAccessible<_, _>) name vToStrFn _eToStrFn =
-  let sb = StringBuilder ()
-  let vertexToString v =
-    let id, lbl = vToStrFn v
-    !!sb $"  {id}{lbl};\n"
-  let edgeToString (e: Edge<_, _>) =
-    !!sb $"  {vToStrFn e.First |> fst} -> {vToStrFn e.Second |> fst};\n"
-  !!sb $"digraph {name} {{\n"
-  !!sb $"  node[shape=box]\n"
-  g.IterVertex vertexToString
-  g.IterEdge edgeToString
-  sb.Append("}\n").ToString()
