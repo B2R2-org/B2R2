@@ -26,20 +26,22 @@ namespace B2R2.MiddleEnd.BinGraph
 
 open System.IO
 open System.Text
-open System.Xml
 open System.Runtime.Serialization
 open System.Runtime.Serialization.Json
+open System.Collections.Generic
 
+[<CLIMutable>]
 [<DataContract>]
-type SerializableVertex = {
+type private SerializableVertex = {
   [<field: DataMember(Name = "id")>]
   ID: int
   [<field: DataMember(Name = "label")>]
   Label: string
 }
 
+[<CLIMutable>]
 [<DataContract>]
-type SerializableEdge = {
+type private SerializableEdge = {
   [<field: DataMember(Name = "from")>]
   From: int
   [<field: DataMember(Name = "to")>]
@@ -51,17 +53,16 @@ type SerializableEdge = {
 /// Serializable graph. This is not supposed to be used as a graph
 /// representation in the middle-end, but rather as a temporary data structure
 /// for importing/exporting graphs.
+[<CLIMutable>]
 [<DataContract>]
-type SerializableGraph internal (roots, vertices, edges) =
-
-  [<DataMember(Name = "roots")>]
-  member _.Roots with get(): VertexID[] = roots
-
-  [<DataMember(Name = "nodes")>]
-  member _.Nodes with get(): SerializableVertex[] = vertices
-
-  [<DataMember(Name = "edges")>]
-  member _.Edges with get(): SerializableEdge[] = edges
+type private SerializableGraph = {
+  [<field: DataMember(Name = "roots")>]
+  Roots: VertexID[]
+  [<field: DataMember(Name = "vertices")>]
+  Vertices: SerializableVertex[]
+  [<field: DataMember(Name = "edges")>]
+  Edges: SerializableEdge[]
+}
 
 /// The serializer of a graph.
 type Serializer =
@@ -77,7 +78,7 @@ type Serializer =
       |> Array.map (fun e ->
         let lbl = if e.HasLabel then e.Label.ToString () else ""
         { From = e.First.ID; To = e.Second.ID; Label = lbl })
-    SerializableGraph (roots, vertices, edges)
+    { Roots = roots; Vertices = vertices; Edges = edges }
 
   static member private NewGraph<'V, 'E when 'V: equality
                                          and 'E: equality> (g, vFn, edgeFn) =
@@ -90,7 +91,7 @@ type Serializer =
       g.Edges
       |> Array.map (fun e ->
         { From = e.First.ID; To = e.Second.ID; Label = edgeFn e })
-    SerializableGraph (roots, vertices, edges)
+    { Roots = roots; Vertices = vertices; Edges = edges }
 
   static member private ToJson (g: SerializableGraph) =
     let enc = Encoding.UTF8
@@ -112,14 +113,42 @@ type Serializer =
   static member ToJson (g, vertexFn, edgeFn) =
     Serializer.ToJson (Serializer.NewGraph (g, vertexFn, edgeFn))
 
-  /// Create a new instance of the SerializableGraph type from the given JSON.
-  static member FromJson (json: string) =
-    let enc = Encoding.UTF8
-    let quotas = XmlDictionaryReaderQuotas.Max
-    use s = new MemoryStream (enc.GetBytes json)
-    use reader = JsonReaderWriterFactory.CreateJsonReader (s, enc, quotas, null)
+  static member private CopyGraph<'V, 'E when 'V: equality
+                                          and 'E: equality> (inGraph,
+                                                             outGraph,
+                                                             vConstructor,
+                                                             eConstructor) =
+    let vMap = Dictionary<VertexID, IVertex<'V>> ()
+    (inGraph: SerializableGraph).Vertices
+    |> Array.fold (fun (outGraph: IDiGraph<'V, 'E>) v ->
+      let data = vConstructor v.Label
+      let v', outGraph = outGraph.AddVertex (data, v.ID)
+      vMap[v.ID] <- v'
+      outGraph
+    ) outGraph
+    |> fun outGraph ->
+      inGraph.Edges
+      |> Array.fold (fun (outGraph: IDiGraph<'V, 'E>) e ->
+        let data = eConstructor e.Label
+        outGraph.AddEdge (vMap[e.From], vMap[e.To], data)
+      ) outGraph
+      |> fun outGraph ->
+        inGraph.Roots
+        |> Array.map (fun id -> vMap[id])
+        |> outGraph.SetRoots
+
+  /// Import the graph from the given JSON string using the graph, vertex, and
+  /// edge constructors.
+  static member FromJson<'V, 'E when 'V: equality
+                                 and 'E: equality> (json: string,
+                                                    gConstructor,
+                                                    vConstructor,
+                                                    eConstructor) =
+    use ms = new MemoryStream (Encoding.ASCII.GetBytes json)
     let ser = DataContractJsonSerializer (typeof<SerializableGraph>)
-    ser.ReadObject (reader) :?> SerializableGraph
+    let sg = ser.ReadObject (ms) :?> SerializableGraph
+    let g: IDiGraph<'V, 'E> = gConstructor ()
+    Serializer.CopyGraph (sg, g, vConstructor, eConstructor)
 
   /// Export the given graph to a string in the DOT format.
   static member ToDOT (g: IDiGraphAccessible<_, _>, name) =

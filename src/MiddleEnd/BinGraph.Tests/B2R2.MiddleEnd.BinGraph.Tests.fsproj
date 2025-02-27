@@ -6,6 +6,7 @@
 
   <ItemGroup>
     <Compile Include="Examples.fs" />
+    <Compile Include="SerializerTests.fs" />
     <Compile Include="TraversalTests.fs" />
     <Compile Include="SCCTests.fs" />
     <Compile Include="BasicTests.fs" />
