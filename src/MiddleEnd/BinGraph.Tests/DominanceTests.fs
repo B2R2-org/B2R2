@@ -99,17 +99,17 @@ type DominatorTests () =
     let g, _ = digraph1 t
     let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo
     let ds = getDominators dom g 1
-    Assert.IsTrue (Set.isEmpty ds)
-    let ds = getDominators dom g 2
     Assert.IsTrue (Set.ofList [ 1 ] = ds)
+    let ds = getDominators dom g 2
+    Assert.IsTrue (Set.ofList [ 1; 2 ] = ds)
     let ds = getDominators dom g 3
-    Assert.IsTrue (Set.ofList [ 1; 2 ] = ds)
+    Assert.IsTrue (Set.ofList [ 1; 2; 3 ] = ds)
     let ds = getDominators dom g 4
-    Assert.IsTrue (Set.ofList [ 1; 2 ] = ds)
+    Assert.IsTrue (Set.ofList [ 1; 2; 4 ] = ds)
     let ds = getDominators dom g 5
-    Assert.IsTrue (Set.ofList [ 1; 2 ] = ds)
+    Assert.IsTrue (Set.ofList [ 1; 2; 5 ] = ds)
     let ds = getDominators dom g 6
-    Assert.IsTrue (Set.ofList [ 1; 2 ] = ds)
+    Assert.IsTrue (Set.ofList [ 1; 2; 6 ] = ds)
 
   [<TestMethod>]
   [<DynamicData(nameof DominatorTests.TestData)>]
@@ -153,17 +153,17 @@ type DominatorTests () =
     let g, _ = digraph1 t
     let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo
     let pds = getPostDominators dom g 1
-    Assert.IsTrue (Set.ofList [ 2; 6 ] = pds)
+    Assert.IsTrue (Set.ofList [ 1; 2; 6 ] = pds)
     let pds = getPostDominators dom g 2
-    Assert.IsTrue (Set.ofList [ 6 ] = pds)
-    let pds = getPostDominators dom g 3
-    Assert.IsTrue (Set.ofList [ 2; 5; 6 ] = pds)
-    let pds = getPostDominators dom g 4
-    Assert.IsTrue (Set.ofList [ 2; 5; 6 ] = pds)
-    let pds = getPostDominators dom g 5
     Assert.IsTrue (Set.ofList [ 2; 6 ] = pds)
+    let pds = getPostDominators dom g 3
+    Assert.IsTrue (Set.ofList [ 2; 3; 5; 6 ] = pds)
+    let pds = getPostDominators dom g 4
+    Assert.IsTrue (Set.ofList [ 2; 4; 5; 6 ] = pds)
+    let pds = getPostDominators dom g 5
+    Assert.IsTrue (Set.ofList [ 2; 5; 6 ] = pds)
     let pds = getPostDominators dom g 6
-    Assert.IsTrue (Set.isEmpty pds)
+    Assert.IsTrue (Set.ofList [ 6 ] = pds)
 
   [<TestMethod>]
   [<DynamicData(nameof DominatorTests.TestData)>]
@@ -189,17 +189,17 @@ type DominatorTests () =
     let g, _ = digraph2 t
     let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo
     let ds = getDominators dom g 1
-    Assert.IsTrue (Set.isEmpty ds)
+    Assert.IsTrue (Set.ofList [ 1 ] = ds)
     let ds = getDominators dom g 2
-    Assert.IsTrue (Set.ofList [ 1 ] = ds)
+    Assert.IsTrue (Set.ofList [ 1; 2 ] = ds)
     let ds = getDominators dom g 3
-    Assert.IsTrue (Set.ofList [ 1 ] = ds)
-    let ds = getDominators dom g 4
     Assert.IsTrue (Set.ofList [ 1; 3 ] = ds)
+    let ds = getDominators dom g 4
+    Assert.IsTrue (Set.ofList [ 1; 3; 4 ] = ds)
     let ds = getDominators dom g 5
-    Assert.IsTrue (Set.ofList [ 1; 3; 4 ] = ds)
+    Assert.IsTrue (Set.ofList [ 1; 3; 4; 5 ] = ds)
     let ds = getDominators dom g 6
-    Assert.IsTrue (Set.ofList [ 1; 3; 4 ] = ds)
+    Assert.IsTrue (Set.ofList [ 1; 3; 4; 6 ] = ds)
 
   [<TestMethod>]
   [<DynamicData(nameof DominatorTests.TestData)>]
@@ -243,17 +243,17 @@ type DominatorTests () =
     let g, _ = digraph2 t
     let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo
     let pds = getPostDominators dom g 1
-    Assert.IsTrue (Set.isEmpty pds)
+    Assert.IsTrue (Set.ofList [ 1 ] = pds)
     let pds = getPostDominators dom g 2
-    Assert.IsTrue (Set.isEmpty pds)
+    Assert.IsTrue (Set.ofList [ 2 ] = pds)
     let pds = getPostDominators dom g 3
-    Assert.IsTrue (Set.ofList [ 4; 5 ] = pds)
+    Assert.IsTrue (Set.ofList [ 3; 4; 5 ] = pds)
     let pds = getPostDominators dom g 4
-    Assert.IsTrue (Set.ofList [ 5 ] = pds)
-    let pds = getPostDominators dom g 5
-    Assert.IsTrue (Set.isEmpty pds)
-    let pds = getPostDominators dom g 6
     Assert.IsTrue (Set.ofList [ 4; 5 ] = pds)
+    let pds = getPostDominators dom g 5
+    Assert.IsTrue (Set.ofList [ 5 ] = pds)
+    let pds = getPostDominators dom g 6
+    Assert.IsTrue (Set.ofList [ 4; 5; 6 ] = pds)
 
   [<TestMethod>]
   [<DynamicData(nameof DominatorTests.TestData)>]
@@ -277,15 +277,15 @@ type DominatorTests () =
     let g, _ = digraph3 t
     let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo
     let ds = getDominators dom g 1
-    Assert.IsTrue (Set.isEmpty ds)
+    Assert.IsTrue (Set.ofList [ 1 ] = ds)
     let ds = getDominators dom g 2
-    Assert.IsTrue (Set.ofList [ 1 ] = ds)
+    Assert.IsTrue (Set.ofList [ 1; 2 ] = ds)
     let ds = getDominators dom g 3
-    Assert.IsTrue (Set.ofList [ 1 ] = ds)
-    let ds = getDominators dom g 4
-    Assert.IsTrue (Set.ofList [ 1 ] = ds)
-    let ds = getDominators dom g 5
     Assert.IsTrue (Set.ofList [ 1; 3 ] = ds)
+    let ds = getDominators dom g 4
+    Assert.IsTrue (Set.ofList [ 1; 4 ] = ds)
+    let ds = getDominators dom g 5
+    Assert.IsTrue (Set.ofList [ 1; 3; 5 ] = ds)
 
   [<TestMethod>]
   [<DynamicData(nameof DominatorTests.TestData)>]
@@ -325,15 +325,15 @@ type DominatorTests () =
     let g, _ = digraph3 t
     let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo
     let pds = getPostDominators dom g 1
-    Assert.IsTrue (Set.isEmpty pds)
+    Assert.IsTrue (Set.ofList [ 1 ] = pds)
     let pds = getPostDominators dom g 2
-    Assert.IsTrue (Set.ofList [ 4 ] = pds)
+    Assert.IsTrue (Set.ofList [ 2; 4 ] = pds)
     let pds = getPostDominators dom g 3
-    Assert.IsTrue (Set.isEmpty pds)
+    Assert.IsTrue (Set.ofList [ 3 ] = pds)
     let pds = getPostDominators dom g 4
-    Assert.IsTrue (Set.isEmpty pds)
+    Assert.IsTrue (Set.ofList [ 4 ] = pds)
     let pds = getPostDominators dom g 5
-    Assert.IsTrue (Set.isEmpty pds)
+    Assert.IsTrue (Set.ofList [ 5 ] = pds)
 
   [<TestMethod>]
   [<DynamicData(nameof DominatorTests.TestData)>]
@@ -373,31 +373,31 @@ type DominatorTests () =
     let g, _ = digraph4 t
     let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo
     let ds = getDominators dom g 1
-    Assert.IsTrue (Set.isEmpty ds)
+    Assert.IsTrue (Set.ofList [ 1 ] = ds)
     let ds = getDominators dom g 2
-    Assert.IsTrue (Set.ofList [ 1 ] = ds)
-    let ds = getDominators dom g 3
     Assert.IsTrue (Set.ofList [ 1; 2 ] = ds)
+    let ds = getDominators dom g 3
+    Assert.IsTrue (Set.ofList [ 1; 2; 3 ] = ds)
     let ds = getDominators dom g 4
-    Assert.IsTrue (Set.ofList [ 1 ] = ds)
+    Assert.IsTrue (Set.ofList [ 1; 4 ] = ds)
     let ds = getDominators dom g 5
-    Assert.IsTrue (Set.ofList [ 1 ] = ds)
+    Assert.IsTrue (Set.ofList [ 1; 5 ] = ds)
     let ds = getDominators dom g 6
-    Assert.IsTrue (Set.ofList [ 1; 5 ] = ds)
+    Assert.IsTrue (Set.ofList [ 1; 5; 6 ] = ds)
     let ds = getDominators dom g 7
-    Assert.IsTrue (Set.ofList [ 1; 5 ] = ds)
+    Assert.IsTrue (Set.ofList [ 1; 5; 7 ] = ds)
     let ds = getDominators dom g 8
-    Assert.IsTrue (Set.ofList [ 1; 5 ] = ds)
+    Assert.IsTrue (Set.ofList [ 1; 5; 8 ] = ds)
     let ds = getDominators dom g 9
-    Assert.IsTrue (Set.ofList [ 1 ] = ds)
+    Assert.IsTrue (Set.ofList [ 1; 9 ] = ds)
     let ds = getDominators dom g 10
-    Assert.IsTrue (Set.ofList [ 1; 9 ] = ds)
+    Assert.IsTrue (Set.ofList [ 1; 9; 10 ] = ds)
     let ds = getDominators dom g 11
-    Assert.IsTrue (Set.ofList [ 1; 9 ] = ds)
+    Assert.IsTrue (Set.ofList [ 1; 9; 11 ] = ds)
     let ds = getDominators dom g 12
-    Assert.IsTrue (Set.ofList [ 1 ] = ds)
+    Assert.IsTrue (Set.ofList [ 1; 12 ] = ds)
     let ds = getDominators dom g 13
-    Assert.IsTrue (Set.ofList [ 1 ] = ds)
+    Assert.IsTrue (Set.ofList [ 1; 13 ] = ds)
 
   [<TestMethod>]
   [<DynamicData(nameof DominatorTests.TestData)>]
@@ -469,31 +469,31 @@ type DominatorTests () =
     let g, _ = digraph4 t
     let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo
     let pds = getPostDominators dom g 1
-    Assert.IsTrue (Set.ofList [ 13 ] = pds)
+    Assert.IsTrue (Set.ofList [ 1; 13 ] = pds)
     let pds = getPostDominators dom g 2
-    Assert.IsTrue (Set.ofList [ 3; 4; 13 ] = pds)
+    Assert.IsTrue (Set.ofList [ 2; 3; 4; 13 ] = pds)
     let pds = getPostDominators dom g 3
-    Assert.IsTrue (Set.ofList [ 4; 13 ] = pds)
+    Assert.IsTrue (Set.ofList [ 3; 4; 13 ] = pds)
     let pds = getPostDominators dom g 4
-    Assert.IsTrue (Set.ofList [ 13 ] = pds)
+    Assert.IsTrue (Set.ofList [ 4; 13 ] = pds)
     let pds = getPostDominators dom g 5
-    Assert.IsTrue (Set.ofList [ 13 ] = pds)
+    Assert.IsTrue (Set.ofList [ 5; 13 ] = pds)
     let pds = getPostDominators dom g 6
-    Assert.IsTrue (Set.ofList [ 13 ] = pds)
+    Assert.IsTrue (Set.ofList [ 6; 13 ] = pds)
     let pds = getPostDominators dom g 7
-    Assert.IsTrue (Set.ofList [ 13 ] = pds)
+    Assert.IsTrue (Set.ofList [ 7; 13 ] = pds)
     let pds = getPostDominators dom g 8
-    Assert.IsTrue (Set.ofList [ 13 ] = pds)
+    Assert.IsTrue (Set.ofList [ 8; 13 ] = pds)
     let pds = getPostDominators dom g 9
-    Assert.IsTrue (Set.ofList [ 12; 13 ] = pds)
+    Assert.IsTrue (Set.ofList [ 9; 12; 13 ] = pds)
     let pds = getPostDominators dom g 10
-    Assert.IsTrue (Set.ofList [ 12; 13 ] = pds)
+    Assert.IsTrue (Set.ofList [ 10; 12; 13 ] = pds)
     let pds = getPostDominators dom g 11
-    Assert.IsTrue (Set.ofList [ 12; 13 ] = pds)
+    Assert.IsTrue (Set.ofList [ 11; 12; 13 ] = pds)
     let pds = getPostDominators dom g 12
-    Assert.IsTrue (Set.ofList [ 13 ] = pds)
+    Assert.IsTrue (Set.ofList [ 12; 13 ] = pds)
     let pds = getPostDominators dom g 13
-    Assert.IsTrue (Set.isEmpty pds)
+    Assert.IsTrue (Set.ofList [ 13 ] = pds)
 
   [<TestMethod>]
   [<DynamicData(nameof DominatorTests.TestData)>]
@@ -519,17 +519,17 @@ type DominatorTests () =
     let g, _ = digraph5 t
     let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo
     let ds = getDominators dom g 1
-    Assert.IsTrue (Set.isEmpty ds)
+    Assert.IsTrue (Set.ofList [ 1 ] = ds)
     let ds = getDominators dom g 2
-    Assert.IsTrue (Set.ofList [ 1 ] = ds)
+    Assert.IsTrue (Set.ofList [ 1; 2 ] = ds)
     let ds = getDominators dom g 3
-    Assert.IsTrue (Set.ofList [ 1 ] = ds)
-    let ds = getDominators dom g 4
-    Assert.IsTrue (Set.ofList [ 1 ] = ds)
-    let ds = getDominators dom g 5
     Assert.IsTrue (Set.ofList [ 1; 3 ] = ds)
+    let ds = getDominators dom g 4
+    Assert.IsTrue (Set.ofList [ 1; 4 ] = ds)
+    let ds = getDominators dom g 5
+    Assert.IsTrue (Set.ofList [ 1; 3; 5 ] = ds)
     let ds = getDominators dom g 6
-    Assert.IsTrue (Set.ofList [ 1 ] = ds)
+    Assert.IsTrue (Set.ofList [ 1; 6 ] = ds)
 
   [<TestMethod>]
   [<DynamicData(nameof DominatorTests.TestData)>]
@@ -573,17 +573,17 @@ type DominatorTests () =
     let g, _ = digraph5 t
     let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo
     let pds = getPostDominators dom g 1
-    Assert.IsTrue (Set.ofList [ 6 ] = pds)
+    Assert.IsTrue (Set.ofList [ 1; 6 ] = pds)
     let pds = getPostDominators dom g 2
-    Assert.IsTrue (Set.ofList [ 4; 6 ] = pds)
+    Assert.IsTrue (Set.ofList [ 2; 4; 6 ] = pds)
     let pds = getPostDominators dom g 3
-    Assert.IsTrue (Set.ofList [ 6 ] = pds)
+    Assert.IsTrue (Set.ofList [ 3; 6 ] = pds)
     let pds = getPostDominators dom g 4
-    Assert.IsTrue (Set.ofList [ 6 ] = pds)
+    Assert.IsTrue (Set.ofList [ 4; 6 ] = pds)
     let pds = getPostDominators dom g 5
-    Assert.IsTrue (Set.ofList [ 6 ] = pds)
+    Assert.IsTrue (Set.ofList [ 5; 6 ] = pds)
     let pds = getPostDominators dom g 6
-    Assert.IsTrue (Set.isEmpty pds)
+    Assert.IsTrue (Set.ofList [ 6 ] = pds)
 
   [<TestMethod>]
   [<DynamicData(nameof DominatorTests.TestData)>]
@@ -643,51 +643,51 @@ type DominatorTests () =
     let g, _ = digraph6 t
     let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo
     let ds = getDominators dom g 1
-    Assert.IsTrue (Set.isEmpty ds)
+    Assert.IsTrue (Set.ofList [ 1 ] = ds)
     let ds = getDominators dom g 2
-    Assert.IsTrue (Set.ofList [ 1 ] = ds)
+    Assert.IsTrue (Set.ofList [ 1; 2 ] = ds)
     let ds = getDominators dom g 3
-    Assert.IsTrue (Set.ofList [ 1 ] = ds)
+    Assert.IsTrue (Set.ofList [ 1; 3 ] = ds)
     let ds = getDominators dom g 4
-    Assert.IsTrue (Set.ofList [ 1; 2 ] = ds)
+    Assert.IsTrue (Set.ofList [ 1; 2; 4 ] = ds)
     let ds = getDominators dom g 5
-    Assert.IsTrue (Set.ofList [ 1; 3 ] = ds)
+    Assert.IsTrue (Set.ofList [ 1; 3; 5 ] = ds)
     let ds = getDominators dom g 6
-    Assert.IsTrue (Set.ofList [ 1; 3 ] = ds)
+    Assert.IsTrue (Set.ofList [ 1; 3; 6 ] = ds)
     let ds = getDominators dom g 7
-    Assert.IsTrue (Set.ofList [ 1; 2 ] = ds)
+    Assert.IsTrue (Set.ofList [ 1; 2; 7 ] = ds)
     let ds = getDominators dom g 8
-    Assert.IsTrue (Set.ofList [ 1; 3; 5 ] = ds)
+    Assert.IsTrue (Set.ofList [ 1; 3; 5; 8 ] = ds)
     let ds = getDominators dom g 9
-    Assert.IsTrue (Set.ofList [ 1; 2; 7 ] = ds)
+    Assert.IsTrue (Set.ofList [ 1; 2; 7; 9 ] = ds)
     let ds = getDominators dom g 10
-    Assert.IsTrue (Set.ofList [ 1; 3; 5 ] = ds)
+    Assert.IsTrue (Set.ofList [ 1; 3; 5; 10 ] = ds)
     let ds = getDominators dom g 11
-    Assert.IsTrue (Set.ofList [ 1; 2; 7 ] = ds)
+    Assert.IsTrue (Set.ofList [ 1; 2; 7; 11 ] = ds)
     let ds = getDominators dom g 12
-    Assert.IsTrue (Set.ofList [ 1; 2; 7; 9 ] = ds)
+    Assert.IsTrue (Set.ofList [ 1; 2; 7; 9; 12 ] = ds)
     let ds = getDominators dom g 13
-    Assert.IsTrue (Set.ofList [ 1; 2; 7; 9 ] = ds)
+    Assert.IsTrue (Set.ofList [ 1; 2; 7; 9; 13 ] = ds)
     let ds = getDominators dom g 14
-    Assert.IsTrue (Set.ofList [ 1; 2; 7; 9; 13 ] = ds)
+    Assert.IsTrue (Set.ofList [ 1; 2; 7; 9; 13; 14 ] = ds)
     let ds = getDominators dom g 15
-    Assert.IsTrue (Set.ofList [ 1; 2; 7; 9; 13 ] = ds)
+    Assert.IsTrue (Set.ofList [ 1; 2; 7; 9; 13; 15 ] = ds)
     let ds = getDominators dom g 16
-    Assert.IsTrue (Set.ofList [ 1; 2; 7; 9; 13 ] = ds)
+    Assert.IsTrue (Set.ofList [ 1; 2; 7; 9; 13; 16 ] = ds)
     let ds = getDominators dom g 17
-    Assert.IsTrue (Set.ofList [ 1; 2; 7; 9; 13; 16 ] = ds)
+    Assert.IsTrue (Set.ofList [ 1; 2; 7; 9; 13; 16; 17 ] = ds)
     let ds = getDominators dom g 18
-    Assert.IsTrue (Set.ofList [ 1; 2; 7; 9; 13; 16 ] = ds)
-    let ds = getDominators dom g 19
-    Assert.IsTrue (Set.ofList [ 1 ] = ds)
-    let ds = getDominators dom g 20
     Assert.IsTrue (Set.ofList [ 1; 2; 7; 9; 13; 16; 18 ] = ds)
+    let ds = getDominators dom g 19
+    Assert.IsTrue (Set.ofList [ 1; 19 ] = ds)
+    let ds = getDominators dom g 20
+    Assert.IsTrue (Set.ofList [ 1; 2; 7; 9; 13; 16; 18; 20 ] = ds)
     let ds = getDominators dom g 21
-    Assert.IsTrue (Set.ofList [ 1; 19 ] = ds)
+    Assert.IsTrue (Set.ofList [ 1; 19; 21 ] = ds)
     let ds = getDominators dom g 22
-    Assert.IsTrue (Set.ofList [ 1 ] = ds)
+    Assert.IsTrue (Set.ofList [ 1; 22 ] = ds)
     let ds = getDominators dom g 23
-    Assert.IsTrue (Set.ofList [ 1; 19 ] = ds)
+    Assert.IsTrue (Set.ofList [ 1; 19; 23 ] = ds)
 
   [<TestMethod>]
   [<DynamicData(nameof DominatorTests.TestData)>]
@@ -799,51 +799,51 @@ type DominatorTests () =
     let g, _ = digraph6 t
     let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo
     let pds = getPostDominators dom g 1
-    Assert.IsTrue (Set.isEmpty pds)
+    Assert.IsTrue (Set.ofList [ 1 ] = pds)
     let pds = getPostDominators dom g 2
-    Assert.IsTrue (Set.ofList [ 7 ] = pds)
+    Assert.IsTrue (Set.ofList [ 2; 7 ] = pds)
     let pds = getPostDominators dom g 3
-    Assert.IsTrue (Set.isEmpty pds)
+    Assert.IsTrue (Set.ofList [ 3 ] = pds)
     let pds = getPostDominators dom g 4
-    Assert.IsTrue (Set.ofList [ 7 ] = pds)
+    Assert.IsTrue (Set.ofList [ 4; 7 ] = pds)
     let pds = getPostDominators dom g 5
-    Assert.IsTrue (Set.ofList [ 10; 19 ] = pds)
+    Assert.IsTrue (Set.ofList [ 5; 10; 19 ] = pds)
     let pds = getPostDominators dom g 6
-    Assert.IsTrue (Set.isEmpty pds)
+    Assert.IsTrue (Set.ofList [ 6 ] = pds)
     let pds = getPostDominators dom g 7
-    Assert.IsTrue (Set.isEmpty pds)
+    Assert.IsTrue (Set.ofList [ 7 ] = pds)
     let pds = getPostDominators dom g 8
-    Assert.IsTrue (Set.ofList [ 10; 19 ] = pds)
+    Assert.IsTrue (Set.ofList [ 8; 10; 19 ] = pds)
     let pds = getPostDominators dom g 9
-    Assert.IsTrue (Set.ofList [ 13; 16; 18 ] = pds)
+    Assert.IsTrue (Set.ofList [ 9; 13; 16; 18 ] = pds)
     let pds = getPostDominators dom g 10
-    Assert.IsTrue (Set.ofList [ 19 ] = pds)
+    Assert.IsTrue (Set.ofList [ 10; 19 ] = pds)
     let pds = getPostDominators dom g 11
-    Assert.IsTrue (Set.ofList [ 22 ] = pds)
+    Assert.IsTrue (Set.ofList [ 11; 22 ] = pds)
     let pds = getPostDominators dom g 12
-    Assert.IsTrue (Set.ofList [ 13; 16; 18 ] = pds)
+    Assert.IsTrue (Set.ofList [ 12; 13; 16; 18 ] = pds)
     let pds = getPostDominators dom g 13
-    Assert.IsTrue (Set.ofList [ 16; 18 ] = pds)
+    Assert.IsTrue (Set.ofList [ 13; 16; 18 ] = pds)
     let pds = getPostDominators dom g 14
-    Assert.IsTrue (Set.ofList [ 16; 18 ] = pds)
+    Assert.IsTrue (Set.ofList [ 14; 16; 18 ] = pds)
     let pds = getPostDominators dom g 15
-    Assert.IsTrue (Set.ofList [ 16; 18 ] = pds)
+    Assert.IsTrue (Set.ofList [ 15; 16; 18 ] = pds)
     let pds = getPostDominators dom g 16
-    Assert.IsTrue (Set.ofList [ 18 ] = pds)
+    Assert.IsTrue (Set.ofList [ 16; 18 ] = pds)
     let pds = getPostDominators dom g 17
-    Assert.IsTrue (Set.ofList [ 18 ] = pds)
+    Assert.IsTrue (Set.ofList [ 17; 18 ] = pds)
     let pds = getPostDominators dom g 18
-    Assert.IsTrue (Set.isEmpty pds)
+    Assert.IsTrue (Set.ofList [ 18 ] = pds)
     let pds = getPostDominators dom g 19
-    Assert.IsTrue (Set.isEmpty pds)
+    Assert.IsTrue (Set.ofList [ 19 ] = pds)
     let pds = getPostDominators dom g 20
-    Assert.IsTrue (Set.ofList [ 22 ] = pds)
+    Assert.IsTrue (Set.ofList [ 20; 22 ] = pds)
     let pds = getPostDominators dom g 21
-    Assert.IsTrue (Set.ofList [ 22 ] = pds)
+    Assert.IsTrue (Set.ofList [ 21; 22 ] = pds)
     let pds = getPostDominators dom g 22
-    Assert.IsTrue (Set.isEmpty pds)
+    Assert.IsTrue (Set.ofList [ 22 ] = pds)
     let pds = getPostDominators dom g 23
-    Assert.IsTrue (Set.isEmpty pds)
+    Assert.IsTrue (Set.ofList [ 23 ] = pds)
 
   [<TestMethod>]
   [<DynamicData(nameof DominatorTests.TestData)>]
@@ -867,15 +867,15 @@ type DominatorTests () =
     let g, _ = digraph7 t
     let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo
     let ds = getDominators dom g 1
-    Assert.IsTrue (Set.isEmpty ds)
+    Assert.IsTrue (Set.ofList [ 1 ] = ds)
     let ds = getDominators dom g 2
-    Assert.IsTrue (Set.ofList [ 1 ] = ds)
+    Assert.IsTrue (Set.ofList [ 1; 2 ] = ds)
     let ds = getDominators dom g 3
-    Assert.IsTrue (Set.ofList [ 1 ] = ds)
-    let ds = getDominators dom g 4
-    Assert.IsTrue (Set.ofList [ 1 ] = ds)
-    let ds = getDominators dom g 5
     Assert.IsTrue (Set.ofList [ 1; 3 ] = ds)
+    let ds = getDominators dom g 4
+    Assert.IsTrue (Set.ofList [ 1; 4 ] = ds)
+    let ds = getDominators dom g 5
+    Assert.IsTrue (Set.ofList [ 1; 3; 5 ] = ds)
 
   [<TestMethod>]
   [<DynamicData(nameof DominatorTests.TestData)>]
@@ -915,15 +915,15 @@ type DominatorTests () =
     let g, _ = digraph7 t
     let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo
     let pds = getPostDominators dom g 1
-    Assert.IsTrue (Set.isEmpty pds)
+    Assert.IsTrue (Set.ofList [ 1 ] = pds)
     let pds = getPostDominators dom g 2
-    Assert.IsTrue (Set.ofList [ 4 ] = pds)
+    Assert.IsTrue (Set.ofList [ 2; 4 ] = pds)
     let pds = getPostDominators dom g 3
-    Assert.IsTrue (Set.isEmpty pds)
+    Assert.IsTrue (Set.ofList [ 3 ] = pds)
     let pds = getPostDominators dom g 4
-    Assert.IsTrue (Set.isEmpty pds)
+    Assert.IsTrue (Set.ofList [ 4 ] = pds)
     let pds = getPostDominators dom g 5
-    Assert.IsTrue (Set.isEmpty pds)
+    Assert.IsTrue (Set.ofList [ 5 ] = pds)
 
   [<TestMethod>]
   [<DynamicData(nameof DominatorTests.TestData)>]
@@ -953,21 +953,21 @@ type DominatorTests () =
     let g, _ = digraph8 t
     let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo
     let ds = getDominators dom g 1
-    Assert.IsTrue (Set.isEmpty ds)
-    let ds = getDominators dom g 2
     Assert.IsTrue (Set.ofList [ 1 ] = ds)
-    let ds = getDominators dom g 3
+    let ds = getDominators dom g 2
     Assert.IsTrue (Set.ofList [ 1; 2 ] = ds)
-    let ds = getDominators dom g 4
+    let ds = getDominators dom g 3
     Assert.IsTrue (Set.ofList [ 1; 2; 3 ] = ds)
-    let ds = getDominators dom g 5
+    let ds = getDominators dom g 4
     Assert.IsTrue (Set.ofList [ 1; 2; 3; 4 ] = ds)
-    let ds = getDominators dom g 6
+    let ds = getDominators dom g 5
     Assert.IsTrue (Set.ofList [ 1; 2; 3; 4; 5 ] = ds)
-    let ds = getDominators dom g 7
+    let ds = getDominators dom g 6
     Assert.IsTrue (Set.ofList [ 1; 2; 3; 4; 5; 6 ] = ds)
-    let ds = getDominators dom g 8
+    let ds = getDominators dom g 7
     Assert.IsTrue (Set.ofList [ 1; 2; 3; 4; 5; 6; 7 ] = ds)
+    let ds = getDominators dom g 8
+    Assert.IsTrue (Set.ofList [ 1; 2; 3; 4; 5; 6; 7; 8 ] = ds)
 
   [<TestMethod>]
   [<DynamicData(nameof DominatorTests.TestData)>]
@@ -1019,21 +1019,21 @@ type DominatorTests () =
     let g, _ = digraph8 t
     let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo
     let pds = getPostDominators dom g 1
-    Assert.IsTrue (Set.ofList [ 2; 3; 4; 5; 6; 7; 8 ] = pds)
+    Assert.IsTrue (Set.ofList [ 1; 2; 3; 4; 5; 6; 7; 8 ] = pds)
     let pds = getPostDominators dom g 2
-    Assert.IsTrue (Set.ofList [ 3; 4; 5; 6; 7; 8 ] = pds)
+    Assert.IsTrue (Set.ofList [ 2; 3; 4; 5; 6; 7; 8 ] = pds)
     let pds = getPostDominators dom g 3
-    Assert.IsTrue (Set.ofList [ 4; 5; 6; 7; 8 ] = pds)
+    Assert.IsTrue (Set.ofList [ 3; 4; 5; 6; 7; 8 ] = pds)
     let pds = getPostDominators dom g 4
-    Assert.IsTrue (Set.ofList [ 5; 6; 7; 8 ] = pds)
+    Assert.IsTrue (Set.ofList [ 4; 5; 6; 7; 8 ] = pds)
     let pds = getPostDominators dom g 5
-    Assert.IsTrue (Set.ofList [ 6; 7; 8 ] = pds)
+    Assert.IsTrue (Set.ofList [ 5; 6; 7; 8 ] = pds)
     let pds = getPostDominators dom g 6
-    Assert.IsTrue (Set.ofList [ 7; 8 ] = pds)
+    Assert.IsTrue (Set.ofList [ 6; 7; 8 ] = pds)
     let pds = getPostDominators dom g 7
-    Assert.IsTrue (Set.ofList [ 8 ] = pds)
+    Assert.IsTrue (Set.ofList [ 7; 8 ] = pds)
     let pds = getPostDominators dom g 8
-    Assert.IsTrue (Set.isEmpty pds)
+    Assert.IsTrue (Set.ofList [ 8 ] = pds)
 
   [<TestMethod>]
   [<DynamicData(nameof DominatorTests.TestData)>]
@@ -1063,21 +1063,21 @@ type DominatorTests () =
     let g, _ = digraph9 t
     let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo
     let ds = getDominators dom g 1
-    Assert.IsTrue (Set.isEmpty ds)
-    let ds = getDominators dom g 2
     Assert.IsTrue (Set.ofList [ 1 ] = ds)
+    let ds = getDominators dom g 2
+    Assert.IsTrue (Set.ofList [ 1; 2 ] = ds)
     let ds = getDominators dom g 3
-    Assert.IsTrue (Set.ofList [ 1; 2 ] = ds)
-    let ds = getDominators dom g 4
     Assert.IsTrue (Set.ofList [ 1; 2; 3 ] = ds)
-    let ds = getDominators dom g 5
-    Assert.IsTrue (Set.ofList [ 1; 2 ] = ds)
-    let ds = getDominators dom g 6
-    Assert.IsTrue (Set.ofList [ 1; 2 ] = ds)
-    let ds = getDominators dom g 7
-    Assert.IsTrue (Set.ofList [ 1; 2 ] = ds)
-    let ds = getDominators dom g 8
+    let ds = getDominators dom g 4
     Assert.IsTrue (Set.ofList [ 1; 2; 3; 4 ] = ds)
+    let ds = getDominators dom g 5
+    Assert.IsTrue (Set.ofList [ 1; 2; 5 ] = ds)
+    let ds = getDominators dom g 6
+    Assert.IsTrue (Set.ofList [ 1; 2; 6 ] = ds)
+    let ds = getDominators dom g 7
+    Assert.IsTrue (Set.ofList [ 1; 2; 7 ] = ds)
+    let ds = getDominators dom g 8
+    Assert.IsTrue (Set.ofList [ 1; 2; 3; 4; 8 ] = ds)
 
   [<TestMethod>]
   [<DynamicData(nameof DominatorTests.TestData)>]
@@ -1129,21 +1129,21 @@ type DominatorTests () =
     let g, _ = digraph9 t
     let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo
     let pds = getPostDominators dom g 1
-    Assert.IsTrue (Set.ofList [ 2; 6 ] = pds)
+    Assert.IsTrue (Set.ofList [ 1; 2; 6 ] = pds)
     let pds = getPostDominators dom g 2
-    Assert.IsTrue (Set.ofList [ 6 ] = pds)
+    Assert.IsTrue (Set.ofList [ 2; 6 ] = pds)
     let pds = getPostDominators dom g 3
-    Assert.IsTrue (Set.ofList [ 6; 7 ] = pds)
+    Assert.IsTrue (Set.ofList [ 3; 6; 7 ] = pds)
     let pds = getPostDominators dom g 4
-    Assert.IsTrue (Set.ofList [ 6; 7 ] = pds)
+    Assert.IsTrue (Set.ofList [ 4; 6; 7 ] = pds)
     let pds = getPostDominators dom g 5
-    Assert.IsTrue (Set.ofList [ 6 ] = pds)
+    Assert.IsTrue (Set.ofList [ 5; 6 ] = pds)
     let pds = getPostDominators dom g 6
-    Assert.IsTrue (Set.isEmpty pds)
-    let pds = getPostDominators dom g 7
     Assert.IsTrue (Set.ofList [ 6 ] = pds)
-    let pds = getPostDominators dom g 8
+    let pds = getPostDominators dom g 7
     Assert.IsTrue (Set.ofList [ 6; 7 ] = pds)
+    let pds = getPostDominators dom g 8
+    Assert.IsTrue (Set.ofList [ 6; 7; 8 ] = pds)
 
   [<TestMethod>]
   [<DynamicData(nameof DominatorTests.TestData)>]
@@ -1163,11 +1163,11 @@ type DominatorTests () =
     let g, _ = digraph10 t
     let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo
     let ds = getDominators dom g 1
-    Assert.IsTrue (Set.isEmpty ds)
-    let ds = getDominators dom g 2
     Assert.IsTrue (Set.ofList [ 1 ] = ds)
-    let ds = getDominators dom g 3
+    let ds = getDominators dom g 2
     Assert.IsTrue (Set.ofList [ 1; 2 ] = ds)
+    let ds = getDominators dom g 3
+    Assert.IsTrue (Set.ofList [ 1; 2; 3 ] = ds)
 
   [<TestMethod>]
   [<DynamicData(nameof DominatorTests.TestData)>]
@@ -1199,11 +1199,11 @@ type DominatorTests () =
     let g, _ = digraph10 t
     let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo
     let pds = getPostDominators dom g 1
-    Assert.IsTrue (Set.ofList [ 2; 3 ] = pds)
+    Assert.IsTrue (Set.ofList [ 1; 2; 3 ] = pds)
     let pds = getPostDominators dom g 2
-    Assert.IsTrue (Set.ofList [ 3 ] = pds)
+    Assert.IsTrue (Set.ofList [ 2; 3 ] = pds)
     let pds = getPostDominators dom g 3
-    Assert.IsTrue (Set.isEmpty pds)
+    Assert.IsTrue (Set.ofList [ 3 ] = pds)
 
   [<TestMethod>]
   [<DynamicData(nameof DominatorTests.TestData)>]
@@ -1237,25 +1237,25 @@ type DominatorTests () =
     let g, _ = digraph11 t
     let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo
     let ds = getDominators dom g 1
-    Assert.IsTrue (Set.isEmpty ds)
+    Assert.IsTrue (Set.ofList [ 1 ] = ds)
     let ds = getDominators dom g 2
-    Assert.IsTrue (Set.ofList [ 1 ] = ds)
+    Assert.IsTrue (Set.ofList [ 1; 2 ] = ds)
     let ds = getDominators dom g 3
-    Assert.IsTrue (Set.ofList [ 1 ] = ds)
-    let ds = getDominators dom g 4
     Assert.IsTrue (Set.ofList [ 1; 3 ] = ds)
+    let ds = getDominators dom g 4
+    Assert.IsTrue (Set.ofList [ 1; 3; 4 ] = ds)
     let ds = getDominators dom g 5
-    Assert.IsTrue (Set.ofList [ 1; 3; 4 ] = ds)
+    Assert.IsTrue (Set.ofList [ 1; 3; 4; 5 ] = ds)
     let ds = getDominators dom g 6
-    Assert.IsTrue (Set.ofList [ 1; 3; 4 ] = ds)
+    Assert.IsTrue (Set.ofList [ 1; 3; 4; 6 ] = ds)
     let ds = getDominators dom g 7
-    Assert.IsTrue (Set.ofList [ 1; 3; 4 ] = ds)
-    let ds = getDominators dom g 8
     Assert.IsTrue (Set.ofList [ 1; 3; 4; 7 ] = ds)
+    let ds = getDominators dom g 8
+    Assert.IsTrue (Set.ofList [ 1; 3; 4; 7; 8 ] = ds)
     let ds = getDominators dom g 9
-    Assert.IsTrue (Set.ofList [ 1; 3; 4; 7; 8 ] = ds)
+    Assert.IsTrue (Set.ofList [ 1; 3; 4; 7; 8; 9 ] = ds)
     let ds = getDominators dom g 10
-    Assert.IsTrue (Set.ofList [ 1; 3; 4; 7; 8 ] = ds)
+    Assert.IsTrue (Set.ofList [ 1; 3; 4; 7; 8; 10 ] = ds)
 
   [<TestMethod>]
   [<DynamicData(nameof DominatorTests.TestData)>]
@@ -1315,22 +1315,22 @@ type DominatorTests () =
     let g, _ = digraph11 t
     let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo
     let pds = getPostDominators dom g 1
-    Assert.IsTrue (Set.ofList [ 3; 4; 7; 8 ] = pds)
+    Assert.IsTrue (Set.ofList [ 1; 3; 4; 7; 8 ] = pds)
     let pds = getPostDominators dom g 2
-    Assert.IsTrue (Set.ofList [ 3; 4; 7; 8 ] = pds)
+    Assert.IsTrue (Set.ofList [ 2; 3; 4; 7; 8 ] = pds)
     let pds = getPostDominators dom g 3
-    Assert.IsTrue (Set.ofList [ 4; 7; 8 ] = pds)
+    Assert.IsTrue (Set.ofList [ 3; 4; 7; 8 ] = pds)
     let pds = getPostDominators dom g 4
-    Assert.IsTrue (Set.ofList [ 7; 8 ] = pds)
+    Assert.IsTrue (Set.ofList [ 4; 7; 8 ] = pds)
     let pds = getPostDominators dom g 5
-    Assert.IsTrue (Set.ofList [ 7; 8 ] = pds)
+    Assert.IsTrue (Set.ofList [ 5; 7; 8 ] = pds)
     let pds = getPostDominators dom g 6
-    Assert.IsTrue (Set.ofList [ 7; 8 ] = pds)
+    Assert.IsTrue (Set.ofList [ 6; 7; 8 ] = pds)
     let pds = getPostDominators dom g 7
-    Assert.IsTrue (Set.ofList [ 8 ] = pds)
+    Assert.IsTrue (Set.ofList [ 7; 8 ] = pds)
     let pds = getPostDominators dom g 8
-    Assert.IsTrue (Set.isEmpty pds)
+    Assert.IsTrue (Set.ofList [ 8 ] = pds)
     let pds = getPostDominators dom g 9
-    Assert.IsTrue (Set.isEmpty pds)
+    Assert.IsTrue (Set.ofList [ 9 ] = pds)
     let pds = getPostDominators dom g 10
-    Assert.IsTrue (Set.isEmpty pds)
+    Assert.IsTrue (Set.ofList [ 10 ] = pds)

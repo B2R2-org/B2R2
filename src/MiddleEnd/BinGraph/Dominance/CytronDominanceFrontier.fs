@@ -51,9 +51,8 @@ type CytronDominanceFrontier<'V, 'E when 'V: equality and 'E: equality> () =
       done
       for child in dom.DominatorTree.GetChildren v do
         for node in frontiers[child] do
-          let doms = dom.Dominators node
-          let dominate = doms |> Seq.exists (fun d -> d = v)
-          if not dominate then df.Add node |> ignore
+          if dom.ImmediateDominator node <> v then df.Add node |> ignore
+          else ()
         done
       done
       frontiers[v] <- df

@@ -237,7 +237,7 @@ let create (g: IDiGraph<'V, 'E>) (dfp: IDominanceFrontierProvider<_, _>) =
 #if DEBUG
         checkVertexInGraph g v
 #endif
-        domsAux [] v forwardDomInfo
+        domsAux [v] v forwardDomInfo
 
       member _.ImmediateDominator v =
 #if DEBUG
@@ -258,7 +258,7 @@ let create (g: IDiGraph<'V, 'E>) (dfp: IDominanceFrontierProvider<_, _>) =
         domTree.Value
 
       member _.PostDominators v =
-        domsAux [] v backward.Value.DomInfo
+        domsAux [v] v backward.Value.DomInfo
 
       member _.ImmediatePostDominator v =
         let g' = backward.Value.Graph
