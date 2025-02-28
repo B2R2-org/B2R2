@@ -22,9 +22,9 @@
   SOFTWARE.
 *)
 
-/// Lengauer-Tarjan algorithm for dominator computation. A fast algorithm for
-/// finding dominators in a flow graph, TOPLAS 1979.
-module B2R2.MiddleEnd.BinGraph.Dominance.LengauerTarjan
+/// Lengauer-Tarjan dominance algorithm for dominator computation. A fast
+/// algorithm for finding dominators in a flow graph, TOPLAS 1979.
+module B2R2.MiddleEnd.BinGraph.Dominance.LengauerTarjanDominance
 
 open System.Collections.Generic
 open B2R2.MiddleEnd.BinGraph
@@ -243,36 +243,6 @@ let private idomAux info v =
     if id >= 1 then info.Vertex[id] else null
   else null
 
-let private traverseBottomUp (domTree: DominatorTree<_, _>) root =
-  let stack1, stack2 = Stack (), Stack ()
-  stack1.Push root
-  while stack1.Count > 0 do
-    let v = stack1.Pop ()
-    stack2.Push v
-    for child in domTree.GetChildren v do stack1.Push child
-  stack2.ToArray ()
-
-/// Compute dominance frontiers.
-let private computeDF g (domTree: Lazy<DominatorTree<_, _>>) info root =
-  let frontiers = Array.create info.MaxLength []
-  for v in traverseBottomUp domTree.Value root do
-    let df = HashSet<IVertex<_>> ()
-    for succ in (g: IDiGraph<_, _>).GetSuccs v do
-      let succID = dfnum info succ
-      let idomID = info.IDom[succID]
-      let d = info.Vertex[idomID]
-      if d.ID <> v.ID then df.Add info.Vertex[succID] |> ignore
-    done
-    for child in domTree.Value.GetChildren v do
-      for node in frontiers[dfnum info child] do
-        let doms = domsAux [] node info
-        let dominate = doms |> Array.exists (fun d -> d.ID = v.ID)
-        if not dominate then df.Add info.Vertex[dfnum info node] |> ignore
-      done
-    done
-    frontiers[dfnum info v] <- df |> List.ofSeq
-  frontiers
-
 let private computeDominanceFromReversedGraph (g: IDiGraph<_, _>) =
   let g', root' = g.Reverse [] |> preparePostDomAnalysis g
   let backwardDom = computeDominatorInfo g' root'
@@ -286,11 +256,11 @@ let private checkVertexInGraph (g: IDiGraph<_, _>) (v: IVertex<_>) =
 #endif
 
 [<CompiledName "Create">]
-let create (g: IDiGraph<'V, 'E>) =
+let create (g: IDiGraph<'V, 'E>) (dfp : IDominanceFrontierProvider<_, _>) =
   let forwardRoot = g.GetRoots () |> Seq.exactlyOne
   let forwardDomInfo = computeDominatorInfo g forwardRoot
   let domTree = lazy DominatorTree (g, idomAux forwardDomInfo)
-  let frontiers = lazy computeDF g domTree forwardDomInfo forwardRoot
+  let mutable dfProvider = null
   let backward = lazy computeDominanceFromReversedGraph g
   { new IDominance<'V, 'E> with
       member _.Dominators v =
@@ -305,14 +275,6 @@ let create (g: IDiGraph<'V, 'E>) =
 #endif
         idomAux forwardDomInfo v
 
-      member _.DominanceFrontier v =
-#if DEBUG
-        checkVertexInGraph g v
-#endif
-        let info = forwardDomInfo
-        if info.DFNumMap.ContainsKey v.ID then frontiers.Value[dfnum info v]
-        else []
-
       member __.DominatorTree =
         domTree.Value
 
@@ -322,4 +284,13 @@ let create (g: IDiGraph<'V, 'E>) =
       member _.ImmediatePostDominator v =
         let g' = backward.Value.Graph
         let v = g'.FindVertexByData v.VData
-        idomAux backward.Value.DomInfo v }
+        idomAux backward.Value.DomInfo v
+
+      member __.DominanceFrontier v =
+#if DEBUG
+        checkVertexInGraph g v
+#endif
+        if isNull dfProvider then
+          dfProvider <- dfp.CreateIDominanceFrontier (g, __)
+        else ()
+        dfProvider.DominanceFrontier v }

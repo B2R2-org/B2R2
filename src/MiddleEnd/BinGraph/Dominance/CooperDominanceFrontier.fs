@@ -22,35 +22,32 @@
   SOFTWARE.
 *)
 
-module B2R2.MiddleEnd.BinGraph.Loop
+namespace B2R2.MiddleEnd.BinGraph.Dominance
 
 open System.Collections.Generic
+open B2R2.MiddleEnd.BinGraph
 
-let private getBackEdges g =
-  let df = Dominance.CytronDominanceFrontier ()
-  let dom = Dominance.LengauerTarjanDominance.create g df
-  []
-  |> g.FoldEdge (fun acc edge ->
-    match dom.Dominators edge.First with
-    | ds when ds |> Seq.exists (fun v -> v = edge.Second) -> edge :: acc
-    | _ -> acc)
+/// Dominance frontier algorithm presented by Cooper et al. in their paper
+/// "A Simple, Fast Dominance Algorithm", SPE 2001.
+type CooperDominanceFrontier<'V, 'E when 'V: equality and 'E: equality> () =
+  let computeDF (g: IDiGraphAccessible<_, _>) (dom: IDominance<_, _>) =
+    let frontiers = Dictionary<IVertex<_>, HashSet<IVertex<_>>> ()
+    let root = g.SingleRoot
+    for v in g.Vertices do frontiers[v] <- HashSet<IVertex<_>> ()
+    for v in g.Vertices do
+      let preds = g.GetPreds v
+      if (v <> root && preds.Length < 2) ||
+         (v = root && preds.Length = 0) then ()
+      else
+        for p in preds do
+          let mutable runner = p
+          while runner <> dom.ImmediateDominator v do
+            frontiers[runner].Add v |> ignore
+            runner <- dom.ImmediateDominator runner
+    frontiers
 
-let private findNaturalLoopBody g (edge: Edge<_, _>) =
-  let body = HashSet ()
-  let stack = Stack ()
-  let n, h = edge.First, edge.Second
-  body.Add h |> ignore
-  stack.Push  n
-  while stack.Count > 0 do
-    let v = stack.Pop ()
-    if not (body.Contains v) then
-      body.Add v |> ignore
-      for pred in (g: IDiGraphAccessible<_, _>).GetPreds v do stack.Push pred
-    else ()
-  body
-
-let getNaturalLoops (g: IDiGraph<_, _>) =
-  let dict = Dictionary ()
-  for edge in getBackEdges g do
-    dict[edge] <- findNaturalLoopBody g edge
-  dict
+  interface IDominanceFrontierProvider<'V, 'E> with
+    member _.CreateIDominanceFrontier (g, dom) =
+      let frontiers = computeDF g dom
+      { new IDominanceFrontier<'V, 'E> with
+          member _.DominanceFrontier (v) = frontiers[v] }

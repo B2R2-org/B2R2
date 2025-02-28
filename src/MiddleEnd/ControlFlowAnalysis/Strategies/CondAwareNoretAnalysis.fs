@@ -204,7 +204,8 @@ type CondAwareNoretAnalysis ([<Optional; DefaultParameterValue(true)>] strict) =
     | Some dom -> ConditionalNoRet <| Map.find dom argNumMap
 
   let analyze ctx condNoRetCalls =
-    let dom = Dominance.Cooper.create ctx.CFG
+    let df = Dominance.CooperDominanceFrontier ()
+    let dom = Dominance.CooperDominance.create ctx.CFG df
     let exits = ctx.CFG.Exits
     let absVSet = condNoRetCalls |> List.map fst |> Set.ofList
     let argNumMap = condNoRetCalls |> Map.ofSeq

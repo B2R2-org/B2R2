@@ -22,9 +22,9 @@
   SOFTWARE.
 *)
 
-/// Cooper et al.'s algorithm for dominator computation. A Simple, Fast
-/// Dominance Algorithm.
-module B2R2.MiddleEnd.BinGraph.Dominance.Cooper
+/// Cooper et al.'s algorithm for dominance computation. A Simple, Fast
+/// Dominance Algorithm, SPE 2001.
+module B2R2.MiddleEnd.BinGraph.Dominance.CooperDominance
 
 open System.Collections.Generic
 open B2R2.MiddleEnd.BinGraph
@@ -213,22 +213,6 @@ let private idomAux info v =
     if id >= 1 then info.Vertex[id] else null
   else null
 
-let private computeDF (g: IDiGraph<_, _>) (info: DomInfo<_>) =
-  let frontiers = Array.create info.MaxLength Set.empty
-  let root = g.GetRoots () |> Seq.exactlyOne
-  for v in g.Vertices do
-    let preds = g.GetPreds v
-    if v <> root && Seq.length preds < 2
-       || v = root && Seq.isEmpty preds then ()
-    else
-      for p in preds do
-        let mutable runner = p
-        while dfnum info runner <> info.IDom[dfnum info v] do
-          frontiers[dfnum info runner] <- Set.add v frontiers[dfnum info runner]
-          let n = info.IDom[dfnum info runner]
-          runner <- info.Vertex[n]
-  frontiers |> Array.map Set.toList
-
 let private computeDominanceFromReversedGraph (g: IDiGraph<_, _>) =
   let g', root' = g.Reverse [] |> preparePostDomAnalysis g
   let backwardDom = computeDominatorInfo g' root'
@@ -242,11 +226,11 @@ let private checkVertexInGraph (g: IDiGraph<_, _>) (v: IVertex<_>) =
 #endif
 
 [<CompiledName "Create">]
-let create (g: IDiGraph<'V, 'E>) =
+let create (g: IDiGraph<'V, 'E>) (dfp: IDominanceFrontierProvider<_, _>) =
   let forwardRoot = g.GetRoots () |> Seq.exactlyOne
   let forwardDomInfo = computeDominatorInfo g forwardRoot
   let domTree = lazy DominatorTree (g, idomAux forwardDomInfo)
-  let frontiers = lazy computeDF g forwardDomInfo
+  let mutable dfProvider = null
   let backward = lazy computeDominanceFromReversedGraph g
   { new IDominance<'V, 'E> with
       member _.Dominators v =
@@ -261,13 +245,14 @@ let create (g: IDiGraph<'V, 'E>) =
 #endif
         idomAux forwardDomInfo v
 
-      member _.DominanceFrontier v =
+      member __.DominanceFrontier v =
 #if DEBUG
         checkVertexInGraph g v
 #endif
-        let info = forwardDomInfo
-        if info.DFNumMap.ContainsKey v.ID then frontiers.Value[dfnum info v]
-        else []
+        if isNull dfProvider then
+          dfProvider <- dfp.CreateIDominanceFrontier (g, __)
+        else ()
+        dfProvider.DominanceFrontier v
 
       member __.DominatorTree =
         domTree.Value

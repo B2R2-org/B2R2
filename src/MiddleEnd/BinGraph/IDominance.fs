@@ -28,6 +28,8 @@ open System.Collections.Generic
 
 /// Interface for computing dominance relationships of nodes in digraphs.
 type IDominance<'V, 'E when 'V: equality and 'E: equality> =
+  inherit IDominanceFrontier<'V, 'E>
+
   /// Get the dominators of a vertex.
   abstract Dominators: IVertex<'V> -> IEnumerable<IVertex<'V>>
 
@@ -35,11 +37,6 @@ type IDominance<'V, 'E when 'V: equality and 'E: equality> =
   /// dominates the vertex and is closest to the vertex. If the vertex is a root
   /// vertex, then the immediate dominator is `null`.
   abstract ImmediateDominator: IVertex<'V> -> IVertex<'V>
-
-  /// Get the dominance frontier of a vertex, which is the set of all vertices
-  /// that are not strictly dominated by the vertex but are reachable from the
-  /// vertex.
-  abstract DominanceFrontier: IVertex<'V> -> IEnumerable<IVertex<'V>>
 
   /// Get the dominator tree of the given implementation type.
   abstract DominatorTree: DominatorTree<'V, 'E>
@@ -50,6 +47,22 @@ type IDominance<'V, 'E when 'V: equality and 'E: equality> =
   /// Get the immediate post-dominator of a vertex. If the vertex is a root
   /// vertex in the reversed graph, then the immediate post-dominator is `null`.
   abstract ImmediatePostDominator: IVertex<'V> -> IVertex<'V>
+
+/// Interface for computing dominance frontier of nodes in digraphs.
+and IDominanceFrontier<'V, 'E when 'V: equality and 'E: equality> =
+  /// Get the dominance frontier of a vertex, which is the set of all vertices
+  /// that are not strictly dominated by the vertex but are reachable from the
+  /// vertex.
+  abstract DominanceFrontier: IVertex<'V> -> IEnumerable<IVertex<'V>>
+
+/// Interface for providing dominance frontier instances.
+and IDominanceFrontierProvider<'V, 'E when 'V: equality and 'E: equality> =
+  /// Return IDominanceFrontier instance using the given graph and the
+  /// IDominance instance.
+  abstract CreateIDominanceFrontier:
+      IDiGraphAccessible<'V, 'E>
+    * IDominance<'V, 'E>
+   -> IDominanceFrontier<'V, 'E>
 
 /// Dominator tree interface. A dominator tree is a tree where each node's
 /// children are those nodes it immediately dominates.
