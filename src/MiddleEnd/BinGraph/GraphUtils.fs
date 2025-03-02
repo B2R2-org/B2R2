@@ -67,14 +67,13 @@ let findExitsAfterRemovingBackEdges (g: IDiGraphAccessible<_, _>) =
   g.Vertices
   |> Array.fold (fun exits v ->
     g.GetSuccEdges v
-    |> Array.filter (fun e ->
+    |> Array.exists (fun e ->
       match backEdges.TryGetValue e.First with
       | true, dst -> dst <> e.Second
       | false, _ -> true)
-    |> Array.isEmpty
     |> function
-      | true -> v :: exits
-      | false -> exits
+      | true -> exits
+      | false -> v :: exits
   ) []
 
 /// Find exit nodes of a digraph. An exit node is a node that has no outgoing
