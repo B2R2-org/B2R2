@@ -25,7 +25,9 @@
 /// Several useful functions for directed graphs.
 module internal B2R2.MiddleEnd.BinGraph.GraphUtils
 
-let reverse (inGraph: IDiGraph<_, _>) roots outGraph =
+open System.Collections.Generic
+
+let reverse (inGraph: IDiGraphAccessible<_, _>) roots outGraph =
   outGraph
   |> inGraph.FoldVertex (fun (outGraph: IDiGraph<_, _>) v ->
     outGraph.AddVertex (v.VData, v.ID) |> snd)
@@ -38,3 +40,49 @@ let reverse (inGraph: IDiGraph<_, _>) roots outGraph =
       assert (inGraph.HasVertex root.ID)
       outGraph.FindVertexByID root.ID)
     |> outGraph.SetRoots
+
+let computeDepthFirstNumbers (g: IDiGraphAccessible<_, _>) =
+  let dfNums = Dictionary<IVertex<_>, int> ()
+  Traversal.DFS.foldRevPostorder g (fun cnt v ->
+    dfNums[v] <- cnt
+    cnt + 1
+  ) 0 |> ignore
+  dfNums
+
+let findBackEdges (g: IDiGraphAccessible<_, _>) =
+  let dfNums = computeDepthFirstNumbers g
+  let backEdges = Dictionary ()
+  g.IterEdge (fun e ->
+    if dfNums[e.First] >= dfNums[e.Second] then backEdges[e.First] <- e.Second
+    else ())
+  backEdges
+
+let findRegularExits (g: IDiGraphAccessible<_, _>) =
+  g.Vertices
+  |> Array.fold (fun acc v ->
+    if (g.GetSuccs v).Length = 0 then v :: acc else acc) []
+
+let findExitsAfterRemovingBackEdges (g: IDiGraphAccessible<_, _>) =
+  let backEdges = findBackEdges g
+  g.Vertices
+  |> Array.fold (fun exits v ->
+    g.GetSuccEdges v
+    |> Array.filter (fun e ->
+      match backEdges.TryGetValue e.First with
+      | true, dst -> dst <> e.Second
+      | false, _ -> true)
+    |> Array.isEmpty
+    |> function
+      | true -> v :: exits
+      | false -> exits
+  ) []
+
+/// Find exit nodes of a digraph. An exit node is a node that has no outgoing
+/// edges. In case the given graph has no such exit nodes (e.g., infinite
+/// loops), we remove back edges and find exit nodes again, in which case we
+/// consider loop tails as exit nodes.
+let findExits (g: IDiGraphAccessible<_, _>) =
+  findRegularExits g
+  |> function
+    | [] -> findExitsAfterRemovingBackEdges g
+    | exits -> exits

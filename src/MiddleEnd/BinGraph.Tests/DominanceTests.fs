@@ -30,6 +30,7 @@ open B2R2.MiddleEnd.BinGraph.Dominance
 open B2R2.MiddleEnd.BinGraph.Tests.Examples
 
 type DominanceAlgorithm =
+  | DomIterative
   | DomLengauer
   | DomCooper
 
@@ -41,6 +42,10 @@ type DominanceFrontierAlgorithm =
 type DominatorTests () =
   let instantiate g domAlgo dfAlgo =
     match domAlgo, dfAlgo with
+    | DomIterative, DFCytron ->
+      IterativeDominance.create g (CytronDominanceFrontier ())
+    | DomIterative, DFCooper ->
+      IterativeDominance.create g (CooperDominanceFrontier ())
     | DomLengauer, DFCytron ->
       LengauerTarjanDominance.create g (CytronDominanceFrontier ())
     | DomLengauer, DFCooper ->
@@ -66,7 +71,11 @@ type DominatorTests () =
     |> Seq.map (fun v -> v.VData) |> Set.ofSeq
 
   static member TestData =
-    [| [| box Persistent; box DomLengauer; box DFCytron |]
+    [| [| box Persistent; box DomIterative; box DFCytron |]
+       [| box Persistent; box DomIterative; box DFCooper |]
+       [| box Imperative; box DomIterative; box DFCytron |]
+       [| box Imperative; box DomIterative; box DFCooper |]
+       [| box Persistent; box DomLengauer; box DFCytron |]
        [| box Persistent; box DomLengauer; box DFCooper |]
        [| box Imperative; box DomLengauer; box DFCytron |]
        [| box Imperative; box DomLengauer; box DFCooper |]

@@ -84,58 +84,9 @@ let rec private prepare (g: IDiGraph<_, _>) (info: DomInfo<_>) n = function
   | _ :: stack -> prepare g info n stack
   | [] -> n - 1
 
-let private updateReachMap (g: IDiGraph<_, _>) exits reachMap =
-  let rec loop reachMap = function
-    | [] -> reachMap
-    | (v: IVertex<_>) :: vs ->
-      let reachMap = Map.add v.ID true reachMap
-      let vs =
-        g.GetSuccs v
-        |> Seq.fold (fun acc (w: IVertex<_>) ->
-          if Map.find w.ID reachMap then acc else w :: acc) vs
-      loop reachMap vs
-  List.filter (fun (v: IVertex<_>) ->
-    not (Map.find v.ID reachMap)) exits
-  |> loop reachMap
-
-let rec private calculateExits (fg: IDiGraph<_, _>) bg reachMap exits =
-  if Map.forall (fun _ b -> b) reachMap then exits
-  else
-    let reachMap = updateReachMap bg exits reachMap
-    let exits =
-      fg.FoldVertex (fun acc (v: IVertex<_>) ->
-        let isExit = fg.GetSuccs v |> Seq.isEmpty
-        if isExit && not <| Map.find v.ID reachMap then
-          bg.FindVertexByID v.ID :: acc
-        else acc) exits
-    calculateExits fg bg reachMap exits
-
 let private preparePostDomAnalysis (fg: IDiGraph<_, _>) (bg: IDiGraph<_, _>) =
-  let _, orderMap =
-    Traversal.DFS.foldRevPostorder fg (fun (cnt, map) v ->
-      cnt + 1, Map.add v cnt map) (0, Map.empty)
-  let fg, backEdges =
-    fg.FoldEdge (fun (fg: IDiGraph<_, _>, acc) edge ->
-      if edge.First.ID = edge.Second.ID then
-        fg.RemoveEdge (edge), edge :: acc
-      else fg, acc) (fg, [])
-  let fg, backEdges =
-    fg.FoldEdge (fun (fg: IDiGraph<_, _>, acc) edge ->
-      if Map.find edge.First orderMap > Map.find edge.Second orderMap then
-        fg.RemoveEdge edge, edge :: acc
-      else fg, acc) (fg, backEdges)
-  let reachMap =
-    bg.FoldVertex (fun acc (v: IVertex<_>) ->
-      Map.add v.ID false acc) Map.empty
   let exits =
-    bg.Unreachables
-    |> Seq.toList
-    |> calculateExits fg bg reachMap
-  (* Restore backedges. This is needed for imperative graphs. *)
-  backEdges
-  |> List.fold (fun (fg: IDiGraph<_, _>) (edge: Edge<_, _>) ->
-    fg.AddEdge (edge.First, edge.Second, edge.Label)) fg
-  |> ignore
+    GraphUtils.findExits fg |> List.map (fun v -> bg.FindVertexByID v.ID)
   let dummy, bg = bg.AddVertex ()
   let bg =
     exits
@@ -256,7 +207,7 @@ let private checkVertexInGraph (g: IDiGraph<_, _>) (v: IVertex<_>) =
 #endif
 
 [<CompiledName "Create">]
-let create (g: IDiGraph<'V, 'E>) (dfp : IDominanceFrontierProvider<_, _>) =
+let create (g: IDiGraph<'V, 'E>) (dfp: IDominanceFrontierProvider<_, _>) =
   let forwardRoot = g.GetRoots () |> Seq.exactlyOne
   let forwardDomInfo = computeDominatorInfo g forwardRoot
   let domTree = lazy DominatorTree (g, idomAux forwardDomInfo)
