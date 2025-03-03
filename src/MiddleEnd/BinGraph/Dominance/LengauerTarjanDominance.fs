@@ -199,13 +199,6 @@ let private computeDominanceFromReversedGraph (g: IDiGraph<_, _>) =
   let backwardDom = computeDominatorInfo g' root'
   {| Graph = g'; DomInfo = backwardDom |}
 
-#if DEBUG
-let private checkVertexInGraph (g: IDiGraph<_, _>) (v: IVertex<_>) =
-  let v' = g.FindVertexByData v.VData
-  if v.ID = v'.ID then ()
-  else raise VertexNotFoundException
-#endif
-
 [<CompiledName "Create">]
 let create (g: IDiGraph<'V, 'E>) (dfp: IDominanceFrontierProvider<_, _>) =
   let forwardRoot = g.GetRoots () |> Seq.exactlyOne
@@ -216,13 +209,13 @@ let create (g: IDiGraph<'V, 'E>) (dfp: IDominanceFrontierProvider<_, _>) =
   { new IDominance<'V, 'E> with
       member _.Dominators v =
 #if DEBUG
-        checkVertexInGraph g v
+        GraphUtils.checkVertexInGraph g v
 #endif
         domsAux [v] v forwardDomInfo
 
       member _.ImmediateDominator v =
 #if DEBUG
-        checkVertexInGraph g v
+        GraphUtils.checkVertexInGraph g v
 #endif
         idomAux forwardDomInfo v
 
@@ -239,7 +232,7 @@ let create (g: IDiGraph<'V, 'E>) (dfp: IDominanceFrontierProvider<_, _>) =
 
       member __.DominanceFrontier v =
 #if DEBUG
-        checkVertexInGraph g v
+        GraphUtils.checkVertexInGraph g v
 #endif
         if isNull dfProvider then
           dfProvider <- dfp.CreateIDominanceFrontier (g, __)

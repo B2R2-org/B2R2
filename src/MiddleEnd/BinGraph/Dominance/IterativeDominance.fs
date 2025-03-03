@@ -69,8 +69,8 @@ let computeIDoms (g: IDiGraphAccessible<_, _>) roots (doms: Dictionary<_, _>) =
   idoms
 
 let computePostDoms (g: IDiGraph<_, _>) =
-  let exits = GraphUtils.findExits g
-  g.Reverse exits
+  GraphUtils.findExits g
+  |> g.Reverse
   |> computeDoms
 
 [<CompiledName "Create">]

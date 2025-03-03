@@ -26,6 +26,27 @@
 module internal B2R2.MiddleEnd.BinGraph.GraphUtils
 
 open System.Collections.Generic
+open B2R2
+
+#if DEBUG
+let checkVertexInGraph (g: IDiGraph<_, _>) (v: IVertex<_>) =
+  let v' = g.FindVertexByData v.VData
+  if v.ID = v'.ID then ()
+  else raise VertexNotFoundException
+#endif
+
+/// Make a dummy vertex for an analysis without having to use `AddVertex` method
+/// of a graph. With this, we don't have to modify the graph itself.
+let makeDummyVertex<'V when 'V: equality> () =
+  { new IVertex<'V> with
+      member __.ID = -1
+      member __.VData = Utils.impossible ()
+      member __.HasData = false
+      member __.CompareTo (other: obj) =
+        match other with
+        | :? IVertex<'V> as other -> __.ID.CompareTo other.ID
+        | _ -> Utils.impossible ()
+      member __.ToString (_, _) = "DummyVertex" }
 
 let reverse (inGraph: IDiGraphAccessible<_, _>) roots outGraph =
   outGraph
