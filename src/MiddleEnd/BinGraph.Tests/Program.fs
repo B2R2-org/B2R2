@@ -46,8 +46,7 @@ type Benchmarks () =
   member __.GlobalSetup () =
     let constructor () = ImperativeDiGraph () :> IDiGraph<_, _>
     let json = System.IO.File.ReadAllText ("TestData/" + __.FileName)
-    let hexStrToInt (s: string) = System.Convert.ToInt32 (s, 16)
-    g <- Serializer.FromJson (json, constructor, hexStrToInt, int)
+    g <- Serializer.FromJson (json, constructor, id, id)
 
   [<Benchmark>]
   member _.IterativeAlgorithm () =

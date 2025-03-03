@@ -42,7 +42,7 @@ let computeDoms (g: IDiGraphAccessible<_, _>) =
     changed <- false
     for v in allButRoots do
       let predDoms = Set.intersectMany [ for p in g.GetPreds v -> doms[p] ]
-      let newDoms = Set.union (Set.singleton v) predDoms
+      let newDoms = Set.add v predDoms
       if newDoms <> doms[v] then
         doms[v] <- newDoms
         changed <- true
