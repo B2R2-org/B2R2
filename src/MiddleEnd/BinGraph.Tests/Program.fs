@@ -26,12 +26,13 @@ module B2R2.MiddleEnd.BinGraph.Tests.Program
 
 open BenchmarkDotNet.Attributes
 open BenchmarkDotNet.Running
-open BenchmarkDotNet.Jobs
+open BenchmarkDotNet.Columns
+open BenchmarkDotNet.Configs
 open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.BinGraph.Dominance
 
-[<SimpleJob(RuntimeMoniker.Net90)>]
-type Benchmarks () =
+[<BenchmarkCategory("Dominance")>]
+type Doms () =
   let mutable g = null
   let mutable fileName: string = null
 
@@ -48,7 +49,7 @@ type Benchmarks () =
     let json = System.IO.File.ReadAllText ("TestData/" + __.FileName)
     g <- Serializer.FromJson (json, constructor, id, id)
 
-  [<Benchmark>]
+  [<Benchmark(Baseline = true)>]
   member _.IterativeAlgorithm () =
     let dom = IterativeDominance.create g (CytronDominanceFrontier ())
     let v = g.Vertices[0]
@@ -66,7 +67,47 @@ type Benchmarks () =
     let v = g.Vertices[0]
     dom.Dominators v |> ignore
 
+[<BenchmarkCategory("Dominance Frontier")>]
+type DominanceFrontier () =
+  let mutable g = null
+  let mutable fileName: string = null
+
+  [<Params(
+    "99_objdump_clang_m32_O1_80b18d0.json",
+    "499_gcc_base.amd64-m32-ccr-Ofast_clang_m32_Of_81428e0.json",
+    "4152_find_clang_O0_433cd0.json"
+  )>]
+  member _.FileName with get() = fileName and set(n) = fileName <- n
+
+  [<GlobalSetup>]
+  member __.GlobalSetup () =
+    let constructor () = ImperativeDiGraph () :> IDiGraph<_, _>
+    let json = System.IO.File.ReadAllText ("TestData/" + __.FileName)
+    g <- Serializer.FromJson (json, constructor, id, id)
+
+  [<Benchmark(Baseline = true)>]
+  member _.CytronDF () =
+    let dom = CooperDominance.create g (CytronDominanceFrontier ())
+    let v = g.Vertices[0]
+    dom.DominanceFrontier v |> ignore
+
+  [<Benchmark>]
+  member _.CooperDF () =
+    let dom = CooperDominance.create g (CooperDominanceFrontier ())
+    let v = g.Vertices[0]
+    dom.DominanceFrontier v |> ignore
+
 [<EntryPoint>]
 let main _args =
-  BenchmarkRunner.Run<Benchmarks> () |> ignore
+  let cfg = ManualConfig.Create DefaultConfig.Instance
+  let cfg = cfg.WithOption (ConfigOptions.JoinSummary, true)
+  let cfg = cfg.WithOption (ConfigOptions.DisableLogFile, true)
+  let cfg = cfg.AddColumn (CategoriesColumn.Default)
+  let cfg = cfg.HideColumns ([| "Type"; "Error" |])
+  let cfg = cfg.AddLogicalGroupRules (BenchmarkLogicalGroupRule.ByCategory)
+  BenchmarkRunner.Run (
+    [| typeof<Doms>
+       typeof<DominanceFrontier> |],
+    cfg
+  ) |> ignore
   0
