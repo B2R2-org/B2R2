@@ -29,7 +29,7 @@ open System.Collections.Generic
 open B2R2
 
 #if DEBUG
-let checkVertexInGraph (g: IDiGraph<_, _>) (v: IVertex<_>) =
+let checkVertexInGraph (g: IDiGraphAccessible<_, _>) (v: IVertex<_>) =
   let v' = g.FindVertexByData v.VData
   if v.ID = v'.ID then ()
   else raise VertexNotFoundException

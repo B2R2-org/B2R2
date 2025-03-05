@@ -134,7 +134,7 @@ module private SSALifterFactory =
 
   let computeDominatorInfo g =
     let df = Dominance.CooperDominanceFrontier ()
-    let dom = Dominance.CooperDominance.create g df
+    let dom = Dominance.LengauerTarjanDominance.create g df
     g.IterVertex (fun (v: SSAVertex) ->
       let idom = dom.ImmediateDominator v
       v.VData.ImmDominator <- if isNull idom then None else Some idom

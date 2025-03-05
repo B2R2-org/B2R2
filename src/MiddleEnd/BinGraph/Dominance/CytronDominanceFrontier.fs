@@ -38,7 +38,7 @@ type CytronDominanceFrontier<'V, 'E when 'V: equality and 'E: equality> () =
       let v = stack1.Pop ()
       stack2.Push v
       for child in domTree.GetChildren v do stack1.Push child
-    stack2.ToArray ()
+    stack2
 
   /// Compute dominance frontiers.
   let computeDF (g: IDiGraphAccessible<_, _>) (dom: IDominance<_, _>) =

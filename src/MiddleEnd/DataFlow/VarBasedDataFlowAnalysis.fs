@@ -519,7 +519,7 @@ type VarBasedDataFlowAnalysis<'Lattice>
     /// Compute the data flow incrementally.
     member __.Compute g state =
       let df = Dominance.CooperDominanceFrontier ()
-      let dom = Dominance.CooperDominance.create g df
+      let dom = Dominance.LengauerTarjanDominance.create g df
       removeInvalidChains state
       calculateChains g state dom
       propagateStackPointer g state
