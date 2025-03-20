@@ -84,14 +84,17 @@ let rec private prepare (g: IDiGraph<_, _>) (info: DomInfo<_>) n = function
   | _ :: stack -> prepare g info n stack
   | [] -> n - 1
 
-let private preparePostDomAnalysis (fg: IDiGraph<_, _>) (bg: IDiGraph<_, _>) =
-  let exits =
-    GraphUtils.findExits fg |> List.map (fun v -> bg.FindVertexByID v.ID)
-  let dummy, bg = bg.AddVertex ()
-  let bg =
-    exits
-    |> List.fold (fun (bg: IDiGraph<_, _>) v -> bg.AddEdge (dummy, v)) bg
-  bg, dummy
+let rec private prepareWithDummyRoot (g: IDiGraph<_, _>) (info: DomInfo<_>)
+                                     (dummyRoot: IVertex<_>)
+                                     (realRoots: IVertex<_>[]) =
+  info.DFNumMap.Add (dummyRoot.ID, 0)
+  realRoots |> Array.map (fun v -> 0, v) |> Array.toList |> prepare g info 1
+
+let private getPreds g (dummyRoot: IVertex<_>) (realRoots: IVertex<_>[]) v =
+  if realRoots |> Array.contains v then
+    [| dummyRoot; yield! (g: IDiGraphAccessible<_, _>).GetPreds v |]
+  else
+    g.GetPreds v
 
 let rec private compress info v =
   let a = info.Ancestor[v]
@@ -151,23 +154,17 @@ let rec private computeDomOrDelay info parent =
   if info.Bucket[parent].IsEmpty then ()
   else computeDom info parent
 
-let private connectDummy (g: IDiGraph<_, _>) (root: IVertex<_>) =
-  if not root.HasData then root, g
-  else
-    let dummyEntry, g = g.AddVertex ()
-    let g = g.AddEdge (dummyEntry, root)
-    dummyEntry, g
-
-let private computeDominatorInfo g root =
+let private computeDominatorInfo (g: IDiGraph<_, _>) =
   let info = initDomInfo g
-  let dummyEntry, g = connectDummy g root
-  let n = prepare g info 0 [(0, dummyEntry)]
+  let dummyRoot = GraphUtils.makeDummyVertex ()
+  let realRoots = g.GetRoots ()
+  let n = prepareWithDummyRoot g info dummyRoot realRoots
   for i = n downto 1 do
     let v = info.Vertex[i]
     let p = info.Parent[i]
-    g.GetPreds v
+    getPreds g dummyRoot realRoots v
+    |> Array.map (dfnum info)
     |> Array.toList
-    |> List.map (dfnum info)
     |> computeSemiDom info i
     info.Bucket[info.Semi[i]] <- Set.add i info.Bucket[info.Semi[i]]
     link info p i (* Link the parent (p) to the forest. *)
@@ -178,7 +175,6 @@ let private computeDominatorInfo g root =
       info.IDom[i] <- info.IDom[info.IDom[i]]
     else ()
   done
-  g.RemoveVertex dummyEntry |> ignore
   info
 
 let rec private domsAux acc v info =
@@ -195,14 +191,13 @@ let private idomAux info v =
   else null
 
 let private computeDominanceFromReversedGraph (g: IDiGraph<_, _>) =
-  let g', root' = g.Reverse [] |> preparePostDomAnalysis g
-  let backwardDom = computeDominatorInfo g' root'
-  {| Graph = g'; DomInfo = backwardDom |}
+  let g' = GraphUtils.findExits g |> g.Reverse
+  let backwardDomInfo = computeDominatorInfo g'
+  {| Graph = g'; DomInfo = backwardDomInfo |}
 
 [<CompiledName "Create">]
 let create (g: IDiGraph<'V, 'E>) (dfp: IDominanceFrontierProvider<_, _>) =
-  let forwardRoot = g.GetRoots () |> Seq.exactlyOne
-  let forwardDomInfo = computeDominatorInfo g forwardRoot
+  let forwardDomInfo = computeDominatorInfo g
   let domTree = lazy DominatorTree (g, idomAux forwardDomInfo)
   let mutable dfProvider = null
   let backward = lazy computeDominanceFromReversedGraph g
