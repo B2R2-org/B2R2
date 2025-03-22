@@ -84,9 +84,7 @@ let rec private prepare (g: IDiGraph<_, _>) (info: DomInfo<_>) n = function
   | _ :: stack -> prepare g info n stack
   | [] -> n - 1
 
-let rec private prepareWithDummyRoot (g: IDiGraph<_, _>) (info: DomInfo<_>)
-                                     (dummyRoot: IVertex<_>)
-                                     (realRoots: IVertex<_>[]) =
+let private prepareWithDummyRoot g info (dummyRoot: IVertex<_>) realRoots =
   info.DFNumMap.Add (dummyRoot.ID, 0)
   realRoots |> Array.map (fun v -> 0, v) |> Array.toList |> prepare g info 1
 
