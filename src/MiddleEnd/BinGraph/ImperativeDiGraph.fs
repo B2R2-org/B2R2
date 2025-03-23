@@ -193,6 +193,9 @@ type ImperativeDiGraph<'V, 'E when 'V: equality and 'E: equality> () =
       |> Seq.toArray
       |> Array.map (fun v -> v :> IVertex<'V>)
 
+    member __.Reverse vs =
+      GraphUtils.reverse __ vs (ImperativeDiGraph ())
+
     member __.FoldVertex fn acc =
       vertices.Values |> Seq.fold (fun acc v -> fn acc (v :> IVertex<'V>)) acc
 

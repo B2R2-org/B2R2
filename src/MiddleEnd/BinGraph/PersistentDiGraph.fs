@@ -179,6 +179,9 @@ type PersistentDiGraph<'V, 'E when 'V: equality
     member __.GetRoots () =
       roots |> List.toArray
 
+    member __.Reverse (vs) =
+      GraphUtils.reverse __ vs (PersistentDiGraph ())
+
     member __.FoldVertex fn acc =
       vertices.Values
       |> Seq.fold (fun acc v -> fn acc (v :> IVertex<'V>)) acc

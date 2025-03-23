@@ -54,7 +54,7 @@ type private DomInfo<'V when 'V: equality> = {
   MaxLength: int
 }
 
-let private initDomInfo (g: IDiGraph<_, _>) =
+let private initDomInfo (g: IDiGraphAccessible<_, _>) =
   (* To reserve a room for entry (dummy) node. *)
   let len = g.Size + 1
   { DFNumMap = Dictionary<VertexID, int> ()
@@ -72,7 +72,7 @@ let private initDomInfo (g: IDiGraph<_, _>) =
 let inline private dfnum (info: DomInfo<_>) (v: IVertex<_>) =
   info.DFNumMap[v.ID]
 
-let rec private prepare (g: IDiGraph<_, _>) (info: DomInfo<_>) n = function
+let rec private prepare (g: IDiGraphAccessible<_, _>) info n = function
   | (p, v : IVertex<_>) :: stack when not <| info.DFNumMap.ContainsKey v.ID ->
     info.DFNumMap.Add (v.ID, n)
     info.Semi[n] <- n
@@ -152,7 +152,7 @@ let rec private computeDomOrDelay info parent =
   if info.Bucket[parent].IsEmpty then ()
   else computeDom info parent
 
-let private computeDominatorInfo (g: IDiGraph<_, _>) =
+let private computeDominatorInfo (g: IDiGraphAccessible<_, _>) =
   let info = initDomInfo g
   let dummyRoot = GraphUtils.makeDummyVertex ()
   let realRoots = g.GetRoots ()
@@ -188,13 +188,13 @@ let private idomAux info v =
     if id >= 1 then info.Vertex[id] else null
   else null
 
-let private computeDominanceFromReversedGraph (g: IDiGraph<_, _>) =
+let private computeDominanceFromReversedGraph (g: IDiGraphAccessible<_, _>) =
   let g' = GraphUtils.findExits g |> g.Reverse
   let backwardDomInfo = computeDominatorInfo g'
   {| Graph = g'; DomInfo = backwardDomInfo |}
 
 [<CompiledName "Create">]
-let create (g: IDiGraph<'V, 'E>) (dfp: IDominanceFrontierProvider<_, _>) =
+let create g (dfp: IDominanceFrontierProvider<_, _>) =
   let forwardDomInfo = computeDominatorInfo g
   let domTree = lazy DominatorTree (g, idomAux forwardDomInfo)
   let mutable dfProvider = null

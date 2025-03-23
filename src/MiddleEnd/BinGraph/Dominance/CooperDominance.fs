@@ -92,13 +92,13 @@ let private idom (idoms: Dictionary<_, IVertex<_>>) v =
   if idom.ID = -1 then null
   else idom
 
-let private computePostDominance (g: IDiGraph<_, _>) =
+let private computePostDominance (g: IDiGraphAccessible<_, _>) =
   let g' = GraphUtils.findExits g |> g.Reverse
   let backwardDom = computeDominance g'
   {| Graph = g'; IDoms = backwardDom |}
 
 [<CompiledName "Create">]
-let create (g: IDiGraph<'V, 'E>) (dfp: IDominanceFrontierProvider<_, _>) =
+let create g (dfp: IDominanceFrontierProvider<_, _>) =
   let idoms = computeDominance g
   let domTree = lazy DominatorTree (g, fun v -> idoms[v])
   let mutable dfProvider = null

@@ -207,6 +207,7 @@ type SSACFG private (g: IDiGraph<SSABasicBlock, CFGEdgeKind>) =
     member _.GetSuccs v = g.GetSuccs v
     member _.GetSuccEdges v = g.GetSuccEdges v
     member _.GetRoots () = g.GetRoots ()
+    member _.Reverse vs = g.Reverse vs
     member _.FoldVertex fn acc = g.FoldVertex fn acc
     member _.IterVertex fn = g.IterVertex fn
     member _.FoldEdge fn acc = g.FoldEdge fn acc

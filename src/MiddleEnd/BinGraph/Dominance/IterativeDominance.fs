@@ -68,14 +68,13 @@ let computeIDoms (g: IDiGraphAccessible<_, _>) roots (doms: Dictionary<_, _>) =
       idoms[v] <- if Set.isEmpty tmps[v] then null else tmps[v].MinimumElement
   idoms
 
-let computePostDoms (g: IDiGraph<_, _>) =
+let computePostDoms (g: IDiGraphAccessible<_, _>) =
   GraphUtils.findExits g
   |> g.Reverse
   |> computeDoms
 
 [<CompiledName "Create">]
-let create (g: IDiGraph<'V, 'E>)
-           (dfp: IDominanceFrontierProvider<_, _>) =
+let create g (dfp: IDominanceFrontierProvider<_, _>) =
   let doms = lazy computeDoms g
   let pdoms = lazy computePostDoms g
   let idoms = lazy computeIDoms g (g.GetRoots ()) doms.Value
