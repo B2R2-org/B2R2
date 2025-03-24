@@ -36,6 +36,8 @@ type private DomInfo<'V when 'V: equality> = {
   Vertex: IVertex<'V>[]
   /// PONum -> PONum of the immediate dominator.
   IDom: int[]
+  /// PONum -> array of PONum of the predecessors.
+  Preds: int[][]
 }
 
 let private initDomInfo (g: IDiGraphAccessible<_, _>) =
@@ -43,9 +45,11 @@ let private initDomInfo (g: IDiGraphAccessible<_, _>) =
   let len = g.Size + 1
   { PONumMap = Dictionary<VertexID, int> ()
     Vertex = Array.zeroCreate len
-    IDom = Array.create len -1}
+    IDom = Array.create len -1
+    Preds = Array.zeroCreate len }
 
-let private prepareWithDummyRoot g info (dummyRoot: IVertex<_>) realRoots =
+let private prepareWithDummyRoot g info (dummyRoot: IVertex<_>) =
+  let realRoots = (g: IDiGraphAccessible<_, _>).GetRoots ()
   let n =
     Traversal.DFS.foldPostorderWithRoots g
       (realRoots |> Array.toList) (fun n v ->
@@ -58,17 +62,21 @@ let private prepareWithDummyRoot g info (dummyRoot: IVertex<_>) realRoots =
   for r in realRoots |> Array.map (fun v -> info.PONumMap[v.ID]) do
     info.IDom[r] <- n
   info.IDom[n] <- n
+  for i = 0 to n - 1 do
+    let v = info.Vertex[i]
+    let preds =
+      if realRoots |> Array.contains v then
+        [| n;
+           yield! (g: IDiGraphAccessible<_, _>).GetPreds v
+                  |> Array.map (fun p -> info.PONumMap[p.ID]) |]
+      else
+        g.GetPreds v
+        |> Array.map (fun p -> info.PONumMap[p.ID])
+    info.Preds[i] <- preds
   n
 
-let private getProcessedPreds g info (dummyRoot: IVertex<_>) realRoots i =
-  let v = (info: DomInfo<_>).Vertex[i]
-  let preds =
-    if realRoots |> Array.contains v then
-      [| dummyRoot;
-        yield! (g: IDiGraphAccessible<_,_>).GetPreds v |]
-    else g.GetPreds v
-  preds
-  |> Array.map (fun p -> info.PONumMap[p.ID])
+let private getProcessedPreds info i =
+  info.Preds[i]
   |> Array.filter (fun p -> info.IDom[p] <> -1)
 
 let private intersect (idoms: array<int>) b1 b2 =
@@ -84,13 +92,12 @@ let private intersect (idoms: array<int>) b1 b2 =
 let private computeDominance (g: IDiGraphAccessible<_, _>) =
   let info = initDomInfo g
   let dummyRoot = GraphUtils.makeDummyVertex ()
-  let realRoots = (g: IDiGraphAccessible<_, _>).GetRoots ()
-  let n = prepareWithDummyRoot g info dummyRoot realRoots
+  let n = prepareWithDummyRoot g info dummyRoot
   let mutable changed = true
   while changed do
     changed <- false
     for i = n - 1 downto 0 do
-      let processedPreds = getProcessedPreds g info dummyRoot realRoots i
+      let processedPreds = getProcessedPreds info i
       let mutable newIdom = processedPreds[0]
       for p in processedPreds[1..] do
         newIdom <- intersect info.IDom p newIdom
