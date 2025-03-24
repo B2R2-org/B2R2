@@ -29,57 +29,83 @@ module B2R2.MiddleEnd.BinGraph.Dominance.CooperDominance
 open System.Collections.Generic
 open B2R2.MiddleEnd.BinGraph
 
-let private getPONumbersAndRPOVertices g dummyRoot =
-  let dict = Dictionary ()
-  let roots = (g: IDiGraphAccessible<_, _>).GetRoots () |> Array.toList
-  let vs =
-    Traversal.DFS.foldPostorderWithRoots g roots (fun vs v ->
-      dict[v] <- dict.Count + 1
-      v :: vs
-    ) []
-  dict[dummyRoot] <- dict.Count + 1
-  dict, vs
+type private DomInfo<'V when 'V: equality> = {
+  /// Vertex ID -> PONum
+  PONumMap: Dictionary<VertexID, int>
+  /// PONum -> Vertex ID
+  Vertex: IVertex<'V>[]
+  /// PONum -> PONum of the immediate dominator.
+  IDom: int[]
+}
 
-let private getProcessedPreds g (idoms: Dictionary<_, IVertex<_>>)
-                              (dummyRoot: IVertex<_>)
-                              (realRoots: IVertex<_>[]) v =
-  if realRoots |> Array.contains v then
-    [| dummyRoot; yield! (g: IDiGraphAccessible<_, _>).GetPreds v |]
-    |> Array.filter (fun p -> not (isNull idoms[p]))
-  else
-    (g: IDiGraphAccessible<_, _>).GetPreds v
-    |> Array.filter (fun p -> not (isNull idoms[p]))
+let private initDomInfo (g: IDiGraphAccessible<_, _>) =
+  (* To reserve a room for entry (dummy) node. *)
+  let len = g.Size + 1
+  { PONumMap = Dictionary<VertexID, int> ()
+    Vertex = Array.zeroCreate len
+    IDom = Array.create len -1}
 
-let private intersect (idoms: Dictionary<_, _>)
-                      (poNumbers: Dictionary<_, _>) b1 b2 =
+let private prepareWithDummyRoot g info (dummyRoot: IVertex<_>) realRoots =
+  let n =
+    Traversal.DFS.foldPostorderWithRoots g
+      (realRoots |> Array.toList) (fun n v ->
+       info.PONumMap[v.ID] <- n
+       info.Vertex[n] <- v
+       n + 1) 0
+  info.PONumMap[dummyRoot.ID] <- n
+  info.Vertex[n] <- dummyRoot
+  for i = 0 downto n - 1 do info.IDom[i] <- -1
+  for r in realRoots |> Array.map (fun v -> info.PONumMap[v.ID]) do
+    info.IDom[r] <- n
+  info.IDom[n] <- n
+  n
+
+let private getProcessedPreds g info (dummyRoot: IVertex<_>) realRoots i =
+  let v = (info: DomInfo<_>).Vertex[i]
+  let preds =
+    if realRoots |> Array.contains v then
+      [| dummyRoot;
+        yield! (g: IDiGraphAccessible<_,_>).GetPreds v |]
+    else g.GetPreds v
+  preds
+  |> Array.map (fun p -> info.PONumMap[p.ID])
+  |> Array.filter (fun p -> info.IDom[p] <> -1)
+
+let private intersect (idoms: array<int>) b1 b2 =
   let mutable f1 = b1
   let mutable f2 = b2
   while f1 <> f2 do
-    while poNumbers[f1] < poNumbers[f2] do
+    while f1 < f2 do
       f1 <- idoms[f1]
-    while poNumbers[f2] < poNumbers[f1] do
+    while f2 < f1 do
       f2 <- idoms[f2]
   f1
 
 let private computeDominance (g: IDiGraphAccessible<_, _>) =
-  let idoms = Dictionary<IVertex<_>, IVertex<_>> ()
+  let info = initDomInfo g
   let dummyRoot = GraphUtils.makeDummyVertex ()
-  let realRoots = g.GetRoots ()
-  let poNumbers, rpoNodes = getPONumbersAndRPOVertices g dummyRoot
-  idoms[dummyRoot] <- dummyRoot
-  for v in g.Vertices do idoms[v] <- null
-  for r in realRoots do idoms[r] <- dummyRoot
+  let realRoots = (g: IDiGraphAccessible<_, _>).GetRoots ()
+  let n = prepareWithDummyRoot g info dummyRoot realRoots
   let mutable changed = true
   while changed do
     changed <- false
-    for b in rpoNodes do
-      let processedPreds = getProcessedPreds g idoms dummyRoot realRoots b
+    for i = n - 1 downto 0 do
+      let processedPreds = getProcessedPreds g info dummyRoot realRoots i
       let mutable newIdom = processedPreds[0]
       for p in processedPreds[1..] do
-        newIdom <- intersect idoms poNumbers p newIdom
-      if idoms[b] <> newIdom then
-        idoms[b] <- newIdom
+        newIdom <- intersect info.IDom p newIdom
+      if info.IDom[i] <> newIdom then
+        info.IDom[i] <- newIdom
         changed <- true
+  let idoms = Dictionary<IVertex<_>, IVertex<_>> ()
+  for i = n - 1 downto 0 do
+    let v = info.Vertex[i]
+    let idom = info.IDom[i]
+    if idom = -1 then
+      idoms[v] <- dummyRoot
+    else
+      idoms[v] <- info.Vertex[idom]
+  idoms[dummyRoot] <- dummyRoot
   idoms
 
 let rec private doms acc v (idoms: Dictionary<_, IVertex<_>>) =
