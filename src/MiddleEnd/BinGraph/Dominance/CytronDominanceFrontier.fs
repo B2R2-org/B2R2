@@ -41,7 +41,7 @@ type CytronDominanceFrontier<'V, 'E when 'V: equality and 'E: equality> () =
     stack2
 
   /// Compute dominance frontiers.
-  let computeDF (g: IDiGraphAccessible<_, _>) (dom: IDominance<_, _>) =
+  let computeDF (g: IDiGraphAccessible<_, _>) (dom: IForwardDominance<_, _>) =
     let frontiers = Dictionary<IVertex<_>, HashSet<IVertex<_>>> ()
     for v in traverseBottomUp dom.DominatorTree g.SingleRoot do
       let df = HashSet<IVertex<_>> ()

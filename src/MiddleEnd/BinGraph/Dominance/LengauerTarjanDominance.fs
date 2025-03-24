@@ -188,40 +188,25 @@ let private idomAux info v =
     if id >= 1 then info.Vertex[id] else null
   else null
 
-let private computeDominanceFromReversedGraph (g: IDiGraphAccessible<_, _>) =
-  let g' = GraphUtils.findExits g |> g.Reverse
-  let backwardDomInfo = computeDominatorInfo g'
-  {| Graph = g'; DomInfo = backwardDomInfo |}
-
-[<CompiledName "Create">]
-let create g (dfp: IDominanceFrontierProvider<_, _>) =
-  let forwardDomInfo = computeDominatorInfo g
-  let domTree = lazy DominatorTree (g, idomAux forwardDomInfo)
+let private createForward g (dfp: IDominanceFrontierProvider<_, _>) =
+  let domInfo = computeDominatorInfo g
+  let domTree = lazy DominatorTree (g, idomAux domInfo)
   let mutable dfProvider = null
-  let backward = lazy computeDominanceFromReversedGraph g
-  { new IDominance<'V, 'E> with
-      member _.Dominators v =
+  { new IForwardDominance<'V, 'E> with
+      member __.Dominators v =
 #if DEBUG
         GraphUtils.checkVertexInGraph g v
 #endif
-        domsAux [v] v forwardDomInfo
+        domsAux [v] v domInfo
 
-      member _.ImmediateDominator v =
+      member __.ImmediateDominator v =
 #if DEBUG
         GraphUtils.checkVertexInGraph g v
 #endif
-        idomAux forwardDomInfo v
+        idomAux domInfo v
 
       member __.DominatorTree =
         domTree.Value
-
-      member _.PostDominators v =
-        domsAux [v] v backward.Value.DomInfo
-
-      member _.ImmediatePostDominator v =
-        let g' = backward.Value.Graph
-        let v = g'.FindVertexByData v.VData
-        idomAux backward.Value.DomInfo v
 
       member __.DominanceFrontier v =
 #if DEBUG
@@ -231,3 +216,33 @@ let create g (dfp: IDominanceFrontierProvider<_, _>) =
           dfProvider <- dfp.CreateIDominanceFrontier (g, __)
         else ()
         dfProvider.DominanceFrontier v }
+
+[<CompiledName "Create">]
+let create g (dfp: IDominanceFrontierProvider<_, _>) =
+  let backwardG = lazy (GraphUtils.findExits g |> g.Reverse)
+  let forwardDom = createForward g dfp
+  let backwardDom = lazy (createForward backwardG.Value dfp)
+  { new IDominance<'V, 'E> with
+      member __.Dominators v =
+        forwardDom.Dominators v
+
+      member __.ImmediateDominator v =
+        forwardDom.ImmediateDominator v
+
+      member __.DominatorTree =
+        forwardDom.DominatorTree
+
+      member __.DominanceFrontier v =
+        forwardDom.DominanceFrontier v
+
+      member __.PostDominators v =
+        backwardDom.Value.Dominators v
+
+      member __.ImmediatePostDominator v =
+        backwardDom.Value.ImmediateDominator v
+
+      member __.PostDominatorTree =
+        backwardDom.Value.DominatorTree
+
+      member __.PostDominanceFrontier v =
+        backwardDom.Value.DominanceFrontier v }

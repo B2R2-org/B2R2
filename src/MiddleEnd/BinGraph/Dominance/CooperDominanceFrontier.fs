@@ -30,7 +30,7 @@ open B2R2.MiddleEnd.BinGraph
 /// Dominance frontier algorithm presented by Cooper et al. in their paper
 /// "A Simple, Fast Dominance Algorithm", SPE 2001.
 type CooperDominanceFrontier<'V, 'E when 'V: equality and 'E: equality> () =
-  let computeDF (g: IDiGraphAccessible<_, _>) (dom: IDominance<_, _>) =
+  let computeDF (g: IDiGraphAccessible<_, _>) (dom: IForwardDominance<_, _>) =
     let frontiers = Dictionary<IVertex<_>, HashSet<IVertex<_>>> ()
     let root = g.SingleRoot
     for v in g.Vertices do frontiers[v] <- HashSet<IVertex<_>> ()
