@@ -1,25 +1,29 @@
 (*
   B2R2 - the Next-Generation Reversing Platform
+
   Copyright (c) SoftSec Lab. @ KAIST, since 2016
+
   Permission is hereby granted, free of charge, to any person obtaining a copy
   of this software and associated documentation files (the "Software"), to deal
   in the Software without restriction, including without limitation the rights
   to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
   copies of the Software, and to permit persons to whom the Software is
   furnished to do so, subject to the following conditions:
+
   The above copyright notice and this permission notice shall be included in all
   copies or substantial portions of the Software.
+
   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
   AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
   SOFTWARE.
 *)
+
 module internal B2R2.FrontEnd.BinLifter.S390.ParsingFormats
-open System
 open B2R2
-open B2R2.FrontEnd.BinLifter
-open B2R2.FrontEnd.BinLifter.BitData
 open B2R2.FrontEnd.BinLifter.S390.Helper
 
 let fillFmt op opr fmt =
@@ -74,10 +78,8 @@ let parseRR (bin: uint16) (state: State) =
       struct (Op.BASSM, TwoOperands (OpReg (getR op1), OpReg (getR op2)))
     | 0x0Dus ->
       struct (Op.BASR, TwoOperands (OpReg (getR op1), OpReg (getR op2)))
-    | 0x0Eus ->
-      struct (Op.MVCL, TwoOperands (OpReg r1op1, OpReg r2op2))
-    | 0x0Fus ->
-      struct (Op.CLCL, TwoOperands (OpReg r1op1, OpReg r2op2))
+    | 0x0Eus -> struct (Op.MVCL, TwoOperands (OpReg r1op1, OpReg r2op2))
+    | 0x0Fus -> struct (Op.CLCL, TwoOperands (OpReg r1op1, OpReg r2op2))
     | 0x10us ->
       struct (Op.LPR, TwoOperands (OpReg (getR op1), OpReg (getR op2)))
     | 0x11us ->
@@ -86,26 +88,17 @@ let parseRR (bin: uint16) (state: State) =
       struct (Op.LTR, TwoOperands (OpReg (getR op1), OpReg (getR op2)))
     | 0x13us ->
       struct (Op.LCR, TwoOperands (OpReg (getR op1), OpReg (getR op2)))
-    | 0x14us ->
-      struct (Op.NR, TwoOperands (OpReg (getR op1), OpReg (getR op2)))
+    | 0x14us -> struct (Op.NR, TwoOperands (OpReg (getR op1), OpReg (getR op2)))
     | 0x15us ->
       struct (Op.CLR, TwoOperands (OpReg (getR op1), OpReg (getR op2)))
-    | 0x16us ->
-      struct (Op.OR, TwoOperands (OpReg (getR op1), OpReg (getR op2)))
-    | 0x17us ->
-      struct (Op.XR, TwoOperands (OpReg (getR op1), OpReg (getR op2)))
-    | 0x18us ->
-      struct (Op.LR, TwoOperands (OpReg (getR op1), OpReg (getR op2)))
-    | 0x19us ->
-      struct (Op.CR, TwoOperands (OpReg (getR op1), OpReg (getR op2)))
-    | 0x1Aus ->
-      struct (Op.AR, TwoOperands (OpReg (getR op1), OpReg (getR op2)))
-    | 0x1Bus ->
-      struct (Op.SR, TwoOperands (OpReg (getR op1), OpReg (getR op2)))
-    | 0x1Cus ->
-      struct (Op.MR, TwoOperands (OpReg (getR op1), OpReg (getR op2)))
-    | 0x1Dus ->
-      struct (Op.DR, TwoOperands (OpReg (getR op1), OpReg (getR op2)))
+    | 0x16us -> struct (Op.OR, TwoOperands (OpReg (getR op1), OpReg (getR op2)))
+    | 0x17us -> struct (Op.XR, TwoOperands (OpReg (getR op1), OpReg (getR op2)))
+    | 0x18us -> struct (Op.LR, TwoOperands (OpReg (getR op1), OpReg (getR op2)))
+    | 0x19us -> struct (Op.CR, TwoOperands (OpReg (getR op1), OpReg (getR op2)))
+    | 0x1Aus -> struct (Op.AR, TwoOperands (OpReg (getR op1), OpReg (getR op2)))
+    | 0x1Bus -> struct (Op.SR, TwoOperands (OpReg (getR op1), OpReg (getR op2)))
+    | 0x1Cus -> struct (Op.MR, TwoOperands (OpReg (getR op1), OpReg (getR op2)))
+    | 0x1Dus -> struct (Op.DR, TwoOperands (OpReg (getR op1), OpReg (getR op2)))
     | 0x1Eus ->
       struct (Op.ALR, TwoOperands (OpReg (getR op1), OpReg (getR op2)))
     | 0x1Fus ->
@@ -244,7 +237,6 @@ let parseRX (bin: uint32) (state: State) =
     | 0x7Fus -> struct (Op.SU, TwoOperands (OpReg (getFPR op1), b2op2))
     | 0xB1us -> struct (Op.LRA, TwoOperands (OpReg (getR op1), bpop2))
     | _ -> struct (Op.InvalOp, NoOperand)
-
   fillFmt op opr Fmt.RX
 
 let parseRI (bin: uint32) (state: State) =
@@ -575,28 +567,19 @@ let parseRRE (bin: uint32) (state: State) =
       struct (Op.SAR, TwoOperands (OpReg (getAR op1), OpReg (getR op2)))
     | 0xB24Fus ->
       struct (Op.EAR, TwoOperands (OpReg (getR op1), OpReg (getAR op2)))
-    | 0xB250us ->
-      struct (Op.CSP, TwoOperands (OpReg (getR op1), OpReg r2op2))
+    | 0xB250us -> struct (Op.CSP, TwoOperands (OpReg (getR op1), OpReg r2op2))
     | 0xB252us ->
       struct (Op.MSR, TwoOperands (OpReg (getR op1), OpReg (getR op2)))
-    | 0xB254us ->
-      struct (Op.MVPG, TwoOperands (OpReg r1op1, OpReg r2op2))
-    | 0xB255us ->
-      struct (Op.MVST, TwoOperands (OpReg r1op1, OpReg r2op2))
-    | 0xB257us ->
-      struct (Op.CUSE, TwoOperands (OpReg r1op1, OpReg r2op2))
-    | 0xB258us ->
-      struct (Op.BSG, TwoOperands (OpReg (getR op1), OpReg r2op2))
+    | 0xB254us -> struct (Op.MVPG, TwoOperands (OpReg r1op1, OpReg r2op2))
+    | 0xB255us -> struct (Op.MVST, TwoOperands (OpReg r1op1, OpReg r2op2))
+    | 0xB257us -> struct (Op.CUSE, TwoOperands (OpReg r1op1, OpReg r2op2))
+    | 0xB258us -> struct (Op.BSG, TwoOperands (OpReg (getR op1), OpReg r2op2))
     | 0xB25Aus ->
       struct (Op.BSA, TwoOperands (OpReg (getR op1), OpReg (getR op2)))
-    | 0xB25Dus ->
-      struct (Op.CLST, TwoOperands (OpReg r1op1, OpReg r2op2))
-    | 0xB25Eus ->
-      struct (Op.SRST, TwoOperands (OpReg (getR op1), OpReg r2op2))
-    | 0xB263us ->
-      struct (Op.CMPSC, TwoOperands (OpReg r1op1, OpReg r2op2))
-    | 0xB2A5us ->
-      struct (Op.TRE, TwoOperands (OpReg r1op1, OpReg r2op2))
+    | 0xB25Dus -> struct (Op.CLST, TwoOperands (OpReg r1op1, OpReg r2op2))
+    | 0xB25Eus -> struct (Op.SRST, TwoOperands (OpReg (getR op1), OpReg r2op2))
+    | 0xB263us -> struct (Op.CMPSC, TwoOperands (OpReg r1op1, OpReg r2op2))
+    | 0xB2A5us -> struct (Op.TRE, TwoOperands (OpReg r1op1, OpReg r2op2))
     | 0xB2A6us when not isRRF ->
       struct (Op.CUUTF, TwoOperands (OpReg (getR op1), OpReg (getR op2)))
     | 0xB2A7us when not isRRF ->
@@ -859,8 +842,7 @@ let parseRRE (bin: uint32) (state: State) =
       struct (Op.MSGFR, TwoOperands (OpReg (getR op1), OpReg (getR op2)))
     | 0xB91Dus ->
       struct (Op.DSGFR, TwoOperands (OpReg (getR op1), OpReg (getR op2)))
-    | 0xB91Eus ->
-      struct (Op.KMAC, TwoOperands (OpReg (getR op1), OpReg r2op2))
+    | 0xB91Eus -> struct (Op.KMAC, TwoOperands (OpReg (getR op1), OpReg r2op2))
     | 0xB91Fus ->
       struct (Op.LRVR, TwoOperands (OpReg (getR op1), OpReg (getR op2)))
     | 0xB920us ->
@@ -874,31 +856,21 @@ let parseRRE (bin: uint32) (state: State) =
     | 0xB927us ->
       struct (Op.LHR, TwoOperands (OpReg (getR op1), OpReg (getR op2)))
     | 0xB928us -> struct (Op.PCKMO, NoOperand)
-    | 0xB92Aus ->
-      struct (Op.KMF, TwoOperands (OpReg r1op1, OpReg r2op2))
-    | 0xB92Bus ->
-      struct (Op.KMO, TwoOperands (OpReg r1op1, OpReg r2op2))
+    | 0xB92Aus -> struct (Op.KMF, TwoOperands (OpReg r1op1, OpReg r2op2))
+    | 0xB92Bus -> struct (Op.KMO, TwoOperands (OpReg r1op1, OpReg r2op2))
     | 0xB92Cus -> struct (Op.PCC, NoOperand)
-    | 0xB92Eus ->
-      struct (Op.KM, TwoOperands (OpReg r1op1, OpReg r2op2))
-    | 0xB92Fus ->
-      struct (Op.KMC, TwoOperands (OpReg r1op1, OpReg r2op2))
+    | 0xB92Eus -> struct (Op.KM, TwoOperands (OpReg r1op1, OpReg r2op2))
+    | 0xB92Fus -> struct (Op.KMC, TwoOperands (OpReg r1op1, OpReg r2op2))
     | 0xB930us ->
       struct (Op.CGFR, TwoOperands (OpReg (getR op1), OpReg (getR op2)))
     | 0xB931us ->
       struct (Op.CLGFR, TwoOperands (OpReg (getR op1), OpReg (getR op2)))
-    | 0xB938us ->
-      struct (Op.SORTL, TwoOperands (OpReg r1op1, OpReg r2op2))
-    | 0xB93Aus ->
-      struct (Op.KDSA, TwoOperands (OpReg r1op1, OpReg r2op2))
-    | 0xB93Bus ->
-      struct (Op.NNPA, NoOperand)
-    | 0xB93Cus ->
-      struct (Op.PRNO, TwoOperands (OpReg r1op1, OpReg r2op2))
-    | 0xB93Eus ->
-      struct (Op.KIMD, TwoOperands (OpReg (getR op1), OpReg r2op2))
-    | 0xB93Fus ->
-      struct (Op.KLMD, TwoOperands (OpReg (getR op1), OpReg r2op2))
+    | 0xB938us -> struct (Op.SORTL, TwoOperands (OpReg r1op1, OpReg r2op2))
+    | 0xB93Aus -> struct (Op.KDSA, TwoOperands (OpReg r1op1, OpReg r2op2))
+    | 0xB93Bus -> struct (Op.NNPA, NoOperand)
+    | 0xB93Cus -> struct (Op.PRNO, TwoOperands (OpReg r1op1, OpReg r2op2))
+    | 0xB93Eus -> struct (Op.KIMD, TwoOperands (OpReg (getR op1), OpReg r2op2))
+    | 0xB93Fus -> struct (Op.KLMD, TwoOperands (OpReg (getR op1), OpReg r2op2))
     | 0xB946us ->
       struct (Op.BCTGR, TwoOperands (OpReg (getR op1), OpReg (getR op2)))
     | 0xB980us ->
@@ -921,8 +893,7 @@ let parseRRE (bin: uint32) (state: State) =
       struct (Op.ALCGR, TwoOperands (OpReg (getR op1), OpReg (getR op2)))
     | 0xB989us ->
       struct (Op.SLBGR, TwoOperands (OpReg (getR op1), OpReg (getR op2)))
-    | 0xB98Aus ->
-      struct (Op.CSPG, TwoOperands (OpReg (getR op1), OpReg r2op2))
+    | 0xB98Aus -> struct (Op.CSPG, TwoOperands (OpReg (getR op1), OpReg r2op2))
     | 0xB98Dus ->
       struct (Op.EPSW, TwoOperands (OpReg (getR op1), OpReg (getR op2)))
     | 0xB994us ->
@@ -952,12 +923,9 @@ let parseRRE (bin: uint32) (state: State) =
       struct (Op.RRBM, TwoOperands (OpReg (getR op1), OpReg (getR op2)))
     | 0xB9AFus ->
       struct (Op.PFMF, TwoOperands (OpReg (getR op1), OpReg (getR op2)))
-    | 0xB9B2us ->
-      struct (Op.CU41, TwoOperands (OpReg r1op1, OpReg r2op2))
-    | 0xB9B3us ->
-      struct (Op.CU42, TwoOperands (OpReg r1op1, OpReg r2op2))
-    | 0xB9BEus ->
-      struct (Op.SRSTU, TwoOperands (OpReg r1op1, OpReg r2op2))
+    | 0xB9B2us -> struct (Op.CU41, TwoOperands (OpReg r1op1, OpReg r2op2))
+    | 0xB9B3us -> struct (Op.CU42, TwoOperands (OpReg r1op1, OpReg r2op2))
+    | 0xB9BEus -> struct (Op.SRSTU, TwoOperands (OpReg r1op1, OpReg r2op2))
     | 0xB9CDus ->
       struct (Op.CHHR, TwoOperands (OpReg (getR op1), OpReg (getR op2)))
     | 0xB9CFus ->
@@ -992,24 +960,21 @@ let parseRRF (bin: uint32) (state: State) =
       struct (Op.SSKE,
         ThreeOperands (OpReg (getR op1), OpReg (getR op2), OpMask op3))
     | 0xB2A6us ->
-      struct (Op.CU21,
-        ThreeOperands (OpReg r1op1, OpReg r2op2, OpMask op3))
+      struct (Op.CU21, ThreeOperands (OpReg r1op1, OpReg r2op2, OpMask op3))
     | 0xB2A7us ->
-      struct (Op.CU12,
-        ThreeOperands (OpReg r1op1, OpReg r2op2, OpMask op3))
+      struct (Op.CU12, ThreeOperands (OpReg r1op1, OpReg r2op2, OpMask op3))
     | 0xB2E8us ->
       struct (Op.PPA,
         ThreeOperands (OpReg (getR op1), OpReg (getR op2), OpMask op3))
     | 0xB344us when not isRRE ->
       struct (Op.LEDBRA, FourOperands (OpReg (getFPR op1), OpReg (getFPR op2),
-        OpMask op3, OpMask op4)) // also RRE done
+        OpMask op3, OpMask op4)) // also RRE (done)
     | 0xB345us when not isRRE ->
       struct (Op.LDXBRA, FourOperands (OpReg (getFPR op1), OpReg (getFPR op2),
-        OpMask op3, OpMask op4)) // RRE done
+        OpMask op3, OpMask op4)) // RRE (done)
     | 0xB346us when not isRRE ->
-      struct (Op.LEXBRA,
-        FourOperands (OpReg (getFPR op1), OpReg (getFPR op2),
-          OpMask op3, OpMask op4)) // RRE done
+      struct (Op.LEXBRA, FourOperands (OpReg (getFPR op1), OpReg (getFPR op2),
+        OpMask op3, OpMask op4)) // RRE (done)
     | 0xB347us when not isRRE ->
       struct (Op.FIXBR,
         ThreeOperands (OpReg (getFPR op1), OpReg (getFPR op2), OpMask op3))
@@ -1054,13 +1019,13 @@ let parseRRF (bin: uint32) (state: State) =
         OpMask op3, OpMask op4))
     | 0xB394us when not isRRE ->
       struct (Op.CEFBRA, FourOperands (OpReg (getFPR op1), OpReg (getR op2),
-        OpMask op3, OpMask op4)) // RRE done
+        OpMask op3, OpMask op4)) // RRE (done)
     | 0xB395us when not isRRE ->
       struct (Op.CDFBRA, FourOperands (OpReg (getFPR op1), OpReg (getR op2),
-        OpMask op3, OpMask op4)) // RRE done
+        OpMask op3, OpMask op4)) // RRE (done)
     | 0xB396us when not isRRE ->
       struct (Op.CXFBRA, FourOperands (OpReg (getFPR op1), OpReg (getR op2),
-        OpMask op3, OpMask op4)) // RRE done
+        OpMask op3, OpMask op4)) // RRE (done)
     | 0xB398us when not isRRE ->
       struct (Op.CFEBR,
         ThreeOperands (OpReg (getR op1), OpReg (getFPR op2), OpMask op3))
@@ -1099,13 +1064,13 @@ let parseRRF (bin: uint32) (state: State) =
         OpMask op3, OpMask op4))
     | 0xB3A4us when not isRRE ->
       struct (Op.CEGBRA, FourOperands (OpReg (getFPR op1), OpReg (getR op2),
-        OpMask op3, OpMask op4)) // RRE done
+        OpMask op3, OpMask op4)) // RRE (done)
     | 0xB3A5us when not isRRE ->
       struct (Op.CDGBRA, FourOperands (OpReg (getFPR op1), OpReg (getR op2),
-        OpMask op3, OpMask op4)) // RRE done
+        OpMask op3, OpMask op4)) // RRE (done)
     | 0xB3A6us when not isRRE ->
       struct (Op.CXGBRA, FourOperands (OpReg (getFPR op1), OpReg (getR op2),
-        OpMask op3, OpMask op4)) // RRE done
+       OpMask op3, OpMask op4)) // RRE (done)
     | 0xB3A8us when not isRRE ->
       struct (Op.CGEBR,
         ThreeOperands (OpReg (getR op1), OpReg (getFPR op2), OpMask op3))
@@ -1262,8 +1227,8 @@ let parseRRF (bin: uint32) (state: State) =
     | 0xB929us ->
       struct (Op.KMA, ThreeOperands (OpReg r1op1, OpReg r2op2, OpReg r3op3))
     | 0xB92Dus ->
-      struct (Op.KMCTR, ThreeOperands (OpReg (getR op1), OpReg (getR op2),
-        OpReg (getR op3)))
+      struct (Op.KMCTR,
+        ThreeOperands (OpReg (getR op1), OpReg (getR op2), OpReg (getR op3)))
     | 0xB939us ->
       struct (Op.DFLTCC, ThreeOperands (OpReg r1op1, OpReg r2op2, OpReg r3op3))
     | 0xB941us ->
@@ -1426,7 +1391,6 @@ let parseRRF (bin: uint32) (state: State) =
       struct (Op.MSRKC,
         ThreeOperands (OpReg (getR op1), OpReg (getR op2), OpReg (getR op3)))
     | _ -> struct (Op.InvalOp, NoOperand)
-
   fillFmt op opr Fmt.RRF
 
 let parseRSI (bin: uint32) (state: State) =
@@ -1444,7 +1408,6 @@ let parseRSI (bin: uint32) (state: State) =
       struct (Op.BRXLE,
         ThreeOperands (OpReg (getR op1), OpRImm op2, OpReg (getR op3)))
     | _ -> struct (Op.InvalOp, NoOperand)
-
   fillFmt op opr Fmt.RSI
 
 let parseMII (bin: uint64) (state: State) =
@@ -1455,8 +1418,7 @@ let parseMII (bin: uint64) (state: State) =
 
   match opcode with
   | 0xC5us ->
-      struct (Op.BPRP,
-        ThreeOperands (OpMask op1, OpImm op2, OpImm op3), Fmt.MII)
+    struct (Op.BPRP, ThreeOperands (OpMask op1, OpImm op2, OpImm op3), Fmt.MII)
   | _ -> struct (Op.InvalOp, NoOperand, Fmt.Invalid)
 
 let parseRIE (bin: uint64) (state: State) =
@@ -1570,14 +1532,12 @@ let parseRIE (bin: uint64) (state: State) =
       struct (Op.ALGHSIK, ThreeOperands (OpReg (getR op1),
         OpImm (ImmU8 (uint8 op2d)), OpReg (getR op3d)))
     | _ -> struct (Op.InvalOp, NoOperand)
-
   fillFmt op opr Fmt.RIE
 
 let parseRIL (bin: uint64) (state: State) =
   let opcode1 = extract48 bin 0 7 |> uint16
   let opcode2 = extract48 bin 12 15 |> uint16
   let opcode = opcode1 <<< 4 ||| opcode2
-
   let op1 = extract48 bin 8 11 |> uint16
   let op2 = extract48 bin 16 47 |> int32
 
@@ -1856,7 +1816,7 @@ let parseRSY (bin: uint64) (state: State) =
       struct (Op.CSG, ThreeOperands (OpReg (getR op1), b2op2, OpReg (getR op3)))
     | 0xEB31us ->
       struct (Op.CDSY,
-         ThreeOperands (OpReg (getR op1), b2op2, OpReg (getR op3)))
+        ThreeOperands (OpReg (getR op1), b2op2, OpReg (getR op3)))
     | 0xEB3Eus ->
       struct (Op.CDSG,
         ThreeOperands (OpReg (getR op1), b2op2, OpReg (getR op3)))
@@ -2443,7 +2403,6 @@ let parseSSF (bin: uint64) (state: State) =
     | 0xC85us ->
       struct (Op.LPDG, ThreeOperands (b1op1, b2op2, OpReg (getR op3)))
     | _ -> struct (Op.InvalOp, NoOperand)
-
   fillFmt op opr Fmt.SSF
 
 let parseVRI (bin: uint64) (state: State) =
@@ -2543,7 +2502,6 @@ let parseVRI (bin: uint64) (state: State) =
     | 0xE786us -> struct (Op.VSLD, FourOperands (op1, op2d, op3d, op4d))
     | 0xE787us -> struct (Op.VSRD, FourOperands (op1, op2d, op3d, op4d))
     | _ -> struct (Op.InvalOp, NoOperand)
-
   fillFmt op opr Fmt.VRI
 
 let parseVRR (bin: uint64) (state: State) =
@@ -2568,7 +2526,7 @@ let parseVRR (bin: uint64) (state: State) =
   let op2b = OpReg (toVR frag2 2us)
   let op3b = OpReg (toVR frag3 3us)
   let op4b = OpMask frag7
-  let op5b = OpMask  frag5
+  let op5b = OpMask frag5
   let op1c = OpReg (toVR frag1 1us)
   let op2c = OpReg (toVR frag2 2us)
   let op3c = OpReg (toVR frag3 3us)
@@ -2608,11 +2566,9 @@ let parseVRR (bin: uint64) (state: State) =
 
   let struct (op, opr) =
     match opcode with
-    | 0xE650us ->
-      struct (Op.VCVB, FourOperands (op1i, op2i, op3i, op4i))
+    | 0xE650us -> struct (Op.VCVB, FourOperands (op1i, op2i, op3i, op4i))
     | 0xE651us -> struct (Op.VCLZDP, ThreeOperands (op1k, op2k, op3k))
-    | 0xE652us ->
-      struct (Op.VCVBG,FourOperands (op1i, op2i, op3i, op4i))
+    | 0xE652us -> struct (Op.VCVBG,FourOperands (op1i, op2i, op3i, op4i))
     | 0xE654us -> struct (Op.VUPKZH, ThreeOperands (op1k, op2k, op3k))
     | 0xE655us -> struct (Op.VCNF, FourOperands (op1a, op2a, op3a, op4a))
     | 0xE656us -> struct (Op.VCLFNH, FourOperands (op1a, op2a, op3a, op4a))
@@ -2620,10 +2576,8 @@ let parseVRR (bin: uint64) (state: State) =
     | 0xE65Dus -> struct (Op.VCFN, FourOperands (op1a, op2a, op3a, op4a))
     | 0xE65Eus -> struct (Op.VCLFNL, FourOperands (op1a, op2a, op3a, op4a))
     | 0xE65Fus -> struct (Op.VTP, OneOperand op1g)
-    | 0xE674us ->
-      struct (Op.VSCHP, FiveOperands (op1b, op2b, op3b, op4b, op5b))
-    | 0xE675us ->
-      struct (Op.VCRNF, FiveOperands (op1c, op2c, op3c, op4c, op5c))
+    | 0xE674us -> struct (Op.VSCHP, FiveOperands (op1b, op2b, op3b, op4b, op5b))
+    | 0xE675us -> struct (Op.VCRNF, FiveOperands (op1c, op2c, op3c, op4c, op5c))
     | 0xE677us -> struct (Op.VCP, ThreeOperands (op1h, op2h, op3h))
     | 0xE67Cus -> struct (Op.VSCSHP, ThreeOperands (op1b, op2b, op3b))
     | 0xE67Dus -> struct (Op.VCSPH, FourOperands (op1j, op2j, op3j, op4j))
@@ -2635,8 +2589,7 @@ let parseVRR (bin: uint64) (state: State) =
     | 0xE75Fus -> struct (Op.VSEG, ThreeOperands (op1a, op2a, op3a))
     | 0xE760us -> struct (Op.VMRL, FourOperands (op1c, op2c, op3c, op4c))
     | 0xE761us -> struct (Op.VMRH, FourOperands (op1c, op2c, op3c, op4c))
-    | 0xE762us ->
-      struct (Op.VLVGP, ThreeOperands (op1f, op2f, op3f))
+    | 0xE762us -> struct (Op.VLVGP, ThreeOperands (op1f, op2f, op3f))
     | 0xE764us -> struct (Op.VSUM, FourOperands (op1c, op2c, op3c, op4c))
     | 0xE765us -> struct (Op.VSUMG, FourOperands (op1c, op2c, op3c, op4c))
     | 0xE766us -> struct (Op.VCKSM, ThreeOperands (op1c, op2c, op3c))
@@ -2659,12 +2612,9 @@ let parseVRR (bin: uint64) (state: State) =
     | 0xE77Dus -> struct (Op.VSRLB, ThreeOperands (op1c, op2c, op3c))
     | 0xE77Eus -> struct (Op.VSRA, ThreeOperands (op1c, op2c, op3c))
     | 0xE77Fus -> struct (Op.VSRAB, ThreeOperands (op1c, op2c, op3c))
-    | 0xE780us ->
-      struct (Op.VFEE, FiveOperands (op1b, op2b, op3b, op4b, op5b))
-    | 0xE781us ->
-      struct (Op.VFENE, FiveOperands (op1b, op2b, op3b, op4b, op5b))
-    | 0xE782us ->
-      struct (Op.VFAE, FiveOperands (op1b, op2b, op3b, op4b, op5b))
+    | 0xE780us -> struct (Op.VFEE, FiveOperands (op1b, op2b, op3b, op4b, op5b))
+    | 0xE781us -> struct (Op.VFENE, FiveOperands (op1b, op2b, op3b, op4b, op5b))
+    | 0xE782us -> struct (Op.VFAE, FiveOperands (op1b, op2b, op3b, op4b, op5b))
     | 0xE784us -> struct (Op.VPDI, FourOperands (op1c, op2c, op3c, op4c))
     | 0xE785us -> struct (Op.VBPERM, ThreeOperands (op1c, op2c, op3c))
     | 0xE78Aus ->
@@ -2677,12 +2627,9 @@ let parseVRR (bin: uint64) (state: State) =
       struct (Op.VFMS, SixOperands (op1e, op2e, op3e, op4e, op5e, op6e))
     | 0xE78Fus ->
       struct (Op.VFMA, SixOperands (op1e, op2e, op3e, op4e, op5e, op6e))
-    | 0xE794us ->
-      struct (Op.VPK, FourOperands (op1c, op2c, op3c, op4c))
-    | 0xE795us ->
-      struct (Op.VPKLS, FiveOperands (op1b, op2b, op3b, op4b, op5b))
-    | 0xE797us ->
-      struct (Op.VPKS, FiveOperands (op1b, op2b, op3b, op4b, op5b))
+    | 0xE794us -> struct (Op.VPK, FourOperands (op1c, op2c, op3c, op4c))
+    | 0xE795us -> struct (Op.VPKLS, FiveOperands (op1b, op2b, op3b, op4b, op5b))
+    | 0xE797us -> struct (Op.VPKS, FiveOperands (op1b, op2b, op3b, op4b, op5b))
     | 0xE79Eus ->
       struct (Op.VFNMS, SixOperands (op1e, op2e, op3e, op4e, op5e, op6e))
     | 0xE79Fus ->
@@ -2694,49 +2641,32 @@ let parseVRR (bin: uint64) (state: State) =
     | 0xE7A5us -> struct (Op.VMLO, FourOperands (op1c, op2c, op3c, op4c))
     | 0xE7A6us -> struct (Op.VME, FourOperands (op1c, op2c, op3c, op4c))
     | 0xE7A7us -> struct (Op.VMO, FourOperands (op1c, op2c, op3c, op4c))
-    | 0xE7A9us ->
-      struct (Op.VMALH, FiveOperands (op1d, op2d, op3d, op4d, op5d))
-    | 0xE7AAus ->
-      struct (Op.VMAL, FiveOperands (op1d, op2d, op3d, op4d, op5d))
-    | 0xE7ABus ->
-      struct (Op.VMAH, FiveOperands (op1d, op2d, op3d, op4d, op5d))
-    | 0xE7ACus ->
-      struct (Op.VMALE, FiveOperands (op1d, op2d, op3d, op4d, op5d))
-    | 0xE7ADus ->
-      struct (Op.VMALO, FiveOperands (op1d, op2d, op3d, op4d, op5d))
-    | 0xE7AEus ->
-      struct (Op.VMAE, FiveOperands (op1d, op2d, op3d, op4d, op5d))
-    | 0xE7AFus ->
-      struct (Op.VMAO, FiveOperands (op1d, op2d, op3d, op4d, op5d))
+    | 0xE7A9us -> struct (Op.VMALH, FiveOperands (op1d, op2d, op3d, op4d, op5d))
+    | 0xE7AAus -> struct (Op.VMAL, FiveOperands (op1d, op2d, op3d, op4d, op5d))
+    | 0xE7ABus -> struct (Op.VMAH, FiveOperands (op1d, op2d, op3d, op4d, op5d))
+    | 0xE7ACus -> struct (Op.VMALE, FiveOperands (op1d, op2d, op3d, op4d, op5d))
+    | 0xE7ADus -> struct (Op.VMALO, FiveOperands (op1d, op2d, op3d, op4d, op5d))
+    | 0xE7AEus -> struct (Op.VMAE, FiveOperands (op1d, op2d, op3d, op4d, op5d))
+    | 0xE7AFus -> struct (Op.VMAO, FiveOperands (op1d, op2d, op3d, op4d, op5d))
     | 0xE7B4us -> struct (Op.VGFM, FourOperands (op1c, op2c, op3c, op4c))
     | 0xE7B8us ->
       struct (Op.VMSL, SixOperands (op1d, op2d, op3d, op4d, op5d, op6d))
     | 0xE7B9us -> struct (Op.VACCC, FourOperands (op1d, op2d, op3d, op4d))
-    | 0xE7BBus ->
-      struct (Op.VAC, FiveOperands (op1d, op2d, op3d, op4d, op5d))
-    | 0xE7BCus ->
-      struct (Op.VGFMA, FiveOperands (op1d, op2d, op3d, op4d, op5d))
+    | 0xE7BBus -> struct (Op.VAC, FiveOperands (op1d, op2d, op3d, op4d, op5d))
+    | 0xE7BCus -> struct (Op.VGFMA, FiveOperands (op1d, op2d, op3d, op4d, op5d))
     | 0xE7BDus ->
       struct (Op.VSBCBI, FiveOperands (op1d, op2d, op3d, op4d, op5d))
-    | 0xE7BFus ->
-      struct (Op.VSBI, FiveOperands (op1d, op2d, op3d, op4d, op5d))
-    | 0xE7C0us ->
-      struct (Op.VCLFP, FiveOperands (op1a, op2a, op3a, op4a, op5a))
-    | 0xE7C1us ->
-      struct (Op.VCFPL, FiveOperands (op1a, op2a, op3a, op4a, op5a))
-    | 0xE7C2us ->
-      struct (Op.VCSFP, FiveOperands (op1a, op2a, op3a, op4a, op5a))
-    | 0xE7C3us ->
-      struct (Op.VCFPS, FiveOperands (op1a, op2a, op3a, op4a, op5a))
+    | 0xE7BFus -> struct (Op.VSBI, FiveOperands (op1d, op2d, op3d, op4d, op5d))
+    | 0xE7C0us -> struct (Op.VCLFP, FiveOperands (op1a, op2a, op3a, op4a, op5a))
+    | 0xE7C1us -> struct (Op.VCFPL, FiveOperands (op1a, op2a, op3a, op4a, op5a))
+    | 0xE7C2us -> struct (Op.VCSFP, FiveOperands (op1a, op2a, op3a, op4a, op5a))
+    | 0xE7C3us -> struct (Op.VCFPS, FiveOperands (op1a, op2a, op3a, op4a, op5a))
     | 0xE7C4us -> struct (Op.VFLL, FourOperands (op1a, op2a, op3a, op4a))
-    | 0xE7C5us ->
-      struct (Op.VFLR, FiveOperands (op1a, op2a, op3a, op4a, op5a))
-    | 0xE7C7us ->
-      struct (Op.VFI, FiveOperands (op1a, op2a, op3a, op4a, op5a))
+    | 0xE7C5us -> struct (Op.VFLR, FiveOperands (op1a, op2a, op3a, op4a, op5a))
+    | 0xE7C7us -> struct (Op.VFI, FiveOperands (op1a, op2a, op3a, op4a, op5a))
     | 0xE7CAus -> struct (Op.WFK, FourOperands (op1a, op2a, op3a, op4a))
     | 0xE7CBus -> struct (Op.WFC, FourOperands (op1a, op2a, op3a, op4a))
-    | 0xE7CCus ->
-      struct (Op.VFPSO, FiveOperands (op1a, op2a, op3a, op4a, op5a))
+    | 0xE7CCus -> struct (Op.VFPSO, FiveOperands (op1a, op2a, op3a, op4a, op5a))
     | 0xE7CEus -> struct (Op.VFSQ, FourOperands (op1a, op2a, op3a, op4a))
     | 0xE7D4us -> struct (Op.VUPLL, ThreeOperands (op1a, op2a, op3a))
     | 0xE7D5us -> struct (Op.VUPLH, ThreeOperands (op1a, op2a, op3a))
@@ -2748,12 +2678,9 @@ let parseVRR (bin: uint64) (state: State) =
     | 0xE7DEus -> struct (Op.VLC, ThreeOperands (op1a, op2a, op3a))
     | 0xE7DFus -> struct (Op.VLP, ThreeOperands (op1a, op2a, op3a))
     | 0xE7E2us -> struct (Op.VFS, ThreeOperands (op1a, op2a, op3a))
-    | 0xE7E3us ->
-      struct (Op.VFA, FiveOperands (op1c, op2c, op3c, op4c, op5c))
-    | 0xE7E5us ->
-      struct (Op.VFD, FiveOperands (op1c, op2c, op3c, op4c, op5c))
-    | 0xE7E7us ->
-      struct (Op.VFM, FiveOperands (op1c, op2c, op3c, op4c, op5c))
+    | 0xE7E3us -> struct (Op.VFA, FiveOperands (op1c, op2c, op3c, op4c, op5c))
+    | 0xE7E5us -> struct (Op.VFD, FiveOperands (op1c, op2c, op3c, op4c, op5c))
+    | 0xE7E7us -> struct (Op.VFM, FiveOperands (op1c, op2c, op3c, op4c, op5c))
     | 0xE7E8us ->
       struct (Op.VFCE, SixOperands (op1c, op2c, op3c, op4c, op5c, op6c))
     | 0xE7EAus ->
@@ -2770,51 +2697,40 @@ let parseVRR (bin: uint64) (state: State) =
     | 0xE7F3us -> struct (Op.VA, FourOperands (op1c, op2c, op3c, op4c))
     | 0xE7F5us -> struct (Op.VSCBI, FourOperands (op1c, op2c, op3c, op4c))
     | 0xE7F7us -> struct (Op.VS, FourOperands (op1c, op2c, op3c, op4c))
-    | 0xE7F8us ->
-      struct (Op.VCEQ, FiveOperands (op1b, op2b, op3b, op4b, op5b))
-    | 0xE7F9us ->
-      struct (Op.VCHL, FiveOperands (op1b, op2b, op3b, op4b, op5b))
-    | 0xE7FBus ->
-      struct (Op.VCH, FiveOperands (op1b, op2b, op3b, op4b, op5b))
+    | 0xE7F8us -> struct (Op.VCEQ, FiveOperands (op1b, op2b, op3b, op4b, op5b))
+    | 0xE7F9us -> struct (Op.VCHL, FiveOperands (op1b, op2b, op3b, op4b, op5b))
+    | 0xE7FBus -> struct (Op.VCH, FiveOperands (op1b, op2b, op3b, op4b, op5b))
     | 0xE7FCus -> struct (Op.VMNL, FourOperands (op1c, op2c, op3c, op4c))
     | 0xE7FDus -> struct (Op.VMXL, FourOperands (op1c, op2c, op3c, op4c))
     | 0xE7FEus -> struct (Op.VMN, FourOperands (op1c, op2c, op3c, op4c))
     | 0xE7FFus -> struct (Op.VMX, FourOperands (op1c, op2c, op3c, op4c))
     | _ -> struct (Op.InvalOp, NoOperand)
-
   fillFmt op opr Fmt.VRR
 
 let parseVRS (bin: uint64) (state: State) =
   let opcode1 = extract48 bin 0 7 |> uint16
   let opcode2 = extract48 bin 40 47 |> uint16
   let opcode = opcode1 <<< 8 ||| opcode2
-
   let rxb = extract48 bin 36 39 |> uint16
   let toVR = getVR rxb
-
   let base2 = extract48 bin 16 19 |> uint16
   let disp2 = extract48 bin 20 31 |> uint32 |> DispU
   let op2 = OpStore (None, getR base2, disp2)
   let op2a=  OpStore (None, getAR base2, disp2)
   let b2op2 = modeSelect (state.Tm) op2 op2a
-
   let frag1 = extract48 bin 8 11 |> uint16
   let frag2 = extract48 bin 12 15 |> uint16
   let frag3 = extract48 bin 16 19 |> uint16
   let frag4 = extract48 bin 32 35 |> uint16
-
   let op1a = OpReg (toVR frag1 1us)
   let op3a = OpReg (toVR frag2 2us)
   let op4a = OpMask frag4
-
   let op1b = OpReg (toVR frag1 1us)
   let op3b = OpReg (getR frag2)
   let op4b = OpMask frag4
-
   let op1c = OpReg (getR frag1)
   let op3c = OpReg (toVR frag2 2us)
   let op4c = OpMask frag4
-
   let op1d = OpReg (toVR frag4 4us)
   let op3d = OpReg (getR frag2)
 
@@ -2833,26 +2749,21 @@ let parseVRS (bin: uint64) (state: State) =
     | 0xE73Eus -> struct (Op.VSTM, FourOperands (op1a, b2op2, op3a, op4a))
     | 0xE73Fus -> struct (Op.VSTL, ThreeOperands (op1b, b2op2, op3b))
     | _ -> struct (Op.InvalOp, NoOperand)
-
   fillFmt op opr Fmt.VRS
 
 let parseVRV (bin: uint64) (state: State) =
   let opcode1 = extract48 bin 0 7 |> uint16
   let opcode2 = extract48 bin 40 47 |> uint16
   let opcode = opcode1 <<< 8 ||| opcode2
-
   let rxb = extract48 bin 36 39 |> uint16
   let toVR = getVR rxb
-
   let op1 = toVR (extract48 bin 8 11 |> uint16) 1us |> OpReg
-
   let vidx2 = toVR (extract48 bin 12 15 |> uint16) 2us
   let base2 = extract48 bin 16 19 |> uint16
   let disp2 = extract48 bin 20 31 |> uint32 |> DispU
   let op2 = OpStore (Some vidx2, getR base2, disp2)
   let op2a = OpStore (Some vidx2, getAR base2, disp2)
   let b2op2 = modeSelect state.Tm op2 op2a
-
   let op3 = extract48 bin 32 35 |> uint16 |> OpMask
 
   let struct (op, opr) =
@@ -2862,17 +2773,14 @@ let parseVRV (bin: uint64) (state: State) =
     | 0xE71Aus -> struct (Op.VSCEG, ThreeOperands (op1, b2op2, op3))
     | 0xE71Bus -> struct (Op.VSCEF, ThreeOperands (op1, b2op2, op3))
     | _ -> struct (Op.InvalOp, NoOperand)
-
   fillFmt op opr Fmt.VRV
 
 let parseVRX (bin: uint64) (state: State) =
   let opcode1 = extract48 bin 0 7 |> uint16
   let opcode2 = extract48 bin 40 47 |> uint16
   let opcode = opcode1 <<< 8 ||| opcode2
-
   let rxb = extract48 bin 36 39 |> uint16
   let toVR = getVR rxb
-
   let op1 = OpReg (toVR (extract48 bin 8 11 |> uint16) 1us)
   let idx2 = Some (getR (extract48 bin 12 15 |> uint16))
   let base2 = extract48 bin 16 19 |> uint16
@@ -2880,7 +2788,6 @@ let parseVRX (bin: uint64) (state: State) =
   let op2 = OpStore (idx2, getR base2, disp2)
   let op2a = OpStore (idx2, getAR base2, disp2)
   let b2op2 = modeSelect state.Tm op2 op2a
-
   let op3 = OpMask (extract48 bin 32 35 |> uint16)
 
   let struct (op, opr) =
@@ -2910,17 +2817,14 @@ let parseVRX (bin: uint64) (state: State) =
     | 0xE70Bus -> struct (Op.VSTEF, ThreeOperands (op1, b2op2, op3))
     | 0xE70Eus -> struct (Op.VST, ThreeOperands (op1, b2op2, op3))
     | _ -> struct (Op.InvalOp, NoOperand)
-
   fillFmt op opr Fmt.VRX
 
 let parseVSI (bin: uint64) (state: State) =
   let opcode1 = extract48 bin 0 7 |> uint16
   let opcode2 = extract48 bin 40 47 |> uint16
   let opcode = opcode1 <<< 8 ||| opcode2
-
   let rxb = extract48 bin 36 39 |> uint16
   let toVR = getVR rxb
-
   let op1 = OpReg (toVR (extract48 bin 32 35 |> uint16) 4us)
   let base2 = extract48 bin 16 19 |> uint16
   let disp2 = extract48 bin 20 31 |> uint32 |> DispU
@@ -2936,12 +2840,10 @@ let parseVSI (bin: uint64) (state: State) =
     | 0xE63Cus -> struct (Op.VUPKZ, ThreeOperands (op1, b2op2, op3))
     | 0xE63Dus -> struct (Op.VSTRL, ThreeOperands (op1, b2op2, op3))
     | _ -> struct (Op.InvalOp, NoOperand)
-
   fillFmt op opr Fmt.VSI
 
 let parseIE (bin: uint32) (state: State) =
   let opcode = extract32 bin 0 15 |> uint16
-
   let op1 = BitVector.OfUInt32 (extract32 bin 24 27 |> uint32) 4<rt> |> ImmU4
   let op2 = BitVector.OfUInt32 (extract32 bin 28 31 |> uint32) 4<rt> |> ImmU4
 

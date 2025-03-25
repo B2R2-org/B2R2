@@ -44,7 +44,7 @@ type S39064RegisterFactory (wordSize, r: RegExprs) =
       r.CR8; r.CR9; r.CR10; r.CR11; r.CR12; r.CR13; r.CR14; r.CR15;
       r.AR0; r.AR1; r.AR2; r.AR3; r.AR4; r.AR5; r.AR6; r.AR7;
       r.AR8; r.AR9; r.AR10; r.AR11; r.AR12; r.AR13; r.AR14; r.AR15;
-      r.BEAR; r.PSW; ]
+      r.BEAR; r.PSW ]
 
   override __.GetAllRegNames () =
     __.GetAllRegExprs ()
@@ -52,7 +52,7 @@ type S39064RegisterFactory (wordSize, r: RegExprs) =
 
   override __.GetGeneralRegExprs () =
     [ r.R0; r.R1; r.R2; r.R3; r.R4; r.R5; r.R6; r.R7;
-      r.R8; r.R9; r.R10; r.R11; r.R12; r.R13; r.R14; r.R15; ]
+      r.R8; r.R9; r.R10; r.R11; r.R12; r.R13; r.R14; r.R15 ]
 
   override __.RegIDFromRegExpr (e) =
     match e.E with
