@@ -70,6 +70,11 @@ type DominanceTests () =
     |> (dom: IDominance<_, _>).PostDominators
     |> Seq.map (fun v -> v.VData) |> Set.ofSeq
 
+  let getPostDominanceFrontier dom g i =
+    (g: IDiGraph<_, _>).FindVertexByData i
+    |> (dom: IDominance<_, _>).PostDominanceFrontier
+    |> Seq.map (fun v -> v.VData) |> Set.ofSeq
+
   static member TestData =
     [| [| box Persistent; box DomIterative; box DFCytron |]
        [| box Persistent; box DomIterative; box DFCooper |]
@@ -194,6 +199,24 @@ type DominanceTests () =
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
+  member __.``Post-Dominance Frontier Test 1`` (t, domAlgo, dfAlgo) =
+    let g, _ = digraph1 t
+    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo
+    let df = getPostDominanceFrontier dom g 1
+    Assert.IsTrue (Set.isEmpty df)
+    let df = getPostDominanceFrontier dom g 2
+    Assert.IsTrue (Set.ofList [ 2 ] = df)
+    let df = getPostDominanceFrontier dom g 3
+    Assert.IsTrue (Set.ofList [ 2 ] = df)
+    let df = getPostDominanceFrontier dom g 4
+    Assert.IsTrue (Set.ofList [ 2 ] = df)
+    let df = getPostDominanceFrontier dom g 5
+    Assert.IsTrue (Set.ofList [ 2 ] = df)
+    let df = getPostDominanceFrontier dom g 6
+    Assert.IsTrue (Set.isEmpty df)
+
+  [<TestMethod>]
+  [<DynamicData(nameof DominanceTests.TestData)>]
   member __.``Immediate Dominator Test 2`` (t, domAlgo, dfAlgo) =
     let g, _ = digraph2 t
     let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo
@@ -284,6 +307,24 @@ type DominanceTests () =
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
+  member __.``Post-Dominance Frontier Test 2`` (t, domAlgo, dfAlgo) =
+    let g, _ = digraph2 t
+    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo
+    let df = getPostDominanceFrontier dom g 1
+    Assert.IsTrue (Set.isEmpty df)
+    let df = getPostDominanceFrontier dom g 2
+    Assert.IsTrue (Set.ofList [ 1 ] = df)
+    let df = getPostDominanceFrontier dom g 3
+    Assert.IsTrue (Set.ofList [ 1 ] = df)
+    let df = getPostDominanceFrontier dom g 4
+    Assert.IsTrue (Set.ofList [ 1; 4 ] = df)
+    let df = getPostDominanceFrontier dom g 5
+    Assert.IsTrue (Set.ofList [ 1 ] = df)
+    let df = getPostDominanceFrontier dom g 6
+    Assert.IsTrue (Set.ofList [ 4 ] = df)
+
+  [<TestMethod>]
+  [<DynamicData(nameof DominanceTests.TestData)>]
   member __.``Immediate Dominator Test 3`` (t, domAlgo, dfAlgo) =
     let g, _ = digraph3 t
     let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo
@@ -361,6 +402,22 @@ type DominanceTests () =
     Assert.IsTrue (Set.ofList [ 4 ] = pds)
     let pds = getPostDominators dom g 5
     Assert.IsTrue (Set.ofList [ 5 ] = pds)
+
+  [<TestMethod>]
+  [<DynamicData(nameof DominanceTests.TestData)>]
+  member __.``Post-Dominance Frontier Test 3`` (t, domAlgo, dfAlgo) =
+    let g, _ = digraph3 t
+    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo
+    let df = getPostDominanceFrontier dom g 1
+    Assert.IsTrue (Set.isEmpty df)
+    let df = getPostDominanceFrontier dom g 2
+    Assert.IsTrue (Set.ofList [ 1 ] = df)
+    let df = getPostDominanceFrontier dom g 3
+    Assert.IsTrue (Set.ofList [ 1 ] = df)
+    let df = getPostDominanceFrontier dom g 4
+    Assert.IsTrue (Set.ofList [ 1; 3 ] = df)
+    let df = getPostDominanceFrontier dom g 5
+    Assert.IsTrue (Set.ofList [ 3 ] = df)
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
@@ -524,6 +581,38 @@ type DominanceTests () =
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
+  member __.``Post-Dominance Frontier Test 4`` (t, domAlgo, dfAlgo) =
+    let g, _ = digraph4 t
+    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo
+    let df = getPostDominanceFrontier dom g 1
+    Assert.IsTrue (Set.isEmpty df)
+    let df = getPostDominanceFrontier dom g 2
+    Assert.IsTrue (Set.ofList [ 1 ] = df)
+    let df = getPostDominanceFrontier dom g 3
+    Assert.IsTrue (Set.ofList [ 1; 3 ] = df)
+    let df = getPostDominanceFrontier dom g 4
+    Assert.IsTrue (Set.ofList [ 1; 6 ] = df)
+    let df = getPostDominanceFrontier dom g 5
+    Assert.IsTrue (Set.ofList [ 1; 8 ] = df)
+    let df = getPostDominanceFrontier dom g 6
+    Assert.IsTrue (Set.ofList [ 5 ] = df)
+    let df = getPostDominanceFrontier dom g 7
+    Assert.IsTrue (Set.ofList [ 5 ] = df)
+    let df = getPostDominanceFrontier dom g 8
+    Assert.IsTrue (Set.ofList [ 6; 7 ] = df)
+    let df = getPostDominanceFrontier dom g 9
+    Assert.IsTrue (Set.ofList [ 1 ] = df)
+    let df = getPostDominanceFrontier dom g 10
+    Assert.IsTrue (Set.ofList [ 9 ] = df)
+    let df = getPostDominanceFrontier dom g 11
+    Assert.IsTrue (Set.ofList [ 9 ] = df)
+    let df = getPostDominanceFrontier dom g 12
+    Assert.IsTrue (Set.ofList [ 1; 7 ] = df)
+    let df = getPostDominanceFrontier dom g 13
+    Assert.IsTrue (Set.isEmpty df)
+
+  [<TestMethod>]
+  [<DynamicData(nameof DominanceTests.TestData)>]
   member __.``Immediate Dominator Test 5`` (t, domAlgo, dfAlgo) =
     let g, _ = digraph5 t
     let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo
@@ -611,6 +700,24 @@ type DominanceTests () =
     Assert.IsTrue (Set.ofList [ 5; 6 ] = pds)
     let pds = getPostDominators dom g 6
     Assert.IsTrue (Set.ofList [ 6 ] = pds)
+
+  [<TestMethod>]
+  [<DynamicData(nameof DominanceTests.TestData)>]
+  member __.``Post-Dominance Frontier Test 5`` (t, domAlgo, dfAlgo) =
+    let g, _ = digraph5 t
+    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo
+    let df = getPostDominanceFrontier dom g 1
+    Assert.IsTrue (Set.ofList [ 6 ] = df)
+    let df = getPostDominanceFrontier dom g 2
+    Assert.IsTrue (Set.ofList [ 1 ] = df)
+    let df = getPostDominanceFrontier dom g 3
+    Assert.IsTrue (Set.ofList [ 1 ] = df)
+    let df = getPostDominanceFrontier dom g 4
+    Assert.IsTrue (Set.ofList [ 1; 3 ] = df)
+    let df = getPostDominanceFrontier dom g 5
+    Assert.IsTrue (Set.ofList [ 3 ] = df)
+    let df = getPostDominanceFrontier dom g 6
+    Assert.IsTrue (Set.ofList [ 6 ] = df)
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
@@ -874,6 +981,58 @@ type DominanceTests () =
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
+  member __.``Post-Dominance Frontier Test 6`` (t, domAlgo, dfAlgo) =
+    let g, _ = digraph6 t
+    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo
+    let df = getPostDominanceFrontier dom g 1
+    Assert.IsTrue (Set.isEmpty df)
+    let df = getPostDominanceFrontier dom g 2
+    Assert.IsTrue (Set.ofList [ 1 ] = df)
+    let df = getPostDominanceFrontier dom g 3
+    Assert.IsTrue (Set.ofList [ 1 ] = df)
+    let df = getPostDominanceFrontier dom g 4
+    Assert.IsTrue (Set.ofList [ 2 ] = df)
+    let df = getPostDominanceFrontier dom g 5
+    Assert.IsTrue (Set.ofList [ 3 ] = df)
+    let df = getPostDominanceFrontier dom g 6
+    Assert.IsTrue (Set.ofList [ 3 ] = df)
+    let df = getPostDominanceFrontier dom g 7
+    Assert.IsTrue (Set.ofList [ 1 ] = df)
+    let df = getPostDominanceFrontier dom g 8
+    Assert.IsTrue (Set.ofList [ 5 ] = df)
+    let df = getPostDominanceFrontier dom g 9
+    Assert.IsTrue (Set.ofList [ 7 ] = df)
+    let df = getPostDominanceFrontier dom g 10
+    Assert.IsTrue (Set.ofList [ 3 ] = df)
+    let df = getPostDominanceFrontier dom g 11
+    Assert.IsTrue (Set.ofList [ 7 ] = df)
+    let df = getPostDominanceFrontier dom g 12
+    Assert.IsTrue (Set.ofList [ 9 ] = df)
+    let df = getPostDominanceFrontier dom g 13
+    Assert.IsTrue (Set.ofList [ 7 ] = df)
+    let df = getPostDominanceFrontier dom g 14
+    Assert.IsTrue (Set.ofList [ 13 ] = df)
+    let df = getPostDominanceFrontier dom g 15
+    Assert.IsTrue (Set.ofList [ 13 ] = df)
+    let df = getPostDominanceFrontier dom g 16
+    Assert.IsTrue (Set.ofList [ 7 ] = df)
+    let df = getPostDominanceFrontier dom g 17
+    Assert.IsTrue (Set.ofList [ 16 ] = df)
+    let df = getPostDominanceFrontier dom g 18
+    Assert.IsTrue (Set.ofList [ 7 ] = df)
+    let df = getPostDominanceFrontier dom g 19
+    Assert.IsTrue (Set.ofList [ 3; 18 ] = df)
+    let df = getPostDominanceFrontier dom g 20
+    Assert.IsTrue (Set.ofList [ 18 ] = df)
+    let df = getPostDominanceFrontier dom g 21
+    Assert.IsTrue (Set.ofList [ 19 ] = df)
+    let df = getPostDominanceFrontier dom g 22
+    Assert.IsTrue (Set.ofList [ 7; 18; 19 ] = df)
+    let df = getPostDominanceFrontier dom g 23
+    Assert.IsTrue (Set.ofList [ 19 ] = df)
+
+  [<TestMethod>]
+  [<DynamicData(nameof DominanceTests.TestData)>]
   member __.``Immediate Dominator Test 7`` (t, domAlgo, dfAlgo) =
     let g, _ = digraph7 t
     let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo
@@ -951,6 +1110,22 @@ type DominanceTests () =
     Assert.IsTrue (Set.ofList [ 4 ] = pds)
     let pds = getPostDominators dom g 5
     Assert.IsTrue (Set.ofList [ 5 ] = pds)
+
+  [<TestMethod>]
+  [<DynamicData(nameof DominanceTests.TestData)>]
+  member __.``Post-Dominance Frontier Test 7`` (t, domAlgo, dfAlgo) =
+    let g, _ = digraph7 t
+    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo
+    let df = getPostDominanceFrontier dom g 1
+    Assert.IsTrue (Set.isEmpty df)
+    let df = getPostDominanceFrontier dom g 2
+    Assert.IsTrue (Set.ofList [ 1 ] = df)
+    let df = getPostDominanceFrontier dom g 3
+    Assert.IsTrue (Set.ofList [ 1 ] = df)
+    let df = getPostDominanceFrontier dom g 4
+    Assert.IsTrue (Set.ofList [ 3; 1 ] = df)
+    let df = getPostDominanceFrontier dom g 5
+    Assert.IsTrue (Set.ofList [ 3 ] = df)
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
@@ -1064,6 +1239,28 @@ type DominanceTests () =
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
+  member __.``Post-Dominance Frontier Test 8`` (t, domAlgo, dfAlgo) =
+    let g, _ = digraph8 t
+    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo
+    let df = getPostDominanceFrontier dom g 1
+    Assert.IsTrue (Set.isEmpty df)
+    let df = getPostDominanceFrontier dom g 2
+    Assert.IsTrue (Set.ofList [ 5; 7 ] = df)
+    let df = getPostDominanceFrontier dom g 3
+    Assert.IsTrue (Set.ofList [ 5; 6; 7 ] = df)
+    let df = getPostDominanceFrontier dom g 4
+    Assert.IsTrue (Set.ofList [ 5; 6; 7 ] = df)
+    let df = getPostDominanceFrontier dom g 5
+    Assert.IsTrue (Set.ofList [ 5; 6; 7 ] = df)
+    let df = getPostDominanceFrontier dom g 6
+    Assert.IsTrue (Set.ofList [ 6; 7 ] = df)
+    let df = getPostDominanceFrontier dom g 7
+    Assert.IsTrue (Set.ofList [ 7 ] = df)
+    let df = getPostDominanceFrontier dom g 8
+    Assert.IsTrue (Set.isEmpty df)
+
+  [<TestMethod>]
+  [<DynamicData(nameof DominanceTests.TestData)>]
   member __.``Immediate Dominator Test 9`` (t, domAlgo, dfAlgo) =
     let g, _ = digraph9 t
     let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo
@@ -1174,6 +1371,28 @@ type DominanceTests () =
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
+  member __.``Post-Dominance Frontier Test 9`` (t, domAlgo, dfAlgo) =
+    let g, _ = digraph9 t
+    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo
+    let df = getPostDominanceFrontier dom g 1
+    Assert.IsTrue (Set.ofList [ 5 ] = df)
+    let df = getPostDominanceFrontier dom g 2
+    Assert.IsTrue (Set.ofList [ 5 ] = df)
+    let df = getPostDominanceFrontier dom g 3
+    Assert.IsTrue (Set.ofList [ 2; 4 ] = df)
+    let df = getPostDominanceFrontier dom g 4
+    Assert.IsTrue (Set.ofList [ 3; 8 ] = df)
+    let df = getPostDominanceFrontier dom g 5
+    Assert.IsTrue (Set.ofList [ 2 ] = df)
+    let df = getPostDominanceFrontier dom g 6
+    Assert.IsTrue (Set.ofList [ 6 ] = df)
+    let df = getPostDominanceFrontier dom g 7
+    Assert.IsTrue (Set.ofList [ 2; 6 ] = df)
+    let df = getPostDominanceFrontier dom g 8
+    Assert.IsTrue (Set.ofList [ 4 ] = df)
+
+  [<TestMethod>]
+  [<DynamicData(nameof DominanceTests.TestData)>]
   member __.``Immediate Dominator Test 10`` (t, domAlgo, dfAlgo) =
     let g, _ = digraph10 t
     let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo
@@ -1231,6 +1450,18 @@ type DominanceTests () =
     Assert.IsTrue (Set.ofList [ 2; 3 ] = pds)
     let pds = getPostDominators dom g 3
     Assert.IsTrue (Set.ofList [ 3 ] = pds)
+
+  [<TestMethod>]
+  [<DynamicData(nameof DominanceTests.TestData)>]
+  member __.``Post-Dominance Frontier Test 10`` (t, domAlgo, dfAlgo) =
+    let g, _ = digraph10 t
+    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo
+    let df = getPostDominanceFrontier dom g 1
+    Assert.IsTrue (Set.ofList [ 3 ] = df)
+    let df = getPostDominanceFrontier dom g 2
+    Assert.IsTrue (Set.ofList [ 3 ] = df)
+    let df = getPostDominanceFrontier dom g 3
+    Assert.IsTrue (Set.ofList [ 3 ] = df)
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
@@ -1361,6 +1592,32 @@ type DominanceTests () =
     Assert.IsTrue (Set.ofList [ 9 ] = pds)
     let pds = getPostDominators dom g 10
     Assert.IsTrue (Set.ofList [ 10 ] = pds)
+
+  [<TestMethod>]
+  [<DynamicData(nameof DominanceTests.TestData)>]
+  member __.``Post-Dominance Frontier Test 11`` (t, domAlgo, dfAlgo) =
+    let g, _ = digraph11 t
+    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo
+    let df = getPostDominanceFrontier dom g 1
+    Assert.IsTrue (Set.ofList [ 9 ] = df)
+    let df = getPostDominanceFrontier dom g 2
+    Assert.IsTrue (Set.ofList [ 1 ] = df)
+    let df = getPostDominanceFrontier dom g 3
+    Assert.IsTrue (Set.ofList [ 4; 8; 9 ] = df)
+    let df = getPostDominanceFrontier dom g 4
+    Assert.IsTrue (Set.ofList [ 4; 7; 8; 9 ] = df)
+    let df = getPostDominanceFrontier dom g 5
+    Assert.IsTrue (Set.ofList [ 4 ] = df)
+    let df = getPostDominanceFrontier dom g 6
+    Assert.IsTrue (Set.ofList [ 4 ] = df)
+    let df = getPostDominanceFrontier dom g 7
+    Assert.IsTrue (Set.ofList [ 7; 8; 9; 10 ] = df)
+    let df = getPostDominanceFrontier dom g 8
+    Assert.IsTrue (Set.ofList [ 8; 9; 10 ] = df)
+    let df = getPostDominanceFrontier dom g 9
+    Assert.IsTrue (Set.ofList [ 8 ] = df)
+    let df = getPostDominanceFrontier dom g 10
+    Assert.IsTrue (Set.ofList [ 8 ] = df)
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.ComparisonData)>]
