@@ -251,7 +251,7 @@ type private LengauerTarjanDominance<'V, 'E when 'V: equality and 'E: equality>
       GraphUtils.checkVertexInGraph g v
 #endif
       if isNull dfProvider then
-        dfProvider <- dfp.CreateIDominanceFrontier (g, __, true)
+        dfProvider <- dfp.CreateIDominanceFrontier (backwardG.Value, __, true)
       else ()
       dfProvider.DominanceFrontier v
 

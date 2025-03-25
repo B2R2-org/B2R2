@@ -189,7 +189,7 @@ type private CooperDominance<'V, 'E when 'V: equality and 'E: equality>
       GraphUtils.checkVertexInGraph g v
 #endif
       if isNull pdfProvider then
-        pdfProvider <- dfp.CreateIDominanceFrontier (g, __, true)
+        pdfProvider <- dfp.CreateIDominanceFrontier (backwardG.Value, __, true)
       else ()
       pdfProvider.DominanceFrontier v
 

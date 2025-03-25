@@ -133,10 +133,10 @@ type private IterativeDominance<'V, 'E when 'V: equality and 'E: equality>
 #if DEBUG
       GraphUtils.checkVertexInGraph g v
 #endif
-      if isNull dfProvider then
-        dfProvider <- dfp.CreateIDominanceFrontier (g, __, true)
+      if isNull pdfProvider then
+        pdfProvider <- dfp.CreateIDominanceFrontier (backwardG.Value, __, true)
       else ()
-      dfProvider.DominanceFrontier v
+      pdfProvider.DominanceFrontier v
 
 [<CompiledName "Create">]
 let create g (dfp: IDominanceFrontierProvider<_, _>) =

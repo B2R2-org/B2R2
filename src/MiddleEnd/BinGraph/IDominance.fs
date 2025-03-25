@@ -47,11 +47,12 @@ and IDominanceFrontier<'V, 'E when 'V: equality and 'E: equality> =
 /// Interface for providing dominance frontier instances.
 and IDominanceFrontierProvider<'V, 'E when 'V: equality and 'E: equality> =
   /// Return IDominanceFrontier instance using the given graph and the
-  /// IDominance instance.
+  /// IDominance instance. The third argument `isPostDominance` is a boolean
+  /// flag indicating whether the dominance frontier is for post-dominance.
   abstract CreateIDominanceFrontier:
-      IDiGraphAccessible<'V, 'E>
-    * IDominance<'V, 'E>
-    * bool
+      g: IDiGraphAccessible<'V, 'E>
+    * dom: IDominance<'V, 'E>
+    * isPostDominance: bool
    -> IDominanceFrontier<'V, 'E>
 
 /// Dominator tree interface. A dominator tree is a tree where each node's
@@ -61,12 +62,19 @@ and DominatorTree<'V, 'E when 'V: equality
   public (g: IDiGraphAccessible<'V, 'E>, getIDom: IVertex<'V> -> IVertex<'V>) =
 
   let domTree = Dictionary<IVertex<'V>, List<IVertex<'V>>> ()
+  let dummyRoot = GraphUtils.makeDummyVertex ()
 
-  do g.IterVertex (fun v ->
-       let idom = getIDom v
-       if isNull idom then ()
-       elif domTree.ContainsKey idom then domTree[idom].Add v
-       else domTree[idom] <- List [ v ])
+  do
+    domTree[dummyRoot] <- List ()
+    g.IterVertex (fun v ->
+      let idom = getIDom v
+      if isNull idom then domTree[dummyRoot].Add v
+      elif domTree.ContainsKey idom then domTree[idom].Add v
+      else domTree[idom] <- List [ v ])
+
+  /// Get the dummy root. Dummy root points to all the roots of the dominator
+  /// tree.
+  member _.GetRoot () = dummyRoot
 
   /// Get the children of a vertex in the dominator tree.
   member _.GetChildren (v: IVertex<'V>) =

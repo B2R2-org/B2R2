@@ -30,17 +30,18 @@ open B2R2.MiddleEnd.BinGraph
 /// Dominance frontier algorithm presented by Cooper et al. in their paper
 /// "A Simple, Fast Dominance Algorithm", SPE 2001.
 type CooperDominanceFrontier<'V, 'E when 'V: equality and 'E: equality> () =
-  let computeDF (g: IDiGraphAccessible<_, _>) dom isReversed =
+  let computeDF (g: IDiGraphAccessible<_, _>) dom isPostDominance =
     let idom =
-      if isReversed then (dom: IDominance<_, _>).ImmediatePostDominator
+      if isPostDominance then (dom: IDominance<_, _>).ImmediatePostDominator
       else dom.ImmediateDominator
     let frontiers = Dictionary<IVertex<_>, HashSet<IVertex<_>>> ()
-    let root = g.SingleRoot
+    let roots = g.GetRoots ()
     for v in g.Vertices do frontiers[v] <- HashSet<IVertex<_>> ()
     for v in g.Vertices do
       let preds = g.GetPreds v
-      if (v <> root && preds.Length < 2) ||
-         (v = root && preds.Length = 0) then ()
+      let isRoot = Array.contains v roots
+      if not isRoot && preds.Length < 2 ||
+         isRoot && preds.Length = 0 then ()
       else
         for p in preds do
           let mutable runner = p
@@ -50,7 +51,7 @@ type CooperDominanceFrontier<'V, 'E when 'V: equality and 'E: equality> () =
     frontiers
 
   interface IDominanceFrontierProvider<'V, 'E> with
-    member _.CreateIDominanceFrontier (g, dom, isReversed) =
-      let frontiers = computeDF g dom isReversed
+    member _.CreateIDominanceFrontier (g, dom, isPostDominance) =
+      let frontiers = computeDF g dom isPostDominance
       { new IDominanceFrontier<'V, 'E> with
           member _.DominanceFrontier (v) = frontiers[v] }
