@@ -125,60 +125,74 @@ let private idom (idoms: Dictionary<_, IVertex<_>>) v =
   if idom.ID = -1 then null
   else idom
 
-let private createForward g (dfp: IDominanceFrontierProvider<_, _>) =
+let private createDomInfo g (dfp: IDominanceFrontierProvider<_, _>) =
   let idoms = computeDominance g
   let domTree = lazy DominatorTree (g, fun v -> idom idoms v)
+  idoms, domTree
+
+
+type private CooperDominance<'V, 'E when 'V: equality and 'E: equality>
+  (g, dfp) =
+  let forward = createDomInfo g dfp
+  let backwardG = lazy (GraphUtils.findExits g |> g.Reverse)
+  let backward = lazy (createDomInfo backwardG.Value dfp)
   let mutable dfProvider = null
-  { new IForwardDominance<'V, 'E> with
-      member __.Dominators v =
+  let mutable pdfProvider = null
+  interface IDominance<'V, 'E> with
+    member __.Dominators v =
 #if DEBUG
-        GraphUtils.checkVertexInGraph g v
+      GraphUtils.checkVertexInGraph g v
 #endif
-        doms [v] v idoms
+      let idoms, _ = forward
+      doms [v] v idoms
 
-      member __.ImmediateDominator v =
+    member __.ImmediateDominator v =
 #if DEBUG
-        GraphUtils.checkVertexInGraph g v
+      GraphUtils.checkVertexInGraph g v
 #endif
-        idom idoms v
+      let idoms, _ = forward
+      idom idoms v
 
-      member __.DominatorTree = domTree.Value
+    member __.DominatorTree =
+      let _, domTree = forward
+      domTree.Value
 
-      member __.DominanceFrontier v =
+    member __.DominanceFrontier v =
 #if DEBUG
-        GraphUtils.checkVertexInGraph g v
+      GraphUtils.checkVertexInGraph g v
 #endif
-        if isNull dfProvider then
-          dfProvider <- dfp.CreateIDominanceFrontier (g, __)
-        else ()
-        dfProvider.DominanceFrontier v }
+      if isNull dfProvider then
+        dfProvider <- dfp.CreateIDominanceFrontier (g, __, false)
+      else ()
+      dfProvider.DominanceFrontier v
+
+    member __.PostDominators v =
+#if DEBUG
+      GraphUtils.checkVertexInGraph g v
+#endif
+      let idoms, _ = backward.Value
+      doms [v] v idoms
+
+    member __.ImmediatePostDominator v =
+#if DEBUG
+      GraphUtils.checkVertexInGraph g v
+#endif
+      let idoms, _ = backward.Value
+      idom idoms v
+
+      member __.PostDominatorTree =
+        let _, domTree = backward.Value
+        domTree.Value
+
+    member __.PostDominanceFrontier v =
+#if DEBUG
+      GraphUtils.checkVertexInGraph g v
+#endif
+      if isNull pdfProvider then
+        pdfProvider <- dfp.CreateIDominanceFrontier (g, __, true)
+      else ()
+      pdfProvider.DominanceFrontier v
 
 [<CompiledName "Create">]
 let create g (dfp: IDominanceFrontierProvider<_, _>) =
-  let backwardG = lazy (GraphUtils.findExits g |> g.Reverse)
-  let forwardDom = createForward g dfp
-  let backwardDom = lazy (createForward backwardG.Value dfp)
-  { new IDominance<'V, 'E> with
-      member __.Dominators v =
-        forwardDom.Dominators v
-
-      member __.ImmediateDominator v =
-        forwardDom.ImmediateDominator v
-
-      member __.DominatorTree =
-        forwardDom.DominatorTree
-
-      member __.DominanceFrontier v =
-        forwardDom.DominanceFrontier v
-
-      member __.PostDominators v =
-        backwardDom.Value.Dominators v
-
-      member __.ImmediatePostDominator v =
-        backwardDom.Value.ImmediateDominator v
-
-      member __.PostDominatorTree =
-        backwardDom.Value.DominatorTree
-
-      member __.PostDominanceFrontier v =
-        backwardDom.Value.DominanceFrontier v }
+  CooperDominance (g, dfp) :> IDominance<_, _>

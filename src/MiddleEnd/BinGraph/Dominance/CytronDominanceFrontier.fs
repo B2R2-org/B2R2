@@ -41,17 +41,21 @@ type CytronDominanceFrontier<'V, 'E when 'V: equality and 'E: equality> () =
     stack2
 
   /// Compute dominance frontiers.
-  let computeDF (g: IDiGraphAccessible<_, _>) (dom: IForwardDominance<_, _>) =
+  let computeDF (g: IDiGraphAccessible<_, _>) dom isReversed =
+    let domTree, idom =
+      if isReversed then
+        (dom: IDominance<_, _>).PostDominatorTree, dom.ImmediatePostDominator
+      else dom.DominatorTree, dom.ImmediateDominator
     let frontiers = Dictionary<IVertex<_>, HashSet<IVertex<_>>> ()
-    for v in traverseBottomUp dom.DominatorTree g.SingleRoot do
+    for v in traverseBottomUp domTree g.SingleRoot do
       let df = HashSet<IVertex<_>> ()
       for succ in g.GetSuccs v do
-        if dom.ImmediateDominator succ <> v then df.Add succ |> ignore
+        if idom succ <> v then df.Add succ |> ignore
         else ()
       done
-      for child in dom.DominatorTree.GetChildren v do
+      for child in domTree.GetChildren v do
         for node in frontiers[child] do
-          if dom.ImmediateDominator node <> v then df.Add node |> ignore
+          if idom node <> v then df.Add node |> ignore
           else ()
         done
       done
@@ -59,7 +63,7 @@ type CytronDominanceFrontier<'V, 'E when 'V: equality and 'E: equality> () =
     frontiers
 
   interface IDominanceFrontierProvider<'V, 'E> with
-    member _.CreateIDominanceFrontier (g, dom) =
-      let frontiers = computeDF g dom
+    member _.CreateIDominanceFrontier (g, dom, isReversed) =
+      let frontiers = computeDF g dom isReversed
       { new IDominanceFrontier<'V, 'E> with
           member _.DominanceFrontier (v) = frontiers[v] }

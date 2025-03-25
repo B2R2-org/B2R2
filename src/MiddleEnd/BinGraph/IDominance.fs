@@ -26,32 +26,16 @@ namespace B2R2.MiddleEnd.BinGraph
 
 open System.Collections.Generic
 
-/// Interface for computing forward and backward dominance relationships of
-/// nodes in digraphs.
-type IDominance<'V, 'E when 'V: equality and 'E: equality> =
-  abstract member Dominators : IVertex<'V> -> IEnumerable<IVertex<'V>>
-  abstract member ImmediateDominator : IVertex<'V> -> IVertex<'V>
-  abstract member DominatorTree : DominatorTree<'V, 'E>
-  abstract member DominanceFrontier : IVertex<'V> -> IEnumerable<IVertex<'V>>
-  abstract member PostDominators: IVertex<'V> -> IEnumerable<IVertex<'V>>
-  abstract member ImmediatePostDominator: IVertex<'V> -> IVertex<'V>
-  abstract member PostDominatorTree: DominatorTree<'V, 'E>
-  abstract member PostDominanceFrontier: IVertex<'V> -> IEnumerable<IVertex<'V>>
-
 /// Interface for computing dominance relationships of nodes in digraphs.
-and IForwardDominance<'V, 'E when 'V: equality and 'E: equality> =
-  inherit IDominanceFrontier<'V, 'E>
-
-  // Get the dominators of a vertex.
-  abstract member Dominators: IVertex<'V> -> IEnumerable<IVertex<'V>>
-
-  /// Get the immediate dominator of a vertex, which is the vertex that strictly
-  /// dominates the vertex and is closest to the vertex. If the vertex is a root
-  /// vertex, then the immediate dominator is `null`.
-  abstract member ImmediateDominator: IVertex<'V> -> IVertex<'V>
-
-  /// Get the dominator tree of the given implementation type.
-  abstract member DominatorTree: DominatorTree<'V, 'E>
+type IDominance<'V, 'E when 'V: equality and 'E: equality> =
+  abstract Dominators : IVertex<'V> -> IEnumerable<IVertex<'V>>
+  abstract ImmediateDominator : IVertex<'V> -> IVertex<'V>
+  abstract DominatorTree : DominatorTree<'V, 'E>
+  abstract DominanceFrontier : IVertex<'V> -> IEnumerable<IVertex<'V>>
+  abstract PostDominators: IVertex<'V> -> IEnumerable<IVertex<'V>>
+  abstract ImmediatePostDominator: IVertex<'V> -> IVertex<'V>
+  abstract PostDominatorTree: DominatorTree<'V, 'E>
+  abstract PostDominanceFrontier: IVertex<'V> -> IEnumerable<IVertex<'V>>
 
 /// Interface for computing dominance frontier of nodes in digraphs.
 and IDominanceFrontier<'V, 'E when 'V: equality and 'E: equality> =
@@ -66,7 +50,8 @@ and IDominanceFrontierProvider<'V, 'E when 'V: equality and 'E: equality> =
   /// IDominance instance.
   abstract CreateIDominanceFrontier:
       IDiGraphAccessible<'V, 'E>
-    * IForwardDominance<'V, 'E>
+    * IDominance<'V, 'E>
+    * bool
    -> IDominanceFrontier<'V, 'E>
 
 /// Dominator tree interface. A dominator tree is a tree where each node's

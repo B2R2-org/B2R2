@@ -28,7 +28,7 @@ module B2R2.MiddleEnd.BinGraph.Dominance.IterativeDominance
 open System.Collections.Generic
 open B2R2.MiddleEnd.BinGraph
 
-let computeDoms (g: IDiGraphAccessible<_, _>) =
+let private computeDoms (g: IDiGraphAccessible<_, _>) =
   let doms = Dictionary<IVertex<_>, Set<IVertex<_>>> ()
   let roots = g.GetRoots ()
   let allButRoots = List ()
@@ -49,8 +49,8 @@ let computeDoms (g: IDiGraphAccessible<_, _>) =
       else ()
   doms
 
-let computeIDoms (g: IDiGraphAccessible<_, _>) (doms: Dictionary<_, _>) =
-  let roots = g.GetRoots ()
+let private computeIDoms g (doms: Dictionary<_, _>) =
+  let roots = (g: IDiGraphAccessible<_, _>).GetRoots ()
   let idoms = Dictionary<IVertex<_>, IVertex<_>> ()
   let tmps = Dictionary<IVertex<_>, Set<IVertex<_>>> ()
   for v in g.Vertices do tmps[v] <- Set.remove v doms[v]
@@ -69,62 +69,75 @@ let computeIDoms (g: IDiGraphAccessible<_, _>) (doms: Dictionary<_, _>) =
       idoms[v] <- if Set.isEmpty tmps[v] then null else tmps[v].MinimumElement
   idoms
 
-let createForward g (dfp: IDominanceFrontierProvider<_, _>) =
+let private createDomInfo g (dfp: IDominanceFrontierProvider<_, _>) =
   let doms = lazy computeDoms g
   let idoms = lazy computeIDoms g doms.Value
   let idom v = idoms.Value[v]
   let domTree = lazy DominatorTree (g, idom)
+  doms, idoms, domTree
+
+type private IterativeDominance<'V, 'E when 'V: equality and 'E: equality>
+  (g, dfp) =
+  let forward = createDomInfo g dfp
+  let backwardG = lazy (GraphUtils.findExits g |> g.Reverse)
+  let backward = lazy (createDomInfo backwardG.Value dfp)
   let mutable dfProvider = null
-  { new IForwardDominance<'V, 'E> with
-      member __.Dominators v =
+  let mutable pdfProvider = null
+  interface IDominance<'V, 'E> with
+    member __.Dominators v =
 #if DEBUG
-        GraphUtils.checkVertexInGraph g v
+      GraphUtils.checkVertexInGraph g v
 #endif
-        doms.Value[v]
+      let doms, _, _ = forward
+      doms.Value[v]
 
-      member __.ImmediateDominator v =
+    member __.ImmediateDominator v =
 #if DEBUG
-        GraphUtils.checkVertexInGraph g v
+      GraphUtils.checkVertexInGraph g v
 #endif
-        idom v
+      let _, idoms, _ = forward
+      idoms.Value[v]
 
-      member __.DominatorTree = domTree.Value
+    member __.DominatorTree =
+      let _, _, domTree = forward
+      domTree.Value
 
-      member __.DominanceFrontier v =
+    member __.DominanceFrontier v =
 #if DEBUG
-        GraphUtils.checkVertexInGraph g v
+      GraphUtils.checkVertexInGraph g v
 #endif
-        if isNull dfProvider then
-          dfProvider <- dfp.CreateIDominanceFrontier (g, __)
-        else ()
-        dfProvider.DominanceFrontier v }
+      if isNull dfProvider then
+        dfProvider <- dfp.CreateIDominanceFrontier (g, __, false)
+      else ()
+      dfProvider.DominanceFrontier v
+
+    member __.PostDominators v =
+#if DEBUG
+      GraphUtils.checkVertexInGraph g v
+#endif
+      let doms, _, _ = backward.Value
+      doms.Value[v]
+
+    member __.ImmediatePostDominator v =
+#if DEBUG
+      GraphUtils.checkVertexInGraph g v
+#endif
+      let _, idoms, _ = backward.Value
+      idoms.Value[v]
+
+    member __.PostDominatorTree =
+      let _, _, domTree = backward.Value
+      domTree.Value
+
+    member __.PostDominanceFrontier v =
+#if DEBUG
+      GraphUtils.checkVertexInGraph g v
+#endif
+      if isNull dfProvider then
+        dfProvider <- dfp.CreateIDominanceFrontier (g, __, true)
+      else ()
+      dfProvider.DominanceFrontier v
 
 [<CompiledName "Create">]
 let create g (dfp: IDominanceFrontierProvider<_, _>) =
-  let backwardG = lazy (GraphUtils.findExits g |> g.Reverse)
-  let forwardDom = createForward g dfp
-  let backwardDom = lazy (createForward backwardG.Value dfp)
-  { new IDominance<'V, 'E> with
-      member __.Dominators v =
-        forwardDom.Dominators v
-
-      member __.ImmediateDominator v =
-        forwardDom.ImmediateDominator v
-
-      member __.DominatorTree =
-        forwardDom.DominatorTree
-
-      member __.DominanceFrontier v =
-        forwardDom.DominanceFrontier v
-
-      member __.PostDominators v =
-        backwardDom.Value.Dominators v
-
-      member __.ImmediatePostDominator v =
-        backwardDom.Value.ImmediateDominator v
-
-      member __.PostDominatorTree =
-        backwardDom.Value.DominatorTree
-
-      member __.PostDominanceFrontier v =
-        backwardDom.Value.DominanceFrontier v }
+  IterativeDominance (g, dfp) :> IDominance<'V, 'E>
