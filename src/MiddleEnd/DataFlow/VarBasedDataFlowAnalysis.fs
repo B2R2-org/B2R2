@@ -30,7 +30,6 @@ open B2R2.FrontEnd
 open B2R2.MiddleEnd.DataFlow
 open B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.MiddleEnd.BinGraph
-open B2R2.MiddleEnd.BinGraph.Dominator
 open System.Collections.Generic
 
 type VarBasedDataFlowAnalysis<'Lattice>
@@ -96,7 +95,7 @@ type VarBasedDataFlowAnalysis<'Lattice>
   let findDefVars g state (defSites: Dictionary<_, _>) globals =
     let varKill = HashSet ()
     let stackState = (state: VarBasedDataFlowState<_>).StackPointerSubState
-    for v in (g: IGraph<_, _>).Vertices do
+    for v in (g: IDiGraph<_, _>).Vertices do
       varKill.Clear ()
       for (stmt, pp) in state.GetStmtInfos v do
         match stmt.S with
@@ -123,8 +122,7 @@ type VarBasedDataFlowAnalysis<'Lattice>
       state.PhiInfos[v] <- dict
       dict
 
-  let placePhis state domCtx globals defSites (frontiers: _[]) =
-    let domInfo = domCtx.ForwardDomInfo
+  let placePhis state (dom: IDominance<_, _>) globals defSites =
     let phiSites = HashSet ()
     for varKind in globals do
       let workList =
@@ -134,7 +132,7 @@ type VarBasedDataFlowAnalysis<'Lattice>
       phiSites.Clear ()
       while workList.Count <> 0 do
         let node: IVertex<LowUIRBasicBlock> = workList.Dequeue ()
-        let frontier = frontiers[domInfo.DFNumMap[node.ID]]
+        let frontier = dom.DominanceFrontier node
         for df: IVertex<LowUIRBasicBlock> in frontier do
           if phiSites.Contains df then ()
           else
@@ -277,7 +275,7 @@ type VarBasedDataFlowAnalysis<'Lattice>
   let updateChainsWithBBLStmts g (state: VarBasedDataFlowState<_>) v defs =
     let blkAddr = (v: IVertex<LowUIRBasicBlock>).VData.Internals.PPoint.Address
     let intraBlockContinues =
-      (g: IGraph<_, _>).GetSuccEdges v
+      (g: IDiGraph<_, _>).GetSuccEdges v
       |> Array.exists (fun e -> isIntraEdge e.Label)
     let stmtInfos = state.GetStmtInfos v
     let mutable outs = defs
@@ -296,15 +294,10 @@ type VarBasedDataFlowAnalysis<'Lattice>
     visited.Add v |> ignore
     let ins = updateIncomingDefsWithPhis state v ins
     let outs = updateChainsWithBBLStmts g state v ins
-    traverseSuccessors g state domTree outs visited (Map.find v domTree)
+    for child in (domTree: DominatorTree<_, _>).GetChildren v do
+      update g state domTree visited child outs
     state.PerVertexIncomingDefs[v] <- ins
     state.PerVertexOutgoingDefs[v] <- outs
-
-  and traverseSuccessors g state domTree outs visited = function
-    | succ :: rest ->
-      update g state domTree visited succ outs
-      traverseSuccessors g state domTree outs visited rest
-    | [] -> ()
 
   let getOutgoingDefs (state: VarBasedDataFlowState<_>) v =
     match state.PerVertexOutgoingDefs.TryGetValue v with
@@ -312,24 +305,23 @@ type VarBasedDataFlowAnalysis<'Lattice>
     | true, defs -> defs
 
   /// We only visit the vertices that have changed and update data-flow chains.
-  let rec incrementalUpdate g state domTree visited domInfo v =
+  let rec incrementalUpdate g state visited (dom: IDominance<_, _>) v =
     if (visited: HashSet<_>).Contains v then ()
     elif (state: VarBasedDataFlowState<_>).IsVertexPending v
-         && (g: IGraph<_, _>).HasVertex v.ID then
-      let dfnum = domInfo.DFNumMap[v.ID]
-      let idomNum = domInfo.IDom[dfnum]
-      let idom = domInfo.Vertex[idomNum]
-      update g state domTree visited v (getOutgoingDefs state idom)
+         && (g: IDiGraph<_, _>).HasVertex v.ID then
+      let idom = dom.ImmediateDominator v
+      let defs = if isNull idom then Map.empty else getOutgoingDefs state idom
+      update g state dom.DominatorTree visited v defs
     else
-      for child in Map.find v domTree do
-        incrementalUpdate g state domTree visited domInfo child
+      for child in dom.DominatorTree.GetChildren v do
+        incrementalUpdate g state visited dom child
 
 #if DEBUG
   let hasProperPhiOperandNumbers state g v =
     match (state: VarBasedDataFlowState<_>).PhiInfos.TryGetValue v with
     | false, _ -> true
     | true, phiInfo ->
-      let predCount = (g: IGraph<_, _>).GetPreds v |> Seq.length
+      let predCount = (g: IDiGraph<_, _>).GetPreds v |> Seq.length
       phiInfo.Values |> Seq.forall (fun d -> d.Count <= predCount)
 #endif
 
@@ -359,7 +351,7 @@ type VarBasedDataFlowAnalysis<'Lattice>
       match state.PhiInfos.TryGetValue v with
       | true, phiInfo ->
         for (KeyValue (vk, inDefs)) in phiInfo do
-          for pred in (g: IGraph<_, _>).GetPreds v do
+          for pred in (g: IDiGraph<_, _>).GetPreds v do
             match Map.tryFind vk <| getOutgoingDefs state pred with
             | None -> ()
             | Some def ->
@@ -375,15 +367,13 @@ type VarBasedDataFlowAnalysis<'Lattice>
   /// worst-case time complexity as the original algorithm, but it is more
   /// efficient for incremental changes in practice since its search space is
   /// reduced to the affected vertices that are possibly updated.
-  let calculateChains g state domCtx domTree frontiers =
+  let calculateChains g state dom =
     let globals = HashSet<VarKind> ()
     let defSites = Dictionary<VarKind, List<IVertex<LowUIRBasicBlock>>> ()
     let visited = HashSet<IVertex<LowUIRBasicBlock>> ()
-    let domInfo = domCtx.ForwardDomInfo
-    let root = domCtx.ForwardRoot
     findDefVars g state defSites globals
-    placePhis state domCtx globals defSites frontiers
-    incrementalUpdate g state domTree visited domInfo root
+    placePhis state dom globals defSites
+    incrementalUpdate g state visited dom g.SingleRoot
     updatePhis g state visited
 
   let isStackRelatedRegister rid =
@@ -484,7 +474,7 @@ type VarBasedDataFlowAnalysis<'Lattice>
     | true, phiInfo ->
       transferPhi state subState phiInfo v.VData.Internals.PPoint
     for stmt in state.GetStmtInfos v do fnTransfer state stmt done
-    (g: IGraph<_, _>).GetSuccs v
+    (g: IDiGraph<_, _>).GetSuccs v
     |> Array.map (fun succ -> v, succ)
     |> Array.iter subState.FlowQueue.Enqueue
 
@@ -494,7 +484,7 @@ type VarBasedDataFlowAnalysis<'Lattice>
     | true, (src, dst) ->
       if not <| subState.ExecutedFlows.Add (src, dst) then ()
       else
-        match (g: IGraph<_, _>).TryFindVertexByID dst.ID with
+        match (g: IDiGraph<_, _>).TryFindVertexByID dst.ID with
         | Some v -> transferFlow state subState g v fnTransfer
         | None -> ()
 
@@ -528,13 +518,12 @@ type VarBasedDataFlowAnalysis<'Lattice>
 
     /// Compute the data flow incrementally.
     member __.Compute g state =
-      let domCtx = initDominatorContext g
-      let domTree, _ = dominatorTree domCtx
-      let domFrontiers = frontiers domCtx
+      let df = Dominance.CooperDominanceFrontier ()
+      let dom = Dominance.LengauerTarjanDominance.create g df
       removeInvalidChains state
-      calculateChains g state domCtx domTree domFrontiers
+      calculateChains g state dom
       propagateStackPointer g state
-      calculateChains g state domCtx domTree domFrontiers
+      calculateChains g state dom
       propagateDomain g state
       state.ClearPendingVertices ()
       state

@@ -32,6 +32,7 @@ a list of the contributors in alphabetic order.
 - Hyungseok Kim
 - Jaemin Kim
 - Kangsu Kim
+- Sehoon Kim
 - Yeonghun Kim
 - JeongWoo Lee
 - Junoh Lee

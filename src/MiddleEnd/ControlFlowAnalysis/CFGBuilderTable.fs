@@ -78,7 +78,7 @@ type CFGBuilderTable<'FnCtx,
            function. *)
         let mode = ArchOperationMode.NoMode
         let builder = getOrCreateInternalBuilder null fnAddr mode
-        builders[range.Min] <- builder
+        builders[fnAddr] <- builder
       | Error _ ->
         let addr, name = entry.TrampolineAddress, entry.FuncName
         let isNoRet = ELF.getNoReturnStatusFromKnownFunc name

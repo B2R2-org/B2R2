@@ -26,78 +26,70 @@ module B2R2.MiddleEnd.BinGraph.SCC
 
 open System.Collections.Generic
 
-type private SCCInfo<'V when 'V: equality> = {
-  /// Vertex ID -> DFNum
-  DFNumMap: Dictionary<VertexID, int>
-  /// DFNum -> Vertex
-  Vertex: IVertex<'V>[]
-  /// DFNum -> LowLink
-  LowLink: int[]
-}
+/// Tarjan's strongly connected components algorithm.
+module Tarjan =
+  type private SCCStatus<'V when 'V: equality> = {
+    mutable CurrentDFNum: int
+    /// Vertex -> DFNum (depth-first number).
+    DFNums: Dictionary<IVertex<'V>, int>
+    /// DFNum -> Vertex
+    Vertices: IVertex<'V>[]
+    /// DFNum -> LowLink. LowLink is the smallest DFNum reachable from the
+    /// current vertex.
+    LowLinks: int[]
+    /// DFNum -> bool. True if the vertex is on the stack.
+    OnStackStatus: bool[]
+    /// Stack for storing vertices of the current SCC.
+    Stack: Stack<IVertex<'V>>
+    /// List of strongly connected components.
+    SCCs: List<HashSet<IVertex<'V>>>
+  }
 
-let private initSCCInfo (g: IGraph<_, _>) =
-  let len = g.Size + 1
-  { DFNumMap = Dictionary<VertexID, int>()
-    Vertex = Array.zeroCreate len
-    LowLink = Array.zeroCreate len }
+  let private initSCCStatus (g: IDiGraphAccessible<_, _>) =
+    let len = g.Size
+    { CurrentDFNum = 0
+      DFNums = Dictionary<_, _>()
+      Vertices = Array.zeroCreate len
+      LowLinks = Array.zeroCreate len
+      OnStackStatus = Array.zeroCreate len
+      Stack = Stack ()
+      SCCs = List () }
 
-let inline private dfnum ctxt (v: IVertex<_>) =
-  ctxt.DFNumMap[v.ID]
+  let rec private computeSCC g status (v: IVertex<_>) =
+    assert (not (status.DFNums.ContainsKey v))
+    let dfnum = status.CurrentDFNum
+    status.DFNums[v] <- dfnum
+    status.Vertices[dfnum] <- v
+    status.LowLinks[dfnum] <- dfnum
+    status.CurrentDFNum <- dfnum + 1
+    status.Stack.Push v
+    status.OnStackStatus[dfnum] <- true
+    for succ in (g: IDiGraphAccessible<_, _>).GetSuccs v do
+      updateLowLink g status dfnum succ
+    if status.LowLinks[dfnum] = dfnum then
+      let scc = HashSet<IVertex<_>> ()
+      let mutable doRepeat = true
+      while doRepeat do
+        let w = status.Stack.Pop ()
+        status.OnStackStatus[status.DFNums[w]] <- false
+        scc.Add w |> ignore
+        doRepeat <- w <> v
+      status.SCCs.Add scc
+    else ()
 
-let inline private lowlink ctxt v =
-  ctxt.LowLink[dfnum ctxt v]
+  and private updateLowLink g status vNum (w: IVertex<_>) =
+    if not (status.DFNums.ContainsKey w) then
+      computeSCC g status w
+      let vLowLink = status.LowLinks[vNum]
+      let wLowLink = status.LowLinks[status.DFNums[w]]
+      status.LowLinks[vNum] <- min vLowLink wLowLink
+    elif status.OnStackStatus[status.DFNums[w]] then
+      status.LowLinks[vNum] <- min status.LowLinks[vNum] status.DFNums[w]
+    else ()
 
-let rec private assignSCC ctxt vNum stack (scc: HashSet<_>) =
-  if not (List.isEmpty stack) then
-    let wNum = List.head stack
-    if wNum >= vNum then
-      let stack = List.tail stack
-      scc.Add ctxt.Vertex[wNum] |> ignore
-      assignSCC ctxt vNum stack scc
-    else stack
-  else stack
-
-let private createSCC ctxt v stack sccs =
-  let vNum = dfnum ctxt v
-  if lowlink ctxt v = vNum then
-    let scc = HashSet<IVertex<_>> ()
-    let stack = assignSCC ctxt vNum stack scc
-    stack, scc :: sccs
-  else stack, sccs
-
-/// R.Tarjan. Depth-first search and linear graph algorithms
-let rec private computeSCC (g: IGraph<_, _>) ctxt (v: IVertex<_>) n stack sccs =
-  assert (not (ctxt.DFNumMap.ContainsKey v.ID))
-  ctxt.DFNumMap[v.ID] <- n
-  ctxt.LowLink[n] <- n
-  ctxt.Vertex[n] <- v
-  let n, stack, sccs =
-    g.GetSuccs v
-    |> Seq.fold (computeLowLink g ctxt v) (n + 1, n :: stack, sccs)
-  let stack, sccs = createSCC ctxt v stack sccs
-  n, stack, sccs
-
-and private computeLowLink g ctxt v (n, stack, sccs) (w: IVertex<_>) =
-  let vNum = dfnum ctxt v
-  let vLink = lowlink ctxt v
-  if ctxt.DFNumMap.ContainsKey w.ID then
-    let wNum = dfnum ctxt w
-    if List.contains wNum stack then ctxt.LowLink[vNum] <- min vLink wNum
-    n, stack, sccs
-  else
-    let n, stack, sccs = computeSCC g ctxt w n stack sccs
-    let wLink = lowlink ctxt w
-    ctxt.LowLink[vNum] <- min vLink wLink
-    n, stack, sccs
-
-let compute (g: IGraph<_, _>) =
-  let ctxt = initSCCInfo g
-  g.Vertices
-  |> Array.fold (fun (n, acc) root ->
-    if ctxt.DFNumMap.ContainsKey root.ID then n, acc
-    else
-      let n, _, sccs = computeSCC g ctxt root n [] []
-      n, sccs :: acc) (1, [])
-  |> snd
-  |> List.concat
-  |> List.toArray
+  let compute (g: IDiGraphAccessible<_, _>) =
+    let status = initSCCStatus g
+    for v in g.Vertices do
+      if status.DFNums.ContainsKey v then ()
+      else computeSCC g status v
+    status.SCCs

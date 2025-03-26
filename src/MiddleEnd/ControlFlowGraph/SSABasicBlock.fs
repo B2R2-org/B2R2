@@ -57,6 +57,8 @@ type SSABasicBlock private (ppoint, lastAddr, stmts: _[], funcAbs) =
   /// Dominance frontier of this block.
   member __.DomFrontier with get() = frontier and set(f) = frontier <- f
 
+  override _.ToString () = $"{nameof SSABasicBlock}({ppoint})"
+
   interface ISSABasicBlock with
     member _.PPoint with get() = ppoint
 

@@ -93,7 +93,7 @@ let private restoreBackEdges g backEdgeList =
   List.iter (restoreBackEdge g) backEdgeList
 
 /// Compute the original destination vertex, given dummy source node src.
-let rec private getOriginalDst (g: IGraph<_, _>) (v: IVertex<VisBBlock>) =
+let rec private getOriginalDst (g: IDiGraph<_, _>) (v: IVertex<VisBBlock>) =
   if isDummy v then
     let succs = g.GetSuccs v
     getOriginalDst g (Seq.head succs)

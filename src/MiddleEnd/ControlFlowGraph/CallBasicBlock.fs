@@ -37,6 +37,8 @@ type CallBasicBlock (addr, name, isExternal) =
 
   member _.IsExternal with get () = isExternal
 
+  override _.ToString () = $"{nameof CallBasicBlock}({addr:x})"
+
   interface ICallBasicBlock with
     member _.PPoint with get() = ProgramPoint (addr, 0)
 

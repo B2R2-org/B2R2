@@ -133,13 +133,13 @@ module private SSALifterFactory =
     )
 
   let computeDominatorInfo g =
-    let domCtx = Dominator.initDominatorContext g
-    let frontiers = Dominator.frontiers domCtx
+    let df = Dominance.CooperDominanceFrontier ()
+    let dom = Dominance.LengauerTarjanDominance.create g df
     g.IterVertex (fun (v: SSAVertex) ->
-      let dfnum = domCtx.ForwardDomInfo.DFNumMap[v.ID]
-      v.VData.ImmDominator <- Dominator.idom domCtx v
-      v.VData.DomFrontier <- frontiers[dfnum])
-    domCtx
+      let idom = dom.ImmediateDominator v
+      v.VData.ImmDominator <- if isNull idom then None else Some idom
+      v.VData.DomFrontier <- Seq.toList (dom.DominanceFrontier v))
+    dom
 
   let inline updateGlobalName (globals: HashSet<_>) (varKill: HashSet<_>) v =
     if varKill.Contains v then ()
@@ -167,7 +167,7 @@ module private SSALifterFactory =
     | Extract (e, _, _) ->
       updateGlobals globals varKill e
 
-  let findDefVars (ssaCFG: IGraph<SSABasicBlock, _>) (defSites: DefSites) =
+  let findDefVars (ssaCFG: IDiGraph<SSABasicBlock, _>) (defSites: DefSites) =
     let globals = HashSet ()
     let varKill = HashSet ()
     for v in ssaCFG.Vertices do
@@ -200,7 +200,7 @@ module private SSALifterFactory =
                but not the start of an instruction. *)
             | TempVar _ when df.VData.Internals.PPoint.Position = 0 -> ()
             | _ ->
-              let preds = (g: IGraph<_, _>).GetPreds df
+              let preds = (g: IDiGraph<_, _>).GetPreds df
               df.VData.Internals.PrependPhi variable preds.Length
               phiSites.Add df |> ignore
               workList.Enqueue df
@@ -284,7 +284,7 @@ module private SSALifterFactory =
     for _, stmt in succ.VData.Internals.Statements do
       match stmt with
       | Phi (def, nums) ->
-        let preds = (g: IGraph<_, _>).GetPreds succ
+        let preds = (g: IDiGraph<_, _>).GetPreds succ
         let idx = preds |> Array.findIndex (fun v -> v.VData = parent.VData)
         nums[idx] <- List.head stack[def.Kind]
       | _ -> ()
@@ -295,34 +295,29 @@ module private SSALifterFactory =
     | Phi (def, _) -> stack[def.Kind] <- List.tail stack[def.Kind]
     | _ -> ()
 
-  let rec rename (g: IGraph<_, _>) domTree count stack (v: SSAVertex) =
+  let rec rename (g: IDiGraph<_, _>) domTree count stack (v: SSAVertex) =
     for _, stmt in v.VData.Internals.Statements do renameStmt count stack stmt
     for succ in g.GetSuccs v do renamePhi g stack v succ
-    traverseChildren g domTree count stack (Map.find v domTree)
+    for child in (domTree: DominatorTree<_, _>).GetChildren v do
+      rename g domTree count stack child
     for _, stmt in v.VData.Internals.Statements do popStack stack stmt
 
-  and traverseChildren g domTree count stack = function
-    | child :: rest ->
-      rename g domTree count stack child
-      traverseChildren g domTree count stack rest
-    | [] -> ()
-
-  let renameVars g (defSites: DefSites) domCtx =
-    let domTree, root = Dominator.dominatorTree domCtx
+  let renameVars g defSites (dom: IDominance<_, _>) =
+    let domTree = dom.DominatorTree
     let count = VarCountMap ()
     let stack = IDStack ()
-    for variable in defSites.Keys do
+    for variable in (defSites: DefSites).Keys do
       count[variable] <- 0
       stack[variable] <- [0]
-    rename g domTree count stack root |> ignore
+    rename g domTree count stack g.SingleRoot
 
   /// Add phis and rename all the variables in the SSACFG.
   let updatePhis ssaCFG =
     let defSites = DefSites ()
-    let domCtx = computeDominatorInfo ssaCFG
+    let dom = computeDominatorInfo ssaCFG
     let globals = findDefVars ssaCFG defSites
     placePhis ssaCFG defSites globals
-    renameVars ssaCFG defSites domCtx
+    renameVars ssaCFG defSites dom
 
   let memStore ((pp, _) as stmtInfo) rt addr src =
     match addr with

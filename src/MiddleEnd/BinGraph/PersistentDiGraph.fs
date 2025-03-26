@@ -82,7 +82,7 @@ type PersistentDiGraph<'V, 'E when 'V: equality
 
   new () = PersistentDiGraph ([], Map.empty, Map.empty, Map.empty, 0)
 
-  interface IReadOnlyGraph<'V, 'E> with
+  interface IDiGraphAccessible<'V, 'E> with
 
     member __.Size with get() = vertices.Count
 
@@ -179,6 +179,9 @@ type PersistentDiGraph<'V, 'E when 'V: equality
     member __.GetRoots () =
       roots |> List.toArray
 
+    member __.Reverse (vs) =
+      GraphUtils.reverse __ vs (PersistentDiGraph ())
+
     member __.FoldVertex fn acc =
       vertices.Values
       |> Seq.fold (fun acc v -> fn acc (v :> IVertex<'V>)) acc
@@ -194,26 +197,14 @@ type PersistentDiGraph<'V, 'E when 'V: equality
     member __.IterEdge fn =
       succs.Values |> Seq.iter (fun edges -> List.iter fn edges)
 
-    member __.SubGraph vs =
-      GraphUtils.subGraph __ (PersistentDiGraph ()) vs
-
-    member __.Reverse () =
-      GraphUtils.reverse __ (PersistentDiGraph ())
-
-    member __.Clone () =
-      __
-
-    member __.ToDOTStr (name, vToStrFn, _eToStrFn) =
-      GraphUtils.toDiGraphDOTString __ name vToStrFn _eToStrFn
-
-  interface IGraph<'V, 'E> with
+  interface IDiGraph<'V, 'E> with
 
     member __.AddVertex value =
       let struct (v, g) = addVertexWithData (VertexData value)
       v, g
 
     member __.AddVertex (value, vid: VertexID) =
-      assert ((__: IGraph<_, _>).HasVertex vid |> not)
+      assert ((__: IDiGraph<_, _>).HasVertex vid |> not)
       let struct (v, g) = addVertexWithDataAndID (VertexData value) vid
       v, g
 
@@ -238,7 +229,7 @@ type PersistentDiGraph<'V, 'E when 'V: equality
 
     member __.RemoveEdge (src: IVertex<'V>, dst: IVertex<'V>) =
       let edge = Edge (src, dst, null)
-      (__ :> IGraph<_, _>).RemoveEdge edge
+      (__ :> IDiGraph<_, _>).RemoveEdge edge
 
     member __.RemoveEdge (edge: Edge<'V, 'E>) =
       let preds = removePredEdge preds edge
@@ -250,15 +241,13 @@ type PersistentDiGraph<'V, 'E when 'V: equality
       let roots = if List.contains v roots then roots else v :: roots
       PersistentDiGraph(roots, vertices, preds, succs, id)
 
-    member __.SetRoot (v) =
-      assert (vertices.ContainsKey v.ID)
-      PersistentDiGraph ([ v ], vertices, preds, succs, id)
+    member __.SetRoots (vs) =
+      for v in vs do assert (vertices.ContainsKey v.ID)
+      let roots = Seq.toList vs
+      PersistentDiGraph (roots, vertices, preds, succs, id)
 
-    member __.SubGraph vs =
-      GraphUtils.subGraph __ (PersistentDiGraph ()) vs
-
-    member __.Reverse () =
-      GraphUtils.reverse __ (PersistentDiGraph ())
+    member __.Reverse (vs) =
+      GraphUtils.reverse __ vs (PersistentDiGraph ())
 
     member __.Clone () =
       __

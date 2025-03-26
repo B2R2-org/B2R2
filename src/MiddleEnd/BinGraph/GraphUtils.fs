@@ -25,48 +25,84 @@
 /// Several useful functions for directed graphs.
 module internal B2R2.MiddleEnd.BinGraph.GraphUtils
 
-open System.Text
+open System.Collections.Generic
+open B2R2
 
-/// Compute a subgraph of the given graph (inGraph), build on top of the given
-/// empty graph (emptyGraph).
-let subGraph inGraph emptyGraph vs =
-  (* Add vertices to new graph *)
-  let g =
-    vs |> Set.fold (fun (g: IGraph<'V, 'E>) (v: IVertex<'V>) ->
-      g.AddVertex v.VData |> snd) emptyGraph
-  (* Collect edges where both ends are in vs *)
-  let es =
-    (inGraph :> IGraph<_, _>).FoldEdge (fun acc e ->
-      if Set.contains e.First vs && Set.contains e.Second vs then e :: acc
-      else acc) []
-  (* Add the collected edges to new graph *)
-  es
-  |> List.fold (fun (g: IGraph<'V, 'E>) edge ->
-    let src = g.FindVertexByID <| edge.First.ID
-    let dst = g.FindVertexByID <| edge.Second.ID
-    (g :> IGraph<'V, _>).AddEdge (src, dst, edge.Label)) g
+#if DEBUG
+let checkVertexInGraph (g: IDiGraphAccessible<_, _>) (v: IVertex<_>) =
+  let v' = g.FindVertexByData v.VData
+  if v.ID = v'.ID then ()
+  else raise VertexNotFoundException
+#endif
 
-let reverse (srcGraph: IGraph<_, _>) emptyGraph =
-  emptyGraph
-  |> srcGraph.FoldVertex (fun (g: IGraph<_, _>) v ->
-    g.AddVertex (v.VData, v.ID) |> snd)
-  |> srcGraph.FoldEdge (fun (g: IGraph<_, _>) edge ->
-    let src = g.FindVertexByID edge.First.ID
-    let dst = g.FindVertexByID edge.Second.ID
-    g.AddEdge (dst, src, edge.Label))
+/// Make a dummy vertex for an analysis without having to use `AddVertex` method
+/// of a graph. With this, we don't have to modify the graph itself.
+let makeDummyVertex<'V when 'V: equality> () =
+  { new IVertex<'V> with
+      member __.ID = -1
+      member __.VData = Utils.impossible ()
+      member __.HasData = false
+      member __.CompareTo (other: obj) =
+        match other with
+        | :? IVertex<'V> as other -> __.ID.CompareTo other.ID
+        | _ -> Utils.impossible ()
+      member __.ToString (_, _) = "DummyVertex" }
 
-let inline private (!!) (sb: StringBuilder) (s: string) =
-  sb.Append s |> ignore
+let reverse (inGraph: IDiGraphAccessible<_, _>) roots outGraph =
+  outGraph
+  |> inGraph.FoldVertex (fun (outGraph: IDiGraph<_, _>) v ->
+    outGraph.AddVertex (v.VData, v.ID) |> snd)
+  |> inGraph.FoldEdge (fun outGraph edge ->
+    let src = outGraph.FindVertexByID edge.First.ID
+    let dst = outGraph.FindVertexByID edge.Second.ID
+    outGraph.AddEdge (dst, src, edge.Label))
+  |> fun outGraph -> (* renew root vertices *)
+    roots |> Seq.map (fun (root: IVertex<_>) ->
+      assert (inGraph.HasVertex root.ID)
+      outGraph.FindVertexByID root.ID)
+    |> outGraph.SetRoots
 
-let toDiGraphDOTString (g: IGraph<_, _>) name vToStrFn _eToStrFn =
-  let sb = StringBuilder ()
-  let vertexToString v =
-    let id, lbl = vToStrFn v
-    !!sb $"  {id}{lbl};\n"
-  let edgeToString (e: Edge<_, _>) =
-    !!sb $"  {vToStrFn e.First |> fst} -> {vToStrFn e.Second |> fst};\n"
-  !!sb $"digraph {name} {{\n"
-  !!sb $"  node[shape=box]\n"
-  g.IterVertex vertexToString
-  g.IterEdge edgeToString
-  sb.Append("}\n").ToString()
+let computeDepthFirstNumbers (g: IDiGraphAccessible<_, _>) =
+  let dfNums = Dictionary<IVertex<_>, int> ()
+  Traversal.DFS.foldRevPostorder g (fun cnt v ->
+    dfNums[v] <- cnt
+    cnt + 1
+  ) 0 |> ignore
+  dfNums
+
+let findBackEdges (g: IDiGraphAccessible<_, _>) =
+  let dfNums = computeDepthFirstNumbers g
+  let backEdges = Dictionary ()
+  g.IterEdge (fun e ->
+    if dfNums[e.First] >= dfNums[e.Second] then backEdges[e.First] <- e.Second
+    else ())
+  backEdges
+
+let findRegularExits (g: IDiGraphAccessible<_, _>) =
+  g.Vertices
+  |> Array.fold (fun acc v ->
+    if (g.GetSuccs v).Length = 0 then v :: acc else acc) []
+
+let findExitsAfterRemovingBackEdges (g: IDiGraphAccessible<_, _>) =
+  let backEdges = findBackEdges g
+  g.Vertices
+  |> Array.fold (fun exits v ->
+    g.GetSuccEdges v
+    |> Array.exists (fun e ->
+      match backEdges.TryGetValue e.First with
+      | true, dst -> dst <> e.Second
+      | false, _ -> true)
+    |> function
+      | true -> exits
+      | false -> v :: exits
+  ) []
+
+/// Find exit nodes of a digraph. An exit node is a node that has no outgoing
+/// edges. In case the given graph has no such exit nodes (e.g., infinite
+/// loops), we remove back edges and find exit nodes again, in which case we
+/// consider loop tails as exit nodes.
+let findExits (g: IDiGraphAccessible<_, _>) =
+  findRegularExits g
+  |> function
+    | [] -> findExitsAfterRemovingBackEdges g
+    | exits -> exits

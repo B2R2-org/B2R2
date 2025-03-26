@@ -31,7 +31,7 @@ let getJSONFromGraph iGraph roots =
     VisDebug.logn "# Original"
     VisDebug.pp vGraph
   #endif
-    let backEdgeList = CycleRemoval.removeCycles vGraph roots
+    let backEdgeList = CycleRemoval.removeCycles vGraph
   #if DEBUG
     VisDebug.logn "# After cycle removal"
     VisDebug.pp vGraph

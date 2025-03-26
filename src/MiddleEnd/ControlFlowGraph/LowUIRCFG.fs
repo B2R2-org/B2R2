@@ -30,13 +30,14 @@ open B2R2.MiddleEnd.BinGraph
 
 /// CFG where each node is an IR-level basic block. This is the main data
 /// structure that we use to represent the control flow graph of a function.
-/// This is essentially a wrapper class of `IGraph<LowUIRBasicBlock,
+/// This is essentially a wrapper class of `IDiGraph<LowUIRBasicBlock,
 /// CFGEdgeKind>`, which provides a uniform interface for both imperative and
 /// persistent graphs.
 [<AllowNullLiteral>]
-type LowUIRCFG private (g: IGraph<LowUIRBasicBlock, CFGEdgeKind>) =
+type LowUIRCFG private (g: IDiGraph<LowUIRBasicBlock, CFGEdgeKind>) =
   let mutable g = g
 
+  // FIXME: use this to later to remove dictionary from CFGBuildingContext.
   let vertexCache = Dictionary<ProgramPoint, IVertex<LowUIRBasicBlock>> ()
 
   let addVertex (v, g') = g <- g'; v
@@ -48,9 +49,9 @@ type LowUIRCFG private (g: IGraph<LowUIRBasicBlock, CFGEdgeKind>) =
     let g =
       match t with
       | Imperative ->
-        ImperativeDiGraph<LowUIRBasicBlock, CFGEdgeKind> () :> IGraph<_, _>
+        ImperativeDiGraph<LowUIRBasicBlock, CFGEdgeKind> () :> IDiGraph<_, _>
       | Persistent ->
-        PersistentDiGraph<LowUIRBasicBlock, CFGEdgeKind> () :> IGraph<_, _>
+        PersistentDiGraph<LowUIRBasicBlock, CFGEdgeKind> () :> IDiGraph<_, _>
     LowUIRCFG g
 
   /// Number of vertices.
@@ -141,8 +142,8 @@ type LowUIRCFG private (g: IGraph<LowUIRBasicBlock, CFGEdgeKind>) =
   /// Add a root vertex to this CFG.
   member _.AddRoot v = g.AddRoot v |> update
 
-  /// Set the root vertex of this CFG.
-  member _.SetRoot v = g.SetRoot v |> update
+  /// Set root vertices of this CFG.
+  member _.SetRoots vs = g.SetRoots vs |> update
 
   /// Fold the vertices of this CFG with the given function and accumulator.
   member _.FoldVertex fn acc = g.FoldVertex fn acc
@@ -156,19 +157,14 @@ type LowUIRCFG private (g: IGraph<LowUIRBasicBlock, CFGEdgeKind>) =
   /// Iterate over the edges of this CFG with the given function.
   member _.IterEdge fn = g.IterEdge fn
 
-  /// Get a subgraph of this CFG that contains only the given vertices.
-  member _.SubGraph vs = g.SubGraph vs |> LowUIRCFG
-
-  /// Reverse the direction of the edges in this CFG.
-  member _.Reverse () = g.Reverse () |> LowUIRCFG
+  /// Reverse the direction of the edges in this CFG while making the given
+  /// vertices as root vertices.
+  member _.Reverse roots = g.Reverse roots |> LowUIRCFG
 
   /// Clone this CFG.
   member _.Clone () = g.Clone () |> LowUIRCFG
 
-  /// Convert this CFG to a DOT string.
-  member _.ToDOTStr (name, vFn, eFn) = g.ToDOTStr (name, vFn, eFn)
-
-  interface IReadOnlyGraph<LowUIRBasicBlock, CFGEdgeKind> with
+  interface IDiGraphAccessible<LowUIRBasicBlock, CFGEdgeKind> with
     member _.Size = g.Size
     member _.Vertices = g.Vertices
     member _.Edges = g.Edges
@@ -191,16 +187,13 @@ type LowUIRCFG private (g: IGraph<LowUIRBasicBlock, CFGEdgeKind>) =
     member _.GetSuccs v = g.GetSuccs v
     member _.GetSuccEdges v = g.GetSuccEdges v
     member _.GetRoots () = g.GetRoots ()
+    member _.Reverse vs = g.Reverse vs
     member _.FoldVertex fn acc = g.FoldVertex fn acc
     member _.IterVertex fn = g.IterVertex fn
     member _.FoldEdge fn acc = g.FoldEdge fn acc
     member _.IterEdge fn = g.IterEdge fn
-    member _.SubGraph vs = g.SubGraph vs
-    member _.Reverse () = g.Reverse ()
-    member _.Clone () = g.Clone ()
-    member _.ToDOTStr (name, vFn, eFn) = g.ToDOTStr (name, vFn, eFn)
 
-  interface IGraph<LowUIRBasicBlock, CFGEdgeKind> with
+  interface IDiGraph<LowUIRBasicBlock, CFGEdgeKind> with
     member _.AddVertex data = g.AddVertex data
     member _.AddVertex (data, vid) = g.AddVertex (data, vid)
     member _.AddVertex () = g.AddVertex ()
@@ -210,7 +203,6 @@ type LowUIRCFG private (g: IGraph<LowUIRBasicBlock, CFGEdgeKind>) =
     member _.RemoveEdge (src, dst) = g.RemoveEdge (src, dst)
     member _.RemoveEdge edge = g.RemoveEdge edge
     member _.AddRoot v = g.AddRoot v
-    member _.SetRoot v = g.SetRoot v
-    member _.SubGraph vs = g.SubGraph vs
-    member _.Reverse () = g.Reverse ()
+    member _.SetRoots vs = g.SetRoots vs
+    member _.Reverse vs = g.Reverse vs
     member _.Clone () = g.Clone ()

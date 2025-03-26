@@ -31,18 +31,18 @@ open B2R2.MiddleEnd.ControlFlowGraph
 /// The `dot` action.
 type DOTAction () =
   let vToStr (v: IVertex<LowUIRBasicBlock>) =
-    let id = v.VData.Internals.BlockAddress.ToString "x"
+    let addr = v.VData.Internals.BlockAddress.ToString "x"
     let instrs =
       v.VData.Internals.Instructions
       |> Array.map (fun ins -> ins.Disasm (true, null))
       |> String.concat "\\l"
-    $"n_{id}", $"[label=\"{instrs}\\l\"]"
+    $"[label=\"[{addr:x}]\\l{instrs}\\l\"]"
 
   let toDOT o =
     match unbox<CFG> o with
     | CFG (addr, cfg) ->
       let name = Addr.toFuncName addr
-      cfg.ToDOTStr (name, vToStr, (fun _ -> ""))
+      Serializer.ToDOT (cfg, name, vToStr, (fun e -> e.ToString ()))
     | NoCFG e -> $"Failed to construct CFG: {e}"
 
   interface IAction with

@@ -83,6 +83,7 @@ leverage.
 - [Microsoft.FSharpLu.Json](https://www.nuget.org/packages/Microsoft.FSharpLu.Json)
 - [FSharp.Compiler.Service](https://www.nuget.org/packages/FSharp.Compiler.Service)
 - [FParsec](https://www.nuget.org/packages/FParsec)
+- [BenchmarkDotNet](https://www.nuget.org/packages/BenchmarkDotNet/)
 
 API Documentation
 -----------------

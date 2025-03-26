@@ -60,7 +60,7 @@ type ReachingDefinitionAnalysis =
           | _ -> list) list
         |> fst) []
 
-    let initGensAndKills (g: IReadOnlyGraph<LowUIRBasicBlock, _>) =
+    let initGensAndKills (g: IDiGraphAccessible<LowUIRBasicBlock, _>) =
       let vpPerVar = Dictionary<VarKind, Set<VarPoint>> ()
       let vpPerVertex = Dictionary<VertexID, VarPoint list> ()
       g.IterVertex (fun v ->
@@ -92,8 +92,7 @@ type ReachingDefinitionAnalysis =
           member _.InitializeWorkList g =
             initGensAndKills g
             let lst = List<VertexID> ()
-            let roots = g.GetRoots () |> Seq.toList
-            Traversal.iterRevPostorder g roots (fun v -> lst.Add v.ID)
+            Traversal.DFS.iterRevPostorder g (fun v -> lst.Add v.ID)
             lst
 
           member _.Subsume (a, b) =

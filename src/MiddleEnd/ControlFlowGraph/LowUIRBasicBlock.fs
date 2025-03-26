@@ -81,6 +81,8 @@ type LowUIRBasicBlock internal (pp, funcAbs, liftedInss, lblMap) =
       LowUIRBasicBlock.CreateRegular (sndInstrs, cutPPoint, sndLabelMap)
     else raise AbstractBlockAccessException
 
+  override _.ToString () = $"{nameof LowUIRBasicBlock}({pp})"
+
   interface ILowUIRBasicBlock with
     member _.PPoint with get() = pp
 

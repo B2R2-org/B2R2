@@ -24,6 +24,7 @@
 
 namespace B2R2.MiddleEnd.BinGraph
 
+open System.Globalization
 open B2R2
 
 /// Persistent vertex.
@@ -47,9 +48,15 @@ type PersistentVertex<'V when 'V: equality>
       | :? IVertex<'V> as other -> id.CompareTo other.ID
       | _ -> Utils.impossible ()
 
+  interface System.IFormattable with
+    member _.ToString (_, _) = $"{nameof PersistentVertex}({vData.ToString ()})"
+
   override __.GetHashCode () = id
 
   override __.Equals (other) =
     match other with
     | :? IVertex<'V> as other -> id = other.ID
     | _ -> false
+
+  override __.ToString () =
+    (__ :> System.IFormattable).ToString (null, CultureInfo.CurrentCulture)

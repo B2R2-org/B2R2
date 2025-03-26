@@ -2,19 +2,25 @@
 
   <PropertyGroup>
     <IsPackable>false</IsPackable>
+    <GenerateProgramFile>false</GenerateProgramFile>
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="SCC.Tests.fs" />
-    <Compile Include="ImperativeGraph.Tests.fs" />
-    <Compile Include="PersistentGraph.Tests.fs" />
-    <Compile Include="Loop.Tests.fs" />
+    <Compile Include="Examples.fs" />
+    <Compile Include="SerializerTests.fs" />
+    <Compile Include="TraversalTests.fs" />
+    <Compile Include="SCCTests.fs" />
+    <Compile Include="BasicTests.fs" />
+    <Compile Include="DominanceTests.fs" />
+    <Compile Include="LoopTests.fs" />
+    <Compile Include="Program.fs" />
+    <None Include="TestData\*.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.8.0" />
-    <PackageReference Include="MSTest.TestAdapter" Version="3.1.1" />
-    <PackageReference Include="MSTest.TestFramework" Version="3.1.1" />
+    <PackageReference Include="BenchmarkDotNet" Version="0.14.0" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.13.0" />
+    <PackageReference Include="MSTest" Version="3.8.0" />
   </ItemGroup>
 
   <ItemGroup>

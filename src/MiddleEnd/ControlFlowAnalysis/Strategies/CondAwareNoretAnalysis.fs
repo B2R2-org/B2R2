@@ -187,24 +187,25 @@ type CondAwareNoretAnalysis ([<Optional; DefaultParameterValue(true)>] strict) =
       | NotNoRet | UnknownNoRet -> None
       | NoRet -> Utils.impossible ())
 
-  let tryFindCondNoRetDom domCtx absVSet v =
-    Dominator.doms domCtx v
-    |> Array.filter (fun v -> Set.contains v absVSet)
+  let tryFindCondNoRetDom (dom: IDominance<_, _>) absVSet v =
+    dom.Dominators v
+    |> Seq.filter (fun v -> Set.contains v absVSet)
     |> fun doms ->
-      if Array.isEmpty doms then None
+      if Seq.isEmpty doms then None
       else
         (* When there are two or more conditionally returning (and dominating)
            abstract vertices, we assume that they will be referring to the same
            callee. *)
-        Some doms[0]
+        Some <| Seq.head doms
 
-  let getStatusFromDominators domCtx absVSet argNumMap exit =
-    match tryFindCondNoRetDom domCtx absVSet exit with
+  let getStatusFromDominators dom absVSet argNumMap exit =
+    match tryFindCondNoRetDom dom absVSet exit with
     | None -> NotNoRet
     | Some dom -> ConditionalNoRet <| Map.find dom argNumMap
 
   let analyze ctx condNoRetCalls =
-    let domCtx = Dominator.initDominatorContext ctx.CFG
+    let df = Dominance.CooperDominanceFrontier ()
+    let dom = Dominance.LengauerTarjanDominance.create ctx.CFG df
     let exits = ctx.CFG.Exits
     let absVSet = condNoRetCalls |> List.map fst |> Set.ofList
     let argNumMap = condNoRetCalls |> Map.ofSeq
@@ -219,13 +220,13 @@ type CondAwareNoretAnalysis ([<Optional; DefaultParameterValue(true)>] strict) =
         if vData.LastInstruction.IsIndirectBranch () then
           updateStatus NotNoRet
         elif vData.LastInstruction.IsRET () then
-          updateStatus (getStatusFromDominators domCtx absVSet argNumMap v)
+          updateStatus (getStatusFromDominators dom absVSet argNumMap v)
         else ()
       else
         match vData.AbstractContent.ReturningStatus with
         | ConditionalNoRet _ -> updateStatus NoRet
         | NotNoRet ->
-          updateStatus (getStatusFromDominators domCtx absVSet argNumMap v)
+          updateStatus (getStatusFromDominators dom absVSet argNumMap v)
         | status -> updateStatus status
     status
 

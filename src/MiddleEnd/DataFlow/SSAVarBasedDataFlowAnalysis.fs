@@ -39,7 +39,7 @@ type SSAVarBasedDataFlowAnalysis<'Lattice>
     | false, _ -> ()
     | true, (parentId, myId) ->
       state.ExecutedEdges.Add (parentId, myId) |> ignore
-      let blk = (ssaCFG: IGraph<SSABasicBlock, _>).FindVertexByID myId
+      let blk = (ssaCFG: IDiGraph<SSABasicBlock, _>).FindVertexByID myId
       blk.VData.Internals.Statements
       |> Array.iter (fun (ppoint, stmt) ->
         analysis.Transfer ssaCFG blk ppoint stmt state)
@@ -58,7 +58,7 @@ type SSAVarBasedDataFlowAnalysis<'Lattice>
       | false, _ -> ()
       | _, uses ->
         for (vid, idx) in uses do
-          let v = (ssaCFG: IGraph<SSABasicBlock, _>).FindVertexByID vid
+          let v = (ssaCFG: IDiGraph<SSABasicBlock, _>).FindVertexByID vid
           if state.GetNumIncomingExecutedEdges ssaCFG v > 0 then
             let ppoint, stmt = v.VData.Internals.Statements[idx]
             analysis.Transfer ssaCFG v ppoint stmt state

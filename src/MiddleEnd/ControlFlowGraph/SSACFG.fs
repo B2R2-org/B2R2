@@ -28,9 +28,9 @@ open B2R2.BinIR.SSA
 open B2R2.MiddleEnd.BinGraph
 
 /// SSA-based CFG, where each node contains SSA-based basic blocks. This is a
-/// wrapper class of `IGraph<SSABasicBlock, CFGEdgeKind>`, which provides a
+/// wrapper class of `IDiGraph<SSABasicBlock, CFGEdgeKind>`, which provides a
 /// uniform interface for both imperative and persistent graphs.
-type SSACFG private (g: IGraph<SSABasicBlock, CFGEdgeKind>) =
+type SSACFG private (g: IDiGraph<SSABasicBlock, CFGEdgeKind>) =
   let mutable g = g
 
   let addVertex (v, g') = g <- g'; v
@@ -42,9 +42,9 @@ type SSACFG private (g: IGraph<SSABasicBlock, CFGEdgeKind>) =
     let g =
       match t with
       | Imperative ->
-        ImperativeDiGraph<SSABasicBlock, CFGEdgeKind> () :> IGraph<_, _>
+        ImperativeDiGraph<SSABasicBlock, CFGEdgeKind> () :> IDiGraph<_, _>
       | Persistent ->
-        PersistentDiGraph<SSABasicBlock, CFGEdgeKind> () :> IGraph<_, _>
+        PersistentDiGraph<SSABasicBlock, CFGEdgeKind> () :> IDiGraph<_, _>
     SSACFG g
 
   /// Number of vertices.
@@ -135,8 +135,8 @@ type SSACFG private (g: IGraph<SSABasicBlock, CFGEdgeKind>) =
   /// Add a root vertex to this CFG.
   member _.AddRoot v = g.AddRoot v |> update
 
-  /// Set the root vertex of this CFG.
-  member _.SetRoot v = g.SetRoot v |> update
+  /// Set root vertices of this CFG.
+  member _.SetRoots vs = g.SetRoots vs |> update
 
   /// Fold the vertices of this CFG with the given function and an accumulator.
   member _.FoldVertex fn acc = g.FoldVertex fn acc
@@ -150,17 +150,12 @@ type SSACFG private (g: IGraph<SSABasicBlock, CFGEdgeKind>) =
   /// Iterate over the edges of this CFG with the given function.
   member _.IterEdge fn = g.IterEdge fn
 
-  /// Get a subgraph of this CFG that contains only the given vertices.
-  member _.SubGraph vs = g.SubGraph vs |> SSACFG
-
-  /// Reverse the direction of the edges in this CFG.
-  member _.Reverse () = g.Reverse () |> SSACFG
+  /// Reverse the direction of the edges in this CFG while making the given
+  /// vertices as root vertices.
+  member _.Reverse roots = g.Reverse roots |> SSACFG
 
   /// Clone this CFG.
   member _.Clone () = g.Clone () |> SSACFG
-
-  /// Convert this CFG to a DOT string.
-  member _.ToDOTStr (name, vFn, eFn) = g.ToDOTStr (name, vFn, eFn)
 
   /// Find the definition of the given variable kind (targetVarKind) at the
   /// given node v. We simply follow the dominator tree of the given SSACFG
@@ -189,7 +184,7 @@ type SSACFG private (g: IGraph<SSABasicBlock, CFGEdgeKind>) =
       __.FindDef idom targetVarKind
     | None -> None
 
-  interface IReadOnlyGraph<SSABasicBlock, CFGEdgeKind> with
+  interface IDiGraphAccessible<SSABasicBlock, CFGEdgeKind> with
     member _.Size = g.Size
     member _.Vertices = g.Vertices
     member _.Edges = g.Edges
@@ -212,16 +207,13 @@ type SSACFG private (g: IGraph<SSABasicBlock, CFGEdgeKind>) =
     member _.GetSuccs v = g.GetSuccs v
     member _.GetSuccEdges v = g.GetSuccEdges v
     member _.GetRoots () = g.GetRoots ()
+    member _.Reverse vs = g.Reverse vs
     member _.FoldVertex fn acc = g.FoldVertex fn acc
     member _.IterVertex fn = g.IterVertex fn
     member _.FoldEdge fn acc = g.FoldEdge fn acc
     member _.IterEdge fn = g.IterEdge fn
-    member _.SubGraph vs = g.SubGraph vs
-    member _.Reverse () = g.Reverse ()
-    member _.Clone () = g.Clone ()
-    member _.ToDOTStr (name, vFn, eFn) = g.ToDOTStr (name, vFn, eFn)
 
-  interface IGraph<SSABasicBlock, CFGEdgeKind> with
+  interface IDiGraph<SSABasicBlock, CFGEdgeKind> with
     member _.AddVertex data = g.AddVertex data
     member _.AddVertex (data, vid) = g.AddVertex (data, vid)
     member _.AddVertex () = g.AddVertex ()
@@ -231,7 +223,6 @@ type SSACFG private (g: IGraph<SSABasicBlock, CFGEdgeKind>) =
     member _.RemoveEdge (src, dst) = g.RemoveEdge (src, dst)
     member _.RemoveEdge edge = g.RemoveEdge edge
     member _.AddRoot v = g.AddRoot v
-    member _.SetRoot v = g.SetRoot v
-    member _.SubGraph vs = g.SubGraph vs
-    member _.Reverse () = g.Reverse ()
+    member _.SetRoots vs = g.SetRoots vs
+    member _.Reverse vs = g.Reverse vs
     member _.Clone () = g.Clone ()

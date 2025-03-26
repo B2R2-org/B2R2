@@ -28,7 +28,7 @@ open B2R2.MiddleEnd.BinGraph
 open System.Collections.Generic
 
 /// The main graph type for visualization.
-type VisGraph = IGraph<VisBBlock, VisEdge>
+type VisGraph = IDiGraph<VisBBlock, VisEdge>
 
 module VisGraph =
   let init () =
@@ -38,7 +38,7 @@ module VisGraph =
   let ofCFG g roots =
     let newGraph = init ()
     let visited = Dictionary<VertexID, IVertex<VisBBlock>> ()
-    (g: IReadOnlyGraph<_, _>).IterVertex (fun v ->
+    (g: IDiGraphAccessible<_, _>).IterVertex (fun v ->
       if visited.ContainsKey v.ID then ()
       else
         let blk = VisBBlock (v.VData, false)
@@ -46,7 +46,7 @@ module VisGraph =
         visited[v.ID] <- v'
     )
     let roots = roots |> List.map (fun (root: IVertex<_>) -> visited[root.ID])
-    (g: IReadOnlyGraph<_, _>).IterEdge (fun e ->
+    (g: IDiGraphAccessible<_, _>).IterEdge (fun e ->
       let srcV = visited[e.First.ID]
       let dstV = visited[e.Second.ID]
       let edge = VisEdge e.Label
@@ -55,9 +55,9 @@ module VisGraph =
 
   let getID (v: IVertex<_>) = v.ID
 
-  let getPreds (vGraph: IGraph<_, _>) (v: IVertex<_>) = vGraph.GetPreds v
+  let getPreds (vGraph: IDiGraph<_, _>) (v: IVertex<_>) = vGraph.GetPreds v
 
-  let getSuccs (vGraph: IGraph<_, _>) (v: IVertex<_>) = vGraph.GetSuccs v
+  let getSuccs (vGraph: IDiGraph<_, _>) (v: IVertex<_>) = vGraph.GetSuccs v
 
   let getVData (v: IVertex<_>) = v.VData
 

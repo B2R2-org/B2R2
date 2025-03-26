@@ -16,7 +16,6 @@
     <Compile Include="ISSAAccessible.fs" />
     <Compile Include="IInstructionAccessible.fs" />
     <Compile Include="IVisualizable.fs" />
-    <Compile Include="ExportCFG.fs" />
     <Compile Include="LowUIRBasicBlock.fs" />
     <Compile Include="LowUIRCFG.fs" />
     <Compile Include="DisasmBasicBlock.fs" />

@@ -28,8 +28,6 @@ module B2R2.MiddleEnd.DataFlow.Tests.Binaries
 open B2R2
 open B2R2.FrontEnd
 open B2R2.MiddleEnd
-open B2R2.MiddleEnd.ControlFlowAnalysis
-open B2R2.MiddleEnd.ControlFlowAnalysis.Strategies
 
 type Binary = Binary of byte[] * Architecture
 

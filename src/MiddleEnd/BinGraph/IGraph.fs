@@ -24,10 +24,12 @@
 
 namespace B2R2.MiddleEnd.BinGraph
 
-/// General graph data type. This one can be either directed or undirected.
+open System.Collections.Generic
+
+/// Graph interface.
 [<AllowNullLiteral>]
 type IGraph<'V, 'E when 'V: equality and 'E: equality> =
-  inherit IReadOnlyGraph<'V, 'E>
+  inherit IGraphAccessible<'V, 'E>
 
   /// Add a vertex to the graph using a data value, and return a reference to
   /// the added vertex.
@@ -44,17 +46,14 @@ type IGraph<'V, 'E when 'V: equality and 'E: equality> =
   /// Remove the given vertex from the graph.
   abstract RemoveVertex: IVertex<'V> -> IGraph<'V, 'E>
 
-  /// Add an edge between src and dst. If this is a directed graph, add an edge
-  /// from src to dst.
+  /// Add an edge between src and dst.
   abstract AddEdge: src: IVertex<'V> * dst: IVertex<'V> -> IGraph<'V, 'E>
 
-  /// Add an edge from src to dst with the given label. If this is a directed
-  /// graph, add an edge from src to dst.
+  /// Add an edge from src to dst with the given label.
   abstract AddEdge:
     src: IVertex<'V> * dst: IVertex<'V> * label: 'E -> IGraph<'V, 'E>
 
-  /// Remove the edge that spans between src and dst. If this is a directed
-  /// graph, remove the edge from src to dst.
+  /// Remove the edge that spans between src and dst.
   abstract RemoveEdge: src: IVertex<'V> * dst: IVertex<'V> -> IGraph<'V, 'E>
 
   /// Remove the given edge from the graph. The input edge does not need to have
@@ -62,22 +61,26 @@ type IGraph<'V, 'E when 'V: equality and 'E: equality> =
   /// destination vertices to perform this operation.
   abstract RemoveEdge: edge: Edge<'V, 'E> -> IGraph<'V, 'E>
 
-  /// Explicitly add a root vertex to this graph. `AddVertex` will automatically
-  /// set the root vertex to the first vertex added to the graph, but this
-  /// function allows the user to add root vertices explicitly.
-  abstract AddRoot: IVertex<'V> -> IGraph<'V, 'E>
-
-  /// Set a single root vertex for this graph. `AddVertex` will automatically
-  /// set the root vertex to the first vertex added to the graph, but this
-  /// function allows the user to set a single root vertex explicitly.
-  abstract SetRoot: IVertex<'V> -> IGraph<'V, 'E>
-
-  /// Return a subgraph that contains only the set of vertices.
-  abstract SubGraph: Set<IVertex<'V>> -> IGraph<'V, 'E>
-
-  /// Return a new transposed (i.e., reversed) graph. This will return the same
-  /// graph if this is an undirected graph.
-  abstract Reverse: unit -> IGraph<'V, 'E>
-
   /// Return a cloned copy of this graph.
   abstract Clone: unit -> IGraph<'V, 'E>
+
+/// Module for IGraph<'V, 'E> type to provide utility functions.
+module IGraph =
+  /// Compute a subgraph of the given graph (inGraph) using only the vertices
+  /// in the given set (vs). The resulting graph will have the same structure
+  /// as the original graph, but only the vertices in the set and the edges
+  /// between them will be included. This function assumes that the (outGraph)
+  /// is an empty graph. Otherwise, the behavior is undefined.
+  let subGraph inGraph outGraph (vs: HashSet<IVertex<'V>>) =
+    (* Add vertices *)
+    vs
+    |> Seq.fold (fun (g: IGraph<'V, 'E>) (v: IVertex<'V>) ->
+      g.AddVertex v.VData |> snd) outGraph
+    |>
+    (* Add edges where both ends are in vs *)
+    (inGraph :> IGraph<_, _>).FoldEdge (fun (g: IGraph<'V, 'E>) e ->
+      if vs.Contains e.First && vs.Contains e.Second then
+        let src = g.FindVertexByID <| e.First.ID
+        let dst = g.FindVertexByID <| e.Second.ID
+        (g :> IGraph<'V, _>).AddEdge (src, dst, e.Label)
+      else g)

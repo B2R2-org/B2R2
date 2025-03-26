@@ -189,7 +189,7 @@ type TaskScheduler<'FnCtx,
 
   let checkAndResolveCyclicDependencies () =
     let deps = dependenceMap.GetCyclicDependencies ()
-    if Array.isEmpty deps then
+    if Seq.isEmpty deps then
 #if CFGDEBUG
       dbglog ManagerTid "CyclicDependencies" $"No cycle"
       builders.Values
@@ -204,7 +204,7 @@ type TaskScheduler<'FnCtx,
       ()
     else
       deps
-      |> Array.iter (fun cycleAddrs ->
+      |> Seq.iter (fun cycleAddrs ->
         match getAllStoppedCycle cycleAddrs with
         | Ok deps -> strategy.OnCyclicDependency deps |> forceFinish
         | Error _ ->

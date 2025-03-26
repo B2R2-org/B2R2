@@ -35,9 +35,9 @@ let private collectBackEdge vGraph order backEdgeList (edge: Edge<_, VisEdge>) =
     | None -> (src, dst, edge, true) :: backEdgeList
   else backEdgeList
 
-let private dfsCollectBackEdges vGraph roots backEdgeList =
+let private dfsCollectBackEdges vGraph backEdgeList =
   let _, orderMap =
-    Traversal.foldTopologically vGraph roots (fun (cnt, map) v ->
+    Traversal.DFS.foldRevPostorder vGraph (fun (cnt, map) v ->
       cnt + 1, Map.add v cnt map) (0, Map.empty)
   vGraph.FoldEdge (collectBackEdge vGraph orderMap) backEdgeList
 
@@ -52,9 +52,9 @@ let removeBackEdge (vGraph: VisGraph) src dst edge needToAddReverse =
   vGraph.RemoveEdge (src, dst) |> ignore
   if needToAddReverse then vGraph.AddEdge (dst, src, edge) |> ignore
 
-let removeCycles (vGraph: VisGraph) roots =
+let removeCycles (vGraph: VisGraph) =
   vGraph.FoldEdge collectSelfCycle []
-  |> dfsCollectBackEdges vGraph roots
+  |> dfsCollectBackEdges vGraph
   |> List.map (fun (src, dst, edge, needToAddReverse) ->
     removeBackEdge vGraph src dst edge.Label needToAddReverse
     (src, dst, edge.Label))

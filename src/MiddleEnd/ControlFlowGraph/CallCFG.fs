@@ -27,15 +27,15 @@ namespace B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.MiddleEnd.BinGraph
 
 /// Call graph, where each node represents a function. This is essentially a
-/// wrapper class of `IGraph<CallBasicBlock, CFGEdgeKind>`, which provides a
+/// wrapper class of `IDiGraph<CallBasicBlock, CFGEdgeKind>`, which provides a
 /// uniform interface for both imperative and persistent graphs.
 type CallCFG (t: ImplementationType) =
   let g =
     match t with
     | Imperative ->
-      ImperativeDiGraph<CallBasicBlock, CFGEdgeKind> () :> IGraph<_, _>
+      ImperativeDiGraph<CallBasicBlock, CFGEdgeKind> () :> IDiGraph<_, _>
     | Persistent ->
-      PersistentDiGraph<CallBasicBlock, CFGEdgeKind> () :> IGraph<_, _>
+      PersistentDiGraph<CallBasicBlock, CFGEdgeKind> () :> IDiGraph<_, _>
 
   /// Number of vertices.
   member _.Size with get() = g.Size
@@ -73,7 +73,7 @@ type CallCFG (t: ImplementationType) =
   /// Iterate over the edges of this CFG with the given function.
   member _.IterEdge fn = g.IterEdge fn
 
-  interface IReadOnlyGraph<CallBasicBlock, CFGEdgeKind> with
+  interface IDiGraphAccessible<CallBasicBlock, CFGEdgeKind> with
     member _.Size = g.Size
     member _.Vertices = g.Vertices
     member _.Edges = g.Edges
@@ -96,16 +96,13 @@ type CallCFG (t: ImplementationType) =
     member _.GetSuccs v = g.GetSuccs v
     member _.GetSuccEdges v = g.GetSuccEdges v
     member _.GetRoots () = g.GetRoots ()
+    member _.Reverse vs = g.Reverse vs
     member _.FoldVertex fn acc = g.FoldVertex fn acc
     member _.IterVertex fn = g.IterVertex fn
     member _.FoldEdge fn acc = g.FoldEdge fn acc
     member _.IterEdge fn = g.IterEdge fn
-    member _.SubGraph vs = g.SubGraph vs
-    member _.Reverse () = g.Reverse ()
-    member _.Clone () = g.Clone ()
-    member _.ToDOTStr (name, vFn, eFn) = g.ToDOTStr (name, vFn, eFn)
 
-  interface IGraph<CallBasicBlock, CFGEdgeKind> with
+  interface IDiGraph<CallBasicBlock, CFGEdgeKind> with
     member _.AddVertex data = g.AddVertex data
     member _.AddVertex (data, vid) = g.AddVertex (data, vid)
     member _.AddVertex () = g.AddVertex ()
@@ -115,7 +112,9 @@ type CallCFG (t: ImplementationType) =
     member _.RemoveEdge (src, dst) = g.RemoveEdge (src, dst)
     member _.RemoveEdge edge = g.RemoveEdge edge
     member _.AddRoot v = g.AddRoot v
-    member _.SetRoot v = g.SetRoot v
-    member _.SubGraph vs = g.SubGraph vs
-    member _.Reverse () = g.Reverse ()
+    member _.SetRoots vs = g.SetRoots vs
+    member _.Reverse vs = g.Reverse vs
     member _.Clone () = g.Clone ()
+
+  interface ISCCEnumerable<CallBasicBlock> with
+    member _.GetSCCEnumerator () = SCC.Tarjan.compute g

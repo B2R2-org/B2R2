@@ -55,7 +55,7 @@ let private alignVertices vertices =
 let private generateVLayout vPerLayer =
   Array.map alignVertices vPerLayer
 
-let private baryCenter (vGraph: IGraph<_, _>) isDown (v: IVertex<VisBBlock>) =
+let private baryCenter (vGraph: IDiGraph<_, _>) isDown (v: IVertex<VisBBlock>) =
   let neighbor =
     if isDown then vGraph.GetPreds v
     else vGraph.GetSuccs v
@@ -105,7 +105,7 @@ let private bilayerCount vGraph (vLayout: VLayout) isDown layer =
   let pairs, _ =
     if isDown then
       Array.fold (fun (acc, i) (v: IVertex<VisBBlock>) ->
-        (vGraph: IGraph<_, _>).GetSuccs v
+        (vGraph: IDiGraph<_, _>).GetSuccs v
         |> Seq.fold (fun acc w -> (i, w.VData.Index) :: acc) acc,
         i + 1) ([], 0) vLayout[layer - 1]
     else
