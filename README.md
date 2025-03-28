@@ -177,6 +177,7 @@ Publications
 
 Here are papers using our work. Please create a PR if you want to add yours.
 
+- Towards Sound Reassembly of Modern x86-64 Binaries, ASPLOS 2025 [(PDF)](https://softsec.kaist.ac.kr/~sangkilc/papers/kim-asplos25.pdf)
 - PoE: A Domain-Specific Language for Exploitation, SVCC 2024
 - FunProbe: Probing Functions from Binary Code through Probabilistic Analysis, FSE 2023
 - How'd Security Benefit Reverse Engineers? The Implication of Intel CET on Function Identification, DSN 2022 [(PDF)](https://softsec.kaist.ac.kr/~sangkilc/papers/kim-dsn2022.pdf)

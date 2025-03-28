@@ -1,5 +1,23 @@
 # B2R2 Change Log
 
+## 0.8.0 (2025-03-28)
+
+### Added
+
+- More instruction supports for Intel.
+- Add new dominator algorithms.
+- Add initial PA-RISC support.
+
+### Changed
+
+- Use .NET 9 (and F# 9): Our framework is not compatible with prior
+  versions of .NET.
+- Fix many lifting/parsing bugs.
+- Refactor BinFile modules to make them more modular.
+- Fix BinGraph module bugs and make it more intuitive.
+- Redesign the middle-end module and now publicize it. It now uses more
+  parallelism to recovery CFGs.
+
 ## 0.7.0 (2024-03-26)
 
 ### Added
