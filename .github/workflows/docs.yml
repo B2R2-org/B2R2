@@ -1,8 +1,10 @@
-name: Docs
+name: docs
 
 on:
-  push:
-    branches: [ "main" ]
+  workflow_run:
+    workflows: [release-test]
+    types:
+      - completed
 
 permissions:
   contents: write
@@ -13,6 +15,7 @@ jobs:
   build:
 
     runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
 
     steps:
     - uses: actions/checkout@v4
@@ -34,6 +37,7 @@ jobs:
   deploy:
 
     runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
 
     needs: build
 
