@@ -58,17 +58,29 @@ progress, but we look forward to your contributions! Feel free to write a PR
 (Pull Request) while making sure that you have read our [contribution
 guideline](CONTRIBUTING.md).
 
-| Feature               | x86         | x86-64      | ARMv7                | ARMv8                | MIPS32               | MIPS64               | EVM         | TMS320C600  | AVR         | PA-RISC     | PPC         | SPARC       | SH4                   | RISC-V      |
-|-----------------------|:-----------:|:-----------:|:--------------------:|:--------------------:|:--------------------:|:--------------------:|:-----------:|:-----------:|:-----------:|:-----------:|:-----------:|:-----------:|:---------------------:|:-----------:|
-| Instruction Parsing   | :full_moon: | :full_moon: | :full_moon:          | :full_moon:          | :full_moon:          | :full_moon:          | :full_moon: | :full_moon: | :full_moon: | :full_moon: | :full_moon: | :full_moon: | :waxing_gibbous_moon: | :full_moon: |
-| Disassembly           | :full_moon: | :full_moon: | :full_moon:          | :full_moon:          | :full_moon:          | :full_moon:          | :full_moon: | :full_moon: | :full_moon: | :full_moon: | :full_moon: | :full_moon: | :waxing_gibbous_moon: | :full_moon: |
-| Lifting               | :full_moon: | :full_moon: | :full_moon:          | :full_moon:          | :full_moon:          | :full_moon:          | :full_moon: | :new_moon:  | :full_moon: | :new_moon:  | :new_moon:  | :full_moon: | :new_moon:            | :full_moon: |
-| CFG Recovery          | :full_moon: | :full_moon: | :first_quarter_moon: | :first_quarter_moon: | :first_quarter_moon: | :first_quarter_moon: | :full_moon: | :new_moon:  | :new_moon:  | :new_moon:  | :new_moon:  | :new_moon:  | :new_moon:            | :new_moon:  |
-| Data-Flow             | :full_moon: | :full_moon: | :full_moon:          | :full_moon:          | :full_moon:          | :full_moon:          | :full_moon: | :new_moon:  | :new_moon:  | :new_moon:  | :new_moon:  | :new_moon:  | :new_moon:            | :new_moon:  |
-| Instruction Emulation | :full_moon: | :full_moon: | :full_moon:          | :full_moon:          | :full_moon:          | :full_moon:          | :new_moon:  | :new_moon:  | :new_moon:  | :new_moon:  | :new_moon:  | :new_moon:  | :new_moon:            | :new_moon:  |
-| Assembly              | :full_moon: | :full_moon: | :new_moon:           | :new_moon:           | :new_moon:           | :new_moon:           | :new_moon:  | :new_moon:  | :new_moon:  | :new_moon:  | :new_moon:  | :new_moon:  | :new_moon:            | :new_moon:  |
-| REPL                  | :full_moon: | :full_moon: | :new_moon:           | :new_moon:           | :new_moon:           | :new_moon:           | :new_moon:  | :new_moon:  | :new_moon:  | :new_moon:  | :new_moon:  | :new_moon:  | :new_moon:            | :new_moon:  |
-| ROP Compilation       | :full_moon: | :new_moon:  | :new_moon:           | :new_moon:           | :new_moon:           | :new_moon:           | :new_moon:  | :new_moon:  | :new_moon:  | :new_moon:  | :new_moon:  | :new_moon:  | :new_moon:            | :new_moon:  |
+| Feature               | x86         | x86-64      | ARMv7                | ARMv8                | MIPS32               | MIPS64               | EVM         |
+|-----------------------|:-----------:|:-----------:|:--------------------:|:--------------------:|:--------------------:|:--------------------:|:-----------:|
+| Instruction Parsing   | :full_moon: | :full_moon: | :full_moon:          | :full_moon:          | :full_moon:          | :full_moon:          | :full_moon: |
+| Disassembly           | :full_moon: | :full_moon: | :full_moon:          | :full_moon:          | :full_moon:          | :full_moon:          | :full_moon: |
+| Lifting               | :full_moon: | :full_moon: | :full_moon:          | :full_moon:          | :full_moon:          | :full_moon:          | :full_moon: |
+| CFG Recovery          | :full_moon: | :full_moon: | :first_quarter_moon: | :first_quarter_moon: | :first_quarter_moon: | :first_quarter_moon: | :full_moon: |
+| Data-Flow             | :full_moon: | :full_moon: | :full_moon:          | :full_moon:          | :full_moon:          | :full_moon:          | :full_moon: |
+| Instruction Emulation | :full_moon: | :full_moon: | :full_moon:          | :full_moon:          | :full_moon:          | :full_moon:          | :new_moon:  |
+| Assembly              | :full_moon: | :full_moon: | :new_moon:           | :new_moon:           | :new_moon:           | :new_moon:           | :new_moon:  |
+| REPL                  | :full_moon: | :full_moon: | :new_moon:           | :new_moon:           | :new_moon:           | :new_moon:           | :new_moon:  |
+| ROP Compilation       | :full_moon: | :new_moon:  | :new_moon:           | :new_moon:           | :new_moon:           | :new_moon:           | :new_moon:  |
+
+| Feature               | TMS320C600  | AVR         | PA-RISC     | PPC         | SPARC       | SH4                   | RISC-V      |
+|-----------------------|:-----------:|:-----------:|:-----------:|:-----------:|:-----------:|:---------------------:|:-----------:|
+| Instruction Parsing   | :full_moon: | :full_moon: | :full_moon: | :full_moon: | :full_moon: | :waxing_gibbous_moon: | :full_moon: |
+| Disassembly           | :full_moon: | :full_moon: | :full_moon: | :full_moon: | :full_moon: | :waxing_gibbous_moon: | :full_moon: |
+| Lifting               | :new_moon:  | :full_moon: | :new_moon:  | :new_moon:  | :full_moon: | :new_moon:            | :full_moon: |
+| CFG Recovery          | :new_moon:  | :new_moon:  | :new_moon:  | :new_moon:  | :new_moon:  | :new_moon:            | :new_moon:  |
+| Data-Flow             | :new_moon:  | :new_moon:  | :new_moon:  | :new_moon:  | :new_moon:  | :new_moon:            | :new_moon:  |
+| Instruction Emulation | :new_moon:  | :new_moon:  | :new_moon:  | :new_moon:  | :new_moon:  | :new_moon:            | :new_moon:  |
+| Assembly              | :new_moon:  | :new_moon:  | :new_moon:  | :new_moon:  | :new_moon:  | :new_moon:            | :new_moon:  |
+| REPL                  | :new_moon:  | :new_moon:  | :new_moon:  | :new_moon:  | :new_moon:  | :new_moon:            | :new_moon:  |
+| ROP Compilation       | :new_moon:  | :new_moon:  | :new_moon:  | :new_moon:  | :new_moon:  | :new_moon:            | :new_moon:  |
 
 Dependencies?
 -------------
