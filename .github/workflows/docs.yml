@@ -27,6 +27,8 @@ jobs:
       run: dotnet tool restore
     - name: Restore project
       run: dotnet restore
+    - name: Build project
+      run: dotnet build -c Release --no-restore
     - name: Generate documentation
       run: dotnet fsdocs build --properties Configuration=Release
     - name: Upload documentation
