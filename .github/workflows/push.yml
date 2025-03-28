@@ -1,0 +1,52 @@
+name: Git Push Notification
+on: push
+jobs:
+    notify-push-main:
+        runs-on: ubuntu-latest
+        env:
+            COMMIT: "${{ github.event.head_commit.message }}"
+        steps:
+        - name: Main Branch Push
+          run: |
+            echo "Workflow initiated by event with name: ${{ github.event_name }}"
+            echo "Pushing commit to main: ${{ github.event.head_commit.id }}"
+            echo "Pushed by: ${{ github.event.pusher.name }}"
+
+        - name: Push Notification to Google Chat
+          run: |
+            curl --location --request POST '${{ secrets.WEBHOOK_URL }}' \
+                 --header 'Content-Type: application/json' \
+                 --data-raw '{
+                   "cards_v2": [
+                     {
+                       "cardId": "Push Notification",
+                       "card": {
+                         "header": {
+                           "title": "`${{ github.actor }}` pushed to ${{ github.head_ref || github.ref_name }}",
+                           "subtitle": "${{ github.event.head_commit.id }}",
+                           "imageUrl": "https://softsec.kaist.ac.kr/depot/logos/github.png",
+                           "imageType": "CIRCLE"
+                         },
+                         "sections": [
+                           {
+                             "collapsible": false,
+                             "widgets": [
+                               {
+                                 "decoratedText": {
+                                   "text": "'"$COMMIT"'",
+                                   "wrapText": true,
+                                   "onClick": {
+                                     "openLink": {
+                                       "url": "${{ github.event.compare }}"
+                                     }
+                                   }
+                                 }
+                               }
+                             ]
+                           }
+                         ]
+                       }
+                     }
+                   ]
+                 }'
+
