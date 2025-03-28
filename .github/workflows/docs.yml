@@ -5,6 +5,8 @@ on:
     workflows: [release-test]
     types:
       - completed
+    branches:
+      - main
 
 permissions:
   contents: write
