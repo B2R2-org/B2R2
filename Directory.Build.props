@@ -11,8 +11,10 @@
     <RepositoryUrl>https://github.com/B2R2-org/B2R2</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <PackageProjectUrl>https://b2r2.org/B2R2</PackageProjectUrl>
-    <PackageTags>Binary;Disassembly;Assembly;CFG;Reversing;x86;AARCH64;MIPS;AVR;ELF;Mach-O;PE</PackageTags>
+    <PackageTags>Binary;Disassembly;Assembly;CFG;Reversing;Binary Analysis;x86;AARCH64;ARM;MIPS;AVR;PPC;EVM;ELF;Mach-O;PE</PackageTags>
     <FsDocsLogoSource>https://b2r2.org/images/b2r2-240x240.png</FsDocsLogoSource>
+    <FsDocsFaviconSource>https://b2r2.org/images/favicon.ico</FsDocsFaviconSource>
+    <FsDocsReleaseNotesLink>https://github.com/B2R2-org/B2R2/blob/main/CHANGELOG.md</FsDocsReleaseNotesLink>
     <CustomPropTarget>$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))</CustomPropTarget>
   </PropertyGroup>
   <Import Project="$(CustomPropTarget)" Condition="Exists('$(CustomPropTarget)')" />
