@@ -27,8 +27,8 @@ B2R2?
 1. B2R2 is *fast*: it has a fast and efficient front-end engine for binary
    analysis, which is written in a
    [functional-first](https://en.wikipedia.org/wiki/F_Sharp_(programming_language))
-   way. Therefore, it naturally supports *pure parallelism* for binary
-   disassembling, lifting and IR optimization.
+   way. Therefore, it naturally supports *pure parallelism* for various binary
+   analysis tasks, such as instruction lifting, CFG recovery, and etc.
 
 1. B2R2 is *easy* to play with: there is absolutely no dependency hell for B2R2
    because it is a fully-managed library.  All you need to do is to install
@@ -111,22 +111,23 @@ Let's try to use B2R2 APIs.
 1. Add our nuget package *B2R2.FrontEnd* to the project:
 
     ```
-    $ dotnet add package B2R2.FrontEnd.BinInterface
+    $ dotnet add package B2R2.FrontEnd.Core
     ```
 
 1. Modify the `Program.fs` file with your favorite editor as follows:
 
     ```fsharp
     open B2R2
-    open B2R2.FrontEnd.BinInterface
+    open B2R2.FrontEnd
 
     [<EntryPoint>]
     let main argv =
       let isa = ISA.OfString "amd64"
       let bytes = [| 0x65uy; 0xffuy; 0x15uy; 0x10uy; 0x00uy; 0x00uy; 0x00uy |]
-      let hdl = BinHandle.Init (isa, bytes)
-      let ins = BinHandle.ParseInstr (hdl, 0UL)
-      ins.Translate hdl.TranslationContext |> printfn "%A"
+      let hdl = BinHandle (bytes, isa, ArchOperationMode.NoMode, None, false)
+      let lifter = hdl.NewLiftingUnit ()
+      let ins = lifter.ParseInstruction 0UL // parse the instruction at offset 0
+      ins.Translate lifter.TranslationContext |> printfn "%A"
       0
     ```
 
@@ -140,11 +141,10 @@ Build
 Building B2R2 is fun and easy. All you need to do is to install .NET 9 SDK or
 above. Yea, that's it!
 
-- To build B2R2 in release mode, type ```make release``` or ```dotnet build -c
-  Release``` in the source root.
-
-- To build B2R2 in debug mode, type ```make```, or ```dotnet build``` in the
+- To build B2R2 in release mode, type ```dotnet build -c Release``` in the
   source root.
+
+- To build B2R2 in debug mode, type ```dotnet build``` in the source root.
 
 For your information, please visit the official web site of F# to get more tips
 about installing the development environment for F#: http://fsharp.org/.
@@ -177,8 +177,8 @@ Publications
 Here are papers using our work. Please create a PR if you want to add yours.
 
 - Towards Sound Reassembly of Modern x86-64 Binaries, ASPLOS 2025 [(PDF)](https://softsec.kaist.ac.kr/~sangkilc/papers/kim-asplos25.pdf)
-- PoE: A Domain-Specific Language for Exploitation, SVCC 2024
-- FunProbe: Probing Functions from Binary Code through Probabilistic Analysis, FSE 2023
+- PoE: A Domain-Specific Language for Exploitation, SVCC 2024 [(PDF)](https://softsec.kaist.ac.kr/~sangkilc/papers/kim-svcc24.pdf)
+- FunProbe: Probing Functions from Binary Code through Probabilistic Analysis, FSE 2023 [(PDF)](https://softsec.kaist.ac.kr/~sangkilc/papers/kim-fse23.pdf)
 - How'd Security Benefit Reverse Engineers? The Implication of Intel CET on Function Identification, DSN 2022 [(PDF)](https://softsec.kaist.ac.kr/~sangkilc/papers/kim-dsn2022.pdf)
 - Smartian: Enhancing Smart Contract Fuzzing with Static and Dynamic Data-Flow Analyses, ASE 2021 [(PDF)](https://softsec.kaist.ac.kr/~jschoi/data/ase2021.pdf)
 - NTFuzz: Enabling Type-Aware Kernel Fuzzing on Windows with Static Binary Analysis, Oakland 2021 [(PDF)](https://softsec.kaist.ac.kr/~jschoi/data/oakland2021.pdf)
