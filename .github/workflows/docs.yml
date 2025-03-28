@@ -22,8 +22,8 @@ jobs:
         dotnet-version: 9.0.x
     - name: Restore tools
       run: dotnet tool restore
-    - name: Build code
-      run: dotnet build -c Release
+    - name: Restore project
+      run: dotnet restore
     - name: Generate documentation
       run: dotnet fsdocs build --properties Configuration=Release
     - name: Upload documentation
