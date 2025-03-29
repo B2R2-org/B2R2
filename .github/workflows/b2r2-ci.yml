@@ -1,0 +1,19 @@
+name: b2r2-ci
+
+on: push
+
+jobs:
+  dispatch:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Dispatch a new task
+      env:
+        CI_URL: ${{ secrets.CI_URL }}
+        COMMIT_SHA: ${{ github.sha }}
+        BRANCH_NAME: ${{ github.head_ref || github.ref_name }}
+        AUTHOR: ${{ github.actor }}
+      run: |
+        echo $COMMIT_SHA, $BRANCH_NAME, $AUTHOR
+        curl -s $CI_URL/run/$COMMIT_SHA/$BRANCH_NAME/$AUTHOR
