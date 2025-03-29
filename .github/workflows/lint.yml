@@ -20,9 +20,9 @@ jobs:
       uses: tj-actions/changed-files@v46.0.3
       with:
         files: |
-          **.{fs}
+          */**.{fs}
         files_ignore: |
-          CFG?Tests.{fs}
+          */CFG?Tests.{fs}
     - name: Lint changed files
       env:
         CHANGED_FILES: ${{ steps.changed-files.outputs.all_changed_files }}
