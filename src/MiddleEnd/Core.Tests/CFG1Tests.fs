@@ -186,8 +186,7 @@ type CFG1Tests () =
     let actual =
       brew.Functions.Sequence
       |> Seq.toArray
-      |> Array.map collectInsBBLAddrPairs
-      |> Array.concat
+      |> Array.collect collectInsBBLAddrPairs
       |> Array.sortBy fst
     CollectionAssert.AreEqual (expected, actual)
 
