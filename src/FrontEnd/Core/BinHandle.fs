@@ -94,6 +94,9 @@ type BinHandle private (path, bytes, fmt, isa, mode, baseAddrOpt) =
     else
       BinHandle ("", bytes, RawBinary, isa, mode, baseAddrOpt)
 
+  new (bytes, isa) =
+    BinHandle ("", bytes, RawBinary, isa, NoMode, None)
+
   new (isa) =
     BinHandle ([||], isa, NoMode, None, false)
 

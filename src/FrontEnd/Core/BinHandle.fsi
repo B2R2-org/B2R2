@@ -62,6 +62,11 @@ type BinHandle =
      * detectFormat: bool
     -> BinHandle
 
+  /// Construct a BinHandle from a given byte array and ISA. ArchOperationMode
+  /// is set to NoMode, base address is set to 0UL, and file format detection
+  /// is disabled.
+  new: bytes: byte[] * isa: ISA -> BinHandle
+
   /// Construct an empty BinHandle.
   new: isa: ISA -> BinHandle
 

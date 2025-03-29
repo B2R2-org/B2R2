@@ -20,14 +20,14 @@ jobs:
       uses: tj-actions/changed-files@v46.0.3
       with:
         files: |
-          */**.{fs}
+          **/*.{fs,fsi}
         files_ignore: |
-          */CFG?Tests.{fs}
+          **/CFG?Tests.{fs}
     - name: Lint changed files
       env:
         CHANGED_FILES: ${{ steps.changed-files.outputs.all_changed_files }}
       run: |
         for file in ${CHANGED_FILES}; do
           echo $file
-          dotnet fsharplint lint $file
+          DOTNET_ROLL_FORWARD=latestMajor dotnet fsharplint lint $file
         done
