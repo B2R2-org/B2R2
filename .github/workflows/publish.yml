@@ -1,0 +1,33 @@
+name: publish
+
+on:
+  push:
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+"
+
+permissions: write-all
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: 9.0.x
+    - name: Restore project
+      run: dotnet restore
+    - name: Build project
+      run: dotnet build -c Release --no-restore
+    - name: Pack
+      run: dotnet pack -c Release --output .
+    - name: Push
+      env:
+        TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        dotnet nuget push *.nupkg \
+          --source "https://nuget.pkg.github.com/B2R2-org/index.json" \
+          --api-key ${TOKEN}
