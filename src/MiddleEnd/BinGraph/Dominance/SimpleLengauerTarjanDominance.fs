@@ -22,10 +22,10 @@
   SOFTWARE.
 *)
 
-/// Lengauer-Tarjan dominance algorithm for dominator computation. A fast
+/// Simple Lengauer-Tarjan dominance algorithm for dominator computation. A fast
 /// algorithm for finding dominators in a flow graph, TOPLAS 1979.
-/// This sofisticated version balances when constructing the ancestor forest.
-module B2R2.MiddleEnd.BinGraph.Dominance.LengauerTarjanDominance
+/// This simple version does not balance when constructing the ancestor forest.
+module B2R2.MiddleEnd.BinGraph.Dominance.SimpleLengauerTarjanDominance
 
 open System.Collections.Generic
 open B2R2.MiddleEnd.BinGraph
@@ -39,16 +39,12 @@ type private DomInfo<'V when 'V: equality> = {
   Label: int[]
   /// DFNum -> DFNum of the parent node (zero if not exists).
   Parent: int[]
-  /// DFNum -> DFNum of the child node (zero if not exists).
-  Child: int[]
   /// DFNum -> DFNum of an ancestor.
   Ancestor: int[]
   /// DFNum -> DFNum of a semidominator.
   Semi: int[]
   /// DFNum -> set of DFNums (vertices that share the same sdom).
   Bucket: Set<int>[]
-  /// DFNum -> Size
-  Size: int[]
   /// DFNum -> DFNum of an immediate dominator.
   IDom: int[]
   /// Length of the arrays.
@@ -62,11 +58,9 @@ let private initDomInfo (g: IDiGraphAccessible<_, _>) =
     Vertex = Array.zeroCreate len
     Label = Array.create len 0
     Parent = Array.create len 0
-    Child = Array.create len 0
     Ancestor = Array.create len 0
     Semi = Array.create len 0
     Bucket = Array.create len Set.empty
-    Size = Array.create len 1
     IDom = Array.create len 0
     MaxLength = len }
 
@@ -121,26 +115,8 @@ let rec private computeSemiDom info v = function
   | [] -> ()
 
 let private link info v w =
-  let mutable s = w
-  while info.Semi[info.Label[w]] < info.Semi[info.Label[info.Child[s]]] do
-    if info.Size[s] + info.Size[info.Child[info.Child[s]]]
-       >= 2 * info.Size[info.Child[s]]
-    then info.Ancestor[info.Child[s]] <- s
-         info.Child[s] <- info.Child[info.Child[s]]
-    else info.Size[info.Child[s]] <- info.Size[s]
-         info.Ancestor[s] <- info.Child[s]
-         s <- info.Ancestor[s]
-  done
-  info.Label[s] <- info.Label[w]
-  info.Size[v] <- info.Size[v] + info.Size[w]
-  if info.Size[v] < 2 * info.Size[w] then
-    let t = s
-    s <- info.Child[v]
-    info.Child[v] <- t
-  while s <> 0 do
-    info.Ancestor[s] <- v
-    s <- info.Child[s]
-  done
+  info.Ancestor[w] <- v
+  info.Label[w] <- w
 
 let private computeDom info p =
   Set.iter (fun v ->
@@ -194,69 +170,68 @@ let private createDomInfo g (dfp: IDominanceFrontierProvider<_, _>) =
   let domTree = lazy DominatorTree (g, idomAux domInfo)
   domInfo, domTree
 
-type private LengauerTarjanDominance<'V, 'E when 'V: equality and 'E: equality>
-  (g, dfp) =
+type private SimpleLengauerTarjanDominance<'V, 'E when 'V: equality
+                                                   and 'E: equality> (g, dfp) =
   let forward = createDomInfo g dfp
   let backwardG = lazy (GraphUtils.findExits g |> g.Reverse)
   let backward = lazy (createDomInfo backwardG.Value dfp)
   let mutable dfProvider = null
   let mutable pdfProvider = null
   interface IDominance<'V, 'E> with
-    member _.Dominators v =
+    member __.Dominators v =
 #if DEBUG
       GraphUtils.checkVertexInGraph g v
 #endif
       let domInfo, _ = forward
       domsAux [v] v domInfo
 
-    member _.ImmediateDominator v =
+    member __.ImmediateDominator v =
 #if DEBUG
       GraphUtils.checkVertexInGraph g v
 #endif
       let domInfo, _ = forward
       idomAux domInfo v
 
-    member _.DominatorTree =
+    member __.DominatorTree =
       let _, domTree = forward
       domTree.Value
 
-    member this.DominanceFrontier v =
+    member __.DominanceFrontier v =
 #if DEBUG
       GraphUtils.checkVertexInGraph g v
 #endif
       if isNull pdfProvider then
-        pdfProvider <- dfp.CreateIDominanceFrontier (g, this, false)
+        pdfProvider <- dfp.CreateIDominanceFrontier (g, __, false)
       else ()
       pdfProvider.DominanceFrontier v
 
-    member _.PostDominators v =
+    member __.PostDominators v =
 #if DEBUG
       GraphUtils.checkVertexInGraph g v
 #endif
       let domInfo, _ = backward.Value
       domsAux [v] v domInfo
 
-    member _.ImmediatePostDominator v =
+    member __.ImmediatePostDominator v =
 #if DEBUG
       GraphUtils.checkVertexInGraph g v
 #endif
       let domInfo, _ = backward.Value
       idomAux domInfo v
 
-    member _.PostDominatorTree =
+    member __.PostDominatorTree =
       let _, domTree = backward.Value
       domTree.Value
 
-    member this.PostDominanceFrontier v =
+    member __.PostDominanceFrontier v =
 #if DEBUG
       GraphUtils.checkVertexInGraph g v
 #endif
       if isNull dfProvider then
-        dfProvider <-
-          dfp.CreateIDominanceFrontier (backwardG.Value, this, true)
+        dfProvider <- dfp.CreateIDominanceFrontier (backwardG.Value, __, true)
       else ()
       dfProvider.DominanceFrontier v
 
 [<CompiledName "Create">]
 let create g (dfp: IDominanceFrontierProvider<_, _>) =
-  LengauerTarjanDominance (g, dfp) :> IDominance<_, _>
+  SimpleLengauerTarjanDominance (g, dfp) :> IDominance<_, _>
