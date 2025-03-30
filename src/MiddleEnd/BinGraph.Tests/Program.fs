@@ -37,16 +37,21 @@ type Doms () =
   let mutable fileName: string = null
 
   [<Params(
-    "99_objdump_clang_m32_O1_80b18d0.json",
-    "499_gcc_base.amd64-m32-ccr-Ofast_clang_m32_Of_81428e0.json",
-    "4152_find_clang_O0_433cd0.json"
+    "99_183_dwp_clang_m32_O3_8204810_17.json",
+    "499_703_git_clang_m32_Os_80ada73_1.json",
+    "866_1462_libtiff.so.5.4.0_clang_O2_10170_1.json",
+    "1180_1852_calculix_base.amd64-m32-ccr-Ofast_clang_m32_Of_81a1400_1.json",
+    "2125_3648_as_clang_m32_O2_8073110_1.json",
+    "3450_5467_touch_clang_O0_403510_4.json",
+    "4152_6667_find_clang_O0_433cd0_1.json"
   )>]
   member _.FileName with get() = fileName and set(n) = fileName <- n
 
   [<GlobalSetup>]
   member this.GlobalSetup () =
     let constructor () = ImperativeDiGraph () :> IDiGraph<_, _>
-    let json = System.IO.File.ReadAllText ("TestData/" + this.FileName)
+    let json =
+      System.IO.File.ReadAllText ("TestData/Benchmark/Vertex/" + this.FileName)
     g <- Serializer.FromJson (json, constructor, id, id)
 
   [<Benchmark(Baseline = true)>]
@@ -73,16 +78,21 @@ type DominanceFrontier () =
   let mutable fileName: string = null
 
   [<Params(
-    "99_objdump_clang_m32_O1_80b18d0.json",
-    "499_gcc_base.amd64-m32-ccr-Ofast_clang_m32_Of_81428e0.json",
-    "4152_find_clang_O0_433cd0.json"
+    "99_183_dwp_clang_m32_O3_8204810_17.json",
+    "499_703_git_clang_m32_Os_80ada73_1.json",
+    "866_1462_libtiff.so.5.4.0_clang_O2_10170_1.json",
+    "1180_1852_calculix_base.amd64-m32-ccr-Ofast_clang_m32_Of_81a1400_1.json",
+    "2125_3648_as_clang_m32_O2_8073110_1.json",
+    "3450_5467_touch_clang_O0_403510_4.json",
+    "4152_6667_find_clang_O0_433cd0_1.json"
   )>]
   member _.FileName with get() = fileName and set(n) = fileName <- n
 
   [<GlobalSetup>]
   member this.GlobalSetup () =
     let constructor () = ImperativeDiGraph () :> IDiGraph<_, _>
-    let json = System.IO.File.ReadAllText ("TestData/" + this.FileName)
+    let json =
+      System.IO.File.ReadAllText ("TestData/Benchmark/Vertex/" + this.FileName)
     g <- Serializer.FromJson (json, constructor, id, id)
 
   [<Benchmark(Baseline = true)>]
