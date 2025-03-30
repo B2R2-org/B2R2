@@ -32,6 +32,7 @@ open B2R2.MiddleEnd.BinGraph.Tests.Examples
 type DominanceAlgorithm =
   | DomIterative
   | DomLengauer
+  | DomSNCA
   | DomCooper
 
 type DominanceFrontierAlgorithm =
@@ -50,6 +51,10 @@ type DominanceTests () =
       LengauerTarjanDominance.create g (CytronDominanceFrontier ())
     | DomLengauer, DFCooper ->
       LengauerTarjanDominance.create g (CooperDominanceFrontier ())
+    | DomSNCA, DFCytron ->
+      SemiNCADominance.create g (CytronDominanceFrontier ())
+    | DomSNCA, DFCooper ->
+      SemiNCADominance.create g (CooperDominanceFrontier ())
     | DomCooper, DFCytron ->
       CooperDominance.create g (CooperDominanceFrontier ())
     | DomCooper, DFCooper ->
@@ -84,6 +89,10 @@ type DominanceTests () =
        [| box Persistent; box DomLengauer; box DFCooper |]
        [| box Imperative; box DomLengauer; box DFCytron |]
        [| box Imperative; box DomLengauer; box DFCooper |]
+       [| box Persistent; box DomSNCA; box DFCytron |]
+       [| box Persistent; box DomSNCA; box DFCooper |]
+       [| box Imperative; box DomSNCA; box DFCytron |]
+       [| box Imperative; box DomSNCA; box DFCooper |]
        [| box Persistent; box DomCooper; box DFCytron |]
        [| box Persistent; box DomCooper; box DFCooper |]
        [| box Imperative; box DomCooper; box DFCytron |]
@@ -97,6 +106,14 @@ type DominanceTests () =
        [| box DomLengauer
           box "854_binutils-2.31.1_x86_gcc_nopie_o3_as-new_808b4e0.json" |]
        [| box DomLengauer
+          box "4152_find_clang_O0_433cd0.json" |]
+       [| box DomSNCA
+          box "99_objdump_clang_m32_O1_80b18d0.json" |]
+       [| box DomSNCA
+          box "499_gcc_base.amd64-m32-ccr-Ofast_clang_m32_Of_81428e0.json" |]
+       [| box DomSNCA
+          box "854_binutils-2.31.1_x86_gcc_nopie_o3_as-new_808b4e0.json" |]
+       [| box DomSNCA
           box "4152_find_clang_O0_433cd0.json" |]
        [| box DomCooper
           box "99_objdump_clang_m32_O1_80b18d0.json" |]
