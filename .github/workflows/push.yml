@@ -1,4 +1,4 @@
-name: Git Push Notification
+name: push-notification
 on: push
 jobs:
     notify-push-main:
