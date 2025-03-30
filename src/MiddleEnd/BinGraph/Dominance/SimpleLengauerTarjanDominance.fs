@@ -43,8 +43,10 @@ type private DomInfo<'V when 'V: equality> = {
   Ancestor: int[]
   /// DFNum -> DFNum of a semidominator.
   Semi: int[]
-  /// DFNum -> set of DFNums (vertices that share the same sdom).
-  Bucket: Set<int>[]
+  /// DFNum -> DFNum of the first node in the bucket.
+  First: int[]
+  /// DFNum -> DFNum of the next node in the bucket.
+  Next: int[]
   /// DFNum -> DFNum of an immediate dominator.
   IDom: int[]
   /// Length of the arrays.
@@ -60,7 +62,8 @@ let private initDomInfo (g: IDiGraphAccessible<_, _>) =
     Parent = Array.create len 0
     Ancestor = Array.create len 0
     Semi = Array.create len 0
-    Bucket = Array.create len Set.empty
+    First = Array.create len -1
+    Next = Array.create len -1
     IDom = Array.create len 0
     MaxLength = len }
 
@@ -118,16 +121,19 @@ let private link info v w =
   info.Ancestor[w] <- v
   info.Label[w] <- w
 
-let private computeDom info p =
-  Set.iter (fun v ->
-    let u = eval info v
-    if info.Semi[u] < info.Semi[v] then info.IDom[v] <- u
-    else info.IDom[v] <- p) info.Bucket[p]
-  info.Bucket[p] <- Set.empty
+let rec private computeDomAux info v s =
+  let u = eval info v
+  let w = info.Next[v]
+  if info.Semi[u] < info.Semi[v] then info.IDom[v] <- u
+  else info.IDom[v] <- s
+  if w = -1 then ()
+  else computeDomAux info w s
 
-let rec private computeDomOrDelay info parent =
-  if info.Bucket[parent].IsEmpty then ()
-  else computeDom info parent
+let private computeDom info v =
+  let w = info.First[v]
+  if w = -1 then ()
+  else
+    computeDomAux info w v
 
 let private computeDominatorInfo (g: IDiGraphAccessible<_, _>) =
   let info = initDomInfo g
@@ -135,15 +141,16 @@ let private computeDominatorInfo (g: IDiGraphAccessible<_, _>) =
   let realRoots = g.GetRoots ()
   let n = prepareWithDummyRoot g info dummyRoot realRoots
   for i = n downto 1 do
+    computeDom info i
     let v = info.Vertex[i]
     let p = info.Parent[i]
     getPreds g dummyRoot realRoots v
     |> Array.map (dfnum info)
     |> Array.toList
     |> computeSemiDom info i
-    info.Bucket[info.Semi[i]] <- Set.add i info.Bucket[info.Semi[i]]
+    info.Next[i] <- info.First[info.Semi[i]]
+    info.First[info.Semi[i]] <- i
     link info p i (* Link the parent (p) to the forest. *)
-    computeDomOrDelay info p
   done
   for i = 1 to n do
     if info.IDom[i] <> info.Semi[i] then
