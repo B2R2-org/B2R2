@@ -58,29 +58,151 @@ progress, but we look forward to your contributions! Feel free to write a PR
 (Pull Request) while making sure that you have read our [contribution
 guideline](CONTRIBUTING.md).
 
-| Feature               | `   x86    `<br/> | `  x86-64  `<br/> | `  ARMv7   `<br/> | `  ARMv8   `<br/> | `  MIPS32  `<br/> | `  MIPS64  `<br/> | `   EVM    `<br/> |
-|-----------------------|:------------:|:------------:|:--------------------:|:--------------------:|:--------------------:|:--------------------:|:------------:|
-| Instruction Parsing   | :full_moon:  | :full_moon:  | :full_moon:          | :full_moon:          | :full_moon:          | :full_moon:          | :full_moon:  |
-| Disassembly           | :full_moon:  | :full_moon:  | :full_moon:          | :full_moon:          | :full_moon:          | :full_moon:          | :full_moon:  |
-| Lifting               | :full_moon:  | :full_moon:  | :full_moon:          | :full_moon:          | :full_moon:          | :full_moon:          | :full_moon:  |
-| CFG Recovery          | :full_moon:  | :full_moon:  | :first_quarter_moon: | :first_quarter_moon: | :first_quarter_moon: | :first_quarter_moon: | :full_moon:  |
-| Data-Flow             | :full_moon:  | :full_moon:  | :full_moon:          | :full_moon:          | :full_moon:          | :full_moon:          | :full_moon:  |
-| Instruction Emulation | :full_moon:  | :full_moon:  | :full_moon:          | :full_moon:          | :full_moon:          | :full_moon:          | :new_moon:   |
-| Assembly              | :full_moon:  | :full_moon:  | :new_moon:           | :new_moon:           | :new_moon:           | :new_moon:           | :new_moon:   |
-| REPL                  | :full_moon:  | :full_moon:  | :new_moon:           | :new_moon:           | :new_moon:           | :new_moon:           | :new_moon:   |
-| ROP Compilation       | :full_moon:  | :new_moon:   | :new_moon:           | :new_moon:           | :new_moon:           | :new_moon:           | :new_moon:   |
+<table>
+  <tr>
+    <th width="178px">Feature</th>
+    <th width="96px" class="text-center">x86</th>
+    <th width="96px" class="text-center">x86-64</th>
+    <th width="96px" class="text-center">ARMv7</th>
+    <th width="96px" class="text-center">ARMv8</th>
+    <th width="96px" class="text-center">MIPS32</th>
+    <th width="96px" class="text-center">MIPS64</th>
+    <th width="96px" class="text-center">EVM</th>
+  </tr>
+  <tr>
+    <td>Instruction Parsing</td>
+    <td align="center">:full_moon:</td>
+    <td align="center">:full_moon:</td>
+    <td align="center">:full_moon:</td>
+    <td align="center">:full_moon:</td>
+    <td align="center">:full_moon:</td>
+    <td align="center">:full_moon:</td>
+    <td align="center">:full_moon:</td>
+  </tr>
+  <tr>
+    <td>Disassembly</td>
+    <td align="center">:full_moon:</td>
+    <td align="center">:full_moon:</td>
+    <td align="center">:full_moon:</td>
+    <td align="center">:full_moon:</td>
+    <td align="center">:full_moon:</td>
+    <td align="center">:full_moon:</td>
+    <td align="center">:full_moon:</td>
+  </tr>
+  <tr>
+    <td>Lifting</td>
+    <td align="center">:full_moon:</td>
+    <td align="center">:full_moon:</td>
+    <td align="center">:full_moon:</td>
+    <td align="center">:full_moon:</td>
+    <td align="center">:full_moon:</td>
+    <td align="center">:full_moon:</td>
+    <td align="center">:full_moon:</td>
+  </tr>
+  <tr>
+    <td>CFG Recovery</td>
+    <td align="center">:full_moon:</td>
+    <td align="center">:full_moon:</td>
+    <td align="center">:first_quarter_moon:</td>
+    <td align="center">:first_quarter_moon:</td>
+    <td align="center">:first_quarter_moon:</td>
+    <td align="center">:first_quarter_moon:</td>
+    <td align="center">:full_moon:</td>
+  </tr>
+  <tr>
+    <td>Instruction Emulation</td>
+    <td align="center">:full_moon:</td>
+    <td align="center">:full_moon:</td>
+    <td align="center">:full_moon:</td>
+    <td align="center">:full_moon:</td>
+    <td align="center">:full_moon:</td>
+    <td align="center">:full_moon:</td>
+    <td align="center">:full_moon:</td>
+  </tr>
+  <tr>
+    <td>Assembly</td>
+    <td align="center">:full_moon:</td>
+    <td align="center">:full_moon:</td>
+    <td align="center">:new_moon:</td>
+    <td align="center">:new_moon:</td>
+    <td align="center">:new_moon:</td>
+    <td align="center">:new_moon:</td>
+    <td align="center">:new_moon:</td>
+  </tr>
+</table>
 
-| Feature               | `  TMS320  `<br/> | `   AVR    `<br/> | `  PA-RISC `<br/> | `   PPC    `<br/> | `  SPARC   `<br/> | `    SH4   `<br/> | `  RISC-V  `<br/> |
-|-----------------------|:------------:|:-----------:|:-----------:|:------------:|:------------:|:---------------------:|:------------:|
-| Instruction Parsing   | :full_moon:  | :full_moon: | :full_moon: | :full_moon:  | :full_moon:  | :waxing_gibbous_moon: | :full_moon:  |
-| Disassembly           | :full_moon:  | :full_moon: | :full_moon: | :full_moon:  | :full_moon:  | :waxing_gibbous_moon: | :full_moon:  |
-| Lifting               | :new_moon:   | :full_moon: | :new_moon:  | :new_moon:   | :full_moon:  | :new_moon:            | :full_moon:  |
-| CFG Recovery          | :new_moon:   | :new_moon:  | :new_moon:  | :new_moon:   | :new_moon:   | :new_moon:            | :new_moon:   |
-| Data-Flow             | :new_moon:   | :new_moon:  | :new_moon:  | :new_moon:   | :new_moon:   | :new_moon:            | :new_moon:   |
-| Instruction Emulation | :new_moon:   | :new_moon:  | :new_moon:  | :full_moon:  | :full_moon:  | :new_moon:            | :full_moon:  |
-| Assembly              | :new_moon:   | :new_moon:  | :new_moon:  | :new_moon:   | :new_moon:   | :new_moon:            | :new_moon:   |
-| REPL                  | :new_moon:   | :new_moon:  | :new_moon:  | :new_moon:   | :new_moon:   | :new_moon:            | :new_moon:   |
-| ROP Compilation       | :new_moon:   | :new_moon:  | :new_moon:  | :new_moon:   | :new_moon:   | :new_moon:            | :new_moon:   |
+<table>
+  <tr>
+    <th width="178px">Feature</th>
+    <th width="96px" class="text-center">TMS320</th>
+    <th width="96px" class="text-center">AVR</th>
+    <th width="96px" class="text-center">PA-RISC</th>
+    <th width="96px" class="text-center">PPC</th>
+    <th width="96px" class="text-center">SPARC</th>
+    <th width="96px" class="text-center">SH4</th>
+    <th width="96px" class="text-center">RISC-V</th>
+  </tr>
+  <tr>
+    <td>Instruction Parsing</td>
+    <td align="center">:full_moon:</td>
+    <td align="center">:full_moon:</td>
+    <td align="center">:full_moon:</td>
+    <td align="center">:full_moon:</td>
+    <td align="center">:full_moon:</td>
+    <td align="center">:waxing_gibbous_moon:</td>
+    <td align="center">:full_moon:</td>
+  </tr>
+  <tr>
+    <td>Disassembly</td>
+    <td align="center">:full_moon:</td>
+    <td align="center">:full_moon:</td>
+    <td align="center">:full_moon:</td>
+    <td align="center">:full_moon:</td>
+    <td align="center">:full_moon:</td>
+    <td align="center">:waxing_gibbous_moon:</td>
+    <td align="center">:full_moon:</td>
+  </tr>
+  <tr>
+    <td>Lifting</td>
+    <td align="center">:new_moon:</td>
+    <td align="center">:full_moon:</td>
+    <td align="center">:new_moon:</td>
+    <td align="center">:full_moon:</td>
+    <td align="center">:full_moon:</td>
+    <td align="center">:new_moon:</td>
+    <td align="center">:full_moon:</td>
+  </tr>
+  <tr>
+    <td>CFG Recovery</td>
+    <td align="center">:full_moon:</td>
+    <td align="center">:full_moon:</td>
+    <td align="center">:first_quarter_moon:</td>
+    <td align="center">:first_quarter_moon:</td>
+    <td align="center">:first_quarter_moon:</td>
+    <td align="center">:first_quarter_moon:</td>
+    <td align="center">:full_moon:</td>
+  </tr>
+  <tr>
+    <td>Instruction Emulation</td>
+    <td align="center">:new_moon:</td>
+    <td align="center">:full_moon:</td>
+    <td align="center">:new_moon:</td>
+    <td align="center">:full_moon:</td>
+    <td align="center">:full_moon:</td>
+    <td align="center">:new_moon:</td>
+    <td align="center">:full_moon:</td>
+  </tr>
+  <tr>
+    <td>Assembly</td>
+    <td align="center">:new_moon:</td>
+    <td align="center">:new_moon:</td>
+    <td align="center">:new_moon:</td>
+    <td align="center">:new_moon:</td>
+    <td align="center">:new_moon:</td>
+    <td align="center">:new_moon:</td>
+    <td align="center">:new_moon:</td>
+  </tr>
+</table>
 
 Dependencies?
 -------------
