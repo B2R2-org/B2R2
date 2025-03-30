@@ -172,16 +172,17 @@ let private idomAux info v =
     if id >= 1 then info.Vertex[id] else null
   else null
 
-let private createDomInfo g (dfp: IDominanceFrontierProvider<_, _>) =
+let private createDomInfo g =
   let domInfo = computeDominatorInfo g
   let domTree = lazy DominatorTree (g, idomAux domInfo)
   domInfo, domTree
 
 type private SimpleLengauerTarjanDominance<'V, 'E when 'V: equality
-                                                   and 'E: equality> (g, dfp) =
-  let forward = createDomInfo g dfp
+                                                   and 'E: equality>
+  (g, dfp: IDominanceFrontierProvider<_, _>) =
+  let forward = createDomInfo g
   let backwardG = lazy (GraphUtils.findExits g |> g.Reverse)
-  let backward = lazy (createDomInfo backwardG.Value dfp)
+  let backward = lazy (createDomInfo backwardG.Value)
   let mutable dfProvider = null
   let mutable pdfProvider = null
   interface IDominance<'V, 'E> with
