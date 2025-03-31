@@ -1860,7 +1860,7 @@ let vptest ins insLen ctxt =
     !!ir (!.ctxt R.PF := AST.b0)
     !!ir (!.ctxt R.SF := AST.b0)
 #if EMULATION
-    ctxt.ConditionCodeOp <- ConditionCodeOp.EFlags
+    ctxt.ConditionCodeOp <- BinLifter.ConditionCodeOp.EFlags
 #endif
     !>ir insLen
 

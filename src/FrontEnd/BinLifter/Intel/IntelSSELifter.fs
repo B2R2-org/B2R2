@@ -605,7 +605,7 @@ let comiss ins insLen ctxt =
   !!ir (!.ctxt R.AF := AST.b0)
   !!ir (!.ctxt R.SF := AST.b0)
 #if EMULATION
-  ctxt.ConditionCodeOp <- ConditionCodeOp.EFlags
+  ctxt.ConditionCodeOp <- BinLifter.ConditionCodeOp.EFlags
 #endif
   !>ir insLen
 
@@ -634,7 +634,7 @@ let comisd ins insLen ctxt =
   !!ir (!.ctxt R.AF := AST.b0)
   !!ir (!.ctxt R.SF := AST.b0)
 #if EMULATION
-  ctxt.ConditionCodeOp <- ConditionCodeOp.EFlags
+  ctxt.ConditionCodeOp <- BinLifter.ConditionCodeOp.EFlags
 #endif
   !>ir insLen
 
@@ -663,7 +663,7 @@ let ucomiss ins insLen ctxt =
   !!ir (!.ctxt R.AF := AST.b0)
   !!ir (!.ctxt R.SF := AST.b0)
 #if EMULATION
-  ctxt.ConditionCodeOp <- ConditionCodeOp.EFlags
+  ctxt.ConditionCodeOp <- BinLifter.ConditionCodeOp.EFlags
 #endif
   !>ir insLen
 
@@ -692,7 +692,7 @@ let ucomisd ins insLen ctxt =
   !!ir (!.ctxt R.AF := AST.b0)
   !!ir (!.ctxt R.SF := AST.b0)
 #if EMULATION
-  ctxt.ConditionCodeOp <- ConditionCodeOp.EFlags
+  ctxt.ConditionCodeOp <- BinLifter.ConditionCodeOp.EFlags
 #endif
   !>ir insLen
 
@@ -1782,7 +1782,7 @@ let ptest ins insLen ctxt =
   !!ir (!.ctxt R.PF := AST.b0)
   !!ir (!.ctxt R.SF := AST.b0)
 #if EMULATION
-  ctxt.ConditionCodeOp <- ConditionCodeOp.EFlags
+  ctxt.ConditionCodeOp <- BinLifter.ConditionCodeOp.EFlags
 #endif
   !>ir insLen
 
@@ -2159,6 +2159,6 @@ let pcmpstr ins insLen ctxt =
   !!ir (!.ctxt R.AF := AST.b0)
   !!ir (!.ctxt R.PF := AST.b0)
 #if EMULATION
-  ctxt.ConditionCodeOp <- ConditionCodeOp.EFlags
+  ctxt.ConditionCodeOp <- BinLifter.ConditionCodeOp.EFlags
 #endif
   !>ir insLen
