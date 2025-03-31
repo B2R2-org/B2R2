@@ -25,7 +25,8 @@
 module B2R2.FrontEnd.BinLifter.RISCV.Helper
 
 open B2R2
-open B2R2.FrontEnd.BinLifter
+open B2R2.FrontEnd
+open B2R2.FrontEnd.Register
 open B2R2.FrontEnd.BinLifter.BitData
 
 let getRm = function
@@ -38,95 +39,95 @@ let getRm = function
   | _ -> raise ParsingFailureException
 
 let getRegister = function
-  | 0x0uy -> R.X0
-  | 0x1uy -> R.X1
-  | 0x2uy -> R.X2
-  | 0x3uy -> R.X3
-  | 0x4uy -> R.X4
-  | 0x5uy -> R.X5
-  | 0x6uy -> R.X6
-  | 0x7uy -> R.X7
-  | 0x8uy -> R.X8
-  | 0x9uy -> R.X9
-  | 0xAuy -> R.X10
-  | 0xBuy -> R.X11
-  | 0xCuy -> R.X12
-  | 0xDuy -> R.X13
-  | 0xEuy -> R.X14
-  | 0xFuy -> R.X15
-  | 0x10uy -> R.X16
-  | 0x11uy -> R.X17
-  | 0x12uy -> R.X18
-  | 0x13uy -> R.X19
-  | 0x14uy -> R.X20
-  | 0x15uy -> R.X21
-  | 0x16uy -> R.X22
-  | 0x17uy -> R.X23
-  | 0x18uy -> R.X24
-  | 0x19uy -> R.X25
-  | 0x1Auy -> R.X26
-  | 0x1Buy -> R.X27
-  | 0x1Cuy -> R.X28
-  | 0x1Duy -> R.X29
-  | 0x1Euy -> R.X30
-  | 0x1Fuy -> R.X31
+  | 0x0uy -> RISCV64.X0
+  | 0x1uy -> RISCV64.X1
+  | 0x2uy -> RISCV64.X2
+  | 0x3uy -> RISCV64.X3
+  | 0x4uy -> RISCV64.X4
+  | 0x5uy -> RISCV64.X5
+  | 0x6uy -> RISCV64.X6
+  | 0x7uy -> RISCV64.X7
+  | 0x8uy -> RISCV64.X8
+  | 0x9uy -> RISCV64.X9
+  | 0xAuy -> RISCV64.X10
+  | 0xBuy -> RISCV64.X11
+  | 0xCuy -> RISCV64.X12
+  | 0xDuy -> RISCV64.X13
+  | 0xEuy -> RISCV64.X14
+  | 0xFuy -> RISCV64.X15
+  | 0x10uy -> RISCV64.X16
+  | 0x11uy -> RISCV64.X17
+  | 0x12uy -> RISCV64.X18
+  | 0x13uy -> RISCV64.X19
+  | 0x14uy -> RISCV64.X20
+  | 0x15uy -> RISCV64.X21
+  | 0x16uy -> RISCV64.X22
+  | 0x17uy -> RISCV64.X23
+  | 0x18uy -> RISCV64.X24
+  | 0x19uy -> RISCV64.X25
+  | 0x1Auy -> RISCV64.X26
+  | 0x1Buy -> RISCV64.X27
+  | 0x1Cuy -> RISCV64.X28
+  | 0x1Duy -> RISCV64.X29
+  | 0x1Euy -> RISCV64.X30
+  | 0x1Fuy -> RISCV64.X31
   | _ -> raise InvalidRegisterException
 
 let getFRegister = function
-  | 0x0uy -> R.F0
-  | 0x1uy -> R.F1
-  | 0x2uy -> R.F2
-  | 0x3uy -> R.F3
-  | 0x4uy -> R.F4
-  | 0x5uy -> R.F5
-  | 0x6uy -> R.F6
-  | 0x7uy -> R.F7
-  | 0x8uy -> R.F8
-  | 0x9uy -> R.F9
-  | 0xAuy -> R.F10
-  | 0xBuy -> R.F11
-  | 0xCuy -> R.F12
-  | 0xDuy -> R.F13
-  | 0xEuy -> R.F14
-  | 0xFuy -> R.F15
-  | 0x10uy -> R.F16
-  | 0x11uy -> R.F17
-  | 0x12uy -> R.F18
-  | 0x13uy -> R.F19
-  | 0x14uy -> R.F20
-  | 0x15uy -> R.F21
-  | 0x16uy -> R.F22
-  | 0x17uy -> R.F23
-  | 0x18uy -> R.F24
-  | 0x19uy -> R.F25
-  | 0x1Auy -> R.F26
-  | 0x1Buy -> R.F27
-  | 0x1Cuy -> R.F28
-  | 0x1Duy -> R.F29
-  | 0x1Euy -> R.F30
-  | 0x1Fuy -> R.F31
+  | 0x0uy -> RISCV64.F0
+  | 0x1uy -> RISCV64.F1
+  | 0x2uy -> RISCV64.F2
+  | 0x3uy -> RISCV64.F3
+  | 0x4uy -> RISCV64.F4
+  | 0x5uy -> RISCV64.F5
+  | 0x6uy -> RISCV64.F6
+  | 0x7uy -> RISCV64.F7
+  | 0x8uy -> RISCV64.F8
+  | 0x9uy -> RISCV64.F9
+  | 0xAuy -> RISCV64.F10
+  | 0xBuy -> RISCV64.F11
+  | 0xCuy -> RISCV64.F12
+  | 0xDuy -> RISCV64.F13
+  | 0xEuy -> RISCV64.F14
+  | 0xFuy -> RISCV64.F15
+  | 0x10uy -> RISCV64.F16
+  | 0x11uy -> RISCV64.F17
+  | 0x12uy -> RISCV64.F18
+  | 0x13uy -> RISCV64.F19
+  | 0x14uy -> RISCV64.F20
+  | 0x15uy -> RISCV64.F21
+  | 0x16uy -> RISCV64.F22
+  | 0x17uy -> RISCV64.F23
+  | 0x18uy -> RISCV64.F24
+  | 0x19uy -> RISCV64.F25
+  | 0x1Auy -> RISCV64.F26
+  | 0x1Buy -> RISCV64.F27
+  | 0x1Cuy -> RISCV64.F28
+  | 0x1Duy -> RISCV64.F29
+  | 0x1Euy -> RISCV64.F30
+  | 0x1Fuy -> RISCV64.F31
   | _ -> raise InvalidRegisterException
 
 let getCompRegister = function
-  | 0x0uy -> R.X8
-  | 0x1uy -> R.X9
-  | 0x2uy -> R.X10
-  | 0x3uy -> R.X11
-  | 0x4uy -> R.X12
-  | 0x5uy -> R.X13
-  | 0x6uy -> R.X14
-  | 0x7uy -> R.X15
+  | 0x0uy -> RISCV64.X8
+  | 0x1uy -> RISCV64.X9
+  | 0x2uy -> RISCV64.X10
+  | 0x3uy -> RISCV64.X11
+  | 0x4uy -> RISCV64.X12
+  | 0x5uy -> RISCV64.X13
+  | 0x6uy -> RISCV64.X14
+  | 0x7uy -> RISCV64.X15
   | _ -> Utils.impossible ()
 
 let getFCompRegister = function
-  | 0x0uy -> R.F8
-  | 0x1uy -> R.F9
-  | 0x2uy -> R.F10
-  | 0x3uy -> R.F11
-  | 0x4uy -> R.F12
-  | 0x5uy -> R.F13
-  | 0x6uy -> R.F14
-  | 0x7uy -> R.F15
+  | 0x0uy -> RISCV64.F8
+  | 0x1uy -> RISCV64.F9
+  | 0x2uy -> RISCV64.F10
+  | 0x3uy -> RISCV64.F11
+  | 0x4uy -> RISCV64.F12
+  | 0x5uy -> RISCV64.F13
+  | 0x6uy -> RISCV64.F14
+  | 0x7uy -> RISCV64.F15
   | _ -> Utils.impossible ()
 
 let getRegFrom117 b = getRegister (extract b 11u 7u |> byte)

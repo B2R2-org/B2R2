@@ -24,8 +24,9 @@
 
 namespace B2R2.FrontEnd.BinLifter.RISCV
 
-open B2R2
 open System.Runtime.CompilerServices
+open B2R2
+open B2R2.FrontEnd
 
 [<assembly: InternalsVisibleTo("B2R2.FrontEnd.BinLifter.Tests")>]
 do ()
@@ -260,7 +261,7 @@ type RoundMode =
   | DYN = 7
 
 type Operand =
-  | OpReg of Register
+  | OpReg of Register.RISCV64
   | OpImm of Imm
   | OpMem of Base * Offset option * AccessLength
   | OpAddr of JumpTarget
@@ -279,7 +280,7 @@ and JumpTarget =
 and Offset =
   | Imm of int64
 and AccessLength = RegType
-and Base = Register
+and Base = Register.RISCV64
 
 type Operands =
   | NoOperand

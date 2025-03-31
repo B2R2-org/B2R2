@@ -25,6 +25,7 @@
 module internal B2R2.FrontEnd.BinLifter.ARM64.Disasm
 
 open B2R2
+open B2R2.FrontEnd.Register
 open B2R2.FrontEnd.BinLifter
 
 let condToString = function
@@ -1575,12 +1576,12 @@ let simdVectorToString = function
 let simdFPRegToString simdOpr (builder: DisasmBuilder) =
   match simdOpr with
   | SIMDFPScalarReg sReg ->
-    builder.Accumulate AsmWordKind.Variable (Register.toString sReg)
+    builder.Accumulate AsmWordKind.Variable (ARM64Register.String sReg)
   | SIMDVecReg (reg, vec) ->
-    builder.Accumulate AsmWordKind.Variable (Register.toString reg)
+    builder.Accumulate AsmWordKind.Variable (ARM64Register.String reg)
     builder.Accumulate AsmWordKind.String ("." + simdVectorToString vec)
   | SIMDVecRegWithIdx (reg, vec, _) ->
-    builder.Accumulate AsmWordKind.Variable (Register.toString reg)
+    builder.Accumulate AsmWordKind.Variable (ARM64Register.String reg)
     builder.Accumulate AsmWordKind.String ("." + simdVectorToString vec)
 
 let finalOprSIMD s (builder: DisasmBuilder) =
@@ -1644,7 +1645,7 @@ let nzcvToString (imm: uint8) (builder: DisasmBuilder) =
 let amountToString amount builder =
   match amount with
   | Imm i -> immToString i builder
-  | Reg r -> builder.Accumulate AsmWordKind.Variable (Register.toString r)
+  | Reg r -> builder.Accumulate AsmWordKind.Variable (ARM64Register.String r)
 
 let prependDelimiter delimiter (builder: DisasmBuilder) =
   match delimiter with
@@ -1699,9 +1700,9 @@ let processAddrExn64 ins addr =
 let immOffsetToString i addr mode offset (builder: DisasmBuilder) =
   match offset with
   | BaseOffset (reg, None) | BaseOffset (reg, Some 0L) ->
-    builder.Accumulate AsmWordKind.Variable (Register.toString reg)
+    builder.Accumulate AsmWordKind.Variable (ARM64Register.String reg)
   | BaseOffset (reg, Some imm) ->
-    builder.Accumulate AsmWordKind.Variable (Register.toString reg)
+    builder.Accumulate AsmWordKind.Variable (ARM64Register.String reg)
     builder.Accumulate AsmWordKind.String (delimPostIdx mode)
     immToString imm builder
   | Lbl imm ->
@@ -1711,14 +1712,14 @@ let immOffsetToString i addr mode offset (builder: DisasmBuilder) =
 let regOffsetToString mode offset (builder: DisasmBuilder) =
   match offset with
   | r1, r2, Some regOff ->
-    builder.Accumulate AsmWordKind.Variable (Register.toString r1)
+    builder.Accumulate AsmWordKind.Variable (ARM64Register.String r1)
     builder.Accumulate AsmWordKind.String ", "
-    builder.Accumulate AsmWordKind.Variable (Register.toString r2)
+    builder.Accumulate AsmWordKind.Variable (ARM64Register.String r2)
     regOffString regOff (Some ", ") builder
   | r1, r2, None ->
-    builder.Accumulate AsmWordKind.Variable (Register.toString r1)
+    builder.Accumulate AsmWordKind.Variable (ARM64Register.String r1)
     builder.Accumulate AsmWordKind.String (delimPostIdx mode)
-    builder.Accumulate AsmWordKind.Variable (Register.toString r2)
+    builder.Accumulate AsmWordKind.Variable (ARM64Register.String r2)
 
 let postBracket mode (builder: DisasmBuilder) =
   match mode with
@@ -1798,7 +1799,7 @@ let oprToString i addr opr delim builder =
   | OprRegister reg when isRET i && reg = R.X30 -> ()
   | OprRegister reg ->
     prependDelimiter delim builder
-    builder.Accumulate AsmWordKind.Variable (Register.toString reg)
+    builder.Accumulate AsmWordKind.Variable (ARM64Register.String reg)
   | OprSIMD simd ->
     prependDelimiter delim builder
     simdToString simd builder

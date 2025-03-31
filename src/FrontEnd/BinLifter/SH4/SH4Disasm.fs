@@ -25,6 +25,8 @@
 module B2R2.FrontEnd.BinLifter.SH4.Disasm
 
 open B2R2
+open B2R2.FrontEnd
+open B2R2.FrontEnd.Register
 open B2R2.FrontEnd.BinLifter
 
 let opCodeToString = function
@@ -183,24 +185,24 @@ let addrToStr shift addr (builder: DisasmBuilder) =
 let memToStr addrMode (builder: DisasmBuilder) =
   match addrMode with
   | Regdir reg ->
-    let reg = Register.toString reg
+    let reg = SH4Register.String reg
     builder.Accumulate AsmWordKind.Variable reg
   | RegIndir reg ->
-    let reg = Register.toString reg
+    let reg = SH4Register.String reg
     builder.Accumulate AsmWordKind.String "@"
     builder.Accumulate AsmWordKind.Variable reg
   | PostInc reg ->
-    let reg = Register.toString reg
+    let reg = SH4Register.String reg
     builder.Accumulate AsmWordKind.String "@"
     builder.Accumulate AsmWordKind.Variable reg
     builder.Accumulate AsmWordKind.String "+"
   | PreDec reg ->
-    let reg = Register.toString reg
+    let reg = SH4Register.String reg
     builder.Accumulate AsmWordKind.String "@"
     builder.Accumulate AsmWordKind.String "-"
     builder.Accumulate AsmWordKind.Variable reg
   | RegDisp (imm, reg) ->
-    let reg = Register.toString reg
+    let reg = SH4Register.String reg
     builder.Accumulate AsmWordKind.String "@"
     builder.Accumulate AsmWordKind.String "("
     builder.Accumulate AsmWordKind.Value (string imm)
@@ -208,8 +210,8 @@ let memToStr addrMode (builder: DisasmBuilder) =
     builder.Accumulate AsmWordKind.Variable reg
     builder.Accumulate AsmWordKind.String ")"
   | IdxIndir (R.R0, reg2) ->
-    let reg1 = Register.toString R.R0
-    let reg2 = Register.toString reg2
+    let reg1 = SH4Register.String R.R0
+    let reg2 = SH4Register.String reg2
     builder.Accumulate AsmWordKind.String "@"
     builder.Accumulate AsmWordKind.String "("
     builder.Accumulate AsmWordKind.Variable reg1
@@ -217,7 +219,7 @@ let memToStr addrMode (builder: DisasmBuilder) =
     builder.Accumulate AsmWordKind.Variable reg2
     builder.Accumulate AsmWordKind.String ")"
   | GbrDisp (imm, R.GBR) ->
-    let reg = Register.toString R.GBR
+    let reg = SH4Register.String R.GBR
     builder.Accumulate AsmWordKind.String "@"
     builder.Accumulate AsmWordKind.String "("
     builder.Accumulate AsmWordKind.Value (string imm)
@@ -225,8 +227,8 @@ let memToStr addrMode (builder: DisasmBuilder) =
     builder.Accumulate AsmWordKind.Variable reg
     builder.Accumulate AsmWordKind.String ")"
   | IdxGbr (R.R0, R.GBR) ->
-    let reg1 = Register.toString R.R0
-    let reg2 = Register.toString R.GBR
+    let reg1 = SH4Register.String R.R0
+    let reg2 = SH4Register.String R.GBR
     builder.Accumulate AsmWordKind.String "@"
     builder.Accumulate AsmWordKind.String "("
     builder.Accumulate AsmWordKind.Variable reg1
@@ -234,7 +236,7 @@ let memToStr addrMode (builder: DisasmBuilder) =
     builder.Accumulate AsmWordKind.Variable reg2
     builder.Accumulate AsmWordKind.String ")"
   | PCrDisp (imm, R.PC) ->
-    let reg = Register.toString R.PC
+    let reg = SH4Register.String R.PC
     builder.Accumulate AsmWordKind.String "@"
     builder.Accumulate AsmWordKind.String "("
     builder.Accumulate AsmWordKind.Value (string imm)
@@ -249,7 +251,7 @@ let memToStr addrMode (builder: DisasmBuilder) =
   | _ -> raise InvalidOperandException
 
 let buildReg ins reg (builder: DisasmBuilder) =
-  let reg = Register.toString reg
+  let reg = SH4Register.String reg
   builder.Accumulate AsmWordKind.Variable reg
 
 let opToStr ins addr op delim builder =

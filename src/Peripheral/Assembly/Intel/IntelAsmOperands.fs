@@ -26,41 +26,42 @@ module internal B2R2.Peripheral.Assembly.Intel.AsmOperands
 
 open System
 open B2R2
+open B2R2.FrontEnd.Register
 open B2R2.FrontEnd.BinLifter.Intel
 
 let regTo3Bit = function
-  | Register.AL | Register.AX | Register.EAX | Register.RAX | Register.BND0
-  | Register.MM0 | Register.XMM0 | Register.YMM0 | Register.ES
-  | Register.R8B | Register.R8W | Register.R8D | Register.R8
-  | Register.XMM8 | Register.YMM8 | Register.ST0 -> 0b000uy
-  | Register.CL | Register.CX | Register.ECX | Register.RCX | Register.BND1
-  | Register.MM1 | Register.XMM1 | Register.YMM1 | Register.CS
-  | Register.R9B | Register.R9W | Register.R9D | Register.R9
-  | Register.XMM9 | Register.YMM9 | Register.ST1 -> 0b001uy
-  | Register.DL | Register.DX | Register.EDX | Register.RDX | Register.BND2
-  | Register.MM2 | Register.XMM2 | Register.YMM2 | Register.SS
-  | Register.R10B | Register.R10W | Register.R10D | Register.R10
-  | Register.XMM10 | Register.YMM10 | Register.ST2 -> 0b010uy
-  | Register.BL | Register.BX | Register.EBX | Register.RBX | Register.BND3
-  | Register.MM3 | Register.XMM3 | Register.YMM3 | Register.DS
-  | Register.R11B | Register.R11W | Register.R11D | Register.R11
-  | Register.XMM11 | Register.YMM11 | Register.ST3 -> 0b011uy
-  | Register.AH | Register.SP | Register.ESP | Register.RSP
-  | Register.MM4 | Register.XMM4 | Register.YMM4 | Register.FS
-  | Register.SPL | Register.R12B | Register.R12W | Register.R12D | Register.R12
-  | Register.XMM12 | Register.YMM12 | Register.ST4 -> 0b100uy
-  | Register.CH | Register.BP | Register.EBP | Register.RBP
-  | Register.MM5 | Register.XMM5 | Register.YMM5 | Register.GS
-  | Register.BPL | Register.R13B | Register.R13W | Register.R13D | Register.R13
-  | Register.XMM13 | Register.YMM13 | Register.ST5 | Register.RIP -> 0b101uy
-  | Register.DH | Register.SI | Register.ESI | Register.RSI
-  | Register.MM6 | Register.XMM6 | Register.YMM6
-  | Register.SIL | Register.R14B | Register.R14W | Register.R14D | Register.R14
-  | Register.XMM14 | Register.YMM14 | Register.ST6 -> 0b110uy
-  | Register.BH | Register.DI | Register.EDI | Register.RDI
-  | Register.MM7 | Register.XMM7 | Register.YMM7
-  | Register.DIL | Register.R15B | Register.R15W | Register.R15D | Register.R15
-  | Register.XMM15 | Register.YMM15 | Register.ST7 -> 0b111uy
+  | Intel.AL | Intel.AX | Intel.EAX | Intel.RAX | Intel.BND0
+  | Intel.MM0 | Intel.XMM0 | Intel.YMM0 | Intel.ES
+  | Intel.R8B | Intel.R8W | Intel.R8D | Intel.R8
+  | Intel.XMM8 | Intel.YMM8 | Intel.ST0 -> 0b000uy
+  | Intel.CL | Intel.CX | Intel.ECX | Intel.RCX | Intel.BND1
+  | Intel.MM1 | Intel.XMM1 | Intel.YMM1 | Intel.CS
+  | Intel.R9B | Intel.R9W | Intel.R9D | Intel.R9
+  | Intel.XMM9 | Intel.YMM9 | Intel.ST1 -> 0b001uy
+  | Intel.DL | Intel.DX | Intel.EDX | Intel.RDX | Intel.BND2
+  | Intel.MM2 | Intel.XMM2 | Intel.YMM2 | Intel.SS
+  | Intel.R10B | Intel.R10W | Intel.R10D | Intel.R10
+  | Intel.XMM10 | Intel.YMM10 | Intel.ST2 -> 0b010uy
+  | Intel.BL | Intel.BX | Intel.EBX | Intel.RBX | Intel.BND3
+  | Intel.MM3 | Intel.XMM3 | Intel.YMM3 | Intel.DS
+  | Intel.R11B | Intel.R11W | Intel.R11D | Intel.R11
+  | Intel.XMM11 | Intel.YMM11 | Intel.ST3 -> 0b011uy
+  | Intel.AH | Intel.SP | Intel.ESP | Intel.RSP
+  | Intel.MM4 | Intel.XMM4 | Intel.YMM4 | Intel.FS
+  | Intel.SPL | Intel.R12B | Intel.R12W | Intel.R12D | Intel.R12
+  | Intel.XMM12 | Intel.YMM12 | Intel.ST4 -> 0b100uy
+  | Intel.CH | Intel.BP | Intel.EBP | Intel.RBP
+  | Intel.MM5 | Intel.XMM5 | Intel.YMM5 | Intel.GS
+  | Intel.BPL | Intel.R13B | Intel.R13W | Intel.R13D | Intel.R13
+  | Intel.XMM13 | Intel.YMM13 | Intel.ST5 | Intel.RIP -> 0b101uy
+  | Intel.DH | Intel.SI | Intel.ESI | Intel.RSI
+  | Intel.MM6 | Intel.XMM6 | Intel.YMM6
+  | Intel.SIL | Intel.R14B | Intel.R14W | Intel.R14D | Intel.R14
+  | Intel.XMM14 | Intel.YMM14 | Intel.ST6 -> 0b110uy
+  | Intel.BH | Intel.DI | Intel.EDI | Intel.RDI
+  | Intel.MM7 | Intel.XMM7 | Intel.YMM7
+  | Intel.DIL | Intel.R15B | Intel.R15W | Intel.R15D | Intel.R15
+  | Intel.XMM15 | Intel.YMM15 | Intel.ST7 -> 0b111uy
   | _ -> Utils.impossible ()
 
 let private getModRMByte md reg rm =
@@ -78,7 +79,7 @@ let private getMod baseReg = function
   | None -> 0b00uy
   | Some disp ->
     match baseReg with
-    | Some (Register.RIP) | None -> 0b00uy
+    | Some (Intel.RIP) | None -> 0b00uy
     | _ -> if isDisp8 disp then 0b01uy else 0b10uy
 
 let modrmRR reg1 reg2 =
@@ -139,9 +140,8 @@ let private encDisp disp = function
 let private getDispSz disp = if isDisp8 disp then 8<rt> else 32<rt>
 
 let private isRegFld4 = function
-  | Register.RSP | Register.ESP | Register.SP | Register.AH
-  | Register.R12 | Register.R12D | Register.R12W | Register.R12B | Register.SPL
-    -> true
+  | Intel.RSP | Intel.ESP | Intel.SP | Intel.AH
+  | Intel.R12 | Intel.R12D | Intel.R12W | Intel.R12B | Intel.SPL -> true
   | _ -> false
 
 /// SIB and Displacement.

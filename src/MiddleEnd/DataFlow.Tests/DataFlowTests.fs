@@ -27,8 +27,8 @@ namespace B2R2.MiddleEnd.DataFlow.Tests
 open Microsoft.VisualStudio.TestTools.UnitTesting
 
 open B2R2
+open B2R2.FrontEnd.Register
 open B2R2.BinIR
-open B2R2.FrontEnd.BinLifter.Intel
 open B2R2.MiddleEnd.DataFlow
 open B2R2.MiddleEnd.SSA
 open B2R2.MiddleEnd.ControlFlowGraph
@@ -42,7 +42,7 @@ type DataFlowTests () =
 
   let reg addr idx reg =
     { ProgramPoint = ProgramPoint (addr, idx)
-      VarKind = Regular (Register.toRegID reg) }
+      VarKind = Regular (IntelRegister.ID reg) }
 
   let mkConst v rt =
     ConstantDomain.Const (BitVector.OfUInt32 v rt)
@@ -70,15 +70,15 @@ type DataFlowTests () =
     else failwith $"variable {kind} @ {addr:x} not found"
 
   let ssaReg ssaCFG r addr rt =
-    let rid = Register.toRegID r
-    let rstr = Register.toString r
+    let rid = IntelRegister.ID r
+    let rstr = IntelRegister.String r
     let k = SSA.RegVar (rt, rid, rstr)
     let v = findSSAVarDef ssaCFG 0 addr k
     SSA.SSAVarPoint.RegularSSAVar { Kind = k; Identifier = v.Identifier }
 
   let ssaRegInitial r rt =
-    let rid = Register.toRegID r
-    let rstr = Register.toString r
+    let rid = IntelRegister.ID r
+    let rstr = IntelRegister.String r
     let k = SSA.RegVar (rt, rid, rstr)
     SSA.SSAVarPoint.RegularSSAVar { Kind = k; Identifier = 0 }
 
@@ -88,7 +88,7 @@ type DataFlowTests () =
     SSA.SSAVarPoint.RegularSSAVar { Kind = v.Kind; Identifier = v.Identifier }
 
   let irReg addr idx r =
-    let rid = Register.toRegID r
+    let rid = IntelRegister.ID r
     let pp = ProgramPoint (addr, idx)
     let varKind = Regular rid
     { ProgramPoint = pp; VarKind = varKind }
@@ -99,7 +99,7 @@ type DataFlowTests () =
     { ProgramPoint = pp; VarKind = varKind }
 
   let mkUntouchedReg r =
-    Regular (Register.toRegID r)
+    Regular (IntelRegister.ID r)
     |> UntouchedValueDomain.RegisterTag
     |> UntouchedValueDomain.Untouched
 
@@ -117,22 +117,22 @@ type DataFlowTests () =
     let rd = (state :> IDataFlowState<_, _>).GetAbsValue v.ID (* 2nd vertex *)
     let ins = rd.Ins |> Set.filter isRegular
     let solution =
-      [ reg 0x0UL 1 Register.EDX
-        reg 0x4UL 1 Register.ESP
-        reg 0x5UL 1 Register.ESI
-        reg 0x5UL 2 Register.OF
-        reg 0x5UL 3 Register.CF
-        reg 0x5UL 4 Register.SF
-        reg 0x5UL 5 Register.ZF
-        reg 0x5UL 6 Register.PF
-        reg 0x5UL 7 Register.AF
-        reg 0x7UL 1 Register.ECX
-        reg 0xAUL 4 Register.CF
-        reg 0xAUL 5 Register.OF
-        reg 0xAUL 6 Register.AF
-        reg 0xAUL 7 Register.SF
-        reg 0xAUL 8 Register.ZF
-        reg 0xAUL 11 Register.PF ]
+      [ reg 0x0UL 1 Intel.EDX
+        reg 0x4UL 1 Intel.ESP
+        reg 0x5UL 1 Intel.ESI
+        reg 0x5UL 2 Intel.OF
+        reg 0x5UL 3 Intel.CF
+        reg 0x5UL 4 Intel.SF
+        reg 0x5UL 5 Intel.ZF
+        reg 0x5UL 6 Intel.PF
+        reg 0x5UL 7 Intel.AF
+        reg 0x7UL 1 Intel.ECX
+        reg 0xAUL 4 Intel.CF
+        reg 0xAUL 5 Intel.OF
+        reg 0xAUL 6 Intel.AF
+        reg 0xAUL 7 Intel.SF
+        reg 0xAUL 8 Intel.ZF
+        reg 0xAUL 11 Intel.PF ]
     Assert.AreEqual (Set.ofList solution, ins)
 #endif
 
@@ -141,9 +141,9 @@ type DataFlowTests () =
     let brew = Binaries.loadOne Binaries.sample1
     let cfg = brew.Functions[0UL].CFG
     let chain = DataFlowChain.init cfg false
-    let vp = reg 0xEUL 1 Register.EDX
+    let vp = reg 0xEUL 1 Intel.EDX
     let res = chain.UseDefChain |> Map.find vp |> Set.toArray
-    let solution = [| reg 0x0UL 1 Register.EDX |]
+    let solution = [| reg 0x0UL 1 Intel.EDX |]
     CollectionAssert.AreEqual (solution, res)
 
   [<TestMethod>]
@@ -151,9 +151,9 @@ type DataFlowTests () =
     let brew = Binaries.loadOne Binaries.sample1
     let cfg = brew.Functions[0UL].CFG
     let chain = DataFlowChain.init cfg true
-    let vp = reg 0xEUL 0 Register.EDX
+    let vp = reg 0xEUL 0 Intel.EDX
     let res = chain.UseDefChain |> Map.find vp |> Set.toArray
-    let solution = [| reg 0x0UL 0 Register.EDX |]
+    let solution = [| reg 0x0UL 0 Intel.EDX |]
     CollectionAssert.AreEqual (solution, res)
 
 #if !EMULATION
@@ -162,10 +162,10 @@ type DataFlowTests () =
     let brew = Binaries.loadOne Binaries.sample1
     let cfg = brew.Functions[0UL].CFG
     let chain = DataFlowChain.init cfg false
-    let vp = reg 0x1AUL 1 Register.EDX
+    let vp = reg 0x1AUL 1 Intel.EDX
     let res = chain.UseDefChain |> Map.find vp |> Set.toArray
-    let solution = [| reg 0x12UL 3 Register.EDX
-                      reg 0x1AUL 3 Register.EDX |]
+    let solution = [| reg 0x12UL 3 Intel.EDX
+                      reg 0x1AUL 3 Intel.EDX |]
     CollectionAssert.AreEqual (solution, res)
 #endif
 
@@ -179,22 +179,22 @@ type DataFlowTests () =
     let dfa = cp :> IDataFlowAnalysis<_, _, _, _>
     let state = dfa.InitializeState []
     let state = dfa.Compute g state
-    [ ssaRegInitial Register.RSP 64<rt> |> cmp <| mkConst 0x80000000u 64<rt>
-      ssaRegInitial Register.RBP 64<rt> |> cmp <| ConstantDomain.Undef
-      ssaReg g Register.RSP 0x4UL 64<rt> |> cmp <| mkConst 0x7ffffff8u 64<rt>
-      ssaReg g Register.RBP 0x5UL 64<rt> |> cmp <| mkConst 0x7ffffff8u 64<rt>
+    [ ssaRegInitial Intel.RSP 64<rt> |> cmp <| mkConst 0x80000000u 64<rt>
+      ssaRegInitial Intel.RBP 64<rt> |> cmp <| ConstantDomain.Undef
+      ssaReg g Intel.RSP 0x4UL 64<rt> |> cmp <| mkConst 0x7ffffff8u 64<rt>
+      ssaReg g Intel.RBP 0x5UL 64<rt> |> cmp <| mkConst 0x7ffffff8u 64<rt>
       ssaStk g (8 + 0xc) 0x11UL 32<rt> |> cmp <| mkConst 0x2u 32<rt>
       ssaStk g (8 + 0x8) 0x18UL 32<rt> |> cmp <| mkConst 0x3u 32<rt>
       ssaStk g (8 + 0xc) 0x21UL 32<rt> |> cmp <| mkConst 0x3u 32<rt>
       ssaStk g (8 + 0x8) 0x28UL 32<rt> |> cmp <| mkConst 0x2u 32<rt>
       ssaStk g (8 + 0xc) 0x2fUL 32<rt> |> cmp <| ConstantDomain.NotAConst
       ssaStk g (8 + 0x8) 0x2fUL 32<rt> |> cmp <| ConstantDomain.NotAConst
-      ssaReg g Register.RAX 0x32UL 64<rt> |> cmp <| ConstantDomain.NotAConst
-      ssaReg g Register.RDX 0x2fUL 64<rt> |> cmp <| ConstantDomain.NotAConst
-      ssaReg g Register.RAX 0x35UL 64<rt> |> cmp <| ConstantDomain.NotAConst
-      ssaReg g Register.RBP 0x3bUL 64<rt> |> cmp <| ConstantDomain.Undef
-      ssaReg g Register.RSP 0x3bUL 64<rt> |> cmp <| mkConst 0x80000000u 64<rt>
-      ssaReg g Register.RSP 0x3CUL 64<rt> |> cmp <| mkConst 0x80000008u 64<rt> ]
+      ssaReg g Intel.RAX 0x32UL 64<rt> |> cmp <| ConstantDomain.NotAConst
+      ssaReg g Intel.RDX 0x2fUL 64<rt> |> cmp <| ConstantDomain.NotAConst
+      ssaReg g Intel.RAX 0x35UL 64<rt> |> cmp <| ConstantDomain.NotAConst
+      ssaReg g Intel.RBP 0x3bUL 64<rt> |> cmp <| ConstantDomain.Undef
+      ssaReg g Intel.RSP 0x3bUL 64<rt> |> cmp <| mkConst 0x80000000u 64<rt>
+      ssaReg g Intel.RSP 0x3CUL 64<rt> |> cmp <| mkConst 0x80000008u 64<rt> ]
     |> List.iter (fun (var, ans) ->
       let out = (state :> IDataFlowState<_, _>).GetAbsValue var
       Assert.AreEqual<ConstantDomain.Lattice> (ans, out))
@@ -215,7 +215,7 @@ type DataFlowTests () =
       irStk 0x18UL 1 (rbp - 0x8) |> cmp <| mkConst 0x3u 32<rt>
       irStk 0x21UL 1 (rbp - 0xc) |> cmp <| mkConst 0x3u 32<rt>
       irStk 0x28UL 1 (rbp - 0x8) |> cmp <| mkConst 0x2u 32<rt>
-      irReg 0x2fUL 1 Register.RDX |> cmp <| ConstantDomain.NotAConst ]
+      irReg 0x2fUL 1 Intel.RDX |> cmp <| ConstantDomain.NotAConst ]
     |> List.iter (fun (vp, ans) ->
       let out = (state :> IDataFlowState<_, _>).GetAbsValue vp
       Assert.AreEqual<ConstantDomain.Lattice> (ans, out))
@@ -232,14 +232,14 @@ type DataFlowTests () =
     cfg.IterVertex state.MarkVertexAsPending
     let state = dfa.Compute cfg state
     let rbp = -8 (* stack offset of old rbp *)
-    [ irStk 0xcUL 1 (rbp - 0x14) |> cmp <| mkUntouchedReg Register.RDI
-      irStk 0xfUL 1 (rbp - 0x18) |> cmp <| mkUntouchedReg Register.RSI
-      irStk 0x15UL 1 (rbp - 0x10) |> cmp <| mkUntouchedReg Register.RDI
+    [ irStk 0xcUL 1 (rbp - 0x14) |> cmp <| mkUntouchedReg Intel.RDI
+      irStk 0xfUL 1 (rbp - 0x18) |> cmp <| mkUntouchedReg Intel.RSI
+      irStk 0x15UL 1 (rbp - 0x10) |> cmp <| mkUntouchedReg Intel.RDI
       irStk 0x1eUL 1 (rbp - 0xc) |> cmp <| UntouchedValueDomain.Touched
-      irReg 0x32UL 1 Register.RCX |> cmp <| UntouchedValueDomain.Touched
-      irReg 0x35UL 1 Register.RDX |> cmp <| UntouchedValueDomain.Touched
-      irReg 0x38UL 1 Register.RSI |> cmp <| UntouchedValueDomain.Touched
-      irReg 0x3bUL 1 Register.RAX |> cmp <| mkUntouchedReg Register.RDI ]
+      irReg 0x32UL 1 Intel.RCX |> cmp <| UntouchedValueDomain.Touched
+      irReg 0x35UL 1 Intel.RDX |> cmp <| UntouchedValueDomain.Touched
+      irReg 0x38UL 1 Intel.RSI |> cmp <| UntouchedValueDomain.Touched
+      irReg 0x3bUL 1 Intel.RAX |> cmp <| mkUntouchedReg Intel.RDI ]
     |> List.iter (fun (vp, ans) ->
       let out = (state :> IDataFlowState<_, _>).GetAbsValue vp
       Assert.AreEqual<UntouchedValueDomain.Lattice> (ans, out))

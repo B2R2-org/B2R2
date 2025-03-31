@@ -29,9 +29,9 @@ open System
 open System.Numerics
 open System.Globalization
 open B2R2
-open B2R2.FrontEnd.BinLifter
 open B2R2.BinIR
 open B2R2.BinIR.LowUIR
+open B2R2.FrontEnd
 open B2R2.Peripheral.Assembly.Utils
 open B2R2.Peripheral.Assembly.LowUIR.Helper
 

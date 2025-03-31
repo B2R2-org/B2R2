@@ -26,9 +26,10 @@ namespace B2R2.FrontEnd.BinLifter.Tests
 
 open Microsoft.VisualStudio.TestTools.UnitTesting
 open B2R2
+open B2R2.FrontEnd
 open B2R2.FrontEnd.BinLifter.SPARC
 open type Opcode
-open type Register
+open type Register.SPARC
 open type ConditionCode
 
 /// Shortcut for creating operands.

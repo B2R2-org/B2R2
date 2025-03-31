@@ -24,133 +24,133 @@
 
 module internal B2R2.FrontEnd.BinLifter.SPARC.ParsingMain
 
+open B2R2.FrontEnd
+open B2R2.FrontEnd.Register
+open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinLifter.SPARC
 
-open B2R2
-open B2R2.FrontEnd.BinLifter
-
 let getRegister = function
-  | 0x0uy -> R.G0
-  | 0x1uy -> R.G1
-  | 0x2uy -> R.G2
-  | 0x3uy -> R.G3
-  | 0x4uy -> R.G4
-  | 0x5uy -> R.G5
-  | 0x6uy -> R.G6
-  | 0x7uy -> R.G7
-  | 0x8uy -> R.O0
-  | 0x9uy -> R.O1
-  | 0xAuy -> R.O2
-  | 0xBuy -> R.O3
-  | 0xCuy -> R.O4
-  | 0xDuy -> R.O5
-  | 0xEuy -> R.O6
-  | 0xFuy -> R.O7
-  | 0x10uy -> R.L0
-  | 0x11uy -> R.L1
-  | 0x12uy -> R.L2
-  | 0x13uy -> R.L3
-  | 0x14uy -> R.L4
-  | 0x15uy -> R.L5
-  | 0x16uy -> R.L6
-  | 0x17uy -> R.L7
-  | 0x18uy -> R.I0
-  | 0x19uy -> R.I1
-  | 0x1Auy -> R.I2
-  | 0x1Buy -> R.I3
-  | 0x1Cuy -> R.I4
-  | 0x1Duy -> R.I5
-  | 0x1Euy -> R.I6
-  | 0x1Fuy -> R.I7
+  | 0x0uy -> SPARC.G0
+  | 0x1uy -> SPARC.G1
+  | 0x2uy -> SPARC.G2
+  | 0x3uy -> SPARC.G3
+  | 0x4uy -> SPARC.G4
+  | 0x5uy -> SPARC.G5
+  | 0x6uy -> SPARC.G6
+  | 0x7uy -> SPARC.G7
+  | 0x8uy -> SPARC.O0
+  | 0x9uy -> SPARC.O1
+  | 0xAuy -> SPARC.O2
+  | 0xBuy -> SPARC.O3
+  | 0xCuy -> SPARC.O4
+  | 0xDuy -> SPARC.O5
+  | 0xEuy -> SPARC.O6
+  | 0xFuy -> SPARC.O7
+  | 0x10uy -> SPARC.L0
+  | 0x11uy -> SPARC.L1
+  | 0x12uy -> SPARC.L2
+  | 0x13uy -> SPARC.L3
+  | 0x14uy -> SPARC.L4
+  | 0x15uy -> SPARC.L5
+  | 0x16uy -> SPARC.L6
+  | 0x17uy -> SPARC.L7
+  | 0x18uy -> SPARC.I0
+  | 0x19uy -> SPARC.I1
+  | 0x1Auy -> SPARC.I2
+  | 0x1Buy -> SPARC.I3
+  | 0x1Cuy -> SPARC.I4
+  | 0x1Duy -> SPARC.I5
+  | 0x1Euy -> SPARC.I6
+  | 0x1Fuy -> SPARC.I7
   | _ -> raise InvalidRegisterException
 
 let getFloatRegister = function
-  | 0x0uy -> R.F0
-  | 0x1uy -> R.F1
-  | 0x2uy -> R.F2
-  | 0x3uy -> R.F3
-  | 0x4uy -> R.F4
-  | 0x5uy -> R.F5
-  | 0x6uy -> R.F6
-  | 0x7uy -> R.F7
-  | 0x8uy -> R.F8
-  | 0x9uy -> R.F9
-  | 0xauy -> R.F10
-  | 0xbuy -> R.F11
-  | 0xcuy -> R.F12
-  | 0xduy -> R.F13
-  | 0xeuy -> R.F14
-  | 0xfuy -> R.F15
-  | 0x10uy -> R.F16
-  | 0x11uy -> R.F17
-  | 0x12uy -> R.F18
-  | 0x13uy -> R.F19
-  | 0x14uy -> R.F20
-  | 0x15uy -> R.F21
-  | 0x16uy -> R.F22
-  | 0x17uy -> R.F23
-  | 0x18uy -> R.F24
-  | 0x19uy -> R.F25
-  | 0x1auy -> R.F26
-  | 0x1buy -> R.F27
-  | 0x1cuy -> R.F28
-  | 0x1duy -> R.F29
-  | 0x1euy -> R.F30
-  | 0x1fuy -> R.F31
+  | 0x0uy -> SPARC.F0
+  | 0x1uy -> SPARC.F1
+  | 0x2uy -> SPARC.F2
+  | 0x3uy -> SPARC.F3
+  | 0x4uy -> SPARC.F4
+  | 0x5uy -> SPARC.F5
+  | 0x6uy -> SPARC.F6
+  | 0x7uy -> SPARC.F7
+  | 0x8uy -> SPARC.F8
+  | 0x9uy -> SPARC.F9
+  | 0xauy -> SPARC.F10
+  | 0xbuy -> SPARC.F11
+  | 0xcuy -> SPARC.F12
+  | 0xduy -> SPARC.F13
+  | 0xeuy -> SPARC.F14
+  | 0xfuy -> SPARC.F15
+  | 0x10uy -> SPARC.F16
+  | 0x11uy -> SPARC.F17
+  | 0x12uy -> SPARC.F18
+  | 0x13uy -> SPARC.F19
+  | 0x14uy -> SPARC.F20
+  | 0x15uy -> SPARC.F21
+  | 0x16uy -> SPARC.F22
+  | 0x17uy -> SPARC.F23
+  | 0x18uy -> SPARC.F24
+  | 0x19uy -> SPARC.F25
+  | 0x1auy -> SPARC.F26
+  | 0x1buy -> SPARC.F27
+  | 0x1cuy -> SPARC.F28
+  | 0x1duy -> SPARC.F29
+  | 0x1euy -> SPARC.F30
+  | 0x1fuy -> SPARC.F31
   | _ -> raise InvalidRegisterException
 
 let getDPFloatRegister = function
-  | 0x0uy -> R.F0
-  | 0x1uy -> R.F32
-  | 0x2uy -> R.F2
-  | 0x3uy -> R.F34
-  | 0x4uy -> R.F4
-  | 0x5uy -> R.F36
-  | 0x6uy -> R.F6
-  | 0x7uy -> R.F38
-  | 0x8uy -> R.F8
-  | 0x9uy -> R.F40
-  | 0xauy -> R.F10
-  | 0xbuy -> R.F42
-  | 0xcuy -> R.F12
-  | 0xduy -> R.F44
-  | 0xeuy -> R.F14
-  | 0xfuy -> R.F46
-  | 0x10uy -> R.F16
-  | 0x11uy -> R.F48
-  | 0x12uy -> R.F18
-  | 0x13uy -> R.F50
-  | 0x14uy -> R.F20
-  | 0x15uy -> R.F52
-  | 0x16uy -> R.F22
-  | 0x17uy -> R.F54
-  | 0x18uy -> R.F24
-  | 0x19uy -> R.F56
-  | 0x1auy -> R.F26
-  | 0x1buy -> R.F58
-  | 0x1cuy -> R.F28
-  | 0x1duy -> R.F60
-  | 0x1euy -> R.F30
-  | 0x1fuy -> R.F62
+  | 0x0uy -> SPARC.F0
+  | 0x1uy -> SPARC.F32
+  | 0x2uy -> SPARC.F2
+  | 0x3uy -> SPARC.F34
+  | 0x4uy -> SPARC.F4
+  | 0x5uy -> SPARC.F36
+  | 0x6uy -> SPARC.F6
+  | 0x7uy -> SPARC.F38
+  | 0x8uy -> SPARC.F8
+  | 0x9uy -> SPARC.F40
+  | 0xauy -> SPARC.F10
+  | 0xbuy -> SPARC.F42
+  | 0xcuy -> SPARC.F12
+  | 0xduy -> SPARC.F44
+  | 0xeuy -> SPARC.F14
+  | 0xfuy -> SPARC.F46
+  | 0x10uy -> SPARC.F16
+  | 0x11uy -> SPARC.F48
+  | 0x12uy -> SPARC.F18
+  | 0x13uy -> SPARC.F50
+  | 0x14uy -> SPARC.F20
+  | 0x15uy -> SPARC.F52
+  | 0x16uy -> SPARC.F22
+  | 0x17uy -> SPARC.F54
+  | 0x18uy -> SPARC.F24
+  | 0x19uy -> SPARC.F56
+  | 0x1auy -> SPARC.F26
+  | 0x1buy -> SPARC.F58
+  | 0x1cuy -> SPARC.F28
+  | 0x1duy -> SPARC.F60
+  | 0x1euy -> SPARC.F30
+  | 0x1fuy -> SPARC.F62
   | _ -> raise InvalidRegisterException
 
 let getQPFloatRegister = function
-  | 0x0uy -> R.F0
-  | 0x01uy -> R.F32
-  | 0x4uy -> R.F4
-  | 0x05uy -> R.F36
-  | 0x8uy -> R.F8
-  | 0x9uy -> R.F40
-  | 0xcuy -> R.F12
-  | 0xduy -> R.F44
-  | 0x10uy -> R.F16
-  | 0x11uy -> R.F48
-  | 0x14uy -> R.F20
-  | 0x15uy -> R.F52
-  | 0x18uy -> R.F24
-  | 0x19uy -> R.F56
-  | 0x1cuy -> R.F28
-  | 0x1duy -> R.F60
+  | 0x0uy -> SPARC.F0
+  | 0x01uy -> SPARC.F32
+  | 0x4uy -> SPARC.F4
+  | 0x05uy -> SPARC.F36
+  | 0x8uy -> SPARC.F8
+  | 0x9uy -> SPARC.F40
+  | 0xcuy -> SPARC.F12
+  | 0xduy -> SPARC.F44
+  | 0x10uy -> SPARC.F16
+  | 0x11uy -> SPARC.F48
+  | 0x14uy -> SPARC.F20
+  | 0x15uy -> SPARC.F52
+  | 0x18uy -> SPARC.F24
+  | 0x19uy -> SPARC.F56
+  | 0x1cuy -> SPARC.F28
+  | 0x1duy -> SPARC.F60
   | _ -> raise InvalidRegisterException
 
 let pickBit binary (pos: uint32) = binary >>> int pos &&& 0b1u
@@ -227,9 +227,9 @@ let getQPFloatRegRs1 b = getQPFloatReg b 18u 14u |> OprReg
 
 let getQPFloatRegRs2 b = getQPFloatReg b 4u 0u |> OprReg
 
-let getRegAsi b = R.ASI |> OprReg
+let getRegAsi b = SPARC.ASI |> OprReg
 
-let getRegFsr b = R.FSR |> OprReg
+let getRegFsr b = SPARC.FSR |> OprReg
 
 let getConst22 b = extract b 21u 0u |> int32 |> OprImm
 
@@ -352,23 +352,23 @@ let getd16 b =
 
 let getPriReg b32 s e =
   match (extract b32 s e) |> byte with
-  | 0uy -> Register.TPC |> OprPriReg
-  | 1uy -> Register.TNPC |> OprPriReg
-  | 2uy -> Register.TSTATE |> OprPriReg
-  | 3uy -> Register.TT |> OprPriReg
-  | 4uy -> Register.TICK |> OprPriReg
-  | 5uy -> Register.TBA |> OprPriReg
-  | 6uy -> Register.PSTATE |> OprPriReg
-  | 7uy -> Register.TL |> OprPriReg
-  | 8uy -> Register.PIL |> OprPriReg
-  | 9uy -> Register.CWP |> OprPriReg
-  | 10uy -> Register.CANSAVE |> OprPriReg
-  | 11uy -> Register.CANRESTORE |> OprPriReg
-  | 12uy -> Register.CLEANWIN |> OprPriReg
-  | 13uy -> Register.OTHERWIN |> OprPriReg
-  | 14uy -> Register.WSTATE |> OprPriReg
-  | 15uy -> Register.FQ |> OprPriReg
-  | 31uy -> Register.VER |> OprPriReg
+  | 0uy -> SPARC.TPC |> OprPriReg
+  | 1uy -> SPARC.TNPC |> OprPriReg
+  | 2uy -> SPARC.TSTATE |> OprPriReg
+  | 3uy -> SPARC.TT |> OprPriReg
+  | 4uy -> SPARC.TICK |> OprPriReg
+  | 5uy -> SPARC.TBA |> OprPriReg
+  | 6uy -> SPARC.PSTATE |> OprPriReg
+  | 7uy -> SPARC.TL |> OprPriReg
+  | 8uy -> SPARC.PIL |> OprPriReg
+  | 9uy -> SPARC.CWP |> OprPriReg
+  | 10uy -> SPARC.CANSAVE |> OprPriReg
+  | 11uy -> SPARC.CANRESTORE |> OprPriReg
+  | 12uy -> SPARC.CLEANWIN |> OprPriReg
+  | 13uy -> SPARC.OTHERWIN |> OprPriReg
+  | 14uy -> SPARC.WSTATE |> OprPriReg
+  | 15uy -> SPARC.FQ |> OprPriReg
+  | 31uy -> SPARC.VER |> OprPriReg
   | _ -> raise InvalidRegisterException
 
 let priregRDPR b32 = getPriReg b32 18u 14u
@@ -1538,16 +1538,16 @@ let parse110101 b32 =
 *)
 let parse101000 b32 =
   match extract b32 18u 14u with
-  | 0u -> struct (Opcode.RDY, parseOneRegOneOpr b32 (setPriReg R.Y) getRegRd)
+  | 0u -> struct (Opcode.RDY, parseOneRegOneOpr b32 (setPriReg SPARC.Y) getRegRd)
   | 2u ->
-    struct (Opcode.RDCCR, parseOneRegOneOpr b32 (setPriReg R.CCR) getRegRd)
+    struct (Opcode.RDCCR, parseOneRegOneOpr b32 (setPriReg SPARC.CCR) getRegRd)
   | 3u ->
-    struct (Opcode.RDASI, parseOneRegOneOpr b32 (setPriReg R.ASI) getRegRd)
+    struct (Opcode.RDASI, parseOneRegOneOpr b32 (setPriReg SPARC.ASI) getRegRd)
   | 4u ->
-    struct (Opcode.RDTICK, parseOneRegOneOpr b32 (setPriReg R.TICK) getRegRd)
-  | 5u -> struct (Opcode.RDPC, parseOneRegOneOpr b32 (setPriReg R.PC) getRegRd)
+    struct (Opcode.RDTICK, parseOneRegOneOpr b32 (setPriReg SPARC.TICK) getRegRd)
+  | 5u -> struct (Opcode.RDPC, parseOneRegOneOpr b32 (setPriReg SPARC.PC) getRegRd)
   | 6u ->
-    struct (Opcode.RDFPRS, parseOneRegOneOpr b32 (setPriReg R.FPRS) getRegRd)
+    struct (Opcode.RDFPRS, parseOneRegOneOpr b32 (setPriReg SPARC.FPRS) getRegRd)
   | 7u
   | 8u
   | 9u
@@ -1586,11 +1586,11 @@ let parse110000 b32 =
   | 0b0u ->
     match extract b32 29u 25u with
     | 0u -> struct (Opcode.WRY,
-              parseTwoOprOneReg b32 getRegRs1 getRegRs2 (setPriReg R.Y))
+              parseTwoOprOneReg b32 getRegRs1 getRegRs2 (setPriReg SPARC.Y))
     | 2u -> struct (Opcode.WRCCR,
-              parseTwoOprOneReg b32 getRegRs1 getRegRs2 (setPriReg R.CCR))
+              parseTwoOprOneReg b32 getRegRs1 getRegRs2 (setPriReg SPARC.CCR))
     | 3u -> struct (Opcode.WRASI,
-              parseTwoOprOneReg b32 getRegRs1 getRegRs2 (setPriReg R.ASI))
+              parseTwoOprOneReg b32 getRegRs1 getRegRs2 (setPriReg SPARC.ASI))
     | 4u
     | 5u
     | 7u
@@ -1601,7 +1601,7 @@ let parse110000 b32 =
     | 13u
     | 14u -> struct (Opcode.WRASR, parseTwoOpr b32 getRegRs1 getRegRs2)
     | 6u -> struct (Opcode.WRFPRS,
-                  parseTwoOprOneReg b32 getRegRs1 getRegRs2 (setPriReg R.FPRS))
+                  parseTwoOprOneReg b32 getRegRs1 getRegRs2 (setPriReg SPARC.FPRS))
     | 15u -> struct (Opcode.SIR, NoOperand)
     | 16u
     | 17u
@@ -1624,13 +1624,13 @@ let parse110000 b32 =
     match extract b32 29u 25u with
     | 0u ->
       struct (Opcode.WRY,
-              parseTwoOprOneReg b32 getRegRs1 getSimm13 (setPriReg R.Y))
+              parseTwoOprOneReg b32 getRegRs1 getSimm13 (setPriReg SPARC.Y))
     | 2u ->
       struct (Opcode.WRCCR,
-              parseTwoOprOneReg b32 getRegRs1 getSimm13 (setPriReg R.CCR))
+              parseTwoOprOneReg b32 getRegRs1 getSimm13 (setPriReg SPARC.CCR))
     | 3u ->
       struct (Opcode.WRASI,
-              parseTwoOprOneReg b32 getRegRs1 getSimm13 (setPriReg R.ASI))
+              parseTwoOprOneReg b32 getRegRs1 getSimm13 (setPriReg SPARC.ASI))
     | 4u
     | 5u
     | 7u
@@ -1643,7 +1643,7 @@ let parse110000 b32 =
     | 6u ->
       struct (
         Opcode.WRFPRS,
-        parseTwoOprOneReg b32 getRegRs1 getSimm13 (setPriReg R.FPRS)
+        parseTwoOprOneReg b32 getRegRs1 getSimm13 (setPriReg SPARC.FPRS)
       )
     | 15u -> struct (Opcode.SIR, parseOneOpr b32 getSimm13)
     | 16u
@@ -2608,12 +2608,12 @@ let parse11rd b32 =
       | 0b00000u ->
         struct (
           Opcode.STFSR,
-          parseOneRegTwoOpr b32 (setPriReg R.FSR) getAddrRs1 getAddrRs2
+          parseOneRegTwoOpr b32 (setPriReg SPARC.FSR) getAddrRs1 getAddrRs2
         )
       | 0b00001u ->
         struct (
           Opcode.STXFSR,
-          parseOneRegTwoOpr b32 (setPriReg R.FSR) getAddrRs1 getAddrRs2
+          parseOneRegTwoOpr b32 (setPriReg SPARC.FSR) getAddrRs1 getAddrRs2
         )
       | _ -> struct (Opcode.InvalidOp, NoOperand)
     | 0b111100u ->
@@ -2646,12 +2646,12 @@ let parse11rd b32 =
       | 0b00000u ->
         struct (
           Opcode.LDFSR,
-          parseTwoOprOneReg b32 getAddrRs1 getAddrRs2 (setPriReg R.FSR)
+          parseTwoOprOneReg b32 getAddrRs1 getAddrRs2 (setPriReg SPARC.FSR)
         )
       | 0b00001u ->
         struct (
           Opcode.LDXFSR,
-          parseTwoOprOneReg b32 getAddrRs1 getAddrRs2 (setPriReg R.FSR)
+          parseTwoOprOneReg b32 getAddrRs1 getAddrRs2 (setPriReg SPARC.FSR)
         )
       | _ -> struct (Opcode.InvalidOp, NoOperand)
     | 0b110000u ->
@@ -2784,17 +2784,17 @@ let parse11rd b32 =
     | 0b110100u ->
       struct (
         Opcode.STFA,
-        parseSTXA b32 getFloatRegRd getAddrRs1 getAddrSimm13 (setPriReg R.ASI)
+        parseSTXA b32 getFloatRegRd getAddrRs1 getAddrSimm13 (setPriReg SPARC.ASI)
       )
     | 0b110111u ->
       struct (
         Opcode.STDFA,
-        parseSTXA b32 getDPFloatRegRd getAddrRs1 getAddrSimm13 (setPriReg R.ASI)
+        parseSTXA b32 getDPFloatRegRd getAddrRs1 getAddrSimm13 (setPriReg SPARC.ASI)
       )
     | 0b110110u ->
       struct (
         Opcode.STQFA,
-        parseSTXA b32 getQPFloatRegRd getAddrRs1 getAddrSimm13 (setPriReg R.ASI)
+        parseSTXA b32 getQPFloatRegRd getAddrRs1 getAddrSimm13 (setPriReg SPARC.ASI)
       )
     | 0b100100u ->
       struct (
@@ -2816,12 +2816,12 @@ let parse11rd b32 =
       | 0b00000u ->
         struct (
           Opcode.STFSR,
-          parseOneRegTwoOpr b32 (setPriReg R.FSR) getAddrRs1 getAddrSimm13
+          parseOneRegTwoOpr b32 (setPriReg SPARC.FSR) getAddrRs1 getAddrSimm13
         )
       | 0b00001u ->
         struct (
           Opcode.STXFSR,
-          parseOneRegTwoOpr b32 (setPriReg R.FSR) getAddrRs1 getAddrSimm13
+          parseOneRegTwoOpr b32 (setPriReg SPARC.FSR) getAddrRs1 getAddrSimm13
         )
       | _ -> struct (Opcode.InvalidOp, NoOperand)
     | 0b111100u ->
@@ -2855,13 +2855,13 @@ let parse11rd b32 =
         struct (
           Opcode.LDFSR,
           parseTwoOprOneReg b32 getAddrRs1 getAddrSimm13
-            (setPriReg R.FSR)
+            (setPriReg SPARC.FSR)
         )
       | 0b00001u ->
         struct (
           Opcode.LDXFSR,
           parseTwoOprOneReg b32 getAddrRs1 getAddrSimm13
-            (setPriReg R.FSR)
+            (setPriReg SPARC.FSR)
         )
       | _ -> struct (Opcode.InvalidOp, NoOperand)
     | 0b110000u ->
@@ -2879,7 +2879,7 @@ let parse11rd b32 =
       struct (
         Opcode.LDQFA,
         parseThrOprOneReg b32 getAddrRs1 getAddrSimm13
-          (setPriReg R.ASI) getQPFloatRegRd
+          (setPriReg SPARC.ASI) getQPFloatRegRd
       )
 
     | 0b001001u ->
@@ -3673,7 +3673,7 @@ let parse11 b32 =
     | 0b111101u ->
       struct (
         Opcode.PREFETCHA,
-        parseThrOprOneReg b32 getRegRs1 getSimm13 (setPriReg R.ASI)
+        parseThrOprOneReg b32 getRegRs1 getSimm13 (setPriReg SPARC.ASI)
           getRegRd
       )
     | _ -> parse11rd b32

@@ -25,6 +25,7 @@
 namespace B2R2.FrontEnd.BinLifter.Intel
 
 open B2R2
+open B2R2.FrontEnd.Register
 open B2R2.FrontEnd.BinLifter
 
 /// Translation context for Intel (x86 or x86-64) instructions.
@@ -36,7 +37,7 @@ type IntelTranslationContext (isa) =
   member __.RegExprs with get() = regExprs
 
   override __.GetRegVar id =
-    Register.ofRegID id |> regExprs.GetRegVar
+    IntelRegister.Get id |> regExprs.GetRegVar
 
   override __.GetPseudoRegVar id pos =
-    regExprs.GetPseudoRegVar (Register.ofRegID id ) pos
+    regExprs.GetPseudoRegVar (IntelRegister.Get id ) pos

@@ -8,6 +8,5 @@ platform or OS that .NET runs on.
 
 ### B2R2.FrontEnd.Core Package?
 
-`B2R2.FrontEnd.Core` is the main interface for B2R2's front-end. In most
-cases, it should suffice to import just this package because all the other
-front-end packages will be loaded by this one.
+`B2R2.FrontEnd.Core` provides common types used by other front-end modules,
+such as register types for each different CPU architecture.

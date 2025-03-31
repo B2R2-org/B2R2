@@ -25,6 +25,7 @@
 module internal B2R2.FrontEnd.BinLifter.S390.ParsingMain
 
 open B2R2
+open B2R2.FrontEnd
 
 let parse (span: ByteSpan) (reader: IBinReader) wordSize addr =
   Utils.futureFeature ()

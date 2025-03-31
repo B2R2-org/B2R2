@@ -25,6 +25,7 @@
 namespace B2R2.FrontEnd.BinLifter.ARM32
 
 open B2R2
+open B2R2.FrontEnd
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinLifter.ARM32.ParseUtils
 open B2R2.FrontEnd.BinLifter.ARM32.OperandHelper
@@ -690,19 +691,19 @@ module OperandParsingHelper =
 
   ///let parseCond n: Condition = n |> LanguagePrimitives.EnumOfValue
 
-  let getVecSReg n: Register =
+  let getVecSReg n: Register.ARM32 =
     n + 0x10u |> int |> LanguagePrimitives.EnumOfValue
 
-  let getVecDReg n: Register =
+  let getVecDReg n: Register.ARM32 =
     n + 0x30u |> int |> LanguagePrimitives.EnumOfValue
 
-  let getVecQReg n: Register =
+  let getVecQReg n: Register.ARM32 =
     (n >>> 1) + 0x53u |> int |> LanguagePrimitives.EnumOfValue
 
-  let getCoprocCReg n: Register =
+  let getCoprocCReg n: Register.ARM32 =
     n + 0x63u |> int |> LanguagePrimitives.EnumOfValue
 
-  let getCoprocDReg n: Register =
+  let getCoprocDReg n: Register.ARM32 =
     n + 0x73u |> int |> LanguagePrimitives.EnumOfValue
 
   let getOption n: BarrierOption =

@@ -26,8 +26,8 @@ namespace B2R2.FrontEnd.BinFile.Mach
 
 open System
 open B2R2
+open B2R2.FrontEnd
 open B2R2.FrontEnd.BinFile
-open B2R2.FrontEnd.BinFile.FileHelper
 
 type RelocSymbol =
   | SymIndex of int (* Symbol table index *)

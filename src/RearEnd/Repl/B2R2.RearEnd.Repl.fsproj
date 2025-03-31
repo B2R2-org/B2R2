@@ -19,7 +19,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\Peripheral\Assembly\AsmInterface\B2R2.Peripheral.Assembly.AsmInterface.fsproj" />
-    <ProjectReference Include="..\..\FrontEnd\Core\B2R2.FrontEnd.Core.fsproj" />
+    <ProjectReference Include="..\..\FrontEnd\API\B2R2.FrontEnd.API.fsproj" />
     <ProjectReference Include="..\..\MiddleEnd\ConcEval\B2R2.MiddleEnd.ConcEval.fsproj" />
     <ProjectReference Include="..\Core\B2R2.RearEnd.Core.fsproj" />
   </ItemGroup>

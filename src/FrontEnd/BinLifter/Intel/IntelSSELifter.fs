@@ -28,7 +28,7 @@ open B2R2
 open B2R2.BinIR
 open B2R2.BinIR.LowUIR
 open B2R2.BinIR.LowUIR.AST.InfixOp
-open B2R2.FrontEnd.BinLifter
+open B2R2.FrontEnd
 open B2R2.FrontEnd.BinLifter.LiftingOperators
 open B2R2.FrontEnd.BinLifter.LiftingUtils
 open B2R2.FrontEnd.BinLifter.Intel
@@ -2051,18 +2051,17 @@ let pcmpstr ins insLen ctxt =
     if ctrl.Sign = Signed then AST.sle, AST.sge else AST.le, AST.ge
   for i in 0 .. upperBound do
     !!ir (bInval := AST.b0)
-    /// invalidate characters after EOS.
+    (* invalidate characters after EOS. *)
     match ctrl.Len with
     | Implicit -> !!ir (aInval := aInval .| (src1[i] == n0))
     | Explicit -> !!ir (aInval := aInval .| (numI32 i regSize == ax))
     for j in 0 .. upperBound do
-      /// compare all characters.
+      (* compare all characters. *)
       if ctrl.Agg = Ranges then
         if i % 2 = 0 then !!ir (boolRes[i, j] := src1[i] .<= src2[j])
         else !!ir (boolRes[i, j] := src1[i] .>= src2[j])
       else !!ir (boolRes[i, j] := src1[i] == src2[j])
-
-      /// invalidate characters after EOS.
+      (* invalidate characters after EOS. *)
       match ctrl.Len with
       | Implicit -> !!ir (bInval := bInval .| (src2[j] == n0))
       | Explicit -> !!ir (bInval := bInval .| (numI32 j regSize == dx))
@@ -2074,7 +2073,7 @@ let pcmpstr ins insLen ctxt =
   let intRes1 = Array.init nElem (fun _ -> !+ir 1<rt>)
   let intRes2 = Array.init nElem (fun _ -> !+ir 1<rt>)
 
-  /// aggregate results.
+  (* aggregate results. *)
   match ctrl.Agg with
   | EqualAny ->
     initIntRes AST.b0 intRes1
@@ -2106,7 +2105,7 @@ let pcmpstr ins insLen ctxt =
       done
     done
 
-  /// optionally negate results.
+  (* optionally negate results. *)
   initIntRes AST.b0 intRes2
   for i in 0 .. upperBound do
     match ctrl.Polarity with
@@ -2122,7 +2121,7 @@ let pcmpstr ins insLen ctxt =
         !!ir (intRes2[i] := AST.ite (numI32 i regSize .>= dx) intRes1[i] not)
   done
 
-  /// output.
+  (* output. *)
   let iRes2 = !+ir elemSz
   !!ir (iRes2 := combineBits elemSz intRes2)
   match ctrl.Ret with

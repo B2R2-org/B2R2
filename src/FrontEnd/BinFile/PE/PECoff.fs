@@ -25,10 +25,10 @@
 module internal B2R2.FrontEnd.BinFile.PE.Coff
 
 open System
-open System.IO
 open System.Reflection.PortableExecutable
 open System.Runtime.InteropServices
 open B2R2
+open B2R2.FrontEnd
 open B2R2.FrontEnd.BinFile.FileHelper
 
 type CoffSymbolTypeLSB =

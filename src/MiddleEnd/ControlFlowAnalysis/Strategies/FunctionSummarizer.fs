@@ -56,18 +56,18 @@ type FunctionSummarizer<'FnCtx,
     | None -> [||]
 
   let toRegExpr (hdl: BinHandle) register =
-    Intel.Register.toRegID register
+    Register.IntelRegister.ID register
     |> hdl.RegisterFactory.RegIDToRegExpr
 
   let tryFindLiveRegFromGetPCThunk (hdl: BinHandle) (addr: Addr) =
     match hdl.ReadUInt (addr, 4) with
-    | 0xc324048bUL -> Some (toRegExpr hdl Intel.Register.EAX)
-    | 0xc3241c8bUL -> Some (toRegExpr hdl Intel.Register.EBX)
-    | 0xc3240c8bUL -> Some (toRegExpr hdl Intel.Register.ECX)
-    | 0xc324148bUL -> Some (toRegExpr hdl Intel.Register.EDX)
-    | 0xc324348bUL -> Some (toRegExpr hdl Intel.Register.ESI)
-    | 0xc3243c8bUL -> Some (toRegExpr hdl Intel.Register.EDI)
-    | 0xc3242c8bUL -> Some (toRegExpr hdl Intel.Register.EBP)
+    | 0xc324048bUL -> Some (toRegExpr hdl Register.Intel.EAX)
+    | 0xc3241c8bUL -> Some (toRegExpr hdl Register.Intel.EBX)
+    | 0xc3240c8bUL -> Some (toRegExpr hdl Register.Intel.ECX)
+    | 0xc324148bUL -> Some (toRegExpr hdl Register.Intel.EDX)
+    | 0xc324348bUL -> Some (toRegExpr hdl Register.Intel.ESI)
+    | 0xc3243c8bUL -> Some (toRegExpr hdl Register.Intel.EDI)
+    | 0xc3242c8bUL -> Some (toRegExpr hdl Register.Intel.EBP)
     | _ -> None
 
   let genFreshStackVarExpr hdl =

@@ -24,44 +24,45 @@
 
 module internal B2R2.FrontEnd.BinLifter.AVR.OperandHelper
 
-open B2R2.FrontEnd.BinLifter
+open B2R2.FrontEnd
+open B2R2.FrontEnd.Register
 
 let getRegister = function
-  | 0x0uy -> R.R0
-  | 0x1uy -> R.R1
-  | 0x2uy -> R.R2
-  | 0x3uy -> R.R3
-  | 0x4uy -> R.R4
-  | 0x5uy -> R.R5
-  | 0x6uy -> R.R6
-  | 0x7uy -> R.R7
-  | 0x8uy -> R.R8
-  | 0x9uy -> R.R9
-  | 0xAuy -> R.R10
-  | 0xBuy -> R.R11
-  | 0xCuy -> R.R12
-  | 0xDuy -> R.R13
-  | 0xEuy -> R.R14
-  | 0xFuy -> R.R15
-  | 0x10uy -> R.R16
-  | 0x11uy -> R.R17
-  | 0x12uy -> R.R18
-  | 0x13uy -> R.R19
-  | 0x14uy -> R.R20
-  | 0x15uy -> R.R21
-  | 0x16uy -> R.R22
-  | 0x17uy -> R.R23
-  | 0x18uy -> R.R24
-  | 0x19uy -> R.R25
-  | 0x1Auy -> R.R26
-  | 0x1Buy -> R.R27
-  | 0x1Cuy -> R.R28
-  | 0x1Duy -> R.R29
-  | 0x1Euy -> R.R30
-  | 0x1Fuy -> R.R31
-  | 0x20uy -> R.X
-  | 0x21uy -> R.Y
-  | 0x22uy -> R.Z
+  | 0x0uy -> AVR.R0
+  | 0x1uy -> AVR.R1
+  | 0x2uy -> AVR.R2
+  | 0x3uy -> AVR.R3
+  | 0x4uy -> AVR.R4
+  | 0x5uy -> AVR.R5
+  | 0x6uy -> AVR.R6
+  | 0x7uy -> AVR.R7
+  | 0x8uy -> AVR.R8
+  | 0x9uy -> AVR.R9
+  | 0xAuy -> AVR.R10
+  | 0xBuy -> AVR.R11
+  | 0xCuy -> AVR.R12
+  | 0xDuy -> AVR.R13
+  | 0xEuy -> AVR.R14
+  | 0xFuy -> AVR.R15
+  | 0x10uy -> AVR.R16
+  | 0x11uy -> AVR.R17
+  | 0x12uy -> AVR.R18
+  | 0x13uy -> AVR.R19
+  | 0x14uy -> AVR.R20
+  | 0x15uy -> AVR.R21
+  | 0x16uy -> AVR.R22
+  | 0x17uy -> AVR.R23
+  | 0x18uy -> AVR.R24
+  | 0x19uy -> AVR.R25
+  | 0x1Auy -> AVR.R26
+  | 0x1Buy -> AVR.R27
+  | 0x1Cuy -> AVR.R28
+  | 0x1Duy -> AVR.R29
+  | 0x1Euy -> AVR.R30
+  | 0x1Fuy -> AVR.R31
+  | 0x20uy -> AVR.X
+  | 0x21uy -> AVR.Y
+  | 0x22uy -> AVR.Z
   | _ -> raise InvalidRegisterException
 
 let memPreIdx offset = OprMemory (PreIdxMode (offset))
@@ -145,36 +146,36 @@ let getDisp b =
 
 let getMemDispY b =
   let disp = getDisp b
-  memDisp (R.Y, disp)
+  memDisp (AVR.Y, disp)
 
 let getMemDispZ b =
   let disp = getDisp b
-  memDisp (R.Z, disp)
+  memDisp (AVR.Z, disp)
 
 let getMemLDD b =
   match b &&& 0b1111u with
-  | 0b1100u -> memUnch (R.X)
-  | 0b1101u -> memPostIdx (R.X)
-  | 0b1110u -> memPreIdx (R.X)
-  | 0b1000u -> memUnch (R.Y)
-  | 0b1001u -> memPostIdx (R.Y)
-  | 0b1010u -> memPreIdx (R.Y)
-  | 0b0000u -> memUnch (R.Z)
-  | 0b0001u -> memPostIdx (R.Z)
-  | 0b0010u -> memPreIdx (R.Z)
-  | 0b0110u -> memUnch (R.Z)
-  | 0b0111u -> memPostIdx (R.Z)
-  | 0b0100u -> memUnch (R.Z)
-  | _ -> memPostIdx (R.Z) // 0101
+  | 0b1100u -> memUnch (AVR.X)
+  | 0b1101u -> memPostIdx (AVR.X)
+  | 0b1110u -> memPreIdx (AVR.X)
+  | 0b1000u -> memUnch (AVR.Y)
+  | 0b1001u -> memPostIdx (AVR.Y)
+  | 0b1010u -> memPreIdx (AVR.Y)
+  | 0b0000u -> memUnch (AVR.Z)
+  | 0b0001u -> memPostIdx (AVR.Z)
+  | 0b0010u -> memPreIdx (AVR.Z)
+  | 0b0110u -> memUnch (AVR.Z)
+  | 0b0111u -> memPostIdx (AVR.Z)
+  | 0b0100u -> memUnch (AVR.Z)
+  | _ -> memPostIdx (AVR.Z) // 0101
 
 let getMemST b =
   match b &&& 0b1111u with
-  | 0b1100u -> memUnch (R.X)
-  | 0b1101u -> memPostIdx (R.X)
-  | 0b1110u -> memPreIdx (R.X)
-  | 0b1000u -> memUnch (R.Y)
-  | 0b1001u -> memPostIdx (R.Y)
-  | 0b1010u -> memPreIdx (R.Y)
-  | 0b0000u -> memUnch (R.Z)
-  | 0b0001u -> memPostIdx (R.Z)
-  | _ -> memPreIdx (R.Z) //0010
+  | 0b1100u -> memUnch (AVR.X)
+  | 0b1101u -> memPostIdx (AVR.X)
+  | 0b1110u -> memPreIdx (AVR.X)
+  | 0b1000u -> memUnch (AVR.Y)
+  | 0b1001u -> memPostIdx (AVR.Y)
+  | 0b1010u -> memPreIdx (AVR.Y)
+  | 0b0000u -> memUnch (AVR.Z)
+  | 0b0001u -> memPostIdx (AVR.Z)
+  | _ -> memPreIdx (AVR.Z) //0010

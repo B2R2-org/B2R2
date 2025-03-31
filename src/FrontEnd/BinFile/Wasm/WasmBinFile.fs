@@ -26,6 +26,7 @@ namespace B2R2.FrontEnd.BinFile
 
 open System
 open B2R2
+open B2R2.FrontEnd
 open B2R2.FrontEnd.BinFile.Wasm
 open B2R2.FrontEnd.BinFile.Wasm.Helper
 

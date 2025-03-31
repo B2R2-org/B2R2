@@ -25,6 +25,8 @@
 module internal B2R2.FrontEnd.BinLifter.TMS320C6000.ParsingMain
 
 open B2R2
+open B2R2.FrontEnd
+open B2R2.FrontEnd.Register
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinLifter.BitData
 
@@ -149,73 +151,73 @@ type OperandInfo =
   end
 
 let private getRegisterA = function
-  | 0b00000u -> R.A0
-  | 0b00001u -> R.A1
-  | 0b00010u -> R.A2
-  | 0b00011u -> R.A3
-  | 0b00100u -> R.A4
-  | 0b00101u -> R.A5
-  | 0b00110u -> R.A6
-  | 0b00111u -> R.A7
-  | 0b01000u -> R.A8
-  | 0b01001u -> R.A9
-  | 0b01010u -> R.A10
-  | 0b01011u -> R.A11
-  | 0b01100u -> R.A12
-  | 0b01101u -> R.A13
-  | 0b01110u -> R.A14
-  | 0b01111u -> R.A15
-  | 0b10000u -> R.A16
-  | 0b10001u -> R.A17
-  | 0b10010u -> R.A18
-  | 0b10011u -> R.A19
-  | 0b10100u -> R.A20
-  | 0b10101u -> R.A21
-  | 0b10110u -> R.A22
-  | 0b10111u -> R.A23
-  | 0b11000u -> R.A24
-  | 0b11001u -> R.A25
-  | 0b11010u -> R.A26
-  | 0b11011u -> R.A27
-  | 0b11100u -> R.A28
-  | 0b11101u -> R.A29
-  | 0b11110u -> R.A30
-  | 0b11111u -> R.A31
+  | 0b00000u -> TMS320C6000.A0
+  | 0b00001u -> TMS320C6000.A1
+  | 0b00010u -> TMS320C6000.A2
+  | 0b00011u -> TMS320C6000.A3
+  | 0b00100u -> TMS320C6000.A4
+  | 0b00101u -> TMS320C6000.A5
+  | 0b00110u -> TMS320C6000.A6
+  | 0b00111u -> TMS320C6000.A7
+  | 0b01000u -> TMS320C6000.A8
+  | 0b01001u -> TMS320C6000.A9
+  | 0b01010u -> TMS320C6000.A10
+  | 0b01011u -> TMS320C6000.A11
+  | 0b01100u -> TMS320C6000.A12
+  | 0b01101u -> TMS320C6000.A13
+  | 0b01110u -> TMS320C6000.A14
+  | 0b01111u -> TMS320C6000.A15
+  | 0b10000u -> TMS320C6000.A16
+  | 0b10001u -> TMS320C6000.A17
+  | 0b10010u -> TMS320C6000.A18
+  | 0b10011u -> TMS320C6000.A19
+  | 0b10100u -> TMS320C6000.A20
+  | 0b10101u -> TMS320C6000.A21
+  | 0b10110u -> TMS320C6000.A22
+  | 0b10111u -> TMS320C6000.A23
+  | 0b11000u -> TMS320C6000.A24
+  | 0b11001u -> TMS320C6000.A25
+  | 0b11010u -> TMS320C6000.A26
+  | 0b11011u -> TMS320C6000.A27
+  | 0b11100u -> TMS320C6000.A28
+  | 0b11101u -> TMS320C6000.A29
+  | 0b11110u -> TMS320C6000.A30
+  | 0b11111u -> TMS320C6000.A31
   | _ -> Utils.impossible ()
 
 let private getRegisterB = function
-  | 0b00000u -> R.B0
-  | 0b00001u -> R.B1
-  | 0b00010u -> R.B2
-  | 0b00011u -> R.B3
-  | 0b00100u -> R.B4
-  | 0b00101u -> R.B5
-  | 0b00110u -> R.B6
-  | 0b00111u -> R.B7
-  | 0b01000u -> R.B8
-  | 0b01001u -> R.B9
-  | 0b01010u -> R.B10
-  | 0b01011u -> R.B11
-  | 0b01100u -> R.B12
-  | 0b01101u -> R.B13
-  | 0b01110u -> R.B14
-  | 0b01111u -> R.B15
-  | 0b10000u -> R.B16
-  | 0b10001u -> R.B17
-  | 0b10010u -> R.B18
-  | 0b10011u -> R.B19
-  | 0b10100u -> R.B20
-  | 0b10101u -> R.B21
-  | 0b10110u -> R.B22
-  | 0b10111u -> R.B23
-  | 0b11000u -> R.B24
-  | 0b11001u -> R.B25
-  | 0b11010u -> R.B26
-  | 0b11011u -> R.B27
-  | 0b11100u -> R.B28
-  | 0b11101u -> R.B29
-  | 0b11110u -> R.B30
-  | 0b11111u -> R.B31
+  | 0b00000u -> TMS320C6000.B0
+  | 0b00001u -> TMS320C6000.B1
+  | 0b00010u -> TMS320C6000.B2
+  | 0b00011u -> TMS320C6000.B3
+  | 0b00100u -> TMS320C6000.B4
+  | 0b00101u -> TMS320C6000.B5
+  | 0b00110u -> TMS320C6000.B6
+  | 0b00111u -> TMS320C6000.B7
+  | 0b01000u -> TMS320C6000.B8
+  | 0b01001u -> TMS320C6000.B9
+  | 0b01010u -> TMS320C6000.B10
+  | 0b01011u -> TMS320C6000.B11
+  | 0b01100u -> TMS320C6000.B12
+  | 0b01101u -> TMS320C6000.B13
+  | 0b01110u -> TMS320C6000.B14
+  | 0b01111u -> TMS320C6000.B15
+  | 0b10000u -> TMS320C6000.B16
+  | 0b10001u -> TMS320C6000.B17
+  | 0b10010u -> TMS320C6000.B18
+  | 0b10011u -> TMS320C6000.B19
+  | 0b10100u -> TMS320C6000.B20
+  | 0b10101u -> TMS320C6000.B21
+  | 0b10110u -> TMS320C6000.B22
+  | 0b10111u -> TMS320C6000.B23
+  | 0b11000u -> TMS320C6000.B24
+  | 0b11001u -> TMS320C6000.B25
+  | 0b11010u -> TMS320C6000.B26
+  | 0b11011u -> TMS320C6000.B27
+  | 0b11100u -> TMS320C6000.B28
+  | 0b11101u -> TMS320C6000.B29
+  | 0b11110u -> TMS320C6000.B30
+  | 0b11111u -> TMS320C6000.B31
   | _ -> Utils.impossible ()
 
 let private parseReg bin isCrossPath = function
@@ -275,7 +277,8 @@ let private parseRegPair v unit isCPath =
   let high, low = if v &&& 0b1u = 0b0u then v + 1u, v else v, v - 1u
   (parseReg high isCPath unit, parseReg low isCPath unit) |> RegisterPair
 
-let getB14orB15 value = if value = 0b0u then R.B14 else R.B15
+let getB14orB15 value =
+  if value = 0b0u then TMS320C6000.B14 else TMS320C6000.B15
 
 let private translateOperand unit (oprInfo: OperandInfo) =
   let v = oprInfo.OperandValue
@@ -1263,38 +1266,38 @@ let is0xxxx address = address &&& 0b10000u = 0b00000u
 
 let getCtrlReg crHi crLo =
   match crHi, crLo with
-  | _, 0b00000u when is0xxxx crHi -> R.AMR
-  | _, 0b00001u when is0xxxx crHi -> R.CSR
-  | 0b00000u, 0b11001u -> R.DIER
-  | 0b00000u, 0b10001u -> R.DNUM
-  | 0b00000u, 0b11101u -> R.ECR
-  (* | 0b00000u, 0b11101u -> R.EFR *) // XXX: depending on the MVC
-  | 0b00000u, 0b10010u -> R.FADCR
-  | 0b00000u, 0b10011u -> R.FAUCR
-  | 0b00000u, 0b10100u -> R.FMCR
-  | 0b00000u, 0b11000u -> R.GFPGFR
-  | 0b00000u, 0b10110u -> R.GPLYA
-  | 0b00000u, 0b10111u -> R.GPLYB
-  | _, 0b00011u when is0xxxx crHi -> R.ICR
-  | _, 0b00100u when is0xxxx crHi -> R.IER
-  | 0b00000u, 0b11111u -> R.IERR
-  | 0b00000u, 0b00010u -> R.IFR
-  | 0b00010u, 0b00010u -> R.IFR
-  | 0b00000u, 0b01101u -> R.ILC
-  | _, 0b00110u when is0xxxx crHi -> R.IRP
-  | _, 0b00010u when is0xxxx crHi -> R.ISR
-  | _, 0b00101u when is0xxxx crHi -> R.ISTP
-  | 0b00000u, 0b11011u -> R.ITSR
-  | _, 0b00111u when is0xxxx crHi -> R.NRP
-  | 0b00000u, 0b11100u -> R.NTSR
-  | 0b00000u, 0b10000u -> R.PCE1
-  | 0b10000u, 0b10000u -> R.PCE1
-  | 0b00000u, 0b01111u -> R.REP
-  | 0b00000u, 0b01110u -> R.RILC
-  | 0b00000u, 0b10101u -> R.SSR
-  | 0b00000u, 0b01011u -> R.TSCH
-  | 0b00000u, 0b01010u -> R.TSCL
-  | 0b00000u, 0b11010u -> R.TSR
+  | _, 0b00000u when is0xxxx crHi -> TMS320C6000.AMR
+  | _, 0b00001u when is0xxxx crHi -> TMS320C6000.CSR
+  | 0b00000u, 0b11001u -> TMS320C6000.DIER
+  | 0b00000u, 0b10001u -> TMS320C6000.DNUM
+  | 0b00000u, 0b11101u -> TMS320C6000.ECR
+  (* | 0b00000u, 0b11101u -> TMS320C6000.EFR *) // XXX: depending on the MVC
+  | 0b00000u, 0b10010u -> TMS320C6000.FADCR
+  | 0b00000u, 0b10011u -> TMS320C6000.FAUCR
+  | 0b00000u, 0b10100u -> TMS320C6000.FMCR
+  | 0b00000u, 0b11000u -> TMS320C6000.GFPGFR
+  | 0b00000u, 0b10110u -> TMS320C6000.GPLYA
+  | 0b00000u, 0b10111u -> TMS320C6000.GPLYB
+  | _, 0b00011u when is0xxxx crHi -> TMS320C6000.ICR
+  | _, 0b00100u when is0xxxx crHi -> TMS320C6000.IER
+  | 0b00000u, 0b11111u -> TMS320C6000.IERR
+  | 0b00000u, 0b00010u -> TMS320C6000.IFR
+  | 0b00010u, 0b00010u -> TMS320C6000.IFR
+  | 0b00000u, 0b01101u -> TMS320C6000.ILC
+  | _, 0b00110u when is0xxxx crHi -> TMS320C6000.IRP
+  | _, 0b00010u when is0xxxx crHi -> TMS320C6000.ISR
+  | _, 0b00101u when is0xxxx crHi -> TMS320C6000.ISTP
+  | 0b00000u, 0b11011u -> TMS320C6000.ITSR
+  | _, 0b00111u when is0xxxx crHi -> TMS320C6000.NRP
+  | 0b00000u, 0b11100u -> TMS320C6000.NTSR
+  | 0b00000u, 0b10000u -> TMS320C6000.PCE1
+  | 0b10000u, 0b10000u -> TMS320C6000.PCE1
+  | 0b00000u, 0b01111u -> TMS320C6000.REP
+  | 0b00000u, 0b01110u -> TMS320C6000.RILC
+  | 0b00000u, 0b10101u -> TMS320C6000.SSR
+  | 0b00000u, 0b01011u -> TMS320C6000.TSCH
+  | 0b00000u, 0b01010u -> TMS320C6000.TSCL
+  | 0b00000u, 0b11010u -> TMS320C6000.TSR
   | _ -> Utils.impossible ()
 
 /// Control Register to Register

@@ -24,7 +24,8 @@
 
 namespace B2R2.FrontEnd.BinLifter.ARM32
 
-open B2R2.FrontEnd.BinLifter
+open B2R2.FrontEnd
+open B2R2.FrontEnd.Register
 open B2R2.BinIR.LowUIR
 
 type ARM32RegisterFactory (r: RegExprs) =
@@ -55,11 +56,11 @@ type ARM32RegisterFactory (r: RegExprs) =
   override __.RegIDFromRegExpr (e) =
     match e.E with
     | Var (_, id, _) -> id
-    | PCVar _ -> Register.toRegID Register.PC
+    | PCVar _ -> ARM32Register.ID ARM32.PC
     | _ -> raise InvalidRegisterException
 
   override __.RegIDToRegExpr (id) =
-    Register.ofRegID id |> r.GetRegVar
+    ARM32Register.Get id |> r.GetRegVar
 
   override __.StrToRegExpr s =
     match s with
@@ -185,34 +186,34 @@ type ARM32RegisterFactory (r: RegExprs) =
     | _ -> raise UnhandledRegExprException
 
   override __.RegIDFromString str =
-    Register.ofString str |> Register.toRegID
+    ARM32Register.Get str |> ARM32Register.ID
 
   override __.RegIDToString rid =
-    Register.ofRegID rid |> Register.toString
+    ARM32Register.Get rid |> ARM32Register.String
 
   override __.RegIDToRegType rid =
-    Register.ofRegID rid |> Register.toRegType
+    ARM32Register.Get rid |> Register.toRegType
 
   override __.GetRegisterAliases rid =
     [| rid |]
 
   override __.ProgramCounter =
-    Register.PC |> Register.toRegID
+    ARM32.PC |> ARM32Register.ID
 
   override __.StackPointer =
-    Register.SP |> Register.toRegID |> Some
+    ARM32.SP |> ARM32Register.ID |> Some
 
   override __.FramePointer =
-    Register.FP |> Register.toRegID |> Some
+    ARM32.FP |> ARM32Register.ID |> Some
 
   override __.IsProgramCounter regid =
-    let pcid = Register.PC |> Register.toRegID
+    let pcid = ARM32.PC |> ARM32Register.ID
     pcid = regid
 
   override __.IsStackPointer regid =
-    let spid = Register.SP |> Register.toRegID
+    let spid = ARM32.SP |> ARM32Register.ID
     spid = regid
 
   override __.IsFramePointer regid =
-    let fpid = Register.FP |> Register.toRegID
+    let fpid = ARM32.FP |> ARM32Register.ID
     fpid = regid

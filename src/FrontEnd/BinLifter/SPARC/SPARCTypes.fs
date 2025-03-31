@@ -25,9 +25,9 @@
 namespace B2R2.FrontEnd.BinLifter.SPARC
 
 
-open B2R2
 open System.Runtime.CompilerServices
-open B2R2.FrontEnd.BinLifter.SPARC
+open B2R2
+open B2R2.FrontEnd
 
 [<assembly: InternalsVisibleTo("B2R2.FrontEnd.BinLifter.Tests")>]
 do ()
@@ -803,18 +803,18 @@ module ConditionCode =
 type Const = int32
 
 type AddressingMode =
-  | DispMode of Register * Const
-  | PreIdxMode of Register
-  | PostIdxMode of Register
-  | UnchMode of Register
+  | DispMode of Register.SPARC * Const
+  | PreIdxMode of Register.SPARC
+  | PostIdxMode of Register.SPARC
+  | UnchMode of Register.SPARC
 
 type Operand =
-  | OprReg of Register
+  | OprReg of Register.SPARC
   | OprImm of Const
   | OprAddr of Const
   | OprMemory of AddressingMode
   | OprCC of ConditionCode
-  | OprPriReg of Register
+  | OprPriReg of Register.SPARC
 
 type Operands =
   | NoOperand

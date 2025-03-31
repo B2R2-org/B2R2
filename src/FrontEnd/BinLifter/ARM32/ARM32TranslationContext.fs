@@ -24,6 +24,7 @@
 
 namespace B2R2.FrontEnd.BinLifter.ARM32
 
+open B2R2.FrontEnd.Register
 open B2R2.FrontEnd.BinLifter
 
 /// Translation context for 32-bit ARM instructions (ARMv7 and ARMv8 AARCH32).
@@ -36,7 +37,7 @@ type ARM32TranslationContext (isa) =
   member __.RegExprs with get() = regExprs
 
   override __.GetRegVar id =
-    Register.ofRegID id |> regExprs.GetRegVar
+    ARM32Register.Get id |> regExprs.GetRegVar
 
   override __.GetPseudoRegVar id pos =
-    regExprs.GetPseudoRegVar (Register.ofRegID id) pos
+    regExprs.GetPseudoRegVar (ARM32Register.Get id) pos

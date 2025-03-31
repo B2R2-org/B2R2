@@ -24,8 +24,9 @@
 
 namespace B2R2.FrontEnd.BinLifter.TMS320C6000
 
-open B2R2
 open System.Runtime.CompilerServices
+open B2R2
+open B2R2.FrontEnd
 
 [<assembly: InternalsVisibleTo("B2R2.FrontEnd.BinLifter.Tests")>]
 do ()
@@ -268,7 +269,7 @@ type Opcode =
 type internal Op = Opcode
 
 type Offset =
-  | OffsetR of Register
+  | OffsetR of Register.TMS320C6000
   | UCst5 of uint64
   | UCst15 of uint64
 
@@ -281,9 +282,9 @@ type ModificationPerformed =
   | PostIncrement
 
 type Operand =
-  | OpReg of Register
-  | RegisterPair of Register * Register
-  | OprMem of Register * ModificationPerformed * Offset
+  | OpReg of Register.TMS320C6000
+  | RegisterPair of Register.TMS320C6000 * Register.TMS320C6000
+  | OprMem of Register.TMS320C6000 * ModificationPerformed * Offset
   | Immediate of Imm
 and Imm = uint64
 

@@ -24,8 +24,6 @@
 
 namespace B2R2.FrontEnd.BinLifter.SH4
 
-open B2R2
-
 type Opcode =
   // Add.
   | ADD = 0

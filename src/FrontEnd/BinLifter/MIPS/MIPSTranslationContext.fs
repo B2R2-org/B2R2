@@ -25,6 +25,7 @@
 namespace B2R2.FrontEnd.BinLifter.MIPS
 
 open B2R2
+open B2R2.FrontEnd.Register
 open B2R2.FrontEnd.BinLifter
 
 /// Translation context for MIPS instructions.
@@ -36,7 +37,7 @@ type MIPSTranslationContext (isa) =
   member __.RegExprs with get() = regExprs
 
   override __.GetRegVar id =
-    Register.ofRegID id |> regExprs.GetRegVar
+    MIPSRegister.Get id |> regExprs.GetRegVar
 
   override __.GetPseudoRegVar _id _pos =
     Utils.impossible ()

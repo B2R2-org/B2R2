@@ -259,11 +259,10 @@ type CondAwareNoretAnalysis ([<Optional; DefaultParameterValue(true)>] strict) =
 #endif
 
 module CondAwareNoretAnalysis =
-  open B2R2.FrontEnd.BinLifter
   open B2R2.MiddleEnd.ConcEval
 
   let private hasNonZeroOnX86 st nth =
-    let esp = (Intel.Register.ESP |> Intel.Register.toRegID)
+    let esp = (Register.Intel.ESP |> Register.IntelRegister.ID)
     match (st: EvalState).TryGetReg esp with
     | Def esp ->
       let p = esp.Add (BitVector.OfInt32 (4 * nth) 32<rt>)

@@ -26,6 +26,7 @@ namespace B2R2.FrontEnd.BinLifter.SH4
 
 open System
 open B2R2
+open B2R2.FrontEnd
 open B2R2.FrontEnd.BinLifter
 
 type SH4Parser (isa: ISA) =

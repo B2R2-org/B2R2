@@ -26,6 +26,8 @@ module internal B2R2.FrontEnd.BinLifter.ARM32.Disasm
 
 open System.Text
 open B2R2
+open B2R2.FrontEnd
+open B2R2.FrontEnd.Register
 open B2R2.FrontEnd.BinLifter
 
 let opCodeToString = function
@@ -617,7 +619,7 @@ let isRFEorSRS = function
   | _ -> false
 
 let buildReg (ins: InsInfo) isRegList reg (builder: DisasmBuilder) =
-  let reg = Register.toString reg
+  let reg = ARM32Register.String reg
   match ins.WriteBack with
   | true when existRegList ins.Operands && not isRegList ->
     builder.Accumulate AsmWordKind.Variable reg

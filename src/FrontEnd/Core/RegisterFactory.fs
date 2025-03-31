@@ -22,7 +22,7 @@
   SOFTWARE.
 *)
 
-namespace B2R2.FrontEnd.BinLifter
+namespace B2R2.FrontEnd
 
 open B2R2
 open B2R2.BinIR.LowUIR
@@ -81,7 +81,7 @@ type RegisterFactory () =
   /// Return an array of aliases of a given register based on the current
   /// architecture of BinHandle.
   /// </summary>
-  abstract GetRegisterAliases: RegisterID -> RegisterID []
+  abstract GetRegisterAliases: RegisterID -> RegisterID[]
 
   /// <summary>
   /// Return a program counter register for a given BinHandle.

@@ -25,6 +25,7 @@
 module internal B2R2.Peripheral.Assembly.Intel.AsmPrefix
 
 open B2R2
+open B2R2.FrontEnd.Register
 open B2R2.FrontEnd.BinLifter.Intel
 open B2R2.Peripheral.Assembly.Intel.ParserHelper
 
@@ -94,20 +95,20 @@ let encodePrefix ins ctx (pref: EncPrefix) =
   [| yield! prxGrp1; yield! prxGrp2; yield! mandPrx; yield! prxGrp4 |]
 
 let encodeRex = function
-  | Register.SPL | Register.BPL | Register.SIL | Register.DIL -> 0x40uy
+  | Intel.SPL | Intel.BPL | Intel.SIL | Intel.DIL -> 0x40uy
   | _ -> 0x0uy
 
 let isExtendReg = function
-  | Register.R8B | Register.R8W | Register.R8D | Register.R8
-  | Register.R9B | Register.R9W | Register.R9D | Register.R9
-  | Register.R10B | Register.R10W | Register.R10D | Register.R10
-  | Register.R11B | Register.R11W | Register.R11D | Register.R11
-  | Register.R12B | Register.R12W | Register.R12D | Register.R12
-  | Register.R13B | Register.R13W | Register.R13D | Register.R13
-  | Register.R14B | Register.R14W | Register.R14D | Register.R14
-  | Register.R15B | Register.R15W | Register.R15D | Register.R15
-  | Register.XMM8 | Register.XMM9 | Register.XMM10 | Register.XMM11
-  | Register.XMM12 | Register.XMM13 | Register.XMM14 | Register.XMM15 -> true
+  | Intel.R8B | Intel.R8W | Intel.R8D | Intel.R8
+  | Intel.R9B | Intel.R9W | Intel.R9D | Intel.R9
+  | Intel.R10B | Intel.R10W | Intel.R10D | Intel.R10
+  | Intel.R11B | Intel.R11W | Intel.R11D | Intel.R11
+  | Intel.R12B | Intel.R12W | Intel.R12D | Intel.R12
+  | Intel.R13B | Intel.R13W | Intel.R13D | Intel.R13
+  | Intel.R14B | Intel.R14W | Intel.R14D | Intel.R14
+  | Intel.R15B | Intel.R15W | Intel.R15D | Intel.R15
+  | Intel.XMM8 | Intel.XMM9 | Intel.XMM10 | Intel.XMM11
+  | Intel.XMM12 | Intel.XMM13 | Intel.XMM14 | Intel.XMM15 -> true
   | _ -> false
 
 let encodeRexR reg = if isExtendReg reg then 0x44uy else 0x0uy
@@ -196,30 +197,30 @@ let private getLeadingOpcodeByte = function (* m-mmmm *)
   | _ -> Utils.impossible ()
 
 let private getVVVVByte = function
-  | Some Register.XMM0 | Some Register.YMM0
-  | Some Register.EAX | Some Register.RAX -> 0b1111uy
-  | Some Register.XMM1 | Some Register.YMM1
-  | Some Register.ECX | Some Register.RCX -> 0b1110uy
-  | Some Register.XMM2 | Some Register.YMM2
-  | Some Register.EDX | Some Register.RDX -> 0b1101uy
-  | Some Register.XMM3 | Some Register.YMM3
-  | Some Register.EBX | Some Register.RBX -> 0b1100uy
-  | Some Register.XMM4 | Some Register.YMM4
-  | Some Register.ESP | Some Register.RSP -> 0b1011uy
-  | Some Register.XMM5 | Some Register.YMM5
-  | Some Register.EBP | Some Register.RBP -> 0b1010uy
-  | Some Register.XMM6 | Some Register.YMM6
-  | Some Register.ESI | Some Register.RSI -> 0b1001uy
-  | Some Register.XMM7 | Some Register.YMM7
-  | Some Register.EDI | Some Register.RDI -> 0b1000uy
-  | Some Register.XMM8 | Some Register.YMM8 -> 0b0111uy
-  | Some Register.XMM9 | Some Register.YMM9 -> 0b0110uy
-  | Some Register.XMM10 | Some Register.YMM10 -> 0b0101uy
-  | Some Register.XMM11 | Some Register.YMM11 -> 0b0100uy
-  | Some Register.XMM12 | Some Register.YMM12 -> 0b0011uy
-  | Some Register.XMM13 | Some Register.YMM13 -> 0b0010uy
-  | Some Register.XMM14 | Some Register.YMM14 -> 0b0001uy
-  | Some Register.XMM15 | Some Register.YMM15 -> 0b0000uy
+  | Some Intel.XMM0 | Some Intel.YMM0
+  | Some Intel.EAX | Some Intel.RAX -> 0b1111uy
+  | Some Intel.XMM1 | Some Intel.YMM1
+  | Some Intel.ECX | Some Intel.RCX -> 0b1110uy
+  | Some Intel.XMM2 | Some Intel.YMM2
+  | Some Intel.EDX | Some Intel.RDX -> 0b1101uy
+  | Some Intel.XMM3 | Some Intel.YMM3
+  | Some Intel.EBX | Some Intel.RBX -> 0b1100uy
+  | Some Intel.XMM4 | Some Intel.YMM4
+  | Some Intel.ESP | Some Intel.RSP -> 0b1011uy
+  | Some Intel.XMM5 | Some Intel.YMM5
+  | Some Intel.EBP | Some Intel.RBP -> 0b1010uy
+  | Some Intel.XMM6 | Some Intel.YMM6
+  | Some Intel.ESI | Some Intel.RSI -> 0b1001uy
+  | Some Intel.XMM7 | Some Intel.YMM7
+  | Some Intel.EDI | Some Intel.RDI -> 0b1000uy
+  | Some Intel.XMM8 | Some Intel.YMM8 -> 0b0111uy
+  | Some Intel.XMM9 | Some Intel.YMM9 -> 0b0110uy
+  | Some Intel.XMM10 | Some Intel.YMM10 -> 0b0101uy
+  | Some Intel.XMM11 | Some Intel.YMM11 -> 0b0100uy
+  | Some Intel.XMM12 | Some Intel.YMM12 -> 0b0011uy
+  | Some Intel.XMM13 | Some Intel.YMM13 -> 0b0010uy
+  | Some Intel.XMM14 | Some Intel.YMM14 -> 0b0001uy
+  | Some Intel.XMM15 | Some Intel.YMM15 -> 0b0000uy
   | None -> 0b1111uy
   | _ -> Utils.impossible ()
 

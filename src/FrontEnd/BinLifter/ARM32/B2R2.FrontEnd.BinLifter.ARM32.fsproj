@@ -33,6 +33,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\..\Core\B2R2.Core.fsproj" />
     <ProjectReference Include="..\..\..\BinIR\B2R2.BinIR.fsproj" />
+    <ProjectReference Include="..\..\Core\B2R2.FrontEnd.Core.fsproj" />
     <ProjectReference Include="..\Core\B2R2.FrontEnd.BinLifter.Core.fsproj" />
   </ItemGroup>
 

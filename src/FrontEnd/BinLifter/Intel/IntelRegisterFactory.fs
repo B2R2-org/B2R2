@@ -25,7 +25,8 @@
 namespace B2R2.FrontEnd.BinLifter.Intel
 
 open B2R2
-open B2R2.FrontEnd.BinLifter
+open B2R2.FrontEnd
+open B2R2.FrontEnd.Register
 open B2R2.BinIR.LowUIR
 
 type IntelRegisterFactory (wordSize, r: RegExprs) =
@@ -94,12 +95,12 @@ type IntelRegisterFactory (wordSize, r: RegExprs) =
     match e.E with
     | Var (_,id, _) -> id
     | PCVar (regT, _) ->
-      if regT = 32<rt> then Register.toRegID Register.EIP
-      else Register.toRegID Register.RIP
+      if regT = 32<rt> then IntelRegister.ID Intel.EIP
+      else IntelRegister.ID Intel.RIP
     | _ -> raise InvalidRegisterException
 
   override __.RegIDToRegExpr (id) =
-    Register.ofRegID id |> r.GetRegVar
+    IntelRegister.Get id |> r.GetRegVar
 
   override __.StrToRegExpr (s: string) =
     match s.ToUpper () with
@@ -392,31 +393,31 @@ type IntelRegisterFactory (wordSize, r: RegExprs) =
     | _ -> raise UnhandledRegExprException
 
   override __.RegIDFromString str =
-    Register.ofString str |> Register.toRegID
+    IntelRegister.Get str |> IntelRegister.ID
 
   override __.RegIDToString rid =
-    Register.ofRegID rid |> Register.toString
+    IntelRegister.Get rid |> IntelRegister.String
 
   override __.RegIDToRegType rid =
-    Register.ofRegID rid |> Register.toRegType wordSize
+    IntelRegister.Get rid |> Register.toRegType wordSize
 
   override __.GetRegisterAliases rid =
-    Register.ofRegID rid
+    IntelRegister.Get rid
     |> Register.getAliases
-    |> Array.map Register.toRegID
+    |> Array.map IntelRegister.ID
 
   override __.ProgramCounter =
-    if WordSize.is32 wordSize then Register.EIP |> Register.toRegID
-    else Register.RIP |> Register.toRegID
+    if WordSize.is32 wordSize then Intel.EIP |> IntelRegister.ID
+    else Intel.RIP |> IntelRegister.ID
 
   override __.StackPointer =
-    if WordSize.is32 wordSize then Register.ESP |> Register.toRegID
-    else Register.RSP |> Register.toRegID
+    if WordSize.is32 wordSize then Intel.ESP |> IntelRegister.ID
+    else Intel.RSP |> IntelRegister.ID
     |> Some
 
   override __.FramePointer =
-    if WordSize.is32 wordSize then Register.EBP |> Register.toRegID
-    else Register.RBP |> Register.toRegID
+    if WordSize.is32 wordSize then Intel.EBP |> IntelRegister.ID
+    else Intel.RBP |> IntelRegister.ID
     |> Some
 
   override __.IsProgramCounter regid =

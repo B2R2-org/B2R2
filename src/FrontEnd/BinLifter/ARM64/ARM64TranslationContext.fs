@@ -24,6 +24,7 @@
 
 namespace B2R2.FrontEnd.BinLifter.ARM64
 
+open B2R2.FrontEnd.Register
 open B2R2.FrontEnd.BinLifter
 
 /// Translation context for 64-bit ARM instructions.
@@ -35,7 +36,7 @@ type ARM64TranslationContext (isa) =
   member __.RegExprs with get() = regExprs
 
   override __.GetRegVar id =
-    Register.ofRegID id |> regExprs.GetRegVar
+    ARM64Register.Get id |> regExprs.GetRegVar
 
   override __.GetPseudoRegVar id pos =
-    regExprs.GetPseudoRegVar (Register.ofRegID id) pos
+    regExprs.GetPseudoRegVar (ARM64Register.Get id) pos

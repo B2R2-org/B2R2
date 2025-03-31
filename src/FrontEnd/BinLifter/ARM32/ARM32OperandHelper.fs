@@ -25,6 +25,7 @@
 module internal B2R2.FrontEnd.BinLifter.ARM32.OperandHelper
 
 open B2R2
+open B2R2.FrontEnd
 open B2R2.FrontEnd.BinLifter
 
 (* Offset *)
@@ -73,7 +74,7 @@ let getEndian = function
   | 0b0uy -> Endian.Little
   | _ (* 1 *) -> Endian.Big
 
-let getRegister n: Register = n |> int |> LanguagePrimitives.EnumOfValue
+let getRegister n: Register.ARM32 = n |> int |> LanguagePrimitives.EnumOfValue
 
 let rec private getRegListLoop acc b = function
   | n when n > 15 -> acc

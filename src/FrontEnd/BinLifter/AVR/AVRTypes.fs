@@ -24,8 +24,9 @@
 
 namespace B2R2.FrontEnd.BinLifter.AVR
 
-open B2R2
 open System.Runtime.CompilerServices
+open B2R2
+open B2R2.FrontEnd
 
 [<assembly: InternalsVisibleTo("B2R2.FrontEnd.BinLifter.Tests")>]
 do ()
@@ -275,13 +276,13 @@ type Opcode =
 type Const = int32
 
 type AddressingMode =
-  | DispMode of Register * Const
-  | PreIdxMode of Register
-  | PostIdxMode of Register
-  | UnchMode of Register
+  | DispMode of Register.AVR * Const
+  | PreIdxMode of Register.AVR
+  | PostIdxMode of Register.AVR
+  | UnchMode of Register.AVR
 
 type Operand =
-  | OprReg of Register
+  | OprReg of Register.AVR
   | OprImm of Const
   | OprAddr of Const
   | OprMemory of AddressingMode

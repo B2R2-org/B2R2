@@ -25,13 +25,14 @@
 module B2R2.FrontEnd.BinLifter.ARM32.IRHelper
 
 open B2R2
+open B2R2.FrontEnd.Register
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinLifter.LiftingUtils
 open B2R2.BinIR.LowUIR
 open B2R2.BinIR.LowUIR.AST.InfixOp
 
-let getRegVar (ctxt: TranslationContext) name =
-  Register.toRegID name |> ctxt.GetRegVar
+let getRegVar (ctxt: TranslationContext) reg =
+  ARM32Register.ID reg |> ctxt.GetRegVar
 
 /// Returns TRUE if the implementation includes the Security Extensions,
 /// on page B1-1157. function : HaveSecurityExt()

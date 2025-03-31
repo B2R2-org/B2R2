@@ -25,7 +25,8 @@
 namespace B2R2.FrontEnd.BinLifter.TMS320C6000
 
 open B2R2
-open B2R2.FrontEnd.BinLifter
+open B2R2.FrontEnd
+open B2R2.FrontEnd.Register
 open B2R2.BinIR.LowUIR
 
 type TMS320C6000RegisterFactory () =
@@ -40,7 +41,7 @@ type TMS320C6000RegisterFactory () =
   override __.RegIDFromRegExpr (e) =
     match e.E with
     | Var (_, id, _) -> id
-    | PCVar _ -> Register.toRegID Register.PCE1
+    | PCVar _ -> TMS320C6000Register.ID TMS320C6000.PCE1
     | _ -> raise InvalidRegisterException
 
   override __.RegIDToRegExpr (id) = Utils.futureFeature ()

@@ -26,6 +26,7 @@ module internal B2R2.FrontEnd.BinLifter.Python.ParsingMain
 
 open System
 open B2R2
+open B2R2.FrontEnd
 open B2R2.FrontEnd.BinLifter
 
 let private parseOpcode (span: ReadOnlySpan<byte>) (reader: IBinReader) =

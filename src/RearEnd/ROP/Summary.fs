@@ -25,10 +25,10 @@
 namespace B2R2.RearEnd.ROP
 
 open B2R2
+open B2R2.FrontEnd.Register
 open B2R2.BinIR
 open B2R2.BinIR.LowUIR
 open B2R2.FrontEnd
-open B2R2.FrontEnd.BinLifter.Intel
 
 type Summary = {
   InRegs  : Set<Reg>
@@ -45,7 +45,7 @@ module Summary =
   let private emptyInput = (Set.empty, Set.empty)
 
   let private esp =
-    let regID = Register.toRegID Register.ESP
+    let regID = IntelRegister.ID Intel.ESP
     AST.var 32<rt> regID "ESP"
 
   let private regs =

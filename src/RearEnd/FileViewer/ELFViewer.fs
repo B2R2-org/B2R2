@@ -29,7 +29,6 @@ open B2R2.FrontEnd
 open B2R2.FrontEnd.BinFile
 open B2R2.FrontEnd.BinFile.ELF
 open B2R2.RearEnd.FileViewer.Helper
-open B2R2.MiddleEnd.ControlFlowAnalysis
 
 let badAccess _ _ =
   raise InvalidFileFormatException

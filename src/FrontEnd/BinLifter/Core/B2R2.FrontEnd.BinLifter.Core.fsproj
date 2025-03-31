@@ -8,14 +8,11 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="Exceptions.fs" />
     <Compile Include="IRBuilder.fs" />
     <Compile Include="TranslationContext.fs" />
     <Compile Include="AsmWord.fs" />
     <Compile Include="AsmWordBuilder.fs" />
     <Compile Include="AsmLine.fs" />
-    <Compile Include="RegisterFactory.fs" />
-    <Compile Include="INameReadable.fs" />
     <Compile Include="DisasmSyntax.fs" />
     <Compile Include="DisasmBuilder.fs" />
     <Compile Include="Instruction.fs" />
@@ -30,6 +27,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\..\Core\B2R2.Core.fsproj" />
+    <ProjectReference Include="..\..\Core\B2R2.FrontEnd.Core.fsproj" />
     <ProjectReference Include="..\..\..\BinIR\B2R2.BinIR.fsproj" />
   </ItemGroup>
 

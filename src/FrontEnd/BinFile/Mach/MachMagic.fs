@@ -24,7 +24,7 @@
 
 namespace B2R2.FrontEnd.BinFile.Mach
 
-open B2R2
+open B2R2.FrontEnd
 
 /// Magic number for Mach-O header.
 type Magic =

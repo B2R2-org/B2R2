@@ -25,6 +25,8 @@
 module internal B2R2.FrontEnd.BinLifter.MIPS.Disasm
 
 open B2R2
+open B2R2.FrontEnd
+open B2R2.FrontEnd.Register
 open B2R2.FrontEnd.BinLifter
 
 let condToString = function
@@ -249,10 +251,10 @@ let inline relToString pc offset (builder: DisasmBuilder) =
   let targetAddr = pc + uint64 offset
   builder.Accumulate AsmWordKind.Value (HexString.ofUInt64 targetAddr)
 
-let inline regToString ins =
+let inline regToString ins reg =
   match ins.OperationSize with
-  | 64<rt> -> Register.toString64
-  | _ -> Register.toString32
+  | 64<rt> -> MIPSRegister.String (reg, WordSize.Bit64)
+  | _ -> MIPSRegister.String (reg, WordSize.Bit32)
 
 let oprToString insInfo opr delim (builder: DisasmBuilder) =
   match opr with

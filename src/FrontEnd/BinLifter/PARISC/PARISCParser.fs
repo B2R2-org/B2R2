@@ -26,6 +26,7 @@ namespace B2R2.FrontEnd.BinLifter.PARISC
 
 open System
 open B2R2
+open B2R2.FrontEnd
 open B2R2.FrontEnd.BinLifter
 
 /// Parser for PARISC instructions. Parser will return a platform-agnostic

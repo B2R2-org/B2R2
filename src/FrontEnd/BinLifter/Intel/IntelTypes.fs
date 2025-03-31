@@ -25,6 +25,7 @@
 namespace B2R2.FrontEnd.BinLifter.Intel
 
 open B2R2
+open B2R2.FrontEnd
 open B2R2.FrontEnd.BinLifter
 
 /// Instruction prefixes.
@@ -150,7 +151,7 @@ type Scale =
   | X8 = 8
 
 /// Scaled index.
-type ScaledIndex = Register * Scale
+type ScaledIndex = Register.Intel * Scale
 
 /// Jump target of a branch instruction.
 type JumpTarget =
@@ -164,10 +165,13 @@ and OperandSize = RegType
 /// register, memory, direct address, and immediate.
 type Operand =
   /// A register operand.
-  | OprReg of Register
+  | OprReg of Register.Intel
   /// OprMem represents a memory operand. The OperandSize here means the memory
   /// access size of the operand, i.e., how many bytes do we read/write here.
-  | OprMem of Register option * ScaledIndex option * Disp option * OperandSize
+  | OprMem of Register.Intel option
+            * ScaledIndex option
+            * Disp option
+            * OperandSize
   /// OprDirAddr is a direct branch target address.
   | OprDirAddr of JumpTarget
   /// OprImm represents an immediate operand. The OperandSize here means the
@@ -227,7 +231,7 @@ type ZeroingOrMerging =
   | Merging
 
 /// Static Rounding Mode and SAE control can be enabled in the encoding of the
-// instruction by setting the EVEX.b bit to 1 in a register-register vector
+/// instruction by setting the EVEX.b bit to 1 in a register-register vector
 /// instruction.
 type StaticRoundingMode =
   | RN (* Round to nearest (even) + SAE *)

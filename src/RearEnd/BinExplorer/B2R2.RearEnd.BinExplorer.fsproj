@@ -35,9 +35,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\FrontEnd\Core\B2R2.FrontEnd.Core.fsproj" />
+    <ProjectReference Include="..\..\FrontEnd\API\B2R2.FrontEnd.API.fsproj" />
     <ProjectReference Include="..\..\FrontEnd\NameMangling\B2R2.FrontEnd.NameMangling.fsproj" />
-    <ProjectReference Include="..\..\MiddleEnd\Core\B2R2.MiddleEnd.Core.fsproj" />
+    <ProjectReference Include="..\..\MiddleEnd\API\B2R2.MiddleEnd.API.fsproj" />
     <ProjectReference Include="..\Core\B2R2.RearEnd.Core.fsproj" />
     <ProjectReference Include="..\ROP\B2R2.RearEnd.ROP.fsproj" />
     <ProjectReference Include="..\Visualization\B2R2.RearEnd.Visualization.fsproj" />

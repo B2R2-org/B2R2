@@ -28,12 +28,14 @@ open B2R2
 open B2R2.BinIR
 open B2R2.BinIR.LowUIR
 open B2R2.BinIR.LowUIR.AST.InfixOp
+open B2R2.FrontEnd
+open B2R2.FrontEnd.Register
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinLifter.LiftingOperators
 open B2R2.FrontEnd.BinLifter.LiftingUtils
 open B2R2.FrontEnd.BinLifter.AVR
 
-let inline numI32 n = LiftingUtils.numI32 n 8<rt>
+let inline numI32 n = numI32 n 8<rt>
 
 let inline numI32PC n = LiftingUtils.numI32 n 16<rt>
 
@@ -53,8 +55,8 @@ let private ofOnAdd e1 e2 r =
   (e1High .& e2High .& (AST.neg rHigh))
     .| ((AST.neg e1High) .& (AST.neg e2High) .& rHigh)
 
-let inline ( !. ) (ctxt: TranslationContext) name =
-  Register.toRegID name |> ctxt.GetRegVar
+let inline ( !. ) (ctxt: TranslationContext) reg =
+  AVRRegister.ID reg |> ctxt.GetRegVar
 
 let transOprToExpr ctxt = function
 | OprReg reg -> !.ctxt reg
@@ -116,8 +118,8 @@ let getIndAdrReg ins ctxt=
   match ins.Operands with
   | TwoOperands (_, OprReg reg1) ->
     let dst = reg1 |> !.ctxt
-    let dst1 = reg1 |> Register.toRegID |> int |> (fun n -> n+1) |>
-               RegisterID.create |> Register.ofRegID|> !.ctxt
+    let dst1 = reg1 |> AVRRegister.ID |> int |> (fun n -> n+1) |>
+               RegisterID.create |> AVRRegister.Get |> !.ctxt
     (AST.concat dst1 dst)
   | _ -> raise InvalidOperandException
 
@@ -129,15 +131,15 @@ let adc ins len ctxt =
   !<ir len
   !!ir (t1 := dst)
   !!ir (t2 := src)
-  !!ir (t3 := t1 .+ t2 .+ AST.zext 8<rt> (!.ctxt R.CF) )
+  !!ir (t3 := t1 .+ t2 .+ AST.zext 8<rt> (!.ctxt AVR.CF) )
   !!ir (dst := t3)
-  !!ir (!.ctxt R.HF := cfOnAdd (AST.extract t1 1<rt> 3) (AST.extract t2 1<rt> 3)
+  !!ir (!.ctxt AVR.HF := cfOnAdd (AST.extract t1 1<rt> 3) (AST.extract t2 1<rt> 3)
     (AST.extract t3 1<rt> 3))
-  !!ir (!.ctxt R.CF := cfOnAdd t1 t2 t3)
-  !!ir (!.ctxt R.VF := ofOnAdd t1 t2 t3)
-  !!ir (!.ctxt R.NF := AST.xthi 1<rt> t3)
-  !!ir (!.ctxt R.ZF := t3 == (AST.num0 oprSize))
-  !!ir (!.ctxt R.SF := !.ctxt R.NF <+> !.ctxt R.VF)
+  !!ir (!.ctxt AVR.CF := cfOnAdd t1 t2 t3)
+  !!ir (!.ctxt AVR.VF := ofOnAdd t1 t2 t3)
+  !!ir (!.ctxt AVR.NF := AST.xthi 1<rt> t3)
+  !!ir (!.ctxt AVR.ZF := t3 == (AST.num0 oprSize))
+  !!ir (!.ctxt AVR.SF := !.ctxt AVR.NF <+> !.ctxt AVR.VF)
   !>ir len
 
 let add ins len ctxt =
@@ -150,13 +152,13 @@ let add ins len ctxt =
   !!ir (t2 := src)
   !!ir (t3 := t1 .+ t2)
   !!ir (dst := t3)
-  !!ir (!.ctxt R.HF := cfOnAdd (AST.extract t1 1<rt> 3) (AST.extract t2 1<rt> 3)
+  !!ir (!.ctxt AVR.HF := cfOnAdd (AST.extract t1 1<rt> 3) (AST.extract t2 1<rt> 3)
     (AST.extract t3 1<rt> 3))
-  !!ir (!.ctxt R.CF := cfOnAdd t1 t2 t3)
-  !!ir (!.ctxt R.VF := ofOnAdd t1 t2 t3)
-  !!ir (!.ctxt R.NF := AST.xthi 1<rt> t3)
-  !!ir (!.ctxt R.ZF := t3 == (AST.num0 oprSize))
-  !!ir (!.ctxt R.SF := !.ctxt R.NF <+> !.ctxt R.VF)
+  !!ir (!.ctxt AVR.CF := cfOnAdd t1 t2 t3)
+  !!ir (!.ctxt AVR.VF := ofOnAdd t1 t2 t3)
+  !!ir (!.ctxt AVR.NF := AST.xthi 1<rt> t3)
+  !!ir (!.ctxt AVR.ZF := t3 == (AST.num0 oprSize))
+  !!ir (!.ctxt AVR.SF := !.ctxt AVR.NF <+> !.ctxt AVR.VF)
   !>ir len
 
 let adiw ins len ctxt =
@@ -167,8 +169,8 @@ let adiw ins len ctxt =
     match ins.Operands with
     | TwoOperands (OprReg reg1, OprImm imm) ->
       let dst = reg1 |> !.ctxt
-      let dst1 = reg1 |> Register.toRegID |> int |> (fun n -> n+1) |>
-                 RegisterID.create |> Register.ofRegID|> !.ctxt
+      let dst1 = reg1 |> AVRRegister.ID |> int |> (fun n -> n+1) |>
+                 RegisterID.create |> AVRRegister.Get |> !.ctxt
       let src = imm |> numI32
       struct (dst, dst1, src)
     | _ -> raise InvalidOperandException
@@ -178,11 +180,11 @@ let adiw ins len ctxt =
   !!ir (t3 := (AST.concat t1 t2) .+ AST.zext 16<rt> src)
   !!ir (dst1 := AST.extract t3 8<rt> 8 )
   !!ir (dst := AST.extract t3 8<rt> 0)
-  !!ir (!.ctxt R.NF := AST.xthi 1<rt> dst1)
-  !!ir (!.ctxt R.VF := (AST.neg (AST.xthi 1<rt> t1)) .& AST.xthi 1<rt> dst1)
-  !!ir (!.ctxt R.ZF := t3 == (AST.num0 16<rt>))
-  !!ir (!.ctxt R.CF := (AST.neg (AST.xthi 1<rt> dst1)) .& AST.xthi 1<rt> t1)
-  !!ir (!.ctxt R.SF := !.ctxt R.NF <+> !.ctxt R.VF)
+  !!ir (!.ctxt AVR.NF := AST.xthi 1<rt> dst1)
+  !!ir (!.ctxt AVR.VF := (AST.neg (AST.xthi 1<rt> t1)) .& AST.xthi 1<rt> dst1)
+  !!ir (!.ctxt AVR.ZF := t3 == (AST.num0 16<rt>))
+  !!ir (!.ctxt AVR.CF := (AST.neg (AST.xthi 1<rt> dst1)) .& AST.xthi 1<rt> t1)
+  !!ir (!.ctxt AVR.SF := !.ctxt AVR.NF <+> !.ctxt AVR.VF)
   !>ir len
 
 let ``and`` ins len ctxt =
@@ -193,10 +195,10 @@ let ``and`` ins len ctxt =
   !<ir len
   !!ir (r := dst .& src)
   !!ir (dst := r)
-  !!ir (!.ctxt R.VF := AST.b0)
-  !!ir (!.ctxt R.NF := AST.xthi 1<rt> r)
-  !!ir (!.ctxt R.ZF := r == (AST.num0 oprSize))
-  !!ir (!.ctxt R.SF := !.ctxt R.NF <+> !.ctxt R.VF)
+  !!ir (!.ctxt AVR.VF := AST.b0)
+  !!ir (!.ctxt AVR.NF := AST.xthi 1<rt> r)
+  !!ir (!.ctxt AVR.ZF := r == (AST.num0 oprSize))
+  !!ir (!.ctxt AVR.SF := !.ctxt AVR.NF <+> !.ctxt AVR.VF)
   !>ir len
 
 let andi ins len ctxt =
@@ -207,10 +209,10 @@ let andi ins len ctxt =
   !<ir len
   !!ir (r := dst .& src)
   !!ir (dst := r)
-  !!ir (!.ctxt R.VF := AST.b0)
-  !!ir (!.ctxt R.NF := AST.xthi 1<rt> r)
-  !!ir (!.ctxt R.ZF := r == (AST.num0 oprSize))
-  !!ir (!.ctxt R.SF := !.ctxt R.NF <+> !.ctxt R.VF)
+  !!ir (!.ctxt AVR.VF := AST.b0)
+  !!ir (!.ctxt AVR.NF := AST.xthi 1<rt> r)
+  !!ir (!.ctxt AVR.ZF := r == (AST.num0 oprSize))
+  !!ir (!.ctxt AVR.SF := !.ctxt AVR.NF <+> !.ctxt AVR.VF)
   !>ir len
 
 let ``asr`` ins len ctxt =
@@ -221,11 +223,11 @@ let ``asr`` ins len ctxt =
   !<ir len
   !!ir (t1 := dst)
   !!ir (dst := dst ?>> AST.num1 oprSize)
-  !!ir (!.ctxt R.ZF := dst == (AST.num0 oprSize))
-  !!ir (!.ctxt R.NF := AST.xthi 1<rt> dst)
-  !!ir (!.ctxt R.CF := AST.xtlo 1<rt> t1)
-  !!ir (!.ctxt R.VF := !.ctxt R.NF <+> !.ctxt R.CF)
-  !!ir (!.ctxt R.SF := !.ctxt R.NF <+> !.ctxt R.VF)
+  !!ir (!.ctxt AVR.ZF := dst == (AST.num0 oprSize))
+  !!ir (!.ctxt AVR.NF := AST.xthi 1<rt> dst)
+  !!ir (!.ctxt AVR.CF := AST.xtlo 1<rt> t1)
+  !!ir (!.ctxt AVR.VF := !.ctxt AVR.NF <+> !.ctxt AVR.CF)
+  !!ir (!.ctxt AVR.SF := !.ctxt AVR.NF <+> !.ctxt AVR.VF)
   !>ir len
 
 let bld ins len ctxt =
@@ -236,7 +238,7 @@ let bld ins len ctxt =
     | _ -> Utils.impossible ()
   let ir = IRBuilder (16)
   !<ir len
-  !!ir ( (AST.extract dst 1<rt> imm) := !.ctxt R.TF)
+  !!ir ( (AST.extract dst 1<rt> imm) := !.ctxt AVR.TF)
   !>ir len
 
 let bst ins len ctxt =
@@ -248,14 +250,14 @@ let bst ins len ctxt =
   let ir = IRBuilder (16)
   let r = !+ir 1<rt>
   !<ir len
-  !!ir (!.ctxt R.TF := (AST.extract dst 1<rt> imm))
+  !!ir (!.ctxt AVR.TF := (AST.extract dst 1<rt> imm))
   !>ir len
 
 let call ins len ctxt =
   let ir = IRBuilder (4)
   let dst = transOneOpr ins ctxt
-  let sp = !.ctxt R.SP
-  let pc = !.ctxt R.PC
+  let sp = !.ctxt AVR.SP
+  let pc = !.ctxt AVR.PC
   !<ir len
   !!ir (pc := dst)
   !!ir (AST.loadLE 16<rt> sp := pc .+ numI32PC 2)
@@ -265,25 +267,25 @@ let call ins len ctxt =
 let clc ins len ctxt =
   let ir = IRBuilder (4)
   !<ir len
-  !!ir (!.ctxt R.CF := AST.b0)
+  !!ir (!.ctxt AVR.CF := AST.b0)
   !>ir len
 
 let clh len ctxt =
   let ir = IRBuilder (4)
   !<ir len
-  !!ir (!.ctxt R.HF := AST.b0)
+  !!ir (!.ctxt AVR.HF := AST.b0)
   !>ir len
 
 let cli len ctxt =
   let ir = IRBuilder (4)
   !<ir len
-  !!ir (!.ctxt R.IF := AST.b0)
+  !!ir (!.ctxt AVR.IF := AST.b0)
   !>ir len
 
 let cln len ctxt =
   let ir = IRBuilder (4)
   !<ir len
-  !!ir (!.ctxt R.NF := AST.b0)
+  !!ir (!.ctxt AVR.NF := AST.b0)
   !>ir len
 
 let clr ins len ctxt =
@@ -291,34 +293,34 @@ let clr ins len ctxt =
   let ir = IRBuilder (8)
   !<ir len
   !!ir (dst := dst <+> dst)
-  !!ir (!.ctxt R.SF := AST.b0)
-  !!ir (!.ctxt R.VF := AST.b0)
-  !!ir (!.ctxt R.NF := AST.b0)
-  !!ir (!.ctxt R.ZF := AST.b1)
+  !!ir (!.ctxt AVR.SF := AST.b0)
+  !!ir (!.ctxt AVR.VF := AST.b0)
+  !!ir (!.ctxt AVR.NF := AST.b0)
+  !!ir (!.ctxt AVR.ZF := AST.b1)
   !>ir len
 
 let cls len ctxt =
   let ir = IRBuilder (4)
   !<ir len
-  !!ir (!.ctxt R.SF := AST.b0)
+  !!ir (!.ctxt AVR.SF := AST.b0)
   !>ir len
 
 let clt len ctxt =
   let ir = IRBuilder (4)
   !<ir len
-  !!ir (!.ctxt R.TF := AST.b0)
+  !!ir (!.ctxt AVR.TF := AST.b0)
   !>ir len
 
 let clv len ctxt =
   let ir = IRBuilder (4)
   !<ir len
-  !!ir (!.ctxt R.VF := AST.b0)
+  !!ir (!.ctxt AVR.VF := AST.b0)
   !>ir len
 
 let clz len ctxt =
   let ir = IRBuilder (4)
   !<ir len
-  !!ir (!.ctxt R.ZF := AST.b0)
+  !!ir (!.ctxt AVR.ZF := AST.b0)
   !>ir len
 
 let com ins len ctxt =
@@ -327,11 +329,11 @@ let com ins len ctxt =
   let dst = transOneOpr ins ctxt
   !<ir len
   !!ir (dst := numI32 0xff .- dst)
-  !!ir (!.ctxt R.CF := AST.b1)
-  !!ir (!.ctxt R.VF := AST.b0)
-  !!ir (!.ctxt R.NF := AST.xthi 1<rt> dst)
-  !!ir (!.ctxt R.ZF := dst == (AST.num0 oprSize))
-  !!ir (!.ctxt R.SF := !.ctxt R.NF <+> !.ctxt R.VF)
+  !!ir (!.ctxt AVR.CF := AST.b1)
+  !!ir (!.ctxt AVR.VF := AST.b0)
+  !!ir (!.ctxt AVR.NF := AST.xthi 1<rt> dst)
+  !!ir (!.ctxt AVR.ZF := dst == (AST.num0 oprSize))
+  !!ir (!.ctxt AVR.SF := !.ctxt AVR.NF <+> !.ctxt AVR.VF)
   !>ir len
 
 let cp ins len ctxt =
@@ -344,12 +346,12 @@ let cp ins len ctxt =
   !!ir (t2 := src)
   !!ir (t3 := t1 .- t2)
   !!ir (dst := t3)
-  !!ir (!.ctxt R.HF := cfOnAdd t3 t2 t1)
-  !!ir (!.ctxt R.CF := cfOnAdd t3 t2 t1)
-  !!ir (!.ctxt R.VF := ofOnAdd t3 t2 t1)
-  !!ir (!.ctxt R.NF := AST.xthi 1<rt> t3)
-  !!ir (!.ctxt R.ZF := t3 == (AST.num0 oprSize))
-  !!ir (!.ctxt R.SF := !.ctxt R.NF <+> !.ctxt R.VF)
+  !!ir (!.ctxt AVR.HF := cfOnAdd t3 t2 t1)
+  !!ir (!.ctxt AVR.CF := cfOnAdd t3 t2 t1)
+  !!ir (!.ctxt AVR.VF := ofOnAdd t3 t2 t1)
+  !!ir (!.ctxt AVR.NF := AST.xthi 1<rt> t3)
+  !!ir (!.ctxt AVR.ZF := t3 == (AST.num0 oprSize))
+  !!ir (!.ctxt AVR.SF := !.ctxt AVR.NF <+> !.ctxt AVR.VF)
   !>ir len
 
 let cpc ins len ctxt =
@@ -360,14 +362,14 @@ let cpc ins len ctxt =
   !<ir len
   !!ir (t1 := dst)
   !!ir (t2 := src)
-  !!ir (t3 := t1 .- t2 .- AST.zext 8<rt> (!.ctxt R.CF) )
+  !!ir (t3 := t1 .- t2 .- AST.zext 8<rt> (!.ctxt AVR.CF) )
   !!ir (dst := t3)
-  !!ir (!.ctxt R.HF := cfOnAdd t3 t2 t1)
-  !!ir (!.ctxt R.CF := cfOnAdd t3 t2 t1)
-  !!ir (!.ctxt R.VF := ofOnAdd t3 t2 t1)
-  !!ir (!.ctxt R.NF := AST.xthi 1<rt> t3)
-  !!ir (!.ctxt R.ZF := (t3 == (AST.num0 oprSize)) .& !.ctxt R.ZF)
-  !!ir (!.ctxt R.SF := !.ctxt R.NF <+> !.ctxt R.VF)
+  !!ir (!.ctxt AVR.HF := cfOnAdd t3 t2 t1)
+  !!ir (!.ctxt AVR.CF := cfOnAdd t3 t2 t1)
+  !!ir (!.ctxt AVR.VF := ofOnAdd t3 t2 t1)
+  !!ir (!.ctxt AVR.NF := AST.xthi 1<rt> t3)
+  !!ir (!.ctxt AVR.ZF := (t3 == (AST.num0 oprSize)) .& !.ctxt AVR.ZF)
+  !!ir (!.ctxt AVR.SF := !.ctxt AVR.NF <+> !.ctxt AVR.VF)
   !>ir len
 
 let cpi ins len ctxt =
@@ -380,18 +382,18 @@ let cpi ins len ctxt =
   !!ir (t2 := src)
   !!ir (t3 := t1 .- t2)
   !!ir (dst := t3)
-  !!ir (!.ctxt R.HF := cfOnAdd t3 t2 t1)
-  !!ir (!.ctxt R.CF := cfOnAdd t3 t2 t1)
-  !!ir (!.ctxt R.VF := ofOnAdd t3 t2 t1)
-  !!ir (!.ctxt R.NF := AST.xthi 1<rt> t3)
-  !!ir (!.ctxt R.ZF := t3 == (AST.num0 oprSize))
-  !!ir (!.ctxt R.SF := !.ctxt R.NF <+> !.ctxt R.VF)
+  !!ir (!.ctxt AVR.HF := cfOnAdd t3 t2 t1)
+  !!ir (!.ctxt AVR.CF := cfOnAdd t3 t2 t1)
+  !!ir (!.ctxt AVR.VF := ofOnAdd t3 t2 t1)
+  !!ir (!.ctxt AVR.NF := AST.xthi 1<rt> t3)
+  !!ir (!.ctxt AVR.ZF := t3 == (AST.num0 oprSize))
+  !!ir (!.ctxt AVR.SF := !.ctxt AVR.NF <+> !.ctxt AVR.VF)
   !>ir len
 
 let cpse ins len ctxt =
   let struct(dst, src) = transTwoOprs ins ctxt
   let ir = IRBuilder (4)
-  let pc = !.ctxt R.PC
+  let pc = !.ctxt AVR.PC
   !<ir len
   let fallThrough = pc .+ numI32PC 2
   let jumpTarget = pc .+ numI32PC 4
@@ -406,10 +408,10 @@ let dec ins len ctxt =
   !<ir len
   !!ir (t1 := dst)
   !!ir (dst := t1 .- AST.num1 oprSize)
-  !!ir (!.ctxt R.VF := t1 == numI32 0x80)
-  !!ir (!.ctxt R.NF := AST.xthi 1<rt> dst)
-  !!ir (!.ctxt R.ZF := dst == (AST.num0 oprSize))
-  !!ir (!.ctxt R.SF := !.ctxt R.NF <+> !.ctxt R.VF)
+  !!ir (!.ctxt AVR.VF := t1 == numI32 0x80)
+  !!ir (!.ctxt AVR.NF := AST.xthi 1<rt> dst)
+  !!ir (!.ctxt AVR.ZF := dst == (AST.num0 oprSize))
+  !!ir (!.ctxt AVR.SF := !.ctxt AVR.NF <+> !.ctxt AVR.VF)
   !>ir len
 
 let fmul ins len ctxt =
@@ -423,10 +425,10 @@ let fmul ins len ctxt =
   !!ir (t2 := AST.zext oprSize src)
   !!ir (t3 := t1 .* t2)
   !!ir (t4 := t3 << AST.num1 oprSize)
-  !!ir (!.ctxt R.R1 := (AST.extract t1 8<rt> 8))
-  !!ir (!.ctxt R.R0 := (AST.extract t1 8<rt> 0))
-  !!ir (!.ctxt R.CF := AST.extract t3 1<rt> 15)
-  !!ir (!.ctxt R.ZF := t4 == (AST.num0 oprSize))
+  !!ir (!.ctxt AVR.R1 := (AST.extract t1 8<rt> 8))
+  !!ir (!.ctxt AVR.R0 := (AST.extract t1 8<rt> 0))
+  !!ir (!.ctxt AVR.CF := AST.extract t3 1<rt> 15)
+  !!ir (!.ctxt AVR.ZF := t4 == (AST.num0 oprSize))
   !>ir len
 
 let fmuls ins len ctxt =
@@ -440,10 +442,10 @@ let fmuls ins len ctxt =
   !!ir (t2 := AST.sext oprSize src)
   !!ir (t3 := t1 .* t2)
   !!ir (t4 := t3 << AST.num1 oprSize)
-  !!ir (!.ctxt R.R1 := (AST.extract t1 8<rt> 8))
-  !!ir (!.ctxt R.R0 := (AST.extract t1 8<rt> 0))
-  !!ir (!.ctxt R.CF := AST.extract t3 1<rt> 15)
-  !!ir (!.ctxt R.ZF := t4 == (AST.num0 oprSize))
+  !!ir (!.ctxt AVR.R1 := (AST.extract t1 8<rt> 8))
+  !!ir (!.ctxt AVR.R0 := (AST.extract t1 8<rt> 0))
+  !!ir (!.ctxt AVR.CF := AST.extract t3 1<rt> 15)
+  !!ir (!.ctxt AVR.ZF := t4 == (AST.num0 oprSize))
   !>ir len
 
 let fmulsu ins len ctxt =
@@ -457,10 +459,10 @@ let fmulsu ins len ctxt =
   !!ir (t2 := AST.zext oprSize src)
   !!ir (t3 := t1 .* t2)
   !!ir (t4 := t3 << AST.num1 oprSize)
-  !!ir (!.ctxt R.R1 := (AST.extract t1 8<rt> 8))
-  !!ir (!.ctxt R.R0 := (AST.extract t1 8<rt> 0))
-  !!ir (!.ctxt R.CF := AST.extract t3 1<rt> 15)
-  !!ir (!.ctxt R.ZF := t4 == (AST.num0 oprSize))
+  !!ir (!.ctxt AVR.R1 := (AST.extract t1 8<rt> 8))
+  !!ir (!.ctxt AVR.R0 := (AST.extract t1 8<rt> 0))
+  !!ir (!.ctxt AVR.CF := AST.extract t3 1<rt> 15)
+  !!ir (!.ctxt AVR.ZF := t4 == (AST.num0 oprSize))
   !>ir len
 
 let eicall len =  (*ADD ME*)
@@ -479,27 +481,27 @@ let eor ins len ctxt =
   let ir = IRBuilder (16)
   !<ir len
   !!ir (dst := dst <+> src)
-  !!ir (!.ctxt R.VF := AST.b0)
-  !!ir (!.ctxt R.NF := AST.xthi 1<rt> dst)
-  !!ir (!.ctxt R.ZF := dst == AST.num0 oprSize)
-  !!ir (!.ctxt R.SF := !.ctxt R.NF <+> !.ctxt R.VF)
+  !!ir (!.ctxt AVR.VF := AST.b0)
+  !!ir (!.ctxt AVR.NF := AST.xthi 1<rt> dst)
+  !!ir (!.ctxt AVR.ZF := dst == AST.num0 oprSize)
+  !!ir (!.ctxt AVR.SF := !.ctxt AVR.NF <+> !.ctxt AVR.VF)
   !>ir len
 
 let icall len ctxt =  (* ADD 22bit PC *)
   let ir = IRBuilder(4)
-  let pc = !.ctxt R.PC
-  let sp = !.ctxt R.SP
+  let pc = !.ctxt AVR.PC
+  let sp = !.ctxt AVR.SP
   !<ir len
-  !!ir (pc := !.ctxt R.Z)
+  !!ir (pc := !.ctxt AVR.Z)
   !!ir (AST.loadLE 16<rt> sp := pc .+ numI32PC 2)
   !!ir (sp := sp .- numI32PC 2)
   !>ir len
 
 let ijmp len ctxt =   (* ADD 22bit PC *)
   let ir = IRBuilder (4)
-  let pc = !.ctxt R.PC
+  let pc = !.ctxt AVR.PC
   !<ir len
-  !!ir (pc := !.ctxt R.Z)
+  !!ir (pc := !.ctxt AVR.Z)
   !>ir len
 
 let inc ins len ctxt =
@@ -510,10 +512,10 @@ let inc ins len ctxt =
   !<ir len
   !!ir (t1 := dst)
   !!ir (dst := t1 .+ AST.num1 oprSize)
-  !!ir (!.ctxt R.VF := t1 == numI32 0x7f)
-  !!ir (!.ctxt R.NF := AST.xthi 1<rt> dst)
-  !!ir (!.ctxt R.ZF := dst == (AST.num0 oprSize))
-  !!ir (!.ctxt R.SF := !.ctxt R.NF <+> !.ctxt R.VF)
+  !!ir (!.ctxt AVR.VF := t1 == numI32 0x7f)
+  !!ir (!.ctxt AVR.NF := AST.xthi 1<rt> dst)
+  !!ir (!.ctxt AVR.ZF := dst == (AST.num0 oprSize))
+  !!ir (!.ctxt AVR.SF := !.ctxt AVR.NF <+> !.ctxt AVR.VF)
   !>ir len
 
 let ``lsr`` ins len ctxt =
@@ -524,35 +526,35 @@ let ``lsr`` ins len ctxt =
   !<ir len
   !!ir (t1 := dst)
   !!ir (dst := dst >> AST.num1 oprSize)
-  !!ir (!.ctxt R.ZF := dst == (AST.num0 oprSize))
-  !!ir (!.ctxt R.NF := AST.b0)
-  !!ir (!.ctxt R.CF := AST.xtlo 1<rt> t1)
-  !!ir (!.ctxt R.SF := !.ctxt R.NF <+> !.ctxt R.VF)
-  !!ir (!.ctxt R.VF := !.ctxt R.NF <+> !.ctxt R.CF)
+  !!ir (!.ctxt AVR.ZF := dst == (AST.num0 oprSize))
+  !!ir (!.ctxt AVR.NF := AST.b0)
+  !!ir (!.ctxt AVR.CF := AST.xtlo 1<rt> t1)
+  !!ir (!.ctxt AVR.SF := !.ctxt AVR.NF <+> !.ctxt AVR.VF)
+  !!ir (!.ctxt AVR.VF := !.ctxt AVR.NF <+> !.ctxt AVR.CF)
   !>ir len
 
 let branch ins len ctxt =
   let ir = IRBuilder (8)
   let dst = transOneOpr ins ctxt
-  let pc = !.ctxt R.PC
+  let pc = !.ctxt AVR.PC
   let branchCond =
     match ins.Opcode with
-    | Opcode.BRCC -> !.ctxt R.CF == AST.b0
-    | Opcode.BRCS -> !.ctxt R.CF == AST.b1
-    | Opcode.BREQ -> !.ctxt R.ZF == AST.b1
-    | Opcode.BRGE -> !.ctxt R.SF == AST.b0
-    | Opcode.BRHC -> !.ctxt R.HF == AST.b0
-    | Opcode.BRHS -> !.ctxt R.HF == AST.b1
-    | Opcode.BRID -> !.ctxt R.IF == AST.b0
-    | Opcode.BRIE -> !.ctxt R.IF == AST.b1
-    | Opcode.BRLT -> !.ctxt R.SF == AST.b1
-    | Opcode.BRMI -> !.ctxt R.NF == AST.b1
-    | Opcode.BRNE -> !.ctxt R.ZF == AST.b0
-    | Opcode.BRPL -> !.ctxt R.NF == AST.b0
-    | Opcode.BRTC -> !.ctxt R.TF == AST.b0
-    | Opcode.BRTS -> !.ctxt R.TF == AST.b1
-    | Opcode.BRVC -> !.ctxt R.VF == AST.b0
-    | Opcode.BRVS -> !.ctxt R.VF == AST.b1
+    | Opcode.BRCC -> !.ctxt AVR.CF == AST.b0
+    | Opcode.BRCS -> !.ctxt AVR.CF == AST.b1
+    | Opcode.BREQ -> !.ctxt AVR.ZF == AST.b1
+    | Opcode.BRGE -> !.ctxt AVR.SF == AST.b0
+    | Opcode.BRHC -> !.ctxt AVR.HF == AST.b0
+    | Opcode.BRHS -> !.ctxt AVR.HF == AST.b1
+    | Opcode.BRID -> !.ctxt AVR.IF == AST.b0
+    | Opcode.BRIE -> !.ctxt AVR.IF == AST.b1
+    | Opcode.BRLT -> !.ctxt AVR.SF == AST.b1
+    | Opcode.BRMI -> !.ctxt AVR.NF == AST.b1
+    | Opcode.BRNE -> !.ctxt AVR.ZF == AST.b0
+    | Opcode.BRPL -> !.ctxt AVR.NF == AST.b0
+    | Opcode.BRTC -> !.ctxt AVR.TF == AST.b0
+    | Opcode.BRTS -> !.ctxt AVR.TF == AST.b1
+    | Opcode.BRVC -> !.ctxt AVR.VF == AST.b0
+    | Opcode.BRVS -> !.ctxt AVR.VF == AST.b1
     | _ -> raise InvalidOpcodeException
   !<ir len
   let fallThrough = pc .+ numI32PC 2
@@ -579,11 +581,11 @@ let movw ins len ctxt =
     match ins.Operands with
     | TwoOperands (OprReg reg1, OprReg reg2) ->
       let dst = reg1 |> !.ctxt
-      let dst1 = reg1 |> Register.toRegID |> int |> (fun n -> n+1) |>
-                 RegisterID.create |> Register.ofRegID|> !.ctxt
+      let dst1 = reg1 |> AVRRegister.ID |> int |> (fun n -> n+1) |>
+                 RegisterID.create |> AVRRegister.Get |> !.ctxt
       let src = reg2 |> !.ctxt
-      let src1 = reg2 |> Register.toRegID |> int |> (fun n -> n+1) |>
-                 RegisterID.create |> Register.ofRegID|> !.ctxt
+      let src1 = reg2 |> AVRRegister.ID |> int |> (fun n -> n+1) |>
+                 RegisterID.create |> AVRRegister.Get |> !.ctxt
       struct (dst, dst1, src, src1)
     | _ -> raise InvalidOperandException
   let ir = IRBuilder (4)
@@ -603,17 +605,17 @@ let ``or`` ins len ctxt =
   let ir = IRBuilder (4)
   !<ir len
   !!ir (dst := dst .| src)
-  !!ir (!.ctxt R.ZF := dst == (AST.num0 oprSize))
-  !!ir (!.ctxt R.NF := AST.xthi 1<rt> dst)
-  !!ir (!.ctxt R.VF := AST.b0)
-  !!ir (!.ctxt R.SF := !.ctxt R.NF <+> !.ctxt R.VF)
+  !!ir (!.ctxt AVR.ZF := dst == (AST.num0 oprSize))
+  !!ir (!.ctxt AVR.NF := AST.xthi 1<rt> dst)
+  !!ir (!.ctxt AVR.VF := AST.b0)
+  !!ir (!.ctxt AVR.SF := !.ctxt AVR.NF <+> !.ctxt AVR.VF)
   !>ir len
 
 let rjmp ins len ctxt =
   let ir = IRBuilder (4)
   let dst = transOneOpr ins ctxt
   !<ir len
-  !!ir (AST.interjmp (!.ctxt R.PC .+ dst .+ numI32PC 2)
+  !!ir (AST.interjmp (!.ctxt AVR.PC .+ dst .+ numI32PC 2)
                       InterJmpKind.Base)
   !>ir len
 
@@ -625,12 +627,12 @@ let ror ins len ctxt =
   !<ir len
   !!ir (t1 := dst)
   !!ir (dst := t1 >> AST.num1 oprSize)
-  !!ir ( (AST.extract dst 1<rt> 7) := !.ctxt R.CF)
-  !!ir (!.ctxt R.ZF := dst == (AST.num0 oprSize))
-  !!ir (!.ctxt R.CF := AST.xtlo 1<rt> t1)
-  !!ir (!.ctxt R.NF := AST.xtlo 1<rt> dst)
-  !!ir (!.ctxt R.VF := !.ctxt R.NF <+> !.ctxt R.CF)
-  !!ir (!.ctxt R.SF := !.ctxt R.NF <+> !.ctxt R.VF)
+  !!ir ( (AST.extract dst 1<rt> 7) := !.ctxt AVR.CF)
+  !!ir (!.ctxt AVR.ZF := dst == (AST.num0 oprSize))
+  !!ir (!.ctxt AVR.CF := AST.xtlo 1<rt> t1)
+  !!ir (!.ctxt AVR.NF := AST.xtlo 1<rt> dst)
+  !!ir (!.ctxt AVR.VF := !.ctxt AVR.NF <+> !.ctxt AVR.CF)
+  !!ir (!.ctxt AVR.SF := !.ctxt AVR.NF <+> !.ctxt AVR.VF)
   !>ir len
 
 let sbc ins len ctxt =
@@ -641,14 +643,14 @@ let sbc ins len ctxt =
   !<ir len
   !!ir (t1 := dst)
   !!ir (t2 := src)
-  !!ir (t3 := t1 .- t2 .- AST.zext 8<rt> (!.ctxt R.CF))
-  !!ir (!.ctxt R.HF := cfOnAdd (AST.extract t3 1<rt> 3) (AST.extract t2 1<rt> 3)
+  !!ir (t3 := t1 .- t2 .- AST.zext 8<rt> (!.ctxt AVR.CF))
+  !!ir (!.ctxt AVR.HF := cfOnAdd (AST.extract t3 1<rt> 3) (AST.extract t2 1<rt> 3)
     (AST.extract t1 1<rt> 3))
-  !!ir (!.ctxt R.CF := cfOnAdd t3 t2 t1)
-  !!ir (!.ctxt R.VF := ofOnAdd t3 t2 t1)
-  !!ir (!.ctxt R.ZF := (dst == AST.num0 oprSize .& !.ctxt R.ZF))
-  !!ir (!.ctxt R.NF := AST.xtlo 1<rt> t3)
-  !!ir (!.ctxt R.SF := !.ctxt R.NF <+> !.ctxt R.VF)
+  !!ir (!.ctxt AVR.CF := cfOnAdd t3 t2 t1)
+  !!ir (!.ctxt AVR.VF := ofOnAdd t3 t2 t1)
+  !!ir (!.ctxt AVR.ZF := (dst == AST.num0 oprSize .& !.ctxt AVR.ZF))
+  !!ir (!.ctxt AVR.NF := AST.xtlo 1<rt> t3)
+  !!ir (!.ctxt AVR.SF := !.ctxt AVR.NF <+> !.ctxt AVR.VF)
   !>ir len
 
 let sbiw ins len ctxt =
@@ -659,8 +661,8 @@ let sbiw ins len ctxt =
     match ins.Operands with
     | TwoOperands (OprReg reg1, OprImm imm) ->
       let dst = reg1 |> !.ctxt
-      let dst1 = reg1 |> Register.toRegID |> int |> (fun n -> n+1) |>
-                 RegisterID.create |> Register.ofRegID|> !.ctxt
+      let dst1 = reg1 |> AVRRegister.ID |> int |> (fun n -> n+1) |>
+                 RegisterID.create |> AVRRegister.Get |> !.ctxt
       let src = imm |> numI32
       struct (dst, dst1, src)
     | _ -> raise InvalidOperandException
@@ -670,25 +672,25 @@ let sbiw ins len ctxt =
   !!ir (t3 := (AST.concat t1 t2) .- AST.zext 16<rt> src)
   !!ir (dst1 := AST.extract t3 8<rt> 8 )
   !!ir (dst := AST.extract t3 8<rt> 0)
-  !!ir (!.ctxt R.NF := AST.xthi 1<rt> dst1)
-  !!ir (!.ctxt R.VF := (AST.neg (AST.xthi 1<rt> t1)) .& AST.xthi 1<rt> dst1)
-  !!ir (!.ctxt R.ZF := t3 == (AST.num0 16<rt>))
-  !!ir (!.ctxt R.CF := (AST.neg (AST.xthi 1<rt> dst1)) .& AST.xthi 1<rt> t1)
-  !!ir (!.ctxt R.SF := !.ctxt R.NF <+> !.ctxt R.VF)
+  !!ir (!.ctxt AVR.NF := AST.xthi 1<rt> dst1)
+  !!ir (!.ctxt AVR.VF := (AST.neg (AST.xthi 1<rt> t1)) .& AST.xthi 1<rt> dst1)
+  !!ir (!.ctxt AVR.ZF := t3 == (AST.num0 16<rt>))
+  !!ir (!.ctxt AVR.CF := (AST.neg (AST.xthi 1<rt> dst1)) .& AST.xthi 1<rt> t1)
+  !!ir (!.ctxt AVR.SF := !.ctxt AVR.NF <+> !.ctxt AVR.VF)
   !>ir len
 
 let sf ins len ctxt =
   let ir = IRBuilder(4)
   let setFlag =
     match ins.Opcode with
-    | Opcode.SEC -> !.ctxt R.CF := AST.b1
-    | Opcode.SEH -> !.ctxt R.HF := AST.b1
-    | Opcode.SEI -> !.ctxt R.IF := AST.b1
-    | Opcode.SEN -> !.ctxt R.NF := AST.b1
-    | Opcode.SES -> !.ctxt R.SF := AST.b1
-    | Opcode.SET -> !.ctxt R.TF := AST.b1
-    | Opcode.SEV -> !.ctxt R.VF := AST.b1
-    | Opcode.SEZ -> !.ctxt R.ZF := AST.b1
+    | Opcode.SEC -> !.ctxt AVR.CF := AST.b1
+    | Opcode.SEH -> !.ctxt AVR.HF := AST.b1
+    | Opcode.SEI -> !.ctxt AVR.IF := AST.b1
+    | Opcode.SEN -> !.ctxt AVR.NF := AST.b1
+    | Opcode.SES -> !.ctxt AVR.SF := AST.b1
+    | Opcode.SET -> !.ctxt AVR.TF := AST.b1
+    | Opcode.SEV -> !.ctxt AVR.VF := AST.b1
+    | Opcode.SEZ -> !.ctxt AVR.ZF := AST.b1
     | _ -> raise InvalidOpcodeException
   !<ir len
   !!ir setFlag
@@ -704,14 +706,14 @@ let sub ins len ctxt =
   !!ir (t2 := src)
   !!ir (t3 := t1 .- t2)
   !!ir (dst := t3)
-  !!ir (!.ctxt R.ZF := dst == AST.num0 oprSize)
-  !!ir (!.ctxt R.NF := AST.xtlo 1<rt> dst)
-  !!ir (!.ctxt R.HF := cfOnAdd t3 t2 t1)
-  !!ir (!.ctxt R.CF := cfOnAdd t3 t2 t1)
-  !!ir (!.ctxt R.VF := ofOnAdd t3 t2 t1)
-  !!ir (!.ctxt R.NF := AST.xthi 1<rt> t3)
-  !!ir (!.ctxt R.ZF := t3 == (AST.num0 oprSize))
-  !!ir (!.ctxt R.SF := !.ctxt R.NF <+> !.ctxt R.VF)
+  !!ir (!.ctxt AVR.ZF := dst == AST.num0 oprSize)
+  !!ir (!.ctxt AVR.NF := AST.xtlo 1<rt> dst)
+  !!ir (!.ctxt AVR.HF := cfOnAdd t3 t2 t1)
+  !!ir (!.ctxt AVR.CF := cfOnAdd t3 t2 t1)
+  !!ir (!.ctxt AVR.VF := ofOnAdd t3 t2 t1)
+  !!ir (!.ctxt AVR.NF := AST.xthi 1<rt> t3)
+  !!ir (!.ctxt AVR.ZF := t3 == (AST.num0 oprSize))
+  !!ir (!.ctxt AVR.SF := !.ctxt AVR.NF <+> !.ctxt AVR.VF)
   !>ir len
 
 let swap ins len ctxt =
@@ -788,7 +790,7 @@ let ldd ins len ctxt =
 let pop ins len ctxt =
   let dst = transOneOpr ins ctxt
   let ir = IRBuilder (8)
-  let sp = !.ctxt R.SP
+  let sp = !.ctxt AVR.SP
   !<ir len
   !!ir (sp := sp .+ AST.num1 16<rt>)
   !!ir (AST.loadLE 8<rt> sp := dst)
@@ -797,7 +799,7 @@ let pop ins len ctxt =
 let push ins len ctxt =
   let dst = transOneOpr ins ctxt
   let ir = IRBuilder (8)
-  let sp = !.ctxt R.SP
+  let sp = !.ctxt AVR.SP
   !<ir len
   !!ir (AST.loadLE 8<rt> sp := dst)
   !!ir (sp := sp .- AST.num1 16<rt>)
@@ -826,10 +828,10 @@ let mul ins len ctxt =
   !!ir (t1 := AST.zext 16<rt> dst)
   !!ir (t2 := AST.zext 16<rt> src)
   !!ir (t3 := t1 .* t2)
-  !!ir (!.ctxt R.R1 := AST.extract t3 8<rt> 8)
-  !!ir (!.ctxt R.R0 := AST.extract t3 8<rt> 0)
-  !!ir (!.ctxt R.CF := AST.extract t3 1<rt> 15)
-  !!ir (!.ctxt R.ZF := t3 == AST.num0 16<rt>)
+  !!ir (!.ctxt AVR.R1 := AST.extract t3 8<rt> 8)
+  !!ir (!.ctxt AVR.R0 := AST.extract t3 8<rt> 0)
+  !!ir (!.ctxt AVR.CF := AST.extract t3 1<rt> 15)
+  !!ir (!.ctxt AVR.ZF := t3 == AST.num0 16<rt>)
   !>ir len
 
 let muls ins len ctxt =
@@ -841,10 +843,10 @@ let muls ins len ctxt =
   !!ir (t1 := AST.sext 16<rt> dst)
   !!ir (t2 := AST.sext 16<rt> src)
   !!ir (t3 := t1 .* t2)
-  !!ir (!.ctxt R.R1 := AST.extract t3 8<rt> 8)
-  !!ir (!.ctxt R.R0 := AST.extract t3 8<rt> 0)
-  !!ir (!.ctxt R.CF := AST.extract t3 1<rt> 15)
-  !!ir (!.ctxt R.ZF := t3 == AST.num0 16<rt>)
+  !!ir (!.ctxt AVR.R1 := AST.extract t3 8<rt> 8)
+  !!ir (!.ctxt AVR.R0 := AST.extract t3 8<rt> 0)
+  !!ir (!.ctxt AVR.CF := AST.extract t3 1<rt> 15)
+  !!ir (!.ctxt AVR.ZF := t3 == AST.num0 16<rt>)
   !>ir len
 
 let mulsu ins len ctxt =
@@ -856,26 +858,26 @@ let mulsu ins len ctxt =
   !!ir (t1 := AST.sext 16<rt> dst)
   !!ir (t2 := AST.zext 16<rt> src)
   !!ir (t3 := t1 .* t2)
-  !!ir (!.ctxt R.R1 := AST.extract t3 8<rt> 8)
-  !!ir (!.ctxt R.R0 := AST.extract t3 8<rt> 0)
-  !!ir (!.ctxt R.CF := AST.extract t3 1<rt> 15)
-  !!ir (!.ctxt R.ZF := t3 == AST.num0 16<rt>)
+  !!ir (!.ctxt AVR.R1 := AST.extract t3 8<rt> 8)
+  !!ir (!.ctxt AVR.R0 := AST.extract t3 8<rt> 0)
+  !!ir (!.ctxt AVR.CF := AST.extract t3 1<rt> 15)
+  !!ir (!.ctxt AVR.ZF := t3 == AST.num0 16<rt>)
   !>ir len
 
 let ret len opr ctxt =
-  let sp = !.ctxt R.SP
+  let sp = !.ctxt AVR.SP
   let ir = IRBuilder(8)
   !<ir len
   !!ir (sp := sp .+ numI32PC 2)
-  !!ir (!.ctxt R.PC := AST.loadLE 16<rt> sp)
-  if opr = Opcode.RETI then !!ir (!.ctxt R.IF := AST.b1)
+  !!ir (!.ctxt AVR.PC := AST.loadLE 16<rt> sp)
+  if opr = Opcode.RETI then !!ir (!.ctxt AVR.IF := AST.b1)
   !>ir len
 
 let rcall ins len ctxt = (* ADD 22bit PC *)
   let ir = IRBuilder (4)
   let dst = transOneOpr ins ctxt
-  let sp = !.ctxt R.SP
-  let pc = !.ctxt R.PC
+  let sp = !.ctxt AVR.SP
+  let pc = !.ctxt AVR.PC
   !<ir len
   !!ir (pc := pc .+ dst .+ numI32PC 2)
   !!ir (AST.loadLE 16<rt> sp := pc .+ numI32PC 2)

@@ -25,6 +25,7 @@
 module internal B2R2.FrontEnd.BinLifter.ARM64.ParsingMain
 
 open B2R2
+open B2R2.FrontEnd
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinLifter.ARM64.Utils
 open B2R2.FrontEnd.BinLifter.ARM64.OperandHelper

@@ -29,7 +29,7 @@ open System.Runtime.InteropServices
 open B2R2
 open B2R2.BinIR
 open B2R2.BinIR.LowUIR
-open B2R2.FrontEnd.BinFile.FileHelper
+open B2R2.FrontEnd
 open B2R2.FrontEnd.BinFile.ELF.ExceptionHeaderEncoding
 
 /// Raised when an unhandled eh_frame version is encountered.

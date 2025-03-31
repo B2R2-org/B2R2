@@ -25,6 +25,7 @@
 module B2R2.FrontEnd.BinLifter.AVR.Disasm
 
 open B2R2
+open B2R2.FrontEnd.Register
 open B2R2.FrontEnd.BinLifter
 
 let opCodeToString = function
@@ -174,24 +175,24 @@ let addrToString shift addr (builder: DisasmBuilder) =
 let memToString addrMode (builder: DisasmBuilder) =
   match addrMode with
   | DispMode (reg,c) ->
-    let reg = Register.toString reg
+    let reg = AVRRegister.String reg
     builder.Accumulate AsmWordKind.Variable reg
     builder.Accumulate AsmWordKind.String "+"
     builder.Accumulate AsmWordKind.Value (string c)
   | PreIdxMode reg ->
-    let reg = Register.toString reg
+    let reg = AVRRegister.String reg
     builder.Accumulate AsmWordKind.String "-"
     builder.Accumulate AsmWordKind.Variable reg
   | PostIdxMode reg ->
-    let reg = Register.toString reg
+    let reg = AVRRegister.String reg
     builder.Accumulate AsmWordKind.Variable reg
     builder.Accumulate AsmWordKind.String "+"
   | UnchMode reg ->
-    let reg = Register.toString reg
+    let reg = AVRRegister.String reg
     builder.Accumulate AsmWordKind.Variable reg
 
 let buildReg ins reg (builder: DisasmBuilder) =
-  let reg = Register.toString reg
+  let reg = AVRRegister.String reg
   builder.Accumulate AsmWordKind.Variable reg
 
 let oprToString ins addr operand delim builder =

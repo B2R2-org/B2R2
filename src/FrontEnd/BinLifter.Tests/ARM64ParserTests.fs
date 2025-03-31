@@ -26,10 +26,11 @@ namespace B2R2.FrontEnd.BinLifter.Tests
 
 open Microsoft.VisualStudio.TestTools.UnitTesting
 open B2R2
+open B2R2.FrontEnd
 open B2R2.FrontEnd.BinLifter.ARM64
 open B2R2.FrontEnd.BinLifter.ARM64.OperandHelper
 open type Opcode
-open type Register
+open type Register.ARM64
 
 /// Shortcut for creating operands.
 [<AutoOpen>]
@@ -83,16 +84,16 @@ module private ARM64Shortcut =
     static member Pstate st =
       OprPstate st
 
-    static member SIMDVecReg (reg: Register, typ: SIMDVector) =
+    static member SIMDVecReg (reg, typ: SIMDVector) =
       SIMDVecReg (reg, typ) |> OprSIMD
 
-    static member SIMDVecRegWithIdx (reg: Register, typ: SIMDVector, idx) =
+    static member SIMDVecRegWithIdx (reg, typ: SIMDVector, idx) =
       (reg, typ, idx) |> SIMDVecRegWithIdx |> OprSIMD
 
-    static member SIMDList (lst: Register list, typ: SIMDVector) =
+    static member SIMDList (lst, typ: SIMDVector) =
       lst |> List.map (fun r -> SIMDVecReg (r, typ)) |> OprSIMDList
 
-    static member SIMDList (lst: Register list, typ: SIMDVector, idx: Index) =
+    static member SIMDList (lst, typ: SIMDVector, idx: Index) =
       OprSIMDList <| List.map (fun reg -> SIMDVecRegWithIdx (reg, typ, idx)) lst
 
     static member Prefetch v =

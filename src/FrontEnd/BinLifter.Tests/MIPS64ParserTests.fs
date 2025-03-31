@@ -26,9 +26,10 @@ namespace B2R2.FrontEnd.BinLifter.Tests
 
 open Microsoft.VisualStudio.TestTools.UnitTesting
 open B2R2
+open B2R2.FrontEnd
 open B2R2.FrontEnd.BinLifter.MIPS
 open type Opcode
-open type Register
+open type Register.MIPS
 
 /// Shortcut for creating operands.
 [<AutoOpen>]
@@ -43,7 +44,7 @@ module private MIPS64Shortcut =
     static member Mem (r, o: int64, rt) =
       OpMem (r, Imm o, rt)
 
-    static member Mem (r, o: Register, rt) =
+    static member Mem (r, o, rt) =
       OpMem (r, Reg o, rt)
 
     static member Addr (t) =

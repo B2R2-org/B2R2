@@ -27,6 +27,7 @@ module internal B2R2.FrontEnd.BinFile.PE.Parser
 open System
 open System.Reflection.PortableExecutable
 open B2R2
+open B2R2.FrontEnd
 open B2R2.FrontEnd.BinFile
 open B2R2.FrontEnd.BinFile.FileHelper
 open B2R2.FrontEnd.BinFile.PE.Helper

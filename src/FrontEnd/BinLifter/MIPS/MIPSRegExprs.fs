@@ -26,7 +26,8 @@ namespace B2R2.FrontEnd.BinLifter.MIPS
 
 open B2R2
 open B2R2.BinIR.LowUIR
-open B2R2.FrontEnd.BinLifter
+open B2R2.FrontEnd
+open B2R2.FrontEnd.Register
 
 type RegExprs (wordSize) =
   let var sz t name = AST.var sz t name
@@ -34,80 +35,80 @@ type RegExprs (wordSize) =
   (* Registers *)
   let regType = WordSize.toRegType wordSize
 
-  member val R0 = var regType (Register.toRegID Register.R0) "R0" with get
-  member val R1 = var regType (Register.toRegID Register.R1) "R1" with get
-  member val R2 = var regType (Register.toRegID Register.R2) "R2" with get
-  member val R3 = var regType (Register.toRegID Register.R3) "R3" with get
-  member val R4 = var regType (Register.toRegID Register.R4) "R4" with get
-  member val R5 = var regType (Register.toRegID Register.R5) "R5" with get
-  member val R6 = var regType (Register.toRegID Register.R6) "R6" with get
-  member val R7 = var regType (Register.toRegID Register.R7) "R7" with get
-  member val R8 = var regType (Register.toRegID Register.R8) "R8" with get
-  member val R9 = var regType (Register.toRegID Register.R9) "R9" with get
-  member val R10 = var regType (Register.toRegID Register.R10) "R10" with get
-  member val R11 = var regType (Register.toRegID Register.R11) "R11" with get
-  member val R12 = var regType (Register.toRegID Register.R12) "R12" with get
-  member val R13 = var regType (Register.toRegID Register.R13) "R13" with get
-  member val R14 = var regType (Register.toRegID Register.R14) "R14" with get
-  member val R15 = var regType (Register.toRegID Register.R15) "R15" with get
-  member val R16 = var regType (Register.toRegID Register.R16) "R16" with get
-  member val R17 = var regType (Register.toRegID Register.R17) "R17" with get
-  member val R18 = var regType (Register.toRegID Register.R18) "R18" with get
-  member val R19 = var regType (Register.toRegID Register.R19) "R19" with get
-  member val R20 = var regType (Register.toRegID Register.R20) "R20" with get
-  member val R21 = var regType (Register.toRegID Register.R21) "R21" with get
-  member val R22 = var regType (Register.toRegID Register.R22) "R22" with get
-  member val R23 = var regType (Register.toRegID Register.R23) "R23" with get
-  member val R24 = var regType (Register.toRegID Register.R24) "R24" with get
-  member val R25 = var regType (Register.toRegID Register.R25) "R25" with get
-  member val R26 = var regType (Register.toRegID Register.R26) "R26" with get
-  member val R27 = var regType (Register.toRegID Register.R27) "R27" with get
-  member val R28 = var regType (Register.toRegID Register.R28) "R28" with get
-  member val R29 = var regType (Register.toRegID Register.R29) "R29" with get
-  member val R30 = var regType (Register.toRegID Register.R30) "R30" with get
-  member val R31 = var regType (Register.toRegID Register.R31) "R31" with get
+  member val R0 = var regType (MIPSRegister.ID MIPS.R0) "R0" with get
+  member val R1 = var regType (MIPSRegister.ID MIPS.R1) "R1" with get
+  member val R2 = var regType (MIPSRegister.ID MIPS.R2) "R2" with get
+  member val R3 = var regType (MIPSRegister.ID MIPS.R3) "R3" with get
+  member val R4 = var regType (MIPSRegister.ID MIPS.R4) "R4" with get
+  member val R5 = var regType (MIPSRegister.ID MIPS.R5) "R5" with get
+  member val R6 = var regType (MIPSRegister.ID MIPS.R6) "R6" with get
+  member val R7 = var regType (MIPSRegister.ID MIPS.R7) "R7" with get
+  member val R8 = var regType (MIPSRegister.ID MIPS.R8) "R8" with get
+  member val R9 = var regType (MIPSRegister.ID MIPS.R9) "R9" with get
+  member val R10 = var regType (MIPSRegister.ID MIPS.R10) "R10" with get
+  member val R11 = var regType (MIPSRegister.ID MIPS.R11) "R11" with get
+  member val R12 = var regType (MIPSRegister.ID MIPS.R12) "R12" with get
+  member val R13 = var regType (MIPSRegister.ID MIPS.R13) "R13" with get
+  member val R14 = var regType (MIPSRegister.ID MIPS.R14) "R14" with get
+  member val R15 = var regType (MIPSRegister.ID MIPS.R15) "R15" with get
+  member val R16 = var regType (MIPSRegister.ID MIPS.R16) "R16" with get
+  member val R17 = var regType (MIPSRegister.ID MIPS.R17) "R17" with get
+  member val R18 = var regType (MIPSRegister.ID MIPS.R18) "R18" with get
+  member val R19 = var regType (MIPSRegister.ID MIPS.R19) "R19" with get
+  member val R20 = var regType (MIPSRegister.ID MIPS.R20) "R20" with get
+  member val R21 = var regType (MIPSRegister.ID MIPS.R21) "R21" with get
+  member val R22 = var regType (MIPSRegister.ID MIPS.R22) "R22" with get
+  member val R23 = var regType (MIPSRegister.ID MIPS.R23) "R23" with get
+  member val R24 = var regType (MIPSRegister.ID MIPS.R24) "R24" with get
+  member val R25 = var regType (MIPSRegister.ID MIPS.R25) "R25" with get
+  member val R26 = var regType (MIPSRegister.ID MIPS.R26) "R26" with get
+  member val R27 = var regType (MIPSRegister.ID MIPS.R27) "R27" with get
+  member val R28 = var regType (MIPSRegister.ID MIPS.R28) "R28" with get
+  member val R29 = var regType (MIPSRegister.ID MIPS.R29) "R29" with get
+  member val R30 = var regType (MIPSRegister.ID MIPS.R30) "R30" with get
+  member val R31 = var regType (MIPSRegister.ID MIPS.R31) "R31" with get
 
-  member val F0 = var regType (Register.toRegID Register.F0) "F0" with get
-  member val F1 = var regType (Register.toRegID Register.F1) "F1" with get
-  member val F2 = var regType (Register.toRegID Register.F2) "F2" with get
-  member val F3 = var regType (Register.toRegID Register.F3) "F3" with get
-  member val F4 = var regType (Register.toRegID Register.F4) "F4" with get
-  member val F5 = var regType (Register.toRegID Register.F5) "F5" with get
-  member val F6 = var regType (Register.toRegID Register.F6) "F6" with get
-  member val F7 = var regType (Register.toRegID Register.F7) "F7" with get
-  member val F8 = var regType (Register.toRegID Register.F8) "F8" with get
-  member val F9 = var regType (Register.toRegID Register.F9) "F9" with get
-  member val F10 = var regType (Register.toRegID Register.F10) "F10" with get
-  member val F11 = var regType (Register.toRegID Register.F11) "F11" with get
-  member val F12 = var regType (Register.toRegID Register.F12) "F12" with get
-  member val F13 = var regType (Register.toRegID Register.F13) "F13" with get
-  member val F14 = var regType (Register.toRegID Register.F14) "F14" with get
-  member val F15 = var regType (Register.toRegID Register.F15) "F15" with get
-  member val F16 = var regType (Register.toRegID Register.F16) "F16" with get
-  member val F17 = var regType (Register.toRegID Register.F17) "F17" with get
-  member val F18 = var regType (Register.toRegID Register.F18) "F18" with get
-  member val F19 = var regType (Register.toRegID Register.F19) "F19" with get
-  member val F20 = var regType (Register.toRegID Register.F20) "F20" with get
-  member val F21 = var regType (Register.toRegID Register.F21) "F21" with get
-  member val F22 = var regType (Register.toRegID Register.F22) "F22" with get
-  member val F23 = var regType (Register.toRegID Register.F23) "F23" with get
-  member val F24 = var regType (Register.toRegID Register.F24) "F24" with get
-  member val F25 = var regType (Register.toRegID Register.F25) "F25" with get
-  member val F26 = var regType (Register.toRegID Register.F26) "F26" with get
-  member val F27 = var regType (Register.toRegID Register.F27) "F27" with get
-  member val F28 = var regType (Register.toRegID Register.F28) "F28" with get
-  member val F29 = var regType (Register.toRegID Register.F29) "F29" with get
-  member val F30 = var regType (Register.toRegID Register.F30) "F30" with get
-  member val F31 = var regType (Register.toRegID Register.F31) "F31" with get
+  member val F0 = var regType (MIPSRegister.ID MIPS.F0) "F0" with get
+  member val F1 = var regType (MIPSRegister.ID MIPS.F1) "F1" with get
+  member val F2 = var regType (MIPSRegister.ID MIPS.F2) "F2" with get
+  member val F3 = var regType (MIPSRegister.ID MIPS.F3) "F3" with get
+  member val F4 = var regType (MIPSRegister.ID MIPS.F4) "F4" with get
+  member val F5 = var regType (MIPSRegister.ID MIPS.F5) "F5" with get
+  member val F6 = var regType (MIPSRegister.ID MIPS.F6) "F6" with get
+  member val F7 = var regType (MIPSRegister.ID MIPS.F7) "F7" with get
+  member val F8 = var regType (MIPSRegister.ID MIPS.F8) "F8" with get
+  member val F9 = var regType (MIPSRegister.ID MIPS.F9) "F9" with get
+  member val F10 = var regType (MIPSRegister.ID MIPS.F10) "F10" with get
+  member val F11 = var regType (MIPSRegister.ID MIPS.F11) "F11" with get
+  member val F12 = var regType (MIPSRegister.ID MIPS.F12) "F12" with get
+  member val F13 = var regType (MIPSRegister.ID MIPS.F13) "F13" with get
+  member val F14 = var regType (MIPSRegister.ID MIPS.F14) "F14" with get
+  member val F15 = var regType (MIPSRegister.ID MIPS.F15) "F15" with get
+  member val F16 = var regType (MIPSRegister.ID MIPS.F16) "F16" with get
+  member val F17 = var regType (MIPSRegister.ID MIPS.F17) "F17" with get
+  member val F18 = var regType (MIPSRegister.ID MIPS.F18) "F18" with get
+  member val F19 = var regType (MIPSRegister.ID MIPS.F19) "F19" with get
+  member val F20 = var regType (MIPSRegister.ID MIPS.F20) "F20" with get
+  member val F21 = var regType (MIPSRegister.ID MIPS.F21) "F21" with get
+  member val F22 = var regType (MIPSRegister.ID MIPS.F22) "F22" with get
+  member val F23 = var regType (MIPSRegister.ID MIPS.F23) "F23" with get
+  member val F24 = var regType (MIPSRegister.ID MIPS.F24) "F24" with get
+  member val F25 = var regType (MIPSRegister.ID MIPS.F25) "F25" with get
+  member val F26 = var regType (MIPSRegister.ID MIPS.F26) "F26" with get
+  member val F27 = var regType (MIPSRegister.ID MIPS.F27) "F27" with get
+  member val F28 = var regType (MIPSRegister.ID MIPS.F28) "F28" with get
+  member val F29 = var regType (MIPSRegister.ID MIPS.F29) "F29" with get
+  member val F30 = var regType (MIPSRegister.ID MIPS.F30) "F30" with get
+  member val F31 = var regType (MIPSRegister.ID MIPS.F31) "F31" with get
 
-  member val HI = var regType (Register.toRegID Register.HI) "HI" with get
-  member val LO = var regType (Register.toRegID Register.LO) "LO" with get
+  member val HI = var regType (MIPSRegister.ID MIPS.HI) "HI" with get
+  member val LO = var regType (MIPSRegister.ID MIPS.LO) "LO" with get
   member val PC = AST.pcvar regType "PC" with get
-  member val NextPC = var regType (Register.toRegID Register.NPC) "nPC" with get
+  member val NextPC = var regType (MIPSRegister.ID MIPS.NPC) "nPC" with get
   member val LLBit =
-    var 1<rt> (Register.toRegID Register.LLBit) "LLBit" with get
-  member val FCSR = var 32<rt> (Register.toRegID Register.FCSR) "FCSR" with get
-  member val FIR = var 32<rt> (Register.toRegID Register.FIR) "FIR" with get
+    var 1<rt> (MIPSRegister.ID MIPS.LLBit) "LLBit" with get
+  member val FCSR = var 32<rt> (MIPSRegister.ID MIPS.FCSR) "FCSR" with get
+  member val FIR = var 32<rt> (MIPSRegister.ID MIPS.FIR) "FIR" with get
 
   member __.GetRegVar (name) =
     match name with

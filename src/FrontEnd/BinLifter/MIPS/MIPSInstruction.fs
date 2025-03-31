@@ -25,6 +25,7 @@
 namespace B2R2.FrontEnd.BinLifter.MIPS
 
 open B2R2
+open B2R2.FrontEnd.Register
 open B2R2.FrontEnd.BinLifter
 
 /// The internal representation for a MIPS instruction used by our
@@ -81,7 +82,7 @@ type MIPSInstruction (addr, numBytes, insInfo, wordSize) =
     match __.Info.Opcode with
     | Opcode.JR ->
       match __.Info.Operands with
-      | OneOperand (OpReg (Register.R31)) -> true
+      | OneOperand (OpReg (MIPS.R31)) -> true
       | _ -> false
     | _ -> false
 

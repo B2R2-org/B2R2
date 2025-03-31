@@ -22,10 +22,11 @@
   THE SOFTWARE.
 *)
 
-namespace B2R2.Core.Tests
+namespace B2R2.FrontEnd.Core.Tests
 
 open Microsoft.VisualStudio.TestTools.UnitTesting
 open B2R2
+open B2R2.FrontEnd
 
 [<TestClass>]
 type BinReaderTests () =

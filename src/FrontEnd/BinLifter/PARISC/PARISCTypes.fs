@@ -24,8 +24,9 @@
 
 namespace B2R2.FrontEnd.BinLifter.PARISC
 
-open B2R2
 open System.Runtime.CompilerServices
+open B2R2
+open B2R2.FrontEnd
 
 [<assembly: InternalsVisibleTo("B2R2.FrontEnd.BinLifter.Tests")>]
 do ()
@@ -234,7 +235,7 @@ type SHIFTST =
   | SARSHFT = 0
 
 type Operand =
-  | OpReg of Register
+  | OpReg of Register.PARISC
   | OpImm of Imm
   | OpMem of Base * Offset option * AccessLength
   | OpAddr of JumpTarget
@@ -252,9 +253,9 @@ and JumpTarget =
   | RelativeBase of Base * Imm
 and Offset =
   | Imm of int64
-  | Reg of Register
+  | Reg of Register.PARISC
 and AccessLength = RegType
-and Base = Register
+and Base = Register.PARISC
 
 type Operands =
   | NoOperand

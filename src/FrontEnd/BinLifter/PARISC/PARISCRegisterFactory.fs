@@ -25,8 +25,7 @@
 namespace B2R2.FrontEnd.BinLifter.PARISC
 
 open B2R2
-open B2R2.FrontEnd.BinLifter
-open B2R2.BinIR.LowUIR
+open B2R2.FrontEnd
 
 type PARISC64RegisterFactory (wordSize, r: RegExprs) =
   inherit RegisterFactory ()

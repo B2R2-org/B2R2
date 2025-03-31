@@ -26,6 +26,7 @@ module internal B2R2.FrontEnd.BinLifter.MIPS.ParsingMain
 
 open System
 open B2R2
+open B2R2.FrontEnd
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinLifter.BitData
 open B2R2.FrontEnd.BinLifter.MIPS.Helper

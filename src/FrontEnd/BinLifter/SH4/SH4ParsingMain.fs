@@ -25,7 +25,7 @@
 module internal B2R2.FrontEnd.BinLifter.SH4.ParsingMain
 
 open B2R2
-
+open B2R2.FrontEnd
 open B2R2.FrontEnd.BinLifter.SH4.OperandHelper
 
 let getState = function

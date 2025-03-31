@@ -25,7 +25,8 @@
 namespace B2R2.FrontEnd.BinLifter.MIPS
 
 open B2R2
-open B2R2.FrontEnd.BinLifter
+open B2R2.FrontEnd
+open B2R2.FrontEnd.Register
 open B2R2.BinIR.LowUIR
 
 type MIPSRegisterFactory (wordSize, r: RegExprs) =
@@ -53,23 +54,20 @@ type MIPSRegisterFactory (wordSize, r: RegExprs) =
   override __.RegIDFromRegExpr (e) =
     match e.E with
     | Var (_, id, _) -> id
-    | PCVar _ -> Register.toRegID Register.PC
+    | PCVar _ -> MIPSRegister.ID MIPS.PC
     | _ -> raise InvalidRegisterException
 
   override __.RegIDToRegExpr (id) =
-    Register.ofRegID id |> r.GetRegVar
+    MIPSRegister.Get id |> r.GetRegVar
 
   override __.StrToRegExpr str =
-    Register.ofString wordSize str |> Register.toRegID |> __.RegIDToRegExpr
+    MIPSRegister.Get (str, wordSize) |> MIPSRegister.ID |> __.RegIDToRegExpr
 
   override __.RegIDFromString str =
-    Register.ofString wordSize str |> Register.toRegID
+    MIPSRegister.Get (str, wordSize) |> MIPSRegister.ID
 
   override __.RegIDToString rid =
-    if wordSize = WordSize.Bit32 then
-      Register.ofRegID rid |> Register.toString32
-    else
-      Register.ofRegID rid |> Register.toString64
+    MIPSRegister.String (MIPSRegister.Get (rid), wordSize)
 
   override __.RegIDToRegType _rid =
     WordSize.toRegType wordSize
@@ -78,13 +76,13 @@ type MIPSRegisterFactory (wordSize, r: RegExprs) =
     [| rid |]
 
   override __.ProgramCounter =
-    Register.PC |> Register.toRegID
+    MIPS.PC |> MIPSRegister.ID
 
   override __.StackPointer =
-    Register.R29 |> Register.toRegID |> Some
+    MIPS.R29 |> MIPSRegister.ID |> Some
 
   override __.FramePointer =
-    Register.R30 |> Register.toRegID |> Some
+    MIPS.R30 |> MIPSRegister.ID |> Some
 
   override __.IsProgramCounter regid =
     __.ProgramCounter = regid

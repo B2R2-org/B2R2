@@ -26,9 +26,10 @@ namespace B2R2.FrontEnd.BinLifter.Tests
 
 open Microsoft.VisualStudio.TestTools.UnitTesting
 open B2R2
+open B2R2.FrontEnd
 open B2R2.FrontEnd.BinLifter.AVR
 open type Opcode
-open type Register
+open type Register.AVR
 
 /// Shortcut for creating operands.
 [<AutoOpen>]
@@ -97,7 +98,7 @@ type AVRParserTests () =
   [<TestMethod>]
   member __.``[AVR] Memory Operands Insturctions Parse Test (1)`` () =
     "1d92"
-    ++ ST ** [ O.MemPostIdx X; OprReg R.R1 ] ||> test
+    ++ ST ** [ O.MemPostIdx X; OprReg R1 ] ||> test
 
   [<TestMethod>]
   member __.``[AVR] Memory Operands Insturctions Parse Test (2)`` () =

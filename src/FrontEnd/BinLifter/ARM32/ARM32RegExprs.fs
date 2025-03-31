@@ -25,44 +25,45 @@
 namespace B2R2.FrontEnd.BinLifter.ARM32
 
 open B2R2
-open B2R2.FrontEnd.BinLifter
+open B2R2.FrontEnd
+open B2R2.FrontEnd.Register
 open B2R2.BinIR.LowUIR
 
 type RegExprs () =
   let var sz t name = AST.var sz t name
 
-  let q0a = var 64<rt> (Register.toRegID Register.Q0A) "Q0A"
-  let q0b = var 64<rt> (Register.toRegID Register.Q0B) "Q0B"
-  let q1a = var 64<rt> (Register.toRegID Register.Q1A) "Q1A"
-  let q1b = var 64<rt> (Register.toRegID Register.Q1B) "Q1B"
-  let q2a = var 64<rt> (Register.toRegID Register.Q2A) "Q2A"
-  let q2b = var 64<rt> (Register.toRegID Register.Q2B) "Q2B"
-  let q3a = var 64<rt> (Register.toRegID Register.Q3A) "Q3A"
-  let q3b = var 64<rt> (Register.toRegID Register.Q3B) "Q3B"
-  let q4a = var 64<rt> (Register.toRegID Register.Q4A) "Q4A"
-  let q4b = var 64<rt> (Register.toRegID Register.Q4B) "Q4B"
-  let q5a = var 64<rt> (Register.toRegID Register.Q5A) "Q5A"
-  let q5b = var 64<rt> (Register.toRegID Register.Q5B) "Q5B"
-  let q6a = var 64<rt> (Register.toRegID Register.Q6A) "Q6A"
-  let q6b = var 64<rt> (Register.toRegID Register.Q6B) "Q6B"
-  let q7a = var 64<rt> (Register.toRegID Register.Q7A) "Q7A"
-  let q7b = var 64<rt> (Register.toRegID Register.Q7B) "Q7B"
-  let q8a = var 64<rt> (Register.toRegID Register.Q8A) "Q8A"
-  let q8b = var 64<rt> (Register.toRegID Register.Q8B) "Q8B"
-  let q9a = var 64<rt> (Register.toRegID Register.Q9A) "Q9A"
-  let q9b = var 64<rt> (Register.toRegID Register.Q9B) "Q9B"
-  let q10a = var 64<rt> (Register.toRegID Register.Q10A) "Q10A"
-  let q10b = var 64<rt> (Register.toRegID Register.Q10B) "Q10B"
-  let q11a = var 64<rt> (Register.toRegID Register.Q11A) "Q11A"
-  let q11b = var 64<rt> (Register.toRegID Register.Q11B) "Q11B"
-  let q12a = var 64<rt> (Register.toRegID Register.Q12A) "Q12A"
-  let q12b = var 64<rt> (Register.toRegID Register.Q12B) "Q12B"
-  let q13a = var 64<rt> (Register.toRegID Register.Q13A) "Q13A"
-  let q13b = var 64<rt> (Register.toRegID Register.Q13B) "Q13B"
-  let q14a = var 64<rt> (Register.toRegID Register.Q14A) "Q14A"
-  let q14b = var 64<rt> (Register.toRegID Register.Q14B) "Q14B"
-  let q15a = var 64<rt> (Register.toRegID Register.Q15A) "Q15A"
-  let q15b = var 64<rt> (Register.toRegID Register.Q15B) "Q15B"
+  let q0a = var 64<rt> (ARM32Register.ID ARM32.Q0A) "Q0A"
+  let q0b = var 64<rt> (ARM32Register.ID ARM32.Q0B) "Q0B"
+  let q1a = var 64<rt> (ARM32Register.ID ARM32.Q1A) "Q1A"
+  let q1b = var 64<rt> (ARM32Register.ID ARM32.Q1B) "Q1B"
+  let q2a = var 64<rt> (ARM32Register.ID ARM32.Q2A) "Q2A"
+  let q2b = var 64<rt> (ARM32Register.ID ARM32.Q2B) "Q2B"
+  let q3a = var 64<rt> (ARM32Register.ID ARM32.Q3A) "Q3A"
+  let q3b = var 64<rt> (ARM32Register.ID ARM32.Q3B) "Q3B"
+  let q4a = var 64<rt> (ARM32Register.ID ARM32.Q4A) "Q4A"
+  let q4b = var 64<rt> (ARM32Register.ID ARM32.Q4B) "Q4B"
+  let q5a = var 64<rt> (ARM32Register.ID ARM32.Q5A) "Q5A"
+  let q5b = var 64<rt> (ARM32Register.ID ARM32.Q5B) "Q5B"
+  let q6a = var 64<rt> (ARM32Register.ID ARM32.Q6A) "Q6A"
+  let q6b = var 64<rt> (ARM32Register.ID ARM32.Q6B) "Q6B"
+  let q7a = var 64<rt> (ARM32Register.ID ARM32.Q7A) "Q7A"
+  let q7b = var 64<rt> (ARM32Register.ID ARM32.Q7B) "Q7B"
+  let q8a = var 64<rt> (ARM32Register.ID ARM32.Q8A) "Q8A"
+  let q8b = var 64<rt> (ARM32Register.ID ARM32.Q8B) "Q8B"
+  let q9a = var 64<rt> (ARM32Register.ID ARM32.Q9A) "Q9A"
+  let q9b = var 64<rt> (ARM32Register.ID ARM32.Q9B) "Q9B"
+  let q10a = var 64<rt> (ARM32Register.ID ARM32.Q10A) "Q10A"
+  let q10b = var 64<rt> (ARM32Register.ID ARM32.Q10B) "Q10B"
+  let q11a = var 64<rt> (ARM32Register.ID ARM32.Q11A) "Q11A"
+  let q11b = var 64<rt> (ARM32Register.ID ARM32.Q11B) "Q11B"
+  let q12a = var 64<rt> (ARM32Register.ID ARM32.Q12A) "Q12A"
+  let q12b = var 64<rt> (ARM32Register.ID ARM32.Q12B) "Q12B"
+  let q13a = var 64<rt> (ARM32Register.ID ARM32.Q13A) "Q13A"
+  let q13b = var 64<rt> (ARM32Register.ID ARM32.Q13B) "Q13B"
+  let q14a = var 64<rt> (ARM32Register.ID ARM32.Q14A) "Q14A"
+  let q14b = var 64<rt> (ARM32Register.ID ARM32.Q14B) "Q14B"
+  let q15a = var 64<rt> (ARM32Register.ID ARM32.Q15A) "Q15A"
+  let q15b = var 64<rt> (ARM32Register.ID ARM32.Q15B) "Q15B"
 
   let d0 = q0a
   let d1 = q0b
@@ -130,21 +131,21 @@ type RegExprs () =
   let s30 = AST.xtlo 32<rt> d15
   let s31 = AST.xthi 32<rt> d15
 
-  member val R0 = var 32<rt> (Register.toRegID Register.R0) "R0" with get
-  member val R1 = var 32<rt> (Register.toRegID Register.R1) "R1" with get
-  member val R2 = var 32<rt> (Register.toRegID Register.R2) "R2" with get
-  member val R3 = var 32<rt> (Register.toRegID Register.R3) "R3" with get
-  member val R4 = var 32<rt> (Register.toRegID Register.R4) "R4" with get
-  member val R5 = var 32<rt> (Register.toRegID Register.R5) "R5" with get
-  member val R6 = var 32<rt> (Register.toRegID Register.R6) "R6" with get
-  member val R7 = var 32<rt> (Register.toRegID Register.R7) "R7" with get
-  member val R8 = var 32<rt> (Register.toRegID Register.R8) "R8" with get
-  member val SB = var 32<rt> (Register.toRegID Register.SB) "SB" with get
-  member val SL = var 32<rt> (Register.toRegID Register.SL) "SL" with get
-  member val FP = var 32<rt> (Register.toRegID Register.FP) "FP" with get
-  member val IP = var 32<rt> (Register.toRegID Register.IP) "IP" with get
-  member val SP = var 32<rt> (Register.toRegID Register.SP) "SP" with get
-  member val LR = var 32<rt> (Register.toRegID Register.LR) "LR" with get
+  member val R0 = var 32<rt> (ARM32Register.ID ARM32.R0) "R0" with get
+  member val R1 = var 32<rt> (ARM32Register.ID ARM32.R1) "R1" with get
+  member val R2 = var 32<rt> (ARM32Register.ID ARM32.R2) "R2" with get
+  member val R3 = var 32<rt> (ARM32Register.ID ARM32.R3) "R3" with get
+  member val R4 = var 32<rt> (ARM32Register.ID ARM32.R4) "R4" with get
+  member val R5 = var 32<rt> (ARM32Register.ID ARM32.R5) "R5" with get
+  member val R6 = var 32<rt> (ARM32Register.ID ARM32.R6) "R6" with get
+  member val R7 = var 32<rt> (ARM32Register.ID ARM32.R7) "R7" with get
+  member val R8 = var 32<rt> (ARM32Register.ID ARM32.R8) "R8" with get
+  member val SB = var 32<rt> (ARM32Register.ID ARM32.SB) "SB" with get
+  member val SL = var 32<rt> (ARM32Register.ID ARM32.SL) "SL" with get
+  member val FP = var 32<rt> (ARM32Register.ID ARM32.FP) "FP" with get
+  member val IP = var 32<rt> (ARM32Register.ID ARM32.IP) "IP" with get
+  member val SP = var 32<rt> (ARM32Register.ID ARM32.SP) "SP" with get
+  member val LR = var 32<rt> (ARM32Register.ID ARM32.LR) "LR" with get
 
   member val Q0A = q0a with get
   member val Q0B = q0b with get
@@ -249,22 +250,19 @@ type RegExprs () =
   member val PC = AST.pcvar 32<rt> "PC" with get
 
   (*Program Status Register*)
-  member val APSR = var 32<rt> (Register.toRegID Register.APSR) "APSR" with get
-  member val SPSR = var 32<rt> (Register.toRegID Register.SPSR) "SPSR" with get
-  member val CPSR = var 32<rt> (Register.toRegID Register.CPSR) "CPSR" with get
-  member val FPSCR =
-    var 32<rt> (Register.toRegID Register.FPSCR) "FPSCR" with get
+  member val APSR = var 32<rt> (ARM32Register.ID ARM32.APSR) "APSR" with get
+  member val SPSR = var 32<rt> (ARM32Register.ID ARM32.SPSR) "SPSR" with get
+  member val CPSR = var 32<rt> (ARM32Register.ID ARM32.CPSR) "CPSR" with get
+  member val FPSCR = var 32<rt> (ARM32Register.ID ARM32.FPSCR) "FPSCR" with get
 
   (* System Control register *)
-  member val SCTLR =
-    var 32<rt> (Register.toRegID Register.SCTLR) "SCTLR" with get
+  member val SCTLR = var 32<rt> (ARM32Register.ID ARM32.SCTLR) "SCTLR" with get
 
   (* Secure Configuration register *)
-  member val SCR = var 32<rt> (Register.toRegID Register.SCR) "SCR" with get
+  member val SCR = var 32<rt> (ARM32Register.ID ARM32.SCR) "SCR" with get
 
   (* Secure Configuration register *)
-  member val NSACR =
-    var 32<rt> (Register.toRegID Register.NSACR) "NSACR" with get
+  member val NSACR = var 32<rt> (ARM32Register.ID ARM32.NSACR) "NSACR" with get
 
   member __.GetRegVar (name) =
     match name with

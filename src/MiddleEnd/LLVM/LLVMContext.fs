@@ -25,6 +25,7 @@
 namespace B2R2.MiddleEnd.LLVM
 
 open B2R2
+open B2R2.FrontEnd
 
 /// An element in the register context.
 [<Struct>]
@@ -60,10 +61,9 @@ module private LLVMContext =
 
 [<RequireQualifiedAccess>]
 module X64Context =
-  open B2R2.FrontEnd.BinLifter.Intel
-  open type B2R2.FrontEnd.BinLifter.Intel.Register
+  open type Register.Intel
   let init () =
-    let rid = Register.toRegID
+    let rid = Register.IntelRegister.ID
     [| { RID = rid RAX; RType = 64<rt>; Size = 8; Offset = 0 }
        { RID = rid RBX; RType = 64<rt>; Size = 8; Offset = 8 }
        { RID = rid RCX; RType = 64<rt>; Size = 8; Offset = 16 }
@@ -153,10 +153,9 @@ module X64Context =
 
 [<RequireQualifiedAccess>]
 module X86Context =
-  open B2R2.FrontEnd.BinLifter.Intel
-  open type B2R2.FrontEnd.BinLifter.Intel.Register
+  open type Register.Intel
   let init () =
-    let rid = Register.toRegID
+    let rid = Register.IntelRegister.ID
     [| { RID = rid EAX; RType = 32<rt>; Size = 4; Offset = 0 }
        { RID = rid EBX; RType = 32<rt>; Size = 4; Offset = 4 }
        { RID = rid ECX; RType = 32<rt>; Size = 4; Offset = 8 }
@@ -221,10 +220,9 @@ module X86Context =
 
 [<RequireQualifiedAccess>]
 module ARM32Context =
-  open B2R2.FrontEnd.BinLifter.ARM32
-  open type B2R2.FrontEnd.BinLifter.ARM32.Register
+  open type Register.ARM32
   let init () =
-    let rid = Register.toRegID
+    let rid = Register.ARM32Register.ID
     [| { RID = rid R0; RType = 32<rt>; Size = 4; Offset = 0 }
        { RID = rid R1; RType = 32<rt>; Size = 4; Offset = 4 }
        { RID = rid R2; RType = 32<rt>; Size = 4; Offset = 8 }
@@ -278,10 +276,9 @@ module ARM32Context =
 
 [<RequireQualifiedAccess>]
 module ARM64Context =
-  open B2R2.FrontEnd.BinLifter.ARM64
-  open type B2R2.FrontEnd.BinLifter.ARM64.Register
+  open type Register.ARM64
   let init () =
-    let rid = Register.toRegID
+    let rid = Register.ARM64Register.ID
     [| { RID = rid X0; RType = 64<rt>; Size = 8; Offset = 0 }
        { RID = rid X1; RType = 64<rt>; Size = 8; Offset = 8 }
        { RID = rid X2; RType = 64<rt>; Size = 8; Offset = 16 }
@@ -388,10 +385,9 @@ module ARM64Context =
 
 [<RequireQualifiedAccess>]
 module MIPS32Context =
-  open B2R2.FrontEnd.BinLifter.MIPS
-  open type B2R2.FrontEnd.BinLifter.MIPS.Register
+  open type Register.MIPS
   let init () =
-    let rid = Register.toRegID
+    let rid = Register.MIPSRegister.ID
     [| { RID = rid R0; RType = 32<rt>; Size = 4; Offset = 0 }
        { RID = rid R1; RType = 32<rt>; Size = 4; Offset = 4 }
        { RID = rid R2; RType = 32<rt>; Size = 4; Offset = 8 }
@@ -462,10 +458,9 @@ module MIPS32Context =
 
 [<RequireQualifiedAccess>]
 module MIPS64Context =
-  open B2R2.FrontEnd.BinLifter.MIPS
-  open type B2R2.FrontEnd.BinLifter.MIPS.Register
+  open type Register.MIPS
   let init () =
-    let rid = Register.toRegID
+    let rid = Register.MIPSRegister.ID
     [| { RID = rid R0; RType = 64<rt>; Size = 8; Offset = 0 }
        { RID = rid R1; RType = 64<rt>; Size = 8; Offset = 8 }
        { RID = rid R2; RType = 64<rt>; Size = 8; Offset = 16 }

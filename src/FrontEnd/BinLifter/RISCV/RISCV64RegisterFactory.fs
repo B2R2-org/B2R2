@@ -25,7 +25,8 @@
 namespace B2R2.FrontEnd.BinLifter.RISCV
 
 open B2R2
-open B2R2.FrontEnd.BinLifter
+open B2R2.FrontEnd
+open B2R2.FrontEnd.Register
 open B2R2.BinIR.LowUIR
 
 type RISCV64RegisterFactory (wordSize, r: RegExprs) =
@@ -52,11 +53,11 @@ type RISCV64RegisterFactory (wordSize, r: RegExprs) =
   override __.RegIDFromRegExpr (e) =
     match e.E with
     | Var (_, id, _) -> id
-    | PCVar (_) -> Register.toRegID Register.PC
+    | PCVar (_) -> RISCV64Register.ID RISCV64.PC
     | _ -> raise InvalidRegisterException
 
   override __.RegIDToRegExpr (id) =
-    Register.ofRegID id |> r.GetRegVar
+    RISCV64Register.Get id |> r.GetRegVar
 
   override __.StrToRegExpr s =
     match s.ToLowerInvariant () with
@@ -129,25 +130,25 @@ type RISCV64RegisterFactory (wordSize, r: RegExprs) =
     | _ -> raise UnhandledRegExprException
 
   override __.RegIDFromString str =
-    Register.ofString str |> Register.toRegID
+    RISCV64Register.Get str |> RISCV64Register.ID
 
   override __.RegIDToString rid =
-    Register.ofRegID rid |> Register.toString
+    RISCV64Register.Get rid |> RISCV64Register.String
 
   override __.RegIDToRegType rid =
-    Register.ofRegID rid |> Register.toRegType wordSize
+    RISCV64Register.Get rid |> Register.toRegType wordSize
 
   override __.GetRegisterAliases _rid =
     Utils.futureFeature ()
 
   override __.ProgramCounter =
-    Register.PC |> Register.toRegID
+    RISCV64.PC |> RISCV64Register.ID
 
   override __.StackPointer =
-    Register.X30 |> Register.toRegID |> Some
+    RISCV64.X30 |> RISCV64Register.ID |> Some
 
   override __.FramePointer =
-    Register.X29 |> Register.toRegID |> Some
+    RISCV64.X29 |> RISCV64Register.ID |> Some
 
   override __.IsProgramCounter rid =
     __.ProgramCounter = rid

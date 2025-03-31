@@ -25,6 +25,7 @@
 namespace B2R2.FrontEnd.BinLifter.ARM32
 
 open B2R2
+open B2R2.FrontEnd
 open B2R2.FrontEnd.BinLifter
 open System.Runtime.CompilerServices
 
@@ -1214,8 +1215,8 @@ type SIMDDataTypes =
 
 /// V{<modifier>}<operation>{<shape>}{<c>}{<q>}{.<dt>} {<dest>,} <src1>, <src2>
 type SIMDFPRegister =
-  | Vector of Register
-  | Scalar of Register * Element option
+  | Vector of Register.ARM32
+  | Scalar of Register.ARM32 * Element option
 and Element = uint8
 
 type SIMDOperand =
@@ -1262,26 +1263,28 @@ type Sign =
   | Minus
 
 type Offset =
-  | ImmOffset of Register * Sign option * Const option
-  | RegOffset of Register * Sign option * Register * Shift option
-  | AlignOffset of Register * Align option * Register option (* Advanced SIMD *)
+  | ImmOffset of Register.ARM32 * Sign option * Const option
+  | RegOffset of Register.ARM32 * Sign option * Register.ARM32 * Shift option
+  | AlignOffset of Register.ARM32
+                 * Align option
+                 * Register.ARM32 option (* Advanced SIMD *)
 
 type AddressingMode =
   | OffsetMode of Offset
   | PreIdxMode of Offset
   | PostIdxMode of Offset
-  | UnIdxMode of Register * Const (* [<Rn>], <option> *)
+  | UnIdxMode of Register.ARM32 * Const (* [<Rn>], <option> *)
   | LiteralMode of Label
 
 type Operand =
-  | OprReg of Register
-  | OprSpecReg of Register * PSRFlag option
-  | OprRegList of Register list
+  | OprReg of Register.ARM32
+  | OprSpecReg of Register.ARM32 * PSRFlag option
+  | OprRegList of Register.ARM32 list
   | OprSIMD of SIMDOperand
   | OprImm of Const
   | OprFPImm of float
   | OprShift of Shift
-  | OprRegShift of SRType * Register
+  | OprRegShift of SRType * Register.ARM32
   | OprMemory of AddressingMode
   | OprOption of BarrierOption
   | OprIflag of Iflag

@@ -22,11 +22,12 @@
   SOFTWARE.
 *)
 
-namespace B2R2
+namespace B2R2.FrontEnd
 
 open System
 open System.Buffers.Binary
 open System.Runtime.InteropServices
+open B2R2
 
 /// This is a type alias for `ReadOnlySpan<byte>`. We define this alias because
 /// B2R2 uses this type quite frequently.

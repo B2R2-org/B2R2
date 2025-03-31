@@ -26,7 +26,7 @@ module B2R2.RearEnd.Transformer.Utils
 
 open System
 open System.IO.Hashing
-open B2R2
+open B2R2.FrontEnd
 
 let [<Literal>] MaxByteShow = 14
 

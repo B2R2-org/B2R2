@@ -28,6 +28,7 @@ open B2R2
 open B2R2.BinIR
 open B2R2.BinIR.LowUIR
 open B2R2.BinIR.LowUIR.AST.InfixOp
+open B2R2.FrontEnd
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinLifter.LiftingOperators
 open B2R2.FrontEnd.BinLifter.LiftingUtils
@@ -198,7 +199,7 @@ let private castTo80Bit ctxt tmpB tmpA srcExpr ir =
       !!ir (tmpB := AST.loadLE 16<rt> (addrExpr .+ numI32 8 addrSize))
       !!ir (tmpA := AST.loadLE 64<rt> addrExpr)
     | BinOp (_, _, { E = Var (_, r, _) }, { E = Var (_)}) ->
-      let reg = Register.pseudoRegToReg (Register.ofRegID r)
+      let reg = Register.pseudoRegToReg (Register.IntelRegister.Get r)
       let struct (srcB, srcA) = getFPUPseudoRegVars ctxt reg
       !!ir (tmpB := srcB)
       !!ir (tmpA := srcA)

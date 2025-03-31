@@ -26,8 +26,8 @@ namespace B2R2.FrontEnd.BinFile.ELF
 
 open System
 open B2R2
+open B2R2.FrontEnd
 open B2R2.FrontEnd.BinFile.ELF.ExceptionHeaderEncoding
-open B2R2.FrontEnd.BinFile
 
 /// Language Specific Data Area header.
 type LSDAHeader = {

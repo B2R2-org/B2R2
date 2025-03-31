@@ -24,8 +24,8 @@
 
 namespace B2R2.FrontEnd.BinLifter.WASM
 
-open B2R2.FrontEnd.BinLifter
 open B2R2.BinIR.LowUIR
+open B2R2.FrontEnd
 
 type RegExprs () =
   let var sz t name = AST.var sz t name

@@ -28,12 +28,14 @@ open B2R2
 open B2R2.BinIR
 open B2R2.BinIR.LowUIR
 open B2R2.BinIR.LowUIR.AST.InfixOp
+open B2R2.FrontEnd
+open B2R2.FrontEnd.Register
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinLifter.LiftingOperators
 open B2R2.FrontEnd.BinLifter.SPARC
 
-let inline getRegVar (ctxt: TranslationContext) name =
-  Register.toRegID name |> ctxt.GetRegVar
+let inline getRegVar (ctxt: TranslationContext) reg =
+  SPARCRegister.ID reg |> ctxt.GetRegVar
 
 let inline numI32 n t = BitVector.OfInt32 n t |> AST.num
 
@@ -48,8 +50,8 @@ let inline numI64 n t = BitVector.OfInt64 n t |> AST.num
 let inline tmpVars2 ir t =
   struct (!+ir t, !+ir t)
 
-let inline ( !. ) (ctxt: TranslationContext) name =
-  Register.toRegID name |> ctxt.GetRegVar
+let inline ( !. ) (ctxt: TranslationContext) reg =
+  SPARCRegister.ID reg |> ctxt.GetRegVar
 
 let inline getCCVar (ctxt: TranslationContext) name =
   ConditionCode.toRegID name |> ctxt.GetRegVar
@@ -274,60 +276,62 @@ let getConditionCodeMulscc res src src1 =
   AST.concatArr [| iccc; iccv; iccz; iccn |]
 
 let getNextReg ctxt reg =
-  if (reg = getRegVar ctxt R.G0) then R.G1
-  elif (reg = getRegVar ctxt R.G2) then R.G3
-  elif (reg = getRegVar ctxt R.G4) then R.G5
-  elif (reg = getRegVar ctxt R.G6) then R.G7
-  elif (reg = getRegVar ctxt R.O0) then R.O1
-  elif (reg = getRegVar ctxt R.O2) then R.O3
-  elif (reg = getRegVar ctxt R.O4) then R.O5
-  elif (reg = getRegVar ctxt R.O6) then R.O7
-  elif (reg = getRegVar ctxt R.L0) then R.L1
-  elif (reg = getRegVar ctxt R.L2) then R.L3
-  elif (reg = getRegVar ctxt R.L4) then R.L5
-  elif (reg = getRegVar ctxt R.L6) then R.L7
-  elif (reg = getRegVar ctxt R.I0) then R.I1
-  elif (reg = getRegVar ctxt R.I2) then R.I3
-  elif (reg = getRegVar ctxt R.I4) then R.I5
-  elif (reg = getRegVar ctxt R.I6) then R.I7
+  if (reg = getRegVar ctxt SPARC.G0) then SPARC.G1
+  elif (reg = getRegVar ctxt SPARC.G2) then SPARC.G3
+  elif (reg = getRegVar ctxt SPARC.G4) then SPARC.G5
+  elif (reg = getRegVar ctxt SPARC.G6) then SPARC.G7
+  elif (reg = getRegVar ctxt SPARC.O0) then SPARC.O1
+  elif (reg = getRegVar ctxt SPARC.O2) then SPARC.O3
+  elif (reg = getRegVar ctxt SPARC.O4) then SPARC.O5
+  elif (reg = getRegVar ctxt SPARC.O6) then SPARC.O7
+  elif (reg = getRegVar ctxt SPARC.L0) then SPARC.L1
+  elif (reg = getRegVar ctxt SPARC.L2) then SPARC.L3
+  elif (reg = getRegVar ctxt SPARC.L4) then SPARC.L5
+  elif (reg = getRegVar ctxt SPARC.L6) then SPARC.L7
+  elif (reg = getRegVar ctxt SPARC.I0) then SPARC.I1
+  elif (reg = getRegVar ctxt SPARC.I2) then SPARC.I3
+  elif (reg = getRegVar ctxt SPARC.I4) then SPARC.I5
+  elif (reg = getRegVar ctxt SPARC.I6) then SPARC.I7
   else raise InvalidRegisterException
 
 let getFloatClass ctxt freg =
-  if (freg = getRegVar ctxt R.F0 || freg = getRegVar ctxt R.F2
-    || freg = getRegVar ctxt R.F4 || freg = getRegVar ctxt R.F6
-    || freg = getRegVar ctxt R.F8|| freg = getRegVar ctxt R.F10
-    || freg = getRegVar ctxt R.F12 || freg = getRegVar ctxt R.F14
-    || freg = getRegVar ctxt R.F16 || freg = getRegVar ctxt R.F18
-    || freg = getRegVar ctxt R.F20 || freg = getRegVar ctxt R.F22
-    || freg = getRegVar ctxt R.F24 || freg = getRegVar ctxt R.F26
-    || freg = getRegVar ctxt R.F28 || freg = getRegVar ctxt R.F30) then 0
-  elif (freg = getRegVar ctxt R.F32 || freg = getRegVar ctxt R.F34
-  || freg = getRegVar ctxt R.F36 || freg = getRegVar ctxt R.F38
-    || freg = getRegVar ctxt R.F40 || freg = getRegVar ctxt R.F42
-    || freg = getRegVar ctxt R.F44 || freg = getRegVar ctxt R.F46
-    || freg = getRegVar ctxt R.F48 || freg = getRegVar ctxt R.F50
-    || freg = getRegVar ctxt R.F52 || freg = getRegVar ctxt R.F54
-    || freg = getRegVar ctxt R.F56 || freg = getRegVar ctxt R.F58
-    || freg = getRegVar ctxt R.F60 || freg = getRegVar ctxt R.F62) then 1
+  if (freg = getRegVar ctxt SPARC.F0 || freg = getRegVar ctxt SPARC.F2
+    || freg = getRegVar ctxt SPARC.F4 || freg = getRegVar ctxt SPARC.F6
+    || freg = getRegVar ctxt SPARC.F8|| freg = getRegVar ctxt SPARC.F10
+    || freg = getRegVar ctxt SPARC.F12 || freg = getRegVar ctxt SPARC.F14
+    || freg = getRegVar ctxt SPARC.F16 || freg = getRegVar ctxt SPARC.F18
+    || freg = getRegVar ctxt SPARC.F20 || freg = getRegVar ctxt SPARC.F22
+    || freg = getRegVar ctxt SPARC.F24 || freg = getRegVar ctxt SPARC.F26
+    || freg = getRegVar ctxt SPARC.F28 || freg = getRegVar ctxt SPARC.F30)
+  then 0
+  elif (freg = getRegVar ctxt SPARC.F32 || freg = getRegVar ctxt SPARC.F34
+  || freg = getRegVar ctxt SPARC.F36 || freg = getRegVar ctxt SPARC.F38
+    || freg = getRegVar ctxt SPARC.F40 || freg = getRegVar ctxt SPARC.F42
+    || freg = getRegVar ctxt SPARC.F44 || freg = getRegVar ctxt SPARC.F46
+    || freg = getRegVar ctxt SPARC.F48 || freg = getRegVar ctxt SPARC.F50
+    || freg = getRegVar ctxt SPARC.F52 || freg = getRegVar ctxt SPARC.F54
+    || freg = getRegVar ctxt SPARC.F56 || freg = getRegVar ctxt SPARC.F58
+    || freg = getRegVar ctxt SPARC.F60 || freg = getRegVar ctxt SPARC.F62)
+  then 1
   else raise InvalidRegisterException
 
 let getDFloatNext ctxt freg =
-  if (freg = getRegVar ctxt R.F0) then R.F1
-  elif (freg = getRegVar ctxt R.F2) then R.F3
-  elif (freg = getRegVar ctxt R.F4) then R.F5
-  elif (freg = getRegVar ctxt R.F6) then R.F7
-  elif (freg = getRegVar ctxt R.F8) then R.F9
-  elif (freg = getRegVar ctxt R.F10) then R.F11
-  elif (freg = getRegVar ctxt R.F12) then R.F13
-  elif (freg = getRegVar ctxt R.F14) then R.F15
-  elif (freg = getRegVar ctxt R.F16) then R.F17
-  elif (freg = getRegVar ctxt R.F18) then R.F19
-  elif (freg = getRegVar ctxt R.F20) then R.F21
-  elif (freg = getRegVar ctxt R.F22) then R.F23
-  elif (freg = getRegVar ctxt R.F24) then R.F25
-  elif (freg = getRegVar ctxt R.F26) then R.F27
-  elif (freg = getRegVar ctxt R.F28) then R.F29
-  elif (freg = getRegVar ctxt R.F30) then R.F31
+  if (freg = getRegVar ctxt SPARC.F0) then SPARC.F1
+  elif (freg = getRegVar ctxt SPARC.F2) then SPARC.F3
+  elif (freg = getRegVar ctxt SPARC.F4) then SPARC.F5
+  elif (freg = getRegVar ctxt SPARC.F6) then SPARC.F7
+  elif (freg = getRegVar ctxt SPARC.F8) then SPARC.F9
+  elif (freg = getRegVar ctxt SPARC.F10) then SPARC.F11
+  elif (freg = getRegVar ctxt SPARC.F12) then SPARC.F13
+  elif (freg = getRegVar ctxt SPARC.F14) then SPARC.F15
+  elif (freg = getRegVar ctxt SPARC.F16) then SPARC.F17
+  elif (freg = getRegVar ctxt SPARC.F18) then SPARC.F19
+  elif (freg = getRegVar ctxt SPARC.F20) then SPARC.F21
+  elif (freg = getRegVar ctxt SPARC.F22) then SPARC.F23
+  elif (freg = getRegVar ctxt SPARC.F24) then SPARC.F25
+  elif (freg = getRegVar ctxt SPARC.F26) then SPARC.F27
+  elif (freg = getRegVar ctxt SPARC.F28) then SPARC.F29
+  elif (freg = getRegVar ctxt SPARC.F30) then SPARC.F31
   else raise InvalidRegisterException
 
 let movFregD ctxt ir src dst =
@@ -352,25 +356,33 @@ let movFregD ctxt ir src dst =
   | _ -> raise InvalidRegisterException
 
 let getQFloatNext0 ctxt freg =
-  if (freg = getRegVar ctxt R.F0) then struct (R.F1, R.F2, R.F3)
-  elif (freg = getRegVar ctxt R.F4) then struct (R.F5, R.F6, R.F7)
-  elif (freg = getRegVar ctxt R.F8) then struct (R.F9, R.F10, R.F11)
-  elif (freg = getRegVar ctxt R.F12) then struct (R.F13, R.F14, R.F15)
-  elif (freg = getRegVar ctxt R.F16) then struct (R.F17, R.F18, R.F19)
-  elif (freg = getRegVar ctxt R.F20) then struct (R.F21, R.F22, R.F23)
-  elif (freg = getRegVar ctxt R.F24) then struct (R.F25, R.F26, R.F27)
-  elif (freg = getRegVar ctxt R.F28) then struct (R.F29, R.F30, R.F31)
+  if (freg = getRegVar ctxt SPARC.F0) then
+    struct (SPARC.F1, SPARC.F2, SPARC.F3)
+  elif (freg = getRegVar ctxt SPARC.F4) then
+    struct (SPARC.F5, SPARC.F6, SPARC.F7)
+  elif (freg = getRegVar ctxt SPARC.F8) then
+    struct (SPARC.F9, SPARC.F10, SPARC.F11)
+  elif (freg = getRegVar ctxt SPARC.F12) then
+    struct (SPARC.F13, SPARC.F14, SPARC.F15)
+  elif (freg = getRegVar ctxt SPARC.F16) then
+    struct (SPARC.F17, SPARC.F18, SPARC.F19)
+  elif (freg = getRegVar ctxt SPARC.F20) then
+    struct (SPARC.F21, SPARC.F22, SPARC.F23)
+  elif (freg = getRegVar ctxt SPARC.F24) then
+    struct (SPARC.F25, SPARC.F26, SPARC.F27)
+  elif (freg = getRegVar ctxt SPARC.F28) then
+    struct (SPARC.F29, SPARC.F30, SPARC.F31)
   else raise InvalidRegisterException
 
 let getQFloatNext1 ctxt freg =
-  if (freg = getRegVar ctxt R.F32) then R.F34
-  elif (freg = getRegVar ctxt R.F36) then R.F38
-  elif (freg = getRegVar ctxt R.F40) then R.F42
-  elif (freg = getRegVar ctxt R.F44) then R.F46
-  elif (freg = getRegVar ctxt R.F48) then R.F50
-  elif (freg = getRegVar ctxt R.F52) then R.F54
-  elif (freg = getRegVar ctxt R.F56) then R.F58
-  elif (freg = getRegVar ctxt R.F60) then R.F62
+  if (freg = getRegVar ctxt SPARC.F32) then SPARC.F34
+  elif (freg = getRegVar ctxt SPARC.F36) then SPARC.F38
+  elif (freg = getRegVar ctxt SPARC.F40) then SPARC.F42
+  elif (freg = getRegVar ctxt SPARC.F44) then SPARC.F46
+  elif (freg = getRegVar ctxt SPARC.F48) then SPARC.F50
+  elif (freg = getRegVar ctxt SPARC.F52) then SPARC.F54
+  elif (freg = getRegVar ctxt SPARC.F56) then SPARC.F58
+  elif (freg = getRegVar ctxt SPARC.F60) then SPARC.F62
   else raise InvalidRegisterException
 
 let movFregQ ctxt ir src dst =
@@ -530,7 +542,7 @@ let add ins insLen ctxt =
   let res = !+ir oprSize
   !<ir insLen
   !!ir (res := src .+ src1)
-  if (dst = getRegVar ctxt R.G0) then
+  if (dst = getRegVar ctxt SPARC.G0) then
     !!ir (dst := AST.num0 64<rt>)
   else
     !!ir (dst := res)
@@ -541,11 +553,11 @@ let addcc ins insLen ctxt =
   let oprSize = 64<rt>
   let ir = IRBuilder (16)
   let res = !+ir oprSize
-  let ccr = !.ctxt R.CCR
+  let ccr = !.ctxt SPARC.CCR
   let byte = !+ir 8<rt>
   !<ir insLen
   !!ir (res := src .+ src1)
-  if (dst = getRegVar ctxt R.G0) then
+  if (dst = getRegVar ctxt SPARC.G0) then
     !!ir (dst := AST.num0 64<rt>)
   else
     !!ir (dst := res)
@@ -558,10 +570,10 @@ let addC ins insLen ctxt =
   let oprSize = 64<rt>
   let ir = IRBuilder (16)
   let res = !+ir oprSize
-  let ccr = !.ctxt R.CCR
+  let ccr = !.ctxt SPARC.CCR
   !<ir insLen
   !!ir (res := src .+ src1 .+ AST.zext 64<rt> (AST.extract ccr 1<rt> 0))
-  if (dst = getRegVar ctxt R.G0) then
+  if (dst = getRegVar ctxt SPARC.G0) then
     !!ir (dst := AST.num0 64<rt>)
   else
     !!ir (dst := res)
@@ -572,11 +584,11 @@ let addCcc ins insLen ctxt =
   let oprSize = 64<rt>
   let ir = IRBuilder (16)
   let res = !+ir oprSize
-  let ccr = !.ctxt R.CCR
+  let ccr = !.ctxt SPARC.CCR
   let byte = !+ir 8<rt>
   !<ir insLen
   !!ir (res := src .+ src1 .+ AST.zext 64<rt> (AST.extract ccr 1<rt> 0))
-  if (dst = getRegVar ctxt R.G0) then
+  if (dst = getRegVar ctxt SPARC.G0) then
     !!ir (dst := AST.num0 64<rt>)
   else
     !!ir (dst := res)
@@ -591,7 +603,7 @@ let ``and`` ins insLen ctxt =
   let res = !+ir oprSize
   !<ir insLen
   !!ir (res := src .& src1)
-  if (dst = getRegVar ctxt R.G0) then
+  if (dst = getRegVar ctxt SPARC.G0) then
     !!ir (dst := AST.num0 64<rt>)
   else
     !!ir (dst := res)
@@ -601,12 +613,12 @@ let andcc ins insLen ctxt =
   let struct (src, src1, dst) = transThreeOprs ins insLen ctxt
   let oprSize = 64<rt>
   let ir = IRBuilder (16)
-  let ccr = !.ctxt R.CCR
+  let ccr = !.ctxt SPARC.CCR
   let res = !+ir oprSize
   let byte = !+ir 8<rt>
   !<ir insLen
   !!ir (res := src .& src1)
-  if (dst = getRegVar ctxt R.G0) then
+  if (dst = getRegVar ctxt SPARC.G0) then
     !!ir (dst := AST.num0 64<rt>)
   else
     !!ir (dst := res)
@@ -621,7 +633,7 @@ let andn ins insLen ctxt =
   let res = !+ir oprSize
   !<ir insLen
   !!ir (res := src .& (AST.not src1))
-  if (dst = getRegVar ctxt R.G0) then
+  if (dst = getRegVar ctxt SPARC.G0) then
     !!ir (dst := AST.num0 64<rt>)
   else
     !!ir (dst := res)
@@ -631,12 +643,12 @@ let andncc ins insLen ctxt =
   let struct (src, src1, dst) = transThreeOprs ins insLen ctxt
   let oprSize = 64<rt>
   let ir = IRBuilder (16)
-  let ccr = !.ctxt R.CCR
+  let ccr = !.ctxt SPARC.CCR
   let res = !+ir oprSize
   let byte = !+ir 8<rt>
   !<ir insLen
   !!ir (res := src .& (AST.not src1))
-  if (dst = getRegVar ctxt R.G0) then
+  if (dst = getRegVar ctxt SPARC.G0) then
     !!ir (dst := AST.num0 64<rt>)
   else
     !!ir (dst := res)
@@ -648,7 +660,7 @@ let branchpr ins insLen ctxt =
   let ir = IRBuilder (16)
   let oprSize = 64<rt>
   let struct (src, label, an, pr) = transFourOprs ins insLen ctxt
-  let pc = !.ctxt R.PC
+  let pc = !.ctxt SPARC.PC
   !<ir insLen
   let branchCond =
     match ins.Opcode with
@@ -671,8 +683,8 @@ let branchicc ins insLen ctxt =
   let ir = IRBuilder (16)
   let oprSize = 64<rt>
   let struct (an, label) = transTwoOprs ins insLen ctxt
-  let pc = !.ctxt R.PC
-  let ccr = !.ctxt R.CCR
+  let pc = !.ctxt SPARC.PC
+  let ccr = !.ctxt SPARC.CCR
   !<ir insLen
   let branchCond =
     match ins.Opcode with
@@ -719,8 +731,8 @@ let branchpcc ins insLen ctxt =
   let ir = IRBuilder (16)
   let oprSize = 64<rt>
   let struct (cc, label, an, pr) = transFourOprs ins insLen ctxt
-  let pc = !.ctxt R.PC
-  let ccr = !.ctxt R.CCR
+  let pc = !.ctxt SPARC.PC
+  let ccr = !.ctxt SPARC.CCR
   !<ir insLen
   let branchCond =
     match ins.Opcode with
@@ -818,8 +830,8 @@ let branchpcc ins insLen ctxt =
 let call ins insLen ctxt =
   let ir = IRBuilder (16)
   let dst = transOneOpr ins insLen ctxt
-  let sp = !.ctxt R.O7
-  let pc = !.ctxt R.PC
+  let sp = !.ctxt SPARC.O7
+  let pc = !.ctxt SPARC.PC
   !<ir insLen
   !!ir (sp := pc)
   !!ir (pc := pc .+ dst)
@@ -859,8 +871,8 @@ let casxa ins insLen ctxt =
 let ``done`` ins insLen ctxt =
   let ir = IRBuilder (16)
   !<ir insLen
-  !!ir (!.ctxt R.PC := !.ctxt R.TNPC)
-  !!ir (!.ctxt R.NPC := !.ctxt R.TNPC .+ numI32PC 4)
+  !!ir (!.ctxt SPARC.PC := !.ctxt SPARC.TNPC)
+  !!ir (!.ctxt SPARC.NPC := !.ctxt SPARC.TNPC .+ numI32PC 4)
   !>ir insLen
 
 let fabss ins insLen ctxt =
@@ -966,7 +978,7 @@ let fnegq ins insLen ctxt =
 let fadds ins insLen ctxt =
   let struct (src, src1, dst) = transThreeOprs ins insLen ctxt
   let ir = IRBuilder (16)
-  let fsr = getRegVar ctxt R.FSR
+  let fsr = getRegVar ctxt SPARC.FSR
   let fsr30 = AST.extract fsr 1<rt> 30
   let fsr31 = AST.extract fsr 1<rt> 31
   let regSize = 32<rt>
@@ -1005,7 +1017,7 @@ let fadds ins insLen ctxt =
 let faddd ins insLen ctxt =
   let struct (src, src1, dst) = transThreeOprs ins insLen ctxt
   let ir = IRBuilder (16)
-  let fsr = getRegVar ctxt R.FSR
+  let fsr = getRegVar ctxt SPARC.FSR
   let fsr30 = AST.extract fsr 1<rt> 30
   let fsr31 = AST.extract fsr 1<rt> 31
   let regSize = 64<rt>
@@ -1050,7 +1062,7 @@ let faddd ins insLen ctxt =
 let faddq ins insLen ctxt =
   let struct (src, src1, dst) = transThreeOprs ins insLen ctxt
   let ir = IRBuilder (16)
-  let fsr = getRegVar ctxt R.FSR
+  let fsr = getRegVar ctxt SPARC.FSR
   let fsr30 = AST.extract fsr 1<rt> 30
   let fsr31 = AST.extract fsr 1<rt> 31
   let regSize = 64<rt>
@@ -1104,8 +1116,8 @@ let faddq ins insLen ctxt =
 let fbranchfcc ins insLen ctxt =
   let ir = IRBuilder (16)
   let struct (an, label) = transTwoOprs ins insLen ctxt
-  let pc = !.ctxt R.PC
-  let fsr = getRegVar ctxt R.FSR
+  let pc = !.ctxt SPARC.PC
+  let fsr = getRegVar ctxt SPARC.FSR
   let u = ((AST.extract fsr 2<rt> 10) == (numI32 3 2<rt>))
   let g = ((AST.extract fsr 2<rt> 10) == (numI32 2 2<rt>))
   let l = ((AST.extract fsr 2<rt> 10) == (numI32 1 2<rt>))
@@ -1148,8 +1160,8 @@ let fbranchfcc ins insLen ctxt =
 let fbranchpfcc ins insLen ctxt =
   let ir = IRBuilder (16)
   let struct (cc, label, an, pr) = transFourOprs ins insLen ctxt
-  let pc = !.ctxt R.PC
-  let fsr = getRegVar ctxt R.FSR
+  let pc = !.ctxt SPARC.PC
+  let fsr = getRegVar ctxt SPARC.FSR
   let fcc0 = getCCVar ctxt ConditionCode.Fcc0
   let fcc1 = getCCVar ctxt ConditionCode.Fcc1
   let fcc2 = getCCVar ctxt ConditionCode.Fcc2
@@ -1195,8 +1207,8 @@ let fbranchpfcc ins insLen ctxt =
 let fcmps ins insLen ctxt =
   let struct (cc, src, src1) = transThreeOprs ins insLen ctxt
   let ir = IRBuilder (16)
-  let pc = !.ctxt R.PC
-  let fsr = getRegVar ctxt R.FSR
+  let pc = !.ctxt SPARC.PC
+  let fsr = getRegVar ctxt SPARC.FSR
   let fcc0 = getCCVar ctxt ConditionCode.Fcc0
   let fcc1 = getCCVar ctxt ConditionCode.Fcc1
   let fcc2 = getCCVar ctxt ConditionCode.Fcc2
@@ -1243,8 +1255,8 @@ let fcmpd ins insLen ctxt =
   let struct (cc, src, src1) = transThreeOprs ins insLen ctxt
   let ir = IRBuilder (16)
   let regSize = 64<rt>
-  let pc = !.ctxt R.PC
-  let fsr = getRegVar ctxt R.FSR
+  let pc = !.ctxt SPARC.PC
+  let fsr = getRegVar ctxt SPARC.FSR
   let fcc0 = getCCVar ctxt ConditionCode.Fcc0
   let fcc1 = getCCVar ctxt ConditionCode.Fcc1
   let fcc2 = getCCVar ctxt ConditionCode.Fcc2
@@ -1293,8 +1305,8 @@ let fcmpq ins insLen ctxt =
   let struct (cc, src, src1) = transThreeOprs ins insLen ctxt
   let ir = IRBuilder (16)
   let regSize = 64<rt>
-  let pc = !.ctxt R.PC
-  let fsr = getRegVar ctxt R.FSR
+  let pc = !.ctxt SPARC.PC
+  let fsr = getRegVar ctxt SPARC.FSR
   let fcc0 = getCCVar ctxt ConditionCode.Fcc0
   let fcc1 = getCCVar ctxt ConditionCode.Fcc1
   let fcc2 = getCCVar ctxt ConditionCode.Fcc2
@@ -1349,7 +1361,7 @@ let fcmpq ins insLen ctxt =
 let fdivs ins insLen ctxt =
   let struct (src, src1, dst) = transThreeOprs ins insLen ctxt
   let ir = IRBuilder (16)
-  let fsr = getRegVar ctxt R.FSR
+  let fsr = getRegVar ctxt SPARC.FSR
   let fsr30 = AST.extract fsr 1<rt> 30
   let fsr31 = AST.extract fsr 1<rt> 31
   let regSize = 32<rt>
@@ -1388,7 +1400,7 @@ let fdivs ins insLen ctxt =
 let fdivd ins insLen ctxt =
   let struct (src, src1, dst) = transThreeOprs ins insLen ctxt
   let ir = IRBuilder (16)
-  let fsr = getRegVar ctxt R.FSR
+  let fsr = getRegVar ctxt SPARC.FSR
   let fsr30 = AST.extract fsr 1<rt> 30
   let fsr31 = AST.extract fsr 1<rt> 31
   let regSize = 64<rt>
@@ -1433,7 +1445,7 @@ let fdivd ins insLen ctxt =
 let fdivq ins insLen ctxt =
   let struct (src, src1, dst) = transThreeOprs ins insLen ctxt
   let ir = IRBuilder (16)
-  let fsr = getRegVar ctxt R.FSR
+  let fsr = getRegVar ctxt SPARC.FSR
   let fsr30 = AST.extract fsr 1<rt> 30
   let fsr31 = AST.extract fsr 1<rt> 31
   let regSize = 64<rt>
@@ -1488,7 +1500,7 @@ let fmovscc ins insLen ctxt =
   let struct (cc, fsrc, fdst) = transThreeOprs ins insLen ctxt
   let oprSize = 64<rt>
   let ir = IRBuilder (16)
-  let ccr = getRegVar ctxt R.CCR
+  let ccr = getRegVar ctxt SPARC.CCR
   let offset =
     if (cc = getCCVar ctxt ConditionCode.Icc) then 0
     else 4
@@ -1529,7 +1541,7 @@ let fmovdcc ins insLen ctxt =
   let struct (cc, fsrc, fdst) = transThreeOprs ins insLen ctxt
   let oprSize = 64<rt>
   let ir = IRBuilder (16)
-  let ccr = getRegVar ctxt R.CCR
+  let ccr = getRegVar ctxt SPARC.CCR
   let offset =
     if (cc = getCCVar ctxt ConditionCode.Icc) then 0
     else 4
@@ -1575,7 +1587,7 @@ let fmovqcc ins insLen ctxt =
   let struct (cc, fsrc, fdst) = transThreeOprs ins insLen ctxt
   let oprSize = 64<rt>
   let ir = IRBuilder (16)
-  let ccr = getRegVar ctxt R.CCR
+  let ccr = getRegVar ctxt SPARC.CCR
   let offset =
     if (cc = getCCVar ctxt ConditionCode.Icc) then 0
     else 4
@@ -1621,7 +1633,7 @@ let fmovfscc ins insLen ctxt =
   let struct (cc, fsrc, fdst) = transThreeOprs ins insLen ctxt
   let oprSize = 64<rt>
   let ir = IRBuilder (16)
-  let fsr = getRegVar ctxt R.FSR
+  let fsr = getRegVar ctxt SPARC.FSR
   let pos =
     if (cc = getCCVar ctxt ConditionCode.Fcc0) then 10
     elif (cc = getCCVar ctxt ConditionCode.Fcc1) then 32
@@ -1667,7 +1679,7 @@ let fmovfdcc ins insLen ctxt =
   let struct (cc, fsrc, fdst) = transThreeOprs ins insLen ctxt
   let oprSize = 64<rt>
   let ir = IRBuilder (16)
-  let fsr = getRegVar ctxt R.FSR
+  let fsr = getRegVar ctxt SPARC.FSR
   let pos =
     if (cc = getCCVar ctxt ConditionCode.Fcc0) then 10
     elif (cc = getCCVar ctxt ConditionCode.Fcc1) then 32
@@ -1718,7 +1730,7 @@ let fmovfqcc ins insLen ctxt =
   let struct (cc, fsrc, fdst) = transThreeOprs ins insLen ctxt
   let oprSize = 64<rt>
   let ir = IRBuilder (16)
-  let fsr = getRegVar ctxt R.FSR
+  let fsr = getRegVar ctxt SPARC.FSR
   let pos =
     if (cc = getCCVar ctxt ConditionCode.Fcc0) then 10
     elif (cc = getCCVar ctxt ConditionCode.Fcc1) then 32
@@ -1845,7 +1857,7 @@ let fmovrq ins insLen ctxt =
 let fmuls ins insLen ctxt =
   let struct (src, src1, dst) = transThreeOprs ins insLen ctxt
   let ir = IRBuilder (16)
-  let fsr = getRegVar ctxt R.FSR
+  let fsr = getRegVar ctxt SPARC.FSR
   let fsr30 = AST.extract fsr 1<rt> 30
   let fsr31 = AST.extract fsr 1<rt> 31
   let regSize = 32<rt>
@@ -1884,7 +1896,7 @@ let fmuls ins insLen ctxt =
 let fmuld ins insLen ctxt =
   let struct (src, src1, dst) = transThreeOprs ins insLen ctxt
   let ir = IRBuilder (16)
-  let fsr = getRegVar ctxt R.FSR
+  let fsr = getRegVar ctxt SPARC.FSR
   let fsr30 = AST.extract fsr 1<rt> 30
   let fsr31 = AST.extract fsr 1<rt> 31
   let regSize = 64<rt>
@@ -1929,7 +1941,7 @@ let fmuld ins insLen ctxt =
 let fmulq ins insLen ctxt =
   let struct (src, src1, dst) = transThreeOprs ins insLen ctxt
   let ir = IRBuilder (16)
-  let fsr = getRegVar ctxt R.FSR
+  let fsr = getRegVar ctxt SPARC.FSR
   let fsr30 = AST.extract fsr 1<rt> 30
   let fsr31 = AST.extract fsr 1<rt> 31
   let regSize = 64<rt>
@@ -1983,7 +1995,7 @@ let fmulq ins insLen ctxt =
 let fsmuld ins insLen ctxt =
   let struct (src, src1, dst) = transThreeOprs ins insLen ctxt
   let ir = IRBuilder (16)
-  let fsr = getRegVar ctxt R.FSR
+  let fsr = getRegVar ctxt SPARC.FSR
   let fsr30 = AST.extract fsr 1<rt> 30
   let fsr31 = AST.extract fsr 1<rt> 31
   let regSize = 64<rt>
@@ -2026,7 +2038,7 @@ let fsmuld ins insLen ctxt =
 let fdmulq ins insLen ctxt =
   let struct (src, src1, dst) = transThreeOprs ins insLen ctxt
   let ir = IRBuilder (16)
-  let fsr = getRegVar ctxt R.FSR
+  let fsr = getRegVar ctxt SPARC.FSR
   let fsr30 = AST.extract fsr 1<rt> 30
   let fsr31 = AST.extract fsr 1<rt> 31
   let regSize = 64<rt>
@@ -2074,7 +2086,7 @@ let fdmulq ins insLen ctxt =
 let fsqrts ins insLen ctxt =
   let struct (src, dst) = transTwoOprs ins insLen ctxt
   let ir = IRBuilder (16)
-  let fsr = getRegVar ctxt R.FSR
+  let fsr = getRegVar ctxt SPARC.FSR
   let fsr30 = AST.extract fsr 1<rt> 30
   let fsr31 = AST.extract fsr 1<rt> 31
   let regSize = 32<rt>
@@ -2113,7 +2125,7 @@ let fsqrts ins insLen ctxt =
 let fsqrtd ins insLen ctxt =
   let struct (src, dst) = transTwoOprs ins insLen ctxt
   let ir = IRBuilder (16)
-  let fsr = getRegVar ctxt R.FSR
+  let fsr = getRegVar ctxt SPARC.FSR
   let fsr30 = AST.extract fsr 1<rt> 30
   let fsr31 = AST.extract fsr 1<rt> 31
   let regSize = 64<rt>
@@ -2156,7 +2168,7 @@ let fsqrtd ins insLen ctxt =
 let fsqrtq ins insLen ctxt =
   let struct (src, dst) = transTwoOprs ins insLen ctxt
   let ir = IRBuilder (16)
-  let fsr = getRegVar ctxt R.FSR
+  let fsr = getRegVar ctxt SPARC.FSR
   let fsr30 = AST.extract fsr 1<rt> 30
   let fsr31 = AST.extract fsr 1<rt> 31
   let regSize = 64<rt>
@@ -2280,7 +2292,7 @@ let fstod ins insLen ctxt =
   let struct (src, dst) = transTwoOprs ins insLen ctxt
   let oprSize = 64<rt>
   let ir = IRBuilder (16)
-  let fsr = getRegVar ctxt R.FSR
+  let fsr = getRegVar ctxt SPARC.FSR
   let fsr30 = AST.extract fsr 1<rt> 30
   let fsr31 = AST.extract fsr 1<rt> 31
   let res = !+ir oprSize
@@ -2322,7 +2334,7 @@ let fstoq ins insLen ctxt =
   let struct (src, dst) = transTwoOprs ins insLen ctxt
   let oprSize = 64<rt>
   let ir = IRBuilder (16)
-  let fsr = getRegVar ctxt R.FSR
+  let fsr = getRegVar ctxt SPARC.FSR
   let fsr30 = AST.extract fsr 1<rt> 30
   let fsr31 = AST.extract fsr 1<rt> 31
   let res1 = !+ir oprSize
@@ -2394,7 +2406,7 @@ let fqtod ins insLen ctxt =
 let fsubs ins insLen ctxt =
   let struct (src, src1, dst) = transThreeOprs ins insLen ctxt
   let ir = IRBuilder (16)
-  let fsr = getRegVar ctxt R.FSR
+  let fsr = getRegVar ctxt SPARC.FSR
   let fsr30 = AST.extract fsr 1<rt> 30
   let fsr31 = AST.extract fsr 1<rt> 31
   let regSize = 32<rt>
@@ -2433,7 +2445,7 @@ let fsubs ins insLen ctxt =
 let fsubd ins insLen ctxt =
   let struct (src, src1, dst) = transThreeOprs ins insLen ctxt
   let ir = IRBuilder (16)
-  let fsr = getRegVar ctxt R.FSR
+  let fsr = getRegVar ctxt SPARC.FSR
   let fsr30 = AST.extract fsr 1<rt> 30
   let fsr31 = AST.extract fsr 1<rt> 31
   let regSize = 64<rt>
@@ -2478,7 +2490,7 @@ let fsubd ins insLen ctxt =
 let fsubq ins insLen ctxt =
   let struct (src, src1, dst) = transThreeOprs ins insLen ctxt
   let ir = IRBuilder (16)
-  let fsr = getRegVar ctxt R.FSR
+  let fsr = getRegVar ctxt SPARC.FSR
   let fsr30 = AST.extract fsr 1<rt> 30
   let fsr31 = AST.extract fsr 1<rt> 31
   let regSize = 64<rt>
@@ -2533,7 +2545,7 @@ let fxtos ins insLen ctxt =
   let struct (src, dst) = transTwoOprs ins insLen ctxt
   let oprSize = 32<rt>
   let ir = IRBuilder (16)
-  let fsr = getRegVar ctxt R.FSR
+  let fsr = getRegVar ctxt SPARC.FSR
   let fsr30 = AST.extract fsr 1<rt> 30
   let fsr31 = AST.extract fsr 1<rt> 31
   let res = !+ir oprSize
@@ -2575,7 +2587,7 @@ let fitos ins insLen ctxt =
   let struct (src, dst) = transTwoOprs ins insLen ctxt
   let oprSize = 32<rt>
   let ir = IRBuilder (16)
-  let fsr = getRegVar ctxt R.FSR
+  let fsr = getRegVar ctxt SPARC.FSR
   let fsr30 = AST.extract fsr 1<rt> 30
   let fsr31 = AST.extract fsr 1<rt> 31
   let res = !+ir oprSize
@@ -2615,7 +2627,7 @@ let fxtod ins insLen ctxt =
   let struct (src, dst) = transTwoOprs ins insLen ctxt
   let oprSize = 64<rt>
   let ir = IRBuilder (16)
-  let fsr = getRegVar ctxt R.FSR
+  let fsr = getRegVar ctxt SPARC.FSR
   let fsr30 = AST.extract fsr 1<rt> 30
   let fsr31 = AST.extract fsr 1<rt> 31
   let res = !+ir oprSize
@@ -2699,7 +2711,7 @@ let jmpl ins insLen ctxt =
   let t1 = !+ir oprSize
   !<ir insLen
   !!ir (AST.jmp addr)
-  !!ir (dst := !.ctxt R.PC)
+  !!ir (dst := !.ctxt SPARC.PC)
   !>ir insLen
 
 let ldf ins insLen ctxt =
@@ -2759,8 +2771,8 @@ let ld ins insLen ctxt =
   | Opcode.LDUW -> !!ir (dst := (AST.zext oprSize (AST.loadBE 32<rt> addr)))
   | Opcode.LDX -> !!ir (dst := AST.loadBE oprSize addr)
   | Opcode.LDD ->
-    if (dst = getRegVar ctxt R.G0) then
-      let nxt = getRegVar ctxt R.G1
+    if (dst = getRegVar ctxt SPARC.G0) then
+      let nxt = getRegVar ctxt SPARC.G1
       !!ir (nxt := (AST.zext oprSize (AST.extract
         (AST.loadBE oprSize addr) 32<rt> 32)))
     else
@@ -2793,8 +2805,8 @@ let lda ins insLen ctxt =
                           (AST.loadBE 32<rt> (addr .+ asi))))
   | Opcode.LDXA -> !!ir (dst := AST.loadBE oprSize (addr .+ asi))
   | Opcode.LDDA ->
-    if (dst = getRegVar ctxt R.G0) then
-      let nxt = getRegVar ctxt R.G1
+    if (dst = getRegVar ctxt SPARC.G0) then
+      let nxt = getRegVar ctxt SPARC.G1
       !!ir (nxt := (AST.zext oprSize (AST.extract
         (AST.loadBE oprSize (addr .+ asi)) 32<rt> 32)))
     else
@@ -2838,10 +2850,10 @@ let movcc ins insLen ctxt =
   let struct (cc, src, dst) = transThreeOprs ins insLen ctxt
   let oprSize = 64<rt>
   let ir = IRBuilder (16)
-  let ccr = getRegVar ctxt R.CCR
-  let fsr = getRegVar ctxt R.FSR
+  let ccr = getRegVar ctxt SPARC.CCR
+  let fsr = getRegVar ctxt SPARC.FSR
   !<ir insLen
-  if (dst <> getRegVar ctxt R.G0) then
+  if (dst <> getRegVar ctxt SPARC.G0) then
     match ins.Opcode with
       | Opcode.MOVA | Opcode.MOVFA ->
         !!ir (dst := src)
@@ -2943,7 +2955,7 @@ let movcc ins insLen ctxt =
       | Opcode.MOVCS ->
         let lblL1 = !%ir "L1"
         let lblEnd = !%ir "End"
-        let ccr = getRegVar ctxt R.CCR
+        let ccr = getRegVar ctxt SPARC.CCR
         if (cc = getCCVar ctxt ConditionCode.Icc) then
           let c = AST.extract ccr 1<rt> 0
           let cond = (c == AST.b1)
@@ -3257,8 +3269,8 @@ let mulscc ins insLen ctxt =
   let ir = IRBuilder (16)
   let res = !+ir oprSize
   let src32 = !+ir 32<rt>
-  let y = !.ctxt R.Y
-  let ccr = !.ctxt R.CCR
+  let y = !.ctxt SPARC.Y
+  let ccr = !.ctxt SPARC.CCR
   let src2 = !+ir 32<rt>
   let hbyte = !+ir 4<rt>
   !<ir insLen
@@ -3267,7 +3279,7 @@ let mulscc ins insLen ctxt =
   !!ir (src2 := AST.ite ((AST.extract y 1<rt> 0) == AST.b0)
     (AST.num0 32<rt>) (AST.extract src1 32<rt> 0))
   !!ir (res := AST.zext  64<rt> (src32 .+ src2))
-  if (dst <> getRegVar ctxt R.G0) then
+  if (dst <> getRegVar ctxt SPARC.G0) then
     !!ir (dst := res)
   !!ir ((AST.extract y 32<rt> 0) :=  AST.concat (AST.extract src 1<rt> 0)
     (AST.extract y 31<rt> 1))
@@ -3280,7 +3292,7 @@ let mulx ins insLen ctxt =
   let oprSize = 64<rt>
   let ir = IRBuilder (16)
   !<ir insLen
-  if (dst = getRegVar ctxt R.G0) then
+  if (dst = getRegVar ctxt SPARC.G0) then
     !!ir (dst := AST.num0 64<rt>)
   else
     !!ir (dst := src .* src1)
@@ -3298,7 +3310,7 @@ let ``or`` ins insLen ctxt =
   let res = !+ir oprSize
   !<ir insLen
   !!ir (res := src .| src1)
-  if (dst = getRegVar ctxt R.G0) then
+  if (dst = getRegVar ctxt SPARC.G0) then
     !!ir (dst := AST.num0 64<rt>)
   else
     !!ir (dst := res)
@@ -3310,11 +3322,11 @@ let orcc ins insLen ctxt =
   let oprSize = 64<rt>
   let ir = IRBuilder (16)
   let res = !+ir oprSize
-  let ccr = !.ctxt R.CCR
+  let ccr = !.ctxt SPARC.CCR
   let byte = !+ir 8<rt>
   !<ir insLen
   !!ir (res := src .| src1)
-  if (dst = getRegVar ctxt R.G0) then
+  if (dst = getRegVar ctxt SPARC.G0) then
     !!ir (dst := AST.num0 64<rt>)
   else
     !!ir (dst := res)
@@ -3329,7 +3341,7 @@ let orn ins insLen ctxt =
   let res = !+ir oprSize
   !<ir insLen
   !!ir (res := (src .| AST.not (src1)))
-  if (dst = getRegVar ctxt R.G0) then
+  if (dst = getRegVar ctxt SPARC.G0) then
     !!ir (dst := AST.num0 64<rt>)
   else
     !!ir (dst := res)
@@ -3340,11 +3352,11 @@ let orncc ins insLen ctxt =
   let oprSize = 64<rt>
   let ir = IRBuilder (16)
   let res = !+ir oprSize
-  let ccr = !.ctxt R.CCR
+  let ccr = !.ctxt SPARC.CCR
   let byte = !+ir 8<rt>
   !<ir insLen
   !!ir (res := (src .| AST.not (src1)))
-  if (dst = getRegVar ctxt R.G0) then
+  if (dst = getRegVar ctxt SPARC.G0) then
     !!ir (dst := AST.num0 64<rt>)
   else
     !!ir (dst := res)
@@ -3393,9 +3405,9 @@ let restore ins insLen ctxt =
 
 let restored ins insLen ctxt =
   let ir = IRBuilder (16)
-  let cs = getRegVar ctxt R.CANSAVE
-  let cr = getRegVar ctxt R.CANRESTORE
-  let ow = getRegVar ctxt R.OTHERWIN
+  let cs = getRegVar ctxt SPARC.CANSAVE
+  let cr = getRegVar ctxt SPARC.CANRESTORE
+  let ow = getRegVar ctxt SPARC.OTHERWIN
   !<ir insLen
   !!ir (cs := (cs .+ AST.num1 64<rt>))
   let lblL0 = !%ir "L0"
@@ -3413,14 +3425,14 @@ let ret ins insLen ctxt =
   let struct (src, src1) = transTwoOprs ins insLen ctxt
   let ir = IRBuilder (16)
   !<ir insLen
-  !!ir (!.ctxt R.PC := (src .+ src1))
+  !!ir (!.ctxt SPARC.PC := (src .+ src1))
   !>ir insLen
 
 let retry ins insLen ctxt =
   let ir = IRBuilder (16)
   !<ir insLen
-  !!ir (!.ctxt R.PC := !.ctxt R.TPC)
-  !!ir (!.ctxt R.NPC := !.ctxt R.TNPC)
+  !!ir (!.ctxt SPARC.PC := !.ctxt SPARC.TPC)
+  !!ir (!.ctxt SPARC.NPC := !.ctxt SPARC.TNPC)
   !>ir insLen
 
 let save ins insLen ctxt =
@@ -3433,9 +3445,9 @@ let save ins insLen ctxt =
 
 let saved ins insLen ctxt =
   let ir = IRBuilder (16)
-  let cs = getRegVar ctxt R.CANSAVE
-  let cr = getRegVar ctxt R.CANRESTORE
-  let ow = getRegVar ctxt R.OTHERWIN
+  let cs = getRegVar ctxt SPARC.CANSAVE
+  let cr = getRegVar ctxt SPARC.CANRESTORE
+  let ow = getRegVar ctxt SPARC.OTHERWIN
   !<ir insLen
   !!ir (cs := (cs .+ AST.num1 64<rt>))
   let lblL0 = !%ir "L0"
@@ -3459,19 +3471,19 @@ let sdiv ins insLen ctxt =
   let divisor = !+ir 32<rt>
   let dividend = !+ir 64<rt>
   let quotient = !+ir 64<rt>
-  let y = getRegVar ctxt R.Y
-  let ccr = getRegVar ctxt R.CCR
+  let y = getRegVar ctxt SPARC.Y
+  let ccr = getRegVar ctxt SPARC.CCR
   !<ir insLen
   !!ir (divisor := AST.extract src1 32<rt> 0)
   !!ir (dividend := AST.concat (AST.extract y 32<rt> 0)
     (AST.extract src 32<rt> 0))
   let cond = (divisor == AST.num0 32<rt>)
-  if (divisor = AST.num0 32<rt> || src1  = getRegVar ctxt R.G0) then
+  if (divisor = AST.num0 32<rt> || src1  = getRegVar ctxt SPARC.G0) then
     !!ir (AST.sideEffect (Exception "Division by zero exception"))
   elif (isRegOpr ins insLen ctxt) then
     !!ir (AST.cjmp (cond) (AST.name lblL0) (AST.name lblL1))
     !!ir (AST.lmark lblL1)
-    if (dst <> getRegVar ctxt R.G0) then
+    if (dst <> getRegVar ctxt SPARC.G0) then
       !!ir (quotient := dividend ./ (AST.zext 64<rt> divisor))
     !!ir (dst := AST.ite ((AST.extract quotient 32<rt> 32) == AST.num0 32<rt>)
       (AST.zext 64<rt> (AST.extract quotient 32<rt> 0))
@@ -3507,19 +3519,19 @@ let sdivcc ins insLen ctxt =
   let divisor = !+ir 32<rt>
   let dividend = !+ir 64<rt>
   let quotient = !+ir 64<rt>
-  let y = getRegVar ctxt R.Y
-  let ccr = getRegVar ctxt R.CCR
+  let y = getRegVar ctxt SPARC.Y
+  let ccr = getRegVar ctxt SPARC.CCR
   !<ir insLen
   !!ir (divisor := AST.extract src1 32<rt> 0)
   !!ir (dividend := AST.concat (AST.extract y 32<rt> 0)
     (AST.extract src 32<rt> 0))
   let cond = (divisor == AST.num0 32<rt>)
-  if (divisor = AST.num0 32<rt> || src1  = getRegVar ctxt R.G0) then
+  if (divisor = AST.num0 32<rt> || src1  = getRegVar ctxt SPARC.G0) then
     !!ir (AST.sideEffect (Exception "Division by zero exception"))
   elif (isRegOpr ins insLen ctxt) then
     !!ir (AST.cjmp (cond) (AST.name lblL0) (AST.name lblL1))
     !!ir (AST.lmark lblL1)
-    if (dst <> getRegVar ctxt R.G0) then
+    if (dst <> getRegVar ctxt SPARC.G0) then
       !!ir (quotient := dividend ./ (AST.zext 64<rt> divisor))
     !!ir (dst := AST.ite ((AST.extract quotient 32<rt> 32) == AST.num0 32<rt>)
       (AST.zext 64<rt> (AST.extract quotient 32<rt> 0))
@@ -3554,12 +3566,12 @@ let sdivx ins insLen ctxt =
   let lblL1 = !%ir "L1"
   let lblEnd = !%ir "End"
   !<ir insLen
-  if (src1 = AST.num0 64<rt> || src1  = getRegVar ctxt R.G0) then
+  if (src1 = AST.num0 64<rt> || src1  = getRegVar ctxt SPARC.G0) then
     !!ir (AST.sideEffect (Exception "Division by zero exception"))
   elif (isRegOpr ins insLen ctxt) then
     !!ir (AST.cjmp (cond) (AST.name lblL0) (AST.name lblL1))
     !!ir (AST.lmark lblL1)
-    if (dst = getRegVar ctxt R.G0) then
+    if (dst = getRegVar ctxt SPARC.G0) then
       !!ir (dst := AST.num0 64<rt>)
     else
       !!ir (dst := src ?/ src1)
@@ -3568,7 +3580,7 @@ let sdivx ins insLen ctxt =
     !!ir (AST.sideEffect (Exception "Division by zero exception"))
     !!ir (AST.lmark lblEnd)
   else
-    if (dst = getRegVar ctxt R.G0) then
+    if (dst = getRegVar ctxt SPARC.G0) then
       !!ir (dst := AST.num0 64<rt>)
     else
       !!ir (dst := src ?/ src1)
@@ -3579,7 +3591,7 @@ let sethi ins insLen ctxt =
   let oprSize = 64<rt>
   let ir = IRBuilder (16)
   !<ir insLen
-  if (dst <> getRegVar ctxt R.G0) then
+  if (dst <> getRegVar ctxt SPARC.G0) then
     !!ir (dst := AST.concat (AST.zext 32<rt> AST.b0)
       (AST.extract imm 32<rt> 0))
   !>ir insLen
@@ -3589,7 +3601,7 @@ let sll ins insLen ctxt =
   let oprSize = 64<rt>
   let ir = IRBuilder (16)
   !<ir insLen
-  if (dst = getRegVar ctxt R.G0) then
+  if (dst = getRegVar ctxt SPARC.G0) then
     !!ir (dst := AST.num0 64<rt>)
   else
     !!ir (dst := src << src1)
@@ -3597,11 +3609,11 @@ let sll ins insLen ctxt =
 
 let smul ins insLen ctxt =
   let struct (src, src1, dst) = transThreeOprs ins insLen ctxt
-  let yreg  = getRegVar ctxt R.Y
+  let yreg  = getRegVar ctxt SPARC.Y
   let oprSize = 64<rt>
   let ir = IRBuilder (16)
   !<ir insLen
-  if (dst = getRegVar ctxt R.G0) then
+  if (dst = getRegVar ctxt SPARC.G0) then
     !!ir (dst := AST.num0 64<rt>)
   else
     !!ir (dst := AST.sext 64<rt>  ((AST.extract src 32<rt> 0)
@@ -3613,12 +3625,12 @@ let smul ins insLen ctxt =
 let smulcc ins insLen ctxt =
   let struct (src, src1, dst) = transThreeOprs ins insLen ctxt
   let ir = IRBuilder (16)
-  let yreg  = getRegVar ctxt R.Y
-  let ccr  = getRegVar ctxt R.CCR
+  let yreg  = getRegVar ctxt SPARC.Y
+  let ccr  = getRegVar ctxt SPARC.CCR
   let oprSize = 64<rt>
   let byte = !+ir 8<rt>
   !<ir insLen
-  if (dst = getRegVar ctxt R.G0) then
+  if (dst = getRegVar ctxt SPARC.G0) then
     !!ir (dst := AST.num0 64<rt>)
   else
     !!ir (dst := AST.sext 64<rt>  ((AST.extract src 32<rt> 0)
@@ -3634,7 +3646,7 @@ let sra ins insLen ctxt =
   let oprSize = 64<rt>
   let ir = IRBuilder (16)
   !<ir insLen
-  if (dst = getRegVar ctxt R.G0) then
+  if (dst = getRegVar ctxt SPARC.G0) then
     !!ir (dst := AST.num0 64<rt>)
   else
     !!ir (dst := src ?>> src1)
@@ -3645,7 +3657,7 @@ let srl ins insLen ctxt =
   let oprSize = 64<rt>
   let ir = IRBuilder (16)
   !<ir insLen
-  if (dst = getRegVar ctxt R.G0) then
+  if (dst = getRegVar ctxt SPARC.G0) then
     !!ir (dst := AST.num0 64<rt>)
   else
     !!ir (dst := src >> src1)
@@ -3662,8 +3674,8 @@ let st ins insLen ctxt =
   | Opcode.STW -> !!ir ((AST.loadBE 32<rt> addr) := (AST.extract src 32<rt> 0))
   | Opcode.STX -> !!ir ((AST.loadBE 64<rt> addr) := (AST.extract src 64<rt> 0))
   | Opcode.STD ->
-    if (src = getRegVar ctxt R.G0) then
-      let nxt = getRegVar ctxt R.G1
+    if (src = getRegVar ctxt SPARC.G0) then
+      let nxt = getRegVar ctxt SPARC.G1
       !!ir ((AST.loadBE 32<rt> addr) := (AST.extract src 32<rt> 0))
     else
       let nxt = getRegVar ctxt (getNextReg ctxt src)
@@ -3689,8 +3701,8 @@ let sta ins insLen ctxt =
   | Opcode.STXA -> !!ir ((AST.loadBE 64<rt> (addr .+ asi))
                           := (AST.extract src 64<rt> 0))
   | Opcode.STDA ->
-    if (src = getRegVar ctxt R.G0) then
-      let nxt = getRegVar ctxt R.G1
+    if (src = getRegVar ctxt SPARC.G0) then
+      let nxt = getRegVar ctxt SPARC.G1
       !!ir ((AST.loadBE 32<rt> (addr .+ asi)) := (AST.extract src 32<rt> 0))
     else
       let nxt = getRegVar ctxt (getNextReg ctxt src)
@@ -3756,7 +3768,7 @@ let sub ins insLen ctxt =
   let res = !+ir oprSize
   !<ir insLen
   !!ir (res := src .- src1)
-  if (dst = getRegVar ctxt R.G0) then
+  if (dst = getRegVar ctxt SPARC.G0) then
     !!ir (dst := AST.num0 64<rt>)
   else
     !!ir (dst := res)
@@ -3767,11 +3779,11 @@ let subcc ins insLen ctxt =
   let oprSize = 64<rt>
   let ir = IRBuilder (16)
   let res = !+ir oprSize
-  let ccr = !.ctxt R.CCR
+  let ccr = !.ctxt SPARC.CCR
   let byte = !+ir 8<rt>
   !<ir insLen
   !!ir (res := src .- src1)
-  if (dst = getRegVar ctxt R.G0) then
+  if (dst = getRegVar ctxt SPARC.G0) then
     !!ir (dst := AST.num0 64<rt>)
   else
     !!ir (dst := res)
@@ -3786,10 +3798,10 @@ let subC ins insLen ctxt =
   let ir = IRBuilder (16)
   let res = !+ir oprSize
   let byte = !+ir 8<rt>
-  let ccr = !.ctxt R.CCR
+  let ccr = !.ctxt SPARC.CCR
   !<ir insLen
   !!ir (res := src .- src1 .- AST.zext 64<rt> (AST.extract ccr 1<rt> 0))
-  if (dst = getRegVar ctxt R.G0) then
+  if (dst = getRegVar ctxt SPARC.G0) then
     !!ir (dst := AST.num0 64<rt>)
   else
     !!ir (dst := res)
@@ -3800,11 +3812,11 @@ let subCcc ins insLen ctxt =
   let oprSize = 64<rt>
   let ir = IRBuilder (16)
   let res = !+ir oprSize
-  let ccr = !.ctxt R.CCR
+  let ccr = !.ctxt SPARC.CCR
   let byte = !+ir 8<rt>
   !<ir insLen
   !!ir (res := src .- src1 .- AST.zext 64<rt> (AST.extract ccr 1<rt> 0))
-  if (dst = getRegVar ctxt R.G0) then
+  if (dst = getRegVar ctxt SPARC.G0) then
     !!ir (dst := AST.num0 64<rt>)
   else
     !!ir (dst := res)
@@ -3841,18 +3853,18 @@ let udiv ins insLen ctxt =
   let divisor = !+ir 32<rt>
   let dividend = !+ir 64<rt>
   let quotient = !+ir 64<rt>
-  let y = getRegVar ctxt R.Y
+  let y = getRegVar ctxt SPARC.Y
   !<ir insLen
   !!ir (divisor := AST.extract src1 32<rt> 0)
   !!ir (dividend := AST.concat (AST.extract y 32<rt> 0)
     (AST.extract src 32<rt> 0))
   let cond = (divisor == AST.num0 32<rt>)
-  if (divisor = AST.num0 32<rt> || src1  = getRegVar ctxt R.G0) then
+  if (divisor = AST.num0 32<rt> || src1  = getRegVar ctxt SPARC.G0) then
     !!ir (AST.sideEffect (Exception "Division by zero exception"))
   elif (isRegOpr ins insLen ctxt) then
     !!ir (AST.cjmp (cond) (AST.name lblL0) (AST.name lblL1))
     !!ir (AST.lmark lblL1)
-    if (dst <> getRegVar ctxt R.G0) then
+    if (dst <> getRegVar ctxt SPARC.G0) then
       !!ir (quotient := dividend ./ (AST.zext 64<rt> divisor))
     !!ir (dst := AST.ite ((AST.extract quotient 32<rt> 32) == AST.num0 32<rt>)
       (AST.zext 64<rt> (AST.extract quotient 32<rt> 0))
@@ -3878,19 +3890,19 @@ let udivcc ins insLen ctxt =
   let divisor = !+ir 32<rt>
   let dividend = !+ir 64<rt>
   let quotient = !+ir 64<rt>
-  let y = getRegVar ctxt R.Y
-  let ccr = getRegVar ctxt R.CCR
+  let y = getRegVar ctxt SPARC.Y
+  let ccr = getRegVar ctxt SPARC.CCR
   !<ir insLen
   !!ir (divisor := AST.extract src1 32<rt> 0)
   !!ir (dividend := AST.concat (AST.extract y 32<rt> 0)
     (AST.extract src 32<rt> 0))
   let cond = (divisor == AST.num0 32<rt>)
-  if (divisor = AST.num0 32<rt> || src1  = getRegVar ctxt R.G0) then
+  if (divisor = AST.num0 32<rt> || src1  = getRegVar ctxt SPARC.G0) then
     !!ir (AST.sideEffect (Exception "Division by zero exception"))
   elif (isRegOpr ins insLen ctxt) then
     !!ir (AST.cjmp (cond) (AST.name lblL0) (AST.name lblL1))
     !!ir (AST.lmark lblL1)
-    if (dst <> getRegVar ctxt R.G0) then
+    if (dst <> getRegVar ctxt SPARC.G0) then
       !!ir (quotient := dividend ./ (AST.zext 64<rt> divisor))
     !!ir (dst := AST.ite ((AST.extract quotient 32<rt> 32) == AST.num0 32<rt>)
       (AST.zext 64<rt> (AST.extract quotient 32<rt> 0))
@@ -3925,12 +3937,12 @@ let udivx ins insLen ctxt =
   let lblL1 = !%ir "L1"
   let lblEnd = !%ir "End"
   !<ir insLen
-  if (src1 = AST.num0 64<rt> || src1  = getRegVar ctxt R.G0) then
+  if (src1 = AST.num0 64<rt> || src1  = getRegVar ctxt SPARC.G0) then
     !!ir (AST.sideEffect (Exception "Division by zero exception"))
   elif (isRegOpr ins insLen ctxt) then
     !!ir (AST.cjmp (cond) (AST.name lblL0) (AST.name lblL1))
     !!ir (AST.lmark lblL1)
-    if (dst = getRegVar ctxt R.G0) then
+    if (dst = getRegVar ctxt SPARC.G0) then
       !!ir (dst := AST.num0 64<rt>)
     else
       !!ir (dst := src ./ src1)
@@ -3939,7 +3951,7 @@ let udivx ins insLen ctxt =
     !!ir (AST.sideEffect (Exception "Division by zero exception"))
     !!ir (AST.lmark lblEnd)
   else
-    if (dst = getRegVar ctxt R.G0) then
+    if (dst = getRegVar ctxt SPARC.G0) then
       !!ir (dst := AST.num0 64<rt>)
     else
       !!ir (dst := src ./ src1)
@@ -3947,11 +3959,11 @@ let udivx ins insLen ctxt =
 
 let umul ins insLen ctxt =
   let struct (src, src1, dst) = transThreeOprs ins insLen ctxt
-  let yreg  = getRegVar ctxt R.Y
+  let yreg  = getRegVar ctxt SPARC.Y
   let oprSize = 64<rt>
   let ir = IRBuilder (16)
   !<ir insLen
-  if (dst = getRegVar ctxt R.G0) then
+  if (dst = getRegVar ctxt SPARC.G0) then
     !!ir (dst := AST.num0 64<rt>)
   else
     !!ir (dst := AST.zext 64<rt>  ((AST.extract src 32<rt> 0)
@@ -3963,12 +3975,12 @@ let umul ins insLen ctxt =
 let umulcc ins insLen ctxt =
   let struct (src, src1, dst) = transThreeOprs ins insLen ctxt
   let ir = IRBuilder (16)
-  let yreg  = getRegVar ctxt R.Y
-  let ccr = getRegVar ctxt R.CCR
+  let yreg  = getRegVar ctxt SPARC.Y
+  let ccr = getRegVar ctxt SPARC.CCR
   let oprSize = 64<rt>
   let byte = !+ir 8<rt>
   !<ir insLen
-  if (dst = getRegVar ctxt R.G0) then
+  if (dst = getRegVar ctxt SPARC.G0) then
     !!ir (dst := AST.num0 64<rt>)
   else
     !!ir (dst := AST.zext 64<rt>  ((AST.extract src 32<rt> 0)
@@ -3994,7 +4006,7 @@ let xor ins insLen ctxt =
   let res = !+ir oprSize
   !<ir insLen
   !!ir (res := src <+> src1)
-  if (dst = getRegVar ctxt R.G0) then
+  if (dst = getRegVar ctxt SPARC.G0) then
     !!ir (dst := AST.num0 64<rt>)
   else
     !!ir (dst := res)
@@ -4005,7 +4017,7 @@ let xorcc ins insLen ctxt =
   let oprSize = 64<rt>
   let ir = IRBuilder (16)
   let res = !+ir oprSize
-  let ccr = !.ctxt R.CCR
+  let ccr = !.ctxt SPARC.CCR
   let byte = !+ir 8<rt>
   !<ir insLen
   !!ir (dst := src <+> src1)
@@ -4020,7 +4032,7 @@ let xnor ins insLen ctxt =
   let res = !+ir oprSize
   !<ir insLen
   !!ir (res := src <+> AST.not (src1))
-  if (dst = getRegVar ctxt R.G0) then
+  if (dst = getRegVar ctxt SPARC.G0) then
     !!ir (dst := AST.num0 64<rt>)
   else
     !!ir (dst := res)
@@ -4031,11 +4043,11 @@ let xnorcc ins insLen ctxt =
   let oprSize = 64<rt>
   let ir = IRBuilder (16)
   let res = !+ir oprSize
-  let ccr = !.ctxt R.CCR
+  let ccr = !.ctxt SPARC.CCR
   let byte = !+ir 8<rt>
   !<ir insLen
   !!ir (res := src <+> AST.not (src1))
-  if (dst = getRegVar ctxt R.G0) then
+  if (dst = getRegVar ctxt SPARC.G0) then
     !!ir (dst := AST.num0 64<rt>)
   else
     !!ir (dst := res)

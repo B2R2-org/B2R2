@@ -25,6 +25,7 @@
 namespace B2R2.FrontEnd.BinLifter.SH4
 
 open B2R2
+open B2R2.FrontEnd.Register
 open B2R2.FrontEnd.BinLifter
 
 type SH4TranslationContext (isa) =
@@ -36,7 +37,7 @@ type SH4TranslationContext (isa) =
   member __.RegExprs with get() = regExprs
 
   override __.GetRegVar id =
-    Register.ofRegID id |> regExprs.GetRegVar
+    SH4Register.Get id |> regExprs.GetRegVar
 
   override __.GetPseudoRegVar _id _pos =
     Utils.impossible ()

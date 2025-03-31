@@ -25,7 +25,8 @@
 namespace B2R2.FrontEnd.BinLifter.PPC32
 
 open B2R2
-open B2R2.FrontEnd.BinLifter
+open B2R2.FrontEnd
+open B2R2.FrontEnd.Register
 open B2R2.BinIR.LowUIR
 
 type PPC32RegisterFactory (wordSize, r: RegExprs) =
@@ -58,7 +59,7 @@ type PPC32RegisterFactory (wordSize, r: RegExprs) =
     | _ -> raise InvalidRegisterException
 
   override __.RegIDToRegExpr (id) =
-    Register.ofRegID id |> r.GetRegVar
+    PPC32Register.Get id |> r.GetRegVar
 
   override __.StrToRegExpr s =
     match s.ToLowerInvariant () with
@@ -161,10 +162,10 @@ type PPC32RegisterFactory (wordSize, r: RegExprs) =
     | _ -> raise UnhandledRegExprException
 
   override __.RegIDFromString str =
-    Register.ofString str |> Register.toRegID
+    PPC32Register.Get str |> PPC32Register.ID
 
   override __.RegIDToString rid =
-    Register.ofRegID rid |> Register.toString
+    PPC32Register.Get rid |> PPC32Register.String
 
   override __.RegIDToRegType rid =
     if rid < 0x40<RegisterID.T> then WordSize.toRegType wordSize
@@ -176,7 +177,7 @@ type PPC32RegisterFactory (wordSize, r: RegExprs) =
   override __.ProgramCounter = Utils.futureFeature ()
 
   override __.StackPointer =
-    Register.R1 |> Register.toRegID |> Some
+    PPC32.R1 |> PPC32Register.ID |> Some
 
   override __.FramePointer = None
 

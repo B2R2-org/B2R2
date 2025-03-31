@@ -25,6 +25,7 @@
 module internal B2R2.FrontEnd.BinLifter.ARM64.OperandHelper
 
 open B2R2
+open B2R2.FrontEnd
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinLifter.ARM64.Utils
 open System.Runtime.CompilerServices
@@ -173,7 +174,7 @@ let simdFP29 = [| R.B29; R.H29; R.S29; R.D29; R.Q29 |]
 let simdFP30 = [| R.B30; R.H30; R.S30; R.D30; R.Q30 |]
 let simdFP31 = [| R.B31; R.H31; R.S31; R.D31; R.Q31 |]
 
-let convReg (grp: Register []) = function
+let convReg (grp: Register.ARM64[]) = function
   | 8 -> grp[0]
   | 16 -> grp[1]
   | 32 -> grp[2]

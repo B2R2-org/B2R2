@@ -29,10 +29,11 @@ open B2R2
 open B2R2.BinIR
 open B2R2.BinIR.LowUIR
 open B2R2.BinIR.LowUIR.AST.InfixOp
+open B2R2.FrontEnd
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinLifter.LiftingOperators
 open B2R2.FrontEnd.BinLifter.MIPS
-open type Register
+open type Register.MIPS
 
 [<TestClass>]
 type MIPSLifterTests () =
@@ -56,7 +57,7 @@ type MIPSLifterTests () =
   member __.``[MIPS64] ADD lift test`` () =
     let isa = ISA.Init Architecture.MIPS64 Endian.Big
     let ctxt = MIPSTranslationContext isa
-    let ( !. ) name = Register.toRegID name |> ctxt.GetRegVar
+    let ( !. ) name = Register.MIPSRegister.ID name |> ctxt.GetRegVar
     let ir = IRBuilder (241)
     let lblL0 = !%ir "L0"
     let lblL1 = !%ir "L1"
@@ -77,7 +78,7 @@ type MIPSLifterTests () =
   member __.``[MIPS32] ADD lift test`` () =
     let isa = ISA.Init Architecture.MIPS32 Endian.Big
     let ctxt = MIPSTranslationContext isa
-    let ( !. ) name = Register.toRegID name |> ctxt.GetRegVar
+    let ( !. ) name = Register.MIPSRegister.ID name |> ctxt.GetRegVar
     let ir = IRBuilder (241)
     let lblL0 = !%ir "L0"
     let lblL1 = !%ir "L1"

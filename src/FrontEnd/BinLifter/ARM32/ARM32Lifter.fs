@@ -29,6 +29,8 @@ open B2R2
 open B2R2.BinIR
 open B2R2.BinIR.LowUIR
 open B2R2.BinIR.LowUIR.AST.InfixOp
+open B2R2.FrontEnd
+open B2R2.FrontEnd.Register
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinLifter.LiftingOperators
 open B2R2.FrontEnd.BinLifter.LiftingUtils
@@ -80,7 +82,7 @@ let simdToExpr ctxt = function
   | _ -> raise InvalidOperandException
 
 let inline getPseudoRegVar (ctxt: TranslationContext) name pos =
-  ctxt.GetPseudoRegVar (Register.toRegID name) pos
+  ctxt.GetPseudoRegVar (ARM32Register.ID name) pos
 
 let getTwoOprs (ins: InsInfo) =
   match ins.Operands with

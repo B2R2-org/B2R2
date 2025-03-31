@@ -26,6 +26,7 @@ namespace B2R2.FrontEnd.BinLifter.RISCV
 
 open System
 open B2R2
+open B2R2.FrontEnd
 open B2R2.FrontEnd.BinLifter
 
 /// Parser for RISCV64 instructions. Parser will return a platform-agnostic

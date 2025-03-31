@@ -28,9 +28,10 @@ open Microsoft.VisualStudio.TestTools.UnitTesting
 open B2R2
 open B2R2.BinIR.LowUIR
 open B2R2.BinIR.LowUIR.AST.InfixOp
+open B2R2.FrontEnd
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinLifter.SPARC
-open type Register
+open type Register.SPARC
 
 [<TestClass>]
 type SPARCLifterTest () =
@@ -42,7 +43,7 @@ type SPARCLifterTest () =
 
   let ctxt = SPARCTranslationContext isa
 
-  let ( !. ) name = Register.toRegID name |> ctxt.GetRegVar
+  let ( !. ) reg = Register.SPARCRegister.ID reg |> ctxt.GetRegVar
 
   let unwrapStmts stmts = Array.sub stmts 1 (Array.length stmts - 2)
 

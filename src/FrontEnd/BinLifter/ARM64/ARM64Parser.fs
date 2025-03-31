@@ -26,6 +26,7 @@ namespace B2R2.FrontEnd.BinLifter.ARM64
 
 open System
 open B2R2
+open B2R2.FrontEnd
 open B2R2.FrontEnd.BinLifter
 
 /// Parser for 64-bit ARM instructions. Parser will return a platform-agnostic

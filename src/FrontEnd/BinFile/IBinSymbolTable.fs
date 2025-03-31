@@ -25,7 +25,7 @@
 namespace B2R2.FrontEnd.BinFile
 
 open B2R2
-open B2R2.FrontEnd.BinLifter
+open B2R2.FrontEnd
 
 /// Symbol table of a binary file.
 type IBinSymbolTable =

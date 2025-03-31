@@ -25,9 +25,11 @@
 module internal B2R2.FrontEnd.BinLifter.Intel.LiftingUtils
 
 open B2R2
+open B2R2.FrontEnd.Register
 open B2R2.BinIR
 open B2R2.BinIR.LowUIR
 open B2R2.BinIR.LowUIR.AST.InfixOp
+open B2R2.FrontEnd
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinLifter.LiftingOperators
 open B2R2.FrontEnd.BinLifter.LiftingUtils
@@ -36,10 +38,10 @@ open B2R2.FrontEnd.BinLifter.Intel.Helper
 open type BinOpType
 
 let inline ( !. ) (ctxt: TranslationContext) name =
-  Register.toRegID name |> ctxt.GetRegVar
+  IntelRegister.ID name |> ctxt.GetRegVar
 
 let inline getPseudoRegVar (ctxt: TranslationContext) name pos =
-  ctxt.GetPseudoRegVar (Register.toRegID name) pos
+  ctxt.GetPseudoRegVar (IntelRegister.ID name) pos
 
 let numInsLen insLen (ctxt: TranslationContext) = numU32 insLen ctxt.WordBitSize
 
@@ -184,12 +186,12 @@ let private getPseudoRegVars ctxt r =
   | _ -> raise InvalidOperandException
 
 let isSegReg = function
-  | Register.CS
-  | Register.DS
-  | Register.SS
-  | Register.ES
-  | Register.FS
-  | Register.GS -> true
+  | Intel.CS
+  | Intel.DS
+  | Intel.SS
+  | Intel.ES
+  | Intel.FS
+  | Intel.GS -> true
   | _ -> false
 
 let isMemOpr = function
@@ -616,12 +618,12 @@ let sideEffects ctxt insLen name =
 
 let hasStackPtr (ins: InsInfo) =
   match ins.Operands with
-  | OneOperand (OprReg Register.ESP)
-  | OneOperand (OprReg Register.RSP)
-  | OneOperand (OprMem (Some Register.ESP, _, _, _))
-  | OneOperand (OprMem (Some Register.RSP, _, _, _))
-  | OneOperand (OprMem (_, Some (Register.ESP, _), _, _))
-  | OneOperand (OprMem (_, Some (Register.RSP, _), _, _)) -> true
+  | OneOperand (OprReg Intel.ESP)
+  | OneOperand (OprReg Intel.RSP)
+  | OneOperand (OprMem (Some Intel.ESP, _, _, _))
+  | OneOperand (OprMem (Some Intel.RSP, _, _, _))
+  | OneOperand (OprMem (_, Some (Intel.ESP, _), _, _))
+  | OneOperand (OprMem (_, Some (Intel.RSP, _), _, _)) -> true
   | _ -> false
 
 let buildAF ctxt e1 e2 r size =

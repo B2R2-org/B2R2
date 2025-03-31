@@ -28,17 +28,19 @@ open B2R2
 open B2R2.BinIR
 open B2R2.BinIR.LowUIR
 open B2R2.BinIR.LowUIR.AST.InfixOp
+open B2R2.FrontEnd
+open B2R2.FrontEnd.Register
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinLifter.LiftingUtils
 open B2R2.FrontEnd.BinLifter.LiftingOperators
 open B2R2.FrontEnd.BinLifter.RISCV
 
-let inline getRegVar (ctxt: TranslationContext) name =
-  Register.toRegID name |> ctxt.GetRegVar
+let inline getRegVar (ctxt: TranslationContext) reg =
+  RISCV64Register.ID reg |> ctxt.GetRegVar
 
 let inline (:=) dst src =
   match dst with
-  | { E = Var (_, rid, _) } when rid = Register.toRegID Register.X0 ->
+  | { E = Var (_, rid, _) } when rid = RISCV64Register.ID RISCV64.X0 ->
     dst := dst (* Prevent setting x0. Our optimizer will remove this anyways. *)
   | _ ->
     dst := src
@@ -46,177 +48,177 @@ let inline (:=) dst src =
 let inline getCSRReg (ctxt: TranslationContext) csr =
   let csrReg =
     match csr with
-    | 0001us -> Register.FFLAGS
-    | 0002us -> Register.FRM
-    | 0003us -> Register.FCSR
-    | 0768us -> Register.CSR0768
-    | 0769us -> Register.CSR0769
-    | 0770us -> Register.CSR0770
-    | 0771us -> Register.CSR0771
-    | 0772us -> Register.CSR0772
-    | 0773us -> Register.CSR0773
-    | 0784us -> Register.CSR0784
-    | 0832us -> Register.CSR0832
-    | 0833us -> Register.CSR0833
-    | 0834us -> Register.CSR0834
-    | 0835us -> Register.CSR0835
-    | 0836us -> Register.CSR0836
-    | 0842us -> Register.CSR0842
-    | 0843us -> Register.CSR0843
-    | 3114us -> Register.CSR3114
-    | 3787us -> Register.CSR3787
-    | 3857us -> Register.CSR3857
-    | 3858us -> Register.CSR3858
-    | 3859us -> Register.CSR3859
-    | 3860us -> Register.CSR3860
-    | 0928us -> Register.CSR0928
-    | 0930us -> Register.CSR0930
-    | 0932us -> Register.CSR0932
-    | 0934us -> Register.CSR0934
-    | 0936us -> Register.CSR0936
-    | 0938us -> Register.CSR0938
-    | 0940us -> Register.CSR0940
-    | 0942us -> Register.CSR0942
-    | 0944us -> Register.CSR0944
-    | 0945us -> Register.CSR0945
-    | 0946us -> Register.CSR0946
-    | 0947us -> Register.CSR0947
-    | 0948us -> Register.CSR0948
-    | 0949us -> Register.CSR0949
-    | 0950us -> Register.CSR0950
-    | 0951us -> Register.CSR0951
-    | 0952us -> Register.CSR0952
-    | 0953us -> Register.CSR0953
-    | 0954us -> Register.CSR0954
-    | 0955us -> Register.CSR0955
-    | 0956us -> Register.CSR0956
-    | 0957us -> Register.CSR0957
-    | 0958us -> Register.CSR0958
-    | 0959us -> Register.CSR0959
-    | 0960us -> Register.CSR0960
-    | 0961us -> Register.CSR0961
-    | 0962us -> Register.CSR0962
-    | 0963us -> Register.CSR0963
-    | 0964us -> Register.CSR0964
-    | 0965us -> Register.CSR0965
-    | 0966us -> Register.CSR0966
-    | 0967us -> Register.CSR0967
-    | 0968us -> Register.CSR0968
-    | 0969us -> Register.CSR0969
-    | 0970us -> Register.CSR0970
-    | 0971us -> Register.CSR0971
-    | 0972us -> Register.CSR0972
-    | 0973us -> Register.CSR0973
-    | 0974us -> Register.CSR0974
-    | 0975us -> Register.CSR0975
-    | 0976us -> Register.CSR0976
-    | 0977us -> Register.CSR0977
-    | 0978us -> Register.CSR0978
-    | 0979us -> Register.CSR0979
-    | 0980us -> Register.CSR0980
-    | 0981us -> Register.CSR0981
-    | 0982us -> Register.CSR0982
-    | 0983us -> Register.CSR0983
-    | 0984us -> Register.CSR0984
-    | 0985us -> Register.CSR0985
-    | 0986us -> Register.CSR0986
-    | 0987us -> Register.CSR0987
-    | 0988us -> Register.CSR0988
-    | 0989us -> Register.CSR0989
-    | 0990us -> Register.CSR0990
-    | 0991us -> Register.CSR0991
-    | 0992us -> Register.CSR0992
-    | 0993us -> Register.CSR0993
-    | 0994us -> Register.CSR0994
-    | 0995us -> Register.CSR0995
-    | 0996us -> Register.CSR0996
-    | 0997us -> Register.CSR0997
-    | 0998us -> Register.CSR0998
-    | 0999us -> Register.CSR0999
-    | 1000us -> Register.CSR1000
-    | 1001us -> Register.CSR1001
-    | 1002us -> Register.CSR1002
-    | 1003us -> Register.CSR1003
-    | 1004us -> Register.CSR1004
-    | 1005us -> Register.CSR1005
-    | 1006us -> Register.CSR1006
-    | 1007us -> Register.CSR1007
-    | 2145us -> Register.CSR2145
-    | 2617us -> Register.CSR2617
-    | 2816us -> Register.CSR2816
-    | 2818us -> Register.CSR2818
-    | 2819us -> Register.CSR2819
-    | 2820us -> Register.CSR2820
-    | 2821us -> Register.CSR2821
-    | 2822us -> Register.CSR2822
-    | 2823us -> Register.CSR2823
-    | 2824us -> Register.CSR2824
-    | 2825us -> Register.CSR2825
-    | 2826us -> Register.CSR2826
-    | 2827us -> Register.CSR2827
-    | 2828us -> Register.CSR2828
-    | 2829us -> Register.CSR2829
-    | 2830us -> Register.CSR2830
-    | 2831us -> Register.CSR2831
-    | 2832us -> Register.CSR2832
-    | 2833us -> Register.CSR2833
-    | 2834us -> Register.CSR2834
-    | 2835us -> Register.CSR2835
-    | 2836us -> Register.CSR2836
-    | 2837us -> Register.CSR2837
-    | 2838us -> Register.CSR2838
-    | 2839us -> Register.CSR2839
-    | 2840us -> Register.CSR2840
-    | 2841us -> Register.CSR2841
-    | 2842us -> Register.CSR2842
-    | 2843us -> Register.CSR2843
-    | 2844us -> Register.CSR2844
-    | 2845us -> Register.CSR2845
-    | 2846us -> Register.CSR2846
-    | 2847us -> Register.CSR2847
-    | 2945us -> Register.CSR2945
-    | 0800us -> Register.CSR0800
-    | 0803us -> Register.CSR0803
-    | 0804us -> Register.CSR0804
-    | 0805us -> Register.CSR0805
-    | 0806us -> Register.CSR0806
-    | 0807us -> Register.CSR0807
-    | 0808us -> Register.CSR0808
-    | 0809us -> Register.CSR0809
-    | 0810us -> Register.CSR0810
-    | 0811us -> Register.CSR0811
-    | 0812us -> Register.CSR0812
-    | 0813us -> Register.CSR0813
-    | 0814us -> Register.CSR0814
-    | 0815us -> Register.CSR0815
-    | 0816us -> Register.CSR0816
-    | 0817us -> Register.CSR0817
-    | 0818us -> Register.CSR0818
-    | 0819us -> Register.CSR0819
-    | 0820us -> Register.CSR0820
-    | 0821us -> Register.CSR0821
-    | 0822us -> Register.CSR0822
-    | 0823us -> Register.CSR0823
-    | 0824us -> Register.CSR0824
-    | 0825us -> Register.CSR0825
-    | 0826us -> Register.CSR0826
-    | 0827us -> Register.CSR0827
-    | 0828us -> Register.CSR0828
-    | 0829us -> Register.CSR0829
-    | 0830us -> Register.CSR0830
-    | 0831us -> Register.CSR0831
-    | 1952us -> Register.CSR1952
-    | 1953us -> Register.CSR1953
-    | 1954us -> Register.CSR1954
-    | 1955us -> Register.CSR1955
-    | 1968us -> Register.CSR1968
-    | 1969us -> Register.CSR1969
-    | 1970us -> Register.CSR1970
-    | 1971us -> Register.CSR1971
+    | 0001us -> RISCV64.FFLAGS
+    | 0002us -> RISCV64.FRM
+    | 0003us -> RISCV64.FCSR
+    | 0768us -> RISCV64.CSR0768
+    | 0769us -> RISCV64.CSR0769
+    | 0770us -> RISCV64.CSR0770
+    | 0771us -> RISCV64.CSR0771
+    | 0772us -> RISCV64.CSR0772
+    | 0773us -> RISCV64.CSR0773
+    | 0784us -> RISCV64.CSR0784
+    | 0832us -> RISCV64.CSR0832
+    | 0833us -> RISCV64.CSR0833
+    | 0834us -> RISCV64.CSR0834
+    | 0835us -> RISCV64.CSR0835
+    | 0836us -> RISCV64.CSR0836
+    | 0842us -> RISCV64.CSR0842
+    | 0843us -> RISCV64.CSR0843
+    | 3114us -> RISCV64.CSR3114
+    | 3787us -> RISCV64.CSR3787
+    | 3857us -> RISCV64.CSR3857
+    | 3858us -> RISCV64.CSR3858
+    | 3859us -> RISCV64.CSR3859
+    | 3860us -> RISCV64.CSR3860
+    | 0928us -> RISCV64.CSR0928
+    | 0930us -> RISCV64.CSR0930
+    | 0932us -> RISCV64.CSR0932
+    | 0934us -> RISCV64.CSR0934
+    | 0936us -> RISCV64.CSR0936
+    | 0938us -> RISCV64.CSR0938
+    | 0940us -> RISCV64.CSR0940
+    | 0942us -> RISCV64.CSR0942
+    | 0944us -> RISCV64.CSR0944
+    | 0945us -> RISCV64.CSR0945
+    | 0946us -> RISCV64.CSR0946
+    | 0947us -> RISCV64.CSR0947
+    | 0948us -> RISCV64.CSR0948
+    | 0949us -> RISCV64.CSR0949
+    | 0950us -> RISCV64.CSR0950
+    | 0951us -> RISCV64.CSR0951
+    | 0952us -> RISCV64.CSR0952
+    | 0953us -> RISCV64.CSR0953
+    | 0954us -> RISCV64.CSR0954
+    | 0955us -> RISCV64.CSR0955
+    | 0956us -> RISCV64.CSR0956
+    | 0957us -> RISCV64.CSR0957
+    | 0958us -> RISCV64.CSR0958
+    | 0959us -> RISCV64.CSR0959
+    | 0960us -> RISCV64.CSR0960
+    | 0961us -> RISCV64.CSR0961
+    | 0962us -> RISCV64.CSR0962
+    | 0963us -> RISCV64.CSR0963
+    | 0964us -> RISCV64.CSR0964
+    | 0965us -> RISCV64.CSR0965
+    | 0966us -> RISCV64.CSR0966
+    | 0967us -> RISCV64.CSR0967
+    | 0968us -> RISCV64.CSR0968
+    | 0969us -> RISCV64.CSR0969
+    | 0970us -> RISCV64.CSR0970
+    | 0971us -> RISCV64.CSR0971
+    | 0972us -> RISCV64.CSR0972
+    | 0973us -> RISCV64.CSR0973
+    | 0974us -> RISCV64.CSR0974
+    | 0975us -> RISCV64.CSR0975
+    | 0976us -> RISCV64.CSR0976
+    | 0977us -> RISCV64.CSR0977
+    | 0978us -> RISCV64.CSR0978
+    | 0979us -> RISCV64.CSR0979
+    | 0980us -> RISCV64.CSR0980
+    | 0981us -> RISCV64.CSR0981
+    | 0982us -> RISCV64.CSR0982
+    | 0983us -> RISCV64.CSR0983
+    | 0984us -> RISCV64.CSR0984
+    | 0985us -> RISCV64.CSR0985
+    | 0986us -> RISCV64.CSR0986
+    | 0987us -> RISCV64.CSR0987
+    | 0988us -> RISCV64.CSR0988
+    | 0989us -> RISCV64.CSR0989
+    | 0990us -> RISCV64.CSR0990
+    | 0991us -> RISCV64.CSR0991
+    | 0992us -> RISCV64.CSR0992
+    | 0993us -> RISCV64.CSR0993
+    | 0994us -> RISCV64.CSR0994
+    | 0995us -> RISCV64.CSR0995
+    | 0996us -> RISCV64.CSR0996
+    | 0997us -> RISCV64.CSR0997
+    | 0998us -> RISCV64.CSR0998
+    | 0999us -> RISCV64.CSR0999
+    | 1000us -> RISCV64.CSR1000
+    | 1001us -> RISCV64.CSR1001
+    | 1002us -> RISCV64.CSR1002
+    | 1003us -> RISCV64.CSR1003
+    | 1004us -> RISCV64.CSR1004
+    | 1005us -> RISCV64.CSR1005
+    | 1006us -> RISCV64.CSR1006
+    | 1007us -> RISCV64.CSR1007
+    | 2145us -> RISCV64.CSR2145
+    | 2617us -> RISCV64.CSR2617
+    | 2816us -> RISCV64.CSR2816
+    | 2818us -> RISCV64.CSR2818
+    | 2819us -> RISCV64.CSR2819
+    | 2820us -> RISCV64.CSR2820
+    | 2821us -> RISCV64.CSR2821
+    | 2822us -> RISCV64.CSR2822
+    | 2823us -> RISCV64.CSR2823
+    | 2824us -> RISCV64.CSR2824
+    | 2825us -> RISCV64.CSR2825
+    | 2826us -> RISCV64.CSR2826
+    | 2827us -> RISCV64.CSR2827
+    | 2828us -> RISCV64.CSR2828
+    | 2829us -> RISCV64.CSR2829
+    | 2830us -> RISCV64.CSR2830
+    | 2831us -> RISCV64.CSR2831
+    | 2832us -> RISCV64.CSR2832
+    | 2833us -> RISCV64.CSR2833
+    | 2834us -> RISCV64.CSR2834
+    | 2835us -> RISCV64.CSR2835
+    | 2836us -> RISCV64.CSR2836
+    | 2837us -> RISCV64.CSR2837
+    | 2838us -> RISCV64.CSR2838
+    | 2839us -> RISCV64.CSR2839
+    | 2840us -> RISCV64.CSR2840
+    | 2841us -> RISCV64.CSR2841
+    | 2842us -> RISCV64.CSR2842
+    | 2843us -> RISCV64.CSR2843
+    | 2844us -> RISCV64.CSR2844
+    | 2845us -> RISCV64.CSR2845
+    | 2846us -> RISCV64.CSR2846
+    | 2847us -> RISCV64.CSR2847
+    | 2945us -> RISCV64.CSR2945
+    | 0800us -> RISCV64.CSR0800
+    | 0803us -> RISCV64.CSR0803
+    | 0804us -> RISCV64.CSR0804
+    | 0805us -> RISCV64.CSR0805
+    | 0806us -> RISCV64.CSR0806
+    | 0807us -> RISCV64.CSR0807
+    | 0808us -> RISCV64.CSR0808
+    | 0809us -> RISCV64.CSR0809
+    | 0810us -> RISCV64.CSR0810
+    | 0811us -> RISCV64.CSR0811
+    | 0812us -> RISCV64.CSR0812
+    | 0813us -> RISCV64.CSR0813
+    | 0814us -> RISCV64.CSR0814
+    | 0815us -> RISCV64.CSR0815
+    | 0816us -> RISCV64.CSR0816
+    | 0817us -> RISCV64.CSR0817
+    | 0818us -> RISCV64.CSR0818
+    | 0819us -> RISCV64.CSR0819
+    | 0820us -> RISCV64.CSR0820
+    | 0821us -> RISCV64.CSR0821
+    | 0822us -> RISCV64.CSR0822
+    | 0823us -> RISCV64.CSR0823
+    | 0824us -> RISCV64.CSR0824
+    | 0825us -> RISCV64.CSR0825
+    | 0826us -> RISCV64.CSR0826
+    | 0827us -> RISCV64.CSR0827
+    | 0828us -> RISCV64.CSR0828
+    | 0829us -> RISCV64.CSR0829
+    | 0830us -> RISCV64.CSR0830
+    | 0831us -> RISCV64.CSR0831
+    | 1952us -> RISCV64.CSR1952
+    | 1953us -> RISCV64.CSR1953
+    | 1954us -> RISCV64.CSR1954
+    | 1955us -> RISCV64.CSR1955
+    | 1968us -> RISCV64.CSR1968
+    | 1969us -> RISCV64.CSR1969
+    | 1970us -> RISCV64.CSR1970
+    | 1971us -> RISCV64.CSR1971
     | _ ->
       eprintfn "%A" csr
       raise InvalidRegisterException
-  Register.toRegID csrReg |> ctxt.GetRegVar
+  RISCV64Register.ID csrReg |> ctxt.GetRegVar
 
 let bvOfBaseAddr (ctxt: TranslationContext) addr = numU64 addr ctxt.WordBitSize
 
@@ -258,7 +260,7 @@ let transOprToExpr insInfo ctxt = function
     AST.loadLE sz (reg .+ offset)
   | OpAddr (Relative o) -> numI64 (int64 insInfo.Address + o) ctxt.WordBitSize
   | OpAddr (RelativeBase (b, imm)) ->
-    if b = Register.X0 then
+    if b = RISCV64.X0 then
       AST.num0 ctxt.WordBitSize
     else
       let target = getRegVar ctxt b .+ numI64 (int64 imm) ctxt.WordBitSize
@@ -313,7 +315,7 @@ let roundingToCastInt x =
 
 let dynamicRoundingFl ir ctxt rt res =
   let tmpVar = !+ir rt
-  let frm = (getRegVar ctxt Register.FRM) .& (numI32 7 32<rt>)
+  let frm = (getRegVar ctxt RISCV64.FRM) .& (numI32 7 32<rt>)
   let condRNERMM = (frm == numI32 0 32<rt>) .| (frm == numI32 4 32<rt>)
   let condRTZ = frm == numI32 1 32<rt>
   let condRDN = frm == numI32 2 32<rt>
@@ -353,7 +355,7 @@ let dynamicRoundingFl ir ctxt rt res =
 
 let dynamicRoundingInt ir ctxt rt res =
   let tmpVar = !+ir rt
-  let frm = (getRegVar ctxt Register.FRM) .& (numI32 7 32<rt>)
+  let frm = (getRegVar ctxt RISCV64.FRM) .& (numI32 7 32<rt>)
   let condRNERMM = (frm == numI32 0 32<rt>) .| (frm == numI32 4 32<rt>)
   let condRTZ = frm == numI32 1 32<rt>
   let condRDN = frm == numI32 2 32<rt>
@@ -1788,7 +1790,7 @@ let csrrw insInfo insLen ctxt =
   !<ir insLen
   !!ir (AST.sideEffect Lock)
   match rd with
-  | OpReg Register.X0 -> assignFCSR csr src ctxt ir
+  | OpReg RISCV64.X0 -> assignFCSR csr src ctxt ir
   | _ ->
     let rd = transOneOpr insInfo ctxt rd
     let tmpVar = !+ir 64<rt>
@@ -1805,7 +1807,7 @@ let csrrs insInfo insLen ctxt =
   !<ir insLen
   !!ir (AST.sideEffect Lock)
   match src with
-  | OpReg Register.X0 ->
+  | OpReg RISCV64.X0 ->
     let csr = transOprToExpr insInfo ctxt csr
     !!ir (rd := AST.zext 64<rt> csr)
   | _ ->
@@ -1824,7 +1826,7 @@ let csrrc insInfo insLen ctxt =
   !<ir insLen
   !!ir (AST.sideEffect Lock)
   match src with
-  | OpReg Register.X0 ->
+  | OpReg RISCV64.X0 ->
     let csr = transOprToExpr insInfo ctxt csr
     !!ir (rd := AST.zext 64<rt> csr)
   | _ ->

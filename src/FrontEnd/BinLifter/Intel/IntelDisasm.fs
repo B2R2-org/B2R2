@@ -25,6 +25,8 @@
 module B2R2.FrontEnd.BinLifter.Intel.Disasm
 
 open B2R2
+open B2R2.FrontEnd
+open B2R2.FrontEnd.Register
 open B2R2.FrontEnd.BinLifter
 
 type Disasm = delegate of INameReadable * DisasmBuilder * InsInfo -> unit
@@ -1507,7 +1509,7 @@ module private IntelSyntax = begin
     | None -> memDispToStr (not emptyBase) d builder
     | Some (i, scale) ->
       if emptyBase then () else builder.Accumulate AsmWordKind.String "+"
-      builder.Accumulate AsmWordKind.Variable (Register.toString i)
+      builder.Accumulate AsmWordKind.Variable (IntelRegister.String i)
       scaleToString scale builder
       memDispToStr true d builder
 
@@ -1515,7 +1517,7 @@ module private IntelSyntax = begin
     match b with
     | None -> memScaleDispToStr true si disp builder
     | Some b ->
-      builder.Accumulate AsmWordKind.Variable (Register.toString b)
+      builder.Accumulate AsmWordKind.Variable (IntelRegister.String b)
       memScaleDispToStr false si disp builder
 
   let inline private isFar (ins: InsInfo) =
@@ -1547,7 +1549,7 @@ module private IntelSyntax = begin
     | Some seg ->
       builder.Accumulate AsmWordKind.String ptrDirective
       builder.Accumulate AsmWordKind.String (" [")
-      builder.Accumulate AsmWordKind.Variable (Register.toString seg)
+      builder.Accumulate AsmWordKind.Variable (IntelRegister.String seg)
       builder.Accumulate AsmWordKind.String ":"
       memAddrToStr b si d builder
       builder.Accumulate AsmWordKind.String "]"
@@ -1558,7 +1560,7 @@ module private IntelSyntax = begin
     else
       builder.Accumulate AsmWordKind.String "{"
       builder.Accumulate AsmWordKind.Variable
-        (ePrx.AAA |> int |> Register.opmask |> Register.toString)
+        (ePrx.AAA |> int |> Register.opmask |> IntelRegister.String)
       builder.Accumulate AsmWordKind.String "}"
 
   let buildMask (ins: InsInfo) builder =
@@ -1591,7 +1593,7 @@ module private IntelSyntax = begin
   let oprToString ins reader opr (builder: DisasmBuilder) =
     match opr with
     | OprReg reg ->
-      builder.Accumulate AsmWordKind.Variable (Register.toString reg)
+      builder.Accumulate AsmWordKind.Variable (IntelRegister.String reg)
     | OprMem (b, si, disp, oprSz) ->
       mToString ins builder b si disp oprSz
     | OprImm (imm, _) ->
@@ -1603,9 +1605,9 @@ module private IntelSyntax = begin
   let buildOprs (ins: InsInfo) reader (builder: DisasmBuilder) =
     match ins.Operands with
     | NoOperand -> ()
-    | OneOperand (OprMem (Some Register.RIP, None, Some off, 64<rt>)) ->
+    | OneOperand (OprMem (Some Intel.RIP, None, Some off, 64<rt>)) ->
       builder.Accumulate AsmWordKind.String (" ")
-      mToString ins builder (Some Register.RIP) None (Some off) 64<rt>
+      mToString ins builder (Some Intel.RIP) None (Some off) 64<rt>
       buildComment reader
         (builder.Address + uint64 builder.InsLength + uint64 off) builder
     | OneOperand opr ->
@@ -1613,7 +1615,7 @@ module private IntelSyntax = begin
       oprToString ins reader opr builder
     | TwoOperands (OprMem (Some R.RIP, None, Some disp, sz), opr) ->
       builder.Accumulate AsmWordKind.String " "
-      mToString ins builder (Some Register.RIP) None (Some disp) sz
+      mToString ins builder (Some Intel.RIP) None (Some disp) sz
       builder.Accumulate AsmWordKind.String ", "
       oprToString ins reader opr builder
       buildComment reader
@@ -1622,7 +1624,7 @@ module private IntelSyntax = begin
       builder.Accumulate AsmWordKind.String " "
       oprToString ins reader opr builder
       builder.Accumulate AsmWordKind.String ", "
-      mToString ins builder (Some Register.RIP) None (Some disp) sz
+      mToString ins builder (Some Intel.RIP) None (Some disp) sz
       buildComment reader
         (builder.Address + uint64 builder.InsLength + uint64 disp) builder
     | TwoOperands (opr1, (OprMem (_, _, _, memSz) as opr2)) ->
@@ -1706,22 +1708,22 @@ module private ATTSyntax = begin
     | None -> ()
     | Some (i, Scale.X1) ->
       builder.Accumulate AsmWordKind.String ", %"
-      builder.Accumulate AsmWordKind.Variable (Register.toString i)
+      builder.Accumulate AsmWordKind.Variable (IntelRegister.String i)
     | Some (i, scale) ->
       builder.Accumulate AsmWordKind.String ", %"
-      builder.Accumulate AsmWordKind.Variable (Register.toString i)
+      builder.Accumulate AsmWordKind.Variable (IntelRegister.String i)
       builder.Accumulate AsmWordKind.String ", "
       builder.Accumulate AsmWordKind.Value ((int scale).ToString())
 
   let buildSeg seg (builder: DisasmBuilder) =
     builder.Accumulate AsmWordKind.String "%"
-    builder.Accumulate AsmWordKind.Variable (Register.toString seg)
+    builder.Accumulate AsmWordKind.Variable (IntelRegister.String seg)
     builder.Accumulate AsmWordKind.String ":"
 
   let buildBasedMemory b si d builder =
     buildDisp d true builder
     builder.Accumulate AsmWordKind.String "(%"
-    builder.Accumulate AsmWordKind.Variable (Register.toString b)
+    builder.Accumulate AsmWordKind.Variable (IntelRegister.String b)
     buildScaledIndex si builder
     builder.Accumulate AsmWordKind.String ")"
 
@@ -1730,10 +1732,10 @@ module private ATTSyntax = begin
     match s with
     | Scale.X1 ->
       builder.Accumulate AsmWordKind.String "(%"
-      builder.Accumulate AsmWordKind.Variable (Register.toString i)
+      builder.Accumulate AsmWordKind.Variable (IntelRegister.String i)
     | _ ->
       builder.Accumulate AsmWordKind.String "(, %"
-      builder.Accumulate AsmWordKind.Variable (Register.toString i)
+      builder.Accumulate AsmWordKind.Variable (IntelRegister.String i)
       builder.Accumulate AsmWordKind.String ", "
       builder.Accumulate AsmWordKind.Value ((int s).ToString())
     builder.Accumulate AsmWordKind.String ")"
@@ -1766,7 +1768,7 @@ module private ATTSyntax = begin
       else
         builder.Accumulate AsmWordKind.String "{%"
         builder.Accumulate AsmWordKind.Variable
-          (ePrx.AAA |> int |> Register.opmask |> Register.toString)
+          (ePrx.AAA |> int |> Register.opmask |> IntelRegister.String)
         builder.Accumulate AsmWordKind.String "}"
       buildEVEXZ ePrx builder
     | _ -> ()
@@ -1778,7 +1780,7 @@ module private ATTSyntax = begin
         if ins.IsBranch () then builder.Accumulate AsmWordKind.String " *%"
         else builder.Accumulate AsmWordKind.String " %"
       else builder.Accumulate AsmWordKind.String ", %"
-      builder.Accumulate AsmWordKind.Variable (Register.toString reg)
+      builder.Accumulate AsmWordKind.Variable (IntelRegister.String reg)
     | OprMem (b, si, disp, oprSz) ->
       buildMemOp ins builder b si disp oprSz isFst
     | OprImm (imm, _) ->

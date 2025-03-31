@@ -25,6 +25,7 @@
 module B2R2.FrontEnd.BinLifter.SPARC.Disasm
 
 open B2R2
+open B2R2.FrontEnd.Register
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinLifter.SPARC
 
@@ -500,26 +501,26 @@ let ccToString cc (builder: DisasmBuilder) =
   builder.Accumulate AsmWordKind.Variable cc
 
 let buildReg ins reg (builder: DisasmBuilder) =
-  let reg = Register.toString reg
+  let reg = SPARCRegister.String reg
   builder.Accumulate AsmWordKind.Variable reg
 
 let memToString addrMode (builder: DisasmBuilder) =
   match addrMode with
   | DispMode (reg,c) ->
-    let reg = Register.toString reg
+    let reg = SPARCRegister.String reg
     builder.Accumulate AsmWordKind.Variable reg
     builder.Accumulate AsmWordKind.String "+"
     builder.Accumulate AsmWordKind.Value (string c)
   | PreIdxMode reg ->
-    let reg = Register.toString reg
+    let reg = SPARCRegister.String reg
     builder.Accumulate AsmWordKind.String "-"
     builder.Accumulate AsmWordKind.Variable reg
   | PostIdxMode reg ->
-    let reg = Register.toString reg
+    let reg = SPARCRegister.String reg
     builder.Accumulate AsmWordKind.Variable reg
     builder.Accumulate AsmWordKind.String "+"
   | UnchMode reg ->
-    let reg = Register.toString reg
+    let reg = SPARCRegister.String reg
     builder.Accumulate AsmWordKind.Variable reg
 
 let oprToString ins addr operand delim builder =

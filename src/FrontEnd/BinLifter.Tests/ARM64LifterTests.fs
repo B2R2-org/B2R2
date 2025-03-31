@@ -26,11 +26,12 @@ namespace B2R2.FrontEnd.BinLifter.Tests
 
 open Microsoft.VisualStudio.TestTools.UnitTesting
 open B2R2
+open B2R2.FrontEnd.Register
 open B2R2.BinIR.LowUIR
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinLifter.ARM64
 open B2R2.BinIR.LowUIR.AST.InfixOp
-open type Register
+open type ARM64
 
 [<TestClass>]
 type ARM64LifterTests () =
@@ -42,7 +43,7 @@ type ARM64LifterTests () =
 
   let ctxt = ARM64TranslationContext isa
 
-  let ( !. ) name = Register.toRegID name |> ctxt.GetRegVar
+  let ( !. ) name = ARM64Register.ID name |> ctxt.GetRegVar
 
   let ( ++ ) (byteStr: string) (givenStmts: Stmt[]) =
     ByteArray.ofHexString byteStr, givenStmts

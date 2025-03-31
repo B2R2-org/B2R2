@@ -25,7 +25,8 @@
 namespace B2R2.FrontEnd.BinLifter.SH4
 
 open B2R2
-open B2R2.FrontEnd.BinLifter
+open B2R2.FrontEnd
+open B2R2.FrontEnd.Register
 open B2R2.BinIR.LowUIR
 
 type SH4RegisterFactory (r: RegExprs) =
@@ -46,11 +47,11 @@ type SH4RegisterFactory (r: RegExprs) =
   override __.RegIDFromRegExpr (e) =
     match e.E with
     | Var (_, id, _) -> id
-    | PCVar (_) -> Register.toRegID Register.PC
+    | PCVar (_) -> SH4Register.ID SH4.PC
     | _ -> raise InvalidRegisterException
 
   override __.RegIDToRegExpr (id) =
-    Register.ofRegID id |> r.GetRegVar
+    SH4Register.Get id |> r.GetRegVar
 
   override __.StrToRegExpr s =
     match s.ToLowerInvariant () with
@@ -74,25 +75,25 @@ type SH4RegisterFactory (r: RegExprs) =
     | _ -> raise UnhandledRegExprException
 
   override __.RegIDFromString str =
-    Register.ofString str |> Register.toRegID
+    SH4Register.Get str |> SH4Register.ID
 
   override __.RegIDToString rid =
-    Register.ofRegID rid |> Register.toString
+    SH4Register.Get rid |> SH4Register.String
 
   override __.RegIDToRegType rid =
-    Register.ofRegID rid |> Register.toRegType
+    SH4Register.Get rid |> Register.toRegType
 
   override __.GetRegisterAliases _ =
     Utils.futureFeature ()
 
   override __.ProgramCounter =
-    Register.PC |> Register.toRegID
+    SH4.PC |> SH4Register.ID
 
   override __.StackPointer =
-    Register.R15 |> Register.toRegID |> Some
+    SH4.R15 |> SH4Register.ID |> Some
 
   override __.FramePointer =
-    Register.R14 |> Register.toRegID |> Some
+    SH4.R14 |> SH4Register.ID |> Some
 
   override __.IsProgramCounter rid =
     __.ProgramCounter = rid

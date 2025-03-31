@@ -25,11 +25,12 @@
 module B2R2.FrontEnd.BinLifter.SH4.GeneralLifter
 
 open System.Collections.Generic
-
 open B2R2
 open B2R2.BinIR
 open B2R2.BinIR.LowUIR
 open B2R2.BinIR.LowUIR.AST.InfixOp
+open B2R2.FrontEnd
+open B2R2.FrontEnd.Register
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinLifter.LiftingOperators
 open B2R2.FrontEnd.BinLifter.SH4
@@ -51,7 +52,7 @@ let bv1Check s =
   exprToInt s |> BitVector.IsOne
 
 let inline (!.) (ctxt: TranslationContext) reg =
-  Register.toRegID reg |> ctxt.GetRegVar
+  SH4Register.ID reg |> ctxt.GetRegVar
 
 let trsOprToExpr ctxt = function
   | OpReg (Regdir r) -> !.ctxt r
@@ -248,7 +249,7 @@ let add ins len ctxt =
     let ir = IRBuilder (8)
     let struct (t1, t2) = tmpVars2 ir oprSize
     !<ir len
-    !!ir (t1 := s |> Register.ofString |> !.ctxt |> AST.sext 32<rt>)
+    !!ir (t1 := s |> SH4Register.Get |> !.ctxt |> AST.sext 32<rt>)
     !!ir (t2 := dst |> AST.sext 32<rt>)
     !!ir (t2 := t2 .+ t1)
     !!ir (dst := AST.xtlo 32<rt> t2)
@@ -304,7 +305,7 @@ let ``and`` ins len ctxt =
     let ir = IRBuilder (8)
     let struct (t1,t2) = tmpVars2 ir oprSize
     !<ir len
-    !!ir (t1 := Register.ofString s |> !.ctxt |> AST.zext 32<rt>)
+    !!ir (t1 := SH4Register.Get s |> !.ctxt |> AST.zext 32<rt>)
     !!ir (t2 := AST.zext 32<rt> dst)
     !!ir (t2 := t2 .& t1)
     !!ir (dst := AST.xtlo 32<rt> t2)
@@ -554,7 +555,7 @@ let cmpeq ins len ctxt =
     let struct (op1, op2) = tmpVars2 ir 32<rt>
     let t = !+ir 1<rt>
     !<ir len
-    !!ir (op1 := (r |> Register.ofString |> !.ctxt |> AST.sext 32<rt>))
+    !!ir (op1 := (r |> SH4Register.Get |> !.ctxt |> AST.sext 32<rt>))
     !!ir (op2 := AST.sext 32<rt> dst)
     !!ir (t := op2 == op1)
     !!ir (!.ctxt R.T := AST.extract t 1<rt> 1)

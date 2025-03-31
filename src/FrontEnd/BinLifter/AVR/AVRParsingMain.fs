@@ -24,7 +24,8 @@
 
 module internal B2R2.FrontEnd.BinLifter.AVR.ParsingMain
 
-open B2R2
+open B2R2.FrontEnd
+open B2R2.FrontEnd.Register
 open B2R2.FrontEnd.BinLifter.AVR.OperandHelper
 
 let isTwoBytes b1 =
@@ -52,10 +53,10 @@ let parse1001001 b32 =
   | 0b1100u | 0b1101u | 0b1110u | 0b1001u | 0b1010u | 0b0001u | 0b0010u ->
     Opcode.ST, parseTwoOpr b32 getMemST getRegD
   | 0b1111u -> Opcode.PUSH, parseOneOpr b32 getRegD
-  | 0b0110u -> Opcode.LAC, TwoOperands (OprReg R.Z, getRegD b32)
-  | 0b0101u -> Opcode.LAS, TwoOperands (OprReg R.Z, getRegD b32)
-  | 0b0111u -> Opcode.LAT, TwoOperands (OprReg R.Z, getRegD b32)
-  | 0b0100u -> Opcode.XCH, TwoOperands (OprReg R.Z, getRegD b32)
+  | 0b0110u -> Opcode.LAC, TwoOperands (OprReg AVR.Z, getRegD b32)
+  | 0b0101u -> Opcode.LAS, TwoOperands (OprReg AVR.Z, getRegD b32)
+  | 0b0111u -> Opcode.LAT, TwoOperands (OprReg AVR.Z, getRegD b32)
+  | 0b0100u -> Opcode.XCH, TwoOperands (OprReg AVR.Z, getRegD b32)
   | _ -> Opcode.InvalidOp, NoOperand
 
 /// 0000 00-- ---- ----

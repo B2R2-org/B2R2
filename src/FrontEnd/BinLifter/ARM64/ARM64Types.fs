@@ -24,8 +24,9 @@
 
 namespace B2R2.FrontEnd.BinLifter.ARM64
 
-open B2R2
 open System.Runtime.CompilerServices
+open B2R2
+open B2R2.FrontEnd
 
 [<assembly: InternalsVisibleTo("B2R2.FrontEnd.BinLifter.Tests")>]
 do ()
@@ -3135,11 +3136,11 @@ type SIMDVector =
 type Index = uint8
 
 /// SIMD&FP Register
-type SIMDFPscalRegister = Register
+type SIMDFPscalRegister = Register.ARM64
 /// SIMD vector register
-type SIMDVectorRegister = Register * SIMDVector
+type SIMDVectorRegister = Register.ARM64 * SIMDVector
 /// SIMD vector register with element index
-type SIMDVectorRegisterWithIndex = Register * SIMDVector * Index
+type SIMDVectorRegisterWithIndex = Register.ARM64 * SIMDVector * Index
 
 type SIMDFPRegister =
   | SIMDFPScalarReg of SIMDFPscalRegister
@@ -3157,7 +3158,7 @@ type Const = int64
 
 type Amount =
   | Imm of Const
-  | Reg of Register
+  | Reg of Register.ARM64
 
 type Shift = SRType * Amount
 
@@ -3187,12 +3188,12 @@ type RegisterOffset =
   | ExtRegOffset of ExtendRegisterOffset
 
 type ImmOffset =
-  | BaseOffset of Register * Const option
+  | BaseOffset of Register.ARM64 * Const option
   | Lbl of Label
 
 type Offset =
   | ImmOffset of ImmOffset
-  | RegOffset of Register * Register * RegisterOffset option
+  | RegOffset of Register.ARM64 * Register.ARM64 * RegisterOffset option
 
 type AddressingMode =
   | BaseMode of Offset
@@ -3208,7 +3209,7 @@ type RoundMode =
   | FPRounding_NEGINF
 
 type Operand =
-  | OprRegister of Register
+  | OprRegister of Register.ARM64
   (* SIMD&FP register *)
   | OprSIMD of SIMDFPRegister
   (* SIMD vector register list or SIMD vector element list *)

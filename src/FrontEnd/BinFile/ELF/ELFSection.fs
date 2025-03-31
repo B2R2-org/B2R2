@@ -26,6 +26,7 @@ namespace B2R2.FrontEnd.BinFile.ELF
 
 open System
 open B2R2
+open B2R2.FrontEnd
 open B2R2.FrontEnd.BinFile.FileHelper
 
 /// This member categorizes the section's contents and semantics.

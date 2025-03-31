@@ -25,6 +25,7 @@
 namespace B2R2.FrontEnd.BinLifter.Intel
 
 open B2R2
+open B2R2.FrontEnd
 open B2R2.FrontEnd.BinLifter
 
 /// The internal representation for an Intel instruction used by our
@@ -114,7 +115,7 @@ type IntelInstruction
       match oprs with
       | OneOperand (OprMem (None, None, Some disp, _)) ->
         addr <- uint64 disp; true
-      | OneOperand (OprMem (Some Register.RIP, None, Some disp, _)) ->
+      | OneOperand (OprMem (Some Register.Intel.RIP, None, Some disp, _)) ->
         addr <- __.Address + uint64 __.Length + uint64 disp
         true
       | _ -> false

@@ -24,6 +24,7 @@
 
 module internal B2R2.FrontEnd.BinLifter.ARM32.ThumbParser
 
+open B2R2.FrontEnd
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinLifter.ARM32.ParseUtils
 open B2R2.FrontEnd.BinLifter.ARM32.OperandHelper
@@ -9214,7 +9215,7 @@ let parse32Bit phlp (itstate: byref<BL>) isInIT bin =
 
 /// ARM Architecture Reference Manual ARMv8-A, ARM DDI 0487F.c ID072120
 /// T32 instruction set encoding on page F3-4148.
-let parse (span: B2R2.ByteSpan) (phlp: ParsingHelper) (itstate: byref<BL>) =
+let parse (span: ByteSpan) (phlp: ParsingHelper) (itstate: byref<BL>) =
   let isInIT = not itstate.IsEmpty
   phlp.Cond <- getCondWithITSTATE itstate
   phlp.IsAdd <- true

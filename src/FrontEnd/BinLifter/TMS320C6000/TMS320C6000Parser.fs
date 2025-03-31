@@ -26,6 +26,7 @@ namespace B2R2.FrontEnd.BinLifter.TMS320C6000
 
 open System
 open B2R2
+open B2R2.FrontEnd
 open B2R2.FrontEnd.BinLifter
 
 /// Parser for TMS320C6000 instructions. Parser will return a platform-agnostic

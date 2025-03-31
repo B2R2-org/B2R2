@@ -24,8 +24,9 @@
 
 namespace B2R2.FrontEnd.BinFile.PE
 
-open B2R2
 open System.Reflection.PortableExecutable
+open B2R2
+open B2R2.FrontEnd
 
 /// Base Relocation Type.
 type BaseRelocType =

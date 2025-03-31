@@ -25,7 +25,7 @@
 namespace B2R2.FrontEnd.BinLifter.CIL
 
 open B2R2
-open B2R2.FrontEnd.BinLifter
+open B2R2.FrontEnd
 open B2R2.BinIR.LowUIR
 
 type internal RegExprs () =

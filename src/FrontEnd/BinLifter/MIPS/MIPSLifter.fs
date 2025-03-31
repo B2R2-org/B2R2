@@ -25,20 +25,22 @@
 module internal B2R2.FrontEnd.BinLifter.MIPS.Lifter
 
 open B2R2
+open B2R2.FrontEnd.Register
 open B2R2.BinIR
 open B2R2.BinIR.LowUIR
 open B2R2.BinIR.LowUIR.AST.InfixOp
+open B2R2.FrontEnd
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinLifter.LiftingOperators
 open B2R2.FrontEnd.BinLifter.LiftingUtils
 open B2R2.FrontEnd.BinLifter.MIPS
 
-let inline getRegVar (ctxt: TranslationContext) name =
-  Register.toRegID name |> ctxt.GetRegVar
+let inline getRegVar (ctxt: TranslationContext) reg =
+  MIPSRegister.ID reg |> ctxt.GetRegVar
 
 let inline (:=) dst src =
   match dst with
-  | { E = Var (_, rid, _) } when rid = Register.toRegID Register.R0 ->
+  | { E = Var (_, rid, _) } when rid = MIPSRegister.ID MIPS.R0 ->
     dst := dst (* Prevent setting r0. Our optimizer will remove this anyways. *)
   | _ ->
     dst := src

@@ -26,11 +26,12 @@ namespace B2R2.FrontEnd.BinLifter.Tests
 
 open Microsoft.VisualStudio.TestTools.UnitTesting
 open B2R2
+open B2R2.FrontEnd
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinLifter.ARM32
 open B2R2.FrontEnd.BinLifter.ARM32.OperandHelper
 open type Opcode
-open type Register
+open type Register.ARM32
 
 /// Shortcut for creating operands.
 [<AutoOpen>]

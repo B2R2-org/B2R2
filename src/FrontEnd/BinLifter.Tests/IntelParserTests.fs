@@ -26,6 +26,8 @@ namespace B2R2.FrontEnd.BinLifter.Tests
 
 open Microsoft.VisualStudio.TestTools.UnitTesting
 open B2R2
+open B2R2.FrontEnd
+open B2R2.FrontEnd.Register
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinLifter.Intel
 open type Opcode
@@ -75,7 +77,7 @@ type IntelParserTests () =
     let parser = IntelParser (wordSize) :> IInstructionParsable
     let ins = parser.Parse (bs=bytes, addr=0UL) :?> IntelInternalInstruction
     Assert.AreEqual<Prefix> (ins.Prefixes, prefs)
-    Assert.AreEqual<Register option> (Helper.getSegment ins.Prefixes, segment)
+    Assert.AreEqual<Intel option> (Helper.getSegment ins.Prefixes, segment)
     Assert.AreEqual<Opcode> (ins.Opcode, opcode)
     Assert.AreEqual<Operands> (ins.Operands, oprs)
     Assert.AreEqual<uint32> (ins.Length, uint32 bytes.Length)

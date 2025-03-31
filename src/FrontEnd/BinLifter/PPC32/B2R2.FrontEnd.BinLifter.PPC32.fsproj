@@ -8,7 +8,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="PPC32Register.fs" />
     <Compile Include="PPC32RegExprs.fs" />
     <Compile Include="PPC32RegisterFactory.fs" />
     <Compile Include="PPC32Types.fs" />
@@ -27,6 +26,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\..\Core\B2R2.Core.fsproj" />
     <ProjectReference Include="..\..\..\BinIR\B2R2.BinIR.fsproj" />
+    <ProjectReference Include="..\..\Core\B2R2.FrontEnd.Core.fsproj" />
     <ProjectReference Include="..\Core\B2R2.FrontEnd.BinLifter.Core.fsproj" />
   </ItemGroup>
 

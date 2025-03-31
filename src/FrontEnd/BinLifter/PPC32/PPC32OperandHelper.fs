@@ -24,17 +24,19 @@ SOFTWARE.
 
 module internal B2R2.FrontEnd.BinLifter.PPC32.OperandHelper
 
-let getRegister (n: uint32): Register =
+open B2R2.FrontEnd
+
+let getRegister (n: uint32): Register.PPC32 =
   n |> int |> LanguagePrimitives.EnumOfValue
 
-let getFPRegister (n: uint32): Register =
+let getFPRegister (n: uint32): Register.PPC32 =
   n + 0x20u |> int |> LanguagePrimitives.EnumOfValue
 
-let getCondRegister (n: uint32): Register =
+let getCondRegister (n: uint32): Register.PPC32 =
   n + 0x40u |> int |> LanguagePrimitives.EnumOfValue
 
 /// Used to specify a CR bit.
-let getCRbitRegister (n: uint32): Register =
+let getCRbitRegister (n: uint32): Register.PPC32 =
   n + 0x48u |> int |> LanguagePrimitives.EnumOfValue
 
 /// Used to specify in the FPSCR.

@@ -25,6 +25,7 @@
 namespace B2R2.FrontEnd.BinLifter.AVR
 
 open B2R2
+open B2R2.FrontEnd.Register
 open B2R2.FrontEnd.BinLifter
 
 /// Translation context for AVR instructions.
@@ -36,7 +37,7 @@ type AVRTranslationContext (isa) =
   member __.RegExprs with get() = regExprs
 
   override __.GetRegVar id =
-    Register.ofRegID id |> regExprs.GetRegVar
+    AVRRegister.Get id |> regExprs.GetRegVar
 
   override __.GetPseudoRegVar _id _pos =
     Utils.impossible ()

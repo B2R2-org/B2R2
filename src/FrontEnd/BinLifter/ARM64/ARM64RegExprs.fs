@@ -25,46 +25,47 @@
 namespace B2R2.FrontEnd.BinLifter.ARM64
 
 open B2R2
-open B2R2.FrontEnd.BinLifter
+open B2R2.FrontEnd
+open B2R2.FrontEnd.Register
 open B2R2.BinIR.LowUIR
 
 type RegExprs () =
   let var sz t name = AST.var sz t name
 
   (* Registers *)
-  let r0  = var 64<rt> (Register.toRegID Register.X0) "X0"
-  let r1  = var 64<rt> (Register.toRegID Register.X1) "X1"
-  let r2  = var 64<rt> (Register.toRegID Register.X2) "X2"
-  let r3  = var 64<rt> (Register.toRegID Register.X3) "X3"
-  let r4  = var 64<rt> (Register.toRegID Register.X4) "X4"
-  let r5  = var 64<rt> (Register.toRegID Register.X5) "X5"
-  let r6  = var 64<rt> (Register.toRegID Register.X6) "X6"
-  let r7  = var 64<rt> (Register.toRegID Register.X7) "X7"
-  let r8  = var 64<rt> (Register.toRegID Register.X8) "X8"
-  let r9  = var 64<rt> (Register.toRegID Register.X9) "X9"
-  let r10 = var 64<rt> (Register.toRegID Register.X10) "X10"
-  let r11 = var 64<rt> (Register.toRegID Register.X11) "X11"
-  let r12 = var 64<rt> (Register.toRegID Register.X12) "X12"
-  let r13 = var 64<rt> (Register.toRegID Register.X13) "X13"
-  let r14 = var 64<rt> (Register.toRegID Register.X14) "X14"
-  let r15 = var 64<rt> (Register.toRegID Register.X15) "X15"
-  let r16 = var 64<rt> (Register.toRegID Register.X16) "X16"
-  let r17 = var 64<rt> (Register.toRegID Register.X17) "X17"
-  let r18 = var 64<rt> (Register.toRegID Register.X18) "X18"
-  let r19 = var 64<rt> (Register.toRegID Register.X19) "X19"
-  let r20 = var 64<rt> (Register.toRegID Register.X20) "X20"
-  let r21 = var 64<rt> (Register.toRegID Register.X21) "X21"
-  let r22 = var 64<rt> (Register.toRegID Register.X22) "X22"
-  let r23 = var 64<rt> (Register.toRegID Register.X23) "X23"
-  let r24 = var 64<rt> (Register.toRegID Register.X24) "X24"
-  let r25 = var 64<rt> (Register.toRegID Register.X25) "X25"
-  let r26 = var 64<rt> (Register.toRegID Register.X26) "X26"
-  let r27 = var 64<rt> (Register.toRegID Register.X27) "X27"
-  let r28 = var 64<rt> (Register.toRegID Register.X28) "X28"
-  let r29 = var 64<rt> (Register.toRegID Register.X29) "X29"
-  let r30 = var 64<rt> (Register.toRegID Register.X30) "X30"
-  let xzr = var 64<rt> (Register.toRegID Register.XZR) "XZR"
-  let sp = var 64<rt> (Register.toRegID Register.SP) "SP"
+  let r0  = var 64<rt> (ARM64Register.ID ARM64.X0) "X0"
+  let r1  = var 64<rt> (ARM64Register.ID ARM64.X1) "X1"
+  let r2  = var 64<rt> (ARM64Register.ID ARM64.X2) "X2"
+  let r3  = var 64<rt> (ARM64Register.ID ARM64.X3) "X3"
+  let r4  = var 64<rt> (ARM64Register.ID ARM64.X4) "X4"
+  let r5  = var 64<rt> (ARM64Register.ID ARM64.X5) "X5"
+  let r6  = var 64<rt> (ARM64Register.ID ARM64.X6) "X6"
+  let r7  = var 64<rt> (ARM64Register.ID ARM64.X7) "X7"
+  let r8  = var 64<rt> (ARM64Register.ID ARM64.X8) "X8"
+  let r9  = var 64<rt> (ARM64Register.ID ARM64.X9) "X9"
+  let r10 = var 64<rt> (ARM64Register.ID ARM64.X10) "X10"
+  let r11 = var 64<rt> (ARM64Register.ID ARM64.X11) "X11"
+  let r12 = var 64<rt> (ARM64Register.ID ARM64.X12) "X12"
+  let r13 = var 64<rt> (ARM64Register.ID ARM64.X13) "X13"
+  let r14 = var 64<rt> (ARM64Register.ID ARM64.X14) "X14"
+  let r15 = var 64<rt> (ARM64Register.ID ARM64.X15) "X15"
+  let r16 = var 64<rt> (ARM64Register.ID ARM64.X16) "X16"
+  let r17 = var 64<rt> (ARM64Register.ID ARM64.X17) "X17"
+  let r18 = var 64<rt> (ARM64Register.ID ARM64.X18) "X18"
+  let r19 = var 64<rt> (ARM64Register.ID ARM64.X19) "X19"
+  let r20 = var 64<rt> (ARM64Register.ID ARM64.X20) "X20"
+  let r21 = var 64<rt> (ARM64Register.ID ARM64.X21) "X21"
+  let r22 = var 64<rt> (ARM64Register.ID ARM64.X22) "X22"
+  let r23 = var 64<rt> (ARM64Register.ID ARM64.X23) "X23"
+  let r24 = var 64<rt> (ARM64Register.ID ARM64.X24) "X24"
+  let r25 = var 64<rt> (ARM64Register.ID ARM64.X25) "X25"
+  let r26 = var 64<rt> (ARM64Register.ID ARM64.X26) "X26"
+  let r27 = var 64<rt> (ARM64Register.ID ARM64.X27) "X27"
+  let r28 = var 64<rt> (ARM64Register.ID ARM64.X28) "X28"
+  let r29 = var 64<rt> (ARM64Register.ID ARM64.X29) "X29"
+  let r30 = var 64<rt> (ARM64Register.ID ARM64.X30) "X30"
+  let xzr = var 64<rt> (ARM64Register.ID ARM64.XZR) "XZR"
+  let sp = var 64<rt> (ARM64Register.ID ARM64.SP) "SP"
   let pc = AST.pcvar 64<rt> "PC"
 
   let w0  = AST.xtlo 32<rt> r0
@@ -101,70 +102,70 @@ type RegExprs () =
   let wzr = AST.xtlo 32<rt> xzr
   let wsp = AST.xtlo 32<rt> sp
 
-  let v0a  = var 64<rt> (Register.toRegID Register.V0A) "V0A"
-  let v0b  = var 64<rt> (Register.toRegID Register.V0B) "V0B"
-  let v1a  = var 64<rt> (Register.toRegID Register.V1A) "V1A"
-  let v1b  = var 64<rt> (Register.toRegID Register.V1B) "V1B"
-  let v2a  = var 64<rt> (Register.toRegID Register.V2A) "V2A"
-  let v2b  = var 64<rt> (Register.toRegID Register.V2B) "V2B"
-  let v3a  = var 64<rt> (Register.toRegID Register.V3A) "V3A"
-  let v3b  = var 64<rt> (Register.toRegID Register.V3B) "V3B"
-  let v4a  = var 64<rt> (Register.toRegID Register.V4A) "V4A"
-  let v4b  = var 64<rt> (Register.toRegID Register.V4B) "V4B"
-  let v5a  = var 64<rt> (Register.toRegID Register.V5A) "V5A"
-  let v5b  = var 64<rt> (Register.toRegID Register.V5B) "V5B"
-  let v6a  = var 64<rt> (Register.toRegID Register.V6A) "V6A"
-  let v6b  = var 64<rt> (Register.toRegID Register.V6B) "V6B"
-  let v7a  = var 64<rt> (Register.toRegID Register.V7A) "V7A"
-  let v7b  = var 64<rt> (Register.toRegID Register.V7B) "V7B"
-  let v8a  = var 64<rt> (Register.toRegID Register.V8A) "V8A"
-  let v8b  = var 64<rt> (Register.toRegID Register.V8B) "V8B"
-  let v9a  = var 64<rt> (Register.toRegID Register.V9A) "V9A"
-  let v9b  = var 64<rt> (Register.toRegID Register.V9B) "V9B"
-  let v10a = var 64<rt> (Register.toRegID Register.V10A) "V10A"
-  let v10b = var 64<rt> (Register.toRegID Register.V10B) "V10B"
-  let v11a = var 64<rt> (Register.toRegID Register.V11A) "V11A"
-  let v11b = var 64<rt> (Register.toRegID Register.V11B) "V11B"
-  let v12a = var 64<rt> (Register.toRegID Register.V12A) "V12A"
-  let v12b = var 64<rt> (Register.toRegID Register.V12B) "V12B"
-  let v13a = var 64<rt> (Register.toRegID Register.V13A) "V13A"
-  let v13b = var 64<rt> (Register.toRegID Register.V13B) "V13B"
-  let v14a = var 64<rt> (Register.toRegID Register.V14A) "V14A"
-  let v14b = var 64<rt> (Register.toRegID Register.V14B) "V14B"
-  let v15a = var 64<rt> (Register.toRegID Register.V15A) "V15A"
-  let v15b = var 64<rt> (Register.toRegID Register.V15B) "V15B"
-  let v16a = var 64<rt> (Register.toRegID Register.V16A) "V16A"
-  let v16b = var 64<rt> (Register.toRegID Register.V16B) "V16B"
-  let v17a = var 64<rt> (Register.toRegID Register.V17A) "V17A"
-  let v17b = var 64<rt> (Register.toRegID Register.V17B) "V17B"
-  let v18a = var 64<rt> (Register.toRegID Register.V18A) "V18A"
-  let v18b = var 64<rt> (Register.toRegID Register.V18B) "V18B"
-  let v19a = var 64<rt> (Register.toRegID Register.V19A) "V19A"
-  let v19b = var 64<rt> (Register.toRegID Register.V19B) "V19B"
-  let v20a = var 64<rt> (Register.toRegID Register.V20A) "V20A"
-  let v20b = var 64<rt> (Register.toRegID Register.V20B) "V20B"
-  let v21a = var 64<rt> (Register.toRegID Register.V21A) "V21A"
-  let v21b = var 64<rt> (Register.toRegID Register.V21B) "V21B"
-  let v22a = var 64<rt> (Register.toRegID Register.V22A) "V22A"
-  let v22b = var 64<rt> (Register.toRegID Register.V22B) "V22B"
-  let v23a = var 64<rt> (Register.toRegID Register.V23A) "V23A"
-  let v23b = var 64<rt> (Register.toRegID Register.V23B) "V23B"
-  let v24a = var 64<rt> (Register.toRegID Register.V24A) "V24A"
-  let v24b = var 64<rt> (Register.toRegID Register.V24B) "V24B"
-  let v25a = var 64<rt> (Register.toRegID Register.V25A) "V25A"
-  let v25b = var 64<rt> (Register.toRegID Register.V25B) "V25B"
-  let v26a = var 64<rt> (Register.toRegID Register.V26A) "V26A"
-  let v26b = var 64<rt> (Register.toRegID Register.V26B) "V26B"
-  let v27a = var 64<rt> (Register.toRegID Register.V27A) "V27A"
-  let v27b = var 64<rt> (Register.toRegID Register.V27B) "V27B"
-  let v28a = var 64<rt> (Register.toRegID Register.V28A) "V28A"
-  let v28b = var 64<rt> (Register.toRegID Register.V28B) "V28B"
-  let v29a = var 64<rt> (Register.toRegID Register.V29A) "V29A"
-  let v29b = var 64<rt> (Register.toRegID Register.V29B) "V29B"
-  let v30a = var 64<rt> (Register.toRegID Register.V30A) "V30A"
-  let v30b = var 64<rt> (Register.toRegID Register.V30B) "V30B"
-  let v31a = var 64<rt> (Register.toRegID Register.V31A) "V31A"
-  let v31b = var 64<rt> (Register.toRegID Register.V31B) "V31B"
+  let v0a  = var 64<rt> (ARM64Register.ID ARM64.V0A) "V0A"
+  let v0b  = var 64<rt> (ARM64Register.ID ARM64.V0B) "V0B"
+  let v1a  = var 64<rt> (ARM64Register.ID ARM64.V1A) "V1A"
+  let v1b  = var 64<rt> (ARM64Register.ID ARM64.V1B) "V1B"
+  let v2a  = var 64<rt> (ARM64Register.ID ARM64.V2A) "V2A"
+  let v2b  = var 64<rt> (ARM64Register.ID ARM64.V2B) "V2B"
+  let v3a  = var 64<rt> (ARM64Register.ID ARM64.V3A) "V3A"
+  let v3b  = var 64<rt> (ARM64Register.ID ARM64.V3B) "V3B"
+  let v4a  = var 64<rt> (ARM64Register.ID ARM64.V4A) "V4A"
+  let v4b  = var 64<rt> (ARM64Register.ID ARM64.V4B) "V4B"
+  let v5a  = var 64<rt> (ARM64Register.ID ARM64.V5A) "V5A"
+  let v5b  = var 64<rt> (ARM64Register.ID ARM64.V5B) "V5B"
+  let v6a  = var 64<rt> (ARM64Register.ID ARM64.V6A) "V6A"
+  let v6b  = var 64<rt> (ARM64Register.ID ARM64.V6B) "V6B"
+  let v7a  = var 64<rt> (ARM64Register.ID ARM64.V7A) "V7A"
+  let v7b  = var 64<rt> (ARM64Register.ID ARM64.V7B) "V7B"
+  let v8a  = var 64<rt> (ARM64Register.ID ARM64.V8A) "V8A"
+  let v8b  = var 64<rt> (ARM64Register.ID ARM64.V8B) "V8B"
+  let v9a  = var 64<rt> (ARM64Register.ID ARM64.V9A) "V9A"
+  let v9b  = var 64<rt> (ARM64Register.ID ARM64.V9B) "V9B"
+  let v10a = var 64<rt> (ARM64Register.ID ARM64.V10A) "V10A"
+  let v10b = var 64<rt> (ARM64Register.ID ARM64.V10B) "V10B"
+  let v11a = var 64<rt> (ARM64Register.ID ARM64.V11A) "V11A"
+  let v11b = var 64<rt> (ARM64Register.ID ARM64.V11B) "V11B"
+  let v12a = var 64<rt> (ARM64Register.ID ARM64.V12A) "V12A"
+  let v12b = var 64<rt> (ARM64Register.ID ARM64.V12B) "V12B"
+  let v13a = var 64<rt> (ARM64Register.ID ARM64.V13A) "V13A"
+  let v13b = var 64<rt> (ARM64Register.ID ARM64.V13B) "V13B"
+  let v14a = var 64<rt> (ARM64Register.ID ARM64.V14A) "V14A"
+  let v14b = var 64<rt> (ARM64Register.ID ARM64.V14B) "V14B"
+  let v15a = var 64<rt> (ARM64Register.ID ARM64.V15A) "V15A"
+  let v15b = var 64<rt> (ARM64Register.ID ARM64.V15B) "V15B"
+  let v16a = var 64<rt> (ARM64Register.ID ARM64.V16A) "V16A"
+  let v16b = var 64<rt> (ARM64Register.ID ARM64.V16B) "V16B"
+  let v17a = var 64<rt> (ARM64Register.ID ARM64.V17A) "V17A"
+  let v17b = var 64<rt> (ARM64Register.ID ARM64.V17B) "V17B"
+  let v18a = var 64<rt> (ARM64Register.ID ARM64.V18A) "V18A"
+  let v18b = var 64<rt> (ARM64Register.ID ARM64.V18B) "V18B"
+  let v19a = var 64<rt> (ARM64Register.ID ARM64.V19A) "V19A"
+  let v19b = var 64<rt> (ARM64Register.ID ARM64.V19B) "V19B"
+  let v20a = var 64<rt> (ARM64Register.ID ARM64.V20A) "V20A"
+  let v20b = var 64<rt> (ARM64Register.ID ARM64.V20B) "V20B"
+  let v21a = var 64<rt> (ARM64Register.ID ARM64.V21A) "V21A"
+  let v21b = var 64<rt> (ARM64Register.ID ARM64.V21B) "V21B"
+  let v22a = var 64<rt> (ARM64Register.ID ARM64.V22A) "V22A"
+  let v22b = var 64<rt> (ARM64Register.ID ARM64.V22B) "V22B"
+  let v23a = var 64<rt> (ARM64Register.ID ARM64.V23A) "V23A"
+  let v23b = var 64<rt> (ARM64Register.ID ARM64.V23B) "V23B"
+  let v24a = var 64<rt> (ARM64Register.ID ARM64.V24A) "V24A"
+  let v24b = var 64<rt> (ARM64Register.ID ARM64.V24B) "V24B"
+  let v25a = var 64<rt> (ARM64Register.ID ARM64.V25A) "V25A"
+  let v25b = var 64<rt> (ARM64Register.ID ARM64.V25B) "V25B"
+  let v26a = var 64<rt> (ARM64Register.ID ARM64.V26A) "V26A"
+  let v26b = var 64<rt> (ARM64Register.ID ARM64.V26B) "V26B"
+  let v27a = var 64<rt> (ARM64Register.ID ARM64.V27A) "V27A"
+  let v27b = var 64<rt> (ARM64Register.ID ARM64.V27B) "V27B"
+  let v28a = var 64<rt> (ARM64Register.ID ARM64.V28A) "V28A"
+  let v28b = var 64<rt> (ARM64Register.ID ARM64.V28B) "V28B"
+  let v29a = var 64<rt> (ARM64Register.ID ARM64.V29A) "V29A"
+  let v29b = var 64<rt> (ARM64Register.ID ARM64.V29B) "V29B"
+  let v30a = var 64<rt> (ARM64Register.ID ARM64.V30A) "V30A"
+  let v30b = var 64<rt> (ARM64Register.ID ARM64.V30B) "V30B"
+  let v31a = var 64<rt> (ARM64Register.ID ARM64.V31A) "V31A"
+  let v31b = var 64<rt> (ARM64Register.ID ARM64.V31B) "V31B"
 
   let d0  = v0a
   let d1  = v1a
@@ -439,70 +440,70 @@ type RegExprs () =
   member val V31B = v31b with get
 
   (* 128-bit registers *)
-  member val Q0A = var 64<rt> (Register.toRegID Register.V0A) "Q0A" with get
-  member val Q0B = var 64<rt> (Register.toRegID Register.V0B) "Q0B" with get
-  member val Q1A = var 64<rt> (Register.toRegID Register.V1A) "Q1A" with get
-  member val Q1B = var 64<rt> (Register.toRegID Register.V1B) "Q1B" with get
-  member val Q2A = var 64<rt> (Register.toRegID Register.V2A) "Q2A" with get
-  member val Q2B = var 64<rt> (Register.toRegID Register.V2B) "Q2B" with get
-  member val Q3A = var 64<rt> (Register.toRegID Register.V3A) "Q3A" with get
-  member val Q3B = var 64<rt> (Register.toRegID Register.V3B) "Q3B" with get
-  member val Q4A = var 64<rt> (Register.toRegID Register.V4A) "Q4A" with get
-  member val Q4B = var 64<rt> (Register.toRegID Register.V4B) "Q4B" with get
-  member val Q5A = var 64<rt> (Register.toRegID Register.V5A) "Q5A" with get
-  member val Q5B = var 64<rt> (Register.toRegID Register.V5B) "Q5B" with get
-  member val Q6A = var 64<rt> (Register.toRegID Register.V6A) "Q6A" with get
-  member val Q6B = var 64<rt> (Register.toRegID Register.V6B) "Q6B" with get
-  member val Q7A = var 64<rt> (Register.toRegID Register.V7A) "Q7A" with get
-  member val Q7B = var 64<rt> (Register.toRegID Register.V7B) "Q7B" with get
-  member val Q8A = var 64<rt> (Register.toRegID Register.V8A) "Q8A" with get
-  member val Q8B = var 64<rt> (Register.toRegID Register.V8B) "Q8B" with get
-  member val Q9A = var 64<rt> (Register.toRegID Register.V9A) "Q9A" with get
-  member val Q9B = var 64<rt> (Register.toRegID Register.V9B) "Q9B" with get
-  member val Q10A = var 64<rt> (Register.toRegID Register.V10A) "Q10A" with get
-  member val Q10B = var 64<rt> (Register.toRegID Register.V10B) "Q10B" with get
-  member val Q11A = var 64<rt> (Register.toRegID Register.V11A) "Q11A" with get
-  member val Q11B = var 64<rt> (Register.toRegID Register.V11B) "Q11B" with get
-  member val Q12A = var 64<rt> (Register.toRegID Register.V12A) "Q12A" with get
-  member val Q12B = var 64<rt> (Register.toRegID Register.V12B) "Q12B" with get
-  member val Q13A = var 64<rt> (Register.toRegID Register.V13A) "Q13A" with get
-  member val Q13B = var 64<rt> (Register.toRegID Register.V13B) "Q13B" with get
-  member val Q14A = var 64<rt> (Register.toRegID Register.V14A) "Q14A" with get
-  member val Q14B = var 64<rt> (Register.toRegID Register.V14B) "Q14B" with get
-  member val Q15A = var 64<rt> (Register.toRegID Register.V15A) "Q15A" with get
-  member val Q15B = var 64<rt> (Register.toRegID Register.V15B) "Q15B" with get
-  member val Q16A = var 64<rt> (Register.toRegID Register.V16A) "Q16A" with get
-  member val Q16B = var 64<rt> (Register.toRegID Register.V16B) "Q16B" with get
-  member val Q17A = var 64<rt> (Register.toRegID Register.V17A) "Q17A" with get
-  member val Q17B = var 64<rt> (Register.toRegID Register.V17B) "Q17B" with get
-  member val Q18A = var 64<rt> (Register.toRegID Register.V18A) "Q18A" with get
-  member val Q18B = var 64<rt> (Register.toRegID Register.V18B) "Q18B" with get
-  member val Q19A = var 64<rt> (Register.toRegID Register.V19A) "Q19A" with get
-  member val Q19B = var 64<rt> (Register.toRegID Register.V19B) "Q19B" with get
-  member val Q20A = var 64<rt> (Register.toRegID Register.V20A) "Q20A" with get
-  member val Q20B = var 64<rt> (Register.toRegID Register.V20B) "Q20B" with get
-  member val Q21A = var 64<rt> (Register.toRegID Register.V21A) "Q21A" with get
-  member val Q21B = var 64<rt> (Register.toRegID Register.V21B) "Q21B" with get
-  member val Q22A = var 64<rt> (Register.toRegID Register.V22A) "Q22A" with get
-  member val Q22B = var 64<rt> (Register.toRegID Register.V22B) "Q22B" with get
-  member val Q23A = var 64<rt> (Register.toRegID Register.V23A) "Q23A" with get
-  member val Q23B = var 64<rt> (Register.toRegID Register.V23B) "Q23B" with get
-  member val Q24A = var 64<rt> (Register.toRegID Register.V24A) "Q24A" with get
-  member val Q24B = var 64<rt> (Register.toRegID Register.V24B) "Q24B" with get
-  member val Q25A = var 64<rt> (Register.toRegID Register.V25A) "Q25A" with get
-  member val Q25B = var 64<rt> (Register.toRegID Register.V25B) "Q25B" with get
-  member val Q26A = var 64<rt> (Register.toRegID Register.V26A) "Q26A" with get
-  member val Q26B = var 64<rt> (Register.toRegID Register.V26B) "Q26B" with get
-  member val Q27A = var 64<rt> (Register.toRegID Register.V27A) "Q27A" with get
-  member val Q27B = var 64<rt> (Register.toRegID Register.V27B) "Q27B" with get
-  member val Q28A = var 64<rt> (Register.toRegID Register.V28A) "Q28A" with get
-  member val Q28B = var 64<rt> (Register.toRegID Register.V28B) "Q28B" with get
-  member val Q29A = var 64<rt> (Register.toRegID Register.V29A) "Q29A" with get
-  member val Q29B = var 64<rt> (Register.toRegID Register.V29B) "Q29B" with get
-  member val Q30A = var 64<rt> (Register.toRegID Register.V30A) "Q30A" with get
-  member val Q30B = var 64<rt> (Register.toRegID Register.V30B) "Q30B" with get
-  member val Q31A = var 64<rt> (Register.toRegID Register.V31A) "Q31A" with get
-  member val Q31B = var 64<rt> (Register.toRegID Register.V31B) "Q31B" with get
+  member val Q0A = var 64<rt> (ARM64Register.ID ARM64.V0A) "Q0A" with get
+  member val Q0B = var 64<rt> (ARM64Register.ID ARM64.V0B) "Q0B" with get
+  member val Q1A = var 64<rt> (ARM64Register.ID ARM64.V1A) "Q1A" with get
+  member val Q1B = var 64<rt> (ARM64Register.ID ARM64.V1B) "Q1B" with get
+  member val Q2A = var 64<rt> (ARM64Register.ID ARM64.V2A) "Q2A" with get
+  member val Q2B = var 64<rt> (ARM64Register.ID ARM64.V2B) "Q2B" with get
+  member val Q3A = var 64<rt> (ARM64Register.ID ARM64.V3A) "Q3A" with get
+  member val Q3B = var 64<rt> (ARM64Register.ID ARM64.V3B) "Q3B" with get
+  member val Q4A = var 64<rt> (ARM64Register.ID ARM64.V4A) "Q4A" with get
+  member val Q4B = var 64<rt> (ARM64Register.ID ARM64.V4B) "Q4B" with get
+  member val Q5A = var 64<rt> (ARM64Register.ID ARM64.V5A) "Q5A" with get
+  member val Q5B = var 64<rt> (ARM64Register.ID ARM64.V5B) "Q5B" with get
+  member val Q6A = var 64<rt> (ARM64Register.ID ARM64.V6A) "Q6A" with get
+  member val Q6B = var 64<rt> (ARM64Register.ID ARM64.V6B) "Q6B" with get
+  member val Q7A = var 64<rt> (ARM64Register.ID ARM64.V7A) "Q7A" with get
+  member val Q7B = var 64<rt> (ARM64Register.ID ARM64.V7B) "Q7B" with get
+  member val Q8A = var 64<rt> (ARM64Register.ID ARM64.V8A) "Q8A" with get
+  member val Q8B = var 64<rt> (ARM64Register.ID ARM64.V8B) "Q8B" with get
+  member val Q9A = var 64<rt> (ARM64Register.ID ARM64.V9A) "Q9A" with get
+  member val Q9B = var 64<rt> (ARM64Register.ID ARM64.V9B) "Q9B" with get
+  member val Q10A = var 64<rt> (ARM64Register.ID ARM64.V10A) "Q10A" with get
+  member val Q10B = var 64<rt> (ARM64Register.ID ARM64.V10B) "Q10B" with get
+  member val Q11A = var 64<rt> (ARM64Register.ID ARM64.V11A) "Q11A" with get
+  member val Q11B = var 64<rt> (ARM64Register.ID ARM64.V11B) "Q11B" with get
+  member val Q12A = var 64<rt> (ARM64Register.ID ARM64.V12A) "Q12A" with get
+  member val Q12B = var 64<rt> (ARM64Register.ID ARM64.V12B) "Q12B" with get
+  member val Q13A = var 64<rt> (ARM64Register.ID ARM64.V13A) "Q13A" with get
+  member val Q13B = var 64<rt> (ARM64Register.ID ARM64.V13B) "Q13B" with get
+  member val Q14A = var 64<rt> (ARM64Register.ID ARM64.V14A) "Q14A" with get
+  member val Q14B = var 64<rt> (ARM64Register.ID ARM64.V14B) "Q14B" with get
+  member val Q15A = var 64<rt> (ARM64Register.ID ARM64.V15A) "Q15A" with get
+  member val Q15B = var 64<rt> (ARM64Register.ID ARM64.V15B) "Q15B" with get
+  member val Q16A = var 64<rt> (ARM64Register.ID ARM64.V16A) "Q16A" with get
+  member val Q16B = var 64<rt> (ARM64Register.ID ARM64.V16B) "Q16B" with get
+  member val Q17A = var 64<rt> (ARM64Register.ID ARM64.V17A) "Q17A" with get
+  member val Q17B = var 64<rt> (ARM64Register.ID ARM64.V17B) "Q17B" with get
+  member val Q18A = var 64<rt> (ARM64Register.ID ARM64.V18A) "Q18A" with get
+  member val Q18B = var 64<rt> (ARM64Register.ID ARM64.V18B) "Q18B" with get
+  member val Q19A = var 64<rt> (ARM64Register.ID ARM64.V19A) "Q19A" with get
+  member val Q19B = var 64<rt> (ARM64Register.ID ARM64.V19B) "Q19B" with get
+  member val Q20A = var 64<rt> (ARM64Register.ID ARM64.V20A) "Q20A" with get
+  member val Q20B = var 64<rt> (ARM64Register.ID ARM64.V20B) "Q20B" with get
+  member val Q21A = var 64<rt> (ARM64Register.ID ARM64.V21A) "Q21A" with get
+  member val Q21B = var 64<rt> (ARM64Register.ID ARM64.V21B) "Q21B" with get
+  member val Q22A = var 64<rt> (ARM64Register.ID ARM64.V22A) "Q22A" with get
+  member val Q22B = var 64<rt> (ARM64Register.ID ARM64.V22B) "Q22B" with get
+  member val Q23A = var 64<rt> (ARM64Register.ID ARM64.V23A) "Q23A" with get
+  member val Q23B = var 64<rt> (ARM64Register.ID ARM64.V23B) "Q23B" with get
+  member val Q24A = var 64<rt> (ARM64Register.ID ARM64.V24A) "Q24A" with get
+  member val Q24B = var 64<rt> (ARM64Register.ID ARM64.V24B) "Q24B" with get
+  member val Q25A = var 64<rt> (ARM64Register.ID ARM64.V25A) "Q25A" with get
+  member val Q25B = var 64<rt> (ARM64Register.ID ARM64.V25B) "Q25B" with get
+  member val Q26A = var 64<rt> (ARM64Register.ID ARM64.V26A) "Q26A" with get
+  member val Q26B = var 64<rt> (ARM64Register.ID ARM64.V26B) "Q26B" with get
+  member val Q27A = var 64<rt> (ARM64Register.ID ARM64.V27A) "Q27A" with get
+  member val Q27B = var 64<rt> (ARM64Register.ID ARM64.V27B) "Q27B" with get
+  member val Q28A = var 64<rt> (ARM64Register.ID ARM64.V28A) "Q28A" with get
+  member val Q28B = var 64<rt> (ARM64Register.ID ARM64.V28B) "Q28B" with get
+  member val Q29A = var 64<rt> (ARM64Register.ID ARM64.V29A) "Q29A" with get
+  member val Q29B = var 64<rt> (ARM64Register.ID ARM64.V29B) "Q29B" with get
+  member val Q30A = var 64<rt> (ARM64Register.ID ARM64.V30A) "Q30A" with get
+  member val Q30B = var 64<rt> (ARM64Register.ID ARM64.V30B) "Q30B" with get
+  member val Q31A = var 64<rt> (ARM64Register.ID ARM64.V31A) "Q31A" with get
+  member val Q31B = var 64<rt> (ARM64Register.ID ARM64.V31B) "Q31B" with get
 
   (* 64-bit registers *)
   member val D0  = d0 with get
@@ -641,41 +642,41 @@ type RegExprs () =
   member val B31 = b31 with get
 
   (* Floating-point control and status registers *)
-  member val FPCR = var 64<rt> (Register.toRegID Register.FPCR) "FPCR"
-  member val FPSR = var 64<rt> (Register.toRegID Register.FPSR) "FPSR"
+  member val FPCR = var 64<rt> (ARM64Register.ID ARM64.FPCR) "FPCR"
+  member val FPSR = var 64<rt> (ARM64Register.ID ARM64.FPSR) "FPSR"
 
   (* Process state, PSTATE *)
   /// Negative condition flag.
-  member val N = var 1<rt> (Register.toRegID Register.N) "N"
+  member val N = var 1<rt> (ARM64Register.ID ARM64.N) "N"
   /// Zero condition flag.
-  member val Z = var 1<rt> (Register.toRegID Register.Z) "Z"
+  member val Z = var 1<rt> (ARM64Register.ID ARM64.Z) "Z"
   /// Carry condition flag.
-  member val C = var 1<rt> (Register.toRegID Register.C) "C"
+  member val C = var 1<rt> (ARM64Register.ID ARM64.C) "C"
   /// Overflow condition flag.
-  member val V = var 1<rt> (Register.toRegID Register.V) "V"
+  member val V = var 1<rt> (ARM64Register.ID ARM64.V) "V"
 
   (* System registers *)
   /// Data Cache Zero ID register.
   member val DCZIDEL0 =
-    var 64<rt> (Register.toRegID Register.DCZIDEL0) "DCZID_EL0"
-  /// Main ID Register.
-  member val MIDREL1 = var 64<rt> (Register.toRegID Register.MIDREL1) "MIDR_EL1"
-  /// EL0 Read/Write Software Thread ID Register.
+    var 64<rt> (ARM64Register.ID ARM64.DCZIDEL0) "DCZID_EL0"
+  /// Main ID ARM64.
+  member val MIDREL1 = var 64<rt> (ARM64Register.ID ARM64.MIDREL1) "MIDR_EL1"
+  /// EL0 Read/Write Software Thread ID ARM64.
   member val TPIDREL0 =
-    var 64<rt> (Register.toRegID Register.TPIDREL0) "TPIDR_EL0"
+    var 64<rt> (ARM64Register.ID ARM64.TPIDREL0) "TPIDR_EL0"
   /// S<op0>_<op1>_<Cn>_<Cm>_<op2>.
   member val S3_5_C3_C2_0 =
-    var 64<rt> (Register.toRegID Register.S3_5_C3_C2_0) "S3_5_C3_C2_0"
+    var 64<rt> (ARM64Register.ID ARM64.S3_5_C3_C2_0) "S3_5_C3_C2_0"
   member val S3_7_C2_C2_7 =
-    var 64<rt> (Register.toRegID Register.S3_7_C2_C2_7) "S3_7_C2_C2_7"
+    var 64<rt> (ARM64Register.ID ARM64.S3_7_C2_C2_7) "S3_7_C2_C2_7"
   member val S0_0_C2_C9_3 =
-    var 64<rt> (Register.toRegID Register.S0_0_C2_C9_3) "S0_0_C2_C9_3"
+    var 64<rt> (ARM64Register.ID ARM64.S0_0_C2_C9_3) "S0_0_C2_C9_3"
   member val S2_7_C12_C7_6 =
-    var 64<rt> (Register.toRegID Register.S2_7_C12_C7_6) "S2_7_C12_C7_6"
+    var 64<rt> (ARM64Register.ID ARM64.S2_7_C12_C7_6) "S2_7_C12_C7_6"
 
   (* Extra pseudo registers. *)
   /// Pseudo register for passing a return value from an external call.
-  member val ERET = var 64<rt> (Register.toRegID Register.ERET) "ERET"
+  member val ERET = var 64<rt> (ARM64Register.ID ARM64.ERET) "ERET"
 
   member __.GetRegVar (name) =
     match name with

@@ -25,6 +25,7 @@
 namespace B2R2.FrontEnd.BinLifter.Intel
 
 open B2R2
+open B2R2.FrontEnd
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinLifter.Intel.RegGroup
 open B2R2.FrontEnd.BinLifter.Intel.Helper
@@ -167,7 +168,7 @@ module internal OperandParsingHelper =
         if (int rex &&& bitmask) > 0 then r + 8
         elif sz > 8<rt> || ((n &&& 4) = 0) then r
         else r + 12
-    LanguagePrimitives.EnumOfValue<int, Register> r
+    LanguagePrimitives.EnumOfValue<int, Register.Intel> r
 
   /// Registers defined by the SIB index field.
   let findRegSIBIdx sz rex (n: int) = findReg sz rex 2 n
@@ -178,19 +179,19 @@ module internal OperandParsingHelper =
   let findRegRmAndSIBBase sz rex (n: int) = findReg sz rex 1 n
 
   /// Registers defined by REG field of the ModR/M byte.
-  let findRegRBits sz rex (n: int): Register = findReg sz rex 4 n
+  let findRegRBits sz rex (n: int): Register.Intel = findReg sz rex 4 n
 
   /// Registers defined by REG bit of the opcode: some instructions such as PUSH
   /// make use of its opcode to represent the REG bit. REX bits *cannot* change
   /// the symbol.
-  let findRegNoREX sz rex (n: int): Register =
+  let findRegNoREX sz rex (n: int): Register.Intel =
     let r = int (grpEAX sz) + n
     let r =
       if rex = REXPrefix.NOREX then r
       else
         if sz > 8<rt> || ((n &&& 4) = 0) then r
         else r + 12
-    LanguagePrimitives.EnumOfValue<int, Register> r
+    LanguagePrimitives.EnumOfValue<int, Register.Intel> r
 
   let inline getOprFromRegGrpNoREX rgrp (rhlp: ReadHelper) =
     findRegNoREX rhlp.RegSize rhlp.REXPrefix rgrp |> OprReg
@@ -223,8 +224,8 @@ module internal OperandParsingHelper =
     let memSz = rhlp.MemEffOprSize
     let vl = vInfo.VectorLength
     match tt, b, inputSz, w with
-    /// Table 2-34. Compressed Displacement (DISP8*N) Affected by Embedded
-    /// Broadcast.
+    (* Table 2-34. Compressed Displacement (DISP8*N) Affected by Embedded
+       Broadcast. *)
     | TupleType.Full, false, 32<rt>, false ->
       disp * (int64 vl / 8L), memSz
     | TupleType.Full, true, 32<rt>, false -> disp * 4L, inputSz
@@ -233,8 +234,8 @@ module internal OperandParsingHelper =
     | TupleType.Half, false, 32<rt>, false ->
       disp * (int64 vl / 16L), memSz
     | TupleType.Half, true, 32<rt>, false -> disp * 4L, inputSz
-    /// Table 2-35. EVEX DISP8*N for Instructions Not Affected by Embedded
-    /// Broadcast.
+    (* Table 2-35. EVEX DISP8*N for Instructions Not Affected by Embedded
+       Broadcast. *)
     | TupleType.FullMem, false, _, _ -> disp * (int64 vl / 8L), memSz
     | TupleType.Tuple1Scalar, false, 8<rt>, _ -> disp, memSz
     | TupleType.Tuple1Scalar, false, 16<rt>, _ -> disp * 2L, memSz
@@ -506,7 +507,7 @@ module internal OperandParsingHelper =
     | Some vInfo ->
       let grp = (int vInfo.VVVV) &&& 0b1111
       int (grpEAX rhlp.RegSize) + grp
-      |> LanguagePrimitives.EnumOfValue<int, Register>
+      |> LanguagePrimitives.EnumOfValue<int, Register.Intel>
       |> OprReg
 
   let parseMMXReg n =
@@ -1363,7 +1364,7 @@ type internal OpRmGprCL () =
     let modRM = rhlp.ReadByte span
     let opr1 = parseMemOrReg modRM span rhlp
     let opr2 = findRegRBits rhlp.RegSize rhlp.REXPrefix (getReg modRM) |> OprReg
-    let opr3 = Register.CL |> OprReg
+    let opr3 = Register.Intel.CL |> OprReg
     ThreeOperands (opr1, opr2, opr3)
 
 type internal OpXmmXmXmm0 () =

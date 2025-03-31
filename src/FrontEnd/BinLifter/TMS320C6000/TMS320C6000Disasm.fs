@@ -25,6 +25,7 @@
 module B2R2.FrontEnd.BinLifter.TMS320C6000.Disasm
 
 open B2R2
+open B2R2.FrontEnd.Register
 open B2R2.FrontEnd.BinLifter
 
 let opCodeToString = function
@@ -287,28 +288,29 @@ let inline buildOpcode ins (builder: DisasmBuilder) =
 let buildMemBase (builder: DisasmBuilder) baseR = function
   | NegativeOffset ->
     builder.Accumulate AsmWordKind.String "-"
-    builder.Accumulate AsmWordKind.Variable (Register.toString baseR)
+    builder.Accumulate AsmWordKind.Variable (TMS320C6000Register.String baseR)
   | PositiveOffset ->
     builder.Accumulate AsmWordKind.String "+"
-    builder.Accumulate AsmWordKind.Variable (Register.toString baseR)
+    builder.Accumulate AsmWordKind.Variable (TMS320C6000Register.String baseR)
   | PreDecrement ->
     builder.Accumulate AsmWordKind.String "--"
-    builder.Accumulate AsmWordKind.Variable (Register.toString baseR)
+    builder.Accumulate AsmWordKind.Variable (TMS320C6000Register.String baseR)
   | PreIncrement ->
     builder.Accumulate AsmWordKind.String "++"
-    builder.Accumulate AsmWordKind.Variable (Register.toString baseR)
+    builder.Accumulate AsmWordKind.Variable (TMS320C6000Register.String baseR)
   | PostDecrement ->
-    builder.Accumulate AsmWordKind.Variable (Register.toString baseR)
+    builder.Accumulate AsmWordKind.Variable (TMS320C6000Register.String baseR)
     builder.Accumulate AsmWordKind.String "--"
   | PostIncrement ->
-    builder.Accumulate AsmWordKind.Variable (Register.toString baseR)
+    builder.Accumulate AsmWordKind.Variable (TMS320C6000Register.String baseR)
     builder.Accumulate AsmWordKind.String "++"
 
 let private offsetToString (builder: DisasmBuilder) offset =
   match offset with
   | UCst5 i -> builder.Accumulate AsmWordKind.Value (i.ToString())
   | UCst15 i -> builder.Accumulate AsmWordKind.Value (i.ToString())
-  | OffsetR r -> builder.Accumulate AsmWordKind.Variable (Register.toString r)
+  | OffsetR r ->
+    builder.Accumulate AsmWordKind.Variable (TMS320C6000Register.String r)
 
 let private buildMemOffset (builder: DisasmBuilder) offset =
   match offset with
@@ -326,12 +328,12 @@ let oprToString opr delim (builder: DisasmBuilder) =
   match opr with
   | OpReg reg ->
     builder.Accumulate AsmWordKind.String delim
-    builder.Accumulate AsmWordKind.Variable (Register.toString reg)
+    builder.Accumulate AsmWordKind.Variable (TMS320C6000Register.String reg)
   | RegisterPair (r1, r2) ->
     builder.Accumulate AsmWordKind.String delim
-    builder.Accumulate AsmWordKind.Variable (Register.toString r1)
+    builder.Accumulate AsmWordKind.Variable (TMS320C6000Register.String r1)
     builder.Accumulate AsmWordKind.String ":"
-    builder.Accumulate AsmWordKind.Variable (Register.toString r2)
+    builder.Accumulate AsmWordKind.Variable (TMS320C6000Register.String r2)
   | OprMem (baseR, modification, offset) ->
     builder.Accumulate AsmWordKind.String delim
     builder.Accumulate AsmWordKind.String " *"

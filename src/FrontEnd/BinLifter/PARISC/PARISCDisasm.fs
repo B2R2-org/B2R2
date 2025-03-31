@@ -27,6 +27,7 @@ module B2R2.FrontEnd.BinLifter.PARISC.Disasm
 // TODO Implement disasm logic
 
 open B2R2
+open B2R2.FrontEnd.Register
 open B2R2.FrontEnd.BinLifter
 
 let opCodeToString = function
@@ -238,7 +239,7 @@ let oprToString insInfo opr delim (builder: DisasmBuilder) =
   match opr with
   | OpReg reg ->
     builder.Accumulate AsmWordKind.String delim
-    builder.Accumulate AsmWordKind.Variable (Register.toString reg)
+    builder.Accumulate AsmWordKind.Variable (PARISCRegister.String reg)
   | OpImm imm
   | OpShiftAmount imm ->
     builder.Accumulate AsmWordKind.String delim
@@ -246,19 +247,19 @@ let oprToString insInfo opr delim (builder: DisasmBuilder) =
   | OpMem (b, None, _) ->
     builder.Accumulate AsmWordKind.String delim
     builder.Accumulate AsmWordKind.String "("
-    builder.Accumulate AsmWordKind.Variable (Register.toString b)
+    builder.Accumulate AsmWordKind.Variable (PARISCRegister.String b)
     builder.Accumulate AsmWordKind.String ")"
   | OpMem (b, Some (Imm off), _) ->
     builder.Accumulate AsmWordKind.String delim
     builder.Accumulate AsmWordKind.Value (off.ToString ("D"))
     builder.Accumulate AsmWordKind.String "("
-    builder.Accumulate AsmWordKind.Variable (Register.toString b)
+    builder.Accumulate AsmWordKind.Variable (PARISCRegister.String b)
     builder.Accumulate AsmWordKind.String ")"
   | OpMem (b, Some (Reg off), _) ->
     builder.Accumulate AsmWordKind.String delim
-    builder.Accumulate AsmWordKind.Variable (Register.toString off)
+    builder.Accumulate AsmWordKind.Variable (PARISCRegister.String off)
     builder.Accumulate AsmWordKind.String "("
-    builder.Accumulate AsmWordKind.Variable (Register.toString b)
+    builder.Accumulate AsmWordKind.Variable (PARISCRegister.String b)
     builder.Accumulate AsmWordKind.String ")"
   | OpAddr (Relative offset) ->
     builder.Accumulate AsmWordKind.String delim
@@ -267,7 +268,7 @@ let oprToString insInfo opr delim (builder: DisasmBuilder) =
     builder.Accumulate AsmWordKind.String delim
     builder.Accumulate AsmWordKind.Value (off.ToString ("D"))
     builder.Accumulate AsmWordKind.String "("
-    builder.Accumulate AsmWordKind.Variable (Register.toString b)
+    builder.Accumulate AsmWordKind.Variable (PARISCRegister.String b)
     builder.Accumulate AsmWordKind.String ")"
   | OpAtomMemOper (aq, rl) ->
     if aq then builder.Accumulate AsmWordKind.String "aq"

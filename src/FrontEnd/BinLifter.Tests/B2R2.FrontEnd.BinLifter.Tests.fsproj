@@ -34,7 +34,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Core\B2R2.FrontEnd.Core.fsproj" />
+    <ProjectReference Include="..\API\B2R2.FrontEnd.API.fsproj" />
   </ItemGroup>
 
 </Project>

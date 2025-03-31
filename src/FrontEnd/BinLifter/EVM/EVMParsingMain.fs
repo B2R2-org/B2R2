@@ -26,7 +26,7 @@ module internal B2R2.FrontEnd.BinLifter.EVM.ParsingMain
 
 open System
 open B2R2
-open B2R2.FrontEnd.BinLifter
+open B2R2.FrontEnd
 
 let private parsePush (span: ReadOnlySpan<byte>) opcode size =
   let bytes = span.Slice(1, int size).ToArray ()

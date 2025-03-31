@@ -29,16 +29,18 @@ open B2R2
 open B2R2.BinIR
 open B2R2.BinIR.LowUIR
 open B2R2.BinIR.LowUIR.AST.InfixOp
+open B2R2.FrontEnd
+open B2R2.FrontEnd.Register
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinLifter.LiftingOperators
 open B2R2.FrontEnd.BinLifter.LiftingUtils
 open B2R2.FrontEnd.BinLifter.ARM64
 
 let inline getRegVar (ctxt: TranslationContext) name =
-  Register.toRegID name |> ctxt.GetRegVar
+  ARM64Register.ID name |> ctxt.GetRegVar
 
 let inline getPseudoRegVar (ctxt: TranslationContext) name pos =
-  ctxt.GetPseudoRegVar (Register.toRegID name) pos
+  ctxt.GetPseudoRegVar (ARM64Register.ID name) pos
 
 let getPC ctxt = getRegVar ctxt R.PC
 
@@ -1302,7 +1304,7 @@ let dstAssign oprSize dst src ir =
   let orgDst = AST.unwrap dst
   let orgDstSz = orgDst |> TypeCheck.typeOf
   match orgDst with
-  | { E = Var (_, rid, _) } when rid = Register.toRegID R.XZR ->
+  | { E = Var (_, rid, _) } when rid = ARM64Register.ID R.XZR ->
     !!ir (orgDst := AST.num0 orgDstSz)
   | _ ->
     if orgDstSz > oprSize then !!ir (orgDst := AST.zext orgDstSz src)

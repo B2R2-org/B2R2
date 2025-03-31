@@ -22,7 +22,7 @@
   SOFTWARE.
 *)
 
-namespace B2R2.FrontEnd.BinLifter
+namespace B2R2.FrontEnd
 
 open B2R2
 

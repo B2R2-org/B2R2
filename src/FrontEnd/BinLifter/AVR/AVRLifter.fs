@@ -25,6 +25,7 @@
 module internal B2R2.FrontEnd.BinLifter.AVR.Lifter
 
 open B2R2.BinIR
+open B2R2.FrontEnd
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinLifter.AVR
 open B2R2.FrontEnd.BinLifter.AVR.GeneralLifter

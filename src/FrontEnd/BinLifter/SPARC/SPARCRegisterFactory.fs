@@ -25,7 +25,8 @@
 namespace B2R2.FrontEnd.BinLifter.SPARC
 
 open B2R2
-open B2R2.FrontEnd.BinLifter
+open B2R2.FrontEnd
+open B2R2.FrontEnd.Register
 open B2R2.BinIR.LowUIR
 
 type SPARCRegisterFactory () =
@@ -40,7 +41,7 @@ type SPARCRegisterFactory () =
   override __.RegIDFromRegExpr (e) =
     match e.E with
     | Var (_, id, _) -> id
-    | PCVar _ -> Register.toRegID Register.PC
+    | PCVar _ -> SPARCRegister.ID SPARC.PC
     | _ -> raise InvalidRegisterException
 
   override __.RegIDToRegExpr (id) = Utils.futureFeature ()
@@ -49,9 +50,9 @@ type SPARCRegisterFactory () =
   override __.RegIDToString _ = Utils.futureFeature ()
   override __.RegIDToRegType _ = Utils.futureFeature ()
   override __.GetRegisterAliases _ = Utils.futureFeature ()
-  override __.ProgramCounter = Register.PC |> Register.toRegID
-  override __.StackPointer = Register.O6 |> Register.toRegID |> Some
-  override __.FramePointer = Register.I6 |> Register.toRegID |> Some
+  override __.ProgramCounter = SPARC.PC |> SPARCRegister.ID
+  override __.StackPointer = SPARC.O6 |> SPARCRegister.ID |> Some
+  override __.FramePointer = SPARC.I6 |> SPARCRegister.ID |> Some
   override __.IsProgramCounter regid = __.ProgramCounter = regid
   override __.IsStackPointer _ = Utils.futureFeature ()
   override __.IsFramePointer _ = Utils.futureFeature ()

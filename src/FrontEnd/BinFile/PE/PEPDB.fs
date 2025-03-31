@@ -26,7 +26,7 @@ module internal B2R2.FrontEnd.BinFile.PE.PDB
 
 open System
 open System.Collections.Generic
-open B2R2
+open B2R2.FrontEnd
 open B2R2.FrontEnd.BinFile.FileHelper
 
 let private getMagicBytes () =

@@ -24,8 +24,9 @@
 
 namespace B2R2.FrontEnd.BinLifter.MIPS
 
-open B2R2
 open System.Runtime.CompilerServices
+open B2R2
+open B2R2.FrontEnd
 
 [<assembly: InternalsVisibleTo("B2R2.FrontEnd.BinLifter.Tests")>]
 do ()
@@ -756,7 +757,7 @@ type Opcode =
 type internal Op = Opcode
 
 type Operand =
-  | OpReg of Register
+  | OpReg of Register.MIPS
   | OpImm of Imm
   | OpMem of Base * Offset * AccessLength
   | OpAddr of JumpTarget
@@ -767,8 +768,8 @@ and Imm = uint64
 and JumpTarget = Relative of int64
 and Offset =
   | Imm of int64
-  | Reg of Register
-and Base = Register
+  | Reg of Register.MIPS
+and Base = Register.MIPS
 and AccessLength = RegType
 and Label = string
 

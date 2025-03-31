@@ -26,6 +26,7 @@ module internal B2R2.FrontEnd.BinLifter.Intel.Helper
 
 open System
 open B2R2
+open B2R2.FrontEnd
 open B2R2.FrontEnd.BinLifter
 open System.Runtime.CompilerServices
 open LanguagePrimitives

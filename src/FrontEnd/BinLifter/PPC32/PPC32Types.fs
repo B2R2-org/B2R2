@@ -24,8 +24,9 @@
 
 namespace B2R2.FrontEnd.BinLifter.PPC32
 
-open B2R2
 open System.Runtime.CompilerServices
+open B2R2
+open B2R2.FrontEnd
 
 [<assembly: InternalsVisibleTo("B2R2.FrontEnd.BinLifter.Tests")>]
 do ()
@@ -512,8 +513,8 @@ type Condition =
   | NU = 0xB
 
 type Operand =
-  | OprReg of Register
-  | OprMem of D * Register
+  | OprReg of Register.PPC32
+  | OprMem of D * Register.PPC32
   | OprImm of Imm
   | OprAddr of TargetAddr
   | OprBI of uint32

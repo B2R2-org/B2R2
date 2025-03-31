@@ -26,6 +26,7 @@ namespace B2R2.FrontEnd.BinLifter.Intel
 
 open System
 open B2R2
+open B2R2.FrontEnd
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinLifter.Intel
 open B2R2.FrontEnd.BinLifter.Intel.Helper
@@ -6715,8 +6716,8 @@ module internal ParsingHelper = begin
     | 0x14uy -> parseVEXW span rhlp nor0F3A14 nor0F3A14 vex0F3A14W0 notEn
     | 0x15uy -> parseVEX span rhlp nor0F3A15 vex0F3A15
     | 0x16uy ->
-      /// VEX.W/EVEX.W in non-64 bit is ignored; the instructions behaves as
-      /// if the W0 version is used.
+      (* VEX.W/EVEX.W in non-64 bit is ignored; the instructions behaves as
+         if the W0 version is used. *)
       if rhlp.WordSize = WordSize.Bit64 then ()
       else rhlp.REXPrefix <- filterREXWPrefs rhlp.REXPrefix
       parseEVEXAll span rhlp nor0F3A16W0 nor0F3A16W1 vex0F3A16W0 vex0F3A16W1

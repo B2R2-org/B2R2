@@ -28,6 +28,7 @@ open B2R2
 open B2R2.BinIR
 open B2R2.BinIR.LowUIR
 open B2R2.BinIR.LowUIR.AST.InfixOp
+open B2R2.FrontEnd
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinLifter.LiftingOperators
 open B2R2.FrontEnd.BinLifter.LiftingUtils
@@ -73,7 +74,7 @@ let private auxPush oprSize ctxt expr ir =
   !!ir (AST.loadLE oprSize sp := expr)
 
 let private computePopSize oprSize = function
-  | Var (_, id, _) when isSegReg (Register.ofRegID id) -> 16<rt>
+  | Var (_, id, _) when isSegReg (Register.IntelRegister.Get id) -> 16<rt>
   | _ -> oprSize
 
 let private auxPop oprSize ctxt dst ir =
@@ -2366,7 +2367,8 @@ let popf ins insLen ctxt =
 let inline private padPushExpr oprSize opr =
   match opr.E with
   | Var (_, s, _) ->
-    if isSegReg <| Register.ofRegID s then AST.zext oprSize opr else opr
+    if isSegReg <| Register.IntelRegister.Get s then AST.zext oprSize opr
+    else opr
   | Num (_) -> AST.sext oprSize opr
   | _ -> opr
 

@@ -22,7 +22,7 @@
   SOFTWARE.
 *)
 
-namespace B2R2.FrontEnd.BinLifter
+namespace B2R2.FrontEnd
 
 /// The IR is not implemented yet.
 exception NotImplementedIRException of string

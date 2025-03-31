@@ -25,8 +25,7 @@
 namespace B2R2.FrontEnd.BinLifter.S390
 
 open B2R2
-open B2R2.FrontEnd.BinLifter
-open B2R2.BinIR.LowUIR
+open B2R2.FrontEnd
 
 type S39064RegisterFactory (wordSize, r: RegExprs) =
   inherit RegisterFactory ()

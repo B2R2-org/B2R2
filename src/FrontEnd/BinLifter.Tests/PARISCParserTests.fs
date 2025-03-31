@@ -26,9 +26,10 @@ namespace B2R2.FrontEnd.BinLifter.Tests
 
 open Microsoft.VisualStudio.TestTools.UnitTesting
 open B2R2
+open B2R2.FrontEnd
 open B2R2.FrontEnd.BinLifter.PARISC
 open type Opcode
-open type Register
+open type Register.PARISC
 open type PARISCCondition
 
 /// Shortcut for creating operands.
@@ -44,7 +45,7 @@ module private PARISCShortcut =
     static member Mem (r, o: int64, rt) =
       OpMem (r, Some (Imm o), rt)
 
-    static member Mem (r, o: Register, rt) =
+    static member Mem (r, o, rt) =
       OpMem (r, Some (Reg o), rt)
 
     static member Cond (t) =
