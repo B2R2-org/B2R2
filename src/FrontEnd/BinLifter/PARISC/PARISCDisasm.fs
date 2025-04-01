@@ -24,92 +24,107 @@
 
 module B2R2.FrontEnd.BinLifter.PARISC.Disasm
 
-// TODO Implement disasm logic
-
 open B2R2
+open B2R2.FrontEnd
 open B2R2.FrontEnd.Register
 open B2R2.FrontEnd.BinLifter
 
 let opCodeToString = function
-  (* 3-Register Arithmetic & Logical Instructions *)
+  (* System Control Instructions *)
+  | Op.BREAK -> "break"
+  | Op.SYNC -> "sync"
+  | Op.SYNCDMA -> "syncdma"
+  | Op.RFI -> "rfi"
+  | Op.SSM -> "ssm"
+  | Op.RSM -> "rsm"
+  | Op.MTSM -> "mtsm"
+  | Op.LDSID -> "ldsid"
+  | Op.MTSP -> "mtsp"
+  | Op.MFSP -> "mfsp"
+  | Op.MTCTL -> "mtctl"
+  | Op.MTSARCM -> "mtsarcm"
+  | Op.MFIA -> "mfia"
+  | Op.MFCTL -> "mfctl"
+  | Op.DIAG -> "diag"
+  (* Memory Management Instructions *)
+  | Op.IITLBT -> "iitlbt"
+  | Op.PITLB -> "pitlb"
+  | Op.PITLBE -> "pitlbe"
+  | Op.FIC -> "fic"
+  | Op.FICE -> "fice"
+  | Op.IDTLBT -> "idtlbt"
+  | Op.PDTLB -> "pdtlb"
+  | Op.PDTLBE -> "pdtlbe"
+  | Op.FDC -> "fdc"
+  | Op.FDCE -> "fdce"
+  | Op.PDC -> "pdc"
+  | Op.PROBE -> "probe"
+  | Op.PROBEI -> "probei"
+  | Op.LPA -> "lpa"
+  | Op.LCI -> "lci"
+  (* Arithmetic & Logical Instructions *)
   | Op.ADD -> "add"
-  | Op.ADDL -> "add,l"
-  | Op.ADDC -> "add,c"
   | Op.SHLADD -> "shladd"
-  | Op.SHLADDL -> "shladdl"
   | Op.SUB -> "sub"
-  | Op.SUBB -> "sub,b"
+  | Op.DS -> "ds"
+  | Op.ANDCM -> "andcm"
+  | Op.AND -> "and"
   | Op.OR -> "or"
   | Op.XOR -> "xor"
-  | Op.AND -> "and"
-  | Op.ANDCM -> "andcm"
-  | Op.UADDCM -> "uaddcm"
   | Op.UXOR -> "uxor"
-  | Op.DS -> "ds"
   | Op.CMPCLR -> "cmpclr"
+  | Op.UADDCM -> "uaddcm"
   | Op.DCOR -> "dcor"
-  (* Immediate Arithmetic Instructions *)
-  | Op.ADDI -> "addi"
-  | Op.SUBI -> "subi"
-  | Op.CMPICLR -> "cmpiclr"
-  (* Shift Pair, Extract & Deposit Instructions *)
-  | Op.SHRPD -> "shrpd"
-  | Op.SHRPW -> "shrpw"
-  | Op.EXTRD -> "extrd"
-  | Op.EXTRW -> "extrw,u"
-  | Op.DEPD -> "depd"
-  | Op.DEPDI -> "depdi"
-  | Op.DEPW -> "depw,z"
-  | Op.DEPWI -> "depwi"
-  (* Parallel Halfword Arithmetic Instructions *)
   | Op.HADD -> "hadd"
   | Op.HSUB -> "hsub"
   | Op.HAVG -> "havg"
-  (* Parallel Halfword Shift Instructions *)
   | Op.HSHLADD -> "hshladd"
   | Op.HSHRADD -> "hshradd"
-  | Op.HSHL -> "hshl"
-  | Op.HSHR -> "hshr"
-  (* Rearrangement Instructions *)
-  | Op.PERMH -> "permh"
-  | Op.MIXH -> "mixh"
-  | Op.MIXW -> "mixw"
-  (* Load/Store Instructions *)
+  (* Load & Store Instructions *)
   | Op.LDB -> "ldb"
-  | Op.LDBS -> "ldbs"
-  | Op.STB -> "stb"
-  | Op.STBS -> "stbs"
   | Op.LDH -> "ldh"
-  | Op.STH -> "sth"
   | Op.LDW -> "ldw"
-  | Op.LDWS -> "ldws"
-  | Op.STW -> "stw"
-  | Op.STWS -> "sts"
   | Op.LDD -> "ldd"
-  | Op.STD -> "std"
-  (* Load/Store Absolute Instructions *)
-  | Op.LDWA -> "ldwa"
-  | Op.STWA -> "stwa"
   | Op.LDDA -> "ldda"
-  | Op.STDA -> "stda"
-  (* Load and Clear Instructions *)
-  | Op.LDCW -> "ldcw"
   | Op.LDCD -> "ldcd"
-  (* Store Bytes/DoubleWord Bytes Instructions *)
+  | Op.LDWA -> "ldwa"
+  | Op.LDCW -> "ldcw"
+  | Op.STB -> "stb"
+  | Op.STH -> "sth"
+  | Op.STW -> "stw"
+  | Op.STD -> "std"
   | Op.STBY -> "stby"
   | Op.STDBY -> "stdby"
-  (* Long Immediate Instructions *)
-  | Op.LDO -> "ldo"
-  | Op.LDIL -> "ldil"
-  | Op.ADDIL -> "addil"
-  (* Unconditional Local Branches *)
-  | Op.BL -> "b,l"
+  | Op.STWA -> "stwa"
+  | Op.STDA -> "stda"
+  | Op.FLDW -> "fldw"
+  | Op.FSTW -> "fstw"
+  | Op.FLDD -> "fldd"
+  | Op.FSTD -> "fstd"
+  (* Arithmetic Immediate Instructions *)
+  | Op.ADDI -> "addi"
+  | Op.SUBI -> "subi"
+  (* Shift & Extract & Deposit Instructions *)
+  | Op.SHRPD -> "shrpd"
+  | Op.SHRPW -> "shrpw"
+  | Op.EXTRD -> "extrd"
+  | Op.EXTRW -> "extrw"
+  | Op.DEPD -> "depd"
+  | Op.DEPDI -> "depdi"
+  | Op.DEPW -> "depw"
+  | Op.DEPWI -> "depwi"
+  (* Multimedia Instructions *)
+  | Op.PERMH -> "permh"
+  | Op.HSHL -> "hshl"
+  | Op.HSHR -> "hshr"
+  | Op.MIXW -> "mixw"
+  | Op.MIXH -> "mixh"
+  (* Branch Instructions *)
+  | Op.B -> "b"
   | Op.BLR -> "blr"
   | Op.BV -> "bv"
-  (* Unconditional External Branches *)
   | Op.BE -> "be"
   | Op.BVE -> "bve"
-  (* Conditional Local Branches *)
   | Op.ADDB -> "addb"
   | Op.ADDIB -> "addib"
   | Op.BB -> "bb"
@@ -117,89 +132,53 @@ let opCodeToString = function
   | Op.CMPIB -> "cmpib"
   | Op.MOVB -> "movb"
   | Op.MOVIB -> "movib"
-  (* Special Register Move Instructions *)
-  | Op.LDSID -> "ldsid"
-  | Op.MTSP -> "mtsp"
-  | Op.MFSP -> "mfsp"
-  | Op.MTCTL -> "mtsar"
-  | Op.MFCTL -> "mfctl"
-  | Op.MTSARCM -> "mtsarcm"
-  | Op.MFIA -> "mfia"
-  (* System Mask Control Instructions *)
-  | Op.SSM -> "ssm"
-  | Op.RSM -> "rsm"
-  | Op.MTSM -> "mtsm"
-  (* Return From Interrupt & Break Instructions *)
-  | Op.RFI -> "rfi"
-  | Op.BREAK -> "break"
-  (* Memory Management Instructions *)
-  | Op.SYNC -> "sync"
-  | Op.SYNCDMA -> "syncdma"
-  | Op.PROBE -> "probe"
-  | Op.PROBEI -> "probei"
-  | Op.LPA -> "lpa"
-  | Op.LCI -> "lci"
-  | Op.PDTLB -> "pdtlb"
-  | Op.PITLB -> "pitlb"
-  | Op.PDTLBE -> "pdtlbe"
-  | Op.PITLBE -> "pitlbe"
-  | Op.IDTLBT -> "idtlbt"
-  | Op.IITLBT -> "iitlbt"
-  | Op.PDC -> "pdc"
-  | Op.FDC -> "fdc"
-  | Op.FIC -> "fic"
-  | Op.FDCE -> "fdce"
-  | Op.FICE -> "fice"
-  | Op.PUSHBTS -> "pushbts"
-  | Op.PUSHNOM -> "pushnom"
-  (* Implementation-Dependent Instruction *)
-  | Op.DIAG -> "diag"
+  | Op.CMPICLR -> "cmpiclr"
+  (* Coprocessor Instructions *)
+  | Op.CLDW -> "cldw"
+  | Op.CLDD -> "cldd"
+  | Op.CSTW -> "cstw"
+  | Op.CSTD -> "cstd"
+  | Op.COPR -> "copr"
   (* Special Function Instructions *)
   | Op.SPOP0 -> "spop0"
   | Op.SPOP1 -> "spop1"
   | Op.SPOP2 -> "spop2"
   | Op.SPOP3 -> "spop3"
-  (* Coprocessor Instructions *)
-  | Op.COPR -> "copr"
-  | Op.CLDD -> "cldd"
-  | Op.CLDW -> "cldw"
-  | Op.CSTD -> "cstd"
-  | Op.CSTW -> "cstw"
-  (* Floating-Point Load and Store Instructions *)
-  | Op.FLDW -> "fldw"
-  | Op.FLDD -> "fldd"
-  | Op.FSTW -> "fstw"
-  | Op.FSTD -> "fstd"
-  (* Floating-Point Multiply/Add Instructions *)
-  | Op.FMPYADD -> "fmpyadd"
-  | Op.FMPYSUB -> "fmpysub"
-  (* Floating-Point Sub-op Multiply/Add Instructions *)
-  | Op.FMPYFADD -> "fmpyfadd"
-  | Op.FMPYNFADD -> "fmpynfadd"
   (* Floating-Point Conversion and Arithmetic Instructions *)
   | Op.FID -> "fid"
-  | Op.FCPYDBL -> "fcpy,dbl"
-  | Op.FCPYSGL -> "fcpy,sgl"
+  | Op.FCPY -> "fcpy"
   | Op.FABS -> "fabs"
   | Op.FSQRT -> "fsqrt"
   | Op.FRND -> "frnd"
   | Op.FNEG -> "fneg"
   | Op.FNEGABS -> "fnegabs"
-  (* Floating-Point Conversion Instructions *)
   | Op.FCNV -> "fcnv"
-  (* Floating-Point Compare and Test Instructions *)
   | Op.FCMP -> "fcmp"
   | Op.FTEST -> "ftest"
-  (* Floating-Point Arithmetic Instructions *)
   | Op.FADD -> "fadd"
   | Op.FSUB -> "fsub"
   | Op.FMPY -> "fmpy"
   | Op.FDIV -> "fdiv"
-  (* Floating-Point interruptions and exceptions *)
-  | Op.PMENB -> "pmenb"
+  (* Floating-Point Fused-Operation Instructions *)
+  | Op.FMPYFADD -> "fmpyfadd"
+  | Op.FMPYNFADD -> "fmpynfadd"
+  (* Performance Monitor Coprocessor Instructions *)
   | Op.PMDIS -> "pmdis"
-  (*  Default case for unknown opcodes  *)
-  | _ -> failwith "Unknown opcode"
+  | Op.PMENB -> "pmenb"
+  (* Long Immediate Instructions *)
+  | Op.LDO -> "ldo"
+  | Op.LDIL -> "ldil"
+  | Op.ADDIL -> "addil"
+  (* PUSH Instructions *)
+  | Op.PUSHBTS -> "pushbts"
+  | Op.PUSHNOM -> "pushnom"
+  | Op.CLRBTS -> "clrbts"
+  (* Multiple-Operation Instructions *)
+  | Op.FMPYADD -> "fmpyadd"
+  | Op.FMPYSUB -> "fmpysub"
+  (* FIXED-POINT MULTIPLY UNSIGNED Instruction *)
+  | Op.XMPYU -> "xmpyu"
+  | _ -> raise ParsingFailureException
 
 let roundModeToString = function
   | RoundMode.RN -> "rn"
@@ -208,32 +187,197 @@ let roundModeToString = function
   | RoundMode.RM -> "rm"
   | _ -> failwith "Invalid rounding mode"
 
-let condToString = function
-  | PARISCCondition.NV -> ""
-  | PARISCCondition.EQ -> "="
-  | PARISCCondition.LT -> "<"
-  | PARISCCondition.LTU -> "<<"
-  | PARISCCondition.LTE -> "<="
-  | PARISCCondition.LTEU -> "<<="
-  | PARISCCondition.GT -> ">"
-  | PARISCCondition.GTU -> ">>"
-  | PARISCCondition.GTE -> ">="
-  | PARISCCondition.GTEU -> ">>="
-  | PARISCCondition.TR -> "tr"
-  | PARISCCondition.NEQ -> "<>"
+let condToString c =
+  match c with
+  | Completer.NEVER -> ""
+  | Completer.EQ -> "="
+  | Completer.LT -> "<"
+  | Completer.LE -> "<="
+  | Completer.LTU -> "<<"
+  | Completer.LEU -> "<<="
+  | Completer.SV -> "sv"
+  | Completer.OD -> "od"
+  | Completer.TR -> "tr"
+  | Completer.NEQ -> "<>"
+  | Completer.GE -> ">="
+  | Completer.GT -> ">"
+  | Completer.GEU -> ">>="
+  | Completer.GTU -> ">>"
+  | Completer.NSV -> "nsv"
+  | Completer.EV -> "ev"
+  | Completer.NUV -> "nuv"
+  | Completer.ZNV -> "znv"
+  | Completer.UV -> "uv"
+  | Completer.VNZ -> "vnz"
+  | Completer.NWC -> "nwc"
+  | Completer.NWZ -> "nwz"
+  | Completer.NHC -> "nhc"
+  | Completer.NHZ -> "nhz"
+  | Completer.NBC -> "nbc"
+  | Completer.NBZ -> "nbz"
+  | Completer.NDC -> "ndc"
+  | Completer.SWC -> "swc"
+  | Completer.SWZ -> "swz"
+  | Completer.SHC -> "shc"
+  | Completer.SHZ -> "shz"
+  | Completer.SBC -> "sbc"
+  | Completer.SBZ -> "sbz"
+  | Completer.SDC -> "sdc"
+  | Completer.DNEVER -> "*"
+  | Completer.DEQ -> "*="
+  | Completer.DLT -> "*<"
+  | Completer.DLE -> "*<="
+  | Completer.DLTU -> "*<<"
+  | Completer.DLEU -> "*<<="
+  | Completer.DSV -> "*sv"
+  | Completer.DOD -> "*od"
+  | Completer.DTR -> "*tr"
+  | Completer.DNEQ -> "*<>"
+  | Completer.DGE -> "*>="
+  | Completer.DGT -> "*>"
+  | Completer.DGEU -> "*>>="
+  | Completer.DGTU -> "*>>"
+  | Completer.DNSV -> "*nsv"
+  | Completer.DEV -> "*ev"
+  | Completer.DNUV -> "*nuv"
+  | Completer.DZNV -> "*znv"
+  | Completer.DUV -> "*uv"
+  | Completer.DVNZ -> "*vnz"
+  | Completer.DNWC -> "*nwc"
+  | Completer.DNWZ -> "*nwz"
+  | Completer.DNHC -> "*nhc"
+  | Completer.DNHZ -> "*nhz"
+  | Completer.DNBC -> "*nbc"
+  | Completer.DNBZ -> "*nbz"
+  | Completer.DNDC -> "*ndc"
+  | Completer.DSWC -> "*swc"
+  | Completer.DSWZ -> "*swz"
+  | Completer.DSHC -> "*shc"
+  | Completer.DSHZ -> "*shz"
+  | Completer.DSBC -> "*sbc"
+  | Completer.DSBZ -> "*sbz"
+  | Completer.DSDC -> "*sdc"
+  | Completer.B -> "b"
+  | Completer.C -> "c"
+  | Completer.GATE -> "gate"
+  | Completer.I -> "i"
+  | Completer.L -> "l"
+  | Completer.R -> "r"
+  | Completer.S -> "s"
+  | Completer.T -> "t"
+  | Completer.U -> "u"
+  | Completer.W -> "w"
+  | Completer.Z -> "z"
+  | Completer.M -> "m"
+  | Completer.O -> "o"
+  | Completer.E -> "e"
+  | Completer.DB -> "db"
+  | Completer.DC -> "dc"
+  | Completer.TC -> "tc"
+  | Completer.TSV -> "tsv"
+  | Completer.MA -> "ma"
+  | Completer.MB -> "mb"
+  | Completer.SM -> "sm"
+  | Completer.SGL -> "sgl"
+  | Completer.DBL -> "dbl"
+  | Completer.QUAD -> "quad"
+  | Completer.UW -> "uw"
+  | Completer.DW -> "dw"
+  | Completer.UDW -> "udw"
+  | Completer.QW -> "qw"
+  | Completer.UQW -> "uqw"
+  | Completer.SS -> "ss"
+  | Completer.US -> "us"
+  | Completer.LDISP -> "ldisp"
+  | Completer.SDISP -> "sdisp"
+  | Completer.N -> "n"
+  | Completer.BC -> "bc"
+  | Completer.SL -> "sl"
+  | Completer.PUSH -> "push"
+  | Completer.FALSEQ -> "false?"
+  | Completer.FALSE -> "false"
+  | Completer.FQ -> "?"
+  | Completer.FBGTLE -> "!<=>"
+  | Completer.FEQ -> "="
+  | Completer.FEQT -> "=t"
+  | Completer.FQEQ -> "?="
+  | Completer.FBNEQ -> "!<>"
+  | Completer.FBQGE -> "!?>="
+  | Completer.FLT -> "<"
+  | Completer.FQLT -> "?<"
+  | Completer.FBGE -> "!>="
+  | Completer.FBQGT -> "!?>"
+  | Completer.FLE -> "<="
+  | Completer.FQLE -> "?<="
+  | Completer.FBGT -> "!>"
+  | Completer.FBQLE -> "!?<="
+  | Completer.FGT -> ">"
+  | Completer.FQGT -> "?>"
+  | Completer.FBLE -> "!<="
+  | Completer.FBQLT -> "!?<"
+  | Completer.FGE -> ">="
+  | Completer.FQGE -> "?>="
+  | Completer.FBLT -> "!<"
+  | Completer.FBQEQ -> "!?="
+  | Completer.FNEQ -> "<>"
+  | Completer.FBEQ -> "!="
+  | Completer.FBEQT -> "!=t"
+  | Completer.FBQ -> "!?"
+  | Completer.FGTLE -> "<=>"
+  | Completer.TRUEQ -> "true?"
+  | Completer.TRUE -> "true"
+  | Completer.ACC -> "acc"
+  | Completer.ACC2 -> "acc2"
+  | Completer.ACC4 -> "acc4"
+  | Completer.ACC6 -> "acc6"
+  | Completer.ACC8 -> "acc8"
+  | Completer.REJ -> "rej"
+  | Completer.REJ8 -> "rej8"
+  | Completer.CO -> "co"
   | _ -> failwith "Invalid condition"
 
 let shtostring = function
   | SHIFTST.SARSHFT -> "sar"
   | _ -> failwith "invalid sarshift"
 
+let inline attachPrefixer insInfo opcode =
+  let formatCompleter c = "," + condToString c
+  let baseOpcode =
+    match insInfo.ID with
+    | Some arr when arr.Length > 0 ->
+      opcode + "," + (arr |> Array.map string |> String.concat ",")
+    | _ -> opcode
+  let formatCompleterArray cmpltArr =
+    if Array.isEmpty cmpltArr then ""
+    else
+      cmpltArr
+      |> Array.map formatCompleter
+      |> String.concat ""
+  match insInfo.Completer, insInfo.Condition with
+  | Some cmpltArr, Some cond ->
+    let cmpltStr =
+      formatCompleterArray (Array.filter ((<>) Completer.NEVER) cmpltArr)
+    let condStr = if cond <> Completer.NEVER then formatCompleter cond else ""
+    baseOpcode + cmpltStr + condStr
+  | Some cmpltArr, None ->
+    let cmpltStr =
+      formatCompleterArray (Array.filter ((<>) Completer.NEVER) cmpltArr)
+    baseOpcode + cmpltStr
+  | None, Some cond ->
+    if cond = Completer.NEVER then baseOpcode
+    else baseOpcode + formatCompleter cond
+  | None, None -> baseOpcode
+
 let inline buildOpcode ins (builder: DisasmBuilder) =
-  let str = opCodeToString ins.Opcode
+  let str = opCodeToString ins.Opcode |> attachPrefixer ins
   builder.Accumulate AsmWordKind.Mnemonic str
 
 let inline relToString pc offset (builder: DisasmBuilder) =
   let targetAddr = pc + uint64 offset
   builder.Accumulate AsmWordKind.Value (HexString.ofUInt64 targetAddr)
+
+let printSpace space =
+  space <> Some PARISC.SR0 && space <> None
 
 let oprToString insInfo opr delim (builder: DisasmBuilder) =
   match opr with
@@ -244,21 +388,19 @@ let oprToString insInfo opr delim (builder: DisasmBuilder) =
   | OpShiftAmount imm ->
     builder.Accumulate AsmWordKind.String delim
     builder.Accumulate AsmWordKind.Value (HexString.ofUInt64 imm)
-  | OpMem (b, None, _) ->
+  | OpMem (b, space, offset, _) ->
     builder.Accumulate AsmWordKind.String delim
+    match offset with
+    | Some (Imm off) ->
+      builder.Accumulate AsmWordKind.Value (HexString.ofInt64 off)
+    | Some (Reg off) ->
+      builder.Accumulate AsmWordKind.Variable (PARISCRegister.String off)
+    | _ -> ()
     builder.Accumulate AsmWordKind.String "("
-    builder.Accumulate AsmWordKind.Variable (PARISCRegister.String b)
-    builder.Accumulate AsmWordKind.String ")"
-  | OpMem (b, Some (Imm off), _) ->
-    builder.Accumulate AsmWordKind.String delim
-    builder.Accumulate AsmWordKind.Value (off.ToString ("D"))
-    builder.Accumulate AsmWordKind.String "("
-    builder.Accumulate AsmWordKind.Variable (PARISCRegister.String b)
-    builder.Accumulate AsmWordKind.String ")"
-  | OpMem (b, Some (Reg off), _) ->
-    builder.Accumulate AsmWordKind.String delim
-    builder.Accumulate AsmWordKind.Variable (PARISCRegister.String off)
-    builder.Accumulate AsmWordKind.String "("
+    if printSpace space then
+      builder.Accumulate AsmWordKind.Variable
+        (PARISCRegister.String (Option.get space))
+      builder.Accumulate AsmWordKind.String ","
     builder.Accumulate AsmWordKind.Variable (PARISCRegister.String b)
     builder.Accumulate AsmWordKind.String ")"
   | OpAddr (Relative offset) ->
@@ -273,22 +415,15 @@ let oprToString insInfo opr delim (builder: DisasmBuilder) =
   | OpAtomMemOper (aq, rl) ->
     if aq then builder.Accumulate AsmWordKind.String "aq"
     if rl then builder.Accumulate AsmWordKind.String "rl"
-  | OpRoundMode (rm) ->
+  | OpRoundMode rm ->
     builder.Accumulate AsmWordKind.String delim
     builder.Accumulate AsmWordKind.String (roundModeToString rm)
-  | OpCSR (csr) ->
+  | OpCSR csr ->
     builder.Accumulate AsmWordKind.String delim
     builder.Accumulate AsmWordKind.Value (HexString.ofUInt16 csr)
-  | OpCond (cond) ->
-    match cond with
-    | PARISCCondition.NV ->
-      builder.Accumulate AsmWordKind.String (condToString cond)
-    | _ ->
-      builder.Accumulate AsmWordKind.String ","
-      builder.Accumulate AsmWordKind.String (condToString cond)
-  | OpSARSHIFT (sarshiftstr) ->
+  | OpCond cond ->
     builder.Accumulate AsmWordKind.String ","
-    builder.Accumulate AsmWordKind.String (shtostring sarshiftstr)
+    builder.Accumulate AsmWordKind.String (condToString cond)
 
 let buildOprs insInfo builder =
   match insInfo.Operands with

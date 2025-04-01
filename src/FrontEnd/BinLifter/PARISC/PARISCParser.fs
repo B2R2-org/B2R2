@@ -33,15 +33,16 @@ open B2R2.FrontEnd.BinLifter
 /// instruction type (Instruction).
 type PARISC64Parser (isa: ISA) =
   let wordSize = isa.WordSize
+  let arch = isa.Arch
   let reader = BinReader.Init isa.Endian
 
   interface IInstructionParsable with
     member __.Parse (span: ByteSpan, addr: Addr) =
-      ParsingMain.parse span reader wordSize addr :> Instruction
+      ParsingMain.parse span reader arch wordSize addr :> Instruction
 
     member __.Parse (bs: byte[], addr: Addr) =
       let span = ReadOnlySpan bs
-      ParsingMain.parse span reader wordSize addr :> Instruction
+      ParsingMain.parse span reader arch wordSize addr :> Instruction
 
     member __.MaxInstructionSize = 4
 
