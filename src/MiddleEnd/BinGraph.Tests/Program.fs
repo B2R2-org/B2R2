@@ -37,13 +37,19 @@ type Doms () =
   let mutable fileName: string = null
 
   [<Params(
-    "99_183_dwp_clang_m32_O3_8204810_17.json",
-    "499_703_git_clang_m32_Os_80ada73_1.json",
-    "866_1462_libtiff.so.5.4.0_clang_O2_10170_1.json",
-    "1180_1852_calculix_base.amd64-m32-ccr-Ofast_clang_m32_Of_81a1400_1.json",
+    "99_150_gcc_base_clang_O0_6a37b0_28.json",
+    "232_314_filezilla_gcc_O1_6a0c37_1.json",
+    "385_597_touch_clang_Os_4247b0_4.json",
+    "581_862_git_gcc_O3_477510_2.json",
+    "852_1367_calculix_base_gcc_m32_Of_810bc40_1.json",
+    "1075_2225_libxml2_clang_m32_Of_103f10_1.json",
+    "1551_2446_pr_clang_O0_408630_2.json",
     "2125_3648_as_clang_m32_O2_8073110_1.json",
-    "3450_5467_touch_clang_O0_403510_4.json",
-    "4152_6667_find_clang_O0_433cd0_1.json"
+    "3301_6355_gcc_base_gcc_O1_54faa0_1.json",
+    "4152_6667_find_clang_O0_433cd0_1.json",
+    "5486_9806_mysqld_gcc_O0_16c9f72_1.json",
+    "7431_10884_date_clang_m32_O0_8070750_2.json",
+    "9603_13419_wrf_base_gcc_O0_403364_2.json"
   )>]
   member _.FileName with get() = fileName and set(n) = fileName <- n
 
@@ -67,6 +73,19 @@ type Doms () =
     dom.Dominators v |> ignore
 
   [<Benchmark>]
+  member _.SimpleLengauerTarjanAlgorithm () =
+    let dom = SimpleLengauerTarjanDominance.create g
+                                                   (CytronDominanceFrontier ())
+    let v = g.Vertices[0]
+    dom.Dominators v |> ignore
+
+  [<Benchmark>]
+  member _.SemiNCAAlgorithm () =
+    let dom = SemiNCADominance.create g (CytronDominanceFrontier ())
+    let v = g.Vertices[0]
+    dom.Dominators v |> ignore
+
+  [<Benchmark>]
   member _.CooperAlgorithm () =
     let dom = CooperDominance.create g (CytronDominanceFrontier ())
     let v = g.Vertices[0]
@@ -78,13 +97,19 @@ type DominanceFrontier () =
   let mutable fileName: string = null
 
   [<Params(
-    "99_183_dwp_clang_m32_O3_8204810_17.json",
-    "499_703_git_clang_m32_Os_80ada73_1.json",
-    "866_1462_libtiff.so.5.4.0_clang_O2_10170_1.json",
-    "1180_1852_calculix_base.amd64-m32-ccr-Ofast_clang_m32_Of_81a1400_1.json",
+    "99_150_gcc_base_clang_O0_6a37b0_28.json",
+    "232_314_filezilla_gcc_O1_6a0c37_1.json",
+    "385_597_touch_clang_Os_4247b0_4.json",
+    "581_862_git_gcc_O3_477510_2.json",
+    "852_1367_calculix_base_gcc_m32_Of_810bc40_1.json",
+    "1075_2225_libxml2_clang_m32_Of_103f10_1.json",
+    "1551_2446_pr_clang_O0_408630_2.json",
     "2125_3648_as_clang_m32_O2_8073110_1.json",
-    "3450_5467_touch_clang_O0_403510_4.json",
-    "4152_6667_find_clang_O0_433cd0_1.json"
+    "3301_6355_gcc_base_gcc_O1_54faa0_1.json",
+    "4152_6667_find_clang_O0_433cd0_1.json",
+    "5486_9806_mysqld_gcc_O0_16c9f72_1.json",
+    "7431_10884_date_clang_m32_O0_8070750_2.json",
+    "9603_13419_wrf_base_gcc_O0_403364_2.json"
   )>]
   member _.FileName with get() = fileName and set(n) = fileName <- n
 
