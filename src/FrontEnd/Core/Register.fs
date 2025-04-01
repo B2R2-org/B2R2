@@ -4577,7 +4577,7 @@ type PARISCRegister =
     | "iasq_front" -> PARISC.IASQ_Front
     | "iasq_back" -> PARISC.IASQ_Back
     | "psw" -> PARISC.PSW
-    | "cr0" -> PARISC.CR0
+    | "rctr" -> PARISC.CR0
     | "cr1" -> PARISC.CR1
     | "cr2" -> PARISC.CR2
     | "cr3" -> PARISC.CR3
@@ -4585,62 +4585,62 @@ type PARISCRegister =
     | "cr5" -> PARISC.CR5
     | "cr6" -> PARISC.CR6
     | "cr7" -> PARISC.CR7
-    | "cr8" -> PARISC.CR8
-    | "cr9" -> PARISC.CR9
-    | "cr10" -> PARISC.CR10
-    | "cr11" -> PARISC.CR11
-    | "cr12" -> PARISC.CR12
-    | "cr13" -> PARISC.CR13
-    | "cr14" -> PARISC.CR14
-    | "cr15" -> PARISC.CR15
-    | "cr16" -> PARISC.CR16
-    | "cr17" -> PARISC.CR17
-    | "cr18" -> PARISC.CR18
-    | "cr19" -> PARISC.CR19
-    | "cr20" -> PARISC.CR20
-    | "cr21" -> PARISC.CR21
-    | "cr22" -> PARISC.CR22
-    | "cr23" -> PARISC.CR23
-    | "cr24" -> PARISC.CR24
-    | "cr25" -> PARISC.CR25
-    | "cr26" -> PARISC.CR26
-    | "cr27" -> PARISC.CR27
-    | "cr28" -> PARISC.CR28
-    | "cr29" -> PARISC.CR29
-    | "cr30" -> PARISC.CR30
-    | "cr31" -> PARISC.CR31
-    | "fpr0" -> PARISC.FPR0
-    | "fpr1" -> PARISC.FPR1
-    | "fpr2" -> PARISC.FPR2
-    | "fpr3" -> PARISC.FPR3
-    | "fpr4" -> PARISC.FPR4
-    | "fpr5" -> PARISC.FPR5
-    | "fpr6" -> PARISC.FPR6
-    | "fpr7" -> PARISC.FPR7
-    | "fpr8" -> PARISC.FPR8
-    | "fpr9" -> PARISC.FPR9
-    | "fpr10" -> PARISC.FPR10
-    | "fpr11" -> PARISC.FPR11
-    | "fpr12" -> PARISC.FPR12
-    | "fpr13" -> PARISC.FPR13
-    | "fpr14" -> PARISC.FPR14
-    | "fpr15" -> PARISC.FPR15
-    | "fpr16" -> PARISC.FPR16
-    | "fpr17" -> PARISC.FPR17
-    | "fpr18" -> PARISC.FPR18
-    | "fpr19" -> PARISC.FPR19
-    | "fpr20" -> PARISC.FPR20
-    | "fpr21" -> PARISC.FPR21
-    | "fpr22" -> PARISC.FPR22
-    | "fpr23" -> PARISC.FPR23
-    | "fpr24" -> PARISC.FPR24
-    | "fpr25" -> PARISC.FPR25
-    | "fpr26" -> PARISC.FPR26
-    | "fpr27" -> PARISC.FPR27
-    | "fpr28" -> PARISC.FPR28
-    | "fpr29" -> PARISC.FPR29
-    | "fpr30" -> PARISC.FPR30
-    | "fpr31" -> PARISC.FPR31
+    | "pidr1" -> PARISC.CR8
+    | "pidr2" -> PARISC.CR9
+    | "ccr" -> PARISC.CR10
+    | "sar" -> PARISC.CR11
+    | "pidr3" -> PARISC.CR12
+    | "pidr4" -> PARISC.CR13
+    | "iva" -> PARISC.CR14
+    | "eiem" -> PARISC.CR15
+    | "itmr" -> PARISC.CR16
+    | "pcsq" -> PARISC.CR17
+    | "pcoq" -> PARISC.CR18
+    | "iir" -> PARISC.CR19
+    | "isr" -> PARISC.CR20
+    | "ior" -> PARISC.CR21
+    | "ipsw" -> PARISC.CR22
+    | "eirr" -> PARISC.CR23
+    | "tr0" -> PARISC.CR24
+    | "tr1" -> PARISC.CR25
+    | "tr2" -> PARISC.CR26
+    | "tr3" -> PARISC.CR27
+    | "tr4" -> PARISC.CR28
+    | "tr5" -> PARISC.CR29
+    | "tr6" -> PARISC.CR30
+    | "tr7" -> PARISC.CR31
+    | "fpsr" -> PARISC.FPR0
+    | "fpe2" -> PARISC.FPR1
+    | "fpe4" -> PARISC.FPR2
+    | "fpe6" -> PARISC.FPR3
+    | "fr4" -> PARISC.FPR4
+    | "fr5" -> PARISC.FPR5
+    | "fr6" -> PARISC.FPR6
+    | "fr7" -> PARISC.FPR7
+    | "fr8" -> PARISC.FPR8
+    | "fr9" -> PARISC.FPR9
+    | "fr10" -> PARISC.FPR10
+    | "fr11" -> PARISC.FPR11
+    | "fr12" -> PARISC.FPR12
+    | "fr13" -> PARISC.FPR13
+    | "fr14" -> PARISC.FPR14
+    | "fr15" -> PARISC.FPR15
+    | "fr16" -> PARISC.FPR16
+    | "fr17" -> PARISC.FPR17
+    | "fr18" -> PARISC.FPR18
+    | "fr19" -> PARISC.FPR19
+    | "fr20" -> PARISC.FPR20
+    | "fr21" -> PARISC.FPR21
+    | "fr22" -> PARISC.FPR22
+    | "fr23" -> PARISC.FPR23
+    | "fr24" -> PARISC.FPR24
+    | "fr25" -> PARISC.FPR25
+    | "fr26" -> PARISC.FPR26
+    | "fr27" -> PARISC.FPR27
+    | "fr28" -> PARISC.FPR28
+    | "fr29" -> PARISC.FPR29
+    | "fr30" -> PARISC.FPR30
+    | "fr31" -> PARISC.FPR31
     | _ -> Utils.impossible ()
 
   /// Get the register ID of a PARISC register.
@@ -4695,7 +4695,7 @@ type PARISCRegister =
     | PARISC.IASQ_Front -> "iasq_front"
     | PARISC.IASQ_Back -> "iasq_back"
     | PARISC.PSW -> "psw"
-    | PARISC.CR0 -> "cr0"
+    | PARISC.CR0 -> "rctr"
     | PARISC.CR1 -> "cr1"
     | PARISC.CR2 -> "cr2"
     | PARISC.CR3 -> "cr3"
@@ -4703,62 +4703,62 @@ type PARISCRegister =
     | PARISC.CR5 -> "cr5"
     | PARISC.CR6 -> "cr6"
     | PARISC.CR7 -> "cr7"
-    | PARISC.CR8 -> "cr8"
-    | PARISC.CR9 -> "cr9"
-    | PARISC.CR10 -> "cr10"
-    | PARISC.CR11 -> "cr11"
-    | PARISC.CR12 -> "cr12"
-    | PARISC.CR13 -> "cr13"
-    | PARISC.CR14 -> "cr14"
-    | PARISC.CR15 -> "cr15"
-    | PARISC.CR16 -> "cr16"
-    | PARISC.CR17 -> "cr17"
-    | PARISC.CR18 -> "cr18"
-    | PARISC.CR19 -> "cr19"
-    | PARISC.CR20 -> "cr20"
-    | PARISC.CR21 -> "cr21"
-    | PARISC.CR22 -> "cr22"
-    | PARISC.CR23 -> "cr23"
-    | PARISC.CR24 -> "cr24"
-    | PARISC.CR25 -> "cr25"
-    | PARISC.CR26 -> "cr26"
-    | PARISC.CR27 -> "cr27"
-    | PARISC.CR28 -> "cr28"
-    | PARISC.CR29 -> "cr29"
-    | PARISC.CR30 -> "cr30"
-    | PARISC.CR31 -> "cr31"
-    | PARISC.FPR0 -> "fpr0"
-    | PARISC.FPR1 -> "fpr1"
-    | PARISC.FPR2 -> "fpr2"
-    | PARISC.FPR3 -> "fpr3"
-    | PARISC.FPR4 -> "fpr4"
-    | PARISC.FPR5 -> "fpr5"
-    | PARISC.FPR6 -> "fpr6"
-    | PARISC.FPR7 -> "fpr7"
-    | PARISC.FPR8 -> "fpr8"
-    | PARISC.FPR9 -> "fpr9"
-    | PARISC.FPR10 -> "fpr10"
-    | PARISC.FPR11 -> "fpr11"
-    | PARISC.FPR12 -> "fpr12"
-    | PARISC.FPR13 -> "fpr13"
-    | PARISC.FPR14 -> "fpr14"
-    | PARISC.FPR15 -> "fpr15"
-    | PARISC.FPR16 -> "fpr16"
-    | PARISC.FPR17 -> "fpr17"
-    | PARISC.FPR18 -> "fpr18"
-    | PARISC.FPR19 -> "fpr19"
-    | PARISC.FPR20 -> "fpr20"
-    | PARISC.FPR21 -> "fpr21"
-    | PARISC.FPR22 -> "fpr22"
-    | PARISC.FPR23 -> "fpr23"
-    | PARISC.FPR24 -> "fpr24"
-    | PARISC.FPR25 -> "fpr25"
-    | PARISC.FPR26 -> "fpr26"
-    | PARISC.FPR27 -> "fpr27"
-    | PARISC.FPR28 -> "fpr28"
-    | PARISC.FPR29 -> "fpr29"
-    | PARISC.FPR30 -> "fpr30"
-    | PARISC.FPR31 -> "fpr31"
+    | PARISC.CR8 -> "pidr1"
+    | PARISC.CR9 -> "pidr2"
+    | PARISC.CR10 -> "ccr"
+    | PARISC.CR11 -> "sar"
+    | PARISC.CR12 -> "pidr3"
+    | PARISC.CR13 -> "pidr4"
+    | PARISC.CR14 -> "iva"
+    | PARISC.CR15 -> "eiem"
+    | PARISC.CR16 -> "itmr"
+    | PARISC.CR17 -> "pcsq"
+    | PARISC.CR18 -> "pcoq"
+    | PARISC.CR19 -> "iir"
+    | PARISC.CR20 -> "isr"
+    | PARISC.CR21 -> "ior"
+    | PARISC.CR22 -> "ipsw"
+    | PARISC.CR23 -> "eirr"
+    | PARISC.CR24 -> "tr0"
+    | PARISC.CR25 -> "tr1"
+    | PARISC.CR26 -> "tr2"
+    | PARISC.CR27 -> "tr3"
+    | PARISC.CR28 -> "tr4"
+    | PARISC.CR29 -> "tr5"
+    | PARISC.CR30 -> "tr6"
+    | PARISC.CR31 -> "tr7"
+    | PARISC.FPR0 -> "fpsr"
+    | PARISC.FPR1 -> "fpe2"
+    | PARISC.FPR2 -> "fpe4"
+    | PARISC.FPR3 -> "fpe6"
+    | PARISC.FPR4 -> "fr4"
+    | PARISC.FPR5 -> "fr5"
+    | PARISC.FPR6 -> "fr6"
+    | PARISC.FPR7 -> "fr7"
+    | PARISC.FPR8 -> "fr8"
+    | PARISC.FPR9 -> "fr9"
+    | PARISC.FPR10 -> "fr10"
+    | PARISC.FPR11 -> "fr11"
+    | PARISC.FPR12 -> "fr12"
+    | PARISC.FPR13 -> "fr13"
+    | PARISC.FPR14 -> "fr14"
+    | PARISC.FPR15 -> "fr15"
+    | PARISC.FPR16 -> "fr16"
+    | PARISC.FPR17 -> "fr17"
+    | PARISC.FPR18 -> "fr18"
+    | PARISC.FPR19 -> "fr19"
+    | PARISC.FPR20 -> "fr20"
+    | PARISC.FPR21 -> "fr21"
+    | PARISC.FPR22 -> "fr22"
+    | PARISC.FPR23 -> "fr23"
+    | PARISC.FPR24 -> "fr24"
+    | PARISC.FPR25 -> "fr25"
+    | PARISC.FPR26 -> "fr26"
+    | PARISC.FPR27 -> "fr27"
+    | PARISC.FPR28 -> "fr28"
+    | PARISC.FPR29 -> "fr29"
+    | PARISC.FPR30 -> "fr30"
+    | PARISC.FPR31 -> "fr31"
     | _ -> Utils.impossible ()
 
 /// <summary>
