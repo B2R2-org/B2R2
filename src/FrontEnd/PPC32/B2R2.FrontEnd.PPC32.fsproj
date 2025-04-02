@@ -1,0 +1,33 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <PackageLicenseFile>LICENSE.md</PackageLicenseFile>
+    <PackageIcon>b2r2-240x240.png</PackageIcon>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <Description>B2R2 PPC32 frontend.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="PPC32RegExprs.fs" />
+    <Compile Include="PPC32RegisterFactory.fs" />
+    <Compile Include="PPC32Types.fs" />
+    <Compile Include="PPC32OperandHelper.fs" />
+    <Compile Include="PPC32Disasm.fs" />
+    <Compile Include="PPC32Lifter.fs" />
+    <Compile Include="PPC32Instruction.fs" />
+    <Compile Include="PPC32ParsingMain.fs" />
+    <Compile Include="PPC32Parser.fs" />
+    <Compile Include="PPC32TranslationContext.fs" />
+    <None Include="..\..\..\LICENSE.md" Pack="true" PackagePath="" />
+    <None Include="..\..\..\assets\b2r2-240x240.png" Pack="true" PackagePath="" />
+    <None Include="README.md" Pack="true" PackagePath="" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Core\B2R2.Core.fsproj" />
+    <ProjectReference Include="..\..\BinIR\B2R2.BinIR.fsproj" />
+    <ProjectReference Include="..\BinLifter\B2R2.FrontEnd.BinLifter.fsproj" />
+    <ProjectReference Include="..\Registers\B2R2.FrontEnd.Registers.fsproj" />
+  </ItemGroup>
+
+</Project>

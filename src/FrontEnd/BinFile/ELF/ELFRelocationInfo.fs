@@ -27,7 +27,7 @@ namespace B2R2.FrontEnd.BinFile.ELF
 open System
 open System.Collections.Generic
 open B2R2
-open B2R2.FrontEnd
+open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinFile.FileHelper
 
 /// Relocation type for x86.

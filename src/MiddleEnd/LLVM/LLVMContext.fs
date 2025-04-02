@@ -61,9 +61,9 @@ module private LLVMContext =
 
 [<RequireQualifiedAccess>]
 module X64Context =
-  open type Register.Intel
+  open type Intel.Register
   let init () =
-    let rid = Register.IntelRegister.ID
+    let rid = Intel.Register.toRegID
     [| { RID = rid RAX; RType = 64<rt>; Size = 8; Offset = 0 }
        { RID = rid RBX; RType = 64<rt>; Size = 8; Offset = 8 }
        { RID = rid RCX; RType = 64<rt>; Size = 8; Offset = 16 }
@@ -153,9 +153,9 @@ module X64Context =
 
 [<RequireQualifiedAccess>]
 module X86Context =
-  open type Register.Intel
+  open type Intel.Register
   let init () =
-    let rid = Register.IntelRegister.ID
+    let rid = Intel.Register.toRegID
     [| { RID = rid EAX; RType = 32<rt>; Size = 4; Offset = 0 }
        { RID = rid EBX; RType = 32<rt>; Size = 4; Offset = 4 }
        { RID = rid ECX; RType = 32<rt>; Size = 4; Offset = 8 }
@@ -220,9 +220,9 @@ module X86Context =
 
 [<RequireQualifiedAccess>]
 module ARM32Context =
-  open type Register.ARM32
+  open type ARM32.Register
   let init () =
-    let rid = Register.ARM32Register.ID
+    let rid = ARM32.Register.toRegID
     [| { RID = rid R0; RType = 32<rt>; Size = 4; Offset = 0 }
        { RID = rid R1; RType = 32<rt>; Size = 4; Offset = 4 }
        { RID = rid R2; RType = 32<rt>; Size = 4; Offset = 8 }
@@ -276,9 +276,9 @@ module ARM32Context =
 
 [<RequireQualifiedAccess>]
 module ARM64Context =
-  open type Register.ARM64
+  open type ARM64.Register
   let init () =
-    let rid = Register.ARM64Register.ID
+    let rid = ARM64.Register.toRegID
     [| { RID = rid X0; RType = 64<rt>; Size = 8; Offset = 0 }
        { RID = rid X1; RType = 64<rt>; Size = 8; Offset = 8 }
        { RID = rid X2; RType = 64<rt>; Size = 8; Offset = 16 }
@@ -385,9 +385,9 @@ module ARM64Context =
 
 [<RequireQualifiedAccess>]
 module MIPS32Context =
-  open type Register.MIPS
+  open type MIPS.Register
   let init () =
-    let rid = Register.MIPSRegister.ID
+    let rid = MIPS.Register.toRegID
     [| { RID = rid R0; RType = 32<rt>; Size = 4; Offset = 0 }
        { RID = rid R1; RType = 32<rt>; Size = 4; Offset = 4 }
        { RID = rid R2; RType = 32<rt>; Size = 4; Offset = 8 }
@@ -458,9 +458,9 @@ module MIPS32Context =
 
 [<RequireQualifiedAccess>]
 module MIPS64Context =
-  open type Register.MIPS
+  open type MIPS.Register
   let init () =
-    let rid = Register.MIPSRegister.ID
+    let rid = MIPS.Register.toRegID
     [| { RID = rid R0; RType = 64<rt>; Size = 8; Offset = 0 }
        { RID = rid R1; RType = 64<rt>; Size = 8; Offset = 8 }
        { RID = rid R2; RType = 64<rt>; Size = 8; Offset = 16 }

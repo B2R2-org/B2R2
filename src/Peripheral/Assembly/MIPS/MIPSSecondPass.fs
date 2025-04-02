@@ -25,7 +25,7 @@
 module B2R2.Peripheral.Assembly.MIPS.SecondPass
 
 open B2R2
-open B2R2.FrontEnd.BinLifter.MIPS
+open B2R2.FrontEnd.MIPS
 
 let updateOperands insAddress operandList labelToAddress =
   let rec doChecking operands (mapping: Map<string, Addr>) result =

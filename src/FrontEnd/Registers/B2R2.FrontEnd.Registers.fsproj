@@ -1,0 +1,32 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <PackageLicenseFile>LICENSE.md</PackageLicenseFile>
+    <PackageIcon>b2r2-240x240.png</PackageIcon>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <Description>B2R2 frontend basis.</Description>
+    <OtherFlags>$(OtherFlags)--warnon:3390</OtherFlags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="ARM32.fs" />
+    <Compile Include="ARM64.fs" />
+    <Compile Include="AVR.fs" />
+    <Compile Include="Intel.fs" />
+    <Compile Include="MIPS.fs" />
+    <Compile Include="PARISC.fs" />
+    <Compile Include="PPC32.fs" />
+    <Compile Include="RISCV64.fs" />
+    <Compile Include="SH4.fs" />
+    <Compile Include="SPARC.fs" />
+    <Compile Include="TMS320C6000.fs" />
+    <None Include="..\..\..\LICENSE.md" Pack="true" PackagePath="" />
+    <None Include="..\..\..\assets\b2r2-240x240.png" Pack="true" PackagePath="" />
+    <None Include="README.md" Pack="true" PackagePath="" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Core\B2R2.Core.fsproj" />
+  </ItemGroup>
+
+</Project>

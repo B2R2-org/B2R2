@@ -26,10 +26,10 @@ module B2R2.FrontEnd.Tests.PARISC
 
 open Microsoft.VisualStudio.TestTools.UnitTesting
 open B2R2
-open B2R2.FrontEnd
-open B2R2.FrontEnd.BinLifter.PARISC
+open B2R2.FrontEnd.BinLifter
+open B2R2.FrontEnd.PARISC
 open type Opcode
-open type Register.PARISC
+open type Register
 open type Completer
 
 /// Shortcut for creating operands.

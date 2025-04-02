@@ -27,7 +27,7 @@
 module B2R2.FrontEnd.BinFile.FormatDetector
 
 open B2R2
-open B2R2.FrontEnd
+open B2R2.FrontEnd.BinLifter
 
 let private identifyELF bytes =
   match ELF.Header.getISA bytes with

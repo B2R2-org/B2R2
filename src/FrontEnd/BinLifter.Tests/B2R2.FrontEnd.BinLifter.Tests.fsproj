@@ -5,6 +5,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="BinReaderTests.fs" />
     <Compile Include="LifterTests.fs" />
     <Compile Include="IntelParserTests.fs" />
     <Compile Include="IntelLifterTests.fs" />

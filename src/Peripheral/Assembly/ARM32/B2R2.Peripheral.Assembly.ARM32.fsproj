@@ -17,7 +17,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\..\FrontEnd\BinLifter\ARM32\B2R2.FrontEnd.BinLifter.ARM32.fsproj" />
+    <ProjectReference Include="..\..\..\FrontEnd\ARM32\B2R2.FrontEnd.ARM32.fsproj" />
   </ItemGroup>
 
 </Project>

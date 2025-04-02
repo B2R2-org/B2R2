@@ -22,7 +22,7 @@
   THE SOFTWARE.
 *)
 
-namespace B2R2.FrontEnd.BinLifter.Tests
+namespace B2R2.FrontEnd.Tests
 
 open Microsoft.VisualStudio.TestTools.UnitTesting
 open B2R2

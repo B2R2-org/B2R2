@@ -25,7 +25,6 @@
 namespace B2R2.RearEnd.ROP
 
 open B2R2
-open B2R2.FrontEnd.Register
 open B2R2.BinIR
 open B2R2.BinIR.LowUIR
 open B2R2.FrontEnd
@@ -45,7 +44,7 @@ module Summary =
   let private emptyInput = (Set.empty, Set.empty)
 
   let private esp =
-    let regID = IntelRegister.ID Intel.ESP
+    let regID = Intel.Register.toRegID Intel.Register.ESP
     AST.var 32<rt> regID "ESP"
 
   let private regs =

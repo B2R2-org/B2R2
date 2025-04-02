@@ -22,14 +22,14 @@
   THE SOFTWARE.
 *)
 
-namespace B2R2.FrontEnd.BinLifter.Tests
+namespace B2R2.FrontEnd.Tests
 
 open Microsoft.VisualStudio.TestTools.UnitTesting
 open B2R2
-open B2R2.FrontEnd
-open B2R2.FrontEnd.BinLifter.SPARC
+open B2R2.FrontEnd.BinLifter
+open B2R2.FrontEnd.SPARC
 open type Opcode
-open type Register.SPARC
+open type Register
 open type ConditionCode
 
 /// Shortcut for creating operands.

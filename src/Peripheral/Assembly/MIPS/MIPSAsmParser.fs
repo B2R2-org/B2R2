@@ -25,8 +25,7 @@
 namespace B2R2.Peripheral.Assembly.MIPS
 
 open B2R2
-open B2R2.FrontEnd
-open B2R2.FrontEnd.BinLifter.MIPS
+open B2R2.FrontEnd.MIPS
 open B2R2.Peripheral.Assembly.MIPS.ParserHelper
 open FParsec
 open System
@@ -131,7 +130,7 @@ type AsmParser (mipsISA: ISA, startAddress: Addr) =
   let imm = immWithOperators <|> pImm |>> OpImm
 
   let registersList =
-    (Enum.GetNames typeof<Register.MIPS>)
+    Enum.GetNames typeof<Register>
     |> Array.append registerNames
     |> Array.map pstringCI
 
@@ -142,8 +141,8 @@ type AsmParser (mipsISA: ISA, startAddress: Addr) =
     ( (pchar '$' >>. (allRegistersList |> choice)) <|>
       (registersList |> choice) )
     |>> (fun regName ->
-           Enum.Parse (typeof<Register.MIPS>, getRealRegName regName)
-           :?> Register.MIPS)
+           Enum.Parse (typeof<Register>, getRealRegName regName)
+           :?> Register)
     <??> "registers"
 
   let reg = pReg |>> OpReg

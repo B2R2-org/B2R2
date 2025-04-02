@@ -27,8 +27,7 @@ namespace B2R2.Peripheral.Assembly.ARM32
 open FParsec
 open System
 open B2R2
-open B2R2.FrontEnd
-open B2R2.FrontEnd.BinLifter.ARM32
+open B2R2.FrontEnd.ARM32
 open B2R2.Peripheral.Assembly.ARM32.ParserHelper
 
 type UserState = Map<string, Addr>
@@ -184,15 +183,15 @@ type AsmParser (startAddress: Addr) =
     opt (pchar '#') >>. pImm |>> uint32 |>> Imm
 
   let registersList =
-    (Enum.GetNames typeof<Register.ARM32>)
+    Enum.GetNames typeof<Register>
     |> Array.rev (* This is so that (eg. s1 does not get parsed for 's12' *)
     |> Array.map pstringCI
 
   let pReg =
     Array.map attempt registersList |> choice
     |>> (fun regName ->
-          Enum.Parse (typeof<Register.ARM32>, regName.ToUpper())
-          :?> Register.ARM32)
+          Enum.Parse (typeof<Register>, regName.ToUpper())
+          :?> Register)
 
   let operators = (pchar '+' |>> fun _ -> (+)) <|> (pchar '-' |>> fun _ -> (-))
 
@@ -204,17 +203,17 @@ type AsmParser (startAddress: Addr) =
     >>= (fun (opcode, amt) -> parseShiftOperation opcode amt)
 
   let pDummyRegImmOffset =
-    pImm |>> fun cons -> ImmOffset (Register.ARM32.C0, None, Some cons)
+    pImm |>> fun cons -> ImmOffset (Register.C0, None, Some cons)
 
   let pDummyShiftedRegOffset =
     opt (pchar '-' >>. preturn Minus) .>>.pReg .>> spaces .>> pchar ','
     .>> spaces .>>. pShiftedIndexRegister
     |>> fun ((sign, reg), shifter) ->
-          RegOffset (Register.ARM32.C0, sign, reg, Some shifter)
+          RegOffset (Register.C0, sign, reg, Some shifter)
 
   let pDummyRegRegOffset =
     opt (pchar '-' >>. preturn Minus) .>>. pReg
-    |>> (fun (sOpt, reg) -> RegOffset(Register.ARM32.C0, sOpt, reg, None))
+    |>> (fun (sOpt, reg) -> RegOffset(Register.C0, sOpt, reg, None))
     .>> setWBFlag
 
   let pDummyRegOffset =

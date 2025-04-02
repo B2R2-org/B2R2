@@ -22,14 +22,12 @@
   THE SOFTWARE.
 *)
 
-namespace B2R2.FrontEnd.BinLifter.Tests
+namespace B2R2.FrontEnd.Tests
 
 open Microsoft.VisualStudio.TestTools.UnitTesting
 open B2R2
-open B2R2.FrontEnd
-open B2R2.FrontEnd.Register
 open B2R2.FrontEnd.BinLifter
-open B2R2.FrontEnd.BinLifter.Intel
+open B2R2.FrontEnd.Intel
 open type Opcode
 
 /// Shortcut for creating operands.
@@ -74,10 +72,10 @@ module private IntelShortcut =
 [<TestClass>]
 type IntelParserTests () =
   let test prefs segment wordSize opcode (oprs: Operands) bytes =
-    let parser = IntelParser (wordSize) :> IInstructionParsable
+    let parser = IntelParser wordSize :> IInstructionParsable
     let ins = parser.Parse (bs=bytes, addr=0UL) :?> IntelInternalInstruction
     Assert.AreEqual<Prefix> (ins.Prefixes, prefs)
-    Assert.AreEqual<Intel option> (Helper.getSegment ins.Prefixes, segment)
+    Assert.AreEqual<Register option> (Helper.getSegment ins.Prefixes, segment)
     Assert.AreEqual<Opcode> (ins.Opcode, opcode)
     Assert.AreEqual<Operands> (ins.Operands, oprs)
     Assert.AreEqual<uint32> (ins.Length, uint32 bytes.Length)

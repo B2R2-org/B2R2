@@ -25,8 +25,7 @@
 module internal B2R2.Peripheral.Assembly.Intel.AsmOpcode
 
 open B2R2
-open B2R2.FrontEnd.Register
-open B2R2.FrontEnd.BinLifter.Intel
+open B2R2.FrontEnd.Intel
 open B2R2.Peripheral.Assembly.Intel.ParserHelper
 open B2R2.Peripheral.Assembly.Intel.AsmPrefix
 open B2R2.Peripheral.Assembly.Intel.AsmOperands
@@ -46,14 +45,14 @@ let isUInt16 (i: int64) = uint64 i <= 0xFFFFUL
 let isUInt32 (i: int64) = uint64 i <= 0xFFFFFFFFUL
 
 let isClassicGPReg = function
-  | Intel.RAX | Intel.EAX | Intel.AX
-  | Intel.RCX | Intel.ECX | Intel.CX
-  | Intel.RDX | Intel.EDX | Intel.DX
-  | Intel.RBX | Intel.EBX | Intel.BX
-  | Intel.RSP | Intel.ESP | Intel.SP
-  | Intel.RBP | Intel.EBP | Intel.BP
-  | Intel.RSI | Intel.ESI | Intel.SI
-  | Intel.RDI | Intel.EDI | Intel.DI -> true
+  | Register.RAX | Register.EAX | Register.AX
+  | Register.RCX | Register.ECX | Register.CX
+  | Register.RDX | Register.EDX | Register.DX
+  | Register.RBX | Register.EBX | Register.BX
+  | Register.RSP | Register.ESP | Register.SP
+  | Register.RBP | Register.EBP | Register.BP
+  | Register.RSI | Register.ESI | Register.SI
+  | Register.RDI | Register.EDI | Register.DI -> true
   | _ -> false
 
 let inline prxRexOp ins ctx pref rex op =
@@ -238,13 +237,13 @@ let aas (ctx: EncContext) = function
 let adc (ctx: EncContext) ins =
   match ins.Operands with
   (* Reg (fixed) - Imm (Priority 1) *)
-  | TwoOperands (OprReg Intel.AL, OprImm (imm, _)) ->
+  | TwoOperands (OprReg Register.AL, OprImm (imm, _)) ->
     encImm ins ctx ctx.PrefNormal ctx.RexNormal [| 0x14uy |] imm 8<rt>
-  | TwoOperands (OprReg Intel.AX, OprImm (imm, _)) ->
+  | TwoOperands (OprReg Register.AX, OprImm (imm, _)) ->
     encImm ins ctx ctx.Pref66 ctx.RexNormal [| 0x15uy |] imm 16<rt>
-  | TwoOperands (OprReg Intel.EAX, OprImm (imm, _)) ->
+  | TwoOperands (OprReg Register.EAX, OprImm (imm, _)) ->
     encImm ins ctx ctx.PrefNormal ctx.RexNormal [| 0x15uy |] imm 32<rt>
-  | TwoOperands (OprReg Intel.RAX, OprImm (imm, _)) ->
+  | TwoOperands (OprReg Register.RAX, OprImm (imm, _)) ->
     no32Arch ctx.Arch
     encImm ins ctx ctx.PrefNormal ctx.RexW [| 0x15uy |] imm 32<rt>
   (* Reg - Imm (Priority 0) *)
@@ -336,16 +335,16 @@ let adc (ctx: EncContext) ins =
 let add (ctx: EncContext) ins =
   match ins.Operands with
   (* Reg (fixed) - Imm (Priority 1) *)
-  | TwoOperands (OprReg Intel.AL, OprImm (imm, _)) ->
+  | TwoOperands (OprReg Register.AL, OprImm (imm, _)) ->
     encImm ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0x04uy |] imm 8<rt>
-  | TwoOperands (OprReg Intel.AX, OprImm (imm, _)) ->
+  | TwoOperands (OprReg Register.AX, OprImm (imm, _)) ->
     encImm ins ctx
       ctx.Pref66 ctx.RexNormal [| 0x05uy |] imm 16<rt>
-  | TwoOperands (OprReg Intel.EAX, OprImm (imm, _)) ->
+  | TwoOperands (OprReg Register.EAX, OprImm (imm, _)) ->
     encImm ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0x05uy |] imm 32<rt>
-  | TwoOperands (OprReg Intel.RAX, OprImm (imm, _)) ->
+  | TwoOperands (OprReg Register.RAX, OprImm (imm, _)) ->
     no32Arch ctx.Arch
     encImm ins ctx
       ctx.PrefNormal ctx.RexW [| 0x05uy |] imm 32<rt>
@@ -494,16 +493,16 @@ let addss (ctx: EncContext) ins =
 let logAnd (ctx: EncContext) ins =
   match ins.Operands with
   (* Reg (fixed) - Imm *)
-  | TwoOperands (OprReg Intel.AL, OprImm (imm, _)) ->
+  | TwoOperands (OprReg Register.AL, OprImm (imm, _)) ->
     encImm ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0x24uy |] imm 8<rt>
-  | TwoOperands (OprReg Intel.AX, OprImm (imm, _)) ->
+  | TwoOperands (OprReg Register.AX, OprImm (imm, _)) ->
     encImm ins ctx
       ctx.Pref66 ctx.RexNormal [| 0x25uy |] imm 16<rt>
-  | TwoOperands (OprReg Intel.EAX, OprImm (imm, _)) ->
+  | TwoOperands (OprReg Register.EAX, OprImm (imm, _)) ->
     encImm ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0x25uy |] imm 32<rt>
-  | TwoOperands (OprReg Intel.RAX, OprImm (imm, _)) ->
+  | TwoOperands (OprReg Register.RAX, OprImm (imm, _)) ->
     no32Arch ctx.Arch
     encImm ins ctx
       ctx.PrefNormal ctx.RexW [| 0x25uy |] imm 32<rt>
@@ -797,16 +796,16 @@ let cmovz ctx ins = cmovcc ctx ins [| 0x0Fuy; 0x44uy |]
 let cmp (ctx: EncContext) ins =
   match ins.Operands with
   (* Reg (fixed) - Imm (Priority 1) *)
-  | TwoOperands (OprReg Intel.AL, OprImm (imm, _)) ->
+  | TwoOperands (OprReg Register.AL, OprImm (imm, _)) ->
     encImm ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0x3Cuy |] imm 8<rt>
-  | TwoOperands (OprReg Intel.AX, OprImm (imm, _)) ->
+  | TwoOperands (OprReg Register.AX, OprImm (imm, _)) ->
     encImm ins ctx
       ctx.Pref66 ctx.RexNormal [| 0x3Duy |] imm 16<rt>
-  | TwoOperands (OprReg Intel.EAX, OprImm (imm, _)) ->
+  | TwoOperands (OprReg Register.EAX, OprImm (imm, _)) ->
     encImm ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0x3Duy |] imm 32<rt>
-  | TwoOperands (OprReg Intel.RAX, OprImm (imm, _)) ->
+  | TwoOperands (OprReg Register.RAX, OprImm (imm, _)) ->
     no32Arch ctx.Arch
     encImm ins ctx
       ctx.PrefNormal ctx.RexW [| 0x3Duy |] imm 32<rt>
@@ -1128,15 +1127,15 @@ let fadd (ctx: EncContext) ins =
   | OneOperand (OprMem (b, s, d, 64<rt>)) ->
     encM ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0xDCuy |] b s d 0b000uy
-  | TwoOperands (OprReg Intel.ST0, OprReg r) when isFPUReg r ->
+  | TwoOperands (OprReg Register.ST0, OprReg r) when isFPUReg r ->
     encFR [| 0xD8uy; 0xC0uy |] r
-  | TwoOperands (OprReg r, OprReg Intel.ST0) when isFPUReg r ->
+  | TwoOperands (OprReg r, OprReg Register.ST0) when isFPUReg r ->
     encFR [| 0xDCuy; 0xC0uy |] r
   | o -> printfn "%A" o; raise NotEncodableException
 
 let fcmovb _ctx ins =
   match ins.Operands with
-  | TwoOperands (OprReg Intel.ST0, OprReg r) when isFPUReg r ->
+  | TwoOperands (OprReg Register.ST0, OprReg r) when isFPUReg r ->
     encFR [| 0xDAuy; 0xC0uy |] r
   | o -> printfn "%A" o; raise NotEncodableException
 
@@ -1148,21 +1147,21 @@ let fdiv (ctx: EncContext) ins =
   | OneOperand (OprMem (b, s, d, 64<rt>)) ->
     encM ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0xDCuy |] b s d 0b110uy
-  | TwoOperands (OprReg Intel.ST0, OprReg r) when isFPUReg r ->
+  | TwoOperands (OprReg Register.ST0, OprReg r) when isFPUReg r ->
     encFR [| 0xD8uy; 0xF0uy |] r
-  | TwoOperands (OprReg r, OprReg Intel.ST0) when isFPUReg r ->
+  | TwoOperands (OprReg r, OprReg Register.ST0) when isFPUReg r ->
     encFR [| 0xDCuy; 0xF8uy |] r
   | o -> printfn "%A" o; raise NotEncodableException
 
 let fdivp _ctx = function
   | NoOperand -> [| Normal 0xDEuy; Normal 0xF9uy |]
-  | TwoOperands (OprReg r, OprReg Intel.ST0) when isFPUReg r ->
+  | TwoOperands (OprReg r, OprReg Register.ST0) when isFPUReg r ->
     encFR [| 0xDEuy; 0xF8uy |] r
   | o -> printfn "%A" o; raise NotEncodableException
 
 let fdivrp _ctx = function
   | NoOperand -> [| Normal 0xDEuy; Normal 0xF1uy |]
-  | TwoOperands (OprReg r, OprReg Intel.ST0) when isFPUReg r ->
+  | TwoOperands (OprReg r, OprReg Register.ST0) when isFPUReg r ->
     encFR [| 0xDEuy; 0xF0uy |] r
   | o -> printfn "%A" o; raise NotEncodableException
 
@@ -1229,15 +1228,15 @@ let fmul (ctx: EncContext) ins =
   | OneOperand (OprMem (b, s, d, 64<rt>)) ->
     encM ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0xDCuy |] b s d 0b001uy
-  | TwoOperands (OprReg Intel.ST0, OprReg r) when isFPUReg r ->
+  | TwoOperands (OprReg Register.ST0, OprReg r) when isFPUReg r ->
     encFR [| 0xD8uy; 0xC8uy |] r
-  | TwoOperands (OprReg r, OprReg Intel.ST0) when isFPUReg r ->
+  | TwoOperands (OprReg r, OprReg Register.ST0) when isFPUReg r ->
     encFR [| 0xDCuy; 0xC8uy |] r
   | o -> printfn "%A" o; raise NotEncodableException
 
 let fmulp _ctx = function
   | NoOperand -> [| Normal 0xDEuy; Normal 0xC9uy |]
-  | TwoOperands (OprReg r, OprReg Intel.ST0) when isFPUReg r ->
+  | TwoOperands (OprReg r, OprReg Register.ST0) when isFPUReg r ->
     encFR [| 0xDEuy; 0xC8uy |] r
   | o -> printfn "%A" o; raise NotEncodableException
 
@@ -1270,9 +1269,9 @@ let fsub (ctx: EncContext) ins =
   | OneOperand (OprMem (b, s, d, 64<rt>)) ->
     encM ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0xDCuy |] b s d 0b100uy
-  | TwoOperands (OprReg Intel.ST0, OprReg r) when isFPUReg r ->
+  | TwoOperands (OprReg Register.ST0, OprReg r) when isFPUReg r ->
     encFR [| 0xD8uy; 0xE0uy |] r
-  | TwoOperands (OprReg r, OprReg Intel.ST0) when isFPUReg r ->
+  | TwoOperands (OprReg r, OprReg Register.ST0) when isFPUReg r ->
     encFR [| 0xDCuy; 0xE8uy |] r
   | o -> printfn "%A" o; raise NotEncodableException
 
@@ -1284,19 +1283,19 @@ let fsubr (ctx: EncContext) ins =
   | OneOperand (OprMem (b, s, d, 64<rt>)) ->
     encM ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0xDCuy |] b s d 0b101uy
-  | TwoOperands (OprReg Intel.ST0, OprReg r) when isFPUReg r ->
+  | TwoOperands (OprReg Register.ST0, OprReg r) when isFPUReg r ->
     encFR [| 0xD8uy; 0xE8uy |] r
-  | TwoOperands (OprReg r, OprReg Intel.ST0) when isFPUReg r ->
+  | TwoOperands (OprReg r, OprReg Register.ST0) when isFPUReg r ->
     encFR [| 0xDCuy; 0xE0uy |] r
   | o -> printfn "%A" o; raise NotEncodableException
 
 let fucomi _ctx = function
-  | TwoOperands (OprReg Intel.ST0, OprReg r) when isFPUReg r ->
+  | TwoOperands (OprReg Register.ST0, OprReg r) when isFPUReg r ->
     encFR [| 0xDBuy; 0xE8uy |] r
   | o -> printfn "%A" o; raise NotEncodableException
 
 let fucomip _ctx = function
-  | TwoOperands (OprReg Intel.ST0, OprReg r) when isFPUReg r ->
+  | TwoOperands (OprReg Register.ST0, OprReg r) when isFPUReg r ->
     encFR [| 0xDFuy; 0xE8uy |] r
   | o -> printfn "%A" o; raise NotEncodableException
 
@@ -1990,16 +1989,16 @@ let not (ctx: EncContext) ins =
 let logOr (ctx: EncContext) ins =
   match ins.Operands with
   (* Reg (fixed) - Imm *)
-  | TwoOperands (OprReg Intel.AL, OprImm (imm, _)) ->
+  | TwoOperands (OprReg Register.AL, OprImm (imm, _)) ->
     encImm ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0x0Cuy |] imm 8<rt>
-  | TwoOperands (OprReg Intel.AX, OprImm (imm, _)) ->
+  | TwoOperands (OprReg Register.AX, OprImm (imm, _)) ->
     encImm ins ctx
       ctx.Pref66 ctx.RexNormal [| 0x0Duy |] imm 16<rt>
-  | TwoOperands (OprReg Intel.EAX, OprImm (imm, _)) ->
+  | TwoOperands (OprReg Register.EAX, OprImm (imm, _)) ->
     encImm ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0x0Duy |] imm 32<rt>
-  | TwoOperands (OprReg Intel.RAX, OprImm (imm, _)) ->
+  | TwoOperands (OprReg Register.RAX, OprImm (imm, _)) ->
     no32Arch ctx.Arch
     encImm ins ctx
       ctx.PrefNormal ctx.RexW [| 0x0Duy |] imm 32<rt>
@@ -2151,11 +2150,11 @@ let palignr (ctx: EncContext) ins =
 
 let pop (ctx: EncContext) ins =
   match ins.Operands with
-  | OneOperand (OprReg Intel.DS) -> no64Arch ctx.Arch; [| Normal 0x1Fuy |]
-  | OneOperand (OprReg Intel.ES) -> no64Arch ctx.Arch; [| Normal 0x07uy |]
-  | OneOperand (OprReg Intel.SS) -> no64Arch ctx.Arch; [| Normal 0x17uy |]
-  | OneOperand (OprReg Intel.FS) -> [| Normal 0x0Fuy; Normal 0xA1uy |]
-  | OneOperand (OprReg Intel.GS) -> [| Normal 0x0Fuy; Normal 0xA9uy |]
+  | OneOperand (OprReg Register.DS) -> no64Arch ctx.Arch; [| Normal 0x1Fuy |]
+  | OneOperand (OprReg Register.ES) -> no64Arch ctx.Arch; [| Normal 0x07uy |]
+  | OneOperand (OprReg Register.SS) -> no64Arch ctx.Arch; [| Normal 0x17uy |]
+  | OneOperand (OprReg Register.FS) -> [| Normal 0x0Fuy; Normal 0xA1uy |]
+  | OneOperand (OprReg Register.GS) -> [| Normal 0x0Fuy; Normal 0xA9uy |]
   | OneOperand (OprReg r) when isReg16 ctx r ->
     if isClassicGPReg r then encClassicR true 0x58uy (regTo3Bit r)
     else encR ins ctx ctx.Pref66 ctx.RexNormal [| 0x8Fuy |] r 0uy
@@ -2207,12 +2206,12 @@ let punpckldq (ctx: EncContext) ins =
 
 let push (ctx: EncContext) ins =
   match ins.Operands with
-  | OneOperand (OprReg Intel.CS) -> no64Arch ctx.Arch; [| Normal 0x0Euy |]
-  | OneOperand (OprReg Intel.SS) -> no64Arch ctx.Arch; [| Normal 0x16uy |]
-  | OneOperand (OprReg Intel.DS) -> no64Arch ctx.Arch; [| Normal 0x1Euy |]
-  | OneOperand (OprReg Intel.ES) -> no64Arch ctx.Arch; [| Normal 0x06uy |]
-  | OneOperand (OprReg Intel.FS) -> [| Normal 0x0Fuy; Normal 0xA0uy |]
-  | OneOperand (OprReg Intel.GS) -> [| Normal 0x0Fuy; Normal 0xA8uy |]
+  | OneOperand (OprReg Register.CS) -> no64Arch ctx.Arch; [| Normal 0x0Euy |]
+  | OneOperand (OprReg Register.SS) -> no64Arch ctx.Arch; [| Normal 0x16uy |]
+  | OneOperand (OprReg Register.DS) -> no64Arch ctx.Arch; [| Normal 0x1Euy |]
+  | OneOperand (OprReg Register.ES) -> no64Arch ctx.Arch; [| Normal 0x06uy |]
+  | OneOperand (OprReg Register.FS) -> [| Normal 0x0Fuy; Normal 0xA0uy |]
+  | OneOperand (OprReg Register.GS) -> [| Normal 0x0Fuy; Normal 0xA8uy |]
   | OneOperand (OprReg r) when isReg16 ctx r ->
     if isClassicGPReg r then encClassicR true 0x50uy (regTo3Bit r)
     else encR ins ctx ctx.Pref66 ctx.RexNormal [| 0xFFuy |] r 0b110uy
@@ -2266,10 +2265,10 @@ let rotateOrShift (ctx: EncContext) ins regConstr =
   | TwoOperands (OprMem (b, s, d, 8<rt>), OprImm (1L as imm, _)) ->
     encMI ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0xD0uy |] b s d regConstr imm 8<rt>
-  | TwoOperands (OprReg r, OprReg Intel.CL) when isReg8 ctx r ->
+  | TwoOperands (OprReg r, OprReg Register.CL) when isReg8 ctx r ->
     encRC ins ctx
       ctx.PrefNormal ctx.RexMR [| 0xD2uy |] r regConstr
-  | TwoOperands (OprMem (b, s, d, 8<rt>), OprReg Intel.CL) ->
+  | TwoOperands (OprMem (b, s, d, 8<rt>), OprReg Register.CL) ->
     encMC ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0xD2uy |] b s d regConstr
   | TwoOperands (OprReg r, OprImm (imm, _))  when isReg8 ctx r ->
@@ -2286,10 +2285,10 @@ let rotateOrShift (ctx: EncContext) ins regConstr =
   | TwoOperands (OprMem (b, s, d, 16<rt>), OprImm (1L as imm, _)) ->
     encMI ins ctx
       ctx.Pref66 ctx.RexNormal [| 0xD1uy |] b s d regConstr imm 8<rt>
-  | TwoOperands (OprReg r, OprReg Intel.CL) when isReg16 ctx r ->
+  | TwoOperands (OprReg r, OprReg Register.CL) when isReg16 ctx r ->
     encRC ins ctx
       ctx.Pref66 ctx.RexMR [| 0xD3uy |] r regConstr
-  | TwoOperands (OprMem (b, s, d, 16<rt>), OprReg Intel.CL) ->
+  | TwoOperands (OprMem (b, s, d, 16<rt>), OprReg Register.CL) ->
     encMC ins ctx
       ctx.Pref66 ctx.RexNormal [| 0xD3uy |] b s d regConstr
   | TwoOperands (OprReg r, OprImm (imm, _))  when isReg16 ctx r ->
@@ -2304,10 +2303,10 @@ let rotateOrShift (ctx: EncContext) ins regConstr =
   | TwoOperands (OprMem (b, s, d, 32<rt>), OprImm (1L as imm, _)) ->
     encMI ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0xD1uy |] b s d regConstr imm 8<rt>
-  | TwoOperands (OprReg r, OprReg Intel.CL) when isReg32 ctx r ->
+  | TwoOperands (OprReg r, OprReg Register.CL) when isReg32 ctx r ->
     encRC ins ctx
       ctx.PrefNormal ctx.RexMR [| 0xD3uy |] r regConstr
-  | TwoOperands (OprMem (b, s, d, 32<rt>), OprReg Intel.CL) ->
+  | TwoOperands (OprMem (b, s, d, 32<rt>), OprReg Register.CL) ->
     encMC ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0xD3uy |] b s d regConstr
   | TwoOperands (OprReg r, OprImm (imm, _)) when isReg32 ctx r ->
@@ -2324,11 +2323,11 @@ let rotateOrShift (ctx: EncContext) ins regConstr =
     no32Arch ctx.Arch
     encMI ins ctx
       ctx.PrefNormal ctx.RexW [| 0xD1uy |] b s d regConstr imm 8<rt>
-  | TwoOperands (OprReg r, OprReg Intel.CL) when isReg64 ctx r ->
+  | TwoOperands (OprReg r, OprReg Register.CL) when isReg64 ctx r ->
     no32Arch ctx.Arch
     encRC ins ctx
       ctx.PrefNormal ctx.RexWAndMR [| 0xD3uy |] r regConstr
-  | TwoOperands (OprMem (b, s, d, 64<rt>), OprReg Intel.CL) ->
+  | TwoOperands (OprMem (b, s, d, 64<rt>), OprReg Register.CL) ->
     no32Arch ctx.Arch
     encMC ins ctx
       ctx.PrefNormal ctx.RexW [| 0xD3uy |] b s d regConstr
@@ -2369,16 +2368,16 @@ let sahf (ctx: EncContext) = function
 let sbb (ctx: EncContext) ins =
   match ins.Operands with
   (* Reg (fixed) - Imm (Priority 1) *)
-  | TwoOperands (OprReg Intel.AL, OprImm (imm, _)) ->
+  | TwoOperands (OprReg Register.AL, OprImm (imm, _)) ->
     encImm ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0x1Cuy |] imm 8<rt>
-  | TwoOperands (OprReg Intel.AX, OprImm (imm, _)) ->
+  | TwoOperands (OprReg Register.AX, OprImm (imm, _)) ->
     encImm ins ctx
       ctx.Pref66 ctx.RexNormal [| 0x1Duy |] imm 16<rt>
-  | TwoOperands (OprReg Intel.EAX, OprImm (imm, _)) ->
+  | TwoOperands (OprReg Register.EAX, OprImm (imm, _)) ->
     encImm ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0x1Duy |] imm 32<rt>
-  | TwoOperands (OprReg Intel.RAX, OprImm (imm, _)) ->
+  | TwoOperands (OprReg Register.RAX, OprImm (imm, _)) ->
     no32Arch ctx.Arch
     encImm ins ctx
       ctx.PrefNormal ctx.RexW [| 0x1Duy |] imm 32<rt>
@@ -2550,11 +2549,11 @@ let shld (ctx: EncContext) ins =
     when isReg16 ctx r ->
     encMRI ins ctx
       ctx.Pref66 ctx.RexNormal [| 0x0Fuy; 0xA4uy |] b s d r imm 8<rt>
-  | ThreeOperands (OprReg r1, OprReg r2, OprReg Intel.CL)
+  | ThreeOperands (OprReg r1, OprReg r2, OprReg Register.CL)
     when isReg16 ctx r1 && isReg16 ctx r2 ->
     encRR ins ctx
       ctx.Pref66 ctx.RexNormal [| 0x0Fuy; 0xA5uy |] r1 r2
-  | ThreeOperands (OprMem (b, s, d, 16<rt>), OprReg r, OprReg Intel.CL)
+  | ThreeOperands (OprMem (b, s, d, 16<rt>), OprReg r, OprReg Register.CL)
     when isReg16 ctx r ->
     encMR ins ctx
       ctx.Pref66 ctx.RexNormal [| 0x0Fuy; 0xA5uy |] b s d r
@@ -2566,11 +2565,11 @@ let shld (ctx: EncContext) ins =
     when isReg32 ctx r ->
     encMRI ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0x0Fuy; 0xA4uy |] b s d r imm 8<rt>
-  | ThreeOperands (OprReg r1, OprReg r2, OprReg Intel.CL)
+  | ThreeOperands (OprReg r1, OprReg r2, OprReg Register.CL)
     when isReg32 ctx r1 && isReg32 ctx r2 ->
     encRR ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0x0Fuy; 0xA5uy |] r1 r2
-  | ThreeOperands (OprMem (b, s, d, 32<rt>), OprReg r, OprReg Intel.CL)
+  | ThreeOperands (OprMem (b, s, d, 32<rt>), OprReg r, OprReg Register.CL)
     when isReg32 ctx r ->
     encMR ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0x0Fuy; 0xA5uy |] b s d r
@@ -2584,12 +2583,12 @@ let shld (ctx: EncContext) ins =
     no32Arch ctx.Arch
     encMRI ins ctx
       ctx.PrefNormal ctx.RexW [| 0x0Fuy; 0xA4uy |] b s d r imm 8<rt>
-  | ThreeOperands (OprReg r1, OprReg r2, OprReg Intel.CL)
+  | ThreeOperands (OprReg r1, OprReg r2, OprReg Register.CL)
     when isReg64 ctx r1 && isReg64 ctx r2 ->
     no32Arch ctx.Arch
     encRR ins ctx
       ctx.PrefNormal ctx.RexW [| 0x0Fuy; 0xA5uy |] r1 r2
-  | ThreeOperands (OprMem (b, s, d, 64<rt>), OprReg r, OprReg Intel.CL)
+  | ThreeOperands (OprMem (b, s, d, 64<rt>), OprReg r, OprReg Register.CL)
     when isReg64 ctx r ->
     no32Arch ctx.Arch
     encMR ins ctx
@@ -2628,16 +2627,16 @@ let stosw (ctx: EncContext) ins =
 let sub (ctx: EncContext) ins =
   match ins.Operands with
   (* Reg (fixed) - Imm (Priority 1) *)
-  | TwoOperands (OprReg Intel.AL, OprImm (imm, _)) ->
+  | TwoOperands (OprReg Register.AL, OprImm (imm, _)) ->
     encImm ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0x2Cuy |] imm 8<rt>
-  | TwoOperands (OprReg Intel.AX, OprImm (imm, _)) ->
+  | TwoOperands (OprReg Register.AX, OprImm (imm, _)) ->
     encImm ins ctx
       ctx.Pref66 ctx.RexNormal [| 0x2Duy |] imm 16<rt>
-  | TwoOperands (OprReg Intel.EAX, OprImm (imm, _)) ->
+  | TwoOperands (OprReg Register.EAX, OprImm (imm, _)) ->
     encImm ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0x2Duy |] imm 32<rt>
-  | TwoOperands (OprReg Intel.RAX, OprImm (imm, _)) ->
+  | TwoOperands (OprReg Register.RAX, OprImm (imm, _)) ->
     no32Arch ctx.Arch
     encImm ins ctx
       ctx.PrefNormal ctx.RexW [| 0x2Duy |] imm 32<rt>
@@ -2766,16 +2765,16 @@ let subss (ctx: EncContext) ins =
 let test (ctx: EncContext) ins =
   match ins.Operands with
   (* Reg (fixed) - Imm *)
-  | TwoOperands (OprReg Intel.AL, OprImm (imm, _)) ->
+  | TwoOperands (OprReg Register.AL, OprImm (imm, _)) ->
     encImm ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0xA8uy |] imm 8<rt>
-  | TwoOperands (OprReg Intel.AX, OprImm (imm, _)) ->
+  | TwoOperands (OprReg Register.AX, OprImm (imm, _)) ->
     encImm ins ctx
       ctx.Pref66 ctx.RexNormal [| 0xA9uy |] imm 16<rt>
-  | TwoOperands (OprReg Intel.EAX, OprImm (imm, _)) ->
+  | TwoOperands (OprReg Register.EAX, OprImm (imm, _)) ->
     encImm ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0xA9uy |] imm 32<rt>
-  | TwoOperands (OprReg Intel.RAX, OprImm (imm, _)) ->
+  | TwoOperands (OprReg Register.RAX, OprImm (imm, _)) ->
     no32Arch ctx.Arch
     encImm ins ctx
       ctx.PrefNormal ctx.RexW [| 0xA9uy |] imm 32<rt>
@@ -2929,14 +2928,14 @@ let vpalignr (ctx: EncContext) ins =
 
 let xchg (ctx: EncContext) ins =
   match ins.Operands with
-  | TwoOperands (OprReg Intel.AX, OprReg r)
-  | TwoOperands (OprReg r, OprReg Intel.AX) when isReg16 ctx r ->
+  | TwoOperands (OprReg Register.AX, OprReg r)
+  | TwoOperands (OprReg r, OprReg Register.AX) when isReg16 ctx r ->
     encO ins ctx ctx.Pref66 ctx.RexNormal 0x90uy r
-  | TwoOperands (OprReg Intel.EAX, OprReg r)
-  | TwoOperands (OprReg r, OprReg Intel.EAX) when isReg32 ctx r ->
+  | TwoOperands (OprReg Register.EAX, OprReg r)
+  | TwoOperands (OprReg r, OprReg Register.EAX) when isReg32 ctx r ->
     encO ins ctx ctx.PrefNormal ctx.RexNormal 0x90uy r
-  | TwoOperands (OprReg Intel.RAX, OprReg r)
-  | TwoOperands (OprReg r, OprReg Intel.RAX) when isReg64 ctx r ->
+  | TwoOperands (OprReg Register.RAX, OprReg r)
+  | TwoOperands (OprReg r, OprReg Register.RAX) when isReg64 ctx r ->
     no32Arch ctx.Arch
     encO ins ctx ctx.PrefNormal ctx.RexW 0x90uy r
   | o -> printfn "%A" o; raise NotEncodableException
@@ -2944,16 +2943,16 @@ let xchg (ctx: EncContext) ins =
 let xor (ctx: EncContext) ins =
   match ins.Operands with
   (* Reg (fixed) - Imm (Priority 1). *)
-  | TwoOperands (OprReg Intel.AL, OprImm (imm, _)) ->
+  | TwoOperands (OprReg Register.AL, OprImm (imm, _)) ->
     encImm ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0x34uy |] imm 8<rt>
-  | TwoOperands (OprReg Intel.AX, OprImm (imm, _)) ->
+  | TwoOperands (OprReg Register.AX, OprImm (imm, _)) ->
     encImm ins ctx
       ctx.Pref66 ctx.RexNormal [| 0x35uy |] imm 16<rt>
-  | TwoOperands (OprReg Intel.EAX, OprImm (imm, _)) ->
+  | TwoOperands (OprReg Register.EAX, OprImm (imm, _)) ->
     encImm ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0x35uy |] imm 32<rt>
-  | TwoOperands (OprReg Intel.RAX, OprImm (imm, _)) ->
+  | TwoOperands (OprReg Register.RAX, OprImm (imm, _)) ->
     no32Arch ctx.Arch
     encImm ins ctx
       ctx.PrefNormal ctx.RexW [| 0x35uy |] imm 32<rt>

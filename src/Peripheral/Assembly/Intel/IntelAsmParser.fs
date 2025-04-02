@@ -25,8 +25,7 @@
 namespace B2R2.Peripheral.Assembly.Intel
 
 open B2R2
-open B2R2.FrontEnd
-open B2R2.FrontEnd.BinLifter.Intel
+open B2R2.FrontEnd.Intel
 open B2R2.Peripheral.Assembly
 open B2R2.Peripheral.Assembly.Intel.ParserHelper
 open B2R2.Peripheral.Assembly.Intel.AsmMain
@@ -107,7 +106,7 @@ type IntelAsmParser (isa, baseAddr: Addr) =
   let pAddr = pImm |>> uint64
 
   let registersList =
-    (Enum.GetNames typeof<Register.Intel>)
+    Enum.GetNames typeof<Register>
     |> Array.map (fun s ->
       attempt (pstringCI s .>> (notFollowedBy (satisfy isLetter)))
     )
@@ -115,8 +114,8 @@ type IntelAsmParser (isa, baseAddr: Addr) =
   let pReg =
     registersList |> choice
     |>> (fun regName ->
-          Enum.Parse (typeof<Register.Intel>, regName.ToUpper())
-          :?> Register.Intel)
+          Enum.Parse (typeof<Register>, regName.ToUpper())
+          :?> Register)
 
   let pPrefix =
     pstring "lock" |>> (fun _ -> inferredPrefix <- Prefix.PrxLOCK)

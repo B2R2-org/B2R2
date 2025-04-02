@@ -27,7 +27,7 @@ namespace B2R2.FrontEnd.BinFile
 open System
 open System.Collections.Generic
 open B2R2
-open B2R2.FrontEnd
+open B2R2.FrontEnd.BinLifter
 
 /// This class represents a raw binary file (containing only binary code and
 /// data without file format).

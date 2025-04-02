@@ -27,7 +27,6 @@ namespace B2R2.Peripheral.Assembly.Tests
 open Microsoft.VisualStudio.TestTools.UnitTesting
 open B2R2
 open B2R2.FrontEnd
-open B2R2.FrontEnd.BinLifter
 open B2R2.BinIR.LowUIR
 open B2R2.Peripheral.Assembly.LowUIR
 
@@ -42,7 +41,7 @@ type LowUIRTests () =
   [<TestMethod>]
   member __.``[IntelAssemblerLowUIR] Test Register Assignment ``() =
     let result = p.Parse "RAX := 0x1:I64" |> Result.get |> Array.head
-    let regID = Register.IntelRegister.ID (Register.Intel.RAX)
+    let regID = Intel.Register.toRegID Intel.Register.RAX
     let answer = AST.put (AST.var 64<rt> regID "RAX") (AST.num size64Num)
     Assert.AreEqual<Stmt> (answer, result)
 
@@ -62,7 +61,7 @@ type LowUIRTests () =
   member __.``[IntelAssemblerLowUIR] Test Operation in Expression``() =
     let result =
       p.Parse "RAX := (0x1:I64 - 0x1:I64)" |> Result.get |> Array.head
-    let regID = Register.IntelRegister.ID (Register.Intel.RAX)
+    let regID = Intel.Register.toRegID Intel.Register.RAX
     let answer =
       AST.put (AST.var 64<rt> regID "RAX")
               (AST.num (BitVector.Cast (BitVector.F, 64<rt>)))

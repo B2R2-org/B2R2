@@ -25,7 +25,7 @@
 module B2R2.Peripheral.Assembly.Intel.ParserHelper
 
 open B2R2
-open B2R2.FrontEnd.BinLifter.Intel
+open B2R2.FrontEnd.Intel
 
 type AsmInsInfo = {
   Prefixes: Prefix

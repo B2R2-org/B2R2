@@ -13,7 +13,6 @@
   <ItemGroup>
     <ProjectReference Include="..\..\Peripheral\Assembly\AsmInterface\B2R2.Peripheral.Assembly.AsmInterface.fsproj" />
     <ProjectReference Include="..\..\BinIR\B2R2.BinIR.fsproj" />
-    <ProjectReference Include="..\..\FrontEnd\BinLifter\Intel\B2R2.FrontEnd.BinLifter.Intel.fsproj" />
     <ProjectReference Include="..\BinDump\B2R2.RearEnd.BinDump.fsproj" />
     <ProjectReference Include="..\Core\B2R2.RearEnd.Core.fsproj" />
   </ItemGroup>

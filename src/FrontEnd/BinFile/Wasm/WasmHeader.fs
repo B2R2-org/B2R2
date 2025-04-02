@@ -24,7 +24,7 @@
 
 module internal B2R2.FrontEnd.BinFile.Wasm.Header
 
-open B2R2.FrontEnd
+open B2R2.FrontEnd.BinLifter
 
 let wasmMagic = 0x6D736100u
 

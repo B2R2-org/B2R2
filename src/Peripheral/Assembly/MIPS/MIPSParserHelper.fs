@@ -25,7 +25,7 @@
 module B2R2.Peripheral.Assembly.MIPS.ParserHelper
 
 open B2R2
-open B2R2.FrontEnd.BinLifter.MIPS
+open B2R2.FrontEnd.MIPS
 
 let extractOperands = function
   | [] -> NoOperand

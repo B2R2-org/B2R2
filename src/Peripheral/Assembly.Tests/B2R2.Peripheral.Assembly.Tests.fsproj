@@ -17,7 +17,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\BinIR\B2R2.BinIR.fsproj" />
-    <ProjectReference Include="..\..\FrontEnd\BinLifter\Intel\B2R2.FrontEnd.BinLifter.Intel.fsproj" />
     <ProjectReference Include="..\Assembly\LowUIR\B2R2.Peripheral.Assembly.LowUIR.fsproj" />
     <ProjectReference Include="..\Assembly\ARM32\B2R2.Peripheral.Assembly.ARM32.fsproj" />
     <ProjectReference Include="..\Assembly\Intel\B2R2.Peripheral.Assembly.Intel.fsproj" />

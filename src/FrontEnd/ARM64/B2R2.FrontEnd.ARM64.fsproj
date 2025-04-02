@@ -1,0 +1,37 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <PackageLicenseFile>LICENSE.md</PackageLicenseFile>
+    <PackageIcon>b2r2-240x240.png</PackageIcon>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <Description>B2R2 ARM64 frontend.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="ARM64Exceptions.fs" />
+    <Compile Include="ARM64Register.fs" />
+    <Compile Include="ARM64RegExprs.fs" />
+    <Compile Include="ARM64RegisterFactory.fs" />
+    <Compile Include="ARM64Types.fs" />
+    <Compile Include="ARM64Utils.fs" />
+    <Compile Include="ARM64OperandHelper.fs" />
+    <Compile Include="ARM64Disasm.fs" />
+    <Compile Include="ARM64LiftingUtils.fs" />
+    <Compile Include="ARM64Lifter.fs" />
+    <Compile Include="ARM64Instruction.fs" />
+    <Compile Include="ARM64ParsingMain.fs" />
+    <Compile Include="ARM64Parser.fs" />
+    <Compile Include="ARM64TranslationContext.fs" />
+    <None Include="..\..\..\LICENSE.md" Pack="true" PackagePath="" />
+    <None Include="..\..\..\assets\b2r2-240x240.png" Pack="true" PackagePath="" />
+    <None Include="README.md" Pack="true" PackagePath="" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Core\B2R2.Core.fsproj" />
+    <ProjectReference Include="..\..\BinIR\B2R2.BinIR.fsproj" />
+    <ProjectReference Include="..\BinLifter\B2R2.FrontEnd.BinLifter.fsproj" />
+    <ProjectReference Include="..\Registers\B2R2.FrontEnd.Registers.fsproj" />
+  </ItemGroup>
+
+</Project>

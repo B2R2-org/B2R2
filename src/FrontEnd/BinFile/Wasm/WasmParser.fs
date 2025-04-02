@@ -26,7 +26,7 @@ module internal B2R2.FrontEnd.BinFile.Wasm.Parser
 
 open System
 open B2R2
-open B2R2.FrontEnd
+open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinFile
 open B2R2.FrontEnd.BinFile.Wasm.Section
 

@@ -26,7 +26,7 @@ module internal B2R2.FrontEnd.BinFile.Wasm.Expression
 
 open System
 open B2R2
-open B2R2.FrontEnd
+open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinFile
 
 let peekConstExpr (span: ByteSpan) (reader: IBinReader) offset =

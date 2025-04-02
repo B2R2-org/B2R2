@@ -1,0 +1,37 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <PackageLicenseFile>LICENSE.md</PackageLicenseFile>
+    <PackageIcon>b2r2-240x240.png</PackageIcon>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <Description>B2R2 frontend core.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="Exceptions.fs" />
+    <Compile Include="BinReader.fs" />
+    <Compile Include="RegisterFactory.fs" />
+    <Compile Include="INameReadable.fs" />
+    <Compile Include="IRBuilder.fs" />
+    <Compile Include="TranslationContext.fs" />
+    <Compile Include="AsmWord.fs" />
+    <Compile Include="AsmWordBuilder.fs" />
+    <Compile Include="AsmLine.fs" />
+    <Compile Include="DisasmSyntax.fs" />
+    <Compile Include="DisasmBuilder.fs" />
+    <Compile Include="Instruction.fs" />
+    <Compile Include="IInstructionParsable.fs" />
+    <Compile Include="BitData.fs" />
+    <Compile Include="LiftingOperators.fs" />
+    <Compile Include="LiftingUtils.fs" />
+    <None Include="..\..\..\LICENSE.md" Pack="true" PackagePath="" />
+    <None Include="..\..\..\assets\b2r2-240x240.png" Pack="true" PackagePath="" />
+    <None Include="README.md" Pack="true" PackagePath="" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Core\B2R2.Core.fsproj" />
+    <ProjectReference Include="..\..\BinIR\B2R2.BinIR.fsproj" />
+  </ItemGroup>
+
+</Project>

@@ -26,7 +26,7 @@ namespace B2R2.FrontEnd.BinFile.Mach
 
 open System
 open B2R2
-open B2R2.FrontEnd
+open B2R2.FrontEnd.BinLifter
 
 /// Describes the location within the binary of an object file targeted at a
 /// single architecture (fat_arch).

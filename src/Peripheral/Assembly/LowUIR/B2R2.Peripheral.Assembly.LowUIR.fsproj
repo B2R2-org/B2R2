@@ -22,7 +22,6 @@
   <ItemGroup>
     <ProjectReference Include="..\..\..\BinIR\B2R2.BinIR.fsproj" />
     <ProjectReference Include="..\..\..\Core\B2R2.Core.fsproj" />
-    <ProjectReference Include="..\..\..\FrontEnd\BinLifter\Core\B2R2.FrontEnd.BinLifter.Core.fsproj" />
     <ProjectReference Include="..\Core\B2R2.Peripheral.Assembly.Core.fsproj" />
   </ItemGroup>
 

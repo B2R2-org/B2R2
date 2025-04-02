@@ -25,7 +25,7 @@
 namespace B2R2.Peripheral.Assembly.Intel
 
 open B2R2
-open B2R2.FrontEnd.BinLifter.Intel
+open B2R2.FrontEnd.Intel
 open type Prefix
 open type VEXType
 

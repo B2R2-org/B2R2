@@ -25,10 +25,9 @@
 namespace B2R2.Peripheral.Assembly.Tests
 
 open B2R2
-open B2R2.FrontEnd.Register
 open B2R2.Peripheral.Assembly
 open Microsoft.VisualStudio.TestTools.UnitTesting
-open B2R2.FrontEnd.BinLifter.MIPS
+open B2R2.FrontEnd.MIPS
 
 [<TestClass>]
 type MIPSTests () =
@@ -43,9 +42,9 @@ type MIPSTests () =
   member __.``[MipsAssembly] Test add with and three operands ``() =
     let result = assembler.Run "add $s0 $1 v0"
     let operands =
-       ThreeOperands (OpReg MIPS.R16,
-                      OpReg MIPS.R1,
-                      OpReg MIPS.R2)
+       ThreeOperands (OpReg Register.R16,
+                      OpReg Register.R1,
+                      OpReg Register.R2)
     let answer =
       [ newInfo mips 0UL Opcode.ADD None None operands ]
     Assert.AreEqual (answer, result)
@@ -61,7 +60,7 @@ type MIPSTests () =
   [<TestMethod>]
   member __.``[MipsAssembly] Test jmp with memmory access operand``() =
     let result = assembler.Run "jr ($s0)"
-    let operands = OneOperand (OpMem (MIPS.R16, Imm 0L, 32<rt>))
+    let operands = OneOperand (OpMem (Register.R16, Imm 0L, 32<rt>))
     let answer =
       [ newInfo mips 0UL Opcode.JR None None operands ]
     Assert.AreEqual (answer, result)
@@ -73,8 +72,8 @@ type MIPSTests () =
                      beq $4, r0, 0x1
                      jr someLabel"
     let operands1 =
-      ThreeOperands (OpReg MIPS.R4,
-                     OpReg MIPS.R0,
+      ThreeOperands (OpReg Register.R4,
+                     OpReg Register.R0,
                      OpImm 1UL)
     let operands2 = OneOperand (OpAddr (Relative -8L))
     let answer =

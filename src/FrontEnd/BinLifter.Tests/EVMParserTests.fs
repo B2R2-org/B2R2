@@ -22,11 +22,11 @@
   THE SOFTWARE.
 *)
 
-namespace B2R2.FrontEnd.BinLifter.Tests
+namespace B2R2.FrontEnd.Tests
 
 open Microsoft.VisualStudio.TestTools.UnitTesting
 open B2R2
-open B2R2.FrontEnd.BinLifter.EVM
+open B2R2.FrontEnd.EVM
 open type BitVector
 
 [<TestClass>]

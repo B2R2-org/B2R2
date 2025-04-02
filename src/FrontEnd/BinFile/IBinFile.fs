@@ -24,7 +24,7 @@
 
 namespace B2R2.FrontEnd.BinFile
 
-open B2R2.FrontEnd
+open B2R2.FrontEnd.BinLifter
 
 /// IBinFile describes a binary file in a format-agnostic way.
 type IBinFile =

@@ -25,7 +25,7 @@
 module B2R2.Peripheral.Assembly.ARM32.ParserHelper
 
 open B2R2
-open B2R2.FrontEnd.BinLifter.ARM32
+open B2R2.FrontEnd.ARM32
 open FParsec
 
 type AsmInsInfo = {

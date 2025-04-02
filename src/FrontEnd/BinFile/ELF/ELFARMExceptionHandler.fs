@@ -27,7 +27,7 @@ module internal B2R2.FrontEnd.BinFile.ELF.ELFARMExceptionHandler
 
 open System
 open B2R2
-open B2R2.FrontEnd
+open B2R2.FrontEnd.BinLifter
 
 /// This is a value that the index table can have.
 type ExceptionIndexValue =

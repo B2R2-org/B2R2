@@ -22,14 +22,14 @@
   THE SOFTWARE.
 *)
 
-namespace B2R2.FrontEnd.BinLifter.Tests
+namespace B2R2.FrontEnd.Tests
 
 open Microsoft.VisualStudio.TestTools.UnitTesting
 open B2R2
-open B2R2.FrontEnd
-open B2R2.FrontEnd.BinLifter.MIPS
+open B2R2.FrontEnd.BinLifter
+open B2R2.FrontEnd.MIPS
 open type Opcode
-open type Register.MIPS
+open type Register
 
 /// Shortcut for creating operands.
 [<AutoOpen>]

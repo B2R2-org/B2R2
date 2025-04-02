@@ -28,7 +28,7 @@ open LanguagePrimitives
 open B2R2
 open B2R2.BinIR
 open B2R2.FrontEnd
-open B2R2.FrontEnd.Register
+open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinFile
 
 /// Raised when an unhandled encoding is encountered.
@@ -318,131 +318,131 @@ module DWOperation =
 
 module DWRegister =
   let private toIntelx86Register = function
-    | 0uy -> IntelRegister.ID Intel.EAX
-    | 1uy -> IntelRegister.ID Intel.ECX
-    | 2uy -> IntelRegister.ID Intel.EDX
-    | 3uy -> IntelRegister.ID Intel.EBX
-    | 4uy -> IntelRegister.ID Intel.ESP
-    | 5uy -> IntelRegister.ID Intel.EBP
-    | 6uy -> IntelRegister.ID Intel.ESI
-    | 7uy -> IntelRegister.ID Intel.EDI
-    | 8uy -> IntelRegister.ID Intel.EIP
+    | 0uy -> Intel.Register.toRegID Intel.Register.EAX
+    | 1uy -> Intel.Register.toRegID Intel.Register.ECX
+    | 2uy -> Intel.Register.toRegID Intel.Register.EDX
+    | 3uy -> Intel.Register.toRegID Intel.Register.EBX
+    | 4uy -> Intel.Register.toRegID Intel.Register.ESP
+    | 5uy -> Intel.Register.toRegID Intel.Register.EBP
+    | 6uy -> Intel.Register.toRegID Intel.Register.ESI
+    | 7uy -> Intel.Register.toRegID Intel.Register.EDI
+    | 8uy -> Intel.Register.toRegID Intel.Register.EIP
     | _ -> Utils.futureFeature ()
 
   let private toIntelx64Register = function
-    | 0uy -> IntelRegister.ID Intel.RAX
-    | 1uy -> IntelRegister.ID Intel.RDX
-    | 2uy -> IntelRegister.ID Intel.RCX
-    | 3uy -> IntelRegister.ID Intel.RBX
-    | 4uy -> IntelRegister.ID Intel.RSI
-    | 5uy -> IntelRegister.ID Intel.RDI
-    | 6uy -> IntelRegister.ID Intel.RBP
-    | 7uy -> IntelRegister.ID Intel.RSP
-    | 8uy -> IntelRegister.ID Intel.R8
-    | 9uy -> IntelRegister.ID Intel.R9
-    | 10uy -> IntelRegister.ID Intel.R10
-    | 11uy -> IntelRegister.ID Intel.R11
-    | 12uy -> IntelRegister.ID Intel.R12
-    | 13uy -> IntelRegister.ID Intel.R13
-    | 14uy -> IntelRegister.ID Intel.R14
-    | 15uy -> IntelRegister.ID Intel.R15
-    | 16uy -> IntelRegister.ID Intel.RIP
-    | 17uy -> IntelRegister.ID Intel.XMM0
-    | 18uy -> IntelRegister.ID Intel.XMM1
-    | 19uy -> IntelRegister.ID Intel.XMM2
-    | 20uy -> IntelRegister.ID Intel.XMM3
-    | 21uy -> IntelRegister.ID Intel.XMM4
-    | 22uy -> IntelRegister.ID Intel.XMM5
-    | 23uy -> IntelRegister.ID Intel.XMM6
-    | 24uy -> IntelRegister.ID Intel.XMM7
-    | 25uy -> IntelRegister.ID Intel.XMM8
-    | 26uy -> IntelRegister.ID Intel.XMM9
-    | 27uy -> IntelRegister.ID Intel.XMM10
-    | 28uy -> IntelRegister.ID Intel.XMM11
-    | 29uy -> IntelRegister.ID Intel.XMM12
-    | 30uy -> IntelRegister.ID Intel.XMM13
-    | 31uy -> IntelRegister.ID Intel.XMM14
-    | 32uy -> IntelRegister.ID Intel.XMM15
+    | 0uy -> Intel.Register.toRegID Intel.Register.RAX
+    | 1uy -> Intel.Register.toRegID Intel.Register.RDX
+    | 2uy -> Intel.Register.toRegID Intel.Register.RCX
+    | 3uy -> Intel.Register.toRegID Intel.Register.RBX
+    | 4uy -> Intel.Register.toRegID Intel.Register.RSI
+    | 5uy -> Intel.Register.toRegID Intel.Register.RDI
+    | 6uy -> Intel.Register.toRegID Intel.Register.RBP
+    | 7uy -> Intel.Register.toRegID Intel.Register.RSP
+    | 8uy -> Intel.Register.toRegID Intel.Register.R8
+    | 9uy -> Intel.Register.toRegID Intel.Register.R9
+    | 10uy -> Intel.Register.toRegID Intel.Register.R10
+    | 11uy -> Intel.Register.toRegID Intel.Register.R11
+    | 12uy -> Intel.Register.toRegID Intel.Register.R12
+    | 13uy -> Intel.Register.toRegID Intel.Register.R13
+    | 14uy -> Intel.Register.toRegID Intel.Register.R14
+    | 15uy -> Intel.Register.toRegID Intel.Register.R15
+    | 16uy -> Intel.Register.toRegID Intel.Register.RIP
+    | 17uy -> Intel.Register.toRegID Intel.Register.XMM0
+    | 18uy -> Intel.Register.toRegID Intel.Register.XMM1
+    | 19uy -> Intel.Register.toRegID Intel.Register.XMM2
+    | 20uy -> Intel.Register.toRegID Intel.Register.XMM3
+    | 21uy -> Intel.Register.toRegID Intel.Register.XMM4
+    | 22uy -> Intel.Register.toRegID Intel.Register.XMM5
+    | 23uy -> Intel.Register.toRegID Intel.Register.XMM6
+    | 24uy -> Intel.Register.toRegID Intel.Register.XMM7
+    | 25uy -> Intel.Register.toRegID Intel.Register.XMM8
+    | 26uy -> Intel.Register.toRegID Intel.Register.XMM9
+    | 27uy -> Intel.Register.toRegID Intel.Register.XMM10
+    | 28uy -> Intel.Register.toRegID Intel.Register.XMM11
+    | 29uy -> Intel.Register.toRegID Intel.Register.XMM12
+    | 30uy -> Intel.Register.toRegID Intel.Register.XMM13
+    | 31uy -> Intel.Register.toRegID Intel.Register.XMM14
+    | 32uy -> Intel.Register.toRegID Intel.Register.XMM15
     | _ -> Utils.futureFeature ()
 
   let private toAArch64Register = function
-    | 0uy -> ARM64Register.ID ARM64.X0
-    | 1uy -> ARM64Register.ID ARM64.X1
-    | 2uy -> ARM64Register.ID ARM64.X2
-    | 3uy -> ARM64Register.ID ARM64.X3
-    | 4uy -> ARM64Register.ID ARM64.X4
-    | 5uy -> ARM64Register.ID ARM64.X5
-    | 6uy -> ARM64Register.ID ARM64.X6
-    | 7uy -> ARM64Register.ID ARM64.X7
-    | 8uy -> ARM64Register.ID ARM64.X8
-    | 9uy -> ARM64Register.ID ARM64.X9
-    | 10uy -> ARM64Register.ID ARM64.X10
-    | 11uy -> ARM64Register.ID ARM64.X11
-    | 12uy -> ARM64Register.ID ARM64.X12
-    | 13uy -> ARM64Register.ID ARM64.X13
-    | 14uy -> ARM64Register.ID ARM64.X14
-    | 15uy -> ARM64Register.ID ARM64.X15
-    | 16uy -> ARM64Register.ID ARM64.X16
-    | 17uy -> ARM64Register.ID ARM64.X17
-    | 18uy -> ARM64Register.ID ARM64.X18
-    | 19uy -> ARM64Register.ID ARM64.X19
-    | 20uy -> ARM64Register.ID ARM64.X20
-    | 21uy -> ARM64Register.ID ARM64.X21
-    | 22uy -> ARM64Register.ID ARM64.X22
-    | 23uy -> ARM64Register.ID ARM64.X23
-    | 24uy -> ARM64Register.ID ARM64.X24
-    | 25uy -> ARM64Register.ID ARM64.X25
-    | 26uy -> ARM64Register.ID ARM64.X26
-    | 27uy -> ARM64Register.ID ARM64.X27
-    | 28uy -> ARM64Register.ID ARM64.X28
-    | 29uy -> ARM64Register.ID ARM64.X29
-    | 30uy -> ARM64Register.ID ARM64.X30
-    | 31uy -> ARM64Register.ID ARM64.SP
-    | 64uy -> ARM64Register.ID ARM64.V0
-    | 65uy -> ARM64Register.ID ARM64.V1
-    | 66uy -> ARM64Register.ID ARM64.V2
-    | 67uy -> ARM64Register.ID ARM64.V3
-    | 68uy -> ARM64Register.ID ARM64.V4
-    | 69uy -> ARM64Register.ID ARM64.V5
-    | 70uy -> ARM64Register.ID ARM64.V6
-    | 71uy -> ARM64Register.ID ARM64.V7
-    | 72uy -> ARM64Register.ID ARM64.V8
-    | 73uy -> ARM64Register.ID ARM64.V9
-    | 74uy -> ARM64Register.ID ARM64.V10
-    | 75uy -> ARM64Register.ID ARM64.V11
-    | 76uy -> ARM64Register.ID ARM64.V12
-    | 77uy -> ARM64Register.ID ARM64.V13
-    | 78uy -> ARM64Register.ID ARM64.V14
-    | 79uy -> ARM64Register.ID ARM64.V15
-    | 80uy -> ARM64Register.ID ARM64.V16
-    | 81uy -> ARM64Register.ID ARM64.V17
-    | 82uy -> ARM64Register.ID ARM64.V18
-    | 83uy -> ARM64Register.ID ARM64.V19
-    | 84uy -> ARM64Register.ID ARM64.V20
-    | 85uy -> ARM64Register.ID ARM64.V21
-    | 86uy -> ARM64Register.ID ARM64.V22
-    | 87uy -> ARM64Register.ID ARM64.V23
-    | 88uy -> ARM64Register.ID ARM64.V24
-    | 89uy -> ARM64Register.ID ARM64.V25
-    | 90uy -> ARM64Register.ID ARM64.V26
-    | 91uy -> ARM64Register.ID ARM64.V27
-    | 92uy -> ARM64Register.ID ARM64.V28
-    | 93uy -> ARM64Register.ID ARM64.V29
-    | 94uy -> ARM64Register.ID ARM64.V30
-    | 95uy -> ARM64Register.ID ARM64.V31
+    | 0uy -> ARM64.Register.toRegID ARM64.Register.X0
+    | 1uy -> ARM64.Register.toRegID ARM64.Register.X1
+    | 2uy -> ARM64.Register.toRegID ARM64.Register.X2
+    | 3uy -> ARM64.Register.toRegID ARM64.Register.X3
+    | 4uy -> ARM64.Register.toRegID ARM64.Register.X4
+    | 5uy -> ARM64.Register.toRegID ARM64.Register.X5
+    | 6uy -> ARM64.Register.toRegID ARM64.Register.X6
+    | 7uy -> ARM64.Register.toRegID ARM64.Register.X7
+    | 8uy -> ARM64.Register.toRegID ARM64.Register.X8
+    | 9uy -> ARM64.Register.toRegID ARM64.Register.X9
+    | 10uy -> ARM64.Register.toRegID ARM64.Register.X10
+    | 11uy -> ARM64.Register.toRegID ARM64.Register.X11
+    | 12uy -> ARM64.Register.toRegID ARM64.Register.X12
+    | 13uy -> ARM64.Register.toRegID ARM64.Register.X13
+    | 14uy -> ARM64.Register.toRegID ARM64.Register.X14
+    | 15uy -> ARM64.Register.toRegID ARM64.Register.X15
+    | 16uy -> ARM64.Register.toRegID ARM64.Register.X16
+    | 17uy -> ARM64.Register.toRegID ARM64.Register.X17
+    | 18uy -> ARM64.Register.toRegID ARM64.Register.X18
+    | 19uy -> ARM64.Register.toRegID ARM64.Register.X19
+    | 20uy -> ARM64.Register.toRegID ARM64.Register.X20
+    | 21uy -> ARM64.Register.toRegID ARM64.Register.X21
+    | 22uy -> ARM64.Register.toRegID ARM64.Register.X22
+    | 23uy -> ARM64.Register.toRegID ARM64.Register.X23
+    | 24uy -> ARM64.Register.toRegID ARM64.Register.X24
+    | 25uy -> ARM64.Register.toRegID ARM64.Register.X25
+    | 26uy -> ARM64.Register.toRegID ARM64.Register.X26
+    | 27uy -> ARM64.Register.toRegID ARM64.Register.X27
+    | 28uy -> ARM64.Register.toRegID ARM64.Register.X28
+    | 29uy -> ARM64.Register.toRegID ARM64.Register.X29
+    | 30uy -> ARM64.Register.toRegID ARM64.Register.X30
+    | 31uy -> ARM64.Register.toRegID ARM64.Register.SP
+    | 64uy -> ARM64.Register.toRegID ARM64.Register.V0
+    | 65uy -> ARM64.Register.toRegID ARM64.Register.V1
+    | 66uy -> ARM64.Register.toRegID ARM64.Register.V2
+    | 67uy -> ARM64.Register.toRegID ARM64.Register.V3
+    | 68uy -> ARM64.Register.toRegID ARM64.Register.V4
+    | 69uy -> ARM64.Register.toRegID ARM64.Register.V5
+    | 70uy -> ARM64.Register.toRegID ARM64.Register.V6
+    | 71uy -> ARM64.Register.toRegID ARM64.Register.V7
+    | 72uy -> ARM64.Register.toRegID ARM64.Register.V8
+    | 73uy -> ARM64.Register.toRegID ARM64.Register.V9
+    | 74uy -> ARM64.Register.toRegID ARM64.Register.V10
+    | 75uy -> ARM64.Register.toRegID ARM64.Register.V11
+    | 76uy -> ARM64.Register.toRegID ARM64.Register.V12
+    | 77uy -> ARM64.Register.toRegID ARM64.Register.V13
+    | 78uy -> ARM64.Register.toRegID ARM64.Register.V14
+    | 79uy -> ARM64.Register.toRegID ARM64.Register.V15
+    | 80uy -> ARM64.Register.toRegID ARM64.Register.V16
+    | 81uy -> ARM64.Register.toRegID ARM64.Register.V17
+    | 82uy -> ARM64.Register.toRegID ARM64.Register.V18
+    | 83uy -> ARM64.Register.toRegID ARM64.Register.V19
+    | 84uy -> ARM64.Register.toRegID ARM64.Register.V20
+    | 85uy -> ARM64.Register.toRegID ARM64.Register.V21
+    | 86uy -> ARM64.Register.toRegID ARM64.Register.V22
+    | 87uy -> ARM64.Register.toRegID ARM64.Register.V23
+    | 88uy -> ARM64.Register.toRegID ARM64.Register.V24
+    | 89uy -> ARM64.Register.toRegID ARM64.Register.V25
+    | 90uy -> ARM64.Register.toRegID ARM64.Register.V26
+    | 91uy -> ARM64.Register.toRegID ARM64.Register.V27
+    | 92uy -> ARM64.Register.toRegID ARM64.Register.V28
+    | 93uy -> ARM64.Register.toRegID ARM64.Register.V29
+    | 94uy -> ARM64.Register.toRegID ARM64.Register.V30
+    | 95uy -> ARM64.Register.toRegID ARM64.Register.V31
     | x -> Utils.futureFeature ()
 
   let private toMIPSRegister (n: byte) =
-    MIPSRegister.ID (EnumOfValue (int n))
+    MIPS.Register.toRegID (EnumOfValue (int n))
 
   let private toRISCVRegister (n: byte) =
-    RISCV64Register.ID (EnumOfValue (int n))
+    RISCV64.Register.toRegID (EnumOfValue (int n))
 
   let private toPPC32Register (n: byte) =
-    PPC32Register.ID (EnumOfValue (int n))
+    PPC32.Register.toRegID (EnumOfValue (int n))
 
   let private toSH4Register (n: byte) =
-    SH4Register.ID (EnumOfValue (int n))
+    SH4.Register.toRegID (EnumOfValue (int n))
 
   let toRegID isa regnum =
     match isa.Arch with

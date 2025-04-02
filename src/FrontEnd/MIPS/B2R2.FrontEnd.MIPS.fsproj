@@ -1,0 +1,34 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <PackageLicenseFile>LICENSE.md</PackageLicenseFile>
+    <PackageIcon>b2r2-240x240.png</PackageIcon>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <Description>B2R2 MIPS frontend.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="MIPSRegister.fs" />
+    <Compile Include="MIPSRegExprs.fs" />
+    <Compile Include="MIPSRegisterFactory.fs" />
+    <Compile Include="MIPSTypes.fs" />
+    <Compile Include="MIPSHelper.fs" />
+    <Compile Include="MIPSDisasm.fs" />
+    <Compile Include="MIPSLifter.fs" />
+    <Compile Include="MIPSInstruction.fs" />
+    <Compile Include="MIPSParsingMain.fs" />
+    <Compile Include="MIPSParser.fs" />
+    <Compile Include="MIPSTranslationContext.fs" />
+    <None Include="..\..\..\LICENSE.md" Pack="true" PackagePath="" />
+    <None Include="..\..\..\assets\b2r2-240x240.png" Pack="true" PackagePath="" />
+    <None Include="README.md" Pack="true" PackagePath="" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Core\B2R2.Core.fsproj" />
+    <ProjectReference Include="..\..\BinIR\B2R2.BinIR.fsproj" />
+    <ProjectReference Include="..\BinLifter\B2R2.FrontEnd.BinLifter.fsproj" />
+    <ProjectReference Include="..\Registers\B2R2.FrontEnd.Registers.fsproj" />
+  </ItemGroup>
+
+</Project>

@@ -22,13 +22,13 @@
   THE SOFTWARE.
 *)
 
-namespace B2R2.FrontEnd.BinLifter.Tests
+namespace B2R2.FrontEnd.Tests
 
 open Microsoft.VisualStudio.TestTools.UnitTesting
 open B2R2
 open B2R2.FrontEnd.BinLifter
-open B2R2.FrontEnd.BinLifter.Intel
-open B2R2.FrontEnd.BinLifter.Intel.Disasm
+open B2R2.FrontEnd.Intel
+open B2R2.FrontEnd.Intel.Disasm
 open type Opcode
 
 [<TestClass>]

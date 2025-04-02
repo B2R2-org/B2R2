@@ -22,16 +22,15 @@
   SOFTWARE.
 *)
 
-namespace B2R2.FrontEnd.BinLifter.Tests
+namespace B2R2.FrontEnd.Tests
 
 open Microsoft.VisualStudio.TestTools.UnitTesting
 open B2R2
 open B2R2.BinIR.LowUIR
-open B2R2.FrontEnd
 open B2R2.FrontEnd.BinLifter
-open B2R2.FrontEnd.BinLifter.AVR
+open B2R2.FrontEnd.AVR
 open B2R2.BinIR.LowUIR.AST.InfixOp
-open type Register.AVR
+open type Register
 
 [<TestClass>]
 type AVRLifterTests () =
@@ -44,7 +43,7 @@ type AVRLifterTests () =
   let ( ++ ) (byteStr: string) givenStmts =
     ByteArray.ofHexString byteStr, givenStmts
 
-  let ( !. ) reg = Register.AVRRegister.ID reg |> ctxt.GetRegVar
+  let ( !. ) reg = Register.toRegID reg |> ctxt.GetRegVar
 
   let test (bytes: byte[], givenStmts: Stmt[])  =
     let parser = AVRParser () :> IInstructionParsable
