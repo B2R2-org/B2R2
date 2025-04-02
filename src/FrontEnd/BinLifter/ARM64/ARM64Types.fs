@@ -75,8 +75,7 @@ type Condition =
   | NV
 
 /// <summary>
-///   ARMv8 (AArch64) opcodes. This type should be generated using
-///   <c>scripts/genOpcode.fsx</c> from the `ARM64SupportedOpcodes.txt` file.
+///   ARMv8 (AArch64) opcodes.
 /// </summary>
 type Opcode =
   /// Absolute value.

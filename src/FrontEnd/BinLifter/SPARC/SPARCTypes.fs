@@ -32,6 +32,9 @@ open B2R2.FrontEnd
 [<assembly: InternalsVisibleTo("B2R2.FrontEnd.BinLifter.Tests")>]
 do ()
 
+/// <summary>
+///   SPARC opcodes.
+/// </summary>
 type Opcode =
   /// Add
   | ADD = 0

@@ -31,9 +31,7 @@ open System.Runtime.CompilerServices
 do ()
 
 /// <summary>
-///   S390 opcodes. This type should be generated using
-///   <c>scripts/genOpcode.fsx</c> from the `S39064SupportedOpcode.txt`
-///   file.
+///   S390 opcodes.
 /// </summary>
 type Opcode =
   | MyOp = 0 // FIXME

@@ -81,8 +81,7 @@ type Condition =
   | UN = 0x13
 
 /// <summary>
-///   ARM32 opcodes. This type should be generated using
-///   <c>scripts/genOpcode.fsx</c> from the `ARM32SupportedOpcode.txt` file.
+///   ARM32 opcodes.
 /// </summary>
 type Opcode =
   /// Add with Carry.

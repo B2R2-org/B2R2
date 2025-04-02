@@ -32,9 +32,7 @@ open B2R2.FrontEnd
 do ()
 
 /// <summary>
-///   RISCV64 opcodes. This type should be generated using
-///   <c>scripts/genOpcode.fsx</c> from the `RISCV64SupportedOpcode.txt`
-///   file.
+///   RISCV64 opcodes.
 /// </summary>
 type Opcode =
   | LUI = 0
