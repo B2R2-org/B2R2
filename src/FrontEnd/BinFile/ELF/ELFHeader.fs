@@ -209,6 +209,7 @@ module internal Header =
     | 0x2bs -> Architecture.SPARC
     | 0xf3s -> Architecture.RISCV64 (* FIXME: RISCV *)
     | 0x0fs -> Architecture.PARISC
+    | 0x16s -> Architecture.S390
     | _ -> Architecture.UnknownISA
 
   let parseFromSpan span (reader: IBinReader) endian baseAddrOpt =

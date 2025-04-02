@@ -25,11 +25,14 @@
 namespace B2R2.FrontEnd.BinLifter.S390
 
 open B2R2
+open B2R2.FrontEnd
+open B2R2.FrontEnd.Register
 open B2R2.FrontEnd.BinLifter
+open B2R2.FrontEnd.BinLifter.S390.Helper
 
 /// The internal representation for a S390 instruction used by our
 /// disassembler and lifter.
-type S390Instruction (addr, numBytes, insInfo) =
+type S390Instruction (addr, numBytes, insInfo, wordSize) =
   inherit Instruction (addr, numBytes, WordSize.Bit32)
 
   /// Basic instruction information.
@@ -37,6 +40,18 @@ type S390Instruction (addr, numBytes, insInfo) =
 
   override __.IsBranch () =
     match __.Info.Opcode with
+    | Opcode.BALR | Opcode.BAL | Opcode.BASR | Opcode.BAS
+    | Opcode.BASSM | Opcode.BSM | Opcode.BIC | Opcode.BCR
+    | Opcode.BC | Opcode.BCTR | Opcode.BCTGR | Opcode.BCT
+    | Opcode.BCTG | Opcode.BXH | Opcode.BXHG | Opcode.BXLE
+    | Opcode.BXLEG | Opcode.BPP | Opcode.BPRP | Opcode.BRAS
+    | Opcode.BRASL | Opcode.BRC | Opcode.BRCL | Opcode.BRCT
+    | Opcode.BRCTG | Opcode.BRCTH | Opcode.BRXH | Opcode.BRXHG
+    | Opcode.BRXLE | Opcode.BRXLG -> true
+    | Opcode.CRB | Opcode.CGRB | Opcode.CRJ | Opcode.CGRJ
+    | Opcode.CIB | Opcode.CGIB | Opcode.CIJ | Opcode.CGIJ
+    | Opcode.CLRB | Opcode.CLGRB | Opcode.CLRJ | Opcode.CLGRJ
+      when not (__.IsNop()) -> true
     | _ -> false
 
   override __.IsModeChanging () = false
@@ -49,13 +64,32 @@ type S390Instruction (addr, numBytes, insInfo) =
   override __.IsIndirectBranch () =
     __.IsBranch () && (not <| __.HasConcJmpTarget ())
 
-  override __.IsCondBranch () = Utils.futureFeature ()
+  override __.IsCondBranch () =
+    match __.Info.Opcode with
+    | Opcode.BC | Opcode.BCR | Opcode.BIC -> true
+    | Opcode.CRB | Opcode.CGRB | Opcode.CRJ | Opcode.CGRJ
+    | Opcode.CIB | Opcode.CGIB | Opcode.CIJ | Opcode.CGIJ
+    | Opcode.CLRB | Opcode.CLGRB | Opcode.CLRJ | Opcode.CLGRJ
+      when not (__.IsNop()) -> true
+    | _ -> false
 
   override __.IsCJmpOnTrue () = Utils.futureFeature ()
 
-  override __.IsCall () = Utils.futureFeature ()
+  override __.IsCall () =
+    match __.Info.Opcode with
+    | Opcode.BAL | Opcode.BALR | Opcode.BAS | Opcode.BASR
+    | Opcode.BASSM | Opcode.BSM -> true
+    | Opcode.BC | Opcode.BCR when getMaskVal __.Info.Operands = Some(15us) ->
+      true
+    | _ -> false
 
-  override __.IsRET () = Utils.futureFeature ()
+  override __.IsRET () =
+    match __.Info.Opcode with
+    | Opcode.BCR | Opcode.BASR | Opcode.BCTR ->
+      match __.Info.Operands with
+      | TwoOperands (_, OpReg (S390.R14)) -> true
+      | _ -> false
+    | _ -> false
 
   override __.IsInterrupt () = Utils.futureFeature ()
 
@@ -76,7 +110,24 @@ type S390Instruction (addr, numBytes, insInfo) =
 
   override __.InterruptNum (_num: byref<int64>) = Utils.futureFeature ()
 
-  override __.IsNop () = Utils.futureFeature ()
+  override __.IsNop () =
+    let opr = __.Info.Operands
+    match __.Info.Opcode with
+    | Opcode.CRB | Opcode.CGRB | Opcode.CRJ | Opcode.CGRJ
+    | Opcode.CIB | Opcode.CGIB | Opcode.CIJ | Opcode.CGIJ
+    | Opcode.CLRB | Opcode.CLGRB | Opcode.CLRJ | Opcode.CLGRJ
+    | Opcode.CRT | Opcode.CGRT | Opcode.CIT | Opcode.CGIT
+    | Opcode.CLRT | Opcode.CLGRT | Opcode.CLFIT | Opcode.CLGIT ->
+      match getMaskVal opr with
+      | Some (value) -> (uint16 value &&& 0b1110us) = 0us
+      | None -> false
+    | Opcode.LOCR | Opcode.LOCGR | Opcode.LOC | Opcode.LOCG
+    | Opcode.LOCFHR | Opcode.LOCFH | Opcode.STOC | Opcode.STOCG
+    | Opcode.STOCFH ->
+      match getMaskVal opr with
+      | Some (value) -> (uint16 value &&& 0b1111us) = 0us
+      | None -> false
+    | _ -> false
 
   override __.Translate ctxt =
     Utils.futureFeature ()
@@ -84,14 +135,24 @@ type S390Instruction (addr, numBytes, insInfo) =
   override __.TranslateToList ctxt =
     Utils.futureFeature ()
 
-  override __.Disasm (showAddr, _) =
-    Utils.futureFeature ()
+  override __.Disasm (showAddr: bool, nameReader: INameReadable) =
+    let resolveSymb = not (isNull nameReader)
+    let builder =
+      DisasmStringBuilder (showAddr, resolveSymb, wordSize, addr, numBytes)
+    Disasm.disasm nameReader wordSize __.Info builder
+    builder.ToString ()
 
   override __.Disasm () =
-    Utils.futureFeature ()
+    let builder =
+      DisasmStringBuilder (false, false, wordSize, addr, numBytes)
+    Disasm.disasm null wordSize __.Info builder
+    builder.ToString ()
 
   override __.Decompose (showAddr) =
-    Utils.futureFeature ()
+    let builder =
+      DisasmWordBuilder (showAddr, false, wordSize, addr, numBytes, 8)
+    Disasm.disasm null wordSize __.Info builder
+    builder.ToArray ()
 
   override __.IsInlinedAssembly () = false
 

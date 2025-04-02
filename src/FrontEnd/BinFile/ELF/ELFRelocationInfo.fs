@@ -644,6 +644,27 @@ type RelocationPARISC =
   | R_PARISC_LORESERVE = 128UL
   | R_PARISC_HIRESERVE = 255UL
 
+type RelocationS390 =
+  | R_S390_NONE = 0UL
+  | R_390_8 = 1UL
+  | R_390_12 = 2UL
+  | R_390_16 = 3UL
+  | R_390_32 = 4UL
+  | R_390_PC32 = 5UL
+  | R_390_GOT12 = 6UL
+  | R_390_GOT32 = 7UL
+  | R_390_PLT32 = 8UL
+  | R_390_COPY = 9UL
+  | R_390_GLOB_DAT = 10UL
+  | R_390_JMP_SLOT = 11UL
+  | R_390_RELATIVE = 12UL
+  | R_390_GOTOFF = 13UL
+  | R_390_GOTPC = 14UL
+  | R_390_GOT16 = 15UL
+  | R_390_PC16 = 16UL
+  | R_390_PC16DBL = 17UL
+  | R_390_PLT16DBL = 18UL
+
 /// Relocation type.
 type RelocationType =
   | RelocationX86 of RelocationX86
@@ -655,6 +676,7 @@ type RelocationType =
   | RelocationRISCV of RelocationRISCV
   | RelocationPPC32 of RelocationPPC32
   | RelocationPARISC of RelocationPARISC
+  | RelocationS390 of RelocationS390
 with
   static member FromNum arch n =
     match arch with
@@ -678,6 +700,8 @@ with
       RelocationPPC32 <| LanguagePrimitives.EnumOfValue n
     | Architecture.PARISC | Architecture.PARISC64 ->
       RelocationPARISC <| LanguagePrimitives.EnumOfValue n
+    | Architecture.S390 | Architecture.S390X ->
+      RelocationS390 <| LanguagePrimitives.EnumOfValue n
     | _ -> invalidArg (nameof arch) "Unsupported architecture for relocation."
 
   static member ToString rt =
@@ -691,6 +715,7 @@ with
     | RelocationRISCV t -> t.ToString ()
     | RelocationPPC32 t -> t.ToString ()
     | RelocationPARISC t -> t.ToString ()
+    | RelocationS390 t -> t.ToString()
 
 /// Relocation entry.
 type RelocationEntry = {
