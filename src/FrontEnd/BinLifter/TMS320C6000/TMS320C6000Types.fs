@@ -32,9 +32,7 @@ open B2R2.FrontEnd
 do ()
 
 /// <summary>
-///   TMS320C6000 opcodes. This type should be generated using
-///   <c>scripts/genOpcode.fsx</c> from the `TMS320C6000SupportedOpcode.txt`
-///   file.
+///   TMS320C6000 opcodes.
 /// </summary>
 type Opcode =
   | ABS = 0

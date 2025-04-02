@@ -32,9 +32,7 @@ open B2R2.FrontEnd
 do ()
 
 /// <summary>
-///   PPC32 opcodes. This type should be generated using
-///   <c>scripts/genOpcode.fsx</c> from the `PPC32SupportedOpcode.txt`
-///   file.
+///   PPC32 opcodes.
 /// </summary>
 type Opcode =
   | ADD = 0

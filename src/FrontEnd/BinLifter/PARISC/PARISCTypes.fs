@@ -32,9 +32,7 @@ open B2R2.FrontEnd
 do ()
 
 /// <summary>
-///   PARISC opcodes. This type should be generated using
-///   <c>scripts/genOpcode.fsx</c> from the `PARISCSupportedOpcode.txt`
-///   file.
+///   PARISC opcodes.
 /// </summary>
 type Opcode =
   /// To cause a break instruction trap for debugging purposes.

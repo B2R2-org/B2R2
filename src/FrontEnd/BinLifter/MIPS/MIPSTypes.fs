@@ -91,8 +91,7 @@ type Fmt =
   | UNINTERPRETED_DOUBLEWORD = 8
 
 /// <summary>
-///   MIPS opcodes. This type should be generated using
-///   <c>scripts/genOpcode.fsx</c> from the `MIPSSupportedOpcode.txt` file.
+///   MIPS opcodes.
 /// </summary>
 type Opcode =
   /// Floating Point Absolute Value.

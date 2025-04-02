@@ -79,8 +79,7 @@ module Register =
 
 
 /// <summary>
-///   EVM opcodes. This type should be generated using
-///   <c>scripts/genOpcode.fsx</c> from the `EVMSupportedOpcode.txt` file.
+///   EVM opcodes.
 /// </summary>
 type Opcode =
   /// Halts execution
