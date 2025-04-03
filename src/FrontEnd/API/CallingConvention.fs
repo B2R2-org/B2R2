@@ -49,7 +49,7 @@ let volatileRegisters (hdl: BinHandle) =
       ARM32.Register.R2
       ARM32.Register.R3 ]
     |> List.map ARM32.Register.toRegID
-  | _ -> Utils.futureFeature ()
+  | _ -> Terminator.futureFeature ()
 
 [<CompiledName("ReturnRegister")>]
 let returnRegister (hdl: BinHandle) =
@@ -65,7 +65,7 @@ let returnRegister (hdl: BinHandle) =
     ARM64.Register.X0 |> ARM64.Register.toRegID
   | Architecture.MIPS32 | Architecture.MIPS64 ->
     MIPS.Register.R2 |> MIPS.Register.toRegID
-  | _ -> Utils.futureFeature ()
+  | _ -> Terminator.futureFeature ()
 
 [<CompiledName("SyscallNumRegister")>]
 let syscallNumRegister (hdl: BinHandle) =
@@ -81,7 +81,7 @@ let syscallNumRegister (hdl: BinHandle) =
     ARM64.Register.X8 |> ARM64.Register.toRegID
   | Architecture.MIPS32 | Architecture.MIPS64 ->
     MIPS.Register.R2 |> MIPS.Register.toRegID
-  | _ -> Utils.futureFeature ()
+  | _ -> Terminator.futureFeature ()
 
 [<CompiledName("SyscallArgRegister")>]
 let syscallArgRegister (hdl: BinHandle) os num =
@@ -94,7 +94,7 @@ let syscallArgRegister (hdl: BinHandle) os num =
     | 4 -> Intel.Register.ESI |> Intel.Register.toRegID
     | 5 -> Intel.Register.EDI |> Intel.Register.toRegID
     | 6 -> Intel.Register.EBP |> Intel.Register.toRegID
-    | _ -> Utils.impossible ()
+    | _ -> Terminator.impossible ()
   | OS.Linux, Architecture.IntelX64 ->
     match num with
     | 1 -> Intel.Register.RDI |> Intel.Register.toRegID
@@ -103,7 +103,7 @@ let syscallArgRegister (hdl: BinHandle) os num =
     | 4 -> Intel.Register.R10 |> Intel.Register.toRegID
     | 5 -> Intel.Register.R8 |> Intel.Register.toRegID
     | 6 -> Intel.Register.R9 |> Intel.Register.toRegID
-    | _ -> Utils.impossible ()
+    | _ -> Terminator.impossible ()
   | OS.Linux, Architecture.ARMv7
   | OS.Linux, Architecture.AARCH32 ->
     match num with
@@ -113,7 +113,7 @@ let syscallArgRegister (hdl: BinHandle) os num =
     | 4 -> ARM32.Register.R3 |> ARM32.Register.toRegID
     | 5 -> ARM32.Register.R4 |> ARM32.Register.toRegID
     | 6 -> ARM32.Register.R5 |> ARM32.Register.toRegID
-    | _ -> Utils.impossible ()
+    | _ -> Terminator.impossible ()
   | OS.Linux, Architecture.AARCH64 ->
     match num with
     | 1 -> ARM64.Register.X0 |> ARM64.Register.toRegID
@@ -122,7 +122,7 @@ let syscallArgRegister (hdl: BinHandle) os num =
     | 4 -> ARM64.Register.X3 |> ARM64.Register.toRegID
     | 5 -> ARM64.Register.X4 |> ARM64.Register.toRegID
     | 6 -> ARM64.Register.X5 |> ARM64.Register.toRegID
-    | _ -> Utils.impossible ()
+    | _ -> Terminator.impossible ()
   | OS.Linux, Architecture.MIPS32 | OS.Linux, Architecture.MIPS64 ->
     match num with
     | 1 -> MIPS.Register.R4 |> MIPS.Register.toRegID
@@ -131,8 +131,8 @@ let syscallArgRegister (hdl: BinHandle) os num =
     | 4 -> MIPS.Register.R7 |> MIPS.Register.toRegID
     | 5 -> MIPS.Register.R8 |> MIPS.Register.toRegID
     | 6 -> MIPS.Register.R9 |> MIPS.Register.toRegID
-    | _ -> Utils.impossible ()
-  | _ -> Utils.futureFeature ()
+    | _ -> Terminator.impossible ()
+  | _ -> Terminator.futureFeature ()
 
 [<CompiledName("FunctionArgRegister")>]
 let functionArgRegister (hdl: BinHandle) os num =
@@ -141,7 +141,7 @@ let functionArgRegister (hdl: BinHandle) os num =
     match num with
     | 1 -> Intel.Register.ECX |> Intel.Register.toRegID
     | 2 -> Intel.Register.EDX |> Intel.Register.toRegID
-    | _ -> Utils.impossible ()
+    | _ -> Terminator.impossible ()
   | OS.Linux, Architecture.IntelX64 -> (* System V *)
     match num with
     | 1 -> Intel.Register.RDI |> Intel.Register.toRegID
@@ -150,15 +150,15 @@ let functionArgRegister (hdl: BinHandle) os num =
     | 4 -> Intel.Register.RCX |> Intel.Register.toRegID
     | 5 -> Intel.Register.R8 |> Intel.Register.toRegID
     | 6 -> Intel.Register.R9 |> Intel.Register.toRegID
-    | _ -> Utils.impossible ()
+    | _ -> Terminator.impossible ()
   | OS.Windows, Architecture.IntelX64 ->
     match num with
     | 1 -> Intel.Register.RCX |> Intel.Register.toRegID
     | 2 -> Intel.Register.RDX |> Intel.Register.toRegID
     | 3 -> Intel.Register.R8 |> Intel.Register.toRegID
     | 4 -> Intel.Register.R9 |> Intel.Register.toRegID
-    | _ -> Utils.impossible ()
-  | _ -> Utils.futureFeature ()
+    | _ -> Terminator.impossible ()
+  | _ -> Terminator.futureFeature ()
 
 [<CompiledName("IsNonVolatile")>]
 let isNonVolatile (hdl: BinHandle) os rid =

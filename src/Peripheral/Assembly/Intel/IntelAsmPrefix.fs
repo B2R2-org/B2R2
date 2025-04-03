@@ -180,7 +180,7 @@ let encodeRexRXB ctx isMR = function
   | ThreeOperands (OprReg r, OprMem (None, None, _, _), OprImm _) ->
     encodeRexR r
   | ThreeOperands (OprReg r, Label _, OprImm _) -> encodeRexR r
-  | o -> printfn "Inavlid Operand (%A)" o; Utils.futureFeature ()
+  | o -> printfn "Inavlid Operand (%A)" o; Terminator.futureFeature ()
 
 let encodeREXPref ins (ctx: EncContext) (rexPrx: EncREXPrefix) =
   if ctx.Arch = Architecture.IntelX86 then [||]
@@ -193,7 +193,7 @@ let private getLeadingOpcodeByte = function (* m-mmmm *)
   | VEXType.VEXTwoByteOp -> 0b00001uy
   | VEXType.VEXThreeByteOpOne -> 0b00010uy
   | VEXType.VEXThreeByteOpTwo -> 0b00011uy
-  | _ -> Utils.impossible ()
+  | _ -> Terminator.impossible ()
 
 let private getVVVVByte = function
   | Some Register.XMM0 | Some Register.YMM0
@@ -221,20 +221,20 @@ let private getVVVVByte = function
   | Some Register.XMM14 | Some Register.YMM14 -> 0b0001uy
   | Some Register.XMM15 | Some Register.YMM15 -> 0b0000uy
   | None -> 0b1111uy
-  | _ -> Utils.impossible ()
+  | _ -> Terminator.impossible ()
 
 let private getVLen = function
   | 128<rt> -> 0b0uy
   | 256<rt> -> 0b1uy
   | 32<rt> | 64<rt> -> 0b0uy // Scalar
-  | _ -> Utils.impossible ()
+  | _ -> Terminator.impossible ()
 
 let private getSIMDPref = function
   | Prefix.PrxNone -> 0b00uy
   | Prefix.PrxOPSIZE (* 0x66 *) -> 0b01uy
   | Prefix.PrxREPZ   (* 0xF3 *) -> 0b10uy
   | Prefix.PrxREPNZ  (* 0xF2 *) -> 0b11uy
-  | _ -> Utils.impossible ()
+  | _ -> Terminator.impossible ()
 
 let encodeTwoVEXPref rexR vvvv (vex: EncVEXPrefix) =
   let vvvv = getVVVVByte vvvv

@@ -81,7 +81,7 @@ type ARMThumbParserTests () =
     | 2 -> TwoOperands (oprs[0], oprs[1])
     | 3 -> ThreeOperands (oprs[0], oprs[1], oprs[2])
     | 4 -> FourOperands (oprs[0], oprs[1], oprs[2], oprs[3])
-    | _ -> Utils.impossible ()
+    | _ -> Terminator.impossible ()
 
   let ( ** ) opcode oprList = (opcode, operandsFromArray oprList)
 

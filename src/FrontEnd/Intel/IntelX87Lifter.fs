@@ -135,7 +135,7 @@ let private popFPUStack ctxt ir =
 let inline private getLoadAddressExpr (src: Expr) =
   match src.E with
   | Load (_, _, addr) -> struct (addr, TypeCheck.typeOf addr)
-  | _ -> Utils.impossible ()
+  | _ -> Terminator.impossible ()
 
 let private castTo80Bit ctxt tmpB tmpA srcExpr ir =
   let oprSize = TypeCheck.typeOf srcExpr
@@ -203,7 +203,7 @@ let private castTo80Bit ctxt tmpB tmpA srcExpr ir =
       !!ir (tmpB := srcB)
       !!ir (tmpA := srcA)
     | _ -> raise InvalidOperandException
-  | _ -> Utils.impossible ()
+  | _ -> Terminator.impossible ()
 
 let private fpuLoad insLen ctxt oprExpr =
   let ir = !*ctxt
@@ -289,7 +289,7 @@ let private castFrom80Bit dstExpr dstSize srcB srcA ir =
     let struct (addrExpr, addrSize) = getLoadAddressExpr dstExpr
     !!ir (AST.store Endian.Little (addrExpr) srcA)
     !!ir (AST.store Endian.Little (addrExpr .+ numI32 8 addrSize) srcB)
-  | _ -> Utils.impossible ()
+  | _ -> Terminator.impossible ()
 
 let ffst (ins: InsInfo) insLen ctxt doPop =
   let ir = !*ctxt

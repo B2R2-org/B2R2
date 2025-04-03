@@ -184,7 +184,7 @@ type RawBinFile (path, bytes: byte[], isa, baseAddrOpt) =
 
     member __.HasRelocationInfo _ = false
 
-    member __.GetRelocatedAddr _relocAddr = Utils.impossible ()
+    member __.GetRelocatedAddr _relocAddr = Terminator.impossible ()
 
     member __.GetLinkageTableEntries () = [||]
 

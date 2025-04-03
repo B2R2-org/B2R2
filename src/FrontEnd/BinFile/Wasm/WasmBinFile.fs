@@ -114,7 +114,7 @@ type WasmBinFile (path, bytes, baseAddrOpt) =
     member __.IsInFileRange range =
       (__ :> IContentAddressable).IsValidRange range
 
-    member __.IsExecutableAddr _addr = Utils.futureFeature ()
+    member __.IsExecutableAddr _addr = Terminator.futureFeature ()
 
     member __.GetNotInFileIntervals range =
       FileHelper.getNotInFileIntervals 0UL (uint64 bytes.LongLength) range
@@ -131,11 +131,11 @@ type WasmBinFile (path, bytes, baseAddrOpt) =
 
     member __.GetStaticSymbols () = [||]
 
-    member __.GetFunctionSymbols () = Utils.futureFeature ()
+    member __.GetFunctionSymbols () = Terminator.futureFeature ()
 
     member __.GetDynamicSymbols (?exc) = getDynamicSymbols wm exc
 
-    member __.AddSymbol _addr _symbol = Utils.futureFeature ()
+    member __.AddSymbol _addr _symbol = Terminator.futureFeature ()
 
     member __.GetSections () = getSections wm
 
@@ -159,16 +159,16 @@ type WasmBinFile (path, bytes, baseAddrOpt) =
 
     member __.GetSegments (_perm: Permission): Segment[] = [||]
 
-    member __.GetFunctionAddresses () = Utils.futureFeature ()
+    member __.GetFunctionAddresses () = Terminator.futureFeature ()
 
-    member __.GetFunctionAddresses (_) = Utils.futureFeature ()
+    member __.GetFunctionAddresses (_) = Terminator.futureFeature ()
 
     member __.GetRelocationInfos () = [||]
 
     member __.HasRelocationInfo _addr = false
 
-    member __.GetRelocatedAddr _relocAddr = Utils.futureFeature ()
+    member __.GetRelocatedAddr _relocAddr = Terminator.futureFeature ()
 
     member __.GetLinkageTableEntries () = getImports wm
 
-    member __.IsLinkageTable _addr = Utils.futureFeature ()
+    member __.IsLinkageTable _addr = Terminator.futureFeature ()

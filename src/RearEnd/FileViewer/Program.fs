@@ -55,7 +55,7 @@ let dumpSpecific opts (file: IBinFile) title elf pe mach =
   | :? ELFBinFile as file -> elf opts file
   | :? PEBinFile as file -> pe opts file
   | :? MachBinFile as file -> mach opts file
-  | _ -> Utils.futureFeature ()
+  | _ -> Terminator.futureFeature ()
   out.PrintLine ()
 
 let dumpFileHeader (opts: FileViewerOpts) (file: IBinFile) =
@@ -193,10 +193,10 @@ let printAll opts hdl (file: IBinFile) =
    | :? MachBinFile as file ->
      dumpLoadCommands opts file
      dumpSharedLibs opts file
-   | _ -> Utils.futureFeature ()
+   | _ -> Terminator.futureFeature ()
 
 let printSelectively hdl opts file = function
-  | DisplayAll -> Utils.impossible ()
+  | DisplayAll -> Terminator.impossible ()
   | DisplayFileHeader -> dumpFileHeader opts file
   | DisplaySectionHeaders -> dumpSectionHeaders opts file
   | DisplaySectionDetails s -> dumpSectionDetails s file

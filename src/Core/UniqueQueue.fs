@@ -42,7 +42,7 @@ type UniqueQueue<'T> () =
   member __.Dequeue () =
     let x = queue.Dequeue ()
     if set.Remove x then x
-    else Utils.impossible ()
+    else Terminator.impossible ()
 
   /// Try to dequeue an element.
   member __.TryDequeue ([<Out>] result: byref<'T>) =

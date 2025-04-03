@@ -413,7 +413,7 @@ module Register =
     | "fflags" -> Register.FFLAGS
     | "frm" -> Register.FRM
     | "rc" -> Register.RC
-    | _ -> Utils.impossible ()
+    | _ -> Terminator.impossible ()
 
   /// Get the register ID of a RISC-V register.
   [<CompiledName "ToRegID">]
@@ -492,4 +492,4 @@ module Register =
     | Register.FFLAGS -> "fflags"
     | Register.FRM -> "frm"
     | Register.RC -> "rc"
-    | _ -> Utils.impossible ()
+    | _ -> Terminator.impossible ()

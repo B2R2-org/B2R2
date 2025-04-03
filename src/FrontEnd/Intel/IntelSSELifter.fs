@@ -519,7 +519,7 @@ let private cmppCond ir ins insLen ctxt op3 isDbl c expr1 expr2 =
     | 6UL -> !!ir (c := AST.fle expr1 expr2 |> AST.not)
     | 7UL -> !!ir (c := (isNan isDbl expr1 .| isNan isDbl expr2) |> AST.not)
     | _ -> !!ir (c := AST.b0)
-  | _ -> Utils.impossible ()
+  | _ -> Terminator.impossible ()
 
 let cmpps ins insLen ctxt =
   let ir = !*ctxt
@@ -1927,13 +1927,13 @@ let private getPcmpstrInfo opCode (imm: Expr) =
             | v when v = 1I -> Ranges
             | v when v = 2I -> EqualEach
             | v when v = 3I -> EqualOrdered
-            | _ -> Utils.impossible ()
+            | _ -> Terminator.impossible ()
   let pol = match (immByte >>> 4) &&& 3I with
             | v when v = 0I -> PosPolarity
             | v when v = 1I -> NegPolarity
             | v when v = 2I -> PosMasked
             | v when v = 3I -> NegMasked
-            | _ -> Utils.impossible ()
+            | _ -> Terminator.impossible ()
   let size, nElem = if immByte &&& 1I = 0I then 8<rt>, 16u else 16<rt>, 8u
   let len, ret =
     match opCode with

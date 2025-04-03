@@ -71,4 +71,4 @@ let evalBlockFromScratch hdl (blk: IVertex<LowUIRBasicBlock>) =
     blk.VData.Internals.LiftedInstructions |> Array.map (fun arr -> arr.Stmts)
   match SafeEvaluator.evalBlock st pc stmts with
   | Ok st -> st
-  | Error _ -> Utils.impossible ()
+  | Error _ -> Terminator.impossible ()

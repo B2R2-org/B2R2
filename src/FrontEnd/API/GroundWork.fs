@@ -58,7 +58,7 @@ type GroundWork =
       SPARC.SPARCTranslationContext isa :> TranslationContext
     | Architecture.PARISC | Architecture.PARISC64 ->
       PARISC.PARISCTranslationContext isa :> TranslationContext
-    | _ -> Utils.futureFeature ()
+    | _ -> Terminator.futureFeature ()
 
   /// Create a new register factory for the given architecture.
   static member CreateRegisterFactory isa =
@@ -97,7 +97,7 @@ type GroundWork =
       PARISC.PARISC64RegisterFactory
         (isa.WordSize, PARISC.RegExprs isa.WordSize)
       :> RegisterFactory
-    | _ -> Utils.futureFeature ()
+    | _ -> Terminator.futureFeature ()
 
   /// Create a new parser (IInstructionParsable) for the given architecture.
   static member CreateParser (isa: ISA) mode =
@@ -130,4 +130,4 @@ type GroundWork =
     | Architecture.PARISC | Architecture.PARISC64 ->
       PARISC.PARISC64Parser (isa) :> IInstructionParsable
     | _ ->
-      Utils.futureFeature ()
+      Terminator.futureFeature ()

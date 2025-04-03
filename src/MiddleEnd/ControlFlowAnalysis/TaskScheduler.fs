@@ -105,7 +105,7 @@ type TaskScheduler<'FnCtx,
           MakeCall (callSite, callee, calleeInfo)
         | MakeTlCall (callSite, callee, _) ->
           MakeTlCall (callSite, callee, calleeInfo)
-        | _ -> Utils.impossible ())
+        | _ -> Terminator.impossible ())
       |> Seq.iter (callerActionQueue.Push strategy.ActionPrioritizer)
       callerPendingActions.Remove callee
 

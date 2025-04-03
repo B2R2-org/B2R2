@@ -172,7 +172,7 @@ type ARM32ParserTests () =
     | 4 -> FourOperands (oprs[0], oprs[1], oprs[2], oprs[3])
     | 5 -> FiveOperands (oprs[0], oprs[1], oprs[2], oprs[3], oprs[4])
     | 6 -> SixOperands (oprs[0], oprs[1], oprs[2], oprs[3], oprs[4], oprs[5])
-    | _ -> Utils.impossible ()
+    | _ -> Terminator.impossible ()
 
   let ( ** ) opcode oprList = (opcode, operandsFromArray oprList)
 

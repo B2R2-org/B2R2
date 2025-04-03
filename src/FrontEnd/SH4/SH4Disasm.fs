@@ -157,7 +157,7 @@ let opCodeToString = function
   | Opcode.XORB -> "xorb"
   | Opcode.XTRCT -> "xtrct"
   | Opcode.InvalidOp -> "(invalid)"
-  | _ -> Utils.impossible()
+  | _ -> Terminator.impossible()
 
 let prepDelim delim (builder: DisasmBuilder) =
   match delim with

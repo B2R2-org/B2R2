@@ -93,7 +93,7 @@ let private readLSDAFromCustom reader cls span (sAddr: Addr) addr =
     let lsdaAddr = sAddr + uint64 lsdaOffset
     Some (lsda, lsdaAddr)
   elif (n &&& 0xF0000000) = 0x80000000 then (* Compact model. *) None
-  else Utils.impossible () (* Unknown format *)
+  else Terminator.impossible () (* Unknown format *)
 
 let rec private readExnTableEntry (fdes, lsdas) reader cls span sAddr = function
   | entry :: tl ->

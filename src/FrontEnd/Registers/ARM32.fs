@@ -652,7 +652,7 @@ module Register =
     | "sctlr" -> Register.SCTLR
     | "nsacr" -> Register.NSACR
     | "fpscr" -> Register.FPSCR
-    | _ -> Utils.impossible ()
+    | _ -> Terminator.impossible ()
 
   /// Get the register ID of an ARM32 register.
   [<CompiledName "ToRegID">]
@@ -866,4 +866,4 @@ module Register =
     | Register.SPfiq -> "sp_fiq"
     | Register.LRfiq -> "lr_fiq"
     | Register.SPSRfiq -> "spsr_fiq"
-    | _ -> Utils.impossible ()
+    | _ -> Terminator.impossible ()

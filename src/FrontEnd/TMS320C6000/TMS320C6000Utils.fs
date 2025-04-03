@@ -22,6 +22,6 @@
   SOFTWARE.
 *)
 
-module internal B2R2.FrontEnd.TMS320C6000.Utils
+module internal B2R2.FrontEnd.TMS320C6000.Terminator
 
 // vim: set tw=80 sts=2 sw=2:

@@ -160,7 +160,7 @@ type MachBinFile (path, bytes: byte[], isa, baseAddrOpt) =
     member __.GetDynamicSymbols (?e) =
       getDynamicSymbols e secs.Value symInfo.Value
 
-    member __.AddSymbol _addr _symbol = Utils.futureFeature ()
+    member __.AddSymbol _addr _symbol = Terminator.futureFeature ()
 
     member __.GetSections () = getSections secs.Value segMap.Value
 
@@ -197,7 +197,7 @@ type MachBinFile (path, bytes: byte[], isa, baseAddrOpt) =
       relocs.Value
       |> Array.exists (fun r -> r.Address = addr)
 
-    member __.GetRelocatedAddr _relocAddr = Utils.futureFeature ()
+    member __.GetRelocatedAddr _relocAddr = Terminator.futureFeature ()
 
     member __.GetLinkageTableEntries () = getPLT symInfo.Value
 

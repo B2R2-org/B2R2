@@ -216,7 +216,7 @@ let enablePSRBits ctxt reg psrType =
   | PSR.F -> psr .| maskPSRForFbit
   | PSR.T -> psr .| maskPSRForTbit
   | PSR.M -> psr .| maskPSRForMbits
-  | _ -> Utils.impossible ()
+  | _ -> Terminator.impossible ()
 
 let disablePSRBits ctxt reg psrType =
   let psr = getRegVar ctxt reg
@@ -237,7 +237,7 @@ let disablePSRBits ctxt reg psrType =
   | PSR.F -> psr .& AST.not maskPSRForFbit
   | PSR.T -> psr .& AST.not maskPSRForTbit
   | PSR.M -> psr .& AST.not maskPSRForMbits
-  | _ -> Utils.impossible ()
+  | _ -> Terminator.impossible ()
 
 let psrShift psrType expr =
   match psrType with
@@ -257,7 +257,7 @@ let psrShift psrType expr =
   | PSR.F -> expr << (numI32 6 32<rt>)
   | PSR.T -> expr << (numI32 5 32<rt>)
   | PSR.M -> expr
-  | _ -> Utils.impossible ()
+  | _ -> Terminator.impossible ()
 
 let setPSR ctxt reg psrType expr =
   disablePSRBits ctxt reg psrType

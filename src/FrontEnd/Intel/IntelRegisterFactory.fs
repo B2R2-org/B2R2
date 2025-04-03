@@ -32,7 +32,7 @@ open type Register
 type IntelRegisterFactory (wordSize, r: RegExprs) =
   inherit RegisterFactory ()
 
-  override __.GetAllRegExprs () =
+  override _.GetAllRegExprs () =
     if WordSize.is32 wordSize then
       [ r.EAX; r.EBX; r.ECX; r.EDX; r.ESP; r.EBP; r.ESI; r.EDI; r.EIP; r.CSBase;
         r.DSBase; r.ESBase; r.FSBase; r.GSBase; r.SSBase; r.CR0; r.CR2; r.CR3;
@@ -78,11 +78,11 @@ type IntelRegisterFactory (wordSize, r: RegExprs) =
         r.ZMM15E; r.ZMM15F; r.ZMM15G; r.ZMM15H; r.CS; r.DS; r.ES; r.FS; r.GS;
         r.SS; r.DR0; r.DR1; r.DR2; r.DR3; r.DR6; r.DR7 ]
 
-  override __.GetAllRegNames () =
-    __.GetAllRegExprs ()
-    |> List.map (__.RegIDFromRegExpr >> __.RegIDToString)
+  override this.GetAllRegNames () =
+    this.GetAllRegExprs ()
+    |> List.map (this.RegIDFromRegExpr >> this.RegIDToString)
 
-  override __.GetGeneralRegExprs () =
+  override _.GetGeneralRegExprs () =
     if WordSize.is32 wordSize then
       [ r.EAX; r.EBX; r.ECX; r.EDX; r.ESP; r.EBP; r.ESI; r.EDI; r.EIP
         r.OF; r.DF; r.IF; r.SF; r.ZF; r.AF; r.PF; r.CF ]
@@ -91,7 +91,7 @@ type IntelRegisterFactory (wordSize, r: RegExprs) =
         r.R10; r.R11; r.R12; r.R13; r.R14; r.R15; r.RIP
         r.OF; r.DF; r.IF; r.SF; r.ZF; r.AF; r.PF; r.CF ]
 
-  override __.RegIDFromRegExpr (e) =
+  override _.RegIDFromRegExpr (e) =
     match e.E with
     | Var (_,id, _) -> id
     | PCVar (regT, _) ->
@@ -99,10 +99,10 @@ type IntelRegisterFactory (wordSize, r: RegExprs) =
       else Register.toRegID RIP
     | _ -> raise InvalidRegisterException
 
-  override __.RegIDToRegExpr (id) =
+  override _.RegIDToRegExpr (id) =
     Register.ofRegID id |> r.GetRegVar
 
-  override __.StrToRegExpr (s: string) =
+  override _.StrToRegExpr (s: string) =
     match s.ToUpper () with
     | "RAX" -> r.RAX
     | "RBX" -> r.RBX
@@ -392,39 +392,39 @@ type IntelRegisterFactory (wordSize, r: RegExprs) =
     | "DR7" -> r.DR7
     | _ -> raise UnhandledRegExprException
 
-  override __.RegIDFromString str =
+  override _.RegIDFromString str =
     Register.ofString str |> Register.toRegID
 
-  override __.RegIDToString rid =
+  override _.RegIDToString rid =
     Register.ofRegID rid |> Register.toString
 
-  override __.RegIDToRegType rid =
+  override _.RegIDToRegType rid =
     Register.ofRegID rid |> Register.toRegType wordSize
 
-  override __.GetRegisterAliases rid =
+  override _.GetRegisterAliases rid =
     Register.ofRegID rid
     |> Register.getAliases
     |> Array.map Register.toRegID
 
-  override __.ProgramCounter =
+  override _.ProgramCounter =
     if WordSize.is32 wordSize then EIP |> Register.toRegID
     else RIP |> Register.toRegID
 
-  override __.StackPointer =
+  override _.StackPointer =
     if WordSize.is32 wordSize then ESP |> Register.toRegID
     else RSP |> Register.toRegID
     |> Some
 
-  override __.FramePointer =
+  override _.FramePointer =
     if WordSize.is32 wordSize then EBP |> Register.toRegID
     else RBP |> Register.toRegID
     |> Some
 
-  override __.IsProgramCounter regid =
-    __.ProgramCounter = regid
+  override this.IsProgramCounter regid =
+    this.ProgramCounter = regid
 
-  override __.IsStackPointer regid =
-    (__.StackPointer |> Option.get) = regid
+  override this.IsStackPointer regid =
+    (this.StackPointer |> Option.get) = regid
 
-  override __.IsFramePointer regid =
-    (__.FramePointer |> Option.get) = regid
+  override this.IsFramePointer regid =
+    (this.FramePointer |> Option.get) = regid

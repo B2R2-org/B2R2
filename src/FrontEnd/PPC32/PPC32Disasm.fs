@@ -475,7 +475,7 @@ let opCodeToString = function
   | Op.BTCTRL -> "btctrl"
   | Op.CLRRWI -> "clrrwi"
   | Op.LWSYNC -> "lwsync"
-  | _ -> Utils.impossible ()
+  | _ -> Terminator.impossible ()
 
 let condToString = function
   | Condition.LT -> "lt"

@@ -482,7 +482,7 @@ let opCodeToString = function
   | Opcode.XNOR -> "xnor"
   | Opcode.XNORcc -> "xnorcc"
   | Opcode.InvalidOp -> "(invalid)"
-  | _ -> Utils.impossible ()
+  | _ -> Terminator.impossible ()
 
 let prependDelimiter delimiter (builder: DisasmBuilder) =
   match delimiter with
@@ -621,7 +621,7 @@ let buildOprs ins pc builder =
         | OprAddr k ->
          prependDelimiter (Some " 0x") builder
          immToStringNoPrefix (k) builder
-        | _ -> Utils.impossible ()
+        | _ -> Terminator.impossible ()
     | _ ->
       oprToString ins pc opr (Some " ") builder
   | TwoOperands (opr1, opr2) ->
@@ -638,7 +638,7 @@ let buildOprs ins pc builder =
       | OprImm 0b1, OprAddr k ->
         prependDelimiter (Some ",a 0x") builder
         immToStringNoPrefix (k) builder
-      | _ -> Utils.impossible ()
+      | _ -> Terminator.impossible ()
     | Opcode.BA | Opcode.BN
     | Opcode.BNE | Opcode.BE | Opcode.BG | Opcode.BLE | Opcode.BGE
     | Opcode.BL | Opcode.BGU | Opcode.BLEU | Opcode.BCC | Opcode.BCS
@@ -650,7 +650,7 @@ let buildOprs ins pc builder =
       | OprImm 0b1, OprAddr k ->
         prependDelimiter (Some ",a 0x") builder
         immToStringNoPrefix (k) builder
-      | _ -> Utils.impossible ()
+      | _ -> Terminator.impossible ()
     | Opcode.FdTOx | Opcode.FNEGs | Opcode.FNEGd | Opcode.FNEGq | Opcode.FABSs
     | Opcode.FABSd | Opcode.FABSq | Opcode.FSQRTs | Opcode.FSQRTd
     | Opcode.FSQRTq | Opcode.FCMPs | Opcode.FCMPd | Opcode.FCMPq
@@ -727,7 +727,7 @@ let buildOprs ins pc builder =
         ccToString c builder
         prependDelimiter (Some ", 0x") builder
         immToStringNoPrefix (k) builder
-      | _ -> Utils.impossible ()
+      | _ -> Terminator.impossible ()
     | Opcode.FBPA | Opcode.FBPN | Opcode.FBPU | Opcode.FBPG | Opcode.FBPUG
     | Opcode.FBPL | Opcode.FBPUL | Opcode.FBPLG | Opcode.FBPNE | Opcode.FBPE
     | Opcode.FBPUE | Opcode.FBPGE | Opcode.FBPUGE | Opcode.FBPLE
@@ -753,7 +753,7 @@ let buildOprs ins pc builder =
         ccToString c builder
         prependDelimiter (Some ", 0x") builder
         immToStringNoPrefix (k) builder
-      | _ -> Utils.impossible ()
+      | _ -> Terminator.impossible ()
     | Opcode.LDFA | Opcode.LDDFA | Opcode.LDQFA | Opcode.LDSTUBA
     | Opcode.LDSBA | Opcode.LDSHA | Opcode.LDSWA | Opcode.LDUBA
     | Opcode.LDUHA | Opcode.LDUWA | Opcode.LDXA | Opcode.LDDA ->
@@ -785,7 +785,7 @@ let buildOprs ins pc builder =
         buildReg ins reg builder
         prependDelimiter (Some ", 0x") builder
         immToStringNoPrefix (k) builder
-      | _ -> Utils.impossible ()
+      | _ -> Terminator.impossible ()
     | Opcode.PREFETCHA ->
       oprToString ins pc opr1 (Some " [") builder
       oprToString ins pc opr2 (Some " + ") builder

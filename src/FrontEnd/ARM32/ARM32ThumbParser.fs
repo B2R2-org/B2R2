@@ -4641,7 +4641,7 @@ let parseAdvSIMDTwoRegsAndShfAmt phlp (itstate: byref<BL>) isInIT bin =
 #endif
     let dt = getDTImm6WordT bin
     render phlp &itstate 0 isInIT bin Op.VQRSHRUN dt N OD.OprDdQmImm
-  | _ -> B2R2.Utils.futureFeature ()
+  | _ -> B2R2.Terminator.futureFeature ()
 
 /// Advanced SIMD shifts and immediate generation on page F3-4173.
 let parseAdvSIMDShfsAndImmGen phlp (itstate: byref<BL>) isInIT bin =

@@ -76,7 +76,7 @@ let decodeRegShift = function
   | 0b01u -> SRTypeLSR
   | 0b10u -> SRTypeASR
   | 0b11u -> SRTypeROR
-  | _ -> Utils.impossible ()
+  | _ -> Terminator.impossible ()
 
 /// Test if the current instruction is in an IT block.
 let inITBlock itstate = List.isEmpty itstate |> not

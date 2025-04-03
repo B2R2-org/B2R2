@@ -34,23 +34,23 @@ type SH4Instruction (addr, numBytes, insInfo) =
 
   member val Info: InsInfo = insInfo
 
-  override __.IsBranch () = Utils.futureFeature ()
+  override __.IsBranch () = Terminator.futureFeature ()
   override __.IsModeChanging () = false
-  override __.IsDirectBranch () = Utils.futureFeature ()
-  override __.IsIndirectBranch () = Utils.futureFeature ()
-  override __.IsCondBranch () = Utils.futureFeature ()
-  override __.IsCJmpOnTrue () = Utils.futureFeature ()
-  override __.IsCall () = Utils.futureFeature ()
-  override __.IsRET () = Utils.futureFeature ()
-  override __.IsInterrupt () = Utils.futureFeature ()
-  override __.IsExit () = Utils.futureFeature ()
-  override __.IsTerminator () = Utils.futureFeature ()
-  override __.DirectBranchTarget (_) = Utils.futureFeature ()
-  override __.IndirectTrampolineAddr (_) = Utils.futureFeature ()
-  override __.Immediate (_) = Utils.futureFeature ()
-  override __.GetNextInstrAddrs () = Utils.futureFeature ()
-  override __.InterruptNum (_) = Utils.futureFeature ()
-  override __.IsNop () = Utils.futureFeature ()
+  override __.IsDirectBranch () = Terminator.futureFeature ()
+  override __.IsIndirectBranch () = Terminator.futureFeature ()
+  override __.IsCondBranch () = Terminator.futureFeature ()
+  override __.IsCJmpOnTrue () = Terminator.futureFeature ()
+  override __.IsCall () = Terminator.futureFeature ()
+  override __.IsRET () = Terminator.futureFeature ()
+  override __.IsInterrupt () = Terminator.futureFeature ()
+  override __.IsExit () = Terminator.futureFeature ()
+  override __.IsTerminator () = Terminator.futureFeature ()
+  override __.DirectBranchTarget (_) = Terminator.futureFeature ()
+  override __.IndirectTrampolineAddr (_) = Terminator.futureFeature ()
+  override __.Immediate (_) = Terminator.futureFeature ()
+  override __.GetNextInstrAddrs () = Terminator.futureFeature ()
+  override __.InterruptNum (_) = Terminator.futureFeature ()
+  override __.IsNop () = Terminator.futureFeature ()
 
   override __.Translate ctxt =
     (Lifter.translate __.Info numBytes ctxt).ToStmts ()
@@ -78,5 +78,5 @@ type SH4Instruction (addr, numBytes, insInfo) =
 
   override __.IsInlinedAssembly () = false
 
-  override __.Equals (_) = Utils.futureFeature ()
-  override __.GetHashCode () = Utils.futureFeature ()
+  override __.Equals (_) = Terminator.futureFeature ()
+  override __.GetHashCode () = Terminator.futureFeature ()

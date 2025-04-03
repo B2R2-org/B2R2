@@ -232,7 +232,7 @@ let opCodeToString = function
   | Op.CdotFSDSP -> "fsd"
   | Op.CdotSWSP -> "sw"
   | Op.CdotSDSP -> "sd"
-  | _ -> Utils.impossible ()
+  | _ -> Terminator.impossible ()
 
 let roundModeToString = function
   | RoundMode.RNE -> "rne"
@@ -241,7 +241,7 @@ let roundModeToString = function
   | RoundMode.RUP -> "rup"
   | RoundMode.RMM -> "rmm"
   | RoundMode.DYN -> ""
-  | _ -> Utils.impossible ()
+  | _ -> Terminator.impossible ()
 
 let fenceMaskToString x =
   let bin = x |> uint32

@@ -258,7 +258,7 @@ let dumpFunctions (opts: FileViewerOpts) (mach: MachBinFile) =
   |> printSymbolInfo opts.Verbose mach
 
 let dumpArchiveHeader (opts: FileViewerOpts) (file: MachBinFile) =
-  Utils.futureFeature ()
+  Terminator.futureFeature ()
 
 let dumpUniversalHeader (_opts: FileViewerOpts) (mach: MachBinFile) =
   let bytes = (mach :> IBinFile).Slice(0, 4).ToArray()

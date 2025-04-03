@@ -296,7 +296,7 @@ module Register =
     | "cr7_2" -> Register.CR7_2
     | "cr7_3" -> Register.CR7_3
     | "res" -> Register.RES
-    | _ -> Utils.impossible ()
+    | _ -> Terminator.impossible ()
 
   /// Get the register ID of a PPC32 register.
   [<CompiledName "ToRegID">]
@@ -412,4 +412,4 @@ module Register =
     | Register.CR7_2 -> "cr7_2"
     | Register.CR7_3 -> "cr7_3"
     | Register.RES -> "res"
-    | _ -> Utils.impossible ()
+    | _ -> Terminator.impossible ()

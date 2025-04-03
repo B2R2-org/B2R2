@@ -26,7 +26,7 @@ module internal B2R2.FrontEnd.ARM64.OperandHelper
 
 open B2R2
 open B2R2.FrontEnd.BinLifter
-open B2R2.FrontEnd.ARM64.Utils
+open B2R2.FrontEnd.ARM64.Terminator
 open System.Runtime.CompilerServices
 
 [<assembly: InternalsVisibleTo("B2R2.FrontEnd.BinLifter.Tests")>]
@@ -119,7 +119,9 @@ let getControlRegister = function (* 1:op0:op1:CRn:CRm:op2 *)
   | 0b1011100100010111u -> R.S3_7_C2_C2_7
   | 0b0000000101001011u -> R.S0_0_C2_C9_3
   | 0b1011111000111110u -> R.S2_7_C12_C7_6
-  | _ -> Utils.futureFeature () (* D13.2 General system control registers *)
+  | _ ->
+    (* D13.2 General system control registers *)
+    Terminator.futureFeature ()
 
 let getCoprocCRegister = function
   | 0x00uy -> R.C0

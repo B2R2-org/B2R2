@@ -4,7 +4,7 @@
     <PackageLicenseFile>LICENSE.md</PackageLicenseFile>
     <PackageIcon>b2r2-240x240.png</PackageIcon>
     <PackageReadmeFile>README.md</PackageReadmeFile>
-    <Description>B2R2 frontend core.</Description>
+    <Description>B2R2 frontend basic types.</Description>
   </PropertyGroup>
 
   <ItemGroup>

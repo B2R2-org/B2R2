@@ -52,14 +52,14 @@ module VarKind =
     match e.E with
     | LowUIR.Var (_, rid, _) -> Regular rid
     | LowUIR.TempVar (_, n) -> Temporary n
-    | _ -> Utils.impossible ()
+    | _ -> Terminator.impossible ()
 
   let ofSSAVarKind (kind: SSA.VariableKind) =
     match kind with
     | SSA.RegVar (_, rid, _) -> Regular rid
     | SSA.TempVar (_, n) -> Temporary n
     | SSA.StackVar (_, offset) -> StackLocal offset
-    | _ -> Utils.impossible ()
+    | _ -> Terminator.impossible ()
 
   let isTemporary (kind: VarKind) =
     match kind with

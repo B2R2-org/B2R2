@@ -34,23 +34,23 @@ type IntelInstruction
   inherit IntelInternalInstruction
     (addr, len, wordSz, pref, rex, vex, opcode, oprs, opsz, psz)
 
-  override __.IsBranch () =
+  override _.IsBranch () =
     Helper.isBranch opcode
 
-  override __.IsModeChanging () = false
+  override _.IsModeChanging () = false
 
-  member __.HasConcJmpTarget () =
+  member _.HasConcJmpTarget () =
     match oprs with
     | OneOperand (OprDirAddr _) -> true
     | _ -> false
 
-  override __.IsDirectBranch () =
-    __.IsBranch () && __.HasConcJmpTarget ()
+  override this.IsDirectBranch () =
+    this.IsBranch () && this.HasConcJmpTarget ()
 
-  override __.IsIndirectBranch () =
-    __.IsBranch () && (not <| __.HasConcJmpTarget ())
+  override this.IsIndirectBranch () =
+    this.IsBranch () && (not <| this.HasConcJmpTarget ())
 
-  override __.IsCondBranch () =
+  override _.IsCondBranch () =
     match opcode with
     | Opcode.JA | Opcode.JB | Opcode.JBE | Opcode.JCXZ | Opcode.JECXZ
     | Opcode.JG | Opcode.JL | Opcode.JLE | Opcode.JNB | Opcode.JNL | Opcode.JNO
@@ -59,7 +59,7 @@ type IntelInstruction
     | Opcode.LOOPNE -> true
     | _ -> false
 
-  override __.IsCJmpOnTrue () =
+  override _.IsCJmpOnTrue () =
     match opcode with
     | Opcode.JA | Opcode.JB | Opcode.JBE | Opcode.JCXZ | Opcode.JECXZ
     | Opcode.JG | Opcode.JL | Opcode.JLE | Opcode.JO | Opcode.JP
@@ -67,24 +67,24 @@ type IntelInstruction
       true
     | _ -> false
 
-  override __.IsCall () =
+  override _.IsCall () =
     match opcode with
     | Opcode.CALLFar | Opcode.CALLNear -> true
     | _ -> false
 
-  override __.IsRET () =
+  override _.IsRET () =
     match opcode with
     | Opcode.RETFar | Opcode.RETFarImm | Opcode.RETNear | Opcode.RETNearImm ->
       true
     | _ -> false
 
-  override __.IsInterrupt () =
+  override _.IsInterrupt () =
     match opcode with
     | Opcode.INT | Opcode.INT3 | Opcode.INTO | Opcode.SYSCALL | Opcode.SYSENTER
       -> true
     | _ -> false
 
-  override __.IsExit () =
+  override _.IsExit () =
     match opcode with
     (* In kernel code, HLT is often preceded by CLI to shut down the machine.
        In user code, compilers insert HLT to raise a fault and exit. *)
@@ -94,33 +94,33 @@ type IntelInstruction
     | Opcode.IRET | Opcode.IRETW | Opcode.IRETD | Opcode.IRETQ -> true
     | _ -> false
 
-  override __.IsTerminator () =
-       __.IsBranch ()
-    || __.IsInterrupt ()
-    || __.IsExit ()
+  override this.IsTerminator () =
+       this.IsBranch ()
+    || this.IsInterrupt ()
+    || this.IsExit ()
 
-  override __.DirectBranchTarget (addr: byref<Addr>) =
-    if __.IsBranch () then
+  override this.DirectBranchTarget (addr: byref<Addr>) =
+    if this.IsBranch () then
       match oprs with
-      | OneOperand (OprDirAddr (Absolute (_))) -> Utils.futureFeature ()
+      | OneOperand (OprDirAddr (Absolute (_))) -> Terminator.futureFeature ()
       | OneOperand (OprDirAddr (Relative offset)) ->
-        addr <- (int64 __.Address + offset) |> uint64
+        addr <- (int64 this.Address + offset) |> uint64
         true
       | _ -> false
     else false
 
-  override __.IndirectTrampolineAddr (addr: byref<Addr>) =
-    if __.IsIndirectBranch () then
+  override this.IndirectTrampolineAddr (addr: byref<Addr>) =
+    if this.IsIndirectBranch () then
       match oprs with
       | OneOperand (OprMem (None, None, Some disp, _)) ->
         addr <- uint64 disp; true
       | OneOperand (OprMem (Some Register.RIP, None, Some disp, _)) ->
-        addr <- __.Address + uint64 __.Length + uint64 disp
+        addr <- this.Address + uint64 this.Length + uint64 disp
         true
       | _ -> false
     else false
 
-  override __.Immediate (v: byref<int64>) =
+  override _.Immediate (v: byref<int64>) =
     match oprs with
     | OneOperand (OprImm (c, _))
     | TwoOperands (OprImm (c, _), _)
@@ -134,21 +134,21 @@ type IntelInstruction
     | FourOperands (_, _, _, OprImm (c, _)) -> v <- c; true
     | _ -> false
 
-  member private __.AddBranchTargetIfExist addrs =
-    match __.DirectBranchTarget () with
+  member private this.AddBranchTargetIfExist addrs =
+    match this.DirectBranchTarget () with
     | false, _ -> addrs
     | true, target -> (target, ArchOperationMode.NoMode) :: addrs
 
-  override __.GetNextInstrAddrs () =
-    let acc = [ (__.Address + uint64 __.Length, ArchOperationMode.NoMode) ]
-    if __.IsBranch () then
-      if __.IsCondBranch () then acc |> __.AddBranchTargetIfExist
-      else __.AddBranchTargetIfExist []
+  override this.GetNextInstrAddrs () =
+    let acc = [ (this.Address + uint64 this.Length, ArchOperationMode.NoMode) ]
+    if this.IsBranch () then
+      if this.IsCondBranch () then acc |> this.AddBranchTargetIfExist
+      else this.AddBranchTargetIfExist []
     elif opcode = Opcode.HLT || opcode = Opcode.UD2 then []
     else acc
     |> List.toArray
 
-  override __.InterruptNum (num: byref<int64>) =
+  override _.InterruptNum (num: byref<int64>) =
     if opcode = Opcode.INT then
       match oprs with
       | OneOperand (OprImm (n, _)) ->
@@ -157,34 +157,34 @@ type IntelInstruction
       | _ -> false
     else false
 
-  override __.IsNop () =
+  override _.IsNop () =
     opcode = Opcode.NOP
 
-  override __.Translate ctxt =
-    (Lifter.translate __ len ctxt).ToStmts ()
+  override this.Translate ctxt =
+    (Lifter.translate this len ctxt).ToStmts ()
 
-  override __.TranslateToList ctxt =
-    Lifter.translate __ len ctxt
+  override this.TranslateToList ctxt =
+    Lifter.translate this len ctxt
 
-  override __.Disasm (showAddr, nameReader) =
+  override this.Disasm (showAddr, nameReader) =
     let resolveSymb = not (isNull nameReader)
     let builder = DisasmStringBuilder (showAddr, resolveSymb, wordSz, addr, len)
-    Disasm.disasm.Invoke (nameReader, builder, __)
+    Disasm.disasm.Invoke (nameReader, builder, this)
     builder.ToString ()
 
-  override __.Disasm () =
+  override this.Disasm () =
     let builder = DisasmStringBuilder (false, false, wordSz, addr, len)
-    Disasm.disasm.Invoke (null, builder, __)
+    Disasm.disasm.Invoke (null, builder, this)
     builder.ToString ()
 
-  override __.Decompose (showAddr) =
+  override this.Decompose (showAddr) =
     let builder = DisasmWordBuilder (showAddr, false, wordSz, addr, len, 8)
-    Disasm.disasm.Invoke (null, builder, __)
+    Disasm.disasm.Invoke (null, builder, this)
     builder.ToArray ()
 
-  override __.IsInlinedAssembly () = false
+  override _.IsInlinedAssembly () = false
 
   interface ICacheableOperation<TranslationContext, BinIR.LowUIR.Stmt []> with
-    member __.Perform ctxt = (Lifter.translate __ len ctxt).ToStmts ()
+    member this.Perform ctxt = (Lifter.translate this len ctxt).ToStmts ()
 
 // vim: set tw=80 sts=2 sw=2:

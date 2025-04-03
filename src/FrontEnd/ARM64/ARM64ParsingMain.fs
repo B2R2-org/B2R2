@@ -26,7 +26,7 @@ module internal B2R2.FrontEnd.ARM64.ParsingMain
 
 open B2R2
 open B2R2.FrontEnd.BinLifter
-open B2R2.FrontEnd.ARM64.Utils
+open B2R2.FrontEnd.ARM64.Terminator
 open B2R2.FrontEnd.ARM64.OperandHelper
 
 type internal Op = Opcode

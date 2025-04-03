@@ -141,9 +141,13 @@ let rec private adjustLayers isIncoming layerNum vLayout = function
 /// edges.
 let private adjustLayerYPositions edges vLayout =
   let maxIncomingDegrees =
-    vLayout |> Array.map (getMaxDegree edges Utils.sndOfTriple) |> Array.toList
+    vLayout
+    |> Array.map (getMaxDegree edges (fun (_, d, _) -> d))
+    |> Array.toList
   let maxOutgoingDegrees =
-    vLayout |> Array.map (getMaxDegree edges Utils.fstOfTriple) |> Array.toList
+    vLayout
+    |> Array.map (getMaxDegree edges (fun (s, _, _) -> s))
+    |> Array.toList
   adjustLayers true 0 vLayout maxIncomingDegrees
   adjustLayers false 0 vLayout maxOutgoingDegrees
 
@@ -208,7 +212,7 @@ let private getIntersectingLines boxes =
   match boxes with
   | hd :: tl ->
     (makeLine hd.TopLeft.X hd.TopRight.X hd.TopLeft.Y) :: (aux [] hd tl)
-  | _ -> Utils.impossible ()
+  | _ -> Terminator.impossible ()
 
 let private getBasicComponents (vLayout: _[][]) (boxes: _[][]) v =
   let layer = VisGraph.getLayer (v: IVertex<VisBBlock>)

@@ -91,14 +91,14 @@ let inline encRR ins ctx pref rex op r1 r2 =
 
 let normalToByte = function
   | Normal b -> b
-  | _ -> Utils.impossible ()
+  | _ -> Terminator.impossible ()
 
 let getCtxtByOprSz (ctx: EncContext) op8Byte opByte = function
   | 8<rt> -> ctx.PrefNormal, ctx.RexNormal, op8Byte
   | 16<rt> -> ctx.Pref66, ctx.RexNormal, opByte
   | 32<rt> -> ctx.PrefNormal, ctx.RexNormal, opByte
   | 64<rt> -> ctx.PrefNormal, ctx.RexW, opByte
-  | _ -> Utils.impossible ()
+  | _ -> Terminator.impossible ()
 
 let inline encRL (ctx: EncContext) ins r op8Byte opByte =
   let pref, rex, opByte =

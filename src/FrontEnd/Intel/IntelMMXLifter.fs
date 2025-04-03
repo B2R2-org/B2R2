@@ -48,14 +48,14 @@ let private movdRegToReg ins ctxt r1 r2 ir =
   | _, Register.Kind.MMX ->
     !!ir (tmp := AST.xtlo 32<rt> (!.ctxt r2))
     !!ir (dstAssign 32<rt> (!.ctxt r1) tmp)
-  | _, _ -> Utils.impossible ()
+  | _, _ -> Terminator.impossible ()
 
 let private movdRegToMem ctxt dst r ir =
   match Register.getKind r with
   | Register.Kind.XMM ->
     !!ir (dst := AST.xtlo 32<rt> (getPseudoRegVar ctxt r 1))
   | Register.Kind.MMX -> !!ir (dst := AST.xtlo 32<rt> (!.ctxt r))
-  | _ -> Utils.impossible ()
+  | _ -> Terminator.impossible ()
 
 let private movdMemToReg ins ctxt src r ir =
   match Register.getKind r with
@@ -65,7 +65,7 @@ let private movdMemToReg ins ctxt src r ir =
   | Register.Kind.MMX ->
     !!ir (!.ctxt r := AST.zext 64<rt> src)
     fillOnesToMMXHigh16 ir ins ctxt
-  | _ -> Utils.impossible ()
+  | _ -> Terminator.impossible ()
 
 let movd ins insLen ctxt =
   let ir = !*ctxt

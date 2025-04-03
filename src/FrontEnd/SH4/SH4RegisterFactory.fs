@@ -83,7 +83,7 @@ type SH4RegisterFactory (r: RegExprs) =
     Register.ofRegID rid |> Register.toRegType
 
   override __.GetRegisterAliases _ =
-    Utils.futureFeature ()
+    Terminator.futureFeature ()
 
   override __.ProgramCounter =
     Register.PC |> Register.toRegID

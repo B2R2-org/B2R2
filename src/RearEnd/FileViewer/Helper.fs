@@ -43,7 +43,7 @@ let visibilityString s =
   match s.Visibility with
   | SymbolVisibility.StaticSymbol -> "(s)"
   | SymbolVisibility.DynamicSymbol -> "(d)"
-  | _ -> Utils.impossible ()
+  | _ -> Terminator.impossible ()
 
 let symbolKindString (s: Symbol) =
   match s.Kind with

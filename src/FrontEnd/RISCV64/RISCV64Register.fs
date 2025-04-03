@@ -43,4 +43,4 @@ module Register =
     | R.F19 | R.F20 | R.F21 | R.F22 | R.F23 | R.F24 | R.F25 | R.F26 | R.F27
     | R.F28 | R.F29 | R.F30 | R.F31 -> 64<rt>
     | R.FCSR | R.FFLAGS | R.FRM -> 32<rt>
-    | _ -> Utils.impossible ()
+    | _ -> Terminator.impossible ()

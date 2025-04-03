@@ -871,31 +871,31 @@ let isNaN oprSize expr =
   match oprSize with
   | 32<rt> -> IEEE754Single.isNaN expr
   | 64<rt> -> IEEE754Double.isNaN expr
-  | _ -> Utils.impossible ()
+  | _ -> Terminator.impossible ()
 
 let isSNaN oprSize expr =
   match oprSize with
   | 32<rt> -> IEEE754Single.isSNaN expr
   | 64<rt> -> IEEE754Double.isSNaN expr
-  | _ -> Utils.impossible ()
+  | _ -> Terminator.impossible ()
 
 let isQNaN oprSize expr =
   match oprSize with
   | 32<rt> -> IEEE754Single.isQNaN expr
   | 64<rt> -> IEEE754Double.isQNaN expr
-  | _ -> Utils.impossible ()
+  | _ -> Terminator.impossible ()
 
 let isInfinity oprSize expr =
   match oprSize with
   | 32<rt> -> IEEE754Single.isInfinity expr
   | 64<rt> -> IEEE754Double.isInfinity expr
-  | _ -> Utils.impossible ()
+  | _ -> Terminator.impossible ()
 
 let isZero oprSize expr =
   match oprSize with
   | 32<rt> -> IEEE754Single.isZero expr
   | 64<rt> -> IEEE754Double.isZero expr
-  | _ -> Utils.impossible ()
+  | _ -> Terminator.impossible ()
 
 /// shared/functions/float/fproundingmode/FPRoundingMode
 /// FPRoundingMode()

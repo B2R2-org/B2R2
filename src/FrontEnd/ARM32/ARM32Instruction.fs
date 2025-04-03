@@ -166,9 +166,9 @@ type ARM32Instruction (addr, nb, cond, op, opr, its, wb, q, s, m, cf, oSz, a) =
     | _ -> m
 
   member private __.AddBranchTargetIfExist addrs =
-    match __.DirectBranchTarget () |> Utils.tupleResultToOpt with
-    | None -> addrs
-    | Some target ->
+    match __.DirectBranchTarget () with
+    | false, _ -> addrs
+    | true, target ->
       [| (target, __.GetNextMode ()) |] |> Array.append addrs
 
   override __.GetNextInstrAddrs () =
@@ -180,7 +180,7 @@ type ARM32Instruction (addr, nb, cond, op, opr, its, wb, q, s, m, cf, oSz, a) =
     elif op = Opcode.HLT then [||]
     else acc
 
-  override __.InterruptNum (_num: byref<int64>) = Utils.futureFeature ()
+  override __.InterruptNum (_num: byref<int64>) = Terminator.futureFeature ()
 
   override __.IsNop () =
     op = Op.NOP
@@ -212,7 +212,7 @@ type ARM32Instruction (addr, nb, cond, op, opr, its, wb, q, s, m, cf, oSz, a) =
 
   override __.IsInlinedAssembly () = false
 
-  override __.Equals (_) = Utils.futureFeature ()
-  override __.GetHashCode () = Utils.futureFeature ()
+  override __.Equals (_) = Terminator.futureFeature ()
+  override __.GetHashCode () = Terminator.futureFeature ()
 
 // vim: set tw=80 sts=2 sw=2:

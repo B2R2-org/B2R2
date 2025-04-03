@@ -40,12 +40,12 @@ let checkVertexInGraph (g: IDiGraphAccessible<_, _>) (v: IVertex<_>) =
 let makeDummyVertex<'V when 'V: equality> () =
   { new IVertex<'V> with
       member __.ID = -1
-      member __.VData = Utils.impossible ()
+      member __.VData = Terminator.impossible ()
       member __.HasData = false
       member __.CompareTo (other: obj) =
         match other with
         | :? IVertex<'V> as other -> __.ID.CompareTo other.ID
-        | _ -> Utils.impossible ()
+        | _ -> Terminator.impossible ()
       member __.ToString (_, _) = "DummyVertex" }
 
 let reverse (inGraph: IDiGraphAccessible<_, _>) roots outGraph =

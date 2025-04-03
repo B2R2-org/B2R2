@@ -255,7 +255,7 @@ let opCodeToString = function
   | Op.XPND2 -> "XPND2"
   | Op.XPND4 -> "XPND4"
   | Op.ZERO -> "ZERO"
-  | _ -> Utils.impossible ()
+  | _ -> Terminator.impossible ()
 
 let inline appendUnit insInfo opcode =
   match insInfo.FunctionalUnit with

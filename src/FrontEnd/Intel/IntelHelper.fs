@@ -69,73 +69,73 @@ and ReadHelper (addr, cpos, pref, rex, vex, wordSz, ops, szs) =
   new (wordSz, oparsers, szcomputers) =
     ReadHelper (0UL, 0, Prefix.PrxNone, REXPrefix.NOREX, None,
                 wordSz, oparsers, szcomputers)
-  member __.InsAddr with get(): Addr = addr and set(a) = addr <- a
-  member __.CurrPos with get() = cpos and set(p) = cpos <- p
-  member __.IncPos () = cpos <- cpos + 1
-  member __.Prefixes with get() = pref and set(p) = pref <- p
-  member __.REXPrefix with get(): REXPrefix = rex and set(r) = rex <- r
-  member __.VEXInfo with get(): VEXInfo option = vex and set(v) = vex <- v
-  member __.WordSize with get(): WordSize = wordSize and set(w) = wordSize <- w
-  member __.OprParsers with get(): OperandParser [] = ops
-  member __.SzComputers with get(): InsSizeComputer [] = szs
-  member __.MemEffOprSize with get() = memOprSz and set(s) = memOprSz <- s
-  member __.MemEffAddrSize with get() = memAddrSz and set(s) = memAddrSz <- s
-  member __.MemEffRegSize with get() = memRegSz and set(s) = memRegSz <- s
-  member __.RegSize with get() = regSz and set(s) = regSz <- s
-  member __.OperationSize with get() = operationSz and set(s) = operationSz <- s
-  member __.TupleType
+  member _.InsAddr with get(): Addr = addr and set(a) = addr <- a
+  member _.CurrPos with get() = cpos and set(p) = cpos <- p
+  member _.IncPos () = cpos <- cpos + 1
+  member _.Prefixes with get() = pref and set(p) = pref <- p
+  member _.REXPrefix with get(): REXPrefix = rex and set(r) = rex <- r
+  member _.VEXInfo with get(): VEXInfo option = vex and set(v) = vex <- v
+  member _.WordSize with get(): WordSize = wordSize and set(w) = wordSize <- w
+  member _.OprParsers with get(): OperandParser [] = ops
+  member _.SzComputers with get(): InsSizeComputer [] = szs
+  member _.MemEffOprSize with get() = memOprSz and set(s) = memOprSz <- s
+  member _.MemEffAddrSize with get() = memAddrSz and set(s) = memAddrSz <- s
+  member _.MemEffRegSize with get() = memRegSz and set(s) = memRegSz <- s
+  member _.RegSize with get() = regSz and set(s) = regSz <- s
+  member _.OperationSize with get() = operationSz and set(s) = operationSz <- s
+  member _.TupleType
     with get(): TupleType = tupleType and set(t) = tupleType <- t
 
-  member inline private __.ModCPos i = cpos <- cpos + i
+  member inline private _.ModCPos i = cpos <- cpos + i
 
-  member inline __.PeekByte (span: ByteSpan) = span[cpos]
+  member inline _.PeekByte (span: ByteSpan) = span[cpos]
 
-  member inline __.ReadByte (span: ByteSpan) =
+  member inline this.ReadByte (span: ByteSpan) =
     let v = span[cpos]
-    __.ModCPos 1
+    this.ModCPos 1
     v
 
-  member inline __.ReadInt8 (span: ByteSpan) =
+  member inline this.ReadInt8 (span: ByteSpan) =
     let v = reader.ReadInt8 (span, cpos)
-    __.ModCPos 1
+    this.ModCPos 1
     v
 
-  member inline __.ReadInt16 (span: ByteSpan) =
+  member inline this.ReadInt16 (span: ByteSpan) =
     let v = reader.ReadInt16 (span, cpos)
-    __.ModCPos 2
+    this.ModCPos 2
     v
 
-  member inline __.ReadInt32 (span: ByteSpan) =
+  member inline this.ReadInt32 (span: ByteSpan) =
     let v = reader.ReadInt32 (span, cpos)
-    __.ModCPos 4
+    this.ModCPos 4
     v
 
-  member inline __.ReadInt64 (span: ByteSpan) =
+  member inline this.ReadInt64 (span: ByteSpan) =
     let v = reader.ReadInt64 (span, cpos)
-    __.ModCPos 8
+    this.ModCPos 8
     v
 
-  member inline __.ReadUInt8 (span: ByteSpan) =
+  member inline this.ReadUInt8 (span: ByteSpan) =
     let v = reader.ReadUInt8 (span, cpos)
-    __.ModCPos 1
+    this.ModCPos 1
     v
 
-  member inline __.ReadUInt16 (span: ByteSpan) =
+  member inline this.ReadUInt16 (span: ByteSpan) =
     let v = reader.ReadUInt16 (span, cpos)
-    __.ModCPos 2
+    this.ModCPos 2
     v
 
-  member inline __.ReadUInt32 (span: ByteSpan) =
+  member inline this.ReadUInt32 (span: ByteSpan) =
     let v = reader.ReadUInt32 (span, cpos)
-    __.ModCPos 4
+    this.ModCPos 4
     v
 
-  member inline __.ReadUInt64 (span: ByteSpan) =
+  member inline this.ReadUInt64 (span: ByteSpan) =
     let v = reader.ReadUInt64 (span, cpos)
-    __.ModCPos 8
+    this.ModCPos 8
     v
 
-  member inline __.ParsedLen () = cpos
+  member inline _.ParsedLen () = cpos
 
 let inline hasREXW rexPref = rexPref &&& REXPrefix.REXW = REXPrefix.REXW
 
@@ -260,7 +260,7 @@ let getEffOprSize (rhlp: ReadHelper) sizeCond =
 /// DLR10LIb Eb Eb1 EbCL EbGb EbIb GbEb IbAL Jb ObAL XbYb
 type SzByte () =
   inherit InsSizeComputer ()
-  override __.Render rhlp _ =
+  override _.Render rhlp _ =
     rhlp.MemEffOprSize <- 8<rt>
     rhlp.MemEffAddrSize <- getEffAddrSize rhlp
     rhlp.MemEffRegSize <- 8<rt>
@@ -270,7 +270,7 @@ type SzByte () =
 /// GwMw EvSw EwGw MwGw SwEw
 type SzWord () =
   inherit InsSizeComputer ()
-  override __.Render rhlp _ =
+  override _.Render rhlp _ =
     rhlp.MemEffOprSize <- 16<rt>
     rhlp.MemEffAddrSize <- getEffAddrSize rhlp
     rhlp.MemEffRegSize <- 16<rt>
@@ -285,7 +285,7 @@ type SzWord () =
 /// SIb SIz
 type SzDef () =
   inherit InsSizeComputer ()
-  override __.Render rhlp szCond =
+  override _.Render rhlp szCond =
     let effAddrSz = getEffAddrSize rhlp
     let effOprSz = getEffOprSize rhlp szCond
     rhlp.MemEffOprSize <- effOprSz
@@ -299,7 +299,7 @@ type SzDef () =
 /// VxMx VxWx VxWxIb VZxzWZxz WpdVpd WpsVps WsdHxVsd WssHxVss WxVx WZxzVZxz
 type SzVecDef () =
   inherit InsSizeComputer ()
-  override __.Render (rhlp: ReadHelper) _ =
+  override _.Render (rhlp: ReadHelper) _ =
     let vLen = (Option.get rhlp.VEXInfo).VectorLength
     rhlp.MemEffOprSize <- vLen
     rhlp.MemEffAddrSize <- getEffAddrSize rhlp
@@ -309,7 +309,7 @@ type SzVecDef () =
 
 type SzVecDefRC () =
   inherit InsSizeComputer ()
-  override __.RenderEVEX (span, rhlp: ReadHelper, _) =
+  override _.RenderEVEX (span, rhlp: ReadHelper, _) =
     let vInfo = Option.get rhlp.VEXInfo
     let vLen = vInfo.VectorLength
     let modRM = rhlp.PeekByte span
@@ -330,7 +330,7 @@ type SzVecDefRC () =
 /// GvEd Md
 type SzDV () =
   inherit InsSizeComputer ()
-  override __.Render rhlp szCond =
+  override _.Render rhlp szCond =
     let effAddrSz = getEffAddrSize rhlp
     let effOprSz = getEffOprSize rhlp szCond
     rhlp.MemEffOprSize <- 32<rt>
@@ -342,7 +342,7 @@ type SzDV () =
 /// Md
 type SzD () =
   inherit InsSizeComputer ()
-  override __.Render rhlp szCond =
+  override _.Render rhlp szCond =
     let effAddrSz = getEffAddrSize rhlp
     let effOprSz = getEffOprSize rhlp szCond
     rhlp.MemEffOprSize <- 32<rt>
@@ -354,7 +354,7 @@ type SzD () =
 /// Ew Mw
 type SzMemW () =
   inherit InsSizeComputer ()
-  override __.Render rhlp szCond =
+  override _.Render rhlp szCond =
     let effAddrSz = getEffAddrSize rhlp
     let effOprSz = getEffOprSize rhlp szCond
     rhlp.MemEffOprSize <- 16<rt>
@@ -366,7 +366,7 @@ type SzMemW () =
 /// CS ES DS FS GS SS
 type SzRegW () =
   inherit InsSizeComputer ()
-  override __.Render rhlp szCond =
+  override _.Render rhlp szCond =
     let effAddrSz = getEffAddrSize rhlp
     let effOprSz = getEffOprSize rhlp szCond
     rhlp.MemEffOprSize <- effOprSz
@@ -378,7 +378,7 @@ type SzRegW () =
 /// GvEw
 type SzWV () =
   inherit InsSizeComputer ()
-  override __.Render rhlp szCond =
+  override _.Render rhlp szCond =
     let effAddrSz = getEffAddrSize rhlp
     let effOprSz = getEffOprSize rhlp szCond
     rhlp.MemEffOprSize <- 16<rt>
@@ -390,7 +390,7 @@ type SzWV () =
 /// RAX RCX RDX RBX RSP RBP RSI RDI Jz
 type SzD64 () =
   inherit InsSizeComputer ()
-  override __.Render rhlp szCond =
+  override _.Render rhlp szCond =
     let effAddrSz = getEffAddrSize rhlp
     let effOprSz = getEffOprSize rhlp szCond
     rhlp.MemEffOprSize <- effOprSz
@@ -402,7 +402,7 @@ type SzD64 () =
 /// GzMp
 type SzPZ () =
   inherit InsSizeComputer ()
-  override __.Render rhlp szCond =
+  override _.Render rhlp szCond =
     let effAddrSz = getEffAddrSize rhlp
     let effOprSz = getEffOprSize rhlp szCond
     let oprSize =
@@ -417,7 +417,7 @@ type SzPZ () =
 /// EdVdqIb
 type SzDDq () =
   inherit InsSizeComputer ()
-  override __.Render rhlp _ =
+  override _.Render rhlp _ =
     rhlp.MemEffOprSize <- 32<rt>
     rhlp.MemEffAddrSize <- getEffAddrSize rhlp
     rhlp.MemEffRegSize <- 32<rt>
@@ -427,7 +427,7 @@ type SzDDq () =
 /// MdqVdq VdqHdqUdq VdqHdqWdqIb VdqMdq VdqUdq VdqWdq VdqWdqIb WdqVdq
 type SzDqDq () =
   inherit InsSizeComputer ()
-  override __.Render rhlp _ =
+  override _.Render rhlp _ =
     rhlp.MemEffOprSize <- 128<rt>
     rhlp.MemEffAddrSize <- getEffAddrSize rhlp
     rhlp.MemEffRegSize <- 128<rt>
@@ -437,7 +437,7 @@ type SzDqDq () =
 /// VdqWdqd VdqMd VdqHdqWdqd VdqWdqdIb MdVdq VdqHdqUdqdIb
 type SzDqdDq () =
   inherit InsSizeComputer ()
-  override __.Render rhlp _ =
+  override _.Render rhlp _ =
     rhlp.MemEffOprSize <- 32<rt>
     rhlp.MemEffAddrSize <- getEffAddrSize rhlp
     rhlp.MemEffRegSize <- 128<rt>
@@ -447,7 +447,7 @@ type SzDqdDq () =
 /// WdqdVdq MdVdq
 type SzDqdDqMR () =
   inherit InsSizeComputer ()
-  override __.Render rhlp _ =
+  override _.Render rhlp _ =
     rhlp.MemEffOprSize <- 32<rt>
     rhlp.MemEffAddrSize <- getEffAddrSize rhlp
     rhlp.MemEffRegSize <- 128<rt>
@@ -457,7 +457,7 @@ type SzDqdDqMR () =
 /// VdqWdqq VdqMq VdqHdqMq VdqHdqWdqq VdqWdqqIb WdqqVdq MqVdq
 type SzDqqDq () =
   inherit InsSizeComputer ()
-  override __.Render rhlp _ =
+  override _.Render rhlp _ =
     rhlp.MemEffOprSize <- 64<rt>
     rhlp.MemEffAddrSize <- getEffAddrSize rhlp
     rhlp.MemEffRegSize <- 128<rt>
@@ -467,7 +467,7 @@ type SzDqqDq () =
 /// WdqqVdq MqVdq
 type SzDqqDqMR () =
   inherit InsSizeComputer ()
-  override __.Render rhlp _ =
+  override _.Render rhlp _ =
     rhlp.MemEffOprSize <- 64<rt>
     rhlp.MemEffAddrSize <- getEffAddrSize rhlp
     rhlp.MemEffRegSize <- 128<rt>
@@ -477,14 +477,14 @@ type SzDqqDqMR () =
 /// VxWxq
 type SzXqX () =
   inherit InsSizeComputer ()
-  override __.Render rhlp _ =
+  override _.Render rhlp _ =
     let effAddrSz = getEffAddrSize rhlp
     let vLen = (Option.get rhlp.VEXInfo).VectorLength
     let struct (mopr, maddr, mreg) =
       match vLen with
       | 128<rt> -> struct (64<rt>, effAddrSz, 128<rt>)
       | 256<rt> -> struct (vLen, effAddrSz, vLen)
-      | _ -> Utils.futureFeature () (* EVEX *)
+      | _ -> Terminator.futureFeature () (* EVEX *)
     rhlp.MemEffOprSize <- mopr
     rhlp.MemEffAddrSize <- maddr
     rhlp.MemEffRegSize <- mreg
@@ -494,7 +494,7 @@ type SzXqX () =
 /// BNBNdqq BNdqqBN
 type SzDqqDqWS () =
   inherit InsSizeComputer ()
-  override __.Render rhlp szCond =
+  override _.Render rhlp szCond =
     let effAddrSz = getEffAddrSize rhlp
     let effOprSz = getEffOprSize rhlp szCond
     let struct (mopr, maddr, mreg) =
@@ -511,7 +511,7 @@ type SzDqqDqWS () =
 /// BNEv BNMv BNMib VdqEy VssHssEy VsdHsdEy
 type SzVyDq () =
   inherit InsSizeComputer ()
-  override __.Render rhlp szCond =
+  override _.Render rhlp szCond =
     let effAddrSz = getEffAddrSize rhlp
     let effOprSz = getEffOprSize rhlp szCond
     rhlp.MemEffOprSize <- effOprSz
@@ -523,7 +523,7 @@ type SzVyDq () =
 /// EyVdq MibBN
 type SzVyDqMR () =
   inherit InsSizeComputer ()
-  override __.Render rhlp szCond =
+  override _.Render rhlp szCond =
     let effAddrSz = getEffAddrSize rhlp
     let effOprSz = getEffOprSize rhlp szCond
     rhlp.MemEffOprSize <- effOprSz
@@ -535,7 +535,7 @@ type SzVyDqMR () =
 /// RyCd RyDd CdRy DdRy
 type SzDY () =
   inherit InsSizeComputer ()
-  override __.Render rhlp szCond =
+  override _.Render rhlp szCond =
     let effAddrSz = getEffAddrSize rhlp
     let effOprSz = getEffOprSize rhlp szCond
     let effRegSz = WordSize.toRegType rhlp.WordSize
@@ -548,7 +548,7 @@ type SzDY () =
 /// VdqQpi VdqNq
 type SzQDq () =
   inherit InsSizeComputer ()
-  override __.Render rhlp _ =
+  override _.Render rhlp _ =
     rhlp.MemEffOprSize <- 64<rt>
     rhlp.MemEffAddrSize <- getEffAddrSize rhlp
     rhlp.MemEffRegSize <- 64<rt>
@@ -558,7 +558,7 @@ type SzQDq () =
 /// PpiWdqq
 type SzDqqQ () =
   inherit InsSizeComputer ()
-  override __.Render rhlp _ =
+  override _.Render rhlp _ =
     rhlp.MemEffOprSize <- 64<rt>
     rhlp.MemEffAddrSize <- getEffAddrSize rhlp
     rhlp.MemEffRegSize <- 128<rt>
@@ -568,7 +568,7 @@ type SzDqqQ () =
 /// PpiWdq PqUdq
 type SzDqQ () =
   inherit InsSizeComputer ()
-  override __.Render rhlp _ =
+  override _.Render rhlp _ =
     rhlp.MemEffOprSize <- 128<rt>
     rhlp.MemEffAddrSize <- getEffAddrSize rhlp
     rhlp.MemEffRegSize <- 128<rt>
@@ -578,7 +578,7 @@ type SzDqQ () =
 /// GyWdqd
 type SzDqdY () =
   inherit InsSizeComputer ()
-  override __.Render rhlp szCond =
+  override _.Render rhlp szCond =
     let effAddrSz = getEffAddrSize rhlp
     let effOprSz = getEffOprSize rhlp szCond
     rhlp.MemEffOprSize <- 32<rt>
@@ -590,7 +590,7 @@ type SzDqdY () =
 /// GyWdqq
 type SzDqqY () =
   inherit InsSizeComputer ()
-  override __.Render rhlp szCond =
+  override _.Render rhlp szCond =
     let effAddrSz = getEffAddrSize rhlp
     let effOprSz = getEffOprSize rhlp szCond
     rhlp.MemEffOprSize <- 64<rt>
@@ -602,7 +602,7 @@ type SzDqqY () =
 /// GyUdq
 type SzDqY () =
   inherit InsSizeComputer ()
-  override __.Render rhlp szCond =
+  override _.Render rhlp szCond =
     let effAddrSz = getEffAddrSize rhlp
     let effOprSz = getEffOprSize rhlp szCond
     rhlp.MemEffOprSize <- 128<rt>
@@ -614,7 +614,7 @@ type SzDqY () =
 /// UdqIb Mdq
 type SzDq () =
   inherit InsSizeComputer ()
-  override __.Render rhlp szCond =
+  override _.Render rhlp szCond =
     let effAddrSz = getEffAddrSize rhlp
     let effOprSz = getEffOprSize rhlp szCond
     rhlp.MemEffOprSize <- 128<rt>
@@ -626,7 +626,7 @@ type SzDq () =
 /// PqQd
 type SzDQ () =
   inherit InsSizeComputer ()
-  override __.Render rhlp szCond =
+  override _.Render rhlp szCond =
     let effAddrSz = getEffAddrSize rhlp
     let effOprSz = getEffOprSize rhlp szCond
     rhlp.MemEffOprSize <- 32<rt>
@@ -638,7 +638,7 @@ type SzDQ () =
 /// PqQq PqQqIb QqPq MqPq
 type SzQQ () =
   inherit InsSizeComputer ()
-  override __.Render rhlp szCond =
+  override _.Render rhlp szCond =
     let effAddrSz = getEffAddrSize rhlp
     let effOprSz = getEffOprSize rhlp szCond
     rhlp.MemEffOprSize <- 64<rt>
@@ -650,7 +650,7 @@ type SzQQ () =
 /// EyPq
 type SzYQ () =
   inherit InsSizeComputer ()
-  override __.Render rhlp szCond =
+  override _.Render rhlp szCond =
     let effAddrSz = getEffAddrSize rhlp
     let effOprSz = getEffOprSize rhlp szCond
     rhlp.MemEffOprSize <- effOprSz
@@ -662,7 +662,7 @@ type SzYQ () =
 /// PqEy
 type SzYQRM () =
   inherit InsSizeComputer ()
-  override __.Render rhlp szCond =
+  override _.Render rhlp szCond =
     let effAddrSz = getEffAddrSize rhlp
     let effOprSz = getEffOprSize rhlp szCond
     rhlp.MemEffOprSize <- effOprSz
@@ -674,7 +674,7 @@ type SzYQRM () =
 /// PqEdwIb
 type SzDwQ () =
   inherit InsSizeComputer ()
-  override __.Render rhlp _ =
+  override _.Render rhlp _ =
     rhlp.MemEffOprSize <- 16<rt>
     rhlp.MemEffAddrSize <- getEffAddrSize rhlp
     rhlp.MemEffRegSize <- 32<rt>
@@ -684,7 +684,7 @@ type SzDwQ () =
 /// VdqEdwIb VdqHdqEdwIb
 type SzDwDq () =
   inherit InsSizeComputer ()
-  override __.Render rhlp szCond =
+  override _.Render rhlp szCond =
     let effAddrSz = getEffAddrSize rhlp
     let effOprSz = getEffOprSize rhlp szCond
     rhlp.MemEffOprSize <- 16<rt>
@@ -696,7 +696,7 @@ type SzDwDq () =
 /// EdwVdqIb
 type SzDwDqMR () =
   inherit InsSizeComputer ()
-  override __.Render rhlp _ =
+  override _.Render rhlp _ =
     rhlp.MemEffOprSize <- 16<rt>
     rhlp.MemEffAddrSize <- getEffAddrSize rhlp
     rhlp.MemEffRegSize <- 32<rt>
@@ -706,7 +706,7 @@ type SzDwDqMR () =
 /// GdNqIb GdNq
 type SzQD () =
   inherit InsSizeComputer ()
-  override __.Render rhlp _ =
+  override _.Render rhlp _ =
     rhlp.MemEffOprSize <- 64<rt>
     rhlp.MemEffAddrSize <- getEffAddrSize rhlp
     rhlp.MemEffRegSize <- 64<rt>
@@ -716,7 +716,7 @@ type SzQD () =
 /// GdUdqIb GdUdq
 type SzDqd () =
   inherit InsSizeComputer ()
-  override __.Render rhlp _ =
+  override _.Render rhlp _ =
     rhlp.MemEffOprSize <- 128<rt>
     rhlp.MemEffAddrSize <- getEffAddrSize rhlp
     rhlp.MemEffRegSize <- 128<rt>
@@ -726,7 +726,7 @@ type SzDqd () =
 /// VxHxWdq
 type SzXDq () =
   inherit InsSizeComputer ()
-  override __.Render rhlp _ =
+  override _.Render rhlp _ =
     let vLen = (Option.get rhlp.VEXInfo).VectorLength
     rhlp.MemEffOprSize <- 128<rt>
     rhlp.MemEffAddrSize <- getEffAddrSize rhlp
@@ -737,7 +737,7 @@ type SzXDq () =
 /// VdqWx
 type SzDqX () =
   inherit InsSizeComputer ()
-  override __.Render rhlp _ =
+  override _.Render rhlp _ =
     let vLen = (Option.get rhlp.VEXInfo).VectorLength
     rhlp.MemEffOprSize <- vLen
     rhlp.MemEffAddrSize <- getEffAddrSize rhlp
@@ -748,7 +748,7 @@ type SzDqX () =
 /// GdUx
 type SzXD () =
   inherit InsSizeComputer ()
-  override __.Render rhlp _ =
+  override _.Render rhlp _ =
     let vLen = (Option.get rhlp.VEXInfo).VectorLength
     rhlp.MemEffOprSize <- vLen
     rhlp.MemEffAddrSize <- getEffAddrSize rhlp
@@ -759,14 +759,14 @@ type SzXD () =
 /// VxWdqqdq
 type SzDqqdqX () =
   inherit InsSizeComputer ()
-  override __.Render rhlp _ =
+  override _.Render rhlp _ =
     let effAddrSz = getEffAddrSize rhlp
     let vLen = (Option.get rhlp.VEXInfo).VectorLength
     let struct (mopr, maddr, mreg) =
       match vLen with
       | 128<rt> -> struct (64<rt>, effAddrSz, 128<rt>)
       | 256<rt> -> struct (128<rt>, effAddrSz, 128<rt>)
-      | _ -> Utils.futureFeature () (* EVEX *)
+      | _ -> Terminator.futureFeature () (* EVEX *)
     rhlp.MemEffOprSize <- mopr
     rhlp.MemEffAddrSize <- maddr
     rhlp.MemEffRegSize <- mreg
@@ -776,14 +776,14 @@ type SzDqqdqX () =
 /// VxWdqdq
 type SzDqddqX () =
   inherit InsSizeComputer ()
-  override __.Render rhlp _ =
+  override _.Render rhlp _ =
     let effAddrSz = getEffAddrSize rhlp
     let vLen = (Option.get rhlp.VEXInfo).VectorLength
     let struct (mopr, maddr, mreg) =
       match vLen with
       | 128<rt> -> struct (32<rt>, effAddrSz, 128<rt>)
       | 256<rt> -> struct (64<rt>, effAddrSz, 128<rt>)
-      | _ -> Utils.futureFeature () (* EVEX *)
+      | _ -> Terminator.futureFeature () (* EVEX *)
     rhlp.MemEffOprSize <- mopr
     rhlp.MemEffAddrSize <- maddr
     rhlp.MemEffRegSize <- mreg
@@ -793,7 +793,7 @@ type SzDqddqX () =
 /// VdqWdqw
 type SzDqwDq () =
   inherit InsSizeComputer ()
-  override __.Render rhlp _ =
+  override _.Render rhlp _ =
     rhlp.MemEffOprSize <- 16<rt>
     rhlp.MemEffAddrSize <- getEffAddrSize rhlp
     rhlp.MemEffRegSize <- 128<rt>
@@ -803,7 +803,7 @@ type SzDqwDq () =
 /// VxWdqw
 type SzDqwX () =
   inherit InsSizeComputer ()
-  override __.Render rhlp _ =
+  override _.Render rhlp _ =
     let effAddrSz = getEffAddrSize rhlp
     let vLen = (Option.get rhlp.VEXInfo).VectorLength
     rhlp.MemEffOprSize <- 16<rt>
@@ -815,7 +815,7 @@ type SzDqwX () =
 /// VqqMdq VqqHqqWdqIb
 type SzDqQqq () =
   inherit InsSizeComputer ()
-  override __.Render rhlp _ =
+  override _.Render rhlp _ =
     rhlp.MemEffOprSize <- 128<rt>
     rhlp.MemEffAddrSize <- getEffAddrSize rhlp
     rhlp.MemEffRegSize <- 128<rt>
@@ -825,7 +825,7 @@ type SzDqQqq () =
 /// VxWdqb
 type SzDqbX () =
   inherit InsSizeComputer ()
-  override __.Render rhlp _ =
+  override _.Render rhlp _ =
     let vLen = (Option.get rhlp.VEXInfo).VectorLength
     rhlp.MemEffOprSize <- 8<rt>
     rhlp.MemEffAddrSize <- getEffAddrSize rhlp
@@ -836,7 +836,7 @@ type SzDqbX () =
 /// VdqEdbIb VdqHdqEdbIb
 type SzDbDq () =
   inherit InsSizeComputer ()
-  override __.Render rhlp _ =
+  override _.Render rhlp _ =
     rhlp.MemEffOprSize <- 8<rt>
     rhlp.MemEffAddrSize <- getEffAddrSize rhlp
     rhlp.MemEffRegSize <- 32<rt>
@@ -846,7 +846,7 @@ type SzDbDq () =
 /// GvEb Mb
 type SzBV () =
   inherit InsSizeComputer ()
-  override __.Render rhlp szCond =
+  override _.Render rhlp szCond =
     let effAddrSz = getEffAddrSize rhlp
     let effOprSz = getEffOprSize rhlp szCond
     rhlp.MemEffOprSize <- 8<rt>
@@ -858,7 +858,7 @@ type SzBV () =
 /// NqIb Mq
 type SzQ () =
   inherit InsSizeComputer ()
-  override __.Render rhlp _ =
+  override _.Render rhlp _ =
     rhlp.MemEffOprSize <- 64<rt>
     rhlp.MemEffAddrSize <- getEffAddrSize rhlp
     rhlp.MemEffRegSize <- 64<rt>
@@ -868,7 +868,7 @@ type SzQ () =
 /// Ms
 type SzS () =
   inherit InsSizeComputer ()
-  override __.Render rhlp _ =
+  override _.Render rhlp _ =
     let effOprSz = if rhlp.WordSize = WordSize.Bit32 then 48<rt> else 80<rt>
     rhlp.MemEffOprSize <- effOprSz
     rhlp.MemEffAddrSize <- getEffAddrSize rhlp
@@ -879,7 +879,7 @@ type SzS () =
 /// VxMd
 type SzDX () =
   inherit InsSizeComputer ()
-  override __.Render rhlp _ =
+  override _.Render rhlp _ =
     let vLen = (Option.get rhlp.VEXInfo).VectorLength
     rhlp.MemEffOprSize <- 32<rt>
     rhlp.MemEffAddrSize <- getEffAddrSize rhlp
@@ -890,7 +890,7 @@ type SzDX () =
 /// VZxzWdqd VxHxWdqd
 type SzDqdXz () =
   inherit InsSizeComputer ()
-  override __.Render rhlp _ =
+  override _.Render rhlp _ =
     let vLen = (Option.get rhlp.VEXInfo).VectorLength
     rhlp.MemEffOprSize <- 32<rt>
     rhlp.MemEffAddrSize <- getEffAddrSize rhlp
@@ -901,7 +901,7 @@ type SzDqdXz () =
 /// VxHxWdqq
 type SzDqqX () =
   inherit InsSizeComputer ()
-  override __.Render rhlp _ =
+  override _.Render rhlp _ =
     let vLen = (Option.get rhlp.VEXInfo).VectorLength
     rhlp.MemEffOprSize <- 64<rt>
     rhlp.MemEffAddrSize <- getEffAddrSize rhlp
@@ -912,7 +912,7 @@ type SzDqqX () =
 /// Ap Ep Mp
 type SzP () =
   inherit InsSizeComputer ()
-  override __.Render rhlp szCond =
+  override _.Render rhlp szCond =
     let effAddrSz = getEffAddrSize rhlp
     let effOprSz = getEffOprSize rhlp szCond
     let struct (regSz, oprSz) =
@@ -928,7 +928,7 @@ type SzP () =
 /// GvMp
 type SzPRM () =
   inherit InsSizeComputer ()
-  override __.Render rhlp szCond =
+  override _.Render rhlp szCond =
     let effAddrSz = getEffAddrSize rhlp
     let effOprSz = getEffOprSize rhlp szCond
     let struct (regSz, oprSz) =
@@ -944,7 +944,7 @@ type SzPRM () =
 /// VZxzWxq
 type SzXqXz () =
   inherit InsSizeComputer ()
-  override __.Render rhlp _ =
+  override _.Render rhlp _ =
     let effAddrSz = getEffAddrSize rhlp
     let vLen = (Option.get rhlp.VEXInfo).VectorLength
     let struct (mopr, maddr, mreg) =
@@ -962,7 +962,7 @@ type SzXqXz () =
 /// VZxzWx
 type SzXXz () =
   inherit InsSizeComputer ()
-  override __.Render rhlp _ =
+  override _.Render rhlp _ =
     let effAddrSz = getEffAddrSize rhlp
     let vLen = (Option.get rhlp.VEXInfo).VectorLength
     let struct (mopr, maddr, mreg) =
@@ -980,7 +980,7 @@ type SzXXz () =
 /// VxWZxz
 type SzXzX () =
   inherit InsSizeComputer ()
-  override __.Render rhlp _ =
+  override _.Render rhlp _ =
     let vLen = (Option.get rhlp.VEXInfo).VectorLength
     let regSize =
       match vLen with
@@ -997,7 +997,7 @@ type SzXzX () =
 /// VZxzHxWZxz VZxzHxWZxzIb
 type SzXzXz () =
   inherit InsSizeComputer ()
-  override __.Render rhlp _ =
+  override _.Render rhlp _ =
     let vLen = (Option.get rhlp.VEXInfo).VectorLength
     rhlp.MemEffOprSize <- vLen
     rhlp.MemEffAddrSize <- getEffAddrSize rhlp
@@ -1008,7 +1008,7 @@ type SzXzXz () =
 /// VqqWdqq
 type SzDqqQq () =
   inherit InsSizeComputer ()
-  override __.Render rhlp szCond =
+  override _.Render rhlp szCond =
     let effAddrSz = getEffAddrSize rhlp
     let effOprSz = getEffOprSize rhlp szCond
     rhlp.MemEffOprSize <- 64<rt>
@@ -1020,7 +1020,7 @@ type SzDqqQq () =
 /// VZxzWdqq
 type SzDqqXz () =
   inherit InsSizeComputer ()
-  override __.Render rhlp _ =
+  override _.Render rhlp _ =
     let vLen = (Option.get rhlp.VEXInfo).VectorLength
     rhlp.MemEffOprSize <- 64<rt>
     rhlp.MemEffAddrSize <- getEffAddrSize rhlp
@@ -1031,7 +1031,7 @@ type SzDqqXz () =
 /// WqqVZxz WZqqVZxzIb WqqVZxzIb VqqHqqWqq
 type SzQqXz () =
   inherit InsSizeComputer ()
-  override __.Render rhlp _ =
+  override _.Render rhlp _ =
     let vLen = (Option.get rhlp.VEXInfo).VectorLength
     rhlp.MemEffOprSize <- 256<rt>
     rhlp.MemEffAddrSize <- getEffAddrSize rhlp
@@ -1042,7 +1042,7 @@ type SzQqXz () =
 /// VZxzHxWqqIb
 type SzQqXzRM () =
   inherit InsSizeComputer ()
-  override __.Render rhlp _ =
+  override _.Render rhlp _ =
     let vLen = (Option.get rhlp.VEXInfo).VectorLength
     rhlp.MemEffOprSize <- 256<rt>
     rhlp.MemEffAddrSize <- getEffAddrSize rhlp
@@ -1053,7 +1053,7 @@ type SzQqXzRM () =
 /// VxWdqd
 type SzDqdX () =
   inherit InsSizeComputer ()
-  override __.Render rhlp _ =
+  override _.Render rhlp _ =
     let vLen = (Option.get rhlp.VEXInfo).VectorLength
     rhlp.MemEffOprSize <- 32<rt>
     rhlp.MemEffAddrSize <- getEffAddrSize rhlp
@@ -1064,7 +1064,7 @@ type SzDqdX () =
 /// VZxzRd
 type SzDXz () =
   inherit InsSizeComputer ()
-  override __.Render rhlp _ =
+  override _.Render rhlp _ =
     let vLen = (Option.get rhlp.VEXInfo).VectorLength
     rhlp.MemEffOprSize <- 32<rt>
     rhlp.MemEffAddrSize <- getEffAddrSize rhlp
@@ -1075,7 +1075,7 @@ type SzDXz () =
 /// VZxzRq
 type SzQXz () =
   inherit InsSizeComputer ()
-  override __.Render rhlp _ =
+  override _.Render rhlp _ =
     let vLen = (Option.get rhlp.VEXInfo).VectorLength
     rhlp.MemEffOprSize <- 64<rt>
     rhlp.MemEffAddrSize <- getEffAddrSize rhlp
@@ -1086,7 +1086,7 @@ type SzQXz () =
 /// WdqVqqIb
 type SzDqQq () =
   inherit InsSizeComputer ()
-  override __.Render rhlp _ =
+  override _.Render rhlp _ =
     rhlp.MemEffOprSize <- 128<rt>
     rhlp.MemEffAddrSize <- getEffAddrSize rhlp
     rhlp.MemEffRegSize <- 128<rt>
@@ -1096,7 +1096,7 @@ type SzDqQq () =
 /// WdqVZxzIb
 type SzDqXz () =
   inherit InsSizeComputer ()
-  override __.Render rhlp _ =
+  override _.Render rhlp _ =
     let vLen = (Option.get rhlp.VEXInfo).VectorLength
     rhlp.MemEffOprSize <- 128<rt>
     rhlp.MemEffAddrSize <- getEffAddrSize rhlp
@@ -1107,7 +1107,7 @@ type SzDqXz () =
 /// VdqHdqEyIb
 type SzYDq () =
   inherit InsSizeComputer ()
-  override __.Render rhlp szCond =
+  override _.Render rhlp szCond =
     let effAddrSz = getEffAddrSize rhlp
     let effOprSz = getEffOprSize rhlp szCond
     rhlp.MemEffOprSize <- effOprSz
@@ -1119,7 +1119,7 @@ type SzYDq () =
 /// VdqHdqEyIb
 type SzQq () =
   inherit InsSizeComputer ()
-  override __.Render rhlp _ =
+  override _.Render rhlp _ =
     let effAddrSz = getEffAddrSize rhlp
     rhlp.MemEffOprSize <- 256<rt>
     rhlp.MemEffAddrSize <- effAddrSz
@@ -1130,14 +1130,14 @@ type SzQq () =
 /// VxWdqwd
 type SzDqwdX () =
   inherit InsSizeComputer ()
-  override __.Render rhlp _ =
+  override _.Render rhlp _ =
     let effAddrSz = getEffAddrSize rhlp
     let vLen = (Option.get rhlp.VEXInfo).VectorLength
     let struct (mopr, maddr, mreg) =
       match vLen with
       | 128<rt> -> struct (16<rt>, effAddrSz, 128<rt>)
       | 256<rt> -> struct (32<rt>, effAddrSz, 128<rt>)
-      | _ -> Utils.futureFeature () (* EVEX *)
+      | _ -> Terminator.futureFeature () (* EVEX *)
     rhlp.MemEffOprSize <- mopr
     rhlp.MemEffAddrSize <- maddr
     rhlp.MemEffRegSize <- mreg
@@ -1147,7 +1147,7 @@ type SzDqwdX () =
 /// EyGy - WordSize
 type SzY () =
   inherit InsSizeComputer ()
-  override __.Render rhlp _ =
+  override _.Render rhlp _ =
     let effAddrSz = getEffAddrSize rhlp
     let effOprSz = if rhlp.WordSize = WordSize.Bit64 then 64<rt> else 32<rt>
     rhlp.MemEffOprSize <- effOprSz
@@ -1159,7 +1159,7 @@ type SzY () =
 /// GyUps GyUpd
 type SzYP () =
   inherit InsSizeComputer ()
-  override __.Render rhlp szCond =
+  override _.Render rhlp szCond =
     let effAddrSz = getEffAddrSize rhlp
     let effOprSz = getEffOprSize rhlp szCond
     let vLen = (Option.get rhlp.VEXInfo).VectorLength
@@ -1172,7 +1172,7 @@ type SzYP () =
 /// KnKm MKn
 type SzQQb () =
   inherit InsSizeComputer ()
-  override __.Render rhlp szCond =
+  override _.Render rhlp szCond =
     let effAddrSz = getEffAddrSize rhlp
     let effOprSz = getEffOprSize rhlp szCond
     rhlp.MemEffOprSize <- 8<rt>
@@ -1184,7 +1184,7 @@ type SzQQb () =
 /// KnKm MKn
 type SzQQd () =
   inherit InsSizeComputer ()
-  override __.Render rhlp szCond =
+  override _.Render rhlp szCond =
     let effAddrSz = getEffAddrSize rhlp
     let effOprSz = getEffOprSize rhlp szCond
     rhlp.MemEffOprSize <- 32<rt>
@@ -1196,7 +1196,7 @@ type SzQQd () =
 /// KnKm MKn
 type SzQQw () =
   inherit InsSizeComputer ()
-  override __.Render rhlp szCond =
+  override _.Render rhlp szCond =
     let effAddrSz = getEffAddrSize rhlp
     let effOprSz = getEffOprSize rhlp szCond
     rhlp.MemEffOprSize <- 16<rt>

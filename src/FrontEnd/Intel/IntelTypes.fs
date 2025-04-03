@@ -300,50 +300,50 @@ type IntelInternalInstruction
   inherit Instruction (addr, len, wordSz)
 
   /// Prefixes.
-  member __.Prefixes with get(): Prefix = pref
+  member _.Prefixes with get(): Prefix = pref
 
   /// REX Prefix.
-  member __.REXPrefix with get(): REXPrefix = rex
+  member _.REXPrefix with get(): REXPrefix = rex
 
   /// VEX information.
-  member __.VEXInfo with get(): VEXInfo option = vex
+  member _.VEXInfo with get(): VEXInfo option = vex
 
   /// Opcode.
-  member __.Opcode with get(): Opcode = opcode
+  member _.Opcode with get(): Opcode = opcode
 
   /// Operands.
-  member __.Operands with get(): Operands = oprs
+  member _.Operands with get(): Operands = oprs
 
   /// Size of the main operation performed by the instruction. This field is
   /// mainly used by our lifter, and we suggest not to use this field for
   /// analyzing binaries because there is some ambiguity in deciding the
   /// operation size when the instruction semantics are complex. We use this
   /// only for the purpose of optimizing the lifting process.
-  member __.MainOperationSize with get(): RegType = opsz
+  member _.MainOperationSize with get(): RegType = opsz
 
   /// Size of the memory pointer in the instruction, i.e., how many bytes are
   /// required to represent a memory address. This field may hold a dummy value
   /// if there's no memory operand. This is mainly used for the lifting purpose
   /// along with the MainOperationSize.
-  member __.PointerSize with get(): RegType = psz
+  member _.PointerSize with get(): RegType = psz
 
-  override __.Equals (rhs) =
+  override this.Equals (rhs) =
     match rhs with
     | :? IntelInternalInstruction as rhs ->
-      __.Prefixes = rhs.Prefixes
-      && __.REXPrefix = rhs.REXPrefix
-      && __.VEXInfo = rhs.VEXInfo
-      && __.Opcode = rhs.Opcode
-      && __.Operands = rhs.Operands
+      this.Prefixes = rhs.Prefixes
+      && this.REXPrefix = rhs.REXPrefix
+      && this.VEXInfo = rhs.VEXInfo
+      && this.Opcode = rhs.Opcode
+      && this.Operands = rhs.Operands
     | _ -> false
 
-  override __.GetHashCode () =
+  override this.GetHashCode () =
     let hash = System.HashCode ()
-    hash.Add __.Prefixes
-    hash.Add __.REXPrefix
-    hash.Add __.VEXInfo
-    hash.Add __.Opcode
-    hash.Add __.Operands
+    hash.Add this.Prefixes
+    hash.Add this.REXPrefix
+    hash.Add this.VEXInfo
+    hash.Add this.Opcode
+    hash.Add this.Operands
     hash.ToHashCode ()
 
 type internal InsInfo = IntelInternalInstruction

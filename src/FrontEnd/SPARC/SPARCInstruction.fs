@@ -35,11 +35,11 @@ type SPARCInstruction (addr, numBytes, insInfo) =
   /// Basic instruction information.
   member val Info: InsInfo = insInfo
 
-  override __.IsBranch () = Utils.futureFeature ()
+  override __.IsBranch () = Terminator.futureFeature ()
 
   override __.IsModeChanging () = false
 
-  member __.HasConcJmpTarget () = Utils.futureFeature ()
+  member __.HasConcJmpTarget () = Terminator.futureFeature ()
 
   override __.IsDirectBranch () =
     __.IsBranch () && __.HasConcJmpTarget ()
@@ -47,39 +47,40 @@ type SPARCInstruction (addr, numBytes, insInfo) =
   override __.IsIndirectBranch () =
     __.IsBranch () && (not <| __.HasConcJmpTarget ())
 
-  override __.IsCondBranch () = Utils.futureFeature ()
+  override __.IsCondBranch () = Terminator.futureFeature ()
 
-  override __.IsCJmpOnTrue () = Utils.futureFeature ()
+  override __.IsCJmpOnTrue () = Terminator.futureFeature ()
 
-  override __.IsCall () = Utils.futureFeature ()
+  override __.IsCall () = Terminator.futureFeature ()
 
-  override __.IsRET () = Utils.futureFeature ()
+  override __.IsRET () = Terminator.futureFeature ()
 
-  override __.IsInterrupt () = Utils.futureFeature ()
+  override __.IsInterrupt () = Terminator.futureFeature ()
 
-  override __.IsExit () = Utils.futureFeature ()
+  override __.IsExit () = Terminator.futureFeature ()
 
   override __.IsTerminator () =
     __.IsDirectBranch () ||
     __.IsIndirectBranch ()
 
-  override __.DirectBranchTarget (_addr: byref<Addr>) = Utils.futureFeature ()
+  override __.DirectBranchTarget (_addr: byref<Addr>) =
+    Terminator.futureFeature ()
 
   override __.IndirectTrampolineAddr (_addr: byref<Addr>) =
-    Utils.futureFeature ()
+    Terminator.futureFeature ()
 
-  override __.Immediate (_v: byref<int64>) = Utils.futureFeature ()
+  override __.Immediate (_v: byref<int64>) = Terminator.futureFeature ()
 
-  override __.GetNextInstrAddrs () = Utils.futureFeature ()
+  override __.GetNextInstrAddrs () = Terminator.futureFeature ()
 
-  override __.InterruptNum (_num: byref<int64>) = Utils.futureFeature ()
+  override __.InterruptNum (_num: byref<int64>) = Terminator.futureFeature ()
 
-  override __.IsNop () = Utils.futureFeature ()
+  override __.IsNop () = Terminator.futureFeature ()
 
   override __.Translate ctxt =
     Lifter.translate __.Info numBytes ctxt
 
-  override __.TranslateToList _ctxt = Utils.futureFeature ()
+  override __.TranslateToList _ctxt = Terminator.futureFeature ()
 
   override __.Disasm (showAddr, _) =
     let builder =
@@ -101,7 +102,7 @@ type SPARCInstruction (addr, numBytes, insInfo) =
 
   override __.IsInlinedAssembly () = false
 
-  override __.Equals (_) = Utils.futureFeature ()
-  override __.GetHashCode () = Utils.futureFeature ()
+  override __.Equals (_) = Terminator.futureFeature ()
+  override __.GetHashCode () = Terminator.futureFeature ()
 
 // vim: set tw=80 sts=2 sw=2:

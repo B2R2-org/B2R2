@@ -230,7 +230,7 @@ type VarBasedDataFlowAnalysis<'Lattice>
       updateWithExpr state defs pp cond
       updateWithExpr state defs pp target1
       updateWithExpr state defs pp target2
-    | _ -> Utils.impossible ()
+    | _ -> Terminator.impossible ()
 
   /// Update DU/UD chains stored in the state as well as the out variables by
   /// executing the given statement. The `defs` stores every definition

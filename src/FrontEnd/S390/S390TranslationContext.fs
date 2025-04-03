@@ -36,7 +36,7 @@ type S390TranslationContext (isa) =
   member __.RegExprs with get() = regExprs
 
   override __.GetRegVar id =
-    Utils.futureFeature ()
+    Terminator.futureFeature ()
 
   override __.GetPseudoRegVar _id _pos =
-    Utils.impossible ()
+    Terminator.impossible ()

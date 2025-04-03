@@ -505,7 +505,7 @@ let isZero rt e =
   | 64<rt> ->
     let mask = numU64 0x7fffffff_ffffffffUL 64<rt>
     AST.eq (e .& mask) (AST.num0 64<rt>)
-  | _ -> Utils.impossible ()
+  | _ -> Terminator.impossible ()
 
 let fpNeg rt expr =
   let mask =

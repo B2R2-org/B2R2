@@ -72,11 +72,11 @@ type ExternalFnCFGBuilder<'FnCtx,
 
     member __.NextFunctionAddress with get() = None and set(_) = ()
 
-    member __.Mode with get() = Utils.impossible ()
+    member __.Mode with get() = Terminator.impossible ()
 
     member __.Context with get() = ctx
 
-    member __.DelayedBuilderRequests with get() = Utils.impossible ()
+    member __.DelayedBuilderRequests with get() = Terminator.impossible ()
 
     member __.HasJumpTable with get() = false
 
@@ -96,11 +96,11 @@ type ExternalFnCFGBuilder<'FnCtx,
 
     member __.Invalidate () = ()
 
-    member __.Build _ = Utils.impossible ()
+    member __.Build _ = Terminator.impossible ()
 
     member __.Reset () = ()
 
-    member __.MakeNew _ = Utils.impossible ()
+    member __.MakeNew _ = Terminator.impossible ()
 
     member __.ToFunction () =
       Function (entryPoint,

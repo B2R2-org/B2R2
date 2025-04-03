@@ -44,7 +44,7 @@ let numI64 n = BitVector.OfInt64 n 16<rt> |> AST.num
 let exprToInt (n: Expr) =
   match n.E with
   | Num a -> a
-  | _ -> Utils.impossible()
+  | _ -> Terminator.impossible()
 
 let bv1Check s =
   exprToInt s |> BitVector.IsOne
@@ -57,7 +57,7 @@ let trsOprToExpr ctxt = function
   | OpReg (RegIndir r) -> !.ctxt r
   | OpReg (IdxGbr (r, _)) -> !.ctxt r
   | OpReg (Imm n) -> numI32PC n
-  | _ -> Utils.impossible()
+  | _ -> Terminator.impossible()
 
 let trsOneOpr ins ctxt =
   match ins.Operands with
@@ -87,7 +87,7 @@ let trsMemOpr1toExpr ins ctxt =
     -> struct (!.ctxt r1, !.ctxt r2, 1)
   | TwoOperands (OpReg (RegIndir r1), OpReg (Regdir r2))
     -> struct (!.ctxt r1, !.ctxt r2, 0)
-  | _ -> Utils.impossible()
+  | _ -> Terminator.impossible()
 
 let trsMemOpr2toExpr ins ctxt =
   match ins.Operands with
@@ -97,19 +97,19 @@ let trsMemOpr2toExpr ins ctxt =
     -> (!.ctxt r1, !.ctxt r2, 1)
   | TwoOperands (OpReg (Regdir r1), OpReg (RegIndir r2))
     -> (!.ctxt r1, !.ctxt r2, 0)
-  | _ -> Utils.impossible()
+  | _ -> Terminator.impossible()
 
 let trsMemOpr3toExpr ins ctxt =
   match ins.Operands with
   | TwoOperands (OpReg (RegDisp (imm, r1)), OpReg (Regdir r2))
     -> struct (!.ctxt r1, !.ctxt r2, numI32 imm)
-  | _ -> Utils.impossible()
+  | _ -> Terminator.impossible()
 
 let trsMemOpr4toExpr ins ctxt =
   match ins.Operands with
   | TwoOperands (OpReg (Regdir r1), OpReg (RegDisp (imm, r2)))
     -> struct (!.ctxt r1, !.ctxt r2, numI32 imm)
-  | _ -> Utils.impossible()
+  | _ -> Terminator.impossible()
 
 let inline tmpVars2 ir t =
   struct (!+ir t, !+ir t)
@@ -252,7 +252,7 @@ let add ins len ctxt =
     !!ir (t2 := t2 .+ t1)
     !!ir (dst := AST.xtlo 32<rt> t2)
     !>ir len
-  | _ -> Utils.impossible()
+  | _ -> Terminator.impossible()
 
 let addc ins len ctxt =
   let struct (src, dst) = trsTwoOpr ins ctxt
@@ -308,7 +308,7 @@ let ``and`` ins len ctxt =
     !!ir (t2 := t2 .& t1)
     !!ir (dst := AST.xtlo 32<rt> t2)
     !>ir len
-  | _ -> Utils.impossible()
+  | _ -> Terminator.impossible()
 
 let andb ins len ctxt =
   let struct (src, _) = trsTwoOpr ins ctxt
@@ -558,7 +558,7 @@ let cmpeq ins len ctxt =
     !!ir (t := op2 == op1)
     !!ir (!.ctxt R.T := AST.extract t 1<rt> 1)
     !>ir len
-  | _ -> Utils.impossible()
+  | _ -> Terminator.impossible()
 
 let cmpge ins len ctxt =
   let struct (src, dst) = trsTwoOpr ins ctxt
@@ -806,7 +806,7 @@ let fabs ins len ctxt =
       !!ir (op1 := AST.ite (AST.fle op1 AST.b0) (AST.neg op1) (op1))
       !!ir (dst := op1)
       !>ir len
-  | _ -> Utils.impossible()
+  | _ -> Terminator.impossible()
 
 let fadd ins len ctxt =
   let struct (src, dst) = trsTwoOpr ins ctxt
@@ -848,7 +848,7 @@ let fadd ins len ctxt =
       !!ir (dst := op2)
       !!ir (!.ctxt R.FPSCR := AST.zext 32<rt> fps)
       !>ir len
-  | _ -> Utils.impossible()
+  | _ -> Terminator.impossible()
 
 let fcmpeq ins len ctxt =
   let struct (src, dst) = trsTwoOpr ins ctxt
@@ -889,7 +889,7 @@ let fcmpeq ins len ctxt =
       !!ir (!.ctxt R.FPSCR := AST.zext 32<rt> fps)
       !!ir (!.ctxt R.T := AST.extract t 1<rt> 1)
       !>ir len
-  | _ -> Utils.impossible()
+  | _ -> Terminator.impossible()
 
 let fcmpgt ins len ctxt =
   let struct (src, dst) = trsTwoOpr ins ctxt
@@ -928,7 +928,7 @@ let fcmpgt ins len ctxt =
       !!ir (!.ctxt R.FPSCR := AST.zext 32<rt> fps)
       !!ir (!.ctxt R.T := AST.extract t 1<rt> 1)
       !>ir len
-  | _ -> Utils.impossible()
+  | _ -> Terminator.impossible()
 
 let fcnvds ins len ctxt =
   let struct (src, dst) = trsTwoOpr ins ctxt
@@ -971,7 +971,7 @@ let fdiv ins len ctxt =
         tmpVars2 ir 64<rt>
       else
         tmpVars2 ir 32<rt>
-    | _ -> Utils.impossible()
+    | _ -> Terminator.impossible()
   !<ir len
   !!ir (sr := !.ctxt R.SR |> AST.zext 32<rt>)
   !!ir (fps := !.ctxt R.FPSCR |> AST.zext 32<rt>)
@@ -990,7 +990,7 @@ let fdiv ins len ctxt =
   !>ir len
 
 let fipr = function
-  | _ -> Utils.futureFeature()
+  | _ -> Terminator.futureFeature()
 
 let fldi0 ins len ctxt =
   let struct (src, dst) = trsTwoOpr ins ctxt
@@ -1033,7 +1033,7 @@ let ``float`` ins len ctxt =
     match dst.E with
     | Var (_, _, r) ->
         if r.StartsWith "DR" then 64<rt> else 32<rt>
-    | _ -> Utils.impossible()
+    | _ -> Terminator.impossible()
   let struct (fpul, sr, fps, op1) = tmpVars4 ir 32<rt>
   !<ir len
   !!ir (fpul := !.ctxt R.FPUL |> AST.sext 32<rt>)
@@ -1067,7 +1067,7 @@ let fmac ins len ctxt =
   !>ir len
 
 let fmov ins len = function
- | _ -> Utils.futureFeature()
+ | _ -> Terminator.futureFeature()
   (*
 let fmov ins len ctxt =
   let struct (src, dst) = trsTwoOpr ins ctxt
@@ -1099,7 +1099,7 @@ let fmov ins len ctxt =
   | TwoOperands(OpReg (IdxIndir r1), OpReg (Regdir r2))
   *)
 let fmovs ins len = function
- | _ -> Utils.futureFeature()
+ | _ -> Terminator.futureFeature()
 (*
 let fmovs ins len ctxt =
   match ins.Operands with
@@ -1121,7 +1121,7 @@ let fmul ins len ctxt =
       if r.StartsWith "FR" then tmpVars2 ir 32<rt>
       else
         tmpVars2 ir 64<rt>
-    | _ -> Utils.impossible()
+    | _ -> Terminator.impossible()
   !<ir len
   !!ir (sr := !.ctxt R.SR |> AST.zext 32<rt>)
   !!ir (fps := !.ctxt R.FPSCR |> AST.zext 32<rt>)
@@ -1146,7 +1146,7 @@ let fneg ins len ctxt =
   let mode =
     match dst.E with
     | Var (_, _, r) -> r.StartsWith "DR"
-    | _ -> Utils.impossible()
+    | _ -> Terminator.impossible()
   let op1 = if mode then !+ir 64<rt> else !+ir 32<rt>
   !<ir len
   !!ir (sr := !.ctxt R.SR |> AST.zext 32<rt>)
@@ -1188,7 +1188,7 @@ let fsqrt ins len ctxt =
   let mode =
     match dst.E with
     | Var (_, _, r) -> r.StartsWith "DR"
-    | _ -> Utils.impossible()
+    | _ -> Terminator.impossible()
   let op1 = if mode then !+ir 64<rt> else !+ir 32<rt>
   !<ir len
   !!ir (sr := !.ctxt R.SR |> AST.zext 32<rt>)
@@ -1221,7 +1221,7 @@ let fsub ins len ctxt =
   let mode =
     match dst.E with
     | Var (_, _, r) -> r.StartsWith "DR"
-    | _ -> Utils.impossible()
+    | _ -> Terminator.impossible()
   let struct (sr, fps) = tmpVars2 ir 32<rt>
   let struct (op1, op2) =
     if mode then tmpVars2 ir 64<rt> else tmpVars2 ir 32<rt>
@@ -1248,7 +1248,7 @@ let ftrc ins len ctxt =
   let mode =
     match dst.E with
     | Var (_, _, r) -> r.StartsWith "DR"
-    | _ -> Utils.impossible()
+    | _ -> Terminator.impossible()
   let op1 = if mode then !+ir 64<rt> else !+ir 32<rt>
   !<ir len
   !!ir (sr := !.ctxt R.SR |> AST.zext 32<rt>)
@@ -1381,7 +1381,7 @@ let ldc ins len ctxt =
       !!ir (rnBank := op1)
       !!ir (dst := AST.xtlo 32<rt> rnBank)
       !>ir len
-  | _ -> Utils.impossible()
+  | _ -> Terminator.impossible()
 
 let ldcl ins len ctxt =
   let struct (src, dst) = trsTwoOpr ins ctxt
@@ -1477,7 +1477,7 @@ let ldcl ins len ctxt =
       !!ir (src := AST.xtlo 32<rt> op1)
       !!ir (dst := AST.xtlo 32<rt> rnBank)
       !>ir len
-  | _ -> Utils.impossible()
+  | _ -> Terminator.impossible()
 
 let lds ins len ctxt =
   let struct (src, dst) = trsTwoOpr ins ctxt
@@ -1537,8 +1537,8 @@ let lds ins len ctxt =
       !!ir (!.ctxt R.PR := AST.xtlo 32<rt> newPR)
       !!ir (!.ctxt R.PR := AST.xtlo 32<rt> delayedPR)
       !>ir len
-    | _ -> Utils.impossible()
-  | _ -> Utils.impossible()
+    | _ -> Terminator.impossible()
+  | _ -> Terminator.impossible()
 
 let ldsl ins len ctxt =
   let struct (src, dst) = trsTwoOpr ins ctxt
@@ -1614,11 +1614,11 @@ let ldsl ins len ctxt =
       !!ir (!.ctxt R.PR := AST.xtlo 32<rt> newPR)
       !!ir (!.ctxt R.PR := AST.xtlo 32<rt> delayedPR)
       !>ir len
-    | _ -> Utils.impossible()
-  | _ -> Utils.impossible()
+    | _ -> Terminator.impossible()
+  | _ -> Terminator.impossible()
 
 let ldtlb ins len = function
-  | _ -> Utils.futureFeature()
+  | _ -> Terminator.futureFeature()
 
 let macl ins len ctxt =
   let struct (src, dst) = trsTwoOpr ins ctxt
@@ -1634,7 +1634,7 @@ let macl ins len ctxt =
     match src.E, dst.E with
     | Var (_, _, n1), Var (_, _, n2) ->
       struct (numI32 (int (n1[1..2])), numI32 (int (n2[1..2])))
-    | _ -> Utils.impossible()
+    | _ -> Terminator.impossible()
   !<ir len
   !!ir (macl := !.ctxt R.MACL |> AST.zext 32<rt>)
   !!ir (mach := !.ctxt R.MACH |> AST.zext 32<rt>)
@@ -1683,7 +1683,7 @@ let macw ins len ctxt =
     match src.E, dst.E with
     | Var (_, _, n1), Var (_, _, n2) ->
       struct (numI32 (int (n1[1..2])), numI32 (int (n2[1..2])))
-    | _ -> Utils.impossible()
+    | _ -> Terminator.impossible()
   !<ir len
   !!ir (macl := !.ctxt R.MACL |> AST.zext 32<rt>)
   !!ir (mach := !.ctxt R.MACH |> AST.zext 32<rt>)
@@ -1735,7 +1735,7 @@ let mov ins len ctxt =
     !!ir (op2 := op1)
     !!ir (dst := AST.xtlo 32<rt> op2)
     !>ir len
-  | _ -> Utils.impossible()
+  | _ -> Terminator.impossible()
 
 let mova ins len ctxt =
   let struct (src, dst) = trsTwoOpr ins ctxt
@@ -1827,7 +1827,7 @@ let movb ins len ctxt =
       match src.E, dst.E with
       | Var (_, _, n1), Var (_, _, n2) ->
         struct (numI32 (int (n1[1..2])), numI32 (int (n2[1..2])))
-      | _ -> Utils.impossible()
+      | _ -> Terminator.impossible()
     !<ir len
     !!ir (mField := AST.zext 4<rt> m)
     !!ir (nField := AST.zext 4<rt> n)
@@ -1873,7 +1873,7 @@ let movb ins len ctxt =
     !!ir (r0 := AST.loadLE 8<rt> address |> AST.sext 8<rt>)
     !!ir (!.ctxt R.R0 := AST.xtlo 8<rt> r0)
     !>ir len
-  | _ -> Utils.impossible()
+  | _ -> Terminator.impossible()
 
 let movl ins len ctxt =
   let ir = IRBuilder (16)
@@ -1951,7 +1951,7 @@ let movl ins len ctxt =
       match src.E, dst.E with
       | Var (_, _, n1), Var (_, _, n2) ->
         struct (numI32 (int (n1[1..2])), numI32 (int (n2[1..2])))
-      | _ -> Utils.impossible()
+      | _ -> Terminator.impossible()
     !<ir len
     !!ir (mField := AST.zext 4<rt> m)
     !!ir (nField := AST.zext 4<rt> n)
@@ -2012,7 +2012,7 @@ let movl ins len ctxt =
     !!ir (op3 := AST.loadLE 32<rt> address |> AST.sext 32<rt>)
     !!ir (dst := AST.xtlo 32<rt> op3)
     !>ir len
-  | _ -> Utils.impossible()
+  | _ -> Terminator.impossible()
 
 let movw ins len ctxt =
   let ir = IRBuilder (16)
@@ -2090,7 +2090,7 @@ let movw ins len ctxt =
       match src.E, dst.E with
       | Var (_, _, n1), Var (_, _, n2) ->
         struct (numI32 (int (n1[1..2])), numI32 (int (n2[1..2])))
-      | _ -> Utils.impossible()
+      | _ -> Terminator.impossible()
     !<ir len
     !!ir (mField := AST.zext 4<rt> m)
     !!ir (nField := AST.zext 4<rt> n)
@@ -2150,7 +2150,7 @@ let movw ins len ctxt =
     !!ir (r0 := AST.loadLE 16<rt> address |> AST.sext 16<rt>)
     !!ir (!.ctxt R.R0 := AST.xtlo 16<rt> r0)
     !>ir len
-  | _ -> Utils.impossible()
+  | _ -> Terminator.impossible()
 
 let movcal ins len ctxt =
   let struct (src, dst) = trsTwoOpr ins ctxt
@@ -2284,7 +2284,7 @@ let ``or`` ins len ctxt =
     !!ir (op2 := op1 .| op2)
     !!ir (dst := AST.xtlo 32<rt> op2)
     !>ir len
-  | _ -> Utils.impossible()
+  | _ -> Terminator.impossible()
 
 let orb ins len ctxt =
   let struct (src, _) = trsTwoOpr ins ctxt
@@ -2302,7 +2302,7 @@ let orb ins len ctxt =
   !>ir len
 
 let pref ins len = function
-  | _ -> Utils.futureFeature()
+  | _ -> Terminator.futureFeature()
 
 let rotcl ins len ctxt =
   let dst = trsOneOpr ins ctxt
@@ -2600,7 +2600,7 @@ let sts ins len ctxt =
       !!ir (op1 := reg)
       !!ir (dst := AST.xtlo 32<rt> op1)
       !>ir len
-  | _ -> Utils.impossible()
+  | _ -> Terminator.impossible()
 
 let stsl ins len ctxt =
   let struct (src, dst) = trsTwoOpr ins ctxt
@@ -2628,7 +2628,7 @@ let stsl ins len ctxt =
       !!ir (op1 := address)
       !!ir (dst := AST.xtlo 32<rt> op1)
       !>ir len
-  | _ -> Utils.impossible()
+  | _ -> Terminator.impossible()
 
 let sub ins len ctxt =
   let struct (src, dst) = trsTwoOpr ins ctxt

@@ -68,7 +68,7 @@ type EVMInstruction (addr, numBytes, insInfo, wordSize) =
     | Opcode.RETURN -> true
     | _ -> false
 
-  override __.IsInterrupt () = Utils.futureFeature ()
+  override __.IsInterrupt () = Terminator.futureFeature ()
 
   override __.IsExit () =
     __.Info.Opcode = Opcode.REVERT
@@ -100,7 +100,7 @@ type EVMInstruction (addr, numBytes, insInfo, wordSize) =
     if __.IsExit () then [||]
     else acc
 
-  override __.InterruptNum (_num: byref<int64>) = Utils.futureFeature ()
+  override __.InterruptNum (_num: byref<int64>) = Terminator.futureFeature ()
 
   override __.IsNop () = false
 
@@ -130,7 +130,7 @@ type EVMInstruction (addr, numBytes, insInfo, wordSize) =
 
   override __.IsInlinedAssembly () = false
 
-  override __.Equals (_) = Utils.futureFeature ()
-  override __.GetHashCode () = Utils.futureFeature ()
+  override __.Equals (_) = Terminator.futureFeature ()
+  override __.GetHashCode () = Terminator.futureFeature ()
 
 // vim: set tw=80 sts=2 sw=2:

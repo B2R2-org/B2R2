@@ -28,6 +28,6 @@ open B2R2
 open B2R2.FrontEnd.BinLifter
 
 let parse (span: ByteSpan) (reader: IBinReader) wordSize addr =
-  Utils.futureFeature ()
+  Terminator.futureFeature ()
 
 // vim: set tw=80 sts=2 sw=2:

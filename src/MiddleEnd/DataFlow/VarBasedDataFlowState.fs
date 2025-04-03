@@ -251,7 +251,7 @@ type VarBasedDataFlowState<'Lattice>
       let e2 = translateToSSAExpr pp e2
       let e3 = translateToSSAExpr pp e3
       SSA.Ite (e1, rt, e2, e3)
-    | _ -> Utils.impossible ()
+    | _ -> Terminator.impossible ()
 
   let translateLabel addr = function
     | Name symb -> addr, symb

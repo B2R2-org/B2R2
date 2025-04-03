@@ -35,4 +35,4 @@ let initializeContext isa =
   | Architecture.AARCH64 -> ARM64Context.init ()
   | Architecture.MIPS32 -> MIPS32Context.init ()
   | Architecture.MIPS64 -> MIPS64Context.init ()
-  | _ -> Utils.futureFeature ()
+  | _ -> Terminator.futureFeature ()

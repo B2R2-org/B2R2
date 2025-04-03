@@ -219,7 +219,7 @@ let encodeInstruction (ins: AsmInsInfo) ctxt =
   | Opcode.XOR -> xor ctxt ins
   | Opcode.XORPS -> xorps ctxt ins
   | Opcode.SYSCALL -> syscall ()
-  | op -> printfn "%A" op; Utils.futureFeature ()
+  | op -> printfn "%A" op; Terminator.futureFeature ()
 
 let computeIncompMaxLen = function
   | Opcode.LOOP | Opcode.LOOPE | Opcode.LOOPNE -> 2
@@ -228,7 +228,7 @@ let computeIncompMaxLen = function
   | Opcode.JNB | Opcode.JNL | Opcode.JNO | Opcode.JNP | Opcode.JNS | Opcode.JNZ
   | Opcode.JO | Opcode.JP | Opcode.JS | Opcode.JZ
   | Opcode.XBEGIN -> 6
-  | _ -> Utils.futureFeature ()
+  | _ -> Terminator.futureFeature ()
 
 let getImm imm = if Option.isSome imm then Option.get imm else [||]
 
@@ -240,7 +240,7 @@ let computeMaxLen (components: AsmComponent [] list) =
        | CompOp (_, _, bytes, imm) ->
          Array.length bytes + 4 + Array.length (getImm imm)
        | IncompleteOp (op, _) -> computeIncompMaxLen op
-       | _ -> Utils.impossible ())
+       | _ -> Terminator.impossible ())
   |> List.toArray
 
 let computeFitType dist =
@@ -268,7 +268,7 @@ let getOpByteOfIncomp relSz = function
   | Opcode.JS -> if relSz = 8<rt> then [| 0x78uy |] else [| 0x0Fuy; 0x88uy |]
   | Opcode.JZ -> if relSz = 8<rt> then [| 0x74uy |] else [| 0x0Fuy; 0x84uy |]
   | Opcode.CALLNear -> [| 0xE8uy |]
-  | _ -> Utils.futureFeature ()
+  | _ -> Terminator.futureFeature ()
 
 let computeDistance myIdx labelIdx maxLenArr =
   let sIdx, count, sign =
@@ -292,7 +292,7 @@ let decideOp parserState maxLenArr myIdx (comp: _ []) =
     let t = if op = Opcode.CALLNear then 32<rt> (* FIXME *) else t
     [| CompOp (op, oprs, getOpByteOfIncomp t op, None)
        IncompLabel t |]
-  | _ -> Utils.impossible ()
+  | _ -> Terminator.impossible ()
 
 let computeRealLen components =
   components
@@ -302,7 +302,7 @@ let computeRealLen components =
       match comp[1] with
       | IncompLabel sz ->
         Array.length bytes + RegType.toByteWidth sz + Array.length (getImm imm)
-      | _ -> Utils.impossible ()
+      | _ -> Terminator.impossible ()
     | _ -> Array.length comp)
   |> List.toArray
 
@@ -311,11 +311,11 @@ let concretizeLabel sz (offset: int64) =
   | 8<rt> -> [| byte offset |]
   | 16<rt> -> BitConverter.GetBytes (int16 offset)
   | 32<rt> -> BitConverter.GetBytes (int32 offset)
-  | _ -> Utils.impossible ()
+  | _ -> Terminator.impossible ()
 
 let normalToByte = function
   | Normal b -> b
-  | comp -> printfn "%A" comp; Utils.impossible ()
+  | comp -> printfn "%A" comp; Terminator.impossible ()
 
 let finalize arch parserState realLenArr baseAddr myIdx comp =
   match comp with

@@ -252,7 +252,7 @@ module Register =
     | "f58" -> Register.F58
     | "f60" -> Register.F60
     | "f62" -> Register.F62
-    | _ -> Utils.impossible ()
+    | _ -> Terminator.impossible ()
 
   /// Get the register ID of a SPARC register.
   [<CompiledName "ToRegID">]
@@ -368,4 +368,4 @@ module Register =
     | Register.F58 -> "%f58"
     | Register.F60 -> "%f60"
     | Register.F62 -> "%f62"
-    | _ -> Utils.impossible ()
+    | _ -> Terminator.impossible ()

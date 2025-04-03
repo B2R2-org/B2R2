@@ -53,7 +53,7 @@ type CondAwareNoretAnalysis ([<Optional; DefaultParameterValue(true)>] strict) =
     | NoRet, ConditionalNoRet _ -> b
     | ConditionalNoRet _, NoRet -> a
     | ConditionalNoRet n1, ConditionalNoRet n2 when n1 <> n2 -> NoRet
-    | _ -> Utils.impossible ()
+    | _ -> Terminator.impossible ()
 
   let tryGetValue (state: VarBasedDataFlowState<_>) v varKind =
     let defs = state.PerVertexIncomingDefs[v]
@@ -127,7 +127,7 @@ type CondAwareNoretAnalysis ([<Optional; DefaultParameterValue(true)>] strict) =
         tryGetConnectedArgumentFromIRCFG ctx state.Value pp nth
         |> Option.bind (fun nth' -> Some (absV, nth'))
       | NotNoRet | UnknownNoRet -> None
-      | NoRet -> Utils.impossible ())
+      | NoRet -> Terminator.impossible ())
 
   let untouchedArgIndexX86FromSSACFG (ssa: SSACFG) frameDist absV state nth =
     let argOff = frameDist - 4 * nth
@@ -185,7 +185,7 @@ type CondAwareNoretAnalysis ([<Optional; DefaultParameterValue(true)>] strict) =
         tryGetConnectedArgumentFromSSACFG ctx ssaCFG state.Value pp nth
         |> Option.bind (fun nth' -> Some (absV, nth'))
       | NotNoRet | UnknownNoRet -> None
-      | NoRet -> Utils.impossible ())
+      | NoRet -> Terminator.impossible ())
 
   let tryFindCondNoRetDom (dom: IDominance<_, _>) absVSet v =
     dom.Dominators v

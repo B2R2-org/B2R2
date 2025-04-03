@@ -51,7 +51,7 @@ type SSAStackPointerPropagation =
       | Cast _ -> StackPointerDomain.NotConstSP
       | Extract _ -> StackPointerDomain.NotConstSP
       | Undefined _ -> StackPointerDomain.NotConstSP
-      | _ -> Utils.impossible ()
+      | _ -> Terminator.impossible ()
 
     let isStackRelatedRegister regId =
       hdl.RegisterFactory.IsStackPointer regId

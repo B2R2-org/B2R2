@@ -40,7 +40,7 @@ type SSALifter () =
   let extractStackVar stmt =
     match stmt with
     | Def (v, _) -> v
-    | _ -> Utils.impossible ()
+    | _ -> Terminator.impossible ()
 
   let findLastStackDef (ssaCFG: SSACFG) v targetVarKind =
     ssaCFG.FindReachingDef v targetVarKind

@@ -421,7 +421,7 @@ let parseRegisterBasedLoadStore bin =
     let from6to7 = extract bin 6u 5u <<< 6
     let imm = from3to5 ||| from6to7 |> int64 |> Imm |> Some
     struct (Op.CdotFSD, TwoOperands (src, OpMem (b, imm, 64<rt>)))
-  | _ -> Utils.impossible ()
+  | _ -> Terminator.impossible ()
 
 let parseStackBasedLoadStore bin =
   match extract bin 15u 13u with
@@ -468,7 +468,7 @@ let parseStackBasedLoadStore bin =
     let from6to8 = extract bin 9u 7u <<< 6
     let imm = from3to5 ||| from6to8 |> int64 |> Imm |> Some
     struct (Op.CdotFSDSP, TwoOperands (rs2, OpMem (R.X2, imm, 64<rt>)))
-  | _ -> Utils.impossible ()
+  | _ -> Terminator.impossible ()
 
 let parseCdotADDI4SPN bin =
   let from2to2 = pickBit bin 6u <<< 2
@@ -637,7 +637,7 @@ let parseQuadrant1 bin wordSize =
     | 0b01u -> parseCdotSR bin
     | 0b10u -> parseCdotANDI bin wordSize
     | 0b11u -> parseCdotArith bin
-    | _ -> Utils.impossible ()
+    | _ -> Terminator.impossible ()
   | 0b101u -> parseCdotJ bin wordSize
   | 0b110u
   | 0b111u -> parseCdotBranch bin wordSize
@@ -653,14 +653,14 @@ let parseQuadrant2 bin wordSize =
   | 0b110u
   | 0b111u -> parseStackBasedLoadStore bin
   | 0b100u -> parseCdotJrMvEBREAKJalrAdd bin
-  | _ -> Utils.impossible ()
+  | _ -> Terminator.impossible ()
 
 let private parseCompressedInstruction wordSize bin =
   match extract bin 0u 1u with
   | 0b00u -> parseQuadrant0 bin wordSize
   | 0b01u -> parseQuadrant1 bin wordSize
   | 0b10u -> parseQuadrant2 bin wordSize
-  | _ -> Utils.impossible ()
+  | _ -> Terminator.impossible ()
 
 let private parseInstruction wordSize bin =
   match extract bin 6u 0u with

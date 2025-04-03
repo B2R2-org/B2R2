@@ -22,30 +22,31 @@
   SOFTWARE.
 *)
 
-/// A set of convenient misc. functions.
-module B2R2.Utils
+/// A set of terminating functions, which are used to terminate the program
+/// when a non-recoverable error is encountered.
+[<RequireQualifiedAccess>]
+module B2R2.Terminator
+
+open System
+open System.Diagnostics
 
 /// Not implemented features encountered, so raise an exception and die.
-val futureFeature: unit -> 'a
+[<StackTraceHidden>]
+let futureFeature () =
+  let trace = StackTrace (true)
+  printfn "FATAL ERROR: NOT IMPLEMENTED FEATURE."
+  trace.ToString () |> printfn "%s"
+  raise <| NotImplementedException ()
 
 /// Fatal error. This should never happen.
-val impossible: unit -> 'a
+[<StackTraceHidden>]
+let impossible () =
+  let trace = StackTrace (true)
+  printfn "FATAL ERROR: THIS IS INVALID AND SHOULD NEVER HAPPEN."
+  trace.ToString () |> printfn "%s"
+  raise <| InvalidOperationException ()
 
 /// Exit the whole program with a fatal error message.
-val fatalExit: string -> 'a
-
-/// Physical equality.
-val inline (===) : 'a -> 'a -> bool when 'a : not struct
-
-/// Convert a tuple result to an option type. The tuple result is obtained from
-/// TryGetValue methods, e.g., from IDictionary.
-val inline tupleResultToOpt: bool * 'a -> 'a option
-
-/// Return the first item of a triple.
-val inline fstOfTriple: ('a * 'b * 'c) -> 'a
-
-/// Return the second item of a triple.
-val inline sndOfTriple: ('a * 'b * 'c) -> 'b
-
-/// Return the third item of a triple.
-val inline thdOfTriple: ('a * 'b * 'c) -> 'c
+let fatalExit (msg: string) =
+  Console.Error.WriteLine msg
+  exit 1

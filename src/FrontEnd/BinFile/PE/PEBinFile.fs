@@ -134,7 +134,7 @@ type PEBinFile (path, bytes: byte[], baseAddrOpt, rawpdb) =
 
     member __.GetDynamicSymbols (?exc) = getDynamicSymbols pe exc
 
-    member __.AddSymbol _addr _symbol = Utils.futureFeature ()
+    member __.AddSymbol _addr _symbol = Terminator.futureFeature ()
 
     member __.GetSections () = getSections pe
 
@@ -166,7 +166,7 @@ type PEBinFile (path, bytes: byte[], baseAddrOpt, rawpdb) =
 
     member __.HasRelocationInfo addr = hasRelocationSymbols pe addr
 
-    member __.GetRelocatedAddr _relocAddr = Utils.futureFeature ()
+    member __.GetRelocatedAddr _relocAddr = Terminator.futureFeature ()
 
     member __.GetLinkageTableEntries () = getImportTable pe
 

@@ -22,7 +22,7 @@
   SOFTWARE.
 *)
 
-module internal B2R2.FrontEnd.ARM64.Utils
+module internal B2R2.FrontEnd.ARM64.Terminator
 
 open B2R2
 open B2R2.FrontEnd.ARM64

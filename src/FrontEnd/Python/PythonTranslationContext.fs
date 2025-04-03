@@ -31,10 +31,10 @@ open B2R2.FrontEnd.BinLifter
 type PythonTranslationContext (isa) =
   inherit TranslationContext (isa)
 
-  member __.RegExprs with get() = Utils.futureFeature ()
+  member __.RegExprs with get() = Terminator.futureFeature ()
 
   override __.GetRegVar id =
-    Utils.futureFeature ()
+    Terminator.futureFeature ()
 
   override __.GetPseudoRegVar _id _pos =
-    Utils.impossible ()
+    Terminator.impossible ()

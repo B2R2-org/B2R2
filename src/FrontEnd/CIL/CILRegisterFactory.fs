@@ -31,11 +31,11 @@ open B2R2.BinIR.LowUIR
 type CILRegisterFactory () =
   inherit RegisterFactory ()
 
-  override __.GetAllRegExprs () = Utils.futureFeature ()
+  override __.GetAllRegExprs () = Terminator.futureFeature ()
 
   override __.GetAllRegNames () = []
 
-  override __.GetGeneralRegExprs () = Utils.futureFeature ()
+  override __.GetGeneralRegExprs () = Terminator.futureFeature ()
 
   override __.RegIDFromRegExpr (e) =
     match e.E with
@@ -43,9 +43,9 @@ type CILRegisterFactory () =
     | PCVar _ -> Register.toRegID Register.PC
     | _ -> raise InvalidRegisterException
 
-  override __.RegIDToRegExpr (_id) = Utils.impossible ()
+  override __.RegIDToRegExpr (_id) = Terminator.impossible ()
 
-  override __.StrToRegExpr _s = Utils.impossible ()
+  override __.StrToRegExpr _s = Terminator.impossible ()
 
   override __.RegIDFromString str =
     Register.ofString str |> Register.toRegID
@@ -56,7 +56,7 @@ type CILRegisterFactory () =
   override __.RegIDToRegType rid =
     Register.ofRegID rid |> Register.toRegType
 
-  override __.GetRegisterAliases _ = Utils.futureFeature ()
+  override __.GetRegisterAliases _ = Terminator.futureFeature ()
 
   override __.ProgramCounter =
     Register.PC |> Register.toRegID
@@ -64,7 +64,7 @@ type CILRegisterFactory () =
   override __.StackPointer =
     Register.SP |> Register.toRegID |> Some
 
-  override __.FramePointer = Utils.futureFeature ()
+  override __.FramePointer = Terminator.futureFeature ()
 
   override __.IsProgramCounter regid =
     __.ProgramCounter = regid

@@ -63,19 +63,19 @@ module Register =
     | "PC" -> R.PC
     | "GAS" -> R.GAS
     | "SP" -> R.SP
-    | _ -> Utils.impossible ()
+    | _ -> Terminator.impossible ()
 
   let toString = function
     | R.PC -> "PC"
     | R.GAS -> "GAS"
     | R.SP -> "SP"
-    | _ -> Utils.impossible ()
+    | _ -> Terminator.impossible ()
 
   let toRegType = function
     | R.PC -> 256<rt>
     | R.GAS -> 64<rt>
     | R.SP -> 256<rt>
-    | _ -> Utils.impossible ()
+    | _ -> Terminator.impossible ()
 
 
 /// <summary>

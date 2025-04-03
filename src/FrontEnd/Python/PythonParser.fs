@@ -35,10 +35,10 @@ type Python64Parser (isa: ISA) =
 
   interface IInstructionParsable with
     member __.Parse (span: ByteSpan, addr: Addr) =
-      Utils.futureFeature (): Instruction
+      Terminator.futureFeature (): Instruction
 
     member __.Parse (bs: byte[], addr: Addr) =
-      Utils.futureFeature (): Instruction
+      Terminator.futureFeature (): Instruction
 
     member __.MaxInstructionSize = 4
 

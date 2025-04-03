@@ -57,7 +57,7 @@ let rec private translateExpr (builder: LLVMIRBuilder) tempMap expr =
     let etyp = TypeCheck.typeOf e
     let e = translateExpr builder tempMap e
     builder.EmitExtract e etyp len pos
-  | e -> printfn "%A" e; Utils.futureFeature ()
+  | e -> printfn "%A" e; Terminator.futureFeature ()
 
 and private translateUnOp builder tempMap op exp =
   match op with
@@ -65,7 +65,7 @@ and private translateUnOp builder tempMap op exp =
     let etyp = TypeCheck.typeOf exp
     let exp = translateExpr builder tempMap exp
     builder.EmitUnOp "not" exp etyp
-  | _ -> Utils.futureFeature ()
+  | _ -> Terminator.futureFeature ()
 
 and private translateBinOp builder tempMap op typ lhs rhs =
   match op with
@@ -137,7 +137,7 @@ and private translateBinOp builder tempMap op typ lhs rhs =
     let lhs = translateExpr builder tempMap lhs
     let rhs = translateExpr builder tempMap rhs
     builder.EmitBinOp "fdiv" typ lhs rhs
-  | _ -> Utils.futureFeature ()
+  | _ -> Terminator.futureFeature ()
 
 and private translateRelOp builder tempMap op typ lhs rhs =
   match op with
@@ -181,7 +181,7 @@ and private translateRelOp builder tempMap op typ lhs rhs =
     let lhs = translateExpr builder tempMap lhs
     let rhs = translateExpr builder tempMap rhs
     builder.EmitRelOp "sle" typ lhs rhs
-  | _ -> Utils.futureFeature ()
+  | _ -> Terminator.futureFeature ()
 
 and private translateCast builder tempMap e kind etyp rt =
   match kind with
@@ -191,7 +191,7 @@ and private translateCast builder tempMap e kind etyp rt =
   | CastKind.ZeroExt ->
     let e = translateExpr builder tempMap e
     builder.EmitCast e "zext" etyp rt
-  | _ -> Utils.futureFeature ()
+  | _ -> Terminator.futureFeature ()
 
 let private translateStmts (builder: LLVMIRBuilder) addr succs (stmts: Stmt[]) =
   let mutable lastAddr = addr
@@ -225,7 +225,7 @@ let private translateStmts (builder: LLVMIRBuilder) addr succs (stmts: Stmt[]) =
       let t = translateExpr builder tempMap t
       let f = translateExpr builder tempMap f
       builder.EmitInterCJmp typ c t f succs
-    | s -> printfn "%A" s; Utils.futureFeature ()
+    | s -> printfn "%A" s; Terminator.futureFeature ()
   if builder.Address = addr then () else builder.EmitLabel addr
   for stmt in stmts do
     translateStmt stmt

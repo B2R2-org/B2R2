@@ -260,7 +260,7 @@ module Register =
     | "fr29" -> Register.FPR29
     | "fr30" -> Register.FPR30
     | "fr31" -> Register.FPR31
-    | _ -> Utils.impossible ()
+    | _ -> Terminator.impossible ()
 
   /// Get the register ID of a PARISC register.
   [<CompiledName "ToRegID">]
@@ -380,4 +380,4 @@ module Register =
     | Register.FPR29 -> "fr29"
     | Register.FPR30 -> "fr30"
     | Register.FPR31 -> "fr31"
-    | _ -> Utils.impossible ()
+    | _ -> Terminator.impossible ()

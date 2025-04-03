@@ -46,7 +46,7 @@ type PersistentVertex<'V when 'V: equality>
     member __.CompareTo (other: obj) =
       match other with
       | :? IVertex<'V> as other -> id.CompareTo other.ID
-      | _ -> Utils.impossible ()
+      | _ -> Terminator.impossible ()
 
   interface System.IFormattable with
     member _.ToString (_, _) = $"{nameof PersistentVertex}({vData.ToString ()})"

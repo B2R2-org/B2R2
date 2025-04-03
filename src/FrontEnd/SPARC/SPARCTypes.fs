@@ -791,7 +791,7 @@ module ConditionCode =
     | "fcc3" -> ConditionCode.Fcc3
     | "icc" -> ConditionCode.Icc
     | "xcc" -> ConditionCode.Xcc
-    | _ -> Utils.impossible ()
+    | _ -> Terminator.impossible ()
 
   let toString = function
     | ConditionCode.Fcc0 -> "%fcc0"
@@ -800,7 +800,7 @@ module ConditionCode =
     | ConditionCode.Fcc3 -> "%fcc3"
     | ConditionCode.Icc -> "%icc"
     | ConditionCode.Xcc -> "%xcc"
-    | _ -> Utils.impossible ()
+    | _ -> Terminator.impossible ()
 
 type Const = int32
 

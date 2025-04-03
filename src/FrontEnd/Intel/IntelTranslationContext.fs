@@ -33,10 +33,10 @@ type IntelTranslationContext (isa) =
 
   let regExprs = RegExprs isa.WordSize
 
-  member __.RegExprs with get() = regExprs
+  member _.RegExprs with get() = regExprs
 
-  override __.GetRegVar id =
+  override _.GetRegVar id =
     Register.ofRegID id |> regExprs.GetRegVar
 
-  override __.GetPseudoRegVar id pos =
+  override _.GetPseudoRegVar id pos =
     regExprs.GetPseudoRegVar (Register.ofRegID id) pos

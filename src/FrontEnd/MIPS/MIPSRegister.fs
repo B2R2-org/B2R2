@@ -49,4 +49,4 @@ module Register =
     | R.F26 -> R.F27
     | R.F28 -> R.F29
     | R.F30 -> R.F31
-    | _ -> Utils.impossible ()
+    | _ -> Terminator.impossible ()

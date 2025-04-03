@@ -39,4 +39,4 @@ type AVRTranslationContext (isa) =
     Register.ofRegID id |> regExprs.GetRegVar
 
   override __.GetPseudoRegVar _id _pos =
-    Utils.impossible ()
+    Terminator.impossible ()

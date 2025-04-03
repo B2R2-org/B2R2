@@ -516,7 +516,7 @@ type IntelParser (wordSz) =
 
   let rhlp = ReadHelper (wordSz, oparsers, szcomputers)
 
-  member inline private __.ParsePrefix (span: ByteSpan) =
+  member inline private _.ParsePrefix (span: ByteSpan) =
     let mutable pos = 0
     let mutable pref = PrxNone
     let mutable b = span[0]
@@ -539,7 +539,7 @@ type IntelParser (wordSz) =
     rhlp.Prefixes <- pref
     pos
 
-  member inline private __.ParseREX (bs: ByteSpan, pos, rex: REXPrefix byref) =
+  member inline private _.ParseREX (bs: ByteSpan, pos, rex: REXPrefix byref) =
     if wordSz = WordSize.Bit32 then pos
     else
       let rb = bs[pos] |> int
@@ -549,13 +549,13 @@ type IntelParser (wordSz) =
       else pos
 
   interface IInstructionParsable with
-    member __.Parse (bs: byte[], addr) =
-      (__ :> IInstructionParsable).Parse (ReadOnlySpan bs, addr)
+    member this.Parse (bs: byte[], addr) =
+      (this :> IInstructionParsable).Parse (ReadOnlySpan bs, addr)
 
-    member __.Parse (span: ByteSpan, addr) =
+    member this.Parse (span: ByteSpan, addr) =
       let mutable rex = REXPrefix.NOREX
-      let prefEndPos = __.ParsePrefix span
-      let nextPos = __.ParseREX (span, prefEndPos, &rex)
+      let prefEndPos = this.ParsePrefix span
+      let nextPos = this.ParseREX (span, prefEndPos, &rex)
       rhlp.VEXInfo <- None
       rhlp.InsAddr <- addr
       rhlp.REXPrefix <- rex
@@ -565,6 +565,6 @@ type IntelParser (wordSz) =
 #endif
       oneByteParsers[int (rhlp.ReadByte span)].Run (span, rhlp) :> Instruction
 
-    member __.MaxInstructionSize = 15
+    member _.MaxInstructionSize = 15
 
-    member __.OperationMode with get() = ArchOperationMode.NoMode and set _ = ()
+    member _.OperationMode with get() = ArchOperationMode.NoMode and set _ = ()

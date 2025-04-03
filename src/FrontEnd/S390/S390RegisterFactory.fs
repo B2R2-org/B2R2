@@ -31,50 +31,50 @@ type S39064RegisterFactory (wordSize, r: RegExprs) =
   inherit RegisterFactory ()
 
   override __.GetAllRegExprs () =
-    Utils.futureFeature ()
+    Terminator.futureFeature ()
 
   override __.GetAllRegNames () =
     __.GetAllRegExprs ()
     |> List.map (__.RegIDFromRegExpr >> __.RegIDToString)
 
   override __.GetGeneralRegExprs () =
-    Utils.futureFeature ()
+    Terminator.futureFeature ()
 
   override __.RegIDFromRegExpr (e) =
-    Utils.futureFeature ()
+    Terminator.futureFeature ()
 
   override __.RegIDToRegExpr (id) =
-    Utils.futureFeature ()
+    Terminator.futureFeature ()
 
   override __.StrToRegExpr s =
-    Utils.futureFeature ()
+    Terminator.futureFeature ()
 
   override __.RegIDFromString str =
-    Utils.futureFeature ()
+    Terminator.futureFeature ()
 
   override __.RegIDToString rid =
-    Utils.futureFeature ()
+    Terminator.futureFeature ()
 
   override __.RegIDToRegType rid =
-    Utils.futureFeature ()
+    Terminator.futureFeature ()
 
   override __.GetRegisterAliases _rid =
-    Utils.futureFeature ()
+    Terminator.futureFeature ()
 
   override __.ProgramCounter =
-    Utils.futureFeature ()
+    Terminator.futureFeature ()
 
   override __.StackPointer =
-    Utils.futureFeature ()
+    Terminator.futureFeature ()
 
   override __.FramePointer =
-    Utils.futureFeature ()
+    Terminator.futureFeature ()
 
   override __.IsProgramCounter rid =
-    Utils.futureFeature ()
+    Terminator.futureFeature ()
 
   override __.IsStackPointer rid =
-    Utils.futureFeature ()
+    Terminator.futureFeature ()
 
   override __.IsFramePointer rid =
-    Utils.futureFeature ()
+    Terminator.futureFeature ()

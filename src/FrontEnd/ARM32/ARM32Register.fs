@@ -50,4 +50,4 @@ module Register =
     | R.Q13A | R.Q13B | R.Q14A | R.Q14B | R.Q15A | R.Q15B -> 64<rt>
     | R.Q0 | R.Q1 | R.Q2 | R.Q3 | R.Q4 | R.Q5 | R.Q6 | R.Q7 | R.Q8 | R.Q9
     | R.Q10 | R.Q11 | R.Q12 | R.Q13 | R.Q14 | R.Q15 -> 128<rt>
-    | _ -> Utils.impossible ()
+    | _ -> Terminator.impossible ()

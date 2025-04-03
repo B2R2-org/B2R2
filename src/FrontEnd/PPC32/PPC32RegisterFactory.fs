@@ -173,7 +173,7 @@ type PPC32RegisterFactory (wordSize, r: RegExprs) =
   override __.GetRegisterAliases rid =
     [| rid |]
 
-  override __.ProgramCounter = Utils.futureFeature ()
+  override __.ProgramCounter = Terminator.futureFeature ()
 
   override __.StackPointer =
     Register.R1 |> Register.toRegID |> Some

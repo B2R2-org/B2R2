@@ -347,7 +347,7 @@ type CFGRecovery<'FnCtx,
         | SideEffect Breakpoint ->
           ()
 #if DEBUG
-        | ISMark _ | LMark _ -> Utils.impossible ()
+        | ISMark _ | LMark _ -> Terminator.impossible ()
 #endif
         | _ -> makeIntraFallThroughEdge ctx ppQueue srcVertex
     done
@@ -464,7 +464,7 @@ type CFGRecovery<'FnCtx,
         if CondAwareNoretAnalysis.hasNonZero ctx.BinHandle caller nth then
           connectCallWithoutFT ctx caller callee calleeInfo queue
         else connectCallWithFT ctx caller callee calleeInfo queue
-      | UnknownNoRet, _ -> Utils.impossible ()
+      | UnknownNoRet, _ -> Terminator.impossible ()
 
   let connectIndirectCallEdge ctx queue callsiteAddr =
     let caller = ctx.CallerVertices[callsiteAddr]
@@ -599,7 +599,7 @@ type CFGRecovery<'FnCtx,
     | true, callsites ->
       updateCallEdgesForEachCallsite ctx callsites calleeAddr calleeInfo
     | false, _ ->
-      Utils.impossible ()
+      Terminator.impossible ()
 
   let hasReturnNode (ctx: CFGBuildingContext<'FnCtx, 'GlCtx>) =
     ctx.CFG.TryFindVertex (fun v ->

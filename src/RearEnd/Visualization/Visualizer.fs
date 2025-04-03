@@ -47,4 +47,4 @@ let getJSONFromGraph iGraph roots =
     "{}"
 
 let visualizeFromFile _inFile _outFile =
-  B2R2.Utils.futureFeature ()
+  B2R2.Terminator.futureFeature ()

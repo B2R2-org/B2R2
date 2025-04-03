@@ -64,7 +64,7 @@ type AVRParserTests () =
     | 0 -> NoOperand
     | 1 -> OneOperand oprs[0]
     | 2 -> TwoOperands (oprs[0], oprs[1])
-    | _ -> Utils.impossible ()
+    | _ -> Terminator.impossible ()
 
   let ( ** ) opcode oprList = (opcode, operandsFromArray oprList)
 

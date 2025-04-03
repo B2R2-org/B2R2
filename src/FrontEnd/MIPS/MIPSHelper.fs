@@ -123,7 +123,7 @@ let getCondition = function
 let gprLen = function
   | Architecture.MIPS32 -> 32
   | Architecture.MIPS64 -> 64
-  | _ -> Utils.impossible ()
+  | _ -> Terminator.impossible ()
 
 let num9 b = extract b 15u 7u
 

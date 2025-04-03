@@ -156,12 +156,12 @@ module internal ExceptionFrames =
   let pop exprs =
     match exprs with
     | fst :: rest -> struct (fst, rest)
-    | _ -> Utils.impossible ()
+    | _ -> Terminator.impossible ()
 
   let pop2 exprs =
     match exprs with
     | fst :: snd :: rest -> struct (fst, snd, rest)
-    | _ -> Utils.impossible ()
+    | _ -> Terminator.impossible ()
 
   let inline hasLessThanTwoOperands exprs =
     match exprs with
@@ -468,12 +468,12 @@ module internal ExceptionFrames =
       | DWOperation.DW_OP_deref ->
         let exprs = parseLoad isa exprs
         parseExprs isa regFct exprs span (i + 1) maxIdx
-      | op -> printfn "TODO: %A" op; Utils.futureFeature ()
+      | op -> printfn "TODO: %A" op; Terminator.futureFeature ()
 
   let extractOldOffset = function
     | RegPlusOffset (_, o) -> o
     | UnknownCFA -> 0
-    | e -> Utils.impossible ()
+    | e -> Terminator.impossible ()
 
   let restoreOne initialRule currentRule target =
     match Map.tryFind target initialRule with
@@ -646,7 +646,7 @@ module internal ExceptionFrames =
         getUnwind acc cfa irule rst rule isa rFct lr cf df rr span (i + cnt) loc
       | DWCFAInstruction.DW_CFA_nop ->
         getUnwind acc cfa irule rst rule isa rFct lr cf df rr span i loc
-      | op -> printfn "%A" op; Utils.futureFeature ()
+      | op -> printfn "%A" op; Terminator.futureFeature ()
 
   let extractRule unwindingInfo =
     match unwindingInfo with

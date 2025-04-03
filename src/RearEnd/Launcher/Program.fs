@@ -106,7 +106,7 @@ let handleCommands (cmd: string) (rest: string []) =
     BinExplorer.Program.main rest
   | "repl" -> Repl.Program.main rest
   | "assembler" | "asm" -> Assembler.Program.main rest
-  | _ -> Utils.futureFeature ()
+  | _ -> Terminator.futureFeature ()
 
 [<EntryPoint>]
 let main argv =

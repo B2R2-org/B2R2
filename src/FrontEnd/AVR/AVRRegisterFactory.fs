@@ -31,24 +31,24 @@ open B2R2.BinIR.LowUIR
 type AVRRegisterFactory () =
   inherit RegisterFactory ()
 
-  override __.GetAllRegExprs () = Utils.futureFeature ()
-  override __.GetAllRegNames () = Utils.futureFeature ()
-  override __.GetGeneralRegExprs () = Utils.futureFeature ()
+  override __.GetAllRegExprs () = Terminator.futureFeature ()
+  override __.GetAllRegNames () = Terminator.futureFeature ()
+  override __.GetGeneralRegExprs () = Terminator.futureFeature ()
 
   override __.RegIDFromRegExpr (e) =
     match e.E with
     | Var (_, id, _) -> id (* TODO *)
     | _ -> raise InvalidRegisterException
 
-  override __.RegIDToRegExpr (id) = Utils.futureFeature ()
-  override __.StrToRegExpr _s = Utils.futureFeature ()
-  override __.RegIDFromString _s = Utils.futureFeature ()
-  override __.RegIDToString _ = Utils.futureFeature ()
-  override __.RegIDToRegType _ = Utils.futureFeature ()
-  override __.GetRegisterAliases _ = Utils.futureFeature ()
-  override __.ProgramCounter = Utils.futureFeature ()
-  override __.StackPointer = Utils.futureFeature ()
-  override __.FramePointer = Utils.futureFeature ()
-  override __.IsProgramCounter _ = Utils.futureFeature ()
-  override __.IsStackPointer _ = Utils.futureFeature ()
-  override __.IsFramePointer _ = Utils.futureFeature ()
+  override __.RegIDToRegExpr (id) = Terminator.futureFeature ()
+  override __.StrToRegExpr _s = Terminator.futureFeature ()
+  override __.RegIDFromString _s = Terminator.futureFeature ()
+  override __.RegIDToString _ = Terminator.futureFeature ()
+  override __.RegIDToRegType _ = Terminator.futureFeature ()
+  override __.GetRegisterAliases _ = Terminator.futureFeature ()
+  override __.ProgramCounter = Terminator.futureFeature ()
+  override __.StackPointer = Terminator.futureFeature ()
+  override __.FramePointer = Terminator.futureFeature ()
+  override __.IsProgramCounter _ = Terminator.futureFeature ()
+  override __.IsStackPointer _ = Terminator.futureFeature ()
+  override __.IsFramePointer _ = Terminator.futureFeature ()

@@ -45,17 +45,17 @@ module Register =
     match str.ToLowerInvariant () with
     | "pc" -> Register.PC
     | "sp" -> Register.SP
-    | _ -> Utils.impossible ()
+    | _ -> Terminator.impossible ()
 
   let toString = function
     | Register.PC -> "PC"
     | Register.SP -> "SP"
-    | _ -> Utils.impossible ()
+    | _ -> Terminator.impossible ()
 
   let toRegType = function
     | Register.PC -> 64<rt>
     | Register.SP -> 64<rt>
-    | _ -> Utils.impossible ()
+    | _ -> Terminator.impossible ()
 
 /// Shortcut for Register type.
 type internal R = Register

@@ -1126,7 +1126,7 @@ module Register =
     | "k5" -> Register.K5
     | "k6" -> Register.K6
     | "k7" -> Register.K7
-    | _ -> Utils.impossible ()
+    | _ -> Terminator.impossible ()
 
   /// Get the register ID of an Intel register.
   [<CompiledName "ToRegID">]
@@ -1490,7 +1490,7 @@ module Register =
     | Register.CCSRC2 -> "CCSRC2"
 #endif
 #if DEBUG
-    | _ -> Utils.impossible ()
+    | _ -> Terminator.impossible ()
 #else
     | _ -> "?"
 #endif

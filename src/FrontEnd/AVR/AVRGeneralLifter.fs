@@ -61,7 +61,7 @@ let transOprToExpr ctxt = function
 | OprReg reg -> !.ctxt reg
 | OprImm imm -> numI32 imm
 | OprAddr addr -> numI32PC addr
-| _ -> Utils.impossible ()
+| _ -> Terminator.impossible ()
 
 let transMemOprToExpr ins ctxt =
   match ins.Operands with
@@ -71,7 +71,7 @@ let transMemOprToExpr ins ctxt =
     -> !.ctxt reg, !.ctxt reg1, 1
   | TwoOperands(OprReg reg,OprMemory (UnchMode(reg1)))
     -> !.ctxt reg, !.ctxt reg1, 0
-  | _ -> Utils.impossible ()
+  | _ -> Terminator.impossible ()
 
 let transMemOprToExpr2 ins ctxt =
   match ins.Operands with
@@ -81,19 +81,19 @@ let transMemOprToExpr2 ins ctxt =
     -> !.ctxt reg1, !.ctxt reg, 1
   | TwoOperands(OprMemory (UnchMode(reg1)), OprReg reg)
     -> !.ctxt reg1, !.ctxt reg, 0
-  | _ -> Utils.impossible ()
+  | _ -> Terminator.impossible ()
 
 let transMemOprToExpr1 ins ctxt=
   match ins.Operands with
   | TwoOperands(OprReg reg, OprMemory (DispMode (reg1, imm)))
     -> !.ctxt reg, !.ctxt reg1, numI32PC imm
-  | _ -> Utils.impossible ()
+  | _ -> Terminator.impossible ()
 
 let transMemOprToExpr3 ins ctxt=
   match ins.Operands with
   | TwoOperands(OprMemory (DispMode (reg1, imm)), OprReg reg)
     -> !.ctxt reg1,!.ctxt reg, numI32PC imm
-  | _ -> Utils.impossible ()
+  | _ -> Terminator.impossible ()
 
 let transOneOpr (ins: InsInfo) ctxt =
   match ins.Operands with
@@ -236,7 +236,7 @@ let bld ins len ctxt =
   let imm =
     match ins.Operands with
     | TwoOperands (_, OprImm imm) -> imm
-    | _ -> Utils.impossible ()
+    | _ -> Terminator.impossible ()
   let ir = IRBuilder (16)
   !<ir len
   !!ir ( (AST.extract dst 1<rt> imm) := !.ctxt TF)
@@ -247,7 +247,7 @@ let bst ins len ctxt =
   let imm =
     match ins.Operands with
     | TwoOperands (_, OprImm imm) -> imm
-    | _ -> Utils.impossible ()
+    | _ -> Terminator.impossible ()
   let ir = IRBuilder (16)
   let r = !+ir 1<rt>
   !<ir len
@@ -771,15 +771,15 @@ let ld ins len ctxt =
     | BinOp (BinOpType.CONCAT, _, exp1, exp2) ->
       !!ir (exp1 := AST.extract (src .+ numI32PC 1) 8<rt> 8)
       !!ir (exp2 := AST.extract (src .+ numI32PC 1) 8<rt> 0)
-    | _ -> Utils.impossible ()
+    | _ -> Terminator.impossible ()
   | -1 ->
     match src.E with
     | BinOp (BinOpType.CONCAT, _, exp1, exp2) ->
       !!ir (exp1 := AST.extract (src .- numI32PC 1) 8<rt> 8)
       !!ir (exp2 := AST.extract (src .- numI32PC 1) 8<rt> 0)
-    | _ -> Utils.impossible ()
+    | _ -> Terminator.impossible ()
     !!ir (dst := AST.loadLE 8<rt> src)
-  | _ -> Utils.impossible ()
+  | _ -> Terminator.impossible ()
   !>ir len
 
 let ldd ins len ctxt =
@@ -898,15 +898,15 @@ let st ins len ctxt =
     | BinOp (BinOpType.CONCAT, _, exp1, exp2) ->
       !!ir (exp1 := AST.extract (dst .+ numI32PC 1) 8<rt> 8)
       !!ir (exp2 := AST.extract (dst .+ numI32PC 1) 8<rt> 0)
-    | _ -> Utils.impossible ()
+    | _ -> Terminator.impossible ()
   | -1 ->
     match dst.E with
     | BinOp (BinOpType.CONCAT, _, exp1, exp2) ->
       !!ir (exp1 := AST.extract (dst .- numI32PC 1) 8<rt> 8)
       !!ir (exp2 := AST.extract (dst .- numI32PC 1) 8<rt> 0)
-    | _ -> Utils.impossible ()
+    | _ -> Terminator.impossible ()
     !!ir (AST.loadLE 8<rt> dst := src)
-  | _ -> Utils.impossible ()
+  | _ -> Terminator.impossible ()
   !>ir len
 
 let std ins len ctxt =

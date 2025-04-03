@@ -54,7 +54,7 @@ module Register =
     | R.XD14  -> 64<rt>
     | R.FV0 | R.FV4 | R.FV8 | R.FV12 -> 128<rt>
     | R.XMTRX -> 512<rt>
-    | _ -> Utils.impossible()
+    | _ -> Terminator.impossible()
 
 type Const = int32
 

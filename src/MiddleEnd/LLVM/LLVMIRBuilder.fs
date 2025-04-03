@@ -60,7 +60,7 @@ type LLVMIRBuilder (fname: string, addr, hdl: BinHandle, ctxt: LLVMContext) =
     | 2 -> elm, "i16"
     | 4 -> elm, "i32"
     | 8 -> elm, "i64"
-    | _ -> Utils.futureFeature ()
+    | _ -> Terminator.futureFeature ()
 
   member private __.GetLLVMType mtyp =
     match mtyp with
@@ -69,7 +69,7 @@ type LLVMIRBuilder (fname: string, addr, hdl: BinHandle, ctxt: LLVMContext) =
     | 16<rt> -> "i16"
     | 32<rt> -> "i32"
     | 64<rt> -> "i64"
-    | _ -> Utils.futureFeature ()
+    | _ -> Terminator.futureFeature ()
 
   member private __.AddrToLabel (addr: Addr) =
     $"bbl.{addr:x}"
@@ -117,7 +117,7 @@ type LLVMIRBuilder (fname: string, addr, hdl: BinHandle, ctxt: LLVMContext) =
         match rexp with
         | Ident r -> mkTypedId r
         | Number _ -> TypedExpr (__.GetLLVMType elm.RType, rexp)
-        | _ -> Utils.futureFeature ()
+        | _ -> Terminator.futureFeature ()
       __.EmitStmt <| LLVMStmt.mkZExt extendedReg rexp sz
       __.EmitStmt <| LLVMStmt.mkStore (Ident extendedReg) ptr None (Some rname)
 
@@ -192,7 +192,7 @@ type LLVMIRBuilder (fname: string, addr, hdl: BinHandle, ctxt: LLVMContext) =
       let var = newID sz
       __.EmitStmt <| LLVMStmt.mkBinop var "xor" sz exp (Token "-1")
       Ident var
-    | _ -> Utils.futureFeature()
+    | _ -> Terminator.futureFeature()
 
   member __.EmitBinOp opstr typ lhs rhs =
     let sz = __.GetLLVMType typ
@@ -263,7 +263,7 @@ type LLVMIRBuilder (fname: string, addr, hdl: BinHandle, ctxt: LLVMContext) =
         let v = $"{v.IDType} %%{v.Num}"
         __.StoreStmtToString v addr align comment
       | Comment s -> sb <+ s
-      | _ -> printfn "%A" stmt; Utils.futureFeature ()
+      | _ -> printfn "%A" stmt; Terminator.futureFeature ()
     done
 
   /// Emit the LLVM IR string and destroy the builder.

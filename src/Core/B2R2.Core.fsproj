@@ -11,8 +11,7 @@
     <Compile Include="TypeExtensions.fs" />
     <Compile Include="Monads.fs" />
     <Compile Include="Errors.fs" />
-    <Compile Include="Utils.fsi" />
-    <Compile Include="Utils.fs" />
+    <Compile Include="Terminator.fs" />
     <Compile Include="HexString.fs" />
     <Compile Include="Color.fs" />
     <Compile Include="ColoredSegment.fs" />

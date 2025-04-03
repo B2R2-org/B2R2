@@ -130,7 +130,7 @@ module Register =
     | "CF" -> Register.CF
     | "PC" -> Register.PC
     | "SP" -> Register.SP
-    | _ -> Utils.impossible ()
+    | _ -> Terminator.impossible ()
 
   /// Get the register ID of an AVR register.
   [<CompiledName "ToRegID">]
@@ -178,4 +178,4 @@ module Register =
     | Register.Z -> "Z"
     | Register.PC -> "pc"
     | Register.SP -> "sp"
-    | _ -> Utils.impossible ()
+    | _ -> Terminator.impossible ()

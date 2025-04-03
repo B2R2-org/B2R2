@@ -98,7 +98,7 @@ type InternalFnCFGBuilder<'FnCtx,
       let action = queue.Pop ()
       match strategy.OnAction (ctx, queue, action) with
       | MoveOn -> build strategy queue
-      | MoveOnButReloadCallers _ -> Utils.impossible ()
+      | MoveOnButReloadCallers _ -> Terminator.impossible ()
       | Wait -> queue.Push strategy.ActionPrioritizer action; Wait
       | StopAndReload -> StopAndReload
       | FailStop e -> FailStop e

@@ -83,7 +83,7 @@ type StackPointerPropagation =
       | Cast _ -> StackPointerDomain.NotConstSP
       | Extract _ -> StackPointerDomain.NotConstSP
       | Undefined _ -> StackPointerDomain.NotConstSP
-      | _ -> Utils.impossible ()
+      | _ -> Terminator.impossible ()
 
     let analysis =
       { new IVarBasedDataFlowAnalysis<StackPointerDomain.Lattice> with

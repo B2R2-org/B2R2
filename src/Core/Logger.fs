@@ -57,7 +57,7 @@ module LogLevel =
     | LogLevel.L2 -> "L2"
     | LogLevel.L3 -> "L3"
     | LogLevel.L4 -> "L4"
-    | _ -> Utils.impossible ()
+    | _ -> Terminator.impossible ()
 
 /// Basic logging facility.
 type ILogger =

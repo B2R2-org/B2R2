@@ -80,7 +80,7 @@ let transOprToExpr ins insLen ctxt = function
   | OprAddr addr -> numI32PC addr
   | OprCC cc -> getCCVar ctxt cc
   | OprPriReg prireg -> !.ctxt prireg
-  | _ -> Utils.impossible ()
+  | _ -> Terminator.impossible ()
 
 let isRegOpr ins insLen ctxt =
   match ins.Operands with

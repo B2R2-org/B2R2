@@ -72,5 +72,5 @@ type FunctionIdentification<'FnCtx,
 
     member __.OnAction (_ctx, _queue, _action) = MoveOn
     member __.OnFinish (_ctx) = MoveOn
-    member __.OnCyclicDependency (_) = Utils.impossible ()
+    member __.OnCyclicDependency (_) = Terminator.impossible ()
 

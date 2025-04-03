@@ -43,8 +43,8 @@ let private haveEVEXPrx = function
 let private getEVEXPrx = function
   | Some v -> match v.EVEXPrx with
               | Some ev -> ev
-              | None -> Utils.impossible ()
-  | None -> Utils.impossible ()
+              | None -> Terminator.impossible ()
+  | None -> Terminator.impossible ()
 
 let private maskWithEPrx ePrx dst rt =
   match ePrx.Z with

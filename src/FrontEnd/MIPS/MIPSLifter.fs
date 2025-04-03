@@ -207,25 +207,25 @@ let private isNaN oprSz fullExpo mantissa =
   match oprSz with
   | 32<rt> -> AST.xtlo 1<rt> (fullExpo .& (mantissa != AST.num0 32<rt>))
   | 64<rt> -> AST.xtlo 1<rt> (fullExpo .& (mantissa != AST.num0 64<rt>))
-  | _ -> Utils.impossible ()
+  | _ -> Terminator.impossible ()
 
 let private isSNaN oprSz signalBit isNaN =
   match oprSz with
   | 32<rt> -> isSNaN32 signalBit isNaN
   | 64<rt> -> isSNaN64 signalBit isNaN
-  | _ -> Utils.impossible ()
+  | _ -> Terminator.impossible ()
 
 let private isQNaN oprSz signalBit isNaN =
   match oprSz with
   | 32<rt> -> isQNaN32 signalBit isNaN
   | 64<rt> -> isQNaN64 signalBit isNaN
-  | _ -> Utils.impossible ()
+  | _ -> Terminator.impossible ()
 
 let private isInfinity oprSz fullExpo mantissa =
   match oprSz with
   | 32<rt> -> AST.xtlo 1<rt> (fullExpo .& (mantissa == AST.num0 32<rt>))
   | 64<rt> -> AST.xtlo 1<rt> (fullExpo .& (mantissa == AST.num0 64<rt>))
-  | _ -> Utils.impossible ()
+  | _ -> Terminator.impossible ()
 
 let private isZero oprSz baseExpr =
   match oprSz with
@@ -235,7 +235,7 @@ let private isZero oprSz baseExpr =
   | 64<rt> ->
     let mask = numU64 0x7fffffff_ffffffffUL 64<rt>
     AST.eq (baseExpr .& mask) (AST.num0 64<rt>)
-  | _ -> Utils.impossible ()
+  | _ -> Terminator.impossible ()
 
 let private transBigEndianCPU (ctxt: TranslationContext) opSz =
   match ctxt.Endianness, opSz with

@@ -53,7 +53,7 @@ let extractOperands = function
   | [op1; op2] -> TwoOperands (op1, op2)
   | [op1; op2; op3] -> ThreeOperands (op1, op2, op3)
   | [op1; op2; op3; op4] -> FourOperands (op1, op2, op3, op4)
-  | _ -> Utils.impossible ()
+  | _ -> Terminator.impossible ()
 
 let getOperandsAsList operands =
   match operands with
@@ -73,7 +73,7 @@ let ptrStringToBitSize = function
   | "xmmword ptr" -> 16 * 8<rt>
   | "ymmword ptr" -> 32 * 8<rt>
   | "zmmword ptr" -> 64 * 8<rt>
-  | _ -> Utils.impossible ()
+  | _ -> Terminator.impossible ()
 
 let prefixFromRegString (str: string) =
   match str.ToLowerInvariant () with
@@ -83,7 +83,7 @@ let prefixFromRegString (str: string) =
   | "fs" -> Prefix.PrxFS
   | "gs" -> Prefix.PrxGS
   | "ss" -> Prefix.PrxSS
-  | _ -> Utils.impossible ()
+  | _ -> Terminator.impossible ()
 
 let newInfo prfxs rexPrfx vexInfo opc operands =
   { Prefixes = prfxs

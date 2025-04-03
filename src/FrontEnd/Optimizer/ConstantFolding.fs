@@ -44,7 +44,7 @@ let private concretizeUnOp unopType bv =
   | UnOpType.FSIN -> BitVector.FSin bv
   | UnOpType.FTAN -> BitVector.FTan bv
   | UnOpType.FATAN -> BitVector.FAtan bv
-  | _ -> Utils.impossible ()
+  | _ -> Terminator.impossible ()
 
 let private concretizeBinOp binopType bv1 bv2 =
   match binopType with
@@ -68,7 +68,7 @@ let private concretizeBinOp binopType bv1 bv2 =
   | BinOpType.FDIV -> BitVector.FDiv (bv1, bv2)
   | BinOpType.FPOW -> BitVector.FPow (bv1, bv2)
   | BinOpType.FLOG -> BitVector.FLog (bv1, bv2)
-  | _ -> Utils.impossible ()
+  | _ -> Terminator.impossible ()
 
 let private concretizeRelOp relopType bv1 bv2 =
   match relopType with
@@ -86,7 +86,7 @@ let private concretizeRelOp relopType bv1 bv2 =
   | RelOpType.FGE -> BitVector.FGe (bv1, bv2)
   | RelOpType.FLT -> BitVector.FLt (bv1, bv2)
   | RelOpType.FLE -> BitVector.FLe (bv1, bv2)
-  | _ -> Utils.impossible ()
+  | _ -> Terminator.impossible ()
 
 let private concretizeCast castType rt bv =
   match castType with
@@ -99,7 +99,7 @@ let private concretizeCast castType rt bv =
   | CastKind.FtoIFloor -> BitVector.FtoiFloor (bv, rt)
   | CastKind.FtoITrunc -> BitVector.FtoiTrunc (bv, rt)
   | CastKind.FloatCast -> BitVector.FCast (bv, rt)
-  | _ -> Utils.impossible ()
+  | _ -> Terminator.impossible ()
 
 let rec replace ctxt expr =
   match expr.E with

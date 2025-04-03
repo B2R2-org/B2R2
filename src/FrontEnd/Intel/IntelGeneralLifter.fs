@@ -1690,7 +1690,7 @@ let private getCondOfJcc (ins: IntelInternalInstruction)
                          (ctxt: TranslationContext) =
 #if DEBUG
   if ctxt.WordBitSize = 64<rt> && (getOperationSize ins) = 16<rt> then
-    Utils.impossible ()
+    Terminator.impossible ()
   else ()
 #endif
   match ins.Opcode with
@@ -1725,7 +1725,7 @@ let private getCondOfJccLazy (ins: IntelInternalInstruction)
                              (ir: IRBuilder) =
 #if DEBUG
   if ctxt.WordBitSize = 64<rt> && (getOperationSize ins) = 16<rt> then
-    Utils.impossible ()
+    Terminator.impossible ()
   else ()
 #endif
   match ins.Opcode with
@@ -1820,7 +1820,7 @@ let jmp ins insLen ctxt =
 
 let private convertSrc = function
   | Load (_, _, expr) -> expr
-  | _ -> Utils.impossible ()
+  | _ -> Terminator.impossible ()
 
 let lahf _ insLen ctxt =
   let ir = !*ctxt
@@ -1896,7 +1896,7 @@ let lods (ins: InsInfo) insLen ctxt =
   !<ir insLen
   if hasREPZ ins.Prefixes then
     strRepeat ins insLen ctxt lodsBody None ir
-  elif hasREPNZ ins.Prefixes then Utils.impossible ()
+  elif hasREPNZ ins.Prefixes then Terminator.impossible ()
   else lodsBody ins ctxt ir
   !>ir insLen
 
@@ -2954,7 +2954,7 @@ let stos (ins: InsInfo) insLen ctxt =
   !<ir insLen
   if hasREPZ ins.Prefixes then
     strRepeat ins insLen ctxt stosBody None ir
-  elif hasREPNZ ins.Prefixes then Utils.impossible ()
+  elif hasREPNZ ins.Prefixes then Terminator.impossible ()
   else stosBody ins ctxt ir
   !>ir insLen
 

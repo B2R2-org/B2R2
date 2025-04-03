@@ -61,7 +61,7 @@ let regTo3Bit = function
   | Register.MM7 | Register.XMM7 | Register.YMM7
   | Register.DIL | Register.R15B | Register.R15W | Register.R15D | Register.R15
   | Register.XMM15 | Register.YMM15 | Register.ST7 -> 0b111uy
-  | _ -> Utils.impossible ()
+  | _ -> Terminator.impossible ()
 
 let private getModRMByte md reg rm =
   (md <<< 6) + (reg <<< 3) + rm |> Normal
@@ -129,7 +129,7 @@ let modrmRel byteLen (rel: int64) relSz = // FIXME
   | 8<rt> -> [| Normal <| byte (comRel rel) |]
   | 16<rt> -> BitConverter.GetBytes (comRel rel |> int16) |> Array.map Normal
   | 32<rt> -> BitConverter.GetBytes (comRel rel |> int32) |> Array.map Normal
-  | _ -> Utils.impossible ()
+  | _ -> Terminator.impossible ()
 
 let private encDisp disp = function
   | 8<rt> -> [| byte disp |> Normal |]
@@ -170,6 +170,6 @@ let immediate (imm: int64) = function
   | 16<rt> -> BitConverter.GetBytes (int16 imm) |> Array.map Normal
   | 32<rt> -> BitConverter.GetBytes (int32 imm) |> Array.map Normal
   | 64<rt> -> BitConverter.GetBytes (imm) |> Array.map Normal
-  | _ -> Utils.impossible ()
+  | _ -> Terminator.impossible ()
 
 // vim: set tw=80 sts=2 sw=2:

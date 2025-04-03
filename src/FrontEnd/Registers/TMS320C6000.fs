@@ -230,7 +230,7 @@ module Register =
     | "tsch" -> Register.TSCH
     | "tscl" -> Register.TSCL
     | "tsr" -> Register.TSR
-    | _ -> Utils.impossible ()
+    | _ -> Terminator.impossible ()
 
   /// Get the register ID of a TMS320C6000 register.
   [<CompiledName "ToRegID">]
@@ -335,4 +335,4 @@ module Register =
     | Register.TSCH -> "TSCH"
     | Register.TSCL -> "TSCL"
     | Register.TSR -> "TSR"
-    | _ -> Utils.impossible ()
+    | _ -> Terminator.impossible ()

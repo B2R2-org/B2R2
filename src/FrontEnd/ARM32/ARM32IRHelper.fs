@@ -125,7 +125,7 @@ let internal getPSR ctxt reg psrType =
   | PSR.F -> psr .& maskPSRForFbit
   | PSR.T -> psr .& maskPSRForTbit
   | PSR.M -> psr .& maskPSRForMbits
-  | _ -> Utils.impossible ()
+  | _ -> Terminator.impossible ()
 
 let isSetCPSRn ctxt = getPSR ctxt R.CPSR PSR.N == maskPSRForNbit
 let isSetCPSRz ctxt = getPSR ctxt R.CPSR PSR.Z == maskPSRForZbit

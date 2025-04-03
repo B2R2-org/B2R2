@@ -50,15 +50,15 @@ module Register =
   let ofString (str: string) =
     match str.ToLowerInvariant () with
     | "SP" -> R.SP
-    | _ -> Utils.impossible ()
+    | _ -> Terminator.impossible ()
 
   let toString = function
     | R.SP -> "SP"
-    | _ -> Utils.impossible ()
+    | _ -> Terminator.impossible ()
 
   let toRegType = function
     | R.SP -> 32<rt>
-    | _ -> Utils.impossible ()
+    | _ -> Terminator.impossible ()
 
 /// <summary>
 ///   WASM opcodes.

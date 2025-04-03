@@ -299,7 +299,7 @@ type X86PLTParser (shdrs, relocInfo, symbInfo) =
     match codeKind with
     | PIC -> baseAddr + relocV
     | NonPIC -> relocV
-    | DontCare -> Utils.impossible ()
+    | DontCare -> Terminator.impossible ()
 
   override __.ParseEntry (addr, _, sec, desc, reader, span) =
     let baseAddr = Option.get gotAddrOpt
@@ -623,7 +623,7 @@ type PPCClassicPLTParser (shdrs, relocInfo, symbInfo, pltHdrSize, relType) =
 type PPCPLTParser (hdr, shdrs, relocInfo, symbInfo) =
   inherit PLTParser ()
 
-  override __.ParseEntry (_, _, _, _, _, _) = Utils.impossible ()
+  override __.ParseEntry (_, _, _, _, _, _) = Terminator.impossible ()
 
   override __.ParseSection (toolBox, sec, map) =
     let rtyp = RelocationPPC32 RelocationPPC32.R_PPC_JMP_SLOT
@@ -728,8 +728,8 @@ type PPCPLTParser (hdr, shdrs, relocInfo, symbInfo) =
 /// This will simply return an empty map.
 type NullPLTParser () =
   inherit PLTParser ()
-  override __.ParseEntry (_, _, _, _, _, _) = Utils.impossible ()
-  override __.ParseSection (_, _, _) = Utils.impossible ()
+  override __.ParseEntry (_, _, _, _, _, _) = Terminator.impossible ()
+  override __.ParseSection (_, _, _) = Terminator.impossible ()
   override __.Parse _ = ARMap.empty
 
 let initPLTParser hdr shdrs relocInfo symbInfo =

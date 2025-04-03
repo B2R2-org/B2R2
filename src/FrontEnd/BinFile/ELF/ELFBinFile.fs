@@ -194,7 +194,7 @@ type ELFBinFile (path, bytes: byte[], baseAddrOpt, rfOpt) =
     member __.GetDynamicSymbols (?exc) =
       getDynamicSymbols exc shdrs.Value symbInfo.Value
 
-    member __.AddSymbol _addr _symbol = Utils.futureFeature ()
+    member __.AddSymbol _addr _symbol = Terminator.futureFeature ()
 
     member __.GetSections () = getSections shdrs.Value
 

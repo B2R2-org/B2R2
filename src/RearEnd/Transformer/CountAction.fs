@@ -32,7 +32,7 @@ type CountAction () =
     let typ = o.GetType ()
     if typ.IsArray then countArrayResult o
     elif typ = typeof<Binary> then countBinary o
-    else Utils.futureFeature ()
+    else Terminator.futureFeature ()
 
   and countArrayResult (o: obj) =
     let arr = o :?> _[]

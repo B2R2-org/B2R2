@@ -35,7 +35,7 @@ type CILTranslationContext internal (isa, regexprs) =
 
   override __.GetRegVar id = Register.ofRegID id |> __.RegExprs.GetRegVar
 
-  override __.GetPseudoRegVar _id _pos = Utils.impossible ()
+  override __.GetPseudoRegVar _id _pos = Terminator.impossible ()
 
 module Basis =
   let init isa =

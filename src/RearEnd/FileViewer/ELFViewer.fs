@@ -391,4 +391,4 @@ let dumpGccExceptTable _hdl (elf: ELFBinFile) =
   )
 
 let dumpNotes _hdl (file: ELFBinFile) =
-  Utils.futureFeature ()
+  Terminator.futureFeature ()

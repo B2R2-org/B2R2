@@ -441,7 +441,7 @@ let rec private concatLoop (arr: Expr []) sPos ePos =
   if diff > 0 then concat (concatLoop arr (sPos + diff / 2 + 1) ePos)
                           (concatLoop arr sPos (sPos + diff / 2))
   elif diff = 0 then arr[sPos]
-  else Utils.impossible ()
+  else Terminator.impossible ()
 
 /// Concatenate an array of expressions.
 [<CompiledName("Concat")>]

@@ -35,4 +35,4 @@ let rec uncurryArgs acc args =
   | { E = BinOp (BinOpType.CONS, _, arg, { E = Nil }) } -> arg :: acc
   | { E = BinOp (BinOpType.CONS, _, arg, cons) } ->
     uncurryArgs (arg :: acc) cons
-  | _ -> Utils.impossible ()
+  | _ -> Terminator.impossible ()

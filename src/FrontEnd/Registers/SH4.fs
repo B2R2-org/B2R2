@@ -312,7 +312,7 @@ module Register =
     | "fpscr_pr" -> Register.FPSCR_PR
     | "fpscr_sz" -> Register.FPSCR_SZ
     | "fpscr_fr" -> Register.FPSCR_FR
-    | _ -> Utils.impossible ()
+    | _ -> Terminator.impossible ()
 
   /// Get the register ID of a SH4 register.
   [<CompiledName "ToRegID">]
@@ -458,4 +458,4 @@ module Register =
     | Register.FPSCR_PR -> "fpscr_pr"
     | Register.FPSCR_SZ -> "fpscr_sz"
     | Register.FPSCR_FR -> "fpscr_fr"
-    | _ -> Utils.impossible ()
+    | _ -> Terminator.impossible ()

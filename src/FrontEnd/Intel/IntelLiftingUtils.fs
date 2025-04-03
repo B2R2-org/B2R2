@@ -203,7 +203,7 @@ let private segRegToBase = function
   | R.FS -> R.FSBase
   | R.GS -> R.GSBase
   | R.SS -> R.SSBase
-  | _ -> Utils.impossible ()
+  | _ -> Terminator.impossible ()
 
 let private ldMem (ins: InsInfo) ctxt oprSize e =
   match getSegment ins.Prefixes with
@@ -224,7 +224,7 @@ let inline private sIdx ins ctxt (r, s: Scale) =
   | Scale.X2 -> !.ctxt r << numOfAddrSz ins ctxt 1
   | Scale.X4 -> !.ctxt r << numOfAddrSz ins ctxt 2
   | Scale.X8 -> !.ctxt r << numOfAddrSz ins ctxt 3
-  | _ -> Utils.impossible ()
+  | _ -> Terminator.impossible ()
 
 let private transMem ir useTmpVar ins insLen ctxt b index disp oprSize =
   let address =
@@ -284,7 +284,7 @@ let transOprToExpr ir useTmpVar ins insLen ctxt = function
   | OprImm (imm, _) -> numI64 imm (getOperationSize ins)
   | OprDirAddr (Relative offset) -> numI64 offset ctxt.WordBitSize
   | OprDirAddr (Absolute (_, addr, _)) -> numU64 addr ctxt.WordBitSize
-  | _ -> Utils.impossible ()
+  | _ -> Terminator.impossible ()
 
 let transOprToExprVec ir useTmpVar ins insLen ctxt opr =
   match opr with
@@ -703,7 +703,7 @@ let getCCSrc1 (ctxt: TranslationContext) regType =
   | 16<rt> -> !.ctxt R.CCSRC1W
   | 32<rt> -> !.ctxt R.CCSRC1D
   | 64<rt> -> !.ctxt R.CCSRC1
-  | _ -> Utils.impossible ()
+  | _ -> Terminator.impossible ()
 
 let getCCSrc2 (ctxt: TranslationContext) regType =
   match regType with
@@ -711,7 +711,7 @@ let getCCSrc2 (ctxt: TranslationContext) regType =
   | 16<rt> -> !.ctxt R.CCSRC2W
   | 32<rt> -> !.ctxt R.CCSRC2D
   | 64<rt> -> !.ctxt R.CCSRC2
-  | _ -> Utils.impossible ()
+  | _ -> Terminator.impossible ()
 
 let getCCDst (ctxt: TranslationContext) regType =
   match regType with
@@ -719,7 +719,7 @@ let getCCDst (ctxt: TranslationContext) regType =
   | 16<rt> -> !.ctxt R.CCDSTW
   | 32<rt> -> !.ctxt R.CCDSTD
   | 64<rt> -> !.ctxt R.CCDST
-  | _ -> Utils.impossible ()
+  | _ -> Terminator.impossible ()
 
 let setCCOperands2 (ctxt: TranslationContext) src1 dst ir =
   let ccSrc1 = !.ctxt R.CCSRC1
@@ -918,7 +918,7 @@ let getOFLazy (ctxt: TranslationContext) (ir: IRBuilder) =
     !.ctxt R.OF
   | ConditionCodeOp.EFlags ->
     !.ctxt R.OF
-  | _ -> Utils.futureFeature ()
+  | _ -> Terminator.futureFeature ()
 
 let getSFLazy (ctxt: TranslationContext) (ir: IRBuilder) =
   let ccOp = ctxt.ConditionCodeOp
@@ -971,7 +971,7 @@ let getSFLazy (ctxt: TranslationContext) (ir: IRBuilder) =
     !.ctxt R.SF
   | ConditionCodeOp.EFlags ->
     !.ctxt R.SF
-  | _ -> Utils.futureFeature ()
+  | _ -> Terminator.futureFeature ()
 
 let getZFLazy (ctxt: TranslationContext) (ir: IRBuilder) =
   let ccOp = ctxt.ConditionCodeOp
@@ -1024,7 +1024,7 @@ let getZFLazy (ctxt: TranslationContext) (ir: IRBuilder) =
     !.ctxt R.ZF
   | ConditionCodeOp.EFlags ->
     !.ctxt R.ZF
-  | _ -> Utils.futureFeature ()
+  | _ -> Terminator.futureFeature ()
 
 let getAFLazy (ctxt: TranslationContext) (ir: IRBuilder) =
   let ccOp = ctxt.ConditionCodeOp
@@ -1122,7 +1122,7 @@ let getAFLazy (ctxt: TranslationContext) (ir: IRBuilder) =
     !.ctxt R.AF
   | ConditionCodeOp.EFlags ->
     !.ctxt R.AF
-  | _ -> Utils.futureFeature ()
+  | _ -> Terminator.futureFeature ()
 
 let getPFLazy (ctxt: TranslationContext) (ir: IRBuilder) =
   let ccOp = ctxt.ConditionCodeOp
@@ -1303,7 +1303,7 @@ let getPFLazy (ctxt: TranslationContext) (ir: IRBuilder) =
     !.ctxt R.PF
   | ConditionCodeOp.EFlags ->
     !.ctxt R.PF
-  | _ -> Utils.futureFeature ()
+  | _ -> Terminator.futureFeature ()
 
 let getCFLazy (ctxt: TranslationContext) (ir: IRBuilder) =
   let ccOp = ctxt.ConditionCodeOp
@@ -1385,5 +1385,5 @@ let getCFLazy (ctxt: TranslationContext) (ir: IRBuilder) =
     !.ctxt R.CF
   | ConditionCodeOp.EFlags ->
     !.ctxt R.CF
-  | _ -> Utils.futureFeature ()
+  | _ -> Terminator.futureFeature ()
 #endif

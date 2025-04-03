@@ -38,7 +38,7 @@ module internal ValueOptimizer =
     | UnOpType.FSIN -> BitVector.FSin n
     | UnOpType.FTAN -> BitVector.FTan n
     | UnOpType.FATAN -> BitVector.FAtan n
-    | _ -> Utils.impossible ()
+    | _ -> Terminator.impossible ()
 
   let inline binop n1 n2 = function
     | BinOpType.ADD  -> BitVector.Add (n1, n2)
@@ -61,7 +61,7 @@ module internal ValueOptimizer =
     | BinOpType.FDIV -> BitVector.FDiv (n1, n2)
     | BinOpType.FPOW -> BitVector.FPow (n1, n2)
     | BinOpType.FLOG -> BitVector.FLog (n1, n2)
-    | _ -> Utils.impossible ()
+    | _ -> Terminator.impossible ()
 
   let inline relop n1 n2 = function
     | RelOpType.EQ  -> BitVector.Eq (n1, n2)
@@ -78,7 +78,7 @@ module internal ValueOptimizer =
     | RelOpType.FLE -> BitVector.FLe (n1, n2)
     | RelOpType.FGT -> BitVector.FGt (n1, n2)
     | RelOpType.FGE -> BitVector.FGe (n1, n2)
-    | _ -> Utils.impossible ()
+    | _ -> Terminator.impossible ()
 
   let inline cast t n = function
     | CastKind.SignExt -> BitVector.SExt (n, t)
@@ -90,7 +90,7 @@ module internal ValueOptimizer =
     | CastKind.FtoIFloor -> BitVector.FtoiFloor (n, t)
     | CastKind.FtoIRound -> BitVector.FtoiRound (n, t)
     | CastKind.FtoITrunc -> BitVector.FtoiTrunc (n, t)
-    | _ -> Utils.impossible ()
+    | _ -> Terminator.impossible ()
 
   let inline extract e t pos = BitVector.Extract (e, t, pos)
 

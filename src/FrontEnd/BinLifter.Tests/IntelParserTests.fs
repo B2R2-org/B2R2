@@ -100,7 +100,7 @@ type IntelParserTests () =
     | 2 -> TwoOperands (oprArray[0], oprArray[1])
     | 3 -> ThreeOperands (oprArray[0], oprArray[1], oprArray[2])
     | 4 -> FourOperands (oprArray[0], oprArray[1], oprArray[2], oprArray[3])
-    | _ -> Utils.impossible ()
+    | _ -> Terminator.impossible ()
 
   let ( ** ) opcode oprList = (opcode, operandsFromArray oprList)
 

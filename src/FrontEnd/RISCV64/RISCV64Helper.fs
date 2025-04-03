@@ -116,7 +116,7 @@ let getCompRegister = function
   | 0x5uy -> Register.X13
   | 0x6uy -> Register.X14
   | 0x7uy -> Register.X15
-  | _ -> Utils.impossible ()
+  | _ -> Terminator.impossible ()
 
 let getFCompRegister = function
   | 0x0uy -> Register.F8
@@ -127,7 +127,7 @@ let getFCompRegister = function
   | 0x5uy -> Register.F13
   | 0x6uy -> Register.F14
   | 0x7uy -> Register.F15
-  | _ -> Utils.impossible ()
+  | _ -> Terminator.impossible ()
 
 let getRegFrom117 b = getRegister (extract b 11u 7u |> byte)
 let getFRegFrom117 b = getFRegister (extract b 11u 7u |> byte)

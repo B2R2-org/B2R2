@@ -148,7 +148,7 @@ let opCodeToString = function
   | Opcode.WDR -> "wdr"
   | Opcode.XCH -> "xch"
   | Opcode.InvalidOp -> "(invalid)"
-  | _ -> Utils.impossible ()
+  | _ -> Terminator.impossible ()
 
 let prependDelimiter delimiter (builder: DisasmBuilder) =
   match delimiter with

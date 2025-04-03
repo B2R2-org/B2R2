@@ -122,7 +122,7 @@ type ARM64Instruction (addr, numBytes, insInfo, wordSize) =
     else false
 
   override __.IndirectTrampolineAddr (_addr: byref<Addr>) =
-    if __.IsIndirectBranch () then Utils.futureFeature ()
+    if __.IsIndirectBranch () then Terminator.futureFeature ()
     else false
 
   override __.Immediate (v: byref<int64>) =
@@ -144,9 +144,9 @@ type ARM64Instruction (addr, numBytes, insInfo, wordSize) =
     | FiveOperands (_, _, _, _, OprImm c) -> v <- c; true
     | _ -> false
 
-  override __.GetNextInstrAddrs () = Utils.futureFeature ()
+  override __.GetNextInstrAddrs () = Terminator.futureFeature ()
 
-  override __.InterruptNum (_num: byref<int64>) = Utils.futureFeature ()
+  override __.InterruptNum (_num: byref<int64>) = Terminator.futureFeature ()
 
   override __.IsNop () =
     __.Info.Opcode = Opcode.NOP
@@ -177,7 +177,7 @@ type ARM64Instruction (addr, numBytes, insInfo, wordSize) =
 
   override __.IsInlinedAssembly () = false
 
-  override __.Equals (_) = Utils.futureFeature ()
-  override __.GetHashCode () = Utils.futureFeature ()
+  override __.Equals (_) = Terminator.futureFeature ()
+  override __.GetHashCode () = Terminator.futureFeature ()
 
 // vim: set tw=80 sts=2 sw=2:

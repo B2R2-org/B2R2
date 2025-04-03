@@ -1533,7 +1533,7 @@ module private IntelSyntax = begin
     | 256<rt> -> "ymmword ptr"
     | 512<rt> -> "zmmword ptr"
     | 224<rt> | 864<rt> -> "" (* x87 FPU state *)
-    | _ -> Utils.impossible ()
+    | _ -> Terminator.impossible ()
 
   let mToString (ins: InsInfo) (builder: DisasmBuilder) b si d oprSz =
     let ptrDirective = ptrDirectiveString (isFar ins) oprSz
@@ -1597,7 +1597,7 @@ module private IntelSyntax = begin
       iToHexStr (imm &&& getMask ins.MainOperationSize) builder
     | OprDirAddr (Absolute (sel, offset, _)) -> buildAbsAddr sel offset builder
     | OprDirAddr (Relative (offset)) -> buildRelAddr offset reader builder
-    | Label _ -> Utils.impossible ()
+    | Label _ -> Terminator.impossible ()
 
   let buildOprs (ins: InsInfo) reader (builder: DisasmBuilder) =
     match ins.Operands with
@@ -1790,7 +1790,7 @@ module private ATTSyntax = begin
     | OprDirAddr (Relative (offset)) ->
       builder.Accumulate AsmWordKind.String " "
       buildRelAddr offset reader builder
-    | Label _ -> Utils.impossible ()
+    | Label _ -> Terminator.impossible ()
 
   let addOpSuffix (builder: DisasmBuilder) = function
     | 8<rt> -> builder.Accumulate AsmWordKind.Mnemonic "b"
@@ -1819,13 +1819,13 @@ module private ATTSyntax = begin
     | TwoOperands (_, OprMem (_, _, _, sz)) -> addOpSuffix builder sz
     | TwoOperands (_, OprReg dst) ->
       Register.toRegType builder.WordSize dst |> addOpSuffix builder
-    | _ -> Utils.impossible ()
+    | _ -> Terminator.impossible ()
 
   let buildDstSizeSuffix operands (builder: DisasmBuilder) =
     match operands with
     | TwoOperands (OprReg dst, _) ->
       Register.toRegType builder.WordSize dst |> addOpSuffix builder
-    | _ -> Utils.impossible ()
+    | _ -> Terminator.impossible ()
 
   let buildOprs (ins: InsInfo) reader (builder: DisasmBuilder) =
     match ins.Operands with

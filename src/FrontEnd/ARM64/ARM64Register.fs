@@ -75,7 +75,7 @@ module Register =
     | R.Q19 | R.Q20 | R.Q21 | R.Q22 | R.Q23 | R.Q24 | R.Q25 | R.Q26 | R.Q27
     | R.Q28 | R.Q29 | R.Q30 | R.Q31 -> 128<rt>
     | R.N | R.Z | R.C | R.V -> 1<rt>
-    | _ -> Utils.impossible ()
+    | _ -> Terminator.impossible ()
 
   let getOrgSIMDReg = function
     | R.B0 | R.H0 | R.S0 | R.D0 | R.Q0 -> R.V0
@@ -110,4 +110,4 @@ module Register =
     | R.B29 | R.H29 | R.S29 | R.D29 | R.Q29 -> R.V29
     | R.B30 | R.H30 | R.S30 | R.D30 | R.Q30 -> R.V30
     | R.B31 | R.H31 | R.S31 | R.D31 | R.Q31 -> R.V31
-    | _ -> Utils.impossible ()
+    | _ -> Terminator.impossible ()

@@ -29,7 +29,7 @@ open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.SH4.OperandHelper
 
 let getState = function
- | _ -> Utils.futureFeature()
+ | _ -> Terminator.futureFeature()
 
 /// 0000 0000 ---- ---- with no operands
 let noOpParse0000 b16 =
@@ -1063,7 +1063,7 @@ let parseNow b16 =
         match getBits b16 8 5 with
         | 0b0101us | 0b0100us | 0b0110us -> oneOpParse1111 b16
         | _ -> twoOpParse1111 b16
-  | _ -> Utils.futureFeature()
+  | _ -> Terminator.futureFeature()
 
 let parse (span: ByteSpan) (reader: IBinReader) addr =
   let bin = reader.ReadUInt16 (span, 0)

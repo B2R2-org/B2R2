@@ -138,7 +138,7 @@ type RISCV64RegisterFactory (wordSize, r: RegExprs) =
     Register.ofRegID rid |> Register.toRegType wordSize
 
   override __.GetRegisterAliases _rid =
-    Utils.futureFeature ()
+    Terminator.futureFeature ()
 
   override __.ProgramCounter =
     Register.PC |> Register.toRegID

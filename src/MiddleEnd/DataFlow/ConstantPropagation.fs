@@ -130,7 +130,7 @@ type ConstantPropagation =
         let c = evaluateExpr state pp e
         ConstantDomain.extract c rt pos
       | FuncName _ | Nil | Undefined _ -> ConstantDomain.NotAConst
-      | _ -> Utils.impossible ()
+      | _ -> Terminator.impossible ()
 
     let analysis =
       { new IVarBasedDataFlowAnalysis<ConstantDomain.Lattice> with

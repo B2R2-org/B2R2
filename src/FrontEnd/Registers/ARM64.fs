@@ -1181,7 +1181,7 @@ module Register =
     | "s3_7_c2_c2_7" -> Register.S3_7_C2_C2_7
     | "s0_0_c2_c9_3" -> Register.S0_0_C2_C9_3
     | "s2_7_c12_c7_6" -> Register.S2_7_C12_C7_6
-    | _ -> Utils.impossible ()
+    | _ -> Terminator.impossible ()
 
   /// Get the register ID of an ARM64 register.
   [<CompiledName "ToRegID">]
@@ -1572,4 +1572,4 @@ module Register =
     | Register.S3_7_C2_C2_7 -> "s3_7_c2_c2_7"
     | Register.S0_0_C2_C9_3 -> "s0_0_c2_c9_3"
     | Register.S2_7_C12_C7_6 -> "s2_7_c12_c7_6"
-    | _ -> Utils.impossible ()
+    | _ -> Terminator.impossible ()

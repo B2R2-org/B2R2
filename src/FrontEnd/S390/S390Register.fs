@@ -45,7 +45,7 @@ module Register =
   let ofString (str: string) =
     match str.ToLowerInvariant () with
     | "r0" -> R.R0
-    | _ -> Utils.impossible ()
+    | _ -> Terminator.impossible ()
 
   let toRegType wordSize = function
-    | _ -> Utils.impossible ()
+    | _ -> Terminator.impossible ()

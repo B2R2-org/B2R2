@@ -171,7 +171,7 @@ let private evalArgs st args =
   match args with
   | { E = BinOp (BinOpType.APP, _, _, args) } ->
     uncurryArgs [] args |> concretizeArgs st []
-  | _ -> Utils.impossible ()
+  | _ -> Terminator.impossible ()
 
 let evalStmt (st: EvalState) s =
   match s.S with

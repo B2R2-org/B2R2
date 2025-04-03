@@ -145,4 +145,4 @@ let private parseOpcode (span: ReadOnlySpan<byte>) (reader: IBinReader) =
   | _ -> raise ParsingFailureException
 
 let parse (span: ByteSpan) (reader: IBinReader) wordSize addr =
-  Utils.futureFeature ()
+  Terminator.futureFeature ()

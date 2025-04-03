@@ -57,7 +57,7 @@ module private PARISCShortcut =
 let getWordSize = function
   | 32<rt> -> WordSize.Bit32
   | 64<rt> -> WordSize.Bit64
-  | _ -> Utils.impossible ()
+  | _ -> Terminator.impossible ()
 
 let private test arch endian wordSz opcode (opr: Operands) completer condition
   uid bytes =
@@ -92,7 +92,7 @@ let private operandsFromArray oprList =
   | 3 -> ThreeOperands (oprArr[0], oprArr[1], oprArr[2])
   | 4 -> FourOperands (oprArr[0], oprArr[1], oprArr[2], oprArr[3])
   | 5 -> FiveOperands (oprArr[0], oprArr[1], oprArr[2], oprArr[3], oprArr[4])
-  | _ -> Utils.impossible ()
+  | _ -> Terminator.impossible ()
 
 let private ( ** ) opcode oprList = opcode, operandsFromArray oprList
 

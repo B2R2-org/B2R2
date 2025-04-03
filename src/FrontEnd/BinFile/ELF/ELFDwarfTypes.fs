@@ -327,7 +327,7 @@ module DWRegister =
     | 6uy -> Intel.Register.toRegID Intel.Register.ESI
     | 7uy -> Intel.Register.toRegID Intel.Register.EDI
     | 8uy -> Intel.Register.toRegID Intel.Register.EIP
-    | _ -> Utils.futureFeature ()
+    | _ -> Terminator.futureFeature ()
 
   let private toIntelx64Register = function
     | 0uy -> Intel.Register.toRegID Intel.Register.RAX
@@ -363,7 +363,7 @@ module DWRegister =
     | 30uy -> Intel.Register.toRegID Intel.Register.XMM13
     | 31uy -> Intel.Register.toRegID Intel.Register.XMM14
     | 32uy -> Intel.Register.toRegID Intel.Register.XMM15
-    | _ -> Utils.futureFeature ()
+    | _ -> Terminator.futureFeature ()
 
   let private toAArch64Register = function
     | 0uy -> ARM64.Register.toRegID ARM64.Register.X0
@@ -430,7 +430,7 @@ module DWRegister =
     | 93uy -> ARM64.Register.toRegID ARM64.Register.V29
     | 94uy -> ARM64.Register.toRegID ARM64.Register.V30
     | 95uy -> ARM64.Register.toRegID ARM64.Register.V31
-    | x -> Utils.futureFeature ()
+    | x -> Terminator.futureFeature ()
 
   let private toMIPSRegister (n: byte) =
     MIPS.Register.toRegID (EnumOfValue (int n))
@@ -453,7 +453,7 @@ module DWRegister =
     | Architecture.RISCV64 -> toRISCVRegister regnum
     | Architecture.PPC32 -> toPPC32Register regnum
     | Architecture.SH4 -> toSH4Register regnum
-    | _ -> Utils.futureFeature ()
+    | _ -> Terminator.futureFeature ()
 
   let toRegisterExpr isa (regFactory: RegisterFactory) regnum =
     toRegID isa regnum |> regFactory.RegIDToRegExpr

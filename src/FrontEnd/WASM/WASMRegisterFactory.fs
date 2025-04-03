@@ -30,17 +30,17 @@ open B2R2.FrontEnd.BinLifter
 type WASMRegisterFactory () =
   inherit RegisterFactory ()
 
-  override __.GetAllRegExprs () = Utils.futureFeature ()
+  override __.GetAllRegExprs () = Terminator.futureFeature ()
 
   override __.GetAllRegNames () = []
 
-  override __.GetGeneralRegExprs () = Utils.futureFeature ()
+  override __.GetGeneralRegExprs () = Terminator.futureFeature ()
 
-  override __.RegIDFromRegExpr (_e) = Utils.futureFeature ()
+  override __.RegIDFromRegExpr (_e) = Terminator.futureFeature ()
 
-  override __.RegIDToRegExpr (_id) = Utils.impossible ()
+  override __.RegIDToRegExpr (_id) = Terminator.impossible ()
 
-  override __.StrToRegExpr _s = Utils.impossible ()
+  override __.StrToRegExpr _s = Terminator.impossible ()
 
   override __.RegIDFromString str =
     Register.ofString str |> Register.toRegID
@@ -51,18 +51,18 @@ type WASMRegisterFactory () =
   override __.RegIDToRegType rid =
     Register.ofRegID rid |> Register.toRegType
 
-  override __.GetRegisterAliases _ = Utils.futureFeature ()
+  override __.GetRegisterAliases _ = Terminator.futureFeature ()
 
-  override __.ProgramCounter = Utils.impossible()
+  override __.ProgramCounter = Terminator.impossible()
 
-  override __.StackPointer = Utils.futureFeature ()
+  override __.StackPointer = Terminator.futureFeature ()
 
-  override __.FramePointer = Utils.impossible ()
+  override __.FramePointer = Terminator.impossible ()
 
-  override __.IsProgramCounter regid = Utils.futureFeature ()
+  override __.IsProgramCounter regid = Terminator.futureFeature ()
 
-  override __.IsStackPointer regid = Utils.futureFeature ()
+  override __.IsStackPointer regid = Terminator.futureFeature ()
 
-  override __.IsFramePointer _ = Utils.impossible ()
+  override __.IsFramePointer _ = Terminator.impossible ()
 
 // vim: set tw=80 sts=2 sw=2:

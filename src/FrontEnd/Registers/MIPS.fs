@@ -260,7 +260,7 @@ module Register =
     | "llbit" -> Register.LLBit
     | "fcsr" -> Register.FCSR
     | "fir" -> Register.FIR
-    | _ -> Utils.impossible ()
+    | _ -> Terminator.impossible ()
 
   /// Get the register ID of a MIPS register.
   [<CompiledName "ToRegID">]
@@ -343,7 +343,7 @@ module Register =
       | Register.LLBit -> "LLBit"
       | Register.FCSR -> "fcsr"
       | Register.FIR -> "fir"
-      | _ -> Utils.impossible ()
+      | _ -> Terminator.impossible ()
     | WordSize.Bit64 ->
       match reg with
       | Register.R0  -> "r0"
@@ -416,5 +416,5 @@ module Register =
       | Register.LLBit -> "LLBit"
       | Register.FCSR -> "fcsr"
       | Register.FIR -> "fir"
-      | _ -> Utils.impossible ()
-    | _ -> Utils.impossible ()
+      | _ -> Terminator.impossible ()
+    | _ -> Terminator.impossible ()
