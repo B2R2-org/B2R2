@@ -27,12 +27,12 @@ module B2R2.RearEnd.FileViewer.Program
 open B2R2
 open B2R2.FrontEnd.BinFile
 open B2R2.FrontEnd
-open B2R2.RearEnd
+open B2R2.RearEnd.Utils
 open B2R2.RearEnd.FileViewer.Helper
 
 let dumpBasic (file: IBinFile) =
   let entry =
-    ColoredSegment (Green, StringUtils.entryPointToString file.EntryPoint)
+    ColoredSegment (Green, String.entryPointToString file.EntryPoint)
   out.PrintSectionTitle "Basic Information"
   out.PrintTwoCols "File format:" (FileFormat.toString file.Format)
   out.PrintTwoCols "Architecture:" (ISA.ArchToString file.ISA.Arch)

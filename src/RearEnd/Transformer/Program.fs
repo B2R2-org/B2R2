@@ -28,7 +28,7 @@ open System
 open System.IO
 open System.Reflection
 open B2R2
-open B2R2.RearEnd
+open B2R2.RearEnd.Utils
 
 let [<Literal>] private Usage = """[Usage]
 

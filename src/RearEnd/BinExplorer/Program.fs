@@ -31,7 +31,7 @@ open B2R2.MiddleEnd
 open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.MiddleEnd.ControlFlowAnalysis
-open B2R2.RearEnd
+open B2R2.RearEnd.Utils
 open B2R2.RearEnd.Visualization
 open B2R2.RearEnd.BinExplorer.CmdUtils
 

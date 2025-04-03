@@ -24,10 +24,10 @@
 
 namespace B2R2.RearEnd.FileViewer
 
-open B2R2
-open B2R2.RearEnd
 open System
 open System.Collections.Generic
+open B2R2
+open B2R2.RearEnd.Utils
 
 type FileViewerOpts () =
   inherit CmdOpts ()

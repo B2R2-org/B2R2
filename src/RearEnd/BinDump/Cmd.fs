@@ -24,11 +24,11 @@
 
 namespace B2R2.RearEnd.BinDump
 
+open System
 open B2R2
 open B2R2.FrontEnd
 open B2R2.FrontEnd.BinLifter
-open B2R2.RearEnd
-open System
+open B2R2.RearEnd.Utils
 
 type OptOption =
   | NoOptimize

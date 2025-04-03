@@ -27,7 +27,7 @@ module B2R2.RearEnd.BinDump.Program
 open B2R2
 open B2R2.FrontEnd
 open B2R2.FrontEnd.BinFile
-open B2R2.RearEnd
+open B2R2.RearEnd.Utils
 open B2R2.RearEnd.BinDump.DisasmLiftHelper
 
 let [<Literal>] private ToolName = "bindump"

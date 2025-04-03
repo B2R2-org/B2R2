@@ -19,7 +19,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Core\B2R2.RearEnd.Core.fsproj" />
+    <ProjectReference Include="..\Utils\B2R2.RearEnd.Utils.fsproj" />
     <ProjectReference Include="..\FileViewer\B2R2.RearEnd.FileViewer.fsproj" />
     <ProjectReference Include="..\BinDump\B2R2.RearEnd.BinDump.fsproj" />
     <ProjectReference Include="..\BinExplorer\B2R2.RearEnd.BinExplorer.fsproj" />

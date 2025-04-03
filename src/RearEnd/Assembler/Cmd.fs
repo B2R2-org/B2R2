@@ -26,7 +26,7 @@ namespace B2R2.RearEnd.Assembler
 
 open System
 open B2R2
-open B2R2.RearEnd
+open B2R2.RearEnd.Utils
 
 type AssemblerMode =
   | LowUIRMode of ISA

@@ -14,7 +14,7 @@
     <ProjectReference Include="..\..\Peripheral\Assembly\AsmInterface\B2R2.Peripheral.Assembly.AsmInterface.fsproj" />
     <ProjectReference Include="..\..\BinIR\B2R2.BinIR.fsproj" />
     <ProjectReference Include="..\BinDump\B2R2.RearEnd.BinDump.fsproj" />
-    <ProjectReference Include="..\Core\B2R2.RearEnd.Core.fsproj" />
+    <ProjectReference Include="..\Utils\B2R2.RearEnd.Utils.fsproj" />
   </ItemGroup>
 
   <ItemGroup>

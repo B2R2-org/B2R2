@@ -22,7 +22,8 @@
   SOFTWARE.
 *)
 
-module B2R2.RearEnd.StringUtils
+[<RequireQualifiedAccess>]
+module B2R2.RearEnd.Utils.String
 
 open B2R2
 

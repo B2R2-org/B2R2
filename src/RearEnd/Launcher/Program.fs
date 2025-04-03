@@ -26,7 +26,6 @@ module B2R2.RearEnd.Launcher
 
 open System.Reflection
 open B2R2
-open B2R2.RearEnd
 
 let showUsage () =
   Printer.PrintToConsole """

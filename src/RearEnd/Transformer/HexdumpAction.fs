@@ -25,7 +25,7 @@
 namespace B2R2.RearEnd.Transformer
 
 open B2R2
-open B2R2.RearEnd
+open B2R2.RearEnd.Utils
 
 /// The `hexdump` action.
 type HexdumpAction () =

@@ -13,7 +13,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\FrontEnd\API\B2R2.FrontEnd.API.fsproj" />
-    <ProjectReference Include="..\Core\B2R2.RearEnd.Core.fsproj" />
+    <ProjectReference Include="..\Utils\B2R2.RearEnd.Utils.fsproj" />
   </ItemGroup>
 
 </Project>

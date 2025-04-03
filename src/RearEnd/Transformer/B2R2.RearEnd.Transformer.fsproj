@@ -32,7 +32,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Core\B2R2.RearEnd.Core.fsproj" />
+    <ProjectReference Include="..\Utils\B2R2.RearEnd.Utils.fsproj" />
     <ProjectReference Include="..\..\FrontEnd\BinFile\B2R2.FrontEnd.BinFile.fsproj" />
     <ProjectReference Include="..\..\FrontEnd\API\B2R2.FrontEnd.API.fsproj" />
     <ProjectReference Include="..\..\MiddleEnd\API\B2R2.MiddleEnd.API.fsproj" />

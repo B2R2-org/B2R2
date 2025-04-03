@@ -22,7 +22,7 @@
   SOFTWARE.
 *)
 
-namespace B2R2.RearEnd
+namespace B2R2.RearEnd.Utils
 
 open B2R2
 open B2R2.FsOptParse

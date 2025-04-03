@@ -38,7 +38,7 @@
     <ProjectReference Include="..\..\FrontEnd\API\B2R2.FrontEnd.API.fsproj" />
     <ProjectReference Include="..\..\FrontEnd\NameMangling\B2R2.FrontEnd.NameMangling.fsproj" />
     <ProjectReference Include="..\..\MiddleEnd\API\B2R2.MiddleEnd.API.fsproj" />
-    <ProjectReference Include="..\Core\B2R2.RearEnd.Core.fsproj" />
+    <ProjectReference Include="..\Utils\B2R2.RearEnd.Utils.fsproj" />
     <ProjectReference Include="..\ROP\B2R2.RearEnd.ROP.fsproj" />
     <ProjectReference Include="..\Visualization\B2R2.RearEnd.Visualization.fsproj" />
   </ItemGroup>

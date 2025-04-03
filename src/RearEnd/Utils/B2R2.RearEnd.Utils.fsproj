@@ -5,7 +5,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="StringUtils.fs" />
+    <Compile Include="String.fs" />
     <Compile Include="HexDumper.fs" />
     <Compile Include="CmdOpts.fs" />
   </ItemGroup>
