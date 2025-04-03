@@ -32,6 +32,7 @@ open B2R2.MiddleEnd.BinGraph.Tests.Examples
 type DominanceAlgorithm =
   | DomIterative
   | DomLengauer
+  | DomSimpleLengauer
   | DomSNCA
   | DomCooper
 
@@ -51,6 +52,10 @@ type DominanceTests () =
       LengauerTarjanDominance.create g (CytronDominanceFrontier ())
     | DomLengauer, DFCooper ->
       LengauerTarjanDominance.create g (CooperDominanceFrontier ())
+    | DomSimpleLengauer, DFCytron ->
+      SimpleLengauerTarjanDominance.create g (CytronDominanceFrontier ())
+    | DomSimpleLengauer, DFCooper ->
+      SimpleLengauerTarjanDominance.create g (CooperDominanceFrontier ())
     | DomSNCA, DFCytron ->
       SemiNCADominance.create g (CytronDominanceFrontier ())
     | DomSNCA, DFCooper ->
@@ -89,6 +94,10 @@ type DominanceTests () =
        [| box Persistent; box DomLengauer; box DFCooper |]
        [| box Imperative; box DomLengauer; box DFCytron |]
        [| box Imperative; box DomLengauer; box DFCooper |]
+       [| box Persistent; box DomSimpleLengauer; box DFCytron |]
+       [| box Persistent; box DomSimpleLengauer; box DFCooper |]
+       [| box Imperative; box DomSimpleLengauer; box DFCytron |]
+       [| box Imperative; box DomSimpleLengauer; box DFCooper |]
        [| box Persistent; box DomSNCA; box DFCytron |]
        [| box Persistent; box DomSNCA; box DFCooper |]
        [| box Imperative; box DomSNCA; box DFCytron |]
