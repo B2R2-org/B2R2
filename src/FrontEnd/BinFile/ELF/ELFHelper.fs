@@ -27,6 +27,7 @@ module internal B2R2.FrontEnd.BinFile.ELF.Helper
 open System
 open System.Collections.Generic
 open B2R2
+open B2R2.Collections
 open B2R2.FrontEnd.BinFile
 open B2R2.FrontEnd.BinFile.FileHelper
 

@@ -27,19 +27,33 @@ namespace B2R2
 /// This exception is raised when an invalid WordSize is encountered.
 exception InvalidWordSizeException
 
-/// B2R2 represents the word size of a CPU with WordSize.
+/// <summary>
+/// B2R2 represents the word size of a CPU with <see cref='T:B2R2.WordSize'/>.
+/// </summary>
 type WordSize =
+  /// 8-bit word size.
   | Bit8 = 8
+  /// 16-bit word size.
   | Bit16 = 16
+  /// 32-bit word size.
   | Bit32 = 32
+  /// 64-bit word size.
   | Bit64 = 64
+  /// 128-bit word size.
   | Bit128 = 128
+  /// 256-bit word size.
   | Bit256 = 256
 
-/// A helper module for the WordSize type.
+/// <summary>
+/// This module provides helper functions for handling the <see
+/// cref='T:B2R2.WordSize'/> type.
+/// </summary>
 [<RequireQualifiedAccess>]
 module WordSize =
-  /// Transform a string into a word size.
+  /// <summary>
+  /// Transform a <c>string</c> into a word size (<see
+  /// cref='T:B2R2.WordSize'/>).
+  /// </summary>
   [<CompiledName "OfString">]
   let ofString = function
     | "8"  -> WordSize.Bit8
@@ -50,11 +64,15 @@ module WordSize =
     | "256" -> WordSize.Bit256
     | _ -> raise InvalidWordSizeException
 
-  /// Transform a word size into a byte length.
+  /// <summary>
+  /// Transform a word size (<see cref='T:B2R2.WordSize'/>) into a byte length.
+  /// </summary>
   [<CompiledName "ToByteWidth">]
   let toByteWidth (wordSize: WordSize) = int32 wordSize / 8
 
-  /// Transform a word size into a RegType.
+  /// <summary>
+  /// Transform a word size (<see cref='T:B2R2.WordSize'/>) into a RegType.
+  /// </summary>
   [<CompiledName "ToRegType">]
   let toRegType = function
     | WordSize.Bit8 -> 8<rt>
@@ -65,7 +83,10 @@ module WordSize =
     | WordSize.Bit256 -> 256<rt>
     | _ -> raise InvalidWordSizeException
 
-  /// Transform a word size into a string.
+  /// <summary>
+  /// Transform a word size (<see cref='T:B2R2.WordSize'/>) into a
+  /// <c>string</c>.
+  /// </summary>
   [<CompiledName "ToString">]
   let toString wordSz = (toRegType wordSz).ToString ()
 

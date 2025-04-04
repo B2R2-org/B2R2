@@ -24,7 +24,7 @@
 
 namespace B2R2.FrontEnd.BinFile.Wasm
 
-open B2R2
+open B2R2.Collections
 open B2R2.FrontEnd.BinFile
 
 type Vector<'TElement> = {

@@ -25,7 +25,7 @@
 namespace B2R2.RearEnd.Transformer
 
 open System.IO
-open B2R2
+open B2R2.RearEnd.Utils
 
 /// The `write` action.
 type WriteAction () =

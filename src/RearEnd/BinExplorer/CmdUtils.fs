@@ -25,7 +25,7 @@
 module B2R2.RearEnd.BinExplorer.CmdUtils
 
 open System
-open B2R2
+open B2R2.RearEnd.Utils
 
 /// The console printer.
 let internal out = ConsolePrinter () :> Printer

@@ -24,7 +24,7 @@
 
 module internal B2R2.FrontEnd.BinFile.Mach.Segment
 
-open B2R2
+open B2R2.Collections
 open B2R2.FrontEnd.BinFile
 
 let private chooser = function

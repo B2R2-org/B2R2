@@ -25,6 +25,7 @@
 module internal B2R2.FrontEnd.BinFile.FileHelper
 
 open B2R2
+open B2R2.Collections
 open B2R2.FrontEnd.BinLifter
 
 /// Pick a number based on the word size.

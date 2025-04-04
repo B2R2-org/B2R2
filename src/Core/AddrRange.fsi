@@ -31,10 +31,9 @@ exception RangeOverlapException
 /// interval.
 exception InvalidAddrRangeException
 
-/// AddrRange is a tuple (min, max) that represents a range of address values
-/// that are greater or equal to the min value (inclusive) and are less than or
-/// equal to the max value (inclusive). To access the min and the max value of a
-/// range, use either getMin or getMax function.
+/// This type represents a range of address values that are greater or equal to
+/// the min value (inclusive) and are less than or equal to the max value
+/// (inclusive).
 type AddrRange =
   class
     /// <summary>

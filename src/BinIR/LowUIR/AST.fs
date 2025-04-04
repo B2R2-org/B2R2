@@ -27,6 +27,7 @@ module B2R2.BinIR.LowUIR.AST
 
 open System.Collections.Generic
 open B2R2
+open B2R2.Collections
 open B2R2.BinIR
 
 #if HASHCONS

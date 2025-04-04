@@ -30,6 +30,7 @@ open System.IO
 open System.Text
 open System.Threading
 open B2R2
+open B2R2.Logging
 
 let [<Literal>] ManagerTid = -1
 

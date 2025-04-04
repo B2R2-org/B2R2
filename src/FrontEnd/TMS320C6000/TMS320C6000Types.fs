@@ -27,7 +27,7 @@ namespace B2R2.FrontEnd.TMS320C6000
 open System.Runtime.CompilerServices
 open B2R2
 
-[<assembly: InternalsVisibleTo("B2R2.FrontEnd.BinLifter.Tests")>]
+[<assembly: InternalsVisibleTo("B2R2.FrontEnd.API.Tests")>]
 do ()
 
 /// <summary>

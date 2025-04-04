@@ -25,10 +25,8 @@
 namespace B2R2.Core.Tests
 
 open Microsoft.VisualStudio.TestTools.UnitTesting
-
-open B2R2
-
 open System.Threading
+open B2R2.Collections
 
 type TestOp () =
   let cnt = ref 0

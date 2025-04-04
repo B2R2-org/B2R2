@@ -28,6 +28,7 @@ open System
 open B2R2
 open B2R2.FrontEnd.BinFile
 open B2R2.RearEnd.FileViewer.Helper
+open B2R2.RearEnd.Utils
 
 let badAccess _ _ =
   raise InvalidFileFormatException

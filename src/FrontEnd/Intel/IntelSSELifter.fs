@@ -25,6 +25,7 @@
 module internal B2R2.FrontEnd.Intel.SSELifter
 
 open B2R2
+open B2R2.Collections
 open B2R2.BinIR
 open B2R2.BinIR.LowUIR
 open B2R2.BinIR.LowUIR.AST.InfixOp

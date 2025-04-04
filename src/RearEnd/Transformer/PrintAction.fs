@@ -25,7 +25,7 @@
 namespace B2R2.RearEnd.Transformer
 
 open FSharp.Reflection
-open B2R2
+open B2R2.RearEnd.Utils
 
 /// The `print` action.
 type PrintAction () =

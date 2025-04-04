@@ -27,6 +27,7 @@ module internal B2R2.FrontEnd.BinFile.PE.Helper
 open System
 open System.IO
 open B2R2
+open B2R2.Collections
 open B2R2.Monads
 open B2R2.FrontEnd.BinFile
 open System.Reflection.PortableExecutable

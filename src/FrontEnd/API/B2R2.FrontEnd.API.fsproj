@@ -40,6 +40,5 @@
     <ProjectReference Include="..\SPARC\B2R2.FrontEnd.SPARC.fsproj" />
     <ProjectReference Include="..\TMS320C6000\B2R2.FrontEnd.TMS320C6000.fsproj" />
     <ProjectReference Include="..\WASM\B2R2.FrontEnd.WASM.fsproj" />
-    <ProjectReference Include="..\Optimizer\B2R2.FrontEnd.Optimizer.fsproj" />
   </ItemGroup>
 </Project>

@@ -28,8 +28,7 @@ open FParsec
 open System.Numerics
 open SimpleArithHelper
 open SimpleArithConverter
-open B2R2
-open B2R2.RearEnd
+open B2R2.RearEnd.Utils
 
 type SimpleArithEvaluator () =
   /// Concatenating given array of strings. Returning place of error when there
@@ -37,7 +36,7 @@ type SimpleArithEvaluator () =
   let concatenate arg =
     let rec doConcatenation res input errorPos =
       match input with
-      | [] -> (res, errorPos)
+      | [] -> res, errorPos
       | hd :: tail ->
         if hd = "" then
           doConcatenation res tail errorPos

@@ -25,6 +25,7 @@
 namespace B2R2.MiddleEnd.ControlFlowGraph
 
 open B2R2
+open B2R2.Collections
 open B2R2.BinIR
 open B2R2.BinIR.SSA
 open B2R2.FrontEnd.BinLifter

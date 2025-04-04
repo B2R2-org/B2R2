@@ -24,9 +24,8 @@
 
 namespace B2R2.RearEnd.BinExplorer
 
-open B2R2
 open B2R2.FrontEnd.NameMangling
-open B2R2.RearEnd
+open B2R2.RearEnd.Utils
 
 type CmdDemangle () =
   inherit Cmd ()

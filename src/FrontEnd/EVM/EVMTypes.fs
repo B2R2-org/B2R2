@@ -27,7 +27,7 @@ namespace B2R2.FrontEnd.EVM
 open B2R2
 open System.Runtime.CompilerServices
 
-[<assembly: InternalsVisibleTo("B2R2.FrontEnd.BinLifter.Tests")>]
+[<assembly: InternalsVisibleTo("B2R2.FrontEnd.API.Tests")>]
 do ()
 
 exception internal InvalidConditionException

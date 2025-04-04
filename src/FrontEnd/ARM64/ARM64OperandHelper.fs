@@ -25,11 +25,12 @@
 module internal B2R2.FrontEnd.ARM64.OperandHelper
 
 open B2R2
+open B2R2.Collections
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.ARM64.Terminator
 open System.Runtime.CompilerServices
 
-[<assembly: InternalsVisibleTo("B2R2.FrontEnd.BinLifter.Tests")>]
+[<assembly: InternalsVisibleTo("B2R2.FrontEnd.API.Tests")>]
 do ()
 
 let memBaseImm offset = OprMemory (BaseMode (ImmOffset (BaseOffset offset)))
@@ -1188,7 +1189,8 @@ let immNsr bin oprSize = (* FIXME: bitmask immediate *)
 let imm64 bin =
   let extBitToBytes n = if n = 0uy then 0UL else 255UL
   intToBits (concat (extract bin 18u 16u) (extract bin 9u 5u) 5) 8
-  |> List.rev |> List.toArray
+  |> List.rev
+  |> List.toArray
   |> Array.foldi (fun acc i e -> ((extBitToBytes e) <<< (i * 8)) + acc) 0UL
   |> fst |> int64 |> OprImm
 

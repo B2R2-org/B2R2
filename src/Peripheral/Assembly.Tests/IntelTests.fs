@@ -46,7 +46,10 @@ cond:
 done:
   ret
 """
-    let result = asm.Assemble str |> Result.get
+    let result =
+      match asm.Assemble str with
+      | Ok v -> v
+      | Error _ -> failwith "Bad value"
     let expectation =
       [ [| 0x3buy; 0xc9uy |]
         [| 0x75uy; 0x04uy |]

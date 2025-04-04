@@ -25,6 +25,7 @@
 namespace B2R2.MiddleEnd.DataFlow
 
 open B2R2
+open B2R2.Collections
 open B2R2.BinIR.LowUIR
 open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.ControlFlowGraph

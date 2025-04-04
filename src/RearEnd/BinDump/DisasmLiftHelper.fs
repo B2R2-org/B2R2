@@ -30,6 +30,7 @@ open B2R2.BinIR
 open B2R2.FrontEnd
 open B2R2.FrontEnd.BinFile
 open B2R2.FrontEnd.BinLifter
+open B2R2.RearEnd.Utils
 
 /// The monotonic console printer.
 let internal out = ConsoleCachedPrinter () :> Printer

@@ -26,6 +26,7 @@ namespace B2R2.FrontEnd.BinFile.PE
 
 open System.Reflection.PortableExecutable
 open B2R2
+open B2R2.Collections
 open B2R2.FrontEnd.BinLifter
 
 /// Base Relocation Type.

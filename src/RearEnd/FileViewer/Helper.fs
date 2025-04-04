@@ -26,6 +26,7 @@ module B2R2.RearEnd.FileViewer.Helper
 
 open B2R2
 open B2R2.FrontEnd.BinFile
+open B2R2.RearEnd.Utils
 
 /// The console printer.
 let internal out = ConsolePrinter () :> Printer

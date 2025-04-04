@@ -24,25 +24,43 @@
 
 namespace B2R2
 
-/// Addresses are represented with a 64-bit integer in B2R2.
+/// <summary>
+/// <see cref='T:B2R2.Addr'/> is the basic type representing an address.
+/// Technically this is just an alias of <c>uint64</c>.
+/// </summary>
 type Addr = uint64
 
+/// <summary>
+/// This module provides a useful set of functions for handling <see
+/// cref='T:B2R2.Addr'/> types.
+/// </summary>
 [<RequireQualifiedAccess>]
 module Addr =
   let [<Literal>] private FunctionPrefix = "func_"
 
-  /// Convert an address of a given word size to a string.
+  /// <summary>
+  /// Convert an address (<see cref='T:B2R2.Addr'/>) of a given word size (<see
+  /// cref='T:B2R2.WordSize'/>) to a string.
+  /// </summary>
   [<CompiledName "ToString">]
   let toString wordSize (addr: Addr) =
-    if wordSize = WordSize.Bit32 then (uint32 addr).ToString ("x8")
-    else addr.ToString ("x16")
+    if wordSize = WordSize.Bit32 then (uint32 addr).ToString "x8"
+    else addr.ToString "x16"
 
-  /// Convert an address to a function name used in B2R2.
+  /// <summary>
+  /// Convert an address (<see cref='T:B2R2.Addr'/>) to a function name, which
+  /// starts with the <value>func_</value> prefix. This is used to provide
+  /// consistent names for functions when symbols are not available.
+  /// </summary>
   [<CompiledName "ToFuncName">]
   let toFuncName (addr: Addr) =
-    FunctionPrefix + addr.ToString ("x")
+    FunctionPrefix + addr.ToString "x"
 
-  /// Convert a function name used in B2R2 to an address.
+  /// <summary>
+  /// Convert a function name used in B2R2 to an address (<see
+  /// cref='T:B2R2.Addr'/>). This function assumes that the given string follows
+  /// our function naming convention.
+  /// </summary>
   [<CompiledName "OfFuncName">]
   let ofFuncName (name: string) =
     assert (name.StartsWith FunctionPrefix)

@@ -6,27 +6,8 @@
 
   <ItemGroup>
     <Compile Include="BinReaderTests.fs" />
-    <Compile Include="LifterTests.fs" />
-    <Compile Include="IntelParserTests.fs" />
-    <Compile Include="IntelLifterTests.fs" />
-    <Compile Include="IntelDisassemblerTests.fs" />
-    <Compile Include="ARM64ParserTests.fs" />
-    <Compile Include="ARM64LifterTests.fs" />
-    <Compile Include="ARM32ParserTests.fs" />
-    <Compile Include="ARMThumbParserTests.fs" />
-    <Compile Include="ARM32LifterTests.fs" />
-    <Compile Include="MIPS64ParserTests.fs" />
-    <Compile Include="MIPS32ParserTests.fs" />
-    <Compile Include="MIPSLifterTests.fs" />
-    <Compile Include="EVMParserTests.fs" />
-    <Compile Include="EVMLifterTests.fs" />
-    <Compile Include="AVRParserTests.fs" />
-    <Compile Include="AVRLifterTests.fs" />
-    <Compile Include="TMS320ParserTests.fs" />
-    <Compile Include="SPARCParserTests.fs" />
-    <Compile Include="SPARCLifterTests.fs" />
-    <Compile Include="PARISCParserTests.fs" />
     <Compile Include="OptimizerTests.fs" />
+    <Compile Include="LifterTests.fs" />
   </ItemGroup>
 
   <ItemGroup>
@@ -35,7 +16,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\API\B2R2.FrontEnd.API.fsproj" />
+    <ProjectReference Include="..\BinLifter\B2R2.FrontEnd.BinLifter.fsproj" />
   </ItemGroup>
 
 </Project>

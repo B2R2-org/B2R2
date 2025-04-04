@@ -35,6 +35,7 @@ and ByteValue =
   /// This matches only one single byte value.
   | OneByte of byte
 
+[<RequireQualifiedAccess>]
 module BytePattern =
   let private isEqual bv v =
     match bv with

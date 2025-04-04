@@ -22,8 +22,15 @@
   SOFTWARE.
 *)
 
+/// <namespacedoc>
+///   <summary>
+///   B2R2 is the top-level namespace, representing the whole project.
+///   </summary>
+/// </namespacedoc>
+/// <summary>
 /// A set of terminating functions, which are used to terminate the program
 /// when a non-recoverable error is encountered.
+/// </summary>
 [<RequireQualifiedAccess>]
 module B2R2.Terminator
 

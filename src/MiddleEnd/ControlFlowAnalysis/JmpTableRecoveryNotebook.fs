@@ -26,6 +26,7 @@ namespace B2R2.MiddleEnd.ControlFlowAnalysis
 
 open System.Collections.Generic
 open B2R2
+open B2R2.Collections
 
 /// Global collection of jump table recovery notes. This is not thread-safe, so
 /// it should be accessed only by TaskManager.

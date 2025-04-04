@@ -6,6 +6,11 @@
 
   <ItemGroup>
     <Compile Include="String.fs" />
+    <Compile Include="Color.fs" />
+    <Compile Include="ColoredSegment.fs" />
+    <Compile Include="ColoredString.fs" />
+    <Compile Include="OutString.fs" />
+    <Compile Include="Printer.fs" />
     <Compile Include="HexDumper.fs" />
     <Compile Include="CmdOpts.fs" />
   </ItemGroup>

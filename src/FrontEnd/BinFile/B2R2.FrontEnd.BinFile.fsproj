@@ -8,6 +8,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="FileFormat.fs" />
     <Compile Include="BinFileExceptions.fs" />
     <Compile Include="Symbol.fs" />
     <Compile Include="Section.fs" />

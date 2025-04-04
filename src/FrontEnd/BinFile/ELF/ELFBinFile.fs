@@ -26,6 +26,7 @@ namespace B2R2.FrontEnd.BinFile
 
 open System
 open B2R2
+open B2R2.Collections
 open B2R2.FrontEnd.BinFile.ELF
 open B2R2.FrontEnd.BinFile.ELF.Helper
 

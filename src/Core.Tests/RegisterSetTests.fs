@@ -24,11 +24,10 @@
 
 namespace B2R2.Core.Tests
 
-
 open System
 open System.Collections.Generic
 open Microsoft.VisualStudio.TestTools.UnitTesting
-open B2R2
+open B2R2.Collections
 
 [<TestClass>]
 type RegisterSetTests () =

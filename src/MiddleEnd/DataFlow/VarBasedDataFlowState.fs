@@ -26,6 +26,7 @@ namespace B2R2.MiddleEnd.DataFlow
 
 open System.Collections.Generic
 open B2R2
+open B2R2.Collections
 open B2R2.FrontEnd
 open B2R2.MiddleEnd.DataFlow
 open B2R2.MiddleEnd.ControlFlowGraph
