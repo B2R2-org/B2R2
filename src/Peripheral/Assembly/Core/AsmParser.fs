@@ -34,11 +34,11 @@ type AsmParser (isa, mode) =
   /// Run parsing from a given assembly string, and assemble binary code.
   abstract Assemble: string -> Result<byte [] list, string>
 
-  member __.Parser with get() = parser
+  member _.Parser with get() = parser
 
   /// Run parsing from a given assembly string, and lift it to LowUIR code.
-  member __.Lift ctxt asm addr =
-    __.Assemble asm
+  member this.Lift ctxt asm addr =
+    this.Assemble asm
     |> Result.bind (fun bins ->
       bins
       |> List.fold (fun acc bs ->

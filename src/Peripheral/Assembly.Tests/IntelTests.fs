@@ -34,7 +34,7 @@ type IntelTests () =
   let asm = IntelAsmParser (isa, 0UL)
 
   [<TestMethod>]
-  member __.``Basic Test``() =
+  member _.``Basic Test``() =
     let str = """
   cmp ecx, ecx
   jne cond

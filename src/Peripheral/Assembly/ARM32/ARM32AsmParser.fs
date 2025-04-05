@@ -343,7 +343,7 @@ type AsmParser (startAddress: Addr) =
 
   let statements = sepEndBy statement terminator .>> eof
 
-  member __.Run assembly =
+  member _.Run assembly =
     match runParserOnString statements Map.empty<string, Addr> "" assembly with
     | Success (result, us, _) ->
       SecondPass.updateInsInfos (filterInstructionLines result) us

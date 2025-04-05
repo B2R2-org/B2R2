@@ -218,7 +218,7 @@ type IntelAsmParser (isa, baseAddr: Addr) =
 
   let statements = sepEndBy statement terminator .>> (eof <?> "")
 
-  override __.Assemble assembly =
+  override _.Assemble assembly =
     let st = { LabelMap = Map.empty; CurIndex = -1 }
     match runParserOnString statements st "" assembly with
     | Success (result, us, _) ->

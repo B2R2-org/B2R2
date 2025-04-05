@@ -175,7 +175,7 @@ type AsmParser (mipsISA: ISA, startAddress: Addr) =
 
   let statements = sepEndBy statement terminator .>> eof
 
-  member __.Run assembly =
+  member _.Run assembly =
     match runParserOnString statements Map.empty<string, Addr> "" assembly with
     | Success (result, us, _) -> SecondPass.updateInsInfos result us
     | Failure (str, _, _) -> printfn "Parser failed!\n%s" str; []

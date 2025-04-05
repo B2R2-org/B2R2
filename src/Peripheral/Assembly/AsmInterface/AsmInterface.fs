@@ -42,13 +42,13 @@ type AsmInterface (isa: ISA, startAddress) =
 
   /// Parse the given assembly input, and assemble a list of byte arrays, where
   /// each array corresponds to a binary instruction.
-  member __.AssembleBin asm = asmParser.Assemble asm
+  member _.AssembleBin asm = asmParser.Assemble asm
 
-  member __.Parser with get() = asmParser.Parser
+  member _.Parser with get() = asmParser.Parser
 
   /// Parse the given string input, and lift it to an array of LowUIR
   /// statements. If the given string represents LowUIR instructions, then we
   /// simply parse the assembly instructions and return the corresponding AST.
-  member __.LiftLowUIR isFromLowUIR asm =
+  member _.LiftLowUIR isFromLowUIR asm =
     if isFromLowUIR then uirParser.Parse asm
     else asmParser.Lift ctxt asm startAddress

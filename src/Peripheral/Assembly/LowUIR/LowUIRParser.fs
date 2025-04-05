@@ -360,12 +360,12 @@ type LowUIRParser (isa, regFactory: RegisterFactory) =
   let pLines =
     sepBy (restOfLine false) newline
 
-  member private __.SeparateLines str =
+  member private _.SeparateLines str =
     match run pLines str with
     | Success (lines, _, _) -> Result.Ok lines
     | Failure (errStr, _, _) -> Result.Error (errStr)
 
-  member private __.TryParseStmt line =
+  member private _.TryParseStmt line =
     try runParserOnString pStatement 0<rt> "" line
     with e ->
       let dummyPos = Position ("", 0L, 0L, 0L)
@@ -373,16 +373,16 @@ type LowUIRParser (isa, regFactory: RegisterFactory) =
       let msg = e.Message + nl + e.StackTrace + nl + nl + "> " + line
       Failure (msg, ParserError (dummyPos, 0<rt>, unexpected ""), 0<rt>)
 
-  member private __.ParseLines acc lines =
+  member private this.ParseLines acc lines =
     match lines with
     | line :: rest ->
-      if String.length line = 0 then __.ParseLines acc rest
+      if String.length line = 0 then this.ParseLines acc rest
       else (* A LowUIR stmt always occupies a single line. *)
-        match __.TryParseStmt line with
-        | Success (stmt, _, _pos) -> __.ParseLines (stmt :: acc) rest
+        match this.TryParseStmt line with
+        | Success (stmt, _, _pos) -> this.ParseLines (stmt :: acc) rest
         | Failure (errStr, _, _) -> Result.Error (errStr)
     | [] -> Result.Ok (List.rev acc |> List.toArray)
 
-  member __.Parse str =
-    __.SeparateLines str
-    |> Result.bind (__.ParseLines [])
+  member this.Parse str =
+    this.SeparateLines str
+    |> Result.bind (this.ParseLines [])

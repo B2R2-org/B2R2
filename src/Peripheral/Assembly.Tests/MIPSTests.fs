@@ -39,7 +39,7 @@ type MIPSTests () =
   let newInfo = MIPS.ParserHelper.newInfo
 
   [<TestMethod>]
-  member __.``[MipsAssembly] Test add with and three operands ``() =
+  member _.``[MipsAssembly] Test add with and three operands ``() =
     let result = assembler.Run "add $s0 $1 v0"
     let operands =
        ThreeOperands (OpReg Register.R16,
@@ -50,7 +50,7 @@ type MIPSTests () =
     Assert.AreEqual (answer, result)
 
   [<TestMethod>]
-  member __.``[MipsAssembly] Test jmp with immediate address ``() =
+  member _.``[MipsAssembly] Test jmp with immediate address ``() =
     let result = assembler.Run " jalr 0"
     let operands = OneOperand (OpImm 0UL)
     let answer =
@@ -58,7 +58,7 @@ type MIPSTests () =
     Assert.AreEqual (answer, result)
 
   [<TestMethod>]
-  member __.``[MipsAssembly] Test jmp with memmory access operand``() =
+  member _.``[MipsAssembly] Test jmp with memmory access operand``() =
     let result = assembler.Run "jr ($s0)"
     let operands = OneOperand (OpMem (Register.R16, Imm 0L, 32<rt>))
     let answer =
@@ -66,7 +66,7 @@ type MIPSTests () =
     Assert.AreEqual (answer, result)
 
   [<TestMethod>]
-  member __.``[MipsAssembly] Test Label and Jump to Label Instruction``() =
+  member _.``[MipsAssembly] Test Label and Jump to Label Instruction``() =
     let result =
       assembler.Run "someLabel:
                      beq $4, r0, 0x1
