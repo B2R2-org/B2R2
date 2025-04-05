@@ -35,14 +35,14 @@ type SCCTests () =
 
   [<TestMethod>]
   [<DynamicData(nameof SCCTests.GraphTypes)>]
-  member __.``SCC Test1`` (t) =
+  member _.``SCC Test1`` (t) =
     let g, _ = digraph7 t
     let sccs = SCC.Tarjan.compute g
     Assert.AreEqual<int> (5, sccs.Count)
 
   [<TestMethod>]
   [<DynamicData(nameof SCCTests.GraphTypes)>]
-  member __.``SCC Test2`` (t) =
+  member _.``SCC Test2`` (t) =
     let g, vmap = digraph8 t
     let n1, n8 = vmap[1], vmap[8]
     let s = [ vmap[2]; vmap[3]; vmap[4]; vmap[5]; vmap[6]; vmap[7] ]
@@ -57,7 +57,7 @@ type SCCTests () =
 
   [<TestMethod>]
   [<DynamicData(nameof SCCTests.GraphTypes)>]
-  member __.``SCC Test3`` (t) =
+  member _.``SCC Test3`` (t) =
     let g, vmap = digraph9 t
     let s1 = [ vmap[1]; vmap[2]; vmap[5] ]
     let s2 = [ vmap[3]; vmap[4]; vmap[8] ]
@@ -73,7 +73,7 @@ type SCCTests () =
 
   [<TestMethod>]
   [<DynamicData(nameof SCCTests.GraphTypes)>]
-  member __.``SCC Test4`` (t) =
+  member _.``SCC Test4`` (t) =
     let g, vmap = digraph10 t
     let s1 = [ vmap[1]; vmap[2]; vmap[3] ]
     let s2 = [ vmap[4]; vmap[5] ]

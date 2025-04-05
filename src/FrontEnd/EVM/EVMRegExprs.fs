@@ -35,11 +35,11 @@ type RegExprs () =
   member val GAS = var 64<rt> (Register.toRegID Register.GAS) "GAS" with get
   member val SP = var 256<rt> (Register.toRegID Register.SP) "SP" with get
 
-  member __.GetRegVar (name) =
+  member this.GetRegVar (name) =
     match name with
-    | R.PC -> __.PC
-    | R.GAS -> __.GAS
-    | R.SP -> __.SP
+    | R.PC -> this.PC
+    | R.GAS -> this.GAS
+    | R.SP -> this.SP
     | _ -> raise UnhandledRegExprException
 
 // vim: set tw=80 sts=2 sw=2:

@@ -32,30 +32,30 @@ type Edge<'V, 'E when 'V: equality
                   and 'E: equality> internal (fst, snd, label: EdgeLabel<'E>) =
   /// Source vertex of the edge. For undirected graphs, this is the first vertex
   /// that was added to the edge.
-  member __.First with get(): IVertex<'V> = fst
+  member _.First with get(): IVertex<'V> = fst
 
   /// Target vertex of the edge. For undirected graphs, this is the second
   /// vertex that was added to the edge.
-  member __.Second with get(): IVertex<'V> = snd
+  member _.Second with get(): IVertex<'V> = snd
 
   /// Label of the edge. This can raise `DummyDataAccessException` when the
   /// edge has no label.
-  member __.Label with get(): 'E =
+  member _.Label with get(): 'E =
     if isNull label then raise DummyDataAccessException
     else label.Value
 
   /// Check if the edge has a label.
-  member __.HasLabel with get() = not (isNull label)
+  member _.HasLabel with get() = not (isNull label)
 
   override _.ToString () =
     if isNull label then ""
     else $"{label}"
 
 and [<AllowNullLiteral>] internal EdgeLabel<'E when 'E: equality> (value: 'E) =
-  member __.Value = value
+  member _.Value = value
 
   override _.ToString () = $"{value}"
 
   interface System.IEquatable<EdgeLabel<'E>> with
-    member __.Equals (other: EdgeLabel<'E>) =
-      __.Value = other.Value
+    member this.Equals (other: EdgeLabel<'E>) =
+      this.Value = other.Value

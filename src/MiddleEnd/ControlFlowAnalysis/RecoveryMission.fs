@@ -71,7 +71,7 @@ and private TaskManager<'FnCtx,
     |> Async.AwaitTask
     |> Async.RunSynchronously
 
-  member __.Start () =
+  member _.Start () =
     match strategy.FindCandidates builders.Values with
     | [||] -> scheduler.Terminate ()
     | candidates ->

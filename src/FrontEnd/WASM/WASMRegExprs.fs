@@ -30,7 +30,7 @@ open B2R2.FrontEnd.BinLifter
 type RegExprs () =
   let var sz t name = AST.var sz t name
 
-  member __.GetRegVar (name) =
+  member _.GetRegVar (name) =
     match name with
     | _ -> raise UnhandledRegExprException
 

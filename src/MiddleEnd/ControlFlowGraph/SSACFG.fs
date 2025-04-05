@@ -160,7 +160,7 @@ type SSACFG private (g: IDiGraph<SSABasicBlock, CFGEdgeKind>) =
   /// Find the definition of the given variable kind (targetVarKind) at the
   /// given node v. We simply follow the dominator tree of the given SSACFG
   /// until we find a definition.
-  member __.FindDef (v: IVertex<SSABasicBlock>) targetVarKind =
+  member this.FindDef (v: IVertex<SSABasicBlock>) targetVarKind =
     let stmtInfo =
       v.VData.Internals.Statements
       |> Array.tryFindBack (fun (_, stmt) ->
@@ -172,16 +172,16 @@ type SSACFG private (g: IDiGraph<SSABasicBlock, CFGEdgeKind>) =
     | None ->
       match v.VData.ImmDominator with
       | Some idom ->
-        __.FindDef idom targetVarKind
+        this.FindDef idom targetVarKind
       | None -> None
 
   /// Find the reaching definition of the given variable kind (targetVarKind) at
   /// the entry of node v. We simply follow the dominator tree of the given
   /// SSACFG until we find a definition.
-  member __.FindReachingDef (v: IVertex<SSABasicBlock>) targetVarKind =
+  member this.FindReachingDef (v: IVertex<SSABasicBlock>) targetVarKind =
     match v.VData.ImmDominator with
     | Some idom ->
-      __.FindDef idom targetVarKind
+      this.FindDef idom targetVarKind
     | None -> None
 
   interface IDiGraphAccessible<SSABasicBlock, CFGEdgeKind> with

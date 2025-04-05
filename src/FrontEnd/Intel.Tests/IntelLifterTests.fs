@@ -53,7 +53,7 @@ type IntelLifterTests () =
     |> test ctxt WordSize.Bit64 expectedStmts
 
   [<TestMethod>]
-  member __.``[X86] ADD instruction lift Test (1)`` () =
+  member _.``[X86] ADD instruction lift Test (1)`` () =
     testX86 "0500000100"
     <| [| "(5) {"
           "T_1:I32 := EAX"
@@ -72,7 +72,7 @@ type IntelLifterTests () =
           "} // 5" |]
 
   [<TestMethod>]
-  member __.``[X64] ADD instruction lift Test (1)`` () =
+  member _.``[X64] ADD instruction lift Test (1)`` () =
     testX64 "0500000100"
     <| [| "(5) {"
           "T_1:I32 := (RAX[31:0])"

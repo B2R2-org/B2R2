@@ -46,11 +46,11 @@ type LowUIRBasicBlock internal (pp, funcAbs, liftedInss, lblMap) =
 
   /// Return the `ILowUIRBasicBlock` interface to access the internal
   /// representation of the basic block.
-  member inline __.Internals with get() = __ :> ILowUIRBasicBlock
+  member inline this.Internals with get() = this :> ILowUIRBasicBlock
 
   /// Intra-instruction label information, which is a mapping from a label to
   /// the corresponding program point.
-  member __.LabelMap
+  member _.LabelMap
     with get(): ImmutableDictionary<Symbol, ProgramPoint> = lblMap
 
   /// Dominating jump table entry (tbl address and index) is a jump table entry
@@ -58,7 +58,7 @@ type LowUIRBasicBlock internal (pp, funcAbs, liftedInss, lblMap) =
   /// dominated by the indirect jump instruction that uses this jump table
   /// entry. This property is None if there's no such dominating jump table
   /// entry.
-  member __.DominatingJumpTableEntry
+  member _.DominatingJumpTableEntry
     with get(): (Addr * int) option = domJT
      and set(v) = domJT <- v
 
@@ -66,9 +66,9 @@ type LowUIRBasicBlock internal (pp, funcAbs, liftedInss, lblMap) =
   /// blocks. This function does not modify the original basic block. We assume
   /// that the given address is within the range of the basic block. Otherwise,
   /// this function will raise an exception.
-  member __.Cut (cutPoint: Addr) =
+  member this.Cut (cutPoint: Addr) =
     if isNull funcAbs then
-      assert ((__ :> IAddressable).Range.IsIncluding cutPoint)
+      assert ((this :> IAddressable).Range.IsIncluding cutPoint)
       let fstInstrs, sndInstrs =
         liftedInss
         |> Array.partition (fun ins -> ins.Original.Address < cutPoint)
@@ -133,8 +133,8 @@ type LowUIRBasicBlock internal (pp, funcAbs, liftedInss, lblMap) =
       else [||]
 
   interface IEquatable<LowUIRBasicBlock> with
-    member __.Equals (other: LowUIRBasicBlock) =
-      (__ :> IAddressable).PPoint = (other :> IAddressable).PPoint
+    member this.Equals (other: LowUIRBasicBlock) =
+      (this :> IAddressable).PPoint = (other :> IAddressable).PPoint
 
   static member CreateRegular (liftedInss, pp) =
     LowUIRBasicBlock (pp, null, liftedInss, ImmutableDictionary.Empty)

@@ -64,7 +64,7 @@ type ARM32LifterTests () =
     test ArchOperationMode.ThumbMode bytes givenStmts
 
   [<TestMethod>]
-  member __.``[ARMv7] ADD (shifted register) lift test`` () =
+  member _.``[ARMv7] ADD (shifted register) lift test`` () =
     let shiftAmt = AST.zext 32<rt> (AST.xtlo 8<rt> !.R8)
     "e080285e"
     ++ [| t32 1 :=
@@ -74,28 +74,28 @@ type ARM32LifterTests () =
     |> testARM
 
   [<TestMethod>]
-  member __.``[ARMv7] ADD (immedate) lift test`` () =
+  member _.``[ARMv7] ADD (immedate) lift test`` () =
     "e28f0ff0"
     ++ [| t32 1 := !.PC .+ num 0x8u .+ num 0x3c0u .+ num 0x0u
           !.R0 := t32 1 |]
     |> testARM
 
   [<TestMethod>]
-  member __.``[Thumb] ADD (Two Reg Operands) lift test`` () =
+  member _.``[Thumb] ADD (Two Reg Operands) lift test`` () =
     "448b"
     ++ [| t32 1 := !.FP .+ !.R1 .+ num 0u
           !.FP := t32 1 |]
     |> testThumb
 
   [<TestMethod>]
-  member __.``[Thumb] ADD (Three Reg Operands) lift test`` () =
+  member _.``[Thumb] ADD (Three Reg Operands) lift test`` () =
     "44ec"
     ++ [| t32 1 := !.SP .+ !.IP .+ num 0u
           !.IP := t32 1 |]
     |> testThumb
 
   [<TestMethod>]
-  member __.``[Thumb] ADD (Immediate) lift test`` () =
+  member _.``[Thumb] ADD (Immediate) lift test`` () =
     "b066"
     ++ [| t32 1 := !.SP .+ num 0x198u .+ num 0u
           !.SP := t32 1 |]

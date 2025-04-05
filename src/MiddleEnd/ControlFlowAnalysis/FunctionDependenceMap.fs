@@ -121,9 +121,9 @@ type FunctionDependenceMap () =
 
   /// Confirm the temporary dependencies by shifting the dependencies to the
   /// call graph. This function returns the confirmed callers.
-  member __.Confirm callee =
+  member this.Confirm callee =
     let calleeV = getCGVertex callee
-    let callers = __.RemoveTemporary callee
+    let callers = this.RemoveTemporary callee
     callers
     |> Array.iter (fun caller ->
       let callerV = getCGVertex caller

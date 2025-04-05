@@ -68,11 +68,11 @@ type SSAVarBasedDataFlowAnalysis<'Lattice>
                               'Lattice,
                               SSAVarBasedDataFlowState<'Lattice>,
                               SSABasicBlock> with
-    member __.InitializeState _vs =
+    member _.InitializeState _vs =
       SSAVarBasedDataFlowState<'Lattice> (hdl, analysis)
       |> analysis.OnInitialize
 
-    member __.Compute cfg (state: SSAVarBasedDataFlowState<'Lattice>) =
+    member _.Compute cfg (state: SSAVarBasedDataFlowState<'Lattice>) =
       state.SSAEdges <- SSAEdges cfg
       cfg.GetRoots ()
       |> Seq.iter (fun root -> state.FlowWorkList.Enqueue (0, root.ID))

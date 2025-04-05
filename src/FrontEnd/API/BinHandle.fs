@@ -101,11 +101,11 @@ type BinHandle private (path, bytes, fmt, isa, mode, baseAddrOpt) =
     BinHandle ([||], isa, NoMode, None, false)
 
   /// Return the `IBinFile` object.
-  member __.File with get(): IBinFile = binFile
+  member _.File with get(): IBinFile = binFile
 
-  member __.RegisterFactory with get(): RegisterFactory = regFactory
+  member _.RegisterFactory with get(): RegisterFactory = regFactory
 
-  member __.NewLiftingUnit () =
+  member _.NewLiftingUnit () =
     let mode =
       match binFile.ISA.Arch, binFile.EntryPoint, mode with
       | Architecture.ARMv7, Some entryPoint, ArchOperationMode.NoMode ->
@@ -115,7 +115,7 @@ type BinHandle private (path, bytes, fmt, isa, mode, baseAddrOpt) =
     let parser = GroundWork.CreateParser binFile.ISA mode
     LiftingUnit (binFile, parser)
 
-  member __.TryReadBytes (addr: Addr, nBytes) =
+  member _.TryReadBytes (addr: Addr, nBytes) =
     let range = AddrRange (addr, addr + uint64 nBytes - 1UL)
     if binFile.IsInFileRange range then
       let slice = binFile.Slice (addr, nBytes)
@@ -132,78 +132,78 @@ type BinHandle private (path, bytes, fmt, isa, mode, baseAddrOpt) =
       |> Ok
     else Error ErrorCase.InvalidMemoryRead
 
-  member __.TryReadBytes (ptr: BinFilePointer, nBytes) =
+  member _.TryReadBytes (ptr: BinFilePointer, nBytes) =
     if BinFilePointer.IsValidAccess ptr nBytes then
       let slice = binFile.Slice (ptr, nBytes)
       slice.ToArray () |> Ok
     else Error ErrorCase.InvalidMemoryRead
 
-  member __.ReadBytes (addr: Addr, nBytes) =
-    match __.TryReadBytes (addr, nBytes) with
+  member this.ReadBytes (addr: Addr, nBytes) =
+    match this.TryReadBytes (addr, nBytes) with
     | Ok bs -> bs
     | Error e -> invalidArg (nameof addr) (ErrorCase.toString e)
 
-  member __.ReadBytes (ptr: BinFilePointer, nBytes) =
-    match __.TryReadBytes (ptr, nBytes) with
+  member this.ReadBytes (ptr: BinFilePointer, nBytes) =
+    match this.TryReadBytes (ptr, nBytes) with
     | Ok bs -> bs
     | Error e -> invalidArg (nameof ptr) (ErrorCase.toString e)
 
-  member __.TryReadInt (addr: Addr, size) =
+  member _.TryReadInt (addr: Addr, size) =
     let pos = binFile.GetOffset addr
     if (pos + size) > binFile.Length || (pos < 0) then
       Error ErrorCase.InvalidMemoryRead
     else
       readIntBySize size (binFile.Slice (offset=pos))
 
-  member __.TryReadInt (ptr: BinFilePointer, size) =
+  member _.TryReadInt (ptr: BinFilePointer, size) =
     if BinFilePointer.IsValidAccess ptr size then
       readIntBySize size (binFile.Slice (offset=ptr.Offset))
     else Error ErrorCase.InvalidMemoryRead
 
-  member __.ReadInt (addr: Addr, size) =
-    match __.TryReadInt (addr, size) with
+  member this.ReadInt (addr: Addr, size) =
+    match this.TryReadInt (addr, size) with
     | Ok i -> i
     | Error e -> invalidArg (nameof addr) (ErrorCase.toString e)
 
-  member __.ReadInt (ptr: BinFilePointer, size) =
-    match __.TryReadInt (ptr, size) with
+  member this.ReadInt (ptr: BinFilePointer, size) =
+    match this.TryReadInt (ptr, size) with
     | Ok i -> i
     | Error e -> invalidArg (nameof ptr) (ErrorCase.toString e)
 
-  member __.TryReadUInt (addr: Addr, size) =
+  member _.TryReadUInt (addr: Addr, size) =
     let pos = binFile.GetOffset addr
     if (pos + size) > binFile.Length || (pos < 0) then
       Error ErrorCase.InvalidMemoryRead
     else
       readUIntBySize size (binFile.Slice (offset=pos))
 
-  member __.TryReadUInt (ptr: BinFilePointer, size) =
+  member _.TryReadUInt (ptr: BinFilePointer, size) =
     if BinFilePointer.IsValidAccess ptr size then
       readUIntBySize size (binFile.Slice (offset=ptr.Offset))
     else Error ErrorCase.InvalidMemoryRead
 
-  member __.ReadUInt (addr: Addr, size) =
-    match __.TryReadUInt (addr, size) with
+  member this.ReadUInt (addr: Addr, size) =
+    match this.TryReadUInt (addr, size) with
     | Ok i -> i
     | Error e -> invalidArg (nameof addr) (ErrorCase.toString e)
 
-  member __.ReadUInt (ptr: BinFilePointer, size) =
-    match __.TryReadUInt (ptr, size) with
+  member this.ReadUInt (ptr: BinFilePointer, size) =
+    match this.TryReadUInt (ptr, size) with
     | Ok i -> i
     | Error e -> invalidArg (nameof ptr) (ErrorCase.toString e)
 
-  member __.ReadASCII (addr: Addr) =
+  member _.ReadASCII (addr: Addr) =
     let bs = binFile.GetOffset addr |> readAscii []
     ByteArray.extractCString bs 0
 
-  member __.ReadASCII (ptr: BinFilePointer) =
+  member _.ReadASCII (ptr: BinFilePointer) =
     let bs = readAscii [] ptr.Offset
     ByteArray.extractCString bs 0
 
-  member __.MakeNew (bs: byte[]) =
+  member _.MakeNew (bs: byte[]) =
     BinHandle (path, bs, fmt, isa, mode, baseAddrOpt)
 
-  member __.MakeNew (bs: byte[], baseAddr) =
+  member _.MakeNew (bs: byte[], baseAddr) =
     BinHandle (path, bs, fmt, isa, mode, Some baseAddr)
 
 // vim: set tw=80 sts=2 sw=2:

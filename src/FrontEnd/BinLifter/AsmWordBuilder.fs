@@ -40,4 +40,6 @@ type AsmWordBuilder =
   ///   Append a new AsmWord to the builder.
   /// </summary>
   /// <param name="stmt">AsmWord to add.</param>
-  member __.Append stmt = __.Add (stmt); __
+  member this.Append stmt =
+    this.Add (stmt)
+    this

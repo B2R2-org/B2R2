@@ -31,7 +31,7 @@ open B2R2.BinIR.LowUIR
 type PPC32RegisterFactory (wordSize, r: RegExprs) =
   inherit RegisterFactory ()
 
-  override __.GetAllRegExprs () =
+  override _.GetAllRegExprs () =
     [ r.R0; r.R1; r.R2; r.R3; r.R4; r.R5; r.R6; r.R7; r.R8; r.R9; r.R10; r.R11
       r.R12; r.R13; r.R14; r.R15; r.R16; r.R17; r.R18; r.R19; r.R20; r.R21
       r.R22; r.R23; r.R24; r.R25; r.R26; r.R27; r.R28; r.R29; r.R30; r.R31
@@ -43,24 +43,24 @@ type PPC32RegisterFactory (wordSize, r: RegExprs) =
       r.CR4_0; r.CR4_1; r.CR4_2; r.CR4_3; r.CR5_0; r.CR5_1; r.CR5_2; r.CR5_3;
       r.CR6_0; r.CR6_1; r.CR6_2; r.CR6_3; r.CR7_0; r.CR7_1; r.CR7_2; r.CR7_3; ]
 
-  override __.GetAllRegNames () =
-    __.GetAllRegExprs ()
-    |> List.map (__.RegIDFromRegExpr >> __.RegIDToString)
+  override this.GetAllRegNames () =
+    this.GetAllRegExprs ()
+    |> List.map (this.RegIDFromRegExpr >> this.RegIDToString)
 
-  override __.GetGeneralRegExprs () =
+  override _.GetGeneralRegExprs () =
     [ r.R0; r.R1; r.R2; r.R3; r.R4; r.R5; r.R6; r.R7; r.R8; r.R9; r.R10; r.R11
       r.R12; r.R13; r.R14; r.R15; r.R16; r.R17; r.R18; r.R19; r.R20; r.R21
       r.R22; r.R23; r.R24; r.R25; r.R26; r.R27; r.R28; r.R29; r.R30; r.R31 ]
 
-  override __.RegIDFromRegExpr (e) =
+  override _.RegIDFromRegExpr (e) =
     match e.E with
     | Var (_, id, _) -> id
     | _ -> raise InvalidRegisterException
 
-  override __.RegIDToRegExpr (id) =
+  override _.RegIDToRegExpr (id) =
     Register.ofRegID id |> r.GetRegVar
 
-  override __.StrToRegExpr s =
+  override _.StrToRegExpr s =
     match s.ToLowerInvariant () with
     | "r0" -> r.R0
     | "r1" -> r.R1
@@ -160,29 +160,29 @@ type PPC32RegisterFactory (wordSize, r: RegExprs) =
     | "cr7_3" -> r.CR7_3
     | _ -> raise UnhandledRegExprException
 
-  override __.RegIDFromString str =
+  override _.RegIDFromString str =
     Register.ofString str |> Register.toRegID
 
-  override __.RegIDToString rid =
+  override _.RegIDToString rid =
     Register.ofRegID rid |> Register.toString
 
-  override __.RegIDToRegType rid =
+  override _.RegIDToRegType rid =
     if rid < 0x40<RegisterID.T> then WordSize.toRegType wordSize
     else 4<rt>
 
-  override __.GetRegisterAliases rid =
+  override _.GetRegisterAliases rid =
     [| rid |]
 
-  override __.ProgramCounter = Terminator.futureFeature ()
+  override _.ProgramCounter = Terminator.futureFeature ()
 
-  override __.StackPointer =
+  override _.StackPointer =
     Register.R1 |> Register.toRegID |> Some
 
-  override __.FramePointer = None
+  override _.FramePointer = None
 
-  override __.IsProgramCounter _ = false
+  override _.IsProgramCounter _ = false
 
-  override __.IsStackPointer rid =
-    (__.StackPointer |> Option.get) = rid
+  override this.IsStackPointer rid =
+    (this.StackPointer |> Option.get) = rid
 
-  override __.IsFramePointer _ = false
+  override _.IsFramePointer _ = false

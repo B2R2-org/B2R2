@@ -30,51 +30,51 @@ open B2R2.FrontEnd.BinLifter
 type S39064RegisterFactory (wordSize, r: RegExprs) =
   inherit RegisterFactory ()
 
-  override __.GetAllRegExprs () =
+  override _.GetAllRegExprs () =
     Terminator.futureFeature ()
 
-  override __.GetAllRegNames () =
-    __.GetAllRegExprs ()
-    |> List.map (__.RegIDFromRegExpr >> __.RegIDToString)
+  override this.GetAllRegNames () =
+    this.GetAllRegExprs ()
+    |> List.map (this.RegIDFromRegExpr >> this.RegIDToString)
 
-  override __.GetGeneralRegExprs () =
+  override _.GetGeneralRegExprs () =
     Terminator.futureFeature ()
 
-  override __.RegIDFromRegExpr (e) =
+  override _.RegIDFromRegExpr (e) =
     Terminator.futureFeature ()
 
-  override __.RegIDToRegExpr (id) =
+  override _.RegIDToRegExpr (id) =
     Terminator.futureFeature ()
 
-  override __.StrToRegExpr s =
+  override _.StrToRegExpr s =
     Terminator.futureFeature ()
 
-  override __.RegIDFromString str =
+  override _.RegIDFromString str =
     Terminator.futureFeature ()
 
-  override __.RegIDToString rid =
+  override _.RegIDToString rid =
     Terminator.futureFeature ()
 
-  override __.RegIDToRegType rid =
+  override _.RegIDToRegType rid =
     Terminator.futureFeature ()
 
-  override __.GetRegisterAliases _rid =
+  override _.GetRegisterAliases _rid =
     Terminator.futureFeature ()
 
-  override __.ProgramCounter =
+  override _.ProgramCounter =
     Terminator.futureFeature ()
 
-  override __.StackPointer =
+  override _.StackPointer =
     Terminator.futureFeature ()
 
-  override __.FramePointer =
+  override _.FramePointer =
     Terminator.futureFeature ()
 
-  override __.IsProgramCounter rid =
+  override _.IsProgramCounter rid =
     Terminator.futureFeature ()
 
-  override __.IsStackPointer rid =
+  override _.IsStackPointer rid =
     Terminator.futureFeature ()
 
-  override __.IsFramePointer rid =
+  override _.IsFramePointer rid =
     Terminator.futureFeature ()

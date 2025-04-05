@@ -40,37 +40,37 @@ type WasmTests () =
   static let file = parseFile "wasm_basic"
 
   [<TestMethod>]
-  member __.``[Wasm] EntryPoint test`` () =
+  member _.``[Wasm] EntryPoint test`` () =
     Assert.AreEqual (Some 0x15AUL, file.EntryPoint)
 
   [<TestMethod>]
-  member __.``[Wasm] file type test`` () =
+  member _.``[Wasm] file type test`` () =
     Assert.AreEqual (FileType.ExecutableFile, file.Type)
 
   [<TestMethod>]
-  member __.``[Wasm] IsStripped test`` () =
+  member _.``[Wasm] IsStripped test`` () =
     Assert.IsFalse (file.IsStripped)
 
   [<TestMethod>]
-  member __.``[Wasm] text section address test`` () =
+  member _.``[Wasm] text section address test`` () =
     Assert.AreEqual<uint64> (0x154UL, getTextSectionAddr file)
 
   [<TestMethod>]
-  member __.``[Wasm] symbols length test`` () =
+  member _.``[Wasm] symbols length test`` () =
     Assert.AreEqual<int> (9, file.GetSymbols () |> Seq.length)
 
   [<TestMethod>]
-  member __.``[Wasm] sections length test`` () =
+  member _.``[Wasm] sections length test`` () =
     Assert.AreEqual<int> (12, file.GetSections () |> Seq.length)
 
   [<TestMethod>]
-  member __.``[Wasm] linkageTableEntries length test`` () =
+  member _.``[Wasm] linkageTableEntries length test`` () =
     Assert.AreEqual<int> (4, file.GetLinkageTableEntries () |> Seq.length)
 
   [<TestMethod>]
-  member __.``[Wasm] function symbol test (1)`` () =
+  member _.``[Wasm] function symbol test (1)`` () =
     assertFuncSymbolExistence file 0x0000007AUL "putc_js"
 
   [<TestMethod>]
-  member __.``[Wasm] function symbol test (2)`` () =
+  member _.``[Wasm] function symbol test (2)`` () =
     assertFuncSymbolExistence file 0x00000116UL "writev_c"

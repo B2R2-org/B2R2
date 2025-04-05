@@ -36,16 +36,16 @@ type ListAction () =
     |> box
 
   interface IAction with
-    member __.ActionID with get() = "list"
-    member __.Signature with get() = "Binary * [cmd] -> unit"
-    member __.Description with get() = """
+    member _.ActionID with get() = "list"
+    member _.Signature with get() = "Binary * [cmd] -> unit"
+    member _.Description with get() = """
     Take in a parsed binary and return a list of elements such as functions,
     sections, etc. The output type is determined by the extra [cmd] argument.
     Currently, we support the following [cmd]:
 
       - `sections` (sects|ss): returns a list of sections.
 """
-    member __.Transform args collection =
+    member _.Transform args collection =
       match args with
       | [ "sections" ] | [ "sects" ] | [ "ss" ] ->
         { Values = collection.Values |> Array.map listSections }

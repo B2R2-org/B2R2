@@ -32,7 +32,7 @@ open B2R2.BinIR.LowUIR
 type BinIRTests () =
 
   [<TestMethod>]
-  member __.``Inline Optimization Test``() =
+  member _.``Inline Optimization Test``() =
     let n1 = AST.num <| BitVector.OfInt32 1 32<rt>
     let n2 = AST.num <| BitVector.OfInt32 2 32<rt>
     let n3 = AST.num <| BitVector.OfInt32 3 32<rt>
@@ -41,7 +41,7 @@ type BinIRTests () =
     Assert.AreEqual<Expr> (e1, e2)
 
   [<TestMethod>]
-  member __.``Expr Commutative Equivalence Test 1``() =
+  member _.``Expr Commutative Equivalence Test 1``() =
     let n1 = AST.tmpvar 32<rt> 0
     let n2 = AST.tmpvar 32<rt> 1
     let e1 = AST.add n1 n2
@@ -54,7 +54,7 @@ type BinIRTests () =
 #endif
 
   [<TestMethod>]
-  member __.``Expr Commutative Equivalence Test 2``() =
+  member _.``Expr Commutative Equivalence Test 2``() =
     let n1 = AST.tmpvar 32<rt> 0
     let n2 = AST.tmpvar 32<rt> 1
     let n3 = AST.tmpvar 32<rt> 2
@@ -68,7 +68,7 @@ type BinIRTests () =
 #endif
 
   [<TestMethod>]
-  member __.``Consing Exception Test``() =
+  member _.``Consing Exception Test``() =
     let n1 = AST.tmpvar 32<rt> 0
     let n2 = AST.nil
     AST.cons n1 n2 |> ignore

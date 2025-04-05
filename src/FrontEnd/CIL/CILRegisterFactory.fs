@@ -31,45 +31,45 @@ open B2R2.BinIR.LowUIR
 type CILRegisterFactory () =
   inherit RegisterFactory ()
 
-  override __.GetAllRegExprs () = Terminator.futureFeature ()
+  override _.GetAllRegExprs () = Terminator.futureFeature ()
 
-  override __.GetAllRegNames () = []
+  override _.GetAllRegNames () = []
 
-  override __.GetGeneralRegExprs () = Terminator.futureFeature ()
+  override _.GetGeneralRegExprs () = Terminator.futureFeature ()
 
-  override __.RegIDFromRegExpr (e) =
+  override _.RegIDFromRegExpr (e) =
     match e.E with
     | Var (_, id, _) -> id
     | PCVar _ -> Register.toRegID Register.PC
     | _ -> raise InvalidRegisterException
 
-  override __.RegIDToRegExpr (_id) = Terminator.impossible ()
+  override _.RegIDToRegExpr (_id) = Terminator.impossible ()
 
-  override __.StrToRegExpr _s = Terminator.impossible ()
+  override _.StrToRegExpr _s = Terminator.impossible ()
 
-  override __.RegIDFromString str =
+  override _.RegIDFromString str =
     Register.ofString str |> Register.toRegID
 
-  override __.RegIDToString rid =
+  override _.RegIDToString rid =
     Register.ofRegID rid |> Register.toString
 
-  override __.RegIDToRegType rid =
+  override _.RegIDToRegType rid =
     Register.ofRegID rid |> Register.toRegType
 
-  override __.GetRegisterAliases _ = Terminator.futureFeature ()
+  override _.GetRegisterAliases _ = Terminator.futureFeature ()
 
-  override __.ProgramCounter =
+  override _.ProgramCounter =
     Register.PC |> Register.toRegID
 
-  override __.StackPointer =
+  override _.StackPointer =
     Register.SP |> Register.toRegID |> Some
 
-  override __.FramePointer = Terminator.futureFeature ()
+  override _.FramePointer = Terminator.futureFeature ()
 
-  override __.IsProgramCounter regid =
-    __.ProgramCounter = regid
+  override this.IsProgramCounter regid =
+    this.ProgramCounter = regid
 
-  override __.IsStackPointer regid =
-    (__.StackPointer |> Option.get) = regid
+  override this.IsStackPointer regid =
+    (this.StackPointer |> Option.get) = regid
 
-  override __.IsFramePointer _ = false
+  override _.IsFramePointer _ = false

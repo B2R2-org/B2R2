@@ -33,28 +33,28 @@ type UniqueQueue<'T> () =
   let set = HashSet<'T> ()
 
   /// Enqueue an element only if it is not already in the queue.
-  member __.Enqueue (x: 'T) =
+  member _.Enqueue (x: 'T) =
     if set.Add x |> not then ()
     else queue.Enqueue x
 
   /// Dequeue an element. If the element is not in the queue, it raises an
   /// exception.
-  member __.Dequeue () =
+  member _.Dequeue () =
     let x = queue.Dequeue ()
     if set.Remove x then x
     else B2R2.Terminator.impossible ()
 
   /// Try to dequeue an element.
-  member __.TryDequeue ([<Out>] result: byref<'T>) =
+  member _.TryDequeue ([<Out>] result: byref<'T>) =
     if not <| queue.TryDequeue (&result) then false
     else set.Remove result
 
   /// Get the number of elements in the queue.
-  member __.Count = queue.Count
+  member _.Count = queue.Count
 
   /// Clear the queue.
-  member __.Clear () = queue.Clear ()
+  member _.Clear () = queue.Clear ()
 
   /// Check if the queue is empty.
-  member __.IsEmpty with get () = queue.Count = 0
+  member _.IsEmpty with get () = queue.Count = 0
 

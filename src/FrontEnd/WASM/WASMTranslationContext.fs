@@ -33,10 +33,10 @@ type WASMTranslationContext (isa) =
 
   let regExprs = RegExprs ()
 
-  member __.RegExprs with get() = regExprs
+  member _.RegExprs with get() = regExprs
 
-  override __.GetRegVar id =
+  override _.GetRegVar id =
     Register.ofRegID id |> regExprs.GetRegVar
 
-  override __.GetPseudoRegVar _id _pos =
+  override _.GetPseudoRegVar _id _pos =
     Terminator.impossible ()

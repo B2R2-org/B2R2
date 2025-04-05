@@ -32,14 +32,14 @@ type SH4Parser (isa: ISA) =
   let reader = BinReader.Init isa.Endian
 
   interface IInstructionParsable with
-    member __.Parse (bs: byte[], addr: Addr) =
+    member _.Parse (bs: byte[], addr: Addr) =
       let span = ReadOnlySpan bs
       ParsingMain.parse span reader addr :> Instruction
 
-    member __.Parse (span: ByteSpan, addr: Addr) =
+    member _.Parse (span: ByteSpan, addr: Addr) =
       ParsingMain.parse span reader addr :> Instruction
 
-    member __.MaxInstructionSize = 2
+    member _.MaxInstructionSize = 2
 
-    member __.OperationMode with get() = ArchOperationMode.NoMode and set _ = ()
+    member _.OperationMode with get() = ArchOperationMode.NoMode and set _ = ()
 

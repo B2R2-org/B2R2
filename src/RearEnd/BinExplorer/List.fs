@@ -72,22 +72,22 @@ type CmdList () =
     |> Seq.mapi (createSectionString wordSize)
     |> Seq.toArray
 
-  override __.CmdName = "list"
+  override _.CmdName = "list"
 
-  override __.CmdAlias = [ "ls" ]
+  override _.CmdAlias = [ "ls" ]
 
-  override __.CmdDescr = "List the contents of the binary."
+  override _.CmdDescr = "List the contents of the binary."
 
-  override __.CmdHelp =
+  override _.CmdHelp =
     "Usage: list <cmds> [options]\n\n\
      Currently available commands are:\n\
      - functions: List functions in the binary.\n\
      - segments: List segments to be loaded.\n\
      - sections: List sections in the binary."
 
-  override __.SubCommands = [ "functions"; "segments"; ]
+  override _.SubCommands = [ "functions"; "segments"; ]
 
-  override __.CallBack _ brew args =
+  override _.CallBack _ brew args =
     match args with
     | "functions" :: _
     | "funcs" :: _ -> listFunctions brew

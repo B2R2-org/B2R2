@@ -66,43 +66,43 @@ type ExternalFnCFGBuilder<'FnCtx,
       ThreadID = -1 }
 
   interface ICFGBuildable<'FnCtx, 'GlCtx> with
-    member __.BuilderState with get() = Finished
+    member _.BuilderState with get() = Finished
 
-    member __.EntryPoint with get(): Addr = entryPoint
+    member _.EntryPoint with get(): Addr = entryPoint
 
-    member __.NextFunctionAddress with get() = None and set(_) = ()
+    member _.NextFunctionAddress with get() = None and set(_) = ()
 
-    member __.Mode with get() = Terminator.impossible ()
+    member _.Mode with get() = Terminator.impossible ()
 
-    member __.Context with get() = ctx
+    member _.Context with get() = ctx
 
-    member __.DelayedBuilderRequests with get() = Terminator.impossible ()
+    member _.DelayedBuilderRequests with get() = Terminator.impossible ()
 
-    member __.HasJumpTable with get() = false
+    member _.HasJumpTable with get() = false
 
-    member __.IsExternal with get() = true
+    member _.IsExternal with get() = true
 
-    member __.Authorize () = ()
+    member _.Authorize () = ()
 
-    member __.Stop () = ()
+    member _.Stop () = ()
 
-    member __.ForceFinish () = ()
+    member _.ForceFinish () = ()
 
-    member __.StartVerifying () = ()
+    member _.StartVerifying () = ()
 
-    member __.Finalize () = ()
+    member _.Finalize () = ()
 
-    member __.ReInitialize () = ()
+    member _.ReInitialize () = ()
 
-    member __.Invalidate () = ()
+    member _.Invalidate () = ()
 
-    member __.Build _ = Terminator.impossible ()
+    member _.Build _ = Terminator.impossible ()
 
-    member __.Reset () = ()
+    member _.Reset () = ()
 
-    member __.MakeNew _ = Terminator.impossible ()
+    member _.MakeNew _ = Terminator.impossible ()
 
-    member __.ToFunction () =
+    member _.ToFunction () =
       Function (entryPoint,
                 name,
                 ctx.NonReturningStatus,

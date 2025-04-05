@@ -40,6 +40,6 @@ type EVMParserTests () =
   let ( ++ ) byteString op = (ByteArray.ofHexString byteString, op)
 
   [<TestMethod>]
-  member __.``[EVM] PUSH10 Parse Test (1)`` () =
+  member _.``[EVM] PUSH10 Parse Test (1)`` () =
     "6900112233445566778899"
     ++ (PUSH10 <| (OfBInt 316059037807746189465I 80<rt>)) ||> test

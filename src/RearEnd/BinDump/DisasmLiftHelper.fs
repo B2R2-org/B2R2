@@ -182,20 +182,20 @@ type BinPrinter (hdl: BinHandle, cfg, isLift) =
 
   abstract UpdateMode: LiftingUnit -> Addr -> unit
 
-  member __.LiftingUnit with get() = liftingUnit
+  member _.LiftingUnit with get() = liftingUnit
 
-  member __.Print ptr =
+  member this.Print ptr =
     if BinFilePointer.IsValid ptr then
-      __.PrintFuncSymbol ptr.Addr
-      __.UpdateMode liftingUnit ptr.Addr
+      this.PrintFuncSymbol ptr.Addr
+      this.UpdateMode liftingUnit ptr.Addr
       match liftingUnit.TryParseInstruction (ptr=ptr) with
       | Ok (ins) ->
-        __.PrintInstr hdl ptr ins
+        this.PrintInstr hdl ptr ins
         let ptr' = BinFilePointer.Advance ptr (int ins.Length)
-        __.Print ptr'
+        this.Print ptr'
       | Error _ ->
         let mode = liftingUnit.Parser.OperationMode
-        __.Print (handleInvalidIns hdl mode ptr isLift cfg)
+        this.Print (handleInvalidIns hdl mode ptr isLift cfg)
     else ()
 
 [<AbstractClass>]
@@ -214,27 +214,27 @@ type BinCodeDisasmPrinter (hdl, cfg, showSym, showColor) =
   inherit BinFuncPrinter (hdl, cfg, false)
   let wordSize = hdl.File.ISA.WordSize
   let disPrinter = if showColor then colorDisPrinter else regularDisPrinter
-  override __.PrintInstr hdl ptr ins =
-    disPrinter hdl __.LiftingUnit wordSize showSym ptr ins cfg
+  override this.PrintInstr hdl ptr ins =
+    disPrinter hdl this.LiftingUnit wordSize showSym ptr ins cfg
   override _.UpdateMode _ _ = ()
 
 type BinCodeIRPrinter (hdl, cfg, optimizer) =
   inherit BinFuncPrinter (hdl, cfg, true)
-  override __.PrintInstr hdl ptr ins =
-    regularIRPrinter hdl __.LiftingUnit optimizer ptr ins cfg
+  override this.PrintInstr hdl ptr ins =
+    regularIRPrinter hdl this.LiftingUnit optimizer ptr ins cfg
   override _.UpdateMode _ _ = ()
 
 type BinTableDisasmPrinter (hdl, cfg) =
   inherit BinTablePrinter (hdl, cfg, false)
   let wordSize = hdl.File.ISA.WordSize
-  override __.PrintInstr hdl ptr ins =
-    regularDisPrinter hdl __.LiftingUnit wordSize true ptr ins cfg
+  override this.PrintInstr hdl ptr ins =
+    regularDisPrinter hdl this.LiftingUnit wordSize true ptr ins cfg
   override _.UpdateMode _ _ = ()
 
 type BinTableIRPrinter (hdl, cfg, optimizer) =
   inherit BinTablePrinter (hdl, cfg, true)
-  override __.PrintInstr hdl ptr ins =
-    regularIRPrinter hdl __.LiftingUnit optimizer ptr ins cfg
+  override this.PrintInstr hdl ptr ins =
+    regularIRPrinter hdl this.LiftingUnit optimizer ptr ins cfg
   override _.UpdateMode _ _ = ()
 
 type ContextSensitiveCodeDisasmPrinter (hdl, cfg, showSym, showColor) =
@@ -242,28 +242,28 @@ type ContextSensitiveCodeDisasmPrinter (hdl, cfg, showSym, showColor) =
   let wordSize = hdl.File.ISA.WordSize
   let disPrinter = if showColor then colorDisPrinter else regularDisPrinter
   let archmodes = makeArchModeDic hdl
-  override __.PrintInstr hdl ptr ins =
-    disPrinter hdl __.LiftingUnit wordSize showSym ptr ins cfg
+  override this.PrintInstr hdl ptr ins =
+    disPrinter hdl this.LiftingUnit wordSize showSym ptr ins cfg
   override _.UpdateMode hdl addr = updateMode archmodes hdl addr
 
 type ContextSensitiveCodeIRPrinter (hdl, cfg, optimizer) =
   inherit BinFuncPrinter (hdl, cfg, true)
   let archmodes = makeArchModeDic hdl
-  override __.PrintInstr hdl ptr ins =
-    regularIRPrinter hdl __.LiftingUnit optimizer ptr ins cfg
+  override this.PrintInstr hdl ptr ins =
+    regularIRPrinter hdl this.LiftingUnit optimizer ptr ins cfg
   override _.UpdateMode hdl addr = updateMode archmodes hdl addr
 
 type ContextSensitiveTableDisasmPrinter (hdl, cfg) =
   inherit BinTablePrinter (hdl, cfg, false)
   let archmodes = makeArchModeDic hdl
   let wordSize = hdl.File.ISA.WordSize
-  override __.PrintInstr hdl ptr ins =
-    regularDisPrinter hdl __.LiftingUnit wordSize true ptr ins cfg
+  override this.PrintInstr hdl ptr ins =
+    regularDisPrinter hdl this.LiftingUnit wordSize true ptr ins cfg
   override _.UpdateMode hdl addr = updateMode archmodes hdl addr
 
 type ContextSensitiveTableIRPrinter (hdl, cfg, optimizer) =
   inherit BinTablePrinter (hdl, cfg, true)
   let archmodes = makeArchModeDic hdl
-  override __.PrintInstr hdl ptr ins =
-    regularIRPrinter hdl __.LiftingUnit optimizer ptr ins cfg
+  override this.PrintInstr hdl ptr ins =
+    regularIRPrinter hdl this.LiftingUnit optimizer ptr ins cfg
   override _.UpdateMode hdl addr = updateMode archmodes hdl addr

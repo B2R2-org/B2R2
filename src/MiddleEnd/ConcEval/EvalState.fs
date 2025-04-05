@@ -80,140 +80,140 @@ and EvalState (regs, temps, lbls, mem, ignoreUndef) =
                ignoreUndef)
 
   /// Current PC.
-  member __.PC with get() = pc and set(addr) = pc <- addr
+  member _.PC with get() = pc and set(addr) = pc <- addr
 
   /// The current index of the statement to evaluate within the scope of a
   /// machine instruction. This index behaves like a PC for statements of an
   /// instruction.
-  member __.StmtIdx with get() = stmtIdx and set(i) = stmtIdx <- i
+  member _.StmtIdx with get() = stmtIdx and set(i) = stmtIdx <- i
 
   /// Architecture mode.
-  member __.Mode with get() = mode and set(m) = mode <- m
+  member _.Mode with get() = mode and set(m) = mode <- m
 
   /// Current instruction length.
-  member __.CurrentInsLen
+  member _.CurrentInsLen
     with get() = currentInsLen and set(l) = currentInsLen <- l
 
   /// Named register values.
-  member __.Registers with get() = regs
+  member _.Registers with get() = regs
 
   /// Temporary variable values.
-  member __.Temporaries with get() = temps
+  member _.Temporaries with get() = temps
 
   /// Memory.
-  member __.Memory with get() = mem
+  member _.Memory with get() = mem
 
   /// Store labels and their corresponding statement indices.
-  member __.Labels with get() = lbls
+  member _.Labels with get() = lbls
 
   /// Indicate whether to terminate the current instruction or not. This flag is
   /// set to true when we encounter an inter-jump statement or SideEffect, so
   /// that we can ignore the rest of the statements.
-  member __.IsInstrTerminated
+  member _.IsInstrTerminated
     with get() = isInstrTerminated and set(f) = isInstrTerminated <- f
 
   /// Indicate whether to evaluate IEMark while ignoring the other instructions.
   /// This means, the evaluation of the instruction is over, but we need to
   /// advance the PC to the next instruction using IEMark. Thus, this flag is
   /// only meaningful when `IsInstrTerminated` is true.
-  member __.NeedToEvaluateIEMark
+  member _.NeedToEvaluateIEMark
     with get() = needToEvaluateIEMark and set(f) = needToEvaluateIEMark <- f
 
   /// Whether to ignore statements that cannot be evaluated due to undef values.
   /// This is particularly useful to quickly check some constants.
-  member __.IgnoreUndef with get() = ignoreUndef
+  member _.IgnoreUndef with get() = ignoreUndef
 
   /// Update the current statement index to be the next (current + 1) statement.
-  member inline __.NextStmt () =
-    __.StmtIdx <- __.StmtIdx + 1
+  member inline this.NextStmt () =
+    this.StmtIdx <- this.StmtIdx + 1
 
   /// Stop evaluating further statements of the current instruction, and move on
   /// the next instruction.
-  member __.AbortInstr ([<Optional; DefaultParameterValue(false)>]
+  member this.AbortInstr ([<Optional; DefaultParameterValue(false)>]
                         needToUpdatePC: bool) =
     isInstrTerminated <- true
     needToEvaluateIEMark <- needToUpdatePC
-    __.NextStmt ()
+    this.NextStmt ()
 
   /// Get the value of the given temporary variable.
-  member inline __.TryGetTmp n =
-    match __.Temporaries.TryGet (n) with
+  member inline this.TryGetTmp n =
+    match this.Temporaries.TryGet (n) with
     | Ok v -> Def v
     | Error _ -> Undef
 
   /// Get the value of the given temporary variable.
-  member inline __.GetTmp n =
-    __.Temporaries.Get (n)
+  member inline this.GetTmp n =
+    this.Temporaries.Get (n)
 
   /// Set the value for the given temporary variable.
-  member inline __.SetTmp n v =
-    __.Temporaries.Set n v
+  member inline this.SetTmp n v =
+    this.Temporaries.Set n v
 
   /// Unset the given temporary variable.
-  member inline __.UnsetTmp n =
-    __.Temporaries.Unset n
+  member inline this.UnsetTmp n =
+    this.Temporaries.Unset n
 
   /// Get the value of the given register.
-  member inline __.TryGetReg (r: RegisterID) =
-    match __.Registers.TryGet (int r) with
+  member inline this.TryGetReg (r: RegisterID) =
+    match this.Registers.TryGet (int r) with
     | Ok v -> Def v
     | Error _ -> Undef
 
   /// Get the value of the given register.
-  member inline __.GetReg (r: RegisterID) =
-    __.Registers.Get (int r)
+  member inline this.GetReg (r: RegisterID) =
+    this.Registers.Get (int r)
 
   /// Set the value for the given register.
-  member inline __.SetReg (r: RegisterID) v =
-    __.Registers.Set (int r) v
+  member inline this.SetReg (r: RegisterID) v =
+    this.Registers.Set (int r) v
 
   /// Unset the given register.
-  member inline __.UnsetReg (r: RegisterID) =
-    __.Registers.Unset (int r)
+  member inline this.UnsetReg (r: RegisterID) =
+    this.Registers.Unset (int r)
 
   /// Advance PC by `amount`.
-  member inline __.AdvancePC (amount: uint32) =
-    __.PC <- __.PC + uint64 amount
+  member inline this.AdvancePC (amount: uint32) =
+    this.PC <- this.PC + uint64 amount
 
   /// Initialize the current context by updating register values.
-  member __.InitializeContext pc regs =
-    __.PC <- pc
-    regs |> List.iter (fun (r, v) -> __.SetReg r v)
+  member this.InitializeContext pc regs =
+    this.PC <- pc
+    regs |> List.iter (fun (r, v) -> this.SetReg r v)
 
   /// Go to the statement of the given label.
-  member inline __.GoToLabel lbl =
-    __.StmtIdx <- __.Labels.Index lbl
+  member inline this.GoToLabel lbl =
+    this.StmtIdx <- this.Labels.Index lbl
 
   /// Get ready for evaluating a new instruction.
-  member inline __.PrepareInstrEval stmts =
-    __.IsInstrTerminated <- false
-    __.NeedToEvaluateIEMark <- false
-    __.Labels.Update stmts
-    __.StmtIdx <- 0
+  member inline this.PrepareInstrEval stmts =
+    this.IsInstrTerminated <- false
+    this.NeedToEvaluateIEMark <- false
+    this.Labels.Update stmts
+    this.StmtIdx <- 0
 
   /// Memory load failure (access violation) event handler.
-  member __.LoadFailureEventHandler
+  member _.LoadFailureEventHandler
     with get() = loadFailureHdl and set(f) = loadFailureHdl <- f
 
   /// External call event handler.
-  member __.ExternalCallEventHandler
+  member _.ExternalCallEventHandler
     with get() = externalCallEventHdl and set(f) = externalCallEventHdl <- f
 
   /// Side-effect event handler.
-  member __.SideEffectEventHandler
+  member _.SideEffectEventHandler
     with get() = sideEffectHdl and set(f) = sideEffectHdl <- f
 
-  member internal __.OnLoadFailure pc addr rt e =
-    __.LoadFailureEventHandler.Invoke (pc, addr, rt, e)
+  member internal this.OnLoadFailure pc addr rt e =
+    this.LoadFailureEventHandler.Invoke (pc, addr, rt, e)
 
-  member internal __.OnExternalCall args st =
-    __.ExternalCallEventHandler.Invoke (args, st)
+  member internal this.OnExternalCall args st =
+    this.ExternalCallEventHandler.Invoke (args, st)
 
-  member internal __.OnSideEffect eff st =
-    __.SideEffectEventHandler.Invoke (eff, st)
+  member internal this.OnSideEffect eff st =
+    this.SideEffectEventHandler.Invoke (eff, st)
 
   /// Make a copy of this EvalState with a given new Memory.
-  member __.Clone (newMem) =
+  member _.Clone (newMem) =
     EvalState (regs.Clone (),
                temps.Clone (),
                lbls.Clone (),
@@ -230,4 +230,4 @@ and EvalState (regs, temps, lbls, mem, ignoreUndef) =
                SideEffectEventHandler=sideEffectHdl)
 
   /// Make a copy of this EvalState.
-  member __.Clone () = __.Clone (mem)
+  member this.Clone () = this.Clone (mem)

@@ -44,40 +44,41 @@ type CmdSearch () =
     |> Seq.map toResult
     |> Seq.toList
 
-  override __.CmdName = "search"
+  override _.CmdName = "search"
 
-  override __.CmdAlias = [ "s" ]
+  override _.CmdAlias = [ "s" ]
 
-  override __.CmdDescr = "Search expressions."
+  override _.CmdDescr = "Search expressions."
 
-  override __.CmdHelp =
+  override _.CmdHelp =
     "Usage: search <type> [expr]\n\n\
      Search the given expression from the binary.\n\
      <type> is the data type for the expression, which can be:\n\
        - s (string)\n\
        - h (hex string)"
 
-  override __.SubCommands = []
+  override _.SubCommands = []
 
-  member __.Search hdl strPattern bytePattern =
+  member _.Search hdl strPattern bytePattern =
     let ret = [| "[*] Searching for (" + strPattern + ") ..." |]
     match search hdl bytePattern with
     | [] -> Array.append ret [| "[*] The pattern not found." |]
     | results ->
       Array.append ret (List.toArray results)
 
-  member __.CmdHandle hdl (pattern: string) = function
+  member this.CmdHandle hdl (pattern: string) = function
     | "s" | "string" ->
-      Text.Encoding.ASCII.GetBytes pattern |> __.Search hdl pattern
+      Text.Encoding.ASCII.GetBytes pattern |> this.Search hdl pattern
     | "h" | "hex" ->
-      ByteArray.ofHexString pattern |> __.Search hdl pattern
+      ByteArray.ofHexString pattern |> this.Search hdl pattern
     | c -> [| "Unknown type " + c |]
 
-  override __.CallBack _ ess args =
+  override this.CallBack _ ess args =
     let res =
       match args with
       | []
-      | _ :: [] -> [| __.CmdHelp |]
+      | _ :: [] -> [| this.CmdHelp |]
       | t :: pattern :: _ ->
-        t.ToLowerInvariant () |> __.CmdHandle ess.BinHandle pattern
+        t.ToLowerInvariant ()
+        |> this.CmdHandle ess.BinHandle pattern
     Array.map OutputNormal res

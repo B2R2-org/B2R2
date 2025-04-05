@@ -28,7 +28,7 @@ type RangedDiGraph<'D, 'E
     when 'D :> RangedVertexData and 'D : equality> (core) =
   inherit DiGraph<'D, 'E> (core: GraphCore<'D, 'E, DiGraph<'D, 'E>>)
 
-  member __.FindVertexByRange range =
+  member _.FindVertexByRange range =
     core.FindVertexBy (fun (v: Vertex<'D>) -> v.VData.AddrRange = range)
 
 [<RequireQualifiedAccess>]

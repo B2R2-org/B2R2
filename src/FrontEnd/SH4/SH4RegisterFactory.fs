@@ -31,28 +31,28 @@ open B2R2.BinIR.LowUIR
 type SH4RegisterFactory (r: RegExprs) =
   inherit RegisterFactory ()
 
-  override __.GetAllRegExprs () =
+  override _.GetAllRegExprs () =
     [ r.R0; r.R1; r.R2; r.R3; r.R4; r.R5; r.R6; r.R7; r.R8; r.R9; r.R10; r.R11
       r.R12; r.R13; r.R14; r.R15; r.PC ]
 
-  override __.GetAllRegNames () =
-    __.GetAllRegExprs ()
-    |> List.map (__.RegIDFromRegExpr >> __.RegIDToString)
+  override this.GetAllRegNames () =
+    this.GetAllRegExprs ()
+    |> List.map (this.RegIDFromRegExpr >> this.RegIDToString)
 
-  override __.GetGeneralRegExprs () =
+  override _.GetGeneralRegExprs () =
     [ r.R0; r.R1; r.R2; r.R3; r.R4; r.R5; r.R6; r.R7; r.R8; r.R9; r.R10; r.R11
       r.R12; r.R13; r.R14; r.R15 ]
 
-  override __.RegIDFromRegExpr (e) =
+  override _.RegIDFromRegExpr (e) =
     match e.E with
     | Var (_, id, _) -> id
     | PCVar (_) -> Register.toRegID Register.PC
     | _ -> raise InvalidRegisterException
 
-  override __.RegIDToRegExpr id =
+  override _.RegIDToRegExpr id =
     Register.ofRegID id |> r.GetRegVar
 
-  override __.StrToRegExpr s =
+  override _.StrToRegExpr s =
     match s.ToLowerInvariant () with
     | "r0" -> r.R0
     | "r1" -> r.R1
@@ -73,32 +73,32 @@ type SH4RegisterFactory (r: RegExprs) =
     | "pc" -> r.PC
     | _ -> raise UnhandledRegExprException
 
-  override __.RegIDFromString str =
+  override _.RegIDFromString str =
     Register.ofString str |> Register.toRegID
 
-  override __.RegIDToString rid =
+  override _.RegIDToString rid =
     Register.ofRegID rid |> Register.toString
 
-  override __.RegIDToRegType rid =
+  override _.RegIDToRegType rid =
     Register.ofRegID rid |> Register.toRegType
 
-  override __.GetRegisterAliases _ =
+  override _.GetRegisterAliases _ =
     Terminator.futureFeature ()
 
-  override __.ProgramCounter =
+  override _.ProgramCounter =
     Register.PC |> Register.toRegID
 
-  override __.StackPointer =
+  override _.StackPointer =
     Register.R15 |> Register.toRegID |> Some
 
-  override __.FramePointer =
+  override _.FramePointer =
     Register.R14 |> Register.toRegID |> Some
 
-  override __.IsProgramCounter rid =
-    __.ProgramCounter = rid
+  override this.IsProgramCounter rid =
+    this.ProgramCounter = rid
 
-  override __.IsStackPointer rid =
-    (__.StackPointer |> Option.get) = rid
+  override this.IsStackPointer rid =
+    (this.StackPointer |> Option.get) = rid
 
-  override __.IsFramePointer rid =
-    (__.FramePointer |> Option.get) = rid
+  override this.IsFramePointer rid =
+    (this.FramePointer |> Option.get) = rid

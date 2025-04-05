@@ -53,65 +53,65 @@ type ReplState (isa: ISA, regFactory: RegisterFactory, doFiltering) =
     |> List.map regFactory.RegIDFromRegExpr
     |> Set.ofList
 
-  member private __.EvaluateStmts (stmts: Stmt []) =
+  member private _.EvaluateStmts (stmts: Stmt []) =
     rstate.PrepareInstrEval stmts
     Evaluator.evalStmts stmts rstate
 
-  member private __.ComputeDelta prev curr =
+  member private _.ComputeDelta prev curr =
     Array.fold2 (fun acc t1 t2 ->
       if t1 <> t2 then fst t1 :: acc else acc
     ) [] prev curr
 
   /// Update the state and return deltas.
-  member __.Update stmts =
-    try __.EvaluateStmts stmts
+  member this.Update stmts =
+    try this.EvaluateStmts stmts
     with exc -> printfn "%s" exc.Message
     let currReg =
       rstate.Registers.ToArray ()
       |> Array.map (fun (i, v) -> RegisterID.create i, v)
     let currTmp = rstate.Temporaries.ToArray ()
-    let regdelta = __.ComputeDelta prevReg currReg
+    let regdelta = this.ComputeDelta prevReg currReg
     prevReg <- currReg
     prevTmp <- currTmp
     regdelta
 
-  member private __.Filter regPairs =
+  member private _.Filter regPairs =
     if doFiltering then
       regPairs
       |> List.filter (fun (r, _) -> Set.contains r generalRegs)
     else regPairs
     |> List.filter (fun (_, v) -> not (isNull v))
 
-  member __.GetAllRegValString delta =
+  member this.GetAllRegValString delta =
     let set = Set.ofList delta
     prevReg
     |> Seq.toList
-    |> __.Filter
+    |> this.Filter
     |> List.map (fun (r, v) ->
       let regStr = regFactory.RegIDToString r
       let regVal = v.ToString ()
       regStr + ": " + regVal, Set.contains r set)
 
   /// Gets a temporary register name and EvalValue string representation.
-  member private __.TempRegString (n: int) v =
+  member private _.TempRegString (n: int) v =
     "T_" + string (n) + ": " + (if isNull v then "n/a" else v.ToString ())
 
-  member __.GetAllTempValString delta =
+  member this.GetAllTempValString delta =
     let set = Set.ofList delta
     prevTmp
     |> Seq.toList
-    |> List.map (fun (id, v) -> __.TempRegString id v, Set.contains id set)
+    |> List.map (fun (id, v) -> this.TempRegString id v, Set.contains id set)
 
-  member __.SwitchParser () =
+  member _.SwitchParser () =
     match parser with
     | BinParser _ ->
       parser <- LowUIRParser
     | LowUIRParser ->
       parser <- BinParser isa.Arch
 
-  member __.CurrentParser with get() = parser
+  member _.CurrentParser with get() = parser
 
-  member __.ConsolePrompt with get() =
+  member _.ConsolePrompt with get() =
     match parser with
     | BinParser arch -> arch.ToString () + "> "
     | LowUIRParser -> "LowUIR> "

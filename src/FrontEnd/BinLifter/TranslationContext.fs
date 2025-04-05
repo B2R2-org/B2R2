@@ -82,26 +82,26 @@ type TranslationContext (isa) =
 #endif
 
   /// Word size.
-  member __.WordSize with get() = isa.WordSize
+  member _.WordSize with get() = isa.WordSize
 
   /// Word size in bits (RegType).
-  member __.WordBitSize with get(): RegType = WordSize.toRegType isa.WordSize
+  member _.WordBitSize with get(): RegType = WordSize.toRegType isa.WordSize
 
   /// The endianness.
-  member __.Endianness with get(): Endian = isa.Endian
+  member _.Endianness with get(): Endian = isa.Endian
 
   /// IRBuilder for lifting IRs.
-  member __.IRBuilder with get() = irb
+  member _.IRBuilder with get() = irb
 
   /// Remember if a branch is delayed. If delayed, we store its InterJmpKind.
   /// Lifting results may vary depending on this variable.
-  member __.DelayedBranch
+  member _.DelayedBranch
     with get() = delayedJump and set(f) = delayedJump <- f
 
 #if EMULATION
   /// Remember the lastly used opcode that updates EFLAGS. This is explicitly
   /// used for x86 emulation.
-  member __.ConditionCodeOp
+  member _.ConditionCodeOp
     with get() = conditionCodeOp and set(v) = conditionCodeOp <- v
 #endif
 

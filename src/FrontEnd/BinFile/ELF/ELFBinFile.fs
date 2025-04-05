@@ -48,202 +48,202 @@ type ELFBinFile (path, bytes: byte[], baseAddrOpt, rfOpt) =
   let executableRanges = lazy executableRanges shdrs.Value loadables.Value
 
   /// ELF Header information.
-  member __.Header with get() = hdr
+  member _.Header with get() = hdr
 
   /// List of dynamic section entries.
-  member __.DynamicSectionEntries with get() =
+  member _.DynamicSectionEntries with get() =
     DynamicSection.readEntries toolBox shdrs.Value
 
   /// Try to find a section by its name.
-  member __.TryFindSection (name: string) =
+  member _.TryFindSection (name: string) =
     shdrs.Value |> Array.tryFind (fun s -> s.SecName = name)
 
   /// Find a section by its index.
-  member __.FindSection (idx: int) =
+  member _.FindSection (idx: int) =
     shdrs.Value[idx]
 
   /// ELF program headers.
-  member __.ProgramHeaders with get() = phdrs.Value
+  member _.ProgramHeaders with get() = phdrs.Value
 
   /// ELF section headers.
-  member __.SectionHeaders with get() = shdrs.Value
+  member _.SectionHeaders with get() = shdrs.Value
 
   /// PLT.
-  member __.PLT with get() = plt.Value
+  member _.PLT with get() = plt.Value
 
   /// Exception information.
-  member __.ExceptionInfo with get() = exnInfo.Value
+  member _.ExceptionInfo with get() = exnInfo.Value
 
   /// ELF symbol information.
-  member __.SymbolInfo with get() = symbInfo.Value
+  member _.SymbolInfo with get() = symbInfo.Value
 
   /// Relocation information.
-  member __.RelocationInfo with get() = relocs.Value
+  member _.RelocationInfo with get() = relocs.Value
 
   interface IBinFile with
-    member __.Reader with get() = toolBox.Reader
+    member _.Reader with get() = toolBox.Reader
 
-    member __.RawBytes = bytes
+    member _.RawBytes = bytes
 
-    member __.Length = bytes.Length
+    member _.Length = bytes.Length
 
-    member __.Path with get() = path
+    member _.Path with get() = path
 
-    member __.Format with get() = FileFormat.ELFBinary
+    member _.Format with get() = FileFormat.ELFBinary
 
-    member __.ISA with get() = ISA.Init hdr.MachineType hdr.Endian
+    member _.ISA with get() = ISA.Init hdr.MachineType hdr.Endian
 
-    member __.Type with get() = toFileType hdr.ELFFileType
+    member _.Type with get() = toFileType hdr.ELFFileType
 
-    member __.EntryPoint = Some hdr.EntryPoint
+    member _.EntryPoint = Some hdr.EntryPoint
 
-    member __.BaseAddress with get() = toolBox.BaseAddress
+    member _.BaseAddress with get() = toolBox.BaseAddress
 
-    member __.IsStripped =
+    member _.IsStripped =
       shdrs.Value |> Array.exists (fun s -> s.SecName = ".symtab") |> not
 
-    member __.IsNXEnabled = isNXEnabled phdrs.Value
+    member _.IsNXEnabled = isNXEnabled phdrs.Value
 
-    member __.IsRelocatable = isRelocatable toolBox shdrs.Value
+    member _.IsRelocatable = isRelocatable toolBox shdrs.Value
 
-    member __.GetOffset addr =
+    member _.GetOffset addr =
       translateAddrToOffset loadables.Value shdrs.Value addr |> Convert.ToInt32
 
-    member __.Slice (addr, size) =
-      let offset = (__ :> IContentAddressable).GetOffset addr
-      (__ :> IContentAddressable).Slice (offset=offset, size=size)
+    member this.Slice (addr, size) =
+      let offset = (this :> IContentAddressable).GetOffset addr
+      (this :> IContentAddressable).Slice (offset=offset, size=size)
 
-    member __.Slice (addr) =
-      let offset = (__ :> IContentAddressable).GetOffset addr
-      (__ :> IContentAddressable).Slice (offset=offset)
+    member this.Slice (addr) =
+      let offset = (this :> IContentAddressable).GetOffset addr
+      (this :> IContentAddressable).Slice (offset=offset)
 
-    member __.Slice (offset: int, size) =
+    member _.Slice (offset: int, size) =
       ReadOnlySpan (bytes, offset, size)
 
-    member __.Slice (offset: int) =
+    member _.Slice (offset: int) =
       ReadOnlySpan(bytes).Slice offset
 
-    member __.Slice (ptr: BinFilePointer, size) =
+    member _.Slice (ptr: BinFilePointer, size) =
       ReadOnlySpan (bytes, ptr.Offset, size)
 
-    member __.Slice (ptr: BinFilePointer) =
+    member _.Slice (ptr: BinFilePointer) =
       ReadOnlySpan(bytes).Slice ptr.Offset
 
-    member __.ReadByte (addr: Addr) =
-      let offset = (__ :> IContentAddressable).GetOffset addr
+    member this.ReadByte (addr: Addr) =
+      let offset = (this :> IContentAddressable).GetOffset addr
       bytes[offset]
 
-    member __.ReadByte (offset: int) =
+    member _.ReadByte (offset: int) =
       bytes[offset]
 
-    member __.ReadByte (ptr: BinFilePointer) =
+    member _.ReadByte (ptr: BinFilePointer) =
       bytes[ptr.Offset]
 
-    member __.IsValidAddr addr =
+    member _.IsValidAddr addr =
       IntervalSet.containsAddr addr notInMemRanges.Value |> not
 
-    member __.IsValidRange range =
+    member _.IsValidRange range =
       IntervalSet.findAll range notInMemRanges.Value |> List.isEmpty
 
-    member __.IsInFileAddr addr =
+    member _.IsInFileAddr addr =
       IntervalSet.containsAddr addr notInFileRanges.Value |> not
 
-    member __.IsInFileRange range =
+    member _.IsInFileRange range =
       IntervalSet.findAll range notInFileRanges.Value |> List.isEmpty
 
-    member __.IsExecutableAddr addr =
+    member _.IsExecutableAddr addr =
       IntervalSet.containsAddr addr executableRanges.Value
 
-    member __.GetNotInFileIntervals range =
+    member _.GetNotInFileIntervals range =
       IntervalSet.findAll range notInFileRanges.Value
       |> List.toArray
       |> Array.map range.Slice
 
-    member __.ToBinFilePointer addr =
+    member _.ToBinFilePointer addr =
       getSectionsByAddr shdrs.Value addr
       |> Seq.tryHead
       |> BinFilePointer.OfSectionOpt
 
-    member __.ToBinFilePointer name =
+    member _.ToBinFilePointer name =
       getSectionsByName shdrs.Value name
       |> Seq.tryHead
       |> BinFilePointer.OfSectionOpt
 
-    member __.TryFindFunctionName (addr) =
+    member _.TryFindFunctionName (addr) =
       tryFindFuncSymb symbInfo.Value addr
 
-    member __.GetSymbols () = getSymbols shdrs.Value symbInfo.Value
+    member _.GetSymbols () = getSymbols shdrs.Value symbInfo.Value
 
-    member __.GetStaticSymbols () = getStaticSymbols shdrs.Value symbInfo.Value
+    member _.GetStaticSymbols () = getStaticSymbols shdrs.Value symbInfo.Value
 
-    member __.GetFunctionSymbols () =
+    member this.GetFunctionSymbols () =
       let dict = Collections.Generic.Dictionary<Addr, Symbol> ()
-      let self = __ :> IBinFile
-      self.GetStaticSymbols ()
+      let f = this :> IBinFile
+      f.GetStaticSymbols ()
       |> Seq.iter (fun s ->
         if s.Kind = SymFunctionType then dict[s.Address] <- s
         elif s.Kind = SymNoType (* This is to handle ppc's PLT symbols. *)
           && s.Address > 0UL && s.Name.Contains "pic32."
         then dict[s.Address] <- s
         else ())
-      self.GetDynamicSymbols (true) |> Seq.iter (fun s ->
+      f.GetDynamicSymbols (true) |> Seq.iter (fun s ->
         if dict.ContainsKey s.Address then ()
         elif s.Kind = SymFunctionType then dict[s.Address] <- s
         else ())
       dict.Values |> Seq.toArray
 
-    member __.GetDynamicSymbols (?exc) =
+    member _.GetDynamicSymbols (?exc) =
       getDynamicSymbols exc shdrs.Value symbInfo.Value
 
-    member __.AddSymbol _addr _symbol = Terminator.futureFeature ()
+    member _.AddSymbol _addr _symbol = Terminator.futureFeature ()
 
-    member __.GetSections () = getSections shdrs.Value
+    member _.GetSections () = getSections shdrs.Value
 
-    member __.GetSections (addr) = getSectionsByAddr shdrs.Value addr
+    member _.GetSections (addr) = getSectionsByAddr shdrs.Value addr
 
-    member __.GetSections (name) = getSectionsByName shdrs.Value name
+    member _.GetSections (name) = getSectionsByName shdrs.Value name
 
-    member __.GetTextSection () = getTextSection shdrs.Value
+    member _.GetTextSection () = getTextSection shdrs.Value
 
-    member __.GetSegments (isLoadable) =
+    member _.GetSegments (isLoadable) =
       if isLoadable then getSegments loadables.Value
       else getSegments phdrs.Value
 
-    member __.GetSegments (addr) =
-      (__ :> IBinFile).GetSegments ()
+    member this.GetSegments (addr) =
+      (this :> IBinFile).GetSegments ()
       |> Array.filter (fun s -> (addr >= s.Address)
                              && (addr < s.Address + uint64 s.Size))
 
-    member __.GetSegments (perm) =
-      (__ :> IBinFile).GetSegments ()
+    member this.GetSegments (perm) =
+      (this :> IBinFile).GetSegments ()
       |> Array.filter (fun s -> (s.Permission &&& perm = perm) && s.Size > 0u)
 
-    member __.GetFunctionAddresses () =
-      (__ :> IBinFile).GetFunctionSymbols ()
+    member this.GetFunctionAddresses () =
+      (this :> IBinFile).GetFunctionSymbols ()
       |> Seq.map (fun s -> s.Address)
       |> addExtraFunctionAddrs toolBox shdrs.Value loadables.Value
                                relocs.Value None
 
-    member __.GetFunctionAddresses (useExcInfo) =
+    member this.GetFunctionAddresses (useExcInfo) =
       let exnInfo = if useExcInfo then Some exnInfo.Value else None
-      (__ :> IBinFile).GetFunctionSymbols ()
+      (this :> IBinFile).GetFunctionSymbols ()
       |> Seq.map (fun s -> s.Address)
       |> addExtraFunctionAddrs toolBox shdrs.Value loadables.Value
                                relocs.Value exnInfo
 
-    member __.GetRelocationInfos () = getRelocSymbols relocs.Value
+    member _.GetRelocationInfos () = getRelocSymbols relocs.Value
 
-    member __.HasRelocationInfo addr =
+    member _.HasRelocationInfo addr =
       relocs.Value.RelocByAddr.ContainsKey addr
 
-    member __.GetRelocatedAddr relocAddr =
+    member _.GetRelocatedAddr relocAddr =
       getRelocatedAddr relocs.Value relocAddr
 
-    member __.GetLinkageTableEntries () =
+    member _.GetLinkageTableEntries () =
       plt.Value
       |> NoOverlapIntervalMap.fold (fun acc _ entry -> entry :: acc) []
       |> List.sortBy (fun entry -> entry.TrampolineAddress)
       |> List.toArray
 
-    member __.IsLinkageTable addr =
+    member _.IsLinkageTable addr =
       NoOverlapIntervalMap.containsAddr addr plt.Value

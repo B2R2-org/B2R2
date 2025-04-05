@@ -53,15 +53,15 @@ type Prio<'A when 'A : comparison> =
 /// A monoid that represents a priority.
 type Priority<'A when 'A : comparison> (p) =
   new () = Priority (MInfty)
-  member inline __.Value: Prio<'A> = p
-  override __.ToString () =
+  member inline _.Value: Prio<'A> = p
+  override _.ToString () =
     match p with
     | MInfty -> ""
     | Prio p -> p.ToString ()
   interface IMonoid<Priority<'A>> with
-    member __.Zero = Priority (MInfty)
-    member __.Assoc (rhs: Priority<'A>) =
-      match __.Value, rhs.Value with
+    member _.Zero = Priority (MInfty)
+    member this.Assoc (rhs: Priority<'A>) =
+      match this.Value, rhs.Value with
       | Prio m, Prio n -> Priority (Prio (if m > n then m else n))
       | MInfty, p
       | p, MInfty -> Priority (p)
@@ -73,14 +73,14 @@ type Key<'A when 'A : comparison> =
 /// A monoid that represents ordering.
 type Ordered<'A when 'A : comparison> (k) =
   new () = Ordered (NoKey)
-  member inline __.Key: Key<'A> = k
-  override __.ToString () =
+  member inline _.Key: Key<'A> = k
+  override _.ToString () =
     match k with
     | NoKey -> ""
     | Key (k) -> k.ToString ()
   interface IMonoid<Ordered<'A>> with
-    member __.Zero = Ordered (NoKey)
-    member __.Assoc (rhs: Ordered<'A>) =
+    member _.Zero = Ordered (NoKey)
+    member _.Assoc (rhs: Ordered<'A>) =
       match rhs.Key with
       | NoKey -> Ordered (k)
       | b -> Ordered (b)
@@ -89,34 +89,34 @@ type Ordered<'A when 'A : comparison> (k) =
 type InterMonoid<'A when 'A : comparison> (o, p) =
   let v = o, p
   new () = InterMonoid<'A> (Ordered<'A>(), Priority<'A>())
-  member inline __.Value: Ordered<'A> * Priority<'A> = v
-  member __.GetMin () = o.Key
-  member __.GetMax () = p.Value
-  override __.ToString () = "(" + o.ToString () + "," + p.ToString () + ")"
+  member inline _.Value: Ordered<'A> * Priority<'A> = v
+  member _.GetMin () = o.Key
+  member _.GetMax () = p.Value
+  override _.ToString () = "(" + o.ToString () + "," + p.ToString () + ")"
   interface IMonoid<InterMonoid<'A>> with
-    member __.Zero =
+    member _.Zero =
       InterMonoid (Ordered<'A>(), Priority<'A>())
-    member __.Assoc (rhs: InterMonoid<'A>) =
-      let a1, b1 = __.Value
+    member this.Assoc (rhs: InterMonoid<'A>) =
+      let a1, b1 = this.Value
       let a2, b2 = rhs.Value
       InterMonoid (a1 ++ a2, b1 ++ b2)
 
 /// A size monoid for random access.
 type Size (s) =
   new () = Size (0u)
-  member __.Value = s
-  override __.ToString () = s.ToString ()
+  member _.Value = s
+  override _.ToString () = s.ToString ()
   interface IMonoid<Size> with
-    member __.Zero = Size (0u)
-    member __.Assoc (rhs: Size) = Size (s + rhs.Value)
+    member _.Zero = Size (0u)
+    member _.Assoc (rhs: Size) = Size (s + rhs.Value)
 
 /// 2-3 tree node.
 type Node<'V, 'A when 'V :> IMonoid<'V>> =
   | Node2 of 'V * 'A * 'A
   | Node3 of 'V * 'A * 'A * 'A
 with
-  override __.ToString () =
-    match __ with
+  override this.ToString () =
+    match this with
     | Node2 (m, a, b) -> "N(" + m.ToString () + "|"
                               + a.ToString () + ", "
                               + b.ToString () + ")"
@@ -149,8 +149,8 @@ type Digit<'V, 'A when 'V :> IMonoid<'V>
   | Three of 'A * 'A * 'A
   | Four of 'A * 'A * 'A * 'A
 with
-  override __.ToString () =
-    match __ with
+  override this.ToString () =
+    match this with
     | One a -> "D(" + a.ToString () + ")"
     | Two (a, b) -> "D(" + a.ToString () + ", " + b.ToString () + ")"
     | Three (a, b, c) -> "D(" + a.ToString () + ", "
@@ -194,8 +194,8 @@ type FingerTree<'V, 'A when 'V :> IMonoid<'V>
           * FingerTree<'V, Node<'V, 'A>>
           * Digit<'V, 'A>
 with
-  override __.ToString () =
-    match __ with
+  override this.ToString () =
+    match this with
     | Empty -> "Empty"
     | Single x -> "Single(" + x.ToString () + ")"
     | Deep (m, l, t, r) -> "Deep(" + m.ToString () + "|"
@@ -203,7 +203,7 @@ with
                                    + t.ToString () + ", "
                                    + r.ToString () + ")"
 
-  member __.Monoid: 'V = new 'V ()
+  member _.Monoid: 'V = new 'V ()
 
   interface IMeasured<'V> with
     member this.Measurement: 'V =

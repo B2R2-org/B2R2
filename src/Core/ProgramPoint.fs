@@ -35,37 +35,38 @@ type ProgramPoint private (addr, pos, callsite) =
   new (callsite, addr, pos: int) = ProgramPoint (addr, pos, Some callsite)
 
   /// Address of the instruction.
-  member __.Address with get(): Addr = addr
+  member _.Address with get(): Addr = addr
 
   /// Index of the IR statement within the instruction.
-  member __.Position with get(): int = pos
+  member _.Position with get(): int = pos
 
   /// Address of the callsite if this program point refers to an abstract
   /// vertex.
-  member __.CallSite with get(): Addr option = callsite
+  member _.CallSite with get(): Addr option = callsite
 
   /// Compare against another program point.
-  member __.CompareTo (rhs: ProgramPoint) =
-    let result = compare __.Address rhs.Address
+  member this.CompareTo (rhs: ProgramPoint) =
+    let result = compare this.Address rhs.Address
     if result <> 0 then result
-    elif __.Position = rhs.Position then compare __.CallSite rhs.CallSite
-    else compare __.Position rhs.Position
+    elif this.Position = rhs.Position then compare this.CallSite rhs.CallSite
+    else compare this.Position rhs.Position
 
-  override __.Equals (o) =
+  override this.Equals (o) =
     match o with
     | :? ProgramPoint as o ->
-      o.Address = __.Address
-      && o.Position = __.Position
-      && o.CallSite = __.CallSite
+      o.Address = this.Address
+      && o.Position = this.Position
+      && o.CallSite = this.CallSite
     | _ -> false
 
-  override __.GetHashCode () =
-    match __.CallSite with
-    | None -> int __.Address ^^^ (__.Position <<< 16)
-    | Some callSite -> int __.Address ^^^ (__.Position <<< 16) + int callSite
+  override this.GetHashCode () =
+    match this.CallSite with
+    | None -> int this.Address ^^^ (this.Position <<< 16)
+    | Some callSite ->
+      int this.Address ^^^ (this.Position <<< 16) + int callSite
 
-  override __.ToString () =
-    match __.CallSite with
+  override this.ToString () =
+    match this.CallSite with
     | Some callsite -> $"{callsite:x}-{addr:x}"
     | None -> $"{addr:x}:{pos}"
 
@@ -81,10 +82,10 @@ type ProgramPoint private (addr, pos, callsite) =
     else ProgramPoint (p.Address, p.Position + 1)
 
   interface System.IComparable with
-    member __.CompareTo (rhs) =
+    member this.CompareTo (rhs) =
       match rhs with
-      | :? ProgramPoint as rhs -> __.CompareTo rhs
+      | :? ProgramPoint as rhs -> this.CompareTo rhs
       | _ -> invalidArg (nameof rhs) "Invalid comparison"
 
   interface System.IComparable<ProgramPoint> with
-    member __.CompareTo (rhs) = __.CompareTo rhs
+    member this.CompareTo (rhs) = this.CompareTo rhs

@@ -47,22 +47,22 @@ type IRBuilder =
   /// <summary>
   ///   Create a new temporary variable of RegType (rt).
   /// </summary>
-  member inline __.NewTempVar rt =
-    __.TempVarCount <- __.TempVarCount + 1
-    AST.tmpvar rt __.TempVarCount
+  member inline this.NewTempVar rt =
+    this.TempVarCount <- this.TempVarCount + 1
+    AST.tmpvar rt this.TempVarCount
 
   /// <summary>
   ///   Create a new symbol for a label.
   /// </summary>
-  member inline __.NewSymbol name =
-    __.LabelCount <- __.LabelCount + 1
-    AST.symbol name __.LabelCount
+  member inline this.NewSymbol name =
+    this.LabelCount <- this.LabelCount + 1
+    AST.symbol name this.LabelCount
 
   /// <summary>
   ///   Append a new IR statement to the builder.
   /// </summary>
   /// <param name="stmt">IR statement to add.</param>
-  member __.Append stmt = __.Add (stmt)
+  member this.Append stmt = this.Add (stmt)
 
   /// <summary>
   ///   Create an array of IR statements from the buffer. This function will
@@ -71,10 +71,10 @@ type IRBuilder =
   /// <returns>
   ///   Returns an array of IR statements.
   /// </returns>
-  member __.ToStmts () =
+  member this.ToStmts () =
 #if EMULATION
-    __.TempVarCount <- 0
+    this.TempVarCount <- 0
 #endif
-    let stmts = __.ToArray ()
-    __.Clear ()
+    let stmts = this.ToArray ()
+    this.Clear ()
     stmts

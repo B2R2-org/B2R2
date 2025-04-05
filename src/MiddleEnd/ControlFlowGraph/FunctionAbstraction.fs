@@ -47,7 +47,7 @@ type FunctionAbstraction<'Stmt> (entryPoint,
   /// Is this an external function?
   member _.IsExternal with get(): bool = isExternal
 
-  member __.ReturningStatus with get(): NonReturningStatus = returningStatus
+  member _.ReturningStatus with get(): NonReturningStatus = returningStatus
 
 /// A rundown of a function is really just an array of statements, summarizing
 /// the function.

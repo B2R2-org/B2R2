@@ -120,10 +120,10 @@ type S =
 #if ! HASHCONS
 #else
 with
-  override __.Equals rhs =
+  override this.Equals rhs =
     match rhs with
     | :? S as rhs ->
-      match __, rhs with
+      match this, rhs with
       | ISMark len1, ISMark len2 -> len1 = len2
       | IEMark len1, IEMark len2 -> len1 = len2
       | LMark s1, LMark s2 -> s1 = s2
@@ -172,8 +172,8 @@ with
   static member inline HashSideEffect (e: SideEffect) =
     (19 * hash e) + 11
 
-  override __.GetHashCode () =
-    match __ with
+  override this.GetHashCode () =
+    match this with
     | ISMark len -> S.HashISMark len
     | IEMark len -> S.HashIEMark len
     | LMark s -> S.HashLMark s
@@ -204,12 +204,12 @@ and [<CustomEquality; NoComparison>] Stmt = {
   HashKey: int
 }
 with
-  override __.Equals rhs =
+  override this.Equals rhs =
     match rhs with
-    | :? Stmt as rhs -> __.Tag = rhs.Tag
+    | :? Stmt as rhs -> this.Tag = rhs.Tag
     | _ -> false
 
-  override __.GetHashCode () = __.HashKey
+  override this.GetHashCode () = this.HashKey
 #endif
 
 module Stmt =

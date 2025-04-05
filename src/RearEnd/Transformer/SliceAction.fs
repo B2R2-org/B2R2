@@ -70,9 +70,9 @@ type SliceAction () =
     | _ -> invalidArg (nameof input) "Invalid input type."
 
   interface IAction with
-    member __.ActionID with get() = "slice"
-    member __.Signature with get() = "Binary * [optional arg(s)] -> Binary"
-    member __.Description with get() = """
+    member _.ActionID with get() = "slice"
+    member _.Signature with get() = "Binary * [optional arg(s)] -> Binary"
+    member _.Description with get() = """
     Take in a byte array or a BinHandle and return a byte array of a part of the
     binary along with its starting address. Users can specify a specific address
     range or a section name as argument(s), which are listed below.
@@ -81,5 +81,5 @@ type SliceAction () =
       - <a1> +<n>: returns a slice of the bianry from <a1> to <a1 + n - 1>.
       - <sec_name>: returns a slice of the binary of the section <sec_name>.
 """
-    member __.Transform args collection =
+    member _.Transform args collection =
       { Values = collection.Values |> Array.map (slice args) }

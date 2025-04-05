@@ -31,7 +31,7 @@ open type Register
 type ARM64RegisterFactory (r: RegExprs) =
   inherit RegisterFactory ()
 
-  override __.GetAllRegExprs () =
+  override _.GetAllRegExprs () =
     [ r.X0; r.X1; r.X2; r.X3; r.X4; r.X5; r.X6; r.X7; r.X8; r.X9; r.X10; r.X11;
       r.X12; r.X13; r.X14; r.X15; r.X16; r.X17; r.X18; r.X19; r.X20; r.X21;
       r.X22; r.X23; r.X24; r.X25; r.X26; r.X27; r.X28; r.X29; r.X30; r.XZR;
@@ -67,26 +67,26 @@ type ARM64RegisterFactory (r: RegExprs) =
       r.B22; r.B23; r.B24; r.B25; r.B26; r.B27; r.B28; r.B29; r.B30; r.B31;
       r.FPCR;r.FPSR; r.N; r.Z; r.C ]
 
-  override __.GetAllRegNames () =
-    __.GetAllRegExprs ()
-    |> List.map (__.RegIDFromRegExpr >> __.RegIDToString)
+  override this.GetAllRegNames () =
+    this.GetAllRegExprs ()
+    |> List.map (this.RegIDFromRegExpr >> this.RegIDToString)
 
-  override __.GetGeneralRegExprs () =
+  override _.GetGeneralRegExprs () =
     [ r.X0; r.X1; r.X2; r.X3; r.X4; r.X5; r.X6; r.X7; r.X8; r.X9; r.X10; r.X11;
       r.X12; r.X13; r.X14; r.X15; r.X16; r.X17; r.X18; r.X19; r.X20; r.X21;
       r.X22; r.X23; r.X24; r.X25; r.X26; r.X27; r.X28; r.X29; r.X30; r.XZR;
       r.N; r.Z; r.C ]
 
-  override __.RegIDFromRegExpr (e) =
+  override _.RegIDFromRegExpr (e) =
     match e.E with
     | Var (_, id, _) -> id
     | PCVar _ -> Register.toRegID PC
     | _ -> raise InvalidRegisterException
 
-  override __.RegIDToRegExpr (id) =
+  override _.RegIDToRegExpr (id) =
     Register.ofRegID id |> r.GetRegVar
 
-  override __.StrToRegExpr s =
+  override _.StrToRegExpr s =
     match s with
     | "X0"  -> r.X0
     | "X1" -> r.X1
@@ -419,33 +419,33 @@ type ARM64RegisterFactory (r: RegExprs) =
     | "V" -> r.V
     | _ -> raise UnhandledRegExprException
 
-  override __.RegIDFromString str =
+  override _.RegIDFromString str =
     Register.ofString str |> Register.toRegID
 
-  override __.RegIDToString rid =
+  override _.RegIDToString rid =
     Register.ofRegID rid |> Register.toString
 
-  override __.RegIDToRegType rid =
+  override _.RegIDToRegType rid =
     Register.ofRegID rid |> Register.toRegType
 
-  override __.GetRegisterAliases rid =
+  override _.GetRegisterAliases rid =
     [| rid |]
 
-  override __.ProgramCounter =
+  override _.ProgramCounter =
     PC |> Register.toRegID
 
-  override __.StackPointer =
+  override _.StackPointer =
     SP |> Register.toRegID |> Some
 
-  override __.FramePointer =
+  override _.FramePointer =
     None
 
-  override __.IsProgramCounter regid =
+  override _.IsProgramCounter regid =
     let pcid = PC |> Register.toRegID
     pcid = regid
 
-  override __.IsStackPointer regid =
+  override _.IsStackPointer regid =
     let spid = SP |> Register.toRegID
     spid = regid
 
-  override __.IsFramePointer _ = false
+  override _.IsFramePointer _ = false

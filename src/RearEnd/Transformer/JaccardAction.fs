@@ -35,12 +35,12 @@ type JaccardAction () =
       / float (Set.union s0 s1 |> Set.count)
 
   interface IAction with
-    member __.ActionID with get() = "jaccard"
-    member __.Signature with get() = "Fingerprint collection -> int"
-    member __.Description with get() = """
+    member _.ActionID with get() = "jaccard"
+    member _.Signature with get() = "Fingerprint collection -> int"
+    member _.Description with get() = """
     Take in two fingerprints and returns the jaccard index between them.
 """
-    member __.Transform args collection =
+    member _.Transform args collection =
       if args.Length <> 0 then
         invalidArg (nameof args) "No arguments should be given."
       elif collection.Values.Length = 2 then

@@ -62,15 +62,15 @@ type FunctionIdentification<'FnCtx,
     |> Array.map getFunctionOperationMode
 
   interface ICFGBuildingStrategy<'FnCtx, 'GlCtx> with
-    member __.ActionPrioritizer with get() =
+    member _.ActionPrioritizer with get() =
       { new IPrioritizable with member _.GetPriority _ = 0 }
 
-    member __.AllowBBLOverlap with get() = false
+    member _.AllowBBLOverlap with get() = false
 
-    member __.FindCandidates (_builders) =
+    member _.FindCandidates (_builders) =
       getInitialEntryPoints ()
 
-    member __.OnAction (_ctx, _queue, _action) = MoveOn
-    member __.OnFinish (_ctx) = MoveOn
-    member __.OnCyclicDependency (_) = Terminator.impossible ()
+    member _.OnAction (_ctx, _queue, _action) = MoveOn
+    member _.OnFinish (_ctx) = MoveOn
+    member _.OnCyclicDependency (_) = Terminator.impossible ()
 

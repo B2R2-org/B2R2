@@ -36,10 +36,10 @@ type WorklistDataFlowAnalysis<'WorkUnit,
                               'Lattice,
                               WorklistDataFlowState<'WorkUnit, 'Lattice, 'V>,
                               'V> with
-    member __.InitializeState _vs =
+    member _.InitializeState _vs =
       WorklistDataFlowState<'WorkUnit, 'Lattice, 'V> (analysis)
 
-    member __.Compute g state =
+    member _.Compute g state =
       for work in analysis.InitializeWorkList g do state.PushWork work
       while not <| Seq.isEmpty state.WorkList do
         let work = state.PopWork ()

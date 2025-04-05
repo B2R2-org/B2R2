@@ -71,41 +71,41 @@ type AVRParserTests () =
   let ( ++ ) byteString pair = (ByteArray.ofHexString byteString, pair)
 
   [<TestMethod>]
-  member __.``[AVR] No Operand Insturctions Parse Test (1)`` () =
+  member _.``[AVR] No Operand Insturctions Parse Test (1)`` () =
     "0895"
     ++ RET ** [ ] ||> test
 
   [<TestMethod>]
-  member __.``[AVR] One Operand Insturctions Parse Test (1)`` () =
+  member _.``[AVR] One Operand Insturctions Parse Test (1)`` () =
     "81f1"
     ++ BREQ ** [ O.Addr 96 ] ||> test
 
   [<TestMethod>]
-  member __.``[AVR] One Operand Insturctions Parse Test (2)`` () =
+  member _.``[AVR] One Operand Insturctions Parse Test (2)`` () =
     "b4f4"
     ++ BRGE ** [ O.Addr 44 ] ||> test
 
   [<TestMethod>]
-  member __.``[AVR] Two Register Operands Insturctions Parse Test (1)`` () =
+  member _.``[AVR] Two Register Operands Insturctions Parse Test (1)`` () =
     "c90e"
     ++ ADD ** [ O.Reg R12; O.Reg R25 ] ||> test
 
   [<TestMethod>]
-  member __.``[AVR] Two Register Operands Insturctions Parse Test (2)`` () =
+  member _.``[AVR] Two Register Operands Insturctions Parse Test (2)`` () =
     "e12c"
     ++ MOV ** [ O.Reg R14; O.Reg R1 ] ||> test
 
   [<TestMethod>]
-  member __.``[AVR] Memory Operands Insturctions Parse Test (1)`` () =
+  member _.``[AVR] Memory Operands Insturctions Parse Test (1)`` () =
     "1d92"
     ++ ST ** [ O.MemPostIdx X; OprReg R1 ] ||> test
 
   [<TestMethod>]
-  member __.``[AVR] Memory Operands Insturctions Parse Test (2)`` () =
+  member _.``[AVR] Memory Operands Insturctions Parse Test (2)`` () =
     "6980"
     ++ LDD ** [ O.Reg R6; O.MemDisp (Y, 1) ] ||> test
 
   [<TestMethod>]
-  member __.``[AVR] Immediate Operand Insturction Parse Test (1)`` () =
+  member _.``[AVR] Immediate Operand Insturction Parse Test (1)`` () =
     "8fef"
     ++ LDI ** [ O.Reg R24; O.Imm 0xff ] ||> test

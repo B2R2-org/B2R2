@@ -31,12 +31,13 @@ open B2R2.Collections.FingerTree
 type private IntervalMapElem<'V> (k, v) =
   member val Key: AddrRange = k
   member val Val: 'V = v
-  member __.Min = __.Key.Min
-  member __.Max = __.Key.Max
-  override __.ToString () = __.Key.ToString ()
+  member this.Min = this.Key.Min
+  member this.Max = this.Key.Max
+  override this.ToString () = this.Key.ToString ()
   interface IMeasured<InterMonoid<Addr>> with
-    member __.Measurement =
-      InterMonoid<Addr> (Ordered(Key(__.Key.Min)), Priority(Prio(__.Key.Max)))
+    member this.Measurement =
+      InterMonoid<Addr> (Ordered(Key(this.Key.Min)),
+                         Priority(Prio(this.Key.Max)))
 
 /// <summary>
 /// This is an interval map, which is a map based on an interval tree. This maps

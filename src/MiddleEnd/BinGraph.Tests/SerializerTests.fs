@@ -40,7 +40,7 @@ type SerializerTests () =
 
   [<TestMethod>]
   [<DynamicData(nameof SerializerTests.GraphTypes)>]
-  member __.``Import/Export test 1`` (t) =
+  member _.``Import/Export test 1`` (t) =
     let g, _ = digraph1 t
     let json = Serializer.ToJson g
     let graphConstructor = fun () -> makeGraph t
@@ -52,7 +52,7 @@ type SerializerTests () =
 
   [<TestMethod>]
   [<DynamicData(nameof SerializerTests.GraphTypes)>]
-  member __.``Import/Export test 2`` (t) =
+  member _.``Import/Export test 2`` (t) =
     let g, _ = digraph4 t
     let json = Serializer.ToJson g
     let graphConstructor = fun () -> makeGraph t

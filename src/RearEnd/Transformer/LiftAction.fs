@@ -54,11 +54,11 @@ type LiftAction () =
     |> box
 
   interface IAction with
-    member __.ActionID with get() = "lift"
-    member __.Signature with get() = "Binary -> string"
-    member __.Description with get() = """
+    member _.ActionID with get() = "lift"
+    member _.Signature with get() = "Binary -> string"
+    member _.Description with get() = """
     Take in a binary and linearly disassemble the binary and lift it to a
     sequence of LowUIR statements, and dump the result to a string.
 """
-    member __.Transform args collection =
+    member _.Transform args collection =
       { Values = collection.Values |> Array.map liftByteArray }

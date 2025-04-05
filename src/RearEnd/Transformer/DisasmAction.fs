@@ -57,11 +57,11 @@ type DisasmAction () =
     |> box
 
   interface IAction with
-    member __.ActionID with get() = "disasm"
-    member __.Signature with get() = "Binary -> Instruction array"
-    member __.Description with get() = """
+    member _.ActionID with get() = "disasm"
+    member _.Signature with get() = "Binary -> Instruction array"
+    member _.Description with get() = """
     Take in a binary and linearly disassemble the binary to return a list of
     instructions along with its corresponding bytes.
 """
-    member __.Transform args collection =
+    member _.Transform args collection =
       { Values = collection.Values |> Array.map (disasmByteArray args) }

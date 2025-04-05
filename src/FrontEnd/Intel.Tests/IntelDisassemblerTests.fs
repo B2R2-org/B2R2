@@ -51,61 +51,61 @@ type IntelDisassemblerTests () =
   let ( ++ ) byteString pair = (ByteArray.ofHexString byteString, pair)
 
   [<TestMethod>]
-  member __.``X86 ADD instruction test (1)`` () =
+  member _.``X86 ADD instruction test (1)`` () =
     "0500000100" ++ [| "add eax, 0x10000"; "add $0x10000, %eax" |]
     |> testX86
 
   [<TestMethod>]
-  member __.``X86 ADD instruction test (2)`` () =
+  member _.``X86 ADD instruction test (2)`` () =
     "83000a" ++ [| "add dword ptr [eax], 0xa"; "addl $0xa, (%eax)" |]
     |> testX86
 
   [<TestMethod>]
   // gcc isn't contain '+'
-  member __.``X86 ADD instruction test (3)`` () =
+  member _.``X86 ADD instruction test (3)`` () =
     "8340100a"
     ++ [| "add dword ptr [eax+0x10], 0xa"; "addl $0xa, +0x10(%eax)" |]
     |> testX86
 
   [<TestMethod>]
-  member __.``X86 ADD instruction test (4)`` () =
+  member _.``X86 ADD instruction test (4)`` () =
     "8304580a"
     ++ [| "add dword ptr [eax+ebx*2], 0xa"; "addl $0xa, (%eax, %ebx, 2)" |]
     |> testX86
 
   [<TestMethod>]
   // gcc isn't contain '+'
-  member __.``X86 ADD instruction test (5)`` () =
+  member _.``X86 ADD instruction test (5)`` () =
     "838458000100000a"
     ++ [| "add dword ptr [eax+ebx*2+0x100], 0xa"
           "addl $0xa, +0x100(%eax, %ebx, 2)" |]
     |> testX86
 
   [<TestMethod>]
-  member __.``X64 ADD instruction test (6)`` () =
+  member _.``X64 ADD instruction test (6)`` () =
     "480500000100" ++ [| "add rax, 0x10000"; "add $0x10000, %rax" |]
     |> testX64
 
   [<TestMethod>]
-  member __.``X64 ADD instruction test (7)`` () =
+  member _.``X64 ADD instruction test (7)`` () =
     "4883000a" ++ [| "add qword ptr [rax], 0xa"; "addq $0xa, (%rax)" |]
     |> testX64
 
   [<TestMethod>]
-  member __.``X64 ADD instruction test (8)`` () =
+  member _.``X64 ADD instruction test (8)`` () =
     "678340100a"
     ++ [| "add dword ptr [eax+0x10], 0xa"; "addl $0xa, +0x10(%eax)" |]
     |> testX64
 
   [<TestMethod>]
-  member __.``X64 ADD instruction test (9)`` () =
+  member _.``X64 ADD instruction test (9)`` () =
     "678304580a"
     ++ [| "add dword ptr [eax+ebx*2], 0xa"; "addl $0xa, (%eax, %ebx, 2)" |]
     |> testX64
 
   [<TestMethod>]
   // gcc isn't contain '+'
-  member __.``X64 ADD instruction test (10)`` () =
+  member _.``X64 ADD instruction test (10)`` () =
     "67838458000100000a"
     ++ [| "add dword ptr [eax+ebx*2+0x100], 0xa"
           "addl $0xa, +0x100(%eax, %ebx, 2)" |]

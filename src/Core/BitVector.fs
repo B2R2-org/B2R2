@@ -82,7 +82,7 @@ module internal BitVectorHelper =
 [<AbstractClass; AllowNullLiteral>]
 type BitVector internal (len) =
   /// BitVector length.
-  member __.Length with get(): RegType = len
+  member _.Length with get(): RegType = len
 
   /// Return the uint64 representation of the bitvector value.
   abstract SmallValue: unit -> uint64
@@ -749,64 +749,64 @@ and BitVectorSmall (n, len) =
   new (n: uint16, len) = BitVectorSmall (uint64 n, len)
   new (n: uint8, len) = BitVectorSmall (uint64 n, len)
 
-  member __.Value with get(): uint64 = n
+  member _.Value with get(): uint64 = n
 
-  override __.ValToString () = HexString.ofUInt64 n
+  override _.ValToString () = HexString.ofUInt64 n
 
-  override __.Equals obj =
+  override _.Equals obj =
     match obj with
     | :? BitVectorSmall as obj -> len = obj.Length && n = obj.Value
     | _ -> false
 
-  override __.ApproxEq (rhs: BitVector) =
+  override this.ApproxEq (rhs: BitVector) =
 #if DEBUG
     if len <> rhs.Length then raise ArithTypeMismatchException else ()
 #endif
     let shifter = BitVector.OfInt32 1 len
-    let v1 = __.Shr shifter
+    let v1 = this.Shr shifter
     let v2 = rhs.Shr shifter
     v1.Eq v2
 
-  override __.IsPositive () = isSmallPositive len n
+  override _.IsPositive () = isSmallPositive len n
 
-  override __.IsNegative () = not <| isSmallPositive len n
+  override _.IsNegative () = not <| isSmallPositive len n
 
-  override __.GetHashCode () =
+  override _.GetHashCode () =
     HashCode.Combine<uint64, RegType> (n, len)
 
-  override __.ToString () =
-    __.ValToString () + ":" + RegType.toString len
+  override this.ToString () =
+    this.ValToString () + ":" + RegType.toString len
 
-  override __.SmallValue () = n
+  override _.SmallValue () = n
 
-  override __.BigValue () = bigint n
+  override _.BigValue () = bigint n
 
-  override __.IsZero () = n = 0UL
+  override _.IsZero () = n = 0UL
 
-  override __.IsOne () = n = 1UL
+  override _.IsOne () = n = 1UL
 
-  override __.Add (rhs: uint64) =
+  override _.Add (rhs: uint64) =
     BitVectorSmall (n + rhs |> adaptSmall len, len) :> BitVector
 
-  override __.Add (rhs: BitVector) =
+  override _.Add (rhs: BitVector) =
     if len <> rhs.Length then raise ArithTypeMismatchException else ()
     BitVectorSmall (n + rhs.SmallValue () |> adaptSmall len, len) :> BitVector
 
-  override __.Sub (rhs: uint64) =
+  override _.Sub (rhs: uint64) =
     BitVectorSmall (n - rhs |> adaptSmall len, len) :> BitVector
 
-  override __.Sub (rhs: BitVector) =
+  override _.Sub (rhs: BitVector) =
     if len <> rhs.Length then raise ArithTypeMismatchException else ()
     BitVectorSmall (n - rhs.SmallValue () |> adaptSmall len, len) :> BitVector
 
-  override __.Mul (rhs: uint64) =
+  override _.Mul (rhs: uint64) =
     BitVectorSmall (n * rhs |> adaptSmall len, len) :> BitVector
 
-  override __.Mul (rhs: BitVector) =
+  override _.Mul (rhs: BitVector) =
     if len <> rhs.Length then raise ArithTypeMismatchException else ()
     BitVectorSmall (n * rhs.SmallValue () |> adaptSmall len, len) :> BitVector
 
-  override __.SDiv (rhs: BitVector) =
+  override _.SDiv (rhs: BitVector) =
     if len <> rhs.Length then raise ArithTypeMismatchException else ()
     let v1 = n
     let v2 = rhs.SmallValue ()
@@ -817,14 +817,14 @@ and BitVectorSmall (n, len) =
     let result = if isPos1 = isPos2 then v1 / v2 else - (v1 / v2)
     BitVectorSmall (result |> uint64 |> adaptSmall len, len) :> BitVector
 
-  override __.Div (rhs: uint64) =
+  override _.Div (rhs: uint64) =
     BitVectorSmall (n / rhs |> adaptSmall len, len) :> BitVector
 
-  override __.Div (rhs: BitVector) =
+  override _.Div (rhs: BitVector) =
     if len <> rhs.Length then raise ArithTypeMismatchException else ()
     BitVectorSmall (n / rhs.SmallValue () |> adaptSmall len, len) :> BitVector
 
-  override __.SMod (rhs: BitVector) =
+  override _.SMod (rhs: BitVector) =
     if len <> rhs.Length then raise ArithTypeMismatchException else ()
     let v1 = n
     let v2 = rhs.SmallValue ()
@@ -835,45 +835,45 @@ and BitVectorSmall (n, len) =
     let result = if isPos1 then v1 % v2 else - (v1 % v2)
     BitVectorSmall (result |> uint64 |> adaptSmall len, len) :> BitVector
 
-  override __.Mod (rhs: uint64) =
+  override _.Mod (rhs: uint64) =
     BitVectorSmall (n % rhs |> adaptSmall len, len) :> BitVector
 
-  override __.Mod (rhs: BitVector) =
+  override _.Mod (rhs: BitVector) =
     if len <> rhs.Length then raise ArithTypeMismatchException else ()
     BitVectorSmall (n % rhs.SmallValue () |> adaptSmall len, len) :> BitVector
 
-  override __.And (rhs: uint64) =
+  override _.And (rhs: uint64) =
     BitVectorSmall (n &&& rhs |> adaptSmall len, len) :> BitVector
 
-  override __.And (rhs: BitVector) =
+  override _.And (rhs: BitVector) =
     if len <> rhs.Length then raise ArithTypeMismatchException else ()
     BitVectorSmall (n &&& rhs.SmallValue () |> adaptSmall len, len)
     :> BitVector
 
-  override __.Or (rhs: uint64) =
+  override _.Or (rhs: uint64) =
     BitVectorSmall (n ||| rhs |> adaptSmall len, len) :> BitVector
 
-  override __.Or (rhs: BitVector) =
+  override _.Or (rhs: BitVector) =
     if len <> rhs.Length then raise ArithTypeMismatchException else ()
     BitVectorSmall (n ||| rhs.SmallValue () |> adaptSmall len, len)
     :> BitVector
 
-  override __.Xor (rhs: uint64) =
+  override _.Xor (rhs: uint64) =
     BitVectorSmall (n ^^^ rhs |> adaptSmall len, len) :> BitVector
 
-  override __.Xor (rhs: BitVector) =
+  override _.Xor (rhs: BitVector) =
     if len <> rhs.Length then raise ArithTypeMismatchException else ()
     BitVectorSmall (n ^^^ rhs.SmallValue () |> adaptSmall len, len)
     :> BitVector
 
-  override __.Shl (rhs: BitVector) =
+  override _.Shl (rhs: BitVector) =
     if len <> rhs.Length then raise ArithTypeMismatchException else ()
     let v1 = n
     let v2 = rhs.SmallValue ()
     if v2 >= 64UL then BitVectorSmall (0UL, len) :> BitVector
     else BitVectorSmall (adaptSmall len (v1 <<< int v2), len) :> BitVector
 
-  override __.Shr (rhs: BitVector) =
+  override _.Shr (rhs: BitVector) =
     if len <> rhs.Length then raise ArithTypeMismatchException else ()
     let v1 = n
     let v2 = rhs.SmallValue ()
@@ -881,7 +881,7 @@ and BitVectorSmall (n, len) =
     if v2 >= 64UL then BitVectorSmall (0UL, len) :> BitVector
     else BitVectorSmall (v1 >>> (int v2), len) :> BitVector
 
-  override __.Sar (rhs: BitVector) =
+  override this.Sar (rhs: BitVector) =
     if len <> rhs.Length then raise ArithTypeMismatchException else ()
     let v1 = n
     let v2 = rhs.SmallValue ()
@@ -890,7 +890,7 @@ and BitVectorSmall (n, len) =
       BitVectorSmall (UInt64.MaxValue |> adaptSmall len, len) :> BitVector
     else
       let res = v1 >>> (int v2)
-      if len = 1<rt> then __ :> BitVector
+      if len = 1<rt> then this :> BitVector
       elif isSmallPositive len v1 then BitVectorSmall (res, len) :> BitVector
       else
         let pad =
@@ -899,38 +899,40 @@ and BitVectorSmall (n, len) =
              else UInt64.MaxValue >>> (64 - (int len - int v2)))
         BitVectorSmall (res ||| pad, len) :> BitVector
 
-  override __.Not () =
+  override _.Not () =
     BitVectorSmall ((~~~ n) |> adaptSmall len, len) :> BitVector
 
-  override __.Neg () =
+  override _.Neg () =
     BitVectorSmall (((~~~ n) + 1UL) |> adaptSmall len, len) :> BitVector
 
-  override __.Cast targetLen =
+  override this.Cast targetLen =
     if targetLen <= 64<rt> then
-      BitVectorSmall (adaptSmall targetLen n, targetLen) :> BitVector
+      BitVectorSmall (adaptSmall targetLen n, targetLen)
+      :> BitVector
     else
-      BitVectorBig (adaptBig targetLen (__.BigValue ()), targetLen) :> BitVector
+      BitVectorBig (adaptBig targetLen (this.BigValue ()), targetLen)
+      :> BitVector
 
-  override __.Extract (targetLen, pos) =
+  override this.Extract (targetLen, pos) =
     if len < targetLen then raise ArithTypeMismatchException
-    elif len = targetLen then __ :> BitVector
+    elif len = targetLen then this :> BitVector
     else
       BitVectorSmall (adaptSmall targetLen (n >>> pos), targetLen) :> BitVector
 
-  override __.Concat (rhs: BitVector) =
+  override this.Concat (rhs: BitVector) =
     let rLen = rhs.Length
     let targetLen = len + rLen
     if targetLen <= 64<rt> then
       BitVectorSmall ((n <<< int rLen) + rhs.SmallValue (), targetLen)
       :> BitVector
     else
-      let v1 = __.BigValue ()
+      let v1 = this.BigValue ()
       let v2 = rhs.BigValue ()
       BitVectorBig ((v1 <<< int rLen) + v2, targetLen) :> BitVector
 
-  override __.SExt targetLen =
+  override this.SExt targetLen =
     if targetLen < len then raise ArithTypeMismatchException
-    elif targetLen = len then __ :> BitVector
+    elif targetLen = len then this :> BitVector
     elif targetLen <= 64<rt> then
       if isSmallPositive len n then BitVectorSmall (n, targetLen) :> BitVector
       else
@@ -939,39 +941,41 @@ and BitVectorSmall (n, len) =
           - (UInt64.MaxValue >>> (64 - int len))
         BitVectorSmall (n + mask, targetLen) :> BitVector
     else
-      let n' = adaptBig targetLen (__.BigValue ())
+      let n' = adaptBig targetLen (this.BigValue ())
       if isSmallPositive len n then BitVectorBig (n', targetLen) :> BitVector
       else
         let mask = (1I <<< int targetLen) - (1I <<< int len)
         BitVectorBig (n' + mask, targetLen) :> BitVector
 
-  override __.ZExt targetLen =
+  override this.ZExt targetLen =
     if targetLen < len then raise ArithTypeMismatchException
-    elif targetLen = len then __ :> BitVector
+    elif targetLen = len then this :> BitVector
     elif targetLen <= 64<rt> then
-      BitVectorSmall (adaptSmall targetLen n, targetLen) :> BitVector
+      BitVectorSmall (adaptSmall targetLen n, targetLen)
+      :> BitVector
     else
-      BitVectorBig (adaptBig targetLen (__.BigValue ()), targetLen) :> BitVector
+      BitVectorBig (adaptBig targetLen (this.BigValue ()), targetLen)
+      :> BitVector
 
-  override __.Eq rhs =
+  override _.Eq rhs =
     if len = rhs.Length && n = rhs.SmallValue () then BitVector.T
     else BitVector.F
 
-  override __.Neq rhs =
+  override _.Neq rhs =
     if len = rhs.Length && n = rhs.SmallValue () then BitVector.F
     else BitVector.T
 
-  override __.Gt rhs =
+  override _.Gt rhs =
     if len <> rhs.Length then raise ArithTypeMismatchException
     elif n > rhs.SmallValue () then BitVector.T
     else BitVector.F
 
-  override __.Ge rhs =
+  override _.Ge rhs =
     if len <> rhs.Length then raise ArithTypeMismatchException
     elif n >= rhs.SmallValue () then BitVector.T
     else BitVector.F
 
-  override __.SGt rhs =
+  override _.SGt rhs =
     if len <> rhs.Length then raise ArithTypeMismatchException
     else
       let v1 = n
@@ -983,7 +987,7 @@ and BitVectorSmall (n, len) =
       | false, true -> BitVector.F
       | _ -> if v1 > v2 then BitVector.T else BitVector.F
 
-  override __.SGe rhs =
+  override _.SGe rhs =
     if len <> rhs.Length then raise ArithTypeMismatchException
     else
       let v1 = n
@@ -995,17 +999,17 @@ and BitVectorSmall (n, len) =
       | false, true -> BitVector.F
       | _ -> if v1 >= v2 then BitVector.T else BitVector.F
 
-  override __.Lt rhs =
+  override _.Lt rhs =
     if len <> rhs.Length then raise ArithTypeMismatchException
     elif n < rhs.SmallValue () then BitVector.T
     else BitVector.F
 
-  override __.Le rhs =
+  override _.Le rhs =
     if len <> rhs.Length then raise ArithTypeMismatchException
     elif n <= rhs.SmallValue () then BitVector.T
     else BitVector.F
 
-  override __.SLt rhs =
+  override _.SLt rhs =
     if len <> rhs.Length then raise ArithTypeMismatchException
     else
       let v1 = n
@@ -1017,7 +1021,7 @@ and BitVectorSmall (n, len) =
       | false, true -> BitVector.T
       | _ -> if v1 < v2 then BitVector.T else BitVector.F
 
-  override __.SLe rhs =
+  override _.SLe rhs =
     if len <> rhs.Length then raise ArithTypeMismatchException
     else
       let v1 = n
@@ -1029,121 +1033,122 @@ and BitVectorSmall (n, len) =
       | false, true -> BitVector.T
       | _ -> if v1 <= v2 then BitVector.T else BitVector.F
 
-  override __.Abs () =
-    if isSmallPositive len n then __ :> BitVector
-    else __.Neg ()
+  override this.Abs () =
+    if isSmallPositive len n then this :> BitVector
+    else this.Neg ()
 
-  override __.FAdd rhs =
+  override this.FAdd rhs =
     if len <> rhs.Length then raise ArithTypeMismatchException else ()
     match len with
     | 32<rt> ->
-      let v1 = __.SmallValue () |> toFloat32
+      let v1 = this.SmallValue () |> toFloat32
       let v2 = rhs.SmallValue () |> toFloat32
       let bs = v1 + v2 |> BitConverter.GetBytes
       BitVectorSmall (BitConverter.ToInt32 (bs, 0) |> uint64, len) :> BitVector
     | 64<rt> ->
-      let v1 = __.SmallValue () |> toFloat64
+      let v1 = this.SmallValue () |> toFloat64
       let v2 = rhs.SmallValue () |> toFloat64
       let r = v1 + v2 |> BitConverter.DoubleToInt64Bits |> uint64
       BitVectorSmall (r, len) :> BitVector
     | _ -> raise ArithTypeMismatchException
 
-  override __.FSub rhs =
+  override this.FSub rhs =
     if len <> rhs.Length then raise ArithTypeMismatchException else ()
     match len with
     | 32<rt> ->
-      let v1 = __.SmallValue () |> toFloat32
+      let v1 = this.SmallValue () |> toFloat32
       let v2 = rhs.SmallValue () |> toFloat32
       let bs = v1 - v2 |> BitConverter.GetBytes
       BitVectorSmall (BitConverter.ToInt32 (bs, 0) |> uint64, len) :> BitVector
     | 64<rt> ->
-      let v1 = __.SmallValue () |> toFloat64
+      let v1 = this.SmallValue () |> toFloat64
       let v2 = rhs.SmallValue () |> toFloat64
       let r = v1 - v2 |> BitConverter.DoubleToInt64Bits |> uint64
       BitVectorSmall (r, len) :> BitVector
     | _ -> raise ArithTypeMismatchException
 
-  override __.FMul rhs =
+  override this.FMul rhs =
     if len <> rhs.Length then raise ArithTypeMismatchException else ()
     match len with
     | 32<rt> ->
-      let v1 = __.SmallValue () |> toFloat32
+      let v1 = this.SmallValue () |> toFloat32
       let v2 = rhs.SmallValue () |> toFloat32
       let bs = v1 * v2 |> BitConverter.GetBytes
       BitVectorSmall (BitConverter.ToInt32 (bs, 0) |> uint64, len) :> BitVector
     | 64<rt> ->
-      let v1 = __.SmallValue () |> toFloat64
+      let v1 = this.SmallValue () |> toFloat64
       let v2 = rhs.SmallValue () |> toFloat64
       let r = v1 * v2 |> BitConverter.DoubleToInt64Bits |> uint64
       BitVectorSmall (r, len) :> BitVector
     | _ -> raise ArithTypeMismatchException
 
-  override __.FDiv rhs =
+  override this.FDiv rhs =
     if len <> rhs.Length then raise ArithTypeMismatchException else ()
     match len with
     | 32<rt> ->
-      let v1 = __.SmallValue () |> toFloat32
+      let v1 = this.SmallValue () |> toFloat32
       let v2 = rhs.SmallValue () |> toFloat32
       let bs = v1 / v2 |> BitConverter.GetBytes
       BitVectorSmall (BitConverter.ToInt32 (bs, 0) |> uint64, len) :> BitVector
     | 64<rt> ->
-      let v1 = __.SmallValue () |> toFloat64
+      let v1 = this.SmallValue () |> toFloat64
       let v2 = rhs.SmallValue () |> toFloat64
       let r = v1 / v2 |> BitConverter.DoubleToInt64Bits |> uint64
       BitVectorSmall (r, len) :> BitVector
     | _ -> raise ArithTypeMismatchException
 
-  override __.FLog rhs =
+  override this.FLog rhs =
     if len <> rhs.Length then raise ArithTypeMismatchException else ()
     match len with
     | 32<rt> ->
-      let v1 = __.SmallValue () |> toFloat32
+      let v1 = this.SmallValue () |> toFloat32
       let v2 = rhs.SmallValue () |> toFloat32
       let bs = MathF.Log (v2, v1) |> BitConverter.GetBytes
       BitVectorSmall (BitConverter.ToInt32 (bs, 0) |> uint64, len) :> BitVector
     | 64<rt> ->
-      let v1 = __.SmallValue () |> toFloat64
+      let v1 = this.SmallValue () |> toFloat64
       let v2 = rhs.SmallValue () |> toFloat64
       let r = Math.Log (v2, v1) |> BitConverter.DoubleToInt64Bits |> uint64
       BitVectorSmall (r, len) :> BitVector
     | _ -> raise ArithTypeMismatchException
 
-  override __.FPow rhs =
+  override this.FPow rhs =
     if len <> rhs.Length then raise ArithTypeMismatchException else ()
     match len with
     | 32<rt> ->
-      let v1 = __.SmallValue () |> toFloat32
+      let v1 = this.SmallValue () |> toFloat32
       let v2 = rhs.SmallValue () |> toFloat32
       let bs = MathF.Pow (v1, v2) |> BitConverter.GetBytes
       BitVectorSmall (BitConverter.ToInt32 (bs, 0) |> uint64, len) :> BitVector
     | 64<rt> ->
-      let v1 = __.SmallValue () |> toFloat64
+      let v1 = this.SmallValue () |> toFloat64
       let v2 = rhs.SmallValue () |> toFloat64
       let r = Math.Pow (v1, v2) |> BitConverter.DoubleToInt64Bits |> uint64
       BitVectorSmall (r, len) :> BitVector
     | _ -> raise ArithTypeMismatchException
 
-  override __.FCast targetLen =
+  override this.FCast targetLen =
     match len, targetLen with
-    | 32<rt>, 32<rt> -> __ :> BitVector
+    | 32<rt>, 32<rt> -> this :> BitVector
     | 32<rt>, 64<rt> ->
-      let f32 = __.SmallValue () |> toFloat32 |> float
+      let f32 = this.SmallValue () |> toFloat32 |> float
       let u64 = BitConverter.DoubleToInt64Bits f32 |> uint64
       BitVectorSmall (u64, targetLen) :> BitVector
     | 32<rt>, 80<rt> ->
-      let f32 = __.SmallValue () |> toFloat32 |> float
+      let f32 = this.SmallValue () |> toFloat32 |> float
       let u64 = BitConverter.DoubleToInt64Bits f32 |> uint64
       BitVectorBig (encodeBigFloat u64, targetLen) :> BitVector
     | 64<rt>, 32<rt> ->
-      let f64 = __.SmallValue () |> toFloat64
+      let f64 = this.SmallValue () |> toFloat64
       let u64 = BitConverter.SingleToInt32Bits (float32 f64) |> uint64
       BitVectorSmall (u64, targetLen) :> BitVector
-    | 64<rt>, 64<rt> -> __ :> BitVector
+    | 64<rt>, 64<rt> -> this :> BitVector
     | 64<rt>, 80<rt> ->
-      BitVectorBig (__.SmallValue () |> encodeBigFloat, targetLen) :> BitVector
+      BitVectorBig (this.SmallValue () |> encodeBigFloat, targetLen)
+      :> BitVector
     | _ -> raise ArithTypeMismatchException
 
-  override __.Itof (targetLen, isSigned) =
+  override _.Itof (targetLen, isSigned) =
     match targetLen with
     | 32<rt> ->
       let fpv = if isSigned then n |> int64 |> float32 else n |> float32
@@ -1159,154 +1164,154 @@ and BitVectorSmall (n, len) =
       BitVectorBig (bigint u64, targetLen) :> BitVector
     | _ -> raise ArithTypeMismatchException
 
-  override __.FtoiTrunc targetLen =
+  override this.FtoiTrunc targetLen =
     let f =
       match len with
-      | 32<rt> -> __.SmallValue () |> toFloat32 |> float |> truncate
-      | 64<rt> -> __.SmallValue () |> toFloat64 |> truncate
+      | 32<rt> -> this.SmallValue () |> toFloat32 |> float |> truncate
+      | 64<rt> -> this.SmallValue () |> toFloat64 |> truncate
       | _ -> raise ArithTypeMismatchException
     if targetLen <= 64<rt> then
       BitVectorSmall (adaptSmall targetLen (uint64 f), targetLen) :> BitVector
     else BitVectorBig (adaptBig targetLen (bigint f), targetLen) :> BitVector
 
-  override __.FtoiRound targetLen =
+  override this.FtoiRound targetLen =
     let f =
       match len with
-      | 32<rt> -> __.SmallValue () |> toFloat32 |> float |> round
-      | 64<rt> -> __.SmallValue () |> toFloat64 |> round
+      | 32<rt> -> this.SmallValue () |> toFloat32 |> float |> round
+      | 64<rt> -> this.SmallValue () |> toFloat64 |> round
       | _ -> raise ArithTypeMismatchException
     if targetLen <= 64<rt> then
       BitVectorSmall (adaptSmall targetLen (uint64 f), targetLen) :> BitVector
     else BitVectorBig (adaptBig targetLen (bigint f), targetLen) :> BitVector
 
-  override __.FtoiFloor targetLen =
+  override this.FtoiFloor targetLen =
     let f =
       match len with
-      | 32<rt> -> __.SmallValue () |> toFloat32 |> float |> floor
-      | 64<rt> -> __.SmallValue () |> toFloat64 |> floor
+      | 32<rt> -> this.SmallValue () |> toFloat32 |> float |> floor
+      | 64<rt> -> this.SmallValue () |> toFloat64 |> floor
       | _ -> raise ArithTypeMismatchException
     if targetLen <= 64<rt> then
       BitVectorSmall (adaptSmall targetLen (uint64 f), targetLen) :> BitVector
     else BitVectorBig (adaptBig targetLen (bigint f), targetLen) :> BitVector
 
-  override __.FtoiCeil targetLen =
+  override this.FtoiCeil targetLen =
     let f =
       match len with
-      | 32<rt> -> __.SmallValue () |> toFloat32 |> float |> ceil
-      | 64<rt> -> __.SmallValue () |> toFloat64 |> ceil
+      | 32<rt> -> this.SmallValue () |> toFloat32 |> float |> ceil
+      | 64<rt> -> this.SmallValue () |> toFloat64 |> ceil
       | _ -> raise ArithTypeMismatchException
     if targetLen <= 64<rt> then
       BitVectorSmall (adaptSmall targetLen (uint64 f), targetLen) :> BitVector
     else BitVectorBig (adaptBig targetLen (bigint f), targetLen) :> BitVector
 
-  override __.FSqrt () =
+  override this.FSqrt () =
     match len with
     | 32<rt> ->
-      let r = __.SmallValue () |> toFloat32 |> sqrt
+      let r = this.SmallValue () |> toFloat32 |> sqrt
       BitVectorSmall (BitConverter.SingleToInt32Bits r |> uint64, len)
       :> BitVector
     | 64<rt> ->
-      let r = __.SmallValue () |> toFloat64 |> sqrt
+      let r = this.SmallValue () |> toFloat64 |> sqrt
       BitVectorSmall (BitConverter.DoubleToInt64Bits r |> uint64, len)
       :> BitVector
     | _ -> raise ArithTypeMismatchException
 
-  override __.FTan () =
+  override this.FTan () =
     match len with
     | 32<rt> ->
-      let r = __.SmallValue () |> toFloat32 |> tan
+      let r = this.SmallValue () |> toFloat32 |> tan
       BitVectorSmall (BitConverter.SingleToInt32Bits r |> uint64, len)
       :> BitVector
     | 64<rt> ->
-      let r = __.SmallValue () |> toFloat64 |> tan
+      let r = this.SmallValue () |> toFloat64 |> tan
       BitVectorSmall (BitConverter.DoubleToInt64Bits r |> uint64, len)
       :> BitVector
     | _ -> raise ArithTypeMismatchException
 
-  override __.FATan () =
+  override this.FATan () =
     match len with
     | 32<rt> ->
-      let r = __.SmallValue () |> toFloat32 |> atan
+      let r = this.SmallValue () |> toFloat32 |> atan
       BitVectorSmall (BitConverter.SingleToInt32Bits r |> uint64, len)
       :> BitVector
     | 64<rt> ->
-      let r = __.SmallValue () |> toFloat64 |> atan
+      let r = this.SmallValue () |> toFloat64 |> atan
       BitVectorSmall (BitConverter.DoubleToInt64Bits r |> uint64, len)
       :> BitVector
     | _ -> raise ArithTypeMismatchException
 
-  override __.FSin () =
+  override this.FSin () =
     match len with
     | 32<rt> ->
-      let r = __.SmallValue () |> toFloat32 |> sin
+      let r = this.SmallValue () |> toFloat32 |> sin
       BitVectorSmall (BitConverter.SingleToInt32Bits r |> uint64, len)
       :> BitVector
     | 64<rt> ->
-      let r = __.SmallValue () |> toFloat64 |> sin
+      let r = this.SmallValue () |> toFloat64 |> sin
       BitVectorSmall (BitConverter.DoubleToInt64Bits r |> uint64, len)
       :> BitVector
     | _ -> raise ArithTypeMismatchException
 
-  override __.FCos () =
+  override this.FCos () =
     match len with
     | 32<rt> ->
-      let r = __.SmallValue () |> toFloat32 |> cos
+      let r = this.SmallValue () |> toFloat32 |> cos
       BitVectorSmall (BitConverter.SingleToInt32Bits r |> uint64, len)
       :> BitVector
     | 64<rt> ->
-      let r = __.SmallValue () |> toFloat64 |> cos
+      let r = this.SmallValue () |> toFloat64 |> cos
       BitVectorSmall (BitConverter.DoubleToInt64Bits r |> uint64, len)
       :> BitVector
     | _ -> raise ArithTypeMismatchException
 
-  override __.FGt rhs =
+  override this.FGt rhs =
     if len <> rhs.Length then raise ArithTypeMismatchException else ()
     match len with
     | 32<rt> ->
-      let v1 = __.SmallValue () |> toFloat32
+      let v1 = this.SmallValue () |> toFloat32
       let v2 = rhs.SmallValue () |> toFloat32
       if v1 > v2 then BitVector.T else BitVector.F
     | 64<rt> ->
-      let v1 = __.SmallValue () |> toFloat64
+      let v1 = this.SmallValue () |> toFloat64
       let v2 = rhs.SmallValue () |> toFloat64
       if v1 > v2 then BitVector.T else BitVector.F
     | _ -> raise ArithTypeMismatchException
 
-  override __.FGe rhs =
+  override this.FGe rhs =
     if len <> rhs.Length then raise ArithTypeMismatchException else ()
     match len with
     | 32<rt> ->
-      let v1 = __.SmallValue () |> toFloat32
+      let v1 = this.SmallValue () |> toFloat32
       let v2 = rhs.SmallValue () |> toFloat32
       if v1 >= v2 then BitVector.T else BitVector.F
     | 64<rt> ->
-      let v1 = __.SmallValue () |> toFloat64
+      let v1 = this.SmallValue () |> toFloat64
       let v2 = rhs.SmallValue () |> toFloat64
       if v1 >= v2 then BitVector.T else BitVector.F
     | _ -> raise ArithTypeMismatchException
 
-  override __.FLt rhs =
+  override this.FLt rhs =
     if len <> rhs.Length then raise ArithTypeMismatchException else ()
     match len with
     | 32<rt> ->
-      let v1 = __.SmallValue () |> toFloat32
+      let v1 = this.SmallValue () |> toFloat32
       let v2 = rhs.SmallValue () |> toFloat32
       if v1 < v2 then BitVector.T else BitVector.F
     | 64<rt> ->
-      let v1 = __.SmallValue () |> toFloat64
+      let v1 = this.SmallValue () |> toFloat64
       let v2 = rhs.SmallValue () |> toFloat64
       if v1 < v2 then BitVector.T else BitVector.F
     | _ -> raise ArithTypeMismatchException
 
-  override __.FLe rhs =
+  override this.FLe rhs =
     if len <> rhs.Length then raise ArithTypeMismatchException else ()
     match len with
     | 32<rt> ->
-      let v1 = __.SmallValue () |> toFloat32
+      let v1 = this.SmallValue () |> toFloat32
       let v2 = rhs.SmallValue () |> toFloat32
       if v1 <= v2 then BitVector.T else BitVector.F
     | 64<rt> ->
-      let v1 = __.SmallValue () |> toFloat64
+      let v1 = this.SmallValue () |> toFloat64
       let v2 = rhs.SmallValue () |> toFloat64
       if v1 <= v2 then BitVector.T else BitVector.F
     | _ -> raise ArithTypeMismatchException
@@ -1320,72 +1325,72 @@ and BitVectorBig (n, len) =
   do if len <= 64<rt> then raise ArithTypeMismatchException else ()
 #endif
 
-  member __.Value with get(): bigint = n
+  member _.Value with get(): bigint = n
 
-  override __.ValToString () =
+  override _.ValToString () =
     if n = 0I then "0x0"
     else "0x" + n.ToString("x").TrimStart('0')
 
-  override __.Equals obj =
+  override _.Equals obj =
     match obj with
     | :? BitVectorBig as obj -> len = obj.Length && n = obj.Value
     | _ -> false
 
-  override __.ApproxEq (rhs: BitVector) =
+  override this.ApproxEq (rhs: BitVector) =
 #if DEBUG
     if len <> rhs.Length then raise ArithTypeMismatchException else ()
 #endif
     if len = 80<rt> then
       let shifter = BitVector.OfInt32 12 80<rt>
-      let v1 = __.Shr shifter
+      let v1 = this.Shr shifter
       let v2 = rhs.Shr shifter
       v1.Eq v2
     else raise ArithTypeMismatchException
 
-  override __.IsPositive () = isBigPositive len n
+  override _.IsPositive () = isBigPositive len n
 
-  override __.IsNegative () = not <| isBigPositive len n
+  override _.IsNegative () = not <| isBigPositive len n
 
-  override __.GetHashCode () =
+  override _.GetHashCode () =
     HashCode.Combine<bigint, RegType> (n, len)
 
-  override __.ToString () =
-    __.ValToString () + ":" + RegType.toString len
+  override this.ToString () =
+    this.ValToString () + ":" + RegType.toString len
 
-  override __.SmallValue () =
+  override _.SmallValue () =
 #if DEBUG
     if n > bigint 0xFFFFFFFFFFFFFFFFUL then nSizeErr len else ()
 #endif
     uint64 n
 
-  override __.BigValue () = n
+  override _.BigValue () = n
 
-  override __.IsZero () = n = 0I
+  override _.IsZero () = n = 0I
 
-  override __.IsOne () = n = 1I
+  override _.IsOne () = n = 1I
 
-  override __.Add (rhs: uint64) =
+  override _.Add (rhs: uint64) =
     BitVectorBig (n + bigint rhs, len) :> BitVector
 
-  override __.Add (rhs: BitVector) =
+  override _.Add (rhs: BitVector) =
     if len <> rhs.Length then raise ArithTypeMismatchException else ()
     BitVectorBig (n + rhs.BigValue () |> adaptBig len, len) :> BitVector
 
-  override __.Sub (rhs: uint64) =
+  override _.Sub (rhs: uint64) =
     BitVectorBig (n - bigint rhs, len) :> BitVector
 
-  override __.Sub (rhs: BitVector) =
+  override _.Sub (rhs: BitVector) =
     if len <> rhs.Length then raise ArithTypeMismatchException else ()
     BitVectorBig (n - rhs.BigValue () |> adaptBig len, len) :> BitVector
 
-  override __.Mul (rhs: uint64) =
+  override _.Mul (rhs: uint64) =
     BitVectorBig (n * bigint rhs, len) :> BitVector
 
-  override __.Mul (rhs: BitVector) =
+  override _.Mul (rhs: BitVector) =
     if len <> rhs.Length then raise ArithTypeMismatchException else ()
     BitVectorBig (n * rhs.BigValue () |> adaptBig len, len) :> BitVector
 
-  override __.SDiv (rhs: BitVector) =
+  override _.SDiv (rhs: BitVector) =
     if len <> rhs.Length then raise ArithTypeMismatchException else ()
     let v1 = n
     let v2 = rhs.BigValue ()
@@ -1396,14 +1401,14 @@ and BitVectorBig (n, len) =
     let result = if isPos1 = isPos2 then v1 / v2 else neg len (v1 / v2)
     BitVectorBig (result |> adaptBig len, len) :> BitVector
 
-  override __.Div (rhs: uint64) =
+  override _.Div (rhs: uint64) =
     BitVectorBig (n / bigint rhs, len) :> BitVector
 
-  override __.Div (rhs: BitVector) =
+  override _.Div (rhs: BitVector) =
     if len <> rhs.Length then raise ArithTypeMismatchException else ()
     BitVectorBig (n / rhs.BigValue () |> adaptBig len, len) :> BitVector
 
-  override __.SMod (rhs: BitVector) =
+  override _.SMod (rhs: BitVector) =
     if len <> rhs.Length then raise ArithTypeMismatchException else ()
     let v1 = n
     let v2 = rhs.BigValue ()
@@ -1414,47 +1419,47 @@ and BitVectorBig (n, len) =
     let result = if isPos1 then v1 % v2 else neg len (v1 % v2)
     BitVectorBig (result |> adaptBig len, len) :> BitVector
 
-  override __.Mod (rhs: uint64) =
+  override _.Mod (rhs: uint64) =
     BitVectorBig (n % bigint rhs, len) :> BitVector
 
-  override __.Mod (rhs: BitVector) =
+  override _.Mod (rhs: BitVector) =
     if len <> rhs.Length then raise ArithTypeMismatchException else ()
     BitVectorBig (n % rhs.BigValue () |> adaptBig len, len) :> BitVector
 
-  override __.And (rhs: uint64) =
+  override _.And (rhs: uint64) =
     BitVectorBig (n &&& bigint rhs, len) :> BitVector
 
-  override __.And (rhs: BitVector) =
+  override _.And (rhs: BitVector) =
     if len <> rhs.Length then raise ArithTypeMismatchException else ()
     BitVectorBig (n &&& rhs.BigValue () |> adaptBig len, len) :> BitVector
 
-  override __.Or (rhs: uint64) =
+  override _.Or (rhs: uint64) =
     BitVectorBig (n ||| bigint rhs, len) :> BitVector
 
-  override __.Or (rhs: BitVector) =
+  override _.Or (rhs: BitVector) =
     if len <> rhs.Length then raise ArithTypeMismatchException else ()
     BitVectorBig (n ||| rhs.BigValue () |> adaptBig len, len) :> BitVector
 
-  override __.Xor (rhs: uint64) =
+  override _.Xor (rhs: uint64) =
     BitVectorBig (n ^^^ bigint rhs, len) :> BitVector
 
-  override __.Xor (rhs: BitVector) =
+  override _.Xor (rhs: BitVector) =
     if len <> rhs.Length then raise ArithTypeMismatchException else ()
     BitVectorBig (n ^^^ rhs.BigValue () |> adaptBig len, len) :> BitVector
 
-  override __.Shl (rhs: BitVector) =
+  override _.Shl (rhs: BitVector) =
     if len <> rhs.Length then raise ArithTypeMismatchException else ()
     let v1 = n
     let v2 = rhs.SmallValue () |> uint16 |> int
     BitVectorBig (adaptBig len (v1 <<< v2), len) :> BitVector
 
-  override __.Shr (rhs: BitVector) =
+  override _.Shr (rhs: BitVector) =
     if len <> rhs.Length then raise ArithTypeMismatchException else ()
     let v1 = n
     let v2 = rhs.SmallValue () |> uint16 |> int
     BitVectorBig (v1 >>> v2, len) :> BitVector
 
-  override __.Sar (rhs: BitVector) =
+  override _.Sar (rhs: BitVector) =
     if len <> rhs.Length then raise ArithTypeMismatchException else ()
     let v1 = n
     let v2 = rhs.SmallValue () |> uint16 |> int
@@ -1467,35 +1472,35 @@ and BitVectorBig (n, len) =
           ((1I <<< int len) - 1I) - ((1I <<< (int len - v2)))
         BitVectorBig (res ||| pad, len) :> BitVector
 
-  override __.Not () =
+  override _.Not () =
     BitVectorBig ((1I <<< (int len)) - 1I - n, len) :> BitVector
 
-  override __.Neg () =
+  override _.Neg () =
     BitVectorBig (adaptBig len ((1I <<< (int len)) - n), len) :> BitVector
 
-  override __.Cast targetLen =
+  override _.Cast targetLen =
     if targetLen <= 64<rt> then
       BitVectorSmall (adaptSmall targetLen (uint64 n), targetLen) :> BitVector
     else BitVectorBig (adaptBig targetLen n, targetLen) :> BitVector
 
-  override __.Extract (targetLen, pos) =
+  override this.Extract (targetLen, pos) =
     if len < targetLen then raise ArithTypeMismatchException
-    elif len = targetLen then __ :> BitVector
+    elif len = targetLen then this :> BitVector
     elif targetLen <= 64<rt> then
       let n' = n >>> pos |> adaptBig targetLen |> uint64
       BitVectorSmall (n', targetLen) :> BitVector
     else BitVectorBig (adaptBig targetLen (n >>> pos), targetLen) :> BitVector
 
-  override __.Concat (rhs: BitVector) =
+  override _.Concat (rhs: BitVector) =
     let rLen = rhs.Length
     let targetLen = len + rLen
     let v1 = n
     let v2 = rhs.BigValue ()
     BitVectorBig ((v1 <<< int rLen) + v2, targetLen) :> BitVector
 
-  override __.SExt targetLen =
+  override this.SExt targetLen =
     if targetLen < len then raise ArithTypeMismatchException
-    elif targetLen = len then __ :> BitVector
+    elif targetLen = len then this :> BitVector
     else
       let n' = adaptBig targetLen n
       if isBigPositive len n then
@@ -1504,30 +1509,30 @@ and BitVectorBig (n, len) =
         let mask = (1I <<< int targetLen) - (1I <<< int len)
         BitVectorBig (n' + mask, targetLen) :> BitVector
 
-  override __.ZExt targetLen =
+  override this.ZExt targetLen =
     if targetLen < len then raise ArithTypeMismatchException
-    elif targetLen = len then __ :> BitVector
+    elif targetLen = len then this :> BitVector
     else BitVectorBig (adaptBig targetLen n, targetLen) :> BitVector
 
-  override __.Eq rhs =
+  override _.Eq rhs =
     if len = rhs.Length && n = rhs.BigValue () then BitVector.T
     else BitVector.F
 
-  override __.Neq rhs =
+  override _.Neq rhs =
     if len = rhs.Length && n = rhs.BigValue () then BitVector.F
     else BitVector.T
 
-  override __.Gt rhs =
+  override _.Gt rhs =
     if len <> rhs.Length then raise ArithTypeMismatchException
     elif n > rhs.BigValue () then BitVector.T
     else BitVector.F
 
-  override __.Ge rhs =
+  override _.Ge rhs =
     if len <> rhs.Length then raise ArithTypeMismatchException
     elif n >= rhs.BigValue () then BitVector.T
     else BitVector.F
 
-  override __.SGt rhs =
+  override _.SGt rhs =
     if len <> rhs.Length then raise ArithTypeMismatchException else ()
     let isPos1 = isBigPositive len n
     let isPos2 = isBigPositive len (rhs.BigValue ())
@@ -1536,7 +1541,7 @@ and BitVectorBig (n, len) =
     else
       if n > rhs.BigValue () then BitVector.T else BitVector.F
 
-  override __.SGe rhs =
+  override _.SGe rhs =
     if len <> rhs.Length then raise ArithTypeMismatchException else ()
     let isPos1 = isBigPositive len n
     let isPos2 = isBigPositive len (rhs.BigValue ())
@@ -1545,17 +1550,17 @@ and BitVectorBig (n, len) =
     else
       if n >= rhs.BigValue () then BitVector.T else BitVector.F
 
-  override __.Lt rhs =
+  override _.Lt rhs =
     if len <> rhs.Length then raise ArithTypeMismatchException
     elif n < rhs.BigValue () then BitVector.T
     else BitVector.F
 
-  override __.Le rhs =
+  override _.Le rhs =
     if len <> rhs.Length then raise ArithTypeMismatchException
     elif n <= rhs.BigValue () then BitVector.T
     else BitVector.F
 
-  override __.SLt rhs =
+  override _.SLt rhs =
     if len <> rhs.Length then raise ArithTypeMismatchException else ()
     let isPos1 = isBigPositive len n
     let isPos2 = isBigPositive len (rhs.BigValue ())
@@ -1564,7 +1569,7 @@ and BitVectorBig (n, len) =
     else
       if n < rhs.BigValue () then BitVector.T else BitVector.F
 
-  override __.SLe rhs =
+  override _.SLe rhs =
     if len <> rhs.Length then raise ArithTypeMismatchException else ()
     let isPos1 = isBigPositive len n
     let isPos2 = isBigPositive len (rhs.BigValue ())
@@ -1573,90 +1578,90 @@ and BitVectorBig (n, len) =
     else
       if n <= rhs.BigValue () then BitVector.T else BitVector.F
 
-  override __.Abs () =
-    if isBigPositive len n then __ :> BitVector
-    else __.Neg ()
+  override this.Abs () =
+    if isBigPositive len n then this :> BitVector
+    else this.Neg ()
 
-  override __.FAdd rhs =
+  override this.FAdd rhs =
     if len <> rhs.Length then raise ArithTypeMismatchException else ()
     match len with
     | 80<rt> ->
-      let v1 = __.BigValue () |> toBigFloat
+      let v1 = this.BigValue () |> toBigFloat
       let v2 = rhs.BigValue () |> toBigFloat
       let n = v1 + v2 |> BitConverter.DoubleToInt64Bits |> uint64
       if n = 0UL then BitVector.Zero len
       else BitVectorBig (encodeBigFloat n, len) :> BitVector
     | _ -> raise ArithTypeMismatchException
 
-  override __.FSub rhs =
+  override this.FSub rhs =
     if len <> rhs.Length then raise ArithTypeMismatchException else ()
     match len with
     | 80<rt> ->
-      let v1 = __.BigValue () |> toBigFloat
+      let v1 = this.BigValue () |> toBigFloat
       let v2 = rhs.BigValue () |> toBigFloat
       let n = v1 - v2 |> BitConverter.DoubleToInt64Bits |> uint64
       if n = 0UL then BitVector.Zero len
       else BitVectorBig (encodeBigFloat n, len) :> BitVector
     | _ -> raise ArithTypeMismatchException
 
-  override __.FMul rhs =
+  override this.FMul rhs =
     if len <> rhs.Length then raise ArithTypeMismatchException else ()
     match len with
     | 80<rt> ->
-      let v1 = __.BigValue () |> toBigFloat
+      let v1 = this.BigValue () |> toBigFloat
       let v2 = rhs.BigValue () |> toBigFloat
       let n = v1 * v2 |> BitConverter.DoubleToInt64Bits |> uint64
       if n = 0UL then BitVector.Zero len
       else BitVectorBig (encodeBigFloat n, len) :> BitVector
     | _ -> raise ArithTypeMismatchException
 
-  override __.FDiv rhs =
+  override this.FDiv rhs =
     if len <> rhs.Length then raise ArithTypeMismatchException else ()
     match len with
     | 80<rt> ->
-      let v1 = __.BigValue () |> toBigFloat
+      let v1 = this.BigValue () |> toBigFloat
       let v2 = rhs.BigValue () |> toBigFloat
       let n = v1 / v2 |> BitConverter.DoubleToInt64Bits |> uint64
       if n = 0UL then BitVector.Zero len
       else BitVectorBig (encodeBigFloat n, len) :> BitVector
     | _ -> raise ArithTypeMismatchException
 
-  override __.FLog rhs =
+  override this.FLog rhs =
     if len <> rhs.Length then raise ArithTypeMismatchException else ()
     match len with
     | 80<rt> ->
-      let v1 = __.BigValue () |> toBigFloat
+      let v1 = this.BigValue () |> toBigFloat
       let v2 = rhs.BigValue () |> toBigFloat
       let n = Math.Log (v2, v1) |> BitConverter.DoubleToInt64Bits |> uint64
       if n = 0UL then BitVector.Zero len
       else BitVectorBig (encodeBigFloat n, len) :> BitVector
     | _ -> raise ArithTypeMismatchException
 
-  override __.FPow rhs =
+  override this.FPow rhs =
     if len <> rhs.Length then raise ArithTypeMismatchException else ()
     match len with
     | 80<rt> ->
-      let v1 = __.BigValue () |> toBigFloat
+      let v1 = this.BigValue () |> toBigFloat
       let v2 = rhs.BigValue () |> toBigFloat
       let n = Math.Pow (v1, v2) |> BitConverter.DoubleToInt64Bits |> uint64
       if n = 0UL then BitVector.Zero len
       else BitVectorBig (encodeBigFloat n, len) :> BitVector
     | _ -> raise ArithTypeMismatchException
 
-  override __.FCast targetLen =
+  override this.FCast targetLen =
     match len, targetLen with
     | 80<rt>, 32<rt> ->
-      let f32 = __.BigValue () |> toBigFloat |> float32
+      let f32 = this.BigValue () |> toBigFloat |> float32
       BitVectorSmall (BitConverter.SingleToInt32Bits f32 |> uint64, targetLen)
       :> BitVector
     | 80<rt>, 64<rt> ->
-      let f64 = __.BigValue () |> toBigFloat
+      let f64 = this.BigValue () |> toBigFloat
       BitVectorSmall (BitConverter.DoubleToInt64Bits f64 |> uint64, targetLen)
       :> BitVector
-    | 80<rt>, 80<rt> -> __ :> BitVector
+    | 80<rt>, 80<rt> -> this :> BitVector
     | _ -> raise ArithTypeMismatchException
 
-  override __.Itof (targetLen, _) =
+  override _.Itof (targetLen, _) =
     let v = if isBigPositive len n then n else - n
     match targetLen with
     | 32<rt> ->
@@ -1670,114 +1675,114 @@ and BitVectorBig (n, len) =
       BitVectorBig (bigint u64, targetLen) :> BitVector
     | _ -> raise ArithTypeMismatchException
 
-  override __.FtoiTrunc targetLen =
+  override this.FtoiTrunc targetLen =
     let f =
       match len with
-      | 80<rt> -> __.BigValue () |> toBigFloat |> truncate
+      | 80<rt> -> this.BigValue () |> toBigFloat |> truncate
       | _ -> raise ArithTypeMismatchException
     if targetLen <= 64<rt> then
       BitVectorSmall (adaptSmall targetLen (uint64 f), targetLen) :> BitVector
     else BitVectorBig (adaptBig targetLen (bigint f), targetLen) :> BitVector
 
-  override __.FtoiRound targetLen =
+  override this.FtoiRound targetLen =
     let f =
       match len with
-      | 80<rt> -> __.BigValue () |> toBigFloat |> round
+      | 80<rt> -> this.BigValue () |> toBigFloat |> round
       | _ -> raise ArithTypeMismatchException
     if targetLen <= 64<rt> then
       BitVectorSmall (adaptSmall targetLen (uint64 f), targetLen) :> BitVector
     else BitVectorBig (adaptBig targetLen (bigint f), targetLen) :> BitVector
 
-  override __.FtoiFloor targetLen =
+  override this.FtoiFloor targetLen =
     let f =
       match len with
-      | 80<rt> -> __.BigValue () |> toBigFloat |> floor
+      | 80<rt> -> this.BigValue () |> toBigFloat |> floor
       | _ -> raise ArithTypeMismatchException
     if targetLen <= 64<rt> then
       BitVectorSmall (adaptSmall targetLen (uint64 f), targetLen) :> BitVector
     else BitVectorBig (adaptBig targetLen (bigint f), targetLen) :> BitVector
 
-  override __.FtoiCeil targetLen =
+  override this.FtoiCeil targetLen =
     let f =
       match len with
-      | 80<rt> -> __.BigValue () |> toBigFloat |> ceil
+      | 80<rt> -> this.BigValue () |> toBigFloat |> ceil
       | _ -> raise ArithTypeMismatchException
     if targetLen <= 64<rt> then
       BitVectorSmall (adaptSmall targetLen (uint64 f), targetLen) :> BitVector
     else BitVectorBig (adaptBig targetLen (bigint f), targetLen) :> BitVector
 
-  override __.FSqrt () =
+  override this.FSqrt () =
     match len with
     | 80<rt> ->
-      let r = __.BigValue () |> toBigFloat |> sqrt
+      let r = this.BigValue () |> toBigFloat |> sqrt
       BitVectorBig (BitConverter.DoubleToInt64Bits r |> uint64 |> bigint, len)
       :> BitVector
     | _ -> raise ArithTypeMismatchException
 
-  override __.FTan () =
+  override this.FTan () =
     match len with
     | 80<rt> ->
-      let r = __.BigValue () |> toBigFloat |> tan
+      let r = this.BigValue () |> toBigFloat |> tan
       BitVectorBig (BitConverter.DoubleToInt64Bits r |> uint64 |> bigint, len)
       :> BitVector
     | _ -> raise ArithTypeMismatchException
 
-  override __.FATan () =
+  override this.FATan () =
     match len with
     | 80<rt> ->
-      let r = __.BigValue () |> toBigFloat |> atan
+      let r = this.BigValue () |> toBigFloat |> atan
       BitVectorBig (BitConverter.DoubleToInt64Bits r |> uint64 |> bigint, len)
       :> BitVector
     | _ -> raise ArithTypeMismatchException
 
-  override __.FSin () =
+  override this.FSin () =
     match len with
     | 80<rt> ->
-      let r = __.BigValue () |> toBigFloat |> sin
+      let r = this.BigValue () |> toBigFloat |> sin
       BitVectorBig (BitConverter.DoubleToInt64Bits r |> uint64 |> bigint, len)
       :> BitVector
     | _ -> raise ArithTypeMismatchException
 
-  override __.FCos () =
+  override this.FCos () =
     match len with
     | 80<rt> ->
-      let r = __.BigValue () |> toBigFloat |> cos
+      let r = this.BigValue () |> toBigFloat |> cos
       BitVectorBig (BitConverter.DoubleToInt64Bits r |> uint64 |> bigint, len)
       :> BitVector
     | _ -> raise ArithTypeMismatchException
 
-  override __.FGt rhs =
+  override this.FGt rhs =
     if len <> rhs.Length then raise ArithTypeMismatchException else ()
     match len with
     | 80<rt> ->
-      let v1 = __.BigValue () |> toBigFloat
+      let v1 = this.BigValue () |> toBigFloat
       let v2 = rhs.BigValue () |> toBigFloat
       if v1 > v2 then BitVector.T else BitVector.F
     | _ -> raise ArithTypeMismatchException
 
-  override __.FGe rhs =
+  override this.FGe rhs =
     if len <> rhs.Length then raise ArithTypeMismatchException else ()
     match len with
     | 80<rt> ->
-      let v1 = __.BigValue () |> toBigFloat
+      let v1 = this.BigValue () |> toBigFloat
       let v2 = rhs.BigValue () |> toBigFloat
       if v1 >= v2 then BitVector.T else BitVector.F
     | _ -> raise ArithTypeMismatchException
 
-  override __.FLt rhs =
+  override this.FLt rhs =
     if len <> rhs.Length then raise ArithTypeMismatchException else ()
     match len with
     | 80<rt> ->
-      let v1 = __.BigValue () |> toBigFloat
+      let v1 = this.BigValue () |> toBigFloat
       let v2 = rhs.BigValue () |> toBigFloat
       if v1 < v2 then BitVector.T else BitVector.F
     | _ -> raise ArithTypeMismatchException
 
-  override __.FLe rhs =
+  override this.FLe rhs =
     if len <> rhs.Length then raise ArithTypeMismatchException else ()
     match len with
     | 80<rt> ->
-      let v1 = __.BigValue () |> toBigFloat
+      let v1 = this.BigValue () |> toBigFloat
       let v2 = rhs.BigValue () |> toBigFloat
       if v1 <= v2 then BitVector.T else BitVector.F
     | _ -> raise ArithTypeMismatchException

@@ -31,25 +31,25 @@ open B2R2.RearEnd.Utils
 type CmdShow () =
   inherit Cmd ()
 
-  override __.CmdName = "show"
+  override _.CmdName = "show"
 
-  override __.CmdAlias = []
+  override _.CmdAlias = []
 
-  override __.CmdDescr = "Show information about an abstract component."
+  override _.CmdDescr = "Show information about an abstract component."
 
-  override __.CmdHelp =
+  override _.CmdHelp =
     "Usage: show <component> [option(s)]\n\n\
      Show information about an abstract component.\n\
      <component> is an abstract component in the binary, and subcommands are:\n\
        - caller <instruction addr in hex>\n\
        - callee/function <callee name or addr in hex>"
 
-  override __.SubCommands = []
+  override _.SubCommands = []
 
-  member private __.CallerToString (sb: StringBuilder) (addr: Addr) =
+  member private _.CallerToString (sb: StringBuilder) (addr: Addr) =
     sb.Append $"  - referenced by {addr:x}\n"
 
-  // member private __.CalleeToSimpleString prefix (sb: StringBuilder) callee =
+  // member private _.CalleeToSimpleString prefix (sb: StringBuilder) callee =
   //   let noret =
   //     match (callee: Function).NoReturnProperty with
   //     | NoRet -> " [no return]"
@@ -62,11 +62,11 @@ type CmdShow () =
   //     sb.Append (prefix + callee.FunctionName
   //              + noret + $" @ {callee.EntryPoint:x}\n")
 
-  // member private __.CalleeToString ess (sb: StringBuilder) callee =
-  //   __.CalleeToSimpleString "" sb callee
-  //   |> (fun sb -> callee.Callers |> Seq.fold __.CallerToString sb)
+  // member private this.CalleeToString ess (sb: StringBuilder) callee =
+  //   this.CalleeToSimpleString "" sb callee
+  //   |> (fun sb -> callee.Callers |> Seq.fold this.CallerToString sb)
 
-  // member __.ShowCaller ess = function
+  // member this.ShowCaller ess = function
   //   | (expr: string) :: _ ->
   //     let addr = CmdUtils.convHexString expr |> Option.defaultValue 0UL
   //     match ess.CodeManager.FunctionMaintainer.TryFind addr with
@@ -78,12 +78,12 @@ type CmdShow () =
   //         func.Callers
   //         |> Seq.fold (fun sb (addr: Addr) ->
   //           match ess.CodeManager.FunctionMaintainer.TryFind addr with
-  //           | Some callee -> __.CalleeToSimpleString "  - " sb callee
+  //           | Some callee -> this.CalleeToSimpleString "  - " sb callee
   //           | None -> sb) sb
   //       [| sb.ToString () |]
-  //   | _ -> [| __.CmdHelp |]
+  //   | _ -> [| this.CmdHelp |]
 
-  // member __.ShowCallee ess = function
+  // member this.ShowCallee ess = function
   //   | (expr: string) :: _ ->
   //     let addr = CmdUtils.convHexString expr |> Option.defaultValue 0UL
   //     let sb = StringBuilder ()
@@ -91,20 +91,20 @@ type CmdShow () =
   //       ess.CodeManager.FunctionMaintainer.TryFind (addr)
   //     else ess.CodeManager.FunctionMaintainer.TryFind (expr)
   //     |> Option.map (fun callee ->
-  //       (__.CalleeToString ess sb callee).ToString ())
+  //       (this.CalleeToString ess sb callee).ToString ())
   //     |> Option.defaultValue "[*] Not found."
   //     |> Array.singleton
-  //   | _ -> [| __.CmdHelp |]
+  //   | _ -> [| this.CmdHelp |]
 
-  // member __.CmdHandle ess opts = function
-  //   | "caller" -> __.ShowCaller ess opts
+  // member this.CmdHandle ess opts = function
+  //   | "caller" -> this.ShowCaller ess opts
   //   | "callee"
-  //   | "function" -> __.ShowCallee ess opts
-  //   | _ -> [| __.CmdHelp |]
+  //   | "function" -> this.ShowCallee ess opts
+  //   | _ -> [| this.CmdHelp |]
 
-  override __.CallBack _ ess args =
+  override this.CallBack _ ess args =
     match args with
-    | _ -> [| __.CmdHelp |]
+    | _ -> [| this.CmdHelp |]
     |> Array.map OutputNormal
 
 // vim: set tw=80 sts=2 sw=2:

@@ -32,23 +32,23 @@ type Variables (vars) =
 
   new () = Variables (Dictionary ())
 
-  member __.TryGet k =
+  member _.TryGet k =
     match vars.TryGetValue k with
     | true, v -> Ok v
     | false, _ -> Error ErrorCase.InvalidRegister
 
-  member __.Get k = vars[k]
+  member _.Get k = vars[k]
 
-  member __.Set k v = vars[k] <- v
+  member _.Set k v = vars[k] <- v
 
-  member __.Unset k =
+  member _.Unset k =
     vars.Remove k |> ignore
 
-  member __.Count () =
+  member _.Count () =
     vars.Count
 
-  member __.ToArray () =
+  member _.ToArray () =
     vars |> Seq.map (fun (KeyValue (k, v))  -> k, v) |> Seq.toArray
 
-  member __.Clone () =
+  member _.Clone () =
     Variables (Dictionary (vars))

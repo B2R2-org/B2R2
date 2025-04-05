@@ -62,7 +62,7 @@ type WorklistDataFlowState<'WorkUnit,
   member _.PopWork () = popWork ()
 
   interface IDataFlowState<'WorkUnit, 'Lattice> with
-    member __.GetAbsValue absLoc =
+    member _.GetAbsValue absLoc =
       match absValues.TryGetValue absLoc with
       | false, _ -> analysis.Bottom
       | true, absValue -> absValue

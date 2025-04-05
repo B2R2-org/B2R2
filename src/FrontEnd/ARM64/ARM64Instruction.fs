@@ -35,8 +35,8 @@ type ARM64Instruction (addr, numBytes, insInfo, wordSize) =
   /// Basic instruction information.
   member val Info: InsInfo = insInfo
 
-  override __.IsBranch () =
-    match __.Info.Opcode with
+  override this.IsBranch () =
+    match this.Info.Opcode with
     (* Conditional branch *)
     | Opcode.BEQ | Opcode.BCS | Opcode.BMI | Opcode.BVS | Opcode.BHI
     | Opcode.BGE | Opcode.BGT | Opcode.BNE | Opcode.BCC | Opcode.BPL
@@ -49,10 +49,10 @@ type ARM64Instruction (addr, numBytes, insInfo, wordSize) =
       -> true
     | _ -> false
 
-  override __.IsModeChanging () = false
+  override _.IsModeChanging () = false
 
-  member __.HasConcJmpTarget () =
-    match __.Info.Operands with
+  member this.HasConcJmpTarget () =
+    match this.Info.Operands with
     (* All other instructions *)
     | OneOperand (OprMemory (LiteralMode _)) -> true
     (* CBNZ and CBZ *)
@@ -61,72 +61,72 @@ type ARM64Instruction (addr, numBytes, insInfo, wordSize) =
     | ThreeOperands (_, _, OprMemory (LiteralMode _)) -> true
     | _ -> false
 
-  override __.IsDirectBranch () =
-    __.IsBranch () && __.HasConcJmpTarget ()
+  override this.IsDirectBranch () =
+    this.IsBranch () && this.HasConcJmpTarget ()
 
-  override __.IsIndirectBranch () =
-    __.IsBranch () && (not <| __.HasConcJmpTarget ())
+  override this.IsIndirectBranch () =
+    this.IsBranch () && (not <| this.HasConcJmpTarget ())
 
-  override __.IsCondBranch () =
-    match __.Info.Opcode with
+  override this.IsCondBranch () =
+    match this.Info.Opcode with
     | Opcode.BEQ | Opcode.BCS | Opcode.BMI | Opcode.BVS | Opcode.BHI
     | Opcode.BGE | Opcode.BGT | Opcode.BNE | Opcode.BCC | Opcode.BPL
     | Opcode.BVC | Opcode.BLS | Opcode.BLT | Opcode.BLE
     | Opcode.CBNZ | Opcode.CBZ | Opcode.TBNZ | Opcode.TBZ -> true
     | _ -> false
 
-  override __.IsCJmpOnTrue () =
-    match __.Info.Opcode with
+  override this.IsCJmpOnTrue () =
+    match this.Info.Opcode with
     | Opcode.BEQ | Opcode.BCS | Opcode.BMI | Opcode.BVS | Opcode.BHI
     | Opcode.BGE | Opcode.BGT | Opcode.BCC | Opcode.BPL | Opcode.BVC
     | Opcode.BLS | Opcode.BLT | Opcode.BLE | Opcode.CBZ | Opcode.TBZ -> true
     | _ -> false
 
-  override __.IsCall () =
-    match __.Info.Opcode with
+  override this.IsCall () =
+    match this.Info.Opcode with
     | Opcode.BL | Opcode.BLR -> true
     | _ -> false
 
-  override __.IsRET () =
-    __.Info.Opcode = Opcode.RET
+  override this.IsRET () =
+    this.Info.Opcode = Opcode.RET
 
-  override __.IsInterrupt () =
-    match __.Info.Opcode with
+  override this.IsInterrupt () =
+    match this.Info.Opcode with
     | Opcode.SVC | Opcode.HVC | Opcode.SMC -> true
     | _ -> false
 
-  override __.IsExit () =
-    match __.Info.Opcode with
+  override this.IsExit () =
+    match this.Info.Opcode with
     | Opcode.HLT
     | Opcode.ERET -> true
     | _ -> false
 
-  override __.IsTerminator () =
-       __.IsBranch ()
-    || __.IsInterrupt ()
-    || __.IsExit ()
+  override this.IsTerminator () =
+       this.IsBranch ()
+    || this.IsInterrupt ()
+    || this.IsExit ()
 
-  override __.DirectBranchTarget (addr: byref<Addr>) =
-    if __.IsBranch () then
-      match __.Info.Operands with
+  override this.DirectBranchTarget (addr: byref<Addr>) =
+    if this.IsBranch () then
+      match this.Info.Operands with
       | OneOperand (OprMemory (LiteralMode (ImmOffset (Lbl offset)))) ->
-        addr <- (__.Address + uint64 offset)
+        addr <- (this.Address + uint64 offset)
         true
       | TwoOperands (_, OprMemory (LiteralMode (ImmOffset (Lbl offset)))) ->
-        addr <- (__.Address + uint64 offset)
+        addr <- (this.Address + uint64 offset)
         true
       | ThreeOperands (_, _, OprMemory (LiteralMode (ImmOffset (Lbl offs)))) ->
-        addr <- (__.Address + uint64 offs)
+        addr <- (this.Address + uint64 offs)
         true
       | _ -> false
     else false
 
-  override __.IndirectTrampolineAddr (_addr: byref<Addr>) =
-    if __.IsIndirectBranch () then Terminator.futureFeature ()
+  override this.IndirectTrampolineAddr (_addr: byref<Addr>) =
+    if this.IsIndirectBranch () then Terminator.futureFeature ()
     else false
 
-  override __.Immediate (v: byref<int64>) =
-    match __.Info.Operands with
+  override this.Immediate (v: byref<int64>) =
+    match this.Info.Operands with
     | OneOperand (OprImm c)
     | TwoOperands (OprImm c, _)
     | TwoOperands (_, OprImm c)
@@ -144,40 +144,41 @@ type ARM64Instruction (addr, numBytes, insInfo, wordSize) =
     | FiveOperands (_, _, _, _, OprImm c) -> v <- c; true
     | _ -> false
 
-  override __.GetNextInstrAddrs () = Terminator.futureFeature ()
+  override _.GetNextInstrAddrs () = Terminator.futureFeature ()
 
-  override __.InterruptNum (_num: byref<int64>) = Terminator.futureFeature ()
+  override _.InterruptNum (_num: byref<int64>) = Terminator.futureFeature ()
 
-  override __.IsNop () =
-    __.Info.Opcode = Opcode.NOP
+  override this.IsNop () =
+    this.Info.Opcode = Opcode.NOP
 
-  override __.Translate ctxt =
-    (Lifter.translate __.Info numBytes ctxt).ToStmts ()
+  override this.Translate ctxt =
+    (Lifter.translate this.Info numBytes ctxt).ToStmts ()
 
-  override __.TranslateToList ctxt =
-    Lifter.translate __.Info numBytes ctxt
+  override this.TranslateToList ctxt =
+    Lifter.translate this.Info numBytes ctxt
 
-  override __.Disasm (showAddr, _) =
+  override this.Disasm (showAddr, _) =
     let builder =
       DisasmStringBuilder (showAddr, false, WordSize.Bit64, addr, numBytes)
-    Disasm.disasm __.Info builder
+    Disasm.disasm this.Info builder
     builder.ToString ()
 
-  override __.Disasm () =
+  override this.Disasm () =
     let builder =
       DisasmStringBuilder (false, false, WordSize.Bit64, addr, numBytes)
-    Disasm.disasm __.Info builder
+    Disasm.disasm this.Info builder
     builder.ToString ()
 
-  override __.Decompose (showAddr) =
+  override this.Decompose (showAddr) =
     let builder =
       DisasmWordBuilder (showAddr, false, WordSize.Bit64, addr, numBytes, 8)
-    Disasm.disasm __.Info builder
+    Disasm.disasm this.Info builder
     builder.ToArray ()
 
-  override __.IsInlinedAssembly () = false
+  override _.IsInlinedAssembly () = false
 
-  override __.Equals (_) = Terminator.futureFeature ()
-  override __.GetHashCode () = Terminator.futureFeature ()
+  override _.Equals (_) = Terminator.futureFeature ()
+
+  override _.GetHashCode () = Terminator.futureFeature ()
 
 // vim: set tw=80 sts=2 sw=2:

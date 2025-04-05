@@ -47,22 +47,22 @@ type CmdHelp () =
       [| yield "[*] Usage of the command (" + cmd.CmdName + ")\n"
          if cmd.CmdHelp.Length > 0 then yield cmd.CmdHelp else () |]
 
-  override __.CmdName = "help"
+  override _.CmdName = "help"
 
-  override __.CmdAlias = []
+  override _.CmdAlias = []
 
-  override __.CmdDescr = "Show the usage."
+  override _.CmdDescr = "Show the usage."
 
-  override __.CmdHelp =
+  override _.CmdHelp =
     "Usage: help [cmd]\n\n\
      If the optional argument [cmd] presents, the specific usage of the\n\
      command will show. For example, type `help bininfo` to see the usage of\n\
      the command `bininfo`."
 
-  override __.SubCommands =
+  override _.SubCommands =
     []
 
-  override __.CallBack cmdMap _ args =
+  override _.CallBack cmdMap _ args =
     match args with
     | [] -> generalHelp cmdMap
     | cmd :: _ -> specificHelp cmd cmdMap
@@ -71,14 +71,14 @@ type CmdHelp () =
 type CmdExit () =
   inherit Cmd ()
 
-  override __.CmdName = "exit"
+  override _.CmdName = "exit"
 
-  override __.CmdAlias = [ "quit"; "q" ]
+  override _.CmdAlias = [ "quit"; "q" ]
 
-  override __.CmdDescr = "Exit B2R2."
+  override _.CmdDescr = "Exit B2R2."
 
-  override __.CmdHelp = "Usage: exit"
+  override _.CmdHelp = "Usage: exit"
 
-  override __.SubCommands = []
+  override _.SubCommands = []
 
-  override __.CallBack _ _ _ = [||]
+  override _.CallBack _ _ _ = [||]

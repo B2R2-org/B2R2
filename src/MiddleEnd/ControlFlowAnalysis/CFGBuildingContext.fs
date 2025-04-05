@@ -89,36 +89,36 @@ type CFGBuildingContext<'FnCtx,
 }
 with
   /// Reset the context to its initial state.
-  member __.Reset () =
-    __.Vertices.Clear ()
-    __.CallerVertices.Clear ()
-    __.CFG <- LowUIRCFG __.CFG.ImplementationType
-    if isNull __.CPState then () else __.CPState.Reset ()
+  member this.Reset () =
+    this.Vertices.Clear ()
+    this.CallerVertices.Clear ()
+    this.CFG <- LowUIRCFG this.CFG.ImplementationType
+    if isNull this.CPState then () else this.CPState.Reset ()
     (* N.B. We should keep the value of `NonReturningStatus` (i.e., leave the
        below line commented out) because we should be able to compare the
        difference before/after rebuilding the CFG. *)
-    (* __.NonReturningStatus <- UnknownNoRet *)
-    __.JumpTableRecoveryStatus.Clear ()
-    __.JumpTables.Clear ()
-    __.IntraCallTable.Reset ()
-    __.Callers.Clear ()
-    __.VisitedPPoints.Clear ()
-    __.ActionQueue.Clear ()
-    __.PendingCallActions.Clear ()
-    __.CallerVertices.Clear ()
-    __.UnwindingBytes <- 0
-    __.UserContext.Reset ()
+    (* this.NonReturningStatus <- UnknownNoRet *)
+    this.JumpTableRecoveryStatus.Clear ()
+    this.JumpTables.Clear ()
+    this.IntraCallTable.Reset ()
+    this.Callers.Clear ()
+    this.VisitedPPoints.Clear ()
+    this.ActionQueue.Clear ()
+    this.PendingCallActions.Clear ()
+    this.CallerVertices.Clear ()
+    this.UnwindingBytes <- 0
+    this.UserContext.Reset ()
 
   /// Scan basic blocks starting from the given entry points. This function
   /// returns a sequence of divided edges created by discovering new basic
   /// blocks. By discovering new basic blocks, existing blocks can be divided
   /// into multiple blocks.
-  member __.ScanBBLs mode entryPoints =
-    __.BBLFactory.ScanBBLs (mode, entryPoints)
+  member this.ScanBBLs mode entryPoints =
+    this.BBLFactory.ScanBBLs (mode, entryPoints)
     |> Async.AwaitTask
     |> Async.RunSynchronously
 
-  member private __.UpdateDictionary (dict: Dictionary<_, _>) k v delta =
+  member private _.UpdateDictionary (dict: Dictionary<_, _>) k v delta =
     match dict.TryGetValue k with
     | true, (sum, _) -> dict[k] <- (sum + delta, v)
     | false, _ -> dict[k] <- (delta, v)
@@ -127,13 +127,13 @@ with
   /// the vertices. Since there can be many vertices beyond the range of the
   /// current function, we should return the first one (with the smallest
   /// addrress).
-  member private __.FindFunctionOverlap lst nextFnAddr idx res =
+  member private this.FindFunctionOverlap lst nextFnAddr idx res =
     if idx = 0 then
 #if DEBUG
       (* This is a fatal error when our function identification or noreturn
          analysis failed. *)
       System.Console.Error.WriteLine
-        $"{__.FunctionAddress:x} overlapped with {nextFnAddr:x}"
+        $"{this.FunctionAddress:x} overlapped with {nextFnAddr:x}"
       Terminator.impossible ()
 #else
       None (* Ignore this error in release mode. *)
@@ -141,7 +141,7 @@ with
     else
       let _, v = (lst: SortedList<_, _ * IVertex<LowUIRBasicBlock>>).Values[idx]
       if v.VData.Internals.Range.Max >= nextFnAddr then
-        __.FindFunctionOverlap lst nextFnAddr (idx - 1) v
+        this.FindFunctionOverlap lst nextFnAddr (idx - 1) v
       elif isNull res then None
       else Some res
 
@@ -162,15 +162,15 @@ with
   ///
   /// This function will return only the first overlapping vertex even though
   /// there may be multiple overlapping vertices.
-  member __.FindOverlap (nextFnAddrOpt) =
-    let vertices = __.CFG.Vertices
+  member this.FindOverlap (nextFnAddrOpt) =
+    let vertices = this.CFG.Vertices
     let dict = Dictionary (vertices.Length * 2)
     for v in vertices do
       let vData = v.VData.Internals
       if not vData.IsAbstract && vData.PPoint.Position = 0 then
         let range = v.VData.Internals.Range
-        __.UpdateDictionary dict range.Min v 1
-        __.UpdateDictionary dict (range.Max + 1UL) v -1
+        this.UpdateDictionary dict range.Min v 1
+        this.UpdateDictionary dict (range.Max + 1UL) v -1
       else ()
     let lst = SortedList dict
     let enumerator = lst.GetEnumerator ()
@@ -188,44 +188,44 @@ with
     else
       match nextFnAddrOpt with
       | Some nextFnAddr ->
-        __.FindFunctionOverlap lst nextFnAddr (lst.Count - 1) null
+        this.FindFunctionOverlap lst nextFnAddr (lst.Count - 1) null
       | None -> None
 
-  member private __.AddOrIgnore acc gapStart gapEnd =
-    match __.ScanBBLs __.FunctionMode [ gapStart ] with
+  member private this.AddOrIgnore acc gapStart gapEnd =
+    match this.ScanBBLs this.FunctionMode [ gapStart ] with
     | Ok _dividedEdges ->
-      let bbl = __.BBLFactory.Find <| ProgramPoint (gapStart, 0)
+      let bbl = this.BBLFactory.Find <| ProgramPoint (gapStart, 0)
       if bbl.Internals.Range.Max > gapEnd then acc
       else (AddrRange (gapStart, gapEnd)) :: acc
     | Error _ -> acc
 
   [<TailCall>]
-  member private __.FindGap acc fnEnd gapAddr ranges =
+  member private this.FindGap acc fnEnd gapAddr ranges =
     match ranges with
     | [] ->
-      if gapAddr < fnEnd then __.AddOrIgnore acc gapAddr fnEnd
+      if gapAddr < fnEnd then this.AddOrIgnore acc gapAddr fnEnd
       else acc
     | (range: AddrRange) :: tl ->
       if gapAddr < range.Min then
-        let acc = __.AddOrIgnore acc gapAddr (range.Min - 1UL)
-        __.FindGap acc fnEnd (range.Max + 1UL) tl
+        let acc = this.AddOrIgnore acc gapAddr (range.Min - 1UL)
+        this.FindGap acc fnEnd (range.Max + 1UL) tl
       elif gapAddr >= range.Min && gapAddr <= range.Max then
-        __.FindGap acc fnEnd (range.Max + 1UL) tl
+        this.FindGap acc fnEnd (range.Max + 1UL) tl
       else acc
 
   /// Find a gap between the current function and the next function. This
   /// function finds every gap between the current function and the next
   /// function. If there are multiple gaps, return all of them.
-  member __.AnalyzeGap (nextFnAddrOpt) =
+  member this.AnalyzeGap (nextFnAddrOpt) =
     match nextFnAddrOpt with
     | Some nextFnAddr ->
       let endAddr = nextFnAddr - 1UL
-      __.CFG.Vertices
+      this.CFG.Vertices
       |> Array.fold (fun acc v ->
         if v.VData.Internals.IsAbstract then acc
         else v.VData.Internals.Range :: acc) []
       |> List.sortBy (fun r -> r.Min)
-      |> __.FindGap [] endAddr __.FunctionAddress
+      |> this.FindGap [] endAddr this.FunctionAddress
       |> List.rev
     | None -> []
 

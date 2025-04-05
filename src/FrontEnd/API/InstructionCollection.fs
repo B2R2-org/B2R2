@@ -39,9 +39,9 @@ type InstructionCollection (collector: IInstructionCollectable) =
   do task { collector.Collect updateFn } |> ignore
 
   /// Number of instructions in the collection.
-  member __.Count with get() = dict.Count
+  member _.Count with get() = dict.Count
 
-  member inline private __.ExtractInstruction candidate mode =
+  member inline private _.ExtractInstruction candidate mode =
     match candidate with
     | OnlyOne ins-> Ok ins
     | MaybeTwo (Some ins1, _) when mode = ArchOperationMode.ARMMode -> Ok ins1
@@ -49,19 +49,19 @@ type InstructionCollection (collector: IInstructionCollectable) =
     | _ -> Error ErrorCase.ParsingFailure
 
   /// Find cached one or parse (and cache) the instruction at the given address.
-  member __.TryFind (addr: Addr, mode) =
+  member this.TryFind (addr: Addr, mode) =
     match dict.TryGetValue addr with
-    | true, candidate -> __.ExtractInstruction candidate mode
+    | true, candidate -> this.ExtractInstruction candidate mode
     | false, _ ->
       match collector.ParseInstructionCandidate (addr, mode) with
       | Ok candidate ->
-        let ins = __.ExtractInstruction candidate mode
+        let ins = this.ExtractInstruction candidate mode
         if Result.isOk ins then dict.TryAdd (addr, candidate) |> ignore else ()
         ins
       | Error e -> Error e
 
   /// Get the instruction at the given address. Raise an exception if not found.
-  member __.Find (addr: Addr, mode) =
+  member _.Find (addr: Addr, mode) =
     match dict.[addr] with
     | OnlyOne ins -> ins
     | MaybeTwo (Some ins1, _) when mode = ArchOperationMode.ARMMode -> ins1
@@ -70,7 +70,7 @@ type InstructionCollection (collector: IInstructionCollectable) =
 
   /// Get the instruction at the given address. Raise an exception if not found
   /// or if the mode needs to be specified.
-  member __.Find (addr: Addr) =
+  member _.Find (addr: Addr) =
     match dict.[addr] with
     | OnlyOne ins -> ins
     | _ -> raise ParsingFailureException
@@ -111,7 +111,7 @@ type LinearSweepInstructionCollector (hdl: BinHandle,
     LinearSweepInstructionCollector (hdl, hdl.NewLiftingUnit ())
 
   interface IInstructionCollectable with
-    member __.Collect (updateFn) =
+    member _.Collect (updateFn) =
       let ptr =
         liftingUnit.File.EntryPoint
         |> Option.defaultValue 0UL
@@ -119,7 +119,7 @@ type LinearSweepInstructionCollector (hdl: BinHandle,
       let shiftAmount = 1 (* FIXME *)
       update updateFn shiftAmount ptr
 
-    member __.ParseInstructionCandidate (addr, _mode) =
+    member _.ParseInstructionCandidate (addr, _mode) =
       let liftingUnit = hdl.NewLiftingUnit () (* always create a new one! *)
       match liftingUnit.TryParseInstruction (addr=addr) with
       | Ok ins -> Ok (OnlyOne ins)

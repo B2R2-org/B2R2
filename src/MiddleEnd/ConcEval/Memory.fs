@@ -40,44 +40,44 @@ type Memory () =
   /// Clear up the memory contents; make the whole memory empty.
   abstract member Clear: unit -> unit
 
-  member private __.ReadLE acc addr i =
+  member private this.ReadLE acc addr i =
     if i <= 0UL then Ok acc
     else
-      match __.ByteRead (addr + i - 1UL) with
-      | Ok b -> __.ReadLE (b :: acc) addr (i - 1UL)
+      match this.ByteRead (addr + i - 1UL) with
+      | Ok b -> this.ReadLE (b :: acc) addr (i - 1UL)
       | Error e -> Error e
 
-  member private __.ReadBE acc len addr i =
+  member private this.ReadBE acc len addr i =
     if i >= len then Ok acc
     else
-      match __.ByteRead (addr + i) with
-      | Ok b -> __.ReadBE (b :: acc) len addr (i + 1UL)
+      match this.ByteRead (addr + i) with
+      | Ok b -> this.ReadBE (b :: acc) len addr (i + 1UL)
       | Error e -> Error e
 
   /// Read a bitvector value from the memory.
-  member __.Read addr endian typ =
+  member this.Read addr endian typ =
     let len = RegType.toByteWidth typ |> uint64
     match endian with
-    | Endian.Little -> __.ReadLE [] addr len
-    | _ -> __.ReadBE [] len addr 0UL
+    | Endian.Little -> this.ReadLE [] addr len
+    | _ -> this.ReadBE [] len addr 0UL
     |> function
       | Ok lst -> Array.ofList lst |> BitVector.OfArr |> Ok
       | Error e -> Error e
 
   /// Write a bitvector value to the memory.
-  member __.Write addr v endian =
+  member this.Write addr v endian =
     let len = BitVector.GetType v |> RegType.toByteWidth |> int
     let v = BitVector.GetValue v
     if endian = Endian.Big then
       for i = 1 to len do
         let offset = i - 1
         let b = (v >>> (offset * 8)) &&& 255I |> byte
-        __.ByteWrite (addr + uint64 (len - i), b)
+        this.ByteWrite (addr + uint64 (len - i), b)
     else
       for i = 1 to len do
         let offset = i - 1
         let b = (v >>> (offset * 8)) &&& 255I |> byte
-        __.ByteWrite (addr + uint64 offset, b)
+        this.ByteWrite (addr + uint64 offset, b)
 
 /// Non-sharable memory.
 type NonsharableMemory () =
@@ -85,13 +85,13 @@ type NonsharableMemory () =
 
   let mem = Dictionary<Addr, byte> ()
 
-  override __.ByteRead (addr) =
+  override _.ByteRead (addr) =
     if mem.ContainsKey addr then Ok mem[addr]
     else Error ErrorCase.InvalidMemoryRead
 
-  override __.ByteWrite (addr, b) = mem[addr] <- b
+  override _.ByteWrite (addr, b) = mem[addr] <- b
 
-  override __.Clear () = mem.Clear ()
+  override _.Clear () = mem.Clear ()
 
 /// Thread-safe (sharable) memory.
 type SharableMemory () =
@@ -99,10 +99,10 @@ type SharableMemory () =
 
   let mem = ConcurrentDictionary<Addr, byte> ()
 
-  override __.ByteRead (addr) =
+  override _.ByteRead (addr) =
     if mem.ContainsKey addr then Ok mem[addr]
     else Error ErrorCase.InvalidMemoryRead
 
-  override __.ByteWrite (addr, b) = mem[addr] <- b
+  override _.ByteWrite (addr, b) = mem[addr] <- b
 
-  override __.Clear () = mem.Clear ()
+  override _.Clear () = mem.Clear ()

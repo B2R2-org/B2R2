@@ -31,189 +31,189 @@ open B2R2.FrontEnd.NameMangling
 type ItaniumDemanglerTests () =
 
   [<TestMethod>]
-  member __.``ItaniumDemangler: Simple Function``() =
+  member _.``ItaniumDemangler: Simple Function``() =
     let mangled = "_Z4funcibc"
     let result = "func(int, bool, char)"
     ItaniumDemangler () |> Assert.Correct mangled result
 
   [<TestMethod>]
-  member __.``ItaniumDemangler: Simple Function, CV qualifiers 1 ``() =
+  member _.``ItaniumDemangler: Simple Function, CV qualifiers 1 ``() =
     let mangled = "_Z4funcPKibPVc"
     let result = "func(int const*, bool, char volatile*)"
     ItaniumDemangler () |> Assert.Correct mangled result
 
   [<TestMethod>]
-  member __.``ItaniumDemangler: Simple Function, CV qualifiers 2 ``() =
+  member _.``ItaniumDemangler: Simple Function, CV qualifiers 2 ``() =
     let mangled = "_Z4funcPVKibPVKPc"
     let result = "func(int const volatile*, bool, char* const volatile*)"
     ItaniumDemangler () |> Assert.Correct mangled result
 
   [<TestMethod>]
-  member __.``ItaniumDemangler: Simple Function, Reference qualifiers ``() =
+  member _.``ItaniumDemangler: Simple Function, Reference qualifiers ``() =
     let mangled = "_Z4funcRibOVc"
     let result = "func(int&, bool, char volatile&&)"
     ItaniumDemangler () |> Assert.Correct mangled result
 
   [<TestMethod>]
-  member __.``ItaniumDemangler: Simple Function,  Qualifiers ``() =
+  member _.``ItaniumDemangler: Simple Function,  Qualifiers ``() =
     let mangled = "_Z4funcRVPVKPibOKPc"
     let result = "func(int* const volatile* volatile&, bool, char* const&&)"
     ItaniumDemangler () |> Assert.Correct mangled result
 
   [<TestMethod>]
-  member __.``ItaniumDemangler: Nested Names``() =
+  member _.``ItaniumDemangler: Nested Names``() =
     let mangled = "_ZN5first6second5thirdE"
     let result = "first::second::third"
     ItaniumDemangler () |> Assert.Correct mangled result
 
   [<TestMethod>]
-  member __.``ItaniumDemangler: Nested Names with arguments``() =
+  member _.``ItaniumDemangler: Nested Names with arguments``() =
     let mangled = "_ZN5first6second5thirdEidb3arg"
     let result = "first::second::third(int, double, bool, arg)"
     ItaniumDemangler () |> Assert.Correct mangled result
 
   [<TestMethod>]
-  member __.``ItaniumDemangler: Simple Templates``() =
+  member _.``ItaniumDemangler: Simple Templates``() =
     let mangled = "_Z9somethingI3argifE"
     let result = "something<arg, int, float>"
     ItaniumDemangler () |> Assert.Correct mangled result
 
   [<TestMethod>]
-  member __.``ItaniumDemangler: Template Arguments with qualifiers``() =
+  member _.``ItaniumDemangler: Template Arguments with qualifiers``() =
     let mangled = "_Z9somethingIPV3argRKiPVPfE"
     let result = "something<arg volatile*, int const&, float* volatile*>"
     ItaniumDemangler () |> Assert.Correct mangled result
 
   [<TestMethod>]
-  member __.``ItaniumDemangler: Templates with return``() =
+  member _.``ItaniumDemangler: Templates with return``() =
     let mangled = "_Z9somethingIPV3argRKiPVPfEPVibc"
     let result = "int volatile* something<arg volatile*, int const&, \
     float* volatile*>(bool, char)"
     ItaniumDemangler () |> Assert.Correct mangled result
 
   [<TestMethod>]
-  member __.``ItaniumDemangler: Array Pointer``() =
+  member _.``ItaniumDemangler: Array Pointer``() =
     let mangled = "_Z4funcPA30_A40_Pi"
     let result = "func(int* (*) [30][40])"
     ItaniumDemangler () |> Assert.Correct mangled result
 
   [<TestMethod>]
-  member __.``ItaniumDemangler: Literals inside Template``() =
+  member _.``ItaniumDemangler: Literals inside Template``() =
     let mangled = "_Z4funcILi42ELb3ELb0EE"
     let result = "func<42, true, false>"
     ItaniumDemangler () |> Assert.Correct mangled result
 
   [<TestMethod>]
-  member __.``ItaniumDemangler: Nested Names And Templates 1``() =
+  member _.``ItaniumDemangler: Nested Names And Templates 1``() =
     let mangled = "_ZN4some3anyIibcE4funcE"
     let result = "some::any<int, bool, char>::func"
     ItaniumDemangler () |> Assert.Correct mangled result
 
   [<TestMethod>]
-  member __.``ItaniumDemangler: Nested Names And Templates 2``() =
+  member _.``ItaniumDemangler: Nested Names And Templates 2``() =
     let mangled = "_ZN4some3anyI4arg1N4name5classEE4funcE"
     let result = "some::any<arg1, name::class>::func"
     ItaniumDemangler () |> Assert.Correct mangled result
 
   [<TestMethod>]
-  member __.``ItaniumDemangler: Nested Names And Templates 3``() =
+  member _.``ItaniumDemangler: Nested Names And Templates 3``() =
     let mangled = "_ZN5funcA5funcBI4arg1N5funcC5funcDI4arg2EE4arg3E5funcEE"
     let result = "funcA::funcB<arg1, funcC::funcD<arg2>, arg3>::funcE"
     ItaniumDemangler () |> Assert.Correct mangled result
 
   [<TestMethod>]
-  member __.``ItaniumDemangler: Nested Names Constructors, Destructors 1``() =
+  member _.``ItaniumDemangler: Nested Names Constructors, Destructors 1``() =
     let mangled = "_ZN5funcA5funcBI4arg1icEC1E"
     let result = "funcA::funcB<arg1, int, char>::funcB"
     ItaniumDemangler () |> Assert.Correct mangled result
 
   [<TestMethod>]
-  member __.``ItaniumDemangler: Nested Names Constructors, Destructors 2``() =
+  member _.``ItaniumDemangler: Nested Names Constructors, Destructors 2``() =
     let mangled = "_ZN5funcA5funcBI4arg1icE5funcCD1E"
     let result = "funcA::funcB<arg1, int, char>::funcC::~funcC"
     ItaniumDemangler () |> Assert.Correct mangled result
 
   [<TestMethod>]
-  member __.``ItaniumDemangler: Nested Names, Return and Arguments``() =
+  member _.``ItaniumDemangler: Nested Names, Return and Arguments``() =
     let mangled = "_ZN5funcA5funcBI4arg1dsEERVK5funcCIiEPKbi"
     let result = "funcC<int> const volatile& funcA::funcB<arg1, double, short>\
     (bool const*, int)"
     ItaniumDemangler () |> Assert.Correct mangled result
 
   [<TestMethod>]
-  member __.``ItaniumDemangler: Function Pointers``() =
+  member _.``ItaniumDemangler: Function Pointers``() =
     let mangled = "_Z4funcPFicE"
     let result = "func(int (*)(char))"
     ItaniumDemangler () |> Assert.Correct mangled result
 
   [<TestMethod>]
-  member __.``ItaniumDemangler: Nested Function Pointers``() =
+  member _.``ItaniumDemangler: Nested Function Pointers``() =
     let mangled = "_Z4funcPFPFPFicEbEdE"
     let result = "func(int (*(*(*)(double))(bool))(char))"
     ItaniumDemangler () |> Assert.Correct mangled result
 
   [<TestMethod>]
-  member __.``ItaniumDemangler: Function Pointers with qualifiers``() =
+  member _.``ItaniumDemangler: Function Pointers with qualifiers``() =
     let mangled = "_Z4funcPKPFPrVPPFPFicEbEdE"
     let result =
       "func(int (*(** volatile __restrict__*(* const*)(double))(bool))(char))"
     ItaniumDemangler () |> Assert.Correct mangled result
 
   [<TestMethod>]
-  member __.``ItaniumDemangler: Binary Operator inside Templates``() =
+  member _.``ItaniumDemangler: Binary Operator inside Templates``() =
     let mangled = "_ZN5funcA5funcB5funcCI4arg1EEi5funcDIXpl4arg24arg3EE"
     let result = "int funcA::funcB::funcC<arg1>(funcD<(arg2)+(arg3)>)"
     ItaniumDemangler () |> Assert.Correct mangled result
 
   [<TestMethod>]
-  member __.``ItaniumDemangler: Unary Operator inside Templates``() =
+  member _.``ItaniumDemangler: Unary Operator inside Templates``() =
     let mangled = "_Z5funcAIRVPKiEPbN5funcB5funcCIXad5funcDIPcEEEE"
     let result =
       "bool* funcA<int const* volatile&>(funcB::funcC<&(funcD<char*>)>)"
     ItaniumDemangler () |> Assert.Correct mangled result
 
   [<TestMethod>]
-  member __.``ItaniumDemangler: Nested Expression inside Templates``() =
+  member _.``ItaniumDemangler: Nested Expression inside Templates``() =
     let mangled = "_Z5funcAIXntaaLb42ELb0EEE"
     let result = "funcA<!((true)&&(false))>"
     ItaniumDemangler () |> Assert.Correct mangled result
 
   [<TestMethod>]
-  member __.``ItaniumDemangler: Sx abbreviation 1``() =
+  member _.``ItaniumDemangler: Sx abbreviation 1``() =
     let mangled = "_ZNSo5funcA5funcBE"
     let result =
       "std::basic_ostream<char, std::char_traits<char> >::funcA::funcB"
     ItaniumDemangler () |> Assert.Correct mangled result
 
   [<TestMethod>]
-  member __.``ItaniumDemangler: Sx abbreviation 2``() =
+  member _.``ItaniumDemangler: Sx abbreviation 2``() =
     let mangled = "_ZSt5funcAIPiPrKP5funcBIPiEE"
     let result = "std::funcA<int*, funcB<int*>* const __restrict__*>"
     ItaniumDemangler () |> Assert.Correct mangled result
 
   [<TestMethod>]
-  member __.``ItaniumDemangler: General Substitution 1``() =
+  member _.``ItaniumDemangler: General Substitution 1``() =
     let mangled = "_ZN5funcA5funcB5funcCIN5funcD5funcEEE5funcFES2_S4_"
     let result = "funcA::funcB::funcC<funcD::funcE>::funcF(funcD, funcA::\
     funcB::funcC<funcD::funcE>)"
     ItaniumDemangler () |> Assert.Correct mangled result
 
   [<TestMethod>]
-  member __.``ItaniumDemangler: General Substitution 2``() =
+  member _.``ItaniumDemangler: General Substitution 2``() =
     let mangled = "_Z5funcAPVKPKiRKbPV4arg1S0_S4_S5_"
     let result = "funcA(int const* const volatile*, bool const&, arg1 \
     volatile*, int const*, bool const&, arg1)"
     ItaniumDemangler () |> Assert.Correct mangled result
 
   [<TestMethod>]
-  member __.``ItaniumDemangler: Template Substitution``() =
+  member _.``ItaniumDemangler: Template Substitution``() =
     let mangled = "_Z5funcAI4arg1iPKb4arg2IcEEiT_T0_T2_"
     let result = "int funcA<arg1, int, bool const*, arg2<char> >\
     (arg1, int, arg2<char>)"
     ItaniumDemangler () |> Assert.Correct mangled result
 
   [<TestMethod>]
-  member __.``ItaniumDemangler: Complex Test 1``() =
+  member _.``ItaniumDemangler: Complex Test 1``() =
     let mangled = "_ZN9__gnu_cxx17__normal_iteratorIPSt4pairIiiESt6vectorIS2\
     _SaIS2_EEEC1ERKS3_"
     let result = "__gnu_cxx::__normal_iterator<std::pair<int, int>*, \
@@ -222,7 +222,7 @@ type ItaniumDemanglerTests () =
     ItaniumDemangler () |> Assert.Correct mangled result
 
   [<TestMethod>]
-  member __.``ItaniumDemangler: Complex Test 2``() =
+  member _.``ItaniumDemangler: Complex Test 2``() =
     let mangled = "_ZN9__gnu_cxxmiIPSt4pairIiiESt6vectorIS2_SaIS2_EEEENS_17__\
     normal_iteratorIT_T0_E15difference_typeERKSA_SD_"
     let result = "__gnu_cxx::__normal_iterator<std::pair<int, int>*, \
@@ -236,7 +236,7 @@ type ItaniumDemanglerTests () =
     ItaniumDemangler () |> Assert.Correct mangled result
 
   [<TestMethod>]
-  member __.``ItaniumDemangler: Complex Test 3``() =
+  member _.``ItaniumDemangler: Complex Test 3``() =
     let mangled = "_ZSt4swapIPSt3mapIixSt4lessIiESaISt4pairIKixEEEENSt9enable\
     _ifIXsrSt6__and_IJSt21is_move_constructibleIT_ESt18is_move_assignableISC_\
     EEE5valueEvE4typeERSC_SJ_"
@@ -252,13 +252,13 @@ type ItaniumDemanglerTests () =
     ItaniumDemangler () |> Assert.Correct mangled result
 
   [<TestMethod>]
-  member __.``ItaniumDemangler: RTTI and Virtual Table``() =
+  member _.``ItaniumDemangler: RTTI and Virtual Table``() =
     let mangled = "_ZTI14GTKFDIOManager"
     let result = "typeinfo for GTKFDIOManager"
     ItaniumDemangler () |> Assert.Correct mangled result
 
   [<TestMethod>]
-  member __.``ItaniumDemangler: Clone``() =
+  member _.``ItaniumDemangler: Clone``() =
     let mangled =
       "_ZN12wxAuiToolBar11OnRightDownER12wxMouseEvent.localalias.159"
     let result =
@@ -266,7 +266,7 @@ type ItaniumDemanglerTests () =
     ItaniumDemangler () |> Assert.Correct mangled result
 
   [<TestMethod>]
-  member __.``ItaniumDemangler: Scope Encoding``() =
+  member _.``ItaniumDemangler: Scope Encoding``() =
     let mangled =
       "_ZZN17wxBaseObjectArrayI16wxAuiToolBarItem43wxObjectArrayTraitsForwxAui\
       ToolBarItemArrayE8RemoveAtEmmE12__FUNCTION__"
@@ -276,7 +276,7 @@ type ItaniumDemanglerTests () =
     ItaniumDemangler () |> Assert.Correct mangled result
 
   [<TestMethod>]
-  member __.``ItaniumDemangler: Member Pointer``() =
+  member _.``ItaniumDemangler: Member Pointer``() =
     let mangled =
       "_ZNK16wxAppConsoleBase11HandleEventEP12wxEvtHandlerMS0_FvR7wxEventES3_"
     let result =
@@ -285,7 +285,7 @@ type ItaniumDemanglerTests () =
     ItaniumDemangler () |> Assert.Correct mangled result
 
   [<TestMethod>]
-  member __.``ItaniumDemangler: Anonymous namespace``() =
+  member _.``ItaniumDemangler: Anonymous namespace``() =
     let mangled =
       "_ZN9wxPrivate18wxVectorComparatorIN12_GLOBAL__N_117wxAuiLayoutObject\
       EE7CompareEPKvS5_S5_"
@@ -295,7 +295,7 @@ type ItaniumDemanglerTests () =
     ItaniumDemangler () |> Assert.Correct mangled result
 
   [<TestMethod>]
-  member __.``ItaniumDemangler: Scope Encoding: Return values``() =
+  member _.``ItaniumDemangler: Scope Encoding: Return values``() =
     let mangled =
       "_ZZ11wxCheckCastI18wxAuiMDIChildFrameEPT_PKvE12__FUNCTION__"
     let result =
@@ -303,7 +303,7 @@ type ItaniumDemanglerTests () =
     ItaniumDemangler () |> Assert.Correct mangled result
 
   [<TestMethod>]
-  member __.``ItaniumDemangler: Guard Variables: Scope Encoding``() =
+  member _.``ItaniumDemangler: Guard Variables: Scope Encoding``() =
     let mangled =
       "_ZGVZN12_GLOBAL__N_113ParseFormatAtERN8wxString14const_iteratorERK\
       S1_RKS0_S6_E5dtDef"
@@ -314,13 +314,13 @@ type ItaniumDemanglerTests () =
     ItaniumDemangler () |> Assert.Correct mangled result
 
   [<TestMethod>]
-  member __.``ItaniumDemangler: Scope Encoding: Discriminator values``() =
+  member _.``ItaniumDemangler: Scope Encoding: Discriminator values``() =
     let mangled = "_ZZL17wx_add_idle_hooksvE14hook_installed_0"
     let result = "wx_add_idle_hooks()::hook_installed"
     ItaniumDemangler () |> Assert.Correct mangled result
 
   [<TestMethod>]
-  member __.``ItaniumDemangler: RTTI values: TC``() =
+  member _.``ItaniumDemangler: RTTI values: TC``() =
     let mangled = "_ZTC17wxStdOutputStream0_So"
     let result =
       "construction vtable for std::basic_ostream<char, std::char_traits<char> \
@@ -328,7 +328,7 @@ type ItaniumDemanglerTests () =
     ItaniumDemangler () |> Assert.Correct mangled result
 
   [<TestMethod>]
-  member __.``ItaniumDemangler: Pointer to Member Function as Argument``() =
+  member _.``ItaniumDemangler: Pointer to Member Function as Argument``() =
     let mangled =
       "_ZN9OptionSetIN12_GLOBAL__N_111OptionsBaanEE14DefinePropertyEPKcMS1_bN\
       St7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEE"
@@ -339,20 +339,20 @@ type ItaniumDemanglerTests () =
     ItaniumDemangler () |> Assert.Correct mangled result
 
   [<TestMethod>]
-  member __.``ItaniumDemangler: ABI Tags``() =
+  member _.``ItaniumDemangler: ABI Tags``() =
     let mangled = "_ZN8Document17TransformLineEndsB5cxx11EPKcmi"
     let result =
       "Document::TransformLineEnds[abi:cxx11](char const*, unsigned long, int)"
     ItaniumDemangler () |> Assert.Correct mangled result
 
   [<TestMethod>]
-  member __.``ItaniumDemangler: Cast Operator``() =
+  member _.``ItaniumDemangler: Cast Operator``() =
     let mangled = "_ZNK21wxArgNormalizedStringcv8wxStringEv"
     let result = "wxArgNormalizedString::operator wxString() const"
     ItaniumDemangler () |> Assert.Correct mangled result
 
   [<TestMethod>]
-  member __.``ItaniumDemangler: Template Substitution, Repeating variables``() =
+  member _.``ItaniumDemangler: Template Substitution, Repeating variables``() =
     let mangled = "_ZN8wxString6PrintfIddddddddddddddddddddEEiRK14wxFormatStr\
     ingT_T0_T1_T2_T3_T4_T5_T6_T7_T8_T9_T10_T11_T12_T13_T14_T15_T16_T17_T18_"
     let result = "int wxString::Printf<double, double, double, double, double, \
@@ -364,7 +364,7 @@ type ItaniumDemanglerTests () =
     ItaniumDemangler () |> Assert.Correct mangled result
 
   [<TestMethod>]
-  member __.``ItaniumDemangler: Argument Packs``() =
+  member _.``ItaniumDemangler: Argument Packs``() =
     let mangled = "_ZNSt8_Rb_treeINSt7__cxx1112basic_stringIcSt11char_traits\
     IcESaIcEEESt4pairIKS5_N9OptionSetI10OptionsAsmE6OptionEESt10_Select1stIS\
     C_ESt4lessIS5_ESaISC_EE22_M_emplace_hint_uniqueIJRKSt21piecewise_construc\
@@ -391,7 +391,7 @@ type ItaniumDemanglerTests () =
     ItaniumDemangler () |> Assert.Correct mangled result
 
   [<TestMethod>]
-  member __.``ItaniumDemangler: Arrays``() =
+  member _.``ItaniumDemangler: Arrays``() =
     let mangled = "_ZSt9__find_ifIN9__gnu_cxx17__normal_iteratorIPNSt7__\
     cxx1112basic_stringIcSt11char_traitsIcESaIcEEESt6vectorIS7_SaIS7_EEEENS0_\
     5__ops16_Iter_equals_valIA2_KcEEET_SI_SI_T0_St26random_access_iterator_tag"
@@ -418,7 +418,7 @@ type ItaniumDemanglerTests () =
     ItaniumDemangler () |> Assert.Correct mangled result
 
   [<TestMethod>]
-  member __.``ItaniumDemangler: Testing for Void 1``() =
+  member _.``ItaniumDemangler: Testing for Void 1``() =
     let mangled = "_ZN9wxPrivate11OnScopeExitI20wxObjScopeGuardImpl0I20wxWrapp\
     erInputStreamMS2_KFvvEEEEvRT_"
     let result = "void wxPrivate::OnScopeExit<wxObjScopeGuardImpl0<wxWrapper\
@@ -427,7 +427,7 @@ type ItaniumDemanglerTests () =
     ItaniumDemangler () |> Assert.Correct mangled result
 
   [<TestMethod>]
-  member __.``ItaniumDemangler: Testing for Void 2``() =
+  member _.``ItaniumDemangler: Testing for Void 2``() =
     let mangled = "_ZN9wxPrivate11OnScopeExitI17wxScopeGuardImpl0IPFvvEEEEvRT_"
     let result = "void wxPrivate::OnScopeExit<wxScopeGuardImpl0<void (*)()> >\
     (wxScopeGuardImpl0<void (*)()>&)"

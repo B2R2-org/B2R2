@@ -55,28 +55,28 @@ type SPARCLifterTest () =
     ByteArray.ofHexString byteString, givenStmts
 
   [<TestMethod>]
-  member __.``[SPARC] ADD (three reg operands) lift Test`` () =
+  member _.``[SPARC] ADD (three reg operands) lift Test`` () =
     "0d80029e"
     ++ [| t64 1 := !.O2 .+ !.O5
           !.O7 := t64 1 |]
     |> test
 
   [<TestMethod>]
-  member __.``[SPARC] ADD (two reg op, one imm op) lift Test`` () =
+  member _.``[SPARC] ADD (two reg op, one imm op) lift Test`` () =
     "8ab6029e"
     ++ [| t64 1 := !.O2 .+ num 0xfffffffffffff68aL
           !.O7 := t64 1 |]
     |> test
 
   [<TestMethod>]
-  member __.``[SPARC] ADD (with carry) lift Test`` () =
+  member _.``[SPARC] ADD (with carry) lift Test`` () =
     "0d80429e"
     ++ [| t64 1 := !.O2 .+ !.O5 .+ AST.zext 64<rt> (AST.extract !.CCR 1<rt> 0)
           !.O7 := t64 1 |]
     |> test
 
   [<TestMethod>]
-  member __.``[SPARC] ADD (with carry and modify icc) lift Test`` () =
+  member _.``[SPARC] ADD (with carry and modify icc) lift Test`` () =
     "0d80429e"
     ++ [| t64 1 := !.O2 .+ !.O5 .+ AST.zext 64<rt> (AST.extract !.CCR 1<rt> 0)
           !.O7 := t64 1 |]

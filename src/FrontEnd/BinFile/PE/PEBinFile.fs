@@ -37,93 +37,93 @@ type PEBinFile (path, bytes: byte[], baseAddrOpt, rawpdb) =
 
   new (path, bytes, rawpdb) = PEBinFile (path, bytes, None, rawpdb)
 
-  member __.PE with get() = pe
+  member _.PE with get() = pe
 
-  member __.RawPDB = rawpdb
+  member _.RawPDB = rawpdb
 
   interface IBinFile with
-    member __.Reader with get() = pe.BinReader
+    member _.Reader with get() = pe.BinReader
 
-    member __.RawBytes = bytes
+    member _.RawBytes = bytes
 
-    member __.Length = bytes.Length
+    member _.Length = bytes.Length
 
-    member __.Path with get() = path
+    member _.Path with get() = path
 
-    member __.Format with get() = FileFormat.PEBinary
+    member _.Format with get() = FileFormat.PEBinary
 
-    member __.ISA with get() = getISA pe
+    member _.ISA with get() = getISA pe
 
-    member __.Type with get() = getFileType pe
+    member _.Type with get() = getFileType pe
 
-    member __.EntryPoint = getEntryPoint pe
+    member _.EntryPoint = getEntryPoint pe
 
-    member __.BaseAddress with get() = pe.BaseAddr
+    member _.BaseAddress with get() = pe.BaseAddr
 
-    member __.IsStripped = Array.isEmpty pe.SymbolInfo.SymbolArray
+    member _.IsStripped = Array.isEmpty pe.SymbolInfo.SymbolArray
 
-    member __.IsNXEnabled = isNXEnabled pe
+    member _.IsNXEnabled = isNXEnabled pe
 
-    member __.IsRelocatable = isRelocatable pe
+    member _.IsRelocatable = isRelocatable pe
 
-    member __.GetOffset addr = translateAddr pe addr
+    member _.GetOffset addr = translateAddr pe addr
 
-    member __.Slice (addr, size) =
+    member this.Slice (addr, size) =
       let offset = translateAddr pe addr |> Convert.ToInt32
-      (__ :> IBinFile).Slice (offset=offset, size=size)
+      (this :> IBinFile).Slice (offset=offset, size=size)
 
-    member __.Slice (addr) =
+    member this.Slice (addr) =
       let offset = translateAddr pe addr |> Convert.ToInt32
-      (__ :> IBinFile).Slice (offset=offset)
+      (this :> IBinFile).Slice (offset=offset)
 
-    member __.Slice (offset: int, size) =
+    member _.Slice (offset: int, size) =
       ReadOnlySpan (bytes, offset, size)
 
-    member __.Slice (offset: int) =
+    member _.Slice (offset: int) =
       ReadOnlySpan(bytes).Slice offset
 
-    member __.Slice (ptr: BinFilePointer, size) =
+    member _.Slice (ptr: BinFilePointer, size) =
       ReadOnlySpan (bytes, ptr.Offset, size)
 
-    member __.Slice (ptr: BinFilePointer) =
+    member _.Slice (ptr: BinFilePointer) =
       ReadOnlySpan(bytes).Slice ptr.Offset
 
-    member __.ReadByte (addr: Addr) =
+    member _.ReadByte (addr: Addr) =
       let offset = translateAddr pe addr |> Convert.ToInt32
       bytes[offset]
 
-    member __.ReadByte (offset: int) =
+    member _.ReadByte (offset: int) =
       bytes[offset]
 
-    member __.ReadByte (ptr: BinFilePointer) =
+    member _.ReadByte (ptr: BinFilePointer) =
       bytes[ptr.Offset]
 
-    member __.IsValidAddr addr = isValidAddr pe addr
+    member _.IsValidAddr addr = isValidAddr pe addr
 
-    member __.IsValidRange range = isValidRange pe range
+    member _.IsValidRange range = isValidRange pe range
 
-    member __.IsInFileAddr addr = isInFileAddr pe addr
+    member _.IsInFileAddr addr = isInFileAddr pe addr
 
-    member __.IsInFileRange range = isInFileRange pe range
+    member _.IsInFileRange range = isInFileRange pe range
 
-    member __.IsExecutableAddr addr = isExecutableAddr pe addr
+    member _.IsExecutableAddr addr = isExecutableAddr pe addr
 
-    member __.GetNotInFileIntervals range = getNotInFileIntervals pe range
+    member _.GetNotInFileIntervals range = getNotInFileIntervals pe range
 
-    member __.ToBinFilePointer addr =
+    member _.ToBinFilePointer addr =
       BinFilePointer.OfSectionOpt (getSectionsByAddr pe addr |> Seq.tryHead)
 
-    member __.ToBinFilePointer name =
+    member _.ToBinFilePointer name =
       BinFilePointer.OfSectionOpt (getSectionsByName pe name |> Seq.tryHead)
 
-    member __.TryFindFunctionName (addr) = tryFindFuncSymb pe addr
+    member _.TryFindFunctionName (addr) = tryFindFuncSymb pe addr
 
-    member __.GetSymbols () = getSymbols pe
+    member _.GetSymbols () = getSymbols pe
 
-    member __.GetStaticSymbols () = getStaticSymbols pe
+    member _.GetStaticSymbols () = getStaticSymbols pe
 
-    member __.GetFunctionSymbols () =
-      let self = __ :> IBinFile
+    member this.GetFunctionSymbols () =
+      let self = this :> IBinFile
       let staticSymbols =
         self.GetStaticSymbols ()
         |> Array.filter (fun s -> s.Kind = SymFunctionType)
@@ -132,42 +132,42 @@ type PEBinFile (path, bytes: byte[], baseAddrOpt, rawpdb) =
         |> Array.filter (fun s -> s.Kind = SymFunctionType)
       Array.append staticSymbols dynamicSymbols
 
-    member __.GetDynamicSymbols (?exc) = getDynamicSymbols pe exc
+    member _.GetDynamicSymbols (?exc) = getDynamicSymbols pe exc
 
-    member __.AddSymbol _addr _symbol = Terminator.futureFeature ()
+    member _.AddSymbol _addr _symbol = Terminator.futureFeature ()
 
-    member __.GetSections () = getSections pe
+    member _.GetSections () = getSections pe
 
-    member __.GetSections (addr) = getSectionsByAddr pe addr
+    member _.GetSections (addr) = getSectionsByAddr pe addr
 
-    member __.GetSections (name) = getSectionsByName pe name
+    member _.GetSections (name) = getSectionsByName pe name
 
-    member __.GetTextSection () = getTextSection pe
+    member _.GetTextSection () = getTextSection pe
 
-    member __.GetSegments (_isLoadable: bool) = getSegments pe
+    member _.GetSegments (_isLoadable: bool) = getSegments pe
 
-    member __.GetSegments (addr) =
-      (__ :> IBinFile).GetSegments ()
+    member this.GetSegments (addr) =
+      (this :> IBinFile).GetSegments ()
       |> Array.filter (fun s -> (addr >= s.Address)
                              && (addr < s.Address + uint64 s.Size))
 
-    member __.GetSegments (perm) =
-      (__ :> IBinFile).GetSegments ()
+    member this.GetSegments (perm) =
+      (this :> IBinFile).GetSegments ()
       |> Array.filter (fun s -> (s.Permission &&& perm = perm) && s.Size > 0u)
 
-    member __.GetFunctionAddresses () =
-      (__ :> IBinFile).GetFunctionSymbols ()
+    member this.GetFunctionAddresses () =
+      (this :> IBinFile).GetFunctionSymbols ()
       |> Array.map (fun s -> s.Address)
 
-    member __.GetFunctionAddresses (_) =
-      (__ :> IBinFile).GetFunctionAddresses ()
+    member this.GetFunctionAddresses (_) =
+      (this :> IBinFile).GetFunctionAddresses ()
 
-    member __.GetRelocationInfos () = getRelocationSymbols pe
+    member _.GetRelocationInfos () = getRelocationSymbols pe
 
-    member __.HasRelocationInfo addr = hasRelocationSymbols pe addr
+    member _.HasRelocationInfo addr = hasRelocationSymbols pe addr
 
-    member __.GetRelocatedAddr _relocAddr = Terminator.futureFeature ()
+    member _.GetRelocatedAddr _relocAddr = Terminator.futureFeature ()
 
-    member __.GetLinkageTableEntries () = getImportTable pe
+    member _.GetLinkageTableEntries () = getImportTable pe
 
-    member __.IsLinkageTable addr = isImportTable pe addr
+    member _.IsLinkageTable addr = isImportTable pe addr

@@ -34,14 +34,14 @@ type Labels (lbls) =
 
   new () = Labels (Dictionary<Symbol, int> ())
 
-  member __.Update (stmts) =
+  member _.Update (stmts) =
     lbls.Clear ()
     for i = 0 to Array.length stmts - 1 do
       match stmts[i].S with
       | LMark s -> lbls.Add (s, i)
       | _ -> ()
 
-  member __.Index (sym) = lbls[sym]
+  member _.Index (sym) = lbls[sym]
 
-  member __.Clone () =
+  member _.Clone () =
     Labels (Dictionary (lbls))

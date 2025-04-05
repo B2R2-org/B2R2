@@ -45,161 +45,161 @@ type MachBinFile (path, bytes: byte[], isa, baseAddrOpt) =
   let notInFileRanges = lazy invalidRangesByFileBounds toolBox segCmds.Value
   let executableRanges = lazy executableRanges segCmds.Value
 
-  member __.Header with get() = toolBox.Header
+  member _.Header with get() = toolBox.Header
 
-  member __.Commands with get() = cmds.Value
+  member _.Commands with get() = cmds.Value
 
-  member __.Sections with get() = secs.Value
+  member _.Sections with get() = secs.Value
 
-  member __.SymbolInfo with get() = symInfo.Value
+  member _.SymbolInfo with get() = symInfo.Value
 
   interface IBinFile with
-    member __.Reader with get() = toolBox.Reader
+    member _.Reader with get() = toolBox.Reader
 
-    member __.RawBytes = bytes
+    member _.RawBytes = bytes
 
-    member __.Length = bytes.Length
+    member _.Length = bytes.Length
 
-    member __.Path with get() = path
+    member _.Path with get() = path
 
-    member __.Format with get() = FileFormat.MachBinary
+    member _.Format with get() = FileFormat.MachBinary
 
-    member __.ISA with get() = getISA toolBox.Header
+    member _.ISA with get() = getISA toolBox.Header
 
-    member __.Type with get() = convFileType toolBox.Header.FileType
+    member _.Type with get() = convFileType toolBox.Header.FileType
 
-    member __.EntryPoint = computeEntryPoint segCmds.Value cmds.Value
+    member _.EntryPoint = computeEntryPoint segCmds.Value cmds.Value
 
-    member __.BaseAddress with get() = toolBox.BaseAddress
+    member _.BaseAddress with get() = toolBox.BaseAddress
 
-    member __.IsStripped = isStripped secs.Value symInfo.Value
+    member _.IsStripped = isStripped secs.Value symInfo.Value
 
-    member __.IsNXEnabled = isNXEnabled toolBox.Header
+    member _.IsNXEnabled = isNXEnabled toolBox.Header
 
-    member __.IsRelocatable = toolBox.Header.Flags.HasFlag MachFlag.MH_PIE
+    member _.IsRelocatable = toolBox.Header.Flags.HasFlag MachFlag.MH_PIE
 
-    member __.GetOffset addr = translateAddr segMap.Value addr
+    member _.GetOffset addr = translateAddr segMap.Value addr
 
-    member __.Slice (addr, size) =
+    member this.Slice (addr, size) =
       let offset = translateAddr segMap.Value addr |> Convert.ToInt32
-      (__ :> IBinFile).Slice (offset=offset, size=size)
+      (this :> IBinFile).Slice (offset=offset, size=size)
 
-    member __.Slice (addr) =
+    member this.Slice (addr) =
       let offset = translateAddr segMap.Value addr |> Convert.ToInt32
-      (__ :> IBinFile).Slice (offset=offset)
+      (this :> IBinFile).Slice (offset=offset)
 
-    member __.Slice (offset: int, size) =
+    member _.Slice (offset: int, size) =
       ReadOnlySpan (bytes, offset, size)
 
-    member __.Slice (offset: int) =
+    member _.Slice (offset: int) =
       ReadOnlySpan(bytes).Slice offset
 
-    member __.Slice (ptr: BinFilePointer, size) =
+    member _.Slice (ptr: BinFilePointer, size) =
       ReadOnlySpan (bytes, ptr.Offset, size)
 
-    member __.Slice (ptr: BinFilePointer) =
+    member _.Slice (ptr: BinFilePointer) =
       ReadOnlySpan(bytes).Slice ptr.Offset
 
-    member __.ReadByte (addr: Addr) =
+    member _.ReadByte (addr: Addr) =
       let offset = translateAddr segMap.Value addr |> Convert.ToInt32
       bytes[offset]
 
-    member __.ReadByte (offset: int) =
+    member _.ReadByte (offset: int) =
       bytes[offset]
 
-    member __.ReadByte (ptr: BinFilePointer) =
+    member _.ReadByte (ptr: BinFilePointer) =
       bytes[ptr.Offset]
 
-    member __.IsValidAddr addr =
+    member _.IsValidAddr addr =
       IntervalSet.containsAddr addr notInMemRanges.Value |> not
 
-    member __.IsValidRange range =
+    member _.IsValidRange range =
       IntervalSet.findAll range notInMemRanges.Value |> List.isEmpty
 
-    member __.IsInFileAddr addr =
+    member _.IsInFileAddr addr =
       IntervalSet.containsAddr addr notInFileRanges.Value |> not
 
-    member __.IsInFileRange range =
+    member _.IsInFileRange range =
       IntervalSet.findAll range notInFileRanges.Value |> List.isEmpty
 
-    member __.IsExecutableAddr addr =
+    member _.IsExecutableAddr addr =
       IntervalSet.containsAddr addr executableRanges.Value
 
-    member __.GetNotInFileIntervals range =
+    member _.GetNotInFileIntervals range =
       IntervalSet.findAll range notInFileRanges.Value
       |> List.toArray
       |> Array.map range.Slice
 
-    member __.ToBinFilePointer addr =
+    member _.ToBinFilePointer addr =
       getSectionsByAddr secs.Value segMap.Value addr
       |> Seq.tryHead
       |> BinFilePointer.OfSectionOpt
 
-    member __.ToBinFilePointer name =
+    member _.ToBinFilePointer name =
       getSectionsByName secs.Value segMap.Value name
       |> Seq.tryHead
       |> BinFilePointer.OfSectionOpt
 
-    member __.TryFindFunctionName (addr) =
+    member _.TryFindFunctionName (addr) =
       tryFindFuncSymb symInfo.Value addr
 
-    member __.GetSymbols () = getSymbols secs.Value symInfo.Value
+    member _.GetSymbols () = getSymbols secs.Value symInfo.Value
 
-    member __.GetStaticSymbols () =
+    member _.GetStaticSymbols () =
       getStaticSymbols secs.Value symInfo.Value
 
-    member __.GetFunctionSymbols () =
-      let self = __ :> IBinFile
+    member this.GetFunctionSymbols () =
+      let f = this :> IBinFile
       let staticSymbols =
-        self.GetStaticSymbols ()
+        f.GetStaticSymbols ()
         |> Array.filter (fun s -> s.Kind = SymFunctionType)
       let dynamicSymbols =
-        self.GetDynamicSymbols (true)
+        f.GetDynamicSymbols (true)
         |> Array.filter (fun s -> s.Kind = SymFunctionType)
       Array.append staticSymbols dynamicSymbols
 
-    member __.GetDynamicSymbols (?e) =
+    member _.GetDynamicSymbols (?e) =
       getDynamicSymbols e secs.Value symInfo.Value
 
-    member __.AddSymbol _addr _symbol = Terminator.futureFeature ()
+    member _.AddSymbol _addr _symbol = Terminator.futureFeature ()
 
-    member __.GetSections () = getSections secs.Value segMap.Value
+    member _.GetSections () = getSections secs.Value segMap.Value
 
-    member __.GetSections (addr) =
+    member _.GetSections (addr) =
       getSectionsByAddr secs.Value segMap.Value addr
 
-    member __.GetSections (name) =
+    member _.GetSections (name) =
       getSectionsByName secs.Value segMap.Value name
 
-    member __.GetTextSection () = getTextSection secs.Value segMap.Value
+    member _.GetTextSection () = getTextSection secs.Value segMap.Value
 
-    member __.GetSegments (isLoadable) =
+    member _.GetSegments (isLoadable) =
       Segment.toArray segCmds.Value isLoadable
 
-    member __.GetSegments (addr) =
-      (__ :> IBinFile).GetSegments ()
+    member this.GetSegments (addr) =
+      (this :> IBinFile).GetSegments ()
       |> Array.filter (fun s -> (addr >= s.Address)
                              && (addr < s.Address + uint64 s.Size))
 
-    member __.GetSegments (perm) =
-      (__ :> IBinFile).GetSegments ()
+    member this.GetSegments (perm) =
+      (this :> IBinFile).GetSegments ()
       |> Array.filter (fun s -> (s.Permission &&& perm = perm) && s.Size > 0u)
 
-    member __.GetFunctionAddresses () =
-      (__ :> IBinFile).GetFunctionSymbols ()
+    member this.GetFunctionAddresses () =
+      (this :> IBinFile).GetFunctionSymbols ()
       |> Array.map (fun s -> s.Address)
 
-    member __.GetFunctionAddresses (_) =
-      (__ :> IBinFile).GetFunctionAddresses ()
+    member this.GetFunctionAddresses (_) =
+      (this :> IBinFile).GetFunctionAddresses ()
 
-    member __.GetRelocationInfos () = relocs.Value
+    member _.GetRelocationInfos () = relocs.Value
 
-    member __.HasRelocationInfo addr =
+    member _.HasRelocationInfo addr =
       relocs.Value
       |> Array.exists (fun r -> r.Address = addr)
 
-    member __.GetRelocatedAddr _relocAddr = Terminator.futureFeature ()
+    member _.GetRelocatedAddr _relocAddr = Terminator.futureFeature ()
 
-    member __.GetLinkageTableEntries () = getPLT symInfo.Value
+    member _.GetLinkageTableEntries () = getPLT symInfo.Value
 
-    member __.IsLinkageTable addr = isPLT symInfo.Value addr
+    member _.IsLinkageTable addr = isPLT symInfo.Value addr

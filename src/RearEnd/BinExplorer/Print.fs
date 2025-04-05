@@ -158,13 +158,13 @@ type CmdPrint () =
       else iter hdl sz fmt addr endAddr []
     | Error str -> [| str |]
 
-  override __.CmdName = "print"
+  override _.CmdName = "print"
 
-  override __.CmdAlias = [ "p" ]
+  override _.CmdAlias = [ "p" ]
 
-  override __.CmdDescr = "Output the contents of the binary in a given format."
+  override _.CmdDescr = "Output the contents of the binary in a given format."
 
-  override __.CmdHelp =
+  override _.CmdHelp =
     "Usage: print <format> <addr>\n\n\
      The <format> is a repeat count followed by a format letter, and a size\n\
      letter. The size letter can be omitted only for string format.\n\n\
@@ -179,15 +179,15 @@ type CmdPrint () =
      - w (word) or 4\n\
      - g (giant) or 8"
 
-  override __.SubCommands = []
+  override _.SubCommands = []
 
-  override __.CallBack _ brew args =
+  override this.CallBack _ brew args =
     match args with
     | fmt :: addr :: _ ->
       parseFormat fmt
       |> Result.bind (parseAddr addr)
       |> validateRequest brew
-    | _ -> [| __.CmdHelp |]
+    | _ -> [| this.CmdHelp |]
     |> Array.map OutputNormal
 
 // vim: set tw=80 sts=2 sw=2:

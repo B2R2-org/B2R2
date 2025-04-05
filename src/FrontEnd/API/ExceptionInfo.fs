@@ -97,13 +97,13 @@ type ExceptionInfo (liftingUnit: LiftingUnit) =
     ExceptionInfo (hdl.NewLiftingUnit ())
 
   /// Return the exception handler mapping.
-  member __.ExceptionMap with get() = exnTbl
+  member _.ExceptionMap with get() = exnTbl
 
   /// Return a set of function entry points that are visible from exception
   /// table information.
-  member __.FunctionEntryPoints with get() = funcEntryPoints
+  member _.FunctionEntryPoints with get() = funcEntryPoints
 
   /// For a given instruction address, find the landing pad (exception target)
   /// of the instruction.
-  member __.TryFindExceptionTarget insAddr =
+  member _.TryFindExceptionTarget insAddr =
     NoOverlapIntervalMap.tryFindByAddr insAddr exnTbl

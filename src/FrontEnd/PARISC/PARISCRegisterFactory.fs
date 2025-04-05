@@ -31,7 +31,7 @@ open B2R2.FrontEnd.BinLifter
 type PARISC64RegisterFactory (wordSize, r: RegExprs) =
   inherit RegisterFactory ()
 
-  override __.GetAllRegExprs () =
+  override _.GetAllRegExprs () =
     [ r.GR0; r.GR1; r.GR2; r.GR3; r.GR4; r.GR5; r.GR6; r.GR7; r.GR8; r.GR9
       r.GR10; r.GR11; r.GR12; r.GR13; r.GR14; r.GR15; r.GR16; r.GR17
       r.GR18;r.GR19; r.GR20; r.GR21; r.GR22; r.GR23; r.GR24; r.GR25; r.GR26
@@ -46,54 +46,54 @@ type PARISC64RegisterFactory (wordSize, r: RegExprs) =
       r.FPR22; r.FPR23; r.FPR24; r.FPR25; r.FPR26; r.FPR27; r.FPR28; r.FPR29
       r.FPR30; r.FPR31 ]
 
-  override __.GetAllRegNames () =
-    __.GetAllRegExprs ()
-    |> List.map (__.RegIDFromRegExpr >> __.RegIDToString)
+  override this.GetAllRegNames () =
+    this.GetAllRegExprs ()
+    |> List.map (this.RegIDFromRegExpr >> this.RegIDToString)
 
-  override __.GetGeneralRegExprs () =
+  override _.GetGeneralRegExprs () =
     [ r.GR0; r.GR1; r.GR2; r.GR3; r.GR4; r.GR5; r.GR6; r.GR7; r.GR8; r.GR9
       r.GR10; r.GR11; r.GR12; r.GR13; r.GR14; r.GR15; r.GR16; r.GR17
       r.GR18;r.GR19; r.GR20; r.GR21; r.GR22; r.GR23; r.GR24; r.GR25; r.GR26
       r.GR27; r.GR28; r.GR29; r.GR30; r.GR31 ]
 
-  override __.RegIDFromRegExpr (e) =
+  override _.RegIDFromRegExpr (e) =
     match e.E with
     | Var (_, id, _) -> id
     | PCVar _ -> Register.toRegID Register.CR18
     | _ -> raise InvalidRegisterException
 
-  override __.RegIDToRegExpr (id) =
+  override _.RegIDToRegExpr (id) =
     Register.ofRegID id |> r.GetRegVar
 
-  override __.StrToRegExpr str =
-    Register.ofString str |> Register.toRegID |> __.RegIDToRegExpr
+  override this.StrToRegExpr str =
+    Register.ofString str |> Register.toRegID |> this.RegIDToRegExpr
 
-  override __.RegIDFromString str =
+  override _.RegIDFromString str =
     Register.ofString str |> Register.toRegID
 
-  override __.RegIDToString rid =
+  override _.RegIDToString rid =
     Register.toString (Register.ofRegID rid)
 
-  override __.RegIDToRegType _rid =
+  override _.RegIDToRegType _rid =
     WordSize.toRegType wordSize
 
-  override __.GetRegisterAliases rid =
+  override _.GetRegisterAliases rid =
     [| rid |]
 
-  override __.ProgramCounter =
+  override _.ProgramCounter =
     Register.IAOQ_Front |> Register.toRegID
 
-  override __.StackPointer =
+  override _.StackPointer =
     Register.GR30 |> Register.toRegID |> Some
 
-  override __.FramePointer =
+  override _.FramePointer =
     Register.GR3 |> Register.toRegID |> Some
 
-  override __.IsProgramCounter rid =
-    __.ProgramCounter = rid
+  override this.IsProgramCounter rid =
+    this.ProgramCounter = rid
 
-  override __.IsStackPointer rid =
-    __.StackPointer |> Option.get = rid
+  override this.IsStackPointer rid =
+    this.StackPointer |> Option.get = rid
 
-  override __.IsFramePointer rid =
-    __.FramePointer |> Option.get = rid
+  override this.IsFramePointer rid =
+    this.FramePointer |> Option.get = rid

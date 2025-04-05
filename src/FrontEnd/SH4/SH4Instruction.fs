@@ -34,49 +34,50 @@ type SH4Instruction (addr, numBytes, insInfo) =
 
   member val Info: InsInfo = insInfo
 
-  override __.IsBranch () = Terminator.futureFeature ()
-  override __.IsModeChanging () = false
-  override __.IsDirectBranch () = Terminator.futureFeature ()
-  override __.IsIndirectBranch () = Terminator.futureFeature ()
-  override __.IsCondBranch () = Terminator.futureFeature ()
-  override __.IsCJmpOnTrue () = Terminator.futureFeature ()
-  override __.IsCall () = Terminator.futureFeature ()
-  override __.IsRET () = Terminator.futureFeature ()
-  override __.IsInterrupt () = Terminator.futureFeature ()
-  override __.IsExit () = Terminator.futureFeature ()
-  override __.IsTerminator () = Terminator.futureFeature ()
-  override __.DirectBranchTarget (_) = Terminator.futureFeature ()
-  override __.IndirectTrampolineAddr (_) = Terminator.futureFeature ()
-  override __.Immediate (_) = Terminator.futureFeature ()
-  override __.GetNextInstrAddrs () = Terminator.futureFeature ()
-  override __.InterruptNum (_) = Terminator.futureFeature ()
-  override __.IsNop () = Terminator.futureFeature ()
+  override _.IsBranch () = Terminator.futureFeature ()
+  override _.IsModeChanging () = false
+  override _.IsDirectBranch () = Terminator.futureFeature ()
+  override _.IsIndirectBranch () = Terminator.futureFeature ()
+  override _.IsCondBranch () = Terminator.futureFeature ()
+  override _.IsCJmpOnTrue () = Terminator.futureFeature ()
+  override _.IsCall () = Terminator.futureFeature ()
+  override _.IsRET () = Terminator.futureFeature ()
+  override _.IsInterrupt () = Terminator.futureFeature ()
+  override _.IsExit () = Terminator.futureFeature ()
+  override _.IsTerminator () = Terminator.futureFeature ()
+  override _.DirectBranchTarget (_) = Terminator.futureFeature ()
+  override _.IndirectTrampolineAddr (_) = Terminator.futureFeature ()
+  override _.Immediate (_) = Terminator.futureFeature ()
+  override _.GetNextInstrAddrs () = Terminator.futureFeature ()
+  override _.InterruptNum (_) = Terminator.futureFeature ()
+  override _.IsNop () = Terminator.futureFeature ()
 
-  override __.Translate ctxt =
-    (Lifter.translate __.Info numBytes ctxt).ToStmts ()
+  override this.Translate ctxt =
+    (Lifter.translate this.Info numBytes ctxt).ToStmts ()
 
-  override __.TranslateToList ctxt =
-    Lifter.translate __.Info numBytes ctxt
+  override this.TranslateToList ctxt =
+    Lifter.translate this.Info numBytes ctxt
 
-  override __.Disasm (showAddr, _) =
+  override this.Disasm (showAddr, _) =
     let builder =
       DisasmStringBuilder (showAddr, false, WordSize.Bit32, addr, numBytes)
-    Disasm.disas __.Info builder
+    Disasm.disas this.Info builder
     builder.ToString ()
 
-  override __.Disasm () =
+  override this.Disasm () =
     let builder =
       DisasmStringBuilder (false, false, WordSize.Bit32, addr, numBytes)
-    Disasm.disas __.Info builder
+    Disasm.disas this.Info builder
     builder.ToString ()
 
-  override __.Decompose (showAddr) =
+  override this.Decompose (showAddr) =
     let builder =
       DisasmWordBuilder (showAddr, false, WordSize.Bit32, addr, numBytes, 8)
-    Disasm.disas __.Info builder
+    Disasm.disas this.Info builder
     builder.ToArray ()
 
-  override __.IsInlinedAssembly () = false
+  override _.IsInlinedAssembly () = false
 
-  override __.Equals (_) = Terminator.futureFeature ()
-  override __.GetHashCode () = Terminator.futureFeature ()
+  override _.Equals (_) = Terminator.futureFeature ()
+
+  override _.GetHashCode () = Terminator.futureFeature ()

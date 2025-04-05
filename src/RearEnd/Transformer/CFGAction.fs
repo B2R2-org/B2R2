@@ -39,14 +39,14 @@ type CFGAction () =
     | _ -> invalidArg (nameof input) "Invalid argument."
 
   interface IAction with
-    member __.ActionID with get() = "cfg"
-    member __.Signature with get() = "Binary -> CFG"
-    member __.Description with get() = """
+    member _.ActionID with get() = "cfg"
+    member _.Signature with get() = "Binary -> CFG"
+    member _.Description with get() = """
     Take in a Binary as input and returns an IR-level Control Flow Graph (CFG)
     as output. This action assumes that the given binary is well-formed, meaning
     that it has no bad instructions, and the control does not flow in the middle
     of an instruction. Any indirect branches will be simply ignored, i.e., it
     does not perform any of the heavy analyses in our middle-end.
 """
-    member __.Transform _args collection =
+    member _.Transform _args collection =
       { Values = collection.Values |> Array.map getCFG }

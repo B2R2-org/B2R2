@@ -62,11 +62,11 @@ type PrintAction () =
     Printer.PrintToConsoleLine os
 
   interface IAction with
-    member __.ActionID with get() = "print"
-    member __.Signature with get() = "'a -> unit"
-    member __.Description with get() = """
+    member _.ActionID with get() = "print"
+    member _.Signature with get() = "'a -> unit"
+    member _.Description with get() = """
     Take in an input object and print out its value.
 """
-    member __.Transform _args o =
+    member _.Transform _args o =
       print (box o)
       { Values = [||] }

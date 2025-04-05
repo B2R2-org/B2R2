@@ -58,10 +58,10 @@ type Section = {
 with
   /// Convert the section into an AddrRange based on its starting address and
   /// the size.
-  member __.ToAddrRange () =
-    AddrRange (__.Address, __.Address + uint64 __.Size - 1UL)
+  member this.ToAddrRange () =
+    AddrRange (this.Address, this.Address + uint64 this.Size - 1UL)
 
-  override __.ToString () =
-    $"Section [{__.Name}] ({__.Kind}) \
-      @ {__.Address:x}-{(__.Address + uint64 __.Size):x} \
-      @ {__.FileOffset:x}"
+  override this.ToString () =
+    $"Section [{this.Name}] ({this.Kind}) \
+      @ {this.Address:x}-{(this.Address + uint64 this.Size):x} \
+      @ {this.FileOffset:x}"

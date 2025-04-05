@@ -38,112 +38,112 @@ type WasmBinFile (path, bytes, baseAddrOpt) =
 
   new (path, bytes) = WasmBinFile (path, bytes, None)
 
-  member __.WASM with get() = wm
+  member _.WASM with get() = wm
 
   interface IBinFile with
-    member __.Reader with get() = reader
+    member _.Reader with get() = reader
 
-    member __.RawBytes = bytes
+    member _.RawBytes = bytes
 
-    member __.Length = bytes.Length
+    member _.Length = bytes.Length
 
-    member __.Path with get() = path
+    member _.Path with get() = path
 
-    member __.Format with get() = FileFormat.WasmBinary
+    member _.Format with get() = FileFormat.WasmBinary
 
-    member __.ISA with get() = defaultISA
+    member _.ISA with get() = defaultISA
 
-    member __.Type with get() = fileTypeOf wm
+    member _.Type with get() = fileTypeOf wm
 
-    member __.EntryPoint = entryPointOf wm
+    member _.EntryPoint = entryPointOf wm
 
-    member __.BaseAddress with get() = baseAddr
+    member _.BaseAddress with get() = baseAddr
 
-    member __.IsStripped = List.isEmpty wm.CustomSections
+    member _.IsStripped = List.isEmpty wm.CustomSections
 
-    member __.IsNXEnabled = true
+    member _.IsNXEnabled = true
 
-    member __.IsRelocatable = false
+    member _.IsRelocatable = false
 
-    member __.GetOffset addr = int addr
+    member _.GetOffset addr = int addr
 
-    member __.Slice (addr: Addr, size) =
+    member _.Slice (addr: Addr, size) =
       let span = ReadOnlySpan bytes
       span.Slice (int addr, size)
 
-    member __.Slice (addr: Addr) =
+    member _.Slice (addr: Addr) =
       let span = ReadOnlySpan bytes
       span.Slice (int addr)
 
-    member __.Slice (offset: int, size) =
+    member _.Slice (offset: int, size) =
       let span = ReadOnlySpan bytes
       span.Slice (offset, size)
 
-    member __.Slice (offset: int) =
+    member _.Slice (offset: int) =
       let span = ReadOnlySpan bytes
       span.Slice offset
 
-    member __.Slice (ptr: BinFilePointer, size) =
+    member _.Slice (ptr: BinFilePointer, size) =
       let span = ReadOnlySpan bytes
       span.Slice (ptr.Offset, size)
 
-    member __.Slice (ptr: BinFilePointer) =
+    member _.Slice (ptr: BinFilePointer) =
       let span = ReadOnlySpan bytes
       span.Slice ptr.Offset
 
-    member __.ReadByte (addr: Addr) =
-      let offset = (__ :> IContentAddressable).GetOffset addr
+    member this.ReadByte (addr: Addr) =
+      let offset = (this :> IContentAddressable).GetOffset addr
       bytes[offset]
 
-    member __.ReadByte (offset: int) =
+    member _.ReadByte (offset: int) =
       bytes[offset]
 
-    member __.ReadByte (ptr: BinFilePointer) =
+    member _.ReadByte (ptr: BinFilePointer) =
       bytes[ptr.Offset]
 
-    member __.IsValidAddr (addr) =
+    member _.IsValidAddr (addr) =
       addr >= 0UL && addr < (uint64 bytes.LongLength)
 
-    member __.IsValidRange range =
-      (__ :> IContentAddressable).IsValidAddr range.Min
-      && (__ :> IContentAddressable).IsValidAddr range.Max
+    member this.IsValidRange range =
+      (this :> IContentAddressable).IsValidAddr range.Min
+      && (this :> IContentAddressable).IsValidAddr range.Max
 
-    member __.IsInFileAddr addr =
-      (__ :> IContentAddressable).IsValidAddr addr
+    member this.IsInFileAddr addr =
+      (this :> IContentAddressable).IsValidAddr addr
 
-    member __.IsInFileRange range =
-      (__ :> IContentAddressable).IsValidRange range
+    member this.IsInFileRange range =
+      (this :> IContentAddressable).IsValidRange range
 
-    member __.IsExecutableAddr _addr = Terminator.futureFeature ()
+    member _.IsExecutableAddr _addr = Terminator.futureFeature ()
 
-    member __.GetNotInFileIntervals range =
+    member _.GetNotInFileIntervals range =
       FileHelper.getNotInFileIntervals 0UL (uint64 bytes.LongLength) range
 
-    member __.ToBinFilePointer addr =
+    member _.ToBinFilePointer addr =
       BinFilePointer.OfSectionOpt (getSectionsByAddr wm addr |> Seq.tryHead)
 
-    member __.ToBinFilePointer name =
+    member _.ToBinFilePointer name =
       BinFilePointer.OfSectionOpt (getSectionsByName wm name |> Seq.tryHead)
 
-    member __.TryFindFunctionName (addr) = tryFindFunSymName wm addr
+    member _.TryFindFunctionName (addr) = tryFindFunSymName wm addr
 
-    member __.GetSymbols () = getSymbols wm
+    member _.GetSymbols () = getSymbols wm
 
-    member __.GetStaticSymbols () = [||]
+    member _.GetStaticSymbols () = [||]
 
-    member __.GetFunctionSymbols () = Terminator.futureFeature ()
+    member _.GetFunctionSymbols () = Terminator.futureFeature ()
 
-    member __.GetDynamicSymbols (?exc) = getDynamicSymbols wm exc
+    member _.GetDynamicSymbols (?exc) = getDynamicSymbols wm exc
 
-    member __.AddSymbol _addr _symbol = Terminator.futureFeature ()
+    member _.AddSymbol _addr _symbol = Terminator.futureFeature ()
 
-    member __.GetSections () = getSections wm
+    member _.GetSections () = getSections wm
 
-    member __.GetSections (addr) = getSectionsByAddr wm addr
+    member _.GetSections (addr) = getSectionsByAddr wm addr
 
-    member __.GetSections (name) = getSectionsByName wm name
+    member _.GetSections (name) = getSectionsByName wm name
 
-    member __.GetTextSection () =
+    member _.GetTextSection () =
       wm.CodeSection
       |> Option.map (fun sec ->
         { Address = uint64 sec.Offset
@@ -153,22 +153,22 @@ type WasmBinFile (path, bytes, baseAddrOpt) =
           Name = "" })
       |> function Some s -> s | None -> raise SectionNotFoundException
 
-    member __.GetSegments (_isLoadable: bool): Segment[] = [||]
+    member _.GetSegments (_isLoadable: bool): Segment[] = [||]
 
-    member __.GetSegments (_addr: Addr): Segment[] = [||]
+    member _.GetSegments (_addr: Addr): Segment[] = [||]
 
-    member __.GetSegments (_perm: Permission): Segment[] = [||]
+    member _.GetSegments (_perm: Permission): Segment[] = [||]
 
-    member __.GetFunctionAddresses () = Terminator.futureFeature ()
+    member _.GetFunctionAddresses () = Terminator.futureFeature ()
 
-    member __.GetFunctionAddresses (_) = Terminator.futureFeature ()
+    member _.GetFunctionAddresses (_) = Terminator.futureFeature ()
 
-    member __.GetRelocationInfos () = [||]
+    member _.GetRelocationInfos () = [||]
 
-    member __.HasRelocationInfo _addr = false
+    member _.HasRelocationInfo _addr = false
 
-    member __.GetRelocatedAddr _relocAddr = Terminator.futureFeature ()
+    member _.GetRelocatedAddr _relocAddr = Terminator.futureFeature ()
 
-    member __.GetLinkageTableEntries () = getImports wm
+    member _.GetLinkageTableEntries () = getImports wm
 
-    member __.IsLinkageTable _addr = Terminator.futureFeature ()
+    member _.IsLinkageTable _addr = Terminator.futureFeature ()

@@ -30,7 +30,7 @@ open B2R2.FrontEnd.BinLifter
 /// Basic block type for a disassembly-based CFG (DisasmCFG).
 type DisasmBasicBlock (ppoint: ProgramPoint, instrs: Instruction[]) =
   /// Return the `IDisasmBasicBlock` interface.
-  member __.Internals with get() = __ :> IDisasmBasicBlock
+  member this.Internals with get() = this :> IDisasmBasicBlock
 
   override _.ToString () = $"{nameof DisasmBasicBlock}({ppoint.Address:x})"
 

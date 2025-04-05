@@ -50,10 +50,10 @@ interface.
 /// The `help` action.
 type private HelpAction (map: Map<string, IAction>) =
   interface IAction with
-    member __.ActionID with get() = "help"
-    member __.Signature with get() = "'a -> 'b"
-    member __.Description with get() = ""
-    member __.Transform _args _ =
+    member _.ActionID with get() = "help"
+    member _.Signature with get() = "'a -> 'b"
+    member _.Description with get() = ""
+    member _.Transform _args _ =
       Printer.PrintToConsoleLine ()
       CmdOpts.WriteIntro ()
       Printer.PrintToConsoleLine Usage

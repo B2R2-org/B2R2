@@ -31,8 +31,8 @@ type VisEdge (ty) =
   let mutable isBackEdge = false
   let mutable points: VisPosition list = []
 
-  member __.Type: CFGEdgeKind = ty
+  member _.Type: CFGEdgeKind = ty
 
-  member __.IsBackEdge with get() = isBackEdge and set(v) = isBackEdge <- v
+  member _.IsBackEdge with get() = isBackEdge and set(v) = isBackEdge <- v
 
-  member __.Points with get() = points and set(v) = points <- v
+  member _.Points with get() = points and set(v) = points <- v

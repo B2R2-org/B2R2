@@ -87,20 +87,20 @@ We always use unix-style (LF) line-endings for every file.
 We prefer to have space chars for list literals. For example,
 ```fsharp
 [ 1; 2; 3 ] // Good
-[1; 2; 3]   // Not good
+[1; 2; 3]   // Bad
 ```
 
 When we use a range operator:
 ```fsharp
 [ 1 .. 10 ] // Good
-[1 .. 10]   // Not good
-[ 1..10 ]   // Not good
+[1 .. 10]   // Bad
+[ 1..10 ]   // Bad
 ```
 
 When there is no element:
 ```fsharp
 []   // Good
-[ ]  // Not good
+[ ]  // Bad
 ```
 
 When pattern matching on a list:
@@ -116,7 +116,7 @@ We prefer to have a space character between a colon and a type name. For
 example,
 ```fsharp
 let fn (p: int) = ... // Good
-let fn (p:int) = ...  // Not good
+let fn (p:int) = ...  // Bad
 ```
 
 ##### Records
@@ -129,7 +129,7 @@ type InsSize = {  // Good
   OperationSize : RegType
   SizeCond      : OperandsSizeCondition
 }
-type InsSize =    // Not good
+type InsSize =    // Bad
 {
   MemSize       : MemorySize
   RegSize       : RegType
@@ -138,14 +138,37 @@ type InsSize =    // Not good
 }
 
 { Prefixes = prefs } // Good
-{Prefixes = prefs}   // Not good
+{Prefixes = prefs}   // Bad
 
 { Prefixes = prefs
   Opcode = opcode } // Good
 {
   Prefixes = prefs
   Opcode = opcode
-}                   // Not good
+}                   // Bad
+```
+
+##### Function Body
+
+Avoid using an empty newline in the function body. People often use an empty
+newline in the function body to separate logical blocks. One may think that this
+is better for readability, but using an empty newline in the function body
+implies that the function is already too long. You should instead refactor the
+function into smaller functions.
+
+```fsharp
+let fn p =
+  let x = foo p
+  let y = foo p
+  let z = x + y // Good
+
+let fn p =
+  (* omitted complex logic *)
+  let x = (* something *)
+  (* omitted complex logic *)
+  let y = (* something *)
+
+  let z = x + y // Bad
 ```
 
 ##### Function Calls
@@ -154,8 +177,8 @@ When calling a non-curried function, we use the following style:
 ```fsharp
 Func (p1, p2, p3)   // Good
 Func(p1, p2, p3)    // Okay, but not recommended.
-Func ( p1, p2, p3 ) // Not good
-Func( p1, p2, p3 )  // Not good
+Func ( p1, p2, p3 ) // Bad
+Func( p1, p2, p3 )  // Bad
 ```
 
 Someone may say that it is covenient to not use any space character between the
@@ -187,14 +210,29 @@ match x with
 
 ##### Class and Member Definition
 
-We prefer to define classes and member functions in a more F#-like way.
+We prefer to define classes and member functions with a space character
+between the name and the parentheses. This is to be consistent with the
+function call style.
 
 ```fsharp
 type Class () =
-  member A (p1, p2) = // Good
+  member _.A (p1, p2) = // Good
 
 type Class() = // Bad
-  member A(p1, p2) = // Bad
+  member _.A(p1, p2) = // Bad
+```
+
+We use `this` for a self-identifier when we need to use it. However, for other
+cases, we use a single underscore `_` to consistently indicate that we do not
+need to use it. We avoid using `__` for a self-identifier because it is less
+readable.
+
+```fsharp
+type Class () =
+  member this.A (p1, p2) = this.Foo p1 // Good
+
+type Class () =
+  member __.A (p1, p2) = __.Foo p1 // Bad
 ```
 
 ### JavaScript & CSS Coding Style

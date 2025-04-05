@@ -201,57 +201,58 @@ type private LengauerTarjanDominance<'V, 'E when 'V: equality and 'E: equality>
   let mutable dfProvider = null
   let mutable pdfProvider = null
   interface IDominance<'V, 'E> with
-    member __.Dominators v =
+    member _.Dominators v =
 #if DEBUG
       GraphUtils.checkVertexInGraph g v
 #endif
       let domInfo, _ = forward
       domsAux [v] v domInfo
 
-    member __.ImmediateDominator v =
+    member _.ImmediateDominator v =
 #if DEBUG
       GraphUtils.checkVertexInGraph g v
 #endif
       let domInfo, _ = forward
       idomAux domInfo v
 
-    member __.DominatorTree =
+    member _.DominatorTree =
       let _, domTree = forward
       domTree.Value
 
-    member __.DominanceFrontier v =
+    member this.DominanceFrontier v =
 #if DEBUG
       GraphUtils.checkVertexInGraph g v
 #endif
       if isNull pdfProvider then
-        pdfProvider <- dfp.CreateIDominanceFrontier (g, __, false)
+        pdfProvider <- dfp.CreateIDominanceFrontier (g, this, false)
       else ()
       pdfProvider.DominanceFrontier v
 
-    member __.PostDominators v =
+    member _.PostDominators v =
 #if DEBUG
       GraphUtils.checkVertexInGraph g v
 #endif
       let domInfo, _ = backward.Value
       domsAux [v] v domInfo
 
-    member __.ImmediatePostDominator v =
+    member _.ImmediatePostDominator v =
 #if DEBUG
       GraphUtils.checkVertexInGraph g v
 #endif
       let domInfo, _ = backward.Value
       idomAux domInfo v
 
-    member __.PostDominatorTree =
+    member _.PostDominatorTree =
       let _, domTree = backward.Value
       domTree.Value
 
-    member __.PostDominanceFrontier v =
+    member this.PostDominanceFrontier v =
 #if DEBUG
       GraphUtils.checkVertexInGraph g v
 #endif
       if isNull dfProvider then
-        dfProvider <- dfp.CreateIDominanceFrontier (backwardG.Value, __, true)
+        dfProvider <-
+          dfp.CreateIDominanceFrontier (backwardG.Value, this, true)
       else ()
       dfProvider.DominanceFrontier v
 

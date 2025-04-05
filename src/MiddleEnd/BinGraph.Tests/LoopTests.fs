@@ -46,7 +46,7 @@ type LoopTests () =
 
   [<TestMethod>]
   [<DynamicData(nameof LoopTests.GraphTypes)>]
-  member __.`` Natural Loop Test `` (t) =
+  member _.`` Natural Loop Test `` (t) =
     let g, vmap = digraph11 t
     let dict =
       Loop.getNaturalLoops g

@@ -1304,39 +1304,39 @@ type ARM32InternalInstruction
   inherit Instruction (addr, nb, WordSize.Bit32)
 
   /// Condition.
-  member __.Condition with get(): Condition = cond
+  member _.Condition with get(): Condition = cond
 
   /// Opcode.
-  member __.Opcode with get(): Opcode = op
+  member _.Opcode with get(): Opcode = op
 
   /// Operands.
-  member __.Operands with get(): Operands = opr
+  member _.Operands with get(): Operands = opr
 
   /// IT state for this instruction (used only for IT instructions).
-  member __.ITState with get(): byte = its
+  member _.ITState with get(): byte = its
 
   /// Write back.
-  member __.WriteBack with get(): bool = wb
+  member _.WriteBack with get(): bool = wb
 
   /// Qualifier.
-  member __.Qualifier with get(): Qualifier = q
+  member _.Qualifier with get(): Qualifier = q
 
   /// SIMD data type.
-  member __.SIMDTyp with get(): SIMDDataTypes option = s
+  member _.SIMDTyp with get(): SIMDDataTypes option = s
 
   /// Target architecture mode.
-  member __.Mode with get(): ArchOperationMode = m
+  member _.Mode with get(): ArchOperationMode = m
 
   /// Carry Flag from decoding instruction.
-  member __.Cflag with get(): bool option = cf
+  member _.Cflag with get(): bool option = cf
 
   /// Operation size.
-  member __.OprSize with get(): RegType = oSz
+  member _.OprSize with get(): RegType = oSz
 
   /// Add or subtract offsets.
-  member __.IsAdd with get(): bool = isAdd
+  member _.IsAdd with get(): bool = isAdd
 
-  override __.ToString () =
+  override _.ToString () =
     $"Condition: {cond}{System.Environment.NewLine}\
       Opcode: {op}{System.Environment.NewLine}\
       Operands: {opr}{System.Environment.NewLine}\

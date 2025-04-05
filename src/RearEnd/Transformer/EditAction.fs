@@ -78,10 +78,10 @@ type EditAction () =
     makeBinary bin hdl newbs
 
   interface IAction with
-    member __.ActionID with get() = "edit"
-    member __.Signature
+    member _.ActionID with get() = "edit"
+    member _.Signature
       with get() = "Binary * <action> -> Binary"
-    member __.Description with get() = """
+    member _.Description with get() = """
     Take in a binary as well as edit action as input and return a modified
     binary as output. There are following supported edit actions.
 
@@ -105,7 +105,7 @@ type EditAction () =
         Replace bytes at offset from n to (n + sz - 1) with the given
         <hexstring>. The size of the hexstring should be equal to sz.
 """
-    member __.Transform args collection =
+    member _.Transform args collection =
       match args with
       | "insert" :: off :: hexstr :: [] ->
         let off = Convert.ToInt32 off

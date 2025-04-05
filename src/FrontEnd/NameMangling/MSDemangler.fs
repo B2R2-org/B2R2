@@ -543,7 +543,7 @@ type MSDemangler () =
     str.Length <> 0 && str.StartsWith "?" && str.Contains "@"
 
   interface IDemanglable with
-    member __.Demangle str =
+    member _.Demangle str =
       match runParserOnString allExprs MSUserState.Default "" str[1..] with
       | Success (result, _, _) ->
         let result = MSInterpreter.interpret result

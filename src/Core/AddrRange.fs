@@ -43,30 +43,30 @@ type AddrRange =
   new (addr) =
     { Min = addr; Max = addr }
 
-  override __.ToString () =
-    $"{__.Min:x} -- {__.Max:x}"
+  override this.ToString () =
+    $"{this.Min:x} -- {this.Max:x}"
 
-  override __.Equals (rhs: obj) =
+  override this.Equals (rhs: obj) =
     match rhs with
-    | :? AddrRange as r -> __.Min = r.Min && __.Max = r.Max
+    | :? AddrRange as r -> this.Min = r.Min && this.Max = r.Max
     | _ -> raise InvalidAddrRangeException
 
-  override __.GetHashCode () =
-    hash ( __.Min, __.Max )
+  override this.GetHashCode () =
+    hash ( this.Min, this.Max )
 
-  member __.Count with get() = __.Max - __.Min + 1UL
+  member this.Count with get() = this.Max - this.Min + 1UL
 
-  member __.ToTuple () =
-    __.Min, __.Max
+  member this.ToTuple () =
+    this.Min, this.Max
 
-  member __.Slice (target: AddrRange) =
-    let l = max __.Min target.Min
-    let h = min __.Max target.Max
+  member this.Slice (target: AddrRange) =
+    let l = max this.Min target.Min
+    let h = min this.Max target.Max
     AddrRange (l, h)
 
   /// Check if the address range is including the given address.
-  member inline __.IsIncluding (addr: Addr) =
-    __.Min <= addr && addr <= __.Max
+  member inline this.IsIncluding (addr: Addr) =
+    this.Min <= addr && addr <= this.Max
 
   static member inline GetMin (range: AddrRange) = range.Min
 

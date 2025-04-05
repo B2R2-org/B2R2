@@ -43,12 +43,12 @@ type HexdumpAction () =
     |> box
 
   interface IAction with
-    member __.ActionID with get() = "hexdump"
-    member __.Signature with get() = "Binary -> string"
-    member __.Description with get() = """
+    member _.ActionID with get() = "hexdump"
+    member _.Signature with get() = "Binary -> string"
+    member _.Description with get() = """
     Take in a binary and convert it to a hexdump string.
 """
-    member __.Transform args collection =
+    member _.Transform args collection =
       match args with
       | [] ->
         { Values = collection.Values |> Array.map hexdump }

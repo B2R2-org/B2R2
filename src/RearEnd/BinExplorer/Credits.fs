@@ -30,17 +30,17 @@ open B2R2.RearEnd.Utils
 type CmdCredits () =
   inherit Cmd ()
 
-  override __.CmdName = "credits"
+  override _.CmdName = "credits"
 
-  override __.CmdAlias = [ "copyright" ]
+  override _.CmdAlias = [ "copyright" ]
 
-  override __.CmdDescr = "Show the credits for B2R2."
+  override _.CmdDescr = "Show the credits for B2R2."
 
-  override __.CmdHelp = ""
+  override _.CmdHelp = ""
 
-  override __.SubCommands = []
+  override _.SubCommands = []
 
-  override __.CallBack _ _ _args =
+  override _.CallBack _ _ _args =
     [| Attribution.Copyright; |]
     |> Array.map OutputNormal
 

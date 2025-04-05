@@ -39,14 +39,14 @@ let checkVertexInGraph (g: IDiGraphAccessible<_, _>) (v: IVertex<_>) =
 /// of a graph. With this, we don't have to modify the graph itself.
 let makeDummyVertex<'V when 'V: equality> () =
   { new IVertex<'V> with
-      member __.ID = -1
-      member __.VData = Terminator.impossible ()
-      member __.HasData = false
-      member __.CompareTo (other: obj) =
+      member _.ID = -1
+      member _.VData = Terminator.impossible ()
+      member _.HasData = false
+      member this.CompareTo (other: obj) =
         match other with
-        | :? IVertex<'V> as other -> __.ID.CompareTo other.ID
+        | :? IVertex<'V> as other -> this.ID.CompareTo other.ID
         | _ -> Terminator.impossible ()
-      member __.ToString (_, _) = "DummyVertex" }
+      member _.ToString (_, _) = "DummyVertex" }
 
 let reverse (inGraph: IDiGraphAccessible<_, _>) roots outGraph =
   outGraph

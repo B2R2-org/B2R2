@@ -509,7 +509,7 @@ type VarBasedDataFlowAnalysis<'Lattice>
                               VarBasedDataFlowState<'Lattice>,
                               LowUIRBasicBlock> with
 
-    member __.InitializeState vs =
+    member _.InitializeState vs =
       VarBasedDataFlowState<'Lattice> (hdl, analysis)
       |> analysis.OnInitialize
       |> fun state ->
@@ -517,7 +517,7 @@ type VarBasedDataFlowAnalysis<'Lattice>
         state
 
     /// Compute the data flow incrementally.
-    member __.Compute g state =
+    member _.Compute g state =
       let df = Dominance.CooperDominanceFrontier ()
       let dom = Dominance.LengauerTarjanDominance.create g df
       removeInvalidChains state

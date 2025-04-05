@@ -39,7 +39,7 @@ type BasicTests () =
 
   [<TestMethod>]
   [<DynamicData(nameof BasicTests.GraphTypes)>]
-  member __.``DiGraph Traversal Test 1`` (t) =
+  member _.``DiGraph Traversal Test 1`` (t) =
     let g, _ = digraph1 t
     let s1 = DFS.foldPostorder g sum 0
     let s2 = DFS.foldRevPostorder g sum 0
@@ -54,7 +54,7 @@ type BasicTests () =
 
   [<TestMethod>]
   [<DynamicData(nameof BasicTests.GraphTypes)>]
-  member __.``DiGraph Traversal Test 2`` (t) =
+  member _.``DiGraph Traversal Test 2`` (t) =
     let g, _ = digraph1 t
     let s1 =
       DFS.foldPostorder g (fun acc v -> v.VData :: acc) []
@@ -67,7 +67,7 @@ type BasicTests () =
 
   [<TestMethod>]
   [<DynamicData(nameof BasicTests.GraphTypes)>]
-  member __.``DiGraph Traversal Test 3`` (t) =
+  member _.``DiGraph Traversal Test 3`` (t) =
     let g, _ = digraph3 t
     let s1 =
       DFS.foldPostorder g (fun acc v -> v.VData :: acc) []
@@ -80,7 +80,7 @@ type BasicTests () =
 
   [<TestMethod>]
   [<DynamicData(nameof BasicTests.GraphTypes)>]
-  member __.``DiGraph Removal Test`` (t) =
+  member _.``DiGraph Removal Test`` (t) =
     let g1, _ = digraph1 t
     let g2 = g1.Clone ()
     let g2 = g2.FindVertexByData 3 |> g2.RemoveVertex
@@ -93,7 +93,7 @@ type BasicTests () =
 
   [<TestMethod>]
   [<DynamicData(nameof BasicTests.GraphTypes)>]
-  member __.``Graph Transposition Test`` (t) =
+  member _.``Graph Transposition Test`` (t) =
     let g1, g1vmap = digraph1 t
     let g2 = g1.Reverse [g1vmap[6]]
     let s1 = DFS.foldPreorder g1 sum 0

@@ -107,7 +107,7 @@ type DataFlowTests () =
 
 #if !EMULATION
   [<TestMethod>]
-  member __.``Reaching Definitions Test 1``() =
+  member _.``Reaching Definitions Test 1``() =
     let brew = Binaries.loadOne Binaries.sample1
     let cfg = brew.Functions[0UL].CFG
     let dfa = ReachingDefinitionAnalysis () :> IDataFlowAnalysis<_, _, _, _>
@@ -137,7 +137,7 @@ type DataFlowTests () =
 #endif
 
   [<TestMethod>]
-  member __.``Use-Def Test 1``() =
+  member _.``Use-Def Test 1``() =
     let brew = Binaries.loadOne Binaries.sample1
     let cfg = brew.Functions[0UL].CFG
     let chain = DataFlowChain.init cfg false
@@ -147,7 +147,7 @@ type DataFlowTests () =
     CollectionAssert.AreEqual (solution, res)
 
   [<TestMethod>]
-  member __.``Use-Def Test 2``() =
+  member _.``Use-Def Test 2``() =
     let brew = Binaries.loadOne Binaries.sample1
     let cfg = brew.Functions[0UL].CFG
     let chain = DataFlowChain.init cfg true
@@ -158,7 +158,7 @@ type DataFlowTests () =
 
 #if !EMULATION
   [<TestMethod>]
-  member __.``Use-Def Test 3``() =
+  member _.``Use-Def Test 3``() =
     let brew = Binaries.loadOne Binaries.sample1
     let cfg = brew.Functions[0UL].CFG
     let chain = DataFlowChain.init cfg false
@@ -170,7 +170,7 @@ type DataFlowTests () =
 #endif
 
   [<TestMethod>]
-  member __.``SSA Constant Propagation Test 1`` () =
+  member _.``SSA Constant Propagation Test 1`` () =
     let brew = Binaries.loadOne Binaries.sample2
     let cfg = brew.Functions[0UL].CFG
     let lifter = SSALifterFactory.Create (brew.BinHandle)
@@ -201,7 +201,7 @@ type DataFlowTests () =
 
 #if !EMULATION
   [<TestMethod>]
-  member __.``Constant Propagation Test 1``() =
+  member _.``Constant Propagation Test 1``() =
     let brew = Binaries.loadOne Binaries.sample2
     let hdl = brew.BinHandle
     let cfg = brew.Functions[0UL].CFG
@@ -222,7 +222,7 @@ type DataFlowTests () =
 #endif
 
   [<TestMethod>]
-  member __.``Untouched Value Analysis 1``() =
+  member _.``Untouched Value Analysis 1``() =
     let brew = Binaries.loadOne Binaries.sample3
     let cfg = brew.Functions[0UL].CFG
     let roots = cfg.Roots

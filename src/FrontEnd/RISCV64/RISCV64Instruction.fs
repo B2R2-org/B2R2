@@ -35,77 +35,78 @@ type RISCV64Instruction (addr, numBytes, insInfo) =
   /// Basic instruction information.
   member val Info: InsInfo = insInfo
 
-  override __.IsBranch () =
-    match __.Info.Opcode with
+  override this.IsBranch () =
+    match this.Info.Opcode with
     | _ -> false
 
-  override __.IsModeChanging () = false
+  override _.IsModeChanging () = false
 
-  member __.HasConcJmpTarget () = Terminator.futureFeature ()
+  member _.HasConcJmpTarget () = Terminator.futureFeature ()
 
-  override __.IsDirectBranch () =
-    __.IsBranch () && __.HasConcJmpTarget ()
+  override this.IsDirectBranch () =
+    this.IsBranch () && this.HasConcJmpTarget ()
 
-  override __.IsIndirectBranch () =
-    __.IsBranch () && (not <| __.HasConcJmpTarget ())
+  override this.IsIndirectBranch () =
+    this.IsBranch () && (not <| this.HasConcJmpTarget ())
 
-  override __.IsCondBranch () = Terminator.futureFeature ()
+  override _.IsCondBranch () = Terminator.futureFeature ()
 
-  override __.IsCJmpOnTrue () = Terminator.futureFeature ()
+  override _.IsCJmpOnTrue () = Terminator.futureFeature ()
 
-  override __.IsCall () = Terminator.futureFeature ()
+  override _.IsCall () = Terminator.futureFeature ()
 
-  override __.IsRET () = Terminator.futureFeature ()
+  override _.IsRET () = Terminator.futureFeature ()
 
-  override __.IsInterrupt () = Terminator.futureFeature ()
+  override _.IsInterrupt () = Terminator.futureFeature ()
 
-  override __.IsExit () = Terminator.futureFeature ()
+  override _.IsExit () = Terminator.futureFeature ()
 
-  override __.IsTerminator () =
-    __.IsDirectBranch () ||
-    __.IsIndirectBranch ()
+  override this.IsTerminator () =
+    this.IsDirectBranch () ||
+    this.IsIndirectBranch ()
 
-  override __.DirectBranchTarget (_addr: byref<Addr>) =
+  override _.DirectBranchTarget (_addr: byref<Addr>) =
     Terminator.futureFeature ()
 
-  override __.IndirectTrampolineAddr (_addr: byref<Addr>) =
+  override _.IndirectTrampolineAddr (_addr: byref<Addr>) =
     Terminator.futureFeature ()
 
-  override __.Immediate (_v: byref<int64>) = Terminator.futureFeature ()
+  override _.Immediate (_v: byref<int64>) = Terminator.futureFeature ()
 
-  override __.GetNextInstrAddrs () = Terminator.futureFeature ()
+  override _.GetNextInstrAddrs () = Terminator.futureFeature ()
 
-  override __.InterruptNum (_num: byref<int64>) = Terminator.futureFeature ()
+  override _.InterruptNum (_num: byref<int64>) = Terminator.futureFeature ()
 
-  override __.IsNop () = Terminator.futureFeature ()
+  override _.IsNop () = Terminator.futureFeature ()
 
-  override __.Translate ctxt =
-    (Lifter.translate __.Info numBytes ctxt).ToStmts ()
+  override this.Translate ctxt =
+    (Lifter.translate this.Info numBytes ctxt).ToStmts ()
 
-  override __.TranslateToList ctxt =
-    Lifter.translate __.Info numBytes ctxt
+  override this.TranslateToList ctxt =
+    Lifter.translate this.Info numBytes ctxt
 
-  override __.Disasm (showAddr, _) =
+  override this.Disasm (showAddr, _) =
     let builder =
       DisasmStringBuilder (showAddr, false, WordSize.Bit64, addr, numBytes)
-    Disasm.disasm __.Info builder
+    Disasm.disasm this.Info builder
     builder.ToString ()
 
-  override __.Disasm () =
+  override this.Disasm () =
     let builder =
       DisasmStringBuilder (false, false, WordSize.Bit64, addr, numBytes)
-    Disasm.disasm __.Info builder
+    Disasm.disasm this.Info builder
     builder.ToString ()
 
-  override __.Decompose (showAddr) =
+  override this.Decompose (showAddr) =
     let builder =
       DisasmWordBuilder (showAddr, false, WordSize.Bit64, addr, numBytes, 8)
-    Disasm.disasm __.Info builder
+    Disasm.disasm this.Info builder
     builder.ToArray ()
 
-  override __.IsInlinedAssembly () = false
+  override _.IsInlinedAssembly () = false
 
-  override __.Equals (_) = Terminator.futureFeature ()
-  override __.GetHashCode () = Terminator.futureFeature ()
+  override _.Equals (_) = Terminator.futureFeature ()
+
+  override _.GetHashCode () = Terminator.futureFeature ()
 
 // vim: set tw=80 sts=2 sw=2:

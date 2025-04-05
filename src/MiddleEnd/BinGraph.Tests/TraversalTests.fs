@@ -40,7 +40,7 @@ type TraversalTests () =
 
   [<TestMethod>]
   [<DynamicData(nameof TraversalTests.GraphTypes)>]
-  member __.``Preorder traversal test 1`` (t) =
+  member _.``Preorder traversal test 1`` (t) =
     let g, _ = digraph1 t
     let actual = DFS.foldPreorder g accumulate [] |> makeAnswer
     let expected = [ 1; 2; 3; 5; 4; 6 ]
@@ -48,7 +48,7 @@ type TraversalTests () =
 
   [<TestMethod>]
   [<DynamicData(nameof TraversalTests.GraphTypes)>]
-  member __.``Preorder traversal test 2`` (t) =
+  member _.``Preorder traversal test 2`` (t) =
     let g, _ = digraph2 t
     let actual = DFS.foldPreorder g accumulate [] |> makeAnswer
     let expected = [ 1; 2; 3; 4; 5; 6 ]
@@ -56,7 +56,7 @@ type TraversalTests () =
 
   [<TestMethod>]
   [<DynamicData(nameof TraversalTests.GraphTypes)>]
-  member __.``Preorder traversal test 3`` (t) =
+  member _.``Preorder traversal test 3`` (t) =
     let g, _ = digraph3 t
     let actual = DFS.foldPreorder g accumulate [] |> makeAnswer
     let expected = [ 1; 2; 4; 3; 5 ]
@@ -64,7 +64,7 @@ type TraversalTests () =
 
   [<TestMethod>]
   [<DynamicData(nameof TraversalTests.GraphTypes)>]
-  member __.``Postorder traversal test 1`` (t) =
+  member _.``Postorder traversal test 1`` (t) =
     let g, _ = digraph1 t
     let actual = DFS.foldPostorder g accumulate [] |> makeAnswer
     let expected = [ 5; 3; 4; 6; 2; 1 ]
@@ -72,7 +72,7 @@ type TraversalTests () =
 
   [<TestMethod>]
   [<DynamicData(nameof TraversalTests.GraphTypes)>]
-  member __.``Postorder traversal test 2`` (t) =
+  member _.``Postorder traversal test 2`` (t) =
     let g, _ = digraph2 t
     let actual = DFS.foldPostorder g accumulate [] |> makeAnswer
     let expected = [ 2; 5; 6; 4; 3; 1 ]
@@ -80,7 +80,7 @@ type TraversalTests () =
 
   [<TestMethod>]
   [<DynamicData(nameof TraversalTests.GraphTypes)>]
-  member __.``Postorder traversal test 3`` (t) =
+  member _.``Postorder traversal test 3`` (t) =
     let g, _ = digraph3 t
     let actual = DFS.foldPostorder g accumulate [] |> makeAnswer
     let expected = [ 4; 2; 5; 3; 1 ]

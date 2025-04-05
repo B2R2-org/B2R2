@@ -32,12 +32,12 @@ type FileLogger (filepath, ?level: LogLevel) =
   let llev = defaultArg level LogLevel.L2
 
   interface ILogger with
-    member __.Dispose () = fs.Dispose ()
+    member _.Dispose () = fs.Dispose ()
 
-    member __.Log (str, ?lvl) =
+    member _.Log (str, ?lvl) =
       let lvl = defaultArg lvl LogLevel.L2
       if lvl <= llev then fs.Write str else ()
 
-    member __.LogLine (str, ?lvl) =
+    member _.LogLine (str, ?lvl) =
       let lvl = defaultArg lvl LogLevel.L2
       if lvl <= llev then fs.WriteLine str else ()

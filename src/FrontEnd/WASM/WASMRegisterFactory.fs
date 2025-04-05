@@ -30,39 +30,39 @@ open B2R2.FrontEnd.BinLifter
 type WASMRegisterFactory () =
   inherit RegisterFactory ()
 
-  override __.GetAllRegExprs () = Terminator.futureFeature ()
+  override _.GetAllRegExprs () = Terminator.futureFeature ()
 
-  override __.GetAllRegNames () = []
+  override _.GetAllRegNames () = []
 
-  override __.GetGeneralRegExprs () = Terminator.futureFeature ()
+  override _.GetGeneralRegExprs () = Terminator.futureFeature ()
 
-  override __.RegIDFromRegExpr (_e) = Terminator.futureFeature ()
+  override _.RegIDFromRegExpr (_e) = Terminator.futureFeature ()
 
-  override __.RegIDToRegExpr (_id) = Terminator.impossible ()
+  override _.RegIDToRegExpr (_id) = Terminator.impossible ()
 
-  override __.StrToRegExpr _s = Terminator.impossible ()
+  override _.StrToRegExpr _s = Terminator.impossible ()
 
-  override __.RegIDFromString str =
+  override _.RegIDFromString str =
     Register.ofString str |> Register.toRegID
 
-  override __.RegIDToString rid =
+  override _.RegIDToString rid =
     Register.ofRegID rid |> Register.toString
 
-  override __.RegIDToRegType rid =
+  override _.RegIDToRegType rid =
     Register.ofRegID rid |> Register.toRegType
 
-  override __.GetRegisterAliases _ = Terminator.futureFeature ()
+  override _.GetRegisterAliases _ = Terminator.futureFeature ()
 
-  override __.ProgramCounter = Terminator.impossible()
+  override _.ProgramCounter = Terminator.impossible()
 
-  override __.StackPointer = Terminator.futureFeature ()
+  override _.StackPointer = Terminator.futureFeature ()
 
-  override __.FramePointer = Terminator.impossible ()
+  override _.FramePointer = Terminator.impossible ()
 
-  override __.IsProgramCounter regid = Terminator.futureFeature ()
+  override _.IsProgramCounter regid = Terminator.futureFeature ()
 
-  override __.IsStackPointer regid = Terminator.futureFeature ()
+  override _.IsStackPointer regid = Terminator.futureFeature ()
 
-  override __.IsFramePointer _ = Terminator.impossible ()
+  override _.IsFramePointer _ = Terminator.impossible ()
 
 // vim: set tw=80 sts=2 sw=2:

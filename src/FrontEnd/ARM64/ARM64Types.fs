@@ -3250,21 +3250,22 @@ type InsInfo = {
   OprSize: RegType
 }
 with
-  override __.GetHashCode () =
-    hash (__.Address,
-          __.NumBytes,
-          __.Condition,
-          __.Opcode,
-          __.Operands,
-          __.OprSize)
-  override __.Equals (i) =
+  override this.GetHashCode () =
+    hash (this.Address,
+          this.NumBytes,
+          this.Condition,
+          this.Opcode,
+          this.Operands,
+          this.OprSize)
+
+  override this.Equals (i) =
     match i with
     | :? InsInfo as i ->
-      i.Address = __.Address
-      && i.NumBytes = __.NumBytes
-      && i.Condition = __.Condition
-      && i.Opcode = __.Opcode
-      && i.Operands = __.Operands
-      && i.OprSize = __.OprSize
+      i.Address = this.Address
+      && i.NumBytes = this.NumBytes
+      && i.Condition = this.Condition
+      && i.Opcode = this.Opcode
+      && i.Operands = this.Operands
+      && i.OprSize = this.OprSize
     | _ -> false
 

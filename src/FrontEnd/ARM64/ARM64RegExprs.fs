@@ -678,349 +678,349 @@ type RegExprs () =
   /// Pseudo register for passing a return value from an external call.
   member val ERET = var 64<rt> (Register.toRegID ERET) "ERET"
 
-  member __.GetRegVar (name) =
+  member this.GetRegVar (name) =
     match name with
-    | R.X0  -> __.X0
-    | R.X1  -> __.X1
-    | R.X2  -> __.X2
-    | R.X3  -> __.X3
-    | R.X4  -> __.X4
-    | R.X5  -> __.X5
-    | R.X6  -> __.X6
-    | R.X7  -> __.X7
-    | R.X8  -> __.X8
-    | R.X9  -> __.X9
-    | R.X10 -> __.X10
-    | R.X11 -> __.X11
-    | R.X12 -> __.X12
-    | R.X13 -> __.X13
-    | R.X14 -> __.X14
-    | R.X15 -> __.X15
-    | R.X16 -> __.X16
-    | R.X17 -> __.X17
-    | R.X18 -> __.X18
-    | R.X19 -> __.X19
-    | R.X20 -> __.X20
-    | R.X21 -> __.X21
-    | R.X22 -> __.X22
-    | R.X23 -> __.X23
-    | R.X24 -> __.X24
-    | R.X25 -> __.X25
-    | R.X26 -> __.X26
-    | R.X27 -> __.X27
-    | R.X28 -> __.X28
-    | R.X29 -> __.X29
-    | R.X30 -> __.X30
-    | R.XZR -> __.XZR
-    | R.W0  -> __.W0
-    | R.W1  -> __.W1
-    | R.W2  -> __.W2
-    | R.W3  -> __.W3
-    | R.W4  -> __.W4
-    | R.W5  -> __.W5
-    | R.W6  -> __.W6
-    | R.W7  -> __.W7
-    | R.W8  -> __.W8
-    | R.W9  -> __.W9
-    | R.W10 -> __.W10
-    | R.W11 -> __.W11
-    | R.W12 -> __.W12
-    | R.W13 -> __.W13
-    | R.W14 -> __.W14
-    | R.W15 -> __.W15
-    | R.W16 -> __.W16
-    | R.W17 -> __.W17
-    | R.W18 -> __.W18
-    | R.W19 -> __.W19
-    | R.W20 -> __.W20
-    | R.W21 -> __.W21
-    | R.W22 -> __.W22
-    | R.W23 -> __.W23
-    | R.W24 -> __.W24
-    | R.W25 -> __.W25
-    | R.W26 -> __.W26
-    | R.W27 -> __.W27
-    | R.W28 -> __.W28
-    | R.W29 -> __.W29
-    | R.W30 -> __.W30
-    | R.WZR -> __.WZR
-    | R.SP  -> __.SP
-    | R.WSP -> __.WSP
-    | R.PC  -> __.PC
-    | R.D0  -> __.D0
-    | R.D1  -> __.D1
-    | R.D2  -> __.D2
-    | R.D3  -> __.D3
-    | R.D4  -> __.D4
-    | R.D5  -> __.D5
-    | R.D6  -> __.D6
-    | R.D7  -> __.D7
-    | R.D8  -> __.D8
-    | R.D9  -> __.D9
-    | R.D10 -> __.D10
-    | R.D11 -> __.D11
-    | R.D12 -> __.D12
-    | R.D13 -> __.D13
-    | R.D14 -> __.D14
-    | R.D15 -> __.D15
-    | R.D16 -> __.D16
-    | R.D17 -> __.D17
-    | R.D18 -> __.D18
-    | R.D19 -> __.D19
-    | R.D20 -> __.D20
-    | R.D21 -> __.D21
-    | R.D22 -> __.D22
-    | R.D23 -> __.D23
-    | R.D24 -> __.D24
-    | R.D25 -> __.D25
-    | R.D26 -> __.D26
-    | R.D27 -> __.D27
-    | R.D28 -> __.D28
-    | R.D29 -> __.D29
-    | R.D30 -> __.D30
-    | R.D31 -> __.D31
-    | R.S0  -> __.S0
-    | R.S1  -> __.S1
-    | R.S2  -> __.S2
-    | R.S3  -> __.S3
-    | R.S4  -> __.S4
-    | R.S5  -> __.S5
-    | R.S6  -> __.S6
-    | R.S7  -> __.S7
-    | R.S8  -> __.S8
-    | R.S9  -> __.S9
-    | R.S10 -> __.S10
-    | R.S11 -> __.S11
-    | R.S12 -> __.S12
-    | R.S13 -> __.S13
-    | R.S14 -> __.S14
-    | R.S15 -> __.S15
-    | R.S16 -> __.S16
-    | R.S17 -> __.S17
-    | R.S18 -> __.S18
-    | R.S19 -> __.S19
-    | R.S20 -> __.S20
-    | R.S21 -> __.S21
-    | R.S22 -> __.S22
-    | R.S23 -> __.S23
-    | R.S24 -> __.S24
-    | R.S25 -> __.S25
-    | R.S26 -> __.S26
-    | R.S27 -> __.S27
-    | R.S28 -> __.S28
-    | R.S29 -> __.S29
-    | R.S30 -> __.S30
-    | R.S31 -> __.S31
-    | R.H0  -> __.H0
-    | R.H1  -> __.H1
-    | R.H2  -> __.H2
-    | R.H3  -> __.H3
-    | R.H4  -> __.H4
-    | R.H5  -> __.H5
-    | R.H6  -> __.H6
-    | R.H7  -> __.H7
-    | R.H8  -> __.H8
-    | R.H9  -> __.H9
-    | R.H10 -> __.H10
-    | R.H11 -> __.H11
-    | R.H12 -> __.H12
-    | R.H13 -> __.H13
-    | R.H14 -> __.H14
-    | R.H15 -> __.H15
-    | R.H16 -> __.H16
-    | R.H17 -> __.H17
-    | R.H18 -> __.H18
-    | R.H19 -> __.H19
-    | R.H20 -> __.H20
-    | R.H21 -> __.H21
-    | R.H22 -> __.H22
-    | R.H23 -> __.H23
-    | R.H24 -> __.H24
-    | R.H25 -> __.H25
-    | R.H26 -> __.H26
-    | R.H27 -> __.H27
-    | R.H28 -> __.H28
-    | R.H29 -> __.H29
-    | R.H30 -> __.H30
-    | R.H31 -> __.H31
-    | R.B0  -> __.B0
-    | R.B1  -> __.B1
-    | R.B2  -> __.B2
-    | R.B3  -> __.B3
-    | R.B4  -> __.B4
-    | R.B5  -> __.B5
-    | R.B6  -> __.B6
-    | R.B7  -> __.B7
-    | R.B8  -> __.B8
-    | R.B9  -> __.B9
-    | R.B10 -> __.B10
-    | R.B11 -> __.B11
-    | R.B12 -> __.B12
-    | R.B13 -> __.B13
-    | R.B14 -> __.B14
-    | R.B15 -> __.B15
-    | R.B16 -> __.B16
-    | R.B17 -> __.B17
-    | R.B18 -> __.B18
-    | R.B19 -> __.B19
-    | R.B20 -> __.B20
-    | R.B21 -> __.B21
-    | R.B22 -> __.B22
-    | R.B23 -> __.B23
-    | R.B24 -> __.B24
-    | R.B25 -> __.B25
-    | R.B26 -> __.B26
-    | R.B27 -> __.B27
-    | R.B28 -> __.B28
-    | R.B29 -> __.B29
-    | R.B30 -> __.B30
-    | R.B31 -> __.B31
-    | R.FPCR -> __.FPCR
-    | R.FPSR -> __.FPSR
-    | R.N -> __.N
-    | R.Z -> __.Z
-    | R.C -> __.C
-    | R.V -> __.V
-    | R.DCZIDEL0 -> __.DCZIDEL0
-    | R.MIDREL1 -> __.MIDREL1
-    | R.TPIDREL0 -> __.TPIDREL0
-    | R.S3_5_C3_C2_0 -> __.S3_5_C3_C2_0
-    | R.S3_7_C2_C2_7 -> __.S3_7_C2_C2_7
-    | R.S0_0_C2_C9_3 -> __.S0_0_C2_C9_3
-    | R.S2_7_C12_C7_6 -> __.S2_7_C12_C7_6
-    | R.ERET -> __.ERET
+    | R.X0  -> this.X0
+    | R.X1  -> this.X1
+    | R.X2  -> this.X2
+    | R.X3  -> this.X3
+    | R.X4  -> this.X4
+    | R.X5  -> this.X5
+    | R.X6  -> this.X6
+    | R.X7  -> this.X7
+    | R.X8  -> this.X8
+    | R.X9  -> this.X9
+    | R.X10 -> this.X10
+    | R.X11 -> this.X11
+    | R.X12 -> this.X12
+    | R.X13 -> this.X13
+    | R.X14 -> this.X14
+    | R.X15 -> this.X15
+    | R.X16 -> this.X16
+    | R.X17 -> this.X17
+    | R.X18 -> this.X18
+    | R.X19 -> this.X19
+    | R.X20 -> this.X20
+    | R.X21 -> this.X21
+    | R.X22 -> this.X22
+    | R.X23 -> this.X23
+    | R.X24 -> this.X24
+    | R.X25 -> this.X25
+    | R.X26 -> this.X26
+    | R.X27 -> this.X27
+    | R.X28 -> this.X28
+    | R.X29 -> this.X29
+    | R.X30 -> this.X30
+    | R.XZR -> this.XZR
+    | R.W0  -> this.W0
+    | R.W1  -> this.W1
+    | R.W2  -> this.W2
+    | R.W3  -> this.W3
+    | R.W4  -> this.W4
+    | R.W5  -> this.W5
+    | R.W6  -> this.W6
+    | R.W7  -> this.W7
+    | R.W8  -> this.W8
+    | R.W9  -> this.W9
+    | R.W10 -> this.W10
+    | R.W11 -> this.W11
+    | R.W12 -> this.W12
+    | R.W13 -> this.W13
+    | R.W14 -> this.W14
+    | R.W15 -> this.W15
+    | R.W16 -> this.W16
+    | R.W17 -> this.W17
+    | R.W18 -> this.W18
+    | R.W19 -> this.W19
+    | R.W20 -> this.W20
+    | R.W21 -> this.W21
+    | R.W22 -> this.W22
+    | R.W23 -> this.W23
+    | R.W24 -> this.W24
+    | R.W25 -> this.W25
+    | R.W26 -> this.W26
+    | R.W27 -> this.W27
+    | R.W28 -> this.W28
+    | R.W29 -> this.W29
+    | R.W30 -> this.W30
+    | R.WZR -> this.WZR
+    | R.SP  -> this.SP
+    | R.WSP -> this.WSP
+    | R.PC  -> this.PC
+    | R.D0  -> this.D0
+    | R.D1  -> this.D1
+    | R.D2  -> this.D2
+    | R.D3  -> this.D3
+    | R.D4  -> this.D4
+    | R.D5  -> this.D5
+    | R.D6  -> this.D6
+    | R.D7  -> this.D7
+    | R.D8  -> this.D8
+    | R.D9  -> this.D9
+    | R.D10 -> this.D10
+    | R.D11 -> this.D11
+    | R.D12 -> this.D12
+    | R.D13 -> this.D13
+    | R.D14 -> this.D14
+    | R.D15 -> this.D15
+    | R.D16 -> this.D16
+    | R.D17 -> this.D17
+    | R.D18 -> this.D18
+    | R.D19 -> this.D19
+    | R.D20 -> this.D20
+    | R.D21 -> this.D21
+    | R.D22 -> this.D22
+    | R.D23 -> this.D23
+    | R.D24 -> this.D24
+    | R.D25 -> this.D25
+    | R.D26 -> this.D26
+    | R.D27 -> this.D27
+    | R.D28 -> this.D28
+    | R.D29 -> this.D29
+    | R.D30 -> this.D30
+    | R.D31 -> this.D31
+    | R.S0  -> this.S0
+    | R.S1  -> this.S1
+    | R.S2  -> this.S2
+    | R.S3  -> this.S3
+    | R.S4  -> this.S4
+    | R.S5  -> this.S5
+    | R.S6  -> this.S6
+    | R.S7  -> this.S7
+    | R.S8  -> this.S8
+    | R.S9  -> this.S9
+    | R.S10 -> this.S10
+    | R.S11 -> this.S11
+    | R.S12 -> this.S12
+    | R.S13 -> this.S13
+    | R.S14 -> this.S14
+    | R.S15 -> this.S15
+    | R.S16 -> this.S16
+    | R.S17 -> this.S17
+    | R.S18 -> this.S18
+    | R.S19 -> this.S19
+    | R.S20 -> this.S20
+    | R.S21 -> this.S21
+    | R.S22 -> this.S22
+    | R.S23 -> this.S23
+    | R.S24 -> this.S24
+    | R.S25 -> this.S25
+    | R.S26 -> this.S26
+    | R.S27 -> this.S27
+    | R.S28 -> this.S28
+    | R.S29 -> this.S29
+    | R.S30 -> this.S30
+    | R.S31 -> this.S31
+    | R.H0  -> this.H0
+    | R.H1  -> this.H1
+    | R.H2  -> this.H2
+    | R.H3  -> this.H3
+    | R.H4  -> this.H4
+    | R.H5  -> this.H5
+    | R.H6  -> this.H6
+    | R.H7  -> this.H7
+    | R.H8  -> this.H8
+    | R.H9  -> this.H9
+    | R.H10 -> this.H10
+    | R.H11 -> this.H11
+    | R.H12 -> this.H12
+    | R.H13 -> this.H13
+    | R.H14 -> this.H14
+    | R.H15 -> this.H15
+    | R.H16 -> this.H16
+    | R.H17 -> this.H17
+    | R.H18 -> this.H18
+    | R.H19 -> this.H19
+    | R.H20 -> this.H20
+    | R.H21 -> this.H21
+    | R.H22 -> this.H22
+    | R.H23 -> this.H23
+    | R.H24 -> this.H24
+    | R.H25 -> this.H25
+    | R.H26 -> this.H26
+    | R.H27 -> this.H27
+    | R.H28 -> this.H28
+    | R.H29 -> this.H29
+    | R.H30 -> this.H30
+    | R.H31 -> this.H31
+    | R.B0  -> this.B0
+    | R.B1  -> this.B1
+    | R.B2  -> this.B2
+    | R.B3  -> this.B3
+    | R.B4  -> this.B4
+    | R.B5  -> this.B5
+    | R.B6  -> this.B6
+    | R.B7  -> this.B7
+    | R.B8  -> this.B8
+    | R.B9  -> this.B9
+    | R.B10 -> this.B10
+    | R.B11 -> this.B11
+    | R.B12 -> this.B12
+    | R.B13 -> this.B13
+    | R.B14 -> this.B14
+    | R.B15 -> this.B15
+    | R.B16 -> this.B16
+    | R.B17 -> this.B17
+    | R.B18 -> this.B18
+    | R.B19 -> this.B19
+    | R.B20 -> this.B20
+    | R.B21 -> this.B21
+    | R.B22 -> this.B22
+    | R.B23 -> this.B23
+    | R.B24 -> this.B24
+    | R.B25 -> this.B25
+    | R.B26 -> this.B26
+    | R.B27 -> this.B27
+    | R.B28 -> this.B28
+    | R.B29 -> this.B29
+    | R.B30 -> this.B30
+    | R.B31 -> this.B31
+    | R.FPCR -> this.FPCR
+    | R.FPSR -> this.FPSR
+    | R.N -> this.N
+    | R.Z -> this.Z
+    | R.C -> this.C
+    | R.V -> this.V
+    | R.DCZIDEL0 -> this.DCZIDEL0
+    | R.MIDREL1 -> this.MIDREL1
+    | R.TPIDREL0 -> this.TPIDREL0
+    | R.S3_5_C3_C2_0 -> this.S3_5_C3_C2_0
+    | R.S3_7_C2_C2_7 -> this.S3_7_C2_C2_7
+    | R.S0_0_C2_C9_3 -> this.S0_0_C2_C9_3
+    | R.S2_7_C12_C7_6 -> this.S2_7_C12_C7_6
+    | R.ERET -> this.ERET
     | _ -> raise UnhandledRegExprException
 
-  member __.GetPseudoRegVar name pos =
+  member this.GetPseudoRegVar name pos =
     match name, pos with
-    | R.Q0, 1 -> __.Q0A
-    | R.Q0, 2 -> __.Q0B
-    | R.Q1, 1 -> __.Q1A
-    | R.Q1, 2 -> __.Q1B
-    | R.Q2, 1 -> __.Q2A
-    | R.Q2, 2 -> __.Q2B
-    | R.Q3, 1 -> __.Q3A
-    | R.Q3, 2 -> __.Q3B
-    | R.Q4, 1 -> __.Q4A
-    | R.Q4, 2 -> __.Q4B
-    | R.Q5, 1 -> __.Q5A
-    | R.Q5, 2 -> __.Q5B
-    | R.Q6, 1 -> __.Q6A
-    | R.Q6, 2 -> __.Q6B
-    | R.Q7, 1 -> __.Q7A
-    | R.Q7, 2 -> __.Q7B
-    | R.Q8, 1 -> __.Q8A
-    | R.Q8, 2 -> __.Q8B
-    | R.Q9, 1 -> __.Q9A
-    | R.Q9, 2 -> __.Q9B
-    | R.Q10, 1 -> __.Q10A
-    | R.Q10, 2 -> __.Q10B
-    | R.Q11, 1 -> __.Q11A
-    | R.Q11, 2 -> __.Q11B
-    | R.Q12, 1 -> __.Q12A
-    | R.Q12, 2 -> __.Q12B
-    | R.Q13, 1 -> __.Q13A
-    | R.Q13, 2 -> __.Q13B
-    | R.Q14, 1 -> __.Q14A
-    | R.Q14, 2 -> __.Q14B
-    | R.Q15, 1 -> __.Q15A
-    | R.Q15, 2 -> __.Q15B
-    | R.Q16, 1 -> __.Q16A
-    | R.Q16, 2 -> __.Q16B
-    | R.Q17, 1 -> __.Q17A
-    | R.Q17, 2 -> __.Q17B
-    | R.Q18, 1 -> __.Q18A
-    | R.Q18, 2 -> __.Q18B
-    | R.Q19, 1 -> __.Q19A
-    | R.Q19, 2 -> __.Q19B
-    | R.Q20, 1 -> __.Q20A
-    | R.Q20, 2 -> __.Q20B
-    | R.Q21, 1 -> __.Q21A
-    | R.Q21, 2 -> __.Q21B
-    | R.Q22, 1 -> __.Q22A
-    | R.Q22, 2 -> __.Q22B
-    | R.Q23, 1 -> __.Q23A
-    | R.Q23, 2 -> __.Q23B
-    | R.Q24, 1 -> __.Q24A
-    | R.Q24, 2 -> __.Q24B
-    | R.Q25, 1 -> __.Q25A
-    | R.Q25, 2 -> __.Q25B
-    | R.Q26, 1 -> __.Q26A
-    | R.Q26, 2 -> __.Q26B
-    | R.Q27, 1 -> __.Q27A
-    | R.Q27, 2 -> __.Q27B
-    | R.Q28, 1 -> __.Q28A
-    | R.Q28, 2 -> __.Q28B
-    | R.Q29, 1 -> __.Q29A
-    | R.Q29, 2 -> __.Q29B
-    | R.Q30, 1 -> __.Q30A
-    | R.Q30, 2 -> __.Q30B
-    | R.Q31, 1 -> __.Q31A
-    | R.Q31, 2 -> __.Q31B
-    | R.V0, 1 -> __.V0A
-    | R.V0, 2 -> __.V0B
-    | R.V1, 1 -> __.V1A
-    | R.V1, 2 -> __.V1B
-    | R.V2, 1 -> __.V2A
-    | R.V2, 2 -> __.V2B
-    | R.V3, 1 -> __.V3A
-    | R.V3, 2 -> __.V3B
-    | R.V4, 1 -> __.V4A
-    | R.V4, 2 -> __.V4B
-    | R.V5, 1 -> __.V5A
-    | R.V5, 2 -> __.V5B
-    | R.V6, 1 -> __.V6A
-    | R.V6, 2 -> __.V6B
-    | R.V7, 1 -> __.V7A
-    | R.V7, 2 -> __.V7B
-    | R.V8, 1 -> __.V8A
-    | R.V8, 2 -> __.V8B
-    | R.V9, 1 -> __.V9A
-    | R.V9, 2 -> __.V9B
-    | R.V10, 1 -> __.V10A
-    | R.V10, 2 -> __.V10B
-    | R.V11, 1 -> __.V11A
-    | R.V11, 2 -> __.V11B
-    | R.V12, 1 -> __.V12A
-    | R.V12, 2 -> __.V12B
-    | R.V13, 1 -> __.V13A
-    | R.V13, 2 -> __.V13B
-    | R.V14, 1 -> __.V14A
-    | R.V14, 2 -> __.V14B
-    | R.V15, 1 -> __.V15A
-    | R.V15, 2 -> __.V15B
-    | R.V16, 1 -> __.V16A
-    | R.V16, 2 -> __.V16B
-    | R.V17, 1 -> __.V17A
-    | R.V17, 2 -> __.V17B
-    | R.V18, 1 -> __.V18A
-    | R.V18, 2 -> __.V18B
-    | R.V19, 1 -> __.V19A
-    | R.V19, 2 -> __.V19B
-    | R.V20, 1 -> __.V20A
-    | R.V20, 2 -> __.V20B
-    | R.V21, 1 -> __.V21A
-    | R.V21, 2 -> __.V21B
-    | R.V22, 1 -> __.V22A
-    | R.V22, 2 -> __.V22B
-    | R.V23, 1 -> __.V23A
-    | R.V23, 2 -> __.V23B
-    | R.V24, 1 -> __.V24A
-    | R.V24, 2 -> __.V24B
-    | R.V25, 1 -> __.V25A
-    | R.V25, 2 -> __.V25B
-    | R.V26, 1 -> __.V26A
-    | R.V26, 2 -> __.V26B
-    | R.V27, 1 -> __.V27A
-    | R.V27, 2 -> __.V27B
-    | R.V28, 1 -> __.V28A
-    | R.V28, 2 -> __.V28B
-    | R.V29, 1 -> __.V29A
-    | R.V29, 2 -> __.V29B
-    | R.V30, 1 -> __.V30A
-    | R.V30, 2 -> __.V30B
-    | R.V31, 1 -> __.V31A
-    | R.V31, 2 -> __.V31B
+    | R.Q0, 1 -> this.Q0A
+    | R.Q0, 2 -> this.Q0B
+    | R.Q1, 1 -> this.Q1A
+    | R.Q1, 2 -> this.Q1B
+    | R.Q2, 1 -> this.Q2A
+    | R.Q2, 2 -> this.Q2B
+    | R.Q3, 1 -> this.Q3A
+    | R.Q3, 2 -> this.Q3B
+    | R.Q4, 1 -> this.Q4A
+    | R.Q4, 2 -> this.Q4B
+    | R.Q5, 1 -> this.Q5A
+    | R.Q5, 2 -> this.Q5B
+    | R.Q6, 1 -> this.Q6A
+    | R.Q6, 2 -> this.Q6B
+    | R.Q7, 1 -> this.Q7A
+    | R.Q7, 2 -> this.Q7B
+    | R.Q8, 1 -> this.Q8A
+    | R.Q8, 2 -> this.Q8B
+    | R.Q9, 1 -> this.Q9A
+    | R.Q9, 2 -> this.Q9B
+    | R.Q10, 1 -> this.Q10A
+    | R.Q10, 2 -> this.Q10B
+    | R.Q11, 1 -> this.Q11A
+    | R.Q11, 2 -> this.Q11B
+    | R.Q12, 1 -> this.Q12A
+    | R.Q12, 2 -> this.Q12B
+    | R.Q13, 1 -> this.Q13A
+    | R.Q13, 2 -> this.Q13B
+    | R.Q14, 1 -> this.Q14A
+    | R.Q14, 2 -> this.Q14B
+    | R.Q15, 1 -> this.Q15A
+    | R.Q15, 2 -> this.Q15B
+    | R.Q16, 1 -> this.Q16A
+    | R.Q16, 2 -> this.Q16B
+    | R.Q17, 1 -> this.Q17A
+    | R.Q17, 2 -> this.Q17B
+    | R.Q18, 1 -> this.Q18A
+    | R.Q18, 2 -> this.Q18B
+    | R.Q19, 1 -> this.Q19A
+    | R.Q19, 2 -> this.Q19B
+    | R.Q20, 1 -> this.Q20A
+    | R.Q20, 2 -> this.Q20B
+    | R.Q21, 1 -> this.Q21A
+    | R.Q21, 2 -> this.Q21B
+    | R.Q22, 1 -> this.Q22A
+    | R.Q22, 2 -> this.Q22B
+    | R.Q23, 1 -> this.Q23A
+    | R.Q23, 2 -> this.Q23B
+    | R.Q24, 1 -> this.Q24A
+    | R.Q24, 2 -> this.Q24B
+    | R.Q25, 1 -> this.Q25A
+    | R.Q25, 2 -> this.Q25B
+    | R.Q26, 1 -> this.Q26A
+    | R.Q26, 2 -> this.Q26B
+    | R.Q27, 1 -> this.Q27A
+    | R.Q27, 2 -> this.Q27B
+    | R.Q28, 1 -> this.Q28A
+    | R.Q28, 2 -> this.Q28B
+    | R.Q29, 1 -> this.Q29A
+    | R.Q29, 2 -> this.Q29B
+    | R.Q30, 1 -> this.Q30A
+    | R.Q30, 2 -> this.Q30B
+    | R.Q31, 1 -> this.Q31A
+    | R.Q31, 2 -> this.Q31B
+    | R.V0, 1 -> this.V0A
+    | R.V0, 2 -> this.V0B
+    | R.V1, 1 -> this.V1A
+    | R.V1, 2 -> this.V1B
+    | R.V2, 1 -> this.V2A
+    | R.V2, 2 -> this.V2B
+    | R.V3, 1 -> this.V3A
+    | R.V3, 2 -> this.V3B
+    | R.V4, 1 -> this.V4A
+    | R.V4, 2 -> this.V4B
+    | R.V5, 1 -> this.V5A
+    | R.V5, 2 -> this.V5B
+    | R.V6, 1 -> this.V6A
+    | R.V6, 2 -> this.V6B
+    | R.V7, 1 -> this.V7A
+    | R.V7, 2 -> this.V7B
+    | R.V8, 1 -> this.V8A
+    | R.V8, 2 -> this.V8B
+    | R.V9, 1 -> this.V9A
+    | R.V9, 2 -> this.V9B
+    | R.V10, 1 -> this.V10A
+    | R.V10, 2 -> this.V10B
+    | R.V11, 1 -> this.V11A
+    | R.V11, 2 -> this.V11B
+    | R.V12, 1 -> this.V12A
+    | R.V12, 2 -> this.V12B
+    | R.V13, 1 -> this.V13A
+    | R.V13, 2 -> this.V13B
+    | R.V14, 1 -> this.V14A
+    | R.V14, 2 -> this.V14B
+    | R.V15, 1 -> this.V15A
+    | R.V15, 2 -> this.V15B
+    | R.V16, 1 -> this.V16A
+    | R.V16, 2 -> this.V16B
+    | R.V17, 1 -> this.V17A
+    | R.V17, 2 -> this.V17B
+    | R.V18, 1 -> this.V18A
+    | R.V18, 2 -> this.V18B
+    | R.V19, 1 -> this.V19A
+    | R.V19, 2 -> this.V19B
+    | R.V20, 1 -> this.V20A
+    | R.V20, 2 -> this.V20B
+    | R.V21, 1 -> this.V21A
+    | R.V21, 2 -> this.V21B
+    | R.V22, 1 -> this.V22A
+    | R.V22, 2 -> this.V22B
+    | R.V23, 1 -> this.V23A
+    | R.V23, 2 -> this.V23B
+    | R.V24, 1 -> this.V24A
+    | R.V24, 2 -> this.V24B
+    | R.V25, 1 -> this.V25A
+    | R.V25, 2 -> this.V25B
+    | R.V26, 1 -> this.V26A
+    | R.V26, 2 -> this.V26B
+    | R.V27, 1 -> this.V27A
+    | R.V27, 2 -> this.V27B
+    | R.V28, 1 -> this.V28A
+    | R.V28, 2 -> this.V28B
+    | R.V29, 1 -> this.V29A
+    | R.V29, 2 -> this.V29B
+    | R.V30, 1 -> this.V30A
+    | R.V30, 2 -> this.V30B
+    | R.V31, 1 -> this.V31A
+    | R.V31, 2 -> this.V31B
     | _ -> raise UnhandledRegExprException
 
 // vim: set tw=80 sts=2 sw=2:

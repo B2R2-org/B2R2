@@ -134,15 +134,15 @@ type ConstantPropagation =
 
     let analysis =
       { new IVarBasedDataFlowAnalysis<ConstantDomain.Lattice> with
-          member __.OnInitialize state = state
+          member _.OnInitialize state = state
 
-          member __.Bottom = ConstantDomain.Undef
+          member _.Bottom = ConstantDomain.Undef
 
-          member __.Join a b = ConstantDomain.join a b
+          member _.Join a b = ConstantDomain.join a b
 
-          member __.Subsume a b = ConstantDomain.subsume a b
+          member _.Subsume a b = ConstantDomain.subsume a b
 
-          member __.EvalExpr state pp e = evaluateExpr state pp e }
+          member _.EvalExpr state pp e = evaluateExpr state pp e }
 
     { inherit VarBasedDataFlowAnalysis<ConstantDomain.Lattice>
         (hdl, analysis) }

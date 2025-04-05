@@ -63,15 +63,15 @@ type DetectAction () =
     else invalidArg (nameof path) "File not found."
 
   interface IAction with
-    member __.ActionID with get() = "detect"
-    member __.Signature with get() = "Fingerprint * <path> -> OutString"
-    member __.Description with get() = """
+    member _.ActionID with get() = "detect"
+    member _.Signature with get() = "Fingerprint * <path> -> OutString"
+    member _.Description with get() = """
     Take in a fingerprint and a path as input, and analyze file(s) in the given
     path to detect the fingerprint. This action will eventually return a match
     score as output. If the <path> is a directory, it analyzes every file in the
     directory. If the <path> is a file, it only analyzes the file.
 """
-    member __.Transform args collection =
+    member _.Transform args collection =
       let fps = collection.Values
       match args with
       | [ path ] -> { Values = fps |> Array.map (detect path) }

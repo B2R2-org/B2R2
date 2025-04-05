@@ -308,12 +308,12 @@ type DiffAction () =
     |> OutputColored
 
   interface IAction with
-    member __.ActionID with get() = "diff"
-    member __.Signature with get() = "Binary collection -> OutString"
-    member __.Description with get() = """
+    member _.ActionID with get() = "diff"
+    member _.Signature with get() = "Binary collection -> OutString"
+    member _.Description with get() = """
     Take in two binaries as input and return a diff string as output.
 """
-    member __.Transform args collection =
+    member _.Transform args collection =
       let bins = collection.Values
       if bins.Length <> 2 then
         invalidArg (nameof DiffAction) "Can only diff extractly two binaries."

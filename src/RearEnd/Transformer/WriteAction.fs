@@ -43,13 +43,13 @@ type WriteAction () =
     File.WriteAllText (fname, OutString.toString os)
 
   interface IAction with
-    member __.ActionID with get() = "write"
-    member __.Signature
+    member _.ActionID with get() = "write"
+    member _.Signature
       with get() = "'a * <file> -> unit"
-    member __.Description with get() = """
+    member _.Description with get() = """
     Take in an input object and write out its content to the <file>.
 """
-    member __.Transform args collection =
+    member _.Transform args collection =
       if args.Length = collection.Values.Length then
         let args = List.toArray args
         Array.iter2 write args collection.Values

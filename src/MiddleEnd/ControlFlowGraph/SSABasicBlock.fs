@@ -50,13 +50,13 @@ type SSABasicBlock private (ppoint, lastAddr, stmts: _[], funcAbs) =
 
   /// Return the `ISSABasicBlock` interface to access the internal
   /// representation of the basic block.
-  member __.Internals with get() = __ :> ISSABasicBlock
+  member this.Internals with get() = this :> ISSABasicBlock
 
   /// Immediate dominator of this block.
-  member __.ImmDominator with get() = idom and set(d) = idom <- d
+  member _.ImmDominator with get() = idom and set(d) = idom <- d
 
   /// Dominance frontier of this block.
-  member __.DomFrontier with get() = frontier and set(f) = frontier <- f
+  member _.DomFrontier with get() = frontier and set(f) = frontier <- f
 
   override _.ToString () = $"{nameof SSABasicBlock}({ppoint})"
 

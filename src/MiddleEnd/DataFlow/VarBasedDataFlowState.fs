@@ -389,64 +389,64 @@ type VarBasedDataFlowState<'Lattice>
     resetSubState domainSubState
 
   /// Mapping from a CFG vertex to its phi information.
-  member __.PhiInfos with get () = phiInfos
+  member _.PhiInfos with get () = phiInfos
 
   /// Mapping from a CFG vertex to its incoming definitions.
-  member __.PerVertexIncomingDefs with get () = perVertexIncomingDefs
+  member _.PerVertexIncomingDefs with get () = perVertexIncomingDefs
 
   /// Mapping from a CFG vertex to its outgoing definitions.
-  member __.PerVertexOutgoingDefs with get () = perVertexOutgoingDefs
+  member _.PerVertexOutgoingDefs with get () = perVertexOutgoingDefs
 
   /// Mapping from a variable def to its uses.
-  member __.DefUseMap with get () = defUseMap
+  member _.DefUseMap with get () = defUseMap
 
   /// Mapping from a variable use to its definition.
-  member __.UseDefMap with get () = useDefMap
+  member _.UseDefMap with get () = useDefMap
 
   /// Mapping from a program point to `StmtOfBBL`, which is a pair of a Low-UIR
   /// statement and its corresponding vertex that contains the statement.
-  member __.StmtOfBBLs with get () = stmtOfBBLs
+  member _.StmtOfBBLs with get () = stmtOfBBLs
 
   /// Sub-state for the stack-pointer domain.
-  member __.StackPointerSubState with get () = spSubState
+  member _.StackPointerSubState with get () = spSubState
 
   /// Sub-state for the user's domain.
-  member __.DomainSubState with get () = domainSubState
+  member _.DomainSubState with get () = domainSubState
 
   /// Mark the given vertex as pending, which means that the vertex needs to be
   /// processed.
-  member __.MarkVertexAsPending v = verticesForProcessing.Add v |> ignore
+  member _.MarkVertexAsPending v = verticesForProcessing.Add v |> ignore
 
   /// Mark the given vertex as removal, which means that the vertex needs to be
   /// removed.
-  member __.MarkVertexAsRemoval v = verticesForRemoval.Enqueue v |> ignore
+  member _.MarkVertexAsRemoval v = verticesForRemoval.Enqueue v |> ignore
 
   /// Check if the given vertex is pending for processing.
-  member __.IsVertexPending v = verticesForProcessing.Contains v
+  member _.IsVertexPending v = verticesForProcessing.Contains v
 
   /// Clear the pending vertices.
-  member __.ClearPendingVertices () = verticesForProcessing.Clear ()
+  member _.ClearPendingVertices () = verticesForProcessing.Clear ()
 
   /// Enqueue the pending vertices to the given sub-state.
-  member __.EnqueuePendingVertices (subState: IVarBasedDataFlowSubState<_>) =
+  member _.EnqueuePendingVertices (subState: IVarBasedDataFlowSubState<_>) =
     for v in verticesForProcessing do
       subState.FlowQueue.Enqueue (null, v)
 
   /// Dequeue the vertex for removal. When there is no vertex to remove, it
   /// returns `false`.
-  member __.DequeueVertexForRemoval () = verticesForRemoval.TryDequeue ()
+  member _.DequeueVertexForRemoval () = verticesForRemoval.TryDequeue ()
 
   /// Return the array of StmtInfos of the given vertex.
-  member __.GetStmtInfos v = getStatements v
+  member _.GetStmtInfos v = getStatements v
 
   /// Return the terminator statment of the given vertex in an SSA form.
-  member __.GetTerminatorInSSA v =
+  member _.GetTerminatorInSSA v =
     getStatements v
     |> Array.last
     |> fun (irStmt, pp) -> translateToSSAStmt pp irStmt
 
   /// Try to get the definition of the given SSA variable in an SSA form.
-  member __.TryGetSSADef v =
+  member _.TryGetSSADef v =
     let vp = ssaVarToVp[v]
     let pp = vp.ProgramPoint
     let stmt, v = stmtOfBBLs[pp]
@@ -459,14 +459,14 @@ type VarBasedDataFlowState<'Lattice>
     else generatePhiSSAStmt vp |> Some
 
   /// Reset this state.
-  member __.Reset () = reset ()
+  member _.Reset () = reset ()
 
   /// Translate the given stack pointer address to a local frame offset.
   static member inline ToFrameOffset stackAddr =
     int (stackAddr - Constants.InitialStackPointer)
 
   interface IDataFlowState<VarPoint, 'Lattice> with
-    member __.GetAbsValue absLoc = domainGetAbsValue absLoc
+    member _.GetAbsValue absLoc = domainGetAbsValue absLoc
 
 /// A Low-UIR statement and its corresponding program point.
 and private StmtInfo = Stmt * ProgramPoint

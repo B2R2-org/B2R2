@@ -35,13 +35,13 @@ type TMS320C6000Parser () =
   let reader = BinReader.Init Endian.Little
 
   interface IInstructionParsable with
-    member __.Parse (bs: byte[], addr) =
+    member _.Parse (bs: byte[], addr) =
       let span = ReadOnlySpan bs
       ParsingMain.parse span reader &inParallel addr :> Instruction
 
-    member __.Parse (span: ByteSpan, addr) =
+    member _.Parse (span: ByteSpan, addr) =
       ParsingMain.parse span reader &inParallel addr :> Instruction
 
-    member __.MaxInstructionSize = 4
+    member _.MaxInstructionSize = 4
 
-    member __.OperationMode with get() = ArchOperationMode.NoMode and set _ = ()
+    member _.OperationMode with get() = ArchOperationMode.NoMode and set _ = ()

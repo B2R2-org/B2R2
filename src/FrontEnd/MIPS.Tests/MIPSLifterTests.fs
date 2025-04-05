@@ -53,7 +53,7 @@ type MIPSLifterTests () =
     CollectionAssert.AreEqual (givenStmts, unwrapStmts <| ins.Translate ctxt)
 
   [<TestMethod>]
-  member __.``[MIPS64] ADD lift test`` () =
+  member _.``[MIPS64] ADD lift test`` () =
     let isa = ISA.Init Architecture.MIPS64 Endian.Big
     let ctxt = MIPSTranslationContext isa
     let ( !. ) name = Register.toRegID name |> ctxt.GetRegVar
@@ -74,7 +74,7 @@ type MIPSLifterTests () =
     |> test isa ctxt
 
   [<TestMethod>]
-  member __.``[MIPS32] ADD lift test`` () =
+  member _.``[MIPS32] ADD lift test`` () =
     let isa = ISA.Init Architecture.MIPS32 Endian.Big
     let ctxt = MIPSTranslationContext isa
     let ( !. ) name = Register.toRegID name |> ctxt.GetRegVar

@@ -34,7 +34,7 @@ type RegExprs (wordSize) =
   (* Registers *)
   let regType = WordSize.toRegType wordSize
 
-  member __.GetRegVar (name) =
+  member _.GetRegVar (name) =
     match name with
     | _ -> raise UnhandledRegExprException
 

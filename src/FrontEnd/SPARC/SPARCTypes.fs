@@ -839,17 +839,17 @@ type InsInfo = {
   Operands: Operands
 }
 with
-  override __.GetHashCode () =
-    hash (__.Address,
-          __.NumBytes,
-          __.Opcode,
-          __.Operands)
+  override this.GetHashCode () =
+    hash (this.Address,
+          this.NumBytes,
+          this.Opcode,
+          this.Operands)
 
-  override __.Equals (i) =
+  override this.Equals (i) =
     match i with
     | :? InsInfo as i ->
-      i.Address = __.Address
-      && i.NumBytes = __.NumBytes
-      && i.Opcode = __.Opcode
-      && i.Operands = __.Operands
+      i.Address = this.Address
+      && i.NumBytes = this.NumBytes
+      && i.Opcode = this.Opcode
+      && i.Operands = this.Operands
     | _ -> false

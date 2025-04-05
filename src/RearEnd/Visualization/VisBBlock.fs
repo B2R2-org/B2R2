@@ -63,22 +63,22 @@ type VisBBlock (blk: IVisualizable, isDummy) =
   let height =
     if isDummy then 0.0 else float numLines * 14.0 + TSpanOffset + Padding * 2.0
 
-  member __.IsDummy with get () = isDummy
+  member _.IsDummy with get () = isDummy
 
   /// The width of the node.
-  member __.Width with get () = width and set (v) = width <- v
+  member _.Width with get () = width and set (v) = width <- v
 
   /// The height of the node.
-  member __.Height with get () = height
+  member _.Height with get () = height
 
   /// The layer that this node belongs to.
-  member __.Layer with get () = layer and set (v) = layer <- v
+  member _.Layer with get () = layer and set (v) = layer <- v
 
   /// Relative index in a layer (from left to right).
-  member __.Index with get () = index and set (v) = index <- v
+  member _.Index with get () = index and set (v) = index <- v
 
   /// X-Y coordinate in the visualized graph.
-  member __.Coordinate with get () = pos
+  member _.Coordinate with get () = pos
 
   interface IVisualizable with
     member _.BlockAddress with get() = blk.BlockAddress

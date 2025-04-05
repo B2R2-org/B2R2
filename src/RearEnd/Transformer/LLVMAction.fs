@@ -54,13 +54,13 @@ type LLVMAction () =
     printOut hdl fn
 
   interface IAction with
-    member __.ActionID with get() = "llvm"
-    member __.Signature with get() = "Binary -> string"
-    member __.Description with get() = """
+    member _.ActionID with get() = "llvm"
+    member _.Signature with get() = "Binary -> string"
+    member _.Description with get() = """
     Take in a parsed binary and lift it to an LLVM function, and then dump the
     lifted function to a string.
 """
-    member __.Transform args collection =
+    member _.Transform args collection =
       match args with
       | [] -> { Values = [| collection.Values |> Array.map translate |] }
       | _ -> invalidArg (nameof args) "Invalid argument."

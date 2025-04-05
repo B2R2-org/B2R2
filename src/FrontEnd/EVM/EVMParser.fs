@@ -34,17 +34,17 @@ type EVMParser (isa: ISA) =
   let mutable codeOffset: Addr = 0UL
   let wordSize = isa.WordSize
 
-  member __.CodeOffset with get() = codeOffset and set(o) = codeOffset <- o
+  member _.CodeOffset with get() = codeOffset and set(o) = codeOffset <- o
 
   interface IInstructionParsable with
-    member __.Parse (bs: byte[], addr) =
+    member _.Parse (bs: byte[], addr) =
       let span = ReadOnlySpan (bs)
       ParsingMain.parse span codeOffset wordSize addr :> Instruction
 
-    member __.Parse (span: ByteSpan, addr) =
+    member _.Parse (span: ByteSpan, addr) =
       ParsingMain.parse span codeOffset wordSize addr :> Instruction
 
-    member __.MaxInstructionSize = 33
+    member _.MaxInstructionSize = 33
 
-    member __.OperationMode with get() = ArchOperationMode.NoMode and set _ = ()
+    member _.OperationMode with get() = ArchOperationMode.NoMode and set _ = ()
 

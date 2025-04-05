@@ -32,7 +32,7 @@ open B2R2.FrontEnd.BinLifter
 type BinReaderTests () =
 
   [<TestMethod>]
-  member __.``Little-endian vs. Big-endian Test`` () =
+  member _.``Little-endian vs. Big-endian Test`` () =
     let sample = [| 0x11uy; 0x22uy; 0x33uy; 0x44uy |]
     let lr = BinReader.Init Endian.Little
     let v = lr.ReadInt32 (System.ReadOnlySpan sample, 0)
@@ -42,7 +42,7 @@ type BinReaderTests () =
     Assert.AreEqual<int> (expected=0x11223344, actual=v)
 
   [<TestMethod>]
-  member __.``Read Overflow Test`` () =
+  member _.``Read Overflow Test`` () =
     let sample = [| 0x11uy; 0x22uy |]
     let r = BinReader.Init Endian.Little
     let v =
@@ -51,7 +51,7 @@ type BinReaderTests () =
     Assert.AreEqual<int> (expected=0, actual=v)
 
   [<TestMethod>]
-  member __.``LEB128 to UInt64 Test`` () =
+  member _.``LEB128 to UInt64 Test`` () =
     let samples =
       [| (* (LEB encoded bytes, Decoded number) *)
         ([| 0x00uy |], 0x00UL)
@@ -72,7 +72,7 @@ type BinReaderTests () =
       Assert.AreEqual<uint64> (expected=value, actual=v)
 
   [<TestMethod>]
-  member __.``LEB128 to UInt32 Test`` () =
+  member _.``LEB128 to UInt32 Test`` () =
     let samples =
       [| (* (LEB encoded bytes, Decoded number) *)
         ([| 0x00uy |], 0x00u)
@@ -91,7 +91,7 @@ type BinReaderTests () =
       Assert.AreEqual<uint32> (expected=value, actual=v)
 
   [<TestMethod>]
-  member __.``LEB128 to SInt64 Test`` () =
+  member _.``LEB128 to SInt64 Test`` () =
     let samples =
       [| (* (LEB encoded bytes, Decoded number) *)
         ([| 0xffuy; 0xffuy; 0xffuy; 0xffuy; 0xffuy;
@@ -115,7 +115,7 @@ type BinReaderTests () =
       Assert.AreEqual<int64> (expected=value, actual=v)
 
   [<TestMethod>]
-  member __.``LEB128 to SInt32 Test`` () =
+  member _.``LEB128 to SInt32 Test`` () =
     let samples =
       [| (* (LEB encoded bytes, Decoded number) *)
         ([| 0x97uy; 0xdeuy; 0x03uy |], 0xef17)
@@ -135,7 +135,7 @@ type BinReaderTests () =
       Assert.AreEqual<int> (expected=value, actual=v)
 
   [<TestMethod>]
-  member __.``LEB128 Overflow Handling Test`` () =
+  member _.``LEB128 Overflow Handling Test`` () =
     let testcase =
       [| 0xffuy; 0x80uy; 0x80uy; 0x80uy; 0x80uy;
          0x80uy; 0x80uy; 0x80uy; 0x80uy; 0x80uy; 0x7fuy |]

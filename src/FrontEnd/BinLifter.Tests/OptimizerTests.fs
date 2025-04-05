@@ -55,7 +55,7 @@ type OptimizerTests () =
     CollectionAssert.AreEqual (wrapStmts expectedStmts, optimizedStmts)
 
   [<TestMethod>]
-  member __.``[ConstantFolding] Binary operator replacement test`` () =
+  member _.``[ConstantFolding] Binary operator replacement test`` () =
     ([ varA := num 30u
        varB := num 3u
        varC := num 12u ],
@@ -65,7 +65,7 @@ type OptimizerTests () =
     |> test ConstantFolding.optimize
 
   [<TestMethod>]
-  member __.``[ConstantFolding] ite replacement test`` () =
+  member _.``[ConstantFolding] ite replacement test`` () =
     ([ varC := num 12u
        varC := num 2u ],
      [ varC := num 12u
@@ -73,7 +73,7 @@ type OptimizerTests () =
     |> test ConstantFolding.optimize
 
   [<TestMethod>]
-  member __.``[ConstantFolding] Tempvar replacement test`` () =
+  member _.``[ConstantFolding] Tempvar replacement test`` () =
     ([ t32 1 := num 6u
        varA := varA .- num 4u
        AST.loadLE 32<rt> varA := varB
@@ -87,7 +87,7 @@ type OptimizerTests () =
     |> test ConstantFolding.optimize
 
   [<TestMethod>]
-  member __.``[ConstantFolding] Condition jump replacement test`` () =
+  member _.``[ConstantFolding] Condition jump replacement test`` () =
     let ir = IRBuilder 42
     let lblTarget = !%ir "Target"
     let lblImpossible = !%ir "Impossible"
@@ -109,7 +109,7 @@ type OptimizerTests () =
     |> test ConstantFolding.optimize
 
   [<TestMethod>]
-  member __.``[DeadCodeElimination] Dead code removal test (1)`` () =
+  member _.``[DeadCodeElimination] Dead code removal test (1)`` () =
     ([ t32 1 := num 1u
        t32 2 := num 2u
        varA := t32 1 .+ t32 2 ],
@@ -120,7 +120,7 @@ type OptimizerTests () =
     |> test DeadCodeElimination.optimize
 
   [<TestMethod>]
-  member __.``[DeadCodeElimination] Dead code removal test (2)`` () =
+  member _.``[DeadCodeElimination] Dead code removal test (2)`` () =
     ([ varB := num 3u
        varA := t32 1 .+ t32 2 ],
      [ varB := num 1u

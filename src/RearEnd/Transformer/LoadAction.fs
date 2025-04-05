@@ -48,10 +48,10 @@ type LoadAction () =
       |> Array.singleton
 
   interface IAction with
-    member __.ActionID with get() = "load"
-    member __.Signature
+    member _.ActionID with get() = "load"
+    member _.Signature
       with get() = "unit * <str> * [isa] * [mode]: string -> Binary"
-    member __.Description with get() = """
+    member _.Description with get() = """
     Take in a string <str> and return a binary object. The given input string
     can either represent a file path or a hexstring. If the given string
     represents a valid file path, then the raw file content will be loaded.
@@ -62,7 +62,7 @@ type LoadAction () =
       - [isa] : parse the binary for the given ISA.
       - [mode]: parse the binary for the given operation mode.
 """
-    member __.Transform args collection =
+    member _.Transform args collection =
       if collection.Values |> Array.forall isNull then ()
       else invalidArg (nameof collection) "Invalid argument type."
       match args with

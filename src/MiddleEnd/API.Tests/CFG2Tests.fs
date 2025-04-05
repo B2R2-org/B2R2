@@ -71,11 +71,11 @@ type CFG2Tests () =
   let strategies = [| funcId :> ICFGBuildingStrategy<_, _>; CFGRecovery () |]
 
   [<TestMethod>]
-  member __.``InstructionCollection Test 1`` () =
+  member _.``InstructionCollection Test 1`` () =
     Assert.AreEqual<int> (15, instrs.Count)
 
   [<TestMethod>]
-  member __.``InstructionCollection Test 2`` () =
+  member _.``InstructionCollection Test 2`` () =
     let addrs =
       [ 0x00UL; 0x01UL; 0x02UL; 0x07UL; 0x0cUL; 0x11UL; 0x14UL; 0x16UL
         0x1cUL; 0x1eUL; 0x21UL; 0x22UL; 0x23UL; 0x24UL; 0x27UL ]
@@ -85,7 +85,7 @@ type CFG2Tests () =
       Assert.AreEqual<uint64> (addr, ins.Address))
 
   [<TestMethod>]
-  member __.``BBLFactory Test 1`` () =
+  member _.``BBLFactory Test 1`` () =
     let bblFactory = BBLFactory (hdl, instrs)
     let bblAddrs = [| 0x00UL; 0x0cUL; 0x24UL |]
     scanBBLs bblFactory ArchOperationMode.NoMode bblAddrs
@@ -101,7 +101,7 @@ type CFG2Tests () =
     CollectionAssert.AreEqual (expected, actual)
 
   [<TestMethod>]
-  member __.``BBLFactory Test 2`` () =
+  member _.``BBLFactory Test 2`` () =
     let bblFactory = BBLFactory (hdl, instrs)
     let bblAddrs = [| 0x00UL; 0x0cUL; 0x24UL |]
     let pps = [| ProgramPoint (0x0UL, 0)
@@ -120,14 +120,14 @@ type CFG2Tests () =
     CollectionAssert.AreEqual (expected, actual)
 
   [<TestMethod>]
-  member __.``Functions Test 1`` () =
+  member _.``Functions Test 1`` () =
     let brew = BinaryBrew hdl
     let expected = [| 0UL; 0x24UL |]
     let actual = brew.Functions.Addresses |> Seq.toArray
     CollectionAssert.AreEqual (expected, actual)
 
   [<TestMethod>]
-  member __.``Functions Test 2`` () =
+  member _.``Functions Test 2`` () =
     let brew = BinaryBrew hdl
     let bblAddrs = [ 0x00UL; 0x24UL ]
     let callees = [ [ (0x07UL, RegularCallee 0x24UL) ]; [] ]
@@ -142,7 +142,7 @@ type CFG2Tests () =
       Assert.AreEqual (Map.find addr expected, Map.find addr actual))
 
   [<TestMethod>]
-  member __.``BBL Test`` () =
+  member _.``BBL Test`` () =
     let brew = BinaryBrew hdl
     let expected =
       [| (0x00UL, 0x00UL); (0x01UL, 0x00UL); (0x02UL, 0x00UL); (0x07UL, 0x00UL)
@@ -158,7 +158,7 @@ type CFG2Tests () =
     CollectionAssert.AreEqual (expected, actual)
 
   [<TestMethod>]
-  member __.``CFG Vertex Test: _start`` () =
+  member _.``CFG Vertex Test: _start`` () =
     let brew = BinaryBrew hdl
     let cfg = brew.Functions[0x0UL].CFG
     Assert.AreEqual<int> (7, cfg.Size)
@@ -177,7 +177,7 @@ type CFG2Tests () =
     CollectionAssert.AreEqual (expected, actual)
 
   [<TestMethod>]
-  member __.``CFG Edge Test: _start`` () =
+  member _.``CFG Edge Test: _start`` () =
     let brew = BinaryBrew hdl
     let cfg = brew.Functions[0x0UL].CFG
     let vMap = cfg.FoldVertex foldVertexNoFake Map.empty
@@ -202,7 +202,7 @@ type CFG2Tests () =
     CollectionAssert.AreEqual (expected, actual)
 
   [<TestMethod>]
-  member __.``DisasmCFG Test: _start`` () =
+  member _.``DisasmCFG Test: _start`` () =
     let brew = BinaryBrew hdl
     let cfg = brew.Functions[0x0UL].CFG
     let dcfg = DisasmCFG cfg
@@ -219,7 +219,7 @@ type CFG2Tests () =
     Assert.AreEqual<int> (0, eMap.Count)
 
   [<TestMethod>]
-  member __.``SSAGraph Vertex Test: _start`` () =
+  member _.``SSAGraph Vertex Test: _start`` () =
     let brew = BinaryBrew hdl
     let cfg = brew.Functions[0x0UL].CFG
     let ssaLifter = SSALifterFactory.Create hdl

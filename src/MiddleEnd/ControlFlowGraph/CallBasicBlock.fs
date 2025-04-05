@@ -31,7 +31,7 @@ open B2R2.FrontEnd.BinLifter
 type CallBasicBlock (addr, name, isExternal) =
   /// Return the `ICallBasicBlock` interface to access the internal
   /// representation of the basic block.
-  member __.Internals with get() = __ :> ICallBasicBlock
+  member this.Internals with get() = this :> ICallBasicBlock
 
   member _.Name with get () = name
 

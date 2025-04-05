@@ -81,30 +81,30 @@ type SSAVarBasedDataFlowState<'Lattice>
     let align = RegType.toByteWidth rt |> uint64
     (rt = defaultRegType) && (addr % align = 0UL)
 
-  member __.SSAEdges with get() = ssaEdges and set v = ssaEdges <- v
+  member _.SSAEdges with get() = ssaEdges and set v = ssaEdges <- v
 
-  member __.FlowWorkList with get() = flowWorkList
+  member _.FlowWorkList with get() = flowWorkList
 
-  member __.SSAWorkList with get() = ssaWorkList
+  member _.SSAWorkList with get() = ssaWorkList
 
-  member __.ExecutedEdges with get() = executedEdges
+  member _.ExecutedEdges with get() = executedEdges
 
   /// Get register value.
-  member __.GetRegValue (var: Variable) =
+  member _.GetRegValue (var: Variable) =
     match regValues.TryGetValue var with
     | true, v -> v
     | false, _ -> analysis.Bottom
 
   /// Set register value without adding it to the worklist.
-  member __.SetRegValueWithoutAdding (var: Variable) (value: 'Lattice) =
+  member _.SetRegValueWithoutAdding (var: Variable) (value: 'Lattice) =
     regValues[var] <- value
 
   /// Check if the register has been initialized.
-  member __.IsRegSet (var: Variable) =
+  member _.IsRegSet (var: Variable) =
     regValues.ContainsKey var
 
   /// Set register value.
-  member __.SetRegValue (var: Variable, value: 'Lattice) =
+  member _.SetRegValue (var: Variable, value: 'Lattice) =
     if not (regValues.ContainsKey var) then
       regValues[var] <- value
       ssaWorkList.Enqueue var
@@ -114,7 +114,7 @@ type SSAVarBasedDataFlowState<'Lattice>
       ssaWorkList.Enqueue var
 
   /// Try to get memory value. Unaligned access will always return Bottom.
-  member __.GetMemValue (var: Variable) (rt: RegType) (addr: Addr) =
+  member _.GetMemValue (var: Variable) (rt: RegType) (addr: Addr) =
     assert (isMemVar var)
     if isAligned rt addr then
       match memValues.TryGetValue var.Identifier with
@@ -124,7 +124,7 @@ type SSAVarBasedDataFlowState<'Lattice>
     else analysis.Bottom
 
   /// Get the list of executed source vertices.
-  member __.GetExecutedSources ssaCFG (blk: IVertex<_>) srcIDs =
+  member _.GetExecutedSources ssaCFG (blk: IVertex<_>) srcIDs =
     let preds = (ssaCFG: IDiGraph<_, _>).GetPreds blk |> Seq.toArray
     srcIDs
     |> Array.mapi (fun i srcID ->
@@ -132,7 +132,7 @@ type SSAVarBasedDataFlowState<'Lattice>
       else None)
     |> Array.choose id
 
-  member __.MarkSuccessorsExecutable ssaCFG (blk: IVertex<_>) =
+  member _.MarkSuccessorsExecutable ssaCFG (blk: IVertex<_>) =
     for succ in (ssaCFG: IDiGraph<_, _>).GetSuccs blk do
       markExecutable blk.ID succ.ID
 
@@ -145,12 +145,12 @@ type SSAVarBasedDataFlowState<'Lattice>
       else ()
     count
 
-  member __.EvalExpr expr = analysis.EvalExpr __ expr
+  member this.EvalExpr expr = analysis.EvalExpr this expr
 
   interface IDataFlowState<SSAVarPoint, 'Lattice> with
-    member __.GetAbsValue ssaVarPoint =
+    member this.GetAbsValue ssaVarPoint =
       match ssaVarPoint with
-      | RegularSSAVar v -> __.GetRegValue v
+      | RegularSSAVar v -> this.GetRegValue v
       | MemorySSAVar (id, addr) ->
         match memValues.TryGetValue id with
         | true, map -> Map.find addr map

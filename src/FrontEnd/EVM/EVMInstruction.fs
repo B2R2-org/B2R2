@@ -35,102 +35,103 @@ type EVMInstruction (addr, numBytes, insInfo, wordSize) =
   /// Basic instruction information.
   member val Info: InsInfo = insInfo
 
-  override __.IsBranch () =
-    match __.Info.Opcode with
+  override this.IsBranch () =
+    match this.Info.Opcode with
     | Opcode.JUMP
     | Opcode.JUMPI -> true
     | _ -> false
 
-  override __.IsModeChanging () = false
+  override _.IsModeChanging () = false
 
-  member __.HasConcJmpTarget () = false
+  member _.HasConcJmpTarget () = false
 
-  override __.IsDirectBranch () =
-    __.IsBranch () && __.HasConcJmpTarget ()
+  override this.IsDirectBranch () =
+    this.IsBranch () && this.HasConcJmpTarget ()
 
-  override __.IsIndirectBranch () =
-    __.IsBranch () && (not <| __.HasConcJmpTarget ())
+  override this.IsIndirectBranch () =
+    this.IsBranch () && (not <| this.HasConcJmpTarget ())
 
-  override __.IsCondBranch () =
-    match __.Info.Opcode with
+  override this.IsCondBranch () =
+    match this.Info.Opcode with
     | Opcode.JUMPI -> true
     | _ -> false
 
-  override __.IsCJmpOnTrue () =
-    match __.Info.Opcode with
+  override this.IsCJmpOnTrue () =
+    match this.Info.Opcode with
     | Opcode.JUMPI -> true
     | _ -> false
 
-  override __.IsCall () = false
+  override _.IsCall () = false
 
-  override __.IsRET () =
-    match __.Info.Opcode with
+  override this.IsRET () =
+    match this.Info.Opcode with
     | Opcode.RETURN -> true
     | _ -> false
 
-  override __.IsInterrupt () = Terminator.futureFeature ()
+  override _.IsInterrupt () = Terminator.futureFeature ()
 
-  override __.IsExit () =
-    __.Info.Opcode = Opcode.REVERT
-    || __.Info.Opcode = Opcode.RETURN
-    || __.Info.Opcode = Opcode.SELFDESTRUCT
-    || __.Info.Opcode = Opcode.INVALID
-    || __.Info.Opcode = Opcode.STOP
+  override this.IsExit () =
+    this.Info.Opcode = Opcode.REVERT
+    || this.Info.Opcode = Opcode.RETURN
+    || this.Info.Opcode = Opcode.SELFDESTRUCT
+    || this.Info.Opcode = Opcode.INVALID
+    || this.Info.Opcode = Opcode.STOP
 
-  override __.IsTerminator () =
-    __.IsDirectBranch ()
-    || __.IsIndirectBranch ()
-    || __.Info.Opcode = Opcode.REVERT
-    || __.Info.Opcode = Opcode.RETURN
-    || __.Info.Opcode = Opcode.SELFDESTRUCT
-    || __.Info.Opcode = Opcode.INVALID
-    || __.Info.Opcode = Opcode.STOP
+  override this.IsTerminator () =
+    this.IsDirectBranch ()
+    || this.IsIndirectBranch ()
+    || this.Info.Opcode = Opcode.REVERT
+    || this.Info.Opcode = Opcode.RETURN
+    || this.Info.Opcode = Opcode.SELFDESTRUCT
+    || this.Info.Opcode = Opcode.INVALID
+    || this.Info.Opcode = Opcode.STOP
 
-  override __.DirectBranchTarget (_addr: byref<Addr>) = false
+  override _.DirectBranchTarget (_addr: byref<Addr>) = false
 
-  override __.IndirectTrampolineAddr (_addr: byref<Addr>) =
+  override _.IndirectTrampolineAddr (_addr: byref<Addr>) =
     // FIXME
     false
 
-  override __.Immediate (_) = false
+  override _.Immediate (_) = false
 
-  override __.GetNextInstrAddrs () =
-    let fallthrough = __.Address + uint64 __.Length
+  override this.GetNextInstrAddrs () =
+    let fallthrough = this.Address + uint64 this.Length
     let acc = [| (fallthrough, ArchOperationMode.NoMode) |]
-    if __.IsExit () then [||]
+    if this.IsExit () then [||]
     else acc
 
-  override __.InterruptNum (_num: byref<int64>) = Terminator.futureFeature ()
+  override _.InterruptNum (_num: byref<int64>) = Terminator.futureFeature ()
 
-  override __.IsNop () = false
+  override _.IsNop () = false
 
-  override __.Translate ctxt =
-    (Lifter.translate __.Info ctxt).ToStmts ()
+  override this.Translate ctxt =
+    (Lifter.translate this.Info ctxt).ToStmts ()
 
-  override __.TranslateToList ctxt =
-    Lifter.translate __.Info ctxt
+  override this.TranslateToList ctxt =
+    Lifter.translate this.Info ctxt
 
-  override __.Disasm (showAddr, _) =
+  override this.Disasm (showAddr, _) =
     let builder =
       DisasmStringBuilder (showAddr, false, WordSize.Bit256, addr, numBytes)
-    Disasm.disasm __.Info builder
+    Disasm.disasm this.Info builder
     builder.ToString ()
 
-  override __.Disasm () =
+  override this.Disasm () =
     let builder =
       DisasmStringBuilder (false, false, WordSize.Bit256, addr, numBytes)
-    Disasm.disasm __.Info builder
+    Disasm.disasm this.Info builder
     builder.ToString ()
 
-  override __.Decompose (showAddr) =
+  override this.Decompose (showAddr) =
     let builder =
       DisasmWordBuilder (showAddr, false, WordSize.Bit256, addr, numBytes, 8)
-    Disasm.disasm __.Info builder
+    Disasm.disasm this.Info builder
     builder.ToArray ()
 
-  override __.IsInlinedAssembly () = false
+  override _.IsInlinedAssembly () = false
 
-  override __.Equals (_) = Terminator.futureFeature ()
-  override __.GetHashCode () = Terminator.futureFeature ()
+  override _.Equals (_) = Terminator.futureFeature ()
+
+  override _.GetHashCode () = Terminator.futureFeature ()
 
 // vim: set tw=80 sts=2 sw=2:

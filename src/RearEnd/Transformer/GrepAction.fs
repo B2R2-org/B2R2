@@ -57,11 +57,11 @@ type GrepAction () =
     | _ -> invalidArg (nameof input) "Invalid object is given."
 
   interface IAction with
-    member __.ActionID with get() = "grep"
-    member __.Signature
+    member _.ActionID with get() = "grep"
+    member _.Signature
       with get() =
         "'a array * <pattern> * [bytes before] * [bytes after] -> 'a array"
-    member __.Description with get() = """
+    member _.Description with get() = """
     Take in an array as input and return one or more matched items from the
     array as in the `grep` command. The <pattern> represents a binary pattern
     using a regular expression with hexstrings. For example, the pattern
@@ -76,7 +76,7 @@ type GrepAction () =
     before and one line after. If the matched items are at the beginning or end
     of the array, the context will be truncated accordingly.
 """
-    member __.Transform args collection =
+    member _.Transform args collection =
       match args with
       | pattern :: bytesBefore :: bytesAfter :: [] ->
         let bytesBefore = Convert.ToInt32 bytesBefore

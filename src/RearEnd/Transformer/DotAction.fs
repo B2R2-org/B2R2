@@ -46,11 +46,11 @@ type DOTAction () =
     | NoCFG e -> $"Failed to construct CFG: {e}"
 
   interface IAction with
-    member __.ActionID with get() = "dot"
-    member __.Signature with get() = "CFG -> string"
-    member __.Description with get() = """
+    member _.ActionID with get() = "dot"
+    member _.Signature with get() = "CFG -> string"
+    member _.Description with get() = """
     Take in a CFG as input, and returns a string representation of the CFG in
     DOT format.
 """
-    member __.Transform _args collection =
+    member _.Transform _args collection =
       { Values = [| collection.Values |> Array.map toDOT |] }

@@ -29,9 +29,9 @@ open B2R2.Collections.FingerTree
 /// An element for our random access queue.
 type RandomAccessQueueElem<'T> (v) =
   member val Val: 'T = v
-  override __.ToString () = __.Val.ToString ()
+  override this.ToString () = this.Val.ToString ()
   interface IMeasured<Size> with
-    member __.Measurement = Size (1u)
+    member _.Measurement = Size (1u)
 
 /// Interval tree-based map: an interval of type (Addr) -> an
 /// RandomAccessQueueElement ('a).

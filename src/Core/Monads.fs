@@ -29,10 +29,10 @@ module Maybe = begin
 
   /// A builder for Maybe computation expression.
   type MaybeBuilder () =
-    member __.Return (x) = Some x
-    member __.ReturnFrom (x: Option<_>) = x
-    member __.Bind (m, f) = Option.bind f m
-    member __.Zero () = None
+    member _.Return (x) = Some x
+    member _.ReturnFrom (x: Option<_>) = x
+    member _.Bind (m, f) = Option.bind f m
+    member _.Zero () = None
 
   let maybe = MaybeBuilder ()
 
@@ -51,12 +51,12 @@ module OrElse = begin
 
   /// A builder for OrElse computation expression.
   type OrElseBuilder () =
-    member __.ReturnFrom (x) = x
-    member __.YieldFrom (x) = x
-    member __.Bind (m, f) = bind f m
-    member __.Delay (f) = f
-    member __.Run (f) = f ()
-    member __.Combine (m, f) = bind f m
+    member _.ReturnFrom (x) = x
+    member _.YieldFrom (x) = x
+    member _.Bind (m, f) = bind f m
+    member _.Delay (f) = f
+    member _.Run (f) = f ()
+    member _.Combine (m, f) = bind f m
 
   let orElse = OrElseBuilder ()
 

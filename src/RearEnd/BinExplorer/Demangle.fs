@@ -30,25 +30,25 @@ open B2R2.RearEnd.Utils
 type CmdDemangle () =
   inherit Cmd ()
 
-  override __.CmdName = "demangle"
+  override _.CmdName = "demangle"
 
-  override __.CmdAlias = [ "undecorate" ]
+  override _.CmdAlias = [ "undecorate" ]
 
-  override __.CmdDescr = "Demangle the given mangled string."
+  override _.CmdDescr = "Demangle the given mangled string."
 
-  override __.CmdHelp = "Usage: demangle <string>"
+  override _.CmdHelp = "Usage: demangle <string>"
 
-  override __.SubCommands = []
+  override _.SubCommands = []
 
-  member private __.MapResult = function
+  member private _.MapResult = function
     | Ok s -> [| OutputNormal s |]
     | Error _ -> [| OutputNormal "[*] Invalid input." |]
 
-  override __.CallBack _ _ args =
+  override this.CallBack _ _ args =
     let mangled = String.concat " " args
     match Demangler.detect mangled with
     | MSMangler ->
-      (MSDemangler () :> IDemanglable).Demangle mangled |> __.MapResult
+      (MSDemangler () :> IDemanglable).Demangle mangled |> this.MapResult
     | ItaniumMangler ->
-      (ItaniumDemangler () :> IDemanglable).Demangle mangled |> __.MapResult
+      (ItaniumDemangler () :> IDemanglable).Demangle mangled |> this.MapResult
     | UnknownMangler -> [| OutputNormal "[*] Unknown mangling scheme." |]

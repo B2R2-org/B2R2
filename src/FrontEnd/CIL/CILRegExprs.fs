@@ -34,8 +34,8 @@ type internal RegExprs () =
   member val PC = var 256<rt> (Register.toRegID Register.PC) "PC" with get
   member val SP = var 256<rt> (Register.toRegID Register.SP) "SP" with get
 
-  member __.GetRegVar (name) =
+  member this.GetRegVar (name) =
     match name with
-    | Register.PC -> __.PC
-    | Register.SP -> __.SP
+    | Register.PC -> this.PC
+    | Register.SP -> this.SP
     | _ -> raise UnhandledRegExprException

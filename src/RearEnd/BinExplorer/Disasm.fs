@@ -59,25 +59,25 @@ type CmdDisasm () =
     |> Result.bind (convertAddr addr)
     |> render hdl instrs
 
-  override __.CmdName = "disasm"
+  override _.CmdName = "disasm"
 
-  override __.CmdAlias = [ "d" ]
+  override _.CmdAlias = [ "d" ]
 
-  override __.CmdDescr = "Display disassembly of the binary."
+  override _.CmdDescr = "Display disassembly of the binary."
 
-  override __.CmdHelp =
+  override _.CmdHelp =
     "Usage: disasm <addr>\n\
             disasm <cnt> <addr>\n\n\
      Print <cnt> disassembled instructions starting from the given address.\n\
      When the <cnt> argument is not given, it will print one instruction."
 
-  override __.SubCommands = []
+  override _.SubCommands = []
 
-  override __.CallBack _ brew args =
+  override this.CallBack _ brew args =
     match args with
     | cnt :: addr :: _ -> disasm brew.BinHandle brew.Instructions cnt addr
     | addr :: _ -> disasm brew.BinHandle brew.Instructions "1" addr
-    | _ -> [| __.CmdHelp |]
+    | _ -> [| this.CmdHelp |]
     |> Array.map OutputNormal
 
 // vim: set tw=80 sts=2 sw=2:

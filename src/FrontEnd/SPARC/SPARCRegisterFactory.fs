@@ -31,27 +31,27 @@ open B2R2.BinIR.LowUIR
 type SPARCRegisterFactory () =
   inherit RegisterFactory ()
 
-  override __.GetAllRegExprs () = Terminator.futureFeature ()
+  override _.GetAllRegExprs () = Terminator.futureFeature ()
 
-  override __.GetAllRegNames () = Terminator.futureFeature ()
+  override _.GetAllRegNames () = Terminator.futureFeature ()
 
-  override __.GetGeneralRegExprs () = Terminator.futureFeature ()
+  override _.GetGeneralRegExprs () = Terminator.futureFeature ()
 
-  override __.RegIDFromRegExpr (e) =
+  override _.RegIDFromRegExpr (e) =
     match e.E with
     | Var (_, id, _) -> id
     | PCVar _ -> Register.toRegID Register.PC
     | _ -> raise InvalidRegisterException
 
-  override __.RegIDToRegExpr (id) = Terminator.futureFeature ()
-  override __.StrToRegExpr _s = Terminator.futureFeature ()
-  override __.RegIDFromString _s = Terminator.futureFeature ()
-  override __.RegIDToString _ = Terminator.futureFeature ()
-  override __.RegIDToRegType _ = Terminator.futureFeature ()
-  override __.GetRegisterAliases _ = Terminator.futureFeature ()
-  override __.ProgramCounter = Register.PC |> Register.toRegID
-  override __.StackPointer = Register.O6 |> Register.toRegID |> Some
-  override __.FramePointer = Register.I6 |> Register.toRegID |> Some
-  override __.IsProgramCounter regid = __.ProgramCounter = regid
-  override __.IsStackPointer _ = Terminator.futureFeature ()
-  override __.IsFramePointer _ = Terminator.futureFeature ()
+  override _.RegIDToRegExpr (id) = Terminator.futureFeature ()
+  override _.StrToRegExpr _s = Terminator.futureFeature ()
+  override _.RegIDFromString _s = Terminator.futureFeature ()
+  override _.RegIDToString _ = Terminator.futureFeature ()
+  override _.RegIDToRegType _ = Terminator.futureFeature ()
+  override _.GetRegisterAliases _ = Terminator.futureFeature ()
+  override _.ProgramCounter = Register.PC |> Register.toRegID
+  override _.StackPointer = Register.O6 |> Register.toRegID |> Some
+  override _.FramePointer = Register.I6 |> Register.toRegID |> Some
+  override this.IsProgramCounter regid = this.ProgramCounter = regid
+  override _.IsStackPointer _ = Terminator.futureFeature ()
+  override _.IsFramePointer _ = Terminator.futureFeature ()

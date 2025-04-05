@@ -638,17 +638,17 @@ type CFGRecovery<'FnCtx,
                  allowBBLOverlap)
 
   interface ICFGBuildingStrategy<'FnCtx, 'GlCtx> with
-    member __.ActionPrioritizer = prioritizer
+    member _.ActionPrioritizer = prioritizer
 
-    member __.AllowBBLOverlap with get() = allowBBLOverlap
+    member _.AllowBBLOverlap with get() = allowBBLOverlap
 
-    member __.FindCandidates (builders) =
+    member _.FindCandidates (builders) =
       builders
       |> Array.choose (fun b ->
         if not b.Context.IsExternal then Some <| (b.EntryPoint, b.Mode)
         else None)
 
-    member __.OnAction (ctx, queue, action) =
+    member _.OnAction (ctx, queue, action) =
       try
         match action with
         | InitiateCFG ->

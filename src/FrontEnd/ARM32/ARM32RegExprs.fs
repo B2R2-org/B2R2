@@ -264,131 +264,131 @@ type RegExprs () =
   (* Secure Configuration register *)
   member val NSACR = var 32<rt> (Register.toRegID NSACR) "NSACR" with get
 
-  member __.GetRegVar (name) =
+  member this.GetRegVar (name) =
     match name with
-    | R.R0 -> __.R0
-    | R.R1 -> __.R1
-    | R.R2 -> __.R2
-    | R.R3 -> __.R3
-    | R.R4 -> __.R4
-    | R.R5 -> __.R5
-    | R.R6 -> __.R6
-    | R.R7 -> __.R7
-    | R.R8 -> __.R8
-    | R.SB -> __.SB
-    | R.SL -> __.SL
-    | R.FP -> __.FP
-    | R.IP -> __.IP
-    | R.SP -> __.SP
-    | R.LR -> __.LR
-    | R.PC -> __.PC
-    | R.S0 -> __.S0
-    | R.S1 -> __.S1
-    | R.S2 -> __.S2
-    | R.S3 -> __.S3
-    | R.S4 -> __.S4
-    | R.S5 -> __.S5
-    | R.S6 -> __.S6
-    | R.S7 -> __.S7
-    | R.S8 -> __.S8
-    | R.S9 -> __.S9
-    | R.S10 -> __.S10
-    | R.S11 -> __.S11
-    | R.S12 -> __.S12
-    | R.S13 -> __.S13
-    | R.S14 -> __.S14
-    | R.S15 -> __.S15
-    | R.S16 -> __.S16
-    | R.S17 -> __.S17
-    | R.S18 -> __.S18
-    | R.S19 -> __.S19
-    | R.S20 -> __.S20
-    | R.S21 -> __.S21
-    | R.S22 -> __.S22
-    | R.S23 -> __.S23
-    | R.S24 -> __.S24
-    | R.S25 -> __.S25
-    | R.S26 -> __.S26
-    | R.S27 -> __.S27
-    | R.S28 -> __.S28
-    | R.S29 -> __.S29
-    | R.S30 -> __.S30
-    | R.S31 -> __.S31
-    | R.D0 -> __.D0
-    | R.D1 -> __.D1
-    | R.D2 -> __.D2
-    | R.D3 -> __.D3
-    | R.D4 -> __.D4
-    | R.D5 -> __.D5
-    | R.D6 -> __.D6
-    | R.D7 -> __.D7
-    | R.D8 -> __.D8
-    | R.D9 -> __.D9
-    | R.D10 -> __.D10
-    | R.D11 -> __.D11
-    | R.D12 -> __.D12
-    | R.D13 -> __.D13
-    | R.D14 -> __.D14
-    | R.D15 -> __.D15
-    | R.D16 -> __.D16
-    | R.D17 -> __.D17
-    | R.D18 -> __.D18
-    | R.D19 -> __.D19
-    | R.D20 -> __.D20
-    | R.D21 -> __.D21
-    | R.D22 -> __.D22
-    | R.D23 -> __.D23
-    | R.D24 -> __.D24
-    | R.D25 -> __.D25
-    | R.D26 -> __.D26
-    | R.D27 -> __.D27
-    | R.D28 -> __.D28
-    | R.D29 -> __.D29
-    | R.D30 -> __.D30
-    | R.D31 -> __.D31
-    | R.APSR -> __.APSR
-    | R.SPSR -> __.SPSR
-    | R.CPSR -> __.CPSR
-    | R.SCR -> __.SCR
-    | R.SCTLR -> __.SCTLR
-    | R.NSACR -> __.NSACR
-    | R.FPSCR -> __.FPSCR
+    | R.R0 -> this.R0
+    | R.R1 -> this.R1
+    | R.R2 -> this.R2
+    | R.R3 -> this.R3
+    | R.R4 -> this.R4
+    | R.R5 -> this.R5
+    | R.R6 -> this.R6
+    | R.R7 -> this.R7
+    | R.R8 -> this.R8
+    | R.SB -> this.SB
+    | R.SL -> this.SL
+    | R.FP -> this.FP
+    | R.IP -> this.IP
+    | R.SP -> this.SP
+    | R.LR -> this.LR
+    | R.PC -> this.PC
+    | R.S0 -> this.S0
+    | R.S1 -> this.S1
+    | R.S2 -> this.S2
+    | R.S3 -> this.S3
+    | R.S4 -> this.S4
+    | R.S5 -> this.S5
+    | R.S6 -> this.S6
+    | R.S7 -> this.S7
+    | R.S8 -> this.S8
+    | R.S9 -> this.S9
+    | R.S10 -> this.S10
+    | R.S11 -> this.S11
+    | R.S12 -> this.S12
+    | R.S13 -> this.S13
+    | R.S14 -> this.S14
+    | R.S15 -> this.S15
+    | R.S16 -> this.S16
+    | R.S17 -> this.S17
+    | R.S18 -> this.S18
+    | R.S19 -> this.S19
+    | R.S20 -> this.S20
+    | R.S21 -> this.S21
+    | R.S22 -> this.S22
+    | R.S23 -> this.S23
+    | R.S24 -> this.S24
+    | R.S25 -> this.S25
+    | R.S26 -> this.S26
+    | R.S27 -> this.S27
+    | R.S28 -> this.S28
+    | R.S29 -> this.S29
+    | R.S30 -> this.S30
+    | R.S31 -> this.S31
+    | R.D0 -> this.D0
+    | R.D1 -> this.D1
+    | R.D2 -> this.D2
+    | R.D3 -> this.D3
+    | R.D4 -> this.D4
+    | R.D5 -> this.D5
+    | R.D6 -> this.D6
+    | R.D7 -> this.D7
+    | R.D8 -> this.D8
+    | R.D9 -> this.D9
+    | R.D10 -> this.D10
+    | R.D11 -> this.D11
+    | R.D12 -> this.D12
+    | R.D13 -> this.D13
+    | R.D14 -> this.D14
+    | R.D15 -> this.D15
+    | R.D16 -> this.D16
+    | R.D17 -> this.D17
+    | R.D18 -> this.D18
+    | R.D19 -> this.D19
+    | R.D20 -> this.D20
+    | R.D21 -> this.D21
+    | R.D22 -> this.D22
+    | R.D23 -> this.D23
+    | R.D24 -> this.D24
+    | R.D25 -> this.D25
+    | R.D26 -> this.D26
+    | R.D27 -> this.D27
+    | R.D28 -> this.D28
+    | R.D29 -> this.D29
+    | R.D30 -> this.D30
+    | R.D31 -> this.D31
+    | R.APSR -> this.APSR
+    | R.SPSR -> this.SPSR
+    | R.CPSR -> this.CPSR
+    | R.SCR -> this.SCR
+    | R.SCTLR -> this.SCTLR
+    | R.NSACR -> this.NSACR
+    | R.FPSCR -> this.FPSCR
     | _ -> raise UnhandledRegExprException
 
-  member __.GetPseudoRegVar name pos =
+  member this.GetPseudoRegVar name pos =
     match name, pos with
-    | R.Q0, 1 -> __.Q0A
-    | R.Q0, 2 -> __.Q0B
-    | R.Q1, 1 -> __.Q1A
-    | R.Q1, 2 -> __.Q1B
-    | R.Q2, 1 -> __.Q2A
-    | R.Q2, 2 -> __.Q2B
-    | R.Q3, 1 -> __.Q3A
-    | R.Q3, 2 -> __.Q3B
-    | R.Q4, 1 -> __.Q4A
-    | R.Q4, 2 -> __.Q4B
-    | R.Q5, 1 -> __.Q5A
-    | R.Q5, 2 -> __.Q5B
-    | R.Q6, 1 -> __.Q6A
-    | R.Q6, 2 -> __.Q6B
-    | R.Q7, 1 -> __.Q7A
-    | R.Q7, 2 -> __.Q7B
-    | R.Q8, 1 -> __.Q8A
-    | R.Q8, 2 -> __.Q8B
-    | R.Q9, 1 -> __.Q9A
-    | R.Q9, 2 -> __.Q9B
-    | R.Q10, 1 -> __.Q10A
-    | R.Q10, 2 -> __.Q10B
-    | R.Q11, 1 -> __.Q11A
-    | R.Q11, 2 -> __.Q11B
-    | R.Q12, 1 -> __.Q12A
-    | R.Q12, 2 -> __.Q12B
-    | R.Q13, 1 -> __.Q13A
-    | R.Q13, 2 -> __.Q13B
-    | R.Q14, 1 -> __.Q14A
-    | R.Q14, 2 -> __.Q14B
-    | R.Q15, 1 -> __.Q15A
-    | R.Q15, 2 -> __.Q15B
+    | R.Q0, 1 -> this.Q0A
+    | R.Q0, 2 -> this.Q0B
+    | R.Q1, 1 -> this.Q1A
+    | R.Q1, 2 -> this.Q1B
+    | R.Q2, 1 -> this.Q2A
+    | R.Q2, 2 -> this.Q2B
+    | R.Q3, 1 -> this.Q3A
+    | R.Q3, 2 -> this.Q3B
+    | R.Q4, 1 -> this.Q4A
+    | R.Q4, 2 -> this.Q4B
+    | R.Q5, 1 -> this.Q5A
+    | R.Q5, 2 -> this.Q5B
+    | R.Q6, 1 -> this.Q6A
+    | R.Q6, 2 -> this.Q6B
+    | R.Q7, 1 -> this.Q7A
+    | R.Q7, 2 -> this.Q7B
+    | R.Q8, 1 -> this.Q8A
+    | R.Q8, 2 -> this.Q8B
+    | R.Q9, 1 -> this.Q9A
+    | R.Q9, 2 -> this.Q9B
+    | R.Q10, 1 -> this.Q10A
+    | R.Q10, 2 -> this.Q10B
+    | R.Q11, 1 -> this.Q11A
+    | R.Q11, 2 -> this.Q11B
+    | R.Q12, 1 -> this.Q12A
+    | R.Q12, 2 -> this.Q12B
+    | R.Q13, 1 -> this.Q13A
+    | R.Q13, 2 -> this.Q13B
+    | R.Q14, 1 -> this.Q14A
+    | R.Q14, 2 -> this.Q14B
+    | R.Q15, 1 -> this.Q15A
+    | R.Q15, 2 -> this.Q15B
     | _ -> raise UnhandledRegExprException
 
 // vim: set tw=80 sts=2 sw=2:

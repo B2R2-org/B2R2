@@ -53,21 +53,21 @@ type ARM64LifterTests () =
     CollectionAssert.AreEqual (givenStmts, unwrapStmts <| ins.Translate ctxt)
 
   [<TestMethod>]
-  member __.``[AArch64] ADD (immedate) lift test`` () =
+  member _.``[AArch64] ADD (immedate) lift test`` () =
     "114dc4ba"
     ++ [| !.X26 := AST.zext 64<rt>
            ((AST.xtlo 32<rt> !.X5 .+ num 0x371000u .+ num 0x0u)) |]
     |> test
 
   [<TestMethod>]
-  member __.``[AArch64] ADD (extended register) lift test`` () =
+  member _.``[AArch64] ADD (extended register) lift test`` () =
     "0b3f43ff"
     ++ [| !.SP := AST.zext 64<rt>
            (AST.xtlo 32<rt> !.SP .+ AST.xtlo 32<rt> !.XZR .+ num 0x0u) |]
     |> test
 
   [<TestMethod>]
-  member __.``[AArch64] ADD (shifted register) lift test`` () =
+  member _.``[AArch64] ADD (shifted register) lift test`` () =
     "0b8e5f9b"
     ++ [| !.X27 := AST.zext 64<rt>
            (AST.xtlo 32<rt> !.X28 .+ (AST.xtlo 32<rt> !.X14 ?>> num 0x17u)

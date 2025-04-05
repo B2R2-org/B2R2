@@ -67,5 +67,5 @@ with
   static member Advance (p: BinFilePointer) amount =
     BinFilePointer (p.Addr + uint64 amount, p.Offset + amount, p.MaxOffset)
 
-  override __.ToString () =
-    $"{__.Addr:x} ({__.Offset:x} of {__.MaxOffset:x})"
+  override this.ToString () =
+    $"{this.Addr:x} ({this.Offset:x} of {this.MaxOffset:x})"

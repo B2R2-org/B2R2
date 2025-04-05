@@ -44,19 +44,19 @@ type CmdHexDump () =
     try (addr, brew.BinHandle.ReadBytes (addr=addr, nBytes=count)) |> Ok
     with _ -> Error "[*] Failed to read bytes."
 
-  override __.CmdName = "hexdump"
+  override _.CmdName = "hexdump"
 
-  override __.CmdAlias = [ "hd" ]
+  override _.CmdAlias = [ "hd" ]
 
-  override __.CmdDescr = "Dump the binary contents in a hex+ASCII format."
+  override _.CmdDescr = "Dump the binary contents in a hex+ASCII format."
 
-  override __.CmdHelp =
+  override _.CmdHelp =
     "Usage: hexdump <addr> <bytes>\n\n\
      Dump the contents in a HEX + ASCII format up to the number of given bytes."
 
-  override __.SubCommands = []
+  override _.SubCommands = []
 
-  override __.CallBack _ brew args =
+  override this.CallBack _ brew args =
     match args with
     | addr :: cnt :: _ ->
       let result =
@@ -68,6 +68,6 @@ type CmdHexDump () =
         let wordSize = brew.BinHandle.File.ISA.WordSize
         HexDumper.dump 16 wordSize true addr bytes
       | Error e -> [| OutputColored [ ColoredSegment (NoColor, e) ] |]
-    | _ -> [| __.CmdHelp |] |> Array.map OutputNormal
+    | _ -> [| this.CmdHelp |] |> Array.map OutputNormal
 
 // vim: set tw=80 sts=2 sw=2:

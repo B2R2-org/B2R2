@@ -32,21 +32,21 @@ type DoublyLinkedKeyValue<'K, 'V when 'K: equality and 'V: equality>
   let mutable next = next
   let mutable refCount = 0
 
-  member __.Prev
+  member _.Prev
     with get(): DoublyLinkedKeyValue<'K, 'V> = prev and set(n) = prev <- n
 
-  member __.Next
+  member _.Next
     with get(): DoublyLinkedKeyValue<'K, 'V> = next and set(n) = next <- n
 
-  member __.Key with get(): 'K = key
+  member _.Key with get(): 'K = key
 
-  member __.Value with get(): 'V = value
+  member _.Value with get(): 'V = value
 
-  member __.RefCount with get() = refCount and set(n) = refCount <- n
+  member _.RefCount with get() = refCount and set(n) = refCount <- n
 
-  override __.GetHashCode () = value.GetHashCode ()
+  override _.GetHashCode () = value.GetHashCode ()
 
-  override __.Equals rhs =
+  override this.Equals rhs =
     match rhs with
-    | :? DoublyLinkedKeyValue<'K, 'V> as rhs -> __.Value = rhs.Value
+    | :? DoublyLinkedKeyValue<'K, 'V> as rhs -> this.Value = rhs.Value
     | _ -> false

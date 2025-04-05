@@ -390,18 +390,19 @@ type InsInfo = {
   GAS: int
 }
 with
-  override __.GetHashCode () =
-    hash (__.Address,
-          __.NumBytes,
-          __.Opcode,
-          __.GAS)
-  override __.Equals (i) =
+  override this.GetHashCode () =
+    hash (this.Address,
+          this.NumBytes,
+          this.Opcode,
+          this.GAS)
+
+  override this.Equals (i) =
     match i with
     | :? InsInfo as i ->
-      i.Address = __.Address
-      && i.NumBytes = __.NumBytes
-      && i.Opcode = __.Opcode
-      && i.GAS = __.GAS
+      i.Address = this.Address
+      && i.NumBytes = this.NumBytes
+      && i.Opcode = this.Opcode
+      && i.GAS = this.GAS
     | _ -> false
 
 // vim: set tw=80 sts=2 sw=2:

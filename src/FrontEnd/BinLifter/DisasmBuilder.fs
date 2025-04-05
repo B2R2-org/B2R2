@@ -32,38 +32,38 @@ open B2R2
 type DisasmBuilder (showAddr, resolveSymb, wordSz, addr, len) =
   abstract Accumulate: AsmWordKind -> string -> unit
   abstract AccumulateAddr: unit -> unit
-  member __.ShowAddr with get(): bool = showAddr
-  member __.ResolveSymbol with get(): bool = resolveSymb
-  member __.WordSize with get(): WordSize = wordSz
-  member __.Address with get(): Addr = addr
-  member __.InsLength with get(): uint32 = len
+  member _.ShowAddr with get(): bool = showAddr
+  member _.ResolveSymbol with get(): bool = resolveSymb
+  member _.WordSize with get(): WordSize = wordSz
+  member _.Address with get(): Addr = addr
+  member _.InsLength with get(): uint32 = len
 
 type DisasmStringBuilder (showAddr, resolveSymb, wordSz, addr, len) =
   inherit DisasmBuilder (showAddr, resolveSymb, wordSz, addr, len)
 
   let sb = StringBuilder ()
 
-  override __.Accumulate _kind s =
+  override _.Accumulate _kind s =
     sb.Append (s) |> ignore
 
-  override __.AccumulateAddr () =
+  override _.AccumulateAddr () =
     sb.Append (Addr.toString wordSz addr) |> ignore
     sb.Append (": ") |> ignore
 
-  override __.ToString () = sb.ToString ()
+  override _.ToString () = sb.ToString ()
 
 type DisasmWordBuilder (showAddr, resolveSymb, wordSz, addr, len, n) =
   inherit DisasmBuilder (showAddr, resolveSymb, wordSz, addr, len)
 
   let ab = AsmWordBuilder (n)
 
-  override __.Accumulate kind s =
+  override _.Accumulate kind s =
     ab.Append ({ AsmWordKind = kind; AsmWordValue = s }) |> ignore
 
-  override __.AccumulateAddr () =
+  override _.AccumulateAddr () =
     ab.Append ({ AsmWordKind = AsmWordKind.Address
                  AsmWordValue = Addr.toString wordSz addr }) |> ignore
     ab.Append ({ AsmWordKind = AsmWordKind.String
                  AsmWordValue = ": " }) |> ignore
 
-  member __.ToArray () = ab.ToArray ()
+  member _.ToArray () = ab.ToArray ()

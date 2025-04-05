@@ -296,7 +296,7 @@ type BBLFactory (hdl: BinHandle, instrs) =
     Ok dividedEdges
 
   /// Number of BBLs in the factory.
-  member __.Count with get() = bbls.Count
+  member _.Count with get() = bbls.Count
 
   /// Scan all directly reachable intra-procedural BBLs from the given
   /// addresses. This function does not handle indirect branches nor call
@@ -310,8 +310,8 @@ type BBLFactory (hdl: BinHandle, instrs) =
   /// When the `allowOverlap` argument is true, however, we do not split BBLs
   /// and allow overlapping BBLs. This is useful when we analyze EVM binaries,
   /// for instance.
-  member __.ScanBBLs (mode, addrs,
-                      [<Optional; DefaultParameterValue(false)>] allowOverlap) =
+  member _.ScanBBLs (mode, addrs,
+                     [<Optional; DefaultParameterValue(false)>] allowOverlap) =
     task {
       let channel = BufferBlock<Addr * Instruction list * int> ()
       instrProducer channel mode addrs |> ignore
@@ -322,21 +322,21 @@ type BBLFactory (hdl: BinHandle, instrs) =
     }
 
   /// Check if there is a BBL at the given program point.
-  member __.Contains (ppoint: ProgramPoint) = bbls.ContainsKey ppoint
+  member _.Contains (ppoint: ProgramPoint) = bbls.ContainsKey ppoint
 
   /// Find an existing BBL that is located at the given program point. If there
   /// is no such BBL, then this function will return an error.
-  member __.TryFind (ppoint: ProgramPoint) =
+  member _.TryFind (ppoint: ProgramPoint) =
     match bbls.TryGetValue ppoint with
     | true, bbl -> Ok bbl
     | false, _ -> Error ErrorCase.ItemNotFound
 
   /// Find an existing BBL that contains the given program point.
-  member __.Find (ppoint: ProgramPoint) = bbls[ppoint]
+  member _.Find (ppoint: ProgramPoint) = bbls[ppoint]
 
 #if DEBUG
   /// Dump all BBLs in the factory for debugging purposes.
-  member __.DumpBBLs () =
+  member _.DumpBBLs () =
     bbls
     |> Seq.iter (fun kv ->
       printfn "# %s" (kv.Key.ToString ())

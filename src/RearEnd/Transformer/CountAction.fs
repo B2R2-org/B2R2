@@ -44,13 +44,13 @@ type CountAction () =
     hdl.File.Length
 
   interface IAction with
-    member __.ActionID with get() = "count"
-    member __.Signature with get() = "ObjCollection -> int"
-    member __.Description with get() = """
+    member _.ActionID with get() = "count"
+    member _.Signature with get() = "ObjCollection -> int"
+    member _.Description with get() = """
     Take in ObjCollection as input and returns how many objects are valid. This
     action is useful when counting the number of results obtained from grep
     action.
 """
-    member __.Transform _args collection =
+    member _.Transform _args collection =
       { Values = [| collection.Values
                     |> Array.fold (fun acc v -> acc + count v) 0 |] }

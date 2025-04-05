@@ -31,12 +31,13 @@ open B2R2.Collections.FingerTree
 type IntervalSetElem (interval) =
   member val Val: AddrRange = interval
 with
-  member __.Min = __.Val.Min
-  member __.Max = __.Val.Max
-  override __.ToString () = __.Val.ToString ()
+  member this.Min = this.Val.Min
+  member this.Max = this.Val.Max
+  override this.ToString () = this.Val.ToString ()
   interface IMeasured<InterMonoid<Addr>> with
-    member __.Measurement =
-      InterMonoid<Addr> (Ordered(Key(__.Val.Min)), Priority(Prio(__.Val.Max)))
+    member this.Measurement =
+      InterMonoid<Addr> (Ordered(Key(this.Val.Min)),
+                         Priority(Prio(this.Val.Max)))
 
 /// Interval tree-based set, which stores intervals (AddrRange) that can
 /// overlap unlike ARMap.

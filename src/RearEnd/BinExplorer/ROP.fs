@@ -31,18 +31,18 @@ open B2R2.RearEnd.ROP
 type CmdGadgetSearch () =
   inherit Cmd ()
 
-  override __.CmdName = "gadgetlist"
+  override _.CmdName = "gadgetlist"
 
-  override __.CmdAlias = [ "gl" ]
+  override _.CmdAlias = [ "gl" ]
 
-  override __.CmdDescr = "Search for the list of ROP gadgets."
+  override _.CmdDescr = "Search for the list of ROP gadgets."
 
-  override __.CmdHelp = "Usage: gadgetlist\n\n\
-                         Show the list of available ROP gadgets."
+  override _.CmdHelp = "Usage: gadgetlist\n\n\
+                        Show the list of available ROP gadgets."
 
-  override __.SubCommands = []
+  override _.SubCommands = []
 
-  override __.CallBack _ ess _args =
+  override _.CallBack _ ess _args =
     let hdl = ess.BinHandle
     let liftingUnit = hdl.NewLiftingUnit ()
     [| Galileo.findGadgets hdl |> GadgetMap.toString liftingUnit |]
@@ -51,17 +51,17 @@ type CmdGadgetSearch () =
 type CmdROP () =
   inherit Cmd ()
 
-  member __.ShowResult hdl = function
+  member _.ShowResult hdl = function
     | Some payload -> [| ROPPayload.toString hdl 0u payload |]
     | None -> [| "Cannot find gadgets." |]
 
-  override __.CmdName = "rop"
+  override _.CmdName = "rop"
 
-  override __.CmdAlias = []
+  override _.CmdAlias = []
 
-  override __.CmdDescr = "Compile an ROP chain."
+  override _.CmdDescr = "Compile an ROP chain."
 
-  override __.CmdHelp =
+  override _.CmdHelp =
     "Usage: rop <cmd> [options]\n\n\
      Compile a ROP chain based on the given command.\n\
      - exec: a ROP payload for invoking a shell (execve)\n\
@@ -69,35 +69,35 @@ type CmdROP () =
      - write: a ROP payload for writing a value to a target memory.\n\
      - pivot: a ROP payload for stack pivoting."
 
-  override __.SubCommands = []
+  override _.SubCommands = []
 
-  override __.CallBack _ ess args =
+  override this.CallBack _ ess args =
     let hdl = ess.BinHandle
     match hdl.File.ISA.Arch with
     | Architecture.IntelX86 ->
       let rop = ROPHandle.init hdl 0UL
-      __.HandleSubCmd rop args
+      this.HandleSubCmd rop args
       |> Array.map OutputNormal
     | arch ->
       [| "[*] We currently do not support " + (ISA.ArchToString arch) |]
       |> Array.map OutputNormal
 
-  member private __.HandleSubCmd rop args =
+  member private this.HandleSubCmd rop args =
     match args with
     | "exec" :: _ ->
       ROPHandle.execShell rop
-      |> __.ShowResult rop.LiftingUnit
+      |> this.ShowResult rop.LiftingUnit
     | "func" :: target :: args ->
       let args = Array.ofList args |> Array.map ROPExpr.ofUInt32
       ROPHandle.funCall rop (ROPExpr.ofUInt32 target) args
-      |> __.ShowResult rop.LiftingUnit
+      |> this.ShowResult rop.LiftingUnit
     | "write" :: target :: vals ->
       let vals = Array.ofList vals |> Array.map ROPExpr.ofUInt32
       ROPHandle.write32s rop (ROPExpr.ofUInt32 target) vals
-      |> __.ShowResult rop.LiftingUnit
+      |> this.ShowResult rop.LiftingUnit
     | "pivot" :: [esp] ->
       ROPHandle.stackPivot rop (ROPExpr.ofUInt32 esp)
-      |> __.ShowResult rop.LiftingUnit
+      |> this.ShowResult rop.LiftingUnit
     | _ -> [| "[*] Unknown ROP cmd." |]
 
 // vim: set tw=80 sts=2 sw=2:

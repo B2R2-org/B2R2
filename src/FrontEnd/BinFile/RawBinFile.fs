@@ -38,154 +38,154 @@ type RawBinFile (path, bytes: byte[], isa, baseAddrOpt) =
   let reader = BinReader.Init isa.Endian
 
   interface IBinFile with
-    member __.Reader with get() = reader
+    member _.Reader with get() = reader
 
-    member __.RawBytes = bytes
+    member _.RawBytes = bytes
 
-    member __.Length = bytes.Length
+    member _.Length = bytes.Length
 
-    member __.Path with get() = path
+    member _.Path with get() = path
 
-    member __.Format with get() = FileFormat.RawBinary
+    member _.Format with get() = FileFormat.RawBinary
 
-    member __.ISA with get() = isa
+    member _.ISA with get() = isa
 
-    member __.Type with get() = FileType.UnknownFile
+    member _.Type with get() = FileType.UnknownFile
 
-    member __.EntryPoint = Some baseAddr
+    member _.EntryPoint = Some baseAddr
 
-    member __.BaseAddress with get() = baseAddr
+    member _.BaseAddress with get() = baseAddr
 
-    member __.IsStripped = false
+    member _.IsStripped = false
 
-    member __.IsNXEnabled = false
+    member _.IsNXEnabled = false
 
-    member __.IsRelocatable = false
+    member _.IsRelocatable = false
 
-    member __.GetOffset addr = Convert.ToInt32 (addr - baseAddr)
+    member _.GetOffset addr = Convert.ToInt32 (addr - baseAddr)
 
-    member __.Slice (addr, size) =
-      let offset = (__ :> IContentAddressable).GetOffset addr
+    member this.Slice (addr, size) =
+      let offset = (this :> IContentAddressable).GetOffset addr
       let span = ReadOnlySpan bytes
       span.Slice (offset, size)
 
-    member __.Slice (addr) =
-      let offset = (__ :> IContentAddressable).GetOffset addr
+    member this.Slice (addr) =
+      let offset = (this :> IContentAddressable).GetOffset addr
       let span = ReadOnlySpan bytes
       span.Slice offset
 
-    member __.Slice (offset: int, size) =
+    member _.Slice (offset: int, size) =
       let span = ReadOnlySpan bytes
       span.Slice (offset, size)
 
-    member __.Slice (offset: int) =
+    member _.Slice (offset: int) =
       let span = ReadOnlySpan bytes
       span.Slice offset
 
-    member __.Slice (ptr: BinFilePointer, size) =
+    member _.Slice (ptr: BinFilePointer, size) =
       let span = ReadOnlySpan bytes
       span.Slice (ptr.Offset, size)
 
-    member __.Slice (ptr: BinFilePointer) =
+    member _.Slice (ptr: BinFilePointer) =
       let span = ReadOnlySpan bytes
       span.Slice ptr.Offset
 
-    member __.ReadByte (addr: Addr) =
-      let offset = (__ :> IContentAddressable).GetOffset addr
+    member this.ReadByte (addr: Addr) =
+      let offset = (this :> IContentAddressable).GetOffset addr
       bytes[offset]
 
-    member __.ReadByte (offset: int) =
+    member _.ReadByte (offset: int) =
       bytes[offset]
 
-    member __.ReadByte (ptr: BinFilePointer) =
+    member _.ReadByte (ptr: BinFilePointer) =
       bytes[ptr.Offset]
 
-    member __.IsValidAddr addr =
+    member _.IsValidAddr addr =
       addr >= baseAddr && addr < (baseAddr + uint64 size)
 
-    member __.IsValidRange range =
-      (__ :> IContentAddressable).IsValidAddr range.Min
-      && (__ :> IContentAddressable).IsValidAddr range.Max
+    member this.IsValidRange range =
+      (this :> IContentAddressable).IsValidAddr range.Min
+      && (this :> IContentAddressable).IsValidAddr range.Max
 
-    member __.IsInFileAddr addr =
-      (__ :> IContentAddressable).IsValidAddr addr
+    member this.IsInFileAddr addr =
+      (this :> IContentAddressable).IsValidAddr addr
 
-    member __.IsInFileRange range =
-      (__ :> IContentAddressable).IsValidRange range
+    member this.IsInFileRange range =
+      (this :> IContentAddressable).IsValidRange range
 
-    member __.IsExecutableAddr addr =
-      (__ :> IContentAddressable).IsValidAddr addr
+    member this.IsExecutableAddr addr =
+      (this :> IContentAddressable).IsValidAddr addr
 
-    member __.GetNotInFileIntervals range =
+    member _.GetNotInFileIntervals range =
       FileHelper.getNotInFileIntervals baseAddr (uint64 size) range
 
-    member __.ToBinFilePointer addr =
+    member _.ToBinFilePointer addr =
       if addr = baseAddr then BinFilePointer (baseAddr, 0, size - 1)
       else BinFilePointer.Null
 
-    member __.ToBinFilePointer (_name: string) = BinFilePointer.Null
+    member _.ToBinFilePointer (_name: string) = BinFilePointer.Null
 
-    member __.TryFindFunctionName (_addr) =
+    member _.TryFindFunctionName (_addr) =
       if symbolMap.ContainsKey(_addr) then Ok symbolMap[_addr].Name
       else Error ErrorCase.SymbolNotFound
 
-    member __.GetSymbols () =
+    member _.GetSymbols () =
       Seq.map (fun (KeyValue(k, v)) -> v) symbolMap |> Seq.toArray
 
-    member __.GetStaticSymbols () = (__ :> IBinFile).GetSymbols ()
+    member this.GetStaticSymbols () = (this :> IBinFile).GetSymbols ()
 
-    member __.GetFunctionSymbols () = (__ :> IBinFile).GetStaticSymbols ()
+    member this.GetFunctionSymbols () = (this :> IBinFile).GetStaticSymbols ()
 
-    member __.GetDynamicSymbols (?_excludeImported) = [||]
+    member _.GetDynamicSymbols (?_excludeImported) = [||]
 
-    member __.AddSymbol addr symbol = symbolMap[addr] <- symbol
+    member _.AddSymbol addr symbol = symbolMap[addr] <- symbol
 
-    member __.GetSections () =
+    member _.GetSections () =
       [| { Address = baseAddr
            FileOffset = 0u
            Kind = SectionKind.CodeSection
            Size = uint32 size
            Name = "" } |]
 
-    member __.GetSections (addr: Addr) =
+    member this.GetSections (addr: Addr) =
       if addr >= baseAddr && addr < (baseAddr + uint64 size) then
-        (__ :> IBinFile).GetSections ()
+        (this :> IBinFile).GetSections ()
       else [||]
 
-    member __.GetSections (_: string): Section[] = [||]
+    member _.GetSections (_: string): Section[] = [||]
 
-    member __.GetTextSection () = raise SectionNotFoundException
+    member _.GetTextSection () = raise SectionNotFoundException
 
-    member __.GetSegments (_isLoadable: bool) =
+    member _.GetSegments (_isLoadable: bool) =
       [| { Address = baseAddr
            Offset = 0u
            Size = uint32 size
            SizeInFile = uint32 size
            Permission = Permission.Readable ||| Permission.Executable } |]
 
-    member __.GetSegments (addr: Addr) =
-      (__ :> IBinFile).GetSegments ()
+    member this.GetSegments (addr: Addr) =
+      (this :> IBinFile).GetSegments ()
       |> Array.filter (fun s -> (addr >= s.Address)
                              && (addr < s.Address + uint64 s.Size))
 
-    member __.GetSegments (perm: Permission) =
-      (__ :> IBinFile).GetSegments ()
+    member this.GetSegments (perm: Permission) =
+      (this :> IBinFile).GetSegments ()
       |> Array.filter (fun s -> (s.Permission &&& perm = perm) && s.Size > 0u)
 
-    member __.GetFunctionAddresses () =
-      (__ :> IBinFile).GetFunctionSymbols ()
+    member this.GetFunctionAddresses () =
+      (this :> IBinFile).GetFunctionSymbols ()
       |> Array.filter (fun s -> s.Kind = SymFunctionType)
       |> Array.map (fun s -> s.Address)
 
-    member __.GetFunctionAddresses (_) =
-      (__ :> IBinFile).GetFunctionAddresses ()
+    member this.GetFunctionAddresses (_) =
+      (this :> IBinFile).GetFunctionAddresses ()
 
-    member __.GetRelocationInfos () = [||]
+    member _.GetRelocationInfos () = [||]
 
-    member __.HasRelocationInfo _ = false
+    member _.HasRelocationInfo _ = false
 
-    member __.GetRelocatedAddr _relocAddr = Terminator.impossible ()
+    member _.GetRelocatedAddr _relocAddr = Terminator.impossible ()
 
-    member __.GetLinkageTableEntries () = [||]
+    member _.GetLinkageTableEntries () = [||]
 
-    member __.IsLinkageTable _ = false
+    member _.IsLinkageTable _ = false

@@ -103,10 +103,10 @@ type E =
 #if ! HASHCONS
 #else
 with
-  override __.Equals rhs =
+  override this.Equals rhs =
     match rhs with
     | :? E as rhs ->
-      match __, rhs with
+      match this, rhs with
       | Num (n1), Num (n2) -> n1 = n2
       | Var (t1, r1, _), Var (t2, r2, _) -> t1 = t2 && r1 = r2
       | Nil, Nil -> true
@@ -172,8 +172,8 @@ with
   static member inline HashUndef (rt: RegType) (s: string) =
     19 * (19 * int rt + s.GetHashCode ()) + 13
 
-  override __.GetHashCode () =
-    match __ with
+  override this.GetHashCode () =
+    match this with
     | Num n -> n.GetHashCode ()
     | Var (rt, rid, _) -> E.HashVar rt rid
     | Nil -> 0
@@ -208,17 +208,17 @@ and [<CustomEquality; CustomComparison>] Expr = {
   HashKey: int
 }
 with
-  override __.Equals rhs =
+  override this.Equals rhs =
     match rhs with
-    | :? Expr as rhs -> __.Tag = rhs.Tag
+    | :? Expr as rhs -> this.Tag = rhs.Tag
     | _ -> false
 
-  override __.GetHashCode () = __.HashKey
+  override this.GetHashCode () = this.HashKey
 
   interface IComparable with
-    member __.CompareTo rhs =
+    member this.CompareTo rhs =
       match rhs with
-      | :? Expr as rhs -> __.Tag.CompareTo rhs.Tag
+      | :? Expr as rhs -> this.Tag.CompareTo rhs.Tag
       | _ -> 1
 #endif
 

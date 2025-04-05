@@ -48,8 +48,8 @@ type LLVMContext = {
   ContextSize: int
 }
 with
-  member __.DereferenceableAttribute with get () =
-    "dereferenceable(" + string __.ContextSize + ")"
+  member this.DereferenceableAttribute with get () =
+    "dereferenceable(" + string this.ContextSize + ")"
 
 [<RequireQualifiedAccess>]
 module private LLVMContext =

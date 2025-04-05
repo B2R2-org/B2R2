@@ -147,63 +147,63 @@ type InternalFnCFGBuilder<'FnCtx,
     InternalFnCFGBuilder (ctx, None, manager)
 
   interface ICFGBuildable<'FnCtx, 'GlCtx> with
-    member __.BuilderState with get() = state
+    member _.BuilderState with get() = state
 
-    member __.EntryPoint with get(): Addr = ctx.FunctionAddress
+    member _.EntryPoint with get(): Addr = ctx.FunctionAddress
 
-    member __.NextFunctionAddress
+    member _.NextFunctionAddress
       with get() = nextFnAddr
        and set(v) = nextFnAddr <- v
 
-    member __.Mode with get() = ctx.FunctionMode
+    member _.Mode with get() = ctx.FunctionMode
 
-    member __.Context with get() = ctx
+    member _.Context with get() = ctx
 
-    member __.DelayedBuilderRequests with get() = delayedBuilderRequests
+    member _.DelayedBuilderRequests with get() = delayedBuilderRequests
 
-    member __.HasJumpTable with get() = hasJumpTable
+    member _.HasJumpTable with get() = hasJumpTable
 
-    member __.IsExternal with get() = false
+    member _.IsExternal with get() = false
 
-    member __.Authorize () =
+    member _.Authorize () =
       assert (state <> InProgress)
       state <- InProgress
 
-    member __.Stop () =
+    member _.Stop () =
       assert (state = InProgress)
       state <- Stopped
 
-    member __.ForceFinish () =
+    member _.ForceFinish () =
       state <- ForceFinished
 
-    member __.StartVerifying () =
+    member _.StartVerifying () =
       assert (state = InProgress)
       state <- Verifying
 
-    member __.Finalize () =
+    member _.Finalize () =
       assert (state = Verifying)
       state <- Finished
 
-    member __.ReInitialize () =
+    member _.ReInitialize () =
       assert (state = Finished || state = ForceFinished)
       state <- Initialized
 
-    member __.Invalidate () =
+    member _.Invalidate () =
       state <- Invalid
 
-    member __.Build strategy =
+    member _.Build strategy =
       ctx.ActionQueue.Push strategy.ActionPrioritizer InitiateCFG
       build strategy ctx.ActionQueue
 
-    member __.Reset () =
+    member _.Reset () =
       state <- Initialized
       delayedBuilderRequests.Clear ()
       ctx.Reset ()
 
-    member __.MakeNew (manager) =
+    member _.MakeNew (manager) =
       InternalFnCFGBuilder (ctx, nextFnAddr, manager)
 
-    member __.ToFunction () =
+    member _.ToFunction () =
       assert (state = Finished)
       Function (ctx.FunctionAddress,
                 ctx.FunctionName,

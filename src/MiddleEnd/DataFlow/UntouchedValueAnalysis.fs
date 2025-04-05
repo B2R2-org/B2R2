@@ -72,15 +72,15 @@ type UntouchedValueAnalysis =
 
     let analysis =
       { new IVarBasedDataFlowAnalysis<UntouchedValueDomain.Lattice> with
-          member __.OnInitialize state = state
+          member _.OnInitialize state = state
 
-          member __.Bottom = UntouchedValueDomain.Undef
+          member _.Bottom = UntouchedValueDomain.Undef
 
-          member __.Join a b = UntouchedValueDomain.join a b
+          member _.Join a b = UntouchedValueDomain.join a b
 
-          member __.Subsume a b = UntouchedValueDomain.subsume a b
+          member _.Subsume a b = UntouchedValueDomain.subsume a b
 
-          member __.EvalExpr state pp e = evaluateExpr state pp e }
+          member _.EvalExpr state pp e = evaluateExpr state pp e }
 
     { inherit VarBasedDataFlowAnalysis<UntouchedValueDomain.Lattice>
         (hdl, analysis) }

@@ -65,16 +65,16 @@ type WinnowingAction () =
       |> box
 
   interface IAction with
-    member __.ActionID with get() = "winnowing"
-    member __.Signature with get() = "Binary * [n] * [wsz] -> Fingerprint"
-    member __.Description with get() = """
+    member _.ActionID with get() = "winnowing"
+    member _.Signature with get() = "Binary * [n] * [wsz] -> Fingerprint"
+    member _.Description with get() = """
     Take in an input binary and returns its fingerprint, which is essentially a
     list of (hash * byte position) tuples.
 
       - [n] : Size of n-gram. The default is 4.
       - [w] : Window size. The default is 4.
 """
-    member __.Transform args collection =
+    member _.Transform args collection =
       let n, wsz =
         match args with
         | [] -> 4, 4

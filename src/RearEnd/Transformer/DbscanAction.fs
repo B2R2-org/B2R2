@@ -103,15 +103,15 @@ type DbscanAction () =
     [| box { Clusters = clusters.ToArray () } |]
 
   interface IAction with
-    member __.ActionID with get() = "dbscan"
-    member __.Signature
+    member _.ActionID with get() = "dbscan"
+    member _.Signature
       with get() = "Fingerprint collection * [eps] * [minPts] -> Cluster array"
-    member __.Description with get() = """
+    member _.Description with get() = """
     Take in an array of fingerprints and return an array of clustered
     fingerprints. User may specify <eps> and <minPts> as arguments. If not, we
     use a default value of <eps> = 0.2 and <minPts> = 3.
 """
-    member __.Transform args collection =
+    member _.Transform args collection =
       let eps, minPts =
         match args with
         | eps :: minPts :: [] -> Convert.ToDouble eps, Convert.ToInt32 minPts

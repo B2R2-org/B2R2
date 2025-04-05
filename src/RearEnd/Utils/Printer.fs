@@ -141,41 +141,41 @@ type ConsolePrinter () =
 
   let mutable lastLineWasEmpty = false
 
-  override __.Print s =
+  override _.Print s =
     OutString.toConsole s
 
-  override __.Print s =
+  override _.Print s =
     ColoredString.toConsole s
 
-  override __.Print (s: string, [<ParamArray>] args) =
+  override _.Print (s: string, [<ParamArray>] args) =
     Console.Write (s, args)
 
-  override __.PrintLine os =
+  override _.PrintLine os =
     OutString.toConsoleLine os
     lastLineWasEmpty <- false
 
-  override __.PrintLine cs =
+  override _.PrintLine cs =
     ColoredString.toConsoleLine cs
     lastLineWasEmpty <- false
 
-  override __.PrintLine (s: string) =
+  override _.PrintLine (s: string) =
     Console.WriteLine (s)
     lastLineWasEmpty <- false
 
-  override __.PrintLine (fmt: string, [<ParamArray>] args) =
+  override _.PrintLine (fmt: string, [<ParamArray>] args) =
     Console.WriteLine (fmt, args)
     lastLineWasEmpty <- fmt.Length = 0
 
-  override __.PrintLine () =
+  override _.PrintLine () =
     Console.WriteLine ()
     lastLineWasEmpty <- true
 
-  override __.PrintLineIfPrevLineWasNotEmpty () =
+  override _.PrintLineIfPrevLineWasNotEmpty () =
     if lastLineWasEmpty then ()
     else Console.WriteLine ()
     lastLineWasEmpty <- true
 
-  override __.PrintRow (indent, cfg: TableConfig, css: ColoredString list) =
+  override this.PrintRow (indent, cfg: TableConfig, css: ColoredString list) =
     let lastIdx = List.length cfg - 1
     List.zip cfg css
     |> List.iteri (fun i (col, cs) ->
@@ -183,12 +183,12 @@ type ConsolePrinter () =
       match cs with
       | (c, s) :: rest ->
         (c, TableColumn.OfPaddedString (i = lastIdx) s col) :: rest
-        |> __.Print
+        |> this.Print
       | [] -> ())
     Console.WriteLine ()
     lastLineWasEmpty <- false
 
-  override __.PrintRow (indent, cfg: TableConfig, strs: string list) =
+  override _.PrintRow (indent, cfg: TableConfig, strs: string list) =
     let lastIdx = List.length cfg - 1
     List.zip cfg strs
     |> List.iteri (fun i (c, s) ->
@@ -198,32 +198,32 @@ type ConsolePrinter () =
     Console.WriteLine ()
     lastLineWasEmpty <- false
 
-  override __.PrintSectionTitle title =
+  override this.PrintSectionTitle title =
     [ ColoredSegment (Red, "# ")
       ColoredSegment (NoColor, title) ]
-    |> __.PrintLine
-    __.PrintLine ()
+    |> this.PrintLine
+    this.PrintLine ()
     lastLineWasEmpty <- true
 
-  override __.PrintSubsectionTitle (str: string) =
-    __.PrintLine ("    - " + str)
+  override this.PrintSubsectionTitle (str: string) =
+    this.PrintLine ("    - " + str)
     lastLineWasEmpty <- false
 
-  override __.PrintSubsubsectionTitle (str: string) =
-    __.PrintLine ("         * " + str)
+  override this.PrintSubsubsectionTitle (str: string) =
+    this.PrintLine ("         * " + str)
     lastLineWasEmpty <- false
 
-  override __.PrintTwoCols (col1: string) (col2: string) =
-    __.Print (col1.PadLeft PrinterConst.ColWidth + " ")
-    __.PrintLine col2
+  override this.PrintTwoCols (col1: string) (col2: string) =
+    this.Print (col1.PadLeft PrinterConst.ColWidth + " ")
+    this.PrintLine col2
     lastLineWasEmpty <- false
 
-  override __.PrintTwoColsWithColorOnSnd (col1: string) (col2: ColoredString) =
-    __.Print (col1.PadLeft PrinterConst.ColWidth + " ")
-    __.PrintLine col2
+  override this.PrintTwoColsWithColorOnSnd (col1: string) col2 =
+    this.Print (col1.PadLeft PrinterConst.ColWidth + " ")
+    this.PrintLine col2
     lastLineWasEmpty <- false
 
-  override __.Flush () = ()
+  override _.Flush () = ()
 
 /// ConsoleCachedPrinter prints out non-colored strings only when the Flush
 /// method is called. All the colored strings will be normalized to plain
@@ -235,95 +235,95 @@ type ConsoleCachedPrinter () =
   let mutable lastLineWasEmpty = false
   let cache = StringBuilder ()
 
-  member private __.Add (s: string) =
+  member private this.Add (s: string) =
     cache.Append (s) |> ignore
     if cache.Length <= PrinterConst.CacheLimit then ()
-    else __.Flush ()
+    else this.Flush ()
 
-  override __.Print s =
-    OutString.toString s |> __.Add
+  override this.Print s =
+    OutString.toString s |> this.Add
 
-  override __.Print s =
-    ColoredString.toString s |> __.Add
+  override this.Print s =
+    ColoredString.toString s |> this.Add
 
-  override __.Print (s: string, [<ParamArray>] args) =
-    String.Format (s, args) |> __.Add
+  override this.Print (s: string, [<ParamArray>] args) =
+    String.Format (s, args) |> this.Add
 
-  override __.PrintLine os =
-    OutString.toString os + Environment.NewLine |> __.Add
+  override this.PrintLine os =
+    OutString.toString os + Environment.NewLine |> this.Add
     lastLineWasEmpty <- false
 
-  override __.PrintLine cs =
-    ColoredString.toString cs + Environment.NewLine |> __.Add
+  override this.PrintLine cs =
+    ColoredString.toString cs + Environment.NewLine |> this.Add
     lastLineWasEmpty <- false
 
-  override __.PrintLine (s: string) =
-    s + Environment.NewLine |> __.Add
+  override this.PrintLine (s: string) =
+    s + Environment.NewLine |> this.Add
     lastLineWasEmpty <- false
 
-  override __.PrintLine (fmt: string, [<ParamArray>] args) =
-    String.Format (fmt, args) + Environment.NewLine |> __.Add
+  override this.PrintLine (fmt: string, [<ParamArray>] args) =
+    String.Format (fmt, args) + Environment.NewLine |> this.Add
     lastLineWasEmpty <- fmt.Length = 0
 
-  override __.PrintLine () =
-    __.Add Environment.NewLine
+  override this.PrintLine () =
+    this.Add Environment.NewLine
     lastLineWasEmpty <- true
 
-  override __.PrintLineIfPrevLineWasNotEmpty () =
+  override this.PrintLineIfPrevLineWasNotEmpty () =
     if lastLineWasEmpty then ()
-    else __.Add Environment.NewLine
+    else this.Add Environment.NewLine
     lastLineWasEmpty <- true
 
-  override __.PrintRow (indent, cfg: TableConfig, css: ColoredString list) =
+  override this.PrintRow (indent, cfg: TableConfig, css: ColoredString list) =
     let lastIdx = List.length cfg - 1
     List.zip cfg css
     |> List.iteri (fun i (col, cs) ->
-      if indent then __.Add ("  ") else ()
+      if indent then this.Add ("  ") else ()
       match cs with
       | (_, s) :: rest ->
         (TableColumn.OfPaddedString (i = lastIdx) s col
         + ColoredString.toString rest)
-        |> __.Add
+        |> this.Add
       | [] -> ())
-    __.Add Environment.NewLine
+    this.Add Environment.NewLine
     lastLineWasEmpty <- false
 
-  override __.PrintRow (indent, cfg: TableConfig, strs: string list) =
+  override this.PrintRow (indent, cfg: TableConfig, strs: string list) =
     let lastIdx = List.length cfg - 1
     List.zip cfg strs
     |> List.iteri (fun i (c, s) ->
-      if indent then __.Add ("  ")
-      TableColumn.OfPaddedString (i = lastIdx) s c |> __.Add)
-    __.Add Environment.NewLine
+      if indent then this.Add ("  ")
+      TableColumn.OfPaddedString (i = lastIdx) s c |> this.Add)
+    this.Add Environment.NewLine
     lastLineWasEmpty <- false
 
-  override __.PrintSectionTitle title =
-    "# " + title + Environment.NewLine + Environment.NewLine |> __.Add
+  override this.PrintSectionTitle title =
+    "# " + title + Environment.NewLine + Environment.NewLine |> this.Add
     lastLineWasEmpty <- true
 
-  override __.PrintSubsectionTitle (str: string) =
-    ("    - " + str) |> __.Add
-    __.Add Environment.NewLine
+  override this.PrintSubsectionTitle (str: string) =
+    ("    - " + str) |> this.Add
+    this.Add Environment.NewLine
     lastLineWasEmpty <- false
 
-  override __.PrintSubsubsectionTitle (str: string) =
-    ("         * " + str) |> __.Add
-    __.Add Environment.NewLine
+  override this.PrintSubsubsectionTitle (str: string) =
+    ("         * " + str) |> this.Add
+    this.Add Environment.NewLine
     lastLineWasEmpty <- false
 
-  override __.PrintTwoCols (col1: string) (col2: string) =
-    col1.PadLeft PrinterConst.ColWidth + " " |> __.Add
-    col2 |> __.Add
-    __.Add Environment.NewLine
+  override this.PrintTwoCols (col1: string) (col2: string) =
+    col1.PadLeft PrinterConst.ColWidth + " " |> this.Add
+    col2 |> this.Add
+    this.Add Environment.NewLine
     lastLineWasEmpty <- false
 
-  override __.PrintTwoColsWithColorOnSnd (col1: string) (col2: ColoredString) =
-    col1.PadLeft PrinterConst.ColWidth + " " |> __.Add
-    ColoredString.toString col2 |> __.Add
-    __.Add Environment.NewLine
+  override this.PrintTwoColsWithColorOnSnd (col1: string) col2 =
+    col1.PadLeft PrinterConst.ColWidth + " " |> this.Add
+    ColoredString.toString col2 |> this.Add
+    this.Add Environment.NewLine
     lastLineWasEmpty <- false
 
-  override __.Flush () =
+  override _.Flush () =
     cache.ToString () |> Console.Write
     cache.Clear () |> ignore
 
@@ -332,36 +332,36 @@ type ConsoleCachedPrinter () =
 type ConsoleNullPrinter () =
   inherit Printer ()
 
-  override __.Print (_: OutString) = ()
+  override _.Print (_: OutString) = ()
 
-  override __.Print (_: ColoredString) = ()
+  override _.Print (_: ColoredString) = ()
 
-  override __.Print (_: string, [<ParamArray>] _args) = ()
+  override _.Print (_: string, [<ParamArray>] _args) = ()
 
-  override __.PrintLine (_: OutString) = ()
+  override _.PrintLine (_: OutString) = ()
 
-  override __.PrintLine (_: ColoredString) = ()
+  override _.PrintLine (_: ColoredString) = ()
 
-  override __.PrintLine (_: string) = ()
+  override _.PrintLine (_: string) = ()
 
-  override __.PrintLine (_: string, [<ParamArray>] _args) = ()
+  override _.PrintLine (_: string, [<ParamArray>] _args) = ()
 
-  override __.PrintLine () = ()
+  override _.PrintLine () = ()
 
-  override __.PrintLineIfPrevLineWasNotEmpty () = ()
+  override _.PrintLineIfPrevLineWasNotEmpty () = ()
 
-  override __.PrintRow (_: bool, _: TableConfig, _: ColoredString list) = ()
+  override _.PrintRow (_: bool, _: TableConfig, _: ColoredString list) = ()
 
-  override __.PrintRow (_: bool, _: TableConfig, _: string list) = ()
+  override _.PrintRow (_: bool, _: TableConfig, _: string list) = ()
 
-  override __.PrintSectionTitle _ = ()
+  override _.PrintSectionTitle _ = ()
 
-  override __.PrintSubsectionTitle (_: string) = ()
+  override _.PrintSubsectionTitle (_: string) = ()
 
-  override __.PrintSubsubsectionTitle (_: string) = ()
+  override _.PrintSubsubsectionTitle (_: string) = ()
 
-  override __.PrintTwoCols (_: string) (_: string) = ()
+  override _.PrintTwoCols (_: string) (_: string) = ()
 
-  override __.PrintTwoColsWithColorOnSnd (_: string) (_: ColoredString) = ()
+  override _.PrintTwoColsWithColorOnSnd (_: string) (_: ColoredString) = ()
 
-  override __.Flush () = ()
+  override _.Flush () = ()

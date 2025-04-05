@@ -44,9 +44,9 @@ type Doms () =
   member _.FileName with get() = fileName and set(n) = fileName <- n
 
   [<GlobalSetup>]
-  member __.GlobalSetup () =
+  member this.GlobalSetup () =
     let constructor () = ImperativeDiGraph () :> IDiGraph<_, _>
-    let json = System.IO.File.ReadAllText ("TestData/" + __.FileName)
+    let json = System.IO.File.ReadAllText ("TestData/" + this.FileName)
     g <- Serializer.FromJson (json, constructor, id, id)
 
   [<Benchmark(Baseline = true)>]
@@ -80,9 +80,9 @@ type DominanceFrontier () =
   member _.FileName with get() = fileName and set(n) = fileName <- n
 
   [<GlobalSetup>]
-  member __.GlobalSetup () =
+  member this.GlobalSetup () =
     let constructor () = ImperativeDiGraph () :> IDiGraph<_, _>
-    let json = System.IO.File.ReadAllText ("TestData/" + __.FileName)
+    let json = System.IO.File.ReadAllText ("TestData/" + this.FileName)
     g <- Serializer.FromJson (json, constructor, id, id)
 
   [<Benchmark(Baseline = true)>]

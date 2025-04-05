@@ -104,7 +104,7 @@ type SimpleArithEvaluator () =
     | Failure (v, _, _) ->
       [| v |]
 
-  member __.Run args representation =
+  member _.Run args representation =
     let str, err = concatenate args
     if err = 0 then
       if representation = CharacterF then
@@ -121,22 +121,22 @@ type CmdEvalExpr (name, alias, descrSuffix, helpSuffix, outFormat) =
 
   let evaluator = SimpleArithEvaluator ()
 
-  override __.CmdName = name
+  override _.CmdName = name
 
-  override __.CmdAlias = alias
+  override _.CmdAlias = alias
 
-  override __.CmdDescr =
+  override _.CmdDescr =
     "Evaluate and display the value of an expression in " + descrSuffix + "."
 
-  override __.CmdHelp =
+  override _.CmdHelp =
     "Usage: ?" + helpSuffix + " <expression>\n\n\
      Evaluate the given expression and print out the value. This command\n\
      supports basic arithmetic expressions."
 
-  override __.SubCommands = []
+  override _.SubCommands = []
 
-  override __.CallBack _ _ args =
+  override this.CallBack _ _ args =
     match args with
-    | [] -> [| __.CmdHelp |]
+    | [] -> [| this.CmdHelp |]
     | _ -> evaluator.Run args outFormat
     |> Array.map OutputNormal

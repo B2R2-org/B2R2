@@ -814,26 +814,27 @@ type InsInfo = {
   Arch: Architecture
 }
 with
-  override __.GetHashCode () =
-    hash (__.Address,
-          __.NumBytes,
-          __.Condition,
-          __.Fmt,
-          __.Opcode,
-          __.Operands,
-          __.OperationSize,
-          __.Arch)
-  override __.Equals (i) =
+  override this.GetHashCode () =
+    hash (this.Address,
+          this.NumBytes,
+          this.Condition,
+          this.Fmt,
+          this.Opcode,
+          this.Operands,
+          this.OperationSize,
+          this.Arch)
+
+  override this.Equals (i) =
     match i with
     | :? InsInfo as i ->
-      i.Address = __.Address
-      && i.NumBytes = __.NumBytes
-      && i.Condition = __.Condition
-      && i.Fmt = __.Fmt
-      && i.Opcode = __.Opcode
-      && i.Operands = __.Operands
-      && i.OperationSize = __.OperationSize
-      && i.Arch = __.Arch
+      i.Address = this.Address
+      && i.NumBytes = this.NumBytes
+      && i.Condition = this.Condition
+      && i.Fmt = this.Fmt
+      && i.Opcode = this.Opcode
+      && i.Operands = this.Operands
+      && i.OperationSize = this.OperationSize
+      && i.Arch = this.Arch
     | _ -> false
 
 // vim: set tw=80 sts=2 sw=2:

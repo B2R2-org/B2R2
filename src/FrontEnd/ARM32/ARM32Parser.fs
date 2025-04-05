@@ -364,7 +364,7 @@ type ARM32Parser (isa: ISA, mode) =
   let mutable itstate: byte list = []
 
   interface IInstructionParsable with
-    member __.Parse (span: ByteSpan, addr) =
+    member _.Parse (span: ByteSpan, addr) =
       phlp.Mode <- mode
       phlp.InsAddr <- addr
       match mode with
@@ -374,12 +374,12 @@ type ARM32Parser (isa: ISA, mode) =
         Parser.parseARM span phlp :> Instruction
       | _-> raise InvalidTargetArchModeException
 
-    member __.Parse (bs: byte[], addr) =
+    member this.Parse (bs: byte[], addr) =
       let span = ReadOnlySpan bs
-      (__ :> IInstructionParsable).Parse (span, addr)
+      (this :> IInstructionParsable).Parse (span, addr)
 
-    member __.MaxInstructionSize = 4
+    member _.MaxInstructionSize = 4
 
-    member __.OperationMode with get() = mode and set(m) = mode <- m
+    member _.OperationMode with get() = mode and set(m) = mode <- m
 
 // vim: set tw=80 sts=2 sw=2:

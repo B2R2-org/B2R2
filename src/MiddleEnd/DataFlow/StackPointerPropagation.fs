@@ -87,15 +87,15 @@ type StackPointerPropagation =
 
     let analysis =
       { new IVarBasedDataFlowAnalysis<StackPointerDomain.Lattice> with
-          member __.OnInitialize state = state
+          member _.OnInitialize state = state
 
-          member __.Bottom = StackPointerDomain.Undef
+          member _.Bottom = StackPointerDomain.Undef
 
-          member __.Join a b = StackPointerDomain.join a b
+          member _.Join a b = StackPointerDomain.join a b
 
-          member __.Subsume a b = StackPointerDomain.subsume a b
+          member _.Subsume a b = StackPointerDomain.subsume a b
 
-          member __.EvalExpr state pp e = evaluateExpr state pp e }
+          member _.EvalExpr state pp e = evaluateExpr state pp e }
 
     { inherit VarBasedDataFlowAnalysis<StackPointerDomain.Lattice>
         (hdl, analysis) }

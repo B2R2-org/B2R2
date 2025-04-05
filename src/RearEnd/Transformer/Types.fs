@@ -54,8 +54,8 @@ with
       if String.IsNullOrEmpty path then annot
       else $"{prefix}{path}"
 
-  override __.ToString () =
-    match __ with
+  override this.ToString () =
+    match this with
     | Binary (hdl, annot) when hdl.Value.File.Format = RawBinary ->
       let hdl = hdl.Value
       let s = Utils.makeByteArraySummary hdl.File.RawBytes
@@ -80,8 +80,8 @@ type Instruction =
   | ValidInstruction of FrontEnd.BinLifter.Instruction * byte[]
   | BadInstruction of Addr * byte[]
 with
-  override __.ToString () =
-    match __ with
+  override this.ToString () =
+    match this with
     | ValidInstruction (ins, bs) ->
       let bs = Utils.makeByteArraySummary bs
       $"{ins.Address:x16} | {bs.PadRight 48} | {ins.Disasm ()}"
@@ -97,10 +97,10 @@ type Fingerprint = {
   Annotation: string
 }
 with
-  override __.ToString () =
+  override this.ToString () =
     let sb = StringBuilder ()
-    sb.Append $"({__.Annotation}){Environment.NewLine}" |> ignore
-    __.Patterns
+    sb.Append $"({this.Annotation}){Environment.NewLine}" |> ignore
+    this.Patterns
     |> List.iter (fun (b, p) ->
       sb.Append $"{b:x2}@{p}{Environment.NewLine}" |> ignore)
     sb.ToString ()

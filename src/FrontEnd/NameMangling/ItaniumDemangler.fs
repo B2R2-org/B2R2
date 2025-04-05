@@ -563,7 +563,7 @@ type ItaniumDemangler () =
     str.Length > 2 && str[0 .. 1] = "_Z"
 
   interface IDemanglable with
-    member __.Demangle str =
+    member _.Demangle str =
       match runParserOnString (stmt) ItaniumUserState.Default "" str[2..] with
       | Success (result, _, pos) ->
         if pos.Column = int64(str.Length) - 1L then

@@ -31,21 +31,21 @@ open B2R2.RearEnd.Utils
 type CmdBinInfo () =
   inherit Cmd ()
 
-  override __.CmdName = "bininfo"
+  override _.CmdName = "bininfo"
 
-  override __.CmdAlias = [ "bi" ]
+  override _.CmdAlias = [ "bi" ]
 
-  override __.CmdDescr = "Show the current binary information."
+  override _.CmdDescr = "Show the current binary information."
 
-  override __.CmdHelp =
+  override _.CmdHelp =
     "Usage: bininfo\n\n\
      Show the current binary information. This command will show some basic\n\
      information such as the entry point address, binary file format, symbol \n\
      numbers, etc."
 
-  override __.SubCommands = []
+  override _.SubCommands = []
 
-  override __.CallBack _ brew _args =
+  override _.CallBack _ brew _args =
     let file = brew.BinHandle.File
     let isa = brew.BinHandle.File.ISA
     let machine = isa.Arch |> ISA.ArchToString

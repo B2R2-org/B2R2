@@ -34,7 +34,7 @@ type Reg = string
 
 type Value (expr) =
   let expr = simplify expr
-  override __.GetHashCode () = expr.GetHashCode ()
+  override _.GetHashCode () = expr.GetHashCode ()
   override this.Equals x =
     match x with
     | :? Value as x -> expr.Equals <| x.GetExpr ()
@@ -42,9 +42,9 @@ type Value (expr) =
   interface IComparable with
     override this.CompareTo other = this.GetHashCode () - other.GetHashCode ()
 
-  member __.GetExpr () = expr
+  member _.GetExpr () = expr
 
-  override __.ToString () = Pp.expToString expr
+  override _.ToString () = Pp.expToString expr
 
 module Value =
   let toLinear (value: Value) =

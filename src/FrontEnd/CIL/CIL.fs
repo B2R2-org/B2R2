@@ -33,9 +33,10 @@ type CILTranslationContext internal (isa, regexprs) =
   /// Register expressions.
   member val private RegExprs: RegExprs = regexprs
 
-  override __.GetRegVar id = Register.ofRegID id |> __.RegExprs.GetRegVar
+  override this.GetRegVar id =
+    Register.ofRegID id |> this.RegExprs.GetRegVar
 
-  override __.GetPseudoRegVar _id _pos = Terminator.impossible ()
+  override _.GetPseudoRegVar _id _pos = Terminator.impossible ()
 
 module Basis =
   let init isa =

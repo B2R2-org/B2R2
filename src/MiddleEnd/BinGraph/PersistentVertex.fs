@@ -32,18 +32,18 @@ type PersistentVertex<'V when 'V: equality>
   internal (id, vData: VertexData<'V>) =
 
   /// Unique identifier of this vertex.
-  member __.ID with get(): VertexID = id
+  member _.ID with get(): VertexID = id
 
   interface IVertex<'V> with
-    member __.ID = id
+    member _.ID = id
 
-    member __.VData =
+    member _.VData =
       if isNull vData then raise DummyDataAccessException
       else vData.Value
 
-    member __.HasData = not (isNull vData)
+    member _.HasData = not (isNull vData)
 
-    member __.CompareTo (other: obj) =
+    member _.CompareTo (other: obj) =
       match other with
       | :? IVertex<'V> as other -> id.CompareTo other.ID
       | _ -> Terminator.impossible ()
@@ -51,12 +51,12 @@ type PersistentVertex<'V when 'V: equality>
   interface System.IFormattable with
     member _.ToString (_, _) = $"{nameof PersistentVertex}({vData.ToString ()})"
 
-  override __.GetHashCode () = id
+  override _.GetHashCode () = id
 
-  override __.Equals (other) =
+  override _.Equals (other) =
     match other with
     | :? IVertex<'V> as other -> id = other.ID
     | _ -> false
 
-  override __.ToString () =
-    (__ :> System.IFormattable).ToString (null, CultureInfo.CurrentCulture)
+  override this.ToString () =
+    (this :> System.IFormattable).ToString (null, CultureInfo.CurrentCulture)

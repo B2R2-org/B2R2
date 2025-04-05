@@ -32,11 +32,3 @@ type Assert () =
     match demangler.Demangle mangled with
     | Ok result -> Assert.AreEqual<string> (demangled, result)
     | Error _ -> invalidOp "Demangling failure."
-
-//let testMS mangled demangled =
-//  MSDemangler () :> IDemanglable
-//  |> testResult mangled demangled
-
-//let testItanium mangled demangled =
-//  ItaniumDemangler () :> IDemanglable
-//  |> testResult mangled demangled

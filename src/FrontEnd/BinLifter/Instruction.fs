@@ -40,12 +40,12 @@ type Instruction (addr, len, wordSize) =
   /// <summary>
   ///   The address of this instruction.
   /// </summary>
-  member __.Address with get(): Addr = addr
+  member _.Address with get(): Addr = addr
 
   /// <summary>
   ///   The length of this instruction in bytes.
   /// </summary>
-  member __.Length with get(): uint32 = len
+  member _.Length with get(): uint32 = len
 
   /// <summary>
   ///   The word size used for translating this instruction. Some architectures
@@ -54,7 +54,7 @@ type Instruction (addr, len, wordSize) =
   ///   depending on the word size used. We store this information per
   ///   instruction to distinguish specific instruction sets used.
   /// </summary>
-  member __.WordSize with get(): WordSize = wordSize
+  member _.WordSize with get(): WordSize = wordSize
 
   /// <summary>
   ///   Is this a branch instruction? A branch instruction includes any kinds of
