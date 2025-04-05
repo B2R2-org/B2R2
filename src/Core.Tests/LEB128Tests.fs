@@ -31,7 +31,7 @@ open B2R2
 type LEB128Tests () =
 
   [<TestMethod>]
-  member __.``decodeUInt64 Test`` () =
+  member _.``decodeUInt64 Test`` () =
     let u64 = [|
       ([| 0x00uy; |], 0x00UL)
       ([| 0x7fuy; |], 0x7fUL)
@@ -50,7 +50,7 @@ type LEB128Tests () =
       Assert.AreEqual<uint64> (res, v)
 
   [<TestMethod>]
-  member __.``decodeUInt32 Test`` () =
+  member _.``decodeUInt32 Test`` () =
     let u32 = [|
       ([| 0x00uy; |], 0x00u)
       ([| 0x7fuy; |], 0x7fu)
@@ -67,7 +67,7 @@ type LEB128Tests () =
       Assert.AreEqual<uint32> (res, v)
 
   [<TestMethod>]
-  member __.``decodeSInt64 Test`` () =
+  member _.``decodeSInt64 Test`` () =
     let s64 = [|
       ([| 0xffuy; 0xffuy; 0xffuy; 0xffuy; 0xffuy;
           0xffuy; 0xffuy; 0xffuy; 0xffuy; 0x00uy; |], 9223372036854775807L)
@@ -89,7 +89,7 @@ type LEB128Tests () =
       Assert.AreEqual<int64> (res, v)
 
   [<TestMethod>]
-  member __.``decodeSInt32 Test`` () =
+  member _.``decodeSInt32 Test`` () =
     let s32 = [|
       ([| 0x97uy; 0xdeuy; 0x03uy; |], 0xef17)
       ([| 0xC0uy; 0x00uy; |], 0x40)
@@ -107,7 +107,7 @@ type LEB128Tests () =
       Assert.AreEqual<int> (res, v)
 
   [<TestMethod>]
-  member __.``Overflow handling Test`` () =
+  member _.``Overflow handling Test`` () =
     let overflow = [|
       [| 0xffuy; |]
       [| 0x80uy; 0x80uy; |]

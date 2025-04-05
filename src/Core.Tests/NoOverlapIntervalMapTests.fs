@@ -33,7 +33,7 @@ type NoOverlapIntervalMapTests () =
 
   [<TestMethod>]
   [<ExpectedException(typedefof<RangeOverlapException>)>]
-  member __.``Overlap Test 1`` () =
+  member _.``Overlap Test 1`` () =
     let r1 = AddrRange (100UL, 199UL)
     let r2 = AddrRange (200UL, 299UL)
     let m = NoOverlapIntervalMap.empty
@@ -43,7 +43,7 @@ type NoOverlapIntervalMapTests () =
 
   [<TestMethod>]
   [<ExpectedException(typedefof<RangeOverlapException>)>]
-  member __.``Overlap Test 2`` () =
+  member _.``Overlap Test 2`` () =
     let r1 = AddrRange (100UL, 199UL)
     let r2 = AddrRange (200UL, 299UL)
     let m = NoOverlapIntervalMap.empty
@@ -52,7 +52,7 @@ type NoOverlapIntervalMapTests () =
     NoOverlapIntervalMap.addRange 0UL 400UL 3 m |> ignore
 
   [<TestMethod>]
-  member __.``NoOverlapIntervalMap.getOverlaps Test`` () =
+  member _.``NoOverlapIntervalMap.getOverlaps Test`` () =
     let size = 0x10UL
     let num = 0x100UL
     let sprayRange m i =
@@ -68,14 +68,14 @@ type NoOverlapIntervalMapTests () =
     Assert.AreEqual<uint64> (n1, n2)
 
   [<TestMethod>]
-  member __.``Count Test `` () =
+  member _.``Count Test `` () =
     let r = AddrRange (100UL, 200UL)
     let m = NoOverlapIntervalMap.empty
     let m = NoOverlapIntervalMap.add r 1 m
     Assert.AreEqual<int> (1, NoOverlapIntervalMap.count m)
 
   [<TestMethod>]
-  member __.``Count Test2 `` () =
+  member _.``Count Test2 `` () =
     let r1 = AddrRange (100UL, 199UL)
     let r2 = AddrRange (50UL, 99UL)
     let m = NoOverlapIntervalMap.empty
@@ -84,7 +84,7 @@ type NoOverlapIntervalMapTests () =
     Assert.AreEqual<int> (2, NoOverlapIntervalMap.count m)
 
   [<TestMethod>]
-  member __.``Count Test3 `` () =
+  member _.``Count Test3 `` () =
     let r1 = AddrRange (100UL, 199UL)
     let r2 = AddrRange (200UL, 299UL)
     let m = NoOverlapIntervalMap.empty
@@ -93,7 +93,7 @@ type NoOverlapIntervalMapTests () =
     Assert.AreEqual<int> (2, NoOverlapIntervalMap.count m)
 
   [<TestMethod>]
-  member __.``Count Test4 `` () =
+  member _.``Count Test4 `` () =
     let r1 = AddrRange (100UL, 199UL)
     let r2 = AddrRange (200UL, 299UL)
     let r3 = AddrRange (50UL, 99UL)
@@ -104,7 +104,7 @@ type NoOverlapIntervalMapTests () =
     Assert.AreEqual<int> (3, NoOverlapIntervalMap.count m)
 
   [<TestMethod>]
-  member __.``Singleton Test1`` () =
+  member _.``Singleton Test1`` () =
     let r1 = AddrRange (0UL)
     let r2 = AddrRange (1UL)
     let r3 = AddrRange (2UL)

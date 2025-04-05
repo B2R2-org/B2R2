@@ -33,14 +33,14 @@ open type B2R2.BitVector
 type BitVectorTests () =
 
   [<TestMethod>]
-  member __.``Equality`` () =
+  member _.``Equality`` () =
     Assert.AreEqual<BitVector> (OfInt32 5l 16<rt>, OfBInt 5I 16<rt>)
     Assert.AreEqual<BitVector> (OfUInt32 5ul 16<rt>, OfInt64 5L 16<rt>)
     Assert.AreEqual<BitVector> (OfInt64 -5L 128<rt>, OfInt32 -5l 128<rt>)
     Assert.AreEqual<int64> (int64 -1, OfInt64 -1L 64<rt> |> ToInt64)
 
   [<TestMethod>]
-  member __.``Comparison`` () =
+  member _.``Comparison`` () =
     let tr = One 1<rt>
     Assert.IsTrue (Lt (OfInt32 5l 16<rt>, OfInt32 10l 16<rt>) = tr)
     Assert.IsTrue (Gt (OfInt32 21l 128<rt>, OfInt32 20l 128<rt>) = tr)
@@ -49,7 +49,7 @@ type BitVectorTests () =
     Assert.IsTrue (OfInt32 1l 64<rt> <> OfInt32 1l 8<rt>)
 
   [<TestMethod>]
-  member __.``Basic Arithmetic 1`` () =
+  member _.``Basic Arithmetic 1`` () =
     let n1 = OfInt32 1l 64<rt>
     let n2 = OfInt32 -1l 64<rt>
     Assert.AreEqual (Add (n1, n2), Zero 64<rt>)
@@ -60,7 +60,7 @@ type BitVectorTests () =
     Assert.AreEqual (SDiv (n1, n2), n2)
 
   [<TestMethod>]
-  member __.``Basic Arithmetic 2`` () =
+  member _.``Basic Arithmetic 2`` () =
     let e1 = OfBInt 10I 8<rt>
     let e2 = OfBInt 3I 8<rt>
     let n1 = OfUInt64 (uint8 -10 |> uint64) 8<rt>
@@ -83,7 +83,7 @@ type BitVectorTests () =
     Assert.AreEqual<string> (ToString (SDiv (n1, e2)), "0xfffd:I16")
 
   [<TestMethod>]
-  member __.``Basic Arithmetic 3`` () =
+  member _.``Basic Arithmetic 3`` () =
     let e1 = OfBInt 100000I 32<rt>
     let e2 = OfBInt 30000I 32<rt>
     let n1 = OfInt32 (-100000l) 32<rt>
@@ -106,7 +106,7 @@ type BitVectorTests () =
     Assert.AreEqual<string> (ToString (SDiv (n1, e2)), "0xfffffffffffffffd:I64")
 
   [<TestMethod>]
-  member __.``Basic Arithmetic 4`` () =
+  member _.``Basic Arithmetic 4`` () =
     let e1 = OfBInt 10000000I 128<rt>
     let e2 = OfBInt 3000000I 128<rt>
     let n1 = OfInt64 (-10000000L) 128<rt>
@@ -124,7 +124,7 @@ type BitVectorTests () =
     Assert.AreEqual<string> (ToString (Sar (e1, e2)), "0xeffffef5:I32")
 
   [<TestMethod>]
-  member __.``Basic Arithmetic 5`` () =
+  member _.``Basic Arithmetic 5`` () =
     (* test for signed division *)
     let n1 = OfInt64 (-4L) 64<rt>
     let n2 = OfInt64 (-2L) 64<rt>
@@ -140,7 +140,7 @@ type BitVectorTests () =
     Assert.AreEqual<string> (ToString (SDiv (n2, n1)), "0x0:I64")
 
   [<TestMethod>]
-  member __.``Basic Arithmetic 6`` () =
+  member _.``Basic Arithmetic 6`` () =
     (* test for shift operations *)
     let n1 = OfInt64 1L 32<rt>
     let n2 = OfInt64 31L 32<rt>
@@ -160,7 +160,7 @@ type BitVectorTests () =
     Assert.AreEqual<string> (ToString (Sar (n4, n3)), "0xffffffff:I32")
 
   [<TestMethod>]
-  member __.``Basic Arithmetic 7`` () =
+  member _.``Basic Arithmetic 7`` () =
     (* test for 1 bit operation *)
     let n0 = OfInt64 (0L) 1<rt>
     let n1 = OfInt64 (1L) 1<rt>
@@ -187,7 +187,7 @@ type BitVectorTests () =
     Assert.AreEqual<string> (ToString (Sar (n1, n1)), "0x1:I1")
 
   [<TestMethod>]
-  member __.``Shift by a Large Amount`` () =
+  member _.``Shift by a Large Amount`` () =
     let n1 = OfUInt32 1ul 32<rt>
     let n2 = OfInt32 128 32<rt>
     let n3 = OfUInt64 0x8000000000000000UL 64<rt>
@@ -205,7 +205,7 @@ type BitVectorTests () =
     Assert.AreEqual<string> (ToString (Shl (n5, n6)), "0x0:I128")
 
   [<TestMethod>]
-  member __.``Unsigned Modulo`` () =
+  member _.``Unsigned Modulo`` () =
     let n1 = OfUInt32 5ul 32<rt>
     let n2 = OfInt32 -3l 32<rt>
     Assert.AreEqual<string> (ToString (Modulo (n1, n2)), "0x5:I32")
@@ -214,7 +214,7 @@ type BitVectorTests () =
     Assert.AreEqual<string> (ToString (Modulo (n1, n2)), "0x5:I256")
 
   [<TestMethod>]
-  member __.``Signed Modulo`` () =
+  member _.``Signed Modulo`` () =
     (* Added for signed modulo bug test *)
     let n1 = OfUInt32 5ul 32<rt>
     let n2 = OfInt32 3l 32<rt>
@@ -267,7 +267,7 @@ type BitVectorTests () =
     Assert.AreEqual (SModulo (n1, n2), OfInt32 0l 256<rt>)
 
   [<TestMethod>]
-  member __.``Logical Operators`` () =
+  member _.``Logical Operators`` () =
     let n1 = OfBInt 100I 32<rt>
     let n2 = OfInt32 -500l 32<rt>
     Assert.AreEqual<string> (ToString (BAnd (n1, n2)), "0x4:I32")
@@ -288,7 +288,7 @@ type BitVectorTests () =
     Assert.AreEqual (BXor (n1, n2),  OfInt64 -408L 256<rt>)
 
   [<TestMethod>]
-  member __.``Comparison Operators`` () =
+  member _.``Comparison Operators`` () =
     let n1 = OfBInt 100I 32<rt>
     let n2 = OfBInt 100I 32<rt>
     Assert.AreEqual (SLt (n1, n2), Zero 1<rt>)
@@ -316,7 +316,7 @@ type BitVectorTests () =
     Assert.AreEqual (SGt (n1, n2), One 1<rt>)
 
   [<TestMethod>]
-  member __.``Unary Operators`` () =
+  member _.``Unary Operators`` () =
     let n1 = OfBInt 100I 32<rt>
     let n2 = OfBInt 0I 16<rt>
     let n3 = OfInt32 0xffffffff 32<rt>
@@ -329,7 +329,7 @@ type BitVectorTests () =
     Assert.AreEqual (Neg n1, OfInt32 0l 128<rt>)
 
   [<TestMethod>]
-  member __.``Concatenation Operator`` () =
+  member _.``Concatenation Operator`` () =
     let e1 = OfBInt 1000I 32<rt>
     let e2 = OfBInt 300I 32<rt>
     Assert.AreEqual<string> (ToString (Concat (e1, e2)), "0x3e80000012c:I64")
@@ -338,7 +338,7 @@ type BitVectorTests () =
     Assert.AreEqual<string> (ToString (Concat (e1, e2)), "0x3e8fffffed4:I64")
 
   [<TestMethod>]
-  member __.``Size Extension``() =
+  member _.``Size Extension``() =
     (* Extension. *)
     let e1 = OfInt32 -1 8<rt>
     Assert.AreEqual (ZExt (e1, 32<rt>), OfInt32 0xff 32<rt>)
@@ -348,19 +348,19 @@ type BitVectorTests () =
     Assert.AreEqual (SExt (e1, 32<rt>), OfInt32 1 32<rt>)
 
   [<TestMethod>]
-  member __.``Absolute Operator``() =
+  member _.``Absolute Operator``() =
     let e1 = OfInt32 -1 8<rt>
     let e2 = OfInt32 -16 32<rt>
     Assert.AreEqual<string> (ToString (Abs e1), "0x1:I8")
     Assert.AreEqual<string> (ToString (Abs e2), "0x10:I32")
 
   [<TestMethod>]
-  member __.``Extract``() =
+  member _.``Extract``() =
     let e1 = OfInt32 13453 32<rt>
     Assert.AreEqual<string> (ToString (Extract (e1, 16<rt>, 4)), "0x348:I16")
 
   [<TestMethod>]
-  member __.``Infix Operator``() =
+  member _.``Infix Operator``() =
     let e1 = OfInt32 4 64<rt>
     let e2 = OfInt32 20 64<rt>
     Assert.AreEqual (e1 + e2, OfInt32 24 64<rt>)
@@ -376,7 +376,7 @@ type BitVectorTests () =
     Assert.AreEqual (-e1, OfInt32 -4 64<rt>)
 
   [<TestMethod>]
-  member __.``BitVector from Array (Beware of the MSB)``() =
+  member _.``BitVector from Array (Beware of the MSB)``() =
     let arr =
       [| 0uy; 0uy; 0uy; 0uy; 0uy; 0uy; 248uy; 127uy;
          0uy; 0uy; 0uy; 0uy; 0uy; 0uy; 240uy; 255uy |]

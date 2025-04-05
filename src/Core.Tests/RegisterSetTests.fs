@@ -33,19 +33,19 @@ open B2R2.Collections
 type RegisterSetTests () =
 
   [<TestMethod>]
-  member __.``Size Test 1`` () =
+  member _.``Size Test 1`` () =
     let s = RegisterSet (64)
     Assert.AreEqual<int> (64, s.MaxNumElems)
     Assert.AreEqual<int> (1, s.BitArray.Length)
 
   [<TestMethod>]
-  member __.``Size Test 2`` () =
+  member _.``Size Test 2`` () =
     let s = RegisterSet (65)
     Assert.AreEqual<int> (65, s.MaxNumElems)
     Assert.AreEqual<int> (2, s.BitArray.Length)
 
   [<TestMethod>]
-  member __.``Add Test 1`` () =
+  member _.``Add Test 1`` () =
     let s = RegisterSet (65)
     let lst = List<int> ()
     s.Add 0
@@ -57,12 +57,12 @@ type RegisterSetTests () =
 
   [<TestMethod>]
   [<ExpectedException(typedefof<IndexOutOfRangeException>)>]
-  member __.``Add Test 2`` () =
+  member _.``Add Test 2`` () =
     let s = RegisterSet (65)
     s.Add 65
 
   [<TestMethod>]
-  member __.``Add/Remove Test`` () =
+  member _.``Add/Remove Test`` () =
     let s = RegisterSet (65)
     let lst = List<int> ()
     s.Add 0

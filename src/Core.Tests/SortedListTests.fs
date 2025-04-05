@@ -38,7 +38,7 @@ type SortedListTests () =
      lst[400] <- 4
 
   [<TestMethod>]
-  member __.``GLB`` () =
+  member _.``GLB`` () =
     let actual = SortedList.findGreatestLowerBoundKey 250 lst |> Option.get
     Assert.AreEqual<int> (200, actual)
     let actual = SortedList.findGreatestLowerBoundKey 101 lst |> Option.get
@@ -49,7 +49,7 @@ type SortedListTests () =
     Assert.AreEqual<int> (100, actual)
 
   [<TestMethod>]
-  member __.``GUB 2`` () =
+  member _.``GUB 2`` () =
     let lst = SortedList<uint64, int> ()
     lst[0x63a0UL] <- 1
     lst[0x6b04UL] <- 2
@@ -57,7 +57,7 @@ type SortedListTests () =
     Assert.AreEqual<uint64> (0x63a0UL, actual)
 
   [<TestMethod>]
-  member __.``LUB`` () =
+  member _.``LUB`` () =
     let actual = SortedList.findLeastUpperBoundKey 250 lst |> Option.get
     Assert.AreEqual<int> (300, actual)
     let actual = SortedList.findLeastUpperBoundKey 350 lst |> Option.get
@@ -68,7 +68,7 @@ type SortedListTests () =
     Assert.AreEqual<int> (200, actual)
 
   [<TestMethod>]
-  member __.``LUB 2`` () =
+  member _.``LUB 2`` () =
     let lst = SortedList<uint64, int> ()
     lst[0x64c0UL] <- 1
     lst[0x64ecUL] <- 2
@@ -78,7 +78,7 @@ type SortedListTests () =
     Assert.AreEqual<uint64> (0x6c24UL, actual)
 
   [<TestMethod>]
-  member __.``Boundary Conditions`` () =
+  member _.``Boundary Conditions`` () =
     Assert.IsTrue
       <| (SortedList.findGreatestLowerBoundKey 0 lst |> Option.isNone)
     Assert.IsTrue

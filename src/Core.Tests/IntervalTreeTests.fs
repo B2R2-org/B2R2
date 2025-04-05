@@ -32,7 +32,7 @@ open B2R2.Collections
 type IntervalTreeTests () =
 
   [<TestMethod>]
-  member __.``IntervalSet Test tryFindByAddr`` () =
+  member _.``IntervalSet Test tryFindByAddr`` () =
     let range1 = AddrRange (0x100UL, 0x1FFUL)
     let set = IntervalSet.add range1 IntervalSet.empty
     Assert.AreEqual (Some range1, IntervalSet.tryFindByAddr 0x100UL set)
@@ -45,7 +45,7 @@ type IntervalTreeTests () =
     Assert.AreEqual (Some range2, IntervalSet.tryFindByAddr 0x200UL set)
 
   [<TestMethod>]
-  member __.``IntervalSet Test contains`` () =
+  member _.``IntervalSet Test contains`` () =
     let range1 = AddrRange (0x100UL, 0x1FFUL)
     let range2 = AddrRange (0x200UL, 0x2FFUL)
     let range3 = AddrRange (0x300UL, 0x3FFUL)
@@ -65,7 +65,7 @@ type IntervalTreeTests () =
     Assert.IsFalse (IntervalSet.contains range7 set)
 
   [<TestMethod>]
-  member __.``IntervalSet Test Overlaps`` () =
+  member _.``IntervalSet Test Overlaps`` () =
     let range1 = AddrRange (0x100UL, 0x200UL)
     let range2 = AddrRange (0x50UL, 0x300UL)
     let range3 = AddrRange (0x150UL, 0x160UL)
@@ -83,7 +83,7 @@ type IntervalTreeTests () =
     Assert.AreEqual (Some range2, IntervalSet.tryFindByAddr 0x99UL set)
 
   [<TestMethod>]
-  member __.``IntervalSet Test Overlaps 2`` () =
+  member _.``IntervalSet Test Overlaps 2`` () =
     let range1 = AddrRange (0x100UL, 0x200UL)
     let range2 = AddrRange (0x300UL, 0x400UL)
     let set = IntervalSet.add range1 IntervalSet.empty
@@ -92,7 +92,7 @@ type IntervalTreeTests () =
     Assert.AreEqual<int> (0, IntervalSet.findAll range set |> List.length)
 
   [<TestMethod>]
-  member __.``IntervalSet Test Non-Overlapping Intervals`` () =
+  member _.``IntervalSet Test Non-Overlapping Intervals`` () =
     let range1 = AddrRange (0UL, 1UL)
     let range2 = AddrRange (2UL, 3UL)
     let range3 = AddrRange (4UL, 5UL)
@@ -120,7 +120,7 @@ type IntervalTreeTests () =
     Assert.IsFalse (IntervalSet.contains (AddrRange (1UL, 6UL)) set)
 
   [<TestMethod>]
-  member __.``IntervalSet Test Non-Overlapping Intervals 2`` () =
+  member _.``IntervalSet Test Non-Overlapping Intervals 2`` () =
     let range1 = AddrRange (0UL, 1UL)
     let range2 = AddrRange (2UL, 3UL)
     let range3 = AddrRange (4UL, 5UL)
@@ -142,7 +142,7 @@ type IntervalTreeTests () =
     Assert.IsTrue (List.isEmpty actual)
 
   [<TestMethod>]
-  member __.``IntervalSet Test Removal`` () =
+  member _.``IntervalSet Test Removal`` () =
     let range1 = AddrRange (1UL, 2UL)
     let range2 = AddrRange (2UL, 3UL)
     let range3 = AddrRange (3UL, 4UL)
@@ -162,7 +162,7 @@ type IntervalTreeTests () =
     Assert.AreEqual<int> (2, IntervalSet.fold (fun cnt _ -> cnt + 1) 0 removed)
 
   [<TestMethod>]
-  member __.``IntervalSet Test Removal 2`` () =
+  member _.``IntervalSet Test Removal 2`` () =
     let range1 = AddrRange (1UL, 2UL)
     let range2 = AddrRange (2UL, 3UL)
     let range3 = AddrRange (3UL, 4UL)
@@ -178,7 +178,7 @@ type IntervalTreeTests () =
     Assert.AreEqual<int> (2, IntervalSet.fold (fun cnt _ -> cnt + 1) 0 removed)
 
   [<TestMethod>]
-  member __.``IntervalMap Test tryFindByMin`` () =
+  member _.``IntervalMap Test tryFindByMin`` () =
     let range1 = AddrRange (0x100UL, 0x1FFUL)
     let map = IntervalMap.add range1 1 IntervalMap.empty
     Assert.AreEqual (Some 1, IntervalMap.tryFindByMin 0x100UL map)
@@ -190,7 +190,7 @@ type IntervalTreeTests () =
     Assert.AreEqual (Some 2, IntervalMap.tryFindByMin 0x200UL map)
 
   [<TestMethod>]
-  member __.``IntervalMap Test Removal`` () =
+  member _.``IntervalMap Test Removal`` () =
     let range1 = AddrRange (0x100UL, 0x1FFUL)
     let range2 = AddrRange (0x200UL, 0x2FFUL)
     let range3 = AddrRange (0x300UL, 0x3FFUL)
@@ -213,7 +213,7 @@ type IntervalTreeTests () =
 
   [<TestMethod>]
   [<ExpectedException(typedefof<InvalidAddrRangeException>)>]
-  member __.``IntervalMap Test Removal Exception`` () =
+  member _.``IntervalMap Test Removal Exception`` () =
     let range1 = AddrRange (0x100UL, 0x1FFUL)
     let map = IntervalMap.add range1 1 IntervalMap.empty
     IntervalMap.remove (AddrRange (0x100UL, 0x199UL)) map |> ignore

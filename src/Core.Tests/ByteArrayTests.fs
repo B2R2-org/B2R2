@@ -32,7 +32,7 @@ open B2R2
 type ByteArrayTests () =
 
   [<TestMethod>]
-  member __.``ByteArray Test`` () =
+  member _.``ByteArray Test`` () =
     let hexString = "68656c6c6f"
     let newArray = ByteArray.ofHexString hexString
     let expectation = [| 0x68uy; 0x65uy; 0x6cuy; 0x6cuy; 0x6fuy |]
@@ -42,7 +42,7 @@ type ByteArrayTests () =
     CollectionAssert.AreEqual (expectation, newArray)
 
   [<TestMethod>]
-  member __.``CString Extraction Test`` () =
+  member _.``CString Extraction Test`` () =
     let arr = [| 0x68uy; 0x65uy; 0x6cuy; 0x6cuy; 0x6fuy;
                  0x00uy; (* NULL character *)
                  0x68uy; 0x65uy; 0x6cuy; 0x6cuy; 0x6fuy; |]
@@ -50,20 +50,20 @@ type ByteArrayTests () =
     Assert.AreEqual<string> ("hello", str)
 
   [<TestMethod>]
-  member __.``CString Extraction without Null`` () =
+  member _.``CString Extraction without Null`` () =
     let arr = [| 0x68uy; 0x65uy; 0x6cuy; 0x6cuy; 0x6fuy; |]
     let str= ByteArray.extractCString arr 0
     Assert.AreEqual<string> ("hello", str)
 
   [<TestMethod>]
-  member __.``Pattern Matching Test`` () =
+  member _.``Pattern Matching Test`` () =
     let buf = "hellotexthellotexthellotexthellopencilfsharptesttext"B
     let pattern = "text"B
     let indexList = ByteArray.findIdxs 0UL pattern buf
     Assert.AreEqual([48UL; 23UL; 14UL; 5UL], indexList)
 
   [<TestMethod>]
-  member __.``Pattern Matching Test 2`` () =
+  member _.``Pattern Matching Test 2`` () =
     let buf = [| 0uy; 1uy; 2uy; 3uy; 4uy; 5uy; 6uy |]
     let pattern = [| 0uy; 1uy |]
     let indexList = ByteArray.findIdxs 0UL pattern buf

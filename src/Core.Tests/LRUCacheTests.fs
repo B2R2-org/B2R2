@@ -30,23 +30,23 @@ open B2R2.Collections
 
 type TestOp () =
   let cnt = ref 0
-  member __.Count with get() = !cnt
+  member _.Count with get() = !cnt
   interface ICacheableOperation<int, int> with
-    member __.Perform v =
+    member _.Perform v =
       Interlocked.Increment cnt |> ignore
       v
 
 [<TestClass>]
 type LRUCacheTests () =
   [<TestMethod>]
-  member __.``GetOrAddTest`` () =
+  member _.``GetOrAddTest`` () =
     let op = TestOp ()
     let lru = ConcurrentLRUCache<int, int>(100)
     for i = 0 to 10 do Assert.AreEqual<int> (1, lru.GetOrAdd 1 op 1)
     Assert.AreEqual<int> (1, op.Count)
 
   [<TestMethod>]
-  member __.``CountTest`` () =
+  member _.``CountTest`` () =
     let op = TestOp ()
     let lru = ConcurrentLRUCache<int, int>(100)
     for i = 0 to 99 do Assert.AreEqual<int> (i, lru.GetOrAdd i op i)
@@ -59,7 +59,7 @@ type LRUCacheTests () =
     Assert.AreEqual<int> (100, lru.Count)
 
   [<TestMethod>]
-  member __.``OverflowTest`` () =
+  member _.``OverflowTest`` () =
     let op = TestOp ()
     let lru = ConcurrentLRUCache<int, int>(100)
     for i = 0 to 199 do Assert.AreEqual<int> (i, lru.GetOrAdd i op i)
@@ -70,7 +70,7 @@ type LRUCacheTests () =
     Assert.AreEqual<int> (0, op.Count)
 
   [<TestMethod>]
-  member __.``LRUTest`` () =
+  member _.``LRUTest`` () =
     let op = TestOp ()
     let lru = ConcurrentLRUCache<int, int>(100)
     for i = 0 to 99 do Assert.AreEqual<int> (i, lru.GetOrAdd i op i)
