@@ -22,7 +22,7 @@
   THE SOFTWARE.
 *)
 
-namespace B2R2.FrontEnd.API.Tests
+namespace B2R2.FrontEnd.TMS320C6000.Tests
 
 open Microsoft.VisualStudio.TestTools.UnitTesting
 open B2R2
@@ -47,6 +47,7 @@ module private TMS320Shortcut =
     static member Mem (r, modType, offset) =
       OprMem (r, modType, offset)
 
+[<TestClass>]
 type TMS320ParserTests () =
   let test (funit: FunctionalUnit) (bytes: byte[]) (opcode, oprs: Operands) =
     let reader = BinReader.Init Endian.Little

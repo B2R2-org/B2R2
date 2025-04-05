@@ -22,72 +22,54 @@
   SOFTWARE.
 *)
 
-namespace B2R2.FrontEnd.API.Tests
+namespace B2R2.FrontEnd.ARM64.Tests
 
 open Microsoft.VisualStudio.TestTools.UnitTesting
 open B2R2
 open B2R2.BinIR.LowUIR
 open B2R2.FrontEnd.BinLifter
-open B2R2.FrontEnd.AVR
+open B2R2.FrontEnd.ARM64
 open B2R2.BinIR.LowUIR.AST.InfixOp
 open type Register
 
 [<TestClass>]
-type AVRLifterTests () =
-  let isa = ISA.Init Architecture.AVR Endian.Little
-
-  let ctxt = AVRTranslationContext isa
+type ARM64LifterTests () =
+  let num v = BitVector.OfUInt32 v 32<rt> |> AST.num
 
   let unwrapStmts stmts = Array.sub stmts 1 (Array.length stmts - 2)
 
-  let ( ++ ) (byteStr: string) givenStmts =
+  let isa = ISA.Init Architecture.AARCH64 Endian.Big
+
+  let ctxt = ARM64TranslationContext isa
+
+  let ( !. ) name = Register.toRegID name |> ctxt.GetRegVar
+
+  let ( ++ ) (byteStr: string) (givenStmts: Stmt[]) =
     ByteArray.ofHexString byteStr, givenStmts
 
-  let ( !. ) reg = Register.toRegID reg |> ctxt.GetRegVar
-
-  let test (bytes: byte[], givenStmts: Stmt[])  =
-    let parser = AVRParser () :> IInstructionParsable
+  let test (bytes: byte[], givenStmts) =
+    let parser = ARM64Parser (isa) :> IInstructionParsable
     let ins = parser.Parse (bytes, 0UL)
     CollectionAssert.AreEqual (givenStmts, unwrapStmts <| ins.Translate ctxt)
 
   [<TestMethod>]
-  member __.``[AVR] Instructions with start and end statements lift Test`` () =
-    "0000"
-    ++ [| |]
+  member __.``[AArch64] ADD (immedate) lift test`` () =
+    "114dc4ba"
+    ++ [| !.X26 := AST.zext 64<rt>
+           ((AST.xtlo 32<rt> !.X5 .+ num 0x371000u .+ num 0x0u)) |]
     |> test
 
   [<TestMethod>]
-  member __.``[AVR] Instructions with Put statements lift Test (1)`` () =
-    "4c2f"
-    ++ [| !.R20 := !.R28 |]
+  member __.``[AArch64] ADD (extended register) lift test`` () =
+    "0b3f43ff"
+    ++ [| !.SP := AST.zext 64<rt>
+           (AST.xtlo 32<rt> !.SP .+ AST.xtlo 32<rt> !.XZR .+ num 0x0u) |]
     |> test
 
   [<TestMethod>]
-  member __.``[AVR] Instructions with Put statements lift Test (2)`` () =
-    "5401"
-    ++ [| !.R10 := !.R8
-          !.R11 := !.R9 |]
-    |> test
-
-  [<TestMethod>]
-  member __.``[AVR] Put statements for flag registers lift Test (1)`` () =
-    "f894"
-    ++ [| !.IF := AST.b0 |]
-    |> test
-
-  [<TestMethod>]
-  member __.``[AVR] Put statements for flag registers lift Test (2)`` () =
-    "1124"
-    ++ [| !.R1 := !.R1 <+> !.R1
-          !.VF := AST.b0
-          !.NF := AST.xthi 1<rt> !.R1
-          !.ZF := !.R1 == AST.num0 8<rt>
-          !.SF := !.NF <+> !.VF |]
-    |> test
-
-  [<TestMethod>]
-  member __.``[AVR] Load statements lift Test`` () =
-    "6f92"
-    ++ [| AST.loadLE 8<rt> !.SP := !.R6
-          !.SP := !.SP .- AST.num1 16<rt> |]
+  member __.``[AArch64] ADD (shifted register) lift test`` () =
+    "0b8e5f9b"
+    ++ [| !.X27 := AST.zext 64<rt>
+           (AST.xtlo 32<rt> !.X28 .+ (AST.xtlo 32<rt> !.X14 ?>> num 0x17u)
+             .+ num 0x0u) |]
     |> test

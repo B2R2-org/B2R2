@@ -22,62 +22,58 @@
   THE SOFTWARE.
 *)
 
-namespace B2R2.FrontEnd.API.Tests
+namespace B2R2.FrontEnd.EVM.Tests
 
 open Microsoft.VisualStudio.TestTools.UnitTesting
 open B2R2
 open B2R2.BinIR.LowUIR
 open B2R2.BinIR.LowUIR.AST.InfixOp
 open B2R2.FrontEnd.BinLifter
-open B2R2.FrontEnd.SPARC
+open B2R2.FrontEnd.EVM
 open type Register
 
 [<TestClass>]
-type SPARCLifterTest () =
-  let num v = BitVector.OfInt64 v 64<rt> |> AST.num
+type EVMLifterTests () =
+  let num v rt = BitVector.OfInt32 v rt |> AST.num
 
-  let t64 id = AST.tmpvar 64<rt> id
+  let bigint v = BitVectorBig (v, 256<rt>) |> AST.num
 
-  let isa = ISA.Init Architecture.SPARC Endian.Little
+  let isa = ISA.Init Architecture.EVM Endian.Little
 
-  let ctxt = SPARCTranslationContext isa
+  let ctxt = EVMTranslationContext isa
 
-  let ( !. ) reg = Register.toRegID reg |> ctxt.GetRegVar
-
-  let unwrapStmts stmts = Array.sub stmts 1 (Array.length stmts - 2)
-
-  let test (bytes: byte[], givenStmts) =
-    let parser = SPARCParser (isa) :> IInstructionParsable
-    let ins = parser.Parse (bytes, 0UL)
-    CollectionAssert.AreEqual (givenStmts, unwrapStmts <| ins.Translate ctxt)
+  let ( !. ) name = Register.toRegID name |> ctxt.GetRegVar
 
   let ( ++ ) byteString givenStmts =
     ByteArray.ofHexString byteString, givenStmts
 
+  let unwrapStmts stmts = Array.sub stmts 1 (Array.length stmts - 2)
+
+  let test (bytes: byte[], givenStmts) =
+    let parser = EVMParser (isa) :> IInstructionParsable
+    let ins = parser.Parse (bytes, 0UL)
+    CollectionAssert.AreEqual (givenStmts, unwrapStmts <| ins.Translate ctxt)
+
   [<TestMethod>]
-  member __.``[SPARC] ADD (three reg operands) lift Test`` () =
-    "0d80029e"
-    ++ [| t64 1 := !.O2 .+ !.O5
-          !.O7 := t64 1 |]
+  member __.``[EVM] PUSH8 lift test`` () =
+    "670011223344556677"
+    ++ [| !.SP := !.SP .+ num 32 256<rt>
+          AST.store Endian.Big !.SP (bigint 4822678189205111I)
+          !.GAS := !.GAS .+ num 3 64<rt> |]
     |> test
 
   [<TestMethod>]
-  member __.``[SPARC] ADD (two reg op, one imm op) lift Test`` () =
-    "8ab6029e"
-    ++ [| t64 1 := !.O2 .+ num 0xfffffffffffff68aL
-          !.O7 := t64 1 |]
+  member __.``[EVM] PUSH9 lift test`` () =
+    "68001122334455667788"
+    ++ [| !.SP := !.SP .+ num 32 256<rt>
+          AST.store Endian.Big !.SP (bigint 1234605616436508552I)
+          !.GAS := !.GAS .+ num 3 64<rt> |]
     |> test
 
   [<TestMethod>]
-  member __.``[SPARC] ADD (with carry) lift Test`` () =
-    "0d80429e"
-    ++ [| t64 1 := !.O2 .+ !.O5 .+ AST.zext 64<rt> (AST.extract !.CCR 1<rt> 0)
-          !.O7 := t64 1 |]
-    |> test
-
-  [<TestMethod>]
-  member __.``[SPARC] ADD (with carry and modify icc) lift Test`` () =
-    "0d80429e"
-    ++ [| t64 1 := !.O2 .+ !.O5 .+ AST.zext 64<rt> (AST.extract !.CCR 1<rt> 0)
-          !.O7 := t64 1 |]
+  member __.``[EVM] PUSH10 lift test`` () =
+    "6900112233445566778899"
+    ++ [| !.SP := !.SP .+ num 32 256<rt>
+          AST.store Endian.Big !.SP (bigint 316059037807746189465I)
+          !.GAS := !.GAS .+ num 3 64<rt> |]
     |> test

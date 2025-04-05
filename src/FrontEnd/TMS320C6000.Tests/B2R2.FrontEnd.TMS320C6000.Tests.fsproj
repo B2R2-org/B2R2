@@ -5,8 +5,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="BinIRTests.fs" />
-    <Compile Include="PpTests.fs" />
+    <Compile Include="TMS320ParserTests.fs" />
   </ItemGroup>
 
   <ItemGroup>
@@ -15,7 +14,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\BinIR\B2R2.BinIR.fsproj" />
+    <ProjectReference Include="..\API\B2R2.FrontEnd.API.fsproj" />
   </ItemGroup>
 
 </Project>

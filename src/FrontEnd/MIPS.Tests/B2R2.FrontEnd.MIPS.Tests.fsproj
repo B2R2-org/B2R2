@@ -5,8 +5,9 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="BinIRTests.fs" />
-    <Compile Include="PpTests.fs" />
+    <Compile Include="MIPS64ParserTests.fs" />
+    <Compile Include="MIPS32ParserTests.fs" />
+    <Compile Include="MIPSLifterTests.fs" />
   </ItemGroup>
 
   <ItemGroup>
@@ -15,7 +16,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\BinIR\B2R2.BinIR.fsproj" />
+    <ProjectReference Include="..\API\B2R2.FrontEnd.API.fsproj" />
   </ItemGroup>
 
 </Project>

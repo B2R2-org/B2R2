@@ -30,7 +30,7 @@ open B2R2.BinIR
 open B2R2.BinIR.LowUIR
 
 [<TestClass>]
-type LifterTests () =
+type PpTests () =
   let assertEqualOfStrAndStmt (expected: string) stmt =
     (expected, Pp.stmtToString stmt)
     |> Assert.AreEqual<string>

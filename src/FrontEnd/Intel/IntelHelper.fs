@@ -25,13 +25,9 @@
 module internal B2R2.FrontEnd.Intel.Helper
 
 open System
-open System.Runtime.CompilerServices
 open LanguagePrimitives
 open B2R2
 open B2R2.FrontEnd.BinLifter
-
-[<assembly: InternalsVisibleTo("B2R2.Peripheral.Assembly.Intel")>]
-do ()
 
 type [<AbstractClass>] OperandParser () =
   abstract Render: ByteSpan * ReadHelper -> Operands

@@ -27,7 +27,7 @@ namespace B2R2.FrontEnd.RISCV64
 open System.Runtime.CompilerServices
 open B2R2
 
-[<assembly: InternalsVisibleTo("B2R2.FrontEnd.API.Tests")>]
+[<assembly: InternalsVisibleTo("B2R2.FrontEnd.RISCV64.Tests")>]
 do ()
 
 /// <summary>

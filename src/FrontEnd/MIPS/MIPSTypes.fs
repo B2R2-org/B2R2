@@ -27,7 +27,7 @@ namespace B2R2.FrontEnd.MIPS
 open System.Runtime.CompilerServices
 open B2R2
 
-[<assembly: InternalsVisibleTo("B2R2.FrontEnd.API.Tests")>]
+[<assembly: InternalsVisibleTo("B2R2.FrontEnd.MIPS.Tests")>]
 do ()
 
 exception internal InvalidConditionException

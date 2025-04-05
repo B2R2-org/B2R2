@@ -28,7 +28,7 @@ namespace B2R2.FrontEnd.SPARC
 open System.Runtime.CompilerServices
 open B2R2
 
-[<assembly: InternalsVisibleTo("B2R2.FrontEnd.API.Tests")>]
+[<assembly: InternalsVisibleTo("B2R2.FrontEnd.SPARC.Tests")>]
 do ()
 
 /// <summary>

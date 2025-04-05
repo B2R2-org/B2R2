@@ -28,7 +28,7 @@ open B2R2
 open B2R2.FrontEnd.BinLifter
 open System.Runtime.CompilerServices
 
-[<assembly: InternalsVisibleTo("B2R2.FrontEnd.API.Tests")>]
+[<assembly: InternalsVisibleTo("B2R2.FrontEnd.ARM32.Tests")>]
 do ()
 
 /// <sumary>

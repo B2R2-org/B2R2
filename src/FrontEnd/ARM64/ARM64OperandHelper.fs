@@ -30,9 +30,6 @@ open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.ARM64.Terminator
 open System.Runtime.CompilerServices
 
-[<assembly: InternalsVisibleTo("B2R2.FrontEnd.API.Tests")>]
-do ()
-
 let memBaseImm offset = OprMemory (BaseMode (ImmOffset (BaseOffset offset)))
 let memBaseReg offset = OprMemory (BaseMode (RegOffset offset))
 let memPreIdxImm offset = OprMemory (PreIdxMode (ImmOffset (BaseOffset offset)))

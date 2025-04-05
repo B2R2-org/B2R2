@@ -22,7 +22,7 @@
   THE SOFTWARE.
 *)
 
-module B2R2.FrontEnd.API.Tests.PARISC
+namespace B2R2.FrontEnd.PARISC.Tests
 
 open Microsoft.VisualStudio.TestTools.UnitTesting
 open B2R2
@@ -54,49 +54,50 @@ module private PARISCShortcut =
     static member Mem (r, o: R, rt, space) =
       OpMem (r, Some space, Some (Reg o), rt)
 
-let getWordSize = function
-  | 32<rt> -> WordSize.Bit32
-  | 64<rt> -> WordSize.Bit64
-  | _ -> Terminator.impossible ()
+  let getWordSize = function
+    | 32<rt> -> WordSize.Bit32
+    | 64<rt> -> WordSize.Bit64
+    | _ -> Terminator.impossible ()
 
-let private test arch endian wordSz opcode (opr: Operands) completer condition
-  uid bytes =
-  let reader = BinReader.Init endian
-  let span = System.ReadOnlySpan (bytes: byte[])
-  let ins = ParsingMain.parse span reader arch (getWordSize wordSz) 0UL
-  let opcode' = ins.Info.Opcode
-  let completer' = ins.Info.Completer
-  let condition' = ins.Info.Condition
-  let uid' = ins.Info.ID
-  let oprs' = ins.Info.Operands
-  Assert.AreEqual<Opcode> (opcode, opcode')
-  Assert.AreEqual<Operands> (opr, oprs')
-  Assert.AreEqual (completer, completer')
-  Assert.AreEqual (condition, condition')
-  Assert.AreEqual (uid, uid')
+  let test arch endian wordSz opcode (opr: Operands) completer condition
+    uid bytes =
+    let reader = BinReader.Init endian
+    let span = System.ReadOnlySpan (bytes: byte[])
+    let ins = ParsingMain.parse span reader arch (getWordSize wordSz) 0UL
+    let opcode' = ins.Info.Opcode
+    let completer' = ins.Info.Completer
+    let condition' = ins.Info.Condition
+    let uid' = ins.Info.ID
+    let oprs' = ins.Info.Operands
+    Assert.AreEqual<Opcode> (opcode, opcode')
+    Assert.AreEqual<Operands> (opr, oprs')
+    Assert.AreEqual (completer, completer')
+    Assert.AreEqual (condition, condition')
+    Assert.AreEqual (uid, uid')
 
-let private testPARISC wordSz bytes
-  ((opcode, operands), cmplt: array<Completer>, cond, uid) =
-  let arch =
-    if wordSz = 64<rt> then Architecture.PARISC64 else Architecture.PARISC
-  match cmplt with
-  | [||] -> test arch Endian.Big wordSz opcode operands None cond uid bytes
-  | _ -> test arch Endian.Big wordSz opcode operands (Some cmplt) cond uid bytes
+  let testPARISC wordSz bytes
+    ((opcode, operands), cmplt: array<Completer>, cond, uid) =
+    let arch =
+      if wordSz = 64<rt> then Architecture.PARISC64 else Architecture.PARISC
+    match cmplt with
+    | [||] -> test arch Endian.Big wordSz opcode operands None cond uid bytes
+    | _ ->
+      test arch Endian.Big wordSz opcode operands (Some cmplt) cond uid bytes
 
-let private operandsFromArray oprList =
-  let oprArr = Array.ofList oprList
-  match oprArr.Length with
-  | 0 -> NoOperand
-  | 1 -> OneOperand oprArr[0]
-  | 2 -> TwoOperands (oprArr[0], oprArr[1])
-  | 3 -> ThreeOperands (oprArr[0], oprArr[1], oprArr[2])
-  | 4 -> FourOperands (oprArr[0], oprArr[1], oprArr[2], oprArr[3])
-  | 5 -> FiveOperands (oprArr[0], oprArr[1], oprArr[2], oprArr[3], oprArr[4])
-  | _ -> Terminator.impossible ()
+  let operandsFromArray oprList =
+    let oprArr = Array.ofList oprList
+    match oprArr.Length with
+    | 0 -> NoOperand
+    | 1 -> OneOperand oprArr[0]
+    | 2 -> TwoOperands (oprArr[0], oprArr[1])
+    | 3 -> ThreeOperands (oprArr[0], oprArr[1], oprArr[2])
+    | 4 -> FourOperands (oprArr[0], oprArr[1], oprArr[2], oprArr[3])
+    | 5 -> FiveOperands (oprArr[0], oprArr[1], oprArr[2], oprArr[3], oprArr[4])
+    | _ -> Terminator.impossible ()
 
-let private ( ** ) opcode oprList = opcode, operandsFromArray oprList
+  let ( ** ) opcode oprList = opcode, operandsFromArray oprList
 
-let private ( ++ ) byteString pair = ByteArray.ofHexString byteString, pair
+  let ( ++ ) byteString pair = ByteArray.ofHexString byteString, pair
 
 [<TestClass>]
 type ArithmeticClass () =

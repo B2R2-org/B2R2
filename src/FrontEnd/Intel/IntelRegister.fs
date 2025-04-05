@@ -24,11 +24,7 @@
 
 namespace B2R2.FrontEnd.Intel
 
-open System.Runtime.CompilerServices
 open B2R2
-
-[<assembly: InternalsVisibleTo("B2R2.FrontEnd.API.Tests")>]
-do ()
 
 /// This exception occurs when an UnknownReg is explicitly used. This exception
 /// should not happen in general.
