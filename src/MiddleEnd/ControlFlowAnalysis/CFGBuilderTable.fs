@@ -71,7 +71,7 @@ type CFGBuilderTable<'FnCtx,
 
   let loadFromPLT (elf: ELFBinFile) =
     elf.PLT
-    |> ARMap.iter (fun range entry ->
+    |> NoOverlapIntervalMap.iter (fun range entry ->
       match ELF.findInternalFuncReloc elf entry with
       | Ok fnAddr ->
         (* We create a mapping from a PLT address to an internal function

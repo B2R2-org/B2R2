@@ -26,20 +26,22 @@ namespace B2R2.Collections
 
 open B2R2
 
-/// This is a non-overlapping interval map that we call "Address Range Map"
-/// (ARMap). This map internally forms a red-black tree, which follows the
+/// <summary>
+/// This is a non-overlapping interval map. By interval map, we mean a map based
+/// on an interval tree, which maps an interval (i.e., AddrRange) to a value. We
+/// currently implement this using a red-black tree, which follows the
 /// implementation of the paper written by Kimball Germane and Matthew Might:
 /// "Deletion: The Curse of the Red-Black Tree", Journal of Functional
 /// Programming, vol. 24, no. 4, 2014.
-type ARMap<'V>
+/// </summary>
+type NoOverlapIntervalMap<'V>
 
-/// This is a helper class for manipulating an ARMap (AddressRangeMap), a
-/// non-overlapping interval map. We provide both F#- and C#-style APIs.
+/// This is a helper class for manipulating an NoOverlapIntervalMap.
 [<RequireQualifiedAccess>]
-module ARMap =
+module NoOverlapIntervalMap =
   /// Return an empty map.
   [<CompiledName("Empty")>]
-  val empty: ARMap<'V>
+  val empty: NoOverlapIntervalMap<'V>
 
   /// <summary>
   ///   Check if the give interval map is empty.
@@ -49,7 +51,7 @@ module ARMap =
   ///   Returns true if the tree is empty, false otherwise.
   /// </returns>
   [<CompiledName("IsEmpty")>]
-  val isEmpty: tree: ARMap<'V> -> bool
+  val isEmpty: tree: NoOverlapIntervalMap<'V> -> bool
 
   /// <summary>
   ///   Add a mapping from an interval to the value in the interval tree.
@@ -64,7 +66,11 @@ module ARMap =
   ///   Thrown when there is an existing (overlapping) interval in the tree.
   /// </exception>
   [<CompiledName("Add")>]
-  val add: k: AddrRange -> v: 'V -> tree: ARMap<'V> -> ARMap<'V>
+  val add:
+       k: AddrRange
+    -> v: 'V
+    -> tree: NoOverlapIntervalMap<'V>
+    -> NoOverlapIntervalMap<'V>
 
   /// <summary>
   ///   This function is the same as add except that this one takes in two
@@ -82,7 +88,12 @@ module ARMap =
   ///   Thrown when there is an existing (overlapping) interval in the tree.
   /// </exception>
   [<CompiledName("AddRange")>]
-  val addRange: min: Addr -> max: Addr -> v: 'V -> tree: ARMap<'V> -> ARMap<'V>
+  val addRange:
+       min: Addr
+    -> max: Addr
+    -> v: 'V
+    -> tree: NoOverlapIntervalMap<'V>
+    -> NoOverlapIntervalMap<'V>
 
   /// <summary>
   ///   This function is the same as add except that it will overwrite the
@@ -96,7 +107,11 @@ module ARMap =
   ///   A new interval tree.
   /// </returns>
   [<CompiledName("Replace")>]
-  val replace: k: AddrRange -> v: 'V -> tree: ARMap<'V> -> ARMap<'V>
+  val replace:
+       k: AddrRange
+    -> v: 'V
+    -> tree: NoOverlapIntervalMap<'V>
+    -> NoOverlapIntervalMap<'V>
 
   /// <summary>
   ///   Remove a mapping that matches exactly with the given range. To remove a
@@ -108,7 +123,10 @@ module ARMap =
   ///   A new interval tree.
   /// </returns>
   [<CompiledName("Remove")>]
-  val remove: k: AddrRange -> tree: ARMap<'V> -> ARMap<'V>
+  val remove:
+       k: AddrRange
+    -> tree: NoOverlapIntervalMap<'V>
+    -> NoOverlapIntervalMap<'V>
 
   /// <summary>
   ///   Remove a mapping that matches with the given address. Unlike remove,
@@ -120,7 +138,10 @@ module ARMap =
   ///   A new interval tree.
   /// </returns>
   [<CompiledName("RemoveAddr")>]
-  val removeAddr: addr: Addr -> tree: ARMap<'V> -> ARMap<'V>
+  val removeAddr:
+       addr: Addr
+    -> tree: NoOverlapIntervalMap<'V>
+    -> NoOverlapIntervalMap<'V>
 
   /// <summary>
   ///   Check whether a given Addr exists in any of the ranges in the map.
@@ -132,7 +153,10 @@ module ARMap =
   ///   address, false otherwise.
   /// </returns>
   [<CompiledName("ContainsAddr")>]
-  val containsAddr: addr: Addr -> tree: ARMap<'V> -> bool
+  val containsAddr:
+       addr: Addr
+    -> tree: NoOverlapIntervalMap<'V>
+    -> bool
 
   /// <summary>
   ///   Check whether the exact range exists in the interval map.
@@ -143,7 +167,10 @@ module ARMap =
   ///   True if the interval tree contains the interval, false otherwise.
   /// </returns>
   [<CompiledName("ContainsRange")>]
-  val containsRange: range: AddrRange -> tree: ARMap<'V> -> bool
+  val containsRange:
+       range: AddrRange
+    -> tree: NoOverlapIntervalMap<'V>
+    -> bool
 
   /// <summary>
   ///   Find the mapping that exactly matches with the given range.
@@ -154,7 +181,7 @@ module ARMap =
   ///   The value associated with the given interval.
   /// </returns>
   [<CompiledName("Find")>]
-  val find: range: AddrRange -> tree: ARMap<'V> -> 'V
+  val find: range: AddrRange -> tree: NoOverlapIntervalMap<'V> -> 'V
 
   /// <summary>
   ///   Find the mapping that matches with the given range. Unlike find, this
@@ -166,7 +193,7 @@ module ARMap =
   ///   The value associated with the given address.
   /// </returns>
   [<CompiledName("FindByAddr")>]
-  val findByAddr: addr: Addr -> tree: ARMap<'V> -> 'V
+  val findByAddr: addr: Addr -> tree: NoOverlapIntervalMap<'V> -> 'V
 
   /// <summary>
   ///   Find an interval stored in the interval tree map, which includes the
@@ -178,7 +205,10 @@ module ARMap =
   ///   The found interval wrapped with option.
   /// </returns>
   [<CompiledName("TryFindKey")>]
-  val tryFindKey: addr: Addr -> tree: ARMap<'V> -> AddrRange option
+  val tryFindKey:
+       addr: Addr
+    -> tree: NoOverlapIntervalMap<'V>
+    -> AddrRange option
 
   /// <summary>
   ///   Same as find, except that this returns an option-wrapped type.
@@ -189,7 +219,10 @@ module ARMap =
   ///   The value associated with the given interval.
   /// </returns>
   [<CompiledName("TryFind")>]
-  val tryFind: range: AddrRange -> tree: ARMap<'V> -> 'V option
+  val tryFind:
+       range: AddrRange
+    -> tree: NoOverlapIntervalMap<'V>
+    -> 'V option
 
   /// <summary>
   ///   Same as findByAddr, except that this returns an option-wrapped type.
@@ -200,7 +233,10 @@ module ARMap =
   ///   The value associated with the given address.
   /// </returns>
   [<CompiledName("TryFindByAddr")>]
-  val tryFindByAddr: addr: Addr -> tree: ARMap<'V> -> 'V option
+  val tryFindByAddr:
+       addr: Addr
+    -> tree: NoOverlapIntervalMap<'V>
+    -> 'V option
 
   /// <summary>
   ///   Return the number of bindings in the interval map.
@@ -210,7 +246,7 @@ module ARMap =
   ///   The number of bindings.
   /// </returns>
   [<CompiledName("Count")>]
-  val count: tree: ARMap<'V> -> int
+  val count: tree: NoOverlapIntervalMap<'V> -> int
 
   /// <summary>
   ///   Iterate over the tree.
@@ -218,7 +254,10 @@ module ARMap =
   /// <param name="fn">Iterator.</param>
   /// <param name="tree">The interval tree.</param>
   [<CompiledName("Iterate")>]
-  val iter: fn: (AddrRange -> 'V -> unit) -> tree: ARMap<'V> -> unit
+  val iter:
+       fn: (AddrRange -> 'V -> unit)
+    -> tree: NoOverlapIntervalMap<'V>
+    -> unit
 
   /// <summary>
   ///   Fold over the tree.
@@ -231,7 +270,10 @@ module ARMap =
   /// </returns>
   [<CompiledName("Fold")>]
   val fold:
-    fn: ('b -> AddrRange -> 'V -> 'b) -> acc: 'b -> tree: ARMap<'V> -> 'b
+       fn: ('b -> AddrRange -> 'V -> 'b)
+    -> acc: 'b
+    -> tree: NoOverlapIntervalMap<'V>
+    -> 'b
 
   /// <summary>
   ///   Return a sequence of overlapping mappings of the given interval.
@@ -242,4 +284,7 @@ module ARMap =
   ///   A sequence of mappings.
   /// </returns>
   [<CompiledName("GetOverlaps")>]
-  val getOverlaps: k: AddrRange -> tree: ARMap<'V> -> (AddrRange * 'V) list
+  val getOverlaps:
+       k: AddrRange
+    -> tree: NoOverlapIntervalMap<'V>
+    -> (AddrRange * 'V) list

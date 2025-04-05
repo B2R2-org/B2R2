@@ -58,7 +58,8 @@ type ExceptionInfo (liftingUnit: LiftingUnit) =
         if csrec.LandingPad = 0UL then 0UL else fde.PCBegin + csrec.LandingPad
       if landingPad = 0UL then loopCallSiteTable fde isFDEFunc acc rest
       else
-        let acc = ARMap.add (AddrRange (blockStart, blockEnd)) landingPad acc
+        let range = AddrRange (blockStart, blockEnd)
+        let acc = NoOverlapIntervalMap.add range landingPad acc
         let isFDEFunc = checkIfFDEIsFunction fde landingPad
         loopCallSiteTable fde isFDEFunc acc rest
 
@@ -81,7 +82,7 @@ type ExceptionInfo (liftingUnit: LiftingUnit) =
     excframes
     |> List.fold (fun acc frame ->
       accumulateExceptionTableInfo acc frame.FDERecord lsdas
-    ) (ARMap.empty, Set.empty)
+    ) (NoOverlapIntervalMap.empty, Set.empty)
 
   let buildELF (elf: ELFBinFile) =
     let exn = elf.ExceptionInfo
@@ -90,7 +91,7 @@ type ExceptionInfo (liftingUnit: LiftingUnit) =
   let exnTbl, funcEntryPoints =
     match liftingUnit.File.Format with
     | FileFormat.ELFBinary -> buildELF (liftingUnit.File :?> ELFBinFile)
-    | _ -> ARMap.empty, Set.empty
+    | _ -> NoOverlapIntervalMap.empty, Set.empty
 
   new (hdl: BinHandle) =
     ExceptionInfo (hdl.NewLiftingUnit ())
@@ -105,4 +106,4 @@ type ExceptionInfo (liftingUnit: LiftingUnit) =
   /// For a given instruction address, find the landing pad (exception target)
   /// of the instruction.
   member __.TryFindExceptionTarget insAddr =
-    ARMap.tryFindByAddr insAddr exnTbl
+    NoOverlapIntervalMap.tryFindByAddr insAddr exnTbl

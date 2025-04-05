@@ -49,6 +49,6 @@ let toArray segCmds isLoadable =
 let buildMap segs =
   segs
   |> Array.fold (fun map s ->
-       ARMap.addRange s.VMAddr (s.VMAddr + s.VMSize - 1UL) s map
-  ) ARMap.empty
+       NoOverlapIntervalMap.addRange s.VMAddr (s.VMAddr + s.VMSize - 1UL) s map
+  ) NoOverlapIntervalMap.empty
 

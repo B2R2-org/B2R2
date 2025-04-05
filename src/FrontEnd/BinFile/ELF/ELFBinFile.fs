@@ -241,8 +241,9 @@ type ELFBinFile (path, bytes: byte[], baseAddrOpt, rfOpt) =
 
     member __.GetLinkageTableEntries () =
       plt.Value
-      |> ARMap.fold (fun acc _ entry -> entry :: acc) []
+      |> NoOverlapIntervalMap.fold (fun acc _ entry -> entry :: acc) []
       |> List.sortBy (fun entry -> entry.TrampolineAddress)
       |> List.toArray
 
-    member __.IsLinkageTable addr = ARMap.containsAddr addr plt.Value
+    member __.IsLinkageTable addr =
+      NoOverlapIntervalMap.containsAddr addr plt.Value

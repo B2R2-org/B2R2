@@ -40,12 +40,16 @@ type internal RBColor =
   /// Negative Black
   | NB
 
-type ARMap<'V> =
+type NoOverlapIntervalMap<'V> =
   | Leaf of RBColor
-  | Node of RBColor * AddrRange * 'V * ARMap<'V> * ARMap<'V>
+  | Node of RBColor
+          * AddrRange
+          * 'V
+          * NoOverlapIntervalMap<'V>
+          * NoOverlapIntervalMap<'V>
 
 [<RequireQualifiedAccess>]
-module ARMap =
+module NoOverlapIntervalMap =
 
   let (++) col1 col2 =
     match col1, col2 with

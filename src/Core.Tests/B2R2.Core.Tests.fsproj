@@ -6,7 +6,7 @@
 
   <ItemGroup>
     <Compile Include="RegisterSetTests.fs" />
-    <Compile Include="AddrRangeTests.fs" />
+    <Compile Include="NoOverlapIntervalMapTests.fs" />
     <Compile Include="LRUCacheTests.fs" />
     <Compile Include="IntervalTreeTests.fs" />
     <Compile Include="BitVectorTests.fs" />

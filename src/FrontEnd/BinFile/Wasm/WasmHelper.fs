@@ -125,7 +125,7 @@ let getSections wm =
   |> Array.map secSummaryToGenericSection
 
 let getSectionsByAddr wm addr =
-  match ARMap.tryFindByAddr addr wm.SectionsInfo.SecByAddr with
+  match NoOverlapIntervalMap.tryFindByAddr addr wm.SectionsInfo.SecByAddr with
   | Some s -> [| secSummaryToGenericSection s |]
   | None -> [||]
 

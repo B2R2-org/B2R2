@@ -213,7 +213,7 @@ let dumpFunctions (opts: FileViewerOpts) (elf: ELFBinFile) =
 let dumpExceptionTable hdl (_opts: FileViewerOpts) (file: ELFBinFile) =
   let exnInfo = ExceptionInfo (hdl=hdl)
   exnInfo.ExceptionMap
-  |> ARMap.iter (fun range catchBlkAddr ->
+  |> NoOverlapIntervalMap.iter (fun range catchBlkAddr ->
     out.PrintLine $"{range.Min:x}:{range.Max:x} -> {catchBlkAddr:x}")
 
 let makeStringTableReader (file: IBinFile) dynEntries =

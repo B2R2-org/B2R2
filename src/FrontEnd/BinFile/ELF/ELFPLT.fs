@@ -78,12 +78,12 @@ type PLTSectionType =
 type PLTParser () =
   /// Parse PLT entries. This function returns a mapping from a PLT entry
   /// address range to LinkageTableEntry.
-  abstract Parse: ELFToolbox -> ARMap<LinkageTableEntry>
+  abstract Parse: ELFToolbox -> NoOverlapIntervalMap<LinkageTableEntry>
 
   /// Parse the given PLT section.
   abstract ParseSection:
-    ELFToolbox * ELFSection * ARMap<LinkageTableEntry>
-    -> ARMap<LinkageTableEntry>
+    ELFToolbox * ELFSection * NoOverlapIntervalMap<LinkageTableEntry>
+    -> NoOverlapIntervalMap<LinkageTableEntry>
 
   /// Parse the given PLT section.
   abstract ParseEntry:
@@ -172,7 +172,7 @@ let rec parseEntryLoop p sec rdr span desc symbs rel map idx eAddr addr =
     | true, r ->
       let entry = makePLTEntry symbs addr entry.EntryRelocAddr r
       let ar = AddrRange (addr, nextAddr - 1UL)
-      let map = ARMap.add ar entry map
+      let map = NoOverlapIntervalMap.add ar entry map
       parseEntryLoop p sec rdr span desc symbs rel map (idx + 1) eAddr nextAddr
     | _ ->
       parseEntryLoop p sec rdr span desc symbs rel map (idx + 1) eAddr nextAddr
@@ -230,7 +230,7 @@ type GeneralPLTParser (shdrs, relocInfo, symbInfo, pltHdrSize, relType) =
 
   override __.Parse toolBox =
     let pltSections = findPLTSections shdrs
-    parseSections __ toolBox ARMap.empty pltSections
+    parseSections __ toolBox NoOverlapIntervalMap.empty pltSections
 
 /// Intel x86 PLT parser.
 type X86PLTParser (shdrs, relocInfo, symbInfo) =
@@ -328,8 +328,8 @@ type X86PLTParser (shdrs, relocInfo, symbInfo) =
   override __.Parse toolBox =
     let pltSections = findPLTSections shdrs
     if Option.isSome gotAddrOpt then
-      parseSections __ toolBox ARMap.empty pltSections
-    else ARMap.empty
+      parseSections __ toolBox NoOverlapIntervalMap.empty pltSections
+    else NoOverlapIntervalMap.empty
 
 /// Intel x86-64 PLT parser.
 type X64PLTParser (shdrs, relocInfo, symbInfo) =
@@ -415,8 +415,8 @@ type X64PLTParser (shdrs, relocInfo, symbInfo) =
   override __.Parse toolBox =
     let pltSections = findPLTSections shdrs
     if Option.isSome gotAddrOpt then
-      parseSections __ toolBox ARMap.empty pltSections
-    else ARMap.empty
+      parseSections __ toolBox NoOverlapIntervalMap.empty pltSections
+    else NoOverlapIntervalMap.empty
 
 /// Get the size of the header of PLT (PLT Zero)
 let private computeARMPLTHeaderSize reader (span: ByteSpan) =
@@ -484,8 +484,8 @@ type ARMv7PLTParser (shdrs, relocInfo, symbInfo) =
   override __.Parse toolBox =
     let pltSections = findPLTSections shdrs
     if Option.isSome baseAddrOpt then
-      parseSections __ toolBox ARMap.empty pltSections
-    else ARMap.empty
+      parseSections __ toolBox NoOverlapIntervalMap.empty pltSections
+    else NoOverlapIntervalMap.empty
 
 /// AARCH64 PLT parser.
 type AARCH64PLTParser (shdrs, relocInfo, symbInfo) =
@@ -509,8 +509,8 @@ type AARCH64PLTParser (shdrs, relocInfo, symbInfo) =
   override __.Parse toolBox =
     let pltSections = findPLTSections shdrs
     if Option.isSome baseAddrOpt then
-      parseSections __ toolBox ARMap.empty pltSections
-    else ARMap.empty
+      parseSections __ toolBox NoOverlapIntervalMap.empty pltSections
+    else NoOverlapIntervalMap.empty
 
 let private readMicroMIPSOpcode (span: ByteSpan) (reader: IBinReader) offset =
   let v1 = reader.ReadUInt16 (span, offset) |> uint32
@@ -522,8 +522,8 @@ let private computeMIPSPLTHeaderSize span reader =
   if opcode = 0x3302fffe then 24UL
   else 32UL
 
-let rec private parseMIPSStubEntries armap offset maxOffset tbl reader span =
-  if offset >= maxOffset then armap
+let rec private parseMIPSStubEntries map offset maxOffset tbl reader span =
+  if offset >= maxOffset then map
   else
     let fst = (reader: IBinReader).ReadInt32 (span = span, offset=offset)
     let snd = reader.ReadInt32 (span, offset=offset + 4)
@@ -543,9 +543,9 @@ let rec private parseMIPSStubEntries armap offset maxOffset tbl reader span =
           TrampolineAddress = symbol.Addr
           TableAddress = 0UL }
       let ar = AddrRange (symbol.Addr, symbol.Addr + 15UL)
-      let armap = ARMap.add ar entry armap
-      parseMIPSStubEntries armap (offset + 16) maxOffset tbl reader span
-    else armap
+      let map = NoOverlapIntervalMap.add ar entry map
+      parseMIPSStubEntries map (offset + 16) maxOffset tbl reader span
+    else map
 
 /// MIPS PLT parser.
 type MIPSPLTParser (hdr, shdrs, relocInfo, symbInfo) =
@@ -566,9 +566,10 @@ type MIPSPLTParser (hdr, shdrs, relocInfo, symbInfo) =
         let n = Symbol.getDynamicSymbolSectionNumbers shdrs|> Array.head
         let tbl = symbInfo.SecNumToSymbTbls[n]
         assert (tbl.Length > int tag.DVal)
-        parseMIPSStubEntries ARMap.empty offset maxOffset tbl reader span
-      | None -> ARMap.empty
-    | None -> ARMap.empty
+        let map = NoOverlapIntervalMap.empty
+        parseMIPSStubEntries map offset maxOffset tbl reader span
+      | None -> NoOverlapIntervalMap.empty
+    | None -> NoOverlapIntervalMap.empty
 
   override __.ParseEntry (addr, _idx, sec, _desc, reader, span) =
     let offset = int (addr - sec.SecAddr)
@@ -606,7 +607,7 @@ type MIPSPLTParser (hdr, shdrs, relocInfo, symbInfo) =
   override __.Parse toolBox =
     let pltSections = findPLTSections shdrs
     if List.isEmpty pltSections then __.ParseMIPSStubs toolBox
-    else parseSections __ toolBox ARMap.empty pltSections
+    else parseSections __ toolBox NoOverlapIntervalMap.empty pltSections
 
 /// Classic PPC that uses the .plt section. Modern PPC binaries use the "glink".
 type PPCClassicPLTParser (shdrs, relocInfo, symbInfo, pltHdrSize, relType) =
@@ -676,7 +677,7 @@ type PPCPLTParser (hdr, shdrs, relocInfo, symbInfo) =
       let reloc = (relocs: RelocationEntry[])[idx]
       let ar = AddrRange (addr, addr + delta - 1UL)
       let entry = makePLTEntry symbInfo addr addr reloc
-      let map = ARMap.add ar entry map
+      let map = NoOverlapIntervalMap.add ar entry map
       __.ReadEntryLoop relocs delta (idx - 1) map (addr - delta)
     else map
 
@@ -690,7 +691,8 @@ type PPCPLTParser (hdr, shdrs, relocInfo, symbInfo) =
       |> Seq.toArray
     assert (relocs.Length = count)
     let addr = glinkAddr - delta
-    __.ReadEntryLoop relocs (uint64 delta) (count - 1) ARMap.empty addr
+    let map = NoOverlapIntervalMap.empty
+    __.ReadEntryLoop relocs (uint64 delta) (count - 1) map addr
 
   member private __.ReadPLTWithGLink (toolBox, glinkAddr) =
     let relaPltSecOpt = Array.tryFind (fun s -> s.SecName = SecRelaPLT) shdrs
@@ -708,8 +710,8 @@ type PPCPLTParser (hdr, shdrs, relocInfo, symbInfo) =
       match __.ComputePLTEntryDelta (glinkSec, reader, stubOff, 16) with
       | Some delta ->
         __.ReadPLTEntriesBackwards (glinkAddr, uint64 delta, count)
-      | None -> ARMap.empty
-    | _ -> ARMap.empty
+      | None -> NoOverlapIntervalMap.empty
+    | _ -> NoOverlapIntervalMap.empty
 
   member private __.ParseWithGLink toolBox =
     match __.ComputeGLinkAddrWithGOT toolBox with
@@ -717,13 +719,13 @@ type PPCPLTParser (hdr, shdrs, relocInfo, symbInfo) =
     | None ->
       match __.ComputeGLinkAddrWithPLT toolBox with
       | Some glinkAddr -> __.ReadPLTWithGLink (toolBox, glinkAddr)
-      | None -> ARMap.empty
+      | None -> NoOverlapIntervalMap.empty
 
   override __.Parse toolBox =
     match Array.tryFind (fun s -> s.SecName = SecPLT) shdrs with
     | Some sec when sec.SecFlags.HasFlag SectionFlag.SHF_EXECINSTR ->
       (* The given binary uses the classic format. *)
-      parseSections __ toolBox ARMap.empty [ sec ]
+      parseSections __ toolBox NoOverlapIntervalMap.empty [ sec ]
     | _ -> __.ParseWithGLink toolBox
 
 /// This will simply return an empty map.
@@ -731,7 +733,7 @@ type NullPLTParser () =
   inherit PLTParser ()
   override __.ParseEntry (_, _, _, _, _, _) = Terminator.impossible ()
   override __.ParseSection (_, _, _) = Terminator.impossible ()
-  override __.Parse _ = ARMap.empty
+  override __.Parse _ = NoOverlapIntervalMap.empty
 
 let initPLTParser hdr shdrs relocInfo symbInfo =
   match hdr.MachineType with

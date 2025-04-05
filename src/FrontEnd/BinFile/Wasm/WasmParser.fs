@@ -192,7 +192,7 @@ let addSecSummToAddrMap (secSumm: SectionSummary) map =
   let startAddr = uint64 secSumm.Offset
   let endAddr =
     startAddr + uint64 (secSumm.HeaderSize + secSumm.ContentsSize) - 1UL
-  ARMap.addRange startAddr endAddr secSumm map
+  NoOverlapIntervalMap.addRange startAddr endAddr secSumm map
 
 let addSecSummToSecsInfo (secSumm: SectionSummary) (info: SectionsInfo) =
   {
@@ -273,7 +273,7 @@ let private parseWasmModule (bs: byte[]) (reader: IBinReader) offset =
     CodeSection = None
     DataSection = None
     SectionsInfo = {
-        SecByAddr = ARMap.empty
+        SecByAddr = NoOverlapIntervalMap.empty
         SecByName = Map.empty
         SecArray = Array.empty
       }

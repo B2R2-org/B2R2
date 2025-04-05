@@ -42,8 +42,8 @@
     <Compile Include="Collections\UniqueQueue.fs" />
     <Compile Include="Collections\PersistentQueue.fs" />
     <Compile Include="Collections\RegisterSet.fs" />
-    <Compile Include="Collections\AddrRangeMap.fsi" />
-    <Compile Include="Collections\AddrRangeMap.fs" />
+    <Compile Include="Collections\NoOverlapIntervalMap.fsi" />
+    <Compile Include="Collections\NoOverlapIntervalMap.fs" />
     <Compile Include="Collections\FingerTree.fs" />
     <Compile Include="Collections\IntervalMap.fs" />
     <Compile Include="Collections\IntervalSet.fs" />

@@ -112,7 +112,7 @@ let isNXEnabled hdr =
   || hdr.Flags.HasFlag MachFlag.MH_NO_HEAP_EXECUTION
 
 let translateAddr segMap addr =
-  match ARMap.tryFindByAddr addr segMap with
+  match NoOverlapIntervalMap.tryFindByAddr addr segMap with
   | Some s -> Convert.ToInt32 (addr - s.VMAddr + s.FileOff)
   | None -> raise InvalidAddrReadException
 
@@ -149,7 +149,7 @@ let secFlagToSectionKind isExecutable = function
     else SectionKind.ExtraSection
 
 let machSectionToSection segMap (sec: MachSection) =
-  let seg = ARMap.findByAddr sec.SecAddr segMap
+  let seg = NoOverlapIntervalMap.findByAddr sec.SecAddr segMap
   let perm: MachVMProt = seg.InitProt |> LanguagePrimitives.EnumOfValue
   let isExecutable = perm.HasFlag MachVMProt.Executable
   { Address = sec.SecAddr

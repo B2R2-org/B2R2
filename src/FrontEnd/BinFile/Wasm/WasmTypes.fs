@@ -128,7 +128,7 @@ type SectionSummary = {
 
 type SectionsInfo = {
   /// Section summary by address.
-  SecByAddr: ARMap<SectionSummary>
+  SecByAddr: NoOverlapIntervalMap<SectionSummary>
   /// Section summary by name.
   SecByName: Map<string, SectionSummary>
   /// Section summary by its number.
