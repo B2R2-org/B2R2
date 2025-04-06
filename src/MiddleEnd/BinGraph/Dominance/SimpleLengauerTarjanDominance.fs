@@ -43,10 +43,15 @@ type private DomInfo<'V when 'V: equality> = {
   Ancestor: int[]
   /// DFNum -> DFNum of a semidominator.
   Semi: int[]
+#if LT_USE_SET_BUCKET
+  /// DFNum -> set of DFNums (vertices that share the same sdom).
+  Bucket: Set<int>[]
+#else
   /// DFNum -> DFNum of the first node in the bucket.
   First: int[]
   /// DFNum -> DFNum of the next node in the bucket.
   Next: int[]
+#endif
   /// DFNum -> DFNum of an immediate dominator.
   IDom: int[]
   /// Length of the arrays.
@@ -62,8 +67,12 @@ let private initDomInfo (g: IDiGraphAccessible<_, _>) =
     Parent = Array.create len 0
     Ancestor = Array.create len 0
     Semi = Array.create len 0
+#if LT_USE_SET_BUCKET
+    Bucket = Array.create len Set.empty
+#else
     First = Array.create len -1
     Next = Array.create len -1
+#endif
     IDom = Array.create len 0
     MaxLength = len }
 
@@ -121,6 +130,13 @@ let private link info v w =
   info.Ancestor[w] <- v
   info.Label[w] <- w
 
+#if LT_USE_SET_BUCKET
+let private computeDomAux info v =
+  Set.iter (fun u ->
+    let w = eval info u
+    if info.Semi[w] < info.Semi[u] then info.IDom[u] <- w
+    else info.IDom[u] <- v) info.Bucket[v]
+#else
 let rec private computeDomAux info v s =
   let u = eval info v
   let w = info.Next[v]
@@ -128,12 +144,19 @@ let rec private computeDomAux info v s =
   else info.IDom[v] <- s
   if w = -1 then ()
   else computeDomAux info w s
+#endif
 
+#if LT_USE_SET_BUCKET
+let private computeDom info v =
+  if info.Bucket[v].IsEmpty then ()
+  else computeDomAux info v
+#else
 let private computeDom info v =
   let w = info.First[v]
   if w = -1 then ()
   else
     computeDomAux info w v
+#endif
 
 let private computeDominatorInfo (g: IDiGraphAccessible<_, _>) =
   let info = initDomInfo g
@@ -148,8 +171,12 @@ let private computeDominatorInfo (g: IDiGraphAccessible<_, _>) =
     |> Array.map (dfnum info)
     |> Array.toList
     |> computeSemiDom info i
+#if LT_USE_SET_BUCKET
+    info.Bucket[info.Semi[i]] <- Set.add i info.Bucket[info.Semi[i]]
+#else
     info.Next[i] <- info.First[info.Semi[i]]
     info.First[info.Semi[i]] <- i
+#endif
     link info p i (* Link the parent (p) to the forest. *)
   done
   for i = 1 to n do
