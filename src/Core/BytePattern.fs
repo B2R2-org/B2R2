@@ -26,11 +26,23 @@ namespace B2R2
 
 open System
 
-/// Represents a byte pattern.
+/// <summary>
+/// Represents a pattern of bytes that can be used to match a byte array. A
+/// BytePattern is an array of ByteValue, where each ByteValue (<see
+/// cref='T:B2R2.ByteValue'/>) can be either AnyByte (which matches any byte) or
+/// OneByte (which matches a specific byte value).
+///
+/// <example>
+///   The following pattern matches any byte followed by the byte 0xFF:
+///   <code>
+///   let pattern = [| AnyByte; OneByte 0xFF |]
+///   </code>
+/// </example>
+/// </summary>
 type BytePattern = ByteValue[]
 
 and ByteValue =
-  /// This matches any byte, i.e., it is like a kleene star.
+  /// This matches any byte, i.e., it is like a Kleene star.
   | AnyByte
   /// This matches only one single byte value.
   | OneByte of byte

@@ -25,14 +25,14 @@
 namespace B2R2
 
 /// <summary>
-/// <see cref='T:B2R2.Addr'/> is the basic type representing an address.
-/// Technically this is just an alias of <c>uint64</c>.
+/// Represents an address in binary code. Technically this is just an alias of
+/// <c>uint64</c>.
 /// </summary>
 type Addr = uint64
 
 /// <summary>
-/// This module provides a useful set of functions for handling <see
-/// cref='T:B2R2.Addr'/> types.
+/// Provides a useful set of functions for handling <see cref='T:B2R2.Addr'/>
+/// values.
 /// </summary>
 [<RequireQualifiedAccess>]
 module Addr =

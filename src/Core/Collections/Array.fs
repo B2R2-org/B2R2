@@ -22,7 +22,17 @@
   SOFTWARE.
 *)
 
-/// Extended `Array`.
+/// <summary>
+/// Provides extended array functions.
+/// </summary>
+///
+/// <namespacedoc>
+///   <summary>
+///   Functionality related to data collections. B2R2 provides extended
+///   functionality for existing data structures and also implements new
+///   data structures that are useful for binary analysis.
+///   </summary>
+/// </namespacedoc>
 [<RequireQualifiedAccess>]
 module B2R2.Collections.Array
 

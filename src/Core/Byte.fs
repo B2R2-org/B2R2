@@ -22,7 +22,10 @@
   SOFTWARE.
 *)
 
-/// Module offering functions for handling a `byte` value.
+/// <summary>
+/// Provides functions for handling a <c>byte</c> value. See also: <seealso
+/// cref="M:System.Byte"/>
+/// </summary>
 [<RequireQualifiedAccess>]
 module B2R2.Byte
 

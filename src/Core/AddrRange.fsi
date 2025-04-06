@@ -31,9 +31,11 @@ exception RangeOverlapException
 /// interval.
 exception InvalidAddrRangeException
 
-/// This type represents a range of address values that are greater or equal to
-/// the min value (inclusive) and are less than or equal to the max value
-/// (inclusive).
+/// <summary>
+/// Represents a range of address values that are greater or equal to the
+/// <c>Min</c> value (inclusive) and are less than or equal to the <c>Max</c>
+/// value (inclusive).
+/// </summary>
 type AddrRange =
   class
     /// <summary>

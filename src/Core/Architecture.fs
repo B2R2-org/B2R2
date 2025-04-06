@@ -27,7 +27,9 @@ namespace B2R2
 /// Raised when an invalid ISA is given as a parameter.
 exception InvalidISAException
 
-/// CPU Architecture types.
+/// <summary>
+/// Represents CPU architecture types that are supported by B2R2.
+/// </summary>
 type Architecture =
   /// x86 (i386).
   | IntelX86 = 1

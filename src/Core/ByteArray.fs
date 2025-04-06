@@ -29,12 +29,18 @@ open System.Text
 open System.Globalization
 open System.Runtime.InteropServices
 
-/// It is often convenient to consider a binary chunk as a byte array. We make
-/// an alias for byte array to make it easier to read.
+/// <summary>
+/// Represents an array of bytes, often used to read raw binary data. This is
+/// really an alias for <c>byte[]</c>, but we define it here to provide several
+/// useful functions to deal with byte arrays in <see
+/// cref='T:B2R2.ByteArrayModule'/> module.
+/// </summary>
 type ByteArray = byte[]
 
-/// This module provides several useful functions to deal with byte arrays
-/// (i.e., ByteArray).
+/// <summary>
+/// Provides several useful functions to deal with byte arrays (i.e., <see
+/// cref='T:B2R2.ByteArray'/>).
+/// </summary>
 module ByteArray =
 
   /// Convert a hex string to a byte array.

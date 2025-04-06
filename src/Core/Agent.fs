@@ -29,7 +29,10 @@ open System.Threading
 open System.Threading.Tasks
 open System.Threading.Tasks.Dataflow
 
-/// The agent for processing messages based on the TPL Dataflow.
+/// <summary>
+/// Represents an agent that processes messages asynchronously using the TPL
+/// Dataflow. See also <see cref='T:B2R2.AgentReplyChannel`1'/>.
+/// </summary>
 [<AllowNullLiteral>]
 type Agent<'Msg> private (ch: BufferBlock<'Msg>, task: Task) =
 
@@ -44,7 +47,7 @@ type Agent<'Msg> private (ch: BufferBlock<'Msg>, task: Task) =
     let reply = AgentReplyChannel<_> (replyChan.Post >> ignore)
     let msg = callback cts reply
     ch.Post msg |> ignore
-    replyChan.Receive (cts.Token)
+    replyChan.Receive cts.Token
 
   /// Agent's task.
   member _.Task with get() = task
@@ -74,7 +77,10 @@ type Agent<'Msg> private (ch: BufferBlock<'Msg>, task: Task) =
         exit 1
     Agent (ch, Task.Run (fn, cancellationToken=token))
 
-/// Reply channel for the agent.
+/// <summary>
+/// Represents a reply channel for an agent (<see cref='T:B2R2.Agent`1'/>). The
+/// agent will receive a message synchronously from the reply channel.
+/// </summary>
 and AgentReplyChannel<'Reply> (replyf: 'Reply -> unit) =
   member _.Reply (reply: 'Reply) = replyf reply
 

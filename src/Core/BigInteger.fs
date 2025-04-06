@@ -22,7 +22,10 @@
   SOFTWARE.
 *)
 
-/// Module offering functions for handling a `bigint` value.
+/// <summary>
+/// Provides functions for dealing with <c>bigint</c> values.
+/// See also: <seealso cref="M:System.Numerics.BigInteger"/>
+/// </summary>
 [<RequireQualifiedAccess>]
 module B2R2.BigInteger
 
@@ -35,5 +38,5 @@ let mask256 = bigint.Subtract (bigint.Pow (2I, 256), bigint.One)
 /// Bitmask of size 512 bits.
 let mask512 = bigint.Subtract (bigint.Pow (2I, 512), bigint.One)
 
-/// Get a bitmask of size n.
+/// Get a bitmask of size n bits.
 let getMask n = bigint.Pow (2I, n) - 1I

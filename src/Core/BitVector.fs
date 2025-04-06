@@ -71,23 +71,28 @@ module internal BitVectorHelper =
     let significand = significand ||| 0x0010000000000000UL <<< 11 |> bigint
     expAndSign <<< 64 ||| significand
 
-/// BitVector is the fundamental data type for binary code, which is essentially
-/// a bit vector. We want the size of a bit vector to be less than or equal to
-/// 64 bits because bigint operation is slow, and most arithmetics on modern
-/// architectures are in 64 bits any ways. For example, SIMD operations can also
-/// be divided into a set of 64-bit operations.
+/// <summary>
+/// Represents a bit vector, which is a sequence of bits. This type internally
+/// uses two different representations to represent a bit vector depending on
+/// its size. For those with less than or equal to 64 bits, it uses
+/// <c>uint64</c> (<see cref='M:B2R2.BitVector.SmallValue'/>). For those with
+/// more than 64 bits, it uses <c>bigint</c> (<see
+/// cref='M:B2R2.BitVector.BigValue'/>). This is to avoid the overhead of using
+/// <c>bigint</c> for small numbers as most CPU operations are in 64 bits or
+/// less.<br/>
 ///
-/// N.B. Num becomes zero when the Length becomes greater than 64. We
-/// intentionally do not sync Num and BigNum.
+/// N.B. SmallValue becomes zero when the Length becomes greater than 64. We
+/// intentionally do not sync SmallValue and BigValue.
+/// </summary>
 [<AbstractClass; AllowNullLiteral>]
 type BitVector internal (len) =
   /// BitVector length.
   member _.Length with get(): RegType = len
 
-  /// Return the uint64 representation of the bitvector value.
+  /// Return the uint64 representation of the BitVector value.
   abstract SmallValue: unit -> uint64
 
-  /// Return the BigInteger representation of the bitvector value.
+  /// Return the BigInteger representation of the BitVector value.
   abstract BigValue: unit -> bigint
 
   /// Return true if the value is zero.
@@ -285,10 +290,10 @@ type BitVector internal (len) =
   /// this function performs approximate equality check.
   abstract ApproxEq: BitVector -> BitVector
 
-  /// Is this bitvector representing a positive number?
+  /// Is this BitVector representing a positive number?
   abstract IsPositive: unit -> bool
 
-  /// Is this bitvector representing a negative number?
+  /// Is this BitVector representing a negative number?
   abstract IsNegative: unit -> bool
 
   /// Return zero (0) of the given bit length.
@@ -324,7 +329,7 @@ type BitVector internal (len) =
     if bv1.SGt bv2 = BitVector.T then bv1 else bv2
 
   /// Get a BitVector from an unsigned integer.
-  static member inline OfUInt64 (i: uint64) typ =
+  static member OfUInt64 (i: uint64) typ =
 #if DEBUG
     if typ <= 0<rt> then raise ArithTypeMismatchException else ()
 #endif
@@ -334,7 +339,7 @@ type BitVector internal (len) =
     else BitVectorBig (bigint i, typ) :> BitVector
 
   /// Get a BitVector from a signed integer.
-  static member inline OfInt64 (i: int64) typ =
+  static member OfInt64 (i: int64) typ =
 #if DEBUG
     if typ <= 0<rt> then raise ArithTypeMismatchException else ()
 #endif
@@ -497,22 +502,22 @@ type BitVector internal (len) =
     if rt <= 64<rt> then BitVectorSmall (1UL <<< (int rt - 1), rt) :> BitVector
     else BitVectorBig (1I <<< (int rt - 1), rt) :> BitVector
 
-  /// Does the bitvector represent an unsigned max value?
+  /// Does the BitVector represent an unsigned max value?
   static member IsUnsignedMax (bv: BitVector) =
     BitVector.UnsignedMax bv.Length = bv
 
-  /// Does the bitvector represent a signed max value?
+  /// Does the BitVector represent a signed max value?
   static member IsSignedMax (bv: BitVector) =
     BitVector.SignedMax bv.Length = bv
 
-  /// Does the bitvector represent a signed min value?
+  /// Does the BitVector represent a signed min value?
   static member IsSignedMin (bv: BitVector) =
     BitVector.SignedMin bv.Length = bv
 
-  /// Is the bitvector positive?
+  /// Is the BitVector positive?
   static member IsPositive (bv: BitVector) = bv.IsPositive ()
 
-  /// Is the bitvector negative?
+  /// Is the BitVector negative?
   static member IsNegative (bv: BitVector) = bv.IsNegative ()
 
   /// BitVector addition.
@@ -732,9 +737,9 @@ type BitVector internal (len) =
   /// BitVector negation.
   static member inline (~-) (v1: BitVector) = v1.Neg ()
 
-/// This is a BitVector with its length less than or equal to 64<rt>. This is
+/// This is a BitVector with its length less than or equal to 64bit. This is
 /// preferred because all the operations will be much faster than BitVectorBig.
-and BitVectorSmall (n, len) =
+and private BitVectorSmall (n, len) =
   inherit BitVector(len)
 
 #if DEBUG
@@ -1316,9 +1321,9 @@ and BitVectorSmall (n, len) =
       if v1 <= v2 then BitVector.T else BitVector.F
     | _ -> raise ArithTypeMismatchException
 
-/// This is a BitVector with its length less than or equal to 64<rt>. This is
+/// This is a BitVector with its length less than or equal to 64bit. This is
 /// preferred because all the operations will be much faster than BitVectorBig.
-and BitVectorBig (n, len) =
+and private BitVectorBig (n, len) =
   inherit BitVector(len)
 
 #if DEBUG
