@@ -17,6 +17,7 @@
     <Compile Include="PARISC.fs" />
     <Compile Include="PPC32.fs" />
     <Compile Include="RISCV64.fs" />
+    <Compile Include="S390.fs" />
     <Compile Include="SH4.fs" />
     <Compile Include="SPARC.fs" />
     <Compile Include="TMS320C6000.fs" />

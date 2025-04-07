@@ -36,6 +36,7 @@
     <ProjectReference Include="..\PPC32\B2R2.FrontEnd.PPC32.fsproj" />
     <ProjectReference Include="..\RISCV64\B2R2.FrontEnd.RISCV64.fsproj" />
     <ProjectReference Include="..\CIL\B2R2.FrontEnd.CIL.fsproj" />
+    <ProjectReference Include="..\S390\B2R2.FrontEnd.S390.fsproj" />
     <ProjectReference Include="..\SH4\B2R2.FrontEnd.SH4.fsproj" />
     <ProjectReference Include="..\SPARC\B2R2.FrontEnd.SPARC.fsproj" />
     <ProjectReference Include="..\TMS320C6000\B2R2.FrontEnd.TMS320C6000.fsproj" />

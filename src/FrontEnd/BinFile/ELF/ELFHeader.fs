@@ -204,6 +204,7 @@ module internal Header =
     | 0xb7s -> Architecture.AARCH64
     | 0x08s | 0x0as -> getMIPSArch span reader cls
     | 0x53s -> Architecture.AVR
+    | 0x16s -> Architecture.S390
     | 0x2as -> Architecture.SH4
     | 0x14s -> Architecture.PPC32
     | 0x2bs -> Architecture.SPARC

@@ -52,6 +52,8 @@ type GroundWork =
       PPC32.PPC32TranslationContext isa :> TranslationContext
     | Architecture.RISCV64 ->
       RISCV64.RISCV64TranslationContext isa :> TranslationContext
+    | Architecture.S390 | Architecture.S390X ->
+      S390.S390TranslationContext isa :> TranslationContext
     | Architecture.SH4 ->
       SH4.SH4TranslationContext isa :> TranslationContext
     | Architecture.SPARC ->
@@ -87,6 +89,9 @@ type GroundWork =
       RISCV64.RISCV64RegisterFactory
         (isa.WordSize, RISCV64.RegExprs isa.WordSize)
       :> RegisterFactory
+    | Architecture.S390 | Architecture.S390X ->
+      S390.S39064RegisterFactory
+        (isa.WordSize, S390.RegExprs isa.WordSize)
     | Architecture.SH4 ->
       SH4.SH4RegisterFactory (SH4.RegExprs isa.WordSize)
       :> RegisterFactory
@@ -119,6 +124,8 @@ type GroundWork =
       CIL.CILParser () :> IInstructionParsable
     | Architecture.AVR ->
       AVR.AVRParser () :> IInstructionParsable
+    | Architecture.S390 | Architecture.S390X ->
+      S390.S39064Parser (isa) :> IInstructionParsable
     | Architecture.SH4 ->
       SH4.SH4Parser (isa) :> IInstructionParsable
     | Architecture.PPC32 ->
