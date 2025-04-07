@@ -49,6 +49,26 @@ let volatileRegisters (hdl: BinHandle) =
       ARM32.Register.R2
       ARM32.Register.R3 ]
     |> List.map ARM32.Register.toRegID
+  | Architecture.AARCH64 ->
+    [ ARM64.Register.X9
+      ARM64.Register.X10
+      ARM64.Register.X11
+      ARM64.Register.X12
+      ARM64.Register.X13
+      ARM64.Register.X14
+      ARM64.Register.X15 ]
+    |> List.map ARM64.Register.toRegID
+  | Architecture.MIPS32
+  | Architecture.MIPS64 ->
+    [ MIPS.Register.R8
+      MIPS.Register.R9
+      MIPS.Register.R10
+      MIPS.Register.R11
+      MIPS.Register.R12
+      MIPS.Register.R13
+      MIPS.Register.R14
+      MIPS.Register.R15 ]
+    |> List.map MIPS.Register.toRegID
   | _ -> Terminator.futureFeature ()
 
 [<CompiledName("ReturnRegister")>]
