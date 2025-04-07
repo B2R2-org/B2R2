@@ -146,3 +146,28 @@ module DFS =
   let iterRevPostorder g fn =
     foldPostorder g (fun acc v -> v :: acc) []
     |> List.iter fn
+
+/// Breadth-first traversal functions.
+module BFS =
+  /// Fold vertices of the graph in a breadth-first manner with the postorder
+  /// traversal, starting from the given root vertices.
+  let foldPostorderWithRoots (g: IDiGraphAccessible<_, _>) roots fn acc =
+    let visited = HashSet<VertexID> ()
+    let queue = Queue<IVertex<_>> ()
+    let vertices = ResizeArray<IVertex<_>>()
+
+    for r in roots do
+      queue.Enqueue r
+      visited.Add r.ID |> ignore
+
+    while queue.Count > 0 do
+      let v = queue.Dequeue ()
+      vertices.Add v
+      for s in g.GetSuccs v do
+        if not (visited.Contains s.ID) then
+          queue.Enqueue s
+          visited.Add s.ID |> ignore
+    let mutable acc = acc
+    for v in Seq.rev vertices do
+      acc <- fn acc v
+    acc

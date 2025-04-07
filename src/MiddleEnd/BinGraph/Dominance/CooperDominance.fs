@@ -51,7 +51,11 @@ let private initDomInfo (g: IDiGraphAccessible<_, _>) =
 let private prepareWithDummyRoot g info (dummyRoot: IVertex<_>) =
   let realRoots = (g: IDiGraphAccessible<_, _>).GetRoots ()
   let n =
+#if COOPER_USE_DFS
     Traversal.DFS.foldPostorderWithRoots g
+#else
+    Traversal.BFS.foldPostorderWithRoots g
+#endif
       (realRoots |> Array.toList) (fun n v ->
        info.PONumMap[v.ID] <- n
        info.Vertex[n] <- v
