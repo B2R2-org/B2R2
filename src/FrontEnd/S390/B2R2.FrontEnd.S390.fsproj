@@ -1,16 +1,20 @@
 <Project Sdk="Microsoft.NET.Sdk">
+
   <PropertyGroup>
     <PackageLicenseFile>LICENSE.md</PackageLicenseFile>
     <PackageIcon>b2r2-240x240.png</PackageIcon>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <Description>B2R2 S390 frontend.</Description>
   </PropertyGroup>
+
   <ItemGroup>
     <Compile Include="S390Register.fs" />
     <Compile Include="S390RegExprs.fs" />
     <Compile Include="S390RegisterFactory.fs" />
     <Compile Include="S390Types.fs" />
     <Compile Include="S390Disasm.fs" />
+    <Compile Include="S390Helper.fs" />
+    <Compile Include="S390ParsingFormats.fs" />
     <Compile Include="S390Lifter.fs" />
     <Compile Include="S390Instruction.fs" />
     <Compile Include="S390ParsingMain.fs" />
@@ -20,9 +24,11 @@
     <None Include="..\..\..\assets\b2r2-240x240.png" Pack="true" PackagePath="" />
     <None Include="README.md" Pack="true" PackagePath="" />
   </ItemGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\..\Core\B2R2.Core.fsproj" />
     <ProjectReference Include="..\..\BinIR\B2R2.BinIR.fsproj" />
     <ProjectReference Include="..\BinLifter\B2R2.FrontEnd.BinLifter.fsproj" />
+    <ProjectReference Include="..\Registers\B2R2.FrontEnd.Registers.fsproj" />
   </ItemGroup>
 </Project>

@@ -25,79 +25,137 @@
 namespace B2R2.FrontEnd.S390
 
 open B2R2
+open B2R2.FrontEnd.S390
+open B2R2.FrontEnd.S390.Helper
 open B2R2.FrontEnd.BinLifter
 
 /// The internal representation for a S390 instruction used by our
 /// disassembler and lifter.
-type S390Instruction (addr, numBytes, insInfo) =
+type S390Instruction (addr, numBytes, insInfo, wordSize) =
   inherit Instruction (addr, numBytes, WordSize.Bit32)
 
   /// Basic instruction information.
   member val Info: InsInfo = insInfo
 
-  override this.IsBranch () =
-    match this.Info.Opcode with
+  override __.IsBranch () =
+    match __.Info.Opcode with
+    | Opcode.BALR | Opcode.BAL | Opcode.BASR | Opcode.BAS
+    | Opcode.BASSM | Opcode.BSM | Opcode.BIC | Opcode.BCR
+    | Opcode.BC | Opcode.BCTR | Opcode.BCTGR | Opcode.BCT
+    | Opcode.BCTG | Opcode.BXH | Opcode.BXHG | Opcode.BXLE
+    | Opcode.BXLEG | Opcode.BPP | Opcode.BPRP | Opcode.BRAS
+    | Opcode.BRASL | Opcode.BRC | Opcode.BRCL | Opcode.BRCT
+    | Opcode.BRCTG | Opcode.BRCTH | Opcode.BRXH | Opcode.BRXHG
+    | Opcode.BRXLE | Opcode.BRXLG -> true
+    | Opcode.CRB | Opcode.CGRB | Opcode.CRJ | Opcode.CGRJ
+    | Opcode.CIB | Opcode.CGIB | Opcode.CIJ | Opcode.CGIJ
+    | Opcode.CLRB | Opcode.CLGRB | Opcode.CLRJ | Opcode.CLGRJ
+      when not (__.IsNop()) -> true
     | _ -> false
 
-  override _.IsModeChanging () = false
+  override __.IsModeChanging () = false
 
-  member _.HasConcJmpTarget () = Terminator.futureFeature ()
+  member __.HasConcJmpTarget () = Terminator.futureFeature ()
 
-  override this.IsDirectBranch () =
-    this.IsBranch () && this.HasConcJmpTarget ()
+  override __.IsDirectBranch () =
+    __.IsBranch () && __.HasConcJmpTarget ()
 
-  override this.IsIndirectBranch () =
-    this.IsBranch () && (not <| this.HasConcJmpTarget ())
+  override __.IsIndirectBranch () =
+    __.IsBranch () && (not <| __.HasConcJmpTarget ())
 
-  override _.IsCondBranch () = Terminator.futureFeature ()
+  override __.IsCondBranch () =
+    match __.Info.Opcode with
+    | Opcode.BC | Opcode.BCR | Opcode.BIC -> true
+    | Opcode.CRB | Opcode.CGRB | Opcode.CRJ | Opcode.CGRJ
+    | Opcode.CIB | Opcode.CGIB | Opcode.CIJ | Opcode.CGIJ
+    | Opcode.CLRB | Opcode.CLGRB | Opcode.CLRJ | Opcode.CLGRJ
+      when not (__.IsNop()) -> true
+    | _ -> false
 
-  override _.IsCJmpOnTrue () = Terminator.futureFeature ()
+  override __.IsCJmpOnTrue () = Terminator.futureFeature ()
 
-  override _.IsCall () = Terminator.futureFeature ()
+  override __.IsCall () =
+    match __.Info.Opcode with
+    | Opcode.BAL | Opcode.BALR | Opcode.BAS | Opcode.BASR
+    | Opcode.BASSM | Opcode.BSM -> true
+    | Opcode.BC | Opcode.BCR when getMaskVal __.Info.Operands = Some(15us) ->
+      true
+    | _ -> false
 
-  override _.IsRET () = Terminator.futureFeature ()
+  override __.IsRET () =
+    match __.Info.Opcode with
+    | Opcode.BCR | Opcode.BASR | Opcode.BCTR ->
+      match __.Info.Operands with
+      | TwoOperands (_, OpReg Register.R14) -> true
+      | _ -> false
+    | _ -> false
 
-  override _.IsInterrupt () = Terminator.futureFeature ()
+  override __.IsInterrupt () = Terminator.futureFeature ()
 
-  override _.IsExit () = Terminator.futureFeature ()
+  override __.IsExit () = Terminator.futureFeature ()
 
-  override this.IsTerminator () =
-    this.IsDirectBranch () ||
-    this.IsIndirectBranch ()
+  override __.IsTerminator () =
+    __.IsDirectBranch () ||
+    __.IsIndirectBranch ()
 
-  override _.DirectBranchTarget (_addr: byref<Addr>) =
+  override __.DirectBranchTarget (_addr: byref<Addr>) = Terminator.futureFeature ()
+
+  override __.IndirectTrampolineAddr (_addr: byref<Addr>) =
     Terminator.futureFeature ()
 
-  override _.IndirectTrampolineAddr (_addr: byref<Addr>) =
+  override __.Immediate (_v: byref<int64>) = Terminator.futureFeature ()
+
+  override __.GetNextInstrAddrs () = Terminator.futureFeature ()
+
+  override __.InterruptNum (_num: byref<int64>) = Terminator.futureFeature ()
+
+  override __.IsNop () =
+    let opr = __.Info.Operands
+    match __.Info.Opcode with
+    | Opcode.CRB | Opcode.CGRB | Opcode.CRJ | Opcode.CGRJ
+    | Opcode.CIB | Opcode.CGIB | Opcode.CIJ | Opcode.CGIJ
+    | Opcode.CLRB | Opcode.CLGRB | Opcode.CLRJ | Opcode.CLGRJ
+    | Opcode.CRT | Opcode.CGRT | Opcode.CIT | Opcode.CGIT
+    | Opcode.CLRT | Opcode.CLGRT | Opcode.CLFIT | Opcode.CLGIT ->
+      match getMaskVal opr with
+      | Some (value) -> (uint16 value &&& 0b1110us) = 0us
+      | None -> false
+    | Opcode.LOCR | Opcode.LOCGR | Opcode.LOC | Opcode.LOCG
+    | Opcode.LOCFHR | Opcode.LOCFH | Opcode.STOC | Opcode.STOCG
+    | Opcode.STOCFH ->
+      match getMaskVal opr with
+      | Some (value) -> (uint16 value &&& 0b1111us) = 0us
+      | None -> false
+    | _ -> false
+
+  override __.Translate ctxt =
     Terminator.futureFeature ()
 
-  override _.Immediate (_v: byref<int64>) = Terminator.futureFeature ()
-
-  override _.GetNextInstrAddrs () = Terminator.futureFeature ()
-
-  override _.InterruptNum (_num: byref<int64>) = Terminator.futureFeature ()
-
-  override _.IsNop () = Terminator.futureFeature ()
-
-  override _.Translate ctxt =
+  override __.TranslateToList ctxt =
     Terminator.futureFeature ()
 
-  override _.TranslateToList ctxt =
-    Terminator.futureFeature ()
+  override __.Disasm (showAddr: bool, nameReader: INameReadable) =
+    let resolveSymb = not (isNull nameReader)
+    let builder =
+      DisasmStringBuilder (showAddr, resolveSymb, wordSize, addr, numBytes)
+    Disasm.disasm nameReader wordSize __.Info builder
+    builder.ToString ()
 
-  override _.Disasm (showAddr, _) =
-    Terminator.futureFeature ()
+  override __.Disasm () =
+    let builder =
+      DisasmStringBuilder (false, false, wordSize, addr, numBytes)
+    Disasm.disasm null wordSize __.Info builder
+    builder.ToString ()
 
-  override _.Disasm () =
-    Terminator.futureFeature ()
+  override __.Decompose (showAddr) =
+    let builder =
+      DisasmWordBuilder (showAddr, false, wordSize, addr, numBytes, 8)
+    Disasm.disasm null wordSize __.Info builder
+    builder.ToArray ()
 
-  override _.Decompose (showAddr) =
-    Terminator.futureFeature ()
+  override __.IsInlinedAssembly () = false
 
-  override _.IsInlinedAssembly () = false
-
-  override _.Equals (_) = Terminator.futureFeature ()
-
-  override _.GetHashCode () = Terminator.futureFeature ()
+  override __.Equals (_) = Terminator.futureFeature ()
+  override __.GetHashCode () = Terminator.futureFeature ()
 
 // vim: set tw=80 sts=2 sw=2:
