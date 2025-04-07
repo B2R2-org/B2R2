@@ -326,6 +326,28 @@ type RelocationMIPS =
   /// 32-bit PC-relative.
   | R_MIPS_PC32 = 248UL
 
+/// Relocation type for S390.
+type RelocationS390 =
+  | R_S390_NONE = 0UL
+  | R_390_8 = 1UL
+  | R_390_12 = 2UL
+  | R_390_16 = 3UL
+  | R_390_32 = 4UL
+  | R_390_PC32 = 5UL
+  | R_390_GOT12 = 6UL
+  | R_390_GOT32 = 7UL
+  | R_390_PLT32 = 8UL
+  | R_390_COPY = 9UL
+  | R_390_GLOB_DAT = 10UL
+  | R_390_JMP_SLOT = 11UL
+  | R_390_RELATIVE = 12UL
+  | R_390_GOTOFF = 13UL
+  | R_390_GOTPC = 14UL
+  | R_390_GOT16 = 15UL
+  | R_390_PC16 = 16UL
+  | R_390_PC16DBL = 17UL
+  | R_390_PLT16DBL = 18UL
+
 /// Relocation type for SH4.
 type RelocationSH4 =
   | R_SH_NONE = 0UL
@@ -651,6 +673,7 @@ type RelocationType =
   | RelocationARMv7 of RelocationARMv7
   | RelocationARMv8 of RelocationARMv8
   | RelocationMIPS of RelocationMIPS
+  | RelocationS390 of RelocationS390
   | RelocationSH4 of RelocationSH4
   | RelocationRISCV of RelocationRISCV
   | RelocationPPC32 of RelocationPPC32
@@ -670,6 +693,8 @@ with
     | Architecture.MIPS32
     | Architecture.MIPS64 ->
       RelocationMIPS <| LanguagePrimitives.EnumOfValue n
+    | Architecture.S390 | Architecture.S390X ->
+      RelocationS390 <| LanguagePrimitives.EnumOfValue n
     | Architecture.SH4 ->
       RelocationSH4 <| LanguagePrimitives.EnumOfValue n
     | Architecture.RISCV64 ->
@@ -687,6 +712,7 @@ with
     | RelocationARMv7 t -> t.ToString ()
     | RelocationARMv8 t -> t.ToString ()
     | RelocationMIPS t -> t.ToString ()
+    | RelocationS390 t -> t.ToString()
     | RelocationSH4 t -> t.ToString ()
     | RelocationRISCV t -> t.ToString ()
     | RelocationPPC32 t -> t.ToString ()
