@@ -46,6 +46,10 @@ type ARM32Instruction (addr, nb, cond, op, opr, its, wb, q, s, m, cf, oSz, a) =
       match opr with
       | OneOperand (OprRegList regs) -> List.contains R.PC regs
       | _ -> false
+    | Op.ADD ->
+      match opr with
+      | FourOperands (OprReg R.PC, _, _, _) -> true
+      | _ -> false
     | _ -> false
 
   override _.IsModeChanging () =
@@ -65,15 +69,29 @@ type ARM32Instruction (addr, nb, cond, op, opr, its, wb, q, s, m, cf, oSz, a) =
     this.IsBranch () && (not <| this.HasConcJmpTarget ())
 
   override _.IsCondBranch () =
-    match op, cond with
-    | Op.B, Condition.AL -> false
-    | Op.B, Condition.NV -> false
-    | Op.B, Condition.UN -> false
-    | Op.B, _ -> true
-    | Op.BX, Condition.AL -> false
-    | Op.BX, Condition.NV -> false
-    | Op.BX, Condition.UN -> false
-    | Op.BX, _ -> true
+    match op, cond, opr with
+    | Op.B, Condition.AL, _ -> false
+    | Op.B, Condition.NV, _ -> false
+    | Op.B, Condition.UN, _ -> false
+    | Op.B, _, _ -> true
+    | Op.BX, Condition.AL, _ -> false
+    | Op.BX, Condition.NV, _ -> false
+    | Op.BX, Condition.UN, _ -> false
+    | Op.BX, _, _ -> true
+    | Op.LDR, Condition.AL, TwoOperands (OprReg R.PC, _)
+    | Op.LDR, Condition.NV, TwoOperands (OprReg R.PC, _)
+    | Op.LDR, Condition.UN, TwoOperands (OprReg R.PC, _) -> false
+    | Op.LDR, _, TwoOperands (OprReg R.PC, _) -> true
+    | Op.POP, Condition.AL, OneOperand (OprRegList regs)
+    | Op.POP, Condition.NV, OneOperand (OprRegList regs)
+    | Op.POP, Condition.UN, OneOperand (OprRegList regs)
+      when List.contains R.PC regs -> false
+    | Op.POP, _, OneOperand (OprRegList regs)
+      when List.contains R.PC regs -> true
+    | Op.ADD, Condition.AL, FourOperands (OprReg R.PC, _, _, _)
+    | Op.ADD, Condition.NV, FourOperands (OprReg R.PC, _, _, _)
+    | Op.ADD, Condition.UN, FourOperands (OprReg R.PC, _, _, _) -> false
+    | Op.ADD, _, FourOperands (OprReg R.PC, OprReg R.PC, _, _) -> true
     | _ -> false
 
   override _.IsCJmpOnTrue () =
@@ -94,7 +112,6 @@ type ARM32Instruction (addr, nb, cond, op, opr, its, wb, q, s, m, cf, oSz, a) =
 
   override _.IsRET () =
     match op, opr with
-    | Op.LDR, TwoOperands (OprReg R.PC, _) -> true
     | Op.POP, OneOperand (OprRegList regs) when List.contains R.PC regs -> true
     | _ -> false
 
