@@ -24,7 +24,6 @@
 
 namespace B2R2.FrontEnd.S390
 
-open B2R2
 open B2R2.FrontEnd.S390
 open B2R2.FrontEnd.BinLifter
 open B2R2.BinIR.LowUIR
@@ -32,7 +31,7 @@ open B2R2.BinIR.LowUIR
 type S39064RegisterFactory (wordSize, r: RegExprs) =
   inherit RegisterFactory ()
 
-  override __.GetAllRegExprs () =
+  override _.GetAllRegExprs () =
     [ r.R0; r.R1; r.R2; r.R3; r.R4; r.R5; r.R6; r.R7;
       r.R8; r.R9; r.R10; r.R11; r.R12; r.R13; r.R14; r.R15;
       r.FPR0; r.FPR1; r.FPR2; r.FPR3; r.FPR4; r.FPR5; r.FPR6; r.FPR7;
@@ -51,20 +50,20 @@ type S39064RegisterFactory (wordSize, r: RegExprs) =
     this.GetAllRegExprs ()
     |> List.map (this.RegIDFromRegExpr >> this.RegIDToString)
 
-  override __.GetGeneralRegExprs () =
+  override _.GetGeneralRegExprs () =
     [ r.R0; r.R1; r.R2; r.R3; r.R4; r.R5; r.R6; r.R7;
       r.R8; r.R9; r.R10; r.R11; r.R12; r.R13; r.R14; r.R15 ]
 
-  override __.RegIDFromRegExpr (e) =
+  override _.RegIDFromRegExpr e =
     match e.E with
     | Var (_, id, _) -> id
-    | PCVar (regT, _) -> Register.toRegID Register.PSW
+    | PCVar _ -> Register.toRegID Register.PSW
     | _ -> raise InvalidRegisterException
 
-  override __.RegIDToRegExpr (id) =
+  override _.RegIDToRegExpr id =
     Register.ofRegID id |> r.GetRegVar
 
-  override __.StrToRegExpr (s: string) =
+  override _.StrToRegExpr (s: string) =
     match s.ToUpper () with
     | "R0" -> r.R0
     | "R1" -> r.R1
@@ -167,36 +166,36 @@ type S39064RegisterFactory (wordSize, r: RegExprs) =
     | "PSW" -> r.PSW
     | _ -> raise UnhandledRegExprException
 
-  override __.RegIDFromString (str: string) =
+  override _.RegIDFromString (str: string) =
     Register.ofString str |> Register.toRegID
 
-  override __.RegIDToString rid =
+  override _.RegIDToString rid =
     Register.ofRegID rid |> Register.toString
 
-  override __.RegIDToRegType rid =
+  override _.RegIDToRegType rid =
     Register.ofRegID rid |> Register.toRegType wordSize
 
-  override __.GetRegisterAliases _rid =
+  override _.GetRegisterAliases _rid =
     Register.ofRegID _rid
     |> Register.getAliases
     |> Array.map Register.toRegID
 
-  override __.ProgramCounter =
+  override _.ProgramCounter =
     Register.PSW |> Register.toRegID
 
-  override __.StackPointer =
+  override _.StackPointer =
     Register.R15
     |> Register.toRegID
     |> Some
 
-  override __.FramePointer =
+  override _.FramePointer =
     None
 
-  override __.IsProgramCounter rid =
-    __.ProgramCounter = rid
+  override this.IsProgramCounter rid =
+    this.ProgramCounter = rid
 
-  override __.IsStackPointer rid =
-    __.StackPointer |> Option.get = rid
+  override this.IsStackPointer rid =
+    this.StackPointer |> Option.get = rid
 
-  override __.IsFramePointer rid =
-    __.FramePointer |> Option.get = rid
+  override this.IsFramePointer rid =
+    this.FramePointer |> Option.get = rid

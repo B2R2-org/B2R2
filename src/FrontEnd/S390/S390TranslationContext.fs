@@ -35,7 +35,7 @@ type S390TranslationContext (isa) =
 
   member _.RegExprs with get() = regExprs
 
-  override __.GetRegVar id =
+  override _.GetRegVar id =
     Register.ofRegID id |> regExprs.GetRegVar
 
   override _.GetPseudoRegVar _id _pos =
