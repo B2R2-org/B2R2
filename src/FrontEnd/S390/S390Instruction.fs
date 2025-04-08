@@ -26,8 +26,8 @@ namespace B2R2.FrontEnd.S390
 
 open B2R2
 open B2R2.FrontEnd.S390
-open B2R2.FrontEnd.S390.Helper
 open B2R2.FrontEnd.BinLifter
+open B2R2.FrontEnd.S390.Helper
 
 /// The internal representation for a S390 instruction used by our
 /// disassembler and lifter.
@@ -53,15 +53,15 @@ type S390Instruction (addr, numBytes, insInfo, wordSize) =
       when not (__.IsNop()) -> true
     | _ -> false
 
-  override __.IsModeChanging () = false
+  override _.IsModeChanging () = false
 
-  member __.HasConcJmpTarget () = Terminator.futureFeature ()
+  member _.HasConcJmpTarget () = Terminator.futureFeature ()
 
-  override __.IsDirectBranch () =
-    __.IsBranch () && __.HasConcJmpTarget ()
+  override this.IsDirectBranch () =
+    this.IsBranch () && this.HasConcJmpTarget ()
 
-  override __.IsIndirectBranch () =
-    __.IsBranch () && (not <| __.HasConcJmpTarget ())
+  override this.IsIndirectBranch () =
+    this.IsBranch () && (not <| this.HasConcJmpTarget ())
 
   override __.IsCondBranch () =
     match __.Info.Opcode with
@@ -72,7 +72,7 @@ type S390Instruction (addr, numBytes, insInfo, wordSize) =
       when not (__.IsNop()) -> true
     | _ -> false
 
-  override __.IsCJmpOnTrue () = Terminator.futureFeature ()
+  override _.IsCJmpOnTrue () = Terminator.futureFeature ()
 
   override __.IsCall () =
     match __.Info.Opcode with
@@ -90,24 +90,25 @@ type S390Instruction (addr, numBytes, insInfo, wordSize) =
       | _ -> false
     | _ -> false
 
-  override __.IsInterrupt () = Terminator.futureFeature ()
+  override _.IsInterrupt () = Terminator.futureFeature ()
 
-  override __.IsExit () = Terminator.futureFeature ()
+  override _.IsExit () = Terminator.futureFeature ()
 
-  override __.IsTerminator () =
-    __.IsDirectBranch () ||
-    __.IsIndirectBranch ()
+  override this.IsTerminator () =
+    this.IsDirectBranch () ||
+    this.IsIndirectBranch ()
 
-  override __.DirectBranchTarget (_addr: byref<Addr>) = Terminator.futureFeature ()
-
-  override __.IndirectTrampolineAddr (_addr: byref<Addr>) =
+  override _.DirectBranchTarget (_addr: byref<Addr>) =
     Terminator.futureFeature ()
 
-  override __.Immediate (_v: byref<int64>) = Terminator.futureFeature ()
+  override _.IndirectTrampolineAddr (_addr: byref<Addr>) =
+    Terminator.futureFeature ()
 
-  override __.GetNextInstrAddrs () = Terminator.futureFeature ()
+  override _.Immediate (_v: byref<int64>) = Terminator.futureFeature ()
 
-  override __.InterruptNum (_num: byref<int64>) = Terminator.futureFeature ()
+  override _.GetNextInstrAddrs () = Terminator.futureFeature ()
+
+  override _.InterruptNum (_num: byref<int64>) = Terminator.futureFeature ()
 
   override __.IsNop () =
     let opr = __.Info.Operands
@@ -118,44 +119,45 @@ type S390Instruction (addr, numBytes, insInfo, wordSize) =
     | Opcode.CRT | Opcode.CGRT | Opcode.CIT | Opcode.CGIT
     | Opcode.CLRT | Opcode.CLGRT | Opcode.CLFIT | Opcode.CLGIT ->
       match getMaskVal opr with
-      | Some (value) -> (uint16 value &&& 0b1110us) = 0us
+      | Some value -> uint16 value &&& 0b1110us = 0us
       | None -> false
     | Opcode.LOCR | Opcode.LOCGR | Opcode.LOC | Opcode.LOCG
     | Opcode.LOCFHR | Opcode.LOCFH | Opcode.STOC | Opcode.STOCG
     | Opcode.STOCFH ->
       match getMaskVal opr with
-      | Some (value) -> (uint16 value &&& 0b1111us) = 0us
+      | Some value -> uint16 value &&& 0b1111us = 0us
       | None -> false
     | _ -> false
 
-  override __.Translate ctxt =
+  override _.Translate ctxt =
     Terminator.futureFeature ()
 
-  override __.TranslateToList ctxt =
+  override _.TranslateToList ctxt =
     Terminator.futureFeature ()
 
   override __.Disasm (showAddr: bool, nameReader: INameReadable) =
     let resolveSymb = not (isNull nameReader)
     let builder =
       DisasmStringBuilder (showAddr, resolveSymb, wordSize, addr, numBytes)
-    Disasm.disasm nameReader wordSize __.Info builder
+    Disasm.disasm nameReader __.Info builder
     builder.ToString ()
 
   override __.Disasm () =
     let builder =
       DisasmStringBuilder (false, false, wordSize, addr, numBytes)
-    Disasm.disasm null wordSize __.Info builder
+    Disasm.disasm null __.Info builder
     builder.ToString ()
 
-  override __.Decompose (showAddr) =
+  override __.Decompose showAddr =
     let builder =
       DisasmWordBuilder (showAddr, false, wordSize, addr, numBytes, 8)
-    Disasm.disasm null wordSize __.Info builder
+    Disasm.disasm null __.Info builder
     builder.ToArray ()
 
-  override __.IsInlinedAssembly () = false
+  override _.IsInlinedAssembly () = false
 
-  override __.Equals (_) = Terminator.futureFeature ()
-  override __.GetHashCode () = Terminator.futureFeature ()
+  override _.Equals _ = Terminator.futureFeature ()
+
+  override _.GetHashCode () = Terminator.futureFeature ()
 
 // vim: set tw=80 sts=2 sw=2:
