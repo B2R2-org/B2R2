@@ -2559,25 +2559,6 @@ type Fmt =
   | VSI = 34
   | Invalid = 35
 
-/// Z/architecture Address Translation Modes.
-/// Combination of DAT-mode bit and ASC-bits.
-type TranslationMode =
-  | PrimarySpaceMode = 0us
-  | AccessRegisterMode = 1us
-  | SecondarySpaceMode = 2us
-  | HomeSpaceMode = 3us
-  | RealMode = 4us
-
-/// ASC-bits only.
-type ASC =
-  | BPDisalbled = 0us
-  | BPEnabled = 1us
-
-type State = {
-  Tm: TranslationMode
-  Bp: ASC
-}
-
 /// Basic information obtained by parsing a S390 instruction.
 [<NoComparison; CustomEquality>]
 type InsInfo = {

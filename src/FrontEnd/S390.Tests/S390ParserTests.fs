@@ -52,8 +52,7 @@ type S390ParserTests () =
   let test arch endian opcode (oprs: Operands) (bytes: byte[]) =
     let reader = BinReader.Init endian
     let span = System.ReadOnlySpan bytes
-    let state = { Tm = TranslationMode.RealMode; Bp = ASC.BPDisalbled }
-    let ins = ParsingMain.parse span reader arch WordSize.Bit32 0UL state
+    let ins = ParsingMain.parse span reader arch WordSize.Bit32 0UL
     let opcode' = ins.Info.Opcode
     let oprs' = ins.Info.Operands
 

@@ -34,18 +34,14 @@ type S39064Parser (isa: ISA) =
   let wordSize = isa.WordSize
   let arch = isa.Arch
   let reader = BinReader.Init isa.Endian
-  let mutable state = {
-    Tm = TranslationMode.RealMode;
-    Bp = ASC.BPDisalbled
-  }
 
   interface IInstructionParsable with
-    member _.Parse (span: ByteSpan, addr: Addr) =
-      ParsingMain.parse span reader arch wordSize addr state :> Instruction
+    member __.Parse (span: ByteSpan, addr: Addr) =
+      ParsingMain.parse span reader arch wordSize addr :> Instruction
 
-    member _.Parse (bs: byte[], addr: Addr) =
+    member __.Parse (bs: byte[], addr: Addr) =
       let span = ReadOnlySpan bs
-      ParsingMain.parse span reader arch wordSize addr state :> Instruction
+      ParsingMain.parse span reader arch wordSize addr :> Instruction
 
     member __.MaxInstructionSize = 6
 
