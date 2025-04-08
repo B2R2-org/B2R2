@@ -37,8 +37,8 @@ type S390Instruction (addr, numBytes, insInfo, wordSize) =
   /// Basic instruction information.
   member val Info: InsInfo = insInfo
 
-  override __.IsBranch () =
-    match __.Info.Opcode with
+  override this.IsBranch () =
+    match this.Info.Opcode with
     | Opcode.BALR | Opcode.BAL | Opcode.BASR | Opcode.BAS
     | Opcode.BASSM | Opcode.BSM | Opcode.BIC | Opcode.BCR
     | Opcode.BC | Opcode.BCTR | Opcode.BCTGR | Opcode.BCT
@@ -50,7 +50,7 @@ type S390Instruction (addr, numBytes, insInfo, wordSize) =
     | Opcode.CRB | Opcode.CGRB | Opcode.CRJ | Opcode.CGRJ
     | Opcode.CIB | Opcode.CGIB | Opcode.CIJ | Opcode.CGIJ
     | Opcode.CLRB | Opcode.CLGRB | Opcode.CLRJ | Opcode.CLGRJ
-      when not (__.IsNop()) -> true
+      when not (this.IsNop()) -> true
     | _ -> false
 
   override _.IsModeChanging () = false
@@ -61,31 +61,31 @@ type S390Instruction (addr, numBytes, insInfo, wordSize) =
     this.IsBranch () && this.HasConcJmpTarget ()
 
   override this.IsIndirectBranch () =
-    this.IsBranch () && (not <| this.HasConcJmpTarget ())
+    this.IsBranch () && not <| this.HasConcJmpTarget ()
 
-  override __.IsCondBranch () =
-    match __.Info.Opcode with
+  override this.IsCondBranch () =
+    match this.Info.Opcode with
     | Opcode.BC | Opcode.BCR | Opcode.BIC -> true
     | Opcode.CRB | Opcode.CGRB | Opcode.CRJ | Opcode.CGRJ
     | Opcode.CIB | Opcode.CGIB | Opcode.CIJ | Opcode.CGIJ
     | Opcode.CLRB | Opcode.CLGRB | Opcode.CLRJ | Opcode.CLGRJ
-      when not (__.IsNop()) -> true
+      when not (this.IsNop()) -> true
     | _ -> false
 
   override _.IsCJmpOnTrue () = Terminator.futureFeature ()
 
-  override __.IsCall () =
-    match __.Info.Opcode with
+  override this.IsCall () =
+    match this.Info.Opcode with
     | Opcode.BAL | Opcode.BALR | Opcode.BAS | Opcode.BASR
     | Opcode.BASSM | Opcode.BSM -> true
-    | Opcode.BC | Opcode.BCR when getMaskVal __.Info.Operands = Some(15us) ->
+    | Opcode.BC | Opcode.BCR when getMaskVal this.Info.Operands = Some(15us) ->
       true
     | _ -> false
 
-  override __.IsRET () =
-    match __.Info.Opcode with
+  override this.IsRET () =
+    match this.Info.Opcode with
     | Opcode.BCR | Opcode.BASR | Opcode.BCTR ->
-      match __.Info.Operands with
+      match this.Info.Operands with
       | TwoOperands (_, OpReg Register.R14) -> true
       | _ -> false
     | _ -> false
@@ -95,8 +95,7 @@ type S390Instruction (addr, numBytes, insInfo, wordSize) =
   override _.IsExit () = Terminator.futureFeature ()
 
   override this.IsTerminator () =
-    this.IsDirectBranch () ||
-    this.IsIndirectBranch ()
+    this.IsDirectBranch () || this.IsIndirectBranch ()
 
   override _.DirectBranchTarget (_addr: byref<Addr>) =
     Terminator.futureFeature ()
@@ -110,9 +109,9 @@ type S390Instruction (addr, numBytes, insInfo, wordSize) =
 
   override _.InterruptNum (_num: byref<int64>) = Terminator.futureFeature ()
 
-  override __.IsNop () =
-    let opr = __.Info.Operands
-    match __.Info.Opcode with
+  override this.IsNop () =
+    let opr = this.Info.Operands
+    match this.Info.Opcode with
     | Opcode.CRB | Opcode.CGRB | Opcode.CRJ | Opcode.CGRJ
     | Opcode.CIB | Opcode.CGIB | Opcode.CIJ | Opcode.CGIJ
     | Opcode.CLRB | Opcode.CLGRB | Opcode.CLRJ | Opcode.CLGRJ
@@ -135,23 +134,23 @@ type S390Instruction (addr, numBytes, insInfo, wordSize) =
   override _.TranslateToList ctxt =
     Terminator.futureFeature ()
 
-  override __.Disasm (showAddr: bool, nameReader: INameReadable) =
+  override this.Disasm (showAddr: bool, nameReader: INameReadable) =
     let resolveSymb = not (isNull nameReader)
     let builder =
       DisasmStringBuilder (showAddr, resolveSymb, wordSize, addr, numBytes)
-    Disasm.disasm nameReader __.Info builder
+    Disasm.disasm nameReader this.Info builder
     builder.ToString ()
 
-  override __.Disasm () =
+  override this.Disasm () =
     let builder =
       DisasmStringBuilder (false, false, wordSize, addr, numBytes)
-    Disasm.disasm null __.Info builder
+    Disasm.disasm null this.Info builder
     builder.ToString ()
 
-  override __.Decompose showAddr =
+  override this.Decompose showAddr =
     let builder =
       DisasmWordBuilder (showAddr, false, wordSize, addr, numBytes, 8)
-    Disasm.disasm null __.Info builder
+    Disasm.disasm null this.Info builder
     builder.ToArray ()
 
   override _.IsInlinedAssembly () = false
