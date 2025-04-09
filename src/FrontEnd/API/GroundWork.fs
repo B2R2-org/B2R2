@@ -55,6 +55,7 @@ type GroundWork =
     | SPARC -> SPARC.RegisterFactory isa.WordSize :> IRegisterFactory
     | PARISC -> PARISC.RegisterFactory isa.WordSize :> IRegisterFactory
     | EVM -> EVM.RegisterFactory () :> IRegisterFactory
+    | Python -> Python.RegisterFactory () :> IRegisterFactory
     | _ -> Terminator.futureFeature ()
 
   /// Creates a new parser (IInstructionParsable) for the given architecture.
@@ -86,6 +87,8 @@ type GroundWork =
       SPARC.SPARCParser (reader) :> IInstructionParsable
     | PARISC ->
       PARISC.PARISCParser (isa, reader) :> IInstructionParsable
+    | Python ->
+      Python.PythonParser (isa, reader) :> IInstructionParsable
     | _ ->
       Terminator.futureFeature ()
 

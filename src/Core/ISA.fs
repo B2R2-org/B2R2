@@ -423,3 +423,9 @@ module ISA =
     match isa.Arch with
     | Architecture.WASM -> ValueSome ()
     | _ -> ValueNone
+
+  [<return: Struct>]
+  let (|Python|_|) (isa: ISA) =
+    match isa.Arch with
+    | Architecture.Python -> ValueSome ()
+    | _ -> ValueNone

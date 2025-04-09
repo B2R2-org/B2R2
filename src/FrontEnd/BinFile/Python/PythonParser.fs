@@ -22,28 +22,14 @@
   SOFTWARE.
 *)
 
-namespace B2R2.FrontEnd.Python
+module internal B2R2.FrontEnd.BinFile.Python.Parser
 
+open System
 open B2R2
+open B2R2.Collections
 open B2R2.FrontEnd.BinLifter
+open B2R2.FrontEnd.BinFile
 
-/// Parser for Python instructions. Parser will return a platform-agnostic
-/// instruction type (Instruction).
-type PythonParser (isa: ISA, reader) =
-  let wordSize = int isa.WordSize
-
-  let lifter =
-    { new ILiftable with
-        member _.Lift ins builder =
-          Lifter.translate ins ins.Length builder
-        member _.Disasm ins builder =
-          Disasm.disasm ins builder; builder }
-
-  interface IInstructionParsable with
-    member _.Parse (span: ByteSpan, addr: Addr) =
-      ParsingMain.parse lifter span reader addr :> IInstruction
-
-    member _.Parse (bs: byte[], addr: Addr) =
-      Terminator.futureFeature () :> IInstruction
-
-    member _.MaxInstructionSize = 4
+let parse (bs: byte[]) =
+  let reader = BinReader.Init Endian.Little
+  ()

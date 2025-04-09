@@ -59,6 +59,9 @@
     <Compile Include="Mach\MachReloc.fs" />
     <Compile Include="Mach\MachHelper.fs" />
     <Compile Include="Mach\MachBinFile.fs" />
+    <Compile Include="Python\PythonTypes.fs" />
+    <Compile Include="Python\PythonHelper.fs" />
+    <Compile Include="Python\PythonBinFile.fs" />
     <Compile Include="PE\PETypes.fs" />
     <Compile Include="PE\PEPDB.fs" />
     <Compile Include="PE\PEHelper.fs" />

@@ -94,6 +94,7 @@ let getInstructionAlignment (isa: ISA) isThumb =
   | WASM -> 1
   | SPARC -> 2
   | PARISC -> 4
+  | Python -> 1
   | _ -> Terminator.futureFeature ()
 
 let convertToHexStr bytes =

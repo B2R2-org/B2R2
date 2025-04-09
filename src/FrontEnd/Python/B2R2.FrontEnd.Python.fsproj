@@ -6,6 +6,7 @@
     <Description>B2R2 Python frontend.</Description>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="PythonRegisterFactory.fs" />
     <Compile Include="PythonTypes.fs" />
     <Compile Include="PythonInstruction.fs" />
     <Compile Include="PythonDisasm.fs" />

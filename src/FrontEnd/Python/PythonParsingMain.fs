@@ -28,121 +28,171 @@ open System
 open B2R2
 open B2R2.FrontEnd.BinLifter
 
-let private parseOpcode (span: ReadOnlySpan<byte>) (reader: IBinReader) =
+type Op = Opcode
+
+let private parseOperands (span: ReadOnlySpan<byte>) (reader: IBinReader) =
+  OneOperand (int (reader.ReadUInt8 (span, 1)))
+
+let private parseInstruction (span: ReadOnlySpan<byte>) (reader: IBinReader) =
   let bin = reader.ReadUInt8 (span, 0)
-  (* Opcode of Python 3.11 *)
+  (* Opcode of Python 3.12 *)
   match bin with
-  | 0x0uy -> CACHE
-  | 0x1uy -> POP_TOP
-  | 0x2uy -> PUSH_NULL
-  | 0x9uy -> NOP
-  | 0xauy -> UNARY_POSITIVE
-  | 0xbuy -> UNARY_NEGATIVE
-  | 0xcuy -> UNARY_NOT
-  | 0xfuy -> UNARY_INVERT
-  | 0x19uy -> BINARY_SUBSCR
-  | 0x1euy -> GET_LEN
-  | 0x1fuy -> MATCH_MAPPING
-  | 0x20uy -> MATCH_SEQUENCE
-  | 0x21uy -> MATCH_KEYS
-  | 0x23uy -> PUSH_EXC_INFO
-  | 0x24uy -> CHECK_EXC_MATCH
-  | 0x25uy -> CHECK_EG_MATCH
-  | 0x31uy -> WITH_EXCEPT_START
-  | 0x32uy -> GET_AITER
-  | 0x33uy -> GET_ANEXT
-  | 0x34uy -> BEFORE_ASYNC_WITH
-  | 0x35uy -> BEFORE_WITH
-  | 0x36uy -> END_ASYNC_FOR
-  | 0x3cuy -> STORE_SUBSCR
-  | 0x3duy -> DELETE_SUBSCR
-  | 0x44uy -> GET_ITER
-  | 0x45uy -> GET_YIELD_FROM_ITER
-  | 0x46uy -> PRINT_EXPR
-  | 0x47uy -> LOAD_BUILD_CLASS
-  | 0x4auy -> LOAD_ASSERTION_ERROR
-  | 0x4buy -> RETURN_GENERATOR
-  | 0x52uy -> LIST_TO_TUPLE
-  | 0x53uy -> RETURN_VALUE
-  | 0x54uy -> IMPORT_STAR
-  | 0x55uy -> SETUP_ANNOTATIONS
-  | 0x56uy -> YIELD_VALUE
-  | 0x57uy -> ASYNC_GEN_WRAP
-  | 0x58uy -> PREP_RERAISE_STAR
-  | 0x59uy -> POP_EXCEPT
-  | 0x5auy -> STORE_NAME
-  | 0x5buy -> DELETE_NAME
-  | 0x5cuy -> UNPACK_SEQUENCE
-  | 0x5duy -> FOR_ITER
-  | 0x5euy -> UNPACK_EX
-  | 0x5fuy -> STORE_ATTR
-  | 0x60uy -> DELETE_ATTR
-  | 0x61uy -> STORE_GLOBAL
-  | 0x62uy -> DELETE_GLOBAL
-  | 0x63uy -> SWAP
-  | 0x64uy -> LOAD_CONST
-  | 0x65uy -> LOAD_NAME
-  | 0x66uy -> BUILD_TUPLE
-  | 0x67uy -> BUILD_LIST
-  | 0x68uy -> BUILD_SET
-  | 0x69uy -> BUILD_MAP
-  | 0x6auy -> LOAD_ATTR
-  | 0x6buy -> COMPARE_OP
-  | 0x6cuy -> IMPORT_NAME
-  | 0x6duy -> IMPORT_FROM
-  | 0x6euy -> JUMP_FORWARD
-  | 0x6fuy -> JUMP_IF_FALSE_OR_POP
-  | 0x70uy -> JUMP_IF_TRUE_OR_POP
-  | 0x72uy -> POP_JUMP_FORWARD_IF_FALSE
-  | 0x73uy -> POP_JUMP_FORWARD_IF_TRUE
-  | 0x74uy -> LOAD_GLOBAL
-  | 0x75uy -> IS_OP
-  | 0x76uy -> CONTAINS_OP
-  | 0x77uy -> RERAISE
-  | 0x78uy -> COPY
-  | 0x7auy -> BINARY_OP
-  | 0x7buy -> SEND
-  | 0x7cuy -> LOAD_FAST
-  | 0x7duy -> STORE_FAST
-  | 0x7euy -> DELETE_FAST
-  | 0x80uy -> POP_JUMP_FORWARD_IF_NOT_NONE
-  | 0x81uy -> POP_JUMP_FORWARD_IF_NONE
-  | 0x82uy -> RAISE_VARARGS
-  | 0x83uy -> GET_AWAITABLE
-  | 0x84uy -> MAKE_FUNCTION
-  | 0x85uy -> BUILD_SLICE
-  | 0x86uy -> JUMP_BACKWARD_NO_INTERRUPT
-  | 0x87uy -> MAKE_CELL
-  | 0x88uy -> LOAD_CLOSURE
-  | 0x89uy -> LOAD_DEREF
-  | 0x8auy -> STORE_DEREF
-  | 0x8buy -> DELETE_DEREF
-  | 0x8cuy -> JUMP_BACKWARD
-  | 0x8euy -> CALL_FUNCTION_EX
-  | 0x90uy -> EXTENDED_ARG
-  | 0x91uy -> LIST_APPEND
-  | 0x92uy -> SET_ADD
-  | 0x93uy -> MAP_ADD
-  | 0x94uy -> LOAD_CLASSDEREF
-  | 0x95uy -> COPY_FREE_VARS
-  | 0x97uy -> RESUME
-  | 0x98uy -> MATCH_CLASS
-  | 0x9buy -> FORMAT_VALUE
-  | 0x9cuy -> BUILD_CONST_KEY_MAP
-  | 0x9duy -> BUILD_STRING
-  | 0xa0uy -> LOAD_METHOD
-  | 0xa2uy -> LIST_EXTEND
-  | 0xa3uy -> SET_UPDATE
-  | 0xa4uy -> DICT_MERGE
-  | 0xa5uy -> DICT_UPDATE
-  | 0xa6uy -> PRECALL
-  | 0xabuy -> CALL
-  | 0xacuy -> KW_NAMES
-  | 0xaduy -> POP_JUMP_BACKWARD_IF_NOT_NONE
-  | 0xaeuy -> POP_JUMP_BACKWARD_IF_NONE
-  | 0xafuy -> POP_JUMP_BACKWARD_IF_FALSE
-  | 0xb0uy -> POP_JUMP_BACKWARD_IF_TRUE
+  | 0x0uy -> struct (Op.CACHE, NoOperand, 2u)
+  | 0x1uy -> struct (Op.POP_TOP, NoOperand, 2u)
+  | 0x2uy -> struct (Op.PUSH_NULL, NoOperand, 2u)
+  | 0x3uy -> struct (Op.INTERPRETER_EXIT, NoOperand, 2u)
+  | 0x4uy -> struct (Op.END_FOR, NoOperand, 2u)
+  | 0x5uy -> struct (Op.END_SEND, NoOperand, 2u)
+  | 0x9uy -> struct (Op.NOP, NoOperand, 2u)
+  | 0xBuy -> struct (Op.UNARY_NEGATIVE, NoOperand, 2u)
+  | 0xCuy -> struct (Op.UNARY_NOT, NoOperand, 2u)
+  | 0xFuy -> struct (Op.UNARY_INVERT, NoOperand, 2u)
+  | 0x11uy -> struct (Op.RESERVED, NoOperand, 2u)
+  | 0x19uy -> struct (Op.BINARY_SUBSCR, NoOperand, 2u)
+  | 0x1Auy -> struct (Op.BINARY_SLICE, NoOperand, 2u)
+  | 0x1Buy -> struct (Op.STORE_SLICE, NoOperand, 2u)
+  | 0x1Euy -> struct (Op.GET_LEN, NoOperand, 2u)
+  | 0x1Fuy -> struct (Op.MATCH_MAPPING, NoOperand, 2u)
+  | 0x20uy -> struct (Op.MATCH_SEQUENCE, NoOperand, 2u)
+  | 0x21uy -> struct (Op.MATCH_KEYS, NoOperand, 2u)
+  | 0x23uy -> struct (Op.PUSH_EXC_INFO, NoOperand, 2u)
+  | 0x24uy -> struct (Op.CHECK_EXC_MATCH, NoOperand, 2u)
+  | 0x25uy -> struct (Op.CHECK_EG_MATCH, NoOperand, 2u)
+  | 0x31uy -> struct (Op.WITH_EXCEPT_START, NoOperand, 2u)
+  | 0x32uy -> struct (Op.GET_AITER, NoOperand, 2u)
+  | 0x33uy -> struct (Op.GET_ANEXT, NoOperand, 2u)
+  | 0x34uy -> struct (Op.BEFORE_ASYNC_WITH, NoOperand, 2u)
+  | 0x35uy -> struct (Op.BEFORE_WITH, NoOperand, 2u)
+  | 0x36uy -> struct (Op.END_ASYNC_FOR, NoOperand, 2u)
+  | 0x37uy -> struct (Op.CLEANUP_THROW, NoOperand, 2u)
+  | 0x3Cuy -> struct (Op.STORE_SUBSCR, NoOperand, 2u)
+  | 0x3Duy -> struct (Op.DELETE_SUBSCR, NoOperand, 2u)
+  | 0x44uy -> struct (Op.GET_ITER, NoOperand, 2u)
+  | 0x45uy -> struct (Op.GET_YIELD_FROM_ITER, NoOperand, 2u)
+  | 0x47uy -> struct (Op.LOAD_BUILD_CLASS, NoOperand, 2u)
+  | 0x4Auy -> struct (Op.LOAD_ASSERTION_ERROR, NoOperand, 2u)
+  | 0x4Buy -> struct (Op.RETURN_GENERATOR, NoOperand, 2u)
+  | 0x53uy -> struct (Op.RETURN_VALUE, NoOperand, 2u)
+  | 0x55uy -> struct (Op.SETUP_ANNOTATIONS, NoOperand, 2u)
+  | 0x57uy -> struct (Op.LOAD_LOCALS, NoOperand, 2u)
+  | 0x59uy -> struct (Op.POP_EXCEPT, NoOperand, 2u)
+  | 0x5Auy -> struct (Op.STORE_NAME, parseOperands span reader, 2u)
+  | 0x5Buy -> struct (Op.DELETE_NAME, parseOperands span reader, 2u)
+  | 0x5Cuy -> struct (Op.UNPACK_SEQUENCE, parseOperands span reader, 2u)
+  | 0x5Duy -> struct (Op.FOR_ITER, parseOperands span reader, 2u)
+  | 0x5Euy -> struct (Op.UNPACK_EX, parseOperands span reader, 2u)
+  | 0x5Fuy -> struct (Op.STORE_ATTR, parseOperands span reader, 2u)
+  | 0x60uy -> struct (Op.DELETE_ATTR, parseOperands span reader, 2u)
+  | 0x61uy -> struct (Op.STORE_GLOBAL, parseOperands span reader, 2u)
+  | 0x62uy -> struct (Op.DELETE_GLOBAL, parseOperands span reader, 2u)
+  | 0x63uy -> struct (Op.SWAP, parseOperands span reader, 2u)
+  | 0x64uy -> struct (Op.LOAD_CONST, parseOperands span reader, 2u)
+  | 0x65uy -> struct (Op.LOAD_NAME, parseOperands span reader, 2u)
+  | 0x66uy -> struct (Op.BUILD_TUPLE, parseOperands span reader, 2u)
+  | 0x67uy -> struct (Op.BUILD_LIST, parseOperands span reader, 2u)
+  | 0x68uy -> struct (Op.BUILD_SET, parseOperands span reader, 2u)
+  | 0x69uy -> struct (Op.BUILD_MAP, parseOperands span reader, 2u)
+  | 0x6Auy -> struct (Op.LOAD_ATTR, parseOperands span reader, 2u)
+  | 0x6Buy -> struct (Op.COMPARE_OP, parseOperands span reader, 2u)
+  | 0x6Cuy -> struct (Op.IMPORT_NAME, parseOperands span reader, 2u)
+  | 0x6Duy -> struct (Op.IMPORT_FROM, parseOperands span reader, 2u)
+  | 0x6Euy -> struct (Op.JUMP_FORWARD, parseOperands span reader, 2u)
+  | 0x72uy -> struct (Op.POP_JUMP_IF_FALSE, parseOperands span reader, 2u)
+  | 0x73uy -> struct (Op.POP_JUMP_IF_TRUE, parseOperands span reader, 2u)
+  | 0x74uy -> struct (Op.LOAD_GLOBAL, parseOperands span reader, 10u)
+  | 0x75uy -> struct (Op.IS_OP, parseOperands span reader, 2u)
+  | 0x76uy -> struct (Op.CONTAINS_OP, parseOperands span reader, 2u)
+  | 0x77uy -> struct (Op.RERAISE, parseOperands span reader, 2u)
+  | 0x78uy -> struct (Op.COPY, parseOperands span reader, 2u)
+  | 0x79uy -> struct (Op.RETURN_CONST, parseOperands span reader, 2u)
+  | 0x7Auy -> struct (Op.BINARY_OP, parseOperands span reader, 4u)
+  | 0x7Buy -> struct (Op.SEND, parseOperands span reader, 2u)
+  | 0x7Cuy -> struct (Op.LOAD_FAST, parseOperands span reader, 2u)
+  | 0x7Duy -> struct (Op.STORE_FAST, parseOperands span reader, 2u)
+  | 0x7Euy -> struct (Op.DELETE_FAST, parseOperands span reader, 2u)
+  | 0x7Fuy -> struct (Op.LOAD_FAST_CHECK, parseOperands span reader, 2u)
+  | 0x80uy -> struct (Op.POP_JUMP_IF_NOT_NONE, parseOperands span reader, 2u)
+  | 0x81uy -> struct (Op.POP_JUMP_IF_NONE, parseOperands span reader, 2u)
+  | 0x82uy -> struct (Op.RAISE_VARARGS, parseOperands span reader, 2u)
+  | 0x83uy -> struct (Op.GET_AWAITABLE, parseOperands span reader, 2u)
+  | 0x84uy -> struct (Op.MAKE_FUNCTION, parseOperands span reader, 2u)
+  | 0x85uy -> struct (Op.BUILD_SLICE, parseOperands span reader, 2u)
+  | 0x86uy ->
+    struct (Op.JUMP_BACKWARD_NO_INTERRUPT, parseOperands span reader, 2u)
+  | 0x87uy -> struct (Op.MAKE_CELL, parseOperands span reader, 2u)
+  | 0x88uy -> struct (Op.LOAD_CLOSURE, parseOperands span reader, 2u)
+  | 0x89uy -> struct (Op.LOAD_DEREF, parseOperands span reader, 2u)
+  | 0x8Auy -> struct (Op.STORE_DEREF, parseOperands span reader, 2u)
+  | 0x8Buy -> struct (Op.DELETE_DEREF, parseOperands span reader, 2u)
+  | 0x8Cuy -> struct (Op.JUMP_BACKWARD, parseOperands span reader, 2u)
+  | 0x8Duy -> struct (Op.LOAD_SUPER_ATTR, parseOperands span reader, 2u)
+  | 0x8Euy -> struct (Op.CALL_FUNCTION_EX, parseOperands span reader, 2u)
+  | 0x8Fuy -> struct (Op.LOAD_FAST_AND_CLEAR, parseOperands span reader, 2u)
+  | 0x90uy -> struct (Op.EXTENDED_ARG, parseOperands span reader, 2u)
+  | 0x91uy -> struct (Op.LIST_APPEND, parseOperands span reader, 2u)
+  | 0x92uy -> struct (Op.SET_ADD, parseOperands span reader, 2u)
+  | 0x93uy -> struct (Op.MAP_ADD, parseOperands span reader, 2u)
+  | 0x95uy -> struct (Op.COPY_FREE_VARS, parseOperands span reader, 2u)
+  | 0x96uy -> struct (Op.YIELD_VALUE, parseOperands span reader, 2u)
+  | 0x97uy -> struct (Op.RESUME, parseOperands span reader, 2u)
+  | 0x98uy -> struct (Op.MATCH_CLASS, parseOperands span reader, 2u)
+  | 0x9Buy -> struct (Op.FORMAT_VALUE, parseOperands span reader, 2u)
+  | 0x9Cuy -> struct (Op.BUILD_CONST_KEY_MAP, parseOperands span reader, 2u)
+  | 0x9Duy -> struct (Op.BUILD_STRING, parseOperands span reader, 2u)
+  | 0xA2uy -> struct (Op.LIST_EXTEND, parseOperands span reader, 2u)
+  | 0xA3uy -> struct (Op.SET_UPDATE, parseOperands span reader, 2u)
+  | 0xA4uy -> struct (Op.DICT_MERGE, parseOperands span reader, 2u)
+  | 0xA5uy -> struct (Op.DICT_UPDATE, parseOperands span reader, 2u)
+  | 0xABuy -> struct (Op.CALL, parseOperands span reader, 8u)
+  | 0xACuy -> struct (Op.KW_NAMES, parseOperands span reader, 2u)
+  | 0xADuy -> struct (Op.CALL_INTRINSIC_1, parseOperands span reader, 2u)
+  | 0xAEuy -> struct (Op.CALL_INTRINSIC_2, parseOperands span reader, 2u)
+  | 0xAFuy ->
+    struct (Op.LOAD_FROM_DICT_OR_GLOBALS, parseOperands span reader, 2u)
+  | 0xB0uy -> struct (Op.LOAD_FROM_DICT_OR_DEREF, parseOperands span reader, 2u)
+  | 0xEDuy ->
+    struct (Op.INSTRUMENTED_LOAD_SUPER_ATTR, parseOperands span reader, 2u)
+  | 0xEEuy ->
+    struct (Op.INSTRUMENTED_POP_JUMP_IF_NONE, parseOperands span reader, 2u)
+  | 0xEFuy ->
+    struct (Op.INSTRUMENTED_POP_JUMP_IF_NOT_NONE, parseOperands span reader, 2u)
+  | 0xF0uy -> struct (Op.INSTRUMENTED_RESUME, parseOperands span reader, 2u)
+  | 0xF1uy -> struct (Op.INSTRUMENTED_CALL, parseOperands span reader, 2u)
+  | 0xF2uy -> (Op.INSTRUMENTED_RETURN_VALUE, parseOperands span reader, 2u)
+  | 0xF3uy ->
+    struct (Op.INSTRUMENTED_YIELD_VALUE, parseOperands span reader, 2u)
+  | 0xF4uy ->
+    struct (Op.INSTRUMENTED_CALL_FUNCTION_EX, parseOperands span reader, 2u)
+  | 0xF5uy ->
+    struct (Op.INSTRUMENTED_JUMP_FORWARD, parseOperands span reader, 2u)
+  | 0xF6uy ->
+    struct (Op.INSTRUMENTED_JUMP_BACKWARD, parseOperands span reader, 2u)
+  | 0xF7uy ->
+    struct (Op.INSTRUMENTED_RETURN_CONST, parseOperands span reader, 2u)
+  | 0xF8uy -> struct (Op.INSTRUMENTED_FOR_ITER, parseOperands span reader, 2u)
+  | 0xF9uy -> (Op.INSTRUMENTED_POP_JUMP_IF_FALSE, parseOperands span reader, 2u)
+  | 0xFAuy ->
+    struct (Op.INSTRUMENTED_POP_JUMP_IF_TRUE, parseOperands span reader, 2u)
+  | 0xFBuy -> struct (Op.INSTRUMENTED_END_FOR, parseOperands span reader, 2u)
+  | 0xFCuy -> struct (Op.INSTRUMENTED_END_SEND, parseOperands span reader, 2u)
+  | 0xFDuy ->
+    struct (Op.INSTRUMENTED_INSTRUCTION, parseOperands span reader, 2u)
+  | 0xFEuy -> struct (Op.INSTRUMENTED_LINE, parseOperands span reader, 2u)
+  (*
+  | 0x100uy -> struct (Op.SETUP_FINALLY, NoOperand, 2u)
+  | 0x101uy -> struct (Op.SETUP_CLEANUP, NoOperand, 2u)
+  | 0x102uy -> struct (Op.SETUP_WITH, NoOperand, 2u)
+  | 0x103uy -> struct (Op.POP_BLOCK, NoOperand, 2u)
+  | 0x104uy -> struct (Op.JUMP, NoOperand, 2u)
+  | 0x105uy -> struct (Op.JUMP_NO_INTERRUPT, NoOperand, 2u)
+  | 0x106uy -> struct (Op.LOAD_METHOD, NoOperand, 2u)
+  | 0x107uy -> struct (Op.LOAD_SUPER_METHOD, NoOperand, 2u)
+  | 0x108uy -> struct (Op.LOAD_ZERO_SUPER_METHOD, NoOperand, 2u)
+  | 0x109uy -> struct (Op.LOAD_ZERO_SUPER_ATTR, NoOperand, 2u)
+  | 0x10Auy -> struct (Op.STORE_FAST_MAYBE_NULL, NoOperand, 2u)
+  *)
   | _ -> raise ParsingFailureException
 
-let parse (span: ByteSpan) (reader: IBinReader) wordSize addr =
-  Terminator.futureFeature ()
+let parse lifter (span: ByteSpan) (reader: IBinReader) addr =
+  let struct (opcode, operands, instrLen) = parseInstruction span reader
+  Instruction (addr, instrLen, opcode, operands, 32<rt>, lifter)

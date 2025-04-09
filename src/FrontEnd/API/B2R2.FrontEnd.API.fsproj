@@ -33,6 +33,7 @@
     <ProjectReference Include="..\EVM\B2R2.FrontEnd.EVM.fsproj" />
     <ProjectReference Include="..\PARISC\B2R2.FrontEnd.PARISC.fsproj" />
     <ProjectReference Include="..\PPC32\B2R2.FrontEnd.PPC32.fsproj" />
+    <ProjectReference Include="..\Python\B2R2.FrontEnd.Python.fsproj" />
     <ProjectReference Include="..\RISCV64\B2R2.FrontEnd.RISCV64.fsproj" />
     <ProjectReference Include="..\CIL\B2R2.FrontEnd.CIL.fsproj" />
     <ProjectReference Include="..\S390\B2R2.FrontEnd.S390.fsproj" />

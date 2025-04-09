@@ -116,7 +116,8 @@ let private isRawBinary (hdl: BinHandle) =
   | FileFormat.ELFBinary
   | FileFormat.MachBinary
   | FileFormat.PEBinary
-  | FileFormat.WasmBinary -> false
+  | FileFormat.WasmBinary
+  | FileFormat.PythonBinary -> false
   | _ -> true
 
 let private printCodeOrTable (printer: BinPrinter) (sec: Section) =

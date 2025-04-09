@@ -24,4 +24,8 @@
 
 module internal B2R2.FrontEnd.Python.Lifter
 
-// TODO
+open B2R2
+
+/// Translate IR.
+let translate (_ins: Instruction) _insLen _bld =
+  Terminator.futureFeature ()

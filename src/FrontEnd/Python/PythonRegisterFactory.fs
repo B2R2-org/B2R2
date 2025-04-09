@@ -26,24 +26,40 @@ namespace B2R2.FrontEnd.Python
 
 open B2R2
 open B2R2.FrontEnd.BinLifter
+open B2R2.BinIR.LowUIR
 
-/// Parser for Python instructions. Parser will return a platform-agnostic
-/// instruction type (Instruction).
-type PythonParser (isa: ISA, reader) =
-  let wordSize = int isa.WordSize
+type RegisterFactory () =
+  interface IRegisterFactory with
+    member _.GetRegVar (_: RegisterID): Expr = Terminator.futureFeature ()
 
-  let lifter =
-    { new ILiftable with
-        member _.Lift ins builder =
-          Lifter.translate ins ins.Length builder
-        member _.Disasm ins builder =
-          Disasm.disasm ins builder; builder }
+    member _.GetRegVar (_: string): Expr = Terminator.futureFeature ()
 
-  interface IInstructionParsable with
-    member _.Parse (span: ByteSpan, addr: Addr) =
-      ParsingMain.parse lifter span reader addr :> IInstruction
+    member _.GetPseudoRegVar _id _idx = Terminator.impossible ()
 
-    member _.Parse (bs: byte[], addr: Addr) =
-      Terminator.futureFeature () :> IInstruction
+    member _.GetAllRegVars () = Terminator.futureFeature ()
 
-    member _.MaxInstructionSize = 4
+    member _.GetGeneralRegVars () = Terminator.futureFeature ()
+
+    member _.GetRegisterID (_: Expr): RegisterID = Terminator.futureFeature ()
+
+    member _.GetRegisterID (_: string): RegisterID = Terminator.futureFeature ()
+
+    member _.GetRegisterIDAliases _ = Terminator.futureFeature ()
+
+    member _.GetRegString _rid = Terminator.futureFeature ()
+
+    member _.GetAllRegStrings () = [||]
+
+    member _.GetRegType _rid = Terminator.futureFeature ()
+
+    member _.ProgramCounter = Terminator.futureFeature ()
+
+    member _.StackPointer = Terminator.futureFeature ()
+
+    member _.FramePointer = Terminator.futureFeature ()
+
+    member _.IsProgramCounter _regid = Terminator.futureFeature ()
+
+    member _.IsStackPointer _regid = Terminator.futureFeature ()
+
+    member _.IsFramePointer _ = false
