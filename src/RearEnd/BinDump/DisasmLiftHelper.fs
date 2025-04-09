@@ -98,6 +98,7 @@ let getInstructionAlignment (isa: ISA) mode =
   | Architecture.WASM -> 1
   | Architecture.SPARC -> 2
   | Architecture.PARISC | Architecture.PARISC64 -> 4
+  | Architecture.Python -> 1
   | _ -> Terminator.futureFeature ()
 
 let convertToHexStr bytes =
