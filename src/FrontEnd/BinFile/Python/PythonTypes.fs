@@ -69,14 +69,14 @@ type PyType =
 type PyCodeConstructor = {
   FileName: string
   Name: string
-  QualName: int // check
+  QualName: PyCodeObject
   Flags: int
   Code: (int * byte [])
   FirstLineNo: int
   LineTable: byte []
-  Consts: PyTypeObj []
-  Names: PyTypeObj []
-  LocalPlusNames: PyTypeObj []
+  Consts: PyCodeObject []
+  Names: PyCodeObject []
+  LocalPlusNames: PyCodeObject []
   LocalPlusKinds: byte []
   ArgCount: int
   PosonlyArgCount: int
@@ -84,10 +84,10 @@ type PyCodeConstructor = {
   StackSize: int
   ExceptionTable: byte []
 } and
-  PyTypeObj =
+  PyCodeObject =
   | PyString of string
   | PyCode of PyCodeConstructor
-  | PyTuple of PyTypeObj []
+  | PyTuple of PyCodeObject []
   | PyInt of int
   | PyShortAsciiInterned of byte []
   | PyShortAscii of byte []
