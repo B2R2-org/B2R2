@@ -79,19 +79,25 @@ type PythonInstruction (addr, numBytes, insInfo) =
 
   override _.IsNop () = Terminator.futureFeature ()
 
-  override _.Translate ctxt =
+  override this.Translate ctxt =
     Terminator.futureFeature ()
 
-  override _.TranslateToList ctxt =
+  override this.TranslateToList ctxt =
     Terminator.futureFeature ()
 
-  override _.Disasm (showAddr, _) =
-    Terminator.futureFeature ()
+  override this.Disasm (showAddr, _) =
+    let builder =
+      DisasmStringBuilder (false, false, WordSize.Bit32, addr, numBytes)
+    Disasm.disasm this.Info builder
+    builder.ToString ()
 
-  override _.Disasm () =
-    Terminator.futureFeature ()
+  override this.Disasm () =
+    let builder =
+      DisasmStringBuilder (false, false, WordSize.Bit32, addr, numBytes)
+    Disasm.disasm this.Info builder
+    builder.ToString ()
 
-  override _.Decompose (showAddr) =
+  override this.Decompose (showAddr) =
     Terminator.futureFeature ()
 
   override _.IsInlinedAssembly () = false

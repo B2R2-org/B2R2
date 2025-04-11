@@ -54,6 +54,12 @@ let private identifyWASM bytes isa =
     Some struct (FileFormat.WasmBinary, isa)
   else None
 
+let private identifyPython bytes isa =
+  let reader = BinReader.Init Endian.Little
+  if Python.Helper.isPython bytes reader then
+    Some struct (FileFormat.PythonBinary, isa)
+  else None
+
 /// <summary>
 ///   Given a binary bytes, identify its binary file format (B2R2.FileFormat)
 ///   and its underlying ISA (B2R2.ISA). For FAT binaries, this function will
@@ -67,5 +73,6 @@ let identify bytes isa =
     yield! identifyPE bytes
     yield! identifyMach bytes isa
     yield! identifyWASM bytes isa
+    yield! identifyPython bytes isa
     yield! Some (FileFormat.RawBinary, isa)
   } |> Option.get

@@ -1,4 +1,4 @@
-﻿(*
+(*
   B2R2 - the Next-Generation Reversing Platform
 
   Copyright (c) SoftSec Lab. @ KAIST, since 2016
@@ -22,26 +22,14 @@
   SOFTWARE.
 *)
 
-namespace B2R2.FrontEnd.BinFile
+module internal B2R2.FrontEnd.BinFile.Python.Parser
 
+open System
 open B2R2
+open B2R2.Collections
+open B2R2.FrontEnd.BinLifter
+open B2R2.FrontEnd.BinFile
 
-[<RequireQualifiedAccess>]
-module FileFactory =
-  let load path bytes fmt isa regFactory baseAddrOpt =
-    match fmt with
-    | FileFormat.ELFBinary ->
-      ELFBinFile (path, bytes, baseAddrOpt, Some regFactory) :> IBinFile
-    | FileFormat.PEBinary ->
-      PEBinFile (path, bytes, baseAddrOpt, [||]) :> IBinFile
-    | FileFormat.MachBinary ->
-      MachBinFile (path, bytes, isa, baseAddrOpt) :> IBinFile
-    | FileFormat.WasmBinary ->
-      WasmBinFile (path, bytes) :> IBinFile
-    | FileFormat.PythonBinary ->
-      PythonBinFile (path, bytes, baseAddrOpt) :> IBinFile
-    | _ ->
-      RawBinFile (path, bytes, isa, baseAddrOpt) :> IBinFile
-
-  let loadELF path bytes regFactory baseAddrOpt =
-    ELFBinFile (path, bytes, baseAddrOpt, Some regFactory)
+let parse (bs: byte[]) =
+  let reader = BinReader.Init Endian.Little
+  ()
