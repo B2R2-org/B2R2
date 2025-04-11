@@ -35,7 +35,7 @@ open B2R2.FrontEnd.BinFile.FileHelper
 let defaultPyCodeCon = {
   FileName = "Default"
   Name = "Default"
-  QualName = 0
+  QualName = PyREF 0
   Flags = 0
   Code = 0, [| 0uy |]
   FirstLineNo = 0
@@ -83,6 +83,30 @@ let readAndOffset (bytes: byte[]) (reader: IBinReader) offset size =
   | _ -> failwithf "Invalid size %d" size
 
 let rec parsePyType (bytes: byte[]) (reader: IBinReader) offset =
+  let inline parsePyTypeObject offset =
+    let pyObj, offset = parsePyType bytes reader offset
+    match pyObj with
+    | PyTuple tuple -> tuple, offset
+    | PyREF _ as r -> [| r |], offset
+    | _ -> failwithf "Invalid Python Type(%A)" pyObj
+
+  let inline parsePyTypeObjectToByteArr offset =
+    let pyObj, offset = parsePyType bytes reader offset
+    match pyObj with
+    | PyString str ->
+      let size = int str
+      Array.sub bytes offset (int size), offset + size
+    | PyREF ref -> [| byte ref |], offset
+    | PyShortAscii arr -> arr, offset
+    | PyShortAsciiInterned arr -> arr, offset
+    | _ -> failwithf "Invalid Python Type(%A)" pyObj
+
+  let inline parsePyTypeObjectToREF offset =
+    let pyObj, offset = parsePyType bytes reader offset
+    match pyObj with
+    | PyREF ref as p -> p, offset
+    | _ -> failwithf "Invalid Python Type(%A)" pyObj
+
   let pyType, offset = getPyType bytes reader offset
   match pyType with
   | PyType.TYPE_CODE ->
@@ -91,78 +115,23 @@ let rec parsePyType (bytes: byte[]) (reader: IBinReader) offset =
     let kwonposonlyArgCout, offset = readAndOffset bytes reader offset 4
     let stackSize, offset = readAndOffset bytes reader offset 4
     let flags, offset = readAndOffset bytes reader offset 4
-    let code, codeOffset, codeSize =
+    let code, codeOffset, offset =
       let codeSize, offset = parsePyType bytes reader offset
       let codeSize =
         match codeSize with
         | PyString str -> int str
         | _ -> raise ParsingFailureException
-      Array.sub bytes offset (int codeSize), offset, codeSize
-    let consts, offset =
-      let pyObj, offset = parsePyType bytes reader (codeOffset + codeSize)
-      match pyObj with
-      | PyTuple tuple -> tuple, offset
-      | _ -> failwithf "Invalid Python Type %A" pyObj
-    let names, offset =
-      let pyObj, offset = parsePyType bytes reader offset
-      match pyObj with
-      | PyTuple tuple -> tuple, offset
-      | PyREF _ as r -> [| r |], offset
-      | _ -> failwithf "Invalid Python Type %A" pyObj
-    let localsplusnames, offset =
-      let pyObj, offset = parsePyType bytes reader offset
-      match pyObj with
-      | PyTuple tuple -> tuple, offset
-      | PyREF _ as r -> [| r |], offset
-      | _ -> failwithf "Invalid Python Type %A" pyObj
-    let localspluskinds, offset =
-      let pyObj, offset = parsePyType bytes reader offset
-      match pyObj with
-      | PyString str ->
-        let size = int str
-        Array.sub bytes offset (int size), offset + size
-      | PyREF ref -> [| byte ref |], offset
-      | _ -> raise ParsingFailureException
-    let filenames, offset =
-      let fnames, offset = parsePyType bytes reader offset
-      let fnames =
-        match fnames with
-        | PyShortAscii arr -> arr
-        | PyShortAsciiInterned arr -> arr
-        | PyREF ref -> [| byte ref |]
-        | _ -> raise ParsingFailureException
-      fnames, offset
-    let name, offset =
-      let name, offset = parsePyType bytes reader offset
-      let name =
-        match name with
-        | PyShortAscii arr -> arr
-        | PyShortAsciiInterned arr -> arr
-        | _ -> raise ParsingFailureException
-      name, offset
-    let qname, offset =
-      let qname, offset = parsePyType bytes reader offset
-      let qname =
-        match qname with
-        | PyREF n -> n
-        | _ -> raise ParsingFailureException
-      qname, offset
+      Array.sub bytes offset codeSize, offset, (offset + codeSize)
+    let consts, offset = parsePyTypeObject offset
+    let names, offset = parsePyTypeObject offset
+    let localsplusnames, offset = parsePyTypeObject offset
+    let localspluskinds, offset = parsePyTypeObjectToByteArr offset
+    let filenames, offset = parsePyTypeObjectToByteArr offset
+    let name, offset = parsePyTypeObjectToByteArr offset
+    let qname, offset = parsePyTypeObjectToREF offset
     let fstline, offset = readAndOffset bytes reader offset 4
-    let linetbl, offset =
-      let size, offset = parsePyType bytes reader offset
-      let size =
-        match size with
-        | PyString str -> int str
-        | _ -> raise ParsingFailureException
-      Array.sub bytes offset (int size), offset + size
-    let exceptbl, offset =
-      let pyObj, offset = parsePyType bytes reader offset
-      match pyObj with
-      | PyString str ->
-        let size = int str
-        Array.sub bytes offset (int size), offset + size
-      | PyREF ref -> [| byte ref |], offset
-      | _ -> raise ParsingFailureException
+    let linetbl, offset = parsePyTypeObjectToByteArr offset
+    let exceptbl, offset = parsePyTypeObjectToByteArr offset
     let con = {
       FileName = System.Text.Encoding.ASCII.GetString (filenames)
       Name = System.Text.Encoding.ASCII.GetString (name)
@@ -179,8 +148,7 @@ let rec parsePyType (bytes: byte[]) (reader: IBinReader) offset =
       PosonlyArgCount = posonlyArgCout
       KwonlyArgCount = kwonposonlyArgCout
       StackSize = stackSize
-      ExceptionTable = exceptbl
-    }
+      ExceptionTable = exceptbl }
     PyCode con, offset
   | PyType.TYPE_STRING ->
     let str, offset = readAndOffset bytes reader offset 4
@@ -211,13 +179,12 @@ let rec parsePyType (bytes: byte[]) (reader: IBinReader) offset =
 let parseCodeObject bytes reader = parsePyType bytes reader 16
 
 let getSections codeObjs =
-  printfn "%A" codeObjs
-  let rec extractCodeInfo (pyObj: PyTypeObj) : (int * int) list =
+  let rec extractCodeInfo (pyObj: PyCodeObject): (int * int * string) list =
     match pyObj with
     | PyCode code ->
       let current =
         let (offset, bytes) = code.Code
-        (offset, bytes.Length)
+        (offset, bytes.Length, code.Name)
       let nested =
         code.Consts
         |> Array.toList

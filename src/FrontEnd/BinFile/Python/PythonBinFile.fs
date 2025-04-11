@@ -146,12 +146,12 @@ type PythonBinFile (path, bytes: byte[], baseAddrOpt) =
 
     member _.GetSections () =
       getSections codeObject
-      |> Array.map (fun (offset, size) ->
+      |> Array.map (fun (offset, size, name) ->
         { Address = uint64 offset
           FileOffset = uint32 offset
           Kind = SectionKind.CodeSection
           Size = uint32 size
-          Name = "Code" })
+          Name = name })
 
     member this.GetSections (addr: Addr) =
       if addr >= baseAddr && addr < (baseAddr + uint64 size) then
