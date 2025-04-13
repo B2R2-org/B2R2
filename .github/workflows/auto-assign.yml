@@ -14,6 +14,10 @@ jobs:
   apply-label:
     runs-on: ubuntu-latest
     steps:
+      - name: Debug
+        run: |
+          echo ${{ toJSON(github.event.issue.labels) }}
+          echo ${{ toJSON(github.event.issue.labels.*.name) }}
       - name: Apply labels
         uses: actions/github-script@v7.0.1
         if: github.event.issue.labels == '[]'
