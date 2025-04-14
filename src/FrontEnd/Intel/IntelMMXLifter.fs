@@ -464,11 +464,14 @@ let paddusw ins insLen ctxt =
   buildPackedInstr ins insLen ctxt false 16<rt> opPaddusw
 
 let private makeHorizonSrc src1 src2 =
-  let (odd, even), _ =
-    Array.foldi (fun (odd, even) i e ->
-                  if i % 2 = 0 then e :: odd, even
-                  else odd, e :: even) ([], []) (Array.append src1 src2)
-  odd |> List.rev |> List.toArray, even |> List.rev |> List.toArray
+  let combined = Array.append src1 src2
+  let comLen = Array.length combined
+  let odd = Array.zeroCreate (comLen / 2)
+  let even = Array.zeroCreate (comLen / 2)
+  for i in 0 .. comLen - 1 do
+    if i % 2 = 0 then odd[i / 2] <- combined[i]
+    else even[i / 2] <- combined[i]
+  odd, even
 
 let packedHorizon ins insLen ctxt packSz opFn =
   let ir = !*ctxt
