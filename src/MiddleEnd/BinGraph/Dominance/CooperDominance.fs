@@ -120,14 +120,18 @@ let private computeDominance (g: IDiGraphAccessible<_, _>) =
   idoms
 
 let rec private doms acc v (idoms: Dictionary<_, IVertex<_>>) =
-  let idom = idoms[v]
-  if idom.ID = -1 then acc |> List.toArray
-  else doms (idom :: acc) idom idoms
+  if idoms.ContainsKey v then
+    let idom = idoms[v]
+    if idom.ID = -1 then acc |> List.toArray
+    else doms (idom :: acc) idom idoms
+  else acc |> List.toArray
 
 let private idom (idoms: Dictionary<_, IVertex<_>>) v =
-  let idom = idoms[v]
-  if idom.ID = -1 then null
-  else idom
+  if idoms.ContainsKey v then
+    let idom = idoms[v]
+    if idom.ID = -1 then null
+    else idom
+  else null
 
 let private createDomInfo g (dfp: IDominanceFrontierProvider<_, _>) =
   let idoms = computeDominance g
