@@ -71,21 +71,21 @@ type PyCodeConstructor = {
   Name: string
   QualName: PyCodeObject
   Flags: int
-  Code: (int * byte [])
+  Code: (int * PyCodeObject)
   FirstLineNo: int
-  LineTable: byte []
-  Consts: PyCodeObject []
-  Names: PyCodeObject []
-  LocalPlusNames: PyCodeObject []
-  LocalPlusKinds: byte []
+  LineTable: PyCodeObject
+  Consts: PyCodeObject
+  Names: PyCodeObject
+  LocalPlusNames: PyCodeObject
+  LocalPlusKinds: PyCodeObject
   ArgCount: int
   PosonlyArgCount: int
   KwonlyArgCount: int
   StackSize: int
-  ExceptionTable: byte []
+  ExceptionTable: PyCodeObject
 } and
   PyCodeObject =
-  | PyString of string
+  | PyString of byte []
   | PyCode of PyCodeConstructor
   | PyTuple of PyCodeObject []
   | PyInt of int

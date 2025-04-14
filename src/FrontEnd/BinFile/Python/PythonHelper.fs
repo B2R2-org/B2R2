@@ -37,19 +37,21 @@ let defaultPyCodeCon = {
   Name = "Default"
   QualName = PyREF 0
   Flags = 0
-  Code = 0, [| 0uy |]
+  Code = 0, PyNone
   FirstLineNo = 0
-  LineTable = [| 0uy |]
-  Consts = [| PyNone |]
-  Names = [| PyNone |]
-  LocalPlusNames = [| PyNone |]
-  LocalPlusKinds = [| 0uy |]
+  LineTable = PyNone
+  Consts = PyNone
+  Names = PyNone
+  LocalPlusNames = PyNone
+  LocalPlusKinds = PyNone
   ArgCount = 0
   PosonlyArgCount = 0
   KwonlyArgCount = 0
   StackSize = 0
-  ExceptionTable = [| 0uy |]
+  ExceptionTable = PyNone
 }
+
+let refs = [||]
 
 [<Literal>]
 let PyMagic = 0x0A0D0DCBu
@@ -67,14 +69,17 @@ let getPyType (bytes: byte[]) (reader: IBinReader) offset : (PyType * int) =
   let pyType = reader.ReadUInt8 (bytes, offset)
   (int pyType &&& (~~~ 0x80)) |> LanguagePrimitives.EnumOfValue, offset + 1
 
-let pyObjToString pyObjs =
-  List.map (fun o ->
-    match o with
-    | PyString str -> str
-    | PyInt i -> i.ToString()
-    | PyNone -> "None"
-    | _ -> failwithf "Error PyObjToString (%A)" o
-  ) pyObjs
+let rec pyObjToString = function
+  | PyString s -> System.Text.Encoding.ASCII.GetString (s)
+  | PyShortAsciiInterned a -> System.Text.Encoding.ASCII.GetString (a)
+  | PyShortAscii a -> System.Text.Encoding.ASCII.GetString (a)
+  | PyInt i -> i.ToString()
+  | PyREF r -> r.ToString()
+  | PyTuple t ->
+    let t = Array.map pyObjToString t
+    String.concat ", " t
+  | PyNone -> "None"
+  | o -> failwithf "Error PyObjToString (%A)" o
 
 let readAndOffset (bytes: byte[]) (reader: IBinReader) offset size =
   match size with
@@ -82,32 +87,10 @@ let readAndOffset (bytes: byte[]) (reader: IBinReader) offset size =
   | 4 -> reader.ReadUInt32 (bytes, offset) |> int, offset + size
   | _ -> failwithf "Invalid size %d" size
 
-let rec parsePyType (bytes: byte[]) (reader: IBinReader) offset =
-  let inline parsePyTypeObject offset =
-    let pyObj, offset = parsePyType bytes reader offset
-    match pyObj with
-    | PyTuple tuple -> tuple, offset
-    | PyREF _ as r -> [| r |], offset
-    | _ -> failwithf "Invalid Python Type(%A)" pyObj
-
-  let inline parsePyTypeObjectToByteArr offset =
-    let pyObj, offset = parsePyType bytes reader offset
-    match pyObj with
-    | PyString str ->
-      let size = int str
-      Array.sub bytes offset (int size), offset + size
-    | PyREF ref -> [| byte ref |], offset
-    | PyShortAscii arr -> arr, offset
-    | PyShortAsciiInterned arr -> arr, offset
-    | _ -> failwithf "Invalid Python Type(%A)" pyObj
-
-  let inline parsePyTypeObjectToREF offset =
-    let pyObj, offset = parsePyType bytes reader offset
-    match pyObj with
-    | PyREF ref as p -> p, offset
-    | _ -> failwithf "Invalid Python Type(%A)" pyObj
-
+let rec parsePyType (bytes: byte[]) (reader: IBinReader) refs offset =
+  //printfn "offset in 0x%X(%d)" offset offset
   let pyType, offset = getPyType bytes reader offset
+  //printfn "offset out 0x%X(%d)" offset offset
   match pyType with
   | PyType.TYPE_CODE ->
     let argCout, offset = readAndOffset bytes reader offset 4
@@ -115,26 +98,21 @@ let rec parsePyType (bytes: byte[]) (reader: IBinReader) offset =
     let kwonposonlyArgCout, offset = readAndOffset bytes reader offset 4
     let stackSize, offset = readAndOffset bytes reader offset 4
     let flags, offset = readAndOffset bytes reader offset 4
-    let code, codeOffset, offset =
-      let codeSize, offset = parsePyType bytes reader offset
-      let codeSize =
-        match codeSize with
-        | PyString str -> int str
-        | _ -> raise ParsingFailureException
-      Array.sub bytes offset codeSize, offset, (offset + codeSize)
-    let consts, offset = parsePyTypeObject offset
-    let names, offset = parsePyTypeObject offset
-    let localsplusnames, offset = parsePyTypeObject offset
-    let localspluskinds, offset = parsePyTypeObjectToByteArr offset
-    let filenames, offset = parsePyTypeObjectToByteArr offset
-    let name, offset = parsePyTypeObjectToByteArr offset
-    let qname, offset = parsePyTypeObjectToREF offset
+    let codeOffset = offset + 5
+    let code, refs, offset = parsePyType bytes reader refs offset
+    let consts, refs, offset = parsePyType bytes reader refs offset
+    let names, refs, offset = parsePyType bytes reader refs offset
+    let localsplusnames, refs, offset = parsePyType bytes reader refs offset
+    let localspluskinds, refs, offset = parsePyType bytes reader refs offset
+    let filenames, refs, offset = parsePyType bytes reader refs offset
+    let name, refs, offset = parsePyType bytes reader refs offset
+    let qname, refs, offset = parsePyType bytes reader refs offset
     let fstline, offset = readAndOffset bytes reader offset 4
-    let linetbl, offset = parsePyTypeObjectToByteArr offset
-    let exceptbl, offset = parsePyTypeObjectToByteArr offset
+    let linetbl, refs, offset = parsePyType bytes reader refs offset
+    let exceptbl, refs, offset = parsePyType bytes reader refs offset
     let con = {
-      FileName = System.Text.Encoding.ASCII.GetString (filenames)
-      Name = System.Text.Encoding.ASCII.GetString (name)
+      FileName = pyObjToString filenames
+      Name = pyObjToString name
       QualName = qname
       Flags = flags
       Code = codeOffset, code
@@ -149,46 +127,51 @@ let rec parsePyType (bytes: byte[]) (reader: IBinReader) offset =
       KwonlyArgCount = kwonposonlyArgCout
       StackSize = stackSize
       ExceptionTable = exceptbl }
-    PyCode con, offset
+    PyCode con, refs, offset
   | PyType.TYPE_STRING ->
-    let str, offset = readAndOffset bytes reader offset 4
-    PyString (string str), offset
+    let size, offset = readAndOffset bytes reader offset 4
+    PyString (Array.sub bytes offset size), refs, offset + size
   | PyType.TYPE_INT ->
     let int, offset = readAndOffset bytes reader offset 4
-    PyInt int, offset
-  | PyType.TYPE_NONE -> PyNone, offset
+    PyInt int, refs, offset
+  | PyType.TYPE_NONE -> PyNone, refs, offset
   | PyType.TYPE_SMALL_TUPLE ->
     let size, offset = readAndOffset bytes reader offset 1
     if size <> 0 then
       let rec loop acc offset =
         if List.length acc = size then acc, offset
         else
-          let contents, offset = parsePyType bytes reader offset
+          let contents, refs, offset = parsePyType bytes reader refs offset
           loop (contents :: acc) offset
       let tuples, offset = loop [] offset
-      PyTuple (tuples |> List.toArray), offset
-    else PyTuple [||], offset
+      PyTuple (tuples |> List.toArray), refs, offset
+    else PyTuple [||], refs, offset
   | PyType.TYPE_SHORT_ASCII | PyType.TYPE_SHORT_ASCII_INTERNED ->
     let n, offset = readAndOffset bytes reader offset 1
-    PyShortAsciiInterned (Array.sub bytes offset n), offset + n
+    PyShortAsciiInterned (Array.sub bytes offset n), refs, offset + n
   | PyType.TYPE_REF ->
     let n, offset = readAndOffset bytes reader offset 4
-    PyREF n, offset
+    PyREF n, refs, offset
   | _ -> printf "%A " pyType; failwith "Invalid parsePyType"
 
-let parseCodeObject bytes reader = parsePyType bytes reader 16
+let parseCodeObject bytes reader = parsePyType bytes reader [||] 16
 
 let getSections codeObjs =
+  printfn "%A" codeObjs
   let rec extractCodeInfo (pyObj: PyCodeObject): (int * int * string) list =
     match pyObj with
     | PyCode code ->
       let current =
-        let (offset, bytes) = code.Code
-        (offset, bytes.Length, code.Name)
+        let (offset, pyObj) = code.Code
+        match pyObj with
+        | PyString s -> offset, s.Length, code.Name
+        | _ -> failwithf "Invalid PyCode(%A)" pyObj
       let nested =
-        code.Consts
-        |> Array.toList
-        |> List.collect extractCodeInfo
+        match code.Consts with
+        | PyTuple t ->
+          t |> Array.toList
+          |> List.collect extractCodeInfo
+        | _ -> failwithf "Invalid PyTuple(%A)" pyObj
       current :: nested
     | _ -> []
   extractCodeInfo codeObjs |> List.toArray
