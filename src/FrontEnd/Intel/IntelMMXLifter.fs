@@ -351,6 +351,14 @@ let private opPackuswb _ src1 src2 =
 let packuswb ins insLen ctxt =
   packWithSaturation ins insLen ctxt 16<rt> opPackuswb
 
+let private interleaveAndSplit (src1: Expr[]) (src2: Expr[]) totalPackNum =
+  let interleaved = Array.zeroCreate (totalPackNum * 2)
+  for i in 0 .. totalPackNum - 1 do
+    interleaved[i * 2] <- src1[i]
+    interleaved[i * 2 + 1] <- src2[i]
+  done
+  Array.splitAt totalPackNum interleaved
+
 let unpackLowHighData ins insLen ctxt packSize isHigh =
   let ir = !*ctxt
   !<ir insLen
@@ -360,9 +368,7 @@ let unpackLowHighData ins insLen ctxt packSize isHigh =
   let struct (dst, src1, src2) = getThreeOprs ins
   let src1 = transOprToArr ir true ins insLen ctxt packSize packNum oprSz src1
   let src2 = transOprToArr ir true ins insLen ctxt packSize packNum oprSz src2
-  let resultA, resultB =
-    Array.fold2 (fun acc e1 e2 -> e2 :: e1 :: acc) [] src1 src2
-    |> List.rev |> List.toArray |> Array.splitAt allPackNum
+  let resultA, resultB = interleaveAndSplit src1 src2 allPackNum
   let result =
     if oprSz = 128<rt> then
       if isHigh then resultB else resultA
@@ -377,10 +383,7 @@ let unpackLowHighData ins insLen ctxt packSize isHigh =
   !>ir insLen
 
 let opUnpackHighData oprSize src1 src2 =
-  let result =
-    Array.fold2 (fun acc e1 e2 -> e2 :: e1 :: acc) [] src1 src2
-    |> List.rev |> List.toArray
-  let resultA, resultB = Array.splitAt (Array.length result / 2) result
+  let resultA, resultB = interleaveAndSplit src1 src2 (Array.length src1)
   match oprSize with
   | 64<rt> | 128<rt> -> resultB
   | 256<rt> ->
@@ -390,10 +393,7 @@ let opUnpackHighData oprSize src1 src2 =
   | _ -> raise InvalidOperandSizeException
 
 let opUnpackLowData oprSize src1 src2 =
-  let result =
-    Array.fold2 (fun acc e1 e2 -> e2 :: e1 :: acc) [] src1 src2
-    |> List.rev |> List.toArray
-  let resultA, resultB = Array.splitAt (Array.length result / 2) result
+  let resultA, resultB = interleaveAndSplit src1 src2 (Array.length src1)
   match oprSize with
   | 64<rt> | 128<rt> -> resultA
   | 256<rt> ->
