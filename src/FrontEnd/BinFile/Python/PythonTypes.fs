@@ -83,13 +83,13 @@ type PyCodeConstructor = {
   KwonlyArgCount: int
   StackSize: int
   ExceptionTable: PyCodeObject
-} and
-  PyCodeObject =
-  | PyString of byte []
+}
+and PyCodeObject =
+  | PyString of byte[]
   | PyCode of PyCodeConstructor
-  | PyTuple of PyCodeObject []
+  | PyTuple of PyCodeObject[]
   | PyInt of int
-  | PyShortAsciiInterned of byte []
-  | PyShortAscii of byte []
-  | PyREF of int
+  | PyShortAsciiInterned of string
+  | PyShortAscii of string
+  | PyREF of int * string
   | PyNone
