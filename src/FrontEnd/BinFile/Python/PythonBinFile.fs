@@ -37,7 +37,8 @@ type PythonBinFile (path, bytes: byte[], baseAddrOpt) =
   let baseAddr = defaultArg baseAddrOpt 0UL
   let reader = BinReader.Init Endian.Little
   let magic = parseMagic bytes reader
-  let codeObject, _, _ = parseCodeObject bytes reader
+  let codeObject = parseCodeObject bytes reader
+  let consts = parseConsts codeObject
   let symbolMap = Dictionary<Addr, Symbol> ()
 
   /// Python magic
@@ -45,6 +46,9 @@ type PythonBinFile (path, bytes: byte[], baseAddrOpt) =
 
   /// Code Object.
   member _.CodeObj with get() = codeObject
+
+  /// Consts.
+  member _.Consts with get() = consts
 
   interface IBinFile with
     member _.Reader with get() = reader
