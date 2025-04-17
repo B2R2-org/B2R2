@@ -1,0 +1,161 @@
+<svg fill="none" viewBox="0 0 800 450" width="100%" height="auto"
+  xmlns="http://www.w3.org/2000/svg">
+  <foreignObject width="100%" height="100%">
+    <div xmlns="http://www.w3.org/1999/xhtml">
+      <style>
+        table {
+          width: 100%;
+          border-collapse: collapse;
+          font-size: 12px;
+        }
+        th, td {
+          padding: 5px;
+          text-align: center;
+          border: 1px solid #ddd;
+        }
+        th {
+          background-color: #f9f9f9;
+          font-weight: bold;
+        }
+        td:first-child {
+          text-align: left;
+          font-weight: bold;
+        }
+      </style>
+      <table>
+        <thead>
+          <tr>
+            <th>CPU</th>
+            <th>Parsing</th>
+            <th>Disassembly</th>
+            <th>Lifting</th>
+            <th>CFG Recovery</th>
+            <th>Assembly</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>x86</td>
+            <td>&#x1F315;</td>
+            <td>&#x1F315;</td>
+            <td>&#x1F315;</td>
+            <td>&#x1F315;</td>
+            <td>&#x1F315;</td>
+          </tr>
+          <tr>
+            <td>x86-64</td>
+            <td>&#x1F315;</td>
+            <td>&#x1F315;</td>
+            <td>&#x1F315;</td>
+            <td>&#x1F315;</td>
+            <td>&#x1F315;</td>
+          </tr>
+          <tr>
+            <td>ARMv7</td>
+            <td>&#x1F315;</td>
+            <td>&#x1F315;</td>
+            <td>&#x1F315;</td>
+            <td>&#x1F313;</td>
+            <td>&#x1F311;</td>
+          </tr>
+          <tr>
+            <td>ARMv8</td>
+            <td>&#x1F315;</td>
+            <td>&#x1F315;</td>
+            <td>&#x1F315;</td>
+            <td>&#x1F313;</td>
+            <td>&#x1F311;</td>
+          </tr>
+          <tr>
+            <td>MIPS32</td>
+            <td>&#x1F315;</td>
+            <td>&#x1F315;</td>
+            <td>&#x1F315;</td>
+            <td>&#x1F313;</td>
+            <td>&#x1F311;</td>
+          </tr>
+          <tr>
+            <td>MIPS64</td>
+            <td>&#x1F315;</td>
+            <td>&#x1F315;</td>
+            <td>&#x1F315;</td>
+            <td>&#x1F313;</td>
+            <td>&#x1F311;</td>
+          </tr>
+          <tr>
+            <td>EVM</td>
+            <td>&#x1F315;</td>
+            <td>&#x1F315;</td>
+            <td>&#x1F315;</td>
+            <td>&#x1F315;</td>
+            <td>&#x1F311;</td>
+          </tr>
+          <tr>
+            <td>TMS320</td>
+            <td>&#x1F315;</td>
+            <td>&#x1F315;</td>
+            <td>&#x1F311;</td>
+            <td>&#x1F315;</td>
+            <td>&#x1F311;</td>
+          </tr>
+          <tr>
+            <td>AVR</td>
+            <td>&#x1F315;</td>
+            <td>&#x1F315;</td>
+            <td>&#x1F315;</td>
+            <td>&#x1F315;</td>
+            <td>&#x1F311;</td>
+          </tr>
+          <tr>
+            <td>PA-RISC</td>
+            <td>&#x1F315;</td>
+            <td>&#x1F315;</td>
+            <td>&#x1F311;</td>
+            <td>&#x1F313;</td>
+            <td>&#x1F311;</td>
+          </tr>
+          <tr>
+            <td>PPC</td>
+            <td>&#x1F315;</td>
+            <td>&#x1F315;</td>
+            <td>&#x1F315;</td>
+            <td>&#x1F313;</td>
+            <td>&#x1F311;</td>
+          </tr>
+          <tr>
+            <td>S390</td>
+            <td>&#x1F315;</td>
+            <td>&#x1F315;</td>
+            <td>&#x1F311;</td>
+            <td>&#x1F313;</td>
+            <td>&#x1F311;</td>
+          </tr>
+          <tr>
+            <td>SPARC</td>
+            <td>&#x1F315;</td>
+            <td>&#x1F315;</td>
+            <td>&#x1F315;</td>
+            <td>&#x1F313;</td>
+            <td>&#x1F311;</td>
+          </tr>
+          <tr>
+            <td>SH4</td>
+            <td>&#x1F314;</td>
+            <td>&#x1F314;</td>
+            <td>&#x1F311;</td>
+            <td>&#x1F313;</td>
+            <td>&#x1F311;</td>
+          </tr>
+          <tr>
+            <td>RISC-V</td>
+            <td>&#x1F315;</td>
+            <td>&#x1F315;</td>
+            <td>&#x1F315;</td>
+            <td>&#x1F315;</td>
+            <td>&#x1F311;</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </foreignObject>
+</svg>
