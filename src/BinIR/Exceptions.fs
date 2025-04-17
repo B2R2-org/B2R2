@@ -24,8 +24,16 @@
 
 namespace B2R2.BinIR
 
+/// <namespacedoc>
+///   <summary>
+///   BinIR is the namespace for intermediate representations used in B2R2.
+///   There are two types of IRs we currently use: LowUIR and SSA.
+///   </summary>
+/// </namespacedoc>
+/// <summary>
 /// Raised when an illegal AST type is used. This should never be raised in
 /// normal situation.
+/// </summary>
 exception IllegalASTTypeException
 
 /// Raised when an assignment expression has an invalid destination expression.

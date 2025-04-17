@@ -24,7 +24,7 @@
 
 namespace B2R2.BinIR
 
-/// Unary operator types.
+/// Represents a unary operator.
 type UnOpType =
   /// Make it negative (Two's complement)
   | NEG = 0
@@ -41,7 +41,15 @@ type UnOpType =
   /// Arc Tangent
   | FATAN = 8
 
+/// <summary>
+/// Provides functions to access <see cref='T:B2R2.BinIR.UnOpType'/>.
+/// </summary>
+[<RequireQualifiedAccess>]
 module UnOpType =
+  /// <summary>
+  /// Retrieves the string representation of the unary operator.
+  /// </summary>
+  [<CompiledName "ToString">]
   let toString = function
     | UnOpType.NEG -> "-"
     | UnOpType.NOT -> "~"
@@ -52,6 +60,10 @@ module UnOpType =
     | UnOpType.FATAN -> "atan"
     | _ -> raise IllegalASTTypeException
 
+  /// <summary>
+  /// Retrieves the unary operator type from a string.
+  /// </summary>
+  [<CompiledName "OfString">]
   let ofString = function
     | "-" -> UnOpType.NEG
     | "~" -> UnOpType.NOT
@@ -61,5 +73,3 @@ module UnOpType =
     | "tan" -> UnOpType.FTAN
     | "atan" -> UnOpType.FATAN
     | _ -> raise IllegalASTTypeException
-
-// vim: set tw=80 sts=2 sw=2:

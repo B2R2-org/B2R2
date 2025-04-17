@@ -32,9 +32,20 @@ open LanguagePrimitives
 open B2R2
 open B2R2.BinIR
 
-/// IR Expressions.
-/// NOTE: You MUST create Expr/Stmt through the AST module. *NEVER* directly
-/// construct Expr nor Stmt.
+/// <namespacedoc>
+///   <summary>
+///   LowUIR is the namespace for the LowUIR intermediate representation, which
+///   is the main IR used in B2R2. LowUIR is used to represent the semantics of
+///   instructions in a platform-independent way.
+///   </summary>
+/// </namespacedoc>
+/// <summary>
+/// Represents a LowUIR expression.
+/// <remarks>
+/// You <i>must</i> create Expr/Stmt through the AST module. <b>NEVER</b>
+/// directly construct Expr nor Stmt.
+/// </remarks>
+/// </summary>
 #if ! HASHCONS
 #else
 [<CustomEquality; NoComparison>]
@@ -100,6 +111,8 @@ type E =
   /// explicitly say that a register value is undefined after a certain
   /// operation. We model such cases with this expression.
   | Undefined of RegType * string
+with
+  member this.E = this
 #if ! HASHCONS
 #else
 with
@@ -192,7 +205,11 @@ with
 #endif
 
 #if ! HASHCONS
-/// When hash-consing is not used, we simply create a wrapper for an AST node.
+/// <summary>
+/// Represents a wrapped LowUIR expression, which simply wraps <see
+/// cref='T:B2R2.BinIR.LowUIR.E'/>. This is used when hash-consing is not
+/// enabled.
+/// </summary>
 and [<Struct>] Expr = {
   /// The actual AST node.
   E: E

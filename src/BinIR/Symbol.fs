@@ -24,12 +24,31 @@
 
 namespace B2R2.BinIR
 
-/// Representation of symbolic value used to represent a label.
+/// <summary>
+/// Represents a symbolic value that can be a jump target. We attach a number to
+/// each symbol name to distinguish between different symbols with the same
+/// name.
+/// </summary>
 type Symbol = string * int
 
+/// <summary>
+/// Provides functions to access <see cref='T:B2R2.BinIR.Symbol'/>.
+/// </summary>
 module Symbol =
+  /// <summary>
+  /// Retrives the name of the symbol.
+  /// </summary>
+  [<CompiledName "GetName">]
   let inline getName (s: Symbol) = fst s
 
+  /// <summary>
+  /// Retrives the attached number of the symbol.
+  /// </summary>
+  [<CompiledName "GetNumber">]
   let inline getNumber (s: Symbol) = snd s
 
+  /// <summary>
+  /// Retrives a stirng representation of the symbol.
+  /// </summary>
+  [<CompiledName "ToString">]
   let toString (s: Symbol) = fst s + "_" + (snd s).ToString ()

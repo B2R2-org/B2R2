@@ -24,7 +24,9 @@
 
 namespace B2R2.BinIR
 
-/// Pretty printer "module" for B2R2's IR.
+/// <summary>
+/// Exposes pretty printing functions for LowUIR and SSA statements.
+/// </summary>
 type PrettyPrinter =
   /// <summary>
   ///   Given a list of LowUIR statements, return a well-formated string.

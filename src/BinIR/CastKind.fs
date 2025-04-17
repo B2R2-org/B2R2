@@ -24,7 +24,9 @@
 
 namespace B2R2.BinIR
 
-/// Casting kinds.
+/// <summary>
+/// Represents a cast kind, used in the <c>Cast</c> expression.
+/// </summary>
 type CastKind =
   /// Sign-extending conversion
   | SignExt = 0
@@ -68,7 +70,15 @@ type CastKind =
   /// and -23.7 -> -23.
   | FtoFTrunc = 12
 
+/// <summary>
+/// Provides functions to access <see cref='T:B2R2.BinIR.CastKind'/>.
+/// </summary>
+[<RequireQualifiedAccess>]
 module CastKind =
+  /// <summary>
+  /// Retrieves the string representation of the cast kind.
+  /// </summary>
+  [<CompiledName "ToString">]
   let toString = function
     | CastKind.SignExt -> "sext"
     | CastKind.ZeroExt -> "zext"
@@ -85,6 +95,10 @@ module CastKind =
     | CastKind.FtoFTrunc -> "truncf"
     | _ -> raise IllegalASTTypeException
 
+  /// <summary>
+  /// Retrieves the cast kind from the string representation.
+  /// </summary>
+  [<CompiledName "OfString">]
   let ofString = function
     | "sext" -> CastKind.SignExt
     | "zext" -> CastKind.ZeroExt

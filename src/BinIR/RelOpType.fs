@@ -24,7 +24,7 @@
 
 namespace B2R2.BinIR
 
-/// Relative operator types.
+/// Represents a relational operator.
 type RelOpType =
   /// Equal
   | EQ = 0
@@ -59,7 +59,15 @@ type RelOpType =
   /// Floating point less than or equal
   | FLE = 15
 
+/// <summary>
+/// Provides functions to access <see cref='T:B2R2.BinIR.RelOpType'/>.
+/// </summary>
+[<RequireQualifiedAccess>]
 module RelOpType =
+  /// <summary>
+  /// Retrieves the string representation of the relational operator.
+  /// </summary>
+  [<CompiledName "ToString">]
   let toString = function
     | RelOpType.EQ -> "="
     | RelOpType.NEQ -> "!="
@@ -79,6 +87,10 @@ module RelOpType =
     | RelOpType.FLE -> "<=."
     | _ -> raise IllegalASTTypeException
 
+  /// <summary>
+  /// Retrieves the relational operator from the string representation.
+  /// </summary>
+  [<CompiledName "OfString">]
   let ofString = function
     | "=" -> RelOpType.EQ
     | "!=" -> RelOpType.NEQ

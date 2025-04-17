@@ -22,7 +22,15 @@
   SOFTWARE.
 *)
 
-/// LowUIR AST construction must be done through this module.
+/// <summary>
+/// Provides a set of functions for constructing LowUIR expressions and
+/// statements.
+/// <remarks>
+/// Any LowUIR AST construction must be done through the functions in this
+/// module.
+/// </remarks>
+/// </summary>
+[<RequireQualifiedAccess>]
 module B2R2.BinIR.LowUIR.AST
 
 open System.Collections.Generic
@@ -167,7 +175,7 @@ let name symb =
     e'
 #endif
 
-let binopWithType op t e1 e2 =
+let private binopWithType op t e1 e2 =
   match e1.E, e2.E with
   | Num n1, Num n2 -> ValueOptimizer.binop n1 n2 op |> num
 #if ! HASHCONS
@@ -233,7 +241,7 @@ let nil =
 [<CompiledName("FuncName")>]
 let funcName name =
 #if ! HASHCONS
-  FuncName (name) |> ASTHelper.buildExpr
+  FuncName name |> ASTHelper.buildExpr
 #else
   let k = FuncName (name)
   match tryGetExpr k with
@@ -365,7 +373,10 @@ let cast kind rt e =
 #endif
     else e (* Remove unnecessary casting . *)
 
-/// Construct a extract expression (Extract).
+/// <summary>
+/// Extract bits of the given size (<see cref='T:B2R2.RegType'/>) at the given
+/// position from the given expression.
+/// </summary>
 [<CompiledName("Extract")>]
 let extract expr rt pos =
   TypeCheck.extract rt pos (TypeCheck.typeOf expr)
@@ -882,7 +893,7 @@ let put dst src =
     s'
 #endif
 
-let assignForExtractDst e1 e2 =
+let private assignForExtractDst e1 e2 =
   match e1.E with
   | Extract ({ E = Var (t, _, _) } as e1, eTyp, 0)
   | Extract ({ E = TempVar (t, _) } as e1, eTyp, 0) ->
@@ -900,7 +911,7 @@ let assignForExtractDst e1 e2 =
     let src = binopWithType BinOpType.SHL t src shift
     put e1 (binopWithType BinOpType.OR t
               (binopWithType BinOpType.AND t e1 mask) src)
-  | e -> printfn "%A" e; raise InvalidAssignmentException
+  | e -> eprintfn "%A" e; raise InvalidAssignmentException
 
 /// A Store statement.
 [<CompiledName("Store")>]
@@ -927,7 +938,7 @@ let assign dst src =
   match dst.E with
   | Var _ | TempVar _ | PCVar _ -> put dst src
   | Load (endian, _, e) -> store endian e src
-  | Extract (_) -> assignForExtractDst dst src
+  | Extract _ -> assignForExtractDst dst src
   | _ -> raise InvalidAssignmentException
 
 /// A Jmp statement.
@@ -994,7 +1005,7 @@ let intercjmp cond d1 d2 =
     s'
 #endif
 
-/// An external call statement.
+/// External call.
 [<CompiledName("ExtCall")>]
 let extCall appExpr =
 #if ! HASHCONS
@@ -1106,6 +1117,10 @@ let rec updateTempsUses (tset: HashSet<int>) { E = e } =
   | Extract (e, _, _) ->
     updateTempsUses tset e
 
+/// <summary>
+/// Provides infix operators for LowUIR expressions. Each infix operator has a
+/// corresponding function in the <see cref='T:B2R2.BinIR.LowUIR.AST'/> module.
+/// </summary>
 module InfixOp =
   /// Assignment.
   let inline (:=) e1 e2 = assign e1 e2

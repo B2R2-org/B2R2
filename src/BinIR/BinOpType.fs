@@ -24,7 +24,7 @@
 
 namespace B2R2.BinIR
 
-/// Binary operator types.
+/// Represents a binary operator.
 type BinOpType =
   /// Addition
   | ADD = 0
@@ -71,7 +71,15 @@ type BinOpType =
   /// Log (log of x2 in base x1)
   | FLOG = 21
 
+/// <summary>
+/// Provides functions to access <see cref='T:B2R2.BinIR.BinOpType'/>.
+/// </summary>
+[<RequireQualifiedAccess>]
 module BinOpType =
+  /// <summary>
+  /// Retrieves the string representation of the binary operator.
+  /// </summary>
+  [<CompiledName "ToString">]
   let toString = function
     | BinOpType.ADD -> "+"
     | BinOpType.SUB -> "-"
@@ -96,6 +104,10 @@ module BinOpType =
     | BinOpType.FLOG -> "lg"
     | _ -> raise IllegalASTTypeException
 
+  /// <summary>
+  /// Retrieves the binary operator from a string.
+  /// </summary>
+  [<CompiledName "OfString">]
   let ofString = function
     | "+" -> BinOpType.ADD
     | "-" -> BinOpType.SUB
@@ -103,13 +115,13 @@ module BinOpType =
     | "/" -> BinOpType.DIV
     | "?/" -> BinOpType.SDIV
     | "%" -> BinOpType.MOD
-    | "?%" -> BinOpType. SMOD
+    | "?%" -> BinOpType.SMOD
     | "<<" -> BinOpType.SHL
-    | ">>" -> BinOpType. SHR
-    | "?>>" -> BinOpType. SAR
-    | "&" -> BinOpType. AND
-    | "|" -> BinOpType. OR
-    | "^" -> BinOpType. XOR
+    | ">>" -> BinOpType.SHR
+    | "?>>" -> BinOpType.SAR
+    | "&" -> BinOpType.AND
+    | "|" -> BinOpType.OR
+    | "^" -> BinOpType.XOR
     | "++" -> BinOpType.CONCAT
     | "::" -> BinOpType.CONS
     | "+." -> BinOpType.FADD
