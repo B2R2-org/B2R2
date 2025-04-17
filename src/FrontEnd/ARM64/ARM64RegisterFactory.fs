@@ -429,7 +429,9 @@ type ARM64RegisterFactory (r: RegExprs) =
     Register.ofRegID rid |> Register.toRegType
 
   override _.GetRegisterAliases rid =
-    [| rid |]
+    Register.ofRegID rid
+    |> Register.getAliases
+    |> Array.map Register.toRegID
 
   override _.ProgramCounter =
     PC |> Register.toRegID

@@ -68,7 +68,7 @@ type MIPSInstruction (addr, numBytes, insInfo, wordSize) =
   override this.IsCJmpOnTrue () =
     match this.Info.Opcode with
     | Opcode.BEQ | Opcode.BLTZ | Opcode.BLEZ | Opcode.BGTZ | Opcode.BGEZ
-    | Opcode.BGEZAL | Opcode.BC1F | Opcode.BC1T -> true
+    | Opcode.BGEZAL | Opcode.BC1T -> true
     | _ -> false
 
   override this.IsCall () =
