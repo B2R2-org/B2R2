@@ -476,32 +476,32 @@ let assignPackedInstr ir useTmpVar ins insLen ctxt packNum oprSize dst result =
   match oprSize with
   | 64<rt> when isMMXReg dst ->
     let dst = transOprToExpr ir useTmpVar ins insLen ctxt dst
-    !!ir (dst := result |> AST.concatArr)
+    !!ir (dst := result |> AST.revConcat)
     fillOnesToMMXHigh16 ir ins ctxt
   | 64<rt> ->
     let dst = transOprToExpr ir useTmpVar ins insLen ctxt dst
-    !!ir (dst := result |> AST.concatArr)
+    !!ir (dst := result |> AST.revConcat)
   | 128<rt> ->
     let dstB, dstA = transOprToExpr128 ir useTmpVar ins insLen ctxt dst
-    !!ir (dstA := Array.sub result 0 packNum |> AST.concatArr)
-    !!ir (dstB := Array.sub result packNum packNum |> AST.concatArr)
+    !!ir (dstA := Array.sub result 0 packNum |> AST.revConcat)
+    !!ir (dstB := Array.sub result packNum packNum |> AST.revConcat)
   | 256<rt> ->
     let dstD, dstC, dstB, dstA = transOprToExpr256 ir false ins insLen ctxt dst
-    !!ir (dstA := Array.sub result 0 packNum |> AST.concatArr)
-    !!ir (dstB := Array.sub result (1 * packNum) packNum |> AST.concatArr)
-    !!ir (dstC := Array.sub result (2 * packNum) packNum |> AST.concatArr)
-    !!ir (dstD := Array.sub result (3 * packNum) packNum |> AST.concatArr)
+    !!ir (dstA := Array.sub result 0 packNum |> AST.revConcat)
+    !!ir (dstB := Array.sub result (1 * packNum) packNum |> AST.revConcat)
+    !!ir (dstC := Array.sub result (2 * packNum) packNum |> AST.revConcat)
+    !!ir (dstD := Array.sub result (3 * packNum) packNum |> AST.revConcat)
   | 512<rt> ->
     let dstH, dstG, dstF, dstE, dstD, dstC, dstB, dstA =
       transOprToExpr512 ir false ins insLen ctxt dst
-    !!ir (dstA := Array.sub result 0 packNum |> AST.concatArr)
-    !!ir (dstB := Array.sub result (1 * packNum) packNum |> AST.concatArr)
-    !!ir (dstC := Array.sub result (2 * packNum) packNum |> AST.concatArr)
-    !!ir (dstD := Array.sub result (3 * packNum) packNum |> AST.concatArr)
-    !!ir (dstE := Array.sub result (4 * packNum) packNum |> AST.concatArr)
-    !!ir (dstF := Array.sub result (5 * packNum) packNum |> AST.concatArr)
-    !!ir (dstG := Array.sub result (6 * packNum) packNum |> AST.concatArr)
-    !!ir (dstH := Array.sub result (7 * packNum) packNum |> AST.concatArr)
+    !!ir (dstA := Array.sub result 0 packNum |> AST.revConcat)
+    !!ir (dstB := Array.sub result (1 * packNum) packNum |> AST.revConcat)
+    !!ir (dstC := Array.sub result (2 * packNum) packNum |> AST.revConcat)
+    !!ir (dstD := Array.sub result (3 * packNum) packNum |> AST.revConcat)
+    !!ir (dstE := Array.sub result (4 * packNum) packNum |> AST.revConcat)
+    !!ir (dstF := Array.sub result (5 * packNum) packNum |> AST.revConcat)
+    !!ir (dstG := Array.sub result (6 * packNum) packNum |> AST.revConcat)
+    !!ir (dstH := Array.sub result (7 * packNum) packNum |> AST.revConcat)
   | _ -> raise InvalidOperandSizeException
 
 let getTwoOprs (ins: InsInfo) =

@@ -1331,10 +1331,10 @@ let dstAssign128 ins ctxt addr dst srcA srcB dataSize ir =
 let dstAssignForSIMD dstA dstB result dataSize elements ir =
   if dataSize = 128<rt> then
     let elems = elements / 2
-    !!ir (dstA := AST.concatArr (Array.sub result 0 elems))
-    !!ir (dstB := AST.concatArr (Array.sub result elems elems))
+    !!ir (dstA := AST.revConcat (Array.sub result 0 elems))
+    !!ir (dstB := AST.revConcat (Array.sub result elems elems))
   else
-    !!ir (dstA := AST.concatArr result)
+    !!ir (dstA := AST.revConcat result)
     !!ir (dstB := AST.num0 64<rt>)
 
 let mark (ctxt: TranslationContext) addr size ir =

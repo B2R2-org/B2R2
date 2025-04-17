@@ -2585,7 +2585,7 @@ let rev16 ins insLen ctxt =
   let r2 = AST.extract rm 8<rt> 24
   let r3 = AST.extract rm 8<rt> 0
   let r4 = AST.extract rm 8<rt> 8
-  !!ir (rd := AST.concatArr [| r4; r3; r2; r1 |])
+  !!ir (rd := AST.revConcat [| r4; r3; r2; r1 |])
   putEndLabel ctxt lblIgnore ir
   !>ir insLen
 
@@ -4275,7 +4275,7 @@ let vecTbl (ins: InsInfo) insLen ctxt isVtbl =
   let rd, list, rm = parseOprOfVecTbl ins insLen ctxt
   let vectors = list |> List.map (getRegVar ctxt)
   let length = List.length list
-  let table = AST.concatArr (List.toArray vectors) |> AST.zext 256<rt>
+  let table = AST.revConcat (List.toArray vectors) |> AST.zext 256<rt>
   for i in 0 .. 7 do
     let index = elem rm i 8
     let cond = AST.lt index (numI32 (8 * length) 8<rt>)
@@ -4636,7 +4636,7 @@ let vld1SingleAll (ins: InsInfo) insLen ctxt =
   !!ir (addr := rn)
   !!ir (rn := updateRn ins rn rm p.EBytes p.RegIndex)
   let mem = AST.loadLE p.RtESize addr
-  let repElem = Array.replicate p.Elements mem |> AST.concatArr
+  let repElem = Array.replicate p.Elements mem |> AST.revConcat
   for r in 0 .. (List.length rdList - 1) do
     !!ir (rdList[r] := repElem) done
   putEndLabel ctxt lblIgnore ir
@@ -4867,8 +4867,8 @@ let vld2SingleAll (ins: InsInfo) insLen ctxt =
   !!ir (rn := updateRn ins rn rm (2 * p.EBytes) p.RegIndex)
   let mem1 = AST.loadLE p.RtESize addr
   let mem2 = AST.loadLE p.RtESize (incAddr addr p.EBytes)
-  let repElem1 = Array.replicate p.Elements mem1 |> AST.concatArr
-  let repElem2 = Array.replicate p.Elements mem2 |> AST.concatArr
+  let repElem1 = Array.replicate p.Elements mem1 |> AST.revConcat
+  let repElem2 = Array.replicate p.Elements mem2 |> AST.revConcat
   !!ir (rdList[0] := repElem1)
   !!ir (rdList[1] := repElem2)
   putEndLabel ctxt lblIgnore ir
@@ -4939,9 +4939,9 @@ let vld3SingleAll (ins: InsInfo) insLen ctxt =
   let mem1 = AST.loadLE p.RtESize addr
   let mem2 = AST.loadLE p.RtESize (incAddr addr p.EBytes)
   let mem3 = AST.loadLE p.RtESize (incAddr addr (2 * p.EBytes))
-  let repElem1 = Array.replicate p.Elements mem1 |> AST.concatArr
-  let repElem2 = Array.replicate p.Elements mem2 |> AST.concatArr
-  let repElem3 = Array.replicate p.Elements mem3 |> AST.concatArr
+  let repElem1 = Array.replicate p.Elements mem1 |> AST.revConcat
+  let repElem2 = Array.replicate p.Elements mem2 |> AST.revConcat
+  let repElem3 = Array.replicate p.Elements mem3 |> AST.revConcat
   !!ir (rdList[0] := repElem1)
   !!ir (rdList[1] := repElem2)
   !!ir (rdList[2] := repElem3)
@@ -5013,10 +5013,10 @@ let vld4SingleAll (ins: InsInfo) insLen ctxt =
   let mem2 = AST.loadLE p.RtESize (incAddr addr p.EBytes)
   let mem3 = AST.loadLE p.RtESize (incAddr addr (2 * p.EBytes))
   let mem4 = AST.loadLE p.RtESize (incAddr addr (3 * p.EBytes))
-  let repElem1 = Array.replicate p.Elements mem1 |> AST.concatArr
-  let repElem2 = Array.replicate p.Elements mem2 |> AST.concatArr
-  let repElem3 = Array.replicate p.Elements mem3 |> AST.concatArr
-  let repElem4 = Array.replicate p.Elements mem4 |> AST.concatArr
+  let repElem1 = Array.replicate p.Elements mem1 |> AST.revConcat
+  let repElem2 = Array.replicate p.Elements mem2 |> AST.revConcat
+  let repElem3 = Array.replicate p.Elements mem3 |> AST.revConcat
+  let repElem4 = Array.replicate p.Elements mem4 |> AST.revConcat
   !!ir (rdList[0] := repElem1)
   !!ir (rdList[1] := repElem2)
   !!ir (rdList[2] := repElem3)

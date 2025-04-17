@@ -1502,7 +1502,7 @@ let private crmMask ir crm =
     !!ir (tCrm[i] :=
       AST.ite cond1 (AST.ite cond2 (numI32 0xff 8<rt>)(numI32 0xf 8<rt>))
        (AST.ite cond2 (numI32 0xf0 8<rt>) (AST.num0 8<rt>)))
-  tCrm |> AST.concatArr
+  tCrm |> AST.revConcat
 
 let mtcrf ins insLen ctxt =
   let struct (crm, rs) = transTwoOprs ins ctxt

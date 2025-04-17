@@ -444,9 +444,13 @@ let rec private concatLoop (arr: Expr []) sPos ePos =
   elif diff = 0 then arr[sPos]
   else Terminator.impossible ()
 
-/// Concatenate an array of expressions.
-[<CompiledName("Concat")>]
-let concatArr (arr: Expr[]) =
+/// <summary>
+/// Concatenate the given arrays in reverse order. For example, if the input is
+/// <c>[| Num 0; Num 1; Num 2; Num 3 |]</c> then the output is <c>Concat (Concat
+/// (Num 3, Num 2), Concat (Num 1, Num 0))</c>.
+/// </summary>
+[<CompiledName("RevConcat")>]
+let revConcat (arr: Expr[]) =
   concatLoop arr 0 (Array.length arr - 1)
 
 /// Unwrap (casted) expression.

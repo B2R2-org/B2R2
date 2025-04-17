@@ -642,12 +642,12 @@ let private opShiftPackedDataLogical oprSize packSz shift src1 src2 =
   let z = AST.num0 packSz
   match oprSize with
   | 64<rt> ->
-    let count = AST.concatArr src2 |> AST.zext 64<rt>
+    let count = AST.revConcat src2 |> AST.zext 64<rt>
     let cond = count .> (numI32 ((int packSz) - 1) 64<rt>)
     Array.map (fun e ->
       AST.ite cond z (AST.xtlo packSz (shift (AST.zext 64<rt> e) count))) src1
   | 128<rt> ->
-    let count = AST.concatArr (Array.sub src2 0 (pNum / 2)) |> AST.zext 64<rt>
+    let count = AST.revConcat (Array.sub src2 0 (pNum / 2)) |> AST.zext 64<rt>
     let cond = count .> (numI32 ((int packSz) - 1) 64<rt>)
     Array.map (fun e ->
       AST.ite cond z (AST.xtlo packSz (shift (AST.zext 64<rt> e) count))) src1
@@ -687,12 +687,12 @@ let private opShiftPackedDataRightArith oprSize packSz src1 src2 =
   let pNum = int (oprSize / packSz)
   match oprSize with
   | 64<rt> ->
-    let count = AST.concatArr src2 |> AST.zext 64<rt>
+    let count = AST.revConcat src2 |> AST.zext 64<rt>
     let cond = count .> (numI32 ((int packSz) - 1) 64<rt>)
     let count = AST.ite cond (numI32 (int packSz) 64<rt>) count
     Array.map (fun e -> AST.xtlo packSz ((AST.sext 64<rt> e) ?>> count)) src1
   | 128<rt> ->
-    let count = AST.concatArr (Array.sub src2 0 (pNum / 2)) |> AST.zext 64<rt>
+    let count = AST.revConcat (Array.sub src2 0 (pNum / 2)) |> AST.zext 64<rt>
     let cond = count .> (numI32 ((int packSz) - 1) 64<rt>)
     let count = AST.ite cond (numI32 (int packSz) 64<rt>) count
     Array.map (fun e -> AST.xtlo packSz ((AST.sext 64<rt> e) ?>> count)) src1

@@ -3160,11 +3160,11 @@ let uadalp ins insLen ctxt addr =
   Array.iter2 (fun r s -> !!ir (r := r .+ s)) result sum
   let elems = elements / 4
   let srcB =
-    if dataSize = 128<rt> then AST.concatArr (Array.sub result elems elems)
+    if dataSize = 128<rt> then AST.revConcat (Array.sub result elems elems)
     else AST.num0 64<rt>
   let srcA =
-    if dataSize = 128<rt> then AST.concatArr (Array.sub result 0 elems)
-    else AST.concatArr result
+    if dataSize = 128<rt> then AST.revConcat (Array.sub result 0 elems)
+    else AST.revConcat result
   dstAssign128 ins ctxt addr o1 srcA srcB dataSize ir
   !>ir insLen
 
@@ -4103,7 +4103,7 @@ let xtn ins insLen ctxt addr =
   let dstB, dstA = transOprToExpr128 ins ctxt addr dst
   let src = transSIMDOprToExpr ctxt eSize dataSize elements src
             |> Array.map (AST.xtlo (eSize / 2))
-  !!ir (dstA := AST.concatArr src)
+  !!ir (dstA := AST.revConcat src)
   !!ir (dstB := AST.num0 64<rt>)
   !>ir insLen
 
@@ -4116,7 +4116,7 @@ let xtn2 ins insLen ctxt addr =
   let src = transSIMDOprToExpr ctxt eSize dataSize elements src
             |> Array.map (AST.xtlo (eSize / 2))
   !!ir (dstA := dstA)
-  !!ir (dstB := AST.concatArr src)
+  !!ir (dstB := AST.revConcat src)
   !>ir insLen
 
 let zip ins insLen ctxt addr isPart1 =

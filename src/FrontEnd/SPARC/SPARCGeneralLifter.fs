@@ -194,7 +194,7 @@ let getConditionCodeAdd res src src1 =
   let iccc = (sign32 .& sign321) .| ((AST.not ressign32) .& (sign32 .| sign321))
   // AST.concat xccn (AST. concat xccz (AST.concat xccv (AST.concat xccc
     // (AST.concat iccn (AST.concat iccz (AST.concat iccv iccc))))))
-  AST.concatArr [| iccc; iccv; iccz; iccn; xccc; xccv; xccz; iccn |]
+  AST.revConcat [| iccc; iccv; iccz; iccn; xccc; xccv; xccz; iccn |]
 
 let getConditionCodeSub res src src1 =
   let sign = AST.extract src 1<rt> 63
@@ -218,7 +218,7 @@ let getConditionCodeSub res src src1 =
     (ressign32 .& ((AST.not sign32) .| sign321)))
   // AST.concat xccn (AST. concat xccz (AST.concat xccv (AST.concat xccc
     // (AST.concat iccn (AST.concat iccz (AST.concat iccv iccc))))))
-  AST.concatArr [| iccc; iccv; iccz; iccn; xccc; xccv; xccz; iccn |]
+  AST.revConcat [| iccc; iccv; iccz; iccn; xccc; xccv; xccz; iccn |]
 
 let getConditionCodeLog res src src1 =
   let sign = AST.extract src 1<rt> 63
@@ -238,7 +238,7 @@ let getConditionCodeLog res src src1 =
   let iccc = AST.num0 1<rt>
   // AST.concat xccn (AST. concat xccz (AST.concat xccv (AST.concat xccc
     // (AST.concat iccn (AST.concat iccz (AST.concat iccv iccc))))))
-  AST.concatArr [| iccc; iccv; iccz; iccn; xccc; xccv; xccz; iccn |]
+  AST.revConcat [| iccc; iccv; iccz; iccn; xccc; xccv; xccz; iccn |]
 
 let getConditionCodeMul res src src1 =
   let sign = AST.extract src 1<rt> 63
@@ -258,7 +258,7 @@ let getConditionCodeMul res src src1 =
   let iccc = AST.num0 1<rt>
   // AST.concat xccn (AST. concat xccz (AST.concat xccv (AST.concat xccc
     // (AST.concat iccn (AST.concat iccz (AST.concat iccv iccc))))))
-  AST.concatArr [| iccc; iccv; iccz; iccn; xccc; xccv; xccz; iccn |]
+  AST.revConcat [| iccc; iccv; iccz; iccn; xccc; xccv; xccz; iccn |]
 
 let getConditionCodeMulscc res src src1 =
   let res32 = AST.extract res 32<rt> 0
@@ -271,7 +271,7 @@ let getConditionCodeMulscc res src src1 =
     (AST.not sign32 .& AST.not sign321 .& ressign32))
   let iccc = (sign32 .& sign321) .| ((AST.not ressign32)
     .& (sign32 .| sign321))
-  AST.concatArr [| iccc; iccv; iccz; iccn |]
+  AST.revConcat [| iccc; iccv; iccz; iccn |]
 
 let getNextReg ctxt reg =
   if (reg = getRegVar ctxt Register.G0) then Register.G1

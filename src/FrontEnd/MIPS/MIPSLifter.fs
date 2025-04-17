@@ -2178,7 +2178,7 @@ let wsbh insInfo insLen ctxt =
   let elements =
     Array.init 4 (fun x -> AST.extract rt 8<rt> ((2 + x) % 4 * 8)) |> Array.rev
   !<ir insLen
-  !!ir (dst := AST.sext ctxt.WordBitSize (AST.concatArr elements))
+  !!ir (dst := AST.sext ctxt.WordBitSize (AST.revConcat elements))
   advancePC ctxt ir
   !>ir insLen
 
@@ -2192,7 +2192,7 @@ let dsbh insInfo insLen ctxt =
   let lowResult =
     Array.init 4 (fun x -> AST.extract lo 8<rt> ((2 + x) % 4 * 8)) |> Array.rev
   !<ir insLen
-  !!ir (dst := AST.concatArr (Array.append lowResult hiResult))
+  !!ir (dst := AST.revConcat (Array.append lowResult hiResult))
   advancePC ctxt ir
   !>ir insLen
 
@@ -2202,7 +2202,7 @@ let dshd insInfo insLen ctxt =
   let result =
     Array.init 4 (fun idx -> AST.extract src 16<rt> (idx * 16)) |> Array.rev
   !<ir insLen
-  !!ir (dst := AST.concatArr result)
+  !!ir (dst := AST.revConcat result)
   advancePC ctxt ir
   !>ir insLen
 

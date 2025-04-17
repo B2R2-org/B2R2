@@ -1284,8 +1284,8 @@ let packedMove ir srcSz packSz dstA dstB src isSignExt =
     for i in 0 .. packNum - 1 do
       !!ir (tDst[i] := AST.zext dSz (AST.extract src packSz (i * (int packSz))))
   let tDstA, tDstB = tDst |> Array.splitAt (packNum / 2)
-  !!ir (dstA := tDstA |> AST.concatArr)
-  !!ir (dstB := tDstB |> AST.concatArr)
+  !!ir (dstA := tDstA |> AST.revConcat)
+  !!ir (dstB := tDstB |> AST.revConcat)
 
 let pmovbw ins insLen ctxt packSz isSignExt =
   let ir = !*ctxt
@@ -1391,7 +1391,7 @@ let pshufw ins insLen ctxt =
     let order' = AST.zext oprSize order
     !!ir (tmps[i - 1] := AST.xtlo 16<rt> (src >> (order' .* n16)))
   done
-  !!ir (dst := AST.concatArr tmps)
+  !!ir (dst := AST.revConcat tmps)
   fillOnesToMMXHigh16 ir ins ctxt
   !>ir insLen
 
@@ -1435,7 +1435,7 @@ let pshuflw ins insLen ctxt =
       (imm >> (numI32 ((i - 1) * 2) 64<rt>)) .& mask2
     !!ir (tmps[i - 1] := AST.xtlo 16<rt> (srcA >> (imm .* n16)))
   done
-  !!ir (dstA := AST.concatArr tmps)
+  !!ir (dstA := AST.revConcat tmps)
   !!ir (dstB := srcB)
   !>ir insLen
 
@@ -1455,7 +1455,7 @@ let pshufhw ins insLen ctxt =
     !!ir (tmps[i - 1] := AST.xtlo 16<rt> (srcB >> (imm .* n16)))
   done
   !!ir (dstA := srcA)
-  !!ir (dstB := AST.concatArr tmps)
+  !!ir (dstB := AST.revConcat tmps)
   !>ir insLen
 
 let pshufb ins insLen ctxt =
@@ -1478,7 +1478,7 @@ let pshufb ins insLen ctxt =
       let idx = src .& mask
       let numShift = AST.zext oprSize idx .* n8
       AST.ite (AST.xthi 1<rt> src) n0 (AST.xtlo packSize (dst >> numShift))
-    !!ir (dst := Array.map shuffle src |> AST.concatArr)
+    !!ir (dst := Array.map shuffle src |> AST.revConcat)
     fillOnesToMMXHigh16 ir ins ctxt
   | 128<rt> ->
     let dstB, dstA = transOprToExpr128 ir false ins insLen ctxt dst
@@ -1491,8 +1491,8 @@ let pshufb ins insLen ctxt =
       !!ir (tDst := AST.ite (idx .< numI32 8 packSize) dstA dstB)
       AST.ite (AST.xthi 1<rt> src) n0 (AST.xtlo packSize (tDst >> numShift))
     let result = Array.map shuffle src
-    !!ir (dstA := Array.sub result 0 packNum |> AST.concatArr)
-    !!ir (dstB := Array.sub result packNum packNum |> AST.concatArr)
+    !!ir (dstA := Array.sub result 0 packNum |> AST.revConcat)
+    !!ir (dstB := Array.sub result packNum packNum |> AST.revConcat)
   | _ -> raise InvalidOperandSizeException
   !>ir insLen
 
@@ -2140,8 +2140,8 @@ let pcmpstr ins insLen ctxt =
       for i in 0 .. upperBound do
         !!ir (res[i] := AST.ite intRes2[i] nFF n0)
       done
-      !!ir (dstA := Array.sub res 0 pNum |> AST.concatArr)
-      !!ir (dstB := Array.sub res pNum pNum |> AST.concatArr)
+      !!ir (dstA := Array.sub res 0 pNum |> AST.revConcat)
+      !!ir (dstB := Array.sub res pNum pNum |> AST.revConcat)
   | Index ->
     let outSz, cx =
       if hasREXW ins.REXPrefix then 64<rt>, R.RCX else 32<rt>, R.ECX

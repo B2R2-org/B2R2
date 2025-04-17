@@ -609,7 +609,7 @@ let bswap ins insLen ctxt =
   for i in 0 .. cnt - 1 do
     !!ir (tmps[i] := AST.extract t 8<rt> (i * 8))
   done
-  !!ir (dstAssign oprSize dst (AST.concatArr (Array.rev tmps)))
+  !!ir (dstAssign oprSize dst (AST.revConcat (Array.rev tmps)))
   !>ir insLen
 
 let private bit ins bitBase bitOffset oprSize =
@@ -2018,7 +2018,7 @@ let movbe ins insLen ctxt =
   for i in 0 .. cnt - 1 do
     !!ir (tmps[i] := AST.extract t 8<rt> (i * 8))
   done
-  !!ir (dstAssign oprSize dst (AST.concatArr (Array.rev tmps)))
+  !!ir (dstAssign oprSize dst (AST.revConcat (Array.rev tmps)))
   !>ir insLen
 
 let private movsBody ins ctxt ir =
