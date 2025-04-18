@@ -255,8 +255,8 @@ type VarBasedDataFlowState<'Lattice>
     | _ -> Terminator.impossible ()
 
   let translateLabel addr = function
-    | JmpDest symb -> addr, symb
-    | Undefined (_, s) -> addr, (s, -1)
+    | JmpDest lbl -> lbl
+    | Undefined (_, s) -> AST.label s -1 addr
     | _ -> raise InvalidExprException
 
   /// Translate a ordinary IR statement to an SSA statement. It returns a dummy

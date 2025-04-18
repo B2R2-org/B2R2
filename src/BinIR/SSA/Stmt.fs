@@ -24,7 +24,6 @@
 
 namespace B2R2.BinIR.SSA
 
-open B2R2
 open B2R2.BinIR
 
 /// IR Statements.
@@ -47,10 +46,6 @@ type Stmt =
 
   /// This represents an instruction with side effects such as a system call.
   | SideEffect of SideEffect
-
-/// IR Label. Since we don't distinguish instruction boundary in SSA level, we
-/// want to specify where the label comes from.
-and Label = Addr * Symbol
 
 and JmpType =
   /// Jump to a label.

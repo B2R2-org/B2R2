@@ -602,9 +602,9 @@ let getMask oprSize =
   | 64<rt> -> numI64 0xffffffffffffffffL oprSize
   | _ -> raise InvalidOperandSizeException
 
-let sideEffects ctxt insLen name =
+let sideEffects ctxt (ins: InsInfo) insLen name =
   let ir = !*ctxt
-  !<ir insLen
+  !<ir ins.Address insLen
 #if EMULATION
   if ctxt.ConditionCodeOp <> ConditionCodeOp.TraceStart then
     !!ir (!.ctxt R.CCOP := numI32 (int ctxt.ConditionCodeOp) 8<rt>)

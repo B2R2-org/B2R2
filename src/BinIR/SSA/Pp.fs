@@ -98,8 +98,8 @@ let rec private expToStringAux expr (sb: StringBuilder) =
     sb.Append reason |> ignore
     sb.Append ")" |> ignore
 
-let private labelToString (addr: Addr, symb) (sb: StringBuilder) =
-  sb.Append $"{Symbol.getName symb} @ {addr:x}" |> ignore
+let private labelToString (lbl: Label) (sb: StringBuilder) =
+  sb.Append $"{lbl.Name} @ {lbl.Address:x}" |> ignore
 
 let private variablesToString (kind: string) vars (sb: StringBuilder) =
   sb.Append (" ") |> ignore

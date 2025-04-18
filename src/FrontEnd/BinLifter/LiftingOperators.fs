@@ -44,8 +44,8 @@ let inline ( !+ ) (ir: IRBuilder) rt = ir.NewTempVar rt
 let inline ( !% ) (ir: IRBuilder) label = ir.NewSymbol label
 
 /// The special operator for starting an instruction (ISMark).
-let inline ( !< ) (ir: IRBuilder) insLen =
-  ir.Append (AST.ismark insLen)
+let inline ( !< ) (ir: IRBuilder) insAddr insLen =
+  ir.Append (insAddr, AST.ismark insLen)
 
 /// The special operator for finishing an instruction (IEMark).
 let inline ( !> ) (ir: IRBuilder) (insLen: uint32) =

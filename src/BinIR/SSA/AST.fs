@@ -53,8 +53,8 @@ let rec private translateDest = function
   | _ -> raise InvalidExprException
 
 let private translateLabel addr = function
-  | LowUIR.JmpDest symb -> addr, symb
-  | LowUIR.Undefined (_, s) -> addr, (s, -1)
+  | LowUIR.JmpDest lbl -> lbl
+  | LowUIR.Undefined (_, s) -> Label (s, -1, addr)
   | _ -> raise InvalidExprException
 
 let rec translateExpr (e: LowUIR.Expr) =
@@ -89,8 +89,7 @@ let rec private translateStmtAux defaultRegType addr (s: LowUIR.Stmt) =
     let n = Num <| BitVector.OfUInt64 addr defaultRegType
     Def (pc, n) |> Some
   | LowUIR.IEMark _ -> None
-  | LowUIR.LMark symb ->
-    LMark (addr, symb) |> Some
+  | LowUIR.LMark lbl -> LMark lbl |> Some
   | LowUIR.Put (var, expr) ->
     let dest = translateDest var.E
     let expr = translateExpr expr
@@ -103,7 +102,7 @@ let rec private translateStmtAux defaultRegType addr (s: LowUIR.Stmt) =
     let dstMem = { Kind = MemVar; Identifier = -1 }
     let store = Store (srcMem, ty, addr, expr)
     Def (dstMem, store) |> Some
-  | LowUIR.Jmp (expr) ->
+  | LowUIR.Jmp expr ->
     let label = translateLabel addr expr.E
     let jmp = IntraJmp label
     Jmp jmp |> Some

@@ -24,32 +24,45 @@
 
 namespace B2R2.BinIR
 
-/// <summary>
-/// Represents a symbolic value that can be a jump target. We attach a number to
-/// each symbol name to distinguish between different symbols with the same
-/// name.
-/// </summary>
-type Symbol = string * int
+open B2R2
 
 /// <summary>
-/// Provides functions to access <see cref='T:B2R2.BinIR.Symbol'/>.
+/// Represents a symbolic label that can be a jump target. Each label has its
+/// name and a unique identifier. We also associate an address with the label to
+/// represent the location of the label in the binary, i.e., the address of the
+/// instruction that the label belongs to.
 /// </summary>
-[<RequireQualifiedAccess>]
-module Symbol =
+type Label (name: string, id: int, addr: Addr) =
   /// <summary>
-  /// Retrives the name of the symbol.
+  /// Retrives the symbolic name of the label.
   /// </summary>
-  [<CompiledName "GetName">]
-  let inline getName (s: Symbol) = fst s
+  member _.Name with get() = name
 
   /// <summary>
-  /// Retrives the attached number of the symbol.
+  /// Retrives the ID of the label. The ID is unique for each label and is used
+  /// to distinguish between different labels.
   /// </summary>
-  [<CompiledName "GetNumber">]
-  let inline getNumber (s: Symbol) = snd s
+  member _.Id with get() = id
+
+  /// <summary>
+  /// Retrives the instruction address that this label belongs to.
+  /// </summary>
+  member _.Address with get() = addr
+
+  /// <summary>
+  /// Compares two labels for equality.
+  /// </summary>
+  override _.Equals (obj) =
+    match obj with
+    | :? Label as lbl -> lbl.Name = name && lbl.Id = id && lbl.Address = addr
+    | _ -> false
+
+  /// <summary>
+  /// Computes the hash code for the label.
+  /// </summary>
+  override _.GetHashCode () = name.GetHashCode () ^^^ id ^^^ addr.GetHashCode ()
 
   /// <summary>
   /// Retrives a stirng representation of the symbol.
   /// </summary>
-  [<CompiledName "ToString">]
-  let toString (s: Symbol) = fst s + "_" + (snd s).ToString ()
+  override _.ToString () = name + "_" + id.ToString () + "@" + addr.ToString "x"

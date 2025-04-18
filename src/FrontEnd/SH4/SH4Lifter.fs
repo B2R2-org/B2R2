@@ -45,8 +45,8 @@ let translate (ins: InsInfo) insLen (ctxt: TranslationContext) =
   | Opcode.BT -> bt ins insLen ctxt
   | Opcode.BTS -> bts ins insLen ctxt
   | Opcode.CLRMAC -> clrmac ins insLen ctxt
-  | Opcode.CLRS -> clrs insLen ctxt
-  | Opcode.CLRT -> clrt insLen ctxt
+  | Opcode.CLRS -> clrs ins insLen ctxt
+  | Opcode.CLRT -> clrt ins insLen ctxt
   | Opcode.CMPEQ -> cmpeq ins insLen ctxt
   | Opcode.CMPGE  -> cmpge ins insLen ctxt
   | Opcode.CMPGT -> cmpgt ins insLen ctxt

@@ -32,7 +32,7 @@ open System.Collections.Generic
 type Labels (lbls) =
   let lbls = lbls
 
-  new () = Labels (Dictionary<Symbol, int> ())
+  new () = Labels (Dictionary<Label, int> ())
 
   member _.Update (stmts) =
     lbls.Clear ()

@@ -78,7 +78,7 @@ type E =
   | UnOp of UnOpType * Expr
 
   /// Jump destination of a Jmp or CJmp statement.
-  | JmpDest of Symbol
+  | JmpDest of Label
 
   /// Name of uninterpreted function.
   | FuncName of string
@@ -126,7 +126,7 @@ with
       | PCVar (t1, _), PCVar (t2, _) -> t1 = t2
       | TempVar (t1, n1), TempVar (t2, n2) -> t1 = t2 && n1 = n2
       | UnOp (t1, e1), UnOp (t2, e2) -> t1 = t2 && PhysicalEquality e1 e2
-      | JmpDest (s1), JmpDest (s2) -> s1 = s2
+      | JmpDest (lbl1), JmpDest (lbl2) -> lbl1 = lbl2
       | FuncName (n1), FuncName (n2) -> n1 = n2
       | BinOp (o1, t1, lhs1, rhs1), BinOp (o2, t2, lhs2, rhs2) ->
         o1 = o2 && t1 = t2 &&
@@ -158,8 +158,8 @@ with
   static member inline HashUnOp (op: UnOpType) e =
     19 * (19 * int op + e.HashKey) + 4
 
-  static member inline HashName ((s, n): Symbol) =
-    19 * (19 * s.GetHashCode () + n) + 5
+  static member inline HashName (lbl: Label) =
+    19 * (19 * lbl.Name.GetHashCode () + lbl.Id) + 5
 
   static member inline HashFuncName (s: string) =
     (19 * s.GetHashCode ()) + 6
@@ -193,7 +193,7 @@ with
     | PCVar (rt, _) -> E.HashPCVar rt
     | TempVar (rt, n) -> E.HashTempVar rt n
     | UnOp (op, e) -> E.HashUnOp op e
-    | JmpDest (s) -> E.HashName s
+    | JmpDest lbl -> E.HashName lbl
     | FuncName (s) -> E.HashFuncName s
     | BinOp (op, rt, e1, e2) -> E.HashBinOp op rt e1 e2
     | RelOp (op, e1, e2) -> E.HashRelOp op e1 e2
@@ -251,8 +251,8 @@ module Expr =
       sb.Append (n) |> ignore
       sb.Append (":") |> ignore
       sb.Append (RegType.toString typ) |> ignore
-    | JmpDest (n) -> sb.Append (Symbol.getName n) |> ignore
-    | FuncName (n) -> sb.Append (n) |> ignore
+    | JmpDest lbl -> sb.Append lbl.Name |> ignore
+    | FuncName n -> sb.Append n |> ignore
     | UnOp (op, e) ->
       sb.Append ("(") |> ignore
       sb.Append (UnOpType.toString op) |> ignore

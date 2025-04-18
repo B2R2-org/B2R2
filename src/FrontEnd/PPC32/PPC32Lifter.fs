@@ -386,9 +386,9 @@ let isUnsignedDivOV ctxt expA expB ir =
   !!ir (xerOV := checkOF)
   !!ir (xerSO := checkOF .& xerSO)
 
-let sideEffects insLen ctxt name =
+let sideEffects (ins: InsInfo) insLen ctxt name =
   let ir = !*ctxt
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (AST.sideEffect name)
   !>ir insLen
 
@@ -396,7 +396,7 @@ let add ins insLen updateCond ovCond ctxt =
   let struct (dst, src1, src2) = transThreeOprs ins ctxt
   let ir = !*ctxt
   let struct (t1, t2) = tmpVars2 ir 32<rt>
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (t1 := src1)
   !!ir (t2 := src2)
   !!ir (dst := t1 .+ t2)
@@ -408,7 +408,7 @@ let addc ins insLen updateCond ovCond ctxt =
   let struct (dst, src1, src2) = transThreeOprs ins ctxt
   let ir = !*ctxt
   let struct (t1, t2, t3) = tmpVars3 ir 64<rt>
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (t1 := AST.zext 64<rt> src1)
   !!ir (t2 := AST.zext 64<rt> src2)
   !!ir (t3 := t1 .+ t2)
@@ -423,7 +423,7 @@ let adde ins insLen updateCond ovCond ctxt =
   let xerCA = AST.zext 64<rt> (AST.extract (!.ctxt Register.XER) 1<rt> 29)
   let ir = !*ctxt
   let struct (t1, t2, t3) = tmpVars3 ir 64<rt>
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (t1 := AST.zext 64<rt> src1)
   !!ir (t2 := AST.zext 64<rt> src2)
   !!ir (t3 := t1 .+ t2 .+ xerCA)
@@ -437,7 +437,7 @@ let addi ins insLen ctxt =
   let struct (dst, src1, simm) = transThreeOprs ins ctxt
   let cond = src1 == AST.num0 32<rt>
   let ir = !*ctxt
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (dst := (AST.ite cond simm (src1 .+ simm)))
   !>ir insLen
 
@@ -445,7 +445,7 @@ let addic ins insLen updateCond ctxt =
   let struct (dst, src1, simm) = transThreeOprs ins ctxt
   let ir = !*ctxt
   let struct (t1, t2, t3) = tmpVars3 ir 64<rt>
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (t1 := AST.zext 64<rt> src1)
   !!ir (t2 := AST.zext 64<rt> simm)
   !!ir (t3 := t1 .+ t2)
@@ -459,7 +459,7 @@ let addis ins insLen ctxt =
   let cond = src1 == AST.num0 32<rt>
   let simm = AST.concat (AST.xtlo 16<rt> simm) (AST.num0 16<rt>)
   let ir = !*ctxt
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (dst := (AST.ite cond simm (src1 .+ simm)))
   !>ir insLen
 
@@ -468,7 +468,7 @@ let addme ins insLen updateCond ovCond ctxt =
   let xerCA = AST.zext 64<rt> (AST.extract (!.ctxt Register.XER) 1<rt> 29)
   let ir = !*ctxt
   let struct (t1, t2, t3) = tmpVars3 ir 64<rt>
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (t1 := AST.zext 64<rt> src)
   !!ir (t2 := xerCA)
   !!ir (t3 := t1 .+ t2 .- AST.num1 64<rt>)
@@ -483,7 +483,7 @@ let addze ins insLen updateCond ovCond ctxt =
   let xerCA = AST.zext 64<rt> (AST.extract (!.ctxt Register.XER) 1<rt> 29)
   let ir = !*ctxt
   let struct (t1, t2, t3) = tmpVars3 ir 64<rt>
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (t1 := AST.zext 64<rt> src)
   !!ir (t2 := xerCA)
   !!ir (t3 := t1 .+ t2)
@@ -496,7 +496,7 @@ let addze ins insLen updateCond ovCond ctxt =
 let andx ins insLen updateCond ctxt =
   let struct (dst, src1, src2) = transThreeOprs ins ctxt
   let ir = !*ctxt
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (dst := src1 .& src2)
   if updateCond then setCR0Reg ctxt ir dst else ()
   !>ir insLen
@@ -504,7 +504,7 @@ let andx ins insLen updateCond ctxt =
 let andc ins insLen updateCond ctxt =
   let struct (dst, src1, src2) = transThreeOprs ins ctxt
   let ir = !*ctxt
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (dst := src1 .& AST.not(src2))
   if updateCond then setCR0Reg ctxt ir dst else ()
   !>ir insLen
@@ -512,7 +512,7 @@ let andc ins insLen updateCond ctxt =
 let andidot ins insLen ctxt =
   let struct (dst, src, uimm) = transThreeOprs ins ctxt
   let ir = !*ctxt
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (dst := src .& uimm)
   setCR0Reg ctxt ir dst
   !>ir insLen
@@ -521,7 +521,7 @@ let andisdot ins insLen ctxt =
   let struct (dst, src, uimm) = transThreeOprs ins ctxt
   let uimm = uimm << numI32 16 32<rt>
   let ir = !*ctxt
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (dst := src .& uimm)
   setCR0Reg ctxt ir dst
   !>ir insLen
@@ -530,7 +530,7 @@ let b ins insLen ctxt lk =
   let addr = transOneOpr ins ctxt
   let ir = !*ctxt
   let lr = !.ctxt Register.LR
-  !<ir insLen
+  !<ir ins.Address insLen
   if lk then !!ir (lr := numU64 ins.Address 32<rt> .+ numI32 4 32<rt>)
   !!ir (AST.interjmp addr InterJmpKind.Base)
   !>ir insLen
@@ -549,7 +549,7 @@ let bc ins insLen ctxt aa lk =
   let cia = numU64 ins.Address 32<rt>
   let nia = cia .+ numI32 4 32<rt>
   let temp = !+ir 32<rt>
-  !<ir insLen
+  !<ir ins.Address insLen
   if lk then !!ir (lr := nia)
   !!ir (ctr :=
           if ((bo >>> 2) &&& 1u = 1u) then ctr else (ctr .- AST.num1 32<rt>))
@@ -574,7 +574,7 @@ let bclr ins insLen ctxt lk =
   let cia = numU64 ins.Address 32<rt>
   let nia = cia .+ numI32 4 32<rt>
   let temp = !+ir 32<rt>
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (ctr :=
           if ((bo >>> 2) &&& 1u = 1u) then ctr else (ctr .- AST.num1 32<rt>))
   !!ir (ctrOk := bo2 .| ((ctr != AST.num0 32<rt>) <+> bo3))
@@ -595,7 +595,7 @@ let bcctr ins insLen ctxt lk =
   let cia = numU64 ins.Address 32<rt>
   let nia = cia .+ numI32 4 32<rt>
   let temp = !+ir 32<rt>
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (condOk := bo0 .| (cr <+> AST.not bo1))
   !!ir (temp := AST.ite condOk (ctr .& numI32 0xfffffffc 32<rt>) nia)
   if lk then !!ir (lr := AST.ite condOk nia lr)
@@ -608,7 +608,7 @@ let cmp ins insLen ctxt =
   let cond2 = ra ?> rb
   let xer = !.ctxt Register.XER
   let ir = !*ctxt
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (crf0 := cond1)
   !!ir (crf1 := cond2)
   !!ir (crf2 := AST.ite cond1 AST.b0 (AST.not cond2))
@@ -621,7 +621,7 @@ let cmpl ins insLen ctxt =
   let cond2 = ra .> rb
   let xer = !.ctxt Register.XER
   let ir = !*ctxt
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (crf0 := cond1)
   !!ir (crf1 := cond2)
   !!ir (crf2 := AST.ite cond1 AST.b0 (AST.not cond2))
@@ -634,7 +634,7 @@ let cmpli ins insLen ctxt =
   let cond2 = ra .> uimm
   let xer = !.ctxt Register.XER
   let ir = !*ctxt
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (crf0 := cond1)
   !!ir (crf1 := cond2)
   !!ir (crf2 := AST.ite cond1 AST.b0 (AST.not cond2))
@@ -647,7 +647,7 @@ let cntlzw ins insLen updateCond ctxt =
   let mask1 = numI32 0x55555555 32<rt>
   let mask2 = numI32 0x33333333 32<rt>
   let mask3 = numI32 0x0f0f0f0f 32<rt>
-  !<ir insLen
+  !<ir ins.Address insLen
   let x = !+ir 32<rt>
   !!ir (x := rs)
   !!ir (x := x .| (x >> numI32 1 32<rt>))
@@ -667,70 +667,70 @@ let cntlzw ins insLen updateCond ctxt =
 let crclr ins insLen ctxt =
   let crbd = transOneOpr ins ctxt
   let ir = !*ctxt
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (crbd := AST.b0)
   !>ir insLen
 
 let cror ins insLen ctxt =
   let struct (crbD, crbA, crbB) = transThreeOprs ins ctxt
   let ir = !*ctxt
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (crbD := crbA .| crbB)
   !>ir insLen
 
 let crorc ins insLen ctxt =
   let struct (crbD, crbA, crbB) = transThreeOprs ins ctxt
   let ir = !*ctxt
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (crbD := crbA .| (AST.not crbB))
   !>ir insLen
 
 let creqv ins insLen ctxt =
   let struct (crbD, crbA, crbB) = transThreeOprs ins ctxt
   let ir = !*ctxt
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (crbD := crbA <+> AST.not(crbB))
   !>ir insLen
 
 let crset ins insLen ctxt =
   let crbD = transOneOpr ins ctxt
   let ir = !*ctxt
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (crbD := crbD <+> AST.not(crbD))
   !>ir insLen
 
 let crnand ins insLen ctxt =
   let struct (crbD, crbA, crbB) = transThreeOprs ins ctxt
   let ir = !*ctxt
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (crbD := AST.not (crbA .& crbB))
   !>ir insLen
 
 let crnor ins insLen ctxt =
   let struct (crbD, crbA, crbB) = transThreeOprs ins ctxt
   let ir = !*ctxt
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (crbD := AST.not (crbA .| crbB))
   !>ir insLen
 
 let crnot ins insLen ctxt =
   let struct (crbD, crbA) = transTwoOprs ins ctxt
   let ir = !*ctxt
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (crbD := AST.not crbA)
   !>ir insLen
 
 let crxor ins insLen ctxt =
   let struct (crbD, crbA, crbB) = transThreeOprs ins ctxt
   let ir = !*ctxt
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (crbD := crbA <+> crbB)
   !>ir insLen
 
 let divw ins insLen updateCond ovCond ctxt =
   let struct (dst, src1, src2) = transThreeOprs ins ctxt
   let ir = !*ctxt
-  !<ir insLen
+  !<ir ins.Address insLen
   if ovCond then isSignedDivOV ctxt src1 src2 ir else ()
   !!ir (dst := AST.ite (src2 == AST.num0 32<rt>) dst (src1 ?/ src2))
   if updateCond then setCR0Reg ctxt ir dst else ()
@@ -739,7 +739,7 @@ let divw ins insLen updateCond ovCond ctxt =
 let divwu ins insLen updateCond ovCond ctxt =
   let struct (dst, src1, src2) = transThreeOprs ins ctxt
   let ir = !*ctxt
-  !<ir insLen
+  !<ir ins.Address insLen
   if ovCond then isUnsignedDivOV ctxt src1 src2 ir else ()
   !!ir (dst := AST.ite (src2 == AST.num0 32<rt>) dst (src1 ./ src2))
   if updateCond then setCR0Reg ctxt ir dst else ()
@@ -749,7 +749,7 @@ let extsb ins insLen updateCond ctxt =
   let struct (ra, rs) = transTwoOprs ins ctxt
   let ir = !*ctxt
   let tmp = !+ir 8<rt>
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (tmp := AST.xtlo 8<rt> rs)
   !!ir (ra := AST.sext 32<rt> tmp)
   if updateCond then setCR0Reg ctxt ir ra else ()
@@ -759,7 +759,7 @@ let extsh ins insLen updateCond ctxt =
   let struct (ra, rs) = transTwoOprs ins ctxt
   let ir = !*ctxt
   let tmp = !+ir 16<rt>
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (tmp := AST.xtlo 16<rt> rs)
   !!ir (ra := AST.sext 32<rt> tmp)
   if updateCond then setCR0Reg ctxt ir ra else ()
@@ -768,7 +768,7 @@ let extsh ins insLen updateCond ctxt =
 let eqvx ins insLen updateCond ctxt =
   let struct (ra, rs, rb) = transThreeOprs ins ctxt
   let ir = !*ctxt
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (ra := AST.not (rs <+> rb))
   if updateCond then setCR0Reg ctxt ir ra else ()
   !>ir insLen
@@ -776,7 +776,7 @@ let eqvx ins insLen updateCond ctxt =
 let fabs ins insLen updateCond ctxt =
   let struct (frd, frb) = transTwoOprs ins ctxt
   let ir = !*ctxt
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (frd := frb .& numU64 0x7fffffffffffffffUL 64<rt>)
   if updateCond then setCR1Reg ctxt ir else ()
   !>ir insLen
@@ -784,7 +784,7 @@ let fabs ins insLen updateCond ctxt =
 let fAddOrSub ins insLen updateCond isDouble fnOp ctxt =
   let struct (frd, fra, frb) = transThreeOprs ins ctxt
   let ir = !*ctxt
-  !<ir insLen
+  !<ir ins.Address insLen
   if isDouble then
     !!ir (frd := fnOp fra frb)
   else
@@ -817,7 +817,7 @@ let fcmp ins insLen ctxt isOrdered =
   let lblNan = !%ir "NaN"
   let lblRegular = !%ir "Regular"
   let lblEnd = !%ir "End"
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (fl := cond1)
   !!ir (fg := cond2)
   !!ir (fe := AST.ite cond1 AST.b0 (AST.not cond2))
@@ -852,7 +852,7 @@ let fdiv ins insLen updateCond isDouble ctxt =
   let struct (frd, fra, frb) = transThreeOprs ins ctxt
   let ir = !*ctxt
   let tmp = !+ir 32<rt>
-  !<ir insLen
+  !<ir ins.Address insLen
   if isDouble then !!ir (frd := AST.fdiv fra frb)
   else
     let fraS = AST.cast CastKind.FloatCast 32<rt> fra
@@ -866,7 +866,7 @@ let fdiv ins insLen updateCond isDouble ctxt =
 let frsp ins insLen updateCond ctxt =
   let ir = !*ctxt
   let struct (frd, frb) = transTwoOprs ins ctxt
-  !<ir insLen
+  !<ir ins.Address insLen
   let single = AST.cast CastKind.FloatCast 32<rt> frb
   !!ir (frd := AST.cast CastKind.FloatCast 64<rt> single)
   setFPRF ctxt ir frd
@@ -880,7 +880,7 @@ let fsqrt ins insLen updateCond isDouble ctxt =
   let ir = !*ctxt
   let struct (frd, frb) = transTwoOprs ins ctxt
   let tmp = !+ir 32<rt>
-  !<ir insLen
+  !<ir ins.Address insLen
   if isDouble then !!ir (frd := AST.fsqrt frb)
   else
     let frbS = AST.cast CastKind.FloatCast 32<rt> frb
@@ -894,7 +894,7 @@ let fctiw ins insLen updateCond ctxt =
   let ir = !*ctxt
   let tmp = !+ir 64<rt>
   let struct (frd, frb) = transTwoOprs ins ctxt
-  !<ir insLen
+  !<ir ins.Address insLen
   roundingToCastInt ctxt ir frd frb
   setFPRF ctxt ir frd
   if updateCond then setCR1Reg ctxt ir else ()
@@ -907,7 +907,7 @@ let fctiwz ins insLen updateCond ctxt =
   let intMax = numU64 0x7fffffffUL 64<rt>
   let intMin = numU64 0x80000000UL 64<rt>
   let struct (frd, frb) = transTwoOprs ins ctxt
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (frd := AST.cast CastKind.FtoITrunc 64<rt> frb)
   !!ir (frd := AST.ite (IEEE754Double.isNaN frb) intMin frd)
   !!ir (frd := AST.ite (AST.fle frb intMinInFloat) intMin frd)
@@ -920,7 +920,7 @@ let fmadd ins insLen updateCond isDouble ctxt =
   let struct (frd, fra, frc, frb) = transFourOprs ins ctxt
   let ir = !*ctxt
   let tmp = !+ir 32<rt>
-  !<ir insLen
+  !<ir ins.Address insLen
   if isDouble then !!ir (frd := AST.fadd (AST.fmul fra frc) frb)
   else
     let fraS = AST.cast CastKind.FloatCast 32<rt> fra
@@ -935,7 +935,7 @@ let fmadd ins insLen updateCond isDouble ctxt =
 let fmr ins insLen updateCond ctxt =
   let struct (dst, src) = transTwoOprs ins ctxt
   let ir = !*ctxt
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (dst := src)
   if updateCond then setCR1Reg ctxt ir else ()
   !>ir insLen
@@ -944,7 +944,7 @@ let fmsub ins insLen updateCond isDouble ctxt =
   let struct (frd, fra, frc, frb) = transFourOprs ins ctxt
   let ir = !*ctxt
   let tmp = !+ir 32<rt>
-  !<ir insLen
+  !<ir ins.Address insLen
   if isDouble then !!ir (frd := AST.fsub (AST.fmul fra frc) frb)
   else
     let fraS = AST.cast CastKind.FloatCast 32<rt> fra
@@ -960,7 +960,7 @@ let fmul ins insLen updateCond isDouble ctxt =
   let struct (frd, fra, frb) = transThreeOprs ins ctxt
   let ir = !*ctxt
   let tmp = !+ir 32<rt>
-  !<ir insLen
+  !<ir ins.Address insLen
   if isDouble then !!ir (frd := AST.fmul fra frb)
   else
     let fraS = AST.cast CastKind.FloatCast 32<rt> fra
@@ -974,7 +974,7 @@ let fmul ins insLen updateCond isDouble ctxt =
 let fnabs ins insLen updateCond ctxt =
   let struct (frd, frb) = transTwoOprs ins ctxt
   let ir = !*ctxt
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (frd := frb .| numU64 0x8000000000000000UL 64<rt>)
   if updateCond then setCR1Reg ctxt ir else ()
   !>ir insLen
@@ -982,7 +982,7 @@ let fnabs ins insLen updateCond ctxt =
 let fneg ins insLen updateCond ctxt =
   let struct (frd, frb) = transTwoOprs ins ctxt
   let ir = !*ctxt
-  !<ir insLen
+  !<ir ins.Address insLen
   floatingNeg ir frd frb 64<rt>
   if updateCond then setCR1Reg ctxt ir else ()
   !>ir insLen
@@ -990,7 +990,7 @@ let fneg ins insLen updateCond ctxt =
 let fnmadd ins insLen updateCond isDouble ctxt =
   let struct (frd, fra, frc, frb) = transFourOprs ins ctxt
   let ir = !*ctxt
-  !<ir insLen
+  !<ir ins.Address insLen
   if isDouble then
     let res = !+ir 64<rt>
     !!ir (res := (AST.fadd (AST.fmul fra frc) frb))
@@ -1010,7 +1010,7 @@ let fnmadd ins insLen updateCond isDouble ctxt =
 let fnmsub ins insLen updateCond isDouble ctxt =
   let struct (frd, fra, frc, frb) = transFourOprs ins ctxt
   let ir = !*ctxt
-  !<ir insLen
+  !<ir ins.Address insLen
   if isDouble then
     let res = !+ir 64<rt>
     !!ir (res := (AST.fsub (AST.fmul fra frc) frb))
@@ -1031,7 +1031,7 @@ let fsel ins insLen updateCond ctxt =
   let struct(frd, fra, frc, frb) = transFourOprs ins ctxt
   let ir = !*ctxt
   let cond = AST.fge fra (AST.num0 64<rt>)
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (frd := AST.ite cond frc frb)
   if updateCond then setCR1Reg ctxt ir else ()
   !>ir insLen
@@ -1042,7 +1042,7 @@ let lbz ins insLen (ctxt: TranslationContext) =
   let dst = transOpr ctxt o1
   let ir = !*ctxt
   let tmpEA = !+ir 32<rt>
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (tmpEA := ea)
   !!ir (dst := AST.zext 32<rt> (loadNative ctxt 8<rt> tmpEA))
   !>ir insLen
@@ -1053,7 +1053,7 @@ let lbzu ins insLen ctxt =
   let rd = transOpr ctxt o1
   let ir = !*ctxt
   let tmpEA = !+ir 32<rt>
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (tmpEA := ea)
   !!ir (rd := AST.zext 32<rt> (loadNative ctxt 8<rt> tmpEA))
   !!ir (ra := tmpEA)
@@ -1065,7 +1065,7 @@ let lbzux ins insLen ctxt =
   let struct (ea, ra) = transEAWithIndexRegForUpdate o2 o3 ctxt
   let ir = !*ctxt
   let tmpEA = !+ir 32<rt>
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (tmpEA := ea)
   !!ir (rd := AST.zext 32<rt> (loadNative ctxt 8<rt> tmpEA))
   !!ir (ra := tmpEA)
@@ -1077,7 +1077,7 @@ let lbzx ins insLen ctxt =
   let ea = transEAWithIndexReg o2 o3 ctxt
   let ir = !*ctxt
   let tmpEA = !+ir 32<rt>
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (tmpEA := ea)
   !!ir (rd := AST.zext 32<rt> (loadNative ctxt 8<rt> tmpEA))
   !>ir insLen
@@ -1088,7 +1088,7 @@ let lfd ins insLen ctxt =
   let dst = transOpr ctxt o1
   let ir = !*ctxt
   let tmpEA = !+ir 32<rt>
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (tmpEA := ea)
   !!ir (dst := loadNative ctxt 64<rt> tmpEA)
   !>ir insLen
@@ -1099,7 +1099,7 @@ let lfdu ins insLen ctxt =
   let dst = transOpr ctxt o1
   let ir = !*ctxt
   let tmpEA = !+ir 32<rt>
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (tmpEA := ea)
   !!ir (dst := loadNative ctxt 64<rt> tmpEA)
   !!ir (ra := tmpEA)
@@ -1111,7 +1111,7 @@ let lfdux ins insLen ctxt =
   let struct (ea, ra) = transEAWithIndexRegForUpdate o2 o3 ctxt
   let ir = !*ctxt
   let tmpEA = !+ir 32<rt>
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (tmpEA := ea)
   !!ir (dst := loadNative ctxt 64<rt> tmpEA)
   !!ir (ra := tmpEA)
@@ -1123,7 +1123,7 @@ let lfdx ins insLen ctxt =
   let ea = transEAWithIndexReg o2 o3 ctxt
   let ir = !*ctxt
   let tmpEA = !+ir 32<rt>
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (tmpEA := ea)
   !!ir (dst := loadNative ctxt 64<rt> tmpEA)
   !>ir insLen
@@ -1135,7 +1135,7 @@ let lfs ins insLen ctxt =
   let ir = !*ctxt
   let tmpEA = !+ir 32<rt>
   let v = loadNative ctxt 32<rt> tmpEA
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (tmpEA := ea)
   !!ir (dst := AST.cast CastKind.FloatCast 64<rt> v)
   !>ir insLen
@@ -1147,7 +1147,7 @@ let lfsu ins insLen ctxt =
   let ir = !*ctxt
   let tmpEA = !+ir 32<rt>
   let v = loadNative ctxt 32<rt> tmpEA
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (tmpEA := ea)
   !!ir (frd := AST.cast CastKind.FloatCast 64<rt> v)
   !!ir (ra := tmpEA)
@@ -1160,7 +1160,7 @@ let lfsux ins insLen ctxt =
   let ir = !*ctxt
   let tmpEA = !+ir 32<rt>
   let v = loadNative ctxt 32<rt> tmpEA
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (tmpEA := ea)
   !!ir (frd := AST.cast CastKind.FloatCast 64<rt> v)
   !!ir (ra := tmpEA)
@@ -1173,7 +1173,7 @@ let lfsx ins insLen ctxt =
   let ir = !*ctxt
   let tmpEA = !+ir 32<rt>
   let v = loadNative ctxt 32<rt> tmpEA
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (tmpEA := ea)
   !!ir (frd := AST.cast CastKind.FloatCast 64<rt> v)
   !>ir insLen
@@ -1184,7 +1184,7 @@ let lha ins insLen (ctxt: TranslationContext) =
   let rd = transOpr ctxt o1
   let ir = !*ctxt
   let tmpEA = !+ir 32<rt>
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (tmpEA := ea)
   !!ir (rd := AST.sext 32<rt> (loadNative ctxt 16<rt> tmpEA))
   !>ir insLen
@@ -1195,7 +1195,7 @@ let lhau ins insLen ctxt =
   let rd = transOpr ctxt o1
   let ir = !*ctxt
   let tmpEA = !+ir 32<rt>
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (tmpEA := ea)
   !!ir (rd := AST.sext 32<rt> (loadNative ctxt 16<rt> tmpEA))
   !!ir (ra := tmpEA)
@@ -1207,7 +1207,7 @@ let lhaux ins insLen ctxt =
   let struct (ea, ra) = transEAWithIndexRegForUpdate o2 o3 ctxt
   let ir = !*ctxt
   let tmpEA = !+ir 32<rt>
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (tmpEA := ea)
   !!ir (rd := AST.sext 32<rt> (loadNative ctxt 16<rt> tmpEA))
   !!ir (ra := tmpEA)
@@ -1219,7 +1219,7 @@ let lhax ins insLen ctxt =
   let ea = transEAWithIndexReg o2 o3 ctxt
   let ir = !*ctxt
   let tmpEA = !+ir 32<rt>
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (tmpEA := ea)
   !!ir (rd := AST.sext 32<rt> (loadNative ctxt 16<rt> tmpEA))
   !>ir insLen
@@ -1232,7 +1232,7 @@ let lhbrx ins insLen ctxt =
   let tmpEA = !+ir 32<rt>
   let tmpMem = !+ir 16<rt>
   let revtmp = !+ir 16<rt>
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (tmpEA := ea)
   !!ir (tmpMem := loadNative ctxt 16<rt> tmpEA)
   !!ir (AST.xthi 8<rt> revtmp := AST.xtlo 8<rt> tmpMem)
@@ -1246,7 +1246,7 @@ let lhz ins insLen (ctxt: TranslationContext) =
   let rd = transOpr ctxt o1
   let ir = !*ctxt
   let tmpEA = !+ir 32<rt>
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (tmpEA := ea)
   !!ir (rd := AST.zext 32<rt> (loadNative ctxt 16<rt> tmpEA))
   !>ir insLen
@@ -1257,7 +1257,7 @@ let lhzu ins insLen ctxt =
   let rd = transOpr ctxt o1
   let ir = !*ctxt
   let tmpEA = !+ir 32<rt>
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (tmpEA := ea)
   !!ir (rd := AST.zext 32<rt> (loadNative ctxt 16<rt> tmpEA))
   !!ir (ra := ea)
@@ -1269,7 +1269,7 @@ let lhzux ins insLen ctxt =
   let struct (ea, rA) = transEAWithIndexRegForUpdate o2 o3 ctxt
   let ir = !*ctxt
   let tmpEA = !+ir 32<rt>
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (tmpEA := ea)
   !!ir (rd := AST.zext 32<rt> (loadNative ctxt 16<rt> tmpEA))
   !!ir (rA := tmpEA)
@@ -1281,7 +1281,7 @@ let lhzx ins insLen ctxt =
   let ea = transEAWithIndexReg o2 o3 ctxt
   let ir = !*ctxt
   let tmpEA = !+ir 32<rt>
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (tmpEA := ea)
   !!ir (rd := AST.zext 32<rt> (loadNative ctxt 16<rt> tmpEA))
   !>ir insLen
@@ -1289,7 +1289,7 @@ let lhzx ins insLen ctxt =
 let li ins insLen ctxt =
   let struct (dst, simm) = transTwoOprs ins ctxt
   let ir = !*ctxt
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (dst := simm)
   !>ir insLen
 
@@ -1297,7 +1297,7 @@ let lis ins insLen ctxt =
   let struct (dst, simm) = transTwoOprs ins ctxt
   let simm = AST.concat (AST.xtlo 16<rt> simm) (AST.num0 16<rt>)
   let ir = !*ctxt
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (dst := simm)
   !>ir insLen
 
@@ -1307,7 +1307,7 @@ let lwarx ins insLen ctxt =
   let ea = transEAWithIndexReg o2 o3 ctxt
   let ir = !*ctxt
   let tmpEA = !+ir 32<rt>
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (tmpEA := ea)
   !!ir (AST.extCall <| AST.app "Reserve" [tmpEA] 32<rt>)
   !!ir (rd := loadNative ctxt 32<rt> tmpEA)
@@ -1320,7 +1320,7 @@ let lwbrx ins insLen ctxt =
   let ir = !*ctxt
   let tmpEA = !+ir 32<rt>
   let tmpMem = !+ir 32<rt>
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (tmpEA := ea)
   !!ir (tmpMem := loadNative ctxt 32<rt> tmpEA)
   !!ir (AST.extract rd 8<rt> 0 := AST.extract tmpMem 8<rt> 24)
@@ -1335,7 +1335,7 @@ let lwz ins insLen ctxt =
   let dst = transOpr ctxt o1
   let ir = !*ctxt
   let tmpEA = !+ir 32<rt>
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (tmpEA := ea)
   !!ir (dst := loadNative ctxt 32<rt> tmpEA)
   !>ir insLen
@@ -1346,7 +1346,7 @@ let lwzu ins insLen ctxt =
   let rd = transOpr ctxt o1
   let ir = !*ctxt
   let tmpEA = !+ir 32<rt>
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (tmpEA := ea)
   !!ir (rd := loadNative ctxt 32<rt> tmpEA)
   !!ir (ra := tmpEA)
@@ -1358,7 +1358,7 @@ let lwzux ins insLen ctxt =
   let struct (ea, ra) = transEAWithIndexRegForUpdate o2 o3 ctxt
   let ir = !*ctxt
   let tmpEA = !+ir 32<rt>
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (tmpEA := ea)
   !!ir (rd := loadNative ctxt 32<rt> tmpEA)
   !!ir (ra := tmpEA)
@@ -1370,7 +1370,7 @@ let lwzx ins insLen ctxt =
   let ea = transEAWithIndexReg o2 o3 ctxt
   let ir = !*ctxt
   let tmpEA = !+ir 32<rt>
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (tmpEA := ea)
   !!ir (rd := loadNative ctxt 32<rt> tmpEA)
   !>ir insLen
@@ -1379,7 +1379,7 @@ let mcrf ins insLen ctxt =
   let struct ((crd0, crd1, crd2, crd3),
               (crs0, crs1, crs2, crs3)) = transCondTwoOprs ins ctxt
   let ir = !*ctxt
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (crd0 := crs0)
   !!ir (crd1 := crs1)
   !!ir (crd2 := crs2)
@@ -1390,7 +1390,7 @@ let mcrxr ins insLen ctxt =
   let crd0, crd1, crd2, crd3 = transCondOneOpr ins ctxt
   let ir = !*ctxt
   let xer = !.ctxt Register.XER
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (crd0 := AST.extract xer 1<rt> 31)
   !!ir (crd1 := AST.extract xer 1<rt> 30)
   !!ir (crd2 := AST.extract xer 1<rt> 29)
@@ -1402,7 +1402,7 @@ let mfcr ins insLen ctxt =
   let dst = transOneOpr ins ctxt
   let ir = !*ctxt
   let cr = !+ir 32<rt>
-  !<ir insLen
+  !<ir ins.Address insLen
   getCRRegValue ir cr ctxt
   !!ir (dst := cr)
   !>ir insLen
@@ -1411,7 +1411,7 @@ let mfctr ins insLen ctxt =
   let dst = transOneOpr ins ctxt
   let ctr = !.ctxt Register.CTR
   let ir = !*ctxt
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (dst := ctr)
   !>ir insLen
 
@@ -1419,7 +1419,7 @@ let mffs ins insLen ctxt =
   let dst = transOneOpr ins ctxt
   let fpscr = !.ctxt Register.FPSCR
   let ir = !*ctxt
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (dst := AST.zext 64<rt> fpscr)
   !>ir insLen
 
@@ -1427,7 +1427,7 @@ let mflr ins insLen ctxt =
   let dst = transOneOpr ins ctxt
   let lr = !.ctxt Register.LR
   let ir = !*ctxt
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (dst := lr)
   !>ir insLen
 
@@ -1438,7 +1438,7 @@ let mfspr ins insLen ctxt =
       transOpr ctxt o1, getSPRReg ctxt o2
     | _ -> raise InvalidOperandException
   let ir = !*ctxt
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (dst := spr)
   !>ir insLen
 
@@ -1446,14 +1446,14 @@ let mfxer ins insLen ctxt =
   let dst = transOneOpr ins ctxt
   let xer = !.ctxt Register.XER
   let ir = !*ctxt
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (dst := xer)
   !>ir insLen
 
 let mr ins insLen ctxt =
   let struct (dst, src) = transTwoOprs ins ctxt
   let ir = !*ctxt
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (dst := src .| src)
   !>ir insLen
 
@@ -1461,7 +1461,7 @@ let mtctr ins insLen ctxt =
   let src = transOneOpr ins ctxt
   let ctr = !.ctxt Register.CTR
   let ir = !*ctxt
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (ctr := src)
   !>ir insLen
 
@@ -1472,7 +1472,7 @@ let mtfsfi ins insLen updateCond ctxt =
   let imm = transOpr ctxt imm
   let fpscr = !.ctxt Register.FPSCR
   let ir = !*ctxt
-  !<ir insLen
+  !<ir ins.Address insLen
   if crfd = 0 then
     !!ir (AST.extract fpscr 1<rt> 31 := AST.extract imm 1<rt> 3)
     !!ir (AST.extract fpscr 1<rt> 28 := AST.extract imm 1<rt> 0)
@@ -1490,7 +1490,7 @@ let mtspr ins insLen ctxt =
       getSPRReg ctxt o1, transOpr ctxt o2
     | _ -> raise InvalidOperandException
   let ir = !*ctxt
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (spr := rs)
   !>ir insLen
 
@@ -1509,7 +1509,7 @@ let mtcrf ins insLen ctxt =
   let ir = !*ctxt
   let mask = !+ir 32<rt>
   let cr = !+ir 32<rt>
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (mask := crmMask ir crm)
   getCRRegValue ir cr ctxt
   !!ir (cr := (rs .& mask) .| (cr .& AST.not mask))
@@ -1520,7 +1520,7 @@ let mtlr ins insLen ctxt =
   let src = transOneOpr ins ctxt
   let lr = !.ctxt Register.LR
   let ir = !*ctxt
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (lr := src)
   !>ir insLen
 
@@ -1528,7 +1528,7 @@ let mtfsb0 ins insLen updateCond ctxt =
   let crbD = getOneOpr ins |> getImmValue |> int
   let fpscr = !.ctxt Register.FPSCR
   let ir = !*ctxt
-  !<ir insLen
+  !<ir ins.Address insLen
   if crbD <> 1 && crbD <> 2 then
     !!ir (AST.extract fpscr 1<rt> (31 - crbD) := AST.b0)
   if updateCond then setCR1Reg ctxt ir else ()
@@ -1539,7 +1539,7 @@ let mtfsb1 ins insLen updateCond ctxt =
   let crbD = getOneOpr ins |> getImmValue |> int
   let fpscr = !.ctxt Register.FPSCR
   let ir = !*ctxt
-  !<ir insLen
+  !<ir ins.Address insLen
   if crbD <> 1 && crbD <> 2 then
     !!ir (AST.extract fpscr 1<rt> (31 - crbD) := AST.b1)
   if updateCond then setCR1Reg ctxt ir else ()
@@ -1552,7 +1552,7 @@ let mtfsf ins insLen ctxt =
   let fm = BitVector.OfUInt32 (getImmValue fm) 32<rt> |> AST.num
   let fpscr = !.ctxt Register.FPSCR
   let ir = !*ctxt
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (fpscr := AST.xtlo 32<rt> frB .& fm)
   !>ir insLen
 
@@ -1560,7 +1560,7 @@ let mtxer ins insLen ctxt =
   let src = transOneOpr ins ctxt
   let xer = !.ctxt Register.XER
   let ir = !*ctxt
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (xer := src)
   !>ir insLen
 
@@ -1568,7 +1568,7 @@ let mulhw ins insLen updateCond ctxt =
   let struct (dst, ra, rb) = transThreeOprs ins ctxt
   let ir = !*ctxt
   let tmp = !+ir 64<rt>
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (tmp := (AST.sext 64<rt> ra) .* (AST.sext 64<rt> rb))
   !!ir (dst := AST.xthi 32<rt> tmp)
   if updateCond then setCR0Reg ctxt ir dst else ()
@@ -1578,7 +1578,7 @@ let mulhwu ins insLen updateCond ctxt =
   let struct (dst, ra, rb) = transThreeOprs ins ctxt
   let ir = !*ctxt
   let tmp = !+ir 64<rt>
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (tmp := (AST.zext 64<rt> ra) .* (AST.zext 64<rt> rb))
   !!ir (dst := AST.xthi 32<rt> tmp)
   if updateCond then setCR0Reg ctxt ir dst else ()
@@ -1588,7 +1588,7 @@ let mulli ins insLen ctxt =
   let struct (dst, ra, simm) = transThreeOprs ins ctxt
   let ir = !*ctxt
   let tmp = !+ir 64<rt>
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (tmp := (AST.sext 64<rt> ra) .* (AST.sext 64<rt> simm))
   !!ir (dst := AST.xtlo 32<rt> tmp)
   !>ir insLen
@@ -1597,7 +1597,7 @@ let mullw ins insLen updateCond ovCond ctxt =
   let struct (dst, src1, src2) = transThreeOprs ins ctxt
   let ir = !*ctxt
   let tmp = !+ir 64<rt>
-  !<ir insLen
+  !<ir ins.Address insLen
   if ovCond then isMulOV ctxt src1 src2 ir else ()
   !!ir (tmp := (AST.sext 64<rt> src1) .* (AST.sext 64<rt> src2))
   !!ir (dst := AST.xtlo 32<rt> tmp)
@@ -1607,7 +1607,7 @@ let mullw ins insLen updateCond ovCond ctxt =
 let nand ins insLen updateCond ctxt =
   let struct (dst, src1, src2) = transThreeOprs ins ctxt
   let ir = !*ctxt
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (dst := AST.not(src1 .& src2))
   if updateCond then setCR0Reg ctxt ir dst else ()
   !>ir insLen
@@ -1616,7 +1616,7 @@ let neg ins insLen updateCond ovCond ctxt =
   let struct (dst, src) = transTwoOprs ins ctxt
   let ir = !*ctxt
   let struct (t1, t2) = tmpVars2 ir 32<rt>
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (t1 := AST.not src)
   !!ir (t2 := AST.num1 32<rt>)
   !!ir (dst := t1 .+ t2)
@@ -1627,20 +1627,20 @@ let neg ins insLen updateCond ovCond ctxt =
 let nor ins insLen updateCond ctxt =
   let struct (dst, src1, src2) = transThreeOprs ins ctxt
   let ir = !*ctxt
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (dst := AST.not (src1 .| src2))
   if updateCond then setCR0Reg ctxt ir dst else ()
   !>ir insLen
 
-let nop insLen ctxt =
+let nop ins insLen ctxt =
   let ir = !*ctxt
-  !<ir insLen
+  !<ir ins.Address insLen
   !>ir insLen
 
 let orx ins insLen updateCond ctxt =
   let struct (dst, src1, src2) = transThreeOprs ins ctxt
   let ir = !*ctxt
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (dst := src1 .| src2)
   if updateCond then setCR0Reg ctxt ir dst else ()
   !>ir insLen
@@ -1648,7 +1648,7 @@ let orx ins insLen updateCond ctxt =
 let orc ins insLen updateCond ctxt =
   let struct (dst, src1, src2) = transThreeOprs ins ctxt
   let ir = !*ctxt
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (dst := src1 .| AST.not(src2))
   if updateCond then setCR0Reg ctxt ir dst else ()
   !>ir insLen
@@ -1657,7 +1657,7 @@ let ori ins insLen ctxt =
   let struct (dst, src, uimm) = transThreeOprs ins ctxt
   let uimm = AST.zext 32<rt> (AST.xtlo 16<rt> uimm)
   let ir = !*ctxt
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (dst := src .| uimm)
   !>ir insLen
 
@@ -1665,7 +1665,7 @@ let oris ins insLen ctxt =
   let struct (dst, src, uimm) = transThreeOprs ins ctxt
   let uimm = AST.concat (AST.xtlo 16<rt> uimm) (AST.num0 16<rt>)
   let ir = !*ctxt
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (dst := src .| uimm)
   !>ir insLen
 
@@ -1673,7 +1673,7 @@ let rlwinm ins insLen updateCond ctxt =
   let struct (ra, rs, sh, mb, me) = transFiveOprs ins ctxt
   let ir = !*ctxt
   let rol = !+ir 32<rt>
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (rol := rotateLeft rs sh)
   !!ir (ra := rol .& (getExtMask mb me))
   if updateCond then setCR0Reg ctxt ir ra else ()
@@ -1684,7 +1684,7 @@ let rlwimi ins insLen updateCond ctxt =
   let ir = !*ctxt
   let m = getExtMask mb me
   let rol = rotateLeft rs sh
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (ra := (rol .& m) .| (ra .& AST.not m))
   if updateCond then setCR0Reg ctxt ir ra else ()
   !>ir insLen
@@ -1693,7 +1693,7 @@ let rlwnm ins insLen updateCond ctxt =
   let struct (ra, rs, rb, mb, me) = transFiveOprs ins ctxt
   let ir = !*ctxt
   let rol = !+ir 32<rt>
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (rol := rb .& numI32 0x1f 32<rt>)
   !!ir (ra := rol .& (getExtMask mb me))
   if updateCond then setCR0Reg ctxt ir ra else ()
@@ -1704,7 +1704,7 @@ let rotlw ins insLen ctxt =
   let ir = !*ctxt
   let n = rb .& numI32 0x1f 32<rt>
   let rol = rotateLeft rs n
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (ra := rol) (* no mask *)
   !>ir insLen
 
@@ -1712,7 +1712,7 @@ let slw ins insLen updateCond ctxt =
   let struct (dst, rs, rb) = transThreeOprs ins ctxt
   let ir = !*ctxt
   let n = !+ir 32<rt>
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (n := rb .& numI32 0x1f 32<rt>)
   let z = AST.num0 32<rt>
   let cond1 = rb .& numI32 0x20 32<rt> == z
@@ -1727,7 +1727,7 @@ let sraw ins insLen updateCond ctxt =
   let cond1 = rb .& numI32 0x20 32<rt> == z
   let ir = !*ctxt
   let n = !+ir 32<rt>
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (n := rb .& numI32 0x1f 32<rt>)
   !!ir (ra := AST.ite cond1 (rs ?>> n) (rs ?>> numI32 31 32<rt>))
   let cond2 = ra ?< z
@@ -1741,7 +1741,7 @@ let srawi ins insLen updateCond ctxt =
   let xerCA = AST.extract (!.ctxt Register.XER) 1<rt> 29
   let z = AST.num0 32<rt>
   let ir = !*ctxt
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (ra := rs ?>> sh)
   let cond1 = ra ?< z
   let cond2 = (rs .& ((AST.num1 32<rt> << sh) .- AST.num1 32<rt>)) == z
@@ -1753,7 +1753,7 @@ let srw ins insLen updateCond ctxt =
   let struct (dst, rs, rb) = transThreeOprs ins ctxt
   let ir = !*ctxt
   let n = !+ir 32<rt>
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (n := rb .& numI32 0x1f 32<rt>)
   let z = AST.num0 32<rt>
   let cond1 = rb .& numI32 0x20 32<rt> == z
@@ -1767,7 +1767,7 @@ let stb ins insLen ctxt =
   let src = transOpr ctxt o1
   let ir = !*ctxt
   let tmpEA = !+ir 32<rt>
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (tmpEA := ea)
   !!ir (loadNative ctxt 8<rt> tmpEA := AST.xtlo 8<rt> src)
   !>ir insLen
@@ -1778,7 +1778,7 @@ let stbx ins insLen ctxt =
   let ea = transEAWithIndexReg o2 o3 ctxt
   let ir = !*ctxt
   let tmpEA = !+ir 32<rt>
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (tmpEA := ea)
   !!ir (loadNative ctxt 8<rt> tmpEA := AST.xtlo 8<rt> rs)
   !>ir insLen
@@ -1789,7 +1789,7 @@ let stbu ins insLen ctxt =
   let src = transOpr ctxt o1
   let ir = !*ctxt
   let tmpEA = !+ir 32<rt>
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (tmpEA := ea)
   !!ir (loadNative ctxt 8<rt> tmpEA := AST.xtlo 8<rt> src)
   !!ir (ra := tmpEA)
@@ -1801,7 +1801,7 @@ let stbux ins insLen ctxt =
   let struct (ea, rA) = transEAWithIndexRegForUpdate o2 o3 ctxt
   let ir = !*ctxt
   let tmpEA = !+ir 32<rt>
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (tmpEA := ea)
   !!ir (loadNative ctxt 8<rt> tmpEA := AST.xtlo 8<rt> rs)
   !!ir (rA := tmpEA)
@@ -1813,7 +1813,7 @@ let stfd ins insLen ctxt =
   let frs = transOpr ctxt o1
   let ir = !*ctxt
   let tmpEA = !+ir 32<rt>
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (tmpEA := ea)
   !!ir (loadNative ctxt 64<rt> tmpEA := frs)
   !>ir insLen
@@ -1824,7 +1824,7 @@ let stfdx ins insLen ctxt =
   let frs = transOpr ctxt o1
   let ir = !*ctxt
   let tmpEA = !+ir 32<rt>
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (tmpEA := ea)
   !!ir (loadNative ctxt 64<rt> tmpEA := frs)
   !>ir insLen
@@ -1835,7 +1835,7 @@ let stfdu ins insLen ctxt =
   let frs = transOpr ctxt o1
   let ir = !*ctxt
   let tmpEA = !+ir 32<rt>
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (tmpEA := ea)
   !!ir (loadNative ctxt 64<rt> tmpEA := frs)
   !!ir (ra := tmpEA)
@@ -1847,7 +1847,7 @@ let stfdux ins insLen ctxt =
   let struct (ea, rA) = transEAWithIndexRegForUpdate o2 o3 ctxt
   let ir = !*ctxt
   let tmpEA = !+ir 32<rt>
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (tmpEA := ea)
   !!ir (loadNative ctxt 64<rt> tmpEA := frs)
   !!ir (rA := tmpEA)
@@ -1859,7 +1859,7 @@ let stfiwx ins insLen ctxt =
   let struct (ea, rA) = transEAWithIndexRegForUpdate o2 o3 ctxt
   let ir = !*ctxt
   let tmpEA = !+ir 32<rt>
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (tmpEA := ea)
   !!ir (loadNative ctxt 32<rt> tmpEA := AST.xtlo 32<rt> frs)
   !!ir (rA := tmpEA)
@@ -1871,7 +1871,7 @@ let stfs ins insLen ctxt =
   let frs = transOpr ctxt o1
   let ir = !*ctxt
   let tmpEA = !+ir 32<rt>
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (tmpEA := ea)
   !!ir (loadNative ctxt 32<rt> tmpEA := AST.cast CastKind.FloatCast 32<rt> frs)
   !>ir insLen
@@ -1882,7 +1882,7 @@ let stfsx ins insLen ctxt =
   let frs = transOpr ctxt o1
   let ir = !*ctxt
   let tmpEA = !+ir 32<rt>
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (tmpEA := ea)
   !!ir (loadNative ctxt 32<rt> tmpEA := AST.cast CastKind.FloatCast 32<rt> frs)
   !>ir insLen
@@ -1893,7 +1893,7 @@ let stfsu ins insLen ctxt =
   let frs = transOpr ctxt o1
   let ir = !*ctxt
   let tmpEA = !+ir 32<rt>
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (tmpEA := ea)
   !!ir (loadNative ctxt 32<rt> tmpEA := AST.cast CastKind.FloatCast 32<rt> frs)
   !!ir (ra := tmpEA)
@@ -1905,7 +1905,7 @@ let stfsux ins insLen ctxt =
   let struct (ea, rA) = transEAWithIndexRegForUpdate o2 o3 ctxt
   let ir = !*ctxt
   let tmpEA = !+ir 32<rt>
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (tmpEA := ea)
   !!ir (loadNative ctxt 32<rt> tmpEA := AST.cast CastKind.FloatCast 32<rt> frs)
   !!ir (rA := tmpEA)
@@ -1917,7 +1917,7 @@ let sth ins insLen ctxt =
   let src = transOpr ctxt o1
   let ir = !*ctxt
   let tmpEA = !+ir 32<rt>
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (tmpEA := ea)
   !!ir (loadNative ctxt 16<rt> tmpEA := AST.xtlo 16<rt> src)
   !>ir insLen
@@ -1928,7 +1928,7 @@ let sthbrx ins insLen ctxt =
   let ea = transEAWithIndexReg o2 o3 ctxt
   let ir = !*ctxt
   let revtmp = !+ir 16<rt>
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (revtmp := AST.concat (AST.extract rs 8<rt> 0) (AST.extract rs 8<rt> 8))
   !!ir (loadNative ctxt 16<rt> ea := revtmp)
   !>ir insLen
@@ -1939,7 +1939,7 @@ let sthx ins insLen ctxt =
   let ea = transEAWithIndexReg o2 o3 ctxt
   let ir = !*ctxt
   let tmpEA = !+ir 32<rt>
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (tmpEA := ea)
   !!ir (loadNative ctxt 16<rt> tmpEA := AST.xtlo 16<rt> rs)
   !>ir insLen
@@ -1950,7 +1950,7 @@ let sthu ins insLen ctxt =
   let rs = transOpr ctxt o1
   let ir = !*ctxt
   let tmpEA = !+ir 32<rt>
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (tmpEA := ea)
   !!ir (loadNative ctxt 16<rt> tmpEA := AST.xtlo 16<rt> rs)
   !!ir (ra := tmpEA)
@@ -1962,7 +1962,7 @@ let sthux ins insLen ctxt =
   let struct (ea, rA) = transEAWithIndexRegForUpdate o2 o3 ctxt
   let ir = !*ctxt
   let tmpEA = !+ir 32<rt>
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (tmpEA := ea)
   !!ir (loadNative ctxt 16<rt> tmpEA := AST.xtlo 16<rt> rs)
   !!ir (rA := tmpEA)
@@ -1974,7 +1974,7 @@ let stw ins insLen ctxt =
   let src = transOpr ctxt o1
   let ir = !*ctxt
   let tmpEA = !+ir 32<rt>
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (tmpEA := ea)
   !!ir (loadNative ctxt 32<rt> tmpEA := src)
   !>ir insLen
@@ -1986,7 +1986,7 @@ let stwbrx ins insLen ctxt =
   let ir = !*ctxt
   let tmpEA = !+ir 32<rt>
   let revtmp = !+ir 32<rt>
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (tmpEA := ea)
   !!ir (AST.extract revtmp 8<rt> 0:= AST.extract rs 8<rt> 24)
   !!ir (AST.extract revtmp 8<rt> 8:= AST.extract rs 8<rt> 16)
@@ -2006,7 +2006,7 @@ let stwcxdot ins insLen ctxt =
   let cr0EQ = !.ctxt Register.CR0_2
   let cr0SO = !.ctxt Register.CR0_3
   let ir = !*ctxt
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblRes = !%ir "Reserved"
   let lblNoRes = !%ir "NotReserved"
   let lblEnd = !%ir "End"
@@ -2033,7 +2033,7 @@ let stwu ins insLen ctxt =
   let src = transOpr ctxt o1
   let ir = !*ctxt
   let tmpEA = !+ir 32<rt>
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (tmpEA := ea)
   !!ir (loadNative ctxt 32<rt> tmpEA := src)
   !!ir (ra := tmpEA)
@@ -2045,7 +2045,7 @@ let stwux ins insLen ctxt =
   let struct (ea, rA) = transEAWithIndexRegForUpdate o2 o3 ctxt
   let ir = !*ctxt
   let tmpEA = !+ir 32<rt>
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (tmpEA := ea)
   !!ir (loadNative ctxt 32<rt> tmpEA := rs)
   !!ir (rA := tmpEA)
@@ -2057,7 +2057,7 @@ let stwx ins insLen ctxt =
   let ea = transEAWithIndexReg o2 o3 ctxt
   let ir = !*ctxt
   let tmpEA = !+ir 32<rt>
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (tmpEA := ea)
   !!ir (loadNative ctxt 32<rt> tmpEA := rs)
   !>ir insLen
@@ -2067,7 +2067,7 @@ let subf ins insLen updateCond ovCond ctxt =
   let one = AST.num1 32<rt>
   let ir = !*ctxt
   let struct (t1, t2) = tmpVars2 ir 32<rt>
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (t1 := AST.not src1)
   !!ir (t2 := src2)
   !!ir (dst := t1 .+ t2 .+ one)
@@ -2080,7 +2080,7 @@ let subfc ins insLen updateCond ovCond ctxt =
   let one = AST.num1 64<rt>
   let ir = !*ctxt
   let struct (t1, t2, t3) = tmpVars3 ir 64<rt>
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (t1 := AST.zext 64<rt> (AST.not src1))
   !!ir (t2 := AST.zext 64<rt> src2)
   !!ir (t3 := t1 .+ t2 .+ one)
@@ -2095,7 +2095,7 @@ let subfe ins insLen updateCond ovCond ctxt =
   let xerCA = AST.zext 64<rt> (AST.extract (!.ctxt Register.XER) 1<rt> 29)
   let ir = !*ctxt
   let struct (t1, t2, t3) = tmpVars3 ir 64<rt>
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (t1 := AST.zext 64<rt> (AST.not src1))
   !!ir (t2 := AST.zext 64<rt> src2)
   !!ir (t3 := t1 .+ t2 .+ xerCA)
@@ -2109,7 +2109,7 @@ let subfic ins insLen ctxt  =
   let struct (dst, src1, simm) = transThreeOprs ins ctxt
   let ir = !*ctxt
   let struct (t1, t2, t3) = tmpVars3 ir 64<rt>
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (t1 := AST.zext 64<rt> (AST.not src1))
   !!ir (t2 := AST.zext 64<rt> simm)
   !!ir (t3 := t1 .+ t2 .+ AST.num1 64<rt>)
@@ -2123,7 +2123,7 @@ let subfme ins insLen updateCond ovCond ctxt =
   let ir = !*ctxt
   let struct (t1, t2, t3) = tmpVars3 ir 64<rt>
   let minusone = AST.num (BitVector.OfUInt32 0xffffffffu 64<rt>)
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (t1 := AST.zext 64<rt> (AST.not src))
   !!ir (t2 := xerCA)
   !!ir (t3 := t1 .+ t2 .+ minusone)
@@ -2138,7 +2138,7 @@ let subfze ins insLen updateCond ovCond ctxt =
   let xerCA = AST.zext 64<rt> (AST.extract (!.ctxt Register.XER) 1<rt> 29)
   let ir = !*ctxt
   let struct (t1, t2, t3) = tmpVars3 ir 64<rt>
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (t1 := AST.zext 64<rt> (AST.not src))
   !!ir (t2 := xerCA)
   !!ir (t3 := t1 .+ t2)
@@ -2148,9 +2148,9 @@ let subfze ins insLen updateCond ovCond ctxt =
   if updateCond then setCR0Reg ctxt ir dst else ()
   !>ir insLen
 
-let trap insLen ctxt =
+let trap ins insLen ctxt =
   let ir = !*ctxt
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (AST.sideEffect (Interrupt 0))
   !>ir insLen
 
@@ -2159,7 +2159,7 @@ let trapCond ins insLen cmpOp ctxt =
   let ir = !*ctxt
   let lblTrap = !%ir "Trap"
   let lblEnd = !%ir "End"
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (AST.cjmp (cmpOp ra rb) (AST.jmpDest lblTrap) (AST.jmpDest lblEnd))
   !!ir (AST.lmark lblTrap)
   !!ir (AST.sideEffect (Interrupt 0))
@@ -2169,7 +2169,7 @@ let trapCond ins insLen cmpOp ctxt =
 let xor ins insLen updateCond ctxt =
   let struct (dst, src1, src2) = transThreeOprs ins ctxt
   let ir = !*ctxt
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (dst := (src1 <+> src2))
   if updateCond then setCR0Reg ctxt ir dst else ()
   !>ir insLen
@@ -2178,7 +2178,7 @@ let xori ins insLen ctxt =
   let struct (dst, src, uimm) = transThreeOprs ins ctxt
   let uimm = AST.zext 32<rt> (AST.xtlo 16<rt> uimm)
   let ir = !*ctxt
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (dst := src <+> uimm)
   !>ir insLen
 
@@ -2186,7 +2186,7 @@ let xoris ins insLen ctxt =
   let struct (dst, src, uimm) = transThreeOprs ins ctxt
   let uimm = AST.concat (AST.xtlo 16<rt> uimm) (AST.num0 16<rt>)
   let ir = !*ctxt
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (dst := src <+> uimm)
   !>ir insLen
 
@@ -2251,8 +2251,8 @@ let translate (ins: InsInfo) insLen (ctxt: TranslationContext) =
   | Op.CRSET -> crset ins insLen ctxt
   | Op.CRNOR -> crnor ins insLen ctxt
   | Op.CRNOT -> crnot ins insLen ctxt
-  | Op.DCBT -> nop insLen ctxt
-  | Op.DCBTST -> nop insLen ctxt
+  | Op.DCBT -> nop ins insLen ctxt
+  | Op.DCBTST -> nop ins insLen ctxt
   | Op.DIVW -> divw ins insLen false true ctxt
   | Op.DIVWdot -> divw ins insLen false false ctxt
   | Op.DIVWO -> divw ins insLen true true ctxt
@@ -2265,7 +2265,7 @@ let translate (ins: InsInfo) insLen (ctxt: TranslationContext) =
   | Op.EXTSBdot -> extsb ins insLen true ctxt
   | Op.EXTSH -> extsh ins insLen false ctxt
   | Op.EXTSHdot -> extsh ins insLen true ctxt
-  | Op.EIEIO -> nop insLen ctxt
+  | Op.EIEIO -> nop ins insLen ctxt
   | Op.EQV -> eqvx ins insLen false ctxt
   | Op.EQVdot -> eqvx ins insLen true ctxt
   | Op.FABS -> fabs ins insLen false ctxt
@@ -2322,7 +2322,7 @@ let translate (ins: InsInfo) insLen (ctxt: TranslationContext) =
   | Op.FSQRTS -> fsqrt ins insLen false false ctxt
   | Op.FSQRTdot -> fsqrt ins insLen true true ctxt
   | Op.FSQRTSdot -> fsqrt ins insLen true false ctxt
-  | Op.ISYNC | Op.LWSYNC | Op.SYNC -> nop insLen ctxt
+  | Op.ISYNC | Op.LWSYNC | Op.SYNC -> nop ins insLen ctxt
   | Op.LBZ -> lbz ins insLen ctxt
   | Op.LBZU -> lbzu ins insLen ctxt
   | Op.LBZUX -> lbzux ins insLen ctxt
@@ -2389,7 +2389,7 @@ let translate (ins: InsInfo) insLen (ctxt: TranslationContext) =
   | Op.NEGOdot -> neg ins insLen true true ctxt
   | Op.NOR -> nor ins insLen false ctxt
   | Op.NORdot -> nor ins insLen true ctxt
-  | Op.NOP -> nop insLen ctxt
+  | Op.NOP -> nop ins insLen ctxt
   | Op.ORC -> orc ins insLen false ctxt
   | Op.ORCdot -> orc ins insLen true ctxt
   | Op.OR -> orx ins insLen false ctxt
@@ -2403,7 +2403,7 @@ let translate (ins: InsInfo) insLen (ctxt: TranslationContext) =
   | Op.RLWNM -> rlwnm ins insLen false ctxt
   | Op.RLWNMdot -> rlwnm ins insLen true ctxt
   | Op.ROTLW -> rotlw ins insLen ctxt
-  | Op.SC -> sideEffects insLen ctxt SysCall
+  | Op.SC -> sideEffects ins insLen ctxt SysCall
   | Op.SLW -> slw ins insLen false ctxt
   | Op.SLWdot -> slw ins insLen true ctxt
   | Op.SRAW -> sraw ins insLen false ctxt
@@ -2457,7 +2457,7 @@ let translate (ins: InsInfo) insLen (ctxt: TranslationContext) =
   | Op.SUBFZEdot -> subfze ins insLen true false ctxt
   | Op.SUBFZEO -> subfze ins insLen false true ctxt
   | Op.SUBFZEOdot -> subfze ins insLen true true ctxt
-  | Op.TRAP | Op.TWI -> trap insLen ctxt
+  | Op.TRAP | Op.TWI -> trap ins insLen ctxt
   | Op.TWLT -> trapCond ins insLen (AST.slt) ctxt
   | Op.TWLE -> trapCond ins insLen (AST.sle) ctxt
   | Op.TWEQ -> trapCond ins insLen (AST.eq) ctxt

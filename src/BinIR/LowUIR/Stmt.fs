@@ -71,7 +71,7 @@ type S =
 
   /// Metadata representing a label (as in an assembly language). LMark is only
   /// valid within a machine instruction.
-  | LMark of Symbol
+  | LMark of Label
 
   /// This statement puts a value into a register. The first argument is a
   /// destination operand, and the second argument is a source operand. The
@@ -126,7 +126,7 @@ with
       match this, rhs with
       | ISMark len1, ISMark len2 -> len1 = len2
       | IEMark len1, IEMark len2 -> len1 = len2
-      | LMark s1, LMark s2 -> s1 = s2
+      | LMark lbl1, LMark lbl2 -> lbl1 = lbl2
       | Put (dst1, src1), Put (dst2, src2) ->
         dst1.Tag = dst2.Tag && src1.Tag = src2.Tag
       | Store (n1, addr1, e1), Store (n2, addr2, e2) ->
@@ -224,7 +224,7 @@ module Stmt =
       sb.Append (len.ToString ()) |> ignore
     | LMark lbl ->
       sb.Append (":") |> ignore
-      sb.Append (Symbol.getName lbl) |> ignore
+      sb.Append lbl.Name |> ignore
     | Put (exp1, exp2) ->
       Expr.appendToString exp1 sb
       sb.Append (" := ") |> ignore

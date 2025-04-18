@@ -136,9 +136,9 @@ let tmpvar t id =
 #endif
 
 /// Construct a symbol (for a label) from a string and a IDCounter.
-[<CompiledName("Symbol")>]
-let inline symbol name id =
-  Symbol (name, id)
+[<CompiledName("Label")>]
+let inline label name id addr =
+  Label (name, id, addr)
 
 /// Construct an unary operator (UnOp).
 [<CompiledName("UnOp")>]

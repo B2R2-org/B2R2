@@ -68,9 +68,9 @@ let private movdMemToReg ins ctxt src r ir =
     fillOnesToMMXHigh16 ir ins ctxt
   | _ -> Terminator.impossible ()
 
-let movd ins insLen ctxt =
+let movd (ins: InsInfo) insLen ctxt =
   let ir = !*ctxt
-  !<ir insLen
+  !<ir ins.Address insLen
   let struct (dst, src) = getTwoOprs ins
   match dst, src with
   | OprReg r1, OprReg r2 -> movdRegToReg ins ctxt r1 r2 ir
@@ -117,9 +117,9 @@ let private movqMemToReg ins ctxt src r ir =
     fillOnesToMMXHigh16 ir ins ctxt
   | _ -> raise InvalidOperandException
 
-let movq ins insLen ctxt =
+let movq (ins: InsInfo) insLen ctxt =
   let ir = !*ctxt
-  !<ir insLen
+  !<ir ins.Address insLen
   let struct (dst, src) = getTwoOprs ins
   match dst, src with
   | OprReg r1, OprReg r2 -> movqRegToReg ins ctxt r1 r2 ir
@@ -288,7 +288,7 @@ let fillZeroFromVLToMaxVL ctxt dst vl maxVl ir =
 
 let private buildPackedTwoOprs ins insLen ctxt isFillZero packSz opFn dst src =
   let ir = !*ctxt
-  !<ir insLen
+  !<ir (ins: InsInfo).Address insLen
   let oprSize = getOperationSize ins
   let packNum = 64<rt> / packSz
   let src1 = transOprToArr ir true ins insLen ctxt packSz packNum oprSize dst
@@ -300,7 +300,7 @@ let private buildPackedTwoOprs ins insLen ctxt isFillZero packSz opFn dst src =
 
 let private buildPackedThreeOprs i iLen ctxt isFillZero packSz opFn dst s1 s2 =
   let ir = !*ctxt
-  !<ir iLen
+  !<ir (i: InsInfo).Address iLen
   let oprSize = getOperationSize i
   let packNum = 64<rt> / packSz
   let src1 = transOprToArr ir true i iLen ctxt packSz packNum oprSize s1
@@ -318,9 +318,9 @@ let buildPackedInstr (ins: InsInfo) insLen ctxt isFillZero packSz opFn =
     buildPackedThreeOprs ins insLen ctxt isFillZero packSz opFn o1 o2 o3
   | _ -> raise InvalidOperandException
 
-let private packWithSaturation ins insLen ctxt packSz opFn =
+let private packWithSaturation (ins: InsInfo) insLen ctxt packSz opFn =
   let ir = !*ctxt
-  !<ir insLen
+  !<ir ins.Address insLen
   let oprSize = getOperationSize ins
   let sPackSz = packSz
   let sPackNum = 64<rt> / sPackSz
@@ -359,9 +359,9 @@ let private interleaveAndSplit (src1: Expr[]) (src2: Expr[]) totalPackNum =
   done
   Array.splitAt totalPackNum interleaved
 
-let unpackLowHighData ins insLen ctxt packSize isHigh =
+let unpackLowHighData (ins: InsInfo) insLen ctxt packSize isHigh =
   let ir = !*ctxt
-  !<ir insLen
+  !<ir ins.Address insLen
   let oprSz = getOperationSize ins
   let packNum = 64<rt> / packSize
   let allPackNum = oprSz / packSize
@@ -473,9 +473,9 @@ let private makeHorizonSrc src1 src2 =
     else even[i / 2] <- combined[i]
   odd, even
 
-let packedHorizon ins insLen ctxt packSz opFn =
+let packedHorizon (ins: InsInfo) insLen ctxt packSz opFn =
   let ir = !*ctxt
-  !<ir insLen
+  !<ir ins.Address insLen
   let oprSize = getOperationSize ins
   let struct (dst, src) = getTwoOprs ins
   let packNum = 64<rt> / packSz
@@ -619,9 +619,9 @@ let opPor _ = Array.map2 (.|)
 let por ins insLen ctxt =
   buildPackedInstr ins insLen ctxt false 64<rt> opPor
 
-let pxor ins insLen ctxt =
+let pxor (ins: InsInfo) insLen ctxt =
   let ir = !*ctxt
-  !<ir insLen
+  !<ir ins.Address insLen
   let oprSize = getOperationSize ins
   match oprSize with
   | 64<rt> ->
@@ -708,8 +708,8 @@ let private opPsrad oprSize = opShiftPackedDataRightArith oprSize 32<rt>
 let psrad ins insLen ctxt =
   buildPackedInstr ins insLen ctxt false 32<rt> opPsrad
 
-let emms _ins insLen ctxt =
+let emms (ins: InsInfo) insLen ctxt =
   let ir = !*ctxt
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (!.ctxt R.FTW := maxNum 16<rt>)
   !>ir insLen

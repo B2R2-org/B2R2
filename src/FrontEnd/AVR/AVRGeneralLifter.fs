@@ -107,9 +107,9 @@ let transTwoOprs (ins: InsInfo) ctxt =
             transOprToExpr ctxt o2)
   | _ -> raise InvalidOperandException
 
-let sideEffects insLen name =
+let sideEffects insAddr insLen name =
   let ir = IRBuilder (4)
-  !<ir insLen
+  !<ir insAddr insLen
   !!ir (AST.sideEffect name)
   !>ir insLen
 
@@ -127,7 +127,7 @@ let adc ins len ctxt =
   let oprSize = 8<rt>
   let ir = IRBuilder (16)
   let struct (t1, t2, t3) = tmpVars3 ir oprSize
-  !<ir len
+  !<ir ins.Address len
   !!ir (t1 := dst)
   !!ir (t2 := src)
   !!ir (t3 := t1 .+ t2 .+ AST.zext 8<rt> (!.ctxt CF) )
@@ -147,7 +147,7 @@ let add ins len ctxt =
   let oprSize = 8<rt>
   let ir = IRBuilder (16)
   let struct (t1, t2, t3) = tmpVars3 ir oprSize
-  !<ir len
+  !<ir ins.Address len
   !!ir (t1 := dst)
   !!ir (t2 := src)
   !!ir (t3 := t1 .+ t2)
@@ -175,7 +175,7 @@ let adiw ins len ctxt =
       let src = imm |> numI32
       struct (dst, dst1, src)
     | _ -> raise InvalidOperandException
-  !<ir len
+  !<ir ins.Address len
   !!ir (t1 := dst1)
   !!ir (t2 := dst)
   !!ir (t3 := (AST.concat t1 t2) .+ AST.zext 16<rt> src)
@@ -193,7 +193,7 @@ let ``and`` ins len ctxt =
   let oprSize = 8<rt>
   let ir = IRBuilder (16)
   let r = !+ir oprSize
-  !<ir len
+  !<ir ins.Address len
   !!ir (r := dst .& src)
   !!ir (dst := r)
   !!ir (!.ctxt VF := AST.b0)
@@ -207,7 +207,7 @@ let andi ins len ctxt =
   let oprSize = 8<rt>
   let ir = IRBuilder (16)
   let r = !+ir oprSize
-  !<ir len
+  !<ir ins.Address len
   !!ir (r := dst .& src)
   !!ir (dst := r)
   !!ir (!.ctxt VF := AST.b0)
@@ -221,7 +221,7 @@ let ``asr`` ins len ctxt =
   let oprSize = 8<rt>
   let ir = IRBuilder (16)
   let t1 = !+ir oprSize
-  !<ir len
+  !<ir ins.Address len
   !!ir (t1 := dst)
   !!ir (dst := dst ?>> AST.num1 oprSize)
   !!ir (!.ctxt ZF := dst == (AST.num0 oprSize))
@@ -238,7 +238,7 @@ let bld ins len ctxt =
     | TwoOperands (_, OprImm imm) -> imm
     | _ -> Terminator.impossible ()
   let ir = IRBuilder (16)
-  !<ir len
+  !<ir ins.Address len
   !!ir ( (AST.extract dst 1<rt> imm) := !.ctxt TF)
   !>ir len
 
@@ -250,7 +250,7 @@ let bst ins len ctxt =
     | _ -> Terminator.impossible ()
   let ir = IRBuilder (16)
   let r = !+ir 1<rt>
-  !<ir len
+  !<ir ins.Address len
   !!ir (!.ctxt TF := (AST.extract dst 1<rt> imm))
   !>ir len
 
@@ -259,7 +259,7 @@ let call ins len ctxt =
   let dst = transOneOpr ins ctxt
   let sp = !.ctxt SP
   let pc = !.ctxt PC
-  !<ir len
+  !<ir ins.Address len
   !!ir (pc := dst)
   !!ir (AST.loadLE 16<rt> sp := pc .+ numI32PC 2)
   !!ir (sp := sp .- numI32PC 2)
@@ -267,32 +267,32 @@ let call ins len ctxt =
 
 let clc ins len ctxt =
   let ir = IRBuilder (4)
-  !<ir len
+  !<ir ins.Address len
   !!ir (!.ctxt CF := AST.b0)
   !>ir len
 
-let clh len ctxt =
+let clh ins len ctxt =
   let ir = IRBuilder (4)
-  !<ir len
+  !<ir ins.Address len
   !!ir (!.ctxt HF := AST.b0)
   !>ir len
 
-let cli len ctxt =
+let cli ins len ctxt =
   let ir = IRBuilder (4)
-  !<ir len
+  !<ir ins.Address len
   !!ir (!.ctxt IF := AST.b0)
   !>ir len
 
-let cln len ctxt =
+let cln ins len ctxt =
   let ir = IRBuilder (4)
-  !<ir len
+  !<ir ins.Address len
   !!ir (!.ctxt NF := AST.b0)
   !>ir len
 
 let clr ins len ctxt =
   let dst = transOneOpr ins ctxt
   let ir = IRBuilder (8)
-  !<ir len
+  !<ir ins.Address len
   !!ir (dst := dst <+> dst)
   !!ir (!.ctxt SF := AST.b0)
   !!ir (!.ctxt VF := AST.b0)
@@ -300,27 +300,27 @@ let clr ins len ctxt =
   !!ir (!.ctxt ZF := AST.b1)
   !>ir len
 
-let cls len ctxt =
+let cls ins len ctxt =
   let ir = IRBuilder (4)
-  !<ir len
+  !<ir ins.Address len
   !!ir (!.ctxt SF := AST.b0)
   !>ir len
 
-let clt len ctxt =
+let clt ins len ctxt =
   let ir = IRBuilder (4)
-  !<ir len
+  !<ir ins.Address len
   !!ir (!.ctxt TF := AST.b0)
   !>ir len
 
-let clv len ctxt =
+let clv ins len ctxt =
   let ir = IRBuilder (4)
-  !<ir len
+  !<ir ins.Address len
   !!ir (!.ctxt VF := AST.b0)
   !>ir len
 
-let clz len ctxt =
+let clz ins len ctxt =
   let ir = IRBuilder (4)
-  !<ir len
+  !<ir ins.Address len
   !!ir (!.ctxt ZF := AST.b0)
   !>ir len
 
@@ -328,7 +328,7 @@ let com ins len ctxt =
   let ir = IRBuilder(4)
   let oprSize = 8<rt>
   let dst = transOneOpr ins ctxt
-  !<ir len
+  !<ir ins.Address len
   !!ir (dst := numI32 0xff .- dst)
   !!ir (!.ctxt CF := AST.b1)
   !!ir (!.ctxt VF := AST.b0)
@@ -342,7 +342,7 @@ let cp ins len ctxt =
   let oprSize = 8<rt>
   let struct (dst, src) = transTwoOprs ins ctxt
   let struct (t1, t2, t3) = tmpVars3 ir oprSize
-  !<ir len
+  !<ir ins.Address len
   !!ir (t1 := dst)
   !!ir (t2 := src)
   !!ir (t3 := t1 .- t2)
@@ -360,7 +360,7 @@ let cpc ins len ctxt =
   let oprSize = 8<rt>
   let ir = IRBuilder (16)
   let struct (t1, t2, t3) = tmpVars3 ir oprSize
-  !<ir len
+  !<ir ins.Address len
   !!ir (t1 := dst)
   !!ir (t2 := src)
   !!ir (t3 := t1 .- t2 .- AST.zext 8<rt> (!.ctxt CF) )
@@ -378,7 +378,7 @@ let cpi ins len ctxt =
   let oprSize = 8<rt>
   let ir = IRBuilder (16)
   let struct (t1, t2, t3) = tmpVars3 ir oprSize
-  !<ir len
+  !<ir ins.Address len
   !!ir (t1 := dst)
   !!ir (t2 := src)
   !!ir (t3 := t1 .- t2)
@@ -395,7 +395,7 @@ let cpse ins len ctxt =
   let struct(dst, src) = transTwoOprs ins ctxt
   let ir = IRBuilder (4)
   let pc = !.ctxt PC
-  !<ir len
+  !<ir ins.Address len
   let fallThrough = pc .+ numI32PC 2
   let jumpTarget = pc .+ numI32PC 4
   !!ir (AST.intercjmp (dst == src) jumpTarget fallThrough)
@@ -406,7 +406,7 @@ let dec ins len ctxt =
   let oprSize = 8<rt>
   let ir = IRBuilder (16)
   let t1 = !+ir oprSize
-  !<ir len
+  !<ir ins.Address len
   !!ir (t1 := dst)
   !!ir (dst := t1 .- AST.num1 oprSize)
   !!ir (!.ctxt VF := t1 == numI32 0x80)
@@ -421,7 +421,7 @@ let fmul ins len ctxt =
   let ir = IRBuilder (16)
   let struct (t1, t2, t3) = tmpVars3 ir oprSize
   let t4 = !+ir 16<rt>
-  !<ir len
+  !<ir ins.Address len
   !!ir (t1 := AST.zext oprSize dst)
   !!ir (t2 := AST.zext oprSize src)
   !!ir (t3 := t1 .* t2)
@@ -438,7 +438,7 @@ let fmuls ins len ctxt =
   let ir = IRBuilder (16)
   let struct (t1, t2, t3) = tmpVars3 ir oprSize
   let t4 = !+ir 16<rt>
-  !<ir len
+  !<ir ins.Address len
   !!ir (t1 := AST.sext oprSize dst)
   !!ir (t2 := AST.sext oprSize src)
   !!ir (t3 := t1 .* t2)
@@ -455,7 +455,7 @@ let fmulsu ins len ctxt =
   let ir = IRBuilder (16)
   let struct (t1, t2, t3) = tmpVars3 ir oprSize
   let t4 = !+ir 16<rt>
-  !<ir len
+  !<ir ins.Address len
   !!ir (t1 := AST.sext oprSize dst)
   !!ir (t2 := AST.zext oprSize src)
   !!ir (t3 := t1 .* t2)
@@ -466,21 +466,21 @@ let fmulsu ins len ctxt =
   !!ir (!.ctxt ZF := t4 == (AST.num0 oprSize))
   !>ir len
 
-let eicall len =  (*ADD ME*)
+let eicall ins len = (* FIXME *)
   let ir = IRBuilder(4)
-  !<ir len
+  !<ir ins.Address len
   !>ir len
 
-let eijmp len =  (*ADD ME*)
+let eijmp ins len = (* FIXME *)
   let ir = IRBuilder(4)
-  !<ir len
+  !<ir ins.Address len
   !>ir len
 
 let eor ins len ctxt =
   let struct (dst, src) = transTwoOprs ins ctxt
   let oprSize = 8<rt>
   let ir = IRBuilder (16)
-  !<ir len
+  !<ir ins.Address len
   !!ir (dst := dst <+> src)
   !!ir (!.ctxt VF := AST.b0)
   !!ir (!.ctxt NF := AST.xthi 1<rt> dst)
@@ -488,20 +488,20 @@ let eor ins len ctxt =
   !!ir (!.ctxt SF := !.ctxt NF <+> !.ctxt VF)
   !>ir len
 
-let icall len ctxt =  (* ADD 22bit PC *)
+let icall ins len ctxt =  (* ADD 22bit PC *)
   let ir = IRBuilder(4)
   let pc = !.ctxt PC
   let sp = !.ctxt SP
-  !<ir len
+  !<ir ins.Address len
   !!ir (pc := !.ctxt Z)
   !!ir (AST.loadLE 16<rt> sp := pc .+ numI32PC 2)
   !!ir (sp := sp .- numI32PC 2)
   !>ir len
 
-let ijmp len ctxt =   (* ADD 22bit PC *)
+let ijmp ins len ctxt =   (* ADD 22bit PC *)
   let ir = IRBuilder (4)
   let pc = !.ctxt PC
-  !<ir len
+  !<ir ins.Address len
   !!ir (pc := !.ctxt Z)
   !>ir len
 
@@ -510,7 +510,7 @@ let inc ins len ctxt =
   let oprSize = 8<rt>
   let ir = IRBuilder (16)
   let t1 = !+ir oprSize
-  !<ir len
+  !<ir ins.Address len
   !!ir (t1 := dst)
   !!ir (dst := t1 .+ AST.num1 oprSize)
   !!ir (!.ctxt VF := t1 == numI32 0x7f)
@@ -524,7 +524,7 @@ let ``lsr`` ins len ctxt =
   let oprSize = 8<rt>
   let ir = IRBuilder (16)
   let t1 = !+ir oprSize
-  !<ir len
+  !<ir ins.Address len
   !!ir (t1 := dst)
   !!ir (dst := dst >> AST.num1 oprSize)
   !!ir (!.ctxt ZF := dst == (AST.num0 oprSize))
@@ -557,7 +557,7 @@ let branch ins len ctxt =
     | Opcode.BRVC -> !.ctxt VF == AST.b0
     | Opcode.BRVS -> !.ctxt VF == AST.b1
     | _ -> raise InvalidOpcodeException
-  !<ir len
+  !<ir ins.Address len
   let fallThrough = pc .+ numI32PC 2
   let jumpTarget = pc .+ AST.zext 16<rt> dst .+ numI32PC 2
   !!ir (AST.intercjmp branchCond jumpTarget fallThrough)
@@ -566,14 +566,14 @@ let branch ins len ctxt =
 let jmp ins len ctxt =
   let dst = transOneOpr ins ctxt
   let ir = IRBuilder (4)
-  !<ir len
+  !<ir ins.Address len
   !!ir (AST.interjmp dst InterJmpKind.Base)
   !>ir len
 
 let mov ins len ctxt =
   let struct (dst, src) = transTwoOprs ins ctxt
   let ir = IRBuilder (4)
-  !<ir len
+  !<ir ins.Address len
   !!ir (dst := src)
   !>ir len
 
@@ -590,21 +590,21 @@ let movw ins len ctxt =
       struct (dst, dst1, src, src1)
     | _ -> raise InvalidOperandException
   let ir = IRBuilder (4)
-  !<ir len
+  !<ir ins.Address len
   !!ir (dst := src)
   !!ir (dst1 := src1)
   !>ir len
 
-let nop len =
+let nop insAddr len =
   let ir = IRBuilder (2)
-  !<ir len
+  !<ir insAddr len
   !>ir len
 
 let ``or`` ins len ctxt =
   let struct (dst, src) = transTwoOprs ins ctxt
   let oprSize = 8<rt>
   let ir = IRBuilder (4)
-  !<ir len
+  !<ir ins.Address len
   !!ir (dst := dst .| src)
   !!ir (!.ctxt ZF := dst == (AST.num0 oprSize))
   !!ir (!.ctxt NF := AST.xthi 1<rt> dst)
@@ -615,7 +615,7 @@ let ``or`` ins len ctxt =
 let rjmp ins len ctxt =
   let ir = IRBuilder (4)
   let dst = transOneOpr ins ctxt
-  !<ir len
+  !<ir ins.Address len
   !!ir (AST.interjmp (!.ctxt PC .+ dst .+ numI32PC 2)
                       InterJmpKind.Base)
   !>ir len
@@ -625,7 +625,7 @@ let ror ins len ctxt =
   let ir = IRBuilder (16)
   let oprSize = 8<rt>
   let t1 = !+ir oprSize
-  !<ir len
+  !<ir ins.Address len
   !!ir (t1 := dst)
   !!ir (dst := t1 >> AST.num1 oprSize)
   !!ir ( (AST.extract dst 1<rt> 7) := !.ctxt CF)
@@ -641,7 +641,7 @@ let sbc ins len ctxt =
   let ir = IRBuilder (8)
   let oprSize = 8<rt>
   let struct (t1, t2, t3) = tmpVars3 ir oprSize
-  !<ir len
+  !<ir ins.Address len
   !!ir (t1 := dst)
   !!ir (t2 := src)
   !!ir (t3 := t1 .- t2 .- AST.zext 8<rt> (!.ctxt CF))
@@ -668,7 +668,7 @@ let sbiw ins len ctxt =
       let src = imm |> numI32
       struct (dst, dst1, src)
     | _ -> raise InvalidOperandException
-  !<ir len
+  !<ir ins.Address len
   !!ir (t1 := dst1)
   !!ir (t2 := dst)
   !!ir (t3 := (AST.concat t1 t2) .- AST.zext 16<rt> src)
@@ -694,7 +694,7 @@ let sf ins len ctxt =
     | Opcode.SEV -> !.ctxt VF := AST.b1
     | Opcode.SEZ -> !.ctxt ZF := AST.b1
     | _ -> raise InvalidOpcodeException
-  !<ir len
+  !<ir ins.Address len
   !!ir setFlag
   !>ir len
 
@@ -703,7 +703,7 @@ let sub ins len ctxt =
   let ir = IRBuilder (8)
   let oprSize = 8<rt>
   let struct (t1, t2, t3) = tmpVars3 ir oprSize
-  !<ir len
+  !<ir ins.Address len
   !!ir (t1 := dst)
   !!ir (t2 := src)
   !!ir (t3 := t1 .- t2)
@@ -722,7 +722,7 @@ let swap ins len ctxt =
   let dst = transOneOpr ins ctxt
   let ir = IRBuilder (4)
   let t1 = !+ir 8<rt>
-  !<ir len
+  !<ir ins.Address len
   !!ir (t1 := dst)
   !!ir (AST.extract t1 4<rt> 4 := AST.extract dst 4<rt> 0)
   !!ir (AST.extract t1 4<rt> 0 := AST.extract dst 4<rt> 4)
@@ -733,7 +733,7 @@ let lac ins len ctxt =
   let struct (dst, src) = transTwoOprs ins ctxt
   let ir = IRBuilder (4)
   let t1 = !+ir 8<rt>
-  !<ir len
+  !<ir ins.Address len
   !!ir (t1 := AST.loadLE 8<rt> dst)
   !!ir (AST.loadLE 8<rt> dst := (numI32 0xff .- src) .& AST.loadLE 8<rt> dst)
   !!ir (src := t1)
@@ -743,7 +743,7 @@ let las ins len ctxt =
   let struct (dst, src) = transTwoOprs ins ctxt
   let ir = IRBuilder (4)
   let t1 = !+ir 8<rt>
-  !<ir len
+  !<ir ins.Address len
   !!ir (t1 := AST.loadLE 8<rt> dst)
   !!ir (AST.loadLE 8<rt> dst := src .| AST.loadLE 8<rt> dst)
   !!ir (src := t1)
@@ -753,7 +753,7 @@ let lat ins len ctxt =
   let struct (dst, src) = transTwoOprs ins ctxt
   let ir = IRBuilder (4)
   let t1 = !+ir 8<rt>
-  !<ir len
+  !<ir ins.Address len
   !!ir (t1 := AST.loadLE 8<rt> dst)
   !!ir (AST.loadLE 8<rt> dst := src <+> AST.loadLE 8<rt> dst)
   !!ir (src := t1)
@@ -762,7 +762,7 @@ let lat ins len ctxt =
 let ld ins len ctxt =
   let ir = IRBuilder (8)
   let (dst, src, mode) = transMemOprToExpr ins ctxt
-  !<ir len
+  !<ir ins.Address len
   match mode with
   | 0 -> !!ir (dst := AST.loadLE 8<rt> src)
   | 1 ->
@@ -785,7 +785,7 @@ let ld ins len ctxt =
 let ldd ins len ctxt =
   let (dst, src, src1) = transMemOprToExpr1 ins ctxt
   let ir = IRBuilder (8)
-  !<ir len
+  !<ir ins.Address len
   !!ir (dst := AST.loadLE 8<rt> (src .+  src1))
   !>ir len
 
@@ -793,7 +793,7 @@ let pop ins len ctxt =
   let dst = transOneOpr ins ctxt
   let ir = IRBuilder (8)
   let sp = !.ctxt SP
-  !<ir len
+  !<ir ins.Address len
   !!ir (sp := sp .+ AST.num1 16<rt>)
   !!ir (AST.loadLE 8<rt> sp := dst)
   !>ir len
@@ -802,7 +802,7 @@ let push ins len ctxt =
   let dst = transOneOpr ins ctxt
   let ir = IRBuilder (8)
   let sp = !.ctxt SP
-  !<ir len
+  !<ir ins.Address len
   !!ir (AST.loadLE 8<rt> sp := dst)
   !!ir (sp := sp .- AST.num1 16<rt>)
   !>ir len
@@ -810,14 +810,14 @@ let push ins len ctxt =
 let ldi ins len ctxt =
   let struct(dst, src) = transTwoOprs ins ctxt
   let ir = IRBuilder (8)
-  !<ir len
+  !<ir ins.Address len
   !!ir (dst := src)
   !>ir len
 
 let lds ins len ctxt =
   let struct(dst, src) = transTwoOprs ins ctxt
   let ir = IRBuilder (8)
-  !<ir len
+  !<ir ins.Address len
   !!ir (dst := AST.loadLE 8<rt> src)
   !>ir len
 
@@ -826,7 +826,7 @@ let mul ins len ctxt =
   let oprSize = 8<rt>
   let ir = IRBuilder (8)
   let struct (t1, t2, t3) = tmpVars3 ir 16<rt>
-  !<ir len
+  !<ir ins.Address len
   !!ir (t1 := AST.zext 16<rt> dst)
   !!ir (t2 := AST.zext 16<rt> src)
   !!ir (t3 := t1 .* t2)
@@ -841,7 +841,7 @@ let muls ins len ctxt =
   let oprSize = 8<rt>
   let ir = IRBuilder (8)
   let struct (t1, t2, t3) = tmpVars3 ir 16<rt>
-  !<ir len
+  !<ir ins.Address len
   !!ir (t1 := AST.sext 16<rt> dst)
   !!ir (t2 := AST.sext 16<rt> src)
   !!ir (t3 := t1 .* t2)
@@ -856,7 +856,7 @@ let mulsu ins len ctxt =
   let oprSize = 8<rt>
   let ir = IRBuilder (8)
   let struct (t1, t2, t3) = tmpVars3 ir 16<rt>
-  !<ir len
+  !<ir ins.Address len
   !!ir (t1 := AST.sext 16<rt> dst)
   !!ir (t2 := AST.zext 16<rt> src)
   !!ir (t3 := t1 .* t2)
@@ -866,10 +866,10 @@ let mulsu ins len ctxt =
   !!ir (!.ctxt ZF := t3 == AST.num0 16<rt>)
   !>ir len
 
-let ret len opr ctxt =
+let ret insAddr len opr ctxt =
   let sp = !.ctxt SP
   let ir = IRBuilder(8)
-  !<ir len
+  !<ir insAddr len
   !!ir (sp := sp .+ numI32PC 2)
   !!ir (!.ctxt PC := AST.loadLE 16<rt> sp)
   if opr = Opcode.RETI then !!ir (!.ctxt IF := AST.b1)
@@ -880,7 +880,7 @@ let rcall ins len ctxt = (* ADD 22bit PC *)
   let dst = transOneOpr ins ctxt
   let sp = !.ctxt SP
   let pc = !.ctxt PC
-  !<ir len
+  !<ir ins.Address len
   !!ir (pc := pc .+ dst .+ numI32PC 2)
   !!ir (AST.loadLE 16<rt> sp := pc .+ numI32PC 2)
   !!ir (sp := sp .- numI32PC 2)
@@ -889,7 +889,7 @@ let rcall ins len ctxt = (* ADD 22bit PC *)
 let st ins len ctxt =
   let ir = IRBuilder (8)
   let (dst, src, mode) = transMemOprToExpr2 ins ctxt
-  !<ir len
+  !<ir ins.Address len
   match mode with
   | 0 -> !!ir (AST.loadLE 8<rt> dst :=  src)
   | 1 ->
@@ -912,21 +912,21 @@ let st ins len ctxt =
 let std ins len ctxt =
   let (dst, src, disp) = transMemOprToExpr3 ins ctxt
   let ir = IRBuilder (8)
-  !<ir len
+  !<ir ins.Address len
   !!ir (AST.loadLE 8<rt> (dst .+ disp) := src)
   !>ir len
 
 let sts ins len ctxt =
   let struct(dst, src) = transTwoOprs ins ctxt
   let ir = IRBuilder(4)
-  !<ir len
+  !<ir ins.Address len
   !!ir (AST.loadLE 8<rt> (dst) := src)
   !>ir len
 
 let des ins len ctxt =
   let ir = IRBuilder (4)
   let dst = transOneOpr ins ctxt
-  !<ir len
+  !<ir ins.Address len
   !!ir (AST.sideEffect UnsupportedExtension)
   !>ir len
 
@@ -934,7 +934,7 @@ let xch ins len ctxt =
   let ir = IRBuilder (4)
   let struct(dst, src) = transTwoOprs ins ctxt
   let t1 = !+ir 8<rt>
-  !<ir len
+  !<ir ins.Address len
   !!ir (t1 := AST.loadLE 8<rt> dst)
   !!ir (AST.loadLE 8<rt> dst := src)
   !!ir (src := t1)

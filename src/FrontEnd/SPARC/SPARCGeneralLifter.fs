@@ -538,7 +538,7 @@ let add ins insLen ctxt =
   let oprSize = 64<rt>
   let ir = IRBuilder (16)
   let res = !+ir oprSize
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (res := src .+ src1)
   if (dst = getRegVar ctxt Register.G0) then
     !!ir (dst := AST.num0 64<rt>)
@@ -553,7 +553,7 @@ let addcc ins insLen ctxt =
   let res = !+ir oprSize
   let ccr = !.ctxt Register.CCR
   let byte = !+ir 8<rt>
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (res := src .+ src1)
   if (dst = getRegVar ctxt Register.G0) then
     !!ir (dst := AST.num0 64<rt>)
@@ -569,7 +569,7 @@ let addC ins insLen ctxt =
   let ir = IRBuilder (16)
   let res = !+ir oprSize
   let ccr = !.ctxt Register.CCR
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (res := src .+ src1 .+ AST.zext 64<rt> (AST.extract ccr 1<rt> 0))
   if (dst = getRegVar ctxt Register.G0) then
     !!ir (dst := AST.num0 64<rt>)
@@ -584,7 +584,7 @@ let addCcc ins insLen ctxt =
   let res = !+ir oprSize
   let ccr = !.ctxt Register.CCR
   let byte = !+ir 8<rt>
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (res := src .+ src1 .+ AST.zext 64<rt> (AST.extract ccr 1<rt> 0))
   if (dst = getRegVar ctxt Register.G0) then
     !!ir (dst := AST.num0 64<rt>)
@@ -599,7 +599,7 @@ let ``and`` ins insLen ctxt =
   let oprSize = 64<rt>
   let ir = IRBuilder (16)
   let res = !+ir oprSize
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (res := src .& src1)
   if (dst = getRegVar ctxt Register.G0) then
     !!ir (dst := AST.num0 64<rt>)
@@ -614,7 +614,7 @@ let andcc ins insLen ctxt =
   let ccr = !.ctxt Register.CCR
   let res = !+ir oprSize
   let byte = !+ir 8<rt>
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (res := src .& src1)
   if (dst = getRegVar ctxt Register.G0) then
     !!ir (dst := AST.num0 64<rt>)
@@ -629,7 +629,7 @@ let andn ins insLen ctxt =
   let oprSize = 64<rt>
   let ir = IRBuilder (16)
   let res = !+ir oprSize
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (res := src .& (AST.not src1))
   if (dst = getRegVar ctxt Register.G0) then
     !!ir (dst := AST.num0 64<rt>)
@@ -644,7 +644,7 @@ let andncc ins insLen ctxt =
   let ccr = !.ctxt Register.CCR
   let res = !+ir oprSize
   let byte = !+ir 8<rt>
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (res := src .& (AST.not src1))
   if (dst = getRegVar ctxt Register.G0) then
     !!ir (dst := AST.num0 64<rt>)
@@ -659,7 +659,7 @@ let branchpr ins insLen ctxt =
   let oprSize = 64<rt>
   let struct (src, label, an, pr) = transFourOprs ins insLen ctxt
   let pc = !.ctxt Register.PC
-  !<ir insLen
+  !<ir ins.Address insLen
   let branchCond =
     match ins.Opcode with
     | Opcode.BRZ -> (src == AST.num0 oprSize)
@@ -683,7 +683,7 @@ let branchicc ins insLen ctxt =
   let struct (an, label) = transTwoOprs ins insLen ctxt
   let pc = !.ctxt Register.PC
   let ccr = !.ctxt Register.CCR
-  !<ir insLen
+  !<ir ins.Address insLen
   let branchCond =
     match ins.Opcode with
     | Opcode.BA -> (AST.b1)
@@ -731,7 +731,7 @@ let branchpcc ins insLen ctxt =
   let struct (cc, label, an, pr) = transFourOprs ins insLen ctxt
   let pc = !.ctxt Register.PC
   let ccr = !.ctxt Register.CCR
-  !<ir insLen
+  !<ir ins.Address insLen
   let branchCond =
     match ins.Opcode with
     | Opcode.BPA -> (AST.b1)
@@ -830,7 +830,7 @@ let call ins insLen ctxt =
   let dst = transOneOpr ins insLen ctxt
   let sp = !.ctxt Register.O7
   let pc = !.ctxt Register.PC
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (sp := pc)
   !!ir (pc := pc .+ dst)
   !>ir insLen
@@ -839,7 +839,7 @@ let casa ins insLen ctxt =
   let struct (src, asi, src1, dst) = transFourOprs ins insLen ctxt
   let oprSize = 64<rt>
   let ir = IRBuilder (16)
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblL0 = !%ir "L0"
   let lblEnd = !%ir "End"
   let cond = ((AST.extract src1 32<rt> 0) == (AST.loadBE 32<rt> (src .+ asi)))
@@ -855,7 +855,7 @@ let casxa ins insLen ctxt =
   let struct (src, asi, src1, dst) = transFourOprs ins insLen ctxt
   let oprSize = 64<rt>
   let ir = IRBuilder (16)
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblL0 = !%ir "L0"
   let lblEnd = !%ir "End"
   let cond = (src1 == AST.loadBE 64<rt> (src .+ asi))
@@ -868,7 +868,7 @@ let casxa ins insLen ctxt =
 
 let ``done`` ins insLen ctxt =
   let ir = IRBuilder (16)
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (!.ctxt Register.PC := !.ctxt Register.TNPC)
   !!ir (!.ctxt Register.NPC := !.ctxt Register.TNPC .+ numI32PC 4)
   !>ir insLen
@@ -877,7 +877,7 @@ let fabss ins insLen ctxt =
   let struct (src, dst) = transTwoOprs ins insLen ctxt
   let oprSize = 32<rt>
   let ir = IRBuilder (16)
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (AST.extract dst 1<rt> 31 := AST.b0)
   !!ir (AST.extract dst 31<rt> 0 := AST.extract src 31<rt> 0)
   !>ir insLen
@@ -888,7 +888,7 @@ let fabsd ins insLen ctxt =
   let ir = IRBuilder (16)
   let op = !+ir oprSize
   let res = !+ir oprSize
-  !<ir insLen
+  !<ir ins.Address insLen
   getDFloatOp ctxt ir src op
   !!ir (AST.extract res 1<rt> 63 := AST.b0)
   !!ir (AST.extract res 63<rt> 0 := AST.extract op 63<rt> 0)
@@ -903,7 +903,7 @@ let fabsq ins insLen ctxt =
   let op2 = !+ir oprSize
   let res1 = !+ir oprSize
   let res2 = !+ir oprSize
-  !<ir insLen
+  !<ir ins.Address insLen
   getQFloatOp ctxt ir src op1 op2
   !!ir (AST.extract res1 1<rt> 63 := AST.b0)
   !!ir (AST.extract res1 63<rt> 0 := AST.extract op1 63<rt> 0)
@@ -914,21 +914,21 @@ let fabsq ins insLen ctxt =
 let fmovs ins insLen ctxt =
   let struct (src, dst) = transTwoOprs ins insLen ctxt
   let ir = IRBuilder (16)
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (dst := src)
   !>ir insLen
 
 let fmovd ins insLen ctxt =
   let struct (src, dst) = transTwoOprs ins insLen ctxt
   let ir = IRBuilder (16)
-  !<ir insLen
+  !<ir ins.Address insLen
   movFregD ctxt ir src dst
   !>ir insLen
 
 let fmovq ins insLen ctxt =
   let struct (src, dst) = transTwoOprs ins insLen ctxt
   let ir = IRBuilder (16)
-  !<ir insLen
+  !<ir ins.Address insLen
   movFregQ ctxt ir src dst
   !>ir insLen
 
@@ -937,7 +937,7 @@ let fnegs ins insLen ctxt =
   let oprSize = 32<rt>
   let ir = IRBuilder (16)
   let sign = ((AST.extract src 1<rt> 31) <+> (AST.b1))
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (AST.extract dst 1<rt> 31 := sign)
   !!ir (AST.extract dst 31<rt> 0 := AST.extract src 31<rt> 0)
   !>ir insLen
@@ -948,7 +948,7 @@ let fnegd ins insLen ctxt =
   let ir = IRBuilder (16)
   let op = !+ir oprSize
   let res = !+ir oprSize
-  !<ir insLen
+  !<ir ins.Address insLen
   getDFloatOp ctxt ir src op
   let sign = ((AST.extract op 1<rt> 63) <+> (AST.b1))
   !!ir (AST.extract res 1<rt> 63 := sign)
@@ -964,7 +964,7 @@ let fnegq ins insLen ctxt =
   let op2 = !+ir oprSize
   let res1 = !+ir oprSize
   let res2 = !+ir oprSize
-  !<ir insLen
+  !<ir ins.Address insLen
   getQFloatOp ctxt ir src op1 op2
   let sign = ((AST.extract op1 1<rt> 63) <+> (AST.b1))
   !!ir (AST.extract res1 1<rt> 63 := sign)
@@ -991,7 +991,7 @@ let fadds ins insLen ctxt =
   let cond0 = (fsr31 == AST.b0) .& (fsr30 == AST.b0)
   let cond1 = (fsr31 == AST.b0) .& (fsr30 == AST.b1)
   let cond2 = (fsr31 == AST.b1) .& (fsr30 == AST.b0)
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (res := (AST.fadd src src1))
   !!ir (AST.cjmp cond0 (AST.jmpDest lblL0) (AST.jmpDest lblL1))
   !!ir (AST.lmark lblL0)
@@ -1033,7 +1033,7 @@ let faddd ins insLen ctxt =
   let cond0 = (fsr31 == AST.b0) .& (fsr30 == AST.b0)
   let cond1 = (fsr31 == AST.b0) .& (fsr30 == AST.b1)
   let cond2 = (fsr31 == AST.b1) .& (fsr30 == AST.b0)
-  !<ir insLen
+  !<ir ins.Address insLen
   getDFloatOp ctxt ir src op
   getDFloatOp ctxt ir src1 op1
   !!ir (res := (AST.fadd op op1))
@@ -1084,7 +1084,7 @@ let faddq ins insLen ctxt =
   let cond0 = (fsr31 == AST.b0) .& (fsr30 == AST.b0)
   let cond1 = (fsr31 == AST.b0) .& (fsr30 == AST.b1)
   let cond2 = (fsr31 == AST.b1) .& (fsr30 == AST.b0)
-  !<ir insLen
+  !<ir ins.Address insLen
   getQFloatOp ctxt ir src op01 op02
   getQFloatOp ctxt ir src1 op11 op12
   cast128to64 ctxt ir op01 op02 op64
@@ -1139,7 +1139,7 @@ let fbranchfcc ins insLen ctxt =
     | Opcode.FBULE -> (u .| l .| e)
     | Opcode.FBO -> (l .| e .| g)
     | _ -> raise InvalidOpcodeException
-  !<ir insLen
+  !<ir ins.Address insLen
   if (ins.Opcode = Opcode.FBA) then
     let jumpTarget = pc .+ AST.zext 64<rt> label
     !!ir (AST.interjmp jumpTarget InterJmpKind.Base)
@@ -1193,7 +1193,7 @@ let fbranchpfcc ins insLen ctxt =
     | Opcode.FBPULE -> (u .| l .| e)
     | Opcode.FBPO -> (l .| e .| g)
     | _ -> raise InvalidOpcodeException
-  !<ir insLen
+  !<ir ins.Address insLen
   let annoffset =
     if (AST.extract an 1<rt> 0 = AST.b1) then numI32PC 4
     else numI32PC 0
@@ -1219,7 +1219,7 @@ let fcmps ins insLen ctxt =
     else raise InvalidOperandException
   let op = AST.extract src 32<rt> 0
   let op1 = AST.extract src1 32<rt> 0
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblL0 = !%ir "L0"
   let lblL1 = !%ir "L1"
   let lblL2 = !%ir "L2"
@@ -1273,7 +1273,7 @@ let fcmpd ins insLen ctxt =
   let lblL4 = !%ir "L4"
   let lblL5 = !%ir "L5"
   let lblEnd = !%ir "End"
-  !<ir insLen
+  !<ir ins.Address insLen
   getDFloatOp ctxt ir src op
   getDFloatOp ctxt ir src1 op1
   let cond0 = (AST.feq op op1)
@@ -1326,7 +1326,7 @@ let fcmpq ins insLen ctxt =
   let lblL4 = !%ir "L4"
   let lblL5 = !%ir "L5"
   let lblEnd = !%ir "End"
-  !<ir insLen
+  !<ir ins.Address insLen
   getQFloatOp ctxt ir src op01 op02
   getQFloatOp ctxt ir src1 op11 op12
   cast128to64 ctxt ir op01 op02 op64
@@ -1372,7 +1372,7 @@ let fdivs ins insLen ctxt =
   let cond0 = (fsr31 == AST.b0) .& (fsr30 == AST.b0)
   let cond1 = (fsr31 == AST.b0) .& (fsr30 == AST.b1)
   let cond2 = (fsr31 == AST.b1) .& (fsr30 == AST.b0)
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (res := (AST.fdiv src src1))
   !!ir (AST.cjmp cond0 (AST.jmpDest lblL0) (AST.jmpDest lblL1))
   !!ir (AST.lmark lblL0)
@@ -1414,7 +1414,7 @@ let fdivd ins insLen ctxt =
   let cond0 = (fsr31 == AST.b0) .& (fsr30 == AST.b0)
   let cond1 = (fsr31 == AST.b0) .& (fsr30 == AST.b1)
   let cond2 = (fsr31 == AST.b1) .& (fsr30 == AST.b0)
-  !<ir insLen
+  !<ir ins.Address insLen
   getDFloatOp ctxt ir src op
   getDFloatOp ctxt ir src1 op1
   !!ir (res := (AST.fdiv op op1))
@@ -1465,7 +1465,7 @@ let fdivq ins insLen ctxt =
   let cond0 = (fsr31 == AST.b0) .& (fsr30 == AST.b0)
   let cond1 = (fsr31 == AST.b0) .& (fsr30 == AST.b1)
   let cond2 = (fsr31 == AST.b1) .& (fsr30 == AST.b0)
-  !<ir insLen
+  !<ir ins.Address insLen
   getQFloatOp ctxt ir src op01 op02
   getQFloatOp ctxt ir src1 op11 op12
   cast128to64 ctxt ir op01 op02 op64
@@ -1523,7 +1523,7 @@ let fmovscc ins insLen ctxt =
     | Opcode.FMOVsVC -> (v == AST.b0)
     | Opcode.FMOVsVS -> (n == AST.b1)
     | _ -> raise InvalidOpcodeException
-  !<ir insLen
+  !<ir ins.Address insLen
   if (ins.Opcode = Opcode.FMOVsA) then
     !!ir (fdst := fsrc)
     !>ir insLen
@@ -1565,7 +1565,7 @@ let fmovdcc ins insLen ctxt =
     | _ -> raise InvalidOpcodeException
   let lblL0 = !%ir "L0"
   let lblEnd = !%ir "End"
-  !<ir insLen
+  !<ir ins.Address insLen
   if (ins.Opcode = Opcode.FMOVdA) then
     movFregD ctxt ir fsrc fdst
     !>ir insLen
@@ -1611,7 +1611,7 @@ let fmovqcc ins insLen ctxt =
     | _ -> raise InvalidOpcodeException
   let lblL0 = !%ir "L0"
   let lblEnd = !%ir "End"
-  !<ir insLen
+  !<ir ins.Address insLen
   if (ins.Opcode = Opcode.FMOVqA) then
     movFregQ ctxt ir fsrc fdst
     !>ir insLen
@@ -1660,7 +1660,7 @@ let fmovfscc ins insLen ctxt =
     | Opcode.FMOVFsULE -> (u .| l .| e)
     | Opcode.FMOVFsO -> (e .|l .| g)
     | _ -> raise InvalidOpcodeException
-  !<ir insLen
+  !<ir ins.Address insLen
   if (ins.Opcode = Opcode.FMOVFsA) then
     !!ir (fdst := fsrc)
     !>ir insLen
@@ -1708,7 +1708,7 @@ let fmovfdcc ins insLen ctxt =
     | _ -> raise InvalidOpcodeException
   let lblL0 = !%ir "L0"
   let lblEnd = !%ir "End"
-  !<ir insLen
+  !<ir ins.Address insLen
   if (ins.Opcode = Opcode.FMOVFdA) then
     movFregD ctxt ir fsrc fdst
     !>ir insLen
@@ -1759,7 +1759,7 @@ let fmovfqcc ins insLen ctxt =
     | _ -> raise InvalidOpcodeException
   let lblL0 = !%ir "L0"
   let lblEnd = !%ir "End"
-  !<ir insLen
+  !<ir ins.Address insLen
   if (ins.Opcode = Opcode.FMOVFqA) then
     movFregQ ctxt ir fsrc fdst
     !>ir insLen
@@ -1776,7 +1776,7 @@ let fmovrs ins insLen ctxt =
   let struct (src, fsrc, fdst) = transThreeOprs ins insLen ctxt
   let oprSize = 64<rt>
   let ir = IRBuilder (16)
-  !<ir insLen
+  !<ir ins.Address insLen
   match ins.Opcode with
   | Opcode.FMOVRsZ ->
     !!ir (fdst := AST.ite (src == AST.num0 oprSize) (fsrc) (fdst))
@@ -1814,7 +1814,7 @@ let fmovrd ins insLen ctxt =
     | _ -> raise InvalidOpcodeException
   let lblL0 = !%ir "L0"
   let lblEnd = !%ir "End"
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (AST.cjmp (cond) (AST.jmpDest lblL0) (AST.jmpDest lblEnd))
   !!ir (AST.lmark lblL0)
   movFregD ctxt ir fsrc fdst
@@ -1842,7 +1842,7 @@ let fmovrq ins insLen ctxt =
     | _ -> raise InvalidOpcodeException
   let lblL0 = !%ir "L0"
   let lblEnd = !%ir "End"
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (AST.cjmp (cond) (AST.jmpDest lblL0) (AST.jmpDest lblEnd))
   !!ir (AST.lmark lblL0)
   movFregQ ctxt ir fsrc fdst
@@ -1867,7 +1867,7 @@ let fmuls ins insLen ctxt =
   let cond0 = (fsr31 == AST.b0) .& (fsr30 == AST.b0)
   let cond1 = (fsr31 == AST.b0) .& (fsr30 == AST.b1)
   let cond2 = (fsr31 == AST.b1) .& (fsr30 == AST.b0)
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (res := (AST.fmul src src1))
   !!ir (AST.cjmp cond0 (AST.jmpDest lblL0) (AST.jmpDest lblL1))
   !!ir (AST.lmark lblL0)
@@ -1909,7 +1909,7 @@ let fmuld ins insLen ctxt =
   let cond0 = (fsr31 == AST.b0) .& (fsr30 == AST.b0)
   let cond1 = (fsr31 == AST.b0) .& (fsr30 == AST.b1)
   let cond2 = (fsr31 == AST.b1) .& (fsr30 == AST.b0)
-  !<ir insLen
+  !<ir ins.Address insLen
   getDFloatOp ctxt ir src op
   getDFloatOp ctxt ir src1 op1
   !!ir (res := (AST.fmul op op1))
@@ -1960,7 +1960,7 @@ let fmulq ins insLen ctxt =
   let cond0 = (fsr31 == AST.b0) .& (fsr30 == AST.b0)
   let cond1 = (fsr31 == AST.b0) .& (fsr30 == AST.b1)
   let cond2 = (fsr31 == AST.b1) .& (fsr30 == AST.b0)
-  !<ir insLen
+  !<ir ins.Address insLen
   getQFloatOp ctxt ir src op01 op02
   getQFloatOp ctxt ir src1 op11 op12
   cast128to64 ctxt ir op01 op02 op64
@@ -2006,7 +2006,7 @@ let fsmuld ins insLen ctxt =
   let cond0 = (fsr31 == AST.b0) .& (fsr30 == AST.b0)
   let cond1 = (fsr31 == AST.b0) .& (fsr30 == AST.b1)
   let cond2 = (fsr31 == AST.b1) .& (fsr30 == AST.b0)
-  !<ir insLen
+  !<ir ins.Address insLen
   let op1 = AST.cast CastKind.FloatCast 64<rt> src
   let op2 = AST.cast CastKind.FloatCast 64<rt> src1
   !!ir (res := (AST.fmul op1 op2))
@@ -2053,7 +2053,7 @@ let fdmulq ins insLen ctxt =
   let cond0 = (fsr31 == AST.b0) .& (fsr30 == AST.b0)
   let cond1 = (fsr31 == AST.b0) .& (fsr30 == AST.b1)
   let cond2 = (fsr31 == AST.b1) .& (fsr30 == AST.b0)
-  !<ir insLen
+  !<ir ins.Address insLen
   getDFloatOp ctxt ir src op
   getDFloatOp ctxt ir src1 op1
   !!ir (res := (AST.fmul op op1))
@@ -2096,7 +2096,7 @@ let fsqrts ins insLen ctxt =
   let cond0 = (fsr31 == AST.b0) .& (fsr30 == AST.b0)
   let cond1 = (fsr31 == AST.b0) .& (fsr30 == AST.b1)
   let cond2 = (fsr31 == AST.b1) .& (fsr30 == AST.b0)
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (res := (AST.fsqrt src))
   !!ir (AST.cjmp cond0 (AST.jmpDest lblL0) (AST.jmpDest lblL1))
   !!ir (AST.lmark lblL0)
@@ -2137,7 +2137,7 @@ let fsqrtd ins insLen ctxt =
   let cond0 = (fsr31 == AST.b0) .& (fsr30 == AST.b0)
   let cond1 = (fsr31 == AST.b0) .& (fsr30 == AST.b1)
   let cond2 = (fsr31 == AST.b1) .& (fsr30 == AST.b0)
-  !<ir insLen
+  !<ir ins.Address insLen
   getDFloatOp ctxt ir src op
   !!ir (res := (AST.fsqrt op))
   !!ir (AST.cjmp cond0 (AST.jmpDest lblL0) (AST.jmpDest lblL1))
@@ -2184,7 +2184,7 @@ let fsqrtq ins insLen ctxt =
   let cond0 = (fsr31 == AST.b0) .& (fsr30 == AST.b0)
   let cond1 = (fsr31 == AST.b0) .& (fsr30 == AST.b1)
   let cond2 = (fsr31 == AST.b1) .& (fsr30 == AST.b0)
-  !<ir insLen
+  !<ir ins.Address insLen
   getQFloatOp ctxt ir src op01 op02
   cast128to64 ctxt ir op01 op02 op64
   !!ir (res64 := (AST.fsqrt op64))
@@ -2214,7 +2214,7 @@ let fstox ins insLen ctxt =
   let oprSize = 64<rt>
   let ir = IRBuilder (16)
   let cst = !+ir oprSize
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (cst := AST.cast CastKind.FtoITrunc oprSize src)
   setDFloatOp ctxt ir dst cst
   !>ir insLen
@@ -2225,7 +2225,7 @@ let fdtox ins insLen ctxt =
   let ir = IRBuilder (16)
   let op = !+ir oprSize
   let cst = !+ir oprSize
-  !<ir insLen
+  !<ir ins.Address insLen
   getDFloatOp ctxt ir src op
   !!ir (cst := AST.cast CastKind.FtoITrunc oprSize op)
   setDFloatOp ctxt ir dst cst
@@ -2240,7 +2240,7 @@ let fqtox ins insLen ctxt =
   let op2 = !+ir regSize
   let op64 = !+ir regSize
   let cst = !+ir oprSize
-  !<ir insLen
+  !<ir ins.Address insLen
   getQFloatOp ctxt ir src op1 op2
   cast128to64 ctxt ir op1 op2 op64
   !!ir (cst := AST.cast CastKind.FtoITrunc oprSize op64)
@@ -2252,7 +2252,7 @@ let fstoi ins insLen ctxt =
   let oprSize = 32<rt>
   let ir = IRBuilder (16)
   let cst = !+ir oprSize
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (dst := AST.cast CastKind.FtoITrunc oprSize src)
   !>ir insLen
 
@@ -2263,7 +2263,7 @@ let fdtoi ins insLen ctxt =
   let ir = IRBuilder (16)
   let op = !+ir oprSize
   let cst = !+ir regSize
-  !<ir insLen
+  !<ir ins.Address insLen
   getDFloatOp ctxt ir src op
   !!ir (dst := AST.cast CastKind.FtoITrunc regSize op)
   !>ir insLen
@@ -2277,7 +2277,7 @@ let fqtoi ins insLen ctxt =
   let op2 = !+ir regSize
   let op64 = !+ir regSize
   let cst = !+ir oprSize
-  !<ir insLen
+  !<ir ins.Address insLen
   getQFloatOp ctxt ir src op1 op2
   cast128to64 ctxt ir op1 op2 op64
   !!ir (dst := AST.cast CastKind.FtoITrunc oprSize op64)
@@ -2303,7 +2303,7 @@ let fstod ins insLen ctxt =
   let cond0 = (fsr31 == AST.b0) .& (fsr30 == AST.b0)
   let cond1 = (fsr31 == AST.b0) .& (fsr30 == AST.b1)
   let cond2 = (fsr31 == AST.b1) .& (fsr30 == AST.b0)
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (res := AST.cast CastKind.FloatCast oprSize src)
   !!ir (AST.cjmp cond0 (AST.jmpDest lblL0) (AST.jmpDest lblL1))
   !!ir (AST.lmark lblL0)
@@ -2347,7 +2347,7 @@ let fstoq ins insLen ctxt =
   let cond0 = (fsr31 == AST.b0) .& (fsr30 == AST.b0)
   let cond1 = (fsr31 == AST.b0) .& (fsr30 == AST.b1)
   let cond2 = (fsr31 == AST.b1) .& (fsr30 == AST.b0)
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (res64 := AST.cast CastKind.FloatCast oprSize src)
   !!ir (AST.cjmp cond0 (AST.jmpDest lblL0) (AST.jmpDest lblL1))
   !!ir (AST.lmark lblL0)
@@ -2374,28 +2374,28 @@ let fdtos ins insLen ctxt =
   let struct (src, dst) = transTwoOprs ins insLen ctxt
   let oprSize = 64<rt>
   let ir = IRBuilder (16)
-  !<ir insLen
+  !<ir ins.Address insLen
   !>ir insLen
 
 let fdtoq ins insLen ctxt =
   let struct (src, dst) = transTwoOprs ins insLen ctxt
   let oprSize = 64<rt>
   let ir = IRBuilder (16)
-  !<ir insLen
+  !<ir ins.Address insLen
   !>ir insLen
 
 let fqtos ins insLen ctxt =
   let struct (src, dst) = transTwoOprs ins insLen ctxt
   let oprSize = 64<rt>
   let ir = IRBuilder (16)
-  !<ir insLen
+  !<ir ins.Address insLen
   !>ir insLen
 
 let fqtod ins insLen ctxt =
   let struct (src, dst) = transTwoOprs ins insLen ctxt
   let oprSize = 64<rt>
   let ir = IRBuilder (16)
-  !<ir insLen
+  !<ir ins.Address insLen
   !>ir insLen
 
 let fsubs ins insLen ctxt =
@@ -2416,7 +2416,7 @@ let fsubs ins insLen ctxt =
   let cond0 = (fsr31 == AST.b0) .& (fsr30 == AST.b0)
   let cond1 = (fsr31 == AST.b0) .& (fsr30 == AST.b1)
   let cond2 = (fsr31 == AST.b1) .& (fsr30 == AST.b0)
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (res := (AST.fsub src src1))
   !!ir (AST.cjmp cond0 (AST.jmpDest lblL0) (AST.jmpDest lblL1))
   !!ir (AST.lmark lblL0)
@@ -2458,7 +2458,7 @@ let fsubd ins insLen ctxt =
   let cond0 = (fsr31 == AST.b0) .& (fsr30 == AST.b0)
   let cond1 = (fsr31 == AST.b0) .& (fsr30 == AST.b1)
   let cond2 = (fsr31 == AST.b1) .& (fsr30 == AST.b0)
-  !<ir insLen
+  !<ir ins.Address insLen
   getDFloatOp ctxt ir src op
   getDFloatOp ctxt ir src1 op1
   !!ir (res := (AST.fsub op op1))
@@ -2509,7 +2509,7 @@ let fsubq ins insLen ctxt =
   let cond0 = (fsr31 == AST.b0) .& (fsr30 == AST.b0)
   let cond1 = (fsr31 == AST.b0) .& (fsr30 == AST.b1)
   let cond2 = (fsr31 == AST.b1) .& (fsr30 == AST.b0)
-  !<ir insLen
+  !<ir ins.Address insLen
   getQFloatOp ctxt ir src op01 op02
   getQFloatOp ctxt ir src1 op11 op12
   cast128to64 ctxt ir op01 op02 op64
@@ -2556,7 +2556,7 @@ let fxtos ins insLen ctxt =
   let cond0 = (fsr31 == AST.b0) .& (fsr30 == AST.b0)
   let cond1 = (fsr31 == AST.b0) .& (fsr30 == AST.b1)
   let cond2 = (fsr31 == AST.b1) .& (fsr30 == AST.b0)
-  !<ir insLen
+  !<ir ins.Address insLen
   getDFloatOp ctxt ir src op
   !!ir (res := (AST.cast CastKind.SIntToFloat oprSize op))
   !!ir (AST.cjmp cond0 (AST.jmpDest lblL0) (AST.jmpDest lblL1))
@@ -2597,7 +2597,7 @@ let fitos ins insLen ctxt =
   let cond0 = (fsr31 == AST.b0) .& (fsr30 == AST.b0)
   let cond1 = (fsr31 == AST.b0) .& (fsr30 == AST.b1)
   let cond2 = (fsr31 == AST.b1) .& (fsr30 == AST.b0)
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (res := AST.cast CastKind.SIntToFloat oprSize src)
   !!ir (AST.cjmp cond0 (AST.jmpDest lblL0) (AST.jmpDest lblL1))
   !!ir (AST.lmark lblL0)
@@ -2638,7 +2638,7 @@ let fxtod ins insLen ctxt =
   let cond0 = (fsr31 == AST.b0) .& (fsr30 == AST.b0)
   let cond1 = (fsr31 == AST.b0) .& (fsr30 == AST.b1)
   let cond2 = (fsr31 == AST.b1) .& (fsr30 == AST.b0)
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (res := AST.cast CastKind.SIntToFloat oprSize src)
   !!ir (AST.cjmp cond0 (AST.jmpDest lblL0) (AST.jmpDest lblL1))
   !!ir (AST.lmark lblL0)
@@ -2665,7 +2665,7 @@ let fitod ins insLen ctxt =
   let oprSize = 64<rt>
   let ir = IRBuilder (16)
   let rounded = !+ir oprSize
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (rounded := AST.cast CastKind.SIntToFloat 64<rt> src)
   setDFloatOp ctxt ir dst rounded
   !>ir insLen
@@ -2679,7 +2679,7 @@ let fxtoq ins insLen ctxt =
   let rounded = !+ir 64<rt>
   let res1 = !+ir oprSize
   let res2 = !+ir oprSize
-  !<ir insLen
+  !<ir ins.Address insLen
   getDFloatOp ctxt ir src op
   !!ir (rounded := AST.cast CastKind.SIntToFloat 64<rt> op)
   cast64To128 ctxt ir rounded res1 res2
@@ -2693,7 +2693,7 @@ let fitoq ins insLen ctxt =
   let rounded = !+ir 64<rt>
   let res1 = !+ir oprSize
   let res2 = !+ir oprSize
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (rounded := AST.cast CastKind.SIntToFloat oprSize src)
   cast64To128 ctxt ir rounded res1 res2
   setQFloatOp ctxt ir dst res1 res2
@@ -2704,7 +2704,7 @@ let jmpl ins insLen ctxt =
   let oprSize = 64<rt>
   let ir = IRBuilder (16)
   let t1 = !+ir oprSize
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (AST.jmp addr)
   !!ir (dst := !.ctxt Register.PC)
   !>ir insLen
@@ -2713,7 +2713,7 @@ let ldf ins insLen ctxt =
   let struct (addr, dst) = transAddrThreeOprs ins insLen ctxt
   let oprSize = 64<rt>
   let ir = IRBuilder (16)
-  !<ir insLen
+  !<ir ins.Address insLen
   match ins.Opcode with
   | Opcode.LDF -> !!ir (dst := (AST.loadBE 32<rt> addr))
   | Opcode.LDDF ->
@@ -2736,7 +2736,7 @@ let ldfa ins insLen ctxt =
   let struct (addr, asi, dst) = transAddrFourOprs ins insLen ctxt
   let oprSize = 64<rt>
   let ir = IRBuilder (16)
-  !<ir insLen
+  !<ir ins.Address insLen
   match ins.Opcode with
   | Opcode.LDFA -> !!ir (dst := (AST.loadBE 32<rt> (addr .+ asi)))
   | Opcode.LDDFA ->
@@ -2756,7 +2756,7 @@ let ld ins insLen ctxt =
   let struct (addr, dst) = transAddrThreeOprs ins insLen ctxt
   let oprSize = 64<rt>
   let ir = IRBuilder (16)
-  !<ir insLen
+  !<ir ins.Address insLen
   match ins.Opcode with
   | Opcode.LDSB -> !!ir (dst := (AST.sext oprSize (AST.loadBE 8<rt> addr)))
   | Opcode.LDSH -> !!ir (dst := (AST.sext oprSize (AST.loadBE 16<rt> addr)))
@@ -2783,7 +2783,7 @@ let lda ins insLen ctxt =
   let struct (src, src1, asi, dst) = transFourOprs ins insLen ctxt
   let oprSize = 64<rt>
   let ir = IRBuilder (16)
-  !<ir insLen
+  !<ir ins.Address insLen
   let addr = src .+ src1
   match ins.Opcode with
   | Opcode.LDSBA -> !!ir (dst := (AST.sext oprSize
@@ -2817,7 +2817,7 @@ let ldstub ins insLen ctxt =
   let struct (addr, dst) = transAddrThreeOprs ins insLen ctxt
   let oprSize = 64<rt>
   let ir = IRBuilder (16)
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (dst := (AST.zext oprSize (AST.loadBE 8<rt> addr)))
   !!ir ((AST.loadBE 8<rt> addr) := (numI32 0xff 8<rt>))
   !>ir insLen
@@ -2826,7 +2826,7 @@ let ldstuba ins insLen ctxt =
   let struct (src, src1, asi, dst) = transFourOprs ins insLen ctxt
   let oprSize = 64<rt>
   let ir = IRBuilder (16)
-  !<ir insLen
+  !<ir ins.Address insLen
   let addr = src .+ src1
   !!ir (dst := (AST.zext oprSize (AST.loadBE 8<rt> (addr .+ asi))))
   !!ir ((AST.loadBE 8<rt> (addr .+ asi)) := (numI32 0xff 8<rt>))
@@ -2837,7 +2837,7 @@ let membar ins insLen ctxt = (* FIXME *)
   let oprSize = 64<rt>
   let ir = IRBuilder (16)
   let t1 = !+ir oprSize
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (t1 := mask)
   !>ir insLen
 
@@ -2847,7 +2847,7 @@ let movcc ins insLen ctxt =
   let ir = IRBuilder (16)
   let ccr = getRegVar ctxt Register.CCR
   let fsr = getRegVar ctxt Register.FSR
-  !<ir insLen
+  !<ir ins.Address insLen
   if (dst <> getRegVar ctxt Register.G0) then
     match ins.Opcode with
       | Opcode.MOVA | Opcode.MOVFA ->
@@ -3241,7 +3241,7 @@ let movr ins insLen ctxt = (* TODO : check that destination is not g0*)
   let struct (src, src1, dst) = transThreeOprs ins insLen ctxt
   let oprSize = 64<rt>
   let ir = IRBuilder (16)
-  !<ir insLen
+  !<ir ins.Address insLen
   match ins.Opcode with
   | Opcode.MOVRZ ->
     !!ir (dst := AST.ite (src == AST.num0 oprSize) (src1) (dst))
@@ -3268,7 +3268,7 @@ let mulscc ins insLen ctxt =
   let ccr = !.ctxt Register.CCR
   let src2 = !+ir 32<rt>
   let hbyte = !+ir 4<rt>
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (src32 := AST.concat ((AST.extract ccr 1<rt> 3) <+>
     (AST.extract ccr 1<rt> 1)) (AST.extract src 31<rt> 1))
   !!ir (src2 := AST.ite ((AST.extract y 1<rt> 0) == AST.b0)
@@ -3286,16 +3286,16 @@ let mulx ins insLen ctxt =
   let struct (src, src1, dst) = transThreeOprs ins insLen ctxt
   let oprSize = 64<rt>
   let ir = IRBuilder (16)
-  !<ir insLen
+  !<ir ins.Address insLen
   if (dst = getRegVar ctxt Register.G0) then
     !!ir (dst := AST.num0 64<rt>)
   else
     !!ir (dst := src .* src1)
   !>ir insLen
 
-let nop insLen =
+let nop ins insLen =
   let ir = IRBuilder (16)
-  !<ir insLen
+  !<ir ins.Address insLen
   !>ir insLen
 
 let ``or`` ins insLen ctxt =
@@ -3303,7 +3303,7 @@ let ``or`` ins insLen ctxt =
   let oprSize = 64<rt>
   let ir = IRBuilder (16)
   let res = !+ir oprSize
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (res := src .| src1)
   if (dst = getRegVar ctxt Register.G0) then
     !!ir (dst := AST.num0 64<rt>)
@@ -3319,7 +3319,7 @@ let orcc ins insLen ctxt =
   let res = !+ir oprSize
   let ccr = !.ctxt Register.CCR
   let byte = !+ir 8<rt>
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (res := src .| src1)
   if (dst = getRegVar ctxt Register.G0) then
     !!ir (dst := AST.num0 64<rt>)
@@ -3334,7 +3334,7 @@ let orn ins insLen ctxt =
   let oprSize = 64<rt>
   let ir = IRBuilder (16)
   let res = !+ir oprSize
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (res := (src .| AST.not (src1)))
   if (dst = getRegVar ctxt Register.G0) then
     !!ir (dst := AST.num0 64<rt>)
@@ -3349,7 +3349,7 @@ let orncc ins insLen ctxt =
   let res = !+ir oprSize
   let ccr = !.ctxt Register.CCR
   let byte = !+ir 8<rt>
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (res := (src .| AST.not (src1)))
   if (dst = getRegVar ctxt Register.G0) then
     !!ir (dst := AST.num0 64<rt>)
@@ -3368,7 +3368,7 @@ let popc ins insLen ctxt =
   let lblExit = ir.NewSymbol "Exit"
   let lblLoopCond = ir.NewSymbol "LoopCond"
   let struct (i, count) = tmpVars2 ir oprSize
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (i := AST.num0 oprSize)
   !!ir (count := AST.num0 oprSize)
   !!ir (AST.lmark lblLoopCond)
@@ -3386,7 +3386,7 @@ let rd ins insLen ctxt =
   let struct (reg, dst) = transTwoOprs ins insLen ctxt
   let oprSize = 64<rt>
   let ir = IRBuilder (16)
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (dst := reg)
   !>ir insLen
 
@@ -3394,7 +3394,7 @@ let restore ins insLen ctxt =
   let struct (src, src1, dst) = transThreeOprs ins insLen ctxt
   let oprSize = 64<rt>
   let ir = IRBuilder (16)
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (dst := src .+ src1)
   !>ir insLen
 
@@ -3403,7 +3403,7 @@ let restored ins insLen ctxt =
   let cs = getRegVar ctxt Register.CANSAVE
   let cr = getRegVar ctxt Register.CANRESTORE
   let ow = getRegVar ctxt Register.OTHERWIN
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (cs := (cs .+ AST.num1 64<rt>))
   let lblL0 = !%ir "L0"
   let lblEnd = !%ir "End"
@@ -3419,13 +3419,13 @@ let restored ins insLen ctxt =
 let ret ins insLen ctxt =
   let struct (src, src1) = transTwoOprs ins insLen ctxt
   let ir = IRBuilder (16)
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (!.ctxt Register.PC := (src .+ src1))
   !>ir insLen
 
 let retry ins insLen ctxt =
   let ir = IRBuilder (16)
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (!.ctxt Register.PC := !.ctxt Register.TPC)
   !!ir (!.ctxt Register.NPC := !.ctxt Register.TNPC)
   !>ir insLen
@@ -3434,7 +3434,7 @@ let save ins insLen ctxt =
   let struct (src, src1, dst) = transThreeOprs ins insLen ctxt
   let oprSize = 64<rt>
   let ir = IRBuilder (16)
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (dst := src .+ src1)
   !>ir insLen
 
@@ -3443,7 +3443,7 @@ let saved ins insLen ctxt =
   let cs = getRegVar ctxt Register.CANSAVE
   let cr = getRegVar ctxt Register.CANRESTORE
   let ow = getRegVar ctxt Register.OTHERWIN
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (cs := (cs .+ AST.num1 64<rt>))
   let lblL0 = !%ir "L0"
   let lblEnd = !%ir "End"
@@ -3468,7 +3468,7 @@ let sdiv ins insLen ctxt =
   let quotient = !+ir 64<rt>
   let y = getRegVar ctxt Register.Y
   let ccr = getRegVar ctxt Register.CCR
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (divisor := AST.extract src1 32<rt> 0)
   !!ir (dividend := AST.concat (AST.extract y 32<rt> 0)
     (AST.extract src 32<rt> 0))
@@ -3516,7 +3516,7 @@ let sdivcc ins insLen ctxt =
   let quotient = !+ir 64<rt>
   let y = getRegVar ctxt Register.Y
   let ccr = getRegVar ctxt Register.CCR
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (divisor := AST.extract src1 32<rt> 0)
   !!ir (dividend := AST.concat (AST.extract y 32<rt> 0)
     (AST.extract src 32<rt> 0))
@@ -3560,7 +3560,7 @@ let sdivx ins insLen ctxt =
   let lblL0 = !%ir "L0"
   let lblL1 = !%ir "L1"
   let lblEnd = !%ir "End"
-  !<ir insLen
+  !<ir ins.Address insLen
   if (src1 = AST.num0 64<rt> || src1  = getRegVar ctxt Register.G0) then
     !!ir (AST.sideEffect (Exception "Division by zero exception"))
   elif (isRegOpr ins insLen ctxt) then
@@ -3585,7 +3585,7 @@ let sethi ins insLen ctxt =
   let struct (imm, dst) = transTwoOprs ins insLen ctxt
   let oprSize = 64<rt>
   let ir = IRBuilder (16)
-  !<ir insLen
+  !<ir ins.Address insLen
   if (dst <> getRegVar ctxt Register.G0) then
     !!ir (dst := AST.concat (AST.zext 32<rt> AST.b0)
       (AST.extract imm 32<rt> 0))
@@ -3595,7 +3595,7 @@ let sll ins insLen ctxt =
   let struct (src, src1, dst) = transThreeOprs ins insLen ctxt
   let oprSize = 64<rt>
   let ir = IRBuilder (16)
-  !<ir insLen
+  !<ir ins.Address insLen
   if (dst = getRegVar ctxt Register.G0) then
     !!ir (dst := AST.num0 64<rt>)
   else
@@ -3607,7 +3607,7 @@ let smul ins insLen ctxt =
   let yreg  = getRegVar ctxt Register.Y
   let oprSize = 64<rt>
   let ir = IRBuilder (16)
-  !<ir insLen
+  !<ir ins.Address insLen
   if (dst = getRegVar ctxt Register.G0) then
     !!ir (dst := AST.num0 64<rt>)
   else
@@ -3624,7 +3624,7 @@ let smulcc ins insLen ctxt =
   let ccr  = getRegVar ctxt Register.CCR
   let oprSize = 64<rt>
   let byte = !+ir 8<rt>
-  !<ir insLen
+  !<ir ins.Address insLen
   if (dst = getRegVar ctxt Register.G0) then
     !!ir (dst := AST.num0 64<rt>)
   else
@@ -3640,7 +3640,7 @@ let sra ins insLen ctxt =
   let struct (src, src1, dst) = transThreeOprs ins insLen ctxt
   let oprSize = 64<rt>
   let ir = IRBuilder (16)
-  !<ir insLen
+  !<ir ins.Address insLen
   if (dst = getRegVar ctxt Register.G0) then
     !!ir (dst := AST.num0 64<rt>)
   else
@@ -3651,7 +3651,7 @@ let srl ins insLen ctxt =
   let struct (src, src1, dst) = transThreeOprs ins insLen ctxt
   let oprSize = 64<rt>
   let ir = IRBuilder (16)
-  !<ir insLen
+  !<ir ins.Address insLen
   if (dst = getRegVar ctxt Register.G0) then
     !!ir (dst := AST.num0 64<rt>)
   else
@@ -3662,7 +3662,7 @@ let st ins insLen ctxt =
   let struct (src, addr) = transTwooprsAddr ins insLen ctxt
   let oprSize = 64<rt>
   let ir = IRBuilder (16)
-  !<ir insLen
+  !<ir ins.Address insLen
   match ins.Opcode with
   | Opcode.STB -> !!ir ((AST.loadBE 8<rt> addr) := (AST.extract src 8<rt> 0))
   | Opcode.STH -> !!ir ((AST.loadBE 16<rt> addr) := (AST.extract src 16<rt> 0))
@@ -3684,7 +3684,7 @@ let sta ins insLen ctxt =
   let struct (src, src1, asi, dst) = transFourOprs ins insLen ctxt
   let oprSize = 64<rt>
   let ir = IRBuilder (16)
-  !<ir insLen
+  !<ir ins.Address insLen
   let addr = src .+ src1
   match ins.Opcode with
   | Opcode.STBA -> !!ir ((AST.loadBE 8<rt> (addr .+ asi))
@@ -3711,7 +3711,7 @@ let stf ins insLen ctxt =
   let struct (src, addr) = transTwooprsAddr ins insLen ctxt
   let oprSize = 64<rt>
   let ir = IRBuilder (16)
-  !<ir insLen
+  !<ir ins.Address insLen
   match ins.Opcode with
   | Opcode.STF -> !!ir ((AST.loadBE 32<rt> addr) := (AST.extract src 32<rt> 0))
   | Opcode.STDF ->
@@ -3736,7 +3736,7 @@ let stfa ins insLen ctxt =
   let struct (src, src1, asi, dst) = transFourOprs ins insLen ctxt
   let oprSize = 64<rt>
   let ir = IRBuilder (16)
-  !<ir insLen
+  !<ir ins.Address insLen
   let addr = dst .+ src1 .+ asi
   match ins.Opcode with
   | Opcode.STFA -> !!ir ((AST.loadBE 32<rt> (addr)) :=
@@ -3761,7 +3761,7 @@ let sub ins insLen ctxt =
   let oprSize = 64<rt>
   let ir = IRBuilder (16)
   let res = !+ir oprSize
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (res := src .- src1)
   if (dst = getRegVar ctxt Register.G0) then
     !!ir (dst := AST.num0 64<rt>)
@@ -3776,7 +3776,7 @@ let subcc ins insLen ctxt =
   let res = !+ir oprSize
   let ccr = !.ctxt Register.CCR
   let byte = !+ir 8<rt>
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (res := src .- src1)
   if (dst = getRegVar ctxt Register.G0) then
     !!ir (dst := AST.num0 64<rt>)
@@ -3794,7 +3794,7 @@ let subC ins insLen ctxt =
   let res = !+ir oprSize
   let byte = !+ir 8<rt>
   let ccr = !.ctxt Register.CCR
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (res := src .- src1 .- AST.zext 64<rt> (AST.extract ccr 1<rt> 0))
   if (dst = getRegVar ctxt Register.G0) then
     !!ir (dst := AST.num0 64<rt>)
@@ -3809,7 +3809,7 @@ let subCcc ins insLen ctxt =
   let res = !+ir oprSize
   let ccr = !.ctxt Register.CCR
   let byte = !+ir 8<rt>
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (res := src .- src1 .- AST.zext 64<rt> (AST.extract ccr 1<rt> 0))
   if (dst = getRegVar ctxt Register.G0) then
     !!ir (dst := AST.num0 64<rt>)
@@ -3824,7 +3824,7 @@ let swap ins insLen ctxt =
   let oprSize = 64<rt>
   let ir = IRBuilder (16)
   let addr = !+ir oprSize
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (addr := (src .+ src1))
   !!ir (dst := (AST.zext oprSize (AST.loadBE 32<rt> addr)))
   !>ir insLen
@@ -3834,7 +3834,7 @@ let swapa ins insLen ctxt =
   let oprSize = 64<rt>
   let ir = IRBuilder (16)
   let struct (t1, t2) = tmpVars2 ir oprSize
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (dst := (AST.zext oprSize (AST.loadBE 32<rt> (src .+ src1 .+ asi))))
   !>ir insLen
 
@@ -3849,7 +3849,7 @@ let udiv ins insLen ctxt =
   let dividend = !+ir 64<rt>
   let quotient = !+ir 64<rt>
   let y = getRegVar ctxt Register.Y
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (divisor := AST.extract src1 32<rt> 0)
   !!ir (dividend := AST.concat (AST.extract y 32<rt> 0)
     (AST.extract src 32<rt> 0))
@@ -3887,7 +3887,7 @@ let udivcc ins insLen ctxt =
   let quotient = !+ir 64<rt>
   let y = getRegVar ctxt Register.Y
   let ccr = getRegVar ctxt Register.CCR
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (divisor := AST.extract src1 32<rt> 0)
   !!ir (dividend := AST.concat (AST.extract y 32<rt> 0)
     (AST.extract src 32<rt> 0))
@@ -3931,7 +3931,7 @@ let udivx ins insLen ctxt =
   let lblL0 = !%ir "L0"
   let lblL1 = !%ir "L1"
   let lblEnd = !%ir "End"
-  !<ir insLen
+  !<ir ins.Address insLen
   if (src1 = AST.num0 64<rt> || src1  = getRegVar ctxt Register.G0) then
     !!ir (AST.sideEffect (Exception "Division by zero exception"))
   elif (isRegOpr ins insLen ctxt) then
@@ -3957,7 +3957,7 @@ let umul ins insLen ctxt =
   let yreg  = getRegVar ctxt Register.Y
   let oprSize = 64<rt>
   let ir = IRBuilder (16)
-  !<ir insLen
+  !<ir ins.Address insLen
   if (dst = getRegVar ctxt Register.G0) then
     !!ir (dst := AST.num0 64<rt>)
   else
@@ -3974,7 +3974,7 @@ let umulcc ins insLen ctxt =
   let ccr = getRegVar ctxt Register.CCR
   let oprSize = 64<rt>
   let byte = !+ir 8<rt>
-  !<ir insLen
+  !<ir ins.Address insLen
   if (dst = getRegVar ctxt Register.G0) then
     !!ir (dst := AST.num0 64<rt>)
   else
@@ -3990,7 +3990,7 @@ let wr ins insLen ctxt =
   let struct (src, src1, reg) = transThreeOprs ins insLen ctxt
   let oprSize = 64<rt>
   let ir = IRBuilder (16)
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (reg := src <+> src1)
   !>ir insLen
 
@@ -3999,7 +3999,7 @@ let xor ins insLen ctxt =
   let oprSize = 64<rt>
   let ir = IRBuilder (16)
   let res = !+ir oprSize
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (res := src <+> src1)
   if (dst = getRegVar ctxt Register.G0) then
     !!ir (dst := AST.num0 64<rt>)
@@ -4014,7 +4014,7 @@ let xorcc ins insLen ctxt =
   let res = !+ir oprSize
   let ccr = !.ctxt Register.CCR
   let byte = !+ir 8<rt>
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (dst := src <+> src1)
   !!ir (byte := (getConditionCodeLog res src src1))
   !!ir (AST.extract ccr 8<rt> 0 := byte)
@@ -4025,7 +4025,7 @@ let xnor ins insLen ctxt =
   let oprSize = 64<rt>
   let ir = IRBuilder (16)
   let res = !+ir oprSize
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (res := src <+> AST.not (src1))
   if (dst = getRegVar ctxt Register.G0) then
     !!ir (dst := AST.num0 64<rt>)
@@ -4040,7 +4040,7 @@ let xnorcc ins insLen ctxt =
   let res = !+ir oprSize
   let ccr = !.ctxt Register.CCR
   let byte = !+ir 8<rt>
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (res := src <+> AST.not (src1))
   if (dst = getRegVar ctxt Register.G0) then
     !!ir (dst := AST.num0 64<rt>)

@@ -10,7 +10,7 @@
 
   <ItemGroup>
     <Compile Include="Exceptions.fs" />
-    <Compile Include="Symbol.fs" />
+    <Compile Include="Label.fs" />
     <Compile Include="UnOpType.fs" />
     <Compile Include="BinOpType.fs" />
     <Compile Include="RelOpType.fs" />

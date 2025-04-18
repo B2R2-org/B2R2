@@ -168,13 +168,13 @@ let translate (ins: InsInfo) insLen (ctxt: TranslationContext) =
   | Opcode.MOVRGZ | Opcode.MOVRGEZ -> movr ins insLen ctxt
   | Opcode.MULScc -> mulscc ins insLen ctxt
   | Opcode.MULX -> mulx ins insLen ctxt
-  | Opcode.NOP -> nop insLen
+  | Opcode.NOP -> nop ins insLen
   | Opcode.OR -> ``or`` ins insLen ctxt
   | Opcode.ORcc -> orcc ins insLen ctxt
   | Opcode.ORN -> orn ins insLen ctxt
   | Opcode.ORNcc -> orncc ins insLen ctxt
   | Opcode.POPC -> popc ins insLen ctxt
-  | Opcode.PREFETCH | Opcode.PREFETCHA -> nop insLen
+  | Opcode.PREFETCH | Opcode.PREFETCHA -> nop ins insLen
   | Opcode.RDASI | Opcode.RDASR | Opcode.RDCCR | Opcode.RDFPRS | Opcode.RDPC
   | Opcode.RDTICK | Opcode.RDY | Opcode.RDPR -> rd ins insLen ctxt
   | Opcode.RESTORE -> restore ins insLen ctxt
@@ -185,7 +185,7 @@ let translate (ins: InsInfo) insLen (ctxt: TranslationContext) =
   | Opcode.SAVED -> saved ins insLen ctxt
   | Opcode.SDIVX -> sdivx ins insLen ctxt
   | Opcode.SETHI -> sethi ins insLen ctxt
-  | Opcode.SIR -> nop insLen
+  | Opcode.SIR -> nop ins insLen
   | Opcode.SLL
   | Opcode.SLLX -> sll ins insLen ctxt
   | Opcode.SMUL -> smul ins insLen ctxt
@@ -198,7 +198,7 @@ let translate (ins: InsInfo) insLen (ctxt: TranslationContext) =
       st ins insLen ctxt
   | Opcode.STBA | Opcode.STHA | Opcode.STWA | Opcode.STXA | Opcode.STDA ->
       sta ins insLen ctxt
-  | Opcode.STBAR -> nop insLen
+  | Opcode.STBAR -> nop ins insLen
   | Opcode.STF | Opcode.STDF | Opcode.STQF | Opcode.STFSR | Opcode.STXFSR ->
       stf ins insLen ctxt
   | Opcode.STFA | Opcode.STDFA | Opcode.STQFA -> stfa ins insLen ctxt
@@ -212,7 +212,7 @@ let translate (ins: InsInfo) insLen (ctxt: TranslationContext) =
   | Opcode.TADDccTV -> addcc ins insLen ctxt
   | Opcode.TA | Opcode.TN | Opcode.TNE | Opcode.TE | Opcode.TG | Opcode.TLE
   | Opcode.TGE | Opcode.TL | Opcode.TGU | Opcode.TLEU | Opcode.TCC | Opcode.TCS
-  | Opcode.TPOS | Opcode.TNEG | Opcode.TVC | Opcode.TVS -> nop insLen
+  | Opcode.TPOS | Opcode.TNEG | Opcode.TVC | Opcode.TVS -> nop ins insLen
   | Opcode.TSUBcc -> subcc ins insLen ctxt
   | Opcode.TSUBccTV -> subcc ins insLen ctxt
   | Opcode.UDIVX -> udivx ins insLen ctxt
@@ -228,7 +228,7 @@ let translate (ins: InsInfo) insLen (ctxt: TranslationContext) =
   | Opcode.SDIVcc -> sdivcc ins insLen ctxt
   | Opcode.UDIV -> udiv ins insLen ctxt
   | Opcode.UDIVcc -> udivcc ins insLen ctxt
-  | Opcode.FLUSH | Opcode.FLUSHW | Opcode.ILLTRAP -> nop insLen
+  | Opcode.FLUSH | Opcode.FLUSHW | Opcode.ILLTRAP -> nop ins insLen
   | Opcode.InvalidOp -> raise InvalidOpcodeException
   | o ->
   #if DEBUG

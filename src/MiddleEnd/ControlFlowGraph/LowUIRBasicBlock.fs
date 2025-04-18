@@ -51,7 +51,7 @@ type LowUIRBasicBlock internal (pp, funcAbs, liftedInss, lblMap) =
   /// Intra-instruction label information, which is a mapping from a label to
   /// the corresponding program point.
   member _.LabelMap
-    with get(): ImmutableDictionary<Symbol, ProgramPoint> = lblMap
+    with get(): ImmutableDictionary<Label, ProgramPoint> = lblMap
 
   /// Dominating jump table entry (tbl address and index) is a jump table entry
   /// that dominates this basic block. In other words, this basic block is

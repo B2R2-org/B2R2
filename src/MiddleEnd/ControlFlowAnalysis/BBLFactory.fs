@@ -116,7 +116,7 @@ type BBLFactory (hdl: BinHandle, instrs) =
     else addLeaderHead intraLeaders lastLeader.Previous idx
 
   let scanIntraLeaders (liftedInss: LiftedInstruction[]) =
-    let lblMap = Dictionary<Addr * Symbol, ProgramPoint> ()
+    let lblMap = Dictionary<Label, ProgramPoint> ()
     let intraLeaders = LinkedList<int * int> () (* instruction ndx, stmt ndx *)
     let mutable hasIntraFlow = false (* has intra control flow(s)? *)
     for i = 0 to liftedInss.Length - 1 do
@@ -125,9 +125,9 @@ type BBLFactory (hdl: BinHandle, instrs) =
       hasIntraFlow <- false
       for j = 0 to liftedIns.Stmts.Length - 1 do
         match liftedIns.Stmts[j].S with
-        | LMark symb ->
+        | LMark label ->
           let insAddr = liftedIns.Original.Address
-          lblMap[(insAddr, symb)] <- ProgramPoint (insAddr, j)
+          lblMap[label] <- ProgramPoint (insAddr, j)
           intraLeaders.AddLast ((i, j)) |> ignore
           hasIntraFlow <- true
         | InterJmp ({ E = PCVar _ }, InterJmpKind.Base)
@@ -163,18 +163,13 @@ type BBLFactory (hdl: BinHandle, instrs) =
   let rec extractLabelInfo (lblMap: Dictionary<_, _>) liftedIns insAddr ndx =
     match liftedIns.Stmts[ndx].S with
     | IEMark _ -> extractLabelInfo lblMap liftedIns insAddr (ndx - 1)
-    | Jmp { E = JmpDest symbol } ->
-      let key = insAddr, symbol
-      [ KeyValuePair (symbol, lblMap[key]) ]
-    | CJmp (_, { E = JmpDest symbol1 }, { E = JmpDest symbol2 }) ->
-      let key1 = insAddr, symbol1
-      let key2 = insAddr, symbol2
-      [ KeyValuePair (symbol1, lblMap[key1])
-        KeyValuePair (symbol2, lblMap[key2]) ]
-    | CJmp (_, { E = JmpDest symbol }, _)
-    | CJmp (_, _, { E = JmpDest symbol }) ->
-      let key = insAddr, symbol
-      [ KeyValuePair (symbol, lblMap[key]) ]
+    | Jmp { E = JmpDest label } -> [ KeyValuePair (label, lblMap[label]) ]
+    | CJmp (_, { E = JmpDest label1 }, { E = JmpDest label2 }) ->
+      [ KeyValuePair (label1, lblMap[label1])
+        KeyValuePair (label2, lblMap[label2]) ]
+    | CJmp (_, { E = JmpDest label }, _)
+    | CJmp (_, _, { E = JmpDest label }) ->
+      [ KeyValuePair (label, lblMap[label]) ]
     | _ -> []
 
   let buildLabelMap lblMap liftedIns =

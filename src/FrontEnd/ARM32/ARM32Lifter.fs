@@ -817,15 +817,15 @@ let putEndLabelForBranch ctxt lblIgnore (brIns: InsInfo) ir =
     !!ir (AST.interjmp target InterJmpKind.Base)
   | None -> ()
 
-let sideEffects insLen ctxt name =
+let sideEffects (ins: InsInfo) insLen ctxt name =
   let ir = !*ctxt
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (AST.sideEffect name)
   !>ir insLen
 
-let nop insLen ctxt =
+let nop (ins: InsInfo) insLen ctxt =
   let ir = !*ctxt
-  !<ir insLen
+  !<ir ins.Address insLen
   !>ir insLen
 
 let convertPCOpr (ins: InsInfo) insLen ctxt opr =
@@ -840,7 +840,7 @@ let adc isSetFlags ins insLen ctxt =
   let src1 = convertPCOpr ins insLen ctxt src1
   let src2 = convertPCOpr ins insLen ctxt src2
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   if isSetFlags then
     let struct (t1, t2) = tmpVars2 ir 32<rt>
@@ -908,7 +908,7 @@ let add isSetFlags ins insLen ctxt =
   let src1 = convertPCOpr ins insLen ctxt src1
   let src2 = convertPCOpr ins insLen ctxt src2
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   if isSetFlags then
     let struct (t1, t2) = tmpVars2 ir 32<rt>
@@ -970,7 +970,7 @@ let bl ins insLen ctxt =
   let lr = getRegVar ctxt R.LR
   let retAddr = bvOfBaseAddr ins.Address .+ (numI32 4 32<rt>)
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   if ins.Mode = ArchOperationMode.ARMMode then !!ir (lr := retAddr)
   else !!ir (lr := maskAndOR retAddr (AST.num1 32<rt>) 32<rt> 1)
@@ -984,7 +984,7 @@ let blxWithReg (ins: InsInfo) insLen reg ctxt =
   let lr = getRegVar ctxt R.LR
   let addr = bvOfBaseAddr ins.Address
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   if ins.Mode = ArchOperationMode.ARMMode then
     !!ir (lr := addr .+ (numI32 4 32<rt>))
@@ -1028,7 +1028,7 @@ let push ins insLen ctxt =
   let stackWidth = 4 * bitCount numOfReg 16
   let addr = sp .- (numI32 stackWidth 32<rt>)
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   !!ir (t0 := addr)
   let addr = pushLoop ctxt numOfReg t0 ir
@@ -1060,7 +1060,7 @@ let sSat ir i n =
 let qdadd (ins: InsInfo) insLen ctxt =
   let ir = !*ctxt
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   let struct (dst, src1, src2) = transThreeOprs ins ctxt
   let struct (sat1,sat2) = tmpVars2 ir 1<rt>
@@ -1079,7 +1079,7 @@ let qdadd (ins: InsInfo) insLen ctxt =
 let qdsub (ins: InsInfo) insLen ctxt =
   let ir = !*ctxt
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   let struct (dst, src1, src2) = transThreeOprs ins ctxt
   let struct (sat1,sat2) = tmpVars2 ir 1<rt>
@@ -1097,7 +1097,7 @@ let qdsub (ins: InsInfo) insLen ctxt =
 let qsax (ins: InsInfo) insLen ctxt =
   let ir = !*ctxt
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   let struct (dst, src1, src2) = transThreeOprs ins ctxt
   let struct (sum, diff) = tmpVars2 ir 16<rt>
@@ -1114,7 +1114,7 @@ let qsax (ins: InsInfo) insLen ctxt =
 let qsub16 (ins: InsInfo) insLen ctxt =
   let ir = !*ctxt
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   let struct (dst, src1, src2) = transThreeOprs ins ctxt
   let struct (diff1, diff2) = tmpVars2 ir 16<rt>
@@ -1134,7 +1134,7 @@ let sub isSetFlags ins insLen ctxt =
   let src1 = convertPCOpr ins insLen ctxt src1
   let src2 = convertPCOpr ins insLen ctxt src2
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   if isSetFlags then
     let struct (t1, t2) = tmpVars2 ir 32<rt>
@@ -1165,7 +1165,7 @@ let subsPCLRThumb ins insLen ctxt =
   let struct (result, _, _, _) =
     addWithCarry pc (AST.not src2) (AST.num1 32<rt>) ir
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   !!ir (branchWritePC ctxt ins result InterJmpKind.IsRet)
   putEndLabel ctxt lblIgnore ir
@@ -1231,7 +1231,7 @@ let subsAndRelatedInstr (ins: InsInfo) insLen ctxt =
   let ir = !*ctxt
   let result = !+ir 32<rt>
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   !!ir (result := parseResultOfSUBAndRela ins ctxt)
   !!ir (branchWritePC ctxt ins result InterJmpKind.IsRet)
@@ -1287,7 +1287,7 @@ let translateLogicOp (ins: InsInfo) insLen ctxt (ir: IRBuilder) =
 let logicalAnd isSetFlags (ins: InsInfo) insLen ctxt =
   let ir = !*ctxt
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   let dst, src1, src2, carryOut = translateLogicOp ins insLen ctxt ir
   let result = !+ir 32<rt>
@@ -1317,7 +1317,7 @@ let mov isSetFlags ins insLen ctxt =
   let result = !+ir 32<rt>
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
   let pc = getPC ctxt
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   if src = pc then !!ir (result := src .+ (numU64 (pcOffset ins) 32<rt>))
   else !!ir (result := src)
@@ -1335,7 +1335,7 @@ let mov isSetFlags ins insLen ctxt =
 let eor isSetFlags (ins: InsInfo) insLen ctxt =
   let ir = !*ctxt
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   let dst, src1, src2, carryOut = translateLogicOp ins insLen ctxt ir
   let result = !+ir 32<rt>
@@ -1377,7 +1377,7 @@ let rsb isSetFlags ins insLen ctxt =
   let struct (dst, src1, src2) = parseOprOfRSB ins insLen ctxt
   let struct (t1, t2) = tmpVars2 ir 32<rt>
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   if isSetFlags then
     !!ir (t1 := src1)
@@ -1432,7 +1432,7 @@ let sbc isSetFlags ins insLen ctxt =
   let struct (dst, src1, src2) = parseOprOfSBC ins insLen ctxt
   let struct (t1, t2) = tmpVars2 ir 32<rt>
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   if isSetFlags then
     !!ir (t1 := src1)
@@ -1479,7 +1479,7 @@ let rsc isSetFlags ins insLen ctxt =
   let struct (dst, src1, src2) = parseOprOfRSC ins insLen ctxt
   let struct (t1, t2) = tmpVars2 ir 32<rt>
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   if isSetFlags then
     !!ir (t1 := src1)
@@ -1504,7 +1504,7 @@ let rsc isSetFlags ins insLen ctxt =
 let orr isSetFlags (ins: InsInfo) insLen ctxt =
   let ir = !*ctxt
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   let dst, src1, src2, carryOut = translateLogicOp ins insLen ctxt ir
   let result = !+ir 32<rt>
@@ -1524,7 +1524,7 @@ let orr isSetFlags (ins: InsInfo) insLen ctxt =
 let orn isSetFlags (ins: InsInfo) insLen ctxt =
   let ir = !*ctxt
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   let dst, src1, src2, carryOut = translateLogicOp ins insLen ctxt ir
   let result = !+ir 32<rt>
@@ -1544,7 +1544,7 @@ let orn isSetFlags (ins: InsInfo) insLen ctxt =
 let bic isSetFlags (ins: InsInfo) insLen ctxt =
   let ir = !*ctxt
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   let dst, src1, src2, carryOut = translateLogicOp ins insLen ctxt ir
   let result = !+ir 32<rt>
@@ -1600,7 +1600,7 @@ let mvn isSetFlags ins insLen ctxt =
   let struct (dst, src, carryOut) = parseOprOfMVN ins insLen ctxt
   let result = !+ir 32<rt>
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   !!ir (result := AST.not src)
   if dst = getPC ctxt then aluWritePC ctxt ins isUnconditional result ir
@@ -1617,7 +1617,7 @@ let mvn isSetFlags ins insLen ctxt =
 
 let svc (ins: InsInfo) insLen ctxt =
   match ins.Operands with
-  | OneOperand (OprImm n) -> sideEffects insLen ctxt (Interrupt (int n))
+  | OneOperand (OprImm n) -> sideEffects ins insLen ctxt (Interrupt (int n))
   | _ -> raise InvalidOperandException
 
 let getImmShiftFromShiftType imm = function
@@ -1670,7 +1670,7 @@ let shiftInstr isSetFlags ins insLen typ ctxt =
   let struct (srcTmp, result) = tmpVars2 ir 32<rt>
   let dst, src, res, carryOut = parseOprOfShiftInstr ins typ ctxt srcTmp
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   !!ir (srcTmp := src)
   !!ir (result := res)
@@ -1804,7 +1804,7 @@ let clz ins insLen ctxt =
   let cond2 =
     src .& ((AST.num1 32<rt>) << (t1 .- AST.num1 32<rt>)) != (AST.num0 32<rt>)
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   !!ir (t1 := numSize)
   !!ir (AST.lmark lblBoundCheck)
@@ -1857,7 +1857,7 @@ let cmn ins insLen ctxt =
   let struct (t1, t2) = tmpVars2 ir 32<rt>
   let cpsr = getRegVar ctxt R.CPSR
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   !!ir (t1 := dst)
   !!ir (t2 := src)
@@ -1875,7 +1875,7 @@ let mla isSetFlags ins insLen ctxt =
   let struct (rd, rn, rm, ra) = transFourOprs ins ctxt
   let r = !+ir 32<rt>
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   !!ir (r := AST.xtlo 32<rt> (AST.zext 64<rt> rn .* AST.zext 64<rt> rm .+
                                      AST.zext 64<rt> ra))
@@ -1923,7 +1923,7 @@ let cmp ins insLen ctxt =
   let struct (t1, t2) = tmpVars2 ir 32<rt>
   let cpsr = getRegVar ctxt R.CPSR
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   !!ir (t1 := rn)
   !!ir (t2 := rm)
@@ -1936,9 +1936,9 @@ let cmp ins insLen ctxt =
   putEndLabel ctxt lblIgnore ir
   !>ir insLen
 
-let umaal ins insLen ctxt =
+let umaal (ins: InsInfo) insLen ctxt =
   let ir = !*ctxt
-  !<ir insLen
+  !<ir ins.Address insLen
   let struct (rdLo, rdHi, rn, rm) = transFourOprs ins ctxt
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
@@ -1955,7 +1955,7 @@ let umlal isSetFlags ins insLen ctxt =
   let struct (rdLo, rdHi, rn, rm) = transFourOprs ins ctxt
   let result = !+ir 64<rt>
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   !!ir
     (result := AST.zext 64<rt> rn .* AST.zext 64<rt> rm .+ AST.concat rdHi rdLo)
@@ -1974,7 +1974,7 @@ let umull isSetFlags ins insLen ctxt =
   let struct (rdLo, rdHi, rn, rm) = transFourOprs ins ctxt
   let result = !+ir 64<rt>
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   !!ir (result := AST.zext 64<rt> rn .* AST.zext 64<rt> rm)
   !!ir (rdHi := AST.xthi 32<rt> result)
@@ -2013,7 +2013,7 @@ let teq ins insLen ctxt =
   let result = !+ir 32<rt>
   let cpsr = getRegVar ctxt R.CPSR
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   !!ir (result := src1 <+> src2)
   !!ir (cpsr := AST.xthi 1<rt> result |> setPSR ctxt R.CPSR PSR.N)
@@ -2027,7 +2027,7 @@ let mul isSetFlags ins insLen ctxt =
   let struct (rd, rn, rm) = transThreeOprs ins ctxt
   let result = !+ir 32<rt>
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   !!ir
     (result := AST.xtlo 32<rt> (AST.zext 64<rt> rn .* AST.zext 64<rt> rm))
@@ -2071,7 +2071,7 @@ let tst ins insLen ctxt =
   let result = !+ir 32<rt>
   let cpsr = getRegVar ctxt R.CPSR
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   !!ir (result := src1 .& src2)
   !!ir (cpsr := AST.xthi 1<rt> result |> setPSR ctxt R.CPSR PSR.N)
@@ -2085,7 +2085,7 @@ let smulhalf ins insLen ctxt s1top s2top =
   let struct (rd, rn, rm) = transThreeOprs ins ctxt
   let struct (t1, t2) = tmpVars2 ir 32<rt>
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   if s1top then !!ir (t1 := AST.xthi 16<rt> rn |> AST.zext 32<rt>)
   else !!ir (t1 := AST.xtlo 16<rt> rn |> AST.sext 32<rt>)
@@ -2095,9 +2095,9 @@ let smulhalf ins insLen ctxt s1top s2top =
   putEndLabel ctxt lblIgnore ir
   !>ir insLen
 
-let smmla ins insLen ctxt isRound =
+let smmla (ins: InsInfo) insLen ctxt isRound =
   let ir = !*ctxt
-  !<ir insLen
+  !<ir ins.Address insLen
   let struct (dst, src1, src2, src3) = transFourOprs ins ctxt
   let result = !+ir 64<rt>
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
@@ -2109,9 +2109,9 @@ let smmla ins insLen ctxt isRound =
   putEndLabel ctxt lblIgnore ir
   !>ir insLen
 
-let smmul ins insLen ctxt isRound =
+let smmul (ins: InsInfo) insLen ctxt isRound =
   let ir = !*ctxt
-  !<ir insLen
+  !<ir ins.Address insLen
   let struct (dst, src1, src2) = transThreeOprs ins ctxt
   let result = !+ir 64<rt>
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
@@ -2128,7 +2128,7 @@ let smulandacc isSetFlags doAcc ins insLen ctxt =
   let struct (rdLo, rdHi, rn, rm) = transFourOprs ins ctxt
   let struct (tmpresult, result) = tmpVars2 ir 64<rt>
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   !!ir (tmpresult := AST.sext 64<rt> rn .* AST.sext 64<rt> rm)
   if doAcc then !!ir (result := tmpresult .+ AST.concat rdHi rdLo)
@@ -2146,7 +2146,7 @@ let smulandacc isSetFlags doAcc ins insLen ctxt =
 let smulacclongdual (ins: InsInfo) insLen ctxt sign =
   let ir = !*ctxt
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   let struct (dst1, dst2, src1, src2) = transFourOprs ins ctxt
   let o = !+ir 32<rt>
@@ -2167,7 +2167,7 @@ let smulacclongdual (ins: InsInfo) insLen ctxt sign =
 let smulaccwordbyhalf (ins: InsInfo) insLen ctxt sign =
   let ir = !*ctxt
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   let struct (dst, src1, src2, src3) = transFourOprs ins ctxt
   let o = !+ir 32<rt>
@@ -2188,7 +2188,7 @@ let smulacchalf ins insLen ctxt s1top s2top =
   let struct (rd, rn, rm, ra) = transFourOprs ins ctxt
   let struct (t1, t2) = tmpVars2 ir 32<rt>
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   if s1top then !!ir (t1 := AST.xthi 16<rt> rn |> AST.zext 32<rt>)
   else !!ir (t1 := AST.xtlo 16<rt> rn |> AST.sext 32<rt>)
@@ -2201,7 +2201,7 @@ let smulacchalf ins insLen ctxt s1top s2top =
 let smulacclonghalf (ins: InsInfo) insLen ctxt s1top s2top =
   let ir = !*ctxt
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   let struct (dst1, dst2, src1, src2) = transFourOprs ins ctxt
   let struct (o1, o2, result) = tmpVars3 ir 64<rt>
@@ -2226,7 +2226,7 @@ let b ins insLen ctxt =
   let ir = !*ctxt
   let e = parseOprOfB ins
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   !!ir (branchWritePC ctxt ins e InterJmpKind.Base)
   putEndLabelForBranch ctxt lblIgnore ins ir
@@ -2236,7 +2236,7 @@ let bx ins insLen ctxt =
   let ir = !*ctxt
   let rm = transOneOpr ins ctxt
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   let rm = convertPCOpr ins insLen ctxt rm
   bxWritePC ctxt isUnconditional rm ir
@@ -2253,7 +2253,7 @@ let movt ins insLen ctxt =
   let ir = !*ctxt
   let struct (dst, res) = transTwoOprs ins ctxt
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   !!ir (movtAssign dst res)
   putEndLabel ctxt lblIgnore ir
@@ -2270,9 +2270,9 @@ let transFourOprsWithBarrelShift (ins: InsInfo) ctxt =
     struct (dst, src1, shifted)
   | _ -> raise InvalidOperandException
 
-let pkh ins insLen ctxt isTbform =
+let pkh (ins: InsInfo) insLen ctxt isTbform =
   let ir = !*ctxt
-  !<ir insLen
+  !<ir ins.Address insLen
   let struct (dst, src1, src2) = transFourOprsWithBarrelShift ins ctxt
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
@@ -2300,7 +2300,7 @@ let pop ins insLen ctxt =
   let stackWidth = 4 * bitCount numOfReg 16
   let addr = sp
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   !!ir (t0 := addr)
   let addr = popLoop ctxt numOfReg t0 ir
@@ -2334,7 +2334,7 @@ let ldm opcode ins insLen ctxt wbackop =
   let stackWidth = 4 * bitCount numOfReg 16
   let addr = getLDMStartAddr t0 stackWidth opcode
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   !!ir (t0 := rn)
   !!ir (t1 := addr)
@@ -2416,7 +2416,7 @@ let ldr ins insLen ctxt size ext =
   let data = !+ir 32<rt>
   let struct (rt, addr, writeback) = parseOprOfLDR ins insLen ctxt
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   match writeback with
   | Some (basereg, Some newoffset) ->
@@ -2460,7 +2460,7 @@ let ldrd ins insLen ctxt =
   let taddr = !+ir 32<rt>
   let struct (rt, rt2, addr, writeback) = parseOprOfLDRD ins insLen ctxt
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   let n4 = numI32 4 32<rt>
   match writeback with
@@ -2510,7 +2510,7 @@ let uadd8 ins insLen ctxt =
   let cpsr = getRegVar ctxt R.CPSR
   let n100 = numI32 0x100 32<rt>
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   !!ir (sum1 := sel8Bits rn 0 .+ sel8Bits rm 0)
   !!ir (sum2 := sel8Bits rn 8 .+ sel8Bits rm 8)
@@ -2535,7 +2535,7 @@ let sel ins insLen ctxt =
   let n8 = numI32 8 32<rt>
   let ge = getPSR ctxt R.CPSR PSR.GE >> (numI32 16 32<rt>)
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   !!ir (t1 := AST.ite ((ge .& n1) == n1) (sel8Bits rn 0) (sel8Bits rm 0))
   !!ir (t2 := AST.ite ((ge .& n2) == n2) (sel8Bits rn 8) (sel8Bits rm 8))
@@ -2550,7 +2550,7 @@ let rbit ins insLen ctxt =
   let struct (t1, t2) = tmpVars2 ir 32<rt>
   let struct (rd, rm) = transTwoOprs ins ctxt
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   !!ir (t1 := rm)
   !!ir (rd := rd <+> rd)
@@ -2565,7 +2565,7 @@ let rev ins insLen ctxt =
   let struct (t1, t2, t3, t4) = tmpVars4 ir 32<rt>
   let struct (rd, rm) = transTwoOprs ins ctxt
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   !!ir (t1 := sel8Bits rm 0)
   !!ir (t2 := sel8Bits rm 8)
@@ -2579,7 +2579,7 @@ let rev16 ins insLen ctxt =
   let ir = !*ctxt
   let struct (rd, rm) = transTwoOprs ins ctxt
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   let r1 = AST.extract rm 8<rt> 16
   let r2 = AST.extract rm 8<rt> 24
@@ -2593,7 +2593,7 @@ let revsh ins insLen ctxt =
   let ir = !*ctxt
   let struct (rd, rm) = transTwoOprs ins ctxt
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   let r1 = (AST.xtlo 8<rt> rm |> AST.sext 32<rt>) << numI32 8 32<rt>
   let r2 = AST.extract rm 8<rt> 8 |> AST.zext 32<rt>
@@ -2604,7 +2604,7 @@ let revsh ins insLen ctxt =
 let rfedb (ins: InsInfo) insLen ctxt =
   let ir = !*ctxt
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   let dst = transOneOpr ins ctxt
   let wback = ins.WriteBack
@@ -2623,7 +2623,7 @@ let str ins insLen ctxt size =
   let ir = !*ctxt
   let struct (rt, addr, writeback) = parseOprOfLDR ins insLen ctxt
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   if rt = getPC ctxt then !!ir (AST.loadLE 32<rt> addr := pcStoreValue ctxt)
   elif size = 32<rt> then !!ir (AST.loadLE 32<rt> addr := rt)
@@ -2639,7 +2639,7 @@ let strex ins insLen ctxt =
   let ir = !*ctxt
   let struct (rd, rt, addr, writeback) = parseOprOfLDRD ins insLen ctxt
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   if rt = getPC ctxt then !!ir (AST.loadLE 32<rt> addr := pcStoreValue ctxt)
   else !!ir (AST.loadLE 32<rt> addr := rt)
@@ -2655,7 +2655,7 @@ let strd ins insLen ctxt =
   let ir = !*ctxt
   let struct (rt, rt2, addr, writeback) = parseOprOfLDRD ins insLen ctxt
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   !!ir (AST.loadLE 32<rt> addr := rt)
   !!ir (AST.loadLE 32<rt> (addr .+ (numI32 4 32<rt>)) := rt2)
@@ -2699,7 +2699,7 @@ let stm opcode ins insLen ctxt wbop =
   let msize = numI32 (4 * bitCount regs 16) 32<rt>
   let addr = getSTMStartAddr rn msize opcode
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   !!ir (taddr := addr)
   let addr = stmLoop ctxt regs wback rn taddr ir
@@ -2726,7 +2726,7 @@ let cbz nonZero ins insLen ctxt =
   let rn, pc = parseOprOfCBZ ins insLen ctxt
   let cond = n <+> (rn == AST.num0 32<rt>)
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   !!ir (AST.cjmp cond (AST.jmpDest lblL0) (AST.jmpDest lblL1))
   !!ir (AST.lmark lblL0)
@@ -2762,7 +2762,7 @@ let tableBranch (ins: InsInfo) insLen ctxt =
   let numTwo = numI32 2 32<rt>
   let result = pc .+ (numTwo .* halfwords)
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   !!ir (branchWritePC ctxt ins result InterJmpKind.Base)
   putEndLabel ctxt lblIgnore ir
@@ -2778,7 +2778,7 @@ let bfc (ins: InsInfo) insLen ctxt =
   let ir = !*ctxt
   let rd, lsb, width = parseOprOfBFC ins insLen ctxt
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   !!ir (rd := replicate rd 32<rt> lsb width 0)
   putEndLabel ctxt lblIgnore ir
@@ -2797,7 +2797,7 @@ let bfi ins insLen ctxt =
   let struct (t0, t1) = tmpVars2 ir 32<rt>
   let n = rn .& (BitVector.OfBInt (BigInteger.getMask width) 32<rt> |> AST.num)
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   !!ir (t0 := n << (numI32 lsb 32<rt>))
   !!ir (t1 := replicate rd 32<rt> lsb width 0)
@@ -2809,7 +2809,7 @@ let bfx ins insLen ctxt signExtend =
   let ir = !*ctxt
   let rd, rn, lsb, width = parseOprOfRdRnLsbWidth ins insLen ctxt
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   if lsb + width - 1 > 31 || width < 0 then raise InvalidOperandException
   else ()
@@ -2862,7 +2862,7 @@ let uqopr (ins: InsInfo) insLen ctxt width opr =
   let rms = extractUQOps rm width
   let diffs = Array.map2 opr rns rms
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   Array.iter2 (fun tmp diff -> !!ir (tmp := diff)) tmps diffs
   Array.iter2 (fun s t -> !!ir (s := saturate t width)) sats tmps
@@ -2891,7 +2891,7 @@ let it (ins: InsInfo) insLen ctxt =
   let mask72 = (numI32 0b11111100 32<rt>)
   let itState10 = itState .& mask10
   let itState72 = (itState .& mask72) >> (numI32 2 32<rt>)
-  !<ir insLen
+  !<ir ins.Address insLen
   !!ir (cpsr := itState10 |> setPSR ctxt R.CPSR PSR.IT10)
   !!ir (cpsr := itState72 |> setPSR ctxt R.CPSR PSR.IT72)
   !>ir insLen
@@ -2900,7 +2900,7 @@ let adr ins insLen ctxt =
   let ir = !*ctxt
   let rd, result = parseOprOfADR ins insLen ctxt
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   if rd = getPC ctxt then aluWritePC ctxt ins isUnconditional result ir
   else !!ir (rd := result)
@@ -2912,7 +2912,7 @@ let mls ins insLen ctxt =
   let struct (rd, rn, rm, ra) = transFourOprs ins ctxt
   let r = !+ir 32<rt>
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   !!ir (r := AST.xtlo 32<rt> (AST.zext 64<rt> ra .- AST.zext 64<rt> rn .*
                                      AST.zext 64<rt> rm))
@@ -2933,7 +2933,7 @@ let extend (ins: InsInfo) insLen ctxt extractfn amount =
   let rd, rm, rotation = parseOprOfExtend ins insLen ctxt
   let rotated = shiftROR rm 32<rt> rotation
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   !!ir (rd := extractfn 32<rt> (AST.xtlo amount rotated))
   putEndLabel ctxt lblIgnore ir
@@ -2943,7 +2943,7 @@ let uxtb16 ins insLen ctxt =
   let ir = !*ctxt
   let rd, rm, rotation = parseOprOfExtend ins insLen ctxt
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   let rotated = shiftROR rm 32<rt> rotation
   let r1 = AST.xtlo 8<rt> rotated |> AST.zext 32<rt>
@@ -2963,7 +2963,7 @@ let extendAndAdd (ins: InsInfo) insLen ctxt amount =
   let rd, rn, rm, rotation = parseOprOfXTA ins insLen ctxt
   let rotated = shiftROR rm 32<rt> rotation
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   !!ir (rd := rn .+ AST.zext 32<rt> (AST.xtlo amount rotated))
   putEndLabel ctxt lblIgnore ir
@@ -2989,7 +2989,7 @@ let vldr ins insLen ctxt =
   let ir = !*ctxt
   let rd, addr, isSReg = parseOprOfVLDR ins insLen ctxt
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   if isSReg then
     let data = !+ir 32<rt>
@@ -3016,7 +3016,7 @@ let vstr (ins: InsInfo) insLen ctxt =
   let ir = !*ctxt
   let rd, addr, isSReg = parseOprOfVSTR ins insLen ctxt
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   if isSReg then !!ir (AST.loadLE 32<rt> addr := rd)
   else
@@ -3143,7 +3143,7 @@ let vpop ins insLen ctxt =
   let d, imm, isSReg = parsePUSHPOPsubValue ins
   let addr = sp
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   !!ir (t0 := addr)
   !!ir (sp := addr .+ (numI32 (imm <<< 2) 32<rt>))
@@ -3181,7 +3181,7 @@ let vpush ins insLen ctxt =
   let sp = getRegVar ctxt R.SP
   let d, imm, isSReg = parsePUSHPOPsubValue ins
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   !!ir (t0 := sp .- (numI32 (imm <<< 2) 32<rt>))
   !!ir (sp := t0)
@@ -3200,7 +3200,7 @@ let parseOprOfVAND (ins: InsInfo) insLen ctxt =
 let vand (ins: InsInfo) insLen ctxt =
   let ir = !*ctxt
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   match ins.OprSize with
   | 128<rt> ->
@@ -3221,7 +3221,7 @@ let vmrs ins insLen ctxt =
   let struct (rt, fpscr) = transTwoOprs ins ctxt
   let cpsr = getRegVar ctxt R.CPSR
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   if rt <> cpsr then !!ir (rt := fpscr)
   else !!ir (cpsr := disablePSRBits ctxt R.CPSR PSR.Cond .|
@@ -3363,7 +3363,7 @@ let parseOprOfVMOVFP (ins: InsInfo) ctxt ir =
 let vmov (ins: InsInfo) insLen ctxt =
   let ir = !*ctxt
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   parseOprOfVMOV ins ctxt ir
   putEndLabel ctxt lblIgnore ir
@@ -3372,7 +3372,7 @@ let vmov (ins: InsInfo) insLen ctxt =
 let vmovfp (ins: InsInfo) insLen ctxt =
   let ir = !*ctxt
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   parseOprOfVMOVFP ins ctxt ir
   putEndLabel ctxt lblIgnore ir
@@ -3395,7 +3395,7 @@ let private absExpr expr size =
 let vabs (ins: InsInfo) insLen ctxt =
   let ir = !*ctxt
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   let p = getParsingInfo ins
   match ins.OprSize with
@@ -3416,7 +3416,7 @@ let vabs (ins: InsInfo) insLen ctxt =
 let vaddsub (ins: InsInfo) insLen ctxt opFn =
   let ir = !*ctxt
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   let p = getParsingInfo ins
   match ins.OprSize with
@@ -3456,7 +3456,7 @@ let vaddsub (ins: InsInfo) insLen ctxt opFn =
 let vaddl (ins: InsInfo) insLen ctxt =
   let ir = !*ctxt
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   let p = getParsingInfo ins
   let struct (dst, src1, src2) = getThreeOprs ins
@@ -3525,7 +3525,7 @@ let parseOprOfVCVT (ins: InsInfo) ctxt ir =
 let vcvt (ins: InsInfo) insLen ctxt =
   let ir = !*ctxt
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   parseOprOfVCVT ins ctxt ir
   putEndLabel ctxt lblIgnore ir
@@ -3554,7 +3554,7 @@ let parseOprOfVDUP128 (ins: InsInfo) insLen ctxt esize =
 let vdiv (ins: InsInfo) insLen ctxt =
   let ir = !*ctxt
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   let p = getParsingInfo ins
   match p.ESize with
@@ -3571,7 +3571,7 @@ let vdiv (ins: InsInfo) insLen ctxt =
 let vdup (ins: InsInfo) insLen ctxt =
   let ir = !*ctxt
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   let p = getParsingInfo ins
   match ins.OprSize with
@@ -3612,7 +3612,7 @@ let countLeadingZeroBitsForIR dst src oprSize ir =
 let vclz (ins: InsInfo) insLen ctxt =
   let ir = !*ctxt
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   let p = getParsingInfo ins
   match ins.OprSize with
@@ -3654,7 +3654,7 @@ let private unsignExtend (ins: InsInfo) p size expr1 expr2 amtOp =
 let vmaxmin (ins: InsInfo) insLen ctxt maximum =
   let ir = !*ctxt
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   let p = getParsingInfo ins
   let unsigned = isUnsigned ins.SIMDTyp
@@ -3695,7 +3695,7 @@ let parseOprOfVSTLDM (ins: InsInfo) insLen ctxt =
 let vstm (ins: InsInfo) insLen ctxt =
   let ir = !*ctxt
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   let rn, regList = parseOprOfVSTLDM ins insLen ctxt
   let add =
@@ -3727,7 +3727,7 @@ let vstm (ins: InsInfo) insLen ctxt =
 let vldm (ins: InsInfo) insLen ctxt =
   let ir = !*ctxt
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   let rn, regList = parseOprOfVSTLDM ins insLen ctxt
   let add =
@@ -3757,7 +3757,7 @@ let vldm (ins: InsInfo) insLen ctxt =
 let vecMulAccOrSub (ins: InsInfo) insLen ctxt add =
   let ir = !*ctxt
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   let p = getParsingInfo ins
   match ins.OprSize with
@@ -3791,7 +3791,7 @@ let vecMulAccOrSub (ins: InsInfo) insLen ctxt add =
 let vecMulAccOrSubLong (ins: InsInfo) insLen ctxt add =
   let ir = !*ctxt
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   let p = getParsingInfo ins
   let unsigned = isUnsigned ins.SIMDTyp
@@ -3816,7 +3816,7 @@ let vecMulAccOrSubLong (ins: InsInfo) insLen ctxt add =
 let vecMulAccOrSubByScalar (ins: InsInfo) insLen ctxt add =
   let ir = !*ctxt
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   let p = getParsingInfo ins
   let struct (dst, src1, src2) = getThreeOprs ins
@@ -3848,7 +3848,7 @@ let vecMulAccOrSubByScalar (ins: InsInfo) insLen ctxt add =
 let vecMulAccOrSubLongByScalar (ins: InsInfo) insLen ctxt add =
   let ir = !*ctxt
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   let struct (dst, src1, src2) = getThreeOprs ins
   let dstB, dstA = transOprToExpr128 ctxt dst
@@ -3920,7 +3920,7 @@ let polynomialMultP64 op1 op2 size rtsize resA resB (ir: IRBuilder) =
 let vecMul (ins: InsInfo) insLen ctxt opFn =
   let ir = !*ctxt
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   let p = getParsingInfo ins
   let polynomial = isPolynomial ins.SIMDTyp
@@ -3973,7 +3973,7 @@ let vecMul (ins: InsInfo) insLen ctxt opFn =
 let vecMulLong (ins: InsInfo) insLen ctxt =
   let ir = !*ctxt
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   let p = getParsingInfo ins
   let polynomial = isPolynomial ins.SIMDTyp
@@ -4007,7 +4007,7 @@ let vecMulLong (ins: InsInfo) insLen ctxt =
 let vecMulByScalar (ins: InsInfo) insLen ctxt opFn =
   let ir = !*ctxt
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   let p = getParsingInfo ins
   let struct (dst, src1, src2) = getThreeOprs ins
@@ -4034,7 +4034,7 @@ let vecMulByScalar (ins: InsInfo) insLen ctxt opFn =
 let vecMulLongByScalar (ins: InsInfo) insLen ctxt =
   let ir = !*ctxt
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   let struct (dst, src1, src2) = getThreeOprs ins
   let dstB, dstA = transOprToExpr128 ctxt dst
@@ -4082,7 +4082,7 @@ let getSizeStartFrom16 = function
 let vmovn (ins: InsInfo) insLen ctxt =
   let ir = !*ctxt
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   let struct (dst, src) = getTwoOprs ins
   let dst = transOprToExpr ins ctxt dst
@@ -4100,7 +4100,7 @@ let vmovn (ins: InsInfo) insLen ctxt =
 let vneg (ins: InsInfo) insLen ctxt =
   let ir = !*ctxt
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   let p = getParsingInfo ins
   match ins.OprSize with
@@ -4124,7 +4124,7 @@ let vneg (ins: InsInfo) insLen ctxt =
 let vpadd (ins: InsInfo) insLen ctxt =
   let ir = !*ctxt
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   let struct (rd, rn, rm) = transThreeOprs ins ctxt
   let p = getParsingInfo ins
@@ -4142,7 +4142,7 @@ let vpadd (ins: InsInfo) insLen ctxt =
 let vrshr (ins: InsInfo) insLen ctxt =
   let ir = !*ctxt
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   let p = getParsingInfo ins
   let extend = if isUnsigned ins.SIMDTyp then AST.zext else AST.sext
@@ -4171,7 +4171,7 @@ let vrshr (ins: InsInfo) insLen ctxt =
 let vshlImm (ins: InsInfo) insLen ctxt =
   let ir = !*ctxt
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   let p = getParsingInfo ins
   match ins.OprSize with
@@ -4194,7 +4194,7 @@ let vshlImm (ins: InsInfo) insLen ctxt =
 let vshlReg (ins: InsInfo) insLen ctxt =
   let ir = !*ctxt
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   let p = getParsingInfo ins
   let extend = if isUnsigned ins.SIMDTyp then AST.zext else AST.sext
@@ -4229,7 +4229,7 @@ let vshl (ins: InsInfo) insLen ctxt =
 let vshr (ins: InsInfo) insLen ctxt =
   let ir = !*ctxt
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   let p = getParsingInfo ins
   let extend = if isUnsigned ins.SIMDTyp then AST.zext else AST.sext
@@ -4270,7 +4270,7 @@ let parseOprOfVecTbl (ins: InsInfo) insLen ctxt =
 let vecTbl (ins: InsInfo) insLen ctxt isVtbl =
   let ir = !*ctxt
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   let rd, list, rm = parseOprOfVecTbl ins insLen ctxt
   let vectors = list |> List.map (getRegVar ctxt)
@@ -4291,7 +4291,7 @@ let isImm = function
 let vectorCompareImm (ins: InsInfo) insLen ctxt cmp =
   let ir = !*ctxt
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   let p = getParsingInfo ins
   let num0 = AST.num0 p.RtESize
@@ -4316,7 +4316,7 @@ let vectorCompareImm (ins: InsInfo) insLen ctxt cmp =
 let vectorCompareReg (ins: InsInfo) insLen ctxt cmp =
   let ir = !*ctxt
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   let p = getParsingInfo ins
   let num0 = AST.num0 p.RtESize
@@ -4383,7 +4383,7 @@ let vclt (ins: InsInfo) insLen ctxt =
 let vtst (ins: InsInfo) insLen ctxt =
   let ir = !*ctxt
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   let p = getParsingInfo ins
   let n0 = AST.num0 p.RtESize
@@ -4410,7 +4410,7 @@ let vtst (ins: InsInfo) insLen ctxt =
 let vrshrn (ins: InsInfo) insLen ctxt =
   let ir = !*ctxt
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   let esize = 8 <<< getSizeStartFromI16 ins.SIMDTyp
   let rtEsz = RegType.fromBitWidth esize
@@ -4431,7 +4431,7 @@ let vrshrn (ins: InsInfo) insLen ctxt =
 let vorrReg (ins: InsInfo) insLen ctxt =
   let ir = !*ctxt
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   match ins.OprSize with
   | 128<rt> ->
@@ -4450,7 +4450,7 @@ let vorrReg (ins: InsInfo) insLen ctxt =
 let vorrImm (ins: InsInfo) insLen ctxt =
   let ir = !*ctxt
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   match ins.OprSize with
   | 128<rt> ->
@@ -4476,7 +4476,7 @@ let vorr (ins: InsInfo) insLen ctxt =
 let vornReg (ins: InsInfo) insLen ctxt =
   let ir = !*ctxt
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   match ins.OprSize with
   | 128<rt> ->
@@ -4495,7 +4495,7 @@ let vornReg (ins: InsInfo) insLen ctxt =
 let vornImm (ins: InsInfo) insLen ctxt =
   let ir = !*ctxt
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   match ins.OprSize with
   | 128<rt> ->
@@ -4562,7 +4562,7 @@ let incAddr addr n = addr .+ (numI32 n 32<rt>)
 let vst1Multi (ins: InsInfo) insLen ctxt =
   let ir = !*ctxt
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   let rdList, rn, rm = parseOprOfVecStAndLd ctxt ins
   let p = getParsingInfo ins
@@ -4588,7 +4588,7 @@ let vst1Multi (ins: InsInfo) insLen ctxt =
 let vst1Single (ins: InsInfo) insLen ctxt index =
   let ir = !*ctxt
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   let rd, rn, rm = parseOprOfVecStAndLd ctxt ins
   let p = getParsingInfo ins
@@ -4613,7 +4613,7 @@ let vst1 (ins: InsInfo) insLen ctxt =
 let vld1SingleOne (ins: InsInfo) insLen ctxt index =
   let ir = !*ctxt
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   let rd, rn, rm = parseOprOfVecStAndLd ctxt ins
   let p = getParsingInfo ins
@@ -4628,7 +4628,7 @@ let vld1SingleOne (ins: InsInfo) insLen ctxt index =
 let vld1SingleAll (ins: InsInfo) insLen ctxt =
   let ir = !*ctxt
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   let rdList, rn, rm = parseOprOfVecStAndLd ctxt ins
   let p = getParsingInfo ins
@@ -4645,7 +4645,7 @@ let vld1SingleAll (ins: InsInfo) insLen ctxt =
 let vld1Multi (ins: InsInfo) insLen ctxt =
   let ir = !*ctxt
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   let rdList, rn, rm = parseOprOfVecStAndLd ctxt ins
   let p = getParsingInfo ins
@@ -4687,7 +4687,7 @@ let vld1 (ins: InsInfo) insLen ctxt =
 let vst2Multi (ins: InsInfo) insLen ctxt =
   let ir = !*ctxt
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   let rdList, rn, rm = parseOprOfVecStAndLd ctxt ins
   let regs = getRegs ins.Operands / 2
@@ -4710,7 +4710,7 @@ let vst2Multi (ins: InsInfo) insLen ctxt =
 let vst2Single (ins: InsInfo) insLen ctxt index =
   let ir = !*ctxt
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   let rdList, rn, rm = parseOprOfVecStAndLd ctxt ins
   let p = getParsingInfo ins
@@ -4737,7 +4737,7 @@ let vst2 (ins: InsInfo) insLen ctxt =
 let vst3Multi (ins: InsInfo) insLen ctxt =
   let ir = !*ctxt
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   let rdList, rn, rm = parseOprOfVecStAndLd ctxt ins
   let p = getParsingInfo ins
@@ -4758,7 +4758,7 @@ let vst3Multi (ins: InsInfo) insLen ctxt =
 let vst3Single (ins: InsInfo) insLen ctxt index =
   let ir = !*ctxt
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   let rdList, rn, rm = parseOprOfVecStAndLd ctxt ins
   let p = getParsingInfo ins
@@ -4787,7 +4787,7 @@ let vst3 (ins: InsInfo) insLen ctxt =
 let vst4Multi (ins: InsInfo) insLen ctxt =
   let ir = !*ctxt
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   let rdList, rn, rm = parseOprOfVecStAndLd ctxt ins
   let p = getParsingInfo ins
@@ -4810,7 +4810,7 @@ let vst4Multi (ins: InsInfo) insLen ctxt =
 let vst4Single (ins: InsInfo) insLen ctxt index =
   let ir = !*ctxt
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   let rdList, rn, rm = parseOprOfVecStAndLd ctxt ins
   let p = getParsingInfo ins
@@ -4841,7 +4841,7 @@ let vst4 (ins: InsInfo) insLen ctxt =
 let vld2SingleOne (ins: InsInfo) insLen ctxt index =
   let ir = !*ctxt
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   let rdList, rn, rm = parseOprOfVecStAndLd ctxt ins
   let p = getParsingInfo ins
@@ -4858,7 +4858,7 @@ let vld2SingleOne (ins: InsInfo) insLen ctxt index =
 let vld2SingleAll (ins: InsInfo) insLen ctxt =
   let ir = !*ctxt
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   let rdList, rn, rm = parseOprOfVecStAndLd ctxt ins
   let p = getParsingInfo ins
@@ -4877,7 +4877,7 @@ let vld2SingleAll (ins: InsInfo) insLen ctxt =
 let vld2Multi (ins: InsInfo) insLen ctxt =
   let ir = !*ctxt
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   let rdList, rn, rm = parseOprOfVecStAndLd ctxt ins
   let p = getParsingInfo ins
@@ -4910,7 +4910,7 @@ let vld2 (ins: InsInfo) insLen ctxt =
 let vld3SingleOne (ins: InsInfo) insLen ctxt index =
   let ir = !*ctxt
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   let rdList, rn, rm = parseOprOfVecStAndLd ctxt ins
   let p = getParsingInfo ins
@@ -4929,7 +4929,7 @@ let vld3SingleOne (ins: InsInfo) insLen ctxt index =
 let vld3SingleAll (ins: InsInfo) insLen ctxt =
   let ir = !*ctxt
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   let rdList, rn, rm = parseOprOfVecStAndLd ctxt ins
   let p = getParsingInfo ins
@@ -4951,7 +4951,7 @@ let vld3SingleAll (ins: InsInfo) insLen ctxt =
 let vld3Multi (ins: InsInfo) insLen ctxt =
   let ir = !*ctxt
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   let rdList, rn, rm = parseOprOfVecStAndLd ctxt ins
   let p = getParsingInfo ins
@@ -4981,7 +4981,7 @@ let vld3 (ins: InsInfo) insLen ctxt =
 let vld4SingleOne (ins: InsInfo) insLen ctxt index =
   let ir = !*ctxt
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   let rdList, rn, rm = parseOprOfVecStAndLd ctxt ins
   let p = getParsingInfo ins
@@ -5002,7 +5002,7 @@ let vld4SingleOne (ins: InsInfo) insLen ctxt index =
 let vld4SingleAll (ins: InsInfo) insLen ctxt =
   let ir = !*ctxt
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   let rdList, rn, rm = parseOprOfVecStAndLd ctxt ins
   let p = getParsingInfo ins
@@ -5027,7 +5027,7 @@ let vld4SingleAll (ins: InsInfo) insLen ctxt =
 let vld4Multi (ins: InsInfo) insLen ctxt =
   let ir = !*ctxt
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   let rdList, rn, rm = parseOprOfVecStAndLd ctxt ins
   let p = getParsingInfo ins
@@ -5058,13 +5058,13 @@ let vld4 (ins: InsInfo) insLen ctxt =
 
 let udf (ins: InsInfo) insLen ctxt =
   match ins.Operands with
-  | OneOperand (OprImm n) -> sideEffects insLen ctxt (Interrupt (int n))
+  | OneOperand (OprImm n) -> sideEffects ins insLen ctxt (Interrupt (int n))
   | _ -> raise InvalidOperandException
 
 let uasx (ins: InsInfo) insLen ctxt =
   let ir = !*ctxt
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   let struct (dst, src1, src2) = transThreeOprs ins ctxt
   let cpsr = getRegVar ctxt R.CPSR
@@ -5085,7 +5085,7 @@ let uasx (ins: InsInfo) insLen ctxt =
 let uhsub16 (ins: InsInfo) insLen ctxt =
   let ir = !*ctxt
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   let struct (dst, src1, src2) = transThreeOprs ins ctxt
   let struct (diff1, diff2) = tmpVars2 ir 32<rt>
@@ -5102,7 +5102,7 @@ let uhsub16 (ins: InsInfo) insLen ctxt =
 let uqsax (ins: InsInfo) insLen ctxt =
   let ir = !*ctxt
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   let struct (dst, src1, src2) = transThreeOprs ins ctxt
   let struct (sum, diff) = tmpVars2 ir 32<rt>
@@ -5117,7 +5117,7 @@ let uqsax (ins: InsInfo) insLen ctxt =
 let usax (ins: InsInfo) insLen ctxt =
   let ir = !*ctxt
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   let struct (dst, src1, src2) = transThreeOprs ins ctxt
   let cpsr = getRegVar ctxt R.CPSR
@@ -5138,7 +5138,7 @@ let usax (ins: InsInfo) insLen ctxt =
 let vext (ins: InsInfo) insLen ctxt =
   let ir = !*ctxt
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   let struct (dst, src1, src2, imm) = getFourOprs ins
   let imm = getImmValue imm
@@ -5172,7 +5172,7 @@ let vext (ins: InsInfo) insLen ctxt =
 let vhaddsub (ins: InsInfo) insLen ctxt opFn =
   let ir = !*ctxt
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   let p = getParsingInfo ins
   match ins.OprSize with
@@ -5202,7 +5202,7 @@ let vhaddsub (ins: InsInfo) insLen ctxt opFn =
 let vrhadd (ins: InsInfo) insLen ctxt =
   let ir = !*ctxt
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   let p = getParsingInfo ins
   let struct (op1, op2) = tmpVars2 ir p.RtESize
@@ -5231,7 +5231,7 @@ let vrhadd (ins: InsInfo) insLen ctxt =
 let vsra (ins: InsInfo) insLen ctxt =
   let ir = !*ctxt
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   let p = getParsingInfo ins
   let struct (result1, result2, shfAmt) = tmpVars3 ir p.RtESize
@@ -5261,7 +5261,7 @@ let vsra (ins: InsInfo) insLen ctxt =
 let vuzp (ins: InsInfo) insLen ctxt =
   let ir = !*ctxt
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
+  !<ir ins.Address insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   let p = getParsingInfo ins
   let struct (zip1B, zip1A, zip2B, zip2A) = tmpVars4 ir 64<rt>
@@ -5325,7 +5325,7 @@ let translate (ins: ARM32InternalInstruction) insLen ctxt =
   | Op.BFI -> bfi ins insLen ctxt
   | Op.BIC -> bic false ins insLen ctxt
   | Op.BICS -> bics true ins insLen ctxt
-  | Op.BKPT -> sideEffects insLen ctxt Breakpoint
+  | Op.BKPT -> sideEffects ins insLen ctxt Breakpoint
   | Op.BL -> bl ins insLen ctxt
   | Op.BLX -> branchWithLink ins insLen ctxt
   | Op.BX -> bx ins insLen ctxt
@@ -5335,14 +5335,15 @@ let translate (ins: ARM32InternalInstruction) insLen ctxt =
   | Op.CDP | Op.CDP2 | Op.LDC | Op.LDC2 | Op.LDC2L | Op.LDCL | Op.MCR | Op.MCR2
   | Op.MCRR | Op.MCRR2 | Op.MRC | Op.MRC2 | Op.MRRC | Op.MRRC2 | Op.STC
   | Op.STC2 | Op.STC2L | Op.STCL ->
-    sideEffects insLen ctxt UnsupportedExtension (* coprocessor instructions *)
+    (* coprocessor instructions *)
+    sideEffects ins insLen ctxt UnsupportedExtension
   | Op.CLZ -> clz ins insLen ctxt
   | Op.CMN -> cmn ins insLen ctxt
   | Op.CMP -> cmp ins insLen ctxt
-  | Op.DMB | Op.DSB | Op.ISB | Op.PLD -> nop insLen ctxt
+  | Op.DMB | Op.DSB | Op.ISB | Op.PLD -> nop ins insLen ctxt
   | Op.EOR -> eor false ins insLen ctxt
   | Op.EORS -> eors true ins insLen ctxt
-  | Op.ERET -> sideEffects insLen ctxt UnsupportedExtension
+  | Op.ERET -> sideEffects ins insLen ctxt UnsupportedExtension
   | Op.IT | Op.ITT | Op.ITE | Op.ITTT | Op.ITET | Op.ITTE | Op.ITEE | Op.ITTTT
   | Op.ITETT | Op.ITTET | Op.ITEET | Op.ITTTE | Op.ITETE | Op.ITTEE
   | Op.ITEEE -> it ins insLen ctxt
@@ -5373,12 +5374,12 @@ let translate (ins: ARM32InternalInstruction) insLen ctxt =
   | Op.MOV | Op.MOVW -> mov false ins insLen ctxt
   | Op.MOVS -> movs true ins insLen ctxt
   | Op.MOVT -> movt ins insLen ctxt
-  | Op.MSR | Op.MRS -> sideEffects insLen ctxt UndefinedInstr
+  | Op.MSR | Op.MRS -> sideEffects ins insLen ctxt UndefinedInstr
   | Op.MUL -> mul false ins insLen ctxt
   | Op.MULS -> mul true ins insLen ctxt
   | Op.MVN -> mvn false ins insLen ctxt
   | Op.MVNS -> mvns true ins insLen ctxt
-  | Op.NOP -> nop insLen ctxt
+  | Op.NOP -> nop ins insLen ctxt
   | Op.ORN -> orn false ins insLen ctxt
   | Op.ORNS -> orns true ins insLen ctxt
   | Op.ORR -> orr false ins insLen ctxt
@@ -5474,24 +5475,24 @@ let translate (ins: ARM32InternalInstruction) insLen ctxt =
   | Op.UXTB16 -> uxtb16 ins insLen ctxt
   | Op.UXTH -> extend ins insLen ctxt AST.zext 16<rt>
   | Op.VABS when isF16orF32orF64 ins.SIMDTyp ->
-    sideEffects insLen ctxt UnsupportedFP
+    sideEffects ins insLen ctxt UnsupportedFP
   | Op.VABS -> vabs ins insLen ctxt
   | Op.VADD when isF16orF32orF64 ins.SIMDTyp -> vaddsub ins insLen ctxt AST.fadd
   | Op.VADD -> vaddsub ins insLen ctxt (.+)
   | Op.VADDL -> vaddl ins insLen ctxt
   | Op.VAND -> vand ins insLen ctxt
   | Op.VCEQ | Op.VCGE | Op.VCGT | Op.VCLE | Op.VCLT
-    when isF32orF64 ins.SIMDTyp -> sideEffects insLen ctxt UnsupportedFP
+    when isF32orF64 ins.SIMDTyp -> sideEffects ins insLen ctxt UnsupportedFP
   | Op.VCEQ -> vceq ins insLen ctxt
   | Op.VCGE -> vcge ins insLen ctxt
   | Op.VCGT -> vcgt ins insLen ctxt
   | Op.VCLE -> vcle ins insLen ctxt
   | Op.VCLT -> vclt ins insLen ctxt
   | Op.VCLZ -> vclz ins insLen ctxt
-  | Op.VCMLA -> sideEffects insLen ctxt UnsupportedFP
+  | Op.VCMLA -> sideEffects ins insLen ctxt UnsupportedFP
   | Op.VCMP | Op.VCMPE | Op.VACGE | Op.VACGT | Op.VACLE | Op.VACLT | Op.VCVTR
   | Op.VFMA | Op.VFMS | Op.VFNMA | Op.VFNMS | Op.VMSR | Op.VNMLA | Op.VNMLS
-  | Op.VNMUL | Op.VSQRT -> sideEffects insLen ctxt UnsupportedFP
+  | Op.VNMUL | Op.VSQRT -> sideEffects ins insLen ctxt UnsupportedFP
   | Op.VCVT -> vcvt ins insLen ctxt
   | Op.VDIV -> vdiv ins insLen ctxt
   | Op.VDUP -> vdup ins insLen ctxt
@@ -5505,11 +5506,11 @@ let translate (ins: ARM32InternalInstruction) insLen ctxt =
   | Op.VLDM | Op.VLDMIA | Op.VLDMDB -> vldm ins insLen ctxt
   | Op.VLDR -> vldr ins insLen ctxt
   | Op.VMAX | Op.VMIN when isF32orF64 ins.SIMDTyp ->
-    sideEffects insLen ctxt UnsupportedFP
+    sideEffects ins insLen ctxt UnsupportedFP
   | Op.VMAX -> vmaxmin ins insLen ctxt true
   | Op.VMIN -> vmaxmin ins insLen ctxt false
   | Op.VMLA | Op.VMLS when isF16orF32orF64 ins.SIMDTyp ->
-    sideEffects insLen ctxt UnsupportedFP
+    sideEffects ins insLen ctxt UnsupportedFP
   | Op.VMLA -> vmla ins insLen ctxt
   | Op.VMLAL -> vmlal ins insLen ctxt
   | Op.VMLS -> vmls ins insLen ctxt
@@ -5522,17 +5523,17 @@ let translate (ins: ARM32InternalInstruction) insLen ctxt =
   | Op.VMUL -> vmul ins insLen ctxt (.*)
   | Op.VMULL -> vmull ins insLen ctxt
   | Op.VNEG when isF32orF64 ins.SIMDTyp ->
-    sideEffects insLen ctxt UnsupportedFP
+    sideEffects ins insLen ctxt UnsupportedFP
   | Op.VNEG -> vneg ins insLen ctxt
   | Op.VORN -> vorn ins insLen ctxt
   | Op.VORR -> vorr ins insLen ctxt
   | Op.VPADD when isF32orF64 ins.SIMDTyp ->
-    sideEffects insLen ctxt UnsupportedFP
+    sideEffects ins insLen ctxt UnsupportedFP
   | Op.VPADD -> vpadd ins insLen ctxt
   | Op.VPOP -> vpop ins insLen ctxt
   | Op.VPUSH -> vpush ins insLen ctxt
   | Op.VRHADD -> vrhadd ins insLen ctxt
-  | Op.VRINTP -> sideEffects insLen ctxt UnsupportedFP
+  | Op.VRINTP -> sideEffects ins insLen ctxt UnsupportedFP
   | Op.VRSHR -> vrshr ins insLen ctxt
   | Op.VRSHRN -> vrshrn ins insLen ctxt
   | Op.VSHL -> vshl ins insLen ctxt

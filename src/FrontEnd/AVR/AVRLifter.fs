@@ -42,21 +42,21 @@ let translate (ins: InsInfo) insLen (ctxt : TranslationContext)  =
   | Opcode.BRCC| Opcode.BRCS| Opcode.BREQ| Opcode.BRGE| Opcode.BRHC| Opcode.BRHS
   | Opcode.BRID| Opcode.BRIE| Opcode.BRLT| Opcode.BRMI| Opcode.BRNE| Opcode.BRPL
   | Opcode.BRTC| Opcode.BRTS| Opcode.BRVC| Opcode.BRVS -> branch ins insLen ctxt
-  | Opcode.BREAK -> sideEffects insLen ProcessorID
+  | Opcode.BREAK -> sideEffects ins.Address insLen ProcessorID
   | Opcode.BST -> bst ins insLen ctxt
   | Opcode.CALL -> call ins insLen ctxt
   | Opcode.CBI| Opcode.IN | Opcode.OUT | Opcode.SBI | Opcode.SBIC | Opcode.SBIS
   | Opcode.ELPM | Opcode.SLEEP | Opcode.SPM ->
-    sideEffects insLen UnsupportedExtension
+    sideEffects ins.Address insLen UnsupportedExtension
   | Opcode.CLC -> clc ins insLen ctxt
-  | Opcode.CLH -> clh insLen ctxt
-  | Opcode.CLI -> cli insLen ctxt
-  | Opcode.CLN -> cln insLen ctxt
+  | Opcode.CLH -> clh ins insLen ctxt
+  | Opcode.CLI -> cli ins insLen ctxt
+  | Opcode.CLN -> cln ins insLen ctxt
   | Opcode.CLR -> clr ins insLen ctxt
-  | Opcode.CLS -> cls insLen ctxt
-  | Opcode.CLT -> clt insLen ctxt
-  | Opcode.CLV -> clv insLen ctxt
-  | Opcode.CLZ -> clz insLen ctxt
+  | Opcode.CLS -> cls ins insLen ctxt
+  | Opcode.CLT -> clt ins insLen ctxt
+  | Opcode.CLV -> clv ins insLen ctxt
+  | Opcode.CLZ -> clz ins insLen ctxt
   | Opcode.COM -> com ins insLen ctxt
   | Opcode.CP -> cp ins insLen ctxt
   | Opcode.CPC -> cpc ins insLen ctxt
@@ -64,14 +64,14 @@ let translate (ins: InsInfo) insLen (ctxt : TranslationContext)  =
   | Opcode.CPSE -> cpse ins insLen ctxt
   | Opcode.DEC -> dec ins insLen ctxt
   | Opcode.DES -> des ins insLen ctxt
-  | Opcode.EICALL -> eicall insLen
-  | Opcode.EIJMP -> eijmp insLen
+  | Opcode.EICALL -> eicall ins insLen
+  | Opcode.EIJMP -> eijmp ins insLen
   | Opcode.EOR -> eor ins insLen ctxt
   | Opcode.FMUL -> fmul ins insLen ctxt
   | Opcode.FMULS -> fmuls ins insLen ctxt
   | Opcode.FMULSU -> fmulsu ins insLen ctxt
-  | Opcode.ICALL -> icall insLen ctxt
-  | Opcode.IJMP -> ijmp insLen ctxt
+  | Opcode.ICALL -> icall ins insLen ctxt
+  | Opcode.IJMP -> ijmp ins insLen ctxt
   | Opcode.INC -> inc ins insLen ctxt
   | Opcode.JMP -> jmp ins insLen ctxt
   | Opcode.LAC -> lac ins insLen ctxt
@@ -87,12 +87,12 @@ let translate (ins: InsInfo) insLen (ctxt : TranslationContext)  =
   | Opcode.MUL -> mul ins insLen ctxt
   | Opcode.MULS -> muls ins insLen ctxt
   | Opcode.MULSU -> mulsu ins insLen ctxt
-  | Opcode.NOP -> nop insLen
+  | Opcode.NOP -> nop ins.Address insLen
   | Opcode.OR | Opcode.ORI -> ``or`` ins insLen ctxt
   | Opcode.POP -> pop ins insLen ctxt
   | Opcode.PUSH -> push ins insLen ctxt
   | Opcode.RCALL -> rcall ins insLen ctxt
-  | Opcode.RET | Opcode.RETI as opr -> ret insLen opr ctxt
+  | Opcode.RET | Opcode.RETI as opr -> ret ins.Address insLen opr ctxt
   | Opcode.RJMP -> rjmp ins insLen ctxt
   | Opcode.ROR -> ror ins insLen ctxt
   | Opcode.SBC | Opcode.SBCI -> sbc ins insLen ctxt
@@ -104,7 +104,7 @@ let translate (ins: InsInfo) insLen (ctxt : TranslationContext)  =
   | Opcode.STD -> std ins insLen ctxt
   | Opcode.STS -> sts ins insLen ctxt
   | Opcode.SWAP -> swap ins insLen ctxt
-  | Opcode.WDR -> sideEffects insLen ClockCounter
+  | Opcode.WDR -> sideEffects ins.Address insLen ClockCounter
   | Opcode.XCH -> xch ins insLen ctxt
   | Opcode.InvalidOp -> raise InvalidOpcodeException
   | o ->

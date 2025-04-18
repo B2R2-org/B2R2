@@ -252,7 +252,7 @@ type LowUIRParser (isa, regFactory: RegisterFactory) =
 
   let pLMark =
     ws >>. pchar ':' >>. pIdentifier
-    |>> (fun name -> AST.symbol name 0 |> AST.lmark)
+    |>> (fun name -> AST.label name 0 0UL |> AST.lmark)
 
   let pPut =
     ws
@@ -269,7 +269,7 @@ type LowUIRParser (isa, regFactory: RegisterFactory) =
   let pJmp =
     ws >>. pstring "jmp" >>. ws >>. pIdentifier
     |>> (fun lab ->
-      AST.jmp (AST.jmpDest <| AST.symbol lab 0))
+      AST.jmp (AST.jmpDest <| AST.label lab 0 0UL))
 
   let pCJmp =
     ws
@@ -278,8 +278,8 @@ type LowUIRParser (isa, regFactory: RegisterFactory) =
     .>> pstring "jmp" .>> ws .>>. pIdentifier .>> ws
     .>> pstring "else" .>> ws .>> pstring "jmp" .>> ws .>>. pIdentifier
     |>> (fun ((cond, tlab), flab) ->
-      let tlab = AST.jmpDest <| AST.symbol tlab 0
-      let flab = AST.jmpDest <| AST.symbol flab 0
+      let tlab = AST.jmpDest <| AST.label tlab 0 0UL
+      let flab = AST.jmpDest <| AST.label flab 0 0UL
       AST.cjmp cond tlab flab)
 
   let pInterJmp =

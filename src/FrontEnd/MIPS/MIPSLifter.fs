@@ -245,9 +245,9 @@ let private transBigEndianCPU (ctxt: TranslationContext) opSz =
   | Endian.Big, 64<rt> -> numI32 0b111 64<rt>
   | _ -> raise InvalidOperandException
 
-let sideEffects insLen ctxt name =
+let sideEffects insInfo insLen ctxt name =
   let ir = !*ctxt
-  !<ir insLen
+  !<ir insInfo.Address insLen
   !!ir (AST.sideEffect name)
   !>ir insLen
 
@@ -464,7 +464,7 @@ let private mul64BitReg src1 src2 ir isSign =
 let abs insInfo insLen ctxt =
   let ir = !*ctxt
   let fd, fs = getTwoOprs insInfo
-  !<ir insLen
+  !<ir insInfo.Address insLen
   match insInfo.Fmt with
   | Some Fmt.D | Some Fmt.PS ->
     let fdB, fdA = transOprToFPPair ctxt fd
@@ -488,7 +488,7 @@ let private reDupSrc opr1 opr2 expr1 expr2 tmp1 tmp2 ir =
 
 let add insInfo insLen ctxt =
   let ir = !*ctxt
-  !<ir insLen
+  !<ir insInfo.Address insLen
   let dst, src1, src2 = getThreeOprs insInfo
   match insInfo.Fmt with
   | None ->
@@ -527,7 +527,7 @@ let addiu insInfo insLen ctxt =
   let ir = !*ctxt
   let rt, rs, imm = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   let result = if is32Bit ctxt then rs .+ imm else signExtLo64 (rs .+ imm)
-  !<ir insLen
+  !<ir insInfo.Address insLen
   !!ir (rt := result)
   advancePC ctxt ir
   !>ir insLen
@@ -536,7 +536,7 @@ let addu insInfo insLen ctxt =
   let ir = !*ctxt
   let rd, rs, rt = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   let result = if is32Bit ctxt then rs .+ rt else signExtLo64 (rs .+ rt)
-  !<ir insLen
+  !<ir insInfo.Address insLen
   !!ir (rd := result)
   advancePC ctxt ir
   !>ir insLen
@@ -544,7 +544,7 @@ let addu insInfo insLen ctxt =
 let logAnd insInfo insLen ctxt =
   let ir = !*ctxt
   let rd, rs, rt = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
-  !<ir insLen
+  !<ir insInfo.Address insLen
   !!ir (rd := rs .& rt)
   advancePC ctxt ir
   !>ir insLen
@@ -552,7 +552,7 @@ let logAnd insInfo insLen ctxt =
 let andi insInfo insLen ctxt =
   let ir = !*ctxt
   let rt, rs, imm = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
-  !<ir insLen
+  !<ir insInfo.Address insLen
   !!ir (rt := rs .& imm)
   advancePC ctxt ir
   !>ir insLen
@@ -561,7 +561,7 @@ let aui insInfo insLen ctxt =
   let ir = !*ctxt
   let rt, rs, imm = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   let imm = imm << numI32 16 ctxt.WordBitSize
-  !<ir insLen
+  !<ir insInfo.Address insLen
   !!ir (rt := rs .+ imm)
   advancePC ctxt ir
   !>ir insLen
@@ -571,7 +571,7 @@ let b insInfo insLen ctxt =
   let nPC = getRegVar ctxt R.NPC
   let offset = getOneOpr insInfo |> transOneOpr insInfo ctxt
   ctxt.DelayedBranch <- InterJmpKind.Base
-  !<ir insLen
+  !<ir insInfo.Address insLen
   !!ir (nPC := offset)
   !>ir insLen
 
@@ -581,7 +581,7 @@ let bal insInfo insLen ctxt =
   let pc = getRegVar ctxt R.PC
   let nPC = getRegVar ctxt R.NPC
   ctxt.DelayedBranch <- InterJmpKind.IsCall
-  !<ir insLen
+  !<ir insInfo.Address insLen
   !!ir (getRegVar ctxt R.R31 := pc .+ numI32 8 ctxt.WordBitSize)
   !!ir (nPC := offset)
   !>ir insLen
@@ -595,7 +595,7 @@ let private fpConditionCode cc ctxt =
 
 let bc1f insInfo insLen ctxt =
   let ir = !*ctxt
-  !<ir insLen
+  !<ir insInfo.Address insLen
   match insInfo.Operands with
   | OneOperand off ->
     let offset = transOneOpr insInfo ctxt off
@@ -611,7 +611,7 @@ let bc1f insInfo insLen ctxt =
 
 let bc1t insInfo insLen ctxt =
   let ir = !*ctxt
-  !<ir insLen
+  !<ir insInfo.Address insLen
   match insInfo.Operands with
   | OneOperand off ->
     let offset = transOneOpr insInfo ctxt off
@@ -629,7 +629,7 @@ let beq insInfo insLen ctxt =
   let ir = !*ctxt
   let rs, rt, offset = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   let cond = rs == rt
-  !<ir insLen
+  !<ir insInfo.Address insLen
   updatePCCond ctxt offset cond InterJmpKind.Base ir
   !>ir insLen
 
@@ -637,7 +637,7 @@ let blez insInfo insLen ctxt =
   let ir = !*ctxt
   let rs, offset = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
   let cond = AST.sle rs (AST.num0 ctxt.WordBitSize)
-  !<ir insLen
+  !<ir insInfo.Address insLen
   updatePCCond ctxt offset cond InterJmpKind.Base ir
   !>ir insLen
 
@@ -645,7 +645,7 @@ let bltz insInfo insLen ctxt =
   let ir = !*ctxt
   let rs, offset = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
   let cond = AST.slt rs (AST.num0 ctxt.WordBitSize)
-  !<ir insLen
+  !<ir insInfo.Address insLen
   updatePCCond ctxt offset cond InterJmpKind.Base ir
   !>ir insLen
 
@@ -655,7 +655,7 @@ let bltzal insInfo insLen ctxt =
   let pc = getRegVar ctxt R.PC
   let nAddr = !+ir ctxt.WordBitSize
   let cond = AST.slt rs (AST.num0 ctxt.WordBitSize)
-  !<ir insLen
+  !<ir insInfo.Address insLen
   !!ir (nAddr := pc .+ numI32 8 ctxt.WordBitSize)
   !!ir (getRegVar ctxt R.R31 := nAddr)
   updateRAPCCond ctxt nAddr offset cond InterJmpKind.IsCall ir
@@ -665,7 +665,7 @@ let bgez insInfo insLen ctxt =
   let ir = !*ctxt
   let rs, offset = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
   let cond = AST.sge rs (AST.num0 ctxt.WordBitSize)
-  !<ir insLen
+  !<ir insInfo.Address insLen
   updatePCCond ctxt offset cond InterJmpKind.Base ir
   !>ir insLen
 
@@ -675,7 +675,7 @@ let bgezal insInfo insLen ctxt =
   let pc = getRegVar ctxt R.PC
   let nAddr = !+ir ctxt.WordBitSize
   let cond = AST.sge rs (AST.num0 ctxt.WordBitSize)
-  !<ir insLen
+  !<ir insInfo.Address insLen
   !!ir (nAddr := pc .+ numI32 8 ctxt.WordBitSize)
   !!ir (getRegVar ctxt R.R31 := nAddr)
   updateRAPCCond ctxt nAddr offset cond InterJmpKind.IsCall ir
@@ -685,7 +685,7 @@ let bgtz insInfo insLen ctxt =
   let ir = !*ctxt
   let rs, offset = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
   let cond = AST.sgt rs (AST.num0 ctxt.WordBitSize)
-  !<ir insLen
+  !<ir insInfo.Address insLen
   updatePCCond ctxt offset cond InterJmpKind.Base ir
   !>ir insLen
 
@@ -693,7 +693,7 @@ let bne insInfo insLen ctxt =
   let ir = !*ctxt
   let rs, rt, offset = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   let cond = rs != rt
-  !<ir insLen
+  !<ir insInfo.Address insLen
   updatePCCond ctxt offset cond InterJmpKind.Base ir
   !>ir insLen
 
@@ -756,7 +756,7 @@ let cCond insInfo insLen ctxt =
     | Some Condition.OLE | Some Condition.LE -> num0, num1, num1
     | Some Condition.ULE | Some Condition.NGT -> num1, num1, num1
     | _ -> raise InvalidOperandException
-  !<ir insLen
+  !<ir insInfo.Address insLen
   if sameReg then
     !!ir (tFs := fs)
     !!ir (tFt := tFs)
@@ -791,7 +791,7 @@ let ctc1 insInfo insLen ctxt=
   let ir = !*ctxt
   let rt, _ = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
   let fcsr = getRegVar ctxt R.FCSR
-  !<ir insLen
+  !<ir insInfo.Address insLen
   !!ir (fcsr := AST.xtlo 32<rt> rt)
   advancePC ctxt ir
   !>ir insLen
@@ -800,7 +800,7 @@ let cfc1 insInfo insLen ctxt=
   let ir = !*ctxt
   let rt, _ = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
   let fcsr = getRegVar ctxt R.FCSR
-  !<ir insLen
+  !<ir insInfo.Address insLen
   !!ir (rt := AST.sext ctxt.WordBitSize fcsr)
   advancePC ctxt ir
   !>ir insLen
@@ -814,7 +814,7 @@ let clz insInfo insLen ctxt =
   let rd, rs = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
   let t = !+ir wordSz
   let n31 = numI32 31 wordSz
-  !<ir insLen
+  !<ir insInfo.Address insLen
   !!ir (t := n31)
   !!ir (AST.lmark lblLoop)
   let cond1 = rs >> t == AST.num1 wordSz
@@ -833,7 +833,7 @@ let cvtd insInfo insLen ctxt =
   let fd, fs = getTwoOprs insInfo
   let fdB, fdA = transOprToFPPair ctxt fd
   let result = !+ir 64<rt>
-  !<ir insLen
+  !<ir insInfo.Address insLen
   match insInfo.Fmt with
   | Some Fmt.W ->
     let fs = transOprToFPConvert insInfo ctxt fs
@@ -855,7 +855,7 @@ let cvtw insInfo insLen ctxt =
   let intMax = numI32 0x7fffffff 32<rt>
   let intMin = numI32 0x80000000 32<rt>
   let exponent = !+ir 1<rt>
-  !<ir insLen
+  !<ir insInfo.Address insLen
   let struct (dst, src, inf, nan) =
     match insInfo.Fmt with
     | Some Fmt.S ->
@@ -889,7 +889,7 @@ let cvtl insInfo insLen ctxt =
   let exponent = !+ir 1<rt>
   let intMax = numI64 0x7fffffffffffffffL 64<rt>
   let intMin = numI64 0x8000000000000000L 64<rt>
-  !<ir insLen
+  !<ir insInfo.Address insLen
   let struct (src, inf, nan) =
     match insInfo.Fmt with
     | Some Fmt.S ->
@@ -921,7 +921,7 @@ let cvts insInfo insLen ctxt =
   let fd = transOprToFPConvert insInfo ctxt fd
   let dst = if is32Bit ctxt then fd else AST.xtlo 32<rt> fd
   let result = !+ir 32<rt>
-  !<ir insLen
+  !<ir insInfo.Address insLen
   match insInfo.Fmt with
   | Some Fmt.L ->
     let fs = transOprToFPPairConcat ctxt fs
@@ -944,7 +944,7 @@ let dadd insInfo insLen ctxt =
   let lblEnd = !%ir "End"
   let rd, rs, rt = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   let cond = checkOverfolwOnDadd rs rt (rs .+ rt)
-  !<ir insLen
+  !<ir insInfo.Address insLen
   !!ir (AST.cjmp cond (AST.jmpDest lblL0) (AST.jmpDest lblL1))
   !!ir (AST.lmark lblL0)
   !!ir (AST.sideEffect (Exception "int overflow"))
@@ -959,7 +959,7 @@ let daddu insInfo insLen ctxt =
   let ir = !*ctxt
   let rd, rs, rt = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   let result = !+ir 64<rt>
-  !<ir insLen
+  !<ir insInfo.Address insLen
   !!ir (result := rs .+ rt)
   !!ir (rd := result)
   advancePC ctxt ir
@@ -969,7 +969,7 @@ let daddiu insInfo insLen ctxt =
   let ir = !*ctxt
   let rt, rs, imm = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   let result = !+ir 64<rt>
-  !<ir insLen
+  !<ir insInfo.Address insLen
   !!ir (result := rs .+ imm)
   !!ir (rt := result)
   advancePC ctxt ir
@@ -984,7 +984,7 @@ let dclz insInfo insLen ctxt =
   let rd, rs = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
   let t = !+ir wordSz
   let n63 = numI32 63 wordSz
-  !<ir insLen
+  !<ir insInfo.Address insLen
   !!ir (t := n63)
   !!ir (AST.lmark lblLoop)
   !!ir (AST.cjmp (rs >> t == AST.num1 wordSz)
@@ -1004,7 +1004,7 @@ let ddiv insInfo insLen ctxt =
   let struct (q, r) = tmpVars2 ir 64<rt>
   let hi = getRegVar ctxt R.HI
   let lo = getRegVar ctxt R.LO
-  !<ir insLen
+  !<ir insInfo.Address insLen
   !!ir (rt := AST.ite (rt == numI64 0 ctxt.WordBitSize)
                 (AST.undef ctxt.WordBitSize "UNPREDICTABLE") rt)
   !!ir (q := AST.sdiv rs rt)
@@ -1019,7 +1019,7 @@ let dmfc1 insInfo insLen ctxt =
   let rt, fs = getTwoOprs insInfo
   let rt = transOprToExpr insInfo ctxt rt
   let fs = transOprToFPPairConcat ctxt fs
-  !<ir insLen
+  !<ir insInfo.Address insLen
   !!ir (rt := fs)
   advancePC ctxt ir
   !>ir insLen
@@ -1029,7 +1029,7 @@ let dmtc1 insInfo insLen ctxt =
   let rt, fs = getTwoOprs insInfo
   let rt = transOprToExpr insInfo ctxt rt
   let fsB, fsA = transOprToFPPair ctxt fs
-  !<ir insLen
+  !<ir insInfo.Address insLen
   dstAssignForFP fsB fsA rt ctxt ir
   advancePC ctxt ir
   !>ir insLen
@@ -1040,7 +1040,7 @@ let ddivu insInfo insLen ctxt =
   let struct (q, r) = tmpVars2 ir 64<rt>
   let hi = getRegVar ctxt R.HI
   let lo = getRegVar ctxt R.LO
-  !<ir insLen
+  !<ir insInfo.Address insLen
   !!ir (q := AST.div rs rt)
   !!ir (r := AST.(mod) rs rt)
   !!ir (lo := q)
@@ -1065,7 +1065,7 @@ let dext insInfo insLen ctxt =
   checkDEXTPosSize pos size
   let mask = numI64 (getMask size) ctxt.WordBitSize
   let rs = if pos = 0 then rs else rs >> numI32 pos ctxt.WordBitSize
-  !<ir insLen
+  !<ir insInfo.Address insLen
   !!ir (rt := mask .& rs |> AST.zext 64<rt>)
   advancePC ctxt ir
   !>ir insLen
@@ -1092,7 +1092,7 @@ let dextx insInfo insLen posSizeCheckFn ctxt =
   let pos = transOprToImm pos |> int
   let sz = transOprToImm size |> int
   posSizeCheckFn pos sz
-  !<ir insLen
+  !<ir insInfo.Address insLen
   if sz = 64 then if rt = rs then () else !!ir (rt := rs)
   else
     let rs = if pos = 0 then rs else rs >> numI32 pos ctxt.WordBitSize
@@ -1116,7 +1116,7 @@ let dins insInfo insLen ctxt =
   let pos = int32 (transOprToImm pos)
   let size = int32 (transOprToImm size)
   checkINSorExtPosSize pos size
-  !<ir insLen
+  !<ir insInfo.Address insLen
   if pos = 0 && rt = rs then ()
   else
     let posExpr = numI32 pos ctxt.WordBitSize
@@ -1150,7 +1150,7 @@ let dinsx insInfo insLen posSizeCheckFn ctxt =
   let pos = int32 (transOprToImm pos)
   let size = int32 (transOprToImm size)
   posSizeCheckFn pos size
-  !<ir insLen
+  !<ir insInfo.Address insLen
   if size = 64 then if rt = rs then () else !!ir (rt := rs)
   else
     let posExpr = numI32 pos ctxt.WordBitSize
@@ -1164,7 +1164,7 @@ let dinsx insInfo insLen posSizeCheckFn ctxt =
 
 let div insInfo insLen ctxt =
   let ir = !*ctxt
-  !<ir insLen
+  !<ir insInfo.Address insLen
   match insInfo.Fmt with
   | None ->
     let rs, rt = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
@@ -1208,7 +1208,7 @@ let divu insInfo insLen ctxt =
   let rs, rt = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
   let hi = getRegVar ctxt R.HI
   let lo = getRegVar ctxt R.LO
-  !<ir insLen
+  !<ir insInfo.Address insLen
   !!ir (rt := AST.ite (rt == numI64 0 ctxt.WordBitSize)
                 (AST.undef ctxt.WordBitSize "UNPREDICTABLE") rt)
   if is32Bit ctxt then
@@ -1233,7 +1233,7 @@ let dmul insInfo insLen ctxt isSign =
   let struct (high, low) = mul64BitReg rs rt ir isSign
   let hi = getRegVar ctxt R.HI
   let lo = getRegVar ctxt R.LO
-  !<ir insLen
+  !<ir insInfo.Address insLen
   !!ir (lo := low)
   !!ir (hi := high)
   advancePC ctxt ir
@@ -1245,7 +1245,7 @@ let drotr insInfo insLen ctxt =
   let rd, rt = transTwoOprs insInfo ctxt (rd, rt)
   let sa = numU64 (transOprToImm sa) 64<rt>
   let size = numI32 64 64<rt>
-  !<ir insLen
+  !<ir insInfo.Address insLen
   !!ir (rd := (rt << (size .- sa)) .| (rt >> sa))
   advancePC ctxt ir
   !>ir insLen
@@ -1256,7 +1256,7 @@ let drotr32 insInfo insLen ctxt =
   let rd, rt = transTwoOprs insInfo ctxt (rd, rt)
   let sa = numU64 (transOprToImm sa) 64<rt> .+ numI32 32 64<rt>
   let size = numI32 64 64<rt>
-  !<ir insLen
+  !<ir insInfo.Address insLen
   !!ir (rd := (rt << (size .- sa)) .| (rt >> sa))
   advancePC ctxt ir
   !>ir insLen
@@ -1266,7 +1266,7 @@ let drotrv insInfo insLen ctxt =
   let rd, rt, rs = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   let sa = !+ir 64<rt>
   let size = numI32 64 64<rt>
-  !<ir insLen
+  !<ir insInfo.Address insLen
   !!ir (sa := rs .& numI32 0x3F 64<rt>)
   !!ir (rd := (rt << (size .- sa)) .| (rt >> sa))
   advancePC ctxt ir
@@ -1275,7 +1275,7 @@ let drotrv insInfo insLen ctxt =
 let dsra insInfo insLen ctxt =
   let ir = !*ctxt
   let rd, rt, sa = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
-  !<ir insLen
+  !<ir insInfo.Address insLen
   !!ir (rd := rt ?>> sa |> AST.sext 64<rt>)
   advancePC ctxt ir
   !>ir insLen
@@ -1283,7 +1283,7 @@ let dsra insInfo insLen ctxt =
 let dsrav insInfo insLen ctxt =
   let ir = !*ctxt
   let rd, rt, rs = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
-  !<ir insLen
+  !<ir insInfo.Address insLen
   !!ir (rd := rt ?>> (rs .& numI32 63 64<rt>) |> AST.sext 64<rt>)
   advancePC ctxt ir
   !>ir insLen
@@ -1292,7 +1292,7 @@ let dsra32 insInfo insLen ctxt =
   let ir = !*ctxt
   let rd, rt, sa = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   let sa = sa .+ numI32 32 64<rt>
-  !<ir insLen
+  !<ir insInfo.Address insLen
   !!ir (rd := rt ?>> sa |> AST.sext 64<rt>)
   advancePC ctxt ir
   !>ir insLen
@@ -1301,7 +1301,7 @@ let dShiftLeftRight32 insInfo insLen ctxt shf =
   let ir = !*ctxt
   let rd, rt, sa = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   let sa = sa .+ numI32 32 64<rt>
-  !<ir insLen
+  !<ir insInfo.Address insLen
   !!ir (rd := shf rt sa |> AST.zext 64<rt>)
   advancePC ctxt ir
   !>ir insLen
@@ -1309,7 +1309,7 @@ let dShiftLeftRight32 insInfo insLen ctxt shf =
 let dShiftLeftRight insInfo insLen ctxt shf =
   let ir = !*ctxt
   let rd, rt, sa = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
-  !<ir insLen
+  !<ir insInfo.Address insLen
   !!ir (rd := shf rt sa |> AST.zext 64<rt>)
   advancePC ctxt ir
   !>ir insLen
@@ -1317,7 +1317,7 @@ let dShiftLeftRight insInfo insLen ctxt shf =
 let dShiftLeftRightVar insInfo insLen ctxt shf =
   let ir = !*ctxt
   let rd, rt, rs = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
-  !<ir insLen
+  !<ir insInfo.Address insLen
   !!ir (rd := shf rt (rs .& numI32 63 64<rt>) |> AST.zext 64<rt>)
   advancePC ctxt ir
   !>ir insLen
@@ -1326,7 +1326,7 @@ let dsubu insInfo insLen ctxt =
   let ir = !*ctxt
   let rd, rs, rt = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   let result = !+ir 64<rt>
-  !<ir insLen
+  !<ir insInfo.Address insLen
   !!ir (result := rs .- rt)
   !!ir (rd := result)
   advancePC ctxt ir
@@ -1345,7 +1345,7 @@ let ins insInfo insLen ctxt =
   if lsb > msb then raise InvalidOperandException else ()
   let mask = numI64 (getMask size) ctxt.WordBitSize
   let posExpr = numI32 pos ctxt.WordBitSize
-  !<ir insLen
+  !<ir insInfo.Address insLen
   let rs', rt' =
     if pos = 0 then rs .& mask, rt .& (AST.not mask)
     else (rs .& mask) << posExpr, rt .& (AST.not (mask << posExpr))
@@ -1366,7 +1366,7 @@ let j insInfo insLen ctxt =
   let nPC = getRegVar ctxt R.NPC
   let dest = getOneOpr insInfo |> transOprToExpr insInfo ctxt
   ctxt.DelayedBranch <- InterJmpKind.Base
-  !<ir insLen
+  !<ir insInfo.Address insLen
   !!ir (nPC := dest)
   !>ir insLen
 
@@ -1377,7 +1377,7 @@ let jal insInfo insLen ctxt =
   let lr = getRegVar ctxt R.R31
   let dest = getOneOpr insInfo |> transOprToExpr insInfo ctxt
   ctxt.DelayedBranch <- InterJmpKind.IsCall
-  !<ir insLen
+  !<ir insInfo.Address insLen
   !!ir (lr := pc .+ numI32 8 ctxt.WordBitSize)
   !!ir (nPC := dest)
   !>ir insLen
@@ -1388,7 +1388,7 @@ let jalr insInfo insLen ctxt =
   let nPC = getRegVar ctxt R.NPC
   let struct (lr, rs) = getJALROprs insInfo ctxt
   ctxt.DelayedBranch <- InterJmpKind.IsCall
-  !<ir insLen
+  !<ir insInfo.Address insLen
   !!ir (lr := pc .+ numI32 8 ctxt.WordBitSize)
   !!ir (nPC := rs)
   !>ir insLen
@@ -1398,14 +1398,14 @@ let jr insInfo insLen ctxt =
   let nPC = getRegVar ctxt R.NPC
   let rs = getOneOpr insInfo |> transOneOpr insInfo ctxt
   ctxt.DelayedBranch <- InterJmpKind.Base
-  !<ir insLen
+  !<ir insInfo.Address insLen
   !!ir (nPC := rs)
   !>ir insLen
 
 let loadSigned insInfo insLen ctxt =
   let ir = !*ctxt
   let rt, mem = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
-  !<ir insLen
+  !<ir insInfo.Address insLen
   !!ir (rt := AST.sext ctxt.WordBitSize mem)
   advancePC ctxt ir
   !>ir insLen
@@ -1413,7 +1413,7 @@ let loadSigned insInfo insLen ctxt =
 let loadUnsigned insInfo insLen ctxt =
   let ir = !*ctxt
   let rt, mem = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
-  !<ir insLen
+  !<ir insInfo.Address insLen
   !!ir (rt := AST.zext ctxt.WordBitSize mem)
   advancePC ctxt ir
   !>ir insLen
@@ -1421,7 +1421,7 @@ let loadUnsigned insInfo insLen ctxt =
 let loadLinked insInfo insLen ctxt =
   let ir = !*ctxt
   let rt, mem = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
-  !<ir insLen
+  !<ir insInfo.Address insLen
   !!ir (rt := AST.sext ctxt.WordBitSize mem)
   !!ir (AST.extCall <| AST.app "SetLLBit" [] ctxt.WordBitSize)
   advancePC ctxt ir
@@ -1434,7 +1434,7 @@ let sldc1 insInfo insLen ctxt stORld =
   let baseOffset = transOprToBaseOffset ctxt mem
   let bOff = !+ir ctxt.WordBitSize
   let memory = !+ir 64<rt>
-  !<ir insLen
+  !<ir insInfo.Address insLen
   !!ir (bOff := baseOffset)
   !!ir (memory := AST.loadLE 64<rt> bOff)
   if stORld then
@@ -1450,7 +1450,7 @@ let slwc1 insInfo insLen ctxt stORld =
   let ft = transOprToFP ctxt ft
   let mem = transOprToExpr insInfo ctxt mem
   let ft = if is32Bit ctxt then ft else AST.xtlo 32<rt> ft
-  !<ir insLen
+  !<ir insInfo.Address insLen
   if stORld then !!ir (mem := ft) else !!ir (ft := mem)
   advancePC ctxt ir
   !>ir insLen
@@ -1467,7 +1467,7 @@ let ext insInfo insLen ctxt =
   checkINSorExtPosSize pos size
   if lsb + msbd > 31 then raise InvalidOperandException else ()
   let rs = if pos = 0 then rs else rs >> numI32 pos ctxt.WordBitSize
-  !<ir insLen
+  !<ir insInfo.Address insLen
   !!ir (rt := rs .& numI64 (getMask size) ctxt.WordBitSize)
   advancePC ctxt ir
   !>ir insLen
@@ -1475,7 +1475,7 @@ let ext insInfo insLen ctxt =
 let lui insInfo insLen ctxt =
   let ir = !*ctxt
   let rt, imm = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
-  !<ir insLen
+  !<ir insInfo.Address insLen
   if is32Bit ctxt then
     !!ir (rt := AST.concat (AST.xtlo 16<rt> imm) (AST.num0 16<rt>))
   else
@@ -1486,7 +1486,7 @@ let lui insInfo insLen ctxt =
 
 let mAddSub insInfo insLen ctxt opFn =
   let ir = !*ctxt
-  !<ir insLen
+  !<ir insInfo.Address insLen
   match insInfo.Fmt with
   | None ->
     let rs, rt = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
@@ -1527,7 +1527,7 @@ let mAdduSubu insInfo insLen ctxt opFn =
   let hi = getRegVar ctxt R.HI
   let lo = getRegVar ctxt R.LO
   let op = if opFn then AST.add else AST.sub
-  !<ir insLen
+  !<ir insInfo.Address insLen
   if is32Bit ctxt then
     !!ir (result :=
       op (AST.concat hi lo) (AST.zext 64<rt> rs .* AST.zext 64<rt> rt))
@@ -1545,7 +1545,7 @@ let mAdduSubu insInfo insLen ctxt opFn =
 let mfhi insInfo insLen ctxt =
   let ir = !*ctxt
   let rd = getOneOpr insInfo |> transOneOpr insInfo ctxt
-  !<ir insLen
+  !<ir insInfo.Address insLen
   !!ir (rd := getRegVar ctxt R.HI)
   advancePC ctxt ir
   !>ir insLen
@@ -1553,7 +1553,7 @@ let mfhi insInfo insLen ctxt =
 let mflo insInfo insLen ctxt =
   let ir = !*ctxt
   let rd = getOneOpr insInfo |> transOneOpr insInfo ctxt
-  !<ir insLen
+  !<ir insInfo.Address insLen
   !!ir (rd := getRegVar ctxt R.LO)
   advancePC ctxt ir
   !>ir insLen
@@ -1563,7 +1563,7 @@ let mfhc1 insInfo insLen ctxt =
   let rt, fs = getTwoOprs insInfo
   let rt = transOprToExpr insInfo ctxt rt
   let fsB, _ = transOprToFPPair ctxt fs
-  !<ir insLen
+  !<ir insInfo.Address insLen
   !!ir (rt := AST.sext ctxt.WordBitSize fsB)
   advancePC ctxt ir
   !>ir insLen
@@ -1573,7 +1573,7 @@ let mthc1 insInfo insLen ctxt =
   let rt, fs = getTwoOprs insInfo
   let rt = transOprToExpr insInfo ctxt rt
   let fsB, _ = transOprToFPPair ctxt fs
-  !<ir insLen
+  !<ir insInfo.Address insLen
   !!ir (fsB := AST.xtlo 32<rt> rt)
   advancePC ctxt ir
   !>ir insLen
@@ -1582,7 +1582,7 @@ let mthi insInfo insLen ctxt =
   let ir = !*ctxt
   let rs = getOneOpr insInfo |> transOneOpr insInfo ctxt
   let hi = getRegVar ctxt R.HI
-  !<ir insLen
+  !<ir insInfo.Address insLen
   !!ir (hi := rs)
   advancePC ctxt ir
   !>ir insLen
@@ -1591,7 +1591,7 @@ let mtlo insInfo insLen ctxt =
   let ir = !*ctxt
   let rs = getOneOpr insInfo |> transOneOpr insInfo ctxt
   let lo = getRegVar ctxt R.LO
-  !<ir insLen
+  !<ir insInfo.Address insLen
   !!ir (lo := rs)
   advancePC ctxt ir
   !>ir insLen
@@ -1601,7 +1601,7 @@ let mfc1 insInfo insLen ctxt =
   let rt, fs = getTwoOprs insInfo
   let rt = transOprToExpr insInfo ctxt rt
   let fs = transOprToFP ctxt fs
-  !<ir insLen
+  !<ir insInfo.Address insLen
   !!ir (rt := AST.sext ctxt.WordBitSize fs)
   advancePC ctxt ir
   !>ir insLen
@@ -1609,7 +1609,7 @@ let mfc1 insInfo insLen ctxt =
 let mov insInfo insLen ctxt =
   let ir = !*ctxt
   let fd, fs = getTwoOprs insInfo
-  !<ir insLen
+  !<ir insInfo.Address insLen
   match insInfo.Fmt with
   | Some Fmt.S ->
     let fd, fs = transTwoFP ctxt (fd, fs)
@@ -1629,7 +1629,7 @@ let movt insInfo insLen ctxt =
   let dst, src, cc = getThreeOprs insInfo
   let cc = transOprToImmToInt cc
   let cond = fpConditionCode cc ctxt
-  !<ir insLen
+  !<ir insInfo.Address insLen
   match insInfo.Fmt with
   | None ->
     let dst, src = transTwoOprs insInfo ctxt (dst, src)
@@ -1651,7 +1651,7 @@ let movf insInfo insLen ctxt =
   let dst, src, cc = getThreeOprs insInfo
   let cc = transOprToImmToInt cc
   let cond = AST.not (fpConditionCode cc ctxt)
-  !<ir insLen
+  !<ir insInfo.Address insLen
   match insInfo.Fmt with
   | None ->
     let dst, src = transTwoOprs insInfo ctxt (dst, src)
@@ -1673,7 +1673,7 @@ let movzOrn insInfo insLen ctxt opFn =
   let dst, src, compare = getThreeOprs insInfo
   let compare = transOprToExpr insInfo ctxt compare
   let cond = opFn compare (AST.num0 ctxt.WordBitSize)
-  !<ir insLen
+  !<ir insInfo.Address insLen
   match insInfo.Fmt with
   | None ->
     let dst, src = transTwoOprs insInfo ctxt (dst, src)
@@ -1695,7 +1695,7 @@ let mtc1 insInfo insLen ctxt =
   let rt, fs = getTwoOprs insInfo
   let rt = transOprToExpr insInfo ctxt rt
   let fs = transOprToFP ctxt fs
-  !<ir insLen
+  !<ir insInfo.Address insLen
   !!ir (fs := AST.xtlo 32<rt> rt)
   advancePC ctxt ir
   !>ir insLen
@@ -1703,7 +1703,7 @@ let mtc1 insInfo insLen ctxt =
 let mul insInfo insLen ctxt =
   let ir = !*ctxt
   let dst, src1, src2 = getThreeOprs insInfo
-  !<ir insLen
+  !<ir insInfo.Address insLen
   match insInfo.Fmt with
   | None ->
     let dst, src1, src2 = transThreeOprs insInfo ctxt (dst, src1, src2)
@@ -1742,7 +1742,7 @@ let mult insInfo insLen ctxt =
   let lo = getRegVar ctxt R.LO
   let mask = numI64 0xFFFFFFFFL 64<rt>
   let result = !+ir 64<rt>
-  !<ir insLen
+  !<ir insInfo.Address insLen
   let struct (low, high) =
     if is32Bit ctxt then
       !!ir (result := AST.sext 64<rt> rs .* AST.sext 64<rt> rt)
@@ -1764,7 +1764,7 @@ let multu insInfo insLen ctxt =
   let lo = getRegVar ctxt R.LO
   let mask = numI64 0xFFFFFFFFL 64<rt>
   let result = !+ir 64<rt>
-  !<ir insLen
+  !<ir insInfo.Address insLen
   reDupSrc rs rt src1 src2 tRs tRt ir
   let struct (low, high) =
     if is32Bit ctxt then
@@ -1781,7 +1781,7 @@ let multu insInfo insLen ctxt =
 let neg insInfo insLen ctxt =
   let ir = !*ctxt
   let fd, fs = getTwoOprs insInfo
-  !<ir insLen
+  !<ir insInfo.Address insLen
   match insInfo.Fmt with
   | Some Fmt.D | Some Fmt.PS ->
     let fd, fs = transFPConcatTwoOprs ctxt (fd, fs)
@@ -1794,16 +1794,16 @@ let neg insInfo insLen ctxt =
   advancePC ctxt ir
   !>ir insLen
 
-let nop insLen ctxt =
+let nop insInfo insLen ctxt =
   let ir = !*ctxt
-  !<ir insLen
+  !<ir insInfo.Address insLen
   advancePC ctxt ir
   !>ir insLen
 
 let nor insInfo insLen ctxt =
   let ir = !*ctxt
   let rd, rs, rt = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
-  !<ir insLen
+  !<ir insInfo.Address insLen
   !!ir (rd := AST.not (rs .| rt))
   advancePC ctxt ir
   !>ir insLen
@@ -1811,7 +1811,7 @@ let nor insInfo insLen ctxt =
 let logOr insInfo insLen ctxt =
   let ir = !*ctxt
   let rd, rs, rt = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
-  !<ir insLen
+  !<ir insInfo.Address insLen
   !!ir (rd := rs .| rt)
   advancePC ctxt ir
   !>ir insLen
@@ -1819,17 +1819,17 @@ let logOr insInfo insLen ctxt =
 let ori insInfo insLen ctxt =
   let ir = !*ctxt
   let rt, rs, imm = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
-  !<ir insLen
+  !<ir insInfo.Address insLen
   !!ir (rt := rs .| imm)
   advancePC ctxt ir
   !>ir insLen
 
-let pause insLen ctxt =
+let pause insInfo insLen ctxt =
   let ir = !*ctxt
   let llbit = getRegVar ctxt R.LLBit
   let lblSpin = !%ir "Spin"
   let lblEnd = !%ir "End"
-  !<ir insLen
+  !<ir insInfo.Address insLen
   !!ir (AST.lmark lblSpin)
   !!ir (AST.extCall <| AST.app "GetLLBit" [] ctxt.WordBitSize)
   !!ir (AST.cjmp (llbit == AST.b1) (AST.jmpDest lblSpin) (AST.jmpDest lblEnd))
@@ -1843,7 +1843,7 @@ let rotr insInfo insLen ctxt =
   let rd, rt = transTwoOprs insInfo ctxt (rd, rt)
   let sa = numU64 (transOprToImm sa) 32<rt>
   let size = numI32 32 32<rt>
-  !<ir insLen
+  !<ir insInfo.Address insLen
   if is32Bit ctxt then
     !!ir (rd := (rt << (size .- sa)) .| (rt >> sa))
   else
@@ -1857,7 +1857,7 @@ let rotrv insInfo insLen ctxt =
   let rd, rt, rs = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   let sa = !+ir 32<rt>
   let size = numI32 32 32<rt>
-  !<ir insLen
+  !<ir insInfo.Address insLen
   !!ir (sa := AST.xtlo 32<rt> rs .& numI32 0x1F 32<rt>)
   if is32Bit ctxt then
     !!ir (rd := (rt << (size .- sa)) .| (rt >> sa))
@@ -1870,7 +1870,7 @@ let rotrv insInfo insLen ctxt =
 let store insInfo insLen width ctxt =
   let ir = !*ctxt
   let rt, mem = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
-  !<ir insLen
+  !<ir insInfo.Address insLen
   !!ir (mem := AST.xtlo width rt)
   advancePC ctxt ir
   !>ir insLen
@@ -1878,7 +1878,7 @@ let store insInfo insLen width ctxt =
 let sqrt insInfo insLen ctxt =
   let ir = !*ctxt
   let fd, fs = getTwoOprs insInfo
-  !<ir insLen
+  !<ir insInfo.Address insLen
   match insInfo.Fmt with
   | Some Fmt.S ->
     let fd, fs = transTwoFP ctxt (fd, fs)
@@ -1900,7 +1900,7 @@ let storeConditional insInfo insLen width ctxt =
   let lblEnd = !%ir "End"
   let rt, mem = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
   let llbit = getRegVar ctxt R.LLBit
-  !<ir insLen
+  !<ir insInfo.Address insLen
   !!ir (AST.extCall <| AST.app "GetLLBit" [] ctxt.WordBitSize)
   !!ir (AST.cjmp (llbit == AST.b1) (AST.jmpDest lblInRMW) (AST.jmpDest lblEnd))
   !!ir (AST.lmark lblInRMW)
@@ -1927,7 +1927,7 @@ let storeLeftRight insInfo insLen ctxt memShf regShf amtOp oprSz =
   let mask = numI32 (((int oprSz) >>> 3) - 1) oprSz
   let vaddr0To2 = (baseOff .& mask) <+> (transBigEndianCPU ctxt oprSz)
   let baseAddress = AST.loadLE oprSz baseMask
-  !<ir insLen
+  !<ir insInfo.Address insLen
   !!ir (baseOff := baseOffset)
   !!ir (baseMask := baseOff .& numI32 maskLd oprSz)
   !!ir (t1 := vaddr0To2)
@@ -1937,16 +1937,16 @@ let storeLeftRight insInfo insLen ctxt memShf regShf amtOp oprSz =
   advancePC ctxt ir
   !>ir insLen
 
-let syscall insLen ctxt =
+let syscall insInfo insLen ctxt =
   let ir = !*ctxt
-  !<ir insLen
+  !<ir insInfo.Address insLen
   !!ir (AST.sideEffect SysCall)
   !>ir insLen
 
 let seb insInfo insLen ctxt =
   let ir = !*ctxt
   let rd, rt = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
-  !<ir insLen
+  !<ir insInfo.Address insLen
   !!ir (rd := AST.sext ctxt.WordBitSize (AST.extract rt 8<rt> 0))
   advancePC ctxt ir
   !>ir insLen
@@ -1954,7 +1954,7 @@ let seb insInfo insLen ctxt =
 let seh insInfo insLen ctxt =
   let ir = !*ctxt
   let rd, rt = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
-  !<ir insLen
+  !<ir insInfo.Address insLen
   !!ir (rd := AST.sext ctxt.WordBitSize (AST.extract rt 16<rt> 0))
   advancePC ctxt ir
   !>ir insLen
@@ -1962,7 +1962,7 @@ let seh insInfo insLen ctxt =
 let shiftLeftRight insInfo insLen ctxt shf =
   let ir = !*ctxt
   let rd, rt, sa = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
-  !<ir insLen
+  !<ir insInfo.Address insLen
   if is32Bit ctxt then
     !!ir (rd := shf rt sa)
   else
@@ -1974,7 +1974,7 @@ let shiftLeftRight insInfo insLen ctxt shf =
 let sra insInfo insLen ctxt =
   let ir = !*ctxt
   let rd, rt, sa = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
-  !<ir insLen
+  !<ir insInfo.Address insLen
   if is32Bit ctxt then
     !!ir (rd := rt ?>> sa |> AST.sext 32<rt>)
   else
@@ -1987,7 +1987,7 @@ let srav insInfo insLen ctxt =
   let ir = !*ctxt
   let rd, rt, rs = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   let mask = numI32 31 32<rt>
-  !<ir insLen
+  !<ir insInfo.Address insLen
   if is32Bit ctxt then
     !!ir (rd := rt ?>> (rs .& mask) |> AST.sext 32<rt>)
   else
@@ -2000,7 +2000,7 @@ let shiftLeftRightVar insInfo insLen ctxt shf =
   let ir = !*ctxt
   let rd, rt, rs = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   let mask = numI32 31 32<rt>
-  !<ir insLen
+  !<ir insInfo.Address insLen
   if is32Bit ctxt then
     !!ir (rd := shf rt (rs .& mask))
   else
@@ -2015,7 +2015,7 @@ let sltAndU insInfo insLen ctxt amtOp =
   let cond = amtOp rs rt
   let rtVal =
     AST.ite cond (AST.num1 ctxt.WordBitSize) (AST.num0 ctxt.WordBitSize)
-  !<ir insLen
+  !<ir insInfo.Address insLen
   !!ir (rd := rtVal)
   advancePC ctxt ir
   !>ir insLen
@@ -2026,7 +2026,7 @@ let sltiAndU insInfo insLen ctxt amtOp =
   let cond = amtOp rs imm
   let rtVal =
     AST.ite cond (AST.num1 ctxt.WordBitSize) (AST.num0 ctxt.WordBitSize)
-  !<ir insLen
+  !<ir insInfo.Address insLen
   !!ir (rt := rtVal)
   advancePC ctxt ir
   !>ir insLen
@@ -2034,7 +2034,7 @@ let sltiAndU insInfo insLen ctxt amtOp =
 let sub insInfo insLen ctxt =
   let ir = !*ctxt
   let dst, src1, src2 = getThreeOprs insInfo
-  !<ir insLen
+  !<ir insInfo.Address insLen
   match insInfo.Fmt with
   | None ->
     let dst, src1, src2 = transThreeOprs insInfo ctxt (dst, src1, src2)
@@ -2061,7 +2061,7 @@ let sub insInfo insLen ctxt =
 let subu insInfo insLen ctxt =
   let ir = !*ctxt
   let rd, rs, rt = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
-  !<ir insLen
+  !<ir insInfo.Address insLen
   let result = if is32Bit ctxt then rs .- rt else signExtLo64 (rs .- rt)
   !!ir (rd := result)
   advancePC ctxt ir
@@ -2072,7 +2072,7 @@ let teq insInfo insLen ctxt =
   let lblL0 = !%ir "L0"
   let lblEnd = !%ir "End"
   let rs, rt = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
-  !<ir insLen
+  !<ir insInfo.Address insLen
   !!ir (AST.cjmp (rs == rt) (AST.jmpDest lblL0) (AST.jmpDest lblEnd))
   !!ir (AST.lmark lblL0)
   !!ir (AST.sideEffect UndefinedInstr) (* FIXME: Trap *)
@@ -2085,7 +2085,7 @@ let teqi insInfo insLen ctxt =
   let lblL0 = !%ir "L0"
   let lblEnd = !%ir "End"
   let rs, imm = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
-  !<ir insLen
+  !<ir insInfo.Address insLen
   !!ir (AST.cjmp (rs == imm) (AST.jmpDest lblL0) (AST.jmpDest lblEnd))
   !!ir (AST.lmark lblL0)
   !!ir (AST.sideEffect UndefinedInstr)
@@ -2100,7 +2100,7 @@ let truncw insInfo insLen ctxt =
   let intMin = numI32 0x80000000 32<rt>
   let exponent = !+ir 1<rt>
   let dstTmp = !+ir 32<rt>
-  !<ir insLen
+  !<ir insInfo.Address insLen
   let struct (dst, src, inf, nan) =
     match insInfo.Fmt with
     | Some Fmt.S ->
@@ -2137,7 +2137,7 @@ let truncl insInfo insLen ctxt =
   let exponent = !+ir 1<rt>
   let intMax = numI64 0x7fffffffffffffffL 64<rt>
   let intMin = numI64 0x8000000000000000L 64<rt>
-  !<ir insLen
+  !<ir insInfo.Address insLen
   let struct (src, inf, nan) =
     match insInfo.Fmt with
     | Some Fmt.S ->
@@ -2166,7 +2166,7 @@ let truncl insInfo insLen ctxt =
 let logXor insInfo insLen ctxt =
   let ir = !*ctxt
   let rd, rs, rt = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
-  !<ir insLen
+  !<ir insInfo.Address insLen
   !!ir (rd := rs <+> rt)
   advancePC ctxt ir
   !>ir insLen
@@ -2177,7 +2177,7 @@ let wsbh insInfo insLen ctxt =
   let rt = AST.xtlo 32<rt> src
   let elements =
     Array.init 4 (fun x -> AST.extract rt 8<rt> ((2 + x) % 4 * 8)) |> Array.rev
-  !<ir insLen
+  !<ir insInfo.Address insLen
   !!ir (dst := AST.sext ctxt.WordBitSize (AST.revConcat elements))
   advancePC ctxt ir
   !>ir insLen
@@ -2191,7 +2191,7 @@ let dsbh insInfo insLen ctxt =
     Array.init 4 (fun x -> AST.extract hi 8<rt> ((2 + x) % 4 * 8)) |> Array.rev
   let lowResult =
     Array.init 4 (fun x -> AST.extract lo 8<rt> ((2 + x) % 4 * 8)) |> Array.rev
-  !<ir insLen
+  !<ir insInfo.Address insLen
   !!ir (dst := AST.revConcat (Array.append lowResult hiResult))
   advancePC ctxt ir
   !>ir insLen
@@ -2201,7 +2201,7 @@ let dshd insInfo insLen ctxt =
   let dst, src = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
   let result =
     Array.init 4 (fun idx -> AST.extract src 16<rt> (idx * 16)) |> Array.rev
-  !<ir insLen
+  !<ir insInfo.Address insLen
   !!ir (dst := AST.revConcat result)
   advancePC ctxt ir
   !>ir insLen
@@ -2209,7 +2209,7 @@ let dshd insInfo insLen ctxt =
 let xori insInfo insLen ctxt =
   let ir = !*ctxt
   let rt, rs, imm = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
-  !<ir insLen
+  !<ir insInfo.Address insLen
   !!ir (rt := rs <+> imm)
   advancePC ctxt ir
   !>ir insLen
@@ -2229,7 +2229,7 @@ let loadLeftRight insInfo insLen ctxt memShf regShf amtOp oprSz =
   let inline loadBaseAddr oprSz baseOffset =
     let maskLoad = if oprSz = 64<rt> then 0xFFFFFFF8 else 0xFFFFFFFC
     AST.loadLE oprSz (baseOffset .& numI32 maskLoad oprSz)
-  !<ir insLen
+  !<ir insInfo.Address insLen
   !!ir (t1 := baseOffset)
   !!ir (vaddr0To2 := t1 .& mask <+> (transBigEndianCPU ctxt oprSz))
   !!ir (t2 := ((amtOp vaddr0To2 mask) .+ AST.num1 oprSz) .* numI32 8 oprSz)
@@ -2244,14 +2244,14 @@ let recip insInfo insLen ctxt =
   let fd, fs = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
   let sz = ctxt.WordBitSize
   let fnum = AST.cast CastKind.SIntToFloat sz (AST.num1 sz)
-  !<ir insLen
+  !<ir insInfo.Address insLen
   !!ir (fd := AST.fdiv fnum fs)
   !>ir insLen
 
 let rsqrt insInfo insLen ctxt =
   let ir = !*ctxt
   let fd, fs = getTwoOprs insInfo
-  !<ir insLen
+  !<ir insInfo.Address insLen
   match insInfo.Fmt with
   | Some Fmt.S ->
     let fd, fs = transTwoFP ctxt (fd, fs)
@@ -2287,7 +2287,7 @@ let translate insInfo insLen (ctxt: TranslationContext) =
   | Op.BLTZ -> bltz insInfo insLen ctxt
   | Op.BLTZAL -> bltzal insInfo insLen ctxt
   | Op.BNE | Op.BNEL -> bne insInfo insLen ctxt
-  | Op.BREAK -> sideEffects insLen ctxt Breakpoint
+  | Op.BREAK -> sideEffects insInfo insLen ctxt Breakpoint
   | Op.C -> cCond insInfo insLen ctxt
   | Op.CFC1 -> cfc1 insInfo insLen ctxt
   | Op.CTC1 -> ctc1 insInfo insLen ctxt
@@ -2329,7 +2329,7 @@ let translate insInfo insLen (ctxt: TranslationContext) =
   | Op.DSRL32 -> dShiftLeftRight32 insInfo insLen ctxt (>>)
   | Op.DSRLV -> dShiftLeftRightVar insInfo insLen ctxt (>>)
   | Op.DSUBU -> dsubu insInfo insLen ctxt
-  | Op.EHB -> nop insLen ctxt
+  | Op.EHB -> nop insInfo insLen ctxt
   | Op.EXT -> ext insInfo insLen ctxt
   | Op.INS -> ins insInfo insLen ctxt
   | Op.J -> j insInfo insLen ctxt
@@ -2369,13 +2369,13 @@ let translate insInfo insLen (ctxt: TranslationContext) =
   | Op.MULT -> mult insInfo insLen ctxt
   | Op.MULTU -> multu insInfo insLen ctxt
   | Op.NEG -> neg insInfo insLen ctxt
-  | Op.NOP -> nop insLen ctxt
+  | Op.NOP -> nop insInfo insLen ctxt
   | Op.NOR -> nor insInfo insLen ctxt
   | Op.OR -> logOr insInfo insLen ctxt
   | Op.ORI -> ori insInfo insLen ctxt
-  | Op.PAUSE -> pause insLen ctxt
-  | Op.PREF | Op.PREFE | Op.PREFX -> nop insLen ctxt
-  | Op.RDHWR -> sideEffects insLen ctxt ProcessorID
+  | Op.PAUSE -> pause insInfo insLen ctxt
+  | Op.PREF | Op.PREFE | Op.PREFX -> nop insInfo insLen ctxt
+  | Op.RDHWR -> sideEffects insInfo insLen ctxt ProcessorID
   | Op.ROTR -> rotr insInfo insLen ctxt
   | Op.ROTRV -> rotrv insInfo insLen ctxt
   | Op.RECIP -> recip insInfo insLen ctxt
@@ -2386,7 +2386,7 @@ let translate insInfo insLen (ctxt: TranslationContext) =
   | Op.SLTU -> sltAndU insInfo insLen ctxt (.<)
   | Op.SLTI -> sltiAndU insInfo insLen ctxt (?<)
   | Op.SLTIU -> sltiAndU insInfo insLen ctxt (.<)
-  | Op.SSNOP -> nop insLen ctxt
+  | Op.SSNOP -> nop insInfo insLen ctxt
   | Op.SB -> store insInfo insLen 8<rt> ctxt
   | Op.SC -> storeConditional insInfo insLen 32<rt> ctxt
   | Op.SCD -> storeConditional insInfo insLen 64<rt> ctxt
@@ -2406,8 +2406,8 @@ let translate insInfo insLen (ctxt: TranslationContext) =
   | Op.SDR -> storeLeftRight insInfo insLen ctxt (>>) (<<) (<+>) 64<rt>
   | Op.SWL -> storeLeftRight insInfo insLen ctxt (<<) (>>) (.&) 32<rt>
   | Op.SWR -> storeLeftRight insInfo insLen ctxt (>>) (<<) (<+>) 32<rt>
-  | Op.SYNC | Op.SYNCI -> nop insLen ctxt
-  | Op.SYSCALL -> syscall insLen ctxt
+  | Op.SYNC | Op.SYNCI -> nop insInfo insLen ctxt
+  | Op.SYSCALL -> syscall insInfo insLen ctxt
   | Op.TEQ -> teq insInfo insLen ctxt
   | Op.TEQI -> teqi insInfo insLen ctxt
   | Op.TRUNCW -> truncw insInfo insLen ctxt
@@ -2416,7 +2416,7 @@ let translate insInfo insLen (ctxt: TranslationContext) =
   | Op.XORI -> xori insInfo insLen ctxt
   | Op.WSBH -> wsbh insInfo insLen ctxt
   | Op.BC3F | Op.BC3FL | Op.BC3T | Op.BC3TL ->
-    sideEffects insLen ctxt UnsupportedExtension // XXX this is a temporary fix
+    sideEffects insInfo insLen ctxt UnsupportedExtension
   | o ->
 #if DEBUG
          eprintfn "%A" o

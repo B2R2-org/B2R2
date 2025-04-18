@@ -25,6 +25,7 @@
 namespace B2R2.FrontEnd.BinLifter
 
 open System.Collections
+open B2R2
 open B2R2.BinIR.LowUIR
 
 /// IRBuilder accumulates IR statements while lifting, and emits them into an
@@ -34,6 +35,7 @@ type IRBuilder =
 
   val mutable TempVarCount: int
   val mutable LabelCount: int
+  val mutable InsAddress: Addr
 
   /// <summary>
   ///   Initialize an IR statement builder of internal buffer size n.
@@ -42,7 +44,8 @@ type IRBuilder =
   new (n: int) =
     { inherit Generic.List<Stmt>(n)
       TempVarCount = 0
-      LabelCount = 0 }
+      LabelCount = 0
+      InsAddress = 0UL }
 
   /// <summary>
   ///   Create a new temporary variable of RegType (rt).
@@ -56,13 +59,22 @@ type IRBuilder =
   /// </summary>
   member inline this.NewSymbol name =
     this.LabelCount <- this.LabelCount + 1
-    AST.symbol name this.LabelCount
+    AST.label name this.LabelCount this.InsAddress
+
+  /// <summary>
+  ///   Append a new IR statement to the builder and set the instruction
+  ///   address. This is used for the very first statement of an instruction.
+  /// </summary>
+  /// <param name="stmt">IR statement to add.</param>
+  member this.Append (addr, stmt) =
+    this.InsAddress <- addr
+    this.Add stmt
 
   /// <summary>
   ///   Append a new IR statement to the builder.
   /// </summary>
   /// <param name="stmt">IR statement to add.</param>
-  member this.Append stmt = this.Add (stmt)
+  member this.Append stmt = this.Add stmt
 
   /// <summary>
   ///   Create an array of IR statements from the buffer. This function will
