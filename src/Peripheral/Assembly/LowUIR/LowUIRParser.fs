@@ -269,7 +269,7 @@ type LowUIRParser (isa, regFactory: RegisterFactory) =
   let pJmp =
     ws >>. pstring "jmp" >>. ws >>. pIdentifier
     |>> (fun lab ->
-      AST.jmp (AST.name <| AST.symbol lab 0))
+      AST.jmp (AST.jmpDest <| AST.symbol lab 0))
 
   let pCJmp =
     ws
@@ -278,8 +278,8 @@ type LowUIRParser (isa, regFactory: RegisterFactory) =
     .>> pstring "jmp" .>> ws .>>. pIdentifier .>> ws
     .>> pstring "else" .>> ws .>> pstring "jmp" .>> ws .>>. pIdentifier
     |>> (fun ((cond, tlab), flab) ->
-      let tlab = AST.name <| AST.symbol tlab 0
-      let flab = AST.name <| AST.symbol flab 0
+      let tlab = AST.jmpDest <| AST.symbol tlab 0
+      let flab = AST.jmpDest <| AST.symbol flab 0
       AST.cjmp cond tlab flab)
 
   let pInterJmp =

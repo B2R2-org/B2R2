@@ -93,14 +93,15 @@ type OptimizerTests () =
     let lblImpossible = !%ir "Impossible"
     let lblEnd = !%ir "End"
     ([ varA := num 1u
-       AST.jmp (AST.name lblTarget)
+       AST.jmp (AST.jmpDest lblTarget)
        AST.lmark lblImpossible
        varB := num 0u
        AST.lmark lblTarget
        varB := num 1u
        AST.lmark lblEnd ],
      [ varA := num 1u
-       AST.cjmp (varA == varA) (AST.name lblTarget) (AST.name lblImpossible)
+       AST.cjmp (varA == varA)
+                (AST.jmpDest lblTarget) (AST.jmpDest lblImpossible)
        AST.lmark lblImpossible
        varB := num 0u
        AST.lmark lblTarget

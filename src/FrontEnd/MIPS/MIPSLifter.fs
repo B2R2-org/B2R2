@@ -395,10 +395,10 @@ let updatePCCond ctxt offset cond kind ir =
   let pc = getRegVar ctxt R.PC
   let nPC = getRegVar ctxt R.NPC
   ctxt.DelayedBranch <- kind
-  !!ir (AST.cjmp cond (AST.name lblTrueCase) (AST.name lblFalseCase))
+  !!ir (AST.cjmp cond (AST.jmpDest lblTrueCase) (AST.jmpDest lblFalseCase))
   !!ir (AST.lmark lblTrueCase)
   !!ir (nPC := offset)
-  !!ir (AST.jmp (AST.name lblEnd))
+  !!ir (AST.jmp (AST.jmpDest lblEnd))
   !!ir (AST.lmark lblFalseCase)
   !!ir (nPC := pc .+ numI32 8 ctxt.WordBitSize)
   !!ir (AST.lmark lblEnd)
@@ -410,10 +410,10 @@ let updateRAPCCond ctxt nAddr offset cond kind ir =
   let pc = getRegVar ctxt R.PC
   let nPC = getRegVar ctxt R.NPC
   ctxt.DelayedBranch <- kind
-  !!ir (AST.cjmp cond (AST.name lblTrueCase) (AST.name lblFalseCase))
+  !!ir (AST.cjmp cond (AST.jmpDest lblTrueCase) (AST.jmpDest lblFalseCase))
   !!ir (AST.lmark lblTrueCase)
   !!ir (nPC := offset)
-  !!ir (AST.jmp (AST.name lblEnd))
+  !!ir (AST.jmp (AST.jmpDest lblEnd))
   !!ir (AST.lmark lblFalseCase)
   !!ir (nPC := nAddr)
   !!ir (AST.lmark lblEnd)
@@ -498,10 +498,10 @@ let add insInfo insLen ctxt =
     let rd, rs, rt = transThreeOprs insInfo ctxt (dst, src1, src2)
     let result = if is32Bit ctxt then rs .+ rt else signExtLo64 (rs .+ rt)
     let cond = checkOverfolwOnAdd rs rt result
-    !!ir (AST.cjmp cond (AST.name lblL0) (AST.name lblL1))
+    !!ir (AST.cjmp cond (AST.jmpDest lblL0) (AST.jmpDest lblL1))
     !!ir (AST.lmark lblL0)
     !!ir (AST.sideEffect (Exception "int overflow"))
-    !!ir (AST.jmp (AST.name lblEnd))
+    !!ir (AST.jmp (AST.jmpDest lblEnd))
     !!ir (AST.lmark lblL1)
     !!ir (rd := result)
     !!ir (AST.lmark lblEnd)
@@ -818,11 +818,11 @@ let clz insInfo insLen ctxt =
   !!ir (t := n31)
   !!ir (AST.lmark lblLoop)
   let cond1 = rs >> t == AST.num1 wordSz
-  !!ir (AST.cjmp cond1 (AST.name lblEnd) (AST.name lblContinue))
+  !!ir (AST.cjmp cond1 (AST.jmpDest lblEnd) (AST.jmpDest lblContinue))
   !!ir (AST.lmark lblContinue)
   !!ir (t := t .- AST.num1 wordSz)
   let cond2 = t == numI32 -1 wordSz
-  !!ir (AST.cjmp cond2 (AST.name lblEnd) (AST.name lblLoop))
+  !!ir (AST.cjmp cond2 (AST.jmpDest lblEnd) (AST.jmpDest lblLoop))
   !!ir (AST.lmark lblEnd)
   !!ir (rd := n31 .- t)
   advancePC ctxt ir
@@ -945,10 +945,10 @@ let dadd insInfo insLen ctxt =
   let rd, rs, rt = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   let cond = checkOverfolwOnDadd rs rt (rs .+ rt)
   !<ir insLen
-  !!ir (AST.cjmp cond (AST.name lblL0) (AST.name lblL1))
+  !!ir (AST.cjmp cond (AST.jmpDest lblL0) (AST.jmpDest lblL1))
   !!ir (AST.lmark lblL0)
   !!ir (AST.sideEffect (Exception "int overflow"))
-  !!ir (AST.jmp (AST.name lblEnd))
+  !!ir (AST.jmp (AST.jmpDest lblEnd))
   !!ir (AST.lmark lblL1)
   !!ir (rd := rs .+ rt)
   !!ir (AST.lmark lblEnd)
@@ -988,11 +988,11 @@ let dclz insInfo insLen ctxt =
   !!ir (t := n63)
   !!ir (AST.lmark lblLoop)
   !!ir (AST.cjmp (rs >> t == AST.num1 wordSz)
-                   (AST.name lblEnd) (AST.name lblContinue))
+                 (AST.jmpDest lblEnd) (AST.jmpDest lblContinue))
   !!ir (AST.lmark lblContinue)
   !!ir (t := t .- AST.num1 wordSz)
   !!ir (AST.cjmp (t == numI64 -1 wordSz)
-                   (AST.name lblEnd) (AST.name lblLoop))
+                 (AST.jmpDest lblEnd) (AST.jmpDest lblLoop))
   !!ir (AST.lmark lblEnd)
   !!ir (rd := n63 .- t)
   advancePC ctxt ir
@@ -1832,7 +1832,7 @@ let pause insLen ctxt =
   !<ir insLen
   !!ir (AST.lmark lblSpin)
   !!ir (AST.extCall <| AST.app "GetLLBit" [] ctxt.WordBitSize)
-  !!ir (AST.cjmp (llbit == AST.b1) (AST.name lblSpin) (AST.name lblEnd))
+  !!ir (AST.cjmp (llbit == AST.b1) (AST.jmpDest lblSpin) (AST.jmpDest lblEnd))
   !!ir (AST.lmark lblEnd)
   advancePC ctxt ir
   !>ir insLen
@@ -1902,7 +1902,7 @@ let storeConditional insInfo insLen width ctxt =
   let llbit = getRegVar ctxt R.LLBit
   !<ir insLen
   !!ir (AST.extCall <| AST.app "GetLLBit" [] ctxt.WordBitSize)
-  !!ir (AST.cjmp (llbit == AST.b1) (AST.name lblInRMW) (AST.name lblEnd))
+  !!ir (AST.cjmp (llbit == AST.b1) (AST.jmpDest lblInRMW) (AST.jmpDest lblEnd))
   !!ir (AST.lmark lblInRMW)
   !!ir (mem := AST.xtlo width rt)
   !!ir (AST.lmark lblEnd)
@@ -2073,7 +2073,7 @@ let teq insInfo insLen ctxt =
   let lblEnd = !%ir "End"
   let rs, rt = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
   !<ir insLen
-  !!ir (AST.cjmp (rs == rt) (AST.name lblL0) (AST.name lblEnd))
+  !!ir (AST.cjmp (rs == rt) (AST.jmpDest lblL0) (AST.jmpDest lblEnd))
   !!ir (AST.lmark lblL0)
   !!ir (AST.sideEffect UndefinedInstr) (* FIXME: Trap *)
   !!ir (AST.lmark lblEnd)
@@ -2086,7 +2086,7 @@ let teqi insInfo insLen ctxt =
   let lblEnd = !%ir "End"
   let rs, imm = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
   !<ir insLen
-  !!ir (AST.cjmp (rs == imm) (AST.name lblL0) (AST.name lblEnd))
+  !!ir (AST.cjmp (rs == imm) (AST.jmpDest lblL0) (AST.jmpDest lblEnd))
   !!ir (AST.lmark lblL0)
   !!ir (AST.sideEffect UndefinedInstr)
   !!ir (AST.lmark lblEnd)

@@ -692,7 +692,7 @@ let fdivr (ins: InsInfo) insLen ctxt doPop =
   | NoOperand ->
     let struct (st0b, st0a) = getFPUPseudoRegVars ctxt R.ST0
     let struct (st1b, st1a) = getFPUPseudoRegVars ctxt R.ST1
-    !!ir (AST.cjmp (isZero st0b st0a) (AST.name lblErr) (AST.name lblChk))
+    !!ir (AST.cjmp (isZero st0b st0a) (AST.jmpDest lblErr) (AST.jmpDest lblChk))
     !!ir (AST.lmark lblErr)
     !!ir (AST.sideEffect (Exception "DivErr"))
     !!ir (AST.lmark lblChk)
@@ -704,7 +704,7 @@ let fdivr (ins: InsInfo) insLen ctxt doPop =
     let oprExpr = transOneOpr ir ins insLen ctxt
     let oprSize = TypeCheck.typeOf oprExpr
     let struct (st0b, st0a) = getFPUPseudoRegVars ctxt R.ST0
-    !!ir (AST.cjmp (isZero st0b st0a) (AST.name lblErr) (AST.name lblChk))
+    !!ir (AST.cjmp (isZero st0b st0a) (AST.jmpDest lblErr) (AST.jmpDest lblChk))
     !!ir (AST.lmark lblErr)
     !!ir (AST.sideEffect (Exception "DivErr"))
     !!ir (AST.lmark lblChk)
@@ -716,7 +716,7 @@ let fdivr (ins: InsInfo) insLen ctxt doPop =
   | TwoOperands (OprReg reg0, OprReg reg1) ->
     let struct (r0B, r0A) = getFPUPseudoRegVars ctxt reg0
     let struct (r1B, r1A) = getFPUPseudoRegVars ctxt reg1
-    !!ir (AST.cjmp (isZero r0B r0A) (AST.name lblErr) (AST.name lblChk))
+    !!ir (AST.cjmp (isZero r0B r0A) (AST.jmpDest lblErr) (AST.jmpDest lblChk))
     !!ir (AST.lmark lblErr)
     !!ir (AST.sideEffect (Exception "DivErr"))
     !!ir (AST.lmark lblChk)
@@ -789,13 +789,13 @@ let fprem _ins insLen ctxt round =
   !!ir (expDiff := (st0b .& expMask) .- (st1b .& expMask))
   !!ir (AST.cjmp
     (isUnordered true tmp0 .| isUnordered true tmp1)
-    (AST.name lblUnordered) (AST.name lblOrdered))
+    (AST.jmpDest lblUnordered) (AST.jmpDest lblOrdered))
   !!ir (AST.lmark lblUnordered)
   !?ir (castTo80Bit ctxt st0b st0a (AST.ite (isUnordered true tmp0) tmp0 tmp1))
   !!ir (!.ctxt R.FSWC2 := AST.b0)
-  !!ir (AST.jmp (AST.name lblExit))
+  !!ir (AST.jmp (AST.jmpDest lblExit))
   !!ir (AST.lmark lblOrdered)
-  !!ir (AST.cjmp (AST.slt expDiff n64) (AST.name lblLT64) (AST.name lblGE64))
+  !!ir (AST.cjmp (AST.slt expDiff n64) (AST.jmpDest lblLT64) (AST.jmpDest lblGE64))
   !!ir (AST.lmark lblLT64) (* D < 64 *)
   !!ir (divres := AST.fdiv tmp0 tmp1)
   !!ir (intres := AST.cast caster 64<rt> divres)
@@ -805,7 +805,7 @@ let fprem _ins insLen ctxt round =
   !!ir (!.ctxt R.FSWC1 := AST.xtlo 1<rt> intres)
   !!ir (!.ctxt R.FSWC3 := AST.extract intres 1<rt> 1)
   !!ir (!.ctxt R.FSWC0 := AST.extract intres 1<rt> 2)
-  !!ir (AST.jmp (AST.name lblExit))
+  !!ir (AST.jmp (AST.jmpDest lblExit))
   !!ir (AST.lmark lblGE64) (* ELSE *)
   !!ir (!.ctxt R.FSWC2 := AST.b1)
   !!ir (tmpres := AST.fsub (castToF64 expDiff) (castToF64 (numI32 63 64<rt>)))
@@ -861,7 +861,7 @@ let frndint _ins insLen ctxt =
   !?ir (castFrom80Bit tmp0 64<rt> st0b st0a)
   !!ir (AST.cjmp
     (isUnordered true tmp0)
-    (AST.name lblExit) (AST.name lblOrdered))
+    (AST.jmpDest lblExit) (AST.jmpDest lblOrdered))
   !!ir (AST.lmark lblOrdered)
   !!ir (rcField := (AST.zext 8<rt> (AST.extract (!.ctxt R.FCW) 1<rt> 11)))
   !!ir (rcField := (rcField << AST.num1 8<rt>))
@@ -1037,7 +1037,8 @@ let fxam _ins insLen ctxt =
 let private checkForTrigFunction unsigned lin lout ir =
   let maxLimit = numI64 (1L <<< 63) 64<rt>
   let maxFloat = AST.cast CastKind.UIntToFloat 64<rt> maxLimit
-  !!ir (AST.cjmp (AST.flt unsigned maxFloat) (AST.name lin) (AST.name lout))
+  !!ir (AST.cjmp (AST.flt unsigned maxFloat)
+                 (AST.jmpDest lin) (AST.jmpDest lout))
 
 let private ftrig _ins insLen ctxt trigFunc =
   let ir = !*ctxt
@@ -1059,7 +1060,7 @@ let private ftrig _ins insLen ctxt trigFunc =
   !!ir (tmp := trigFunc signed)
   !?ir (castTo80Bit ctxt st0b st0a tmp)
   !!ir (c2 := AST.b0)
-  !!ir (AST.jmp (AST.name lexit))
+  !!ir (AST.jmp (AST.jmpDest lexit))
   !!ir (AST.lmark lout)
   !!ir (c2 := AST.b1)
   !!ir (AST.lmark lexit)
@@ -1098,7 +1099,7 @@ let fsincos _ins insLen ctxt =
   !?ir (pushFPUStack ctxt)
   !?ir (castTo80Bit ctxt st0b st0a tmpcos)
   !!ir (c2 := AST.b0)
-  !!ir (AST.jmp (AST.name lexit))
+  !!ir (AST.jmp (AST.jmpDest lexit))
   !!ir (AST.lmark lout)
   !!ir (c2 := AST.b1)
   !!ir (AST.lmark lexit)
@@ -1132,7 +1133,7 @@ let fptan _ins insLen ctxt =
   !?ir (pushFPUStack ctxt)
   !?ir (castTo80Bit ctxt st0b st0a fone)
   !!ir (c2 := AST.b0)
-  !!ir (AST.jmp (AST.name lexit))
+  !!ir (AST.jmp (AST.jmpDest lexit))
   !!ir (AST.lmark lout)
   !!ir (c2 := AST.b1)
   !!ir (AST.lmark lexit)

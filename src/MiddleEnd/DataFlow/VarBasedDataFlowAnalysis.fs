@@ -59,7 +59,7 @@ type VarBasedDataFlowAnalysis<'Lattice>
 
   let rec updateGlobals globals varKill stackState pp expr =
     match expr.E with
-    | Num _ | Undefined _ | FuncName _ | Name _ | Nil | PCVar _ -> ()
+    | Num _ | Undefined _ | FuncName _ | JmpDest _ | Nil | PCVar _ -> ()
     | Var (_, rid, _) ->
       updateGlobalName globals varKill (Regular rid)
     | TempVar (_, n) ->

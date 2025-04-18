@@ -538,7 +538,7 @@ let bxWritePC ctxt isUnconditional addr (ir: IRBuilder) =
   let lblL1 = !%ir "L1"
   let cond1 = AST.xtlo 1<rt> addr == AST.b1
   disableITStateForCondBranches ctxt isUnconditional ir
-  !!ir (AST.cjmp cond1 (AST.name lblL0) (AST.name lblL1))
+  !!ir (AST.cjmp cond1 (AST.jmpDest lblL0) (AST.jmpDest lblL1))
   !!ir (AST.lmark lblL0)
   selectThumbInstrSet ctxt ir
   !!ir (AST.interjmp (zMaskAnd addr 32<rt> 1) InterJmpKind.SwitchToThumb)
@@ -679,23 +679,23 @@ let writeModeBits ctxt value isExcptReturn (ir: IRBuilder) =
   let cond3 = chkSecure .& (valueM == num11010)
   let cond4 = chkSecure .& (cpsrM != num11010) .& (valueM == num11010)
   let cond5 = (cpsrM == num11010) .& (valueM != num11010)
-  !!ir (AST.cjmp cond1 (AST.name lblL8) (AST.name lblL9))
+  !!ir (AST.cjmp cond1 (AST.jmpDest lblL8) (AST.jmpDest lblL9))
   !!ir (AST.lmark lblL8)
   !!ir (AST.sideEffect UndefinedInstr) // FIXME: (use UNPREDICTABLE)
   !!ir (AST.lmark lblL9)
-  !!ir (AST.cjmp cond2 (AST.name lblL10) (AST.name lblL11))
+  !!ir (AST.cjmp cond2 (AST.jmpDest lblL10) (AST.jmpDest lblL11))
   !!ir (AST.lmark lblL10)
   !!ir (AST.sideEffect UndefinedInstr) // FIXME: (use UNPREDICTABLE)
   !!ir (AST.lmark lblL11)
-  !!ir (AST.cjmp cond3 (AST.name lblL12) (AST.name lblL13))
+  !!ir (AST.cjmp cond3 (AST.jmpDest lblL12) (AST.jmpDest lblL13))
   !!ir (AST.lmark lblL12)
   !!ir (AST.sideEffect UndefinedInstr) // FIXME: (use UNPREDICTABLE)
   !!ir (AST.lmark lblL13)
-  !!ir (AST.cjmp cond4 (AST.name lblL14) (AST.name lblL15))
+  !!ir (AST.cjmp cond4 (AST.jmpDest lblL14) (AST.jmpDest lblL15))
   !!ir (AST.lmark lblL14)
   !!ir (AST.sideEffect UndefinedInstr) // FIXME: (use UNPREDICTABLE)
   !!ir (AST.lmark lblL15)
-  !!ir (AST.cjmp cond5 (AST.name lblL16) (AST.name lblL17))
+  !!ir (AST.cjmp cond5 (AST.jmpDest lblL16) (AST.jmpDest lblL17))
   !!ir (AST.lmark lblL16)
   if Operators.not isExcptReturn then
     !!ir (AST.sideEffect UndefinedInstr) // FIXME: (use UNPREDICTABLE)
@@ -765,7 +765,7 @@ let checkCondition (ins: InsInfo) ctxt isUnconditional (ir: IRBuilder) =
     let lblIgnore = !%ir "IgnoreExec"
     let lblPass = !%ir "NeedToExec"
     let cond = conditionPassed ctxt ins.Condition
-    !!ir (AST.cjmp cond (AST.name lblPass) (AST.name lblIgnore))
+    !!ir (AST.cjmp cond (AST.jmpDest lblPass) (AST.jmpDest lblIgnore))
     !!ir (AST.lmark lblPass)
     Some lblIgnore
 
@@ -790,11 +790,11 @@ let itAdvance ctxt (ir: IRBuilder) =
   let num8 = numI32 8 32<rt>
   !!ir (itstate := cpsrIT72 .| cpsrIT10)
   !!ir (cond := ((itstate .& mask20) == AST.num0 32<rt>))
-  !!ir (AST.cjmp cond (AST.name lblThen) (AST.name lblElse))
+  !!ir (AST.cjmp cond (AST.jmpDest lblThen) (AST.jmpDest lblElse))
   !!ir (AST.lmark lblThen)
   !!ir (cpsr := disablePSRBits ctxt R.CPSR PSR.IT10)
   !!ir (cpsr := disablePSRBits ctxt R.CPSR PSR.IT72)
-  !!ir (AST.jmp (AST.name lblEnd))
+  !!ir (AST.jmp (AST.jmpDest lblEnd))
   !!ir (AST.lmark lblElse)
   !!ir (nextstate := (itstate .& mask40 << AST.num1 32<rt>))
   !!ir (cpsr := nextstate .& mask10 |> setPSR ctxt R.CPSR PSR.IT10)
@@ -1808,12 +1808,12 @@ let clz ins insLen ctxt =
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
   !!ir (t1 := numSize)
   !!ir (AST.lmark lblBoundCheck)
-  !!ir (AST.cjmp cond1 (AST.name lblEnd) (AST.name lblZeroCheck))
+  !!ir (AST.cjmp cond1 (AST.jmpDest lblEnd) (AST.jmpDest lblZeroCheck))
   !!ir (AST.lmark lblZeroCheck)
-  !!ir (AST.cjmp cond2 (AST.name lblEnd) (AST.name lblCount))
+  !!ir (AST.cjmp cond2 (AST.jmpDest lblEnd) (AST.jmpDest lblCount))
   !!ir (AST.lmark lblCount)
   !!ir (t1 := t1 .- (AST.num1 32<rt>))
-  !!ir (AST.jmp (AST.name lblBoundCheck))
+  !!ir (AST.jmp (AST.jmpDest lblBoundCheck))
   !!ir (AST.lmark lblEnd)
   !!ir (dst := numSize .- t1)
   putEndLabel ctxt lblIgnore ir
@@ -2728,7 +2728,7 @@ let cbz nonZero ins insLen ctxt =
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
   !<ir insLen
   let lblIgnore = checkCondition ins ctxt isUnconditional ir
-  !!ir (AST.cjmp cond (AST.name lblL0) (AST.name lblL1))
+  !!ir (AST.cjmp cond (AST.jmpDest lblL0) (AST.jmpDest lblL1))
   !!ir (AST.lmark lblL0)
   !!ir (branchWritePC ctxt ins pc InterJmpKind.Base)
   !!ir (AST.lmark lblL1)
@@ -3596,13 +3596,13 @@ let highestSetBitForIR dst src width oprSz (ir: IRBuilder) =
   !!ir (t := width)
   !!ir (AST.lmark lblLoop)
   !!ir (AST.cjmp (src >> t == AST.num1 oprSz)
-                       (AST.name lblEnd) (AST.name lblLoopCont))
+                       (AST.jmpDest lblEnd) (AST.jmpDest lblLoopCont))
   !!ir (AST.lmark lblLoopCont)
   !!ir (AST.cjmp (t == AST.num0 oprSz)
-                       (AST.name lblEnd) (AST.name lblUpdateTmp))
+                       (AST.jmpDest lblEnd) (AST.jmpDest lblUpdateTmp))
   !!ir (AST.lmark lblUpdateTmp)
   !!ir (t := t .- AST.num1 oprSz)
-  !!ir (AST.jmp (AST.name lblLoop))
+  !!ir (AST.jmp (AST.jmpDest lblLoop))
   !!ir (AST.lmark lblEnd)
   !!ir (dst := width .- t)
 

@@ -64,10 +64,10 @@ type MIPSLifterTests () =
     let signExtLo64 = AST.sext 64<rt> <| AST.xtlo 32<rt> (!.R1 .+ !.R2)
     let cond = checkOverflowOnAdd !.R1 !.R2 signExtLo64
     "00220820"
-    ++ [| AST.cjmp cond (AST.name lblL0) (AST.name lblL1)
+    ++ [| AST.cjmp cond (AST.jmpDest lblL0) (AST.jmpDest lblL1)
           AST.lmark lblL0
           AST.sideEffect (Exception "int overflow")
-          AST.jmp (AST.name lblEnd)
+          AST.jmp (AST.jmpDest lblEnd)
           AST.lmark lblL1
           !.R1 := AST.sext 64<rt> <| AST.xtlo 32<rt> (!.R1 .+ !.R2)
           AST.lmark lblEnd |]
@@ -84,10 +84,10 @@ type MIPSLifterTests () =
     let lblEnd = !%ir "End"
     let cond = checkOverflowOnAdd !.R1 !.R2 (!.R1 .+ !.R2)
     "00220820"
-    ++ [| AST.cjmp cond (AST.name lblL0) (AST.name lblL1)
+    ++ [| AST.cjmp cond (AST.jmpDest lblL0) (AST.jmpDest lblL1)
           AST.lmark lblL0
           AST.sideEffect (Exception "int overflow")
-          AST.jmp (AST.name lblEnd)
+          AST.jmp (AST.jmpDest lblEnd)
           AST.lmark lblL1
           !.R1 := !.R1 .+ !.R2
           AST.lmark lblEnd |]

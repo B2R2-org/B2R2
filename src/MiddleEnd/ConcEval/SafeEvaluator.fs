@@ -184,7 +184,7 @@ let private evalStore st endian addr v =
 
 let private evalJmp (st: EvalState) target =
   match target.E with
-  | Name n -> st.GoToLabel n |> Ok
+  | JmpDest n -> st.GoToLabel n |> Ok
   | _ -> Error ErrorCase.InvalidExprEvaluation
 
 let private evalCJmp st cond t f =

@@ -326,25 +326,25 @@ let dynamicRoundingFl ir ctxt rt res =
   let lblD6 = !%ir "DF7"
   let lblDException = !%ir "DFException"
   let lblDEnd = !%ir "DFEnd"
-  !!ir (AST.cjmp condRNERMM (AST.name lblD0) (AST.name lblD1))
+  !!ir (AST.cjmp condRNERMM (AST.jmpDest lblD0) (AST.jmpDest lblD1))
   !!ir (AST.lmark lblD0)
   !!ir (tmpVar := AST.cast CastKind.FtoFRound rt res)
-  !!ir (AST.jmp (AST.name lblDEnd))
+  !!ir (AST.jmp (AST.jmpDest lblDEnd))
   !!ir (AST.lmark lblD1)
-  !!ir (AST.cjmp condRTZ (AST.name lblD2) (AST.name lblD3))
+  !!ir (AST.cjmp condRTZ (AST.jmpDest lblD2) (AST.jmpDest lblD3))
   !!ir (AST.lmark lblD2)
   !!ir (tmpVar := AST.cast CastKind.FtoFTrunc rt res)
-  !!ir (AST.jmp (AST.name lblDEnd))
+  !!ir (AST.jmp (AST.jmpDest lblDEnd))
   !!ir (AST.lmark lblD3)
-  !!ir (AST.cjmp condRDN (AST.name lblD4) (AST.name lblD5))
+  !!ir (AST.cjmp condRDN (AST.jmpDest lblD4) (AST.jmpDest lblD5))
   !!ir (AST.lmark lblD4)
   !!ir (tmpVar := AST.cast CastKind.FtoFFloor rt res)
-  !!ir (AST.jmp (AST.name lblDEnd))
+  !!ir (AST.jmp (AST.jmpDest lblDEnd))
   !!ir (AST.lmark lblD5)
-  !!ir (AST.cjmp condRUP (AST.name lblD6) (AST.name lblDException))
+  !!ir (AST.cjmp condRUP (AST.jmpDest lblD6) (AST.jmpDest lblDException))
   !!ir (AST.lmark lblD6)
   !!ir (tmpVar := AST.cast CastKind.FtoFCeil rt res)
-  !!ir (AST.jmp (AST.name lblDEnd))
+  !!ir (AST.jmp (AST.jmpDest lblDEnd))
   !!ir (AST.lmark lblDException)
   !!ir (AST.sideEffect (Exception "illegal instruction"))
   !!ir (AST.lmark lblDEnd)
@@ -366,25 +366,25 @@ let dynamicRoundingInt ir ctxt rt res =
   let lblD6 = !%ir "DI7"
   let lblDException = !%ir "DIException"
   let lblDEnd = !%ir "DIEnd"
-  !!ir (AST.cjmp condRNERMM (AST.name lblD0) (AST.name lblD1))
+  !!ir (AST.cjmp condRNERMM (AST.jmpDest lblD0) (AST.jmpDest lblD1))
   !!ir (AST.lmark lblD0)
   !!ir (tmpVar := AST.cast (CastKind.FtoIRound) rt res)
-  !!ir (AST.jmp (AST.name lblDEnd))
+  !!ir (AST.jmp (AST.jmpDest lblDEnd))
   !!ir (AST.lmark lblD1)
-  !!ir (AST.cjmp condRTZ (AST.name lblD2) (AST.name lblD3))
+  !!ir (AST.cjmp condRTZ (AST.jmpDest lblD2) (AST.jmpDest lblD3))
   !!ir (AST.lmark lblD2)
   !!ir (tmpVar := AST.cast (CastKind.FtoITrunc) rt res)
-  !!ir (AST.jmp (AST.name lblDEnd))
+  !!ir (AST.jmp (AST.jmpDest lblDEnd))
   !!ir (AST.lmark lblD3)
-  !!ir (AST.cjmp condRDN (AST.name lblD4) (AST.name lblD5))
+  !!ir (AST.cjmp condRDN (AST.jmpDest lblD4) (AST.jmpDest lblD5))
   !!ir (AST.lmark lblD4)
   !!ir (tmpVar := AST.cast (CastKind.FtoIFloor) rt res)
-  !!ir (AST.jmp (AST.name lblDEnd))
+  !!ir (AST.jmp (AST.jmpDest lblDEnd))
   !!ir (AST.lmark lblD5)
-  !!ir (AST.cjmp condRUP (AST.name lblD6) (AST.name lblDException))
+  !!ir (AST.cjmp condRUP (AST.jmpDest lblD6) (AST.jmpDest lblDException))
   !!ir (AST.lmark lblD6)
   !!ir (tmpVar := AST.cast (CastKind.FtoICeil) rt res)
-  !!ir (AST.jmp (AST.name lblDEnd))
+  !!ir (AST.jmp (AST.jmpDest lblDEnd))
   !!ir (AST.lmark lblDException)
   !!ir (AST.sideEffect (Exception "illegal instruction"))
   !!ir (AST.lmark lblDEnd)
@@ -987,15 +987,15 @@ let div insInfo insLen ctxt =
   let lblL3 = !%ir "L3"
   let lblEnd = !%ir "End"
   !<ir insLen
-  !!ir (AST.cjmp condZero (AST.name lblL0) (AST.name lblL1))
+  !!ir (AST.cjmp condZero (AST.jmpDest lblL0) (AST.jmpDest lblL1))
   !!ir (AST.lmark lblL0)
   !!ir (rd := numU64 0xFFFFFFFFFFFFFFFFuL 64<rt>)
-  !!ir (AST.jmp (AST.name lblEnd))
+  !!ir (AST.jmp (AST.jmpDest lblEnd))
   !!ir (AST.lmark lblL1)
-  !!ir (AST.cjmp condOverflow (AST.name lblL2) (AST.name lblL3))
+  !!ir (AST.cjmp condOverflow (AST.jmpDest lblL2) (AST.jmpDest lblL3))
   !!ir (AST.lmark lblL2)
   !!ir (rd := rs1)
-  !!ir (AST.jmp (AST.name lblEnd))
+  !!ir (AST.jmp (AST.jmpDest lblEnd))
   !!ir (AST.lmark lblL3)
   !!ir (rd := rs1 ?/ rs2)
   !!ir (AST.lmark lblEnd)
@@ -1015,15 +1015,15 @@ let divw insInfo insLen ctxt =
   let lblL3 = !%ir "L3"
   let lblEnd = !%ir "End"
   !<ir insLen
-  !!ir (AST.cjmp condZero (AST.name lblL0) (AST.name lblL1))
+  !!ir (AST.cjmp condZero (AST.jmpDest lblL0) (AST.jmpDest lblL1))
   !!ir (AST.lmark lblL0)
   !!ir (rd := numU64 0xFFFFFFFFFFFFFFFFuL 64<rt>)
-  !!ir (AST.jmp (AST.name lblEnd))
+  !!ir (AST.jmp (AST.jmpDest lblEnd))
   !!ir (AST.lmark lblL1)
-  !!ir (AST.cjmp condOverflow (AST.name lblL2) (AST.name lblL3))
+  !!ir (AST.cjmp condOverflow (AST.jmpDest lblL2) (AST.jmpDest lblL3))
   !!ir (AST.lmark lblL2)
   !!ir (rd := AST.sext 64<rt> rs1)
-  !!ir (AST.jmp (AST.name lblEnd))
+  !!ir (AST.jmp (AST.jmpDest lblEnd))
   !!ir (AST.lmark lblL3)
   !!ir (rd := AST.sext 64<rt> (rs1 ?/ rs2))
   !!ir (AST.lmark lblEnd)
@@ -1039,10 +1039,10 @@ let divuw insInfo insLen ctxt =
   let lblL1 = !%ir "L1"
   let lblEnd = !%ir "End"
   !<ir insLen
-  !!ir (AST.cjmp condZero (AST.name lblL0) (AST.name lblL1))
+  !!ir (AST.cjmp condZero (AST.jmpDest lblL0) (AST.jmpDest lblL1))
   !!ir (AST.lmark lblL0)
   !!ir (rd := numU64 0xFFFFFFFFFFFFFFFFuL 64<rt>)
-  !!ir (AST.jmp (AST.name lblEnd))
+  !!ir (AST.jmp (AST.jmpDest lblEnd))
   !!ir (AST.lmark lblL1)
   !!ir (rd := AST.sext 64<rt> (rs1 ./ rs2))
   !!ir (AST.lmark lblEnd)
@@ -1056,10 +1056,10 @@ let divu insInfo insLen ctxt =
   let lblL1 = !%ir "L1"
   let lblEnd = !%ir "End"
   !<ir insLen
-  !!ir (AST.cjmp condZero (AST.name lblL0) (AST.name lblL1))
+  !!ir (AST.cjmp condZero (AST.jmpDest lblL0) (AST.jmpDest lblL1))
   !!ir (AST.lmark lblL0)
   !!ir (rd := numU64 0xFFFFFFFFFFFFFFFFuL 64<rt>)
-  !!ir (AST.jmp (AST.name lblEnd))
+  !!ir (AST.jmp (AST.jmpDest lblEnd))
   !!ir (AST.lmark lblL1)
   !!ir (rd := rs1 ./ rs2)
   !!ir (AST.lmark lblEnd)
@@ -1073,10 +1073,10 @@ let remu insInfo insLen ctxt =
   let lblL1 = !%ir "L1"
   let lblEnd = !%ir "End"
   !<ir insLen
-  !!ir (AST.cjmp condZero (AST.name lblL0) (AST.name lblL1))
+  !!ir (AST.cjmp condZero (AST.jmpDest lblL0) (AST.jmpDest lblL1))
   !!ir (AST.lmark lblL0)
   !!ir (rd := rs1)
-  !!ir (AST.jmp (AST.name lblEnd))
+  !!ir (AST.jmp (AST.jmpDest lblEnd))
   !!ir (AST.lmark lblL1)
   !!ir (rd := rs1 .% rs2)
   !!ir (AST.lmark lblEnd)
@@ -1094,15 +1094,15 @@ let rem insInfo insLen ctxt =
   let lblL3 = !%ir "L3"
   let lblEnd = !%ir "End"
   !<ir insLen
-  !!ir (AST.cjmp condZero (AST.name lblL0) (AST.name lblL1))
+  !!ir (AST.cjmp condZero (AST.jmpDest lblL0) (AST.jmpDest lblL1))
   !!ir (AST.lmark lblL0)
   !!ir (rd := rs1)
-  !!ir (AST.jmp (AST.name lblEnd))
+  !!ir (AST.jmp (AST.jmpDest lblEnd))
   !!ir (AST.lmark lblL1)
-  !!ir (AST.cjmp condOverflow (AST.name lblL2) (AST.name lblL3))
+  !!ir (AST.cjmp condOverflow (AST.jmpDest lblL2) (AST.jmpDest lblL3))
   !!ir (AST.lmark lblL2)
   !!ir (rd := AST.num0 64<rt>)
-  !!ir (AST.jmp (AST.name lblEnd))
+  !!ir (AST.jmp (AST.jmpDest lblEnd))
   !!ir (AST.lmark lblL3)
   !!ir (rd := rs1 ?% rs2)
   !!ir (AST.lmark lblEnd)
@@ -1122,15 +1122,15 @@ let remw insInfo insLen ctxt =
   let lblL3 = !%ir "L3"
   let lblEnd = !%ir "End"
   !<ir insLen
-  !!ir (AST.cjmp condZero (AST.name lblL0) (AST.name lblL1))
+  !!ir (AST.cjmp condZero (AST.jmpDest lblL0) (AST.jmpDest lblL1))
   !!ir (AST.lmark lblL0)
   !!ir (rd := AST.sext 64<rt> rs1)
-  !!ir (AST.jmp (AST.name lblEnd))
+  !!ir (AST.jmp (AST.jmpDest lblEnd))
   !!ir (AST.lmark lblL1)
-  !!ir (AST.cjmp condOverflow (AST.name lblL2) (AST.name lblL3))
+  !!ir (AST.cjmp condOverflow (AST.jmpDest lblL2) (AST.jmpDest lblL3))
   !!ir (AST.lmark lblL2)
   !!ir (rd := AST.num0 64<rt>)
-  !!ir (AST.jmp (AST.name lblEnd))
+  !!ir (AST.jmp (AST.jmpDest lblEnd))
   !!ir (AST.lmark lblL3)
   !!ir (rd := AST.sext 64<rt> (rs1 ?% rs2))
   !!ir (AST.lmark lblEnd)
@@ -1146,10 +1146,10 @@ let remuw insInfo insLen ctxt =
   let lblL1 = !%ir "L1"
   let lblEnd = !%ir "End"
   !<ir insLen
-  !!ir (AST.cjmp condZero (AST.name lblL0) (AST.name lblL1))
+  !!ir (AST.cjmp condZero (AST.jmpDest lblL0) (AST.jmpDest lblL1))
   !!ir (AST.lmark lblL0)
   !!ir (rd := AST.sext 64<rt> rs1)
-  !!ir (AST.jmp (AST.name lblEnd))
+  !!ir (AST.jmp (AST.jmpDest lblEnd))
   !!ir (AST.lmark lblL1)
   !!ir (rd := AST.sext 64<rt> (rs1 .% rs2))
   !!ir (AST.lmark lblEnd)
@@ -1163,12 +1163,12 @@ let fld insInfo insLen ctxt =
   let lblL1 = !%ir "L1"
   let lblEnd = !%ir "End"
   !<ir insLen
-  !!ir (AST.cjmp condAlign (AST.name lblL0) (AST.name lblL1))
+  !!ir (AST.cjmp condAlign (AST.jmpDest lblL0) (AST.jmpDest lblL1))
   !!ir (AST.lmark lblL0)
   !!ir (AST.sideEffect Lock)
   !!ir (rd := AST.sext ctxt.WordBitSize mem)
   !!ir (AST.sideEffect Unlock)
-  !!ir (AST.jmp (AST.name lblEnd))
+  !!ir (AST.jmp (AST.jmpDest lblEnd))
   !!ir (AST.lmark lblL1)
   !!ir (rd := AST.sext ctxt.WordBitSize mem)
   !!ir (AST.lmark lblEnd)
@@ -1182,12 +1182,12 @@ let fsd insInfo insLen ctxt =
   let lblL1 = !%ir "L1"
   let lblEnd = !%ir "End"
   !<ir insLen
-  !!ir (AST.cjmp condAlign (AST.name lblL0) (AST.name lblL1))
+  !!ir (AST.cjmp condAlign (AST.jmpDest lblL0) (AST.jmpDest lblL1))
   !!ir (AST.lmark lblL0)
   !!ir (AST.sideEffect Lock)
   !!ir (mem := rd)
   !!ir (AST.sideEffect Unlock)
-  !!ir (AST.jmp (AST.name lblEnd))
+  !!ir (AST.jmp (AST.jmpDest lblEnd))
   !!ir (AST.lmark lblL1)
   !!ir (mem := rd)
   !!ir (AST.lmark lblEnd)
@@ -1207,10 +1207,10 @@ let fltdots insInfo insLen ctxt =
     AST.ite cond (AST.num1 ctxt.WordBitSize) (AST.num0 ctxt.WordBitSize)
   let fflags = getRegVar ctxt R.FFLAGS
   !<ir insLen
-  !!ir (AST.cjmp checkNan (AST.name lblL1) (AST.name lblL0))
+  !!ir (AST.cjmp checkNan (AST.jmpDest lblL1) (AST.jmpDest lblL0))
   !!ir (AST.lmark lblL0)
   !!ir (rd := rtVal)
-  !!ir (AST.jmp (AST.name lblEnd))
+  !!ir (AST.jmp (AST.jmpDest lblEnd))
   !!ir (AST.lmark lblL1)
   !!ir (rd := numU64 0uL 64<rt>)
   !!ir (fflags := fflags .| numU32 16u 32<rt>)
@@ -1230,10 +1230,10 @@ let fledots insInfo insLen ctxt =
   let rtVal = AST.ite cond (AST.num1 64<rt>) (AST.num0 64<rt>)
   let fflags = getRegVar ctxt R.FFLAGS
   !<ir insLen
-  !!ir (AST.cjmp checkNan (AST.name lblL1) (AST.name lblL0))
+  !!ir (AST.cjmp checkNan (AST.jmpDest lblL1) (AST.jmpDest lblL0))
   !!ir (AST.lmark lblL0)
   !!ir (rd := rtVal)
-  !!ir (AST.jmp (AST.name lblEnd))
+  !!ir (AST.jmp (AST.jmpDest lblEnd))
   !!ir (AST.lmark lblL1)
   !!ir (rd := numU64 0uL 64<rt>)
   !!ir (fflags := fflags .| numU32 16u 32<rt>)
@@ -1255,10 +1255,10 @@ let feqdots insInfo insLen ctxt =
   let fflags = getRegVar ctxt R.FFLAGS
   let flagFscr = AST.ite (isSNan) (numU32 16u 32<rt>) (AST.num0 32<rt>)
   !<ir insLen
-  !!ir (AST.cjmp checkNan (AST.name lblL1) (AST.name lblL0))
+  !!ir (AST.cjmp checkNan (AST.jmpDest lblL1) (AST.jmpDest lblL0))
   !!ir (AST.lmark lblL0)
   !!ir (rd := rtVal)
-  !!ir (AST.jmp (AST.name lblEnd))
+  !!ir (AST.jmp (AST.jmpDest lblEnd))
   !!ir (AST.lmark lblL1)
   !!ir (rd := numU64 0uL 64<rt>)
   !!ir (fflags := fflags .| flagFscr)
@@ -1282,7 +1282,7 @@ let fclassdots insInfo insLen ctxt =
   let condQNan = isQNan 32<rt> rs1
   !<ir insLen
   !!ir (rd := AST.num0 64<rt>)
-  !!ir (AST.cjmp sign (AST.name lblNeg) (AST.name lblPos))
+  !!ir (AST.cjmp sign (AST.jmpDest lblNeg) (AST.jmpDest lblPos))
   !!ir (AST.lmark lblPos)
   !!ir (rd := AST.ite condInf (numU32 (1u <<< 7) 64<rt>) rd)
   !!ir (rd := AST.ite condZero (numU32 (1u <<< 4) 64<rt>) rd)
@@ -1290,7 +1290,7 @@ let fclassdots insInfo insLen ctxt =
   !!ir (rd := AST.ite condQNan (numU32 (1u <<< 9) 64<rt>) rd)
   !!ir (rd := AST.ite condSNan (numU32 (1u <<< 8) 64<rt>) rd)
   !!ir (rd := AST.ite (rd == AST.num0 64<rt>) (numU32 (1u <<< 6) 64<rt>) rd)
-  !!ir (AST.jmp (AST.name lblEnd))
+  !!ir (AST.jmp (AST.jmpDest lblEnd))
   !!ir (AST.lmark lblNeg)
   !!ir (rd := AST.ite condInf (numU32 (1u <<< 0) 64<rt>) rd)
   !!ir (rd := AST.ite condZero (numU32 (1u <<< 3) 64<rt>) rd)
@@ -1315,7 +1315,7 @@ let fclassdotd insInfo insLen ctxt =
   let condQNan = isQNan 64<rt> rs1
   !<ir insLen
   !!ir (rd := AST.num0 64<rt>)
-  !!ir (AST.cjmp sign (AST.name lblNeg) (AST.name lblPos))
+  !!ir (AST.cjmp sign (AST.jmpDest lblNeg) (AST.jmpDest lblPos))
   !!ir (AST.lmark lblPos)
   !!ir (rd := AST.ite condInf (numU32 (1u <<< 7) 64<rt>) rd)
   !!ir (rd := AST.ite condZero (numU32 (1u <<< 4) 64<rt>) rd)
@@ -1323,7 +1323,7 @@ let fclassdotd insInfo insLen ctxt =
   !!ir (rd := AST.ite condQNan (numU32 (1u <<< 9) 64<rt>) rd)
   !!ir (rd := AST.ite condSNan (numU32 (1u <<< 8) 64<rt>) rd)
   !!ir (rd := AST.ite (rd == AST.num0 64<rt>) (numU32 (1u <<< 6) 64<rt>) rd)
-  !!ir (AST.jmp (AST.name lblEnd))
+  !!ir (AST.jmp (AST.jmpDest lblEnd))
   !!ir (AST.lmark lblNeg)
   !!ir (rd := AST.ite condInf (numU32 (1u <<< 0) 64<rt>) rd)
   !!ir (rd := AST.ite condZero (numU32 (1u <<< 3) 64<rt>) rd)
@@ -1341,13 +1341,13 @@ let flw insInfo insLen ctxt =
   let lblL1 = !%ir "L1"
   let lblEnd = !%ir "End"
   !<ir insLen
-  !!ir (AST.cjmp condAlign (AST.name lblL0) (AST.name lblL1))
+  !!ir (AST.cjmp condAlign (AST.jmpDest lblL0) (AST.jmpDest lblL1))
   !!ir (AST.lmark lblL0)
   !!ir (AST.sideEffect Lock)
   !!ir (tmp := mem)
   !!ir (rd := getNanBoxed tmp)
   !!ir (AST.sideEffect Unlock)
-  !!ir (AST.jmp (AST.name lblEnd))
+  !!ir (AST.jmp (AST.jmpDest lblEnd))
   !!ir (AST.lmark lblL1)
   !!ir (tmp := mem)
   !!ir (rd := getNanBoxed tmp)
@@ -1362,12 +1362,12 @@ let fsw insInfo insLen ctxt =
   let lblL1 = !%ir "L1"
   let lblEnd = !%ir "End"
   !<ir insLen
-  !!ir (AST.cjmp condAlign (AST.name lblL0) (AST.name lblL1))
+  !!ir (AST.cjmp condAlign (AST.jmpDest lblL0) (AST.jmpDest lblL1))
   !!ir (AST.lmark lblL0)
   !!ir (AST.sideEffect Lock)
   !!ir (mem := AST.xtlo 32<rt> rd)
   !!ir (AST.sideEffect Unlock)
-  !!ir (AST.jmp (AST.name lblEnd))
+  !!ir (AST.jmp (AST.jmpDest lblEnd))
   !!ir (AST.lmark lblL1)
   !!ir (mem := AST.xtlo 32<rt> rd)
   !!ir (AST.lmark lblEnd)
@@ -1384,10 +1384,10 @@ let fltdotd insInfo insLen ctxt =
   let rtVal = AST.ite cond (AST.num1 64<rt>) (AST.num0 64<rt>)
   let fflags = getRegVar ctxt R.FFLAGS
   !<ir insLen
-  !!ir (AST.cjmp checkNan (AST.name lblL1) (AST.name lblL0))
+  !!ir (AST.cjmp checkNan (AST.jmpDest lblL1) (AST.jmpDest lblL0))
   !!ir (AST.lmark lblL0)
   !!ir (rd := rtVal)
-  !!ir (AST.jmp (AST.name lblEnd))
+  !!ir (AST.jmp (AST.jmpDest lblEnd))
   !!ir (AST.lmark lblL1)
   !!ir (rd := numU64 0uL 64<rt>)
   !!ir (fflags := fflags .| numU32 16u 32<rt>)
@@ -1405,10 +1405,10 @@ let fledotd insInfo insLen ctxt =
   let rtVal = AST.ite cond (AST.num1 64<rt>) (AST.num0 64<rt>)
   let fflags = getRegVar ctxt R.FFLAGS
   !<ir insLen
-  !!ir (AST.cjmp checkNan (AST.name lblL1) (AST.name lblL0))
+  !!ir (AST.cjmp checkNan (AST.jmpDest lblL1) (AST.jmpDest lblL0))
   !!ir (AST.lmark lblL0)
   !!ir (rd := rtVal)
-  !!ir (AST.jmp (AST.name lblEnd))
+  !!ir (AST.jmp (AST.jmpDest lblEnd))
   !!ir (AST.lmark lblL1)
   !!ir (rd := numU64 0uL 64<rt>)
   !!ir (fflags := fflags .| numU32 16u 32<rt>)
@@ -1428,10 +1428,10 @@ let feqdotd insInfo insLen ctxt =
   let fflags = getRegVar ctxt R.FFLAGS
   let flagFscr = AST.ite isSNan (numU32 16u 32<rt>) (AST.num0 32<rt>)
   !<ir insLen
-  !!ir (AST.cjmp checkNan (AST.name lblL1) (AST.name lblL0))
+  !!ir (AST.cjmp checkNan (AST.jmpDest lblL1) (AST.jmpDest lblL0))
   !!ir (AST.lmark lblL0)
   !!ir (rd := rtVal)
-  !!ir (AST.jmp (AST.name lblEnd))
+  !!ir (AST.jmp (AST.jmpDest lblEnd))
   !!ir (AST.lmark lblL1)
   !!ir (rd := numU64 0uL 64<rt>)
   !!ir (fflags := fflags .| flagFscr)
@@ -1604,9 +1604,9 @@ let fnmadddots insInfo insLen ctxt =
   !<ir insLen
   let rtVal = AST.fsub (fpNeg 32<rt> <| AST.fmul rs1 rs2) rs3
   !!ir (rd := getNanBoxed rtVal)
-  !!ir (AST.cjmp setNV (AST.name lblInvalid) (AST.name lblValid))
+  !!ir (AST.cjmp setNV (AST.jmpDest lblInvalid) (AST.jmpDest lblValid))
   !!ir (AST.lmark lblValid)
-  !!ir (AST.jmp (AST.name lblEnd))
+  !!ir (AST.jmp (AST.jmpDest lblEnd))
   !!ir (AST.lmark lblInvalid)
   !!ir (fflags := fflags .| numU32 16u 32<rt>)
   !!ir (AST.lmark lblEnd)
@@ -1625,9 +1625,9 @@ let fnmadddotd insInfo insLen ctxt =
   let fflags = getRegVar ctxt R.FFLAGS
   !<ir insLen
   !!ir (rd := AST.fsub (fpNeg 64<rt> <| AST.fmul rs1 rs2) rs3)
-  !!ir (AST.cjmp setNV (AST.name lblInvalid) (AST.name lblValid))
+  !!ir (AST.cjmp setNV (AST.jmpDest lblInvalid) (AST.jmpDest lblValid))
   !!ir (AST.lmark lblValid)
-  !!ir (AST.jmp (AST.name lblEnd))
+  !!ir (AST.jmp (AST.jmpDest lblEnd))
   !!ir (AST.lmark lblInvalid)
   !!ir (fflags := fflags .| numU32 16u 32<rt>)
   !!ir (AST.lmark lblEnd)
@@ -1715,14 +1715,14 @@ let amod insInfo insLen ctxt op =
   let lblEnd = !%ir "End"
   let tmp = !+ir 64<rt>
   !<ir insLen
-  !!ir (AST.cjmp cond (AST.name lblL0) (AST.name lblL1))
+  !!ir (AST.cjmp cond (AST.jmpDest lblL0) (AST.jmpDest lblL1))
   !!ir (AST.lmark lblL0)
   !!ir (AST.sideEffect Lock)
   !!ir (tmp := mem)
   !!ir (mem := op tmp rs2)
   !!ir (rd := tmp)
   !!ir (AST.sideEffect Unlock)
-  !!ir (AST.jmp (AST.name lblEnd))
+  !!ir (AST.jmp (AST.jmpDest lblEnd))
   !!ir (AST.lmark lblL1)
   !!ir (AST.sideEffect (Exception "Address-misaligned exception"))
   !!ir (AST.lmark lblEnd)
@@ -1738,14 +1738,14 @@ let amow insInfo insLen ctxt op =
   let lblEnd = !%ir "End"
   let tmp = !+ir 32<rt>
   !<ir insLen
-  !!ir (AST.cjmp cond (AST.name lblL0) (AST.name lblL1))
+  !!ir (AST.cjmp cond (AST.jmpDest lblL0) (AST.jmpDest lblL1))
   !!ir (AST.lmark lblL0)
   !!ir (AST.sideEffect Lock)
   !!ir (tmp := mem)
   !!ir (mem := op tmp rs2)
   !!ir (rd := AST.sext 64<rt> tmp)
   !!ir (AST.sideEffect Unlock)
-  !!ir (AST.jmp (AST.name lblEnd))
+  !!ir (AST.jmp (AST.jmpDest lblEnd))
   !!ir (AST.lmark lblL1)
   !!ir (AST.sideEffect (Exception "Address-misaligned exception"))
   !!ir (AST.lmark lblEnd)
@@ -2333,7 +2333,7 @@ let sc insInfo insLen ctxt oprSz =
   !<ir insLen
   !!ir (rd := AST.num1 64<rt>)
   !!ir (AST.extCall <| AST.app "IsAcquired" [addr; size] 64<rt>)
-  !!ir (AST.cjmp rc (AST.name lblRelease) (AST.name lblEnd))
+  !!ir (AST.cjmp rc (AST.jmpDest lblRelease) (AST.jmpDest lblEnd))
   !!ir (AST.lmark lblRelease)
   !!ir (AST.extCall <| AST.app "Release" [addr; size] 64<rt>)
   !!ir (mem := AST.xtlo oprSz rs2)

@@ -163,16 +163,16 @@ type BBLFactory (hdl: BinHandle, instrs) =
   let rec extractLabelInfo (lblMap: Dictionary<_, _>) liftedIns insAddr ndx =
     match liftedIns.Stmts[ndx].S with
     | IEMark _ -> extractLabelInfo lblMap liftedIns insAddr (ndx - 1)
-    | Jmp { E = Name symbol } ->
+    | Jmp { E = JmpDest symbol } ->
       let key = insAddr, symbol
       [ KeyValuePair (symbol, lblMap[key]) ]
-    | CJmp (_, { E = Name symbol1 }, { E = Name symbol2 }) ->
+    | CJmp (_, { E = JmpDest symbol1 }, { E = JmpDest symbol2 }) ->
       let key1 = insAddr, symbol1
       let key2 = insAddr, symbol2
       [ KeyValuePair (symbol1, lblMap[key1])
         KeyValuePair (symbol2, lblMap[key2]) ]
-    | CJmp (_, { E = Name symbol }, _)
-    | CJmp (_, _, { E = Name symbol }) ->
+    | CJmp (_, { E = JmpDest symbol }, _)
+    | CJmp (_, _, { E = JmpDest symbol }) ->
       let key = insAddr, symbol
       [ KeyValuePair (symbol, lblMap[key]) ]
     | _ -> []

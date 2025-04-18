@@ -278,11 +278,11 @@ let roundingToCastInt ctxt ir frd frb =
   let lblRN0 = !%ir "RN0x"
   let lblRN1 = !%ir "RN1x"
   let lblEnd = !%ir "End"
-  !!ir (AST.cjmp rnA (AST.name lblRN1) (AST.name lblRN0))
+  !!ir (AST.cjmp rnA (AST.jmpDest lblRN1) (AST.jmpDest lblRN0))
   !!ir (AST.lmark lblRN0)
   !!ir (frd := AST.ite rnB (AST.cast CastKind.FtoITrunc 64<rt> frb)
                             (AST.cast CastKind.FtoIRound 64<rt> frb))
-  !!ir (AST.jmp (AST.name lblEnd))
+  !!ir (AST.jmp (AST.jmpDest lblEnd))
   !!ir (AST.lmark lblRN1)
   !!ir (frd := AST.ite rnB (AST.cast CastKind.FtoIFloor 64<rt> frb)
                             (AST.cast CastKind.FtoICeil 64<rt> frb))
@@ -823,13 +823,13 @@ let fcmp ins insLen ctxt isOrdered =
   !!ir (fe := AST.ite cond1 AST.b0 (AST.not cond2))
   !!ir (nanFlag := (IEEE754Double.isNaN fra) .| (IEEE754Double.isNaN frb))
   !!ir (fu := nanFlag)
-  !!ir (AST.cjmp nanFlag (AST.name lblNan) (AST.name lblRegular))
+  !!ir (AST.cjmp nanFlag (AST.jmpDest lblNan) (AST.jmpDest lblRegular))
   !!ir (AST.lmark lblNan)
   !!ir (crf0 := AST.b0)
   !!ir (crf1 := AST.b0)
   !!ir (crf2 := AST.b0)
   !!ir (crf3 := AST.b1)
-  !!ir (AST.jmp (AST.name lblEnd))
+  !!ir (AST.jmp (AST.jmpDest lblEnd))
   !!ir (AST.lmark lblRegular)
   !!ir (crf0 := fl)
   !!ir (crf1 := fg)
@@ -2013,12 +2013,12 @@ let stwcxdot ins insLen ctxt =
   let tmpEA = !+ir 32<rt>
   !!ir (tmpEA := ea)
   !!ir (AST.extCall <| AST.app "IsReserved" [tmpEA] 32<rt>)
-  !!ir (AST.cjmp (res == AST.b1) (AST.name lblRes) (AST.name lblNoRes))
+  !!ir (AST.cjmp (res == AST.b1) (AST.jmpDest lblRes) (AST.jmpDest lblNoRes))
   !!ir (AST.lmark lblRes)
   !!ir (loadNative ctxt 32<rt> tmpEA := rs)
   !!ir (res := AST.b0)
   !!ir (cr0EQ := AST.b1)
-  !!ir (AST.jmp (AST.name lblEnd))
+  !!ir (AST.jmp (AST.jmpDest lblEnd))
   !!ir (AST.lmark lblNoRes)
   !!ir (cr0EQ := AST.b0)
   !!ir (AST.lmark lblEnd)
@@ -2160,7 +2160,7 @@ let trapCond ins insLen cmpOp ctxt =
   let lblTrap = !%ir "Trap"
   let lblEnd = !%ir "End"
   !<ir insLen
-  !!ir (AST.cjmp (cmpOp ra rb) (AST.name lblTrap) (AST.name lblEnd))
+  !!ir (AST.cjmp (cmpOp ra rb) (AST.jmpDest lblTrap) (AST.jmpDest lblEnd))
   !!ir (AST.lmark lblTrap)
   !!ir (AST.sideEffect (Interrupt 0))
   !!ir (AST.lmark lblEnd)

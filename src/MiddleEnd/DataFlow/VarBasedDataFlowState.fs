@@ -255,7 +255,7 @@ type VarBasedDataFlowState<'Lattice>
     | _ -> Terminator.impossible ()
 
   let translateLabel addr = function
-    | Name symb -> addr, symb
+    | JmpDest symb -> addr, symb
     | Undefined (_, s) -> addr, (s, -1)
     | _ -> raise InvalidExprException
 

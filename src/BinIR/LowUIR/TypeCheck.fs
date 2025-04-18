@@ -43,7 +43,7 @@ let rec typeOf e =
   | Cast (_, t, _) -> t
   | Extract (_, t, _) -> t
   | Undefined (t, _) -> t
-  | FuncName (_) | Name (_) | Nil -> raise InvalidExprException
+  | FuncName _ | JmpDest _ | Nil -> raise InvalidExprException
 
 #if DEBUG
 let internal bool e =

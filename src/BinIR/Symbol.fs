@@ -34,6 +34,7 @@ type Symbol = string * int
 /// <summary>
 /// Provides functions to access <see cref='T:B2R2.BinIR.Symbol'/>.
 /// </summary>
+[<RequireQualifiedAccess>]
 module Symbol =
   /// <summary>
   /// Retrives the name of the symbol.

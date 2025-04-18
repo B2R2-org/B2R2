@@ -159,13 +159,13 @@ let unop op e =
       e'
 #endif
 
-/// Construct a symbolic name (Name).
-[<CompiledName("Name")>]
-let name symb =
+/// Construct a jump target (JmpDest).
+[<CompiledName("JmpDest")>]
+let jmpDest symb =
 #if ! HASHCONS
-  Name symb |> ASTHelper.buildExpr
+  JmpDest symb |> ASTHelper.buildExpr
 #else
-  let k = Name symb
+  let k = JmpDest symb
   match tryGetExpr k with
   | Ok e -> e
   | Error isReclaimed ->
@@ -303,7 +303,7 @@ let relop op e1 e2 =
 let load endian rt addr =
 #if DEBUG
   match addr.E with
-  | Name _ -> raise InvalidExprException
+  | JmpDest _ -> raise InvalidExprException
   | _ ->
 #endif
 #if ! HASHCONS
@@ -1040,7 +1040,7 @@ let sideEffect eff =
 /// Record the use of vars and tempvars from the given expression.
 let rec updateAllVarsUses (rset: RegisterSet) (tset: HashSet<int>) { E = e } =
   match e with
-  | Num _ | Nil | PCVar _ | Name _ | FuncName _ | Undefined _ ->
+  | Num _ | Nil | PCVar _ | JmpDest _ | FuncName _ | Undefined _ ->
     ()
   | Var (_, rid, _) ->
     rset.Add (int rid)
@@ -1068,7 +1068,7 @@ let rec updateAllVarsUses (rset: RegisterSet) (tset: HashSet<int>) { E = e } =
 /// Record the use of vars (registers) from the given expression.
 let rec updateRegsUses (rset: RegisterSet) { E = e } =
   match e with
-  | Num _ | Nil | PCVar _ | Name _ | FuncName _ | Undefined _ | TempVar _ ->
+  | Num _ | Nil | PCVar _ | JmpDest _ | FuncName _ | Undefined _ | TempVar _ ->
     ()
   | Var (_, rid, _) ->
     rset.Add (int rid)
@@ -1094,7 +1094,7 @@ let rec updateRegsUses (rset: RegisterSet) { E = e } =
 /// Record the use of tempvars from the given expression.
 let rec updateTempsUses (tset: HashSet<int>) { E = e } =
   match e with
-  | Num _ | Nil | PCVar _ | Name _ | FuncName _ | Undefined _ | Var _ ->
+  | Num _ | Nil | PCVar _ | JmpDest _ | FuncName _ | Undefined _ | Var _ ->
     ()
   | TempVar (_, n) ->
     tset.Add n |> ignore

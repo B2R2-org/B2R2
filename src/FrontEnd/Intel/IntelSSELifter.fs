@@ -596,7 +596,7 @@ let comiss ins insLen ctxt =
   !!ir (pf := AST.b0)
   !!ir (cf := AST.ite (AST.flt opr1 opr2) AST.b1 AST.b0)
   !!ir (AST.cjmp (isNan false opr1 .| isNan false opr2)
-                 (AST.name lblNan) (AST.name lblExit))
+                 (AST.jmpDest lblNan) (AST.jmpDest lblExit))
   !!ir (AST.lmark lblNan)
   !!ir (zf := AST.b1)
   !!ir (pf := AST.b1)
@@ -625,7 +625,7 @@ let comisd ins insLen ctxt =
   !!ir (pf := AST.b0)
   !!ir (cf := AST.ite (AST.flt opr1 opr2) AST.b1 AST.b0)
   !!ir (AST.cjmp (isNan true opr1 .| isNan true opr2)
-                 (AST.name lblNan) (AST.name lblExit))
+                 (AST.jmpDest lblNan) (AST.jmpDest lblExit))
   !!ir (AST.lmark lblNan)
   !!ir (zf := AST.b1)
   !!ir (pf := AST.b1)
@@ -654,7 +654,7 @@ let ucomiss ins insLen ctxt =
   !!ir (pf := AST.b0)
   !!ir (cf := AST.ite (AST.flt opr1 opr2) AST.b1 AST.b0)
   !!ir (AST.cjmp (isNan false opr1 .| isNan false opr2)
-                 (AST.name lblNan) (AST.name lblExit))
+                 (AST.jmpDest lblNan) (AST.jmpDest lblExit))
   !!ir (AST.lmark lblNan)
   !!ir (zf := AST.b1)
   !!ir (pf := AST.b1)
@@ -683,7 +683,7 @@ let ucomisd ins insLen ctxt =
   !!ir (pf := AST.b0)
   !!ir (cf := AST.ite (AST.flt opr1 opr2) AST.b1 AST.b0)
   !!ir (AST.cjmp (isNan true opr1 .| isNan true opr2)
-                 (AST.name lblNan) (AST.name lblExit))
+                 (AST.jmpDest lblNan) (AST.jmpDest lblExit))
   !!ir (AST.lmark lblNan)
   !!ir (zf := AST.b1)
   !!ir (pf := AST.b1)
@@ -1984,10 +1984,10 @@ let private leastSign ir expr sz max =
   let max = numI32 max sz
   let bit = (AST.xtlo 1<rt> (expr >> cnt)) .& AST.b1
   !!ir (cond := (bit == AST.b0) .& (cnt .< max))
-  !!ir (AST.cjmp cond (AST.name lblCont) (AST.name lblEnd))
+  !!ir (AST.cjmp cond (AST.jmpDest lblCont) (AST.jmpDest lblEnd))
   !!ir (AST.lmark lblCont)
   !!ir (cnt := cnt .+ (AST.num1 sz))
-  !!ir (AST.jmp (AST.name lblLoop))
+  !!ir (AST.jmp (AST.jmpDest lblLoop))
   !!ir (AST.lmark lblEnd)
   cnt
 
@@ -2003,10 +2003,10 @@ let private mostSign ir expr sz max =
   let n0 = AST.num0 sz
   let bit = (AST.xtlo 1<rt> (expr >> idx)) .& AST.b1
   !!ir (cond := (bit == AST.b0) .& (idx .> n0))
-  !!ir (AST.cjmp cond (AST.name lblCont) (AST.name lblEnd))
+  !!ir (AST.cjmp cond (AST.jmpDest lblCont) (AST.jmpDest lblEnd))
   !!ir (AST.lmark lblCont)
   !!ir (idx := idx .- (AST.num1 sz))
-  !!ir (AST.jmp (AST.name lblLoop))
+  !!ir (AST.jmp (AST.jmpDest lblLoop))
   !!ir (AST.lmark lblEnd)
   idx
 

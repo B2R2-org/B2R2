@@ -53,7 +53,7 @@ let rec private translateDest = function
   | _ -> raise InvalidExprException
 
 let private translateLabel addr = function
-  | LowUIR.Name symb -> addr, symb
+  | LowUIR.JmpDest symb -> addr, symb
   | LowUIR.Undefined (_, s) -> addr, (s, -1)
   | _ -> raise InvalidExprException
 

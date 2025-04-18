@@ -238,12 +238,12 @@ type CFGRecovery<'FnCtx,
             connectEdge ctx srcVertex dstVertex FallThroughEdge
             ppQueue.Enqueue nextPPoint
           | Error _ -> () (* Ignore when a bad instruction follows *)
-        | Jmp { E = Name lbl } ->
+        | Jmp { E = JmpDest lbl } ->
           let dstPPoint = srcBBL.LabelMap[lbl]
           let dstVertex = getVertex ctx dstPPoint
           connectEdge ctx srcVertex dstVertex IntraJmpEdge
           ppQueue.Enqueue dstPPoint
-        | CJmp (_, { E = Name tLbl }, { E = Name fLbl }) ->
+        | CJmp (_, { E = JmpDest tLbl }, { E = JmpDest fLbl }) ->
           let tPPoint, fPPoint = srcBBL.LabelMap[tLbl], srcBBL.LabelMap[fLbl]
           let tVertex, fVertex = getVertex ctx tPPoint, getVertex ctx fPPoint
           connectEdge ctx srcVertex tVertex IntraCJmpTrueEdge

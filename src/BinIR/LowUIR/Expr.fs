@@ -77,8 +77,8 @@ type E =
   /// Unary operation such as negation.
   | UnOp of UnOpType * Expr
 
-  /// Symbolic constant for labels.
-  | Name of Symbol
+  /// Jump destination of a Jmp or CJmp statement.
+  | JmpDest of Symbol
 
   /// Name of uninterpreted function.
   | FuncName of string
@@ -126,7 +126,7 @@ with
       | PCVar (t1, _), PCVar (t2, _) -> t1 = t2
       | TempVar (t1, n1), TempVar (t2, n2) -> t1 = t2 && n1 = n2
       | UnOp (t1, e1), UnOp (t2, e2) -> t1 = t2 && PhysicalEquality e1 e2
-      | Name (s1), Name (s2) -> s1 = s2
+      | JmpDest (s1), JmpDest (s2) -> s1 = s2
       | FuncName (n1), FuncName (n2) -> n1 = n2
       | BinOp (o1, t1, lhs1, rhs1), BinOp (o2, t2, lhs2, rhs2) ->
         o1 = o2 && t1 = t2 &&
@@ -193,7 +193,7 @@ with
     | PCVar (rt, _) -> E.HashPCVar rt
     | TempVar (rt, n) -> E.HashTempVar rt n
     | UnOp (op, e) -> E.HashUnOp op e
-    | Name (s) -> E.HashName s
+    | JmpDest (s) -> E.HashName s
     | FuncName (s) -> E.HashFuncName s
     | BinOp (op, rt, e1, e2) -> E.HashBinOp op rt e1 e2
     | RelOp (op, e1, e2) -> E.HashRelOp op e1 e2
@@ -251,7 +251,7 @@ module Expr =
       sb.Append (n) |> ignore
       sb.Append (":") |> ignore
       sb.Append (RegType.toString typ) |> ignore
-    | Name (n) -> sb.Append (Symbol.getName n) |> ignore
+    | JmpDest (n) -> sb.Append (Symbol.getName n) |> ignore
     | FuncName (n) -> sb.Append (n) |> ignore
     | UnOp (op, e) ->
       sb.Append ("(") |> ignore

@@ -740,11 +740,11 @@ let dczva ins insLen ctxt addr =
   !!ir (len := (numI32 2 64<rt> << (dczid .+ numI32 1 64<rt>)))
   !!ir (len := len ./ n4)
   !!ir (AST.lmark lblLoop)
-  !!ir (AST.cjmp (idx == len) (AST.name lblEnd) (AST.name lblLoopCont))
+  !!ir (AST.cjmp (idx == len) (AST.jmpDest lblEnd) (AST.jmpDest lblLoopCont))
   !!ir (AST.lmark lblLoopCont)
   !!ir (AST.loadLE 32<rt> (src .+ (idx .* n4)) := AST.num0 32<rt>)
   !!ir (idx := idx .+ AST.num1 64<rt>)
-  !!ir (AST.jmp (AST.name lblLoop))
+  !!ir (AST.jmp (AST.jmpDest lblLoop))
   !!ir (AST.lmark lblEnd)
   !>ir insLen
 
@@ -947,15 +947,15 @@ let private fpCompare ctxt ir oprSz src1 src2 =
   let lblNeq = !%ir "Neq"
   let lblEnd = !%ir "End"
   !!ir (isOpNaN := isNaN oprSz src1 .| isNaN oprSz src2)
-  !!ir (AST.cjmp isOpNaN (AST.name lblOpNaN) (AST.name lblCmp))
+  !!ir (AST.cjmp isOpNaN (AST.jmpDest lblOpNaN) (AST.jmpDest lblCmp))
   !!ir (AST.lmark lblOpNaN)
   !!ir (result := numI32 0b0011 8<rt>)
-  !!ir (AST.jmp (AST.name lblEnd))
+  !!ir (AST.jmp (AST.jmpDest lblEnd))
   !!ir (AST.lmark lblCmp)
-  !!ir (AST.cjmp (AST.feq v1 v2) (AST.name lblEq) (AST.name lblNeq))
+  !!ir (AST.cjmp (AST.feq v1 v2) (AST.jmpDest lblEq) (AST.jmpDest lblNeq))
   !!ir (AST.lmark lblEq)
   !!ir (result := numI32 0b110 8<rt>)
-  !!ir (AST.jmp (AST.name lblEnd))
+  !!ir (AST.jmp (AST.jmpDest lblEnd))
   !!ir (AST.lmark lblNeq)
   let cond = AST.flt v1 v2
   !!ir (result := AST.ite cond (numI32 0b1000 8<rt>) (numI32 0b0010 8<rt>))
@@ -1356,11 +1356,12 @@ let private fpType ctxt cast ir eSize element =
   let lblEnd = !%ir "End"
   !!ir (checkNan := isNaN eSize element)
   !!ir (checkInf := isInfinity eSize element)
-  !!ir (AST.cjmp (checkNan .| checkInf) (AST.name lblNan) (AST.name lblCon))
+  !!ir (AST.cjmp (checkNan .| checkInf)
+                 (AST.jmpDest lblNan) (AST.jmpDest lblCon))
   !!ir (AST.lmark lblNan)
   let fpNaN = fpProcessNan ctxt ir eSize element
   !!ir (res := AST.ite checkNan fpNaN (fpDefaultInfinity element eSize))
-  !!ir (AST.jmp (AST.name lblEnd))
+  !!ir (AST.jmp (AST.jmpDest lblEnd))
   !!ir (AST.lmark lblCon)
   let castElem = AST.cast cast eSize element
   !!ir (res := AST.ite (isZero eSize element) (fpZero element eSize) castElem)
