@@ -26,20 +26,37 @@ namespace B2R2.FrontEnd.Python
 
 open B2R2
 open B2R2.FrontEnd.BinLifter
+open B2R2.BinIR.LowUIR
 
-/// Parser for Python instructions. Parser will return a platform-agnostic
-/// instruction type (Instruction).
-type PythonParser (isa) =
-  let wordSize = isa.WordSize
-  let reader = BinReader.Init isa.Endian
+type PythonRegisterFactory () =
+  inherit RegisterFactory ()
 
-  interface IInstructionParsable with
-    member _.Parse (span: ByteSpan, addr: Addr) =
-      ParsingMain.parse span reader wordSize addr :> Instruction
+  override _.GetAllRegExprs () = Terminator.futureFeature ()
 
-    member _.Parse (bs: byte[], addr: Addr) =
-      Terminator.futureFeature (): Instruction
+  override _.GetAllRegNames () = []
 
-    member _.MaxInstructionSize = 4
+  override _.GetGeneralRegExprs () = Terminator.futureFeature ()
 
-    member _.OperationMode with get() = ArchOperationMode.NoMode and set _ = ()
+  override _.RegIDFromRegExpr (e) =
+    match e.E with
+    | Var (_, id, _) -> id
+    | PCVar _ -> Terminator.futureFeature ()
+    | _ -> raise InvalidRegisterException
+
+  override _.RegIDToRegExpr (id) = Terminator.impossible ()
+  override _.StrToRegExpr _s = Terminator.impossible ()
+  override _.RegIDFromString str = Terminator.futureFeature ()
+  override _.RegIDToString rid = Terminator.futureFeature ()
+  override _.RegIDToRegType rid = Terminator.futureFeature ()
+  override _.GetRegisterAliases _ = Terminator.futureFeature ()
+  override _.ProgramCounter = Terminator.futureFeature ()
+  override _.StackPointer = Terminator.futureFeature ()
+  override _.FramePointer = Terminator.futureFeature ()
+
+  override this.IsProgramCounter regid =
+    this.ProgramCounter = regid
+
+  override this.IsStackPointer regid =
+    (this.StackPointer |> Option.get) = regid
+
+  override _.IsFramePointer _ = false

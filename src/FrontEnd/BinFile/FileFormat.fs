@@ -36,6 +36,8 @@ type FileFormat =
   | MachBinary = 4
   /// Wasm binary.
   | WasmBinary = 5
+  /// Python binary.
+  | PythonBinary = 6
 
 /// A helper module for FileFormat type.
 [<RequireQualifiedAccess>]
@@ -48,6 +50,7 @@ module FileFormat =
     | "pe" -> FileFormat.PEBinary
     | "mach" | "mach-o" -> FileFormat.MachBinary
     | "wasm" -> FileFormat.WasmBinary
+    | "python" -> FileFormat.PythonBinary
     | _ -> FileFormat.RawBinary
 
   /// Transform a FileFormat into a string.
@@ -59,6 +62,7 @@ module FileFormat =
     | FileFormat.PEBinary -> "PE"
     | FileFormat.MachBinary -> "Mach-O"
     | FileFormat.WasmBinary -> "Wasm"
+    | FileFormat.PythonBinary -> "Python"
     | _ -> invalidArg (nameof fmt) "Unknown FileFormat used."
 
   /// Check whether the given format is ELF.
